@@ -1,8 +1,7 @@
 // The derived kit: the trim a building gets without anybody drawing it.
-//
 // derivedTrim takes a model's captured mass and has derivedKit hang windows, signs, ledges, decline
 // and the rest on it, clear of what the author already bolted to the wall (faceClaim). detailLayer
-// and facadeLights in windshield.js draw the result. Moved out of windshield.js on 2026-10-01.
+// and facadeLights in windshield.js draw the result.
 import {
   ARM_DETAIL, BAY, DERIVED_MAX, HANZI_BIOMES, MESH_SINK, MODERN_NEUTRAL, PICTO_HANZI_INK,
   RENDER_TUNE, SECTION_MIN, SECTION_OF, SIGN_TRADE, SIGN_WORD, SUB_MAX_ASP, TUNE, WALL_PLANE_TOL,
@@ -14,59 +13,21 @@ import { FLOOR_Z } from '../../../../shared/skyline-scale.js';
 import { shadeOf } from './authored-detail.js';
 
 // ── WHAT IS ALREADY BOLTED TO THIS WALL ─────────────────────────────────────────────────────────
-//
-// ⚠ THE KIT HUNG ITS SIGNS WITH NO IDEA WHAT WAS ON THE FRONTAGE, AND THE ARITHMETIC ALWAYS SAID
-// SO. A corner blade goes at `main.hw * 0.84 - bw` and the glazing band reaches `main.hw * 0.76`,
-// so on any building wide enough for the blade to clamp at its own ceiling the two overlap by more
-// than half the blade's width — every time, on every building, in both renderers. Measured on Cash
-// & Carrion, whose upper windows are AUTHORED at ±0.2915 while the Chinese trade blade lands at
-// ±0.2914: the sign covers two whole window bays. That is the "signage overlaps windows" report,
-// and no roll produces it — it is a fixed collision that has been there since the blade was added.
-//
-// `signfit` could not see it either: that gate compares a sign decal against STROKES, because the
-// crossings it was written for are masts and catenary. A window is quads.
-//
-// So the kit is given the rectangles that are already spoken for, on the wall it is about to hang
-// something on. Two sources, one list: what the AUTHOR drew (`m.detail`, resolved here) and what
-// the kit has pushed so far (recorded by `push`, below) — because the glazing the blade collides
-// with is usually the kit's own.
-//
-// ⚠ A CLAIM IS A RECTANGLE OF WALL, NOT EVERYTHING ON IT. A canopy, a tube and a downpipe are
-// crossed by signage constantly in a real city and the blade is deliberately hung clear of the
-// first two already (see the ⚠ on the Chinese blade's `z0`). What a sign must not be drawn over is
-// something you are meant to SEE THROUGH or READ — glazing, louvres, a shutter, another sign.
+// Claims are the wall rectangles already spoken for, from the author (`m.detail`) and from the
+// kit's own `push`, so a sign never lands on glazing. See docs/reference/building-shapes.md#face-claims.
+// ⚠ A claim is only what you see through or read (glazing, louvres, shutter, sign); signs may cross
+// canopies, tubes and pipes.
 const FACE_CLAIM = new Set(['windowBay', 'louvreBank', 'shutter', 'signBoard', 'bladePanel', 'neonArt']);
-// A part's footprint on the face it is on, or null if it does not claim one. `V` resolves the
-// affine triples; `z0`/`z1` for a blade, `z ± hh` for everything else.
-// ⚠ A `windowBay`'s SURROUND IS WIDER THAN ITS GLASS. `windowBay` adds `min(half, hh) * 0.26` of
-// frame on every side and that plate is part of the window — a blade landing on the jamb of one is
-// the same picture as a blade landing on the pane.
 // ── WHAT WOULD BE STANDING IN FRONT OF PAINT ────────────────────────────────────────────────
-//
-// `faceClaim` below answers a different question and must not be widened to answer this one. It is
-// "is this patch of FACADE free for a fitting", and its readers are the signage sections deciding
-// where a blade or a board can hang; a vending machine is not a fitting, and a riser is not
-// something a sign has to avoid. What every part below has in common is only that it is OPAQUE and
-// between a wall and the street, which is the one thing paint cares about.
-//
-// ⚠ A PART THAT STANDS ON THE PAVEMENT COUNTS, AND THAT IS THE HALF NOTHING RECORDED. The kerb props
-// go through `pushKerb`, which deliberately bypasses the claim funnel — standing a lamp outside a
-// building is not a claim to have drawn its facade — so the bins the kit puts on the service end of
-// a frontage were invisible to everything, including to the tag placed on that same end of that
-// same wall off that same doorway offset.
-//
-// ⚠ AND A RANK OF PIERS RESOLVES TO ITS FINS, NOT TO ITS EXTENT. `pilaster` is one part drawing `n`
-// fins at a pitch, so a rectangle round the whole rank says a back wall is full when what it has is
-// four thin verticals with bays of bare brick between them. Returning the fins is what lets a piece
-// be sprayed in a bay, which is where a piece on a piered wall goes.
+// Anything opaque between a wall and the street. Don't merge with `faceClaim`, which asks whether
+// facade is free for a fitting.
+// ⚠ Kerb props (via `pushKerb`, which skips the claim funnel) count here too.
+// ⚠ A `pilaster` rank resolves to its fins, so a piece can be sprayed in a bay between them.
 const PAINT_WALL = new Set(['windowBay', 'louvreBank', 'shutter', 'signBoard', 'bladePanel', 'neonArt', 'canopy',
   'acUnit', 'vent', 'fireEscape', 'balcony', 'ductRun', 'pipe', 'conduit', 'cableRun', 'pilaster',
   'marqueeBand', 'awning', 'tag']);
 const PAINT_KERB = new Set(['binStack', 'vendingMachine', 'streetLamp', 'bollard']);
-// ⚠ RESOLVED BY THE FUNCTION THAT PLACES THEM, never re-derived by a gate — `scripts/shapes/tagfit.mjs`
-// imports this. Same rule `signstand` records for its own two numbers: a gate that works out where a
-// part went is a second opinion about the placement rule, and it agrees with the code including
-// wherever the code is wrong.
+// ⚠ `scripts/shapes/tagfit.mjs` imports this; a gate must never re-derive placement itself.
 export function paintFoot(d, V) {
   if (!d) return null;
   const kerb = PAINT_KERB.has(d.kind);
@@ -74,9 +35,7 @@ export function paintFoot(d, V) {
   const w = d.half != null ? V(d.half) : (d.w != null ? V(d.w) : (d.r != null ? V(d.r) : 0));
   if (!(w > 0)) return null;
   const cx = V(d.cx), plane = V(d.cy);
-  // ⚠ `z` MEANS TWO THINGS, and `anchored.mjs` records the same split. A part BOLTED to a wall
-  // centres on `z`; a part that STANDS is pushed with `z` as the pavement it rests on and rises by
-  // twice its own `hh`. Reading one as the other floats every bin half a box off the ground.
+  // ⚠ `z` means two things: a bolted part centres on it, a standing part rests on it and rises 2·hh.
   const z0 = d.z0 != null ? V(d.z0) : (kerb ? V(d.z) : V(d.z) - V(d.hh));
   const z1 = d.z1 != null ? V(d.z1) : (kerb ? V(d.z) + 2 * V(d.hh) : V(d.z) + V(d.hh));
   const at = (c, half) => ({ x: d.face === 'x', kerb, plane, x0: c - half, x1: c + half,
@@ -87,7 +46,6 @@ export function paintFoot(d, V) {
     for (let i = 0; i < (d.n || 1); i++) out.push({ ...at(cx + (i - ((d.n || 1) - 1) / 2) * step, w), pier: true });
     return out;
   }
-  // A run of bollards is one part too, and its footprint is the whole run.
   const run = (d.kind === 'bollard' && d.count > 1) ? V(d.step) * (d.count - 1) * 0.5 : 0;
   return [at(cx, w + run)];
 }
@@ -105,31 +63,13 @@ function faceClaim(d, V) {
 export function derivedTrim(m, fh, h, seed, forceRich) {
   let byScale = _derived.get(m);
   if (!byScale) { byScale = new Map(); _derived.set(m, byScale); }
-  // ── TWO LISTS PER BUILDING: ONE THE PAINTER CAN AFFORD, ONE THE MESH CAN ────────────────────
-  //
-  // Every ceiling in this pass was set against `framecost`, which counts CANVAS CALLS — the 2-D
-  // painter spends ~7 quads on a window bay and put the budget 12.6% over tolerance on a dense cab
-  // frame at six floors by three columns. None of that is true of the GPU: the mesh is uploaded
-  // once per window and drawn by a depth buffer, and `__glFrame` puts the whole adornment queue at
-  // 43 faces against a city block's 17,400 calls. So the renderer that ships is paying a bill the
-  // renderer that ships does not owe.
-  //
-  // ⚠ THE SIGNAL IS `MESH_SINK`, WHICH NEEDS NO PLUMBING AND CANNOT DISAGREE WITH ITSELF.
-  // `captureModelMesh` sets it (and forces `ADORN_NEAR`), and `detailLayer` already branches on it
-  // twice for exactly this bargain — jambs and mullions are mesh-only, and the screen-size gate is
-  // skipped under it. Reading `RENDER_TUNE.gl` here instead would be wrong twice over: the 2-D
-  // painter still runs in a GLASS 2 frame (its output is thrown away by `FLAT_OFF`), and a per-view
-  // flag cannot be read from a cache shared by every seat — see the ⚠ on `derivedKit`.
-  //
-  // ⚠ AND IT IS IN THE KEY, not just read at build time. Same rule the kit flag below follows: this
-  // is now TWO lists per model per scale, and one cache entry serving both would hand whichever
-  // renderer asked first its answer to the other one's question.
+  // Two lists per building: lean for the 2-D painter (budgeted in canvas calls), rich for the
+  // GLASS 2 mesh, which is far cheaper per part.
+  // ⚠ The signal is `MESH_SINK` (set by `captureModelMesh`), never `RENDER_TUNE.gl`: the 2-D painter
+  // still runs in a GLASS 2 frame, and a per-view flag can't be read from a cache shared by every seat.
   const rich = forceRich != null ? !!forceRich : !!MESH_SINK;
-  // The kit flag is in the KEY, not just read at build time: it is an A/B switch for a change that
-  // reaches most of the city, and a cache that outlives the flag makes the switch look broken.
-  // ⚠ THE PLACE IS IN THE KEY — see the ⚠ on `_place`. It is quantised to a twentieth, because it is
-  // read as a probability and nothing in the kit can tell 0.611 from 0.613, while a continuous term
-  // would mint a cache entry per tile for a model that is otherwise identical across a whole street.
+  // ⚠ Everything that changes the list is in the key (rich, the kit flag, the place), or one cache
+  // entry answers another's question. The place is quantised to a twentieth so a street shares entries.
   const mod = placeModern(_place);
   const k = fh + ':' + h + ':' + seed + ':' + (RENDER_TUNE.derivedKit ? 1 : 0) + ':' + (rich ? 1 : 0)
     + ':' + Math.round(mod * 20) + ':' + (_place && HANZI_BIOMES.has(_place.biome) ? 1 : 0)
@@ -137,11 +77,10 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   let list = byScale.get(k);
   if (list) return list;
   // What somebody has already drawn for this building, and which sections that covers.
-  // (`noKit`: the arm's parts were placed against a mass this model leaves out — see the terminal.)
+  // (`noKit`: the arm's parts were placed against a mass this model leaves out.)
   const base = m.noKit ? null : (m.detail && m.detail.length) ? m.detail : (ARM_DETAIL[m.type] || null);
   const have = new Set();
-  // ⚠ COUNTED BEFORE IT IS CLAIMED — see SECTION_MIN. A kind with no entry there needs one part,
-  // which is what every kind did before the table existed.
+  // ⚠ Counted before it's claimed; see SECTION_MIN (default one part).
   if (base) {
     const tally = new Map();
     for (const d of base) {
@@ -150,43 +89,19 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
     }
     for (const [kind, n] of tally) if (n >= (SECTION_MIN[kind] || 1)) have.add(SECTION_OF[kind]);
   }
-  // ⚠ THE `sign` SECTION IS THE ONE THAT CANNOT BE READ OFF A LIST. 66 of the 173 arms already sign
-  // themselves with a blade, a band or lettering painted onto a frieze, and every one of those calls
-  // is inside the arm's own code where there is nothing declarative to inspect. `armSignsItself`
-  // rides the shape capture to answer it — see the ⚠ on SIGN_SEEN.
+  // ⚠ Arms sign themselves in code, so the `sign` section comes from the shape capture (SIGN_SEEN).
   if (armSignsItself(m, seed)) have.add('sign');
-  // ⚠ AND A BUILDING MAY DECLINE A SECTION OUTRIGHT — see KIT_DECLINE. Same mechanism as owning
-  // one: the kit stays out, and nothing else in this function needs to know why.
-  // ⚠ KEYED ON `tradeOf`, NEVER ON `m.type`, AND THAT IS A FIX RATHER THAN A PREFERENCE. An
-  // authored model's `type` is the literal string `authored`, so `KIT_DECLINE[m.type]` matched
-  // NOTHING for any of them — the exact miss `validateModel`'s own ⚠ records for the signage
-  // tables, one function later and not fixed with them. Measured over 40 seeds: the `clinic` arm
-  // declines the rooftop hoarding 0/40 as intended, while `copaypray` and `chromeclinic` — both
-  // authored models that REPLACE a clinic arm — were handed one 25/40 and 17/40. That is the
-  // advertisement standing through the hospital sign that this table exists to prevent, on the two
-  // buildings it was written for.
+  // A building may decline a section outright (KIT_DECLINE).
+  // ⚠ Keyed on `tradeOf`, never `m.type`: an authored model's type is the string `authored`.
   for (const s of (KIT_DECLINE[tradeOf(m)] || [])) have.add(s);
   const kit = [], glazed = [];
   const segs = shapeForModel(m, seed);
   if (segs && segs.length) {
     const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
-    const A = (v) => [0, 0, v];   // the derived list resolves to ABSOLUTE numbers — see the ⚠ above
-    // ⚠ TWO CANDIDATE LISTS, BECAUSE A COPING BAND AND A WINDOW WANT DIFFERENT THINGS. Coping sits
-    // ON a roof and is drawn as a SQUARE ring off `half`, so it needs a box with a real roof face
-    // and a near-square footprint. A window, a shutter, a stair or a sign goes on a WALL and needs
-    // neither — and requiring both shut out every shed in the city.
-    //
-    // A box under a barrel roof carries `roof: false`, because the barrel is its lid. That is the
-    // whole industrial set: type:warehouse, type:truck_depot, type:hangar, type:diner, both named
-    // hangars and The Glasshouse had **no usable candidate at all** and so got nothing — no
-    // louvres, no roller shutter, no duct, no name board. Crate Expectations rendering as a
-    // featureless dark shed in the game is exactly this, and it is the works kit missing the
-    // buildings it was written for.
-    // ⚠ AND A THIRD LIST, WHICH IS EVERY BOX RATHER THAN EVERY USABLE ONE. `cand` answers "what can
-    // a part be MOUNTED on", so it drops anything under 0.03 — right for a wall and wrong for the
-    // one question that is about what is IN THE WAY (see `massAhead`). Two-Cell Supply hangs six
-    // crates 0.048 of a tile wide across its frontage, standing proud of the wall its name is
-    // painted on: too thin to be a wall, and between them they hid 62% of the lettering.
+    const A = (v) => [0, 0, v];   // the derived list resolves to absolute numbers
+    // Three lists. `deck`: boxes with a real roof and a near-square footprint, for the coping ring.
+    // `cand`: any wall a part can mount on (a barrel-roofed shed has `roof: false` and still counts).
+    // `mass`: every box, however thin, for what's in the way (`massAhead`).
     const cand = [], deck = [], mass = [];
     for (const sg of segs) {
       if (sg.kind !== 'box' || (sg.yaw || 0)) continue;
@@ -202,22 +117,10 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
     cand.sort((a, b) => b.z1 - a.z1);
     deck.sort((a, b) => b.z1 - a.z1);
 
-    // ── ⚠ AND THE DRUMS, WHICH THE LOOP ABOVE HAS ALWAYS THROWN AWAY ────────────────────────────
-    //
-    // `if (sg.kind !== 'box')` is correct for every part in the vocabulary that bolts to a flat
-    // wall, and it has meant that a building made of cylinders gets NOTHING from this pass: no
-    // plinth, no crown course, no rank, no board. Five of the ten models in the registry with no
-    // trim at all are drum-mass towers, and a smooth untrimmed cylinder is the thing that reads as
-    // clay — there is nothing on it to judge its size against.
-    //
-    // ⚠ A COLLAR GOES ON THE SHAFT, NOT ON EVERY DRUM. A mast, a finial, a canopy disc and a
-    // handrail are all drums too, and a band round a 0.03-tile mast is a bead on a stick. The test
-    // is that the drum is TALLER THAN IT IS WIDE and a real fraction of the building — which is
-    // what "shaft" means and is the same shape of test `cand`'s own `hw > 0.03` makes for a wall.
-    //
-    // ⚠ AND IT IS THE RADIUS AT THAT HEIGHT, NEVER THE BASE RADIUS. Most of these shafts taper, so
-    // a band sized off `rb` floats clear of the wall at the top of the building — the same error
-    // `chrome_tower`'s arm avoids by hand-interpolating `r` at every collar it places.
+    // ── DRUMS ────────────────────────────────────────────────────────────────────────────────
+    // A cylinder tower gets collars so it has something to judge its size against.
+    // ⚠ Only a shaft (taller than three radii) takes collars; masts and discs are drums too.
+    // ⚠ Size each band off the radius at its height (`rAt`), since shafts taper.
     const shafts = [];
     for (const sg of segs) {
       if (sg.kind !== 'drum') continue;
@@ -231,17 +134,12 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
     for (const s of shafts.slice(0, 2)) {
       const rAt = (z) => s.rb + (s.rt - s.rb) * clamp((z - s.z0) / Math.max(1e-4, s.z1 - s.z0), 0, 1);
       const span = s.z1 - s.z0;
-      // ⚠ THE BAND COUNT COMES OFF THE STOREY AND NOT OFF A LITERAL. A collar every fifth floor is
-      // what a real shaft does at its plant levels, and tying it to the storey keeps the rhythm
-      // right on a four-floor drum and a thirty-floor one from one expression.
+      // A collar about every fifth floor, counted off the storey height.
       const storey = FLOOR_Z * (RENDER_TUNE.bldgH || 1) * (RENDER_TUNE.bldgStretch || 1);
       const floors = Math.max(1, Math.round(span / Math.max(1e-4, storey)));
       const every = Math.max(4, Math.round(floors / 5));
-      // ⚠ AND THE RATION IS THE POINT, NOT AN AFTERTHOUGHT. A collar is `n` facets × 2 quads and
-      // these land on every shaft in the CITY, not just this quarter — first cut at the drum's own
-      // facet count with five bands a shaft grew the registry mesh 11.5%, against the plinth and crown courses' 4.8%
-      // for a change that reached far more buildings. Three bands at twelve
-      // facets reads identically at any range a collar is legible from and costs a third of it.
+      // ⚠ Rationed (at most three bands, twelve facets): collars land on every shaft in the city, and
+      // five bands at full facets grew the registry mesh 11.5%.
       const bands = clamp(Math.floor(floors / every), 1, 3);
       const cn = Math.min(s.n, 12);
       if (!have.has('collar')) {
@@ -250,13 +148,11 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
           kit.push({ kind: 'collar', cx: [0, 0, s.cx], cy: [0, 0, s.cy], z: [0, 0, z],
             r: [0, 0, rAt(z) * 1.045], hh: [0, 0, Math.min(span * 0.05, rAt(z) * 0.09)], n: cn, pal: A.trim });
         }
-        // …and one at the head of the shaft, which is the crown course a box gets from `cope` and a
-        // cylinder has never had. A drum that simply stops is the other half of the lid problem.
+        // The crown course at the head of the shaft.
         kit.push({ kind: 'collar', cx: [0, 0, s.cx], cy: [0, 0, s.cy], z: [0, 0, s.z1 - span * 0.035],
           r: [0, 0, s.rt * 1.07], hh: [0, 0, Math.min(span * 0.045, s.rt * 0.13)], n: cn, pal: A.trim });
       }
-      // ⚠ RICH LIST ONLY, for `pilaster`'s reason: a rank is n parts' worth of quads on every
-      // elevation of a round tower, and the 2-D painter pays for all of them at every distance.
+      // ⚠ Rich list only: the 2-D painter would pay for every fin at every distance.
       if (rich && !have.has('drumfin') && span > rAt(s.z0) * 3) {
         kit.push({ kind: 'drumfin', cx: [0, 0, s.cx], cy: [0, 0, s.cy],
           z0: [0, 0, s.z0 + span * 0.04], z1: [0, 0, s.z1 - span * 0.06],
@@ -265,15 +161,8 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
       }
     }
 
-    // ── ⚠ AND A SQUAT DRUM GETS ITS CORNICE ─────────────────────────────
-    //
-    // The shaft rule above wants height over three radii, which is right for the fins and the
-    // collars up a tower and leaves every ROTUNDA with nothing: the Exchange's drum, 7 Halcyon Boulevard'
-    // stepped tiers and the glass prism's core all came out with no trim at all. A classical round
-    // building has one thing a box has too, a cornice where the wall stops, so a drum that is a real
-    // storey (not a disc, not a bead, not a cone) takes that one collar and nothing more.
-    // ⚠ NOT A SHAFT ALREADY DRESSED, and never a cone: a band round a spire is a ring on a point.
-    // Two per building at ten facets: measured at +3.0% of the registry mesh with three at twelve.
+    // A squat drum (a rotunda, a storey high) takes one cornice collar. Never a dressed shaft or a
+    // cone. Two per building at ten facets.
     if (!have.has('collar')) {
       const tiers = [];
       const dressed = new Set(shafts.slice(0, 2).map((x) => x.sg));
@@ -300,46 +189,25 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
           cx: [0, 0, V(sg.cx)], cy: [0, 0, V(sg.cy)],
           z: [0, 0, z1],
           half: [0, 0, hw * 1.03],
-          // ⚠ A PARAPET IS A WALL YOU CAN STAND BEHIND, AND THIS WAS A KERB. At 0.045 of the box it
-          // came to about a fifth of a storey — ankle height on a real building — which from the air
-          // reads as a chamfer on the lid rather than as an edge the deck sits INSIDE. That inner
-          // face is most of what makes a flat roof read as a place instead of a surface, and it is
-          // the cheapest silhouette in the kit: the quads are already drawn, they are just short.
-          // About a third of a storey now, in the 0.17 this file works in.
+          // About a third of a storey, so the deck reads as sitting inside it.
           hh: [0, 0, clamp((z1 - z0) * 0.07, 0.016, 0.072)],
           pal: sg.pal || m.pal,
-          // ⚠ ONLY THE ROOF-EDGE RING BLEEDS, which is why the flag is set here and not in the kit.
-          // `derivedKit` pushes `parapet` twice more — a plinth at the pavement and a crown course a
-          // storey down — and neither sheds water down a facade: a plinth has the pavement under it,
-          // and a course has more building. Rationed at roughly half, because a street where every
-          // roofline has run is a street in one weather.
+          // ⚠ Only the roof-edge ring bleeds (the kit's plinth and crown parapets don't). About half.
           bleed: dRand(seed, 81) > 0.48 ? 1 : 0,
         });
       }
     }
-    // ⚠ THE MASTS THE ARM ALREADY RAISED, RESOLVED — see the ⚠ on the roof armature. `mast()`
-    // records itself into the shape capture as `kind: 'spar'` and `splitSpars` hangs those off the
-    // returned array rather than putting them in it, so nothing that asks "how solid is this
-    // building" has ever seen them. The kit is the first consumer that needs to: it is about to
-    // stand a hoarding on the same roof.
+    // ⚠ The arm's masts live on `segs.spars`, off the array; the kit needs them to keep hoardings clear.
     const spars = (segs.spars || []).map((s) => ({ cx: V(s.cx), cy: V(s.cy), z0: V(s.z0), z1: V(s.z1) }));
-    // What the author already put on these walls — see faceClaim. Resolved here, where `V` is, and
-    // handed over as plain numbers so the kit has one kind of thing to test against whether the
-    // rectangle came from a file or from its own `push`.
+    // The author's parts on and in front of these walls, resolved to plain numbers.
     const claims = [];
     if (base) for (const d of base) { const c = faceClaim(d, V); if (c) claims.push(c); }
-    // …and what the author already put IN FRONT of these walls — see paintFoot. Seeded the same way
-    // and for the same reason: a building whose arm draws its own shutter and its own fire escape
-    // has to be able to say so, or the kit paints on both.
     const blocks = [];
     if (base) for (const d of base) { const f = paintFoot(d, V); if (f) for (const r of f) blocks.push(r); }
     if (cand.length) derivedKit(kit, cand, deck, m, seed, A, have, rich, spars, mod, _place, claims, blocks, mass, glazed);
   }
-  // ⚠ THE BASE IS CONCATENATED, NEVER MUTATED. `ARM_DETAIL`'s lists are module constants shared by
-  // every tile of that type and `m.detail` is the baked model record — pushing onto either would
-  // grow the authored list by a kitful on every cache miss, for ever.
-  // ⚠ NORMALISED BEFORE IT IS CACHED — see standOnMass. Roof plant that an arm placed against
-  // mass the arm no longer has is put back on the surface under it, once per model per scale.
+  // ⚠ Concatenate, never mutate `base`: it's a shared module constant or the baked model record.
+  // Normalised by standOnMass before caching.
   list = standOnMass(base ? base.concat(kit) : kit, segs,
     (p) => (Array.isArray(p) ? p[0] * fh + p[1] * h + p[2] : (p || 0)));
   // The walls the kit put real windows on, for `captureModelMesh` to bake bare. See `glazeWalls`.
@@ -350,417 +218,139 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
 
 // The kit itself: what the walls do, what stands on the roof, and what the ground floor is.
 //
-// ⚠ EVERY PART IS BUDGETED. The 2-D painter only runs details inside `RENDER_TUNE.detailNear`; the
-// GLASS 2 mesh isn't gated and is built for every tile in the window. `KIT_MAX` is the per-building
-// ceiling, spent on the biggest surfaces first. The lean column is the CPU fallback (tuned against
-// `framecost`); the rich column feeds GLASS 2 (see the ⚠ on `rich` in `derivedTrim`).
-// ⚠ THE UNIT IS MESH FACES (a `windowBay` is 6-7 quads, a `ductRun` up to 32), held to the budget
-// `gl:mesh` prints. The cost is the first, cold capture, not the frame: `tileMesh` memoises, but
-// `bakeFaceAO` runs 9 directions × 2 reaches per vertex. Whole registry, lean → rich:
-//   28,717 → 35,478 faces (+23.5%) · capture 282 → 360 ms · AO bake 231 → 321 ms (both totals)
-//   models over 8 ms on a cold capture: 7 → 14 · over 16 ms: 2 → 2
-// The Meridian Lobby (57 ms) and Halcyon Towers (40) were over before this. Re-measure before raising.
-// ⚠ SWEPT VALUES: FLOOR_MAX_RICH 8 is the peak (10 and 12 give fewer faces: `cols = winMax / floors`).
-// KIT_MAX_RICH 30 → 33,982, 44 → 35,478, 60 → 35,534 faces. WIN_MAX_RICH 40 isn't binding
-// (`FLOOR_MAX_RICH × COL_MAX_RICH` is). COL_PITCH_RICH 0.13 → 0.085 is +3,600 faces: `main.hw`
-// clamps to 0.44, so at 0.13 `COL_MAX` above 3 is unreachable and the pitch had to move with it.
-// ⚠ 52 → 56 PAYS FOR THE ROOF (stair head, condenser rank); at 52 `gl:mesh` failed nine models with
-// "the rich kit LOST sign". The window share didn't rise with it. Mesh total +1.4% over six seeds.
+// ⚠ Every part is budgeted. `KIT_MAX` is the per-building ceiling, spent on the biggest surfaces
+// first; lean is the 2-D fallback (tuned on `framecost`), rich feeds GLASS 2 and is counted in mesh
+// faces against `gl:mesh`. Re-measure before raising; see docs/reference/glass-notes.md#derived-kit-budget.
 const KIT_MAX = 26, KIT_MAX_RICH = 56;
-// ⚠ AND IT IS A NUMBER RATHER THAN A SHARE OF THE CEILING, WHICH IS THE WHOLE POINT OF RAISING IT.
-// This was `round(kitMax * 0.45)`, so every future rise in the ceiling hands the window grid 45% of
-// it automatically — and the ceiling was raised here to buy SILHOUETTE, which is the thing that
-// sub-budget's own note says windows are the wrong place to spend on ("the wall texture is already
-// drawing a window grid at that range"). 23 is what `round(52 * 0.45)` came to, so the facade of
-// every building in the city is bit-for-bit the one that shipped.
+// ⚠ A fixed number, never a share of KIT_MAX, so raising the ceiling for silhouette doesn't grow windows.
 const WIN_SHARE_RICH = 23;
-const WIN_MAX = 9, WIN_MAX_RICH = 40;   // windows per facade — see the ⚠ on the grid below
+const WIN_MAX = 9, WIN_MAX_RICH = 40;   // windows per facade
 const FLOOR_MAX = 6, FLOOR_MAX_RICH = 8;
 const COL_MAX = 3, COL_MAX_RICH = 5;
 const COL_PITCH_RICH = 0.085;
-// ⚠ THE THREE WALL ARMS ARE EXCLUDED, AND IT IS THE SAME CORRECTNESS RULE THEIR OWN ARMS OPEN WITH.
-// A wall is the SAME TILE seventy times in a row, and every one of those tiles derives its own
-// entrance facing from a door that is not there — so anything this kit places on a "front" face
-// points a different way on each tile and the run reads as noise rather than as a wall. Every arm
-// in the switch above obeys that by using centred mass and symmetric (±) pairs only; this pass
-// deliberately does the opposite, because an ordinary building wants a riser on ONE flank and a
-// door in ONE place. The two cannot both be right, so a wall gets the coping band and nothing else.
-// ⚠ THE JETTY IS HERE FOR THE REASON THE WALLS ARE. The kit reads unyawed boxes and hangs a
-// facade on them, and a deck slab, a kerb and a yard are all unyawed boxes — so without this a
-// pier section gets window bays, a coping band and a roller shutter. The beacon is here on a
-// stronger version of the same argument: the whole of it is that nobody here built it, and the
-// kit's entire job is to make a building look like the street it is on.
-// ⚠ THE JETTY IS HERE FOR THE REASON THE WALLS ARE. The kit reads unyawed boxes and hangs a facade
-// on them, and a deck slab, a kerb, a yard and a quay are all unyawed boxes — so without this a
-// pier section gets window bays, a coping band and a roller shutter. The beacon is here on a
-// stronger version of the same argument: the whole of it is that nobody here built it, and the
-// kit's entire job is to make a building look like the street it stands on.
+// Types the kit never touches.
+// ⚠ Walls: the same tile repeats and each derives a different "front", so one-sided parts read as noise.
+// ⚠ Jetty, yards and plots: their decks are unyawed boxes the kit would glaze like walls.
 const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yard', 'lighthouse', 'quay_crane', 'pontoon', 'fuel_dock', 'car_park', 'staff_lot', 'vacant_plot',
-  // ⚠ AND THREE BUILDINGS WHOSE WHOLE FRONT IS A STORY THE KIT WOULD WRITE OVER. The gym's front is a
-  // bricked-up mast doorway with a door cut into it, which is exactly where the works ground floor
-  // hangs its shutter; the boat shed's street side is a door and a hatch and its water side is the
-  // doors; a landing stage is a deck, and the kit reads its drums as walls. Each arm draws all four of
-  // its own sides (building-styles.md §4.3).
+  // Each draws all four of its own sides (building-styles.md §4.3).
   'gym', 'boatshed', 'landing_stage',
-  // The Coliseum draws all nine tiles itself. Its named entries carry `noKit`, but a tile that
-  // resolves to the bare type got the roof hoarding on legs, stood on a shell rail over the field.
+  // The Coliseum draws all nine tiles itself; a bare-type tile would get a hoarding over the field.
   'ballpark',
-  // ⚠ AND A HOARDING. The land office's board is the plot's only box, so the kit read it as the front
-  // wall and bolted a cable run across the top of the lettering, a downpipe up one edge and two
-  // fire-escape landings over the picture. Declining ground and wall was not enough: riser and stair
-  // live in other sections. A printed board on scaffold legs has none of those.
+  // The land office's board is its only box, so the kit read it as a wall.
   'land_office']);
-// What somebody had in the can. Saturated and light, because a tag is read against a wall that is
-// almost always the dark half of the frame — a dark tag on dark concrete is the `shadeOf(pal, 0.34)`
-// mistake the bracket colour already records, in a different costume.
+// Spray colours: saturated and light, since a tag is read against a dark wall.
 export const TAG_COLS = ['#b8f03a', '#ff4a9a', '#5fd0ff', '#ffcf3e', '#ff6a4a', '#c88cff'];
-// ── …AND A BUILDING MAY REFUSE ONE SECTION WITHOUT REFUSING THE KIT ─────────
-//
-// `have` already keeps the kit out of a section somebody has drawn. This is the other half of that
-// sentence: a section nobody has drawn and nobody should. The only test is whether the part would
-// be wrong on that building whoever built it, which is a short list and meant to stay one — an
-// arm that merely has taste about its own facade should draw the facade.
-//
-// `meridian` — a 1930s deco apartment landmark whose crown is a stone lantern under a verdigris
-// copper cupola, and whose name is already cut into a limestone frieze over the entrance. A backlit
-// hoarding on legs over that is an advertisement on a listed building. The rest of the kit stays:
-// it is the ROOF this building has an answer for, not the walls.
-// ⚠ A CLINIC DECLINES THE ROOF HOARDING BECAUSE ITS ROOF IS ALREADY TAKEN. The emblem is the
-// sign on these — a lit cross the height of the parapet again — and the kit cannot see it to
-// avoid it: `clears` steers the board round a MAST, which is the only rooftop thing that records
-// itself into the shape capture, and `roofCross` is `emitFlat`, which deliberately does not.
-// Measured by `signfit`: six (sign, heading) pairs across the two arms, which reads as somebody
-// having stood an advertisement through the hospital sign. The rest of their kit stays.
-// ⚠ AND THE EMBASSY, FOR THE MERIDIAN'S REASON AND ONE MORE. Both versions of that building — the
-// brick arm and the deco model standing in for it — cut their name into the parapet and carry no
-// neon and no blade at all, which is the whole of a grand hotel's signage. The extra reason is
-// where the kit was putting the board: this building's tallest deck is a corner TURRET CORNICE, so
-// the hoarding stood on the turret, under its own dome, and `anchored` reported it buried in the
-// mass at z 1.22. A hotel that advertises through its own roof is not the building either of these
-// is. The rest of the kit stays.
-// ⚠ AND SECOND HELPINGS, WHICH WAS SAYING ITS OWN NAME TWICE. The kit hands it a lit board on legs
-// at the parapet, labelled `$name`, and the arm already sets the same words across the fascia a
-// metre below it. Nobody puts a hoarding on the roof of a single-storey shop to repeat what is
-// written over the door. It was invisible for as long as the marquee was buried behind the wall —
-// the roof board was the only one of the two a depth buffer let through — so fixing the marquee's
-// stand-off is what surfaced it. The rest of the kit stays.
-// ⚠ AND SECOND HELPINGS DECLINES ITS FACADE TOO, BECAUSE IT HAS ONE FLOOR AND THE KIT GAVE IT FOUR.
-// `wall` and `stair` are derived off the tallest usable box, and here that box is a single-storey
-// unit whose wall runs 0 → 0.66·h — so the kit stacked four ranks of glazing up it at z 0.102 /
-// 0.267 / 0.432 / 0.597 and hung three balconies beside them. Four floors of windows with a balcony
-// on each is an apartment block, drawn over a free-food dispensary whose entire frontage is one rank
-// of machines open to the pavement. Nobody looks out of a window at Second Helpings, and the arm
-// says as much in its own opening comment. The rest of its kit stays.
-// ⚠ AND THE VAT HOUSE DECLINES THE BALCONIES, WHICH IS THE OTHER HALF OF A MISCLASSIFICATION THIS
-// FILE ALREADY RECORDS. The note on UNSIGNED_TRADE below has `ty_clone` resolving to `window grid`
-// and classifying as `block`, and the fix then reached SIGNAGE only — so the residential half of it
-// stayed, and the clone facility wore nine balconies across the frontage it shows Ironside Street.
-// A lab block with balconies is somewhere people live.
-// ⚠ AND SINCE THE 2026-10 REBUILD IT DECLINES THE WINDOW GRID AND THE RISERS TOO. The grid put a
-// pane exactly where the door belongs, which is how the first building every player sees came to
-// have a window standing in its doorway. The arm draws its own frontage now (a door, the vats, the
-// main to Second Helpings, slit windows down the flanks), and the kit's downpipes ran through it.
-// ⚠ AND THE CHIP SHOP DECLINES ITS WHOLE FRONTAGE AND ITS ROOF BOARD, which is the `helpings` case
-// on a smaller scale. The `chippy` arm (twin-pass.js) draws one lit, fogged window with the door in
-// the middle, the name over it and a tin fish beside it. The kit's `ground` hung a canopy across
-// that and `wall` a glazed ribbon across the brick, which on `ty_unit_brick` is a black slab with
-// the shop lost inside it; a ribbon is right on a shop and a canopy over a door, and both are wrong
-// on a frontage that is one window. `signRoof` goes for the reason under `helpings`: nobody puts a
-// hoarding on a one-storey shop to repeat what is painted over its window. This was Tine &
-// Temper's entry until the unit changed hands (2026-10), and it declined the same two for the same
-// reason.
-// The kit sections the six slum trades decline, as one list so they cannot drift apart. Why each
-// is here is in the note under `flophouse` in KIT_DECLINE.
-// ⚠ `paint` replaced a knob. `TAG_DENSE` used to
-// scale the paint gates by a quarter for these six so the slum carried more throw-ups than a bank,
-// and nothing else ever read it. Kit paint is a lit throw-up (`bakeTagText`), which on a slum wall
-// reads as a sign, so the arms paint their own walls with `slumScrawl` instead: zigzags, and on the
-// decal path anti-Architect slogans darkened with the wall at night (`slumSlogan`).
+// ── A BUILDING MAY REFUSE ONE SECTION WITHOUT REFUSING THE KIT ─────────
+// `have` keeps the kit out of a section somebody drew; KIT_DECLINE is for a section nobody should
+// draw. ⚠ The test is that the part would be wrong on that building whoever built it. An arm that
+// just has taste about its facade should draw the facade.
+
+// What the slum trades decline, as one list so they can't drift. `paint` is here because kit paint
+// is a lit throw-up that reads as a sign; the arms paint their own walls with `slumScrawl`.
 const SLUM_DECLINE = ['sign', 'signRoof', 'neon', 'ground', 'roof', 'stair', 'cope', 'wall', 'paint'];
-// ── AND WHICH BUILDINGS NOBODY IS GOING TO WASH ────────────────────────────
-//
-// A `grime` run down a bare face, for the buildings where the weather is the only thing still
-// working on them. See the push in derivedKit, and the schema entry for why the kind exists at all.
-//
-// ⚠ THE ENTRY BAR IS KIT_DECLINE’S, ASKED THE OTHER WAY ROUND: would this be true of the building
-// whoever built it. A ruin qualifies because there is nobody left to clean it, and that is a fact
-// about the building rather than about the district. Paint is something people do; this is what
-// the rain does.
-//
-// ⚠ AND IT MUST STAY SHORT. Every wall in Coldwater is weathered by `matGrain` and its material
-// already; this is a RUN down a face, which is an event on a wall rather than a property of one,
-// and a city where every building has one is a city with no ruins in it.
-// ⚠ THE REST OF THE SHINGLES WAS TRIED HERE AND TAKEN BACK OUT. The street-face run hangs off
-// `base`, the kit's frontmost box, and on the water seller, the canteen, the bonesetter and the
-// shebeen that is a canopy, a stall or a counter standing clear of any wall, so the run came down
-// through open air and on into the ground as a dark wedge under the building. Their arms paint
-// their own wear instead.
+// ── BUILDINGS NOBODY IS GOING TO WASH ────────────────────────────
+// Trades that get a `grime` run down a bare face. ⚠ Keep it short: every wall already weathers via
+// `matGrain`. ⚠ Not the other slum trades: their frontmost box is a canopy or stall, so the run hangs
+// in open air.
 const GRIME_TRADE = new Set(['ruin']);
 // Trades whose front is symmetric, so the riser's downpipe is hung on both flanks rather than one.
 const RISER_PAIR = new Set(['meridian']);
 const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'pier': the kit's ribbon glazing and fins hid the deco skin, which has its own windows
+  // The clinic emblem is drawn by `emitFlat`, which the shape capture can't see, so a hoarding would
+  // stand through it. The embassy and meridian cut their names in stone.
   clinic: ['signRoof'], stitch: ['signRoof'], embassy: ['signRoof'],
-  // ⚠ AN EMPTY SHOP DECLINES THE NEON, AND ONLY THE NEON. `neonRun` is architectural light — the
-  // kit was running a cyan tube along the pavement at the foot of a unit with no tenant in it, which
-  // is somebody paying an electricity bill on a shop they are trying to let. It is the part being
-  // wrong on this building whoever built it, which is the test for an entry here. Everything else
-  // the kit hangs STAYS, and the `facadeGlow` over the flats especially: the block is lived in and
-  // that warm wash two storeys up is the whole reason the dead shopfront under it reads as dead.
+  // An empty shop has no tenant paying for a neon tube; the rest of its kit stays.
   vacantunit: ['neon'],
-  // ⚠ AND THE COUTURE HOUSE DECLINES IT TOO, which is `meridian`'s reason rather than a new one.
-  // Aurelia's highest deck is the lid of a lit glass vitrine with its own name cut across the
-  // band under it; a backlit hoarding on legs standing on that is a part that would be wrong on
-  // this building whoever built it, which is the test for an entry here. The rest of its kit stays.
+  // Aurelia's highest deck is a lit vitrine lid.
   atelier: ['signRoof'],
-  // ⚠ JOLENE'S DECLINES EVERYTHING IT DOES NOT AUTHOR ITSELF, because the kit's version of each is
-  // wrong on a roadhouse bolted together out of shipping containers. Its sign is the owner's likeness
-  // in neon across the upper storey, so a rooftop hoarding and a kit tube along the pavement would be
-  // a second and a third sign on one frontage. A fire escape has no business on a container, and
-  // its one tag is authored where the wall can take it.
+  // Jolene's sign is the owner's likeness in neon; a container has no fire escape.
   honkytonk: ['signRoof', 'stair', 'neon', 'paint'],
-  // ⚠ AND THE WHOLE OF HALCYON FIELDS' PLANT HALF DECLINES THE ROOF SIGN, for the water seller's
-  // reason and not for a new one. The candidate loop finds the highest deck on a building and
-  // stands a backlit hoarding on legs on it, and on these three that deck is the lid of a
-  // telescoping gas drum, the top of a fan plate on stilts, and the crossarm of a live gantry.
-  // Nobody advertises off any of them, so the part would be wrong on these buildings whoever
-  // built them — which is the test for an entry here — and it showed up as a real defect as well
-  // as a taste one: `glself` counted the hoarding's back board INSIDE the gasholder's own drum.
-  // The three arms already say in their own comments that the plant half does not letter itself,
-  // and this is what makes that true rather than merely stated. The rest of their kit stays.
+  // The highest deck on these is a gas drum lid, a fan plate and a live gantry.
   gasholder: ['signRoof'], cooling_plant: ['signRoof'], substation: ['signRoof', 'ground'],
-  // ⚠ THE WATER SELLER DECLINES THE ROOF SIGN, AND IT IS THE KIT BEING WRONG RATHER THAN A MATTER
-  // OF TASTE. Old Coldwater's Mains Squeeze is a riveted header tank standing on a timber trestle
-  // over a one-room hut, and the candidate loop finds the top of that TANK as the highest deck and
-  // stands a backlit hoarding on legs on it. Nobody bolts an advertising board to the crown of a
-  // two-tonne water vessel on stilts, so the part would be wrong on this building whoever built
-  // it, which is the test for an entry here. It also showed up as a real defect and not only as a
-  // taste one:  counted the hoarding's back board and soffit INSIDE the tank they were
-  // standing on, which is the leak that made this the shortest building in the city to trip that
-  // gate. ⚠ It takes the rest of the slum's list now as well; see the note under `flophouse`.
+  // Mains Squeeze's highest deck is its header tank.
   water_seller: SLUM_DECLINE,
-  // ⚠ THE STATION AND THE POUND DECLINE BOTH, and it is the kit being wrong rather than taste. The
-  // candidate loop finds the highest deck and stands a backlit hoarding on legs on it: on the booth
-  // that deck is a CANOPY OVER A PUBLIC WEIGHBRIDGE and on the pound it is the top of a palisade,
-  // and nobody advertises off either. `wall` goes for the flophouse's reason — neither has a
-  // glazing rhythm, because every opening either one has is one its own arm drew, once, on purpose:
-  // a strip of glass at cab height, and a gate.
+  // Highest deck is a weighbridge canopy and a palisade; every opening is the arm's own.
   weigh_station: ['signRoof', 'wall'], vehicle_pound: ['signRoof', 'wall'],
-  // ⚠ AND THE TWO ROOMS INSIDE THE OUTER LOCK DECLINE ALL OF IT. They stand under the hall's roof,
-  // which comes down to 0.75 tiles at the wall, so a hoarding on legs, a stair or a roof tank goes
-  // through the chrome; and every opening either room has is its own glass band, drawn once.
+  // These stand under the outer lock hall's low roof.
   glacis_booth: SLUM_DECLINE, gate_post: SLUM_DECLINE,
-  // AND THE WHOLE SLUM DECLINES THE WALL SECTION. `wall` is the derived glazing rhythm, and a doss
-  // house, a free canteen, a bonesetter's front room and a shebeen do not have one: every opening
-  // any of them has is one its own arm drew, in one place, on purpose. A regular grid of windows
-  // is the single thing that stops a building reading as poor.
-  // ⚠ IT WAS ALSO TRIED AS A FIX FOR THE PAINT AND THAT HALF IS UNPROVEN. The paint pass returns
-  // hard when `bareRuns` finds nowhere clean, so bare wall is a PRECONDITION for a tag — but four
-  // seeds of Bed Rock still showed none after this, and the Modelshop preview could not be made to
-  // settle the question (its texture caches warm on the first render of a type, so a canvas-mint
-  // count answers for the cache rather than for the building).
-  // ⚠ AND SINCE THE SHANTY PASS IT DECLINES EVERY SECTION THAT ASSUMES A LANDLORD. Nothing in the
-  // Shingles carries a sign with words on it (see the block comment over the arms): not a board, a
-  // blade, a hoarding or a tube. `ground` is a glazed shopfront under an awning with a lit vending
-  // machine at the kerb, `roof` is plant standing on what is now a tarp over a hole, `stair` is a
-  // fire escape somebody inspected and `cope` is a neat band along a wall top the arms break on
-  // purpose. `riser` stays: a downpipe hanging off a bracket is exactly what these walls have.
+  // Nothing in the Shingles carries words or assumes a landlord: no window grid, shopfront, roof
+  // plant, fire escape or neat coping. `riser` stays.
   flophouse: SLUM_DECLINE, soup_kitchen: SLUM_DECLINE, bonesetter: SLUM_DECLINE, shebeen: SLUM_DECLINE,
   cornershop: SLUM_DECLINE,   // Bare Necessities, the Rag Row lock-up: an authored model, so it names its trade
   ruin: SLUM_DECLINE,
+  // Second Helpings is one storey with its name on the fascia; the clone facility draws its own front.
   helpings: ['signRoof', 'wall', 'stair'], clone: ['stair', 'wall', 'riser'],
-  // Batter Days paints its own name across its fascia, so the kit's board is a second sign, and a
-  // small one that lost its lettering past 1.2 tiles (the signfloor gate).
+  // Batter Days draws one fogged window and paints its own name.
   chip_shop: ['ground', 'wall', 'signRoof', 'sign'],
-  // Grounds for Concern draws its own shopfront round the corner, its door, its awning and its cup;
-  // the kit's glazed band, window grid and roof board would be a second frontage over it.
+  // These draw their own shopfront, windows or blank front.
   coffee_shop: ['ground', 'wall', 'signRoof', 'stair'],
-  // Stuff It's canted window and painted sign ground ARE its shopfront, so the kit's glazed band
-  // and awning would stand in front of the one thing the building is about.
   taxidermist: ['ground'],
-  // No Regerts is one lit strip up a dark wall and Fine Print one high band of glass: each draws its
-  // own windows, once, and the kit's grid round them is what made both read as an ordinary block.
   tattooist: ['wall'], lending_library: ['wall', 'ground'],
-  // The Cherry Pit is a windowless box with a loud front, and its prose says so. The kit glazed the
-  // walls, and stood a NIGHTCLUB hoarding on the roof to repeat in a stranger's hand what the cherry
-  // over the door already says. A strip club's roof is the one part of it nobody is meant to look at.
   strip: ['wall', 'signRoof', 'stair'],
-  // ⚠ AND FOUR ARMS THAT DRAW THEIR OWN DOOR (glass/entrance.js), whose lowest box is not a shop.
-  // The kit hung its shopfront and a second doorway inside the forge's hearth, across the
-  // substation's palisade, under the library's lintel and on the glasshouse's plinth. Each now has
-  // one door, its arm's, where its prose puts it. (`substation` and `lending_library` decline it
-  // in their own rows.)
+  // ⚠ These draw their own door (glass/entrance.js); their lowest box isn't a shop.
   grindhouse: ['ground'], winter_garden: ['ground'],
-  // Spirit Level is a steel shutter over the whole front with one hatch cut in it. A glazed
-  // shopfront or a window grid on that wall is the one thing the building says it hasn't got.
   off_licence: ['ground', 'wall'],
-  // ⚠ THE INSTITUTE IS A DRUM WITH ONE BOX, and the kit's ground floor and window grid were landing
-  // on that box: a shopfront and a door hanging off its frieze plate 0.78 h up. (The land office had
-  // the same fault on its hoarding and now takes no kit at all; see NO_KIT.) The
-  // Codfather says it outright: "no glazing on this building anywhere".
+  // ⚠ The institute is a drum with one box (a frieze plate high up); the fish works has no glazing.
   institute: ['ground', 'wall'], fishmonger: ['ground', 'wall'],
-  // ⚠ ASH MANAGEMENT AND TWO-CELL SUPPLY DRAW THEIR OWN OPENINGS, ROOFS AND LIGHT. The destructor's
-  // windows, doors, ramp and roof plant are all its arm's, and the kit's office glazing on the hall
-  // is what made it read as an office block. Two-Cell is a corrugated lean-to: no glazing grid, no
-  // fire escape, no coping, no tube, no duct up the front, and its roof already carries the panels
-  // and the wind wheel. Both keep `paint`, and the destructor keeps `riser`.
+  // Both draw their own openings, roofs and light.
   incinerator: ['signRoof', 'wall', 'ground', 'neon', 'roof', 'stair', 'cope'],
   twocell: ['signRoof', 'wall', 'ground', 'neon', 'roof', 'stair', 'cope', 'riser'],
-  // ⚠ THE SOLENNE DECLINES THE SHOP AND THE ROOF, AND ONE OF THE TWO IS A REAL BUG RATHER THAN A
-  // MATTER OF TASTE. `ground` and `stair` are taste: the arm draws its own reveal, canopy, columns
-  // and nameplate (§1a–1c), and a zigzag of balconies bolted across the front of a tower whose
-  // whole point is that it is expensive is the kit's commercial vocabulary landing on the one
-  // address it is wrong for. `roof` and `signRoof` are the bug. The candidate loop skips any box
-  // with a `yaw`, and every plate of this shaft is turned — so the highest deck it can find is the
-  // top of plate 0, a twenty-fourth of the way up. Measured: a water tank, a bulkhead, two
-  // condensers and a backlit hoarding, all standing on a ledge of the champagne glass three metres
-  // above the podium. The arm already refuses a mast for the same reason one rung higher — the
-  // roof is a licensed helideck (`af_solenne`) and nothing may stand on it.
+  // ⚠ Every Solenne plate is yawed, so the kit's highest deck is plate 0, a ledge near the podium.
+  // The roof is a helideck and nothing may stand on it.
   solenne: ['ground', 'stair', 'roof', 'signRoof'],
-  // Solenne's two neighbours in its own glass, and Corbett on Lever Lane (docs/proposals/marrow-midrises.md).
-  // Each draws its own trim, and the kit was filling the sections they leave out on purpose: a fire
-  // escape bolted across Marrow House's fins, a downpipe on Kestrel's glass, a hoarding on all three
-  // roofs, and a neon tube round a 1930s stone plinth.
+  // Solenne's neighbours and Corbett draw their own trim (docs/proposals/marrow-midrises.md).
   kestrelcourt: ['signRoof', 'riser', 'neon'],
   marrowhouse: ['signRoof', 'stair', 'riser', 'neon'],
   corbettmansions: ['signRoof', 'neon'],
-  // ⚠ THE SLIP CARRIES NO LETTERING, AND THAT IS ITS WHOLE DESCRIPTION. `sign` keeps the kit from
-  // naming the one building in Coldwater that doesn't.
+  // The Slip carries no lettering at all.
   slipback: ['sign', 'signRoof', 'neon', 'stair'],
-  // ⚠ ST GARNEAU'S DECLINES EVERY SECTION THAT ASSUMES A SHOP, and it had been taking all four.
-  // The kit's vocabulary is a commercial street's — a glazed shopfront with an awning over it, a
-  // neon tube round the frontage, roof plant, a hoarding on the parapet — and `derivedStyle` reads
-  // the PALETTE, so coursed ashlar classified this as an ordinary block and dressed it like one.
-  // The arm draws its own three portals and its own base course, and the one thing that is
-  // supposed to be lit on this building is the plate somebody bolted over the door, so a tube
-  // round the gable is not a decoration here, it is the building's whole point undone.
-  //
-  // ⚠ AND IT DECLINES `wall` TOO, WHICH IT WAS KEEPING FOR A REASON THAT TURNED OUT TO BE WRONG.
-  // The note here used to say `wall` was kept "for the flank piers a long masonry nave genuinely
-  // needs". Those piers were never part of `wall`, and the kit no longer draws flank piers at all,
-  // so declining this costs the flanks nothing. What it was actually buying
-  // was the FRONT window grid, and a grid on this frontage lands a bay of glazing straight over the
-  // head of each of the three portals: reported as the doors having windows on top of them, which
-  // is precisely what a fanlight over a shop door is and precisely what a church door has not got.
-  // The arm draws its own openings on every elevation now — three portals, a blind arcade, four
-  // lancets a flank and the wheel — so there is nothing left for the grid to add.
-  //
-  // What it KEEPS is `cope`, `riser` and `stair` — a downpipe and a fire escape are what a
-  // century of being a real building leaves on one, and they are the only things here that say
-  // anybody still uses it.
+  // St Garneau's draws its own portals and openings; the only lit thing is the plate over the door.
+  // A window grid would land glazing over the portals. It keeps cope, riser and stair.
   church: ['signRoof', 'neon', 'ground', 'roof', 'wall'],
-  // ⚠ AND THE TWO THINGS ON THE WATER END OF FILAMENT STREET THAT ARE NOT PREMISES. A backlit
-  // hoarding on legs and a deck of roof plant are both things a LANDLORD puts up, and neither of
-  // these has one: Slag & Wares is a hand-cart under a sheet of corrugate that "could leave
-  // tomorrow", and Camp Giardia is a tarpaulin over a bus shell. The kit had no way to know — it
-  // reads the palette and the mass, and a low box under a wide flat lid is a shop — so the camp
-  // was wearing a lit knife-and-fork board bigger than the camp. The `signRoof` reason is already
-  // stated at `helpings`: nobody puts a hoarding on the roof of a single-storey shop to repeat
-  // what is written over the door, and these two do not even have a door.
-  // They KEEP the name board: the prose has SLAG & WARES chalked on the tailboard and CAMP
-  // GIARDIA hand-lettered on a plank, so this is not `UNSIGNED_TRADE` — that set is for a shed
-  // with a number on it, and both of these are named by hand on purpose.
+  // A hand-cart and a tarp camp have no landlord to put up a hoarding or plant. They keep their
+  // hand-lettered name board, so they aren't UNSIGNED_TRADE.
   slagwares: ['signRoof', 'roof'], campgiardia: ['signRoof', 'roof'],
-  // The Codfather, the third business on the yard, for `helpings`' reason: its name is painted on
-  // the fascia, and the kit stood a backlit hoarding on legs over a one-storey shop that was
-  // bigger than the shop.
+  // ⚠ This key repeats `fishmonger` above, so this later entry is the one that applies.
   fishmonger: ['signRoof'],
-  // Sump has no sign, no window and no name over the door, and the prose says so. Without this the
-  // kit read a low brick box as a bar and put SUMP on a lit hoarding on its roof.
+  // Sump has no sign, window or name over the door.
   sump: ['sign', 'signRoof', 'neon', 'wall', 'paint'],
-  // The Halcyon building sites. A site's name is printed on its hoarding, which the arm draws, and
-  // the kit was standing a lit board on legs on the podium deck, where it ran through the
-  // scaffold standards on 7 Cowslip Rise. Nobody puts neon on a building that isn't finished.
+  // Halcyon building sites: the arm prints the name on the hoarding, and nothing unfinished gets neon.
   ...Object.fromEntries(['shell_tower', 'hf_frame', 'hf_jumpform', 'hf_wrap', 'hf_scaffold', 'hf_stalled',
     'hf_hoist', 'hf_halfbuilt', 'hf_climber', 'hf_flood', 'hf_topout'].map((t) => [t, ['signRoof', 'neon']])) };
 // Halcyon Fields signs in brushed metal and white light, never a neon tube. Every palette in the
 // quarter starts `ty_hf`.
 const quietSign = (pal) => typeof pal === 'string' && pal.startsWith('ty_hf');
-// ── AND WHICH BUILDINGS DO NOT PUT THEIR NAME UP AT ALL ────────────────────
-//
-// ⚠ THE MATERIAL CANNOT ANSWER THIS, AND `derivedStyle` IS THE ONLY THING THAT WAS ASKED. That
-// function reads the palette, and a palette says when a building went up rather than what happens
-// inside it: `ty_power`, `ty_refinery` and `ty_clone` all resolve to `window grid` — the 53-model
-// default — so the power station, the refinery and the clone vats each classified as `block` and
-// were handed a shopfront, a lit name board over the door, a blade down the corner and a chance at
-// a rooftop hoarding. Gating on `style !== 'works'` looks like it covers industry and covers the
-// buildings that happen to be faced in steel.
-//
-// What a works actually does is identify itself with a unit number on a door and the name on the
-// GATE. So the TRADE answers, because the trade is the one thing the game already knows for
-// certain — `m.type` IS the arm, and the arm is the building.
-//
-// ⚠ IT IS THE BUILDING'S OWN SIGNAGE ONLY. The gable-end ad panel is deliberately NOT gated on
-// this: a hoarding on the blank flank of a warehouse is somebody ELSE's advertisement, it is what
-// the flank of a warehouse is for, and it is most of what makes an industrial district read as
-// part of the same city as the neon. A works does not advertise ITSELF; it still rents its wall.
-//
-// ⚠ AND `signWorks` ON THE MODEL IS THE STATED EXCEPTION — the "special circumstances". A works
-// that sells over a counter, or one whose name is the reason it is on the map, opts back in.
+// ── BUILDINGS THAT DON'T PUT THEIR NAME UP ────────────────────
+// ⚠ Keyed on trade, never palette: `derivedStyle` reads the palette, and a power station faced in
+// `window grid` would classify as `block` and get a shopfront and a name board.
+// ⚠ The building's own signage only. The gable ad panel isn't gated on this: a works still rents its wall.
+// `signWorks` on the model opts a works back in.
 const UNSIGNED_TRADE = new Set([
   // Power and utility.
   'power', 'dynamo', 'dw_turbine', 'trm_charge', 'signalbox', 'damwall', 'interstack', 'trm_cistern',
   // Heavy industry and processing. The incinerator letters its own gate plate in its arm.
   'foundry', 'fabrication', 'ff_kiln', 'dw_forge', 'sw_foundry', 'sw_kiln', 'asc_vats',
   'clone', 'asc_weave', 'refinery', 'incinerator',
-  // Freight, storage and yards — a shed with a number on the door.
+  // Freight, storage and yards: a shed with a number on the door.
   'warehouse', 'container_yard', 'cold_storage', 'junkyard', 'truck_depot', 'dw_depot', 'sw_depot',
   'trm_depot', 'wharf', 'hangar', 'reefer', 'fuel_yard',
-  // An airfield says what it is by its shape: the only signs on it are the lit boards on the
-  // terminal, ARRIVALS and DEPARTURES, which its two arms draw themselves.
+  // The terminal's arms draw ARRIVALS and DEPARTURES themselves.
   'atc', 'arrivals', 'departures',
-  // The jetty. A deck has no wall to letter, a quay is plant on a slab, the yard letters itself on
-  // the hut by hand in its own arm, and the beacon is not advertising anything.
+  // The jetty and marina: no wall to letter, or the arm letters itself.
   'pier', 'harbour_yard', 'lighthouse', 'quay_crane',
-  // …and the marina, for both halves of the same reason. A pontoon has no wall to letter either,
-  // and the Conservatory letters ITSELF: its arm stands a chrome fascia over the doors and puts a
-  // marqueeBand on it, so a derived board here would be the building's own name a second time —
-  // which is the one thing the naming rule forbids outright.
   'pontoon', 'boathouse', 'fuel_dock',
-  // ⚠ AND THE CHURCH, WHICH IS THE ONE ENTRY HERE THAT IS NOT INDUSTRIAL. Every other name on this
-  // list is a works or a yard, and the reason they are here is that a shed identifies itself with a
-  // number on a door. St Garneau's is here for the opposite reason: it identifies itself with the
-  // building. A parish church does not put a lit name board over its portal, and this one least of
-  // all — its own arm carries a note saying it is the one frontage in Coldwater with nothing burning
-  // on it except the plate somebody bolted across the middle, and a derived blade down the corner
-  // was quietly making that untrue on every tile that draws it.
+  // St Garneau's identifies itself by the building; its only lit thing is the plate over the door.
   'church',
-  // ⚠ AND THE RUIN, WHICH IS THE ONE ENTRY HERE THAT IS NOT A BUILDING AT ALL. A `ruin` tile
-  // carries a `building_name` because every tile does — A Collapsed Terrace, The Burnt House — and
-  // the kit read that as a trading name and hung a lit board over the rubble, plus a blade down a
-  // corner that is not there. Old Coldwater's own block comment already states the district rule
-  // in so many words: not one of the six carries a lit sign, because a district where the
-  // buildings advertise is a district with money in it. A heap with no door advertises nothing,
-  // and there is nobody left to pay for the electricity.
+  // A ruin's `building_name` isn't a trading name.
   'ruin',
-  // ⚠ AND THE REST OF THE SHINGLES, which is the district rule above applied to the kit rather than
-  // only to the arms. The derived board over the door, the blade and the roundel were all reaching
-  // these five, and "A STITCH IN TIME" stood on a lit hoarding over a one-room clinic the arm's own
-  // note says has no name on it anywhere. Everyone who uses these places already knows where they
-  // are. `KIT_DECLINE` shuts the `sign` section as well; this is what keeps the roundel out, which
-  // does not ask that section.
+  // The Shingles carry no lit sign. This also keeps the roundel out, which doesn't ask KIT_DECLINE.
   'flophouse', 'soup_kitchen', 'bonesetter', 'shebeen', 'water_seller', 'cornershop',
 ]);
-// Does this building letter its own frontage? The two answers the kit needs, in one place, so the
-// name board, the corner blade and the roof hoarding cannot disagree about it.
+// One answer for the name board, the corner blade and the roof hoarding, so they can't disagree.
 const signsItself = (m, style) => !!m.signWorks || (style !== 'works' && !UNSIGNED_TRADE.has(tradeOf(m)));
-// -- AND WHICH OF THEM HAVE SOMETHING DRIVE THROUGH THE FRONT ------------------------------------
-//
-// The works ground floor has always put a shutter on the frontage, and `bay` dresses one as a
-// loading bay: a roller housing, guide channels, a bottom rail. That is right for a shed a truck
-// reverses into and wrong for a bathhouse, and `derivedStyle` cannot tell them apart -- it reads
-// the PALETTE, so half the Terminus and Deepwater set (a dormitory, an inn, a wash house, an
-// undertaker) classifies as `works` off a plain rendered wall.
-//
-// ⚠ IT IS NOT UNSIGNED_TRADE, THOUGH IT LOOKS LIKE IT COULD BE. That set answers "does this
-// building advertise itself", which is a question about a sign trade; this one answers "is the
-// opening on the front big enough to drive into", which is a question about what happens inside.
-// They overlap because heavy industry is both, and they disagree in both directions: a freight
-// forwarder and a sound stage take vehicles and are not on that list, and a live substation is on
-// it and has a personnel door. Folding them together would be the `derivedStyle`-reads-the-palette
-// mistake again, one layer up.
-//
-// ⚠ A TRADE THAT IS NOT LISTED KEEPS THE PLAIN SHUTTER IT ALREADY HAD, which still reads as a
-// shut roller door. Nothing is lost by being absent from this set.
+// ── BUILDINGS SOMETHING DRIVES INTO ────────────────────────────────────
+// Trades whose works shutter is dressed as a loading bay. Unlisted trades keep a plain shutter.
+// ⚠ Don't fold into UNSIGNED_TRADE: "advertises itself" and "takes vehicles" disagree both ways.
 const BAY_TRADE = new Set([
   // Freight, storage and yards.
   'warehouse', 'container_yard', 'cold_storage', 'junkyard', 'truck_depot', 'dw_depot', 'sw_depot',
@@ -770,106 +360,52 @@ const BAY_TRADE = new Set([
   'dw_winding', 'dw_stores', 'slagwares',
   // A sound stage is a shed with a truck door, whatever it makes.
   'studio', 'ksabstudio',
-  // ⚠ `vacantunit` WAS HERE AND THE PREMISE WAS WRONG. This entry read "the four numbered units are
-  // shells on a trading estate", and not one of them is: their own prose puts them in a parade, in
-  // a terrace between studio blocks, at the pawn end of a street, and under three floors of flats.
-  // Nothing drives into any of them. The kit was giving them a vehicle door because `derivedStyle`
-  // classified `ty_unit` as `works` off a flat painted palette — the reads-the-palette mistake that
-  // set's own ⚠ warns about, one layer down — and the palette move above ends it: they are `block`
-  // now, so the works frontage never runs and the arm draws the shop door itself.
+  // ⚠ Never `vacantunit`: the numbered units are shops in parades, and nothing drives into them.
 ]);
-// ⚠ AND THE SUBSET THAT WILL NOT CARRY SOMEBODY ELSE'S HOARDING EITHER. The argument above — a
-// works does not advertise itself but still rents its wall — holds for a warehouse, a cold store
-// and a depot, which is what a big blank flank beside a road is for. It does not hold for a live
-// substation, a refinery or a vat house: those are hung with catenary, aerials and pipework, which
-// is both why a hoarding has nothing clear to bolt to and why the wires cross it when it does.
-// Measured: the last of the "wires over the signage" crossings were exactly these.
-// ⚠ AND THE RUIN, WHICH IS HERE FOR NEITHER OF THOSE REASONS. The rest of this set is hung with
-// catenary and pipework, so a hoarding has nothing clear to bolt to and the wires cross it when it
-// does. A collapsed terrace is the opposite problem: the flank is perfectly clear and there is
-// nobody to rent it FROM. A three-storey backlit panel is the most expensive thing the kit hangs
-// on anything, and a heap of brick with no roof cannot be carrying one.
+// Trades that won't carry somebody else's hoarding either: plant hung with catenary and pipework
+// (the wires cross the board), and ruins, which have nobody to rent the wall from.
 const NO_AD_TRADE = new Set(['power', 'dynamo', 'dw_turbine', 'trm_charge', 'signalbox', 'damwall',
   'interstack', 'foundry', 'fabrication', 'ff_kiln', 'dw_forge', 'sw_foundry', 'sw_kiln', 'asc_vats',
   'clone', 'refinery', 'fuel_yard', 'ruin',
-  // …and the rest of the Shingles, for the ruin's reason: nobody rents a wall in Old Coldwater.
+  // The rest of the Shingles: nobody rents a wall in Old Coldwater.
   'flophouse', 'soup_kitchen', 'bonesetter', 'shebeen', 'water_seller', 'cornershop',
-  // …and the airfield, which carries its own terminal boards and nobody else's.
+  // The airfield carries its own terminal boards and nobody else's.
   'atc', 'arrivals', 'departures']);
-// ⚠ `RENDER_TUNE` AND NOT THE PER-VIEW `TUNE`, BECAUSE THE LIST IS CACHED PER MODEL. A view can
-// override a tunable (`VIEW_TUNABLE`), and two views can paint in one frame — so a per-view value
-// read here would be baked into a cache the other view then reads, and which view got there first
-// would decide what the city looks like. The kit is a property of the building, not of the seat.
-// `cand` is every usable box — what a wall part stands on. `deck` is the subset with a real, roughly
-// square roof face — what a roof part stands ON. They differ for every shed in the city: a box under
-// a barrel roof is a fine wall and not a floor you can put a water tank on. See the ⚠ in derivedTrim.
+// ⚠ Read `RENDER_TUNE`, never the per-view `TUNE`: the list is cached per model and shared by every view.
+// `cand` and `deck` are as in derivedTrim.
 function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = MODERN_NEUTRAL, place = null, claims = [], blocks = [], mass = cand, glazed = []) {
   if (!RENDER_TUNE.derivedKit || NO_KIT.has(m.type) || m.noKit) return;
   const wants = (s) => !have.has(s);   // a section somebody already drew is theirs; stay out of it
   const pal = m.pal;
-  // What the OPENINGS are dressed in, as opposed to what the wall is faced in — see trimPalFor.
-  // Every glazed part below takes this rather than `pal`, because a surround shaded off the wall's
-  // own key is the wall colour and reads as paint. Free: the same quads, a different colour.
+  // What the openings are dressed in (see trimPalFor); a surround in the wall colour reads as paint.
   const wpal = trimPalFor(m);
   const top = cand[0].z1;
   const main = cand.slice().sort((a, b) => (b.z1 - b.z0) * b.hw - (a.z1 - a.z0) * a.hw)[0];   // the biggest wall
   const style = derivedStyle(m, main.hw, top);
   const R = (salt) => dRand(seed, salt);
-  // ── HOW LIT THIS STREET IS, AND THE FEW BUILDINGS THAT REFUSE TO BE ────────────────────────
-  //
-  // `mod` is the district's own modernity — see `placeModern`. Every lit, signed or glazed part
-  // below is rolled against `gateFor(base)` rather than against a flat number, so the SAME kit
-  // produces a dense neon frontage in the west end and a dark one in the Yards with nothing
-  // authored for either and no second code path.
-  //
-  // ⚠ IT MOVES A GATE, NEVER A SIZE. A building in a poor district gets FEWER lit parts, not smaller
-  // or dimmer ones — a half-height blade and a dim tube read as a rendering fault, where a street
-  // with three signs on it instead of nine reads as a different part of town. Every existing gate
-  // keeps its own number as the midpoint, so `mod` at 0.5 reproduces exactly what shipped.
+  // ── HOW LIT THIS STREET IS ────────────────────────
+  // Every lit, signed or glazed part rolls against `gateFor(base)`, which `mod` (the district's
+  // modernity, see `placeModern`) shifts. ⚠ It moves a gate, never a size: a poor district gets
+  // fewer lit parts, not dimmer ones.
   const gateFor = (g) => clamp(g + (MODERN_NEUTRAL - mod) * 0.55, 0.03, 0.97);
-  // ⚠ AND A FEW BUILDINGS OPT OUT ENTIRELY, WHICH IS THE OTHER HALF OF "MODERNISE MOST OF THEM".
-  // A city where every frontage carries the same kit at the same density is uniform however dense
-  // it is, and the thing that makes a modern street READ as modern is the one soot-black Victorian
-  // warehouse still standing in the middle of it. So roughly one building in nine is PERIOD: no
-  // neon, no blade, no roof hoarding, no ribbon glazing. It keeps its windows, its stair, its
-  // cornice and its name board, so it is a building rather than a gap.
-  // ⚠ ROLLED AGAINST THE DISTRICT, so the holdouts cluster where they would: about one in six in the
-  // glass west, where a survivor is conspicuous, and almost none in the east, where the whole
-  // district already reads that way and a "period" building would just be another dark shed.
+  // About one building in nine is PERIOD: no neon, blade, roof hoarding or ribbon glazing. Rolled
+  // against the district, so holdouts cluster in the modern west where they stand out.
   const period = R(401) > 0.80 + (1 - mod) * 0.19;
-  // The four ceilings this building is built to. One line, read once, so nothing below has to
-  // remember which renderer it is building for.
   const kitMax = rich ? KIT_MAX_RICH : KIT_MAX;
   const winMax = rich ? WIN_MAX_RICH : WIN_MAX;
   let spent = 0;
-  // ⚠ CLAIMS ARE RECORDED AT THE ONE FUNNEL, NEVER BESIDE EACH SECTION. The glazing a corner blade
-  // collides with is usually the kit's OWN, so the list the blade tests against has to contain
-  // what this pass has already pushed — and a section that remembered to register its parts by
-  // hand would be a section somebody could forget. Every kit part resolves through `A()`, so the
-  // absolute value is the third term of its own triple.
+  // ⚠ Claims are recorded at the one funnel (`push`), never per section, so none can be forgotten.
+  // Kit parts resolve through `A()`, so the absolute value is the triple's third term.
   const KA = (p) => (Array.isArray(p) ? p[2] : (p || 0));
-  // ⚠ AND A SNAPSHOT OF WHAT THE AUTHOR CLAIMED, TAKEN BEFORE THE KIT PUSHES ANYTHING. `push`
-  // above appends every kit part to `claims`, which is right for a blade asking what it would
-  // land on — and fatal for the window grid, which asks the same question once per bay: by the
-  // second bay the list contains the first one, so the grid would refuse every window after the
-  // one it just drew. The grid tests against the AUTHORED rectangles only, which cannot grow.
+  // ⚠ The window grid tests against the author's claims only, snapshotted before any push; against
+  // the growing list it would refuse every bay after its first.
   const authorClaims = claims.slice();
-  // Does a bay of glazing land clear of a window the author already drew on this face? Same plane
-  // tolerance and same gap as `clearsFace`, against the frozen list.
   const clearOfAuthor = (fyP, x0, x1, z0, z1) => authorClaims.every((c) => c.x
     || Math.abs(c.cy - fyP) > 0.06
     || x0 > c.x1 + 0.012 || x1 < c.x0 - 0.012 || z0 > c.z1 + 0.012 || z1 < c.z0 - 0.012);
-  // ── …AND WHAT IS IN FRONT OF THE PAINT, AT THE SAME FUNNEL ─────────────────────────────────
-  //
-  // See `paintFoot`. A second list rather than a second reading of `claims`, because the two
-  // questions differ at both ends: a riser and a bin hide paint and claim no facade, while every
-  // one of them is recorded here whether it went through `push` or `pushKerb` — and the kerb props
-  // are the half that was invisible. Recorded at the funnels for `claims`' own stated reason: a
-  // section that registered its parts by hand is a section somebody can forget.
+  // What stands in front of paint (see `paintFoot`), recorded at both funnels, `push` and `pushKerb`.
   const mark = (p) => { const f = paintFoot(p, KA); if (f) for (const r of f) blocks.push(r); };
-  // The author's pilaster fins, taken before the kit pushes anything. A rank of piers is the
-  // composition of the wall it stands on, and a downpipe or a duct across it reads as a fault:
-  // Compound Interest's colonnade had a duct climbing its end pier and turning across the next two.
+  // The author's pilaster fins: a pipe or duct must never cross a colonnade.
   const authorPiers = blocks.filter((b) => b.pier && !b.x);
   const crossesPier = (plane, x0, x1, z0, z1) => authorPiers.some((b) => Math.abs(b.plane - plane) <= 0.06
     && x0 < b.x1 + 0.006 && x1 > b.x0 - 0.006 && z0 < b.z1 && z1 > b.z0);
@@ -879,123 +415,52 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     const c = faceClaim(p, KA); if (c) claims.push(c);
     mark(p);
   };
-  // ⚠ THE WINDOW GRID GETS ITS OWN CEILING, BECAUSE IT IS PUSHED FIRST AND EVERYTHING ELSE IS
-  // PUSHED AFTER IT. Every section shares `spent`, and the grid is section 1 — so a grid big enough
-  // to reach `kitMax` silently eats the riser, the fire escape, the roof plant, the shopfront and
-  // the name board, in that order, and nothing anybody measures would say so. Raising the rich
-  // ceilings did exactly that: two buildings lost the board carrying their own name and gained
-  // thirty-four windows, which is a bad trade in any city.
-  //
-  // ⚠ AND THE SHARE IS BELOW A HALF ON PURPOSE. What reads at street distance is the SILHOUETTE —
-  // a balcony, a fire escape, a canopy, a tank on the roof — and the wall texture is already drawing
-  // a window grid at that range (`FACADE_MAT`, 65 palettes of it). Measured: raising the grid alone
-  // took the registry to 35,478 faces and moved 0.77% of a close cab frame. Geometry spent on
-  // windows is geometry spent on something the texture was doing for nothing.
+  // ⚠ The window grid has its own cap: it's pushed first, and uncapped it eats the budget of every
+  // later section, name board included. Kept under half, since the wall texture already draws windows.
   let winSpent = 0;
   const winCap = rich ? Math.min(winMax, WIN_SHARE_RICH) : winMax;
   const pushWin = (p) => { if (winSpent < winCap) { winSpent++; push(p); } };
-  // ── …AND THE PAVEMENT GETS A RESERVATION, WHICH IS CURRENTLY INERT ──────
-  //
-  // ⚠ THIS CHANGES NOTHING TODAY AND THE MEASUREMENT SAYS SO: 25.2% / 10.9% / 14.8% with it at 3
-  // and the identical three numbers with it at 0, over 64 seeds. It is here as insurance, and the
-  // note is here so nobody re-derives the reason from scratch.
-  //
-  // ⚠ IT WAS ADDED ON A MEASUREMENT THAT TURNED OUT TO BE AN ARTIFACT, which is the part worth
-  // keeping. A 12-seed sweep put the vending machine at 4.6% of frontages against a roll implying
-  // 10.5%, and that reads exactly like the budget eating half of them. It was not: `dRand(seed, 74)`
-  // is ONE value per seed, so a sweep that gives every model in the city the same seed is sampling
-  // the roll twelve times, not 2,076 — the same trap that made a first cut of `anchored.mjs` report
-  // `vendingMachine` and `bollard` as emitted by nothing at all. At 64 seeds the real baseline was
-  // 10.0%, and the whole gain since is the ROLLS, not this.
-  //
-  // It stays because the kerb props are pushed LAST — after the windows, the riser, the stair, the
-  // roof plant and the whole shopfront — so they are the first things `spent` would run out on if
-  // anyone raised the window grid or added a section, and this file already carries that exact ⚠
-  // one budget up. They are also the only geometry in the kit a player ON FOOT is level with: a
-  // window bay lost at the top of a tower costs nothing, a machine lost at head height costs the
-  // street. Four, because four is how many kerb parts there are.
+  // The kerb props are pushed last, so they get a reserve past `kitMax` (one per kerb kind). It's
+  // inert today; it's insurance against a bigger grid or a new section starving them.
+  // ⚠ A sweep that gives every model one seed samples each roll once per seed; use many seeds.
   const KERB_RESERVE = 4;
   const pushKerb = (p) => { if (spent < kitMax + KERB_RESERVE) { list.push(p); spent++; mark(p); } };
 
   // ── 1. THE WALLS ──────────────────────────────────────────────────────────
-  // Windows go on the FRONT face of the biggest box, in whole storeys. A storey is ~0.17 world
-  // units here, which is the figure `buildingScaleFor` already works in, so a band lands where a
-  // floor is rather than where a fraction of the wall is.
-  // ⚠ THE GROUND FLOOR AND THE NAME BAND ARE DERIVED HERE, BEFORE ANY SECTION USES THEM. They
-  // used to be declared in section 3, where the shopfront is drawn, which was fine while the
-  // shopfront was the only thing that needed to know where the name goes. They moved up for the
-  // front pier rank, which had to start above the name, and they stay up here now that the rank
-  // is gone: every reader takes one expression of the band, and deriving it a second time is the
-  // failure the ⚠ below is about.
+  // Windows go on the front face of the biggest box, in whole storeys of ~0.17 (as `buildingScaleFor`).
+  // ⚠ The ground floor and name band are derived once, here, for every section that reads them.
   const base = cand[cand.length - 1];
   const by = base.cy + base.fd, bh = base.z1 - base.z0;
   const GF = Math.min(bh * 0.62, 0.115);           // the shopfront band's height above the pavement
   // ── WHERE THE NAME GOES, DECIDED ONCE ──────────────────────────────────────────────────────
-  //
-  // ⚠ THE NEON TUBE WAS RUNNING STRAIGHT THROUGH THE NAME BOARD, on every building that had both.
-  // Both are placed off `GF`, independently, a few thousandths of a tile apart: the board sits at
-  // `GF + 0.036` and is up to 0.04 deep, so it spans `GF − 0.004 … GF + 0.076`, and the tube sat at
-  // `GF + 0.055` — inside it — and ran 0.88 of the frontage against the board's 0.62, so it came out
-  // of both ends of the shop's own name. The tube's own note already makes this exact argument one
-  // part lower down ("it sits ABOVE the shopfront, not on it, or it is behind the awning"); it just
-  // stopped one part short.
-  //
-  // So the band the name occupies is derived HERE, where both readers can see it, and the tube
-  // clears its top. Two independent expressions of one height is how they disagreed in the first
-  // place.
+  // ⚠ The neon tube clears `signTop`; derived separately, it ran through the name board.
   const signHH = Math.min(Math.min(base.hw * 0.62, 0.19) * 0.3, 0.04);
   const signZ = base.z0 + GF + 0.036;
   const signTop = signZ + signHH;
 
   const fy = main.cy + main.fd;                      // the front face plane of the biggest mass
   const wallH = main.z1 - main.z0;
-  // ── WHERE THE CROWN COURSE SITS ────────────────────────────────────────────────────────────
-  //
-  // Section 6 draws the course. It's derived up here because the front pier rank used to stop
-  // under it; that rank is gone, and anything else that has to clear the course reads it here.
+  // Where the crown course sits (drawn in section 6); anything that must clear it reads it here.
   const courseZ = main.z1 - Math.max(wallH * 0.16, 0.05);
   const courseHH = clamp(wallH * 0.045, 0.012, 0.03);
   const floors = clamp(Math.round(wallH / 0.17), 1, rich ? FLOOR_MAX_RICH : FLOOR_MAX);
   // ── IS THIS PATCH OF THE FRONT WALL FREE? ──────────────────────────────────────────────────
-  //
-  // See `faceClaim`. A rectangle on the front plane against everything already claimed there — the
-  // author's parts and the kit's own. `SIGN_GAP` is the finger of wall a sign needs beside a window
-  // to read as a separate fitting rather than as something resting on it.
-  //
-  // ⚠ THE PLANE TEST IS GENEROUS ON PURPOSE. A shopfront band and an upper-storey grid sit on boxes
-  // whose front faces differ by a few thousandths, and two parts a centimetre apart in `y` are on
-  // the same wall as far as anybody looking at the building is concerned.
+  // Tests against every claim (see `faceClaim`). `SIGN_GAP` is the bare wall a sign needs beside a
+  // window. ⚠ The plane tolerance is loose on purpose: stacked boxes' faces differ by thousandths.
   const SIGN_GAP = 0.012;
   const clearsFace = (x0, x1, z0, z1) => claims.every((c) => c.x || Math.abs(c.cy - fy) > 0.06
     || x0 > c.x1 + SIGN_GAP || x1 < c.x0 - SIGN_GAP || z0 > c.z1 + SIGN_GAP || z1 < c.z0 - SIGN_GAP);
-  // ── …AND IS THIS PATCH OF ANY WALL BARE, AND CAN IT BE SEEN? ──────────────────────────────
-  //
-  // The same shape of test as `clearsFace` and deliberately not the same test — see `paintFoot`.
-  // That one asks whether a FITTING can hang here and is answered for the facade only; this one asks
-  // whether PAINT here would ever be looked at, on any of the four walls, and a window and a vending
-  // machine are the same answer to it.
-  //
-  // ⚠ THE PAVEMENT IS ONLY TESTED FOR THE STREET FACE, AND THAT IS A GUARD RATHER THAN A SAVING. A
-  // prop stands OFF its wall — out to a third of the base half-width — so it has to be matched on a
-  // loose plane tolerance, and on a shallow building that tolerance reaches the BACK wall too, where
-  // there is no pavement and nothing standing on it. 1d's rule is what makes this safe to state:
-  // pavement props are derived from the entrance, and a building has one of those.
+  // ── IS THIS PATCH OF ANY WALL BARE AND VISIBLE, FOR PAINT? ──────────────────────────────
+  // Against `blocks` (see `paintFoot`), on all four walls.
+  // ⚠ Kerb props are matched on the street face only: their loose plane tolerance would reach the
+  // back wall of a shallow building.
   const paintFree = (face, plane, x0, x1, z0, z1, street) => blocks.every((b) => !!b.x !== !!face
     || (b.kerb ? (!street || Math.abs(b.plane - plane) > 0.22) : Math.abs(b.plane - plane) > 0.06)
     || x0 > b.x1 || x1 < b.x0 || z0 > b.z1 || z1 < b.z0);
 
-  // ── …AND CAN A BAND BE LIFTED OVER WHAT IS ALREADY BOLTED TO THAT WALL? ────────────────────
-  //
-  // `clearOfMass` asks this of the building's own MASS and its ⚠ says why lifting beats moving the
-  // band forward. This is the fittings half of it, and it is a second function rather than a wider
-  // reading of that one because the two lists hold different things: a fire escape, a riser and a
-  // rank of piers are all in `blocks` and none of them is mass, while a painted name band derived
-  // at two thirds of the wall lands in the middle of every one of them.
-  //
-  // ⚠ IT ONLY EVER LIFTS, AND IT HANDS BACK `z` UNCHANGED WHEN NOTHING FITS ABOVE. Declining would
-  // delete a building's name, which is the trade `clearOfMass` has already measured and refused —
-  // a stair bolted across painted lettering is a photograph of any goods yard in the world and no
-  // name at all is not. So the worst case here is exactly what shipped before it.
+  // ── LIFT A BAND OVER THE FITTINGS ON ITS WALL ────────────────────
+  // The fittings half of `clearOfMass` (fire escapes, risers and piers are in `blocks`, not mass).
+  // ⚠ It only lifts, and returns `z` unchanged when nothing fits above: never delete a name.
   const overFittings = (face, plane, mid, half, hh, z, ceil) => {
     let top = null;
     for (const b of blocks) {
@@ -1009,24 +474,11 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     const up = top + hh + SIGN_GAP;
     return up + hh <= ceil ? up : z;
   };
-  // ── …AND WHERE IT CANNOT BE LIFTED, WHAT IS LEFT OF THE WALL BESIDE IT ─────────────────────
-  //
-  // The band above fails on exactly the buildings that need it most: a two-storey unit whose fire
-  // escape reaches its own parapet has no frieze to be lifted into, and Unit 3, Kessler Street is
-  // one — 0.702 of stair on a 0.78 wall. What such a wall does have is the panel BESIDE the stair,
-  // which on that unit is 0.338 of a tile of bare brick against the 0.15 the zigzag occupies.
-  //
-  // ⚠ IT IS THE SAME GAP SOLVER THE GRAFFITI SEARCH USES, ASKED FOR A DIFFERENT SIZE. `spansLess`
-  // subtracts the occupied runs from the wall and hands back the bare ones; a tag then takes the
-  // widest run it can and shrinks to it. A NAME may not shrink indefinitely — that is `sign:band`'s
-  // whole argument — so this floors the run at two thirds of the band it was asked for and returns
-  // null below it, which puts the caller back on "half read beats nameless".
+  // ── WHERE IT CAN'T BE LIFTED, THE BARE WALL BESIDE THE FITTINGS ─────────────────────
+  // For a stair that reaches the parapet. The graffiti gap solver (`spansLess`), widest bare run.
+  // ⚠ A name may not shrink below `floor`; null puts the caller back on "half read beats nameless".
   const NAME_RUN_PAD = 0.008;
-  // ⚠ AND THE FLOOR IS A NUMBER RATHER THAN "WHATEVER FITS", WHICH IS THE TAG SEARCH'S OWN ⚠ ONE
-  // SIZE UP: a band that keeps shrinking until it fits always fits, and an obstruction test that
-  // cannot fail is not a test. Below this the name is competing with the graffiti for size and the
-  // stair is the more honest picture — a fire escape across a full-width painted name is a
-  // photograph of any goods yard, and a stamp in the corner of a blank wall is not.
+  // ⚠ A fixed floor: a band that shrinks until it fits always fits, and the test could never fail.
   const NAME_RUN_MIN = 0.45;
   const besideFittings = (face, plane, mid, half, hh, z, floor) => {
     const runs = spansLess([[mid - half, mid + half]], blocks
@@ -1040,39 +492,15 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     return w >= floor ? { cx: (g[0] + g[1]) * 0.5, half: w } : null;
   };
 
-  // ── …AND IS THE BUILDING ITSELF STANDING IN FRONT OF IT? ───────────────────────────────────
-  //
-  // ⚠ NEITHER TEST ABOVE CAN ANSWER THIS, AND WIDENING EITHER ONE WOULD BE WRONG. Both compare a
-  // part's PLANE against the wall's within a few hundredths, because both are asking "is this patch
-  // of wall already taken" — a question about FITTINGS. What buries a name is a box a TENTH of a
-  // tile proud of the wall it is painted on, and both tests answer "clear" precisely because it is
-  // nowhere near the plane. `blocks` cannot see it either: it is built from the DETAIL list, and a
-  // shopfront slab is MASS.
-  //
-  // ⚠ AND IT IS A CONSEQUENCE OF `tileFit`, NOT OF THE ARMS. Every shopfront in this registry is
-  // authored as a box shoved out to about `fh * 0.9` — before the plot-line trim existed that
-  // landed a tile and a half into the street and the painter's queue sorted it clear of everything.
-  // Trimmed back to the plot line, the same box is a mass standing a tenth of a tile PROUD of its
-  // own facade: still a shopfront, and now also a thing a sign can hide behind. On the canvas it
-  // never showed, because a sign carries `DETAIL_LIFT` and sorted in front of the building it was
-  // inside. A depth buffer compares. Measured over the registry before this: 25 models have their
-  // own name buried by their own mass, and on Unit 3, Kessler Street — the tile it was reported
-  // from — 67% of the lettering sat behind the shopfront at every angle and every eye height.
-  //
-  // ⚠ THE ANSWER IS TO LIFT, NOT TO MOVE THE SIGN FORWARD. Seating it on the foremost plane is the
-  // shorter fix and it paints the building's name across a roller shutter, a broken shop window or
-  // a portico lintel — the ground-floor dressing is exactly what is in the way. What a real
-  // building does is put the name ABOVE the shopfront, which is also where there is bare wall.
+  // ── IS THE BUILDING'S OWN MASS IN FRONT OF IT? ───────────────────────────────────
+  // A shopfront slab trimmed to the plot line stands proud of the facade and buries a name behind
+  // it in a depth buffer. The plane tests above can't see it; see
+  // docs/reference/building-shapes.md#names-buried-by-their-own-mass.
   const MASS_EPS = 0.012;
-  // The top of whatever the building stands between this patch of wall and the street, or null when
-  // the patch is clear. `flank` swaps into the rotated frame section 1d works in; `mid` is the
-  // patch's centre ALONG the wall, in the model's own axes.
-  //
-  // ⚠ `out` IS AN ARGUMENT AND MUST NOT BE READ OFF THE SIGN OF `plane`, which is what a first cut
-  // did. The capture frame puts the street at +y, so the front face looks outward at +1 whatever
-  // its plane comes to — and an arm that offsets its whole mass BACKWARDS over its own yard (The
-  // Kept, The Long Fire) has `main.cy + main.fd` NEGATIVE. Those two then searched away from the
-  // street and seated their names on the back wall.
+  // The top of whatever mass stands between this patch and the street, or null when clear. `flank`
+  // swaps to the rotated frame; `mid` is the patch's centre along the wall.
+  // ⚠ `out` is passed in, never read off the sign of `plane`: a mass offset back over its yard has a
+  // negative front plane that still faces +y.
   const massAhead = (flank, out, plane, mid, half, z0, z1) => {
     let top = null;
     for (const c of mass) {
@@ -1085,28 +513,9 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     }
     return top;
   };
-  // Where the band ends up: unchanged when the wall is clear — which is the whole registry bar the
-  // 25 — and lifted over whatever is in front of it while it still fits under `ceiling`. Four
-  // passes, because clearing one box can put the band in front of a taller one beside it.
-  //
-  // ⚠ IT ONLY EVER MOVES THE BAND UP ITS OWN WALL. Two richer answers were built and measured and
-  // both cost more than they bought:
-  //
-  //   DECLINING when nothing clears DELETES A BUILDING'S NAME. Twelve models lost their front
-  //   lettering, and two of them — The Kept and the church — have no flank panel either, so they
-  //   lost it altogether to fix an occlusion of 94% and 22%. A name you can half read is worth
-  //   more than no name.
-  //
-  //   SEATING IT FORWARD onto whatever is in the way paints the name across a roller shutter, a
-  //   broken shop window or a portico lintel, and it OVERHANGS: `anchored` caught the wash house
-  //   with 0.11 of a tile of its own name past the end of the box it had been moved onto, which is
-  //   that gate's founding bug in a new costume — a band covered by a RUN of boxes at one plane is
-  //   not a band covered by a WALL.
-  //
-  // So the worst case here is the placement that shipped, unchanged, and the change can only ever
-  // improve a building or leave it exactly as it was.
-  // ⚠ IT REPORTS WHETHER IT SUCCEEDED, and the two callers do different things with the answer —
-  // see each. A `z` on its own cannot say whether the band is now readable or merely unmoved.
+  // Lifts the band over mass in front of it while it fits under `ceiling`; four passes, since
+  // clearing one box can expose a taller one. ⚠ It only moves the band up its own wall (never
+  // declines, never seats forward), and reports `clear` so callers can tell readable from unmoved.
   const clearOfMass = (flank, out, plane, mid, half, hh, z, ceiling) => {
     for (let i = 0; i < 4; i++) {
       const top = massAhead(flank, out, plane, mid, half, z - hh, z + hh);
@@ -1119,33 +528,18 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   };
 
   // ── WHICH CORNERS THE SIGNAGE WILL WANT, DECIDED BEFORE THE GLAZING GOES UP ─────────────────
-  //
-  // ⚠ THE ORDER IS HALF THE FIX. Section 1 glazes the wall and section 4 hangs the blades, and
-  // section 1 runs first — so a blade could only ever be offered a wall that was already full, and
-  // `clearsFace` on its own would decline nearly every one of them. Reserving the corner first is
-  // the other way round and is cheap where declining is not: a glazing band a finger narrower is
-  // not a picture anybody would report, and a lit sign drawn over the top of one is.
-  //
-  // ⚠ THE ROLLS ARE PURE (`dRand(seed, salt)`), SO READING THEM HERE MOVES NOTHING. Same salts,
-  // same values, two hundred lines earlier. What must not happen is a SECOND copy of a roll further
-  // down — the drift this file already warns about at `riserX` — so section 4 reads these.
+  // ⚠ Reserved before section 1 glazes, or section 4's blades only ever see a full wall.
+  // ⚠ Rolls are pure, so reading them early moves nothing; section 4 reads these, never a second copy.
   const bladeSgn = R(311) > 0.5 ? 1 : -1;
   const hz = hanziFor(m);
   const tradePicto = (style !== 'works' && (SIGN_TRADE[tradeOf(m)] || ['', ''])[1]) || '';
-  // How far the glazing may reach on each side, as a fraction of `main.hw`, once a sign of
-  // half-width `w` is hung hard against that corner at 0.84. `Infinity` means nothing is reserved,
-  // so an untouched building glazes exactly as wide as it always did.
-  // ⚠ THE RESERVE MUST BE WIDER THAN THE TEST IS STRICT, and at exactly `SIGN_GAP` it was not.
-  // `clearsFace` demands MORE than a gap of `SIGN_GAP`, so a reservation that leaves precisely one
-  // declines the very corner it was keeping — measured, 416 of 598 eligible roundels refused on
-  // their own reserved wall, which reads as the feature not existing. It also has to cover the
-  // window SURROUND: `faceClaim` counts a bay's frame as part of the bay, and that plate is up to
-  // 0.26 of the band's own half-height proud of the glass on each side.
+  // How far glazing may reach per side (fraction of `main.hw`) once a sign of half-width `w` hangs
+  // at 0.84. `Infinity` means nothing reserved.
+  // ⚠ The reserve must exceed `clearsFace`'s strict gap and cover the window surround, or the sign
+  // is refused on its own reserved corner.
   const SIGN_CLEAR = SIGN_GAP * 2 + 0.012;
   const reserveFor = (w) => 0.84 - (2 * w + SIGN_CLEAR) / main.hw;
-  // ⚠ AND A WALL TOO NARROW TO CARRY BOTH CARRIES THE WINDOWS. On a one-tile shopfront the reserve
-  // eats the whole band, and a frontage that is all sign and no glass is a worse building than one
-  // with no blade on it. Below a third of the half-width the fitting is simply not offered.
+  // Too narrow for both, the wall keeps its windows and the fitting isn't offered.
   const fitsBeside = (w) => reserveFor(w) >= 0.34;
   let resL = Infinity, resR = Infinity;
   const takeCorner = (sgn, w) => {
@@ -1154,192 +548,76 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   };
   const nameBw = clamp(main.hw * 0.15, 0.02, 0.05);
   const hzBw = clamp(main.hw * 0.13, 0.018, 0.042);
-  // A roundel is square, so its half-width IS its half-height — see the trade fitting in section 4.
-  // Sized against the BLADE rather than against the wall: a badge and a blade say the same thing,
-  // and one of them being a fifth of the facade wide would not read as the same class of fitting.
+  // A roundel is square (half-width is half-height), sized like the blade it stands in for.
   const rdR = Math.min(main.hw * 0.15, 0.05);
   const signable = rich && !period && signsItself(m, style) && main.hw > 0.1;
   const nameBladeOK = signable && wants('sign') && wallH > 0.26 && fitsBeside(nameBw) && R(309) > gateFor(0.45);
   // ── ⚠ ONE TRADE FITTING PER FRONTAGE, NEVER TWO ────────────────────────────────────────────
-  //
-  // The Chinese trade blade and the mark roundel say the SAME THING — 當舖 and three balls are both
-  // "this is a pawnbroker" — so a building wearing both has said it twice and spent two corners
-  // doing it. They are also the two loudest small things the kit hangs, and the report this whole
-  // pass answers is that there is too much signage on the frontage, not too little.
-  //
-  // ⚠ THE BLADE WINS WHERE IT IS ELIGIBLE, so the Chinese quarter keeps its density: a street where
-  // some shops carry the word and the rest carry the mark is the one that reads, and a mark that
-  // replaced the word everywhere would quietly delete a feature that was rationed on purpose.
+  // The Chinese trade blade and the mark roundel say the same thing. The blade wins where eligible.
   const hanziOK = signable && !!hz && !!place && HANZI_BIOMES.has(place.biome)
     && wallH > 0.2 && fitsBeside(hzBw) && R(315) > gateFor(0.42);
-  //
-  // ⚠ AND THE ROUNDEL IS ALSO THE BLADE'S FALLBACK, which is why this is not gated on `!hanziOK`.
-  // A blade can be eligible here and still be declined down there — `clearsFace` refuses a corner
-  // an AUTHORED window grid is already sitting in, which is exactly what happens on Cash & Carrion
-  // — and a frontage that ends up saying nothing about its trade because the fitting it was
-  // allocated turned out not to fit is a worse answer than the badge it could have had. Section 4
-  // reads the blade's RESULT (`tradeHung`), not its gate.
-  //
-  // ⚠ IT IS RATIONED ON ITS OWN ROLL. Every fitting in this kit is rolled so a street carries a
-  // mixture rather than a uniform costume, and "whatever the blade did not take" would put a badge
-  // on every marked shopfront in the city at once.
+  // ⚠ The roundel is also the blade's fallback (the blade can still be refused by `clearsFace`), so
+  // it isn't gated on `!hanziOK`; section 4 reads `tradeHung`. It has its own roll.
   const roundelOK = signable && !!tradePicto && wallH > 0.2 && fitsBeside(rdR) && R(317) > gateFor(0.34);
   if (nameBladeOK) takeCorner(bladeSgn, nameBw);
   // One corner, whichever of the two ends up on it, so the reserve has to clear the wider of them.
   if (hanziOK || roundelOK) takeCorner(-bladeSgn, Math.max(hanziOK ? hzBw : 0, roundelOK ? rdR : 0));
-  // -- WHERE A BUILDING THAT WILL NOT PUT UP A BOARD PAINTS ITS NAME, DECIDED ONCE -------------
-  //
-  // 107 of the 173 arms sign themselves with nothing, and section 3b hands most of them a lit
-  // plate over the door -- but it deliberately refuses the industrial half of the city, because a
-  // plant does not advertise itself and a refinery wearing a backlit shopfront sign is what made
-  // the east read as a retail street with dirtier walls. That argument is right about the FITTING
-  // and it was taken as an argument about the NAME, so a warehouse, a cold store, a depot, a
-  // turbine hall and a container yard all ended up as anonymous boxes with a louvre on them.
-  //
-  // What they actually have is the name PAINTED ON THE WALL, in stencil, the height of a storey,
-  // across the frontage -- no plate, no backing, no light, and no less legible for it. That is a
-  // `signBoard` with `bare` set, and `signFontOf` already answers `stencil` for every one of
-  // those trades through SIGN_TRADE, so the hand needs nothing authored either.
-  //
-  // ⚠ THE BAND IS DERIVED HERE BECAUSE TWO SECTIONS READ IT, which is the same lesson `signHH`
-  // records one screen down: the works louvres are placed off `wallH` in section 1 and the paint
-  // in section 3b, and two independent expressions of one height is exactly how the neon tube came
-  // to run through the middle of the name board.
-  //
-  // ⚠ 0.66 OF THE WALL, AND IT IS BRACKETED RATHER THAN CHOSEN. Above it sits the crown course
-  // (`z1 - max(wallH * 0.16, 0.05)`, half a band deep) and below it the works louvres; at 0.66 the
-  // paint clears the course at every wall height the course exists at, from 0.31 up.
-  // ⚠ `style === 'works'` AND NOT SIMPLY `!signsItself`, WHICH WOULD HAVE BEEN TIDIER AND WRONG.
-  // The other half of the unsigned city is the trades in UNSIGNED_TRADE whose PALETTE classifies
-  // them as `block` -- the power station, the refinery and the vat house, all three of which
-  // resolve to `window grid`. Those get the full window grid across the frontage, and a name
-  // painted over four ranks of glazing is not a ghost sign, it is a mistake. They stay nameless
-  // until somebody decides where a lettered band goes on a glazed wall.
+  // ── WHERE AN UNSIGNED WORKS PAINTS ITS NAME ─────────────
+  // A works with no board gets its name painted in stencil (`signBoard` with `bare`). Derived once,
+  // since the louvres (section 1) and the paint (section 3b) both read it.
+  // ⚠ 0.66 of the wall clears the crown course above and the louvres below at every height.
+  // ⚠ `style === 'works'`, never just `!signsItself`: an unsigned `block` has a window grid to paint over.
   const paints = wants('sign') && style === 'works' && !signsItself(m, style)
     && wallH > 0.12 && main.hw > 0.1;
   const nameHH = Math.min(wallH * 0.085, 0.05);
   const nameZ = main.z0 + wallH * 0.66;
-  // ⚠ AND THE LOUVRES GET WHAT IS LEFT, MEASURED FROM THE PAINT RATHER THAN GUESSED AT. A works
-  // bank sat at 0.62 of the wall, which is where the name now is. Deriving the bank's own centre
-  // from the band's underside is what makes "nothing crosses the name" arithmetic instead of two
-  // fractions somebody checked once at one building height.
+  // The louvres sit under the painted name, measured from its underside.
   const louvHH = Math.min(wallH * 0.16, 0.05);
   const louvZ = paints ? nameZ - nameHH - Math.max(wallH * 0.07, 0.025) - louvHH
     : main.z0 + wallH * 0.62;
   if (wants('wall') && style !== 'works' && wallH > 0.14 && main.hw > 0.12) {
-    // ⚠ THE GRID IS BUDGETED, NOT JUST BOUNDED. Six floors by three columns is eighteen windows,
-    // and a `windowBay` is the most-instanced part in the kit at eight quads apiece — so the tall
-    // wide buildings, which are exactly the ones a dense frame is full of, were spending ~150 quads
-    // each on glazing alone and put `framecost` 14% over its 2% tolerance on the cab:200 case.
-    // Floors are kept in preference to columns because vertical rhythm is what reads as storeys.
-    // ── HOW WIDE THE GLAZING IS ALLOWED TO BE, PER SIDE ────────────────────
-    //
-    // 0.75 for the grid and 0.76 for the ribbon are the numbers that have always shipped; the
-    // reservation above only ever narrows them, and on a building with no corner fitting both
-    // `resL` and `resR` are `Infinity`, so this is the identical band to the character.
+    // ⚠ The grid is budgeted (`winMax`), keeping floors over columns: storeys are what read.
+    // Glazing reaches 0.75 per side (0.76 for the ribbon), narrowed only by a corner reservation.
     const gl = Math.min(0.75, resL), gr = Math.min(0.75, resR);
-    // ⚠ THE COLUMN COUNT IS DERIVED FROM THE BAND, NOT FROM THE WALL, or a narrowed band keeps the
-    // same number of columns and the panes crowd together instead of the row getting shorter.
-    // At the full 1.5 this is `round(main.hw / pitch)` exactly, which is what it was.
+    // ⚠ Columns come off the band, not the wall, so a narrowed band gets fewer panes, not crowded ones.
     const cols0 = clamp(Math.round((main.hw * (gl + gr)) / (1.5 * (rich ? COL_PITCH_RICH : 0.13))), 1, rich ? COL_MAX_RICH : COL_MAX);
     const cols = clamp(Math.floor(winMax / floors), 1, cols0);
     const cw = (main.hw * (gl + gr)) / cols;          // leave a pier at each end
-    let litN = 0, litZ = 0;      // how many panes are lit and where their middle is — see below
-    // ⚠ A WINDOW IS TALLER THAN IT IS WIDE, AND THESE WERE SQUARE. `ww` was a flat third of the
-    // column pitch and `wh` is capped by the floor spacing, so at the rich column pitch every pane
-    // in the city came out 0.044 x 0.042 — a tile, not a window, and no amount of framing rescues
-    // that silhouette. The width is derived from the HEIGHT now so the proportion is guaranteed,
-    // and still clamped by the pitch so a narrow building cannot overrun its own piers.
+    let litN = 0, litZ = 0;      // how many panes are lit and where their middle is
+    // A pane's width comes off its height so it's always portrait, clamped by the pitch.
     const wh = Math.min(0.042, wallH / (floors * 2.9)), ww = Math.min(cw * 0.33, wh * 0.68);
-    // ⚠ NOT EVERY WINDOW IS LIT, and this is the cheapest thing on the whole pass. A facade where
-    // every pane carries the same glow reads as a texture swatch rather than as a building with
-    // people in it; the reference dioramas are all lit unevenly and it is most of what makes them
-    // look inhabited. `dRand` is seeded off the tile, so a building keeps the same windows on every
-    // frame — `models:diff` asserts two renders are identical and a flicker would fail it — while
-    // two buildings of the same type on the same street light differently.
-    // ⚠ ONLY THE NIGHT COLOUR VARIES, AND THE FIRST CUT VARIED BOTH. `windowBay` takes `glow` (what
-    // the pane is after dark) and `glass` (what it is by day), and setting the day colour per window
-    // too is wrong twice over: by daylight you cannot tell an occupied room from an empty one, and
-    // the unlit value — a dark shade of the building's own palette — came out near-black on a dark
-    // wall, so the windows read as HOLES punched in the facade rather than as glass. Day glazing is
-    // left at the primitive's own default; only the lamp behind it is a coin toss.
+    // Not every pane is lit. ⚠ Rolls are seeded off the tile, never per frame (`models:diff` asserts
+    // two renders match). ⚠ Only the night `glow` varies; a per-pane day colour read as holes.
     const warm = style === 'front' ? '#bfe4ff' : '#e8d6a8';
     const unlit = '#1b2430';           // a dim cold pane, never the wall colour and never black
-    // ── AND NO TWO ROOMS HAVE THE SAME LAMP IN THEM ──────────────────────────
-    //
-    // The roll above decides WHETHER a pane is lit and there it stopped, so every lit window in
-    // Coldwater was one of exactly TWO colours — the cool one on a shopfront and the warm one on
-    // everything else — which is a texture rather than a building full of people. What the note above
-    // says about an uneven facade applies one step further in: rooms differ because the lamps in them
-    // do, and a tower reads as inhabited when its windows disagree about what colour light is.
-    //
-    // ⚠ DETERMINISTIC, off the same `dRand` stream and the same tile seed, for the reason recorded
-    // above: `models:diff` asserts two renders of a model are identical and anything that moved here
-    // would fail it. This is a fixed property of a pane, not an animation.
-    //
-    // ⚠ AND IT VARIES THE NIGHT COLOUR ONLY, which is the rule the paragraph above already had to
-    // learn the hard way — by daylight you cannot tell an occupied room from an empty one, and a
-    // per-pane day glazing read as holes punched in the wall.
-    //
-    // ⚠ A TINT, NOT A PALETTE. Swapping in unrelated colours makes a street of identical towers look
-    // like a street of identical towers wearing fairy lights; what a real block does is vary in
-    // WARMTH and in BRIGHTNESS around whatever that building's own lamp is. So the base colour keeps
-    // its identity and each room shifts along those two axes — a tungsten table lamp, an overhead a
-    // shade cooler, a room lit by one bulb at the back.
+    // Each lit room tints the building's lamp in warmth and brightness, deterministically per pane.
+    // ⚠ A tint around `warm`, never unrelated colours, which read as fairy lights.
     const paneLit = (k) => {
       const r = parseInt(warm.slice(1, 3), 16), g = parseInt(warm.slice(3, 5), 16), b = parseInt(warm.slice(5, 7), 16);
-      // Two independent draws off the same stream: one for warmth, one for how bright the room is.
       const t = dRand(seed, k * 7 + 3) * 2 - 1;        // -1 cooler … +1 warmer
       const v = 0.72 + dRand(seed, k * 7 + 5) * 0.38;  // a dim back room … a bright one
       const cl = (x) => Math.max(0, Math.min(255, Math.round(x)));
-      // Warmth is a counter-rotation of red against blue, which is what a colour temperature IS —
-      // scaling all three channels together would only ever make a paler or darker version of one
-      // colour, which is the thing this is here to stop.
+      // Warmth moves red against blue, as colour temperature does.
       return 'rgb(' + cl((r + t * 26) * v) + ',' + cl((g + t * 4) * v) + ',' + cl((b - t * 34) * v) + ')';
     };
     // ── A RIBBON, NOT A GRID, FOR THE SHOPFRONT SET ─────────────────────────
-    //
-    // Voltage's own authoring note already prescribes this and the kit was doing the opposite:
-    // "ONE continuous glazed band, divided by mullions rather than punched into separate windows".
-    // Three of the eight reference boards glow in big flat rectangles rather than in grids of
-    // little ones, and it is the cheaper of the two by a wide margin — one bay with five mullions
-    // is eleven faces where five punched bays are forty, and it lights a far bigger area.
-    //
-    // ⚠ AND IT IS THE ANSWER TO WHAT PHASE 2 MEASURED. Raising the grid alone took the registry to
-    // 35,478 faces and moved 0.77% of a close cab frame, because the wall texture is already
-    // drawing a window grid at that range. A ribbon is not competing with the texture — it is a
-    // different shape from anything `FACADE_MAT` can paint.
-    //
-    // ⚠ THE LIT ROLL MOVES FROM THE PANE TO THE FLOOR, and that is a change of look rather than a
-    // loss of one. A grid reads as inhabited because some panes are dark; a ribbon reads that way
-    // because some FLOORS are, which is what an office tower actually looks like after dark and
-    // what every one of these boards shows. `litN` still counts rooms rather than parts, so the
-    // facade wash below is unchanged in strength.
-    //
-    // ⚠ RICH LIST ONLY, and it has to be: `bars` is mesh-only, so on the 2-D painter a ribbon
-    // would be one undivided glowing slab with no mullions at all.
+    // One mullioned band per floor: far fewer faces than punched bays, and a shape the wall texture
+    // can't paint. Lit per floor; `litN` still counts rooms so the wash is unchanged.
+    // ⚠ Rich list only: `bars` is mesh-only, so on the painter it'd be an undivided slab.
     const ribbon = rich && style === 'front' && !period;
     for (let f = 0; f < floors; f++) {
       const z = main.z0 + wallH * ((f + 0.62) / floors);
       if (z + wh > main.z1 - 0.02) continue;
       if (ribbon) {
-        // A ribbon reaches a hair further than the grid's piers do, and it is re-centred when only
-        // one corner is reserved — a band that kept the middle of the wall would run under the
-        // sign on one side and leave a bare pier on the other.
+        // Re-centred when only one corner is reserved.
         const rl = Math.min(0.76, resL), rr = Math.min(0.76, resR);
-        // ⚠ A BAND THAT WOULD CROSS THE AUTHOR'S OWN WINDOW IS SKIPPED, not narrowed: a ribbon
-        // spans the frontage by definition, so there is nothing to trim it to.
-        // ⚠ AND THE SKIP COMES BEFORE THE LIT ROLL, or a band nobody can see still tells
-        // `facadeGlow` how many rooms are occupied and the wash carries light off a wall that has
-        // none. Same reason `litN` counts rooms rather than parts.
+        // ⚠ A band crossing the author's window is skipped, before the lit roll, so it adds no wash.
         const rcx = main.cx + (rr - rl) * main.hw * 0.5, rhalf = main.hw * (rl + rr) * 0.5;
         if (!clearOfAuthor(fy, rcx - rhalf, rcx + rhalf, z - wh, z + wh)) continue;
         const lit = dRand(seed, f * 11 + 1) > 0.34;
         if (lit) { litN += cols; litZ += z * cols; }
         pushWin({ kind: 'windowBay', cx: A(rcx), cy: A(fy), z: A(z),
-          // ⚠ OFF `wh` AND NOT `min(ww, wh)`: a ribbon is a band the width of the facade, so the
-          // grid's pane width is nothing to do with it — and narrowing `ww` to make the GRID's
-          // panes portrait would otherwise have quietly made every ribbon's reveal shallower.
+          // Reveal depth off `wh`, never `min(ww, wh)`: the grid's pane width isn't the ribbon's.
           half: A(rhalf), hh: A(wh), depth: A(wh * 0.34), pal: wpal,
           bars: clamp(cols0 + 1, 2, 6), transom: 0.72, glow: lit ? paneLit(f * 11 + 1) : unlit });
         continue;
@@ -1349,60 +627,28 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
         if (!clearOfAuthor(fy, x - ww, x + ww, z - wh, z + wh)) continue;   // the author's own window keeps its patch of wall
         const lit = dRand(seed, f * 11 + i * 3 + 1) > 0.34;
         if (lit) { litN++; litZ += z; }
-        // ⚠ A MULLION AND A TRANSOM ARE WHAT MAKE IT A SASH RATHER THAN A HOLE, and the grid had
-        // neither: `bars` was switched OFF above two columns, which at the rich pitch is almost
-        // every building, and no branch here has ever set a transom at all. The Embassy's authored
-        // bays carry both (`bars: 1, transom: 0.3` on its guest floors) and that is most of why its
-        // windows read as windows.
-        // ⚠ RICH LIST ONLY, WHICH IS THE SAME BARGAIN `bars` WAS ALREADY STRUCK ON. A mullion is
-        // mesh-only inside the painter, so setting it costs the 2-D renderer nothing — but a
-        // TRANSOM is not gated in there (an authored bay draws one on the fallback, and must go on
-        // doing so), so asking for one unconditionally would spend a quad per window per frame on
-        // the weakest machine we support. The lean list stays exactly the renderer it was.
+        // A mullion and transom make it a sash. ⚠ Transom on the rich list only: the painter draws
+        // transoms (authored bays need them), so the lean list would pay a quad per window.
         pushWin({ kind: 'windowBay', cx: A(x), cy: A(fy), z: A(z), half: A(ww), hh: A(wh),
           depth: A(Math.min(ww, wh) * 0.3), pal: wpal,
           bars: rich ? 1 : (cols > 2 ? 0 : 1), transom: rich ? 0.3 : undefined,
           glow: lit ? paneLit(f * 11 + i * 3 + 1) : unlit });
       }
     }
-    // ── AND WHAT ALL THOSE LIT ROOMS THROW ──────────────────────────────────
-    //
-    // One light for the whole grid, at the centre of the panes that are actually lit — see the ⚠ on
-    // `facadeGlow`. Its colour is the same `warm` the panes burn, so a bar's magenta frontage
-    // washes magenta and an office's cold white washes white, with nothing authored for either.
-    //
-    // ⚠ ITS SIZE COMES FROM HOW MANY ARE LIT, NOT FROM HOW BIG THE BUILDING IS. A tower with two
-    // rooms occupied should throw about as much light as a shop with two, and scaling on the mass
-    // would make an empty tower the brightest thing on the street.
+    // One wash for the lit rooms, at their centre, in the panes' own colour. Sized by how many are
+    // lit, never by the mass, or an empty tower is the brightest thing on the street.
     if (litN > 0) {
       push({ kind: 'facadeGlow', cx: A(main.cx), cy: A(fy), z: A(litZ / litN),
-        // ⚠ PULLED BACK ON THE EYE, from a 0.14 ceiling and a 0.16+0.02n alpha clamped at 0.42.
-        // Reported from a live cockpit as "the wash effect is too dramatic", which is the judgement
-        // this number was always waiting for — the note below says it is free to be whatever looks
-        // right, because `WASH_SLOTS` and not the brightness is what stops a wash evicting a sign.
-        // This is the broadest light in the vocabulary: it covers a whole facade rather than a
-        // patch of one, so it is the one that reads as the city being lit by something other than
-        // its own signs.
+        // Tuned by eye; `WASH_SLOTS`, not brightness, stops a wash evicting the neon.
         s: A(clamp(0.04 + litN * 0.009, 0.04, 0.10)),
-        // Dimmer than the panes themselves, because a room seen through glass throws a fraction of
-        // what its own window shows. `pickLights` also reads this colour for REACH, so the number
-        // sets how far the wash carries as well as how bright it is — which is the right coupling.
-        //
-        // ⚠ IT IS NOT WHAT KEEPS THE WASHES FROM EVICTING THE NEON. That was tried: at full strength
-        // the aeroplane seat went 13.7% of wall pixels moved to 11.5% — more lights, less light —
-        // and dimmed far enough to stop evicting anything it contributed exactly nothing, 13.7%
-        // again. There is no brightness in between, because the problem is the ranking rather than
-        // the value. `WASH_SLOTS` is the fix; this number is free to be whatever looks right.
+        // Dimmer than the panes. `pickLights` reads this colour for reach too.
         rgb: hexRgb(warm).map((v) => Math.round(v * 0.7)).join(','),
         a: clamp(0.10 + litN * 0.012, 0.10, 0.26) });
     }
   } else if (wants('wall') && style === 'works' && wallH > 0.18 && main.hw > 0.12) {
     // A works gets louvres where a block gets windows: the same rhythm, doing a different job.
     const n = clamp(Math.round(main.hw / 0.16), 1, 2);
-    // ⚠ THE BANK IS SKIPPED RATHER THAN SQUEEZED when the paint has taken the wall. On a
-    // single-storey shed there is not room for a name and a louvre bank above the shopfront band,
-    // and a bank shoved down into the roller door is worse than no bank -- the ground section
-    // already puts a smaller one beside the personnel door, which is where extract on a shed is.
+    // ⚠ Skipped, never squeezed into the roller door, when the painted name leaves no room.
     if (louvZ - louvHH > main.z0 + wallH * 0.1) for (let i = 0; i < n; i++) {
       const x = main.cx + (n === 1 ? 0 : (i ? 1 : -1) * main.hw * 0.44);
       push({ kind: 'louvreBank', drip: 1, cx: A(x), cy: A(fy), z: A(louvZ),
@@ -1410,14 +656,11 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     }
   }
   // The riser: ducting on a works, a downpipe on anything else. Always on a flank, never centred.
-  // ⚠ The flank is chosen OUTSIDE the `wants` guard, because the stair below reads it to take the
-  // other one — and a building whose riser was suppressed still needs the answer to that question.
+  // ⚠ Chosen outside the `wants` guard: the stair reads it to take the other flank.
   const riserX = main.cx + main.hw * (R(3) > 0.5 ? 0.82 : -0.82);
   if (wants('riser')) {
     const rx = riserX;
-    // ⚠ A PART THAT WOULD CROSS AN AUTHORED PIER IS DROPPED, NOT MOVED. `riserX` is shared with the
-    // stair, so moving it here would move the stair too; the flank service kit in 1d still plumbs
-    // the building.
+    // ⚠ A part crossing an authored pier is dropped, never moved (`riserX` is shared with the stair).
     if (style === 'works') {
       const r = clamp(main.hw * 0.09, 0.012, 0.03), run = -Math.sign(rx - main.cx) * main.hw * 0.5;
       const z0 = main.z0 + wallH * 0.08, z1 = main.z1 - wallH * 0.12;
@@ -1437,50 +680,23 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   }
 
   // ── 1b. THE STAIR ─────────────────────────────────────────────────────────
-  // A zigzag fire escape is the most characterful thing in the whole vocabulary — a blank wall and a
-  // wall with one of these read as two different neighbourhoods — and until now the kit never
-  // emitted one, so it reached the two arms that hand-author it and nothing else. It is also the
-  // dearest part on the list at ~14 quads, so it goes on ONE flank of ONE building, never repeated.
-  //
-  // ⚠ IT TAKES THE FLANK THE RISER DID NOT. Both want a side of the facade, and both defaulting to
-  // the same coin flip put a downpipe through the middle of a staircase on about half of them.
+  // A zigzag fire escape (~14 quads), on one flank of one building.
+  // ⚠ It takes the flank the riser didn't.
   const stairSide = -Math.sign(riserX - main.cx) || 1;
-  // ── ⚠ AND IT GOES ON A FLANK, NOT ACROSS THE SHOPFRONT ──────────────────────────────────────
-  //
-  // Every wall part above this point is placed on `fy`, the FRONT face, because until `face`
-  // worked that was the only plane the kit had. For a downpipe or a vent that is merely arbitrary.
-  // For a zigzag fire escape it is wrong, and it is the one thing about the derived kit anybody has
-  // ever reported: fourteen quads of landing and railing bolted across the street elevation reads
-  // as a CAGE over the frontage — over a shopfront, over a hotel entrance, and (because the kit
-  // reaches every model without an authored `stair`) over the Meridian, which is the most
-  // deliberately composed facade in Coldwater.
-  //
-  // A fire escape belongs on a flank or a back. The kit already knows how to reach one — `face: 'x'`
-  // turns the local frame, which is how section 1d hangs the whole service kit on the sides — so
-  // this is a placement change and not a new mechanism. Nothing is lost: the part still draws, the
-  // silhouette still breaks, and a truck turning the corner still sees it.
-  //
-  // ⚠ THE BALCONY BRANCH DOES NOT MOVE, and that is the distinction rather than an oversight. A
-  // balcony stack is not a cage: it is where somebody steps out of a window, it belongs on the
-  // elevation with the windows in it, and section 1c deliberately puts a whole grid of them across
-  // the front of a residential block for exactly that reason.
-  //
-  // ⚠ A LOPSIDED MASS FALLS BACK TO BALCONIES RATHER THAN TO THE FRONT. `faceY` pushes outward by
-  // the sign of the plane and assumes a roughly centred building — invisible at 0.006 tiles on a
-  // front or back, and capable of putting a flank part on the wrong side of an off-centre box. Same
-  // guard section 1d states; the difference is that declining here has somewhere good to go.
+  // ⚠ A fire escape goes on a flank (`face: 'x'`), never across the front, where it reads as a cage.
+  // Balconies stay on the front with the windows. A lopsided mass (flank plane on the wrong side of
+  // the origin, as in 1d) falls back to balconies.
   const stairX = main.cx + stairSide * main.hw;
   const flankOk = Math.abs(stairX) > 0.02 && Math.sign(stairX) === stairSide;
   if (wants('stair') && wallH > 0.26 && main.hw > 0.14) {
     if (flankOk && (style === 'works' || dRand(seed, 61) > 0.45)) {
-      // The rotated frame puts `cy` on the model's x and `cx` along negative y — see section 1d.
-      // `half` is measured along the FLANK, so it comes off the depth rather than the width.
+      // Rotated frame (see 1d); `half` runs along the flank, so it comes off the depth.
       push({ kind: 'fireEscape', face: 'x', cx: A(-(main.cy - main.fd * 0.2)), cy: A(stairX),
         z0: A(main.z0 + wallH * 0.18), z1: A(main.z1 - wallH * 0.1),
         half: A(Math.min(main.fd * 0.22, 0.075)), out: A(clamp(main.hw * 0.14, 0.025, 0.05)),
         flights: clamp(Math.round(wallH / 0.2), 2, 4), pal });
     } else {
-      // A balcony stack instead — the same wall doing the same job for somebody who lives there.
+      // A balcony stack instead.
       const n = clamp(Math.round(wallH / 0.22), 2, 3);
       for (let i = 0; i < n; i++) {
         push({ kind: 'balcony', cx: A(main.cx + stairSide * main.hw * 0.55), cy: A(fy),
@@ -1489,27 +705,13 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
           rail: A(Math.min(wallH * 0.05, 0.022)), pal });
       }
     }
-    // ── 1c. AND ON THE MESH, THE REST OF THE FACADE GETS ONE TOO ────────────
-    //
-    // The section above puts a stair OR a stack on ONE flank, because on the painter that is what
-    // fourteen quads cost. The mesh has the budget for the thing the reference boards are actually
-    // made of: a residential block wears balconies across its whole front, on every floor, and it
-    // is the single most recognisable silhouette in the vocabulary.
-    //
-    // ⚠ THIS IS THE SPEND THAT SHOWS, AND THE WINDOW GRID IS THE ONE THAT DOES NOT. A balcony
-    // projects off the wall, so it breaks the silhouette, catches the key light on its slab and
-    // shades the wall under it — it reads from down the street. A window bay is flat on a facade
-    // that already has a window grid baked into its texture, so past a few tiles it is a texture
-    // detail competing with a texture. Same cost per part, completely different return.
-    //
-    // ⚠ AND IT TAKES THE COLUMNS THE WINDOWS ARE ON, not a rhythm of its own. A balcony is where
-    // somebody steps OUT of a window; on an independent spacing the two read as two unrelated grids
-    // on one wall, which is worse than either alone.
+    // ── 1c. BALCONIES ACROSS A RESIDENTIAL FRONT (MESH ONLY) ────────────
+    // A balcony breaks the silhouette, which is a better spend than more flat windows.
+    // ⚠ It follows the window band, or the two read as unrelated grids.
     if (rich && style === 'block' && wallH > 0.3 && main.hw > 0.16) {
       const bCols = clamp(Math.round(main.hw / 0.16), 1, 3);
       const bFloors = clamp(Math.round(wallH / 0.26), 2, 4);
-      // The band the windows were given — see the ⚠ on `gl`/`gr`. A balcony is where somebody steps
-      // OUT of a window, so it narrows with them or the outer one ends up under the corner blade.
+      // The windows' band, so the outer balcony doesn't land under the corner blade.
       const bl = Math.min(0.75, resL), br = Math.min(0.75, resR);
       const cw = (main.hw * (bl + br)) / bCols;
       for (let f = 0; f < bFloors; f++) {
@@ -1527,35 +729,17 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     }
   }
 
-  // ── 1d. AND THE OTHER THREE WALLS ─────────────────────────────────────────
-  //
-  // Everything above this point is placed on ONE plane — `fy`, the front face of the biggest box —
-  // because until `face` worked there was nowhere else to put it. So a building in Coldwater has a
-  // facade and three blank elevations, and a truck turning a corner drives past the back of a set.
-  //
-  // ⚠ WHAT GOES ON A FLANK HERE IS SERVICE, NOT FACADE. The windows come last, in section 7
-  // (`glazeWalls`), so they can step round all of this; this section used to say a flank needed
-  // none because the texture painted a grid there, which is the grid section 7 replaces. No awning, no doorway, no name
-  // board, no pavement props either, and those for a different reason: every one of them is derived
-  // from the ENTRANCE, and a building has one of those. What a flank has is the plumbing — a riser,
-  // a cable drop, a condenser, an extract grille, a conduit run — which is exactly what the dense
-  // grey reference facades are made of and exactly what a texture cannot express.
-  //
-  // ⚠ THE SIGN OF `cy` IS WHICH SIDE, so a flank part is only placed when its plane is actually on
-  // the side of the model origin that its sign says. `faceY` pushes outward by that sign and has
-  // always assumed a roughly centred building; for the front and back that assumption is invisible
-  // at 0.006 tiles, but a flank kit chooses its own planes and can put one on the wrong side of a
-  // lopsided mass. Cheaper to decline than to get it subtly wrong.
-  //
-  // Rich list only — this is the whole point of having two budgets.
+  // ── 1d. THE OTHER THREE WALLS ─────────────────────────────────────────
+  // Service on the flanks and back (riser, cable drop, condenser, grille, conduit); the windows come
+  // later in section 7 (`glazeWalls`) and step round these. Rich list only.
+  // ⚠ Nothing derived from the entrance (awning, door, board, kerb props) goes here.
+  // ⚠ A flank part is placed only when its plane is on the side its sign says; `faceY` assumes a
+  // centred building, so a lopsided mass declines.
   const fxPos = main.cx + main.hw, fxNeg = main.cx - main.hw;
-  // ⚠ CHOSEN OUTSIDE THE GUARD, exactly as `riserX` is and for the same reason: the gable-end ad
-  // panel in section 4 reads it to take the OTHER flank, and a building whose service kit was
-  // suppressed still needs the answer to that question. Two copies of this expression would drift.
-  const svcSide = dRand(seed, 201) > 0.5 ? 1 : -1;        // ⚠ salt 200+ — the earlier sections use 3…74
+  // ⚠ Chosen outside the guard, as `riserX` is: section 4's gable ad takes the other flank.
+  const svcSide = dRand(seed, 201) > 0.5 ? 1 : -1;        // ⚠ salt 200+; the earlier sections use 3…74
   if (rich && wants('riser') && fxPos > 0.02 && fxNeg < -0.02 && wallH > 0.18) {
-    // The rotated frame puts a part's `cy` along the model's x and its `cx` along negative y — see
-    // the ⚠ on `face` in detailLayer. So `cy` is which flank, and `cx` is where along it.
+    // Rotated frame (see `face` in detailLayer): `cy` is which flank, `cx` is where along it.
     const along = (t) => A(-(main.cy + t));
     const svcX = svcSide > 0 ? fxPos : fxNeg;
     const othX = svcSide > 0 ? fxNeg : fxPos;
@@ -1564,16 +748,15 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     push({ kind: style === 'works' ? 'ductRun' : 'pipe', face: 'x', cx: along(main.fd * 0.35), cy: A(svcX),
       z0: A(main.z0 + wallH * 0.04), z1: A(main.z1 - wallH * 0.08),
       r: A(style === 'works' ? Math.max(r, 0.012) : r), run: A(main.fd * 0.5), pal: 'infra' });
-    // ⚠ WITH THE FLANKS GLAZED (`glazeWalls`) A RUN ACROSS THE WALL GOES BETWEEN TWO ROWS OF
-    // WINDOWS, not at a fraction of the wall: at 0.34 the conduit crossed the second floor's glass
-    // and the whole row was dropped to make room for it. `gapAt` is the middle of the nearest gap.
+    // ⚠ With the flanks glazed, a run across the wall goes between window rows (`gapAt`), or the
+    // row it crosses is dropped.
     const glz = RENDER_TUNE.glazeAll && floors > 1;
     const gapAt = (t) => {
       if (!glz) return main.z0 + wallH * t;
       const f = clamp(Math.round(t * floors - 1.12), 0, floors - 2);
       return main.z0 + wallH * (f + 1.12) / floors;
     };
-    // The sag hangs below the line, so in a gap it is held to a third of a storey's spare wall.
+    // In a gap, the sag is held to a third of a storey's spare wall.
     const gapSag = glz ? Math.min(wallH * 0.04, Math.max(0.004, (wallH / floors - 0.11) * 0.33)) : wallH * 0.04;
     push({ kind: 'cableRun', face: 'x', cx: along(-main.fd * 0.1), cy: A(svcX + Math.sign(svcX) * 0.004),
       z: A(glz ? gapAt(0.82) + gapSag * 0.5 : main.z1 - wallH * 0.18), half: A(main.fd * 0.55), sag: A(gapSag), r: A(0.005), pal: 'infra' });
@@ -1599,90 +782,29 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   }
 
   // ── 2. THE ROOF ───────────────────────────────────────────────────────────
-  // From the air a flat roof is the biggest surface a building has and usually the emptiest, and
-  // this game spends half its time looking down. The deck is the TOP box's own roof, so the plant
-  // stands on it rather than hovering over the tallest thing on the tile.
-  // ⚠ THE ROOF IS THE ONE PLACE THIS PASS CAN MAKE THE CITY WORSE, AND THE FIRST CUT DID. Every
-  // other section is bounded by the wall it sits on, so it varies with the building whether it means
-  // to or not. A roof is a bare deck, so a fixed recipe puts the SAME mast in the SAME corner of
-  // every building — and swept over 124 models that read as more uniform than the bare decks it
-  // replaced, which is the opposite of the point. Presence, corner and size are all seeded off the
-  // tile: `dRand` is deterministic (`models:diff` asserts two renders match), so a building keeps
-  // its own skyline for ever while its neighbour gets a different one.
-  // ⚠ ROOF PLANT STANDS ON A REAL DECK, NEVER ON THE TALLEST BOX. A shed's wall box is the tallest
-  // thing in `cand` and its lid is a barrel — putting a tank on it floats the tank inside the curve.
-  // `deck` is empty for a building with no flat roof at all, and then there is simply no roof plant,
-  // which is the right answer rather than a fallback.
+  // ⚠ Presence, corner and size are all seeded off the tile; a fixed recipe makes every roof the same.
+  // ⚠ Roof plant stands on a real deck, never the tallest box (a barrel-roofed shed's wall box). No
+  // deck, no roof plant.
   const roofOn = deck.length ? deck[0] : null;
-  const deckZ = roofOn ? roofOn.z1 : 0;   // ⚠ the DECK own top, not the tallest box in the tile
+  const deckZ = roofOn ? roofOn.z1 : 0;   // ⚠ the deck's own top, not the tallest box in the tile
   const dhw = roofOn ? roofOn.hw : 0;
-  // ── ⚠ A BUILDING SAYS ITS OWN NAME ONCE, AND THIS IS WHERE IT IS DECIDED WHO SAYS IT ─────────
-  //
-  // Three sections letter `$name`: the board over the door (3b), the works' painted elevation (3c)
-  // and the rooftop hoarding (4). 3b and 3c are mutually exclusive by construction, and the
-  // hoarding was exclusive with NEITHER — it gates on `signsItself`, the question "does this TRADE
-  // advertise", never on whether anything has actually put the name up. So a shop was handed a lit
-  // board on its roof saying the same words as the plate over its own door, and a shop whose ARM
-  // letters its fascia got one too: TINE & TEMPER, twice, a metre apart, which is what the street
-  // reads as. `KIT_DECLINE` already carries a `helpings: ['signRoof']` entry written for exactly
-  // this one building, and the note there states the principle — "nobody puts a hoarding on the
-  // roof of a single-storey shop to repeat what is written over the door". 66 arms letter
-  // themselves; a per-building table was never going to reach them.
-  //
-  // ⚠ THE ROOF WINS THE NAME, NOT THE DOOR, and that is a decision rather than an ordering
-  // accident. A hoarding stands against the sky and is read from down the street; a door plate is
-  // unreadable from the far kerb. So the hoarding is ROLLED FIRST — which is the only reason its
-  // gate is hoisted up here, two hundred lines above where it is drawn — and the board underneath
-  // then knows whether the name is spoken for.
-  //
-  // ⚠ AND NEITHER IS DELETED, THEY ARE RE-LETTERED. Folding `signRoof` into `sign` is the tidier
-  // fix and it is the one SECTION_OF's own ⚠ argues against at length: a name band across a
-  // shopfront is not a claim to have used the roof, and a gantry gated on the wall is excluded
-  // from exactly the neon frontages a city like this puts one on. What the loser of the coin toss
-  // carries instead is the trade's MARK — a martini, a fork, a crane hook — which says what the
-  // building is without repeating what it is called, and is what half the reference boards show.
-  // A fitting with no mark to carry is declined rather than left blank: `signGantry`'s own guard
-  // already refuses an unlettered board, because "a blank board reads as one whose paint has come
-  // off".
+  // ── ⚠ A BUILDING SAYS ITS OWN NAME ONCE ─────────
+  // The door board (3b), painted works name (3c) and roof hoarding (4) all letter `$name`. The roof
+  // wins (it's read from down the street), so it's rolled here first. The loser carries the trade's
+  // mark instead, or is declined if there's none. ⚠ Don't fold `signRoof` into `sign` (see SECTION_OF).
   const armNamed = have.has('sign') || paints;
   const roofSigns = rich && !period && wants('signRoof') && !!roofOn && dhw > 0.1
     && signsItself(m, style) && R(301) > gateFor(style === 'front' ? 0.22 : 0.40);
-  // ── ⚠ AND WHETHER THE HOARDING CAN ACTUALLY STAND, ASKED HERE RATHER THAN WHERE IT IS BUILT ──
-  //
-  // Section 4 sizes the hoarding, then looks for a lateral offset that clears the aerial masts the
-  // ARM has already raised on that deck, and declines outright when none of the three candidates
-  // does — with a ⚠ saying why that is the right call: "a hoarding with an aerial through it is
-  // worse than no hoarding, and this part is the one the kit can decline most cheaply".
-  //
-  // It was the cheapest part to decline while the board over the door was still there to fall back
-  // on. It stopped being, the moment `roofTakesName` was hoisted up here so 3b could stand down —
-  // because the roof then claims the name two hundred lines before it finds out it has nowhere to
-  // put it, and 3b has already skipped the plate. The building ends up with its name on NOTHING.
-  //
-  // Measured over the registry: `type:office`, `type:corporate_office`, `type:asc_spire` and
-  // `type:asc_shrine` each carry a lettered board in the lean kit and nothing at all in the rich
-  // one — and the rich kit is what GLASS 2 builds every mesh from, so that is the default renderer
-  // on four of the most-instanced models in Coldwater. None of them is near the budget ceiling
-  // (47, 47, 25 and 55 parts against 56), which is what says the cause is this and not `spent`.
-  //
-  // So the question moves to where the answer is used. The roll and the clearance test are HOISTED
-  // rather than copied — section 4 reads these two — because the same roll expressed twice is the
-  // drift this file warns about at `riserX`, and here the two copies would have to agree about
-  // which sign the building is wearing.
+  // ⚠ Whether the hoarding can stand clear of the arm's masts is asked here, before the roof claims
+  // the name, or a declined hoarding leaves the building nameless. Section 4 reads these; never copy them.
   const gantryNudge = dhw * 0.34;
   const gantryCx0 = roofOn ? roofOn.cx + dhw * (R(303) - 0.5) * 0.34 : 0;
-  // ⚠ SIZED OFF THE DECK AND CLAMPED AT BOTH ENDS, and a LOGO BOARD IS NARROWER — a mark is square
-  // and a name is a ribbon. Both were section 4's; they are a function now because the name width
-  // has to be known up here to ask the question this whole note is about.
+  // Sized off the deck; a logo board (square mark) is narrower than a name board.
   const gantryW = (logo) => clamp(dhw * (logo ? 0.52 : 0.82), logo ? 0.045 : 0.055, logo ? 0.15 : 0.24);
-  // ⚠ THE TEST IS A LATERAL GAP AND NOT A BOX INTERSECTION, because a mast is a LINE with no
-  // thickness — it is drawn as a 1.1-pixel stroke — so "does the board's span contain the mast's x"
-  // is the whole question, and the z ranges always overlap (both start at the deck).
+  // A lateral gap test: a mast is a line, and both start at the deck.
   const gantryAt = (gw) => [gantryCx0, gantryCx0 + gantryNudge, gantryCx0 - gantryNudge]
     .find((cx) => spars.every((s) => Math.abs(s.cx - cx) > gw * 1.05 || s.z1 < deckZ + 0.005));
-  // ⚠ AT THE NAME WIDTH, WHICH IS THE WIDER OF THE TWO. If the name hoarding will not fit, the roof
-  // does not claim the name and the board over the door keeps it — and section 4 may still try the
-  // narrower LOGO board, which is a bonus rather than a substitute and may decline on its own.
+  // Tested at the wider name width; if it won't fit, the door keeps the name.
   const roofTakesName = roofSigns && !armNamed && gantryAt(gantryW(false)) != null;
   if (wants('roof') && roofOn && dhw > 0.08) {
     // Four corners, shuffled per building, so two neighbours do not agree about where the plant is.
@@ -1694,17 +816,14 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     };
     const big = dhw > 0.15;
     if (style === 'works') {
-      // A tank is the landmark and only the bigger works get one; the rest get the stack alone,
-      // which is what stops every industrial roof carrying the same two objects.
+      // Only the bigger works get a tank.
       if (big && R(31) > 0.35) {
         const t = q(0, 0.06, 0.04);
         push({ kind: 'tankFrame', cx: A(t.x), cy: A(t.y), z: A(deckZ), r: A(dhw * (0.24 + R(33) * 0.1)),
           hh: A(dhw * (0.38 + R(35) * 0.16)), rise: A(dhw * (0.26 + R(37) * 0.18)), pal });
       }
       const s = q(2, -0.05, -0.03);
-      // ⚠ Toned from `dhw * 0.85`. At that height a stack on a small roof is a mast half the height
-      // of its own building, and swept across the works set it read as a gallows rather than as a
-      // flue — the single worst-looking thing the first cut produced.
+      // ⚠ Kept short: a taller stack on a small roof reads as a gallows.
       push({ kind: 'stack', cx: A(s.x), cy: A(s.y), z: A(deckZ), r: A(clamp(dhw * 0.13, 0.014, 0.036)),
         hh: A(dhw * (0.34 + R(39) * 0.22)), pal });
     } else {
@@ -1719,51 +838,23 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
           hh: A(dhw * (0.34 + R(49) * 0.26)), n: 3 + Math.round(R(7) * 4), pal });
       }
     }
-    // ── THE STAIR HEAD, ON EVERY DECK THAT CAN HOLD ONE ───────────────────────────────────────
-    //
-    // ⚠ THE ONE ROOF PART THAT IS NOT ROLLED, AND THAT IS THE DECISION. Everything else up here is
-    // a coin toss precisely because a fixed recipe put the same mast in the same corner of every
-    // building — the trap this section's own ⚠ opens with. A bulkhead is the exception because it
-    // is not decoration: something has to bring the stairs up, so a deck WITHOUT one is the odd
-    // case rather than the plain one, and rolling it would leave half the city still reading as a
-    // lid. What varies is where it stands and how big it is, which is what stops it being a recipe.
-    //
-    // ⚠ IT TAKES THE MIDDLE, NOT A CORNER. `q()` hands out the four corners and all of them are
-    // spoken for — the landmark, the aerials and the plant rank — and a stair rises through the
-    // middle of a building because that is where the core is. It also has to stand clear of the
-    // parapet, or from a shallow angle the two silhouettes merge into one thicker lid, which is
-    // the read this part exists to break.
-    // ⚠ AND IT IS GATED ON HOW FAR UP THE DECK IS, NEVER ON HOW WIDE IT IS. A stair head exists
-    // because somebody has to climb to the roof, and nobody builds a stair enclosure to reach a
-    // shop's own lid — a single-storey frontage takes a ladder, if it takes anything. Gated on
-    // `dhw` alone, the widest decks in the city are exactly the single-storey sheds and shops, so
-    // the part landed on the buildings it is most wrong on and skipped the towers. Two and a bit
-    // storeys, in the 0.17 this section already works in.
+    // ── THE STAIR HEAD ───────────────────────────────────────
+    // ⚠ Not rolled (something has to bring the stairs up); only its spot and size vary. It takes the
+    // middle, clear of the parapet, since the corners are spoken for.
+    // ⚠ Gated on deck height (over ~2.2 storeys), never width: the widest decks are one-storey sheds.
     const upFromStreet = deckZ - cand[cand.length - 1].z0;
     if (dhw > 0.1 && upFromStreet > 0.17 * 2.2) {
       const bkw = dhw * (0.17 + R(63) * 0.07);
       push({ kind: 'roofBulkhead',
         cx: A(roofOn.cx + dhw * (R(65) - 0.5) * 0.5), cy: A(roofOn.cy + dhw * (R(67) - 0.5) * 0.5),
         z: A(deckZ), w: A(bkw), d: A(bkw * (0.72 + R(69) * 0.4)),
-        // ⚠ A STAIR HEAD IS A ROOM, SO ITS HEIGHT IS A STOREY AND NOT A FRACTION OF THE DECK. The
-        // rest of this section scales off `dhw` because a tank on a big roof IS bigger; a door is
-        // the same height on a shed and on a tower. Same argument `GF` makes for the ground floor,
-        // and the same shape of fix: a fraction of the deck, clamped by an absolute.
+        // ⚠ A room, so clamped to about a storey whatever the deck size.
         hh: A(clamp(dhw * 0.28, 0.05, 0.088)), pal });
     }
-    // ── AND THE PLANT READS AS PLANT, WHICH MEANS MORE THAN ONE OF IT ─────────────────────────
-    //
-    // ⚠ ONE CONDENSER ON A DECK IS A CRATE. Air handling is installed in RANKS — a row of identical
-    // units on a common frame, all facing the same way, because that is how the pipework runs — and
-    // a rank is the thing that reads as machinery at a range where a single box reads as litter. It
-    // is also nearly free: the units are already the smallest part in the kit, and three of them in
-    // a line cost what the old pair cost plus one.
-    // ⚠ THEY SHARE A SIZE, WHICH IS WHAT MAKES IT A RANK. Jittering each one reads as rubbish
-    // somebody left on a roof; identical units at an even pitch read as an installation.
+    // A rank of condensers; one alone reads as a crate. ⚠ They share a size and pitch, or it's litter.
     const rank = 2 + Math.round(R(51) * (big ? 2 : 1));
     const acW = dhw * (0.10 + R(53) * 0.04), acH = dhw * (0.09 + R(57) * 0.05);
     const u = q(1, -0.02, 0.02);
-    // Along whichever axis has the room — a rank laid across the short side of a deck runs off it.
     const along = R(59) > 0.5;
     for (let i = 0; i < rank; i++) {
       const o = (i - (rank - 1) / 2) * acW * 2.6;
@@ -1773,56 +864,29 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   }
 
   // ── 3. THE GROUND FLOOR ───────────────────────────────────────────────────
-  //
-  // The one part a player on foot or in a cab actually stands in front of, and the part every one
-  // of the reference dioramas is dominated by: an awning, a lit shopfront, a shutter, a door. The
-  // upper floors are what a building looks like from an aeroplane; this is what it looks like from
-  // the game's commonest camera, which sits at eye height 0.
-  //
-  // ⚠ THE STOREY IS CLAMPED, NOT SCALED. A ground floor is about the same height whoever built it —
-  // it is sized by a door and a person, not by how tall the block above it is — so every dimension
-  // here is `min(a fraction of the base, an absolute)`. Scaling it with the mass gave a thirty-storey
-  // tower a two-storey front door.
+  // ⚠ Clamped, never scaled: a ground floor is sized by a door and a person, not the block above.
   if (wants('ground') && bh > 0.05 && base.hw > 0.1) {
     const dz = base.z0 + GF * 0.52;                 // the middle of that band
     if (style === 'works') {
       // A works meets the street with a vehicle door and a personnel door beside it.
-      // ⚠ `bay` AND A WIDER OPENING, BECAUSE THIS IS THE THING THE FRONTAGE IS FOR. At 0.34 of
-      // the base half-width with no housing and no guides it was a patch of slightly different
-      // wall, indistinguishable at a glance from the louvre bank three of these buildings also
-      // carry. A works frontage is a door big enough to reverse a truck into and some wall around
-      // it, in that order. The personnel door sits at 0.52 with its own half under 0.11, so at 0.4
-      // plus a guide channel the two still clear each other by a fifth of the frontage.
+      // A loading bay is wider (0.4) and still clears the personnel door at 0.52.
       const bay = BAY_TRADE.has(tradeOf(m));
       push({ kind: 'shutter', bay, cx: A(base.cx - base.hw * 0.18), cy: A(by), z: A(dz),
         half: A(base.hw * (bay ? 0.4 : 0.34)), hh: A(GF * 0.46), pal });
-      // ⚠ THE PERSONNEL DOOR STANDS ON THE PAVEMENT. It was centred on the band at `dz`, so its
-      // foot was a sixth of a storey up the wall: a dark slot nobody could walk into. As a `door`
-      // its `z - hh` is the threshold, so it is centred one half-height above the base.
+      // ⚠ A `door`'s `z - hh` is its threshold, so it's centred one half-height above the base.
       push({ kind: 'windowBay', door: 1, cx: A(base.cx + base.hw * 0.52), cy: A(by), z: A(base.z0 + GF * 0.4),
         half: A(Math.min(base.hw * 0.11, 0.035)), hh: A(GF * 0.4), depth: A(0.01), pal: wpal,
         glow: '#d8c88a', glass: '#1c2026' });
       push({ kind: 'louvreBank', drip: 1, cx: A(base.cx + base.hw * 0.8), cy: A(by), z: A(dz + GF * 0.1),
         half: A(Math.min(base.hw * 0.12, 0.04)), hh: A(GF * 0.26), n: 5, pal });
     } else {
-      // A shopfront: a run of glazing under an awning, with the entrance bay left dark beside it.
-      // The awning is the thing that reads first — it is the only horizontal on the whole facade.
+      // A shopfront: glazing under an awning, and a door.
       push({ kind: 'canopy', cx: A(base.cx), cy: A(by), z: A(base.z0 + GF),
         half: A(base.hw * 0.86), out: A(clamp(base.hw * 0.26, 0.03, 0.075)), hh: A(0.014), pal,
         soffit: shadeOf(pal, 0.3), strip: style === 'front' ? '#ffd9a0' : undefined });
       const glow = style === 'front' ? '#cfe6ff' : '#f0d8a0';
-      // ── ONE CONTINUOUS BAND, DIVIDED BY MULLIONS ──────────────────────────
-      //
-      // Voltage's authoring note, applied to the whole city: a modern shopfront is one sheet of
-      // glass with uprights in it, and the kit was building two punched panes with a dark gap
-      // between them, which is a Victorian shop. The band is also fewer parts than the pair it
-      // replaces once the doorway is counted.
-      //
-      // ⚠ THE DOOR STANDS PROUD OF THE GLASS RATHER THAN BEING A HOLE IN IT. A dark bay drawn at
-      // the same plane as the band is a coin toss on the depth buffer — the band's glazing sits at
-      // a higher lift than the door's surround, so the glass would win and the doorway would be
-      // behind its own shopfront. Four thousandths of a tile is nothing to look at and settles it
-      // by geometry, which is the whole point of `FACE_EPS` one layer down.
+      // Rich: one mullioned band. Lean: two panes either side of the door.
+      // ⚠ The door stands 0.004 proud of the band, or the depth buffer puts it behind the glass.
       const out = (by < 0 ? -1 : 1) * 0.004;
       const band = rich;
       if (band) {
@@ -1830,109 +894,42 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
           half: A(Math.min(base.hw * 0.8, 0.27)), hh: A(GF * 0.36), depth: A(0.012), pal: wpal,
           glow, bars: 5, transom: 0.78 });
       } else {
-        // Two panes and a doorway between them, which is what a shop actually is.
         for (const s of [-1, 1]) {
           push({ kind: 'windowBay', cx: A(base.cx + s * base.hw * 0.46), cy: A(by), z: A(dz),
             half: A(Math.min(base.hw * 0.3, 0.1)), hh: A(GF * 0.36), depth: A(0.012), pal: wpal,
             glow, bars: 1 });
         }
       }
-      // The doorway, with a leaf in it, a step and the shop lit behind the glass after dark.
-      // ⚠ IT WAS A DARK BAY WITH NOTHING IN IT, glazed in the wall's own shade "so it read as a
-      // recess, not a light". From the street that is a window reaching the pavement, and the
-      // small-building grade (docs/audits/findings-2026-10-small-buildings.md) scored every
-      // kit-fronted shop down for having no door. `door` draws the leaf, kick plate, push bar and
-      // step; the lobby takes the band's own glow, because it is the same shop behind both.
+      // The door (`door` draws leaf, kick plate, push bar and step); the lobby takes the band's glow.
       push({ kind: 'windowBay', door: 1, cx: A(base.cx), cy: A(band ? by + out : by), z: A(base.z0 + GF * 0.42),
         half: A(Math.min(base.hw * 0.13, 0.045)), hh: A(GF * 0.42), depth: A(0.016), pal: wpal,
         glow, ...(band ? { transom: 0.78 } : {}) });
     }
     // ── 3b. THE NAME ────────────────────────────────────────────────────────
-    // A board over the door, carrying the building's own name. 107 of the 173 arms sign themselves
-    // with nothing at all, and an unsigned building in a city is the thing that most makes it read
-    // as scenery rather than as a place — every one of the reference photographs is covered in
-    // lettering. The 66 that already sign themselves are detected rather than guessed and skipped.
-    //
-    // ⚠ THE LABEL IS `$name`, RESOLVED AT DRAW TIME, AND BAKING THE TEXT IN WOULD BE A REAL BUG.
-    // This list is cached per MODEL, and one model is drawn by many differently-named buildings —
-    // `type:shop` is every shop in Coldwater. A resolved name here would put whichever building was
-    // rendered first onto all of them.
-    //
-    // ⚠ A HORIZONTAL BOARD RATHER THAN A VERTICAL BLADE, for the same reason: the name is not known
-    // when this list is built, so its LENGTH is not known either, and a twelve-character name down a
-    // blade is unreadable while a board just squashes. An author who knows the name can choose.
-    // ⚠ A WORKS DOES NOT PUT ITS NAME OVER THE DOOR, AND IT USED TO. Every industrial building in
-    // the city — refinery, foundry, turbine hall, fabrication shop, container yard — was given a
-    // lettered plate over its personnel door, because this section did not ask what kind of
-    // building it was before signing it. That is not what a plant looks like: a works identifies
-    // itself with a stencilled unit number on a door, a hazard placard and nothing else, and the
-    // name on the gate is on the GATE. Signing all of them is also what made the industrial east
-    // read as a retail street with dirtier walls.
-    //
-    // ⚠ `signWorks` IS THE STATED EXCEPTION AND IT IS A PROPERTY OF THE BUILDING, not a roll. Some
-    // industry does sign itself — a works that sells to the public over a counter, and a landmark
-    // whose name is the reason it is on the map. It is opt-in per model so the default stays
-    // "unsigned", which is what the street wants.
-    // The trade's own hand and mark, if it has one — see SIGN_TRADE. A works building keeps mono
-    // whatever its trade says, because a stencilled number on a plant is the point of it.
+    // A board over the door with the building's name, unless the arm signs itself.
+    // ⚠ The label is `$name`, resolved at draw time: this list is cached per model and shared by
+    // every building of that type. A board, not a blade, since the name's length isn't known.
+    // A works doesn't sign its door (see `signsItself`; `signWorks` opts in).
+    // The trade's own hand and mark, if any (SIGN_TRADE); a works keeps mono.
     const [tFont, tPicto] = (style !== 'works' && SIGN_TRADE[tradeOf(m)]) || ['', ''];
-    // ⚠ AND THE BOARD IS SKIPPED OUTRIGHT WHEN THE ROOF HAS THE NAME AND THERE IS NO MARK — see
-    // `roofTakesName`. A door plate with nothing on it is not a quieter sign, it is a sign whose
-    // paint has come off, which is the same argument `signGantry` makes in its own guard.
+    // ⚠ Skipped when the roof has the name and there's no mark: a blank plate reads as peeled paint.
     if (wants('sign') && signsItself(m, style) && (!roofTakesName || tPicto)) {
-      // ⚠ SIZED TO BE READ, NOT TO BE TIDY. `signBoard` is screen-size gated like everything else,
-      // and at the first cut's proportions the board only cleared its floor inside ~1.3 tiles —
-      // close enough to touch the wall. A sign you can only read with your nose against it is not
-      // doing the job a sign exists to do, so the band is deeper and its floor is lower than a
-      // vent's: high-contrast lettering stays legible at a size at which a louvre is mush.
-      // ⚠ A MARK-ONLY PLATE IS SQUARE, because `fitSignPts` centres the artwork in the quad it is
-      // given and only ever takes LESS of it — so a pictogram on a board sized for a name is a
-      // small badge adrift in a lot of dead board.
+      // Sized to read past the screen-size gate. ⚠ A mark-only plate is square, since `fitSignPts`
+      // only ever shrinks the artwork into its quad.
       const sz = Math.min(base.hw * (roofTakesName ? 0.22 : 0.62), roofTakesName ? 0.07 : 0.19);
       const shh = roofTakesName ? sz * 0.92 : signHH;
-      // ⚠ THE SHOPFRONT FIRST, THE ELEVATION SECOND, AND THE PLANE MOVES WITH IT. This board hangs
-      // over the DOOR, so its plane is the shopfront's own front face and its ceiling is that box's
-      // top: lifted past `base.z1` on the same plane it would stand in front of the wall above
-      // rather than on it. Where the shopfront has no clear band left — a stoop, a trough, a canopy
-      // across the whole of it — the board goes up onto the elevation, where `fy` is the plane. If
-      // neither clears it stays where it was: a board is the ONLY name a building that signs itself
-      // gets (`paints` is the other branch and is mutually exclusive), so dropping it leaves the
-      // building nameless, which is worse than a name you can half read.
-      // ⚠ AND THE ELEVATION HAS TO REACH THE BOARD WHERE THE BOARD IS. The board is centred on
-      // `base.cx` and `main` is whichever box has the most wall — on The Long Fire that is a corner
-      // screen at x 0.248…0.440, and moving the board to its plane while leaving it at x ±0.074 put
-      // the whole thing over open air. `anchored` caught it: that gate's founding bug, one branch
-      // later. The stage is only taken when the main wall spans the board's own width.
+      // ⚠ Shopfront plane first (ceiling `base.z1`), then the elevation's plane `fy`, else unmoved:
+      // it's the building's only name. The elevation is used only when `main` spans the board's
+      // width, or the board hangs over open air.
       let seat = clearOfMass(false, 1, by, base.cx, sz, shh, signZ, base.z1), sPlane = by;
       if (!seat.clear && Math.abs(main.cx - base.cx) + sz <= main.hw) {
         const up = clearOfMass(false, 1, fy, base.cx, sz, shh, signZ, main.z1);
         if (up.clear) { seat = up; sPlane = fy; }
       }
       const sZ = seat.z;
-      // ── …AND WHAT THE SHOP SELLS, UNDER WHAT IT IS CALLED ────────────────────────────────────
-      //
-      // See `SIGN_WORD` and `RENDER_TUNE.signSub`. Three gates, and each of them is the difference
-      // between a fascia and a template:
-      //
-      // ⚠ ONLY ON A BOARD WITH ROOM. The sub costs about half the name's cap height, and a fascia
-      // is a wide shallow strip — on the shallowest of them the name would be bought down to buy a
-      // word nobody asked to read. `sz / shh` is the board's own proportion, and a board wider than
-      // `SUB_MAX_ASP` of its height keeps the name alone.
-      // ⚠ NEVER WITH A PICTOGRAM. `bakeSignText` refuses that combination anyway (a mark, a name
-      // and a word is not a thing any reference has), so asking here keeps the two in step rather
-      // than silently handing over a field that is dropped.
-      // ⚠ AND RATIONED, for `SIGN_HANZI`'s stated reason: a street where some frontages carry a
-      // trade word and some do not is the one that looks real, and every shop in Coldwater wearing
-      // one is a costume. Off the seed, so a building keeps its answer.
-      // ⚠ AND NEVER WHEN THE ROOF IS ALREADY SAYING IT. The logo hoarding used to carry a mark and
-      // nothing else, so the fascia was the only thing in the city that said what the shop SELLS;
-      // now that board is a stack with the same word under the same mark, and a frontage that says
-      // PAWNBROKER twice, ten metres apart, is the "three boards all repeating CASH & CARRION"
-      // this table's own note opens by refusing. The board above wins, because it is bigger and
-      // because it is read from further away.
-      // ⚠ A DECLINED HOARDING STILL COSTS THE SUB — whether it finds a clear patch of deck is not
-      // known until two hundred lines below this. The sub is rationed to begin with, so losing one
-      // is cheaper than the alternative, which is reading this list twice.
+      // The trade word under the name (`SIGN_WORD`, `RENDER_TUNE.signSub`). ⚠ Only on a board with
+      // room (`SUB_MAX_ASP`), never with a pictogram (`bakeSignText` drops it), rationed off the seed,
+      // and never when the roof hoarding already says it. A declined hoarding still costs the sub.
       const roofSaysTrade = roofSigns && !roofTakesName
         && !!(SIGN_TRADE[tradeOf(m)] || ['', ''])[1] && !!SIGN_WORD[tradeOf(m)];
       const subWord = (TUNE.signSub | 0) && !tPicto && !roofTakesName && !roofSaysTrade && sz / shh <= SUB_MAX_ASP
@@ -1945,63 +942,21 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
         ink: style === 'works' ? '#cfc6b4' : (m.neon || '#e8dcc8'),
         ...(tFont ? { font: tFont } : {}), ...(tPicto ? { picto: tPicto } : {}) });
     }
-    // -- 3c. AND A WORKS PAINTS ITS NAME ON THE WALL INSTEAD ------------------------------------
-    //
-    // The branch above and this one are mutually exclusive by construction -- `paints` is
-    // `!signsItself` -- so no building can get both, which is the whole reason the test is written
-    // once up at the band rather than negated here.
-    //
-    // ⚠ IT GOES ON THE BIGGEST WALL, NOT ON THE BASE BOX. A board hangs over a door and belongs
-    // to the shopfront, which is why section 3b sizes its off `base`; painted lettering belongs to
-    // the ELEVATION and is read from the far side of a yard, so it takes `main` and the band the
-    // louvres were moved out of.
-    //
-    // ⚠ AND IT IS ON THE FLANKS AS WELL, WHICH IS THE HALF THAT ANSWERS THE ACTUAL COMPLAINT. A
-    // shed is long, its door faces one way, and almost every camera in this game meets one of the
-    // other three sides -- that is what "terrible boring and unsightly" is a report about. A name
-    // across a blank flank is also the single most characteristic thing a real warehouse has on it.
-    //
-    // ⚠ BOTH FLANKS, AND THE FIRST CUT TOOK ONLY THE ONE THE FIRE ESCAPE DID NOT. That reads as
-    // the more tasteful answer and it makes the feature a COIN FLIP: `stairSide` is one
-    // deterministic roll per model, so whether the wall you happen to be driving past carries the
-    // name was decided by which side a downpipe went on. Half the buildings still answering "blank
-    // shed" is the report not fixed. The back is deliberately left bare -- a yard elevation is
-    // where a works genuinely has nothing -- so this is three sides, which is what a distribution
-    // shed on a corner plot actually wears.
-    //
-    // ⚠ A FIRE ESCAPE CROSSING ONE OF THEM IS FINE AND `signfit` AGREES. That gate is about a
-    // wire, mast or tube drawn OVER lettering by something that could have moved; a zigzag stair
-    // bolted across a painted name is a photograph of any goods yard in the world.
+    // ── 3c. A WORKS PAINTS ITS NAME ON THE WALL INSTEAD ────────────────
+    // Exclusive with 3b by construction. On `main` (the elevation), on the front and both flanks,
+    // since most cameras meet a shed's sides; the back stays bare. A fire escape crossing it is fine.
     if (paints) {
-      // ⚠ LIFTED CLEAR OF THE BUILDING'S OWN FRONTAGE — see `clearOfMass`. The band is derived at
-      // two thirds of the wall, which on a shed is above everything and on a shop unit is behind
-      // the shopfront: on Unit 3, Kessler Street the glazing box tops out at z 0.313 against a
-      // name band of 0.265–0.343, so two thirds of the lettering was inside the building.
-      // The rotated frame puts `cy` on the model's x and `cx` along negative y — see section 1d.
-      // ⚠ AND THE LOPSIDED-MASS GUARD IS THE STAIR'S, for the reason section 1b states: `faceY`
-      // pushes outward by the sign of the plane, so an off-centre box can put a flank part on the
-      // wrong side of the building. Declining here costs one wall's lettering and nothing else.
+      // Lifted clear of the building's own mass (`clearOfMass`). Rotated frame as in 1d.
+      // ⚠ The lopsided-mass guard is the stair's (1b).
       const flankSides = main.fd > 0.14
         ? [1, -1].filter((sd) => { const px = main.cx + sd * main.hw; return Math.abs(px) > 0.02 && Math.sign(px) === sd; })
         : [];
-      // ⚠ AND THE FRONT IS DROPPED WHEN IT CANNOT BE CLEARED **AND** A FLANK IS CARRYING THE NAME.
-      // That is the one case where declining is right, and the distinction is whether the building
-      // ends up nameless: the Seed Vault's whole frontage is a blast door, the Paper Tomb's is a
-      // portico across four projecting window slots, the wash house's is a rack of drying cloth —
-      // on all three the band has nowhere on the FRONT to go, and on all three the flank elevations
-      // are bare wall the name reads off perfectly. Painting it on the front anyway is lettering
-      // inside a building. Without a flank to fall back on it stays, half hidden, because a name
-      // you can half read beats no name (see `clearOfMass`).
+      // ⚠ The front is dropped only when it can't clear AND a flank carries the name; otherwise a
+      // half-read name beats none.
       const fHalf = Math.min(main.hw * 0.7, 0.3);
       const fSeat = clearOfMass(false, 1, fy, main.cx, fHalf, nameHH, nameZ, main.z1);
       if (fSeat.clear || !flankSides.length) {
-        // ⚠ AND THE FRONT GETS THE FITTINGS TREATMENT TOO, WHICH IS WHERE IT WAS REPORTED FROM.
-        // `clearOfMass` answers for the building's own MASS and that is the whole of what the
-        // branch above ever asked — so a band that cleared the shopfront was then painted straight
-        // through the louvre bank, the riser and the extract grille bolted to the wall above it,
-        // which on Unit 3, Kessler Street ate four letters out of the middle of its own name.
-        // Same two moves as the flanks, in the same order and for the same reasons: lift into the
-        // frieze if there is one, otherwise move along the wall, otherwise keep the half-read band.
+        // Then clear the fittings: lift, else slide along the wall, else keep the half-read band.
         const fz = overFittings(false, fy, main.cx, fHalf, nameHH, fSeat.z, main.z1);
         const fSlide = fz === fSeat.z
           ? besideFittings(false, fy, main.cx, fHalf, nameHH, fz, fHalf * NAME_RUN_MIN) : null;
@@ -2011,8 +966,7 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
       for (const sd of flankSides) {
         const px = main.cx + sd * main.hw;
         {
-          // The patch's centre along a flank is the model's own y, which is `-cx` back out of the
-          // rotated frame — so `main.cy`, not `-main.cy`.
+          // Along a flank the centre is the model's own y, so `main.cy`, not `-main.cy`.
           const kHalf = Math.min(main.fd * 0.7, 0.3);
           // ⚠ AND THEN LIFTED OVER THE STAIR, WHICH IS THE OTHER HALF OF THE SAME REPORT. The ⚠
           // above says a fire escape crossing a painted name is fine and it is — bolted across

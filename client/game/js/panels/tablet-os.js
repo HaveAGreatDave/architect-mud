@@ -1,19 +1,7 @@
-// ARCHITECT TABLET OS — the shared CRT-styled shell for Quests, Skills & Stats,
-// Bank, Weather, Vehicles, Properties, Settings, and Corporation. Corporation
-// renders natively (view: 'corp', reshaping plugins/corps' own
-// buildConsolePayload()) rather than handing off to the standalone
-// corp-console.js overlay — that overlay still exists for `corp console`
-// typed directly, but Tablet no longer launches it.
-// Built on the same minigame chassis as Circuit Breach / Corp Console
-// (minigame-common.js), so it inherits the CRT look for free. Uses the page's
-// own `--accent` var (the player's existing theme color, set by settings.js)
-// instead of a server-supplied accent — there is no separate Tablet theme.
-//
-// Every screen — home or any app screen — arrives as one `tablet_panel`
-// payload (plugins/tablet/index.js); the client just re-renders from it on
-// every nav/action round trip, mirroring the ATM panel's full-payload-per-
-// message convention rather than corp-console's separate live-patch channel
-// (Tablet has no proactive multi-client push to patch against).
+// ARCHITECT TABLET OS: the shared CRT-styled shell for every tablet app, on the
+// minigame chassis (minigame-common.js). Colours come from the page's --accent.
+// Every screen arrives as one full 'tablet_panel' payload (plugins/tablet/index.js)
+// and is re-rendered from it on each nav/action round trip; there's no live patching.
 import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays } from './minigame-common.js';
 import { sendCmdSilent } from '../net.js';
 import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, poiInk, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, crossingInnerHtml, isOnCrossing } from './minimap.js';
@@ -30,14 +18,12 @@ import { loadQLog, saveQLog, recordQuestLog } from './quest-log.js';
 import { DISCORD_INVITE } from './links.js';
 import { loadCss } from '../../../shared/dom.js';
 
-// tablet-os.css ships beside this file and is fetched when the module loads, so ensureStyles
-// still applies it synchronously on first open. See loadCss in client/shared/dom.js.
+// tablet-os.css is fetched at module load so ensureStyles can apply it synchronously.
 const TABLET_CSS = await loadCss(new URL('./tablet-os.css', import.meta.url));
 export { DISCORD_INVITE };
 
-// Tablet's theme can be independent of the shared UI theme ("unlinked") —
-// its own tiny localStorage record, separate from architect_settings, so
-// switching it never touches the player's actual page theme.
+// Tablet's own theme when "unlinked": a separate localStorage record, so it never
+// touches the page theme.
 const TABLET_THEME_KEY = 'architect_tablet_theme';
 function loadTabletTheme() {
   try {
@@ -49,22 +35,11 @@ function saveTabletTheme(t) {
   try { localStorage.setItem(TABLET_THEME_KEY, JSON.stringify(t)); } catch {}
 }
 
-// ── Quest action log (client-only) ──────────────────────────────────────────
-// A per-quest narrative of what you actually did on that quest — the same lines
-// that scroll past in the bottom pane (arrivals, objective flavour emotes) plus
-// bold beat-markers (started / objective complete / quest complete) — shown on
-// that quest's detail screen so you can read its whole story without watching the
-// output pane. Deliberately client-side (localStorage, per-device): the server
-// pushes structured `quest_log` events (plugins/quests/index.js questLogLine) that
-// we bucket by quest_id. No server round trip, no DB row.
-//
-// Store shape: { [quest_id]: { name, done, entries: [{ kind, text, t }] } }
-//   kind: 'start' | 'arrive' | 'emote' | 'objective' | 'complete'
-// A quest flips `done` on its 'complete' beat; its bucket is purged the next time
-// the tablet closes (purgeCompletedQuestLogs) — "clears once finished + closed".
-// Storage lives in quest-log.js so a quest line can be recorded without loading
-// this file; lazy-views.js records it there, then calls questLogChanged here if
-// the tablet is loaded.
+// ── Quest action log (client-only, per device) ──────────────────────────────
+// Store: { [quest_id]: { name, done, entries: [{ kind, text, t }] } },
+//   kind: 'start' | 'arrive' | 'emote' | 'objective' | 'complete'.
+// Fed by the server's 'quest_log' events; storage is in quest-log.js so lazy-views.js
+// can record without loading this file. A done quest's log is purged on tablet close.
 export function noteQuestLog(msg) {
   if (recordQuestLog(msg)) questLogChanged(msg.quest_id);
 }
@@ -78,14 +53,11 @@ export function questLogChanged(questId) {
   }
 }
 
-// Drop a quest's log entirely (e.g. it was abandoned).
 export function dropQuestLog(questId) {
   const log = loadQLog();
   if (log[questId]) { delete log[questId]; saveQLog(log); }
 }
 
-// On tablet close, clear the log of any quest that has finished — "after the tablet
-// is closed once the quest is completed it clears the log".
 function purgeCompletedQuestLogs() {
   const log = loadQLog();
   let changed = false;
@@ -93,8 +65,6 @@ function purgeCompletedQuestLogs() {
   if (changed) saveQLog(log);
 }
 
-// The per-quest action log for one quest's detail screen. Bold headers for the
-// beat-markers, plain narrative lines for arrivals/emotes.
 function renderQuestActivityLog(questId) {
   const q = loadQLog()[questId];
   if (!q || !q.entries.length) return '';
@@ -134,73 +104,51 @@ let _tosCorpSel = null; // Corp Territory Map: selected zone id (client-side, no
 let _tosCorpPage = 0; // Corp dashboard: current page (Overview/Operatives/Territory/Diplomacy), client-side
 let _tosIdeoPage = 0; // Ideology reader: current page (Overview / per-order / Field), client-side
 let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
-// Map app: tile id -> absolute world [x,y], filled by the grid builder from its own
-// absAt() so it can never drift from it. renderMapDetail reads this to offer 'Target
-// here' (the flight-sim tile waypoint); a miss means we could not resolve absolute
-// coords for that cell -- interiors, mainly -- and the button is simply omitted.
+// Map app: tile id -> absolute world [x,y], filled from the grid builder's absAt().
+// A miss (interiors, mainly) just omits 'Target here'.
 const _tosMapAbs = new Map();
-// Map app: label mode — stamp a two-letter code on each building tile instead of
-// its icon. This is NOT its own state: it reads and writes the same `mapOverlay`
-// setting the sidebar minimap runs on, so the two surfaces can never disagree.
-// It used to be a module-local boolean defaulting to false, which is why the Map
-// app opened in icon mode no matter what the saved setting said, and why its
-// Labels chip never reached the minimap.
+// Map label mode isn't its own state: it reads and writes the shared 'mapOverlay'
+// setting, so the Map app and the sidebar minimap can't disagree.
 const mapLabelsOn = () => {
   try { return (loadSettings().mapOverlay || 'labels') === 'labels'; } catch { return true; }
 };
-// Landmark colour, the same way: the shared `mapColor` setting is the state, so the Map
-// app's chip, the sidebar minimap and the Settings pill can never disagree. Off is the
-// default, which is the plain map.
+// Landmark colour: same idea, the shared 'mapColor' setting is the state.
 const mapColorOn = () => {
   try { return (loadSettings().mapColor || 'off') === 'on'; } catch { return false; }
 };
-// Void survey zoom: the off-grid "journey" map has no server tile-window ladder (it's
-// drawn purely from the minimap nodes), so its −/+ is a client-only scale on the trail.
-// Default sits large per the brief ("show the route big, zoom out from there").
+// Void survey zoom: client-only scale on the trail (no server tile ladder off-grid).
 let _tosVoidZoom = 1.35;
 const VOID_ZMIN = 0.55, VOID_ZMAX = 2.3, VOID_ZSTEP = 0.35;
 
-// ── Void boot + signal: a one-time ritual, not a running mechanic ─────────────
-// Out in the void the tablet can't reach ArchitectOS at all. The FIRST time you
-// bring it up on a given crossing it cold-starts on its own on-board firmware
-// (runVoidFirmwareBoot): a terminal boot that tries the grid handshake, fails it,
-// and comes up in VOIDLINK LOCAL instead. It then sits in a SEARCHING state — the
-// screen's TEXT flickers (never the whole panel) and the header reads "NO SIGNAL ·
-// SEARCHING" — until you physically move the tablet, which locks a weak carrier:
-// one soft brightness swell, "WEAK SIGNAL · OFF GRID", and the flicker is done for
-// the rest of the crossing no matter where you drag it afterwards. No app gating at
-// any point; void theming (.tos-void-mode) rides along while isOnCrossing() holds.
+// ── Void boot + signal: a one-time ritual per crossing ──────────────────────
+// First open on a crossing runs the firmware boot (runVoidFirmwareBoot), which fails
+// the grid handshake and comes up SEARCHING: text flickers (never the whole panel)
+// until the player drags the tablet, which locks a weak carrier for the rest of the
+// crossing. Never gates an app; .tos-void-mode applies while isOnCrossing() holds.
 let _voidTripPrimed = false;    // has the firmware boot already played for the CURRENT crossing?
 let _voidSearching = false;     // in the pre-lock "no signal, searching" state?
 let _voidLocked = false;        // has the weak carrier been locked this crossing? (sticky)
 let _wasOnCrossingWatch = false; // last isOnCrossing() reading, polled independently of the tablet being open
 let _voidIntro = null;          // { cancel() } while the firmware boot is live, else null
 let _voidHunt = null;           // { cancel() } while the drag-to-lock listeners are armed, else null
-// Map app zoom: one unified axis. The −/+ buttons walk the server's zoom ladder
-// (movement.js MAP_ZOOM_HALVES) — each step grows the tile window and, at the far
-// end, becomes the whole-region view — instead of just resizing pixels. This array
-// is the tile pixel size per server zoomLevel (0 local street … maxZoom regional);
-// interior (zoomLevel −1) reuses the local-street size. Index by server zoomLevel.
+// Map zoom: −/+ walk the server's zoom ladder (movement.js MAP_ZOOM_HALVES). This is
+// tile pixel size indexed by server zoomLevel; interior (−1) reuses the street size.
 const TOS_ZOOM_PX = [56, 40, 30, 24, 19, 15];
 const TOS_INTERIOR_PX = 56;
 const tosZoomPx = (d) => d.mode === 'interior'
   ? TOS_INTERIOR_PX
   : TOS_ZOOM_PX[Math.max(0, Math.min(TOS_ZOOM_PX.length - 1, d.zoomLevel ?? 0))];
-// The minimap double-click opens the city map — now the in-tablet Map app, since the
-// standalone popup is retired. Injected here (minimap.js can't import us — that'd be a
-// cycle) so the double-click stays decoupled from the tablet.
+// Minimap double-click opens the Map app. Injected here because minimap.js
+// importing us would be a cycle.
 setMapOpener(openTabletToMap);
 // Keep the Map app's Run button lit in step with the sidebar toggle (run_state echo).
 onRunStateChange((running) => {
   _overlay?.querySelector('[data-map-run]')?.classList.toggle('active', running);
 });
-// Watch for crossing entry independently of whether the tablet is even open, so a
-// trip started/finished with the tablet closed still primes/unprimes the intro
-// correctly the next time it's opened. Cheap — one cached-state read a second.
+// Watch for crossing entry even with the tablet shut, so the intro primes correctly.
 setInterval(() => {
   const on = isOnCrossing();
-  // Stepped into a fresh crossing — the firmware boot and the signal hunt both
-  // arm again (the lock is per-crossing, not per-session).
+  // Fresh crossing: boot and signal hunt re-arm (the lock is per crossing).
   if (on && !_wasOnCrossingWatch) { _voidTripPrimed = false; _voidLocked = false; _voidSearching = false; }
   _wasOnCrossingWatch = on;
 }, 1000);
@@ -219,8 +167,6 @@ let _keepNewsScroll = false; // one-shot: preserve scroll when the News weather 
 let _newsWeatherOpen = false; // News app: is the weather widget's 7-day forecast expanded?
 let _newsStories = [];  // News app: the current headline feed, so a tapped headline can open its full story
 let _newsWin = null;    // News app: the open "browser window" story popup element, if any
-// (A drill-in's "return here" used to be tracked separately; the nav history below
-//  covers it — see the Back stack.)
 
 function ensureStyles() {
   if (document.getElementById('tablet-os-styles')) return;
@@ -230,19 +176,14 @@ function ensureStyles() {
   document.head.appendChild(s);
 }
 
-// Client-side nav token encoding: server screenId comparisons are normalized
-// (lowercase, underscores -> spaces — see plugins/tablet/registry.js normScreen)
-// because the command tokenizer lowercases + whitespace-splits everything
-// before it reaches a plugin. Encode any label we're about to send back as a
-// screenId the same way so multi-word/mixed-case screens stay reachable.
+// Encode a label as a screenId the way the server normalizes it (lowercase,
+// underscores -> spaces; plugins/tablet/registry.js normScreen), since the command
+// tokenizer lowercases and splits on whitespace.
 function screenToken(label) {
   return String(label || '').trim().replace(/\s+/g, '_');
 }
 
-// Same luminance-contrast pattern used elsewhere in the client (minimap.js,
-// devpanel timeweather.js) — pick pure black/white text off a background's
-// perceived brightness instead of always using the accent color, which can
-// wash out against some theme backgrounds.
+// Pick black/white text off a background's brightness (same as minimap.js).
 function luminanceTextColor(hex) {
   const h = String(hex || '').trim().replace('#', '');
   if (h.length !== 6) return null;
@@ -253,8 +194,7 @@ function luminanceTextColor(hex) {
   return `rgb(${t},${t},${t})`;
 }
 
-// Perceived brightness of a hex colour, 0..1. Used to pick a legible phosphor
-// green for the SPECTER hub against whatever the tablet's screen background is.
+// Perceived brightness of a hex colour, 0..1.
 function bgLuminance(hex) {
   const h = String(hex || '').trim().replace('#', '');
   if (h.length !== 6) return 0;
@@ -263,19 +203,15 @@ function bgLuminance(hex) {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 }
 
-// Resolves the effective --bg/--bg2/--border/--accent for this open (either
-// the shared page theme, or Tablet's own independent one when unlinked), sets
-// them as overrides on the overlay root, then derives the luminance-contrast
-// text colors from those effective values (not always the page's). Body/label
-// text (--tos-fg) is checked against --bg2; button text (--tos-btn-fg) is a
-// separate check against --accent, since buttons are a solid accent fill.
+// Sets the effective --bg/--bg2/--border/--accent on the overlay (page theme, or the
+// tablet's own when unlinked), then derives text colours from those values:
+// --tos-fg against --bg2, --tos-btn-fg against --accent (buttons are solid accent).
 function applyTabletTheme() {
   if (!_overlay) return;
   const t = loadTabletTheme();
   let bg, bg2, accent;
 
   if (t.linked) {
-    // Inherit the page's own theme — clear any leftover unlinked override.
     _overlay.style.removeProperty('--bg');
     _overlay.style.removeProperty('--bg2');
     _overlay.style.removeProperty('--border');
@@ -294,56 +230,27 @@ function applyTabletTheme() {
   }
 
   _overlay.style.setProperty('--tos-fg', luminanceTextColor(bg2) || 'var(--mg-accent)');
-  // Button text sits on a SOLID accent fill — a mid-grey (what luminanceTextColor
-  // returns for a mid-luminance accent like hot pink) is unreadable there. Pick a
-  // hard black/white instead so accent buttons always contrast their fill.
+  // Buttons sit on a solid accent fill, where a mid-grey is unreadable: force black/white.
   _overlay.style.setProperty('--tos-btn-fg', bgLuminance((accent || '').trim()) > 0.588 ? '#0a0a0a' : '#ffffff');
-  // SPECTER phosphor green: bright mint on dark screens, a deep readable green
-  // on light-theme screens (where #39ff9e washes out to nothing).
+  // SPECTER green: mint on dark screens, deep green on light ones.
   _overlay.style.setProperty('--tos-shub', bgLuminance((bg || '').trim()) > 0.6 ? '#0a7d43' : '#39ff9e');
 }
 
 // ── Narration ────────────────────────────────────────────────────────────────
-// Reading a book aloud, using the same formant synth the TV uses
-// (AudioEngine.speak / cancelSpeech, gated on the same TV-voice setting — if you
-// muted the televisions you don't want a novel talking at you either).
-//
-// The synth has NO completion callback: TV drives it by pushing a line whenever
-// one arrives and passing a `budget` so the voice fits the window. A book has no
-// such external clock, so narration has to keep its own — split the chapter into
-// sentences, estimate each one's duration from its word count, and schedule the
-// next off a timer. `budget` is passed too, so the synth compresses rather than
-// overrunning into the following sentence.
-//
-// A chapter can be 25k characters, which is why this never hands the whole text
-// to speak() at once — one sentence per utterance keeps each one legible and
-// makes Stop instant.
+// Reads a book aloud through AudioEngine.speak, gated on the TV-voice setting.
+// The synth has no completion callback, so narration keeps its own clock: one
+// sentence per utterance, scheduled off a timer, with 'budget' so the synth
+// compresses rather than overruns. Never hand a whole chapter (up to 25k chars) to speak().
 const NARRATE_WPS = 2.6;          // words/sec — matches the synth's natural pace
 let _narrate = null;              // { parts, i, timer, seed, title }
 let _narrateKeepOnClose = false;  // set by Minimize, consumed by close()
 
-// The ONE place a chapter is cut into utterances. The renderer wraps each part in
-// a span carrying its index and the narrator walks the same array, so the
-// highlight can never drift out of step with the voice — two separate splits
-// would desynchronise the moment either regex changed.
-// ⚠ PARAGRAPHS FIRST, and this used to collapse them on its own first line.
-// `.replace(/\s+/g, ' ')` over the whole chapter turned every blank line into a
-// space, which broke two things at once.
-//
-// The visible one: renderNarratableBody splits on blank lines and calls this
-// PER PARAGRAPH, while the narration loop called it on the whole chapter — so the
-// two disagreed whenever a paragraph did not end in terminal punctuation. A
-// heading, or interrupted dialogue ending in a dash (which Victorian prose does
-// constantly), joined across the break for the voice and did not for the render:
-// one utterance against two spans, and the highlight was then off by one FOR THE
-// REST OF THE CHAPTER. Splitting here the same way the renderer does makes the two
-// agree by construction rather than by both being written carefully.
-//
-// The audible one: a paragraph break is a real pause when anybody reads aloud, and
-// the loop had no way to know where one was. `paraEnd` is attached to the returned
-// array so every existing caller keeps treating it as a plain list of strings — a
-// comic passes its own array and simply has no such property, which is correct,
-// because blocks are not paragraphs.
+// The ONE place a chapter is cut into utterances: the renderer numbers spans from it
+// and the narrator walks the same array, so the highlight can't drift.
+// ⚠ Split paragraphs first, the same way renderNarratableBody does, or a paragraph
+// without end punctuation joins across the break and the highlight is off by one
+// for the rest of the chapter. 'paraEnd' on the returned array marks paragraph ends
+// (a longer pause); comic arrays have no such property.
 function narrateSplit(text) {
   const parts = [];
   const paraEnd = new Set();
@@ -351,8 +258,7 @@ function narrateSplit(text) {
     const sentences = para
       .replace(/\s+/g, ' ')
       .split(/(?<=[.!?])\s+/)
-      // A Victorian clause-pile can run 400 characters; break those on commas so no
-      // single utterance is a 40-second sprint.
+      // Break a 400-char clause-pile on commas so no utterance runs 40 seconds.
       .flatMap(s => s.length > 220 ? s.split(/(?<=,)\s+/) : [s])
       .map(s => s.trim())
       .filter(s => /[a-z0-9]/i.test(s));
@@ -373,19 +279,15 @@ function narrateStop() {
   syncNarratePill();
 }
 
-// `onEnd` — an optional callback returning `{ text, title }` for whatever comes
-// after this chapter, or nothing to stop. It is captured on the narration state
-// for the same reason the lexicon is: narration outlives a minimize, and by then
-// _data is null, so anything read at speak time would be gone.
+// 'onEnd': optional callback returning { text, title } for what follows, or nothing
+// to stop. Captured now because narration outlives a minimize, when _data is null.
 function narrateStart(text, seed, title, lex, onEnd) {
   narrateStop();
-  // `text` may be a pre-split array of utterances. A caller that has already
-  // NUMBERED its spans must hand over that exact array — see codexNarrationParts
-  // for why re-splitting a rejoined string can silently shift every index.
+  // 'text' may be a pre-split array. A caller that already numbered its spans must
+  // pass that exact array (see codexNarrationParts).
   const parts = Array.isArray(text) ? text.slice() : narrateSplit(text);
   if (!parts.length) return;
-  // The lexicon is captured HERE rather than read from _data at speak time:
-  // narration deliberately outlives a minimize, by which point _data is null.
+  // Captured here, not at speak time: narration outlives a minimize (_data is null then).
   _narrate = { parts, i: 0, timer: null, seed: seed || 'library', title: title || 'Reading', lex: lex || null, onEnd: onEnd || null };
   narrateNext();
   syncNarrateBar();
@@ -399,17 +301,13 @@ function narrateNext() {
   if (!_narrate) return;
   const { parts, i, seed } = _narrate;
   if (i >= parts.length) {
-    // End of the chapter. If the reader supplied a way on, take it rather than
-    // going silent — being made to walk back to the tablet and press play every
-    // few minutes is the thing that stops anyone finishing a book. Deliberately
-    // asked for LAZILY (a callback, not a precomputed next) so it sees the state
-    // as it is now, and can decline by returning nothing at the end of a volume.
+    // End of chapter: ask the reader for what's next (lazily, so it sees current
+    // state and can decline at the end of a volume) rather than going silent.
     const advance = _narrate.onEnd;
     if (advance) {
       const nextUp = advance();
       if (nextUp?.text) {
-        // A beat longer than the between-sentence pause: a chapter break should
-        // be audible as a break.
+        // Longer than a sentence pause, so a chapter break is audible.
         const { text, title } = nextUp;
         _narrate.timer = setTimeout(() => {
           if (!_narrate) return;                  // stopped during the gap
@@ -424,86 +322,57 @@ function narrateNext() {
   const line = parts[i];
   const words = line.split(/\s+/).length;
   const budget = Math.max(1.0, words / NARRATE_WPS);
-  // RP for the library. The shelf is Forster, Wells, Swift, London and two
-  // translations into Edwardian English — an American newsreader voice reading
-  // "The Machine Stops" fights the prose. Non-rhotic is the whole trick.
-  // speak() reports what it actually scheduled. Pacing off that instead of the
-  // word-count estimate removes the dead air a generous guess used to leave
-  // between sentences — the reason the old delivery dragged.
+  // RP for the library: the shelf is Edwardian English and a rhotic voice fights it.
+  // Pace off what speak() actually scheduled, not the word-count estimate.
   let spoken = 0;
   try {
     const r = window.AudioEngine?.speak?.(line, { seed, budget, accent: 'rp', lex: _narrate.lex });
     spoken = Number(r?.duration) || 0;
   } catch { /* keep reading */ }
 
-  // Follow the voice. Guarded on _overlay because narration deliberately outlives
-  // a minimize — with the tablet closed there is simply nothing to light up.
+  // Guarded on _overlay: narration outlives a minimize.
   clearNarrateHighlight();
   const span = _overlay?.querySelector(`.tos-narr-s[data-s="${i}"]`);
   if (span) {
     span.classList.add('tos-narr-on');
-    // Keep the spoken line on screen, but only nudge — `center` would yank the
-    // page on every sentence and make it unreadable for anyone following along.
+  // Nudge, never 'center': centering every sentence makes the page unreadable.
     try { span.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* older engines */ }
   }
 
   _narrate.i = i + 1;
   syncNarratePill();
-  // A beat of air between sentences, so it reads rather than gabbles. Measured
-  // from the real length where we have it (muted voice → 0 → fall back to the
-  // estimate, so a silent read still turns the page).
-  //
-  // A PARAGRAPH IS A LONGER BEAT THAN A SENTENCE. Anybody reading aloud stops
-  // properly at one, and running two paragraphs together at the same 200ms is most
-  // of what makes a long read feel like it is being recited at you rather than
-  // read to you. It sits between the sentence gap and the 1s chapter break above,
-  // because that is where a paragraph sits: bigger than a sentence, smaller than
-  // a chapter. Comics have no paragraphs and no `paraEnd`, and fall through to the
-  // sentence gap.
+  // Gap after an utterance: measured length where we have it (muted → 0 → estimate,
+  // so a silent read still turns the page). A paragraph end gets a longer beat,
+  // between the sentence gap and the 1 s chapter break.
   const NARRATE_GAP_MS = 200;
   const PARA_GAP_MS = 650;
   const gap = parts.paraEnd?.has(i) ? PARA_GAP_MS : NARRATE_GAP_MS;
   _narrate.timer = setTimeout(narrateNext, (spoken || budget) * 1000 + gap);
 }
 
-// Body prose with every utterance individually addressable, so the narrator can
-// light the sentence it's on. Indices come from narrateSplit — the SAME call the
-// voice walks — so span N is always the text of utterance N.
-//
-// Paragraphs are preserved by splitting on blank lines first and only then
-// numbering sentences continuously across them; numbering per-paragraph would
-// restart the index and break the mapping.
+// Body prose with each utterance in a numbered span (indices from narrateSplit, the
+// same call the voice walks). Sentences are numbered continuously across paragraphs;
+// restarting per paragraph would break the mapping.
 function renderNarratableBody(body, glossary) {
   let n = 0;
   return String(body).split(/\n{2,}/).map(para => {
     const spans = narrateSplit(para).map(s =>
       `<span class="tos-narr-s" data-s="${n++}">${glossWords(esc(s), glossary)}</span>`).join(' ');
-    // A paragraph with no speakable sentence (a rule, a row of asterisks) still
-    // has to render, or the page silently loses it.
+    // A paragraph with no speakable sentence (a rule, asterisks) must still render.
     return `<p>${spans || glossWords(esc(para), glossary)}</p>`;
   }).join('');
 }
 
 // ── The comic reader ─────────────────────────────────────────────────────────
-// A comic arrives as BLOCKS (plugins/library/books.js parses the markup; there is
-// exactly one parser and it is not this file), and gets furniture: captions in a
-// box, dialogue in balloons, lettering at size, a real gutter at a page turn.
-//
-// The old comics were panel scripts with a critic talking over them, which read
-// as a description of a comic rather than as one. The prose does the story now
-// and this does the presentation, which is the split that was missing.
-//
-// Rendering RETURNS its narration parts rather than exposing a second function
-// that walks the blocks again. CODEX pairs renderCodexBody with
-// codexNarrationParts and keeps them in sync by hand; here one walk emits both,
-// so span N is the text of utterance N by construction and cannot drift.
+// A comic arrives as BLOCKS (parsed only in plugins/library/books.js). Rendering
+// returns its narration parts from the same walk, so span N is utterance N by
+// construction.
 let _comicParts = null;
 
 function renderComicBody(blocks, glossary) {
   const parts = [];
   let n = 0;
-  // Every speakable string goes through here, so the numbering and the parts
-  // array advance together or not at all.
+  // Every speakable string goes through here so numbering and parts stay in step.
   const say = (s) => narrateSplit(s)
     .map(t => { parts.push(t); return `<span class="tos-narr-s" data-s="${n++}">${glossWords(esc(t), glossary)}</span>`; })
     .join(' ');
@@ -513,9 +382,8 @@ function renderComicBody(blocks, glossary) {
     if (b.kind === 'sfx') return `<div class="tos-cm-sfx">${say(b.text)}</div>`;
     if (b.kind === 'caption') return `<div class="tos-cm-cap">${say(b.text)}</div>`;
     if (b.kind === 'balloons') {
-      // One beat, several balloons, alternating sides so an exchange reads as an
-      // exchange. The speaker rides INSIDE the spoken span: with one narrator
-      // voice, dropping the name is how a listener loses track of who is talking.
+      // Balloons alternate sides. The speaker's name rides inside the spoken span,
+      // or a listener loses track of who's talking.
       const bal = (b.lines || []).map((l, i) =>
         `<div class="tos-cm-bal tos-cm-bal-${i % 2 ? 'b' : 'a'}">${say(`${l.speaker}: ${l.text}`)}</div>`).join('');
       return `<div class="tos-cm-beat">${bal}</div>`;
@@ -527,11 +395,9 @@ function renderComicBody(blocks, glossary) {
   return html;
 }
 
-// Underline the archaic words this chapter actually contains. Runs AFTER esc(),
-// on already-escaped text, and only ever matches [A-Za-z'-] runs — so it cannot
-// land inside an entity (`&amp;`) or invent a tag. The gloss itself goes in a
-// data- attribute rather than the markup, so nothing user-visible changes length
-// and the narration split above stays character-aligned.
+// Underline archaic words. Runs AFTER esc() and only matches [A-Za-z'-] runs, so it
+// can't land inside an entity or invent a tag; the gloss goes in a data- attribute
+// so the text stays character-aligned with the narration split.
 function glossWords(escaped, glossary) {
   if (!glossary) return escaped;
   return escaped.replace(/[A-Za-z][A-Za-z'-]*/g, (w) => {
@@ -550,8 +416,7 @@ function renderNarrateBar() {
   </div>`;
 }
 
-// Reflect narration state without a re-render — a full redraw would scroll the
-// reader back to the top mid-paragraph and lose the highlight.
+// Reflect narration state without a re-render (a redraw scrolls to the top).
 function syncNarrateBar() {
   const btn = _overlay?.querySelector('.tos-narrate-btn');
   if (!btn) return;
@@ -565,9 +430,7 @@ function syncNarrateBar() {
 }
 
 // ── The minimized pill ───────────────────────────────────────────────────────
-// Narration outliving the tablet needs a visible owner — something that says what
-// is talking and can stop it without reopening the app. Lives outside the overlay
-// entirely, because the overlay is exactly what just went away.
+// Shows what's narrating and stops it while the tablet is shut. Lives outside the overlay.
 function syncNarratePill() {
   let pill = document.getElementById('tos-narrate-pill');
   const showing = !!_narrate && !_overlay;
@@ -578,7 +441,6 @@ function syncNarratePill() {
     pill.innerHTML = `<span class="tnp-title"></span><span class="tnp-prog"></span>
       <button class="tnp-stop" title="Stop narration">■</button>`;
     pill.querySelector('.tnp-stop').addEventListener('click', () => narrateStop());
-    // Tapping the pill itself reopens the tablet where you left off.
     pill.addEventListener('click', (e) => {
       if (e.target.closest('.tnp-stop')) return;
       sendCmdSilent('tablet');
@@ -590,21 +452,10 @@ function syncNarratePill() {
 }
 
 // ── Back stack ───────────────────────────────────────────────────────────────
-// Back used to be computed from the breadcrumb, which could only ever answer
-// "app root or Home" — so three levels into an app it skipped the level you came
-// from. This is a real history instead: every nav() records the screen you were
-// ON before it moved you, and Back pops one entry. Home clears it.
-//
-// Entries are the nav ARGUMENTS (appId/screen/params), not the rendered payload,
-// because those are the only thing that can be replayed to the server verbatim.
-// `null` is a legal entry and means the home screen.
-//
-// Some screens are reached by an ACTION rather than a nav (a Job Board posting, a
-// bliss listing, a reel) — those can't be replayed as `tabletnav`, so they aren't
-// stack entries. Instead we count how many action-screens deep we've gone since the
-// last real nav (_actDepth, incremented in render() when an action actually changed
-// the screen) and Back returns to that nav rather than popping past it. Without this
-// an action-reached screen popped a level it never occupied — from an app root, Home.
+// Every nav() records the screen you were on; Back pops one. Home clears it.
+// Entries are nav ARGUMENTS (appId/screen/params), replayable verbatim; null = home.
+// Action-reached screens (a posting, a reel) can't be replayed, so they aren't
+// entries: _actDepth counts them since the last nav, and Back returns to that nav.
 const NAV_STACK_MAX = 24;   // a back stack, not an audit log
 let _navStack = [];
 let _navHere = null;        // the nav that produced the current screen (null = home)
@@ -623,7 +474,7 @@ const navSame = (a, b) =>
   (a === null || b === null) ? a === b
     : a.appId === b.appId && a.screen === b.screen && a.params === b.params;
 
-// Replay a recorded entry WITHOUT pushing it back onto the stack.
+// Replay an entry WITHOUT pushing it back onto the stack.
 function navTo(entry) {
   if (!entry) { home(); return; }
   narrateStop();
@@ -637,23 +488,20 @@ function navTo(entry) {
   sendCmdSilent(parts.join(' '));
 }
 
-// One level up. Falls back to Home when there's nothing left to pop.
+// One level up; Home when the stack is empty.
 function navBack() {
-  // Standing on an action-reached screen: step back onto the nav that led here
-  // (collapsing any chain of actions), without consuming a stack entry.
+  // On an action-reached screen: return to the nav that led here, without popping.
   if (_actDepth > 0) { _actDepth = 0; navTo(_navHere); return; }
   if (!_navStack.length) { home(); return; }
   navTo(_navStack.pop());
 }
 
-// `replace` swaps the current history entry instead of pushing a new one. Used by
-// the in-app tab strip: tabs are lateral moves within one screen, not a drill-in,
-// so Back must leave the app the way it came rather than walking the tabs you tried.
+// 'replace' swaps the current entry: in-app tabs are lateral moves, so Back must
+// not walk the tabs you tried.
 function nav(appId, screenLabel, params, replace) {
   narrateStop();   // turning the page stops the previous page reading
   _tosSelectMode = false;  // leaving Home disarms the home-grid selection mode
-  // Remember where we were, unless it's where we're already going (re-navving the
-  // same screen — the surveillance poller does this every 5s — must not stack up).
+  // Don't push a re-nav of the same screen (the surveillance poller does this every 5s).
   const next = { appId, screen: screenLabel ?? null, params: params ?? null };
   if (!replace && !navSame(_navHere, next)) {
     _navStack.push(_navHere);
@@ -673,7 +521,7 @@ function nav(appId, screenLabel, params, replace) {
 
 function act(appId, actionId, params) {
   narrateStop();   // Next/Back/Contents all leave this page
-  // If this action turns out to change the screen, render() counts it as a level.
+  // render() counts this as a level if it changes the screen.
   _lastWasAct = true;
   sfx(TOS_SELECT_DEF);
   const parts = ['tabletaction', appId, actionId];
@@ -689,9 +537,7 @@ function home() {
   sendCmdSilent('tablet');
 }
 
-// The tablet has no proactive push, so the live camera hub refreshes by re-navving
-// its own screen on a timer (matched to the deck's 5s frame cadence). Silent — no
-// sfx, no scroll jump (render() preserves the scroll spot across live refreshes).
+// Live camera hub: no server push, so re-nav silently every 5s (the deck's frame cadence).
 function pollSurveillance() {
   if (!_overlay || !_data || _data.view !== 'surveillance' || !_data.live) {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
@@ -705,11 +551,8 @@ function pollSurveillance() {
   sendCmdSilent(parts.join(' '));
 }
 
-// DEADHEAD live tracking: while she's actually moving, re-pull the app so the aeroplane marker
-// walks the map instead of freezing wherever it was when you opened it. Same silent re-nav as
-// pollSurveillance. 2s is deliberately slower than the crew tick (2.5s) is fast — the CSS transition
-// on the marker covers the gap between pushes, so this buys smooth motion without a chatty poll.
-// Self-cancelling: the moment the view changes or she stops moving, the timer tears itself down.
+// DEADHEAD live tracking: silent re-nav every 2s while she's moving; the marker's CSS
+// transition covers the gap. Tears itself down when the view changes or she stops.
 let _dhTimer = null;
 function pollDeadhead() {
   if (!_overlay || !_data || _data.view !== 'deadhead' || !_data.deadhead?.moving) {
@@ -719,20 +562,15 @@ function pollDeadhead() {
   sendCmdSilent('tabletnav deadhead');
 }
 
-// Live-refresh the Quests app when the server signals a quest changed state
-// (dispatch.js quest_update -> here). Silently re-navs the exact screen we're on
-// (category list / quest detail / job board), preserving scroll, so the objective
-// checkboxes tick in place without the player reopening the app. No-op unless the
-// tablet is open on the Quests app. Mirrors pollSurveillance's silent re-nav, but
-// event-driven rather than on a timer.
+// Server says a quest changed (dispatch.js quest_update): silently re-nav the exact
+// Quests screen we're on so objectives tick in place. No-op unless Quests is open.
 export function tabletQuestUpdate() {
   if (!_overlay || !_data || _data.appId !== 'quests') return;
   const crumb = _data.breadcrumb || [];
   let screen = null, params = null;
   if (_data.view === 'detail') {
-    // Detail is keyed by quest_id (params); buildScreen resolves it regardless of
-    // the screen token, but a token still has to precede the id so the tokenizer
-    // doesn't misread the id as the screen — reuse the detail's category crumb.
+    // A screen token must precede the quest_id or the tokenizer reads the id as the
+    // screen; reuse the detail's category crumb.
     screen = crumb[0] || null;
     params = _data.quest?.id || _data.detail?.id || null;
   } else {
@@ -745,8 +583,6 @@ export function tabletQuestUpdate() {
   sendCmdSilent(parts.join(' '));
 }
 
-// ── Renderers ────────────────────────────────────────────────────────────
-
 function renderSummary(p) {
   if (!p) return '';
   return `<div class="tos-summary">
@@ -757,9 +593,7 @@ function renderSummary(p) {
   </div>`;
 }
 
-// A cell-signal indicator in the header. Full bars on the grid; a steady "VOIDLINK"
-// badge once out on a crossing — see the module banner above, this no longer tracks
-// live hunting state, just whether you're currently off the grid at all.
+// Header signal: full bars on the grid, a steady "VOIDLINK" badge on a crossing.
 function buildSignal() {
   const bars = [1, 2, 3, 4].map(i => `<span class="tos-sig-bar on" style="height:${i * 2 + 1}px"></span>`).join('');
   return `<span class="tos-signal" id="tos-signal-live" title="Signal"><span class="tos-sig-bars">${bars}</span></span>`;
@@ -774,18 +608,14 @@ function renderSignal() {
     + `<span class="tos-void-badge-dot"></span>Weak signal · off grid</span>`;
 }
 
-// Persistent off-grid theming for the rest of a crossing, reapplied on every render
-// (cheap: classList toggles). Purely cosmetic — the CSS (.tos-void-mode) drives the
-// scanline haze, drift band and vignette pulse, and .tos-void-searching drives the
-// text-only flicker before the carrier locks; nothing here gates an app.
+// Off-grid theming, reapplied each render. Cosmetic only: .tos-void-mode and
+// .tos-void-searching (text-only flicker before lock) are CSS; nothing gates an app.
 function applyVoidMode() {
   const on = isOnCrossing();
   const panel = _overlay?.querySelector('.tos-panel');
   if (!panel) return;
   panel.classList.toggle('tos-void-mode', on);
   panel.classList.toggle('tos-void-searching', on && _voidSearching);
-  // Off the grid the device isn't ArchitectOS any more — it's running its own
-  // firmware, and the chassis header says so.
   const title = _overlay.querySelector('.mg-head .mg-brand-name');
   if (title) title.textContent = on ? 'VOIDLINK' : 'ARCHITECT OS';
   const sub = _overlay.querySelector('.mg-head .mg-subtitle');
@@ -793,10 +623,8 @@ function applyVoidMode() {
   if (on && _voidSearching) armVoidHunt();
 }
 
-// The one-shot void cold start: swaps the normal ARCHITECT OS boot screen for the
-// tablet's own firmware terminal, which fails the grid handshake and falls back to
-// VOIDLINK LOCAL, then hands off to the SEARCHING state. Only ever called once per
-// crossing (see _voidTripPrimed / openTabletPanel).
+// The one-shot void cold start: firmware terminal fails the grid handshake, then
+// hands off to SEARCHING. Once per crossing (see _voidTripPrimed / openTabletPanel).
 const VOID_BOOT_LINES = [
   { cls: 'hd', text: 'VOIDLINK FIRMWARE 3.1.7-w' },
   { cls: 'rule' },
@@ -836,17 +664,13 @@ function runVoidFirmwareBoot() {
   timer = setTimeout(step, 220);
 }
 
-// Firmware boot done → the OS comes up in the SEARCHING state (unless this crossing
-// already locked a carrier), which renders the real screen with flickering text and
-// arms the drag-to-lock hunt.
+// Boot done → SEARCHING (unless this crossing already locked), arming the drag hunt.
 function finishVoidBoot() {
   if (!_voidLocked) _voidSearching = true;
   render();
 }
 
-// "Move the tablet into the right position": while SEARCHING, actually dragging the
-// tablet (not merely grabbing it) is what finds the carrier. One real drag locks it
-// for the rest of the crossing — moving it again afterwards changes nothing.
+// While SEARCHING, one real drag (not a grab) locks the carrier for the crossing.
 const VOID_HUNT_PX = 60; // drag distance that counts as having found the position
 function armVoidHunt() {
   if (_voidHunt || !_overlay) return;
@@ -891,14 +715,8 @@ function lockVoidSignal() {
   render();
 }
 
-// Header: date and place on the left, then the CLOCK and the signal bars together
-// on the right — the corner every phone has trained people to look at for the time.
-// The clock is deliberately the largest thing in the bar; it was previously the same
-// 11px as everything else and got lost next to the location string.
-//
-// It also opens the Alarm app, because a clock you can't set an alarm on is just a
-// label. The generic [data-nav-app] handler does the navigation, so this needs no
-// wiring of its own.
+// Header: date and place left, clock and signal right. The clock is the largest thing
+// in the bar and opens the Alarm app via the generic [data-nav-app] handler.
 function renderHeader(d) {
   const time = esc(d.time?.time || '');
   return `<div class="tos-hdr">`
@@ -911,100 +729,50 @@ function renderHeader(d) {
     + `</span></div>`;
 }
 
-/* Theme-aware app icons, keyed by app id. Primary strokes use currentColor (inherits
-   the tablet's computed foreground); .dim elements pick up a muted derived tone. Falls
-   back to each app's emoji when no SVG is mapped. viewBox 0 0 24 24. */
+// Theme-aware app icons by app id, viewBox 0 0 24 24. Strokes use currentColor; .dim
+// takes a muted tone. Apps without an entry fall back to their emoji.
 const TOS_APP_ICONS = {
   corp: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M4 21V6h7v15"/><path class="dim" d="M11 9h8v12h-8z" fill="currentColor" fill-opacity=".25" stroke="none"/><path d="M11 9h8v12"/><path d="M2 21h20"/><path d="M6 8h2M6 11h2M6 14h2M6 17h2M14 12h2M14 15h2M14 18h2"/></svg>`,
   bank: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M12 3l9 5H3z"/><path class="dim" d="M12 3l9 5H3z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M5 8v8M9 8v8M15 8v8M19 8v8"/><path d="M3 20h18"/><path d="M4 17h16"/></svg>`,
   properties: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M3 11l9-8 9 8"/><path d="M5 10v11h14V10"/><path class="dim" d="M10 21v-6h4v6z" fill="currentColor" fill-opacity=".28" stroke="none"/><path d="M10 21v-6h4v6"/></svg>`,
   quests: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><rect x="5" y="4" width="14" height="17"/><path class="dim" d="M9 3h6v3H9z" fill="currentColor" fill-opacity=".3"/><path d="M9 3h6v3H9z"/><path d="M8 11l2 2 4-4"/><path d="M8.5 17h7"/></svg>`,
   settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="miter"><path d="M10.4 2.5h3.2l.5 2.6 2 1.15 2.5-.95 1.6 2.77-2 1.65V13.3l2 1.65-1.6 2.77-2.5-.95-2 1.15-.5 2.6h-3.2l-.5-2.6-2-1.15-2.5.95-1.6-2.77 2-1.65v-2.6l-2-1.65 1.6-2.77 2.5.95 2-1.15z"/><circle class="dim" cx="12" cy="12" r="3" fill="currentColor" fill-opacity=".3" stroke="none"/><circle cx="12" cy="12" r="3"/></svg>`,
-  // Gear = the equipment/paperdoll app: a vest silhouette (matches the doll
-  // theme), monochrome like every other tile so it drops the off-palette 🧥 emoji.
   gear: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M9 3l3 2.5L15 3l4 3-2.5 3.5V21H7.5V9.5L5 6z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M9 3l3 2.5L15 3l4 3-2.5 3.5V21H7.5V9.5L5 6z"/><path d="M12 5.5V21"/></svg>`,
   skills: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 2.5l2.6 5.3 5.9.9-4.25 4.15 1 5.75L12 15.9 6.75 18.6l1-5.75L3.5 8.7l5.9-.9z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M12 2.5l2.6 5.3 5.9.9-4.25 4.15 1 5.75L12 15.9 6.75 18.6l1-5.75L3.5 8.7l5.9-.9z"/></svg>`,
   weather: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="8" cy="8" r="3" fill="currentColor" fill-opacity=".3"/><circle cx="8" cy="8" r="3"/><path d="M8 2.2v1.6M8 12.2v1.6M2.2 8h1.6M12.2 8h1.6M4.1 4.1l1.1 1.1M10.8 10.8l1.1 1.1M11.9 4.1l-1.1 1.1M5.2 10.8l-1.1 1.1"/><path d="M9 18a3.5 3.5 0 0 1 .5-6.96A4.5 4.5 0 0 1 18 12.5a3 3 0 0 1-.4 5.5z" fill="currentColor" fill-opacity=".12"/></svg>`,
   vehicles: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 2l2.5 6.5L21 12v2l-6.5-2v4l2.5 2v1.5L12 18l-5 1.5V18l2.5-2v-4L3 14v-2l6.5-3.5z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M12 2l2.5 6.5L21 12v2l-6.5-2v4l2.5 2v1.5L12 18l-5 1.5V18l2.5-2v-4L3 14v-2l6.5-3.5z"/></svg>`,
   specter: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M3 7l13-3 1.2 4.4-13 3z" fill="currentColor" fill-opacity=".25" stroke="none"/><path d="M3 7l13-3 1.2 4.4-13 3z"/><path d="M17.6 6.2l3.4-1 .7 2.6-3.4 1"/><path d="M6 11.2V15a2 2 0 0 0 2 2h1"/><circle cx="9" cy="20" r="2"/><path d="M12.5 9.5l2.5 3.5"/></svg>`,
   chat: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M4 4h16v11H8l-4 4z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M4 4h16v11H8l-4 4z"/><path d="M8 8h8M8 11h5"/></svg>`,
-  // News = "The Coldwater Sentinel" newsprint sheet: a folded broadsheet with a
-  // masthead band and columns, monochrome like the rest so it drops the 📰 emoji.
   news: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M4 4h16v16l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2z" fill="currentColor" fill-opacity=".2" stroke="none"/><path d="M4 4h16v16l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2z"/><path d="M7 7h10"/><path d="M7 10.5h4.5v4H7z"/><path d="M13.5 10.5H17M13.5 13H17M7 16.5h10"/></svg>`,
-  // Codex = an open record: two leaves off a centre spine, ruled text on the
-  // left, and on the right the crosshair-and-marker of the Orders compass — the
-  // two halves of the app in one mark (the world, and where you stand in it).
-  // Monochrome, same stroke weight and .dim fill convention as the rest.
-  // Mixology (app id is still 'bar'). Without this the tile fell through to the
-  // app's own `icon: '🥃'` — a colour emoji, which cannot take `currentColor` and
-  // so ignored the theme entirely while every other tile re-skinned around it.
+  // Mixology (app id is still 'bar'): without this the emoji tile ignores the theme.
   bar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M5.6 6.6h12.8L12 13.9z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M4.2 5.4h15.6L12 14.4z"/><path d="M12 14.4v5"/><path d="M8.3 19.8h7.4"/><path d="M15.6 3.1l-2.2 4.4" stroke-opacity=".55"/><circle cx="13.4" cy="7.5" r="1.15" fill="currentColor" stroke="none"/></svg>`,
-  // Sports. A trophy would read as "achievements"; a pennant on a staff is
-  // unambiguously a league table, and it holds its shape at tile size.
-  // A pennant said "team" and the scoreboard that replaced it said "a screen with
-  // numbers on it" — at 18px the divider is the only thing carrying the meaning and
-  // it loses. A BASEBALL is one silhouette everybody already reads as sport, and the
-  // seams survive the tile because they're two arcs, not detail. Deadball is the
-  // flagship league; Cluster Puck rides along under it.
   sports: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="12" r="8.2" fill="currentColor" fill-opacity=".16" stroke="none"/><circle cx="12" cy="12" r="8.2"/><path d="M6.9 5.9C9.5 8.7 9.5 15.3 6.9 18.1"/><path d="M17.1 5.9C14.5 8.7 14.5 15.3 17.1 18.1"/><path d="M8.6 8.4l1.6-.5M9.2 11.9h1.7M8.6 15.4l1.6.5" stroke-opacity=".6" stroke-width="1.3"/><path d="M15.4 8.4l-1.6-.5M14.8 11.9h-1.7M15.4 15.4l-1.6.5" stroke-opacity=".6" stroke-width="1.3"/></svg>`,
   codex: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z"/><path d="M12 6.2v14"/><path d="M6 8.4h3.5M6 11.2h3.5M6 14h2.4" stroke-opacity=".75"/><circle cx="16.4" cy="11.4" r="3.1" stroke-opacity=".8"/><path d="M16.4 8.3v6.2M13.3 11.4h6.2" stroke-opacity=".45"/><circle cx="17.7" cy="10.1" r="1.15" fill="currentColor" stroke="none"/></svg>`,
-  // Ideology = an alignment compass: crosshair axes + a plotted marker, the same
-  // "where you stand" motif the app's charts use. Monochrome like the rest.
-  // (Kept: the Ideology reader now lives as the Codex's Orders section, but this
-  // mark still fronts it in any surface that keys off the old id.)
+  // Kept for any surface keyed off the old 'ideology' id (now the Codex's Orders).
   ideology: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".14" stroke="none"/><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18" stroke-opacity=".55"/><circle cx="15" cy="9" r="2.4" fill="currentColor" stroke="none"/></svg>`,
-  // Not an SVG glyph — the circled-"A" ARCHITECT logo (same mark as the tablet's
-  // own boot screen, .tos-boot-logo), so the tile reads as the game itself.
+  // Not an SVG: the circled-"A" logo, same as .tos-boot-logo.
   arcade: `<span class="tos-ic-a">A</span>`,
   music: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M9 18V5l11-2v13"/><circle class="dim" cx="6" cy="18" r="3" fill="currentColor" fill-opacity=".25" stroke="none"/><circle cx="6" cy="18" r="3"/><circle class="dim" cx="17" cy="16" r="3" fill="currentColor" fill-opacity=".25" stroke="none"/><circle cx="17" cy="16" r="3"/></svg>`,
   help: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".18" stroke="none"/><circle cx="12" cy="12" r="9"/><path d="M9.1 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor" stroke="none"/></svg>`,
-  // Calendar = a wall-calendar sheet: torn-off binding tabs, a header band, and a
-  // grid of day cells, monochrome like the rest so it drops the off-palette 📅 emoji.
   calendar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M8 2v3M16 2v3"/><rect x="3.5" y="5" width="17" height="16" rx="1.5"/><path class="dim" d="M3.5 9h17V6.5A1.5 1.5 0 0 0 19 5H5A1.5 1.5 0 0 0 3.5 6.5z" fill="currentColor" fill-opacity=".28" stroke="none"/><path d="M3.5 9h17"/><path d="M7.5 12.5h3M13.5 12.5h3M7.5 16.5h3M13.5 16.5h3"/></svg>`,
-  // Map = a folded paper map (two creased panels), monochrome like the rest so it
-  // drops the off-palette 🗺 emoji.
   map: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>`,
-  // Frontier = a compass rose: a ringed dial with a canted needle, the void-travel
-  // wayfinding motif (drops the 🧭 emoji; glows via .tos-tile-glow while mid-journey).
   frontier: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".14" stroke="none"/><circle cx="12" cy="12" r="9"/><path class="dim" d="M15 5l-7 3-3 7 7-3z" fill="currentColor" fill-opacity=".28" stroke="none"/><path d="M15 5l-7 3-3 7 7-3z"/><circle cx="12" cy="12" r=".9" fill="currentColor" stroke="none"/></svg>`,
-  // Crafting = a wrench, distinct from the Settings cog (which shares the ⚙ emoji).
   crafting: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M14.6 5.4a4 4 0 0 0-5.2 5.2l-6 6 3 3 6-6a4 4 0 0 0 5.2-5.2l-2.6 2.6-2.6-.4-.4-2.6z" fill="currentColor" fill-opacity=".2" stroke="none"/><path d="M14.6 5.4a4 4 0 0 0-5.2 5.2l-6 6 3 3 6-6a4 4 0 0 0 5.2-5.2l-2.6 2.6-2.6-.4-.4-2.6z"/></svg>`,
-  // Party = two figures, monochrome like the rest so it drops the 👥 emoji.
   party: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle cx="9" cy="8" r="3"/><path class="dim" d="M3.5 20a5.5 5.5 0 0 1 11 0z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="16.5" cy="8.5" r="2.5"/><path d="M14.6 15.2A5 5 0 0 1 21 20"/></svg>`,
-  // DEADHEAD = an aircraft in a dashed holding orbit — the crew flying/loitering your base.
-  // Monochrome (currentColor) like the rest, so it drops the off-palette ✈ emoji.
   deadhead: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><ellipse class="dim" cx="12" cy="13" rx="10" ry="6.2" fill="currentColor" fill-opacity=".12" stroke="none"/><ellipse cx="12" cy="13" rx="10" ry="6.2" stroke-opacity=".5" stroke-dasharray="2.4 2.6"/><path d="M12 4.6l1.05 5.7 4.9 2.5-4.9.7v2.2l1.7 1.6-2.75-.85-2.75.85 1.7-1.6v-2.2l-4.9-.7 4.9-2.5z" fill="currentColor" stroke="none"/></svg>`,
-  // Vitals = a heart with the trace running through it: the app is meters, and
-  // the meter everything else hangs off is whether you're still beating.
   health: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z"/><path d="M4.6 12.4h3l1.6-3.2 2.2 5.4 1.7-3.4 1.2 1.2h4.1"/></svg>`,
-  // Library = shelved spines, deliberately NOT the Codex's open book: the Codex is
-  // one record you read, the Library is a shelf you choose from.
   library: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M4 5h4v14H4zM9 5h4v14H9z" fill="currentColor" fill-opacity=".2" stroke="none"/><path d="M4 5h4v14H4zM9 5h4v14H9z"/><path d="M14.4 6.3l4 1-2.6 11.4-4-1z"/><path d="M5 8.6h2M10 8.6h2"/><path d="M3 21h18"/></svg>`,
-  // TV = the set, not the screen content: a CRT box with rabbit ears, matching the
-  // broadcast system's own deliberately obsolete hardware.
   tv: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M8.4 7L5 3M15.6 7L19 3"/><rect x="2.5" y="7" width="19" height="12" rx="1.4"/><path class="dim" d="M4.5 9h11.5v8H4.5z" fill="currentColor" fill-opacity=".24" stroke="none"/><path d="M4.5 9h11.5v8H4.5z"/><path d="M18.6 11v.01M18.6 14.4v.01" stroke-linecap="round" stroke-width="2"/><path d="M7 21h10"/></svg>`,
-  // Cookbook = the pan, which is the part of cooking the app is actually about.
   cookbook: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M3 11h13v3.5a5.5 5.5 0 0 1-11 0z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M3 11h13v3.5a5.5 5.5 0 0 1-11 0z"/><path d="M16 12.4h4.5"/><path d="M7 8.2c0-1.4 1.4-1.4 1.4-2.8S7 2.6 7 2.6M11.5 8.2c0-1.4 1.4-1.4 1.4-2.8s-1.4-2.8-1.4-2.8" stroke-opacity=".55"/></svg>`,
-  // Storefront = the awning and the shutter: a shop seen from the pavement, which
-  // is how a player meets one.
   storefront: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M2.5 4.5h19L20 10H4z" fill="currentColor" fill-opacity=".24" stroke="none"/><path d="M2.5 4.5h19L20 10H4z"/><path d="M4 10v10.5h16V10"/><path d="M8.5 20.5V14h7v6.5"/><path d="M8.5 4.5L8 10M15.5 4.5l.5 5.5" stroke-opacity=".5"/></svg>`,
-  // Alarm = the twin-bell clock, the one shape that reads as "wakes you up" at 22px.
   alarm: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="13.5" r="7.5" fill="currentColor" fill-opacity=".16" stroke="none"/><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.6 1.7"/><path d="M4.6 4.2A4 4 0 0 0 3 7.4M19.4 4.2A4 4 0 0 1 21 7.4"/><path d="M6.2 19.8L4.6 21.6M17.8 19.8l1.6 1.8"/></svg>`,
-  // Accolades = a rosette: award ribbon with a struck centre. Replaces the ▓ block,
-  // which was monochrome but carried no meaning.
-  // Three cards fanned, the back two dimmed — a hand you are still filling,
-  // which is the app in one shape.
   binder: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><rect class="dim" x="3.2" y="7" width="8.6" height="12.4" rx="1.4" transform="rotate(-16 7.5 13.2)" fill="currentColor" fill-opacity=".18"/><rect class="dim" x="3.2" y="7" width="8.6" height="12.4" rx="1.4" transform="rotate(-16 7.5 13.2)"/><rect x="8" y="4.6" width="9" height="13.2" rx="1.4" transform="rotate(-4 12.5 11.2)" fill="currentColor" fill-opacity=".12"/><rect x="8" y="4.6" width="9" height="13.2" rx="1.4" transform="rotate(-4 12.5 11.2)"/><path d="M12.9 9.3l1 2.05 2.26.33-1.63 1.6.38 2.25-2.01-1.06-2.02 1.06.39-2.25-1.64-1.6 2.27-.33z" fill="currentColor" stroke="none"/></svg>`,
   accolades: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="9" r="6" fill="currentColor" fill-opacity=".2" stroke="none"/><circle cx="12" cy="9" r="6"/><path d="M12 6.2l1.15 2.35 2.6.38-1.88 1.83.44 2.58L12 12.1l-2.31 1.22.44-2.58L8.25 8.9l2.6-.38z" fill="currentColor" stroke="none"/><path d="M8.4 14.3L7 21.5l5-2.4 5 2.4-1.4-7.2"/></svg>`,
-  // BLISS = the heart, kept from the ♡ it replaces, redrawn at the same stroke
-  // weight as every other tile so it stops reading as a text character.
   bliss: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z" fill="currentColor" fill-opacity=".28" stroke="none"/><path d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z"/><path d="M7.6 9.4a2.6 2.6 0 0 1 2.3-1.7" stroke-opacity=".55"/></svg>`,
 };
 
-// Each tile's icon sits on a tinted plate; this is the plate's hue (OKLCH degrees),
-// grouped by what the app is about: money gold, body red, places green, media
-// violet, people blue. An app with no entry gets a hue hashed from its id, so a new
-// app still gets a stable colour without anyone touching this table.
+// Tile plate hue (OKLCH degrees) by what the app is about. An app with no entry gets
+// a hue hashed from its id.
 const TOS_APP_HUES = {
   corp: 250, bank: 85, properties: 150, quests: 60, settings: 260, gear: 40, skills: 75,
   weather: 220, vehicles: 230, specter: 0, chat: 245, news: 30, bar: 330, sports: 140,
@@ -1017,9 +785,8 @@ function tosAppHue(id) {
   let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return h % 360;
 }
-// Under Icon Colours → Theme the hue is the accent's, so the type groups are told
-// apart by a step (0-4) off the accent: each step shifts its hue 28° and its
-// lightness a little, so the grid reads as one palette but the groups still differ.
+// Icon Colours → Theme: groups are a step (0-4) off the accent, 28° and a little
+// lightness per step.
 function tosAppShade(id) {
   return Math.floor(tosAppHue(id) / 72) % 5;
 }
@@ -1029,62 +796,32 @@ function tosTileIcon(a) {
   return `<span class="tos-icon${a.id === 'arcade' ? ' tos-icon-bare' : ''}" aria-hidden="true" style="--ic-h:${tosAppHue(a.id)};--ic-s:${tosAppShade(a.id)}">${inner}</span>`;
 }
 
-// Client-only tablet apps — appended to the server-registered roster. Unlike the
-// other apps (which round-trip a tablet_panel screen), Music launches the AMP
-// walkman overlay (openMusicPlayerPanel), a native panel that lives outside the
-// tablet chassis, so its tile is handled client-side in wireBody().
+// Client-only apps appended to the server roster. Music opens the walkman overlay
+// (openMusicPlayerPanel), handled in wireBody().
 const CLIENT_APPS = [{ id: 'music', name: 'Music', category: 'Media' }];
 
-// The player's custom home-grid arrangement is a client-only preference — a list
-// of app ids in display order, cached in localStorage. It never touches the
-// server; a fresh device simply falls back to registration order.
+// Home-grid order: client-only, per device, a list of app ids. See
+// plugins/tablet/README.md#home-screen-client for the home grid's design.
 const TABLET_APP_ORDER_KEY = 'architect_tablet_app_order';
-// Apps the player has flung off the home grid. Client-only, like the order — a list
-// of ids; anything here is dropped from the grid and offered back under the ⊕ tile.
+// Apps flung off the grid (offered back under ⊕). Client-only.
 const TABLET_APP_HIDDEN_KEY = 'architect_tablet_hidden_apps';
-// The out-of-the-box home screen: three rows of four, then the ⧉/⊕ tiles. Every
-// OTHER registered app starts stashed under ⊕ — a fresh tablet shows 30-odd tiles
-// otherwise, and the ones you reach for hourly (where am I, what am I wearing, am
-// I dying, how wanted am I) get lost among the ones you open twice a character.
-//
-// The bar for a slot here is "you open it without being prompted to". Apps that
-// only matter once you OWN something (properties, storefront, vehicles, corp) or
-// once you're DOING something specific (crafting, cookbook, bar, frontier, sports,
-// arcade, specter) are one tap away under ⊕ and stay put once added.
-//
-// SIXTEEN IS ONE PAGE — four rows of four (see paginateHome). It isn't a ceiling:
-// a seventeenth app simply starts page 2, and a player can keep as many out as they
-// like. But the DEFAULT should land on a single page, so a first login isn't handed
-// a home screen it has to swipe. Adding one here means dropping one, or accepting a
-// page 2 with a single tile on it.
-// ORDER IS THE POINT, not just the membership: reading order, most-reached-for
-// first. Row 1 is the four you open without thinking (where am I, what am I
-// carrying, how am I, what am I doing). Row 2 is the day's business — people,
-// money, heat, progress. Row 3 is the things you do when you have a minute. Row 4
-// is reference and housekeeping, the stuff you open on purpose and rarely.
+// Default home: sixteen apps (one page), in reading order. Everything else starts
+// stashed under ⊕. Adding one here means dropping one.
 const TABLET_DEFAULT_HOME_APPS = [
   'map', 'gear', 'health', 'quests',
   'chat', 'bank', 'crime', 'skills',
   'crafting', 'news', 'music', 'calendar',
   'tv', 'codex', 'help', 'settings',
 ];
-// Bump when TABLET_DEFAULT_HOME_APPS changes. A device that seeded its stash under
-// an older default set re-seeds ONCE to the new one — without this, a player who
-// first logged in when the default was twelve apps keeps that twelve forever, plus
-// whatever registered afterwards, and reports (correctly) that the home screen
-// doesn't match the default at all. Re-seeding does discard a custom arrangement,
-// which is why it's tied to a deliberate version bump and not to the list's length.
+// Bump when TABLET_DEFAULT_HOME_APPS changes: each device re-seeds once (which
+// discards a custom arrangement, so only on a deliberate bump).
 const TABLET_HOME_SEED_VERSION = 2;
 const TABLET_HOME_SEED_KEY = 'architect_tablet_home_seed_v';
 let _suppressTileClick = false; // swallow the click that fires right after a drag-drop
-// Home-grid selection mode (armed by the ⧉ tile). While it's on, a tile tap picks
-// rather than opens, a drag anywhere over the grid lassoes, and the long-press
-// reorder stands down — so nothing is competing for the same gesture.
+// Selection mode (⧉): tap picks, drag lassoes, long-press reorder stands down.
 let _tosSelectMode = false;
-// True from the moment a home tile is LIFTED for reorder until the next press. The
-// page-swipe handler checks it: a tile dragged sideways across the grid is a
-// reorder that happens to move horizontally, not a request to turn the page, and
-// the two listeners are on the same element with no other way to tell them apart.
+// True from a tile LIFT until the next press, so the page-swipe handler (same
+// element) treats a sideways tile drag as a reorder, not a page turn.
 let _homeDragLifted = false;
 
 function loadAppOrder() {
@@ -1096,19 +833,9 @@ function saveAppOrder(ids) {
 }
 
 // ── Empty slots ──────────────────────────────────────────────────────────────
-// A HOLE IS A REAL ENTRY IN THE ORDER, not an absence. The grid used to be a
-// flat list chunked sixteen at a time, so every arrangement re-packed itself: move
-// one app to the next page and everything after it slid up to close the space, and
-// a page could never be anything but full until the last one. Recording the hole
-// as a token in the same list is what lets a page hold four apps in the corners it
-// was given — pagination, drag-swap and persistence all treat it as an ordinary
-// occupant that happens to draw nothing.
-//
-// Tokens are UNIQUE (`~gap` + a random suffix). Identity matters because the
-// save path splices the visible page back into the full order by id — with one
-// shared token every hole on every other page would collide with this page's and
-// be swallowed. Trailing holes are trimmed on save: an empty run at the very end
-// is not a layout, it's a phantom page.
+// A hole is a real entry in the order, so a page keeps its shape. Tokens are UNIQUE
+// ('~gap' + suffix) because the save path splices pages back by id. Trailing holes
+// are trimmed on save.
 const HOME_GAP_PREFIX = '~gap';
 const isHomeGap = (id) => typeof id === 'string' && id.startsWith(HOME_GAP_PREFIX);
 const newHomeGap = () => HOME_GAP_PREFIX + Math.random().toString(36).slice(2, 8);
@@ -1117,8 +844,7 @@ function trimHomeGaps(order) {
   while (end > 0 && isHomeGap(order[end - 1])) end--;
   return order.slice(0, end);
 }
-// Leave a hole exactly where an app was — used when a tile is flung off the tablet,
-// so stashing an app doesn't re-pack the page around the space it left.
+// Leave a hole where a flung-off app was, so the page doesn't re-pack.
 function replaceOrderIdWithGap(id) {
   const order = loadAppOrder();
   if (!order.includes(id)) return;
@@ -1128,21 +854,16 @@ function loadHiddenApps() {
   try { const a = JSON.parse(localStorage.getItem(TABLET_APP_HIDDEN_KEY)); return Array.isArray(a) ? a : []; }
   catch { return []; }
 }
-// Stash everything outside the default set and write it down — on first run, and
-// again once whenever TABLET_HOME_SEED_VERSION moves. Materializing it rather than
-// deriving it on every render is what makes a LATER-registered app appear on the
-// home grid instead of silently landing in the stash: it isn't in the saved list,
-// so it shows up at the end of the last page.
+// Stash everything outside the default set, on first run and once per
+// TABLET_HOME_SEED_VERSION. Materialized so a later-registered app lands on the grid.
 function seedDefaultHiddenApps(all) {
   if (!all.length) return;   // roster not in yet — don't seed an empty default
   let seeded = null;
   try { seeded = localStorage.getItem(TABLET_HOME_SEED_KEY); } catch { return; }
-  // Devices from before the version key existed: treat a stash with no version as
-  // version 1, so they re-seed to the current default exactly once.
+  // No version key yet: treat as version 1 so it re-seeds once.
   if (seeded !== null && Number(seeded) >= TABLET_HOME_SEED_VERSION) return;
   saveHiddenApps(all.filter(a => !TABLET_DEFAULT_HOME_APPS.includes(a.id)).map(a => a.id));
-  // Seed the order too, so the sixteen land in the reading order above rather than
-  // in whatever order the plugins happened to register.
+  // Seed the order too, so the sixteen land in reading order.
   saveAppOrder(TABLET_DEFAULT_HOME_APPS.filter(id => all.some(a => a.id === id)));
   saveAppGroups([]);   // a re-seed can't leave a box holding apps that are now stashed
   saveRemovedApps([]); // …nor a removal recorded against an arrangement that's gone
@@ -1163,29 +884,15 @@ function unhideApp(id) {
 }
 
 // ── Removed vs merely stashed ────────────────────────────────────────────────
-// TWO DIFFERENT REASONS an app can be off the home grid, and only one of them is
-// a decision. The seed above stashes everything outside the default sixteen so a
-// first login isn't handed thirty tiles — that's the shipped arrangement, not the
-// player rejecting those apps. Flinging a tile off the tablet IS the player
-// rejecting it.
-//
-// The home CARDS need to tell those apart. Filtering them on the hidden list made
-// a card unreachable for any app that merely started stashed: Sports could have
-// its own widget preference set to `both` and still never draw, because `sports`
-// was never in the default sixteen and nothing the player did put it there. So a
-// card now shows for any app EXCEPT one that was explicitly removed, while the
-// grid keeps using the hidden list exactly as before — the tile arrangement is
-// untouched by this.
+// Seed-stashed isn't removed. Home cards show for any app except one the player
+// explicitly removed; the grid still uses the hidden list.
 const TABLET_APP_REMOVED_KEY = 'architect_tablet_removed_apps';
 function loadRemovedApps() {
   let raw = null;
   try { raw = localStorage.getItem(TABLET_APP_REMOVED_KEY); } catch { return []; }
   if (raw === null) {
-    // Devices from before this key existed: the only removals we can prove are
-    // apps that the seed PUT on the home screen and that are stashed anyway —
-    // the player took those off by hand. A stashed non-default app is ambiguous
-    // (never added vs added-then-removed), and the honest reading of an ambiguous
-    // case is "not removed", which is the behaviour this change exists to give.
+    // No key yet: the only provable removals are default apps that are stashed anyway.
+    // A stashed non-default app is ambiguous and counts as not removed.
     const derived = loadHiddenApps().filter(id => TABLET_DEFAULT_HOME_APPS.includes(id));
     saveRemovedApps(derived);
     return derived;
@@ -1200,13 +907,9 @@ function markAppRemoved(id) {
   if (!r.includes(id)) { r.push(id); saveRemovedApps(r); }
 }
 
-// Home-grid app groups — the same client-only, per-device preference shape as the
-// order and hidden lists above: `[{ id, name, color, apps:[appId] }]`. A group is
-// purely presentational (a coloured box with a name tab around a sub-grid); it
-// never changes what an app IS, so the server neither knows nor cares about it.
+// Home-grid groups: client-only, '[{ id, name, color, apps:[appId] }]'. Presentational only.
 const TABLET_APP_GROUPS_KEY = 'architect_tablet_app_groups';
-// Swatches offered when naming a group. Picked to stay legible against the tab's
-// dark text on every tablet theme (all are mid-to-bright, none near-black).
+// Group swatches, all legible against the tab's dark text.
 const TOS_GROUP_COLORS = ['#3fd0d8', '#5ad07a', '#d8c23f', '#e08a3a', '#e0413a', '#c76ad8', '#6a8fe0', '#a9b4bd'];
 function loadAppGroups() {
   try {
@@ -1215,19 +918,11 @@ function loadAppGroups() {
   } catch { return []; }
 }
 function saveAppGroups(groups) {
-  // Drop emptied groups on the way out — a box with nothing in it renders as a
-  // floating tab and can never be repopulated except by lassoing into it.
+  // Drop empty groups: an empty box can't be repopulated except by lasso.
   try { localStorage.setItem(TABLET_APP_GROUPS_KEY, JSON.stringify((groups || []).filter(g => g.apps.length))); } catch {}
 }
-// Put `ids` in a group, taking them out of whatever group they were in before —
-// an app belongs to exactly one box. Pass a null groupId to create a new one.
-//
-// `cols` is THE SHAPE YOU SELECTED, and it is the whole point. Lasso a 2×2 square
-// of apps and the box is 2 wide and 2 tall, sitting in those four cells; lasso a row
-// of four and it's 4×1. The box was previously always full-width, which flattened
-// every selection into a line — a 2×2 pick came back as 1×4, shoved the row above it
-// into a ragged half-row, and pushed apps off the page. A box now spans exactly the
-// cells its members occupied.
+// Put 'ids' in a group (an app is in exactly one); null groupId makes a new one.
+// 'cols' is the shape you selected: a 2×2 lasso makes a 2×2 box.
 function assignAppsToGroup(ids, name, color, groupId, cols) {
   const set = new Set(ids);
   const groups = loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => !set.has(x)) }));
@@ -1242,23 +937,15 @@ function assignAppsToGroup(ids, name, color, groupId, cols) {
   saveAppGroups(groups);
 }
 
-// How many columns a box should be, clamped to what the grid actually has.
-//
-// A group saved before shapes existed has no `cols`, and the fallback is SQUARE-ISH
-// (ceil√n) rather than full-width: four apps become 2×2, six become 3×2, nine 3×3.
-// Full-width would faithfully reproduce the old look, but the old look is the bug
-// being fixed — a legacy group would keep rendering as a line until the player
-// deleted and re-made it, which is a fix nobody can find. A deliberately-picked row
-// of four still records cols:4 at creation and stays a row.
+// Box column count, clamped to the grid. A group without 'cols' falls back to
+// square-ish (ceil√n), not full-width.
 function groupCols(g) {
   const n = (g.apps || []).length || 1;
   const want = Number(g.cols) || Math.ceil(Math.sqrt(n));
   return Math.max(1, Math.min(HOME_COLS, want));
 }
 
-// The column count a SELECTION occupied on screen, read off the tiles' own geometry
-// (distinct x-centres, snapped to tolerate sub-pixel grid maths). This is what makes
-// the box remember the shape you drew rather than a shape we chose for you.
+// Columns a selection occupied on screen (distinct x-centres, snapped for sub-pixel maths).
 function selectionCols(tiles) {
   const xs = new Set(tiles.map(t => {
     const b = t.getBoundingClientRect();
@@ -1267,15 +954,13 @@ function selectionCols(tiles) {
   return Math.max(1, Math.min(HOME_COLS, xs.size));
 }
 
-// Reorder apps to the cached arrangement: saved-order apps first (in saved order),
-// then any not yet placed (new/unsaved apps) in their natural order.
+// Saved-order apps first, then unplaced ones in natural order.
 function applyAppOrder(apps) {
   const order = loadAppOrder();
   if (!order.length) return apps;
   const byId = new Map(apps.map(a => [a.id, a]));
   const ordered = [];
   for (const id of order) {
-    // A hole is carried through as an entry with no app behind it (see isHomeGap).
     if (isHomeGap(id)) { ordered.push({ id, gap: true, name: '' }); continue; }
     if (byId.has(id)) { ordered.push(byId.get(id)); byId.delete(id); }
   }
@@ -1283,27 +968,17 @@ function applyAppOrder(apps) {
   return ordered;
 }
 
-// One home-screen tile. `stashed` is only ever true in search results — an app you
-// removed still turns up when you look for it by name, dimmed, and tapping it puts
-// it back rather than pretending it isn't there.
+// One home tile. 'stashed' is only true in search results: dimmed, and tapping it
+// restores the app.
 function homeTile(a, stashed, extra) {
-  // A hole: a real cell that holds a place and draws almost nothing. It only shows
-  // itself while you're arranging (see .tos-tile-gap), and it IS a drop target —
-  // dropping a tile on one is how an app gets moved into empty space.
+  // A hole: shows only while arranging (.tos-tile-gap), and is a drop target.
   if (a.gap) return `<div class="tos-tile tos-tile-gap${extra ? ' ' + extra : ''}" data-home-gap="${esc(a.id)}"></div>`;
-  // A positive `notify` count (e.g. SPECTER reels waiting to be clipped) lights a
-  // red badge on the tile.
   const n = Number(a.notify) || 0;
   const badge = n > 0 ? `<span class="tos-tile-badge">${n > 9 ? '9+' : n}</span>` : '';
   const glow = (a.id === 'frontier' && isOnCrossing()) ? ' tos-tile-glow' : '';
   const attr = stashed ? `data-search-restore="${esc(a.id)}"` : `data-nav-app="${esc(a.id)}"`;
-  // A tile is a <button>. It was a div, which meant the tablet's HOME SCREEN — the
-  // way into every app — could not be reached by keyboard at all: you could Tab
-  // through a screen's contents but never open one. Dragging is unaffected because
-  // rearranging is hand-rolled on pointer events (see the pointerdown handlers
-  // below) rather than HTML5 `draggable`, and a button fires those identically.
-  // The badge is a count the icon already implies visually, so it is folded into
-  // the accessible name instead of being read as a loose number after it.
+  // A <button> so the home screen is keyboard-reachable; drag is hand-rolled on
+  // pointer events, which buttons fire too. The badge count goes in the accessible name.
   const aria = n > 0 ? ` aria-label="${esc(a.name)}, ${n} waiting"` : '';
   return `<button type="button" class="tos-tile${glow}${stashed ? ' tos-tile-stashed' : ''}${extra ? ' ' + extra : ''}" ${attr}`
     + `${aria}${stashed ? ' title="Stashed: tap to put it back"' : ''}>`
@@ -1316,26 +991,15 @@ function renderHomeApps(apps) {
   const hidden = new Set(loadHiddenApps());
   const all = applyAppOrder(roster).filter(a => a.gap || !hidden.has(a.id));
   if (!all.some(a => !a.gap) && !hidden.size) return '<div class="tos-empty">No applications registered.</div>';
-  // EVERY VISIBLE APP HAS TO BE IN THE SAVED ORDER. applyAppOrder tolerates one that
-  // isn't by appending it at render time, so the screen looks right — but only ONE
-  // page is ever in the DOM, so the cross-page moves (page-dot drop, edge-hold flip)
-  // compute page boundaries from the saved order ALONE. An app that was never written
-  // down (unstashed from ⊕, or newly registered) looked to them like it lived past the
-  // last page: dragging it to the previous page moved nothing, the flip then couldn't
-  // find its tile on the page it had just turned to, and the drag died in mid-air.
-  // Write the appended ones down here, once, where the whole roster is known.
-  // APPEND the missing ones — never rewrite the order from `all`, which has the
-  // stashed apps filtered out and so would erase the slot every one of them is
-  // holding under ⊕. Appending is also exactly what applyAppOrder just did on
-  // screen, so what gets written down is what the player is looking at.
+  // ⚠ Every visible app must be in the saved order: cross-page moves compute page
+  // boundaries from the saved order alone. APPEND the missing ones, never rewrite from
+  // 'all' (it lacks stashed apps and would erase their slots).
   if (all.some(a => !a.gap)) {
     const saved = loadAppOrder();
     const missing = all.filter(a => !a.gap && !saved.includes(a.id)).map(a => a.id);
     if (missing.length) saveAppOrder(saved.length ? [...saved, ...missing] : all.map(a => a.id));
   }
-  // Searching flattens everything: no pages, no boxes, no arranging — just the apps
-  // that match, in order. With thirty-odd registered, typing three letters is faster
-  // than remembering which page you put a thing on.
+  // Search flattens: no pages, no boxes, just matches in order.
   if (_homeSearchOpen) {
     const q = _homeSearch.trim().toLowerCase();
     const hits = [...all.filter(a => !a.gap), ...[...hidden].map(id => roster.find(a => a.id === id)).filter(Boolean)]
@@ -1346,14 +1010,8 @@ function renderHomeApps(apps) {
     return `<div class="tos-home-apps tos-searching">${grid}${renderHomeToolbar(true)}</div>`;
   }
   const tile = (a) => homeTile(a, false);
-  // Grouping draws a box around apps WHERE THEY ALREADY ARE — it never moves them.
-  // Walk the saved order once; the moment we meet any member of a group we haven't
-  // drawn yet, draw the whole box right there (using the members' own relative
-  // order) and skip the rest of its members when we reach them later. So a group's
-  // position is simply wherever its earliest member already sat — never the top of
-  // the screen, never anywhere the player didn't put an app. Membership is by id,
-  // so an app the server stopped registering (or one the player stashed under ⊕)
-  // just drops out of its box.
+  // A group box is drawn where its earliest member sits in the saved order; it never
+  // moves apps. Membership is by id, so a missing app just drops out.
   const groupOf = new Map();
   for (const g of loadAppGroups()) for (const id of g.apps) if (!groupOf.has(id)) groupOf.set(id, g);
   const drawn = new Set();
@@ -1372,11 +1030,7 @@ function renderHomeApps(apps) {
   if (_homePage < 0) _homePage = 0;
   const page = pages[_homePage] || { blocks: [] };
 
-  // ONE grid holds everything. A group box is a grid ITEM that spans the cells its
-  // members occupied (cols × rows), sitting inline among the tiles — not a
-  // full-width band between them. That's what keeps a 2×2 selection a 2×2 square
-  // with two loose tiles beside it, instead of flattening it into a line and
-  // reflowing the whole screen around the break.
+  // One grid: a group box is an item spanning its members' cells (cols × rows).
   const body = page.blocks.map(b => {
     if (b.kind === 'tile') return tile(b.app);
     const { g, members } = b;
@@ -1384,11 +1038,8 @@ function renderHomeApps(apps) {
     const cols = groupCols(g);
     const n = members.length;
     const rows = Math.ceil(n / cols);
-    // Which of each member's four sides is on the OUTSIDE of the region. A cell's
-    // right edge is exterior if it's in the last column OR nothing follows it; its
-    // bottom edge is exterior if it's in the last row OR the cell below is past the
-    // end. That second clause is what traces the notch of a short final row, so the
-    // outline hugs the apps and the leftover cell reads as a space.
+    // Which sides of each member are on the outside of the region; the "past the end"
+    // clause traces the notch of a short final row.
     const inner = members.map((a, i) => {
       const col = i % cols, row = Math.floor(i / cols);
       const edges = [
@@ -1405,20 +1056,11 @@ function renderHomeApps(apps) {
       + `<span class="tos-appgroup-swatch"></span><span class="tos-appgroup-nm">${esc(g.name || 'Group')}</span></div>`
       + `<div class="tos-grid tos-appgrid tos-grp-inner" data-group-grid="${esc(g.id)}">${inner}</div></div>`;
   }).join('');
-  // EVERY EMPTY CELL IS A DROP TARGET. A page has sixteen cells, but only the ones
-  // up to its last app were ever elements: past that the grid was bare background,
-  // so a tile dropped there swapped with the nearest app instead, and the free cells
-  // on a short last page could never be filled. Pad the page out to sixteen with
-  // throwaway holes. They're ordinary gap tiles, so aiming, the swap and tap-to-add
-  // treat them like any hole; `data-home-pad` tells persistHomeArrangement to skip
-  // the ones still trailing after the page's last app, so padding never writes a
-  // phantom hole into the order. The grid packs dense, so a 1×1 pad also fills any
-  // cell a group box left open.
+  // Pad the page to sixteen cells with throwaway holes so every empty cell is a drop
+  // target. 'data-home-pad' tells persistHomeArrangement to skip trailing ones.
   const used = page.blocks.reduce((n, b) => n + homeBlockCost(b), 0);
   const pads = Array.from({ length: Math.max(0, HOME_SLOTS - used) },
     () => `<div class="tos-tile tos-tile-gap" data-home-gap="${newHomeGap()}" data-home-pad="1"></div>`).join('');
-  // Selection mode: tiles toggle instead of opening, dragging anywhere lassoes, and
-  // a bar along the bottom holds the count and the commit.
   const bar = _tosSelectMode ? `<div class="tos-selbar">
       <span class="tos-selbar-n"><b data-sel-count>0</b> selected</span>
       <button type="button" class="tos-grp-btn" data-sel-cancel>Cancel</button>
@@ -1432,14 +1074,7 @@ function renderHomeApps(apps) {
 }
 
 // ── The home toolbar ─────────────────────────────────────────────────────────
-// Select and Add used to be tiles, which cost two app slots and made the grid read
-// as fifteen-of-sixteen. They're not apps — they're tools for arranging apps — so
-// they live in one short strip under the grid instead, sharing that space with the
-// widget cards below it. Everything here is an icon with a label, sized to sit on
-// one line at tablet width.
-//
-// Search earns its place at thirty-odd registered apps: typing three letters beats
-// remembering which page you put a thing on, and it looks in the stash too.
+// Select, Add and Search live in a strip under the grid, not as tiles, so a page holds sixteen apps.
 let _homeSearchOpen = false;   // is the find field showing
 let _homeSearch = '';          // what's typed in it
 function renderHomeToolbar(searching) {
@@ -1463,55 +1098,27 @@ function renderHomeToolbar(searching) {
 }
 
 // ── Home paging ──────────────────────────────────────────────────────────────
-// The grid is a fixed 4 rows of 4 — sixteen tiles to a page. Past that it doesn't
-// grow, it pages, so the screen keeps one shape however many apps you keep out and
-// there is no ceiling on how many that is.
-//
-// Packing is by whole ROWS, not by tile: a group box occupies the rows it needs
-// (its label is its own first row, costing nothing extra beyond that), and loose
-// tiles fill what's left, splitting across the page break wherever they land. A
-// group too tall for one page gets its own and is allowed to run over — clamping
-// it would silently hide apps, which is the one outcome worse than an odd page.
-//
-// Nothing here is stored: pages are derived from the saved order + groups every
-// render, so reordering re-flows them the way a phone home screen does. `blocks`
-// arrives already interleaved in reading order (see renderHomeApps) — a group and
-// a run of loose tiles alternate exactly as the player's own arrangement has them;
-// this function only decides where the PAGE BREAKS fall across that sequence.
-//
-// Select and Add are NOT in here at all — they're in the toolbar under the grid
-// (renderHomeToolbar), which is what lets a page hold a full sixteen apps. As tiles
-// they ate two slots and the default set read as fifteen-of-sixteen.
+// 4×4 per page. Packed by whole rows; a group too tall for a page runs over rather
+// than hiding apps. Derived each render from order + groups, never stored.
 const HOME_COLS = 4;
 const HOME_ROWS = 4;
 const HOME_SLOTS = HOME_COLS * HOME_ROWS;   // 16
 let _homePage = 0;   // which page is showing; survives re-renders, reset on close
 
 // ── Installing a new app ─────────────────────────────────────────────────────
-// An app that ARRIVES — the library scan unlocking LIBRARY, or the player pulling
-// one back out of the ⊕ stash — doesn't just silently appear in the grid the next
-// time you happen to look. The tablet comes up on the page the tile landed on and
-// the tile fills to 100% before it will open, which is the only moment the game has
-// to say "this is new, and it is yours" about a thing that is otherwise just one
-// more square among thirty.
-//
-// The fill is deliberately SLOW for a UI (a few seconds): the point is the ceremony,
-// not the wait, and a bar that snaps to 100% reads as a glitch rather than an event.
+// An arriving app (library unlock, or pulled back from ⊕) opens the tablet on its
+// page and fills its tile to 100% before it opens. Slow on purpose: it's a ceremony.
 const INSTALL_MS = 3200;
 let _install = null;      // { id, t0 } while a tile is filling
 let _installRaf = 0;
 let _installSeek = 0;     // pages walked looking for the tile — bounds the render loop
 
-// Arm the animation. `unhideApp` first because an install always lands ON the grid:
-// an app unlocked while its id happens to sit in this device's stash (a re-install,
-// or a stash seeded before the app existed) would otherwise animate nothing.
+// 'unhideApp' first: an install always lands on the grid, even if the id is stashed.
 function beginInstall(appId) {
   if (!appId) return;
   unhideApp(appId);
   cancelInstall();
-  // Search and selection mode both re-shape the grid (search flattens it, select
-  // arms taps to pick rather than open); neither is a state an arriving app should
-  // land in the middle of.
+  // An arriving app shouldn't land mid-search or mid-selection.
   _homeSearchOpen = false; _homeSearch = ''; _tosSelectMode = false;
   _install = { id: appId, t0: 0 };
   _installSeek = 0;
@@ -1526,17 +1133,14 @@ function installTile() {
   return _overlay?.querySelector(`.tos-tile[data-nav-app="${CSS.escape(_install.id)}"]`) || null;
 }
 
-// Called after every render while an install is armed. Re-queries the tile each
-// frame rather than holding the node: any re-render (a widget tick, a page turn)
-// replaces it, and a held reference would leave the fill painting into a detached
-// element while the live tile sat there looking finished.
+// Called after every render while an install is armed. Re-query the tile each frame:
+// a re-render replaces it, and a held node would paint into a detached element.
 function tickInstall() {
   if (!_install || !_overlay) return;
   let tile = installTile();
   if (!tile) {
-    // Not on this page. Walk forward — a newly registered app lands at the end of
-    // the last page, so this is usually one hop, and _installSeek stops it dead if
-    // the tile isn't anywhere (an app the client's roster doesn't know).
+    // Not on this page: walk forward (usually one hop); _installSeek stops it if the
+    // tile isn't anywhere.
     const pages = _overlay.querySelectorAll('.tos-page-dot').length;
     if (_installSeek < pages && _homePage < pages - 1) { _installSeek++; _homePage++; render(); return; }
     cancelInstall();
@@ -1547,10 +1151,8 @@ function tickInstall() {
     const ring = document.createElement('span'); ring.className = 'tos-install-ring';
     const pct = document.createElement('span'); pct.className = 'tos-install-pct'; pct.textContent = '0%';
     tile.append(ring, pct);
-    // Over the icon and the name wherever the tile has put them. The stylesheet's
-    // fixed top:7px / bottom:9px only fit the old short tile; a tall tile centres its
-    // content (widgets off, or any phone) and left the ring floating above the icon.
-    // Placed once per dressing, and a re-render re-dresses.
+    // Placed over the icon and name wherever this tile put them (a tall tile centres
+    // its content). Placed once per dressing; a re-render re-dresses.
     const icon = tile.querySelector('.tos-icon'), name = tile.querySelector('.tos-name');
     if (icon) ring.style.top = `${Math.round(icon.offsetTop + icon.offsetHeight / 2 - 16)}px`;
     if (name) { pct.style.top = `${name.offsetTop}px`; pct.style.bottom = 'auto'; }
@@ -1564,8 +1166,7 @@ function tickInstall() {
     const live = installTile();
     if (!live) { tickInstall(); return; }   // re-rendered away — re-dress and carry on
     if (!live.classList.contains('tos-tile-installing')) { tickInstall(); return; }
-    // Ease out at the end so the last few percent take visibly longer — a machine
-    // finishing, rather than a linear bar hitting the wall.
+    // Ease out so the last few percent take visibly longer.
     const p = Math.round((1 - Math.pow(1 - t, 1.7)) * 100);
     live.style.setProperty('--ipct', String(p));
     const label = live.querySelector('.tos-install-pct');
@@ -1583,12 +1184,8 @@ function tickInstall() {
   _installRaf = requestAnimationFrame(step);
 }
 
-// Accounting is in CELLS, and can be again now that a group box is an inline grid
-// item rather than a full-width band: a tile costs 1, a box costs the block of cells
-// it spans (cols × rows). The earlier fractional-row maths existed only to pay for a
-// band's forced line break and its label row — neither of which happens any more, so
-// the honest simple count is back. The grid packs `dense`, so a small tile backfills
-// any hole a wide box leaves, which keeps the visual and this count in step.
+// Counted in CELLS: a tile costs 1, a box costs cols × rows. The grid packs 'dense',
+// so small tiles backfill holes and this count matches what's drawn.
 function homeBlockCost(b) {
   return b.kind === 'group' ? groupCols(b.g) * Math.ceil(b.members.length / groupCols(b.g)) : 1;
 }
@@ -1599,8 +1196,7 @@ function paginateHome(blocks) {
 
   for (const b of blocks) {
     const cost = homeBlockCost(b);
-    // A box too big for a page of its own still gets one and is allowed to run over —
-    // clamping it would silently hide apps, which is worse than an odd-looking page.
+    // An oversized box still gets a page and runs over; clamping would hide apps.
     if (cost > cur.left && cur.blocks.length) push();
     cur.blocks.push(b);
     cur.left = Math.max(0, cur.left - cost);
@@ -1609,12 +1205,8 @@ function paginateHome(blocks) {
   return pages;
 }
 
-// The page dots. Hidden entirely at one page — a lone dot is noise, and the whole
-// point is that a twelve-app home screen looks exactly as it did before paging
-// existed. Dots are also drop targets: drag a tile onto one to send it to that page —
-// the precise route, for when you know which page you want. The other route is to
-// hold the tile against the left or right edge of the screen and let the page turn
-// under it (see HOME_EDGE_MS), which is the one your thumb finds by accident.
+// Page dots, hidden at one page. Dots are also drop targets; the other cross-page
+// route is holding a tile against an edge (HOME_EDGE_MS).
 function renderHomePager(count) {
   if (count <= 1) return '';
   const dots = Array.from({ length: count }, (_, i) =>
@@ -1627,15 +1219,9 @@ function renderHomePager(count) {
 }
 
 // ── Home widgets ─────────────────────────────────────────────────────────────
-// Cards under the app grid, contributed by the apps themselves (buildWidget on the
-// server appDef — see the contract in plugins/tablet/index.js). Three kinds, and a
-// card whose kind this client doesn't know is skipped rather than drawn wrong, so
-// an older client meeting a newer widget degrades quietly.
-// Home widgets are opt-in, per device, and OFF by default — the home screen is a
-// launcher first, and a fresh player should meet a grid of apps, not a dashboard.
-// Turned on under Settings → Layout → Home Widgets. Off means off: even the Wanted
-// alarm stays down, because a feature you switched off should not be switchable
-// back on by the game.
+// Cards under the grid from each app's server buildWidget (contract in
+// plugins/tablet/index.js). An unknown card kind is skipped. Opt-in per device, off
+// by default; off means off, even for the Wanted alarm.
 const TABLET_WIDGETS_KEY = 'architect_tablet_widgets';
 function widgetsEnabled() {
   try { return localStorage.getItem(TABLET_WIDGETS_KEY) === 'on'; } catch { return false; }
@@ -1645,9 +1231,8 @@ function setWidgetsEnabled(on) {
   _applyWidgetChrome();
 }
 
-// Icon colours: 'app' tints each plate by the app's own hue (TOS_APP_HUES), 'theme'
-// draws every plate from the tablet theme's accent so the grid matches the skin.
-// Set on <html> rather than the overlay so the drag clone on <body> follows it too.
+// Icon colours: 'app' tints by TOS_APP_HUES, 'theme' by the accent. Set on <html> so
+// the drag clone on <body> follows it.
 const TABLET_ICON_COLOR_KEY = 'architect_tablet_icon_color';
 function iconsThemed() {
   try { return localStorage.getItem(TABLET_ICON_COLOR_KEY) === 'theme'; } catch { return false; }
@@ -1658,26 +1243,12 @@ function setIconsThemed(on) {
 }
 
 // ── Per-card off switch ──────────────────────────────────────────────────────
-// Press and hold a card to put it away. The master toggle above is all-or-nothing
-// and the only other control was indirect (a card follows its app's tile), so the
-// gesture that turns ONE card off is the one the surface was missing: you switch a
-// card off while looking at the thing that annoyed you, which is the moment you
-// actually want it gone.
-//
-// Deliberately its own list rather than reusing `removed`: switching a card off
-// must not touch the home GRID. The app keeps its tile and you keep opening it —
-// you've turned off the summary, not the feature. It also beats `alwaysOn`, for
-// the same reason the master toggle does: a card you switched off by hand is not
-// something the game gets to switch back on.
-//
-// Restored under Settings → Layout → Home Widgets, which is the one place a
-// player looks for a surface they made disappear.
+// Press and hold a card to put it away. Its own list, not 'removed', so the app keeps
+// its tile; it beats 'alwaysOn'. Restored under Settings → Layout → Home Widgets.
 const TABLET_WIDGETS_OFF_KEY = 'architect_tablet_widgets_off';
-// The card currently press-held, awaiting a confirm tap. Module state (not a
-// class on the node) because the whole home screen re-renders on every payload.
+// The press-held card awaiting confirm. Module state because home re-renders on every payload.
 let _tosWidgetArm = null;
-// Swallow the click that fires on the pointerup ending a press-hold — the same
-// job _suppressTileClick does for the tile drag, and for the same reason.
+// Swallow the click from the pointerup that ends a press-hold.
 let _suppressWidgetClick = false;
 function loadWidgetsOff() {
   try { const a = JSON.parse(localStorage.getItem(TABLET_WIDGETS_OFF_KEY)); return Array.isArray(a) ? a : []; }
@@ -1690,11 +1261,8 @@ function setWidgetOff(id, off) {
   const cur = loadWidgetsOff().filter(x => x !== id);
   saveWidgetsOff(off ? [...cur, id] : cur);
 }
-// The way back. Named by their APP, because that's what the player press-held —
-// the card's own title is written by the server and can change between renders
-// (the Sports card is "Live" or "Next on TV" depending on the hour), so it would
-// be a poor handle for a thing you're trying to find again. Absent entirely when
-// nothing is switched off: a row offering to restore nothing is just noise.
+// The restore row, named by APP (the server's card title changes by the hour).
+// Absent when nothing is switched off.
 function renderHiddenCardsRow() {
   const offIds = loadWidgetsOff();
   if (!offIds.length) return '';
@@ -1705,9 +1273,7 @@ function renderHiddenCardsRow() {
     <span style="display:flex;flex-wrap:wrap;justify-content:flex-end;max-width:60%">${chips}</span></div>`;
 }
 
-// The chassis is sized for what's actually on the home screen: with cards off it
-// sheds the height it was only holding for them. Called on open and on every toggle,
-// so the device resizes in the same gesture that switches the cards.
+// Size the chassis for what's on the home screen; called on open and every toggle.
 function _applyWidgetChrome() {
   document.documentElement.classList.toggle('tos-icons-theme', iconsThemed());
   if (!_overlay) return;
@@ -1716,17 +1282,8 @@ function _applyWidgetChrome() {
 
 function renderHomeWidgets(widgets) {
   if (!widgetsEnabled()) return '';
-  // A card shows unless you REMOVED its app — flinging a tile off the tablet takes
-  // its card with it, and adding the app back brings the card back. Merely being
-  // stashed under ⊕ is not a removal (see loadRemovedApps): an app that only ever
-  // sat in the default stash still gets to put a card up, which is what lets a
-  // per-app widget preference like Sports' mean something on its own. (This runs
-  // after renderHomeApps in the same template, so the first-run default stash is
-  // already seeded by the time we read it.)
-  //
-  // The exception is a card that declares `alwaysOn` — an ALARM, whose entire job
-  // is to appear uninvited. The app it opens may well be removed; that's the point.
-  // The server owns that call (see the buildWidget contract), not this list.
+  // A card shows unless its app was REMOVED (seed-stashed doesn't count; see
+  // loadRemovedApps). 'alwaysOn' cards (alarms) show regardless; the server decides that.
   const removed = new Set(loadRemovedApps());
   const off = new Set(loadWidgetsOff());
   const cards = (widgets || []).filter(w => !off.has(w.nav) && (w.alwaysOn || !removed.has(w.nav))).map(w => {
@@ -1744,9 +1301,7 @@ function renderHomeWidgets(widgets) {
         <span class="tos-wg-sub">${esc(w.sub || '')}</span>
       </div>${w.note ? `<div class="tos-wg-note">${esc(w.note)}</div>` : ''}`;
     } else if (w.kind === 'lines') {
-      // A card should be readable at a GLANCE, so an optional glyph carries the
-      // meaning and the text just confirms it. The first line is promoted to a
-      // headline; the rest are quiet supporting detail.
+      // Optional glyph carries the meaning; the first line is the headline.
       const ls = w.lines || [];
       const rows = ls.map((l, i) => `<div class="tos-wg-line${i === 0 ? ' lead' : ''}">`
         + `<span>${esc(l.text)}</span>${l.sub ? `<span class="tos-wg-lsub">${esc(l.sub)}</span>` : ''}</div>`).join('');
@@ -1754,9 +1309,7 @@ function renderHomeWidgets(widgets) {
         ? `<div class="tos-wg-glyphed"><span class="tos-wg-glyph">${esc(w.icon)}</span><div class="tos-wg-lstack">${rows}</div></div>`
         : rows;
     } else if (w.kind === 'bar') {
-      // A proportion, drawn. One stacked bar plus a small keyed legend — the shape
-      // of the split lands before you've read a single number, which is the whole
-      // reason to draw it instead of printing two figures.
+      // A proportion: one stacked bar plus a keyed legend.
       const segs = (w.segments || []).filter(s => Number(s.pct) > 0);
       const legend = (w.segments || []).map(s => `<span class="tos-wg-key">`
         + `<i class="tos-wg-swatch tone-${esc(s.tone || 'good')}"></i>${esc(s.label || '')}</span>`).join('');
@@ -1768,9 +1321,7 @@ function renderHomeWidgets(widgets) {
       return '';   // unknown kind — say nothing rather than something wrong
     }
     const nav = w.nav ? ` data-widget-nav="${esc(w.nav)}"` : '';
-    // The press-held card wears its own confirm rather than opening a dialog over
-    // the home screen: the card you are deciding about stays legible underneath,
-    // and a tap anywhere else disarms it. Two taps to lose a card, never one.
+    // The held card shows its own confirm; a tap elsewhere disarms. Two taps to lose a card.
     const armed = w.nav && _tosWidgetArm === w.nav
       ? `<div class="tos-wg-arm"><span class="tos-wg-armq">Hide this card?</span>
          <span class="tos-wg-armbtn" data-widget-off="${esc(w.nav)}">Hide</span>
@@ -1781,12 +1332,8 @@ function renderHomeWidgets(widgets) {
   return cards ? `<div class="tos-widgets">${cards}</div>` : '';
 }
 
-// The "add removed apps" sheet — a client-side card over the home screen listing every
-// app the player has flung off the grid. Tap one to put it back. No server round trip.
-// `intoGap` is the id of a hole tile the sheet was opened FROM (see the
-// [data-home-gap] handler). Pass one and the chosen app lands in that exact cell
-// rather than at the end of the last page — tapping the space you want an app in
-// and having it appear somewhere else is the whole complaint this answers.
+// The "add removed apps" sheet, client-side. 'intoGap' is the hole tile it was opened
+// from: the chosen app lands in that cell, not at the end of the last page.
 function openAddAppsSheet(intoGap) {
   if (!_overlay) return;
   const screen = _overlay.querySelector('#tos-screen-inner');
@@ -1794,12 +1341,10 @@ function openAddAppsSheet(intoGap) {
   screen.querySelector('.tos-addsheet')?.remove();
   const hidden = loadHiddenApps();
   const byId = new Map([...(_data?.apps || []), ...CLIENT_APPS].map(a => [a.id, a]));
-  // Alphabetical, not stash order: this list is 20-odd tiles on a fresh tablet
-  // (everything outside the default sixteen), so it's a thing you scan by name.
+  // Alphabetical: it's scanned by name.
   const apps = hidden.map(id => byId.get(id)).filter(Boolean)
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
-  // Its own denser grid (.tos-addsheet-grid), not the home screen's 4-column one —
-  // that's what keeps the whole stash on screen without a scrollbar.
+  // Denser grid than home so the whole stash fits without a scrollbar.
   const body = apps.length
     ? `<div class="tos-addsheet-grid">${apps.map(a => {
         return `<div class="tos-tile" data-readd-app="${esc(a.id)}" title="${esc(a.name)}">${tosTileIcon(a)}<span class="tos-name">${esc(a.name)}</span></div>`;
@@ -1817,18 +1362,15 @@ function openAddAppsSheet(intoGap) {
   sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
   sheet.querySelector('[data-addsheet-close]')?.addEventListener('click', close);
   sheet.querySelectorAll('[data-readd-app]').forEach(el => el.addEventListener('click', () => {
-    // Same ceremony as an unlocked app: it installs onto the grid rather than
-    // blinking into existence, and the sheet closes so you watch it land. (beginInstall
-    // does the unhide, and pages to wherever it lands.)
+    // Same install ceremony as an unlock (beginInstall unhides and pages to it).
     const appId = el.getAttribute('data-readd-app');
-    // Claim the hole BEFORE beginInstall, so the install animation plays on the
-    // tile in the cell that was tapped rather than chasing it to the last page.
+    // Claim the hole BEFORE beginInstall so the animation plays in the tapped cell.
     if (intoGap) {
       const order = loadAppOrder();
       if (order.includes(intoGap)) saveAppOrder(order.map(x => (x === intoGap ? appId : x)));
       else {
-        // A padding cell isn't in the saved order yet. Put the app in it on screen
-        // and save the page, which writes down the cells in front of it as holes.
+        // A padding cell isn't in the saved order yet: place the app and save the
+        // page, which writes the cells in front of it as holes.
         const pad = _overlay.querySelector(`[data-home-gap="${CSS.escape(intoGap)}"]`);
         const home = _overlay.querySelector('.tos-home-apps');
         if (pad && home) {
@@ -1846,13 +1388,8 @@ function openAddAppsSheet(intoGap) {
 }
 
 // ── Carrying an app to another page ──────────────────────────────────────────
-// Aiming a lifted tile at a 6px dot was the ONLY way across a page boundary, and it
-// is a fiddly thing to ask of a finger — you had to drop on a target the size of a
-// full stop, at the bottom of the screen, without letting go on the way. So the
-// edges of the screen are drop targets too: hold the tile against one for a beat and
-// the page turns UNDER the tile, which stays in your hand. Hold on and it keeps
-// turning; past the last page it makes a new one. The dots still work — this is a
-// second route to the same move, not a replacement.
+// Hold a lifted tile against a screen edge and the page turns under it; past the
+// last page it makes a new one. A second route alongside the page dots.
 const HOME_EDGE_MS = 430;  // dwell before the page turns (and between repeats); the
                            // band's width is the .tos-page-edge rule's, not a number here
 function showPageEdges() {
@@ -1868,9 +1405,7 @@ function showPageEdges() {
 function hidePageEdges() {
   _overlay?.querySelectorAll('.tos-page-edge').forEach(e => e.remove());
 }
-// Which band the pointer is in, if any — hit-tested against the painted zones
-// themselves rather than against a computed inset, so the hot area is exactly the
-// area you can see (and stays right through the chassis' CRT scale transform).
+// Hit-test the painted edge bands themselves, so it stays right under the CRT scale transform.
 function pageEdgeSide(x, y) {
   for (const el of (_overlay?.querySelectorAll('.tos-page-edge') || [])) {
     const b = el.getBoundingClientRect();
@@ -1884,42 +1419,32 @@ function markPageEdge(side) {
   _overlay?.querySelectorAll('.tos-page-edge').forEach(e =>
     e.classList.toggle('hot', !!side && e.classList.contains(side)));
 }
-// Pages aren't stored, so the count is read off the dots the last render drew (one
-// page draws none — hence the floor of 1).
+// Page count read off the dots last drawn (one page draws none, hence the floor of 1).
 function homePageCount() {
   return Math.max(1, _overlay?.querySelectorAll('.tos-page-dot').length || 1);
 }
 
-// Long-press-to-lift drag reorder for the home app grid (the mobile home-screen
-// metaphor, so it works with touch and mouse and never fights a tap-to-open or a
-// scroll-swipe). Wired fresh on each home render; window listeners live only for
-// the duration of a press, so re-wiring can't leak them.
+// Long-press-to-lift drag reorder for the home grid. Wired each home render; window
+// listeners live only for a press, so re-wiring can't leak them.
 function wireAppGridDrag(container) {
   const LIFT_MS = 300;   // hold this long (finger still) to pick a tile up
   const CANCEL_MOVE = 10; // moving more than this before the lift = a tap/scroll, not a pickup
   let press = null; // { tile, x, y, timer }
   let drag = null;  // { tile, clone, offX, offY }
 
-  // The home container is REPLACED whenever the page flips mid-drag (render() rebuilds
-  // it), so nothing here may hold the node it was wired with — every read goes through
-  // this. The window-level pointer listeners survive the rebuild, which is what lets a
-  // single gesture carry an app across two pages and put it down.
+  // ⚠ The home container is REPLACED on a mid-drag page flip, so never hold the node;
+  // read through this. The window listeners survive, carrying the gesture across pages.
   const grid = () => _overlay?.querySelector('.tos-home-apps') || container;
 
-  // AIM, don't rearrange. This only marks where the tile WOULD land; the actual
-  // insert happens once, on release (see `end`). Live reflow made every tile you
-  // dragged past leap out of the way, so the arrangement you were aiming at kept
-  // changing under the pointer — and each insert re-flowed the grid, which flipped
-  // which neighbour was "nearest" and made the placeholder flicker between slots.
+  // AIM only: mark where the tile would land. The move happens once, on release;
+  // live reflow made the target flicker.
   const clearDropMark = () => {
     grid().querySelectorAll('.tos-drop-before, .tos-drop-after, .tos-drop-swap')
       .forEach(n => n.classList.remove('tos-drop-before', 'tos-drop-after', 'tos-drop-swap'));
   };
   const aim = (px, py) => {
-    // The sweep spans EVERY app grid on the home screen (the outer one plus one per
-    // group box), which is what lets a tile be aimed into or out of a group. Holes
-    // are in the sweep on purpose — dropping onto one is how you put an app in a
-    // deliberately empty slot instead of shuffling a neighbour out of the way.
+    // Sweeps every grid (outer plus each group box), holes included: a hole is how
+    // you drop into an empty slot.
     const tiles = [...grid().querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-add)')];
     let target = null, best = Infinity;
     for (const t of tiles) {
@@ -1930,19 +1455,15 @@ function wireAppGridDrag(container) {
     }
     clearDropMark();
     drag.dropTarget = target || null;
-    // A SWAP, not an insert — so there's no "which side" to read. The tile you drop
-    // on takes the slot you dragged from, and nothing else on the screen moves.
-    // Inserting shuffled every tile after the drop point along by one, which is why
-    // a small correction rearranged half the grid.
+    // A SWAP, not an insert: the target takes the dragged tile's slot, nothing else moves.
     if (target) target.classList.add('tos-drop-swap');
   };
 
   const begin = () => {
     const tile = press.tile;
     const r = tile.getBoundingClientRect();
-    // The clone (the thing under the finger) lives on document.body so its fixed
-    // coords are plain viewport pixels — but that puts it outside the tablet's
-    // themed scope, so copy the resolved look across from the real tile.
+    // The clone lives on <body> for plain viewport coords, outside the themed scope,
+    // so copy the look across.
     const clone = tile.cloneNode(true);
     clone.className = 'tos-tile-drag';
     const cs = getComputedStyle(tile);
@@ -1958,8 +1479,7 @@ function wireAppGridDrag(container) {
     sfx(TOS_SELECT_DEF);
   };
 
-  // True when the pointer has strayed outside the tablet's screen — dropping here
-  // flings the app off the grid (into the ⊕ stash) rather than reordering it.
+  // Pointer outside the screen: dropping flings the app into the ⊕ stash.
   const offTablet = (x, y) => {
     const screen = _overlay?.querySelector('#tos-screen-inner');
     if (!screen) return false;
@@ -1967,11 +1487,8 @@ function wireAppGridDrag(container) {
     return x < b.left || x > b.right || y < b.top || y > b.bottom;
   };
 
-  // Dwell against an edge → turn the page WITHOUT putting the tile down. The app is
-  // committed to the new page (it has to be: pages are derived from the saved order,
-  // so there is nowhere else for it to be mid-flight), the screen is rebuilt, and the
-  // drag then re-attaches to the tile's new node and carries on. Re-arming at the end
-  // is what makes holding still walk you across several pages.
+  // Edge dwell: commit the app to the new page (pages derive from the saved order),
+  // rebuild, re-attach to the new node and re-arm, so holding walks several pages.
   const armEdge = (side) => {
     if (!drag || drag.edgeSide === side) return;
     clearTimeout(drag.edgeTimer);
@@ -1984,9 +1501,8 @@ function wireAppGridDrag(container) {
     const appId = drag.tile.getAttribute('data-nav-app');
     const dir = side === 'left' ? -1 : 1;
     const target = _homePage + dir;
-    // One past the last page means "start a new page" — but only if the tile isn't
-    // already alone on this one, or holding at the right edge would spawn empty
-    // pages forever and each flip would land on an identical screen.
+    // One past the last page makes a new page, unless the tile is already alone here
+    // (or holding the edge would spawn empty pages forever).
     const alone = grid().querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-gap):not(.tos-tile-add)').length <= 1;
     if (!appId || target < 0 || target > homePageCount() || (target >= homePageCount() && alone)) {
       markPageEdge('');
@@ -1994,16 +1510,13 @@ function wireAppGridDrag(container) {
       return;
     }
     moveIdsToPage(grid(), [appId], target);
-    // Leaving the page means leaving the box — a group is laid out as a unit and
-    // can't straddle a page (same rule as moveAppToPage).
+    // A group can't straddle a page, so leaving the page leaves the box.
     saveAppGroups(loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => x !== appId) })));
     _homePage = target;
     render();
     let live = _overlay?.querySelector(`.tos-tile[data-nav-app="${CSS.escape(appId)}"]`);
     if (!live) {
-      // The move didn't put it where we turned to. Rather than drop the tile out of
-      // the air (which reads as the drag "letting go" for no reason), turn back and
-      // stay in the gesture — the player is still holding it.
+    // Didn't land where we turned to: turn back and stay in the gesture.
       _homePage = target - dir;
       render();
       live = _overlay?.querySelector(`.tos-tile[data-nav-app="${CSS.escape(appId)}"]`);
@@ -2054,19 +1567,14 @@ function wireAppGridDrag(container) {
       _suppressTileClick = true;                       // the drop's trailing click must not open an app
       setTimeout(() => { _suppressTileClick = false; }, 0);
       if (dropOff && appId) {
-        // Flung off the tablet → stash it under ⊕ and rebuild home. The slot it left
-        // stays open: you took an app off this page, you didn't ask for the page to
-        // re-pack itself around the space.
+        // Flung off → stash under ⊕. The slot stays open; the page doesn't re-pack.
         replaceOrderIdWithGap(appId);
         hideApp(appId);
         drag = null;
         render();
         return;
       }
-      // Dropped on a page dot → send the app to that page. Pages are derived from
-      // the flat order, so "moving to page N" means splicing the id to the front of
-      // the run of ids that page starts with — and since the drop point is a dot,
-      // not a slot, this is the one gesture that can cross a page boundary.
+      // Dropped on a page dot → send the app to that page.
       const dot = document.elementFromPoint(drag.lastX, drag.lastY)?.closest?.('[data-home-page]');
       if (dot && appId) {
         const g = grid();
@@ -2074,11 +1582,8 @@ function wireAppGridDrag(container) {
         moveAppToPage(g, appId, Number(dot.getAttribute('data-home-page')) || 0);
         return;
       }
-      // THE ONE AND ONLY MOVE, and it's a straight SWAP: the two tiles trade places
-      // and nothing else on the screen budges. Done with a marker so it's safe when
-      // the two are already neighbours (the naive two-insert version collapses in
-      // that case). Swapping rather than inserting is what stops a one-slot
-      // correction from shunting every tile after it along by one.
+      // The one move, a straight SWAP. Done with a marker so it's safe for neighbours
+      // (two naive inserts collapse there).
       const target = drag.dropTarget;
       clearDropMark();
       if (target && target !== drag.tile) {
@@ -2091,8 +1596,7 @@ function wireAppGridDrag(container) {
       const movedBox = drag.tile.parentElement !== drag.fromGrid;
       drag = null;
       persistHomeArrangement(grid());
-      // Crossing between a group box and the outer grid changes a box's membership
-      // (and can empty one out of existence), so that drop needs a real rebuild.
+      // Crossing a box boundary changes membership (and can empty a box): full rebuild.
       if (movedBox) render();
     }
   };
@@ -2100,8 +1604,7 @@ function wireAppGridDrag(container) {
   container.addEventListener('pointerdown', (e) => {
     if (e.button > 0 || _tosSelectMode) return;                   // selection mode owns the gesture
     const tile = e.target.closest('.tos-tile');
-    // ⧉/⊕ tiles aren't draggable, and neither is a hole — a hole is a place, not a
-    // thing, so pressing one has to fall through to the pager's swipe.
+    // ⧉/⊕ and holes aren't draggable; a press on a hole falls through to the pager swipe.
     if (!tile || tile.classList.contains('tos-tile-add') || tile.classList.contains('tos-tile-gap')) return;
     press = { tile, x: e.clientX, y: e.clientY, timer: setTimeout(begin, LIFT_MS) };
     window.addEventListener('pointermove', onMove, { passive: false });
@@ -2110,29 +1613,17 @@ function wireAppGridDrag(container) {
   });
 }
 
-// Whole-group drag: press-hold a group's LABEL (never a member tile) to lift the
-// entire box and set it down next to another top-level block — another group, or a
-// run of loose tiles — on the same page. A member tile keeps its own ordinary
-// per-tile drag (wireAppGridDrag, above); this is a second, independent gesture
-// bound to a different element, so the two can never compete for the same press.
-//
-// Precision is ITEM-level: the box lands beside another item in the home grid — a
-// loose tile or another box — never inside one, because dropping "into" another
-// group would mean picking a merge behaviour nobody asked for. Like the tile drag,
-// nothing moves until you let go. Reuses persistHomeArrangement to save, because
-// once the box has been moved among its DOM siblings that function's document-order
-// read already sees it there.
+// Whole-group drag: press-hold a group's LABEL to move the box beside another
+// top-level item on the page, never inside one (that would be a merge). Separate
+// from the tile drag so the two can't compete. Nothing moves until release.
 function wireGroupDrag(container) {
   const LIFT_MS = 300;
   const CANCEL_MOVE = 10;
   let press = null;   // { box, x, y, timer }
   let drag = null;    // { box, clone, offX, offY, lastX, lastY, dropTarget, dropAfter }
 
-  // Candidate neighbours: the home grid's own children — top-level tiles and other
-  // boxes. Scoped to that one grid, so a tile living INSIDE another group is never a
-  // target (that would be a merge, not a move).
-  // Same rule as the tile drag: the container is replaced by any mid-drag page flip,
-  // so never hold it.
+  // Targets are the home grid's direct children only (a tile inside another group
+  // would be a merge). Never hold the container: a page flip replaces it.
   const grid = () => _overlay?.querySelector('.tos-home-apps') || container;
   const siblings = () => {
     const g = grid().querySelector('.tos-homegrid');
@@ -2179,8 +1670,7 @@ function wireGroupDrag(container) {
     sfx(TOS_SELECT_DEF);
   };
 
-  // Same "flung off the screen" test as the tile drag — dropping the box past the
-  // tablet's edge stashes every app in it.
+  // Past the tablet edge: stash every app in the box.
   const offTablet = (x, y) => {
     const screen = _overlay?.querySelector('#tos-screen-inner');
     if (!screen) return false;
@@ -2188,9 +1678,6 @@ function wireGroupDrag(container) {
     return x < b.left || x > b.right || y < b.top || y > b.bottom;
   };
 
-  // The box gets the same edge-hold flip as a single tile — every member travels
-  // together and the box is still a box when it lands, which is the whole point of
-  // dragging it by the label rather than moving four apps one at a time.
   const armEdge = (side) => {
     if (!drag || drag.edgeSide === side) return;
     clearTimeout(drag.edgeTimer);
@@ -2204,8 +1691,7 @@ function wireGroupDrag(container) {
     const group = groupId ? loadAppGroups().find(x => x.id === groupId) : null;
     const dir = side === 'left' ? -1 : 1;
     const target = _homePage + dir;
-    // A box that's the only thing on its page has nowhere new to go — flipping would
-    // just redraw the same screen one page along, forever.
+    // A box alone on its page has nowhere new to go.
     const alone = grid().querySelectorAll('.tos-homegrid > :not(.tos-tile-gap)').length <= 1;
     if (!group || target < 0 || target > homePageCount() || (target >= homePageCount() && alone)) {
       markPageEdge(''); drag.edgeSide = null; return;
@@ -2260,9 +1746,8 @@ function wireGroupDrag(container) {
       setTimeout(() => { _suppressTileClick = false; }, 0);
       const group = groupId ? loadAppGroups().find(x => x.id === groupId) : null;
       if (dropOff && group) {
-        // Flung the whole box off the tablet → stash every member. The group
-        // definition itself is left alone (it's pruned once empty, same as a
-        // single app's last member leaving), so a re-added app can rejoin it.
+        // Flung off → stash every member. The group def stays (pruned once empty),
+        // so a re-added app can rejoin it.
         group.apps.forEach(id => { replaceOrderIdWithGap(id); hideApp(id); });
         drag = null;
         render();
@@ -2275,7 +1760,6 @@ function wireGroupDrag(container) {
         moveGroupToPage(g, group.apps, Number(dot.getAttribute('data-home-page')) || 0);
         return;
       }
-      // The single move, on release — same contract as the tile drag.
       const target = drag.dropTarget;
       clearDropMark();
       if (target && target !== drag.box) {
@@ -2298,26 +1782,18 @@ function wireGroupDrag(container) {
   });
 }
 
-// Read the home screen back out of the DOM and cache it: one flat display order
-// across every grid, plus each box's membership. Called after any drop, so the
-// arrangement the player sees is exactly the one that survives a re-render.
+// Read the home screen back out of the DOM and cache it (order plus group membership).
 function persistHomeArrangement(container) {
-  // Direct children only, so a box's members are read from the box (below) and not
-  // counted twice by the outer grid's sweep.
-  // Group membership is apps only — a hole that got swapped inside a box isn't a
-  // member of it, and storing one would make the box render a phantom app.
+  // Direct children only, so box members aren't counted twice. Membership is apps
+  // only: a stored hole would render a phantom app.
   const idsOf = (grid) => [...grid.children]
     .filter(el => el.classList.contains('tos-tile'))
     .map(t => t.getAttribute('data-nav-app')).filter(Boolean);
   const grids = [...container.querySelectorAll('.tos-appgrid')];
-  // Reading order across the whole page: walk the home grid's children in order, and
-  // where a child is a box, splice its members in at that point. That's what makes a
-  // group's saved position "wherever it sits", which is what the renderer reads back.
+  // Reading order: walk the grid's children, splicing each box's members in place.
   const home = container.querySelector('.tos-homegrid');
   const visible = [];
-  // Padding cells (see renderHomeApps) are held back until something real follows
-  // them: one in front of an app is holding that app's place and is saved as a hole,
-  // one still trailing at the end of the page is just empty grid and is dropped.
+  // Padding cells are saved as holes only if an app follows them; trailing ones drop.
   let pads = [];
   for (const el of (home ? [...home.children] : [])) {
     if (el.classList.contains('tos-tile')) {
@@ -2331,9 +1807,8 @@ function persistHomeArrangement(container) {
     }
   }
 
-  // ONLY THE CURRENT PAGE IS IN THE DOM. Saving the visible ids as the whole order
-  // would erase every app on every other page, so splice them back into the saved
-  // order at the position the page already occupied instead of replacing it.
+  // ⚠ Only the current page is in the DOM: splice its ids back into the saved order
+  // at its position, never replace the order (that erases every other page).
   const prev = loadAppOrder();
   if (prev.length) {
     const vis = new Set(visible);
@@ -2344,12 +1819,10 @@ function persistHomeArrangement(container) {
   } else {
     saveAppOrder(visible);
   }
-  // Group membership: only boxes actually on screen can have changed.
   const live = new Map(grids.map(g => [g.getAttribute('data-group-grid'), idsOf(g)]));
   saveAppGroups(loadAppGroups().map(g => live.has(g.id) ? { ...g, apps: live.get(g.id) } : g));
 }
 
-// Currently-picked tiles, and the live count on the selection bar.
 function selectedAppTiles(container) {
   return [...(container || _overlay || document).querySelectorAll('.tos-tile-sel')];
 }
@@ -2358,27 +1831,16 @@ function refreshSelCount(container) {
   const el = container.querySelector('[data-sel-count]');
   if (el) el.textContent = String(n);
 }
-// Leave selection mode and rebuild the home screen (which puts ⧉/⊕ back and drops
-// the bar). Every exit route — Cancel, committing a group, navigating away — goes
-// through here so the mode can never outlive the screen that shows it.
+// Leave selection mode and rebuild home. Every exit route comes through here.
 function exitAppSelectMode() {
   if (!_tosSelectMode) return;
   _tosSelectMode = false;
   render();
 }
 
-// Where each page STARTS in the flat order. This walks the same cost rule
-// paginateHome does (a tile costs one cell, a group box costs the block it spans,
-// and only its first member pays) so a drop can be aimed at a real page boundary
-// instead of the old `targetPage * HOME_SLOTS` guess — which drifted by however
-// many cells the groups above it happened to span, and landed apps on the wrong page.
-// A STASHED APP COSTS NOTHING. renderHomeApps filters hidden apps out before it
-// paginates, so counting them here made every page boundary past the first stash sit
-// too early in the order — and a cross-page move then landed the app on a page other
-// than the one it turned to. The flip's not-found branch turned straight back, so the
-// gesture read as "the page didn't change and a hole appeared where my app was".
-// There are stashed apps from the first render (seedDefaultHiddenApps), so this was
-// never the rare case it looks like.
+// Where each page STARTS in the flat order, using paginateHome's cost rule (tile 1,
+// box its block, paid by its first member). ⚠ A stashed app costs nothing:
+// renderHomeApps filters them before paginating, so counting them shifts boundaries.
 function homePageStarts(order) {
   const hidden = new Set(loadHiddenApps());
   const groupOf = new Map();
@@ -2408,21 +1870,13 @@ function homePageStarts(order) {
   return starts;
 }
 
-// Shared move for every cross-page drop: page-dot drops, and the edge-hold flip.
-//
-// TWO RULES, and both exist so the arrangement you built survives the move.
-// 1. The app leaves a HOLE behind rather than being spliced out — the page it came
-//    from keeps its shape instead of re-packing itself around the space.
-// 2. It lands in the first HOLE on the target page if there is one, and only
-//    appends when there isn't. So dragging an app back and forth between two pages
-//    is stable: it goes back where it was, not onto the end of a re-flowed list.
-// A `targetPage` one past the last is legal and means "a new page" — which is how
-// dragging past the right edge of the last page creates one.
+// Shared move for cross-page drops (dots and edge-hold). The app leaves a HOLE
+// behind, and lands in the target page's first hole, else appends, so moving back
+// and forth is stable. targetPage one past the last means a new page.
 function moveIdsToPage(container, ids, targetPage) {
   const visible = [...(container?.querySelectorAll('.tos-appgrid .tos-tile:not([data-home-pad])') || [])]
     .map(t => t.getAttribute('data-nav-app') || t.getAttribute('data-home-gap')).filter(Boolean);
-  // The DOM only holds the CURRENT page, so start from the saved order (which spans
-  // all of them) and fall back to the visible one if nothing has been saved yet.
+  // The DOM has only this page: start from the saved order, else the visible one.
   const saved = loadAppOrder();
   const full = saved.length ? saved : visible;
   const set = new Set(ids);
@@ -2437,13 +1891,9 @@ function moveIdsToPage(container, ids, targetPage) {
     for (let i = from; i < Math.min(to, out.length); i++) if (isHomeGap(out[i])) { slot = i; break; }
     if (slot >= 0) out[slot] = id;
     else {
-      // THE TARGET PAGE IS FULL — no hole to drop into. Splicing at the page's END
-      // put the carried tile one cell PAST the boundary, so it paginated onto the
-      // NEXT page: the edge-hold flip then couldn't find its tile on the page it had
-      // just turned to, turned straight back, and carrying an app onto a full page
-      // (page 2 → a full page 1, to swap with a tile there) was impossible. Walk the
-      // insert back until the tile actually lands ON the page it was carried to, and
-      // let the block it displaces overflow onto the next page instead.
+      // Target page full: walk the insert back until the tile lands ON the target
+      // page (splicing at its end paginated it onto the next one), and let the
+      // displaced block overflow.
       let at = to;
       out.splice(at, 0, id);
       while (at > from && at >= (homePageStarts(out)[targetPage + 1] ?? out.length)) {
@@ -2455,9 +1905,8 @@ function moveIdsToPage(container, ids, targetPage) {
   saveAppOrder(out);
 }
 
-// Send one app to another page. Grouped apps leave their group in the process — a
-// box is laid out as a unit and can't straddle a page, so the lone app has to come
-// out of it first (see moveGroupToPage for moving the whole box instead).
+// Send one app to another page. A grouped app leaves its group (a box can't
+// straddle a page; moveGroupToPage moves the whole box).
 function moveAppToPage(container, appId, targetPage) {
   moveIdsToPage(container, [appId], targetPage);
   saveAppGroups(loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => x !== appId) })));
@@ -2465,19 +1914,13 @@ function moveAppToPage(container, appId, targetPage) {
   render();
 }
 
-// Send an entire GROUP to another page — every member moves together and is still
-// a group when it lands, which is the whole point of dragging the box.
 function moveGroupToPage(container, ids, targetPage) {
   moveIdsToPage(container, ids, targetPage);
   _homePage = targetPage;
   render();
 }
 
-// Rectangular lasso, live only while selection mode is armed: drag anywhere over
-// the grid — including across tiles — and every tile the band touches joins the
-// picture. It's additive, so several sweeps build one selection, and a plain tap
-// toggles a single tile. Nothing here competes with the long-press reorder,
-// because that stands down entirely while the mode is on.
+// Rectangular lasso while selection mode is armed. Additive; a tap toggles one tile.
 function wireAppMarquee(container) {
   const ENGAGE = 6; // pixels of travel before a press becomes a lasso
   let sel = null;   // { x, y, band, base:Set }
@@ -2486,7 +1929,6 @@ function wireAppMarquee(container) {
     const left = Math.min(sel.x, x), top = Math.min(sel.y, y);
     const w = Math.abs(x - sel.x), h = Math.abs(y - sel.y);
     Object.assign(sel.band.style, { left: left + 'px', top: top + 'px', width: w + 'px', height: h + 'px' });
-    // A hole isn't an app and can't be grouped, so the band sweeps straight over it.
     for (const t of container.querySelectorAll('.tos-appgrid .tos-tile:not(.tos-tile-add):not(.tos-tile-gap)')) {
       const b = t.getBoundingClientRect();
       const hit = b.right > left && b.left < left + w && b.bottom > top && b.top < top + h;
@@ -2500,8 +1942,7 @@ function wireAppMarquee(container) {
       if (Math.hypot(e.clientX - sel.x, e.clientY - sel.y) < ENGAGE) return;
       sel.band = document.createElement('div');
       sel.band.className = 'tos-marquee';
-      // The band lives on <body> (like the drag clone) so its fixed coordinates are
-      // plain viewport pixels; the accent is copied across from the themed overlay.
+      // The band lives on <body> like the drag clone; copy the accent across.
       sel.band.style.setProperty('--mg-accent', getComputedStyle(container).getPropertyValue('--mg-accent') || '#3fd0d8');
       document.body.appendChild(sel.band);
     }
@@ -2532,9 +1973,8 @@ function wireAppMarquee(container) {
   });
 }
 
-// The group sheet — name + colour for a new box (`{ ids }`) or an existing one
-// (`{ groupId }`, which also offers Ungroup). Same scrim/card chrome as the ⊕
-// add-apps sheet, and like it, purely client-side.
+// The group sheet: name + colour for a new box ({ ids }) or an existing one
+// ({ groupId }, which also offers Ungroup). Client-side.
 function openGroupSheet({ ids = null, groupId = null, cols = 0 }) {
   if (!_overlay) return;
   const screen = _overlay.querySelector('#tos-screen-inner');
@@ -2585,27 +2025,18 @@ function openGroupSheet({ ids = null, groupId = null, cols = 0 }) {
   });
 }
 
-// Drag-to-scroll (grab-and-pan) for any tablet screen that overflows. Wired once
-// on the persistent #tos-scroll container (only its innerHTML swaps per render).
-// A press that starts on an interactive control — an input the player is typing
-// in, or a home tile that owns its own long-press reorder — is left alone; the
-// gesture only engages once the finger moves past a threshold, and it suppresses
-// the trailing click so a drag never doubles as a tap-open.
+// Drag-to-scroll for any overflowing screen, wired once on #tos-scroll. Presses on
+// inputs or home tiles are left alone; engages past a threshold and swallows the
+// trailing click.
 function wireDragScroll(scroll) {
   const THRESH = 6;      // px of movement before a press becomes a gesture (below = a tap)
   const SWIPE_MIN = 45;  // px of horizontal travel to commit a page change
   let start = null;      // { x, y, top, dragging, axis, dx }
-  // Horizontal swipe pages the alignment reader — now reached as the Codex's
-  // Orders section, so the test is the section kind, not the view name.
+  // Horizontal swipe pages the Codex's Orders section (test the section kind).
   const ideoActive = () => _data?.view === 'codex' && _data?.sectionKind === 'orders';
 
-  // `.tos-al-reel` is here because the alarm reels run their OWN grab-and-pull
-  // (see the alarm wiring). Without this the same press would scrub the reel and
-  // pan the screen behind it at once, and the time you let go on wouldn't be the
-  // time you dragged to.
-  // `.tos-fake` is the ARCHITECT app's fake game. Its chips, links and nested
-  // tablets are plain spans and divs, so a tap that wobbled 6px turned into a pan
-  // and lost its click, and the tunnel's small ARCHITECT tile looked dead.
+  // '.tos-al-reel' runs its own grab-and-pull; panning too would desync the time.
+  // '.tos-fake' (ARCHITECT's fake game) is spans and divs, so a 6px wobble would eat taps.
   const isInteractive = (el) =>
     el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range], .tos-al-reel, #tos-worldmap, .tos-fake');
 
@@ -2615,8 +2046,7 @@ function wireDragScroll(scroll) {
     if (!start.dragging) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) < THRESH) return;
       start.dragging = true;
-      // Lock the axis at the threshold. Only the Ideology reader claims the
-      // horizontal axis (to page); everywhere else a gesture is vertical pan.
+      // Lock the axis at the threshold; only the Orders reader claims horizontal.
       start.axis = (ideoActive() && Math.abs(dx) > Math.abs(dy) * 1.2) ? 'x' : 'y';
       if (start.axis === 'y') scroll.classList.add('tos-drag-scrolling');
     }
@@ -2632,8 +2062,6 @@ function wireDragScroll(scroll) {
     if (start?.dragging) {
       scroll.classList.remove('tos-drag-scrolling');
       if (start.axis === 'x' && Math.abs(start.dx || 0) > SWIPE_MIN) changeIdeoPage(start.dx < 0 ? 1 : -1);
-      // Swallow the click that fires at the end of the drag so the gesture doesn't
-      // also open whatever list item / tile / tab the finger lifted over.
       const kill = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
       scroll.addEventListener('click', kill, { capture: true, once: true });
       setTimeout(() => scroll.removeEventListener('click', kill, { capture: true }), 0);
@@ -2647,8 +2075,7 @@ function wireDragScroll(scroll) {
     const canPan = scroll.scrollHeight > scroll.clientHeight; // vertical pan needs overflow
     if (!canPan && !ideoActive()) return;                     // nothing to pan and no swipe target
     if (isInteractive(e.target)) return;                      // let controls/tiles handle it
-    // While the home grid is in selection mode the lasso owns every press over it;
-    // out of that mode the pan works exactly as it always did.
+    // In selection mode the lasso owns every press over the home grid.
     if (_tosSelectMode && e.target.closest('.tos-home-apps')) return;
     start = { x: e.clientX, y: e.clientY, top: scroll.scrollTop, dragging: false, axis: null, dx: 0 };
     window.addEventListener('pointermove', onMove, { passive: false });
@@ -2656,9 +2083,7 @@ function wireDragScroll(scroll) {
     window.addEventListener('pointercancel', end);
   });
 
-  // Trackpad / horizontal wheel — a two-finger sideways flick pages the reader.
-  // Debounced so one flick = one page, and only when the horizontal intent is
-  // clear (so ordinary vertical scrolling is never hijacked).
+  // Horizontal wheel pages the reader, debounced, only on clear horizontal intent.
   let wheelLock = 0;
   scroll.addEventListener('wheel', (e) => {
     if (!ideoActive()) return;
@@ -2675,9 +2100,8 @@ function renderBreadcrumb(appId, crumb) {
   return `<div class="tos-crumb"><span class="tos-back" data-back="${esc(appId || '')}">&#8592; Back</span><span>${trail}</span></div>`;
 }
 
-// A generic in-app tab strip: any screen payload carrying `tabs` (array of {id,label})
-// + `activeTab` gets one below the breadcrumb. Clicking a tab navigates the current
-// app to that screen id (server buildScreen keys off it). No-op payload → returns ''.
+// In-app tab strip: a payload with 'tabs' ([{id,label}]) + 'activeTab' gets one
+// under the breadcrumb; a tab navigates to that screen id.
 function renderTosTabs(d) {
   if (!d?.tabs?.length) return '';
   const tabs = d.tabs.map(t =>
@@ -2688,45 +2112,12 @@ function renderTosTabs(d) {
 
 function renderList(items) {
   if (!items || !items.length) return '<div class="tos-empty">Nothing here.</div>';
-  // A list can be two levels deep when the payload says so: `group: true` heads a
-  // set, `child: true` sits under it. Opt-in, so every existing flat list renders
-  // exactly as before. The Cookbook's shopping list is the first user — a recipe
-  // is one heading over the several separate things you have to go and buy.
-  // A list can nest when the payload says so: `group` heads a set, `child` sits
-  // under it, `option` sits under a child as one of several ways to answer it.
-  // All three are opt-in, so every existing flat list renders exactly as before.
-  //
-  // The Cookbook's shopping list is the first user, and it needs all three
-  // because the levels are different KINDS of thing: a recipe is several errands
-  // (children), but a class's examples are alternatives — buying any one of them
-  // answers the line. So an option deliberately has no checkbox and no badge;
-  // giving it one would read as a fourth thing to buy.
-  //
-  // A row only carries `data-open-item` when it HAS an id. An id-less row used to
-  // get the attribute anyway, empty — and clicking it navigated the app with no
-  // params, which is the app ROOT. Every heading and every summary line was
-  // therefore a button that threw you out of the screen you were reading.
-  //
-  // A fourth level, `part`, and it exists because nesting alone is ambiguous.
-  // An `option` is one of several ANSWERS to the line above it — you pick one,
-  // so it has no checkbox and every one after the first is prefixed OR. A `part`
-  // is one of several COMPONENTS of the line above it — you buy all of them, so
-  // it keeps its checkbox and its badge. Same shape on screen, opposite meaning;
-  // the OR and the boxes are what tell them apart.
-  // A row that NAVIGATES is a <button>; a row that doesn't stays a <div>.
-  //
-  // This was divs throughout, which made the primary navigation element of the
-  // entire tablet unreachable by keyboard and unannounced as a control — you could
-  // Tab to every action button on a screen and to none of the things the screen was
-  // actually a list of. `data-open-item` is exactly the "this does something" test,
-  // so the split costs nothing: headings, `or` alternatives and summary lines are
-  // not controls and must NOT become tab stops, or a long list turns into forty
-  // stops that mostly do nothing.
-  //
-  // `type="button"` is not optional even though this file has no <form> today —
-  // a default-type button inside one submits it, and that would be a very confusing
-  // bug to trace back to here. The click path is unchanged: the delegated handler
-  // matches `closest('[data-open-item]')`, which a button satisfies identically.
+  // Nesting is opt-in per row: 'group' heads a set, 'child' sits under it, 'option'
+  // is one of several ANSWERS (no checkbox, "OR" after the first), 'part' is one of
+  // several COMPONENTS (keeps checkbox and badge). The Cookbook shopping list uses all.
+  // A row that navigates is a <button type="button">; others stay <div> so headings
+  // aren't tab stops. Only rows WITH an id get data-open-item: an empty one navigates
+  // to the app root.
   return items.map(it => {
     const oid = it.id == null ? '' : String(it.id);
     const cls = `tos-list-item${it.group ? ' tos-li-group' : ''}${it.child ? ' tos-li-child' : ''}${it.option ? ' tos-li-option' : ''}${it.part ? ' tos-li-part' : ''}${oid ? '' : ' tos-li-static'}`;
@@ -2738,14 +2129,9 @@ function renderList(items) {
   }).join('');
 }
 
-// Month-grid calendar (Calendar app). A 7-column grid — weekday header row then the
-// weeks from the server's monthGrid — with a marker dot on any day that carries an
-// event and a native multi-line tooltip listing them. The prev/next arrows re-nav
-// the app with screenId 'month' + a 'YYYY-MM' token (wired in wireBody).
-// Squeeze an event title into a calendar cell. A month cell is barely wider than
-// two words, so this drops the noise words a scheduled thing always carries ("rent
-// due at…", "shift starts"), keeps the part that identifies it, and hard-truncates
-// what's left. The untouched text is still in the cell's hover title.
+// Calendar month grid. Prev/next re-nav with screenId 'month' + a 'YYYY-MM' token
+// (wired in wireBody). This helper squeezes an event title into a cell by dropping
+// noise words and truncating; the full text stays in the hover title.
 function shortEventText(s) {
   let t = String(s || '').trim()
     .replace(/^(rent|payment)\s+(due|owed)\s*(at|for|on)?\s*/i, '')   // "Rent due at The Kettle" → "The Kettle"
@@ -2762,15 +2148,11 @@ function renderCalendar(d) {
     if (cell.day == null) return '<div class="tos-cal-cell tos-cal-pad"></div>';
     const evs = cell.evs || [];
     const has = evs.length > 0;
-    // Escape each event's text before joining with the literal newline entity — the
-    // whole title can't be esc()'d wholesale or the &#10; would be double-encoded.
+    // Escape each event before joining with &#10;, or the entity gets double-encoded.
     const tip = evs.map(e => `${e.kind === 'rent' ? '🏠 ' : '• '}${esc(e.text)}${e.detail ? ` (${esc(e.detail)})` : ''}`).join('&#10;');
     const kinds = [...new Set(evs.map(e => e.kind))];
     const dots = has ? `<div class="tos-cal-dots">${kinds.map(k => `<span class="tos-cal-dot tos-cal-dot-${esc(k)}"></span>`).join('')}</div>` : '';
-    // A dot alone only ever said "something happens" — you had to hover to find out
-    // what, which a touch screen can't do at all. So the first event's text rides in
-    // the cell, shortened to fit, with a +N when the day holds more. The full list
-    // stays in the hover title.
+    // Touch can't hover, so the first event's text rides in the cell (+N for more).
     const label = has
       ? `<span class="tos-cal-ev">${esc(shortEventText(evs[0].text))}${evs.length > 1 ? `<span class="tos-cal-more">+${evs.length - 1}</span>` : ''}</span>`
       : '';
@@ -2790,26 +2172,18 @@ function renderCalendar(d) {
 }
 
 // ── Library: the shelf, a cover, a table of contents ─────────────────────────
-// The chapter READER was already set as a book (.tos-book); these are the three
-// screens that lead to it, and they used to be the generic list/detail furniture —
-// eight identical grey rows for eight objects that are meant to be the most
-// physical things on the tablet. A shelf should look like a shelf.
-//
-// Every cover is generated from the book's own id: one hash, one hue. No art to
-// author, no asset to ship, and the same book is always the same colour, which is
-// what lets you find it by colour on the second visit.
+// Every cover is generated from the book's id (one hash, one hue), so a book is
+// always the same colour and needs no art.
 function bookHue(id) {
   let h = 0;
   for (let i = 0; i < String(id).length; i++) h = (h * 31 + String(id).charCodeAt(i)) % 360;
   return h;
 }
 
-// The cloth-and-foil plate a book is represented by. `size` picks the shelf tile
-// or the bigger one on the cover page; both are the same object at two scales.
+// A book's cloth-and-foil plate; 'size' picks the shelf tile or the cover page.
 function renderBookPlate(b, size) {
   const hue = bookHue(b.id);
-  // Initials rather than a truncated title: at shelf size a title wraps to mush,
-  // and a stamped monogram is what a real spine does with the same problem.
+  // Initials, not a truncated title: a title wraps to mush at shelf size.
   const initials = String(b.title || '?').replace(/[^A-Za-z ]/g, '').split(/\s+/)
     .filter(w => w && !/^(a|an|the|of|and|to)$/i.test(w)).slice(0, 3).map(w => w[0].toUpperCase()).join('');
   return `<div class="tos-lib-plate tos-lib-plate-${size}" style="--bk-hue:${hue}">
@@ -2825,9 +2199,7 @@ function renderLibraryShelf(d) {
   if (!books.length) return '<div class="tos-empty">Nothing here.</div>';
   const cards = books.map(b => {
     const total = b.chapters || 0;
-    // Progress is deliberately the bookmark, not "chapters finished" — there is no
-    // finished flag, and pretending otherwise would show 100% on a book you opened
-    // to its last chapter and bounced off.
+    // Progress is the bookmark: there's no finished flag.
     const pct = total > 1 ? Math.round((b.at / (total - 1)) * 100) : (b.at ? 100 : 0);
     const started = b.at > 0;
     return `<div class="tos-lib-card" data-open-item="${esc(b.id)}">
@@ -2840,23 +2212,17 @@ function renderLibraryShelf(d) {
       </div>
     </div>`;
   }).join('');
-  // The shelf board under the row of books. Pure decoration, and worth it — it is
-  // the thing that says "these are objects" before you read a single title.
   return `<div class="tos-lib-shelf">${cards}</div><div class="tos-lib-board"></div>`;
 }
 
-// The longbox. Deliberately NOT the shelf with a different label on it: a comic
-// is filed face-out in a bin, in a bag, with a board behind it, and you flick
-// through it with your fingers rather than reading spines. Same derived hue, same
-// zero authored art, different object.
+// The longbox: comics filed face-out in bags, not a relabelled shelf.
 function renderLongbox(d) {
   const comics = d.books || [];
   if (!comics.length) return '<div class="tos-empty">Nothing here.</div>';
   const cards = comics.map((b, i) => {
     const total = b.chapters || 0;
     const pct = total > 1 ? Math.round((b.at / (total - 1)) * 100) : (b.at ? 100 : 0);
-    // A cover date rather than a publication year: this is the number printed in
-    // the corner of a comic, and it is what a longbox is sorted by.
+    // Cover date: what's printed on a comic and what a longbox sorts by.
     return `<div class="tos-cm-slot" data-open-item="${esc(b.id)}" style="--bk-hue:${bookHue(b.id)};--tilt:${(i % 3) - 1}deg">
       <div class="tos-cm-bag">
         <div class="tos-cm-cover">
@@ -2920,10 +2286,8 @@ function renderCategories(items) {
   </div>`).join('');
 }
 
-// Help-app reader: a chapter's blurb + sections. A section is either a headless
-// prose block (paragraphs) or a headed command group; `mono` sections render the
-// command line in a highlighted monospace block. Read-only — the breadcrumb Back
-// returns to the chapter index.
+// Help-app reader: blurb + sections, each a prose block or a headed command group
+// ('mono' renders the command line monospace).
 function renderHelp(ch) {
   if (!ch) return '<div class="tos-empty">No help here.</div>';
   const secs = (ch.sections || []).map(sec => `
@@ -2937,9 +2301,7 @@ function renderHelp(ch) {
   </div>`;
 }
 
-// Prev/Next paging for a 'list' screen that returned a `page` field (currently
-// just Skills & Stats). Both buttons re-nav the same screen with a `page:N`
-// params token, which the app's buildScreen interprets (skills-app.js).
+// Prev/Next for a 'list' screen with a 'page' field; re-navs with a 'page:N' token.
 function renderPageNav(appId, breadcrumb, page) {
   const screenLabel = (breadcrumb || [])[breadcrumb.length - 1] || '';
   const prevDisabled = page.current <= 0;
@@ -2952,17 +2314,11 @@ function renderPageNav(appId, breadcrumb, page) {
   </div>`;
 }
 
-// A detail row picks its own layout from what's in it. Three shapes, one payload
-// — no app has to ask for any of them, so every existing detail screen improves
-// without touching its server code.
-//
-//   "—" + nothing   → a divider. Authors already wrote this to mean "gap here".
-//   no label        → a continuation of the row above (step 2, 3, 4 of a method)
-//   long value      → stacked: small-caps label over full-width, left-aligned text
-//   otherwise       → the label/value pair it always was
-//
-// The length test is what keeps a card readable: "Difficulty 9/10" is a column
-// pair, and "Off the heat — genuinely off it — in with the gin" is a paragraph.
+// A detail row picks its own layout:
+//   "—" + nothing   → a divider
+//   no label        → continuation of the row above
+//   long value      → stacked label over full-width text
+//   otherwise       → label/value pair
 const TOS_PROSE_CHARS = 44;
 
 function renderDetailRows(rows) {
@@ -2970,8 +2326,7 @@ function renderDetailRows(rows) {
     const label = String(r.label ?? '');
     const value = String(r.value ?? '');
     if (!value && (label === '—' || label === '-' || label === '')) return '<div class="tos-row-sep"></div>';
-    // A section heading inside a card — "the sauce", "Method". Opt-in, so no
-    // existing screen grows one by accident.
+    // An opt-in section heading inside a card.
     if (r.heading) return `<div class="tos-row-head">${esc(label)}</div>`;
     if (!label) return `<div class="tos-row tos-row-cont"><span></span><span>${esc(value)}</span></div>`;
     if (value.length > TOS_PROSE_CHARS) {
@@ -2981,33 +2336,22 @@ function renderDetailRows(rows) {
   }).join('');
 }
 
-// Settings — the full game settings surface, rendered natively in the Tablet
-// (mirrors client/game/index.html's settings panel + client/shared/settings.js).
-// Every control reads/writes the shared `architect_settings` via loadSettings/
-// saveSettings/applySettings, so the Tablet and the legacy panel stay in sync
-// while both exist. Option pills re-render on change; sliders update live so
-// dragging isn't interrupted. The theme "locker" (Tablet link/unlink) keeps its
-// own independent record and gets an easy toggle + a separate Tablet-theme picker.
+// Settings, rendered natively. Every control goes through loadSettings/saveSettings/
+// applySettings on the shared 'architect_settings', so it stays in sync with the
+// game panel. Sliders update live so dragging isn't interrupted.
 
-// Pill groups that map 1:1 to a key in the shared settings object. dpadSize is
-// mobile-only, matching the game panel's `.mobile-only-setting` gate.
+// Pill groups mapping 1:1 to a settings key. dpadSize is mobile-only.
 const TOS_OPT_GROUPS = [
-  // Font Size and Motion used to live here. They now live in A11Y_OPTIONS
-  // (client/shared/settings.js) and render on the Accessibility page, because
-  // that table is also what the `accessibility` verb reads — one list, two
-  // surfaces, no drift. Anything left in this array is a taste setting rather
-  // than an access one.
+  // Access settings live in A11Y_OPTIONS (Accessibility page); this list is taste only.
   { key: 'sidebarPosition', label: 'Sidebar', opts: [
     { v: 'left', t: 'Sidebar Left', g: '⬅️' }, { v: 'right', t: 'Sidebar Right', g: '➡️' } ] },
   { key: 'weatherFx', label: 'Weather FX', opts: [
     { v: 'on', t: 'Weather FX On', g: '🌧️' }, { v: 'off', t: 'Off', g: '🚫' } ] },
-  // The 3-D views drawn as cel shading: flat light and ink outlines on the city (main.js
-  // _applyCelShade). GLASS 2 only; the 2-D fallback ignores it.
+  // Cel shading for the 3-D views (main.js _applyCelShade). GLASS 2 only.
   { key: 'celShade', label: 'Cel Shading', opts: [
     { v: 'off', t: 'Off: the city as it is lit now', g: '◐' },
     { v: 'on', t: 'On: flat light and ink outlines', g: '✎' } ] },
-  // GLASS 2 or GLASS 1 for the 3-D views (main.js _applyGlass). GLASS 1 is the fallback for a
-  // machine that can't keep up, and it has no cel shading.
+  // GLASS 2 or GLASS 1 (main.js _applyGlass). GLASS 1 is the fallback, without cel shading.
   { key: 'glass', label: 'Renderer', opts: [
     { v: '2', t: 'GLASS 2: the GPU renderer, lit and shadowed', g: 'G2', s: 'font-size:0.6875rem;letter-spacing:1px' },
     { v: '1', t: 'GLASS 1: the 2-D painter, lighter on a slow machine', g: 'G1', s: 'font-size:0.6875rem;letter-spacing:1px' } ] },
@@ -3015,20 +2359,16 @@ const TOS_OPT_GROUPS = [
     { v: 'small', t: 'Small', g: 'S' }, { v: 'medium', t: 'Medium', g: 'M' }, { v: 'large', t: 'Large', g: 'L' } ] },
   { key: 'tempUnit', label: 'Temp Units', opts: [
     { v: 'C', t: 'Celsius', g: 'C°' }, { v: 'F', t: 'Fahrenheit', g: 'F°' } ] },
-  // Sidebar minimap tile overlay — panels/minimap.js reads this via the
-  // window._applyMapOverlay hook in applySettings and re-renders in place.
+  // Minimap overlay: minimap.js reads it via window._applyMapOverlay.
   { key: 'mapOverlay', label: 'Map Labels', opts: [
     { v: 'labels', t: 'Lettering: the building’s 2-letter code', g: 'AB', s: 'font-size:0.6875rem;letter-spacing:1px' },
     { v: 'none', t: 'Plain tiles: no lettering', g: '▫' } ] },
-  // Landmark colour — panels/minimap.js reads this via window._applyMapColor. Off is
-  // the plain map (white label plates, untinted footprints); on paints a building in
-  // its landmark class's colour and puts that colour under its code.
+  // Landmark colour: minimap.js reads it via window._applyMapColor. Off is the plain map.
   { key: 'mapColor', label: 'Map Colour', opts: [
     { v: 'off', t: 'Plain: white labels, untinted buildings', g: '▫' },
     { v: 'on', t: 'Colour: a colour per landmark kind', g: '◼', s: 'color:#8b46c7' } ] },
-  // Which renderer draws the sidebar minimap. Classic is a genuine fallback, not a
-  // style choice — it's what you switch to if the canvas path misbehaves on your
-  // machine, so it has to be reachable without devtools.
+  // Minimap renderer. Classic is a real fallback for when the canvas path misbehaves,
+  // so it must be reachable without devtools.
   { key: 'minimapRender', label: 'Minimap', opts: [
     { v: 'smooth', t: 'Smooth: the map glides as you walk', g: '🌊' },
     { v: 'classic', t: 'Classic: tiles snap into place', g: '▦' } ] },
@@ -3055,21 +2395,15 @@ const TOS_VOL_SLIDERS = [
   { key: 'tvVolume', label: 'TV', g: '📺' },
 ];
 
-// Mobile layout is reflected in data-density ("compact") — use it to gate the
-// mobile-only D-Pad Size row, same as the legacy panel does in CSS. Note this is
-// distinct from data-smart-ui, which is just the player-togglable contextual
-// command bar and doesn't imply desktop/mobile layout either way.
+// data-density "compact" gates the mobile-only D-Pad row. data-smart-ui is unrelated.
 function tosIsMobile() {
   return document.documentElement.getAttribute('data-density') === 'compact';
 }
 
-// The five theme colours previewed on each swatch — accent plus four status
-// hues, so a theme's palette (not just its accent) reads at a glance.
+// Five colours previewed per swatch: accent plus four status hues.
 const TOS_SW_DOT_VARS = ['--accent', '--green', '--yellow', '--red', '--purple'];
 
-// A theme rendered as a colour swatch: its own bg2 as the chip background, a
-// row of its key palette colours as dots, and a luminance-contrasted name — so
-// themes are picked by look, not by reading a list of names.
+// A theme as a swatch: its bg2, key palette dots, contrasted name.
 function tosThemeSwatch(id, label, selected, dataAttr) {
   const c = probeBuiltinThemeColors(id) || {};
   const bg = (c['--bg2'] || '#1a2226').trim();
@@ -3088,9 +2422,7 @@ function tosThemeName(id) {
   return f ? f[1] : id;
 }
 
-// A compact trigger that shows the active theme (its own bg + accent) and opens
-// the scrollable theme-picker sheet — so the full swatch list isn't spread out
-// across the settings page. `kind` is 'ui' or 'tablet'.
+// Compact trigger showing the active theme; opens the picker sheet. 'kind' is 'ui' or 'tablet'.
 function tosThemeTrigger(kind, activeId) {
   const c = probeBuiltinThemeColors(activeId) || {};
   const bg = (c['--bg2'] || '#1a2226').trim(), ac = (c['--accent'] || '#35e0c8').trim();
@@ -3101,9 +2433,7 @@ function tosThemeTrigger(kind, activeId) {
     <span class="tos-trigger-caret" style="color:${ink}">&#9662;</span></div>`;
 }
 
-// The theme-picker sheet — a scrollable full list of themes that slides up over
-// the settings screen. `kind` 'ui' drives the shared settings.theme (+ a link to
-// the full editor); 'tablet' drives the unlinked Tablet's own theme.
+// The theme-picker sheet. 'ui' drives settings.theme; 'tablet' drives the unlinked tablet theme.
 function renderThemeSheet(kind) {
   const s = loadSettings();
   const tt = loadTabletTheme();
@@ -3134,13 +2464,8 @@ function renderTabletSettings(d) {
   const audio = s.audio || {};
   const pct = (v) => `${Math.round((v ?? 0) * 100)}%`;
 
-  // A theme-picker sheet is open — show the scrollable selector instead of the
-  // settings pages (it slides up over the screen; ✕ Done returns here).
   if (_tosThemePicker) return renderThemeSheet(_tosThemePicker);
 
-  // Theme — a compact trigger that opens the scrollable picker sheet, with the
-  // Match-UI-Theme lock right beneath it, and (when unlinked) the Tablet's own
-  // theme trigger. The full swatch list lives in the sheet, not on the page.
   const themeActive = s.theme || 'dark';
   const tabletActive = tt.theme || 'dark';
   const contrast = s._contrastPreview != null ? s._contrastPreview : (s.contrast || 0);
@@ -3153,15 +2478,9 @@ function renderTabletSettings(d) {
     lockRow +
     (linked ? '' : `<div class="tos-set-row"><span class="tos-set-label">Tablet Theme</span>${tosThemeTrigger('tablet', tabletActive)}</div>`);
 
-  // Display Mode — an ordered LADDER of three rungs, each stripping one more
-  // category of graphics. SERVER state, unlike everything else on this screen:
-  // the flight plugin reads it on the server, at board time, to decide whether to
-  // push a panel at all. So it renders from the payload (settings-app.js ships
-  // `displayRung`) and the pills mirror changes back through `displaymode`.
-  //
-  // The middle rung is NOT a downgrade — a text minigame is a live, character-
-  // drawn equivalent of the same game, not a description of it. The sublabels do
-  // the explaining, so keep them.
+  // Display Mode: a three-rung ladder, and SERVER state (flight reads it at board
+  // time). Rendered from the payload's 'displayRung', changed via 'displaymode'.
+  // The middle rung isn't a downgrade; keep the sublabels.
   const rungNow = (d && d.displayRung) || 'visual';
   const RUNGS = [
     ['visual', 'Visual', 'Graphics wherever a system has them, the cockpit, the cabin window, the poker felt.'],
@@ -3181,9 +2500,7 @@ function renderTabletSettings(d) {
     <input type="color" class="tos-color" data-set-poker-color="1" value="${esc(s.pokerFeltColor || '#1a4a1a')}" title="Pick a custom felt colour">
   </div></div>`;
 
-  // Extra Lore — reuse the first-visit lore feature, but show a zone's intro block
-  // every visit instead of only the first. Server-side preference; the pill just
-  // mirrors it into `lorealways on|off` (pushed again at login, see dispatch.js).
+  // Extra Lore: server-side preference, mirrored via 'lorealways on|off'.
   const loreOn = (s.extraLore || 'off') === 'on';
   const loreRow = `<div class="tos-set-row"><span class="tos-set-label">Extra Lore<span class="tos-set-val">Show zone lore every visit</span></span><div class="tos-opts">
     <div class="tos-opt${loreOn ? ' selected' : ''}" data-set-lore="on" title="Lore on every visit">On</div>
@@ -3195,8 +2512,7 @@ function renderTabletSettings(d) {
     <div class="tos-opt${soundOn ? ' selected' : ''}" data-set-sound="on" title="Sound On">🔊 On</div>
     <div class="tos-opt${!soundOn ? ' selected' : ''}" data-set-sound="off" title="Sound Off">🔇 Off</div>
   </div></div>`;
-  // Compact rows of paired audio toggles above the sliders — icons only (meaning
-  // carried by the tooltip): Music / SFX, TV / Welcome Voice, Mute-When-Hidden.
+  // Paired audio toggles, icons only (meaning is in the tooltip).
   const audioToggleCell = a => {
     const on = !!audio[a.key];
     return `<div class="tos-opts" title="${esc(a.label)}">
@@ -3217,41 +2533,20 @@ function renderTabletSettings(d) {
     .filter(gp => !A11Y_OPTIONS.some(a => a.key === gp.key) && (!gp.mobileOnly || tosIsMobile()))
     .map(gp => tosPillRow(gp.label, gp.key, s[gp.key], gp.opts)).join('');
 
-  // Grouped pages so Settings isn't one long scroll — same buckets as the game
-  // settings panel (General / Layout / Sound). Poker felt + MIS live under
-  // General now that the standalone Game tab is gone.
-  // Wallpaper lives beside the theme, because it IS part of the theme — every option
-  // derives its colours from the active one. Default None; the rest are opt-in.
   const wpNow = loadWallpaper();
   const wallpaperRow = `<div class="tos-set-row"><span class="tos-set-label">Wallpaper<span class="tos-set-val">Behind the home screen</span></span><div class="tos-opts">
     ${TABLET_WALLPAPERS.map(wp => `<div class="tos-opt${wp.id === wpNow ? ' selected' : ''}" data-set-wallpaper="${esc(wp.id)}" title="${esc(wp.label)}">${esc(wp.label)}</div>`).join('')}
   </div></div>`;
 
   // ── Accessibility ─────────────────────────────────────────────────────────
-  // One page, so a player who needs any of this doesn't have to know that text
-  // size is "General", motion is "Layout" and mono audio is "Sound" — which is
-  // exactly the scavenger hunt these settings used to be. Contrast and Display
-  // Mode moved here off General; Motion moved here out of the Layout pill list
-  // (TOS_OPT_GROUPS filters it out below), so each control has ONE home.
-  //
-  // The rows are generated from A11Y_OPTIONS in client/shared/settings.js — the
-  // same table the `accessibility` verb reads. Neither surface owns the list, so
-  // they cannot drift apart, and a new option appears in both for free.
-  //
-  // Read through effectiveOptionValue rather than off `s` directly: one row
-  // (Sound Detail) is tri-state and derives its default from the display rung,
-  // so reading the raw key would leave every pill unselected for the player who
-  // has never touched it — which reads as 'nothing is on'.
+  // One page, each control with ONE home. Rows come from A11Y_OPTIONS (shared with
+  // the 'accessibility' verb). Read via effectiveOptionValue: Sound Detail is
+  // tri-state with a derived default, so the raw key would show nothing selected.
   const a11yCtx = { displayRung: rungNow };
   const a11yRows = A11Y_OPTIONS.map(o => {
     const eff = String(effectiveOptionValue(o, s, a11yCtx));
-    // Pills are <button aria-pressed>, in a labelled group. They were divs — which
-    // meant the accessibility page itself could not be operated by keyboard, so the
-    // one screen a player goes to when the interface is unusable was the screen
-    // least able to be used. `aria-pressed` rather than role="radio" deliberately:
-    // radio semantics oblige arrow-key navigation within the group, and Tab through
-    // real buttons works today with no keyboard code. The group carries the option's
-    // name so each pill announces what it belongs to, not just "Off".
+    // Pills are <button aria-pressed> in a labelled group, so the page works by
+    // keyboard. Not role="radio": that obliges arrow-key navigation.
     return `<div class="tos-set-row tos-a11y-row"><span class="tos-set-label" id="tos-a11y-lbl-${esc(o.key)}">${esc(o.label)}<span class="tos-set-val">${esc(o.why)}</span></span>
       <div class="tos-opts" role="group" aria-labelledby="tos-a11y-lbl-${esc(o.key)}">${o.opts.map(v =>
       `<button type="button" class="tos-opt${eff === String(v.v) ? ' selected' : ''}" aria-pressed="${eff === String(v.v) ? 'true' : 'false'}" data-set-key="${esc(o.key)}" data-set-val="${esc(String(v.v))}" title="${esc(v.t)}">${esc(v.t)}</button>`).join('')}</div></div>`;
@@ -3265,9 +2560,7 @@ function renderTabletSettings(d) {
       loreRow +
       renderMisSection(),
     Accessibility:
-      // Display Mode first, and by itself: it is server-side state rather than a
-      // localStorage preference, and it is the one on this page that changes what
-      // the game IS rather than how it looks.
+      // Display Mode first and alone: it's server state and changes what the game is.
       displayRow +
       `<div class="tos-set-row"><span class="tos-set-label">Contrast <span class="tos-set-val" data-contrast-label="1">${contrast === 0 ? 'Base' : '+' + contrast + '%'}</span></span>
         <span><input type="range" class="tos-slider" data-set-contrast="1" min="0" max="100" step="1" value="${contrast}">
@@ -3275,9 +2568,6 @@ function renderTabletSettings(d) {
       a11yRows +
       `<div class="tos-set-row"><span class="tos-set-label">All of this works as a command<span class="tos-set-val">Type <b>accessibility</b> anywhere: no tablet needed. <b>accessibility reset</b> puts everything back.</span></span></div>`,
     Layout: (layoutRows || '') +
-      // Home widgets are OFF until you ask for them. The home screen's job is to
-      // launch apps; cards under the grid are a second thing it does, and a first
-      // login shouldn't have to read them to find the tile it wants.
       `<div class="tos-set-row"><span class="tos-set-label">Home Widgets<span class="tos-set-val">Info cards under the app grid</span></span><div class="tos-opts">
         <div class="tos-opt${widgetsEnabled() ? ' selected' : ''}" data-set-widgets="on" title="Show home widgets">On</div>
         <div class="tos-opt${!widgetsEnabled() ? ' selected' : ''}" data-set-widgets="off" title="Hide home widgets">Off</div>
@@ -3305,46 +2595,18 @@ function renderTabletSettings(d) {
   return `<div class="tos-set-tabs">${tabs}</div><div class="tos-set-page">${pages[_tosSetPage]}</div>`;
 }
 
-// About — the colophon page. Static markup: wordmark, byline, and the support
-// link (same URL the login screen carries, kept in sync by hand — there's only
-// the one). The line above the button still says exactly what a donation buys —
-// server bills, and the time not spent earning them — because the honest ask is
-// the only one worth making. It just says it in the game's voice and in half the
-// words; a paragraph of earnest explanation was reading like a charity mailer in
-// the middle of a city that would mug you. Opens in a new tab, so no wiring.
 // ── Discord ──────────────────────────────────────────────────────────────────
-// The live server widget, embedded. It is the one page in Settings that loads anything from
-// OUTSIDE this game, and that is worth being deliberate about rather than pasting an iframe in:
-//
-//  • THE FRAME IS SANDBOXED to exactly what the widget needs. Discord's own embed code asks for
-//    scripts, same-origin and pop-ups, and no more; without `allow-same-origin` the widget cannot
-//    read its own session and shows nobody online, and without the pop-up pair the Join button
-//    cannot open a tab. Nothing else is granted — no forms, no top-level navigation, so the frame
-//    can never redirect the game out from under a player.
-//  • IT IS ALWAYS ACCOMPANIED BY A PLAIN LINK. An iframe to a third party is the one element on
-//    this page that can silently render nothing — the widget is off in Discord's own server
-//    settings, the network blocks it, an extension eats it — and a blank rectangle with no way
-//    through is worse than no widget. The link works in every one of those cases.
-//  • `loading="lazy"` so opening Settings on the General tab costs no request to discord.com at
-//    all. Nobody who never opens this page ever touches Discord from here.
-//
-// One honest note for whoever reads this next: embedding the widget means Discord sees the IP of
-// anybody who opens this tab, the same as visiting the site would. That is inherent to an embed
-// rather than something this code chose, and the lazy load is what keeps it to people who asked.
+// The one Settings page that loads from outside the game:
+//  • The frame is sandboxed to what the widget needs (scripts, same-origin, pop-ups).
+//    Without allow-same-origin it shows nobody online; no forms, no top navigation.
+//  • Always with a plain link: a third-party iframe can render nothing.
+//  • loading="lazy", so only people who open this page contact discord.com.
 const DISCORD_SERVER_ID = '1537202670451040316';
-// The invite, and it is deliberately NOT the widget URL. The widget is a live view of who is about
-// and it renders only while Discord's own server-side widget switch is on; the invite is how a
-// person actually joins, and it works when the widget shows nothing at all — which is the exact
-// case the link beside it exists for.
-// Exported because the `discord` verb (client/game/js/input.js) prints the same link, and an invite
-// that lives in two places is an invite that expires in one of them.
-// DISCORD_INVITE lives in links.js, so input.js can use it without loading this file.
+// The invite, deliberately not the widget URL: it works when the widget is off.
+// DISCORD_INVITE lives in links.js so input.js's 'discord' verb shares it.
 function renderDiscordPage() {
-  // The tablet's own theme drives the widget's: a parchment tablet with a black widget bolted into
-  // it reads as a bug rather than as a choice. `LIGHT_THEMES` is a list of [value, label] PAIRS,
-  // so this is a `some` on the first element and not an `includes` — the tempting one-liner is
-  // quietly always false, which would have pinned the widget to dark forever and looked fine on
-  // every dark theme, i.e. on the default.
+  // Match the tablet theme. LIGHT_THEMES is [value, label] pairs, so this must be a
+  // 'some' on the first element; 'includes' is always false.
   const t = loadTabletTheme();
   const name = t.linked ? (loadSettings().theme || 'dark') : (t.theme || 'dark');
   const dark = !LIGHT_THEMES.some(([v]) => v === name);
@@ -3357,12 +2619,8 @@ function renderDiscordPage() {
   </div>`;
 }
 
-// About. The THOMAS credit sits LAST and below the support button, because the
-// order of this page is game, then people, then platform — Architect is one game
-// built on THOMAS, and a player who wants to know what that means gets the
-// power-user guide, the only page that documents the client rather than the
-// world. The mark is the dev panel boot logo (client/devpanel/index.html) at
-// badge weight, stroked in currentColor so the tablet theme colours it.
+// About. Game, then people, then platform: the THOMAS credit sits last. The mark is
+// the dev panel boot logo, stroked in currentColor.
 function renderAboutPage() {
   return `<div class="tos-about">
     <div class="tos-about-mark">Architect</div>
@@ -3386,9 +2644,8 @@ function renderAboutPage() {
   </div>`;
 }
 
-// Mature Content (MIS) — server-authoritative, so it reads live off state.player
-// and toggles via the raw ws hook. Hidden behind the same triple-click decoy as
-// the legacy panel until revealed (per session).
+// Mature Content (MIS): server-authoritative (state.player, toggled over raw ws),
+// behind the triple-click decoy until revealed per session.
 function renderMisSection() {
   if (!_tosMisRevealed) return `<div class="tos-mis-decoy" data-mis-decoy="1"></div>`;
   const misOn = state.player?.mis_enabled === 1 || state.player?.mis_enabled === true;
@@ -3402,9 +2659,7 @@ function renderMisSection() {
   return renderSection('Mature Content', misRow);
 }
 
-// Reflect MIS state in place (pills + status) without a full re-render, so a
-// server sync or a toggle doesn't reset the scroll spot. No-op if the Settings
-// screen (or the MIS toggle) isn't currently shown.
+// Reflect MIS state in place so a sync doesn't reset scroll. No-op if not shown.
 function tosApplyMis(enabled, serverDisabled) {
   if (!_overlay) return;
   const pills = _overlay.querySelector('[data-mis-pills]');
@@ -3416,18 +2671,14 @@ function tosApplyMis(enabled, serverDisabled) {
   if (status) status.textContent = serverDisabled ? 'MIS not enabled on server.' : (enabled ? 'Mature content enabled.' : 'Mature content disabled.');
 }
 
-// Labeled section (title + arbitrary HTML) — shared by the Corp dashboard and
-// Settings' theme groups.
+// Labeled section (title + HTML), shared by Corp and Settings.
 function renderSection(title, html) {
   return `<div style="margin-top:12px;font-size:0.625rem;letter-spacing:1px;text-transform:uppercase;color:var(--tos-fg-dim)">${esc(title)}</div>${html}`;
 }
 
-// Corporation dashboard — reshapes plugins/corps' own buildConsolePayload()
-// (via corp-app.js) into the Tablet's row/list styling instead of the
-// standalone corp-console.js overlay's bespoke chassis.
+// Corp dashboard: reshapes plugins/corps buildConsolePayload() (via corp-app.js).
 
-// A titled box (the "cards" the original corp console used) — one boxed section
-// per corp page so each screen reads as a discrete panel, no long scroll.
+// A titled box, one per corp page.
 function renderCorpCard(title, html) {
   return `<div class="tos-card"><div class="tos-card-h">${esc(title)}</div>${html}</div>`;
 }
@@ -3444,9 +2695,7 @@ function renderCorpPageNav(page) {
   </div>`;
 }
 
-// The corp dashboard — boxed sections, one page at a time (paged, not scrolled),
-// with the corp name centred at the top. Actions + colour picker live on the
-// Overview page; the other pages are the roster / territory / diplomacy panels.
+// Corp dashboard: boxed sections, paged. Actions and colour picker on Overview.
 function renderCorpScreen(d) {
   const corp = d.corp || {};
   const t = corp.treasury || {};
@@ -3492,16 +2741,12 @@ function renderCorpScreen(d) {
     body = renderCorpCard('Diplomacy', relations);
   }
 
-  // Wrap the page body in a flex:1 region so the Prev/Next nav is pinned to the
-  // bottom of the tablet screen — same location on every page, regardless of how
-  // much (or little) content that page holds.
+  // flex:1 body keeps Prev/Next pinned to the bottom on every page.
   return `<div class="tos-corp-scroll">${body}</div>${renderCorpPageNav(page)}`;
 }
 
-// Territory Map — the `corp map` overlay's strategic grid ported into the Tablet.
-// Same cmdCorpMap payload (zones on a 2n-1 expanded grid, org-colour fill, road
-// links, badges). Tap a zone to inspect it (selection is client-side — no round
-// trip); current-tile verbs route through the corp app's handleAction ('mapact').
+// Territory Map: the 'corp map' grid (cmdCorpMap payload, 2n-1 grid). Selection is
+// client-side; tile verbs go through the corp app's handleAction ('mapact').
 function _cmSharesArtery(a, b) { return Array.isArray(a) && Array.isArray(b) && a.some(x => b.includes(x)); }
 
 function renderCorpMap(d) {
@@ -3589,35 +2834,22 @@ function renderCorpMapDetail(d) {
 }
 
 // ── Map app ──────────────────────────────────────────────────────────────────
-// A tablet-native version of the full-screen city map. The tiles are exactly what
-// the popup gets (server buildMapPayload), rendered on the corp map's 2n-1 grid
-// but with the full map's land-use colour / danger / POI reading. Tapping a tile
-// selects it (client-side); its detail carries a "Route here" button that plots a
-// GPS route via the popup's own route machinery (setGpsRoute → mirrors onto the
-// sidebar minimap + refreshes the popup if it's open), and auto-walks it.
+// The city map in the tablet: server buildMapPayload tiles on the 2n-1 grid.
+// Selection is client-side; "Route here" plots via setGpsRoute and auto-walks.
 
 function _mapHexRgb(hex) {
   const h = String(hex || '').replace('#', '');
   return [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0];
 }
-// Whether a tile wears a code, and what it says, is `spec.label` — derived once by
-// the build (scripts/content/derive.mjs deriveLabel) and read identically here and by
-// the sidebar minimap. It replaces a local `_mapIsBldg` predicate that tested
-// `building_type || building_name` against the minimap's `building_type || enterable
-// || building_name`, so the two screens disagreed about enterable facades.
-//
-// `kind` says what the Labels toggle may do: a derived `building` or `room` code
-// follows the toggle; `mark` (an authored `zones.marker`) is the tile's own drawing
-// and always shows, exactly like a road connector.
+// A tile's code is 'spec.label', derived once by the build (derive.mjs deriveLabel)
+// and read the same here and on the minimap. 'kind': a 'building'/'room' code follows
+// the Labels toggle; a 'mark' (zones.marker) always shows.
 function _mapLabel(t) {
   return t.spec?.label || null;
 }
 function _mapTileSym(t) {
   if (t.isCurrent) return '<span class="mt-icon">◉</span>';
-  // A named zone-icon SVG (road/building/runway) is the tile's own footprint — it
-  // wins over the POI glyph, which is a landmark hint for the adjacent street. The
-  // build resolves which one (spec.feature): authored flags.icon, then the building's
-  // rooftop, then the auto-tiled road connector.
+  // A named zone-icon SVG beats the POI glyph; the build picks which (spec.feature).
   const feat = t.spec?.feature;
   if (feat) return `<span class="mt-icon mt-svg" style="--zi:url(/assets/zone-icons/${esc(feat)}.svg)"></span>`;
   if (t.icon) return `<span class="mt-icon">${esc(t.icon)}</span>`;
@@ -3625,13 +2857,8 @@ function _mapTileSym(t) {
 }
 
 // ── Codex app (native view: 'codex') ─────────────────────────────────────────
-// A shelf of sections. Two kinds render here — 'chapters' (a lore volume: an
-// index of entries, then one entry read full-bleed) — while kind 'orders' falls
-// through to the alignment reader below, which is the same instrument it always
-// was, just reached through the Codex now.
-//
-// Reading state is client-side (_tosCodexCh), like the ideology paging: the whole
-// volume rides in one payload, so opening a chapter is not a round trip.
+// Sections of kind 'chapters' render here; 'orders' falls through to the alignment
+// reader. Reading state is client-side (_tosCodexCh): the volume is one payload.
 let _tosCodexCh = null;   // chapter id currently being read, or null for the index
 
 function renderCodexShelf(d) {
@@ -3660,19 +2887,10 @@ function renderCodexShelf(d) {
   </div>`;
 }
 
-// One chapter's prose. `body` is the authored array: strings are paragraphs,
-// { pull } is a pull quote, { break: true } is a rule. A locked chapter never
-// ships a body at all (see codex/section-chapters.js), so this can't leak one.
-// The chapter's speakable prose as UTTERANCES, in reading order — paragraphs and
-// pull quotes, never the rules.
-//
-// It returns the split array rather than a joined string on purpose. Joining and
-// re-splitting is not lossless: a block that doesn't end in sentence punctuation
-// (a pull quote, a fragment) would fuse with the first sentence of the next block
-// on the re-split, while the renderer — which splits block by block — would keep
-// them apart. One extra span, every index after it off by one, and the highlight
-// silently follows the wrong line for the rest of the chapter. Splitting once, in
-// the order the renderer walks, makes that impossible.
+// One chapter's prose: 'body' strings are paragraphs, { pull } a pull quote,
+// { break: true } a rule. Locked chapters ship no body.
+// codexNarrationParts returns the split array, never a joined string: re-splitting
+// fuses a block without end punctuation into the next and shifts every index.
 function codexNarrationParts(body) {
   return (body || [])
     .map(p => (typeof p === 'string' ? p : (p?.pull || '')))
@@ -3681,19 +2899,15 @@ function codexNarrationParts(body) {
 }
 
 function renderCodexBody(body, narratable) {
-  // When narration is available the prose is rendered sentence-addressably, so
-  // the voice can light the line it's on — the same treatment the Library gets.
-  // The running index must span the WHOLE chapter (not restart per paragraph),
-  // and must count exactly the blocks codexNarrationParts contributes, in order.
+  // The running index spans the whole chapter and must count exactly what
+  // codexNarrationParts contributes, in order.
   let n = 0;
   const speak = (s) => narratable
     ? narrateSplit(s).map(t => `<span class="tos-narr-s" data-s="${n++}">${esc(t)}</span>`).join(' ')
     : esc(s);
   return (body || []).map((p, i) => {
     if (typeof p === 'string') {
-      // Drop cap on the opening paragraph only — the reader's one flourish. The
-      // cap is peeled off the raw string BEFORE the sentence split so the split
-      // still sees whole sentences and the indices stay aligned with the voice.
+      // Drop cap peeled off BEFORE the sentence split, so indices stay aligned.
       if (i === 0 && !narratable) return `<p class="tos-cx-p"><span class="tos-cx-drop">${esc(p.charAt(0))}</span>${esc(p.slice(1))}</p>`;
       return `<p class="tos-cx-p">${speak(p)}</p>`;
     }
@@ -3703,16 +2917,9 @@ function renderCodexBody(body, narratable) {
   }).join('');
 }
 
-// Read a Codex chapter aloud, and keep going into the next UNLOCKED one.
-//
-// Sealed chapters ship no body at all (the server never sends one), so they are
-// skipped rather than read as silence — and when the volume runs out the narrator
-// simply stops. The whole volume already rides in one payload, which is why this
-// can walk it without a round trip.
-//
-// The on-screen chapter is NOT turned as the voice moves on: `_tosCodexCh` is
-// left alone deliberately, because auto-advance exists precisely for when you are
-// not looking at the tablet. The pill title says which chapter is being read.
+// Read a Codex chapter aloud and continue into the next UNLOCKED one (sealed ones
+// have no body and are skipped). _tosCodexCh is left alone on purpose: auto-advance
+// is for when you're not looking.
 function narrateCodexFrom(chapterId) {
   const chapters = _data?.chapters || [];
   const startAt = chapters.findIndex(c => c.id === chapterId && c.unlocked);
@@ -3738,8 +2945,7 @@ function narrateCodexFrom(chapterId) {
   const first = chapters[startAt];
   const parts = codexNarrationParts(first.body);
   if (!parts.length) return;
-  // Seed on the VOLUME so one narrator reads the whole record, exactly as the
-  // Library seeds on the book rather than the chapter.
+  // Seed on the volume so one narrator reads the whole record.
   narrateStart(parts, volume, titleOf(first), _data?.lex, advance);
 }
 
@@ -3798,10 +3004,7 @@ function renderCodexVolume(d) {
 }
 
 // ── Ideology reader (Codex section 'orders') ──────────────────────────────
-// Paged reader: Overview (radial 4-path field + ranked standing), one deep-dive
-// page per order (lore/creed/path/standing ladder/relations/agents), and the
-// Field (two-axis compass). All data rides in one payload; pages switch
-// client-side via _tosIdeoPage (like the corp dashboard), no round trip.
+// Pages: Overview, one per order, and the Field compass. Client-side via _tosIdeoPage.
 function _ideoAccent() {
   const a = getComputedStyle(_overlay || document.documentElement).getPropertyValue('--accent').trim();
   return a || '#35e0c8';
@@ -3813,9 +3016,7 @@ const IDEO_SIGILS = {
   ideology_long_watch: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M6 20 Q20 8 34 20 Q20 32 6 20 Z"/><circle cx="20" cy="20" r="4.5"/><circle cx="20" cy="20" r="1.6" fill="${c}"/><path d="M20 4 V8 M20 32 V36" stroke-opacity=".6"/></g></svg>`,
   ideology_wildblood: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M20 34 V20"/><path d="M20 20 C20 12 13 12 10 6 M20 20 C20 12 27 12 30 6"/><path d="M20 26 C20 22 15 21 12 18 M20 26 C20 22 25 21 28 18" stroke-opacity=".6"/><circle cx="10" cy="6" r="2" fill="${c}"/><circle cx="30" cy="6" r="2" fill="${c}"/></g></svg>`,
   ideology_exodus: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><circle cx="20" cy="20" r="4" fill="${c}"/><g stroke-opacity=".85"><path d="M20 20 L20 5 M20 20 L33 12 M20 20 L35 20 M20 20 L33 28 M20 20 L20 35 M20 20 L7 28 M20 20 L5 20 M20 20 L7 12"/></g><circle cx="20" cy="20" r="9" stroke-opacity=".4" stroke-dasharray="2 3"/></g></svg>`,
-  // Expansion orders — sigils staged so flipping the flags.expansion gate is the
-  // only activation step. The torch (Prometheans), the bloom (Synthesis), the cut
-  // signal (Null), the rising sun (Pioneers).
+  // Expansion orders, staged: flipping flags.expansion is the only activation step.
   ideology_prometheans: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M20 6 C24 12 24 15 20 20 C16 15 16 12 20 6 Z"/><path d="M20 20 V34"/><path d="M14 31 H9 M26 31 H31" stroke-opacity=".6"/><circle cx="9" cy="31" r="1.6" fill="${c}"/><circle cx="31" cy="31" r="1.6" fill="${c}"/></g></svg>`,
   ideology_synthesis: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M20 34 V16"/><path d="M20 22 C12 20 10 12 12 8 C18 10 20 16 20 22 Z" stroke-opacity=".85"/><path d="M20 18 C28 16 30 10 28 7 C23 9 20 13 20 18 Z" stroke-opacity=".6"/><circle cx="20" cy="13" r="2" fill="${c}"/></g></svg>`,
   ideology_null: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M8 24 Q20 8 32 24" stroke-opacity=".5"/><path d="M13 26 Q20 16 27 26" stroke-opacity=".7"/><circle cx="20" cy="30" r="2" fill="${c}"/><path d="M10 10 L30 34" stroke-width="2"/></g></svg>`,
@@ -3823,14 +3024,12 @@ const IDEO_SIGILS = {
 };
 function ideoSigil(id, color) { return (IDEO_SIGILS[id] || (c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><circle cx="20" cy="20" r="7" fill="${c}"/></svg>`))(color); }
 
-// Fixed field coordinates for the canon four (x: renounce→redeem 0..100,
-// y: human→transcend 0..100). Unknown ids derive from stance/path.
+// Field coordinates for the canon four (x renounce→redeem, y human→transcend, 0..100).
+// Unknown ids derive from stance/path.
 const IDEO_FIELD_XY = {
   ideology_ascendants: [72, 82], ideology_long_watch: [76, 12],
   ideology_wildblood: [26, 80], ideology_exodus: [18, 90],
-  // Expansion orders (staged; gated out of the payload until activated). Placed
-  // by hand rather than left to the stance/path fallback, which would stack the
-  // Null (renounce·machine) on the transcend row it philosophically rejects.
+  // Expansion orders placed by hand; the fallback would put the Null on the transcend row.
   ideology_prometheans: [88, 66], ideology_synthesis: [60, 74],
   ideology_null: [16, 30], ideology_pioneers: [34, 12],
 };
@@ -3885,12 +3084,9 @@ function renderIdeoField(d, highlightId, accent) {
   </svg>`;
 }
 
-// Radial four-path field — stance (x) × ascend/stay (y), each order at its
-// (stance, path) corner. The Overview's headline chart.
+// Radial four-path field: stance (x) × ascend/stay (y).
 function renderIdeoRadial(d, accent) {
-  // Overview headline chart: the canon four only, one per quadrant. Emerging
-  // orders are deliberately kept off it (they still show in Standing below and
-  // on the Field page) — plotting all eight here crushed it into noise.
+  // Canon four only; emerging orders crush it into noise.
   const POS = { ideology_exodus: [96, 100], ideology_wildblood: [96, 204], ideology_ascendants: [288, 100], ideology_long_watch: [288, 204] };
   const nodes = d.orders.filter(o => !o.expansion).map(o => {
     const [x, y] = POS[o.id] || [190, 152];
@@ -3925,8 +3121,7 @@ function renderIdeoNav(d, page) {
   const tabs = [{ k: 'overview', label: '◆ OVERVIEW', c: accent }];
   d.orders.forEach(o => tabs.push({ k: o.id, label: o.name.replace('The ', '').toUpperCase(), c: o.color, em: o.expansion }));
   tabs.push({ k: 'field', label: '◈ FIELD', c: accent });
-  // Divider between the live group and the first emerging tab, so the four
-  // being-implemented orders read as one block and the previews sit to the right.
+  // Divider between the live four and the emerging previews.
   let sepDone = false;
   const strip = tabs.map((t, i) => {
     let sep = '';
@@ -4026,8 +3221,7 @@ function renderIdeoFieldPage(d, accent) {
   </div>`;
 }
 
-// Step the reader one page (−1 prev / +1 next), clamped. Shared by the tab
-// strip, the horizontal swipe/drag, and the trackpad horizontal wheel.
+// Step the reader one page (−1/+1), clamped.
 function changeIdeoPage(dir) {
   if (!_data || _data.view !== 'codex' || _data.sectionKind !== 'orders') return;
   const count = (_data.orders?.length || 0) + 2; // Overview + orders + Field
@@ -4038,26 +3232,11 @@ function changeIdeoPage(dir) {
   render();
 }
 
-/**
- * The Accolades app — your file, newest entry first.
- *
- * Two deliberate absences, both load-bearing (see plugins/accolades):
- *   • The entry count has NO denominator. Accolades is discovery-only, so
- *     "11 of 40" would convert a set of jokes into a checklist and spoil every
- *     unearned punchline by naming it.
- *   • The contribution meter is scaled against ONE stat point (100 XP) and can
- *     therefore never fill, because entries are worth 1 XP each and the catalog
- *     is a dozen strong. That is the answer to "what is 1 XP actually worth",
- *     drawn precisely and left without comment.
- */
+// Accolades: the entry count never has a denominator (discovery-only), and the meter
+// is scaled against one stat point so it can't fill. Both on purpose (plugins/accolades).
 // ── Vitals ────────────────────────────────────────────────────────────────────
-// A cheap medical suite's read-out of the body. Three tabs, all server-built
-// (plugins/tablet/health-app.js): the meters + what's dragging on you, the
-// medical subset of your inventory with one-tap use, and the substance ledger.
-//
-// The colour is the whole interface: a player should be able to open this, see
-// one red bar, and close it again without reading a word. Bands come from the
-// server (good/warn/bad/crit) so the client never decides what "bad" means.
+// Three server-built tabs (plugins/tablet/health-app.js). Colour bands come from the
+// server (good/warn/bad/crit); the client never decides what "bad" means.
 
 function renderHealthMeter(m) {
   return `
@@ -4070,11 +3249,8 @@ function renderHealthMeter(m) {
     </div>`;
 }
 
-// Readouts — the vitals the body reports in WORDS. Hunger and thirst come through
-// here rather than as bars: a bar invites you to play the number (top up at 80%,
-// panic at 30%), and you don't know your hydration as a fraction, you know you're
-// thirsty. Band still carries the colour; there is deliberately no track and no
-// figure. The server owns the phrasing (health-app buildReadouts).
+// Readouts: vitals reported in WORDS (hunger, thirst), with no bar or figure on
+// purpose. The server owns the phrasing (health-app buildReadouts).
 function renderHealthReadouts(readouts) {
   if (!readouts?.length) return '';
   return `<div class="tos-vt-readouts">${readouts.map(r => `
@@ -4085,25 +3261,10 @@ function renderHealthReadouts(readouts) {
 }
 
 // ── The paper doll ───────────────────────────────────────────────────────────
-//
-// Injuries are the first data in this game that is genuinely SPATIAL, and a list
-// of seven wounds is worse than a picture of a body in every way. Bands come off
-// the server like every other colour here, so this decides nothing — it only
-// draws. Absent `d.body` (nothing wrong, or the injury plugin disabled) it
-// renders nothing at all and Vitals is exactly the screen it always was.
-//
-// Sides are drawn from the VIEWER's perspective — your left arm is on the left —
-// because this is a HUD, not an anatomical chart.
-// Injury hotspots, drawn IN THE SILHOUETTE'S OWN COORDINATE SPACE — one set per
-// body, each viewBox matching its mask's pixel dimensions exactly (male
-// 242×540, female 500×708). That is what makes the registration exact rather
-// than approximate: the mask is `contain`-fitted into a box of its own aspect,
-// so an SVG unit here IS a mask pixel, and a rect over the left arm is over the
-// left arm on both figures.
-//
-// The old single 120×178 set was a compromise between two very differently
-// proportioned bodies and therefore fitted neither — noticeably so on the male
-// figure, which is far narrower relative to its height (0.45 vs 0.71).
+// Draws only; bands come from the server. No 'd.body' → renders nothing. Sides are
+// from the viewer's perspective (your left arm on the left).
+// Hotspots are in each silhouette's own pixel space (male 242×540, female 500×708):
+// the mask is contain-fitted into a box of its aspect, so an SVG unit is a mask pixel.
 const DOLL_GEOM = {
   male: {
     viewBox: '0 0 242 540',
@@ -4132,24 +3293,9 @@ const DOLL_GEOM = {
 };
 
 // ── Alarm ────────────────────────────────────────────────────────────────────
-// A digital clock you set by rolling digits, the way a phone does — replacing a
-// text prompt that asked you to type "0730" and parsed three formats to be kind
-// about it. Parsing input is not the same as offering a control.
-//
-// Two scroll-snap reels (hours, minutes) over the OS's own palette: the readout
-// borrows the seven-segment cast the rest of the tablet uses for live numbers,
-// and the selection band is the same accent that marks selection everywhere
-// else. No new colours, no new type — the theming is entirely inherited.
-//
-// The reels are plain overflow-scroll with `scroll-snap-type: y mandatory`, so
-// touch flick, trackpad, wheel and keyboard all work for free.
-//
-// A MOUSE, though, gets none of that: you can't drag a scroll container with a
-// pointer, so on desktop the reel could only be clicked or wheeled, and grabbing
-// a band and pulling it — the obvious thing to try — did nothing. So the pointer
-// drag is added by hand, and ONLY for mouse/pen: touch already has native
-// momentum and taking it over would be strictly worse. See the handlers in the
-// wiring pass for why the snap has to be switched off mid-drag.
+// Two scroll-snap reels (hours, minutes), themed entirely from the OS palette. Touch,
+// wheel and keyboard work natively; the pointer drag is added by hand for mouse/pen
+// only (see the wiring pass for why snap is switched off mid-drag).
 let _alarmPick = null;   // { h, m } while the player is choosing
 
 function alarmReel(kind, values, selected) {
@@ -4167,8 +3313,7 @@ function renderAlarm(d) {
   const set = d.alarmMins != null;
   const pick = _alarmPick || (set
     ? { h: Math.floor(d.alarmMins / 60), m: d.alarmMins % 60 }
-    // Default to an hour ahead of the game clock rather than to midnight: a
-    // fresh alarm should open somewhere you might plausibly want it.
+    // Default to an hour ahead of the game clock.
     : { h: (Math.floor(d.nowMins / 60) + 1) % 24, m: 0 });
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -4220,15 +3365,8 @@ function renderHealthDoll(d) {
   const worst = d.body.filter(p => p.severity > 0).sort((a, b) => b.severity - a.severity)[0];
   const sil = (d.sex === 'female' || d.sex === 'male') ? d.sex : 'male';
 
-  // THE SILHOUETTE IS THE BODY. It used to be a 16%-opacity ghost with a
-  // boxes-and-circles schematic stacked on top, so you read a crude mannequin
-  // sitting over a good figure — two bodies, neither of them convincing.
-  //
-  // Now there is one. The primitives stay, because each is a click target and a
-  // named region, but they are INVISIBLE: hit-areas, not artwork. A wound is
-  // painted by re-using the silhouette's own mask in the injury colour and
-  // clipping it to that region's box — so what lights up is the shape of the
-  // arm, not a rectangle where the arm is.
+  // The silhouette is the body. The primitives are INVISIBLE hit-areas; a wound is the
+  // silhouette mask in the injury colour, clipped to that region's box.
   const wounded = d.body.filter(p => p.severity > 0).map(p => {
     const box = regionInset(DOLL_SHAPES[p.part], geom.viewBox);
     return box ? `<div class="tos-vt-dollhurt ${esc(p.band)}" aria-hidden="true" style="clip-path:${box};-webkit-clip-path:${box}"></div>` : '';
@@ -4246,12 +3384,8 @@ function renderHealthDoll(d) {
     </div>`;
 }
 
-// The bounding box of a region's primitives, as a CSS `inset()` in percentages of
-// the viewBox — which is what lets an injury tint be clipped to "the left arm"
-// while still being drawn through the silhouette mask.
-//
-// Measured off the SAME shape strings the hit-areas use rather than authored
-// separately, so moving a limb can never leave its wound colour behind.
+// A region's bounding box as a CSS inset() in viewBox percentages, measured off the
+// same shape strings as the hit-areas so a wound tint can't drift from its limb.
 function regionInset(shapeStr, viewBox) {
   if (!shapeStr) return null;
   const [, , vw, vh] = String(viewBox).split(/\s+/).map(Number);
@@ -4271,8 +3405,7 @@ function regionInset(shapeStr, viewBox) {
     }
   }
   if (!isFinite(x0)) return null;
-  // A hair of bleed so neighbouring regions meet instead of leaving a seam of
-  // untinted body between a wounded arm and the torso beside it.
+  // A hair of bleed so neighbouring regions meet without a seam.
   const pad = 0.6;
   const pc = (v) => `${Math.max(0, Math.min(100, v)).toFixed(2)}%`;
   return `inset(${pc(y0 / vh * 100 - pad)} ${pc(100 - x1 / vw * 100 - pad)} ${pc(100 - y1 / vh * 100 - pad)} ${pc(x0 / vw * 100 - pad)})`;
@@ -4323,9 +3456,8 @@ function renderHealthApothecary(d) {
   }).join('');
 }
 
-// What you have learned about a compound, and how. Only facts the SERVER has
-// already decided you know arrive here — an unlearned value is null, never a
-// number the client is trusted to hide.
+// What you've learned about a compound. Unlearned values arrive as null from the
+// server, never a number the client hides.
 function renderLearned(l) {
   if (!l || !l.mask) return '<div class="tos-vt-subload">You took it. You couldn\'t tell you what it did.</div>';
   const rows = [];
@@ -4392,11 +3524,7 @@ function renderHealth(d) {
   const notice = d.notice ? `<div class="tos-vt-notice">${esc(d.notice)}</div>` : '';
   if (d.tab === 'apothecary') return `${notice}${renderHealthApothecary(d)}`;
   if (d.tab === 'substances') return `${notice}${renderHealthSubstances(d)}`;
-  // Two columns where there's room: the body is a tall narrow thing and the
-  // readings are a stack of short wide ones, so side by side they finish at
-  // roughly the same depth. Stacked (the old layout) the doll left a
-  // panel-wide band of empty box beside it and pushed every meter below the
-  // fold. Below 620px the grid collapses back to one column.
+  // Two columns where there's room (doll beside readings); one column below 620px.
   const readings = `
     <div class="tos-vt-sect">Readings</div>
     <div class="tos-vt-meters">${(d.meters || []).map(renderHealthMeter).join('')}</div>
@@ -4415,14 +3543,8 @@ function renderHealth(d) {
 }
 
 // ── Binder ───────────────────────────────────────────────────────────────────
-// The collection, as a collection. Every rank is a shelf: the cards you hold,
-// then the slots you don't, drawn as empty sleeves. The gaps are the whole
-// point — a binder that only showed what you own would be a list, and a list
-// doesn't make anybody want another pack.
-//
-// The gaps are ANONYMOUS by contract (see plugins/tablet/binder-app.js): the
-// server sends a count, never names, so the binder can't become a shopping list
-// or leak who has minted.
+// Each rank is a shelf: cards held, then empty sleeves for the rest. The gaps are
+// ANONYMOUS by contract (plugins/tablet/binder-app.js): a count, never names.
 const TOS_BINDER_COLORS = {
   common: '#8b98a8', uncommon: '#57d47c', rare: '#4aa8ff',
   epic: '#b374ff', legendary: '#ffc23d', architect: '#ff5470',
@@ -4438,8 +3560,7 @@ function renderBinder(d) {
         <div class="tos-bnd-type">${esc(card.type)}</div>
         ${card.marks ? `<div class="tos-bnd-marks">${esc(card.marks)}</div>` : ''}
       </div>`).join('');
-    // Capped at 24 drawn slots: past that the gap is a fact, not a picture, and a
-    // fresh player with 300 empty commons would scroll for a minute to learn it.
+    // Capped at 24 drawn slots.
     const drawGaps = Math.min(24, r.gaps || 0);
     const gaps = Array.from({ length: drawGaps }, () => `<div class="tos-bnd-slot" style="--c:${c}">◈</div>`).join('');
     const over = (r.gaps || 0) - drawGaps;
@@ -4474,9 +3595,7 @@ function renderBinder(d) {
     ${(d.ranks || []).length ? shelves : empty}`;
 }
 
-// One card, read at size. The face is the same server-rendered markup the reveal
-// and the `cards` verb use, so a card can never look like two different objects
-// depending on where you opened it.
+// One card at size, using the same server-rendered face as the reveal and 'cards' verb.
 function renderBinderCard(d) {
   const c = d.card || {};
   const col = TOS_BINDER_COLORS[c.rarity] || '#8b98a8';
@@ -4521,17 +3640,10 @@ function renderAccolades(d) {
 }
 
 // ── B.L.I.S.S. ────────────────────────────────────────────────────────────────
-// Bonded Live-In Intimacy Subscription Service. The app is MIS-gated server-side
-// (the tile doesn't exist without MIS on), so these renderers never run for a
-// player who hasn't opted in. Three screens: the rotating catalogue, one
-// placement in full, and whatever you currently keep.
-//
-// The voice throughout is the Syndicate's — procedural, clinical, entirely
-// untroubled by what it's selling. That contrast IS the joke; don't warm it up.
+// MIS-gated server-side, so these never run for a player who hasn't opted in.
+// The voice is the Syndicate's: clinical and untroubled. Don't warm it up.
 
-// The masthead of a trade register: a ruled wordmark, the expansion under it, and
-// the one figure that matters on this screen set as a plate to the right. Cold on
-// purpose — the app is a catalogue of people and reads like a catalogue of parts.
+// The trade-register masthead. Cold on purpose.
 function blissChrome(sub, note) {
   return `<div class="tos-bliss-head">
     <div class="tos-bliss-mark">
@@ -4545,9 +3657,7 @@ function blissChrome(sub, note) {
   </div>`;
 }
 
-// The specimen plate on a listing: initial, sex glyph, and a hairline frame. No
-// portrait exists for a generated consort, so rather than a blank the card gets a
-// stamped index tile — the register numbering its stock, which is the joke.
+// The specimen plate: initial, sex glyph, hairline frame (no portrait exists).
 function blissPlate(m, idx) {
   const initial = (m.name || '?').trim().charAt(0).toUpperCase();
   return `<div class="tos-bliss-plate-fig">
@@ -4557,8 +3667,7 @@ function blissPlate(m, idx) {
   </div>`;
 }
 
-// A ruled row: label, dotted leader, value. Used for every spec table in the app,
-// which is what stops three different screens inventing three different tables.
+// A ruled row (label, dotted leader, value), used for every spec table in the app.
 function blissRows(rows, cls = '') {
   return `<dl class="tos-bliss-spec ${cls}">${(rows || []).map(([k, v]) =>
     `<div class="tos-bliss-specrow"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
@@ -4586,8 +3695,7 @@ function renderBlissListings(d) {
     </div>`;
   };
 
-  // The register is sectioned server-side (women / men / matched pairs). A
-  // register with no sections at all still renders as one flat grid.
+  // Sectioned server-side; no sections renders one flat grid.
   const byId = new Map((d.listings || []).map(l => [l.id, l]));
   const cards = (d.sections || []).length
     ? d.sections.map(s => `
@@ -4615,11 +3723,7 @@ function renderBlissDetail(d) {
   const l = d.listing || {};
   const who = (l.members || []).map(m => {
     const t = m.temperament || {};
-    // Temperament sits ABOVE the measurements on purpose: the body is the easy
-    // half to shop for and the personality is the half you have to live with.
-    // Warmth/Wants/Be-warned are the same shape as every other spec block, but
-    // the warning keeps its own class: it is the one row on the whole card the
-    // register would rather you skimmed, so it gets the rule and the colour.
+    // Temperament sits ABOVE measurements on purpose. The warning row keeps its own class.
     const person = t.traits ? `
       <div class="tos-bliss-traits">${(t.traits || []).map(x => `<span>${esc(x)}</span>`).join('')}</div>
       ${blissRows([['Warmth', t.warmth || ''], ['Wants', t.wants || '']])}
@@ -4654,10 +3758,7 @@ function renderBlissDetail(d) {
       <div class="tos-bliss-note">${esc(l.pairing.note)}</div>
     </div>` : '';
 
-  // The tenure ladder, drawn rather than tabulated. Every rung's bar is its rate
-  // as a fraction of the day-one rate, so the discount is a shape you read in one
-  // glance instead of four numbers you have to compare. Today's rate is rung zero
-  // and always full width — everything below it is measured against that.
+  // Tenure ladder: each bar is its rate as a fraction of today's (rung zero, full width).
   const rungs = [{ days: 0, rate: l.rate, label: 'Today' }, ...(l.projection || [])];
   const proj = `<div class="tos-bliss-ladder">${rungs.map(p => {
     const pct = l.rate > 0 ? Math.max(6, Math.round((p.rate / l.rate) * 100)) : 100;
@@ -4670,7 +3771,6 @@ function renderBlissDetail(d) {
     </div>`;
   }).join('')}</div>`;
 
-  // Where to put them. No private address on file → no placement.
   const places = d.blocked
     ? `<div class="tos-bliss-blocked">${esc(d.blocked)}</div>`
     : `<div class="tos-actions">${(d.spaces || []).map(s =>
@@ -4696,14 +3796,10 @@ function renderBlissArrangement(d) {
       <div class="tos-bliss-blocked">You keep nobody. The Syndicate notes this without judgement and with some disappointment.</div>
       <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">Browse the register</button></div>`;
   }
-  // A HOUSE placement is somebody's own staff, not a Syndicate rental: it is
-  // listed exactly like the rest (that's the point — they're yours and should be
-  // on your account), but it bills nothing, has no tenure ladder to climb, and
-  // shows no Release button, because B.L.I.S.S. cannot collect what it never placed.
+  // A HOUSE placement is the player's own staff: listed the same, but no bill, no
+  // tenure ladder and no Release button.
   const rows = (d.entries || []).map(e => {
-    // Tenure as a filled track toward the next rung, with the rung named at the
-    // end of it. At the top of the ladder there is nothing left to climb, so the
-    // track goes solid and says so rather than sitting at a misleading 0%.
+    // Track toward the next rung; at the top it goes solid rather than showing 0%.
     const nt = e.nextTier;
     const tenure = `<div class="tos-bliss-tenure">
       <div class="tos-bliss-tenurehead">
@@ -4737,7 +3833,7 @@ function renderBlissArrangement(d) {
     <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">Browse the register</button></div>`;
 }
 
-// Entry timestamps are epoch seconds from the DB; the file wants a date, not a clock.
+// Entry timestamps are epoch seconds.
 function tosStamp(sec) {
   try {
     const dt = new Date(Number(sec) * 1000);
@@ -4759,13 +3855,8 @@ function renderIdeology(d, crumb) {
   return `<div class="tos-ideo-root"><div class="tos-ideo-sticky">${crumb || ''}${renderIdeoNav(d, _tosIdeoPage)}</div>${body}</div>`;
 }
 
-// Off the grid: the Map app has no city signal out in the void, so instead of the
-// city tile-map it becomes an "off-grid survey terminal" — the shared trail chart
-// (crossingInnerHtml, same source as the minimap) blown up as the hero (client-
-// zoomable) and framed with dead-signal instruments: scrambled coords, depth/ground
-// readout with no bearing fix, and live status chips. Fills the space and sells the
-// void; carries no data the minimap doesn't (payload is just `nodes`). Short-circuits
-// the tile path.
+// Off the grid the Map app becomes a survey terminal: the shared trail chart
+// (crossingInnerHtml) blown up, with dead-signal instruments. Payload is just 'nodes'.
 const JOURNEY_SUBSTRATE = { scrub: 'SCRUBLAND', ash: 'ASH FLATS', redrock: 'RED ROCK', marsh: 'DEAD MARSH', road: 'OLD ROADBED', dirt_road: 'DIRT TRACK', hardpan: 'CRACKED HARDPAN', alkali: 'ALKALI FLAT', cliff: 'CLIFF FACE', plateau: 'CAPROCK PLATEAU' };
 function journeyAhead(nodes, cur) {
   if (cur.void_detour) return 'dead';
@@ -4773,8 +3864,8 @@ function journeyAhead(nodes, cur) {
   if (!sId) return 'none';
   return nodes.some(n => n.id === sId) ? 'fog' : 'gate';
 }
-// How many void rooms sit behind you on the charted window (the walked trail depth),
-// following the "back" exit (north, or east on a dead-end detour) room to room.
+// Void rooms behind you on the charted window, following the "back" exit (north, or
+// east on a dead-end detour).
 function journeyDepth(nodes, cur) {
   const byId = new Map(nodes.map(n => [n.id, n]));
   let depth = 0, n = cur, guard = 0;
@@ -4837,9 +3928,7 @@ function renderJourneyMap(d) {
 function renderMap(d) {
   if (d.mode === 'crossing') return renderJourneyMap(d);
   let tiles = d.tiles || [];
-  // Regional: show the whole contiguous landmass (server landmassTiles already scopes
-  // it to your cluster), like the full map. We no longer filter to a single land-use
-  // category, which shredded multi-func regions into blank cells.
+  // Regional: the whole contiguous landmass (server landmassTiles scopes it).
   const mode = d.mode || 'zone';
 
   if (!tiles.length) {
@@ -4850,30 +3939,25 @@ function renderMap(d) {
   const route = getTracePath() || [];
   const dest = route.length > 1 ? route[route.length - 1] : null;
 
-  // Edge-to-edge 1:1 grid: one cell per zone, tiles touch (roads/buildings render
-  // their own SVG footprint), mirroring the full-map popup — no connector/gap cells.
-  // Regional packs every distinct occupied coord to a dense index (so a far-flung
-  // district can't blow the grid up); zone/interior stay 1:1 on the raw local window.
+  // Edge-to-edge 1:1 grid. Regional packs occupied coords to dense indices; zone and
+  // interior stay 1:1 on the local window.
   const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
   const minX = Math.min(...xs), minY = Math.min(...ys), maxX = Math.max(...xs), maxY = Math.max(...ys);
   let colOf, rowOf, gCols, gRows;
-  // absAt(c,r) → the absolute world grid [x,y] of grid cell (c,r), used to tint empty
-  // corner cells as the cosmetic Coldwater Bay. Set per mode below (null if we can't
-  // resolve absolute coords — e.g. an interior with no district tiles — so no fill).
+  // absAt(c,r) → absolute world [x,y] of a cell, for the cosmetic bay fill; null when
+  // unresolvable (an interior with no district tiles).
   let absAt = null;
   if (mode === 'regional') {
     const ux = [...new Set(xs)].sort((a, b) => a - b), uy = [...new Set(ys)].sort((a, b) => a - b);
     const xi = new Map(ux.map((x, i) => [x, i])), yi = new Map(uy.map((y, i) => [y, i]));
     colOf = t => xi.get(t.x); rowOf = t => yi.get(t.y);
     gCols = ux.length; gRows = uy.length;
-    // Regional tiles carry absolute grid coords, packed to dense indices — so a cell's
-    // absolute coord is just the unique value at that column/row.
     absAt = (c, r) => [ux[c], uy[r]];
   } else {
     colOf = t => t.x - minX; rowOf = t => t.y - minY;
     gCols = maxX - minX + 1; gRows = maxY - minY + 1;
-    // Zone/interior tiles are center-relative; recover the absolute origin from any
-    // district tile (id = zone_district_<x>_<y>), then offset by the cell's column/row.
+    // Zone tiles are centre-relative: recover the origin from any district tile
+    // (zone_district_<x>_<y>).
     for (const t of tiles) {
       const co = districtCoord(t.id);
       if (co) { const ax0 = co[0] - colOf(t), ay0 = co[1] - rowOf(t); absAt = (c, r) => [ax0 + c, ay0 + r]; break; }
@@ -4882,16 +3966,13 @@ function renderMap(d) {
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
   const tById = new Map();
   for (const t of tiles) { cell[rowOf(t)][colOf(t)] = t; tById.set(t.id, t); }
-  // Rebuild the tile -> absolute-coord index off the same absAt the bay fill uses.
-  // Cleared every build; stays empty when absAt is null (interior with no district
-  // tile), which is exactly when 'Target here' must not be offered.
+  // Rebuild the tile → absolute index from absAt; empty when absAt is null, which is
+  // exactly when 'Target here' must not be offered.
   _tosMapAbs.clear();
   if (absAt) for (const t of tiles) _tosMapAbs.set(t.id, absAt(colOf(t), rowOf(t)));
 
   let grid = `<div class="tos-map-grid" style="--tos-tile:${tosZoomPx(d)}px;grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
-  // TOS_TERRAIN_FILL is gone — it was a hand-kept copy of minimap.js's copy of the
-  // dev panel's table, and the three had already drifted. Colours now arrive fully
-  // resolved in t.spec (scripts/content/derive.mjs, content/map/terrain.json).
+  // Colours arrive resolved in t.spec (derive.mjs, content/map/terrain.json).
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
     const t = cell[r][c];
     const pos = `grid-column:${c + 1};grid-row:${r + 1}`;
@@ -4903,45 +3984,34 @@ function renderMap(d) {
       continue;
     }
     const cls = ['tos-map-tile'];
-    // No `d-<tier>` class: nothing styles it any more (see the note in the CSS), and
-    // a class shipped on 3,471 tiles that nothing reads is how the rail comes back by
-    // accident the next time somebody is looking for a hook to hang a tint on.
+    // No 'd-<tier>' class: nothing styles it, and an unread class invites the rail back.
     if (t.reachable === false) cls.push('unreach');
     if (t.id === dest && !t.isCurrent) cls.push('dest');
     if (t.id === _tosMapSel) cls.push('sel');
     if (t.isCurrent) cls.push('cur');
-    // Tileable terrain (mirrors the sidebar/full-map minimap): roads → grey asphalt +
-    // yellow markings; every other ground type → a seamless coloured expanse (marker
-    // dropped). water/grass keep authored bg priority; newer types use their canonical fill.
+    // Tileable terrain, as the minimap: roads get asphalt and markings, other ground a
+    // seamless fill. water/grass keep authored bg priority.
     const terrain = t.spec?.minimap_class || null;
     let sym = _mapTileSym(t);
     let style = pos + ';';
     if (terrain) {
       style += `background-color:${t.spec.fill};color:${t.spec.text};`;
       cls.push('terr', 'terr-' + terrain);
-      // Terrain paints the GROUND, so an authored zone-icon SVG standing on it (a
-      // statue, a helipad, an AA nest) survives the fill — only the POI glyph, which
-      // is a landmark hint for the adjacent street rather than this tile's own
-      // footprint, drops for a clean expanse. Roads and dirt roads keep theirs —
-      // their auto-tiled connector IS the symbol, which is what spec.auto_tile says.
+      // Terrain keeps an authored zone-icon SVG (statue, helipad) and drops only the
+      // POI glyph. Roads keep theirs: the auto-tiled connector is the symbol (spec.auto_tile).
       if (!t.spec.auto_tile && !t.isCurrent && !t.spec.feature) sym = '';
     }
-    // Regional view tints each non-terrain tile by land-use function, like the popup.
     else if (mode === 'regional' && FUNC_LEGEND[t.func]) {
       const [rr, gg, bb] = _mapHexRgb(FUNC_LEGEND[t.func].color);
       style += `background:rgba(${rr},${gg},${bb},0.30);`;
     }
-    // Landmark ink — the same tint the sidebar minimap gives a building footprint, from
-    // the same poiInk(), so the two screens colour a depot the same colour.
+    // Landmark ink from the same poiInk() as the minimap.
     const pInk = poiInk(t);
     if (pInk) style += `color:${pInk};--poi-ink:${pInk};`; // the var is the Labels-mode half (see .mt-code)
     const badges = (t.isCurrent ? '<span class="mt-you">◉</span>' : '')
       + (t.id === dest && !t.isCurrent ? '<span class="mt-dest">⚑</span>' : '');
-    // Doors as edge lines: an interior room gets a hairline on all four sides — green
-    // where it opens through, red where it's wall (server `open_dirs`), brighter red
-    // where a lock is holding a way through shut (`locked_dirs`), orange where that lock
-    // is one you can undo (`unlockable_dirs`). Facades draw the same four edges; a law
-    // holding a building shut (shop hours, the tile's `shut` flag) reddens its door edge.
+    // Door edges: green open, red wall ('open_dirs'), brighter red locked ('locked_dirs'),
+    // orange unlockable by you ('unlockable_dirs'). A law holding a facade shut reddens its door.
     let ent = '', exits = '';
     if (Array.isArray(t.open_dirs)) {
       const locked = Array.isArray(t.locked_dirs) ? t.locked_dirs : [];
@@ -4953,10 +4023,7 @@ function renderMap(d) {
         return `<span class="tos-edge tos-edge-${dr} ${st}"></span>`;
       }).join('');
     }
-    // Perimeter wall (mirrors the sidebar minimap). The derived faces in spec.curtain
-    // are the tile's own OUTWARD edges, so the stroke lands on the boundary: a run reads
-    // as one line, a corner as an L, and the tile's middle stays clear for the player
-    // standing behind the wall. No faces derived ⇒ the old shimmer ring, not nothing.
+    // Perimeter wall on spec.curtain's outward faces; no faces ⇒ the shimmer ring.
     const cwFaces = t.spec?.curtain || '';
     if (cwFaces) {
       cls.push('tos-cw');
@@ -4965,17 +4032,15 @@ function renderMap(d) {
     } else if (t.perimeter_gate) cls.push('tos-gate', 'tos-curtain');
     else if (t.curtain) cls.push('tos-curtain');
     else if (t.glacis) cls.push('tos-glacis');
-    // What sits on the tile. A derived building/room code REPLACES the footprint, and
-    // only in Labels mode. An authored marker rides ON TOP of it and shows in every
-    // mode, because it is the tile's own drawing rather than a code read off it.
+    // A derived code replaces the footprint, in Labels mode only; an authored marker
+    // shows on top in every mode.
     const _lb = _mapLabel(t);
     const body = _lb?.kind === 'mark'
       ? sym + `<span class="mt-code mt-mark">${esc(_lb.text)}</span>`
       : (mapLabelsOn() && _lb ? `<span class="mt-code">${esc(_lb.text)}</span>` : sym);
     grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${body}${ent}${exits}</div>`;
   }
-  // GPS route line: an accent polyline through route tile centres, laid over the grid
-  // as an SVG spanning every track (viewBox in tile units), mirroring the minimap.
+  // GPS route: an accent polyline in tile units over the grid, as on the minimap.
   const gpsPts = [];
   for (const id of route) {
     const t = tById.get(id);
@@ -4986,14 +4051,9 @@ function renderMap(d) {
     grid += `<svg class="tos-gps-svg" viewBox="0 0 ${gCols} ${gRows}" preserveAspectRatio="none"><polyline class="tos-gps-line" points="${gpsPts.join(' ')}"/></svg>`;
   grid += '</div>';
 
-  // Map + right rail: the map pans on its own inside .tos-map-wrap, and the legend
-  // stays pinned to the top of the rail while the buildings list + detail scroll
-  // under it — so the tablet panel itself never has to scroll (drag = pan, always).
-  // On a phone the same markup is re-laid by CSS alone (see the compact block after
-  // .tos-map-side): the rail drops under the map as one scrolling sheet, ordered
-  // detail, buildings, then the legend last, and the floating zoom cluster on the
-  // stage replaces the zoom and Center buttons in the control row. CSS rather than a
-  // render-time phone check, so rotating the phone doesn't leave the wrong layout up.
+  // The map pans inside .tos-map-wrap and the rail scrolls under a pinned legend, so
+  // the panel never scrolls. Phones re-lay the same markup by CSS alone (so rotation
+  // is safe): rail under the map, floating zoom cluster replaces the control row's.
   return `${renderMapCtl(d)}${renderMapBar(d)}<div class="tos-map-main">`
     + `<div class="tos-map-stage"><div class="tos-map-wrap">${grid}</div>${renderMapFloat(d)}</div>`
     + `<div class="tos-map-side">${renderMapLegend(d, mode)}`
@@ -5002,10 +4062,8 @@ function renderMap(d) {
     + `</div>`;
 }
 
-// The phone's zoom cluster: Center and −/+ stacked in the corner of the map, where a
-// thumb expects them, instead of a second row of buttons above it. Rendered always and
-// shown only on a compact layout. Same data attributes as the control row, so wireMap
-// wires both copies.
+// Phone zoom cluster (Center, −/+). Always rendered, shown only when compact; same
+// data attributes as the control row, so wireMap wires both.
 function renderMapFloat(d) {
   const zoutOff = _mapCanZoom(d, -1) ? '' : ' disabled';
   const zinOff = _mapCanZoom(d, 1) ? '' : ' disabled';
@@ -5016,14 +4074,10 @@ function renderMapFloat(d) {
   </div>`;
 }
 
-// Persistent map controls (mirroring the sidebar minimap): Run + Auto-walk toggles,
-// a recenter-on-you button, and a −/+ zoom stepper. Run/Auto reflect the shared
-// minimap state so they light up wherever it's driven from.
+// Map controls: Run/Auto-walk (shared minimap state), recenter and zoom.
 function renderMapCtl(d) {
   const run = isRunning() ? ' active' : '';
   const auto = isAutoWalking() ? ' active' : '';
-  // One zoom axis: out grows the tile window until it's the whole region; in tightens
-  // it back to the local street, then into the interior when you're in a building.
   const zoutOff = _mapCanZoom(d, -1) ? '' : ' disabled';
   const zinOff = _mapCanZoom(d, 1) ? '' : ' disabled';
   const noRoute = (getTracePath() || []).length < 2 ? ' disabled' : '';
@@ -5041,8 +4095,7 @@ function renderMapCtl(d) {
   </div>`;
 }
 
-// The map arg one zoom step from the current payload, or null at an end of the axis.
-// dir −1 = zoom out (wider window → region), +1 = zoom in (→ interior when inside).
+// Map arg one zoom step away, or null at an end. −1 out (→ region), +1 in (→ interior).
 function _mapZoomArg(d, dir) {
   const mode = d.mode || 'zone', level = d.zoomLevel ?? 0, max = d.maxZoom ?? 0;
   if (dir < 0) {
@@ -5056,8 +4109,7 @@ function _mapZoomArg(d, dir) {
 }
 const _mapCanZoom = (d, dir) => _mapZoomArg(d, dir) !== null;
 
-// The server zoom arg for the payload's *current* stop — interior / regional / z<n> —
-// so a refresh (player moved) re-requests the same window width, not the default.
+// Server zoom arg for the current stop, so a refresh keeps the same window width.
 function _tosMapZoomArg(d) {
   if (d.mode === 'interior') return 'interior';
   if (d.mode === 'regional') return 'regional';
@@ -5078,27 +4130,12 @@ function renderMapBar(d) {
   return `<div class="tos-map-bar"><span class="tos-map-route">${status}</span></div>`;
 }
 
-// The regional map's district key. Two things about it were wrong and they were the same mistake
-// twice — a list written by hand where the answer was already on screen.
-//
-// ⚠ THE LABEL IS THE WHOLE NAME. It used to be `label.split(/[ /]/)[0]`, the first word, which is
-// a fine abbreviation for exactly one of Coldwater's districts and useless for the rest: five of
-// the six are authored "the Docks", "the Marquee", "the Redline", "the Commercial Strip", "the
-// Industrial Flats", so the key rendered as a colour chart of the word "the". The rail runs this
-// legend as a COLUMN (see .tos-map-side .tos-map-legend), so there was never a width problem to
-// solve — it is a leftover from when the legend was a wrapped horizontal strip.
-//
-// ⚠ AND THE ROWS COME FROM THE VIEW, NOT FROM A LIST. It named six fixed district keys, so it
-// simultaneously advertised districts nowhere near you and stayed silent about the one you were
-// standing in. main.js carries the same warning on the fetch that FILLS this legend: the previous
-// hand-maintained version of that list missed four districts, the Wilds among them, and 3,471
-// tiles went uncoloured. Counting what is actually on the map cannot drift, and orders itself —
-// biggest presence first, so the district under your feet leads the key when you are in it.
+// The regional district key. ⚠ The label is the WHOLE name (most districts start
+// with "the"). ⚠ Rows are counted off the tiles in view, never a fixed list, biggest
+// first, so the district you stand in leads.
 function renderMapLegend(d, mode) {
   let items = '<span>◉ you · ⚑ dest · ═ artery</span>';
-  // Landmarks in view, keyed by the colour their footprint is drawn in. Counted off the
-  // tiles rather than listed, for the same reason the district rows below are: a fixed
-  // list advertises what is nowhere near you and stays quiet about what is under your feet.
+  // Landmarks in view by footprint colour, counted off the tiles for the same reason.
   const poiN = new Map();
   for (const t of d.tiles || []) { const k = poiInk(t) ? t.poi : null; if (k && POI_LEGEND[k]) poiN.set(k, (poiN.get(k) || 0) + 1); }
   items += [...poiN.entries()]
@@ -5116,9 +4153,8 @@ function renderMapLegend(d, mode) {
   return `<div class="tos-map-legend">${items}</div>`;
 }
 
-// Named buildings/landmarks present in the current view. Each entry is tied to its
-// tile by zone id: clicking it selects + centres that building, and clicking a
-// building tile lights up its legend name — the two stay in sync (mapSyncSelection).
+// Named buildings in view, tied to tiles by zone id; mapSyncSelection keeps list and
+// map selection in step.
 function mapBuildingTiles(d) {
   const seen = new Set();
   return (d.tiles || [])
@@ -5147,18 +4183,15 @@ function renderMapDetail(d) {
   const rows = [];
   const funcLabel = FUNC_LEGEND[t.func]?.label;
   if (funcLabel) rows.push(`<div class="tos-row"><span>District</span><span>${esc(funcLabel)}</span></div>`);
-  // No Danger row. `zoneDanger` is a bucketed read of what SPAWNS there — it is the
-  // spawn table with the serial numbers filed off, and printing it hands a player a
-  // threat rating for ground they have never walked on. They find out by going.
+  // No Danger row on purpose: zoneDanger is the spawn table in disguise.
   const poiLabel = t.poi && POI_LEGEND[t.poi] ? POI_LEGEND[t.poi].label : null;
   if (poiLabel) rows.push(`<div class="tos-row"><span>Landmark</span><span>${esc(t.icon || '')} ${esc(poiLabel)}</span></div>`);
   if (Array.isArray(t.artery) && t.artery.length) rows.push(`<div class="tos-row"><span>On</span><span>${t.artery.map(esc).join(' · ')}</span></div>`);
   if (t.buildings?.length) rows.push(`<div class="tos-row"><span>Buildings</span><span>${t.buildings.map(esc).join(', ')}</span></div>`);
   const route = getTracePath() || [];
   const isDest = route.length > 1 && route[route.length - 1] === t.id;
-  // Walking and targeting are separate questions, so they get separate branches.
-  // A tile you are standing on, or one with no walking route, is still a perfectly
-  // good thing to point an aircraft at -- that is most of the reason to own one.
+  // Walking and targeting are separate: a tile you can't walk to is still a fine
+  // aircraft target.
   let note = '';
   const walk = [];
   if (t.isCurrent) note = `<div class="tos-map-note">◉ You're here.</div>`;
@@ -5171,11 +4204,8 @@ function renderMapDetail(d) {
   return `<div class="tos-detail-name" style="font-size:0.9375rem">${esc(t.name)}</div>${t.description ? `<div class="tos-detail-desc">${esc(t.description)}</div>` : ''}${rows.join('')}${acts}`;
 }
 
-// Colour picker — a free colour wheel (any colour allowed; corps may share
-// hues), presented as a little in-tablet "browser window" (title bar + traffic
-// lights + address bar). No preset palette: the wheel is the only input. It
-// fires `set_corp-color`, routed through the wireBody handlers like the corp
-// buttons. No "taken"/uniqueness gating.
+// Corp colour picker: a free wheel in a little "browser window". Fires
+// 'set_corp-color' via wireBody. No uniqueness gating.
 function renderColorPicker(appId, current) {
   const cur = String(current || '').toLowerCase();
   const valid = /^#[0-9a-f]{6}$/.test(cur) ? cur : '#35c95a';
@@ -5211,9 +4241,8 @@ function renderCorpFound(d) {
   `;
 }
 
-// Surveillance (SPECTER) hub — the spy-deck's live multi-feed, rendered natively
-// in the tablet. Tiles carry live `frame` text (refreshed by the poll timer while
-// this screen is open); a focused tile gets a bigger feed + record/clip controls.
+// SPECTER hub: tiles carry live 'frame' text (refreshed by the poll); a focused tile
+// gets a bigger feed and record/clip controls.
 const SURV_STATUS = { offline: 'NO SIGNAL', damaged: 'DAMAGED', jammed: 'JAMMED', spoofed: 'SIGNAL FAULT' };
 
 function renderCamFeed(t) {
@@ -5222,10 +4251,7 @@ function renderCamFeed(t) {
   return `<div class="tos-cam-feed dead">${esc(SURV_STATUS[t.status] || 'NO FEED')}</div>`;
 }
 
-// The focused camera's rolling recording buffer — the event-lines on tape right
-// now (speech, arrivals, exits, actions). "Clip → Reel" saves exactly these.
-// Speech (say) and narration/emote (event) lines are class-tagged so the theme
-// can colour them apart.
+// The focused camera's recording buffer; "Clip → Reel" saves exactly these lines.
 function renderBufferLog(buffer, recording, full) {
   const lines = Array.isArray(buffer) ? buffer : [];
   const cap = full ? ' <span class="tos-buf-full">FULL</span>' : '';
@@ -5238,27 +4264,17 @@ function renderBufferLog(buffer, recording, full) {
 }
 
 // ── Gear app ─────────────────────────────────────────────────────────────
-// A paperdoll over a human silhouette (the stored PNG, accent-tinted): five body
-// slots (each showing the piece worn in the selected layer), plus weapon and
-// accessory, anchored over the figure. Below sits the per-region soak table and the
-// summed passive effects — the same data the desktop Gear panel shows, reformatted
-// for the tablet.
+// A paperdoll over the silhouette, the soak table and passive effects.
 const GEAR_LAYER_DEFS = [{ n: 1, label: 'Under' }, { n: 2, label: 'Over' }, { n: 3, label: 'Armor' }];
 const GEAR_SLOT_LABEL = { head: 'Head', torso: 'Torso', hands: 'Hands', legs: 'Legs', feet: 'Feet', weapon_hand: 'Weapon', accessory: 'Accessory' };
 const GEAR_DMG = ['kinetic', 'edged', 'energy', 'fire', 'radiation'];
 const GEAR_ARMOR_SLOTS = ['head', 'torso', 'hands', 'legs', 'feet'];
-// Slots that fold into the Inventory tab's two WORN groups (Clothing / Armour). The
-// body slots plus accessories — deliberately not weapon_hand, which stays in the main
-// list where you can see it next to the rest of your kit. Kept separate from
-// GEAR_ARMOR_SLOTS because that one drives the paperdoll and the soak table, where an
-// accessory has no body region to protect.
+// Slots that fold into the Inventory tab's WORN groups. Not weapon_hand. Separate from
+// GEAR_ARMOR_SLOTS, which drives the doll and soak table.
 const WORN_GROUP_SLOTS = [...GEAR_ARMOR_SLOTS, 'accessory'];
-// Monochrome line icons (stroke = currentColor → tinted to the theme accent) for
-// the far-right loadout readouts: total worn armor + insulation temperature.
 const GEAR_SHIELD_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 2.5v5.6c0 4.4-3 7.4-7 9.4-4-2-7-5-7-9.4V5.5z"/></svg>`;
 const GEAR_THERMO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a3.5 3.5 0 1 0 4 0z"/><path d="M12 9v6.2"/></svg>`;
-// One monochrome line-icon per damage type (stroke/fill = currentColor → theme accent),
-// shared by the hover tooltips and the armor-breakdown popup.
+// One line icon per damage type (currentColor).
 const GEAR_DMG_ICON = {
   kinetic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M6 18l2-2"/></svg>`,
   edged: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l10-10"/><path d="M14 10l5-6 1 1-5 6z"/><path d="M4.5 17.5l2 2"/></svg>`,
@@ -5267,8 +4283,7 @@ const GEAR_DMG_ICON = {
   radiation: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><circle cx="12" cy="12" r="2.1"/><path d="M12 9.6 16.4 4 7.6 4Z"/><path d="M13.5 12.8 18.4 15.8 15.4 20.5Z"/><path d="M10.5 12.8 8.6 20.5 5.6 15.8Z"/></svg>`,
 };
 
-// Insulation is a fractional °C offset (a t-shirt is 0.5), so rounding it to whole
-// degrees turned three light layers into "2°" and a scarf into nothing at all.
+// Insulation is a fractional °C (a t-shirt is 0.5): don't round to whole degrees.
 const round1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
 
 function gearWeight(g) {
@@ -5276,22 +4291,17 @@ function gearWeight(g) {
   return g < 1000 ? `${Math.round(g)}g` : `${(Math.round(g / 100) / 10)}kg`;
 }
 
-// Layer name → stored integer, so an item's single allowed `layer` tag can be
-// compared against the layer the doll is currently showing (a body-slot drop only
-// takes when the piece's layer matches the chosen one). Mirrors the engine's LAYERS.
+// Layer name → stored integer (mirrors the engine's LAYERS). A body-slot drop only
+// takes when the piece's layer matches the one shown.
 const GEAR_LAYER_N = { underwear: 1, outerwear: 2, armor: 3 };
 const GEAR_VERB_LABELS = { eat: 'Eat', drink: 'Drink', use: 'Use', open: 'Open', read: 'Read' };
-// The verb an item most wants, in priority order. Equip/unequip/drop are excluded
-// deliberately — the doll and the Drop button already teach those; this is for the
-// verbs a player would otherwise have to guess at (a holocaster is for USING).
+// The verb an item most wants. Equip/unequip/drop are excluded: the doll teaches those.
 const GEAR_PRIMARY_VERBS = ['use', 'read', 'eat', 'drink', 'smoke', 'open', 'play', 'light'];
 function primaryVerb(it) {
   const acts = it?.actions || [];
   return GEAR_PRIMARY_VERBS.find(v => acts.includes(v)) || null;
 }
-// What you DO with a piece, named off its slot. "Equip" is engine vocabulary; a
-// player wears a coat, wields a bat and puts on a ring, and the tooltip on a
-// one-tap control is the only place the game gets to say which.
+// Wear, wield or put on, named off the slot. "Equip" is engine vocabulary.
 function wearVerb(it) {
   const slot = it?.tags?.slot;
   if (slot === 'weapon_hand') return 'Wield';
@@ -5306,18 +4316,13 @@ const GEAR_TRAY_PAGE = 6;   // loadout carried-tray page size
 const GEAR_INV_PAGE = 8;    // Inventory-tab page size
 const gcap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-// The silhouette — the stored femsil PNG (client/game/assets/femsil.png),
-// baked once into a transparent-background alpha mask (femsil-mask.png via
-// scripts/build-femsil-mask.mjs) and tinted to the live accent colour by CSS: body →
-// accent, background → transparent. A single figure (per-part coverage lighting isn't possible from one
-// flat image — the slot boxes carry which piece sits where), anchored so the
-// .tos-gslot--<slot> boxes land over its head/torso/hands/legs/feet.
+// The silhouette: femsil.png baked to an alpha mask (scripts/build-femsil-mask.mjs),
+// tinted by CSS. The .tos-gslot--<slot> boxes are placed over it.
 function gearDoll() {
   return `<div class="tos-doll-fig" role="img" aria-label="Body silhouette"></div>`;
 }
 
-// A ◂ n/m ▸ pager, client-side. `kind` ('tray'|'inv') tells wireGear which page
-// counter to step. Renders nothing when a single page holds everything.
+// A ◂ n/m ▸ pager. 'kind' ('tray'|'inv') picks the counter. Empty at one page.
 function gearPager(kind, page, pages) {
   if (pages <= 1) return '';
   return `<div class="tos-gpager" data-gpager="${kind}">
@@ -5326,13 +4331,8 @@ function gearPager(kind, page, pages) {
     <button class="tos-gpg" data-gpg="next"${page >= pages - 1 ? ' disabled' : ''}>▸</button></div>`;
 }
 
-// A draggable carried-item card for the Gear tab's tray. Equippable cards drag onto
-// their body slot (or tap) to equip.
-//
-// No ⤓ here any more. The Gear tab is the KIT-BUILDING screen — its whole job is
-// getting things onto the body — and a drop-on-the-ground button one thumb-width from
-// the equip target is a way to lose a jacket, not a feature. Dropping lives on the
-// Inventory tab, next to everything else you can do to a thing you're carrying.
+// A draggable tray card; drag onto its slot (or tap) to equip. No ⤓ here on purpose:
+// a drop button beside the equip target loses jackets. Drop lives on Inventory.
 function gearCard(it) {
   const slot = it.tags?.slot || '';
   const qty = it.quantity > 1 ? ` ×${it.quantity}` : '';
@@ -5342,10 +4342,8 @@ function gearCard(it) {
     (meta ? `<span class="tos-gcard-meta">${meta}</span>` : '') + `</div>`;
 }
 
-// The KIT app is two tabs: Inventory (the full paged pack, the primary tab, mirroring
-// the game's inventory — tap a row for the detail sheet with its actions) and Gear (the
-// paperdoll + carried tray). The tab KEY is still `loadout` — it's persisted in
-// `_gearTab` and referenced by wireGear's `data-gtab` handler; only the label changed.
+// KIT app: Inventory (primary) and Gear tabs. The Gear tab KEY is still 'loadout'
+// (persisted in _gearTab, read by wireGear's data-gtab).
 function renderGear(d) {
   const tabs =
     `<div class="tos-gtabs">
@@ -5360,33 +4358,19 @@ function renderGearLoadout(d) {
   const items = d.items || [];
   const equipped = items.filter(i => i.is_equipped);
   const layerN = GEAR_LAYER_DEFS[_gearLayer].n;
-  // A garment occupies its own slot plus every slot in its `covers` tag (a jumpsuit
-  // worn on the torso also fills the legs), so one piece reads as worn on both body
-  // parts on the doll and in the per-region soak.
+  // A garment fills its own slot plus every slot in its 'covers' tag.
   const occupies = (i, slot) => i.slot === slot || (Array.isArray(i.tags?.covers) && i.tags.covers.includes(slot));
   const bodyItem = (slot) => equipped.find(i => occupies(i, slot) && (i.layer || 1) === layerN);
-  // Body-slot pieces worn on a layer OTHER than the one on show — hidden from the
-  // doll right now. An empty box whose slot has such gear becomes a "reveal" control
-  // (tap → jump the doll to that layer) so every layer's piece stays reachable, and
-  // thus unequippable, without hunting the stepper. Outermost hidden layer first.
+  // Body-slot pieces on a layer other than the one shown. An empty box with such gear
+  // becomes a "reveal" control, so every layer's piece stays reachable.
   const hiddenPieces = (slot) => GEAR_ARMOR_SLOTS.includes(slot)
     ? equipped.filter(i => occupies(i, slot) && (i.layer || 1) !== layerN).sort((a, b) => (b.layer || 1) - (a.layer || 1))
     : [];
 
-  // Each box is absolutely positioned (via .tos-gslot--<slot> in CSS) over the body
-  // part it protects. It shows the piece on the selected layer; if that layer is
-  // empty but the slot has gear on ANOTHER layer, it falls back to the outermost worn
-  // piece so an equipped item ALWAYS reads as a filled panel on the body. Either way a
-  // filled box is a drop target (equip) AND a drag/tap-to-unequip source (data-geq),
-  // so any layer's piece can be taken off straight into the carried list.
+  // Each box sits over its body part (.tos-gslot--<slot>). It shows the selected layer's
+  // piece, else the outermost worn one. A filled box is both a drop target and an unequip source.
   const box = (slot, it) => {
-    // Whether what's in this box belongs to the layer you're looking at. A fallback
-    // piece from another layer is drawn DIMMED (.off-layer) — without that the doll
-    // read as if every box were on the selected layer, so switching Under/Over/Armor
-    // appeared to do nothing and you couldn't tell what you were actually looking at.
-    // The dimming is the WHOLE signal: this used to also stamp the layer name and a
-    // "+N" hidden count in 8px under the item, which read as a stat on a box that is
-    // otherwise all stats. Still a live unequip target, just visibly not-here.
+    // A piece from another layer is drawn DIMMED (.off-layer); that's the whole signal.
     let offLayer = false;
     if (!it) {
       const hidden = hiddenPieces(slot);
@@ -5413,8 +4397,6 @@ function renderGearLoadout(d) {
       box('feet', bodyItem('feet')) +
     `</div>`;
 
-  // Layer selector (Under/Over/Armor) + carry weight — live in the top-right cluster
-  // (with the armor/insulation readouts) so the doll gets the whole middle.
   const layers = GEAR_LAYER_DEFS.map((l, i) =>
     `<button class="tos-gl${i === _gearLayer ? ' active' : ''}" data-glayer="${i}">${l.label}</button>`).join('');
   const wPct = d.capacity ? Math.min(100, Math.round((d.weight / d.capacity) * 100)) : 0;
@@ -5424,11 +4406,8 @@ function renderGearLoadout(d) {
        <span class="tos-gear-carry-txt">${gearWeight(d.weight)} / ${gearWeight(d.capacity)}</span>
      </div>`;
 
-  // Per-region soak — READ, not derived. `d.soak` is the server's `player.soak`,
-  // the same structure combat routes a hit through, so what this table says is what
-  // a swing actually meets. Summing `tags.armor_soak` here instead (which is what
-  // this did) silently missed a `covers` garment's extra slots and every armor
-  // contributor that isn't a worn item at all, e.g. subdermal plating.
+  // Per-region soak is READ from the server's player.soak (what combat uses), never
+  // summed from tags, which misses 'covers' slots and non-item armour.
   const slotSoak = (slot) => d.soak?.[slot]?.soak || {};
   let soak = `<table class="tos-gear-soak"><thead><tr><th></th>${GEAR_DMG.map(t => `<th>${esc(gcap(t).slice(0, 3))}</th>`).join('')}</tr></thead><tbody>`;
   for (const slot of GEAR_ARMOR_SLOTS) {
@@ -5437,7 +4416,6 @@ function renderGearLoadout(d) {
   }
   soak += '</tbody></table>';
 
-  // Passive effects.
   const fx = d.effects || {};
   const parts = [];
   for (const [k, v] of Object.entries(fx.stat_bonus || {})) parts.push(`${k.replace('stat_', '')} ${v > 0 ? '+' : ''}${v}`);
@@ -5448,11 +4426,8 @@ function renderGearLoadout(d) {
     ? `<div class="tos-gear-fx">${parts.map(p => `<span>${esc(p)}</span>`).join('')}</div>`
     : '<div class="tos-gear-fx empty">No passive effects.</div>';
 
-  // Top-right cluster: layer selector, carry weight, then the cumulative-soak (shield)
-  // + insulation (thermometer) readouts. All monochrome; icons stroke in the accent.
-  // Same source as the table: every slot's typed soak, added up. A hit only ever
-  // meets ONE slot's share of this, which is what the title says and what the
-  // breakdown popup shows per damage type.
+  // Top-right: layer selector, carry weight, total soak and insulation. A hit meets
+  // only ONE slot's share of the total.
   const totalSoak = GEAR_ARMOR_SLOTS.reduce((s, slot) =>
     s + Object.values(slotSoak(slot)).reduce((a, v) => a + (Number(v) || 0), 0), 0);
   const far =
@@ -5463,16 +4438,8 @@ function renderGearLoadout(d) {
        <div class="tos-gstat" title="Insulation from what you're wearing: +${round1(fx.insulation || 0)}°C of effective ambient, dry. This is NOT your body temperature (that's in Vitals), and soaked clothing keeps far less of it.">${GEAR_THERMO_SVG}<span>+${round1(fx.insulation || 0)}° insul</span></div>
      </div>`;
 
-  // Carried-item tray, paged. Only equippable pieces (a `slot` tag) — this is the
-  // kit-building drag source, so loose non-gear (food, etc.) stays out (it's still on
-  // the Inventory tab). Drag a card onto a slot to equip, a filled slot onto this tray
-  // to unequip, or a card onto the zone below to leave it on the ground.
-  //
-  // The per-card ⤓ BUTTON is what moved to the Inventory tab — a one-tap discard
-  // sitting a thumb-width from the equip target is how you lose a jacket. The drag
-  // ZONE stays: it takes a deliberate press-and-drag across the panel, it's the only
-  // way to get a piece out of a full tray without leaving the screen, and it costs the
-  // tray nothing (it sits under the pager, so no card is any narrower for it).
+  // Tray: equippable pieces only. The drop ZONE stays (a deliberate drag, and the way
+  // out of a full tray); the per-card ⤓ moved to Inventory.
   const tray = (d.inventory || []).filter(i => !i.is_equipped && i.tags?.slot);
   const pages = Math.max(1, Math.ceil(tray.length / GEAR_TRAY_PAGE));
   _gearTrayPage = Math.min(Math.max(0, _gearTrayPage), pages - 1);
@@ -5482,9 +4449,6 @@ function renderGearLoadout(d) {
      ${gearPager('tray', _gearTrayPage, pages)}
      <div class="tos-gear-drop" data-gdropzone title="Drag an item here to leave it on the ground">⤓ Drop to ground</div>`;
 
-  // Inventory list left, big centred doll in the middle, controls/readouts top-right.
-  // The whole left column is the unequip drop-zone. A feedback line sits below the
-  // doll's feet (equip errors show there). Soak/effects full-width below.
   return `
     <div class="tos-gload">
       <div class="tos-gload-side" data-gtray-zone>${trayHtml}</div>
@@ -5495,38 +4459,20 @@ function renderGearLoadout(d) {
       <div class="tos-gear-sec">Effects</div>${fxHtml}</div>`;
 }
 
-// The Inventory tab: the whole pack (worn pieces included), paged, mirroring the
-// game's inventory. A tap opens the item-detail sheet with the piece's actions.
+// Inventory tab: the whole pack, paged; a tap opens the item-detail sheet.
 function renderGearInventory(d) {
   const all = d.inventory || [];
-  // Worn body-slot gear folds into two collapsed-by-default groups so the pack
-  // list isn't buried: Clothing (underwear/outerwear) and Armour (the `armor`
-  // layer). Weapons, accessories, and loose gear stay in the main paged list.
-  // Armour means PROTECTIVE, not "worn on the armor layer". Grouping by layer put a
-  // kevlar raincoat, a padded jacket and steel-toe boots under Clothing and left the
-  // Armour group missing entirely, so a player wearing real protection was told they
-  // had none. Layer still decides where a piece sits on the doll; here what matters is
-  // whether it stops anything. `armor_soak` is the only armor mechanism (see
-  // docs/items.md), so it's the only honest test.
+  // Worn gear folds into Clothing and Armour groups. Armour means PROTECTIVE
+  // ('armor_soak', the only armour mechanism; docs/items.md), not the armor layer.
   const hasSoak = (it) => Object.values(it.tags?.armor_soak || {}).some(v => (Number(v) || 0) > 0);
-  // Armour is a BODY-slot piece that stops something. Accessories are excluded on
-  // purpose even when they carry soak (the cobalt scarf does): a scarf is something you
-  // wear, not armour you kit up in, and putting it under Armour makes that group a lie
-  // about how protected you are.
+  // Armour is body-slot only: an accessory with soak (the cobalt scarf) isn't armour.
   const isArmor = (it) => GEAR_ARMOR_SLOTS.includes(it.tags?.slot) && hasSoak(it);
-  // ...and accessories group WITH clothing. They were falling through to the main paged
-  // list, which is the loose-kit list — a ring sitting between a ration and a crowbar.
-  // Everything you wear belongs in the two worn groups; the main list is for everything
-  // else you're carrying.
+  // Accessories group with clothing; the main list is for everything not worn.
   const isClothing = (it) => WORN_GROUP_SLOTS.includes(it.tags?.slot) && !isArmor(it);
   const clothing = all.filter(isClothing);
   const armor = all.filter(isArmor);
   const main = all.filter(it => !isClothing(it) && !isArmor(it));
-  // What you're actually holding, PINNED above the paged list and outside the paging.
-  // A wielded weapon used to be an ordinary row wearing the same small "equipped" badge
-  // as a sock, eight rows to a page — so the one question this screen gets asked in a
-  // fight ("what am I swinging?") needed a page-hunt to answer. Now it's the first thing
-  // on the tab, it can never be paged away, and it says WIELDED rather than equipped.
+  // What you're holding is PINNED above the paged list, outside the paging.
   const isWeapon = (it) => it.tags?.slot === 'weapon_hand';
   const wielded = main.filter(it => it.is_equipped && isWeapon(it));
   const loose = main.filter(it => !(it.is_equipped && isWeapon(it)));
@@ -5545,8 +4491,7 @@ function renderGearInventory(d) {
   const row = (it) => {
     const qty = it.quantity > 1 ? ` ×${it.quantity}` : '';
     const slot = it.tags?.slot || '';
-    // A held weapon says WIELDED, not "equipped" — it's the one piece of kit whose state
-    // you need to read at a glance, and "equipped" is what the socks say too.
+    // A held weapon says WIELDED, not "equipped".
     const badge = it.is_equipped
       ? (isWeapon(it) ? '<span class="tos-ginv-eq wielding">⚔ wielded</span>' : '<span class="tos-ginv-eq">equipped</span>')
       : (slot ? `<span class="tos-ginv-slot">${esc(slot.replace('_', ' '))}</span>` : '');
@@ -5554,23 +4499,14 @@ function renderGearInventory(d) {
     const verbChip = pv
       ? `<span class="tos-ginv-verb" data-ginv-verb="${esc(pv)}" title="${esc(GEAR_VERB_LABELS[pv] || gcap(pv))} ${esc(it.name)}">${esc(GEAR_VERB_LABELS[pv] || gcap(pv))}</span>`
       : '';
-    // Weight on the row, not two taps down in the detail sheet. Carry capacity is a
-    // live constraint — the whole reason you open this list is to decide what to leave
-    // behind — and you can't make that call against a bar that only shows the total.
-    // ×quantity, because a row is what it actually costs you: 5 rations weigh 5.
+    // Weight on the row, × quantity.
     const w = Number(it.weight) || 0;
     const wt = w ? `<span class="tos-ginv-wt" title="${esc(gearWeight(w))} each">${esc(gearWeight(w * (it.quantity || 1)))}</span>` : '';
-    // ⤓ moved here off the Gear tab (see gearCard). Equipped pieces don't get one —
-    // dropping what you're wearing is a two-step on purpose.
+    // Worn pieces get no ⤓: dropping what you wear is two steps on purpose.
     const drop = it.is_equipped ? ''
       : `<button class="tos-ginv-drop" data-gdrop="${it.id}" title="Drop ${esc(it.name)} on the ground">⤓</button>`;
-    // ⇧ / ⇩ — put it on, take it off, from the list. Anything with a `slot` tag is
-    // wearable or wieldable, and the whole point of the Inventory tab is that it's the
-    // list you're already looking at: making the player cross to the Gear tab and drag
-    // a doll to put a hat on is a chore, not a decision. The verb NAMES itself off the
-    // slot (wield a weapon, wear everything else) rather than saying "equip", because
-    // nobody equips a jacket. Same one-round-trip action the doll uses, so the
-    // paperdoll, the tray and this list can't disagree about what's worn.
+    // ⇧ / ⇩ wear/wield or remove straight from the list (anything with a 'slot' tag),
+    // named off the slot. Same action as the doll, so the views can't disagree.
     const body = it.tags?.slot
       ? (it.is_equipped
         ? `<button class="tos-ginv-eqbtn off" data-gunequip="${it.id}" title="${esc(takeOffVerb(it))} ${esc(it.name)}">⇩</button>`
@@ -5581,17 +4517,14 @@ function renderGearInventory(d) {
       <span class="tos-ginv-name">${esc(it.name)}${qty}</span>${badge}${wt}${verbChip}${body}${drop}
       <span class="tos-ginv-chev">›</span></div>`;
   };
-  // The pinned in-hand block. Labelled, because an unlabelled pinned row just looks like
-  // the list is badly sorted. Absent entirely when your hands are empty — a "Nothing
-  // wielded" placeholder would cost a line on every screen to say nothing.
+  // The pinned in-hand block, labelled; absent when your hands are empty.
   const inHand = wielded.length
     ? `<div class="tos-ginv-hand"><div class="tos-ginv-handlab">In hand</div>${wielded.map(row).join('')}</div>`
     : '';
   const list = loose.length
     ? `<div class="tos-ginv-list">${slice.map(row).join('')}</div>`
     : ((clothing.length || armor.length || wielded.length) ? '' : '<div class="tos-gtray-empty">Your pack is empty.</div>');
-  // A collapsible group: header with count + expanded row list. `key` is the
-  // data attribute the click handler toggles.
+  // A collapsible group; 'key' is the data attribute the click handler toggles.
   const group = (items, label, key, open) => items.length
     ? `<div class="tos-ginv-grouphead${open ? ' open' : ''}" data-${key}>
          <span class="tos-ginv-chev">${open ? '⌄' : '›'}</span>
@@ -5605,9 +4538,7 @@ function renderGearInventory(d) {
   return `${head}${inHand}${list}${gearPager('inv', _gearInvPage, pages)}${groups}`;
 }
 
-// A tablet-native item-detail sheet — the tap target from the Inventory tab. Shows
-// the piece's stats and its verb buttons (equip/unequip, consumable actions, drop),
-// mirroring the desktop inventory's detail modal.
+// The item-detail sheet: stats and verb buttons.
 function showGearItemDetail(it) {
   closeGearItemDetail();
   const t = it.tags || {};
@@ -5667,10 +4598,9 @@ function showGearItemDetail(it) {
 
 function closeGearItemDetail() { _gearIdp?.remove(); _gearIdp = null; }
 
-// ── Hover tooltip (fast kit-building) ────────────────────────────────────────
-// A monochrome quick-stats card shown on hover over a tray item or a worn slot:
-// armor → per-type soak (0s excluded) + insulation; weapon → damage
-// range + type. Only equippable items (a `slot` tag) get one.
+// ── Hover tooltip ────────────────────────────────────────────────────────────
+// Quick stats for equippable items: armour soak per type (0s excluded) + insulation,
+// or weapon damage range + type.
 function gearTipHtml(it, hint) {
   const t = it.tags || {};
   const rows = [];
@@ -5729,8 +4659,7 @@ function showGearTip(anchor, it, hint) {
 
 function hideGearTip() { if (_gearTipEl) _gearTipEl.style.display = 'none'; }
 
-// Transient feedback line under the doll's feet (accent) — e.g. an equip that
-// landed on the wrong body part. Written directly (no re-render), auto-clears.
+// Transient feedback under the doll; written directly, auto-clears.
 function gearFeedback(msg) {
   const el = _overlay?.querySelector('#tos-gear-fb');
   if (!el) return;
@@ -5740,15 +4669,11 @@ function gearFeedback(msg) {
   _gearFbTimer = setTimeout(() => { el.classList.remove('show'); }, 2600);
 }
 
-// The soak readout's click-through: total soak per damage type across all worn
-// gear, each with its icon (monochrome). Shows every type so gaps read as clearly
-// as coverage.
+// Soak breakdown: every damage type, so gaps read as clearly as coverage.
 function showArmorBreakdown() {
   closeGearItemDetail();
-  // Read from the server's per-slot soak (see slotSoak in renderGearLoadout) rather
-  // than re-summing item tags, so a `covers` garment and a soak-granting augment both
-  // show up here. Per type: the total, and the WEAKEST slot — the number that decides
-  // whether a hit hurts, since a hit lands somewhere specific.
+  // From the server's per-slot soak. Per type: the total and the WEAKEST slot, since a
+  // hit lands somewhere specific.
   const bySlot = _data?.soak || {};
   const soak = {}; const worst = {};
   for (const k of GEAR_DMG) {
@@ -5775,7 +4700,7 @@ function showArmorBreakdown() {
   _gearIdp = el;
 }
 
-// Layer/tab/page changes are client-side — re-render the gear root without a round trip.
+// Layer/tab/page changes are client-side.
 function rebuildGear() {
   hideGearTip();
   const root = _overlay?.querySelector('#tos-gear-root');
@@ -5786,16 +4711,13 @@ function gearTrayItem(id) {
   return (_data?.inventory || []).find(i => i.id == id);
 }
 
-// Every mutating gear action goes through the tablet action pipeline (one round
-// trip: mutate + return the refreshed screen), preserving scroll so the tray
-// doesn't jump on equip/drop.
+// Every mutating gear action is one round trip (mutate + refreshed screen), keeping scroll.
 function gearAct(actionId, params) {
   _keepGearScroll = true;
   act('gear', actionId, String(params));
 }
 
-// Equip a piece and, when it's a body-slot item, switch the doll to that piece's
-// layer so the newly-worn item is the one shown.
+// Equip, then switch the doll to the piece's layer.
 function gearEquipShowLayer(id) {
   const it = gearTrayItem(id);
   const slot = it?.tags?.slot;
@@ -5807,15 +4729,13 @@ function gearEquipShowLayer(id) {
   gearAct('equip', id);
 }
 
-// A consumable/readable verb (eat/drink/use/read/open) — run the real game command
-// by name, then silently re-open the Gear app so its tray reflects the change.
+// Run a consumable verb by name, then silently re-open the app.
 function gearVerb(verb, name) {
   _keepGearScroll = true;
   sendCmdSilent(`${verb} ${name}`);
   sendCmdSilent('tabletnav gear');
 }
 
-// Drop-off. Stacks prompt for a quantity (mirrors the desktop drop dialog).
 function gearDrop(item) {
   if (!item) return;
   if (item.quantity > 1) {
@@ -5831,7 +4751,6 @@ function gearDrop(item) {
 function wireGear() {
   if (!_overlay || _data?.view !== 'gear') return;
 
-  // Tabs (client-side, no round trip).
   _overlay.querySelectorAll('[data-gtab]').forEach(el => {
     el.addEventListener('click', () => {
       const t = el.getAttribute('data-gtab');
@@ -5840,7 +4759,6 @@ function wireGear() {
     });
   });
 
-  // Pagers (client-side).
   _overlay.querySelectorAll('.tos-gpager').forEach(pg => {
     const kind = pg.getAttribute('data-gpager');
     pg.querySelectorAll('[data-gpg]').forEach(b => {
@@ -5853,8 +4771,7 @@ function wireGear() {
     });
   });
 
-  // Inventory-tab rows → item-detail sheet. The shimmering verb chip on the row
-  // short-circuits that: one tap fires the verb, no sheet, no guessing.
+  // Inventory rows → detail sheet; the verb chip fires its verb directly.
   _overlay.querySelectorAll('[data-ginv]').forEach(el => {
     el.addEventListener('click', (e) => {
       const it = gearTrayItem(el.getAttribute('data-ginv'));
@@ -5865,7 +4782,6 @@ function wireGear() {
     });
   });
 
-  // Clothing / Armour group headers toggle their collapsed/expanded state (client-side).
   _overlay.querySelector('[data-gclothing]')?.addEventListener('click', () => {
     _gearClothingOpen = !_gearClothingOpen;
     sfx(TOS_SELECT_DEF); rebuildGear();
@@ -5875,8 +4791,6 @@ function wireGear() {
     sfx(TOS_SELECT_DEF); rebuildGear();
   });
 
-  // Hover quick-stats tooltip on tray items (data-gid) and worn slots (data-geq),
-  // plus the Inventory-tab rows (data-ginv) — fast kit-building without opening.
   _overlay.querySelectorAll('.tos-gcard[data-gid], .tos-gslot[data-geq], [data-ginv]').forEach(el => {
     const id = el.getAttribute('data-gid') || el.getAttribute('data-geq') || el.getAttribute('data-ginv');
     const hint = el.hasAttribute('data-geq') ? 'Tap or drag to the list to unequip'
@@ -5886,11 +4800,9 @@ function wireGear() {
     el.addEventListener('dragstart', hideGearTip);
   });
 
-  // Armor readout → per-type protection breakdown.
   const armorStat = _overlay.querySelector('[data-armor-break]');
   if (armorStat) armorStat.addEventListener('click', showArmorBreakdown);
 
-  // Layer selector (client-side, no round trip).
   _overlay.querySelectorAll('[data-glayer]').forEach(el => {
     el.addEventListener('click', () => {
       const i = +el.getAttribute('data-glayer');
@@ -5899,12 +4811,10 @@ function wireGear() {
     });
   });
 
-  // Tap a filled slot box → unequip the piece shown there (any layer → into the list).
   _overlay.querySelectorAll('.tos-gslot[data-geq]').forEach(el => {
     el.addEventListener('click', () => gearAct('unequip', el.getAttribute('data-geq')));
   });
 
-  // Tap an equippable tray card → equip it (touch-friendly path).
   _overlay.querySelectorAll('.tos-gcard.equippable').forEach(el => {
     el.addEventListener('click', (e) => {
       if (e.target.closest('[data-gdrop]')) return; // drop button handles itself
@@ -5912,16 +4822,11 @@ function wireGear() {
     });
   });
 
-  // Per-card ⤓ → drop on the ground.
   _overlay.querySelectorAll('[data-gdrop]').forEach(el => {
     el.addEventListener('click', (e) => { e.stopPropagation(); gearDrop(gearTrayItem(el.getAttribute('data-gdrop'))); });
   });
 
-  // Inventory-row ⇧ / ⇩ → wear/wield it, or take it off. stopPropagation because the
-  // row itself opens the item-detail sheet, and a quick-equip that also popped a modal
-  // would make the fast path slower than the slow one. gearAct is the same
-  // mutate-and-return-the-screen round trip the paperdoll uses, so the list, the tray
-  // and the doll all redraw from one authoritative payload.
+  // Inventory ⇧ / ⇩. stopPropagation: the row opens the detail sheet.
   _overlay.querySelectorAll('[data-gequip]').forEach(el => {
     el.addEventListener('click', (e) => { e.stopPropagation(); gearAct('equip', el.getAttribute('data-gequip')); });
   });
@@ -5930,12 +4835,8 @@ function wireGear() {
   });
 
   // ── Drag/drop (pointer-based) ──────────────────────────────────────────────
-  // Native HTML5 drag-and-drop is swallowed inside this fixed + transformed CRT
-  // overlay (dragstart/drop never fire reliably), so we hand-roll it with pointer
-  // events, mirroring the home-screen tile rearrange. Drag a tray card onto its
-  // body slot (or anywhere on the doll) to equip; drag a worn slot box onto the
-  // list to unequip; drop a card on the ⤓ zone to leave it on the ground. A press
-  // that never moves past LIFT falls through to the tap-to-equip/unequip clicks.
+  // HTML5 drag-and-drop doesn't fire reliably in this fixed + transformed overlay, so
+  // it's hand-rolled. A press that never passes LIFT falls through to the tap clicks.
   const gload = _overlay.querySelector('.tos-gload');
   if (gload) {
     const LIFT = 6;   // px of travel before a press becomes a drag (below = a tap)
@@ -5945,8 +4846,7 @@ function wireGear() {
     const clearHi = () => _overlay.querySelectorAll('.tos-gslot-over, .tos-gtray-over, .tos-gear-drop-over')
       .forEach(el => el.classList.remove('tos-gslot-over', 'tos-gtray-over', 'tos-gear-drop-over'));
 
-    // Highlight the drop target under the pointer (the ghost is pointer-events:none,
-    // so elementFromPoint sees through it to the real target).
+    // The ghost is pointer-events:none, so elementFromPoint sees through it.
     const hover = (x, y) => {
       clearHi();
       const t = document.elementFromPoint(x, y);
@@ -5970,11 +4870,8 @@ function wireGear() {
         height: r.height + 'px', margin: '0', pointerEvents: 'none', zIndex: '9300',
         opacity: '0.9', transform: 'scale(1.04)', boxShadow: '0 8px 22px rgba(0,0,0,.5)',
       });
-      // Append inside the overlay, NOT document.body — the gear styles are scoped as
-      // `#tablet-os-overlay .tos-gcard/.tos-gslot`, so a ghost outside that subtree loses
-      // every rule and collapses to bare text. The overlay root has no transform, so the
-      // ghost's position:fixed still maps to viewport clientX/Y. z-index 9300 keeps it above
-      // the panel (9200) but under the item-detail modal (9400).
+      // ⚠ Append inside the overlay, not body: gear styles are scoped to
+      // #tablet-os-overlay. z-index 9300: above the panel (9200), under the detail modal (9400).
       _overlay.appendChild(ghost);
       press.srcEl.classList.add('dragging');
       drag = { ghost, offX: press.x - r.left, offY: press.y - r.top };
@@ -6005,8 +4902,7 @@ function wireGear() {
         if (press.kind === 'equip') {
           const slotEl = t && t.closest('.tos-gslot[data-gslot]');
           if (slotEl || (t && t.closest('.tos-gload-doll'))) {
-            // Each piece equips on its own inherent slot/layer; landing on the wrong
-            // box still equips it correctly, with a note about where it actually went.
+            // A piece equips on its own slot/layer; a wrong box gets a note.
             if (slotEl && slotEl.getAttribute('data-gslot') !== press.slot) {
               const s = slotEl.getAttribute('data-gslot');
               const it = gearTrayItem(press.id);
@@ -6016,15 +4912,12 @@ function wireGear() {
           } else if (t && t.closest('[data-gdropzone]')) {
             gearDrop(gearTrayItem(press.id));
           }
-          // Released off every target → no-op; the piece stays in the pack.
         } else if (t && t.closest('[data-gtray-zone]')) {
           gearAct('unequip', press.id);
         }
-        // Unequip released off the list → no-op; the piece stays worn.
       }
       press = null; drag = null;
-      // A completed drag can emit a trailing click on the source — swallow the next
-      // one so tap-to-equip/unequip doesn't fire a duplicate action.
+      // Swallow the trailing click so tap-to-equip doesn't fire twice.
       if (wasDrag) {
         const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
         window.addEventListener('click', swallow, { capture: true, once: true });
@@ -6047,7 +4940,7 @@ function wireGear() {
   }
 }
 
-// Sticky cams burn out 24h after planting — show the time left beside the battery.
+// Sticky cams burn out 24h after planting.
 function camExpiry(t) {
   if (t.expiresIn == null) return '';
   if (t.expiresIn <= 0) return ' · <span class="tos-cam-fullbar">BURNOUT</span>';
@@ -6087,8 +4980,7 @@ function renderSurveillance(d) {
         { id: 'record', label: focus.recording ? 'Stop Recording' : 'Record' },
         { id: 'clip', label: 'Clip → Reel', disabled: !hasBuffer },
         { id: 'clear', label: 'Clear', disabled: !hasBuffer, confirm: 'Discard this buffer without saving a reel?' },
-        // Only offered when there is a consumer deck in the room to take the feed —
-        // the app never advertises an output that isn't plugged in.
+        // Only offered when a consumer deck in the room can take the feed.
         ...(d.deckHere ? [{ id: 'cast', label: d.deckCam === focus.id ? `Unpatch ${d.deckHere}` : `Patch → ${d.deckHere}` }] : []),
         { id: 'destruct', label: 'Self-Destruct', confirm: "Fry this device where it sits? It's destroyed, not recovered." },
       ], focus.id)}
@@ -6105,11 +4997,8 @@ function renderSurveillance(d) {
 }
 
 // ── Microreel viewer ─────────────────────────────────────────────────────────
-// The app's OWN inline playback of a saved recording — no separate replay-deck
-// overlay. A CRT screen shows the current frame; a transcript below highlights
-// the play head; speech vs. narration/emote lines colour apart by theme. Playback
-// state is module-local (see _reel* vars); wireReel() drives it via direct DOM
-// writes (like datachipreplay.js) so a full re-render isn't needed per frame.
+// Inline playback of a saved recording. State is module-local (_reel*); wireReel()
+// writes the DOM directly so frames don't need a re-render.
 const REEL_FRAME_MS = 850;   // playback pace
 const REEL_FRAME_SECS = 5;   // capture cadence (server tick) → timecode
 
@@ -6157,8 +5046,6 @@ function renderReel(d) {
   </div>`;
 }
 
-// Live DOM playback for the microreel viewer. Reads frames straight off _data.reel;
-// updates the screen frame, HUD, scrubber, and transcript highlight in place.
 function reelFrames() { return (_data?.reel?.frames) || []; }
 
 function reelRender() {
@@ -6218,14 +5105,11 @@ function wireReel() {
 }
 
 // ── Chat app ────────────────────────────────────────────────────────────────
-// The same conversations the floating chat window owns (whisper.js), rendered
-// natively in the tablet. All chat state lives in whisper.js — here we just read
-// it via the exported chat API and send through it. Live updates come from the
-// onChatUpdate subscription (set up/torn down in render()/close()).
+// Renders whisper.js's conversations; all chat state lives there. Live updates via
+// onChatUpdate (subscribed in render(), dropped in close()).
 
-// Emoji palette for the picker (tap to insert at the caret). Ordered for an 8-col grid.
+// Emoji palette, ordered for an 8-column grid.
 const CHAT_EMOJI = ['😀','😂','🙂','😉','😎','😍','😘','🤨','😴','🙄','😬','😳','😭','😢','😡','🤔','🤢','😱','💀','☠️','👍','👎','👌','🙏','👏','💪','🤞','👀','🔥','💯','✨','⭐','❤️','💔','🎉','💰','🍺','🚬','💊','⚠️','🚁','✈️','🔫','⚡','🌧️','🩸','🤖','💥'];
-// Automatic emoji: :shortcode: names and plain-text emoticons converted on send.
 const EMOJI_SHORTCODES = { fire:'🔥', skull:'💀', heart:'❤️', joy:'😂', lol:'😂', cry:'😭', sob:'😭', rage:'😡', angry:'😡', beer:'🍺', smoke:'🚬', pill:'💊', money:'💰', gun:'🔫', boom:'💥', robot:'🤖', eyes:'👀', pray:'🙏', clap:'👏', muscle:'💪', ok:'👌', star:'⭐', tada:'🎉', party:'🎉', wave:'👋', smile:'🙂', wink:'😉', cool:'😎', '100':'💯', '+1':'👍', '-1':'👎', thumbsup:'👍', thumbsdown:'👎' };
 const EMOJI_EMOTICONS = [
   [/(?<=^|\s):-?\)(?=\s|$)/g, '🙂'],
@@ -6239,7 +5123,6 @@ const EMOJI_EMOTICONS = [
   [/(?<=^|\s)<3(?=\s|$)/g, '❤️'],
   [/(?<=^|\s)[xX]D(?=\s|$)/g, '😆'],
 ];
-// Convert :shortcodes: and emoticons in an outgoing message to emoji.
 function emojifyChat(text) {
   text = text.replace(/:([a-z0-9_+-]+):/gi, (m, name) => EMOJI_SHORTCODES[name.toLowerCase()] || m);
   for (const [re, rep] of EMOJI_EMOTICONS) text = text.replace(re, rep);
@@ -6251,9 +5134,7 @@ function renderChatMsg(m) {
   return `<div class="tos-chat-msg"><span class="tos-chat-from${m.isMe ? ' me' : ''}">${esc(m.isMe ? 'You' : m.from)}</span><span class="tos-chat-text">${body}</span></div>`;
 }
 
-// The Users tab body — a directory of players online now, tap to start a PM.
-// Mirrors the floating chat panel's hub. The data-chat-new / data-chat-refresh
-// hooks are already wired in wireBody(), so no extra wiring is needed here.
+// Users tab: players online now, tap to PM. Wired in wireBody().
 function renderChatUsers() {
   const havePm = new Set(getChatTabs().filter(t => t.kind === 'pm').map(t => t.key.toLowerCase()));
   const people = getOnlinePlayers().filter(p => p.handle);
@@ -6280,8 +5161,7 @@ function renderChatUsers() {
 function renderChat() {
   const tabs = getChatTabs();
   const onUsers = _chatTab === CHAT_USERS_TAB;
-  // Keep the selection valid; default to the #system MOTD tab, else first
-  // channel, else first tab (the Users hub is never auto-selected — it's opt-in).
+  // Default to #system, else first channel, else first tab. Users is never auto-selected.
   if (!onUsers && (!_chatTab || !tabs.some(t => t.key === _chatTab))) {
     const sys = tabs.find(t => t.key === '#system');
     _chatTab = (sys || tabs.find(t => t.kind === 'channel') || tabs[0])?.key || null;
@@ -6289,24 +5169,18 @@ function renderChat() {
   const active = onUsers ? null : (tabs.find(t => t.key === _chatTab) || null);
   if (active) markChatRead(active.key); // we're showing it — clear its unread
 
-  // Users hub leads the strip, then channels + PM conversations.
   const usersTab = `<div class="tos-chat-tab${onUsers ? ' sel' : ''}" data-chat-tab="${CHAT_USERS_TAB}" title="Players online now">Users</div>`;
   const convoTabs = tabs.map(t =>
     `<div class="tos-chat-tab${t.key === _chatTab ? ' sel' : ''}" data-chat-tab="${esc(t.key)}">${esc(t.label)}${t.unread ? `<span class="tos-chat-pip">${t.unread}</span>` : ''}${t.closable ? `<span class="tos-chat-x" data-chat-close="${esc(t.key)}" title="Close (or type /leave)">✕</span>` : ''}</div>`
   ).join('');
   const tabRow = `<div class="tos-chat-tabs">${usersTab}${convoTabs}</div>`;
 
-  // Users hub: show the online-player directory instead of a message log.
   if (onUsers) return `<div class="tos-chat">${tabRow}${renderChatUsers()}</div>`;
 
   const msgs = active ? getChatMessages(active.key) : [];
-  // #system holds only the MOTD (one ascii-art <pre>). Render it bare inside a
-  // .tos-motd wrapper — no chat-bubble chrome — so fitMotd() can scale the full
-  // border down to the tablet's width after layout (render()).
+  // #system holds only the MOTD <pre>, rendered bare so fitMotd() can scale it.
   const isSystem = active && active.key === '#system';
-  // Always show the full Large ("big") MOTD in the tablet, whatever size the
-  // floating chat panel is set to; fitMotd() scales it to the tablet's width.
-  // Fall back to the stored #system message if the MOTD data isn't loaded yet.
+  // Always the "big" MOTD, scaled by fitMotd(); falls back to the stored #system message.
   const motdMsg = isSystem ? (msgs.find(m => m.isHtml) || msgs[0]) : null;
   const motdHtml = isSystem ? (getMotdHtml('big') || motdMsg?.message) : null;
   const logInner = !active
@@ -6324,10 +5198,8 @@ function renderChat() {
   return `<div class="tos-chat">${tabRow}${log}${input}</div>`;
 }
 
-// Shrink the MOTD's ascii-art <pre> to fit the tablet's chat-log width. The art
-// is authored ~100 chars wide (far past the tablet), so we scale it down by the
-// exact width ratio (transform, top-left origin) and collapse the wrapper to the
-// scaled height so no dead space is left below. Runs after layout, from render().
+// Scale the ~100-char MOTD art to the chat width (transform) and collapse the wrapper
+// to the scaled height. Runs after layout.
 function fitMotd() {
   const wrap = _overlay?.querySelector('.tos-motd');
   const pre = wrap?.querySelector('pre');
@@ -6344,15 +5216,9 @@ function fitMotd() {
 }
 
 // ── News app ────────────────────────────────────────────────────────────────
-// The feed: a stack of section cards, each rendered by its section.type. New
-// section types (weather, corp wars, market) add a case to newsWidget below and
-// a builder server-side (plugins/tablet/news-app.js). Unknown types degrade to
-// a plain "unavailable" note rather than blanking the feed.
-// The News feed is dressed as a newsprint sheet — a masthead over a stack of
-// "articles" (one per section), each with a serif kicker header. The paper look
-// comes mostly from re-pointing the theme's CSS variables to newsprint tones on
-// the .tos-newspaper container (see the style block), so every widget inside
-// inherits ink-on-paper without being rewritten.
+// A stack of section cards by section.type. A new type adds a case to newsWidget and a
+// builder in plugins/tablet/news-app.js; unknown types show "unavailable". The paper
+// look re-points theme variables on .tos-newspaper.
 function renderNews(sections, masthead) {
   if (!sections || !sections.length) return '<div class="tos-empty">No news right now. Check back later.</div>';
   const articles = sections.map((sec, i) => `<article class="tos-art${i === 0 ? ' lead' : ''}">
@@ -6362,8 +5228,7 @@ function renderNews(sections, masthead) {
   return `<div class="tos-newspaper">${renderMasthead(masthead)}${articles}</div>`;
 }
 
-// Front-page masthead: grand serif nameplate between double rules, motto, and a
-// dateline row (date · edition · price). Reads the live game date off the payload.
+// Masthead: nameplate, motto, dateline from the payload's game date.
 function renderMasthead(m) {
   if (!m || !m.name) return '';
   const dateStr = fmtNewsDate(m.date);
@@ -6397,10 +5262,7 @@ function newsWidget(sec) {
   }
 }
 
-// The Police Blotter. Two kinds of line, deliberately styled apart: a WARRANT is
-// live and about someone who is still out there, an INCIDENT already happened.
-// Stars are drawn rather than counted, because "★★★" reads at a glance and
-// "3 stars" has to be parsed.
+// Police Blotter: a WARRANT (live) and an INCIDENT (past) are styled apart.
 function renderBlotterWidget(sec) {
   if (sec.quiet && !(sec.entries || []).length) {
     return `<div class="tos-blotter"><div class="tos-blot-quiet">${esc(sec.quiet)}</div></div>`;
@@ -6424,9 +5286,7 @@ function renderBlotterWidget(sec) {
   return `<div class="tos-blotter">${rows}</div>`;
 }
 
-// Weather widget — today's conditions as a tappable card; tapping expands the
-// 7-day strip in place (client-side toggle, no server round trip). Self-contained:
-// everything it draws comes from the section's own `now`/`days` payload.
+// Weather card; tapping toggles the 7-day strip client-side. Uses only 'now'/'days'.
 function renderWeatherWidget(sec) {
   const n = sec.now;
   if (!n) return '<div class="tos-empty" style="padding:14px 4px">Weather is offline.</div>';
@@ -6446,8 +5306,7 @@ function renderWeatherWidget(sec) {
     <div class="tos-wx-toggle">7-day ${open ? '▾' : '▸'}</div>
   </div>`;
   if (!open) return now;
-  // A hero-event day is flagged so it can't be skimmed past — this widget is
-  // where most players will actually see the week's warning.
+  // Flag a hero-event day: this is where most players see the week's warning.
   const days = (sec.days || []).map(f => `<div class="tos-wx-day${f.heroEvent ? ' tos-wx-hero' : ''}">
     <span class="tos-wx-dow">${esc(dayLabel(f))}</span>
     <span class="tos-wx-dico">${esc(f.icon || '')}</span>
@@ -6459,7 +5318,6 @@ function renderWeatherWidget(sec) {
   return `${now}<div class="tos-wx-forecast">${days || '<div class="tos-empty" style="padding:12px 4px">No forecast.</div>'}</div>`;
 }
 
-// "Today" for day 0, otherwise a short weekday from the ISO date.
 function dayLabel(f) {
   if (f.day === 0) return 'Today';
   if (!f.date) return `Day ${f.day}`;
@@ -6469,9 +5327,7 @@ function dayLabel(f) {
 
 function renderHeadlinesWidget(stories) {
   if (!stories || !stories.length) return '<div class="tos-empty" style="padding:14px 4px">Quiet news day. Too quiet.</div>';
-  // Stash the feed so a tapped headline can open its full mini-story client-side
-  // (the body rides in the payload — no round trip). Index-keyed so no per-story
-  // attribute escaping is needed.
+  // Stash the feed so a tapped headline opens client-side (index-keyed, no escaping).
   _newsStories = stories;
   return `<div class="tos-news-list">${stories.map((s, i) => `<div class="tos-headline" data-news-idx="${i}" role="button" tabindex="0">
     <span class="tos-hl-tag ${s.tag === 'live' ? 'live' : 'tabloid'}">${s.tag === 'live' ? 'LIVE' : 'WIRE'}</span>
@@ -6479,10 +5335,8 @@ function renderHeadlinesWidget(stories) {
   </div>`).join('')}</div>`;
 }
 
-// Tapping a headline opens its full story in a little "browser window" popup —
-// the paper's website, mid-collapse. All client-side: the body rode down in the
-// News payload, so there's no round trip. Rendered above the tablet inside the
-// overlay; a re-render (or a second tap) dismisses it.
+// A tapped headline opens in a "browser window" popup inside the overlay; a re-render
+// or second tap dismisses it.
 function openNewsStory(story) {
   closeNewsStory();
   if (!story) return;
@@ -6538,14 +5392,9 @@ function renderObjectives(objectives) {
   ).join('')}</div>`;
 }
 
-// An action can carry `prompt` (a question string) when it needs free-text
-// input the server can't derive from context (e.g. a contribution amount) —
-// wireBody() asks via window.prompt() (same convention as who.js's kick-reason
-// prompt) before sending the action, instead of every app inventing its own
-// input widget.
-// A 'slider' action ({ slider: { min, max, step, value, unit } }) draws as a
-// labelled range with a live readout and fires its action with the value when
-// the thumb is let go (change, not input), so a drag sends one command, not fifty.
+// An action with 'prompt' asks for free text via window.prompt() in wireBody().
+// A 'slider' action ({ slider: { min, max, step, value, unit } }) fires on change,
+// not input, so a drag sends one command.
 function renderSlider(appId, a) {
   const sl = a.slider || {};
   const v = sl.value ?? sl.min ?? 0;
@@ -6570,9 +5419,8 @@ function renderTiles(tiles) {
   return `<div class="tos-tiles">${tiles.map(t => `<div class="tos-tile-stat"><span>${esc(t.label)}</span><b>${esc(String(t.value ?? ''))}</b></div>`).join('')}</div>`;
 }
 
-// A 'chips' action ({ chips: { options: [{ value, label, icon? }], active } }) is
-// a labelled row of buttons, one per option, with the current one lit. Tapping
-// fires the action with that option's value: no dialog in between.
+// A 'chips' action ({ chips: { options: [{ value, label, icon? }], active } }): one
+// button per option, fires with its value.
 function renderChips(appId, a) {
   const ch = a.chips || {};
   const opts = (ch.options || []).map(o => {
@@ -6594,16 +5442,12 @@ function renderActions(appId, actions, params) {
   ).join('')}</div>` : ''}`;
 }
 
-// DEADHEAD — the Leviathan crew-dispatch console: a normalized map of the base + every airfield
-// (tap one to chart a course to land there, or tap ANYWHERE to set a hold point), a status line
-// with fuel, and contextual crew controls. Airfield tiles carry data-act-id="chart"; the map box
-// itself (id tos-dh-map) is wired to fire a 'loiter' action at the tapped tile — see the binding
-// in the render-events pass. _dhBox stashes the last bounding box so that click can invert to a tile.
+// DEADHEAD crew console: tap an airfield (data-act-id="chart") to chart a course, or
+// anywhere on #tos-dh-map to 'loiter' there. _dhBox keeps the last bounding box so
+// that click can invert to a tile.
 let _dhBox = null;
 let _dhRegions = false;   // DEADHEAD map: is the labelled region overlay drawn over the terrain?
-// Terrain palette for the DEADHEAD world map, keyed by the one-char codes worldTerrainMap() packs.
-// Muted and low-contrast on purpose: this is the GROUND the markers sit on, and the moment it
-// competes with the airfield pips or the aircraft it stops being a map and becomes wallpaper.
+// DEADHEAD terrain palette keyed by worldTerrainMap() codes. Muted so markers stay readable.
 const TOS_DH_TERRAIN = {
   '.': [10, 15, 20, 255],     // unmapped — the void beyond the grid
   w: [26, 52, 78, 255],       // water
@@ -6627,15 +5471,11 @@ function renderDeadhead(d) {
   const fields = (dh.fields || []).slice().sort((a, b) => a.dist - b.dist);
   const loiter = dh.charted?.loiter ? { gx: dh.charted.tx, gy: dh.charted.ty } : null;
   const acX = dh.fx ?? dh.gx, acY = dh.fy ?? dh.gy;   // fractional live position (see buildDeadhead)
-  // REGION mode zooms out from "airfields I can reach" to "places there are". It's a client-side
-  // toggle — the region rectangles ride every push — so switching is instant and costs no round trip.
+  // REGION mode is a client-side toggle; region rects ride every push.
   const regions = dh.regions || [];
   const regionMode = _dhRegions && regions.length > 0;
   const world = dh.world || null;
-  // ONE frame for everything. With a real terrain map underneath, the extent has to be the WORLD —
-  // terrain, regions, airfields and the ship all have to agree on the same coordinate box or the
-  // painted ground slides out from under the markers on it. (Before the terrain existed the box was
-  // fitted to whatever was being shown, which is why the two modes used to normalise differently.)
+  // One frame: the extent is the WORLD, so terrain, regions, airfields and ship agree.
   const pts = world
     ? [{ gx: world.x0, gy: world.y0 }, { gx: world.x0 + world.w * world.cell - 1, gy: world.y0 + world.h * world.cell - 1 }]
     : regionMode
@@ -6648,10 +5488,7 @@ function renderDeadhead(d) {
   _dhBox = { minX, maxX, minY, maxY };
   const P = 0.1, nx = (g) => (P + (1 - 2 * P) * (g - minX) / (maxX - minX)) * 100, ny = (g) => (P + (1 - 2 * P) * (g - minY) / (maxY - minY)) * 100;
   const acc = 'var(--tos-accent,#f2b01e)';
-  // Region rectangles: a translucent box per region with its name in the corner. Deliberately plain —
-  // this is the "where in the world am I" view, not a second tactical map, so no terrain art, no
-  // per-tile detail. Tapping one holds over its centre, reusing the same loiter dispatch a bare-tile
-  // tap already uses, so the zoomed-out view is dispatchable rather than decorative.
+  // Region rects: plain boxes; a tap holds over the centre via the same loiter dispatch.
   const REG_HUE = ['#5ad1ff', '#7dffb0', '#ffb43a', '#ff8ad1', '#b48aff', '#59e0d0'];
   const boxes = !regionMode ? '' : regions.map((r, i) => {
     const col = REG_HUE[i % REG_HUE.length];
@@ -6664,8 +5501,7 @@ function renderDeadhead(d) {
       <span style="position:absolute;left:4px;top:2px;font-size:0.5313rem;letter-spacing:.4px;color:${col};text-shadow:0 1px 2px #000;white-space:nowrap;max-width:96%;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>
     </button>`;
   }).join('');
-  // Airfield pips stay visible in BOTH modes — the request was to combine the two maps, not to swap
-  // between them, and a region overlay you can't see your destinations through is half a map.
+  // Airfield pips show in both modes.
   const dots = fields.map(f => {
     const charted = !dh.charted?.loiter && dh.charted?.id === f.id;
     return `<button type="button" style="position:absolute;left:${nx(f.gx).toFixed(1)}%;top:${ny(f.gy).toFixed(1)}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:none;cursor:pointer;padding:2px;font-family:inherit"
@@ -6675,11 +5511,8 @@ function renderDeadhead(d) {
     </button>`;
   }).join('');
   const loiterMk = loiter ? `<div style="position:absolute;left:${nx(loiter.gx).toFixed(1)}%;top:${ny(loiter.gy).toFixed(1)}%;transform:translate(-50%,-50%);color:#7dffb0;font-size:0.9375rem;line-height:1;text-shadow:0 0 7px #2f8;pointer-events:none" title="hold point">◎</div>` : '';
-  // THE SHIP HERSELF — an aeroplane, nose pointed down her heading, sitting on the live fractional
-  // position. The glyph ✈ is drawn pointing north-EAST, so the rotation carries a −45° correction;
-  // without it every heading reads 45° off, which is just close enough to look right and be wrong.
-  // A CSS transition on the transform smooths the step between server pushes so she glides rather
-  // than jumping, and a soft ring underneath keeps her findable against the airfield dots.
+  // The ship. ✈ points north-EAST, so rotation carries a −45° correction. A CSS
+  // transition glides her between pushes.
   const hdg = ((dh.hdg || 0) % 360 + 360) % 360;
   const here = `<div style="position:absolute;left:${nx(acX).toFixed(2)}%;top:${ny(acY).toFixed(2)}%;transform:translate(-50%,-50%);pointer-events:none;transition:left .9s linear,top .9s linear" title="${esc(dh.name || 'your aircraft')}, heading ${Math.round(hdg)}°">
     <div style="position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:1px solid rgba(255,90,106,.45);box-shadow:0 0 8px rgba(255,90,106,.35)${dh.moving ? ';animation:tos-dh-ping 2s ease-out infinite' : ''}"></div>
@@ -6701,8 +5534,7 @@ function renderDeadhead(d) {
   const btns = [];
   if (dh.remote) btns.push(`<button type="button" class="tos-btn" data-act-id="circlehere" data-act-app="deadhead" data-act-params="" title="send the crew to hold a lazy orbit over her current spot">Circle here</button>`);
   else if (dh.crew || (dh.seat === 'pilot' && dh.airborne)) btns.push(`<button type="button" class="tos-btn" data-act-id="circlehere" data-act-app="deadhead" data-act-params="" title="hold a gentle orbit over her current position">Circle here</button>`);
-  // DEPART — the go button. Aboard, parked, not at the controls, with a course charted: this is the
-  // step that was missing, and without it charting from the cabin set a destination nothing acted on.
+  // DEPART: aboard, parked, not at the controls, course charted.
   if (!dh.remote && !dh.airborne && !dh.crew && dh.seat !== 'pilot' && dh.charted) {
     btns.push(`<button type="button" class="tos-btn" data-act-id="depart" data-act-app="deadhead" data-act-params="" style="border-color:#7dffb0;color:#7dffb0" title="the crew spin her up and fly the charted course">▶ Depart</button>`);
   }
@@ -6728,17 +5560,13 @@ function renderDeadhead(d) {
 }
 
 // ── TV app ───────────────────────────────────────────────────────────────────
-// The tablet's television. The viewport below carries the same `data-tv="…"` hooks
-// as the standalone set's markup in index.html, so the SHARED renderer
-// (panels/tv.js createTvView) drives it unchanged — that's what gives the app full
-// parity (tuner, guide, gameday, score-bug, sports FX, themes, ticker, read-aloud)
-// without a second copy of the broadcast rendering logic.
+// The viewport carries the same data-tv hooks as index.html's set, so the shared
+// renderer (panels/tv.js createTvView) drives it unchanged.
 let _tvView = null;
 
 function renderTv(d) {
-  // Off the grid there's no broadcast to receive at all — no station, no tuner,
-  // just dead air. Short-circuits before the shared TV view is ever built, so
-  // mountTabletTv finds no .tos-tv-set and never opens a portable tuner out here.
+  // Off the grid: dead air. Returns before the TV view is built, so mountTabletTv
+  // never opens a tuner out here.
   if (isOnCrossing()) {
     const bars = ['#c0c0c0', '#c8c800', '#00c8c8', '#00c800', '#c800c8', '#c80000', '#0000c8', '#101010']
       .map(c => `<i style="background:${c}"></i>`).join('');
@@ -6795,8 +5623,7 @@ function renderTv(d) {
   </div>`;
 }
 
-// Bind the shared renderer to the freshly-rendered viewport. render() rebuilds the
-// whole body on every nav, so the old instance is always torn down first.
+// Bind the shared renderer to the fresh viewport; the old instance is torn down first.
 // ── World Map ────────────────────────────────────────────────────────────────
 let _worldmap = null, _worldmapGen = 0;
 function mountWorldmap() {
@@ -6823,8 +5650,7 @@ function mountTabletTv() {
     unwatchMsg: 'tablet_tv_unwatch',
   });
   _tvView.init();
-  // Open with the picture centred rather than parked at the top of the body, where
-  // the clock/summary/Back row would eat the first ~80px of the screen.
+  // Open with the picture centred, not under the clock/summary row.
   requestAnimationFrame(() => {
     const scroll = _overlay?.querySelector('.tos-scroll');
     if (!scroll || !host.isConnected) return;
@@ -6834,12 +5660,10 @@ function mountTabletTv() {
   const channels = _data?.channels || [];
   const ch = channels.find(c => c.channelId === _data?.tuned);
   if (ch) {
-    // Re-entering the app lands back on the channel you were watching rather than a
-    // dead screen; the server answers with a dest:'tablet' tv_panel.
+    // Re-entering resumes your channel; the server answers with a dest:'tablet' tv_panel.
     sendCmdSilent(`tablettune ${ch.number}`);
   } else {
-    // Nothing tuned yet — power the screen up dark, on static, exactly like walking
-    // up to a set that's switched off. Tapping a channel chip lights it.
+    // Nothing tuned: power up dark on static, like a set that's off.
     _tvView.open({ channelId: null, channelNumber: 0, stationName: '', channelName: '', channelList: channels });
   }
 }
@@ -6850,12 +5674,10 @@ function unmountTabletTv() {
   _tvView = null;
 }
 
-// A `tv_panel` addressed to the tablet (dest:'tablet') — the portable tuner
-// answering a `tablettune`. Routed here from dispatch.js.
+// A dest:'tablet' tv_panel answering 'tablettune'. Routed here from dispatch.js.
 export function openTabletTvPanel(msg) {
   _tvView?.open(msg);
-  // Repaint the channel chips so the tuned one highlights, without a server round
-  // trip. The renderer owns the screen; this only updates the dial strip.
+  // Repaint the channel chips only; the renderer owns the screen.
   if (_data && _data.view === 'tv') {
     _data.tuned = msg.channelId || null;
     const dial = _overlay?.querySelector('.tos-tv-dial');
@@ -6905,9 +5727,8 @@ function renderBody() {
     </div>`;
   }
   if (d.view === 'worldmap') {
-    // The canvas is mounted after the HTML lands (mountWorldmap), from a lazily imported renderer,
-    // so the wildlands field is only fetched by somebody who opens the app.
-    // Two hints, one shown: a touch screen has no wheel and no hover (see .tos-wm-hint).
+    // Canvas mounted after the HTML (mountWorldmap), lazily, so the wildlands field is
+    // fetched only on open. One of two hints shows (.tos-wm-hint).
     return `<div class="tos-body tos-worldmap-view">${hdr}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       <div id="tos-worldmap" class="tos-worldmap"></div>
       <div class="tos-wm-hint"><span class="tos-wm-mouse">Scroll to zoom, drag to pan, hover for detail.</span><span class="tos-wm-touch">Pinch to zoom, drag to pan, tap for detail.</span> Numbered shields are this week's highways.</div>
@@ -6928,8 +5749,7 @@ function renderBody() {
   }
   if (d.view === 'codex') {
     const crumb = renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName]);
-    // The Orders section keeps its own sticky tab strip (it carries the crumb
-    // itself); every other surface takes the ordinary breadcrumb above the body.
+    // The Orders section carries its own crumb in its sticky tab strip.
     if (d.sectionKind === 'orders') {
       return `<div class="tos-body">${hdr}${summary}${renderIdeology(d, crumb)}</div>`;
     }
@@ -6957,28 +5777,20 @@ function renderBody() {
       ${renderHealth(d)}
     </div>`;
   }
-  // THE BOARD. The server app (plugins/bounty/tablet-app.js) has always emitted
-  // `view: 'bounties'` and nothing here ever claimed it, so the app fell straight
-  // through to "Unknown screen." however many contracts were open.
-  //
-  // The sheet is rendered as the SAME characters the log gets — posterLines() is
-  // the record, and systems-bounties.md is explicit that the overlay is a skin
-  // over identical text, padded to WIDTH so the frame survives a proportional
-  // typeface. Hence <pre> and a monospace stack: this must not be re-worded, and
-  // it must not be re-laid-out.
+  // Bounty board (plugins/bounty/tablet-app.js). Rendered as the same characters the
+  // log gets (posterLines(), padded to WIDTH), hence <pre> and monospace: don't
+  // re-word or re-lay it out (docs/systems-bounties.md).
   if (d.view === 'bounties') {
     const money = (n) => `₵${Number(n || 0).toLocaleString('en-US')}`;
     const sheet = d.sheet
       ? `<pre class="tos-poster">${esc((d.sheet.lines || []).join('\n'))}</pre>`
       : '';
-    // Paper out on YOU leads, because it's the one thing on this screen you did
-    // not choose to look up and the one thing that can get you killed.
+    // Paper out on YOU leads.
     const alarm = (!d.sheet && d.onMe)
       ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">✱ ${d.onMe === 1 ? 'A contract is' : `${d.onMe} contracts are`} out on you, worth ${money(d.onMeTotal)}. No name on the sheet.</div>`
       : '';
-    // Underscored token, because registry.js normScreen() lowercases and turns
-    // underscores back into spaces — a bare "Vex Mordant" would be tokenised as
-    // a screen plus a stray word and never match a target.
+    // Underscored token: normScreen() turns underscores into spaces, and a bare
+    // "Vex Mordant" would tokenize as a screen plus a stray word.
     const items = (d.contracts || []).map(c => ({
       id: String(c.target || '').replace(/\s+/g, '_'),
       label: c.target,
@@ -7039,9 +5851,8 @@ function renderBody() {
     </div>`;
   }
   if (d.view === 'fakeplay') {
-    // Self-contained novelty — the breadcrumb Back exits the whole app; the fake
-    // game (login → terminal → mini tablet) is mounted into #tos-fake-root by
-    // mountFakePlay() after render, and runs entirely client-side.
+    // The fake game is mounted into #tos-fake-root by mountFakePlay() after render,
+    // entirely client-side.
     return `<div class="tos-body">${renderBreadcrumb(d.appId, [d.appName])}<div id="tos-fake-root" class="tos-fake"></div></div>`;
   }
   if (d.view === 'error') {
@@ -7058,23 +5869,15 @@ function renderBody() {
   }
   if (d.view === 'list') {
     const pageNav = d.page ? renderPageNav(d.appId, d.breadcrumb, d.page) : '';
-    // Tabs and rows were `detail`-only, which silently swallowed both on any list
-    // screen that sent them: the Sports app's league tabs never drew (so Cluster
-    // Puck was unreachable — there was no second tab to press) and its leader
-    // races vanished with them. Both renderers no-op on a payload that omits
-    // them, so every existing list screen is unaffected.
+    // Tabs and rows on list screens too (Sports' league tabs need them). Both no-op
+    // when the payload omits them.
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}${d.notice ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>` : ''}${renderList(d.items)}${d.rows ? `<div class="tos-detail-rows">${renderDetailRows(d.rows)}</div>` : ''}${pageNav}${renderActions(d.appId, d.actions, '')}</div>`;
   }
   if (d.view === 'detail') {
     const det = d.detail || d.quest || {};
     const params = det.id || '';
-    // A quest's detail carries its own action log — the narrative of what you did
-    // on this quest, built from the server's structured quest_log beats.
     const qlog = d.appId === 'quests' && det.id ? renderQuestActivityLog(det.id) : '';
-    // A library chapter is set as a BOOK — aged paper, serif, an illuminated initial.
-    // These are pre-collapse artifacts (docs/systems-library.md: the bar is US public
-    // domain), and reading one on a scavenged tablet should feel like handling
-    // something much older than the tablet.
+    // A library chapter is set as a BOOK (aged paper, serif, illuminated initial).
     const isBook = d.appId === 'library';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}
       ${d.notice ? (d.noticeKind === 'ok' ? `<div class="tos-notice-ok" role="status">${esc(d.notice)}</div>` : `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>`) : ''}
@@ -7085,8 +5888,7 @@ function renderBody() {
       ${renderObjectives(d.quest?.objectives)}
       ${d.narratable ? renderNarrateBar() : ''}
       ${det.body ? `<div class="tos-detail-body${isBook ? ' tos-book' : ''}${d.comic ? ' tos-comic' : ''}">${
-        // A comic renders from its blocks; everything else is prose and takes the
-        // path it always has. `d.comic` is absent on every book on the shelf.
+        // A comic renders from its blocks; 'd.comic' is absent on prose books.
         d.comic ? renderComicBody(d.comic, d.glossary)
           : d.narratable ? renderNarratableBody(det.body, d.glossary)
             : `<p>${esc(det.body).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`
@@ -7100,41 +5902,24 @@ function renderBody() {
 }
 
 function wireBody() {
-  // Read Aloud / Stop. The text comes off the payload rather than the DOM so the
-  // synth gets clean prose, not the paragraph markup we just wrapped it in.
+  // Read Aloud / Stop. Text comes off the payload, not the DOM, so the synth gets clean prose.
   _overlay.querySelectorAll('[data-narrate]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
       const mode = el.getAttribute('data-narrate');
       if (mode === 'stop') { narrateStop(); return; }
       if (mode === 'min') {
-        // Close the shell but let the voice run on. The flag is consumed by
-        // close(), which otherwise stops narration like any other teardown.
+        // Close the shell but keep the voice; close() consumes the flag.
         if (_narrate) { _narrateKeepOnClose = true; close(); syncNarratePill(); }
         return;
       }
-      // CODEX renders its own reader (view 'codex'), so its prose lives on the
-      // chapter rather than on `detail`. Same narrator, same bar, same minimize.
+      // CODEX keeps its prose on the chapter, not 'detail'.
       if (_data?.view === 'codex') { narrateCodexFrom(_tosCodexCh); return; }
       const det = _data?.detail || {};
-      // Seed on the BOOK, not the chapter, so a novel keeps one narrator's voice
-      // the whole way through instead of recasting every page.
+      // Seed on the BOOK so one narrator reads the whole novel.
       const book = (_data?.breadcrumb && _data.breadcrumb[0]) || _data?.appName || 'library';
-      // Auto-advance through the book: at the end of a chapter, read the next.
-      // Resolved lazily off the live payload, so a chapter that hasn't loaded (or
-      // the last one) simply stops.
-      // SNAPSHOT the shelf and our place in it, right now, and walk that.
-      //
-      // This used to read `_data` inside advance(), which broke it twice over.
-      // Minimize calls close(), and close() nulls `_data` — so the moment you
-      // minimized, the next chapter resolved to null and the book stopped dead at
-      // the end of the one you were on, which is the whole thing minimize exists to
-      // prevent. And with the tablet OPEN it was no better: `_data.detail.id` is the
-      // chapter you pressed play on and never moves, so every advance re-derived the
-      // same index and handed back chapter N+1 for ever.
-      //
-      // Capturing the list and holding our own cursor fixes both — the reader walks
-      // forward on its own and needs nothing from a screen that may be long gone.
+      // Auto-advance: SNAPSHOT the shelf and hold our own cursor. ⚠ Don't read _data in
+      // advance(): close() nulls it on minimize, and its detail.id never moves.
       const chapterList = _data?.detail?.chapters || _data?.chapters || null;
       let atIdx = Array.isArray(chapterList)
         ? chapterList.findIndex(c => (c.id ?? c) === (_data?.detail?.id))
@@ -7144,16 +5929,13 @@ function wireBody() {
         const nxt = chapterList[++atIdx];
         return nxt?.body ? { text: nxt.body, title: `${book}: ${nxt.name || nxt.title || ''}`.trim() } : null;
       };
-      // A comic hands over the EXACT array its spans were numbered from. Handing
-      // over `det.body` instead would re-split the marker-free prose and shift
-      // every index, so the highlight would follow the wrong balloon.
+      // A comic hands over the EXACT array its spans were numbered from.
       narrateStart(_data?.comic && _comicParts ? _comicParts : (det.body || ''),
         book, `${book}: ${det.name || ''}`.trim(), _data?.lex, advance);
     });
   });
 
-  // Glossed words. Tap-to-reveal rather than hover-only, because the tablet is
-  // used on touch as much as with a mouse and `title=` never fires there.
+  // Glosses are tap-to-reveal: title= never fires on touch.
   _overlay.querySelectorAll('.tos-gloss').forEach(el => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();   // don't let a gloss double as a page tap
@@ -7163,14 +5945,10 @@ function wireBody() {
     });
   });
 
-  // Paper-doll parts. Tap-to-reveal for the same reason the glosses above are:
-  // `title=` never fires on touch, and this tablet is used with a thumb as often
-  // as a mouse. Purely local — no round trip, the detail is already on the payload.
+  // Paper-doll parts: tap-to-reveal, local only.
 
   // ── Alarm reels ──
-  // Tap a digit or flick the reel; the centre band is the selection. Scroll is
-  // debounced into a snap read so a flick lands on whatever it settles over,
-  // which is what makes it feel like a phone rather than a listbox.
+  // Scroll is debounced into a snap read, so a flick lands where it settles.
   const alarmReels = _overlay.querySelectorAll('[data-al-reel]');
   if (alarmReels.length) {
     const pickFrom = (el) => ({
@@ -7192,28 +5970,21 @@ function wireBody() {
       syncPreview();
     };
     for (const reel of alarmReels) {
-      // Centre the current selection on first paint, so the reel opens showing
-      // the value it holds instead of scrolled to midnight.
+      // Centre the current value on first paint.
       const cur = reel.querySelector('.tos-al-cell.sel');
       if (cur) cur.scrollIntoView({ block: 'center', behavior: 'instant' });
 
       reel.addEventListener('click', (e) => {
-        // A drag ends in a click on whatever cell the pointer came to rest over.
-        // Honouring it would yank the reel to that cell and undo the drag, so the
-        // first click after a real drag is swallowed.
+        // Swallow the first click after a real drag, or it yanks the reel to that cell.
         if (reel._alDragged) { reel._alDragged = false; return; }
         const cell = e.target.closest('.tos-al-cell');
         if (cell) select(cell, reel);
       });
 
       // ── Grab and pull the band ──
-      // Mouse/pen only (touch already scrolls natively, with better momentum than
-      // anything reimplemented here). The snap comes off for the duration, because
-      // with `scroll-snap-type: y mandatory` live every scrollTop we write is
-      // immediately re-snapped and the reel fights the hand instead of following
-      // it. Releasing puts snap back and throws the reel a little further along its
-      // last velocity — the browser's own snap catches it and lands it on a value,
-      // so there's no easing curve of ours to get wrong.
+      // Mouse/pen only (touch scrolls natively). Snap is off during the drag, or every
+      // scrollTop we write is re-snapped; release restores it and flings a little so
+      // the browser's snap lands it.
       let dragY = 0, dragTop = 0, lastY = 0, lastT = 0, vel = 0, dragging = false;
       reel.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'touch' || e.button !== 0) return;
@@ -7303,8 +6074,7 @@ function wireBody() {
     });
   });
 
-  // TV channel chips — jump the dial straight to a station. The renderer picks the
-  // change up through the `tv_panel` echo, same as the +/- sweep buttons.
+  // TV channel chips; the renderer picks the change up from the 'tv_panel' echo.
   _overlay.querySelectorAll('[data-tv-ch]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
@@ -7324,23 +6094,16 @@ function wireBody() {
         return;
       }
       const appId = el.getAttribute('data-nav-app');
-      // Music is a native overlay (AMP walkman), not an in-tablet screen. It opens
-      // over the still-running tablet (its z-index sits above the chassis — see
-      // #musicplayer-panel in styles.css), so the tablet stays put behind it.
+      // Music is a native overlay above the chassis (#musicplayer-panel); the tablet stays behind it.
       if (appId === 'music') { sfx(TOS_SELECT_DEF); openMusicPlayerPanel(); return; }
-      // Map renders inside the tablet again — the standalone bigmap popup is retired,
-      // so the Map app IS the city map (one surface, shared with the minimap
-      // double-click, which opens the tablet here too — see openTabletToMap).
+      // The Map app is the city map (also opened by the minimap double-click; openTabletToMap).
       if (appId === 'map') { nav('map', null, null); return; }
       nav(appId, null, null);
     });
   });
-  // Home-grid tiles are drag-reorderable, and empty space lassoes them into groups
-  // (order, membership and colours all cached locally — never sent up).
+  // Home tiles drag-reorder and lasso into groups; all cached locally, never sent up.
   const appHome = _overlay.querySelector('.tos-home-apps');
-  // A search result is a FILTERED, flattened view — arranging it would splice a
-  // partial list back over the saved order and lose apps, so the drag machinery
-  // stays out of it entirely.
+  // No dragging in search results: arranging a filtered list would lose apps on save.
   if (appHome && !_homeSearchOpen) { wireAppGridDrag(appHome); wireGroupDrag(appHome); wireAppMarquee(appHome); }
   _overlay.querySelectorAll('[data-group-menu]').forEach(el => {
     el.addEventListener('click', () => {
@@ -7360,12 +6123,10 @@ function wireBody() {
     const picked = selectedAppTiles(appHome);
     const ids = picked.map(t => t.getAttribute('data-nav-app')).filter(Boolean);
     if (!ids.length) return;   // nothing picked yet — the bar stays up
-    // Read the SHAPE off the tiles while they're still on screen — a 2×2 selection
-    // has to come back as a 2×2 box, and after the re-render the geometry is gone.
+    // Read the selection's shape while it's still on screen.
     openGroupSheet({ ids, cols: selectionCols(picked) });
   });
-  // Page dots + arrows. Also the drop target that moves an app between pages (see
-  // the drag `end` handler), which is why they're live in selection mode too.
+  // Page dots + arrows; also cross-page drop targets, so live in selection mode too.
   _overlay.querySelectorAll('[data-home-page]').forEach(el => {
     el.addEventListener('click', () => {
       if (_suppressTileClick) return;
@@ -7376,9 +6137,8 @@ function wireBody() {
       render();
     });
   });
-  // Horizontal swipe over the grid turns the page — the gesture a paged home screen
-  // trains you to expect. Vertical movement wins the tie so this can't hijack a
-  // scroll, and a long-press lift (drag-reorder) claims the press before it starts.
+  // Horizontal swipe turns the page. Vertical wins the tie; a long-press lift claims
+  // the press first.
   if (appHome) {
     let sw = null;
     appHome.addEventListener('pointerdown', (e) => {
@@ -7402,10 +6162,8 @@ function wireBody() {
       render();
     });
   }
-  // A home widget is a shortcut into the app that contributed it — and a press-hold
-  // is how you put the card away. Same shape as the tile drag's arming press: a
-  // timer started on pointerdown, cancelled by movement or an early release, so a
-  // tap still opens the app and a scroll still scrolls.
+  // A widget opens its app; a press-hold puts the card away (timer cancelled by
+  // movement or early release).
   _overlay.querySelectorAll('[data-widget-nav]').forEach(el => {
     const id = el.getAttribute('data-widget-nav');
     let press = null;
@@ -7434,8 +6192,7 @@ function wireBody() {
     el.addEventListener('click', (ev) => {
       if (_suppressWidgetClick) { _suppressWidgetClick = false; return; }
       if (ev.target.closest('.tos-wg-arm')) return;   // the confirm owns its own taps
-      // A tap on any OTHER card while one is armed just disarms — the same
-      // "press elsewhere to cancel" every other arming gesture here has.
+      // Tapping another card while one is armed just disarms.
       if (_tosWidgetArm) { _tosWidgetArm = null; render(); return; }
       nav(id, null, null);
     });
@@ -7458,18 +6215,14 @@ function wireBody() {
     if (_suppressTileClick) return; // a drag just ended; don't also open the sheet
     openAddAppsSheet();
   });
-  // An empty cell is a PLACE, and tapping a place asks what goes in it. It stays a
-  // drop target and still falls through to the pager's swipe (nothing is bound on
-  // pointerdown here — only a completed click opens the sheet), so the arranging
-  // gestures are untouched.
+  // Tapping an empty cell opens the add sheet for it. Only a completed click does, so
+  // drop and swipe still work.
   _overlay.querySelectorAll('[data-home-gap]').forEach(el => {
     el.addEventListener('click', () => {
       if (_suppressTileClick || _tosSelectMode) return;
       openAddAppsSheet(el.getAttribute('data-home-gap'));
     });
   });
-  // Toolbar: find, the widgets toggle, and restoring a stashed app straight out of
-  // a search result.
   _overlay.querySelector('[data-home-search]')?.addEventListener('click', () => {
     _homeSearchOpen = true;
     _homeSearch = '';
@@ -7484,8 +6237,7 @@ function wireBody() {
   });
   const searchInput = _overlay.querySelector('[data-home-search-input]');
   if (searchInput) {
-    // Re-render per keystroke (the grid is small and this is all local), keeping the
-    // caret because render() rebuilds the node underneath us.
+    // Re-render per keystroke, restoring the caret (render() replaces the node).
     searchInput.addEventListener('input', () => {
       _homeSearch = searchInput.value || '';
       const pos = searchInput.selectionStart;
@@ -7511,45 +6263,34 @@ function wireBody() {
     });
   });
   _overlay.querySelectorAll('[data-back]').forEach(el => {
-    // Exactly one level up the history, whatever that was. This is what stops a
-    // third-level screen throwing you back to the app root (or, from the root, to
-    // Home) instead of to the screen you actually came from.
+    // Exactly one level up the history.
     el.addEventListener('click', () => navBack());
   });
-  // A card in the binder opens that card. `nav`'s third argument is a separate
-  // token, so the id survives the command tokenizer intact as `binder card 12`.
+  // nav's third argument is a separate token, so the id survives as 'binder card 12'.
   _overlay.querySelectorAll('[data-binder-card]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, 'card', el.getAttribute('data-binder-card')));
   });
   _overlay.querySelectorAll('[data-open-cat]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, el.getAttribute('data-open-cat'), null));
   });
-  // In-app tab strip (renderTosTabs): switch the current app to the tab's screen id.
   _overlay.querySelectorAll('[data-tos-tab]').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.getAttribute('data-tos-tab');
-      // Replace, don't push: a tab is a lateral move inside the same screen, so
-      // Back should exit the app, not rewind through the tabs you flipped through.
+      // Replace, don't push: tabs are lateral moves.
       if (id !== _data?.activeTab) nav(_data.appId, id, null, true);
     });
   });
-  // Calendar month arrows: re-nav the app to a specific 'YYYY-MM' via screenId 'month'.
   _overlay.querySelectorAll('[data-cal-month]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, 'month', el.getAttribute('data-cal-month')));
   });
   _overlay.querySelectorAll('[data-open-item]').forEach(el => {
     el.addEventListener('click', () => {
-      // Item ids are opaque server keys (quest_id / skill name / vehicle id / …),
-      // passed as the params token. Always resend the screen we're currently
-      // on (not just when >1 level deep) — some ids (skill names like "Faction
-      // Lore") contain spaces, and without a screenId token in front of them
-      // the tokenizer would misread the id's first word AS the screenId.
+      // Item ids are opaque server keys. Always resend the current screen in front:
+      // ids can contain spaces ("Faction Lore") and would otherwise be read as the screenId.
       const id = el.getAttribute('data-open-item');
       const currentScreen = (_data.breadcrumb && _data.breadcrumb.length) ? _data.breadcrumb[_data.breadcrumb.length - 1] : null;
       const appId = _data.appId;
-      // nav() records the list/board we drilled in from, so Back returns THERE and
-      // not to the app root — the detail's own breadcrumb is rebuilt from the quest's
-      // category and no longer reflects a Job Board / Pilot Contracts origin.
+      // nav() records where we drilled in from, so Back returns there.
       nav(appId, currentScreen, id);
     });
   });
@@ -7559,8 +6300,7 @@ function wireBody() {
       nav(appId, screenLabel, `page:${pageStr}`);
     });
   });
-  // Corp dashboard paging — client-side (all pages ride in one payload), so just
-  // switch the page index and re-render, no round trip.
+  // Corp paging is client-side (all pages in one payload).
   _overlay.querySelectorAll('[data-corp-page]').forEach(el => {
     el.addEventListener('click', () => {
       if (el.classList.contains('disabled')) return;
@@ -7569,8 +6309,7 @@ function wireBody() {
       render();
     });
   });
-  // Codex — opening a section is a nav (each volume is its own payload); opening
-  // a chapter is not (the whole volume already arrived), so it's a local switch.
+  // Codex: a section is a nav (own payload); a chapter is a local switch.
   _overlay.querySelectorAll('[data-codex-section]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, el.getAttribute('data-codex-section')));
   });
@@ -7579,13 +6318,11 @@ function wireBody() {
       _tosCodexCh = el.getAttribute('data-codex-ch') || null;
       sfx(TOS_SELECT_DEF);
       render();
-      // A chapter is a page of prose: start it at the top, not wherever the
-      // contents list happened to be scrolled to.
+      // Start a chapter at the top.
       _overlay.querySelector('.tos-body')?.scrollTo?.({ top: 0 });
     });
   });
-  // Ideology reader paging — client-side (all pages ride in one payload): tab
-  // strip switches the page index, a standing row jumps to that order's page.
+  // Ideology paging is client-side; a standing row jumps to that order's page.
   _overlay.querySelectorAll('[data-ideo-page]').forEach(el => {
     el.addEventListener('click', () => {
       _tosIdeoPage = parseInt(el.getAttribute('data-ideo-page'), 10) || 0;
@@ -7602,8 +6339,7 @@ function wireBody() {
       render();
     });
   });
-  // Surveillance hub: clicking a camera tile focuses it (re-nav same screen with
-  // the device id as params); a sub-screen link (e.g. Datachips) navs to it.
+  // SPECTER hub: a camera tile re-navs with the device id; sub-screen links nav to them.
   _overlay.querySelectorAll('[data-nav-tile]').forEach(el => {
     el.addEventListener('click', () => {
       const crumb = _data?.breadcrumb || [];
@@ -7614,7 +6350,6 @@ function wireBody() {
   _overlay.querySelectorAll('[data-nav-screen]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, el.getAttribute('data-nav-screen'), null));
   });
-  // News weather widget — tap to expand/collapse the 7-day strip in place.
   _overlay.querySelectorAll('[data-weather-toggle]').forEach(el => {
     el.addEventListener('click', () => {
       _newsWeatherOpen = !_newsWeatherOpen;
@@ -7623,21 +6358,17 @@ function wireBody() {
       render();
     });
   });
-  // News headline — tap to pop its full mini-story in a little browser window.
   _overlay.querySelectorAll('[data-news-idx]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
       openNewsStory(_newsStories[+el.getAttribute('data-news-idx')]);
     });
   });
-  // DEADHEAD terrain: paint the coarse world grid into the canvas underlay. Drawn at ONE PIXEL PER
-  // CELL and stretched by CSS (image-rendering:pixelated) — the browser's own scaler does the work,
-  // so this stays a few thousand putImageData bytes instead of a few thousand fillRect calls on a
-  // 2s poll. The 10% padding matches nx()/ny() so the painted ground lines up with the markers.
+  // DEADHEAD terrain: one pixel per cell, stretched by CSS (pixelated), so a 2s poll
+  // costs a putImageData, not thousands of fillRects. The 10% pad matches nx()/ny().
   const dhCv = _overlay.querySelector('#tos-dh-canvas');
   if (dhCv && _data?.deadhead?.world) {
     const W = _data.deadhead.world, P = 0.1;
-    // Pad the buffer so the map occupies the same inset box the markers are positioned into.
     const pad = (n) => Math.max(1, Math.round(n * P / (1 - 2 * P)));
     const px = pad(W.w), py = pad(W.h);
     dhCv.width = W.w + px * 2; dhCv.height = W.h + py * 2;
@@ -7650,14 +6381,13 @@ function wireBody() {
     }
     g.putImageData(img, 0, 0);
   }
-  // DEADHEAD FIELDS/REGIONS toggle — purely local: the region rectangles are already in the payload,
-  // so this flips a flag and re-renders rather than round-tripping to the server for a view change.
+  // DEADHEAD FIELDS/REGIONS toggle is local; region rects are already in the payload.
   _overlay.querySelectorAll('[data-dh-view]').forEach(el => el.addEventListener('click', () => {
     _dhRegions = el.getAttribute('data-dh-view') === 'regions';
     sfx(TOS_SELECT_DEF); render();
   }));
-  // DEADHEAD map — tapping empty space sets a hold point (airfield pips fire their own 'chart'
-  // action and are skipped here). Invert the click position back to a world tile via _dhBox.
+  // DEADHEAD map: tapping empty space sets a hold point (pips fire 'chart' themselves).
+  // Invert the click to a world tile via _dhBox.
   const dhMap = _overlay.querySelector('#tos-dh-map');
   if (dhMap && _dhBox) dhMap.addEventListener('click', (e) => {
     if (e.target.closest('[data-act-id]')) return;
@@ -7686,18 +6416,15 @@ function wireBody() {
       const pickJson = el.getAttribute('data-act-pick');
       const baseParams = el.getAttribute('data-act-params');
       const launchCmd = el.getAttribute('data-act-launch');
-      // Folding a corp also drops its now-dead chat channel from the list.
-      // Abandoning a quest tosses its action log — it's off the board now.
+      // Folding a corp drops its chat channel; abandoning a quest drops its action log.
       const fire = (params) => {
         if (actionId === 'fold') removeCorpChannels();
         if (appId === 'quests' && actionId === 'abandon' && _data?.quest?.id) dropQuestLog(_data.quest.id);
         act(appId, actionId, params);
       };
 
-      // A launch action (Crafting app) hands off to a real game command — the
-      // cook/splice minigame or an instant craft — instead of round-tripping the
-      // tablet. Close the tablet so the minigame overlay owns the screen, then
-      // fire the verb exactly as if the player had typed it.
+      // A launch action (Crafting) closes the tablet and fires the real verb, so the
+      // minigame overlay owns the screen.
       if (launchCmd) {
         sfx(TOS_SELECT_DEF);
         close();
@@ -7705,19 +6432,15 @@ function wireBody() {
         return;
       }
 
-      // Auto-travel (Quests app) is a client-side movement toggle layered over the
-      // server re-plotting the route: already auto-walking -> just stop it here, no
-      // round trip; otherwise fire the server action, which plots a fresh route to
-      // the tracked quest's next stop and flags the gps_route to set off (handled in
-      // dispatch.js -> minimap.js startAutoWalk).
+      // Auto-travel: already walking → stop locally; otherwise the server plots a route
+      // to the next stop and flags gps_route to start (dispatch.js → minimap startAutoWalk).
       if (actionId === 'autowalk') {
         if (isAutoWalking()) toggleAutoWalk();
         else act(appId, actionId, baseParams);
         return;
       }
 
-      // A pick action (corp Invite) offers a list to choose from instead of
-      // typing — e.g. the online players you can invite.
+      // A pick action (corp Invite) offers a list instead of typing.
       if (pickJson) {
         let options = [];
         try { options = JSON.parse(pickJson); } catch { options = []; }
@@ -7730,8 +6453,7 @@ function wireBody() {
         return;
       }
 
-      // In-browser dialogs instead of the browser's native confirm()/prompt() —
-      // themed, draggable, and rendered above the tablet (confirm.js).
+      // Themed dialogs from confirm.js, not native confirm()/prompt().
       if (promptText) {
         showPromptDialog({ title: actTitle || 'Corporation', prompt: promptText, confirmLabel: 'Submit' }, (val) => fire(val));
         return;
@@ -7743,7 +6465,6 @@ function wireBody() {
       fire(baseParams);
     });
   });
-  // Corp colour wheel — any colour, applied immediately via the set_color action.
   _overlay.querySelectorAll('[data-set-corp-color]').forEach(el => {
     el.addEventListener('change', () => act(el.getAttribute('data-set-corp-color'), 'set_color', el.value));
   });
@@ -7754,16 +6475,13 @@ function wireBody() {
   wireGear();
 }
 
-// Map app: one zoom axis (−/+ walk the server tile-window ladder), tap-a-tile to
-// select (client-side, refreshes the detail in place), and GPS route / auto-walk
-// actions. No-op off the map screen.
+// Map app wiring: zoom, tap-to-select, GPS route / auto-walk. No-op off the map screen.
 function rebuildMap() {
   const root = _overlay.querySelector('#tos-map-root');
   if (root) { root.innerHTML = renderMap(_data); wireMap(); }
 }
-// Sync the current selection (_tosMapSel) across the map: highlight the matching
-// tile and its building-legend name so the two read as one thing, refresh the detail
-// panel, and (from a legend click) scroll the tile into the centre of the viewport.
+// Sync _tosMapSel across tile and legend name, refresh the detail and (from a legend
+// click) centre the tile.
 function mapSyncSelection(center) {
   let selTile = null;
   _overlay.querySelectorAll('.tos-map-tile').forEach(el => {
@@ -7776,13 +6494,10 @@ function mapSyncSelection(center) {
   if (center && selTile) _scrollMapTo(selTile);
   const det = _overlay.querySelector('#tos-map-detail');
   if (det) { det.innerHTML = renderMapDetail(_data); wireMapActs(); }
-  // On a phone the detail heads the sheet under the map, and a building picked from
-  // halfway down the list would otherwise put Route here out of sight above it.
-  // A no-op on desktop, where the sheet isn't the scroller.
+  // On a phone the detail heads the sheet; scroll it into view (no-op on desktop).
   if (tosIsMobile()) _overlay.querySelector('.tos-map-side')?.scrollTo({ top: 0 });
 }
 
-// Plot a GPS route from where you stand to a reachable tile (double-click / Route here).
 function mapRouteTo(id) {
   const cur = (_data.tiles || []).find(t => t.isCurrent);
   const t = (_data.tiles || []).find(x => x.id === id);
@@ -7791,7 +6506,6 @@ function mapRouteTo(id) {
   if (path && path.length > 1) { setGpsRoute(path); rebuildMap(); }
 }
 
-// Scroll the map viewport so a given tile element sits centred (mirrors centerMapOnPlayer).
 function _scrollMapTo(el) {
   const wrap = _overlay?.querySelector('.tos-map-wrap');
   if (!wrap || !el) return;
@@ -7802,19 +6516,16 @@ function _scrollMapTo(el) {
 
 function wireMap() {
   _overlay.querySelectorAll('[data-map-zone]').forEach(el => {
-    // Single tap selects the tile (and lights up its legend name — mapSyncSelection).
     el.addEventListener('click', () => {
       _tosMapSel = el.getAttribute('data-map-zone');
       sfx(TOS_SELECT_DEF);
       mapSyncSelection(false);
     });
-    // Double-click a reachable tile to plot a GPS route straight to it, no Route-here trip.
     el.addEventListener('dblclick', () => {
       _tosMapSel = el.getAttribute('data-map-zone');
       mapRouteTo(_tosMapSel);
     });
   });
-  // Building legend ↔ tile: clicking a name selects + centres that building.
   _overlay.querySelectorAll('[data-map-bldg]').forEach(el => {
     el.addEventListener('click', () => {
       _tosMapSel = el.getAttribute('data-map-bldg');
@@ -7825,15 +6536,11 @@ function wireMap() {
   wireMapActs();
   const clear = _overlay.querySelector('[data-map-clear]');
   if (clear) clear.addEventListener('click', () => { setGpsRoute(null); rebuildMap(); });
-  // Persistent controls: Run (server round-trip, echoes run_state), Auto-walk toggle,
-  // recenter-on-you, and the −/+ zoom stepper. Zoom now walks the server ladder (each
-  // step = a wider/narrower tile window), so it's a round trip that re-renders the map.
+  // Controls: Run (echoes run_state), Auto-walk, recenter and zoom (a server round trip).
   _overlay.querySelector('[data-map-run]')?.addEventListener('click', () => sendCmdSilent('run'));
   _overlay.querySelector('[data-map-autotoggle]')?.addEventListener('click', () => { toggleAutoWalk(); rebuildMap(); });
   _overlay.querySelectorAll('[data-map-recenter]').forEach(b => b.addEventListener('click', centerMapOnPlayer));
-  // Writes the shared `mapOverlay` setting rather than a local flag: applySettings
-  // drives window._applyMapOverlay, so the sidebar minimap re-renders in the same
-  // beat and the choice survives a reload.
+  // Writes the shared 'mapOverlay' setting, so the minimap updates and it survives reload.
   _overlay.querySelector('[data-map-labels]')?.addEventListener('click', () => {
     const s = loadSettings();
     s.mapOverlay = mapLabelsOn() ? 'none' : 'labels';
@@ -7852,21 +6559,17 @@ function wireMap() {
     const arg = _mapZoomArg(_data, b.getAttribute('data-map-zoom') === 'in' ? 1 : -1);
     if (arg) nav('map', arg, null);
   }));
-  // Void survey zoom: client-only trail scale (no server round trip), re-render in place.
   _overlay.querySelectorAll('[data-void-zoom]').forEach((b) => b.addEventListener('click', () => {
     const dir = b.getAttribute('data-void-zoom') === 'in' ? 1 : -1;
     _tosVoidZoom = Math.min(VOID_ZMAX, Math.max(VOID_ZMIN, +(_tosVoidZoom + dir * VOID_ZSTEP).toFixed(2)));
     sfx(TOS_SELECT_DEF);
     rebuildMap();
   }));
-  // Drag anywhere on the map to scroll it; default to the player centred on (re)build.
   wireMapDrag(_overlay.querySelector('.tos-map-wrap'));
   centerMapOnPlayer();
 }
 
-// Scroll the map so the tile you're standing on sits in the middle of the viewport.
-// getBoundingClientRect keeps it correct whether the grid is centred (fits) or
-// scrolling (overflows). No-op if the current tile isn't rendered.
+// Scroll the map so your tile is centred. No-op if it isn't rendered.
 function centerMapOnPlayer() {
   const wrap = _overlay?.querySelector('.tos-map-wrap');
   const cur = wrap?.querySelector('.tos-map-tile.cur');
@@ -7876,9 +6579,8 @@ function centerMapOnPlayer() {
   wrap.scrollTop += (cr.top + cr.height / 2) - (wr.top + wrap.clientHeight / 2);
 }
 
-// Drag-to-scroll the map viewport. A movement threshold defers the "drag" so a plain
-// tap still selects a tile; once dragging, the click that follows pointerup is
-// swallowed (capture-phase) so it doesn't also fire a tile selection.
+// Drag-to-scroll the map. A threshold keeps taps as taps; after a drag the next click is
+// swallowed in capture phase.
 function wireMapDrag(wrap) {
   if (!wrap) return;
   let on = false, moved = false, sx = 0, sy = 0, sl = 0, st = 0, pid = null;
@@ -7921,8 +6623,7 @@ function wireMapActs() {
         toggleAutoWalk();
         rebuildMap();
       } else if (a === 'target') {
-        // Designate the tile for the flight sim. Works on the ground with no
-        // aircraft -- the server holds it against the pilot, not the airframe.
+        // Target for the flight sim; held against the pilot, so no aircraft needed.
         const wc = _tosMapAbs.get(_tosMapSel);
         if (wc) sendCmdSilent('flightwaypoint ' + wc[0] + ' ' + wc[1]);
       }
@@ -7930,9 +6631,7 @@ function wireMapActs() {
   });
 }
 
-// Territory Map: tap a zone to select it (client-side only — refreshes the
-// highlight + detail in place so the map scroll spot survives); current-tile
-// action buttons route through the corp app ('mapact'). No-op off the map screen.
+// Territory Map: tap selects client-side (keeping scroll); tile actions go through 'mapact'.
 function wireCorpMap() {
   _overlay.querySelectorAll('[data-cm-zone]').forEach(el => {
     el.addEventListener('click', () => {
@@ -7952,16 +6651,10 @@ function wireCorpMapActs() {
   });
 }
 
-// The Settings app is rendered + driven entirely client-side (no server round
-// trip): every control reads/writes the shared `architect_settings` via
-// settings.js, so the Tablet stays in lock-step with the legacy panel. Option
-// pills re-render on change (selection follows); sliders update live so the
-// drag isn't interrupted. querySelector guards mean this is a no-op on non-
-// Settings screens.
+// Settings is client-side only, through settings.js. No-op off the Settings screen.
 function wireTabletSettings() {
   const commit = (s) => { saveSettings(s); applySettings(s); };
 
-  // Settings page tabs — switch grouped page (client-side only).
   _overlay.querySelectorAll('[data-set-page]').forEach(el => {
     el.addEventListener('click', () => {
       _tosSetPage = el.getAttribute('data-set-page');
@@ -7970,9 +6663,7 @@ function wireTabletSettings() {
     });
   });
 
-  // Shared UI theme grid — always drives settings.theme (the tablet-theme
-  // picker is separate, for the unlinked Tablet theme only). Both keep the sheet
-  // open and preserve its scroll spot so you can keep browsing after a pick.
+  // Shared UI theme grid drives settings.theme; the sheet stays open and keeps its scroll.
   _overlay.querySelectorAll('[data-theme-pick]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
@@ -7984,7 +6675,6 @@ function wireTabletSettings() {
       render();
     });
   });
-  // Unlinked Tablet's own independent theme — never touches the page theme.
   _overlay.querySelectorAll('[data-tablet-theme-pick]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
@@ -7993,10 +6683,7 @@ function wireTabletSettings() {
       render();
     });
   });
-  // Extra Lore — local pref + a silent push to the server, which owns the actual
-  // per-player flag the lore plugin reads.
-  // Wallpaper choice — per device, on the tablet theme record. Re-renders, which is
-  // what restarts the canvas with the new mode and the theme's current colours.
+  // Wallpaper is per device on the tablet theme record; re-render restarts the canvas.
   _overlay.querySelectorAll('[data-set-wallpaper]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
@@ -8004,8 +6691,7 @@ function wireTabletSettings() {
       render();
     });
   });
-  // Home widgets on/off — a per-device preference like the tile order, not a
-  // server setting, so it commits to localStorage and re-renders in place.
+  // Home widgets on/off: per device, localStorage.
   _overlay.querySelectorAll('[data-set-widgets]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
@@ -8020,7 +6706,6 @@ function wireTabletSettings() {
       render();
     });
   });
-  // …and the way back for a single card put away with a press-hold.
   _overlay.querySelectorAll('[data-widget-on]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
@@ -8039,9 +6724,7 @@ function wireTabletSettings() {
       render();
     });
   });
-  // Display Mode — server-side preference (see renderTabletSettings). Flip the
-  // cached payload so the re-render shows the new pill straight away; the server
-  // is still the source of truth and re-sends it on the next screen build.
+  // Display Mode: flip the cached payload for an instant pill; the server stays the truth.
   _overlay.querySelectorAll('[data-set-display]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
@@ -8051,7 +6734,6 @@ function wireTabletSettings() {
       render();
     });
   });
-  // Theme locker — easy Linked/Unlinked toggle.
   _overlay.querySelectorAll('[data-set-link]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
@@ -8061,7 +6743,6 @@ function wireTabletSettings() {
       render();
     });
   });
-  // Theme trigger → open the scrollable picker sheet; ✕ Done closes it.
   _overlay.querySelectorAll('[data-open-theme-sheet]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
@@ -8074,8 +6755,7 @@ function wireTabletSettings() {
     _tosThemePicker = null;
     render();
   });
-  // Chat app: pick a conversation, or send to the active one. Both operate on
-  // whisper.js state; sending echoes + emits, which re-renders us via the sub.
+  // Chat: both act on whisper.js state; sending re-renders us via the subscription.
   _overlay.querySelectorAll('[data-chat-tab]').forEach(el => {
     el.addEventListener('click', () => {
       _chatTab = el.getAttribute('data-chat-tab');
@@ -8085,8 +6765,7 @@ function wireTabletSettings() {
       render();
     });
   });
-  // ✕ on a tab — close/leave that conversation (channel or PM). Stop the click
-  // from also switching to the tab we're closing.
+  // ✕ closes a conversation; stop the click from also switching to it.
   _overlay.querySelectorAll('[data-chat-close]').forEach(el => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -8096,7 +6775,6 @@ function wireTabletSettings() {
       sfx(TOS_SELECT_DEF);
     });
   });
-  // Start a new PM with an online player (no floating panel side-effects).
   _overlay.querySelectorAll('[data-chat-new]').forEach(el => {
     el.addEventListener('click', () => {
       const h = el.getAttribute('data-chat-new');
@@ -8107,7 +6785,6 @@ function wireTabletSettings() {
       render();
     });
   });
-  // Re-open a conversation the player closed earlier (channel or PM).
   _overlay.querySelectorAll('[data-chat-reopen]').forEach(el => {
     el.addEventListener('click', () => {
       const key = el.getAttribute('data-chat-reopen');
@@ -8133,9 +6810,8 @@ function wireTabletSettings() {
     chatSend?.addEventListener('click', doSend);
     chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSend(); });
 
-    // Live emoji: convert the completed :shortcode:/emoticon just before the caret
-    // as you type, in the bar itself. Only touch text up to the caret so text the
-    // user hasn't finished typing (and the caret) stay put.
+    // Convert a completed shortcode/emoticon before the caret as you type; only text
+    // up to the caret is touched.
     chatInput.addEventListener('input', () => {
       const caret = chatInput.selectionStart ?? chatInput.value.length;
       const before = chatInput.value.slice(0, caret);
@@ -8147,7 +6823,6 @@ function wireTabletSettings() {
       try { chatInput.setSelectionRange(pos, pos); } catch {}
     });
 
-    // Emoji picker: ☺ toggles the popup; tapping an emoji inserts it at the caret.
     const emojiToggle = _overlay.querySelector('[data-chat-emoji-toggle]');
     const emojiPop = _overlay.querySelector('.tos-chat-emoji-pop');
     emojiToggle?.addEventListener('click', (e) => {
@@ -8174,19 +6849,15 @@ function wireTabletSettings() {
     openThemeEditor(s, () => commit(s));
   });
 
-  // Generic option-pill setter (fontSize, density, sidebarPosition, motion,
-  // weatherFx, dpadSize, tempUnit, pokerFelt) — all string-valued.
+  // Generic option-pill setter (all string-valued).
   _overlay.querySelectorAll('[data-set-key]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
       const s = loadSettings();
       const key = el.getAttribute('data-set-key');
       s[key] = el.getAttribute('data-set-val');
-      // A font size the player PRESSED outranks the phone's width auto-fit
-      // (applyMobileScale in main.js). Without this flag the auto-fit silently
-      // overwrites --font-size-base on every compact device, so the one player
-      // who most needs the larger rungs — someone on a phone — is the one player
-      // for whom the setting does nothing at all.
+      // A pressed font size outranks the phone auto-fit (applyMobileScale in main.js),
+      // which otherwise overwrites --font-size-base on every compact device.
       if (key === 'fontSize') s.fontSizeChosen = true;
       commit(s);
       render();
@@ -8200,7 +6871,7 @@ function wireTabletSettings() {
     render();
   });
 
-  // Contrast — live preview on drag (not persisted), committed on release.
+  // Contrast: live preview on drag, committed on release.
   const contrastSlider = _overlay.querySelector('[data-set-contrast]');
   const contrastLabel = _overlay.querySelector('[data-contrast-label]');
   const contrastText = (v) => (v === 0 ? 'Base' : `+${v}%`);
@@ -8229,10 +6900,7 @@ function wireTabletSettings() {
     render();
   });
 
-  // Reset the local home-grid arrangement — clears the cached order, groups and
-  // stash, so the Home screen re-seeds to the default twelve on its next render.
-  // Client-only; brief in-place confirmation rather than a re-render (the grid
-  // isn't on this screen).
+  // Reset the local home-grid arrangement (order, groups, stash) so Home re-seeds.
   _overlay.querySelector('[data-reset-apps]')?.addEventListener('click', (e) => {
     sfx(TOS_SELECT_DEF);
     try {
@@ -8247,10 +6915,7 @@ function wireTabletSettings() {
     setTimeout(() => { if (btn.isConnected) btn.textContent = 'Reset to Default'; }, 1400);
   });
 
-  // Reset the desktop sidebar's drag order / hidden / collapsed / sized state
-  // back to default. resetOrder() operates on the live #sidebar behind the
-  // Tablet overlay, so it works while Settings is open. (Ported from the retired
-  // settings-panel's ↺ button.)
+  // Reset the desktop sidebar's layout; resetOrder() works on the live #sidebar behind us.
   _overlay.querySelector('[data-reset-sidebar]')?.addEventListener('click', (e) => {
     sfx(TOS_SELECT_DEF);
     resetOrder();
@@ -8259,10 +6924,8 @@ function wireTabletSettings() {
     setTimeout(() => { if (btn.isConnected) btn.textContent = 'Reset to Default'; }, 1400);
   });
 
-  // Sound master + per-channel toggles. Use a fresh settings copy (not main.js's
-  // _setAudioEnabled, which would save its own stale snapshot and clobber volume
-  // edits made here) — commit() already runs applySettings, which drives the
-  // AudioEngine enable/disable, exactly as the legacy toggle does.
+  // Use a fresh settings copy, not main.js's _setAudioEnabled (its stale snapshot
+  // clobbers volume edits). commit() runs applySettings, which drives AudioEngine.
   _overlay.querySelectorAll('[data-set-sound]').forEach(el => {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
@@ -8281,7 +6944,7 @@ function wireTabletSettings() {
       render();
     });
   });
-  // Volume sliders — live, no re-render (keeps the drag alive).
+  // Volume sliders: live, no re-render (keeps the drag alive).
   _overlay.querySelectorAll('[data-set-vol]').forEach(el => {
     el.addEventListener('input', () => {
       const key = el.getAttribute('data-set-vol');
@@ -8292,7 +6955,6 @@ function wireTabletSettings() {
       if (label) label.textContent = `${Math.round(parseFloat(el.value) * 100)}%`;
     });
   });
-  // Reset all sound settings (toggles + volumes) back to their defaults.
   _overlay.querySelector('[data-reset-sound]')?.addEventListener('click', () => {
     sfx(TOS_SELECT_DEF);
     const s = loadSettings();
@@ -8301,7 +6963,6 @@ function wireTabletSettings() {
     render();
   });
 
-  // Mature Content — hidden triple-click decoy reveal, then a server-driven toggle.
   _overlay.querySelector('[data-mis-decoy]')?.addEventListener('click', () => {
     _tosMisClicks++;
     if (_tosMisTimer) clearTimeout(_tosMisTimer);
@@ -8317,8 +6978,7 @@ function wireTabletSettings() {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
       const enable = el.getAttribute('data-mis-set') === 'on';
-      // Server-authoritative: send the raw ws message and update optimistically;
-      // the server confirms (or corrects) via the mis_state_update event below.
+      // Optimistic; the server confirms or corrects via mis_state_update.
       const sent = window._sendRaw && window._sendRaw({ type: 'mis_toggle', enable });
       if (sent) tosApplyMis(enable, false);
       else { const st = _overlay.querySelector('[data-mis-status]'); if (st) st.textContent = 'Not connected.'; }
@@ -8326,9 +6986,8 @@ function wireTabletSettings() {
   });
 }
 
-// Drag the panel by its header bar, like the theme editor's floating window
-// (client/shared/settings.js _makeDraggable). Switches from centered
-// (left/top:50% + transform) to an explicit pixel position on first grab.
+// Drag the panel by its header (like settings.js _makeDraggable); switches from
+// centred transform to pixel position on first grab.
 function makeDraggable(panel, handle) {
   if (!panel || !handle) return;
   handle.addEventListener('mousedown', (e) => {
@@ -8354,11 +7013,7 @@ function makeDraggable(panel, handle) {
   });
 }
 
-// One-shot CRT power-on/off sounds — same shape as the TV's local synth defs
-// (client/game/js/panels/tv.js TV_POWER_ON_DEF/TV_POWER_OFF_DEF), defined
-// locally rather than added to the shared sfx-catalog since they're specific
-// to this one panel. Power-off stays a softer confirmation chirp; power-on is
-// back to its original harsher sweep per user request.
+// CRT power-on/off sounds, local to this panel (shaped like tv.js TV_POWER_ON_DEF).
 const CRT_POWER_ON_DEF = {
   id: 'tablet_crt_power_on', category: 'sfx', priority: 3,
   config: { waveform: 'triangle', freq: 60, duration: 0.4, noiseMix: 0.25, pitchBend: { to: 700, time: 0.28 }, filter: { type: 'lowpass', freq: 3400, q: 1 }, adsr: { a: 0.004, d: 0.18, s: 0.25, r: 0.18 } },
@@ -8369,9 +7024,7 @@ const CRT_POWER_OFF_DEF = {
 };
 const TABLET_SFX_GAIN = 0.55; // soft — a register-blip, not a chime you'd notice repeatedly
 
-// Void-trip boot cues — only ever heard on the first tablet open of a crossing
-// (runVoidFindingSignal / openTabletPanel). VOID_POWER_ON is the "weird different"
-// power-on: heavier noise, a slower/uglier sweep than the normal CRT_POWER_ON.
+// Void-trip boot cues, first open of a crossing only. VOID_POWER_ON is the uglier one.
 const VOID_POWER_ON_DEF = {
   id: 'tablet_void_power_on', category: 'sfx', priority: 3,
   config: { waveform: 'sawtooth', freq: 44, duration: 0.6, noiseMix: 0.55, pitchBend: { to: 260, time: 0.5 }, filter: { type: 'lowpass', freq: 1800, q: 1.4 }, adsr: { a: 0.01, d: 0.3, s: 0.3, r: 0.28 } },
@@ -8391,13 +7044,8 @@ const VOID_SIGNAL_FOUND_DEF = { // the "lock" chime the instant the weak carrier
   ] },
 };
 
-// Selection/navigation clicks. Tablet screens reused the shared hololock-set/
-// hololock-entry catalog cues (tuned sharp on purpose for that hacking
-// minigame's tension) for every pill click, tab switch, and zone tap — which
-// gets grating fast on a device you click through constantly. These are local,
-// softer stand-ins: same "yes, that registered" function, much quieter and
-// shorter, and don't touch the catalog cues hololock/corp-console/corp-map/
-// fishing/cockpit still rely on.
+// Soft local selection clicks. The shared hololock cues are too sharp for a device you
+// click constantly, and other panels still rely on them.
 const TOS_SELECT_DEF = {
   id: 'tos_select', category: 'sfx', priority: 4,
   config: { duration: 0.06, layers: [
@@ -8412,10 +7060,7 @@ const TOS_ENTRY_DEF = {
 };
 
 // ── FM-synth cues for the fake ARCHITECT arcade app ──────────────────────────
-// A metallic little voice for the "game inside the game": every layer drives a
-// modulator into the carrier's frequency (fm:{rate,depth}) for that DX-era
-// inharmonic clang the plain UI beeps deliberately avoid. Kept low-gain so the
-// toy stays a toy under the real tablet chrome.
+// Every layer FMs its carrier for a DX-era clang. Kept low-gain.
 const FK_JACK_DEF = { // JACK IN → uplink handshake: a rising FM zap that "connects"
   id: 'fk_jack', category: 'sfx', priority: 4,
   config: { duration: 0.34, layers: [
@@ -8464,9 +7109,7 @@ const CRT_ANIM_MS = 600;  // matches @keyframes tv-crt-poweron's 0.6s duration
 const CRT_OFF_ANIM_MS = 550; // matches @keyframes tv-crt-shutoff's 0.55s duration
 const BOOT_HOLD_MS = 1000; // "ARCHITECT OS" boot screen hold, per spec
 
-// CRT power-off, mirroring tv.js's shutdownTvPanel: play the shutoff sound,
-// collapse the tube via the same tv-crt-shutoff keyframes, then actually tear
-// down the overlay once the animation finishes.
+// CRT power-off, like tv.js shutdownTvPanel: sound, collapse, then tear down.
 function shutdownTablet() {
   if (!_overlay) return;
   const panel = _overlay.querySelector('.tos-panel');
@@ -8482,44 +7125,32 @@ export function openTabletPanel(msg) {
   ensureChassisStyles();
   ensureStyles();
   _data = msg;
-  // `install: <appId>` — the server telling us an app just ARRIVED (see
-  // installTabletApp in plugins/tablet/index.js). Arm it before the first render so
-  // the tile is dressed the moment it exists, and page-hunted for if it isn't on
-  // page one. The tablet opening at all is the other half of the announcement.
+  // 'install: <appId>': an app just arrived (installTabletApp). Arm it before the
+  // first render so the tile is dressed at once.
   if (msg.install) beginInstall(msg.install);
-  // Consume the one-shot boot-skip flag on every open so it can't leak into a
-  // later normal open (it only actually changes anything on a first/fresh open).
+  // Consume the boot-skip flag on every open so it can't leak into a later one.
   const skip = _skipBoot; _skipBoot = false;
-  // First tablet open of a void crossing gets the FINDING SIGNAL ritual instead of
-  // the normal boot-and-done; every later open this same crossing (or any open
-  // while already on the grid) is a normal open. Consumed unconditionally the
-  // moment we're off-grid — even a skip-open "arrives" and uses up the trip's intro,
-  // so a later full open doesn't suddenly surprise-fire it mid-crossing.
+  // First open of a void crossing gets the firmware ritual. Consumed the moment we're
+  // off-grid, even by a skip-open, so it can't fire mid-crossing later.
   const voidIntro = !skip && isOnCrossing() && !_voidTripPrimed;
   if (isOnCrossing()) {
     _voidTripPrimed = true;
-    // Off-grid and no carrier locked yet (fresh crossing, or a skip-open that never
-    // played the firmware boot) → the OS comes up SEARCHING until you move it.
+    // Off-grid, no carrier yet → SEARCHING until you move it.
     if (!_voidLocked) _voidSearching = true;
   }
 
-  // Keep the Settings screen's MIS toggle in step with the server (player_update
-  // dispatches mis_state_update). Bound once; harmless when Settings isn't shown.
+  // Keep the MIS toggle in step with the server; bound once.
   if (!_tosMisListenerBound) {
     _tosMisListenerBound = true;
     document.addEventListener('mis_state_update', (e) => tosApplyMis(e.detail?.enabled, e.detail?.server_disabled));
   }
 
-  // Reuse the live overlay only if it's still in the DOM. mountOverlay's own ESC
-  // handler can tear the node out (calling our onClose) without our close() path
-  // running — if we didn't also null _overlay there, a stale detached reference
-  // would make every later open render into nothing until a page refresh. Guard
-  // on isConnected so a detached _overlay is treated as closed and rebuilt.
+  // ⚠ Reuse the overlay only if isConnected: mountOverlay's ESC can detach it without
+  // our close(), and a stale node renders into nothing until refresh.
   if (_overlay && !_overlay.isConnected) { close(); }
 
   if (!_overlay) {
-    // "Inv" shortcut (and any other fast-open path) skips the CRT power-on + boot
-    // hold: no powering-on animation, no boot screen, render the real screen at once.
+    // Fast-open paths (the "Inv" shortcut) skip the power-on and boot screen.
     const html = `<div class="tos-anchor"><div class="tos-panel mg-chassis${skip ? '' : ' tos-powering-on'}">
       ${deviceHeader('&#9635;', 'ARCHITECT OS', 'Tablet Interface')}
       <div class="tos-bezel mg-bezel">${bezelScrews()}<div class="tos-screen mg-screen" id="tos-screen-inner">
@@ -8532,10 +7163,8 @@ export function openTabletPanel(msg) {
         <div class="tos-void-hunt">◈ Searching for signal, move the tablet</div>
       </div></div>
     </div></div>`;
-    // onClose runs whenever the overlay is torn down by ANY path (including
-    // mountOverlay's ESC handler, which bypasses our shutdownTablet/close). Route
-    // it through close() so _overlay is always nulled — otherwise the next open
-    // reuses a dead reference and the tablet silently fails to appear.
+    // ⚠ onClose fires on ANY teardown (including mountOverlay's ESC). Route through
+    // close() so _overlay is always nulled.
     const mounted = mountOverlay({ id: 'tablet-os-overlay', html, onClose: () => { close(); }, closeOnBackdrop: false });
     _overlay = mounted.overlay;
     _close = mounted.close;
@@ -8548,14 +7177,12 @@ export function openTabletPanel(msg) {
     if (skip) {
       render(); // straight to content, no boot ceremony
     } else if (voidIntro) {
-      // Weird, harsher power-on this once, then straight into FINDING SIGNAL
-      // instead of the usual boot-and-done — see runVoidFindingSignal.
+      // The void power-on, then the firmware boot (runVoidFindingSignal).
       window.AudioEngine?.playSfx(VOID_POWER_ON_DEF);
       setTimeout(runVoidFirmwareBoot, CRT_ANIM_MS);
     } else {
       window.AudioEngine?.playSfx(CRT_POWER_ON_DEF);
-      // CRT expands (0.6s), "ARCHITECT OS" holds for ~1s, then the real screen
-      // (home, or whatever screen this open navigated straight to) renders in.
+      // CRT expands (0.6s), "ARCHITECT OS" holds ~1s, then the screen renders.
       setTimeout(render, CRT_ANIM_MS + BOOT_HOLD_MS);
     }
     return;
@@ -8563,35 +7190,29 @@ export function openTabletPanel(msg) {
   render();
 }
 
-// Smart bar "Inv" shortcut: open the tablet straight to the Gear app's Inventory
-// tab with no CRT boot delay. Sets the client-side tab + boot-skip flag, then asks
-// the server for the gear screen (a tablet_panel message, which opens the shell).
+// Smart bar "Inv": open straight to the Gear app's Inventory tab, no boot delay.
 export function openTabletToInventory() {
   _gearTab = 'inventory';
   _skipBoot = true;
   sendCmdSilent('tabletnav gear');
 }
 
-// Open the tablet Gear app on the Loadout tab (the paperdoll) — the replacement
-// for the retired desktop `#gear-panel`. Same skip-boot fast-path as Inventory.
+// Open Gear on the Loadout tab (the paperdoll), skip-boot.
 export function openTabletToLoadout() {
   _gearTab = 'loadout';
   _skipBoot = true;
   sendCmdSilent('tabletnav gear');
 }
 
-// Open the tablet straight to the Map app — the single city-map surface now that
-// the standalone bigmap popup is retired. The minimap double-click routes here (via
-// the injected opener in minimap.js) and the typed `map` command lands here too (see
-// dispatch.js). Skip-boot for a snappy open. `arg` carries an optional zoom stop.
+// Open straight to the Map app (minimap double-click and the typed 'map' command).
+// 'arg' is an optional zoom stop.
 export function openTabletToMap(arg) {
   _skipBoot = true;
   sendCmdSilent('tabletnav map' + (arg ? ' ' + arg : ''));
 }
 
-// If the tablet is open on the Map app, silently re-fetch it at the current zoom so
-// the "you're here" marker + window follow the player as they move (the replacement
-// for the retired popup's refreshMapIfOpen). Returns whether it refreshed.
+// If open on the Map app, silently re-fetch at the current zoom so the marker follows
+// the player. Returns whether it refreshed.
 export function refreshTabletMapIfOpen() {
   if (_overlay && _overlay.isConnected && _data?.appId === 'map' && _data?.view === 'map') {
     sendCmdSilent('tabletnav map ' + _tosMapZoomArg(_data));
@@ -8600,29 +7221,22 @@ export function refreshTabletMapIfOpen() {
   return false;
 }
 
-// Open the tablet Quests app straight to a specific quest's detail screen — used
-// when a locked ("finish the job first") turn-in option in an NPC dialogue is
-// tapped, so the player lands on the objectives instead of a dead button. The
-// quest detail is keyed purely by the id param (quests-app buildScreen), so any
-// non-board screen token works ('active' keeps the normal category breadcrumb).
+// Open Quests on one quest's detail (a locked dialogue turn-in links here). Detail is
+// keyed by the id param, so any non-board token works; 'active' keeps the crumb.
 export function openTabletToQuest(questId) {
   if (!questId) return;
   _skipBoot = true;
   sendCmdSilent(`tabletnav quests active ${questId}`);
 }
 
-// Open the tablet straight to the Quests app root (the category/quest list) — the
-// smartbar "Quests" anchor beside "Inv". Skip-boot for a snappy open, same as the
-// other deep-links.
+// Open the Quests root (the smartbar "Quests" anchor), skip-boot.
 export function openTabletToQuests() {
   _skipBoot = true;
   sendCmdSilent('tabletnav quests');
 }
 
-// If the tablet is open on the Gear app, silently re-fetch it so an equip/unequip
-// that happened elsewhere (a typed command, a macro, a script) reflects on the
-// paperdoll. Returns whether it refreshed, so the caller can fall back to printing
-// the feedback line when the Gear screen isn't up.
+// If open on Gear, silently re-fetch so an equip done elsewhere shows. Returns whether
+// it refreshed, so the caller can print feedback otherwise.
 export function refreshTabletGearIfOpen() {
   if (_overlay && _overlay.isConnected && _data?.appId === 'gear') {
     sendCmdSilent('tabletnav gear');
@@ -8631,51 +7245,36 @@ export function refreshTabletGearIfOpen() {
   return false;
 }
 
-// Open the tablet straight to the Chat app — the replacement for toggling the
-// floating whisper window. The sidebar 💬 bubble routes here. Skip-boot for a
-// snappy open, same as the other deep-links.
+// Open straight to the Chat app (the sidebar 💬 bubble), skip-boot.
 export function openTabletToChat() {
   _skipBoot = true;
   sendCmdSilent('tabletnav chat');
 }
 
-// Open Chat already on one conversation. The CB's set uses this: pressing it in the cab has to
-// land you on the channel you're TUNED to, not on whichever tab was last selected — a radio that
-// opened somebody else's conversation would be a fault. `_chatTab` is set before the nav because
-// renderChat picks its own default only when the selection is missing or stale.
+// Open Chat on one conversation (the CB set's channel). '_chatTab' is set before the
+// nav because renderChat only picks a default when the selection is missing or stale.
 export function openTabletToChatTab(key) {
   if (key) _chatTab = key;
   openTabletToChat();
 }
 
-// ── SPECTER entry points (replace the retired surveillancehub.js / datachipreplay.js
-// / specterinstall.js popups; the surveillance plugin is untouched) ─────────────
+// ── SPECTER entry points ─────────────────────────────────────────────────────
 
-// Open the tablet Surveillance (SPECTER) app on its live hub — the replacement for
-// the standalone `#shub-panel`. Fired when the server would have pushed a
-// surveillance_hub (i.e. on `hub` / `use spy_deck`).
+// Open SPECTER on its live hub (on 'hub' / 'use spy_deck').
 export function openTabletToSpecter() {
   _skipBoot = true;
   sendCmdSilent('tabletnav specter');
 }
 
-// Open the tablet on the Binder — the shelf, as a surface you can look at rather
-// than a wall of text. The pack reveal's "SEE THE SHELF" button lands here.
-// ⚠ It used to send `cards`, which is the TYPED reading of the shelf and prints
-// every card you own into the log: the one moment a player has just been shown
-// their collection as objects was also the one that answered with a page of text.
-// The verb is still there for anybody who wants to type it — this is about which
-// surface a BUTTON opens.
+// Open on the Binder (the pack reveal's "SEE THE SHELF"). Not 'cards': that's the
+// typed reading and prints the whole shelf into the log.
 export function openTabletToBinder() {
   _skipBoot = true;
   sendCmdSilent('tabletnav binder');
 }
 
-// Play a datachip clip in the tablet's own reel viewer. The server already
-// authorised this (the player is carrying the chip) and hands us the full frames,
-// so we render the payload directly rather than re-fetching through the owner-gated
-// Microreels path — that keeps replay working for traded/found evidence chips whose
-// clip the viewer doesn't own. Mirrors the retired datachipreplay.js overlay.
+// Play a datachip clip in the reel viewer straight from the payload. The server
+// already authorised it, and the Microreels path is owner-gated (traded chips).
 export function openTabletToReel(clip) {
   if (!clip) return;
   _skipBoot = true;
@@ -8688,12 +7287,8 @@ export function openTabletToReel(clip) {
   });
 }
 
-// The SPECTER firmware-install ceremony, folded into the tablet shell. The install
-// already happened server-side (the flag is set, the program burned) before the
-// `specter_install` push arrives; this is purely the cosmetic flash. We open the
-// tablet straight to Surveillance and overlay a firmware-flasher inside the CRT
-// screen, then fade it to reveal the (now-installed) hub underneath. Ported from
-// the retired specterinstall.js, retinted to the tablet's own accent tokens.
+// SPECTER firmware-install ceremony: purely cosmetic (the install already happened
+// server-side). Opens Surveillance and flashes a firmware overlay inside the CRT.
 export function openTabletSpecterInstall(msg) {
   openTabletToSpecter();          // tablet → Surveillance (installed) underneath
   mountSpecterInstallFlash(msg, 0);
@@ -8753,8 +7348,7 @@ function ensureSpecterInstallStyles() {
   document.head.appendChild(s);
 }
 
-// Mount the flasher inside the tablet's CRT screen once the shell exists (the
-// tabletnav open is async, so retry briefly). Self-removes when done or dismissed.
+// Mount the flasher once the shell exists (tabletnav is async, so retry briefly).
 function mountSpecterInstallFlash(msg, tries) {
   const screen = _overlay?.querySelector('#tos-screen-inner');
   if (!screen) {
@@ -8821,19 +7415,15 @@ function mountSpecterInstallFlash(msg, tries) {
   after(flashStart + flashDur + 4200, done);   // auto-dismiss backstop
 }
 
-// Read-only snapshot of the last-loaded inventory payload (populated when the
-// player opens their Gear/Inventory). Used by smartbar macros for item-action
-// hints and "do I have X" checks. It's a snapshot, not a live mirror — empty
-// until the tablet gear screen has been fetched at least once this session.
+// Read-only snapshot of the last inventory payload, for smartbar macro hints. Empty
+// until the Gear screen has been fetched this session.
 export function getTabletInventory() {
   return _data?.inventory || [];
 }
 
 // ── Arcade app: "ARCHITECT" (a fake game inside the game) ────────────────────
-// Everything below runs client-side against #tos-fake-root. Login → boot lines
-// → a tiny live MUD terminal (canned room + ambient ticker + local command
-// echo), with a tablet you can tap that pops a shrunk recreation of this very
-// tablet (a tappable-but-inert home grid). No server round trips.
+// All client-side in #tos-fake-root: login, boot, a canned MUD terminal, and a
+// mini-tablet that nests.
 
 const FK_AMBIENT = [
   'Rain ticks off the corrugated awning overhead.',
@@ -8847,7 +7437,7 @@ const FK_AMBIENT = [
   'A cop-drone sweeps the alley mouth with a red eye, then loses interest.',
 ];
 
-// Mini-tablet home grid — a recreation of the real app roster (labels + icons).
+// Mini-tablet home grid: a copy of the real roster.
 const FK_MINI_APPS = [
   { ic: '📋', nm: 'Quests' }, { ic: '📊', nm: 'Skills' }, { ic: '💰', nm: 'Bank' },
   { ic: '⛅', nm: 'Weather' }, { ic: '🗺️', nm: 'Map' }, { ic: '🚗', nm: 'Vehicles' },
@@ -8944,7 +7534,6 @@ function fkShowTerm(root, handle) {
   _fakeTimer = setInterval(ambient, 6500);
 
   root.querySelector('#tos-fk-tabbtn').addEventListener('click', openMini);
-  // Any underlined noun tagged data-fk-buzz opens the tablet; chips run as commands.
   const wireLinks = () => root.querySelectorAll('[data-fk-buzz]').forEach(el => {
     if (el._wired) return; el._wired = true;
     el.addEventListener('click', openMini);
@@ -8973,9 +7562,7 @@ function fkShowTerm(root, handle) {
   setTimeout(() => { if (_overlay && _overlay.contains(input)) input.focus(); }, 30);
 }
 
-// The opening room look — mirrors the real game's look-pane structure: bold
-// accent room name + [SAFE] badge, italic district line, description with inline
-// nouns, then Furniture / NPCs / Exits / Buildings lines in the game palette.
+// The opening room look, in the real look-pane structure.
 function fkRoomLook(push) {
   push('RUST ALLEY<span class="tos-fk-safe">SAFE</span>', 'tos-fk-room');
   push('· the Neon Quarter ·', 'tos-fk-dist');
@@ -9042,12 +7629,10 @@ function fkOpenMini(root) {
   const scrim = document.createElement('div');
   scrim.className = 'tos-fk-mini-scrim';
   root.appendChild(scrim);
-  // Tapping the dim backdrop closes the whole nested stack.
   scrim.addEventListener('click', e => { if (e.target === scrim) scrim.remove(); });
   fkSpawnNest(scrim, 0);
 }
 
-// The wide landscape tablet (matches the desktop shape).
 function fkTabletHTML() {
   const grid = FK_MINI_APPS.map((a, idx) =>
     `<div class="tos-fk-app" data-fk-app="${idx}"><span class="ic">${a.ic}</span><span class="nm">${esc(a.nm)}</span></div>`).join('');
@@ -9062,7 +7647,6 @@ function fkTabletHTML() {
     </div>`;
 }
 
-// A compact fake game screen (the terminal look pane) that a tablet pops up over.
 function fkGameScreenHTML() {
   return `<div class="tos-fk-gamescreen">
       <div class="tos-fk-gs-hud"><span class="hp">HP 178/178</span><span>SAN 100</span><span>STA 100</span><span class="cr">₵ 10,555</span><span>WANTED ✦✦</span></div>
@@ -9073,17 +7657,12 @@ function fkGameScreenHTML() {
     </div>`;
 }
 
-// One nested level inside the fake ARCHITECT window, scaled down 0.72× per level.
-// Level 0 is just the tablet (over the real terminal). Every deeper level is the
-// whole GAME SCREEN with a tablet popping up on it — so tapping ARCHITECT drops you
-// "into the game", and its tablet's ARCHITECT drops you into the game again, smaller
-// and smaller until the tiles are too small to click. Each level sits in a
-// pointer-events:none centring layer so taps fall through empty space to the level
-// (or backdrop) below; ✕/home (or a backdrop tap) closes the whole stack at once.
+// One nested level, scaled 0.72× per level: each deeper level is the whole game screen
+// with a tablet on it. Levels sit in pointer-events:none layers so taps fall through;
+// ✕/home or a backdrop tap closes the whole stack.
 function fkSpawnNest(scrim, depth) {
   const scale = Math.pow(0.72, depth);
   if (scale < 0.1) return; // past here it's too small to bother clicking
-  // First tap into the game → a shaky banner on the real tablet's top bar.
   if (depth === 1 && !scrim.querySelector('.tos-fk-caption')) {
     const cap = document.createElement('div');
     cap.className = 'tos-fk-caption';
@@ -9098,8 +7677,7 @@ function fkSpawnNest(scrim, depth) {
     : `<div class="tos-fk-gamewrap">${fkGameScreenHTML()}${fkTabletHTML()}</div>`;
   scrim.appendChild(layer);
 
-  // ✕ / home closes the ENTIRE nested stack at once — the whole scrim (every layer
-  // + the caption) goes together, so nothing lingers behind the closing window.
+  // ✕ / home closes the whole stack at once.
   const closeStack = () => scrim.remove();
   layer.querySelector('.tos-fk-mini-x').addEventListener('click', closeStack);
   layer.querySelector('.tos-fk-mini-home').addEventListener('click', closeStack);
@@ -9129,8 +7707,7 @@ function render() {
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; } // fakeplay remounts its own ticker
   if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; _reelPlaying = false; } // leaving/re-rendering stops reel playback
 
-  // An action that actually landed us on a different screen counts as a level for
-  // Back (see the Back stack). One that just toggled something in place does not.
+  // An action that changed the screen counts as a Back level.
   const sig = screenSig(_data);
   if (_lastWasAct && sig !== _navSig) _actDepth++;
   _lastWasAct = false;
@@ -9138,10 +7715,8 @@ function render() {
 
   const survLive = _data.view === 'surveillance' && !!_data.live;
   const isChat = _data.view === 'chat';
-  // A live surveillance poll refreshes in place — keep the operator's scroll spot
-  // instead of yanking to the top every 5s. A live quest refresh (an objective
-  // ticking while the player reads the screen) preserves it the same way, via a
-  // one-shot flag. Every other (real) nav starts at top.
+  // Live refreshes (surveillance poll, quest update via a one-shot flag) keep scroll;
+  // every other nav starts at top.
   const keepScroll = (survLive && _wasSurvLive) || _keepQuestScroll || _keepThemeScroll || _keepGearScroll || _keepNewsScroll;
   _keepQuestScroll = false;
   _keepThemeScroll = false;
@@ -9149,9 +7724,7 @@ function render() {
   _keepNewsScroll = false;
   const prevTop = scroll.scrollTop;
 
-  // Chat re-renders on every incoming/outgoing message (via the subscription).
-  // Preserve the reply input's text + focus across that full rebuild so a
-  // message arriving mid-typing doesn't wipe what the player is writing.
+  // Chat re-renders on every message: keep the reply text and focus.
   let chatInputState = null;
   if (isChat) {
     const ci = _overlay.querySelector('#tos-chat-input');
@@ -9164,15 +7737,12 @@ function render() {
   wireBody();
   applyTabletTheme();
 
-  // An arriving app fills in on the home grid. Only on Home — navigating into an
-  // app mid-install simply leaves it armed, and it picks up where it left off the
-  // moment the grid is back on screen.
+  // Install fill runs only on Home; elsewhere it stays armed.
   if (_install && (_data.screen === 'home' || !_data.appId)) tickInstall();
 
   if (_data.view === 'fakeplay') mountFakePlay();
   if (_data.view === 'reel') wireReel();
-  // The TV app mounts the shared broadcast renderer into its viewport (and tears it
-  // down whenever we navigate away, so the portable tuner is dropped server-side).
+  // TV mounts the shared renderer; leaving tears it down (dropping the portable tuner server-side).
   if (_data.view === 'tv') mountTabletTv(); else unmountTabletTv();
   if (_data.view === 'worldmap') mountWorldmap(); else unmountWorldmap();
 
@@ -9187,8 +7757,7 @@ function render() {
         if (chatInputState.focused) { ci.focus(); try { ci.setSelectionRange(chatInputState.start, chatInputState.end); } catch {} }
       }
     }
-    // Live re-render when whisper.js's chat state changes (new message, etc.).
-    // First entry into chat also pulls a fresh online list for the "New" strip.
+    // Re-render on whisper.js changes; first entry pulls a fresh online list.
     if (!_chatUnsub) {
       _chatUnsub = onChatUpdate(() => render());
       refreshOnlinePlayers().then(() => { if (_data?.view === 'chat') render(); });
@@ -9203,60 +7772,23 @@ function render() {
   if (_data?.view === 'deadhead' && _data.deadhead?.moving) _dhTimer = setInterval(pollDeadhead, 2000);
 
   applyVoidMode(); // cosmetic off-grid theming, re-applied on every render
-  // The home screen shows the live sky behind the grid; every other screen is a
-  // document and gets the flat background it always had.
+  // Wallpaper on Home only.
   if (_data.screen === 'home' || !_data.appId) startWallpaper(_data.sky); else stopWallpaper();
 
-  // First home screen a player ever sees gets the short tablet walkthrough. It
-  // no-ops on every subsequent open (localStorage), and it waits for the boot to
-  // settle, so this costs one flag read per render.
+  // First home screen ever gets the tablet walkthrough (localStorage flag).
   if (_data.screen === 'home' || !_data.appId) maybeTabletTour();
 }
 
 // ── Animated wallpaper ───────────────────────────────────────────────────────
-// The home screen's backdrop: the sky as it actually is outside, drawn from the
-// `sky` snapshot the home payload carries (in-memory engine state — see
-// buildHomePayload). Sun/moon position comes from the game clock, the palette from
-// the time phase, and the particles from the live weather, so opening the tablet
-// during an acid storm at 3am looks nothing like opening it at noon.
-//
-// It is deliberately cheap and deliberately optional: one canvas, no images, a
-// single rAF that only runs while Home is on screen, and with motion off it paints
-// exactly one static frame. Indoors it dims right down — you can't see the weather
-// through a wall, but the device still knows the hour.
+// Off by default; chosen per device under Settings → General → Wallpaper. One canvas,
+// one rAF only while Home is shown, one static frame with motion off. Sky reads the
+// home payload's 'sky' snapshot (buildHomePayload) and dims indoors.
 let _wallRaf = null;
 let _wallState = null;   // { sky, drops:[], stars:[], w, h }
 
-// ── The wallpaper catalog ────────────────────────────────────────────────────
-// OFF BY DEFAULT. A wallpaper is a thing you choose, not a thing the device does
-// at you — and the home screen's job is to launch apps, so the honest default is
-// a flat themed screen. Chosen under Settings → General → Wallpaper; the choice
-// lives on the tablet theme record (per device, like the theme itself).
-//
-// EVERY ONE IS DERIVED FROM THE THEME. Nothing here hardcodes a colour: each
-// painter is handed `st.c` — the live --bg / --bg2 / --mg-accent / --tos-fg read
-// off the overlay, PLUS the three hues rotated off that accent (see wallColors) —
-// and mixes from those, so switching theme moves the wallpaper
-// with it instead of leaving a blue sky over a green terminal. The sky's
-// time-of-day tone is a *cast* blended into the theme's own background rather
-// than a palette of its own, which is what keeps it recognisably your theme at
-// 3am and at noon.
-//
-// And they stay QUIET: contrast is capped in CSS (.tos-wall.on), colour is carried
-// at low alpha over a darkened ground, every painter finishes on a vignette that
-// pulls the corners back under the tiles, and every one is a no-op with motion off
-// after its first static frame. Colour is not brightness — a magenta at 0.2 alpha
-// behind a vignette is more interesting than a grey at 0.4 and costs less
-// legibility. If you can read the tile labels without effort, it's working.
-//
-// STRENGTH IS PER-WALLPAPER (`s`), not one number for the set. The first pass gave
-// every pattern the same 0.34 and they all read as the same faint grey texture —
-// which is the failure mode a wallpaper picker exists to avoid. A lattice of hairlines
-// and a field of soft colour do NOT want the same opacity: the lattice is mostly empty
-// pixels and can carry 0.6 without touching legibility, while an aurora fills the whole
-// screen and would drown the tile labels there. Each one is set to where IT stops being
-// noticeable, and the tile labels stay readable because the tiles are raised surfaces
-// with their own background — the wallpaper is behind them, never under the text.
+// Every painter derives colour from the theme (st.c, see wallColors); never hardcode
+// one. Strength is per wallpaper ('s'): a hairline lattice and a full-screen aurora
+// need different opacities to land equally quiet.
 const TABLET_WALLPAPERS = [
   { id: 'none',     label: 'None' },
   { id: 'sky',      label: 'Sky',      s: 0.50 },  // live weather + game clock
@@ -9284,17 +7816,8 @@ function saveWallpaper(id) {
   saveTabletTheme(t);
 }
 
-// The theme's live colours, resolved once per start (cheap, and they only change
-// on a re-render, which restarts the wallpaper anyway).
-//
-// COLOUR IS DERIVED, NEVER AUTHORED. The theme hands over exactly one accent, and a
-// set of painters that only ever use that one accent reads as thirteen shades of the
-// same grey texture — which is what the first pass was. So the accent is ROTATED on
-// the colour wheel into a small fixed palette (a complement, a neighbour, one warm)
-// and every painter draws from that instead. Rotating rather than hardcoding is what
-// keeps a green terminal green: the relationships travel with the theme, only the
-// spread is ours. Saturation is clamped at both ends — floored so a greyscale theme
-// still gets some chroma, capped so no theme can turn the home screen into a rave.
+// The theme's live colours, resolved once per start. The accent is ROTATED into a
+// small palette (complement, neighbour, one warm); saturation is floored and capped.
 function wallColors(el) {
   const cs = getComputedStyle(el);
   const pick = (v, fb) => (cs.getPropertyValue(v) || '').trim() || fb;
@@ -9304,21 +7827,16 @@ function wallColors(el) {
     bg2: pick('--bg2', '#1a2226'),
     accent,
     fg: pick('--tos-fg', '#dfe9f5'),
-    // The complement. Against a cyan accent this lands on magenta, which is the
-    // whole cyberpunk chord in one rotation — and it is the colour used LEAST.
+    // The complement, used least.
     hot: wallShift(accent, 152, { sat: 1.18, lift: 0.03 }),
-    // A neighbour, rotated the same way as the complement so the three sit as a
-    // proper split spread. Against cyan it lands on a deep azure. This one does
-    // most of the colour work — an analogous pair adds depth without ever looking
-    // like two systems fighting.
+    // A neighbour: does most of the colour work.
     cool: wallShift(accent, 38, { sat: 1.08 }),
-    // One warm, for sodium light and filament glow. Sparingly — it's the loudest.
+    // One warm, sparingly.
     amber: wallShift(accent, -145, { sat: 1.15, lift: 0.05 }),
   };
 }
 
-// Rotate a colour's hue, with saturation floored/capped so the result is always a
-// colour rather than a grey, and never a fluorescent one.
+// Rotate a hue with saturation floored and capped.
 function wallShift(col, deg, opts = {}) {
   const A = wallRgb(col);
   if (!A) return col;
@@ -9326,8 +7844,7 @@ function wallShift(col, deg, opts = {}) {
   const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
   let l = (mx + mn) / 2;
   let s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
-  // A greyscale theme has no hue to rotate FROM, so it borrows one. It still ends
-  // up desaturated-looking because the floor is low, but the set stops being flat.
+  // A greyscale theme has no hue to rotate from, so it borrows one.
   let hdeg = !d ? 195
     : mx === r ? 60 * (((g - b) / d) % 6)
     : mx === g ? 60 * (((b - r) / d) + 2)
@@ -9343,8 +7860,7 @@ function wallShift(col, deg, opts = {}) {
   return `rgb(${trio.map(v => Math.round((v + m) * 255)).join(',')})`;
 }
 
-// A soft point of light. Every painter that wants glow uses this rather than
-// shadowBlur, which is the one canvas feature that would actually cost frames here.
+// A soft point of light. Use this, never shadowBlur (the one costly canvas feature here).
 function wallGlow(ctx, x, y, r, col, a) {
   const g = ctx.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, wallAlpha(col, a));
@@ -9354,9 +7870,7 @@ function wallGlow(ctx, x, y, r, col, a) {
   ctx.fillRect(x - r, y - r, r * 2, r * 2);
 }
 
-// The corner-darkening every painter finishes on. It's what stops a full-bleed
-// pattern from crowding the tiles at the edges, and it's why colour can be pushed
-// harder in the middle than it could be flat.
+// The vignette every painter finishes on.
 function wallVignette(ctx, w, h, a = 0.34) {
   const g = ctx.createRadialGradient(w / 2, h * 0.46, Math.min(w, h) * 0.26, w / 2, h * 0.5, Math.hypot(w, h) * 0.6);
   g.addColorStop(0, 'rgba(0,0,0,0)');
@@ -9365,9 +7879,7 @@ function wallVignette(ctx, w, h, a = 0.34) {
   ctx.fillRect(0, 0, w, h);
 }
 
-// A time-of-day CAST, expressed as an accent-independent tint plus a weight. The
-// painter blends this INTO the theme background, so the result is the player's own
-// palette leaning warm at dusk and cold at 3am — not a stock blue sky.
+// A time-of-day CAST (tint + weight) blended into the theme background.
 const WALL_CASTS = {
   night:   ['#0a1020', 0.55],
   dawn:    ['#6a4250', 0.30],
@@ -9381,9 +7893,7 @@ function wallPhase(sky) {
   return m < 270 ? 'night' : m < 390 ? 'dawn' : m < 630 ? 'morning'
     : m < 1020 ? 'day' : m < 1140 ? 'evening' : m < 1290 ? 'dusk' : 'night';
 }
-// Mix two CSS colours the cheap way — through a canvas-friendly rgb tuple. Only
-// hex and rgb() ever reach this (theme vars are one or the other); anything else
-// falls back to the base so a wallpaper can never render as transparent nothing.
+// Mix two CSS colours. Only hex and rgb() reach this; anything else falls back to the base.
 function wallRgb(c) {
   const s = String(c || '').trim();
   let m = /^#([0-9a-f]{3})$/i.exec(s);
@@ -9404,8 +7914,7 @@ function wallAlpha(c, a) {
   const A = wallRgb(c);
   return A ? `rgba(${A[0]},${A[1]},${A[2]},${a})` : c;
 }
-// Which particle system the weather calls for. Anything unrecognised falls through
-// to 'none', so a new weather type degrades to a plain sky rather than an error.
+// Weather → particle system; unknown types fall to 'none'.
 function wallPrecip(type) {
   const t = String(type || '').toLowerCase();
   if (t.includes('acid')) return 'acid';
@@ -9424,36 +7933,26 @@ function initWallState(sky, w, h, mode, c) {
   const rnd = (a, b) => a + Math.random() * (b - a);
   return {
     sky, w, h, precip, mode, c,
-    // Drift's motes. Sparse on purpose — 26 across a whole screen reads as air, not
-    // as snow; a dozen more and it becomes weather you didn't ask for.
-    // `hue` is an index into the painter's palette and is fixed FOR LIFE — picking
-    // per frame would strobe every mote through three colours at 60fps.
+    // Drift motes: 26, sparse on purpose. 'hue' is fixed for life (per frame strobes).
     motes: Array.from({ length: 30 }, () => ({
       x: rnd(0, w), y: rnd(0, h), v: rnd(.08, .28), r: rnd(.8, 2.1), o: rnd(.2, .6), big: Math.random() < 0.25,
       hue: Math.random() < 0.42 ? 0 : Math.random() < 0.6 ? 1 : Math.random() < 0.5 ? 2 : 3,
     })),
-    // Scan's contacts: fixed positions on the scope, lit by the beam passing over
-    // them rather than by any spawn logic of their own.
+    // Scan contacts: fixed positions, lit by the beam.
     blips: Array.from({ length: 9 }, () => ({ a: rnd(0, 6.283), r: rnd(.16, .92), hot: Math.random() < 0.3 })),
-    // Wind shears the fall; a still day drops straight down.
     shear: Math.max(-1.4, Math.min(1.4, (sky?.windKph || 0) / 40)),
     drops: Array.from({ length: n }, () => ({ x: rnd(0, w), y: rnd(0, h), v: rnd(.5, 1.4), len: rnd(4, 14), o: rnd(.25, .8) })),
-    // Stars only exist at night and only outdoors; drawn once into the state so
-    // they don't twinkle their way across the sky between frames.
+    // Stars: night and outdoors only, built once into the state.
     stars: Array.from({ length: 46 }, () => ({ x: Math.random(), y: Math.random() * .62, r: rnd(.4, 1.1), o: rnd(.2, .9) })),
   };
 }
 
-// Each wallpaper is one painter, all handed the same state. `st.c` is the LIVE
-// theme (see wallColors) — no painter may hardcode a colour, which is what makes
-// every one of these follow the theme instead of sitting on top of it.
+// One painter per wallpaper, all handed the same state. No painter may hardcode a colour.
 const WALL_PAINTERS = {
   // ── Sky: the live weather and the game clock, cast over your theme ──────────
   sky(ctx, st, t) {
     const { w, h, sky, c } = st;
     const [castCol, castW] = WALL_CASTS[wallPhase(sky)] || WALL_CASTS.day;
-    // The theme's own two backgrounds, leaned toward the hour. Your palette at 3am
-    // and your palette at noon — never a stock blue over a green terminal.
     const g = ctx.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, wallMix(c.bg, castCol, castW));
     g.addColorStop(1, wallMix(c.bg2, castCol, castW * 0.72));
@@ -9473,46 +7972,36 @@ const WALL_PAINTERS = {
       ctx.globalAlpha = 1;
     }
 
-    // Sun/moon: a straight arc from 06:00 to 18:00, mirrored overnight. The disc is
-    // the theme's foreground at night and its accent by day — even the sun is yours.
+    // Sun/moon on a straight arc 06:00-18:00, mirrored overnight.
     const dayFrac = night ? ((m + 360) % 1440) / 720 : (m - 360) / 720;
     const cx = w * Math.max(-0.1, Math.min(1.1, dayFrac));
     const cy = h * (0.78 - 0.52 * Math.sin(Math.PI * Math.max(0, Math.min(1, dayFrac))));
-    // The disc gets a bloom around it — the sun is the brightest thing on the
-    // screen and a flat circle never reads as light.
     wallGlow(ctx, cx, cy, night ? 46 : 78, night ? c.cool : c.amber, night ? 0.2 : 0.3);
     ctx.globalAlpha = night ? 0.5 : 0.42;
     ctx.fillStyle = night ? c.fg : wallMix(c.accent, c.amber, 0.5);
     ctx.beginPath(); ctx.arc(cx, cy, night ? 9 : 13, 0, 6.284); ctx.fill();
     ctx.globalAlpha = 1;
 
-    // Skyline: deterministic (seeded off x, not random) so it doesn't reshuffle every
-    // re-render. A darkening of the theme, not a black cut-out over it.
+    // Skyline seeded off x, so it doesn't reshuffle per render.
     const base = h * 0.82;
-    // Haze along the rooftops: the city's own light bouncing off the smog, warm at
-    // the hour the sun is low and cold once the streetlights are all there is.
     const haze = ctx.createLinearGradient(0, base - 70, 0, base + 8);
     haze.addColorStop(0, wallAlpha(night ? c.hot : c.amber, 0));
     haze.addColorStop(1, wallAlpha(night ? c.hot : c.amber, night ? 0.16 : 0.2));
     ctx.fillStyle = haze;
     ctx.fillRect(0, base - 70, w, 78);
     const silhouette = wallMix(c.bg, '#000000', 0.5);
-    // Two window hues, chosen by the building's own seed — a block of sodium next
-    // to a block of cold fluorescent is what a city looks like from a distance.
     const litA = wallAlpha(c.amber, 0.75), litB = wallAlpha(c.hot, 0.6), litC = wallAlpha(c.accent, 0.6);
     ctx.fillStyle = silhouette;
     for (let x = -10; x < w + 10; x += 17) {
       const sd = Math.abs(Math.sin(x * 0.7) * 43758.5453) % 1;
       const bh = 16 + sd * 62;
       ctx.fillRect(x, base - bh, 15, bh + 30);
-      // A rooftop mast on the taller ones, with a red-shifted aircraft light.
       if (sd > 0.72) {
         ctx.fillRect(x + 7, base - bh - 7, 1, 7);
         ctx.fillStyle = wallAlpha(c.hot, 0.4 + 0.4 * Math.abs(Math.sin(t / 900 + x)));
         ctx.beginPath(); ctx.arc(x + 7.5, base - bh - 8, 1.5, 0, 6.284); ctx.fill();
         ctx.fillStyle = silhouette;
       }
-      // A few lit windows, same seed, so the city looks inhabited without a texture.
       if (!night && sd < 0.5) continue;
       ctx.fillStyle = sd > 0.66 ? litA : sd > 0.33 ? litC : litB;
       for (let wy = base - bh + 6; wy < base - 6; wy += 11) {
@@ -9526,8 +8015,7 @@ const WALL_PAINTERS = {
       for (let i = 0; i < 3; i++) ctx.fillRect(0, h * (0.35 + i * 0.2) + Math.sin(t / 2600 + i) * 8, w, 26);
     } else if (st.drops.length) {
       const flake = st.precip === 'snow' || st.precip === 'dust';
-      // Acid rain is the one case that earns a hue of its own — it's a warning, and a
-      // warning that matched the wallpaper would not be one.
+      // Acid rain gets its own hue: it's a warning.
       ctx.strokeStyle = st.precip === 'acid' ? 'rgba(150,220,110,.7)' : wallAlpha(c.fg, 0.5);
       ctx.fillStyle = wallAlpha(c.fg, 0.6);
       ctx.lineWidth = 1;
@@ -9546,11 +8034,6 @@ const WALL_PAINTERS = {
   },
 
   // ── Grid: a blueprint lattice, drifting one slow direction ─────────────────
-  // Two hues and three weights: minor lines in the neighbour, majors in the accent,
-  // and a pair of measure lines crossing the sheet like a drafting cursor. The thing
-  // that makes it read as a DRAWING rather than as graph paper is the tick marks —
-  // every major intersection is notched, which is detail the eye finds only if it
-  // looks for it.
   grid(ctx, st, t) {
     const { w, h, c } = st;
     ctx.clearRect(0, 0, w, h);
@@ -9567,14 +8050,12 @@ const WALL_PAINTERS = {
     for (let x = -step + drift; x < w + step; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
     for (let y = -step + drift; y < h + step; y += step) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
     ctx.stroke();
-    // Every fourth line heavier — gives the lattice a scale without more lines.
     const maj = step * 4;
     ctx.strokeStyle = wallAlpha(c.accent, 0.3);
     ctx.beginPath();
     for (let x = -maj + drift; x < w + maj; x += maj) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
     for (let y = -maj + drift; y < h + maj; y += maj) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
     ctx.stroke();
-    // Notches at the major crossings.
     ctx.strokeStyle = wallAlpha(c.fg, 0.22);
     ctx.beginPath();
     for (let x = -maj + drift; x < w + maj; x += maj) {
@@ -9584,8 +8065,6 @@ const WALL_PAINTERS = {
       }
     }
     ctx.stroke();
-    // The measure lines, and the lit node where they cross. One warm element on a
-    // cool sheet is the entire colour budget of this pattern.
     const mx = ((t / 46) % (w + 160)) - 80;
     const my = h * (0.5 + Math.sin(t / 7300) * 0.34);
     ctx.strokeStyle = wallAlpha(c.hot, 0.3);
@@ -9599,10 +8078,7 @@ const WALL_PAINTERS = {
     wallVignette(ctx, w, h, 0.3);
   },
 
-  // ── Contours: slow interference lines, a depth map breathing ───────────────
-  // The bands now walk the palette from the neighbour up to the complement as they
-  // descend, and each one carries a thin filled shelf under it, so the field has a
-  // near and a far instead of nine identical hairlines.
+  // ── Contours: interference bands, each with a filled shelf for depth ───────
   contours(ctx, st, t) {
     const { w, h, c } = st;
     ctx.clearRect(0, 0, w, h);
@@ -9623,7 +8099,6 @@ const WALL_PAINTERS = {
         line.push(h * (0.08 + k * 0.88)
           + Math.sin(phase + u * 5.2) * 11 + Math.sin(phase * 1.7 + u * 2.1) * 7);
       }
-      // The shelf: the band, dropped a few pixels and filled. Cheap depth.
       ctx.beginPath();
       line.forEach((y, j) => (j ? ctx.lineTo(j * 8, y) : ctx.moveTo(0, y)));
       for (let j = line.length - 1; j >= 0; j--) ctx.lineTo(j * 8, line[j] + 9);
@@ -9640,9 +8115,6 @@ const WALL_PAINTERS = {
   },
 
   // ── Drift: sparse motes rising. The quietest of the set. ───────────────────
-  // Quiet no longer means colourless: each mote holds one of three hues for life
-  // (assigned at build, never per frame, or they'd strobe), and the big ones carry
-  // a soft halo so the field has bokeh depth rather than a scatter of dots.
   drift(ctx, st, t) {
     const { w, h, c } = st;
     const hues = [c.accent, c.cool, c.hot, c.fg];
@@ -9667,11 +8139,8 @@ const WALL_PAINTERS = {
     wallVignette(ctx, w, h, 0.26);
   },
 
-  // ── Scan: static rings, one slow sweep. Only one thing moves. ─────────────
-  // …and the contacts it lights up. Blips are seeded into the state, and their
-  // brightness is a pure function of how long ago the beam passed them — no timers,
-  // no spawn logic, and with motion off the static frame still shows a plausible
-  // half-decayed field instead of an empty scope.
+  // ── Scan: static rings, one slow sweep ───────────────────────────────────
+  // Blip brightness is a pure function of time since the beam passed: no timers.
   scan(ctx, st, t) {
     const { w, h, c } = st;
     ctx.clearRect(0, 0, w, h);
@@ -9684,7 +8153,6 @@ const WALL_PAINTERS = {
     ctx.lineWidth = 1;
     ctx.strokeStyle = wallAlpha(c.cool, 0.16);
     for (let i = 1; i <= 4; i++) { ctx.beginPath(); ctx.arc(cx, cy, (maxR / 4) * i, 0, 6.284); ctx.stroke(); }
-    // Bearing ticks around the outer ring, every 15°, long every 90°.
     ctx.strokeStyle = wallAlpha(c.accent, 0.24);
     ctx.beginPath();
     for (let a = 0; a < 360; a += 15) {
@@ -9695,8 +8163,6 @@ const WALL_PAINTERS = {
     }
     ctx.stroke();
     const ang = ((t / 4200) % 1) * 6.283 - 1.571;   // ~4s a revolution
-    // Contacts, brightest just behind the beam and fading to nothing before it
-    // comes round again.
     for (const b of st.blips) {
       let dd = (ang - b.a) % 6.283; if (dd < 0) dd += 6.283;
       const life = Math.exp(-dd * 1.9);
@@ -9707,8 +8173,6 @@ const WALL_PAINTERS = {
       ctx.fillStyle = wallAlpha(col, life * 0.9);
       ctx.beginPath(); ctx.arc(bx, by, 2, 0, 6.284); ctx.fill();
     }
-    // The beam: a filled wedge under the leading edge, which is what a sweep looks
-    // like on glass — a bare line looks like a clock hand.
     const wedge = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
     wedge.addColorStop(0, wallAlpha(c.accent, 0.16));
     wedge.addColorStop(1, wallAlpha(c.accent, 0));
@@ -9725,9 +8189,7 @@ const WALL_PAINTERS = {
   },
 
   // ── Circuit: etched traces with charge running down them ───────────────────
-  // The lattice is SEEDED, not random: it's built once into the state and never
-  // reshuffles, so the board looks like a board rather than a thing being redrawn.
-  // Only the charge moves.
+  // The board is seeded once into the state; only the charge moves.
   circuit(ctx, st, t) {
     const { w, h, c } = st;
     const traces = (st.circuit ||= buildCircuitTraces(w, h));
@@ -9738,24 +8200,19 @@ const WALL_PAINTERS = {
     bg.addColorStop(1, wallMix(wallMix(c.bg, '#000000', 0.24), c.hot, 0.09));
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
-    // The ground plane: a hatch under everything, so the traces sit ON a board.
     ctx.lineWidth = 1;
     ctx.strokeStyle = wallAlpha(c.cool, 0.06);
     ctx.beginPath();
     for (let x = -h; x < w; x += 9) { ctx.moveTo(x, 0); ctx.lineTo(x + h, h); }
     ctx.stroke();
-    // The etch itself, each trace keeping the hue it was laid down in.
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     for (const tr of traces) {
       const col = lane[tr.lane];
       ctx.beginPath();
       tr.pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-      // Drawn twice: a wide dim under-stroke reads as the solder mask's shadow.
       ctx.lineWidth = 3.4; ctx.strokeStyle = wallAlpha(col, 0.07); ctx.stroke();
       ctx.lineWidth = 1.4; ctx.strokeStyle = wallAlpha(col, 0.26); ctx.stroke();
     }
-    // Vias at the corners — a ring with a dark centre, which is what makes it read
-    // as etched copper and not a maze.
     for (const tr of traces) {
       const col = lane[tr.lane];
       for (const p of tr.pts) {
@@ -9765,7 +8222,6 @@ const WALL_PAINTERS = {
         ctx.beginPath(); ctx.arc(p.x, p.y, 1.1, 0, 6.284); ctx.fill();
       }
     }
-    // And the charge: one bright head per trace with a short decaying tail.
     for (const tr of traces) {
       const col = lane[tr.lane];
       const d = ((t / tr.speed + tr.phase) % 1) * tr.len;
@@ -9791,19 +8247,14 @@ const WALL_PAINTERS = {
     bg.addColorStop(0, wallMix(c.bg, '#000000', 0.25));
     bg.addColorStop(1, wallMix(c.bg2, c.accent, 0.12));
     ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-    // Additive so the fronts brighten where they cross — the one thing that makes
-    // this read as light rather than as four coloured circles.
     ctx.globalCompositeOperation = 'lighter';
-    // Stars first, so the fronts wash OVER them. Reuses the sky's field — one
-    // seeded set of points, no second allocation.
+    // Stars first, so the fronts wash over them (reuses the sky's field).
     ctx.fillStyle = wallAlpha(c.fg, 0.4);
     for (const s2 of st.stars) {
       ctx.globalAlpha = s2.o * 0.5;
       ctx.beginPath(); ctx.arc(s2.x * w, s2.y * h * 1.2, s2.r, 0, 6.284); ctx.fill();
     }
     ctx.globalAlpha = 1;
-    // Four fronts, all four hues. This is the one painter where the full palette is
-    // on screen at once, and it gets away with it because nothing here has an edge.
     const blobs = [
       { col: c.accent, ax: 0.30, ay: 0.24, sx: 5200, sy: 8100, r: 0.62, a: 0.30 },
       { col: c.cool, ax: 0.34, ay: 0.20, sx: -6900, sy: 7300, r: 0.52, a: 0.26 },
@@ -9822,7 +8273,6 @@ const WALL_PAINTERS = {
       ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
     }
     ctx.globalCompositeOperation = 'source-over';
-    // A horizon: the fronts have to end somewhere or the screen is just fog.
     const hz = ctx.createLinearGradient(0, h * 0.72, 0, h);
     hz.addColorStop(0, wallAlpha(c.bg, 0));
     hz.addColorStop(1, wallAlpha(wallMix(c.bg, '#000000', 0.4), 0.9));
@@ -9842,10 +8292,7 @@ const WALL_PAINTERS = {
     for (let row = -1; row * dy < h + R; row++) {
       for (let col = -1; col * dx < w + dx; col++) {
         const cx = col * dx + (row % 2 ? dx / 2 : 0), cy = row * dy;
-        // One travelling diagonal band decides which cells are lit — a wave, not a
-        // random flicker, so the eye reads a direction instead of noise. A second,
-        // slower wave crossing the other way decides the HUE, which is what turns a
-        // one-colour honeycomb into a surface with weather on it.
+        // A diagonal wave decides which cells are lit; a slower cross wave picks hue.
         const k = Math.sin(wave - (cx * 0.012 + cy * 0.018));
         const lit = Math.max(0, k) ** 3;
         const tint = 0.5 + 0.5 * Math.sin(wave2 + (cx * 0.009 - cy * 0.014));
@@ -9860,8 +8307,6 @@ const WALL_PAINTERS = {
         if (lit > 0.02) { ctx.fillStyle = wallAlpha(col2, lit * 0.26); ctx.fill(); }
         ctx.strokeStyle = wallAlpha(lit > 0.3 ? col2 : c.accent, 0.1 + lit * 0.42);
         ctx.stroke();
-        // The crest of the wave gets a lit core — a handful of cells a frame, and
-        // the only place the amber ever shows up in this pattern.
         if (lit > 0.86) {
           ctx.fillStyle = wallAlpha(c.amber, (lit - 0.86) * 3.4);
           ctx.beginPath(); ctx.arc(cx, cy, 2.4, 0, 6.284); ctx.fill();
@@ -9882,8 +8327,6 @@ const WALL_PAINTERS = {
     ctx.textBaseline = 'top';
     const G = 'ABCDEFGH0123456789#$%&@*+=<>/\\|—▓▒░';
     const lane = [c.accent, c.cool, c.hot, c.amber];
-    // A dim resident layer behind the rain: glyphs that sit still. Without it the
-    // gaps between columns are dead screen and the effect looks thin.
     ctx.fillStyle = wallAlpha(c.cool, 0.09);
     for (const col of cols) {
       for (let y = (col.seed % 14); y < h; y += 14) {
@@ -9897,8 +8340,6 @@ const WALL_PAINTERS = {
       for (let i = 0; i < col.n; i++) {
         const y = head - i * 14;
         if (y < -14 || y > h) continue;
-        // Glyphs churn on their own slow clock, so the column reads as data rather
-        // than as one string sliding down the screen.
         const ch = G[(col.seed + i * 7 + Math.floor(t / 260 + i)) % G.length];
         ctx.fillStyle = i === 0 ? c.fg : wallAlpha(colr, 0.8 * (1 - i / col.n));
         ctx.globalAlpha = i === 0 ? 0.95 : 1;
@@ -9921,8 +8362,6 @@ const WALL_PAINTERS = {
     g.addColorStop(0, wallMix(c.bg, c.accent, 0.14));
     g.addColorStop(1, wallMix(c.bg, '#000000', 0.45));
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-    // Two nebula washes drifting behind the field, so the streaks are travelling
-    // THROUGH something. They move slowly enough to read as parallax distance.
     ctx.globalCompositeOperation = 'lighter';
     wallGlow(ctx, cx + Math.sin(t / 14000) * w * 0.3, cy - h * 0.24, Math.max(w, h) * 0.5, c.hot, 0.1);
     wallGlow(ctx, cx - Math.sin(t / 17000) * w * 0.3, cy + h * 0.3, Math.max(w, h) * 0.5, c.cool, 0.11);
@@ -9931,13 +8370,11 @@ const WALL_PAINTERS = {
     for (const s of stars) {
       s.z += 0.0018 + s.r * 0.0032;
       if (s.z > 1) { s.z = 0; s.a = Math.random() * 6.284; s.r = Math.random(); }
-      // Cubed so everything crawls near the middle and tears past at the edge —
-      // the whole feeling of the effect lives in that curve.
+      // Cubed: crawl near the middle, tear past at the edge.
       const d = Math.pow(s.z, 3) * maxR, d0 = Math.pow(Math.max(0, s.z - 0.05), 3) * maxR;
       const co = Math.cos(s.a), si = Math.sin(s.a);
       ctx.globalAlpha = Math.min(1, s.z * 2.2);
-      // Hue is a property of the star (its `r`), not of its distance — a streak
-      // that changed colour as it came at you would look like a fault.
+      // Hue belongs to the star ('r'), not its distance.
       ctx.strokeStyle = s.r > 0.9 ? c.fg
         : s.r > 0.74 ? wallAlpha(c.hot, 0.85)
         : s.r > 0.44 ? wallAlpha(c.accent, 0.85)
@@ -9962,8 +8399,6 @@ const WALL_PAINTERS = {
     bg.addColorStop(0.42, wallMix(c.bg, '#000000', 0.2));
     bg.addColorStop(1, wallMix(c.bg2, c.cool, 0.2));
     ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-    // A low sun behind the water. Everything below is lit by it, which is what
-    // gives the stack a direction instead of five identical ribbons.
     wallGlow(ctx, w * 0.5, h * 0.29, Math.min(w, h) * 0.42, c.amber, 0.22);
     const layers = 6;
     for (let i = 0; i < layers; i++) {
@@ -9985,7 +8420,6 @@ const WALL_PAINTERS = {
       g.addColorStop(0, wallAlpha(col, 0.16 + k * 0.14));
       g.addColorStop(1, wallAlpha(wallMix(c.bg2, c.cool, 0.3), 0.6));
       ctx.fillStyle = g; ctx.fill();
-      // Two strokes on the crest: the body of the wave, and a bright rim above it.
       ctx.beginPath();
       crest.forEach((y, j) => (j ? ctx.lineTo(j * 6, y) : ctx.moveTo(0, y)));
       ctx.strokeStyle = wallAlpha(col, 0.26 + k * 0.22);
@@ -9998,17 +8432,14 @@ const WALL_PAINTERS = {
     wallVignette(ctx, w, h, 0.3);
   },
 
-  // ── Static: a dead channel. Noise is cached and reused — regenerating it every
-  // frame is the one thing here that would actually cost something. ──────────
+  // ── Static: a dead channel. Noise is cached; regenerating per frame is costly. ─
   static(ctx, st, t) {
     const { w, h, c } = st;
     const noise = (st.noise ||= buildNoiseTiles(c));
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = wallMix(c.bg, '#000000', 0.3);
     ctx.fillRect(0, 0, w, h);
-    // Chroma split: the same grain drawn three times, offset a pixel or two per
-    // channel and composited additively. That misregistration is the entire reason
-    // a dead channel looks like a dead SCREEN and not like grey sand.
+    // Chroma split: the grain drawn three times, offset per channel, additive.
     const frame = noise[Math.floor(t / 90) % noise.length];
     const jit = Math.sin(t / 140) * 1.6;
     ctx.imageSmoothingEnabled = false;
@@ -10022,13 +8453,10 @@ const WALL_PAINTERS = {
     ctx.drawImage(frame, 0, 0, w, h);
     ctx.imageSmoothingEnabled = true;
     ctx.globalAlpha = 1;
-    // Two colour washes hold the split visible even where the grain is thin.
     ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = wallAlpha(c.hot, 0.05); ctx.fillRect(0, 0, w, h * 0.5);
     ctx.fillStyle = wallAlpha(c.cool, 0.05); ctx.fillRect(0, h * 0.5, w, h * 0.5);
     ctx.globalCompositeOperation = 'source-over';
-    // The rolling bar — a vertical hold that never quite catches — now with a
-    // torn edge of colour at its leading side.
     const barY = ((t / 12) % (h + 120)) - 60;
     const g = ctx.createLinearGradient(0, barY - 40, 0, barY + 40);
     g.addColorStop(0, wallAlpha(c.hot, 0));
@@ -10037,7 +8465,6 @@ const WALL_PAINTERS = {
     g.addColorStop(0.58, wallAlpha(c.cool, 0.14));
     g.addColorStop(1, wallAlpha(c.cool, 0));
     ctx.fillStyle = g; ctx.fillRect(0, barY - 40, w, 80);
-    // One torn slice, moving on its own clock. Rare enough to be a glitch.
     const gy = ((t / 900) % 1) * h;
     ctx.globalAlpha = 0.5;
     ctx.drawImage(frame, 0, 0, 48, 6, Math.sin(t / 300) * 14, gy, w, 7);
@@ -10048,8 +8475,8 @@ const WALL_PAINTERS = {
   },
 };
 
-// Circuit's board, built once: axis-aligned walks on a 16px pitch, each with its
-// cumulative length so a pulse can be placed by distance rather than by segment.
+// Circuit's board, built once: walks on a 16px pitch, each with cumulative length so a
+// pulse is placed by distance.
 function buildCircuitTraces(w, h) {
   const P = 16, out = [];
   const rnd = wallSeeded(0x5eed);
@@ -10088,8 +8515,7 @@ function wallAlongPolyline(tr, dist) {
 function buildCodeColumns(w, h) {
   const step = 13, out = [];
   for (let x = 2; x < w; x += step) {
-    // `lane` is the column's hue for life. Weighted hard toward the accent: the
-    // stray magenta column only reads as a stray if most of them aren't.
+    // 'lane' is the column's hue for life, weighted hard toward the accent.
     const r = Math.random();
     out.push({ x, n: 6 + Math.floor(Math.random() * 10), v: 0.02 + Math.random() * 0.055,
       off: Math.random() * (h + 200), seed: Math.floor(Math.random() * 97),
@@ -10097,8 +8523,7 @@ function buildCodeColumns(w, h) {
   }
   return out;
 }
-// Four small noise tiles, cycled — the eye reads four frames of grain as static and
-// never sees the loop, and the cost is four 48×48 buffers instead of one a frame.
+// Four 48×48 noise tiles, cycled.
 function buildNoiseTiles(c) {
   const N = 48;
   const base = wallRgb(c.fg) || [220, 230, 240];
@@ -10116,8 +8541,7 @@ function buildNoiseTiles(c) {
     return cv;
   });
 }
-// A small deterministic PRNG — a seeded layout has to come back the same on every
-// render, or the "board" reshuffles itself every time the tablet re-draws.
+// A small deterministic PRNG: seeded layouts must come back the same each render.
 function wallSeeded(seed) {
   let s = (seed >>> 0) || 1;
   return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
@@ -10140,16 +8564,8 @@ function startWallpaper(sky) {
   cv.style.width = w + 'px'; cv.style.height = h + 'px';
   const ctx = cv.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  // Strength rides a CUSTOM PROPERTY, never inline `opacity`. It used to set opacity
-  // directly, which beat the `.on` class in the cascade — so stopWallpaper's class
-  // removal did nothing and the sky stayed painted over every app screen for the
-  // rest of the session. The var only takes effect while `.on` is present.
-  //
-  // Every pattern carries its OWN strength (see the catalog): a hairline lattice and
-  // a screen-filling aurora want very different opacities to land at the same
-  // loudness, and one shared number is what made the first set all look alike.
-  // The sky is the exception that keeps its own rule — indoors knocks it back,
-  // because you can't see the weather through a wall, though the hour still reads.
+  // ⚠ Strength rides a CUSTOM PROPERTY, never inline opacity: inline opacity beats the
+  // '.on' class, so stopWallpaper couldn't hide it. Sky dims indoors.
   const strength = mode === 'sky'
     ? (sky?.indoors ? 0.26 : 0.5)
     : (TABLET_WALLPAPERS.find(w2 => w2.id === mode)?.s ?? 0.34);
@@ -10172,22 +8588,18 @@ function stopWallpaper() {
   const cv = _overlay?.querySelector('#tos-wall');
   if (!cv) return;
   cv.classList.remove('on');
-  // Belt and braces: drop the strength var too, so nothing an older build (or a
-  // future edit) left inline can keep the canvas visible off the home screen.
+  // Drop the strength var too, so nothing inline can keep the canvas visible.
   cv.style.removeProperty('--wall-strength');
   cv.style.removeProperty('opacity');
 }
 
 export function closeTabletPanel() { shutdownTablet(); }
 
-// A dropped connection or a sign-out (both fire game-disconnect) leaves the
-// tablet driving nothing — tear it down immediately, no CRT flourish.
+// game-disconnect (dropped connection or sign-out): tear down at once, no CRT flourish.
 window.addEventListener('game-disconnect', () => { if (_overlay) close(); });
 
 function close() {
-  // Narration normally dies with the shell — closing the tablet should silence it.
-  // The one exception is an explicit Minimize, which sets this flag precisely so
-  // the book keeps reading while you go and do something else.
+  // Narration dies with the shell, except after an explicit Minimize (this flag).
   if (_narrateKeepOnClose) _narrateKeepOnClose = false;
   else narrateStop();
   purgeCompletedQuestLogs(); // finished quests' action logs clear once you close the tablet
@@ -10205,14 +8617,11 @@ function close() {
   stopWallpaper();   // the rAF must never outlive the overlay it draws into
   unmountTabletTv();
   _wasSurvLive = false;
-  // The back stack dies with the shell. A tablet reopened later starts at Home,
-  // so a stale history from the last session must not make Back walk backwards
-  // into screens the player has since left.
+  // The back stack dies with the shell; a reopened tablet starts at Home.
   _navStack = [];
   _navHere = null;
   _navSig = null; _lastWasAct = false; _actDepth = 0;
-  // Stray lift clones, if the shell was torn down mid-drag. Both kinds live on
-  // document.body, outside the overlay, so nothing else sweeps them up.
+  // Stray lift clones from a mid-drag teardown live on body, so sweep them here.
   document.querySelectorAll('.tos-tile-drag, .tos-group-drag').forEach(el => el.remove());
   if (_close) { _close(); _close = null; }
   _overlay = null;

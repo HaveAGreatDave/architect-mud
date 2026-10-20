@@ -1,36 +1,10 @@
-// THE LONG HAUL — driving the void.
-//
-// The road between regions, as something you drive rather than something you endure. A crossing
-// that used to be a hard walk becomes a rig, a corridor, and about a quarter of an hour of country.
-//
-// THREE RULES SHAPE THIS PLUGIN, and every one of them is a decision NOT to build something:
-//
-//  1. The corridor synthesises ZONES, never render cells. `corridorAt` returns the same shape
-//     `surfaceAt` returns, and plugins/flight/state.js mapWindow derives it — so road auto-tiling,
-//     lane markings, biome, buildings and fog all come from the one place that already knows how.
-//     (snapshot.js kept its own copy of that derivation and drifted twice. Once is a lesson.)
-//
-//  2. The drive IS the crossing. `player.current_zone` stays the void room the whole way; the
-//     odometer crossing a node boundary walks the player one room down the spine and emits
-//     `zone.entered`, which is exactly what a footstep does. So encounters, ghost-traces, hard
-//     nodes, detours and teardown are TRIGGERED here and implemented nowhere here. A trucker who
-//     breaks down finishes the crossing on foot at a cost of zero extra code.
-//
-//  3. The edge of the road is a law, not a wall. You may drive off it: open country is passable,
-//     slow, and murder on tyres — the reason to stay on the tarmac is the BILL, never a refusal.
-//     Four times the paved half-width out there is no ground left to synthesise, and only there do
-//     you bog: stalled, penalised in time, and put back on the shoulder facing the right way.
-//     There is no geometry you can hit.
-//
-// PHASE 1 IS BOBTAIL. No trailer, no gears, no freight, no yard. The question this phase exists to
-// answer is whether a quarter of an hour of changing country with a city coming out of the haze is
-// worth doing on its own. Everything else is downstream of that answer.
+// THE LONG HAUL: driving the void between regions.
+// Three rules (the corridor synthesises zones, never render cells; the drive IS the crossing; the
+// road's edge is a law, not a wall): see docs/systems-trucking.md#the-four-rules
 
 import { getZone, getAllZones, getMinimapData, addPlayerToZone, removePlayerFromZone, getLivePlayer } from '../../server/engine/world.js';
 import { saveDrivingState, restoreDrivingState } from './resume.js';
 import { cap } from '../../server/engine/util.js';
-// The damage model. `condition` is still the headline number every older reader uses; these four
-// components are what it is now DERIVED from. See damage.js for why the weakest link and not a mean.
 import { applyDamage, impactSplit, grindSplit, IMPACT_AREAS, damageOf, overall, PARTS, PART_LABELS, partBand,
   isBroken, isCosmetic, PART_ITEMS, PART_SHARE, COSMETIC_MUL, BROKEN_AT } from './damage.js';
 import { grimeOf, grimeBand, washCost } from './filth.js';
@@ -70,86 +44,31 @@ import { registerZoneReloadHook } from '../../server/engine/world.js';
 import { registerCellOverlay, registerFarRoads } from '../flight/state.js';
 import { worldRoadProvider, roadsNear } from './roadnet.js';
 
-// THE RIM GATES ARE DERIVED FROM TILE POSITIONS, so an editor moving a region's tiles moves the
-// mouths of its roads — and `regionGates` memoises per region for the life of the process. Left
-// alone, the highway would go on anchoring itself to where the gate used to be: the road would
-// still be built, still be drivable, and still be wrong, with nothing anywhere saying so.
-//
-// ⚠ CLEARED WHOLESALE RATHER THAN PER REGION. A gate is a RIM tile — its identity depends on a
-// neighbour being absent — so editing one tile can create or destroy a gate in a region that tile
-// does not belong to. Clearing one region's entry would be precise about the wrong thing.
-// ⚠ THE ROAD NETWORK RIDES THIS AND IS NOT LISTED HERE. `roadnet.js` holds every road in the world,
-// all of it anchored on these gates, and it keys its memo on `gateGeneration()` — which this bumps.
-// Adding a second call would read as the thing keeping them in step, and it is not: a caller that
-// clears gates without going through here (regress does, mid-suite) would still be covered.
+// Rim gates derive from tile positions and are memoised, so a zone reload must clear them.
+// ⚠ Cleared wholesale: editing one tile can create or destroy a gate in a neighbouring region.
+// roadnet.js keys its memo on gateGeneration(), which this bumps.
 registerZoneReloadHook(() => _clearGateCache());
 
-// ── THE HIGHWAY, FOR EVERYBODY WHO IS NOT DRIVING IT ─────────────────────────
-//
-// The corridor has been anchored in real world coordinates since the frame change, and until now
-// the only thing that ever looked at it was the cab of the truck on it. So the flight sim rendered
-// the same journey as nothing at all — `kind: 'air'` for 282 tiles of tarmac — and `truckContactsNear`
-// had to drop corridor rigs on the honest grounds that "the corridor is not in anybody's world
-// window". It is now.
-//
-// Pushed rather than pulled: flight cannot import this plugin (trucking imports flight/state.js, so
-// the edge only runs one way), and it does not need to — it takes a cell provider and asks it what
-// is at a tile. Same seam the cab has always used, one caller wider.
-//
-// ⚠ REGISTERED AS A RENDER PROVIDER, NEVER AS PLACED GROUND. See the ⚠ on `registerCellOverlay` and
-// on roadnet.js: `regionGates` derives the mouths this road hangs off by testing that the world
-// STOPS beside them, so synthesised ground under `surfaceAt` would delete the gates, the rim and
-// the void's only entrance in one move.
+// The highway for everybody not driving it. Pushed, because flight can't import this plugin.
+// ⚠ A render provider, never placed ground: ground under surfaceAt would delete the rim gates.
 registerCellOverlay(worldRoadProvider());
-// And the same road at a range the window cannot reach. The overlay above covers 36 tiles; a
-// pilot sees hundreds, and the corridor used to simply stop out there in open waste. This hands
-// over the geometry instead of the cells — see the ⚠ on `registerFarRoads` for why widening the
-// window was the wrong answer, and why this one may not reach `surfaceAt` either.
+// The same road beyond the 36-tile overlay window, as geometry. Must not reach surfaceAt either.
 registerFarRoads((x, y, radius) => roadsNear(x, y, radius));
 
-// HOW LONG A CROSSING IS, ANSWERED BY THE THING THAT BUILDS IT. voidwalking decides how many rooms
-// a limb gets, and until now it divided a real distance by the UNANCHORED per-room constant (90) —
-// so every crossing in the game came out under the minimum and every destination carried a
-// hand-written `length` to correct it. It now asks for the distance instead, and this is the
-// answer: the same `gatePair` the road itself anchors on, so the room count and the geometry
-// cannot disagree about how far it is.
-//
-// ⚠ AND IT IS SYMMETRIC, which the hand-written numbers only were by careful copying. A return leg
-// is the same crossing read backwards, and `gatePair` picks the same two mouths whichever end you
-// ask from — so out and back derive the same length by construction rather than by both being
-// edited at the same time.
-// WHERE A CROSSING'S ROOMS ARE, IN WORLD TILES — the other half of the same seam.
-//
-// A void room had no position at all until the trail went on the map, and the geometry that could
-// give it one lives here: the anchored road between two real gates. The walker's route and the
-// driver's are the same journey, so they come off the same polyline rather than off two derivations
-// that would drift the moment either was tuned.
-//
-// A LIST goes out and a LIST comes back: the road is built once per limb, and `corridorPos` never
-// leaves this plugin. Each request carries its own lateral offset, so the trail beside the road and a
-// detour swinging wider off it are one call.
-//
-// ⚠ NULL RATHER THAN A GUESS, AND NULL IS SAFE. A leg with no buildable road returns nothing and
-// those rooms simply stay placeless, which is exactly how every void room behaved before this
-// existed. Coordinates enrich a crossing; they are never a requirement of one.
-// ⚠ THE TRAIL IS SEEDED ON THE UNORDERED PAIR, so a crossing and its return are the same footpath.
-// Two directions deriving two different sets of shortcuts would mean the way back was not the way you
-// came, which is the one thing a trail cannot be.
+// Crossing length, room positions and trail cuts all come off the same gatePair the road anchors
+// on, so room count and geometry can't disagree. gatePair is symmetric, so out and back match.
+// ⚠ Null rather than a guess: a leg with no buildable road leaves its rooms placeless, which is safe.
+// ⚠ The trail is seeded on the unordered pair, so a crossing and its return are the same footpath.
 const trailKey = (a, b) => [a, b].sort().join('|');
 
-// The trail between two regions: built once from the anchored road, cached per (pair, window) because
-// every room of a crossing asks about it and the road underneath is static between deploys.
+// Cached per (pair, window): every room asks, and the road is static between deploys.
 let _trailCache = null;
 function trailBetween(voidKey, region, window) {
   const key = `${trailKey(voidKey, region)}|${window}`;
   if (_trailCache?.key === key) return _trailCache.trail;
   const pair = gatePair(voidKey, region);
   if (!pair) return null;
-  // ⚠ THE ROAD IS BUILT ON THE GATE DISTANCE, NOT ON THE ROOM COUNT, AND THAT BREAKS A CYCLE. The
-  // room count comes from the TRAIL's length, the trail comes from the road, and the road takes a
-  // node count — so asking the room count for it would be circular. Anchored, `nodes` only sets the
-  // trunk FRACTION and a runaway cap; the geometry is the two gates. So the honest input is the
-  // distance between them.
+  // ⚠ Built on the gate distance, not the room count: the room count derives from the trail (cycle).
   const gd = Math.max(1, Math.round(Math.hypot(pair.to.x - pair.from.x, pair.to.y - pair.from.y)));
   const route = networkRoute(voidKey, region, window, gd);
   if (!route?.legs?.length) return null;
@@ -167,13 +86,7 @@ registerCrossingPoints((voidKey, dest, window, reqs) => {
   return reqs.map((d) => trailPos(trail, d));
 });
 
-// The cuts hanging off that spine: for each, where it leaves and rejoins (as spine distances), how
-// long it is, what it saves, and whether it is walkable this week.
-//
-// ⚠ EXISTING AND BEING OPEN ARE DIFFERENT QUESTIONS. The chord is geometry — it is there every week,
-// because the mesa is there every week. Whether it can be walked is seeded per window. Conflating the
-// two is what made the WEEK decide whether a player got a shortcut, instead of the player deciding
-// whether to take one.
+// The cuts off the spine. ⚠ A cut existing (geometry) and being open (seeded per window) differ.
 registerTrailCuts((voidKey, dest, window) => {
   const trail = dest?.region ? trailBetween(voidKey, dest.region, window) : null;
   if (!trail?.cuts?.length) return [];
@@ -208,8 +121,7 @@ import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveT
   ridingRigOf, seatsFree, boardPassenger, alightPassenger,
   truckElecDead, crewedRigs } from './state.js';
 import { corridorPos, corridorAt, TILES_PER_ROOM, sOfNode, wreckNear, trailFor, trailPos } from './corridor.js';
-// The bench — `rig` and the parts counter. It imports a handful of yard helpers back from this file;
-// see the header of bench.js for why that edge is allowed to run both ways inside one plugin.
+// bench.js imports yard helpers back from this file; see its header.
 import { cmdRig, sparesInHand, spendSpares, truckStockTrim, sanitizeTrimResolved } from './bench.js';
 import { cbStatus, cbTune, cbPower, cbSpeaker, cbTransmit } from './cb.js';
 import { tickHijackers, playerHijack } from './hijack.js';
@@ -230,116 +142,55 @@ import { TRAILER_TYPES, trailerType, trailersAt, trailersOf, getTrailer, trailer
 
 export const say = (msg) => ({ type: 'emote', message: msg });
 
-// Below this, a contact is a scrape and nobody calls anybody. Above it, you have demolished part of
-// a street at the wheel of several tonnes, and in a city that is witnessed.
-//
-// ⚠ IT IS A FRACTION OF THE SPEED RANGE, NOT A NUMBER, so it moves when the range does. 22 was
-// about 42% of a Courier's top end; after the ceiling doubled it would have been 21%, which turns
-// 'you were going far too fast for a street' into 'you were moving'. Doubled with it.
+// Above this, a contact is reckless and witnessed in a city.
+// ⚠ A fraction of the speed range, not a fixed number: rescale it if the range changes.
 const RECKLESS_MPH = 44;
 
-// The derelict's cold start. Named because TWO rungs spend it now (the text rung as it pulls out,
-// the visual rung the first time the ignition comes back true through telemetry), and a line of
-// prose written down twice is a line that drifts.
-// How often the ROOM is told about a horn, however many times the cord is pulled. The sound has no
-// cooldown at all and must not get one — see cmdHorn.
+// How often the room hears about a horn. The sound itself must never get a cooldown (see cmdHorn).
 const HORN_SAY_MS = 60_000;
 const HARD_START_LINE = '<span class="text-amber">It turns over, and over, and doesn\'t catch. You wait. You try it again and it goes, in a cloud of something that shouldn\'t be blue.</span>';
 
-// ── drive ────────────────────────────────────────────────────────────────────
-// Get in the rig. A haul STARTS AT A DEPOT and ends at one: you pull out of the yard, drive the
-// city streets to the edge of the map, cross the waste, and roll into a yard on the far side. The
-// gate is the depot, not the crossing — the crossing is something you drive to.
-//
-// Phase 1 issues a rig on the spot rather than modelling ownership. What a depot IS lives in
-// content (`flags.truck_depot`), never in this file — the engine/content split.
-// EVERY WAY INTO A CAB HYDRATES THE RIG FROM THE TRUCK ROW THROUGH HERE, and that is the whole
-// reason it is a function. There are three mount paths — the depot (`cmdDrive`), the crossing
-// (`mountOnCrossing`) and the reconnect (`resume.js`) — and `mountRig` deliberately builds a bare,
-// synchronous, BOBTAIL rig, because it is shared with the regress fakes and must not query. Which
-// means every path has to put the truck back on afterwards, and a path that forgets hands the
-// driver somebody else's generic rig wearing their truck's name.
-//
-// ⚠ THE HITCH IS WHAT THE DATABASE SAYS IT IS. `park` never unhitches — only `dropTrailer` clears
-// `towed_by` — so a trailer parked on the back keeps pointing at this tractor and holds no
-// `parked_zone`, which also means it is in no yard. Re-reading it here is what makes it visible
-// again; NOT re-reading it is not a lost trailer, it is an invisible one, and the driver cannot
-// tell those apart. Do not replace this with a remembered id — a remembered id is a second copy
-// of a fact the row already holds, and it goes stale the moment somebody else takes the box.
+// ── drive ──
+// Every mount path (cmdDrive, mountOnCrossing, resume.js) must hydrate the rig from the truck row
+// here: mountRig builds a bare bobtail rig because regress fakes share it and it must not query.
+// ⚠ The hitch is what the DB says: re-read trailerOnTruck, never a remembered id (it goes stale).
 export async function hydrateFromTruck(rig, owned) {
   rig.truckId = owned.id;
   rig.typeId = owned.type_id;
   rig.type = owned.type;
   rig.cd = owned.custom_data || {};
-  // The component bag first, and the headline number derived from it — never the other way round.
+  // The component bag first, and the headline number derived from it, never the other way round.
   rig.dmg = damageOf({ cd: rig.cd, condition: owned.condition });
   rig.condition = overall(rig.dmg);
-  // The dirt comes back with the truck. It is READ off the bag and never derived from anything —
-  // unlike `dmg`, which falls back to `condition` for a truck that predates components, a truck
-  // that predates this is genuinely clean, because nothing had been dirtying it.
+  // Grime is read off the bag, never derived: a truck older than filth is genuinely clean.
   rig.grime = grimeOf(rig.cd);
-  // The odometer goes in so the SERVICING wear (service.js) is part of the truck you drive. It is
-  // the row's reading at mount, which is also what the bench quotes against, so the two agree.
+  // The odometer goes in so servicing wear (service.js) matches what the bench quotes.
   rig.params = effTruckParams(owned.type_id, rig.cd, rig.condition, rig.dmg, owned.odometer ?? 0);
   rig.burnMul = burnMul(rig.cd);           // a hard turbo drinks; the aux tank is on `params.tank`
   rig.fuel = owned.fuel ?? 1;
   rig.travelled = 0;
-  // `|| null` because `shape()` returns undefined for no row, and `mountRig` declares this field
-  // null — a rig whose bobtail state is spelled two different ways is a rig two readers can
-  // disagree about.
+  // `|| null`: mountRig declares this null, and bobtail must be spelled one way.
   rig.trailer = (await trailerOnTruck(owned.id)) || null;
-  // The load rides with the box: cargo lives on the TRAILER row, so a restored trailer that
-  // dropped its freight would be a quieter version of the same bug.
+  // Cargo lives on the trailer row, so it rides with the box.
   if (rig.trailer?.cargo) rig.cargo = rig.trailer.cargo;
   return rig;
 }
 async function cmdDrive(args, raw, player) {
   if (rigOf(player)) return say("You're already behind the wheel.");
 
-  // ── THE LICENCE ────────────────────────────────────────────────────────────
-  // Flight's `boardFound` gate, for trucks: no licence, no seat. It sits ABOVE the crossing branch
-  // deliberately — a rig at the roadhead is still a rig — and above the ownership check, because
-  // "you cannot drive" is a truer answer than "you own nothing" to somebody who has never driven.
-  // Everything that makes it safe to add to a verb that has been open for months lives in
-  // `isLicensedDriver`: owning a truck already IS the licence, and a road test is exempt because
-  // the school rig mounts through here.
+  // Licence gate. Sits above the crossing branch and the ownership check; see isLicensedDriver.
   if (!await isLicensedDriver(player, { fleetOf })) return unlicensedLine();
 
   // Already out in the waste on foot? Then there is a rig at the roadhead, as before — somebody
   // who walked out and thought better of it shouldn't have to walk back for a truck.
   if (player._crossing) return mountOnCrossing(player);
 
-  // ── YOU START INSIDE THE SHED, AND YOU DRIVE OUT OF IT ─────────────────────
-  // This used to mount on the APRON and walk you out, and the reasoning was sound as far as it
-  // went: a bay is a room at grid 0,0 with no surface under it, and a building is solid, so there
-  // was nowhere inside to put a forty-tonne truck. What that bought was a rig that teleported
-  // through its own wall — the door was a sentence in the log and the first frame was already on
-  // the road.
-  //
-  // Both halves of the objection turn out to be answered by things that already exist:
-  //
-  //   • the bay has no coordinates, but its FACADE does. The building's own tile is a real piece of
-  //     world you can stand a truck on; standing on it IS standing inside the shed, and the drawing
-  //     pass already excuses a tile carrying `bt` from the own-tile skip (windshield.js), so the
-  //     shed is drawn around you rather than vanishing because you are on it.
-  //   • buildings are solid, but `groundObstructionAt` has always had exactly one hole in it: a
-  //     tile marked `bay` is not solid to a truck. That mark is derived from `flags.vehicle_bay`
-  //     and, until now, NOT ONE ZONE IN THE WORLD AUTHORED IT — the mechanism for driving into a
-  //     shed was built, commented, and never given any content. The five depot facades carry it now.
-  //
-  // So the whole change is: mount on the door tile, face the way out, and let the player drive.
-  // Nothing is exempted from collision — the walls either side of you are as solid as they ever
-  // were, and the bay tile is open because it is authored open. Aim badly and you hit the shed.
+  // You mount on the shed's facade tile (flags.vehicle_bay opens it to a truck) and drive out.
+  // Nothing is exempted from collision: see docs/systems-trucking.md#the-shed-you-start-in
   const stood = getZone(player.current_zone);
   const bay = depotAt(stood);
   const yardId = bay ? yardIdOf(stood, bay) : null;
-  // THE DOOR TILE — the shed as the WORLD has it, which is the building you are standing inside.
-  // The bay itself is a room at grid 0,0 with no surface under it, so it can never be the thing a
-  // truck sits on; its `world_exit_zone` is the facade, and the facade is a real tile with real
-  // coordinates that happens to have a building on it. That tile is where the rig has been parked
-  // all along, and it is now where you get into it.
-  // `mountSpot` is the whole decision, and it lives up by the depot helpers so regress can hold it
-  // to account without buying a truck first.
+  // The bay is a room at grid 0,0; its facade is the real tile the rig stands on. mountSpot decides.
   const spot = mountSpot(stood);
   const door = spot?.fromShed ? spot.zone : null;
   const here = spot ? spot.zone : stood;
@@ -349,30 +200,21 @@ async function cmdDrive(args, raw, player) {
   }
   if (here.grid_x == null) return say("There's no road out of this yard.");
 
-  // OWNERSHIP IS THE GATE. Phase 1 handed anybody a free rig because the question then was whether
-  // the DRIVE was worth doing. It is — so the question now is whether the run is worth OWNING, and
-  // that only bites if the truck cost you something you could have spent elsewhere.
-  // The bay AND its apron: a truck you left standing outside the door is a truck at this depot.
+  // Ownership is the gate. The bay and its apron both count as this depot.
   const zonesHere = bay ? depotZonesOf(stood, bay) : depotZonesOf(here, depot);
   const parked = await trucksAt(player.id, zonesHere);
-  // WHICH ONE. `drive` takes the plate, the model or the id — and takes nothing at all when there
-  // is only one truck in the yard, which is the case this verb spends most of its life in. The
-  // panel's CLIMB IN button carries the id of the truck on the turntable, so clicking is never
-  // ambiguous however many are standing behind it.
+  // Takes plate, model or id; nothing when only one truck is in the yard.
   const want = (args || []).join(' ').trim();
   const owned = pickParked(parked, want);
   if (!owned && parked.length) return whichTruckLine('drive', parked, want);
-  // A HIRE THAT HAS RUN OUT GOES BACK AT THE MOMENT YOU REACH FOR THE KEYS — rental.js's lazy
-  // clock. Not a refusal with the truck still standing there: the desk takes it, and says so.
+  // An expired hire goes back the moment you reach for the keys (rental.js's lazy clock).
   if (owned && rentalExpired(owned)) {
     await reclaimRental(owned.id, player.id);
     await repush(player);
     return say(`<span class="text-amber">The desk has the keys to the ${owned.type.name} back on their hook before you reach it. The hire ran out.</span>`
       + ` <span class="text-dim">Another is a click away on the yard's hire line.</span>`);
   }
-  // A SERVICE BASELINE FOR A TRUCK THAT HAS NEVER HAD ONE — see the migration note in service.js.
-  // Written here because mounting is the one cold moment every truck passes through before it can
-  // wear anything, and it is one write the first time and none after.
+  // Service baseline for a truck that never had one: one write at first mount, none after.
   if (owned) {
     const stamped = stampIfMissing(owned.custom_data || {}, owned.odometer);
     if (stamped) {
@@ -391,122 +233,65 @@ async function cmdDrive(args, raw, player) {
     return say(`You don't own a truck. There's a dealer's line at the fence: see the ${teachVerb('yard', 'yard')}.`);
   }
 
-  // IMPOUNDED. The truck is right there and it is not yours to take — which is the whole of what an
-  // impound lot is. Paying is `drive` again, so there is no verb to discover: the thing you were
-  // already trying to do tells you the price and then does it.
+  // Impounded: paying is just `drive` again.
   if (owned.impound_fee) {
     const paid = await releaseImpound(player, owned);
     if (paid && !paid.released) return paid;      // could not afford it — the truck stays put
     if (paid) sendToPlayer(player.id, paid);
   }
 
-  // A DERELICT ARGUES ABOUT IT FIRST. Never a refusal — a truck that simply will not start strands
-  // a player at a yard with their money tied up in it and nothing to do, which is a punishment with
-  // no play in it. It is a delay and a noise, and it is the last warning before the bench.
-  //
-  // ⚠ THE ROLL IS AT THE MOUNT; THE LINE WAITS FOR THE KEY. It used to fire here, which was honest
-  // while mounting started the engine and is a lie now that it does not — a truck that has not been
-  // started cannot be turning over. So the outcome is stashed on the rig and spent by whichever
-  // rung actually starts it: the text rung a few lines down, where pulling out IS the start, or the
-  // visual rung's first catch (see cmdTruckSync, which already learns the ignition from telemetry).
+  // A derelict argues first: a delay, never a refusal. ⚠ Rolled at the mount, spent by whichever rung
+  // actually turns the key (the text rung below, or the visual rung's first catch in cmdTruckSync).
   const hardStart = startTrouble(owned.condition);
 
-  // ⚠ WHERE IT STANDS AND WHERE IT LIVES ARE TWO DIFFERENT ANSWERS, and only the first one moved.
-  // `x`/`y` are the door tile now, because that is where the truck physically is. `depot` is the
-  // bookkeeping — which yard this rig belongs to, what `park` writes and what every ownership
-  // lookup matches on — and it stays the YARD exactly as before. Passing the door tile here would
-  // have quietly re-homed the truck to a zone no `depotZonesOf` pair contains, and the symptom
-  // would have been "you don't own a truck here" while sitting in it.
-  // ⚠ `spot?.heading`, not `spot.heading`. `mountSpot` can still answer null — a depot authored
-  // somewhere this cannot resolve — and `standStock` below has ALWAYS written it as an optional
-  // chain with a default. The two lines disagreed about whether the same value could be missing,
-  // and this was the one that threw.
+  // ⚠ Where it stands (x/y, the door tile) and where it lives (`depot`, the yard) differ: passing the
+  // door tile as depot would re-home the truck to a zone no depotZonesOf set contains.
+  // ⚠ `spot?.heading`: mountSpot can answer null.
   const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: spot?.heading ?? 180, depot: yardId || here.id });
   rig.zoneId = here.id;
-  rig._hardStart = hardStart;      // spent by whichever rung actually turns the key — see above
-  // ⚠ AND ANYTHING WITHOUT A PLACE GETS ONE FIRST. A box with no pose is on every list in the game
-  // and on no picture in it, so the yard walks it out onto the hardstand before the standing set is
-  // read — see standStock. Nothing to move is the ordinary case and costs one query.
-  // ⚠ THE BAY, NOT `here`. `here` is the DOOR TILE by this point (see the ⚠ above), and the box
-  // with no place is usually sitting in the room behind it — which is the one zone in the set that
-  // has no coordinates and so could never have been drawn from.
-  // …and BOTH tiles come from `depotFrom` rather than from `yardId`, which is null whenever you are
-  // stood on the apron rather than in the shed — the case where you are looking straight at the
-  // empty hardstand the box should be standing on.
+  rig._hardStart = hardStart;      // spent by whichever rung actually turns the key
+  // ⚠ Anything without a pose gets one first (see standStock). Use the bay, not `here` (the door
+  // tile), and depotFrom, not yardId (null on the apron).
   const yardCtx = depotFrom(stood?.id);
   await standStock(yardCtx?.bay || null, standPlaces(yardCtx?.bay, depot), spot?.heading ?? 180);
-  // WHATEVER IS STANDING AT THIS DEPOT, so it is drawn from the first frame. Both tiles, because
-  // you mount on the DOOR and the stock stands on the HARDSTAND — one refresh meant a driver
-  // starting the engine looked out at an empty yard until the wheels crossed the boundary.
+  // Refresh both tiles: you mount on the door and the stock stands on the hardstand.
   await Promise.all([...new Set([here.id, yardId].filter(Boolean))].map(z => refreshStanding(z)));
-  // WHAT YOU BOUGHT IS WHAT YOU DRIVE — see hydrateFromTruck. It is a function rather than a block
-  // here because the CROSSING mount needs the identical thing and used to do none of it.
+  // What you bought is what you drive: see hydrateFromTruck.
   await hydrateFromTruck(rig, owned);
 
-  // UNLOCKED BY GETTING IN, because you have the key — a lock the owner has to spend a verb on is a
-  // lock that is only ever an obstacle to the person it belongs to. `park` sets it again on the way
-  // out, so the stored state is simply "is anybody in it".
+  // Unlocked by getting in; `park` locks it again, so the stored state is "is anybody in it".
   rig.locked = false;
   setPosture(player, 'driving');
-  // ⚠ THIS MOVES YOU INTO THE SHED, NOT OUT OF IT, and that inversion is the whole feature. It used
-  // to walk the player to the apron so the first frame was already on the road; now it puts them on
-  // the door tile — inside the building, engine running, nose pointed at the daylight — and the
-  // drive out is something the player does with the throttle. `driveToZone` is still the mover for
-  // the same reason it always was: it runs AFTER the rig exists, so the move gate sees a driver
-  // rather than a pedestrian walking out of a door.
-  //
-  // `fromShed` still means "the truck had to be got out of somewhere", which is what the roller
-  // door narrates; it is just that now the door is in front of you rather than behind you. A driver
-  // who left the rig on the apron and typed `drive` from there is already outside and gets no door.
+  // ⚠ This moves you onto the door tile, inside the shed; driving out is the player's job.
+  // driveToZone runs after the rig exists so the move gate sees a driver, not a pedestrian.
+  // `fromShed` means the roller door is narrated; a driver already on the apron gets no door.
   const fromShed = !!(bay && here === door && door.id !== player.current_zone);
   if (fromShed) driveToZone(player, rig, door.id);
   else if (bay && yardId && yardId !== player.current_zone) driveToZone(player, rig, yardId);
 
-  // THE MINIGAME AXIS (docs/systems-display-mode.md). Delete the cab and the player is not reading
-  // less, they are STUCK — they cannot make the run at all — so this is `prefersTextMinigames`,
-  // not `prefersLoggedPanels`. A text driver gets a real drive that the server runs, using the
-  // same `stepTruck` and the same transitions; see textdrive.js.
+  // The minigame axis (docs/systems-display-mode.md): without the cab a player can't run at all, so
+  // this is prefersTextMinigames. The server drives a text rig with the same stepTruck; see textdrive.js.
   if (await prefersTextMinigamesOrDefault(player)) {
-    // HAND THE PANE BACK. The visual rung closes the depot implicitly — `truck_sim` is a pane owner
-    // and the client's handler closes the depot before opening the cab. This rung sends no payload
-    // at all, so without this the depot panel sits over the whole run: the rig is mounted, `drive`
-    // answers "already behind the wheel", and the player is looking at a shop window they cannot
-    // leave. A text driver's road is the LOG, so the pane must be given back to the room.
+    // Hand the pane back: this rung sends no truck_sim, so without this the depot panel stays up.
     sendToPlayer(player.id, { type: 'truck_depot_close' });
-    // A TEXT DRIVER HAS NO IGNITION, so pulling out is the start — the rung's own prose has always
-    // said the diesel catches, and there is no switch anywhere on it to disagree with. Set before
-    // the narration so the cold-start line below tells the truth.
+    // A text driver has no ignition, so pulling out is the start. Set before the cold-start line.
     rig.engineOn = true;
     if (rig._hardStart) { rig._hardStart = false; sendToPlayer(player.id, { type: 'emote', message: HARD_START_LINE }); }
     const dest = rig.cargo?.to || defaultRunTarget(here);
     startTextDrive(player, rig, { arrive, leaveTheMap });
     setTextTarget(player.id, dest);
-    // The roller door, at this rung, is a SENTENCE — the same beat the cab plays as a cinematic.
-    // Whichever rung you are on, the run starts with the shed opening in front of you.
+    // The roller door, at this rung, is a sentence.
     const doorLine = fromShed
       ? ' The roller door grinds up in front of you, a bar of daylight at a time, and the yard is out there waiting.'
       : '';
     return say(`<span class="text-green">You haul yourself up into the cab. The diesel catches on the second turn and the whole frame starts to shake.${doorLine}</span>\n<span class="text-dim">She holds the road; the box is yours. <b>revs up</b> / <b>revs down</b> to shift, <b>boot</b>, <b>cruise</b>, <b>coast</b>, <b>brake</b>, <b>jake</b> on a descent. <b>park</b> to pull over, <b>haul</b> and <b>market</b> at a yard.</span>`);
   }
 
-  // ⚠ THE TYPE GOES AFTER THE SPREAD. `cabContext` carries its own `type: 'truck_ctx'` (it is the
-  // per-tick push), so writing the type FIRST let the spread overwrite it — the mount message went
-  // out as an ordinary context update, the client's `truck_ctx` handler saw no cab open, returned
-  // on its first line, and the windscreen never appeared. No error, no console line, nothing: you
-  // were mounted, you were on the apron, and `drive` answered "you are already behind the wheel".
-  // OUT THROUGH THE ROLLER DOOR. `fromBay` is the one fact the cab cannot work out for itself:
-  // whether you turned the key INSIDE a shed or standing on the hardstand. The rig is on the apron
-  // either way — a bay is a building and buildings have no grid coordinates to put a truck on — so
-  // the shed is drawn in the CAB rather than in the world: an interior, a door, and a bar of
-  // daylight widening across the hood until the glass is the yard. It costs the world model
-  // nothing and it is the difference between a run that begins and a run that is simply on.
+  // ⚠ The type goes after the spread: cabContext carries its own `type: 'truck_ctx'`, and if it wins
+  // the client never opens the cab (silently). `fromBay` tells the cab to draw the roller door.
   sendToPlayer(player.id, { ...cabContext(rig, { mounted: true, fromBay: fromShed ? (depot.name || 'the shed') : null }), type: 'truck_sim' });
-  // ── THE BENCH COMES TO THE CAB ─────────────────────────────────────────────
-  // The yard's first screen is a hand of cards and picking one lands you HERE, in the real shed —
-  // so everything the bench used to be (servicing, repairs, the shelves, the pump, the freight
-  // board) arrives as an overlay on the glass, and "drive out" is the throttle. `_svc` latches it
-  // so the telemetry tick (`baySvcTick`) knows the overlay is up and closes it when the truck
-  // leaves the shed. Only in a shed with a roller door: a legacy one-tile depot has no inside.
+  // The bench comes to the cab as an overlay; `_svc` latches it so baySvcTick closes it when the
+  // truck leaves the shed. Only in a shed with a roller door.
   if (fromShed || baySvcFor(rig)) {
     rig._svc = true;
     await pushBayService(player, { spawn: true });
@@ -519,15 +304,10 @@ async function cmdDrive(args, raw, player) {
 <span class="text-dim">Turn the key (<b>K</b>, or the barrel on the shelf) and hold it until she catches.</span>`);
 }
 
-// MOUNT ONE PARTICULAR TRUCK. The whole of `drive` — the shed, the roller door, the cold engine,
-// the rung you drive on — reached by id rather than by whatever is standing in the yard. It exists
-// for the road test, which conjures a school rig and then has to get the player into THAT one and
-// no other; going through the ordinary verb is what stops the lesson teaching a special case.
+// Mount one particular truck through the ordinary `drive` path (the road test's school rig).
 export const mountTruckById = (player, id) => cmdDrive([id], id, player);
 
-// Where a text run heads when the deck is empty: the nearest depot in ANOTHER region, which means
-// off the rim and across the waste. A driver with no load who wants to go somewhere is going to
-// the other town, and making them say so would be ceremony.
+// Where a text run heads when the deck is empty: the nearest depot in another region.
 function defaultRunTarget(here) {
   const other = allDepots().find(d => d.flags?.region_id !== here.flags?.region_id);
   if (other) return { target: other.id, wantsRim: true };
@@ -536,35 +316,17 @@ function defaultRunTarget(here) {
 }
 
 // A depot is any zone carrying `flags.truck_depot`. Content decides which; this only reads it.
-//
-// ⚠ THE FLAG IS AN OBJECT WITH A `yard`, AND NOTHING ELSE IS A DEPOT. There used to be two more
-// shapes accepted here — a bare STRING, and an object with no `yard` — and between them they meant
-// a depot could be a flag sitting on an open piece of hardstand with no building anywhere near it.
-// That is not a lenient reader, it is a second depot design, and it shipped: two of the five depots
-// were built that way and drew NO BUILDING AT ALL, because the renderer only extrudes a tile with a
-// `building_type` and there was no tile to give one to. You stood in a yard, typed `drive`, and
-// pulled out of bare ground.
-//
-// Both are gone, and the regress suite now asserts every authored depot resolves a real yard tile
-// with grid coordinates — so the shape is a build failure rather than a silent second world.
+// ⚠ The flag must be an object with a `yard`; nothing else is a depot. Regress asserts every
+// authored depot resolves a real yard tile.
 function depotAt(zone) {
   const f = zone?.flags?.truck_depot;
   if (!f || typeof f !== 'object' || !f.yard) return null;
   return f;
 }
 
-// ── WHICH ONE OF YOURS ───────────────────────────────────────────────────────
-// A yard used to hold at most one truck of yours, and the buy refused a second on the stated
-// grounds that saying so was cheaper than a disambiguation prompt on every mount. It was — right
-// up until owning a FLEET became the point. A yard is where a fleet lives; a rule that scattered
-// six trucks across six towns so that `drive` never had to ask a question was the tail wagging the
-// truck, and it made "own several" mean "own several, somewhere else".
-//
-// So the prompt exists now, and it is deliberately only ever a prompt: with one truck standing
-// here NOTHING asks anything, which is the case every player who owns one truck is in forever.
-// `want` is whatever the player typed after the verb — an id (what the panel's buttons carry),
-// the plate they painted on the door, or any part of the model name. Ids first, because an id is
-// exact and a plate is a thing somebody can call "hauler".
+// ── Which one of yours ──
+// With one truck here nothing asks. `want` is an id (what panel buttons carry), a plate, or part
+// of the model name. Ids first, because an id is exact.
 function pickParked(list, want) {
   if (!want) return list.length === 1 ? list[0] : null;
   const w = String(want).trim().toLowerCase();
@@ -576,12 +338,8 @@ function pickParked(list, want) {
     || list.find(t => t.type.name.toLowerCase().includes(w))
     || null;
 }
-// The refusal, and it is a MENU rather than a complaint: every line is the command that picks that
-// truck, because the rule this file is built on is that anything you can click you can type. A
-// plate is offered when there is one, since that is what a driver actually calls it.
-// `byId` is for the bench, where the plate is not a legal way to say it (see the ⚠ in rigBench):
-// the truck is still NAMED in the label, because that is what the driver calls it, and only the
-// command on the end of the line changes.
+// The refusal is a menu: every line is the command that picks that truck.
+// `byId` is for the bench, where a plate isn't a legal way to say it (see rigBench).
 export function whichTruckLine(verb, list, want, byId = false) {
   const rows = list.map(t => {
     const label = t.name ? `<b>${t.name}</b> <span class="text-dim">(${t.type.name})</span>` : `<b>${t.type.name}</b>`;
@@ -591,42 +349,14 @@ export function whichTruckLine(verb, list, want, byId = false) {
   return say((want ? `Nothing of yours here answers to "${want}".` : `You have ${list.length} parked here. Which one?`) + `\n${rows}`);
 }
 
-// ── A DEPOT IS A BUILDING YOU WALK INTO ──────────────────────────────────────
-// The depot used to be a flag on a piece of STREET, so the whole shop — a dealer's line, a freight
-// board, a commodities exchange — bloomed over the road because you crossed a particular kerb.
-// Nothing else in the game does that: a shop is a shop you go inside, and the hangar this system
-// was modelled on has been a walk-in interior since the day it was written.
-//
-// So `flags.truck_depot` now belongs on the INSIDE of a garage, and it carries one more key:
-//
-//   flags.truck_depot = { name, yard: '<zone id>' }
-//
-// `yard` is the hardstand outside the roller door — a real, drivable street tile with grid
-// coordinates. It is the ONE fact the bay cannot derive, because a building's own tile is solid
-// (buildings are solid, and that is a law of this system: docs/systems-trucking.md) and a truck
-// cannot be mounted on a zone that has no road under it.
-//
-// Everything downstream reads these two helpers rather than a zone id, which is what let the
-// change stay small: a truck parked in the bay and a truck parked on the apron are one truck at
-// one depot, and every lookup asks for the PAIR.
-// ⚠ NO FALLBACK TO THE ZONE'S OWN ID. It used to read `depot?.yard || zone?.id`, which is what made
-// the legacy shape work at all: a depot with no yard quietly became its own yard. On a real bay that
-// silently mounts a forty-tonne truck inside a building — a tile with no grid coordinates and no
-// surface under it — and the failure surfaces somewhere far away as a rig that cannot move. `yard`
-// is the one fact a bay genuinely cannot derive, so a depot without one is unauthored, not flexible.
+// ── A depot is a building you walk into ──
+// flags.truck_depot = { name, yard: '<zone id>' } lives on the bay interior; `yard` is the drivable
+// hardstand outside, the one fact a bay can't derive. Lookups ask for the whole set of depot tiles.
+// see docs/systems-trucking.md#a-depot-is-a-building-you-walk-into-2026-08-11
+// ⚠ No fallback to the zone's own id: that would mount a truck inside a building with no surface.
 export const yardIdOf = (zone, depot) => depot?.yard || null;
-// WHERE A BOX STANDS AT THIS DEPOT, and it is the SHED rather than the apron. The shed paints
-// TRAILER down one side of its floor and numbered tractor stalls down the other; stock left
-// outside made a liar of its own markings, and put the one thing you have to line up on out of
-// frame the moment you climbed in — a driver mounts INSIDE the shed, facing the door.
-//
-// The bay itself is a room at grid 0,0, so the tile that is physically the shed is its facade —
-// the same `world_exit_zone` a truck is parked on. A depot with no drivable shed (the legacy
-// one-tile shape, and the fixtures) falls back to the apron, which is what every one of them did
-// before there was a shed to stand anything in.
-// …and it is a LIST, in preference order, because the shed holds two boxes and a fleet is bigger
-// than two. Under the roof in the painted bays first; then the apron, in a rank along the fence.
-// Both are the depot's own zones, so `hitch` reaches either without widening its search.
+// Where stock stands at this depot, in preference order: the shed (the bay's facade tile, with
+// painted bays), then the apron. Fixtures and one-tile depots fall back to the apron.
 function standPlaces(bay, depot) {
   const shed = bay?.flags?.world_exit_zone ? getZone(bay.flags.world_exit_zone) : null;
   const yard = getZone(yardIdOf(bay, depot));
@@ -635,35 +365,17 @@ function standPlaces(bay, depot) {
   if (yard && yard.grid_x != null && yard.id !== shed?.id) out.push({ zone: yard, bays: false });
   return out;
 }
-// ── WHERE A RIG IS STANDING WHEN YOU CLIMB INTO IT ───────────────────────────
-// Pulled out of `cmdDrive` so it can be ASSERTED rather than trusted. It was four lines inline,
-// which meant the one thing worth pinning — that you start inside the shed facing the way out, and
-// not back on the apron — was reachable only by buying a truck and driving it, and so was pinned
-// nowhere. A refactor could have quietly put the player back outside and nothing would have gone
-// red. Pure: takes the zone you are standing in, returns the tile to mount on, which way to point,
-// and whether a roller door is in front of you.
+// ── Where a rig stands when you climb in ──
+// Pure, and pulled out of cmdDrive so regress can assert you start in the shed facing out.
 const OUT_HEADING = { north: 0, east: 90, south: 180, west: 270 };
 export function mountSpot(stood) {
-  // ⚠ ANY OF THE DEPOT'S THREE TILES, NOT JUST THE BAY — and asking `depotAt` alone is what made
-  // `drive` do nothing after you parked.
-  //
-  // `depotAt` is true of the BAY and of nothing else. Walk into a depot and you are standing in the
-  // bay, so this resolved and everything worked. But `park` leaves you on the APRON (the truck goes
-  // under the roof; the driver climbs down where they stopped), so `stood` was the hardstand, this
-  // returned null — and the caller then read `spot.heading` off it and threw. The panel came up
-  // with a live 'Take it out' button on it, you pressed it, and nothing happened at all, because
-  // the command died before it could even refuse.
-  //
-  // It is the same widening `depotZonesOf` already had to take, for the same reason and with the
-  // ⚠ above it saying so: a depot is a PLACE of three tiles, and every question about it has to be
-  // answerable from whichever of them you happen to be on. `depotFrom` is that lookup, and using it
-  // here means parking and walking in now put you in exactly the same seat.
+  // ⚠ Any of the depot's three tiles, not just the bay: `park` leaves you on the apron, and
+  // depotAt alone made `drive` do nothing after parking.
   const ctx = depotFrom(stood?.id);
   if (!ctx) return null;
   const { bay, depot } = ctx;
   const door = bay?.flags?.world_exit_zone ? getZone(bay.flags.world_exit_zone) : null;
-  // A bay with a facade puts you INSIDE it. Anything else — a depot authored straight onto a road
-  // tile, which is what the test fixtures are — mounts where it always did.
+  // A bay with a facade puts you inside it. Anything else (test fixtures) mounts on the yard.
   if (door && door.grid_x != null) {
     const heading = OUT_HEADING[door.flags?.entrance];
     return { zone: door, heading: heading != null ? heading : 180, fromShed: true, depot };
@@ -671,27 +383,16 @@ export function mountSpot(stood) {
   const yard = getZone(yardIdOf(bay, depot));
   return { zone: (yard && yard.grid_x != null) ? yard : stood, heading: 180, fromShed: false, depot };
 }
-// ⚠ A DEPOT IS THREE TILES AND THIS USED TO NAME TWO OF THEM — the one you are standing on, and
-// the depot's own `yard`. Standing IN the bay that was [bay, apron] and everything worked. Standing
-// on the APRON it was [apron, apron]: the bay was not in the set at all, and `park` stores a truck
-// in the BAY (see parkRig — a rig belongs under the roof, not on a public street). So parking at a
-// yard and then trying to drive away from the hardstand answered "Your Ostrek Courier is parked at
-// Kessler Street Yard, not here" while you were standing in Kessler Street Yard looking at it.
-//
-// The set is now the whole PLACE, whichever of its tiles you hand it: the shed, its facade — the
-// door tile a driver mounts on, which `yardIndex` has resolved to its depot since the walk-in
-// rebuild — and the hardstand outside. Every ownership lookup, the bench, the pump and the horn ask
-// through here, so all of them agree about what "here" means for the price of one function.
+// ⚠ A depot is three tiles (bay, its facade door tile, the apron), whichever one you hand it.
+// `park` stores a truck in the bay, so a set missing the bay breaks driving away from the apron.
+// Every ownership lookup, the bench, the pump and the horn ask through here.
 export const depotZonesOf = (zone, depot) => {
   const bay = depotAt(zone) ? zone : (bayForYard(zone?.id)?.zone || null);
   const d = depot || depotAt(bay);
   return [...new Set([zone?.id, bay?.id, d?.yard, bay?.flags?.world_exit_zone].filter(Boolean))];
 };
-// The bay a yard tile belongs to — the reverse lookup, for prose on the apron and for `park`.
-// MEMOISED, because the caller is `zone.describeRoom`: this answers a question asked every time
-// anybody looks at any room in the game, and a full `getAllZones()` sweep per look is exactly the
-// kind of quiet per-move cost the read-tier rules exist to keep out. The world's zones are static
-// between reloads, so the index is built once and dropped when the world is.
+// The bay a yard tile belongs to. Memoised: zone.describeRoom calls this on every look; zones are
+// static between reloads.
 let _yardIndex = null;
 function yardIndex() {
   if (_yardIndex) return _yardIndex;
@@ -700,19 +401,13 @@ function yardIndex() {
     const d = depotAt(z);
     if (!d?.yard) continue;
     _yardIndex.set(d.yard, { zone: z, depot: d });
-    // ⚠ THE DOOR TILE IS A PLACE PLAYERS STAND NOW, so it has to resolve to its depot like the
-    // apron does. `drive` mounts the rig on the facade, inside the shed — and every depot verb
-    // (`hitch`, `haul`, `market`, `yard`) reaches its depot through this index, so without the
-    // facade in it a driver sitting in the bay with the engine running was, as far as all of them
-    // were concerned, nowhere near a depot at all. One more key, same object: the shed, its door
-    // and its hardstand are three tiles and one place.
+    // ⚠ The door tile resolves to its depot too: `drive` mounts there and every depot verb asks here.
     if (z.flags?.world_exit_zone) _yardIndex.set(z.flags.world_exit_zone, { zone: z, depot: d });
   }
   return _yardIndex;
 }
 const bayForYard = (zoneId) => (zoneId ? yardIndex().get(zoneId) || null : null);
-// The depot reachable from a zone id, from ANY of its three tiles — the same answer `depotHere`
-// gives a player, without needing one. Exported through _test so the reachability can be asserted.
+// The depot reachable from any of its three tiles. Exported through _test.
 function depotFrom(zoneId) {
   const z = getZone(zoneId);
   const direct = depotAt(z);
@@ -721,15 +416,8 @@ function depotFrom(zoneId) {
   if (via) return { bay: via.zone, depot: via.depot, yard: getZone(via.depot.yard) || z };
   return null;
 }
-// ── THE DOOR TO THE BUNKROOM ─────────────────────────────────────────────────
-// `flags.truck_bunkroom` has been authored on all five depot bunkrooms since they were built and
-// read by absolutely nothing — the "owner —" case docs/flags-keys.md exists to record. This is the
-// reader, and the flag is now load-bearing.
-//
-// ⚠ DERIVED FROM THE EXITS, never from a table of directions. Four of the five bunkrooms are north
-// of their shed and the Last Load's is east of it, so a constant would have been right four times
-// out of five and wrong in the one place nobody would have re-checked. It is also what makes a
-// sixth depot work with no code at all: author the flag, hang the door, and the button is there.
+// ── The door to the bunkroom ──
+// ⚠ Derived from the exits, never a table of directions: one bunkroom sits east, the rest north.
 function bunkFrom(zone) {
   for (const [dir, id] of Object.entries(zone?.exits || {})) {
     const z = getZone(id);
@@ -738,17 +426,14 @@ function bunkFrom(zone) {
   return null;
 }
 
-// EVERY PILE OF BOXES ONE DEPOT OWNS. A trailer sits in exactly one zone and a truck can only stand
-// in two of the three, so `hitch` has to search the set rather than the tile — see the ⚠ in cmdHitch
-// for what that cost. Factored out so the verb and the regress case cannot drift apart.
+// Every zone one depot holds boxes in, so `hitch` searches the set (see cmdHitch).
 function hitchZones(zoneId) {
   const ctx = depotFrom(zoneId);
   if (!ctx) return [zoneId].filter(Boolean);
   return [...new Set([zoneId, ctx.bay?.id, ctx.yard?.id, ctx.bay?.flags?.world_exit_zone].filter(Boolean))];
 }
 
-// The legacy path: mount on a crossing you are already walking. Unchanged behaviour, moved aside so
-// `drive` reads as the depot verb it now is.
+// Mount on a crossing you are already walking.
 async function mountOnCrossing(player) {
   const live = player._crossing;
   const info = crossingInfo(live.instanceId);
@@ -758,18 +443,8 @@ async function mountOnCrossing(player) {
   const chain = crossingChain(live.instanceId, destKey);
   if (!chain.length) return say("The road won't resolve. Try the crossing on foot.");
 
-  // ⚠ YOUR TRUCK, IF YOUR TRUCK IS THE ONE STANDING HERE. This path is named for the legacy case —
-  // a rig left at the roadhead with the keys in it — and it built that fiction unconditionally: a
-  // bare `mountRig` with no truck id, no type, no damage, no fuel and, the symptom that surfaced
-  // it, NO TRAILER. So a driver who stopped out on the void road, climbed down and climbed back up
-  // got a generic tractor and an empty fifth wheel, while their own box sat in the database still
-  // correctly believing it was hitched to a truck nobody was driving.
-  //
-  // `drive` reaches this branch BEFORE the depot path (see its first lines), so the depot path's
-  // restore could never run out here. Parking mid-crossing writes the void room as the truck's
-  // `depot_zone` — a healthy rig stops exactly where you left it, and only a broken or dry one is
-  // handed to a recovery yard — so the truck that belongs to this driver in this room is exactly
-  // what `trucksAt` answers, and hydrating from it restores all of the above at once.
+  // ⚠ Your truck, if it's the one standing here: parking mid-crossing writes the void room as the
+  // truck's depot_zone, so trucksAt finds it. Without hydrating, you'd get a generic rig and no trailer.
   const rig = mountRig(player, { x: 0, y: 0 });
   const mine = (await trucksAt(player.id, player.current_zone).catch(() => []))[0];
   if (mine) { await hydrateFromTruck(rig, mine); rig.zoneId = player.current_zone; }
@@ -785,22 +460,16 @@ async function mountOnCrossing(player) {
   }
   setPosture(player, 'driving');
   pushRoadWindow(player);   // see the note at the other join — a boundary event is a room too late
-  sendToPlayer(player.id, { ...cabContext(rig, { mounted: true }), type: 'truck_sim' });   // type AFTER the spread — see cmdDrive
-  // Two different sentences, because they are two different events: getting back into YOUR truck
-  // out on the road is not finding one abandoned at the roadhead with the keys in it.
+  sendToPlayer(player.id, { ...cabContext(rig, { mounted: true }), type: 'truck_sim' });   // type AFTER the spread: see cmdDrive
   return say(mine
     ? `<span class="text-green">You climb back up into the ${mine.name || 'cab'}, and the diesel catches on the second turn.</span>`
       + (rig.trailer ? ` <span class="text-dim">The ${rig.trailer.name} is still on the pin behind you.</span>` : '')
     : '<span class="text-green">There\'s a rig at the roadhead with the keys still in it. You climb up, and the diesel catches on the second turn.</span>');
 }
 
-// ── haul ─────────────────────────────────────────────────────────────────────
-// The job board. A depot offers loads bound for the OTHER depots it knows about, seeded per depot
-// per game-day so the board is the same for everyone that day and doesn't reroll on a re-read.
-// This is deliberately not the flight contracts board: those price by air distance and bind to an
-// aircraft. What is borrowed is the SHAPE — archetypes rolled into concrete instances, paid on
-// delivery — not the code, because a truck's economics are weight and road miles, not fuel burn
-// and rental meters.
+// ── haul ──
+// The job board: loads to other depots and local docks, seeded per depot per game-day so everyone
+// sees the same board and a re-read can't reroll it.
 const LOADS = [
   { name: 'a pallet of ration bricks', kg: 900, pay: 260 },
   { name: 'drum stock, sealed', kg: 1800, pay: 420 },
@@ -815,89 +484,37 @@ function boardFor(zoneId) {
   let h = 2166136261 >>> 0;
   for (const ch of `${zoneId}|${day}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
   const rng = () => { h = (h + 0x6D2B79F5) | 0; let t = Math.imul(h ^ (h >>> 15), 1 | h); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  // PHASE 4 — THE CITY IS A DESTINATION, not just the road to the rim.
-  //
-  // Until now a board could only send you to another YARD, and there are three of those in the
-  // world, two of which are across the waste. So the city was a corridor: you drove through it to
-  // get to the edge of the map and you never had a reason to go anywhere IN it.
-  //
-  // A loading dock is a business that takes deliveries — `flags.loading_dock`, content-authored
-  // exactly as a depot is, on the drivable street tile outside a building. Docks in THIS REGION are
-  // mixed into the board beside the crossings, which does three things at once:
-  //
-  //   • it makes the city a map you navigate rather than a strip you traverse,
-  //   • it gives the fleet ladder a bottom rung — a local run pays little, needs no crossing, and
-  //     is affordable in a Barrow with a flatbed, which is the whole entry kit,
-  //   • and it means `market` is no longer the only thing to do with a truck you cannot yet afford
-  //     to take across the waste.
-  //
-  // Nothing about delivery changed to allow it: `deliver` already keys on a ZONE ID, so a dock is a
-  // destination for free. That is the payoff for having written it that way.
+  // Local loading docks (`flags.loading_dock`, content-authored) mix in beside the crossings.
+  // see docs/systems-trucking.md#city-driving--the-city-as-a-destination
   const here = getZone(zoneId);
   const docks = allDocks().filter(d => d.flags?.region_id === here?.flags?.region_id);
   const dests = [...allDepots().filter(d => d.id !== zoneId), ...docks];
   if (!dests.length) return [];
-  // ONE SLOT IS ALWAYS A CROSSING, if a crossing is possible at all.
-  //
-  // Adding docks nearly broke the system by accident: there are six of them in Coldwater against
-  // one other depot, so a seeded four-slot board came up ALL LOCAL and a player standing in the
-  // yard was never offered the run across the waste. The waste run is the game; being shown it has
-  // to be a certainty rather than a dice roll, or a whole day's board can quietly hide the thing
-  // the whole system is for. (Caught by the regress suite, which could no longer find a crossing to
-  // take — the failure and the bug were the same fact.)
+  // ⚠ One slot is always a crossing if one is possible: docks outnumber depots, and a seeded board
+  // could otherwise come up all local and hide the waste run.
   const far = dests.filter(d => d.flags?.region_id !== here?.flags?.region_id);
-  // …AND ONE SLOT IS ALWAYS A LOCAL RUN, for the same reason and by the same argument.
-  //
-  // The note above fixed this in ONE DIRECTION ONLY: a four-slot seeded board could come up all
-  // local and never show the crossing, so slot 0 was pinned to a crossing. The mirror of it was
-  // left on the dice — with six docks against a handful of depots, the three free slots can all
-  // draw depots, and then a whole day's board offers nothing in town at all. That is the bottom
-  // rung of the fleet ladder missing for the day, for every player, and it is exactly as invisible
-  // as the first one was: the board still looks like a board.
-  //
-  // ⚠ AND IT IS WHY THE SUITE GOES RED ON THE ODD DAY WITH NOTHING CHANGED. The seed is
-  // (depot, game-day), so the draw is fixed for a date and re-rolls at midnight: a gate that
-  // passes today, fails tomorrow and passes again on Thursday, with nothing between the three but
-  // the clock. A check on the DRAW is a check on the roll — the fix is to stop rolling for the
-  // thing that has to be there.
+  // ⚠ And one slot is always a local run (the mirror case). A check on the seeded DRAW flakes by
+  // date, because the seed re-rolls at midnight; pin what has to be there instead of rolling for it.
   const near = dests.filter(d => !!dockAt(d));
   const out = [];
   for (let i = 0; i < 4; i++) {
     const l = LOADS[Math.floor(rng() * LOADS.length) % LOADS.length];
     const pool = (i === 0 && far.length) ? far : (i === 1 && near.length) ? near : dests;
     const to = pool[Math.floor(rng() * pool.length) % pool.length];
-    // Long hauls pay more, and a load that crosses the waste pays a great deal more — the risk is
-    // real and the alternative (a short in-town run) has to stay the safe, boring option.
+    // Crossing the waste pays a great deal more; a local run stays the safe, dull bottom rung.
     const crosses = to.flags?.region_id !== getZone(zoneId)?.flags?.region_id;
-    // The board names the YARD, not the street it stands on — a bill of lading says "The Last
-    // Load", not "The Reach 871,1958".
-    // A LOCAL RUN PAYS LOCAL MONEY, and deliberately not much. It is the bottom rung: safe, dull,
-    // and the thing you do while you save up for a box big enough to make the crossing worth it. If
-    // in-town work paid well nobody would ever cross the waste, and the waste is the game.
     const local = !!dockAt(to);
     out.push({ i, name: l.name, kg: l.kg, to: to.id, toName: dockAt(to)?.name || depotAt(to)?.name || to.name,
       pay: Math.round(l.pay * (crosses ? 2.6 : local ? 0.35 : 1)), crosses, local,
-      // The bill of lading names the STREET for a dock, because that is how you find it — a depot
-      // is a place everybody knows and a dock is an address.
+      // A dock is named by its street, because a dock is an address.
       where: local ? to.name : null });
   }
   return out;
 }
-// A DEPOT, TO EVERYTHING THAT ISN'T THE SHOP, IS ITS YARD. Freight boards, delivery checks, the
-// text driver's default target and the crossing all want somewhere a TRUCK can be, and since the
-// depot moved indoors that is never the room with the flag in it — a bay has no grid coordinates
-// and no road under it. So this resolves each bay to its apron and returns THAT, which is why
-// nothing downstream of it needed changing when the shop went inside.
-//
-// ⚠ AND A POUND IS NOT ONE, THOUGH IT CARRIES THE SAME FLAG. An impound lot has to be a depot to
-// everything that asks "can I get my truck out of here" — `drive` refuses on `!depot` long before
-// it looks up who owns what — and it must be nothing at all to everything that asks "where can
-// freight GO". This list is the second question: it feeds the boards, the contract generator, the
-// text driver's default target and the crossing, so a pound in it offers haulage to a compound you
-// cannot enter without paying a fine, and the fuel rule ("every shipped depot sells diesel, so a
-// tight tank pressures rather than strands") would oblige a police lot to run a pump.
-//
-// One predicate, read from content, because the alternative is every caller remembering.
+// A depot, to everything but the shop, is its yard: freight boards, delivery checks, the text
+// driver's target and the crossing all want a tile a truck can stand on.
+// ⚠ An impound pound carries the same flag but is excluded: freight must never go there, and the
+// fuel rule (every depot sells diesel) would oblige it to run a pump.
 function allDepots() {
   const out = [];
   for (const z of getAllZones()) {
@@ -908,8 +525,7 @@ function allDepots() {
   }
   return out;
 }
-// A dock is any zone carrying `flags.loading_dock`. Content decides which; this only reads it —
-// the same engine/content split as `truck_depot`.
+// A dock is any zone carrying `flags.loading_dock`. Content decides which.
 function allDocks() {
   return getAllZones().filter(z => z.flags?.loading_dock && z.grid_x != null);
 }
@@ -919,32 +535,12 @@ function dockAt(zone) {
   return typeof f === 'object' ? f : { name: zone.name };
 }
 
-// ── WHAT IS BEING LOADED, AND IT IS NOT ALWAYS A RIG YOU ARE SITTING IN ──────
-//
-// `haul` and `market buy` both used to open with `if (!rig) return 'get in a truck first'`, where
-// `rig` is a MOUNTED rig — a live object that exists only between `drive` and `park`. A truck
-// standing in the bay with a box on the pin is not one, however many trailers you own.
-//
-// Which made the freight board and the exchange unusable from the one place they are displayed.
-// The depot panel opens when you walk into a yard ON FOOT, which is exactly when there is no
-// mounted rig; and mounting CLOSES it (`drive` sends truck_depot_close — the cab and the depot are
-// both pane owners). So the surface that showed you the board could only be seen in the state where
-// every one of its buttons refused, and the state where they worked was the one where the board was
-// not on screen. Every button was a legal verb string aimed at a player who could not be looking at
-// it. The verbs were right; the question they asked was wrong.
-//
-// So the question is now "what is there to load HERE", and a truck standing in front of you is a
-// real answer. That is also the model the rest of the depot already uses — `rig repair` works on a
-// parked truck and REFUSES one you are sitting in ("Climb down first") — so before this the two
-// halves of the same building disagreed about where a driver was supposed to be standing.
-//
-// ⚠ THE LOAD LIVES ON THE TRAILER ROW, WHICH IS WHY THIS IS POSSIBLE AT ALL. `rig.cargo` is a RAM
-// copy hydrated at mount (`hydrateFromTruck`: a restored trailer brings its freight back with it),
-// so writing the box's own row IS loading the truck — the next person to turn the key finds it on
-// there. There is no second store to keep in step and nothing to flush.
+// ── What's being loaded: a mounted rig, or a hitched truck standing in this yard ──
+// The depot panel is only on screen on foot (mounting closes it), so the board's verbs must work
+// on a parked truck. ⚠ The load lives on the trailer row (rig.cargo is a RAM copy hydrated at
+// mount), so writing the box's row IS loading the truck.
 async function loadDeck(player) {
-  // Behind the wheel: exactly what it always was, unchanged, and it stays first — a driver sitting
-  // in a rig is unambiguous and must never be asked which truck they mean.
+  // Behind the wheel stays first: a driver in a rig must never be asked which truck they mean.
   const rig = rigOf(player);
   if (rig) {
     return { mounted: true, rig, trailer: rig.trailer, cargo: rig.cargo, label: rig.type?.name || 'the truck' };
@@ -955,9 +551,7 @@ async function loadDeck(player) {
   if (!parked.length) {
     return { err: say('Nothing of yours is standing here to load.') };
   }
-  // A BOX IS WHAT MAKES A TRUCK A CANDIDATE, so the disambiguation is over the trucks that can
-  // actually take a load rather than over everything you happen to own — being asked to choose
-  // between two rigs when only one of them has a trailer on it is a question with one answer.
+  // Only trucks with a box on are candidates for the disambiguation.
   const withBox = [];
   for (const t of parked) {
     const tr = await trailerOnTruck(t.id);
@@ -974,18 +568,12 @@ async function loadDeck(player) {
   return { mounted: false, truck, trailer, cargo: trailer.cargo, label: truck.name || truck.type.name };
 }
 
-// The one write. Mounted, it is the RAM field the drive reads and the cab paints; parked, it is the
-// trailer's own row — which is the same place the mounted path's copy came from and will be flushed
-// back to, so the two rungs cannot disagree about what is on the deck.
-// ⚠ AND IT RE-PUSHES ONTO THE TAB THE CLICK CAME FROM. It always said 'freight', which is right for
-// `haul` and wrong for `market buy` — buying a load on the Exchange threw the panel onto the
-// freight board, so the one screen that could have shown you the goods you just bought was the one
-// screen the purchase navigated away from.
+// The one write: the RAM field when mounted, the trailer row when parked.
+// ⚠ Re-pushes onto the tab the click came from (`market buy` must stay on the exchange).
 async function setDeckCargo(player, deck, cargo, tab = 'freight') {
   if (deck.mounted) {
     deck.rig.cargo = cargo;
-    // ⚠ AND THE BOX ROW TOO, WHEN THERE IS ONE. Cargo is the trailer's, and a load taken at a bench
-    // that lived only in RAM would be gone if the server restarted before the driver parked.
+    // ⚠ And the box row too: cargo only in RAM would be lost to a restart before parking.
     if (deck.rig.trailer) {
       deck.rig.trailer.cargo = cargo;
       await saveLoad(deck.rig.trailer.id, cargo, deck.rig.trailer.stash);
@@ -995,8 +583,6 @@ async function setDeckCargo(player, deck, cargo, tab = 'freight') {
   }
   deck.trailer.cargo = cargo;
   await saveLoad(deck.trailer.id, cargo, deck.trailer.stash);
-  // The panel is the surface this was clicked on, so it is the surface that has to show the result
-  // — the same rule every other bench commit follows (see the note on `repush`).
   await repush(player, tab);
 }
 
@@ -1013,17 +599,12 @@ async function cmdHaul(args, raw, player) {
   }
   const job = board[pick - 1];
   if (!job) return say('No such load on the board.');
-  // WHAT IS THERE TO LOAD — a rig you are sitting in, or a hitched truck standing in this yard.
-  // See the note on `loadDeck`: this used to demand a mounted rig, which is the one state you
-  // cannot be in while looking at the board.
+  // A rig you're in, or a hitched truck standing here: see loadDeck.
   const deck = await loadDeck(player);
   if (deck.err) return deck.err;
   if (!deck.trailer) return say(`You're bobtail: there's nothing behind you to put it on. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
   if (deck.cargo) return say(`Already loaded: ${deck.cargo.name}${deck.cargo.toName ? `, for ${deck.cargo.toName}` : ''}.`);
-  // ⚠ AND THE BOX HAS TO TAKE IT. The mounted path never checked, because there was no way to be
-  // holding a contract the trailer could not carry — you took it in the cab of the truck that was
-  // going to pull it. On foot you can be standing at a board with a small box on the pin, so the
-  // rating is asked here rather than discovered at a weighbridge two regions away.
+  // ⚠ The box has to take it. On foot you can hold a contract the trailer can't carry.
   if (deck.trailer.ratedKg && job.kg > deck.trailer.ratedKg) {
     return say(`${job.kg} kg on a box rated for ${deck.trailer.ratedKg}. It won't go on.`);
   }
@@ -1032,8 +613,7 @@ async function cmdHaul(args, raw, player) {
     + (deck.mounted ? '' : ` <span class="text-dim">It's on the ${deck.label}, waiting for you to take it out.</span>`));
 }
 
-// Paid on arrival, at the depot the load names. The credit is the only DB write on the whole haul
-// besides the coalesced zone flush — everything else lived in RAM.
+// Paid on arrival at the depot the load names.
 async function deliver(player, rig) {
   const job = rig.cargo;
   if (!job) return { type: 'noop' };
@@ -1049,25 +629,18 @@ async function deliver(player, rig) {
   return { type: 'noop' };
 }
 
-// ── yard ─────────────────────────────────────────────────────────────────────
-// The fleet view: what you own, and what the dealer has along the fence. Shaped on the hangar bay
-// (plugins/flight/hangars.js buildCards) but RETURNED rather than pushed, like the cards machine —
-// there is no race against a player who walked off mid-await.
+// ── yard ──
+// The fleet view. Returned rather than pushed, so there's no race with a player who walked off.
 async function cmdYard(args, raw, player) {
   const { bay, depot } = depotHere(player);
   if (!depot) return say('No yard here.');
   const sub = (args[0] || '').toLowerCase();
   if (sub === 'buy') return await yardBuy(player, bay, depot, args[1], args.slice(2).join(' '));
-  // ⚠ ONE VERB FOR BOTH, AND IT DECIDES BY WHAT THE ID NAMES. `yard sell` was trucks only, so a
-  // trailer was a thing you could buy and never get rid of — and the box is the piece of kit you
-  // are most likely to buy wrong, because the whole choice is a capacity number you have not run
-  // yet. A second verb would have been a second thing to discover for the same act.
+  // One verb sells trucks and trailers; it decides by what the id names.
   if (sub === 'sell') return await yardSell(player, bay, depot, args[1]);
   // Fetching one home is the third thing a yard does with a truck, so it sits with buying and selling.
   if (sub === 'recall' || sub === 'fetch' || sub === 'tow') return await yardRecall(player, bay, args[1]);
-  // …and painting a box, which is a different job from painting the cab that pulls it and is priced
-  // as one. It lives on `yard` rather than on `rig` because `rig` takes a TRUCK and every one of
-  // its eight named fields is a surface a box has not got: a trailer is one colour, once.
+  // Painting a box lives on `yard`, not `rig`: `rig` takes a truck, and a trailer is one colour.
   if (sub === 'paint') return await yardPaintTrailer(player, bay, depot, args[1], args[2]);
   // The hire desk (rental.js): the second way to have a truck, beside buying one.
   if (sub === 'rent' || sub === 'hire') return await yardRent(player, bay, depot, args[1]);
@@ -1076,9 +649,8 @@ async function cmdYard(args, raw, player) {
   return await depotPanel(player, bay, depot, 'fleet', sub === 'text');
 }
 
-// ── `yard rent` — the hire desk ──────────────────────────────────────────────
-// The licence gate is the one `drive` applies, asked here too: a hire you cannot drive is money for
-// a truck that will sit in the yard until the term runs out, and the desk would rather not.
+// ── yard rent: the hire desk ──
+// The same licence gate `drive` applies.
 async function yardRent(player, bay, depot, typeArg) {
   const key = (typeArg || '').toLowerCase();
   if (!key) {
@@ -1102,9 +674,8 @@ async function yardRent(player, bay, depot, typeArg) {
     + `<span class="text-dim">It's in the shed with a full tank. Bring it back to any yard; if the time runs out it goes back on its own the next time it stops. ${teachVerb('drive')} when you're ready.</span>`);
 }
 
-// ── `yard return` — handing a hire back early ────────────────────────────────
-// At ANY yard: the desk has branches, and a hire that could only go back where it came from would
-// make every one-way run impossible. No refund — you hired the time, not the miles.
+// ── yard return: handing a hire back early ──
+// At any yard (one-way runs must work). No refund: you hired the time, not the miles.
 async function yardReturn(player, bay, depot, idArg) {
   const rig = rigOf(player);
   const fleet = await fleetOf(player.id);
@@ -1118,7 +689,7 @@ async function yardReturn(player, bay, depot, idArg) {
   return say(`<span class="item-grant">You hand the keys for the ${t.type.name} across the counter. The desk checks the fuel gauge, writes something down and does not look up.</span>`);
 }
 
-// ── THE BENCH IN THE CAB ─────────────────────────────────────────────────────
+// ── The bench in the cab ──
 // The shed a mounted rig is standing in, or null — a city leg, on a facade with a roller door.
 export function baySvcFor(rig) {
   if (!rig || rig.leg !== 'city') return null;
@@ -1129,9 +700,8 @@ export function baySvcFor(rig) {
 }
 
 /**
- * The depot panel, pushed into the cab as the service overlay. ⚠ THE SAME PAYLOAD, NOT A SECOND
- * ONE: `service` only tells the client where to put it, so the overlay and the log rung read one
- * set of numbers and every button is still a verb string.
+ * The depot panel, pushed into the cab as the service overlay. ⚠ The same payload, not a second
+ * one: `service` only tells the client where to put it.
  */
 export async function pushBayService(player, { spawn = false, tab = 'bench' } = {}) {
   const rig = rigOf(player);
@@ -1143,9 +713,8 @@ export async function pushBayService(player, { spawn = false, tab = 'bench' } = 
   }
 }
 
-// ⚠ SYNC, AND ON THE FOUR-TIMES-A-SECOND PATH. It only compares two booleans and a getZone; the one
-// async thing it can start (the overlay's payload) is fired on a TRANSITION — into the shed and
-// stopped, or out of it — and never awaited, so a slow build of the panel can never hold the drive.
+// ⚠ Sync, on the four-times-a-second path. The overlay push fires on a transition and is never
+// awaited, so a slow panel build can't hold the drive.
 function baySvcTick(player, rig) {
   const inBay = !!baySvcFor(rig);
   if (rig._svc && !inBay) { rig._svc = false; sendToPlayer(player.id, { type: 'truck_service_close' }); return; }
@@ -1155,10 +724,7 @@ function baySvcTick(player, rig) {
   }
 }
 
-// The depot the player is at, from EITHER side of the roller door. Every depot verb goes through
-// this rather than through `depotAt(current_zone)` — a driver who parked on the apron and a walker
-// standing in the bay are both at the depot, and making them find the exact tile that carries the
-// flag is the sort of invisible precondition that reads as a broken verb.
+// The depot the player is at, from either side of the roller door. Every depot verb uses this.
 export function depotHere(player) {
   const here = getZone(player.current_zone);
   const direct = depotAt(here);
@@ -1168,12 +734,8 @@ export function depotHere(player) {
   return { bay: here, depot: null, yard: here };
 }
 
-// RE-PUSH AFTER EVERY MUTATION, and this is the fix for the oldest complaint about this screen:
-// buying a truck WORKED and looked as though it had not. `yardBuy` charged you, wrote the row and
-// returned a line of prose — while the panel sitting over the top of it still showed the same
-// dealer card with the same Buy button, an empty fleet tab and a stale credit balance. The hangar
-// has never had that problem because every one of its bench commands ends in `pushHangarBay`.
-// Nothing here may end in a bare `say()` if it changed the world.
+// Re-push after every mutation: nothing here may end in a bare `say()` if it changed the world,
+// or the panel keeps showing stale cards and credits.
 export async function repush(player, tab = 'fleet') {
   // A driver sitting in the shed gets the overlay in the cab, not a yard screen the cab would drop.
   const rig = rigOf(player);
@@ -1184,10 +746,8 @@ export async function repush(player, tab = 'fleet') {
   if (panel && panel.type === 'truck_depot') sendToPlayer(player.id, panel);
 }
 
-// THE FOUR BARS THE BENCH DRAWS, and they are derived from the drive's own parameter set rather
-// than from a second table of marketing numbers. That is the whole point of routing every knob
-// through `effTruckParams`: a bar that moves when a dial turns is promising the wheel, and the
-// wheel is handed the same object. Each is normalised 0..1 against the fleet's own spread.
+// The bench's bars, derived from effTruckParams (the same object the drive uses), each normalised
+// 0..1 against the fleet's spread.
 function axesFor(typeId, cd, condition) {
   const p = effTruckParams(typeId, cd, condition, damageOf({ cd, condition }));
   const n = (v, lo, hi) => Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
@@ -1199,10 +759,7 @@ function axesFor(typeId, cd, condition) {
     range: +n(p.tank, 800, 2700).toFixed(2),
   };
 }
-// WHAT THE BARS WOULD SAY, so the bench can show a change before it is bought. For each dial, the
-// bars with that dial at each end of the range and the others where they are; the panel draws the
-// line between them while the slider moves, and the push after a commit replaces it with the real
-// thing. Nine calls to a pure function, no queries.
+// The bars with each dial at either end of its range, so the panel can preview a change. Pure.
 function tuneEnds(typeId, cd, condition, range) {
   const tune = cd.tune || {};
   return Object.fromEntries(Object.keys(TUNE_PARAMS).map((k) => [k, {
@@ -1211,92 +768,54 @@ function tuneEnds(typeId, cd, condition, range) {
   }]));
 }
 
-// ── The depot panel ──────────────────────────────────────────────────────────
-// ONE screen for the whole yard: your fleet, the dealer's line, the freight board and the exchange.
-//
-// It was two panels behind two verbs, which was wrong twice over. A depot is one PLACE and the
-// choice a player is making there is a single one — what do I drive, and what do I put in it —
-// so splitting it across `yard` and `market` made them compare two screens to answer one question.
-// And flight already had the answer: the hangar bay is one panel, and it OPENS WHEN YOU WALK IN
-// (plugins/flight/index.js, on `zone.entered` where the zone is a hangar_interior) rather than
-// waiting to be typed at. A depot is a hangar with the roof off; it behaves the same way now.
-//
-// The verbs survive as entry points, exactly as `hangar` does — walking in is the discovery path,
-// typing is the deliberate one, and both land on the same screen.
+// ── The depot panel ──
+// One screen for the whole yard (fleet, dealer, freight board, exchange). Opens when you walk in,
+// like the hangar; the verbs are entry points to the same screen.
 async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = false) {
-  // WHERE THE PANEL IS OPENED FROM IS NOT WHERE THE MARKET IS. A depot is two zones now — the bay
-  // you are standing in and the apron outside its door — and every economic question (which region
-  // is this, what is the freight board here) is a question about the PLACE, so it is answered from
-  // whichever of the two carries the coordinates. The bay is the one with the panel in it; the yard
-  // is the one with the road.
+  // Market questions are about the place, so they're answered from whichever tile has coordinates.
   const bay = depotAt(hereIn) ? hereIn : (bayForYard(hereIn?.id)?.zone || hereIn);
   const depot = depotIn || depotAt(bay);
   const yard = getZone(yardIdOf(bay, depot)) || bay;
   const here = yard.grid_x != null ? yard : bay;
   const zonesHere = depotZonesOf(bay, depot);
-  // ⚠ BEFORE ANYTHING IS READ. Opening a yard is the other cold moment a box without a place can be
-  // given one, and it has to happen ahead of `trailersOf` below or the panel lists this trailer as
-  // being in a zone the write is about to change. See standStock for why a depot must not contain a
-  // trailer that is nowhere.
+  // ⚠ Before anything is read: standStock may move a trailer, and trailersOf below must see it.
   await standStock(bay, standPlaces(bay, depot), mountSpot(bay)?.heading ?? 180);
   const region = here.flags?.region_id;
   const day = marketDay();
-  // A HIRE THAT HAS RUN OUT IS GONE BEFORE THE HAND IS DEALT — rental.js's lazy clock, at one of
-  // the three moments it is asked. Not the one being driven: that goes back when it stops.
+  // An expired hire is swept before the hand is dealt. Not the one being driven.
   const wentBack = await sweepRentals(player.id, rigOf(player)?.truckId || null);
   if (wentBack.length) {
     sendToPlayer(player.id, { type: 'emote', message: `<span class="text-dim">The hire desk has taken back the ${wentBack.join(' and the ')}: the time ran out.</span>` });
   }
   const mine = await fleetOf(player.id);
   const rig = rigOf(player);
-  // Three reads the bench needs, and they go out TOGETHER rather than one after another — this
-  // panel already makes four round trips against a remote Postgres and the auto-open path fires
-  // from a footstep. (docs/architecture.md, read tiers: Promise.all independent reads.)
+  // Independent reads go out together (read tiers: Promise.all). This opens from a footstep.
   const [fab, myTrailers] = await Promise.all([
     effectiveSkill(player, 'fabrication'),
     trailersOf(player.id),
   ]);
   const towedIds = new Set(myTrailers.filter(t => t.towedBy).map(t => t.towedBy));
-  // ── WHAT THERE IS TO LOAD, WHICH IS NOT THE SAME QUESTION AS "ARE YOU DRIVING" ──
-  // The board's buttons were gated on `driving`, and this panel opens when you walk into the yard
-  // ON FOOT — so every one of them was greyed out on the only screen that shows them, and mounting
-  // (which would ungrey them) closes the panel. See `loadDeck`: the verbs now load a hitched truck
-  // standing here, and this is the same answer computed for the same panel so the button and the
-  // verb agree about whether there is anywhere to put a load.
-  //
-  // It is derived from rows already in hand — `mine` and `myTrailers` are both fetched above — so
-  // the honest answer costs no extra round trip.
+  // ── What there is to load (not the same as "are you driving") ──
+  // The same answer as loadDeck, from rows already in hand, so the button and the verb agree.
   const hitchedHere = rig?.trailer ? null
     : mine.filter(t => zonesHere.includes(t.depot_zone) && towedIds.has(t.id));
   const panelTrailer = rig?.trailer
     || (hitchedHere?.length === 1 ? myTrailers.find(tr => tr.towedBy === hitchedHere[0].id) : null);
   const canLoad = !!panelTrailer;
-  // Why not, in the words the verb would use — a disabled button that explains itself is the whole
-  // reason this is a string rather than a boolean.
+  // Why not, in the verb's words: a disabled button that explains itself.
   const loadWhy = canLoad ? null
     : !mine.some(t => zonesHere.includes(t.depot_zone)) ? 'Nothing of yours is standing here'
     : hitchedHere && hitchedHere.length > 1 ? 'More than one rig here is hitched up: take the one you mean out yourself'
     : 'Every truck in this yard is bobtail: hitch a trailer first';
-  // ── THE PIN, AS A FACT ─────────────────────────────────────────────────────
-  // Coupling and dropping a box are the two things a driver does most often in a yard, and the
-  // panel had no first-class answer for either: `hitch` was a row buried in the boxes list and
-  // `unhitch` was not offered anywhere at all. Which of the two applies is a question about the
-  // rig, so it is answered here rather than guessed on the client out of `driving` and `canLoad`.
-  //
-  // ⚠ IT RUNS THE VERB'S OWN REACH TEST (`hitchReach`), which is the rule the cab's HITCH button
-  // already lights itself off: coupling is a manoeuvre, not a menu choice, so a box standing in the
-  // shed is not a box you can take unless the fifth wheel is under its pin. A button offering
-  // something the verb then refuses is worse than no button — and a reason is better than either,
-  // so the refusal travels as `why` in the words the verb would use.
-  //
-  // Costs no round trip: `myTrailers` and the live rig are both already in hand.
+  // ── The pin ──
+  // ⚠ Runs the verb's own reach test (hitchReach): a button the verb then refuses is worse than
+  // none, so a refusal travels as `why`. No extra round trip.
   const hitchState = (() => {
     if (!rig) return null;                                   // the verb needs a cab under you
     if (rig.trailer) return { verb: 'unhitch', name: rig.trailer.name };
     const standing = myTrailers.filter(t => !t.towedBy && zonesHere.includes(t.parkedZone));
     if (!standing.length) return null;
-    // Nearest first, so a refusal describes the box the driver is plainly going for rather than
-    // whichever row the database happened to hand back first — the same choice `cmdHitch` makes.
+    // Nearest first, so a refusal describes the box the driver is going for (as cmdHitch does).
     const gap = (t) => (posed(t) ? Math.hypot((rig.x ?? 0) - t.x, (rig.y ?? 0) - t.y) : 99);
     const reach = standing.map(t => ({ t, r: hitchReach(rig, t) })).sort((a, b) => gap(a.t) - gap(b.t));
     const got = reach.find(e => e.r.ok);
@@ -1308,16 +827,10 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         : r.why === 'fast' ? 'Stop the truck first'
         : `Line the truck up on ${t.name} and back under` };
   })();
-  // WHAT THE DECK HOLDS IS THE TRAILER'S RATING, not the truck's mass. It used to be the truck's,
-  // because there was no trailer to ask — which meant buying a bigger tractor bought you capacity
-  // it does not actually have. The truck pulls; the box carries.
-  // ⚠ IT IS DECLARED AFTER `panelTrailer`, not up with the other reads. It used to sit above the
-  // Promise.all, and moving the resolve below it left this reading a `const` in its temporal dead
-  // zone — which is not a wrong number, it is a throw, and it took the whole plugin's suite down
-  // with one line. If you move either, move both.
+  // The deck holds the trailer's rating, not the truck's mass: the truck pulls, the box carries.
+  // ⚠ Declared after `panelTrailer` (TDZ throw otherwise). If you move either, move both.
   const deckKg = panelTrailer?.ratedKg || rig?.type?.kg || DEFAULT_TRAILER_KG;
-  // A pump is a property of the PLACE, and the place is two zones — a depot that keeps diesel
-  // keeps it on the apron, which is the tile with the road on it.
+  // A depot that keeps diesel keeps it on the apron.
   const pumpHere = pumpAt({ leg: 'city', zoneId: yard.id }) || pumpAt({ leg: 'city', zoneId: bay.id });
   const quotes = quotesFor(region, day);
   await rememberMarket(player, region, day, quotes);
@@ -1335,43 +848,25 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     credits: player.credits || 0,
     here: here.id,
     driving: !!rig,
-    // …and whether anything here can TAKE a load, which is what the board's buttons are gated on
-    // now. `driving` stays because other parts of the panel legitimately ask it (the cab handoff,
-    // the fuel gauge); it just is not the question freight was asking.
+    // Whether anything here can take a load; the board's buttons gate on this, not `driving`.
     canLoad, loadWhy,
-    // WHICH truck you are in, not merely that you are in one. `driving` answers the second and the
-    // panel needs the first: the pin belongs to the rig under you, so a Hitch key beside a truck
-    // parked two regions away would couple a box to something else entirely.
+    // Which truck you're in: the pin belongs to the rig under you.
     drivingId: rig?.truckId || null,
     // Which way the pin goes, if it goes at all — see `hitchState` above.
     hitchState,
     fuel: rig ? +rig.fuel.toFixed(2) : null,
     deckKg,
-    // The load itself comes off whichever deck this panel is talking about — the rig you are in, or
-    // the box on the truck standing here. On foot this was always null, so the Sell button could
-    // not appear for a load that was demonstrably sitting in the yard.
+    // The load comes off whichever deck this panel is about: the rig you're in, or the box here.
     cargo: (() => {
       const c = rig?.cargo || (rig ? null : panelTrailer?.cargo);
-      // `slot` is the BOARD ROW this contract came off, so the freight screen can mark the one it
-      // is already carrying instead of offering to take it again. It travels with the load because
-      // the load is a copy of the job (`{ ...job }` in cmdHaul) — nothing new is stored for it.
-      // ⚠ A board index means something different at every yard, which is why the client matches on
-      // the name and the destination TOO rather than on this alone.
+      // `slot` is the board row this contract came off. ⚠ A board index differs per yard, so the
+      // client also matches on name and destination.
       return c ? { kind: c.kind, name: c.name, qty: c.qty || null, slot: c.i ?? null,
         kg: c.kg, to: c.toName || null, paid: c.unitPaid || null } : null;
     })(),
-    // The two zones, so the client can say which side of the door it is showing and the log rung
-    // can name the road you would roll out onto.
     bay: bay.id, yard: yard.id, yardName: yard.name, inBay: player.current_zone === bay.id,
-    // ── AND THE THIRD ROOM, WHICH THIS PANEL NEVER MENTIONED ───────────────────
-    // Every depot has a bunkroom off the shed and nothing on the screen said so, which made it a
-    // room you found by trying directions at a wall. It is a button now.
-    //
-    // ⚠ THE DIRECTION IS MEASURED FROM WHERE THE PLAYER IS STANDING, not from the bay, because the
-    // button sends a real movement command (rule 2 — every button here is something you could have
-    // typed) and a direction that is right for the shed is a wall from the apron. On the apron the
-    // door is still reported, with `here: false`, so the chip can go dim and SAY where it is rather
-    // than vanishing — the same "a disabled button that explains itself" the freight tab uses.
+    // The bunkroom door. ⚠ The direction is measured from where the player stands (the button
+    // sends a real move); on the apron it's reported with `here: false` so the chip can explain.
     bunk: (() => {
       const inRoom = bunkFrom(getZone(player.current_zone));
       if (inRoom) return { ...inRoom, here: true };
@@ -1379,12 +874,8 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
       return viaBay ? { ...viaBay, here: false } : null;
     })(),
     fab,                                    // the hand doing the work — it sets how far the dials go
-    // ── THE COSMETIC CATALOGUE, ONCE ───────────────────────────────────────────
-    // Static data — twenty rows that never change — sent at the PAYLOAD level rather than per
-    // truck, because a fleet of six would otherwise carry six identical copies of it. It is here
-    // rather than duplicated in the client for the reason every other catalogue in this system is:
-    // the price the panel prints has to be the price the verb charges, and the descriptions are
-    // written once, in the file that owns them.
+    // Static cosmetic catalogues, sent once per payload rather than per truck, so the panel's price
+    // is the verb's price.
     fitCat: { slots: SLOTS, items: FIT_IDS.map((id) => ({ id, ...FITTINGS[id] })) },
     cabCat: { slots: CAB_SLOTS, items: TRINKET_IDS.map((id) => ({ id, ...TRINKETS[id] })) },
     fleet: mine.map(t => {
@@ -1394,88 +885,63 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
       const towed = towedIds.has(t.id);
       return {
         id: t.id, name: t.name || t.type.name, type: t.type.name, typeId: t.type_id,
-        // What the 3D floor and the wireframes draw: the mesh key, trailer included when there is
-        // one on the pin. The panel never decides this — a rig with a box is a different silhouette
-        // and that is a fact about the truck, not a presentation choice.
-        // …AND WHAT IS BOLTED TO IT. Same suffix, same grammar, same one channel — so the rig on
-        // the depot floor is the rig out of the windscreen without the panel knowing what a
-        // fitting is.
+        // The mesh key (+t for a trailer, plus the fittings suffix). A fact about the truck, never
+        // decided by the panel.
         variant: `${t.type_id}${towed ? '+t' : ''}${fitSuffix(cd)}`,
         kg: t.type.kg, tank: t.type.tank, top: t.type.topSpeed, price: t.type.price,
         fuel: +(t.fuel ?? 1).toFixed(2), odometer: Math.round(t.odometer || 0),
         hereNow: zonesHere.includes(t.depot_zone),
         whereName: zonesHere.includes(t.depot_zone) ? null : depotNameOf(t.depot_zone),
-        // What the low-loader wants for bringing it home, impound included. Sent as a FACT for the
-        // same reason every other price on this screen is: the button prints what the verb charges.
+        // The low-loader's fee home, impound included: the button prints what the verb charges.
         recall: zonesHere.includes(t.depot_zone) ? 0 : towFee(t.type, t.depot_zone, bay.id) + (t.impound_fee || 0),
         resale: resaleValue(t.type, t.odometer, t.condition, damageOf({ cd, condition: t.condition })),
         impound: t.impound_fee || 0,
         // ── the bench half ──
         condition: +(t.condition ?? 1).toFixed(3), band: band.key, bandLabel: band.label, bandText: band.text,
         tune: { gearing: 0, boost: 0, suspension: 0, brakes: 0, ...(cd.tune || {}) },
-        // ⚠ NORMALISED ON READ, NEVER MIGRATED ON WRITE. A truck painted before the model widened
-        // carries {base, trim, flash, chrome} and nothing else, and every reader downstream — the
-        // panel's four pickers, the renderer's hardware and box colours — would find undefined
-        // where a colour should be. Reading through sanitizePaint fills them from the defaults,
-        // which by construction reproduce exactly what that truck has always been drawn as, so no
-        // row has to be rewritten and nothing changes colour on the day this ships.
+        // ⚠ Normalised on read, never migrated on write: sanitizePaint fills older rows' missing
+        // colours with defaults that reproduce how they've always been drawn.
         kits, paint: paintOf(cd, t.type_id),
-        // THE INSIDE OF THE PAINT JOB, resolved rather than raw. A truck nobody has retrimmed
-        // stores null and WEARS its tier's stock interior, so a panel handed the raw value would
-        // draw an unpainted dash and tick no swatch — the trim tab would open on a truck that,
-        // according to it, has no interior. Resolving here is the same decision the paint above
-        // makes for the same reason, and it is the one place that knows the tier.
+        // Trim resolved, not raw: an untrimmed truck stores null and wears its tier's stock interior.
         trim: { ...truckStockTrim(t), ...sanitizeTrimResolved(cd.trim) },
         trimPrice: trimCost(t.type),
-        // HOW DIRTY, AND WHAT THE HOSE WANTS FOR IT. The live rig's number wins when this is the
-        // truck somebody is sitting in, because the row's copy is only as fresh as the last park
-        // and a driver who pulls into their own yard filthy must not be quoted for a clean truck.
+        // The live rig's grime wins for the truck being driven: the row is only as fresh as the last park.
         grime: +(rig?.truckId === t.id ? (rig.grime ?? 0) : grimeOf(cd)).toFixed(3),
         grimeBand: grimeBand(rig?.truckId === t.id ? (rig.grime ?? 0) : grimeOf(cd)).key,
         grimeLabel: grimeBand(rig?.truckId === t.id ? (rig.grime ?? 0) : grimeOf(cd)).label,
         grimeText: grimeBand(rig?.truckId === t.id ? (rig.grime ?? 0) : grimeOf(cd)).line,
         washPrice: washCost(rig?.truckId === t.id ? (rig.grime ?? 0) : grimeOf(cd)),
-        // THE COSMETIC SHELF, as data the panel renders and never decides. Prices come through
-        // `priceFor`, so a fitting already in this truck's drawer shows as free on the button for
-        // the same reason the verb charges nothing for it — one answer, two surfaces.
+        // Prices through priceFor, so a fitting already in the drawer shows free, as the verb charges.
         fits: installedFits(cd),
         fitPrices: Object.fromEntries(FIT_IDS.map((id) => [id, priceFor(cd, id)])),
-        // THE INSIDE SHELF, the same two facts for the same reason — and the prices come through
-        // `trinketPrice`, so something already in this truck's drawer shows free on the button
-        // because the verb charges nothing for it. One answer, two surfaces.
+        // Same for the cab trinkets, through trinketPrice.
         cab: installedTrinkets(cd),
         cabPrices: Object.fromEntries(TRINKET_IDS.map((id) => [id, trinketPrice(cd, id)])),
         repairField: repairCost(t.type, t.condition ?? 1, false),
         repairShop: repairCost(t.type, t.condition ?? 1, true),
         canField: (t.condition ?? 1) < FIELD_CAP,
-        // ⚠ THE PRICE OF THE PAINT IN FRONT OF YOU, not of the paint on the truck. The finish
-        // moves the fee, so a bench that quoted the fitted job would show one number and charge
-        // another the moment somebody chose flake — see paintCost. Base price too, because the
-        // panel re-quotes locally while a dial is being turned and must not invent the scale.
+        // ⚠ The price of the paint in front of you, not the paint on the truck (finish moves the fee;
+        // see paintCost). paintBase lets the panel re-quote while a dial turns.
         paintPrice: paintCost(t.type, paintOf(cd, t.type_id)),
         paintBase: paintCost(t.type, { finish: 'gloss' }),
         refuel: Math.round((1 - (t.fuel ?? 1)) * FUEL_FULL),
-        // The performance the panel graphs. Derived through the SAME function the drive uses, so a
-        // bar that moves when you turn a dial is promising exactly what the wheel will deliver.
+        // Derived through the same function the drive uses.
         stats: axesFor(t.type_id, cd, t.condition ?? 1),
-        // …and what they would be: with each kit not yet fitted, and with each dial at either end.
-        // A hire takes neither, so it carries neither.
+        // And with each unfitted kit, and each dial at either end. A hire takes neither.
         kitStats: isRental(t) ? null : Object.fromEntries(Object.keys(KITS).filter((k) => !kits.includes(k))
           .map((k) => [k, axesFor(t.type_id, { ...cd, kits: [...kits, k] }, t.condition ?? 1)])),
         tuneEnds: isRental(t) ? null : tuneEnds(t.type_id, cd, t.condition ?? 1, tuneRange(fab, [])),
         // ── the card half ──
-        // A HIRE, AND HOW LONG IT HAS LEFT, as facts: the card says RENTED and counts down off
-        // `rentLeft`, and nothing on the client works out a term.
+        // A hire and its time left, as facts; the client works out no term.
         rental: isRental(t) ? { left: rentalLeft(t), leftText: fmtLeft(rentalLeft(t)), fee: t.custom_data.rental.fee } : null,
         driving: rig?.truckId === t.id,
-        // ── the service half ── oil, tyres and linings against THIS truck's odometer, the live
-        // rig's reading when it is the one under you (the row's is only as fresh as the last park).
+        // ── the service half ── against the live rig's odometer when it's the one under you.
         svc: serviceSheet(t.type, cd, (t.odometer || 0) + (rig?.truckId === t.id ? (rig.travelled || 0) : 0)),
         horn: hornOf(cd) || 'stock',
         hornPrices: Object.fromEntries(hornCatalogue().map((h) => [h.id, hornPrice(cd, h.id)])),
       };
     }),
-    // The hire line and whether the desk will give you another today. See rental.js.
+    // The hire line. See rental.js.
     rentStock: rentStock(player.credits || 0),
     hasRental: mine.some((t) => isRental(t)),
     hornCat: hornCatalogue(),
@@ -1489,78 +955,49 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
       id: t.id, name: t.name, price: t.price, rated: t.rated, kg: t.kg,
       afford: (player.credits || 0) >= t.price,
     })),
-    // ── THE BOXES YOU OWN ──────────────────────────────────────────────────────
-    // ⚠ THIS LIST EXISTED AND WAS NEVER SENT. `myTrailers` was read purely to work out which of
-    // your TRUCKS had something on the pin, and the rows themselves went in the bin — so a player
-    // who bought a reefer got a receipt, a box standing on the hardstand, and no screen anywhere
-    // that admitted it existed. It was findable only by climbing into a cab and looking out of the
-    // window at it, or by typing `hitch` at a thing you had to take on faith.
-    //
-    // A trailer is an owned vehicle exactly as a truck is — a row, an owner, a place — so it gets
-    // the same three facts: what it is, where it is, and what is on it. `where` is resolved here
-    // rather than on the client for the same reason `whereName` is on a truck: the depot names
-    // live in zone flags and the panel has never seen them.
+    // ── The boxes you own ──
+    // A trailer is an owned vehicle like a truck: what it is, where it is, what's on it.
+    // `where` is resolved here because depot names live in zone flags.
     trailers: myTrailers.map(t => ({
       id: t.id, name: t.name, kg: t.kg, ratedKg: t.ratedKg,
-      // The same three condition fields a TRUCK row carries, and for the same reason: this screen
-      // renders what it is told and invents nothing, so a box that only sent the band KEY forced the
-      // panel to keep its own table of labels — a second copy of BANDS, on the client, drifting.
+      // The same three condition fields a truck row carries, so the client keeps no copy of BANDS.
       ...(() => { const b = bandOf(t.condition ?? 1);
         return { condition: +(t.condition ?? 1).toFixed(3), band: b.key, bandLabel: b.label, bandText: b.text }; })(),
       towedBy: t.towedBy || null,
       hereNow: !t.towedBy && zonesHere.includes(t.parkedZone),
-      // ⚠ AND WHETHER IT CAN BE SOLD, which is not the same question as `hereNow`. A box on your own
-      // fifth wheel, in the yard you are standing in, is as much 'here' as one on the concrete — the
-      // pin is not a reason to make somebody type two verbs to do one thing. Selling it drops it
-      // first, which is the SAME drop `unhitch` performs, so the two stores can never disagree.
+      // ⚠ Sellable differs from `hereNow`: a box on your own pin in this yard can be sold too
+      // (the sale performs the same drop as `unhitch`).
       canSell: !t.cargo && !t.stash
         && ((!t.towedBy && zonesHere.includes(t.parkedZone))
           || (t.towedBy && t.towedBy === rig?.truckId && !rig?.cargo
             && (zonesHere.includes(rig?.zoneId) || zonesHere.includes(rig?.fromDepot)))),
       where: t.towedBy ? 'hitched' : (zonesHere.includes(t.parkedZone) ? 'here' : depotNameOf(t.parkedZone)),
       cargo: t.cargo ? { name: t.cargo.name, kg: t.cargo.kg } : null,
-      // ⚠ AND WHETHER IT IS CARRYING ANYTHING AT ALL, which is not the same question as `cargo`.
-      // A box holds a declared load and a STASH, and the sale refuses either — but the stash is
-      // the whole point of the stash, so the panel is told that the box is not empty and
-      // deliberately not told what is in it. Without this the Sell button is offered on a loaded
-      // box and then refused, which is the one thing the toolbar rule on this screen forbids: a
-      // button that is present and refuses is worse than one that is absent and explains itself.
+      // ⚠ Carrying anything at all, stash included, without saying what. Without it Sell is offered
+      // on a loaded box and then refused.
       loaded: !!(t.cargo || t.stash),
-      // What colour it is, so the yard floor draws a fleet rather than a row of black slabs. One
-      // field, because a box is one colour — see boxLivery.
+      // One colour, because a box is one colour: see boxLivery.
       colour: boxColour(t),
-      // What a dealer would give you, sent as a FACT for the same reason every other price on this
-      // screen is: the button prints exactly what the verb pays.
+      // Resale as a fact: the button prints what the verb pays.
       resale: trailerResale(t),
     })),
-    // The bench's catalogues, sent once with the panel exactly as the hangar sends its paint and
-    // tune catalogues: the client renders the dials it is told about and invents none.
+    // The bench's catalogues: the client renders the dials it is told about and invents none.
     tuneParams: Object.entries(TUNE_PARAMS).map(([id, p]) => ({ id, label: p.label, lo: p.lo, hi: p.hi, desc: p.desc })),
     tuneRange: tuneRange(fab, []),
     kitCatalog: Object.entries(KITS).map(([id, k]) => ({ id, ...k, afford: (player.credits || 0) >= k.price })),
     flashes: FLASHES, finishes: FINISHES, arts: ARTS, paintPresets: PAINT_PRESETS, paintDefault: PAINT_DEFAULT,
-    // Each type's factory paint, for the hire line's cards: a truck on offer is drawn in the colours it
-    // would come out of the shed in, not in one stock scheme for the whole line.
+    // Each type's factory paint, so the hire line draws trucks in their own colours.
     paintFactory: Object.fromEntries(TRUCK_TYPES.map(t => [t.id, factoryPaint(t.id)])),
-    // ── THE INTERIOR CATALOGUE, AND WHY IT CARRIES COLOURS ─────────────────────
-    // Same rule as every other catalogue on this screen: the client renders what it is told and
-    // invents nothing. What is new is that these rows carry the actual swatch colours, because the
-    // trim tab PREVIEWS a dashboard rather than listing seven words — and a preview whose colours
-    // were guessed on the client is a preview that promises a cab the renderer will not draw.
-    // Lifted straight off the shared vocabulary (client/shared/cab-trim.js) the renderer itself
-    // reads, so there is no second copy of any of it anywhere.
+    // ── The interior catalogue ──
+    // Rows carry real swatch colours (from client/shared/cab-trim.js) so the trim tab's preview
+    // matches what the renderer draws.
     dashMaterials: Object.entries(DASH_MATERIALS).map(([id, m]) => ({ id, label: m.label, blurb: m.blurb, gloss: m.gloss })),
     dashColourways: Object.entries(DASH_COLOURWAYS).map(([id, c]) => ({
       id, label: c.label, stock: !!c.stock,
       dash: c.dash, hdr: c.hdr, face: c.face, needle: c.needle, glow: c.glow, ring: c.ring, lip: c.lip,
     })),
-    // ⚠ THERE IS NO 'dashCustom' ROW HERE, AND THAT IS DELIBERATE. Every other catalogue on this
-    // screen is the server's because the client must not invent a vocabulary — but a mixed
-    // interior is not a vocabulary, it is a DERIVATION, and the bench previews it while the player
-    // is still dragging the well. A server-sent preview could only ever show the last committed
-    // mix, which is the one thing they are not looking at. So the panel runs customColourway out
-    // of client/shared/cab-trim.js — the same function this file's renderer resolves the cab
-    // through — and the two cannot drift because there is only one of it.
+    // ⚠ No 'dashCustom' row, deliberately: a mixed interior is a derivation the client previews live
+    // with customColourway from client/shared/cab-trim.js, the one copy of it.
     finishMul: Object.fromEntries(FINISHES.map(f => [f.id, +(paintCost({ price: 100000 }, f) / paintCost({ price: 100000 }, { finish: 'gloss' })).toFixed(3)])),
     fuelHere: pumpHere,
     board: boardFor(here.id),
@@ -1571,23 +1008,15 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     }),
     thereName: other ? regionLabel(other.region) : null,
   };
-  // `yard text` / `market text` forces the written depot at any rung (the
-  // `shop text` shape). Checked on the caller's behalf via payload.forceText.
+  // `yard text` / `market text` forces the written depot at any rung.
   if (forceText) return say(textDepot(payload));
   if (await prefersLoggedPanelsOrDefault(player)) return depotDialogPayload(payload);
   return payload;
 }
 
 /**
- * The depot as a generic list-dialog payload (client/game/js/panels/listdialog.js).
- *
- * Four sections of one question — what I own, what is for sale, what needs hauling,
- * what the exchange pays — which is exactly what the grouped list is for. Reads the
- * SAME payload `textDepot` does, so the dialog and the prose cannot disagree.
- *
- * Every command here is one a player could type, which is what makes the rows
- * safe to convert: `yard recall`, `yard sell`, `yard buy`, `haul`, `market buy`
- * are all real verbs and none is invented for the dialog.
+ * The depot as a list-dialog payload (client/game/js/panels/listdialog.js). Reads the same payload
+ * textDepot does, and every command is a real verb.
  */
 function depotDialogPayload(p) {
   const rows = [];
@@ -1622,9 +1051,7 @@ function depotDialogPayload(p) {
       commands: t.afford ? [{ label: 'Buy', command: `yard buy ${t.id}` }] : [],
     });
   }
-  // A LOADED DECK TAKES THE BUTTON OFF THE ROW HERE TOO, exactly as it dims it on the panel — the
-  // unaffordable-stock rows above already establish that a row with no command is how this dialog
-  // says "not this one". An offer the verb is certain to refuse is the same defect at every rung.
+  // A loaded deck takes the Haul button off the row, as it dims it on the panel.
   const deckFull = !!p.cargo;
   for (const b of p.board || []) {
     const mine = deckFull && p.cargo.slot === b.i && p.cargo.name === b.name && p.cargo.to === b.toName;
@@ -1672,7 +1099,6 @@ function depotNameOf(zoneId) {
   const z = zoneId && getZone(zoneId);
   return z ? (depotAt(z)?.name || z.name) : 'somewhere else';
 }
-// The log rung reads the identical facts as prose. The panel is a skin; this is the record.
 function textYard(p) {
   const fleet = p.fleet.length
     ? p.fleet.map(t => `  <b>${t.name}</b> (${t.type})${t.rental ? ` · <span class="text-cyan">HIRED, ${t.rental.leftText}</span>` : ''} · ${t.kg} kg deck · fuel ${Math.round(t.fuel * 100)}% · ${t.odometer} tiles`
@@ -1685,11 +1111,7 @@ function textYard(p) {
     `  <b>${t.name}</b>: <span class="item-grant">${t.price}₵</span> · ${t.kg} kg deck · ${t.tank} tiles a tank · ${t.top} mph`
     + `${t.afford ? '' : ' <span class="text-dim">(can\'t afford)</span>'}\n    <span class="text-dim">${t.blurb}</span>`
     + `\n    <span class="text-dim">yard buy ${t.id}</span>`).join('\n');
-  // THE BOXES, ON THE RECORD. A trailer you own was invisible on BOTH rungs of the display
-  // ladder, because it was never in the payload at all — so a bought reefer existed in the
-  // database, on the hardstand and nowhere a player could read. It was findable only by climbing
-  // into a cab and looking out of the window at it. This is the log rung's copy of the same list
-  // the panel draws; a trailer is an owned vehicle exactly as a truck is.
+  // The boxes, on the record: the log rung's copy of the panel's trailer list.
   const boxes = (p.trailers || []).length
     ? p.trailers.map(t => `  <b>${t.name}</b> · ${t.ratedKg} kg rated`
         + `${t.towedBy ? ' · <span class="text-dim">on the pin</span>'
@@ -1706,8 +1128,7 @@ function textYard(p) {
 
 async function yardBuy(player, here, depot, typeId, plate) {
   const key = (typeId || '').toLowerCase();
-  // TRAILERS ARE BOUGHT ON THE SAME LINE. A second verb for the second half of a rig would be a
-  // second place to look for one purchase; the dealer's fence has trucks on it and boxes behind it.
+  // Trailers are bought on the same line.
   const trl = trailerType(key);
   if (trl) return yardBuyTrailer(player, here, depot, trl);
   const type = truckType(key);
@@ -1717,17 +1138,9 @@ async function yardBuy(player, here, depot, typeId, plate) {
   if ((player.credits || 0) < type.price) {
     return say(`The ${type.name} is ${type.price}₵ and you have ${player.credits || 0}₵.`);
   }
-  // A YARD HOLDS AS MANY OF YOURS AS YOU CAN PAY FOR. It used to hold exactly one, and refused the
-  // second with "move it or sell it" — a rule that bought `drive` an unambiguous target and cost
-  // the player the only place a fleet can actually BE. A haulier with four trucks keeps them in one
-  // yard; keeping them in four towns is not an interesting logistics puzzle, it is a chore with a
-  // tow bill attached. The ambiguity that rule was avoiding is answered where it arises now, by
-  // `pickParked` and one prompt (see above), and only ever when there is something to be ambiguous
-  // about.
+  // A yard holds as many of yours as you can pay for; pickParked settles the ambiguity.
   if (!(await adjustCredits(player, -type.price, undefined, 'trucking:buy-truck'))) return say(`That's ${type.price}₵ and you have ${player.credits || 0}₵.`);
-  // It is bought INTO THE BAY, not onto the street: a truck you just paid for is inside, under a
-  // roof, and `drive` is what brings it out. (The row's zone is the bay's, which is also what makes
-  // the garage floor able to show it standing next to the rest of your fleet.)
+  // Bought into the bay, not onto the street; `drive` brings it out.
   const bought = await buyTruck(player.id, key, here.id, plate);
   noteFreshVehicle(player.id, bought?.id);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
@@ -1736,47 +1149,26 @@ async function yardBuy(player, here, depot, typeId, plate) {
     + `<span class="text-dim">${type.kg} kg of deck and ${type.tank} tiles to a tank. ${teachVerb('drive')} when you're ready.</span>`);
 }
 
-// A trailer is bought STANDING IN THE YARD, not attached — which is the honest shape of the thing
-// and also teaches `hitch` by making it necessary. There is no one-per-yard rule the way there is
-// for trucks: a yard full of your own boxes is a perfectly sensible thing to own.
-//
-// ⚠ IT IS STOOD OUTSIDE, ON THE HARDSTAND, AT A POSE. It used to be parked in the BAY with no pose
-// at all, and that made it the one trailer in the game that could not be seen: a bay is a building
-// interior with no grid coordinates, and `trailersNear` draws only posed rows. The cab's air knob
-// lit and named a box that was nowhere on the picture, and `hitch` — which waves an unposed row
-// through — coupled to it from across the yard. Both were correct and neither looked it.
-//
-// So a bought box goes where a bought truck cannot: out on the apron, in the open, nose to the
-// road. From that moment it is an ordinary dropped trailer and the manoeuvre is the same one.
-// `hitchZones` already reached the yard, so nothing about finding it changed.
+// A trailer is bought standing in the yard, not attached, which teaches `hitch`.
+// ⚠ It stands outside on the hardstand at a pose: an unposed box in the bay can't be drawn
+// (trailersNear draws only posed rows) yet `hitch` would couple to it from across the yard.
 async function yardBuyTrailer(player, here, depot, t) {
   if ((player.credits || 0) < t.price) return say(`${cap(t.name)} is ${t.price}₵ and you have ${player.credits || 0}₵.`);
-  // The hardstand, and the way OUT of the shed — the same heading `drive` points the truck at, from
-  // the same facade `entrance`, so the box stands the way the traffic runs rather than at an angle
-  // somebody typed. A depot with no drivable yard (the legacy one-tile shape, and the fixtures)
-  // falls back to the old behaviour: parked where you stand, unposed, hitchable anywhere.
-  // ⚠ THE FIRST FREE BAY, NEVER THE NTH ONE COUNTED. Placing at `trailersAt(zone).length` is right
-  // exactly once: sell a box and the next purchase is stood at that index again, inside the one
-  // already there — and two trailers in one spot is two trailers under one pin.
+  // Posed on the hardstand facing out of the shed; one-tile depots and fixtures fall back to unposed.
+  // ⚠ The first free bay, never the Nth counted: after a sale, index N lands on an existing box.
   const places = standPlaces(here, depot);
   const standing = [];
   for (const pl of places) for (const t of await trailersAt(pl.zone.id)) if (posed(t)) standing.push({ x: t.x, y: t.y });
   const pose = places.length ? findStockPose(places, mountSpot(here)?.heading ?? 180, standing) : null;
   const outside = pose ? getZone(pose.zoneId) : null;
-  // ⚠ AND IT COMES OUT OF THE SHED IN YOUR COLOURS. A box you have just bought is yours, and the
-  // cheapest way to say so is the one a real yard uses: it gets sprayed to match the cab that is
-  // going to pull it. The stamp is taken ONCE, here, from the truck you keep at this depot — not
-  // read live off the tractor, because then a box would change colour every time you repainted a
-  // cab or hooked a different one to it, and the whole point of the colour is that it belongs to
-  // the BOX. Repainting it afterwards is its own job: `yard paint`.
+  // ⚠ Sprayed once, at purchase, to match the truck you keep here. Never read live off the tractor:
+  // the colour belongs to the box. Repainting is `yard paint`.
   const mine = await trucksAt(player.id, depotZonesOf(here, depot));
   const stamp = paintOf(mine[0]?.custom_data, mine[0]?.type_id).base;
   if (!(await adjustCredits(player, -t.price, undefined, 'trucking:buy-trailer'))) return say(`That's ${t.price}₵ and you have ${player.credits || 0}₵.`);
   await buyTrailer(player.id, t.id, outside?.id || here.id, pose, stamp);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-  // It is standing there NOW, so it is drawn from the next frame rather than from the next time
-  // somebody happens to arrive in the zone — a driver already sitting in the cab is the commonest
-  // way this is bought.
+  // Refresh now so a driver already in the cab sees it next frame.
   if (outside) await refreshStanding(outside.id);
   await repush(player, 'buy');
   return say(`<span class="item-grant">Bought: ${t.name}. ${t.price}₵.</span>\n`
@@ -1785,17 +1177,12 @@ async function yardBuyTrailer(player, here, depot, t) {
       : `It's standing in the yard: ${teachVerb('hitch')} to back under it.`}</span>`);
 }
 
-// Selling a box. Priced off the list and its condition (trailerResale), refused while it is
-// loaded or on a pin, and it has to be STANDING HERE — the same three tests the truck sale makes,
-// for the same reason: a dealer buys a thing he can walk round.
+// Selling a box: priced by trailerResale, refused while loaded, and it has to be here.
 async function yardSellTrailer(player, here, depot, id) {
   const zones = hitchZones(here?.id);
   let box = null;
   for (const z of zones) for (const t of await trailersAt(z)) if (t.id === id && t.ownerId === player.id) box = t;
-  // ⚠ …OR THE ONE ON YOUR OWN PIN. A hitched box is not findable by `trailersAt` — it has no
-  // `parked_zone` at all while it is being towed — so a driver sitting in the yard with the thing
-  // they want to sell hooked up behind them got 'it isn't standing in this yard'. It is: it is on
-  // the truck, and the truck is here. The drop below is the same one `unhitch` does.
+  // ⚠ Or the one on your own pin: a towed box has no parked_zone, so trailersAt can't find it.
   const rig = rigOf(player);
   const towed = !box && rig?.trailer && rig.trailer.id === id && rig.trailer.ownerId === player.id
     && (zones.includes(rig.zoneId) || zones.includes(rig.fromDepot)) ? rig.trailer : null;
@@ -1804,9 +1191,7 @@ async function yardSellTrailer(player, here, depot, id) {
   if (!box) return say("That isn't yours, or it isn't standing in this yard.");
   if (box.cargo || box.stash) return say(`There's still a load on it. <span class="text-dim">Empty the ${box.name} first.</span>`);
   const value = trailerResale(box);
-  // Unhook it first, so the row is a parked box for the instant before it stops existing — and the
-  // live rig stops believing it has one. Doing it the other way round leaves a rig towing a trailer
-  // that has been deleted, which every consumer of `rig.trailer` would then answer questions about.
+  // Unhook first, so no live rig is left towing a deleted trailer.
   if (towed) {
     await dropTrailer(box.id, here?.id || rig.zoneId, null);
     rig.trailer = null;
@@ -1819,14 +1204,9 @@ async function yardSellTrailer(player, here, depot, id) {
   return say(`<span class="item-grant">Sold ${box.name} for ${value}₵.</span> <span class="text-dim">${towed ? 'They pull the pin, walk it off your fifth wheel and drag it round the back.' : 'A yard hand hooks it up and drags it round the back.'}</span>`);
 }
 
-// ── yard paint ───────────────────────────────────────────────────────────────
-// A box, one colour, for a flat fee. Deliberately NOT `rig paint` with a trailer id in it: that
-// verb takes eight named surfaces and a trailer has one, so half its grammar would be refusals.
-//
-// ⚠ THE BOX HAS TO BE HERE. Not because a spray gun is fussy about geography, but because the
-// alternative is repainting something you cannot see from a menu — the same rule `hitch` follows,
-// and the reason both of them search the depot's own zones rather than the tile you happen to be
-// standing on.
+// ── yard paint ──
+// A box, one colour, flat fee (not `rig paint`, which takes eight surfaces).
+// ⚠ The box has to be here, as with `hitch`.
 const BOX_PAINT_FEE = 340;
 async function yardPaintTrailer(player, bay, depot, want, colour) {
   const here = getZone(yardIdOf(bay, depot)) || bay;
@@ -1845,59 +1225,30 @@ async function yardPaintTrailer(player, bay, depot, want, colour) {
   if (!await paintTrailer(box.id, player.id, c)) return say("That box isn't yours to paint.");
   if (!(await adjustCredits(player, -BOX_PAINT_FEE, undefined, 'trucking:box-paint'))) return say(`That's ${BOX_PAINT_FEE}₵ and you have ${player.credits || 0}₵.`);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-  // It is standing there NOW, so it changes colour on the glass rather than the next time somebody
-  // happens to arrive in the zone — see the same call in yardBuyTrailer.
+  // Refresh now, as yardBuyTrailer does.
   await Promise.all(zones.map(z => refreshStanding(z)));
   await repush(player, 'fleet');
   return say(`<span class="item-grant">Painted: ${BOX_PAINT_FEE}₵.</span> <span class="text-dim">${box.name}, and the overspray is on the concrete for a week.</span>`);
 }
 
-// ── Recovery: getting a truck home you did not drive home ────────────────────
-// A rig lives at the last yard it was parked at, and a driver who crossed the waste, sold a load
-// and caught a lift back has their truck two regions away with no way to reach it except the
-// journey it was supposed to save them. That is not a hard choice, it is an errand with a known
-// answer, so the yard will fetch it — for a price that is deliberately worse than driving.
-//
-// THE FEE IS THE DISTANCE, and it is derived rather than authored: a flat call-out plus a rate per
-// tile of the straight line between where it sits and where you are standing, scaled by what the
-// machine is worth (a low-loader for a Continental is not a low-loader for a Barrow). A tow across
-// the basin costs real money; a tow from the yard down the road costs the call-out and no more.
-//
-// An impounded rig comes home too, and its lot fee rides on the same bill — you are paying somebody
-// to go and get it out, which is exactly what the impound wanted. `recoverTruckTo` clears the fee
-// in the same guarded statement that moves it, so a double click cannot pay for two tows.
+// ── Recovery: getting a truck home you didn't drive home ──
+// The fee is a call-out plus a rate per tile of straight line, scaled by what the truck is worth;
+// deliberately worse than driving. An impound fee rides on the same bill, and recoverTruckTo clears
+// it in the same guarded statement, so a double click can't pay for two tows.
 const TOW_CALLOUT = 200;
 const TOW_PER_TILE = 2.2;
-// ⚠ A RECOVERY CAN NEVER COST MORE THAN A FRACTION OF THE TRUCK, and that is a correctness
-// invariant rather than a kindness. The distance term below reads coordinates off content rows,
-// and content can always grow a row whose coordinates are not where the thing is — which is
-// exactly the bug this cap was written after: every depot BAY is an interior at grid 0,0, so a
-// recall measured from a shed to a hardstand at 871,1958 billed 2,143 tiles of low-loader and
-// quoted 10,038₵ to fetch a truck that costs 1,300₵ new. `towGrid` fixes the measurement; this
-// makes that CLASS of mistake unable to produce an absurd bill again even if a measurement goes
-// wrong somewhere nobody is looking.
+// ⚠ A recovery never costs more than this fraction of the truck: a correctness cap against a bad
+// coordinate in content (a bay at grid 0,0 once billed 10,038₵ for a 1,300₵ truck).
 const TOW_MAX_FRAC = 0.40;
 
-// WHERE A ZONE ACTUALLY IS, for the purpose of sending a low-loader to it.
-//
-// A depot bay is INDOORS. It has no map coordinates of its own and never did — `grid_x` is 0 on
-// every one of the 324 interiors in the world, which is not a position, it is the absence of one.
-// Measuring straight off the row produced two opposite wrong answers depending on which end was
-// the shed: a shed-to-shed recall across two regions billed ZERO tiles, and a shed-to-hardstand
-// recall billed the distance from the origin of the coordinate space to the far side of the map.
-//
-// The hardstand outside the bay door is the tile a recovery driver genuinely drives to, and the
-// depot flag already names it (`truck_depot.yard`), so the fix is to ask the bay where its yard is
-// rather than to invent a coordinate for a room that has none. Returns null when there is honestly
-// no answer — a transient waste node has no row at all — and the caller bills a nominal distance
-// for that rather than guessing at a long haul.
+// Where a zone is, for a low-loader. A depot bay is an interior with no coordinates, so ask it for
+// its yard. Null when there's no answer (a transient waste node); the caller bills a nominal run.
 function towGrid(zoneId) {
   const z = getZone(zoneId);
   if (!z) return null;
   const yard = depotAt(z)?.yard ? getZone(depotAt(z).yard) : null;
   for (const cand of [z, yard]) {
-    // 0,0 IS NOT A PLACE. The mapped world starts at grid_x 726, so a zero pair is always an
-    // interior's unset column and never a tile anybody could stand a truck on.
+    // 0,0 is not a place: it's an interior's unset column (the mapped world starts at grid_x 726).
     if (cand && cand.grid_x != null && cand.grid_y != null && !(cand.grid_x === 0 && cand.grid_y === 0)) {
       return { x: cand.grid_x, y: cand.grid_y };
     }
@@ -1909,10 +1260,7 @@ function towFee(type, fromZoneId, toZoneId) {
   const a = towGrid(fromZoneId), b = towGrid(toZoneId);
   const tiles = (a && b) ? Math.hypot(a.x - b.x, a.y - b.y)
     : 40;                                             // unknown ground (a transient waste node) — bill a nominal call-out run
-  // Divided by 5,000 rather than 9,000 because the fleet's list prices came down. The point of the
-  // term is the SPREAD across the ladder — a low-loader for a Continental is not a low-loader for a
-  // Barrow — so the divisor tracks the top of the ladder rather than sitting at an absolute number
-  // the ladder has since moved out from under.
+  // The divisor tracks the top of the fleet's price ladder; the term is the spread across it.
   const heft = 0.6 + 0.4 * Math.min(2, (type?.price || 6000) / 5000);
   const fee = Math.round((TOW_CALLOUT + tiles * TOW_PER_TILE) * heft);
   return Math.max(1, Math.min(fee, Math.round((type?.price || 6000) * TOW_MAX_FRAC)));
@@ -1942,54 +1290,33 @@ async function yardRecall(player, here, id) {
 async function yardSell(player, here, depot, id) {
   if (!id) return say('Sell which? <span class="text-dim">yard sell &lt;id&gt;</span>');
   const t = await getTruck(id, player.id);
-  // Not a truck of yours — try the boxes standing in this yard before refusing. Ids are exact and
-  // a trailer's is unmistakable, so this can never take a sale you meant for a tractor.
+  // Not a truck of yours: try the boxes here. Ids are exact, so this can't misfire.
   if (!t) return await yardSellTrailer(player, here, depot, id);
   if (!depotZonesOf(here, depotAt(here)).includes(t.depot_zone)) return say(`It's parked at ${depotNameOf(t.depot_zone)}. Bring it here first.`);
   if (rigOf(player)?.truckId === t.id) return say("You're sitting in it.");
   if (isRental(t)) return say(`It's a hire truck: it isn't yours to sell. ${teachVerb('yard return', 'yard return')} hands it back.`);
-  // The bodywork is in the price — see resaleValue. A dealer looks at the thing.
+  // The bodywork is in the price: see resaleValue.
   const value = resaleValue(t.type, t.odometer, t.condition, damageOf({ condition: t.condition, custom_data: t.custom_data }));
-  // ⚠ THE BOX COMES OFF THE PIN BEFORE THE TRACTOR STOPS EXISTING, and this is not politeness about
-  // where a trailer ends up — it is the only thing standing between a sale and an unreachable row.
-  // `sellTruck` is a bare DELETE and `towed_by` is plain TEXT with no foreign key, so a truck sold
-  // with a box on it left that box pointing at an id nothing will ever answer to: no `parked_zone`,
-  // so it is standing in no yard and `trailersAt` cannot see it; `towed_by` set, so `hitchTrailer`,
-  // `sellTrailer` and BOTH branches of `yardSellTrailer` refuse it. Not a lost trailer — an
-  // unreachable one, which the panel goes on listing as 'on the pin' behind a tractor the owner
-  // sold weeks ago. Three of those were sitting in the database when this was found.
-  //
-  // It is the same drop `unhitch` does, into the depot the truck was standing in, and a NULL pose
-  // is deliberate: the dealer took the truck, so there is no cab to take a heading from, and
-  // `standStock` walks a placeless box onto the hardstand the next time anybody opens this yard.
-  // The load stays on it — dropping a trailer has never emptied it, and a sale that binned somebody
-  // else's freight would be a worse bug than the one this fixes.
+  // ⚠ The box comes off the pin before the tractor is deleted. towed_by has no foreign key, so a box
+  // left on a sold truck is unreachable (no parked_zone, and every hitch/sell path refuses it).
+  // Same drop as `unhitch`; a null pose lets standStock place it later, and the load stays on.
   const onPin = await trailerOnTruck(t.id);
   if (onPin) await dropTrailer(onPin.id, t.depot_zone, null);
   await sellTruck(t.id, player.id);
   await adjustCredits(player, value, undefined, 'trucking:sell-truck');
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-  // It is standing here NOW — the same argument the trailer sale makes two functions up. Without
-  // this the box arrives on the glass whenever somebody next happens to walk into the zone.
+  // Refresh now, as the trailer sale does.
   if (onPin) await Promise.all(hitchZones(here?.id).map(z => refreshStanding(z)));
   await repush(player, 'fleet');
   return say(`<span class="item-grant">Sold the ${t.type.name} for ${value}₵.</span> <span class="text-dim">Somebody drives it away without looking back at you.</span>`
     + (onPin ? ` <span class="text-dim">They pull the pin first and leave ${onPin.name} standing on its legs in the yard.</span>` : ''));
 }
 
-// ── rig: the bench → bench.js ────────────────────────────────────────────────
-// `rig` and its eleven subcommands, and the parts/spares counter that used to sit two hundred lines
-// further down beside `fix`. See the header of bench.js for why it left: a shop counter and a
-// four-times-a-second telemetry reconciler are two jobs with different tempos and different blast
-// radii, and neither should have to be read past to reach the other.
+// ── rig: the bench lives in bench.js ──
 
-// ── market ───────────────────────────────────────────────────────────────────
-// The trade layer, and the only place in the system where you can lose money. `haul` is wages —
-// somebody pays you a fixed fee to move their box. This is your own capital on your own guess.
-//
-// Buying and selling live under `market` as subcommands rather than as `buy`/`sell`, which the
-// vendor and storefront plugins already own. That is a naming constraint, but it reads better
-// anyway: you go to the market, and then you do something at it.
+// ── market ──
+// Your own capital on your own guess (`haul` is wages). Buy/sell are subcommands because the
+// vendor and storefront plugins own `buy`/`sell`.
 async function cmdMarket(args, raw, player) {
   const rig = rigOf(player);
   const here = getZone(rig?.zoneId || player.current_zone);
@@ -2001,17 +1328,12 @@ async function cmdMarket(args, raw, player) {
   if (sub === 'buy') return await marketBuy(player, rig, here, region, args[1], args[2]);
   if (sub === 'sell') return await marketSell(player, rig, here, region);
 
-  // THE PANEL AXIS. A price list is a surface you only READ — delete it and you are not stuck, you
-  // just have to remember numbers — so this is `prefersLoggedPanels`, the bottom rung only. A
-  // `textgames` player who wants to drive by typing still gets the screen.
-  //
-  // Both verbs land on the SAME depot panel, opened on its own tab. `yard` and `market` are two
-  // questions about one place, and answering them on two screens made a player compare panels to
-  // decide one thing.
+  // The panel axis: a price list is only read, so this is prefersLoggedPanels. Both verbs land on
+  // the same depot panel.
   return await depotPanel(player, here, depot, 'market', (args?.[0] || '').toLowerCase() === 'text');
 }
 
-// The board and the exchange, as prose — the log rung's half of the same facts.
+// The board and the exchange, as prose: the log rung's half of the same facts.
 function textBoardAndMarket(p) {
   const rows = p.quotes.map((q) => {
     const gain = q.thereBid == null ? null : q.thereBid - q.ask;
@@ -2039,14 +1361,12 @@ const REGION_LABEL = { region_coldwater: 'Coldwater', region_the_reach: 'The Rea
 const regionLabel = (r) => REGION_LABEL[r] || (r || '').replace(/^region_/, '').replace(/_/g, ' ');
 
 async function marketBuy(player, rig, here, region, good, qtyArg) {
-  // Same resolve as the freight board, for the same reason — the exchange is on the same panel, in
-  // the same building, and refused for the same wrong question. See `loadDeck`.
+  // Same resolve as the freight board: see loadDeck.
   const deck = await loadDeck(player);
   if (deck.err) return deck.err;
   if (!deck.trailer) return say(`Nowhere to put it: you're bobtail. <b>${teachVerb('hitch', 'hitch')}</b> a trailer first.`);
   if (deck.cargo) return say(`The deck is full: ${deck.cargo.name}.`);
-  // Match on the key or on a word of the display name, but never on an EMPTY argument — a bare
-  // `market buy` must ask what, not silently pick whichever commodity happens to sort first.
+  // Never match on an empty argument: a bare `market buy` must ask what.
   const named = (good || '').toLowerCase().trim();
   if (!named) return say('Buy what? <span class="text-dim">market buy &lt;good&gt; [qty|full]</span>');
   const key = Object.keys(COMMODITIES).find(k => k === named || COMMODITIES[k].name.includes(named));
@@ -2054,17 +1374,9 @@ async function marketBuy(player, rig, here, region, good, qtyArg) {
   const c = COMMODITIES[key];
   const day = marketDay();
   const unit = askPrice(key, region, day);
-  // Two ceilings, and the tighter one wins: what the trailer holds, and what you can pay for.
-  // Capital is the real constraint early and weight is the real constraint late — which is the
-  // whole ladder (see the balance note in market.js).
+  // Two ceilings, the tighter wins: what the trailer holds and what you can pay for.
   const byMoney = Math.floor((player.credits || 0) / unit);
-  // The deck is the TRUCK's, so what you can buy depends on what you drove here in.
-  // WHAT THE DECK HOLDS IS THE TRAILER'S RATING, not the truck's mass. It used to be the truck's,
-  // because there was no trailer to ask — which meant buying a bigger tractor bought you capacity
-  // it does not actually have. The truck pulls; the box carries.
-  // …AND IT IS THE DECK WE RESOLVED, not the mounted rig. On foot there is no `rig` at all, so the
-  // old expression fell all the way through to DEFAULT_TRAILER_KG and quoted every player the same
-  // capacity regardless of the box actually standing in front of them.
+  // The deck's capacity is the resolved trailer's rating, not the truck's mass and not the mounted rig.
   const deckKg = deck.trailer?.ratedKg || deck.rig?.type?.kg || deck.truck?.type?.kg || DEFAULT_TRAILER_KG;
   const max = Math.min(capacityFor(key, deckKg), byMoney);
   if (max < 1) return say(`${c.name} is ${unit}₵ a unit and you have ${player.credits || 0}₵.`);
@@ -2103,8 +1415,7 @@ async function marketSell(player, rig, here, region) {
   return say(`Sold ${sold.qty} × ${sold.name} at ${unit}₵: ${take}₵ in. ${verdict}`);
 }
 
-// Remembered boards, one player_flag. Written only when you READ a market (rare, deliberate), never
-// on a tick — a market you have not visited is one you do not know, and that is the point.
+// Remembered boards, one player_flag. Written only when you read a market, never on a tick.
 async function rememberMarket(player, region, day, quotes) {
   if (!region) return;
   const seen = await recallMarkets(player);
@@ -2115,22 +1426,10 @@ async function recallMarkets(player) {
   try { return JSON.parse((await getFlag('player', 'truck_markets', player)) || '{}'); } catch { return {}; }
 }
 
-// ── refuel ───────────────────────────────────────────────────────────────────
-// At a fuel yard, or at any depot that keeps a pump. Priced off what you actually take.
-// ── ⚠ `fuel` IS ALSO WHAT YOU SAY TO A BOAT, AND THIS PLUGIN OWNS THE WORD ──
-//
-// `plugins/powerboat` has a tank, a price and a pump on a float, and no verb it is allowed to use:
-// `fuel` is declared here, `refuel` by flight and generator, and a plugin verb silently beats an
-// engine builtin — so a collision is not a load error, it is two systems quietly ceasing to work.
-// That is the trap powerboat's own README records against `helm`, which it lost to the yacht.
-//
-// So the word stays here and the ANSWER is dispatched by name, the `CHARGE_CRIME` idiom: neither
-// plugin imports the other, load order stops mattering, and a world booted without powerboat falls
-// through to trucking's own refusal instead of answering "Unknown action: BOAT_FUEL".
-//
-// ⚠ A `null` MEANS "NOT A QUESTION ABOUT BOATS" and is the only thing that makes this safe to put
-// FIRST. The action re-checks that the asker is standing at the yard the hull is lying in, so
-// `fuel` at a forecourt still means diesel for somebody who happens to own a boat across the city.
+// ── refuel ──
+// ⚠ `fuel` is also what you say to a boat, and this plugin owns the word (a plugin verb silently
+// beats others). The boat answer is dispatched by name (BOAT_FUEL) so neither plugin imports the
+// other. ⚠ A null means "not about boats", which is what makes it safe to ask first.
 async function tryBoatFuel(player, want) {
   const r = await dispatchAction({ type: 'BOAT_FUEL', actor: player, params: { want } });
   if (!r || (r.type === 'error' && /^Unknown action/.test(r.message || ''))) return null;
@@ -2143,27 +1442,13 @@ async function cmdRefuelTruck(args, raw, player) {
     if (boat) return boat;
     return await pumpParked(player, (args || []).join(' ').trim());
   }
-  // The typed verb is the whole-tank case, which is what typing it has always meant. It is the same
-  // commit the handle sends, asked for everything — so there is one place that moves fuel and money.
+  // The typed verb is the whole-tank case, through the same commit the handle sends.
   return pumpFuel(player, 1, { typed: true });
 }
 
-// ── STANDING AT THE PUMP, ON YOUR OWN FEET ───────────────────────────────────
-// The other half of `fuel`, and the half that was missing. Everything above assumes a driver in a
-// cab, because that is where the handle is; but a forecourt is a place you PARK, and the moment
-// somebody does they are out of the sim and standing on the apron next to a nozzle. Before this,
-// that player was told "You are not driving anything" by the one verb the pump's own examine line
-// offers them (see plugins/fuelstation) — a room advertising an action it then refuses.
-//
-// `rig fuel` is not the answer to it either: that is the DEPOT bench, and it refuses anywhere there
-// is no depot, which is every forecourt in the world. A pump is not a workshop. You do not need a
-// bay or a fitter to put diesel in a tank; you need a pump and a truck standing at it.
-//
-// So this asks the same two questions the cab path asks, of the same two functions, and moves money
-// with the same clamp: `pumpAt` decides whether this tile sells diesel (the zone-only call shape
-// `rigFuel` already uses), and `pumpClamp` decides how much a given balance buys. Nothing here is a
-// second opinion about either — the day somebody retunes FUEL_FULL or adds a pump flag, this path
-// changes with the rest of them.
+// ── Standing at the pump, on foot ──
+// A forecourt is a place you park, and the pump's examine line offers `fuel`. Uses the same pumpAt
+// and pumpClamp as the cab path, so a retune of either reaches this too.
 async function pumpParked(player, want = '') {
   if (!pumpAt({ leg: 'city', zoneId: player.current_zone })) return say("You aren't driving anything.");
   const parked = await trucksAt(player.id, player.current_zone);
@@ -2176,8 +1461,7 @@ async function pumpParked(player, want = '') {
   const { take, cost } = pumpClamp(player.credits, truck.fuel ?? 1, room);
   if (take < 0.01) return say(`You can't cover so much as a splash. Diesel is ${FUEL_FULL}₵ a tank.`);
 
-  // Fuel first, money second, exactly as the cab path does it: a failed write must never bill for a
-  // fill that did not happen.
+  // Fuel first, money second: a failed write must never bill for a fill that didn't happen.
   await setFuel(truck.id, player.id, Math.min(1, (truck.fuel ?? 1) + take));
   await adjustCredits(player, -cost, undefined, 'trucking:fuel');
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
@@ -2189,21 +1473,10 @@ async function pumpParked(player, want = '') {
     : `<span class="item-grant">The handle clicks off. ${cost}₵, and she is at ${pct}%.</span>`);
 }
 
-// ── The handle ───────────────────────────────────────────────────────────────
-// `truckpump <fraction>` — the dash handle's commit, and the only thing the cab is trusted to say
-// is HOW LONG IT HELD THE TRIGGER. Everything that decides money is re-derived here: whether there
-// is a pump, how much room is in the tank, and what the driver can pay.
-//
-// WHY A COMMIT RATHER THAN A SERVER-SIDE POUR. The obvious build is an interval that adds fuel and
-// charges credits every 200ms while the trigger is down. That is a per-player timer, a second place
-// fuel changes outside the drive loop, and a teardown case for every way a session can end mid-pour
-// (logout, park, breakdown, the road ending under you). The cab already simulates continuously and
-// reports what it did — this is that same contract, and it costs one round trip instead of thirty.
-//
-// AND IT IS NOT AN EXPLOIT SURFACE, which is the question worth asking of any client-reported
-// number. The worst a lying client can send is 1 — a full tank, instantly, at the full price the
-// verb has always charged for exactly that. There is nothing to gain by lying because the ceiling
-// is the honest transaction.
+// ── The handle ──
+// `truckpump <fraction>`: the cab reports only how long the trigger was held; money is re-derived
+// here. A commit rather than a server-side pour (no per-player timer). Not an exploit surface: the
+// most a lying client can send is 1, a full tank at full price.
 async function cmdTruckPump(args, raw, player) {
   return pumpFuel(player, Number(args[0]), { typed: false });
 }
@@ -2215,11 +1488,7 @@ async function pumpFuel(player, want, { typed }) {
   const room = 1 - rig.fuel;
   if (room < 0.02) return say('She is already full.');
 
-  // THE AFFORDABILITY CAP IS A CLAMP, NEVER A REFUSAL. A driver with 90₵ standing at a pump gets
-  // 90₵ of diesel — the handle clicks off when the money runs out, exactly as it does at a real
-  // pump — because refusing the whole transaction for being short is how you strand somebody who
-  // had enough to get to the next town. (The typed verb asks for a full tank, so this is the line
-  // that turns `fuel` into "fill it as far as I can afford" rather than an error message.)
+  // The affordability cap is a clamp, never a refusal: short money buys what it can.
   const { take, cost } = pumpClamp(player.credits, rig.fuel, Number.isFinite(want) ? want : room);
   if (take < 0.01) return say(`You can't cover so much as a splash. Diesel is ${FUEL_FULL}₵ a tank.`);
 
@@ -2227,8 +1496,7 @@ async function pumpFuel(player, want, { typed }) {
   rig.fuel = Math.min(1, rig.fuel + take);
   rig.dry = false; rig.dryTold = false; rig.warnedLow = false;
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-  // `extra` forces the push past the once-a-second floor: the gauge has to move on the same beat
-  // the credits do, or the driver watches their money go and their needle sit still.
+  // `extra` forces the push past the once-a-second floor so the gauge moves with the credits.
   pushCab(rig, { pumped: true });
   const pct = Math.round(rig.fuel * 100);
   return say(rig.fuel >= 0.995
@@ -2236,118 +1504,54 @@ async function pumpFuel(player, want, { typed }) {
     : `<span class="item-grant">The handle clicks off. ${cost}₵: she is at ${pct}%.</span>`);
 }
 
-// ── park ─────────────────────────────────────────────────────────────────────
-// Get out, wherever you are. Legal on the corridor and slightly reckless — the rig is still there
-// when you come back, unless something found it first.
-// ⚠ THIS VERB HAS A SECOND CALLER AND IT IS THE ROAD ITSELF. Arrival, a finished crossing and a
-// destination with nowhere to put you all call `cmdPark` to get the player out of the cab, and none
-// of those is a driver deciding anything — so the engine gate below belongs to the TYPED path only.
-// `forcedPark` is that path: same landing, no refusal, and nothing can strand a player in a sim
-// whose road has ended because their key happened to be on.
-// What counts as stopped. Not zero: the client reports a float and a truck settling on its lifters
-// reports a whisper of it, so an exact test would refuse a rig that has visibly stopped moving.
+// ── park ──
+// ⚠ The road itself is a second caller (arrival, a finished crossing): `forcedPark` lands the same
+// way with no refusal, so nobody is stranded in a sim whose road has ended.
+// What counts as stopped. Not zero: a settling truck reports a whisper of speed.
 const PARK_STOPPED_MPH = 0.6;
-// How far out the rig must have been before the near end of the road becomes an exit. See the ⚠ on
-// the retreat test: a rig joins at s = 0, so without this the gate is a door you fall through.
+// How far out the rig must have been before the near end of the road is an exit (see retreat).
 const RETREAT_ARM = 2;
 export async function forcedPark(player) { return parkRig(player, true); }
 async function cmdPark(args, raw, player) { return parkRig(player, false); }
 async function parkRig(player, forced) {
   const rig = rigOf(player);
   if (!rig) return say("You aren't driving anything.");
-  // ── THE ONLY THING THAT STOPS YOU GETTING OUT IS MOTION ────────────────────
-  // This used to refuse a running engine, on the reasoning that parking is a sequence — brake, key,
-  // door — and a driver should perform all three. It was wrong twice over, and both showed up as
-  // the same symptom: pulling the park brake in the cab did nothing and said nothing.
-  //
-  //  · THE KNOB ALREADY IS THE SEQUENCE. Setting the spring brakes on a stationary truck is the
-  //    last thing you do before climbing down and there is no other reason to touch it, so the cab
-  //    sends `park` off that one action (see setPark in cab-view.js). Refusing it for the key
-  //    meant the driver's ONE deliberate get-out gesture was answered with a lecture, every time.
-  //  · AND IT WAS A RUNG GATE WEARING A REALISM COSTUME. A text-rung driver has no ignition at
-  //    all, so the check had to be exempted for them — which is the tell that it was never a fact
-  //    about trucks, only about which panel you happened to be using.
-  //
-  // So the gate is MOTION and nothing else: a rig that is completely stopped can be got out of,
-  // from either rung, with the key in whatever position it is in. Turning it off is then part of
-  // parking rather than a prerequisite for it — you do not leave one running, and the sim is
-  // closing anyway, so the state is set here instead of demanded of the driver.
+  // The only thing that stops you getting out is motion. The cab's park brake sends `park`, and a
+  // text-rung driver has no ignition, so the key is turned for you rather than demanded.
   if (!forced && (rig.speed || 0) > PARK_STOPPED_MPH) {
     return say("Not while it's still rolling. Bring it to a stand first, then set the brakes.");
   }
-  // ── ⚠ A DRIVER IS NEVER LEFT IN THE VOID WITH A TRUCK THAT STILL RUNS ──────
-  // This used to be `rig.leg !== 'city' && (broken || dry || s > 2)`, which made ANY deliberate
-  // stop out on the road an abandonment: the truck went to the recovery lot, a wreck was marked,
-  // and the driver was left standing on foot in a TRANSIENT void room with the sim closed behind
-  // them. It reads as being dumped, because it is — and it fired on the ordinary act of stopping,
-  // which a driver does for a dozen legitimate reasons.
-  //
-  // Abandonment is now what the word means: you are walking away because you CANNOT drive it.
-  //
-  // ⚠ AND STOPPING OUT THERE ON PURPOSE IS NOT ABANDONMENT EITHER. For a while a healthy rig
-  // mid-crossing was turned round by this verb (`retreat`, below) and driven back to the gate,
-  // which was safe and was not what anybody meant by `park`: you cannot get out and look at
-  // something, and the ONE case the road was built to allow — climb down, walk, climb back up —
-  // could not be reached. `mountOnCrossing` has always been able to put you back in your own cab
-  // out here, trailer and all; nothing could get you out of it in the first place.
-  //
-  // So park means park, everywhere. A healthy rig stopped on the corridor falls through to the
-  // ordinary landing below: the void room becomes its `depot_zone`, `drive` finds it there, and
-  // `retreat` keeps its OTHER caller — driving back to s = 0 under your own power still leaves
-  // the corridor at the gate you came in by, which is the honest way to change your mind.
-  //
-  // What the void room cannot do is outlive the crossing, so see `recoverTrucksFrom`: when the
-  // instance tears down with a truck still parked in it, that truck goes to the recovery lot on
-  // the same impound path a breakdown uses. Nothing is ever lost out there, it just gets expensive.
+  // ⚠ Stopping on the corridor on purpose isn't abandonment: the void room becomes the truck's
+  // depot_zone and mountOnCrossing puts you back in. Abandonment is only a broken or dry rig.
+  // When the instance tears down with a truck in it, recoverTrucksFrom sends it to the recovery lot.
 
-  // ⚠ BEFORE THE DISMOUNT, because the lesson's last stage is judged on where the truck actually
-  // stopped, and `dismountRig` is what takes the rig away. It ends the ride either way — pass at
-  // the yard, over anywhere else — and sweeps the school rig behind it.
+  // ⚠ Before the dismount: the lesson's last stage is judged on where the truck stopped.
   await roadTestPark(player, rig);
   rig.engineOn = false;   // the key, turned for you — the last step of the sequence, not a gate on it
   dismountRig(player.id);
-  // The text tick self-heals (it drops any run whose rig has gone), but stopping it here means the
-  // road doesn't narrate one more line after you've already climbed down.
+  // The text tick self-heals, but stopping it here saves one more narrated line.
   stopTextDrive(player.id);
-  // Both flushes happen HERE and nowhere on the hot path: the town you drove through, and the fuel
-  // and lifetime tiles the truck accumulated doing it.
+  // Both flushes happen here and nowhere on the hot path.
   await flushZone(player, rig);
-  // PARKING AT A DEPOT PUTS IT INSIDE. You stop on the apron — that is where the road is — but the
-  // truck belongs to the bay, and storing the apron's zone id instead would leave a 16,500₵ rig
-  // standing on a public street in the fiction and missing from the garage floor in the panel.
+  // Parking at a depot puts it inside: the truck belongs to the bay, not the apron.
   const home = bayForYard(rig.zoneId);
   if (home) rig.zoneId = home.zone.id;
-  // WALKING AWAY FROM IT OUT THERE. Climbing down mid-crossing wrote the void ROOM as the truck's
-  // depot — and those rooms are transient, so the instance was torn down behind you and a rig
-  // you owned was parked at an id with nothing on the other side of it. It could not be found,
-  // driven, sold or repaired.
-  //
-  // So the road hands it to a recovery yard instead: the truck goes back to the depot it left and
-  // wants a fee to come out, which is the `impound_fee` path the scale house already owns and
-  // `drive` already knows how to settle. Nothing new is invented to charge you — abandonment and
-  // confiscation end in the same lot, which is exactly right, and priced off the truck because
-  // what you are paying for is somebody going and getting it.
+  // Walking away from a broken or dry rig out there: the void room is transient, so it goes back to
+  // the depot it left on the impound_fee path that `drive` already settles.
   const abandoned = rig.leg !== 'city' && (rig.broken || rig.dry);
   if (abandoned) {
     rig.zoneId = rig.fromDepot || null;
     const fee = Math.max(250, Math.round((rig.type?.price || 4000) * 0.05));
     if (rig.truckId) await query('UPDATE trucks SET impound_fee = $1 WHERE id = $2', [fee, rig.truckId]).catch(() => {});
-    // And the road remembers. See markWreck: this is where the roadside wrecks come from — every
-    // one of them is a haul somebody did not finish, and yours is now one of them.
+    // And the road remembers: see markWreck.
     markWreck(rig, player);
     sendToPlayer(player.id, { type: 'emote', message:
       `<span class="text-amber">You leave it on the shoulder with the flashers going and start walking. Somebody will come out for it eventually.</span>\n`
       + `<span class="text-dim">Recovery to ${depotNameOf(rig.fromDepot) || 'the yard'}: <b>${fee}₵</b>, payable when you next go to drive it.</span>` });
   }
-  // ── STOPPING ON THE SHOULDER, ON PURPOSE ─────────────────────────────────────
-  // A healthy rig left out on the corridor. The void room below becomes its `depot_zone`, which is
-  // what `mountOnCrossing` reads to give you back YOUR cab with YOUR box on the pin.
-  //
-  // ⚠ AND THE ROOM IS TRANSIENT, so the truck needs to name somewhere real to be dragged to when
-  // the crossing ends without it. That anchor is written HERE and only here, because this is the
-  // one moment both facts are in hand: which truck, and which depot it set out from. Without it
-  // `recoverTrucksFrom` has a truck and no idea where it belongs — the row would have to be swept
-  // to a default yard, which is how somebody's rig ends up on the other side of the waste.
+  // ── Stopping on the shoulder, on purpose ──
+  // ⚠ The room is transient, so write `void_home` here (the one moment we know both the truck and
+  // the depot it left), or recoverTrucksFrom has nowhere real to drag it.
   const roadside = !abandoned && rig.leg !== 'city' && !!rig.instanceId;
   if (roadside && rig.truckId) {
     const home = rig.fromDepot || crossingInfo(rig.instanceId)?.originZone || null;
@@ -2358,31 +1562,16 @@ async function parkRig(player, forced) {
       `<span class="text-amber">You set the brakes, kill the lights and drop down onto the hardpan. The engine ticks as it cools.</span>\n`
       + `<span class="text-dim">She will be here when you get back. <b>drive</b> to climb up again, but if you walk out of the waste without her, somebody will have to come and fetch her.</span>` });
   }
-  // AND YOU LOCK IT. The last thing in the sequence, and the state that says this truck was LEFT
-  // rather than merely stopped — persisted in the same flush below, so it is still locked tomorrow.
-  // Every park locks, including a forced one: nobody walks away from a rig on the shoulder and
-  // leaves the door swinging, and the abandonment line above is already about a truck you would
-  // very much like to still be there.
+  // And you lock it, every park including a forced one. Persisted in the flush below.
   rig.locked = true;
   await persistTruck(rig);
   setPosture(player, 'standing');
   sendToPlayer(player.id, { type: 'truck_sim_close' });
-  // AND THE ROOM COMES BACK. The cab owns the area-pane while you are driving, so `paneFreeForRoom`
-  // is false for as long as it is open — which meant a room description composed HERE, in the same
-  // reply, was thrown away by the client and the pane sat on whatever it had before the drive.
-  // `force_look` is the seam for exactly this: it lands after the close above, so the pane is free
-  // by the time the re-asked `look` comes back, and the log rung gets its copy for free.
+  // The cab owns the area pane while driving, so a room description in this reply would be dropped;
+  // force_look lands after the close.
   sendToPlayer(player.id, { type: 'force_look' });
-  // AND IF YOU PARKED IT AT A YARD, THE YARD OPENS. Walking into a depot has always thrown the
-  // screen up (see the `zone.entered` handler below) and climbing down inside one did not — which
-  // is backwards, because the end of a haul is the moment you have the most to do: a load to
-  // deliver, a tank to fill, a bill at the bench. The reason it never fired is that no zone was
-  // ENTERED; the panel is skipped while driving, and parking is the moment that stops being true.
-  //
-  // Mirrors the hook exactly rather than calling `repush`, because it has to answer for BOTH rungs:
-  // `depotPanel` hands the log rung prose, and prose is a message rather than a panel.
-  // `depotHere` because you stop on the APRON — the bay is where the truck is stored, not where
-  // the driver is standing.
+  // Parking at a yard opens the yard, mirroring the zone.entered hook for both rungs (the log rung
+  // gets prose). depotHere, because you stop on the apron.
   if (!abandoned) {
     const { bay: pBay, depot: pDepot } = depotHere(player);
     if (pDepot) {
@@ -2390,49 +1579,26 @@ async function parkRig(player, forced) {
       if (panel) sendToPlayer(player.id, panel.type === 'emote' ? { type: 'output', message: panel.message } : panel);
     }
   }
-  // The prose finally matches the mechanic: the brake is set and the engine is already off, because
-  // this verb refused to run until it was. Only the door is left to do.
   return say('<span class="text-amber">You set the brake, drop down onto the dirt and lock her up behind you. The silence out here is enormous.</span>');
 }
 
-// ── trucksync ────────────────────────────────────────────────────────────────
-// The hot path. Packed numerics, ~4×/s, one per driving player. NEVER AWAITS A QUERY. Not on the
-// ordinary frame and not on a node boundary either — `crossToNode` moves the player between void
-// rooms in RAM and marks `zoneDirty` for the coalesced flush, exactly as `driveToZone` does between
-// city tiles.
-//
-// ⚠ THIS COMMENT USED TO SAY THE OPPOSITE, AND IT WAS LOAD-BEARING WRONG. It read "a node crossing
-// does [await a query] … and node crossings happen once every couple of minutes, not every frame."
-// Both halves were true when a void room was ~90 tiles and stopped being true on the same day: a
-// room is a TILE now, so a boundary is crossed roughly once a SECOND at road speed, and it was that
-// arithmetic — 15 writes a crossing becoming 282, several a second — that forced the write out of
-// crossToNode in the first place. The fix shipped and the comment describing it did not, which is
-// the failure mode this whole file is otherwise careful about: a stale note on the hottest function
-// in the plugin gets trusted instead of read.
+// ── trucksync ──
+// The hot path: packed numerics, ~4×/s per driving player. Never awaits a query, node boundaries
+// included: a room is a tile, so crossToNode moves the player in RAM and marks zoneDirty.
 //   packed: s t hdg spd x y
 async function cmdTruckSync(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return { type: 'noop' };
   const n = args.map(Number);
   if (n.length < 6 || n.slice(0, 6).some(Number.isNaN)) return { type: 'noop' };
-  // ── THE LAMPS ──────────────────────────────────────────────────────────────
-  // A seventh packed slot, and it is deliberately OPTIONAL: an older client sends six numbers and
-  // must keep working, so a missing slot means 'lamps as they have always been' rather than 'all
-  // lamps off'. Headlights default ON for exactly the reason the rocker does — that is the
-  // behaviour that shipped, and a client that cannot tell us is not a client driving dark.
-  //
-  // RAM ONLY. This is per-frame state about the outside of a truck; it is read by
-  // `truckContactsNear` on the same tick and by nothing else, ever. There is no column, no flag and
-  // no flush — the persistence tiers in docs/architecture.md are explicit that per-tick state does
-  // not go near the database, and a lamp is the purest example of one.
+  // ── The lamps ── an optional seventh slot: missing means headlights on (older clients send six).
+  // RAM only, per-frame; read by truckContactsNear and nothing else.
   const lamps = Number.isFinite(n[6]) ? (n[6] | 0) : 1;
   rig.headlights = !!(lamps & 1);
   rig.braking = !!(lamps & 2);
 
-  // ⚠ READ BEFORE THE RECONCILE, because the reconcile is what changes it. A truck now mounts COLD
-  // (state.js), so the first time the ignition comes back true is the driver turning the key — and
-  // that is where a derelict's argument about starting belongs. No new event and no new packet: the
-  // telemetry has carried the ignition bit all along, this only notices the edge.
+  // ⚠ Read before the reconcile, which changes it: the first ignition edge is where a derelict's
+  // hard start is spent.
   const wasRunning = !!rig.engineOn;
 
   const r = reconcileTruck(rig, { s: n[0], t: n[1], hdg: n[2], spd: n[3], x: n[4], y: n[5] });
@@ -2442,10 +1608,8 @@ async function cmdTruckSync(args, raw, player) {
     sendToPlayer(player.id, { type: 'emote', message: HARD_START_LINE });
   }
 
-  // Out of diesel, and the low-fuel light. ANNOUNCED, NOT SHORT-CIRCUITED: an early return here
-  // skipped every arrival, delivery and node crossing below it, so a rig that ran dry one tile
-  // from the dock could never finish the haul at all. Running dry stops the truck MOVING (the
-  // speed clamp in reconcileTruck does that); it must not stop the handler thinking.
+  // Out of diesel, and the low-fuel light. ⚠ Announced, never an early return: that skipped arrival
+  // and delivery. reconcileTruck's speed clamp is what stops a dry truck moving.
   if (rig.dry && !rig.dryTold) {
     rig.dryTold = true;
     sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">The engine coughs twice, catches once more out of spite, and dies. The gauge has been on the pin for a while and you knew it. Wherever this is, this is where you are.</span>' });
@@ -2455,26 +1619,16 @@ async function cmdTruckSync(args, raw, player) {
     sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">A light comes on that you have been waiting for. Low fuel.</span>' });
   }
   announceBreak(player, rig);
-  // THE LESSON, if there is one on. Sync and cheap by contract (a Map lookup, then two subtractions)
-  // — it is on the four-times-a-second path, so it may never await.
+  // The lesson. Sync and cheap by contract: on the four-times-a-second path, it may never await.
   roadTestTick(player, rig);
   passSign(player, rig);
-  // THE INSPECTION PLAZA — the call miles out, the gantry as you reach it, and the charge if you
-  // hold your lane past a lit one. Swept off the odometer for the same reason the boards are, and
-  // beside them rather than on the node crossing because a station is a place on the road and a
-  // node boundary is not. Sync, and free on a road that has no plaza on it.
+  // The inspection plaza: swept off the odometer, sync, free on a road with no plaza.
   passPlaza(player, rig);
-  // …and the person standing on it. Beside the boards rather than on the node crossing, because
-  // that is the placement the warning needs: a call about somebody eighteen miles up is a fact
-  // about the ODOMETER, and the odometer only moves here. See passHitcher for why it is swept.
+  // ...and the hitcher on the road ahead. See passHitcher for why it's swept.
   passHitcher(player, rig);
 
-  // ── YOU TOOK THE OTHER ROAD ────────────────────────────────────────────────
-  // Steering onto the far limb is a real decision about where this load is going, so it is SAID.
-  // A junction you can take with the wheel and that changes your destination silently is worse than
-  // one you cannot take at all: the first time a driver would find out is at the wrong town, with a
-  // tank they budgeted for somewhere else. The detection is in reconcileTruck (see the ⚠ there);
-  // this only reports it, and deliberately names the verb too — turning back is the same wheel.
+  // ── You took the other road ──
+  // A destination change by steering must be said. Detection is in reconcileTruck.
   if (r.tookFork) {
     sendToPlayer(player.id, {
       type: 'emote',
@@ -2483,23 +1637,14 @@ async function cmdTruckSync(args, raw, player) {
     });
   }
 
-  // ── TWO TRUCKS IN THE SAME PLACE ──────────────────────────────────────────
-  // Detected HERE, on the frame that just moved the rig, and that placement is the whole of why it
-  // costs nothing: no tick, no new client message, no new command, no round trip. The position it
-  // tests was already reported and already reconciled a line above; the only new work is a distance
-  // check against the handful of other live rigs, which is a few subtractions.
-  //
-  // Everything downstream is lazy in the same way the rest of this system is: the damage lands in
-  // RAM on both rigs and rides home in the coalesced write that already carries fuel and the
-  // odometer (`park`), and a per-pair cooldown in collide.js means one contact is one event no
-  // matter how many frames the two bodies take to separate.
+  // ── Two trucks in the same place ──
+  // Detected here on the frame that moved the rig, so it costs a few subtractions. Damage lands in
+  // RAM and rides home with the park write; collide.js's per-pair cooldown makes one contact one event.
   if (r.city) {
     for (const hit of collideTrucks(rig, [...rigs.values()])) {
       narrateCollision(rig, hit);
       narrateCollision(hit.other, hit);
-      // The other driver's cab is corrected too, or their client goes on believing it is where it
-      // was and drives back into you next frame. `pushCab` with an `extra` is the existing "the
-      // server has something to SAY" path, which bypasses the once-a-tile throttle exactly once.
+      // Correct the other driver's cab too, or their client drives back into you next frame.
       pushCab(hit.other, { collided: true });
       pushCab(rig, { collided: true });
     }
@@ -2507,24 +1652,20 @@ async function cmdTruckSync(args, raw, player) {
 
   // ── City leg ──
   if (r.city) {
-    // Off the end of the world: this is the rim, and the rim is where the highway starts. Driving
-    // off the map in a truck launches the crossing exactly as walking off it does — the same
-    // `launchCrossing`, the same muster-less path a walker takes once they've readied.
+    // Off the end of the world: driving off the rim launches the crossing as walking off does.
     if (r.bogged) return await leaveTheMap(player, rig);
     let lockZone = null, lockPrev = null;
     if (r.moved) {
       lockPrev = getZone(player.current_zone);
       const zone = driveToZone(player, rig, r.zone);
       lockZone = zone;
-      // THE SCALE. A weighbridge is a tile you drive onto, so it hangs off the drive rather than off
-      // the move gate — a driver never walks. Shared with the text rung; see scale.js afterDrive.
+      // The scale hangs off the drive, not the move gate. Shared with the text rung; see scale.js.
       await afterDrive(player, rig, zone);
       if (zone) sendToPlayer(player.id, { type: 'zone_event', message: `<span class="text-dim">(${zone.name})</span>` });
       // Rolled into a depot with a load that belongs there? That's a delivery.
       if (rig.cargo && r.zone === rig.cargo.to) return await deliver(player, rig);
     }
-    // THE SOUTH LOCK. Every frame, not only on a move, because what it asks is that you STOP in it;
-    // a sync guard returns at once anywhere that isn't the lock. See lock.js.
+    // The South Lock: every frame, because it asks you to stop in it. See lock.js.
     if (rig._lock || lockZone) await lockTick(player, rig, lockZone || getZone(rig.zoneId), lockPrev);
     // The shed's overlay comes up when you stop in it and goes when you roll out of it.
     baySvcTick(player, rig);
@@ -2536,11 +1677,7 @@ async function cmdTruckSync(args, raw, player) {
     return { type: 'noop' };
   }
 
-  // ── THE PLATES ─────────────────────────────────────────────────────────────
-  // Physically: be on the deck, and be stopped. Checked here rather than behind a verb because it
-  // is what the station asks you to do — ride over it and stop on it — and because a driver who has
-  // stopped on a weighbridge has unambiguously pulled in. `tryDeck` returns on a sync guard for
-  // every frame that is not that one, so the awaits inside it are only ever paid once.
+  // ── The plates ── be on the deck, and be stopped. tryDeck's sync guard makes its awaits rare.
   await tryDeck(player, rig);
   if (r.bogged && !rig.bogged) {
     rig.bogged = true;
@@ -2549,31 +1686,14 @@ async function cmdTruckSync(args, raw, player) {
     sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">The wheels go soft, then bite nothing at all. You\'re off the road and into the deep stuff: it takes a long, ugly while to get her back onto the gravel, and the tank is lighter for it.</span>' });
     return { type: 'noop' };
   }
-  // Arrival is checked on EVERY frame, not only when the node index changes. The last room is the
-  // one you spend the final stretch of road in, so by definition the node has stopped moving by
-  // the time you reach the end of it — hanging arrival off `moved` meant the haul completed and
-  // then simply never ended, with the driver parked at the far edge of the world.
+  // ⚠ Arrival is checked every frame, not only on `moved`: the node stops changing in the last room.
   if (rig.s >= rig.route.L - 1) { await arrive(player, rig); return { type: 'noop' }; }
-  // ── AND THE SAME TEST AT THE OTHER END ───────────────────────────────────────
-  // Backtracking means `s` can now be driven back down to zero, and zero is a real place: the rim
-  // tile you left. Without this the road simply stopped being road under you and the rig sat at
-  // the gate with nowhere to go — the far end had an exit and the near end had a wall, which is
-  // exactly the asymmetry the reverse work exists to remove. A walker has always been able to turn
-  // round and step back out of trunk room 0; this is the same door, wide enough for a truck.
-  //
-  // ⚠ IT HAS TO BE ARMED, AND FORGETTING THAT MADE THE ROAD UNUSABLE. A rig JOINS the corridor at
-  // s = 0 — that is what `joinCorridor` sets — so an unguarded test at the near end fired on the
-  // first telemetry frame of every haul and bounced the driver straight back off the road they had
-  // just pulled onto. Arriving somewhere is only meaningful if you left, so the exit does not
-  // exist until the rig has actually got out onto the road. Two tiles, the same threshold `park`
-  // uses to decide a rig has been abandoned out here rather than merely stopped at the gate.
+  // ── And the same test at the near end ── backing to s = 0 leaves by the gate you came in.
+  // ⚠ It has to be armed: a rig joins at s = 0, so an unguarded test bounces every haul off the road.
   if (rig.s <= 0.5 && (rig.sMax || 0) > RETREAT_ARM) { await retreat(player, rig); return { type: 'noop' }; }
 
-  // ── SOMEBODY IS STANDING ON THE ROAD AHEAD ─────────────────────────────────
-  // A walker at a camp with their arm out (voidwalking's `flag`). ⚠ ONCE PER DRIVER PER WALKER, and
-  // only with room to react: a rig reconciles four times a second, so an alert that fired on
-  // proximity alone would repeat until you were past, and one that fired when you were level with
-  // them would not be an alert at all. Far enough out that slowing is a choice.
+  // ── Somebody on the road ahead ── a walker's `flag`. ⚠ Once per driver per walker, and far enough
+  // out that slowing is a choice.
   if (rig.leg === 'corridor' && Number.isFinite(rig.x)) {
     for (const b of beaconsNear(rig.x, rig.y, BEACON_SEE_TILES)) {
       rig.sawFlag = rig.sawFlag || new Set();
@@ -2589,12 +1709,7 @@ async function cmdTruckSync(args, raw, player) {
   if (r.moved) {
     const zone = await crossToNode(player, rig, r.node);
     if (!zone) { await forcedPark(player); return { type: 'noop' }; }
-    // (SOMEBODY ON THE SHOULDER used to be announced here, once, at the moment the boundary went
-    // under the wheels. It is `passHitcher` now — same principle, three calls and a distance in
-    // each, because being told about a thing you cannot yet stop for is not being told in advance.)
-    // THE JUNCTION, ANNOUNCED. The last trunk room is where the two roads part, and a fork you
-    // only find out about by having already taken one side of it is not a decision. Same principle
-    // as the scale house and the hitchhiker: this whole phase is about choices made in advance.
+    // The junction, announced from the last trunk room, before you've taken a side.
     if (rig.trunk && r.node === rig.trunk - 1) {
       const info = crossingInfo(rig.instanceId);
       const others = (info?.dests || []).filter(d => d.key !== rig.destKey);
@@ -2608,9 +1723,8 @@ async function cmdTruckSync(args, raw, player) {
       }
     }
     cbLine(player, rig);
-    // The room's own arrival prose goes to the log, so the drive reads in the transcript exactly
-    // as the walk does — one of the display-mode contracts (docs/systems-display-mode.md): if a
-    // system's record doesn't reach the log, that rung isn't done for it.
+    // Arrival prose goes to the log, so the drive reads in the transcript as the walk does
+    // (docs/systems-display-mode.md).
     sendToPlayer(player.id, {
       type: 'zone_event',
       message: `<span class="text-dim">(${zone.name})</span>`,
@@ -2619,11 +1733,8 @@ async function cmdTruckSync(args, raw, player) {
     pushCab(rig);
     return { type: 'noop' };
   }
-  // ── SOMEBODY TRIES THE DOOR ────────────────────────────────────────────────
-  // Every frame rather than only on a node crossing, because the whole event is about STANDING
-  // STILL — a driver who stopped for a smoke in the middle of a stretch crossed no boundary and
-  // would never have been asked. The gates are all in tryDoorBoard (state.js) so the text rung runs
-  // the identical law; this is the reporting half.
+  // ── Somebody tries the door ── every frame, because it's about standing still. The law is in
+  // tryDoorBoard (state.js) so the text rung runs the same one.
   {
     const near = rig.hitchDone?.has(rig.node) ? null : hitcherAt(rig.route, rig.node, rig.chain?.length || 1);
     const got = rig.leg === 'corridor' ? tryDoorBoard(rig, near) : null;
@@ -2637,21 +1748,12 @@ async function cmdTruckSync(args, raw, player) {
   return { type: 'noop' };
 }
 
-// `cb` — the radio. On by default, because a channel you have to discover is a channel nobody
-// hears, and off in one word for a driver who would rather have the road.
-//
-// ⚠ THE PARSE ORDER IS THE WHOLE DESIGN OF THIS VERB. Everything that is not one of the four
-// literal controls is TREATED AS SPEECH, because the commonest thing anybody does with a CB is
-// talk into it and a radio whose default action is a settings change would be absurd. The cost is
-// that `cb off` can never be said out loud on the air, which is a fair trade for `cb on` meaning
-// what it says; the four reserved words are listed in the status line so nobody has to guess.
+// `cb`: the radio, on by default.
+// ⚠ The parse order is the design: anything that isn't one of the four literal controls is speech.
 async function cmdCb(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say("You aren't driving anything.");
-  // A cooked set answers nothing at all — not a status line, not a channel count,
-  // not a squelch click. Gated at the verb rather than in each of the five
-  // handlers below, because every one of them would otherwise report an audience
-  // it cannot reach ("2 other sets are up here", off a radio that is dead).
+  // A cooked set answers nothing at all, gated here so no handler reports an audience it can't reach.
   if (truckElecDead(rig)) return say('You reach for the set. Dark face, dead mic, no hiss: it took the pulse with the rest of the dash.');
   const rest = String(raw || '').replace(/^\S+\s*/, '').trim();
   if (!rest) return cbStatus(player, rig);
@@ -2669,22 +1771,9 @@ async function cmdCb(args, raw, player) {
   return cbTransmit(player, rig, rest);
 }
 
-// ── `weigh` — pulling onto the plates ────────────────────────────────────────
-//
-// The cab rung does not need this: you stop on the deck and the deck reads you, which is the whole
-// of what a weighbridge is. The TEXT rung does, because it has no wheel — a text run advances the
-// odometer down the centreline and there is no way to steer off it — so without a verb the lawful
-// answer to a lit plaza would be unreachable on one of the two rungs, and a station that charges
-// four stars for driving past would be a trap for everybody who drives by text. That is the one
-// thing a rung may not be.
-//
-// ⚠ IT IS THE SAME LAW, NOT A TEXT VERSION OF IT. `weighHere` is the function the deck itself
-// calls, so the arch, the cab check and the weighbridge run in the same order with the same rolls.
-// All this verb does is get you onto the plates.
-//
-// ⚠ AND PULLING IN ENDS A TEXT RUN, because you are stopping — that is what "stop on the plates"
-// means. `drive` starts it again afterwards. Leaving the run going would have the road narrating
-// past while somebody stands at your door with a slate.
+// ── weigh: pulling onto the plates ──
+// The text rung can't steer onto the deck, so without this a lit plaza would be a trap for it.
+// ⚠ The same law: weighHere is what the deck itself calls. ⚠ Pulling in ends a text run (you stop).
 async function cmdWeigh(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say("You're not behind a wheel.");
@@ -2708,23 +1797,9 @@ async function cmdWeigh(args, raw, player) {
   return { type: 'ok' };
 }
 
-// ── The air horn ─────────────────────────────────────────────────────────────
-// Two chrome trumpets sit on the roof of every rig in the fleet. They were scenery until this verb
-// existed, and scenery on the one machine the whole system is built around is worse than nothing:
-// it is a promise the game does not keep.
-//
-// THE HORN IS HEARD BY THE ROOM, NOT BY YOU. That is the entire point of a horn and it is the only
-// thing this function really does — the player gets the line about pulling the cord, and everyone
-// standing in the zone gets the noise and a line of their own. A horn only you can hear is a
-// keypress, and there is no reason for it to be a verb at all.
-//
-// IT WORKS IN BOTH PLACES A TRUCK EXISTS. Behind the wheel it is the rig you are driving; standing
-// in a yard it is the one parked there, because reaching up into an open cab and pulling the cord
-// is a thing people do, and because the walkaround now puts you at arm's length from the door.
-// `horn [seconds]` — how long the driver held the cord, so the yard hears a toot or a long lean on
-// it. ⚠ CLAMPED HERE, not trusted from the client: the cab is the only thing that sends a number and
-// a client is not the authority on how long a noise everybody else has to listen to goes on for.
-// An argument-less `horn` (any other caller, an older client, somebody typing it) is unchanged.
+// ── The air horn ──
+// Heard by the room, not just you; works in the cab or reaching into a truck parked in the yard.
+// `horn [seconds]` is how long the cord was held. ⚠ Clamped here, never trusted from the client.
 const HORN_MAX = 4;
 async function cmdHorn(args, raw, player) {
   const held = Number(args?.[0]);
@@ -2732,31 +1807,20 @@ async function cmdHorn(args, raw, player) {
   const rig = rigOf(player);
   let typeId = rig?.typeId || null;
   let name = null;
-  // Which horn is on the roof (client/shared/truck-horns.js) — rides the packet so the yard hears
-  // the three-chime you paid for rather than the factory trumpet.
+  // Which horn is on the roof (client/shared/truck-horns.js) rides the packet.
   let horn = rig ? hornOf(rig.cd) : null;
   if (!typeId) {
     const zone = getZone(player.current_zone);
     const depot = depotAt(zone);
     if (!depot) return say("There's nothing here with a horn on it.");
-    // ANY OF THEM WILL DO. This is the one caller that does not care which truck it got: a horn is a
-    // noise the yard hears, and nobody standing in it could tell you which of your cabs it came out
-    // of. Asking "which one?" for a sound effect would be a prompt charging rent for nothing.
+    // Any of them will do: nobody can tell which cab a horn came out of.
     const truck = (await trucksAt(player.id, depotZonesOf(zone, depot)))[0];
     if (!truck) return say('You have nothing parked here to lean into.');
     typeId = truck.type_id; name = truck.name || truck.type?.name;
     horn = hornOf(truck.custom_data);
   }
-  // Everyone else in the room, including the sound. Excluding the player is deliberate: their own
-  // copy rides back on the emote below, so nobody hears it twice.
-  //
-  // ⚠ THE SOUND EVERY TIME; THE SENTENCE ONCE A MINUTE. These are two different kinds of thing and
-  // they were sharing a cooldown of none. A horn is MEANT to be leaned on — three quick blasts is a
-  // thing drivers do and every one of them should be audible — but three lines of identical prose
-  // in everybody's log is not a horn, it is spam, and the fourth is what makes somebody scroll past
-  // the sentence that mattered. So the packet is unthrottled and the PROSE is on a per-player 60s
-  // gate, kept in RAM on the live rig (or on the player, for somebody honking a parked truck):
-  // nothing about a noise deserves a DB write.
+  // Everyone else in the room gets the sound; the player's copy comes back separately.
+  // ⚠ The sound every time, the sentence once a minute (RAM gate on the rig or player, no DB write).
   sendToZone(player.current_zone, { type: 'truck_horn', typeId, secs, horn }, player.id);
   const holder = rig || player;
   const now = Date.now();
@@ -2766,27 +1830,19 @@ async function cmdHorn(args, raw, player) {
     sendToZone(player.current_zone, { type: 'emote', message:
       `<span class="text-amber">An air horn goes off somewhere very close to you${secs && secs > 1.6 ? ', and goes on going off' : ''}.</span>` }, player.id);
   }
-  // ⚠ NOT to the driver when they held it themselves: the cab has been sounding its own horn since
-  // the moment the cord moved (see hornDown), and a second copy arriving on the way back is the
-  // same blast twice, a few hundred milliseconds apart. An argument-less `horn` — anybody who typed
-  // it, any other caller — still gets its sound from here, because nothing local played one.
+  // ⚠ Not to the driver when they held it: the cab already played it (hornDown). An argument-less
+  // `horn` still gets its sound from here.
   if (secs == null) sendToPlayer(player.id, { type: 'truck_horn', typeId, horn });
-  // ⚠ AND THE DRIVER'S OWN LINE IS ON THE SAME GATE, which is the half that actually matters: the
-  // room sees one line an hour from somebody else's truck, and the driver sees one per pull of
-  // their own. Their SOUND already played locally before this ever reached the server (see hornDown
-  // in cab-view), so a suppressed line is a horn that sounds and does not narrate — which is what a
-  // horn does. Silence, not a refusal: nothing has gone wrong and there is nothing to say about it.
+  // ⚠ The driver's own line is on the same 60s gate: a suppressed line is silence, not a refusal.
   if (!sayIt) return { type: 'noop' };
   return say(rig
     ? '<span class="text-amber">You pull the cord. Two notes, a long way apart, and the sound of them goes out across everything.</span>'
     : `<span class="text-amber">You reach up into the cab of ${name ? `<b>${name}</b>` : 'it'} and pull the cord. The yard rings with it.</span>`);
 }
 
-// ── Breakdowns ───────────────────────────────────────────────────────────────
-// `fix` — the roadside attempt. See the four rules in rig.js: this buys DISTANCE, never health,
-// and it cannot fail forever (each attempt raises the odds of the next). It is deliberately not
-// the bench's `rig repair`: no money changes hands, nothing is ordered, and the truck is exactly
-// as worn out at the end of it as it was at the start.
+// ── Breakdowns ──
+// `fix`, the roadside attempt: see the rules in rig.js. It buys distance, never health, and each
+// attempt raises the odds of the next. No money changes hands.
 async function cmdFix(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say("You aren't driving anything.");
@@ -2797,18 +1853,14 @@ async function cmdFix(args, raw, player) {
   }
   const b = BREAKDOWNS[rig.broken.kind] || BREAKDOWNS.hose;
 
-  // THE TERMINAL GATE. A rig at the bottom of the condition bar is not broken, it is finished, and
-  // there is nothing in a toolbox that answers that. This is the one refusal in the whole system
-  // that does not offer another attempt — it offers the tow instead, which is the point.
+  // The terminal gate: the one refusal that offers the tow instead of another attempt.
   if (isTerminal(rig.condition)) {
     return say('<span class="text-amber">You get the panel up and stand looking at it for a while.</span>\n'
       + '<span class="text-dim">There\'s nothing here to fix. It isn\'t one thing that has gone: it\'s everything, all at '
       + `once, the way it always is in the end. You aren't driving this out. <b>${teachVerb('tow', 'tow')}</b> is the number to call.</span>`);
   }
 
-  // THE PARTS. `fix` used to need nothing at all and came good by the fourth attempt for anybody,
-  // which made a breakdown a delay rather than a decision. The decision now happens hours earlier,
-  // at a depot, when you either bought a box of spares or told yourself you would be fine.
+  // The parts: the decision is made hours earlier, at a depot counter.
   const spares = await sparesInHand(player);
   if (!spares) {
     return say(`<span class="text-amber">You know exactly what ${b.label} needs. You don't have it.</span>\n`
@@ -2822,17 +1874,14 @@ async function cmdFix(args, raw, player) {
   }
   const odds = fixOdds(fab, rig.broken.attempts);
   rig.broken.attempts++;
-  // THE PART IS SPENT ON THE ATTEMPT, NOT ON THE SUCCESS. You cut the hose to length before you
-  // find out whether it holds, and a system where failure costs nothing is a system where you
-  // simply retry until it works — which is what this replaced.
+  // The part is spent on the attempt, not the success, or you'd just retry until it works.
   await spendSpares(spares);
   if (Math.random() >= odds) {
     await awardSkillUse(player.id, 'fabrication', 0);
     return say(`<span class="text-amber">You get at ${b.label} with what's in the box, and it beats you. `
       + `You're dirtier, the light is worse, and it's still broken.</span> <span class="text-dim">Again, then.</span>`);
   }
-  // FIXED, FOR A WHILE. The grace window is the whole design: it is why you limp to a town instead
-  // of living out here with a spanner, and it is why the bench still exists.
+  // Fixed for a while: the grace window is why you limp to a town and the bench still exists.
   rig.broken = null;
   rig.fixGrace = FIX_GRACE_TILES;
   await awardSkillUse(player.id, 'fabrication', 2);
@@ -2841,39 +1890,15 @@ async function cmdFix(args, raw, player) {
     + `<span class="text-dim">It'll hold for a while. It isn't repaired: that's a bench and a bill, and the bar on it hasn't moved.</span>`);
 }
 
-// ── parts, spares and `rig strip` → bench.js ─────────────────────────────────
-// They went with the counter that sells them. `fix` above still SPENDS a spares box, and imports
-// `sparesInHand`/`spendSpares` back for it — the roadside is where one gets used, the yard is where
-// one gets bought, and there is exactly one definition of what a box is.
+// ── parts, spares and `rig strip` live in bench.js ── (`fix` imports sparesInHand/spendSpares back)
 
-// ── tow ──────────────────────────────────────────────────────────────────────
-// THE WAY OUT, AND THE ONLY ONE THAT COSTS MONEY. Everything else in this system can be answered
-// with time, a spanner or a walk; this is what a driver reaches for when the truck is genuinely
-// finished, and it is deliberately expensive, because the whole of the condition bar means nothing
-// if the bottom of it is cheap.
-//
-// TWO OUTCOMES, and the second one is why this can never strand anybody:
-//
-//   PAID     — a low-loader comes out, the rig goes back to the depot it started from, and you go
-//              with it. The truck is still wrecked; a tow is transport, not a repair. That bill is
-//              the bench's, and it is waiting for you.
-//   UNPAID   — the recovery firm takes it anyway and holds it against the fee. That is an IMPOUND,
-//              which this system already has and already knows how to release: `drive` pays the
-//              lot and hands the truck back, so there is no new verb, no new state, and no way to
-//              end up with a truck that exists nowhere. You still get carried home. You are broke
-//              and on foot and your truck is behind a fence, which is a hole to dig out of rather
-//              than a dead end — and it is the honest price of driving a rig into the ground.
-//
-// Reusing the impound path is the entire reason this is short. The alternative — a debt column, a
-// bespoke "recovered" state, a second release verb — would have been three new pieces of state to
-// answer a question `impound_fee` already answers.
+// ── tow ──
+// The way out, and the only one that costs money. Paid: a low-loader takes the rig (still wrecked)
+// and you home to its depot. Unpaid: the firm takes it anyway as an impound, which `drive` already
+// releases, so nobody is ever stranded and no new state is needed.
 async function cmdTow(args, raw, player) {
   const rig = rigOf(player);
-  // ⚠ AND `tow` IS ALSO WHAT YOU SAY ABOUT A BOAT. Same arrangement as `fuel` above and for the
-  // same reason: the word is declared here, a stranded hull needs it more than a truck does (a
-  // truck that stops is on a road you can walk off), and dispatching the answer by name keeps both
-  // plugins ignorant of each other. The boat's action returns null when there is no boat in the
-  // question, so a driver with a dead engine still gets the low-loader.
+  // ⚠ `tow` is also what you say about a boat: dispatched by name (BOAT_TOW), as with `fuel`.
   if (!rig) {
     const boat = await dispatchAction({ type: 'BOAT_TOW', actor: player, params: { want: (args || []).join(' ').trim() } });
     if (boat && !(boat.type === 'error' && /^Unknown action/.test(boat.message || ''))) return boat;
@@ -2886,14 +1911,12 @@ async function cmdTow(args, raw, player) {
   const truck = rig.truckId ? await getTruck(rig.truckId, player.id) : null;
   if (!truck) return say("There's no paperwork on this thing. Nobody is coming out for it.");
 
-  // Home is the depot it belongs to. Not the nearest one — a recovery firm takes a truck to the
-  // yard whose name is on the movement order, which is the yard you set out from.
+  // Home is the depot it belongs to, not the nearest one.
   const homeId = truck.depot_zone || rig.fromDepot || rig.zoneId;
   const fee = towFee(truck.type, rig.zoneId || homeId, homeId);
   const canPay = (player.credits || 0) >= fee;
 
-  // The truck comes off the road either way, and that is one statement rather than two branches:
-  // where it ends up is the same, only who owns the debt changes.
+  // One statement for both: only who owns the debt changes.
   await query(
     'UPDATE trucks SET depot_zone=$1, impound_fee = COALESCE(impound_fee,0) + $2 WHERE id=$3 AND owner_id=$4',
     [homeId, canPay ? 0 : fee, truck.id, player.id]
@@ -2903,25 +1926,20 @@ async function cmdTow(args, raw, player) {
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   }
 
-  // The load is dropped with the truck, not carried by a man in a cab — a recovery driver is not
-  // going to hand-ball somebody else's freight into the back of their pickup.
+  // The load goes back with the truck, and its contract dies.
   const lostLoad = rig.cargo ? " The load goes back to the yard on the same ramps, and the contract on it is dead." : '';
   rig.cargo = null;
 
-  // Down off the road, on `park`'s own machinery — the truck's home is written above, so the rig's
-  // own zone is set to match before the flush, and everything else (the text run, the fuel and
-  // odometer flush, the posture, closing the pane) is the sequence park already established.
+  // Down off the road on park's own machinery, with the zone set to match before the flush.
   rig.zoneId = bayForYard(homeId)?.zone.id || homeId;
   dismountRig(player.id);
   stopTextDrive(player.id);
   await flushZone(player, rig);
-  // The road remembers this one too. A recovered rig left a wreck on the shoulder exactly as an
-  // abandoned one does — it is the same truck, in the same place, for the same reason.
+  // A recovered rig leaves a wreck on the shoulder, as an abandoned one does.
   if (rig.leg !== 'city') markWreck(rig, player);
   await persistTruck(rig);
   setPosture(player, 'standing');
-  // YOU GET THE RIDE, and that is the whole difference between this and `park`. Walking away leaves
-  // you where you stood; a tow is a thing you are IN, so the player travels with the truck.
+  // You get the ride: that's the difference from `park`.
   const homeZone = getZone(rig.zoneId) || getZone(homeId);
   if (homeZone && homeZone.id !== player.current_zone) {
     removePlayerFromZone(player.current_zone, player.id);
@@ -2930,9 +1948,7 @@ async function cmdTow(args, raw, player) {
     await query('UPDATE players SET current_zone=$1 WHERE id=$2', [homeZone.id, player.id]).catch(() => {});
   }
   sendToPlayer(player.id, { type: 'truck_sim_close' });
-  // Same as `park`: the cab holds the area-pane until the close above lands, so the room has to be
-  // re-asked afterwards rather than composed here. More so on this path — you RODE somewhere, and
-  // the pane would otherwise still be showing the last room you stood in before the drive.
+  // Same as park: the room must be re-asked after the close lands.
   sendToPlayer(player.id, { type: 'force_look' });
 
   return say(canPay
@@ -2946,9 +1962,8 @@ async function cmdTow(args, raw, player) {
       + `They drop you at the gate. It's a long way to anywhere from there.</span>`);
 }
 
-// ── truckevent ───────────────────────────────────────────────────────────────
-// Discrete transitions, mirroring plugins/flight cmdFlightEvent. Kept off the sync route so the
-// hot path stays a pure numeric frame.
+// ── truckevent ──
+// Discrete transitions (like flight's cmdFlightEvent), kept off the sync route.
 async function cmdTruckEvent(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return { type: 'noop' };
@@ -2960,50 +1975,31 @@ async function cmdTruckEvent(args, raw, player) {
   }
   if (ev === 'arrive') { await arrive(player, rig); return { type: 'noop' }; }
 
-  // A MISSED SHIFT. Same split of responsibility as the collision below: the CLIENT owns the
-  // gearbox (the whole box is client-side — flight-model.js — and always has been), so it is the
-  // only thing that can know a shift was fluffed; the server owns what it costs. There is nothing
-  // to clamp here because there is no number to lie about — a grind is a grind — so the defence is
-  // a RATE LIMIT instead: a shift takes about a second even done badly, so anything faster than
-  // that is not a driver and is dropped. It never narrates. The bar is the message, and a line in
-  // the log every time somebody fluffs a change would be the most irritating text in the game.
+  // A missed shift: the client owns the gearbox, the server owns the cost. Nothing to clamp, so the
+  // defence is a rate limit (a shift takes about a second). It never narrates.
   if (ev === 'grind') {
     const now = Date.now();
     if (rig._lastGrindAt && now - rig._lastGrindAt < 900) return { type: 'noop' };
     rig._lastGrindAt = now;
-    // Under load it is worse, and that is the one distinction worth drawing: grinding a bobtail
-    // box is careless, grinding one with forty tonnes behind it is expensive. Same arithmetic the
-    // rest of this file uses for weight — the trailer and its load against the tractor's own mass.
+    // Worse under load: the trailer and its load against 20 t.
     const laden = 1 + Math.min(2, ((rig.trailer?.kg || 0) + (rig.cargo?.kg || 0)) / 20000);
     applyDamage(rig, grindSplit(laden));
     return { type: 'noop' };
   }
 
-  // Building collision. The CLIENT owns the geometry and asserts the hit — exactly the split the
-  // flight sim already uses for CFIT (`flightevent crash|clip`), and for the same reason: the
-  // server has no footprint data at all and shipping it there to re-validate would double the
-  // geometry for no gain. What the server owns is the CONSEQUENCE, and it clamps the one number
-  // the client could lie about — the speed it claims to have hit at.
+  // Building collision: the client owns the geometry and asserts the hit (as flight's CFIT does);
+  // the server owns the consequence and clamps the claimed speed.
   if (ev === 'bump' || ev === 'crash') {
     const mph = Math.max(0, Math.min(70, Number(args[1]) || 0));
-    // A school rig with a corner knocked off it. Remembered, never punished — see roadtest.js.
+    // A school rig with a corner knocked off it. Remembered, never punished: see roadtest.js.
     roadTestImpact(player.id);
     rig.speed = 0;
-    // ONE INCIDENT, ONE LINE. The client rebounds off geometry and rate-limits its own reports, but
-    // a driver working along a row of shopfronts can still land several inside a few seconds, and
-    // the log is the thing that suffers. This is the server's own floor under that: below it the
-    // impact still WEARS the rig — the bill is real either way — it simply does not narrate.
+    // One incident, one line: below this floor the impact still wears the rig but doesn't narrate.
     const now = Date.now();
     const quiet = rig._lastImpactAt && now - rig._lastImpactAt < 8000;
     rig._lastImpactAt = now;
-    // The rig wears what it hit. In RAM like every other wear on this path, clamped off the same
-    // server-side speed the crime code trusts — so a client cannot claim a gentle nudge to save
-    // itself a repair bill any more than it can claim a gentle nudge to dodge the police.
-    // WHERE IT LANDS, not just how much. `wearForImpact` still owns the total (and still clamps
-    // off the server's own speed, so a client cannot claim a gentle nudge to save itself a bill);
-    // `impactSplit` decides which components eat it, off the area the client observed. A rear
-    // impact with a box on the back is the trailer's, not the tractor's — which is the whole
-    // reason the trailer has its own bar.
+    // wearForImpact owns the total off the clamped speed; impactSplit decides which components eat
+    // it. A rear impact with a box on is the trailer's.
     const area = IMPACT_AREAS.includes(args[2]) ? args[2] : 'front';
     const total = wearForImpact(ev === 'bump' ? mph * 0.25 : mph);
     if (area === 'rear' && rig.trailer) {
@@ -3021,23 +2017,11 @@ async function cmdTruckEvent(args, raw, player) {
     }
     pushCab(rig, { stopped: true });
 
-    // NO CHARGE FOR HITTING A BUILDING. This used to raise `vandalism` through the witnessed-crime
-    // system whenever a city-leg impact cleared RECKLESS_MPH, and the reasoning was sound in the
-    // abstract — you have destroyed somebody's property in the street, which is what that charge is
-    // for. In practice it was the one consequence in the whole sim that nobody could consent to:
-    // the corridor is narrow, the buildings ARE the corridor walls, and the collision probe is a
-    // geometric sweep with no notion of intent, so an ordinary bend taken slightly wide put stars
-    // on a driver who was doing the job correctly. A wanted level you acquire by steering is not a
-    // crime system, it is a tax on the render distance.
-    //
-    // The truck still pays: it wears (above), the load still spoils (below), and the rebound costs
-    // you every mile an hour you had. Damage to the rig is the consequence, and it is enough of one.
-    // (If deliberate ramming ever needs charging, that wants a test for INTENT — repeated impacts
-    // on the same structure, at speed, off-route — not a speed threshold on an accident.)
+    // No crime charge for hitting a building: an ordinary wide bend would put stars on a driver doing
+    // the job right. If ramming ever needs charging, test for intent, not a speed threshold.
     const inTown = rig.leg === 'city';
 
-    // The load takes it. A trailer full of somebody else's freight that has just been through a
-    // wall is worth less than it was, and the contract pays on what arrives.
+    // The load takes it: the contract pays on what arrives.
     let spoiled = '';
     if (rig.cargo && mph >= RECKLESS_MPH) {
       const lost = Math.min(rig.cargo.pay || 0, Math.round((rig.cargo.pay || 0) * (mph / 120)));
@@ -3057,11 +2041,9 @@ async function cmdTruckEvent(args, raw, player) {
   return { type: 'noop' };
 }
 
-// ── The rim: city → corridor ─────────────────────────────────────────────────
-// Driving off the edge of the world. This is the same event walking off it is, so it goes through
-// voidwalking's own `launchCrossing` rather than a truck-shaped copy of it: the crossing is
-// created, the five player_flags are written, the entry room is entered, and the ghost-trace cache
-// is warmed. The truck then lays its road over whatever chain that produced.
+// ── The rim: city to corridor ──
+// Driving off the edge is the same event as walking off it, so it goes through voidwalking's
+// launchCrossing; the truck lays its road over the chain that produced.
 async function leaveTheMap(player, rig, broadcast) {
   const from = getZone(rig.zoneId || player.current_zone);
   const gate = voidGateOf(from);
@@ -3080,12 +2062,7 @@ async function leaveTheMap(player, rig, broadcast) {
   const info = player._crossing && crossingInfo(player._crossing.instanceId);
   if (!info) { await forcedPark(player); return res || { type: 'noop' }; }
 
-  // WHICH WAY. This used to be `dests[0]` — the first row of the table, forever — which quietly
-  // made half the map unreachable by road: Terminus is designed as a truck destination (it is
-  // deliberately beyond the range of the two cheapest rigs, so the fleet ladder doubles as a map
-  // gate) and no truck could ever be pointed at it. The aim comes from the LOAD first, because a
-  // contracted run already knows where it is going and asking twice would be ceremony; then from
-  // whatever the driver set with `route`; then, only if neither exists, the first limb.
+  // Which way: the load's destination first, then the driver's `route`, then the first limb.
   const destKey = aimedDest(info, rig)?.key || info.dests?.[0]?.key;
   const chain = destKey ? crossingChain(player._crossing.instanceId, destKey) : [];
   if (!chain.length) { await forcedPark(player); return res || { type: 'noop' }; }
@@ -3095,9 +2072,7 @@ async function leaveTheMap(player, rig, broadcast) {
     trunk: info.trunk });
   rig.zoneId = player.current_zone;
   pushCab(rig, { joined: true });
-  // …and the sidebar's road window with it. `zone.entered` only fires on a NODE BOUNDARY, so
-  // without this the map stays on the city street you left until you have driven a full room —
-  // which is exactly the stretch where somebody looks at it to see what they have driven into.
+  // ...and the sidebar's road window: zone.entered only fires on a node boundary.
   pushRoadWindow(player);
   const aimed = info.dests?.find(d => d.key === destKey);
   sendToPlayer(player.id, {
@@ -3108,29 +2083,15 @@ async function leaveTheMap(player, rig, broadcast) {
   return { type: 'noop' };
 }
 
-// ── The fork ─────────────────────────────────────────────────────────────────
-// Which limb this rig is pointed down. The LOAD outranks the driver's own aim deliberately: a
-// contracted haul is a promise with a destination on it, and quietly driving it somewhere else
-// because a `route` from an hour ago is still set would be the system lying about what it is
-// doing. A free rig obeys the aim; a rig with neither takes the first limb, as it always did.
-// `aimedDest` and `destByWord` moved to routes.js — the GPS screen needs them too, and two
-// copies of "which fork is this rig pointed at" is exactly the drift this whole module exists
-// to prevent. Imported above.
-// `route` — where this rig is going, and the one verb that changes it.
-//
-// It answers in two different worlds and deliberately reads as one thing in both: standing in a
-// yard it sets the aim for a crossing you have not started, and out on the trunk it TAKES THE
-// OTHER LIMB, because both limbs are already built and the trunk tarmac is the same road either
-// way (see switchLimb). Past the junction it refuses, and says why — a fork you can take from
-// forty tiles down the wrong limb is not a junction, it is a menu.
+// ── The fork ──
+// The load outranks the driver's own aim: a contracted haul goes where the paperwork says.
+// aimedDest and destByWord live in routes.js, shared with the GPS screen.
+// `route`: sets the aim in a yard; on the trunk it takes the other limb (see switchLimb); past the
+// junction it refuses.
 async function cmdRoute(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say("You aren't driving anything.");
-  // The nav head is the thing that knows where the roads go, and it is cooked.
-  // ⚠ REFUSED, NOT DEGRADED. The screen's whole value is the distance and whether
-  // the tank reaches it, and a plot with those missing is a plot somebody would
-  // drive anyway. You still have the road you are ON — the tarmac did not change
-  // — so this costs you the fork, which is exactly the decision worth losing.
+  // The nav head is cooked. ⚠ Refused, not degraded: a plot missing range would get driven anyway.
   if (truckElecDead(rig)) return say('The nav head is black glass. Whatever it knew about the roads out of here, it isn\'t saying.');
   const opts = routeOptions(rig, { zoneId: player.current_zone, forkAhead: atOrBeforeFork(rig) });
   if (!opts) return say("There's one road out of here and you're on it.");
@@ -3140,8 +2101,7 @@ async function cmdRoute(args, raw, player) {
 
   const want = args.join(' ');
   if (!want) {
-    // The rows are routeOptions', not this function's — the same rows the GPS screen paints, so the
-    // verb and the dash can never tell a driver two different things about the same fork.
+    // The rows are routeOptions', the same rows the GPS screen paints.
     const lines = opts.dests.map((d) => {
       const mark = d.current ? '<span class="text-green">▸</span>' : ' ';
       const reach = d.reach === 'ok' ? ''
@@ -3174,49 +2134,32 @@ async function cmdRoute(args, raw, player) {
   return say(`<span class="text-green">You take the other one.</span> <span class="text-dim">The road bends away east of where you were going and the country ahead stops looking familiar. Running for ${pick.heading}.</span>`);
 }
 
-// Roll off the end of the corridor and into the destination region. The crossing's own
-// `zone.entered` handler sees a room outside its roomSet and tears the instance down — the same
-// path a walker takes when they step out the far side.
-// You do NOT dismount here. Coming off the highway puts you on the destination region's real
-// tiles, still driving — the last mile into a yard is part of the haul, and a delivery only counts
-// when the rig is standing in the depot that ordered it.
-// ── TURNING ROUND AND GOING HOME ─────────────────────────────────────────────
-// `arrive`'s mirror, and deliberately its near-twin rather than a shared helper with two modes:
-// the two differ in the zone they land on, the prose, and the fact that coming back is not a
-// delivery, and a single function taking a direction flag would be three `if`s wearing a hat.
-//
-// The origin is read from the crossing rather than remembered on the rig, because the crossing is
-// what actually knows — `originZone` is the tile the trunk's first room exits back into, which is
-// the same tile a walker reappears on. Landing anywhere else would mean a truck and a pedestrian
-// leaving the same waste by the same road and coming out in two different places.
+// ── Turning round and going home ──
+// arrive's mirror, deliberately a near-twin rather than one function with a direction flag.
+// Lands on the crossing's originZone, the same tile a walker reappears on.
 async function retreat(player, rig) {
   const info = rig.instanceId ? crossingInfo(rig.instanceId) : null;
   const home = info && getZone(info.originZone);
-  // No origin tile to land on is the one case that cannot be narrated, so it takes `park`'s own
-  // fail-safe: you end up out of the cab and on your feet rather than in a sim with no world.
+  // No origin tile: park's fail-safe, out of the cab rather than in a sim with no world.
   if (!home || home.grid_x == null) { await forcedPark(player); return; }
 
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, home.id);
   player.current_zone = home.id;
-  // Outside the crossing's roomSet, so voidwalking tears the instance down on this event exactly
-  // as it does for an arrival — a run you abandoned is still a run that ended.
+  // Outside the roomSet, so voidwalking tears the instance down on this event.
   emit('zone.entered', { actor: player, zone: home.id });
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [home.id, player.id]).catch(() => {});
 
   leaveCorridor(rig, home.grid_x, home.grid_y, rig.heading);
   rig.zoneId = home.id; rig.zoneDirty = false;
   pushCab(rig, { arrived: true });
-  // THE LOAD IS STILL ON THE DECK AND THE CONTRACT IS STILL LIVE. Coming back is not a failure
-  // state and must not be charged as one — you have burned the diesel and lost the time, which is
-  // punishment enough for changing your mind, and the run is still there to be driven again.
+  // The load and contract stay live: coming back isn't charged as a failure.
   sendToPlayer(player.id, {
     type: 'emote',
     message: '<span class="text-amber">The waste lets go of you and the gate comes back up out of the haze, from the wrong side. You\'re where you started, with less fuel and a day you won\'t get back.</span>'
       + (rig.cargo ? `\n<span class="text-dim">${rig.cargo.name} still on the deck, still bound for ${rig.cargo.toName}.</span>` : ''),
   });
-  // A text run was aiming at somewhere on the far side; that target is meaningless now, and a rung
-  // that kept driving would simply turn straight round and set off again.
+  // The text run's far-side target is meaningless now.
   if (isTextDriving(player.id)) stopTextDrive(player.id);
 }
 
@@ -3227,9 +2170,8 @@ async function arrive(player, rig) {
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, dest.id);
   player.current_zone = dest.id;
-  // The destination is OUTSIDE the crossing's roomSet, so voidwalking's own `zone.entered`
-  // handler sees it and tears the instance down — the identical path a walker takes out the far
-  // side. Nothing here knows how a crossing ends, and that is the point.
+  // Outside the crossing's roomSet, so voidwalking's zone.entered handler tears the instance down.
+  // You don't dismount: the last mile into a yard is part of the haul.
   emit('zone.entered', { actor: player, zone: dest.id });
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [dest.id, player.id]).catch(() => {});
 
@@ -3242,9 +2184,7 @@ async function arrive(player, rig) {
   });
   if (rig.cargo && dest.id === rig.cargo.to) await deliver(player, rig);
 
-  // A text run has to be told where to go next. Coming off the highway lands you at the region's
-  // gate tile, which is not usually the yard — the last mile in is still part of the haul, and a
-  // driver who is being driven should not be abandoned on the apron.
+  // A text run is retargeted at the yard: the gate tile is rarely the depot.
   if (isTextDriving(player.id)) {
     const to = rig.cargo?.to || allDepots().find(d => d.flags?.region_id === dest.flags?.region_id)?.id;
     if (to && to !== dest.id) setTextTarget(player.id, { target: to, wantsRim: false });
@@ -3252,43 +2192,27 @@ async function arrive(player, rig) {
   }
 }
 
-// ── Discovery ────────────────────────────────────────────────────────────────
-// A system nobody can find is a system nobody has. Before this hook the ONLY route into the whole
-// of THE LONG HAUL was typing `drive` blind while standing on one of three specific street tiles —
-// no prose mentioned it, no furniture offered it, and `help` is hand-maintained so a plugin verb
-// never appears there on its own.
-//
-// So the yard says what it is. `zone.describeRoom` is the same seam voidwalking's rim warning uses
-// (`describeRim`), and the verbs carry `teachVerb` shimmers per the house convention: the first
-// mention of a verb anywhere is a click-to-run link, not a word you have to notice and retype.
+// ── Discovery ──
+// The yard says what it is, through zone.describeRoom, with teachVerb shimmers on first mention.
 async function describeDepot(zone, player) {
-  // THE SCALE ANNOUNCES ITSELF, and that is load-bearing rather than decorative. The entire design
-  // is "a decision you make BEFORE the inspection you know is coming" — a weighbridge you cannot
-  // see ahead of you is a dice roll, and a dice roll is not a system. It reads from a tile away in
-  // the cab too, because the plates are drawn on the road.
+  // The scale announces itself: the design is a decision made before an inspection you see coming.
   const scale = scaleAt(zone);
   if (scale) {
     return `<span class="ambient">The plates of ${scale.name} are set into the road here, and the board over the booth is lit. `
       + `Anything crossing with a box behind it goes over them.</span>`;
   }
 
-  // A DOCK SAYS IT IS ONE. The board sends you to a street name, so the street has to confirm you
-  // found it — otherwise a local run is a guess, and the point of city driving is that it is
-  // navigation rather than a guess.
+  // A dock confirms you found the street the board named.
   const dock = dockAt(zone);
   if (dock) {
     return `<span class="ambient">A loading bay is cut into the frontage here: a lipped concrete apron at trailer height, `
       + `with ${dock.name} stencilled on the roller door and a bell push nobody has ever answered quickly.</span>`;
   }
 
-  // THE APRON. The street outside a depot has to say the depot is there, or moving the shop indoors
-  // would have hidden the entire system behind a door nobody has a reason to open. This is the one
-  // sentence that replaces the whole panel that used to blow open here.
+  // The apron has to say the depot is there, or the system hides behind a door.
   const bay = bayForYard(zone?.id);
   if (bay && !depotAt(zone)) {
-    // …AND WHAT IS STANDING ON IT. The apron is where stock is stood and where a driver drops a box,
-    // so this is now the tile the "On their legs" line matters most on — without it the hardstand
-    // described itself as empty concrete while a trailer sat on it.
+    // ...and what's standing on it.
     return `<span class="ambient">The hardstand outside ${bay.depot.name || bay.zone.name}: swept concrete, `
       + `scored with the arcs of everything that has ever backed onto it, and wide enough to turn something with a `
       + `box behind it. The office and the bays are through the roller door; the road is the road.</span>`
@@ -3303,23 +2227,9 @@ async function describeDepot(zone, player) {
     + `or see what the ${teachVerb('market', 'market')} is paying today. `
     + `With a rig of your own you could ${teachVerb('drive')}.</span>`;
 
-  // PLAYER-OWNED RIGS PARKED HERE. The `trucks` table has carried `depot_zone` since the day it was
-  // written and nothing showed it — a truck existed to its owner and to nobody else, which for a
-  // 16,500₵ object standing in a public yard is simply wrong. Modelled on flight's "On the ramp:"
-  // (plugins/flight/index.js describeAirfield): the same shape, so a yard full of trucks reads like
-  // a ramp full of aircraft because it IS the same fact.
-  //
-  // ⚠ THE CLICK IS `drive`, NOT `examine`, AND THAT IS A FIX RATHER THAN A PREFERENCE. The line was
-  // copied off the ramp complete with `examine <name>` — but flight SHADOWS the examine verb so a
-  // parked aircraft resolves by name (see craftActionMenu), and nothing here does: a truck is not
-  // an item, an NPC or a piece of furniture, so SIFT cannot see one and every click on a parked rig
-  // answered "You don't see \"orlov continental\" here." A dead link is worse than no link, and the
-  // trailer line two functions down already had the right answer — it sends `hitch <id>`, the verb
-  // you actually want. So this sends `drive <id>`: click the truck, get in the truck.
-  //
-  // Somebody ELSE's rig is named and not linked. It is still in the room — a 16,500₵ object in a
-  // public yard is a fact about the place — but offering a stranger a button that can only refuse
-  // is an affordance that lies.
+  // Player-owned rigs parked here, like flight's "On the ramp:".
+  // ⚠ The click is `drive <id>`, not `examine`: SIFT can't see a truck, so examine was a dead link.
+  // Somebody else's rig is named but not linked.
   const { rows } = await query(
     'SELECT id, name, type_id, owner_id FROM trucks WHERE depot_zone = $1 ORDER BY created_at LIMIT 5', [zone.id]
   ).catch(() => ({ rows: [] }));
@@ -3339,13 +2249,7 @@ async function describeDepot(zone, player) {
   return line;
 }
 
-// STANDING TRAILERS. The whole of phase 2.9 is that a dropped box is a thing in a place, and a
-// thing in a place that the room does not mention is a thing nobody will ever find again. Loaded
-// ones say so, because "there is a trailer here with freight still on it" is the sentence the
-// entire drop-and-come-back loop exists to produce.
-//
-// Factored out because it is now needed on TWO tiles — the bay, and the hardstand outside it where
-// stock is stood and boxes are dropped. Returns '' rather than undefined so it appends cleanly.
+// Standing trailers, loaded ones flagged. Used on the bay and the hardstand. Returns '' so it appends.
 async function standingLine(zoneId) {
   const standing = await trailersAt(zoneId);
   if (!standing.length) return '';
@@ -3355,34 +2259,18 @@ async function standingLine(zoneId) {
   return `\n<span class="furniture-label">On their legs:</span> <span class="text-dim">${list}.</span>`;
 }
 
-// You cannot walk while you are driving. Without this the two systems disagree about where you
-// are: an ordinary `south` steps you down the spine while the rig's odometer still says otherwise,
-// and the next node crossing yanks you back. `park` is the answer, and the message says so —
-// a gate that blocks without naming its own escape hatch is just a bug with prose.
+// You can't walk while driving, or the spine and the odometer disagree about where you are.
 registerMoveGate(({ player }) => {
   if (!player || !rigs.has(player.id)) return undefined;
   return { block: true, message: "You're behind the wheel: you'd have to <b>park</b> and climb down first." };
 }, 'trucking');
 
-// WALK IN AND THE YARD OPENS. Exactly what flight does for a hangar interior (plugins/flight
-// index.js, the `zone.entered` handler on `hangar_interior`) and for the same reason: a place whose
-// whole purpose is a set of choices should present them, not wait to be typed at. Walking back out
-// closes it. The verbs survive as the deliberate way in; this is the discovered one.
-//
-// Skipped while DRIVING — rolling through a depot on the way somewhere should not throw a shop
-// window over the windscreen.
+// Walk in and the yard opens (as flight does for a hangar). Skipped while driving.
 on('zone.entered', async ({ actor, zone: zoneId, from }) => {
   try {
     if (!actor) return;
-    // ── THE SIDEBAR MAP'S HIGHWAY ──────────────────────────────────────────────
-    // Every step in the void and every node boundary the odometer crosses come through here, which
-    // is exactly the cadence this wants: one packet per room, not one per tick. `pushRoadWindow`
-    // is a no-op for anyone not on a crossing, so the ordinary case — a step down a city street —
-    // costs one function call and sends nothing.
-    //
-    // ⚠ AND IT IS OUTSIDE THE DEPOT BRANCH BELOW, which returns early. Put inside it, the clear
-    // would not fire for a driver who walked off a crossing straight into a yard — and a stale
-    // highway under the depot panel is the exact failure this is here to prevent.
+    // The sidebar map's highway, one packet per room; a no-op off a crossing.
+    // ⚠ Outside the depot branch below, which returns early.
     try { pushRoadWindow(actor); } catch (e) { console.error('[trucking] mmroad:', e.message); }
     const zone = getZone(zoneId);
     const depot = depotAt(zone);
@@ -3392,42 +2280,23 @@ on('zone.entered', async ({ actor, zone: zoneId, from }) => {
       sendToPlayer(actor.id, panel.type === 'emote' ? { type: 'output', message: panel.message } : panel);
       return;
     }
-    // ⚠ AND WALKING OUT CLOSES IT — FROM ANY OF THE THREE TILES. This asked `depotAt(from)`, which
-    // is only ever true of the BAY, so leaving from the apron or the facade left the shop window
-    // hanging over the road: you parked (which now opens the yard), stepped out onto the hardstand,
-    // walked off up the street, and the depot went with you. `depotFrom` is the same reachability
-    // `depotHere` gives a player, and it answers for the whole place.
-    //
-    // …and only when you have actually LEFT it. Stepping from the bay to its own apron is walking
-    // about inside one depot, and closing the panel there would make the roller door a wall.
+    // ⚠ Walking out closes it, from any of the three tiles, and only when you've left the depot
+    // (bay to apron is still inside).
     const leftDepot = from ? depotFrom(from) : null;
     if (leftDepot && !depotFrom(zoneId)) sendToPlayer(actor.id, { type: 'truck_depot_close' });
   } catch (e) { console.error('[trucking] depot auto-open:', e.message); }
 });
 
-// …and the first time you ever stand in one, somebody tells you what it is. Registered AFTER the
-// handler above so the panel opens first and the briefing lands under it, which is the order that
-// reads right. See onboard.js for why it is prose in the log rather than a fourth surface.
-// ⚠ `depotIn`, NOT `depotFrom` — the bay, not the three tiles. See the ⚠ at the top of onboard.js:
-// the verbs answer from the apron and the facade too, but the briefing is a person pointing at the
-// wall panel, and it was going off out on the public street with that panel shut.
+// The first time you stand in one, a briefing (see onboard.js). Registered after the handler above
+// so it lands under the panel. ⚠ `depotIn` is the bay only, not the three tiles.
 registerDepotBrief({
   depotIn: (id) => { const z = getZone(id); const d = depotAt(z); return d ? { bay: z, depot: d } : null; },
   isDriving: (id) => rigs.has(id),
 });
 
-// A driver who dies, logs out, or otherwise stops being a driver leaves no rig behind in RAM.
-// (The crossing itself is voidwalking's to clean up; this is only the steering wheel.)
-// LOGGING OUT IN THE CAB IS NOT LOSING THE TRUCK. This used to be a bare `rigs.delete(id)`, which
-// is correct as cleanup and wrong as consequence: a dropped socket in the middle of the waste ended
-// the haul, and the haul is the game. `saveDrivingState` writes ONE record and then deletes the rig
-// itself, so the cleanup still happens on every path. See resume.js for what is and is not stored.
-// A dive bomber winding up overhead, heard from the cab. The flight plugin cannot reach a driver
-// through the room pane — a rig on the city leg is standing in a zone but the driver is looking
-// at a windshield, and on the corridor leg there is no real zone at all — so it announces raw
-// world coords and each vehicle system answers for its own. City leg only: the corridor is a
-// synthetic highway across the void and its coordinates are not world tiles, so a distance
-// comparison there would be comparing two different grids and would fire at random.
+// A driver who dies or logs out leaves no rig in RAM. Logging out in the cab isn't losing the truck:
+// saveDrivingState stores one record and deletes the rig (see resume.js).
+// A dive bomber overhead, heard from the cab. City leg only: corridor coordinates aren't world tiles.
 on('vehicle.diveSiren', ({ gx, gy, reach, name }) => {
   for (const rig of rigs.values()) {
     if (rig.leg !== 'city') continue;
@@ -3437,62 +2306,34 @@ on('vehicle.diveSiren', ({ gx, gy, reach, name }) => {
 });
 
 on('player.logout', ({ id }) => { saveDrivingState(id).catch(() => rigs.delete(id)); });
-// …and back in. Nothing here can strand a login: every failure inside returns false and leaves the
-// player standing exactly where the ordinary login put them.
+// ...and back in. Every failure leaves the player where the ordinary login put them.
 on('player.login', async ({ id }) => {
   const player = getLivePlayer(id);
   if (player) await restoreDrivingState(player, { mountOnCrossing }).catch(() => {});
 });
-// `player.death` emits `{ player, killer, cause, ... }` — NOT `{ id }` like the two handlers above.
-// Destructuring `id` here silently made this a no-op on every death path, which left the cab mounted
-// over a player who had already been moved to their respawn zone: a black windshield you cannot leave.
+// ⚠ `player.death` emits `{ player, ... }`, not `{ id }`: destructuring `id` silently no-ops.
 on('player.death', ({ player }) => {
   const id = player?.id;
   if (id && rigs.has(id)) { rigs.delete(id); sendToPlayer(id, { type: 'truck_sim_close' }); }
 });
 
-// ── The fifth wheel ──────────────────────────────────────────────────────────
-// `hitch` and `unhitch` are the only two verbs in this plugin that ask the PHYSICS whether they are
-// allowed, rather than deciding for themselves — `canHitch` is a speed and an angle, and the model
-// already knows both. That is deliberate: a docking rule enforced in a verb and a docking rule
-// enforced in the sim would be two rules, and the one the player feels is the sim's.
-//
-// Phase 2.9: A TRAILER IS A ROW, not a boolean. You drop it and it stays dropped, in a zone that
-// will still exist tomorrow, with whatever is on it still on it — and somebody else can walk up to
-// it. See trailers.js for the two rules that shape that (the DB enforces one-per-truck; a transient
-// void room can never hold one).
+// ── The fifth wheel ──
+// hitch/unhitch ask the physics (speed and angle), so there's one docking rule. A trailer is a row
+// that stays where it's dropped; see trailers.js for its two rules.
 async function cmdHitch(args, raw, player) {
   const say = (message) => ({ type: 'emote', message });
   const rig = rigOf(player);
   if (!rig) return say('You would need to be in a truck. <b>drive</b>.');
   if (rig.trailer) return say(`Already hitched: ${rig.trailer.name}.`);
   if (Math.abs(rig.speed) > HITCH_MPH) return say("Not at this speed. Stop first: the pin won't find the plate with the truck rolling.");
-  // ⚠ A DEPOT IS THREE ZONES AND A TRAILER ONLY EVER SITS IN ONE OF THEM. This read the single tile
-  // under your wheels, and that made a bought trailer unreachable on every real depot in the game:
-  // `yard buy` parks it in the BAY (with the trucks, under the roof — see yardBuyTrailer), while a
-  // truck can only ever be standing on the DOOR tile or the apron, because you cannot drive in a
-  // room with no road in it. Bay ≠ door ≠ yard, so `hitch` answered "nothing standing here" from
-  // the only positions it is possible to ask from.
-  //
-  // It survived because the regress fixture is a single road tile that is its own bay AND its own
-  // yard, which collapses all three and makes the case pass — the same fixture-shaped blind spot
-  // that hid the legacy depot shape. The suite now buys and hitches at a REAL depot too.
-  //
-  // Widened to the depot's own zone set, which is the rule `drive` and the ownership lookups have
-  // always used: the shed and the hardstand outside it are one place. This is deliberately NOT a
-  // relaxation of where you have to BE — `hitchReach` still runs, so a POSED trailer (one somebody
-  // dropped) still has to be under the fifth wheel to half a tile. All this changes is which pile
-  // of boxes the verb is allowed to look at.
+  // ⚠ A depot is three zones and a trailer sits in one of them, so search the depot's whole set
+  // (regress buys and hitches at a real depot, not just the one-tile fixture). hitchReach still
+  // decides whether you're under the pin.
   const here = getZone(player.current_zone);
   const standing = (await Promise.all(hitchZones(here?.id).map(z => trailersAt(z)))).flat();
   if (!standing.length) return say('Nothing standing here to back under. Trailers are bought and left at yards: see the <b>yard</b>.');
 
-  // ⚠ A BARE `hitch` TAKES THE NEAREST ONE IN REACH, NOT THE OLDEST ROW. A yard holds as many of
-  // your own boxes as you have paid for, standing a few feet apart, and picking the first row meant
-  // backing under one trailer and coupling to another — or, worse, being refused for a box on the
-  // far side of the apron while sitting square under the one you meant. Falls back to the old
-  // choice when nothing is in reach at all, so the "line it up on it" answers still come from a
-  // sensible box rather than from nothing.
+  // ⚠ A bare `hitch` takes the nearest box in reach, not the oldest row.
   const mine = standing.filter(t => !t.ownerId || t.ownerId === player.id);
   const pool = mine.length ? mine : standing;
   const gap = (t) => (posed(t) ? Math.hypot((rig.x ?? 0) - t.x, (rig.y ?? 0) - t.y) : 99);
@@ -3502,32 +2343,21 @@ async function cmdHitch(args, raw, player) {
     : nearest || pool[0];
   if (!want) return say(`Nothing here by that name. Standing in the yard: ${standing.map(t => t.name).join(', ')}.`);
 
-  // Somebody else's box is somebody else's box. This is the one place trucking says no on grounds
-  // of ownership rather than physics, and it is deliberate — an unattended trailer being takeable
-  // would make the whole "leave it and come back" loop a coin-flip rather than a plan.
+  // Somebody else's box is somebody else's: the one ownership refusal in trucking.
   if (want.ownerId && want.ownerId !== player.id) return say(`${cap(want.name)} isn't yours. The pin is locked and the plate has somebody else's number on it.`);
 
-  // ── YOU HAVE TO BACK UNDER IT ─────────────────────────────────────────────
-  // A trailer now stands at a POSE rather than merely in a room, so hitching stopped being a menu
-  // choice and became a manoeuvre: get the fifth wheel under the pin, square-ish, at a crawl. The
-  // rule lives in trailers.js so the cab's HITCH button can light itself off the same test the verb
-  // enforces — a button that offers something the verb then refuses is worse than no button.
+  // ── You have to back under it ── the rule lives in trailers.js so the cab's HITCH button matches.
   const reach = hitchReach(rig, want);
   if (!reach.ok) {
     if (reach.why === 'far') return say(`${cap(want.name)} is standing ${reach.d < 1.2 ? 'just' : ''} too far off to couple. Line the truck up on it and back under.`);
     if (reach.why === 'angle') return say(`You're across it, not under it. Straighten up on ${want.name} and try again.`);
-    // The flank. A separate answer from 'far' because the driver is not far away at all — they are
-    // beside the box, which looks close and is the one place the pin can never be.
+    // The flank: beside the box, the one place the pin can never be.
     if (reach.why === 'across') return say(`You're alongside ${want.name}, not on its pin. The fifth wheel has to come up its centreline: pull round and back onto the nose.`);
     return say("Not at this speed. Stop first: the pin won't find the plate with the truck rolling.");
   }
 
-  // ⚠ THE GUARD IS THE TRAILER'S OWN ZONE, NOT THE ONE UNDER YOUR WHEELS. `hitchTrailer` writes
-  // `WHERE parked_zone = $3`, which is what makes two drivers going for the same box a race the
-  // database settles rather than the server. It was handed `here.id` — fine while the only findable
-  // trailers were on the tile you stood on, and a silent no-op the moment the search widened to the
-  // bay: the row would match nothing, and the honest "somebody pulled out from under you" line
-  // would fire every single time for a box standing in the shed with nobody near it.
+  // ⚠ The guard is the trailer's own zone (WHERE parked_zone = $3), which lets the DB settle a race.
+  // Passing the tile under your wheels silently matches nothing for a box in the shed.
   const got = await hitchTrailer(want.id, rig.truckId, want.parkedZone);
   if (!got) return say('You line up on it and somebody else pulls out from under you. Gone.');
   rig.trailer = got;
@@ -3542,17 +2372,14 @@ async function cmdUnhitch(args, raw, player) {
   if (!rig?.trailer) return say("You're bobtail already.");
   if (Math.abs(rig.speed) > HITCH_MPH) return say('Stop the truck first.');
   const here = getZone(player.current_zone);
-  // The whole of rule 2. A dropped trailer must stand somewhere that is still there tomorrow, and
-  // a transient void room is not — it goes when the crossing ends, and a trailer in one would be a
-  // row pointing at nothing. On the corridor that is a no, and it says why.
+  // A dropped trailer must stand somewhere that exists tomorrow; a transient void room doesn't.
   if (!canDrop(here)) {
     return say("Not out here. There's nothing to leave it standing ON: the waste closes behind you, and a trailer you drop in it is a trailer you have thrown away. Get it to a yard, or to a street.");
   }
   const t = rig.trailer, hadLoad = !!rig.cargo;
-  // The load STAYS ON IT — that is the point of a trailer being a thing rather than a state.
+  // The load stays on it.
   await saveLoad(t.id, rig.cargo || null, t.stash || null);
-  // WHERE YOU LEFT IT: the tractor's own pose at the moment the pin came out, so the box stands
-  // exactly where it was dropped and the next driver has to line up on it.
+  // Where you left it: the tractor's pose when the pin came out.
   await dropTrailer(t.id, here.id, { x: rig.x, y: rig.y, heading: rig.heading });
   rig.trailer = null; rig.cargo = null;
   await refreshStanding(here.id);           // …and now it IS standing there, at the pose above
@@ -3560,17 +2387,9 @@ async function cmdUnhitch(args, raw, player) {
   return say(`Legs down, pin out, air lines off. You pull forward and ${t.name} stands there without you${hadLoad ? ', load and all' : ''}. The truck feels like a different animal.`);
 }
 
-// ── stash / unstash ──────────────────────────────────────────────────────────
-// What makes the scale house a DECISION rather than a tax. Something goes in the trailer that is
-// not on the paper, and from then on the weighbridge is a thing you have to think about — which is
-// the entire design in one verb pair.
-//
-// It is deliberately NOT a smuggling skill check. Putting a crate behind a false bulkhead always
-// works; what it does is add weight, and weight is the thing the scale can see. There is no roll
-// here because there is nothing to roll for — see scale.js.
-//
-// Note it uses `resolveInventoryItem`, so it reads exactly like every other "do a thing with an
-// item you are carrying" verb in the game and answers a SIFT prompt when the name is ambiguous.
+// ── stash / unstash ──
+// What makes the scale a decision. No roll: it always works and adds weight, which the scale can
+// see (see scale.js). Uses resolveInventoryItem, so it answers SIFT prompts.
 async function cmdStash(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say('Not in a truck.');
@@ -3584,9 +2403,7 @@ async function cmdStash(args, raw, player) {
   const hit = await resolveInventoryItem(player, { name: args.join(' ') });
   if (!hit) return say("You aren't carrying that.");
   if (hit.type) return hit;                                  // a SIFT disambiguation prompt — pass it through
-  // WEIGHT IS THE WHOLE POINT, so it comes off the item's own `weight` and is never invented. An
-  // item with no weight is a light one, not a free one — 5 kg keeps the scale honest about the fact
-  // that you did put something in there.
+  // Weight comes off the item's own `weight`; an item with none counts as 5 kg, never free.
   const kg = Math.max(1, Math.round(Number(hit.weight) || 5));
   const list = [...(rig.trailer.stash || []), { itemId: hit.item_id, name: hit.name, kg }];
   rig.trailer.stash = list;
@@ -3599,8 +2416,7 @@ async function cmdStash(args, raw, player) {
     + `<span class="text-amber">The trailer now weighs ${stashKg(rig.trailer)} kg more than your paper says it does.</span>`);
 }
 
-// Taking it back out. There is no roll here either — the risk was always the scale, and a driver who
-// thinks better of it a mile short of the weighbridge has made exactly the play the system is for.
+// Taking it back out. No roll: the risk was always the scale.
 async function cmdUnstash(args, raw, player) {
   const rig = rigOf(player);
   if (!rig?.trailer) return say('Nothing behind you to unpack.');
@@ -3623,9 +2439,8 @@ async function cmdUnstash(args, raw, player) {
       : `<span class="text-dim">The trailer weighs what your paper says it weighs again.</span>`));
 }
 
-// ── pickup / dropoff ─────────────────────────────────────────────────────────
-// Somebody on the shoulder. See hitchers.js for why these are seeded facts rather than NPC rows,
-// and for the fugitive, who is the point.
+// ── pickup / dropoff ──
+// Somebody on the shoulder. See hitchers.js for why these are seeded facts, not NPC rows.
 async function cmdPickup(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say('Not in a truck.');
@@ -3635,8 +2450,7 @@ async function cmdPickup(args, raw, player) {
   if (!who) return say('Nobody on this stretch. Just the road.');
   if (Math.abs(rig.speed) > 6) return say("Not at this speed. They step back from the wash and you're past them.");
 
-  // WHERE they ride is the decision, and it is only offered for the one it matters for. Everybody
-  // else takes the seat, because for everybody else there is nothing to hide.
+  // Where they ride is only offered for the fugitive.
   const where = (args[0] || '').toLowerCase();
   if (who.id === 'fugitive' && !['sleeper', 'trailer', 'cab'].includes(where)) {
     return say(`${cap(who.look)}.\n\n${who.line}\n\n`
@@ -3647,24 +2461,14 @@ async function cmdPickup(args, raw, player) {
   const inTrailer = where === 'trailer';
   if (inTrailer && !rig.trailer) return say("There's no box back there to put anybody in.");
 
-  // ⚠ THE STRETCH IS SPENT, AND IT HAS TO BE RECORDED SOMEWHERE. 'hitcherAt' is a pure function of
-  // the route and the node — that is its whole design, and it is what makes everybody driving this
-  // road this week meet the same person. It also means it goes on answering with them forever. Drop
-  // somebody off where you found them and they are instantly standing on the shoulder again with
-  // their hand out, which is the one reading of this system that is plainly a bug.
-  //
-  // Per-RIG and in memory only, deliberately: the seeded fact is that a person is on that stretch,
-  // and the fact that YOU have already dealt with them is not a fact about the road. A second
-  // driver still meets them, and so do you next week, when the window rolls and the seed changes.
+  // ⚠ The stretch is spent: hitcherAt is a pure function of route and node, so without this a
+  // dropped-off hitcher is instantly back on the shoulder. Per rig, in RAM only.
   (rig.hitchDone || (rig.hitchDone = new Set())).add(rig.node);
   rig.rider = { ...who, inTrailer, boarded: rig.node };
-  // FORCED, not throttled. 'pushCab' with no 'extra' is skipped while the centre tile is unchanged,
-  // and a pickup happens at a standstill by definition — so without this the figure went on standing
-  // on the shoulder and the alert went on offering a PICK UP button for somebody already in the seat.
+  // Forced, not throttled: pushCab with no `extra` is skipped at a standstill.
   const boarded = { boarded: true };
   if (inTrailer) {
-    // THE LINKAGE. A person is eighty kilos, and the weighbridge does not care what the eighty
-    // kilos is for. Riding back there makes them contraband in the only sense the scale understands.
+    // A person is 80 kg the scale can see.
     const list = [...(rig.trailer.stash || []), { itemId: null, name: "somebody who isn't on the paper", kg: 80 }];
     rig.trailer.stash = list;
     await saveLoad(rig.trailer.id, rig.cargo || null, list);
@@ -3684,15 +2488,14 @@ async function cmdDropoff(args, raw, player) {
   const who = rig.rider;
   rig.rider = null;
 
-  // Taking the weight back out again — which is the whole play the system exists to allow: letting
-  // somebody out a mile short of the scale is a real, unscripted decision, and it is free.
+  // Taking the weight back out: letting somebody out short of the scale is free.
   if (who.inTrailer && rig.trailer) {
     const list = (rig.trailer.stash || []).filter(s => s.itemId !== null || s.kg !== 80);
     rig.trailer.stash = list;
     await saveLoad(rig.trailer.id, rig.cargo || null, list);
   }
 
-  // What they were worth, paid at the moment they get out, because none of it is knowable before.
+  // What they were worth, paid as they get out.
   let extra = '';
   if (who.id === 'mechanic') {
     if (rig.dry) { rig.fuel = Math.max(rig.fuel, 0.18); rig.dry = false; extra = `<span class="item-grant">She spends twenty minutes under the tank with a length of hose and gets you enough to be going on with. You aren't walking after all.</span>`; }
@@ -3715,19 +2518,9 @@ async function cmdDropoff(args, raw, player) {
   return say(`They get down and shut the door.\n\n${extra}`);
 }
 
-// ── lock / unlock ────────────────────────────────────────────────────────────
-//
-// ⚠ THESE ARE ENGINE BUILTINS AND PLUGINS BEAT BUILTINS. `lock` and `unlock` belong to
-// server/engine/commands/doors.js, and a plugin that registers a verb wins outright — so claiming
-// them naively would silently take the door lock away from every apartment, shop shutter, cell and
-// hatch in the game, for everyone, forever. That is the exact trap the chess plugin's `move` note
-// warns about, and it fails in a way nobody would connect back to trucking.
-//
-// So the router is NARROW and it FALLS THROUGH: returning `undefined` hands the input back to the
-// engine, which then runs the ordinary door command as though nothing here existed. It only keeps
-// the verb when the answer is unambiguous — you are behind the wheel of a truck, and you either said
-// nothing after it or named the cab. `lock apartment` while sitting in a rig parked in your own
-// garage still locks the apartment.
+// ── lock / unlock ──
+// ⚠ These are engine builtins (commands/doors.js) and plugins beat builtins, so the router is
+// narrow and falls through (returns undefined) unless you're driving and named nothing or the cab.
 const CAB_WORDS = ['cab', 'door', 'doors', 'truck', 'rig'];
 function cabLatchRouter(want) {
   return async (args, raw, player) => {
@@ -3746,10 +2539,7 @@ async function setLatch(player, rig, want) {
   }
   rig.cd = rig.cd || {};
   rig.cd.locked = want;
-  // Written through immediately rather than coalesced into the park flush. This is a deliberate,
-  // infrequent act — not per-tick state — and the whole value of the latch is that it is still where
-  // you left it next time you climb up. A lock that forgot itself on a disconnect would be worse
-  // than no lock, because you would believe in it.
+  // Written through immediately, not coalesced: the latch must survive a disconnect.
   if (rig.truckId) await saveTruckData(rig.truckId, player.id, rig.cd);
   pushCab(rig, { latch: want });
   return say(want
@@ -3757,25 +2547,10 @@ async function setLatch(player, rig, want) {
     : '<span class="text-dim">The latches come up. The doors will open from outside now, either side.</span>');
 }
 
-// ── the galley ───────────────────────────────────────────────────────────────
-//
-// WHAT IS IN THE CAB THAT YOU COULD EAT. A haul is long, hunger and thirst run the whole time, and
-// the only surface that could answer "what have I got" was the tablet — which means stopping,
-// leaving the glass, and coming back. A driver was starving to death inside a working truck with
-// food in the bunk, which is not a difficulty curve, it is a missing door.
-//
-// THE RULE THIS FOLLOWS IS THE PREPARATION HUD'S, and deliberately: the panel holds no gameplay
-// logic and every row it draws is a VERB STRING a player could have typed. 'eat sandwich' is what
-// the button sends and 'eat sandwich' is what a keyboard sends; there is no cab-only eating path,
-// no cab-only restore, and nothing here re-derives whether a thing is edible — that is the item's
-// tags and the ordinary consume path's business, exactly as it is everywhere else.
-//
-// ⚠ AND IT IS ANSWERED ON DEMAND, NEVER ON THE PUSH. 'cabContext' runs several times a second on
-// the drive; putting an inventory join in it would be a remote round trip per push, on the hottest
-// path this plugin owns. So this is a verb: one query, when a driver opens the flap, and never
-// again until they open it again. The vitals themselves cost nothing at all — hunger and thirst
-// are already on the live player object and already reach the client on every 'player_update', so
-// the bars and the warning band on the glass are drawn from what the client had anyway.
+// ── the galley ──
+// What's in the cab you could eat. Follows the preparation HUD's rule: every row is a verb string
+// (`eat sandwich`), no cab-only path. ⚠ Answered on demand, never on the cabContext push (that runs
+// several times a second); hunger and thirst already reach the client on player_update.
 async function cmdGalley(args, raw, player) {
   const { rows } = await query(
     `SELECT pi.id, pi.quantity, i.name, i.tags
@@ -3785,10 +2560,7 @@ async function cmdGalley(args, raw, player) {
       ORDER BY i.name`,
     [player.id]
   );
-  // WHICH VERB EACH ROW WANTS. 'drink' for anything that restores thirst more than it restores
-  // hunger, 'eat' otherwise — the same reading a player makes looking at a bottle, and it is only
-  // ever a LABEL: both verbs route into the identical consume path, so a mislabelled row costs a
-  // word and never a mechanic.
+  // Drink if it restores more thirst than hunger. Only a label: both verbs share the consume path.
   const items = rows.map(r => {
     const t = r.tags || {};
     const food = Number(t.restore_hunger) || 0, water = Number(t.restore_thirst) || 0;
@@ -3803,26 +2575,16 @@ async function cmdGalley(args, raw, player) {
     items,
     hunger: player.hunger, thirst: player.thirst,
   });
-  // The LOG gets the same answer, because a surface a player cannot reach is not the only rung —
-  // display-mode's rule is that the record reaches the log at every rung or the rung is not done.
+  // The log gets the same answer (display-mode rule).
   if (!items.length) return say('You go through the bunk and the door pockets. Nothing to eat, nothing to drink.');
   return say(`<span class="text-dim">In the cab:</span>
 `
     + items.map(i => `  <b>${i.verb} ${i.name}</b>${i.qty > 1 ? ` <span class="text-dim">×${i.qty}</span>` : ''}`).join('\n'));
 }
 
-// ── customs ──────────────────────────────────────────────────────────────────
-// One verb, three answers, and each is a real trade rather than a better and worse version of the
-// same thing. See scale.js for what each one costs.
-//
-// TRUCKING DOES NOT OWN THE VERB, and must not. `customs` is already the FLIGHT plugin's — it is
-// what you type at the Reach's air customs desk — and `customs` is one player-facing concept, not
-// two. Two plugins claiming it would be a coin-flip decided by load order.
-//
-// So this is an ACTION, and flight's own handler dispatches it when its desk is holding nothing of
-// yours. That is exactly the seam `SMUGGLE_RAW_SCAN` already established: the checkpoint plugin
-// runs a drug scan through smuggle's economy without importing smuggle, and here flight answers a
-// scale-house question without importing trucking. Neither direction of dependency is created.
+// ── customs ──
+// One verb, three answers (see scale.js). Trucking must not own `customs`: flight does. Flight's
+// handler dispatches this action when its desk holds nothing of yours, so neither imports the other.
 registerAction({
   type: 'TRUCK_CUSTOMS',
   handler: async ({ actor, params }) => {
@@ -3836,43 +2598,25 @@ registerAction({
   },
 });
 
-// ── The box, on the text rung ────────────────────────────────────────────────
-// Phase 2.5. These are the typed half of the SAME controls the cab puts under a key and a button:
-// `revs up` is the `.` key, `boot` is A, `brake` is Z, `jake` is C. One model, three input surfaces.
-//
-// It is `revs` and `boot`, not `gear` and `throttle`, because the FLIGHT plugin already owns both
-// of those words — `gear` is landing gear — and two plugins claiming one verb is a coin-flip
-// decided by load order. The regress manifest sweep is what catches that class of collision.
+// ── The box, on the text rung ──
+// Typed versions of the cab's controls (`revs up` is `.`, `boot` A, `brake` Z, `jake` C).
+// `revs`/`boot`, not `gear`/`throttle`: flight owns those words.
 function cmdTextDrive(what) {
   return (args, raw, player) => textDriveCommand(player.id, what, args[0]) || say("Not while you're out of the truck.");
 }
 
-// ── `ride` / `hop` — getting into somebody else's truck ──────────────────────
-//
-// The passenger half of the cab. An aircraft has carried people since charter; a truck could not
-// carry anyone at all, which meant the only way two people crossed the void together was to walk it.
-//
-// ⚠ THE TRUCK HAS TO BE STOPPED, AND THAT IS THE WHOLE SAFETY MODEL RATHER THAN A COURTESY. The rig
-// is a client-simulated object reconciled four times a second; boarding one mid-move would put a
-// second player's `current_zone` under a position that is already stale. Stopped is also what the
-// hijacker gate reads (`hijack.js`, STOPPED_MPH), so a cab is boardable by a stranger under exactly
-// the conditions it is workable by one, which is the honest version of getting into a truck.
+// ── ride / hop: getting into somebody else's truck ──
+// ⚠ The truck has to be stopped: that's the safety model (a moving rig's position is already stale).
+// Same condition the hijacker gate reads (hijack.js, STOPPED_MPH).
 const RIDE_STOPPED_MPH = 1;
 
 // How close a rig has to be, out in the waste, to be a truck you could walk up to.
 const REACH_TILES = 6;
-// How far ahead a driver sees an arm out. Generous on purpose: at road speed a rig covers a lot of
-// ground between the alert and the place, and an alert you cannot act on is just noise.
+// How far ahead a driver sees an arm out: generous, so the alert can be acted on.
 const BEACON_SEE_TILES = 45;
 
-// Every rig you could get into from here. `rigs` is keyed by driver, so this is the only way to ask
-// "what is standing here" without the caller knowing that.
-//
-// ⚠ SAME ROOM, OR NEAR ENOUGH BY COORDINATE — and the second half is not a convenience. A crossing is
-// INSTANCED: two people in the same gap are in different transient rooms with different ids, so a
-// walker and a driver who are plainly looking at each other share no zone and never will. Position is
-// the only thing they have in common out there, which is exactly why the trail carries coordinates.
-// In a city both tests agree, because a street is one room for everybody.
+// Every rig you could get into from here. ⚠ Same room or near by coordinate: crossings are instanced,
+// so a walker and a driver out there share no zone, only position.
 function rigsInReach(player) {
   const here = getZone(player.current_zone);
   const hx = here?.grid_x, hy = here?.grid_y;
@@ -3884,8 +2628,7 @@ function rigsInReach(player) {
     if (hx == null || hy == null) continue;
     const rz = getZone(rig.zoneId);
     if (rz?.grid_x == null || rz.grid_y == null) continue;
-    // Never across a map boundary: a rig on the world grid is not reachable from inside a building
-    // that happens to sit on the same coordinates.
+    // Never across a map boundary.
     if (rz.map_id !== here.map_id) continue;
     const d = Math.hypot(rz.grid_x - hx, rz.grid_y - hy);
     if (d <= REACH_TILES) out.push({ rig, driver: drv, dist: d });
@@ -3905,8 +2648,7 @@ async function cmdRide(args, raw, player) {
     ? here.find(({ driver }) => driver.handle?.toLowerCase().includes(want))
     : (here.length === 1 ? here[0] : null);
   if (!pick && want) return { type: 'error', message: `Nobody called "${args.join(' ')}" is sitting in a truck here.` };
-  // ⚠ NEVER GUESS BETWEEN TWO CABS. Climbing into the wrong stranger's truck is not a thing to
-  // resolve by picking the first one in a Map.
+  // ⚠ Never guess between two cabs.
   if (!pick) return { type: 'error', message: `Which one? ${here.map(({ driver }) => driver.handle).join(', ')}.` };
 
   const { rig, driver } = pick;
@@ -3929,9 +2671,7 @@ async function cmdHop(args, raw, player) {
   const rig = ridingRigOf(player);
   if (!rig) return undefined;   // not riding: fall through, so the word is free for anything else
   const driver = getLivePlayer(rig.playerId);
-  // ⚠ MOVING OR NOT, YOU CAN ALWAYS GET OUT. Refusing would make a passenger the only person in the
-  // game who can be held somewhere against their will by another player, and no amount of narration
-  // makes that a feature. Stepping down at speed simply costs you.
+  // ⚠ Moving or not, you can always get out; at speed it just costs you.
   const rolling = Math.abs(rig.speed || 0) > RIDE_STOPPED_MPH;
   alightPassenger(player);
   if (driver) sendToPlayer(driver.id, { type: 'emote',
@@ -3945,8 +2685,7 @@ async function cmdHop(args, raw, player) {
 
 export const commands = {
   drive: cmdDrive,
-  // THE LESSON. `deps` is handed in rather than imported by roadtest.js, so the school run reaches
-  // the depot and the drive through this file's own helpers and never imports back into it.
+  // `deps` handed in so roadtest.js never imports back into this file.
   roadtest: (args, raw, player) => cmdRoadTest(args, raw, player, { depotHere, mount: mountTruckById, isDriving: (id) => rigs.has(id) }),
   ride: cmdRide,
   hop: cmdHop,
@@ -3979,62 +2718,33 @@ export const commands = {
   trucksync: cmdTruckSync,
   truckevent: cmdTruckEvent,
   galley: cmdGalley,
-  // ⚠ ROUTERS, NOT HANDLERS. Both fall through to the engine door commands unless you are
-  // actually behind a wheel — see cabLatchRouter.
+  // ⚠ Routers, not handlers: they fall through to the engine door commands (see cabLatchRouter).
   lock: cabLatchRouter(true),
   unlock: cabLatchRouter(false),
 };
 
 export const hooks = {
   'zone.describeRoom': describeDepot,
-  // DIESEL'S PRICE, ANSWERED BY THE THING THAT CHARGES IT. A forecourt price board asks the room
-  // what it sells; trucking is the only system that knows what a tank costs, so it says so here
-  // rather than letting a sign keep a second copy of `FUEL_FULL` that retuning would not update.
-  // A tile with no pump on it answers nothing, which is how a board in a bar stays blank.
-  // `each` is the PYLON's number, and it is derived here rather than by the sign for the same
-  // reason `price` is: a board out by the road quotes a retail rate per pump-unit, and only this
-  // file knows what a unit of diesel is. Trucking bills a tank as a fraction (`t.fuel` is 0..1), so
-  // the retail unit is one percent of a tank — `FUEL_FULL / 100`, which is what a driver taking
-  // half a tank is charged fifty of. One constant, two presentations, no second copy to retune.
+  // Diesel's price from the system that charges it, so a sign never keeps its own FUEL_FULL. A tile
+  // with no pump answers nothing. `each` is one percent of a tank (t.fuel is 0..1).
   'fuel.prices': (zone) => pumpAt({ leg: 'city', zoneId: zone?.id })
     ? { grade: 'DIESEL', unit: 'tank', price: FUEL_FULL, each: FUEL_FULL / 100, note: 'a full tank, any rig, the pylon prices it by the percent' }
     : null,
-  // Flight asks 'who else is out there'; trucking answers with its moving rigs. A gather hook so
-  // the dependency stays one-way — flight has never heard of trucking and does not need to.
+  // Flight asks who else is out there; a gather hook keeps the dependency one-way.
   'vehicle.contacts': (x, y, range) => truckContactsNear(x, y, range),
-  // The sibling of the above, and a different question: `contacts` is "who is near
-  // THIS point and moving", asked by a renderer; this is "where is every crewed rig
-  // and how do I reach its electronics", asked by anything that lands on the map.
-  // One consumer today — the EMP pulse. The entry carries its own `knockOut`, so
-  // the weather plugin never learns what a truck is. See state.js: crewedRigs.
+  // Every crewed rig and how to reach its electronics (the EMP pulse). Each entry carries its own
+  // `knockOut`, so weather never learns what a truck is. See state.js crewedRigs.
   'vehicle.crewed': () => crewedRigs(),
-  // ONE VERB, TWO SYSTEMS. `hijack` belongs to surveillance (breaching a camera) and plugin verbs
-  // are first-come, so trucking cannot register it and must not try. Surveillance instead gathers
-  // this hook when the name you typed is not a device it can find, and whoever claims the target
-  // runs the attempt — so "break into the thing you named" keeps meaning one thing, nobody learns
-  // a second word for it, and neither plugin imports the other. Returning null is a real answer:
-  // it means "not mine", and the verb goes back to its own error.
+  // `hijack` belongs to surveillance; it gathers this hook when the name isn't a device. Null means
+  // "not mine".
   'hijack.target': (player, nameHint) => playerHijack(player, nameHint),
 };
 
-// ── NOTHING IS LOST OUT THERE, IT JUST GETS EXPENSIVE ────────────────────────
-// A truck parked on the corridor holds a TRANSIENT void room as its `depot_zone`, and that room
-// stops existing the moment the last member walks out of the crossing. Left alone that is a rig
-// which cannot be found, driven, sold or repaired: the row is intact and points at nothing.
-//
-// So the road drags it home. This is deliberately the SAME landing a breakdown gets (`parkRig`'s
-// abandonment branch) rather than a second idea about lost trucks — the yard it set out from, an
-// impound fee to get it out, settled by the `drive` path that already knows how to bill one.
-// Where "the yard it set out from" comes from is `custom_data.void_home`, written at the moment
-// of parking because that is the only moment anybody knows it; a truck that somehow has none
-// falls back to the crossing's own origin tile.
-//
-// ⚠ THE FEE IS ONLY EVER SET, NEVER RAISED, and "already impounded" is `NULLIF(…, 0)` rather than
-// `IS NULL`. The recovery write clears a lot by setting the fee to ZERO (fleet.js `recoverTruck`)
-// and every reader here tests it for truthiness — `if (owned.impound_fee)`, `t.impound_fee || 0` —
-// so 0 and NULL are the same state and a plain COALESCE would preserve the 0 and never charge at
-// all. Two sweeps reaching the same truck is not hypothetical: the teardown fires when the
-// crossing ends, and the boot sweep fires on every restart.
+// ── Nothing is lost out there, it just gets expensive ──
+// A truck parked on the corridor holds a transient void room; when the crossing ends it goes to
+// `custom_data.void_home` (or the crossing's origin) with an impound fee, as a breakdown does.
+// ⚠ The fee is only set, never raised: `NULLIF(…, 0)` because recovery clears the fee to 0 and
+// readers treat 0 and NULL alike. Teardown and the boot sweep can both reach the same truck.
 async function recoverTrucksFrom(rooms, origin) {
   if (!rooms?.length) return 0;
   const { rows } = await query(
@@ -4050,24 +2760,18 @@ async function recoverTrucksFrom(rooms, origin) {
       [home, fee, t.id]).catch(() => ({ rowCount: 0 }));
     moved += rowCount || 0;
   }
-  // The count of trucks actually RESCUED, not of rows looked at — a truck with nowhere to be put
-  // is skipped above, and reporting it as moved would make the log say the opposite of the truth.
+  // Trucks actually rescued, not rows looked at.
   return moved;
 }
 
-// The crossing ended with somebody's rig still standing in it. Fired before the rooms are
-// unregistered — see the ⚠ in voidwalking's teardownInstance.
+// Fired before the rooms are unregistered: see voidwalking's teardownInstance.
 on('crossing.ended', async ({ rooms, origin }) => {
   const n = await recoverTrucksFrom(rooms, origin).catch(() => 0);
   if (n) console.log(`[trucking] recovered ${n} truck(s) from a crossing that ended.`);
 });
 
-// AND THE RESTART CASE, WHICH THE EVENT CANNOT COVER. Crossings live in RAM, so a server that
-// comes back up has none — every truck still holding a void room is dangling by definition, and
-// no teardown will ever fire for it. Void rooms are the only ids shaped `xing_…` (see
-// voidwalking's `xing_${leader.id}_${_seq}`), which makes this a single indexed prefix scan rather
-// than a walk of the fleet. Deferred one tick so the plugin finishes loading first; failure here
-// must never be the thing between the server and booting.
+// The restart case: crossings live in RAM, so any truck still in an `xing_…` room is dangling.
+// Deferred a tick; failure must never block boot.
 setTimeout(async () => {
   const { rows } = await query(`SELECT DISTINCT depot_zone FROM trucks WHERE depot_zone LIKE 'xing\\_%'`)
     .catch(() => ({ rows: [] }));
@@ -4076,11 +2780,8 @@ setTimeout(async () => {
   if (n) console.log(`[trucking] recovered ${n} truck(s) stranded in void rooms by a restart.`);
 }, 0);
 
-// Hijackers try the door of any STOPPED cab they are standing next to. Scheduled rather than run
-// off a movement event because the thing it watches for is a truck that is NOT moving — there is no
-// event for "still here", and the whole mechanic is about time passing while you sit. Idle-gated by
-// default (schedule's own behaviour) and it returns immediately when nobody is in a rig, which on
-// this server is almost always.
+// Hijackers try the door of any stopped cab. Scheduled, because it watches for a truck NOT moving.
+// Idle-gated by schedule.
 schedule('5s', () => tickHijackers());
 
 export const _test = { boardFor, allDepots, mountSpot, depotFrom, bunkFrom, hitchZones, allDocks, dockAt, depotAt, depotZonesOf, describeDepot, LOADS, RECKLESS_MPH, hydrateFromTruck, recoverTrucksFrom };

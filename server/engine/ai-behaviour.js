@@ -6,8 +6,7 @@ import { allExits, neighborZoneIds, exitTargets } from './exits.js';
 import { findPath as findPathRaw, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy, pressingAttacker, mobFleeRoll } from './combat.js';
 import { getEnvironmentState } from './environment.js';
-// The block arithmetic, shared with the dev panel rather than spelled out in both — and the home
-// of the rule that a block may cross midnight. See the header there.
+// Block arithmetic shared with the dev panel; a block may cross midnight (see the header there).
 import { DAY_KEYS as WS_DAY_KEYS, hourInBlock, workingAt } from '../../client/shared/work-schedule.js';
 import { gameMsToReal } from './gametime.js';
 import { dispatchAction } from './actions.js';
@@ -19,14 +18,10 @@ import { gatherHookSync } from './plugins.js';
 import { npcWashAtHome } from './hygiene.js';
 import { on, emit } from './events.js';
 
-// Breaking contact to flee is a competence check, not a given. An entity's flee
-// skill (`flags.flee_skill`, else its combat `dodge`, else 1) is rolled against a
-// 2d8−2d8 swing (−14..+14, mean 0); it gets away only if skill + swing clears
-// this bar. Tuned so weak early enemies (dodge 1–2) usually botch the break and
-// stay cornered, while nimbler things (higher dodge) slip away reliably.
+// Flee is a check: skill (flags.flee_skill, else dodge, else 1) plus a 2d8-2d8 swing must clear this bar.
+// Weak enemies usually botch it and stay cornered.
 const FLEE_DIFFICULTY = 6;
-// A cornered enemy gets one break-away attempt per attack cycle, not one per AI
-// tick — otherwise a failed roll spams "can't break away!" several times a second.
+// One break-away attempt per attack cycle, not per AI tick, or the failure line spams.
 const FLEE_RETRY_MS = 4000;
 
 // The vendor safe an NPC owns or draws wages from, off the furniture cache. Runs
@@ -44,32 +39,11 @@ function findVendorSafe(npcId) {
 }
 const d8 = () => 1 + Math.floor(Math.random() * 8);
 
-// ── The leash ────────────────────────────────────────────────────────────────
-// ROAM is an unbiased random walk over the zone graph: it has no expected return,
-// so given a few hours a wanderer ends up anywhere the exits reach. The leash is
-// what makes a roaming mob a LOCAL problem, and it's also what makes CHASE safe
-// to have at all — an unbounded pursuit is exactly the thing that drags a mob
-// across the map.
-//
-// Deliberately NOT applied to two other movers:
-//   PATROL is already bounded by its authored waypoints. A radius on top would
-//          break legitimate long routes.
-//   FLEE   has one job — break contact. Filtering its exits by leash corners a
-//          fleeing mob against its own leash and hands the player a free kill on
-//          something the design says should get away. It clears targetId, and the
-//          next ROAM beat walks it home. Flee first, leash afterwards.
+// The leash bounds ROAM and CHASE only, never PATROL or FLEE: see docs/ai-behaviour.md#the-leash-and-where-a-mob-may-not-go
 const LEASH_RADIUS = 12;
 
-// Chebyshev tiles from the spawn tile. Three intents, three values — 0 must mean
-// PINNED rather than disabled, because zero is the obvious way to write "never
-// leaves its tile" and overloading it as the off-switch makes the tightest
-// possible leash silently do the opposite:
-//   undefined -> LEASH_RADIUS       (the default)
-//   -1        -> unleashed          (an authored world-wanderer)
-//   0         -> pinned to its tile
-//   1..n      -> that many tiles
-// Never write `Number(f) || LEASH_RADIUS` here: that maps both 0 and undefined to
-// the default and makes pinning impossible to express.
+// Chebyshev tiles from spawn. undefined = LEASH_RADIUS, -1 = unleashed, 0 = PINNED, n = n tiles.
+// Never write `Number(f) || LEASH_RADIUS`: it makes 0 mean the default.
 function leashRadius(entity) {
   const f = entity?.flags?.leash_radius;
   if (f === undefined || f === null) return LEASH_RADIUS;
@@ -77,16 +51,8 @@ function leashRadius(entity) {
   return Number.isFinite(n) ? n : LEASH_RADIUS;
 }
 
-// O(1) distance from a mob's spawn tile. The leash runs on every roaming and
-// chasing instance, and enemies tick at 1 Hz, so this must never BFS —
-// getZonesInRadius is the right tool for CALL_BACKUP's rare event and the wrong
-// one here. Chebyshev rather than Manhattan because the map is 8-connected, so
-// Chebyshev IS hop count on open ground and a radius reads as "N tiles".
-//
-// Infinity means "definitively elsewhere" — a different map (an interior, the
-// sewers, a dreamscape), a different floor, or a zone with no grid position at
-// all. That's the answer we want: a mob that spawned outdoors and walked into a
-// shop IS off its patch.
+// O(1): runs per mob at 1 Hz, so never BFS here. Chebyshev is hop count on the 8-connected grid.
+// Infinity = elsewhere (another map, another floor, or an ungridded zone).
 export function distanceFromSpawn(entity, zoneId) {
   const home = getZone(entity?.spawnZoneId);
   const here = getZone(zoneId);
@@ -98,13 +64,8 @@ export function distanceFromSpawn(entity, zoneId) {
   return Math.max(Math.abs(here.grid_x - home.grid_x), Math.abs(here.grid_y - home.grid_y));
 }
 
-// Which of these exits the leash actually permits. Same O(exits) the caller was
-// already paying, plus a handful of integer ops.
-//
-// Note the Infinity arithmetic is load-bearing and must not be "cleaned up":
-// `Infinity < Infinity` is false but `Infinity <= Infinity` is true, which is
-// what makes a mob stranded somewhere ungridded (indoors, off-map) fall through
-// to the non-increasing branch and take any exit rather than freezing.
+// ⚠ The Infinity arithmetic is load-bearing: `Infinity <= Infinity` lets a mob stranded somewhere
+// ungridded take any exit instead of freezing.
 export function leashCandidates(entity, zoneId, exits) {
   const radius = leashRadius(entity);
   if (radius < 0 || !entity?.spawnZoneId) return exits;   // unleashed
@@ -113,27 +74,18 @@ export function leashCandidates(entity, zoneId, exits) {
   const here = distanceFromSpawn(entity, zoneId);
   if (here <= radius) {
     const inside = exits.filter(z => distanceFromSpawn(entity, z) <= radius);
-    // Boxed in — every exit leaves the radius. Never freeze a mob over this; a
-    // frozen spawn is indistinguishable from a broken one.
+    // Boxed in. Never freeze a mob over this: a frozen spawn looks broken.
     return inside.length ? inside : exits;
   }
-  // Outside: only steps that bring it home. Walks the grid gradient without a
-  // single BFS. A flat gradient (a wall, a dead end) falls back to anything that
-  // doesn't make it worse; if nothing qualifies it stands still this beat.
+  // Outside: only steps toward home; a flat gradient takes anything that doesn't make it worse.
   const closer = exits.filter(z => distanceFromSpawn(entity, z) < here);
   if (closer.length) return closer;
   return exits.filter(z => distanceFromSpawn(entity, z) <= here);
 }
 
-// ── Pursuit ──────────────────────────────────────────────────────────────────
-// How long a chaser will keep following without landing a hit. The leash bounds
-// pursuit in SPACE; this bounds it in TIME, so a mob can't shadow a player around
-// inside its own radius indefinitely.
+// How long a chaser follows without landing a hit (the leash bounds space, this bounds time).
 const CHASE_TIMEOUT_MS = 20000;
-// Enemies tick at 1 Hz, so an unthrottled chase steps once a second and outruns a
-// walking player. At 2s a walk cannot break contact but run mode can — which is
-// what makes running a decision rather than a formality. Per-enemy override:
-// flags.chase_speed_s.
+// At 2s a step a walking player can't break contact but a running one can. Override: flags.chase_speed_s.
 const CHASE_INTERVAL_MS = 2000;
 
 function chaseIntervalMs(entity) {
@@ -141,11 +93,8 @@ function chaseIntervalMs(entity) {
   return Number.isFinite(s) && s > 0 ? s * 1000 : CHASE_INTERVAL_MS;
 }
 
-// Does this creature's graph pursue? Cached per instance because it's a property
-// of the template, not of the moment — and because ATTACK consults it on the
-// combat hot path. A creature with no CHASE node keeps the historical behaviour of
-// dropping its target the instant the player leaves the room, so every enemy that
-// shipped before pursuit existed is bit-for-bit unchanged.
+// Cached per instance because ATTACK reads it on the combat hot path. No CHASE node means the
+// target is dropped the moment the player leaves the room.
 export function canChase(entity) {
   if (entity._canChase === undefined) {
     const nodes = entity.behaviour_graph?.nodes;
@@ -154,12 +103,7 @@ export function canChase(entity) {
   return entity._canChase;
 }
 
-// Where the current target is standing, whatever kind of thing it is. Returns null
-// if the target is gone, dead, or logged out — every caller treats that as "drop".
-// ATTACK's "target isn't here any more" branch. A non-chaser forgets you the
-// instant you leave the room, exactly as it always has. A chaser KEEPS the target
-// so its CHASE node has something to follow — that one distinction is the whole
-// difference between the world before pursuit and after it.
+// A non-chaser forgets you when you leave the room; a chaser keeps the target so CHASE can follow.
 function forgetsAbsentTarget(entity) {
   return !canChase(entity);
 }
@@ -174,23 +118,11 @@ function quarryZone(id) {
   return p ? p.current_zone : null;
 }
 
-// ── NPC lock-up law ──────────────────────────────────────────────────────────
-// An NPC securing a home or shutting up shop is the only lock in the game that
-// engages with nobody's hand on it, which makes it the only one that can shut a
-// door on a player who never touched it. Three rules keep that honest:
-//
-//   1. A MANUAL BOLT IS NEVER AUTO-ENGAGED. A privacy latch (passWhileLocked
-//      false) has to be physically slid open to pass, from the inside, by the
-//      person who set it — exactly the wrong lock to throw on a room somebody
-//      might be standing in. It's also the bathroom lock: every ensuite and
-//      washroom door in the world is `lock:privacylock`, so a resident walking
-//      home past their own ensuite used to bolt the toilet shut behind them.
-//   2. The lock records WHICH SIDE IS INSIDE (`_autoLockedInside`), so the move
-//      gate can let a player walk out of a shop that closed around them. Out,
-//      never in — the closed sign still means closed.
-//   3. Residents come and go freely; that's handled on both sides — NPCs by the
-//      ownsThisDoor/residentOfThisBuilding tests above, players by the same
-//      `_autoLockedInside` marker in the engine:door-lock gate.
+// NPC lock-up law: the only lock that engages with nobody's hand on it.
+//   1. Never auto-engage a manual bolt (a privacy latch, every ensuite lock): it traps whoever's inside.
+//   2. `_autoLockedInside` records the indoor side, so a player can walk OUT of a shop that closed
+//      round them, never in.
+//   3. Residents pass both ways (ownsThisDoor/residentOfThisBuilding here, the engine:door-lock gate for players).
 function lockTagsOf(door) {
   return Object.keys(door?.tags || {}).filter(k => k.startsWith('lock:'));
 }
@@ -204,13 +136,9 @@ function npcAutoLockable(door) {
 // note. Runtime-only, like every other field on a door.
 function markAutoLock(door, insideZoneId) { door._autoLockedInside = insideZoneId || null; }
 
-// Is somebody ELSE still minding this shop? A storefront can be staffed in shifts
-// — a day clerk and a night clerk sharing one work_zone_id, which is how a shop
-// stays open around the clock — and the lockup below is keyed on the DEPARTING
-// npc alone, so without this the handover locks the door on a colleague already
-// behind the counter and the player is told a trading shop just shut. Excludes
-// the leaver by id rather than by zone, because callers differ on whether the
-// leaver's own zone_id has been reassigned by this point.
+// Is somebody ELSE still minding this shop (shifts sharing a work_zone_id)? Without this a handover
+// locks the door on the colleague behind the counter. Excludes the leaver by id, because callers
+// differ on whether its zone_id has been reassigned yet.
 export function anotherVendorOnDuty(zoneId, leaverId) {
   const z = world.zones.get(zoneId);
   if (!z) return false;
@@ -237,46 +165,28 @@ const VENDOR_CLOSE_WHINE = [
   `Not even one credit? Don't let the door hit you.`,
 ];
 
-// ── Vendor schedule helpers ──────────────────────────────────────────────────
-
-// ⚠ THE DAY KEYS AND THE BLOCK ARITHMETIC ARE THE DEV PANEL'S TOO. It had its own copy of both and
-// now reads one — see client/shared/work-schedule.js for the rule that a block whose `to` is less
-// than its `from` runs past midnight, which until now meant no shift at all.
+// ⚠ The day keys and block arithmetic are shared with the dev panel (client/shared/work-schedule.js).
 const DAY_KEYS = WS_DAY_KEYS;
 
 // Zones an NPC advances toward its workplace per wander tick while commuting.
 // >1 keeps far-flung workers from spending most of the morning in transit.
 const COMMUTE_STEPS_PER_TICK = 4;
 
-// The cadence npcWanderTick is registered at (gameLoop.js). Kept here as a
-// number because the commute departure window has to convert a path length into
-// game-minutes, and that conversion is meaningless without knowing how often a
-// step actually happens. If you change the schedule() cadence, change this.
+// npcWanderTick's cadence (gameLoop.js), needed to turn a path length into game-minutes. Change both together.
 const NPC_TICK_SECONDS = 15;
 // Tiles a commuter covers per REAL minute. The game clock runs at
 // state.timeScale game-minutes per real minute, so the conversion to the
 // game-minutes the schedule is written in happens at the call site.
 export const COMMUTE_TILES_PER_REAL_MIN = COMMUTE_STEPS_PER_TICK * (60 / NPC_TICK_SECONDS);
 
-// How long after a missed arrival an NPC still bothers turning up, in GAME
-// minutes. Only consulted for NPCs whose arrive_by params have no schedule
-// behind them — where a schedule exists it answers "should I be there now?"
-// directly and this constant is not used. 4 hours: long enough to cover a
-// restart or a locked door during the morning, short enough that an NPC who
-// missed a shift entirely doesn't wander in at midnight for it.
+// Game minutes a late NPC still bothers turning up. Only for arrive_by params with no schedule behind them.
 const LATE_CATCHUP_GRACE_MINUTES = 240;
 
 /**
- * Check whether a vendor NPC should be working right now.
- * Returns { working, dayHasSchedule, referenceRange }
- *   working        — true if the current hour falls in a block filed under today, OR in the part
- *                    after midnight of one filed under yesterday (a block whose `to` is less than
- *                    its `from` runs past midnight — see client/shared/work-schedule.js)
- *   dayHasSchedule — true if today has any scheduled blocks at all. NOT widened by the spill: it
- *                    means "today is a working day", and a night shift ending this morning does
- *                    not make today one
- *   referenceRange — on a day-off, the first block of the most recent scheduled day
- *                    (used for HAVE_LIFE hours on off-days); null if none found
+ * Is a vendor NPC working now? Returns { working, dayHasSchedule, referenceRange }.
+ *   working        - in a block filed under today, or the after-midnight part of one filed under yesterday
+ *   dayHasSchedule - today has blocks of its own; NOT widened by yesterday's spill
+ *   referenceRange - on a day off, the first block of the most recent scheduled day (for HAVE_LIFE), else null
  */
 export function isVendorWorkTime(npc, env) {
   const schedule = npc.vendor_schedule || {};
@@ -290,18 +200,14 @@ export function isVendorWorkTime(npc, env) {
 
   const dayHasSchedule = todayBlocks.length > 0;
 
-  // ⚠ YESTERDAY'S BLOCKS COUNT NOW, because a block that crosses midnight is filed under the day it
-  // STARTS on — so at 02:00 on a Tuesday, somebody on a six-to-six night shift is working a block
-  // that lives under `mon`. `workingAt` is the one place those two questions are put together.
+  // ⚠ Yesterday's blocks count: a block that crosses midnight is filed under the day it starts.
   const working = workingAt(schedule, todayIdx, hour);
 
   if (dayHasSchedule) {
     return { working, dayHasSchedule: true, referenceRange: null };
   }
 
-  // ⚠ AND A SPILL CAN LAND ON A DAY WITH NO BLOCKS OF ITS OWN — a Sunday night shift finishing on a
-  // Monday they are otherwise off. `dayHasSchedule` stays FALSE on purpose: it means "today is a
-  // working day", its one consumer is the day-off branch below, and `working` short-circuits that.
+  // ⚠ dayHasSchedule stays false on a spill-only day on purpose; `working` short-circuits the day-off branch.
   if (working) return { working: true, dayHasSchedule: false, referenceRange: null };
 
   // Day off — look back up to 6 days for the most recent scheduled day
@@ -316,24 +222,16 @@ export function isVendorWorkTime(npc, env) {
   return { working: false, dayHasSchedule: false, referenceRange: null };
 }
 
-// True when a scheduled vendor is currently off-shift and should refuse to trade.
-// Vendors with no `vendor_schedule` trade around the clock (returns false).
-// Covert dealers are exempt outright: their trading window is owned by the dealer
-// plugin's deal_from/deal_to, so a schedule left on one would be a second timetable
-// over the top of the first. (This note used to add "which wraps midnight, unlike
-// vendor_schedule" — that difference is gone; a vendor_schedule block wraps too now,
-// and the exemption is about ownership rather than about grammar.) Reads the live
-// game clock so a manual clock jump takes effect immediately.
+// True when a scheduled vendor is off-shift. No vendor_schedule means always open. Covert dealers are
+// exempt: the dealer plugin's deal_from/deal_to owns their window. Reads the live game clock.
 export function isVendorClosed(npc) {
   if (npc?.flags?.covert) return false;
   if (isVendorAbsent(npc)) return true;
   return isVendorOffHours(npc);
 }
 
-// The CLOCK half of isVendorClosed, on its own: off the timetable, never mind
-// where they're standing. Absence is deliberately not folded in — a shopkeeper
-// walking home mid-shift is absent but not off duty, and the conversation paths
-// (unlike the counter) care about the person, not the shutter.
+// The clock half of isVendorClosed. Absence isn't folded in: a shopkeeper walking home mid-shift is
+// absent but not off duty, and conversation cares about the person, not the shutter.
 export function isVendorOffHours(npc) {
   if (npc?.flags?.covert) return false;
   const schedule = npc?.vendor_schedule;
@@ -341,39 +239,20 @@ export function isVendorOffHours(npc) {
   return !isVendorWorkTime(npc, getEnvironmentState()).working;
 }
 
-// Does this NPC actually SELL something? `vendor_schedule` is carried by every
-// employed NPC (it's the commute timetable), so it alone can't be the test —
-// gating dialogue on it would silence half the city after dark. A shop is stock
-// or a shop name.
+// Does this NPC sell anything? Not vendor_schedule (every employed NPC has one): stock or a shop name.
 export function isVendorRole(npc) {
   return !!(npc?.vendor_shop_name || (npc?.vendor_inventory || []).length);
 }
 
-// A vendor who commutes is only open once they've actually WALKED IN. The clock
-// says when they set off, not when the shutter goes up: a shopkeeper who is late,
-// stuck behind a firefight, or has stepped out mid-shift leaves a shop that isn't
-// trading, matching the door — which already unlocks on arrival and locks on the
-// way out (see the shop-door block in the movement hook).
-// Only applies to vendors with a work_zone_id; an immobile stallholder without one
-// keeps the old pure-clock behaviour, so nothing that never commutes changes.
+// A commuting vendor is open only once they've walked in, matching the shop door. Vendors with no
+// work_zone_id stay pure-clock.
 export function isVendorAbsent(npc) {
   if (!npc?.work_zone_id) return false;
   return entityZone(npc) !== npc.work_zone_id;
 }
 
-// Game-hours until this vendor's next scheduled block opens: 0 when one is
-// already running, or null (no schedule, or nothing scheduled in the coming
-// week). Same clock + day-keying as isVendorWorkTime, so it agrees with whatever
-// just told the player "closed".
-//
-// ⚠ The 0 is load-bearing, and it is the whole bug this function used to have.
-// The loop below only counts blocks that START in the future (`gap > 0`), so the
-// moment today's block opens it walks straight past it to TOMORROW's. Every
-// caller asking about a shop that is shut for the OTHER reason — the shopkeeper
-// simply isn't behind the counter yet — got "opens again in about 24 hours" at
-// five past six in the morning. An in-progress block is the one question a
-// countdown cannot answer, so it answers zero and lets the caller say something
-// true instead.
+// Game-hours until the next block opens, or null. ⚠ Returns 0 while a block is running: the loop below
+// only counts future starts, so without it a late shopkeeper's shop "opens again in about 24 hours".
 export function hoursUntilOpen(npc) {
   const schedule = npc?.vendor_schedule;
   if (!schedule || !Object.keys(schedule).length) return null;
@@ -392,10 +271,7 @@ export function hoursUntilOpen(npc) {
   return best === null ? null : best / 60;
 }
 
-// "about 3 hours" / "about 20 minutes" — the wait an off-shift vendor quotes you.
-// Empty string when they have no schedule to quote from, and equally when they
-// are ON the clock right now (hoursUntilOpen 0): there is no wait, and every
-// caller already has a no-time sentence for the empty string.
+// "about 3 hours". Empty with no schedule or when on the clock now; callers handle the empty string.
 export function openInPhrase(npc) {
   const h = hoursUntilOpen(npc);
   if (!h) return '';
@@ -423,10 +299,7 @@ export function vendorClosedLine(npc) {
     : `${name} shakes their head. "I'm off the clock right now. Come back during business hours."`;
 }
 
-// The brush-off an off-the-clock vendor gives when a player tries to open their
-// dialogue tree. Unlike vendorClosedLine this is said FACE TO FACE — you're
-// standing in front of them, wherever they happen to be — so it never talks
-// about empty counters or shutters.
+// Face-to-face brush-off when opening an off-shift vendor's dialogue, so it never mentions counters or shutters.
 export function vendorOffHoursLine(npc) {
   const name = npc?.name || 'The vendor';
   const when = openInPhrase(npc);
@@ -435,19 +308,8 @@ export function vendorOffHoursLine(npc) {
     : `${name} waves you off. "Not now. I'm off the clock."`;
 }
 
-// ── Chitchat ────────────────────────────────────────────────────────────────
-
-// ── An animal does not make small talk ───────────────────────────────────────
-// `talk` falls through to DEFAULT_CHITCHAT_LINES for any NPC with no dialogue tree
-// and no authored chitchat, and those lines are a PERSON's: wrist terminals,
-// complaints about recycled air, knuckles. Put them in an animal's mouth and the
-// stray cat mutters about radiation levels.
-//
-// Deliberately species-NEUTRAL, because this is the engine. A cat's actual noises
-// are Cathode's own `chitchat`, authored in content where a second game's animals
-// would author their own; this is only the floor under an animal nobody has written
-// lines for yet, and it says the one thing true of all of them — it made a sound and
-// it was not words.
+// Fallback for an animal with no authored chitchat (the default lines are a person's). Species-neutral
+// because this is the engine; a real animal's noises are authored in content.
 export const ANIMAL_CHITCHAT_LINES = [
   "makes a short sound at you and doesn't repeat it.",
   'looks up, considers you for a moment, and looks away again.',
@@ -470,11 +332,7 @@ export const DEFAULT_CHITCHAT_LINES = [
   'cracks a thin, joyless smile.',
 ];
 
-// How far an off-shift NPC will pick a destination from where they stand, in
-// tiles of the shared world grid. Coldwater is 93x52, so NEAR is a quarter of the
-// city and FAR is most of it. These are deliberately not "the whole world": see
-// the long note at the patrol picker in HAVE_LIFE for what uniform selection over
-// every exterior tile actually did.
+// Off-shift wander radius in tiles. Not the whole world: see docs/ai-behaviour.md#a-wander-has-to-come-back
 const WANDER_NEAR_R = 12;
 const WANDER_FAR_R = 30;
 const WANDER_FAR_CHANCE = 0.15;
@@ -494,9 +352,7 @@ const DEFAULT_HOME_ACTIVITIES = [
   'taps at a broken light fixture without fixing it.',
 ];
 
-// What a person is like in the first half-hour after somebody woke them up. Used
-// by the passive home-life ticker instead of the NPC's own activities, so being
-// woken has a visible tail rather than being one line and then business as usual.
+// Lines for the half-hour after being woken, used instead of the NPC's home activities.
 const WOKEN_ACTIVITIES = {
   annoyed: [
     'bangs around the kitchen with unnecessary volume, making a point.',
@@ -514,32 +370,23 @@ const WOKEN_ACTIVITIES = {
   ],
 };
 
-// Returns the real (wall-clock) ms timestamp to wake up before the next scheduled
-// shift, or null. The shift schedule is keyed to GAME day-of-week + game hours —
-// the same clock isVendorWorkTime reads — so the gap is computed in game-minutes
-// and converted to real ms via the game-speed knob. (Previously it walked the real
-// calendar, which desynced from the game clock at any speed ≠ 1×.)
+// Real ms timestamp to wake before the next shift, or null. The schedule is in game time, so the gap
+// is game-minutes converted via the game-speed knob.
 function getNextShiftWakeMs(entity) {
   const schedule = entity.vendor_schedule;
   const env = getEnvironmentState();
   const nowMinutes = env.minutes;             // game minute-of-day, 0..1439
   const todayIdx = env.dayOfWeek % 7;         // ISO 1=Mon…7=Sun → 0=Sun…6=Sat (DAY_KEYS)
   const WAKE_LEAD_MIN = 60;                    // wake one game-hour before the shift
-  // Mirrors STAFF_CALL_LEAD_REAL_MIN in plugins/broadcast — kept as a local rather than
-  // imported, because the engine must not depend on a plugin. A few minutes more than the
-  // plugin's own lead, so the cast are awake before they're called, not as they're called.
+  // Mirrors STAFF_CALL_LEAD_REAL_MIN in plugins/broadcast plus a few minutes (the engine must not import a plugin).
   const STUDIO_CALL_LEAD_REAL_MIN = 15;
   const MIN_GAP_MIN = 2;                       // ignore shifts essentially upon us
 
   // gap = game-minutes from now until the wake moment; convert to a real deadline.
   const realDeadline = (gapGameMin) => Date.now() + gameMsToReal(gapGameMin * 60_000);
 
-  // Broadcast cast are not vendors and have no `vendor_schedule` — their timetable lives in
-  // the channel playlist, reachable only through the broadcast bridge. Without this, a studio
-  // NPC read as "no schedule" and fell through to the 07:00 default: the host of a 22:00 talk
-  // show who dozed off at home in the evening was parked on waitUntil until the next MORNING
-  // and slept through his own taping, while the show aired to an empty desk. Take whichever
-  // wake-up comes first, so an NPC with both a counter shift and a studio call makes both.
+  // Broadcast cast have no vendor_schedule; their calls come through the broadcast bridge. Take
+  // whichever wake-up comes first.
   let soonestGap = null;
   const consider = (gapGameMin) => {
     if (gapGameMin > MIN_GAP_MIN && (soonestGap === null || gapGameMin < soonestGap)) soonestGap = gapGameMin;
@@ -555,16 +402,9 @@ function getNextShiftWakeMs(entity) {
     }
   }
 
-  // Minutes until this NPC is next due on air (0 = on shift right now, null = staffed on
-  // nothing that airs). Sync + in-memory by the bridge's contract, safe on this path.
-  // A STUDIO CALL IS NOT MEASURED IN THE SAME CURRENCY AS A COUNTER SHIFT. The vendor
-  // lead above is one GAME hour, which is fine because a shop's opening time is a game
-  // clock fact. An air call is not: the broadcast plugin books its cast in REAL minutes
-  // (the walk is real — one hop per 15s tick), so at any brisk timeScale a flat 60 game
-  // minutes shrinks to fewer real minutes than the call lead itself and the host wakes
-  // up already late for a call that opened before their alarm. Convert the real lead
-  // into game minutes at the live clock and take whichever is longer, so this can only
-  // ever wake somebody earlier, never later.
+  // Minutes until next due on air (0 = now, null = never); sync and in-memory per the bridge contract.
+  // Air calls are booked in REAL minutes, so convert the real lead to game minutes and take the
+  // longer: this can only wake somebody earlier.
   const airGap = npcNextShiftInMins(entity.id);
   if (airGap != null) {
     const airLeadMin = Math.max(WAKE_LEAD_MIN, STUDIO_CALL_LEAD_REAL_MIN * (env.timeScale || 1));
@@ -578,26 +418,10 @@ function getNextShiftWakeMs(entity) {
   return realDeadline(gap);
 }
 
-// ── Sleep, and being dragged out of it ────────────────────────────────────────
-//
-// `ai.homeSleeping` is the one flag that means "this NPC is unconscious in their
-// own bed". AT_HOME_LIFE sets it; everything that DISTURBS a sleeper goes through
-// disturbSleeper() below, so the roll, the wake-up state and the flavour can't
-// drift apart across the half-dozen verbs that can reach a sleeping body.
-//
-// Two things shape the design:
-//   • A sleeper is not a light switch. Talking at someone who is out is usually
-//     an anticlimax — they mumble and stay under — and it says so, so the player
-//     knows the interaction happened and failed rather than doing nothing.
-//   • Persistence works. Each disturbance makes the next one likelier to land,
-//     so nobody is trapped rolling `talk` at a snoring body forever.
+// Sleep: see docs/ai-behaviour.md#sleeping-npcs-and-waking-them
+// Everything that disturbs a sleeper goes through disturbSleeper().
 
-// How long an NPC stays up doing home things before bed is even a consideration,
-// and the longest stretch they'll sleep for. Both in GAME minutes: an NPC who
-// walks in the door and immediately lies down never has a home life, and one who
-// turns in at four in the afternoon because their shift is tomorrow reads as
-// broken. Between them these carve the evening into a waking half and a sleeping
-// half, which is the entire point.
+// Game minutes: waking home life before bed is considered, and the longest sleep.
 const HOME_LIFE_MIN_MINS = 90;
 const MAX_SLEEP_MINS     = 9 * 60;
 // Grace after being woken, so a player who wakes someone gets to talk to them
@@ -628,9 +452,7 @@ export function isNpcAsleep(entity) {
   return !!entity?._ai?.homeSleeping;
 }
 
-// Odds the sleeper stays under. A skinful or a downer makes someone very hard to
-// shift; a stimulant means they were barely asleep to begin with. Repeated
-// disturbance wears it down, which is what stops this being a locked door.
+// Odds the sleeper stays under; repeated disturbance wears it down.
 function stayAsleepChance(entity) {
   const ai = entity._ai || {};
   const dose = ai.dose;
@@ -642,13 +464,8 @@ function stayAsleepChance(entity) {
 }
 
 /**
- * Someone has interacted with a sleeping NPC.
- *
- * Returns null when the NPC isn't asleep (callers carry on as normal), otherwise
- * `{ woke, mood, message }` — `message` is already broadcast to the room; it is
- * returned so a verb can also answer the actor with it.
- *
- * `force` skips the roll: being hit wakes you up, no dice involved.
+ * Someone interacted with a sleeping NPC. Null if not asleep, else { woke, mood, message };
+ * message is already broadcast to the room. `force` skips the roll.
  */
 export function disturbSleeper(entity, { broadcast = null, force = false } = {}) {
   if (!isNpcAsleep(entity)) return null;
@@ -682,10 +499,7 @@ function pickLine(pool, name) {
   return pool[Math.floor(Math.random() * pool.length)](name);
 }
 
-// The state half of waking up, shared by disturbSleeper and AT_HOME_LIFE's own
-// scheduled wake. Clears the sleep, stands the body up, restarts the graph from
-// _start, and holds the NPC awake for a while so they don't drop straight back
-// down on the next tick.
+// The state half of waking, shared with AT_HOME_LIFE's scheduled wake. Holds them awake a while.
 export function wakeNpc(entity, { mood = null } = {}) {
   const ai = entity._ai;
   if (!ai) return;
@@ -701,50 +515,27 @@ export function wakeNpc(entity, { mood = null } = {}) {
   try { forceStand(entity, 'woken'); } catch { /* posture best-effort */ }
 }
 
-// An assault always wakes the victim — no roll. Lives here rather than in
-// panic.js because this module owns the sleep flag, and panic.js deliberately
-// skips sleepers when it picks WITNESSES (a different question entirely).
+// An assault always wakes the victim. Lives here because this module owns the sleep flag.
 on('npc.attacked', ({ npc }) => {
   try { if (isNpcAsleep(npc)) wakeNpc(npc, { mood: 'annoyed' }); }
   catch (e) { console.error('[ai] wake-on-attack:', e.message); }
 });
 
-// Format a chitchat line the same way as enemy battlecries:
-//   "quoted text"  → yellow say bubble    e.g. "You need something?"
-//   unquoted text  → zone_event emote      e.g. drums fingers on the counter.
-// A "says" line is ONLY a line that is a single quoted span end-to-end. A line
-// with an action verb outside the quote — `mutters: "..."`, or the over-quoted
-// `"mutters: "...""` — is an emote (`Name mutters: "..."`), not a says-bubble.
+// A line that's one quoted span end to end is a say bubble; anything else (including
+// `mutters: "..."`) is an emote.
 export function formatChitchat(name, line) {
   const t = line.trim();
   const wrapped = t.length >= 2 && t.startsWith('"') && t.endsWith('"');
   if (wrapped && !t.slice(1, -1).includes('"')) {
     return { type: 'output', message: `<span class="speech-line">${name} says, ${t}</span>` };
   }
-  // Emote: prepend the name, VERBATIM.
-  //
-  // This used to strip an outer quote pair here, to tidy an "over-quoted action
-  // line" — but the branch above already returns for every line that is a plain
-  // quoted speech line, so the only way to reach this code WITH `wrapped` true is
-  // a line that also contains quotes inside. That is not an over-quoted action,
-  // it is a MIXED line: speech, a beat of action, speech again —
-  //
-  //   "Don't — " He stops himself, visibly, with effort. "Don't stack them face down."
-  //
-  // Stripping its outer pair deleted the opening quote and left the closing one,
-  // which inverts the client's quote colouring for the whole rest of the line and
-  // every line after it. The strip was unreachable in the case it was written for
-  // and wrong in the only case it could actually run.
+  // Emote: prepend the name VERBATIM. Never strip an outer quote pair: a mixed speech/action/speech
+  // line would lose its opening quote and invert the client's quote colouring.
   return { type: 'zone_event', message: `${name} ${t}` };
 }
 
-// Whether an NPC is currently ON THE CLOCK at their workplace — the gate that
-// decides work vs. life chitchat (and is exported for behaviours like the stripper
-// dance). Per the design: "in the work zone AND on shift", no exceptions.
-//   • Studio/broadcast actors: standing in their studio zone AND in an active slot.
-//   • Vendors: at their (immobile) stall during their open hours.
-//   • Anyone with an explicit work_zone_id: standing in it during open hours.
-//   • Everyone else has no workplace → never "at work" (always life chitchat).
+// On the clock at the workplace: in the work zone AND on shift (exported). Studio actors in an active
+// slot, vendors at their stall in hours, work_zone_id holders in hours; everyone else never.
 export function isNpcAtWork(entity) {
   if (!entity || isEnemy(entity)) return false;
   const hereId = entityZone(entity);
@@ -758,33 +549,15 @@ export function isNpcAtWork(entity) {
 }
 
 function pickChitchatLine(entity, mode) {
-  // Work vs. life pool, chosen by the NPC's current on-shift state unless a caller
-  // forces a mode. NPC's own override wins, else the archetype default (getNpcChitchat).
-  // Enemies have no personality archetype, so this falls through to their own
-  // chitchat array or null.
+  // Work or life pool by on-shift state unless forced. NPC override, else archetype; enemies use their own or null.
   const m = mode || (isNpcAtWork(entity) ? 'work' : 'life');
   const lines = getNpcChitchat(entity, m) || (Array.isArray(entity.chitchat) ? entity.chitchat : []);
   if (lines.length) return pickFresh(entity, lines, m);
   return null; // SAY case falls back to the literal smoking line when this returns null
 }
 
-// ── A BAG, NOT A DIE ──────────────────────────────────────────────────────────
-// A uniform random pick over five lines repeats one about every other draw, and
-// the player is standing in the room for all of them — so the character reads as
-// a machine with five buttons rather than as somebody with things on their mind.
-// This is not a content problem and cannot be fixed by writing more lines: at any
-// pool size, an independent roll will say the same thing twice in a row.
-//
-// So a line that has just been said is removed from the pool until most of the
-// rest have had a turn. Deliberately MOST and not all: exhausting the whole bag
-// before resetting turns the pool into a fixed cycle, which a player standing
-// there long enough will hear as a loop — the one thing more mechanical than a
-// repeat.
-//
-// Held in a WeakMap keyed by the entity rather than on the blackboard, because
-// enemies say lines too and never get one; it costs no schema, survives no
-// restart (correct — an NPC forgetting what they said last night is right), and
-// releases with the entity.
+// A bag, not a die: a line just said leaves the pool until MOST of the rest have had a turn (all would
+// make a loop). WeakMap keyed by entity: enemies talk too, it needs no schema, and it forgets on restart.
 const RECENT_FRACTION = 0.6;
 const recentLines = new WeakMap();     // entity -> { [mode]: [line, …] }
 export function pickFresh(entity, lines, key = 'line') {
@@ -804,8 +577,6 @@ export function pickFresh(entity, lines, key = 'line') {
   while (used.length > cap) used.shift();
   return pick;
 }
-
-// ── Blackboard ────────────────────────────────────────────────────────────────
 
 export function initBlackboard() {
   return {
@@ -834,8 +605,6 @@ export function initBlackboard() {
   };
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function entityZone(entity) {
   return entity.zoneId ?? entity.zone_id;
 }
@@ -844,37 +613,9 @@ function isEnemy(entity) {
   return entity.instanceId != null;
 }
 
-// May a hostile stand here? DESTINATION-ONLY, and that is not an accident: if this
-// also inspected where the mob is coming FROM, anything that ever ended up inside a
-// sanctuary (spawned before the tag, dropped there by a dev tool) could never leave
-// again. Walking out is always allowed.
-//
-// The three rules are separate on purpose:
-//   sanctuary   — already means "no hostile spawns, safe sleep, combat protection".
-//                 A mob walking in breaks the same promise by a different verb.
-//                 Blocking it is a bug fix, not a new rule.
-//   no_spawn    — the weaker, author-painted version of the same statement.
-//   enemy_barrier — the explicit "mobs stop here" paint. Deliberately NOT a blanket
-//                 cross-district check: districtFor falls back to `residential` for
-//                 any unclassified tile, so a blanket rule would freeze mobs at
-//                 arbitrary boundaries all over the map. This is also the runtime
-//                 backstop the Curtain has never had — today it holds only because
-//                 no exit link crosses it, which one mis-authored exit would undo.
-// The one exemption: a mob may ALWAYS return to where it came from. A tile can't
-// be off-limits to a creature that originated there, and without this an enemy
-// whose origin got tagged (or whose plugin spawns it somewhere protected) could
-// never go home — which for the emergency plugin's Arbiters, who despawn by
-// walking home via GO_HOME, would leak instances forever.
-// The law does not apply to the law. Sanctuary means "safe from the wilds and
-// from violence" — but SPECTER-PD is the institution that makes a room safe, and
-// being arrested in a public safe zone is exactly what should happen there. Without
-// this, ducking into any sanctuary stalled a manhunt permanently: huntStep calls
-// moveEntity directly and does not re-route on a refusal, so the unit would stand
-// at the threshold forever while the suspect sat inside.
-//
-// `flags.hunter` rather than the faction alone, because spawnHunter stamps it on
-// every tier of a manhunt — including the ★5 Arbiters, whose template carries no
-// faction at all. Wildlife, the Choir and the Ascendants stay bound by the law.
+// May a hostile stand here? Destination-only, so anything inside a sanctuary can always walk out.
+// A mob may always return to its origin (Arbiters despawn by walking home), and flags.hunter is exempt
+// (huntStep doesn't re-route on a refusal). See docs/ai-behaviour.md#the-destination-law--sanctuary-no_spawn-enemy_barrier
 function isEnforcement(entity) {
   return !!entity?.flags?.hunter || entity?.faction === 'police';
 }
@@ -888,16 +629,11 @@ function enemyMayEnter(to, entity) {
   return true;
 }
 
-// Entity pathing over the zone graph. NPCs walk the road grid (roads-preferring search) so
-// they commute/patrol along streets instead of cutting through buildings; enemies keep the
-// direct BFS line — a chase shouldn't take the scenic route. Falls through to plain BFS when
-// the entity is unknown. Shadows the raw findPath import for every AI call site below.
+// NPCs path along roads; enemies take the direct BFS line. Shadows the raw findPath import below.
 function findPath(fromId, toId, entity) {
   if (entity && !isEnemy(entity)) return findPathRaw(fromId, toId, { roads: true });
-  // Route around tiles this mob has already been refused (sanctuary, no_spawn, a
-  // barrier). `avoid` never excludes the target itself, so a waypoint that IS a
-  // forbidden tile still resolves a path and simply fails at the last step —
-  // which is the honest outcome for a badly authored route.
+  // Route round tiles this mob was refused. `avoid` never excludes the target, so a forbidden waypoint
+  // fails at the last step.
   const avoid = entity?._ai?._leashAvoid;
   return findPathRaw(fromId, toId, avoid?.size ? { avoid } : {});
 }
@@ -924,39 +660,24 @@ function pickUnobservedZoneNear(studioZone, entity) {
     cands.push([zid, dist]);
   }
   if (!cands.length) return null;
-  // Bias to the CLOSEST unobserved zones: with zero lead time (the show goes to air the moment
-  // the guest starts walking), a distant origin left it still commuting when the interview began,
-  // breaking the segment to technical difficulties. Pick randomly among the nearest few.
+  // Prefer the nearest unobserved zones: the show airs the moment the guest starts walking.
   cands.sort((a, b) => a[1] - b[1]);
   const nearest = cands.slice(0, Math.min(3, cands.length));
   return nearest[Math.floor(Math.random() * nearest.length)][0];
 }
 
-// Returns true if the move succeeded, false if blocked (locked door, or a
-// failed break-away from a player who's actively attacking).
-//
-// `opts.deliberateFlee` marks a move the FLEE node asked for, which is the only
-// kind that announces a failed break-away — see the gate below.
+// True if moved, false if blocked. `opts.deliberateFlee` (FLEE only) announces a failed break-away.
 export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
   const oldZoneId = entityZone(entity);
   if (oldZoneId === newZoneId) return true;
 
-  // ── Contested break-away ────────────────────────────────────────────────────
-  // A mob can't walk out of a fight a player is pressing without passing the
-  // same contested roll the player has to. This lives HERE rather than in the
-  // FLEE node because moveEntity is the single writer for every mob tile change:
-  // gating only FLEE would leave ROAM, PATROL, and the commute paths free to
-  // stroll a wounded enemy out of the room mid-swing.
+  // Contested break-away lives here because moveEntity is the single writer of mob tile changes.
   const pressed = pressingAttacker(entity);
   if (pressed) {
-    // One attempt per attack cycle, not per AI tick — otherwise a roaming mob
-    // rerolls several times a second.
     if (Date.now() < (entity._fleeNextAt || 0)) return false;
     entity._fleeNextAt = Date.now() + FLEE_RETRY_MS;
     if (!mobFleeRoll(entity, pressed.hit)) {
-      // Only a DELIBERATE flee announces itself. An incidental roam/patrol step
-      // that bounces off this gate stays silent — otherwise a mob you're fighting
-      // spams the room every time its wander timer comes up.
+      // Only a deliberate flee announces a failure; incidental roam steps stay silent.
       if (opts.deliberateFlee) {
         broadcast(oldZoneId, { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} scrabbles for a way out but can't break away!</span>` });
       }
@@ -964,16 +685,9 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     }
   }
 
-  // ── Enemy destination law ───────────────────────────────────────────────────
-  // A hostile may not walk into a place the world has already declared off-limits
-  // to hostiles. Sanctuary and no_spawn have gated SPAWNING since they existed —
-  // they never gated WALKING, so a mob could stroll into the one square the rules
-  // promised was safe. moveEntity is the single writer for every mob tile change,
-  // so this is the only place the law can't be routed around.
+  // Enemy destination law, here for the same single-writer reason.
   if (isEnemy(entity) && !enemyMayEnter(getZone(newZoneId), entity)) {
-    // Remember the refusal so PATROL stops re-routing through it. Without this,
-    // findPath happily plots a course through a sanctuary, bounces off this line,
-    // clears its path and recomputes the identical route — a BFS loop at 1 Hz.
+    // Remember the refusal, or PATROL re-plots the same route through it every tick.
     const ai = entity._ai;
     if (ai) {
       (ai._leashAvoid || (ai._leashAvoid = new Set())).add(newZoneId);
@@ -982,24 +696,13 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     return false;
   }
 
-  // Facade pass-through (mirrors cmdMove's revolving door): NPCs/enemies never
-  // stand on an enterable facade either — entering forwards to the interior
-  // entry zone, exiting lands on the front-door street tile. The front door's
-  // lock is checked HERE because after the swap the generic pair-lookup below
-  // can't see it (there's no direct exit between origin and final zone).
-  // Pathfinding self-heals: the path's next node after the facade is the entry
-  // zone, which the entity now already occupies — a no-op step.
-  // Set when the facade swap below rewrites the destination — the one legitimate
-  // way an entity lands somewhere with no direct exit from where it started, and
-  // therefore the one case the adjacency law after it must not refuse.
+  // Facade pass-through (mirrors cmdMove): entering forwards to the interior entry, exiting lands on the
+  // street. The front-door lock is checked here because after the swap the pair lookup can't see it.
+  // Set when the swap rewrites the destination: the one case the adjacency law must not refuse.
   let forwarded = false;
 
-  // A destination one step PAST a facade. A player who walks into a building steps
-  // onto the facade and is forwarded to the interior entry, so the room they ended
-  // in isn't adjacent to the one they left — and anything following them (an
-  // escortee) names that end room. Retarget to the facade itself so the swap below
-  // does the forwarding, front-door lock and all; jumping straight to the interior
-  // would skip the lock, and the adjacency law would refuse it anyway.
+  // A destination one step past a facade (an escortee following a player in): retarget to the facade
+  // so the swap forwards it, lock and all.
   if (!exitDirection(oldZoneId, newZoneId)) {
     for (const t of neighborZoneIds(getZone(oldZoneId))) {
       const z = getZone(t);
@@ -1015,31 +718,16 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     const fromInside = getZone(oldZoneId)?.map_id === interior.id;
     const finalId = fromInside ? facadeZone.flags?.world_exit_zone : interior.entry_zone_id;
     if (finalId && finalId !== oldZoneId && getZone(finalId)) {
-      // Was a hardcoded 'in'/'out' lookup, which only ever matched legacy buildings —
-      // the 52 whose facade↔interior seam is labelled with a cardinal had NO front door
-      // as far as this check was concerned, so a locked shop never stopped an NPC or a
-      // chasing enemy. frontDoorOf reads the actual exit direction.
+      // frontDoorOf reads the real exit direction, not just 'in'/'out'.
       const fd = frontDoorOf(facadeZone);
       if (fd && fd.hp > 0 && fd.lock_state === 'locked') {
         const ownsFrontDoor = !isEnemy(entity) &&
           [entity.home_zone, entity.work_zone_id].some(z => z && (z === oldZoneId || z === finalId || z === facadeZone.id));
-        // ...and the same MAP rule as the ordinary door gate below (see
-        // `residentOfThisBuilding`, whose comment argues it at length): the test
-        // above knows only the two rooms either side of this one doorway, which is
-        // too narrow for anybody whose own room is further in. A Halcyon Towers
-        // resident's home_zone is their flat, not the Grand Lobby the street door
-        // opens into, so the narrow test walls them out of the building they live
-        // in the moment that front door carries a lock — which, now that every
-        // scheduled shopfront does, is a great many more front doors than before.
-        // Same map = same building, which is exactly the question being asked.
-        //
-        // Guarded on the map id being truthy: synthetic regress zones carry no
-        // map_id, and `undefined === undefined` would wave every stranger in.
+        // Same map = same building, so a resident whose room is further in passes the front door.
+        // Guarded on a truthy map_id: regress zones have none, and undefined === undefined admits anyone.
         const belongsHere = !isEnemy(entity) && !!interior?.id &&
           [entity.home_zone, entity.work_zone_id].some(z => z && getZone(z)?.map_id === interior.id);
-        // Same out-not-in rule as the ordinary door gate below: an NPC already
-        // inside the building can always get back out to the street, whether or
-        // not the place belongs to them. Enemies still can't.
+        // Out, not in: an NPC inside can always reach the street. Enemies can't.
         const leavingBuilding = !isEnemy(entity) && fromInside;
         if (!ownsFrontDoor && !belongsHere && !leavingBuilding) return false; // blocked — a locked front door stops NPCs and chasing enemies alike
       }
@@ -1049,23 +737,9 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     }
   }
 
-  // ── Adjacency law ───────────────────────────────────────────────────────────
-  // Every mob step follows a real exit. Nothing that walks intends otherwise —
-  // patrol, commute, flee and roam all consume a findPath route one link at a
-  // time. But a cached route goes STALE the moment something else moves the
-  // entity, and the next shifted node is then somewhere across town. This used to
-  // move them there anyway: a silent jump announcing itself to two unrelated rooms
-  // as a directionless "X leaves." / "X arrives." — the wording is the tell,
-  // because a step along an exit always names the direction. Charter pilots
-  // produced exactly that at ~1 Hz while charter.js and their own graph fought
-  // over where they stood, and it read to a player as pure spam.
-  //
-  // Refusing the step and dropping the dead route puts the fight in the log
-  // instead of in the room, and the route recomputes from where the entity
-  // actually is on the next tick.
-  //
-  // `opts.teleport` is for the callers that genuinely mean a jump (a consort
-  // summoned to her keeper, the jail shift swap) — they narrate their own arrival.
+  // Adjacency law: every mob step follows a real exit. A stale cached route would jump the entity
+  // across town; refuse and drop the route instead, and it recomputes next tick.
+  // `opts.teleport` is for callers that mean a jump and narrate their own arrival.
   if (!forwarded && !opts.teleport && !exitDirection(oldZoneId, newZoneId)) {
     const ai = entity._ai;
     if (ai) { ai.patrolPath = []; ai.patrolTarget = null; }
@@ -1075,15 +749,11 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
 
   const departDir = exitDirection(oldZoneId, newZoneId);
 
-  // ── Door handling ────────────────────────────────────────────────────────────
   let doorWasClosed = false;
-  // Set once the home-lock or shop lock/unlock steps below have taken charge of
-  // the door, so the generic "close behind them" step doesn't then clobber a
-  // shop the NPC just opened for business or double-announce a home they secured.
+  // Set once the home or shop lock steps take the door, so the generic close step leaves it alone.
   let doorHandled = false;
   if (departDir) {
-    // One link, one fixture, one lookup (spec §6.3). This used to be written out
-    // as a near-then-far dance four times in this file alone.
+    // One link, one fixture, one lookup (spec §6.3).
     const door = doorOnLink(oldZoneId, departDir, newZoneId);
 
     if (door && door.hp > 0) {
@@ -1094,48 +764,13 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
         const ownsThisDoor = !isEnemy(entity) &&
           (entity.home_zone === oldZoneId || entity.home_zone === newZoneId ||
            entity.work_zone_id === oldZoneId || entity.work_zone_id === newZoneId);
-        // A LOCK ON A HOME KEEPS PEOPLE OUT, NOT IN. Ownership answers who may
-        // come IN; anyone standing inside a dwelling may always walk out of it,
-        // because a thumbturn on the inside is how a front door works.
-        //
-        // This is not a nicety. Without it an NPC whose home_zone is reassigned
-        // while their body is left behind — an eviction, a relocation, a housing
-        // rebuild — is sealed in a flat they no longer own. `ownsThisDoor` goes
-        // false, moveEntity returns false, GO_TO_WORK clears its path and returns
-        // RUNNING, and it retries that same blocked hop forever with no error.
-        // Six NPCs (Lowry Cormack, Orion Thale, Prefect Aldous among them) were
-        // found walled into old apartments this way on 2026-08-01, permanently
-        // absent from their own shop counters.
-        //
-        // Keyed on the zone being LEFT being a dwelling, NOT on `door.zone_id`.
-        // The door row's anchor side is not a reliable "protected side": an
-        // apartment door is anchored inside the flat, while the regress hall door
-        // is anchored in the hall with target_zone pointing at the flat. Testing
-        // the anchor let a stranger walk IN through the second kind — which the
-        // "NPC blocked by another's locked door" case caught. The zone's own
-        // nature can't be got backwards. Enemies are excluded: a locked door is
-        // still a wall to something chasing you, from either side.
+        // A lock on a home keeps people out, not in: anyone inside a dwelling may walk out, or a re-housed
+        // NPC is sealed in for good. Keyed on the zone LEFT being a dwelling, never door.zone_id (its
+        // anchor side isn't reliable). Enemies excluded. See docs/ai-behaviour.md#two-ways-a-housing-pass-leaves-someone-permanently-off-work
         const leavingOwnDwelling = !isEnemy(entity) && isDwellingZone(getZone(oldZoneId));
 
-        // ...and a door on the building you LIVE OR WORK IN opens for you, from
-        // anywhere inside it. `ownsThisDoor` only knows the two zones either side
-        // of this one doorway, which is too narrow for a door that isn't right
-        // outside your own room: Halloran sleeps in the Long Watch bunkroom and
-        // runs a shop on the surface, so his commute crosses the bunker's blast
-        // door two rooms from his bed — and that door is `lock:longwatch`, whose
-        // authFn reads a PLAYER's reputation and so can never answer for an NPC.
-        // He was sealed in the safehouse he lives in. Same map = same building,
-        // which is exactly the "you belong on this side" question being asked.
-        //
-        // Checked on BOTH sides — the building being left and the one being
-        // entered. Halloran's commute crosses two of these locks in opposite
-        // directions: out through the bunker blast door in the morning, then back
-        // UP the drain hatch into his own shop's back room. The second is ingress,
-        // and `ownsThisDoor` misses it for the same reason as the first — his
-        // work_zone_id is the shop floor, not the back room the hatch opens into.
-        //
-        // Guarded on the map id being truthy: the synthetic zones in regress carry
-        // no map_id, and `undefined === undefined` would wave every stranger in.
+        // A door on the building you live or work in opens from anywhere inside it (same map = same
+        // building), checked on both sides. Guarded on a truthy map_id, as above.
         const homeMap = getZone(entity.home_zone)?.map_id;
         const workMap = getZone(entity.work_zone_id)?.map_id;
         const belongsTo = (zid) => {
@@ -1156,15 +791,10 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
       }
     }
   }
-  // ────────────────────────────────────────────────────────────────────────────
 
   const arriveDir = exitDirection(newZoneId, oldZoneId);
   const sourceZoneName = getZone(oldZoneId)?.name || 'inside';
-  // Elevator flavour: stepping into or out of a car (flags.elevator) reads as
-  // riding the lift, not "climbs the stairs" (every floor shares the `up`/`in`
-  // exit, so the stairs wording lands wrong). The car is a single zone the NPC
-  // pauses in between graph hops — a trip is two steps, into the car then out on
-  // the destination floor — and each observer sees the doors from their own side.
+  // Elevator flavour: a car is one zone between hops, so a trip is two steps.
   const toCar   = !!getZone(newZoneId)?.flags?.elevator;
   const fromCar = !!getZone(oldZoneId)?.flags?.elevator;
   let departMsg, arriveMsg;
@@ -1209,10 +839,7 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true, _movement: true });
   }
 
-  // Lock the door when an NPC arrives at their home zone — but only if they were
-  // actually OUT. Stepping back out of your own ensuite is not coming home, and
-  // treating it as such bolted the bathroom's privacy lock behind the NPC every
-  // time, quietly making the room unenterable for everyone else.
+  // Lock on arriving home only if they were actually OUT (stepping out of your own ensuite isn't coming home).
   const cameFromOwnSubZone = getZone(oldZoneId)?.parent_zone === entity.home_zone;
   if (!isEnemy(entity) && entity.home_zone && entity.home_zone === newZoneId && departDir
       && !cameFromOwnSubZone) {
@@ -1224,9 +851,7 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
       setDoorCache(homeDoor.id, homeDoor);
       broadcast(newZoneId, { type: 'zone_event', message: `The lock clicks as ${entity.name} secures the door.`, refresh: true });
       doorHandled = true;
-      // Somebody who doesn't live here doesn't get locked in with the householder.
-      // The eviction itself is a plugin's business (ambient-life/eviction.js) — the
-      // engine only reports that a door was secured and which side is indoors.
+      // A non-resident isn't locked in with the householder. Eviction is ambient-life/eviction.js's job.
       emit('npc.lockup', { npc: entity, reason: 'home', insideZoneId: newZoneId, outsideZoneId: oldZoneId, door: homeDoor });
     }
   }
@@ -1269,9 +894,7 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     }
   }
 
-  // Close the door behind them — but only a plain transit door. If the home-lock
-  // or shop steps already took charge (secured home / opened shop / locked shop
-  // up), leave their result alone.
+  // Close the door behind them, unless the home or shop steps already took charge of it.
   if (doorWasClosed && !doorHandled) {
     const door = doorOnLink(oldZoneId, departDir, newZoneId);
     if (door) {
@@ -1338,16 +961,9 @@ function normalizeGraph(graph) {
   return { _start: graph._start, nodes, edges, _normalized: true };
 }
 
-// ── Plugin node registries ────────────────────────────────────────────────────
-// Plugins add behaviour-tree node types without editing the switches below
-// (docs/proposals/engine-plugin-boundary.md, E3). The broadcast plugin's
-// schedule/viewer nodes are the first users.
-//
-// Conditions are SYNC by contract (the evaluator is synchronous — read caches,
-// never the DB): fn(entity, params, { zone, zoneId }) → boolean.
-// Actions may be async: fn(entity, params, ctx) → port-string | 'RUNNING' |
-// undefined (undefined = continue to the node's default next edge). ctx
-// carries { broadcast, query, ai, zone, zoneId, node }.
+// Plugin node registries (engine-plugin-boundary E3). Conditions are SYNC (caches, never the DB):
+// fn(entity, params, { zone, zoneId }) → boolean. Actions may be async: fn(entity, params, ctx) →
+// port | 'RUNNING' | undefined (default next edge); ctx = { broadcast, query, ai, zone, zoneId, node }.
 
 const pluginConditions = new Map();
 const pluginActions = new Map();
@@ -1365,8 +981,6 @@ export function registerAIAction(type, fn) {
 export function getRegisteredAINodes() {
   return { conditions: [...pluginConditions.keys()], actions: [...pluginActions.keys()] };
 }
-
-// ── Condition evaluation ──────────────────────────────────────────────────────
 
 function evalCondition(node, entity) {
   const { condition_type: type, params = {} } = node.data;
@@ -1408,10 +1022,7 @@ function evalCondition(node, entity) {
     }
 
     case 'FACTION_MATCH': {
-      // True if the target player is a member of the org (corp or player-joinable
-      // faction) named by params.faction. Members of NPC factions don't exist in
-      // Phase 0, so this fires for player crews; NPC-faction-vs-player reactions
-      // key off reputation instead (a future async REP condition).
+      // Target is a member of the org named by params.faction (player crews; NPC factions go by rep).
       const target = getLivePlayer(entity.targetId);
       if (!target || !params.faction) return false;
       return getPlayerMembership(target.id)?.org_id === params.faction;
@@ -1448,10 +1059,7 @@ function evalCondition(node, entity) {
     case 'AT_HOME':
       return !!(entity.home_zone && zoneId === entity.home_zone);
 
-    // True while the venue on the tile at (x, y) is lit for its show. It asks the
-    // `venue.lit` sync hook, the same question the flight derive puts for a map
-    // cell, so the engine never names whoever answers. An NPC who goes to the
-    // game sets off when the towers come on and comes home when they go off.
+    // Venue at (x, y) lit for its show, via the sync `venue.lit` hook so the engine never names who answers.
     case 'VENUE_LIT': {
       const x = Number(params.x), y = Number(params.y);
       if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
@@ -1469,8 +1077,6 @@ function evalCondition(node, entity) {
   }
 }
 
-// ── Action execution ──────────────────────────────────────────────────────────
-
 async function execAction(node, entity, ctx) {
   const { broadcast, query } = ctx;
   const { action_type: type, params = {} } = node.data;
@@ -1481,7 +1087,6 @@ async function execAction(node, entity, ctx) {
   switch (type) {
     case 'ATTACK': {
       if (!entity.targetId) break;
-      // Check if target is another enemy instance
       const enemyTarget = entity.flags?.attacks_enemies ? world.enemies.get(entity.targetId) : null;
       if (enemyTarget) {
         if (enemyTarget._dead || (enemyTarget.zoneId !== zoneId && forgetsAbsentTarget(entity))) {
@@ -1500,7 +1105,6 @@ async function execAction(node, entity, ctx) {
         }).catch(() => {});
         break;
       }
-      // Check if target is an NPC (when attacks_npcs flag is set)
       const npcTarget = entity.flags?.attacks_npcs ? world.npcs.get(entity.targetId) : null;
       if (npcTarget) {
         if (npcTarget._dead || (npcTarget.zone_id !== zoneId && forgetsAbsentTarget(entity))) {
@@ -1542,9 +1146,7 @@ async function execAction(node, entity, ctx) {
         if (!result) return;
         if (result.hit) {
           target.hp = Math.max(0, target.hp - result.damage);
-          // Coalesced into the 1s flushDirtyResources batch like every other hp change. This was a
-          // fire-and-forget UPDATE per landed hit, on the path every aggressive enemy takes, and
-          // unordered writes could land a stale hp after a newer one.
+          // Coalesced into the 1s flushDirtyResources batch; a per-hit UPDATE could land a stale hp.
           target._resDirty = true;
           broadcast(null, { type: 'combat_incoming', message: result.message, player_update: { hp: target.hp, hp_max: target.hp_max } }, null, target.id);
           if (target.hp <= 0) {
@@ -1649,18 +1251,12 @@ async function execAction(node, entity, ctx) {
       const exits = neighborZoneIds(zone);
       if (!exits.length) break;
 
-      // When a PLAYER is pressing the attack, moveEntity owns the contest (it
-      // gates every mob tile-exit, so ROAM and PATROL can't sneak out either) —
-      // rolling here too would make the mob pass two checks for one escape.
-      // Without one, fall back to the flat break-contact check that covers
-      // mob-vs-mob and fleeing an aggro it can't reach.
+      // With a player pressing, moveEntity owns the contest (one check per escape); otherwise the flat check.
       if (!pressingAttacker(entity)) {
-        // One break-away attempt per attack cycle — not once per AI tick.
         if (Date.now() < ai._fleeNextAt) break;
         ai._fleeNextAt = Date.now() + FLEE_RETRY_MS;
 
-        // Roll to actually break contact. Weak enemies routinely fail and stay
-        // cornered (keeping aggro so they re-try next tick); tough ones get away.
+        // A failure keeps aggro and retries next cycle.
         const fleeSkill = Number(entity.flags?.flee_skill ?? entity.dodge ?? 1);
         if (fleeSkill + (d8() + d8()) - (d8() + d8()) < FLEE_DIFFICULTY) {
           broadcast(zone.id, { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} scrabbles for a way out but can't break away!</span>` });
@@ -1668,50 +1264,28 @@ async function execAction(node, entity, ctx) {
         }
       }
 
-      // Move to any adjacent zone that doesn't contain the target
       const safeExits = exits.filter(z => z !== targetZoneId);
       const dest = safeExits.length
         ? safeExits[Math.floor(Math.random() * safeExits.length)]
         : exits[Math.floor(Math.random() * exits.length)];
 
-      // deliberateFlee: this is the one mob move that announces a failed
-      // break-away — an incidental roam step bouncing off the gate stays silent.
       const moved = moveEntity(entity, dest, broadcast, query, { deliberateFlee: true });
       if (!moved) break; // locked door, or the contest went against it — stay put
-      // Clear target after fleeing
       entity.targetId = null;
       entity.aggroedAt = null;
       break;
     }
 
-    // CHASE: follow the current target between zones, bounded by the leash.
-    // Sits between HAS_TARGET and ATTACK in the graph. Opt-in: a creature without
-    // this node forgets you the moment you step out, which is how every enemy
-    // behaved before pursuit existed.
-    // Params: none — pacing is flags.chase_speed_s, range is flags.leash_radius.
-    // CHASE: follow a quarry between zones, bounded by the leash.
-    //
-    // Params (all optional):
-    //   quarry     'target' (default) — follow entity.targetId
-    //              'flag'             — follow the player id in entity.flags[flag]
-    //   flag       which flag holds the quarry id in 'flag' mode ('suspect_id')
-    //   wander_pct 0..1 chance of stepping somewhere random instead of pathing
-    //
-    // The two modes exist because FOLLOWING and FIGHTING are different concerns,
-    // and only for wildlife do they coincide. A manhunt unit under ~4 stars must
-    // arrive and DETAIN rather than kill, so it is deliberately given no targetId
-    // (targetId is what makes the graph swing) — it is chasing somebody it is
-    // explicitly not targeting. Before this, that forced the police to carry their
-    // own duplicate pursuit loop.
+    // CHASE: follow a quarry between zones, bounded by the leash. Opt-in.
+    // Params: quarry 'target' (targetId) | 'flag' (player id in flags[flag], default 'suspect_id'); wander_pct 0..1.
+    // Flag mode lets a manhunt follow without a targetId, since it must detain rather than kill.
     case 'CHASE': {
       if (!ai) break;
       const hunting = params.quarry === 'flag';
       const quarryId = hunting ? entity.flags?.[params.flag || 'suspect_id'] : entity.targetId;
       if (!quarryId) break;
 
-      // Only a combat chase drops the target when it ends. In flag mode the
-      // quarry id belongs to whoever set the flag, and clearing it here would
-      // stamp on their state.
+      // Only a combat chase drops the target; in flag mode the quarry id belongs to whoever set it.
       const giveUp = () => {
         if (!hunting) entity.targetId = null;
         ai.chasePath = []; ai._chaseSince = 0;
@@ -1720,22 +1294,15 @@ async function execAction(node, entity, ctx) {
       const targetZone = quarryZone(quarryId);
       // Quarry dead, logged out, or otherwise gone.
       if (!targetZone) { giveUp(); break; }
-      // Already on it — do nothing and let the rest of the graph run this same
-      // tick. This is the overwhelmingly common case and it must cost nothing.
+      // Already there: the common case, and it must cost nothing.
       if (targetZone === zoneId) { ai._chaseSince = 0; ai.chasePath = []; break; }
 
       const nowMs = Date.now();
       if (!ai._chaseSince) ai._chaseSince = nowMs;
-      // Give up in TIME as well as space, so a predator can't shadow someone
-      // around inside its own radius forever. NOT applied to a hunt: a manhunt is
-      // supposed to be relentless, and its lifecycle is owned by whatever declared
-      // it (heat decay, an arrest, a despawn) rather than by a stopwatch here.
+      // Give up in time too. Not for a hunt: whatever declared it owns its lifecycle.
       if (!hunting && nowMs - ai._chaseSince > CHASE_TIMEOUT_MS) { giveUp(); break; }
 
-      // Give up in SPACE: the leash radius is the pursuit range. One knob sets both
-      // how far a thing wanders and how far it follows — a territorial mob with a
-      // short leash defends a small patch and abandons the chase almost at once,
-      // and a leash_radius of -1 pursues across the map.
+      // Give up in space: leash_radius is also the pursuit range (-1 pursues across the map).
       const radius = leashRadius(entity);
       if (radius >= 0 && entity.spawnZoneId && distanceFromSpawn(entity, targetZone) > radius) {
         giveUp(); break;
@@ -1745,8 +1312,7 @@ async function execAction(node, entity, ctx) {
       ai._chaseNextAt = nowMs + chaseIntervalMs(entity);
 
       const curZone = world.zones.get(zoneId);
-      // The imprecision of a search. A hunt that walks the shortest path every
-      // single step reads as a cursor snapping to you rather than somebody looking.
+      // A search shouldn't snap to the quarry like a cursor.
       const wander = Number(params.wander_pct) || 0;
       if (wander > 0 && Math.random() < wander) {
         const nbrs = neighborZoneIds(curZone);
@@ -1757,8 +1323,7 @@ async function execAction(node, entity, ctx) {
         break;
       }
 
-      // Fast path: the quarry is next door. This is the common case in a running
-      // chase and it takes no BFS at all.
+      // Fast path: quarry next door, no BFS.
       if (curZone && neighborZoneIds(curZone).includes(targetZone)) {
         ai.chasePath = [];
         moveEntity(entity, targetZone, broadcast, query);
@@ -1769,9 +1334,7 @@ async function execAction(node, entity, ctx) {
         ai.chaseTarget = targetZone;
         const path = findPath(zoneId, targetZone, entity);
         ai.chasePath = path ? path.slice(1) : [];
-        // Unreachable (no route, or every route runs through somewhere it may not
-        // go). A predator gives up; a hunt keeps casting about, because the map
-        // changes and the suspect moves.
+        // Unreachable: a predator gives up; a hunt keeps casting about.
         if (!ai.chasePath.length) {
           if (!hunting) { giveUp(); break; }
           const nbrs = neighborZoneIds(curZone);
@@ -1809,9 +1372,7 @@ async function execAction(node, entity, ctx) {
         break;
       }
 
-      // No target — step to a random adjacent zone, but not off its patch. Inside
-      // the leash it wanders freely; outside, only steps that bring it back are on
-      // the table, so it walks home along the grid gradient.
+      // No target: step to a random neighbour within the leash; outside it, only steps toward home.
       const exits = leashCandidates(entity, zoneId, neighborZoneIds(curZone));
       if (exits.length) {
         const dest = exits[Math.floor(Math.random() * exits.length)];
@@ -1891,14 +1452,7 @@ async function execAction(node, entity, ctx) {
     case 'IDLE':
       break;
 
-    // GO_TO_STUDIO IS GO_TO_WORK WITH THE STUDIO PREFERRED. It used to be a separate
-    // hand-rolled walker fifteen lines further down, and it was strictly the worse one:
-    // one tile per 15s tick instead of four, no blocked-commute warning, no late-arrival
-    // catch-up, and a silent `return 'RUNNING'` forever when no path existed. It is
-    // offered in the VINE editor next to GO_TO_WORK with nothing to tell an author they
-    // are picking the crippled one — and a cast walking at a quarter speed blows through
-    // a call lead sized for the real walk. Same body, one difference: the studio wins the
-    // zone lookup, since that's the whole reason an author reached for this verb.
+    // GO_TO_STUDIO is GO_TO_WORK with the studio winning the zone lookup.
     case 'GO_TO_STUDIO':
     case 'GO_TO_WORK': {
       if (!ai) break;
@@ -1920,31 +1474,17 @@ async function execAction(node, entity, ctx) {
         if (!path || path.length < 2) return 'RUNNING'; // unreachable — hold and retry
         const env = getEnvironmentState();
         const { minutes, timeScale } = env;
-        // How long the walk actually takes, in the GAME-minutes the schedule is
-        // written in. The old form assumed one tile per game-minute, which was
-        // never true and is 16x off now — a worker three tiles from their shop
-        // was holding for three minutes to make a walk of about eleven seconds.
+        // Walk time in the GAME-minutes the schedule is written in.
         const tiles = path.length - 1;
         const travelMinutes = Math.max(1, Math.ceil((tiles / COMMUTE_TILES_PER_REAL_MIN) * (timeScale || 1)));
-        // Buffer so they're early rather than late: half the trip again, never
-        // less than 5 game-minutes. A long cross-town commute gets proportionally
-        // more slack, which is where a blocked door or a detour actually costs.
+        // Buffer: half the trip again, at least 5 game-minutes.
         const buffer = Math.max(5, Math.ceil(travelMinutes * 0.5));
         const arriveAtMinutes = ((arrive_by * 60) - depart_early_minutes + 1440) % 1440;
         const minutesUntilArrival = (arriveAtMinutes - minutes + 1440) % 1440;
 
-        // ── Late-arrival catch-up ────────────────────────────────────────────
-        // The window above is a forward countdown on a 24h ring, so an NPC who
-        // MISSED their arrival reads as ~1439 minutes early and holds until
-        // tomorrow — they'd sit at home through the entire shift they were late
-        // for. Anything that eats the window causes this: a locked front door, a
-        // path that opened late, a server restart mid-morning, a dev clock jump.
-        //
-        // "Are they late?" is not answered with a grace constant, because the
-        // game already knows: their own schedule says whether they should be
-        // standing at work RIGHT NOW. Ask that first, and only fall back to a
-        // window for NPCs carrying bare arrive_by params with no schedule behind
-        // them (nothing else can speak for those).
+        // Late-arrival catch-up: the window is a countdown on a 24h ring, so a missed arrival reads as
+        // ~1439 minutes early. Ask the schedule whether they should be at work NOW; the grace window is
+        // only for bare arrive_by params.
         const lateBy = (minutes - arriveAtMinutes + 1440) % 1440;
         const shiftSaysWorkNow = isNpcScheduledNow(entity.id) ||
           (entity.vendor_schedule ? isVendorWorkTime(entity, env).working : false);
@@ -1957,9 +1497,7 @@ async function execAction(node, entity, ctx) {
         if (!late && minutesUntilArrival > travelMinutes + buffer) return 'RUNNING';
       }
 
-      // Time to commute — walk toward destination. Cover several zones per wander
-      // tick (a brisk commute) rather than one-zone-per-game-minute, so a worker
-      // far from their shop isn't stuck crossing town for half the day.
+      // Commute: several zones per wander tick.
       if (!ai.patrolPath.length || ai.patrolTarget !== workZone) {
         const path = findPath(zoneId, workZone, entity);
         if (!path || path.length < 2) { warnCommuteBlocked(entity, zoneId, workZone, 'no path'); return 'RUNNING'; }
@@ -2035,18 +1573,13 @@ async function execAction(node, entity, ctx) {
     case 'EMOTE': {
       const msg = params.message || '';
       if (!msg) break;
-      // Emit the same shape as every other emote (formatChitchat, home-life) so
-      // it renders in the shared dim-italic .msg-zone-event colour — not a
-      // one-off inline yellow that made VINE emotes stand out from the rest.
+      // Same shape as every other emote, so it renders in the shared .msg-zone-event colour.
       broadcast(zoneId, { type: 'zone_event', message: `${entity.name} ${msg}` });
       break;
     }
 
-    // SIT: sit down on a named piece of furniture in this room, matched by its
-    // name or one of its aliases. It goes through the posture substrate, the same
-    // fields a seated player has, and the room text reads them to show the seat
-    // as taken. Running it again on the seat they're already in does nothing, so a
-    // graph can pass through it every lap; `message` is emoted on sitting down.
+    // SIT: sit on named furniture (name or alias) through the posture substrate. Idempotent, so a graph
+    // can pass through it every lap; `message` is emoted on sitting down.
     case 'SIT': {
       const want = String(params.furniture || '').trim().toLowerCase();
       if (!want || !zoneId) break;
@@ -2078,12 +1611,7 @@ async function execAction(node, entity, ctx) {
         ai._lifeActivity = null; // clear so next off-schedule period re-rolls
         break;
       }
-      // Studio actors off-shift never linger in the building: if still inside
-      // the studio (same interior map as their studio zone), walk out to the
-      // exterior world tile first, one step per tick, before any random life
-      // activity begins. Once outside, this block is skipped and the normal
-      // wander below takes over. Studio zone resolves via the broadcast bridge
-      // (same lookup CHECK_WORK/AT_WORK use); non-studio NPCs skip it entirely.
+      // Off-shift studio actors walk out of the studio building first, one step per tick.
       const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
       if (studioZone) {
         const sz = world.zones.get(studioZone);
@@ -2138,26 +1666,10 @@ async function execAction(node, entity, ctx) {
           if (hauntZone && Math.random() < 0.7) {
             ai.patrolTarget = hauntZone;
           } else {
-            // WHERE a wander goes is the whole difference between a city with
-            // people in it and a city people walk out of.
-            //
-            // This picked uniformly from every exterior world tile. The regions
-            // sit in DISJOINT blocks of one shared grid (Coldwater x863..955,
-            // Deadwater x726..818, the Scarletwastes x1000..1092), so roughly two
-            // thirds of every roll sent a Coldwater shopkeeper to another region.
-            // At one step per 15s tick that is a walk of hours: the NPC left the
-            // neighbourhood, never arrived anywhere a player was, and never came
-            // back inside a session. Wandering read as the city quietly emptying
-            // out, which is what it was.
-            //
-            // So a destination is drawn from within reach of where they already
-            // are. Because the regions are disjoint on that one grid, a plain
-            // radius is ALSO a region check, and needs no second source of truth.
+            // Draw destinations near where they stand: docs/ai-behaviour.md#a-wander-has-to-come-back
             const anchor = getZone(zoneId) || getZone(entity.home_zone);
             const ax = anchor?.grid_x, ay = anchor?.grid_y;
-            // Most trips are around the block; occasionally somebody crosses town.
-            // Without that second band every NPC is on a short leash, which reads
-            // as its own kind of wrong.
+            // Mostly around the block; occasionally across town.
             const radius = Math.random() < WANDER_FAR_CHANCE ? WANDER_FAR_R : WANDER_NEAR_R;
             const near = [];
             const anywhere = [];   // eligible ignoring distance, the fallback
@@ -2169,16 +1681,13 @@ async function execAction(node, entity, ctx) {
               // wanderer in the lobby with zoneId === patrolTarget never true
               // (walking through one mid-path is fine and self-heals).
               if (isEnterableFacade(sz)) continue;
-              // Inferred danger. (The old set included 'very_high'/'extreme',
-              // values that never existed, so lethal zones were never avoided.)
+              // Inferred danger.
               if (safeOnly ? !isSanctuary(sz) : DANGER_RANK[zoneDanger(sz)] >= DANGER_RANK.high) continue;
               anywhere.push(sid);
               if (Number.isFinite(ax) && Number.isFinite(ay)
                   && Math.max(Math.abs(sz.grid_x - ax), Math.abs(sz.grid_y - ay)) <= radius) near.push(sid);
             }
-            // The unrestricted set stays as the fallback rather than being
-            // deleted: an NPC standing somewhere with no eligible tile in range
-            // must still get somewhere to go, or they stop wandering entirely.
+            // Unrestricted fallback, or an NPC with nothing in range stops wandering for good.
             const pool = near.length ? near : anywhere;
             ai.patrolTarget = pool.length ? pool[Math.floor(Math.random() * pool.length)] : entity.home_zone;
           }
@@ -2215,8 +1724,6 @@ async function execAction(node, entity, ctx) {
       break;
     }
 
-    // ── Vendor-specific actions ──────────────────────────────────────────────
-
     // CHECK_VENDOR_WORK: 4-way branch for any scheduled NPC's daily routine
     // (vendors and other employed NPCs alike — driven by entity.vendor_schedule).
     // Ports: goToWork | haveLife | endShift | offWork
@@ -2237,22 +1744,14 @@ async function execAction(node, entity, ctx) {
         return 'endShift';
       }
 
-      // Day off — use reference range to decide have-life vs off-work hours
-      // ⚠ THROUGH THE SHARED TEST, or a night worker's day off is spent shut indoors: the reference
-      // range is their own most recent block, and read as `hour >= 18 && hour < 6` that is false at
-      // every hour of the day — so the one NPC this window exists to give a life to never gets one.
+      // Day off: the reference range decides have-life vs off-work.
+      // ⚠ Use the shared test: a plain from/to range is never true for a block that crosses midnight.
       if (!dayHasSchedule && referenceRange && hourInBlock(referenceRange, hour)) return 'haveLife';
 
       return 'offWork';
     }
 
-    // VENDOR_CHITCHAT: say a chitchat line from entity.chitchat.
-    //
-    // A bare cooldown makes a vendor a METRONOME: the node runs every tick, so the
-    // first tick past the cooldown always speaks and the shop talks at you on a
-    // fixed beat you can set a watch by. The floor is now a floor, and past it the
-    // line is a ROLL — so the gaps are uneven, which is what idle talk sounds like.
-    // (The line itself is chosen by the no-repeat bag; see pickFresh.)
+    // VENDOR_CHITCHAT: past the cooldown floor the line is a roll, so the gaps are uneven.
     case 'VENDOR_CHITCHAT': {
       if (!ai) break;
       if (Date.now() - ai.lastSay < 75000) break;
@@ -2280,17 +1779,7 @@ async function execAction(node, entity, ctx) {
       // Activities are handled by the passive home-life ticker in tickEntityAI.
       // This node only manages the sleep cycle so the graph can loop back to check_work.
 
-      // ── Is it bedtime? ───────────────────────────────────────────────────────
-      // Three gates, all of which exist because an NPC used to walk through their
-      // own front door and be asleep within a couple of ticks, which meant the
-      // home-life half of their day effectively never ran.
-      //
-      //  1. An evening first. HOME_LIFE_MIN_MINS of waking home life before bed
-      //     is even considered.
-      //  2. Not straight after being woken — a player who shakes someone awake
-      //     gets to have the conversation.
-      //  3. Nobody turns in nine-plus hours early. If the next shift is a long
-      //     way off, they stay up and keep living instead.
+      // Bedtime gates: an evening of home life first, not right after being woken, and not 9+ hours early.
       if (ai.wokenUntil && now < ai.wokenUntil) break;
       if (!ai.homeAwakeSince) ai.homeAwakeSince = now;
       if (now - ai.homeAwakeSince < gameMsToReal(HOME_LIFE_MIN_MINS * 60_000)) break;
@@ -2299,10 +1788,7 @@ async function execAction(node, entity, ctx) {
       if (wakeMs === null || wakeMs <= now + 120000) break;
       if (wakeMs - now > gameMsToReal(MAX_SLEEP_MINS * 60_000)) break;
 
-      // A stimulant comedown is the one thing that overrides all of the above
-      // pacing: coming down off a jag, you go to bed and you go hard. Set by the
-      // npc-drugs plugin (`ai.crashSleepy`), read here — the same "plugin owns
-      // the state, engine reads one field" contract as ai.dosedOut.
+      // A stimulant comedown (npc-drugs sets ai.crashSleepy) overrides that pacing.
       const crashing = ai.crashSleepy && now < ai.crashSleepy;
       if (Math.random() < (crashing ? 0.5 : 0.15)) {
         // Find something to sleep on in the zone (prefer furniture, floor fallback)
@@ -2335,38 +1821,16 @@ async function execAction(node, entity, ctx) {
       if (!ai) break;
 
       try {
-        // Find the safe by its LINK, not by the work zone.
-        //
-        // It used to require `work_zone_id` and search only there, which quietly
-        // did nothing for any vendor whose safe lives somewhere else — a dealer
-        // keeping the takings at home rather than behind a counter, say. Both
-        // Coldwater dealers were in exactly that state: safes bolted down in one
-        // district, owners living in another, and the collect step bailing on its
-        // first line so the money never moved.
-        //
-        // Searching by link finds it wherever it is, and the zone check below
-        // makes the physical journey the requirement instead of a config field.
-        // Owner's own box, or a SHARED one they're named on the staff list of.
-        //
-        // A shop can be more than one person. Ration Nine has three — one of them
-        // sells and two of them cut meat — and the till they all feed is one box
-        // under one counter. So a safe names an owner (`vendor_npc_id`, whose
-        // `vendor_credits` IS the till) and may name `vendor_staff`: other workers
-        // who draw wages out of the same box. Without this a shop with staff
-        // needed a safe each, and the two who never take money would stand at
-        // empty boxes forever.
-        // Off the furniture cache, matching the SQL this replaced: vendor_safe is
-        // JSON true, and vendor_staff holds the id as an array element (or a key).
+        // Find the safe by its LINK, wherever it is: the owner's (vendor_npc_id) or a shared one naming
+        // them in vendor_staff. Off the furniture cache; vendor_safe is JSON true, vendor_staff holds the
+        // id as an array element or a key.
         const safe = findVendorSafe(entity.id);
         const safeRows = safe ? [safe] : [];
         if (!safeRows.length) break;
-        // You have to actually be standing at it. This is what turns "collect the
-        // takings" into a thing the player can witness, intercept, or beat you to.
+        // You have to be standing at it, so a player can witness or beat you to it.
         if (safeRows[0].zone_id && entity.zone_id !== safeRows[0].zone_id) break;
 
-        // Whose money is in the box. For an owner that's their own live row (the
-        // write funnel keeps `vendor_credits` in sync, so no fresh SELECT); for
-        // staff it's the owner's, because the staff member never took any.
+        // Owner: their live row (kept in sync, no SELECT). Staff: the owner's money.
         const ownerId = safeRows[0].flags?.vendor_npc_id || entity.id;
         const till = ownerId === entity.id ? entity : world.npcs.get(ownerId);
         if (!till) break;
@@ -2406,13 +1870,8 @@ async function execAction(node, entity, ctx) {
           const candidateZones = atmRows.map(r => r.zone_id).filter(Boolean);
           if (!candidateZones.length) break;
 
-          // A day's takings go to the BANK, not to whatever lobby machine happens
-          // to be closest — otherwise every employed NPC in the district queues at
-          // the same hotel terminal and the place reads like a bank it isn't.
-          // A bank is derived, never authored: it's a zone a `bank_teller` NPC is
-          // posted in (home_zone, so an off-shift teller doesn't un-bank the hall).
-          // No query — world.npcs is in memory. Falls back to any ATM if no bank
-          // terminal is reachable.
+          // Takings go to a BANK: a zone a bank_teller NPC is posted in (home_zone). world.npcs is in
+          // memory, so no query. Falls back to any ATM.
           const bankZones = new Set();
           for (const n of world.npcs.values()) {
             if (n?.flags?.bank_teller) bankZones.add(n.home_zone || n.zone_id);
@@ -2477,13 +1936,8 @@ async function execAction(node, entity, ctx) {
       break;
     }
 
-    // (GO_TO_STUDIO is handled with GO_TO_WORK above — see the note there.)
-
-    // ── Talk-show guest lifecycle ────────────────────────────────────────────
-    // The reusable guest lives off-world in a hidden backstage zone (entity.home_zone)
-    // between episodes. When the show is on the clock it MATERIALISES into a random
-    // unobserved zone near the studio (no players, no camera/sticky-cam watching) — so a
-    // player never witnesses it "appear" — and the stock GO_TO_WORK then walks it onstage.
+    // Talk-show guest: lives backstage (home_zone), materialises in an unobserved zone near the
+    // studio, and GO_TO_WORK walks it onstage.
     case 'TALKSHOW_APPEAR': {
       if (!ai) break;
       const home = entity.home_zone;
@@ -2544,15 +1998,9 @@ async function execAction(node, entity, ctx) {
   }
 }
 
-// ── Default vendor/schedule behaviour graph ──────────────────────────────────
-
 /**
- * Auto-generate a default VINE-compatible behaviour graph for any NPC that
- * respects a manual vendor_schedule (vendors and other employed NPCs alike).
- * The vendor-only steps (collect_safe/go_to_atm/deposit) no-op harmlessly for
- * non-selling jobs with no linked safe. Broadcast actors use
- * buildDefaultStudioGraph() instead — they follow the broadcast schedule, not
- * a manual one. Stored in npcs.behaviour_graph and editable in the VINE editor.
+ * Default VINE graph for any NPC with a vendor_schedule (vendors and other employed NPCs). The
+ * vendor-only steps no-op for jobs with no linked safe. Broadcast actors use buildDefaultStudioGraph().
  */
 export function buildDefaultVendorGraph() {
   return {
@@ -2628,13 +2076,8 @@ export function buildDefaultUnemployedGraph() {
 }
 
 /**
- * Default combat behaviour graph for auto-aggressive enemies (behavior
- * 'aggressive' / 'territorial'). Target *acquisition* is deliberately left to the
- * engine substrate — the escalating-aggro + battlecry ramp in gameLoop still owns
- * "when the fight starts" (and keeps the telegraph). Once a target exists, the
- * graph owns the fight: attack, but break off and flee below 20% HP. This mirrors
- * the hardcoded fallback while adding the flee branch, and every part of it is now
- * editable per-enemy in the VINE editor.
+ * Default combat graph for 'aggressive'/'territorial' enemies. Target acquisition stays with the
+ * gameLoop aggro ramp (it keeps the telegraph); the graph attacks and flees below 20% HP.
  */
 export function buildDefaultAggressiveEnemyGraph() {
   return {
@@ -2652,22 +2095,10 @@ export function buildDefaultAggressiveEnemyGraph() {
 }
 
 /**
- * Belt-and-suspenders: make sure an entity ticks through VINE rather than the
- * hardcoded fallback, by assigning a type-appropriate default graph when it has
- * none. Mirrors the auto-assign already done for NPCs at apiCreateNpc, extended to
- * cover enemies (which had no auto-assign) and to self-heal legacy graphless rows
- * at load. Returns true if a default was assigned.
- *
- * Intentionally conservative — leaves untouched:
- *   • entities that already carry a graph (authored or previously defaulted);
- *   • `_phantom` opt-outs (e.g. trip-plugin phantoms);
- *   • non-aggressive enemies (passive/defensive never auto-acquire — the benign
- *     fallback is correct for them);
- *   • plain untyped 'npc' extras / static set-pieces (only vendors, employed,
- *     unemployed and studio actors are meant to be autonomous).
- *
- * `kind` ('enemy' | 'npc') is inferred from instanceId when omitted, but callers
- * acting on template rows (pre-instance) should pass it explicitly.
+ * Assign a type-appropriate default graph to an entity with none, so it ticks through VINE.
+ * Returns true if assigned. Leaves alone: entities with a graph, `_phantom` opt-outs,
+ * non-aggressive enemies, and plain untyped 'npc' extras. Pass `kind` ('enemy' | 'npc') when
+ * acting on template rows; otherwise it's inferred from instanceId.
  */
 export function ensureBehaviourGraph(entity, kind) {
   if (!entity) return false;
@@ -2695,16 +2126,9 @@ export function ensureBehaviourGraph(entity, kind) {
   return true;
 }
 
-// ── Main tick ────────────────────────────────────────────────────────────────
-
 const MAX_STEPS = 50;
 
-// A commute that can't complete used to be perfectly silent: GO_TO_WORK returns
-// RUNNING and retries the same impossible hop on every tick, forever, while the
-// shop it belongs to simply has nobody behind the counter. The only way to notice
-// was for a player to walk in and wonder where the vendor went. One line per NPC
-// per hour is enough to make a stranded worker findable in the log without a tick
-// loop spamming it. In memory only — this is diagnostics, never state.
+// A stuck commute is otherwise silent (GO_TO_WORK retries forever). One log line per NPC per hour; memory only.
 const _commuteWarned = new Map(); // npc id -> last warn ms
 const COMMUTE_WARN_MS = 60 * 60 * 1000;
 function warnCommuteBlocked(entity, fromZone, workZone, why) {
@@ -2714,9 +2138,7 @@ function warnCommuteBlocked(entity, fromZone, workZone, why) {
   console.warn(`[ai] ${entity.name} (${entity.id}) can't reach work: ${fromZone} -> ${workZone} (${why}); home_zone=${entity.home_zone}`);
 }
 
-// A step the adjacency law refused. Same throttle and same reasoning as the
-// commute warning: one line per entity per hour is enough to find whoever is
-// fighting the AI over an entity's position, without a tick loop filling the log.
+// Adjacency-law refusals, same throttle.
 const _staleStepWarned = new Map(); // entity id -> last warn ms
 function warnStaleStep(entity, fromZone, toZone) {
   const key = entity.instanceId || entity.id;
@@ -2740,41 +2162,18 @@ export async function tickEntityAI(entity, ctx) {
   const ai = entity._ai;
   if (!ai) return;
 
-  // Not placed in any zone — an unplaced entity has no room to act in. Ticking it
-  // anyway makes zone-scoped broadcasts (SAY/EMOTE/home-life) fall through to a
-  // null zone, which the server treats as a global send — so its lines leak to
-  // every connected player. Skip it until it's given a zone.
+  // Unplaced: skip it. A null zone makes zone broadcasts go global.
   if (!entityZone(entity)) return;
 
-  // Something has taken this NPC over and is driving it directly — a break-in
-  // alarm (burglary plugin) or ordinary fright (engine/panic.js). Suspend the
-  // normal graph (and the passive home-life below) until the driver clears it.
-  //
-  // ⚠ THIS FLAG IS NOT A BEHAVIOUR. It only yields the graph; it makes the NPC
-  // do nothing at all. Setting it without a driver to clear it freezes that NPC
-  // permanently. Go through panicNpc() unless you own the whole sequence.
+  // Something else is driving this NPC (burglary alarm, panic.js), so yield the graph.
+  // ⚠ Not a behaviour: set without a driver to clear it, the NPC freezes. Use panicNpc().
   if (ai.alarm) return;
 
-  // Dosed unconscious or panicking (npc-drugs plugin) — the plugin drives the
-  // slumped/fleeing NPC directly. Same contract as ai.alarm: while the flag is
-  // set the engine yields the graph (and the passive home-life below).
+  // Dosed or panicking (npc-drugs plugin): same contract as ai.alarm.
   if (ai.dosedOut) return;
 
-  // Don't tick while a player has this NPC's shop open — but VERIFY the session is
-  // still real before yielding, rather than trusting the flag.
-  //
-  // `shopPaused` freezes an NPC COMPLETELY: no graph, no commute, no banter, no
-  // wander. It's cleared from exactly three places — the client's `shop_close`, a
-  // disconnect, and cmdMove (movement.js). A player's `current_zone` is rewritten in
-  // a dozen places that never go near cmdMove: sleep (dreamscape), death/respawn,
-  // jail, elevators, flight, apartment entry, VINE teleports. Leave a shop open and
-  // exit by any of those and the flag stayed set FOREVER — the vendor stood at their
-  // counter until the next restart. Brack the Fishmonger was found welded to the
-  // Ration Nine fish slab this way, having never once walked home to Unit 305.
-  //
-  // Deriving the pause from "the shopper is still standing here" fixes every one of
-  // those call sites at once, and can't be defeated by the next teleport somebody
-  // adds. Both reads are in-memory, so this costs nothing on the tick.
+  // Shop open: check the shopper is still here rather than trusting `shopPaused`, which freezes the
+  // NPC completely and isn't cleared by teleports (sleep, death, jail, flight...). Both reads in memory.
   if (ai.shopPaused) {
     const shopperId = getShopperForNpc(entity.id);
     const shopper = shopperId ? getLivePlayer(shopperId) : null;
@@ -2783,32 +2182,15 @@ export async function tickEntityAI(entity, ctx) {
     ai.shopPaused = false; // also clears a pause with no session behind it at all
   }
 
-  // Passive home life — any NPC in their home zone does random activities when players are watching.
-  // Skipped while homeSleeping (the NPC is visibly asleep; AT_HOME_LIFE owns that state).
-  //
-  // TWO questions, deliberately not one:
-  //   atHomeZone — standing where home_zone points. Governs washing and the
-  //                evening clock, both of which are true of anywhere you live,
-  //                including a bunk behind the counter.
-  //   atHome     — ...and that place is somewhere a person could actually LIVE.
-  //                Governs the visible domestic activities. Most of the cast is
-  //                registered as living at their own workplace, and without this
-  //                test a shopkeeper tidies her apartment in front of customers
-  //                and eleven studio actors microwave something questionable on a
-  //                live set. A workplace passes neither dwelling flag, on purpose.
+  // Passive home life, skipped while homeSleeping. atHomeZone governs washing and the evening clock;
+  // atHome (a real dwelling) governs domestic activities. See docs/ai-behaviour.md#home-life-needs-a-home
   const atHomeZone = !isEnemy(entity) && entity.home_zone && entityZone(entity) === entity.home_zone;
   const atHome = atHomeZone && isDwellingZone(getZone(entity.home_zone));
-  // Edge-detect arriving home, so the "have an evening before bed" clock in
-  // AT_HOME_LIFE measures THIS visit rather than a timestamp left over from
-  // yesterday (which would let them go straight to bed on walking in).
+  // Edge-detect arriving home, so AT_HOME_LIFE's evening clock measures this visit.
   if (atHomeZone && !ai._wasHome) { ai._wasHome = true; ai.homeAwakeSince = Date.now(); }
   else if (!atHomeZone && !ai.homeSleeping) { ai._wasHome = false; ai.homeAwakeSince = 0; }
 
-  // Being home means washing. Without this an NPC's grime clock starts the first
-  // time anything asks and climbs forever, so given enough uptime every NPC in the
-  // world ends up reeking. Keyed to atHomeZone, NOT atHome: someone who lives over
-  // the shop still has a sink. In memory only — NPC hygiene is never persisted, so
-  // this is a field reset, not a write.
+  // Home means washing (atHomeZone, not atHome). An in-memory reset; NPC hygiene is never persisted.
   if (atHomeZone && !ai.homeSleeping) npcWashAtHome(entity);
 
   if (atHome && !ai.homeSleeping) {
@@ -2820,13 +2202,10 @@ export async function tickEntityAI(entity, ctx) {
         // Freshly dragged out of bed, they act like it — for as long as the wake
         // grace runs, then it's back to ordinary home life.
         const woke = ai.wokeMood && now < ai.wokeMood.until ? ai.wokeMood.mood : null;
-        // Per-NPC authoring first, then the archetype pool, then the generic
-        // fallback. Before that middle tier existed, 146 of the 149 NPCs who live
-        // in a real dwelling shared the same twelve lines below.
+        // Per-NPC, then the archetype pool, then the generic fallback.
         const pool = woke ? WOKEN_ACTIVITIES[woke]
           : (getNpcHomeActivities(entity) || DEFAULT_HOME_ACTIVITIES);
-        // Same no-repeat bag as chitchat — a player watching somebody's evening
-        // at home is standing in the room for every line of it.
+        // Same no-repeat bag as chitchat.
         const act = pickFresh(entity, pool, 'home');
         const { type: actType, message: actMsg } = formatChitchat(entity.name, act);
         ctx.broadcast(entityZone(entity), { type: actType, message: actMsg });
@@ -2854,12 +2233,7 @@ export async function tickEntityAI(entity, ctx) {
     return;
   }
 
-  // Studio actors NEVER linger in their workspace off-shift — enforced here, before
-  // and independent of whatever behaviour graph the NPC carries, so there are no
-  // exceptions: an active scheduled slot is the ONLY thing that keeps an actor in the
-  // studio. Any actor sitting in (or anywhere inside) their studio while unscheduled is
-  // walked out toward the exterior, one step per tick, and the graph is skipped until
-  // they're clear of the building.
+  // Studio actors never linger off-shift, whatever their graph: walked out one step per tick, graph skipped.
   if (!isEnemy(entity)) {
     const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
     if (studioZone && !isNpcScheduledNow(entity.id)) {
@@ -2929,10 +2303,7 @@ export async function tickEntityAI(entity, ctx) {
       }
 
       case 'wait': {
-        // `jitter` (optional, seconds) spreads a wait over [seconds, seconds+jitter).
-        // Without it, every NPC that reaches the same node on the same tick — every
-        // vendor whose shift ends at 18:00, say — leaves in lockstep and arrives as
-        // a crowd. Rolled per visit, not cached, so a repeated wait re-spreads.
+        // `jitter` (s) spreads a wait over [s, s+jitter), rolled per visit, so NPCs leaving together don't arrive as a crowd.
         const seconds = node.data?.seconds ?? 1;
         const jitter = Math.max(0, node.data?.jitter ?? 0);
         ai.waitUntil = Date.now() + (seconds + Math.random() * jitter) * 1000;

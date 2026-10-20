@@ -1,36 +1,19 @@
-// AIRCRAFT-3D — the single source of truth for what an aircraft looks like in 3D.
-//
-// One low-poly, class-distinct model per flight class (prop/ultralight/gunship/
-// heavy/heli + wreck), expressed as a list of faces in the craft's own frame
-// (f = forward/nose+, g = right+, h = up+), each tagged with a role (body/wing/
-// stab/fin/nacelle/glass/rotor) and a baked shade. TWO renderers consume it:
-//
-//   • windshield.js — projects the faces through the Mode-7 cockpit camera to draw
-//     air-to-air PvP contacts out the front window (oriented by their heading/bank/
-//     pitch).
-//   • hangar.js     — spins the same model on a fixed ¾ "hero" turntable so your
-//     parked aircraft read as the very craft you fly.
-//
-// Both paint the faces in the craft's LIVERY (base/trim + finish sheen + pattern
-// accents) via the shared palette helpers below, so the two views can never drift
-// apart. Models are normalised to ~|f|≤1.15, wing tips at g≈±1 so the windshield's
-// per-class CONTACT_SIZE scale keeps working unchanged.
+// AIRCRAFT-3D: the one source for what an aircraft looks like in 3D.
+// One low-poly model per flight class, as faces in the craft frame (f = nose+, g = right+, h = up+),
+// each with a role and a baked shade. windshield.js (PvP contacts) and hangar.js (turntable) both draw
+// it through the livery helpers below, so the two views can't drift. Models are normalised to |f|<=1.15,
+// wing tips at g=+-1, so windshield's per-class CONTACT_SIZE still fits.
 
 const clampN = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 export const hex2rgb = (h) => { if (typeof h !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(h)) return null; const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 import { FW_ROWS, TRUCK_ROWS, BOAT_ROWS } from '../../../shared/vehicle-models.js';
-// The hull's stations and the pilothouse's curves. ⚠ SHARED WITH THE ROOM YOU SIT IN — see the
-// header there: `interior-shell.js` builds the inside of this same house off the same functions,
-// so a retuned beam, sill or roofline moves both. Declaring them here again is how the two came
-// to disagree by a factor of three in the first place.
+// Shared with interior-shell.js: a retuned beam, sill or roofline moves the room you sit in too. Never redeclare these here.
 import { boatGeom } from '../../../shared/boat-house.js';
 import { rasterFaces, blitRaster, depthAt, maskRaster, depthWinAt } from './model-raster.js';
 import { boltBright } from '../../../shared/lightning.js';
 import { paintBolt } from '../../../shared/lightning-draw.js';
-// The geometry primitives every mesh in this file is built from. They live in the shared module
-// because the authored vehicle meshes (content/vehicle_models/mesh_*.json) are compiled from the
-// same functions — see the header there on why "the same functions" is the whole point.
+// The same primitives compile the authored meshes (content/vehicle_models/mesh_*.json).
 import {
   cross3, norm3, lerp3 as _lerp3, addTube, addStrut, pushWheel, addSpat, addFaired, pushPanel,
   pushCtrlSurface, addMissileBody, ceFoil, cubFoil, CP_TW as _CP_TW, CP_TH as _CP_TH,
@@ -38,8 +21,7 @@ import {
 } from '../../../shared/vehicle-mesh.js';
 import { MESH_ROWS } from '../../../shared/vehicle-meshes.js';
 import { defaultLivery, aircraftLiveryModel } from '../../../shared/livery-sets.js';
-// How far down the doorway a strike falls before it is behind the apron — see drawInspectDoor's
-// bolt reader, which also takes every lateral offset in the tree against this same span.
+// How far down the doorway a strike falls before it's behind the apron (drawInspectDoor's bolt reader).
 const DOOR_BOLT_DROP = 0.66;
 export const shadeRgb = (c, m) => `rgb(${clampN(c[0] * m, 0, 255) | 0},${clampN(c[1] * m, 0, 255) | 0},${clampN(c[2] * m, 0, 255) | 0})`;
 const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
@@ -50,18 +32,12 @@ const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
 export function liveryPalette(lv, cls = null, armed = false) {
   const noLivery = !lv;
   lv = lv || {};
-  // ⚠ NOTHING CHOSEN IS THE MODEL'S OWN PAINT, NOT GREY. The server sends every aircraft's livery
-  // filled in from its default set (normalizeLivery), but a shop lot, a card or a contact that
-  // carries no livery reached here empty, and a mesh with no paint slots came out bare metal. The
-  // default set's exterior is what that aircraft wears off the line, so it is what an empty one shows.
+  // ⚠ An empty livery wears the model's default set, never grey.
   if (cls && (noLivery || (!lv.base && !lv.trim && !lv.pattern))) {
     const d = defaultLivery('aircraft', aircraftLiveryModel(cls, armed ? 1 : 0));
     if (d) lv = { ...d.exterior, ...lv };
   }
-  // ⚠ A HULL'S FACTORY COLOURS ARE ITS OWN. Unpainted, every boat fell through to the airframe
-  // grey below, so three different hulls on one pontoon were three grey boats. A boat row carries
-  // `paintBase`/`paintTrim`/`paintGlow`/`paintFinish`, and an unpainted hull of that row wears them.
-  // Only when NOTHING was chosen: a player's scheme is never second-guessed.
+  // ⚠ An unpainted boat wears its row's paintBase/paintTrim. Only when nothing was chosen.
   if (cls && (noLivery || (!lv.base && !lv.trim && !lv.pattern))) {
     const bs = boatShape(cls);
     if (bs && bs.paintBase) lv = { base: bs.paintBase, trim: bs.paintTrim, glow: bs.paintGlow, finish: bs.paintFinish || 'gloss' };
@@ -71,76 +47,36 @@ export function liveryPalette(lv, cls = null, armed = false) {
   const pat = lv.pattern || 'bare';
   if (pat === 'splinter') base = mix3(base, [60, 64, 44], 0.35);
   const ground = hex2rgb(lv.ground) || JAZZ_GROUND;   // jazz undercoat (the "cup paper" the splatter pops against)
-  // A truck's other two colours, and they are UNDEFINED on an aeroplane rather than defaulted —
-  // every reader downstream branches on their presence, so an airframe takes exactly the path it
-  // always took. See the ⚠ in faceBaseRgb on why they are not `accent`.
+  // A truck's colours are undefined on an aircraft so airframes take their old path (see faceBaseRgb on why not `accent`).
   const hw = hex2rgb(lv.hw) || null, deck = hex2rgb(lv.deck) || null;
-  // …and three more, on exactly the same footing and for exactly the same reason: absent on every
-  // aircraft, so an airframe takes the path it always took. `bright` is the brightwork, `glow` the
-  // decorative running lights, `glass` the tint in the panes. `chrome` is the SWITCH that says
-  // whether brightwork is polished at all — see faceBaseRgb, where a 0 sends it to the hardware
-  // colour instead, which is what a blacked-out rig is.
+  // Same footing: absent on aircraft. `chrome` 0 sends brightwork to the hardware colour (blacked-out rig).
   const bright = hex2rgb(lv.bright) || null, glow = hex2rgb(lv.glow) || null, glass = hex2rgb(lv.glass) || null;
-  // `factory` — no livery at all, or the 'factory' pattern: an authored mesh wears the colours its
-  // own file paints (see the paint-slot branch in faceBaseRgb). Anything else is a player's paint job,
-  // and the file's slots map onto its base and trim instead.
-  // ⚠ AN EMPTY LIVERY IS NO LIVERY. drawAircraftModel hands `c.livery || {}`, so "nobody painted it"
-  // arrives here as an object with nothing in it; reading only `!lv` turned every authored mesh grey.
-  // ⚠ AND THE SERVER'S UNTOUCHED DEFAULT IS NO LIVERY EITHER. normalizeLivery (plugins/flight/livery.js)
-  // fills an unpainted craft in with LIVERY_DEFAULT — grey base, grey trim, 'bare' — so reading that as
-  // a paint job put every authored slot of a new Drake in stock grey.
+  // `factory`: an authored mesh wears its own slot colours; anything else is a player's paint job.
+  // ⚠ An empty object and the server's untouched LIVERY_DEFAULT (grey/grey/bare) both count as no livery.
   const stockGrey = (lv.base || '').toLowerCase() === '#5a5f66' && (lv.trim || '').toLowerCase() === '#8a9099'
     && (!lv.pattern || lv.pattern === 'bare');
-  // ⚠ THE DRAKE'S BARE METAL IS HER OWN PAINT. She has no bare airframe to show: her authored colours
-  // (the mandarin drake, or the chosen factory scheme) ARE her base finish, so 'bare' leaves the file's
-  // slots alone whatever base and trim say, and every other pattern paints over them.
+  // ⚠ The Drake's 'bare' is her authored paint, so it leaves her slots alone.
   const drakeBare = cls === 'drake' && (!lv.pattern || lv.pattern === 'bare');
   const factory = noLivery || lv.pattern === 'factory' || (!lv.base && !lv.trim && !lv.pattern) || stockGrey || drakeBare;
-  // Per-part paint: `parts` maps a mesh paint slot's NAME to a colour. It knows no model; a slot this
-  // mesh doesn't have is simply never read, which is what lets one livery shape paint any vehicle.
+  // `parts` maps a mesh paint slot name to a colour; a slot the mesh lacks is never read.
   let parts = null;
   if (lv.parts && typeof lv.parts === 'object') for (const [k, v] of Object.entries(lv.parts)) { const c = hex2rgb(v); if (c) (parts ||= {})[k] = c; }
   return { parts, base, trim, ground, hw, deck, bright, glow, glass, chrome: lv.chrome == null ? 1 : (lv.chrome ? 1 : 0),
     finish: lv.finish || 'satin', fmul: FINISH_MUL[lv.finish] ?? 1.0, pat, factory };
 }
-// ── A STORED PAINT → A LIVERY, ONCE ──────────────────────────────────────────
-// What the booth writes down and what the renderer takes are two different shapes, and the join
-// between them is one word: `flash` is a truck paint job and `pattern` is what `faceWearsTrim`
-// reads, under the `truck:` prefix that keeps the fleet's vocabulary from colliding with the
-// airframes'. That translation lived in the depot panel alone, so the CAB — the view you spend the
-// whole drive in — handed its raw paint straight through and `pat` came out 'bare': every flash in
-// the catalogue rendered as one flat colour on the truck you are actually driving, and only on the
-// truck you are actually driving. A conversion written down in one of two places is a conversion
-// that is wrong in the other.
-// …and it now lives in client/shared/truck-livery.js, because the SERVER needs it too: a rig other
-// people can see is a contact, and a contact carries a finished livery. Re-exported here rather
-// than moved out of sight, so every caller that already knew where to find it still does.
+// A stored truck paint becomes a livery here (`flash` -> `truck:` pattern). Shared with the server, which needs it for contacts.
 export { truckLivery } from '../../../shared/truck-livery.js';
 
 // Structural accents that ALWAYS wear the trim colour, whatever the pattern.
-// 'deck' is the boat's: a go-fast is TWO-TONE, dark deck and house over a light hull side, and
-// that split is the strongest thing about the way one looks. Putting the deck on the trim colour is
-// what makes it the BOOTH's decision rather than a literal in the mesh — one livery, two surfaces.
+// 'deck' is the boat's two-tone deck, on trim so the booth decides it.
 const TRIM_ROLE = new Set(['fin', 'rudder', 'nacelle', 'rotor', 'deck']);
-// Hull roles the exterior pattern paints across (fuselage, flying surfaces + their
-// control surfaces, which inherit their parent panel's colour by sitting in its space).
+// Hull roles the exterior pattern paints across.
 const PATTERN_ROLE = new Set(['body', 'wing', 'aileron', 'flap', 'stab', 'elevator']);
 const STAB_ROLE = new Set(['stab', 'elevator']);
-// Closed-hull roles that wrap the fuselage/canopy centred on the model origin: safe to
-// backface-cull (their far side is genuinely hidden). Kept OUT: wings/stabs/fins/struts/
-// nacelles/gear — thin or off-axis surfaces where an outward-from-origin test is unreliable.
+// Closed-hull roles safe to backface-cull. Thin or off-axis parts stay out: an outward-from-origin test fails on them.
 const CULL_ROLE = new Set(['body', 'glass', 'window']);
-// ── HOW CLOSE THE EYE CAN GET BEFORE A THING IS NO LONGER DRAWN ──────────────
-// One number, because the DECAL AND THE PANEL IT IS PRINTED ON MUST VANISH TOGETHER. They did not:
-// the model culled a face at 0.15 and the decal painters carried their own 0.18, so walking the
-// last few centimetres up to a door took the artwork off it and left the door there. On the road
-// it is worse, because the face cull out there is 0.07 in TILE units — a truck you are alongside
-// loses its door art at a fifth of a tile while the panel is still solid, which reads as the decal
-// switching itself off as you get close enough to look at it.
-//
-// So the painters take the near plane from their CALLER rather than owning one. This is the value
-// paintTurntable culls at; windshield.js passes its own, which is a different number in different
-// units and correct for the same reason.
+// Near plane for models and decals: a decal and its panel must vanish together, so painters take it from the caller.
+// windshield.js passes its own (different units).
 export const MODEL_NEAR_Z = 0.15;
 // Solid appendages that can stand IN FRONT of the fuselage flank and so should occlude nose art.
 export const OCCLUDE_ROLE = new Set(['wing', 'aileron', 'flap', 'stab', 'elevator', 'fin', 'rudder', 'nacelle', 'gear', 'strut', 'gun']);
@@ -149,31 +85,16 @@ function faceCentroid(pts) {
   let f = 0, g = 0, h = 0; for (const v of pts) { f += v[0]; g += v[1]; h += v[2]; }
   const n = pts.length || 1; return [f / n, g / n, h / n];
 }
-// Deterministic 0..1 hash of a (coarsely-quantised) point: clusters adjacent facets into
-// camo blotches, and stays frame-stable (no Math.random, so the paint never shimmers).
+// Frame-stable hash for camo blotches. Never Math.random: the paint would shimmer.
 function camoHash(a, b, c) { const x = Math.sin(a * 12.9898 + b * 4.1414 + c * 78.233) * 43758.5453; return x - Math.floor(x); }
-// The exterior PATTERN is rendered procedurally: for each hull facet we pick base vs trim
-// from that facet's position in the craft frame, so the model's own faceting resolves into a
-// real dorsal racing stripe, two-tone splinter blotches, raked hazard bands, or a clean
-// beltline split. Because every renderer colours through faceBaseRgb, the pattern can never
-// drift between the hangar and the sky.
+// Procedural pattern: pick base or trim per facet from its position in the craft frame.
 function faceWearsTrim(face, pat) {
   if (TRIM_ROLE.has(face.role)) return true;
   if (!PATTERN_ROLE.has(face.role)) return false;
   const [f, g, h] = faceCentroid(face.p);
   const top = h / (Math.hypot(g, h) || 1);            // +1 = dorsal spine, 0 = flank, -1 = belly
-  // ── THE FLASH DOWN THE FLANK (THE LONG HAUL) ───────────────────────────────
-  // A truck's paint job did nothing. The depot offered four flashes, wrote the chosen one to the
-  // database, read it back and rendered it identically every time — because `flash` was never
-  // passed to the renderer at all, and even if it had been, none of the patterns above would have
-  // worked on it. THEY ARE WRITTEN FOR AN AIRFRAME: an aeroplane's hull is centred on h = 0, so
-  // `top` runs −1 (belly) to +1 (spine) and a beltline is a sign test. A truck is built standing
-  // ON the ground, h ∈ [0, 0.28] — every face reads as "spine", so every aircraft pattern paints
-  // a truck one flat colour.
-  //
-  // So the truck's flashes are their own branch in the truck's own frame, and they arrive under a
-  // `truck:` prefix so the two vocabularies can never be confused for one another (the fleet has a
-  // `stripe` and the airframes have `stripes`, which is exactly the collision waiting to happen).
+  // Truck flashes: aircraft patterns read `top` as a sign, but a truck stands on the ground (h in [0, 0.28]),
+  // so trucks get their own branch under a `truck:` prefix (fleet `stripe` vs airframe `stripes`).
   if (pat.startsWith('truck:')) {
     if (!PATTERN_ROLE.has(face.role)) return false;
     const BELT = 0.135;                    // mid-height on a cab, where a signwriter would run it
@@ -182,23 +103,13 @@ function faceWearsTrim(face, pat) {
       case 'wave':   return Math.abs(h - (BELT + 0.045 * Math.sin(f * 15))) < 0.024;     // the same band, and it swims
       case 'fade':   return h < 0.10 + camoHash(Math.round(f * 22), 0, Math.round(h * 40)) * 0.075;   // trim low, dithering out as it climbs
       case 'candy':  return ((Math.floor(f * 11 - h * 3) % 2) + 2) % 2 === 0;            // raked bands, the whole length of it
-      // ── AND ELEVEN MORE, BECAUSE FOUR IS NOT A PAINT SHOP ────────────────────────────────────
-      // Every one of these is a curve in (f, h) and nothing else — no new authored geometry, no
-      // per-truck data, no UV. The mesh already faces finely enough for a shape to resolve out of
-      // which side of a line each facet falls, which is the whole reason the original four worked
-      // and the reason adding eleven cost nothing but arithmetic.
-      //
-      // ⚠ THEY ARE ALL IN THE TRUCK'S OWN FRAME, where h ∈ [0, 0.28] and 0 is the ROAD. Reach for
-      // an airframe idea here — anything that reads `top` as a sign — and it paints the whole rig
-      // one colour, which is the bug this branch exists because of.
-      // A scallop: the arched panel a signwriter sweeps back from the front of the cab. Two of
-      // them, out of phase, which is what makes it read as a fairground rather than a wave.
+      // ⚠ All in the truck frame, where h = 0 is the road. Anything reading `top` paints the rig one colour.
+      // Scallop: two out-of-phase arches.
       case 'scallop': {
         const a = 0.5 + 0.5 * Math.sin(f * 9.5), b = 0.5 + 0.5 * Math.sin(f * 9.5 + 2.1);
         return h < 0.055 + a * 0.075 || (h > 0.175 && h < 0.185 + b * 0.05);
       }
-      // Hot-rod flames: licks that climb as they run back, frayed at the edge by the same hash the
-      // camo uses so no two tongues end alike.
+      // Flames, frayed by the camo hash.
       case 'flame': {
         const t = Math.sin(f * 13 + h * 6) * 0.5 + 0.5;
         const lick = 0.045 + t * 0.10 + camoHash(Math.round(f * 16), 0, Math.round(h * 18)) * 0.035;
@@ -210,11 +121,9 @@ function faceWearsTrim(face, pat) {
       case 'checker': return (Math.floor(f * 12) + Math.floor(h * 12)) % 2 === 0;         // racing squares
       case 'roof':   return h > 0.205;                                                    // painted roof and fairing, cab left plain
       case 'lower':  return h < 0.075;                                                    // skirts, tanks and valance — the truck sits lower
-      // A panel van: the flat middle of the flank is a second colour with the framing left in the
-      // cab's own, which is the livery a delivery fleet actually paints.
+      // Panel van: flank middle in a second colour.
       case 'panel':  return h > 0.070 && h < 0.190 && Math.abs(Math.sin(f * 3.1)) > 0.22;
-      // Patina, not a paint job at all: the base coat coming through in patches. Deliberately the
-      // only one keyed on a hash alone, because rust has no geometry.
+      // Patina: hash only, because rust has no geometry.
       case 'rust':   return camoHash(Math.round(f * 13), Math.round(g * 9), Math.round(h * 15)) > 0.62;
       default:       return false;                                                        // 'none' — one colour, and that is a choice too
     }
@@ -229,15 +138,7 @@ function faceWearsTrim(face, pat) {
       const s = Math.sin(f * 8.5 + ang * 0.9) + camoHash(Math.round(f * 9), 0, Math.round(ang * 3)) * 0.6 - 0.3;
       return s > 0.35;
     }
-    // ── WARBIRD: the identification paint of a wartime dive bomber ─────────────
-    // The reference is the one everybody pictures — camouflaged upper surfaces, a pale belly, and
-    // then the THEATRE BANDS in a shrieking yellow: the whole cowl ahead of the windscreen, the
-    // rudder, and a band round each outer wing panel. It is the only pattern here that is about
-    // WHERE a colour goes on an airframe rather than what shape it makes, which is why it needs
-    // no new authored fields — the mesh already knows which facet is a cowl and which is a tip.
-    //
-    // Fin and rudder come free: TRIM_ROLE has always painted them trim, and on this scheme that
-    // is exactly right rather than a coincidence to work around.
+    // Warbird: camo top, pale belly, yellow cowl, rudder and outer-wing bands. Fin and rudder are already trim (TRIM_ROLE).
     case 'warbird': {
       if (face.role === 'body') return f > 0.66;                       // the cowl, forward of the windscreen
       if (face.role === 'wing' || face.role === 'aileron') return Math.abs(g) > 0.84;   // outboard identification band
@@ -252,67 +153,35 @@ function faceWearsTrim(face, pat) {
 // intakes as dark structural metal, all independent of the livery colour.
 export function faceBaseRgb(face, pal) {
   const role = face.role;
-  // ── THE PARTS THAT USED TO BE A COLOUR NOBODY COULD BUY ────────────────────
-  // `pk` is a PAINT KEY stamped on a facet by buildTruck — the one channel that lets a hardcoded
-  // tint stay hardcoded (it is still the default) while being reachable from the booth. It is set
-  // by identity against the mesh's own CHROME/GLOW consts, so a new bit of brightwork is painted
-  // correctly the moment it is drawn in chrome and there is no list here to keep in step with the
-  // model. Absent on every aircraft facet, so nothing that flies takes this branch at all.
+  // `pk` is a paint key buildTruck stamps by identity against its CHROME/GLOW consts. Absent on aircraft.
   if (face.pk === 'bright') return pal.chrome === 0 ? (pal.hw || [44, 48, 54]) : (pal.bright || face.tint || [226, 232, 240]);
   if (face.pk === 'glow') return pal.glow || face.tint || [96, 196, 214];
-  // A hull's BOTTOM wears the trim, as her deck already does (TRIM_ROLE): the light topside then
-  // reads as a band between two of the scheme's own dark, split at the chine, which is how every
-  // offshore boat is painted. Stamped by `buildBoat` only, so nothing else takes this branch.
+  // A hull bottom wears trim (stamped by buildBoat).
   if (face.pk === 'trim') return finishCoat(pal.trim, pal, face);
-  // A boat part with its own literal colour (`fixed`, stamped by `buildBoat`): machinery, the house,
-  // the cushions. No livery reaches it and no finish either: a metallic coat is paint.
+  // A fixed boat part keeps its literal colour; no livery or finish.
   if (face.fixed && face.tint) return face.tint;
-  // Glass is SCALED, not flooded. Every pane is authored as a shade of the door glass, so tinting
-  // by the ratio keeps the windscreen lighter than the sleeper porthole instead of dropping one
-  // flat colour into eight different holes — and at the default (which IS the door pane) it is the
-  // identity, which is the whole migration invariant restated in one line.
+  // Glass is scaled by GLASS_REF, so panes keep their relative darkness and the default is the identity.
   if (role === 'glass' && pal.glass) return tintPane(face.tint || GLASS_REF, pal.glass);
   if (role === 'glass' || role === 'window') return face.tint || [14, 26, 36];   // per-face tint override (e.g. the heli's clear fishbowl bubble)
-  // ── A MESH FILE'S PAINT SLOT ─────────────────────────────────────────────────
-  // An authored mesh can wear more than two colours: a face carries the resolved slot from its file's
-  // `paints` table (client/shared/vehicle-mesh.js stamps it). Under the factory scheme the slot's own
-  // colour shows; under a player's livery a slot marked base or trim takes that colour and one marked
-  // fixed keeps its own — a red bill stays red whatever the flanks are painted. Absent on every face
-  // that shipped before mesh files, so nothing else takes this branch. It sits above the hardware
-  // colours on purpose: a painted landing leg is a leg somebody painted.
+  // Mesh-file paint slot. Factory shows the slot's colour; under a livery base/trim slots follow it and fixed keeps its own.
+  // Above the hardware colours on purpose: a painted landing leg is painted.
   if (face.paint && typeof face.paint === 'object') {
     const s = face.paint;
-    // A part the owner painted by name beats everything: the scheme, the pattern, fixed or not.
+    // A part painted by name beats everything.
     const own = pal.parts && pal.parts[s.name];
     if (own) return finishCoat(own, pal, face);
     if (pal.factory || s.livery === 'fixed') return finishCoat(s.rgb, pal, face);
     return finishCoat(s.livery === 'trim' ? pal.trim : pal.base, pal, face);
   }
-  // ── THE THIRD AND FOURTH COLOURS, AND WHY THEY ARE OPT-IN KEYS ──────────────
-  // A truck wears four colours where an aeroplane wears two, and both go through this one function
-  // because every renderer of both meshes colours through it. `hw` is the HARDWARE — chassis rails,
-  // tanks, mirror arms, steps, lifter housings, the ribs down a trailer flank — and `deck` is the
-  // BOX on the back, which on a real rig is very often not the tractor's colour at all.
-  //
-  // ⚠ NOT `pal.accent`, WHICH ALREADY MEANS SOMETHING ELSE. An aircraft livery has carried an
-  // `accent` since the jazz scheme, and hanging structural metal off it would turn every
-  // undercarriage and every wing strut in the game magenta the moment somebody flew a Jazz Wave.
-  // Two keys nothing else sets, absent on every aircraft, so the airframes are bit-identical.
+  // Truck hardware (`hw`) and box (`deck`). ⚠ Not `pal.accent`: the jazz scheme owns that, and it would turn every undercarriage magenta.
   if (role === 'strut' || role === 'gear' || role === 'gun') return pal.hw || [44, 48, 54];
   if (role === 'interior') return [26, 28, 33];   // dark cargo-hold walls, livery-independent
   if (role === 'ramp') return [58, 61, 68];        // bare metal cargo ramp
   if (pal.pat === 'jazz' && JAZZ_ROLE.has(role)) return pal.ground || JAZZ_GROUND;   // chosen undercoat; overlayJazz paints the splatter on top
-  // The paint job runs over the box as well as the cab — a flash that stopped at the fifth wheel
-  // would read as two vehicles, which is exactly what a hauler paints a matching box to avoid.
+  // The flash runs over the box too.
   if (faceWearsTrim(face, pal.pat)) return finishCoat(pal.trim, pal, face);
   if (face.deck && pal.deck) return finishCoat(pal.deck, pal, face);
-  // WARBIRD'S OTHER TWO TONES, AND THEY ARE DERIVED. A pattern picks base or trim and that is the
-  // whole contract — two colours is what a livery stores and adding a third and fourth field to
-  // the database for one scheme would be paying forever for one aeroplane. So the split camo and
-  // the pale belly are computed FROM the chosen base: the underside washes toward a high-altitude
-  // sky grey, and the upper surfaces break into hard-edged blotches of a darker version of the
-  // same colour. Pick olive and you get olive-over-grey; pick maroon and the scheme still works,
-  // because nothing here names a colour, only a direction to move the one you chose.
+  // Warbird's belly and camo are derived from base, so the scheme needs no extra stored colours.
   if (pal.pat === 'warbird' && PATTERN_ROLE.has(role)) {
     const [f, g, h] = faceCentroid(face.p);
     if (h / (Math.hypot(g, h) || 1) < -0.15) return mix3(pal.base, [206, 214, 222], 0.68);   // the pale belly
@@ -322,9 +191,7 @@ export function faceBaseRgb(face, pal) {
   return finishCoat(pal.base, pal, face);
 }
 
-// The pane every other pane is authored as a shade of — the truck's door glass. Tinting divides by
-// this and multiplies by the chosen colour, so a pane's own relative darkness survives a retint and
-// picking the default changes nothing at all.
+// The pane every pane is authored as a shade of (the truck's door glass).
 const GLASS_REF = [50, 74, 92];
 const tintPane = (tint, glass) => [
   clampN(glass[0] * (tint[0] / GLASS_REF[0]), 0, 255),
@@ -332,58 +199,34 @@ const tintPane = (tint, glass) => [
   clampN(glass[2] * (tint[2] / GLASS_REF[2]), 0, 255),
 ];
 
-// ── THE FINISH COAT, AS A THING THAT HAPPENS TO A FACET ──────────────────────
-// The paint model's fourth axis, and the one somebody asks for by name: metallic. A word on a sheet
-// would have been easy and worth nothing — the whole point of flake is that it does something to
-// the light, and the whole point of primer is that it does not.
-//
-// TWO DECISIONS MAKE THIS AFFORDABLE:
-//
-//  1. IT LIVES IN faceBaseRgb, which every renderer of these meshes colours through — the depot
-//     floor, the walkaround, the bench hero and the windscreen. That is the same seam the patterns
-//     ride, and for the same stated reason: a finish implemented per renderer is a finish that
-//     looks like four different finishes. There are four renderers of the truck mesh and this file
-//     has been bitten three separate times by a fix landing in only one of them.
-//  2. IT IS GEOMETRY-DRIVEN, NOT CAMERA-DRIVEN. A real flake sparkles as you walk past it, and
-//     chasing that would need a view-dependent term this function has no camera for — and a colour
-//     that changes between frames is a colour that SHIMMERS, which this file already forbids by
-//     name (see camoHash, and the reason it exists instead of Math.random). So a finish reads the
-//     FACET instead: which way it points, and a stable hash of where it is. A flaked panel is one
-//     whose flanks fall away harder than its roof, which is what metallic actually looks like on a
-//     stationary truck, and it is identical in every view and every frame.
-//
-// A finish nobody set (satin, and every aircraft) returns the colour it was handed, untouched.
+// Finish coat. Lives in faceBaseRgb so all four renderers agree. Geometry-driven, never camera-driven:
+// a per-frame colour would shimmer. Satin and unset return the colour untouched.
 const finishSat = (c, k) => { const m = (c[0] + c[1] + c[2]) / 3; return [c[0] + (c[0] - m) * k, c[1] + (c[1] - m) * k, c[2] + (c[2] - m) * k]; };
 function finishCoat(rgb, pal, face) {
   const fin = pal.finish;
-  // Gloss is a HIGHLIGHT, laid on by the renderers over the finished colour, not a tint — so it
-  // takes this path too, and satin is the neutral coat by definition.
+  // Gloss is a highlight the renderers add, so it's untouched here.
   if (!fin || fin === 'satin' || fin === 'gloss') return rgb;
   const c = [rgb[0], rgb[1], rgb[2]];
   const [f, g, h] = faceCentroid(face.p || [[0, 0, 0]]);
   const up = h / (Math.hypot(g, h) || 1);            // +1 = pointing at the sky, 0 = a flank
   switch (fin) {
-    // Flake: the spread between what the sky lands on and what it does not, opened up — plus a fine
-    // stable grain so a big flat panel is not one dead value.
+    // Flake: wider spread by facing plus a fine stable grain.
     case 'metallic': {
       const k = 1 + (up - 0.25) * 0.5 + (camoHash(Math.round(f * 40), Math.round(g * 40), Math.round(h * 40)) - 0.5) * 0.10;
       return finishSat([c[0] * k, c[1] * k, c[2] * k], 0.10);
     }
-    // Pearl: the same idea in HUE rather than value — the coat goes toward the trim colour where it
-    // turns away from you, which is the whole read of a pearl and costs one mix.
+    // Pearl: shifts hue toward trim as the face turns away.
     case 'pearl':    return mix3(c, pal.trim || [230, 232, 238], 0.34 * (1 - Math.max(0, up)));
     // Candy: deep colour over a bright base. Saturated hard and darkened in the shadows, which is
-    // what a dozen translucent coats do.
+    // Candy: saturated, darker in shadow.
     case 'candy':    return finishSat(c.map(v => v * (0.80 + Math.max(0, up) * 0.34)), 0.45);
     case 'matte':    return finishSat(c, -0.10);
-    // Sun-faded and patchy. The patches are the point — an evenly faded truck reads as a colour
-    // choice, and an unevenly faded one reads as a truck that has been somewhere.
+    // Weathered: uneven on purpose.
     case 'weathered': {
       const w = 0.18 + camoHash(Math.round(f * 7), Math.round(g * 6), Math.round(h * 7)) * 0.22;
       return finishSat(mix3(c, [178, 176, 168], w), -0.28);
     }
-    // Primer is the ABSENCE of a paint job, so it barely reads the colour at all: flat, chalky and
-    // the same on every panel. A rig in primer is a rig somebody is halfway through.
+    // Primer: flat and chalky.
     case 'primer':   return finishSat(mix3(c, [122, 124, 128], 0.62), -0.55);
     default:         return rgb;
   }
@@ -392,47 +235,26 @@ function finishCoat(rgb, pal, face) {
 // ── Geometry ────────────────────────────────────────────────────────────────────
 const V = (f, g, h) => [f, g, h];
 
-// A parametric fixed-wing: a lozenge fuselage (nose tip → mid ring → tail tip), high-
-// or low-set swept wings with dihedral, tailplane, one or two vertical fins, engine
-// nacelles (underwing tubes OR rear pods), and a canopy. Optional class-signature parts
-// — strut braces, fixed gear, prop spinners, nose gun, engine pylons —
-// give each class its real-world silhouette (Cessna / Twin Otter / An-124 / A-10).
+// Parametric fixed-wing: fuselage, swept wings with dihedral, tail, fins, nacelles, canopy, plus
+// class parts (struts, gear, spinners, nose gun, pylons) for each silhouette.
 function buildFixedWing(p, detail = 1) {
   const faces = [];
-  // Parametric fuselage: cross-section rings (an N-gon in the g-h plane, scaled by the
-  // craft's fr/fv half-widths) sampled at several stations nose→tail and skinned with
-  // quads. detail 1 = an 8-sided, rounded-ogive body (~4× the triangles — noticeably
-  // rounder both across and along); detail 0 = the original 4-sided bipyramid (two cones
-  // off a diamond mid-ring), used for distant/LOD renders where the extra facets are
-  // sub-pixel. The tips collapse to the axis (rad→0), so the end quads fold into cap fans.
-  // `p.sides` raises the ring resolution for a class whose whole read is roundness (the
-  // Leviathan's near-circular wide-body tube) — more facets across, nothing else changes.
+  // Fuselage: N-gon rings at stations nose to tail, skinned with quads. detail 0 is a 4-sided bipyramid for LOD.
+  // `p.sides` raises ring resolution for round hulls.
   const sides = detail ? (p.sides || 12) : 4;
-  // `p.extraF` inserts additional fuselage stations (fore→aft, descending f). A class that GLAZES
-  // its hull (p.glaze, below) needs real rings at the windscreen and cockpit bulkhead so the glass
-  // starts and stops on a structural seam instead of halfway across a bay — the coarse 3-station
-  // nose can't do that. Near-duplicate stations are dropped so an inserted ring can't leave a
-  // sliver quad next to a default one. Coarse LOD is untouched.
+  // `p.extraF` adds stations so glazing (p.glaze) starts and stops on a real seam. Near-duplicates are dropped.
   let stations = detail
     ? [p.noseF, p.noseF * 0.66, p.noseF * 0.33, 0, p.tailF * 0.35, p.tailF * 0.7, p.tailF]
     : [p.noseF, 0, p.tailF];
   if (detail && p.extraF) {
-    // An inserted ring wins over a default one right next to it — EXCEPT the two tip stations, which
-    // define the model's length. Evicting those doesn't tidy the mesh, it shortens the aeroplane, so
-    // a ring placed close to the tip to round a blunt radome would silently chop the snout off.
+    // An inserted ring evicts a nearby default one, except the tips: they set the length.
     const keep = stations.filter(f => f === p.noseF || f === p.tailF || !p.extraF.some(e => Math.abs(e - f) < 0.03));
     stations = [...keep, ...p.extraF].sort((a, b) => b - a);
   }
-  // Radius profile 1 (mid) → 0 (tips). A `bodyTube` plateau holds NEAR-FULL width across the
-  // central span before tapering (a transport is a long constant-section tube; a light single
-  // tapers straight from the cabin). The NOSE then rounds off as a blunt superellipse cowl
-  // (p.noseBlunt), the TAIL as a clean taper. detail 0 stays a straight cone → coarse LOD unchanged.
+  // Radius profile 1 (mid) to 0 (tips). `bodyTube` holds full width across the middle; the nose rounds as a superellipse.
   const noseK = p.noseBlunt || 2.4, tube = p.bodyTube || 0, cowl = p.noseCowl || 0;
-  // Centreline: 0 at mid, noseZ at the nose tip (negative = a drooped 'anteater' snout like the
-  // Twin Otter), tailUp at the tail. The droop is spent over the TAPERING SNOUT ONLY, not linearly
-  // from mid-fuselage — otherwise a drooped nose tips the whole forward cabin down with it and the
-  // roof can never stay level. `noseDroopK` < 1 dumps most of the drop right at the break, which is
-  // what turns those first facets into a windscreen rake instead of a gently sloping roof.
+  // Centreline height. The nose droop is spent over the tapering snout only, so the cabin roof stays level.
+  // `noseDroopK` < 1 puts most of the drop at the break (a windscreen rake).
   const czAt = (f) => {
     if (f < 0) return (p.tailUp ?? 0.05) * (f / p.tailF);
     const u = Math.min(1, f / p.noseF);
@@ -443,21 +265,12 @@ function buildFixedWing(p, detail = 1) {
     let u = Math.min(1, Math.abs(f >= 0 ? f / p.noseF : f / p.tailF));
     if (!detail) return 1 - u;
     u = u <= tube ? 0 : (u - tube) / (1 - tube);   // hold full width through the tube, then taper over the rest
-    // Nose: the superellipse rounds it, and p.noseCowl floors the front radius so it does NOT
-    // collapse to a point — the fuselage ends in a blunt cowl face (capped below). Tail tapers to 0.
+    // p.noseCowl floors the nose radius so it ends in a blunt (capped) face.
     if (f >= 0) { const s = Math.pow(Math.max(0, 1 - Math.pow(u, noseK)), 1 / noseK); return cowl + (1 - cowl) * s; }
     return Math.pow(1 - u, 0.8);
   };
-  // VERTICAL nose taper (p.noseVTaper): shrink the fuselage HEIGHT faster than its width through
-  // the nose. This is what a Twin Otter's front end actually does — the flat-topped cabin box holds
-  // full height back to the windscreen, then the ROOF comes down hard (a steep, forward-raked
-  // windscreen) while the sides stay wide, and the nose tapers to a low drooped point with the
-  // belly rising gently to meet it (a wedge, not a sagging tube). Doing it with czAt droop alone
-  // dropped the whole ring, sinking the belly below the nose tip; a height-only taper keeps the
-  // keel up. Only active where set (the Mule, the Leviathan) — every other craft's ring is unchanged.
-  // `noseVFloor` stops the taper short of zero: the Otter's snout really does come to a low POINT
-  // (floor 0, the default), but the An-124's roof drops away over the cargo visor to a still-blunt
-  // ROUND radome, so its height bottoms out at a fraction of full rather than collapsing to a slit.
+  // p.noseVTaper shrinks height faster than width through the nose (Twin Otter wedge) while keeping the keel up.
+  // `noseVFloor` stops it short of zero for a round radome (An-124).
   const vFloor = p.noseVFloor || 0;
   const radVAt = (f) => {
     const rH = radAt(f);
@@ -466,27 +279,15 @@ function buildFixedWing(p, detail = 1) {
     const t = u <= tube ? 0 : (u - tube) / (1 - tube);
     return rH * (vFloor + (1 - vFloor) * Math.pow(1 - t, p.noseVTaper));
   };
-  // Cross-section: an ellipse (fr wide × fv tall) morphed toward a rounded RECTANGLE by p.boxy
-  // (0 = round, →1 = slab-sided) — a Twin Otter is a flat-sided box, an An-124 near circular.
-  // At the 4 cardinal points |cos|/|sin| are 0 or 1, so a 4-sided coarse ring is unaffected →
-  // the LOD-0 silhouette is identical regardless of boxy.
+  // p.boxy morphs the ellipse toward a rounded rectangle. A 4-sided LOD ring is unaffected.
   const shapeExp = 1 - (p.boxy || 0) * 0.55;
-  // UPPER-DECK HUMP (p.hump = {f0, f1, h}): a local swelling of the CROWN over a stretch of the
-  // fuselage — the An-124's flight-deck bulge, and a 747's for that matter. A raised cosine over
-  // [f0,f1] so it grows out of the skin and blends back in with no crease at either end, and it's
-  // scaled by max(0, sin) around the ring so it lifts the top and dies to nothing at the shoulders
-  // rather than inflating the whole section. This has to be part of `ring`, not a bolted-on blister:
-  // the flight-deck glass IS the skin here, so the windows have to ride the bump with it.
+  // p.hump: raised-cosine crown swelling (flight-deck bulge). Part of `ring` because the flight-deck glass rides it.
   const humpAt = (f) => {
     const Hp = p.hump;
     if (!detail || !Hp || f <= Hp.f0 || f >= Hp.f1) return 0;
     return Hp.h * 0.5 * (1 - Math.cos(2 * Math.PI * (f - Hp.f0) / (Hp.f1 - Hp.f0)));
   };
-  // FLAT-BOTTOM HULL (p.bellyFlat, 0…1). A freighter's cargo floor is a low flat deck, and the hull
-  // under it is a shallow pan with a hard chine, not a barrel — it's a big part of why an An-124
-  // looks like it is squatting. This needs facets to read: on a 12- or 16-gon the lower half is so
-  // coarse that flattening it just moves two vertices, so it was never worth having. At 24 it is.
-  // Blends the round section toward a constant depth that turns up sharply at the chine.
+  // p.bellyFlat: blends the lower section toward a flat pan with a hard chine. Needs ~24 sides to read.
   const flatK = p.bellyFlat || 0;
   const ring = (f) => {
     const rW = radAt(f), rH = radVAt(f), cz = czAt(f), hb = humpAt(f), out = [];
@@ -502,14 +303,8 @@ function buildFixedWing(p, detail = 1) {
     }
     return out;
   };
-  // ── GLAZED HULL (p.glaze) — the Twin Otter way, and the same idea as the Viper's greenhouse:
-  // the cockpit glass is not a blister bolted to the crown, it IS the fuselage. Between stations
-  // f0 (windscreen) and f1 (cockpit bulkhead) the listed upper facets are simply glazed, so the
-  // flight-deck windows are flush with the flat sides and rake forward with the drooped nose
-  // exactly like the real aeroplane. The roof facets stay body-coloured (an Otter's roof is
-  // painted, not glass). Frames/reflections/crew are painted by the canopy texture through the
-  // UVs below: U runs f0→f1 (windscreen→bulkhead), V runs starboard→crown→port over the upper
-  // half of the ring (k 0…sides/2), matching the shared canopy texture space.
+  // p.glaze: listed upper facets between f0 (windscreen) and f1 (bulkhead) are the glass, flush with the hull.
+  // UV: U runs f0 to f1, V runs starboard over the crown to port, in the shared canopy texture space.
   const GZ = detail && p.glaze ? p.glaze : null;
   const gzU = (f) => (GZ.f0 - f) / (GZ.f0 - GZ.f1) * CP_TW;
   const gzV = (k) => k / (sides / 2) * CP_TH;
@@ -520,8 +315,7 @@ function buildFixedWing(p, detail = 1) {
     for (let k = 0; k < sides; k++) {
       const k2 = (k + 1) % sides;
       const sh = 0.62 + 0.36 * (0.5 + 0.5 * Math.sin((k + 0.5) / sides * Math.PI * 2));   // top bright (~0.98) → sides mid → bottom dark (~0.62)
-      // The WINDSCREEN bay wraps higher than the side windows do (GZ.wsKs forward of GZ.wsF) —
-      // the Otter's screen carries up onto the cheek, its side glass stops at the window line.
+      // The windscreen bay (forward of wsF) wraps higher than the side windows.
       const gks = (GZ && GZ.wsKs && fA >= GZ.wsF - 1e-6) ? GZ.wsKs : (GZ ? GZ.ks : null);
       if (inGlaze && gks.includes(k)) {
         faces.push({ role: 'glass', sh, art: GZ.art, p: [A[k], A[k2], B[k2], B[k]],
@@ -531,15 +325,12 @@ function buildFixedWing(p, detail = 1) {
       faces.push({ role: 'body', sh, p: [A[k], A[k2], B[k2], B[k]] });
     }
   }
-  // Blunt cowl: cap the nose ring with a flat rounded front face (it no longer collapses to a
-  // point when p.noseCowl is set) — a Cessna's cowl is a rounded box with the spinner poking out.
+  // Cap the blunt cowl.
   if (detail && (p.noseCowl || 0) > 0.01) faces.push({ role: 'body', sh: 0.9, p: ring(stations[0]) });
   const wH = p.wingH || 0;   // wing vertical set: high (+) rides the fuselage top, low (−) the belly
-  // Wings (high/low set + optional dihedral), swept. At full detail they get real
-  // thickness (top/bottom skins + leading/trailing/tip edges) instead of a paper quad.
+  // Wings, with real thickness at full detail.
   for (const s of [1, -1]) {
-    // A gull wing is TWO panels meeting at the knee; anything else is the single quad it has
-    // always been. Both go through wingPt, so the straight case is unchanged to the last digit.
+    // A gull wing is two panels meeting at the knee.
     const segs = p.gull ? [[0, p.gull.at], [p.gull.at, 1]] : [[0, 1]];
     for (const [u0, u1] of segs) {
       pushPanel(faces, 'wing', 0.82, [
@@ -548,10 +339,7 @@ function buildFixedWing(p, detail = 1) {
     }
     if (detail) addWingSurfaces(faces, p, s, wH);   // hinged flap + aileron on the trailing edge (full mesh only)
   }
-  // DIVE BRAKES (the Shrike): slatted plates under the wing just aft of the leading edge, out
-  // near the knee. They ride the flap channel — `defl: 'flap'`, hinged on their forward edge —
-  // so they swing down on the input the cockpit already streams, and cost no new plumbing at
-  // all. On this airframe they are the reason a 70° dive plateaus instead of running to redline.
+  // Dive brakes ride the flap channel (`defl: 'flap'`), so they need no new input.
   if (detail && p.diveBrakes) {
     const db = p.diveBrakes;
     for (const s of [1, -1]) {
@@ -563,8 +351,7 @@ function buildFixedWing(p, detail = 1) {
         hinge: [H0, H1], p: s > 0 ? [H0, H1, T1, T0] : [T0, T1, H1, H0] });
     }
   }
-  // Wing LIFT STRUT (Cessna / Twin Otter): a single SLIM streamlined member from the lower
-  // fuselage longeron out to ~mid-span under the wing — a thin diagonal, not a wide strap.
+  // Lift strut: one slim member from the lower longeron to mid-span.
   if (p.struts) {
     const sw = 0.022;                         // strut half-chord (fore-aft) — a slim member
     for (const s of [1, -1]) {
@@ -574,9 +361,7 @@ function buildFixedWing(p, detail = 1) {
         V(tx - sw, s * p.span * 0.5, wH - 0.02), V(bx - sw, s * p.fr * 0.95, -p.fv * 0.55)] });
     }
   }
-  // VENTRAL CHIN SCOOP (p.chinScoop) — the deep intake slung under the nose. On the reference
-  // airframe it is the radiator; here it feeds the turbine, and the shape is unchanged because
-  // the shape is what you recognise. A shallow box hung off the belly, tapering aft.
+  // Chin scoop: a shallow box under the nose, tapering aft.
   if (detail && p.chinScoop) {
     const C = p.chinScoop, zTop = -p.fv * 0.72, zBot = zTop - C.h;
     const w0 = C.w, w1 = C.w * 0.72;
@@ -586,16 +371,13 @@ function buildFixedWing(p, detail = 1) {
     faces.push({ role: 'gun', sh: 0.3, p: [A[0], A[1], B[1], B[0]] });                      // the dark intake mouth
     for (const [i, j] of [[1, 2], [2, 3], [3, 0]]) faces.push({ role: 'nacelle', sh: i === 2 ? 0.44 : 0.62, p: [A[i], A[j], B[j], B[i]] });
   }
-  // Horizontal stabiliser (also thickened at full detail).
   for (const s of [1, -1]) {
     pushPanel(faces, 'stab', 0.72, [
       V(p.hF, s * p.fr * 0.5, 0.04), V(p.hTipF, s * p.hSpan, 0.05),
       V(p.hTipB, s * p.hSpan, 0.05), V(p.hB, s * p.fr * 0.5, 0.04)], 0.02, detail);
     if (detail) addStabSurface(faces, p, s);   // hinged elevator on the tailplane (full mesh only)
   }
-  // BRACED TAILPLANE (p.stabStruts) — a slim strut each side running from out along the
-  // stabiliser up to the fin, per the reference photos. Small, but a braced tail reads as an
-  // older, heavier, more deliberately built machine, which is exactly the note wanted here.
+  // Braced tailplane: a strut each side from the stab to the fin.
   if (detail && p.stabStruts) {
     const sw = 0.016, mid = p.hSpan * 0.62;
     const fMid = p.hF + (p.hTipF - p.hF) * 0.62;
@@ -605,14 +387,11 @@ function buildFixedWing(p, detail = 1) {
         V(p.finF0 - 0.06 - sw, s * 0.012, p.finH * 0.52), V(fMid - sw, s * mid, 0.05)] });
     }
   }
-  // Vertical fin(s).
   for (const fg of (p.fins || [0])) {
     faces.push({ role: 'fin', sh: 0.9, p: [V(p.finF0, fg, 0.05), V(p.finF1, fg, p.finH), V(p.finF2, fg, 0.06)] });
     if (detail) addFinSurface(faces, p, fg);   // hinged rudder on the fin trailing edge (full mesh only)
   }
-  // DORSAL FIN FILLET (Twin Otter): a long shallow blade running forward off the fin leading edge
-  // along the spine. It's most of what makes an Otter's tail read as an Otter's, and it sits on the
-  // fuselage crown, so it follows the real tailcone line rather than a straight fudge.
+  // Dorsal fillet along the spine into the fin, following the real crown line.
   if (detail && p.dorsal != null) {
     const crownAt = (f) => czAt(f) + p.fv * radAt(f);
     const kneeH = 0.05 + (p.finH - 0.05) * 0.34;                       // where it merges into the fin LE
@@ -620,8 +399,7 @@ function buildFixedWing(p, detail = 1) {
     faces.push({ role: 'fin', sh: 0.84, p: [
       V(p.dorsal, 0, crownAt(p.dorsal)), V(kneeF, 0, kneeH), V(p.finF0, 0, crownAt(p.finF0))] });
   }
-  // Engine nacelles — underwing tubes (from `engines` lateral stations) or fatter rear
-  // pods (from `podEngines` full [f,g,h] stations, e.g. the A-10's high tail-mounts).
+  // Nacelles: underwing tubes from `engines`, or rear pods from `podEngines` [f,g,h].
   const nacStations = p.podEngines || (p.engines || []).map(g => [p.nacF, g, p.nacH]);
   for (const [nf, g, hc] of nacStations) {
     const nr = p.nacR || (p.podEngines ? 0.085 : 0.05);   // fat rear pods (A-10's TF34s); p.nacR sizes big underwing turbofans (An-124 D-18T)
@@ -641,20 +419,10 @@ function buildFixedWing(p, detail = 1) {
       V(nf - 0.09, gi, hc - nr - 0.04), V(nf - 0.09, g, hc - nr * 0.6)] }); }
     if (p.prop === 'wing') addSpinner(faces, nf + half, g, hc);   // Twin Otter wing turboprops — on the nacelle's own nose, however long it is
   }
-  // Nose prop. `p.spinner` sizes it — the default 0.5 is a light single's little GA spinner
-  // (Cessna, Cub); an ag-plane hangs a 1000-shp turbine off the firewall and its spinner is a
-  // BIG blunt cone almost as wide as the cowl, which is most of why the type reads heavy.
-  // ⚠ AND IT SITS ON THE CENTRELINE THE NOSE ACTUALLY ENDS AT. This was hardcoded to h = 0.02 —
-  // the DEFAULT `noseZ` — so the moment an airframe drooped its snout the spinner stayed up where
-  // a straight nose would have been and the prop hung off the top corner of the cowl. The Shrike
-  // (noseZ −0.035) was the first to have both a drooped nose and a nose prop, and she read as a
-  // model assembled wrong. `czAt` is the function that decides where the tip is; this is the same
-  // number, and every existing craft (all of which leave noseZ at the default) is untouched.
+  // Nose prop. `p.spinner` sizes it. ⚠ It sits at noseZ, where the drooped nose actually ends.
   if (p.prop === 'nose') addSpinner(faces, p.noseF, 0, p.noseZ ?? 0.02, p.spinner ?? 0.5);
   if (p.stores) addStores(faces, p);   // what she is carrying, on the racks she carries it on
-  // Cowl EXHAUST STACKS (p.exhaust) — the short dark pipes elbowing out of the cowl flanks just
-  // ahead of the windscreen and canting aft. Tiny, but they're the difference between a smooth
-  // moulded snout and an engine that's actually bolted in there.
+  // Exhaust stacks out of the cowl flanks.
   if (detail && p.exhaust) {
     const E = p.exhaust;
     for (const s of [1, -1]) for (const df of (E.at || [0])) {
@@ -662,10 +430,7 @@ function buildFixedWing(p, detail = 1) {
       addTube(faces, V(f, g, z), V(f - 0.06, g + s * 0.022, z - 0.012), E.r ?? 0.013, 'gun', 0.34, 6);
     }
   }
-  // SPRAY RIG (p.sprayBoom) — the ag-plane's working end: a boom slung on drop struts under the
-  // wing trailing edge, studded with nozzles, capped by the wingtip vortex fairings. This is the
-  // honest counterpart to a gunship's stores line — same visual mass out along the span, and it's
-  // the hardware the SPRAY verb is actually operating.
+  // Spray rig: boom on drop struts under the trailing edge, nozzles, tip vortex fairings.
   if (detail && p.sprayBoom) {
     const B = p.sprayBoom, bf = B.f, bz = wH - (B.drop ?? 0.055), span = p.span * (B.reach ?? 0.94);
     addTube(faces, V(bf, -span, bz), V(bf, span, bz), B.r ?? 0.010, 'nacelle', 0.66, 6);   // the boom itself, tip to tip
@@ -681,15 +446,13 @@ function buildFixedWing(p, detail = 1) {
         const g = s * span * t;
         addTube(faces, V(bf, g, bz), V(bf + 0.01, g, wH - 0.012), 0.007, 'strut', 0.6, 4);
       }
-      // Wingtip vortex fairing — the flat blade hung off each tip that keeps the swath off the wake.
+      // Wingtip vortex fairing.
       faces.push({ role: 'nacelle', sh: 0.7, p: [
         V(p.wTipF, s * p.span, wH + p.dih), V(p.wTipF - 0.02, s * p.span, wH + p.dih - 0.075),
         V(bf, s * p.span, wH + p.dih - 0.075), V(p.wTipB, s * p.span, wH + p.dih)] });
     }
   }
-  // Under-wing cannon (gunship): a small forward-firing gun pod slung beneath each
-  // wing on a short pylon, its barrel poking ahead of the leading edge. A thin
-  // square-section tube — physically joined to the wing, not floating.
+  // Under-wing cannon pods on short pylons.
   if (p.wingGuns) {
     const gauge = 0.40, r = 0.018, gz = wH - 0.075, gf = 0.34, gk = 0.00;
     for (const s of [1, -1]) {
@@ -703,12 +466,10 @@ function buildFixedWing(p, detail = 1) {
         V(-0.02, g - 0.012, wH - 0.01), V(-0.02, g - 0.012, gz + r)] });
     }
   }
-  // Landing gear: An-124 multi-wheel bogies for a heavy, else a fixed tricycle (Cessna / Twin
-  // Otter): two mains + a nose leg, each a strut + wheel.
+  // Landing gear.
   if (p.heavyGear) addHeavyGear(faces, p);
   else if (p.gearPods) {
-    // A-10: bulky body-coloured main-gear fairing pods (the Warthog's signature heavy
-    // gear) under the wings + a stout nose leg — never the thin tricycle sticks.
+    // A-10 gear pods plus a stout nose leg.
     const wz = -p.fv - 0.10;
     addGearPod(faces, 0.08, p.fr + 0.10, wz);
     addGearPod(faces, 0.08, -(p.fr + 0.10), wz);
@@ -721,27 +482,18 @@ function buildFixedWing(p, detail = 1) {
     else if (p.gearStyle === 'taildragger') addTaildraggerGear(faces, p, wz);   // conventional gear: two forward mains + a tailwheel
     else { addGear(faces, 0.10, p.fr + 0.06, wz); addGear(faces, 0.10, -(p.fr + 0.06), wz); addGear(faces, p.noseF * 0.55, 0, wz + 0.02); }
   }
-  // Cockpit canopy — a faceted transparent bubble mounted on the fuselage crown. Built from
-  // upper-half elliptical rings sampled fore→aft and skinned into quads; the lateral facets give
-  // the windscreen its real angled panes (more triangles = more accurate curved glass). The base
-  // is sunk a touch into the hull so it reads as mounted, not floating. Per-class `canopy` params
-  // shape it: a tall narrow fighter bubble (Reaper), a wide forward flight-deck hump (Leviathan),
-  // a greenhouse cabin (Mayfly), a low wide windscreen (Mule). Skipped on the coarse LOD.
+  // Canopy: upper-half elliptical rings fore to aft, sunk a touch into the hull. Skipped on coarse LOD.
   if (detail && p.canopy) {
     const cp = p.canopy, segs = cp.segs || 5, arc = cp.arc || 3;
     const crown = (f) => czAt(f) + p.fv * radAt(f) - (cp.sink ?? 0.015);   // fuselage top at station f, sunk a touch
-    // Fore→aft height profile: a windowed sine — a raked windscreen at the front (cp.front),
-    // full through the middle, tapering to a faired tail (cp.tail). t: 0 = front, 1 = rear.
+    // Height profile: raked windscreen (cp.front), full middle, faired tail (cp.tail).
     const prof = (t) => Math.sin(Math.PI * ((cp.front ?? 0.12) + (1 - (cp.front ?? 0.12) - (cp.tail ?? 0.04)) * t));
     const ringAt = (t) => {
       const f = cp.f0 + (cp.f1 - cp.f0) * t, s = prof(t), z0 = crown(f), out = [];
       for (let k = 0; k <= arc; k++) { const a = Math.PI * k / arc; out.push(V(f, Math.cos(a) * cp.w * s, z0 + Math.sin(a) * cp.h * s)); }
       return out;   // k: 0 = starboard base → over the crown → arc = port base
     };
-    // Canopy ART (cp.art): the bubble unwraps onto the shared canopy texture exactly the way the
-    // Viper's greenhouse does — the SEGMENT index runs U (windscreen → rear), the ARC index runs
-    // V (starboard sill → crown → port sill) — so one painted sheet of mullions, sky reflection
-    // and the people inside wraps the whole cabin. Without `art` the bubble is plain tinted glass.
+    // cp.art: segment index runs U, arc index runs V, on the shared canopy texture.
     const art = cp.art;
     let A = ringAt(0);
     for (let i = 1; i <= segs; i++) {
@@ -758,14 +510,8 @@ function buildFixedWing(p, detail = 1) {
       }
       A = B;
     }
-    // Cap the fore + aft rings so the greenhouse reads as a CLOSED bubble — a raked windscreen up
-    // front and a faired rear window — instead of an open-ended tube. The backface cull auto-orients
-    // each cap's normal from the model centre, so the flat end faces don't need a fixed winding.
-    // A cap is a flat ring at ONE station, so it has no extent in U: give it a narrow slab of the
-    // texture's leading (or trailing) edge, fanned across V, so the windscreen still carries its
-    // frame and glass wash rather than dropping back to bare tint. drawCanopyGlass only takes 3–4
-    // points, so an arc-3 ring caps as one textured quad; a FINER arc (the rounder bubbles) fans
-    // from the ring's centre into arc textured triangles instead of dropping back to bare tint.
+    // Cap the fore and aft rings. A cap gets a narrow slab of the texture edge. drawCanopyGlass takes only 3 or 4
+    // points, so a finer arc fans from the centre into triangles.
     const front = ringAt(0), rear = ringAt(1);
     const capUV = (uEdge, uIn) => [[uEdge, 0], [uIn, CP_TH / 3], [uIn, CP_TH * 2 / 3], [uEdge, CP_TH]];
     const pushCap = (ring, sh, uEdge, uIn) => {
@@ -785,33 +531,18 @@ function buildFixedWing(p, detail = 1) {
     pushCap(front, 0.72, 0, CP_TW * 0.07);
     pushCap(rear, 0.50, CP_TW, CP_TW * 0.93);
   }
-  // ── Cargo visor group (Leviathan) ───────────────────────────────────────────────
-  // Tag every skin/glass face forward of the cut ring as one hinged unit that swings UP
-  // about a transverse line at the fuselage crown. `ring()` builds fresh vertices per
-  // station, so the fore and aft quads that meet at the cut don't share points — at rest
-  // the seam is invisible; opening yawns a clean cargo mouth instead of stretching the hull.
-  // The nose gear (role 'gear') is deliberately left out so it stays planted on the ramp.
+  // ── Cargo visor group (Leviathan) ──
+  // Faces forward of the cut swing up about a crown line. Rings don't share vertices, so the seam opens cleanly.
+  // The main gear stays planted.
   if (detail && p.visor) {
-    // SNAP THE CUT TO A REAL RING. `hingeAt` is authored as a fraction, so noseF × hingeAt lands a
-    // few 1e-5 off the station it was meant to name — and since the "is this face forward of the
-    // break" test is an inequality against that number, being 4.5e-5 on the wrong side excluded the
-    // entire bay at the seam. The visor group then started one ring FURTHER FORWARD than the hinge
-    // it pivots on, so the nose swung about an axis it wasn't attached to and tore open a gap the
-    // width of a whole fuselage bay. Snapping to the nearest actual station makes the comment above
-    // true instead of merely intended, and no authored fraction can drift off a ring again.
+    // ⚠ Snap the cut to a real station: an authored fraction lands a hair off and the inequality drops the seam bay.
     const rawCut = p.noseF * (p.visor.hingeAt ?? 0.33);
     const cut = stations.reduce((b, s) => Math.abs(s - rawCut) < Math.abs(b - rawCut) ? s : b, stations[0]);
-    // radVAt, not radAt: on a class whose nose sheds HEIGHT faster than width the crown at the cut
-    // sits lower than the plan taper alone says, and a hinge axis floating above the skin tears the
-    // nose off its own roof the moment it swings.
+    // radVAt, or the hinge floats above a nose that sheds height.
     const crownZ = czAt(cut) + p.fv * radVAt(cut) + humpAt(cut);   // top of the fuselage at the cut station — hump included, or the hinge floats above a crown that's risen out from under it
     const A = V(cut, p.fr, crownZ), B = V(cut, -p.fr, crownZ); // hinge axis: a lateral line across the crown
     const LIFT = new Set(['body', 'glass', 'window']);         // skin + flight-deck glass lift with the nose
-    // HINGE KNUCKLE. A 70–90° swing about a line on the crown is geometrically correct but reads as
-    // a severed nose, because the only thing joining the two halves is a mathematical axis with no
-    // structure on it — nothing for the eye to accept as a JOINT. Real visor noses carry big external
-    // hinge brackets up there, so give her a pair: two plates straddling the crown at the cut, left
-    // on the BODY (untagged) so the nose visibly pivots on something that stays put.
+    // Hinge knuckle: two brackets on the body so the nose visibly pivots on something.
     {
       const hf = 0.07, hb = 0.05, hh = 0.030, hg = p.fr * 0.34;   // fore reach · aft reach · height · lateral offset
       for (const s of [1, -1]) {
@@ -827,18 +558,12 @@ function buildFixedWing(p, detail = 1) {
     const noseGearF = p.noseF * 0.45;                          // fore of this centroid = the NOSE leg; the main centipede bogies sit well aft and stay planted
     for (const f of faces) {
       const fwd = f.p.every(v => v[0] >= cut - 1e-6);
-      // The nose leg is part of the swinging assembly and comes up with it, but ONLY if it really is
-      // mounted on that section (centroid forward of the cut — see `noseGearAt`). Tagging a leg that
-      // stands AFT of the break made it pivot about a hinge it isn't attached to, and it swung off
-      // the belly into mid-air. Both halves of this test matter: the first picks the nose leg out of
-      // the centipede, the second refuses to move anything the nose doesn't actually carry.
+      // The nose leg lifts only if it's mounted forward of the cut, or it pivots off into mid-air.
       const gearF = f.role === 'gear' ? f.p.reduce((a, v) => a + v[0], 0) / f.p.length : -Infinity;
       const isNoseGear = gearF > noseGearF && gearF >= cut - 1e-6;
       if ((LIFT.has(f.role) && fwd) || isNoseGear) { f.visor = true; f.visorHinge = [A, B]; f.visorMax = p.visor.maxAng ?? 0.9; }
     }
-    // Cargo hold revealed when the visor stands up: a boxy inner bay (floor, ceiling, side walls,
-    // rear bulkhead) recessed inside the main fuselage — static geometry the closed outer skin
-    // occludes, seen only through the raised opening.
+    // Cargo hold seen through the raised visor.
     const bF0 = cut, bF1 = -0.06;                              // opening plane → rear bulkhead
     const bw = p.fr * 0.66, bt = p.fv * 0.60, bb = -p.fv * 0.55;   // half-width, ceiling z, floor z (inset from the skin)
     faces.push({ role: 'interior', sh: 0.30, p: [V(bF1, -bw, bb), V(bF1, bw, bb), V(bF0, bw, bb), V(bF0, -bw, bb)] });   // floor
@@ -846,20 +571,13 @@ function buildFixedWing(p, detail = 1) {
     faces.push({ role: 'interior', sh: 0.26, p: [V(bF1, bw, bb), V(bF1, bw, bt), V(bF0, bw, bt), V(bF0, bw, bb)] });     // starboard wall
     faces.push({ role: 'interior', sh: 0.26, p: [V(bF0, -bw, bb), V(bF0, -bw, bt), V(bF1, -bw, bt), V(bF1, -bw, bb)] }); // port wall
     faces.push({ role: 'interior', sh: 0.36, p: [V(bF1, -bw, bb), V(bF1, -bw, bt), V(bF1, bw, bt), V(bF1, bw, bb)] });   // rear bulkhead
-    // Fold-down cargo ramp, hinged at the lower front lip. Authored DEPLOYED (lip → ground), then
-    // pre-rotated UP into its stowed pose (tucked flat inside the hold, hidden behind the closed
-    // nose); as part of the visor group, hingeVisorFace swings it back down as noseVisor → 1.
+    // Cargo ramp hinged at the lower lip: authored deployed, pre-rotated up into the hold; the visor swing lowers it.
     const lipZ = czAt(cut) - p.fv * radVAt(cut);              // fuselage bottom at the cut station
     const rw = bw * 0.94, rampAng = 2.9;
     const hA = V(cut, rw, lipZ), hB = V(cut, -rw, lipZ);
-    // The foot is the FULLY EXTENDED toe, and it is placed on the same ground plane the gear defines
-    // (mains: belly − wheel radius) so a deployed ramp meets the tarmac instead of hovering over it
-    // or sinking through. Everything below is a fraction of that lip→toe axis, so the slide can't
-    // overshoot: fixed plate 0→MID, extension slides exactly the remaining MID→1.
+    // The toe sits on the gear's ground plane. Parts are fractions of the lip-to-toe axis so the slide can't overshoot.
     const footF = cut + (p.visor.ramp ?? 0.62), footZ = -(p.fv + 0.07);
-    // Deployed frame: `d` runs down the ramp lip→foot, `n` is its surface normal. Every detail below
-    // is placed in this frame and then stowed, so the ribs and rails sit ON the plate at any angle
-    // instead of being hand-placed in world space and drifting off it as the ramp swings.
+    // Deployed frame: `d` down the ramp, `n` its normal. Details are placed in it, then stowed, so they stay on the plate.
     const dF = footF - cut, dZ = footZ - lipZ, dL = Math.hypot(dF, dZ) || 1;
     const d = [dF / dL, 0, dZ / dL], n = [-dZ / dL, 0, dF / dL];
     const at = (u, gg, lift = 0) => V(cut + d[0] * dL * u + n[0] * lift, gg, lipZ + d[2] * dL * u + n[2] * lift);
@@ -869,31 +587,23 @@ function buildFixedWing(p, detail = 1) {
       if (slide) f.slide = slide;
       faces.push(f);
     };
-    // Main plate — the fixed half, lip to mid-span. The sliding section carries the rest: MID + the
-    // slide fraction sum to exactly 1, i.e. the toe.
+    // Fixed plate, lip to MID; the slide carries the rest to the toe.
     const MID = 0.58;
     push(0.72, [at(0, -rw), at(0, rw), at(MID, rw), at(MID, -rw)]);
     push(0.44, [at(MID, -rw, -0.012), at(MID, rw, -0.012), at(0, rw, -0.012), at(0, -rw, -0.012)]);
-    // Side rails — raised kerbs down both edges, the thing that stops a pallet walking off the side.
+    // Side rails.
     for (const s of [1, -1]) {
       const gg = s * rw;
       push(0.60, [at(0, gg), at(MID, gg), at(MID, gg, 0.022), at(0, gg, 0.022)]);
       push(0.84, [at(0, gg, 0.022), at(MID, gg, 0.022), at(MID, gg - s * 0.014, 0.022), at(0, gg - s * 0.014, 0.022)]);   // rail top
     }
-    // Traction ribs across the deck — the cross-hatching every cargo ramp has, and the detail that
-    // reads as "load-bearing steel" rather than a plank.
+    // Traction ribs.
     for (let i = 1; i <= 4; i++) {
       const u = MID * (i / 5), w = 0.012;
       push(0.90, [at(u - w, -rw * 0.93, 0.005), at(u - w, rw * 0.93, 0.005), at(u + w, rw * 0.93, 0.005), at(u + w, -rw * 0.93, 0.005)]);
     }
-    // TELESCOPING EXTENSION. Authored nested under the fixed plate (so a shut ramp is one slab) and
-    // slid out along the ramp's own axis by `slide`. hingeVisorFace runs it on a DELAYED curve — it
-    // stays home until the nose is most of the way up, then eases out — because a ramp that
-    // telescopes while it's still swinging reads as two unrelated things moving at once.
-    // The extension must be authored at least EXT long, or sliding it out by EXT drags its rear edge
-    // past the fixed plate's end and opens a hole in the middle of the ramp — the gap being exactly
-    // EXT minus the overlap. Start it a further LAP back so the two stay lapped at full extension
-    // instead of meeting on a hairline.
+    // Telescoping extension, nested under the plate and slid out by `slide` on a delayed curve (see slideEase).
+    // It's authored EXT + LAP long so it stays lapped at full extension; shorter opens a hole mid-ramp.
     const EXT = 1 - MID, LAP = 0.05, U0 = Math.max(0.02, MID - EXT - LAP);
     const ext = dL * EXT, erw = rw * 0.88, sl = [d[0] * ext, 0, d[2] * ext];
     push(0.78, [at(U0, -erw, 0.006), at(U0, erw, 0.006), at(MID, erw, 0.006), at(MID, -erw, 0.006)], sl);
@@ -907,29 +617,13 @@ function buildFixedWing(p, detail = 1) {
   return faces;
 }
 
-// `pushPanel` (a flat lifting panel, boxed at full detail) and `pushCtrlSurface` (a hinged flap,
-// aileron, elevator or rudder, standing just proud of its parent so the painter's sort has something
-// to be right about) live in client/shared/vehicle-mesh.js and are imported above.
-//
-// ── Control surfaces ─────────────────────────────────────────────────────────────
-// Ailerons + flaps (on the wing trailing edge) and elevators (on the tailplane) are
-// added as thin quads HINGED along a spanwise line just forward of the trailing edge.
-// The static face carries its hinge line + a `defl` key + which `side` it's on; the
-// geometry stays neutral in the cache (memoised), and each renderer deflects a COPY of
-// the points per-frame from live pilot input via deflectSurface() below. Only the pilot's
-// own external-chase ship passes input, so contacts/hangar/turntable draw them at rest.
+// pushPanel and pushCtrlSurface live in client/shared/vehicle-mesh.js.
+// ── Control surfaces ──
+// Surfaces carry a hinge line, `defl` and `side`; the cached geometry stays neutral and renderers deflect
+// a copy per frame with deflectSurface(). Only the pilot's own chase view passes input.
 
-// A point on one wing at spanwise fraction u (0 = root rib, 1 = tip) and chordwise edge
-// ('le' or 'te'), on side `s`. Everything that needs to know where the wing IS goes through
-// here, so a wing whose shape is not a flat quad stays honest for the skin, the flaps and
-// the nav lamps at once.
-//
-// A straight wing interpolates root→tip and is arithmetically identical to the _lerp3 this
-// replaced (f, g and z are each linear in u), so every existing class builds byte-identical
-// geometry. `p.gull` = { at, drop, rise } adds a CRANK at spanwise `at`: the inner panel
-// falls by `drop` (negative — anhedral) and the outer rises by `rise`. That is the inverted
-// gull: a short steep centre section down to the knee, then a long dihedral outer panel, and
-// it is what lets the gear legs be short while the prop still clears the ground.
+// A point on one wing at span fraction u and edge 'le'/'te'. Everything that needs the wing's shape goes through here.
+// `p.gull` = { at, drop, rise } cranks it: inner panel falls by `drop`, outer rises by `rise` (inverted gull).
 function wingPt(p, wH, s, u, edge) {
   const g0 = p.fr * 0.7, g1 = p.span;
   const f = edge === 'le' ? p.wRootF + (p.wTipF - p.wRootF) * u : p.wRootB + (p.wTipB - p.wRootB) * u;
@@ -943,10 +637,7 @@ function wingPt(p, wH, s, u, edge) {
   return V(f, s * (g0 + (g1 - g0) * u), z);
 }
 
-// Build the flap (inboard) + aileron (outboard) for one wing (`s` = +1 right, −1 left).
-// On a cranked wing the two surfaces meet AT the knee — the flap owns the inner panel and the
-// aileron the outer — because a surface spanning the crank would be a flat plate hinged across
-// a fold, and would tear out of the wing the moment it deflected.
+// Flap (inboard) and aileron (outboard). On a cranked wing they meet at the knee: a surface across the crank would tear out.
 function addWingSurfaces(faces, p, s, wH) {
   const le = (u) => wingPt(p, wH, s, u, 'le'), te = (u) => wingPt(p, wH, s, u, 'te');
   const k = p.gull ? p.gull.at : 0.50;
@@ -955,7 +646,7 @@ function addWingSurfaces(faces, p, s, wH) {
   pushCtrlSurface(faces, 'aileron', s, 0.82, le(ai0), le(ai1), te(ai0), te(ai1), 0.28);  // outboard aileron
 }
 
-// Build the elevator on one tailplane half (both halves move together — a symmetric elevator).
+// Elevator on one tailplane half.
 function addStabSurface(faces, p, s) {
   const rootLE = V(p.hF, s * p.fr * 0.5, 0.04), tipLE = V(p.hTipF, s * p.hSpan, 0.05);
   const tipTE = V(p.hTipB, s * p.hSpan, 0.05), rootTE = V(p.hB, s * p.fr * 0.5, 0.04);
@@ -963,16 +654,10 @@ function addStabSurface(faces, p, s) {
   pushCtrlSurface(faces, 'elevator', s, 0.72, le(0.06), le(0.95), te(0.06), te(0.95), 0.34, 'z', 0.010);   // tailplane is thinner than the wing (0.02) — match it or the elevator floats off the surface
 }
 
-// Build the rudder on one vertical fin at lateral station `fg`. The fin is a flat triangle in the
-// g=fg plane (apex finF1/finH, base finF0→finF2 at z≈0.06); the rudder is its aft strip, hinged on
-// a near-vertical line shifted FORWARD of the trailing edge by `cf` of the base chord, so it swings
-// in ±g (yaw). Coplanar with the fin at rest → invisible seam; visible only once it kicks over.
+// Rudder: the fin's aft strip, hinged forward of the trailing edge by `cf` of the base chord; swings in g.
 function addFinSurface(faces, p, fg) {
   const cf = 0.4, df = cf * (p.finF0 - p.finF2);                        // forward hinge offset from the TE
-  // Two-sided, straddling the fin. The fin is a flat triangle and the rudder used to be authored in
-  // exactly its plane — "coplanar at rest → invisible seam" was true right up until the depth sort
-  // had to choose between two faces at identical depth, at which point the fin strobed. A plate with
-  // a side to it can't be coplanar with anything.
+  // Two-sided, straddling the fin: a coplanar rudder made the depth sort strobe.
   const off = 0.007;
   for (const s of [1, -1]) {
     const gg = fg + s * off;
@@ -986,12 +671,8 @@ function addFinSurface(faces, p, fg) {
 // Peak deflection (radians) for each surface at full input.
 const SURF_MAX = { aileron: 0.36, flap: 0.55, elevator: 0.40, rudder: 0.38 };
 
-// Deflect a control-surface face for the live control input, returning a fresh copy of its
-// points (never mutates the memoised face). `ctrl` = { aileron, elevator, flaps } in −1..1
-// (flaps 0..1). Signs are derived from the hinge axis pointing OUTBOARD on each side:
-//   aileron — same angle both sides ⇒ they move OPPOSITELY (roll): +aileron rolls right;
-//   flap    — −side ⇒ both trailing edges drop together;
-//   elevator— +side ⇒ both trailing edges move together (pitch): +elevator (pull) = up.
+// Deflect a control surface for live input, returning a fresh copy. `ctrl` values in -1..1 (flaps 0..1).
+// Hinge axes point outboard, so ailerons share a sign (roll), flaps use -side, elevators +side.
 export function deflectSurface(face, ctrl) {
   if (!ctrl || !face.hinge) return face.p;
   let ang = 0;
@@ -1003,8 +684,7 @@ export function deflectSurface(face, ctrl) {
   return rotAboutAxis(face.p, face.hinge[0], face.hinge[1], ang);
 }
 
-// Rodrigues rotation of a point list about the axis A→B by `ang` (rad). Returns a fresh array;
-// never mutates the input. Shared by the control-surface deflection and the Leviathan visor nose.
+// Rodrigues rotation about A to B. Returns a fresh array.
 function rotAboutAxis(pts, A, B, ang) {
   let dx = B[0] - A[0], dy = B[1] - A[1], dz = B[2] - A[2];
   const L = Math.hypot(dx, dy, dz) || 1; dx /= L; dy /= L; dz /= L;
@@ -1020,36 +700,20 @@ function rotAboutAxis(pts, A, B, ang) {
   });
 }
 
-// Visor-nose group: does this class HAVE one (→ null if not), for the driver to gate the animation.
 export function visorSpecFor(cls) { return (fwParams(cls) || {}).visor || null; }
 
-// Geometry that exists ONLY to be seen through an open cargo mouth — the hold's inner box and the
-// fold-down ramp stowed inside it. With the nose shut it's sealed inside the fuselage, where it is
-// not merely redundant but actively wrong: the painter's sort every renderer uses orders faces by
-// centroid depth, and the hold's floor is one long face whose centroid can sort AHEAD of the small
-// belly quads actually in front of it. So it punches through the skin and reads as loose panels
-// floating around the aeroplane. Skipping it when the visor is home is both cheaper and correct.
-//
-// A renderer that has no concept of a visor (the hangar turntable, the dealer wireframe, the
-// showroom scene) passes nothing and gets t=0 — which is exactly right for those views: a parked
-// aeroplane on display sits buttoned up, not gaping.
-// `visorOnly` extends this to anything else that must not exist with the nose home — notably the
-// hinge brackets, which are external structure you only ever see once the joint is broken open. Left
-// drawn on a shut aeroplane they'd be two lumps sitting proud of an otherwise clean crown.
-// ⚠ AND A MESH FACE CAN NAME ITS OWN CHANNEL (`when`): the Drake's saloon exists only while its
-// ramp is down, for exactly the reason above. `ch` is the channel values; a renderer that passes
-// none (the turntable, the hangar, the lowest-point sweep) gets the aircraft buttoned up.
+// Faces seen only through an open cargo mouth (hold, ramp, `visorOnly` brackets). Shut, they're skipped:
+// the centroid depth sort would let the long hold floor punch through the skin.
+// A renderer with no visor passes t=0 and gets the craft buttoned up. A mesh face can name its own channel
+// with `when`/`whenNot` (the Drake's saloon), read from `ch`.
 export function visorHidden(face, t = 0, ch = null) {
   if (face.whenNot && (ch?.[face.whenNot] ?? 0) > 0.001) return true;
   if (face.when) return !((ch?.[face.when] ?? 0) > 0.001);
   return (face.visorOnly || face.role === 'interior' || face.role === 'ramp') && !(t > 0.001);
 }
 
-// Swing a tagged visor face UP by `t` (0 = closed/home, 1 = fully raised). Untagged faces and t≈0
-// pass through untouched, so a craft with no visor (or a closed one) costs nothing.
-// A telescoping part starts moving only once `t` passes SLIDE_T0, then eases out on a smoothstep.
-// The delay is the whole trick: run the slide on the same clock as the swing and the eye reads two
-// unrelated motions at once, instead of one machine finishing its cycle — nose up, THEN ramp out.
+// Swing a visor face up by `t` (0 closed, 1 raised). Telescoping parts wait for SLIDE_T0 then ease out,
+// so the nose finishes before the ramp extends.
 const SLIDE_T0 = 0.58;
 export function slideEase(t) {
   const u = t <= SLIDE_T0 ? 0 : Math.min(1, (t - SLIDE_T0) / (1 - SLIDE_T0));
@@ -1059,27 +723,20 @@ export function hingeVisorFace(face, t) {
   if (!face.visorHinge || !t) return face.p;
   const pts = rotAboutAxis(face.p, face.visorHinge[0], face.visorHinge[1], (face.visorMax || 0.9) * t);
   if (!face.slide) return pts;
-  // Translate AFTER the rotation, in world space: `slide` was authored along the deployed ramp's own
-  // axis, and by the time the ease is non-zero the plate is nearly deployed, so the extension runs
-  // true down the ramp rather than skewing off it.
+  // Translate after the rotation, along the ramp's deployed axis.
   const e = slideEase(t);
   if (!e) return pts;
   return pts.map(q => [q[0] + face.slide[0] * e, q[1] + face.slide[1] * e, q[2] + face.slide[2] * e]);
 }
 
-// A small forward-pointing spinner cone + hub (prop hub). `scale` sizes it: a big turboprop
-// spinner (1) vs a little GA nose spinner like the Cessna's (~0.5). The spinning disc itself
-// is drawn by each renderer's effect layer, keyed off PROP_STATIONS (below).
+// Spinner cone and hub. The spinning disc is drawn by each renderer's FX layer from PROP_STATIONS.
 function addSpinner(faces, f, g, h, scale = 1) {
   const apex = V(f + 0.14 * scale, g, h), r = 0.045 * scale;
   const ring = [V(f, g + r, h + r), V(f, g - r, h + r), V(f, g - r, h - r), V(f, g + r, h - r)];
   for (let i = 0; i < 4; i++) faces.push({ role: 'nacelle', sh: 0.95 - i * 0.06, p: [apex, ring[i], ring[(i + 1) % 4]] });
 }
 
-// An-124-style heavy gear: the type's signature multi-wheel 'centipede' — a fore-aft ROW of
-// TANDEM bogies down each side of the lower fuselage (each a short leg tucked to the belly, a
-// bogie beam, and two fat wheels) plus a twin nose unit. A cantilever heavy sits LOW, not on
-// tall spindly struts. (Shared primitives addStrut/pushWheel defined below the gear builders.)
+// An-124 centipede gear: tandem bogies down each side, low to the belly, plus a twin nose unit.
 function addHeavyGear(faces, p) {
   const wz = -p.fv - 0.02, gside = p.fr * 0.72, wr = 0.05;   // wheels hang just below the belly
   for (const s of [1, -1]) {
@@ -1090,24 +747,15 @@ function addHeavyGear(faces, p) {
       pushWheel(faces, f - 0.055, s * gside, wz, wr, 0.02, 8);
     }
   }
-  // Nose unit. `noseGearAt` puts it FORWARD of the visor cut on a class with a hinged cargo nose,
-  // so the leg is bolted to the section that swings and rides up with it as one assembly — rather
-  // than standing under the hinge unattached to either half, which is what read as a landing leg
-  // floating loose beside the aeroplane.
-  // The nose wheels are SMALLER than the mains (wr*0.85), so sharing the mains' axle height hung
-  // them 0.0225 clear of the ground — a front wheel visibly floating above the tarmac while the
-  // aeroplane rested on its bogies. Put the axle where the smaller tyre's BOTTOM lands on the same
-  // ground line the mains define, and the whole undercarriage sits on one plane.
+  // Nose unit. `noseGearAt` puts it forward of the visor cut so it rides with the nose.
+  // Its smaller wheels' axle is set so their bottoms land on the mains' ground line.
   const nf = p.noseF * (p.noseGearAt ?? 0.55), nWr = wr * 0.85, nz = (wz - wr) + nWr;
   addStrut(faces, nf, 0, nz + 0.10, nz + 0.045, 0.018, 6);
   pushWheel(faces, nf + 0.045, 0, nz, nWr, 0.018, 8);   // twin nose unit
   pushWheel(faces, nf - 0.045, 0, nz, nWr, 0.018, 8);
 }
 
-// One fixed gear leg (short, stout strut) + a wheel, in side profile. The leg tops out
-// ABOVE the belly (+z) so it disappears partly into the fuselage. The wheel ROLLS fore-aft
-// (its round face along ±g), extruded across its width with hub end-caps so it reads as a
-// tyre, not an edge-on disc. `scale` fattens the whole leg + wheel (>1 for a heavy strut).
+// One fixed gear leg and a wheel rolling fore-aft, with hub caps. `scale` fattens it.
 function addGear(faces, f, g, wz, scale = 1) {
   const top = 0.04, lw = 0.022 * scale;   // reach up inside the model; fore-aft strut plate
   faces.push({ role: 'gear', sh: 0.7, p: [V(f + lw, g, top), V(f + lw, g, wz), V(f - lw, g, wz), V(f - lw, g, top)] });
@@ -1119,25 +767,18 @@ function addGear(faces, f, g, wz, scale = 1) {
   faces.push({ role: 'gear', sh: 0.48, p: oL.slice().reverse() }); // inboard hub face
 }
 
-// A-10-style main gear: the Warthog's unmistakable heavy gear, built up out of many
-// facets so it reads as REAL landing gear, not a box on a stick — a rounded body-coloured
-// fairing pod (octagonal barrel tapering to a snout), a segmented oleo shock strut
-// (dark upper cylinder + polished lower piston), a forward scissor/torque link, a two-plate
-// axle fork, and a fat multi-facet tyre with sidewalls + a bright metal hubcap.
-// The fairing skins take the livery (role 'nacelle'); every metal part stays dark ('gear').
+// A-10 main gear: livery-coloured fairing pod ('nacelle'), oleo strut, scissor link, fork and tyre (dark 'gear').
 function addGearPod(faces, f, g, wz) {
   const podTop = 0.02, podBot = wz + 0.08;
   const cz = (podTop + podBot) / 2, hh = (podBot - podTop) / 2, pw = 0.055;   // vertical centre + half-height + half-width
   const rear = f - 0.13, midF = f + 0.10, nose = f + 0.17;
   const RN = 8;   // octagonal cross-section — 8 side facets read as a rounded fairing
-  // A cross-section ring in the g-h (lateral-vertical) plane at fore-aft x, scaled by s.
   const ring = (x, s) => {
     const r = [];
     for (let i = 0; i < RN; i++) { const a = (i + 0.5) / RN * Math.PI * 2; r.push(V(x, g + Math.cos(a) * pw * s, cz + Math.sin(a) * hh * s)); }
     return r;
   };
   const rRear = ring(rear, 1), rMid = ring(midF, 1), rNose = ring(nose, 0.32);
-  // Skin: rear→mid barrel, then mid→nose taper to a rounded snout (8 quads each band).
   for (let i = 0; i < RN; i++) {
     const j = (i + 1) % RN, up = Math.sin((i + 1) / RN * Math.PI * 2), sh = 0.62 + 0.24 * up;
     faces.push({ role: 'nacelle', sh, p: [rRear[i], rRear[j], rMid[j], rMid[i]] });
@@ -1182,31 +823,15 @@ function addGearPod(faces, f, g, wz) {
   faces.push({ role: 'gear', sh: 0.56, p: [V(f - 0.005, wg0, sBot), V(f - 0.035, wg0, sBot), V(wf - 0.02, wg0, wz), V(wf + 0.012, wg0, wz)] });
 }
 
-// ── Shared gear primitives ───────────────────────────────────────────────────────
-// Reused by the per-class gear builders so every craft's gear reads at the same fidelity
-// (detailed rolling tyres, oleo struts, round tubes) while each keeps its own leg style.
-// `addTube`, `addStrut`, `pushWheel` and `addSpat` are in client/shared/vehicle-mesh.js.
+// Shared gear primitives (addTube, addStrut, pushWheel, addSpat) live in client/shared/vehicle-mesh.js.
 
-// ── ORDNANCE ON THE RACKS ─────────────────────────────────────────────────────
-// A bomb is a body with a rounded nose, a boat-tailed rear and a cruciform tail — and the tail is
-// what makes it read as a WEAPON rather than a fuel tank at a hundred yards, so it is drawn even
-// though it is four flat quads.
-//
-// ⚠ THIS IS THE MESH, WHICH MEANS IT IS THE FULL RACK, ALWAYS. The face list is memoised per
-// (class, detail, armed, variant), so making it track a live count would either blow the memo
-// every release or need the count folded into `variant` — and a rack that is empty on the ground
-// because the pilot flew a sortie an hour ago is a worse lie than one that is always full. What
-// the pilot needs to know about the rack is on the pips and the dive ladder; what this is for is
-// that the aeroplane visibly carries bombs.
-//
-// `p.stores` = [[f, g, h, length, radius], …]. On the centreline it also gets a CRUTCH — the
-// swinging trapeze that throws the bomb clear of the prop in a vertical dive, and the one piece of
-// hardware on this aeroplane that only exists because of how it attacks.
+// ── Ordnance on the racks ──
+// ⚠ This mesh is memoised per (class, detail, armed, variant), so it always draws the full rack; the pips
+// show the live count. `p.stores` = [[f, g, h, length, radius], ...]; centreline stores get a crutch.
 function addStores(faces, p) {
   for (const [sf, sg, sh, len, rad] of p.stores) {
     const nose = V(sf + len * 0.52, sg, sh), tail = V(sf - len * 0.48, sg, sh);
     addTube(faces, V(sf + len * 0.30, sg, sh), V(sf - len * 0.30, sg, sh), rad, 'gun', 0.62, 8);
-    // Nose and tail cones, as fans off the parallel section's own end rings.
     for (const [end, at, shd] of [[nose, sf + len * 0.30, 0.78], [tail, sf - len * 0.30, 0.5]]) {
       for (let i = 0; i < 8; i++) {
         const a0 = i / 8 * Math.PI * 2, a1 = (i + 1) / 8 * Math.PI * 2, r = end === tail ? rad * 0.62 : rad;
@@ -1226,8 +851,7 @@ function addStores(faces, p) {
   }
 }
 
-// Cessna 172 gear — two splayed leaf-spring main legs (flat bowed blades) with spatted wheels
-// sitting wide of the slim fuselage, plus a slim spatted nose oleo. The classic light-plane look.
+// Cessna 172 gear: splayed leaf-spring mains and a spatted nose oleo.
 function addCessnaGear(faces, p, wz) {
   const gw = p.fr + 0.11, hc = 0.032;
   for (const side of [1, -1]) {
@@ -1243,17 +867,11 @@ function addCessnaGear(faces, p, wz) {
   addSpat(faces, nf, 0, nz, 0.8);
 }
 
-// Conventional (taildragger) gear — two main legs set well FORWARD of the CG plus a small
-// tailwheel aft. `p.tundra` swaps the slim spatted wheels for FAT BARE bush tyres on beefier
-// legs (the Super-Cub look). The tailwheel is placed so the mains + tailwheel are COPLANAR at
-// the craft's `groundPitch` 3-point attitude, so she renders planted nose-high on the ground and
-// the tail lifts clean as pitch comes down on the takeoff roll. Shared by the Grasshopper (bush)
-// & Locust (sleek).
+// Taildragger gear. `p.tundra` gives fat bare bush tyres. The tailwheel is coplanar with the mains at
+// `groundPitch`, so she sits nose-high and the tail lifts on the roll.
 function addTaildraggerGear(faces, p, wz) {
   const tundra = !!p.tundra, ag = !!p.gearAg;
-  // Three sizes off one builder: bush (fat bare tundra tyres), AG (a heavy machine carrying a
-  // ton and a half of chemical — a wide track on long faired legs and big spatted wheels), and
-  // the plain light-plane leaf spring.
+  // Three sizes: bush (tundra), ag (wide track, big spats) and the plain leaf spring.
   const gw = p.fr + (tundra ? 0.13 : ag ? 0.16 : 0.10);
   const mf = tundra ? 0.17 : ag ? 0.22 : 0.20, hc = tundra ? 0.036 : ag ? 0.040 : 0.030;
   const rMain = tundra ? 0.085 : ag ? 0.068 : 0.048, hwMain = tundra ? 0.040 : ag ? 0.026 : 0.015;
@@ -1265,7 +883,6 @@ function addTaildraggerGear(faces, p, wz) {
     pushWheel(faces, mf, side * gw, wz, rMain, hwMain, tundra ? 14 : ag ? 12 : 8);
     if (!tundra) addSpat(faces, mf, side * gw, wz, ag ? 1.35 : 1);   // bush planes run bare tundra tyres — no wheel pants; an ag-plane's pants are long and deep
   }
-  // Tailwheel coplanar with the mains at the 3-point (groundPitch) sit — see the header note.
   const tf = p.tailF * 0.82;
   const gp = (p.groundPitch || 0) * Math.PI / 180;
   const tz = wz - rMain + rTail + (mf - tf) * Math.sin(gp);
@@ -1273,8 +890,7 @@ function addTaildraggerGear(faces, p, wz) {
   pushWheel(faces, tf, 0, tz, rTail, 0.010, 8);
 }
 
-// Twin Otter gear — two stout faired oleo legs on a wide track carrying big low-pressure tyres,
-// plus a chunky nose oleo. The STOL-hauler look (fat tyres, heavy legs), distinct from the Cessna.
+// Twin Otter gear: stout oleo legs, fat tyres, chunky nose oleo.
 function addOtterGear(faces, p, wz) {
   const gw = p.fr + 0.05;
   for (const side of [1, -1]) {
@@ -1287,11 +903,8 @@ function addOtterGear(faces, p, wz) {
   pushWheel(faces, nf, 0, nz, 0.055, 0.022, 10);
 }
 
-// A light rotorcraft (Mini 500): a rounded egg/bubble CABIN, a slender straight tail boom, a
-// small tail fin + rotor, tubular skids on cross-tubes, and a translucent main-rotor disc on a
-// tall exposed mast. Cabin + boom are skinned from finely-subdivided cross-section rings so they
-// read as one smooth teardrop, not a faceted egg. Anchors held fixed for the FX layer: main rotor
-// plane at (0.1, 0, 0.34), tail rotor at (-1.04, 0.07, 0.12) — see drawRotorFX.
+// Light helicopter (Mini 500). FX anchors are fixed: main rotor at (0.1, 0, 0.34), tail rotor at
+// (-1.04, 0.07, 0.12); see drawRotorFX.
 function buildHeli() {
   const faces = [];
   const sides = 14;   // ring resolution (was 8) — smooth bubble & boom
@@ -1299,8 +912,7 @@ function buildHeli() {
   const shFor = (k) => 0.6 + 0.36 * (0.5 + 0.5 * Math.sin((k + 0.5) / sides * Math.PI * 2));   // top bright → bottom dark
   const GLASS_TINT = [64, 90, 112];   // clear fishbowl bubble — lighter than the default near-black canopy so it reads as glass over a bright cockpit, not a dark orb
   const skin = (A, B, role = 'body', m = 1) => { for (let k = 0; k < sides; k++) { const k2 = (k + 1) % sides; const f = { role, sh: shFor(k) * m, p: [A[k], A[k2], B[k2], B[k]] }; if (role === 'glass') f.tint = GLASS_TINT; faces.push(f); } };
-  // Rounded egg CABIN: a big glass bubble front, widest at the seats, an engine hump, tapering
-  // down to the boom. More stations (7 vs 3) so the profile curves instead of creasing.
+  // Egg cabin, glass bubble front, tapering to the boom.
   const cabin = [
     ring(0.60, 0.105, 0.115, 0.02),   // front of the bubble (nose dome caps it below)
     ring(0.46, 0.165, 0.180, 0.015),  // bubble swelling out
@@ -1310,109 +922,80 @@ function buildHeli() {
     ring(-0.16, 0.110, 0.120, 0.050),
     ring(-0.24, 0.062, 0.070, 0.052), // boom junction
   ];
-  // Front three sections are the wrap-around glass canopy; the rest is painted shell.
   for (let i = 0; i < cabin.length - 1; i++) skin(cabin[i], cabin[i + 1], i < 2 ? 'glass' : 'body', i < 2 ? 1 : 1);
-  // Rounded NOSE DOME closing the bubble — a fan of glass triangles to an apex ahead of the
-  // front ring, so the canopy reads as a smooth blister rather than a flat octagon cap.
+  // Nose dome: a glass fan to an apex.
   const noseApex = V(0.70, 0, 0.03);
   for (let k = 0; k < sides; k++) { const k2 = (k + 1) % sides; faces.push({ role: 'glass', tint: GLASS_TINT, sh: shFor(k), p: [noseApex, cabin[0][k], cabin[0][k2]] }); }
-  // Canopy FRAMING — the Mini-500's signature: thin trim mullions over the clear fishbowl so it
-  // reads as a framed cockpit, not one dark glossy sphere. A windshield centre post up the nose,
-  // a door-frame arch at the canopy's rear edge, and a sill hoop where glass meets the shell.
+  // Canopy framing so the bubble reads as a framed cockpit: centre post, door arches, sill hoops.
   const post = [noseApex, V(0.60, 0, 0.135), V(0.46, 0, 0.195), V(0.30, 0, 0.230)];   // centre spine over the top
   for (let i = 0; i < post.length - 1; i++) addTube(faces, post[i], post[i + 1], 0.010, 'nacelle', 0.9, 5);
   for (const s of [1, -1]) {   // a door-frame arch each side, over the top and down to the sill
     const arch = [V(0.30, s * 0.185, 0.020), V(0.34, s * 0.150, 0.150), V(0.32, s * 0.075, 0.220), V(0.30, 0, 0.230)];
     for (let i = 0; i < arch.length - 1; i++) addTube(faces, arch[i], arch[i + 1], 0.009, 'nacelle', 0.85, 5);
-    // Sill hoop: a rail along the glass/shell seam from the nose to the door arch.
     addTube(faces, V(0.58, s * 0.100, 0.010), V(0.44, s * 0.160, 0.010), 0.009, 'nacelle', 0.7, 5);
     addTube(faces, V(0.44, s * 0.160, 0.010), V(0.30, s * 0.190, 0.015), 0.009, 'nacelle', 0.7, 5);
   }
-  // Thin, near-straight tail BOOM (a slender tapering tube) rising slightly toward the tail rotor.
   const boom = [ring(-0.24, 0.058, 0.066, 0.052), ring(-0.50, 0.044, 0.048, 0.078), ring(-0.76, 0.034, 0.036, 0.100), ring(-1.00, 0.026, 0.028, 0.118)];
   for (let i = 0; i < boom.length - 1; i++) skin(boom[i], boom[i + 1], 'body', 0.92);
-  // Vertical tail FIN — a thin extruded blade (two faces + a swept leading/trailing edge).
   const finT = 0.014, fin = [V(-0.86, 0, 0.13), V(-0.99, 0, 0.30), V(-1.10, 0, 0.40), V(-1.10, 0, 0.11)];
   for (const s of [1, -1]) { const p = fin.map(v => V(v[0], s * finT, v[2])); faces.push({ role: 'fin', sh: s > 0 ? 0.92 : 0.72, p }); }
   faces.push({ role: 'fin', sh: 0.8, p: [V(-0.99, finT, 0.30), V(-1.10, finT, 0.40), V(-1.10, -finT, 0.40), V(-0.99, -finT, 0.30)] });   // top edge
-  // Small horizontal STABILISER across the boom (a thin flat plate each side).
   faces.push({ role: 'fin', sh: 0.85, p: [V(-0.82, 0.02, 0.115), V(-0.82, 0.16, 0.120), V(-0.94, 0.16, 0.125), V(-0.94, 0.02, 0.120)] });
   faces.push({ role: 'fin', sh: 0.7, p: [V(-0.82, -0.02, 0.115), V(-0.94, -0.02, 0.120), V(-0.94, -0.16, 0.125), V(-0.82, -0.16, 0.120)] });
-  // Tail-rotor gearbox fairing + the disc face (schematic renderer only; painted layers draw blades).
+  // Tail-rotor gearbox and disc face (schematic renderer only).
   addTube(faces, V(-0.96, 0.02, 0.12), V(-1.06, 0.07, 0.12), 0.022, 'nacelle', 0.75, 6);
   faces.push({ role: 'rotor', sh: 0.7, p: [V(-1.0, 0.07, 0.02), V(-1.0, 0.07, 0.30), V(-1.1, 0.07, 0.30), V(-1.1, 0.07, 0.02)] });
-  // Tubular SKIDS: a round rail each side (with an upturned front toe) on two cross-tube legs.
+  // Tubular skids on cross-tube legs.
   const skidZ = -0.30, skidG = 0.22;
   for (const s of [1, -1]) {
     addTube(faces, V(0.34, s * skidG, skidZ + 0.02), V(-0.14, s * skidG, skidZ), 0.016, 'gear', 0.5);          // skid rail
     addTube(faces, V(0.34, s * skidG, skidZ + 0.02), V(0.42, s * skidG, skidZ + 0.09), 0.015, 'gear', 0.56);   // upturned front toe
     for (const cf of [0.24, -0.06]) addTube(faces, V(cf, s * skidG, skidZ + 0.02), V(cf, s * 0.05, -0.14), 0.012, 'strut', 0.55);   // cross-tube leg
   }
-  // ── Rotor MAST + HEAD ── a Mini-500 has a tall EXPOSED mast standing well clear of the
-  // engine deck, capped by a compact drum hub over a swashplate. Built as real 3D geometry so
-  // it foreshortens with the airframe — the flat 2D hub dot the FX layer used to stamp here read
-  // as a floating sphere because a screen-space circle can't flatten when the disc goes edge-on.
+  // Rotor mast and head as real geometry, so the hub foreshortens with the airframe (a screen-space dot can't).
   const cf = 0.1, cz = 0.34, rad = 1.05;   // hub top height — the FX blade plane (drawRotorFX) matches this
   addTube(faces, V(cf, 0, 0.18), V(cf, 0, cz - 0.045), 0.017, 'nacelle', 0.82, 8);   // slender exposed mast
-  // Swashplate: a wider ring low on the mast, with a thin scissor link up to the head.
+  // Swashplate and pitch links.
   const swashZ = cz - 0.075, swR = 0.058;
   const swashLo = [], swashHi = [];
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, cx = cf + Math.cos(a) * swR, cy = Math.sin(a) * swR; swashLo.push(V(cx, cy, swashZ - 0.012)); swashHi.push(V(cx, cy, swashZ + 0.012)); }
   for (let i = 0; i < 8; i++) { const j = (i + 1) % 8; faces.push({ role: 'nacelle', sh: 0.55 + 0.12 * (i % 2), p: [swashLo[i], swashLo[j], swashHi[j], swashHi[i]] }); }
   faces.push({ role: 'nacelle', sh: 0.7, p: swashHi });   // swashplate top face
   for (const s of [1, -1]) addTube(faces, V(cf + s * swR * 0.7, s * swR * 0.2, swashZ), V(cf + s * 0.012, 0, cz - 0.05), 0.006, 'gear', 0.5, 4);   // pitch links
-  // Hub DRUM: a short octagonal barrel capped top and bottom — the mechanical mass the blades bolt to.
+  // Hub drum.
   const hubR = 0.05, hubB = cz - 0.05, hubT = cz + 0.008;
   const drumB = [], drumT = [];
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, cx = cf + Math.cos(a) * hubR, cy = Math.sin(a) * hubR; drumB.push(V(cx, cy, hubB)); drumT.push(V(cx, cy, hubT)); }
   for (let i = 0; i < 8; i++) { const j = (i + 1) % 8; faces.push({ role: 'nacelle', sh: 0.7 + 0.2 * ((i + 1) % 2), p: [drumB[i], drumB[j], drumT[j], drumT[i]] }); }
   faces.push({ role: 'nacelle', sh: 0.95, p: drumT });   // hub top cap
-  // Two stubby blade GRIPS reaching out from the drum — where the parked blades bolt on.
+  // Blade grips.
   for (const s of [1, -1]) {
     const gz = cz - 0.02, gw = 0.014;
     faces.push({ role: 'nacelle', sh: s > 0 ? 0.9 : 0.66, p: [V(cf + s * hubR, gw, gz + gw), V(cf + s * 0.17, gw, gz + gw * 0.6), V(cf + s * 0.17, -gw, gz + gw * 0.6), V(cf + s * hubR, -gw, gz + gw)] });
     faces.push({ role: 'nacelle', sh: 0.8, p: [V(cf + s * hubR, gw, gz + gw), V(cf + s * 0.17, gw, gz + gw * 0.6), V(cf + s * 0.17, gw, gz - gw * 0.6), V(cf + s * hubR, gw, gz - gw)] });
   }
-  // Main-rotor disc (octagon) — schematic wireframe renderer only; painted renderers draw blades.
+  // Main-rotor disc: schematic renderer only; painted renderers draw blades.
   const disc = [];
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; disc.push(V(cf + Math.cos(a) * rad, Math.sin(a) * rad, cz)); }
   faces.push({ role: 'rotor', sh: 0.65, p: disc });
   return faces;
 }
 
-// ── VIPER — a sleek futuristic ATTACK HELICOPTER (an Apache reimagined) ──────────────
-// An armed heli (class 'heli' with hardpoints → this mesh; the unarmed Dragonfly keeps the
-// bubble). Signatures vs the Mini-500: a slender, chined, tapering gunship fuselage; a TANDEM
-// STEPPED canopy cut straight INTO the hull (see the greenhouse section below); a chin GUN turret
-// + a nose sensor ball under the nose; short anhedral STUB-WINGS carrying rocket PODS inboard and
-// exposed MISSILES on the tips (the swarm made visible); twin "cheek" engine nacelles with exhausts
-// flanking the mast; a slim tailboom to a swept fin + stabilator + tail rotor; and fixed TAILDRAGGER
-// gear. Built to the same station-ring + explicit-facet fidelity as the fixed-wing set.
-//
-// STANCE + SIZE: everything below is authored at unit scale and LEVEL, then the whole mesh is run
-// through viperXf() on the way out — double-size, and nothing else. The nose-high 3-point squat is
-// NOT baked in: like the fixed-wing taildraggers she carries a `groundPitch` (VIPER_GROUND_PITCH,
-// see groundPitchFor) that the renderers apply as an ATTITUDE, so the tail can fly first on the
-// lift-off and be walked back down on the landing instead of being welded nose-up forever.
-// Consequences to respect if you touch this:
-//   • the rotor mast (0.1,0,0.34) and tail rotor (-1.04,0.07,0.12) are PRE-transform stations;
-//     drawRotorFX runs its heli anchors through the same viperXf when `armed`, so the discs scale
-//     with the airframe. Change one, you get the other for free — don't hardcode.
-//   • windshield.js measures ground contact per cls+armed (modelLowestH/modelGroundDrop/modelMidH),
-//     because this mesh hangs far lower than the unarmed Dragonfly it shares a class with.
+// ── VIPER: attack helicopter (armed 'heli'; the unarmed Dragonfly keeps the bubble) ──
+// Authored at unit scale and level, then run through viperXf(). The nose-high sit is an attitude
+// (VIPER_GROUND_PITCH), never baked in. Rotor anchors are pre-transform stations and windshield.js
+// measures ground contact per cls+armed; see docs/reference/glass-notes.md#viper-scale-and-ground-stance
 function buildAttackHeli() {
   const faces = [];
   const q = (role, sh, a, b, c, d) => faces.push({ role, sh, p: d ? [a, b, c, d] : [a, b, c] });
   const GLASS = [46, 68, 92];   // sleek dark-cyan canopy glass (a shade cooler/darker than the Dragonfly fishbowl)
 
-  // ── Fuselage: an angular, slender gunship body. Cross-sections are 10-gons squashed toward a
-  // chined profile (taller than wide up front, a keeled belly) sampled nose→boom and skinned smooth.
+  // Fuselage: chined 10-gon rings with a keeled belly.
   const sides = 10;
   const ring = (f, rg, rv, cz, keel = 0) => {
     const o = [];
     for (let k = 0; k < sides; k++) {
       const a = k / sides * Math.PI * 2, cs = Math.cos(a), sn = Math.sin(a);
-      // superellipse-ish chine: push the flanks out and flatten the top for a faceted, purposeful read
       const gg = Math.sign(cs) * Math.pow(Math.abs(cs), 0.82) * rg;
       const hh = sn >= 0 ? Math.pow(sn, 0.9) * rv : -Math.pow(-sn, 0.72) * (rv + keel);   // deeper, keeled belly
       o.push(V(f, gg, cz + hh));
@@ -1421,15 +1004,9 @@ function buildAttackHeli() {
   };
   const shFor = (k) => 0.60 + 0.36 * (0.5 + 0.5 * Math.sin((k + 0.5) / sides * Math.PI * 2));   // top bright → belly dark
 
-  // ── The CANOPY IS THE HULL. There is no glass blister bolted to the crown: the gunner and
-  // pilot stations are built as an angular GREENHOUSE cross-section — a flat roof between two
-  // canted cheek panes and near-vertical side glass down to a sill chine — and those fuselage
-  // facets are simply glazed. Everything that makes it read as an Apache canopy (heavy mullions,
-  // sky reflection, the dark cockpit behind the glass, crew silhouettes) is PAINTED by canopyTex()
-  // through the authored UVs below, not modelled.
-  //   gring() re-places only the upper 6 vertices (k=0..5); the lower half reuses ring()'s exact
-  //   formula so a greenhouse station welds seamlessly to the plain stations fore and aft. Roof
-  //   height (rvT) is decoupled from belly depth (rvB) so a tall canopy doesn't drag the keel down.
+  // The canopy is the hull: greenhouse rings whose upper facets are glazed, with mullions and crew painted
+  // by canopyTex() through the UVs. gring() replaces only k=0..5 so it welds to plain rings; rvT is
+  // decoupled from rvB so a tall canopy doesn't drag the keel.
   const GH = [[1.00, 0.00], [0.94, 0.62], [0.44, 1.00], [-0.44, 1.00], [-0.94, 0.62], [-1.00, 0.00]];   // k=0..5 upper profile, as fractions of (rg, rvT)
   const gring = (f, rg, rvT, rvB, cz, keel = 0) => {
     const o = [];
@@ -1452,9 +1029,7 @@ function buildAttackHeli() {
     ring(-0.26, 0.074, 0.086, 0.084, 0.015),          // 8 boom taper
     ring(-0.34, 0.050, 0.058, 0.095, 0.008),          // 9 boom junction
   ];
-  // Which of the 5 upper facets each bay glazes (bay i spans station i→i+1), and the texture-U at
-  // each station. The unwrap is U 0→1 windscreen→rear canopy, V 0→1 right sill→roof→left sill
-  // (k/5) — so the whole greenhouse is one continuous painted sheet, symmetric about the centreline.
+  // Glazed facets per bay (bay i spans station i to i+1) and texture U per station. V runs sill to roof to sill (k/5).
   const GLAZE = { 1: [0, 1, 2, 3, 4], 2: [0, 1, 2, 3, 4], 3: [1, 2, 3], 4: [0, 1, 2, 3, 4], 5: [1, 2, 3] };
   const STATION_U = [0, 0.00, 0.14, 0.44, 0.56, 0.86, 1.00];
   for (let i = 0; i < body.length - 1; i++) {
@@ -1469,25 +1044,22 @@ function buildAttackHeli() {
       faces.push(fc);
     }
   }
-  // Faceted nose cap — a blunt chisel point ahead of the front ring (the chin turret hangs below it).
   const noseApex = V(0.80, 0, 0.052);
   for (let k = 0; k < sides; k++) { const j = (k + 1) % sides; q('body', shFor(k), noseApex, body[0][k], body[0][j]); }
 
-  // ── Chin GUN turret + barrel (the under-nose cannon) — a small faceted turret ball slung below
-  // the gunner, with a stubby cannon that points forward and slightly down.
+  // Chin gun turret and barrel.
   addTube(faces, V(0.50, 0, -0.010), V(0.50, 0, 0.030), 0.045, 'gun', 0.5, 8);   // turret ball
   addTube(faces, V(0.50, 0, -0.010), V(0.78, 0, -0.028), 0.016, 'gun', 0.62, 6); // cannon barrel
   addTube(faces, V(0.50, -0.028, -0.006), V(0.71, -0.028, -0.020), 0.007, 'gun', 0.6, 5);  // twin muzzle detail
   addTube(faces, V(0.50, 0.028, -0.006), V(0.71, 0.028, -0.020), 0.007, 'gun', 0.6, 5);
-  // Nose SENSOR turret (TADS/PNVS) — a stacked faceted sight above the gun at the very nose.
+  // Nose sensor turret.
   addTube(faces, V(0.74, 0, 0.055), V(0.83, 0, 0.055), 0.038, 'nacelle', 0.7, 8);
   q('glass', 0.95, V(0.83, -0.024, 0.075), V(0.83, 0.024, 0.075), V(0.83, 0.024, 0.035), V(0.83, -0.024, 0.035));   // sensor face (glass)
 
-  // ── STUB-WINGS: short, thick, swept, ANHEDRAL slabs off the engine-deck flanks — the weapon rails.
+  // Stub wings: swept anhedral weapon rails.
   const wingLE = 0.14, wingTErt = -0.24, tipDrop = -0.055;
   for (const s of [1, -1]) {
     const rG = 0.12, tG = 0.60;
-    // planform corners (root then tip, swept back + drooped)
     const rlF = V(wingLE, s * rG, 0.055), rtF = V(wingTErt, s * rG, 0.050);      // root LE / TE
     const tlF = V(wingLE - 0.05, s * tG, 0.055 + tipDrop), ttF = V(wingTErt + 0.02, s * tG, 0.050 + tipDrop); // tip LE / TE
     const th = 0.024;   // half-thickness
@@ -1498,46 +1070,41 @@ function buildAttackHeli() {
     q('wing', 0.44, up(rtF), dn(rtF), dn(ttF), up(ttF));   // trailing edge
     q('nacelle', 0.7, up(tlF), up(ttF), dn(ttF), dn(tlF)); // tip cap
     const wz = 0.050 + tipDrop * 0.55 - th;   // pylon underside height along the wing
-    // Inboard ROCKET POD (multi-tube launcher): a faceted cylinder with 4 tube mouths in the front face.
+    // Inboard rocket pod with four tube mouths.
     const pf = -0.02, pg = s * 0.33;
     addTube(faces, V(pf + 0.14, pg, wz - 0.03), V(pf - 0.16, pg, wz - 0.03), 0.05, 'nacelle', 0.66, 8);
     for (const [dg, dh] of [[-0.022, 0.022], [0.022, 0.022], [-0.022, -0.022], [0.022, -0.022]])
       addTube(faces, V(pf + 0.145, pg + dg, wz - 0.03 + dh), V(pf + 0.11, pg + dg, wz - 0.03 + dh), 0.014, 'gun', 0.4, 5);   // recessed tube mouths (dark)
-    // Outboard TIP MISSILES — two exposed seekers stacked on the tip rail, pointed noses forward
-    // (the swarm, made visible).
+    // Tip missiles.
     for (const off of [0.028, -0.028]) addMissileBody(faces, -0.14, 0.16, s * 0.55, wz - 0.02 + off);
   }
 
-  // ── Slim TAILBOOM: a tapering 8-gon tube from the boom junction back to the tail rotor gearbox,
-  // rising to meet the FX tail-rotor anchor height.
+  // Tailboom rising to the FX tail-rotor anchor height.
   const bs = 8;
   const bring = (f, r, cz) => { const o = []; for (let k = 0; k < bs; k++) { const a = k / bs * Math.PI * 2; o.push(V(f, Math.cos(a) * r, cz + Math.sin(a) * r)); } return o; };
   const boom = [bring(-0.34, 0.050, 0.095), bring(-0.58, 0.038, 0.104), bring(-0.82, 0.030, 0.112), bring(-1.02, 0.024, 0.120)];
   const bsh = (k) => 0.6 + 0.3 * (0.5 + 0.5 * Math.sin((k + 0.5) / bs * Math.PI * 2));
   for (let i = 0; i < boom.length - 1; i++) for (let k = 0; k < bs; k++) { const j = (k + 1) % bs; faces.push({ role: 'body', sh: bsh(k) * 0.94, p: [boom[i][k], boom[i][j], boom[i + 1][j], boom[i + 1][k]] }); }
 
-  // Swept vertical FIN (a thin extruded blade) at the boom end.
   const finT = 0.013, fin = [V(-0.84, 0, 0.14), V(-0.98, 0, 0.34), V(-1.10, 0, 0.44), V(-1.08, 0, 0.13)];
   for (const s of [1, -1]) { const p = fin.map(v => V(v[0], s * finT, v[2])); faces.push({ role: 'fin', sh: s > 0 ? 0.92 : 0.7, p }); }
   faces.push({ role: 'fin', sh: 0.82, p: [V(-0.98, finT, 0.34), V(-1.10, finT, 0.44), V(-1.10, -finT, 0.44), V(-0.98, -finT, 0.34)] });
-  // STABILATOR — a swept horizontal tailplane across the boom (a thin slab each side).
   for (const s of [1, -1]) {
     q('stab', s > 0 ? 0.9 : 0.66,
       V(-0.72, s * 0.02, 0.116), V(-0.72, s * 0.26, 0.120), V(-0.86, s * 0.26, 0.124), V(-0.86, s * 0.02, 0.120));
   }
-  // Tail-rotor GEARBOX fairing + a schematic disc face at the FX anchor (-1.04,0.07,0.12).
+  // Tail-rotor gearbox and schematic disc at the FX anchor (-1.04, 0.07, 0.12).
   addTube(faces, V(-0.98, 0.02, 0.12), V(-1.06, 0.07, 0.12), 0.026, 'nacelle', 0.72, 7);
   faces.push({ role: 'rotor', sh: 0.7, p: [V(-1.04, 0.07, -0.05), V(-1.04, 0.07, 0.29), V(-1.14, 0.07, 0.29), V(-1.14, 0.07, -0.05)] });
 
-  // ── Twin CHEEK ENGINE nacelles flanking the mast base, each with a dark rear exhaust.
+  // Twin cheek engines with exhausts.
   for (const s of [1, -1]) {
     const ef = 0.02, eg = s * 0.135, ez = 0.135;
     addTube(faces, V(ef + 0.14, eg, ez), V(ef - 0.16, eg, ez), 0.062, 'nacelle', 0.72, 8);   // nacelle barrel
     addTube(faces, V(ef - 0.14, eg, ez), V(ef - 0.20, eg * 1.15, ez + 0.01), 0.05, 'gun', 0.34, 8);   // exhaust (dark, canted out)
   }
 
-  // ── Main ROTOR mast + hub at (0.1,0,0.34) — the FX blade plane. A stout mast off the engine deck,
-  // a swashplate ring, and an octagonal hub drum with two parked blade grips.
+  // Main rotor mast and hub at (0.1, 0, 0.34), the FX blade plane.
   const cf = 0.1, cz = 0.34;
   addTube(faces, V(cf, 0, 0.16), V(cf, 0, cz - 0.045), 0.020, 'nacelle', 0.82, 8);   // mast
   const swZ = cz - 0.07, swR = 0.060, swLo = [], swHi = [];
@@ -1552,27 +1119,18 @@ function buildAttackHeli() {
     const gz = cz - 0.015, gw = 0.014;
     faces.push({ role: 'nacelle', sh: s > 0 ? 0.9 : 0.66, p: [V(cf + s * hubR, gw, gz + gw), V(cf + s * 0.19, gw, gz + gw * 0.6), V(cf + s * 0.19, -gw, gz + gw * 0.6), V(cf + s * hubR, -gw, gz + gw)] });
   }
-  // Main-rotor disc (schematic wireframe renderer only; painted renderers draw blades via FX).
+  // Main-rotor disc (schematic renderer only).
   const disc = [];
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; disc.push(V(cf + Math.cos(a) * 1.02, Math.sin(a) * 1.02, cz)); }
   faces.push({ role: 'rotor', sh: 0.65, p: disc });
 
-  // ── TAILDRAGGER GEAR — three points of contact, squatting back on its haunches.
-  // The real Apache is a taildragger: two tall trailing-arm mains carried well FORWARD
-  // (under the stub wings) and one small wheel right at the end of the boom. Because the
-  // mains are long and the tailwheel is short, the airframe sits markedly NOSE-HIGH — the
-  // ramp stance. That attitude is the VIPER_GROUND_PITCH the renderers pitch her to on the
-  // ground, so these three wheel bottoms are deliberately NOT level in build space: they're
-  // offset by exactly (Δf · tan pitch) so that AT the 3-point sit all three land on one flat
-  // floor (and airborne, at 0°, the mains hang below the tailwheel — as they should).
-  // Change the pitch and these follow automatically — GEAR_DROP does the arithmetic.
+  // Taildragger gear. Wheel bottoms are offset by GEAR_DROP so all three land flat at VIPER_GROUND_PITCH.
   const mainF = 0.06, tailF = -1.00;                      // fore-aft stations
   const GEAR_DROP = (tailF - mainF) * Math.tan(VIPER_GROUND_PITCH * Math.PI / 180);  // how much lower the mains hang
   const tailBot = -0.16, mainBot = tailBot + GEAR_DROP;   // wheel BOTTOMS in build space
   for (const s of [1, -1]) {
     const wr = 0.058;                                     // fat main tyre
-    // Trailing-arm leg: a canted strut from the fuselage flank down and OUT to the hub,
-    // plus a shorter drag brace running aft — the splayed twin-leg read from the front.
+    // Trailing-arm leg plus an aft drag brace.
     addStrut(faces, mainF, s * 0.155, -0.020, mainBot + wr, 0.016);
     addStrut(faces, mainF - 0.13, s * 0.175, -0.010, mainBot + wr, 0.011);
     pushWheel(faces, mainF, s * 0.225, mainBot + wr, wr, 0.030, 10);
@@ -1581,61 +1139,27 @@ function buildAttackHeli() {
   addStrut(faces, tailF + 0.02, 0, 0.095, tailBot + twr, 0.011);
   pushWheel(faces, tailF, 0, tailBot + twr, twr, 0.021, 8);
 
-  // ── Ship it double-size. Applied as ONE transform over every vertex so the mesh and
-  // drawRotorFX's anchors (which run the same viperXf) can never drift apart.
+  // One transform over every vertex, shared with drawRotorFX's anchors.
   for (const fc of faces) fc.p = fc.p.map(viperXf);
   return faces;
 }
 
-// The Viper is authored at unit scale and level, then shipped DOUBLE-SIZE. Exported because
-// drawRotorFX has to place the rotor discs through the identical transform — one source of
-// truth, no drift.
+// Exported so drawRotorFX places the rotor discs through the same transform.
 export const VIPER_SCALE = 2;                   // "double the size"
-// Her nose-high 3-point sit (deg), the taildragger stance the gear above is cut for. Applied
-// as an attitude by groundPitchFor/the flight model — never baked into the mesh.
+// Nose-high 3-point sit (deg). Applied as an attitude by groundPitchFor; never baked into the mesh.
 export const VIPER_GROUND_PITCH = 7;
 export function viperXf(v) {
   return [v[0] * VIPER_SCALE, v[1] * VIPER_SCALE, v[2] * VIPER_SCALE];
 }
 
-// `addMissileBody` (a slim exposed missile: body tube, seeker cone, four tail fins) is in
-// client/shared/vehicle-mesh.js.
+// addMissileBody is in client/shared/vehicle-mesh.js.
 
-// ── MAYFLY — a CESSNA, built to the Viper's standard ────────────────────────────
-// She used to be fourteen numbers handed to the generic fixed-wing generator, which is how a
-// Twin Otter, an A-10 and a light single all came out of one function: honest silhouettes, but
-// the shapes were the SAME shapes with different scalars. This is the same promotion the Viper
-// got — a hand-authored mesh — spent on the one airframe most players actually look at.
-//
-// What the parametric path could not do, and what is here instead:
-//   • THE CABIN IS THE HULL. No glass blister parked on the crown: the windscreen and the side
-//     windows are fuselage facets that happen to be glazed (the Viper's greenhouse trick, and
-//     the Mule's), so the glass is flush with the flanks, the roof between the windows is
-//     painted metal, and the raked screen springs off the cowl the way it does on the ramp.
-//   • THE WING HAS A SECTION. Every other airframe here flies on a flat slab with a thickness
-//     box around it. This one is skinned from real RIBS — a cambered NACA-2412-ish profile,
-//     scaled by the local chord, sampled on cosine spacing so the leading edge is dense where
-//     the curvature is — over a semi-tapered planform (constant chord inboard, tapered outer
-//     panel, square tips). The lit highlight rolling along the leading edge as she banks is the
-//     single biggest reason she reads as an aeroplane rather than a paper dart.
-//   • THE SECTION IS A TABLE, not a formula. Fourteen authored stations carry the shapes a
-//     Cessna actually has and a superellipse never will: a small round cowl, the STEP up to the
-//     cabin roof at the windscreen, a slab-sided cabin with a flat floor, and a slim tailcone
-//     that sweeps UP to the fin. That table is exported (cessnaSection) because the nose-art
-//     wrap has to read the hull it's painted on — one source of truth, no drift.
-//   • The rest is the stuff you only get by hand: spring-steel main legs bowed out to spatted
-//     wheels, a nose oleo with a scissor link, streamlined lift struts on a real faired section,
-//     cowl cooling intakes and an exhaust stack, the dorsal fin fillet, door seams and a step,
-//     a roof antenna, and coloured lenses at the wingtips and fin.
-//
-// Normalised like everything else in this file: nose ≈ +0.90 (spinner), tail ≈ −1.03, tips at
-// g = ±1.12 — so MODEL_SCALE / CONTACT_SIZE / the chase camera all keep working untouched.
+// ── MAYFLY: a hand-authored Cessna ──
+// Glass is glazed hull facets, the wing is skinned from cambered ribs, and the fuselage is a station table.
+// Normalised: nose +0.90, tail -1.03, tips g = +-1.12, so MODEL_SCALE and CONTACT_SIZE still fit.
 
-// The fuselage, as fourteen cross-sections: [f, half-width, half-height ABOVE the centreline,
-// half-height BELOW it, centreline height, boxiness]. Split top/bottom because a Cessna's cabin
-// is a domed roof over a flat floor, and one radius can't say that; `cz` climbing aft IS the
-// upswept tailcone. `boxy` runs the section from round (0, the cowl) to slab-sided (0.62, the
-// cabin) exactly as buildFixedWing's shapeExp does, so the two vocabularies stay one vocabulary.
+// Fuselage cross-sections: [f, half-width, half-height above, below, centreline height, boxiness].
+// Top and bottom split for a domed roof over a flat floor; `boxy` matches buildFixedWing's shapeExp.
 const CESSNA_STATIONS = [
   //  f      rg     rvT    rvB    cz     boxy
   [ 0.72, 0.056, 0.050, 0.042, 0.028, 0.10],   //  0 cowl face — the spinner sits on this ring, nearly filling it
@@ -1653,10 +1177,7 @@ const CESSNA_STATIONS = [
   [-0.86, 0.032, 0.038, 0.030, 0.078, 0.16],   // 12
   [-1.00, 0.022, 0.026, 0.022, 0.088, 0.10],   // 13 tail end
 ];
-// The hull section at ANY station, interpolated from the table the mesh is skinned from. Exported
-// because drawNoseArt has to wrap a decal onto the real flank: the parametric classes reconstruct
-// their hull from FW_PARAMS, and this class has no FW_PARAMS row to reconstruct it from. Reading
-// the same table the geometry came from is what stops the art sliding off the aeroplane.
+// Hull section at any station. Exported so drawNoseArt wraps decals onto the real flank (no FW_PARAMS row here).
 export function cessnaSection(f) {
   const h = meshHull('ultralight');
   if (h) return h.CS(f);
@@ -1674,14 +1195,10 @@ export function cessnaSection(f) {
   return { rg: last[1], rvT: last[2], rvB: last[3], cz: last[4], boxy: last[5] };
 }
 
-// Wing geometry, in one place because six different things read it (the skin, the flap, the
-// aileron, the struts, the tip lenses and wingtipStation). Semi-tapered: constant chord out to
-// CE_TAPER0 of the semi-span, then a straight taper to a square-cut tip.
+// Wing geometry: constant chord to CE_TAPER0 of the semi-span, then a straight taper to a square tip.
 const CE_SPAN = 1.12, CE_TAPER0 = 0.55, CE_WH = 0.152, CE_DIH = 0.038;
 const CE_LE_R = 0.26, CE_TE_R = -0.10, CE_LE_T = 0.215, CE_TE_T = -0.035;
-// The aerofoil (`ceFoil`, NACA-2412-ish) is in client/shared/vehicle-mesh.js, beside the Cub's.
-// A point on the wing surface: lateral station g, chord fraction x, upper (true) or lower skin.
-// `sec` 0.5 gives the mean line — what the control surfaces and the strut attachments hinge on.
+// ceFoil is in client/shared/vehicle-mesh.js. cePt: a wing surface point; `sec` 0.5 is the mean line.
 function cePt(g, x, sec) {
   const a = Math.min(1, Math.abs(g) / CE_SPAN);
   const t = a <= CE_TAPER0 ? 0 : (a - CE_TAPER0) / (1 - CE_TAPER0);
@@ -1691,7 +1208,6 @@ function cePt(g, x, sec) {
   return V(le - x * c, g, z);
 }
 
-// `addFaired` (a streamlined lift strut or gear-leg fairing) is in client/shared/vehicle-mesh.js.
 
 function buildCessna(detail = 1) {
   const faces = [];
@@ -1699,7 +1215,6 @@ function buildCessna(detail = 1) {
   const GLASS = [92, 128, 156];   // bright cabin plexiglass — you can see straight through a light single
   const SIDES = 12;               // upper half = k 0…5 (starboard sill → crown at k3 → port sill)
 
-  // ── Fuselage ─────────────────────────────────────────────────────────────────
   const ring = (row) => {
     const [f, rg, rvT, rvB, cz, boxy] = row, e = 1 - boxy * 0.55, o = [];
     for (let k = 0; k < SIDES; k++) {
@@ -1711,25 +1226,14 @@ function buildCessna(detail = 1) {
     return o;
   };
   const shFor = (k) => 0.62 + 0.36 * (0.5 + 0.5 * Math.sin((k + 0.5) / SIDES * Math.PI * 2));   // crown bright → belly dark
-  // The coarse LOD drops the intermediate stations — but NOT the ones the glass starts and stops
-  // on, which is why the two tables below are keyed by a station's f rather than by its index:
-  // subsampling the hull can never slide a windscreen onto the wrong bay. (Merging two side-window
-  // bays into one at distance is exactly right; losing the windscreen would not be.)
+  // Coarse LOD keeps the stations the glass starts and stops on; the tables below are keyed by f, not index.
   const KEEP = new Set([0.72, 0.55, 0.46, 0.40, 0.06, 0.00, -0.28, -0.66, -1.00]);
   const rows = detail ? CESSNA_STATIONS : CESSNA_STATIONS.filter(r => KEEP.has(r[0]));
   const body = rows.map(ring);
-  // Which facets of a bay are GLASS, keyed by the bay's FORWARD station. The windscreen bay glazes
-  // the whole upper half, so it wraps over the crown and is split only by the painted centre post —
-  // what a Cessna screen does. The bays behind it glaze the upper flank alone (k0/k5): the cabin
-  // ROOF is metal.
-  //
-  // A light single has TWO side windows a side, not a strip: the door window, then a painted post,
-  // then the smaller rear one. That post is the bay 0.06→0.00, deliberately left OUT of this table
-  // — the separation is a missing entry, not a decoration drawn over continuous glass, so it holds
-  // at every LOD and from every angle. Glazing 0.06 again is what turns her back into a bus.
+  // Glazed facets by bay's forward station. The windscreen bay glazes the whole upper half; behind it only k0/k5.
+  // The 0.06 bay is left out on purpose: it's the painted post between the two side windows.
   const GLAZE = { 0.46: [0, 1, 2, 3, 4, 5], 0.40: [0, 5], 0.24: [0, 5], 0: [0, 5], '-0.12': [0, 5] };
-  // Texture-U at each glazed station: the unwrap runs windscreen→rear quarter light, and the
-  // canopy art's frame posts sit on these exact numbers so a mullion always lands on a real seam.
+  // Texture U per glazed station; the canopy art's frame posts sit on these numbers.
   const STATION_U = { 0.46: 0.00, 0.40: 0.18, 0.24: 0.42, 0.06: 0.66, 0: 0.74, '-0.12': 0.86, '-0.28': 1.00 };
   for (let i = 0; i < body.length - 1; i++) {
     const glz = GLAZE[rows[i][0]], uA = (STATION_U[rows[i][0]] ?? 0) * CP_TW, uB = (STATION_U[rows[i + 1][0]] ?? 0) * CP_TW;
@@ -1746,9 +1250,7 @@ function buildCessna(detail = 1) {
   faces.push({ role: 'body', sh: 0.92, p: body[0] });                        // cowl front face (the spinner sits on it)
   faces.push({ role: 'body', sh: 0.5, p: body[body.length - 1].slice().reverse() });   // tailcone end cap
 
-  // ── Cowl: the round nose bowl, its two cooling mouths, the spinner and the exhaust ──
-  // A GA spinner is a short blunt bullet almost as wide as the cowl nose, not a spike — the long
-  // cone the generic builder gave her was most of why she read as a dart with wings.
+  // ── Cowl: intakes, spinner, exhaust ──
   const SPIN_F = 0.795, SPIN_R = 0.048, spinBase = [];
   for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; spinBase.push(V(0.72, Math.cos(a) * SPIN_R, 0.028 + Math.sin(a) * SPIN_R)); }
   for (let k = 0; k < 10; k++) {   // a pointed 10-facet spinner, not the generic four-sided pyramid
@@ -1759,12 +1261,10 @@ function buildCessna(detail = 1) {
     for (const s of [1, -1]) {   // cooling intakes: dark recessed mouths flanking the spinner
       addTube(faces, V(0.722, s * 0.031, 0.012), V(0.680, s * 0.031, 0.012), 0.016, 'gun', 0.36, 7);
     }
-    // Exhaust stack out of the cowl belly on the right, canted aft and down — small, and the
-    // difference between a moulded snout and an engine that's bolted in there.
     addTube(faces, V(0.58, 0.032, -0.032), V(0.47, 0.038, -0.048), 0.010, 'gun', 0.34, 6);
   }
 
-  // ── WING: skinned from real ribs, continuous tip to tip over the cabin roof ───────
+  // ── Wing: real ribs, continuous over the cabin roof ──
   const NX = detail ? 11 : 4;
   const XS = []; for (let i = 0; i < NX; i++) XS.push(0.5 * (1 - Math.cos(Math.PI * i / (NX - 1))));   // cosine spacing: dense at the LE
   const RIBS = detail ? [-CE_SPAN, -0.88, -0.62, 0, 0.62, 0.88, CE_SPAN] : [-CE_SPAN, 0, CE_SPAN];
@@ -1772,8 +1272,7 @@ function buildCessna(detail = 1) {
     const gA = RIBS[r], gB = RIBS[r + 1];
     for (let i = 0; i < NX - 1; i++) {
       const x0 = XS[i], x1 = XS[i + 1];
-      // Upper skin brightens over the crest of the section and falls away toward both edges —
-      // the camber, made visible. The underside stays flat and dark, as an underside does.
+      // Upper skin brightens over the crest of the camber.
       const lit = 0.80 + 0.18 * Math.sin(Math.PI * Math.min(1, (x0 + x1) / 2 * 1.6));
       q('wing', lit, cePt(gA, x0, 1), cePt(gB, x0, 1), cePt(gB, x1, 1), cePt(gA, x1, 1));
       q('wing', 0.46, cePt(gA, x1, 0), cePt(gB, x1, 0), cePt(gB, x0, 0), cePt(gA, x0, 0));
@@ -1787,8 +1286,7 @@ function buildCessna(detail = 1) {
       q('nacelle', 0.70, cePt(s * CE_SPAN, 0.06, 1), cePt(s * CE_SPAN, 0.9, 1),
         V(cePt(s * CE_SPAN, 0.9, 0)[0], s * (CE_SPAN + 0.012), cePt(s * CE_SPAN, 0.9, 0)[2] + tipDrop),
         V(cePt(s * CE_SPAN, 0.06, 0)[0], s * (CE_SPAN + 0.012), cePt(s * CE_SPAN, 0.06, 0)[2] + tipDrop));
-      // Nav-light lens moulded into the tip: green to starboard, red to port. `tint` is the
-      // existing per-face glass override, so a coloured lens costs no new role and no new code.
+      // Nav-light lens via the per-face `tint` override.
       const lp = cePt(s * CE_SPAN, 0.10, 0.5);
       faces.push({ role: 'window', sh: 0.95, tint: s > 0 ? [46, 190, 78] : [200, 52, 48],
         p: [V(lp[0] - 0.02, s * (CE_SPAN + 0.014), lp[2] + 0.012), V(lp[0] + 0.02, s * (CE_SPAN + 0.014), lp[2] + 0.012),
@@ -1800,14 +1298,13 @@ function buildCessna(detail = 1) {
     pushCtrlSurface(faces, 'flap', s, 0.80, le(0.17), le(0.60), te(0.17), te(0.60), 0.30, 'z', 0.012);
     pushCtrlSurface(faces, 'aileron', s, 0.82, le(0.66), le(1.06), te(0.66), te(1.06), 0.30, 'z', 0.010);
   }
-  // Wing-root fairing: the fillet that carries the roof line out into the wing underside. Without
-  // it a high wing reads as a plank laid across a tube.
+  // Wing-root fairing.
   if (detail) for (const s of [1, -1]) {
     const rf = cePt(s * 0.12, 0.02, 0), rb = cePt(s * 0.12, 0.98, 0);
     q('body', 0.80, rf, rb, V(-0.20, s * 0.084, 0.126), V(0.34, s * 0.088, 0.128));
   }
 
-  // ── LIFT STRUTS: a slim faired member from the lower longeron out to mid-span ─────
+  // ── Lift struts ──
   for (const s of [1, -1]) {
     const wA = cePt(s * 0.62, 0.42, 0);
     addFaired(faces, V(0.22, s * 0.086, -0.048), V(wA[0], s * 0.62, wA[2] - 0.004), 0.038, 0.010, 'strut', 0.66);
@@ -1817,12 +1314,11 @@ function buildCessna(detail = 1) {
     }
   }
 
-  // ── TAIL: swept fin with the dorsal fillet, and a low straight tailplane ─────────
+  // ── Tail ──
   const FT = 0.012;   // fin half-thickness
   const finPlan = [V(-0.56, 0, 0.118), V(-0.84, 0, 0.40), V(-0.94, 0, 0.44), V(-1.00, 0, 0.145), V(-0.94, 0, 0.108)];
   for (const s of [1, -1]) {
-    // Split into a quad + a triangle rather than pushed as one 5-gon: the panel texture and the
-    // jazz splatter only map 3- and 4-point facets, and a fin is far too big a surface to opt out.
+    // A quad and a triangle: the panel texture and jazz splatter only map 3- and 4-point faces.
     const P = finPlan.map(v => V(v[0], s * FT, v[2])), sh = s > 0 ? 0.92 : 0.68;
     q('fin', sh, P[0], P[1], P[2], P[4]);
     q('fin', sh * 0.97, P[2], P[3], P[4]);
@@ -1834,8 +1330,7 @@ function buildCessna(detail = 1) {
   if (detail) {   // dorsal fillet: the long shallow blade up the spine into the fin leading edge
     q('fin', 0.84, V(-0.24, 0, 0.138), V(-0.70, 0, 0.205), V(-0.56, 0, 0.118));
   }
-  // Rudder, hinged on a near-vertical line just forward of the fin trailing edge (a two-sided
-  // plate standing proud of the fin, never coplanar with it — see pushCtrlSurface's note).
+  // Rudder: a two-sided plate, never coplanar with the fin.
   for (const s of [1, -1]) {
     const gg = s * (FT + 0.006);
     const Htop = V(-0.905, gg, 0.415), Hbot = V(-0.938, gg, 0.115);
@@ -1859,10 +1354,8 @@ function buildCessna(detail = 1) {
       p: [V(-0.90, 0.010, 0.452), V(-0.94, 0.010, 0.452), V(-0.94, -0.010, 0.452), V(-0.90, -0.010, 0.452)] });
   }
 
-  // ── FIXED TRICYCLE GEAR ──────────────────────────────────────────────────────────
-  // Spring-steel main legs: they don't hang straight down, they BOW out and aft from the belly
-  // to a wheel well outboard of the fuselage, which is the whole stance of the type. Three faired
-  // segments approximate the curve; the wheels wear spats and the legs wear fairings.
+  // ── Fixed tricycle gear ──
+  // Spring-steel mains bow out and aft to the wheels; three faired segments approximate the curve.
   const MF = 0.10, MG = 0.30, MZ = -0.200, MR = 0.055;
   const NF = 0.52, NR = 0.046, NZ = (MZ - MR) + NR;   // nose wheel bottom lands on the mains' ground line
   for (const s of [1, -1]) {
@@ -1875,66 +1368,38 @@ function buildCessna(detail = 1) {
   pushWheel(faces, NF, 0, NZ, NR, 0.016, detail ? 10 : 8);
   if (detail) {
     addSpat(faces, NF, 0, NZ, 0.85);
-    // Scissor link down the front of the nose oleo — two small plates, the detail that says
-    // "this leg compresses" rather than "this leg is a stick".
+    // Scissor link on the nose oleo.
     const lw = 0.007, kf = NF + 0.028, kz = NZ + 0.062;
     q('gear', 0.80, V(NF + 0.014, -lw, NZ + 0.100), V(NF + 0.014, lw, NZ + 0.100), V(kf, lw, kz), V(kf, -lw, kz));
     q('gear', 0.66, V(kf, -lw, kz), V(kf, lw, kz), V(NF + 0.014, lw, NZ + 0.026), V(NF + 0.014, -lw, NZ + 0.026));
   }
 
-  // ── The small things you'd notice if they weren't there ──────────────────────────
+  // ── Small details ──
   if (detail) {
-    // Cabin DOOR: three thin dark seams standing just proud of the flank. A door is the one panel
-    // line on a light single that reads from any distance, and it's what makes the cabin a place
-    // somebody climbs into rather than a painted window.
+    // Cabin door seams, just proud of the flank.
     for (const s of [1, -1]) {
       const gg = s * 0.109, sw = 0.004;
       const seam = (f0, z0, f1, z1) => q('strut', 0.42, V(f0, gg, z0 + sw), V(f1, gg, z1 + sw), V(f1, gg, z1 - sw), V(f0, gg, z0 - sw));
       seam(0.30, 0.132, 0.30, -0.052);    // front post
       seam(0.02, 0.128, 0.02, -0.056);    // rear post
       q('strut', 0.42, V(0.30, gg, -0.050), V(0.02, gg, -0.054), V(0.02, gg, -0.062), V(0.30, gg, -0.058));   // sill
-      // Boarding step under the door.
       q('gear', 0.58, V(0.20, s * 0.088, -0.090), V(0.20, s * 0.150, -0.096), V(0.13, s * 0.150, -0.096), V(0.13, s * 0.088, -0.090));
     }
-    // Comm antenna on the roof, and its little brother under the belly.
+    // Roof and belly antennas.
     for (const s of [1, -1]) q('fin', s > 0 ? 0.86 : 0.66, V(-0.04, s * 0.004, 0.146), V(-0.13, s * 0.004, 0.146), V(-0.13, s * 0.004, 0.205), V(-0.07, s * 0.004, 0.205));
     addTube(faces, V(-0.20, 0, -0.062), V(-0.20, 0, -0.100), 0.006, 'gear', 0.5, 4);
-    // Pitot tube under the left wing — a working aeroplane has one, and it's two triangles.
+    // Pitot tube under the left wing.
     const pv = cePt(-0.52, 0.30, 0);
     addTube(faces, V(pv[0], -0.52, pv[2] - 0.004), V(pv[0] + 0.055, -0.52, pv[2] - 0.012), 0.005, 'gear', 0.55, 4);
   }
   return faces;
 }
 
-// ── GRASSHOPPER — a PIPER CUB, built to the Mayfly's standard ──────────────────
-// The second promotion off the parametric generator, and for the same reason: a light single is
-// looked at more than anything else in the sim, and a Cub is nothing but the details the generator
-// can't express. What she was — a row of scalars plus a glass BLISTER sunk 0.02 into the crown —
-// could never say the one thing that makes the type: the wing is carried above the fuselage on the
-// cabin frame, and the gap between them IS the greenhouse.
-//
-// What is here that the parametric path could not do:
-//   • THE CABIN IS THE HULL, as on the Mayfly — but the OPPOSITE glazing decision. A Cessna has two
-//     separate side windows a side; a Cub has one continuous run of glass from the windscreen to
-//     the aft cabin bulkhead, plus a SKYLIGHT in the roof. So the side bays glaze unbroken and the
-//     crown facets (k2/k3) glaze too, which is what puts sky above the pilot's head when she banks.
-//     Do not "tidy" this into the Mayfly's split — the two aeroplanes disagree on purpose.
-//   • A FLAT-BOTTOMED SECTION. The Mayfly flies on a NACA 2412; a Cub flies on a USA-35B, whose
-//     underside is very nearly a plank. `cubFoil` is the Mayfly's own foil with the lower surface
-//     flattened, so the two wings share one vocabulary and still read as different aerofoils —
-//     the flat underside is most of why a Cub looks like a kite from below.
-//   • THE STEEL CAGE. A Cub is welded tube under fabric, and everything visible says so: exposed
-//     cylinder heads out of the cowl cheeks, the bungee gear V with its cross-axle, jury struts
-//     halfway up the lift struts, and the split door on the starboard side.
-//   • ROUND TAIL FEATHERS. Every surface on a J-3 is a rounded outline on a bent-tube frame, not
-//     the swept trapezoids the generator draws — including a rudder that hangs BELOW the tailcone,
-//     which is the single most recognisable thing about the type in silhouette.
-//
-// Normalised like everything else: nose ≈ +0.87 (spinner), tail ≈ −1.03, tips at g = ±1.16.
-//
-// Her stations, in the same six columns CESSNA_STATIONS uses. Slimmer and deeper than the Cessna
-// (a Cub is narrow — two people sit in TANDEM, not abreast), a short cowl, and a long slim tailcone
-// whose `cz` climbs hard because the fin is carried high.
+// ── GRASSHOPPER: a hand-authored Piper Cub ──
+// The wing sits above the fuselage on the cabin frame; the gap is the greenhouse.
+// ⚠ Glazing differs from the Mayfly on purpose: continuous side glass plus a roof skylight. Don't merge them.
+// cubFoil is the Mayfly foil with a flat underside. Normalised: nose +0.87, tail -1.03, tips g = +-1.16.
+// Stations use CESSNA_STATIONS' columns: narrower (tandem seats), and `cz` climbs for the high fin.
 const CUB_STATIONS = [
   //  f      rg     rvT    rvB    cz     boxy
   [ 0.80, 0.048, 0.046, 0.038, 0.030, 0.16],   //  0 cowl face — the spinner sits on this ring
@@ -1950,8 +1415,7 @@ const CUB_STATIONS = [
   [-0.86, 0.024, 0.038, 0.022, 0.066, 0.24],   // 10
   [-1.03, 0.014, 0.024, 0.014, 0.080, 0.16],   // 11 tail end
 ];
-// The Cub's hull section at any station, for the same reason cessnaSection is exported: the
-// nose-art wrap paints onto the real flank, and she has no FW_PARAMS row to reconstruct one from.
+// Exported for the nose-art wrap, as cessnaSection is.
 export function cubSection(f) {
   const h = meshHull('grasshopper');
   if (h) return h.CS(f);
@@ -1969,18 +1433,16 @@ export function cubSection(f) {
   return { rg: last[1], rvT: last[2], rvB: last[3], cz: last[4], boxy: last[5] };
 }
 
-// Wing: CONSTANT chord tip to tip (no taper at all — that is the planform), square-cut, carried
-// well clear of the crown on the cabin frame. CU_WH is the gap that makes the greenhouse read.
+// Wing: constant chord, square tips, carried clear of the crown by CU_WH.
 const CU_SPAN = 1.16, CU_WH = 0.212, CU_DIH = 0.022, CU_LE = 0.30, CU_TE = -0.18;
-// Her foil (`cubFoil`, USA-35B-ish: flat-bottomed) is in client/shared/vehicle-mesh.js.
+// cubFoil is in client/shared/vehicle-mesh.js.
 function cuPt(g, x, sec) {
   const a = Math.min(1, Math.abs(g) / CU_SPAN), c = CU_LE - CU_TE, [u, l] = cubFoil(x);
   const z = CU_WH + CU_DIH * a + (sec === 0.5 ? (u + l) / 2 : sec ? u : l) * c;
   return V(CU_LE - x * c, g, z);
 }
 
-// Her nose-high three-point sit (deg) — an attitude the renderers apply, never baked into the mesh,
-// exactly as the Viper's is. This used to live in the FW_PARAMS row she no longer has.
+// Nose-high three-point sit (deg), applied as an attitude, never baked into the mesh.
 export const CUB_GROUND_PITCH = 11;
 
 function buildCub(detail = 1) {
@@ -1989,7 +1451,6 @@ function buildCub(detail = 1) {
   const GLASS = [96, 132, 158];
   const SIDES = 12;
 
-  // ── Fuselage ─────────────────────────────────────────────────────────────────
   const ring = (row) => {
     const [f, rg, rvT, rvB, cz, boxy] = row, e = 1 - boxy * 0.55, o = [];
     for (let k = 0; k < SIDES; k++) {
@@ -2005,15 +1466,10 @@ function buildCub(detail = 1) {
   const KEEP = new Set([0.80, 0.60, 0.52, 0.44, 0.00, -0.20, -0.64, -1.03]);
   const rows = detail ? CUB_STATIONS : CUB_STATIONS.filter(r => KEEP.has(r[0]));
   const body = rows.map(ring);
-  // The greenhouse. The windscreen bay glazes the whole upper half (it wraps over the crown, split
-  // only by the centre post); every bay behind it glazes the side band AND the crown — side glass
-  // k0/k5, skylight k2/k3 — so the cabin is glass from the sill line right over the top. The two
-  // facets between them (k1/k4) stay painted: that is the cabin frame's own longeron, and it is
-  // what stops the roof reading as one undifferentiated dome.
+  // Greenhouse: windscreen bay glazes the whole upper half; behind it side glass k0/k5 and skylight k2/k3.
+  // k1/k4 stay painted (the frame's longeron).
   const GLAZE = { 0.52: [0, 1, 2, 3, 4, 5], 0.44: [0, 2, 3, 5], 0.22: [0, 2, 3, 5], 0: [0, 5] };
-  // Texture-U at each glazed station. The 'xcub' canopy art's frame posts sit on these numbers, and
-  // its `sills` at 1/3 and 2/3 are exactly the V-band edges of the crown facets — so the skylight
-  // art lands on the skylight facets with nothing to line up by hand.
+  // Texture U per glazed station. The 'xcub' art's frame posts and sills line up with these and the crown facets.
   const STATION_U = { 0.52: 0.00, 0.44: 0.18, 0.22: 0.48, 0: 0.78, '-0.20': 1.00 };
   for (let i = 0; i < body.length - 1; i++) {
     const glz = GLAZE[rows[i][0]], uA = (STATION_U[rows[i][0]] ?? 0) * CP_TW, uB = (STATION_U[rows[i + 1][0]] ?? 0) * CP_TW;
@@ -2030,9 +1486,7 @@ function buildCub(detail = 1) {
   faces.push({ role: 'body', sh: 0.92, p: body[0] });
   faces.push({ role: 'body', sh: 0.5, p: body[body.length - 1].slice().reverse() });
 
-  // ── Cowl: a small round bowl, the exposed CYLINDER HEADS, spinner and exhaust ─────
-  // The heads poking out of the cowl cheeks are the detail that dates her — a modern light single
-  // hides its engine, and this one does not.
+  // ── Cowl: exposed cylinder heads, spinner, exhaust ──
   const SPIN_F = 0.865, SPIN_R = 0.036, spinBase = [];
   for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; spinBase.push(V(0.80, Math.cos(a) * SPIN_R, 0.030 + Math.sin(a) * SPIN_R)); }
   for (let k = 0; k < 10; k++) {
@@ -2043,11 +1497,10 @@ function buildCub(detail = 1) {
     for (const s of [1, -1]) {   // two cylinder heads a side, out through the cowl cheek
       for (const ff of [0.735, 0.665]) addTube(faces, V(ff, s * 0.052, 0.014), V(ff, s * 0.084, 0.008), 0.017, 'nacelle', 0.58, 6);
     }
-    // Exhaust: a long stack down the belly on the left, the way a Cub wears one.
     addTube(faces, V(0.68, -0.030, -0.026), V(0.50, -0.036, -0.048), 0.010, 'gun', 0.34, 6);
   }
 
-  // ── WING: constant chord, tip to tip, carried above the cabin ────────────────────
+  // ── Wing ──
   const NX = detail ? 11 : 4;
   const XS = []; for (let i = 0; i < NX; i++) XS.push(0.5 * (1 - Math.cos(Math.PI * i / (NX - 1))));
   const RIBS = detail ? [-CU_SPAN, -0.86, -0.58, -0.20, 0.20, 0.58, 0.86, CU_SPAN] : [-CU_SPAN, 0, CU_SPAN];
@@ -2076,17 +1529,13 @@ function buildCub(detail = 1) {
     pushCtrlSurface(faces, 'aileron', s, 0.82, le(0.60), le(1.12), te(0.60), te(1.12), 0.28, 'z', 0.010);
   }
 
-  // ── CABIN FRAME + LIFT STRUTS ────────────────────────────────────────────────────
-  // The wing does not touch the fuselage: four short cabane struts carry it off the cabin corners,
-  // and the daylight between them is the top of the greenhouse.
+  // ── Cabane and lift struts ── The wing sits on four short cabane struts off the cabin corners.
   for (const s of [1, -1]) {
     for (const [f0, x] of [[0.44, 0.10], [0.06, 0.86]]) {   // front cabane → wing LE, rear → the aft spar
       const top = cuPt(s * 0.10, x, 0);
       addFaired(faces, V(f0, s * 0.066, 0.118), V(top[0], s * 0.096, top[2] - 0.004), 0.024, 0.008, 'strut', 0.60);
     }
-    // The single lift strut a side, belly longeron out to mid-span — plus the JURY strut, the short
-    // diagonal halfway up that keeps it from oil-canning. On the real thing it is the tell that
-    // you're looking at a Cub and not a Cessna, and it costs two triangles.
+    // One lift strut a side plus the jury strut halfway up.
     const wA = cuPt(s * 0.62, 0.34, 0);
     addFaired(faces, V(0.20, s * 0.070, -0.052), V(wA[0], s * 0.62, wA[2] - 0.004), 0.034, 0.009, 'strut', 0.66);
     if (detail) {
@@ -2096,9 +1545,8 @@ function buildCub(detail = 1) {
     }
   }
 
-  // ── TAIL: rounded outlines on bent tube, and a rudder that hangs BELOW the cone ──
+  // ── Tail: rounded outlines, rudder hanging below the cone ──
   const FT = 0.010;
-  // Fin: small, and mostly leading edge. The big rounded shape aft of it is the rudder.
   const finPlan = [V(-0.62, 0, 0.098), V(-0.84, 0, 0.34), V(-0.92, 0, 0.36), V(-0.94, 0, 0.100)];
   for (const s of [1, -1]) {
     const P = finPlan.map(v => V(v[0], s * FT, v[2])), sh = s > 0 ? 0.92 : 0.68;
@@ -2108,9 +1556,7 @@ function buildCub(detail = 1) {
     const a = finPlan[i], b = finPlan[i + 1];
     q('fin', i === 0 ? 0.88 : 0.74, V(a[0], FT, a[2]), V(b[0], FT, b[2]), V(b[0], -FT, b[2]), V(a[0], -FT, a[2]));
   }
-  // Rudder: hinged just aft of the fin, rounded, and carried DOWN past the tailcone to the
-  // tailwheel — the J-3 outline. Two panels a side so the round trailing edge survives the
-  // 3-and-4-point facet limit the panel texture imposes.
+  // Rudder runs down past the tailcone. Two panels a side because the panel texture maps only 3- and 4-point faces.
   for (const s of [1, -1]) {
     const gg = s * (FT + 0.005);
     const Htop = V(-0.925, gg, 0.352), Hmid = V(-0.945, gg, 0.100), Hbot = V(-0.950, gg, -0.020);
@@ -2120,8 +1566,7 @@ function buildCub(detail = 1) {
     F(Htop, Hmid, Tmid, Ttop, s > 0 ? 0.88 : 0.66);
     F(Hmid, Hbot, Tbot, Tmid, s > 0 ? 0.84 : 0.63);
   }
-  // Tailplane: low on the cone, rounded tips, and BRACED — struts below to the fuselage and wires
-  // above to the fin. A Cub's tail is held on by its bracing and looks it.
+  // Braced tailplane: struts below, wires above.
   const HZ = 0.070, HSPAN = 0.40;
   for (const s of [1, -1]) {
     pushPanel(faces, 'stab', 0.74, [
@@ -2136,10 +1581,7 @@ function buildCub(detail = 1) {
     }
   }
 
-  // ── BUNGEE TAILDRAGGER GEAR, on fat tyres ────────────────────────────────────────
-  // Not a leg with a wheel on the end: a V of tubes off the lower longerons to a cross-axle, with
-  // the shock cord wound round the fuselage fitting. The wheels sit FORWARD of the wing so she
-  // stands nose-high on the tail.
+  // ── Bungee taildragger gear ── A tube V to a cross-axle, wheels forward of the wing.
   const AXF = 0.34, AXG = 0.215, AXZ = -0.235, TYRE = 0.082;
   for (const s of [1, -1]) {
     addTube(faces, V(0.46, s * 0.036, -0.052), V(AXF, s * AXG, AXZ), 0.011, 'gear', 0.62, 5);   // front leg
@@ -2148,33 +1590,28 @@ function buildCub(detail = 1) {
     pushWheel(faces, AXF, s * AXG, AXZ, TYRE, 0.034, detail ? 12 : 8);
   }
   if (detail) addTube(faces, V(AXF, -AXG, AXZ), V(AXF, AXG, AXZ), 0.007, 'gear', 0.48, 5);      // the cross-axle itself
-  // Tailwheel on its leaf spring, under the rudder's heel.
   addFaired(faces, V(-0.90, 0, -0.006), V(-1.000, 0, -0.052), 0.026, 0.006, 'gear', 0.58);
   pushWheel(faces, -1.005, 0, -0.072, 0.026, 0.012, detail ? 8 : 6);
 
-  // ── The small things you'd notice if they weren't there ──────────────────────────
+  // ── Small details ──
   if (detail) {
-    // THE SPLIT DOOR, starboard side only — the Cub's whole personality is that the top half swings
-    // up under the wing and the bottom half drops, and you fly with it open. Three seams and the
-    // horizontal split line say it without any of it having to move.
+    // Split door, starboard only: seams and the horizontal split line.
     const gg = 0.0805, sw = 0.0035;
     const seam = (f0, z0, f1, z1) => q('strut', 0.42, V(f0, gg, z0 + sw), V(f1, gg, z1 + sw), V(f1, gg, z1 - sw), V(f0, gg, z0 - sw));
     seam(0.24, 0.118, 0.24, -0.048);    // front post
     seam(-0.02, 0.112, -0.02, -0.050);  // rear post
     seam(0.24, 0.036, -0.02, 0.034);    // THE SPLIT: the horizontal line the two halves part on
     q('strut', 0.42, V(0.24, gg, -0.046), V(-0.02, gg, -0.048), V(-0.02, gg, -0.056), V(0.24, gg, -0.054));   // sill
-    // Boarding step under the door, and the pitot on the left lift strut (not the wing — a Cub
-    // hangs it off the strut where you can reach it).
+    // Boarding step, and the pitot on the left lift strut.
     q('gear', 0.58, V(0.16, 0.070, -0.086), V(0.16, 0.128, -0.092), V(0.09, 0.128, -0.092), V(0.09, 0.070, -0.086));
     addTube(faces, V(0.12, -0.34, 0.028), V(0.19, -0.34, 0.022), 0.005, 'gear', 0.55, 4);
-    // Wire aerial from the cabin roof to the fin — pre-war radio, and a line in the sky.
+    // Wire aerial, roof to fin.
     addTube(faces, V(-0.16, 0, 0.132), V(-0.86, 0, 0.330), 0.003, 'strut', 0.66, 3);
   }
   return faces;
 }
 
-// Where each class's prop discs spin — read by both renderers' engine-effect layers so
-// the translucent blur sits on the actual spinner(s), not a hardcoded nose position.
+// Where each class's prop discs spin, for the renderers' engine-effect layers.
 export const PROP_STATIONS = {
   ultralight: [[0.775, 0, 0.028]],                      // Cessna: one nose prop, at the spinner (drawRotorFX walks it back 0.06 to the cone root)
   prop: [[0.47, 0.42, 0.11], [0.47, -0.42, 0.11]],     // Twin Otter: two wing props
@@ -2183,47 +1620,26 @@ export const PROP_STATIONS = {
   divebomber: [[1.19, 0, -0.035]],                     // Shrike: one big slow nose prop (spinner apex = noseF 1.06 + 0.14·0.82, on her DROOPED centreline — noseZ, same as addSpinner)
 };
 
-// Real-world RELATIVE size (Twin Otter = 1). The meshes are all normalised to a similar extent,
-// so this scales the geometry where craft are shown TOGETHER (the hangar fleet scene) to convey
-// true size. Roughly the real length ratios vs the DHC-6 (15.8 m): Cessna .53, A-10 1.03, and
-// the An-124 is really ~4.4× — COMPRESSED to 2.0 so the fleet row stays readable — the Mini-500
-// heli ~.25, bumped to .42 so it isn't a speck. Air-to-air contacts get the equivalent through
-// windshield.js CONTACT_SIZE. Unlisted classes default to 1.
-// `truck` sits between the light singles and a Twin Otter: a rig with a box on it is a big animal
-// on a garage floor, and the shared-camera fit in drawHangarScene reads this to stand back far
-// enough that four of them park in one shot without shoving each other.
+// Relative size (Twin Otter = 1) where craft are shown together (the hangar fleet scene). The An-124 is
+// compressed to 2.0 and the heli bumped to .42 for readability. Contacts use windshield.js CONTACT_SIZE.
+// Unlisted classes default to 1.
 export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.85, grasshopper: 0.42, locust: 0.40, divebomber: 0.72, truck: 1.15, hydro: 1.0 };
-// A class that only exists as a mesh file carries its fleet-scene scale in `classFacts.modelScale`.
-// `??=`, so a file can never silently resize a class this table already names.
+// A mesh-file-only class carries its scale in `classFacts.modelScale`. `??=` so a file can't resize a listed class.
 for (const [id, row] of Object.entries(MESH_ROWS)) if (row.classFacts?.modelScale != null) MODEL_SCALE[id] ??= row.classFacts.modelScale;
 
-// ── Animated prop & rotor blades ────────────────────────────────────────────────
-// The spinning surfaces are an EFFECT LAYER every renderer draws through its OWN
-// camera: `projFn([f,g,h])` → {sx, sy} screen point, or null when it's behind the
-// lens. Blades are true model-space polygons, so they bank and foreshorten with the
-// craft in any view while the static face list stays memoisable (painted renderers
-// skip role 'rotor'; the wireframe keeps its schematic disc). `spin` is a shared
-// time-phase in radians — each disc gears it to its own RPM. `power` 0..1 breathes
-// the blur; `parked: true` draws crisp stopped blades (hangar floor, turntable).
-// `disc` (0..1) is the translucent blur-disc opacity; `spool` (0..1) is how fast the blades
-// are actually turning → how smeared they read (0 = a stopped/crisp prop, 1 = full motion smear).
-// Split so the own-ship can spin the BLADES up first (spool) and fade the DISC in after (disc),
-// and reverse on shutdown. Contacts pass neither → both fall back to `power` / full smear (old look).
-// ⚠ `sink`, WHEN GIVEN, TAKES THE WHOLE ROTOR AWAY FROM THE CANVAS, and `ctx` may then be null. It is
-// `{ poly(pts, rgba), line(pts, rgba, widthPx) }` with every point in MODEL space, so the caller can
-// put the rotor in the depth buffer with the hull: painted on the canvas after the aircraft, a blade
-// that passes behind the fuselage is drawn over it anyway, and so is a building in front of the
-// whole aircraft. Blades, blur disc and hub cap arrive as polygons, the tip ring and the glint as
-// lines. Every piece is translucent, so the caller must depth-TEST them and not write depth.
-// The canvas path is unchanged, and the mesh gate's rotor trace holds it to that.
+// ── Animated prop and rotor blades ──
+// An effect layer each renderer draws through its own camera: `projFn([f,g,h])` gives {sx, sy} or null.
+// Blades are model-space polygons, so the static face list stays memoisable (painted renderers skip 'rotor').
+// `spin` is a shared phase each disc gears to its RPM. `disc` is blur opacity, `spool` the smear; both
+// fall back to `power`. `parked` draws crisp stopped blades.
+// ⚠ `sink` takes the whole rotor off the canvas (then `ctx` may be null): `{ poly(pts, rgba), line(pts, rgba, widthPx) }`
+// in model space, so the caller can depth-test blades against the hull. All translucent: depth-test, never write depth.
 let FX_SINK = null;
 export function drawRotorFX(ctx, cls, projFn, opts = {}) {
   FX_SINK = opts.sink || null;
   try { drawRotorFXInner(ctx, cls, projFn, opts); } finally { FX_SINK = null; }
 }
-// Parked blades as depth-buffer faces for the hangar renderers. Painted on the canvas after the hull,
-// a blade behind the Drake's head was drawn over it. Parked blades are near-opaque, so they go in as
-// solid faces and the depth test decides what hides them. `projM` is model space to screen.
+// Parked blades as near-opaque depth-buffer faces for the hangar renderers. `projM` is model space to screen.
 export function pushParkedRotorFaces(drawn, cls, armed, spin, projM, near) {
   const polys = [];
   drawRotorFX(null, cls, (v) => { const q = projM(v); return q.z <= near ? null : q; },
@@ -2239,62 +1655,45 @@ export function pushParkedRotorFaces(drawn, cls, armed, spin, projM, near) {
     drawn.push({ P, role: 'rotor', avgZ, alpha: 1, nf, xf, hf: null, af: avgZ, i: drawn.length, rv, col: `rgb(${rv[0]},${rv[1]},${rv[2]})` });
   }
 }
-// How a `run` rotor comes up to speed on its channel: a smoothstep, flat at both ends.
 const RUN_EASE = (k) => k * k * (3 - 2 * k);
-// A folding rotor's stop angle, held from the frame its fold began until it is back at 0, and how far
-// up its blades stand while they swing aft and ride down (drawRotorFXInner, the folding rotor).
+// A folding rotor's held stop angle, and how far its blades stand up while they swing aft.
 const FOLD_STOP = new Map();
 const FOLD_TILT = 80 * Math.PI / 180;
 function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0, armed = false, anim = null } = {}) {
   const dsc = disc != null ? disc : power;      // blur-disc opacity
   const spl = spool != null ? spool : 1;        // blade motion amount
-  // A class drawn from a mesh file carries its rotors in the file (`rotors`: where each disc is,
-  // which plane it turns in, which way, how fast against the shared phase). That is what lets a
-  // coaxial or a ducted pusher exist without another branch here.
+  // A mesh-file class carries its rotors (`rotors`): position, plane, direction, speed.
   const rs = rotorsFor(cls, armed);
   if (rs) {
     for (const r of rs) {
       const sp = r.spinMul == null && r.phase == null ? spin : spin * (r.spinMul ?? 1) + (r.phase ?? 0);
-      // ── A SLIDING ROTOR ── (`slide: { ch, by }`). The disc moves by `by` at 1 on its channel, the
-      // way a part's `anim.slide` moves the duct and spinner it turns inside. Same number, both places.
+      // Sliding rotor (`slide: { ch, by }`): moves by `by` at 1, matching the part's `anim.slide`.
       const sl = r.slide ? clampN(anim?.[r.slide.ch] ?? 0, 0, 1) : 0;
       const at = sl ? [r.at[0] + r.slide.by[0] * sl, r.at[1] + r.slide.by[1] * sl, r.at[2] + r.slide.by[2] * sl] : r.at;
-      // ── A ROTOR THAT RUNS ON A CHANNEL ── (`run: <channel>`): stopped at its `phase` angle at 0, and
-      // at 1 turning exactly as it would without the field. In between, the offset from the stop angle
-      // is eased in, and taken modulo one blade step so a blade set never jumps by a whole turn. There is
-      // no state here, so a spool-up this fast aliases rather than accelerates, which reads as a blur.
+      // Rotor on a channel (`run`): stopped at `phase` at 0, full speed at 1. The offset is eased modulo one blade
+      // step so it never jumps a turn. Stateless, so a fast spool-up aliases (reads as a blur).
       if (r.run) {
         const e = RUN_EASE(clampN(anim?.[r.run] ?? 0, 0, 1));
         const n = r.blades, step = Math.PI * 2 / n, a0 = r.phase ?? 0;
         const d = (((sp - a0) % step) + step * 1.5) % step - step / 2;
-        // A stopped rotor is drawn by the running branch with no disc and no smear, so nothing about
-        // it changes at the moment it starts: only the blade shade eases from parked to its own lead.
         spinDisc(ctx, projFn, at, r.U, r.V, r.r, a0 + d * e, dsc * e, spl * e, parked, n, 0.95 + (r.lead - 0.95) * e, bladeFade);
         continue;
       }
-      // ── A FOLDING ROTOR ── (`fold` on the rotor in the mesh file). Past zero on its channel the
-      // blades are stopped, and they swing the short way round to lie aft together, `spread` degrees
-      // apart, the way a folding rotor stows for fixed-wing flight. From wherever the rotor stopped.
+      // Folding rotor: past zero the blades stop and swing aft together, `spread` degrees apart.
       const ft = r.fold ? clampN(anim?.[r.fold.ch] ?? 0, 0, 1) : 0;
       if (!(ft > 0)) FOLD_STOP.delete(r);
       if (ft > 0) {
-        // ⚠ THE BLADES STOP FIRST. `spin` keeps running through a fold (it is the engine's phase, and
-        // the pusher still turns), so the blades are held at the angle they had when the fold began.
-        // Keyed on the rotor, so two of one class folding at the same moment share a stop angle.
+        // ⚠ The blades hold the angle they had when the fold began (`spin` keeps running for the pusher).
         if (!FOLD_STOP.has(r)) FOLD_STOP.set(r, sp);
         const s0 = FOLD_STOP.get(r);
-        // ⚠ AND THEY NEVER SWEEP FLAT THROUGH THE TAIL. Swung aft at hub height they cut straight
-        // through the boom, so the fold is staged: blades fold UP (0–0.2), swing aft while standing
-        // up (0.2–0.5), ride down with the mast (to 0.75), and only then lie flat on the crutch.
+        // ⚠ Never sweep flat through the tail: fold up (0-0.2), swing aft (0.2-0.5), ride down (to 0.75), then lie flat.
         const seg = (a, b) => RUN_EASE(clampN((ft - a) / (b - a), 0, 1));
         const tilt = FOLD_TILT * (seg(0, 0.2) - seg(0.75, 1)), swing = seg(0.2, 0.5);
         const n = r.blades, step = Math.PI * 2 / n, aft = (r.fold.aft ?? 180) * Math.PI / 180, spr = (r.fold.spread ?? 10) * Math.PI / 180;
-        // ⚠ AND IT CAN TUCK: `fold.tuck` is where the hub goes at a full fold, so the stopped blades
-        // come down with a mast that telescopes into the back (the mast is a mesh part sliding on the
-        // same channel, LINEARLY, and the two offsets have to be the same number, so this stays linear).
+        // ⚠ `fold.tuck` moves the hub with the telescoping mast, linearly, matching the mast part's slide.
         const tk = r.fold.tuck;
         const hub = tk ? [at[0] + tk[0] * ft, at[1] + tk[1] * ft, at[2] + tk[2] * ft] : at;
-        // Up, off the disc: the plane's normal, turned to point skyward whichever way the rotor spins.
+        // Disc normal, turned skyward.
         let N = [r.U[1] * r.V[2] - r.U[2] * r.V[1], r.U[2] * r.V[0] - r.U[0] * r.V[2], r.U[0] * r.V[1] - r.U[1] * r.V[0]];
         if (N[2] < 0) N = N.map((v) => -v);
         const ct = Math.cos(tilt), st = Math.sin(tilt);
@@ -2302,7 +1701,6 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
           const a0 = s0 + i * step, a1 = aft + (i - (n - 1) / 2) * spr;
           const d = ((a1 - a0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
           const a = a0 + d * swing, ca = Math.cos(a), sa = Math.sin(a);
-          // Each blade in a frame of its own: along it (tilted up by `tilt`) and across it.
           const D = [0, 1, 2].map((k) => (r.U[k] * ca + r.V[k] * sa) * ct + N[k] * st);
           const W = [0, 1, 2].map((k) => r.V[k] * ca - r.U[k] * sa);
           spinDisc(ctx, projFn, hub, D, W, r.r, 0, 0, 0, true, 1, r.lead, bladeFade, [0]);
@@ -2314,17 +1712,9 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
   } else if (cls === 'heli') {
     legacyHeliRotorFX(ctx, projFn, armed, spin, dsc, spl, parked, bladeFade);
   } else {
-    // Cessna two-blade nose prop / Twin Otter three-blade wing turboprops. The
-    // stations record the spinner apex (ultralight) vs base (prop) — nudge the
-    // blade plane back to the cone root either way.
+    // Nose and wing props.
     const blades = (cls === 'ultralight' || cls === 'grasshopper') ? 2 : 3;
-    // Where the blade plane sits relative to the recorded station, and how big the disc is. Both
-    // were single expressions with the same value on each side of a `?` — a table that had been
-    // flattened into a ternary and then never grew. A station recording the spinner APEX has to be
-    // walked BACK to the cone root or the blades hang in front of the aeroplane, and the Shrike's
-    // 0.82-scale spinner is a long cone: hers is the biggest walk-back in the fleet, as well as
-    // the biggest disc (the gull wing exists to give this prop ground clearance — it has to LOOK
-    // like the reason).
+    // A station at the spinner apex is walked back to the cone root (`off`); `rad` is the disc size.
     const off = { ultralight: -0.06, grasshopper: -0.075, locust: -0.095, divebomber: -0.115 }[cls] ?? 0.03;
     const rad = { locust: 0.26, divebomber: 0.30 }[cls] ?? 0.21;
     for (const st of (PROP_STATIONS[cls] || [])) {
@@ -2334,9 +1724,7 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
   }
 }
 
-// The rotors a class draws from its mesh file, resolved (the file's scale applied), or null for a
-// class with no file or no rotors. Memoised on the file's identity, because this is asked per
-// contact per frame and an override always hands in a new object.
+// A class's mesh-file rotors, resolved, or null. Memoised on the row because this runs per contact per frame.
 const _rotorMemo = new WeakMap();
 export function rotorsFor(cls, armed = false) {
   const id = meshIdFor(cls, armed);
@@ -2345,16 +1733,13 @@ export function rotorsFor(cls, armed = false) {
   if (!_rotorMemo.has(row)) _rotorMemo.set(row, resolveRotors(row));
   return _rotorMemo.get(row);
 }
-// Does this class hang under a horizontal rotor? What the ground shadow asks, so a rotorcraft
-// throws a disc and a body rather than a Twin Otter's wings.
+// Whether the class hangs under a horizontal rotor (the ground shadow asks).
 export function hasMainRotor(cls) {
   const rs = rotorsFor(cls, false);
   if (rs) return rs.some((r) => r.U[0] === 1 && r.V[2] === 0 && r.V[0] === 0);
   return cls === 'heli';
 }
-// Every drawing call the rotor layer makes for a class, as one string — for the mesh gate, which
-// holds a converted file's rotors to the hardcoded code they replaced. A recording context and a
-// fixed projection, so the trace is a function of the rotors and nothing else.
+// The rotor layer's draw calls as one string, for the mesh gate's rotor-vs-legacy comparison.
 function rotorTraceCtx() {
   let log = '';
   const rec = (name) => (...a) => { log += name + '(' + a.map((x) => typeof x === 'number' ? x.toPrecision(12) : String(x)).join(',') + ');'; };
@@ -2376,17 +1761,11 @@ export function rotorTraceLegacy(cls, st = {}) {
   return t.out();
 }
 
-// What the heli branch of drawRotorFX was before the rotors moved into the mesh files. Kept for
-// `setLegacyMeshes(true)` and for the gate's trace comparison until the files have shipped.
+// The heli rotors before they moved into mesh files. Kept for setLegacyMeshes(true) and the gate's trace.
 function legacyHeliRotorFX(ctx, projFn, armed, spin, dsc, spl, parked, bladeFade) {
   {
-    // Main rotor (f-g plane; matches buildHeli's cf 0.1 / cz 0.34) + tail rotor
-    // (f-h plane on the boom's right side), geared ~5× the main.
-    //
-    // The ARMED heli (Viper) ships double-size, so its anchors and disc radii go through the
-    // SAME viperXf the mesh used — otherwise the discs sit inside a bigger airframe. The disc
-    // AXES need no transform: the mesh is authored level, and any ground/flight attitude is
-    // applied by the caller's projection to mesh and discs alike. Dragonfly is untouched.
+    // Main rotor (f-g plane) and tail rotor (f-h plane), geared ~5x. The armed Viper's anchors and radii go
+    // through viperXf; the axes don't need it.
     const P  = armed ? viperXf : (v) => v;      // positions: scale
     const R  = armed ? VIPER_SCALE : 1;         // radii: scale
     spinDisc(ctx, projFn, P([0.1, 0, 0.34]), [1, 0, 0], [0, 1, 0], 1.02 * R, spin, dsc, spl, parked, 2, 0.85, bladeFade);
@@ -2394,27 +1773,17 @@ function legacyHeliRotorFX(ctx, projFn, armed, spin, dsc, spl, parked, bladeFade
   }
 }
 
-// The prop seen from the PILOT'S SEAT: the same rpm-driven disc drawRotorFX paints on the
-// external chase model, projected HEAD-ON into the forward windscreen so it shimmers ahead of
-// the nose. Single centred nose-prop classes only — the Mule's props are out on the wings
-// (off the forward frame) and the heli's rotor is overhead. `spin`/`disc`/`spool` come straight
-// from the flight model's prop choreography, so it fades in with throttle exactly like the chase
-// view (blades tick over at idle → smear into a blur disc under power). `cx`/`cy` = disc centre
-// on the canvas; `rad` = its screen radius. The projFn maps the prop plane's model axes — lateral
-// (g) → screen x, up (h) → screen y — onto the screen; the fore station (f) is depth, ignored.
+// The prop seen from the pilot's seat, head-on in the windscreen. Single centred nose props only.
+// `cx`/`cy` is the disc centre and `rad` its screen radius; projFn maps g to x and h to y.
 export function drawCockpitProp(ctx, cls, { cx, cy, rad, spin = 0, disc = 0, spool = 0 }) {
   const st = PROP_STATIONS[cls];
   if (!st || cls === 'prop' || st.length !== 1 || st[0][1] !== 0) return;   // one centred nose prop only
   const S = rad / 0.21;                                       // model disc r (0.21) → screen px
-  // bladeFade: from the pilot's seat you look straight THROUGH the disc, so past ~half throttle
-  // let the individual blades melt into the blur disc — at high rpm you see only the spinning
-  // disc, never strobing blades over it (a real head-on GA prop). Chase view passes no fade.
+  // bladeFade: past half throttle the blades melt into the disc instead of strobing.
   drawRotorFX(ctx, cls, ([, g, h]) => ({ sx: cx + g * S, sy: cy - h * S }), { spin, disc, spool, bladeFade: 0.9 });
 }
 
-// One spinning disc: centre C, two unit axes U/V spanning its plane (model space), radius r.
-// `disc` = blur-disc opacity, `spool` = blade motion amount (see drawRotorFX). `lead` is the
-// front blade's opacity (helis read solid, props smear).
+// One spinning disc: centre C, unit axes U/V, radius r. `lead` is the front blade's opacity.
 function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, lead, bladeFade = 0, angs = null) {
   const at = (a, rad, wPerp) => {   // point at polar (a, rad) offset wPerp across the blade
     const ca = Math.cos(a), sa = Math.sin(a);
@@ -2444,26 +1813,16 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
   const step = Math.PI * 2 / blades;
   if (parked) {   // engines off: crisp dark stopped blades on a small hub cap
     for (let i = 0; i < blades; i++) blade(angs ? angs[i] : spin + i * step, 'rgba(38,43,49,0.95)');
-    // A tiny centre cap only — sized off the BLADE, not the whole rotor span, and capped in px,
-    // so it never balloons into a flat screen-space "ball" that reads as a floating sphere when
-    // the disc foreshortens edge-on. The real rotor head is 3D geometry on the mesh below.
+    // A tiny hub cap capped in px, so it never balloons into a floating sphere edge-on.
     ctx.fillStyle = 'rgba(30,34,40,0.95)';
     ctx.beginPath(); ctx.arc(hub.sx, hub.sy, Math.max(1, Math.min(rpx * 0.03, 4)), 0, 7); ctx.fill();
     return;
   }
-  // Blur disc + tip ring — opacity rides `disc`, so it's INVISIBLE until the prop is spun up
-  // (fades in on throttle, fades out first on shutdown). A soft fade near zero avoids a hard pop.
+  // Blur disc and tip ring fade in with `disc`.
   const dFade = clampN(disc * 3.5, 0, 1);
   if (dFade > 0.01) {
-    // ⚠ THE SEGMENT COUNT IS SOLVED FOR THE DISC’S SCREEN SIZE, and a fixed sixteen is what
-    // "the propeller has blockiness around it, lighter than the rest of the view" was. From the
-    // pilot’s seat this disc is drawn at H * 0.62 — a 223 px radius on a 360 px frame — and a
-    // 16-gon at that radius has an 87 px flat edge, filled with a pale wash. It reads as a
-    // faceted lighter shape sitting over the windscreen, which is exactly what was reported.
-    // The error that matters is the SAGITTA, not the chord: r(1 - cos(pi/N)), so holding it under
-    // 0.4 px needs N >= pi * sqrt(r / 0.8) — about 52 segments head-on in a cockpit and about 22
-    // for a contact’s prop across the valley, which is the point of solving it rather than
-    // picking a bigger constant. One path, one fill, one stroke, whatever N is.
+    // ⚠ Segment count is solved for screen size: keep the sagitta r(1 - cos(pi/N)) under 0.4 px, N >= pi*sqrt(r/0.8).
+    // A fixed 16 showed as a faceted pale shape over the windscreen.
     const NS = Math.max(16, Math.min(96, Math.ceil(Math.PI * Math.sqrt(Math.max(1, rpx) / 0.8))));
     const rim = [];
     for (let i = 0; i < NS; i++) { const q = at(i / NS * Math.PI * 2, r, 0); if (!q) return; rim.push(q); }
@@ -2473,12 +1832,7 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
     ctx.fillStyle = `rgba(205,216,226,${dFade * (0.06 + disc * 0.09)})`; ctx.fill();
     ctx.strokeStyle = `rgba(228,238,246,${dFade * (0.14 + disc * 0.16)})`; ctx.lineWidth = 1; ctx.stroke();
   }
-  // The blades: crisp and stopped at spool 0 (a single dark blade per position, no smear),
-  // dragging more fading ghosts and spreading them wider as `spool` climbs — so the prop reads
-  // as speeding up / slowing down, not just present/absent. Ghost count grows with spool.
-  // `bladeFade` (>0, cockpit prop only) dissolves the discrete blades into the blur disc as it
-  // fills in past ~half opacity, so at high throttle the head-on view reads as a pure spinning
-  // disc with no individual blades — they melt into it rather than strobing under it.
+  // Blades drag more fading ghosts as `spool` climbs. `bladeFade` (cockpit only) dissolves them into the disc.
   const bladeVis = 1 - bladeFade * clampN((disc - 0.5) / 0.45, 0, 1);
   const ghosts = spool > 0.55 ? 3 : spool > 0.18 ? 2 : 1;
   if (bladeVis > 0.02) for (let i = 0; i < blades; i++) {
@@ -2486,18 +1840,15 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
   }
   ctx.fillStyle = 'rgba(30,34,40,0.9)';
   ctx.beginPath(); ctx.arc(hub.sx, hub.sy, Math.max(1, Math.min(rpx * 0.045, 6)), 0, 7); ctx.fill();
-  // A bright glint sweeping the tip ring — light catching the blur; only while the disc shows.
+  // Tip glint, only while the disc shows.
   if (dFade > 0.05) {
     ctx.beginPath();
     for (let i = 0; i <= 4; i++) { const q = at(spin * 1.3 + i * 0.14, r * 0.99, 0); if (!q) return; i === 0 ? ctx.moveTo(q.sx, q.sy) : ctx.lineTo(q.sx, q.sy); }
     ctx.strokeStyle = `rgba(240,248,255,${dFade * (0.2 + disc * 0.25)})`; ctx.lineWidth = 1.4; ctx.stroke();
   }
 }
-// The disc spinDisc paints, handed to FX_SINK in model space instead. Every size, colour and alpha is
-// the canvas path's own, in the same order, so the two pictures differ only in what can hide them.
-// `at` is still needed for the screen radius, which sets the disc's segment count and caps the hub.
-// The hub dot is a screen circle on the canvas and a cap in the disc's own plane here, at the radius
-// the dot is drawn at.
+// spinDisc's picture handed to FX_SINK in model space, with the same sizes, colours and order.
+// `at` still gives the screen radius for the segment count and hub cap.
 function sinkDisc(at, mdl, r, spin, disc, spool, parked, blades, lead, bladeFade, angs) {
   const hub = at(0, 0, 0), tip = at(0, r, 0);
   const rpx = hub && tip ? Math.hypot(tip.sx - hub.sx, tip.sy - hub.sy) : 0;
@@ -2533,44 +1884,30 @@ function sinkDisc(at, mdl, r, spin, disc, spool, parked, blades, lead, bladeFade
   }
 }
 
-// ── TUNING THE TWO PARAMETER TABLES FROM OUTSIDE ───────────────────────────
-// FW_PARAMS and TRUCK_SHAPES are plain numbers that GENERATE a mesh, which is the whole reason a
-// vehicle can be tuned at all: nothing in either table is drawing code. The Modelshop pushes a
-// modified row through setVehicleParams() and gets the real builder back, so what it shows is the
-// mesh the sim would build rather than a second renderer's idea of one.
-//
-// Every read of either table goes through fwParams()/truckShape() and nothing reads them directly,
-// because a table read that skips the override is a slider that moves half the aeroplane.
-//
-// ⚠ A CHANGE MUST BUST THE MESH CACHE. aircraftFaces memoises on cls+detail+armed+variant and
-// nothing in that key says which parameters built it, so without the flush the first build of a
-// class wins for the rest of the session and every slider after it appears to do nothing.
-//
-// This is a DESIGN-TIME seam and holds nothing durable: an override lives in one browser tab until
-// it is cleared or the page reloads. Persisting one means editing the table below.
+// ── Tuning the parameter tables from outside ──
+// The Modelshop overrides a row with setVehicleParams() and gets the real builder back.
+// Every read goes through fwParams()/truckShape()/boatShape(), or a slider moves half the vehicle.
+// ⚠ A change must bust the mesh cache: aircraftFaces' memo key doesn't include the params.
+// Design-time only: an override lives in one tab until cleared or reloaded.
 const _vehOverride = { fw: new Map(), truck: new Map(), boat: new Map() };
 function overrideTable(kind) {
   const t = _vehOverride[kind];
   if (!t) throw new Error('unknown vehicle parameter table: ' + kind);
   return t;
 }
-// ⚠ ONE PLACE THAT NAMES THE TABLES. `baseRow` and `vehicleParamIds` were each a ternary over two
-// kinds, which is fine at two and is two more edits per kind after that — and the failure when one
-// is missed is a Modelshop slider that reads a row nothing builds from.
+// The one place that names the tables.
 const KIND_TABLE = () => ({ fw: FW_PARAMS, truck: TRUCK_SHAPES, boat: BOAT_SHAPES });
 function baseRow(kind, id) { return (KIND_TABLE()[kind] || {})[id] || null; }
 function fwParams(cls) { return _vehOverride.fw.get(cls) || FW_PARAMS[cls] || null; }
 function truckShape(id) { return _vehOverride.truck.get(id) || TRUCK_SHAPES[id] || null; }
 function boatShape(id) { return _vehOverride.boat.get(id) || BOAT_SHAPES[id] || null; }
-// The shipping row, for a caller that wants to seed a form from it. A copy, so an editor holding
-// the object cannot edit the table it is supposed to be overriding.
+// A copy, so an editor can't edit the table it overrides.
 export function vehicleParamBase(kind, id) {
   const row = baseRow(kind, id);
   return row ? { ...row } : null;
 }
 export function vehicleParamIds(kind) { return Object.keys(KIND_TABLE()[kind] || {}); }
-// `patch` is merged ONTO the shipping row, so a caller sends the fields it changed and inherits
-// the rest; `null` drops the override for that id.
+// `patch` merges onto the shipping row; `null` drops the override.
 export function setVehicleParams(kind, id, patch) {
   const t = overrideTable(kind);
   const row = baseRow(kind, id);
@@ -2591,337 +1928,82 @@ const FW_DEFAULT = {
   finF0: -0.74, finF1: -0.98, finF2: -1.06, finH: 0.50, fins: [0],
   engines: [-0.24, 0.24], nacF: -0.02, nacH: -0.02,
 };
-// ── THE FIXED-WING ROWS ────────────────────────────────────────────────────
-// The numbers now live in content/vehicle_models/fw_*.json and reach here through the bake
-// (`npm run vehicles:bake`). The NOTES stayed: which real aircraft each one is, and what was
-// tried and rejected getting there, is the reason the numbers are what they are, and a JSON
-// file is a poor place to keep a paragraph.
-//
-// ⚠ AN AUTHORED ROW IS THE RESOLVED SET, not a patch over FW_DEFAULT. The table used to spread
-// the defaults into each class; a file that did the same would not say what a Warthog's span
-// is, only that it differs. FW_DEFAULT is now the starting point for a new class and the
-// fallback for a class with no row.
-//
-  // NOTE: there is no `ultralight` row. The Mayfly was promoted off this generator to her own
-  // hand-authored mesh (buildCessna, above) — a parametric lozenge could give her a Cessna's
-  // PROPORTIONS but never a Cessna's shapes, and she is the airframe most players look at. Her
-  // section lives in CESSNA_STATIONS and her hull profile is served by cessnaSection(), which is
-  // what the two consumers that used to read this row (wingtipStation, drawNoseArt) now call.
-  // Mule — a high-wing, twin-turboprop, fixed-gear STOL hauler: a DHC-6 Twin Otter (per ref). A
-  // deep, flat-sided BOX of a fuselage held near-constant most of its length, with the signature
-  // DROOPED, POINTED "anteater" nose (noseZ pulls the radome down below the fuselage line to a
-  // point). Shortened from the original (empennage pulled in to match) so it reads less stretched.
-    // The wing sits flat ON the cabin roof (crown 0.135), not half-buried in it.
-    // Long nacelles that run from ahead of the wing to well BEHIND its trailing edge — the Otter's
-    // engines are slung along the wing, not bolted to the front of it (nacHalf sets the length).
-    // THE TWIN OTTER NOSE (per ref photos). The flat-topped slab box holds FULL width AND height
-    // back to the windscreen (bodyTube 0.62), then two things happen at once ahead of it:
-    //  • the ROOF drops hard (noseVTaper shrinks height ~1.6× faster than width) → a steep,
-    //    forward-raked 2-pane windscreen and, past it, a nose that tapers to a LOW point;
-    //  • the centreline eases down a touch (noseZ −0.05) so that low point sits just below the
-    //    fuselage line — the gentle droop — while the belly keeps rising to meet it (a wedge, not
-    //    the old sagging tube). Longer nose (noseF 0.92→1.00) for the anteater reach.
-    // FLIGHT DECK CUT INTO THE HULL (per ref photo), not a hump on the roof. Rings at the
-    // windscreen top/base + side-window divisions give each pane its own bay; `glaze` turns the
-    // upper facets between them to glass. On a 12-gon the upper half is k 0…5 (starboard sill →
-    // crown → port sill). The WINDSCREEN bay (fore of wsF) glazes the FULL upper half — k0…5 — so
-    // the two panes wrap up and over the crown and around the corners into the side glass, split
-    // only by the painted centre post; the side-window bays glaze the side band (k0/k5) alone, so
-    // the cabin ROOF behind the windscreen stays solid.
-  // Reaper — an A-10 Warthog (per ref): a straight-wing, twin-tail gun platform with two fat
-  // turbofans mounted HIGH on stub pylons off the rear fuselage. A SLIM fuselage (thin fr) that's
-  // still deep, a slightly pointed nose, and the twin fins out at the tailplane tips.
-    // THE WARTHOG BUBBLE (per ref): a single-seat clamshell canopy sitting proud of the nose, with
-    // a heavy windscreen bow ahead of it and near-frameless glass over the crown. arc 5 + segs 8
-    // round the bubble properly (it's a hemisphere in section, not a three-facet tent), and the
-    // 'reaper' canopy art paints the bow frame, the gold-flashed armoured panes, the HUD glow and
-    // the one pilot in there — the same treatment the Viper's greenhouse gets.
-  // Leviathan — an Antonov An-124 (per ref): a huge four-engine wide-body heavy freighter. A
-  // long near-circular constant tube with an upswept cargo boat-tail; a swept HIGH wing set with
-  // ANHEDRAL (drooping tips) carrying four big podded turbofans on underwing pylons; a tall swept
-  // fin; a blunt rounded radome nose; and its signature multi-wheel 'centipede' belly gear. It's
-  // a cantilever wing — NO lift struts (unlike the strut-braced Otter).
-    // Nose leg forward of the visor cut (0.78) so it hangs off the swinging nose and hinges with it
-    // as one piece — see `noseGearAt` in addHeavyGear and the visor tagging in buildFixedWing.
-    // …and at the fore-aft MIDDLE of that nose section (0.78 → 1.15), rather than hard up against
-    // the hinge where it read as hanging off the seam instead of being carried by the nose.
-    // BODY (per ref photo): the An-124 is a DEEP near-circular tube — taller than it is wide (the
-    // upper flight deck sits over a full-height cargo bay) — held at constant section over most of
-    // its length, closed by a bluntly rounded radome up front and an UPSWEPT cargo boat-tail aft.
-    // sides 16 rounds the section properly (12 facets read as a barrel on something this fat).
-    //
-    // THE NOSE IS THE WHOLE POINT OF THE TYPE, and it is not a cone. Ahead of the flight deck the
-    // ROOF falls away hard while the body stays wide (noseVTaper) — that shed IS the cargo visor,
-    // and it's why the aeroplane looks like it is frowning — but it bottoms out at noseVFloor rather
-    // than tapering to a slit, because what it ends in is a fat ROUND radome (noseCowl), not a
-    // point. The centreline droops with it (noseZ), spent early (noseDroopK < 1) so the drop lands
-    // on the visor and never tips the flight deck down with it. Result: a level cockpit sitting up
-    // behind a long sloping snout, exactly the profile in the reference.
-    // (noseVFloor is what keeps the tip ROUND: the vertical taper multiplies a width profile that is
-    // itself collapsing into the cowl, so the two compound — floor it too low and the radome comes
-    // out a letterbox slab rather than a snout. 0.60 against a 0.34 cowl lands it near circular.)
-    // AN AIRLINER NOSE, not a chopped cylinder. The lever here is noseBlunt: a HIGH exponent holds
-    // full width and then falls off a cliff, which is why the snout kept ending in a flat disc no
-    // matter what the cowl floor was set to. 2.2 rounds it down continuously instead — sampled at
-    // the extraF stations below the half-width runs 0.98 · 0.92 · 0.81 · 0.66 · 0.50 · 0.32 · 0.10,
-    // a smooth curve into a tip that is very nearly a point. The cowl floor drops to 0.10 to match:
-    // with the taper doing the work there's no cliff left to hide, so the end cap is a few pixels
-    // rather than a dinner plate.
-    // sides 24, not 16, and the reason is the COCKPIT. Glazing works in whole facets, so the ring
-    // resolution sets the smallest window you can cut: at 16 sides each facet is a 22.5° slice of the
-    // section, and the narrowest possible band was still 45° tall — a greenhouse. At 24 a facet is
-    // 15°, so the flight deck can be a tight strip near the crown the way the real one is. The extra
-    // rings cost ~100 faces on the whole airframe and buy the one detail you actually look at.
-    // Cargo VISOR NOSE (C-5 Galaxy / An-124): parked with the engines shut down the whole forward
-    // section hinges fully UP (~90°), exposing the cargo hold + ramp; powering on lowers it home.
-    // THE CUT IS AHEAD OF THE FLIGHT DECK, not behind it — on the real aeroplane the visor swings up
-    // in FRONT of the windows and the crew's office stays bolted to the fuselage. Cutting it aft of
-    // the glass (as this did) took the entire cockpit up with the nose, which is the single weirdest
-    // thing the model did. hingeAt is a fraction of noseF and lands on the 0.78 ring, so the break
-    // is a clean structural seam at the windscreen base. Shorter ramp to match the forward lip.
-    // maxAng 1.20 (69°), not a full 90°. The lower lip of the cut ring swings forward by
-    // sin(angle) × the fuselage's own depth, so at 90° it ends up a third of the airframe ahead of
-    // the hinge and the nose stops reading as attached to anything. Backing off to ~70° still yawns
-    // the mouth wide open for the ramp but keeps the section leaning on its hinge.
-    // THE FLIGHT DECK RIDES THE NOSE. The cut is aft of the glass (snapped to the 0.56 ring), so the
-    // cockpit is part of the swinging section — which is what the first-person view already assumes:
-    // `cockpitTilt` pitches the pilot's camera up with `noseVisor` and rotates back down as the
-    // visor closes. Leave the glass on the fixed fuselage and the camera swings while the windows
-    // it's looking through don't, which is the one arrangement that can't be right.
-    // FLIGHT DECK CUT INTO THE HULL, not a hump bolted on the roof (the Mule's treatment, and what
-    // the real aeroplane does): the An-124's cockpit windows are set into the upper forward fuselage
-    // above the cargo deck, so the glass IS the skin there. On a 16-gon the upper half is k 0…7
-    // (starboard mid-height → crown at 4 → port). The WINDSCREEN wraps STRAIGHT ACROSS — k1…k6, the
-    // crown included — because that's what the real flight deck does: one continuous band of glass
-    // over the nose, split only by a painted centre post. Leaving k3/k4 as metal put a spine down the
-    // middle of the screen and the band read as two separate side windows with a wall between them.
-    // The bays BEHIND the screen still glaze only the high strip k2/k5 — the side window running aft
-    // under a roofline that, aft of the screen, genuinely is solid.
-    // The glass band is SHORT (0.78 → 0.56, under a fifth of the airframe): on the real thing it's a
-    // small bright patch high on a very long fuselage, and stretching it aft was what made the deck
-    // read as an airliner cabin.
-    // 1.11/1.02 are the RADOME rings: the blunt superellipse only shows up if the mesh actually
-    // samples it, and the default nose has no station between the windscreen and the tip — without
-    // these the whole nose is one straight wedge from full section to the cowl face. (1.11, not
-    // 1.13: an extraF within 0.03 of a default station EVICTS it, and 1.13 would have swallowed the
-    // nose tip at 1.15 and left the aeroplane snubbed.)
-    // 24 facets AROUND wants matching resolution ALONG, or the hull is smooth in section and creased
-    // in profile. The tailcone was the worst of it — three rings carrying the whole 1.1-long upswept
-    // boat-tail — so −0.18/−0.55/−0.95 go in to let the upsweep actually curve.
-    // wsF is tested against a bay's FORWARD station, so 0.74 makes the single bay 0.78→0.70 the
-    // windscreen and everything aft of it side glass.
-    // On a 24-gon the upper half is k 0…11 with the CROWN AT 6. The windscreen is k3…k8 — 45°→135°,
-    // symmetric about the crown, a tight strip across the top rather than a band down the cheeks —
-    // and the side glass aft is k3/k8 alone, the lowest facet of that strip carried backwards. The
-    // fore-aft run is short too (0.78→0.62, one bay of screen and one of side glass): the deck used
-    // to reach back to 0.56 and that length was half of why it read as too much glass.
-    // The flight-deck HUMP. Peaks at f=0.70, dead centre of the glass band (0.78→0.56), and blends
-    // out to nothing well clear of the wing root at 0.34 so it can't crease the wing fairing.
-  // NOTE: there is no `grasshopper` row either, and for the same reason as the Mayfly's — the Cub
-  // was promoted off this generator to `buildCub`. Her section lives in CUB_STATIONS, her hull
-  // profile is served by cubSection(), her stance by CUB_GROUND_PITCH, and her wing constants by
-  // CU_SPAN/cuPt — which are what the four consumers that used to read this row (wingtipStation,
-  // drawNoseArt, groundPitchFor, aircraftFaces) now call.
-  // Locust — a low-wing crop-duster / ag-plane (per ref: Air Tractor / Grumman Ag Cat): a big,
-  // BROAD constant-chord SQUARE wing (rectangular planform — no taper, no sweep, square-cut tips);
-  // a chunky slab-sided fuselage with a blunt radial cowl; a raised bubble cockpit set high for
-  // visibility over the nose; nose-high spatted TAILDRAGGER gear. Reads heavy and workmanlike.
-    // A turbine ag-plane's nose is a FAT round cowl carrying a big blunt spinner, not a snout that
-    // tapers to a spike — noseCowl floors the cowl face wide (0.34) and `spinner` 0.9 fills most of
-    // it, which is the single biggest reason the type reads as heavy machinery rather than a toy.
-    // THE HOPPER. Everything between the firewall and the windscreen on an Air Tractor is the
-    // chemical tank, and it is the type's actual silhouette: a fat swelling of the spine that
-    // steps DOWN to the cockpit, which is why the pilot sits so high and so far back. Peaks at
-    // f 0.70 and blends out at 0.46, clear of the canopy base so the two never crease into
-    // each other (the canopy rides the plain crown, not the hump).
-    // Rings through the cowl / hopper / windscreen step — without them the whole forward half is
-    // one straight wedge and the hump has nothing to curve over.
-    // The spray rig, hung off the trailing edge and reaching almost tip to tip.
-  // Shrike — the dive bomber (per ref: a Ju 87, futurised). Four things carry the silhouette,
-  // and they are the four you can name from a hundred yards:
-  //  • THE INVERTED GULL WING — a short steep anhedral centre section down to a knee at ~30%
-  //    span, then a long dihedral outer panel. That is `gull`, and it is the only wing in the
-  //    fleet that is not a flat quad. It exists structurally so the legs can be short while a
-  //    big slow prop still clears the ground, which is why the next item works.
-  //  • TROUSERS — permanently down, deeply spatted, on stout legs. Reusing the ag taildragger
-  //    gear (`gearAg`), whose own comment already describes "long faired legs and big spatted
-  //    wheels": the crop-duster's pants ARE this aeroplane's trousers, and building a second
-  //    set would have been a copy that drifted.
-  //  • THE GLASSHOUSE — one long canopy over two crew in tandem, running most of the way back
-  //    to the fin. Longer than anything else here (f 0.58 → −0.14) and that length is the read.
-  //  • A LONG TAPERED SNOUT with a deep ventral intake under it. On the original that scoop is
-  //    the radiator; futurised it feeds the ducted turbine, so the shape stays and the reason
-  //    changes — which is the whole brief for this airframe.
-  // Plus the braced tailplane (struts up to the fin from the stabiliser, per ref) and the
-  // dive brakes out at the knee. Square-cut tips, deliberately: nothing about her is elegant.
-    // The snout: a fat cowl face (a ducted turbine, not a spike) with a big blunt spinner in it,
-    // and the centreline eased down so the nose reads as a long tapering wedge rather than a tube.
-    // The load: one big one on the centreline crutch, and four small ones out under the gull's
-    // outer panels where the trousers are not in the way. The rack is authored here rather than in
-    // the flight model because it is a SHAPE — what she is armed with is `data.bombs` on the type.
+// ── The fixed-wing rows ──
+// Rows live in content/vehicle_models/fw_*.json via `npm run vehicles:bake`. A row is the resolved set,
+// not a patch over FW_DEFAULT. No `ultralight` or `grasshopper` row: they're hand-built (buildCessna, buildCub).
+// Per-class notes: see docs/systems-flight.md#fixed-wing-parameter-rows
 const FW_PARAMS = FW_ROWS;
 
-// The starboard (right) wingtip station [f, g, h] in normalised model space — the outboard
-// mid-chord point of the wing, so nav lights anchor exactly ON the wingtips instead of
-// floating beside them. Mirror g for the port tip. Uses the same param fallback as the mesh
-// (unknown → prop). Helis have no fixed wings → null.
+// Starboard wingtip station [f, g, h], mid-chord, for nav lights. Mirror g for port. No wings gives null.
 export function wingtipStation(cls) {
-  // A mesh file says where its lamps are (or that it has none) — see meshNavLamp.
   const ml = meshNavLamp(cls);
   if (ml !== undefined) return ml;
   if (cls === 'heli') return null;
-  // A TRUCK HAS NO WINGS, and without this line it got a Twin Otter's — the fall-through below is
-  // `FW_PARAMS[cls] || FW_PARAMS.prop`, so the nav lamps were hung at the tips of a wing that is not
-  // there. On screen that is two huge white halos floating a wingspan apart on either side of a
-  // small truck, which is precisely what it looked like. Road vehicles light themselves through
-  // `vehicleLamps` instead.
+  // ⚠ Trucks and boats have no wings; the fall-through would hang lamps on a Twin Otter's tips.
   if (cls === 'truck') return null;
-  // ⚠ AND NEITHER HAS A BOAT, for exactly the same reason and with exactly the same symptom — the
-  // fall-through is `FW_PARAMS[cls] || FW_PARAMS.prop`, so a hull would carry its navigation lights
-  // at the tips of a wingspan it does not have. A boat DOES carry sidelights, and they belong on
-  // its own gunwales through the lamp layer, not on a Twin Otter's wings.
   if (boatShape(cls)) return null;
-  // The Cessna's tip comes off her own wing constants, not a FW_PARAMS row she no longer has —
-  // mid-chord at the tip rib, so the lamp sits ON the tip the mesh actually built.
+  // The Cessna and Cub tips come off their own wing constants.
   if (cls === 'ultralight') return [(cePt(CE_SPAN, 0, 0.5)[0] + cePt(CE_SPAN, 1, 0.5)[0]) / 2, CE_SPAN, cePt(CE_SPAN, 0.5, 0.5)[2]];
-  // Same again for the Cub, off her own wing constants — she has no FW_PARAMS row either.
   if (cls === 'grasshopper') return [(cuPt(CU_SPAN, 0, 0.5)[0] + cuPt(CU_SPAN, 1, 0.5)[0]) / 2, CU_SPAN, cuPt(CU_SPAN, 0.5, 0.5)[2]];
   const p = fwParams(cls) || fwParams('prop');
-  // A cranked (gull) wing's tip is NOT wingH+dih — it is the knee height plus the outer
-  // panel's rise. Ask the wing where its own tip is rather than restating the flat-wing sum,
-  // or the nav lamps hang in the air beside a wing that folds away from them.
+  // A gull wing's tip isn't wingH+dih; ask the wing.
   const tip = wingPt(p, p.wingH || 0, 1, 1, 'le'), tipB = wingPt(p, p.wingH || 0, 1, 1, 'te');
   return [(tip[0] + tipB[0]) / 2, p.span, tip[2]];
 }
 
-// WHERE A ROAD VEHICLE'S LAMPS ARE, in the same [fore, lateral, height] mesh space every other
-// station in this file uses — so they land ON the model rather than near it.
-//
-// This is `wingtipStation`'s counterpart and exists for the same reason: the renderer must not keep
-// its own idea of where a lamp goes, because the two would drift and the glow would end up an inch
-// off the thing that is supposed to be glowing. Every station below is derived from the SAME
-// constants `buildTruck` lays the mesh out from (the 0.40 nose anchor, `S.w`, `S.hi`), so a wider
-// truck's headlamps move outboard on their own.
-//
-// Read the variant with the same grammar the mesh does — a trailer or a parked marker must not
-// change which shape's lamps you get.
-// ⚠ EVERY NUMBER HERE IS SHARED WITH THE MESH — see `truckLampGeom`, which `buildTruck` builds the
-// actual lenses from and this reads to say where they ended up. The first cut of this function
-// re-derived them by eye and got all three wrong in the same direction: the headlamps came out
-// 0.028 too far back and 14% too narrow, which at an oblique camera reads as glows floating off the
-// front of the truck rather than sitting in its lamps. A glow whose position is a SECOND OPINION
-// about where a lamp is will always eventually disagree with the lamp.
+// A road vehicle's lamp stations, in mesh space. ⚠ Every number comes from truckLampGeom, which buildTruck
+// builds the lenses from: a second opinion about where a lamp is will drift off it.
 export function vehicleLamps(cls, variant = '') {
   if (cls !== 'truck') return null;
-  // Same strip as the mesh (see the ⚠ in buildTruck) — a fitted rig must not read as another type.
+  // Same variant strip as the mesh, so a fitted rig doesn't read as another type.
   const typeId = String(variant).replace(/[~^].*$/, '').split('+')[0];
   const FITS = new Set(String(variant).match(/\^([a-z.]+)/)?.[1].split('.') || []);
   const S = truckShape(typeId) || truckShape('hauler');
   const L = truckLampGeom(S);
-  // INTO THE MESH'S OWN FRAME. Build (or hit the cache for) the variant so its centring is known,
-  // then move every station by the same shift and settle the whole set is drawn in — see the ⚠ at
-  // the end of buildTruck. Without this each lamp is placed in the coordinates the geometry was
-  // AUTHORED in rather than the ones it is DRAWN in, and the difference is a sixth of a truck.
+  // Into the mesh's drawn frame: build (or hit the cache for) the variant so its shift and settle are known.
   aircraftFaces('truck', 1, false, variant || 'hauler');
   const meta = TRUCK_META.get(String(variant || 'hauler') + ':1') || { shift: 0, drop: 0, pods: [] };
   const at = (f, g, h) => [f - meta.shift, g, h - meta.drop];
   return {
-    // Headlamps: the stacked pair in the chromed pod, so the glow sits between the two lenses.
     head: [at(L.lampF + 0.004, -L.lampG, L.lampMidZ), at(L.lampF + 0.004, L.lampG, L.lampMidZ)],
-    // ── TAIL LAMPS, AND THEY MOVE TO THE BOX WHEN THERE IS ONE ─────────────────
-    // On a bobtail they are the back of the frame, which is where a real one's are. With a trailer
-    // on the hitch they were STILL on the frame — inside the box, correctly dropped by the depth
-    // test, and the comment here said so approvingly: "you cannot see your own tractor's tail lamps
-    // through a forty-foot trailer either." Perfectly true, and it meant a LOADED rig had no
-    // visible tail lamps at all, so the one configuration a trucker actually drives was the one
-    // that could not signal. Brake lights on a tractor nobody can see are not brake lights.
-    //
-    // So the stations follow the load: the rear face of the box, at the same station `buildTruck`
-    // ends the trailer at (`t1 - S.deck`, where `t1 = frame0 + 0.06`) — read from the shape rather
-    // than re-derived, for the reason at the top of this function. Wider apart and a little higher,
-    // because a trailer is wider and taller than the frame rails.
-    // ⚠ AND WHEN THEY MOVE TO THE BOX THEY BECOME THE BOX'S. `tailDeck` below is what tells the
-    // renderer to swing them about the kingpin with everything else bolted to the trailer.
+    // Tail lamps move to the box's rear face when a trailer is on (`+t`), or a loaded rig shows none.
+    // `tailDeck` tells the renderer to swing them about the kingpin with the trailer.
     tail: /\+t/.test(String(variant))
       ? [at(L.frame0 + 0.06 - S.deck - 0.004, -S.w * 0.86, 0.105),
          at(L.frame0 + 0.06 - S.deck - 0.004, S.w * 0.86, 0.105)]
       : [at(L.frame0 + 0.004, -S.w * 0.66, 0.085), at(L.frame0 + 0.004, S.w * 0.66, 0.085)],
     tailDeck: /\+t/.test(String(variant)),
-    // The five roof markers, on the same station and spacing the visor row is built at, and only on
-    // the trucks that carry one — so a lamp never glows where no lamp was built.
+    // Roof markers, only on trucks that build them.
     marker: S.lamps > 0.2
       ? [-2, -1, 0, 1, 2].map((i) => at(L.markF, i * S.w * 0.34, L.markZ))
       : [],
-    // THE LIFTERS' OWN LIGHT, one station per pod, on the ground directly under it and carrying the
-    // pod's half-length so the renderer can size the pool to the machine rather than to a constant.
-    // This replaces the flat teal ground boxes the mesh used to draw under each pod (⚠ in `pod()`):
-    // same intent, drawn as light, so it spills instead of ending at a corner.
-    // ⚠ AND `hw` IS THE LIFTER'S LATERAL HALF-WIDTH, which the light pool does not use and the SNOW
-    // does: a wheel track is the gauge these stations sit at and the width of one of them, so the
-    // second number is published here too rather than the renderer keeping its own idea of it.
+    // Lifter light: one station per pod on the ground, with its half-length (pool size) and half-width `hw` (the snow's track width).
     podGlow: (meta.pods || []).map(([f, g, halfLen, deck, halfW]) => ({ p: at(f, g, 0.002), r: halfLen, hw: halfW || 0.024, deck: !!deck })),
-    // UNDERGLOW, as light rather than as a part: stations down the CENTRELINE between the axles,
-    // sitting ON the ground plane rather than on the frame — what you are meant to see is the road
-    // lit up under the truck, not a strip on the chassis. The renderer pools these together with
-    // `podGlow` above, and only while the engine is running: this is the one lamp on the vehicle
-    // that is about the machine being ALIVE rather than about being seen.
+    // Underglow as light on the ground under the centreline, only while the engine runs.
     under: [0.18, 0.02, -0.14, -0.30].map((f) => at(L.nose0 + f, 0, 0.004)),
-    // ── AND THE LIGHT SOMEBODY PAID FOR ────────────────────────────────────────
-    // The underglow FITTING, which is a different thing from the machine light above it: that one
-    // is the lifters being alive and is the vehicle's own blue-white, this one is a set of tubes a
-    // driver bought and it wears their running-light colour (the renderer takes it off the livery's
-    // `glow`, which is the same value `pk === 'glow'` paints the fixture itself with — so the tube
-    // and the pool it casts can never be two different colours).
-    //
-    // ⚠ IT IS STATIONS, NOT FACES, and that is the rule written on `pod()`: a lit patch of road
-    // drawn as geometry is a BOX, it takes the shading pass, it has edges, and four of them read as
-    // teal paving slabs bolted to the tarmac. Light spills; a box stops at its corner.
+    // The bought underglow fitting, in the livery's `glow` colour (the same value paints the tube).
+    // ⚠ Stations, never faces: a lit patch drawn as geometry reads as a box on the road.
     neon: FITS.has('ug')
       ? [0.20, 0.06, -0.10, -0.26, -0.42].flatMap((f) => [at(L.nose0 + f, -S.w * 0.86, 0.004), at(L.nose0 + f, S.w * 0.86, 0.004)])
       : [],
-    // The beacon is one lamp, high up, and it is the only fitted light that is meant to be seen
-    // FROM somewhere rather than to light something — so it gets a station and no cone.
+    // The beacon: a station and no cone.
     beacon: FITS.has('bc') ? at(L.cab0 - 0.006, 0, S.hi + S.sleeper + 0.034) : null,
   };
 }
 
-// ── HOW FAR BEHIND THE CAB THE FIFTH WHEEL SITS, AND WHY IT IS DERIVED ───────
-// It was a flat 0.10, which put the kingpin 0.04 behind the cab — and a box whose nose is ON the
-// pin sweeps its front corners FORWARD by (half-width × sin φ) as it swings. Half a width is about
-// 0.18 on a Continental, so the corner ate into the sleeper at about TWELVE DEGREES of articulation:
-// ordinary steering, and the trailer was through the back of the cab.
-//
-// So the gap is the swing, not a number: enough clearance for the box to turn against the cab
-// without reaching it, which is why the frame is longer on the rigs with wider boxes and not on the
-// narrow ones.
-//
-// ⚠ AND IT CLEARS AT EVERY ANGLE, NOT AT A DESIGN ANGLE. `reach = noseHalf · sin φ` peaks at φ = 90°,
-// so a gap of one nose half-width clears the whole range the sim can reach and the tightest corner
-// in the game cannot make two solids share a space. A real cab that gets touched DEFORMS; ours
-// interpenetrates, and a box visibly inside a sleeper reads as a broken model rather than as a bad
-// manoeuvre — the physics already punishes a fold (PHI_MAX, the jackknife event, the constraint
-// that drives it) and the picture does not need to punish it as well.
-//
-// ⚠ WHICH IS BOUGHT WITH A TAPERED NOSE, NOT WITH LENGTH. Clearing 90° on the full body width needs
-// the frame about half again as long, and length is not free: past ~45° of equivalent gap the depot
-// floor's painter's-sort fallback starts losing a headlamp (shapes:smoke catches it, which is what
-// that gate is for). A trailer's front corners are radiused in the real world for exactly this
-// reason, so the nose is tapered to NOSE_TAPER of the body — the corner that swings is the NOSE
-// corner, so tapering it shortens the radius directly, and the same clearance costs a third less
-// frame. Both numbers come from here, so the mesh and the gap cannot drift.
+// ── Fifth-wheel gap ──
+// Derived from the box's swing so its nose corner clears the cab at every angle (reach = noseHalf * sin phi
+// peaks at 90 degrees). ⚠ Bought with a tapered nose (NOSE_TAPER), not length: a longer frame makes the
+// depot's painter's sort lose a headlamp (shapes:smoke catches it).
 const NOSE_TAPER = 0.70;                  // the box's front face, as a fraction of its body width
 
 const PLATE_BACK = 0.06;                  // the plate's centre, aft of the frame's front end
-// …with a margin, and the margin is what makes the smoke a TEST rather than a tautology: derive the
-// gap and assert the gap and you have asserted arithmetic. At 1.15 the check has something to
-// measure, and it fails when somebody moves the plate, the cab or the box width without coming
-// back here.
+// The margin is what gives the smoke check something to measure.
 const SWING_MARGIN = 1.15;
 const boxNoseHalf = (S) => S.w * 1.02 * NOSE_TAPER;
 const frameBack = (S) => PLATE_BACK + boxNoseHalf(S) * SWING_MARGIN;
 
-// The lamp stations, derived once from a truck's shape. `buildTruck` lays its lenses out from this
-// and `vehicleLamps` lights them from it, so the two cannot drift apart.
+// Lamp stations from a truck's shape; buildTruck and vehicleLamps both read this.
 function truckLampGeom(S) {
   const nose1 = 0.40, nose0 = nose1 - S.nose, cab1 = nose0, cab0 = cab1 - S.cab;
   const BUMP_TOP = 0.058, BUMP_F = nose1 + 0.012;
@@ -2930,139 +2012,50 @@ function truckLampGeom(S) {
   return {
     nose1, nose0, cab1, cab0, frame0: cab0 - frameBack(S),
     BUMP_TOP, BUMP_F, lampF, lampZ, lampG: S.w * 0.86,
-    // Between the upper lens (lampZ+0.020..+0.038) and the lower (lampZ..+0.017): one glow for a
-    // stacked pair reads as one lamp unit, which is what a quad-lamp pod looks like lit.
+    // One glow between the two stacked lenses.
     lampMidZ: lampZ + 0.019,
     markF: scrF1 + 0.026, markZ: scrHi + 0.005,
   };
 }
 
-// A class's static ground attitude (deg nose-up) — taildraggers rest nose-high on the tailwheel.
-// Read by every renderer that draws the craft PARKED (turntable, wireframe) so the sit is
-// consistent with how she flies off the deck. 0 = tricycle/level. `armed` picks the Viper out of
-// the heli class: she's a taildragger too (mains forward, tailwheel on the boom), the Dragonfly
-// sits flat on its skids. Keep this in step with the `groundPitch` in flight-model.js — the sim
-// flies the same stance, and these are the parked renderers' version of it.
+// Static ground attitude (deg nose-up) for renderers that draw the craft parked. Keep in step with
+// `groundPitch` in flight-model.js. `armed` picks out the Viper (a taildragger) from the heli class.
 export function groundPitchFor(cls, armed = false) {
-  // A mesh file carries its own stance, and the Viper's is on her file rather than on a class name.
   const mid = meshIdFor(cls, armed);
   if (mid && meshRow(mid).groundPitch != null) return meshRow(mid).groundPitch;
   if (cls === 'heli') return armed ? VIPER_GROUND_PITCH : 0;
-  // The Cub's stance came off her FW_PARAMS row until she was promoted to her own builder; hers is
-  // now a named export beside the mesh, the way the Viper's is. Miss this and a taildragger renders
-  // sitting flat on a tailwheel that is no longer touching the ground.
   if (cls === 'grasshopper') return CUB_GROUND_PITCH;
   return fwParams(cls)?.groundPitch || 0;
 }
 
-// ── THE TRUCK'S DRAW ORDER, AND WHY IT IS NOT A DEPTH SORT ───────────────────
-// The flashing on an orbiting rig is a painter's-algorithm failure, and three separate things had
-// to be fixed before it went away. All of them come from the same fact: a truck is a pile of small
-// convex boxes BOLTED ONTO bigger ones — grille bars, stack shields, mirror arms, steps, the chrome
-// band round a lifter — and painter's algorithm has no answer for nested geometry.
-//
-//  1. IT SORTS PARTS, NOT FACES. A detail's face and the panel it is screwed to are millimetres
-//     apart, so any per-face key makes them cross and re-cross as the camera moves, and every
-//     crossing swaps which is painted last. Faces carry a `part` id stamped where the geometry is
-//     emitted (`box`, below), so the six quads of one box move through the order together and can
-//     never be split by a detail sitting on them.
-//
-//  2. THE KEY IS THE NEAREST VERTEX, NOT THE MEAN. This is what actually orders a bolt-on: a box
-//     sitting ON a surface protrudes from it, so its nearest point is nearer than the host's while
-//     its MEAN is almost identical to it. Mean depth is why the old sort could not tell a grille bar
-//     from the grille — the two numbers were the same number.
-//
-//  3. QUANTISING MADE IT WORSE, AND THAT IS WHY IT LOOKED LIKE IT ALMOST WORKED. An earlier fix
-//     rounded depths into buckets so ties fell back to mesh order. But rounding does not remove an
-//     ordering instability, it MOVES it to the bucket edges — and it converts a smooth crossing into
-//     a discrete jump, which is a visible pop rather than a gradual swap. Hysteresis is the honest
-//     version of what that was reaching for: keep the key continuous, and refuse to reorder a pair
-//     that is within a hair of equal unless it was already in that order last frame.
-//
-// Within a part, faces sort by mean depth and that is exact — a convex box's own faces cannot
-// interpenetrate, so there is nothing to be unstable about.
-//
-// ⚠ IT LIVES HERE, NOT IN THE WINDSCREEN, AND THAT IS THE WHOLE LESSON OF THE SECOND ROUND OF THIS
-// BUG. All of the above was written for and applied by ONE renderer, and the truck mesh has four:
-// the windscreen's contacts and own ship, the depot's lot, and the depot's walkaround. The other
-// three went on sorting per face, so the same rig that was solid out the windscreen was still
-// see-through on the forecourt you buy it from — reported, reasonably, as a new bug. A sort that
-// only one caller of a shared mesh performs is a sort that will be forgotten by the next caller, so
-// it now sits beside the geometry whose `part` ids it reads, and every renderer of that geometry
-// reaches for the same function.
+// ── Truck draw order ──
+// Sorted by part, keyed on the nearest vertex on the ground plane, with hysteresis. Lives here so all four
+// truck renderers share it; see docs/reference/glass-notes.md#truck-part-sort
 const _truckOrder = new Map();     // model id -> last frame's part order, for the hysteresis pass
 export const _resetTruckOrder = () => _truckOrder.clear();   // smoke only: start a sweep cold
-// `faces` are DRAW RECORDS, not mesh faces, and the three fields this reads are the caller's to
-// supply: `nf` (nearest vertex depth), `af` (mean depth), `i` (mesh order). The far extent comes
-// from `xf` when the caller has it to hand, else from the projected points, else from `af` — see
-// the ⚠ on `far` below. Depth may be any monotonic camera distance: the windscreen's `f` and the
-// depot's `z` both qualify, which is why the two can share this.
+// `faces` are draw records: `nf` (nearest depth), `af` (mean), `i` (mesh order), optional `hf` and `xf`.
+// Depth can be any monotonic camera distance.
 export function sortTruckFaces(faces, c, SIZE) {
-  // Group into parts. A face with no part id (an older mesh, or a class that never got them) is its
-  // own part, which degrades exactly to the per-face sort rather than to something wrong.
+  // A face with no part id is its own part, which degrades to the per-face sort.
   const parts = new Map();
   for (const f of faces) {
     const k = f.part == null ? `f${f.i}` : f.part;
     let g = parts.get(k);
     if (!g) parts.set(k, g = { k, near: Infinity, far: -Infinity, i: f.i, fs: [] });
     g.fs.push(f);
-    // ── ⚠ THE KEY IS THE NEAREST VERTEX ON THE GROUND PLANE, NOT IN THE CAMERA ──
-    // `hf` is the same nearest-vertex depth with the camera's ELEVATION taken out of it, and every
-    // renderer of this mesh supplies it. It exists because a chase camera looks DOWN, so a camera
-    // depth carries a height term — and that term lets a TALL part beat a LOW one that is a third
-    // of a truck further forward. The cab's top front corner is nearer to a raised eye than a
-    // headlamp is, so the cab sorted last and painted over both headlamps, from a shed you park in
-    // every session. It had been doing it for months behind a second bug: the broken box centres
-    // were culling that face on one side, which is why the report was always ONE lamp.
-    //
-    // Height is exactly the wrong thing to break the tie with here, because a truck is a chain of
-    // boxes along the ground and nothing on it is in front of anything else BY BEING TALLER. Drop
-    // the height term and a lamp beats a cab from every angle, a bumper beats a chassis rail, and
-    // the stack behind the cab stops reaching over the roof. Where two parts are genuinely stacked
-    // (a roof fairing over a sleeper) the ground-plane key ties, and the tie falls back to mesh
-    // order — which `buildTruck` emits inside-out, so the thing bolted on top is drawn on top. That
-    // is the same fallback the quantised sort was reaching for before any of this.
-    //
-    // ⚠ A caller that does not supply `hf` gets `nf`, which is exactly the old behaviour. That is
-    // the migration invariant, and it is what lets the harnesses that project depth alone go on
-    // measuring the sort they were written against.
+    // ⚠ Key on `hf` (ground-plane depth) so a tall part can't beat a low one further forward. Without `hf`, `nf`.
     const key = f.hf != null ? f.hf : f.nf;
     if (key < g.near) g.near = key;
-    // The part's FAR extent as well as its near one — not to sort by (the nearest vertex is still
-    // the key; see 2 above), but to answer a different question the hysteresis has to ask: do these
-    // two parts occupy the same depths at all? See DISJOINT below.
-    // ⚠ Falls back to the face's MEAN depth when a caller hands over faces with no projected
-    // points. A `far` left at −Infinity would make every pair read as disjoint and switch the
-    // hysteresis off entirely — the failure would be flicker coming back, in whatever harness was
-    // cutting the corner, and nowhere else.
+    // Far extent, for the disjoint test. ⚠ Falls back to mean depth, or every pair reads disjoint and hysteresis turns off.
     if (f.xf != null) { if (f.xf > g.far) g.far = f.xf; }
     else if (f.pts && f.pts.length) { for (const q of f.pts) if (q.f > g.far) g.far = q.f; }
     else if (f.af > g.far) g.far = f.af;
     if (f.i < g.i) g.i = f.i;                       // mesh order: emitted inside-out, chassis first
   }
   const order = [...parts.values()].sort((a, b) => (b.near - a.near) || (a.i - b.i));
-  // ── HYSTERESIS ────────────────────────────────────────────────────────────
-  // Flicker is by definition a pair alternating near equality, so the cure is to make swapping
-  // near-equal pairs cost something. Two adjacent-swap passes against last frame's order: within
-  // EPS, last frame wins. Beyond EPS the geometry has genuinely moved and the depth sort is obeyed,
-  // so nothing gets stuck in the wrong order when you orbit right round.
-  //
-  // ⚠ DONE AS ADJACENT SWAPS, NOT AS A CLEVER COMPARATOR. A comparator that consults the previous
-  // order for near-equal pairs is not transitive, and an intransitive comparator handed to Array#sort
-  // is undefined behaviour — it can emit garbage rather than merely an odd order. This cannot.
-  //
-  // ⚠ AND IT MUST NOT HOLD A PAIR THAT IS NOT AMBIGUOUS — the DISJOINT test below, which is what
-  // made parts show through each other. Hysteresis compared two NEAREST vertices, and two parts can
-  // have nearest vertices a hair apart while occupying completely different depths: a chassis rail
-  // runs the length of the truck, so its near end sits beside the near face of everything bolted
-  // along it. Inside EPS the stale order won, and a rail whose whole body is BEHIND a battery box
-  // got painted after it. That is not flicker being suppressed, it is a wrong answer being held —
-  // and held steadily, which is why it read as the truck being see-through rather than as chatter.
-  //
-  // So: if the two parts' depth ranges do not overlap at all, one of them is simply in front of the
-  // other, there is nothing to stabilise, and depth wins outright. Hysteresis now only applies where
-  // it was always meant to — parts that genuinely interpenetrate in depth and whose order is a coin
-  // flip the camera keeps re-tossing.
+  // ── Hysteresis ──
+  // Within EPS, last frame's order wins. Adjacent swaps, because a comparator that reads the old order
+  // isn't transitive. ⚠ Never hold a pair whose depth ranges don't overlap.
   const key = c.id || 'own';
   const rank = _truckOrder.get(key);
   if (rank) {
@@ -3078,11 +2071,9 @@ export function sortTruckFaces(faces, c, SIZE) {
       }
     }
   }
-  // Remember it. Capped rather than swept — this is one small Map keyed on models that come and
-  // go, and a stale entry costs a lookup miss and nothing else.
+  // Capped, not swept.
   if (_truckOrder.size > 48) _truckOrder.clear();
   _truckOrder.set(key, new Map(order.map((g, idx) => [g.k, idx])));
-  // Flatten back, near faces of each part last (exact within a convex box).
   faces.length = 0;
   for (const g of order) {
     g.fs.sort((a, b) => b.af - a.af);
@@ -3090,34 +2081,14 @@ export function sortTruckFaces(faces, c, SIZE) {
   }
 }
 
-// Faces for a class at a detail level (memoised per cls+detail — geometry is static).
-// detail 1 = the full-resolution mesh (hero/turntable/chase/near contacts); detail 0 = the
-// coarse LOD for distant contacts, where the extra facets would be sub-pixel anyway. The
-// heli mesh doesn't subdivide (its cabin is already fat/rounded), so it ignores detail.
+// Faces for a class (memoised; geometry is static). detail 1 is the full mesh, 0 the coarse LOD.
 const _cache = {};
-// `variant` is a fourth, OPTIONAL channel — a ground vehicle needs to say which of four trucks it
-// is and whether a trailer is on the back, and neither fact fits `cls` (which the whole renderer
-// switches on) or `armed` (which means something else). Every existing caller passes nothing and
-// gets exactly what it got before; only the truck path reads it.
-// The truck grammar is `<typeId>[+t][~p]`: which of the four, whether a trailer is on the back,
-// and whether it is PARKED (shut down, settled on its lifters). Parked rides in the variant string
-// rather than as a fifth parameter because the string is already the channel every consumer
-// threads — the depot floor, the wireframe, a contact in somebody's windscreen — and a fifth
-// argument would have had to be added to each of them to say a thing only the truck cares about.
+// `variant` is an optional fourth channel: for trucks `<typeId>[+t][~p]` (type, trailer, parked).
 export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   const key = cls + ':' + detail + (armed ? ':a' : '') + (variant ? ':' + variant : '');
   if (_cache[key]) return _cache[key];
-  // ⚠ THE LAST ARM IS A FALLBACK, NOT A DEFAULT, AND IT IS SILENT. Anything this chain does not
-  // recognise is built as a fixed wing off the `prop` row — so a class added anywhere else in the
-  // renderer without an arm HERE renders as a Twin Otter, throws nothing and logs nothing. That is
-  // how the Mayfly shipped as a light twin. A new class gets its arm first and its callers second.
-  //
-  // The boat arm asks the TABLE rather than naming a hull, so a second hull is one JSON file and no
-  // edit here. The id spaces cannot collide — the schema's VEHICLE_IDS is what allots them.
-  // An authored mesh answers first, so a class drawn from a mesh file can never fall through to the
-  // Twin Otter. The heli arm below is what `setLegacyMeshes(true)` reaches, for the A/B.
-  // A variant the class's mesh names in `variants` is a different model (the racer's types); any
-  // other is a paint job from the mesh's own `schemes` (the Drake's four).
+  // ⚠ The last arm is a silent fallback: an unknown class builds as a Twin Otter. Add a new class's arm here first.
+  // An authored mesh answers first. A variant named in the mesh's `variants` is a different model; any other is a paint scheme.
   const vmid = variantMeshFor(cls, variant);
   const mid = vmid || meshIdFor(cls, armed);
   const faces = mid ? compileMesh(meshRow(mid), { detail, scheme: vmid ? null : (variant || null) }).faces
@@ -3128,25 +2099,13 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
     : boatShape(cls) ? buildBoat(cls, detail)
     : buildFixedWing(fwParams(cls) || fwParams('prop'), detail);
   _cache[key] = faces;
-  // ── ⚠ THE TRUCK KEYS ARE BOUNDED AND NOTHING ELSE IS ───────────────────────
-  // Every other class here has a handful of keys and they are all resident within a minute of
-  // boot. A truck's key is a whole sentence — four types x trailer x parked x TWENTY COSMETIC
-  // FITTINGS in seven slots — and a busy yard is dozens of distinct rigs, so an unbounded map here
-  // is a slow leak keyed on other people's taste. Nothing evicts by age or use because nothing
-  // needs to be clever: past the cap the oldest key goes, and the cost of being wrong is one mesh
-  // rebuilt (about a millisecond) the next time that exact truck is in frame.
-  //
-  // The cap is deliberately well above what any real scene holds — this is a runaway guard, not a
-  // working set. If it were tight it would thrash a depot floor, which is the one place a dozen
-  // trucks are all on screen at once.
+  // ⚠ Truck keys are bounded: a key includes fittings, so a busy yard would leak. Past the cap the oldest goes.
+  // The cap is a runaway guard, well above any scene.
   if (cls === 'truck') {
     _truckKeys.push(key);
     while (_truckKeys.length > TRUCK_CACHE_MAX) {
       const old = _truckKeys.shift();
-      // ⚠ THE META GOES WITH THE FACES. `TRUCK_META` is keyed on `<variant>:<detail>` and the cache
-      // on `truck:<detail>:<variant>`, so the eviction has to re-derive one from the other rather
-      // than assume this call's detail — dropping the faces and leaving the meta is the same leak
-      // one field smaller, and dropping the WRONG meta silently un-places another truck's lamps.
+      // ⚠ The meta goes with the faces. Its key is `<variant>:<detail>`, so derive it from the evicted key.
       if (old !== key) {
         delete _cache[old];
         const [, det, ...rest] = old.split(':');
@@ -3156,16 +2115,10 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   }
   return faces;
 }
-// ── AUTHORED MESHES ───────────────────────────────────────────────────────────
-// A class drawn from a mesh file (content/vehicle_models/mesh_*.json, baked to vehicle-meshes.js).
-// `armedMesh` on the unarmed file names what the class draws with hardpoints, so the Dragonfly's
-// file is what says the Viper is a different airframe; a mesh with no `armedMesh` draws armed or
-// not. A named armed mesh that is not authored yet answers null, which leaves the class on its
-// builder rather than drawing the wrong aircraft.
-//
-// ⚠ THE OVERRIDE IS THE MODELSHOP'S, AND IT REPLACES THE WHOLE FILE. `setVehicleParams` MERGES a
-// patch onto a row, which for a parts list would bring back a part the editor had just deleted.
-// A design-time seam like that one: it lives in one tab and holds nothing durable.
+// ── Authored meshes ──
+// Mesh files (content/vehicle_models/mesh_*.json, baked to vehicle-meshes.js). `armedMesh` names the
+// armed airframe; if it isn't authored yet the class stays on its builder.
+// ⚠ The Modelshop override replaces the whole file (a merge would bring back deleted parts). Design-time only.
 const _meshOverride = new Map();
 let _legacyMeshes = false;
 function meshRow(id) { return _meshOverride.get(id) || MESH_ROWS[id] || null; }
@@ -3176,8 +2129,7 @@ export function meshIdFor(cls, armed = false) {
   if (armed && base.armedMesh) return meshRow(base.armedMesh) ? base.armedMesh : null;
   return cls;
 }
-// The mesh a class draws for `variant` when its file lists one under `variants` (a model, not a
-// paint job): the podracer's types are one class with three bodies. Null when it does not.
+// A variant listed in the file's `variants` is a different model (the podracer's types).
 export function variantMeshFor(cls, variant) {
   if (_legacyMeshes || !variant) return null;
   const id = meshRow(cls)?.variants?.[variant];
@@ -3189,8 +2141,7 @@ export function setMeshOverride(id, params) {
   if (params == null) _meshOverride.delete(id); else _meshOverride.set(id, params);
   clearVehicleFacesCache();
 }
-// Draw every meshed class from its old builder instead: the A/B for a conversion, and the way back
-// if a file ever turns out wrong in a way the gate cannot see. The rotor FX follow it.
+// Draw meshed classes from their old builders: the A/B, and the way back. Rotor FX follow it.
 export function setLegacyMeshes(on) { _legacyMeshes = !!on; clearVehicleFacesCache(); }
 export function legacyMeshesOn() { return _legacyMeshes; }
 function findPart(parts, pred) {
@@ -3201,10 +2152,7 @@ function findPart(parts, pred) {
   }
   return null;
 }
-// ── The hull the nose art wraps onto ──
-// A mesh file names the loft that is its fuselage (`hull`), and the decal wrap reads that loft's
-// stations with the same interpolation the Cessna and Cub tables had — so a hull edited in the
-// Modelshop takes its nose art with it. A file with no `hull` keeps the old behaviour.
+// ── The hull the nose art wraps onto ── A mesh file names its fuselage loft (`hull`).
 const _hullMemo = new WeakMap();
 function sectionFnOf(loft) {
   const S = loft.stations.map((s) => [s.f, s.rg, s.rvT ?? s.rv, s.rvB ?? s.rv, s.cz,
@@ -3233,9 +2181,7 @@ export function meshHull(cls) {
   _hullMemo.set(row, h);
   return h;
 }
-// The starboard nav lamp a mesh file declares: `navLamps: null` for none, `{ wing: '<part name>' }`
-// for mid-chord at that wing's tip rib, or a literal [f, g, h]. `undefined` means the file says
-// nothing, and wingtipStation falls back to what it did before there were files.
+// Starboard nav lamp from the file: null for none, `{ wing }` for that wing's tip, or [f, g, h]. undefined means unset.
 function meshNavLamp(cls) {
   const id = meshIdFor(cls, false);
   const row = id && meshRow(id);
@@ -3246,15 +2192,9 @@ function meshNavLamp(cls) {
   const w = nl.wing && findPart(row.parts, (p) => p.kind === 'wing' && p.name === nl.wing);
   return w ? wingTipStation(w) : undefined;
 }
-// The lamps a mesh file mounts on its own skin: `lamps: [{ at: [f,g,h], n: [nf,ng,nh], rgb, kind }]`,
-// kind 'steady' | 'strobe' | 'beacon'. For a hull with no wingtips (the Drake), where the generic
-// strobe/beacon stations land inside the body and shine through it. `n` is the outward normal, so
-// the renderer can hide a lamp on the far side. Null when the file declares none.
+// Lamps a mesh file mounts on its skin: `{ at, n, rgb, kind }`, kind 'steady' | 'strobe' | 'beacon'. `n` lets the renderer hide far-side lamps.
 export function meshLamps(cls) {
-  // A hull publishes its lamps as it is built (`buildBoat`, META.lamps): sidelights, the masthead and
-  // the stern light, each over the lens the mesh drew. The mesh is already built by the time the
-  // lamp pass asks — the model loop runs first — so this reads either detail tier's record and only
-  // builds as a fallback.
+  // A boat publishes its lamps as it's built (BOAT_META); build only as a fallback.
   if (boatShape(cls)) {
     const m = BOAT_META.get(cls + ':1') || BOAT_META.get(cls + ':0');
     if (m) return m.lamps && m.lamps.length ? m.lamps : null;
@@ -3266,14 +2206,11 @@ export function meshLamps(cls) {
   const row = id && meshRow(id);
   return (row && Array.isArray(row.lamps) && row.lamps.length) ? row.lamps : null;
 }
-// A moving part at its default pose, for the renderers here that take no channel values (the
-// turntable, the hangar floor): a parked Drake stands with its wings folded, not spread.
+// A moving part at its default pose for renderers with no channel values.
 const poseAtRest = (f) => (f.anim ? { ...f, p: animFacePoints(f, null) } : f);
-// The hangar's wreck: the mesh file, or its old builder under the legacy switch.
 function wreckFaces() { return !_legacyMeshes && meshRow('wreck') ? meshFacesById('wreck', 1) : buildWreck(); }
 
-// A mesh by id at a detail, whatever class binds it — for the Modelshop and the gates, which name a
-// file rather than a class. Memoised on the row's identity, which an override always replaces.
+// A mesh by id, for the Modelshop and the gates. Memoised on the row.
 const _byId = new WeakMap();
 export function meshFacesById(id, detail = 1) {
   const row = meshRow(id);
@@ -3283,11 +2220,8 @@ export function meshFacesById(id, detail = 1) {
   return m[detail] || (m[detail] = compileMesh(row, { detail }).faces);
 }
 
-// ── THE FIVE BUILDERS THE MESH FILES REPLACED ─────────────────────────────────
-// The Dragonfly, the Viper, the Mayfly, the Grasshopper and the wreck were drawn in code; they are
-// authored as mesh files now (content/vehicle_models/mesh_*.json). The builders stay reachable
-// through here until the files have shipped, for two readers only: the mesh gate, which holds each
-// file to what its builder drew, and the Modelshop's A/B. Nothing that renders calls this.
+// ── The five builders the mesh files replaced ──
+// Reachable for the mesh gate and the Modelshop A/B only. Nothing that renders calls this.
 export function legacyMeshFaces(id, detail = 1) {
   switch (id) {
     case 'heli': return buildHeli();
@@ -3299,8 +2233,7 @@ export function legacyMeshFaces(id, detail = 1) {
   }
 }
 
-// Drop every memoised mesh. Called only by the parameter overrides above — a scene never needs
-// this, because geometry is static for as long as the table is.
+// Drop every memoised mesh (parameter overrides only).
 export function clearVehicleFacesCache() {
   for (const k of Object.keys(_cache)) delete _cache[k];
   _truckKeys.length = 0;
@@ -3309,21 +2242,9 @@ export function clearVehicleFacesCache() {
 const TRUCK_CACHE_MAX = 96;
 const _truckKeys = [];
 
-// ── A truck, seen from somewhere else (THE LONG HAUL) ────────────────────────
-// The first GROUND vehicle in this file, and the reason it has to exist: `drawAircraftModel` is
-// per-class and every class here has wings, so a truck relayed as a contact would have rendered as
-// an aeroplane sliding along the road. This is deliberately a simple box set — a cab, a sleeper
-// hump, a long flat deck, a row of hover lifters — because it is only ever seen from an aircraft or
-// across a yard, where a silhouette is the whole of the information.
-//
-// Local axes match the rest of the file: [fore, right, up], roughly ±0.5 fore and ±0.2 lateral, so
-// it sits in the same normalised box the airframes do and CONTACT_SIZE scales it like anything else.
-// FOUR TRUCKS, NOT ONE PAINTED FOUR WAYS. The first cut built a single box set and handed it to
-// every type, so the 1,300₵ Krell Barrow and the 16,500₵ Orlov Continental had the same silhouette
-// — which quietly undid the fleet ladder, since the whole reason to want the next truck up is that
-// it is visibly a bigger animal. Each row is a PROPORTION set, not a model: the same builder runs
-// four times with different numbers, so a fifth truck is a row and never a function.
-//
+// ── Trucks (THE LONG HAUL) ──
+// Ground vehicles in the same normalised [fore, right, up] box, so CONTACT_SIZE scales them.
+// Each row is a proportion set: the same builder runs per type, so a new truck is a row, never a function.
 //  cab      — how far forward the cab box runs (a cab-over has almost no nose; a conventional does)
 //  nose     — bonnet length; 0 makes it a cab-over, which is what the little ones are
 //  hi       — cab roof height, the single strongest read of size at distance
@@ -3336,102 +2257,28 @@ const _truckKeys = [];
 //  lamps    — 0..1 how much LIGHT the thing wears: marker rows, a bar on the bumper, beltline strip
 //  rig      — what a BOBTAIL carries on its bare deck ('cage' scrap hauler, 'rack' strapped load,
 //             null for the long-haul tractors, which run clean because they are built to pull)
-// ── ⚠ `hi` IS THE THING THAT WAS WRONG, AND IT WAS WRONG BY A FACTOR ─────────
-// A truck reads as a truck because it is TALL. A tractor unit is about 2.5 m across the mirrors'
-// mounts and about 4 m to the top of the stack — half again taller than it is wide — and that
-// proportion is most of why one fills a lane the way a van does not.
-//
-// These were the other way round. `hi` is the cab top and `w` is the HALF-width, so the full width
-// is `2w`: the Continental stood 0.240 tall in a body 0.356 across, a ratio of 0.67, and every
-// other type was within a few points of it. Nothing in the mesh could rescue that — the stacks, the
-// screen rake, the sleeper and the roof fairing all derive from `hi`, so the whole rig was drawn
-// correctly to a squashed skeleton and the result reads as a wide flat slab with a truck's details
-// printed on it. That is the "feels too flat", and it is one column of this table.
-//
-// Raised to a ratio just under 1 (still short of the real 1.5, because these bodies are stubbier
-// fore-aft than a real tractor and matching height exactly would make them read as pillars). The
-// trailer moved with it — see `tTop`, which used to be a hardcoded 0.135 and is now derived from
-// `hi`, so a box is about as tall as it is wide instead of a third of it.
-//
-// ⚠ COLLISION IS UNAFFECTED AND MUST STAY THAT WAY. The CFIT sweep probes at its own `clearZ`
-// (windshield.js `groundCollisionSmoke`), not off this mesh, so raising the model does not change
-// which awnings you can drive under. If those two are ever tied together, this table stops being a
-// free visual dial and starts being a gameplay one.
-// ⚠ `trim` IS THE PRICE TAG, AND IT IS WHY THE DETAIL PASS DOES NOT FLATTEN THE FLEET. Every
-// ornament on this model used to be gated on `fine` alone, which is a LOD channel and says nothing
-// about the vehicle — so the scrap hauler wore the flagship's chrome spear, its tail fins and its
-// whip aerial, and the four trucks differed only in size. Adding geometry on that footing makes
-// them MORE alike, not less: detail with no ladder behind it is noise.
-//
-// So there are now two independent questions and they are asked separately:
-//   fine  — is this worth drawing AT ALL from here? (distance; the same channel the airframes use)
-//   trim  — did somebody spend money on this truck? (identity; never changes with the camera)
-// Brightwork rides `trim`. Structure — hinges, hoses, mudflaps, the things every working vehicle
-// has whatever it cost — rides `fine`, so the cheap rigs get most of the new triangles too and
-// gain them as WEAR AND HARDWARE rather than as jewellery.
-// ⚠ AND THEN IT WENT TOO FAR THE OTHER WAY. The raise above fixed a rig that read as a flat slab
-// and overshot into one that reads as a tower: a box as tall as it is wide is right for a van and
-// wrong for a trailer, which is a LONG thing first and a tall thing second. Two columns, both
-// walked back toward the proportion a trailer actually has:
-//   hi    — down about a tenth across the fleet. Still well clear of the pre-raise value that
-//           caused the flat-slab reading, so this is a trim rather than a revert.
-//   deck  — up about a quarter. This is the one that was actually wrong: the boxes were stubby
-//           fore-aft, which is what made them look tall no matter what 'hi' said. Height reads
-//           relative to LENGTH, so lengthening the box does half the work of lowering it.
-// Everything hanging off the box follows for free — the tail-lamp stations are struck from
-// 'frame0 + 0.06 - S.deck' and the ribs space across 'S.deck', so none of them needed a second
-// edit. 'tTop' still derives from 'hi'. Collision is still untouched (see the ⚠ above).
-// The four rows are authored in content/vehicle_models/truck_*.json — see the fixed-wing note
-// above for why the prose stayed here and only the numbers moved.
+// ⚠ `hi` against `2w` sets how tall a rig reads; trailers read against `deck` (length), and `tTop` derives from `hi`.
+// ⚠ Collision is unaffected: the CFIT sweep probes its own `clearZ` (windshield.js), so this table stays a visual dial.
+// ⚠ `trim` (money spent, identity) gates brightwork; `fine` (distance, LOD) gates structure every rig has.
+// Rows are authored in content/vehicle_models/truck_*.json.
 const TRUCK_SHAPES = TRUCK_ROWS;
 
-// ── A RACE BOAT (THE BASIN) ──────────────────────────────────────────────────
-//
-// A blown picklefork tunnel hull: two sponsons with a tunnel between them, a centre pod carrying a
-// canopy and a supercharged V8 behind it, zoomie headers out of both flanks and a wing over the
-// transom. Authored the way the truck is — a row of plain numbers in
-// content/vehicle_models/boat_*.json — and built out of the same boxes, for the same reason: this
-// is a machine made of flat panels bolted to other flat panels, not a skin stretched over rings.
-//
-// ⚠ IT IS BOX-BUILT, SO IT MUST BE PART-SORTED. Painter's algorithm cannot resolve a scoop sitting
-// on a blower sitting on a deck per FACE — their mean depths differ by a hair, so orbiting swaps
-// which is painted last several times a second, which is the flashing `sortTruckFaces` exists to
-// stop. Every box below therefore stamps a `part` and a `cen` exactly as buildTruck's does, and
-// the draw path routes this class through the same sorter.
-//
-// ⚠ AND THE HULL IS AUTHORED KEEL-DOWN, z = 0 AT THE WATERLINE. Not centred: the one thing every
-// consumer asks a boat is where the water meets it — the swell ride, the wake, the spray, the
-// reflection — and a mesh centred on its own bounding box makes that a number somebody has to
-// remember rather than a fact about the origin.
+// ── Race boats (THE BASIN) ──
+// Rows in content/vehicle_models/boat_*.json, built from boxes and lofted stations.
+// ⚠ Box-built, so part-sorted: every piece stamps `part` and `cen`, and the draw path uses sortTruckFaces.
+// ⚠ Authored keel-down with z = 0 at the waterline, which every consumer (ride, wake, spray, reflection) asks for.
 const BOAT_SHAPES = BOAT_ROWS;
-// What a built hull publishes about itself, keyed `<id>:<detail>`. Today that is the station table,
-// and it exists because `drawBoatHullArt` has to know where the topside IS to signwrite it — the
-// same arrangement `TRUCK_META` is in, and for the same reason: the shape is known at build time
-// and re-deriving it in the painter would be a second copy of the hull free to disagree with the
-// first. ⚠ It is a Map so a hull whose row is retuned through the Modelshop replaces its entry
-// rather than accumulating one per edit.
+// What a built hull publishes, keyed `<id>:<detail>` (stations for drawBoatHullArt, ports, lamps). A Map so a retuned row replaces its entry.
 const BOAT_META = new Map();
 
-// Where this hull's exhaust leaves it — model-local mouth position, the unit direction the pipe
-// points, and which flank it is on, one entry per zoomie. Stamped by `buildBoat` and read by
-// `drawBoatExhaust` in windshield.js.
-//
-// ⚠ EMPTY UNTIL THE MESH HAS BEEN BUILT, and the caller must tolerate that rather than force a
-// build. `truckMeta` is in exactly this position and answers null on the first frame for the same
-// reason: the model loop runs before every detail pass in `drawAircraftModel`, so by the time
-// anybody asks, the answer is there — and forcing a build from a painter would mean the first
-// frame of a boat coming over the horizon pays for a whole mesh inside an FX pass.
+// Exhaust mouths, directions and flanks per zoomie, for drawBoatExhaust. ⚠ Empty until the mesh is built;
+// callers tolerate that rather than force a build from an FX pass.
 export function boatExhaustPorts(cls, detail = 1) {
   const m = BOAT_META.get(cls + ':' + (detail >= 1 ? 1 : 0)) || BOAT_META.get(cls + ':1');
   return (m && m.ports) || [];
 }
 
-// What colour the headers are, published for the same reason the ports are. The gate that checks a
-// port is ON a pipe has to find the pipe geometry first, and the only thing marking it out is its
-// tint — so written down a second time over there it drifts the moment somebody chromes the pipes.
-// ⚠ WHICH IS NOT HYPOTHETICAL: that is exactly what happened, and the gate went red over a colour
-// change rather than over a geometry one. A gate that fails for the wrong reason is a gate somebody
-// learns to wave through.
+// Header colour, published so the port gate finds the pipes without its own copy of the tint.
 export function boatPipeTint(cls, detail = 1) {
   const m = BOAT_META.get(cls + ':' + (detail >= 1 ? 1 : 0)) || BOAT_META.get(cls + ':1');
   return (m && m.pipeTint) || null;
@@ -3449,58 +2296,35 @@ function buildBoat(id = 'hydro', detail = 1) {
   const CHROME = [228, 233, 241];
   const ACCENT = [96, 196, 214];
   const DARK = [22, 24, 28];
-  // ── ⚠ MACHINERY IS NOT BODYWORK, SO IT IS NOT PAINT-KEYED ──────────────────
-  // `CHROME` and `ACCENT` carry paint keys, which is right for brightwork and running lights —
-  // the booth should be able to black out a rub rail. It is wrong for an ENGINE. Keyed as
-  // brightwork the blower and the hat took the livery's `bright`, so on a cream boat the whole
-  // motor went cream and disappeared into the deck it is sitting on: the loudest object on the
-  // vessel, invisible, on exactly the paint jobs that look best. Nobody paints a blower to match
-  // the hull. These four are literals and stay literals.
+  // ⚠ Machinery isn't paint-keyed: as brightwork the engine took the livery's `bright` and vanished into the deck.
   const BLOCK = [38, 40, 46];        // cast iron, near black but not flat
   const POLISH = [212, 218, 226];    // a polished case — brighter than any hull
-  // ⚠ CHROME-LOOKING BUT NOT `CHROME`, and that is the whole point of it being its own array.
-  // `PKB` keys a tint by IDENTITY, so handing the headers the brightwork array would paint-key
-  // them — and a cream boat would then get a cream motor, which is the bug the block above is
-  // written about. Polished steel is a literal here and stays a literal.
+  // ⚠ Its own array: PKB keys tints by identity, so sharing CHROME would paint-key the headers.
   const PIPE = [224, 231, 240];      // zoomies, chromed
   const RUBBER = [30, 32, 36];
-  // The well's coaming and bulkheads: moulded non-skid, a shade off the house so the opening reads
-  // as a recess rather than as more house. A literal for the reason the machinery's are.
+  // Well coaming, a shade off the house. A literal, like the machinery.
   const HOUSE_TONE_WELL = [58, 62, 70];
-  // Cushions: cream marine vinyl, which every one of these boats has and no livery paints.
   const VINYL = [226, 220, 204];
-  // `BOTTOM` is the bottom paint: keyed to the livery's trim (faceBaseRgb), so a hull is two-tone
-  // at the chine. The array is only an identity and a fallback colour.
+  // Bottom paint: keyed to trim, so the hull is two-tone at the chine.
   const BOTTOM = [70, 74, 82];
   const PKB = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : t === BOTTOM ? 'trim' : null);
-  // What each surface is MADE of, for the reflection pass (windshield.js metalKOf reads `mk`). A boat
-  // is gelcoat, chrome, cast iron and glass, and one flat finish across all four is what made the
-  // hull read as a painted block. Positive is a metal (tinted mirror), negative a clear coat.
+  // Material for the reflection pass (`mk`, read by windshield.js metalKOf): positive metal, negative clear coat.
   const MKB = (t, role) => (t === CHROME || t === POLISH || t === PIPE ? 0.92 : t === BLOCK ? 0.38
     : t === RUBBER || t === DARK ? -0.08 : t === ACCENT ? 0 : role === 'body' || role === 'deck' ? -0.34 : undefined);
-  // ⚠ A LITERAL COLOUR IS A FIXED COLOUR, AND IT HAS TO SAY SO. `faceBaseRgb` paints every `body` face
-  // in the livery's base and never reads `tint` for one, so the near-black pilothouse, the cast-iron
-  // block, the polished blower, the chromed zoomies and the black outboards all came out the hull's
-  // own paint. Grey factory paint hid it; a cream Rooster had a cream V8, and a player's orange one an
-  // orange V8, which is the bug the MACHINERY note above was written to forbid. `fixed` is how a face
-  // keeps its literal; a paint-keyed tint (chrome, glow, the bottom) still goes through its key.
+  // ⚠ A literal tint is marked `fixed`, or faceBaseRgb paints it the livery base (an orange V8). Paint-keyed tints keep their key.
   const tag = (q, role, tint) => {
     const m = MKB(tint, role); if (m !== undefined) q.mk = m;
     if (tint && !PKB(tint) && role !== 'glass') q.fixed = 1;
     return q;
   };
 
-  // A quad with its part id and the centre backface culling measures "outward" from.
-  // ⚠ `cen` GOES ON THE CENTRELINE FOR A HULL PANEL, not at the panel's own centroid. The renderer
-  // culls a face when it points away from `cen`, so for a lofted topside the reference has to be
-  // INSIDE the hull — put it on the panel and every panel faces away from itself.
+  // A quad with its part id and culling centre. ⚠ For hull panels `cen` sits on the centreline, inside the hull.
   const face = (p, sh, cen, role = 'body', tint = null) => {
     const q = { role, sh, p: p.map((v) => V(v[0], v[1], v[2])), part: ++partSeq, cen };
     if (tint) { q.tint = tint; const k = PKB(tint); if (k) q.pk = k; }
     faces.push(tag(q, role, tint));
   };
-  // A run of quads sharing one part id — a lofted panel is ONE object, and giving each of its
-  // quads a part of its own is what makes a hull flash as the camera orbits.
+  // A lofted panel shares one part id, or the hull flashes as the camera orbits.
   const strip = (quads, sh, cen, role = 'body', tint = null) => {
     const part = ++partSeq;
     for (const p of quads) {
@@ -3549,45 +2373,19 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   };
 
-  // ── THE HULL, AS STATIONS ──────────────────────────────────────────────────
-  //
-  // ⚠ A DEEP-V IS LOFTED, NOT BOXED. The previous hull was a picklefork tunnel — two sponsons with
-  // a tunnel between them — which is a different KIND of boat, not a different size of one. An
-  // offshore hull is one body: a fine entry at the stem, maximum beam aft of amidships, a hard
-  // chine running the whole length, and a bottom that vees down to a keel. None of that is
-  // expressible in axis-aligned boxes, so the hull is a set of transverse stations lofted together
-  // and everything else hangs off them.
-  //
-  // ⚠ AND THE TABLE LIVES IN `client/shared/boat-house.js` NOW, because the room you sit in is the
-  // inside of this same hull and was authored as thirty unrelated scalars in another unit. Read
-  // that header before touching any of it: nothing below re-derives a station, a half-width or a
-  // sill, and the interior does not either.
+  // ── The hull, as stations ──
+  // ⚠ A deep-V is lofted from transverse stations, not boxed. The table lives in client/shared/boat-house.js,
+  // shared with the interior; nothing here re-derives a station.
   const G = boatGeom(S);
   const { LEN, DECK: DK, STATIONS, atF } = G;
-  // ⚠ ONE OBJECT, FILLED AS THE HULL IS BUILT. The exhaust ports below are stamped into this same
-  // record rather than into a second `set`, because a later `set` on the same key replaces the
-  // stations and a painter that reads them gets an empty hull.
-  // ⚠ LAMPS ARE PUBLISHED HERE TOO, for `meshLamps`: a boat used to fall through the renderer's
-  // lamp chain to the aircraft default, which hangs a white tail strobe off the transom and a red
-  // anti-collision beacon UNDER THE KEEL — a red light glowing up through the water under every
-  // hull in the Basin. Sidelights, a stern light and a masthead are a boat's grammar, and they go
-  // where this mesh built their lenses.
+  // ⚠ One META object filled as the hull is built: a second `set` would wipe the stations. Lamps are published
+  // for meshLamps (boats need sidelights, stern and masthead, not the aircraft default under the keel).
   const META = { stations: STATIONS, ports: [], pipeTint: PIPE, lamps: [] };
   BOAT_META.set(id + ':' + (fine ? 1 : 0), META);
   const RED_LENS = [214, 44, 40], GREEN_LENS = [44, 196, 92], WHITE_LENS = [236, 238, 232];
 
-  // ── THE BOTTOM, AS A POLYLINE PER STATION ──────────────────────────────────
-  //
-  // ⚠ ONE LOFT FOR THREE BOTTOMS. A deep-V is keel → chine; a STEPPED vee is the same with the keel
-  // let up a notch at each step; a CAT is tunnel roof → tunnel wall → sponson keel → chine. Each is
-  // a list of (half-width, height) points out from the centreline, the same length at every
-  // station, and the loft between neighbours does not care which. Written as three loops, the
-  // transom, the strakes and the culling centres would each have three copies to keep in step.
-  //
-  // THE STEPS. A stepped hull has transverse notches across her bottom so air is drawn in under
-  // the planing surface behind each one; that is where a Spur's extra speed and her habit of
-  // sliding through a corner both come from. Each step lets the keel up by `STEP_H` and the riser
-  // between the two is a face of its own, dark, because it faces aft into the shadow of the hull.
+  // ── The bottom, as a polyline per station ──
+  // One loft for deep-V, stepped vee and cat. Steps let the keel up by STEP_H each; the riser is its own dark face.
   const NSTEP = G.CAT ? 0 : Math.max(0, Math.min(3, Math.round(S.steps ?? 0)));
   const STEP_F = ({ 1: [-0.18], 2: [0.10, -0.34], 3: [0.18, -0.12, -0.42] }[NSTEP] || []).map((x) => x * LEN);
   const STEP_H = 0.007;
@@ -3607,22 +2405,14 @@ function buildBoat(id = 'hydro', detail = 1) {
   const botLine = (st) => (st.tw != null
     ? [[0, st.tz], [st.tw, st.tz], [st.tw, st.iz], [st.kg, st.k], [st.cw, st.cz]]
     : [[0, st.k], [st.cw, st.cz]]);
-  // Per segment of the line: how bright, and where "inside" is for the culler. The tunnel roof
-  // looks down, so its centre is above it on the centreline; the tunnel wall and both faces of a
-  // sponson look away from the middle of THAT sponson, so a centre on the boat's centreline would
-  // call the tunnel wall a back face and cut it out.
+  // Per segment: shade and culling centre. On a cat the tunnel wall's centre is the sponson's, not the boat's.
   const segShade = G.CAT ? [0.30, 0.56, 0.40, 0.46] : [0.46];
   for (let i = 0; i < BOT.length - 1; i++) {
     const a = BOT[i], b = BOT[i + 1];
     const la = botLine(a), lb = botLine(b), fm = (a.f + b.f) / 2;
     for (const s of [-1, 1]) {
-      // ⚠ QUADS, NOT TRIANGLES — the opposite of the house sides, and for the same underlying
-      // reason. A station-to-station hull panel is very nearly planar (the vee angle barely changes
-      // between neighbours), so one quad is one tone and the hull reads smooth. Split into two
-      // triangles each takes its own normal, and the whole topside came out as a quilted diamond
-      // mesh. Triangulate what is genuinely twisted; leave flat things flat.
+      // ⚠ Quads, not triangles: near-planar hull panels split in two came out quilted.
       if (b.riser) {
-        // The riser: the keel let up by one notch, a triangle facing aft.
         face([[a.f, 0, a.k], [b.f, 0, b.k], [b.f, s * b.cw, b.cz]], 0.24, [fm + 0.05, 0, a.k], 'body', BOTTOM);
         continue;
       }
@@ -3634,14 +2424,12 @@ function buildBoat(id = 'hydro', detail = 1) {
         strip([[
           [a.f, s * la[j][0], la[j][1]], [b.f, s * lb[j][0], lb[j][1]],
           [b.f, s * lb[j + 1][0], lb[j + 1][1]], [a.f, s * la[j + 1][0], la[j + 1][1]],
-        // The tunnel's roof and walls are bare laminate, never paint: nobody signwrites a ceiling.
+        // The tunnel roof and walls are bare laminate.
         ]], sh, cen, 'body', G.CAT && j < 2 ? DARK : BOTTOM);
       }
     }
   }
-  // The topside: chine up to the sheer. Nearly vertical, and the brightest big surface on the
-  // boat, which is why a two-tone hull puts its split right here. Off the plain stations: a step
-  // is in the bottom and never in the topside.
+  // Topside, chine to sheer, off the plain stations (steps are only in the bottom).
   for (let i = 0; i < STATIONS.length - 1; i++) {
     const a = STATIONS[i], b = STATIONS[i + 1];
     const cen = [(a.f + b.f) / 2, 0, (a.k + b.sz) / 2];
@@ -3652,9 +2440,7 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   }
 
-  // The transom: flat, wide, and where everything bolts on. ⚠ OFF THE BOTTOM'S OWN LAST STATION,
-  // so a stepped hull's transom closes on a keel let up by every step, and a cat's is two sponson
-  // ends with the tunnel open between them rather than a plate across the hole.
+  // Transom, off the bottom's last station so a stepped keel or a cat's open tunnel closes correctly.
   const TR = BOT[BOT.length - 1];
   {
     const t = TR;
@@ -3672,11 +2458,7 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   }
 
-  // ── THE STRAKES ────────────────────────────────────────────────────────────
-  // Running strakes: lips down the bottom that throw spray off sideways and give a vee its lift.
-  // Seen from anywhere low they are the lines that say the bottom is a SHAPE rather than two flat
-  // planes, and at speed they are the bright creases the light catches as she rolls. Fine detail
-  // only; the inner one runs further forward than the outer, as they do on a real bottom.
+  // ── Strakes ── Fine detail only.
   const NSTRK = G.CAT ? 0 : Math.max(0, Math.min(3, Math.round(S.strakes ?? 0)));
   if (fine && NSTRK) {
     const us = { 1: [0.5], 2: [0.36, 0.68], 3: [0.28, 0.52, 0.76] }[NSTRK];
@@ -3696,10 +2478,7 @@ function buildBoat(id = 'hydro', detail = 1) {
     });
   }
 
-  // ── THE CHINE ──────────────────────────────────────────────────────────────
-  // A hard lip along the join. ⚠ IT IS THE SINGLE MOST IMPORTANT LINE ON THIS BOAT: it is what
-  // separates the dark bottom from the light topside, it is what a two-tone paint job follows, and
-  // at any distance it is the only thing that says the hull has a shape rather than being a wedge.
+  // ── The chine ── The line the two-tone split follows.
   for (let i = 0; i < STATIONS.length - 1; i++) {
     const a = STATIONS[i], b = STATIONS[i + 1];
     const cen = [(a.f + b.f) / 2, 0, (a.cz + b.cz) / 2];
@@ -3711,28 +2490,15 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   }
 
-  // ── THE DECK ───────────────────────────────────────────────────────────────
-  // Long, and that length IS the boat: on a cigarette the foredeck is most of what you look at.
-  // Crowned slightly so it catches the light down the centreline rather than reading as a table.
-  // ⚠ THE WELL STARTS WHERE THE HOUSE ENDS, AND IT IS DERIVED SO IT CANNOT DRIFT. Authored
-  // separately they disagreed by 0.08 of a hull — the deck was cut away from -0.46 aft while the
-  // house's back wall stood at -0.54 — so the aft eighth of the cabin was standing over a hole and
-  // you could see daylight under the glazing. Two numbers describing one edge is two chances to be
-  // wrong about it; the house owns the edge and the well begins at it.
+  // ── The deck ──
+  // ⚠ The well starts where the house ends (houseF0), derived so the two can't disagree.
   const cpF1 = S.cockpitF1 ?? (S.houseF0 ?? -0.54), cpF0 = S.cockpitF0 ?? -0.88;
   const crown = S.crown ?? 0.012;
-  // ⚠ THE WELL IS CUT AT ITS OWN TWO ENDS, NOT AT WHICHEVER STATIONS HAPPEN TO FALL IN IT. The deck
-  // used to taper to a fifth of the beam at any station inside the well, so the opening was a
-  // lozenge whose shape was set by where the hull's stations are rather than by the well: on the
-  // Rooster most of the cockpit was decked over, and a well short enough to hold no station (a
-  // cat's) was not cut at all. Both ends are stations of the deck loft now and the deck between
-  // them is simply absent; the gunwale cap and the well's own walls below are what you see.
+  // ⚠ The well is cut at its own two ends (added as deck stations), not at whichever stations fall in it.
   const DECK_ST = [...STATIONS.map((x) => x.f), cpF1, cpF0].filter((f, i, a) => a.indexOf(f) === i)
     .sort((x, y) => y - x).map((f) => ({ ...atF(f), f }));
   for (let i = 0; i < DECK_ST.length - 1; i++) {
     const a = DECK_ST[i], b = DECK_ST[i + 1];
-    // The deck is cut away over the cockpit — the well is an ABSENCE, the same rule the windscreen
-    // aperture follows: a lid over a hole would be a second description of the same shape.
     if (a.f <= cpF1 + 1e-9 && b.f >= cpF0 - 1e-9) continue;
     const cen = [(a.f + b.f) / 2, 0, (a.sz + b.sz) / 2 - 0.05];
     for (const s of [-1, 1]) {
@@ -3763,19 +2529,12 @@ function buildBoat(id = 'hydro', detail = 1) {
         ]], 0.58, cen);
       }
     }
-    // The sole — you can see into the well, so it needs a floor.
-    // ⚠ AND IT IS THE CABIN'S FLOOR TOO (`G.soleZ`). The door in the bulkhead joins the two, so a
-    // sole authored at one height here and another inside is a step you can see through the open
-    // doorway from the aft deck and fall down from the helm.
+    // The sole. ⚠ It's also the cabin floor (`G.soleZ`), or a step shows through the doorway.
     const [wa, za] = gz(cpF1), [wb, zb] = gz(cpF0);
     face([[cpF1, -wa * 0.78, G.soleZ], [cpF1, wa * 0.78, G.soleZ],
           [cpF0, wb * 0.78, G.soleZ], [cpF0, -wb * 0.78, G.soleZ]], 0.66, [(cpF0 + cpF1) / 2, 0, 0]);
-    // ⚠ AND THE WELL HAS WALLS. With the deck cut at the well's true ends there is a real hole, and
-    // a hull is a shell of outward faces: looking into the well from the quay you saw the BACK of
-    // the far topside, which the culler drops, so the sea showed through the boat. The coaming runs
-    // down from the gunwale cap's inner edge to the sole on both sides, and the two ends close it —
-    // aft, a bulkhead under the aft deck; forward, the bulkhead under the house, with the doorway
-    // left open so the door (below) reaches the sole the way the cabin's own does.
+    // ⚠ The well needs walls: the hull is a shell of outward faces, so without them the sea shows through.
+    // The forward bulkhead leaves the doorway open.
     const wall = [];
     for (let i = 0; i < N; i++) {
       const f0 = cpF1 + (cpF0 - cpF1) * (i / N), f1 = cpF1 + (cpF0 - cpF1) * ((i + 1) / N);
@@ -3797,163 +2556,37 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   }
 
-  // ── THE PILOTHOUSE ─────────────────────────────────────────────────────────
-  //
-  // An ENCLOSED helm under a hardtop: a wrapped screen at the front, glass down both sides, a solid
-  // bulkhead at the back with a door onto the aft deck, and a crowned top carried on struts.
-  //
-  // ⚠ IT IS ENCLOSED BECAUSE NOBODY IS RENDERED IN IT. An open cockpit is a hole you look down into
-  // and expect to find a driver in; there is no crew model in this renderer, so an open one reads
-  // as an empty boat driving itself. Glass answers that without a single figure being drawn.
-  //
-  // ── ⚠ AND NOTHING HERE IS A BOX, WHICH IS THE WHOLE OF THIS PASS ───────────
-  //
-  // The first cut was six axis-aligned slabs and it read as a shipping container: square corners,
-  // a flat lid, vertical sides, one flat pane across the front. Four things fix that and none of
-  // them is a texture.
-  //
-  //   TUMBLEHOME — the sides lean IN as they rise. One number, and it is the single biggest change:
-  //     a vertical wall is the thing the eye reads as "box", and nothing on a fast boat is vertical.
-  //   A WRAPPED SCREEN — three panes, a centre and two corners that carry round onto the sides,
-  //     instead of one slab across the front. Real screens wrap because a flat one cannot be raked
-  //     and still see out of the corners, and the wrap is most of why a modern one looks fast.
-  //   A CROWNED TOP — the hardtop is arched across the beam and tapered in plan, so its edge is a
-  //     curve rather than a ruled line. A flat lid on a curved house is a tray sitting on a car.
-  //   STRUTS — the top is CARRIED at the back rather than continuous with the walls, with daylight
-  //     between them. That gap is what says the roof is a structure and not a lid.
+  // ── The pilothouse ── Enclosed, because no crew is rendered. Design notes:
+  // see docs/reference/glass-notes.md#boat-pilothouse
   const GLASS = [58, 78, 98];
   const HOUSE = [26, 28, 33];
   {
-    // ⚠ EVERY NUMBER AND EVERY CURVE BELOW COMES OUT OF `boat-house.js`, AND NONE OF THEM IS
-    // RE-DERIVED HERE. They used to be declared in this block, which made them invisible to the
-    // one other thing that has to agree with them — the room you sit in. See that file's header
-    // for what the two had drifted to. `fw`/`fwT` in particular are read by the side wall as well
-    // as by the screen, and a `const` read above its own declaration is a temporal-dead-zone THROW
-    // rather than an undefined: `shapes:smoke` caught exactly that once, "Cannot access fw before
-    // initialization", on every hydro at both hours.
+    // ⚠ Every number comes from boat-house.js (shared with the interior). Destructure here, before any read (TDZ).
     const { hF1, hF0, hH, rake, TUM, WRAP, NOSE, fw, fwT, rF, hw, hz, cen } = G;
 
-    // ── THE SIDES ────────────────────────────────────────────────────────────
-    // Lofted in steps so the tumblehome and the plan taper are both curves rather than one slanted
-    // plane. Solid below the sill, glass above it.
-    // ⚠ THE SILL RISES GOING AFT, WHICH IS THE WHOLE SHAPE OF THE WINDOW. Held at one height the
-    // glass is a long rectangle down the side of a box — which is exactly what it looked like. On
-    // any fast boat the side light is a WEDGE: deep at the front where you look out of it, tapering
-    // away toward the back where there is nothing to see. One function, so the glass above it and
-    // the painted topside below it are cut by the same line and cannot leave a gap between them.
-    // ── THE DAYLIGHT OPENING ─────────────────────────────────────────────────
-    //
-    // ⚠ A WINDOW IS A CLOSED CURVE, NOT TWO EDGES AND A BOX. Every cut of this before now described
-    // the glass as a band between a sill and a head that ran the WHOLE length of the house, so
-    // however hard each edge swept, the shape still had a square back and two ruled lines — which
-    // is what a rectangle is. What a fast car or a fast boat actually has is a teardrop: the glass
-    // comes to a POINT somewhere short of the back, opens quickly off that point, and then flattens
-    // out along the top. The aft end being pointed is most of the read, and no amount of sweeping
-    // the two edges gets there while they are still parallel-ish lines meeting a wall.
-    //
-    // So the opening is parameterised from its own point rather than from the house. `u` is 0 at
-    // the point and 1 at the screen, and the two edges are powers of it — which converge on the
-    // point by construction rather than by two numbers being set equal by hand.
+    // ── The sides ──
+    // Side aperture: a teardrop parameterised from its aft point (`u` 0 there, 1 at the screen).
     const { sillF, uOf } = G;
-    // ⚠ A CENTRELINE AND A HALF-HEIGHT, NOT TWO INDEPENDENT EDGES — which is the difference between
-    // the shape in the reference and the one before it. Described as two curves that happen to meet,
-    // the aperture converges on a CUSP: two straight-ish edges closing at an angle, sitting at mid
-    // height, which is a dart rather than a window. What the reference has is an ellipse's end —
-    // the trailing edge turns through the vertical and comes back, so the aft end is ROUNDED, and
-    // it sits LOW, down on the beltline rather than half way up the house.
-    //
-    //   `half` is elliptical in u, so its tangent at the point is vertical. That single property is
-    //     the rounded end; any polynomial in u meets the axis at an angle and gives a cusp.
-    //   `mid` rises as the opening grows, which is what tips the whole shape: the bottom edge comes
-    //     out nearly flat (a beltline) while the top sweeps up and over the helm. Held level, the
-    //     aperture is a symmetrical leaf and reads as a porthole stretched sideways.
-    // ⚠ AND THE BOTTOM EDGE IS A BELTLINE, WHICH IS THE OTHER HALF OF THE REFERENCE AND THE HALF
-    // THAT IS EASY TO MISS. Let the centreline ride up on its own and BOTH edges curve — the sill
-    // dips in the middle and comes back, the head arcs over, and the aperture is a symmetrical
-    // LEAF. Every window on every fast car is the opposite: the bottom runs nearly straight (it is
-    // the beltline, and a beltline is a line) and all of the shape lives in the top edge. So the
-    // sill is defined first, as a near-flat line with a gentle kick up toward the stern, and the
-    // head is simply the sill plus the full height of the opening.
+    // Rounded aft end (elliptical `half`); the sill is a near-flat beltline and the head carries the shape.
     const { sillAt, headAt } = G;
-    // ⚠ ONE PART PER SURFACE, NOT ONE PER SEGMENT. `strip` stamps a single part id for everything
-    // handed to it, and a lofted side is ONE object — but called once per segment it becomes six,
-    // which the painter then sorts independently. On a curved surface that reorders neighbours and
-    // the side reads as a row of sawteeth. It looked like a shading bug and it was a sorting one.
-    // ⚠ AND THE SILL CAP STEPPED OUT 3% PER SEGMENT, which turned a bright chrome line into a
-    // zigzag of little facets down the middle of the glazing — the most visible thing on the boat.
-    // It follows the wall now and only lifts, so it is a line rather than a staircase.
-    // ⚠ FEW, LARGE, DELIBERATE PLANES — NOT A FINE SUBDIVISION. This renderer is flat-shaded per
-    // face by design (gl/solids.js says so in its own note), so a doubly-curved surface does not
-    // become smooth by being cut into more pieces: every piece gets its own normal and its own tone,
-    // and eight of them down a tumbled, tapering side reads as a row of sawteeth. Subdividing made it
-    // WORSE, twice. Three big panels per side facet once each, deliberately, which is how every
-    // other curved thing in this game is built and is what the reference boat's own hard creased
-    // topsides actually look like.
-    // ── ⚠ THE PANE IS FLAT AND THE HOLE IS SHAPED, WHICH ARE TWO DIFFERENT PIECES ────────────
-    //
-    // Everything before this cut the glass to the shape of the opening, which put two requirements
-    // on one strip and they pull opposite ways:
-    //
-    //   THE EDGE wants MANY stations, because the sill and the head are smooth curves sampled at
-    //     the panel boundaries — at three stations a beautifully shaped profile arrives as a
-    //     three-segment polyline, and a three-segment polyline is a straight line with two kinks in
-    //     it. That is why the window kept reading as a rectangle however the profile was tuned.
-    //   THE SURFACE wants FEW, because this renderer is flat-shaded per face and the glass carries
-    //     a per-face sheen: nine panes is nine highlight streaks down the side of the boat, which
-    //     reads as a row of shutters rather than as one piece of glass. Measured over 4/5/6/9 — the
-    //     curve gets better and the glass gets worse, the whole way.
-    //
-    // So they are separated. The GLASS is one coarse pane, a plain band with straight edges, set
-    // INBOARD of the wall. The HOUSE is a shell at full width with the teardrop cut out of it,
-    // sampled finely because it is doing nothing but describing that curve. What you see through
-    // the hole is whatever the shell does not cover, so the opening is as round as `NT` says and
-    // the glass still has four highlights. That is also, straightforwardly, what a window IS: a
-    // pane behind an aperture, rather than a pane cut to the shape of one.
-    //
-    // ⚠ THE GLASS IS INSET AND THE WALL IS NOT, rather than the other way about. Standing the shell
-    // proud would widen the whole house by the offset and push it out past its own hardtop; setting
-    // the pane in leaves every other dimension exactly where it was and gives the aperture a real
-    // reveal, which is what stops the two surfaces z-fighting where they overlap.
-    // ⚠ THE SIDE RUNS FORWARD TO THE WRAP, NOT TO THE SCREEN'S TOP EDGE. Stopped at `rF` the side
-    // aperture ends on a VERTICAL cut — a square step where a sloping screen meets a sloping
-    // roofline, which is the "squarish cut out part" and is visible from every angle forward of
-    // the beam. Run forward to the wrap's own foot instead and the glass carries on UNDER the
-    // pillar; what then trims it is the pillar's raked aft edge, which is a sloped cut by
-    // construction. Nothing has to agree about an angle, because only one part owns it.
+    // ⚠ One part per surface, and few large planes: the renderer is flat-shaded, so subdividing makes sawteeth.
+    // ⚠ A flat inset pane behind a finely cut shell aperture: the edge wants many stations, the glass few.
+    // The side runs forward to the wrap's foot so the pillar's raked edge trims it.
     const { sideF1 } = G;
     const NS = Math.max(2, Math.round(S.houseSegs ?? 4));    // panes — few, for the sheen
-    // ⚠ AND THE EDGE SHEDS WITH DISTANCE, WHICH THE PANE DOES NOT NEED TO. This is the only part of
-    // the house whose station count is about how round a curve LOOKS, so it is the only part worth
-    // spending on up close and the first worth taking back at range: at the coarse tier the whole
-    // hull is a few dozen pixels and the aperture is a slot. Without this the shell alone doubled
-    // the distant mesh — 285 faces to 549 — for a curve nobody can resolve.
+    // The shell's edge sheds stations at range.
     const NT = Math.max(5, Math.round((S.trimSegs ?? 14) * (fine ? 1 : 0.4)));
     const { INSET } = G;                                     // how far the pane sits behind the wall
-    // ⚠ AND THE FRAME AROUND THE HOLE IS THE BOAT'S COLOUR, WHICH IS THE POINT OF THE EXERCISE. A
-    // band of hull paint following the aperture is what turns a dark slot in a dark house into a
-    // shape: it picks up the pillar at the screen, runs round the top of the glass and closes on
-    // the point aft. Beyond the band the house goes back to its own near-black — a full-height
-    // livery panel was tried and is a third of the house in bright paint across every window, and
-    // the far side of it then reads straight through the near glass as a diagonal.
-    // ⚠ AND THE BAND IS NOT A CONSTANT WIDTH, WHICH IS MOST OF WHAT MAKES IT READ AS A CAR. Traced
-    // at one thickness it is a gasket — an even outline round a hole, which is what a porthole has.
-    // What a fast roofline actually does is run THIN over the glass and swell into a broad pillar
-    // where it turns down at the back, because that pillar is the thing holding the roof on. One
-    // taper term off the same `u` the aperture is built from: slim at the screen, two and a half
-    // times that at the point.
+    // The painted band round the aperture, thin over the glass and broad at the aft pillar.
     const { bandAt, gLo } = G;    // the painted band, and the pane's foot under the widest part of it
     for (const s of [-1, 1]) {
       const shade = s < 0 ? 0.76 : 0.64;
-      // ⚠ TRIANGLES, BECAUSE A LOFTED PANEL IS NOT PLANAR. `hw` varies with BOTH f and t — the plan
-      // taper and the tumblehome — so a four-corner patch across a segment is bilinear, and a
-      // bilinear quad has no single normal. The renderer backface-culls `body` and `glass` against
-      // the part's centre, so it keeps one half of each twisted quad and drops the other: a
-      // continuous side comes out as a row of alternating facets. A triangle cannot twist.
+      // ⚠ Triangles: a lofted panel is bilinear, and the culler drops half of a twisted quad.
       const t = (a, b, c) => [a, b, c];
       const P = (f, tt) => [f, s * hw(f, tt), hz(f, tt)];                    // the wall
       const G = (f, tt) => [f, s * hw(f, tt) * INSET, hz(f, tt)];            // the pane, set in
 
-      // 1) THE PANE. One band, straight-edged, coarse.
+      // The pane.
       const glazed = [];
       for (let i = 0; i < NS; i++) {
         const fa = hF0 + (sideF1 - hF0) * (i / NS), fb = hF0 + (sideF1 - hF0) * ((i + 1) / NS);
@@ -3961,10 +2594,7 @@ function buildBoat(id = 'hydro', detail = 1) {
       }
       strip(glazed, shade + 0.16, cen, 'glass', GLASS);
 
-      // 2) THE SHELL, with the teardrop cut out of it. Four bands per bay — the painted frame above
-      //    and below the aperture, and the house's own dark beyond each of them. They tile exactly
-      //    (each shares an edge with its neighbour), so the pane behind shows through the hole and
-      //    nowhere else.
+      // The shell with the teardrop cut out; the bands tile exactly so the pane shows only through the hole.
       const frame = [], dark = [], solid = [], capped = [];
       for (let i = 0; i < NT; i++) {
         const fa = hF0 + (sideF1 - hF0) * (i / NT), fb = hF0 + (sideF1 - hF0) * ((i + 1) / NT);
@@ -3976,18 +2606,13 @@ function buildBoat(id = 'hydro', detail = 1) {
           if (Math.min(z1a - z0a, z1b - z0b) <= 0.004) return;               // degenerate — see below
           into.push(t(P(fa, z0a), P(fb, z0b), P(fb, z1b)), t(P(fa, z0a), P(fb, z1b), P(fa, z1a)));
         };
-        // ⚠ A ZERO-HEIGHT BAND IS NOT A CHEAP BAND, IT IS A BROKEN ONE. The aperture closes to a
-        // point aft and runs out at the roof forward, so several of these have no area at those
-        // ends — and a quad with no area has no normal, which leaves the backface culler deciding
-        // about it on rounding error. That is a flicker along the shoulder as the camera moves.
+        // ⚠ Skip zero-height bands: no area means no normal, and the culler flickers on it.
         band(ha, hb, uA, uB, frame);        // the painted band over the glass
         band(uA, uB, 1, 1, dark);           // and the house's own dark above it
         band(lA, lB, ta, tb, frame);        // the painted band under the glass
         band(gLo, gLo, lA, lB, dark);       // and the house's own dark below it
         band(0, 0, gLo, gLo, solid);        // the topside, under the whole aperture
-        // The bright line right at the bottom of the glass, tracing the aperture and running out at
-        // the point with it. It is what a car's DLO has round it and it is what makes the curve read
-        // at a distance, where the paint-to-paint step above it does not.
+        // Bright line along the bottom of the glass.
         if ((hb - tb) > 0.004 || (ha - ta) > 0.004) {
           const lo = (f, tt) => [f, s * hw(f, tt), hz(f, tt) - 0.006];
           capped.push(t(P(fa, ta), P(fb, tb), lo(fb, tb)), t(P(fa, ta), lo(fb, tb), lo(fa, ta)));
@@ -3999,52 +2624,17 @@ function buildBoat(id = 'hydro', detail = 1) {
       if (capped.length) strip(capped, 0.94, cen, 'body', rich(0.5) ? CHROME : HOUSE);
     }
 
-    // ── THE SCREEN ───────────────────────────────────────────────────────────
-    //
-    // ⚠ A RADIUS, NOT THREE PANES. The first cut was a flat centre plus one corner pane each side,
-    // which is a wrapped screen described in the fewest possible facets — and the cost of that is
-    // exactly two hard creases, one where the centre meets the corner and one where the corner
-    // meets the side. Reported as wanting "a good bend around the windshield so it's a smooth
-    // corner from front to side windows", and the creases are the whole of what is wrong: a screen
-    // that turns through ninety degrees in two steps reads as folded sheet, and the thing every
-    // fast boat and every fast car has instead is one continuous surface that starts flat on the
-    // centreline and tightens as it goes outboard.
-    //
-    // So it is LOFTED across the beam. `u` runs 0 at the centreline to 1 at the side wall, and the
-    // station pulls aft as `u^BEND` — which is what puts the bend where a bend belongs: at `BEND` 1
-    // the screen is a straight chamfer (a flat pane at an angle), and above 1 the middle stays
-    // nearly flat while the outer third does the turning. That is a radiused corner rather than an
-    // even curve, and it is the difference between a screen and a bay window.
-    //
-    // ⚠ BOTH EDGES SWEEP, AND THEY DO NOT SWEEP TOGETHER. The bottom runs from the screen's foot to
-    // the side sill and the top from the screen's own header — which is already further AFT than
-    // the foot, because the screen is raked — so the two curves are different lengths and the
-    // surface between them is genuinely twisted. That twist is the thing that catches light across
-    // the corner and is most of why it reads as glass.
+    // ── The screen ── Lofted across the beam, pulled aft as `u^BEND`, so the outer third does the turning.
     const wBot = hw(hF1, 0), wTop = hw(rF, 1);
     const BEND = S.screenBend ?? 2.1;       // how late in the sweep the corner turns
     const NW = Math.max(3, Math.round((S.screenSegs ?? 6) * (fine ? 1 : 0.5)));
     {
       const tSill = sillAt(fw);
-      // The two edges, as a function of how far outboard you are.
-      // ⚠ `u` IS A LATERAL FRACTION AND y IS ZERO AT ZERO. Written as an interpolation FROM the
-      // screen's own half-width TO the side wall's, the pane starts at full beam on the centreline
-      // and only varies by the difference between the two — a pair of slivers hugging the flanks
-      // with the whole middle of the windscreen missing. It draws, it is glass, it is in the right
-      // place, and the boat has no front window: the sky comes straight through the aperture and
-      // reads as the screen having been deleted. Measured, the panes spanned y 0.174..0.195 on a
-      // hull whose screen is 0.195 wide.
+      // ⚠ `u` is a lateral fraction with y = 0 at u = 0, or the middle of the windscreen goes missing.
       const botAt = (u) => { const w = Math.pow(u, BEND);
         const f = hF1 + (fw - hF1) * w;
         return [f, hw(fw, tSill) * u, hz(hF1, 0) + (hz(fw, tSill) - hz(hF1, 0)) * w]; };
-      // ⚠ AND THE OUTBOARD EDGE RAKES, WHICH IT DID NOT. Both edges used to interpolate to the SAME
-      // station (`fw`), so at u = 1 they met and the wrap's outboard edge was dead VERTICAL — a
-      // screen raked 49 degrees on the centreline and 90 at its own corner, which is not a rake at
-      // all, it is a rake that dies before anybody can see it. Everything anchored to that edge
-      // inherited it, the pillar most visibly. Landing the top further aft than the bottom gives
-      // the corner an angle of its own: `screenRakeSide` is that offset, and it is authored as a
-      // DISTANCE rather than as an angle because the height it works against is the house's, so a
-      // taller house keeps the same proportions from one number.
+      // The top edge lands further aft (`screenRakeSide`) so the corner keeps its rake.
       const topAt = (u) => { const w = Math.pow(u, BEND);
         const f = rF + (fwT - rF) * w;
         return [f, hw(fw, 1) * u, hz(rF, 1) + (hz(fwT, 1) - hz(rF, 1)) * w]; };
@@ -4054,61 +2644,19 @@ function buildBoat(id = 'hydro', detail = 1) {
           const ua = i / NW, ub = (i + 1) / NW;
           const ba = botAt(ua), bb = botAt(ub), ta = topAt(ua), tb = topAt(ub);
           const S3 = (p) => [p[0], s * p[1], p[2]];
-          // ⚠ TRIANGLES. A lofted pane across a corner is doubly curved and a four-corner patch
-          // across it is bilinear, which has no single normal — the same argument the side wall's
-          // own note makes, and the same alternating-facet artefact if it is ignored.
           pane.push([S3(ba), S3(bb), S3(tb)], [S3(ba), S3(tb), S3(ta)]);
           const drop = (p) => [p[0], s * p[1], p[2] - 0.012];
           sill.push([S3(ba), S3(bb), drop(bb)], [S3(ba), drop(bb), drop(ba)]);
         }
-        // ⚠ ONE PART FOR THE WHOLE SIDE. Per-facet parts are sorted independently and a curved
-        // surface then reorders its own neighbours, which is the sawtooth the side wall was rebuilt
-        // to remove. The shade is one value across the wrap for the same reason.
+        // One part for the whole side, one shade across the wrap.
         strip(pane, s < 0 ? 0.94 : 0.86, cen, 'glass', GLASS);
         strip(sill, 0.70, cen, 'body', HOUSE);
       }
     }
-    // ── THE PILLAR AT THE CORNER OF THE SCREEN ───────────────────────────────
-    // ⚠ A BROAD SWEPT BLADE, NOT A POST. In the reference this is the most prominent thing on the
-    // boat after the hull itself: a wide member running from the deck at the screen's foot up and
-    // AFT to the corner of the hardtop, carrying it. A thin frame round the glass reads as a window
-    // in a wall; this reads as structure holding a roof up, which is what it is — and it is what
-    // turns the house from a box with a lid into a shape with a frame.
-    //
-    // ⚠ AND IT IS PAINTED THE BOAT'S COLOUR, WHICH IS NOT A DETAIL. Dark, it was one more black
-    // thing in a black greenhouse — the pillar, the side wall, the glass and the roof all reading
-    // as a single mass with some lighter panes in it, which is exactly the box this whole pass
-    // exists to break. In the hull's own colour it is a COLUMN: it picks up the paint at the deck,
-    // carries it up the corner of the screen and hands it to the sail panel behind the side light,
-    // which is the same colour and the same shape running the other way. One continuous painted
-    // member round the greenhouse, with the glass floating inside it.
-    //
-    // ⚠ NO TINT IS HOW A FACE ASKS FOR THE LIVERY. Handing it `pal.base` here would be a second
-    // copy of the paint the hull is already wearing, free to disagree the moment a finish or a
-    // pattern touches one and not the other — the same reason the topsides pass nothing either.
+    // ── The pillar ── A broad swept blade in the livery (no tint), carrying the hardtop.
     const apW = S.pillarW ?? 0.040;
     for (const s of [-1, 1]) {
-      // ⚠ ANCHORED TO WHERE THE WRAP LANDS, not to a fraction of the screen's width. With a flat
-      // centre pane and one corner each side there was a crease at a fixed fraction and the pillar
-      // stood on it; the wrap is a continuous radius now and has no crease anywhere, so the only
-      // honest place for the member is its OUTBOARD EDGE — the station the screen finishes turning
-      // at, which is also where the side glass begins. Left on the old fraction the pillar stood in
-      // the middle of a curved pane, which is a bar across a windscreen.
-      // ⚠ A MEMBER OF CONSTANT WIDTH, NOT A WEDGE. Its foot used to sit at the wrap's edge on the
-      // SILL and its aft-bottom corner at the house's FOOT — two different heights — so the blade
-      // was a broad triangle sweeping down and aft, and from the beam it ate into the top front of
-      // the side light as a red delta with nothing to do with the screen behind it. Reported in
-      // exactly those terms: cut it back to conform to the shape of the windshield.
-      //
-      // Both edges are the same curve now, `apW` apart: the forward one IS the wrap's outboard
-      // edge, and the aft one is the same profile a pillar's width behind it. Bottom on the
-      // beltline, top on the roofline, parallel all the way — so the pillar reads as the thing
-      // finishing the screen rather than as a shape of its own.
-      // ⚠ AND IT LEANS WITH THE SCREEN. Its foot is at the wrap's own foot station and its head at
-      // the wrap's own head station, which are now different — so the member takes the corner's
-      // rake for free rather than carrying an angle of its own. Pinned to one station top and
-      // bottom it stood dead upright against a screen raked at forty-nine degrees, which reads as a
-      // post somebody bolted on afterwards.
+      // On the wrap's outboard edge, constant width, foot and head following the screen's rake.
       const fb0 = fw + 0.006, fb1 = fw - apW;         // foot, and a pillar's width aft of it
       const ft0 = fwT + 0.006, ft1 = fwT - apW;       // head, the same two, further aft
       const s0 = sillAt(fw), s1 = sillAt(fb1);
@@ -4118,29 +2666,13 @@ function buildBoat(id = 'hydro', detail = 1) {
       const t1 = [ft1, s * hw(ft1, 1) * 1.04, hz(ft1, 1)];
       const sh = s < 0 ? 0.82 : 0.68;
       strip([[b0, b1, t1, t0]], sh, cen);                                   // the outboard face
-      // and its inboard return, so the blade has thickness edge-on — the same rule the shell's
-      // pillars follow: a pillar with no depth vanishes at the one angle it is doing anything.
+      // Inboard return so the blade has thickness edge-on.
       const inb = (p) => [p[0], p[1] - s * apW * 0.5, p[2]];
       strip([[inb(b0), inb(b1), inb(t1), inb(t0)]], sh - 0.22, cen);
       strip([[b0, inb(b0), inb(t0), t0]], sh + 0.14, cen);
     }
 
-    // ── THE COWL ─────────────────────────────────────────────────────────────
-    //
-    // A raised fairing running forward off the foot of the screen and dying into the foredeck.
-    //
-    // ⚠ WITHOUT IT THE HOUSE BEGINS AT A HARD LINE. The screen rakes up out of flat deck, so from
-    // anywhere forward of the beam the pilothouse reads as a windscreen propped on a plank — a
-    // separate object standing on the boat rather than part of it. Every fast hull has something
-    // here, because the same structure that carries the screen has to go somewhere, and what it
-    // does is spread forward and sink into the deck. It is also the piece that makes the front
-    // three-quarter view angular rather than blunt: the flanks are steep, the crest falls fast, and
-    // the whole thing narrows on its way to the bow.
-    //
-    // ⚠ IT RIDES THE SHEER RATHER THAN A HEIGHT. The deck RISES going forward on this hull (`bowZ`
-    // against `deckZ`), so a fairing authored as a fixed z would be proud of the deck at the screen
-    // and buried in it a third of the way along. `atF(f).sz` is the deck under each station and the
-    // rise is measured from there, which is what makes it die out cleanly instead of submerging.
+    // ── The cowl ── A fairing off the screen's foot into the foredeck, riding the sheer (the deck rises forward).
     if ((S.cowlL ?? 0) > 0.01) {
       const cL = S.cowlL, cR = S.cowlRise ?? 0.020, NC = 4;
       const cap = [], flank = [];
@@ -4155,72 +2687,49 @@ function buildBoat(id = 'hydro', detail = 1) {
           flank.push([[fa, s * wa, za], [fb, s * wb, zb], [fb, s * wb, atF(fb).sz], [fa, s * wa, atF(fa).sz]]);
         }
       }
-      // ⚠ THE CULLING CENTRE GOES INSIDE THE FAIRING, not at a face's own centroid — the crest
-      // faces up and the flanks face out, and only a reference between them calls all three
-      // outward. Same rule the hull panels follow with their centreline.
+      // Culling centre inside the fairing.
       const ccen = [hF1 + cL * 0.4, 0, atF(hF1).sz + cR * 0.4];
       strip(cap, 0.98, ccen);
       strip(flank, 0.74, ccen);
     }
 
-    // ── THE BACK, AND THE DOOR OUT OF IT ─────────────────────────────────────
-    // ⚠ SOLID, AND IT IS THE ONE FACE THAT IS. The helm is entered from the aft deck, so this is the
-    // wall the door is in — drawn as a RECESS rather than as a flat panel in a different shade,
-    // because at any distance a shade change reads as dirt and a step reads as a door.
+    // ── The back wall and door ── A recess, not a shade change.
     {
       const wb = hw(hF0, 0), wt = hw(hF0, 1);
       const zb = hz(hF0, 0), zt = hz(hF0, 1);
-      // ⚠ THE SAME DOOR THE INTERIOR CUTS IN THE SAME WALL — `G.door`, not two numbers that happen
-      // to match today. Looking through it from the aft deck and looking at it from the helm are
-      // the same opening or the boat has two back walls.
+      // ⚠ The same door the interior cuts (`G.door`).
       const dW = G.door.halfW, dH = G.door.topT;
       const at = (x, t) => [hF0, x * (t ? wt / wb : 1), zb + (zt - zb) * t];
       face([at(-wb, 0), at(-dW, 0), at(-dW, 1), at(-wb, 1)], 0.50, cen, 'body', HOUSE);
       face([at(dW, 0), at(wb, 0), at(wb, 1), at(dW, 1)], 0.50, cen, 'body', HOUSE);
       face([at(-dW, dH), at(dW, dH), at(dW, 1), at(-dW, 1)], 0.50, cen, 'body', HOUSE);
-      // The door, set INTO the opening from inside so the jamb has depth. ⚠ DOWN TO THE SOLE when
-      // the well opens straight onto the house: the well's forward bulkhead leaves the doorway open
-      // below the deck line, and a door that stopped at the deck was a hatch over a hole.
+      // Set in from inside. ⚠ Down to the sole when the well opens onto the house.
       const dz0 = Math.abs(cpF1 - hF0) < 1e-6 ? G.soleZ : zb;
       box(hF0 + 0.004, hF0 + 0.020, dW * 0.94, dz0, zb + (zt - zb) * dH, 'body', HOUSE);
       if (rich(0.5)) box(hF0 + 0.000, hF0 + 0.006, dW * 0.14, zb + (zt - zb) * 0.42,
         zb + (zt - zb) * 0.54, 'body', CHROME, dW * 0.58);
     }
 
-    // ── THE HARDTOP ──────────────────────────────────────────────────────────
-    // ⚠ CROWNED AND TAPERED, and it OVERHANGS. Built as spanwise segments so the edge is a curve;
-    // one quad would be the flat lid this pass exists to remove.
+    // ── The hardtop ── Crowned, tapered, overhanging; spanwise segments so the edge curves.
     {
       const NR = 4;
-      // The overhang, the crown, the sweep and the two plan functions — shared, because the
-      // headlining inside is the underside of this same panel.
+      // Shared with the headlining inside.
       const { crownH, over, THK, rf0, rf1, rw, rz, cr } = G.roof;
-      // ⚠ THE LEADING EDGE IS SWEPT, WHICH IS THE SHAPE THE WHOLE TOP IS READ BY. Square across, a
-      // hardtop is a tray; swept back at the tips it is a wing, and that is the one line in the
-      // reference photograph you would recognise the boat from at a distance. The centreline
-      // reaches furthest forward and the corners trail it.
+      // The swept leading edge: the centreline reaches furthest forward.
       const { frontAt } = G.roof;
       const p = (f, u, dz = 0) => [f, u * rw(f), rz(f) + cr(u) + dz];
       const pf = (u, dz = 0) => p(frontAt(u), u, dz);    // a point ON the swept leading edge
-      // ⚠ ONE SURFACE ACROSS THE WHOLE LENGTH, and the underside is the SAME quad dropped by its
-      // thickness. The first cut split it into two fore-aft bands and built the underside out of
-      // mismatched corners — `u0` on one edge and `u1` on the other — so every panel was twisted and
-      // the roof read as a crumpled tent rather than as an arched top. A skin and its lining are the
-      // same shape; if they are not, one of them is wrong.
-      // ⚠ THE WHOLE TOP IS ONE PART, and the lining is another — see the note on the sides. Emitted
-      // per segment the crown became a corrugated ridge, because six independently sorted panels on
-      // a curved surface cannot be relied on to stay in order.
+      // One surface, and the lining is the same quad dropped by THK. One part each.
       const top = [], lining = [];
       for (let i = 0; i < NR; i++) {
         const u0 = -1 + 2 * (i / NR), u1 = -1 + 2 * ((i + 1) / NR);
-        // Triangles, for the reason on the sides: the top is bilinear in  and the crown.
         top.push([p(rf0, u0), pf(u0), pf(u1)], [p(rf0, u0), pf(u1), p(rf0, u1)]);
         lining.push([pf(u0, -THK), p(rf0, u0, -THK), p(rf0, u1, -THK)],
                     [pf(u0, -THK), p(rf0, u1, -THK), pf(u1, -THK)]);
       }
       strip(top, 0.98, cen, 'body', HOUSE);
       strip(lining, 0.38, cen, 'body', HOUSE);
-      // The rim, so the top has a real edge rather than being a sheet of paper.
+      // The rim.
       for (const s of [-1, 1]) {
         strip([[p(rf0, s), pf(s), pf(s, -THK), p(rf0, s, -THK)]], s < 0 ? 0.66 : 0.58, cen, 'body', HOUSE);
       }
@@ -4231,11 +2740,7 @@ function buildBoat(id = 'hydro', detail = 1) {
       }
       // A light bar let into the leading edge.
       if (rich(0.5)) box(rf1 - 0.026, rf1 - 0.004, rw(rF) * 0.56, rz(rF) + 0.004, rz(rF) + 0.014, 'body', ACCENT);
-      // ── THE STRUTS ─────────────────────────────────────────────────────────
-      // ⚠ THE TOP IS CARRIED AT THE BACK, WITH DAYLIGHT UNDER IT. This is the part that stops the
-      // house being one solid lump: the aft end of the hardtop stands on legs rather than growing
-      // out of the bulkhead, so there is a gap you can see the sky through. The struts rake, because
-      // a vertical post is the same "box" read the tumblehome above exists to break.
+      // ── Struts ── The hardtop stands on raked legs at the back, with daylight under it.
       const sw2 = hw(hF0, 1) * 0.92;
       for (const s of [-1, 1]) {
         tube([hF0 + 0.010, s * sw2, hz(hF0, 0.52)], [hF0 - over * 0.6, s * sw2 * 1.02, rz(hF0)], 0.011, 'body', null, 5);
@@ -4245,17 +2750,12 @@ function buildBoat(id = 'hydro', detail = 1) {
   }
 
 
-  // ── THE MAST ───────────────────────────────────────────────────────────────
-  // A short raked mast on the aft end of the hardtop: a radome, a whip antenna either side, and the
-  // white lights a boat under way shows — the masthead looking forward and the stern light looking
-  // aft. It is the one thing that breaks the hardtop's silhouette, which is what a top with nothing
-  // on it lacks: from the beam it was a lid.
+  // ── The mast ── Radome, whips, masthead and stern lights.
   if ((S.mast ?? 0) > 0) {
     const { rf0, crownH } = G.roof;
     const fb = rf0 + (G.rF - rf0) * 0.22, zb = G.roof.rz(fb) + crownH;
     const top = [fb - 0.030, 0, zb + 0.072];
     tube([fb, 0, zb - 0.002], top, 0.0055, 'body', HOUSE, 6);
-    // The radome: a squat white drum on the mast, the thing a radar mast is recognised by.
     tube([fb - 0.014, 0, zb + 0.030], [fb - 0.016, 0, zb + 0.044], 0.024, 'body', [222, 226, 228], 10);
     box(top[0] - 0.006, top[0] + 0.006, 0.005, top[2], top[2] + 0.008, 'body', WHITE_LENS);
     if (fine) for (const s of [-1, 1]) tube([fb - 0.004, s * G.roof.rw(fb) * 0.62, zb], [fb - 0.020, s * G.roof.rw(fb) * 0.66, zb + 0.110], 0.0018, 'body', DARK, 4);
@@ -4263,18 +2763,9 @@ function buildBoat(id = 'hydro', detail = 1) {
     META.lamps.push({ at: [top[0] - 0.007, 0, top[2] + 0.004], n: [-1, 0, 0.25], rgb: '255,250,236' });
   }
 
-  // ⚠ THE ARCH IS GONE, AND THAT IS THE HARDTOP REPLACING IT RATHER THAN A DELETION. An arch and a
-  // hardtop are two answers to the same question — what stands above the sheer — and a boat with
-  // both has a roof with a frame over it. The light bar that lived on the arch is on the hardtop's
-  // leading edge now, which is where it is in the photograph.
 
-  // ── THE OUTBOARDS ──────────────────────────────────────────────────────────
-  // A bank of them on the transom, which is what a modern one of these has instead of a blower
-  // standing out of the deck. ⚠ THE COUNT IS AUTHORED and it is the loudest thing about the boat:
-  // four is a statement, and it is the detail every one of these photographs is really about.
-  // ── A PROPELLER ────────────────────────────────────────────────────────────
-  // A hub and its blades, in the plane across the shaft. The blades are emitted twice, once facing
-  // each way, because a blade is a sheet and the culler would otherwise show it from astern only.
+  // ── Outboards ── The count is authored.
+  // ── A propeller ── Blades emitted both ways because a blade is a sheet and the culler would hide one side.
   const prop = (f, g, z, r, n = 3) => {
     tube([f + 0.010, g, z], [f - 0.008, g, z], r * 0.26, 'body', POLISH, 6);
     if (!fine) return;
@@ -4289,22 +2780,14 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   };
   const TS = STATIONS[STATIONS.length - 1];      // the transom's own station (no steps in the topside)
-  // The swim platform: a shelf aft of the transom a hand above the water. It is where you board from
-  // a tender and where the drive and the tabs hang under, and without it a transom is a cliff.
+  // Swim platform.
   const PLAT = Math.max(0, S.platform ?? 0);
   const platZ = TS.cz + 0.030;
 
   const mot = Math.max(0, Math.round(S.motors ?? 4));
   if (mot > 0) {
     const t = TS;
-    // ⚠ SIZED AGAINST THE HULL, NOT AGAINST A GUESS. The first cut gave each cowl a half-width of
-    // 0.034 and a height of 0.114 — TALLER THAN THE SHEER IS HIGH — so four of them read as a wall
-    // of black slabs bolted to the back of the boat rather than as engines on it. A bank of
-    // outboards is tight, low and tucked against the transom; it is the loudest detail on the boat
-    // and it is still a detail.
-    // ⚠ ON A BRACKET WHEN THERE IS A PLATFORM. Hung off the transom they stood up through the shelf;
-    // a real boat with a platform carries her outboards on a bracket aft of it, which is also what
-    // pushes the props back into clean water.
+    // ⚠ Sized against the hull (low and tight to the transom). With a platform they sit on a bracket aft of it.
     const off = PLAT > 0 ? PLAT + 0.014 : 0;
     const span = t.sw * 1.44, step = mot > 1 ? span / (mot - 1) : 0;
     if (off) box(t.f - off - 0.004, t.f + 0.002, span / 2 + 0.026, t.cz - 0.006, t.cz + 0.018, 'body', DARK);
@@ -4312,8 +2795,6 @@ function buildBoat(id = 'hydro', detail = 1) {
       const g = mot > 1 ? -span / 2 + i * step : 0;
       const f0 = t.f - 0.088 - off, f1 = t.f + 0.006 - off;
       box(f0, f1, 0.021, t.cz + 0.004, t.cz + 0.050, 'body', DARK, g);                  // the lower cowl
-      // The top cowl, a shade off the lower and a size smaller, so the motor has a waist and a lid
-      // rather than being one black brick.
       box(f0 + 0.004, f1 - 0.003, 0.019, t.cz + 0.050, t.cz + 0.074, 'body', [50, 54, 62], g);
       box(f0 + 0.022, f1 - 0.014, 0.010, t.cz - 0.034, t.cz + 0.008, 'body', null, g);  // the leg
       if (fine) {
@@ -4327,16 +2808,13 @@ function buildBoat(id = 'hydro', detail = 1) {
   if (PLAT > 0) {
     const w = TS.sw * 0.90;
     box(TS.f - PLAT, TS.f + 0.004, w, platZ - 0.010, platZ, 'deck', null);
-    // A boarding ladder folded under the starboard side of it, and the grab rail that goes with it.
+    // Boarding ladder and grab rail.
     if (fine) {
       for (const dz of [0.000, -0.010, -0.020]) box(TS.f - PLAT + 0.006, TS.f - PLAT + 0.030, 0.004, platZ - 0.014 + dz, platZ - 0.012 + dz, 'body', CHROME, w * 0.62);
       tube([TS.f - 0.004, w * 0.70, platZ + 0.002], [TS.f - 0.004, w * 0.70, TS.sz + 0.016], 0.0035, 'body', CHROME, 5);
     }
   }
-  // ── THE DRIVE ──────────────────────────────────────────────────────────────
-  // A surface drive out of the transom for an inboard: the leg runs straight aft under the
-  // platform with the prop half out of the water at speed, which is the rooster tail. The trim ram
-  // over it is the visible half of what `[` and `]` do.
+  // ── The drive ── A surface drive with a trim ram (what `[` and `]` do).
   if ((S.drives ?? 0) > 0 && (S.v8 ?? 1) !== 0) {
     const t = TR, z = t.k + 0.026, tip = TS.f - Math.max(PLAT, 0.04) - 0.050;
     tube([TS.f + 0.006, 0, z + 0.004], [tip, 0, z], 0.010, 'body', DARK, 6);
@@ -4344,9 +2822,7 @@ function buildBoat(id = 'hydro', detail = 1) {
     if (fine) tube([TS.f - 0.002, 0, TS.cz + 0.012], [tip + 0.030, 0, z + 0.010], 0.004, 'body', POLISH, 5);
     prop(tip - 0.004, 0, z, 0.026, 4);
   }
-  // ── THE TABS ───────────────────────────────────────────────────────────────
-  // Two plates at the foot of the transom, one each side, with their rams. A boat that trims on
-  // tabs and shows none is a boat whose trim is a number.
+  // ── Trim tabs ──
   if ((S.tabs ?? 0) > 0 && fine) {
     for (const s of [-1, 1]) {
       const g = s * TS.cw * 0.62;
@@ -4355,11 +2831,7 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   }
 
-  // ── THE CAT'S STERN ────────────────────────────────────────────────────────
-  // Two inboards, one in each sponson under its own hatch, each breathing through a scoop at the
-  // front of the hatch and exhausting through the transom, each driving its own prop with a
-  // rudder beside it — and a wing on two fins over the whole thing, which on a boat that flies off
-  // the top of every swell is there to hold the bow down.
+  // ── The cat's stern ── Two inboards under hatches with scoops, transom exhausts, props, rudders, and a wing.
   const twin = Math.max(0, Math.round(S.twin ?? 0));
   if (twin > 0 && G.CAT) {
     const t = TR;
@@ -4376,12 +2848,11 @@ function buildBoat(id = 'hydro', detail = 1) {
           box(fz, fz + 0.008, hwid * 0.6, zt + 0.002, zt + 0.004, 'body', DARK, g);
         }
       }
-      // The scoop: a forward-facing intake standing off the front of the hatch, with a dark mouth.
       box(hf1 - 0.062, hf1 - 0.004, hwid * 0.52, zt, zt + 0.026, 'body', null, g);
       face([[hf1 - 0.003, g - hwid * 0.44, zt + 0.004], [hf1 - 0.003, g + hwid * 0.44, zt + 0.004],
             [hf1 - 0.003, g + hwid * 0.44, zt + 0.022], [hf1 - 0.003, g - hwid * 0.44, zt + 0.022]],
         0.20, [hf1 - 0.03, g, zt + 0.013], 'body', DARK);
-      // The exhaust, out through the transom above the sponson's bottom: two chromed tips each.
+      // Exhaust: two chromed tips per sponson, published as ports.
       for (const k of [-1, 1]) {
         const ge = s * (t.kg + k * 0.022), ze = t.iz + 0.020;
         const base = [t.f + 0.024, ge, ze], tip = [t.f - 0.020, ge, ze + 0.004];
@@ -4389,11 +2860,9 @@ function buildBoat(id = 'hydro', detail = 1) {
         const d = [tip[0] - base[0], tip[1] - base[1], tip[2] - base[2]], m = Math.hypot(...d) || 1;
         META.ports.push({ p: tip, d: [d[0] / m, d[1] / m, d[2] / m], side: s, bore: 0.010 });
       }
-      // The drive and its prop, under the sponson's keel line.
       const zd = t.k + 0.018, gd = s * t.kg, tipF = t.f - 0.075;
       tube([t.f + 0.006, gd, zd + 0.004], [tipF, gd, zd], 0.008, 'body', DARK, 6);
       prop(tipF - 0.004, gd, zd, 0.024, 4);
-      // The rudder, outboard of the drive: a raked blade, both faces.
       if ((S.rudders ?? 0) > 0) {
         const gr = s * (t.kg + (t.cw - t.kg) * 0.55);
         const blade = [[t.f - 0.010, gr, t.cz + 0.012], [t.f - 0.050, gr, t.cz + 0.010],
@@ -4403,8 +2872,7 @@ function buildBoat(id = 'hydro', detail = 1) {
         if (fine) tube([t.f + 0.004, gr, t.cz + 0.016], [t.f - 0.020, gr, t.cz + 0.016], 0.004, 'body', POLISH, 5);
       }
     }
-    // The wing. ⚠ A WEDGE, NOT A SLAB: thick at the leading edge and closing to a trailing edge, so
-    // from the side it reads as an aerofoil rather than as a plank on two posts.
+    // The wing: a wedge, so it reads as an aerofoil.
     if ((S.wing ?? 0) > 0) {
       const wf1 = -0.86 * LEN, wf0 = -0.955 * LEN;
       const ws = atF(wf0).sw * 0.86, wz = atF(wf0).sz + 0.074;
@@ -4416,21 +2884,19 @@ function buildBoat(id = 'hydro', detail = 1) {
       }
       const le = wf1, te = wf0, th = 0.008;
       const wcen = [(le + te) / 2, 0, wz];
-      // Carbon, never the livery: the wing is a bolt-on aerofoil and reads as one against any paint.
+      // Carbon, never the livery.
       strip([[[le, -ws, wz + th * 0.5], [le, ws, wz + th * 0.5], [te, ws, wz + 0.002], [te, -ws, wz + 0.002]]], 1.00, wcen, 'body', DARK);   // the top
       strip([[[te, -ws, wz], [te, ws, wz], [le, ws, wz - th * 0.5], [le, -ws, wz - th * 0.5]]], 0.40, wcen, 'body', DARK);                // the underside
       face([[le, -ws, wz - th * 0.5], [le, ws, wz - th * 0.5], [le, ws, wz + th * 0.5], [le, -ws, wz + th * 0.5]], 0.84, wcen, 'body', DARK);
       for (const s of [-1, 1]) face([[le, s * ws, wz - th * 0.5], [te, s * ws, wz], [te, s * ws, wz + 0.002], [le, s * ws, wz + th * 0.5]], 0.60, wcen, 'body', DARK);
       if (rich(0.5)) box(le - 0.010, le + 0.001, ws * 0.96, wz + th * 0.5 - 0.0015, wz + th * 0.5 + 0.0005, 'body', ACCENT);
-      // The stern light rides the wing, on the centreline, looking aft.
+      // Stern light on the wing.
       box(te - 0.002, te + 0.008, 0.006, wz + 0.002, wz + 0.008, 'body', WHITE_LENS);
       META.lamps.push({ at: [te - 0.003, 0, wz + 0.005], n: [-1, 0, 0.15], rgb: '255,250,236' });
     }
   }
 
-  // ── THE BENCH ──────────────────────────────────────────────────────────────
-  // A bench across the aft end of an open well: cream vinyl, a squab and a back against the aft
-  // bulkhead. It is what makes the well read as somewhere people sit rather than as a pit.
+  // ── The bench ── Cream vinyl across the aft well.
   if ((S.seatsAft ?? 0) > 0) {
     const a = atF(cpF0 + 0.05);
     const w = a.sw * 0.74, z0 = G.soleZ;
@@ -4439,10 +2905,7 @@ function buildBoat(id = 'hydro', detail = 1) {
     if (fine) box(cpF0 + 0.020, cpF0 + 0.078, w * 0.98, z0 + 0.032, z0 + 0.034, 'body', [196, 190, 174]);   // the welt
   }
 
-  // ── THE RUB RAIL ───────────────────────────────────────────────────────────
-  // A rubber rail proud of the sheer with a chrome insert along its crown — the hard edge every
-  // boat that comes alongside anything has, and the line that makes the sheer read as an edge
-  // against a deck of the same colour.
+  // ── The rub rail ── With a chrome insert on rich trims.
   if (fine) {
     const rail = [], insert = [];
     for (let i = 1; i < STATIONS.length; i++) {
@@ -4459,10 +2922,7 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   }
 
-  // ── THE SIDELIGHTS ─────────────────────────────────────────────────────────
-  // Red to port and green to starboard, let into the topside forward, each a lens the renderer
-  // lights through `meshLamps` (see the ⚠ on META). Aimed forward of the beam, which is the arc a
-  // sidelight shows.
+  // ── Sidelights ── Red port, green starboard, lit through meshLamps, aimed forward of the beam.
   {
     const fS = LEN * 0.58, a = atF(fS);
     for (const s of [-1, 1]) {
@@ -4472,28 +2932,18 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   }
 
-  // ── WHAT IS ON THE FOREDECK ────────────────────────────────────────────────
-  //
-  // ⚠ A LONG BLANK DECK IS THE OTHER HALF OF "BLOCKY". Half this boat's plan is foredeck and it was
-  // one unbroken sheet of colour — which reads as an unfinished surface however good the sheer line
-  // round it is. Three things break it, and all three are things the real boat has rather than
-  // decoration: a flush hatch, a crease running forward from the house, and the fittings at the stem.
+  // ── The foredeck ── A hatch, a knuckle crease and stem fittings break up the blank deck.
   {
-    // ⚠ READ FROM THE ROW, NOT FROM THE PILOTHOUSE BLOCK. `HOUSE` and the house's own stations are
-    // scoped inside it, and reaching for them here is how a foredeck ends up depending on the order
-    // two blocks happen to run in.
+    // ⚠ Read from the row: HOUSE and the house stations are scoped to the pilothouse block.
     const HOUSE_TONE = [26, 28, 33];
     const hF0Ref = S.houseF0 ?? -0.54;
     const dk = (f) => atF(f).sz + crown * 0.6;
-    // The hatch. Flush, dark, and set on the centreline where the anchor locker actually is.
     const h0 = (S.hatchF ?? 0.62), h1 = h0 + (S.hatchL ?? 0.20);
     const hwid = atF((h0 + h1) / 2).sw * 0.34;
     face([[h1, -hwid, dk(h1) + 0.002], [h1, hwid, dk(h1) + 0.002],
           [h0, hwid, dk(h0) + 0.002], [h0, -hwid, dk(h0) + 0.002]],
       0.72, [(h0 + h1) / 2, 0, dk(h0)], 'body', HOUSE_TONE);
-    // ⚠ THE CREASE IS A SHALLOW KNUCKLE, NOT A PAINTED LINE. A stripe on a flat deck is a sticker;
-    // a knuckle catches the light on one side and not the other, which is what gives a deck a
-    // direction. It runs from the house forward and dies out before the stem.
+    // A shallow knuckle catches light on one side, which a painted line can't.
     const kA = hF0Ref, kB = LEN * 0.88;
     const KN = 3;
     for (const s of [-1, 1]) {
@@ -4506,7 +2956,7 @@ function buildBoat(id = 'hydro', detail = 1) {
       }
       strip(quads, s < 0 ? 1.06 : 0.90, [(kA + kB) / 2, 0, dk(kA)], 'deck');
     }
-    // The stem fittings: a cleat each side and a bow eye, which is where your eye goes on a bow.
+    // Cleats and bow eye.
     if (rich(0.5)) {
       for (const s of [-1, 1]) box(LEN * 0.80, LEN * 0.845, atF(LEN * 0.82).sw * 0.16,
         dk(LEN * 0.82), dk(LEN * 0.82) + 0.010, 'body', CHROME, s * atF(LEN * 0.82).sw * 0.52);
@@ -4514,65 +2964,36 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   }
 
-  // ── THE MOTOR ──────────────────────────────────────────────────────────────
-  //
-  // A blown V8 standing open in the aft well: block, blower case, injector hat and zoomie headers
-  // out of both flanks. The hat clears the sheer, which is the whole point of it — an engine you
-  // cannot see from outside the boat is an engine that may as well be a number in a file.
-  //
-  // ⚠ IT LIVES IN THE WELL, WHICH IS WHY THE WELL IS THERE. An open deck behind an enclosed helm is
-  // otherwise a hole with nothing in it; this is what it is a hole FOR, and it is why the house
-  // moved forward rather than the well simply being deleted when the cockpit was enclosed.
-  //
-  // ⚠ AND IT IS EXCLUSIVE WITH THE OUTBOARDS BY AUTHORING, NOT BY CODE. A hull carrying an exposed
-  // blown inboard AND a bank of transom outboards has two complete propulsion systems, which is not
-  // a boat anybody builds — but which of the two a given hull has is a property of that hull, so
-  // both are params and the row picks. Set `motors` and clear `v8` for the outboard version back.
+  // ── The motor ── A blown V8 open in the aft well, its hat clearing the sheer.
+  // Exclusive with the outboards by authoring: set `motors` and clear `v8` for the outboard version.
   if ((S.v8 ?? 1) !== 0) {
     const t = STATIONS[STATIONS.length - 1];
     const eF1 = S.v8F ?? -0.60, eF0 = eF1 - (S.v8L ?? 0.22);
-    // ⚠ ON STRINGERS, NOT ON THE SOLE. Sitting the block on the well floor put the hat barely a
-    // gunwale clear of the deck, so from the beam you saw a glint of chrome and nothing else — which
-    // is an engine you have to be told is there. A real one is bedded on rails well up in the bilge.
+    // On stringers, raised off the sole so it shows from the beam.
     const sole = G.soleZ + (S.v8Rise ?? 0.022);
     const hw = atF((eF0 + eF1) / 2).sw * 0.46;
     const blk = sole + (S.v8H ?? 0.072);
     box(eF0, eF1, hw, sole, blk, 'body', BLOCK);                              // the block
-    // The engine rails it is bedded on, and a polished valve cover along the top of each bank —
-    // the two bright lines either side of the blower that say "V8" before you have counted pipes.
+    // Engine rails and polished valve covers.
     if (fine) {
       for (const s of [-1, 1]) {
         box(eF0 - 0.030, eF1 + 0.020, 0.008, G.soleZ, sole + 0.004, 'body', DARK, s * hw * 0.80);
         box(eF0 + 0.010, eF1 - 0.010, hw * 0.20, blk - 0.006, blk + 0.010, 'body', POLISH, s * hw * 0.70);
       }
-      // The blower drive on the nose of the motor: a pulley on the crank, one on the case, and the
-      // toothed belt between them, standing proud of the front of the block.
+      // Blower drive: pulleys and belt.
       tube([eF1, 0, sole + 0.020], [eF1 + 0.012, 0, sole + 0.020], 0.014, 'body', POLISH, 8);
       tube([eF1, 0, blk + 0.018], [eF1 + 0.012, 0, blk + 0.018], 0.011, 'body', POLISH, 8);
       box(eF1 + 0.002, eF1 + 0.010, 0.010, sole + 0.010, blk + 0.026, 'body', RUBBER);
     }
     const caseTop = blk + 0.030;
     box(eF0 + 0.020, eF1 - 0.020, hw * 0.82, blk, caseTop, 'body', POLISH);    // the blower case
-    // The injector hat — forward-facing, so it is a scoop rather than a lid.
     face([[eF1 - 0.020, -hw * 0.66, caseTop + 0.034], [eF1 - 0.020, hw * 0.66, caseTop + 0.034],
           [eF0 + 0.034, hw * 0.72, caseTop], [eF0 + 0.034, -hw * 0.72, caseTop]],
       1.00, [(eF0 + eF1) / 2, 0, caseTop], 'body', POLISH);
     box(eF1 - 0.030, eF1 - 0.020, hw * 0.66, caseTop, caseTop + 0.034, 'body', POLISH);
     if (rich(0.6)) tube([eF1 - 0.014, 0, caseTop + 0.018], [eF1 + 0.040, 0, caseTop + 0.012], 0.010, 'body', POLISH, 6);
-    // Zoomies. ⚠ A REAL COUNT — the number of pipes a side is the number of cylinders a side, and
-    // it is the loudest single thing about a motor like this.
-    //
-    // ⚠ AND THE MOUTH OF EACH ONE IS PUBLISHED, NEVER RE-DERIVED. What comes OUT of a zoomie is
-    // drawn by windshield.js, which has no access to `S`, `atF` or the station table — so a painter
-    // wanting the flame at the pipe would have to rebuild this expression from the row, and the two
-    // copies would then be free to disagree. That is the bug `TRUCK_META.pin` exists to stop, in
-    // the same words: a guessed offset hangs the fire in mid-air. The port carries its own
-    // direction as well as its position, because a zoomie points up and out and the flame follows
-    // the pipe rather than the boat.
-    //
-    // ⚠ AT BOTH DETAIL LEVELS, THOUGH THE TUBES ARE FINE-ONLY. Fire is a LIGHT, and a light is
-    // legible a long way past the range at which this hull stops drawing its plumbing — so a
-    // coarse contact still shows the motor lit even though the pipes themselves have gone.
+    // Zoomies: the count per side is the cylinders per side. ⚠ Each mouth and direction is published as a port
+    // (windshield.js draws the flame from it, never re-derives it), at both detail levels because fire is a light.
     const zoom = Math.max(0, Math.round(S.zoom ?? 4));
     for (const s of [-1, 1]) for (let i = 0; i < zoom; i++) {
       const u = zoom === 1 ? 0.5 : i / (zoom - 1);
@@ -4586,8 +3007,7 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   }
 
-  // ── THE STRIPE ─────────────────────────────────────────────────────────────
-  // A boot stripe just under the sheer, which is the other line these boats are known for.
+  // ── Boot stripe ──
   if (rich(0.5)) {
     for (let i = 0; i < STATIONS.length - 1; i++) {
       const a = STATIONS[i], b = STATIONS[i + 1];
@@ -4602,73 +3022,35 @@ function buildBoat(id = 'hydro', detail = 1) {
   }
   return faces;
 }
-// `variant` is `<typeId>` or `<typeId>+t` for a rig with a trailer on the back. BOBTAIL IS A REAL
-// SILHOUETTE and has to look like one — a tractor with nothing behind it is short, stubby and
-// obviously unloaded, which is most of what makes running empty feel different from the outside.
-// `detail` is the SAME LOD channel the airframes use, and the truck has to honour it for the same
-// reason they do: the yard draws one rig the size of the screen and wants every rib on it, while
-// the road draws a contact a few pixels wide that would pay for all of them anyway. `fine` is off
-// at detail 0 (distant contacts) and the silhouette — cab, box, wheels, glass — is untouched.
+// `variant` is `<typeId>[+t]` (trailer); `~p` parked, `~s` solo trailer, `^...` fittings.
+// `fine` (detail 1) adds detail; the silhouette is the same at detail 0.
 function buildTruck(variant = 'hauler', detail = 1) {
   const str = String(variant);
-  // PARKED IS A REAL POSE, not a dimmer switch. A truck that holds itself up on light is holding
-  // itself up on something you can switch off — so a shut-down rig settles onto its lifters and
-  // sits on the ground, and the emitter bands and the road-glow under them go out. Standing next
-  // to one that was still hovering with the engine cold was the tell that the hover was decoration.
+  // Parked: the rig settles onto its lifters and the emitters go out.
   const parked = str.includes('~p');
-  // SOLO — the box on its own legs, no tractor. What a dropped trailer standing in a yard looks
-  // like, and it is built by building the whole rig and then throwing the tractor away (see the
-  // splice below the trailer block). That is deliberately not the same as writing a second mesh:
-  // a trailer drawn by its own function is a trailer that drifts from the one you tow, and the two
-  // are the same object seen five minutes apart.
+  // Solo: a dropped trailer, built as the whole rig with the tractor spliced off so it can't drift from the towed one.
   const solo = str.includes('~s');
-  // ⚠ THE FITTING SUFFIX IS STRIPPED BEFORE THE TYPE IS READ. `^` can follow either the type or
-  // the trailer marker, so a lazy split would hand `hauler+t^rp.lb` a tail of 't^rp.lb' and every
-  // fitted rig would silently render bobtail.
+  // ⚠ Strip the fitting suffix before reading the type, or every fitted rig renders bobtail.
   const [typeId, tail] = str.replace(/[~^].*$/, '').split('+');
   const S = truckShape(typeId) || truckShape('hauler');
   const hitched = tail === 't' || solo;   // solo IS a trailer: the box gets built, the tractor is spliced off after
   const fine = detail >= 1;
-  // "Was there enough money on this truck for that?" — see the note on TRUCK_SHAPES.trim. Reads as
-  // a sentence at every callsite (rich(0.7) = a well-kept rig and up), which is the point: a bare
-  // number comparison in forty places is where a ladder quietly stops being one.
+  // Trim ladder: rich(n) asks whether money went on this truck.
   const TRIM = S.trim ?? 0.5;
   const rich = (n) => fine && TRIM >= n;
   const faces = [];
   const podAt = [];                        // filled by pod(); published through TRUCK_META below
   let partSeq = 0;                         // see the ⚠ in `box` — one id per convex sub-object
   const V = (f, g, h) => [f, g, h];
-  // A box between two fore stations, as six quads. `sh` is the baked flat shade: top brightest,
-  // sides mid, underside dark — the same top-lit convention the airframe skins use.
-  // `gc` is the LATERAL CENTRE — without it every box straddles the centreline and the six wheels
-  // all pile up inside the chassis instead of sitting under it, one row a side.
+  // A box as six quads with baked top-lit shades. `gc` is its lateral centre.
   const box = (f0, f1, w, z0, z1, role = 'body', tint = null, gc = 0) => {
     const gl = gc - w, gr = gc + w;
     const A = [V(f0, gl, z0), V(f0, gr, z0), V(f0, gr, z1), V(f0, gl, z1)];
     const B = [V(f1, gl, z0), V(f1, gr, z0), V(f1, gr, z1), V(f1, gl, z1)];
-    // ── ⚠ EVERY BOX IS ONE PART, AND THE RENDERER SORTS PARTS RATHER THAN FACES ──
-    // A truck is a pile of small convex boxes bolted onto bigger ones, and painter's algorithm
-    // cannot resolve that per-face: a grille bar's mean depth and the panel it is screwed to differ
-    // by millimetres, so orbiting the camera makes the two cross and re-cross several times a
-    // second and every crossing swaps which is painted last. That is the flashing.
-    // A `part` id is the thing that fixes it, and it can only be assigned HERE, where the geometry
-    // is emitted and it is known which six quads are one object. Faces are cached and shared across
-    // every frame and every contact (`aircraftFaces`), so this costs one integer at build time and
-    // nothing at all per frame.
+    // ⚠ Every box is one part, assigned here at emission; the renderer sorts parts (see sortTruckFaces).
     const part = ++partSeq;
-    // ── ⚠ AND THE BOX'S OWN CENTRE RIDES WITH EVERY FACE ───────────────────────
-    // `cen` is what makes a face TWO-SIDED-AWARE, and it can only be known here for the same reason
-    // `part` can: this is the one place that knows which six quads bound one convex solid.
-    // Two passes downstream need it, and BOTH were previously reaching for the model origin instead,
-    // which is the wrong point for anything that is not the chassis:
-    //   • BACKFACE CULLING — a box's far three faces are always hidden by its own near three, so
-    //     painting them is not merely wasted, it is the thing that makes order errors VISIBLE. Half
-    //     the faces in the mesh are interior surfaces that can only ever show through a mistake.
-    //   • THE SUN NORMAL — the outward direction of a grille bar's face is outward FROM THE GRILLE
-    //     BAR. Measured from the truck's centre instead, every box forward of the axle got its
-    //     normal flipped the wrong way and was lit as if the sun were behind it.
-    // A box is convex, so "away from `cen`" is exactly "outward" — no winding convention to keep,
-    // and nothing to get backwards when a model is authored back-to-front.
+    // ⚠ And each face carries its box's centre `cen`, for backface culling and the sun normal. Measured from the
+    // model origin instead, boxes forward of the axle were lit backwards. A box is convex, so away from `cen` is outward.
     const cen = [(f0 + f1) / 2, gc, (z0 + z1) / 2];
     const quad = (p, sh) => { const q = { role, sh, p, part, cen }; if (tint) { q.tint = tint; const k = PK(tint); if (k) q.pk = k; } faces.push(q); };
     quad([A[3], A[2], B[2], B[3]], 1.00);                    // roof
@@ -4678,11 +3060,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
     quad([B[0], B[3], B[2], B[1]], 0.80);                    // front face
     quad([A[0], A[1], A[2], A[3]], 0.55);                    // back face
   };
-  // A free polygon, for every surface a box cannot be: the raked screen, the roof fairing's wedge,
-  // the chin spoiler. `uv`/`art` ride through to drawCanopyGlass, which is how the windscreen gets
-  // a real painted sheet (wipers, dash glow, a driver behind it) instead of a flat blue rectangle.
-  // A free polygon is its own part — one face, so it can never disagree with itself, and the id is
-  // what keeps it in the same ordering scheme as everything around it.
+  // A free polygon (screen, fairing wedge, chin spoiler), its own part. `uv`/`art` feed drawCanopyGlass.
   const poly = (role, sh, pts, tint = null, uv = null, art = null) => {
     const q = { role, sh, p: pts.map(p => V(p[0], p[1], p[2])), part: ++partSeq };
     if (tint) { q.tint = tint; const k = PK(tint); if (k) q.pk = k; }
@@ -4690,40 +3068,16 @@ function buildTruck(variant = 'hauler', detail = 1) {
     faces.push(q);
   };
   const UV_FULL = [[0, 1], [1, 1], [1, 0], [0, 0]];
-  // ── The lifters ────────────────────────────────────────────────────────────
-  // NOT WHEELS. A rig in this century rides on hover pods, and the first cut drew them as a dark
-  // box with a hub plate on it — which is a wheel with the roundness sanded off, so the whole
-  // fleet read as 20th-century semis somebody had forgotten to finish. Three things sell a lifter
-  // and it needs all three: it is CHAMFERED (a wide housing over a drawn-in shroud, never a
-  // brick), it is LIT LOW (an emitter band around its skirt, and a bloom on the road beneath it),
-  // and it HANGS OFF AN ARM with daylight above it — a machine holding itself up, not resting on
-  // something. `len` stretches a pod fore-aft, which is why the drive groups no longer draw a
-  // doubled pair: dual rims are an artefact of a tyre's contact patch and this has none.
-  // The emitter band's own colour. Pushed off teal and up toward a hot blue-white so the band reads
-  // as the SOURCE of the wash on the road under it rather than as a differently-coloured stripe
-  // near it — the two are drawn by different passes (this is mesh, the pool is the lamp layer) and
-  // the one thing that makes them one object is agreeing about what colour the light is.
+  // ── The lifters ── Hover pods, not wheels: chamfered housing, a lit emitter band, hung off an arm.
+  // `len` stretches a pod fore-aft. GLOW matches the road wash the lamp layer paints.
   const GLOW = [128, 226, 255];
   const CHROME = [226, 232, 240];        // bright plate — `window` role so it takes the specular pass
-  // ── AND THE TWO COLOURS THE BOOTH CAN NOW SELL ─────────────────────────────
-  // A truck wears a lot of white brightwork and a strip of running light, and until now neither
-  // could be painted: they were these arrays, and a paint job that turned a rig black left a white
-  // spear down its flank. `PK` is what makes them reachable — a facet carrying one of these exact
-  // arrays is stamped with a PAINT KEY, and `faceBaseRgb` looks the colour up on the palette with
-  // the array itself as the fallback. Two consequences worth stating:
-  //   · IT IS BY IDENTITY, NOT BY VALUE. `tint === CHROME` is the same array, not a colour that
-  //     happens to match — so a lamp lens that lands on the same rgb is never mistaken for chrome,
-  //     and a new chrome part is paintable the moment it is drawn in CHROME, with no list here.
-  //   · THE STRIP IS `ACCENT`, THE EMITTER IS NOT. Only the beltline strip and the roof scanner
-  //     take `glow`; the lifter bands keep this hot blue-white, because they are the propulsion
-  //     showing and the road wash under them is painted from the same fact. See ACCENT below.
+  // CHROME and ACCENT are paint-keyed by identity (PK), so the booth can recolour brightwork and the running
+  // light. The lifter emitter keeps GLOW: it's propulsion, and the road wash shares its colour.
   const ACCENT = [96, 196, 214];         // the decorative running light — beltline strip, roof scanner
   const PK = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : null);
   const HOVER = 0.014;                   // the ride height a running lifter holds, and a parked one gives up
-  // The housing's lateral half-width. A named constant rather than a literal in the box below it
-  // because it is PUBLISHED now: a lifter's footprint is what marks the snow, and the mark has to
-  // be the width of the thing that made it rather than a second number somebody chose. See
-  // `trackGauge` in windshield.js.
+  // Lifter half-width, published for the snow tracks (`trackGauge` in windshield.js).
   const PW = 0.024;
   const pod = (f, g, r = 0.048, len = 1, deck = false) => {
     const s = Math.sign(g || 1), L = r * len;
@@ -4733,58 +3087,35 @@ function buildTruck(variant = 'hauler', detail = 1) {
     box(f - L, f + L, PW, z0 + r * 0.34, z1, 'gear', null, g);                                  // housing
     box(f - L * 0.88, f + L * 0.88, 0.018, z0, z0 + r * 0.36, 'gear', null, g);                 // shroud, drawn in under it
     if (!fine) return;
-    // A chrome hubcap band round the housing — the atomic-age wheel-trim read, and the thing that
-    // stops a lifter looking like a black brick with a light on it when the light is OFF.
+    // Chrome hubcap band.
     box(f - L * 0.86, f + L * 0.86, 0.0255, z0 + r * 0.72, z0 + r * 0.92, 'window', CHROME, g);
     if (!parked) box(f - L * 0.80, f + L * 0.80, 0.025, z0 + r * 0.26, z0 + r * 0.38, 'window', GLOW, g);   // the emitter band
     box(f - L * 0.62, f + L * 0.62, 0.026, z0 + r * 0.50, z0 + r * 0.64, 'strut', null, g);     // intake louvre on the flank
-    // ⚠ NO GROUND PATCH HERE, and for exactly the reason the frame-rail underglow was deleted
-    // (see the ⚠ further down): a lit patch of road under a pod was a BOX, and a box takes the
-    // shading pass and has edges, so from any camera above the beltline the four of them read as
-    // flat teal pads bolted to the tarmac — the rig looked like it was standing on paving slabs.
-    // The light under a lifter belongs at the lamp layer with the rest of the light: `vehicleLamps`
-    // now returns a per-pod `podGlow` station and windshield.js pools them onto the road.
+    // ⚠ No ground patch here: geometry under a pod reads as a slab on the road. Light goes through `podGlow` in vehicleLamps.
   };
-  // ── Retro-future ornament ──────────────────────────────────────────────────
-  // A chrome bullet: three shrinking boxes on an axis, which at this scale reads as a turned cone.
-  // The single most atomic-age shape there is, and it does the grille centre, the bumper dagmars
-  // and the aerial tips between them.
+  // ── Retro-future ornament ── A chrome bullet: three shrinking boxes.
   const bullet = (f0, len, g, r, z) => {
     for (let i = 0; i < 3; i++) {
       const t0 = f0 + (len * i) / 3, k = 1 - i * 0.3;
       box(t0, t0 + len / 3, r * k, z - r * k, z + r * k, 'window', CHROME, g);
     }
   };
-  // A fin: a raked triangular blade off a body corner, tipped with a lens. The 1950s answer to
-  // every question about the back of a vehicle, and the reason a rig reads as *futuristic-retro*
-  // rather than merely futuristic.
+  // A raked fin with a lens.
   const fin = (f0, f1, g, z0, z1, lens) => {
     poly('body', 0.94, [[f0, g, z0], [f1, g, z0], [f1, g, z0 + (z1 - z0) * 0.25], [f0, g, z1]]);
     if (lens) box(f0 + 0.004, f0 + 0.016, 0.006, z1 - 0.020, z1 - 0.006, 'window', lens, g);
   };
 
-  // The tractor is laid out BACKWARDS from the nose, so every proportion is relative and a bigger
-  // truck grows forward and upward from one anchor rather than needing four hand-placed boxes.
+  // Laid out backwards from the nose, so a bigger truck grows from one anchor.
   const nose1 = 0.40, nose0 = nose1 - S.nose;              // bonnet
   const cab1 = nose0, cab0 = cab1 - S.cab;                 // cab box
   const frame0 = cab0 - frameBack(S);                      // frame rails behind the cab — see frameBack
   const deckTop = 0.115;
 
-  // ── Chassis ────────────────────────────────────────────────────────────────
-  // TWO RAILS, NOT ONE SLAB. A truck's frame is a pair of C-sections you can see daylight between,
-  // and the gap is most of what makes the underside read as a chassis carrying a body rather than
-  // as a solid billet with wheels stuck to it.
+  // ── Chassis ── Two rails with daylight between.
   for (const g of [-1, 1]) box(frame0 - 0.01, cab1 - 0.02, 0.016, 0.028, 0.072, 'strut', null, g * S.w * 0.62);
   box(frame0, cab0 + 0.02, S.w * 0.80, 0.050, 0.070, 'body');                 // deck plate over the rails
-  // The fifth wheel: the greased steel plate the kingpin drops into. Visible on a bobtail, and the
-  // single detail that says this tractor is MISSING something rather than simply being short.
-  //
-  // ⚠ IT HAS TO REACH UNDER THE BOX, which is a fact about the two together rather than about the
-  // plate. A tractor and a trailer that merely touch end to end are two vehicles in a queue; a
-  // SEMI is one vehicle because the front of the box is carried ON this plate, with the tractor's
-  // back axles underneath it. The plate was 0.07 long and stopped 0.02 short of the box, so there
-  // was daylight between them from every angle — and nothing for an articulated draw to pivot
-  // about, because the pivot is the middle of this plate and the box was nowhere near it.
+  // Fifth wheel. ⚠ It reaches under the box: the articulation pivots on this plate's middle.
   const PIN_F0 = frame0 - 0.01, PIN_F1 = frame0 + 0.13;
   box(PIN_F0, PIN_F1, S.w * 0.62, 0.070, 0.082, 'strut');
 
@@ -4792,65 +3123,42 @@ function buildTruck(variant = 'hauler', detail = 1) {
   box(cab0, cab1, S.w, 0.02, S.hi, 'body');                // cab
   if (S.sleeper) {
     box(cab0 + 0.005, cab1 - 0.055, S.w * 0.95, S.hi, S.hi + S.sleeper, 'body');
-    // A porthole in the bunk, one a side. Nobody needs it and every sleeper cab has one.
     for (const g of [-1, 1]) box(cab0 + 0.045, cab0 + 0.075, 0.003, S.hi + 0.012, S.hi + S.sleeper - 0.008, 'glass', [44, 66, 84], g * S.w * 0.95);
   }
-  // THE SCREEN IS A RAKED PLANE, not a thin upright box. The top edge stands further FORWARD than
-  // the bottom, which is the whole difference between a truck and a shoebox at any distance you can
-  // see one from — and being a genuine quad it takes a UV, so the sheet painted in CANOPY_ART
-  // ('truckcab': wipers, a dash glow, a driver's shoulders) maps across it properly.
+  // The screen is a raked quad with a UV ('truckcab' canopy art).
   const scrLo = S.hi * 0.52, scrHi = S.hi * 0.985;
   const scrF0 = nose0 - 0.004, scrF1 = nose0 + 0.038;       // bottom station, top station
   const scrW = S.w * 0.94;
   poly('glass', 0.92, [[scrF0, -scrW, scrLo], [scrF0, scrW, scrLo], [scrF1, scrW, scrHi], [scrF1, -scrW, scrHi]],
     [58, 84, 104], UV_FULL, 'truckcab');
-  // A-pillars down each side of it, and the header rail across the top — dark structure against
-  // bright glass is what makes a windscreen look set into something.
   for (const g of [-1, 1]) poly('strut', 0.78, [[scrF0, g * scrW, scrLo], [scrF0, g * S.w, scrLo], [scrF1, g * S.w, scrHi], [scrF1, g * scrW, scrHi]]);
-  // ⚠ THE SCREEN LEANS OUT PAST THE CAB, AND SOMETHING HAS TO CLOSE THE WEDGE BEHIND IT. The rake
-  // is the whole reason the truck does not read as a shoebox — the top edge stands 0.038 FORWARD of
-  // the cab's own front face — but that means the glass and the cab meet nowhere except at the
-  // bottom, and above the crossing there was simply nothing there. From any camera looking down at
-  // the roofline you saw daylight between the top of the windscreen and the front of the cab, which
-  // is a hole in the model rather than a sort or a cull problem: no face was ever emitted for it.
-  //
-  // Three quads close it exactly, and every number is derived from the screen's own stations so a
-  // wider or taller rig closes its own wedge with nothing to re-tune. `scrT` is where the raked
-  // plane crosses the cab's front face, which is the lowest point the wedge exists at.
-  // They carry no `cen`, so they are two-sided sheets and the cull never touches them — correct
-  // here, because the underside of a header is visible from inside the cab.
+  // ⚠ The raked screen leans past the cab, so three quads close the wedge behind it. No `cen`: two-sided sheets.
   const scrT = (cab1 - scrF0) / (scrF1 - scrF0), scrZc = scrLo + (scrHi - scrLo) * scrT;
   poly('body', 0.90, [[scrF1, -S.w, scrHi], [scrF1, S.w, scrHi], [cab1, S.w, S.hi], [cab1, -S.w, S.hi]]);   // the header roof, glass top back to the roof lip
   for (const g of [-1, 1]) poly('body', 0.70, [[scrF1, g * S.w, scrHi], [cab1, g * S.w, S.hi], [cab1, g * S.w, scrZc]]);   // and the gusset that shuts each end of it
-  // The sun visor, cantilevered forward off the header. Half of a truck's face is this shadow.
+  // Sun visor.
   poly('body', 0.96, [[scrF1, -S.w, scrHi], [scrF1, S.w, scrHi], [scrF1 + 0.030, S.w * 0.94, scrHi + 0.004], [scrF1 + 0.030, -S.w * 0.94, scrHi + 0.004]]);
-  // Marker lamps in a row along the visor's leading edge. Five of them, `window` role so they take
-  // the glass path and read as LIT after dark rather than as five more grey squares.
+  // Marker lamps, `window` role so they read lit after dark.
   if (fine && S.lamps > 0.2) {
     for (let i = -2; i <= 2; i++) {
       box(scrF1 + 0.022, scrF1 + 0.030, 0.008, scrHi + 0.001, scrHi + 0.009, 'window', [236, 176, 96], i * S.w * 0.34);
     }
   }
-  // Side glass: door window plus a quarter light forward of it, split by the door frame. Two panes
-  // rather than one long slot is the flank read that says CAB.
+  // Side glass: door window plus quarter light.
   for (const g of [-1, 1]) {
     box(cab1 - 0.105, cab1 - 0.048, 0.004, S.hi * 0.54, S.hi * 0.88, 'glass', [50, 74, 92], g * S.w);
     box(cab1 - 0.040, cab1 - 0.014, 0.004, S.hi * 0.54, S.hi * 0.84, 'glass', [46, 68, 86], g * S.w);
     if (!fine) continue;
     box(cab1 - 0.048, cab1 - 0.040, 0.006, S.hi * 0.50, S.hi * 0.90, 'strut', null, g * S.w);   // the B-post between them
-    // Grab handle and the step boxes under the door — the way a driver actually gets up there.
+    // Grab handle and steps.
     box(cab1 - 0.048, cab1 - 0.042, 0.005, S.hi * 0.16, S.hi * 0.48, 'strut', null, g * (S.w + 0.006));
     box(cab1 - 0.100, cab1 - 0.030, 0.014, 0.030, 0.044, 'strut', null, g * (S.w * 0.92));
   }
-  // THE BELTLINE STRIP. One thin lit line down each flank at the base of the glass — the only
-  // openly futuristic thing on the truck, and it does the whole job: everything else here is a
-  // 20th-century semi, and one strip of running light drags the date forward without arguing.
+  // Beltline running-light strip.
   if (fine && S.lamps > 0.5) {
     for (const g of [-1, 1]) box(cab0 + 0.02, cab1 - 0.02, 0.003, S.hi * 0.47, S.hi * 0.505, 'window', ACCENT, g * S.w);
   }
-  // ── Roof fairing ───────────────────────────────────────────────────────────
-  // The wind kit: a wedge off the back of the roof that closes the gap to the box. It is what makes
-  // a modern long-hauler look like one animal instead of a cab towing a wall.
+  // ── Roof fairing ──
   if (S.aero > 0.05) {
     const rTop = S.hi + S.sleeper, fh = rTop + 0.030 * S.aero;
     poly('body', 1.00, [[cab0 - 0.055 * S.aero, -S.w * 0.92, fh], [cab0 - 0.055 * S.aero, S.w * 0.92, fh],
@@ -4858,148 +3166,78 @@ function buildTruck(variant = 'hauler', detail = 1) {
     const aeroBack = cab0 - 0.055 * S.aero, aeroLow = 0.02 + rTop * 0.4;
     for (const g of [-1, 1]) poly('body', 0.66, [[aeroBack, g * S.w * 0.92, fh], [cab1 - 0.06, g * S.w * 0.9, rTop],
                         [cab1 - 0.06, g * S.w * 0.9, rTop - 0.02], [aeroBack, g * S.w * 0.92, aeroLow]]);
-    // ⚠ AND THE BACK OF IT IS CLOSED. The wind kit was a lid and two cheeks and nothing else, so it
-    // was a box with one whole side missing — an opening a third of a metre across and a quarter of
-    // one deep, facing the trailer. From any camera above and behind the cab you looked straight
-    // into the hollow, and what you saw through it was the inside of the far cheek and then the
-    // road, which reads as the truck having a hole in it because it does.
-    //
-    // On a real rig this face is the bulkhead the fairing bolts to, and it is the one part of the
-    // kit you can actually see from a following vehicle. It spans the two cheeks' own back edges
-    // exactly — same two stations, same two heights — so it cannot leave a seam of its own, and it
-    // takes the darkest shade here because it is the surface that never sees the sun.
+    // ⚠ The fairing's back is closed, or you see into the hollow from behind the cab.
     poly('body', 0.52, [[aeroBack, -S.w * 0.92, fh], [aeroBack, S.w * 0.92, fh],
                         [aeroBack, S.w * 0.92, aeroLow], [aeroBack, -S.w * 0.92, aeroLow]]);
-    // A sensor pod on the crown — the road-scanner. Small, and the second and last future tell.
+    // Road-scanner pod.
     box(cab1 - 0.10, cab1 - 0.07, 0.016, rTop, rTop + 0.012, 'strut');
     box(cab1 - 0.095, cab1 - 0.078, 0.010, rTop + 0.012, rTop + 0.018, 'window', ACCENT);
   }
   // ── Nose ───────────────────────────────────────────────────────────────────
   if (S.nose > 0.001) {
     box(nose0, nose1 - 0.012, S.w * 0.93, 0.045, 0.135, 'body');    // bonnet
-    // The bonnet's top is CHAMFERED down toward the grille — a flat lid reads as a crate.
+    // Chamfered bonnet top.
     poly('body', 1.00, [[nose0, -S.w * 0.93, 0.135], [nose0, S.w * 0.93, 0.135],
                         [nose1 - 0.012, S.w * 0.88, 0.126], [nose1 - 0.012, -S.w * 0.88, 0.126]]);
     box(nose1 - 0.014, nose1, S.w * 0.84, 0.050, 0.124, 'strut');   // the grille surround
-    // VERTICAL FINS, not horizontal slats. A stack of horizontal bars is a 1990s truck; a comb of
-    // upright chrome teeth with a bullet in the middle of it is a 1957 idea of what a truck in
-    // 2100 would look like, which is the brief.
-    //
-    // AND THEY STAND AHEAD OF THE SURROUND, which is the third time this exact mistake has been
-    // made on this exact face. The fins used to start at nose1 − 0.002 and the surround's front
-    // face is AT nose1 — so the panel behind them cut through the middle of their fore-aft slice.
-    // Every face gets ONE depth in the painter's sort, so under any yaw the surround lands between
-    // the near fins and the far ones and is drawn over the far half: a full comb of teeth from one
-    // side of the truck and a blank recess from the other. It is the same failure as the headlamps
-    // below, which is why it gets the same written rule rather than a nudged number —
-    //   NOTHING ON THE FACE MAY SHARE A FORE-AFT SLICE WITH THE PANEL BEHIND IT.
-    // The fin bottom also clears BUMP_TOP for the same reason it does on a lamp.
+    // Vertical chrome teeth. ⚠ Nothing on the face may share a fore-aft slice with the panel behind it: the
+    // painter's sort gives each face one depth, so the panel lands among them.
     for (let i = -3; fine && i <= 3; i++) {
       box(nose1 + 0.001, nose1 + 0.006, 0.006, 0.060, 0.118, 'window', CHROME, i * S.w * 0.20);
     }
     if (fine) bullet(nose1 + 0.001, 0.030, 0, 0.030, 0.090);        // the nose cone in the grille's mouth, ahead of it for the same reason
   }
-  // A cab-over has no bonnet, so its face is the screen and the wall under it — and that wall is
-  // the whole front of the two cheapest trucks, seen head-on every time one is stood in a depot.
-  // It had a radiator panel and three vent bars, and NEITHER of them was visible:
-  //   • the bars began at nose1 + 0.004, which is the panel's own front plane — the exact thing the
-  //     written rule on the bonneted grille forbids (NOTHING ON THE FACE MAY SHARE A FORE-AFT SLICE
-  //     WITH THE PANEL BEHIND IT). One depth per face in the painter's sort, so the panel lands
-  //     among them and paints over them.
-  //   • and all four pieces were role 'strut', so even where they did survive it was dark grey on
-  //     dark grey. A grille is a grille because it CATCHES LIGHT.
-  // So the cab-over gets the same face the bonneted trucks get, at its own scale: a recessed
-  // radiator, a comb of upright chrome teeth standing clear of it, and a bullet in the mouth.
+  // Cab-over face: recessed radiator, chrome surround and teeth standing clear of it (same rule), and a bullet.
   if (S.nose <= 0.001) {
     const gz0 = 0.070, gz1 = scrLo - 0.012;             // the aperture, floor to the screen's sill
     box(nose1 - 0.002, nose1 + 0.004, S.w * 0.80, gz0, gz1, 'strut');            // the recess, dark and behind everything
-    // The surround: a chrome frame round the hole, which is what turns a dark rectangle into an
-    // opening. Two uprights and a lintel, all ahead of the recess by the rule above.
     if (fine) {
       for (const g of [-1, 1]) box(nose1 + 0.005, nose1 + 0.010, 0.007, gz0, gz1, 'window', CHROME, g * S.w * 0.80);
       box(nose1 + 0.005, nose1 + 0.010, S.w * 0.81, gz1 - 0.008, gz1, 'window', CHROME);
       box(nose1 + 0.005, nose1 + 0.010, S.w * 0.81, gz0, gz0 + 0.007, 'window', CHROME);
     }
-    // THE TEETH. Vertical, not horizontal, for the reason written on the bonneted grille: a stack
-    // of bars is a 1990s truck and a comb of upright chrome is a 1957 idea of a truck in 2100.
     for (let i = -3; fine && i <= 3; i++) {
       box(nose1 + 0.006, nose1 + 0.011, 0.006, gz0 + 0.008, gz1 - 0.009, 'window', CHROME, i * S.w * 0.19);
     }
-    // …and the bullet in the middle of it, standing furthest forward of the lot.
     if (fine) bullet(nose1 + 0.006, 0.026, 0, 0.026, (gz0 + gz1) / 2);
   }
-  // Bumper, wider than the cab, with a chin spoiler raked under it.
   box(nose1 - 0.006, nose1 + 0.012, S.w * 1.02, 0.030, 0.058, 'strut');
-  // The chin spoiler's lower lip sits ABOVE the ride height it will give up when parked — a
-  // settled truck must rest on its lifters, and a chin that reaches lower than they do puts the
-  // nose through the floor of the shed.
+  // The chin's lower lip sits above parked ride height, or the nose goes through the shed floor.
   poly('body', 0.5, [[nose1 + 0.012, -S.w, 0.030], [nose1 + 0.012, S.w, 0.030],
                      [nose1 - 0.010, S.w, 0.019], [nose1 - 0.010, -S.w, 0.019]]);
-  // HEADLAMPS. Twice now these have been eaten by something in front of them, so the rule they
-  // are placed by is written down rather than eyeballed: a lamp must clear the BUMPER in z and
-  // stand ahead of it in f, on every variant. The first cut put them inside the grille surround
-  // (the painter's sort showed one and ate the other). The second moved them outboard but kept a
-  // fixed height — which is clear of a bonneted truck's bumper and straight BEHIND a cab-over's,
-  // so the two cheapest rigs had no visible headlamps at all. `scripts/shapes/smoke.mjs` now
-  // renders all four and fails if either lens is painted over, because "I looked at it and it
-  // seemed fine" is exactly the check that let this through twice.
-  //
-  // The look is a stacked pair in a chromed pod — quad lamps under a hooded brow, which is the
-  // atomic-age face — rather than one pale square.
-  // ⚠ Shared with `vehicleLamps` — the renderer lights these lenses off the same numbers, so a
-  // headlamp that moves takes its glow with it.
+  // Headlamps: a stacked pair in a chromed pod. ⚠ A lens must clear the bumper in z and stand ahead of it in f on
+  // every variant; shapes:smoke checks all four. Positions are shared with vehicleLamps (truckLampGeom).
   const LG = truckLampGeom(S);
   const BUMP_TOP = LG.BUMP_TOP, BUMP_F = LG.BUMP_F;
   const lampG = LG.lampG, lampF = LG.lampF, lampZ = LG.lampZ;
   for (const g of [-1, 1]) {
     box(lampF - 0.016, lampF, 0.030, lampZ - 0.006, lampZ + 0.042, 'strut', null, g * lampG);           // the pod
-    // The brow overhangs the LENSES and starts at the pod's own front plane — it used to begin
-    // 0.016 behind it, so the pod face cut through the middle of the brow's slice and the same
-    // sort that ate half a grille was taking a bite out of one side's hood. Same rule as the fins.
+    // Brow starts at the pod's front plane (same rule as the teeth).
     box(lampF, lampF + 0.009, 0.032, lampZ + 0.040, lampZ + 0.048, 'window', CHROME, g * lampG); // its chrome brow
     box(lampF, lampF + 0.007, 0.026, lampZ + 0.020, lampZ + 0.038, 'window', [242, 234, 196], g * lampG); // upper lens
     box(lampF, lampF + 0.007, 0.026, lampZ, lampZ + 0.017, 'window', [238, 228, 182], g * lampG);        // lower lens
-    // ⚠ ACCENT, NOT GLOW — the last hardcoded colour on the front of this truck. This strip under
-    // the lenses is DECORATION, the same object as the beltline strip and the roof scanner, and it
-    // was drawn in the lifter's hot blue-white: so a rig painted white kept a blue bar across its
-    // nose that no field in the booth could reach. The rule this file already states is the one
-    // that decides it — the emitter bands are PROPULSION SHOWING and keep GLOW because the road
-    // wash under them is painted from the same fact; anything that is merely a running light takes
-    // the paint job's own `glow` colour, which is what ACCENT stamps (see PK).
+    // ⚠ ACCENT, not GLOW: this strip is decoration, so it takes the livery's `glow`.
     if (fine && S.lamps > 0.4) box(lampF + 0.002, lampF + 0.008, 0.028, lampZ - 0.008, lampZ - 0.002, 'window', ACCENT, g * lampG);
   }
-  // DAGMARS. Two chrome bullets standing off the bumper — the most 1955 object it is possible to
-  // bolt to a vehicle, and the reason the front of this thing now reads as a face.
-  // …on the trucks somebody bought them for. A scrapper's bumper is a length of channel iron.
+  // Dagmars, on trucks somebody paid for.
   if (rich(0.4)) for (const g of [-1, 1]) bullet(BUMP_F - 0.004, 0.026, g * S.w * 0.44, 0.013, 0.044);
-  // TOW HOOKS, which every truck has and no truck chose — the counterpart to the dagmars, and the
-  // reason the cheap rigs' bumpers are not left bare by the line above.
+  // Tow hooks, on every truck.
   if (fine) for (const g of [-1, 1]) {
     box(BUMP_F - 0.002, BUMP_F + 0.008, 0.010, 0.034, 0.040, 'strut', null, g * S.w * 0.62);
     box(BUMP_F + 0.006, BUMP_F + 0.010, 0.004, 0.030, 0.044, 'strut', null, g * S.w * 0.62);
   }
-  // The plate, low and off-centre the way one actually hangs.
-  // ⚠ NOT AN OFF-WHITE. A plate at [206,200,176] is within tolerance of the headlamp lens tints,
-  // and `truckLampSmoke` recognises a lens BY COLOUR (deliberately — it tests what reached the
-  // canvas). A cream plate therefore registered as a third, mostly-hidden lamp and failed the gate
-  // on every bonneted rig. Anything new on the front of this truck that is pale needs to be visibly
-  // a different colour from a headlamp, which is also true of it as a thing to look at.
+  // The plate. ⚠ Not an off-white: truckLampSmoke finds lenses by colour.
   if (fine) box(BUMP_F + 0.001, BUMP_F + 0.004, 0.024, 0.036, 0.052, 'window', [158, 168, 152], -S.w * 0.16);
-  // A bar of driving lights across the bumper on the rigs that wear one.
   if (fine && S.lamps > 0.7) {
     for (let i = -1; i <= 1; i++) box(nose1 + 0.006, nose1 + 0.013, 0.013, 0.030, 0.042, 'window', [220, 226, 236], i * S.w * 0.20);
   }
-  // ── Stacks, tanks, mirrors ─────────────────────────────────────────────────
-  // The pieces that are neither body nor wheel, and between them they do most of the work of
-  // "this is heavy machinery, not a van".
+  // ── Stacks, tanks, mirrors ──
   for (let i = 0; i < S.stacks; i++) {
     const g = (S.stacks === 1 ? 0 : (i ? 1 : -1)) * S.w * 0.94;
     const top = S.hi + S.sleeper + 0.062;
     box(cab0 - 0.013, cab0 + 0.013, 0.012, 0.055, top, 'strut', null, g);
     box(cab0 - 0.016, cab0 + 0.016, 0.015, 0.085, 0.135, 'strut', null, g);      // the perforated heat shield
-    // A FLARED CHROME MOUTH, not a rain cap — the stack finishes like a rocket nozzle, with three
-    // little fins round its base. It is the same silhouette from a mile off and an entirely
-    // different decade close up.
+    // A flared chrome mouth with three fins.
     box(cab0 - 0.018, cab0 + 0.018, 0.017, top - 0.014, top, 'window', CHROME, g);
     if (fine) for (const s of [-1, 1]) {
       poly('strut', 0.7, [[cab0 + s * 0.013, g - 0.012, top - 0.052], [cab0 + s * 0.013, g + 0.012, top - 0.052],
@@ -5011,19 +3249,14 @@ function buildTruck(variant = 'hauler', detail = 1) {
     box(cab0 - 0.082, cab0 - 0.012, 0.023, 0.056, 0.064, 'strut', null, g * S.w * 0.88);      // its chrome strap
     if (S.skirt) box(frame0 + 0.02, cab0 - 0.085, 0.010, 0.032, 0.078, 'body', null, g * S.w * 0.9);   // side fairing
   }
-  // Mirrors on arms — a rig without them is the one detail that looks wrong without anybody being
-  // able to say why — and this pair has GLASS in them, angled back at the driver.
+  // Mirrors with glass.
   for (const g of [-1, 1]) {
     box(cab1 - 0.034, cab1 - 0.012, 0.005, S.hi * 0.54, S.hi * 0.90, 'strut', null, g * (S.w + 0.024));
     box(cab1 - 0.032, cab1 - 0.016, 0.002, S.hi * 0.58, S.hi * 0.86, 'glass', [70, 92, 108], g * (S.w + 0.028));
     box(cab1 - 0.030, cab1 - 0.024, 0.024, S.hi * 0.70, S.hi * 0.74, 'strut', null, g * (S.w + 0.012));   // the arm itself
   }
 
-  // AIR HORNS. A pair of chrome trumpets lying along the roof, and the loudest thing about a truck
-  // that isn't a sound. `bullet` is the wrong shape for these — it tapers to a POINT going forward,
-  // which is a nose cone; a horn does the opposite and opens into a bell, so it is three boxes of
-  // GROWING radius. They lie fore-aft rather than standing up, because a horn that stands up is a
-  // stack and the rig already has two of those.
+  // Air horns: three boxes of growing radius (a bell), lying fore-aft.
   if (fine && S.stacks > 0) {
     const hz = S.hi + S.sleeper + 0.010, hF = cab1 - 0.150;
     for (const g of [-1, 1]) {
@@ -5035,85 +3268,56 @@ function buildTruck(variant = 'hauler', detail = 1) {
       box(hF - 0.006, hF + 0.014, 0.005, hz - 0.014, hz - 0.004, 'strut', null, gg);   // the mount it sits in
     }
   }
-  // CAB STEPS. Two chromed rungs under the door, hung off the frame between the steering pod and
-  // the drive group. Every walkaround ends with CLIMB IN and there was nothing under the door to
-  // climb — which is a small thing until you are stood next to the machine at eye level, which is
-  // exactly where this panel now puts you.
+  // Cab steps.
   if (fine) {
     for (const g of [-1, 1]) {
       const gg = g * (S.w * 0.92);
       for (let i = 0; i < 2; i++) {
         const z = 0.030 + i * 0.026;
-        // Chromed on a truck that was bought new, bare steel on one that was not — the rungs are
-        // there either way, because getting in is not an optional extra.
+        // Chromed on a rich rig, bare steel otherwise.
         box(cab1 - 0.070, cab1 - 0.022, 0.014, z, z + 0.005, rich(0.7) ? 'window' : 'strut', rich(0.7) ? CHROME : null, gg);
         box(cab1 - 0.068, cab1 - 0.064, 0.003, z + 0.005, z + 0.028, 'strut', null, gg);   // the hanger up to the sill
       }
     }
   }
-  // Lifters. A steering pod under the nose, then one or two drive groups. A single-drive rig gets
-  // one LONG pod (which is what a light truck looks like when it has nothing to double up), a
-  // twin-drive gets two shorter ones spaced along the frame — the same "rated to pull" read the
-  // doubled rims used to carry, without pretending there are tyres involved.
+  // Lifters: a steering pod, then one long or two shorter drive pods.
   const gOut = S.w * 1.02, driveLen = S.axles > 1 ? 0.95 : 1.5;
   for (const g of [-gOut, gOut]) {
     pod(nose0 + 0.035, g, 0.046, 1.05);
     for (let a = 0; a < S.axles; a++) pod(frame0 + 0.055 + a * 0.105, g, 0.052, driveLen);
   }
-  // ── The chrome ─────────────────────────────────────────────────────────────
-  // A SPEAR DOWN THE FLANK, tail fins off the back of the cab, and a whip aerial. These three are
-  // the whole retro-future pass on the body: streamline-moderne brightwork, an atomic-age fin, and
-  // the aerial every car in that decade wore whether or not anything was receiving.
-  // ⚠ ALL OF THIS IS `rich`, NOT `fine`. It is the money on the truck, and a scrap hauler wearing
-  // a chrome spear and tail fins was the single loudest reason the four rigs read as one rig at
-  // four sizes. The scrapper now carries none of it and is the plainer for it — which is the whole
-  // job the cheapest vehicle in a fleet has to do.
+  // ── The chrome ── Spear, tail fins, whip aerial. ⚠ `rich`, not `fine`: it's the money on the truck.
   if (rich(0.4)) {
     for (const g of [-1, 1]) {
-      // The spear tapers as it runs aft — two segments, because a constant-width strip reads as
-      // masking tape and a tapered one reads as pressed metal.
+      // The spear tapers aft.
       box(cab1 - 0.020, cab0 + 0.010, 0.004, S.hi * 0.36, S.hi * 0.40, 'window', CHROME, g * (S.w + 0.002));
       box(cab0 + 0.010, frame0 + 0.02, 0.004, S.hi * 0.33, S.hi * 0.355, 'window', CHROME, g * (S.w * 0.92));
     }
   }
   if (rich(0.7)) {
     for (const g of [-1, 1]) {
-      // Fins off the back corners of the cab (or the sleeper, when there is one), with a tail lens
-      // in each — the taller the truck, the more fin it can carry.
       const fTop = S.hi + S.sleeper;
       fin(cab0 - 0.014, cab0 + 0.030, g * S.w * 0.99, fTop * 0.62, fTop * 0.62 + 0.052 + S.sleeper, [214, 74, 58]);
     }
-    // The whip, with a ball on the end of it. Off the near-side mirror arm, raked back.
     const aTop = S.hi + S.sleeper + 0.085;
     box(cab1 - 0.030, cab1 - 0.026, 0.003, S.hi * 0.9, aTop, 'strut', null, -(S.w + 0.020));
     bullet(cab1 - 0.032, 0.012, -(S.w + 0.020), 0.006, aTop);
   }
 
-  // ── THE HARDWARE EVERY TRUCK HAS ───────────────────────────────────────────
-  // The other half of the detail pass, and deliberately on `fine` rather than `rich`: none of it is
-  // an ornament. A scrapper has hinges and hoses and mudflaps for exactly the same reason the
-  // flagship does, so the cheap end of the fleet gains most of its new geometry HERE — which is
-  // what stops "plainer" turning into "unfinished" once the brightwork above is taken off it.
+  // ── Hardware every truck has ── On `fine`, not `rich`: hinges, hoses, mudflaps.
   if (fine) {
     for (const g of [-1, 1]) {
       const gw = g * S.w;
-      // THE DOOR, as a cut line rather than as a decal: a shut line down each edge, a hinge pair on
-      // the forward one and a handle on the aft. This is the biggest flat panel on the tractor and
-      // it had nothing on it at all.
+      // Door shut lines, hinges, handle.
       for (const f of [cab1 - 0.112, cab1 - 0.008]) box(f - 0.002, f + 0.002, 0.003, S.hi * 0.14, S.hi * 0.90, 'strut', null, gw + g * 0.001);
       for (const z of [S.hi * 0.28, S.hi * 0.74]) box(cab1 - 0.116, cab1 - 0.106, 0.004, z, z + 0.014, 'strut', null, gw + g * 0.003);   // hinges
       box(cab1 - 0.030, cab1 - 0.014, 0.004, S.hi * 0.44, S.hi * 0.48, 'strut', null, gw + g * 0.004);                                    // handle
-      // MUDFLAPS behind the drive group. A truck without them throws its own road up the box.
       const flapF = frame0 + 0.055 + (S.axles - 1) * 0.105 + 0.075;
-      // ⚠ ITS BOTTOM EDGE CLEARS THE LIFTERS. A parked rig settles by HOVER onto its pods, so
-      // anything hanging lower than the pod shroud goes through the floor of the shed when it sits
-      // down — the same rule the chin spoiler is placed by, and shapes:smoke fails on it.
+      // Mudflap. ⚠ Its bottom clears the lifters when parked (shapes:smoke checks).
       box(flapF, flapF + 0.004, 0.030, 0.018, 0.052, 'strut', null, g * (S.w * 1.02));
-      // Fuel filler, on top of the saddle tank where a hand can reach it off the step.
       box(cab0 - 0.040, cab0 - 0.030, 0.008, 0.088, 0.093, 'strut', null, g * S.w * 0.88);
     }
-    // WIPERS, parked across the bottom of the screen. Two arms on a raked plane, and the one piece
-    // of hardware that is impossible not to notice the absence of once the glass got a UV sheet.
+    // Wipers.
     for (const g of [-1, 1]) {
       const wg = g * S.w * 0.40;
       poly('strut', 0.62, [[scrF0 + 0.004, wg - 0.030, scrLo + 0.006], [scrF0 + 0.004, wg + 0.030, scrLo + 0.006],

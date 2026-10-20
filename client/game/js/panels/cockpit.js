@@ -1,16 +1,5 @@
-// COCKPIT — the flight instrument panel + the flight minigame decks.
-//
-// This is the showpiece surface of the game. While you're aboard, the top area
-// pane becomes a live, animated glass cockpit: a brushed-metal-and-glass panel
-// carrying an artificial horizon, an expanded heading-up RADAR, per-engine
-// temperature gauges (run these up before you roll), a compass that spins to your
-// heading, the real minimap, and digital dials — all eased every frame by a local
-// requestAnimationFrame loop, not just snapped on each server tick. Engine drone,
-// slipstream, and airframe creaks come from engine-audio.js.
-//
-// Deck (focused overlay, server-authoritative): openTargeting reports { won } → the
-// server resolve command decides the outcome. Takeoff and landing are NOT decks — they
-// are flown in the continuous cockpit below.
+// COCKPIT: the flight instrument panel, the continuous flight sim and the targeting deck.
+// openTargeting reports { won } and the server's resolve command decides the outcome.
 
 import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
@@ -25,29 +14,18 @@ import { drakeWaterFrame, judgeWaterTouchdown, seaRough, drakeFeetAnim, BOAT_MAX
 import { depthMAt } from './seabed-scene.js';
 import { loadCss } from '../../../shared/dom.js';
 
-// cockpit-fsim.css ships beside this file and is fetched when the module loads, so ensureFlightSimStyles
-// still applies it synchronously on first open. See loadCss in client/shared/dom.js.
+// Fetched at module load so ensureFlightSimStyles / ensureHudStyles can apply them synchronously.
 const FSIM_CSS = await loadCss(new URL('./cockpit-fsim.css', import.meta.url));
-
-// cockpit-hud.css ships beside this file and is fetched when the module loads, so ensureHudStyles
-// still applies it synchronously on first open. See loadCss in client/shared/dom.js.
 const HUD_CSS = await loadCss(new URL('./cockpit-hud.css', import.meta.url));
-// Metres of water the Drake needs under her to dive. The server's own figure is plugins/submersible/sub.js
-// MIN_WATER (3 m); the client only uses this to light the SUB gate green or red.
+// Mirrors MIN_WATER in plugins/submersible/sub.js; only lights the SUB gate.
 const SUB_MIN_WATER_M = 3;
 import { subCrossing, interiorHotspots, glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, yachtPadZ, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, panelControlRects, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, seaAmpsNow, hullSeaGains, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, VISIBLE_NEAR_F, VISIBLE_FAR_F, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { padCatchStep } from './pad-catch.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
-// Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
-// hook is never called and no context is asked for. It is imported HERE rather than from
-// windshield.js because that file is also loaded by the cold open and by the headless smoke suite,
-// neither of which has a GPU — this panel is the first place in the client that certainly does.
+// Installed here, not in windshield.js, because the cold open and the smoke suite load that file without a GPU.
 import { installGL, glCapabilities, glLastFrame } from './gl/install.js';
 installGL();
-// ⚠ ONE CALL THAT SAYS WHY. GLASS 2 switches ITSELF off on any failure and the frame after that
-// looks entirely normal, so "I turned it on and the view went" arrives with the console line long
-// scrolled away. `__glass2()` in the browser console reports what the machine can do, whether the
-// pass is installed, what the flag is, what the last frame drew, and what it last died of.
+// ⚠ GLASS 2 turns itself off silently on failure; __glass2() in the console reports why.
 if (typeof window !== 'undefined') {
   window.__glass2 = () => {
     let caps = null;
@@ -71,23 +49,16 @@ import { MOUSE_STICK, STICK_TUNE, STICK_HINT_ON, STICK_HINT_OFF, createMouseStic
 import { compactHidePanel, seatHidePanel } from '../../../shared/compact-view.js';
 import { DRAKE_WHEEL } from '../../../shared/interior-drake.js';
 
-// Touch-primary devices (phones/tablets) have no keyboard for rudder pedals, so their fin
-// auto-coordinates with the roll input; desktops (a fine pointer + keys) fly the rudder by hand
-// on the rudder pedals (,/. or X/C). Evaluated once — the input class doesn't change mid-session.
+// Touch devices have no rudder keys, so their fin auto-coordinates with roll.
 const _touchPrimary = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
-// Resting elevation ANGLE of the external chase camera's orbit arc (rad) — the behind-and-slightly-
-// above pose. Derived from the same chaseUp/chaseBack the renderer uses, so a ⟲ reset returns to the
-// exact default cam. The middle-drag orbit and the reset swing both work in this angle.
+// Resting elevation of the chase camera's orbit (rad), from the renderer's own chaseUp/chaseBack.
 const REST_PITCH = Math.asin(RENDER_TUNE.chaseUp / RENDER_TUNE.chaseBack);
 
-// Effective "speed of sound" (kt) for the orbit-cam engine doppler. Real sound is ~660 kt, which
-// bends the pitch far too hard at flight speeds; this softer constant keeps the chase-cam doppler a
-// gentle, chill wobble (clamped to ±~10% at the call site) rather than a jet-flyby shriek.
+// Doppler "speed of sound" (kt), twice the real figure so the orbit-cam shift stays gentle.
 const DOPPLER_C = 1300;
 
-// Theme accent for the canvas-drawn instruments (the CSS chrome uses var(--accent)
-// directly; canvas can't, so we sample it once when the cockpit opens).
+// Canvas can't read var(--accent), so it's sampled when the cockpit opens.
 let ACCENT = '#8fd0ff', ACCENT_RGB = [143, 208, 255];
 function refreshAccent() {
   try {
@@ -107,10 +78,7 @@ const HDG_GLYPH = { n: '▲', ne: '◥', e: '▶', se: '◢', s: '▼', sw: '◣
 // Shortest signed angular delta a→b (deg), range −180..180.
 function angDelta(a, b) { let d = (b - a) % 360; if (d > 180) d -= 360; if (d < -180) d += 360; return d; }
 
-// Per-class cockpit theme — accent colour + chrome character. The LAYOUT itself
-// is driven by capabilities (engines/hardpoints/cargo/VTOL/size); the theme sets
-// the palette + a few flourishes so a gunship panel reads military-red while a
-// heavy freighter reads industrial-amber and a wreck reads degraded.
+// Per-class palette and chrome. Layout comes from capabilities, not class.
 const CLASS_THEME = {
   ultralight: { acc: '#7fd6ff', chrome: 'minimal',   radar: 'sm' },
   grasshopper:{ acc: '#9ad46a', chrome: 'minimal',   radar: 'sm' },   // olive-drab liaison scout
@@ -119,16 +87,12 @@ const CLASS_THEME = {
   prop:       { acc: '#4fb8e0', chrome: 'analog',     radar: 'md' },
   heavy:      { acc: '#ffb23e', chrome: 'industrial', radar: 'lg' },
   gunship:    { acc: '#ff6b5b', chrome: 'military',    radar: 'lg' },
-  divebomber: { acc: '#ff5cb0', chrome: 'military',    radar: 'md' },   // dive bomber — accent matches the tile crosshair she aims with
+  divebomber: { acc: '#ff5cb0', chrome: 'military',    radar: 'md' },   // matches the tile crosshair she aims with
   wreck:      { acc: '#9bd06a', chrome: 'degraded',    radar: 'sm' },
 };
 const themeFor = (cls) => CLASS_THEME[cls] || CLASS_THEME.prop;
 
-// The cockpit's accent colour — normally just the class theme above — becomes a
-// blend of the craft's own paint-bay livery when one's on file: primary (base),
-// secondary (trim), and the cabin/upholstery colour, so a paint job actually reads
-// inside the cockpit chrome instead of only on the hangar model. Falls back to the
-// class theme accent if no livery is present.
+// Accent blended from the livery (base, trim, cabin), else the class accent.
 function liveryAccent(livery, fallbackHex) {
   const b = livery && hex2rgb(livery.base), t = livery && hex2rgb(livery.trim), c = livery && hex2rgb(livery.cabin);
   if (!b && !t && !c) return fallbackHex;
@@ -139,10 +103,7 @@ function liveryAccent(livery, fallbackHex) {
   return '#' + rgb.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
 }
 
-// The aircraft name printed on the yoke's name-plate is coloured by the craft's
-// EXTERIOR paint (base) — but a dark paint would vanish against the dark plate, so
-// we lift it toward white until it clears a brightness floor while keeping its hue.
-// Returns null when there's no paint on file (leave the airframe's themed accent).
+// Yoke name-plate ink: base paint lifted toward white until it reads on the dark plate. Null with no paint.
 function legibleInk(hex) {
   const rgb = hex2rgb(hex);
   if (!rgb) return null;
@@ -152,9 +113,7 @@ function legibleInk(hex) {
   return '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
 }
 const _hx = (rgb) => '#' + rgb.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
-// Multiply a colour's brightness (m<1 darker, m>1 lighter) — builds the panel's gradient stops.
 function shadeRgb(rgb, m) { return _hx(rgb.map(v => v * m)); }
-// Blend a colour toward `to` by t (0..1) — lifts the cabin colour to a legible panel edge.
 function mixRgb(rgb, to, t) { return _hx(rgb.map((v, i) => v + (to[i] - v) * t)); }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -167,70 +126,29 @@ let _anim = null;       // eased animation values
 let _raf = 0;
 let _sig = '';          // mounted layout signature (rebuild when capabilities change)
 let _lastT = 0;
-// Server-tick aircraft (charter autopilot, ordinary piloted flight) push a new
-// world position every couple of seconds rather than streaming it — without help
-// the world would visibly jump on every push. `_moveFrom` interpolates the
-// displayed position across the gap between the last two pushes (estimating the
-// gap's length from how far apart they actually landed) so it reads as continuous
-// travel, the same way heading/pitch/bank are already eased below.
+// Server-tick flight pushes position every few seconds; _moveFrom interpolates across the gap.
 let _moveFrom = null;   // { fx, fy, t, dur, toFx, toFy }
 let _lastPushT = 0;
-// The ground scene (airport/runway) and the airborne Mode-7 world are two entirely
-// different renderers; the server only tells us which one applies via a boolean
-// (`airborne`) that flips the instant the wheels leave/touch the strip. Cutting
-// straight to that boolean reads as a jump-cut mid-takeoff/landing. Instead we
-// ease a continuous "height" and only swap scenes once it's climbed clear of the
-// ground (or sunk back down to it) — so the swap lands during the climb-out/flare,
-// not the instant of liftoff/touchdown. `_lastGround`/`_lastMap`/`_lastBiome` cache
-// the last real values so the lingering scene has something to draw with during
-// the brief window where the server's payload has already moved on.
+// Last real values, so the scene can still draw once the payload has moved on.
 let _lastGround = null, _lastMap = null, _lastBiome = null, _lastRegions = null;
 
 // Passenger cabin choreography (bank/pitch/height ramp on climb-out and descent).
-// Vertical-motion tuning: CLIMB_SEC governs how long the climb/descent portion of
-// that choreography runs — bumped a couple of times per later requests to let the
-// nose-up/nose-down segment breathe instead of rushing past in a few seconds.
 const GROUND_LEAD = 3.5, CLIMB_SEC = 9, BANK_ANGLE = 25, CLIMB_PITCH = 6, CRUISE_HEIGHT = 0.35;
 
-// Passenger cabin look direction — Q/E hold-to-look forward (into the cockpit, past
-// the charter pilot at the yoke) / rear, mirroring the pilot's own Q/E/S scheme.
-// Release either key and the view drops back to the default side window.
+// Passenger look direction: hold Q (forward) or E (rear); release for the side window.
 let _paxView = 'side';       // 'side' | 'forward' | 'rear'
 let _paxKeyHandlers = null;  // [onKeyDown, onKeyUp] once bound, so we can unbind cleanly
-// One detached camera for the sim, module-scoped beside the rest of the flight state — see
-// freecam.js for why it lives in its own file rather than three times over.
 const freeCam = createFreeCam();
-// The chrome that goes with it. A BODY class, exactly as the external view, fullscreen and
-// hide-panel are done, because what it changes is which of the page's controls are on screen —
-// and because the flight sim's controls are scattered across five overlays out here rather than
-// gathered on one shelf the way the cab's are.
-//
-// ⚠ IT HIDES CONTROLS THE CAMERA HAS ALREADY TAKEN, WHICH IS A HOLD AND NOT A LOOK. Detaching
-// releases the throttle and pedal keys because the keyboard is about to belong to the camera, but
-// `bindFreeCamPointer` captures on `.fsim-view` alone — the yoke, the throttle lever and the
-// pedals are siblings of it, so a pointer could still fly an aeroplane the mode says is holding
-// its trim. They also sit across the bottom third of the frame, which is most of the shot.
-// ⚠ AND THE LAST OF IT GOES ON A TIMER. What survives the rule above is the corner buttons and
-// nothing else — one of them is the way back to the chase camera, so it cannot simply be hidden.
-// See bindFreeCamIdle: it fades after a couple of seconds untouched and returns on any input, so a
-// held frame is clean and a lost pilot is one mouse-move from the row.
+// Free-cam chrome is a body class. ⚠ It must hide the yoke, throttle and pedals: pointer capture covers
+// .fsim-view only, so they could still fly a held aircraft. The corner buttons fade via bindFreeCamIdle.
 let freeIdle = null;
 function setFreeCamChrome(on) { document.body.classList.toggle('fsim-freecam', !!on); freeIdle?.wake(); }
 
-// THE GLASS AS A CONTROL COLUMN — see mousestick.js. Module-scoped beside `freeCam` and for the
-// same reason: there is one sim, and a stick that outlived the panel would hand the next aircraft
-// a hidden cursor and a deflection nobody is holding. `K` takes it, ESC or `K` again gives it back.
-// ⚠ `read` IS WHAT STOPS ARMING FROM BEING A JUMP. The column picks up wherever the aircraft's
-// controls already are, so taking the mouse changes nothing until the mouse moves — a pilot
-// holding a turn on the pad presses K and goes on holding it. Without it, arming snaps both
-// surfaces to neutral, which is the one thing this control is not allowed to do.
+// Mouse as control column (mousestick.js); K arms, ESC or K releases.
+// ⚠ `read` starts the column at the current deflection; without it arming snaps both surfaces to neutral.
 const mouseStick = createMouseStick({ key: 'k', read: () => [_fsim?.input?.aileron || 0, _fsim?.input?.elevator || 0] });
 let stickUnbind = null;
-// ⚠ THE TOAST HANGS OFF THE STATE, NEVER OFF THE KEY. Four things let go of the glass — K, ESC,
-// the window losing focus, and the browser taking a granted lock back — and three of them are not
-// keypresses. Announced from the key handler, a pilot who alt-tabbed would come back to a stick
-// that had quietly stopped working with nothing on screen saying so. Subscribed once for the life
-// of the page rather than per panel open: `fsimToast` is a no-op while there is no sim.
+// ⚠ Toast on the arm state, never the key: focus loss and lock loss release it too.
 mouseStick.onArm((on) => fsimToast(on ? STICK_HINT_ON : STICK_HINT_OFF));
 
 function updatePaxViewTag() {
@@ -275,7 +193,6 @@ export function updateCockpit(state) {
   _target = state || {};
   updateEngineAudio(_target);
 
-  // Event-driven audio + creaks (compare to previous push).
   if (_prev) {
     if (_prev.bandIndex !== _target.bandIndex) creak('creak');
     if (Math.abs(angDelta(_prev.headingDeg || 0, _target.headingDeg || 0)) > 30) creak('creak');
@@ -290,7 +207,6 @@ export function updateCockpit(state) {
   if (_target.biomeBelow) _lastBiome = _target.biomeBelow;
   if (_target.regions) _lastRegions = _target.regions;   // spatial regions → windshield region atmosphere grade
 
-  // Rebuild the panel only when the aircraft's capability layout (or seat) changes.
   const sig = `${_target.seat}|${_target.class}|${_target.engines?.length || 1}|${(_target.hardpoints || 0) > 0}|${(_target.cargoCap || 0) > 0}|${!!_target.vtol}`;
   const root = document.getElementById('ck-hud-root');
   if (!root || _sig !== sig) { mountHud(_target); _sig = sig; }
@@ -310,30 +226,20 @@ export function closeCockpit() {
   _anim = null; _prev = null; _sig = ''; _moveFrom = null; _lastPushT = 0;
   _lastGround = null; _lastMap = null; _lastBiome = null;
   unbindPaxKeys();
-  document.body.classList.remove('ck-fullscreen', 'ck-hidepanel');   // drop the cabin immersive layouts if either was on
-  exitBigScreen();                                                   // …and the rung above them, which owns the whole page
-  endSeatKeyboard();                                                   // …and the keyboard goes back to the command bar
+  document.body.classList.remove('ck-fullscreen', 'ck-hidepanel');
+  exitBigScreen();
+  endSeatKeyboard();
   stopEngineAudio(); stopBoatContacts();
 }
 
-// Engine sound for an occupant WALKING a walkable cabin (the Leviathan) — they're in a
-// real MUD room, not on the cockpit HUD, so this drives ONLY the engine-audio loops
-// (idle/power/wind, throttle- and speed-reactive) without mounting any panel over the
-// room view. Fed the slim `cabin_audio` payload each flight tick; stopped by the
-// `cockpit_close` the landing/disembark flow already sends (closeCockpit → stopEngineAudio).
-// The body is playCabinAudio in engine-audio.js, so a passenger can hear it without
-// this module loaded (lazy-views.js).
+// Engine loops for someone walking a cabin room (the Leviathan): audio only, no panel.
 export function cabinAudio(s) {
   if (isFlightSimActive() || isCockpitHudActive()) return;   // the pilot's cockpit / an open window overlay already owns the bus
   playCabinAudio(s);
 }
 
 // ── The per-frame animation loop ──────────────────────────────────────────────
-// ⚠ A FRAME THAT THROWS MUST NOT END THE LOOP. Both loops here re-arm at their END, so one
-// exception (a phone's GPU dropping the canvas mid-frame, a payload field that isn't there yet)
-// stopped the whole view on its last painted frame, and for the HUD it was worse: `_raf` kept
-// the spent frame id, so the `if (!_raf)` restart in the feed never fired again either. The
-// wrappers log the first failure, then re-arm, so a fault costs a frame instead of the flight.
+// ⚠ A throwing frame must not end the loop: log once and re-arm (a stale _raf also blocks the restart).
 const _frameFaults = new Set();
 function frameFault(where, err) {
   if (_frameFaults.has(where)) return;
@@ -353,34 +259,20 @@ function hudFrameBody(t) {
   const dt = Math.min(0.05, (t - _lastT) / 1000 || 0); _lastT = t;
   const s = _target, a = _anim;
 
-  // Heading — ease along the shortest arc (the compass "spins" to the bearing).
   const hd = angDelta(a.hdg, s.headingDeg || 0);
   const turnRate = hd * Math.min(1, dt * 3.2);
   a.hdg = (a.hdg + turnRate + 360) % 360;
   a.sweep = (a.sweep + dt * 55) % 360;
-  // Eased needles.
   a.fuel += ((s.fuelPct || 0) - a.fuel) * Math.min(1, dt * 4);
   a.thr += ((s.throttle || 0) - a.thr) * Math.min(1, dt * 6);
   a.hull += ((s.hullPct ?? 100) - a.hull) * Math.min(1, dt * 4);
   a.spd += ((s.spd || 0) - a.spd) * Math.min(1, dt * 4);
 
   // ── Takeoff/landing choreography ──────────────────────────────────────────
-  // A fixed, scripted sequence — NOT tied to real altitude bands — timed off the
-  // moment the server flips `airborne`:
-  //   ground (GROUND_LEAD, flat, throttle winding up) → climb (CLIMB_SEC, held
-  //   bank+diagonal climb) → level cruise, and the mirror on the way down. Bank —
-  //   not pitch — is the dominant "climb" tilt: it rotates the WHOLE scene
-  //   (paintWindshield rotates the canvas by `bank`), so the passenger's SIDE
-  //   window shows the horizon tilt over just as clearly as the pilot's forward
-  //   view does, banked toward the direction of travel. The climb and the
-  //   descent bank opposite ways ("reverse on the other side").
-  // CRUISE_HEIGHT caps how "high" the scene ever reads as. The Mode-7 camera adds
-  // eye-height as height*climbLift (climbLift=7 — a steep multiplier tuned for
-  // real high-altitude flight), so ramping height all the way to 1 made the climb
-  // read as shooting straight up. A shallow cruise height keeps the eye-height
-  // rise modest, so it's forward motion + bank that sell the climb, not a
-  // near-vertical camera lift.
-  const vtol = !!s.vtol;   // helicopters lift straight up to altitude, THEN go forward — no bank/dive climb-out
+  // Scripted off the moment `airborne` flips: ground roll, banked climb, cruise, and the mirror down.
+  // Bank carries the climb because it tilts the passenger's side window too. CRUISE_HEIGHT stays
+  // low because Mode-7 eye height is height*climbLift (7), which reads as shooting straight up.
+  const vtol = !!s.vtol;   // helicopters lift straight up, no banked climb-out
   if (a._wasAirborne == null) a._wasAirborne = !!s.airborne;
   if (!a._wasAirborne && s.airborne) { a._liftT = t; a._landT = null; }
   if (a._wasAirborne && !s.airborne) { a._landT = t; a._liftT = null; }
@@ -393,7 +285,7 @@ function hudFrameBody(t) {
     else if (el < GROUND_LEAD + CLIMB_SEC) {
       if (!vtol) { targetBank = BANK_ANGLE; targetPitch = CLIMB_PITCH; }
       targetHeight = clampNum((el - GROUND_LEAD) / CLIMB_SEC, 0, 1) * CRUISE_HEIGHT;
-    } else { targetHeight = CRUISE_HEIGHT; a._liftT = null; }   // sequence done — level cruise
+    } else { targetHeight = CRUISE_HEIGHT; a._liftT = null; }
   } else if (a._landT != null) {
     const el = (t - a._landT) / 1000;
     if (el < CLIMB_SEC) {
@@ -401,39 +293,24 @@ function hudFrameBody(t) {
       targetHeight = clampNum(1 - el / CLIMB_SEC, 0, 1) * CRUISE_HEIGHT;
     }
     else if (el < CLIMB_SEC + GROUND_LEAD) { targetHeight = 0; }
-    else { targetHeight = 0; a._landT = null; }     // sequence done — settled on the deck
+    else { targetHeight = 0; a._landT = null; }
   } else {
-    targetHeight = s.airborne ? CRUISE_HEIGHT : 0;   // steady state, no sequence running
+    targetHeight = s.airborne ? CRUISE_HEIGHT : 0;
   }
-  // Turning bank still applies OUTSIDE a scripted sequence (ordinary cruise turns).
   if (a._liftT == null && a._landT == null) targetBank = clampNum(hd * 0.5, -22, 22);
-  // Bank/pitch ease in GRADUALLY (a real bank takes a couple of seconds to roll
-  // into, not half a second) then hold — this is the slow, deliberate roll-in
-  // the passenger actually sees, rather than a quick snap to 25°.
   a.roll += (targetBank - a.roll) * Math.min(1, dt * 0.8);
   a.pitch += (targetPitch - a.pitch) * Math.min(1, dt * 0.8);
-  // Height is NOT eased — `targetHeight` above is already the exact scripted ramp
-  // (flat / linear climb / flat), so assigning it directly is what keeps the
-  // profile's corners sharp ( ___/‾‾‾\___ ) instead of rounding them off.
+  // Not eased: targetHeight is already the scripted ramp, and easing would round its corners.
   a.height = targetHeight;
 
-  // Scene swap — hysteresis around the ground/airborne cut so it lands once the
-  // eased height has actually cleared the deck (climb-out) or sunk back to it
-  // (flare), not the instant the server toggles `airborne`.
+  // Scene swap with hysteresis on height, so it lands mid climb-out or flare.
   if (a._scenePhase == null) a._scenePhase = s.airborne ? 'cruise' : 'ground';
   else if (a._scenePhase === 'ground' && a.height > 0.06) a._scenePhase = 'cruise';
   else if (a._scenePhase === 'cruise' && a.height < 0.025) a._scenePhase = 'ground';
-  // Ground-roll distance (cosmetic — the server doesn't track it): while the deck
-  // scene is up, accumulate "how far down the strip" from throttle (a proxy for
-  // ground speed, since `s.spd` reads 0 until wheels-up). Resets at the start of
-  // each fresh on-deck episode — a takeoff roll or a landing roll-out — so the
-  // strip is never picked up mid-slide from the PREVIOUS episode. Rate is a
-  // quarter of what it was ("slow down the pace... by 400%") for a slower roll.
+  // Cosmetic ground roll from throttle (s.spd is 0 until wheels-up); resets each on-deck episode.
   if (a._prevScenePhase !== a._scenePhase) { if (a._scenePhase === 'ground') a.rwyRoll = 0; a._prevScenePhase = a._scenePhase; }
   if (a._scenePhase === 'ground') a.rwyRoll = (a.rwyRoll || 0) + (a.thr / 100) * dt * 0.225;
-  // Position: linear interpolation across the last push-to-push gap (not an ease-
-  // decay like the needles above) so ground speed reads constant instead of
-  // slowing into each new push.
+  // Linear, so ground speed reads constant between pushes.
   if (_moveFrom) {
     const mt = Math.min(1, (t - _moveFrom.t) / _moveFrom.dur);
     a.fx = _moveFrom.fx + (_moveFrom.toFx - _moveFrom.fx) * mt;
@@ -451,33 +328,21 @@ function hudFrameBody(t) {
   _raf = requestAnimationFrame(hudFrame);
 }
 
-// The out-the-front-window view — driven from the same eased HUD state. The
-// passenger looks out the SIDE by default, or holds Q/E to look forward (into
-// the cockpit, past the charter pilot) / rear.
+// The window view, from the eased HUD state.
 function paintWindow(id, a, s) {
   if (!document.getElementById(id)) return;
   const speedFrac = clampNum((a.spd || 0) / 200, 0, 1);
   const pax = s.seat === 'passenger';
   const paxView = pax ? _paxView : 'side';
   const onGround = (a._scenePhase || (s.airborne ? 'cruise' : 'ground')) === 'ground';
-  // Unified Mode-7 world: the sim flies AND takes off in the real world — real runway tiles,
-  // markings, PAPI and real buildings — so there's no separate hand-drawn airport scene to
-  // crossfade from. worldBlend is pinned to 1 for pilot and passenger alike; the world is always
-  // fully drawn, parked on the deck and aloft. (The legacy modal takeoff/landing decks still pass
-  // their own fractional blend and keep the old airport scene.)
   const worldBlend = 1;
-  // Fractional world offset from the eased position above vs. the map window's (integer) centre —
-  // slides the Mode-7 camera smoothly between pushes instead of snapping a tile at a time. Set on
-  // the deck too now, so the camera tracks the aircraft the moment it starts to roll.
+  // Fractional offset from the map window's integer centre, so the camera slides between pushes.
   const mapOffset = a.fx != null ? { x: a.fx - (s.x ?? a.fx), y: a.fy - (s.y ?? a.fy) } : undefined;
   paintWindshield(id, {
     pitch: a.pitch, bank: a.roll, height: a.height ?? 0, speed: speedFrac,
     hour: s.sky?.hour, moon: s.sky?.moon, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
     event: s.sky?.event,   // named hero event — outranks `weather` for the canopy grade
     wxField: s.sky?.field, wxGround: s.sky?.ground, acX: a.fx, acY: a.fy,   // spatial weather cells, the ground they have already soaked, and our world position
-    // Both scenes' data are passed unconditionally (falling back to the last real values
-    // once the server's own payload has moved on) — `worldBlend` above decides how much
-    // of each windshield.js actually paints, not which one is available.
     map: s.map || _lastMap,
     skyline: s.skyline,   // the tall towers outside the window; windshield.js keeps every one it has been sent
     phase: onGround ? 'ground' : 'cruise',
@@ -488,9 +353,7 @@ function paintWindow(id, a, s) {
     roll: a.rwyRoll || 0,   // ground-roll distance — how far down the strip you've travelled
     regions: s.regions ?? _lastRegions,   // drives the windshield region atmosphere grade (The Reach dust, …)
     side: paxView === 'side', viewYaw: paxView === 'rear' ? 180 : 0,
-    // Framed hull-cutout for the side/rear cabin windows only. Looking FORWARD (Q held) you're
-    // seeing past the pilot out the windscreen — no cabin porthole frame — so the clean forward
-    // canopy view (skyline glow, speed streaks, instrument reflection) reads under the yoke/throttle.
+    // Porthole frame for side/rear only; forward looks out through the windscreen.
     windowClass: pax && paxView !== 'forward' ? (s.class || 'prop') : undefined,
     livery: pax ? s.livery : undefined,   // hull skin punched by the window = the craft's own paint
     mapOffset,
@@ -498,11 +361,8 @@ function paintWindow(id, a, s) {
   if (pax) paintPaxControls(a);
 }
 
-// Forward view (Q, held): the charter pilot's own yoke + throttle, worked by the
-// same choreography that banks/pitches the cabin — so the passenger watches the
-// controls move on their own, flown by nobody they can see. Reuses the pilot
-// cockpit's yoke art; harmless to share DOM ids with the real flight-sim cockpit
-// since the two panels are never mounted at the same time.
+// Forward view: the charter pilot's yoke and throttle, moved by the cabin choreography.
+// Shares DOM ids with the flight sim, which is never mounted at the same time.
 function paintPaxControls(a) {
   const yk = document.getElementById('fsim-yoke-svg');
   const aileronEq = clampNum((a.roll || 0) / BANK_ANGLE, -1, 1);
@@ -523,7 +383,7 @@ function paintRadar(a, s) {
   const world = $('ck-radar-world');
   if (world) world.setAttribute('transform', `rotate(${-a.hdg} 130 130)`);
   const sweep = $('ck-radar-sweep'); if (sweep) sweep.setAttribute('transform', `rotate(${a.sweep} 130 130)`);
-  // Fuel guide arrow → bearing to nearest field, in the heading-up frame.
+  // Bearing to the nearest field, heading-up.
   const guide = $('ck-radar-guide');
   if (guide) {
     if (s.guide) { guide.style.display = ''; guide.setAttribute('transform', `rotate(${angDelta(a.hdg, s.guide.bearing)} 130 130)`); }
@@ -556,7 +416,6 @@ function setSeven(id, val, tone) {
 function applyText(s) {
   const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
   const html = (id, v) => { const e = $(id); if (e) e.innerHTML = v; };
-  // Passenger cabin strip (present only in the passenger layout).
   if ($('ck-pax-dest')) {
     set('ck-pax-dest', s.surface || (s.airborne ? 'in flight' : 'on the ramp'));
     set('ck-pax-alt', s.bandLabel || 'GND');
@@ -569,18 +428,14 @@ function applyText(s) {
   set('ck-surface', s.surface || (s.airborne ? 'open air' : '—'));
   set('ck-tail', s.tail || 'CRAFT');
   set('ck-class', (s.class || '').toUpperCase());
-  // Interior livery: a cabin-trim swatch in the titlebar (paint you only see aboard).
   const cab = $('ck-cabin');
   if (cab) { if (s.livery) { cab.style.display = ''; cab.style.background = s.livery.cabin; cab.title = `cabin · ${s.livery.uphol}`; } else cab.style.display = 'none'; }
-  // Status line + phase.
   const phase = !s.airborne
     ? (s.runup ? '<span class="ck-amber">RUN-UP: warming engines</span>' : s.engineOn ? '<span class="ck-green">READY: throttle up &amp; takeoff</span>' : '<span class="ck-dim">COLD: startup to begin</span>')
     : s.enginesStable === false && s.warn === 'FIRE' ? '<span class="ck-red">ENGINE FIRE</span>'
     : `AIRBORNE · ${s.bandLabel}`;
   html('ck-phase', phase);
-  // Guide label.
   html('ck-guide-label', s.guide ? `<span class="ck-amber">◈ ${esc(s.guide.name)} ${String(s.guide.bearing).padStart(3, '0')}° · ${s.guide.dist}mi</span>` : '');
-  // Warning strip.
   const warnEl = $('ck-warn');
   if (warnEl) {
     const W = { STARVATION: ['ENGINE OUT. DEAD STICK. LAND NOW', 'r'], BINGO: ['BINGO FUEL: DIVERT', 'a'],
@@ -589,11 +444,8 @@ function applyText(s) {
     warnEl.style.display = w ? '' : 'none';
     if (w) { warnEl.textContent = '⚠ ' + w[0]; warnEl.className = `ck-warn ck-warn-${w[1]}`; }
   }
-  // Armed pip.
   const arm = $('ck-arm'); if (arm) { arm.style.display = s.hardpoints > 0 ? '' : 'none'; arm.textContent = s.armed ? '● ARMED' : '○ SAFE'; arm.className = s.armed ? 'ck-pip ck-red' : 'ck-pip ck-dim'; }
-  // Cargo pip.
   const cargo = $('ck-cargo'); if (cargo) { cargo.style.display = s.cargo > 0 ? '' : 'none'; cargo.textContent = `⬒ ${s.cargo}/${s.maxTOW}kg`; }
-  // Capability panels (present only on craft that have them).
   const wa = $('ck-wpn-arm'); if (wa) { wa.textContent = s.armed ? '● ARMED' : '○ SAFE'; wa.className = s.armed ? 'ck-wpn-arm ck-red' : 'ck-wpn-arm ck-dim'; }
   const lf = $('ck-load-fill');
   if (lf) {
@@ -604,14 +456,12 @@ function applyText(s) {
   }
   const hl = $('ck-hover-lamp'); if (hl) { hl.classList.toggle('ck-lit', !!s.hover); hl.textContent = s.hover ? 'HOVER' : (s.airborne ? 'FWD' : 'GND'); }
   const vn = $('ck-vsi-need'); if (vn) { const yy = 91 - (s.bandIndex || 0) * 27; vn.setAttribute('points', `14,${yy} 26,${yy - 5} 26,${yy + 5}`); }
-  // Real minimap + radar blips (refresh each push; the layer is rotated per-frame).
   renderMini(s.minimap);
   paintRadarWorld(s);
-  // Engine labels/stable state.
   (s.engines || []).forEach((e, i) => { const lbl = $(`ck-eng-lbl-${i}`); if (lbl) { lbl.textContent = e.stable ? 'OK' : (s.runup ? '···' : 'CHK'); lbl.setAttribute('fill', e.stable ? '#46e05a' : '#ffb23e'); } });
 }
 
-// The real minimap — actual surrounding zones (getMinimapData) with danger colour.
+// Surrounding zones (getMinimapData) tinted by danger.
 function renderMini(nodes) {
   const box = $('ck-mini'); if (!box) return;
   if (!nodes || !nodes.length) { box.innerHTML = '<div class="ck-mini-empty">no ground contact</div>'; return; }
@@ -620,8 +470,6 @@ function renderMini(nodes) {
   let minx = 99, maxx = -99, miny = 99, maxy = -99;
   for (const n of nodes) { if (n.grid_x == null) continue; minx = Math.min(minx, n.grid_x); maxx = Math.max(maxx, n.grid_x); miny = Math.min(miny, n.grid_y); maxy = Math.max(maxy, n.grid_y); }
   const byXY = new Map(nodes.filter(n => n.grid_x != null).map(n => [`${n.grid_x},${n.grid_y}`, n]));
-  // Inferred danger enum → tint. (Was a numeric compare against the old string
-  // rating — dead logic that always fell through to green.)
   const DANGER_TINT = { lethal: '#ff5b5b', high: '#ff5b5b', medium: '#ffb23e', low: '#8fd0ff', safe: '#46e05a' };
   const danger = (d) => DANGER_TINT[d] || '#46e05a';
   let rows = '';
@@ -750,13 +598,7 @@ function mountPassenger(s) {
   wirePaxChrome();
 }
 
-// Fullscreen / hide-panel + keyboard-focus, matching the flight-sim + hangar chrome. The cabin
-// pane owns the keyboard by default (so Q/E swivel the view immediately instead of typing into
-// chat); clicking the pane takes focus off the command box, clicking the command box gives it back.
-// ⚠ THAT LAST SENTENCE IS seat-keys.js NOW. It was a dozen lines here, a dozen more in the sim
-// below, a dozen in the cab, and NONE AT ALL in the wheelhouse or in free look — and every copy
-// bound on the bubble, which `bindFreeCamPointer` stops dead on the capture phase of the glass
-// inside the pane, so with the camera off its mount clicking the picture stopped working.
+// Fullscreen / hide-panel buttons. Keyboard ownership goes through seat-keys.js; don't rebind it here.
 function wirePaxChrome() {
   const root = document.getElementById('ck-hud-root'); if (!root) return;
   const fsBtn = document.getElementById('ck-pax-fsbtn');
@@ -766,7 +608,7 @@ function wirePaxChrome() {
     e.stopPropagation();
     const on = document.body.classList.toggle('ck-fullscreen');
     fsBtn.classList.toggle('on', on);
-    if (on) { document.body.classList.remove('ck-hidepanel'); hideBtn?.classList.remove('on'); }   // fullscreen supersedes hide-panel
+    if (on) { document.body.classList.remove('ck-hidepanel'); hideBtn?.classList.remove('on'); }
   });
   hideBtn?.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -774,10 +616,7 @@ function wirePaxChrome() {
     hideBtn.classList.toggle('on', on);
     if (on) { document.body.classList.remove('ck-fullscreen'); fsBtn?.classList.remove('on'); }
   });
-  // ⚠ AND ON A PHONE IT STARTS FOLDED. Same argument the helm makes unconditionally two files
-  // over: the windowed pane is too short to see anything out of with the log up, and on a phone
-  // it is shorter still. The panel's own toggle, so the button reads as pressed and one tap gives
-  // the log back — see compact-view.js.
+  // On a phone the panel starts folded, through its own toggle so the button reads as pressed.
   seatHidePanel('ck-hidepanel', hideBtn);
   claimSeatKeyboard(root, { label: 'CABIN' });
 }
@@ -791,9 +630,7 @@ function mountHud(s) {
   const acc = liveryAccent(s.livery, th.acc);
   const hasWpn = (s.hardpoints || 0) > 0, hasCargo = (s.cargoCap || 0) > 0, isVtol = !!s.vtol;
 
-  // Row 2: compass + engines, plus a hover tape for VTOL.
   const row2 = [compassInst(), engInst(n), isVtol ? hoverInst() : ''].filter(Boolean).join('');
-  // Row 3: the minimap, plus capability panels (cargo / weapons).
   const row3 = [miniInst(), hasCargo ? cargoInst() : '', hasWpn ? wpnInst(s.hardpoints) : ''].filter(Boolean).join('');
 
   const html = `<div id="ck-hud-root" class="ck-hud ck-chrome-${th.chrome}" style="--acc:${acc}">
@@ -822,8 +659,7 @@ function mountHud(s) {
   paintRadarWorld(s);
 }
 
-// Radar blips: land/field/nofly cells from the coarse map window, plotted N-up
-// (the parent group is rotated to heading-up each frame).
+// Radar blips plotted north-up; the parent group is rotated each frame.
 function paintRadarWorld(s) {
   const g = $('ck-radar-world'); if (!g) return;
   if (!s.map) { g.innerHTML = ''; return; }
@@ -888,36 +724,25 @@ function ensureMgStyles() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 1.5. THE CONTINUOUS COCKPIT (client-sim + server-reconcile)  — Phase 1 slice
+// 1.5. THE CONTINUOUS COCKPIT (client sim, server reconcile)
 // ══════════════════════════════════════════════════════════════════════════════
-// A persistent, always-live cockpit that runs the real flight-model.js physics at
-// 60fps in the area pane. Draggable yoke/throttle/flaps (Pointer Events, mouse +
-// touch). It streams state to the server via `flightsync`, reports wheels-up and
-// touchdown via `flightevent`, and consumes `flight_ctx` for authoritative fuel +
-// the world below. The yoke is physically inverted (pull DOWN = nose up). Retires
-// the modal takeoff/glideslope decks for continuous craft (currently the Mayfly).
+// Runs flight-model.js in the pane, streams state with `flightsync`, reports wheels-up and
+// touchdown with `flightevent`, and takes fuel and the world below from `flight_ctx`.
+// The yoke is inverted: drag down for nose up.
 
 let _fsim = null;
 const lerpN = (a, b, t) => a + (b - a) * t;
-// How long a start takes, as the cockpit shows it: the key held at START and the START lamps lit.
 const ENGINE_START_MS = 2600;
 
-// Checkride guidance: highlight key (from the server's clientView) → the cockpit control
-// it spotlights. Renders the persistent instruction card and glows the target control(s).
-// cr = the server checkride clientView (null = not on a ride → tear the card + glows down).
+// Checkride highlight key (server clientView) to the control it glows.
 const CKRIDE_GLOW = { engine: 'fsim-eng', throttle: 'fsim-thr', yoke: 'fsim-yoke' };
-// Every control the tour or the plain card can spotlight — cleared as a set on any redraw so
-// a stale glow (e.g. flaps/trim, which the plain-card highlight map doesn't know) never lingers.
+// Cleared as a set on every redraw, so a tour glow the card's map doesn't know never lingers.
 const GLOW_IDS = ['fsim-eng', 'fsim-thr', 'fsim-yoke', 'fsim-flap', 'fsim-trim'];
 function fsimClearGlows() { for (const id of GLOW_IDS) document.getElementById(id)?.classList.remove('ck-glow'); }
 
 // ── Flight-school tour ────────────────────────────────────────────────────────
-// The STARTUP stage of the checkride is taught with a self-paced, dismissable walkthrough
-// (centred over the glass) instead of the plain top-left card: one step per control, each
-// spotlighting the real cockpit widget with mobile/desktop-aware copy. Steps are pure UI
-// teaching (client-only); the server checkride stays telemetry-paced and takes over its
-// top-left cards from TAKEOFF on. `_touchPrimary` (pointer:coarse) picks the touch copy.
-// `.k` = a keycap accent. Bodies allow inline HTML.
+// Client-only walkthrough for the checkride's STARTUP stage; the server's cards take over from TAKEOFF.
+// Bodies are HTML; the argument picks touch copy.
 const TOUR_STEPS = [
   { id: 'fsim-yoke', title: 'THE YOKE', body: (m) => m
     ? 'The <b>yoke</b> is your control column, drag it with your <b>finger</b>. Left/right banks the wings into a turn. It\'s <b>inverted</b> like the real thing: drag <b>DOWN</b> to pull back and <b>climb</b>, drag up to descend.'
@@ -940,7 +765,7 @@ function renderTour(F) {
   if (!tour) return;
   if (F.tourStep == null) F.tourStep = 0;
   tour.classList.add('show');
-  if (F.tourRenderedStep === F.tourStep) return;   // already drawn this step — idempotent per tick
+  if (F.tourRenderedStep === F.tourStep) return;
   F.tourRenderedStep = F.tourStep;
   const i = F.tourStep, total = TOUR_STEPS.length, st = TOUR_STEPS[i], last = i === total - 1;
   const dots = TOUR_STEPS.map((_, k) => `<span class="fsim-tour-dot${k === i ? ' on' : ''}"></span>`).join('');
@@ -957,9 +782,9 @@ function renderTour(F) {
   fsimClearGlows();
   document.getElementById(st.id)?.classList.add('ck-glow');
   tour.classList.remove('flash'); void tour.offsetWidth; tour.classList.add('flash');
-  const dismiss = () => {   // ✕ / Skip / "Let's fly": tear the tour down and fall back to the
-    F.tourDismissed = true; tour.classList.remove('show');   // plain STARTUP card + engine glow so
-    F.checkrideStage = null;                                 // they still know to flip the engine
+  const dismiss = () => {   // falls back to the plain STARTUP card and engine glow
+    F.tourDismissed = true; tour.classList.remove('show');
+    F.checkrideStage = null;
     if (F.checkride) renderCheckride(F, F.checkride);
   };
   document.getElementById('fsim-tour-x').onclick = dismiss;
@@ -972,49 +797,45 @@ function renderCheckride(F, cr) {
   const card = document.getElementById('fsim-ckride');
   const tour = document.getElementById('fsim-tour');
   if (!card) return;
-  if (!cr) {   // ride over (passed/blown/never started): hide card + tour, clear every glow, reset tour
+  if (!cr) {   // not on a ride
     card.classList.remove('show'); tour?.classList.remove('show'); F.checkrideStage = null;
     F.tourStep = null; F.tourRenderedStep = null; F.tourDismissed = false;
     fsimClearGlows();
     return;
   }
-  // STARTUP → the self-paced flight-school tour, unless the player skipped it (then fall through)
   if (cr.stageNum === 1 && !F.tourDismissed) { card.classList.remove('show'); renderTour(F); return; }
-  tour?.classList.remove('show');   // TAKEOFF onward (or tour skipped): the plain top-left card takes over
+  tour?.classList.remove('show');
   card.classList.add('show');
-  if (cr.stage === F.checkrideStage) return;   // same stage → card + glow already right; nothing to redo
+  if (cr.stage === F.checkrideStage) return;
   F.checkrideStage = cr.stage;
   const n = cr.stageNum || 1, total = cr.stageTotal || 4;
   card.innerHTML = '<div class="fsim-ckride-hd"></div><div class="fsim-ckride-body"></div>';
   card.querySelector('.fsim-ckride-hd').textContent = `✈ CHECKRIDE · STEP ${n}/${total}${cr.stageName ? ': ' + cr.stageName : ''}`;
   card.querySelector('.fsim-ckride-body').textContent = cr.instruction || '';
-  card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');   // restart the attention pulse
+  card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
   fsimClearGlows();
   for (const key of (cr.highlight || [])) document.getElementById(CKRIDE_GLOW[key])?.classList.add('ck-glow');
 }
 
 // ── Flaps control — per-airframe style ────────────────────────────────────────
-// The detents map evenly onto the model's 0..1 `flaps` input; only the graphic + labels
-// differ. `johnson` = a Cessna-style white wing-flaps lever (light craft); `quadrant` = an
-// airliner detented flap lever, 0/1/2/3/FULL (the heavy); `switch` = the compact 3-position
-// toggle (military/utility). A helicopter has NO flaps (the control is hidden entirely).
+// Detents map onto the model's 0..1 `flaps`. johnson: Cessna lever; quadrant: airliner gate;
+// switch: 3-position toggle. null: no flaps.
 const FLAP_STYLES = {
   johnson:  { cap: 'WING FLAPS', detents: [{ v: 0, l: 'UP' }, { v: 0.33, l: '10°' }, { v: 0.67, l: '20°' }, { v: 1, l: 'FULL' }] },
   quadrant: { cap: 'FLAPS',      detents: [{ v: 0, l: '0' }, { v: 0.25, l: '1' }, { v: 0.5, l: '2' }, { v: 0.75, l: '3' }, { v: 1, l: 'FULL' }] },
   switch:   { cap: '',           detents: [{ v: 0, l: 'UP' }, { v: 0.5, l: '½' }, { v: 1, l: 'FULL' }] },
 };
 const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, viper: null, drake: null, grasshopper: 'johnson', locust: 'johnson',
-  // The Shrike's flap lever also drives her dive brakes — one handle, two jobs, which is why
-  // it is the quadrant rather than a switch: you set it by feel on the way over the top.
+  // The Shrike's flap lever also drives her dive brakes, so it gets the quadrant.
   shrike: 'quadrant' };
 function flapStyleFor(craftType) {
   const key = craftType in FLAP_BY_CRAFT ? FLAP_BY_CRAFT[craftType] : 'switch';
-  return key ? { key, ...FLAP_STYLES[key] } : null;   // null ⇒ no flaps (heli)
+  return key ? { key, ...FLAP_STYLES[key] } : null;
 }
 function buildFlapHtml(st) {
-  if (!st) return '';   // heli — no flaps control at all
+  if (!st) return '';
   const lbls = st.detents.map((d, i) => `<span data-fd="${i}"${i === 0 ? ' class="on"' : ''}>${d.l}</span>`).join('');
-  const dual = st.key === 'quadrant';   // the airliner quadrant reads its scale down BOTH gate rails
+  const dual = st.key === 'quadrant';   // scale on both gate rails
   return `<div class="fsim-flap fsim-flap-${st.key}" id="fsim-flap">
     <div class="fsim-flap-body">
       <div class="fsim-flap-scale">${lbls}</div>
@@ -1024,16 +845,10 @@ function buildFlapHtml(st) {
     ${st.cap ? `<div class="fsim-flap-cap">${st.cap}</div>` : ''}
   </div>`;
 }
-// Air-to-air (Phase A): tighten flightsync when traffic is within this many tiles,
-// and dead-reckon a contact's position at most this long before its next relay.
+// Tighten flightsync with traffic inside this many tiles; dead-reckon a contact at most this long (s).
 const FAST_SYNC_RANGE = 5, CONTACT_DR_MAX = 2.0;
-// HOW FAST THE MAP GOES BY: tiles per knot-second at a height. On top of RENDER_TUNE.worldPace sit
-// the runway rush (groundBoost, gone within a few dozen feet) and the cruise stretch, AIR_PACE. The
-// stretch is the fleet-wide speed-up of 2026-10-08: a Mule took twelve minutes from Coldwater to
-// The Strip. It comes in with HEIGHT, on a squared curve that is near zero below 150 ft, so the
-// takeoff roll, the climb-out past the field's buildings and a low approach move as they always did.
-// The own ship, its missiles and flares, and the dead-reckoned contacts all read it, so nothing
-// drifts against anything else.
+// Tiles per knot-second at a height: worldPace, plus the runway rush, plus the cruise stretch
+// (AIR_PACE), which is near zero below 150 ft. Own ship, missiles, flares and contacts all read it.
 const AIR_PACE = 2, AIR_PACE_RISE_FT = 500;
 function paceAt(altFt, mult = 1) {
   const a = Math.max(0, altFt || 0);
@@ -1041,65 +856,41 @@ function paceAt(altFt, mult = 1) {
   const cruise = (AIR_PACE - 1) * (1 - Math.exp(-((a / AIR_PACE_RISE_FT) ** 2)));
   return RENDER_TUNE.worldPace * mult * (1 + rush + cruise);
 }
-// Air-to-air guns (Phase B): the client's gun-solution envelope (tiles + half-cone deg),
-// the alt→world-z scale (mirrors windshield CONTACT_ALT_K) for the vertical aim term, and
-// the burst cadence while the trigger's held (the server enforces its own harder cap).
-const GUN_RANGE = 2.2, GUN_CONE = 11, GUN_ALT_K = 1 / 600, GUN_FIRE_MS = 120;   // ~8.3 rounds/s — the driving M2-Browning .50 cadence: one heavy thud + one tracer round per shot (audio, muzzle flash & tracer all fire on this cadence)
-// The Drake's gun convergence: the range (tiles) its two toed-in guns meet at, set on the CONV knob.
-// Client-side, like the trim: it moves the tracers' meeting point and weights the gun solution.
+// Gun envelope (tiles, half-cone deg), alt-to-z scale (mirrors windshield CONTACT_ALT_K), and FX cadence.
+const GUN_RANGE = 2.2, GUN_CONE = 11, GUN_ALT_K = 1 / 600, GUN_FIRE_MS = 120;   // ~8.3 rounds/s, .50 cal
+// The Drake's gun convergence range (tiles), set on the CONV knob. Client-side only.
 const DRAKE_CONV_STEPS = [0.6, 1.0, 1.4, 1.8, 2.2];
 function drakeConv() { return _fsim?.gunConv ?? 1.2; }
 function setDrakeConv(x) { if (_fsim) _fsim.gunConv = Math.round(Math.max(0.5, Math.min(GUN_RANGE, x)) * 10) / 10; }
-// The FX cadence above is for feel; the *network* burst command is paced separately. The
-// server only resolves one gun burst per GUN_COOLDOWN_MS (550 air / 650 ground in
-// plugins/flight/state.js + combat.js) and drops the rest — but every dropped command still
-// spends a token in the connection's command rate-limiter (5/s, server/index.js), so sending
-// at the 120ms visual cadence drains the bucket in ~4.5s and trips the "sending commands too
-// fast" throttle. Pace the send to just above the server's burst window: FX stay at 120ms,
-// the command goes out at ~1.5/s.
+// ⚠ The burst command is paced just above the server's gun cooldown: a dropped command still
+// spends a rate-limiter token (5/s), so sending at FX cadence trips the throttle.
 const GUN_CMD_AIR_MS = 600;      // > server A2A GUN_COOLDOWN_MS (550)
 const GUN_CMD_GROUND_MS = 700;   // > server GROUND_GUN_COOLDOWN_MS (650)
-// Air-to-air missiles (Phase C): the seeker envelope (range tiles + half-cone deg off the
-// nose), the hold-to-lock time, and the min gap between launches. Mirror the server's
-// MISSILE_* tunables in state.js — the server gate is deliberately a shade more lenient.
+// Seeker envelope, lock time and launch gap. Mirror MISSILE_* in state.js (the server is a shade more lenient).
 const MSL_RANGE = 8, MSL_CONE = 25, MSL_LOCK_MS = 2500, MSL_FIRE_MS = 1600;
-// Swarm airframe (Viper): no lock — a bogey inside a wide forward cone is a valid ripple shot.
-// Client cone kept just under the server's SWARM_CONE (45°) so we only greenlight shots it'll take.
+// Swarm (Viper): no lock, any bogey in the cone. Kept under the server's SWARM_CONE (45°).
 const SWARM_CONE = 40, SWARM_FIRE_MS = 2300;
-// The Viper's chin turret is a LIGHT machine gun, not the Reaper's cannon: it runs at roughly
-// double the cadence for a fraction of the punch (the airframe's `gun_mult` 0.5 does the damage
-// half server-side). Fires from ONE muzzle under the nose rather than a pair under the wings.
+// The Viper's single chin LMG: double cadence; gun_mult halves its damage server-side.
 const GUN_FIRE_MS_LIGHT = 62;
 
 // ── Missiles in the air (the shot you actually watch) ─────────────────────────
-// Rounds off the rails are flown CLIENT-SIDE purely as a visual: the server owns the outcome
-// (it resolves each inbound MISSILE_FLIGHT_MS after launch and prints the result), we just fly
-// the things leaving the aircraft. A swarm ripples off one rail at a time on the server's own
-// 120 ms stagger, alternating sides, so you see four separate launches, not one puff.
-//
-// They fly DRUNK on purpose. A no-lock ripple is a barrage of dumb seekers — that's what
-// SWARM_PK_MULT (half the kill probability of a locked shot) means in the fiction — so each one
-// leaves the rail on its own heading, wanders through a slow weave while the seeker gathers,
-// and only settles onto the target late in the flight. A single LOCKED missile (Reaper) is
-// launched through the same path with far less wander: it knows where it's going.
+// Visual only: the server resolves each missile. Unlocked swarm rounds wander on purpose
+// (they're dumb seekers); a locked missile flies the same path with little wander.
 const MSL_STAGGER_MS = 120;     // matches the server's per-seeker resolve stagger
 const MSL_LIFE_MS = 5200;       // how long we keep drawing one before it's out of the picture
 const MSL_TRAIL = 16;           // smoke-trail samples kept per missile
-const MSL_SPEED = 1.25;         // terminal speed (world tiles/s) — several × the airframe's own pace
+const MSL_SPEED = 1.25;         // terminal speed (world tiles/s)
 const MSL_BOOST_S = 0.55;       // motor burn: launch speed → MSL_SPEED over this long
 const MSL_TURN = 150;           // seeker authority (deg/s of heading correction)
 
-// Where a no-target salvo goes: the point on the ground the boresight is pointed at. Mirrors the
-// gun's ground convergence (windshield drawGunTracers) — nose down and the missiles walk in close,
-// nose level and they run out ahead. Clamped so a level/nose-up shot still has somewhere to land.
+// A no-target salvo goes where the boresight meets the ground (as drawGunTracers); clamped for level shots.
 function groundAim(F, s) {
   const hr = s.heading * Math.PI / 180;
   const pit = Math.min(-1.5, s.pitch || 0) * Math.PI / 180;         // treat level-or-up as a shallow dive
   const R = clampNum(Math.max(0.6, s.altitude / 600) / Math.tan(-pit), 0.8, 6);   // tiles ahead where the line meets the ground
   return { x: F.pos.x + Math.sin(hr) * R, y: F.pos.y - Math.cos(hr) * R, alt: 0 };
 }
-// Ripple `n` missiles off the rails at `tgt` — either { id } (track a live contact) or
-// { x, y, alt } (a fixed point on the ground). `wander` scales the drunkenness.
+// `tgt` is { id } (a live contact) or { x, y, alt } (a ground point). `wander` scales the weave.
 function launchShots(F, now, n, tgt, wander) {
   F.shots = F.shots || [];
   for (let i = 0; i < n; i++) {
@@ -1109,10 +900,7 @@ function launchShots(F, now, n, tgt, wander) {
     });
   }
 }
-// Fly every shot forward one frame and return the windshield's view of them (offsets from us).
-// Each missile: ignite on the aircraft's own vector (kicked off its rail to the side), boost to
-// speed, then steer toward the target at a limited turn rate with a decaying sinusoidal weave
-// laid over the top. It dies on proximity (a small burst) or when its life runs out.
+// Steps every shot one frame; returns offsets from us for the windshield.
 function stepShots(F, now, dt, s) {
   if (!F.shots || !F.shots.length) return null;
   const view = [];
@@ -1120,9 +908,7 @@ function stepShots(F, now, dt, s) {
     if (now < m.t0) continue;
     const age = (now - m.t0) / 1000;
     if (!m.live) {
-      // Off the rail on our vector, angled out to its own side — the fan of a ripple launch.
-      // Ignites a little ahead of and beside us (the stub-wing rails, not the pilot's lap) so
-      // the motor doesn't light up in the middle of the cockpit view on the first frame.
+      // Ignites ahead of and beside us, so the motor doesn't light up mid-cockpit on frame one.
       m.live = true;
       const lr = s.heading * Math.PI / 180;
       m.x = F.pos.x + Math.sin(lr) * 0.06 + Math.cos(lr) * 0.03 * m.side;
@@ -1133,15 +919,13 @@ function stepShots(F, now, dt, s) {
     }
     if (m.boomT) { if (now - m.boomT > 420) m.dead = true; }
     else {
-      // Live target: a contact keeps moving, so re-aim at it every frame (that's the seeker).
       let tx = m.tgt.x, ty = m.tgt.y, talt = m.tgt.alt;
       if (m.tgt.id && F.contacts) {
         const c = F.contacts.find(k => k.id === m.tgt.id);
         if (c) { tx = c.x; ty = c.y; talt = c.alt || 0; }
       }
       const dx = tx - m.x, dy = ty - m.y, rng = Math.hypot(dx, dy);
-      // Seeker: turn toward the target, but only so fast — and add the weave. The wander decays
-      // over the flight, so a missile that starts out drunk sobers up as it closes.
+      // Rate-limited turn plus a weave that decays over the flight.
       const want = Math.atan2(dx, -dy) * 180 / Math.PI;
       const drunk = m.wander * Math.exp(-age / 1.6) * 26 * Math.sin(age * 3.1 + m.seed);
       let err = ((want + drunk - m.hdg + 540) % 360) - 180;
@@ -1164,10 +948,7 @@ function stepShots(F, now, dt, s) {
   return view.length ? view : null;
 }
 // ── Flares ──────────────────────────────────────────────────────────────────────
-// A countermeasure burst the server confirmed (`air_threat` kind 'flares'): a fan of burning
-// magnesium pellets kicked out both sides and down, carrying the airframe's speed at first, then
-// dragging to a stop and dropping away behind us. Purely visual and client-side, like the missiles:
-// each pellet keeps an absolute position and the view hands the windshield live offsets.
+// Visual only, on a server-confirmed `air_threat` 'flares'.
 const FLARE_COUNT = 10;          // pellets per burst (a salvo of 5 a side)
 const FLARE_LIFE_MS = 3200;      // burn time
 const FLARE_TRAIL = 12;          // smoke-trail samples per pellet
@@ -1182,7 +963,6 @@ function launchFlares(F, s) {
     F.flares.push({
       t0: now + k * 90,   // rippled out in pairs
       x: F.pos.x - Math.sin(hr) * 0.02, y: F.pos.y + Math.cos(hr) * 0.02, alt: s.altitude - 4,
-      // Airframe velocity + a sideways kick + a little rearward.
       vx: Math.sin(hr) * (pace - back) + Math.cos(hr) * out * side,
       vy: -Math.cos(hr) * (pace - back) + Math.sin(hr) * out * side,
       vz: -20 - Math.random() * 40,   // ft/s, ejected downward
@@ -1212,86 +992,46 @@ function stepFlares(F, now, dt, s) {
   return view.length ? view : null;
 }
 // ── Building collision (CFIT) ─────────────────────────────────────────────────
-// The windshield draws one deterministic building per built-up tile from its floor count; the sim
-// collision-checks that SAME building so flying into a tower you can see out the glass hurts. The
-// shared source of truth is the FLOOR COUNT, not the render's world-z: the renderer extrudes floors
-// into a stylised world-z (bldgStretch etc.) and the camera eye-height rises as a √-compressed
-// function of altitude, so world-z can't be both visually pretty AND linear in real feet. So the
-// collision works in real feet off the floors — a shop tops out ~12 ft, a 22-storey tower ~264 ft —
-// instead of the old flat hz·600 that put a 3-storey's roof at 353 ft and made you CFIT with
-// wide-open air out the window. Shallow clip = damage; deep = write-off.
-//
-// SHAPE, not a square. It used to test one axis-aligned box of half-width BUILDING_FOOT with its
-// roof at floors × 12, and the models draw nothing like that — the per-model height multipliers
-// (office 1.7×, Halcyon 2.9×, Solenne 3.31×) never reached the sim at all, so the tallest towers in
-// the city were flyable through their top two thirds, while the bank's stylobate is wider than the
-// square and its attic narrower. buildingRoofFtAt now answers per POINT from the same captured
-// segments the renderer draws, so what you hit is what you can see — including, for the first time,
-// the gap between a tower and its low wing on the same tile, which returns 0 and is flown through.
-const CFIT_BOUNCE_KT = 18;    // at or below this airspeed a building contact BOUNCES you off; above it, she's written off
+// Collides with the shape the renderer draws: buildingRoofFtAt answers in real feet per point from
+// the captured segments. See docs/reference/building-shapes.md.
+const CFIT_BOUNCE_KT = 18;    // at or below this a building contact bounces; above it, a write-off
 const CFIT_SWEEP = 4;         // sub-samples along the frame's ground track (anti-tunnel for fast craft)
 
-// Test the aircraft's path THIS frame against the buildings on the tiles it crosses. Returns
-// null (clear), or { severe, roofFt } — severe = a solid hit (write-off), else a survivable clip.
+// This frame's path against the buildings it crosses: null, or { severe, roofFt }.
 function buildingCollisionAt(F, s) {
   const map = F.map;
   if (!map || !map.length || s.onGround) return null;
   const R = (map.length - 1) / 2, mc = F.mapCenter || { x: 0, y: 0 };
   const prev = F.cfitPrev || { x: F.pos.x, y: F.pos.y };
   const hd = (s.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
-  // Cheap reject only. The real containment test is per SEGMENT inside buildingRoofFtAt, which knows
-  // the building's actual shape — so this outer box just has to be generous enough never to reject a
-  // point some part of the model still occupies.
+  // Cheap reject only; must stay generous enough never to reject a point the model occupies.
   const foot = MODEL_MAX_EXTENT * (RENDER_TUNE.bldgFoot || 1);
   let worst = null;
   for (let i = 1; i <= CFIT_SWEEP; i++) {
     const t = i / CFIT_SWEEP;
     const px = prev.x + (F.pos.x - prev.x) * t, py = prev.y + (F.pos.y - prev.y) * t;
     const wx = Math.round(px), wy = Math.round(py);   // one building per tile, at integer coords
-    if (Math.abs(px - wx) > foot || Math.abs(py - wy) > foot) continue;   // nowhere near this tile's building
+    if (Math.abs(px - wx) > foot || Math.abs(py - wy) > foot) continue;
     const rx = Math.round(wx - mc.x + R), ry = Math.round(wy - mc.y + R);
     if (ry < 0 || ry >= map.length || rx < 0 || rx >= map[ry].length) continue;
-    // Roof altitude in real feet AT THIS POINT — the tallest captured segment actually under the
-    // aircraft, not the tile's single storey-stack roof. A miss between a tower and its low wing
-    // returns 0 and is flown through, which is the point.
-    // …and the Curtain, which is not building mass and so answers 0 to the probe above. Taken as a
-    // MAX against it rather than as a second sweep, so everything below — the overhead rule, the
-    // climb-out shield, the must-be-visible-to-collide window, bounce-vs-write-off — reaches it
-    // with no clause of its own. ⚠ It is a low obstacle in the ALTITUDE frame (0.9 world-z is
-    // ~27 ft through altForRoofZ, against a 6-storey office's 184), and that is the right answer
-    // rather than a bug: the eye climbs far above the shimmer plane by a few hundred feet, so a
-    // pilot who can see over the wall flies over it. What this stops is going THROUGH it.
+    // Roof under this point, maxed with the Curtain so every rule below reaches the wall too.
+    // ⚠ The Curtain is only ~27 ft in the altitude frame. That's correct: it stops flying through it, not over it.
     const roofFt = Math.max(buildingRoofFtAt(wx, wy, map[ry][rx], px, py),
                             curtainRoofFtAt(wx, wy, map[ry][rx], px, py));
     if (roofFt <= 0) continue;
     const dx = wx - px, dy = wy - py, f = dx * sinh - dy * cosh;
-    // Must be inside the renderer's own near/far visibility window — a building the windshield
-    // wouldn't actually be drawing (too close under the nose, or still fading in from FAR out)
-    // can't hurt you either. There is no climb-out shield any more (removed 2026-10-08): the
-    // collision follows the drawn shape, so a building off the end of a runway is solid like any
-    // other, and a pilot who can't out-climb it has to turn.
-    // The near cull asks "is it far enough ahead to be on the glass" — which is the
-    // wrong question for the tile you are directly OVER, where f collapses through
-    // zero as you cross the roof. Sitting on top of a building is precisely when it
-    // must be solid, so a tile whose footprint still contains you skips the forward
-    // test entirely. 0.62 is the renderer's own corner half-width, so this is exactly
-    // the set of tiles the windshield keeps drawing — the must-be-visible-to-collide
-    // rule holds, it just no longer loses the roof beneath the skids.
+    // Only buildings inside the renderer's near/far window can hit you. ⚠ The tile you're over skips
+    // that test (f passes through zero there); 0.62 is the renderer's own corner half-width.
     const overhead = Math.abs(dx) <= 0.62 && Math.abs(dy) <= 0.62;
     if (!overhead && (f <= VISIBLE_NEAR_F || f > VISIBLE_FAR_F)) continue;
-    const pen = roofFt - s.altitude;   // >0 ⇒ below the roofline ⇒ contact
+    const pen = roofFt - s.altitude;   // >0 is contact
     if (pen > 0 && (!worst || pen > worst.pen)) worst = { pen, roofFt };
   }
   if (!worst) return null;
-  // Hitting a building is fatal — UNLESS you were barely moving when you did it. A hover taxi
-  // nudging a parapet at walking pace bumps off it; anything with real energy behind it is a
-  // write-off, however shallow the clip. That's the whole rule, and it's a speed rule rather
-  // than a depth rule on purpose: a 140kt graze along a roofline is not a survivable "clip",
-  // and a helicopter drifting sideways into a wall at 8kt should not be a death sentence.
+  // A speed rule on purpose, never depth: a slow nudge bounces, any real energy is a write-off.
   return { severe: s.airspeed > CFIT_BOUNCE_KT, roofFt: worst.roofFt };
 }
-// Live-tunable render knobs exposed as in-cockpit sliders (⚙). RENDER_TUNE is shared
-// with windshield.js so a slider change takes effect on the very next frame.
+// Render knobs on the ⚙ sliders; RENDER_TUNE is shared with windshield.js. For most toggles 0 is the old renderer.
 const FSIM_TUNE = [
   ['worldPace', 'Ground speed', 0, 0.001, 0.00005],
   ['groundBoost', 'Ground boost', 1, 20, 0.5],
@@ -1299,150 +1039,74 @@ const FSIM_TUNE = [
   ['eh', 'Horizon compress', 0, 1, 0.01],
   ['climbLift', 'Climb lift', 0, 20, 0.5],
   ['tile', 'Floor tiles', 0.1, 3, 0.05],
-  // The moon's angular radius, in degrees of sky. A slider because the only question it answers is
-  // how big a moon this sky wants, which is a thing you judge by looking at it — and because the
-  // phase is real (it comes off the world calendar, so every canopy in the Basin shows the same
-  // one), and a phase you cannot read is one nobody knows is there. Real is 0.26; 3 ships.
+  // Moon angular radius (deg). Real is 0.26; 3 ships so the phase reads.
   ['moonSize', 'Moon size', 1, 8, 0.25],
   ['pixel', 'Pixel size', 1, 10, 1],
-  ['perfDS', 'Adaptive chunk', 0, 1, 1],   // 0 pins 'Pixel size' — under load the ground stays crisp and the frame rate takes the hit instead
+  ['perfDS', 'Adaptive chunk', 0, 1, 1],   // 0 pins 'Pixel size' under load
   ['fog', 'Fog (N64)', 0, 1, 0.05],
   ['vlight', 'Vertex light', 0, 1.5, 0.05],
-  // Performance dials. These existed in RENDER_TUNE but had no slider, which meant the three
-  // cheapest experiments in the renderer (is the cost texturing? fog overfill? face count?) could
-  // only be run by editing source. Profiling put ~54% of the frame in the building face flush, so
-  // they earn their place in the panel.
-  // GLASS 2: draw the city's MASS in WebGL2 under this canvas and run the model arms with their
-  // mass suppressed, so every light and sign still paints on top. 0 is the renderer that has
-  // always shipped — no canvas is created and no GL context is asked for — and a throw inside the
-  // pass switches this back to 0 and finishes the frame in 2-D.
+  // GLASS 2: city mass in WebGL2 under the canvas. 0 asks for no context; a throw sets it back to 0.
   ['gl', 'GLASS 2 (WebGL)', 0, 1, 1],
-  // Everything a building wears that is not mass, a light or a sign — masts, lattice towers,
-  // rails, guy wires, jibs, light-runners, blades, helideck markings, dishes, price boards — on
-  // the depth buffer instead of painted over the finished city. 0 puts every one of them back on
-  // the canvas, probe and all, which is what shipped before and is what draws them through walls.
+  // Adornments (masts, rails, dishes...) in the depth buffer; 0 paints them on the canvas, through walls.
   ['glDeco', 'GL adornments', 0, 1, 1],
-  // The parts of a building that move: a wharf crane slewing and lifting, a gantry trolley running
-  // its beam, a grab dropping into a scrap pile, an arc welder in an open shed, the clone facility's
-  // vats breathing. 0 parks every one of them at the pose its cycle calls home — a still crane, not
-  // a missing one — and is the renderer exactly as it shipped. A slider because the thing being
-  // judged is whether it draws attention to itself, which is not a number.
+  // Moving building parts (cranes, gantries, vats); 0 parks each at its home pose.
   ['motion', 'Moving parts', 0, 1, 1],
-  // Snow lying on the ground — the open terrain, the streets and every up-facing surface in the
-  // city. 0 is the renderer as it shipped. It is a slider rather than a boolean because the depth
-  // itself is integrated from the weather (see SNOW_NOW) and this scales what that arrives at, so
-  // it doubles as the way to see a blizzard without waiting for one: RENDER_TUNE.snowForce pins
-  // the depth outright, and this is the master the pin still has to pass through.
+  // Scales the weather-integrated snow depth (SNOW_NOW); snowForce pins depth but still passes through this.
   ['glSnow', 'Snow cover', 0, 1, 0.05],
-  // Wheel tracks cut back into that cover — yours, and every other player's. 0 is the snow exactly
-  // as it lies without them. A separate knob from the cover because it is the only STATEFUL part of
-  // the feature: it is the one thing that can be switched off to get a frame back, and the one thing
-  // whose cost scales with how many vehicles are near you rather than with the weather.
+  // Wheel tracks in the snow: the stateful part, whose cost scales with nearby vehicles.
   ['glTracks', 'Wheel tracks', 0, 1, 1],
-  // Whether the GL clip plane is solved from the camera or fixed at the 0.06 tiles GLASS 2 shipped
-  // with. A boolean wearing a slider's clothes, because there is nothing to tune: it either fits or
-  // it does not, and 0 is the A/B. Only a seat whose eye is under about a tenth of a tile — a free
-  // camera pressed down onto the road — ever gets a different number out of it.
+  // Near plane solved from the camera (1) or fixed at 0.06 tiles (0). Only matters for an eye under ~0.1 tile.
   ['nearFit', 'Fit near plane to seat', 0, 1, 1],
   // ── THE SEA ──────────────────────────────────────────────────────────────────────────────────
-  //
-  // Water is the one surface in GLASS that got a normal, then geometry, then physics, and none of
-  // it was reachable from here. The first two are booleans and the rest are the sea itself.
-  //
-  // Whether the water has a real facet normal and a specular lobe, or the flat brightness tint it
-  // was drawn with for years. 0 is that tint, bit for bit.
+  // Facet normal and specular on water; 0 is the flat tint.
   ['glSeaLit', 'Lit water', 0, 1, 1],
-  // Whether the sea is GEOMETRY. 1 puts a displaced mesh on it that occludes, breaks the horizon
-  // and carries hulls; 0 is the flat plane the floor shades, which is every sea this renderer drew
-  // before. ⚠ GLASS 2 only — the software floor has no vertices to displace, so with `gl` or
-  // `glFloor` at 0 the sea is flat whatever this says.
+  // Sea as a displaced mesh. ⚠ GLASS 2 only: with gl or glFloor at 0 the sea is flat regardless.
   ['glSwell', 'Sea as geometry', 0, 1, 1],
-  // ⚠ HOW ROUGH IT IS, AND -1 IS THE ONE THAT MATTERS. At -1 the weather decides: wind speed drives
-  // significant wave height through JONSWAP's fetch-limited growth law, integrated through a
-  // reservoir so a squall builds a sea over minutes rather than snapping one into existence. Any
-  // value from 0 to 1 PINS it instead — 0 is a mirror, 1 is a Force 9 — which is what you want when
-  // you are looking at the water rather than flying through weather.
+  // ⚠ -1 lets the weather drive it (JONSWAP, built up over minutes). 0..1 pins it: 0 a mirror, 1 Force 9.
   ['glSeaState', 'Sea state (-1 = weather)', -1, 1, 0.05],
-  // The Basin's effective FETCH in kilometres: how far the wind gets to work on the water before it
-  // reaches you. Significant height goes as its square root, and it is the number that separates an
-  // enclosed basin from an ocean — drop it to 5 and even a gale only ever raises a chop.
+  // Effective fetch (km); wave height goes as its square root.
   ['glSeaFetch', 'Fetch (km)', 2, 200, 1],
-  // The only taste in the chain, named for what it is: 1.0 is the physical wave height for the wind
-  // that is blowing. Above it the sea is bigger than the weather says. ⚠ Bounded by BREAKING rather
-  // than by preference — steepness is amplitude times wavenumber and a Stokes wave breaks at 0.443,
-  // so past about 2.2 the mesh folds through itself and stops being a surface.
+  // 1.0 is physical. ⚠ Capped at 2.2: past that the waves exceed Stokes breaking steepness and the mesh folds.
   ['glSeaGain', 'Wave height x', 0, 2.2, 0.05],
-  // How tall a hull's own bow wave and wake trough stand. 0 leaves a boat sitting on the sea
-  // without disturbing it, which is what the foam decal alone used to say.
   ['glWakeAmp', 'Wake depth', 0, 0.2, 0.005],
-  // How hard the sea reflects the city, on the road's own 0..32 scale where 32 is exactly as hard
-  // as Fresnel says it should. The mirror pass has existed since the puddles shipped and was wired
-  // only to tarmac — world.js kept its uniforms "for the day somebody wants reflections on unpaved
-  // ground". 0 is that day not having come.
+  // Sea reflection on the road's 0..32 scale (32 is Fresnel).
   ['glSeaRefl', 'Sea reflections', 0, 32, 1],
-  // How far the wave's own normal drags the reflection lookup, in PIXELS — what makes a reflection
-  // ripple rather than sit there like a photograph. It is the SAME normal the specular uses, so the
-  // two cannot disagree about which way a facet is pointing.
+  // Reflection offset by the wave normal, in pixels (the same normal the specular uses).
   ['glSeaReflBend', 'Reflection ripple', 0, 80, 1],
-  // Where the rain is allowed to be. The curtain is a full-screen particle pass keyed off the
-  // day's weather string, so it fell in clear air on top of an overcast and over the half of the
-  // map with no cell above it. 1 gates it on the cloud base the deck is already drawn at and on
-  // the cover at your own position; 0 is that curtain back, which is the mutation control the
-  // headless gate uses to prove the ceiling is what stops it.
+  // Rain only under cloud base and local cover. 0 is the mutation control the headless gate uses.
   ['rainGate', 'Rain under cloud only', 0, 1, 1],
-  // How far a building still says its own NAME. The board is in the mesh and the GPU draws it at
-  // every distance; the lettering on it is a decal the arm has to emit, and the pass that emits
-  // one used to stop at `detailNear` — three tiles — so the city was full of lit, framed, empty
-  // plates. 0 is that renderer back. It is a slider rather than a constant because what it buys
-  // is legibility and what it costs is decals, and both of those are things you judge by looking.
+  // Range (tiles) at which sign lettering decals are still emitted.
   ['signFar', 'Sign lettering range', 0, 24, 1],
-  // Multisampling on the GL canvas. A creation attribute, so moving it rebuilds the context and the
-  // vertex buffer — one visible hitch, then the new setting. Worth a slider because the 2-D canvas
-  // underneath has no AA at all, so this is a cost nobody chose to pay.
+  // MSAA is a creation attribute: changing it rebuilds the context (one hitch).
   ['glMsaa', 'GL antialias', 0, 1, 1],
   // FXAA smooths what MSAA misses (specular sparkle, lattice edges). Off: it softens sign lettering.
   ['glFxaa', 'FXAA', 0, 1, 1],
-  // The sun's own depth pass: a building shading its neighbour's wall, a setback shading the storey
-  // below it. A strength, with 0 the renderer as it was. The ground hulls are the separate
-  // 'Shape shadows' switch and are unaffected either way.
+  // Sun depth-pass strength; ground hulls are the separate 'Shape shadows'.
   ['glShadow', 'Sun shadows', 0, 1, 0.05],
   ['glAO', 'Contact occlusion', 0, 1, 0.02],
-  // ⚠ BIGGER IS SMALLER — it is the puddle field's FREQUENCY, so turning it up cuts the same
-  // water into more and smaller pools. 1.5 is the picture that shipped; 1.9 is the default now.
+  // ⚠ A frequency: higher means more, smaller pools.
   ['glPuddle', 'Puddle density', 0.6, 9, 0.05],
-  // The puddle field as a ROAD rather than as noise: the crown, the gutter and the wheel ruts.
-  // 0 is the isotropic field that shipped, which put water in blobs with no relation to the kerb.
+  // Puddles in the crown, gutter and ruts; 0 is isotropic noise.
   ['glPudRoad', 'Puddles follow the road', 0, 1, 0.05],
-  // How much the water GROWS over a storm rather than arriving at full depth. 0 pins the level to
-  // the surface film, which is what shipped — puddles full about four seconds into any rain.
+  // How much puddles grow over a storm; 0 fills them within seconds.
   ['glPondGrow', 'Puddles fill over time', 0, 1, 0.05],
   ['glMirrorMass', 'Buildings in water', 0, 1, 1],
-  // The other four fifths of what a puddle reflects. The buffer held the city and the ground shader
-  // filled the rest with a flat sky colour — one colour, because a grazing reflection reads the
-  // bottom fifth of a two-stop gradient. 0 is that road.
+  // Real sky in puddle reflections; 0 is one flat colour.
   ['glMirrorSky', 'Sky in water', 0, 1, 1],
-  // The contrast the reflection is read against, not its strength — at glMirror 32 the water is
-  // already at the Fresnel value. 0.45 is the road that shipped; 0 is a wet road as bright as a dry one.
+  // Contrast under the reflection, not its strength.
   ['glWetDark', 'Wet road darkness', 0, 0.9, 0.01],
   ['glRipple', 'Puddle ripple', 0, 8, 0.1],
-  // The lamps reflected IN the water rather than smeared on the tarmac beside it — the one term
-  // that makes a wet road at night brighter anywhere. 0 is the road as it was.
+  // Lamps reflected in the water.
   ['glGlint', 'Puddle glint', 0, 160, 2],
   ['glGroundBias', 'Road depth bias', -64, 0, 1],
   ['glBeam', 'Headlight pool', 0, 0.6, 0.01],
-  // The other headlight — the screen-space glare — and how much of its ground pool a wet road takes
-  // away. It is the largest single thing on the near carriageway at night and it is painted on the
-  // glass, so 0 is the road washed exactly as it shipped and 1 is the pool gone in a downpour.
+  // How much of the screen-space headlight glare pool a wet road removes.
   ['hlWetPool', 'Glare off wet road', 0, 1, 0.05],
   ['glShip', 'Rig in the depth buffer', 0, 1, 1],
   ['glBay', 'Depot in the depth buffer', 0, 1, 1],
-  // The third of that family, and the one whose sorting problem is with the CLOUDS rather than with
-  // a wall. A goose and an air contact are billboards, billboards write no depth, and the deck runs
-  // after the world and tests against what the world left — so the deck painted over the flock
-  // whatever its altitude. 0 puts both back to writing none, which is what shipped.
+  // Geese and air contacts write depth, so the cloud deck sorts against them.
   ['glAirDepth', 'What flies in the depth buffer', 0, 1, 1],
-  // The cloud deck raymarched as a volume instead of the card swarm. -1 is auto (on for any
-  // non-software GPU, off for the session if the frame time stays high), 0 is the cards, 1 forces it.
+  // Raymarched clouds: -1 auto (off for the session if frame time stays high), 0 cards, 1 forced.
   ['glCloudVol', 'Volumetric clouds (-1 auto)', -1, 1, 1],
   ['cloudVolRes', 'Cloud volume resolution', 0.125, 1, 0.125],
   ['cloudVolSteps', 'Cloud volume ray steps', 16, 128, 8],
@@ -1450,9 +1114,7 @@ const FSIM_TUNE = [
   ['cloudVolGlow', 'Cloud volume city underglow', 0, 2, 0.1],
   ['occlude', 'Occlusion cull', 0, 1, 1],
   ['shapeShadow', 'Shape shadows', 0, 1, 1],
-  // The hero model's own per-pixel sun shadow and lamp spill (model-raster.js). Both double as an
-  // on/off switch and a strength, and 0 on each restores the renderer exactly as it was before
-  // either existed — which is the only reason a knob that is really a strength gets a slider here.
+  // Hero model's per-pixel shadow and lamp spill (model-raster.js), as strengths.
   ['modelShadow', 'Model shadow', 0, 1, 0.05],
   ['modelLights', 'Model lamps', 0, 1, 0.05],
   ['shapeWire', 'Shape wire', 0, 1, 1],
@@ -1479,9 +1141,7 @@ const FSIM_TUNE = [
   ['chaseSink', 'Sit height', -0.2, 0.5, 0.01],
 ];
 
-// Live-tunable FLIGHT-MODEL knobs — every per-airframe characteristic in flightmodel
-// TYPES. These mutate the current plane's params object (F.P), which step() reads fresh
-// every frame, so a drag re-tunes the feel on the next frame. Session-scoped, per plane.
+// Flight-model knobs: mutate this plane's F.P for the session; step() reads it each frame.
 const PHYS_TUNE = [
   ['mass', 'Mass', 0.5, 6, 0.1],
   ['thrustMax', 'Thrust', 5, 60, 0.5],
@@ -1509,30 +1169,22 @@ const PHYS_TUNE = [
   ['brake', 'Brakes', 3, 9, 0.5],
   ['groundSteer', 'Ground steer', 8, 40, 1],
 ];
-// Value formatter: decimals inferred from the slider step (so 0.00005 shows 5 places).
+// Decimals inferred from the slider step.
 const decOf = (stp) => { const i = String(stp).indexOf('.'); return i < 0 ? 0 : String(stp).length - i - 1; };
 const fmtStp = (v, stp) => (+v).toFixed(decOf(stp));
 
-// Per-craft cockpit SKIN for the continuous sim. Sets a body class (`fsim-theme-<id>`,
-// styled below) plus the canvas-instrument accent (PFD/MFD/gauges can't read CSS vars),
-// so each airframe's flightdeck reads its own. No entry ⇒ the default light-cyan cabin
-// (the Carcass wreck). The Mule is a cyberpunk carbon-fibre freighter in violet/magenta neon.
+// Per-craft skin: body class `fsim-theme-<id>` plus the canvas accent. No entry is the default cabin.
 const FSIM_SKIN = {
-  mayfly: { id: 'mayfly', acc: '#5fe0e6', rgb: [95, 224, 230] },   // ultralight trainer: bright daytime sky-aqua, plexi & bare alloy
+  mayfly: { id: 'mayfly', acc: '#5fe0e6', rgb: [95, 224, 230] },
   mule: { id: 'mule', acc: '#a874ff', rgb: [168, 116, 255] },
-  leviathan: { id: 'leviathan', acc: '#3fd6c0', rgb: [63, 214, 192] },   // Soviet An-124 turquoise flightdeck
-  reaper: { id: 'reaper', acc: '#ff9a38', rgb: [255, 154, 56] },   // A-10 Warthog: olive-drab armour + gunsight amber
-  dragonfly: { id: 'dragonfly', acc: '#8fe36b', rgb: [143, 227, 107] },   // Mini 500: a light, exposed kit-heli bubble
-  viper: { id: 'viper', acc: '#5fe6c0', rgb: [95, 230, 192] },   // attack-heli glass cockpit: black composite + cyan-green HUD, threat-red weapons
-  drake: { id: 'drake', acc: '#e89a3a', rgb: [232, 154, 58] },   // the mandarin drake: warm orange sail-fin trim
-  // The two light singles each carry their own flightdeck now: the Grasshopper an olive-drab
-  // L-4 liaison deck (khaki plates, lime dials), the Locust a gloss-black hot-rod sport deck
-  // (amber dials, racing-red master).
+  leviathan: { id: 'leviathan', acc: '#3fd6c0', rgb: [63, 214, 192] },
+  reaper: { id: 'reaper', acc: '#ff9a38', rgb: [255, 154, 56] },
+  dragonfly: { id: 'dragonfly', acc: '#8fe36b', rgb: [143, 227, 107] },
+  viper: { id: 'viper', acc: '#5fe6c0', rgb: [95, 230, 192] },
+  drake: { id: 'drake', acc: '#e89a3a', rgb: [232, 154, 58] },
   grasshopper: { id: 'grasshopper', acc: '#9ad46a', rgb: [154, 212, 106] },
   locust: { id: 'locust', acc: '#ffd24a', rgb: [255, 210, 74] },
-  // The Shrike flies a spare bombardier's deck: dark green crackle paint, white-on-black
-  // instruments, and one pink-magenta lamp — the same magenta as the tile crosshair on the
-  // glass, because on this aeroplane the designated tile IS the instrument that matters.
+  // Magenta matches her tile crosshair.
   shrike: { id: 'shrike', acc: '#ff5cb0', rgb: [255, 92, 176] },
 };
 
@@ -1543,13 +1195,7 @@ function ensureFlightSimStyles() {
   document.head.appendChild(s);
 }
 
-// A full control yoke (cyberpunk-industrial): a horned control wheel with side grips
-// and a lit centre boss. It's transformed live (roll + a 3-D pull toward/away) in the
-// frame loop so the wheel feels like it is coming toward you as you pull back.
-// Cessna-Caravan-style control yoke: rounded ram-horn wheel sweeping out to two chunky
-// grips (PTT/trim nubs on top), a coiled cable dropping from the column, and a central
-// hub placard carrying the aircraft name in the themed accent colour (`#fsim-yoke-name`,
-// set per-craft on mount). The green/red centre LEDs (best-climb / stall) are retained.
+// Default ram-horn yoke (Mule and fallback). The frame loop transforms it live.
 const YOKE_SVG = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
   <defs>
     <linearGradient id="ykblk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3d42"/><stop offset="0.16" stop-color="#191b1f"/><stop offset="0.6" stop-color="#0c0d10"/><stop offset="1" stop-color="#050506"/></linearGradient>
@@ -1582,21 +1228,14 @@ const YOKE_SVG = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100
 </svg>`;
 
 // ── Per-plane controls ────────────────────────────────────────────────────────
-// Each airframe carries its own control art, matched to type: a light tube yoke
-// (Mayfly), the caravan ram-horn wheel above (Mule + fallback), a broad Soviet
-// ram's-horn wheel (Leviathan), an A-10 combat centre stick (Reaper), and a heli
-// cyclic (Dragonfly). Every one keeps the SAME contract so the frame loop drives
-// it unchanged: viewBox `0 0 100 74`, the `fsim-yoke-svg` id/class, the name text
-// (`#fsim-yoke-name`, set on mount) and the two status LEDs (`#fsim-yk-green` /
-// `#fsim-yk-red` → best-climb/glide/stall). The green/blue/red LED gradients the
-// LED logic fills by url() are shared below so every control lights identically.
+// ⚠ Every control SVG keeps one contract for the frame loop: viewBox 0 0 100 74, id fsim-yoke-svg,
+// #fsim-yoke-name, and the #fsim-yk-green / #fsim-yk-red LEDs filled from the shared gradients.
 const YK_LED_DEFS = `
   <radialGradient id="ykgreen" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#9dffc8"/><stop offset="0.5" stop-color="#3ad07a"/><stop offset="1" stop-color="#0d3a22"/></radialGradient>
   <radialGradient id="ykblue" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#cfeeff"/><stop offset="0.5" stop-color="#3aa8e0"/><stop offset="1" stop-color="#0b2a3c"/></radialGradient>
   <radialGradient id="ykred" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffb6b8"/><stop offset="0.5" stop-color="#e0403a"/><stop offset="1" stop-color="#3a0d0d"/></radialGradient>`;
 
-// MAYFLY — an ultralight trainer's skeletal control: a thin aluminium grip tube on
-// two exposed posts with foam end-grips and a tiny hub plate. Light, minimal, honest.
+// MAYFLY: ultralight tube yoke.
 const YOKE_MAYFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
   <defs>${YK_LED_DEFS}
     <linearGradient id="mftube" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6eef3"/><stop offset="0.5" stop-color="#9fb0bc"/><stop offset="1" stop-color="#59686f"/></linearGradient>
@@ -1622,8 +1261,7 @@ const YOKE_MAYFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 
   <circle id="fsim-yk-red" cx="55" cy="41.5" r="2.3" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
 
-// LEVIATHAN — an Antonov An-124 control wheel: a broad, heavy ram's-horn yoke with
-// chunky riveted grips and a big stamped data hub. Wider and beefier than the Mule's.
+// LEVIATHAN: An-124 ram's-horn wheel.
 const YOKE_LEVIATHAN = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
   <defs>${YK_LED_DEFS}
     <linearGradient id="lvblk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#33433f"/><stop offset="0.18" stop-color="#1a2725"/><stop offset="1" stop-color="#060b0a"/></linearGradient>
@@ -1650,8 +1288,7 @@ const YOKE_LEVIATHAN = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0
   <circle id="fsim-yk-red" cx="56" cy="43" r="2.7" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
 
-// REAPER — an A-10 combat centre stick: a rubber-booted floor stick with a molded
-// pistol grip, a coolie top-hat, a weapons button and a red gun trigger. Pivots low.
+// REAPER: A-10 centre stick. Pivots low.
 const STICK_REAPER = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
   <defs>${YK_LED_DEFS}
     <linearGradient id="rpshaft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a4d44"/><stop offset="0.5" stop-color="#24261e"/><stop offset="1" stop-color="#0c0d08"/></linearGradient>
@@ -1679,8 +1316,7 @@ const STICK_REAPER = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0
   <circle id="fsim-yk-red" cx="52.5" cy="29" r="1.9" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
 
-// DRAGONFLY — a Mini-500 kit-helicopter cyclic: a thin exposed floor stick on a
-// gimbal with a bulbous grip head, a 4-way trim hat and a cargo-release trigger. Pivots low.
+// DRAGONFLY: kit-heli cyclic. Pivots low.
 const CYCLIC_DRAGONFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
   <defs>${YK_LED_DEFS}
     <linearGradient id="dfshaft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9d6cf"/><stop offset="0.5" stop-color="#71857c"/><stop offset="1" stop-color="#2b322e"/></linearGradient>
@@ -1707,9 +1343,7 @@ const CYCLIC_DRAGONFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox=
   <circle id="fsim-yk-red" cx="52.5" cy="23.5" r="1.9" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
 
-// VIPER — a futuristic attack-heli COMBAT CYCLIC: a low-pivot black-carbon pistol grip with a
-// coolie trim-hat, a red master/weapons trigger on the front, and a 2×2 cluster of cyan SWARM
-// launch pips on the grip face — the ripple made physical. Aggressive, glass-cockpit tactical.
+// VIPER: attack-heli combat cyclic with the four SWARM pips.
 const CYCLIC_VIPER = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
   <defs>${YK_LED_DEFS}
     <linearGradient id="vpshaft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3a35"/><stop offset="0.5" stop-color="#16211d"/><stop offset="1" stop-color="#080d0b"/></linearGradient>
@@ -1738,9 +1372,7 @@ const CYCLIC_VIPER = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0
   <circle id="fsim-yk-red" cx="52.5" cy="29" r="1.9" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
 
-// GRASSHOPPER — a Piper L-4 Cub's bare bent-tube joystick: a slim olive-drab aluminium tube
-// rising from a floor socket to a single plain rubber ball grip. No buttons, no trim hat — the
-// most honest, spartan control in the fleet, matched to the fabric-and-tube liaison scout.
+// GRASSHOPPER: a Cub's bent-tube joystick.
 const STICK_GRASSHOPPER = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
   <defs>${YK_LED_DEFS}
     <linearGradient id="ghtube" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7c8a55"/><stop offset="0.5" stop-color="#4d5733"/><stop offset="1" stop-color="#232a15"/></linearGradient>
@@ -1763,9 +1395,7 @@ const STICK_GRASSHOPPER = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox
   <circle id="fsim-yk-red" cx="52.8" cy="28.5" r="1.9" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
 
-// LOCUST — a crop-duster's stout utility centre stick: a thick worn shaft into a plain molded
-// grip with a green spray-boom arming toggle on the head. Workmanlike and honest — no aerobatic
-// contours, just a hand-filling grip you fly low passes with all day.
+// LOCUST: crop-duster's utility stick with the spray-boom toggle.
 const STICK_LOCUST = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
   <defs>${YK_LED_DEFS}
     <linearGradient id="lcshaft" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b7b39c"/><stop offset="0.5" stop-color="#6d6a54"/><stop offset="1" stop-color="#2e2c20"/></linearGradient>
@@ -1791,15 +1421,12 @@ const STICK_LOCUST = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0
   <circle id="fsim-yk-red" cx="52.5" cy="29.5" r="1.9" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
 
-// Pick the control art for a craft type (Mule + anything unlisted → the caravan wheel).
+// Control art per craft type; anything unlisted gets the default wheel.
 function yokeSvgFor(t) {
-  // The light singles each fly their analogue's centre stick: the Grasshopper a Cub bent-tube
-  // joystick, the Locust a sport aerobatic stick. Only the Mayfly keeps the skeletal tube-yoke.
   return { mayfly: YOKE_MAYFLY, grasshopper: STICK_GRASSHOPPER, locust: STICK_LOCUST, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, shrike: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY, viper: CYCLIC_VIPER }[t] || YOKE_SVG;
 }
 
-// Cabin-occupancy readout on the aircraft placard: one pip per seat — pilot in the accent,
-// riders in green, empty seats dim — with a hover title naming who's aboard.
+// One pip per seat on the placard.
 function renderSeats(F) {
   const el = document.getElementById('fsim-seats'); if (!el) return;
   const list = (F.occupants && F.occupants.length) ? F.occupants : new Array(Math.max(1, F.seats || 1)).fill(null);
@@ -1813,13 +1440,8 @@ function renderSeats(F) {
   el.innerHTML = html;
 }
 
-// The mesh's channels off the conversion: the wings sweep over the first 60%, the rotor stops,
-// folds and tucks over the last 60%, so for a moment in the middle it has both.
 const smooth01 = (x) => { const t = clampNum(x, 0, 1); return t * t * (3 - 2 * t); };
-// The Drake's shape on the wire (wings, rotor fold, ramp, gear, each 0..100) after the attitude,
-// so other pilots see it converted, open or wheels-up. Empty for every other aircraft.
-// The feet tear off on the water (drake-water.js): gone until a hangar fits new ones, told to the
-// server so it persists, and the lever stops doing anything.
+// The Drake's feet tear off on the water and stay gone until a hangar refits them (the server persists it).
 function drakeSnapFeet(F) {
   if (!F.dk || F.dk.feetGone) return;
   F.dk.feetGone = true;
@@ -1828,23 +1450,19 @@ function drakeSnapFeet(F) {
   F.shake = Math.max(F.shake || 0, 14); F.hitFlashT = performance.now();
   if (F.toast) F.toast('⚠ THE FEET TORE OFF: she is on her hull');
 }
-// The sea the Drake floats on: the renderer's amplitudes scaled by the gate the water mesh puts on
-// them where she is (shelter, waterness, the surf), so a harbour is as calm under her as it's drawn.
-// At her `mapOffset`, the window-frame position drake-water.js samples the swell at (seaFramePos).
+// The sea under the Drake, gated as the water mesh gates it there, so a harbour is as calm as it's drawn.
 function drakeSeaAmps(F) {
   const a = seaAmpsNow(), c = F.mapCenter || { x: 0, y: 0 };
   const g = hullSeaGains(F.pos.x - c.x, F.pos.y - c.y, c.x, c.y, a.roll, a.wind);
   return { roll: a.roll * g.swell, wind: a.wind * g.swell, chop: a.chop * g.chop };
 }
+// The Drake's shape on the wire (wings, rotor fold, ramp, gear, ski, 0..100, then boat). Empty for other aircraft.
 function drakeSyncTail(F) {
   if (!F.dk) return '';
   const a = drakeAnim(F.dk), p = (x) => Math.round(clampNum(x, 0, 1) * 100);
-  return ` ${p(a.wings)} ${p(a.rotorFold)} ${p(a.ramp)} ${p(F.gearRetract ? (F.gearAnim ?? 1) : 1)} ${p(a.ski || 0)} ${F.dk.onWater && (F.dk.boat || F.dk.submerged > 0) ? 1 : 0}`;   // last field: 1 = in BOAT (or under). ⚠ plugins/submersible gates a dive on it (shape.boat); a constant 0 here refused every dive
+  return ` ${p(a.wings)} ${p(a.rotorFold)} ${p(a.ramp)} ${p(F.gearRetract ? (F.gearAnim ?? 1) : 1)} ${p(a.ski || 0)} ${F.dk.onWater && (F.dk.boat || F.dk.submerged > 0) ? 1 : 0}`;   // ⚠ last field (boat) gates a dive in plugins/submersible
 }
-// The airfield tags the heading tape and the Drake's map draw: the fields in range, or, with a GPS
-// destination locked (F.gpsDest, apTargetId 'gps'), that destination and nothing else. Bearing is
-// the server's bearingDeg (plugins/flight/state.js), worked here because the destination can be
-// anywhere on the charts and the server only tags fields in range.
+// Fields in range, or only the locked GPS destination. Bearing matches the server's bearingDeg.
 function navFields(F) {
   const d = F.gpsDest;
   if (!d || F.apTargetId !== 'gps') return F.fields;
@@ -1852,8 +1470,7 @@ function navFields(F) {
   return [{ id: 'gps', name: d.name, gx: d.gx, gy: d.gy, dist: Math.round(Math.hypot(dx, dy)),
     bearing: Math.round(((Math.atan2(dx, -dy) * 180 / Math.PI) % 360 + 360) % 360) }];
 }
-// What the Drake's GPS screen shows (interior-drake.js drakeGps): its mode, and everything any mode
-// needs, relative to the aircraft in tiles. Nearest first and capped, so a crowded sky costs little.
+// Feed for the Drake's GPS screen (interior-drake.js), relative tiles, nearest first and capped.
 function drakeGps(F) {
   const px = F.pos?.x || 0, py = F.pos?.y || 0, near = (a) => a.sort((p, q) => p.d - q.d);
   const contacts = near((F.contacts || []).map((c) => ({ dx: (c.x ?? 0) - px, dy: (c.y ?? 0) - py, hdg: c.hdg || 0,
@@ -1862,24 +1479,24 @@ function drakeGps(F) {
   return { mode: F.dk?.gpsMode || 0, hdg: F.disp?.hdg || 0, contacts, fields, hull: F.hull ?? 100, surf: F.surfaces || null,
     ammo: F.gunRounds || 0, ammoCap: F.gunCap || 1, msl: F.msl || 0 };
 }
-// The dash compartments open and close over ~0.6 s, eased here each frame (0 shut, 1 open).
+// Dash compartments ease open/shut over ~0.6 s.
 function dkEase(D, k) {
   const now = performance.now(), dt = Math.min(100, now - (D[k + 'T'] || now)), a = D[k + 'A'] || 0, to = D[k] ? 1 : 0;
   D[k + 'T'] = now;
   return (D[k + 'A'] = a + Math.sign(to - a) * Math.min(Math.abs(to - a), dt / 600));
 }
-// The wing brake only ever acts on a spread wing (scaled by the spread), so it cannot fight a fold.
-// On the water (boat or sub) the wings tuck in, whatever the mode lever says: she is a hull there.
+// Wings sweep over the first 60% of conversion, the rotor folds over the last 60%. On the water
+// the wings tuck in whatever the lever says. The wing brake scales by the spread so it can't fight a fold.
 function drakeAnim(D) { const wings = smooth01(D.conv / 0.6) * (1 - smooth01(D.floatVis || 0)), ft = drakeFeetAnim(D); return { wings, rotorFold: Math.max(smooth01((D.conv - 0.4) / 0.6), smooth01(D.floatVis || 0)), ramp: D.ramp, boat: smooth01(D.floatVis || 0), ...ft, brake: ft.brake * wings }; }
 
 export function openFlightSim(opts = {}) {
-  closeFlightSim();          // clear any prior
-  closeCockpit();            // stop the glass HUD loop; the continuous cockpit owns the pane
-  window.dispatchEvent(new Event('flightsim:open'));   // let the WASD walk-mode owner disarm — those keys are flight controls now
-  suppressWeatherFx(true, 'cockpit');   // kill the outdoor overlay immediately so rain never flashes over the cockpit on embark
+  closeFlightSim();
+  closeCockpit();
+  window.dispatchEvent(new Event('flightsim:open'));   // WASD walk mode disarms; those keys fly now
+  suppressWeatherFx(true, 'cockpit');   // now, so rain never flashes over the cockpit on embark
   ensureWindshieldStyles(); ensureFlightSimStyles(); refreshAccent();
-  const skin = FSIM_SKIN[opts.craftType] || null;   // per-craft flightdeck theme
-  if (skin) { ACCENT = skin.acc; ACCENT_RGB = skin.rgb; }   // retint the canvas instruments to match the CSS chrome
+  const skin = FSIM_SKIN[opts.craftType] || null;
+  if (skin) { ACCENT = skin.acc; ACCENT_RGB = skin.rgb; }
   const P = TYPES[opts.craftType] || TYPES.mayfly;
   const s = createState(P);
   s.heading = (((opts.heading || 0) % 360) + 360) % 360;
@@ -1888,111 +1505,84 @@ export function openFlightSim(opts = {}) {
     P, s, cls: opts.craftClass || 'ultralight', livery: opts.livery || opts.craftLivery,
     aircraftId: opts.aircraftId || null,   // handed back in `flightresume` (resumeFlightAfterLogin)
     input: { elevator: 0, aileron: 0, throttle: 0, flaps: 0, pedal: 0, trim: 0 },
-    // A helicopter (Dragonfly/Mini 500) flies the hover model: the throttle lever is the
-    // COLLECTIVE, the yoke is the CYCLIC, and the rudder pedals (,/. or X/C) work the tail
-    // rotor (yaw) — same keys as the fixed-wings. heli flag drives the instrument set below.
+    // Heli: throttle is the collective, yoke the cyclic, pedals the tail rotor.
     heli: opts.craftClass === 'heli' || !!(TYPES[opts.craftType] && TYPES[opts.craftType].heli),
-    yachtDeparted: true,   // auto-land armed by default; a set-down on the Echelon disarms it until you leave her (see the capture gate)
+    yachtDeparted: true,   // a set-down on the Echelon disarms auto-land until you leave her
     pedalKey: 0,
-    // Start the craft exactly where it's parked (no forward hop onto the strip). The takeoff
-    // rolls out from the parked spot down the runway.
     pos: { x: opts.gx || 0, y: opts.gy || 0 },
-    home: { x: opts.gx || 0, y: opts.gy || 0 },   // where the seat was taken: the HOME marker's target
+    home: { x: opts.gx || 0, y: opts.gy || 0 },   // the HOME marker's target
     mapCenter: { x: Math.round(opts.gx || 0), y: Math.round(opts.gy || 0) },
     rollDist: 0, travel: 0,
-    // World-fixed departure runway anchor. When the server sends a runway pose derived
-    // from the map's centreline tiles (opts.runway), use it so the drawn runway sits on
-    // the real tiles; otherwise fall back to the craft's parked spot + heading.
+    // Departure runway: the server's pose from the centreline tiles, else the parked spot and heading.
     rwOrigin: { x: opts.runway?.ox ?? opts.gx ?? 0, y: opts.runway?.oy ?? opts.gy ?? 0 },
     rwHdg: opts.runway ? opts.runway.hdg : ((((opts.heading || 0) % 360) + 360) % 360),
     rwLen: opts.runway?.len || null,
     airport: opts.airport || 'default',
-    helipad: !!opts.helipad,     // a VTOL-only field draws a circle-H pad, not a strip
+    helipad: !!opts.helipad,
     reg: opts.registration || (opts.deviceName || 'MAYFLY').toUpperCase(), owner: opts.owner || 'RENTED', rented: !!opts.rented,
     fuel: opts.fuel ?? 100, fuelCap: opts.fuelCap || 100, warn: null,
     map: opts.map || null, sky: opts.sky || { hour: 12, weather: 'clear', wind: 0 }, biomeBelow: opts.biomeBelow ?? null,
     minimap: opts.minimap || null, mfdMode: 'local', fields: opts.fields || [],
-    checkride: opts.checkride || null, checkrideStage: null,   // guided-checkride clientView (instruction + ring gates) + last-rendered stage (null off a checkride)
-    tourStep: null, tourRenderedStep: null, tourDismissed: false,   // flight-school tour: current step, last-drawn step, and whether the player skipped it
+    checkride: opts.checkride || null, checkrideStage: null,
+    tourStep: null, tourRenderedStep: null, tourDismissed: false,
 
     deadStick: false, reportedAirborne: false, rolling: false, stopHinted: false,
-    engineOn: !!opts.engineOn, powered: !!opts.engineOn,   // master switch vs. current actually reaching the busbars (frame loop derives `powered`)
+    engineOn: !!opts.engineOn, powered: !!opts.engineOn,   // master switch vs current on the busbars (derived per frame)
     yokeDrag: false, thrDrag: false,
-    viewYaw: 0, throttleKey: 0, flapIdx: 0,          // keyboard: hold-to-look yaw, A/Z throttle ramp, flap detent
-    gearRetract: !!opts.gearRetract, gearUp: false, gearAnim: 1, external: false, extZoom: 1, cargoKg: opts.cargoKg || 0,   // gear (G) + jettison (J) + external view (V) — capabilities per airframe (Mayfly: none)
-    craftType: opts.craftType,                       // airframe id (drives the reaper-only gun/stores panel)
-    // A CONVERTIBLE (the Drake): a rotorcraft whose flight-model row names a wing row to become. `conv`
-    // runs 0 (rotor) to 1 (wing); the wings sweep out over the first part of it and the rotor stops,
-    // folds and tucks over the rest, and the flight model is swapped at the halfway mark. The ramp,
-    // night vision, the quack and the guns' master arm are the Drake's own switches.
+    viewYaw: 0, throttleKey: 0, flapIdx: 0,
+    gearRetract: !!opts.gearRetract, gearUp: false, gearAnim: 1, external: false, extZoom: 1, cargoKg: opts.cargoKg || 0,
+    craftType: opts.craftType,
+    // A convertible (the Drake): `conv` runs 0 (rotor) to 1 (wing); the flight model swaps at 0.5.
     dk: TYPES[opts.craftType]?.convert ? { conv: 0, wing: false, boat: false, ramp: 0, rampOpen: false, nv: false, quackT: -9, gunsArmed: false,
       rotorP: TYPES[opts.craftType], wingP: TYPES[TYPES[opts.craftType].convert] } : null,
-    sprayer: !!opts.sprayer,                          // ag-plane crop-duster (Locust): shows the SPRAY button
-    hardpoints: opts.hardpoints || 0, armed: false,  // weapons (gunship): master-arm + fire
-    salvo: opts.salvo || 0,                          // swarm airframe (Viper): >1 → MSL fires a no-lock ripple
-    bombs: 0, bombCap: 0,                            // bomb rack (Shrike) — authoritative counts arrive on flight_ctx
-    bursts: [],                                      // live bomb explosions, world-anchored (see pushBurst)
-    drops: [],                                       // bombs still in the air: released, resolved, not yet arrived (see flightBurst)
-    // An armed heli's gun is a CHIN turret — one light, fast-firing barrel under the nose, where
-    // the fixed-wing gunship carries a heavy pair under the wings. Drives the muzzle station, the
-    // firing cadence and the report.
+    sprayer: !!opts.sprayer,
+    hardpoints: opts.hardpoints || 0, armed: false,
+    salvo: opts.salvo || 0,                          // >1: MSL fires a no-lock ripple
+    bombs: 0, bombCap: 0,                            // counts arrive on flight_ctx
+    bursts: [],                                      // live bomb explosions, world-anchored
+    drops: [],                                       // bombs released and resolved but not yet arrived
+    // An armed heli's gun is a single chin turret.
     chinGun: opts.craftClass === 'heli' && (opts.hardpoints || 0) > 0,
     gunMs: (opts.craftClass === 'heli' && (opts.hardpoints || 0) > 0) ? GUN_FIRE_MS_LIGHT : GUN_FIRE_MS,
-    shots: [],                                       // missiles currently in the air (visual only — see stepShots)
-    gunCap: 1174, gunRounds: 1174,                   // GAU-8 ammo drum (cosmetic; counts down as the gun squirts)
-    nightLight: false, landingLight: false,          // instrument-panel backlight (PANEL) + exterior landing/taxi lights (LIGHTS) — both need engine power
+    shots: [],                                       // missiles in the air (visual only)
+    gunCap: 1174, gunRounds: 1174,                   // cosmetic ammo count
+    nightLight: false, landingLight: false,          // PANEL and LIGHTS; both need engine power
     raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
-    temp: 40, battery: 100,          // cosmetic engine-temp (°C) + battery charge (%) for the gauge cluster
+    temp: 40, battery: 100,          // cosmetic
     engines: Math.max(1, opts.engines || 1), seats: Math.max(1, opts.seats || 1), occupants: opts.occupants || [],
-    // Powerplant class → engine-instrument labelling/scales (piston RPM · turboprop TQ/ITT ·
-    // turbofan N1/EGT). Mule = twin turboprop; Reaper (A-10/TF34) + Leviathan (An-124) = jets.
+    // Powerplant class picks the engine gauges' labels and scales.
     engStyle: { mule: 'turboprop', reaper: 'turbofan', leviathan: 'turbofan', shrike: 'turboprop', dragonfly: 'heli', viper: 'heli', drake: 'heli' }[opts.craftType] || 'piston',
-    temps: [], rpms: [], engWander: 0,   // per-engine gauge state (twins get 2 RPM + 2 temp dials)
+    temps: [], rpms: [], engWander: 0,
 
     disp: { ias: 0, alt: 0, vs: 0, hdg: s.heading, rpm: 0, pitch: 0, bank: 0 },
-    contacts: [],   // air-to-air traffic, refreshed by flight_contacts
-    gunSolution: null, firing: false, fireHeld: false, hull: 100, hitFlashT: 0,   // Phase B: guns + battle damage
-    // Phase C: weapon select (guns ↔ missiles), the seeker lock cycle, rail count, RWR state.
+    contacts: [],   // refreshed by flight_contacts
+    gunSolution: null, firing: false, fireHeld: false, hull: 100, hitFlashT: 0,
     weapon: 'guns', msl: opts.hardpoints || 0, seekId: null, lockProg: 0, lockId: null, mslWarnT: 0,
     listeners: [],
   };
-  // Parked on a rooftop pad? Then the ground under the skids is the roof, not the street four
-  // hundred feet below it — see parkedDeck. Seeded here rather than in the state literal because
-  // it is read out of the map window the server sent with this very payload.
+  // Parked on a rooftop pad: the ground is the roof (parkedDeck).
   const deck = parkedDeck(F);
   if (deck) {
     F.padDeck = deck;
     s.altitude = deck.ft; s.groundFt = deck.ft; s.onGround = true;
-    F.disp.alt = deck.ft;        // the altimeter opens on the deck height instead of sweeping up to it
-    // The climb-out flies straight up this pad's OWN catch column, and the column would grab it and
-    // set it back down — the same latch the Echelon and a rooftop arrival both use, armed from the
-    // start because we are already on the deck.
+    F.disp.alt = deck.ft;
+    // ⚠ Latched, or the climb-out is caught by this pad's own catch column and set back down.
     F.roofDeparted = false;
   }
   _fsim = F;
-  // THE PANE IS NOW AN AEROPLANE, and on a phone it has to be told. The mobile layout starts
-  // #area-pane COLLAPSED and only ever opens it on a tap, so an app that mounts itself there —
-  // a player who logs in already aboard is the case that finds this — renders into a pane nobody
-  // can see: no cockpit, no controls, just the log and a walking d-pad. `pane:claimed` is what
-  // main.js listens for; the body class is what the CSS folds the d-pad away with, the same way
-  // it already does for fullscreen.
+  // ⚠ Without pane:claimed a phone keeps the pane shut. See docs/reference/mobile-layout.md.
   document.body.classList.add('fsim-active');
   window.dispatchEvent(new Event('pane:claimed'));
 
-  const flapStyle = flapStyleFor(opts.craftType);   // per-airframe flaps graphic (null = heli, hidden)
+  const flapStyle = flapStyleFor(opts.craftType);
   const isAdmin = ['admin', 'dev', 'builder', 'designer'].includes(state.myRole);
   const adminBtn = isAdmin ? '<button class="fsim-adminbtn" id="fsim-rewindbtn" title="ADMIN, rewind to the hangar you departed, with the plane (test)">⏪</button>' : '';
-  // Rudder pedals — a pair of angled foot plates centred at the base of the view, flanking the
-  // flight stick like the real thing (left plate = left rudder, right = right). Held to yaw —
-  // equivalent to the ,/. — X/C keys, and the only rudder input touch devices have. Each plate
-  // tips forward proportional to the LIVE pedal deflection every frame (via the --d var), so
-  // keyboard use animates them too and they spring back with the input. Shown in both views.
+  // Rudder pedals: hold to yaw, as ,/. or X/C. The only rudder touch has. The frame loop tips them via --d.
   const PEDALS_HTML = `<div class="fsim-pedals" id="fsim-pedals">
       <button class="fsim-pedal fsim-pedal-l" id="fsim-pedal-l" title="left rudder / yaw (hold: comma, or X)" tabindex="-1" aria-label="left rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">L</span></span></button>
       <button class="fsim-pedal fsim-pedal-r" id="fsim-pedal-r" title="right rudder / yaw (hold: full stop, or C)" tabindex="-1" aria-label="right rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">R</span></span></button>
     </div>`;
-  // The Drake's controls for the EXTERNAL view, where the cockpit isn't in front of you to click.
-  // Styled off the cockpit itself: walnut, gold, a carbon racing wheel. See the wiring below.
+  // The Drake's controls for the external view, where there's no cockpit to click.
   const DKX_HTML = `<div class="dkx" id="dkx" aria-label="Drake controls">
       <div class="dkx-strip">
         <button class="dkx-btn dkx-pwr" data-dk="power" title="power (engine master)" tabindex="-1">POWER</button>
@@ -2090,13 +1680,10 @@ export function openFlightSim(opts = {}) {
   const q = (sel) => root.querySelector(sel);
   const add = (t, ty, fn, op) => { if (!t) return; t.addEventListener(ty, fn, op); F.listeners.push([t, ty, fn, op]); };
 
-  // Yoke — 2D pad, springs to centre. Physically inverted: drag DOWN = pull = nose up.
+  // Yoke pad, inverted: drag down for nose up.
   const pad = q('#fsim-yoke');
   const padTo = (e) => { const r = pad.getBoundingClientRect(); F.input.aileron = clampNum(((e.clientX - r.left) / r.width) * 2 - 1, -1, 1); F.input.elevator = clampNum(((e.clientY - r.top) / r.height) * 2 - 1, -1, 1); };
-  // In the external chase view the grab pad floats ON TOP of the rudder pedals (higher stacking
-  // context), so a press meant for a pedal gets swallowed by the pad and grabs the stick. Before
-  // grabbing, hit-test the pedal boxes and, if the press landed on one, drive that pedal instead —
-  // the pad defers to the pedals so they never interfere, whatever the exact overlap.
+  // ⚠ In the external view the pad sits over the pedals, so it hit-tests them and defers.
   const pedalHit = (e) => {
     for (const el of [F.pedalL, F.pedalR]) {
       if (!el) continue;
@@ -2114,9 +1701,6 @@ export function openFlightSim(opts = {}) {
   add(pad, 'pointermove', (e) => { if (F.yokeDrag) padTo(e); });
   add(window, 'pointerup', () => { F.yokeDrag = false; pad.classList.remove('drag'); if (F.padPedal) { if (F.pedalKey === F.padPedal) F.pedalKey = 0; F.padPedal = 0; } });
 
-  // Rudder pedals — press-and-hold, exactly like the ,/. (X/C) keys: each drives F.pedalKey to a
-  // side and releases to centre. Pointer capture means sliding a thumb off the pad still lets go.
-  // The frame loop paints the depression from the live deflection, so no visual work here.
   F.pedalL = q('#fsim-pedal-l'); F.pedalR = q('#fsim-pedal-r');
   F.pedalLFace = F.pedalL && F.pedalL.querySelector('.fsim-pedal-face');
   F.pedalRFace = F.pedalR && F.pedalR.querySelector('.fsim-pedal-face');
@@ -2132,31 +1716,20 @@ export function openFlightSim(opts = {}) {
   wirePedal(F.pedalL, -1);
   wirePedal(F.pedalR, 1);
 
-  // Throttle — vertical lever, holds where you leave it.
   const thr = q('#fsim-thr');
   const thrTo = (e) => { const r = thr.getBoundingClientRect(); F.input.throttle = clampNum(1 - (e.clientY - r.top) / r.height, 0, 1); };
   add(thr, 'pointerdown', (e) => { F.thrDrag = true; try { thr.setPointerCapture(e.pointerId); } catch {} thrTo(e); });
   add(thr, 'pointermove', (e) => { if (F.thrDrag) thrTo(e); });
   add(window, 'pointerup', () => { F.thrDrag = false; });
 
-  // External-view orbit — hold the MIDDLE mouse button and drag to orbit the chase camera around
-  // the aircraft on a turntable arc (drag left/right = spin around, up/down = rise over the top to
-  // look down / swing under the belly to look up). The camera LOCKS wherever you leave it — no
-  // spring-back — so you can fly and watch from any angle. The ⟲ reset button SWINGS it back to just
-  // behind and above the craft. Only in external view.
+  // External view: middle-drag orbits the chase camera and it holds where left; ⟲ swings it back.
   const viewEl = q('.fsim-view');
-  // ⚠ BOUND BEFORE THE YOKE AND THE ORBIT BELOW, on the capture phase. That ordering is what lets a
-  // detached camera take the left-drag away from the yoke without the yoke handler being told the
-  // camera exists — and hand it straight back the moment the camera is stowed.
-  // A phone gets a camera button on the glass that presses O, shown in the external view.
+  // ⚠ Bound before the yoke and orbit, on capture, so a detached camera takes the drag from the yoke.
   bindFreeCamPointer(viewEl, freeCam, { toggleKey: 'o', canToggle: () => !!F.external });
-  // Same lifetime as the panel: it listens on the window, so closeFlightSim releases it.
+  // Listens on the window; closeFlightSim releases it.
   freeIdle?.unbind();
   freeIdle = bindFreeCamIdle(freeCam);
-  // …and the glass as a stick, bound AFTER the camera and on the bubble phase, so a detached
-  // camera goes on taking the mouse off it. `enabled` is the other half of that: while the camera
-  // is out the aircraft is deliberately hands-off, and a stick still reading the glass would be
-  // flying it from inside a shot somebody is composing.
+  // ⚠ The stick binds after the camera, on bubble, and is off while the free camera is out.
   stickUnbind?.();
   stickUnbind = bindMouseStick(viewEl, mouseStick, { enabled: () => !freeCam.active });
   if (viewEl) {
@@ -2168,26 +1741,16 @@ export function openFlightSim(opts = {}) {
     });
     add(window, 'pointermove', (e) => {
       if (!F.orbitDrag) return;
-      F.orbitResetting = false;                                                        // a manual drag cancels a running reset swing
-      F.extOrbit = (F.extOrbit || 0) + (e.clientX - ox) * 0.4;                          // horizontal yaw (deg), unbounded — spins all the way around
-      F.extPitch = clampNum((F.extPitch ?? REST_PITCH) - (e.clientY - oy) * 0.006, -1.1, 1.15);   // vertical orbit angle (rad): drag up = over the top (look down), drag down = under the belly (look up). Bounds kept short of the poles (~66°) so the near-vertical view can't stretch the model into a spindle. The renderer also stops the under-swing at the terrain.
+      F.orbitResetting = false;                                                        // a drag cancels a reset swing
+      F.extOrbit = (F.extOrbit || 0) + (e.clientX - ox) * 0.4;                          // yaw (deg), unbounded
+      F.extPitch = clampNum((F.extPitch ?? REST_PITCH) - (e.clientY - oy) * 0.006, -1.1, 1.15);   // rad; short of the poles so the model can't stretch into a spindle
       ox = e.clientX; oy = e.clientY;
     });
-    // ── ⚠ AND IN THE SEAT THE MIDDLE BUTTON IS A HEAD, NOT AN ORBIT ──────────
-    //
-    // Same split the truck makes: behind the aircraft the middle drag orbits it, inside it there is
-    // nothing to orbit and the button is free. Leaning is a TRANSLATION of the eye — a rotation
-    // swings near and far by the same angle and reveals nothing — and 'makeCam' reads 'lookLean'
-    // directly, so everything downstream of it (the world's own tiny shift, the panel's much larger
-    // one, the parallax between them) falls out with nothing further wired here.
-    //
-    // ⚠ ABSOLUTE, NOT A DELTA. A peek is spring-loaded and returns, so the cursor's distance from
-    // the middle IS the angle; a delta would drift with no detent to drift back to.
+    // ── In the seat the middle button leans the head ──────────────────────────
+    // A lean translates the eye (makeCam reads lookLean). ⚠ Absolute cursor position, never a delta.
     add(viewEl, 'pointerdown', (e) => {
       if (e.button !== 1 || F.external) return;
-      // ⚠ THE HEAD STAYS WHERE YOU LEAVE IT. Drag with the middle button and let go: the look holds.
-      // The NEXT middle press straightens you back up at the windscreen, and that press does nothing
-      // else. (It used to spring back on release unless Shift was held as you took hold.)
+      // The look holds on release; the next middle press recentres and does nothing else.
       if (F.freeLook) {
         F.freeLook = false; F.look = { x: 0, y: 0 }; F.looking = false;
         e.preventDefault(); return;
@@ -2206,20 +1769,16 @@ export function openFlightSim(opts = {}) {
     add(window, 'pointermove', (e) => { if (F.looking) leanFrom(e); });
     add(window, 'pointerup', (e) => { if (e.button === 1) { F.orbitDrag = false; F.looking = false; } });
     add(window, 'pointercancel', () => { F.looking = false; });
-    add(viewEl, 'auxclick', (e) => { if (e.button === 1) e.preventDefault(); });   // no middle-click autoscroll inside the view
-    // External-view zoom — mouse wheel pulls the chase camera in/out (scale on chaseBack).
-    // Down/away = zoom out (bigger back), up/toward = zoom in. Clamped so you can't clip
-    // into the model or drift so far the plane's a dot. Only live in the external chase view.
+    add(viewEl, 'auxclick', (e) => { if (e.button === 1) e.preventDefault(); });   // no autoscroll
+    // External-view wheel zoom on chaseBack.
     add(viewEl, 'wheel', (e) => {
       if (!F.external) return;
       e.preventDefault();
-      // in as far as the renderer's standoff, where the aircraft fills the frame (lastViewState)
+      // in as far as the renderer's standoff
       const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor : 0.45;
       F.extZoom = clampNum((F.extZoom || 1) * (e.deltaY > 0 ? 1.1 : 0.9), lo, 2.4);
     }, { passive: false });
-    // The same orbit and zoom under a finger, which can press neither the middle button nor the
-    // wheel: one finger swings round the aircraft, two pinch the chase distance. Outside only, and
-    // never while the free camera is out (it has its own touch scheme, bound above).
+    // Touch: one finger orbits, two pinch. Not while the free camera is out.
     bindTouchGestures(viewEl, {
       enabled: () => F.external && !freeCam.active,
       drag: (dx, dy) => {
@@ -2234,8 +1793,7 @@ export function openFlightSim(opts = {}) {
     });
   }
 
-  // Aircraft placard (bottom-left) — a certificate of registration: tail number, make/model,
-  // and the registered owner (your name if it's yours; the hangar/operator it's rented from).
+  // Registration placard.
   const regEl = q('#fsim-reg'), ownEl = q('#fsim-own'), ownNameEl = q('#fsim-own-name'), ownKEl = q('#fsim-own-k'), modelEl = q('#fsim-model');
   if (regEl) regEl.textContent = F.reg;
   const snEl = q('#fsim-plac-sn');
@@ -2244,19 +1802,14 @@ export function openFlightSim(opts = {}) {
   if (ownNameEl) ownNameEl.textContent = F.owner;
   if (ownKEl) ownKEl.textContent = F.rented ? 'OPER' : 'OWNER';
   if (ownEl) ownEl.classList.toggle('rented', F.rented);
-  // Stamp the aircraft name across the yoke hub (themed accent via CSS) + the cabin readout.
   const yokeName = q('#fsim-yoke-name'); if (yokeName) yokeName.textContent = String(opts.deviceName || P.name || 'AIRCRAFT').toUpperCase();
-  // Paint reads on the control itself: the name-plate PANEL takes the interior
-  // cabin/upholstery colour, and the aircraft name PRINTED on it takes the exterior
-  // paint colour (lifted to stay legible on the dark plate). No paint on file
-  // (rentals) → leave the airframe's stock themed plate + accent lettering.
+  // Name plate takes the cabin colour, its lettering the exterior paint. Rentals keep the stock plate.
   if (F.livery) {
     const plate = q('#fsim-yoke-plate');
     if (plate && /^#[0-9a-fA-F]{6}$/.test(F.livery.cabin || '')) plate.setAttribute('fill', F.livery.cabin);
     const ink = legibleInk(F.livery.base);
     if (yokeName && ink) yokeName.style.fill = ink;
-    // Retint the whole dashboard surround from the cabin colour: a lit edge + a
-    // three-stop gradient the panel slabs share. Only when there's a valid cabin hex.
+    // Dashboard surround retinted from the cabin colour.
     const cab = hex2rgb(F.livery.cabin);
     if (cab) {
       root.style.setProperty('--panel-hi', shadeRgb(cab, 1.5));
@@ -2266,36 +1819,27 @@ export function openFlightSim(opts = {}) {
       root.classList.add('fsim-painted');
     }
   }
-  // Cockpit chrome accent follows the paint bay, not the game UI accent: blend the exterior
-  // paint (base + trim) and the upholstery (cabin) into --cy, which drives the radios, knobs,
-  // LEDs, night wash and the canvas instruments. No paint on file → fall back to the airframe's
-  // stock class accent — never the global --accent theme colour.
+  // Chrome accent (--cy) follows the livery, else the airframe's stock accent; never the UI --accent.
   const stockAcc = (skin && skin.acc) || themeFor(F.cls).acc;
   const chromeAcc = liveryAccent(F.livery, stockAcc);
   const chromeRgb = hex2rgb(chromeAcc);
-  if (chromeRgb) { ACCENT = chromeAcc; ACCENT_RGB = chromeRgb; }   // canvas instruments (accA/ACCENT read the globals)
-  root.style.setProperty('--cy', chromeAcc);                       // beats the .fsim-theme-* class --cy (inline > class)
-  // --cy-lit is the BACKLIGHT colour: the airframe's vivid stock accent, NOT the (possibly muted)
-  // paint blend — so the panel/landing lights glow bright at night on any paint job. Chrome still
-  // follows --cy (paint); only the lit night-lighting reads --cy-lit.
+  if (chromeRgb) { ACCENT = chromeAcc; ACCENT_RGB = chromeRgb; }
+  root.style.setProperty('--cy', chromeAcc);                       // inline beats the .fsim-theme-* class
+  // --cy-lit is the backlight: the stock accent, so night lighting stays bright on a muted paint job.
   const litRgb = hex2rgb(stockAcc) || chromeRgb;
   root.style.setProperty('--cy-lit', stockAcc);
   if (litRgb) root.style.setProperty('--cy-lit-dim', `rgba(${litRgb[0]},${litRgb[1]},${litRgb[2]},.24)`);
-  // Floor-mounted controls (Reaper combat stick, Dragonfly cyclic) pivot near their
-  // base, not the wheel-column mid-point the CSS default (50% 66%) assumes — so the
-  // frame-loop lean rotates the whole stick about its boot instead of its shaft.
+  // Floor sticks pivot at the boot, not the CSS default.
   const yokeSvgEl = q('#fsim-yoke-svg');
   if (yokeSvgEl && (opts.craftType === 'reaper' || opts.craftType === 'dragonfly' || opts.craftType === 'viper')) yokeSvgEl.style.transformOrigin = '50% 92%';
   renderSeats(F);
 
-  // Flaps — a per-airframe lever (Cessna Johnson bar / airliner quadrant / switch), or absent
-  // on the heli. Detents map evenly onto the model's 0..1 flaps input; drag or click the gate
-  // to the nearest notch. Exposed on F so the R/F keys and any external caller can step it.
+  // Flaps: drag or click the gate to the nearest detent.
   const flapTrack = q('#fsim-flapsw-track'), flapKnob = q('#fsim-flapsw-knob');
   if (flapStyle && flapTrack) {
     const detents = flapStyle.detents, n = detents.length;
     const flapLbls = root.querySelectorAll('.fsim-flap-scale span');
-    const topFor = (i) => `${(4 + (i / (n - 1)) * 66).toFixed(1)}%`;   // knob top inside the gate (leaves room for the lever height at FULL)
+    const topFor = (i) => `${(4 + (i / (n - 1)) * 66).toFixed(1)}%`;   // leaves room for the lever at FULL
     const setFlap = (i) => {
       i = clampInt(i, 0, n - 1); F.flapIdx = i; F.input.flaps = detents[i].v;
       if (flapKnob) flapKnob.style.top = topFor(i);
@@ -2311,33 +1855,25 @@ export function openFlightSim(opts = {}) {
     F._setFlap = setFlap; F._flapN = n;
     setFlap(0);
   } else {
-    F.input.flaps = 0; F._flapN = 0;   // heli / no flaps — leave the input clean
+    F.input.flaps = 0; F._flapN = 0;
   }
 
-  // Elevator trim — a console wheel that biases the yoke's neutral so you can hold an attitude
-  // hands-off (trim adds to elevator in the model). Mouse-wheel to roll it; click the top half
-  // for nose-up, the bottom half for nose-down. Capped well short of full deflection so it
-  // assists rather than flies for you. Helis have no elevator trim — the block is hidden.
+  // Elevator trim, capped well short of full deflection so it assists rather than flies.
   const TRIM_STEP = 0.04, TRIM_MAX = 0.6;
   const trimEl = q('#fsim-trim'), trimWheel = q('#fsim-trim-wheel'), trimDrum = q('#fsim-trim-drum'), trimVal = q('#fsim-trim-val'), trimHandle = q('#fsim-trim-handle');
   const setTrim = (t) => {
     F.input.trim = clampNum(t, -TRIM_MAX, TRIM_MAX);
-    // +trim = NOSE UP → handle rides toward the BOTTOM; −trim = NOSE DOWN → toward the top.
-    const frac = (F.input.trim + TRIM_MAX) / (2 * TRIM_MAX);          // 0 (nose down/top) .. 1 (nose up/bottom)
-    if (trimDrum) trimDrum.style.transform = `translateY(${F.input.trim / TRIM_MAX * 12}px)`;   // chain scrolls with trim
+    const frac = (F.input.trim + TRIM_MAX) / (2 * TRIM_MAX);          // 0 nose down (top) .. 1 nose up (bottom)
+    if (trimDrum) trimDrum.style.transform = `translateY(${F.input.trim / TRIM_MAX * 12}px)`;
     if (trimHandle) trimHandle.style.top = `${frac * 100}%`;
     if (trimVal) {
-      // Signed percent of full travel: + is nose up, − is nose down.
       const n = Math.round(F.input.trim / TRIM_MAX * 100);
       trimVal.textContent = n === 0 ? '0' : (n > 0 ? '+' : '−') + Math.abs(n);
       trimVal.classList.toggle('set', n !== 0);
     }
   };
-  // Named, like the gear and flaps: the Drake's overlay and its 3-D wheel set trim through this.
   F.setTrim = setTrim; F.TRIM_MAX = TRIM_MAX;
-  // Helis get a cyclic trim wheel too (not realistic on a real Mini-500, but a big usability win):
-  // roll in forward trim and she holds a nose-down cruise attitude hands-off instead of needing
-  // constant forward stick. Relabel the ends FWD/AFT since on a heli nose-down = accelerate forward.
+  // Helis get cyclic trim too, so a forward cruise attitude holds hands-off.
   if (F.heli) {
     const nd = trimEl && trimEl.querySelector('.fsim-trim-nd'), nu = trimEl && trimEl.querySelector('.fsim-trim-nu');
     if (nd) nd.innerHTML = 'NOSE<br>FWD';
@@ -2345,22 +1881,17 @@ export function openFlightSim(opts = {}) {
     if (trimEl) trimEl.title = 'CYCLIC TRIM: drag or roll the wheel; up = NOSE FWD (cruise), down = NOSE AFT';
   }
   if (trimWheel) {
-    // Spatially consistent everywhere: moving toward NOSE UP (down) raises trim, toward NOSE
-    // DOWN (up) lowers it. Wheel + click step; a vertical drag rolls it continuously.
     add(trimWheel, 'wheel', (e) => { e.preventDefault(); setTrim(F.input.trim + (e.deltaY > 0 ? TRIM_STEP : -TRIM_STEP)); }, { passive: false });
     let dragY = null, dragBase = 0, moved = false;
     add(trimWheel, 'pointerdown', (e) => { trimWheel.setPointerCapture(e.pointerId); dragY = e.clientY; dragBase = F.input.trim; moved = false; });
-    add(trimWheel, 'pointermove', (e) => { if (dragY == null) return; const dy = e.clientY - dragY; if (Math.abs(dy) > 3) moved = true; setTrim(dragBase + dy / 60 * TRIM_MAX); });   // drag down → nose up
-    const endDrag = (e) => {
-      if (dragY != null && !moved) { const r = trimWheel.getBoundingClientRect(); setTrim(F.input.trim + ((e.clientY - r.top) < r.height / 2 ? -TRIM_STEP : TRIM_STEP)); }   // tap top = nose down, bottom = nose up
-      dragY = null;
+    add(trimWheel, 'pointermove', (e) => { if (dragY == null) return; const dy = e.clientY - dragY; if (Math.abs(dy) > 3) moved = true; setTrim(dragBase + dy / 60 * TRIM_MAX); });    const endDrag = (e) => {
+      if (dragY != null && !moved) { const r = trimWheel.getBoundingClientRect(); setTrim(F.input.trim + ((e.clientY - r.top) < r.height / 2 ? -TRIM_STEP : TRIM_STEP)); }      dragY = null;
     };
     add(trimWheel, 'pointerup', endDrag);
     add(trimWheel, 'pointercancel', () => { dragY = null; });
   }
   setTrim(0);
 
-  // Transient action toast (flap/gear/jettison feedback). Auto-hides ~1.1s.
   const toastEl = q('#fsim-toast');
   const fsimToast = (txt) => {
     if (!toastEl) return;
@@ -2368,36 +1899,28 @@ export function openFlightSim(opts = {}) {
     if (F.toastT) clearTimeout(F.toastT);
     F.toastT = setTimeout(() => toastEl.classList.remove('show'), 1100);
   };
-  F.toast = fsimToast;   // so the frame loop (touchdown/rollout prompts) can raise toasts too
-  if (F.checkride) renderCheckride(F, F.checkride);   // opening checkride card + control glows
+  F.toast = fsimToast;
+  if (F.checkride) renderCheckride(F, F.checkride);
 
   // ── Keyboard flight controls ────────────────────────────────────────────────
-  // A/Z throttle · Q/E/S hold-to-look (release → forward) · W forward · R/F flaps ·
-  // G gear (if retractable) · J jettison cargo · SPACE fire (hold) · 1/2 weapon select ·
-  // X flares. Ignored while typing in a text field.
   const VIEW_TAG = { '-90': '◀ LEFT VIEW', '90': 'RIGHT VIEW ▶', '180': '▲ REAR VIEW' };
   const viewTagEl = q('#fsim-viewtag');
   const setView = (yaw) => {
     F.viewYaw = yaw;
     if (viewTagEl) { viewTagEl.textContent = VIEW_TAG[String(yaw)] || ''; viewTagEl.classList.toggle('show', yaw !== 0); }
-    // Looking off the nose (Q/E/S): drop the forward instrument panel so the side/rear view
-    // fills the glass — you're not looking at your gauges when you're checking your six.
+    // Looking off the nose hides the forward panel.
     const hudRoot = document.getElementById('ck-hud-root');
     if (hudRoot) hudRoot.classList.toggle('ck-looking', yaw !== 0);
   };
   const stepFlap = (d) => { if (!F._flapN || !F._setFlap) return; const i = clampInt(F.flapIdx + d, 0, F._flapN - 1); if (i !== F.flapIdx) { F._setFlap(i); flapWhir(); } };
   const toggleGear = () => {
     if (!F.gearRetract) { fsimToast('FIXED GEAR'); return; }
-    // ⚠ THE DRAKE'S GEAR CANNOT BE REVERSED MID-CYCLE: the bay opens, the feet slide, they lock and
-    // the bay shuts, and the lever does nothing until that has finished.
+    // ⚠ The Drake's gear can't reverse mid-cycle.
     if (F.dk && F.gearAnim > 0.01 && F.gearAnim < 0.99) { fsimToast('GEAR IN TRANSIT: wait for the lock'); return; }
     if (F.dk && F.dk.feetGone) { fsimToast('NO FEET: a hangar can fit new ones'); return; }
     F.gearUp = !F.gearUp;
     try { gearFx(F.dk ? (F.gearUp ? 'drakeUp' : 'drakeDown') : (F.gearUp ? 'retract' : 'extend')); } catch {}
-    // Raise the gear with weight on the wheels and she drops onto her belly: a grinding
-    // crunch, a jolt, and the mains are gone — she won't roll or take off until you put the
-    // wheels back down (or hit ABORT for a tow). Play stupid games…
-    // ⚠ NOT A DRAKE ON THE WATER: she floats on her hull, so tucking the feet there just settles her.
+    // Gear up on the ground drops her on her belly. ⚠ Not a Drake on the water: she floats on her hull.
     if (F.gearUp && F.s.onGround && !(F.dk && F.waterBelow)) {
       F.shake = 14;
       try { groundFx('touchdownHard'); } catch {}
@@ -2406,18 +1929,15 @@ export function openFlightSim(opts = {}) {
     }
     fsimToast(F.gearUp ? 'GEAR UP' : 'GEAR DOWN');
   };
-  // Named for the same reason as the light switches — the panel's gear lever and flap gate are
-  // canvas, and these are the one implementation of each.
+  // The canvas gear lever and flap gate call these; keep one implementation of each.
   F.toggleGear = toggleGear; F.stepFlap = stepFlap;
   // ── THE DRAKE'S SWITCHES ──────────────────────────────────────────────────
-  // Converting needs flying speed going TO wing (the wing has to have air over it before the rotor
-  // lets go) and a wing slowed enough going back; a conversion already under way can be reversed.
+  // To wing needs 55 kt airborne; back to rotor needs under 150 kt. A conversion in progress can reverse.
   const drakeConvert = () => {
     const D = F.dk, ias = F.disp?.ias || 0;
     if (!D.wing && (F.s.onGround || ias < 55)) { fsimToast('CONVERSION: needs 55 kt and air under you'); return; }
     if (D.wing && ias > 150) { fsimToast('CONVERSION: slow below 150 kt to deploy the rotor'); return; }
     D.wing = !D.wing;
-    // The cyclic trim the rotor was flying on means nothing to the wing: she comes out of it neutral.
     if (D.wing) setTrim(0);
     try { gearFx('drakeConvert'); } catch {}
     fsimToast(D.wing ? '⇄ CONVERTING: WING' : '⇄ CONVERTING: ROTOR');
@@ -2429,11 +1949,7 @@ export function openFlightSim(opts = {}) {
     try { gearFx('drakeRamp'); } catch {}
     fsimToast(D.rampOpen ? 'RAMP DOWN' : 'RAMP UP');
   };
-  // THE MODE SELECTOR (interior-drake.js): HELI · PLANE · BOAT · SUB. BOAT is the one stored bit
-  // (D.boat: the tail rotor driving her as a pusher on the water); the rest is derived from the
-  // state the other systems already keep. The sequence on the water is: land gear up → BOAT → SUB
-  // once the water is deep enough. `drakeModeReady(t)` answers whether a gate can be taken NOW, and
-  // the selector lights green or red off it.
+  // Mode selector HELI/PLANE/BOAT/SUB. Only BOAT is stored; the rest derives from existing state.
   const drakeUnder = () => F.dk.submerged > 0 && !(F.dk.subBlowLocal ?? F.dk.subBlow ?? true);
   const drakeModeNow = () => drakeUnder() ? 3 : F.dk.boat ? 2 : (F.dk.conv || 0) >= 0.5 || F.dk.wing ? 1 : 0;
   F.drakeModeNow = drakeModeNow;
@@ -2455,7 +1971,6 @@ export function openFlightSim(opts = {}) {
     }
     if (t === 2) {
       if (cur === 3) return '';
-      // Sitting on the water OR hovering just over it: taking BOAT sets her down on her hull.
       if (!D.onWater && !(F.waterBelow && !F.onYacht && ((F.s.altitude || 0) - (F.s.groundFt || 0)) < 6)) return 'BOAT: get down onto the water first, gear up';
       if (gearMoving) return 'BOAT: gear in transit, wait for the lock';
       return '';
@@ -2477,20 +1992,16 @@ export function openFlightSim(opts = {}) {
     if (cur === 3) F.subSurface?.();
     if (t === 3) { if (!drakeUnder()) F.subToggle?.(); return; }
     if (t === 2) {
-      // Taking BOAT tucks the feet: she rides on her hull. The pilot chose the mode, so this is not
-      // the automatic gear the Drake no longer has.
+      // BOAT tucks the feet.
       if (F.gearRetract && !F.gearUp && !D.feetGone) { F.gearUp = true; try { gearFx('drakeUp'); } catch {} }
       D.boat = true; fsimToast('⚓ BOAT: feet up, tail rotor to the pusher'); return;
     }
-    // Leaving BOAT hands her back to the rotor: raise the collective and she lifts straight off the water.
     if (D.boat) { D.boat = false; if (t === 0) fsimToast('HELI: collective up to lift off the water'); }
     const wing = (D.conv || 0) >= 0.5 || !!D.wing;
     if ((t === 1) !== wing) drakeConvert();
     else if (t === 0) fsimToast('HELI: rotor lift');
   };
-  // The quack: out of the bill, for everybody near enough to hear it.
-  // HELD: the quack lasts as long as the key or button is down (quackStart/its returned end). The
-  // server hears one `quack` per press, still throttled, so a held quack is one event to the room.
+  // The quack lasts while held; the server hears one throttled `quack` per press.
   let quackEnd = null;
   const drakeQuackUp = () => { const e = quackEnd; quackEnd = null; if (F.dk) F.dk.quackHeld = false; e?.(); };
   const drakeQuackDown = () => {
@@ -2499,33 +2010,26 @@ export function openFlightSim(opts = {}) {
     quackEnd = quackStart();
     if (D.quackT - (D.quackSentT ?? -1e9) >= 700) { D.quackSentT = D.quackT; sendCmdSilent('quack'); }
   };
-  const drakeQuack = () => { drakeQuackDown(); drakeQuackUp(); };   // a tap: the minimum-length quack
+  const drakeQuack = () => { drakeQuackDown(); drakeQuackUp(); };
   add(window, 'blur', drakeQuackUp);
   const jettison = () => {
     if (!F.cargoKg) { fsimToast('NO CARGO'); return; }
     F.cargoKg = 0; sendCmdSilent('jettison'); fsimToast('CARGO JETTISONED');
   };
-  // Target guide — [ / ] (and the radio ◂/▸ buttons) step the destination the target ring /
-  // Home waypoint locks onto: airfields, named landmarks (Precinct 9, the Embassy…) AND spatial
-  // regions (Coldwater Basin, The Reach…), so you can point the guide at any real place. Keyed
-  // by id so the choice survives the list re-sort. ✕ (radio button / \ key) clears it entirely.
-  // The tablet-map tile designation leads the list (it is the one the pilot asked for by hand).
+  // Target guide over GPS pick, tablet waypoint, fields, landmarks and regions. Keyed by id to survive re-sorts.
   const targetList = () => [...(F.gpsDest ? [F.gpsDest] : []), ...(F.waypoint ? [F.waypoint] : []), ...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
   const cycleApTarget = (dir) => {
     const list = targetList();
     if (!list.length) { fsimToast('NO DESTINATIONS IN RANGE'); return; }
-    F.apCleared = false;   // stepping the guide re-arms it after a clear
+    F.apCleared = false;
     let i = list.findIndex((f) => f.id === F.apTargetId);
     i = i < 0 ? (dir > 0 ? 0 : list.length - 1) : (i + dir + list.length) % list.length;
     F.apTargetId = list[i].id;
     fsimToast(`◎ ${(list[i].name || 'FIELD').toUpperCase()} · ${list[i].dist}mi`);
   };
-  // Clear all waypoints — drop the target so no ring / Home marker is drawn, and hold that
-  // cleared state (the per-frame resolve won't auto-snap back to the nearest field) until the
-  // pilot picks a new target with [ / ] or the radio ◂/▸.
+  // Cleared holds (no snap back to the nearest field) until a new target is picked.
   const clearApTarget = () => {
-    // Clearing a tile designation has to reach the server, or the next context push puts
-    // the crosshair straight back and the ✕ reads as broken.
+    // ⚠ A tile designation must be cleared on the server too, or the next push restores it.
     if (F.apTargetId === 'wp') { F.waypoint = null; F._wpKey = ''; sendCmdSilent('flightwaypoint clear'); }
     F.apTargetId = null; F.apCleared = true;
     const nmEl = document.getElementById('fsim-tgt-name');
@@ -2533,14 +2037,8 @@ export function openFlightSim(opts = {}) {
     fsimToast('◎ WAYPOINTS CLEARED');
   };
   // ── THE GPS PICKER ──────────────────────────────────────────────────────────
-  // Clicking a cockpit's GPS (a 'ck:gps' hotspot), the TGT name on the radio, or P opens the charts:
-  // every region, nearest first, each opening onto the airfields in it. Picking one locks the target
-  // guide onto it ALONE. F.gpsDest is the destination and apTargetId 'gps' says the guide is on it;
-  // while both hold, the heading tape and the Drake's map show that one mark (navFields) and the
-  // ring and the Home arrow follow it like any other target. Every other way of choosing a target
-  // ([ / ], the ✕, a tablet designation) moves apTargetId off 'gps', and the frame drops F.gpsDest
-  // when it sees that, so the other marks come back without each of those paths knowing about it.
-  // The directory comes from the server once per flight, on the first open (flightgps).
+  // Regions nearest first, opening onto their airfields. A pick locks the guide to it alone. Any other
+  // target choice moves apTargetId off 'gps' and the frame drops F.gpsDest. Directory fetched once per flight.
   let gpsEl = null, gpsOpenKey = null;
   const gpsClose = () => { gpsEl?.remove(); gpsEl = null; F.gpsRender = null; };
   F.gpsClose = gpsClose;
@@ -2553,14 +2051,14 @@ export function openFlightSim(opts = {}) {
   };
   const gpsClear = () => {
     F.gpsDest = null;
-    if (F.apTargetId === 'gps') F.apTargetId = null;   // the guide falls back to the nearest field
+    if (F.apTargetId === 'gps') F.apTargetId = null;
     fsimToast('◈ GPS CLEARED');
     gpsClose();
   };
   const gpsBtn = (cls, html, fn) => {
     const b = document.createElement('button');
     b.className = cls; b.tabIndex = -1; b.innerHTML = html;
-    // No focus, so a flight key pressed afterwards (Space fires) never presses the button again.
+    // No focus, or Space (fire) would press it again.
     b.addEventListener('mousedown', (e) => e.preventDefault());
     b.addEventListener('click', fn);
     return b;
@@ -2599,7 +2097,7 @@ export function openFlightSim(opts = {}) {
     if (gpsEl) { gpsClose(); return; }
     if (F.avionicsOut) { fsimToast('GPS: no signal while the boards reboot'); return; }
     if (!F.powered) { fsimToast(F.engineOn ? 'GPS: no power on the bus' : 'GPS: no power, start the engine first'); return; }
-    mouseStick.setArmed(false);   // the pointer is for the list now, not the stick
+    mouseStick.setArmed(false);
     gpsEl = document.createElement('div');
     gpsEl.className = 'fsim-gps';
     gpsEl.innerHTML = '<div class="fsim-gps-hd"><b>GPS · DESTINATION</b></div><div class="fsim-gps-cur"></div><div class="fsim-gps-body"></div>';
@@ -2609,24 +2107,12 @@ export function openFlightSim(opts = {}) {
     gpsRender();
     if (!F.gpsDir) sendCmdSilent('flightgps');
   };
-  let setExternal = () => {};   // assigned when the ◎ EXT button is wired below; V key + button share it
-  let setWeapon = () => {};     // assigned in the weapons wiring below; 1/2 keys + WPN button share it
+  let setExternal = () => {};   // assigned below
+  let setWeapon = () => {};     // assigned below
   // ── THE AUTOMATIC DIVE ──────────────────────────────────────────────────────
-  // A dive bomber's attack is two precise, unpleasant manoeuvres either side of one button press:
-  // push over to something near vertical and hold it while the ground fills the windscreen, then
-  // pull out hard enough to be worth having done and not hard enough to shed the wings. Flying
-  // both by hand on a keyboard is the single reason this aeroplane was no fun, and the real ones
-  // solved it exactly this way — the Ju 87 the Shrike is drawn from had an automatic pull-out that
-  // flew the recovery whether the pilot was conscious for it or not.
-  //
-  // So it is ONE control with two phases, and the phase changes at the release, which is the only
-  // moment in the attack that means anything. It commands the ELEVATOR — the same input a hand
-  // moves — so the flight model, the g limit, the stall and the control surfaces on the chase
-  // model are all completely unaware this exists, and there is no second way to fly.
-  //
-  // ⚠ AND THE PILOT ALWAYS WINS. Touching the yoke, the pad or an arrow disengages it. An
-  // assist you cannot override in a dive is not an assist.
-  const DIVE_AUTO_DEG = 68;     // the dive it holds: steep enough to score, short of the vertical it cannot recover from
+  // Push-over, then pull-out at the release, written only to the elevator input.
+  // ⚠ Any pilot stick input disengages it. See docs/systems-flight.md#the-shrikes-automatic-dive
+  const DIVE_AUTO_DEG = 68;
   function toggleDiveAuto() {
     if (!F.bombCap) { fsimToast('◇ NO DIVE COMPUTER ON THIS AIRFRAME'); return; }
     if (F.diveAuto) { F.diveAuto = null; fsimToast('◇ DIVE COMPUTER OFF'); return; }
@@ -2635,28 +2121,23 @@ export function openFlightSim(opts = {}) {
     fsimToast(`◈ DIVE COMPUTER: over the top to ${DIVE_AUTO_DEG}°, then it flies the pull-out`);
   }
   F.toggleDiveAuto = toggleDiveAuto;
-  // Driven from the frame loop, before the model steps. Returns nothing; it writes one number.
+  // Called by the frame loop before the model steps.
   F.flyDiveAuto = (s, input, dt) => {
     if (!F.diveAuto) return;
     if (!F.reportedAirborne || s.onGround) { F.diveAuto = null; return; }
     const down = -(s.pitch || 0);
     if (F.diveAuto === 'push') {
-      // Nose down to the dive angle and hold it there. Deliberately gentle on the way over: a
-      // bunt at full forward stick throws the aeroplane, and the ten seconds going over the top
-      // is most of what the ground hears coming.
+      // Gentle on the way over; a full-stick bunt throws the aircraft.
       const err = DIVE_AUTO_DEG - down;
       input.elevator = clampNum(-err / 42, -0.55, 0.35);
     } else {
-      // THE PULL-OUT. Hard, but on a leash: the command eases off as the nose comes up so it does
-      // not sit on the g limit all the way round, and it lets go the moment she is climbing.
+      // Pull-out: eases off as the nose rises, lets go once climbing.
       input.elevator = clampNum(0.35 + down / 55, 0, 0.95);
       if (down < -4) { F.diveAuto = null; fsimToast('◇ RECOVERED'); }
     }
   };
   // ── UNDER THE WATER (plugins/submersible) ─────────────────────────────────
-  // The server owns depth, so every control here is a verb string a player could type. PageDown /
-  // PageUp step the wanted depth 3 m at a time and send ONE order after the key stops moving, or a
-  // held key would put a `submerge` on the wire every autorepeat.
+  // The server owns depth; every control is a typeable verb. PgDn/PgUp send one order after the key settles.
   const subOrder = (m) => {
     if (!F.dk) return;
     if (m <= 0) { sendCmdSilent('surface'); return; }
@@ -2665,7 +2146,7 @@ export function openFlightSim(opts = {}) {
   const subDepthKey = (dir) => {
     if (!F.dk) return;
     const base = F.dk.subWant ?? F.dk.submerged ?? 0;
-    // Under, she holds 1 m at the shallowest: only BOAT mode blows the ballast and surfaces her.
+    // Under, 1 m is the shallowest; only BOAT surfaces her.
     F.dk.subWant = Math.max(F.dk.submerged > 0 ? 1 : 0, Math.min(1200, base + dir * 3));
     fsimToast(F.dk.subWant > 0 ? '⬇ DEPTH ' + F.dk.subWant + ' m' : '⬆ SURFACE');
     clearTimeout(F.dk.subSendTimer);
@@ -2673,9 +2154,7 @@ export function openFlightSim(opts = {}) {
   };
   F.subDive = () => { if (!F.dk) return; if (F.dk.submerged > 0) subDepthKey(1); else { F.dk.subWant = 5; try { gearFx('flood'); } catch {} sendCmdSilent('submerge'); } };
   F.subSurface = () => { if (!F.dk) return; F.dk.subWant = 0; clearTimeout(F.dk.subSendTimer); if (F.dk.submerged > 0) { F.dk.subBlowLocal = true; try { gearFx('blow'); } catch {} } sendCmdSilent('surface'); };
-  // THE ONE BUTTON. On the water it floods the tanks and takes her down; under it with the tanks
-  // flooded it blows them and brings her up; pressed during a blow it floods them again. Depth in
-  // between is the stick's, on the dive planes (the planes sender in the frame).
+  // The dive button: floods and dives, or re-floods during a blow. Depth between is on the stick.
   F.subToggle = () => {
     if (!F.dk) return;
     const under = F.dk.submerged > 0, blowing = F.dk.subBlowLocal ?? F.dk.subBlow ?? true;
@@ -2684,10 +2163,7 @@ export function openFlightSim(opts = {}) {
     F.dk.subBlowLocal = false;
     F.dk.subWant = Math.max(5, Math.round(F.dk.submerged || 0));
     try { gearFx('flood'); } catch {}
-    // ⚠ THE SERVER DIVES HER ONLY FROM BOAT, and learns she is in BOAT from flightsync, which goes
-    // every 1.2 s. Sent straight away, a SUB taken just after BOAT reached a server that still had
-    // her in HELI and was refused, while the gauge ran the tanks up and snapped them back to its 0.
-    // So the order rides the next sync, which the frame sends at once (syncAcc).
+    // ⚠ The server dives only from BOAT, which it learns from flightsync, so the order rides the next sync.
     F.dk.subPending = under ? 'submerge ' + F.dk.subWant : 'submerge';
     F.dk.subAskAt = performance.now();
     F.syncAcc = 99;
@@ -2698,40 +2174,19 @@ export function openFlightSim(opts = {}) {
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
     const k = (e.key || '').toLowerCase();
     if (k === 'escape' && gpsEl) { e.preventDefault(); gpsClose(); return; }
-    // ── THE CAMERA OFF ITS MOUNT ────────────────────────────────────────────
-    // Handled AHEAD of the `KEYS` allowlist rather than inside it, because most of what the camera
-    // flies on (WASD, the arrows) is either absent from that set or bound to something else — and
-    // adding them to it would mean the aircraft's own handler had to learn to ignore them again a
-    // few lines later. One gate, at the top, before anything else reads the key.
-    //
-    // ⚠ AND IT HOLDS THE AIRCRAFT, which is not the same as freezing it. The stick and pedals are
-    // about to belong to the camera, so their key inputs are released: the aeroplane flies on its
-    // trim at the throttle it had, straight and level, which is what you want to photograph. It
-    // keeps flying — you can lose it off the edge of your own shot, and that is correct.
-    // ⚠ THE EXTERNAL VIEW IS REQUIRED TO ENTER AND MUST NEVER BE REQUIRED TO LEAVE, which is the
-    // trap cab-view's own O key has a paragraph about and this one was still standing in. The view
-    // button is a CLICK: a pilot could detach the camera and then click back to the cockpit, at
-    // which point the camera was still active — swallowing W/A/S/Z and the arrows, so the throttle
-    // and the stick were dead — with the one key that stows it gated off by the view they had just
-    // left. Entering is conditional; leaving is not. (`setExternal` stows it as well, so the click
-    // itself now puts the camera away rather than leaving it to be found.)
+    // ── The free camera ─────────────────────────────────────────────────────
+    // Ahead of the KEYS allowlist. Detaching releases stick and pedal keys, so the aircraft flies on.
+    // ⚠ O needs the external view to enter and must never need it to leave, or a stuck camera eats the controls.
     if (k === 'o' && !e.repeat && (F.external || freeCam.active)) {
       e.preventDefault();
       const on = freeCam.toggle({ yaw: (F.hdg || 0) + (F.extOrbit || 0), z: 0.55 });
-      // ⚠ AND THE GLASS GOES WITH THEM. Detaching releases the throttle and pedals so the aircraft
-      // holds its trim while you compose a shot — and an armed stick would go on writing its last
-      // deflection into the column every frame, so the aeroplane would fly a standing turn out of
-      // the picture instead. `enabled` stops the mouse reaching it; only this stops the frame loop.
+      // ⚠ Disarm the mouse stick too, or the frame loop keeps writing its last deflection.
       if (on) { F.throttleKey = 0; F.pedalKey = 0; F.firing = false; mouseStick.setArmed(false); }
       setFreeCamChrome(on);
       fsimToast(on ? '◎ FREE CAMERA: mouse looks, MMB orbit, LMB/RMB up-down, WASD move, U frees the mouse, O to stow' : '◎ CHASE CAMERA');
       return;
     }
-    // ── THE MARKS OFF THE GLASS ─────────────────────────────────────────────
-    // Ahead of the `KEYS` allowlist for the same reason the camera is: it is not a flight control
-    // and the aircraft has no opinion about it. It is also ahead of `freeCam.active` deliberately —
-    // a detached camera hides the marks anyway (see NAV_MARKS), but the pilot setting the switch
-    // while composing a shot is setting it for the seat they are about to go back to.
+    // M toggles the nav marks; works with the free camera out too.
     if (k === 'm' && !e.repeat) {
       e.preventDefault();
       fsimToast(navMarks() ? '◈ NAV MARKS ON' : '◈ NAV MARKS OFF');
@@ -2739,11 +2194,7 @@ export function openFlightSim(opts = {}) {
     }
     if (freeCam.onKey(k, true)) { e.preventDefault(); return; }
     if (freeCam.active) return;   // detached: the airframe hears nothing
-    // ── THE GLASS AS THE STICK ──────────────────────────────────────────────
-    // Ahead of the `KEYS` allowlist, like the camera and the marks: it is a control SCHEME rather
-    // than a control, and the aircraft has no opinion about it. Behind `freeCam.active`, unlike
-    // them, because while the camera is out the mouse belongs to the camera — arming the stick
-    // there would put a hidden cursor on a shot and fly the aeroplane out of it.
+    // Mouse stick: after the free-camera check, since the camera owns the mouse while it's out.
     if (mouseStick.onKey(k, true, e.repeat)) { e.preventDefault(); return; }
     if ((k === 'pagedown' || k === 'pageup') && F.dk) { e.preventDefault(); subDepthKey(k === 'pagedown' ? 1 : -1); return; }
     if (!KEYS.has(k)) return;
@@ -2751,45 +2202,37 @@ export function openFlightSim(opts = {}) {
     switch (k) {
       case 'a': F.throttleKey = 1; break;
       case 'z': F.throttleKey = -1; break;
-      // Q/E are hold-to-look (side views) on every craft, heli included — the tail-rotor
-      // yaw lives on the rudder pedals below, same as the fixed-wings.
       case 'q': setView(-90); break;
       case 'e': setView(90); break;
-      // Rudder/yaw pedals, held — on the heli these pedal the tail rotor. ,/. and X/C are
-      // interchangeable alternatives (some keyboards make ,/. awkward).
-      case ',': case 'x': F.pedalKey = -1; break;   // left rudder / pedal
-      case '.': case 'c': F.pedalKey = 1; break;    // right rudder / pedal
+      case ',': case 'x': F.pedalKey = -1; break;   // rudder, held
+      case '.': case 'c': F.pedalKey = 1; break;
       case 's': setView(180); break;
       case 'w': setView(0); break;
-      case 'y': if (!e.repeat) stepFlap(1); break;   // flaps extend
-      case 'h': if (!e.repeat) stepFlap(-1); break;  // flaps retract
+      case 'y': if (!e.repeat) stepFlap(1); break;
+      case 'h': if (!e.repeat) stepFlap(-1); break;
       case 'g': if (!e.repeat) toggleGear(); break;
-      // I is the ignition on every aircraft: the engine master, the same as the ⏻ button and the
-      // cockpit's own key or switch. ⚠ The seat opens with the 2-D rows folded and ⏻ in them, so a
-      // cockpit whose room had no working master could not be started at all. The Mule's could not.
+      // ⚠ I is the ignition on every aircraft: the 2-D rows (and ⏻) open folded.
       case 'i': if (!e.repeat) F.ckMaster?.(); break;
-      // The Drake's own: K converts rotor <-> wing, R the rear ramp, T the quack, N night vision; M toggles the nav marks.
+      // The Drake's own keys.
       case 'k': if (!e.repeat && F.dk) drakeConvert(); break;
-      case 'l': if (!e.repeat && F.dk) drakeMode(2); break;   // BOAT, on the water (drakeModeBlock says why not)
+      case 'l': if (!e.repeat && F.dk) drakeMode(2); break;   // BOAT
       case 'r': if (!e.repeat && F.dk) drakeRamp(); break;
       case 't': if (!e.repeat && F.dk) drakeQuackDown(); break;
       case 'n': if (!e.repeat && F.dk) { F.dk.nv = !F.dk.nv; fsimToast(F.dk.nv ? '◉ NIGHT VISION: centre screen' : '◉ NIGHT VISION OFF'); } break;
       case 'v': if (!e.repeat) setExternal(!F.external); break;
       case 'j': if (!e.repeat) jettison(); break;
-      case 'f': if (!e.repeat && F.reportedAirborne) sendCmdSilent('flares'); break;   // countermeasures (server confirms via air_threat)
-      case '1': if (!e.repeat) setWeapon('guns'); break;   // weapon select
+      case 'f': if (!e.repeat && F.reportedAirborne) sendCmdSilent('flares'); break;   // server confirms via air_threat
+      case '1': if (!e.repeat) setWeapon('guns'); break;
       case '2': if (!e.repeat) setWeapon('msl'); break;
-      // A rack is a weapon like any other: 1/2/3 pick directly, the WPN button cycles. ⚠ Gated the
-      // way the WPN cycle and the hidden bomb button are: with 'bomb' selected the trigger skips the
-      // guns, so 3 on an airframe with no rack would leave the pilot unarmed.
+      // ⚠ Gated: with 'bomb' selected the trigger skips the guns, so no rack would mean unarmed.
       case '3': if (!e.repeat) { if (F.bombCap > 0) setWeapon('bomb'); else fsimToast('◇ NO BOMB RACK ON THIS AIRFRAME'); } break;
-      // On the water B is the Drake's buoyancy control (drake-water.js stabilise); in the air, the automatic dive.
+      // B: the Drake's buoyancy control on the water, else the automatic dive.
       case 'b': if (!e.repeat) { if (F.dk && F.dk.onWater) { F.dk.stab = F.dk.stab === false; fsimToast(F.dk.stab ? '⚓ BUOYANCY CONTROL: trim tanks steadying her' : '⚓ BUOYANCY CONTROL OFF: riding the swell'); } else toggleDiveAuto(); } break;
-      case '[': if (!e.repeat) cycleApTarget(-1); break;   // cycle target (fields / landmarks / regions)
+      case '[': if (!e.repeat) cycleApTarget(-1); break;
       case ']': if (!e.repeat) cycleApTarget(1); break;
-      case '\\': if (!e.repeat) clearApTarget(); break;    // clear all waypoints
-      case 'p': if (!e.repeat) gpsOpen(); break;           // the GPS picker
-      case ' ': F.firing = true; break;   // hold to fire guns (frame loop squirts bursts)
+      case '\\': if (!e.repeat) clearApTarget(); break;
+      case 'p': if (!e.repeat) gpsOpen(); break;
+      case ' ': F.firing = true; break;   // held
     }
   };
   const onKeyUp = (e) => {
@@ -2804,34 +2247,23 @@ export function openFlightSim(opts = {}) {
   add(window, 'keydown', onKeyDown);
   add(window, 'keyup', onKeyUp);
 
-  // Engine master — a round accent button that recesses while running. Off→on any time;
-  // on→off only parked and stopped (you can't kill the engine in the air).
-  // Instrument panel lights — a dash switch that backlights the glass panels + dials in the
-  // accent colour (for night flying) — and the exterior LIGHTS switch (landing/taxi lamps). Both
-  // draw off the engine: no master, no power, so cutting the engine drops every light (nav lamps
-  // included, out on the model) and the switches read dead until it's running again.
+  // Engine master (off only when parked and stopped), PANEL and LIGHTS. Every light needs power.
   root.style.setProperty('--cy-dim', accA(0.16));
   const nightSw = q('#fsim-nightsw'), landSw = q('#fsim-landsw');
-  // Reads F.powered, never F.engineOn — see the derivation in the frame loop. The master switch
-  // is not the only way the current dies, and a nav lamp still burning on a dead-stick glider is
-  // the tell. Held on F so the frame loop can re-run it the moment power comes or goes.
+  // ⚠ Reads F.powered, never F.engineOn: the master isn't the only way power dies. The frame loop re-runs it.
   const syncLights = F.syncLights = () => {
-    if (!F.powered) { F.nightLight = false; F.landingLight = false; F.domeLight = false; }   // no power → all circuits dead
+    if (!F.powered) { F.nightLight = false; F.landingLight = false; F.domeLight = false; }
     nightSw.classList.toggle('on', F.nightLight);
     root.classList.toggle('fsim-nightlit', F.nightLight);
     nightSw.classList.toggle('nopwr', !F.powered);
     if (landSw) { landSw.classList.toggle('on', F.landingLight); landSw.classList.toggle('nopwr', !F.powered); }
   };
 
-  // CARGO NOSE switch — the manual answer to "how do I open the nose". The automatic behaviour
-  // (shut down on the ramp → she yawns open; power up → she closes) still runs and is still the
-  // normal path; this is for opening the hold with the engines live, which is what you actually want
-  // when loading. Ground-only, and the existing thrust interlock means an open nose still can't
-  // taxi, so the switch can't be used to do anything unsafe.
+  // CARGO NOSE: opens the hold with engines live. Ground only; the thrust interlock still stops a taxi.
   const visorBtn = q('#fsim-visorsw');
   if (visorBtn) {
     if (F.hasVisor === undefined) F.hasVisor = !!visorSpecFor(F.cls);
-    if (F.hasVisor) visorBtn.style.display = '';   // hidden entirely on an airframe with no visor
+    if (F.hasVisor) visorBtn.style.display = '';
     add(visorBtn, 'click', () => {
       if (!F.hasVisor) return;
       if (F.reportedAirborne || F.rolling) { if (F.toast) F.toast('NOSE: only on the ground, stopped.'); return; }
@@ -2840,30 +2272,16 @@ export function openFlightSim(opts = {}) {
       if (F.toast) F.toast(F.visorWant ? 'NOSE OPENING: cargo visor coming up.' : 'NOSE CLOSING: ~5s to the lock.');
     });
   }
-  // ── ⚠ THE FLIGHT PANEL TAKES A CLICK ───────────────────────────────────────
-  //
-  // The panel has drawn its own switch, lever and knob state since it was built and taken no input
-  // at all. Its controls are canvas, so there is nothing to bind a handler to — the hit test is
-  // against the rectangles the renderer recorded, for the same reason the truck's is: the positions
-  // are the end of a layout chain, and a second copy of that chain here goes wrong the first time
-  // either side is tuned.
-  //
-  // ⚠ CAPTURE PHASE, AND IT ONLY SWALLOWS A HIT. The windshield element already carries the camera
-  // drag, so listening in the bubble phase means the drag has already started by the time this
-  // runs. It stops propagation on a control and is invisible otherwise.
-  //
-  // ⚠ AND THE DASH CANVAS IS pointer-events:none, so the coordinates are the WORLD canvas's own
-  // box — the two are the same size at the same origin, which is why one getBoundingClientRect
-  // serves both. If that ever stops being true, this is the line that breaks.
+  // ── Clicks on the canvas flight panel ──────────────────────────────────────
+  // Hit-tests the rects the renderer recorded; never recompute the layout here.
+  // ⚠ Capture phase (the camera drag is on the same element), and it only swallows a hit.
+  // ⚠ The dash canvas is pointer-events:none and assumed to share the world canvas's box.
   {
     const wsEl = document.getElementById('fsim-ws');
     if (wsEl) wsEl.addEventListener('pointerdown', (e) => {
-      // ⚠ THE PRIMARY BUTTON ONLY. Without this the middle button — which is the free look below —
-      // throws whatever switch it happens to start over, so beginning a lean with the cursor near
-      // the ignition shuts the engine down. A hit test that does not ask WHICH button is a hit test
-      // that will be triggered by every other thing ever bound to the same element.
+      // ⚠ Primary button only, or a middle-button lean throws switches.
       if (e.button !== 0) return;
-      if (F.external || F.viewYaw) return;       // not the forward seat: no panel under the cursor
+      if (F.external || F.viewYaw) return;
       const rects = panelControlRects();
       if (!rects || !rects.length) return;
       const b = wsEl.getBoundingClientRect();
@@ -2876,12 +2294,9 @@ export function openFlightSim(opts = {}) {
         case 'land': F.toggleLand(); break;
         case 'panel': F.toggleNight(); break;
         case 'gear': F.toggleGear(); break;
-        // ⚠ THE GATE IS TWO HALVES, NOT A TOGGLE. A flap lever has four positions and a click has
-        // one bit, so the half of the rectangle you press is the direction — up toward UP, down
-        // toward FULL. Which is also how the real one is used: you do not select a notch, you move
-        // the lever a notch.
+        // The half you press is the direction: top toward UP, bottom toward FULL.
         case 'flaps': F.stepFlap(py < hit.y + hit.h * 0.5 ? -1 : 1); break;
-        default: return;                          // throttle/prop/mixture/rudder are not click controls
+        default: return;
       }
       e.preventDefault(); e.stopPropagation();
     }, true);
@@ -2891,63 +2306,48 @@ export function openFlightSim(opts = {}) {
   add(engBtn, 'click', () => {
     if (!F.engineOn) {
       F.engineOn = true; engBtn.classList.add('on');
-      F.engStartT = performance.now();   // the cockpit's START lamps and key (the payload's 'starting')
-      // Start at IDLE — the engine coming alive must never surge the plane forward. You
-      // advance the throttle yourself to taxi up to the runway (the lever visual follows
-      // input.throttle each frame, so zeroing it here also drops the lever to idle).
+      F.engStartT = performance.now();
+      // Start at idle so the engine never surges the plane forward.
       F.input.throttle = 0; F.throttleKey = 0;
       try { spoolUp(F.cls); } catch {}
-      // Nose visor lowers home under power. SAY SO: she boards cold with the cargo nose standing
-      // wide open and no thrust reaches the ground until it's locked forward, so a pilot who isn't
-      // told simply sits there with the engines running wondering why she won't roll. The close is
-      // the answer to "how do I shut the nose" — you don't, the start-up does, and you wait for it.
+      // The visor closes on start-up; tell the pilot, since she won't taxi until it locks.
       if (F.hasVisor && F.noseVisor > 0.02) {
         try { visorFx('close'); } catch {}
         if (F.toast) F.toast('NOSE OPEN: cargo visor lowering, ~5s. No taxi until it locks.');
       }
       sendCmdSilent('flightevent engineon');
-      syncLights();   // power restored — switches come live again (lights stay off until switched on)
+      syncLights();
     } else if (s.onGround && s.airspeed < 5) {
-      if (F.rolling && !F.heli) { finishLanding(F, s); return; }   // fixed-wing rolled to a stop → park (opens the hangar at a field)
+      if (F.rolling && !F.heli) { finishLanding(F, s); return; }   // park
       F.engineOn = false; engBtn.classList.remove('on');
       try { spoolDown(F.cls); } catch {}
-      if (F.hasVisor) { try { visorFx('open'); } catch {} }   // shut down on the ramp → the nose yawns open
+      if (F.hasVisor) { try { visorFx('open'); } catch {} }
       sendCmdSilent('flightevent engineoff');
-      syncLights();   // master off → kill instrument backlight + exterior lamps
-      // A helicopter never auto-parks/leaves the sim on shutdown — it stays put so the pilot can
-      // spin back up or look around; the only way out is typing `disembark` (climb out).
+      syncLights();
+      // A helicopter never auto-parks on shutdown; `disembark` is the way out.
       if (F.heli && F.rolling) { F.rolling = false; if (F.toast) F.toast('SHUT DOWN: type disembark to climb out'); }
     }
   });
 
-  // ── ⚠ NAMED, SO THE PANEL CAN REACH THEM ───────────────────────────────────
-  // These were two inline arrows on two DOM buttons, which is fine while the buttons are the only
-  // way to throw them — and the flight panel's own switches are drawn on a canvas, where there is
-  // no element to hang a handler on. Hung on F rather than exported, because that is where
-  // 'syncLights' already lives and this is the same kind of thing: one owner, several surfaces.
+  // On F so the canvas panel and 3-D cockpits share one implementation.
   F.toggleNight = () => { if (!F.powered) return; F.nightLight = !F.nightLight; syncLights(); };
   F.toggleLand = () => { if (!F.powered) return; F.landingLight = !F.landingLight; syncLights(); };
   add(nightSw, 'click', () => F.toggleNight());
   add(landSw, 'click', () => F.toggleLand());
-  // ⚠ THE MASTER ROUTES TO THE BUTTON, IT DOES NOT REIMPLEMENT IT. Starting an engine here is a
-  // spool, a nose visor, a throttle reset, a server event and a lights resync — five things the
-  // start button already owns and the one place they are correct. Dispatching its click is the
-  // opposite of duplicating it.
+  // ⚠ Routes to the button's click; never reimplement the start sequence.
   F.toggleMaster = () => { try { engBtn.click(); } catch (e) {} };
-  syncLights();   // set the initial switch/LED state to match the engine at mount (usually cold + dark)
+  syncLights();
 
-  // Weapons (gunship only): master-arm toggle + FIRE (a gun pass — resolved inline by the
-  // server against an AA site in range). Space also fires. Reticle glows when armed.
+  // Weapons: master arm, select and fire.
   const weapEl = q('#fsim-weap'), reticleEl = q('#fsim-reticle');
   const armBtn = q('#fsim-arm'), fireBtn = q('#fsim-fire'), pipsEl = q('#fsim-weap-pips');
   const wpnBtn = q('#fsim-wpn'), flareBtn = q('#fsim-flarebtn');
-  // Ammo pips: hardpoint diamonds with guns selected, missiles-remaining darts with MSL.
   const paintPips = () => {
     if (!pipsEl) return;
     pipsEl.textContent = F.weapon === 'bomb' ? (F.bombs > 0 ? '●'.repeat(F.bombs) : '—')
       : F.weapon === 'msl' ? (F.msl > 0 ? '▲'.repeat(F.msl) : '—') : '◆'.repeat(F.hardpoints);
   };
-  F.paintPips = paintPips;   // flight_ctx refreshes the rail count → repaint
+  F.paintPips = paintPips;   // flight_ctx repaints
   if (F.hardpoints > 0) {
     if (weapEl) weapEl.classList.add('show');
     paintPips();
@@ -2958,7 +2358,6 @@ export function openFlightSim(opts = {}) {
       if (reticleEl) reticleEl.classList.toggle('on', on);
     };
     add(armBtn, 'click', () => { setArmed(!F.armed); sendCmdSilent(F.armed ? 'arm' : 'safe'); });
-    // Weapon select (guns ↔ missiles) — the WPN button and the 1/2 keys share this.
     setWeapon = (w) => {
       if (w === F.weapon) return;
       F.weapon = w;
@@ -2966,22 +2365,17 @@ export function openFlightSim(opts = {}) {
       paintPips();
       fsimToast(w === 'bomb' ? `● BOMBS · ${F.bombs} ON THE RACK` : w === 'msl' ? `▲ MISSILES · ${F.msl} ON THE RAILS` : '◆ GUNS');
     };
-    // The select cycles through whatever this airframe actually carries, so a Shrike steps
-    // GUN → BMB and a Reaper steps GUN → MSL without either learning about the other.
+    // Cycles through whatever this airframe carries.
     add(wpnBtn, 'click', () => {
       const ring = ['guns', ...(F.bombCap > 0 ? ['bomb'] : []), ...(F.msl > 0 || F.salvo > 1 ? ['msl'] : [])];
       setWeapon(ring[(ring.indexOf(F.weapon) + 1) % ring.length] || 'guns');
     });
     add(flareBtn, 'click', () => { if (F.reportedAirborne) sendCmdSilent('flares'); });
-    // ── THE BOMBER'S OWN TWO BUTTONS ──────────────────────────────────────────
-    // The rack was reachable only by CYCLING the weapon select, and the dive sight only appears
-    // with bombs selected — so on the one airframe built around bombing, the sight was behind a
-    // button that does not say what it does. These say what they do, and they are hidden on every
-    // aeroplane that has no rack (`revealBombKit`, off the authoritative flight_ctx count).
+    // BOMBS and DIVE buttons; hidden without a rack (revealBombKit).
     add(q('#fsim-bombbtn'), 'click', () => setWeapon('bomb'));
     add(q('#fsim-divebtn'), 'click', () => toggleDiveAuto());
     add(q('#fsim-subdive'), 'click', () => F.subToggle?.());
-    // FIRE is a HELD trigger (touch/mouse): the frame loop squirts bursts while down.
+    // FIRE is held; the frame loop fires while down.
     const holdFire = (on) => (e) => { if (e) e.preventDefault(); F.firing = on; };
     if (fireBtn) {
       add(fireBtn, 'pointerdown', holdFire(true));
@@ -2990,9 +2384,7 @@ export function openFlightSim(opts = {}) {
     }
   }
 
-  // Crop-duster SPRAY (ag-planes only — the Locust): a low-pass dust that lays a mist over
-  // the tile below. The button both fires the server pass and pulses the local mist FX; the server
-  // gates it to a LOW pass and rate-limits, so a spam-click just no-ops.
+  // SPRAY: the server gates it to a low pass and rate-limits.
   const sprayBtn = q('#fsim-spraybtn'), sprayMist = q('#fsim-spray'), sprayRig = q('#fsim-sprayrig');
   if (F.sprayer && sprayBtn) {
     sprayBtn.style.display = '';
@@ -3000,31 +2392,26 @@ export function openFlightSim(opts = {}) {
     const doSpray = () => {
       if (!F.reportedAirborne) { fsimToast('◊ AIRBORNE + LOW TO DUST'); return; }
       sendCmdSilent('spray');
-      F.sprayT = performance.now();     // the cockpit's spray-valve handle rides the same pulse (interior-locust.js)
+      F.sprayT = performance.now();     // interior-locust.js's valve handle rides this
       fsimToast('◊ CROP-DUSTING');
-      spraySfx();                       // hopper bay doors thunk open + pressurised chemical hiss
-      pulse(sprayMist, 1700);           // haze drifting down the windshield
-      pulse(sprayRig, 1900);            // belly-hopper schematic: clamshell doors open, booms fan spray
+      spraySfx();
+      pulse(sprayMist, 1700);
+      pulse(sprayRig, 1900);
     };
     add(sprayBtn, 'click', doSpray);
   }
 
-  // HOPPER — what you press before the pass. The button only ASKS (`hopperbay`, a silent resolve);
-  // the server answers with the tank's state and the cans in your hands, and flightSimHopper draws
-  // them. Every row it draws sends `loadhopper with <name>` — an ordinary command a player could
-  // have typed — so this panel never decides whether a pour is legal, it only offers the ones the
-  // verb already matches on.
+  // HOPPER only asks (`hopperbay`); flightSimHopper's rows send `loadhopper with <name>`. Legality is the server's.
   const hopBtn = q('#fsim-hopbtn');
   if (F.sprayer && hopBtn) {
     hopBtn.style.display = '';
     add(hopBtn, 'click', () => {
       const card = document.getElementById('fsim-hop');
-      if (card && card.classList.contains('on')) { card.classList.remove('on'); return; }   // press again to shut it
+      if (card && card.classList.contains('on')) { card.classList.remove('on'); return; }
       sendCmdSilent('hopperbay');
     });
   }
 
-  // MFD map toggle — real local minimap ↔ aerial biome nav map.
   const mfdTog = q('#fsim-mfd-tog'), mfdLbl = q('#fsim-mfd-lbl');
   add(mfdTog, 'click', () => {
     F.mfdMode = F.mfdMode === 'local' ? 'nav' : 'local';
@@ -3032,15 +2419,12 @@ export function openFlightSim(opts = {}) {
     if (mfdTog) mfdTog.textContent = F.mfdMode === 'local' ? 'NAV ▸' : '◂ LOCAL';
   });
 
-  // Live tuning sliders (⚙). Two groups: the current plane's flight-model params (F.P,
-  // per-airframe feel) and the shared world-render knobs (RENDER_TUNE). Both take effect
-  // on the next frame. Physics changes are session-scoped to this plane's TYPES entry.
+  // Tuning sliders (⚙).
   const tuneBtn = q('#fsim-tunebtn'), tunePanel = q('#fsim-tune');
   const physRow = ([k, lbl, lo, hi, stp]) =>
     `<div class="trow"><label>${lbl}</label><input type="range" data-pk="${k}" min="${lo}" max="${hi}" step="${stp}" value="${F.P[k]}"><span class="tv" id="fsim-pv-${k}">${fmtStp(F.P[k], stp)}</span></div>`;
   const rndRow = ([k, lbl, lo, hi, stp]) =>
     `<div class="trow"><label>${lbl}</label><input type="range" data-k="${k}" min="${lo}" max="${hi}" step="${stp}" value="${RENDER_TUNE[k]}"><span class="tv" id="fsim-tv-${k}">${fmtStp(RENDER_TUNE[k], stp)}</span></div>`;
-  // Vertex-light colour pickers (key/sky/shadow × day/night) — write hex straight into RENDER_TUNE.
   const VLIGHT_COLORS = [
     ['vlKeyDay', 'Key · day'], ['vlKeyNight', 'Key · night'],
     ['vlSkyDay', 'Sky · day'], ['vlSkyNight', 'Sky · night'],
@@ -3048,15 +2432,9 @@ export function openFlightSim(opts = {}) {
   ];
   const colRow = ([k, lbl]) =>
     `<div class="trow"><label>${lbl}</label><input type="color" data-ck="${k}" value="${RENDER_TUNE[k]}"><span class="tv"></span></div>`;
-  // The mouse stick's own knobs. A third row type rather than a third entry in FSIM_TUNE, because
-  // MOUSE_STICK is a control scheme and RENDER_TUNE is what the frame looks like — the two happen
-  // to be tuned from the same panel and are not the same kind of thing.
   const stkRow = ([k, lbl, lo, hi, stp]) =>
     `<div class="trow"><label>${lbl}</label><input type="range" data-sk="${k}" min="${lo}" max="${hi}" step="${stp}" value="${MOUSE_STICK[k]}"><span class="tv" id="fsim-sv-${k}">${fmtStp(MOUSE_STICK[k], stp)}</span></div>`;
-  // Collapsible sections. With ~60 controls stacked in one scroll, finding a slider meant paging
-  // past forty you didn't want — so each section folds, and which ones you left open is remembered
-  // across flights. Aircraft feel and the colour pickers start closed; world render is the one
-  // people actually came for.
+  // Collapsible sections, remembered across flights.
   const SEC_LS = 'fsimTuneSections';
   let secOpen = {};
   try { secOpen = JSON.parse(localStorage.getItem(SEC_LS) || '{}') || {}; } catch { secOpen = {}; }
@@ -3077,10 +2455,9 @@ export function openFlightSim(opts = {}) {
     const nowOpen = h.classList.contains('collapsed');
     h.classList.toggle('collapsed', !nowOpen); if (body) body.classList.toggle('collapsed', !nowOpen);
     secOpen[id] = nowOpen;
-    try { localStorage.setItem(SEC_LS, JSON.stringify(secOpen)); } catch { /* private mode — folding still works, just isn't remembered */ }
+    try { localStorage.setItem(SEC_LS, JSON.stringify(secOpen)); } catch { /* private mode: still folds */ }
   }));
-  // Drag the tuning window by its header. Switches to left/top positioning (relative to the
-  // view) on first grab so it can move anywhere; the sliders below keep their own pointer events.
+  // Drag by the header; switches to left/top positioning on first grab.
   const dragH = q('#fsim-tune-drag');
   if (dragH) {
     let dragging = false, px = 0, py = 0, baseL = 0, baseT = 0;
@@ -3106,14 +2483,12 @@ export function openFlightSim(opts = {}) {
   tunePanel.querySelectorAll('input[data-sk]').forEach((inp) => add(inp, 'input', () => {
     const k = inp.dataset.sk; MOUSE_STICK[k] = parseFloat(inp.value);
     const tv = document.getElementById('fsim-sv-' + k); if (tv) tv.textContent = fmtStp(MOUSE_STICK[k], inp.step);
-    // Turning the scheme off at the slider has to let go of the glass as well, or the cursor stays
-    // hidden and the column stays where the pointer last put it with nothing reading it.
+    // Turning the scheme off must disarm the stick too.
     if (k === 'mode' && MOUSE_STICK.mode === 0) mouseStick.setArmed(false);
   }));
   add(tuneBtn, 'click', () => { tunePanel.style.display = tunePanel.style.display === 'none' ? 'block' : 'none'; });
 
-  // Admin ⏪ rewind — set the plane back down at the departure hangar and reopen it (test tool).
-  // The server (airhome) parks her + disembarks; we then close the sim and open the hangar bay.
+  // Admin rewind to the departure hangar (test tool).
   const rewindBtn = q('#fsim-rewindbtn');
   if (rewindBtn) add(rewindBtn, 'click', () => {
     sendCmdSilent('airhome');
@@ -3121,9 +2496,7 @@ export function openFlightSim(opts = {}) {
     setTimeout(() => { closeFlightSim(); sendCmdSilent('hangar'); }, 450);
   });
 
-  // Abort — bail out of the flight from anywhere. The server dispatches a recovery crew that
-  // tows the craft back to a field and bills a retrieval fee (same as an off-strip tow), then
-  // sets you on the ground. Two-tap armed so a stray click doesn't cost you credits.
+  // Abort: a billed recovery tow. Two taps, so a stray click costs nothing.
   const abortBtn = q('#fsim-abortbtn');
   let abortArm = 0;
   add(abortBtn, 'click', () => {
@@ -3141,9 +2514,7 @@ export function openFlightSim(opts = {}) {
     setTimeout(() => { closeFlightSim(); sendCmdSilent('look'); }, 600);
   });
 
-  // Disembark — climb out where you're parked. Shown by the frame loop only while on the
-  // ground (the server rejects it airborne anyway); fires the same `disembark` verb the command
-  // line uses, then closes the sim so the room look takes over.
+  // Disembark; the frame loop shows it only on the ground.
   const disembarkBtn = q('#fsim-disembarkbtn');
   add(disembarkBtn, 'click', () => {
     sendCmdSilent('disembark');
@@ -3151,29 +2522,23 @@ export function openFlightSim(opts = {}) {
     setTimeout(() => { closeFlightSim(); sendCmdSilent('look'); }, 400);
   });
 
-  // Fullscreen: expand the sim over the whole output column, pushing the text log + command
-  // pane down out of the way for an immersive view. Toggling it off restores the split.
   const fsBtn = q('#fsim-fsbtn');
   add(fsBtn, 'click', () => {
     const on = document.body.classList.toggle('fsim-fullscreen');
     if (fsBtn) fsBtn.classList.toggle('on', on);
-    if (on) { document.body.classList.remove('fsim-hidepanel'); q('#fsim-hidebtn')?.classList.remove('on'); }   // fullscreen supersedes hide-panel
+    if (on) { document.body.classList.remove('fsim-hidepanel'); q('#fsim-hidebtn')?.classList.remove('on'); }
   });
 
-  // Big screen — the rung above ⛶: the page goes with the log, and so does everything this file
-  // draws on the glass. bigscreen.js owns the state, because Esc and the browser's own fullscreen
-  // key can both leave it without this button being touched.
+  // bigscreen.js owns the state; Esc and the browser can leave it without this button.
   bindBigScreenButton(q('#fsim-bigbtn'));
 
-  // Hide-panel — folds away just the scrollback log (keeps the command box) and grows the
-  // outside view; the cockpit instrument rows keep their fixed height, so the panel stays put.
   const hideBtn = q('#fsim-hidebtn');
   add(hideBtn, 'click', () => {
     const on = document.body.classList.toggle('fsim-hidepanel');
     if (hideBtn) hideBtn.classList.toggle('on', on);
     if (on) { document.body.classList.remove('fsim-fullscreen'); fsBtn?.classList.remove('on'); }
   });
-  // And folded by default on a phone — see the note on the cabin's own toggle above.
+  // Folded by default on a phone.
   seatHidePanel('fsim-hidepanel', hideBtn);
 
   // The 2-D instrument rows. Folded by default, so the seat opens with the view filling the pane.
@@ -3184,18 +2549,13 @@ export function openFlightSim(opts = {}) {
     glassBtn?.classList.toggle('on', hidden);
   });
 
-  // ── THE DRAKE'S CONTROLS: the 3-D cockpit takes clicks, and the external view gets an overlay ──
-  // One table of actions behind both, and each one is the control the key or the old 2-D panel
-  // already drove, so nothing here is a second way of flying the aircraft.
-  // ⚠ EVERY 3-D COCKPIT, NOT ONLY THE DRAKE: a cockpit whose profile exposes clickable controls
-  // (interior-cockpit-kit.js) is handled by this one block. The Drake's own actions are keyed by its
-  // own ids; a kit cockpit's switches are 'ck:*' and map onto the sim's existing actions.
+  // ── 3-D cockpit clicks and the Drake's external overlay ──
+  // One action table, each calling the existing key/panel action. ⚠ Serves every 3-D cockpit:
+  // the Drake's ids, and kit cockpits' 'ck:*' switches (interior-cockpit-kit.js).
   {
     F.toggleDome = () => { if (!F.powered) return; F.domeLight = !F.domeLight; F.syncLights?.(); };
     const ckFlap = () => { const before = F.input.flaps; F.stepFlap?.(1); if (F.input.flaps === before) F.stepFlap?.(-9); };
-    // ⚠ A CONTROL THAT REFUSES SAYS SO. The start button and the light toggles return silently when
-    // they will not act (shutting down in the air, a lamp with no power), which from a switch in the
-    // room reads as a switch that is broken. The answer goes in a toast; the action is unchanged.
+    // ⚠ A refusing control must toast why, or it reads as broken.
     const ckMaster = () => {
       if (F.engineOn && !(s.onGround && s.airspeed < 5)) { fsimToast('ENGINE: shut down on the ground, stopped'); return; }
       q('#fsim-eng')?.click();

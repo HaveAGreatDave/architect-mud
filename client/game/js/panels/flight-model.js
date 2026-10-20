@@ -1,61 +1,32 @@
-// FLIGHT MODEL — the continuous fixed-wing energy simulation.
+// FLIGHT MODEL: the continuous energy simulation for aircraft, trucks and boats.
+// Pure: no DOM, no network, no plugin state, so it can be stepped headless. An arcade
+// energy model: controls modify behaviour, never set state, and a stall comes from
+// pitch plus low airspeed, never from low throttle.
 //
-// A pure, dependency-free integrator: no DOM, no network, no plugin state. The
-// client sim loop drives it at 60fps (the source of "feel"); the same math can be
-// stepped headless in a test harness to validate behaviour in isolation. It is an
-// ARCADE energy model, not a 6-DOF aerodynamics sim — believable, consistent, and
-// tunable, per the Flight Feel doc: the player guides mass with momentum, controls
-// MODIFY behaviour (they never set state instantly), and a stall comes from
-// excessive pitch + insufficient airspeed, never from "throttle low".
-//
-// Units: airspeed/groundspeed in knots, altitude in feet (AGL), vertical speed in
-// ft/min, angles in degrees, time in seconds. All the coefficients are knobs — the
-// harness exists so we tune them by eye.
-//
-// createState(params) -> a fresh aircraft state, parked, engine off.
-// step(state, input, params, dt) -> mutates + returns state advanced by dt seconds.
-//   input  = { elevator:-1..1, aileron:-1..1, throttle:0..1, flaps:0..1 }
-//            elevator +1 = full pull (nose up), -1 = full push (nose down).
-//   params = a TYPES entry (per-airframe tuning).
+// Units: knots, feet AGL, ft/min, degrees, seconds.
+// createState(params) -> a fresh state, parked, engine off.
+// step(state, input, params, dt) -> mutates and returns state.
+//   input = { elevator:-1..1 (+1 = pull), aileron:-1..1, throttle:0..1, flaps:0..1 }
 
-// ⚠ THE ONE IMPORT IN THIS FILE, AND IT IS ALLOWED TO BE HERE. The header above calls this module
-// "pure, dependency-free" and means three specific things by it — no DOM, no network, no plugin
-// state — every one of which is still true: `sea-swell.js` is a table of coefficients and four
-// trigonometric functions, and it is the ONE JS copy of the sea's shape by explicit decree of its
-// own header. A hull that sampled its own private wave would ride a sea nobody is drawing, which
-// looks completely fine in a screenshot and completely wrong in motion; and a hull that reached
-// into windshield.js for `seaPoseAt` instead could not be stepped on a server, which is what the
-// text rung is and therefore what the accessibility rung is.
+// The only import: sea-swell.js is the one JS copy of the sea's shape. Never sample a private
+// wave or reach into windshield.js, or the hull rides a sea nobody draws and can't run on a server.
 import { seaRoll, seaWind, seaSlope, seaChop } from '../../../shared/sea-swell.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 const G_KT = 19.06;               // gravity as a knots/second airspeed change (9.81 m/s²)
 const wrap360 = (d) => ((d % 360) + 360) % 360;
-// Dive drag-shed (feel knob, NOT physics): fraction of parasitic drag a full nose-down attitude
-// removes, letting a dive accelerate faster than gravity-along-γ alone would. Lower = leans on the
-// real energy loop (gravity trades height for speed) instead of faking punch by deleting drag.
-// Was a hardcoded 0.9, which was pure fakery — it terminal'd dives at 3–4× Vne (a DEAD-STICK dive
-// hit 4× cruise). Measured down to 0.2 with scripts/dive-tune.mjs: a committed dive still redlines
-// at Vne (real gravity does it) and a dead-stick dive still builds ~1.3× cruise, but the redline is
-// now reached by committing pitch, not by deleting the airframe's drag. Dive ONSET acceleration is
-// unchanged (it's gravity, not this term). Per-type override via p.diveShed if an airframe wants more.
+// Feel knob: fraction of parasitic drag a full nose-down attitude removes. Keep it low so a dive
+// redlines by gravity, not by deleting drag (tuned with scripts/dive-tune.mjs). Override: p.diveShed.
 const DIVE_SHED = 0.2;
-// Forward slip — CROSSED CONTROLS (a held bank against OPPOSITE rudder) fly the fuselage sideways
-// to the airflow. It adds a lot of drag and spills some lift, so you sink STEEPLY WITHOUT gaining
-// speed (the drag eats the descent's energy) — the classic salvage-a-high/hot-approach or crosswind
-// technique. No net turn: §5's bank-turn and rudder-yaw already oppose when the controls are crossed.
-const SLIP_DRAG = 0.0005;   // extra parasitic drag ∝ V² per unit slip — sized to cancel the added sink's gravity so a slip HOLDS speed while it sinks (not so draggy it bleeds you into a stall)
-const SLIP_SINK = 4.0;      // extra sink per unit slip, as fpm PER KNOT of airspeed (energy-proportional: a slow light plane isn't over-sunk into a stall, a fast one drops harder)
-const GROUND_EFFECT_FT = 26;      // AGL band (~a wingspan) where the wing rides a lift cushion → float + flare to land (kept close to the deck so the cushion doesn't arrest the sink a whole wingspan up and float her down the runway)
-const HELI_GROUND_EFFECT_FT = 40; // AGL band (~a rotor diameter) where the downwash piles into a lift cushion → soft settle onto the skids
+// Forward slip (bank against opposite rudder): sink steeply without gaining speed.
+const SLIP_DRAG = 0.0005;   // extra drag ∝ V² per unit slip, sized so a slip holds speed while it sinks
+const SLIP_SINK = 4.0;      // extra sink per unit slip, fpm per knot of airspeed
+const GROUND_EFFECT_FT = 26;      // AGL lift-cushion band; kept low so she doesn't float down the runway
+const HELI_GROUND_EFFECT_FT = 40; // AGL band (~a rotor diameter) of downwash cushion
 
 // ── Per-airframe tuning ───────────────────────────────────────────────────────
-// The Mayfly is the Phase-1 reference: a light, forgiving fixed-wing. Heavier types
-// (added in Phase 3) scale mass up → slower rates, longer rolls, gentler handling,
-// which the Feel doc calls the "consistency" rule. Nothing here is authoritative
-// content; the real per-type numbers come from aircraft_types at wiring time. These
-// are the physics knobs the tuning maps onto.
+// The Mayfly is the reference; heavier types get slower rates and gentler handling.
 export const TYPES = {
   mayfly: {
     name: 'Mayfly',
@@ -72,7 +43,7 @@ export const TYPES = {
     engineLag: 1.3,       // throttle→rpm time constant (s); turbines will be larger
     pitchStable: 0.9,     // self-level rate when elevator released (seeks stability)
     rollStable: 1.1,      // wings-level rate when aileron released
-    dragP: 0.000889,      // parasitic drag coeff (∝ airspeed²) — low, so it holds speed climbing. Trimmed from 0.00100 when real induced drag arrived: the fleet's dragP values were fitted to hit each type's authored top end WITHOUT an induced term, so adding one cost everyone 3–5% of top speed, climb and cruise. Each type's dragP was re-solved to put its level top speed back exactly where it was — the polar gained a back side without the fleet getting slower
+    dragP: 0.000889,      // parasitic drag coeff (∝ airspeed²); each type's is solved for its level top speed with induced drag on
 
     flapDrag: 0.55,       // extra drag per unit flap
     flapLift: 0.35,       // extra lift per unit flap
@@ -82,22 +53,15 @@ export const TYPES = {
     groundSteer: 30,      // nosewheel/tiller authority (deg/s) while taxiing; fades out toward rotation speed
     aoaCrit: 19,          // critical angle of attack (deg) — high = forgiving, resists the stall
     liftScale: 1.0,       // scales the whole lift/weight pair (cancels; kept as a knob)
-    vsMax: 525,           // max sustained climb (ft/min) — scaled ~0.7× the Cessna 172 like our other numbers
+    vsMax: 525,           // max sustained climb (ft/min)
     vsGain: 1600,         // how hard excess lift converts to vertical speed
-    vsTau: 1.0,           // vertical inertia (s) — vs eases toward its target; lower = climbs out off the ground faster
-    ceiling: 28000,       // service ceiling (ft) — climb performance fades to zero here (thin air)
-    ldMax: 7.4,           // best glide RATIO — sets the induced-drag coefficient, and `bestGlide` (the BLUE yoke light) is derived from it
-    gLimit: 4.4,          // structural g limit — exceed it and the model fires an `overg` event
+    vsTau: 1.0,           // vertical inertia (s)
+    ceiling: 28000,       // service ceiling (ft): climb fades to zero here
+    ldMax: 7.4,           // best glide ratio: sets induced drag, and `bestGlide` (the blue yoke light) derives from it
+    gLimit: 4.4,          // structural g limit; exceeding it fires an `overg` event
   },
 
-  // ── Phase 3 fixed-wing fleet ────────────────────────────────────────────────
-  // Scaled off the Mayfly by mass + character (heavier = slower rates, longer rolls,
-  // higher speeds). All knobs — starting points for a by-ear tuning pass like the Mayfly.
-  // The heli (Dragonfly, VTOL) is NOT here — it needs its own hover model (Phase 3b).
-
-  // Mule — twin-TURBOPROP STOL hauler, a DHC-6 Twin Otter analogue: rugged, honest, a strong
-  // climber that gets in and out of short/rough strips. Fast cruise, powerful STOL flaps, low
-  // stall for its size. Ceiling 12000 (the real Otter goes ~25k; kept low for the world scale).
+  // Mule: twin-turboprop STOL hauler (Twin Otter analogue).
   mule: {
     name: 'Mule', mass: 2.8, thrustMax: 36, vr: 65, vs0: 46, vne: 185, cruise: 165,
     pitchRate: 9, pitchTau: 0.8, rollRate: 40, rollTau: 0.7, engineLag: 1.7,
@@ -105,94 +69,37 @@ export const TYPES = {
     rollFric: 1.4, aoaCrit: 18, liftScale: 1.0, vsMax: 1800, vsGain: 1800, vsTau: 0.95,
     brake: 6.0, groundSteer: 26, ceiling: 34000, ldMax: 7.6, gLimit: 3.8,
   },
-  // Leviathan — 4-engine heavy-lift freighter, an ANTONOV AN-124 RUSLAN analogue: HEAVY first —
-  // ponderous to accelerate and steer, a long roll, an unremarkable level cruise (no faster
-  // than the Mule despite its size).
-  // But it's a slippery, low-drag airframe with huge inertia and a high Vne, so it BUILDS and
-  // holds real speed once it has momentum behind it in a dive. Strong brakes (biggest wheels),
-  // but the ~95 kt touchdown still makes for a long rollout — it needs a real runway.
+  // Leviathan: 4-engine heavy freighter (An-124 analogue). Heavy and slow on top (high dragP),
+  // thrust sized so takeoff accel at Vr holds; slow rates, so you fly her well ahead.
   leviathan: {
-    // Character (per author direction): HEAVY and SLOW ON TOP, but a strong hauler with the
-    // longest legs in the fleet. Three levers set that without touching her takeoff:
-    //  • SLOWER TOP SPEED — the top end is where thrust==parasitic drag, so dragP is raised
-    //    hard (0.00065→0.0034). At full power she now tops out ~185 kt (slowest of the mid/heavy
-    //    set) instead of running away. vne dropped to 200 as the matching redline reference.
-    //  • GOOD ACCELERATION + SAME TAKEOFF — the extra drag barely bites at the low speeds of the
-    //    ground roll, but to keep the exact rotation-speed accel the takeoff was tuned for, thrust
-    //    is bumped (104→120) to offset the new drag at Vr. Net force at 95 kt is ~unchanged, so
-    //    she still reaches rotation before the end of the strip; low-speed punch is if anything
-    //    a touch stronger.
-    //  • FLIES HEAVY — slower control rates + longer build-up + weaker self-level, so she's
-    //    ponderous to react (you fly her well ahead of the aircraft).
     name: 'Leviathan', mass: 5.0, thrustMax: 120, vr: 95, vs0: 64, vne: 200, cruise: 155,
     pitchRate: 5, pitchTau: 1.3, rollRate: 18, rollTau: 1.45, engineLag: 2.6,
     pitchStable: 0.58, rollStable: 0.7, dragP: 0.00321, flapDrag: 0.7, flapLift: 0.45, flapVs: 0.2,
-    // Climb performance unchanged (she must still climb away from the field once rolling); the
-    // faster top speed is gone but the field performance is not.
     rollFric: 1.2, aoaCrit: 16, liftScale: 1.0, vsMax: 2700, vsGain: 2500, vsTau: 1.05,
-    brake: 8.0, groundSteer: 16, ceiling: 41000,   // cruises high, above the weather — the fleet's highest ceiling
-    // She glides like the brick she is (no albatross float). This used to need a bespoke
-    // rpm-gated `glideDrag` patch because the shared polar had no induced drag at all; now
-    // it's just the fleet's lowest ldMax, and best glide (~76 kt) falls out of the polar.
-    ldMax: 2.4, gLimit: 2.5,
+    brake: 8.0, groundSteer: 16, ceiling: 41000,   // the fleet's highest ceiling
+    ldMax: 2.4, gLimit: 2.5,   // glides like a brick; best glide (~76 kt) falls out of the polar
   },
-  // Reaper — a Fairchild A-10 WARTHOG analogue: the gun IS the plane. NOT a fighter —
-  // slow, draggy and heavy, but a rock-stable low-level platform that loiters over the
-  // target and shrugs off ground fire. It can't run (high drag bleeds any dive), it just
-  // keeps coming. Twin turbofans, forgiving low-speed handling, rough-field capable.
+  // Reaper: A-10 analogue. Best thrust-to-mass in the fleet (leaps off the deck), fast flat-out;
+  // vs0 is raised so she settles instead of hanging when slow (weightOf ∝ vs0²).
   reaper: {
-    // ROCKET OFF THE DECK (per author direction): thrustMax 50→92 gives her by far the best
-    // thrust-to-mass in the fleet (~27 kt/s), so she practically leaps off the runway and
-    // climbs out like she's shot from a rail (vsMax 2400→3600, vsGain 2200→3000, engineLag
-    // 1.3→1.0 for a snappier spool).
-    // NOW SHE RUNS TOO (per author direction): dragP dropped 0.00209→0.00140 so thrust==drag
-    // lands the level top end near √(92/0.00140)≈256 kt — much faster flat-out — and vne is
-    // opened to 270 to match. The extra speed barely touches the ground roll (drag ∝ V²).
-    // LESS FLOATY SLOW: vs0 34→39 raises the weight anchor (weightOf ∝ vs0²) so she flies
-    // heavier — at low speed the lift deficit bites sooner and she settles instead of hanging —
-    // and vsTau 1.0→0.85 makes her vertical response snappier (less wallow), while a strong
-    // thrust-to-mass keeps takeoff punch intact despite the extra weight.
     name: 'Reaper', mass: 3.4, thrustMax: 92, vr: 54, vs0: 39, vne: 270, cruise: 165,
     pitchRate: 10, pitchTau: 0.7, rollRate: 58, rollTau: 0.6, engineLag: 1.0,
     pitchStable: 1.1, rollStable: 1.3, dragP: 0.00130, flapDrag: 0.6, flapLift: 0.42, flapVs: 0.2,
     rollFric: 1.5, aoaCrit: 21, liftScale: 1.0, vsMax: 3600, vsGain: 3000, vsTau: 0.85,
     brake: 7.5, groundSteer: 28, ceiling: 34000, ldMax: 7.6, gLimit: 6.0,
-    // COVERS GROUND FAST (per author direction): the strike platform eats distance between targets.
-    // A pure world-travel multiplier — the terrain scrolls past ~1.7× for the same airspeed, so she
-    // gets across the map without touching handling/stall/energy (read in the sim's world-translate).
-    worldPaceMult: 1.7,
+    worldPaceMult: 1.7,   // world-travel only: terrain scrolls 1.7× for the same airspeed; handling untouched
   },
-  // Shrike — the dive bomber. Everything here serves ONE manoeuvre: get the nose down past
-  // 35°, hold it there while the speed builds, put the bomb on the tile, and pull out.
-  //  • SHE MUST BE ABLE TO REACH THE GATE. The bomb refuses below 140 kt in a dive, so vne
-  //    (330) and dragP are set so a 45° dive at part power passes that inside a few seconds.
-  //    A Mayfly-shaped airframe here would make her own weapon unusable.
-  //  • BUT THE DIVE MUST BE HOLDABLE, not a runaway. Big flapDrag and a strong brake give the
-  //    dive brakes something real to bite on, so the speed plateaus instead of climbing to
-  //    redline; that plateau is what makes a long, aimed dive possible.
-  //  • AND THE PULLOUT MUST BE SURVIVABLE — gLimit 6.0, matching the Reaper, because the
-  //    recovery from a committed dive is the moment the airframe is asked for everything.
-  //  • Unremarkable everywhere else, on purpose: a mediocre cruise, ordinary rates, no
-  //    worldPaceMult. She is not a strike platform that also dives; she only dives.
+  // Shrike: the dive bomber. The bomb refuses below 140 kt in a dive, so vne/dragP must let a 45°
+  // part-power dive pass that in seconds; big flapDrag makes the dive holdable; gLimit 6 for the pullout.
   shrike: {
     name: 'Shrike', mass: 2.6, thrustMax: 44, vr: 58, vs0: 42, vne: 330, cruise: 150,
     pitchRate: 9.5, pitchTau: 0.72, rollRate: 46, rollTau: 0.68, engineLag: 1.5,
     pitchStable: 0.95, rollStable: 1.05, dragP: 0.00196, flapDrag: 1.15, flapLift: 0.4, flapVs: 0.2,
     rollFric: 1.5, aoaCrit: 19, liftScale: 1.0, vsMax: 1900, vsGain: 2000, vsTau: 0.9,
     brake: 7.0, groundSteer: 24, ceiling: 30000, ldMax: 6.8, gLimit: 6.0,
-    // TAILDRAGGER, and the mesh always said so — `divebomber` is cut with `gearStyle:
-    // 'taildragger'` and its own `groundPitch: 9` (aircraft3d.js), so she was drawn sitting on a
-    // tailwheel while the sim flew her off flat. The two numbers must match: the comment on
-    // groundPitchFor is the standing instruction, and this is the row that had missed it. With it
-    // she parks nose-high and the stick pushes the tail up on the roll, exactly as the Grasshopper
-    // and the Locust do — no new mechanic, just the one this airframe should always have been in.
-    groundPitch: 9,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel
+    groundPitch: 9,   // taildragger sit (deg nose-up); must match the `divebomber` mesh's groundPitch in aircraft3d.js
   },
-  // Dragonfly — a REVOLUTION MINI 500 analogue: a tiny single-rotor kit helicopter. Light,
-  // darty and gets into tight spots (huge cyclic + pedal authority, spins on the spot in a
-  // hover), but a twitchy, unforgiving handful: weak self-level, thin power margin, and it
-  // will settle-with-power (vortex ring) the instant you drop it into its own downwash. Flown
-  // by the heli branch below (collective + cyclic + pedals), NOT the fixed-wing integrator.
+  // Dragonfly: Mini 500 kit heli. Darty and twitchy, thin power margin, settles with power easily.
   dragonfly: {
     name: 'Dragonfly', heli: true, mass: 0.9,
     vne: 100, cruise: 78, vs0: 14,        // vs0 doubles as the translational-lift (ETL) speed
@@ -204,28 +111,14 @@ export const TYPES = {
     cyclicThrust: 3.2,                    // disc-tilt → horizontal accel (kt/s per deg of lean)
     dragP: 0.0019,                        // draggy body: bleeds speed, modest top end
     liftMax: 2.7, hoverThrust: 1.0,       // collective×Nr vertical lift authority vs hover weight
-    // Gentle vertical response so the hover isn't twitchy: a small collective error off the
-    // hover point gives a modest vs (low vsGain), and vs eases in with real inertia (higher
-    // vsTau) instead of snapping to the cap the instant you lift a skid off the ground.
-    // vsMax is a CLAMP, not a climb rate: on the heli branch the achievable vs comes out of the
-    // thrust-deficit formula below (best rate sits at the droop knee, ~0.7 collective — past that
-    // Nr droops faster than the lever gains). vsGainUp is what actually sets the climb, and it is
-    // the right knob because it is the climb-ONLY gain: she goes up harder without dropping away
-    // any harder when you chop the lever. The ceiling fade still governs how high she gets, and
-    // vsGain how twitchy the hover is. vsMax is raised to stay clear of the new rate rather than
-    // quietly becoming the thing that decides it.
+    // vsGain sets hover twitchiness; vsGainUp (climb only) sets the climb rate, best at the droop
+    // knee (~0.7 collective). vsMax is a clamp kept above that rate; never let it decide the climb.
     vsGain: 850, vsGainUp: 1400, vsMax: 1900, vsTau: 0.9,   // ~1720 fpm at the droop knee
     vrsVs: 480,                           // settling-with-power onset (fpm sink) when slow + powered
     rollFric: 11,                         // skid friction on the ground — skids bite and stop her quickly (no long rollout)
     ceiling: 32000,
   },
-  // Viper — the attack helicopter (an Apache reimagined). Flies the SAME heli branch as the
-  // Dragonfly (collective + cyclic + pedals) — it is not a fixed-wing — but it's a far bigger,
-  // heavier, more powerful airframe: nearly three times the mass, a slippery high-speed body
-  // (fastest rotorcraft in the fleet), and a stabilised flight-control system, so it's steady
-  // where the Mini 500 is twitchy — firmer self-level, slower-building cyclic, less pedal
-  // authority — while still turning hard for its size. Heavy disc loading means it drops into
-  // its own downwash later but sinks harder when it does.
+  // Viper: attack helicopter (Apache analogue). Heavy, stabilised, the fastest rotorcraft.
   viper: {
     name: 'Viper', heli: true, mass: 2.6,
     vne: 190, cruise: 150, vs0: 22,       // vs0 doubles as the translational-lift (ETL) speed
@@ -237,23 +130,15 @@ export const TYPES = {
     cyclicThrust: 5.0,                    // heavy, powerful disc — real acceleration off a lean
     dragP: 0.00105,                       // slippery armoured body: holds speed, high top end
     liftMax: 2.4, hoverThrust: 1.0,       // strong power margin even loaded on the rails
-    // A GUNSHIP SHOULD OUT-CLIMB THE KIT HELI, and this line said so while doing the
-    // opposite. The deficit is `coll·Nr·liftMax / hoverThrust − 1`, and the Viper's
-    // liftMax (2.4) is LOWER than the Dragonfly's (2.7) because she is heavier for her
-    // disc — so at the droop knee she made ~0.98 against the Mini 500's ~1.23, and the
-    // old 1250 gain turned that into a slower absolute climb than the kit heli's.
-    // Corrected on the gain rather than on liftMax, which would also have moved her
-    // hover authority and where she falls into her own downwash.
+    // Her lower liftMax gives a smaller climb deficit than the Dragonfly's, so vsGainUp is higher to
+    // out-climb her. Tune climb here, not on liftMax, which also moves hover authority and VRS.
     vsGain: 1000, vsGainUp: 2100, vsMax: 2800, vsTau: 1.0,   // ~2050 fpm at the droop knee
     vrsVs: 620,                           // high disc loading — settles later, then bites harder
     rollFric: 9,                          // wheeled gear, but she stops short (no rollout)
     ceiling: 34000,
     groundPitch: 7,   // TAILDRAGGER: mains forward, tailwheel on the boom — she squats nose-high parked, flies the tail off first
   },
-  // Drake: the luxury compound coaxial shaped like a mandarin duck. Stacked contra-rotating
-  // rotors and a ducted pusher, so no tail rotor; she yaws slowly and evenly off differential
-  // torque. Big, heavy and stable to the point of lazy, and the pusher gives her a real top end.
-  // Sold for now; meant to become a mission prize.
+  // Drake: luxury compound coaxial with a ducted pusher (no tail rotor). Heavy, stable, lazy yaw.
   drake: {
     name: 'Drake', heli: true, mass: 3.2,
     convert: 'drake_wing',   // K converts: the wings sweep out and the rotor folds into the back (cockpit.js F.dk)
@@ -271,21 +156,16 @@ export const TYPES = {
     rollFric: 12,
     ceiling: 26000,
   },
-  // Drake, wing mode — what the rotor row becomes once the conversion is past halfway: swing wings
-  // out, rotor folded, the ducted pusher driving. Heavy, stable and quick in a straight line; slow to
-  // roll, and it stalls at a speed a helicopter would not notice, so you convert back to land.
+  // Drake, wing mode (conversion past halfway): wings out, rotor folded. Convert back to land.
   drake_wing: {
-    // ⚠ POWER RAISED 40 → 64 (2026-09-26), WITH DRAG TO MATCH. The lever is the rotor's collective
-    // until the conversion passes halfway and stays where it was, so she comes out of it at a hover's
-    // 40-60% — and at 40 thrust that was ~163 kt level, which flew like a glider. Now 50% holds about
-    // cruise (√(32/0.00095) ≈ 184 kt) and full is ~260 kt, so vne moves up to meet it.
+    // She leaves the conversion at the hover's 40-60% lever, so thrust is sized for 50% to hold cruise.
     name: 'Drake (wing)', mass: 3.2, thrustMax: 64, vr: 55, vs0: 45, vne: 250, cruise: 185,
     pitchRate: 10, pitchTau: 0.8, rollRate: 34, rollTau: 0.75, engineLag: 1.4,
     pitchStable: 1.0, rollStable: 1.1, dragP: 0.00095, flapDrag: 0.6, flapLift: 0.5, flapVs: 0.24,
     rollFric: 1.4, aoaCrit: 17, liftScale: 1.0, vsMax: 2000, vsGain: 1800, vsTau: 0.95,
     brake: 6.0, groundSteer: 22, ceiling: 26000, ldMax: 8.5, gLimit: 3.5,
   },
-  // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
+  // Carcass: salvaged junker, underpowered and unstable.
   carcass: {
     name: 'Carcass', mass: 1.4, thrustMax: 14, vr: 44, vs0: 28, vne: 115, cruise: 72,
     pitchRate: 11, pitchTau: 0.5, rollRate: 50, rollTau: 0.5, engineLag: 1.5,
@@ -293,9 +173,7 @@ export const TYPES = {
     rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 900, vsGain: 1650, vsTau: 1.0,
     brake: 5.0, groundSteer: 30, ceiling: 24000, ldMax: 7.4, gLimit: 3.2,   // salvaged airframe: the weakest structure in the fleet
   },
-  // Grasshopper — a PIPER L-4 analogue: a featherweight tandem liaison taildragger. Docile and
-  // SLOW: floats off in a few yards, very stall-resistant, gentle rates — the forgiving scout you
-  // fly hands-off. No speed and a low ceiling; the wind pushes her around.
+  // Grasshopper: Piper L-4 analogue. Featherweight, slow, docile taildragger.
   grasshopper: {
     name: 'Grasshopper', mass: 0.85, thrustMax: 9.5, vr: 34, vs0: 21, vne: 105, cruise: 68,
     pitchRate: 11, pitchTau: 0.62, rollRate: 44, rollTau: 0.6, engineLag: 1.35,
@@ -304,10 +182,7 @@ export const TYPES = {
     brake: 5.2, groundSteer: 32, ceiling: 24000, ldMax: 6.7, gLimit: 4.0,
     groundPitch: 11,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel; push forward to raise the tail on the roll
   },
-  // Locust — a low-wing CROP-DUSTER / ag-plane (Air Tractor analogue): a heavy, honest low-and-slow
-  // worker. Flies loaded with a chemical hopper, so she's HEAVY and DOCILE — gentle, unhurried rates,
-  // strong self-level (hands-off over the field), a big draggy square wing that's very stall-resistant
-  // and won't run away on top. Low ceiling — she works down in the weeds, not up high.
+  // Locust: crop-duster (Air Tractor analogue). Heavy, docile, draggy, low-and-slow.
   locust: {
     name: 'Locust', mass: 1.35, thrustMax: 13, vr: 44, vs0: 30, vne: 125, cruise: 92,
     pitchRate: 9, pitchTau: 0.65, rollRate: 42, rollTau: 0.62, engineLag: 1.4,
@@ -316,139 +191,27 @@ export const TYPES = {
     brake: 5.5, groundSteer: 30, ceiling: 22000, ldMax: 4.9, gLimit: 4.4,   // big draggy ag wing — she does not glide far
     groundPitch: 10,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel
   },
-  // ── Ground vehicles (THE LONG HAUL) ────────────────────────────────────────
-  // `ground: true` dispatches stepTruck instead of the fixed-wing integrator, exactly as
-  // `heli: true` dispatches stepHeli. A ground type shares only the knobs that mean the same
-  // thing on a road (engineLag, rollFric, dragP, brake) and adds its own.
-  //
-  // ── ⚠ …AND THEN TWICE THE CEILING, A THIRD LESS PULL (2026-08-18) ──────────
-  // The ask after the one below: double the top end and make it take a long time to get there — a
-  // rig that winds up slowly and then holds a real road speed, which is what a heavy truck does.
-  // Five knobs move together and the couplings are the whole of it:
-  //
-  //   topSpeed × 2      the ceiling
-  //   thrustMax × 0.6   the pull. With twice the speed to reach on 60% of the authority, the climb
-  //                     to cruise is roughly four times as long.
-  //   rollFric × 0.6    ⚠ NOT OPTIONAL. The verge invariant is `thrustMax × drive > rollFric × drag`
-  //                     — cut the thrust and leave the resistance and a truck cannot leave tarmac.
-  //                     Regress catches it by name; it caught this.
-  //   dragP  re-solved  terminal velocity is what actually limits these (the clamp is a backstop),
-  //                     so drag is solved to put terminal exactly AT the new ceiling. The last few
-  //                     mph then take forever, which is the feel that was asked for.
-  //   gears ÷ 2         redline in a gear is `tileMph / ratio`, so the ladder has to come down or
-  //                     top gear's band sits under the new ceiling and the truck over-revs instead
-  //                     of reaching it. engBrake × 2 holds engine braking still (it is the one term
-  //                     that multiplies the ratio rather than dividing by it).
-  //
-  // ⚠ AND THE DIAL IS NOW INFLATED RELATIVE TO THE WORLD. `tileMph` did not move, so the needle
-  // reads twice what it did for the same ground covered — which means every hardcoded mph in a test
-  // or a rule means half what it used to. RECKLESS_MPH doubled with it; the gearbox cases had their
-  // speeds doubled; and a bay crawl is a SECOND-gear job now, because the ladder came down and
-  // third is 16–26mph, exactly as it would be in a vehicle that tops at a hundred.
-  //
-  // ── ⚠ HALF PACE, SAME DIAL, SAME GEARBOX (2026-08-18) ──────────────────────
-  // The uniform rescale documented below (×k on the speeds INCLUDING tileMph) deliberately leaves
-  // tiles-per-second alone: it moves the number under the needle and nothing else. The complaint
-  // this time was the opposite — the world went past too fast — so this is the other edit, and the
-  // doc's own warning about it is the specification: 'Scaling topSpeed WITHOUT tileMph is the
-  // version of this change that quietly adds 40% to every haul.' That is the ask. Journeys are a
-  // fixed number of tiles, so halving the pace doubles them, and the Reach crossing goes from about
-  // thirteen minutes to about twenty-six.
-  //
-  // ⚠ AND THE GEAR LADDER DOUBLES WITH IT, or the top half of the gearbox goes unreachable. Every
-  // place a ratio meets `tileMph` is a QUOTIENT — engine speed is `(mph / tileMph) × ratio`, pulling
-  // power is `sqrt(ratio / topRatio)` — so doubling both leaves rpm, the shift points, the band and
-  // the torque curve exactly where they were. The one term that is not a quotient is engine braking
-  // (`ratio × engBrake`), so `engBrake` halves to hold it still. Nothing else moved: topSpeed,
-  // thrustMax, brake, rollFric and dragP are all in mph, so the needle and the way it climbs are
-  // untouched. What changed is how much ground a mile an hour buys.
-  //
-  // THE SCALE KNOB IS `tileMph`, and it is the one number that decides how a haul FEELS: it is
-  // the road speed at which the truck covers one corridor tile per second. At 80, a 60 mph cruise
-  // is 0.75 tiles/s, a 90-tile void room is about two minutes, and an 8-room crossing to the Reach
-  // is a fraction over sixteen. That is the target — long enough to be a journey, short enough to
-  // do after work. Halve it and the same road becomes a commute; double it and it becomes a chore.
-  // THE FLEET. Four rungs, and the spread is deliberately in DIFFERENT directions rather than one
-  // "better" axis — a bigger truck is not simply an upgrade, it is a different bet. The Mule is
-  // quick and cheap and cannot carry a full commodity load; the Continental carries three times as
-  // much and drinks accordingly. What you own decides which trade routes are open to you, which is
-  // the whole reason to have more than one.
-  //
-  //   `kg`    trailer capacity — the ceiling on a commodity load, and half the economics
-  //   `tank`  range in tiles on a full fill — see the note below, it is load-bearing
-  //   `price` what a dealer wants for it
-  //
-  // TANK RANGE IS TUNED AGAINST THE REAL ROUTE, and the number to hold in your head is
-  // **495 tiles one way** — 44 of Coldwater road to the rim, 450 of corridor (the Reach crossing
-  // derives to MIN_ROOMS = 5 because the rim and Buzzard Field are only 40 tiles apart in a
-  // straight line), and one tile into the yard. A round trip is therefore ~990.
-  //
-  // The first cut sized these against 765, which was the REGRESS FIXTURE'S geography — a synthetic
-  // destination parked 630 tiles out — and the result was a fleet where even the 1,300₵ beater
-  // completed a round trip on one tank with room to spare. Every gauge in the game read full, the
-  // `fuel` verb had nothing to do, and Last Chance Diesel was scenery. Tune against the map, never
-  // against the harness.
-  //
-  // The ladder now runs on RANGE as well as deck: the Barrow must refuel at the far end, the
-  // Drayman only just round-trips, and the Orlov does it one and a half times over.
-  // NAMING: trucks are an invented MAKER plus a haulage MODEL (a drayman drove a brewery cart; a
-  // barrow is the humblest cart there is). Deliberately a different family from the aircraft, which
-  // are animals and insects — Mayfly, Locust, Dragonfly, Mule. An early cut called this one the
-  // "Kestrel Mule" and collided with `ac_mule` on both halves at once.
-  // ── THE WHOLE FLEET WAS SLOWED BY 0.7, AND IT IS ONE SCALING RATHER THAN FOUR OPINIONS ──────
-  // The rigs got fast too quickly and the numbers on the speedo were a car's, not a truck's. The
-  // trap in fixing that is knocking `topSpeed` down on its own: a lower ceiling with the same
-  // engine behind it arrives SOONER, so the truck feels twitchier at the exact moment it is meant
-  // to feel heavier — the complaint was never the ceiling, it was how quickly the low gears got to
-  // it. So this is a uniform scaling of the whole speed dimension, k = 0.7, applied to every knob
-  // that carries one:
-  //
-  //   topSpeed, tileMph, thrustMax, rollFric, brake   × k        (speeds and accelerations)
-  //   dragP                                           ÷ k        (it multiplies v², so it needs the
-  //                                                               inverse to stay the same force)
-  //   mass, wheelbase, engineLag, the gear ladder, the band      UNTOUCHED
-  //
-  // Three things fall out for free, and each is a reason not to hand-tune this instead:
-  //
-  //  · THE VERGE INVARIANT SURVIVES BY CONSTRUCTION. `thrustMax × drive > rollFric × drag` has both
-  //    sides scaled by k, so the ratio is exactly what it was — the check that once caught an
-  //    un-drivable heavy cannot be broken by this edit at any k.
-  //  · JOURNEYS TAKE THE SAME TIME. `tileMph` is the speed at which one corridor tile passes per
-  //    second, so scaling it with the speeds leaves tiles-per-second at cruise unchanged. The Reach
-  //    is still about sixteen minutes; only the number under the needle moved. Scaling topSpeed
-  //    WITHOUT tileMph is the version of this change that quietly adds 40% to every haul.
-  //  · AND THE GEARBOX RE-SCALES ITSELF. Redline in a gear is `tileMph / ratio`, so every gear's
-  //    speed came down by k with nothing touched in the ladder — the shift points, the spread and
-  //    the crawler's relationship to 2nd are all preserved exactly.
+  // ── Ground vehicles ────────────────────────────────────────────────────────
+  // `ground: true` dispatches stepTruck, as `heli: true` dispatches stepHeli.
+  // tileMph is road speed (mph) covering one corridor tile per second: it sets how long a haul takes.
+  // ⚠ Speeds scale together: thrustMax × drive must beat rollFric × drag (regress checks it), and
+  // ratios meet tileMph only as quotients except engine braking. See
+  // docs/systems-trucking.md#truck-fleet-tuning-and-scaling before rescaling anything.
+  //   `kg` trailer capacity, `tank` range in tiles on a full fill, `price` dealer price.
+  // Tune tank range against the real route (~495 tiles one way to the Reach), never the regress fixture.
   hauler: {
     name: 'Ostrek Courier', ground: true, tier: 1,
     mass: 2.4,
-    thrustMax: 4.62,      // mph/s of acceleration authority at full throttle — light and willing
-    topSpeed: 104,        // mph on good asphalt; SURFACES.cap takes it down off the paved centreline
-    tileMph: 112,          // road speed (mph) that covers one corridor tile per second — see above
-    // TILES between axles. Drives the bicycle model's yaw: bigger = lazier turn-in.
-    // ⚠ HALVED (with `trailerLen`/`hitchOffset`, across the whole fleet) because the first cut was
-    // not a wheelbase, it was a scale error: a tile is ~36 m at tileMph 80, so 0.48 tiles was a
-    // 17-metre wheelbase — nearly three times a real tractor's — and it is the ONE number the yaw
-    // rate divides by. The truck could not make a right-angle turn out of a depot with the lock on
-    // the stops. Halving all three keeps the vehicle SELF-SIMILAR (the articulation equilibrium φ
-    // is unchanged — φ̇'s two terms both scale with 1/L — so a steady turn sits the trailer at the
-    // same angle, it just gets there twice as fast) and doubles the yaw rate everywhere.
-    wheelbase: 0.24,
+    thrustMax: 4.62,      // mph/s at full throttle
+    topSpeed: 104,        // mph on good asphalt; SURFACES.cap lowers it off the paved centreline
+    tileMph: 112,         // mph that covers one corridor tile per second
+    wheelbase: 0.24,      // tiles between axles; the yaw rate divides by it
     engineLag: 1.4,       // throttle→rpm time constant (s)
     rollFric: 0.714,      // rolling resistance (mph/s) at idle
     dragP: 0.000361,      // aero drag (∝ speed²)
-    brake: 5.75,          // service-brake deceleration (mph/s) at full pedal. Phase 2 gives these
-                          // a TEMPERATURE, which is what makes holding a gear down a grade matter.
+    brake: 5.75,          // service-brake deceleration (mph/s) at full pedal
     kg: 1800, tank: 1100, price: 3400,
-    // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    // ⚠ FIRST IS A CRAWLER AND IS DELIBERATELY OFF THE GEOMETRIC LADDER. 2nd→8th stay in
-    // step with each other; only 1st is deepened (~25%). The redline speed in a gear is
-    // `tileMph / ratio`, so the old 3.86 ran first to twenty miles an hour and asked to be
-    // shifted at thirteen — which is not a truck's first gear, it is a car's. The big step
-    // down to 2nd is not a flaw in the ladder, it is what a deep low gear FEELS like, and it
-    // is why a driver skips it once rolling. Reverse borrows this ratio (× REVERSE_RATIO), so
-    // it gets slower and stronger in the same edit, which is the right direction for both.
+    // Eight forward gears (0 is neutral), geometric; 1st is a deeper crawler, and reverse borrows it.
     gears: [0, 4.85, 2.96, 2.26, 1.73, 1.33, 1.02, 0.78, 0.59], band: [0.42, 0.68],
     engBrake: 1, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.17, hitchOffset: 0.055, trailerKg: 1400,   // kingpin geometry, and the empty box itself
@@ -459,124 +222,62 @@ export const TYPES = {
     mass: 3.2, thrustMax: 3.78, topSpeed: 96, tileMph: 112, wheelbase: 0.31,
     engineLag: 1.9, rollFric: 0.882, dragP: 0.000314, brake: 5.25,
     kg: 3500, tank: 1400, price: 7200,
-    // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 5.3, 3.22, 2.46, 1.89, 1.44, 1.1, 0.85, 0.65], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
+    gears: [0, 5.3, 3.22, 2.46, 1.89, 1.44, 1.1, 0.85, 0.65], band: [0.42, 0.68],   // 1st is the crawler
     engBrake: 1.25, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.29, hitchOffset: 0.08, trailerKg: 3200,   // kingpin geometry, and the empty box itself
     blurb: "The one everybody learns on. Nothing about it is remarkable and nothing about it has ever stopped working.",
   },
-  // A HEAVY TRUCK IS SLOW TO WIND UP, NOT INCAPABLE. `thrustMax` is the whole engine, and it has to
-  // clear `rollFric × drag` on the worst surface with headroom or the truck simply cannot move off
-  // the pavement — see the SURFACES note. The way to make something feel ponderous is `mass`,
-  // `engineLag` and `wheelbase`, never by starving it of power: the first cut gave this 7.4 against
-  // a rolling resistance of 2.6 and the regress invariant caught it as un-drivable on the verge.
+  // Make a heavy truck ponderous with mass, engineLag and wheelbase, never by starving thrustMax.
   continental: {
     name: 'Orlov Continental', ground: true, tier: 3,
     mass: 4.6, thrustMax: 3.864, topSpeed: 88, tileMph: 112, wheelbase: 0.41,
     engineLag: 2.6, rollFric: 0.966, dragP: 0.000374, brake: 4.5,
     kg: 6200, tank: 2100, price: 16500,
-    // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 5.7, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.7], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
+    gears: [0, 5.7, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.7], band: [0.42, 0.68],   // 1st is the crawler
     engBrake: 1.5, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.37, hitchOffset: 0.10, trailerKg: 5200,   // kingpin geometry, and the empty box itself
     blurb: "A long-nose sleeper built for people who see their own bed twice a month. Slow to wind up, slower to stop, and it'll take a whole market with it.",
   },
-  // The bottom rung exists so the first truck is a REAL decision at a price a new player can
-  // actually reach, rather than a wall between them and the entire system.
+  // The bottom rung: a first truck a new player can afford.
   scrapper: {
     name: 'Krell Barrow', ground: true, tier: 0,
     mass: 2.8, thrustMax: 3.528, topSpeed: 82, tileMph: 112, wheelbase: 0.28,
     engineLag: 2.4, rollFric: 0.924, dragP: 0.000387, brake: 4.2,
     kg: 1200, tank: 850, price: 1300,
-    // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 6.2, 3.77, 2.89, 2.21, 1.69, 1.3, 0.99, 0.76], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
+    gears: [0, 6.2, 3.77, 2.89, 2.21, 1.69, 1.3, 0.99, 0.76], band: [0.42, 0.68],   // 1st is the crawler
     engBrake: 1.05, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.15, hitchOffset: 0.05, trailerKg: 900,   // kingpin geometry, and the empty box itself
     blurb: 'Krell stopped making these long enough ago that nobody agrees which decade. Three of them in a trenchcoat. The heater works, which the previous owner mentioned first and at length.',
   },
 
-  // ── THE BASIN — a blown deep-V with a pilothouse ───────────────────────────
-  //
-  // `water: true` is the whole hook-up: `step()` reads it exactly as it reads `ground` and `heli`,
-  // and everything else about this row is ordinary. The shape of the bet is the opposite of the
-  // truck's — a rig winds up slowly and then holds a road speed for an hour, and this leaves the
-  // pontoon like a dropped anvil and then asks you to survive it.
-  //
-  //   thrustMax 22    FIVE TIMES a Courier's, which is not a typo and is the point: 0-100 in about
-  //                   five seconds. It is also what pays for the handling being bad.
-  //   dragP           SOLVED, not chosen: at terminal, thrust = drag, so dragP = thrustMax / v^2 =
-  //                   22 / 138^2 = 0.001155. Set a hair under it so terminal sits just ABOVE the
-  //                   ceiling and the clamp stays a backstop rather than the thing you drive into.
-  //   tileMph 95      THE SCALE KNOB, same as the truck's. At 135 mph that is 1.42 tiles/s, so the
-  //                   basin's 86-tile width is about a minute — a race, not a commute. The truck
-  //                   does 0.93 at its own ceiling, so a boat genuinely outruns a rig over ground.
-  //   hump 48         Where the hull stops pushing water and starts planing. Below it, `humpDrag`
-  //                   is added — the bow wave you have to climb over — which is why the launch has
-  //                   a shove in the middle of it instead of being one smooth ramp.
-  //   turnLock/turnFade  Lock at rest, and how fast the RUDDER'S AUTHORITY dies with speed. This
-  //                   is the "hard to turn" half and it is deliberately not friction: a boat at
-  //                   speed steers fine and simply does not GO where it is pointed (see driftTau).
-  //   driftTau 1.35   How long the hull keeps carrying the way it was already going, in seconds.
-  //                   This is the slide, and it is the single number that decides whether a corner
-  //                   is a corner or a broadside.
-  //
-  // NAMING: an invented maker plus a hull class, the truck's own convention, and deliberately a
-  // different family again from the aircraft (single evocative nouns) and the rigs (haulage words).
-  // A rooster tail is what this thing throws, so a Rooster is what it is.
+  // ── Boats ──────────────────────────────────────────────────────────────────
+  // `water: true` dispatches the boat step. Knobs beyond the truck's:
+  //   dragP      solved a hair under thrustMax / topSpeed², so terminal sits just above the clamp
+  //   tileMph    the scale knob, as on the truck
+  //   hump       mph where the hull starts planing; below it `humpDrag` adds the bow wave
+  //   turnLock/turnFade  rudder lock at rest and how fast its authority dies with speed
+  //   driftTau   seconds the hull keeps carrying its old direction (the slide)
   hydro: {
     name: 'Vaskin Rooster', water: true, tier: 1,
-    mass: 0.55,                        // relative inertia — light, which is most of the acceleration
+    mass: 0.55,                        // relative inertia
     thrustMax: 22, topSpeed: 138, tileMph: 95,
-    waterFric: 2.2,                    // the truck's rollFric: hull friction with the throttle shut
-    dragP: 0.001100, brake: 3.4,       // a boat has no brakes; this is what shutting the throttle buys
-    hump: 48, humpDrag: 5.4,           // the bow wave, and how hard it is to climb over
-    turnLock: 34, turnFade: 0.72,      // degrees of rudder at rest, and how hard authority falls off
-    driftTau: 1.35,                    // the slide: seconds for lateral way to decay
-    hullLen: 0.036, hullBeam: 0.015,   // HALF-length and HALF-beam in TILES, for the swell sample
+    waterFric: 2.2,                    // hull friction with the throttle shut
+    dragP: 0.001100, brake: 3.4,       // no brakes; this is what shutting the throttle buys
+    hump: 48, humpDrag: 5.4,
+    turnLock: 34, turnFade: 0.72,
+    driftTau: 1.35,
+    hullLen: 0.036, hullBeam: 0.015,   // HALF-length and HALF-beam in tiles, for the swell sample
     nitroMul: 1.35, nitroBurn: 0.22, nitroCool: 0.11,   // the bottle: how much, how fast out, how fast back
-    // Vertical speed off a crest, in tiles/s per unit of slope x speed.
-    // ⚠ 0.55 WAS FITTED TO A SEA THAT NO LONGER EXISTS, AND THE HULL SIMPLY STOPPED FLYING. The
-    // note in section 6 says it was tuned against "the shipping swell (roll 0.32, wind 0.20)",
-    // which at the time were FIXED amplitudes. JONSWAP then made them a function of the wind, and
-    // a wind-derived sea is about half as big: at SEA_FULL_KT — 45 knots, the top of the whole
-    // scale — the amplitudes are roll 0.155 / wind 0.127 and the steepest face is 17.2 degrees
-    // against the 27.8 the number was fitted to. Measured over two minutes at full throttle head
-    // into it: ZERO launches, at every sea state the weather can produce. It would take about 95
-    // knots to reach roll 0.32, which is twice the top of the scale.
-    //
-    // ⚠ AND THE THRESHOLD IS NOT THE KNOB, WHICH IS THE PART WORTH KEEPING. Dropping 'kick > 0.25'
-    // is the obvious fix and it is the wrong one: the launch speed IS the kick ('s.vs = kick'), so
-    // a lower bar buys more launches at the same tiny height — swept down to 0.03 the hull left the
-    // water 357 times a minute and never got above 0.011 tiles, which is a skitter rather than a
-    // jump. The height comes from here.
-    //
-    // 0.9 reproduces the authored feel almost exactly against the sea that actually ships: 13.5
-    // launches a minute at 45 knots against the 13.0 the old number gave on its own sea, peak
-    // height 0.033 tiles against 0.036, airborne 7.9% of the time against 7.8%. Re-derived rather
-    // than picked, and 'sea.mjs' holds it against the sea so the next retune cannot silently
-    // ground the boat again.
+    // Vertical speed off a crest, tiles/s per unit of slope × speed. Fitted to the wind-derived sea;
+    // sea.mjs holds it. Raise launch height here, never by lowering the kick threshold (that only skitters).
     launchVs: 0.9,
     hullKg: 700, tank: 260, price: 14500,
     blurb: 'Vaskin build about nine of these a year and will not tell you who buys them. A deep-V, a pilothouse, and a blown V8 standing open in the well. It does not have brakes. It was never going to have brakes.',
   },
 
-  // ── THE LINE ABOVE HER ─────────────────────────────────────────────────────
-  //
-  // Two more hulls from the same yard, and they are DIFFERENT BOATS rather than the Rooster with the
-  // numbers turned up. Each trades something real for its speed, and the trade is the decision:
-  //
-  //   SPUR       a stepped deep-V on four outboards. The steps let air under her, so she is quicker
-  //              and SLIDES further (driftTau up): a stepped hull carries its way through a corner
-  //              that a plain vee would bite. Outboards steer by pointing the thrust, so she has more
-  //              lock at rest. Heavier, slower off the pontoon, a much bigger tank.
-  //   GAMECOCK   an offshore tunnel cat. The tunnel packs air under her, which is the top speed, the
-  //              flatter corner (driftTau down) and the habit of leaving the water off any swell
-  //              (launchVs up); the rudder dies at speed harder than either vee (turnFade). Thirsty.
-  //
-  // `dragP` is solved the hydro's way, a hair under thrustMax / topSpeed^2, so the ceiling stays a
-  // backstop. `burn` scales the tank fraction both rungs spend per second; absent is the Rooster's
-  // 1, so every passage driven before it existed burns exactly what it burned.
-  // `hullLen`/`hullBeam` are the swell sample, scaled off the hydro's by the mesh's own len and beam.
+  // Spur: stepped deep-V on outboards; quicker, slides further, more lock, bigger tank.
+  // Gamecock: offshore tunnel cat; fastest, flatter corners, leaves the water easily, thirsty.
+  // `burn` scales fuel use per second (absent = 1, the Rooster's).
   spur: {
     name: 'Vaskin Spur', water: true, tier: 2,
     mass: 0.74,
@@ -611,98 +312,65 @@ export const TYPES = {
   },
 };
 
-// Every water type, cheapest first — the boatyard's stock list, derived exactly as TRUCK_TYPES is
-// rather than written out a second time.
+// Every water type, cheapest first: the boatyard's stock list.
 export const BOAT_TYPES = Object.entries(TYPES)
   .filter(([, t]) => t.water)
   .sort((a, b) => a[1].price - b[1].price)
   .map(([id, t]) => ({ id, ...t }));
 
-// Every ground type, cheapest first — the dealer's stock list and the ladder the yard shows.
+// Every ground type, cheapest first: the dealer's stock list.
 export const TRUCK_TYPES = Object.entries(TYPES)
   .filter(([, t]) => t.ground)
   .sort((a, b) => a[1].price - b[1].price)
   .map(([id, t]) => ({ id, ...t }));
 
-// The lift-curve constants: CL0 is the coefficient at zero AoA, CL_ALPHA the per-degree slope.
-// They anchor both the weight the wing carries (weightOf) and the AoA the wing needs to hold 1g
-// at a given speed (the flight-path energy model in step §7).
+// Lift curve: CL0 at zero AoA, CL_ALPHA per degree. Anchors weightOf and the 1g AoA in step §7.
 const CL0 = 0.28, CL_ALPHA = 0.09;
 
-// ── Stall constants — the wing lets go on ANGLE OF ATTACK, never on airspeed ──
-// This is the load-bearing change of the 2026-07 realism pass. Before it, the stall
-// triggered on `airspeed < stallSpeed` with AoA used only as a sign test, which made an
-// ACCELERATED stall (a hard pull at a perfectly healthy speed) literally impossible and
-// left `aoaCrit` doing nothing but anchoring weightOf(). Now `s.aoa` is the single state
-// variable: it feeds lift, drag, the stall, the buffet and the g-meter, and the stall
-// speed falls OUT of the model (a wing at 2g reaches aoaCrit at √2 × Vs on its own)
-// instead of being computed with a fudged load factor.
-const CL_COLLAPSE = 0.42;    // fraction of max CL a fully-developed stall destroys — this, not a scripted vs clamp, is what makes a stalled aircraft fall
-const POST_STALL_BAND = 14;  // deg past aoaCrit over which the collapse completes (a deep stall is worse than a nibble)
-const REATTACH = 3.5;        // deg BELOW aoaCrit the AoA must fall before flow reattaches — real aerodynamic hysteresis, and what replaces the old stallTimer grace
-const STALL_ARM = 0.12;      // s above aoaCrit before the break commits — kills single-frame AoA spikes, nothing more
-const BUFFET_BAND = 4.5;     // deg before aoaCrit where the burble starts shaking the airframe
-const MUSH_DEG = 40;         // deg the flight path droops per unit of lift DEFICIT — the mush is now unbounded (§7) instead of saturating at aoaCrit
+// ── Stall constants: the wing lets go on angle of attack, never on airspeed ──
+// See docs/systems-flight.md#stall-on-angle-of-attack.
+const CL_COLLAPSE = 0.42;    // fraction of max CL a developed stall destroys; this is what makes a stalled aircraft fall
+const POST_STALL_BAND = 14;  // deg past aoaCrit over which the collapse completes
+const REATTACH = 3.5;        // deg below aoaCrit before flow reattaches (hysteresis)
+const STALL_ARM = 0.12;      // s above aoaCrit before the break commits; filters single-frame spikes
+const BUFFET_BAND = 4.5;     // deg before aoaCrit where the buffet starts
+const MUSH_DEG = 40;         // deg the flight path droops per unit of lift deficit (unbounded, §7)
 const SPIN_YAW = 46;         // deg/s autorotative yaw in a fully-developed, held stall
 const STALL_ROLL = 50;       // deg/s wing-drop in the same
 const G_LIMIT_DEFAULT = 4.4; // structural limit (g) if a type doesn't state one
 
-// Weight the model holds up. Anchored at the STALL point — at the clean stall speed
-// the wing at its max lift coefficient just holds the aircraft up. This makes the
-// envelope self-consistent: you can fly (barely) at Vr just above the stall, cruise
-// sits at a low trim AoA, and lift falls below weight only when you're too slow.
+// Weight the model holds up, anchored at the clean stall: at vs0 and max CL lift just equals weight.
 function weightOf(p) { return 0.5 * p.vs0 * p.vs0 * (CL0 + CL_ALPHA * p.aoaCrit) * p.liftScale; }
 
-// The lift coefficient the wing ACTUALLY makes at this AoA — linear up to the critical
-// angle, then a collapse once the flow has separated. `stalled` gates the collapse so the
-// brief STALL_ARM window sits at peak CL (the wing is on the edge, not yet let go).
+// Lift coefficient at this AoA: linear to aoaCrit, then collapses once `stalled` (so the
+// STALL_ARM window sits at peak CL).
 function clOf(p, aoa, flapLiftF, stalled) {
   const clMax = (CL0 + CL_ALPHA * p.aoaCrit) * flapLiftF;
   if (aoa <= p.aoaCrit || !stalled) return clamp((CL0 + CL_ALPHA * aoa) * flapLiftF, 0, clMax);
   return clMax * (1 - CL_COLLAPSE * clamp((aoa - p.aoaCrit) / POST_STALL_BAND, 0, 1));
 }
 
-// Per-airframe derived tuning, memoised on the params object (non-enumerable so the tuning
-// harnesses' `{...p, override}` clones get a FRESH derivation instead of a stale one).
-//
-// INDUCED DRAG. The old polar had no honest low-speed drag rise: a `max(0,aoa)²·V` term
-// (linear in V — not induced drag, which goes as 1/V²) plus a `glideDrag` 1/V² term that
-// existed on the Leviathan alone and only below 0.4 rpm. So six of eight airframes had no
-// back side to the power curve at all, and the one that needed one got a hand-fitted patch.
-// Now every type carries a proper CDi = kInd·CL², and because CL rises with a pull it also
-// replaces the aoa² term (a hard turn bleeds speed for the right reason).
-//
-// kInd is DERIVED, not authored: `ldMax` (the best glide ratio the airframe should manage)
-// plus dragP fixes where parasitic drag equals induced drag, which is by definition the
-// best-glide point — so `bestGlide` is now a measured consequence of the polar rather than
-// a number typed next to it. In the sim's units the glide ratio is mass·G_KT / drag, and at
-// best glide drag = 2·dragP·V², giving V_bg² = mass·G_KT/(2·dragP·ldMax).
+// Per-airframe derived tuning, memoised non-enumerable so `{...p, override}` clones re-derive.
+// kInd (induced drag) and bestGlide derive from ldMax and dragP: see
+// docs/systems-flight.md#induced-drag-and-best-glide.
 function tuning(p) {
   if (p._tune) return p._tune;
   const weight = weightOf(p);
   const vbg2 = (p.mass * G_KT) / (2 * p.dragP * (p.ldMax || 7));
   const t = { weight, kInd: 0.25 * p.dragP * vbg2 * vbg2 / (weight * weight), bestGlide: Math.sqrt(vbg2) };
-  // The α the wing sits at when it is holding its own weight AT best glide — i.e. the angle the
-  // airframe is rigged to trim to with the power off. §3's low-energy nose-drop restores toward
-  // this rather than toward a guessed fraction of aoaCrit, so each type's hands-off power-off
-  // glide settles at its OWN best-glide speed instead of somewhere on the back of its polar.
+  // AoA that holds weight at best glide; the power-off nose drop (§3) restores toward it.
   t.aoaGlide = clamp((weight / (0.5 * vbg2 * p.liftScale) - CL0) / CL_ALPHA, 0, p.aoaCrit * 0.8);
   try { Object.defineProperty(p, '_tune', { value: t, enumerable: false, configurable: true }); } catch { /* frozen params: recompute each call */ }
   return t;
 }
-// Publish the derived best-glide speed onto each fixed-wing type — the cockpit's blue
-// yoke light reads `p.bestGlide`, and it should point at the real peak of the polar.
+// Publish bestGlide onto each fixed-wing type for the cockpit's blue yoke light.
 for (const p of Object.values(TYPES)) if (!p.heli) p.bestGlide = Math.round(tuning(p).bestGlide);
 
 export function createState(p) {
   return {
     airspeed: 0, altitude: 0, pitch: p.groundPitch || 0, bank: 0, heading: 0,   // taildraggers start parked nose-high on the tailwheel
-    // THE GROUND IS NOT ALWAYS AT ZERO. Altitude here is height over a flat world, and for every
-    // strip and pad in the game the floor under the wheels is sea level. A rooftop helipad is the
-    // exception: the deck is the crown of a tower, and a helicopter parked on it that clamps to
-    // zero is a helicopter in the street. The owner sets this per frame (cockpit.js — deckFloorFt)
-    // from the same captured roof geometry CFIT reads, so the deck you sit on is the deck you would
-    // have collided with. 0 everywhere else, which is the behaviour that has always shipped.
+    // Floor under the wheels (ft). 0 except on a rooftop pad, where the owner sets it per frame
+    // (cockpit.js deckFloorFt) from the roof geometry CFIT reads.
     groundFt: 0,
     tailDown: 1,           // taildragger heli: tailwheel planted (the parked 3-point sit) — see stepHeli §2
     vs: 0,                 // ft/min
@@ -717,23 +385,18 @@ export function createState(p) {
 
     slip: 0,               // forward-slip intensity (0..1), eased from crossed-control input
     onGround: true, groundSpeed: 0,
-    // last-frame events the audio/feedback layers read (cleared each step)
+    // last-frame events the audio layer reads (cleared each step)
     events: [],
   };
 }
 
 // ── Helicopter integrator (Dragonfly / Mini 500) ─────────────────────────────
-// A separate arcade hover model — no Vr, no stall, no takeoff roll. The pilot flies
-// four axes: COLLECTIVE (throttle 0..1 → rotor thrust), CYCLIC (elevator/aileron →
-// disc tilt → horizontal accel), and PEDALS (yaw, tail rotor). The character comes
-// from three failure modes that punish mishandling: rotor-RPM (Nr) droop under a
-// greedy collective, settling-with-power (vortex ring state) in a slow powered
-// descent, and its own twitchiness. All knobs — tuned by eye like the fixed-wing set.
+// Arcade hover model: collective, cyclic and pedals. Its failure modes are rotor-RPM droop under
+// a greedy collective and settling-with-power in a slow powered descent.
 function stepHeli(state, input, p, dt) {
   const s = state;
   s.events = [];
-  // Cyclic folds in TRIM so a centred stick holds the trimmed attitude hands-off — roll in a
-  // little forward (nose-down) trim and she cruises forward without holding the stick.
+  // Cyclic folds in trim so a centred stick holds the trimmed attitude.
   const cycP = clamp((input.elevator || 0) + (input.trim || 0), -1, 1);   // aft (+1) = nose up / decelerate
   const cycR = clamp(input.aileron || 0, -1, 1);     // right (+1) = bank right
   const coll = clamp(input.collRaw ?? input.throttle ?? 0, 0, 1);   // collective lever — the pilot works it even engine-out (for autorotation)
@@ -741,12 +404,8 @@ function stepHeli(state, input, p, dt) {
   const pedal = clamp(input.pedal || 0, -1, 1);
 
   // 1. Rotor Nr.
-  //  • POWERED: Nr eases toward the governed demand, DROOPING if a greedy collective outruns the
-  //    little two-stroke — the classic low-rotor trap (less Nr → less thrust → you sink pulling up).
-  //  • ENGINE-OUT (autorotation): the rotor is an autogyro — the UPFLOW of a real descent drives it.
-  //    FLAT pitch (collective down) lets it freewheel and hold Nr; pulling collective loads the disc
-  //    and BLEEDS the rpm. So the drill is: drop the lever, drop the nose to keep air flowing up
-  //    through the disc, and the rotor keeps turning all the way down — energy you spend in the flare.
+  // Powered: Nr droops if the collective outruns the engine (less Nr, less thrust).
+  // Engine out: descent upflow drives the rotor; flat pitch holds Nr, pulling collective bleeds it.
   let nrTarget;
   if (powered) {
     nrTarget = coll > 0.02 ? clamp(1 - Math.max(0, coll - 0.7) * 1.8, 0.4, 1) : 0;
@@ -763,19 +422,10 @@ function stepHeli(state, input, p, dt) {
     s.rollEff += (cycR - s.rollEff) * Math.min(1, dt / p.rollTau);
     s.bank += (0 - s.bank) * Math.min(1, dt * 5);
     if (p.groundPitch) {
-      // TAILDRAGGER heli (the Viper): three points of contact, mains forward and a small tailwheel
-      // right at the end of the boom — so the whole airframe sits nose-high at `groundPitch`, and
-      // the tail is the light end. `tailDown` is that tailwheel's contact (1 = planted, 0 = flown):
-      //  • LIFT-OFF — as the collective takes the weight off the wheels, the tail (out at the end
-      //    of a long boom, far behind the mains) comes up FIRST and she rotates FLAT to the
-      //    horizon, still rolling on her mains, before she breaks ground. That's the attitude
-      //    change you see out the canopy and from the chase cam.
-      //  • TOUCHDOWN — she arrives level and lands on the two mains; the tail stays up until you
-      //    PULL BACK (or lower the lever) and walk it down onto the tailwheel into the 3-point sit.
+      // Taildragger heli: `tailDown` is tailwheel contact (1 planted, 0 flown). On lift-off the tail
+      // comes up first and she rolls flat on her mains; on landing she stays tail-up until you pull back.
       const liftFrac = coll * Nr * (p.liftMax || 2.6) / (p.hoverThrust || 1);
-      // Tail-up band deliberately sits BELOW the hover point (liftFrac 1) — she's flat on her
-      // mains by ~0.35 collective and only breaks ground past ~0.42, so you always see the
-      // rotation happen on the wheels first rather than simultaneously with the lift-off.
+      // Tail-up band sits below the hover point so the rotation shows on the wheels before lift-off.
       const light = clamp((liftFrac - 0.6) / 0.25, 0, 1);    // weight coming off the wheels
       const pull = clamp(s.elevEff, 0, 1);                   // aft cyclic settles the tail
       let tailTgt;
@@ -792,10 +442,7 @@ function stepHeli(state, input, p, dt) {
     s.bank += (s.rollEff * p.rollRate - p.rollStable * s.bank) * dt; s.bank = clamp(s.bank, -60, 60);
   }
 
-  // 3. Yaw: pedals swing the nose with full authority in the hover, washing out with speed as
-  //    the fuselage weathervanes. On the skids the tail rotor can't pivot the airframe against
-  //    ground friction — pedals do nothing until the wheels/skids are light (airborne). Past ETL,
-  //    bank also curves the flight path (a plane-like turn).
+  // 3. Yaw: pedals wash out with speed and do nothing on the ground. Past ETL, bank turns the path.
   if (!s.onGround) {
     const pedalAuth = 1 - clamp(s.airspeed / p.cruise, 0, 0.85);
     s.heading = wrap360(s.heading + pedal * (p.yawRate || 60) * pedalAuth * dt);
@@ -805,31 +452,21 @@ function stepHeli(state, input, p, dt) {
     s.heading = wrap360(s.heading + turnRate * dt);
   }
 
-  // 4. Horizontal accel: the tilted disc pushes you where the nose leans (nose down = forward),
-  //    AND a nose-low attitude lets gravity pull you into the dive — so pushing the nose down
-  //    builds real speed (an autorotative dive), not just the gentle disc-tilt nudge.
+  // 4. Horizontal accel: disc tilt, plus gravity when nose-low so a dive builds real speed.
   const accel = s.onGround ? 0 : (-s.pitch * (p.cyclicThrust || 2) * Nr) + clamp(-s.pitch, 0, 35) * 0.16;
   const drag = p.dragP * s.airspeed * Math.abs(s.airspeed);
   s.airspeed = clamp(s.airspeed + (accel - drag) * dt, -0.18 * p.cruise, p.vne * 1.03);
   if (s.onGround) s.airspeed -= Math.sign(s.airspeed) * Math.min(Math.abs(s.airspeed), p.rollFric * dt);
   s.groundSpeed = Math.abs(s.airspeed);
 
-  // 5. Vertical: rotor thrust (collective × Nr) vs the hover weight, eased into a target vs.
-  //    Translational lift (ETL) makes the same collective bite harder in forward flight — drop
-  //    below it in a downwind hover and you sink. Settling-with-power: a slow, powered, fast
-  //    descent lets the disc eat its own vortex and lift collapses (deepens the sink → the trap).
+  // 5. Vertical: rotor thrust vs hover weight, with translational lift (ETL) adding bite in forward flight.
   let thrustV = coll * Nr * (p.liftMax || 2.6);
   thrustV *= 1 + 0.18 * clamp(Math.abs(s.airspeed) / p.vs0, 0, 1);
-  // Settling-with-power (vortex ring): once you're SLOW and sinking FAST with power applied,
-  // the disc falls into its own downwash. Feeding in more collective only feeds the ring — so
-  // lift is CAPPED below the hover value and you can't climb out; the only escape is forward
-  // cyclic (build airspeed to fly out of your own wake). This is the killer for mishandling.
-  // Sticky envelope with hysteresis: you ENTER on a fast, slow, powered descent, and only
-  // LEAVE by flying out (forward airspeed past ETL) or lowering the collective — never by
-  // just pulling more pitch. That's what makes it a trap rather than a speed bump.
+  // Vortex ring: entered on a slow, fast, powered descent; lift is capped below hover. Exit only by
+  // flying out past ETL or lowering the collective, never by pulling more pitch.
   const slow = Math.abs(s.airspeed) < p.vs0 * 0.9;
   if (!s.vrsState) {
-    // Vortex ring is a POWERED phenomenon — an engine-out autorotative descent can't fall into it.
+    // Powered only: an engine-out descent can't enter it.
     if (powered && !s.onGround && s.vs < -(p.vrsVs || 480) && slow && coll > 0.4) s.vrsState = true;
   } else if (s.onGround || !slow || coll < 0.25 || !powered) {
     s.vrsState = false;
@@ -840,33 +477,19 @@ function stepHeli(state, input, p, dt) {
     thrustV = Math.min(thrustV, (p.hoverThrust || 1) * (1 - 0.55 * vrs));
     if (!s.vrsWarn) { s.events.push({ type: 'vrs' }); s.vrsWarn = true; }
   } else s.vrsWarn = false;
-  // Service ceiling. Rotor thrust falls with air density, so the POWER MARGIN over the hover
-  // weight — not the thrust itself — is what thins out with height: at the ceiling any
-  // collective you pull buys exactly hover and nothing more, so she simply stops going up.
-  // Sink is untouched (same convention as the fixed-wing branch §7), because thin air must
-  // never stop you coming DOWN.
-  //
-  // This branch used to ignore `p.ceiling` entirely — it was an authored number no heli code
-  // read, so a helicopter climbed at a constant rate to any altitude you had the patience for,
-  // and raising the figure in TYPES changed nothing at all.
+  // Service ceiling: the power margin over hover thins to zero at p.ceiling. Sink is untouched,
+  // since thin air must never stop you coming down.
   const hoverT = p.hoverThrust || 1;
   if (thrustV > hoverT) {
     const thin = clamp(1 - s.altitude / (p.ceiling || 20000), 0, 1);   // 1 on the deck → 0 at the ceiling
     thrustV = hoverT + (thrustV - hoverT) * thin;
   }
-  // Sink HARDER than she climbs — chop the collective (or droop Nr) and the underpowered kit
-  // heli drops away in a deep autorotative descent instead of mushing down gently.
-  // Climb and sink read SEPARATE gains: `vsGainUp` (falling back to vsGain) is the up side, so a
-  // type can be given more rate on a full lever without also dropping away harder when you chop it.
+  // Sinks harder than she climbs. Climb reads `vsGainUp` (falls back to vsGain), sink reads vsGain.
   const deficit = thrustV / hoverT - 1;
   let vsTarget = clamp(deficit * (deficit < 0 ? p.vsGain * 1.9 : (p.vsGainUp || p.vsGain)), -p.vsMax * 2.6, p.vsMax);
   // Rising air (thermals.js): the whole air mass moves, so it carries a helicopter too.
   if (!s.onGround && input.lift) vsTarget += input.lift;
-  // Ground cushion (in-ground-effect): within ~a rotor-diameter of the deck the downwash piles
-  // into a lift cushion, so a descent SOFTENS as you near the ground — she eases onto the skids
-  // instead of dropping the last few feet. Sink only; hover and climb are untouched.
-  // ⚠ Measured from the FLOOR, not from zero — this is a height-above-deck term, and on a rooftop
-  // pad zero is seventeen hundred feet below the skids.
+  // Ground cushion softens a descent near the deck. ⚠ Measured from the floor (groundFt), not zero.
   const agl = s.altitude - (s.groundFt || 0);
   if (!s.onGround && vsTarget < 0 && agl < HELI_GROUND_EFFECT_FT) {
     const ge = clamp(1 - agl / HELI_GROUND_EFFECT_FT, 0, 1);   // 0 at the top of the band → 1 on the deck
@@ -886,182 +509,74 @@ function stepHeli(state, input, p, dt) {
   const floor = s.groundFt || 0;
   if (s.altitude <= floor) {
     if (!s.onGround && s.vs < -300) s.events.push({ type: 'touchdown', severity: s.vs < -600 ? 'hard' : 'firm', vs: s.vs });
-    // Taildragger: she rolls onto the mains at whatever attitude she arrived in, so seed the
-    // tailwheel's contact from the touchdown pitch rather than snapping into the 3-point sit —
-    // the pilot walks the tail down from there (§2).
+    // Taildragger: seed tailwheel contact from the touchdown pitch; the pilot walks the tail down (§2).
     if (!s.onGround && p.groundPitch) s.tailDown = clamp(s.pitch / p.groundPitch, 0, 1);
     s.altitude = floor; s.onGround = true; s.vs = Math.max(0, s.vs);
   } else s.onGround = false;
   return s;
 }
 
-// ── Ground integrator (THE LONG HAUL — the truck) ────────────────────────────
-// A road vehicle, not an aircraft. No lift, no stall, no altitude — the whole model is a
-// bicycle: a front axle you point and a rear axle that follows, plus the surface under the tyres.
-//
-// It lives in this file rather than in the trucking plugin for one reason: `p.heli` above already
-// dispatches a completely different vehicle out of `step`, and this file is the only PURE,
-// dependency-free, headless-testable integrator in the client. A truck model anywhere else would
-// either duplicate that discipline or lose it. Same contract as the rest of the file: mutate and
-// return state, allocate nothing, read no globals.
-//
-// COORDINATES. Unlike the aircraft — which the plugin positions from heading and airspeed — the
-// truck integrates its own (x, y) in CORRIDOR space (see plugins/trucking/corridor.js). Steering
-// around a bend has to move the vehicle through the turn, so the position and the heading must be
-// integrated together, in the same place, at the same rate.
-//
-// Heading is world-standard: 0 = north = −y, 90 = east = +x, 180 = south = +y.
-//
-// PHASE 1 IS BOBTAIL. There is no trailer here — no kingpin, no articulation angle, no jackknife.
-// That is deliberate: the drive has to be worth doing before the trailer makes it matter. When the
-// trailer lands it adds ONE scalar (φ, the articulation angle) fed by the same yaw rate computed
-// in §3, and everything below is unchanged.
+// ── Ground integrator (the truck) ─────────────────────────────────────────────
+// A bicycle model: a front axle you point, a rear axle that follows, and the surface under the
+// tyres. Same contract as the rest of the file: mutate and return state, allocate nothing.
+// The truck integrates its own (x, y) in corridor space (plugins/trucking/corridor.js), so position
+// and heading move together. Heading: 0 = north = −y, 90 = east = +x.
 // ── LOCK ─────────────────────────────────────────────────────────────────────
-// A FIXED MECHANICAL LOCK, because that is what a steering box is. The stops are the stops; no real
-// vehicle grows and loses steering angle with road speed.
-//
-// It did here, and the reason is worth recording because it was a reasonable answer to a real
-// problem: full lock at seventy spins a truck, so the lock was faded out above a crawl to make that
-// impossible. What that bought was safety and what it cost was MEANING — the same wheel position
-// gave a different axle angle depending on how fast you were going, so nothing a driver learned in
-// a yard transferred to the road and no amount of practice built a feel for a quarter turn.
-//
-// The fade is gone, and the spin it was preventing is prevented honestly instead: the wheel has
-// real TRAVEL (helm-wheel.js's TRUCK_LOCK_TURNS — one full revolution of the rim from centre to
-// the stops, two lock to lock), so a given movement of the hand is a much smaller movement of the
-// axle and you physically cannot flick it into a slide at speed. Same protection, no lie in the
-// control. ⚠ That constant was 3.5 turns — a real tractor's travel — and was cut because a mouse
-// cannot deliver it; this comment claimed the old figure long after. Read the number, not this.
-//
-// The coupled/bobtail split STAYS, and it is not a speed rule — it is a trailer rule. A tractor
-// with a box on the fifth wheel cannot use the last few degrees without the kingpin scrubbing the
-// drives round and the trailer coming with it, which is a real constraint a real driver works
-// around, and it is the one place being bobtail is an ADVANTAGE rather than just lighter.
-// ⚠ BOBTAIL IS THE SHARP ONE, AND THAT GAP IS THE POINT. A tractor with nothing on the fifth wheel
-// is a short, light, enormously manoeuvrable thing — it turns inside its own length in a yard — and
-// that is the one situation where running empty is an ADVANTAGE rather than just cheaper. Raised
-// 58 → 66 so it reads that way: with the wheel now reaching its stops in a single turn
-// (TRUCK_LOCK_TURNS), the last few degrees are finally somewhere a player can actually get to, and
-// they should be worth arriving at. Coupled stays where it was — a kingpin scrubbing the drives
-// round is a real limit and the reason you plan a yard manoeuvre instead of just cranking it.
-// ⚠ THE RADIUS IS `L / tan(δ)`, AND tan IS THE REASON THIS IS NOT A LINEAR KNOB. Between 66° and
-// 70° the tangent goes 2.25 → 2.75, so four degrees takes ~20% off the circle; the same four
-// degrees from 80° to 84° nearly halves it. Bobtail is deliberately parked in the part of the
-// curve where a nudge is still a nudge — anything much past 70 and the truck pivots on the spot,
-// which is not tight, it is weightless, and it would take the yard manoeuvre out of the game
-// entirely. Coupled is untouched at 50: the trailer complicating the turn is the whole point of
-// the split, and it is what makes dropping the box before shuffling worth doing.
-const TRUCK_STEER_LOCK = 50;     // at the stops, coupled: a real steer axle
-// …and bobtail, where the whole lock is usable (66 → 70 → 78). The paragraph above worried that
-// past 70 a bobtail "pivots on the spot", and that is now a DELIBERATE choice rather than an
-// overrun: the yard is where trucks and dropped trailers share a few tiles, and a tractor that
-// cannot get round inside one is not weighty, it is unusable. The tan curve is what makes this
-// safe to do — δ enters as tan δ, so the extra lock is nearly all in the last of the travel: half
-// a turn of the wheel is barely changed, and the transformation is at the stops, where a driver
-// only ever goes when they are shuffling.
+// A fixed mechanical lock: never fade it with speed. Wheel travel (helm-wheel.js TRUCK_LOCK_TURNS)
+// is what stops a flick into a slide at speed. Radius is L / tan(δ), so lock near the stops is
+// nonlinear. Coupled stays at 50 because a kingpin scrubbing the drives is a real limit, and it
+// makes dropping the box before shuffling worth doing.
+const TRUCK_STEER_LOCK = 50;     // coupled: a real steer axle
+// Bobtail: pivots near the spot so a tractor can turn inside a yard; tan δ keeps mid-travel unchanged.
 const TRUCK_STEER_BOB  = 78;
-// ⚠ AND REVERSE GETS MORE, WHICH IS NOT A CONTRADICTION OF THE PARAGRAPH ABOVE. The reason 70 is
-// the forward ceiling is that past it the truck pivots on the spot and reads as WEIGHTLESS — but
-// that objection is about driving, at road speed, with momentum you are supposed to feel. Backing
-// is the opposite job: you are at a walking pace with the wheel on the stops, and the manoeuvre
-// people know from a real yard is the tail coming round hard. Per the tan curve in the note above,
-// 78 → 85 is not a nudge — it takes the circle from L/4.7 to L/11.4, so a rig backs round in a
-// third of the space and is very close to swinging about its own drives, which is exactly the
-// manoeuvre a depot full of parked boxes asks for. All of it only ever applies bobtail.
-// Coupled is untouched at 50 in both directions: a kingpin scrubbing the drives round is the real
-// limit, and it is what makes dropping the trailer before shuffling worth doing.
+// Backing bobtail at walking pace: more lock, so the tail comes round hard.
 const TRUCK_STEER_BACK = 85;
 function truckSteerLock(speed, hitched) {
   if (hitched) return TRUCK_STEER_LOCK;
   return (speed || 0) < -0.01 ? TRUCK_STEER_BACK : TRUCK_STEER_BOB;
 }
-// Exported because the CAB lights the road off it: the lifter wash has to be at its "running"
-// brightness the moment the engine is idling, and the only honest definition of idling is this
-// number. A copy in the panel would be a second idle speed that drifts the first time this moves.
+// Exported so the cab's lights key off the one idle speed; never copy it into a panel.
 export const IDLE = 0.16;        // idle, as a fraction of redline
 const STALL_RPM = 0.11;          // below this in gear, clutch out, it dies
-// ⚠ THESE TWO ARE PART OF THE 0.7 FLEET RESCALE (see the note above `hauler` in TYPES), and they
-// are the half of it that is easy to miss: they are absolute MPH, so leaving them alone while every
-// speed in the fleet came down by 0.7 widened both windows by 43% in the only terms that matter.
-// The consequence was not subtle — the protected launch window reached far enough up the new speed
-// range that a truck could feather its way past the stall speed IN TOP GEAR, which the regress case
-// for exactly that ("pulling away in top gear STALLS the engine") caught. Every mph constant in the
-// truck model scales with the fleet or the gearbox stops having opinions.
+// ⚠ Absolute mph: scale these with the fleet's speeds, or a truck can feather away in top gear.
 const LAUNCH_MPH = 8.4;          // below this, ON THE THROTTLE, a driver is feathering the clutch
 const CRAWL_MPH  = 2.8;          // below this the clutch is always in — parking must not stall you
 const REVERSE_RATIO = 1.35;    // reverse is deeper than first — the slowest, strongest gear there is
-// FIRST IS THE ONE YOU LAUNCH ON, and the square root below flattens exactly the gear that most
-// needs to feel like it has something in it. 'ratioBoost' is normalised against top and rooted, so
-// the honest 8:1 spread arrives as 2.9:1 — which is the right call for the middle of the box and
-// leaves first pulling like a slightly shorter second. Every yard manoeuvre and every pull-away on
-// a hill happens in this gear, so it gets a little of that spread handed back. Applied to the RATIO
-// TERM rather than to the pedal lag on purpose: more shove, without turning the throttle back into
-// the go-kart switch that 'spool' exists to have fixed. Reverse borrows it, as it borrows the ratio.
+// First gets back some of the spread the sqrt in 'ratioBoost' flattens: more shove on launches and
+// hill starts, applied to the ratio term rather than the pedal lag. Reverse borrows it.
 const FIRST_BOOST = 1.9;
-// ⚠ FIRST WAKES UP FASTER THAN SECOND, AND THAT INVERSION IS DELIBERATE. The gradient this breaks
-// out of is right on its own terms — a deep reduction IS a lot of driveline to wind up, and that lag
-// is what stopped the throttle behaving like a go-kart switch — but it anchored FIRST at the slow
-// end, and first is the gear every launch, every yard manoeuvre and every hill start happens in. It
-// took about a second to reach full pull, so the torque was arriving after the moment it was wanted
-// and raising FIRST_BOOST could not reach it: a multiplier on a pedal that has not come in yet is
-// nothing at all.
-//
-// So first is a named exception (~0.55s to full pull) rather than a re-anchored curve, because
-// lifting the floor lifted gears two through seven with it and nobody asked for a twitchier middle
-// of the box. Every other ratio keeps the number it had, exactly. Reverse borrows this, as it
-// borrows first's ratio.
+// ⚠ First spools faster than second on purpose (~0.55 s to full pull) so launch torque arrives when
+// wanted. A named exception; the other ratios keep the spool gradient. Reverse borrows it.
 const FIRST_SPOOL = 1.8;
 const REVERSE_CAP = 0.18;        // reverse is geared low and you cannot see: a fraction of top speed
 export const FADE_AT = 0.62;            // brake temperature at which the pedal starts lying to you
-// ── LONGITUDINAL INERTIA, AND WHY IT IS NOT `thrustMax` ──────────────────────
-// How long the truck takes to work through the box is a separate question from how much engine it
-// has, and reaching for `thrustMax` to answer it breaks two things at once. The verge invariant
-// (`thrustMax × drive > rollFric × drag`) is the first: halve the engine and the offroad surface
-// stops being slow and becomes a wall, which is the one thing the SURFACES note says it must never
-// be. Top speed is the second, and it is the worse one — every truck in the fleet is tuned to sit
-// EXACTLY at its authored figure (a Drayman's terminal speed off rollFric and dragP works out at
-// 96.1 against an authored 96), so there is no headroom to spend and any cut off the engine lands
-// straight on the number on the spec sheet.
-//
-// So the engine keeps every newton it had and the RIG gets heavier to shift. The drive and the
-// PASSIVE resistances scale together, which leaves the speed where they cancel — top speed —
-// untouched to the decimal while halving the rate at which the truck arrives there. Time in every
-// gear is multiplied by this exactly, because the whole accelerating equation is scaled in time.
-//
-// ⚠ THE BRAKES, THE JAKE AND THE SETTLED SHROUDS SIT OUTSIDE IT, deliberately. This is a change to
-// how long the gearbox takes to work through, not to how long the truck takes to stop — folding
-// the pedal into the same divisor would double every stopping distance in the game and silently
-// re-tune brake fade, the engine brake, and the whole descent the box exists for.
+// ── Longitudinal inertia ─────────────────────────────────────────────────────
+// Slows how long the rig takes to work through the box. Drive and passive resistances scale
+// together, so top speed is untouched. Never use thrustMax for this: it breaks the verge invariant
+// and the authored top speeds. ⚠ Brakes, the Jake and the shrouds sit outside it, or every stopping
+// distance and brake fade would change.
 const INERTIA = 2;
 const JACKKNIFE_DEG = 55;        // where the restoring term gives up and the trailer drives the fold
 const PHI_MAX = 88;              // trailer against the cab; there is no forward through this
 
-// THE TORQUE CURVE. A diesel is not a petrol engine: it makes almost everything it has across a
-// narrow band low down and then gives up, which is precisely why gears matter. Flat-topped between
-// `band[0]` and `band[1]`, falling off either side — lugging below, screaming above.
-//
-// Returned as a MULTIPLIER on thrustMax, so the peak is 1 and the tuning lives in the type.
+// Torque curve, as a multiplier on thrustMax: flat between band[0] and band[1], lugging below,
+// falling off above.
 function torqueAt(rpm, p) {
   const [lo, hi] = p.band;
   if (rpm >= lo && rpm <= hi) return 1;
   if (rpm < lo) {
-    // Lugging. Falls to nearly nothing at stall — a hill in too high a gear simply beats you.
+    // Lugging: falls to nearly nothing at stall.
     const t = clamp((rpm - STALL_RPM) / Math.max(0.01, lo - STALL_RPM), 0, 1);
     return 0.12 + 0.88 * t * t;
   }
-  // Over-revving. Noise, diesel, and no more speed.
+  // Over-revving.
   const t = clamp((rpm - hi) / Math.max(0.01, 1 - hi), 0, 1);
   return 1 - 0.75 * t * t;
 }
 
 // ── The splitter box ─────────────────────────────────────────────────────────
-// An 18-speed has eighteen positions and NO player wants eighteen menu entries. What a driver
-// actually operates is a RANGE (low/high) and a SPLITTER (half a step), so the surface is three
-// verbs — `shift up`, `shift down`, `split` — over a flat ratio ladder. Gear 0 is neutral.
-//
-// SKIP-SHIFTING falls out for free and is correct: empty, you can jump two and stay in the band;
-// loaded, the same jump drops you under it and you have to come back down. Nothing enforces that
-// but the curve.
+// The surface is three verbs (shift up, shift down, split) over a flat ratio ladder. Gear 0 is
+// neutral. Skip-shifting works or doesn't purely through the torque curve.
 export function truckShift(s, p, delta) {
   const next = clamp((s.gear ?? 1) + delta, -1, p.gears.length - 1);
   if (next === s.gear) return s.gear;
@@ -1069,13 +584,8 @@ export function truckShift(s, p, delta) {
   s.shifted = true;                       // one frame's flag: the cab clunks, the audio bumps
   return s.gear;
 }
-// PICK a gear, rather than stepping to one. A sequential control (the ▲▼ buttons, the , and . keys)
-// says "one more"; an H-GATE says "that one" — you put the lever in a slot and that is the gear you
-// are in, and walking the box up to it one ratio at a time would both be wrong and clunk seven
-// times on the way. Same two writes `truckShift` makes, so the cab's clunk, the audio bump and
-// everything downstream behave identically; only the arithmetic differs.
-// Reverse is −1, neutral 0 — the gate's own legality rules (you cannot select reverse while rolling)
-// live in the cab, with the button and the key that share them, and never here.
+// Select a gear directly (the H-gate), with the same writes as truckShift. Reverse is −1, neutral 0;
+// the gate's legality rules (no reverse while rolling) live in the cab, never here.
 export function truckSelectGear(s, p, gear) {
   const next = clamp(gear | 0, -1, p.gears.length - 1);
   if (next === s.gear) return s.gear;
@@ -1083,16 +593,13 @@ export function truckSelectGear(s, p, gear) {
   s.shifted = true;
   return s.gear;
 }
-// The splitter: half a step, which is what the extra lever on the knob is for. Written the long way
-// because the one-liner it replaced chained on truckShift's return value, and that value is a GEAR
-// NUMBER — so a split into neutral was falsy and silently left `s.split` lying about itself.
+// The splitter: half a step. Don't chain on truckShift's return: it's a gear number, and neutral is falsy.
 export function truckSplit(s, p) {
   truckShift(s, p, s.split ? -1 : 1);
   s.split = !s.split;
   return s.gear;
 }
-// Which gear WOULD hold the band at this speed — what the cab shows as a suggestion, never as an
-// automatic. Telling somebody the answer is not the same as choosing it for them.
+// The gear that would hold the band at this speed: a suggestion for the cab, never an automatic.
 export function bestGear(speed, p) {
   const mid = (p.band[0] + p.band[1]) / 2;
   let best = 1, err = Infinity;
@@ -1103,27 +610,20 @@ export function bestGear(speed, p) {
   return best;
 }
 // ── The fifth wheel ──────────────────────────────────────────────────────────
-// Hitching is a WALKING-PACE act and the model says so rather than the verb saying it: you have to
-// be stopped and lined up. `HITCH_PHI` is generous — this is a truck sim, not a docking puzzle, and
-// the difficulty is meant to live in backing the thing into the slot, not in the last two degrees.
+// Hitching needs a stop and rough alignment; HITCH_PHI is generous on purpose.
 export const HITCH_MPH = 3, HITCH_PHI = 25;
 export function canHitch(s) { return Math.abs(s.speed) <= HITCH_MPH && Math.abs(s.phi || 0) <= HITCH_PHI; }
 export function truckHitch(s, p, trailer = {}) {
   if (s.hitched || !canHitch(s)) return false;
   s.hitched = true;
   s.trailerKg = trailer.kg ?? p.trailerKg;
-  // The deck is rated, and the rating is the truck's own mass — the same number `market buy` sizes
-  // a purchase against, so the two halves cannot disagree. Clamping here rather than trusting the
-  // caller is what keeps the mass term inside the range the handling was tuned for; an unbounded
-  // load is not a hard truck to drive, it is a truck that does not move at all.
+  // Clamp to the deck rating (p.kg, the same number `market buy` sizes against), or the truck can't move.
   s.loadKg = clamp(trailer.loadKg || 0, 0, p.kg);
-  // The box starts straight behind you. Anything else would be a trailer you had to align by
-  // driving, and you cannot drive it until it is hitched.
+  // The box starts straight behind you.
   s.trailerHeading = s.heading; s.phi = 0;
   return true;
 }
-// Dropping it needs the same stillness, and — unlike hitching — it must be roughly STRAIGHT, or
-// you are winding the legs down onto a box that is sitting across the lane you came in on.
+// Dropping needs the same stillness and a roughly straight box.
 export function truckUnhitch(s) {
   if (!s.hitched || Math.abs(s.speed) > HITCH_MPH || Math.abs(s.phi) > 12) return null;
   const dropped = { kg: s.trailerKg, loadKg: s.loadKg, heading: s.trailerHeading, x: s.x, y: s.y };
@@ -1133,34 +633,15 @@ export function truckUnhitch(s) {
 function stepTruck(state, input, p, dt) {
   const s = state;
   s.events = [];
-  // The wheel reports an ABSOLUTE axle position, not a rate — a truck's front wheels return to
-  // centre and you hold a line, where a boat's helm sets a course and keeps it. (This is the one
-  // real behavioural change made to the shared helm-wheel widget; see its `absolute` mode.)
+  // The wheel reports an absolute axle position, not a rate (helm-wheel.js `absolute` mode).
   const steer = clamp(input.steer || 0, -1, 1);
   const brake = clamp(input.brake || 0, 0, 1);
 
-  // THE PEDAL IS NOT THE ENGINE. A big turbodiesel does not make its torque the instant a foot
-  // moves: the pedal opens the rack, the rack builds boost, and boost is what pulls. Until now
-  // `throttle` went straight into `drive`, so the truck answered a keypress like a go-kart — and
-  // the harder the gear multiplied it (`ratioBoost`), the more violent that was, which is why the
-  // twitchiest place to drive was FIRST, the gear you spend all your yard time in.
-  //
-  // So the throttle is a first-order FOLLOWER (`s.pedal`) and the lag is GEAR-DEPENDENT: a deep
-  // reduction is a lot of driveline to wind up, so low gears come in slowest. Lifting is quick —
-  // fuel stops being fuel immediately, and a throttle that hung on the way DOWN would be a truck
-  // you cannot park. Nothing else in the model changed; every consumer below reads `throttle`,
-  // which is now the boosted number rather than the pedal position.
+  // The pedal is a first-order follower (`s.pedal`, boost) so the truck doesn't answer like a go-kart.
+  // Lag is gear-dependent; lifting is quick so you can park. Everything below reads the boosted value.
   const pedal = clamp(input.throttle || 0, 0, 1);
   const gearIdx = Math.abs(clamp(s.gear ?? 1, -1, p.gears.length - 1));
-  // 1st ≈ 1.05 s to full pull, top ≈ 0.36 s. Reverse takes first's number, as it takes its ratio.
-  // ⚠ AND FIRST IS NO LONGER THE SLOWEST THING IN THE BOX TO WAKE UP. The gradient below is right —
-  // a deep reduction IS a lot of driveline to wind up, and this lag is what stopped the throttle
-  // behaving like a go-kart switch. But it was anchored so low that first took about a second to
-  // reach full pull, which is the gear every launch, every yard manoeuvre and every hill start
-  // happens in: the torque was arriving after the moment it was wanted, and raising FIRST_BOOST
-  // alone could not fix that because a multiplier on a pedal that has not come in yet is nothing.
-  // The floor is lifted and the span narrowed to match, so TOP is unchanged (~0.34s) and first goes
-  // from ~1.05s to ~0.55s — still the laziest gear to spool, just no longer absent.
+  // Top ≈ 0.34 s to full pull; first is FIRST_SPOOL (~0.55 s). Reverse takes first's.
   const spool = gearIdx <= 1
     ? FIRST_SPOOL
     : 0.95 + 2.0 * ((gearIdx - 1) / Math.max(1, p.gears.length - 2));
@@ -1168,109 +649,48 @@ function stepTruck(state, input, p, dt) {
   s.pedal = clamp((s.pedal ?? 0) + (pedal - (s.pedal ?? 0)) * Math.min(1, rate * dt), 0, 1);
   const throttle = s.pedal;
 
-  // 1. Surface. The corridor tells us what is under the tyres; the model only knows how each one
-  //    behaves. Grip scales cornering, drag scales how hard it is to hold speed, and `cap` is the
-  //    honest reason you stay on the road — the verge does not stop you, it just makes the haul
-  //    take all night. This is the "edge of the road is a law, not a wall" rule, in numbers.
+  // 1. Surface: grip scales cornering, drag holding speed, cap the top speed. The verge slows, never walls.
   const surf = SURFACES[input.surface] || SURFACES.road;
 
-  // AUTO. Rowing an eight-speed is the point, but it must not be the price of entry: `auto` shifts
-  // for you, keeping the band, and is what the cab's assist toggle and every headless harness use.
-  // It is deliberately a little late on the upshift and early on the down, so a driver who turns it
-  // off is faster — the manual box has to be worth learning or it is just ceremony.
+  // Auto: shifts for you (cab assist, headless harnesses), a little late up and early down so manual is faster.
   if (input.auto && !s.stalled) {
     const want = bestGear(s.speed, p);
     if (want !== s.gear && !s.autoHold) { s.gear = want; s.shifted = true; s.autoHold = 0.35; }
   }
   if (s.autoHold > 0) s.autoHold = Math.max(0, s.autoHold - dt);
 
-  // 2. THE GEARBOX, and the inversion the whole thing rests on.
-  //
-  //    An aircraft's `rpm` is a first-order FOLLOWER of the throttle lever. A truck's is nothing of
-  //    the sort: the engine is bolted to the road through a gear, so ENGINE SPEED IS DERIVED FROM
-  //    ROAD SPEED, and the throttle produces TORQUE. Turning that round is the whole of phase 1.5,
-  //    and everything interesting falls out of it rather than being coded:
-  //
-  //      • lugging      — below the band there is no torque, so a hill just beats you
-  //      • over-revving — above it you make noise and burn diesel and go no faster
-  //      • stalling     — pull away in too high a gear and the engine cannot turn the wheels
-  //      • engine brake — off the throttle IN GEAR, the road drives the engine and it fights back
-  //
-  //    None of those are special cases. They are one curve and one ratio, read in the right order.
-  // Gear −1 is REVERSE. It borrows first gear's ratio, which is what a real box does — reverse is
-  // low and loud and there is only one of it — so nothing downstream needs a second table.
+  // 2. Gearbox: engine speed derives from road speed through the gear, and the throttle makes torque.
+  // Lugging, over-revving, stalling and engine braking fall out of one curve and one ratio.
+  // Gear −1 is reverse, borrowing first's ratio.
   const gear = s.gear = clamp(s.gear ?? 1, -1, p.gears.length - 1);
-  // Reverse is geared DEEPER than first, as a real box is, and it has to be: capped at a fraction
-  // of top speed it never leaves the crawl window, so it is permanently on a slipping clutch at 45%
-  // of drive. Given first gear's ratio it could not back a loaded trailer out of a bay at all —
-  // rolling resistance ate it. `REVERSE_RATIO` is the extra reduction that makes reverse the
-  // slowest, strongest, loudest gear in the truck, which is exactly what it is.
+  // Reverse is deeper than first (REVERSE_RATIO) or it can't back a loaded trailer out of a bay.
   const ratio = gear === 0 ? 0 : p.gears[Math.abs(gear)] * (gear < 0 ? REVERSE_RATIO : 1);
   const clutch = clamp(input.clutch || 0, 0, 1);          // 1 = fully in, engine disconnected
   const engaged = 1 - clutch;
 
-  // Engine speed, 0..1 of redline, straight off the road through the gear. Neutral (gear 0) and a
-  // depressed clutch leave the engine free, so it idles up to the throttle instead.
+  // Engine speed, 0..1 of redline. Neutral or a depressed clutch leaves the engine free.
   const geared = ratio > 0 ? (Math.abs(s.speed) / p.tileMph) * ratio : 0;
-  // A DISCONNECTED ENGINE IS HELD AT THE BAND, not run to the stop. Nobody slipping a clutch away
-  // from a junction sits on the limiter: they hold it where it pulls and feed the pedal. Running
-  // `freeRpm` to redline instead meant full throttle put the engine into the over-rev side of the
-  // curve, torque collapsed to a quarter, and a loaded truck could not pull away in FIRST.
+  // A free engine is held at the band, not run to redline, or a loaded truck can't pull away in first.
   const freeRpm = IDLE + throttle * (p.band[1] - IDLE);
 
-  // THE CLUTCH SLIPS ON ITS OWN BELOW IDLE, which is what a driver's left foot is for and what
-  // this model does not ask the player to simulate. Without it the geared rpm at a standstill is
-  // zero, so EVERY pull-away stalled instantly — including first gear, which is not a gearbox, it
-  // is a handbrake. While slipping, the engine runs at its own speed and the gear cannot drag it
-  // down; you get whatever torque idle-plus-throttle makes, which in a tall gear is not much.
-  // That is lugging away from a stop, and it is the correct punishment for the wrong gear.
-  // LAUNCHING is not the same as being in the wrong gear, and conflating them broke both halves.
-  // A driver feathers the clutch pulling AWAY FROM REST and nowhere else — nobody is slipping it
-  // at thirty in sixth. So the slip window is a SPEED, not an rpm: below `LAUNCH_MPH` the left
-  // foot is doing the work and the gear cannot drag the engine down; above it the clutch is out,
-  // rpm is whatever the road says, and the consequences are real.
-  //
-  // Keying it off rpm instead meant a tall gear slipped forever (sixth and eighth pulled away
-  // identically, and better than FIRST), and stalling became literally unreachable, because
-  // slowing down put you back into the slip window that the stall check excluded.
-  // Two windows, and they are not the same window. LAUNCH is throttle-driven — a foot feathering
-  // the clutch to get moving — so it cannot protect you on the way DOWN, which is where the
-  // classic stall lives: rolling in a high gear, slowing for something, forgetting to go down the
-  // box. CRAWL is an unconditional auto-clutch at walking pace, so parking in a sensible gear never
-  // kills the engine and the depot is not a place you stall six times an evening.
+  // Auto-clutch slip windows, keyed on speed (never rpm, or tall gears slip forever and stalls vanish):
+  // LAUNCH: below LAUNCH_MPH on the throttle, the clutch feathers and the gear can't drag the engine.
+  // CRAWL: below CRAWL_MPH the clutch is always in, so parking never stalls.
   const launching = ratio === 0 || engaged < 0.05 || Math.abs(s.speed) < CRAWL_MPH
     || (Math.abs(s.speed) < LAUNCH_MPH && throttle > 0.05);
   const slipping = launching && geared < p.band[0];
   s.rpm = slipping ? freeRpm : geared * engaged + freeRpm * (1 - engaged);
 
-  // THE TORQUE CURVE. Flat-topped across a band, falling away either side. `torqueAt` is the whole
-  // character of the engine and the only reason a gear choice can be wrong.
   const torque = torqueAt(s.rpm, p);
-  // A SLIPPING CLUTCH DOES NOT TRANSMIT EVERYTHING, and that single number is what makes the wrong
-  // gear cost you. Without it you could feather away in sixth all the way to thirty and the whole
-  // box would be decoration: every gear pulls away identically while slipping, so the ONLY thing
-  // separating them is how long they have to slip before the engine can take the load. First bites
-  // at about six miles an hour; sixth is still slurring at thirty.
+  // A slipping clutch passes only part of the drive, so a tall gear has to slip longer.
   const SLIP_TRANSMIT = 0.45;
-  // A GEAR MULTIPLIES TORQUE, and until weight existed this model quietly did not say so: `drive`
-  // read the throttle and the band but never the ratio, so every gear pushed exactly as hard and
-  // the box was distinguished only by where it put the revs. Bobtail you never notice. Hitch eight
-  // tonnes to it and first gear cannot pull away — which is not a heavy truck, it is a broken one.
-  //
-  // Normalised against TOP gear, so top is 1.0 and the existing top-speed tuning is untouched, and
-  // square-rooted because the honest ratio spread (6.5:1) would make first gear a dragster. What
-  // survives is the shape that matters: low gears pull, high gears don't, and the difference is
-  // most of why you choose one.
+  // A gear multiplies torque: normalised to top gear (top = 1) and square-rooted to tame the spread.
   const ratioBoost = ratio > 0
     ? Math.sqrt(ratio / p.gears[p.gears.length - 1]) * (Math.abs(gear) === 1 ? FIRST_BOOST : 1)
     : 0;
   const drive = p.thrustMax * throttle * torque * engaged * surf.drive * ratioBoost * (slipping ? SLIP_TRANSMIT : 1);
 
-  // STALLING, and it is a DIFFERENT mistake from lugging away from a stop. You stall when the
-  // clutch is properly out — the truck is rolling, the gear is doing the work — and you let the
-  // road drag the engine under. In sixth that is anything below about eight miles an hour, so the
-  // classic death is slowing for something and not going down the box. Feathering away from rest
-  // can never stall you, because the clutch is slipping and the gear has no grip on the engine.
+  // Stall: clutch out, rolling, and the road drags the engine under STALL_RPM. Slipping never stalls.
   if (!s.stalled && !slipping && geared < STALL_RPM) {
     s.stalled = true;
     s.events.push('stall');
@@ -1282,154 +702,72 @@ function stepTruck(state, input, p, dt) {
   }
   const power = s.stalled ? 0 : drive;
 
-  // ENGINE BRAKING. Off the throttle and in gear, the road turns the engine and the engine
-  // resists — hard in a low gear, barely at all in a high one. This is the payoff the gearbox
-  // exists for on a descent, and it is why "pick a gear at the top" is a real decision: hold the
-  // right one and the service brakes stay cold. (Brake TEMPERATURE lands in phase 2; the retarding
-  // force is here now so the habit is learnable before it is punished.)
+  // Engine braking: off the throttle in gear, stronger in low gears. Keeps service brakes cold on a descent.
   const jake = (input.jake && !s.stalled && ratio > 0 && engaged > 0.5) ? p.jake : 0;
-  // A SLIPPING CLUTCH CANNOT TRANSMIT DRAG EITHER, and forgetting that half made reverse and any
-  // heavy launch nearly immovable: pulling away, the engine was fighting itself through a clutch
-  // that was only passing 45% of the drive but 100% of the retarding force. The gate is the same
-  // `slipping` flag, because it is the same clutch.
+  // A slipping clutch transmits no engine drag either, or launches fight themselves.
   const engBrake = (s.stalled || slipping) ? 0
     : (ratio > 0 ? engaged * (1 - throttle) * ratio * p.engBrake * (1 + jake) : 0);
 
-  // WEIGHT. One number, derived, doing four jobs: it blunts the engine, lengthens the stop, heats
-  // the brakes faster and slows the trailer's swing. A load is not a debuff on a stat sheet — it is
-  // the same rig with more of it, so everything is divided by mass rather than penalised by a
-  // lookup. Bobtail (`loadKg` 0 and no trailer) is genuinely quick, which is why running empty is a
-  // real choice and not just the state you are in before the game starts.
+  // Mass ratio: blunts the engine, lengthens the stop, heats the brakes, slows the trailer swing.
   const mass = (p.kg + (s.trailerKg || 0) + (s.loadKg || 0)) / p.kg;   // 1 = bobtail, ~2.5 = loaded
 
-  // BRAKE TEMPERATURE, and the reason the gearbox pays off on a descent. Service brakes turn speed
-  // into heat; the engine brake and the Jake do not, because they dump it out of the exhaust. Ride
-  // the pedal down a grade with weight behind you and they FADE — the pedal stays where it is and
-  // stops doing as much, which is the correct horror. Holding a gear keeps them cold.
+  // Brake temperature: service brakes heat, the engine brake and Jake don't. Past FADE_AT the pedal fades.
   const braking = brake * (Math.abs(s.speed) / p.tileMph);
   s.brakeTemp = clamp((s.brakeTemp || 0) + (braking * mass * 0.13 - (s.brakeTemp || 0) * 0.22) * dt, 0, 1.4);
-  // Fade is flat until it isn't. Below `FADE_AT` the brakes are brakes; past it they lose more than
-  // half their bite, and the smoke tells you before the speedometer does.
   const fade = s.brakeTemp <= FADE_AT ? 1 : Math.max(0.35, 1 - (s.brakeTemp - FADE_AT) * 1.6);
   if (s.brakeTemp > FADE_AT && !s.wasFading) { s.events.push('brakefade'); s.wasFading = true; }
   else if (s.brakeTemp < FADE_AT * 0.8) s.wasFading = false;
 
-  // REVERSE. Gear 0 is neutral and gear −1 is reverse, so `ratio` is read off the absolute index
-  // and the DIRECTION is the sign. Everything downstream integrates a signed speed, which is what
-  // makes backing a trailer work at all: the articulation term below flips with it, on its own.
+  // Direction is the gear's sign; speed is signed, so the trailer term flips on its own in reverse.
   const dir = gear < 0 ? -1 : 1;
-  // Rolling + aero resistance, the brakes, and the engine holding it back. All of it opposes the
-  // direction of travel rather than being subtracted blindly, or reversing would accelerate you.
-  // ⚠ A STATIONARY TRUCK HAS NOTHING FOR RESISTANCE TO OPPOSE, and the `|| dir` fallback quietly
-  // said otherwise: at a dead stop `Math.sign(0)` is 0, so every resisting force — rolling, aero,
-  // the brakes, the settled shrouds — was applied FORWARD, which pushed the truck BACKWARDS out of
-  // a standstill. It then oscillated about a small negative speed forever, because at −0.2 the
-  // sign flips and the same forces shove it the other way. That is the constant drift, and it is
-  // also why the brake could not hold it: the brake was the strongest thing doing the pushing.
-  //
-  // The fallback is kept for the one case it was written for — pulling away, where the resistance
-  // has to oppose the direction you are ASKING for or a truck at rest would accelerate as if the
-  // road were ice. Off the throttle it is zero, which is the honest answer: nothing is happening.
+  // Resistances oppose the direction of travel. ⚠ At a dead stop they oppose nothing (sign 0), or the
+  // truck drifts backwards; when pulling away they oppose the asked-for direction.
   const moving = Math.sign(s.speed) || (power > 0 ? dir : 0);
-  // Mass is applied WHERE IT PHYSICALLY BELONGS, which is not everywhere. Rolling resistance grows
-  // with weight in step with the weight it is slowing, so it stays a constant deceleration and is
-  // NOT divided — that is why a loaded truck rolls to a stop about as readily as an empty one. Aero,
-  // the brakes and the engine brake are fixed forces fighting a bigger number, so they are, and
-  // that is why a loaded truck takes so much longer to STOP. Getting this backwards is what makes a
-  // load feel like a debuff instead of like weight.
-  // ── DEAD ENGINE MEANS DEAD LIFTERS, AND THE RIG IS SITTING ON ITS SHROUDS ───
-  // This truck does not have wheels. The lifters hold it off the road and they run off the engine
-  // — which the mesh has always said (a parked rig settles, `HOVER` is given up) and the audio has
-  // always said (the wash dies with the motor), while the PHYSICS went on rolling it along as if
-  // nothing had changed. Shut down at fifty and you coasted for a quarter of a mile, steering.
-  //
-  // So the two things the pods were doing stop when they stop:
-  //   · the ground bites — a shroud dragging on tarmac is not a bearing (`SETTLED_DRAG`)
-  //   · and NOTHING TURNS. See the yaw term below.
-  // It is not a handbrake. You still roll, you still have the service brakes, and you can still be
-  // pushed — you simply cannot point it any more, which is the honest consequence of switching off
-  // the things that were pointing it.
+  // Rolling resistance isn't divided by mass (it grows with weight); aero, brakes and engine brake are.
+  // Dead engine means dead lifters: the rig sits on its shrouds, the ground bites (SETTLED_DRAG) and
+  // nothing turns. You still roll and can still brake.
   const SETTLED_DRAG = 5.5;
-  // Split along the line `INERTIA` draws (see its note): rolling and aero are what the engine is
-  // working against on the way up to speed, so they ride the divisor with it. The pedal, the Jake
-  // and a set of shrouds dragging on tarmac are RETARDING forces that answer to nobody's gearing,
-  // so they keep their full authority — which is why the settled term is now the EXTRA over
-  // ordinary rolling rather than the multiplier it used to be. A multiplier would have smuggled the
-  // bite of a dead set of lifters inside the divisor and handed back half the coast it exists to
-  // stop. (It is multiplied by `mass` on the way out because it is divided by it on the way in, and
-  // a shroud dragging on tarmac is rolling resistance: it grows with the weight sitting on it.)
+  // Rolling and aero ride the INERTIA divisor; brakes, Jake and the settled extra over rolling don't.
   const roll = p.rollFric * surf.drag;
   const aero = p.dragP * s.speed * s.speed;
   const retard = brake * p.brake * fade + engBrake + (s.stalled ? roll * (SETTLED_DRAG - 1) * mass : 0);
   const before = s.speed;
   s.speed += ((power * dir / mass - (roll + aero / mass) * moving) / INERTIA
               - (retard / mass) * moving) * dt;
-  // Resistance stops you; it never drags you backwards through zero. (Without this a stationary
-  // truck with the brake on oscillates about zero and the roll noise chatters.)
+  // Resistance stops you; it never drags you back through zero.
   if (before !== 0 && Math.sign(s.speed) !== Math.sign(before) && power === 0) s.speed = 0;
-  // …and a dead stop is a STOP. Without this the last fraction of a mile an hour never resolves:
-  // the integrator halves it every tick and the truck creeps for ever at a speed too small to see
-  // on the gauge and large enough to walk it out of a parking bay. Only off the throttle, so it can
+  // Snap a tiny residual to a stop, off the throttle only so it never eats a pull-away.
   // never eat a genuine pull-away.
   if (power === 0 && Math.abs(s.speed) < 0.05) s.speed = 0;
   const cap = p.topSpeed * surf.cap;
   s.speed = clamp(s.speed, -cap * REVERSE_CAP, cap);
   s.inBand = torque > 0.85 && !s.stalled;             // the cab lights this; you learn to drive on it
 
-  // 3. Bicycle model. Front axle at `steer`, rear axle follows: yaw = v·tan(δ)/L. Everything that
-  //    makes a long vehicle feel long is in that L — a semi tractor turns lazily at speed and
-  //    swings wide at a crawl, with no special-casing for either.
+  // 3. Bicycle model: yaw = v·tan(δ)/L.
   const delta = steer * truckSteerLock(s.speed, s.hitched) * D2R;
   const tps = s.speed / p.tileMph;                    // tiles per second — the sim's real velocity
-  // ⚠ GRIP IS AN UNDERSTEER TERM, NOT A STEERING-RATIO TERM. It used to multiply the yaw rate flat,
-  // which is wrong at exactly the speed a driver notices: a truck creeping across a dirt yard with
-  // the wheels on the stops is not sliding, it is TRACKING, and geometry alone says it comes round
-  // in L/tan δ whatever it is standing on. Scaling by 0.42 there meant the depot — the one place in
-  // the game the surface is not tarmac and the one place full lock is for — was where a cranked
-  // wheel did the least, which reads exactly like the steering being broken. Grip is what a tyre
-  // runs out of when you ask for lateral acceleration, so it now fades IN with speed and the crawl
-  // is pure kinematics. On the road (grip 1) this changes nothing at all.
-  // `p.tread` is the tyres (plugins/trucking/service.js): absent on every truck that has not worn
-  // them past the point they cost anything, so this is `surf.grip` exactly on all of those.
+  // ⚠ Grip fades in with speed: a crawl is pure kinematics, or full lock in the dirt depot does nothing.
+  // `p.tread` is tyre wear (plugins/trucking/service.js); absent means 1.
   const grip = surf.grip * (p.tread ?? 1);
   const gripAuth = grip + (1 - grip) * (1 - Math.min(1, Math.abs(s.speed) / 22));
-  // …and with the engine off there is no steer axle to speak of — see SETTLED_DRAG. A rig on its
-  // shrouds slides where it was already pointed.
+  // Engine off: no yaw (see SETTLED_DRAG).
   const yaw = (!s.stalled && Math.abs(tps) > 0.001) ? (tps * Math.tan(delta) / p.wheelbase) * R2D * gripAuth : 0;
   s.heading = wrap360(s.heading + yaw * dt);
   s.yawRate = yaw;
 
-  // 3b. THE TRAILER — two bodies, one constraint, one free variable.
-  //
-  //  The kingpin sits a fixed distance behind the tractor's rear axle, so the only thing that is
-  //  not already determined is the ARTICULATION ANGLE φ between the two. Everything people mean
-  //  when they say a semi handles like a semi is that one scalar and its derivative:
-  //
-  //      ψ̇ = (v·sin φ − a·θ̇·cos φ) / Lt        φ = θ − ψ
-  //
-  //  where θ is the tractor heading, ψ the trailer's, `a` the hitch offset and Lt the trailer
-  //  wheelbase. Nothing here is a rule about trucks; it is the geometry written down honestly.
-  //
-  //  JACKKNIFE IS NOT CODED. Past about 55° the sin term stops restoring and starts driving, and
-  //  the trailer folds on its own — harder with weight, harder on gravel, and hardest under
-  //  trailer brakes, all of which are already in the numbers above. There is no jackknife state
-  //  and no jackknife check; there is a constraint, and it does what constraints do.
-  //
-  //  REVERSING FLIPS IT, for free. Backing up makes `v` negative, which turns the restoring term
-  //  into a divergent one: the trailer no longer follows, it runs away, and you steer against it.
-  //  That inversion is the entire reason backing a trailer is a skill, and it costs one sign.
+  // 3b. Trailer: one free variable, the articulation angle φ = θ − ψ.
+  //     ψ̇ = (v·sin φ − a·θ̇·cos φ) / Lt
+  // Jackknife isn't coded: past ~55° the sin term drives the fold. Reversing (v < 0) makes it diverge.
   if (s.hitched) {
     const phi = s.phi * D2R;
     const psiDot = ((tps * Math.sin(phi) - p.hitchOffset * (yaw * D2R) * Math.cos(phi)) / p.trailerLen) * R2D;
-    // Heavier trailers are slower to swing AND slower to recover — the inertia cuts both ways,
-    // which is why a loaded jackknife is something you see coming and cannot stop.
+    // Heavier trailers swing and recover more slowly.
     s.trailerHeading = wrap360(s.trailerHeading + psiDot / Math.sqrt(mass) * dt);
     let d = s.heading - s.trailerHeading;
     s.phi = ((d + 540) % 360) - 180;
     if (Math.abs(s.phi) > JACKKNIFE_DEG && !s.wasFolding) { s.events.push('jackknife'); s.wasFolding = true; }
     else if (Math.abs(s.phi) < JACKKNIFE_DEG * 0.6) s.wasFolding = false;
-    // Folded past the physical limit the trailer is against the cab and you are not going forward
-    // through it. This is the one clamp, and it is a real thing that happens to real trucks.
+    // Past PHI_MAX the trailer is against the cab: the one clamp.
     if (Math.abs(s.phi) >= PHI_MAX) {
       s.phi = Math.sign(s.phi) * PHI_MAX;
       s.trailerHeading = wrap360(s.heading - s.phi);
@@ -1437,13 +775,12 @@ function stepTruck(state, input, p, dt) {
     }
   }
 
-  // 4. Position. Integrate along the heading in corridor tiles.
+  // 4. Position, in corridor tiles.
   const h = s.heading * D2R;
   s.x += Math.sin(h) * tps * dt;
   s.y += -Math.cos(h) * tps * dt;
 
-  // 5. Feedback the cab and the audio layer read. `slip` is the tyres losing the surface in a
-  //    corner — it drives the rumble and, later, the trailer's willingness to fold.
+  // 5. Feedback for the cab and audio. `slip` is the tyres losing the surface in a corner.
   const lat = Math.abs(yaw) * tps / 60;
   s.slip = clamp(lat / Math.max(0.05, grip), 0, 1);
   if (s.slip > 0.85 && !s.wasSliding) { s.events.push('slide'); s.wasSliding = true; }
@@ -1452,18 +789,12 @@ function stepTruck(state, input, p, dt) {
   s.groundSpeed = s.speed;
   return s;
 }
-// Per-surface handling. `cap` is a fraction of top speed, `grip` scales cornering, `drag` scales
-// rolling resistance, `drive` scales how much of the engine reaches the ground.
-// The verge must stay DRIVABLE. An early cut had offroad drag at 4.2, which put rolling resistance
-// (rollFric × drag = 8.8) above everything the engine could deliver off the pavement (thrustMax ×
-// drive = 5.6) — so the truck simply would not move, which is a wall wearing a penalty's clothes.
-// Every surface here must satisfy `thrustMax × drive > rollFric × drag` with headroom, or the
-// "edge of the road is a law, not a wall" rule is quietly broken by a tuning number.
+// Per-surface handling: `cap` fraction of top speed, `grip` cornering, `drag` rolling resistance,
+// `drive` engine reaching the ground. ⚠ Every row must satisfy thrustMax × drive > rollFric × drag
+// with headroom, or the truck can't move on it.
 export const SURFACES = {
   road:     { cap: 1.00, grip: 1.00, drag: 1.00, drive: 1.00 },
-  // A REAL ROAD THAT HAPPENS NOT TO BE PAVED. Slower and looser than tarmac and nothing like the
-  // verge: you can get a loaded rig up through the box on it, which is the entire difference
-  // between a route and a penalty. See surfaceUnder — only the CITY leg's `dirt_road` lands here.
+  // Unpaved road (only the city leg's `dirt_road`, see surfaceUnder): slower than tarmac, unlike the verge.
   dirt:     { cap: 0.86, grip: 0.86, drag: 1.12, drive: 0.96 },
   shoulder: { cap: 0.72, grip: 0.68, drag: 1.30, drive: 0.88 },   // gravel: it rumbles, and it pulls
   offroad:  { cap: 0.34, grip: 0.42, drag: 1.60, drive: 0.62 },   // the verge: passable, and a mistake
@@ -1473,19 +804,17 @@ export function createTruckState(p) {
   return {
     speed: 0, heading: 180, x: 0, y: 0,          // parked at the gate, pointed down-corridor (south)
     rpm: IDLE, yawRate: 0, slip: 0, wasSliding: false,
-    pedal: 0,                                    // boost, not pedal position — see the spool follower in stepTruck
+    pedal: 0,                                    // boost, not pedal position
     gear: 1, split: false, stalled: false, inBand: false, shifted: false,
     onRoad: true, groundSpeed: 0,
-    // The rig. `hitched` false is BOBTAIL and is a real way to drive, not an unfinished one:
-    // no φ to manage, no weight, and the truck is quick. φ and the trailer heading only mean
-    // anything while something is on the fifth wheel.
+    // `hitched` false is bobtail; φ and trailer heading only mean anything while hitched.
     hitched: false, phi: 0, trailerHeading: 180, trailerKg: 0, loadKg: 0,
     brakeTemp: 0, wasFading: false, wasFolding: false,
     events: [],
   };
 }
 
-// The truck's half of `readout` — same job, different instrument panel.
+// The truck's half of `readout`.
 export function truckReadout(s, p) {
   return {
     speed: Math.round(s.speed),
@@ -1513,92 +842,58 @@ export function truckReadout(s, p) {
 // THE BOAT
 // ════════════════════════════════════════════════════════════════════════════
 //
-// The truck's sibling, and it borrows the truck's whole shape: a client-sim integrator the server
-// reconciles rather than re-runs, a surface table, a speed dial anchored by `tileMph`, and one
-// entry in `step()`. What it does NOT borrow is the gearbox — a blown boat has one drive and no
-// ratios, so there is nothing to shift and the interesting longitudinal decision is the throttle
-// alone. Everything that makes it a boat instead of a truck on a blue road is below.
+// The truck's shape (client-sim integrator the server reconciles, surface table, `tileMph` dial)
+// without the gearbox: one drive, no ratios.
 
 // ── WATER, AS A SURFACE ─────────────────────────────────────────────────────
-// The same four columns SURFACES carries, and the same invariant, which is not decoration here
-// either: `thrustMax x drive > waterFric x drag` on EVERY row, with headroom, or a boat that
-// drifts off the racing line into the shallows is STUCK rather than slow — the wall wearing a
-// penalty's clothes that the truck's "edge of the road is a law" rule exists to forbid.
-//
-// ⚠ LAND IS DELIBERATELY NOT IN THIS TABLE. A boat on land really is a wall, so making it a row
-// with `drive: 0` would put a deliberate violation inside the very set a gate sweeps for
-// violations — and the gate would then have to carry an exception, which is how a real one gets
-// waved through later. Aground is its own branch in stepBoat, and it is the one place in this
-// model where being stopped is correct.
+// Same columns and invariant as SURFACES: thrustMax × drive > waterFric × drag on every row.
+// ⚠ Land is deliberately not a row (it would be a violation inside the gate's sweep); aground is
+// its own branch in stepBoat.
 export const WATER = {
   open:     { cap: 1.00, grip: 1.00, drag: 1.00, drive: 1.00 },
-  // A working chop. Slower and wetter, and it is where the hull starts being thrown about rather
-  // than merely lifted — the damage model reads the sea, not this row, so this only costs speed.
+  // Chop only costs speed here; the damage model reads the sea.
   chop:     { cap: 0.88, grip: 0.92, drag: 1.18, drive: 0.97 },
-  // Over the bar. The drive is half out of the water, so it is loose, draggy and slow — passable,
-  // and a mistake, exactly as the verge is.
+  // Over the bar: drive half out of the water. Passable, and a mistake.
   shallows: { cap: 0.55, grip: 0.70, drag: 1.70, drive: 0.78 },
 };
 
-// How much of the hull's condition a given insult costs. All three are fractions of a FULL hull,
-// so they read against the 0..1 bar directly.
-const HULL_LAND = 0.34;        // driving it onto the beach: catastrophic, and meant to be
-// ⚠ QUADRATIC IN THE EXCESS, AND THE FREE DROP IS TUNED AGAINST THE SEA THAT EXISTS. A linear cost
-// past 0.55 tiles/s made the whole slam branch DEAD CODE: measured, the worst touchdown the
-// shipping swell can produce is 0.55 and a full gale only reaches 0.65, so every landing in the
-// game was a free one and "landing hard breaks the boat" was a sentence with no arithmetic behind
-// it. The free drop is now under what an ordinary sea produces, and the cost is squared — so a
-// hundred small landings are cheap and the one that drops the hull flat off a big face is not,
-// which is the difference between a maintenance tax and a mistake.
-// The lip launch (step 6): how hard the water must fall away (tiles/s^2) before she leaves it, the
-// least upward speed that counts as a jump, how much of that speed she keeps, and the chop share.
+// Hull costs are fractions of a full hull (the 0..1 bar).
+const HULL_LAND = 0.34;        // driving it onto the beach
+// ⚠ Slam cost is quadratic in the excess over HULL_FREE_VS, and the free drop is tuned below what an
+// ordinary sea produces, or the slam branch is dead code.
+// Lip launch (step 6): water fall-away needed (tiles/s²), least upward speed that counts, share kept, chop share.
 const LIP_G = 0.11, LIP_MIN_UP = 0.06, LIP_THROW = 2.0, LIP_CHOP = 0.25;
-// The hull's attitude on the water is a spring and damper toward the sea's (step 9): stiffness in
-// rad/s, damping ratio, and how much of the chop reaches it at all.
+// Ride attitude spring toward the sea (step 9): stiffness rad/s, damping ratio, chop share.
 const RIDE_W = 7, RIDE_Z = 0.85, RIDE_CHOP = 0.3;
-// Climbing a face at speed the bow comes up past it (step 9): the share of the face's slope added
-// on top, reached from 0.3 tiles/s up to CLIMB_TPS, how many seconds of the water's tilt it leads
-// by, and the most bow-up (rad) the lift will take her to. In the air the nose follows the flight
-// path at AIR_UP climbing and AIR_DOWN falling, eased over AIR_TAU seconds.
+// Climbing a face the bow rises past it (step 9): slope share, full by CLIMB_TPS, lead (s), max (rad).
+// Airborne the nose follows the path at AIR_UP/AIR_DOWN, eased over AIR_TAU s.
 const CLIMB_LIFT = 0.9, CLIMB_TPS = 1.0, CLIMB_LEAD = 0.12, CLIMB_MAX = 0.5;
 const AIR_UP = 1.4, AIR_DOWN = 0.45, AIR_TAU = 0.12;
-// ⚠ SHE IS BUILT TO TAKE A BEATING. Measured over five minutes flat out: a 45 kt gale taken head-on
-// (the worst there is) costs about a quarter of the hull, 30 kt head-on under 3%, and any sea off
-// the bow a percent or two. So it takes several passages in bad weather to lose her. At 0.35 with
-// the free drop at 0.48, the same gale head-on took the whole hull in five minutes.
+// Per unit of squared excess. Tuned so a 45 kt gale head-on costs about a quarter of the hull in five minutes.
 const HULL_SLAM = 0.035;
 // An ordinary swell's landings are free; a big sea or a gale still costs.
 const HULL_FREE_VS = 0.55;
 // The most one landing can cost, however it was arrived at.
 const HULL_SLAM_MAX = 0.02;
-// How far the sea's clock may run apart from the frame's dt (seconds) before the step is taken as
-// a jump in the water rather than a rise (step 3).
+// Seconds the sea clock may differ from dt before the step counts as a jump in the water (step 3).
 const SEA_JUMP_S = 0.1;
-// ⚠ PER SECOND, SO IT IS SMALL. At 0.020 a minute of running hard across the swell took the hull
-// from 100% to 47% — which is not "a decision rather than a shortcut", it is a boat that dissolves
-// while you are looking at the scenery. At 0.004, sustained worst-case costs about a tenth of the
-// hull a minute, which you have to keep choosing.
+// Per second, beam-on hull cost; worst case about a tenth of the hull a minute.
 const HULL_BEAM = 0.004;
-// And it has a DEADBAND. The swell throws up 25 degrees of slope on its steeper faces, so a term
-// that starts the moment the hull is off level is a term that is always on — the lean has to be a
-// real one before it counts, and it saturates at a genuinely bad one.
+// Deadband: the swell's faces reach 25°, so only a real lean counts.
 const HULL_BEAM_FROM = 0.35, HULL_BEAM_FULL = 0.70;   // radians: ~20 deg to ~40 deg
 const NITRO_HEAT_HURT = 0.82;  // where leaning on the bottle starts costing hull
 
 export function createBoatState(p) {
   return {
     speed: 0, heading: 0, x: 0, y: 0,
-    pedal: 0,                     // the blower follower — what the engine is MAKING, not the lever
-    rich: 0, bang: 0,             // and how far it is behind / ahead of the lever — see step 4b
+    pedal: 0,                     // the blower follower: what the engine is making, not the lever
+    rich: 0, bang: 0,             // see step 4b
     rpm: IDLE,
     yawRate: 0, drift: 0, slip: 0,
-    // Where the hull is relative to the water under it. `z` is height above the LOCAL surface, so
-    // 0 is floating and anything positive is air — which is the whole reason a crest matters.
+    // `z` is height above the local surface: 0 floating, positive is air.
     z: 0, vs: 0, airborne: false,
     heave: 0, pitch: 0, roll: 0,
-    // The swell the caller is drawing. ⚠ ZERO IS FLAT WATER AND IS THE DEFAULT, so a harness that
-    // says nothing about the sea gets exactly the sea that has no waves in it — which is what makes
-    // "the ride is flat when the swell is off" a provable statement rather than a hopeful one.
+    // The swell the caller draws. ⚠ Zero (flat water) is the default, so harnesses get no waves.
     seaRoll: 0, seaWind: 0, ssx: 0, ssy: 0, clock: 0,
     nitro: 1, nitroOn: false, nitroHeat: 0,
     hull: 1, hullHit: 0,
@@ -1609,31 +904,17 @@ export function createBoatState(p) {
 
 // ── HOW THE SEA IS HOLDING THE HULL, RIGHT NOW ──────────────────────────────
 //
-// ⚠ AND IT IS THE TANGENT PLANE, NOT A THREE-POINT FIT, WHICH IS THE DIFFERENCE BETWEEN THIS AND
-// THE ECHELON. `yachtRide` samples the bow and both quarters and fits a plane through them, and
-// its own comment says why: she is about a tile long against an 8.6-tile swell, so she BRIDGES the
-// wave and the gradient under her bow is not the angle she sits at. This hull is `hullLen` — about
-// 0.036 of a tile — which is a fiftieth of that wave, so the three samples would land inside a
-// rounding error of each other and the fit would be the local slope computed the expensive way.
-// A short boat rides tangent to the face. That is not an approximation, it is the behaviour: it is
-// why a race boat follows the water and a ship ignores it, and it is the whole feel of the thing.
-//
-// `seaSlope` returns the gradient in closed form for four more cosines and no texture taps, which
-// is exactly what it was written for.
+// The tangent plane at her centre, unlike the Echelon's three-point fit (`yachtRide`): this hull is
+// a fiftieth of the swell, so a short boat rides tangent to the face. `seaSlope` is closed form.
 export function boatSeaPose(s, p, t) {
   const rollA = s.seaRoll || 0, windA = s.seaWind || 0;
   if (!(rollA > 1e-4 || windA > 1e-4)) return { heave: 0, pitch: 0, roll: 0, du: 0, dv: 0 };
   const u = s.x + (s.ssx || 0), v = s.y + (s.ssy || 0);
-  // ⚠ THE ROLL AND THE WIND SEA, AND NOT THE CHOP — the same two terms `seaPoseAt` answers with and
-  // the same two the MESH displaces, because a hull has to ride the water somebody is drawing.
-  // The chop is about a tile and is geometry only round the eye, so her HEIGHT rides it
-  // (`hullChopAt`) and her attitude takes a low-passed share of it (step 9); the wind sea is 3.2
-  // tiles and the roll 8.6, and this hull is 0.07 of a tile, so both are real swell to it.
+  // ⚠ Roll and wind sea only, the terms the mesh and `seaPoseAt` use. Height rides the chop via
+  // `hullChopAt`; attitude takes a low-passed share (step 9).
   const [du, dv] = seaSlope(u, v, t, rollA, 0, windA);
   const h = (s.heading || 0) * D2R, sh = Math.sin(h), ch = Math.cos(h);
-  // The basis `step` moves in: forward is (sin h, -cos h) and right is (cos h, sin h). Taken from
-  // the integrator below rather than restated, because a boat that pitched about an axis the
-  // position update disagreed with would lean the wrong way in half the compass.
+  // Forward is (sin h, -cos h), right is (cos h, sin h): the integrator's own basis, or she leans wrong.
   const alongF = du * sh + dv * -ch;
   const alongR = du * ch + dv * sh;
   return {
@@ -1646,32 +927,17 @@ export function boatSeaPose(s, p, t) {
 
 // ── THE RIDE THE PICTURE SHOWS ───────────────────────────────────────────────────────────────
 //
-// ⚠ THE PHYSICS AND THE PICTURE RIDE DIFFERENT HULLS, AND ONLY ONE OF THEM IS THE PHYSICS' SIZE.
-// `boatSeaPose` is right for the sim: the hull it integrates is `hullLen` long, a fiftieth of the
-// swell, and a point on a face is what launches her. But nobody LOOKS at that hull. The chase camera
-// draws her about 0.4 tiles long and the helm seats you in her at full size, about two tiles — and
-// the drawn chop is about a tile long. Posed by her centre alone, from the helm the sea stood over
-// her deck up to 8% of the time running across a 20-30 kt sea, over a metre of it at worst and
-// mostly at the transom in the middle of a jump. Posed by this fit it is under 3% from the helm and
-// none in the chase view (scripts/shapes/boatride.mjs). The "big waves wash over the boat" report
-// was mostly the green-water sheet's threshold rather than the pose: see `ownHullWash`.
+// ⚠ The picture is posed differently from the physics: the drawn hull is much longer than `hullLen`,
+// so it's posed by a least-squares plane through the drawn sea (swell, wind sea, chop) at fifteen
+// points over the drawn footprint (checked by scripts/shapes/boatride.mjs). See `ownHullWash` too.
 //
-// So the picture is posed by the WATER UNDER THE HULL IT DRAWS: a least-squares plane through the
-// drawn sea (swell, wind sea and chop, the three things the mesh displaces) at fifteen points over
-// her footprint at that view's own size. A boat bridges the short waves and lies along the long
-// ones, and a plane through her whole plan is both of those at once.
+//   vr     drawn vertical over plan scale (CONTACT_VS), so a water slope b is a pitch of atan(b / vr)
+//   trim   the tabs, -1..1: bow-up running trim
+//   spd01  speed, 0..1 of her ceiling
 //
-//   vr        the drawn hull's vertical scale over its plan scale (the renderer exaggerates height,
-//             CONTACT_VS), so a water slope b is a hull pitch of atan(b / vr) — posed with the true
-//             angle, her bow would stand 1.6 times as high off the face as the water does
-//   trim      the tabs, -1..1: a planing hull runs bow-up a few degrees, and the tabs set how many
-//   spd01     way on, 0..1 of her ceiling, which is what puts her on the plane
-//
-// Off the water the sim's own attitude takes over (the nose following the flight path), and it
-// hands back over a quarter of a second after she lands rather than snapping. Her height in the
-// air is the sim's `z` on top of the fitted surface. ⚠ ROLL IS STARBOARD-UP POSITIVE, the sim's
-// convention: the renderer's `bank` is starboard DOWN, so a caller negates it (boat-view does).
-// `r` is the caller's state, one per view, so a camera that changes scale does not inherit a ride.
+// Airborne, the sim's attitude takes over, handing back over a quarter second after landing.
+// ⚠ Roll is starboard-up positive; the renderer's `bank` is starboard down, so callers negate it.
+// `r` is per-view caller state, so a camera that changes scale doesn't inherit a ride.
 export function boatFitPose(s, t, halfLen, halfBeam) {
   const rollA = s.seaRoll || 0, windA = s.seaWind || 0, chopA = s.seaChopH > 0 ? s.seaChopH : 0;
   if (!(rollA > 1e-4 || windA > 1e-4 || chopA > 0)) return { heave: 0, slopeF: 0, slopeR: 0 };
@@ -1680,12 +946,12 @@ export function boatFitPose(s, t, halfLen, halfBeam) {
   let n = 0, sz = 0, sFz = 0, sGz = 0, sFF = 0, sGG = 0;
   for (const fu of [-1, -0.5, 0, 0.5, 1]) for (const gu of [-1, 0, 1]) {
     const F = fu * halfLen, G = gu * halfBeam;
-    // Forward is (sin h, -cos h) and right is (cos h, sin h), the integrator's own basis.
+    // The integrator's basis.
     const u = u0 + sh * F + ch * G, v = v0 - ch * F + sh * G;
     const z = seaRoll(u, v, t, rollA) + seaWind(u, v, t, windA) + (chopA ? seaChop(u, v, t) * chopA : 0);
     n++; sz += z; sFz += F * z; sGz += G * z; sFF += F * F; sGG += G * G;
   }
-  // The samples are symmetric about her centre, so the plane's three terms separate exactly.
+  // Symmetric samples, so the plane's three terms separate exactly.
   return { heave: sz / n, slopeF: sFF > 0 ? sFz / sFF : 0, slopeR: sGG > 0 ? sGz / sGG : 0 };
 }
 const RIDE_HEAVE_TAU = 0.05, RIDE_TILT_TAU = 0.09, RIDE_LAND_TAU = 0.25, RIDE_RUN_TRIM = 2.5 * D2R, RIDE_TAB_TRIM = 1.5 * D2R;
@@ -1697,12 +963,8 @@ export function stepBoatRide(r, s, dt, { halfLen, halfBeam, vr = 1, trim = 0, sp
   pitch += plane * (RIDE_RUN_TRIM + RIDE_TAB_TRIM * clamp(trim, -1, 1)) / vr;
   const k = (tau) => (dt > 0 ? 1 - Math.exp(-dt / tau) : 1);
   r.air = (r.air ?? 0) + ((s.airborne ? 1 : 0) - (r.air ?? 0)) * k(s.airborne ? 0.04 : RIDE_LAND_TAU);
-  // ⚠ IN THE AIR SHE TILTS OFF THE WATER ONLY AS FAR AS THE AIR UNDER HER ALLOWS. The sim flies her
-  // bow-high, up to thirty degrees, which is right for the hull it integrates — a fiftieth of a wave
-  // long. Drawn two tiles long, the same angle swung her transom half a tile down through the water
-  // she had just left: every wet frame the gate found on a Gamecock was her stern, mid-jump. So the
-  // excursion from the water's own plane is held to the angle whose sine is her height over her half
-  // length (and half beam): she flies nose-up, and clear.
+  // ⚠ Airborne, tilt off the water's plane is limited by height over half length/beam, or the drawn
+  // transom swings down through the water.
   const zAir = Math.max(0, s.z || 0);
   const limP = Math.asin(Math.min(1, zAir / Math.max(1e-6, vr * halfLen)));
   const limR = Math.asin(Math.min(1, zAir / Math.max(1e-6, vr * halfBeam)));
@@ -1715,8 +977,7 @@ export function stepBoatRide(r, s, dt, { halfLen, halfBeam, vr = 1, trim = 0, sp
   return { heave: r.heave + (s.z || 0), pitch: r.pitch, roll: r.roll };
 }
 
-// The chop the mesh displaces under her centre: `seaChopH` is its drawn amplitude, handed over by
-// the seat. Absent (every headless caller) is none, so they keep the old heave exactly.
+// The chop under her centre; `seaChopH` is its drawn amplitude from the seat. Absent means none.
 function hullChopAt(s, t) {
   if (!(s.seaChopH > 0)) return 0;
   return seaChop(s.x + (s.ssx || 0), s.y + (s.ssy || 0), t) * s.seaChopH;
@@ -1724,12 +985,8 @@ function hullChopAt(s, t) {
 
 // ── MOVING HER ORIGIN ────────────────────────────────────────────────────────
 //
-// ⚠ THE SEA IS DRAWN IN THE MAP WINDOW'S FRAME, so when a seat recentres its window the drawn sea
-// jumps under her by the shift, and a hull that rides the drawn sea jumps with it. Moved on its own,
-// every figure the model remembers about the water (the heave a frame ago, the rise under her, her
-// height in the air) still describes the old water, and the one-frame step reads as a face hundreds
-// of tiles a second steep: a launch out of nothing, or a landing in mid-air. So everything that
-// remembers the water moves by the same step, and she keeps her height above it.
+// ⚠ The sea is drawn in the map window's frame, so on a recentre everything that remembers the water
+// moves by the same step, or the jump reads as a launch or a mid-air landing.
 export function shiftBoatOrigin(s, p, dx, dy) {
   const t = s.clock || 0;
   const w0 = boatSeaPose(s, p, t).heave, c0 = hullChopAt(s, t);
@@ -1740,8 +997,7 @@ export function shiftBoatOrigin(s, p, dx, dy) {
   if (s.prevHeave !== undefined) s.prevHeave += dw;
   if (s.chopH !== undefined) s.chopH += dc;
   if (s.alt !== undefined) s.alt += dw + dc;
-  // The RATES start again rather than reading the jump: the water here rises at its own rate, and
-  // the change from the old one looked like a lip to the launch.
+  // Rates restart rather than read the jump as a lip.
   if (s.rideUp !== undefined) s.rideUp = undefined;
   s.seaPitch0 = undefined;
 }
@@ -1759,17 +1015,13 @@ export function boatReadout(s, p) {
     vs: +(s.vs || 0).toFixed(3),
     pitch: +((s.pitch || 0) * R2D).toFixed(1),
     roll: +((s.roll || 0) * R2D).toFixed(1),
-    // ⚠ STORED AS CONDITION, REPORTED AS A PERCENTAGE — see the note on the boats table. The row
-    // follows the truck (1 is out of the shop) and the readout follows the aircraft (hullPct), and
-    // this is the ONE place the two meet, so neither convention leaks into the other.
+    // Stored as 0..1 condition, reported as a percentage: the one place the two conventions meet.
     hullPct: Math.max(0, Math.round((s.hull ?? 1) * 100)),
     nitro: +(s.nitro || 0).toFixed(2),
     nitroHeat: +(s.nitroHeat || 0).toFixed(2),
     nitroOn: !!s.nitroOn,
     aground: !!s.aground,
-    // ⚠ THE SAME READING THE MODEL MAKES, NOT A SECOND ONE. Absent means running — see the note on
-    // `ignitionStep` — so a readout written `!!s.running` would report every untouched hull in the
-    // game as dead while the model went on driving it.
+    // Same reading as the model: absent means running.
     running: s.running !== false,
     cranking: (s.crank || 0) > 0,
     x: +s.x.toFixed(3), y: +s.y.toFixed(3),
@@ -1779,30 +1031,15 @@ export function boatReadout(s, p) {
 
 // ── THE IGNITION ─────────────────────────────────────────────────────────────
 //
-// ⚠ ABSENT MEANS RUNNING, AND THAT IS THE MIGRATION INVARIANT RATHER THAN A DEFAULT SOMEBODY LIKED.
-// This boat shipped with no ignition at all — she was alive the moment the pane opened — so every
-// caller that already exists (the text helm, every regress case, every harness that drives a hull
-// across the Basin) hands `stepBoat` a state with no `running` on it. Read as `!s.running` all of
-// them would be dead in the water and the whole suite would go red for a feature none of them have
-// heard of. `s.running !== false` is the one reading under which a state that has never been told
-// about the key behaves bit-for-bit as it did, and a state that HAS been told obeys it.
-//
-// ⚠ AND A DEAD ENGINE IS NOT A STOPPED BOAT. The lever is cut, the blower falls away and the motor
-// stops making revs — and the hull keeps every bit of the way it had, goes on riding the sea, and
-// goes on steering for exactly as long as there is water going past the rudder. That is what
-// killing the engine at forty miles an hour actually is, and it is why this is a term on the DRIVE
-// rather than an early return: a boat with no brakes that comes to a dead stop when you turn the
-// key would be a worse lie than not having a key.
+// ⚠ Absent `running` means running: existing callers never set it. Always read `s.running !== false`.
+// A dead engine cuts the drive only; the hull keeps its way, rides the sea and steers while water passes.
 export const CRANK_S = 0.85;            // how long the starter turns her over before she catches
 export const CRANK_RPM = 0.07;          // what the tacho shows while it is cranking: under idle
 
 function ignitionStep(s, input, dt) {
-  // The caller owns the switch; this owns what the switch DOES. `s.running` is set by whoever has
-  // the key — the panel on K, `conn start` in the text rung — and the starter is a held input.
+  // The caller owns `s.running` (panel K, `conn start`); the starter is a held input.
   if (s.running === false) {
-    // ⚠ DRY IS A REFUSAL, NOT A FAILURE TO CATCH, and the difference is audible: a motor with no
-    // fuel turns over for as long as you hold it and never fires. `fuel` is the caller's, because
-    // the model has no opinion about a database row — the hull's own note one section down.
+    // Dry: turns over forever and never fires. `fuel` comes from the caller.
     const dry = input.fuel != null && input.fuel <= 0;
     if (input.starter && !dry) {
       s.crank = (s.crank || 0) + dt;
@@ -1830,8 +1067,7 @@ export function stepBoat(s, input, p, dt) {
   const t = s.clock;
 
   // ── 0. AGROUND ─────────────────────────────────────────────────────────────
-  // The hard law. Not a penalty curve and not a surface row: a boat does not drive on land, so the
-  // way is scrubbed off and the hull pays for it once per grounding rather than every frame.
+  // Hard law: way is scrubbed off and the hull pays once per grounding.
   const aground = !!input.aground || input.surface === 'land';
   if (aground && !s.aground) {
     const bite = Math.min(1, Math.abs(s.speed) / Math.max(1, p.topSpeed));
@@ -1841,16 +1077,12 @@ export function stepBoat(s, input, p, dt) {
   s.aground = aground;
 
   // ── 1. THE BLOWER FOLLOWS THE LEVER ────────────────────────────────────────
-  // A supercharger spools; it does not snap. Lifting is quicker than coming on, which is the
-  // truck's own asymmetry and for the same reason — an engine dumps boost far faster than it makes it.
+  // Spools up slower than it dumps.
   const rate = lever > s.pedal ? 2.6 : 6.0;
   s.pedal = clamp(s.pedal + (lever - s.pedal) * Math.min(1, rate * dt), 0, 1);
 
   // ── 2. THE BOTTLE ──────────────────────────────────────────────────────────
-  // ⚠ IT IS THE TRUCK'S TURBO MADE TRANSIENT, not a second power system. `rig.js` already prices a
-  // hard turbo as "a bill you pay later" and spends it as heat; this is that, with the player
-  // holding the switch. There is no new resource: what it costs is HULL, through the same bar
-  // everything else on this boat costs, which is what stops it being free speed with a cooldown.
+  // No new resource: overheating the bottle costs hull.
   const want = running && !!input.nitro && s.nitro > 0 && !aground && s.pedal > 0.35;
   s.nitroOn = want;
   if (want) {
@@ -1871,17 +1103,12 @@ export function stepBoat(s, input, p, dt) {
   const pose = boatSeaPose(s, p, t);
   s.prevHeave = s.heave;
   s.heave = pose.heave;
-  // The drawn chop under her. Her HEIGHT rides it, because the mesh displaces it round the eye;
-  // her launch does not (step 6), because its 0.6-tile faces would be most of the jumps.
+  // Height rides the drawn chop; the launch doesn't (step 6), or chop faces would make most jumps.
   const chop0 = s.chopH || 0;
   s.chopH = hullChopAt(s, t);
   const surfZ = pose.heave + s.chopH;
-  // ⚠ THE SEA RUNS ON THE WALL CLOCK AND THE HULL ON THE FRAME'S dt, CAPPED AT 0.05 s. They agree
-  // to a few milliseconds a frame, and not at all across a hitch or a hidden tab: the clock jumps a
-  // second or ten while the hull moves one frame, and the whole of that jump in the water read as a
-  // rise hundreds of tiles a second steep. It threw her into a three-second flight and the landing
-  // took the entire hull in one slam. A jump is a new sea under her, handled as a recentre is: she
-  // keeps her height above it and the rates start again.
+  // ⚠ The sea runs on the wall clock, the hull on capped dt. A clock jump (hitch, hidden tab) is a new
+  // sea under her: keep her height above it and restart the rates, or she launches and slams.
   if (tPrev !== undefined && dt > 0 && Math.abs((t - tPrev) - dt) > SEA_JUMP_S) {
     if (s.alt !== undefined) s.alt += surfZ - ((s.prevHeave ?? pose.heave) + chop0);
     s.prevHeave = pose.heave;
@@ -1890,8 +1117,7 @@ export function stepBoat(s, input, p, dt) {
   }
 
   // ── 4. LONGITUDINAL ────────────────────────────────────────────────────────
-  // The truck's integration, with the gearbox taken out and the hump put in. Thrust only reaches
-  // the water while the drive is IN it, which is what makes a long flight off a crest cost you the
+  // Thrust only reaches the water while the drive is in it.
   // race rather than win it.
   const wet = s.airborne ? 0 : 1;
   const drive = p.thrustMax * s.pedal * boost * surf.drive * wet;
@@ -1899,21 +1125,9 @@ export function stepBoat(s, input, p, dt) {
 
   // ── 3b. THE TABS ───────────────────────────────────────────────────────────
   //
-  // ⚠ THIS IS NOT A SECOND THROTTLE, WHICH IS THE OBJECTION THE PLUGIN'S OWN HEADER RAISES. It says
-  // a blown boat has one drive and no ratios, so the interesting LONGITUDINAL decision is the lever
-  // alone — and that is still true. Trim is not longitudinal: it is the hull's ATTITUDE, and what
-  // it decides is how much of the boat is in the water. The two are orthogonal, which is why a real
-  // race boat has both and why the tabs are the thing that separates people who can drive one.
-  //
-  // Tabs DOWN (-1) pushes the bow down: more hull wetted, so more drag and a lower ceiling, but she
-  // climbs over her own bow wave more easily and she holds on. Tabs UP (+1) lifts her onto her
-  // after sections: less wetted surface and a real turn of speed, at the price of a boat that is
-  // barely holding the water and will fly off anything she meets.
-  //
-  // ⚠ NEUTRAL IS EXACT, NOT NEARLY. Every term is `1 + k * trim`, so at trim 0 each one is 1
-  // exactly and every passage anybody has ever driven behaves bit-for-bit as it did. That is the
-  // same migration invariant `calibration: 100` and the cooking dial's named tiers are built on,
-  // and it is what lets this land without retuning a single authored row.
+  // Trim tabs set attitude, not power. Down (-1): more wetted hull, more drag, easier over the hump,
+  // more grip. Up (+1): faster, worse hump, flies off faces. ⚠ Every term is `1 + k * trim`, so
+  // trim 0 is exactly neutral.
   const trim = clamp(input.trim || 0, -1, 1);
   const TRIM_DRAG = 0.16;      // bow up sheds parasitic drag — the top-speed half
   const TRIM_HUMP = 0.30;      // …and makes the hump worse, which is the price out of the hole
@@ -1921,99 +1135,53 @@ export function stepBoat(s, input, p, dt) {
   const TRIM_FLY  = 0.45;      // …and bow up is what actually throws her off a face
   s.trim = trim;
 
-  // ⚠ THE HUMP IS THE WHOLE LAUNCH. Below planing speed the hull is pushing its own bow wave uphill
-  // and the drag is enormous; over it the boat is riding on top of the water and most of that goes
-  // away. Written as a smooth shoulder rather than a step, because a cliff here reads as the engine
-  // catching rather than as the hull coming up.
+  // The hump: bow-wave drag below planing speed, as a smooth shoulder.
   const humpAt = p.hump ?? 48;
   const over = clamp((v - humpAt * 0.55) / (humpAt * 0.75), 0, 1);
   s.planing = over > 0.92;
-  // ⚠ IT IS A BUMP, NOT A FLOOR, AND THE DIFFERENCE IS WHETHER YOU CAN LEAVE A DOCK. Written as
-  // `humpDrag * (1 - over)^2` the resistance is at its MAXIMUM at rest — so below about 35% throttle
-  // the thrust never exceeded it and the boat did not move at all, measured at a flat 0.0 mph. That
-  // is the same wall-wearing-a-penalty's-clothes the surface invariant exists to forbid, arriving
-  // through a different term. A real hull pushes its own bow wave hardest somewhere AROUND
-  // three-quarters of planing speed and is free of it at both ends, so this is a parabola through
-  // zero at rest and zero once planing, peaking in between.
+  // ⚠ A bump, zero at rest and once planing, peaking near 0.72 of hump speed. Max drag at rest stops
+  // the boat leaving the dock.
   const hx = clamp(v / humpAt, 0, 1.6) - 0.72;
   const hump = (p.humpDrag ?? 5.4) * (1 + TRIM_HUMP * trim) * Math.max(0, 1 - (hx / 0.72) * (hx / 0.72));
   const fric = (p.waterFric ?? 2.2) * surf.drag * wet;
   const aero = p.dragP * (1 - TRIM_DRAG * trim) * s.speed * s.speed;
   const moving = Math.sign(s.speed) || (drive > 0 ? 1 : 0);
-  // Aground, the only term left is a very large drag: no thrust, no way to make any.
+  // Aground: a very large drag.
   const scrub = aground ? 26 : 0;
   s.speed += ((drive - (fric + hump * wet + scrub) * moving) / Math.max(0.2, p.mass) - aero * moving / Math.max(0.2, p.mass)) * dt;
   if (drive === 0 && Math.abs(s.speed) < 0.05) s.speed = 0;
-  // ⚠ THE BOOSTED CEILING IS SOLVED LIKE THE UNBOOSTED ONE. Terminal under nitro is
-  // sqrt(thrustMax * nitroMul / dragP) = sqrt(22 * 1.35 / 0.0011) = 164 mph, so the cap sits just
-  // above it and stays a BACKSTOP. At 1.12 the clamp was the thing actually limiting the boat,
-  // which makes the bottle feel like a switch that stops working rather than like more engine.
+  // Boosted cap sits just above nitro terminal, sqrt(thrustMax × nitroMul / dragP), so it stays a backstop.
   s.speed = clamp(s.speed, 0, p.topSpeed * surf.cap * (want ? 1.19 : 1));
-  // ⚠ AND THE TACHO READS THE CRANK, NOT ZERO, WHILE THE STARTER IS TURNING HER. A needle that sat
-  // dead on the peg through the whole start would leave nothing on the boat saying the key was
-  // doing anything at all — which is exactly the state the boat was in before it had a key. The
-  // shift lights and the engine note both hang off this one number, so they inherit it for free.
+  // The tacho reads CRANK_RPM while the starter turns; shift lights and engine note follow it.
   s.rpm = running
     ? IDLE + (1 - IDLE) * clamp(s.pedal * 0.55 + (v / Math.max(1, p.topSpeed)) * 0.45, 0, 1)
     : ((s.crank || 0) > 0 ? CRANK_RPM : 0);
 
   // ── 4b. HOW FAR OUT OF STEP THE MOTOR IS WITH THE LEVER ────────────────────
   //
-  // The blower follower above is asymmetric on purpose — 2.6/s coming up, 6.0/s going down — and
-  // the GAP it leaves is not an artefact of the smoothing, it is the whole physical story of an
-  // engine with too much air and not enough time. Split by sign it is two different events, and
-  // together they are everything a race motor does that you can SEE:
-  //
-  //   `rich` — the lever is ahead of the blower. Fuel is going past the valve unburnt and lighting
-  //     in the header, which is the flame out of a zoomie when somebody stands on it.
-  //   `bang` — the blower is ahead of the lever, at revs. You have shut it and eight cylinders'
-  //     worth of mixture has nowhere to go but out. That is the backfire.
-  //
-  // ⚠ DERIVED HERE BECAUSE THIS IS THE ONLY PLACE WITH A dt. A renderer or a sound module taking
-  // the same difference between two frames gets a number that depends on the frame rate, which is
-  // the bug the drift term shipped with; a panel reading `rich` off the state gets the same answer
-  // at 30 Hz and 144. It is also why they are state rather than a readout-only derivation: the wire
-  // carries them to other players' windscreens, and a boat two hundred yards away should flame when
-  // its driver stands on it.
-  //
-  // ⚠ AND `bang` IS GATED ON REVS, NOT ON SPEED. Snapping the lever shut at a dock is a motor
-  // dropping to idle; snapping it shut at seven grand is the noise the whole hull is known for.
+  // From the blower's asymmetric lag: `rich` (lever ahead of blower: header flame) and `bang` (blower
+  // ahead of lever, at revs: backfire). Derived here because this is the only place with a dt, and
+  // kept in state because the wire carries them to other players.
   s.rich = clamp((lever - s.pedal) * 2.6, 0, 1);
   s.bang = clamp((s.pedal - lever) * 1.7, 0, 1) * clamp((s.rpm - IDLE) / (1 - IDLE || 1), 0, 1);
 
   const tps = s.speed / (p.tileMph || 95);        // tiles per second — the sim's real velocity
 
   // ── 5. STEERING, AND WHY IT IS BAD ─────────────────────────────────────────
-  // Two separate things, and collapsing them is what makes a boat feel like a car on ice instead of
-  // like a boat.
-  //
-  //   · AUTHORITY falls with speed. A rudder in fast water is not a rudder with more grip, it is a
-  //     rudder you dare not use — so the LOCK comes down, hard, as the hull comes up. That is what
-  //     stops a 138 mph pass being a slalom.
-  //   · WAY does not follow the bow. The hull keeps going where it was already going and the nose
-  //     comes round first, which is `drift` — a real lateral velocity that decays over `driftTau`
-  //     seconds. Nothing anywhere decides "now you are sliding": a corner taken too fast simply
-  //     carries, because the number that would have to change is a physical one.
+  // Rudder authority falls with speed, and way doesn't follow the bow: `drift` is a real lateral
+  // velocity decaying over `driftTau`.
   const fade = 1 / (1 + (p.turnFade ?? 0.72) * (v / Math.max(1, humpAt)));
   const lock = (p.turnLock ?? 34) * fade * surf.grip * (1 - TRIM_GRIP * trim);
-  // ⚠ A RUDDER NEEDS WATER GOING PAST IT. Stopped, a boat cannot steer at all, and the whole
-  // low-speed feel of one comes from that: you point it by moving it. Airborne there is no water.
-  // ⚠ AND BEACHED THERE IS NO WATER EITHER: a hull up the sand does not answer her wheel.
+  // ⚠ A rudder needs water going past it: none when stopped, airborne or aground.
   const auth = (s.airborne || aground) ? 0 : clamp(v / 6, 0, 1);
   const yaw = steer * lock * auth;
   s.heading = wrap360(s.heading + yaw * dt);
   s.yawRate = yaw;
 
-  // The bow swinging is what PUTS way on the beam: the hull's existing velocity vector is now at an
-  // angle to the new heading, and that component is the slide.
-  // ⚠ IT IS A RATE, SO IT IS TIMES dt. Without it the slide is accumulated once per FRAME rather
-  // than once per second, which is a factor of sixty and reads as the hull being fired sideways off
-  // the map — measured at 17 tiles/s of drift against 1.4 of forward way. It also makes the
-  // handling a function of the frame rate, which is the quiet half of the same bug.
+  // Swinging the bow puts way on the beam (the slide). ⚠ It's a rate, so times dt.
   s.drift += (-yaw * D2R) * tps * dt;
   s.drift *= Math.exp(-dt / Math.max(0.05, p.driftTau ?? 1.35));
-  // BEACHING. The linear scrub above takes the way off; this takes it off quickly enough that she
-  // runs a hull-length up the shore rather than across it, and the slide stops with her.
+  // Beaching: scrub way fast enough that she runs a hull-length up the shore.
   if (aground) {
     s.speed *= Math.exp(-dt * 3.5);
     s.drift *= Math.exp(-dt * 8);
@@ -2025,21 +1193,12 @@ export function stepBoat(s, input, p, dt) {
   else if (s.slip < 0.28) s.wasSliding = false;
 
   // ── 6. AIR ─────────────────────────────────────────────────────────────────
-  // Leaving a crest, and coming back.
-  //
-  // ⚠ SHE LEAVES AT THE LIP, BECAUSE THAT IS WHERE WATER LETS GO OF A HULL. Riding a face, her
-  // vertical speed is the water's (`surfUp`, the rate the surface under her is rising). Over the
-  // crest that rise turns into a fall, and when the water falls away faster than she can drop
-  // (its vertical acceleration beats `LIP_G` downward) she keeps her upward speed and flies. So a
-  // jump is a place on the wave you aim at, the Wave Race read, and not a hop that can happen
-  // anywhere on a face. It used to be slope x speed past a bar, which fired all the way up every
-  // face and, with the chop in it, 30-odd times a minute.
-  const GRAV = 1.35;                                 // tiles/s^2 — tuned for a readable hang, not for Earth
+  // She leaves at the lip: riding a face her vs is the water's (`surfUp`); when the water falls away
+  // faster than LIP_G she keeps her upward speed and flies. A jump is a place on the wave you aim at.
+  const GRAV = 1.35;                                 // tiles/s², tuned for a readable hang
   const surfUp = dt > 0 && s.prevHeave !== undefined ? (pose.heave - s.prevHeave) / dt : 0;
   if (!s.airborne) {
-    // ⚠ THE CHOP ADDS A LITTLE, NOT THE LAUNCH. It is 4-8 m ripples the mesh does not even draw,
-    // and at full weight it was nearly every jump in the game. A quarter of it still roughens a
-    // lip, so the same wave is never quite the same jump.
+    // The chop adds only a share (LIP_CHOP), or it would be nearly every jump.
     let chopUp = 0;
     if (s.seaChop > 0 && tps > 0.45) {
       const hh = (s.heading || 0) * D2R, fx = Math.sin(hh), fy = -Math.cos(hh), e = 0.08;
@@ -2047,54 +1206,46 @@ export function stepBoat(s, input, p, dt) {
       const g = (seaChop(u0 + fx * e, v0 + fy * e, t) - seaChop(u0 - fx * e, v0 - fy * e, t)) / (2 * e) * s.seaChop;
       chopUp = Math.max(0, g) * tps * LIP_CHOP;
     }
-    // Her own upward speed: what the face was doing to her a frame ago (she has mass, the water
-    // does not), plus the chop's share.
+    // Her upward speed: the face's a frame ago (she has mass) plus the chop's share.
     const hullUp = (s.rideUp ?? surfUp) + chopUp;
     const accel = dt > 0 ? (surfUp - (s.rideUp ?? surfUp)) / dt : 0;
     const bonus = (p.launchVs ?? 0.55) / 0.9 * (1 + (want ? 0.35 : 0)) * (1 + TRIM_FLY * trim);
     if (tps > 0.45 && hullUp > LIP_MIN_UP && accel < -LIP_G / bonus) {
-      // The flight is flown in WORLD height (`alt`), not height above the water: see below.
+      // Flown in world height (`alt`); see below.
       s.airborne = true; s.vs = hullUp * LIP_THROW * bonus; s.z = 0.0001; s.alt = surfZ + s.z;
       s.events.push('launch');
     }
   }
   s.rideUp = s.airborne ? undefined : surfUp;
   if (s.airborne) {
-    // ⚠ THE HANG. Gravity eases off over the top of the arc, so a hull thrown off a face floats for
-    // a beat before it drops. The landing still comes in at the full rate.
+    // The hang: gravity eases over the top of the arc; the landing comes in at full rate.
     const apex = clamp(Math.abs(s.vs) / 0.35, 0, 1);
     s.vs -= GRAV * (0.5 + 0.5 * apex) * dt;
     if (s.alt === undefined) s.alt = surfZ + s.z;
     s.alt += s.vs * dt;
-    // ⚠ WORLD HEIGHT FIRST, THEN HEIGHT ABOVE THE WATER. `z` used to integrate on its own, so the
-    // hull traced the swell's shape through the air: it dropped into a trough with the water instead
-    // of flying over it. Now the sea falling away under her is air she keeps, and a trough really is
-    // a longer fall than the crest you left.
+    // ⚠ World height first, then height above water, so she flies over a trough instead of tracing it.
     s.z = s.alt - surfZ;
     if (s.z <= 0) {
-      // The hit is the closing speed, hull down against water coming up, not the fall alone.
+      // The hit is the closing speed against the water, not the fall alone.
       const surfVs = dt > 0 ? (pose.heave - (s.prevHeave ?? pose.heave)) / dt : 0;
       const impact = Math.abs(s.vs - surfVs);
       s.airborne = false; s.z = 0; s.vs = 0; s.alt = undefined;
       s.fromAir = true;        // the ride spring restarts from the air attitude, not the lip's rate
       s.landImpact = impact;   // for the seat's landing thump
-      // ⚠ BEAM-ON IS WHAT BREAKS A BOAT, not height. Landing flat across a face drops the whole
-      // length of one sponson onto rising water at once; landing bow-first onto the same face is
-      // what the hull is shaped to do. So the roll the sea is holding you at multiplies the drop.
+      // Beam-on landings break boats: the sea's roll multiplies the slam.
       const beam = Math.min(1, Math.abs(pose.roll) * 2.2);
       const over2 = Math.max(0, impact - HULL_FREE_VS);
       if (over2 > 0) {
         s.hullHit += Math.min(HULL_SLAM_MAX, over2 * over2 * HULL_SLAM * (1 + beam));
         s.events.push(over2 > 0.18 ? 'slam' : 'land');
       } else s.events.push('land');
-      // A hard landing scrubs way, which is the racing consequence of flying badly.
+      // A hard landing scrubs way.
       s.speed *= clamp(1 - over2 * 0.22, 0.45, 1);
     }
   }
 
   // ── 7. TAKING A SEA BADLY ──────────────────────────────────────────────────
-  // On the water, at speed, held over at an angle by a steep face. This is the slow bleed rather
-  // than the bang: it is what makes running hard across the swell a decision rather than a shortcut.
+  // Slow bleed for running fast while held over by a steep face.
   if (!s.airborne && !aground) {
     const lean = clamp((Math.abs(pose.roll) - HULL_BEAM_FROM) / (HULL_BEAM_FULL - HULL_BEAM_FROM), 0, 1);
     const fast = clamp((v - humpAt) / Math.max(1, p.topSpeed - humpAt), 0, 1);
@@ -2102,41 +1253,30 @@ export function stepBoat(s, input, p, dt) {
   }
 
   // ── 8. POSITION ────────────────────────────────────────────────────────────
-  // Heading-forward plus the slide, in the SAME basis boatSeaPose reads. ⚠ The drift is added on
-  // the BEAM, so a boat mid-slide is genuinely somewhere its nose is not pointing — which is the
-  // one thing that makes the handling readable from outside the boat.
+  // Forward plus the slide on the beam, in boatSeaPose's basis.
   const h = s.heading * D2R, shh = Math.sin(h), chh = Math.cos(h);
   s.x += (shh * tps + chh * s.drift) * dt;
   s.y += (-chh * tps + shh * s.drift) * dt;
 
   // ── 9. THE HULL ────────────────────────────────────────────────────────────
-  // ⚠ THE MODEL ACCRUES, THE OWNER DECIDES. `hullHit` is this frame's damage and `hull` is the
-  // running condition, but whether hitting zero DESTROYS the boat is a question about a database
-  // row and a player's money, and this file has no business answering it. It reports; the plugin
-  // spends. That is also what keeps a headless suite able to drive the hull to zero and look at it.
+  // ⚠ The model accrues damage and reports 'holed'; the plugin decides what zero hull means.
   if (s.hullHit > 0) {
     s.hull = clamp((s.hull ?? 1) - s.hullHit, 0, 1);
     if (s.hull <= 0 && !s.wasHoled) { s.events.push('holed'); s.wasHoled = true; }
   }
-  // How fast the water under her is tilting bow-up: the ride spring's lead into a face (below).
+  // How fast the water under her tilts bow-up: the ride spring's lead into a face.
   const seaTiltUp = dt > 0 && s.seaPitch0 !== undefined ? Math.max(0, (pose.pitch - s.seaPitch0) / dt) : 0;
   s.seaPitch0 = pose.pitch;
-  // Out of the water the sea no longer lifts her; she settles on her keel with a slight list.
+  // Aground: settles on her keel with a slight list.
   if (aground) { s.pitch = 0.04; s.roll = 0.06; s.heave = 0; s.chopH = 0; }
-  // In the air the nose follows the flight path: up off the face, over at the top, down to land.
-  // ⚠ UP MORE THAN DOWN, AND EASED. At 0.8 each way she left the lip nearly flat and came down
-  // nose-first, so the bow went through the back of the crest she was jumping and into the next
-  // face. A race hull flies bow-high and lands flat. Eased so the launch is not a snap of the nose.
+  // Airborne the nose follows the flight path, more up than down, eased: she flies bow-high and lands flat.
   else if (s.airborne) {
     const path = Math.atan2(s.vs, Math.max(0.3, tps));
     const aim = clamp(path * (path > 0 ? AIR_UP : AIR_DOWN), -0.2, 0.6);
     s.pitch += (aim - s.pitch) * (1 - Math.exp(-dt / AIR_TAU));
     s.roll = pose.roll * 0.5;
   } else {
-    // The chop, in the attitude as well as the launch: a race boat at speed is thrown about by the
-    // short faces it crosses, and a hull that only followed the long swell sat level at 130 mph.
-    // Low-passed (about 0.12 s) so it reads as slamming rather than jitter. Only the seat hands a
-    // `seaChop` over, so headless callers keep the old pose exactly.
+    // The chop in the attitude, low-passed (~0.12 s). Only the seat hands `seaChop` over.
     let cp = 0, cr = 0;
     if (s.seaChop > 0) {
       const hh = (s.heading || 0) * D2R, fx = Math.sin(hh), fy = -Math.cos(hh), e = 0.08;
@@ -2149,21 +1289,14 @@ export function stepBoat(s, input, p, dt) {
     const kf = 1 - Math.exp(-dt / 0.12);
     s.chopPitch = (s.chopPitch || 0) + (cp - (s.chopPitch || 0)) * kf;
     s.chopRoll = (s.chopRoll || 0) + (cr - (s.chopRoll || 0)) * kf;
-    // ⚠ THE GYRO TAKES ATTITUDE, NOT HEIGHT. `stab` is the share of the sea's pitch and roll the
-    // hull still answers to (absent is 1, all of it). It used to scale the swell's AMPLITUDE at the
-    // seat, so she rode a lower sea than the one drawn, sat inside the crests and rarely launched.
-    // The launch reads `pose` above, so a stabilised boat still flies.
+    // `stab`: share of the sea's pitch and roll the hull answers to (absent 1). ⚠ Attitude only, never
+    // the swell amplitude, or she sits inside the crests and rarely launches.
     const sk = s.stab ?? 1;
-    // ⚠ UNDER WAY SHE CLIMBS A FACE BOW-HIGH, AND THE GYRO DOES NOT HOLD THE BOW DOWN ON ONE. The
-    // spring lags the face, so a hull aimed at the slope alone sat with her bow in the water all the
-    // way up it (a fifth of the time at 30 kt, a third with the gyro on) and jumped from inside the
-    // crest. So the target sits above a rising face, and leads it by CLIMB_LEAD seconds of the
-    // water's own tilt so the bow is already coming up at the foot. Only bow-up and only with way
-    // on, so a boat at rest still bobs level.
+    // Under way she climbs a face bow-high, leading the water's tilt by CLIMB_LEAD, or the lagging
+    // spring sits her bow in the face. Bow-up only, with way on.
     const way = clamp((Math.abs(tps) - 0.3) / (CLIMB_TPS - 0.3), 0, 1);
     const climb = way * (Math.max(0, pose.pitch) * (CLIMB_LIFT + 1 - sk) + Math.min(0.25, seaTiltUp * CLIMB_LEAD));
-    // ⚠ SPRUNG, NOT TRACED. She has mass, so she follows the swell's shape and the chop only nudges
-    // her; traced, every ripple was a twitch of the bow (30 degrees a second of nose travel at 22 kt).
+    // Sprung, not traced, or every ripple twitches the bow.
     const tp0 = (pose.pitch + s.chopPitch * RIDE_CHOP) * sk;
     const tp = tp0 + Math.min(climb, Math.max(0, CLIMB_MAX - tp0));
     const tr = (pose.roll + s.chopRoll * RIDE_CHOP) * sk;
@@ -2181,180 +1314,115 @@ export function step(state, input, p, dt) {
   if (p.heli) return stepHeli(state, input, p, dt);
   const s = state;
   s.events = [];
-  // Elevator + trim: the trim wheel biases the yoke's neutral point, so a centred yoke
-  // holds the attitude the trim commands (hands-off cruise/climb). Combined, then clamped.
+  // Trim biases the yoke's neutral point, so a centred yoke holds the trimmed attitude.
   const elevator = clamp((input.elevator || 0) + (input.trim || 0), -1, 1);
   const aileron = clamp(input.aileron || 0, -1, 1);
   const throttle = clamp(input.throttle || 0, 0, 1);
   const flaps = clamp(input.flaps || 0, 0, 1);
-  const pedal = clamp(input.pedal || 0, -1, 1);   // rudder: yaws the nose (flat/skidding turn) airborne, steers the nosewheel on the ground
+  const pedal = clamp(input.pedal || 0, -1, 1);   // rudder: flat yaw airborne, nosewheel on the ground
 
-  // Battle damage: sheared structural surfaces (from the server, via input.dmgSurf = {leftWing,
-  // rightWing,tail,rudder} where 0 = gone). A missing wing makes no lift on its side, so she rolls
-  // AND yaws toward the dead side and sinks — you fight the stick to limp home. Tail/rudder loss
-  // costs pitch/yaw authority. This is the same asymmetry the stall wing-drop below already models,
-  // just from lost structure instead of a stalled wing. See §4/§5/§7 for where each bites.
+  // Battle damage: input.dmgSurf = {leftWing, rightWing, tail, rudder}, 0 = gone. A missing wing rolls
+  // and yaws her toward the dead side and sinks; tail/rudder loss costs pitch/yaw authority.
   const surf = input.dmgSurf || null;
   const lwGone = surf?.leftWing === 0, rwGone = surf?.rightWing === 0;
   const tailGone = surf?.tail === 0, rudderGone = surf?.rudder === 0;
   const bothWings = lwGone && rwGone;
   const wingDead = bothWings ? 0 : (lwGone ? -1 : (rwGone ? 1 : 0));   // sign toward the missing wing (0 = none/both)
   const oneWing = wingDead !== 0;
-  const WING_ROLL = 34, WING_YAW = 26;   // deg/s roll & yaw pulled toward the dead wing — tuned to be fightable with full opposite aileron, not an instant unrecoverable spiral
+  const WING_ROLL = 34, WING_YAW = 26;   // deg/s toward the dead wing; fightable with full opposite aileron
 
-  // 1. Engine inertia — rpm eases toward the throttle lever, never snaps.
+  // 1. Engine inertia.
   s.rpm += (throttle - s.rpm) * Math.min(1, dt / p.engineLag);
-  // `noThrust` (Leviathan visor lock) severs the thrust FORCE without touching the spool: the engines
-  // still run, rev and sound off the rpm above — she just makes no thrust to roll on until it clears.
+  // `noThrust` (Leviathan visor lock) cuts thrust force only; the engines still spool and sound.
   const thrust = (input.noThrust ? 0 : s.rpm) * p.thrustMax;
 
-  // 2. Control authority grows with airspeed. Below Vr the yoke is mushy — this is
-  //    what forces you to build speed on the roll before rotation does anything.
+  // 2. Control authority grows with airspeed; mushy below Vr.
   const auth = clamp(s.airspeed / p.vr, 0, 1.2);
 
-  // 3. Pitch: the yoke's effect BUILDS over ~pitchTau, so a quick jab does little —
-  //    it takes a firm, sustained pull to rotate or climb (heavy control). The
-  //    airframe also resists extreme attitudes: authority fades toward the pitch
-  //    limits, so it takes a lot of input to put yourself in danger. Released, it
-  //    self-levels toward stability.
+  // 3. Pitch: the yoke's effect builds over pitchTau, fades toward the limits, self-levels when released.
   s.elevEff += (elevator - s.elevEff) * Math.min(1, dt / p.pitchTau);
   if (s.onGround && p.groundPitch) {
-    // TAILDRAGGER ground attitude: she rests nose-high on the tailwheel at `groundPitch`. Forward
-    // stick + airflow over the tail (which needs roll speed to bite) RAISES THE TAIL — pitch comes
-    // down toward level; neutral/back stick pins the 3-point sit (you can't rotate past it, the
-    // tailwheel's already planted). Left alone she flies off in the 3-point at ~Vr; raise the tail
-    // for a faster wheel-takeoff. Overrides the tricycle rotate below while the wheels are down.
-    const tailAuth = clamp(s.airspeed / p.vr, 0, 1);                          // no airflow, no tail authority
+    // Taildragger on the ground: rests at groundPitch; forward stick with airflow raises the tail.
+    const tailAuth = clamp(s.airspeed / p.vr, 0, 1);
     const push = clamp(-s.elevEff, 0, 1);                                     // forward yoke lifts the tail
     const target = p.groundPitch - push * tailAuth * (p.groundPitch + 4);     // full forward + rolling → tail up (~−4°)
     s.pitch += (target - s.pitch) * Math.min(1, dt * 3.5);
     s.pitch = clamp(s.pitch, -4, p.groundPitch);
   } else {
-    const pitchResist = 1 - 0.55 * Math.abs(s.pitch) / 48;   // scaled to the wider ±48° envelope
+    const pitchResist = 1 - 0.55 * Math.abs(s.pitch) / 48;
     const pitchCmd = s.elevEff * p.pitchRate * auth * pitchResist * (tailGone ? 0.35 : 1);   // sheared tailplane → mushy elevator
     s.pitch += (pitchCmd - p.pitchStable * s.pitch * (1 - Math.abs(s.elevEff))) * dt;
-    // LOW-ENERGY NOSE-DROP — longitudinal static stability, and the thing that was missing when
-    // you pulled the power off. The self-level above holds an ATTITUDE, with full authority at any
-    // airspeed: at cruise that's indistinguishable from real stability (γ≈0 and the trim α≈0, so
-    // "level" IS "trimmed"), but with the throttle closed it becomes a free autopilot pinning the
-    // nose on the horizon while the flight path droops away underneath it. The aircraft mushed
-    // along at a steady high α forever, and NOTHING told the pilot the energy had gone.
-    // Real static stability restores the WING toward its trim angle of attack, not the fuselage
-    // toward the horizon — so as α climbs, the nose is pulled down toward the relative wind. It
-    // fades in over the top half of the α range, which is why cruise, a dive (α low — the nose
-    // still comes back up to level, the phugoid is intact) and any commanded attitude are all
-    // untouched; only the slow, draggy, out-of-energy case moves. What you feel is the nose
-    // falling on its own as the speed decays, and a glide that settles nearer best glide instead
-    // of sitting on the back side of the power curve.
+    // Low-energy nose drop (static stability): as α climbs past aoaGlide, the nose is pulled toward
+    // the trim α, so a power-off glide settles near best glide instead of mushing on the back side.
+    // Cruise, dives and commanded attitudes are untouched.
     const aoaGlide = tuning(p).aoaGlide;
     const droopIn = clamp((s.aoa - aoaGlide) / Math.max(1, p.aoaCrit - aoaGlide), 0, 1);
     if (droopIn > 0 && !s.onGround) {
       const gammaNow = Math.atan2(s.vs / 101.33, Math.max(1, s.airspeed)) * R2D;
-      const target = gammaNow + aoaGlide;    // restores toward the TRIM α, never to zero α (the wing still has to fly)
+      const target = gammaNow + aoaGlide;    // toward the trim α, never zero α
       s.pitch += (target - s.pitch) * droopIn * (p.pitchStable ?? 1) * 1.6 * (1 - Math.abs(s.elevEff)) * dt;
     }
     if (tailGone && !s.onGround) s.pitch -= 16 * dt;   // lost tail downforce → the nose tucks under
-    // Rotation attitude is gear-limited while the mains are still down — without this a held
-    // back-pressure keeps pitching (and AoA) up toward the full airborne limit before liftoff,
-    // and since the airborne stall-collapse never engages on the ground, the AoA² drag term
-    // below climbs unbounded and can pin airspeed short of flying speed forever. 15° is a
-    // generous real-world rotation attitude; airborne gets the full ±48° envelope (more yoke
-    // play — you can push the nose noticeably further down and haul it further up).
+    // Gear-limited rotation (15°) on the ground, or a held pull drives AoA drag up and pins her short
+    // of flying speed.
     s.pitch = clamp(s.pitch, s.onGround ? -5 : -48, s.onGround ? 15 : 48);
   }
 
-  // 4. Bank: like pitch, the roll effect BUILDS over ~rollTau and the airframe
-  //    resists toward full bank, so it takes a sustained full throw to reach the
-  //    limit. On the ground the gear holds the wings level — no roll until flying.
+  // 4. Bank: builds over rollTau, resists toward full bank; wings held level on the ground.
   if (s.onGround) {
     s.bank += (0 - s.bank) * Math.min(1, dt * 4);
     s.rollEff += (0 - s.rollEff) * Math.min(1, dt / p.rollTau);
   } else {
     s.rollEff += (aileron - s.rollEff) * Math.min(1, dt / p.rollTau);
     const rollResist = 1 - 0.4 * Math.abs(s.bank) / 70;
-    // A separated wing barely answers the ailerons — and the down-going aileron on the
-    // dropping wing only drives it DEEPER into the stall (see §6c). This is why "pick the
-    // wing up with aileron" is the wrong instinct and rudder is the recovery input.
+    // A stalled wing barely answers aileron, and aileron drives the dropping wing deeper (§6c).
     const rollCmd = s.rollEff * p.rollRate * auth * rollResist * (1 - 0.75 * s.stallDepth);
     s.bank += (rollCmd - p.rollStable * s.bank * (1 - Math.abs(s.rollEff))) * dt;
-    if (oneWing) s.bank += wingDead * WING_ROLL * dt;   // the lift-less side drops away — hold full opposite aileron to keep her level
+    if (oneWing) s.bank += wingDead * WING_ROLL * dt;
     s.bank = clamp(s.bank, oneWing ? -85 : -70, oneWing ? 85 : 70);
   }
 
-  // 5. Heading: a coordinated turn from bank (rate ∝ tan(bank)/speed) PLUS a direct yaw from the
-  //    rudder — a flat, skidding turn that swings the nose without banking. Rudder authority builds
-  //    with airspeed like the yoke (mushy below Vr), so it's a real control in the air: crab the
-  //    crosswind, skid a flat turn, or kick the nose straight on final. No airspeed → no yaw.
-  const rudderYaw = p.rudderYaw ?? clamp(15 / Math.sqrt(p.mass || 1), 4, 18);   // deg/s at full rudder & full authority (mass-scaled: heavier = lazier)
+  // 5. Heading: coordinated turn from bank plus direct rudder yaw, authority growing with airspeed.
+  const rudderYaw = p.rudderYaw ?? clamp(15 / Math.sqrt(p.mass || 1), 4, 18);   // deg/s at full rudder, mass-scaled
   if (s.airspeed > 1 && !s.onGround) {
     const turnRate = (G_KT * Math.tan(s.bank * D2R)) / Math.max(p.vs0, s.airspeed) * R2D;
-    let yaw = turnRate + pedal * rudderYaw * auth * (rudderGone ? 0 : 1);   // sheared rudder → no pedal yaw
-    if (oneWing) yaw += wingDead * WING_YAW;   // adverse yaw dragging the nose toward the dead wing (into the incipient spin)
+    let yaw = turnRate + pedal * rudderYaw * auth * (rudderGone ? 0 : 1);
+    if (oneWing) yaw += wingDead * WING_YAW;
     s.heading = wrap360(s.heading + yaw * dt);
   } else if (s.onGround && s.airspeed > 0.3) {
-    // Nosewheel/tiller steering on the ground — aileron OR rudder pedals swing the nose to taxi
-    // (mobile has no pedals, so aileron still steers). Needs a little roll speed to bite and fades
-    // toward rotation so you don't swerve at Vr.
+    // Nosewheel steering: aileron or pedals (mobile has no pedals), fading toward Vr.
     const steerAuth = clamp(s.airspeed / 5, 0, 1) * clamp((p.vr - s.airspeed) / p.vr, 0, 1);
     const steer = clamp(aileron + pedal, -1, 1);
     s.heading = wrap360(s.heading + steer * (p.groundSteer || 0) * steerAuth * dt);
   }
 
-  // 5b. Forward slip — CROSSED CONTROLS: a held bank against OPPOSITE rudder (bank and pedal of
-  //     opposing sign). Intensity scales with BOTH — you need a real bank AND real opposite rudder,
-  //     full by ~22° of bank with full rudder. A sheared rudder can't slip; grounded can't slip. It
-  //     eases in/out over ~0.5s so it's a deliberate cross, not a flick. The drag + lift-spill it
-  //     drives (§7/§8) are what make a slip SINK without gaining speed; the no-net-turn falls out of
-  //     §5 (the bank's turn and the rudder's yaw already oppose). This is the approach-salvage tool.
+  // 5b. Forward slip: bank against opposite rudder, full by ~22° with full rudder, eased over 0.5 s.
+  // Its drag and lift spill (§7/§8) sink her without gaining speed.
   const slipCross = (!rudderGone && !s.onGround && s.bank * pedal < 0)
     ? clamp(Math.min(Math.abs(s.bank) / 22, 1) * Math.abs(pedal), 0, 1) : 0;
   s.slip += (slipCross - s.slip) * Math.min(1, dt / 0.5);
 
-  // 6. ANGLE OF ATTACK — the one state variable the whole wing model runs on.
-  //    α = pitch − γ, where γ is the actual flight-path angle (from vs and airspeed). It is
-  //    a definition, not an approximation, and it is now the SAME number that sets lift (§7),
-  //    drag (§8), the stall (§6b), the buffet and the g-meter — the old model carried two
-  //    unreconciled AoAs (this one for drag, a separately-solved `aoaTrim` for lift) which is
-  //    why the stall could never be tested against `aoaCrit`.
-  //    The dynamics come free: γ chases the nose with the vertical inertia `vsTau`, so a fast
-  //    pull outruns the flight path and α SPIKES — which is exactly an accelerated stall.
-  //    Vertical speed is ft/min; 1 kt = 101.33 ft/min.
-  const flapLiftF = 1 + flaps * p.flapLift;                       // flaps buy lift → less AoA to stay up → fly slower with the nose lower (eases the approach)
-  const wingLiftMult = bothWings ? 0.15 : (oneWing ? 0.55 : 1);   // a sheared wing gives up half the lift budget → she sinks and stalls sooner; both gone = a brick
+  // 6. Angle of attack: α = pitch − γ, the one number for lift, drag, stall, buffet and g. γ lags the
+  //    nose by vsTau, so a fast pull spikes α (an accelerated stall). 1 kt = 101.33 ft/min.
+  const flapLiftF = 1 + flaps * p.flapLift;                       // flaps: less AoA to stay up
+  const wingLiftMult = bothWings ? 0.15 : (oneWing ? 0.55 : 1);   // sheared wing loses lift
   const gamma = Math.atan2(s.vs / 101.33, Math.max(1, s.airspeed)) * R2D;
   s.aoa = clamp(s.pitch - gamma, -25, 60);
 
-  // 6a. LOAD FACTOR — real, and derived from how much MORE lift the wing's actual α buys than
-  //     holding 1g at this speed costs. 1.0 in level cruise; a level 60° bank settles at 2g on
-  //     its own, because holding the nose up in the bank is what raises α, and 1/cos 60° = 2
-  //     falls straight out. Nothing fudges it and nothing needs to: the old
-  //     `1 + (1/cos φ − 1)·(0.3+0.7·pull)` produced exactly 1.0 for a wings-level pull, which
-  //     is why a hard yank could never stall anything.
-  //     It is NOT raw lift/weight. This is an arcade lift model whose trim α floors at 0, so a
-  //     wing in fast level flight still shows CL0 and raw lift/weight reads ~2g in a perfectly
-  //     level cruise. So g is assembled from the two things that genuinely load the wing: the
-  //     bank's own demand (clNeed/clLevel, i.e. 1/cos φ), plus whatever α the pilot is pulling
-  //     ABOVE the trim α. Exact in all four regimes — level cruise 1g, a level 60° bank 2g, a
-  //     wings-level haul >1g, and a bank steeper than the wing can hold reads the g it is being
-  //     ASKED for while §7 drops the aircraft out of it.
+  // 6a. Load factor: the bank's demand (clNeed/clLevel = 1/cos φ) plus any α pulled above trim.
+  //     Not raw lift/weight, which reads ~2g in fast cruise because trim α floors at 0.
   const T = tuning(p), weight = T.weight;
-  const dynBank = 0.5 * s.airspeed * s.airspeed * p.liftScale * Math.cos(s.bank * D2R) * wingLiftMult;   // vertical dynamic-pressure budget (a bank spills it; battle damage steals it)
-  const clNeed = weight / Math.max(20, dynBank);             // lift coefficient the wing must make to hold 1g in THIS bank
-  const clLevel = weight / Math.max(20, 0.5 * s.airspeed * s.airspeed * p.liftScale * wingLiftMult);   // …and wings-level, the 1g reference
-  const aoaTrim = clamp((clNeed / flapLiftF - CL0) / CL_ALPHA, 0, p.aoaCrit);   // AoA that buys it, up to the critical angle
+  const dynBank = 0.5 * s.airspeed * s.airspeed * p.liftScale * Math.cos(s.bank * D2R) * wingLiftMult;   // vertical dynamic-pressure budget
+  const clNeed = weight / Math.max(20, dynBank);             // CL needed for 1g in this bank
+  const clLevel = weight / Math.max(20, 0.5 * s.airspeed * s.airspeed * p.liftScale * wingLiftMult);   // wings-level 1g reference
+  const aoaTrim = clamp((clNeed / flapLiftF - CL0) / CL_ALPHA, 0, p.aoaCrit);
   const clNow = clOf(p, s.aoa, flapLiftF, s.stalled);
   s.g = (clNeed + Math.max(0, clNow - clOf(p, aoaTrim, flapLiftF, false))) / Math.max(0.05, clLevel);
   const gLimit = p.gLimit ?? G_LIMIT_DEFAULT;
   if (s.g > gLimit && !s.onGround) { if (!s.overG) { s.events.push({ type: 'overg', g: s.g }); s.overG = true; } }
   else if (s.g < gLimit * 0.9) s.overG = false;
 
-  // 6b. THE STALL — α past the critical angle, full stop. No speed threshold, no fudged load
-  //     factor, no multi-second timer: the stall speed is now an OUTPUT (a wing pulling 2g
-  //     reaches aoaCrit at √2 × Vs by itself) and an accelerated stall at cruise speed is
-  //     possible for the first time. STALL_ARM only rejects single-frame α spikes.
-  //     Recovery is REATTACH degrees of genuine hysteresis — a real separated wing does not
-  //     re-fly the instant α dips back under the critical angle, and that hysteresis is what
-  //     the old 1.9 s `STALL_HOLD` grace was standing in for.
+  // 6b. The stall: α past aoaCrit for STALL_ARM; reattach REATTACH below it.
   s.buffet = s.onGround ? 0 : clamp((s.aoa - (p.aoaCrit - BUFFET_BAND)) / BUFFET_BAND, 0, 1);
   s.stallMargin = s.onGround ? 1 : clamp((p.aoaCrit - s.aoa) / (BUFFET_BAND * 2), 0, 1);
   const wasStalled = s.stalled;
@@ -2366,32 +1434,19 @@ export function step(state, input, p, dt) {
   s.stallDepth = s.stalled ? clamp((s.aoa - p.aoaCrit) / POST_STALL_BAND, 0.15, 1) : 0;
   if (s.stalled && !wasStalled) {
     s.events.push({ type: 'stall' });
-    // Which wing lets go first — follow any existing bank/aileron, else drop the left. Held for this stall.
+    // Which wing drops: follow bank or aileron, else the left.
     s.stallDir = Math.abs(s.bank) > 1 ? Math.sign(s.bank) : (aileron !== 0 ? Math.sign(aileron) : -1);
   }
 
-  // 6c. POST-STALL DEPARTURE. The SINK is no longer scripted — it falls out of the CL collapse
-  //     in §7, so it now scales with speed, weight, bank and flap instead of being a fixed
-  //     multiple of vsMax. What stays authored here is the pitching MOMENT (the tail still
-  //     flies, so a stalled wing drops its nose) and the autorotation, because this is an
-  //     energy model with no moment arms. The two things that changed:
-  //       • RUDDER RECOVERS IT. The old wing-over marched heading at a flat 42°/s while the
-  //         pedal was worth 4–18°/s, so opposite rudder — the actual spin-recovery input —
-  //         was mathematically unable to stop it. Now the departure scales with stall DEPTH
-  //         and the pedal gets extra authority against it, so the real drill works: neutralise
-  //         the ailerons, opposite rudder, unload, and she comes back.
-  //       • AILERON MAKES IT WORSE. Fighting the drop with the stick (§4 already halves its
-  //         authority) drives the down-going wing deeper — the classic trap.
+  // 6c. Post-stall departure. The sink comes from the CL collapse in §7; authored here are the nose
+  //     drop and autorotation. Opposite rudder recovers (it gains authority with depth); aileron deepens it.
   if (s.stalled) {
     const held = clamp(s.elevEff, 0, 1);
     const depth = s.stallDepth;
-    s.pitch -= (10 + 26 * (1 - held)) * depth * dt;                   // let go of the stick and she noses over hard into her own recovery
+    s.pitch -= (10 + 26 * (1 - held)) * depth * dt;                   // let go and she noses over into recovery
     s.bank += s.stallDir * STALL_ROLL * depth * (0.18 + 0.82 * held) * dt;
-    if (aileron * s.stallDir < 0) s.bank += s.stallDir * 11 * depth * Math.abs(aileron) * dt;   // picking the wing up with aileron deepens the drop
-    // The pedal's anti-spin authority scales with the DEPTH it's fighting rather than with the
-    // airframe's cruise rudder power alone — otherwise the lazy rudder of a heavy (the Leviathan's
-    // is worth 6.7°/s) could never touch a 46°/s departure and the recovery drill would be a lie
-    // on exactly the aircraft that most needs it.
+    if (aileron * s.stallDir < 0) s.bank += s.stallDir * 11 * depth * Math.abs(aileron) * dt;
+    // Anti-spin pedal scales with depth, or a heavy's lazy rudder could never stop a departure.
     let spin = s.stallDir * SPIN_YAW * depth * held;
     if (!rudderGone) spin += pedal * (rudderYaw * 1.2 + SPIN_YAW * 0.75 * depth);
     s.heading = wrap360(s.heading + spin * dt);
@@ -2399,60 +1454,30 @@ export function step(state, input, p, dt) {
     s.bank = clamp(s.bank, -85, 85);
   }
 
-  // 7. Vertical motion — a FLIGHT-PATH ENERGY model (the rollercoaster). The velocity vector
-  //    chases where the NOSE points, offset by the angle of attack the wing needs to carry its
-  //    own weight at this speed:  γ_target = pitch − α_trim.
-  //      • FAST → the wing needs little AoA → γ ≈ pitch, so she goes exactly where she's pointed.
-  //        Nose DOWN and you DESCEND — and §8's gravity term trades that height for speed. You can
-  //        NOT hold altitude with the nose down (no "nose-low hover" — no level nose-down strafe).
-  //      • SLOW → the wing needs a big AoA → γ droops well below the nose (she mushes and sinks);
-  //        a hard BANK spills lift the same way (a steep turn sinks unless you pull / add power).
-  //    Because a climb bleeds speed (§8) which RAISES α_trim, a sustained zoom tapers itself off as
-  //    the energy runs out, and a dive builds speed you can zoom back into height — the coaster:
-  //    energy sloshes between altitude and airspeed instead of appearing out of the yoke. Hands-off
-  //    the nose self-levels toward pitch 0 (§3) → γ→0 → she holds altitude, no ballooning term needed.
-  let gammaCmd = s.pitch - aoaTrim;   // dynBank / clNeed / aoaTrim are computed once in §6a and shared with the g-meter
-  // THE MUSH IS NO LONGER CAPPED. `aoaTrim` saturating at aoaCrit used to throw the lift
-  // DEFICIT away at the clamp, so once the wing couldn't hold 1g the sink stopped deepening —
-  // slow, heavy, dirty and stalled configurations all under-sank, and the stall had to be
-  // faked back in with a fixed `-vsMax × 1.4` clamp. Now the shortfall between the CL the wing
-  // needs and the most it can make droops the flight path in proportion, and because
-  // `clMaxNow` carries the post-stall CL COLLAPSE, the falling-out-of-the-sky sink of a real
-  // stall is the SAME term — which is why it now scales with speed, weight, bank and flap.
+  // 7. Flight-path energy model: γ_target = pitch − α_trim. Fast, she goes where she's pointed; slow
+  //    or banked, the path droops below the nose. Energy trades between height and speed (§8).
+  let gammaCmd = s.pitch - aoaTrim;
+  // Lift deficit droops the path, unbounded; clMaxNow carries the stall collapse, so a stall's sink is this term.
   const clMaxNow = (CL0 + CL_ALPHA * p.aoaCrit) * flapLiftF
     * (s.stalled ? 1 - CL_COLLAPSE * clamp((s.aoa - p.aoaCrit) / POST_STALL_BAND, 0, 1) : 1);
   if (clNeed > clMaxNow) gammaCmd -= MUSH_DEG * clamp(clNeed / clMaxNow - 1, 0, 2.5);
-  let vsTarget = s.airspeed * 101.33 * Math.sin(Math.max(-85, gammaCmd) * D2R);   // ft/min along the commanded flight path (1 kt = 101.33 ft/min)
-  vsTarget -= s.slip * SLIP_SINK * s.airspeed;   // forward slip spills lift → an extra sink (energy-proportional, so a slow plane isn't over-sunk) you can plant on final (§5b); ground effect still cushions it below
-  // Service ceiling: climb authority fades to zero as the air thins toward p.ceiling (descent is
-  // untouched). A brief zoom can still trade speed for height above it — you just can't SUSTAIN a climb.
+  let vsTarget = s.airspeed * 101.33 * Math.sin(Math.max(-85, gammaCmd) * D2R);
+  vsTarget -= s.slip * SLIP_SINK * s.airspeed;   // forward slip sink (§5b)
+  // Service ceiling fades climb only; a zoom can still trade speed for height.
   const ceil = p.ceiling || 20000;
   if (vsTarget > 0) vsTarget *= clamp((ceil - s.altitude) / (ceil * 0.4), 0, 1);
-  // Rising air (thermals.js), added AFTER the ceiling fade: the ceiling is what the engine and wing
-  // can do, and a column of air lifts you whatever the engine is doing. Not scaled by mass: the
-  // whole air mass is moving, and a fast heavy aircraft simply crosses a column before it gains much.
+  // Rising air (thermals.js), after the ceiling fade and not scaled by mass.
   if (!s.onGround && input.lift) vsTarget += input.lift;
-  // Ground effect: within ~a wingspan of the deck the wing rides a cushion of trapped air — the
-  // sink softens so she FLOATS and you FLARE her on instead of driving her into the runway. A firm,
-  // wide cushion makes the touchdown forgiving — a slightly-fast/high-sink arrival still settles.
-  // Ground effect: within ~a wingspan of the deck the wing rides a cushion of trapped air — the
-  // sink softens so she FLOATS and you FLARE her on instead of driving her into the runway.
-  // THE BAND IS A WINGSPAN, SO IT SCALES WITH THE AIRFRAME. A flat 26 ft gave the 0.85-mass
-  // Grasshopper and the 5.0-mass freighter the same cushion, which is the freighter arriving on
-  // her gear at 1300 fpm with no cushion worth the name — the big wing is exactly the one that
-  // should float. And the cushion is applied to the vs TARGET, so `vsTau` of vertical lag used to
-  // eat most of it: at 400 fpm you cross a 26 ft band in under four seconds and the sink had
-  // barely begun easing when the wheels arrived. Inside the band the cushion is an immediate
-  // aerodynamic force, so the vertical lag is shortened in proportion — the sink actually comes
-  // off before touchdown rather than being promised and delivered late.
+  // Ground effect: the band scales with mass (a wingspan), and inside it the vertical lag shortens so
+  // the sink actually comes off before touchdown.
   const geBand = GROUND_EFFECT_FT * (0.7 + 0.3 * (p.mass || 1));
   let geLift = 0;
   if (!s.onGround && vsTarget < 0 && s.altitude < geBand) {
     geLift = 1 - s.altitude / geBand;      // 0 at the top of the band → 1 on the deck
-    vsTarget *= 1 - 0.6 * geLift * geLift; // softens the sink near the deck without cancelling it — she still settles onto the runway instead of floating
+    vsTarget *= 1 - 0.6 * geLift * geLift; // softens the sink without cancelling it
   }
   if (s.onGround && vsTarget <= 0) {
-    s.vs = 0;                                 // sitting on the wheels — no lift to climb on
+    s.vs = 0;                                 // on the wheels
   } else {
     const tau = p.vsTau * (1 - 0.6 * geLift);   // the cushion pushes back NOW; don't let vertical inertia post-date it
     s.vs += (vsTarget - s.vs) * Math.min(1, dt / tau);

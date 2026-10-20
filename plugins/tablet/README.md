@@ -63,6 +63,16 @@ time to add a Home-screen tile. `buildHome` is optional (extra data merged into 
 optional; if omitted, `tabletaction` re-renders the app's current screen after the action plugin
 performed its own side effect via a different command.
 
+## Home screen (client)
+
+The home grid lives in `client/game/js/panels/tablet-os.js` and is a client-only, per-device preference. The server never sees the order, the stash or the groups.
+
+- **Default set.** Sixteen apps (one page, four rows of four) in reading order: row 1 is what you open without thinking (where am I, what am I carrying, how am I, what am I doing), row 2 the day's business, row 3 things for a spare minute, row 4 reference. Everything else starts stashed under ⊕. Apps that only matter once you own or are doing something stay one tap away. Bump `TABLET_HOME_SEED_VERSION` when the default changes; each device re-seeds once, which discards a custom arrangement.
+- **Holes are entries.** An empty cell is a unique `~gap` token in the saved order, so moving an app off a page doesn't re-pack it. Trailing holes are trimmed on save.
+- **Removed vs stashed.** The seed stashes apps; flinging a tile off the tablet removes it. Home cards show for any app that wasn't explicitly removed.
+- **Groups** are presentational boxes spanning the cells their members occupied (a 2×2 lasso makes a 2×2 box), drawn where the earliest member sits.
+- **Paging** is derived every render from order and groups, counted in cells. Only the current page is in the DOM, so saves splice it back into the full order. A cross-page move leaves a hole behind and fills the target page's first hole, so moving back and forth is stable.
+
 ## Sports (`sports-app.js`)
 
 The league desk for both codes. Owns NO data: standings, the per-player races and
