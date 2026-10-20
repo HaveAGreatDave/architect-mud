@@ -9,20 +9,11 @@
 // so a steady-state action is one query, two when stock was topped up, and a
 // zone's first visit is two.
 import { query } from '../models/db.js';
+import { pickWeighted } from './util.js';
 
 const BASE_TABLE_COLS = ['id', 'name', 'replenish_interval_seconds', 'messages'];
 
 const nowSec = () => Math.floor(Date.now() / 1000);
-
-function pickWeighted(entries) {
-  const total = entries.reduce((s, e) => s + Math.max(1, e.weight), 0);
-  let r = Math.random() * total;
-  for (const e of entries) {
-    r -= Math.max(1, e.weight);
-    if (r < 0) return e;
-  }
-  return entries[entries.length - 1];
-}
 
 /**
  * → { table, entries } with each entry's current_qty, or null when the table

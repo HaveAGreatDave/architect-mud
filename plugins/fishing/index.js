@@ -41,6 +41,7 @@ import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { repairItem, conditionBand, destroyItem } from '../../server/engine/durability.js';
 import { escAttr } from '../../server/engine/text.js';
 import { loadZoneStock } from '../../server/engine/zone-stock.js';
+import { pickWeighted } from '../../server/engine/util.js';
 
 const ATTEMPT_MS = 4200;    // per-cast cadence — a touch slower than scavenging; fishing is patient
 const MAX_SWING = 14;       // best possible 2d8-2d8 roll — reachability ceiling
@@ -95,16 +96,6 @@ function pickCastTarget(pool, power, angle) {
   let r = Math.random() * total;
   for (const x of weighted) { r -= x.w; if (r < 0) return x.e; }
   return weighted[weighted.length - 1].e;
-}
-
-function pickWeighted(entries) {
-  const total = entries.reduce((s, e) => s + Math.max(1, e.weight), 0);
-  let r = Math.random() * total;
-  for (const e of entries) {
-    r -= Math.max(1, e.weight);
-    if (r < 0) return e;
-  }
-  return entries[entries.length - 1];
 }
 
 // ── Gear: rod (required) + bait (optional) ────────────────────────────────────

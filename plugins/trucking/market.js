@@ -16,6 +16,7 @@
 // chems and water are cheap there and scrap is dear; the Reach is drowning in salvage and has no
 // water, no clinic and no factory. Run parts and water out, bring baled alloy home. An empty
 // backhaul is a mistake you can make, not a shape the game forces on you.
+import { hashSeed, mulberry32 } from '../../server/engine/rng.js';
 
 const DAY_MS = 86400000;
 
@@ -109,20 +110,6 @@ const PAR = { scrap: 1, water: 1, protein: 1, chems: 1, parts: 1, medical: 1 };
 // The spread between buying and selling: a depot buys off you for less than it sells to you, which
 // is what stops you from making money by driving in a circle without ever leaving town.
 const MARGIN = 0.12;
-
-function hashSeed(str) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
-  return h >>> 0;
-}
-function mulberry32(a) {
-  return function () {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 export function marketDay(now = Date.now()) { return Math.floor(now / DAY_MS); }
 

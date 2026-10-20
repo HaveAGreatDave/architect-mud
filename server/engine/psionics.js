@@ -50,6 +50,7 @@ import {
   RANKS, rankIndex, rankAtLeast, getPsiAbility, abilityApplies,
   CHOOSE_FOCUS_AT, SECOND_FOCUS_AT,
 } from './psionics-abilities.js';
+import { decayed } from './util.js';
 
 // ── Tuning ───────────────────────────────────────────────────────────────────
 
@@ -102,14 +103,6 @@ export const SIGNATURE_HALFLIFE_MS = 600_000;
 const SIGNATURE_MAX_PER_ZONE = 12;
 
 const now = () => Date.now();
-
-/** Exponential decay to a timestamp. The whole persistence story of this file. */
-function decayed(value, at, halfLife) {
-  if (!(value > 0)) return 0;
-  const elapsed = now() - (at || 0);
-  if (elapsed <= 0) return value;
-  return value * Math.pow(0.5, elapsed / halfLife);
-}
 
 // ── Rank and focus (durable half) ────────────────────────────────────────────
 //

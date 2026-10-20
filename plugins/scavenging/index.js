@@ -22,7 +22,7 @@ import { on, emit } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { escAttr } from '../../server/engine/text.js';
 import { loadZoneStock } from '../../server/engine/zone-stock.js';
-import { pick } from '../../server/engine/util.js';
+import { pick, pickWeighted } from '../../server/engine/util.js';
 
 const ATTEMPT_MS = 3500;   // per-attempt cadence, sibling to the attack cooldown
 const MAX_SWING = 14;      // best possible 2d8-2d8 roll — reachability ceiling
@@ -44,16 +44,6 @@ const DEFAULT_BROADCAST = [
 
 function roll2d8() { return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1; }
 function nowSec() { return Math.floor(Date.now() / 1000); }
-
-function pickWeighted(entries) {
-  const total = entries.reduce((s, e) => s + Math.max(1, e.weight), 0);
-  let r = Math.random() * total;
-  for (const e of entries) {
-    r -= Math.max(1, e.weight);
-    if (r < 0) return e;
-  }
-  return entries[entries.length - 1];
-}
 
 // ── Table + per-zone stock loading (with lazy replenish) ──────────────────────
 

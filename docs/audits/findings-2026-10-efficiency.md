@@ -62,11 +62,11 @@ The server parses each file once at boot, so comments cost nothing there. The cl
 
 | Pattern | Count | Shared home | Est. saving | Status |
 |---|---|---|---|---|
-| HTML escape | 36 client, 3 server, plus inline `replace(/&/g…` (62 client, 13 server). Several skip `"`, so they're unsafe in attributes. | `client/shared/dom.js:5`, `server/engine/html.js:7` | ~120 lines | open |
-| Seeded RNG and hashes | FNV basis ×41, mulberry32 ×32, sin-hash ×48. Trucking has the same pair 4 times; diamond/ redeclares an exported `hashStr` 7 times. | none (`plugins/cards/builder.js:752` exports one) | ~150 | open |
-| clamp / lerp | 43 / 27 local copies. 11 interior-* files define lerp beside an imported clamp. | `server/engine/util.js:14`, `client/shared/interior-kit.js:68` | ~200 | open |
+| HTML escape | 36 client, 3 server, plus inline `replace(/&/g…` (62 client, 13 server). Several skip `"`, so they're unsafe in attributes. | `client/shared/dom.js:5`, `server/engine/html.js:7` | ~120 lines | game client: 21 copies that already escaped `"` now import the shared one. Open: the copies that skip `"` or feed a later regex (markup, dialogue, whisper, tv, gameday), the devpanel (classic scripts, no import), the server three |
+| Seeded RNG and hashes | FNV basis ×41, mulberry32 ×32, sin-hash ×48. Trucking has the same pair 4 times; diamond/ redeclares an exported `hashStr` 7 times. | none (`plugins/cards/builder.js:752` exports one) | ~150 | server: 8 copies (4 trucking, voidwalking, weather, consort, news-generator) now import `server/engine/rng.js`, each proven to give identical draws. Open: the client copies; `cards/builder` and `broadcast/rng` seed differently and stay |
+| clamp / lerp | 43 / 27 local copies. 11 interior-* files define lerp beside an imported clamp. | `server/engine/util.js:14`, `client/shared/interior-kit.js:68` | ~200 | `lerp` exported from interior-kit; the 11 interior copies removed. Open: the other client copies |
 | pick / cap / randInt | 4 pick, 4 cap and 1 randInt copies of `util`, plus 193 inline `arr[Math.floor(Math.random()*arr.length)]` | `server/engine/util.js` | small | open |
-| `pickWeighted`, `resolveCorpse`, `decayed` | 4 / 3 / 3 identical bodies | `zone-stock.js:17`, `commands/combat.js:16`, `nullcraft.js:83` | ~45 | open |
+| `pickWeighted`, `resolveCorpse`, `decayed` | 4 / 3 / 3 identical bodies | `zone-stock.js:17`, `commands/combat.js:16`, `nullcraft.js:83` | ~45 | done: `pickWeighted` and `decayed` in `server/engine/util.js`, `resolveCorpse` in `world.js`. Shove keeps its own `resolveCorpse`, which differs |
 | Plugin message wrappers | `out` ×9, `say` ×5, `sys` ×6, `dim` ×7 | none; `plugins/flight/state.js:2477` exports one, which is the wrong home | ~40, more if span literals follow | open |
 | Hand-rolled panel drag | 7 copies, which miss the `touch-action:none` fix | `makeDraggable` in `client/game/js/panels/confirm.js:34`; `.dp-float-panel` | ~150 | open |
 | Seat helpers | `hotAt` ×4 (cockpit, cab-view, boat-view, podracer-view), `revKick` ×2. podracer-view.js is a fork of boat-view.js: 11 matching functions. | none | ~250 | proposal |
@@ -128,7 +128,7 @@ These are open.
 | 2 | Delete one-shots, sandbox pages and strays | open |
 | 3 | Dead functions | done |
 | 4 | Furniture reads from RAM | open |
-| 5 | Shared helpers | open |
+| 5 | Shared helpers | part done (escaper, lerp, RNG, three server helpers); message wrappers, `mkZone`, drag copies open |
 | 6 | CSS out of JS strings; styles.css grouping and dead rules | CSS moved; styles.css open |
-| 7 | glbench helpers | open |
-| 8 | Comment trim | open |
+| 7 | glbench helpers | proposal: 65 canvas setups differ in id, holder and size, so each needs hand work and a bench re-run |
+| 8 | Comment trim | checker landed (`scripts/lint/comment-only.mjs`); the trim itself is three proposed sessions |

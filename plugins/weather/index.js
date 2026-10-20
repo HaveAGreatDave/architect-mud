@@ -16,6 +16,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { devTriggerWeatherEvent, registerWeatherEventCurrent, getEnvironmentState, getBirdClock, seasonForDate, empReaches } from '../../server/engine/environment.js';
 import { gatherHook } from '../../server/engine/plugins.js';
+import { mulberry32 } from '../../server/engine/rng.js';
 
 const SEASON_BASE_TEMP_C  = { winter: 2,    spring: 12, summer: 24, autumn: 11 };
 const SEASON_BASE_PRECIP  = { winter: 0.35, spring: 0.40, summer: 0.35, autumn: 0.45 };
@@ -34,16 +35,6 @@ const WIND_BY_WEATHER = {
 function seedFromString(str) {
   const hash = createHash('sha256').update(str).digest();
   return hash.readUInt32LE(0);
-}
-
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function rand() {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 function pick(rand, arr) {

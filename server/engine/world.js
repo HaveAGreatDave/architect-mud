@@ -1764,6 +1764,17 @@ export function getZoneCorpses(zoneId) {
   return [...z.corpses].map(id => world.corpses.get(id)).filter(Boolean);
 }
 
+// A corpse in the player's zone, by id (a click, the loot router) or by a substring of its name
+// (typed). With no target, the only corpse in the room, if there is exactly one.
+export function resolveCorpse(targetStr, player) {
+  const direct = getCorpse(targetStr);
+  if (direct && direct.zoneId === player.current_zone) return direct;
+  const corpses = getZoneCorpses(player.current_zone);
+  if (!targetStr) return corpses.length === 1 ? corpses[0] : null;
+  const t = targetStr.toLowerCase();
+  return corpses.find((c) => c.name.toLowerCase().includes(t)) || null;
+}
+
 export function getZonePlayers(zoneId) {
   const z = world.zones.get(zoneId);
   if (!z) return [];

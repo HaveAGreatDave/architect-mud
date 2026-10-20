@@ -60,6 +60,7 @@ import { randomUUID } from 'crypto';
 import { loadWindow, getTraces, addTrace, claimTrace } from './traces.js';
 // The traversal verb. It reads the plan and nothing else, and imports nothing back — see wireMarch.
 import { cmdMarch, wireMarch, isMarching, _test as _march } from './march.js';
+import { hashSeed, mulberry32 } from '../../server/engine/rng.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterators skip void rooms
@@ -346,20 +347,6 @@ function totalLength(dest, originZone, destZone, fromKey = null, window = curren
   return rooms(d);
 }
 
-// ── Deterministic generator ───────────────────────────────────────────────────
-function hashSeed(str) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
-  return h >>> 0;
-}
-function mulberry32(a) {
-  return function () {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 
 // ⚠ THE PROSE LIVES IN flavour.js AND IS KEYED BY THE GROUND. Four flat lists used to sit here, and

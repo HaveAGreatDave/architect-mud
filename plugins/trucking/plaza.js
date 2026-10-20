@@ -46,6 +46,7 @@ import { world } from '../../server/engine/world.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { milesOf, pavedAt, corridorPos, corridorLocate, SHOULDER_W } from './corridor.js';
 import { weighAt, cabCheckAt, chargeAt } from './scale.js';
+import { hashSeed, mulberry32 } from '../../server/engine/rng.js';
 
 // ── THE SHAPE OF ONE ─────────────────────────────────────────────────────────
 // Sized for the PICTURE and for the CLOCK, not for a mile count. A truck covers about 0.8 tiles a
@@ -85,22 +86,6 @@ const JOIN_CLEAR = 30;
 // plaza is in the same place with the same name for everybody all week and two drivers can talk
 // about it.
 const PLAZA_NAMES = ['Harrow Creek', 'Ninemile', 'Cold Fork', 'Saltpan', 'Dry Wells', 'Kettle Bend'];
-
-// Seeded, cheap, and deliberately the same hash shape corridor.js uses so a plaza and the road it
-// stands on cannot disagree about which week it is.
-function hashSeed(str) {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return h >>> 0;
-}
-function mulberry32(a) {
-  return function () {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 // ── WHERE THE STATIONS ARE ───────────────────────────────────────────────────
 //

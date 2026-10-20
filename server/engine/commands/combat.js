@@ -10,17 +10,7 @@ import { emit } from "../events.js";
 import { loggedPanelsSync } from "../presentation.js";
 import { randomUUID } from "crypto";
 import { pick } from '../util.js';
-
-// Resolve a corpse in the player's current zone by id (preferred, from a click)
-// or by a substring of its name (typed command).
-function resolveCorpse(targetStr, player) {
-	const direct = getCorpse(targetStr);
-	if (direct && direct.zoneId === player.current_zone) return direct;
-	const corpses = getZoneCorpses(player.current_zone);
-	if (!targetStr) return corpses.length === 1 ? corpses[0] : null;
-	const t = targetStr.toLowerCase();
-	return corpses.find((c) => c.name.toLowerCase().includes(t)) || null;
-}
+import { resolveCorpse } from '../world.js';
 
 async function corpseLootRows(corpseId) {
 	const { rows } = await query(

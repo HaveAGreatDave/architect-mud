@@ -37,6 +37,7 @@
  * walls saw, which is correct: this is a room's short memory, not a record.
  */
 import { on } from '../../server/engine/events.js';
+import { decayed } from '../../server/engine/util.js';
 
 // zoneId -> [{ kind, strength, at, actorId }]
 const zoneResidue = new Map();
@@ -66,13 +67,6 @@ const HALFLIFE = {
 
 const DEFAULT_HALFLIFE = 300_000;
 const now = () => Date.now();
-
-function decayed(value, at, halfLife) {
-  if (!(value > 0)) return 0;
-  const elapsed = now() - (at || 0);
-  if (elapsed <= 0) return value;
-  return value * Math.pow(0.5, elapsed / halfLife);
-}
 
 /**
  * Record that something happened in a room.

@@ -21,6 +21,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
 import { getZone, isTransientZone, world } from '../../server/engine/world.js';
 import { getDrugCache } from '../../server/engine/drugs.js';
+import { mulberry32 } from '../../server/engine/rng.js';
 
 // ── Seeded RNG (date-stable "edition") ───────────────────────────────────────
 // A tiny xmur3+mulberry32 pair so today's tabloid page is deterministic: same
@@ -37,14 +38,6 @@ function xmur3(str) {
     h = Math.imul(h ^ (h >>> 16), 2246822507);
     h = Math.imul(h ^ (h >>> 13), 3266489909);
     return (h ^= h >>> 16) >>> 0;
-  };
-}
-function mulberry32(a) {
-  return () => {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 function seededRng(seedStr) { return mulberry32(xmur3(seedStr)()); }

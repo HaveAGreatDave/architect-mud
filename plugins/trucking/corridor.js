@@ -202,24 +202,11 @@ const typeNameAt = (route, s) => segmentAt(route, s)?.type || 'branch';
 import { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
 import { highTerrainAt, hnoise2 } from '../../client/shared/landform.js';   // the same field the floor shades off — see HIGH_OFF below
 import { plazaOn, plazaCell, plazaRoadFlags } from './plaza.js';
+import { hashSeed, mulberry32 } from '../../server/engine/rng.js';
 // ⚠ ONE DEFINITION OF WHERE THE TRAIL RUNS. voidwalking lays its rooms at this offset and the road
 // names the band it crosses, so the two would disagree the first time either was tuned if this were
 // copied. The edge is one-way and already exists (trucking imports voidwalking, never the reverse).
 
-// ── Seeding (mirrors plugins/voidwalking) ────────────────────────────────────
-function hashSeed(str) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
-  return h >>> 0;
-}
-function mulberry32(a) {
-  return function () {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 const pick = (rng, arr) => arr[Math.floor(rng() * arr.length) % arr.length];
 
 // ── Route geometry ───────────────────────────────────────────────────────────

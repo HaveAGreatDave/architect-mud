@@ -51,6 +51,7 @@
 import { gatherHook } from './plugins.js';
 import { getNullOperation, operationApplies } from './nullcraft-ops.js';
 import { effectiveSkill, skillCheck } from './skills.js';
+import { decayed } from './util.js';
 
 // ── Tuning ───────────────────────────────────────────────────────────────────
 //
@@ -78,14 +79,6 @@ const veils = new Map();
 const carriedJammers = new Map();
 
 const now = () => Date.now();
-
-// Exponential decay to a timestamp. The whole persistence story of this file.
-function decayed(value, at, halfLife) {
-  if (!(value > 0)) return 0;
-  const elapsed = now() - (at || 0);
-  if (elapsed <= 0) return value;
-  return value * Math.pow(0.5, elapsed / halfLife);
-}
 
 // ── Sync accessors (no awaits, no queries — see the header) ──────────────────
 

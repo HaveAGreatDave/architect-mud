@@ -12,7 +12,7 @@
 // the corpse is empty-but-butcherable (no imports in either direction).
 
 import { query } from '../../server/models/db.js';
-import { getLivePlayer, getCorpse, getZoneCorpses, removeCorpse } from '../../server/engine/world.js';
+import { getLivePlayer, getCorpse, getZoneCorpses, removeCorpse, resolveCorpse } from '../../server/engine/world.js';
 import { resolveInventoryItem, giveItemById } from '../../server/engine/inventory.js';
 import { registerActivity } from '../../server/engine/activity-tick.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
@@ -33,17 +33,6 @@ function creatureFrom(corpseName) {
 	const m = String(corpseName || "").match(/^(.*?)(?:'s)?\s+corpse$/i);
 	const name = (m ? m[1] : "").trim().toLowerCase();
 	return name && name.length <= 40 ? name : null;
-}
-
-// Resolve a corpse in the player's current zone by id (preferred, from a click
-// or the loot router) or by a substring of its name (typed command).
-function resolveCorpse(targetStr, player) {
-	const direct = getCorpse(targetStr);
-	if (direct && direct.zoneId === player.current_zone) return direct;
-	const corpses = getZoneCorpses(player.current_zone);
-	if (!targetStr) return corpses.length === 1 ? corpses[0] : null;
-	const t = targetStr.toLowerCase();
-	return corpses.find((c) => c.name.toLowerCase().includes(t)) || null;
 }
 
 async function hasButcheringTool(playerId) {
