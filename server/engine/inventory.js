@@ -19,7 +19,10 @@ const groundOwner = zoneId => `_ground_${zoneId}`;
 // writers that mutate player_inventory without emitting (e.g. jail
 // confiscation — a jailed player isn't mid-swing, so seconds of staleness
 // can't land a hit with a weapon they no longer hold).
-const EQUIPPED_WEAPON_TTL_MS = 5000;
+// 30 s, clear of the 3.5 s swing: at 5 s it re-read on about every other swing.
+// The wear flush (durability.js) drops it too, because the row's stored
+// `condition` is what pending wear is subtracted from.
+const EQUIPPED_WEAPON_TTL_MS = 30_000;
 on('inventory.changed', ({ actor }) => { if (actor) delete actor._equippedWeapon; });
 export async function getEquippedWeapon(player) {
   const cached = player._equippedWeapon;

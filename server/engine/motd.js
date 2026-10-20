@@ -143,9 +143,16 @@ async function getMotdNews(count = MOTD_NEWS_COUNT) {
   } catch { return []; }
 }
 
+// The four templates, read once and kept: every login asked for them, and saveMotd
+// below is the only thing that writes them. A failed read isn't kept, so the next
+// login tries again.
+let motdRows = null;
 export async function getMotd() {
-  const { rows } = await query("SELECT key, value FROM server_settings WHERE key IN ('motd_big','motd_medium','motd_small','motd_dynamic')").catch(() => ({ rows: [] }));
-  const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  if (!motdRows) {
+    const { rows } = await query("SELECT key, value FROM server_settings WHERE key IN ('motd_big','motd_medium','motd_small','motd_dynamic')").catch(() => ({ rows: null }));
+    if (rows) motdRows = rows;
+  }
+  const map = Object.fromEntries((motdRows || []).map(r => [r.key, r.value]));
   return {
     big:     map.motd_big     || DEFAULT_BIG,
     medium:  map.motd_medium  || DEFAULT_MEDIUM,
@@ -164,4 +171,5 @@ export async function saveMotd({ big, medium, small, dynamic: dyn }) {
   for (const [key, value] of updates) {
     await query("INSERT INTO server_settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value", [key, value]);
   }
+  motdRows = null;
 }

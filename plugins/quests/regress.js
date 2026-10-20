@@ -8,7 +8,7 @@ import { renderDialogueNode } from '../../server/engine/dialogue.js';
 import { emit } from '../../server/engine/events.js';
 import { clearEffect } from '../../server/engine/effects.js';
 import { world } from '../../server/engine/world.js';
-import { isComplete, findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, loadPlayerQuest, applyRolled, advanceFor, withinHours, isQuestAvailable } from './index.js';
+import { isComplete, findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache, invalidateQuestRows, loadPlayerQuest, applyRolled, advanceFor, withinHours, isQuestAvailable } from './index.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -184,6 +184,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // Leaving the zone mid-task cancels it outright — no partial credit.
   await query("UPDATE player_quests SET status='active', progress='[0]' WHERE player_id=$1 AND quest_id=$2", [player.id, TIMED_QUEST_ID]);
+  invalidateQuestRows();   // a hand-written row: trackEvent keeps active rows cached
   await trackEvent(player, (obj) => obj.type === 'visit' && obj.zone === 'zone_regress_timed_spot');
   cancelTasksLeavingZone(player.id, 'zone_regress_timed_spot');
   await sleep(400);
@@ -761,7 +762,7 @@ export default async function regress({ run, check, getPlayer }) {
     const backdate = () => query(
       'UPDATE player_quests SET started_at = EXTRACT(EPOCH FROM NOW()) - 9999 WHERE player_id=$1 AND quest_id=$2',
       [player.id, FAIL_QUEST_ID]
-    );
+    ).then(invalidateQuestRows);
 
     // The objective is met on purpose, so the ONLY thing standing between the
     // player and a payout is the clock.

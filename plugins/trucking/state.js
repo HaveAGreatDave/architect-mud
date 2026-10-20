@@ -2180,11 +2180,37 @@ export function doorBoardLine(who) {
   ].join('\n');
 }
 
+// The 61×61 map window and the far road lines are most of a cab push, and the push goes out
+// every second, parked or not. They now ride only when the client's copy could be wrong: the
+// rig has moved MAP_STEP tiles from where they were last sent (the window is 30 each way, so
+// 22 tiles still lie ahead), the leg or the South Lock's lamps changed, an event push asked
+// (`extra`), or MAP_REFRESH_MS has passed, which bounds anything else in a cell that moves.
+// `params`/`typeId` ride the same events: the cab calls setParams whenever either is present,
+// and they only change at the bench, whose push carries `extra`. The client keeps what it has
+// when a key is absent (cab-view.js cabContext). Same rule as the boat (powerboat/helm.js).
+const MAP_STEP = 8;
+const MAP_REFRESH_MS = 15_000;
+function lockKey(rig) {
+  const s = rig._lockSig;
+  return s && !(s.until && Date.now() > s.until) ? String(s.st) : '';
+}
+
 export function pushCab(rig, extra) {
   const cx = Math.round(rig.x), cy = Math.round(rig.y), now = Date.now();
   if (!extra && rig.pushX === cx && rig.pushY === cy && now - (rig.pushAt || 0) < PUSH_MS) return;
   rig.pushX = cx; rig.pushY = cy; rig.pushAt = now;
-  sendToPlayer(rig.playerId, cabContext(rig, extra));
+  const ctx = cabContext(rig, extra);
+  const was = rig.mapSent;
+  const lock = lockKey(rig);
+  const fresh = extra || !was || was.leg !== rig.leg || was.lock !== lock
+    || Math.abs(cx - was.x) >= MAP_STEP || Math.abs(cy - was.y) >= MAP_STEP
+    || now - was.at >= MAP_REFRESH_MS;
+  if (fresh) rig.mapSent = { x: cx, y: cy, at: now, leg: rig.leg, lock };
+  else {
+    delete ctx.map; delete ctx.mapX; delete ctx.mapY; delete ctx.roads;
+    delete ctx.params; delete ctx.typeId;
+  }
+  sendToPlayer(rig.playerId, ctx);
 }
 
 // What is under the wheels, in the vocabulary the client model's SURFACES table speaks. The world

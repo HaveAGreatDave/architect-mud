@@ -70,6 +70,7 @@ import { getMotd, saveMotd } from '../engine/motd.js';
 import { isMisServerEnabled, setServerMisEnabled } from '../engine/mis.js';
 import { canAccessChannel, sendToChatChannel, getChannelMessagesSince } from '../engine/channels.js';
 import { schedule } from '../engine/scheduler.js';
+import { invalidateScavengingTable } from '../engine/zone-stock.js';
 
 // Devpanel admin presence: playerId → { handle, role, ts }
 const devPresence = new Map();
@@ -87,6 +88,18 @@ function getActiveDevAdmins() {
     else devPresence.delete(id);
   }
   return active;
+}
+
+// Who's online, as anyone may see it: names only. Shared by GET /players/online and
+// the `online_change` broadcast, which carries it so clients needn't fetch it back.
+export function onlineRoster() {
+  const live = getAllLivePlayers().map(p => ({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone }));
+  const liveIds = new Set(live.map(p => p.id));
+  const devAdmins = getActiveDevAdmins().filter(a => !liveIds.has(a.id)).map(a => ({ id: a.id, handle: a.handle, role: a.role, current_zone: null }));
+  return [...live, ...devAdmins];
+}
+export function publicOnlineRoster() {
+  return onlineRoster().map(p => ({ id: p.id, handle: p.handle }));
 }
 
 const CATALOG_PATH = fileURLToPath(new URL('../../client/shared/tagCatalog.js', import.meta.url));
@@ -522,15 +535,11 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/world/state' && method==='GET') return requireDev(auth, ()=>apiWorldState(url));
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') {
-    const live = getAllLivePlayers().map(p => ({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone }));
-    const liveIds = new Set(live.map(p => p.id));
-    const devAdmins = getActiveDevAdmins().filter(a => !liveIds.has(a.id)).map(a => ({ id: a.id, handle: a.handle, role: a.role, current_zone: null }));
-    const all = [...live, ...devAdmins];
     // Players (who, the players panel, whisper) call this with no token and only
     // need names. Where everyone is standing, and who is staff, is for staff:
     // unauthenticated, this used to let anyone track any player.
-    if (['dev','admin','builder','designer'].includes(auth?.role)) return { status: 200, body: all };
-    return { status: 200, body: all.map(p => ({ id: p.id, handle: p.handle })) };
+    if (['dev','admin','builder','designer'].includes(auth?.role)) return { status: 200, body: onlineRoster() };
+    return { status: 200, body: publicOnlineRoster() };
   }
   if (path==='/admin/presence' && method==='POST') {
     // ⚠ Staff only, and the handle is the account's own, looked up here. Any
@@ -2901,6 +2910,9 @@ async function _writeScavEntries(tableId, entries){
        VALUES ($1,$2,$3,$4,$5,$6)`,
       [randomUUID(), tableId, e.item_id, parseInt(e.difficulty)||5, parseInt(e.weight)||10, parseInt(e.max_qty)||3]);
   }
+  // After the writes (create and update both end here), so a cast in between can't
+  // re-cache the old rows.
+  invalidateScavengingTable(tableId);
 }
 export async function apiCreateScavengingTable(body) {
   const id=body.id||`scav_${Date.now()}`;
@@ -2930,6 +2942,7 @@ export async function apiDeleteScavengingTable(id) {
     if(rows[0].n>0) return {status:409,body:{error:`Still attached to ${rows[0].n} zone(s). Detach it first.`}};
     await query('DELETE FROM scavenging_table_items WHERE table_id=$1',[id]);
     await query('DELETE FROM scavenging_tables WHERE id=$1',[id]);
+    invalidateScavengingTable(id);
     return {status:200,body:{message:'Deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

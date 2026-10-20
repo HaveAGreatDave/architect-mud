@@ -287,7 +287,7 @@ export const REGISTRY = [
     where: 'org_id IN (SELECT id FROM orgs WHERE is_npc = 1)', readTier: 'cold' },
 
   // ── content: scavenging / security / finance / flight ──
-  { table: 'scavenging_tables', class: 'content', pk: ['id'], readTier: 'cold' },       // per scavenge/fish/mine action
+  { table: 'scavenging_tables', class: 'content', pk: ['id'], readTier: 'ttl' },        // engine/zone-stock.js 10 min cache; the dev routes invalidate
   { table: 'mis_fit_lines', class: 'content', pk: ['id'], readTier: 'boot' },           // MIS fit prose — cached in memory at boot (plugins/mis/fit-lines.js), re-read only on a dev-panel write
   // Public-domain book texts. 'cold' is load-bearing, not descriptive: these rows
   // are hundreds of KB and MUST NOT join the boot read — a deploy already pulls
@@ -306,7 +306,7 @@ export const REGISTRY = [
   { table: 'dream_tethers', class: 'content', pk: ['id'], readTier: 'cold' },
   { table: 'drug_transforms', class: 'content', pk: ['id'], readTier: 'cold' },
   { table: 'drug_reactions', class: 'content', pk: ['id'], readTier: 'cold' },
-  { table: 'scavenging_table_items', class: 'content', pk: ['id'], readTier: 'cold' },
+  { table: 'scavenging_table_items', class: 'content', pk: ['id'], readTier: 'ttl' },   // cached with its table (engine/zone-stock.js)
   // NPC-police surveillance backbone only; player-planted nets/devices are runtime.
   { table: 'security_networks', class: 'content', pk: ['id'], where: 'is_police = 1', readTier: 'fresh',
     runtimeInserts: 'surveillance plugin player networks (outside predicate)' },
@@ -363,7 +363,7 @@ export const REGISTRY = [
   // slot rows can be legitimately absent from a live DB while a tape is ejected.
   { table: 'media_channel_playlist', class: 'content', pk: ['id'], readTier: 'boot',
     runtimeInserts: 'broadcast cassette load re-INSERTs slots stashed at eject' },
-  { table: 'media_cameras', class: 'content', pk: ['id'], readTier: 'boot', // roster cached in channelRuntime; live recording_buffer ops hit the DB fresh
+  { table: 'media_cameras', class: 'content', pk: ['id'], readTier: 'boot', // roster cached in channelRuntime; recorded playback caches recording_buffer per camera (broadcast recordingBuffer), writes go to the DB
     // streaming_channel_id is also runtime-written (CAMERA_STREAM action) but stays
     // content: it carries the authored studio-camera binding.
     excludeColumns: ['recording_buffer', 'is_recording', 'is_streaming'] }, // live camera state

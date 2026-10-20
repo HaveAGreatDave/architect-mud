@@ -124,6 +124,7 @@ async function maybeSnapRod(playerId) {
   await repairItem(rod, -ROD_SNAP_DAMAGE);
   if (conditionBand(rod.condition).id === 'broken') {
     await destroyItem(rod);
+    gearCache.delete(playerId);
     return ' Your rod snaps clean in half and the pieces spin off into the water.';
   }
   return ' Your rod groans and takes a worrying bend: that nearly cost you it.';
@@ -144,6 +145,22 @@ async function consumeBait(playerId) {
   if (!b) return;
   if ((b.quantity ?? 1) > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [b.inv_id]);
   else await query('DELETE FROM player_inventory WHERE id=$1', [b.inv_id]);
+  gearCache.delete(playerId);
+}
+
+// Rod and bait for the perpetual cast, which used to read both every 3.5-4 s. Kept
+// per player; inventory.changed and this plugin's own bait and rod writes drop it,
+// and the TTL covers an inventory path that moves an item without the event.
+const GEAR_TTL_MS = 60_000;
+const gearCache = new Map();   // playerId → { rod, bait, at }
+on('inventory.changed', ({ actor }) => { if (actor?.id) gearCache.delete(actor.id); });
+async function castGear(playerId) {
+  const hit = gearCache.get(playerId);
+  if (hit && Date.now() - hit.at < GEAR_TTL_MS) return hit;
+  const [rod, bait] = await Promise.all([hasRod(playerId), baitState(playerId)]);
+  const g = { rod, bait, at: Date.now() };
+  gearCache.set(playerId, g);
+  return g;
 }
 
 // ── Table + per-zone stock loading (lazy replenish) ───────────────────────────
@@ -238,7 +255,8 @@ async function runAttempt(player, st, nowMs) {
   const tableId = fishingTableFor(zone);
   if (!zone || !tableId) { stopFishing(player.id, st.zoneId, player.handle); return; }
 
-  if (!(await hasRod(player.id))) {
+  const gear = await castGear(player.id);
+  if (!gear.rod) {
     out(player.id, 'Without a rod there\'s nothing to fish with.');
     stopFishing(player.id, st.zoneId, player.handle);
     return;
@@ -257,7 +275,7 @@ async function runAttempt(player, st, nowMs) {
     baitCatches: table.fishing_bait_catches || [],
     monsters: table.fishing_monsters || [],
   };
-  const bait = await baitState(player.id);
+  const bait = gear.bait;
 
   // Build the eligible bite pool: stocked normal catches (bait boosts the rarer,
   // higher-difficulty ones), plus bait-gated catches whose bait the player holds,

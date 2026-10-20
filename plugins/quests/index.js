@@ -69,8 +69,18 @@
  * `docs/systems-ideologies.md` decays standing on a 30-day half-life precisely
  * because it is meant to be MAINTAINED — this is what maintains it.
  */
-import { query } from '../../server/models/db.js';
+import { query as dbQuery } from '../../server/models/db.js';
 import { spawnOnGround } from '../../server/engine/inventory.js';
+
+// Every statement this plugin runs goes through here, so a write to player_quests
+// bumps `questRowsVersion` and the per-player cache of active rows (activeQuestRows,
+// read on every step by trackEvent) can't serve a row this plugin has since changed.
+let questRowsVersion = 0;
+const PQ_WRITE = /^\s*(INSERT|UPDATE|DELETE)\b[\s\S]*\bplayer_quests\b/i;
+function query(text, params) {
+  if (typeof text === 'string' && PQ_WRITE.test(text)) questRowsVersion++;
+  return dbQuery(text, params);
+}
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
@@ -1140,6 +1150,30 @@ export async function trackEvent(actor, predicate) {
   return next;
 }
 
+// A player's active quest rows, for trackEvent. That runs on every step a questing
+// player takes, and each step was a SELECT * of rows that change only when a quest
+// does. Kept per player until this plugin writes player_quests (the version bump in
+// `query` above) or QUEST_ROWS_TTL_MS passes, which covers the writers outside it
+// (a character reset, a hand edit). Handed out as copies: realign and the progress
+// code below work on the rows they're given.
+const QUEST_ROWS_TTL_MS = 30_000;
+const questRowsCache = new Map();   // playerId → { rows, v, at }
+async function activeQuestRows(actor) {
+  const hit = questRowsCache.get(actor.id);
+  if (hit && hit.v === questRowsVersion && Date.now() - hit.at < QUEST_ROWS_TTL_MS) return structuredClone(hit.rows);
+  const v = questRowsVersion;   // taken before the read, so a write during it leaves the entry stale
+  const { rows } = await dbQuery(
+    "SELECT * FROM player_quests WHERE player_id=$1 AND status='active'",
+    [actor.id]
+  );
+  questRowsCache.set(actor.id, { rows, v, at: Date.now() });
+  return structuredClone(rows);
+}
+on('player.logout', ({ id }) => questRowsCache.delete(id));
+// For a writer outside this plugin that needs the next event to see its change at
+// once (the regress suites' hand-written rows).
+export function invalidateQuestRows() { questRowsVersion++; }
+
 async function trackEventLocked(actor, predicate) {
   // HOT PATH GATE. trackEvent is subscribed to zone.entered, so this function runs
   // on every step every player takes — and it used to open with an awaited SELECT
@@ -1152,12 +1186,9 @@ async function trackEventLocked(actor, predicate) {
   // one per tile. A nullish set means "not hydrated yet", which falls through to
   // the query rather than wrongly reporting no quests.
   if (actor._activeQuests?.size === 0) return;
-  const { rows } = await query(
-    "SELECT * FROM player_quests WHERE player_id=$1 AND status='active'",
-    [actor.id]
-  );
-  // Self-heal the gate from the authoritative answer, so a set that drifted (a
-  // direct DB write, a plugin bypassing the Actions) converges on the next event.
+  const rows = await activeQuestRows(actor);
+  // Self-heal the gate from the rows, so a set that drifted (a direct DB write, a
+  // plugin bypassing the Actions) converges within the cache's TTL.
   actor._activeQuests = new Set(rows.map((r) => r.quest_id));
   for (const pq of rows) {
     const quest = withRolled(await loadQuest(pq.quest_id), pq);

@@ -14,7 +14,10 @@ const SKILL_IP_CAP = 1000;
 // explicitly; temp scripts and char-delete run offline). `exists:false` keeps
 // the FK guard: a transient/corpse actor or the regress fake player has no
 // players row, and awarding it would violate the player_skills FK.
-const SKILL_CACHE_TTL_MS = 30_000;
+// Five minutes: at 30 s a fight re-read it twice a minute for values only this
+// file writes. What can go stale is stat_brains from a weight bench, which only
+// tunes the award odds.
+const SKILL_CACHE_TTL_MS = 5 * 60_000;
 const _skillCache = new Map(); // playerId -> { at, exists, brains, ips: Map(skill_id -> ip) }
 on('player.logout', ({ id }) => { if (id) _skillCache.delete(id); });
 

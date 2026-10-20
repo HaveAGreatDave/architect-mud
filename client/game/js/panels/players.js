@@ -6,12 +6,16 @@ import { openWhisperTab } from './whisper.js';
 // engine already gives it a drag-resize handle and a scrolling body — this just
 // keeps the list fresh and renders it.
 
-const POLL_MS = 12000;
+// Logins and logouts arrive as `online_change` with the roster on it (setOnlinePlayers).
+// The poll only catches staff dev-panel presence, which expires on a timer with no
+// event, so it is slow and skips a hidden tab.
+const POLL_MS = 60000;
 let _players = [];
 let _timer = null;
 
 async function refresh() {
   if (!state.player) return; // not logged in yet
+  if (document.hidden) return;
   try {
     const r = await fetch('/api/players/online');
     const data = await r.json();
@@ -47,6 +51,12 @@ function render() {
   list.querySelectorAll('[data-whisper]').forEach(btn => {
     btn.addEventListener('click', () => openWhisperTab(btn.dataset.whisper));
   });
+}
+
+export function setOnlinePlayers(list) {
+  if (!Array.isArray(list)) return;
+  _players = list;
+  render();
 }
 
 export function initPlayersPanel() {

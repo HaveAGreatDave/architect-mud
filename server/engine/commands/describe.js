@@ -1377,49 +1377,36 @@ export async function describeZone(zone, player, out = {}) {
 				),
 			);
 
-	// These are mutually independent, so they issue together rather than
-	// serially: each query() is its own pool checkout and round trip, and hosted
-	// the RTT dominates. zoneGens is consumed ~200 lines down (Installed: list).
-	// Furniture comes from the world cache (write-funneled in world.js), so this
-	// per-look/per-move hot path costs no furniture round trip.
+	// Offline sleepers, ground items and junction boxes in ONE statement. They
+	// were three queries under a Promise.all: one round trip of latency, but three
+	// pool slots on every move and look, and the client re-looks a room each time
+	// somebody passes through it. zoneGens is consumed ~200 lines down (Installed:
+	// list). Furniture comes from the world cache (write-funneled in world.js).
 	// Per-viewer object transforms (a psychedelic making the room misbehave). A
 	// no-op for anyone not tripping, and it returns COPIES — the rows out of
 	// getZoneFurniture are shared by everyone in the room.
 	const furniture = applyTransforms(player.id, getZoneFurniture(zone.id));
-	const [
-		{ rows: sleepingBodies },
-		{ rows: groundItems },
-		{ rows: zoneGens },
-	] = await Promise.all([
-		isDark
-			? { rows: [] }
-			: query(
-					`SELECT handle FROM players WHERE offline_sleeping=TRUE AND current_zone=$1`,
-					[zone.id],
-				),
-		hideItems
-			? { rows: [] }
-			: query(
-					`SELECT * FROM player_inventory
-     WHERE player_id = $1 AND container_id IS NULL`,
-					[`_ground_${zone.id}`],
-				).then((r) => {
-					// Item templates decorate from the boot-loaded items cache (was a
-					// JOIN). Rows whose template vanished drop, matching the old INNER JOIN.
-					const rows = [];
-					for (const pi of r.rows) {
-						const it = getItem(pi.item_id);
-						if (it) rows.push({ ...pi, name: it.name, tags: it.tags });
-					}
-					return { rows };
-				}),
-		isDark
-			? { rows: [] }
-			: query(
-					`SELECT name, status FROM generators WHERE zone_id=$1 AND generator_type='junction_box'`,
-					[zone.id],
-				),
-	]);
+	let sleepingBodies = [], groundItems = [], zoneGens = [];
+	if (!isDark || !hideItems) {
+		const { rows: [row] } = await query(
+			`SELECT
+			   (SELECT COALESCE(json_agg(json_build_object('handle', handle)), '[]')
+			      FROM players WHERE $3 AND offline_sleeping=TRUE AND current_zone=$1) AS sleepers,
+			   (SELECT COALESCE(json_agg(json_build_object('id', id, 'item_id', item_id, 'quantity', quantity)), '[]')
+			      FROM player_inventory WHERE $4 AND player_id=$2 AND container_id IS NULL) AS ground,
+			   (SELECT COALESCE(json_agg(json_build_object('name', name, 'status', status)), '[]')
+			      FROM generators WHERE $3 AND zone_id=$1 AND generator_type='junction_box') AS gens`,
+			[zone.id, `_ground_${zone.id}`, !isDark, !hideItems],
+		);
+		sleepingBodies = row.sleepers;
+		zoneGens = row.gens;
+		// Item templates decorate from the boot-loaded items cache (was a JOIN).
+		// Rows whose template vanished drop, matching the old INNER JOIN.
+		for (const pi of row.ground) {
+			const it = getItem(pi.item_id);
+			if (it) groundItems.push({ ...pi, name: it.name, tags: it.tags });
+		}
+	}
 	// PD street cams: woven into the room prose as a dim aside rather than listed
 	// as objects. Dark hides them (not a light source); concealed ones stay hidden.
 	const cameras = isDark

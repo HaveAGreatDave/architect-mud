@@ -235,12 +235,41 @@ export async function flushRelations(player) {
   }
 }
 
+// Every live player's dirty relations in ONE upsert, rather than one flushRelations
+// per player (a query and a pool slot each, every minute).
 export async function flushAllRelations() {
-  const dirty = [];
-  for (const p of world.players.values()) if (p._relationsDirty?.size) dirty.push(p);
-  // Independent single-player writes — issue them together rather than serially
-  // chaining a round trip each.
-  await Promise.all(dirty.map((p) => flushRelations(p)));
+  const taken = [];   // [player, npcIds]
+  const rows = [];
+  const params = [];
+  for (const p of world.players.values()) {
+    const dirty = p._relationsDirty;
+    if (!dirty?.size) continue;
+    const ids = [...dirty];
+    dirty.clear();   // cleared up-front: a change during the write re-marks it for the next flush
+    taken.push([p, ids]);
+    for (const npcId of ids) {
+      const rel = p._relations.get(npcId);
+      if (!rel) continue;
+      const b = params.length;
+      rows.push(`($${b + 1}::text, $${b + 2}::text, $${b + 3}::real, $${b + 4}::real, $${b + 5}::bigint, $${b + 6}::bigint)`);
+      params.push(p.id, npcId, rel.familiarity, rel.warmth, rel.met_at, rel.last_seen_at);
+    }
+  }
+  if (!rows.length) return;
+  try {
+    await query(
+      `INSERT INTO player_npc_relations (player_id, npc_id, familiarity, warmth, met_at, last_seen_at)
+       VALUES ${rows.join(', ')}
+       ON CONFLICT (player_id, npc_id) DO UPDATE
+         SET familiarity = EXCLUDED.familiarity,
+             warmth = EXCLUDED.warmth,
+             last_seen_at = EXCLUDED.last_seen_at`,
+      params
+    );
+  } catch (err) {
+    for (const [p, ids] of taken) for (const id of ids) p._relationsDirty.add(id);
+    console.error(`[relations] batched flush failed: ${err.message}`);
+  }
 }
 
 // ── Mutation (the ONLY write path) ───────────────────────────────────────────

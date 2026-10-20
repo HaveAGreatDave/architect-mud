@@ -4,10 +4,10 @@
 // This runs on every cast, dig and search, so it's a hot path. The copies it
 // replaces did four awaited reads in a row and then one INSERT or UPDATE per
 // table entry in a loop: 4 to 15 or more round trips to the remote DB per
-// player action. Here the four reads are independent and go out together, and
-// each write is one statement for every entry (unnest), so a steady-state
-// action is one round trip, two when stock was topped up, and a zone's first
-// visit is two.
+// player action. Here the table comes from a cache, the zone's clock and stock
+// are one statement, and each write is one statement for every entry (unnest),
+// so a steady-state action is one query, two when stock was topped up, and a
+// zone's first visit is two.
 import { query } from '../models/db.js';
 
 const BASE_TABLE_COLS = ['id', 'name', 'replenish_interval_seconds', 'messages'];
@@ -29,9 +29,23 @@ function pickWeighted(entries) {
  * doesn't exist. `extraCols` are extra scavenging_tables columns a caller reads
  * (fishing's monsters and bait catches); they come from code, never input.
  */
-export async function loadZoneStock(zoneId, tableId, extraCols = []) {
-  const cols = [...BASE_TABLE_COLS, ...extraCols].filter((c) => /^[a-z_]+$/.test(c)).join(', ');
-  const [{ rows: tRows }, { rows: entries }, { rows: stateRows }, { rows: stock }] = await Promise.all([
+// The table and its entries are authored content, read on every cast, dig and search
+// though they only change in the dev panel. Cached per (table, columns). The dev
+// routes in server/api/routes.js are the only runtime writers and call
+// invalidateScavengingTable; the TTL covers the content deploy, which writes from
+// another process.
+const TABLE_TTL_MS = 10 * 60_000;
+const tableCache = new Map();   // `${tableId}|${cols}` → { table, entries, at }
+
+export function invalidateScavengingTable(tableId) {
+  for (const k of tableCache.keys()) if (k.startsWith(`${tableId}|`)) tableCache.delete(k);
+}
+
+async function loadTable(tableId, cols) {
+  const key = `${tableId}|${cols}`;
+  const hit = tableCache.get(key);
+  if (hit && Date.now() - hit.at < TABLE_TTL_MS) return hit;
+  const [{ rows: tRows }, { rows: entries }] = await Promise.all([
     query(`SELECT ${cols} FROM scavenging_tables WHERE id=$1`, [tableId]),
     query(
       `SELECT si.item_id, si.difficulty, si.weight, si.max_qty, it.name
@@ -39,12 +53,31 @@ export async function loadZoneStock(zoneId, tableId, extraCols = []) {
        WHERE si.table_id = $1`,
       [tableId]
     ),
-    query('SELECT last_replenish FROM scavenging_zone_state WHERE zone_id=$1', [zoneId]),
-    query('SELECT item_id, current_qty FROM scavenging_zone_stock WHERE zone_id=$1', [zoneId]),
   ]);
-  if (!tRows.length) return null;
-  const table = tRows[0];
+  const entry = { table: tRows[0] || null, entries, at: Date.now() };
+  tableCache.set(key, entry);
+  return entry;
+}
+
+export async function loadZoneStock(zoneId, tableId, extraCols = []) {
+  const cols = [...BASE_TABLE_COLS, ...extraCols].filter((c) => /^[a-z_]+$/.test(c)).join(', ');
+  // The zone's clock and its stock in one statement; the table usually from the cache.
+  const [cached, { rows: [zoneRow] }] = await Promise.all([
+    loadTable(tableId, cols),
+    query(
+      `SELECT (SELECT last_replenish FROM scavenging_zone_state WHERE zone_id=$1) AS last_replenish,
+              (SELECT COALESCE(json_agg(json_build_object('item_id', item_id, 'current_qty', current_qty)), '[]')
+                 FROM scavenging_zone_stock WHERE zone_id=$1) AS stock`,
+      [zoneId]
+    ),
+  ]);
+  if (!cached.table) return null;
+  const table = cached.table;
+  // Copies: the caller and the top-up below write current_qty onto each entry.
+  const entries = cached.entries.map((e) => ({ ...e }));
   if (!entries.length) return { table, entries: [] };
+  const stateRows = zoneRow.last_replenish == null ? [] : [{ last_replenish: zoneRow.last_replenish }];
+  const stock = zoneRow.stock;
 
   // First visit to this zone: every entry starts full.
   if (!stateRows.length) {

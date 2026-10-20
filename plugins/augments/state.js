@@ -304,42 +304,55 @@ export async function persistRec(player, augmentId) {
 }
 
 /**
- * Flush dirty rosters. Coalesced: one UPDATE per changed augment, and nothing at
- * all for the overwhelmingly common case of a player whose chrome did not change.
+ * Flush dirty rosters: one player, or an array of them. Coalesced: ONE UPDATE for
+ * every changed augment across every player passed (it was one serial UPDATE per
+ * augment), and nothing at all for the common case of chrome that did not change.
  * Pending wear is folded in here rather than written per strain event.
  */
-export async function flushAugments(player) {
-  if (!player?.id) return;
-  const pending = player._augWearPending;
-  if (pending instanceof Map && pending.size) {
-    for (const [id, delta] of pending) {
+export async function flushAugments(players) {
+  const list = Array.isArray(players) ? players : [players];
+  const taken = [];   // [player, augmentId]
+  const rows = [];
+  const params = [];
+  for (const player of list) {
+    if (!player?.id) continue;
+    const pending = player._augWearPending;
+    if (pending instanceof Map && pending.size) {
+      for (const [id, delta] of pending) {
+        const rec = rosterOf(player).get(id);
+        if (!rec) continue;
+        rec.condition = Math.max(0, Math.min(1, Number(rec.condition ?? 1) - Number(delta || 0)));
+        markDirty(player, id);
+      }
+      pending.clear();
+    }
+    const dirty = player._augmentsDirty;
+    if (!(dirty instanceof Set) || !dirty.size) continue;
+    const ids = [...dirty];
+    dirty.clear();
+    for (const id of ids) {
       const rec = rosterOf(player).get(id);
-      if (!rec) continue;
-      rec.condition = Math.max(0, Math.min(1, Number(rec.condition ?? 1) - Number(delta || 0)));
-      markDirty(player, id);
+      if (!rec) continue;   // removed rows are DELETEd by install.js, not flushed here
+      const b = params.length;
+      rows.push(`($${b + 1}::text, $${b + 2}::text, $${b + 3}::real, $${b + 4}::smallint, $${b + 5}::text, $${b + 6}::smallint, $${b + 7}::jsonb)`);
+      params.push(player.id, id, rec.condition, Math.round(rec.calibration), rec.install_quality,
+        rec.overclock_level, JSON.stringify(rec.custom_data || {}));
+      taken.push([player, id]);
     }
-    pending.clear();
   }
-  const dirty = player._augmentsDirty;
-  if (!(dirty instanceof Set) || !dirty.size) return;
-  const ids = [...dirty];
-  dirty.clear();
-  for (const id of ids) {
-    const rec = rosterOf(player).get(id);
-    if (!rec) continue;   // removed rows are DELETEd by install.js, not flushed here
-    try {
-      await query(
-        `UPDATE player_augments
-            SET condition = $1, calibration = $2, install_quality = $3,
-                overclock_level = $4, custom_data = $5
-          WHERE player_id = $6 AND augment_id = $7`,
-        [rec.condition, Math.round(rec.calibration), rec.install_quality,
-         rec.overclock_level, JSON.stringify(rec.custom_data || {}), player.id, id]
-      );
-    } catch (e) {
-      // Put it back — a lost flush must retry, not silently drop the damage.
-      markDirty(player, id);
-      console.warn('[augments] flush failed for', id, e.message);
-    }
+  if (!rows.length) return;
+  try {
+    await query(
+      `UPDATE player_augments AS pa
+          SET condition = v.condition, calibration = v.calibration, install_quality = v.install_quality,
+              overclock_level = v.overclock_level, custom_data = v.custom_data
+         FROM (VALUES ${rows.join(', ')}) AS v(player_id, augment_id, condition, calibration, install_quality, overclock_level, custom_data)
+        WHERE pa.player_id = v.player_id AND pa.augment_id = v.augment_id`,
+      params
+    );
+  } catch (e) {
+    // Put them back — a lost flush must retry, not silently drop the damage.
+    for (const [player, id] of taken) markDirty(player, id);
+    console.warn('[augments] flush failed:', e.message);
   }
 }

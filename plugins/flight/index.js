@@ -958,6 +958,9 @@ const LANDING_IP_MIN_MS = 5 * 60 * 1000;
 function sendFlightSim(player, live) {
   const zone = getZone(live.row.parked_zone_id);
   const ctx = contextPayload(live);
+  // A cockpit that has just opened has no map of its own yet, whatever this occupant was
+  // sent before: the next tick's flight_ctx carries the full window (state.js pushContext).
+  live._ctxMapSent?.delete(player.id);
   sendToPlayer(player.id, {
     type: 'flight_sim',
     aircraftId: live.row.id,   // the cockpit hands it back in `flightresume` if the server forgets the seat
@@ -1672,7 +1675,11 @@ async function flightTick() {
         // Passengers ride the cabin-window HUD (not the pilot's live sim) — refresh it each
         // tick so their out-the-window scenery keeps pace with the flight.
         for (const pid of live.occupants) { const p = getLivePlayer(pid); if (p && p.seat !== 'pilot') { pushHud(live); break; } }
-        if (++live.persistCtr % 4 === 0) await persistIfChanged(live);
+        // Once a minute (every 20th 3 s tick). Fuel burns every tick, so the diff gate
+        // never skipped an airborne craft and this was a write every 12 s. Landing,
+        // a crash and logout persist on their own; a server crash mid-flight restores
+        // her up to a minute back.
+        if (++live.persistCtr % 20 === 0) await persistIfChanged(live);
         continue;
       }
 
@@ -1975,6 +1982,7 @@ on('player.login', async ({ id }) => {
   // so a charter passenger correctly falls to the `else` (cabin-window HUD) below.
   for (const live of liveAircraft.values()) {
     if (!live.occupants.has(id)) continue;
+    live._ctxMapSent?.delete(id);   // a reloaded client has no map: next flight_ctx sends it whole
     const seat = live.pilotId === id ? 'pilot' : 'passenger';
     player.aircraftId = live.row.id;
     player.seat = seat;
@@ -2025,6 +2033,7 @@ async function cmdFlightResume(args, raw, player) {
     if (!live.homeField) live.homeField = a.custom_data?.aloft?.home || null;   // where a tow takes her
     if (!live.flightStartMs) live.flightStartMs = Date.now();
   }
+  live._ctxMapSent?.delete(player.id);   // the cockpit asking to resume holds no map yet
   pushContext(live);
   return { type: 'noop' };
 }

@@ -129,10 +129,11 @@ on('player.death', async ({ player, corpseId, custody, override }) => {
 // Deliberate acts (tuning, overclock, install, repair) never wait for this —
 // they write through at the moment the player chooses them.
 schedule('1m', async () => {
+  const dirty = [];
   for (const p of world.players.values()) {
-    if (!p?._augmentsDirty?.size && !p?._augWearPending?.size) continue;
-    await flushAugments(p).catch(() => {});
+    if (p?._augmentsDirty?.size || p?._augWearPending?.size) dirty.push(p);
   }
+  if (dirty.length) await flushAugments(dirty).catch(() => {});
 });
 
 // --- the campus tops you up without being asked ----------------------------

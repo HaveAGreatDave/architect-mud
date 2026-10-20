@@ -67,7 +67,9 @@ export async function addHorniness(player, amount, broadcast) {
 
   player.horniness = Math.min(120, prev + amount);
   player.horniness_last_increased = Date.now(); // track for decay delay
-  await query('UPDATE players SET horniness=$1 WHERE id=$2', [player.horniness, player.id]);
+  // Persisted by the minute batch in index.js, not here: an act raises the meter
+  // every 8 s, and each beat was its own UPDATE. A crash loses at most a minute of it.
+  player._hornyDirty = true;
 
   const messages = [...early];
 

@@ -359,10 +359,7 @@ export async function textPilotTick() {
       // pilot who boards an engine-off aircraft sits on the "instruments coming alive…"
       // placeholder forever with no way to see (or reach) the throttle.
       if (!live.row.engine_on && live.fmState.onGround && live.fmState.airspeed < 0.5) {
-        if (live.pilotId) {
-          const idle = panelPayload(live);
-          if (idle) sendToPlayer(live.pilotId, idle);
-        }
+        if (live.pilotId) sendPanel(live, panelPayload(live));
         continue;
       }
       await stepOne(live);
@@ -383,12 +380,23 @@ export async function textPilotTick() {
       // The live panel, every tick — this is the instrument pane, so it refreshes at
       // the sim's own rate rather than being narrated into the scroll.
       if (live.pilotId) {
-        const panel = panelPayload(live);
-        if (panel) sendToPlayer(live.pilotId, panel);
+        sendPanel(live, panelPayload(live));
         logRungWarnings(live, getLivePlayer(live.pilotId));
       }
     }
   } finally { ticking = false; }
+}
+// The panel goes out when it reads differently from the last one sent, and at least every
+// PANEL_RESEND_MS so a reloaded client gets painted. Parked with the engine off, it used to
+// go out unchanged every second.
+const PANEL_RESEND_MS = 10_000;
+function sendPanel(live, panel) {
+  if (!panel || !live.pilotId) return;
+  const json = JSON.stringify(panel);
+  const now = Date.now();
+  if (live._panelSent?.json === json && live._panelSent.pid === live.pilotId && now - live._panelSent.at < PANEL_RESEND_MS) return;
+  live._panelSent = { json, pid: live.pilotId, at: now };
+  sendToPlayer(live.pilotId, panel);
 }
 schedule('1s', () => textPilotTick().catch(e => console.error('[flight] text-pilot tick error:', e.message)));
 

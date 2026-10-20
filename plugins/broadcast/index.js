@@ -4472,6 +4472,24 @@ async function getMorningGraph(item, nowMs, state = null) {
   return item._morningGraph;
 }
 
+// A camera's recorded frames, for `recorded` playback. That plays one frame every few
+// seconds out of the same buffer, and the broadcast tick asked for it every second per
+// tuned room, so it is kept here. The in-process writers (CAMERA_RECORD, the dev
+// clear-buffer route) drop the entry; the TTL covers a restore or a hand edit. The
+// content deploy never writes the column (content-registry excludes it).
+const RECORDING_TTL_MS = 5 * 60_000;
+const recordingCache = new Map();   // cameraId → { buf, at }
+async function recordingBuffer(cameraId) {
+  const hit = recordingCache.get(cameraId);
+  if (hit && Date.now() - hit.at < RECORDING_TTL_MS) return hit.buf;
+  const { rows } = await query('SELECT recording_buffer FROM media_cameras WHERE id=$1', [cameraId]).catch(() => ({ rows: [] }));
+  const raw = rows[0]?.recording_buffer;
+  const buf = Array.isArray(raw) ? raw : JSON.parse(raw || '[]');
+  recordingCache.set(cameraId, { buf, at: Date.now() });
+  return buf;
+}
+on('camera.recorded', ({ cameraId }) => recordingCache.delete(cameraId));
+
 async function getCurrentMessage(state, nowMs) {
   const { channelType, playlist, totalDuration, idleBroadcast, newsCategories, camera, loopOriginMs, scheduleMode } = state;
 
@@ -4698,8 +4716,7 @@ async function getCurrentMessage(state, nowMs) {
         return ni ? { text: ni.text, key: `news:${ni.ts}` } : null;
       }
       if (item.playback_mode === 'recorded' && camera) {
-        const { rows: camRows } = await query('SELECT recording_buffer FROM media_cameras WHERE id=$1', [camera.id]).catch(() => ({ rows: [] }));
-        const buf = camRows[0] ? (Array.isArray(camRows[0].recording_buffer) ? camRows[0].recording_buffer : JSON.parse(camRows[0].recording_buffer || '[]')) : [];
+        const buf = await recordingBuffer(camera.id);
         if (buf.length) {
           const bufElapsed = elapsed - item.startTime;
           const bufIdx = Math.floor(bufElapsed / (item.message_interval || 5)) % buf.length;
@@ -10935,12 +10952,14 @@ export const routeHandler = async (path, method, body, auth) => {
       if (id && method === 'DELETE') {
         if (auth?.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
         await query('DELETE FROM media_cameras WHERE id=$1', [id]);
+        recordingCache.delete(id);
         await loadChannelRuntimes();
         return { status: 200, body: { message: 'Deleted' } };
       }
       // Clear recording buffer
       if (id && sub === 'clear-buffer' && method === 'POST') {
         await query('UPDATE media_cameras SET recording_buffer=$1 WHERE id=$2', ['[]', id]);
+        recordingCache.delete(id);
         return { status: 200, body: { message: 'Buffer cleared' } };
       }
     }

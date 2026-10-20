@@ -530,6 +530,7 @@ function startWeatherMapPolling() {
   const tick = async () => {
     const host = document.getElementById('tw-weathermap');
     if (!host) { clearInterval(window._twWeatherMapInterval); window._twWeatherMapInterval = null; return; }
+    if (document.hidden && window._twWeatherMapData) return;   // nobody is looking; the first paint still runs
     const d = await API('/environment/weathermap');
     if (d && !d.error) { window._twWeatherMapData = d; paintWeatherMap(); }
   };

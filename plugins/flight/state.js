@@ -2386,16 +2386,39 @@ export function seatList(live) {
   }
   return out;
 }
+// The 73×73 map window, the far road lines and the skyline are most of a flight_ctx, and the
+// flight tick sends one every 3 s whether the craft is cruising or parked with the engine
+// running. Each occupant gets them again only when their copy could be wrong: the craft has
+// moved CTX_MAP_STEP tiles from where that occupant was last sent them (36 each way, so 28
+// still lie ahead), it took off or landed, or CTX_MAP_REFRESH_MS has passed. Tracked per
+// occupant, so somebody who boards mid-flight gets the full window on their first push. The
+// cockpit keeps what it has when a key is absent (cockpit.js flightSimContext). Fields,
+// landmarks and regions carry live bearings and still ride every push.
+const CTX_MAP_STEP = 8;
+const CTX_MAP_REFRESH_MS = 15_000;
 export function pushContext(live) {
   const payload = contextPayload(live);
+  const a = live.row, now = Date.now(), air = !!a.airborne;
+  const sent = live._ctxMapSent || (live._ctxMapSent = new Map());   // pid → { x, y, at, air }
+  let lean = null;
   // A text-mode occupant (rider or pilot) has no panel mounted for this to feed, so
   // sending it is pure waste at best and would re-open the 3D layer at worst. Both
   // latches are set at board time — see textmode.js / textpilot.js.
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
     if (!p || ((p.textTravel || p.textPilot) && !p.cabinWindowOpen)) continue;
-    sendToPlayer(pid, payload);
+    const was = sent.get(pid);
+    const fresh = !was || was.air !== air || now - was.at >= CTX_MAP_REFRESH_MS
+      || Math.abs(a.grid_x - was.x) >= CTX_MAP_STEP || Math.abs(a.grid_y - was.y) >= CTX_MAP_STEP;
+    if (fresh) {
+      sent.set(pid, { x: a.grid_x, y: a.grid_y, at: now, air });
+      sendToPlayer(pid, payload);
+    } else {
+      if (!lean) { lean = { ...payload }; delete lean.map; delete lean.mapX; delete lean.mapY; delete lean.roads; delete lean.skyline; }
+      sendToPlayer(pid, lean);
+    }
   }
+  for (const pid of sent.keys()) if (!live.occupants.has(pid)) sent.delete(pid);
 }
 
 // One airborne craft as another pilot's radar/windshield sees it: world position

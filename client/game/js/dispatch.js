@@ -16,6 +16,7 @@ import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers, rollbackSelfEcho, removeCorpChannels, setWhisperOwner } from './panels/whisper.js';
+import { setOnlinePlayers } from './panels/players.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 // Activity panels: minigames, machines, consoles. Loaded when one opens (lazy-views.js).
 import {
@@ -366,6 +367,24 @@ let claimRetry = null;
 // the free camera. Each draws a fireworks shell as a real burst, so the flat on-foot flash is not for them.
 const inGlassView = () => isFlightSimActive() || isCabActive() || isBoatActive() || isPodracerActive() || isHelmActive() || isFreelookActive();
 
+// The background re-look, shared by every reason to repaint the room (a hit, somebody
+// walking in, a door). Each is a full describeZone on the server, and in a group fight
+// every swing used to cost every client in the room its own look. One timer, and never
+// more than one re-look per RELOOK_MIN_MS: a later event joins the pending look rather
+// than pushing it back, so steady combat can't starve it either.
+const RELOOK_MIN_MS = 1000;
+let relookTimer = null;
+let lastLookAt = 0;
+function requestRelook(delayMs) {
+  if (relookTimer) return;
+  const wait = Math.max(delayMs, lastLookAt + RELOOK_MIN_MS - Date.now());
+  relookTimer = setTimeout(() => { relookTimer = null; sendCmdSilent('look'); }, wait);
+}
+function relookNow() {
+  clearTimeout(relookTimer); relookTimer = null;
+  sendCmdSilent('look');
+}
+
 const handlers = {
   // The build this page was loaded against is the first one a socket reports. A later
   // `connected` from a different build means a deploy landed while the tab stayed open:
@@ -508,7 +527,8 @@ const handlers = {
     setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
     parseZoneInfo(msg.message);
     if (msg.minimap) renderMinimap(msg.minimap);
-    refreshZoneVisibility();
+    refreshZoneVisibility(msg.visibility);   // absent on an old server ⇒ falls back to fetching
+    lastLookAt = Date.now();
   },
 
   // THE ROOM CHANGED UNDER YOU AND YOU DIDN'T ASK. Waking from a dream, an
@@ -548,11 +568,11 @@ const handlers = {
     if (msg.minimap) renderMinimap(msg.minimap, msg.direction);
     if (msg.tempC !== undefined) updateZoneTempHUD(msg.tempC);
     refreshZoneVisibility(msg.visibility);   // absent on an old server ⇒ falls back to fetching
+    lastLookAt = Date.now();
     refreshTabletMapIfOpen();
   },
 
   combat: (() => {
-    let _lookTimer = null;
     return (msg) => {
       const el = appendHtml(msg.message, msg.killed ? 'loot' : 'combat');
       if (msg.killed && msg.corpseLink) appendHtml(`${msg.corpseLink}`, 'loot');
@@ -566,8 +586,8 @@ const handlers = {
       // that changed nobody's HP (stance, dodge, a failed break-away) set
       // noRefresh — repainting the area pane for them is pure churn.
       if (msg.noRefresh) return;
-      if (msg.killed) { clearTimeout(_lookTimer); sendCmdSilent('look'); }
-      else { clearTimeout(_lookTimer); _lookTimer = setTimeout(() => sendCmdSilent('look'), 300); }
+      if (msg.killed) relookNow();
+      else requestRelook(300);
     };
   })(),
 
@@ -739,14 +759,13 @@ const handlers = {
   },
 
   zone_event: (() => {
-    let _lookTimer = null;
     return (msg) => {
       // A refresh-only event (no message) just re-looks the room — don't print a blank line.
       if (msg.message) appendHtml(msg.message, 'zone-event');
       // Grid power cut: the server tags the cutout line with class="power-out".
       // Arm the flicker + pop and refresh brightness now, don't wait for the look debounce.
       if (msg.message && msg.message.includes('power-out')) { signalPowerOut(); refreshZoneVisibility(); }
-      if (msg.refresh) { clearTimeout(_lookTimer); _lookTimer = setTimeout(() => sendCmdSilent('look'), 800); }
+      if (msg.refresh) requestRelook(800);
     };
   })(),
   // Aircraft overhead: a transient banner pinned to the top of the room pane (auto-fades),
@@ -1225,7 +1244,7 @@ const handlers = {
   hangar_close: () => { closeHangarBay(); sendCmdSilent('look'); },
   admin_panel: (msg) => { openAdminPanel(msg.commands, msg.role); },
 
-  online_change: () => { refreshOnlinePlayers(); },
+  online_change: (msg) => { refreshOnlinePlayers(msg.players); setOnlinePlayers(msg.players); },
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
   whisper_sent: (msg) => { sentWhisper(msg.to, msg.message); },
   channel_msg: (msg) => { receiveChannelMsg(msg.channel, msg.from, msg.message); },

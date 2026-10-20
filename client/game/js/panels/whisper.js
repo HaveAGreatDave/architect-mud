@@ -1005,8 +1005,10 @@ function _renderUsersTab(log) {
 
 // ── ONLINE PLAYERS ────────────────────────────────────────────────────────────
 
-export async function refreshOnlinePlayers() {
-	await _fetchOnlinePlayers();
+// `list` is the roster an `online_change` push carries; without one (an older
+// server, or an embedder asking for fresh data) it is fetched.
+export async function refreshOnlinePlayers(list) {
+	await _fetchOnlinePlayers(list);
 }
 
 // Last-fetched online players (excludes self) — for embedders (Tablet Chat app)
@@ -1028,10 +1030,9 @@ export function ensureChatConversation(handle) {
 	return handle;
 }
 
-async function _fetchOnlinePlayers() {
+async function _fetchOnlinePlayers(list) {
 	try {
-		const r = await fetch("/api/players/online");
-		const data = await r.json();
+		const data = Array.isArray(list) ? list : await (await fetch("/api/players/online")).json();
 		const myHandle = document
 			.getElementById("handle-display")
 			?.textContent?.trim();

@@ -2331,8 +2331,10 @@ schedule('1m', async () => {
   // Decay in memory for everyone, then persist as ONE statement. Postgres is
   // remote in prod, so an awaited UPDATE per player here is N sequential round
   // trips every single minute, scaling with concurrent players.
-  const dirty = [];
+  const pending = new Map();   // playerId → horniness to write
   for (const player of getAllLivePlayers()) {
+    // A rise since the last batch (addHorniness marks it rather than writing).
+    if (player._hornyDirty) { player._hornyDirty = false; pending.set(player.id, player.horniness || 0); }
     // Infection first — it isn't gated on arousal, and the symptom badge has to
     // stay lit whether or not anything else about this player is happening.
     // Whatever the ampoule took, it complains about occasionally. Never named.
@@ -2364,22 +2366,29 @@ schedule('1m', async () => {
     if (lastIncrease && (Date.now() - lastIncrease) < decayDelayMs) continue;
     const prevHorny = player.horniness;
     player.horniness = Math.max(0, player.horniness - 1);
-    dirty.push([player.id, player.horniness]);
+    pending.set(player.id, player.horniness);
     // …and falling back through a tier is an event. Without it, decaying from 95 to nothing
     // is twenty silent minutes, indistinguishable from never having been aroused at all.
     const cooled = hornyCoolingLine(player, prevHorny);
     sendToPlayer(player.id, { type: 'resource_tick', messages: cooled ? [cooled] : [], player_update: { horniness: player.horniness, mis_enabled: player.mis_enabled } });
   }
-  if (dirty.length) {
+  if (pending.size) {
+    const dirty = [...pending];
     // Both columns cast explicitly — a bare VALUES list gives Postgres nothing
     // to infer parameter types from.
     const vals = dirty.map((_, i) => `($${i * 2 + 1}::text, $${i * 2 + 2}::int)`).join(',');
-    await query(
-      `UPDATE players p SET horniness = v.h
-         FROM (VALUES ${vals}) AS v(id, h)
-        WHERE p.id = v.id`,
-      dirty.flat()
-    );
+    try {
+      await query(
+        `UPDATE players p SET horniness = v.h
+           FROM (VALUES ${vals}) AS v(id, h)
+          WHERE p.id = v.id`,
+        dirty.flat()
+      );
+    } catch (e) {
+      // Retry next minute with whatever the meter reads then.
+      for (const [id] of dirty) { const p = getLivePlayer(id); if (p) p._hornyDirty = true; }
+      console.error('[mis] meter flush failed:', e.message);
+    }
   }
 
   // Transient NPC arousal cools off once nobody's touched them for a while — it's

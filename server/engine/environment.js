@@ -2619,20 +2619,21 @@ export function getZoneSeverity(zoneId) {
   return f ? f.severity : 0;
 }
 
-// Full outdoor-zone weather snapshot for the dev weather map. Queries map_world
-// zones directly so it covers every placed zone, not just those in state.zones.
+// Full outdoor-zone weather snapshot for the dev weather map. Walks every placed
+// map_world zone in world.zones (not just those in state.zones). It was a SELECT
+// of about 5,400 rows the boot already holds, every 12 s while the panel was open.
 export async function getWeatherMap() {
   const snap = weatherFieldSnapshot ? weatherFieldSnapshot() : { bounds: null, systems: [] };
   const base = state.tempC + diurnalOffset(state.minutes);
   const active = state.currentPrecip !== 'none';
   const baseHum = state.forecast[0]?.humidityPct ?? 60;
   const zones = [];
-  if (deps.query) {
-    const { rows } = await deps.query(
-      `SELECT id, name, grid_x, grid_y, flags->>'region_id' AS region_id FROM zones
-       WHERE map_id = 'map_world' AND grid_x IS NOT NULL AND grid_y IS NOT NULL
-         AND COALESCE(grid_z, 0) >= 0`
-    ).catch(() => ({ rows: [] }));
+  {
+    const rows = [];
+    for (const z of world.zones.values()) {
+      if (z.map_id !== 'map_world' || z.grid_x == null || z.grid_y == null || (z.grid_z ?? 0) < 0) continue;
+      rows.push({ id: z.id, name: z.name, grid_x: z.grid_x, grid_y: z.grid_y, region_id: z.flags?.region_id ?? null });
+    }
     for (const z of rows) {
       const f = sampleField ? sampleField(z.grid_x, z.grid_y) : null;
       const cloud  = f ? f.cloudCover : 0;

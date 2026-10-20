@@ -134,6 +134,16 @@ const hasBoatItem = async (playerId, player = null) =>
 const hasRebreather = async (playerId, player = null) =>
   mutationFlag(player, 'gills') || await carriedTag(playerId, 'rebreather');
 
+// Both capability flags from ONE read of the carried items. The move and login paths
+// asked hasBoatItem then hasRebreather, which ran the same query twice in a row.
+async function setCapabilities(player, underwater) {
+  const { rows } = await query(
+    `SELECT item_id FROM player_inventory WHERE player_id=$1 AND container_id IS NULL`, [player.id]);
+  const carries = (tag) => rows.some(r => getItem(r.item_id)?.tags?.[tag]);
+  player._hasBoat = underwater ? false : (mutationFlag(player, 'flight') || carries('boat'));
+  player._hasRebreather = mutationFlag(player, 'gills') || carries('rebreather');
+}
+
 async function breathMax(player) {
   const eff = await effectiveSkill(player, 'swimming');
   return BREATH_BASE + Math.max(0, eff) * BREATH_PER;
@@ -172,7 +182,9 @@ function drainStamina(player, cost, messages = []) {
   const before = staminaOf(player);
   player.stamina = Math.max(0, before - cost);
   sendToPlayer(player.id, { type: 'resource_tick', messages, player_update: { stamina: player.stamina } });
-  query('UPDATE players SET stamina=$1 WHERE id=$2', [player.stamina, player.id]).catch(() => {});
+  // Persisted by the combat tick's batched flush (flushDirtyResources), not a write
+  // per stroke and per tread.
+  player._resDirty = true;
 }
 
 // Open water as a bath. Clears what a shower clears — blood, contamination,
@@ -180,15 +192,18 @@ function drainStamina(player, cost, messages = []) {
 // clothes on your back isn't washing them. Returns true if anything came off.
 async function rinseOff(player) {
   let cleaned = false;
+  // One UPDATE for whatever came off, not one per kind of dirt.
+  const sets = [];
+  const params = [player.id];
 
   if (player.covered_in_blood) {
     player.covered_in_blood = 0;
-    await query('UPDATE players SET covered_in_blood=0 WHERE id=$1', [player.id]).catch(() => {});
+    sets.push('covered_in_blood=0');
     cleaned = true;
   }
   if (Object.keys(player.clothing_contamination || {}).length) {
     player.clothing_contamination = {};
-    await query(`UPDATE players SET clothing_contamination='{}'::jsonb WHERE id=$1`, [player.id]).catch(() => {});
+    sets.push(`clothing_contamination='{}'::jsonb`);
     cleaned = true;
   }
   const ad = player.appearance_data || {};
@@ -196,9 +211,11 @@ async function rinseOff(player) {
     ad.ejaculate_state = null;
     ad.soiled_state = null;
     player.appearance_data = ad;
-    await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(ad), player.id]).catch(() => {});
+    params.push(JSON.stringify(ad));
+    sets.push(`appearance_data=$${params.length}`);
     cleaned = true;
   }
+  if (sets.length) await query(`UPDATE players SET ${sets.join(', ')} WHERE id=$1`, params).catch(() => {});
   if ((player._sweat || 0) > 0) cleaned = true;
 
   await markWashed(player);
@@ -279,8 +296,7 @@ on('player.login', async ({ player }) => {
   if (!player) return;
   const zone = getZone(player?.current_zone);
   if (!isSwimZone(zone)) return;
-  player._hasBoat = isUnderwater(zone) ? false : await hasBoatItem(player.id, player);
-  player._hasRebreather = await hasRebreather(player.id, player);
+  await setCapabilities(player, isUnderwater(zone));
   syncSwimmer(player);
 });
 on('player.respawn', ({ player }) => syncSwimmer(player));
@@ -316,11 +332,10 @@ on('zone.entered', async ({ actor: player, from, opts }) => {
     return;
   }
 
-  // Capability lookup — the two queries this plugin makes, on the one path that
-  // can afford them (a move, not a tick). Everything downstream reads the flags.
+  // Capability lookup — the one query this plugin makes, on the one path that
+  // can afford it (a move, not a tick). Everything downstream reads the flags.
   const underwater = isUnderwater(toZone);
-  player._hasBoat = underwater ? false : await hasBoatItem(player.id, player);
-  player._hasRebreather = await hasRebreather(player.id, player);
+  await setCapabilities(player, underwater);
 
   if (!syncSwimmer(player)) return;                  // riding a boat across the surface — dry & free
 

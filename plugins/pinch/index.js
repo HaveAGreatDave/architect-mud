@@ -11,7 +11,7 @@ import { setPosture } from '../../server/engine/posture.js';
 import { schedule } from '../../server/engine/scheduler.js';
 
 // Offline players walking home after being pinched.
-// Map<playerId, { handle: string, homeZone: string }>
+// Map<playerId, { handle: string, homeZone: string, currentZone: string }>
 const offlineWalkers = new Map();
 
 const BED_NAMES = /\b(bed|cot|bunk|mattress|couch|sofa|futon|hammock|pallet|bedroll|sleeping bag|lounger)\b/i;
@@ -63,29 +63,44 @@ function nextStepToward(currentZone, homeZone) {
 // ---------------------------------------------------------------------------
 
 schedule('5s', async () => {
-  // Offline walkers (pinched sleepers)
-  for (const [playerId, { handle, homeZone }] of offlineWalkers) {
-    try {
-      const { rows } = await query(`SELECT current_zone FROM players WHERE id=$1`, [playerId]);
-      if (!rows.length) { offlineWalkers.delete(playerId); continue; }
-
-      const currentZone = rows[0].current_zone;
-      if (currentZone === homeZone) {
-        offlineWalkers.delete(playerId);
-        await arriveSleepOffline(playerId, handle, homeZone);
-        continue;
-      }
-
-      const step = nextStepToward(currentZone, homeZone);
-      if (!step) { offlineWalkers.delete(playerId); continue; }
-
-      await query(`UPDATE players SET current_zone=$1 WHERE id=$2`, [step.nextZoneId, playerId]);
-      sendToZone(currentZone, { type: 'zone_event', message: `${handle} shuffles ${step.direction}, still in a daze.`, refresh: true });
-      sendToZone(step.nextZoneId, { type: 'zone_event', message: `${handle} stumbles in, eyes glazed, heading home.`, refresh: true });
-    } catch (e) {
-      console.error(`[pinch] offline walker tick error for ${playerId}:`, e.message);
+  // Offline walkers (pinched sleepers). Each walker's position lives in the Map, so a
+  // step is no longer a read of the row it just wrote; every walker's step goes out
+  // in one UPDATE. The row is still written each step, because a login reads it.
+  if (!offlineWalkers.size) return;
+  const moves = [];
+  for (const [playerId, w] of offlineWalkers) {
+    // Logged back in: the live player owns their position now, and a write here
+    // would move the row out from under them.
+    if (getLivePlayer(playerId)) { offlineWalkers.delete(playerId); continue; }
+    if (w.currentZone === w.homeZone) {
       offlineWalkers.delete(playerId);
+      await arriveSleepOffline(playerId, w.handle, w.homeZone)
+        .catch((e) => console.error(`[pinch] offline walker arrival failed for ${playerId}:`, e.message));
+      continue;
     }
+
+    const step = nextStepToward(w.currentZone, w.homeZone);
+    if (!step) { offlineWalkers.delete(playerId); continue; }
+
+    moves.push([playerId, step.nextZoneId]);
+    sendToZone(w.currentZone, { type: 'zone_event', message: `${w.handle} shuffles ${step.direction}, still in a daze.`, refresh: true });
+    sendToZone(step.nextZoneId, { type: 'zone_event', message: `${w.handle} stumbles in, eyes glazed, heading home.`, refresh: true });
+    w.currentZone = step.nextZoneId;
+  }
+  if (!moves.length) return;
+  try {
+    const { rows } = await query(
+      `UPDATE players AS pl SET current_zone = v.zone
+         FROM (VALUES ${moves.map((_, i) => `($${i * 2 + 1}::text, $${i * 2 + 2}::text)`).join(', ')}) AS v(id, zone)
+        WHERE pl.id = v.id
+        RETURNING pl.id`,
+      moves.flat());
+    // A row that's gone (a deleted character) stops walking.
+    const found = new Set(rows.map((r) => r.id));
+    for (const [id] of moves) if (!found.has(id)) offlineWalkers.delete(id);
+  } catch (e) {
+    console.error('[pinch] offline walker tick error:', e.message);
+    for (const [id] of moves) offlineWalkers.delete(id);
   }
 
   // A live `home` walk is NOT driven here — it paces itself off the movement clock
@@ -198,7 +213,7 @@ async function cmdPinch(args, raw, player, broadcast) {
   }
 
   await query(`UPDATE players SET offline_sleeping=FALSE WHERE id=$1`, [target.id]);
-  offlineWalkers.set(target.id, { handle: target.handle, homeZone: target.home_zone });
+  offlineWalkers.set(target.id, { handle: target.handle, homeZone: target.home_zone, currentZone: target.current_zone });
 
   broadcast(
     player.current_zone,

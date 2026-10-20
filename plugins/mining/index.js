@@ -67,6 +67,19 @@ async function hasPick(playerId) {
   return !!(await resolveInventoryItem(playerId, { tag: 'mining_tool' }));
 }
 
+// The same answer for the perpetual dig, which used to ask every attempt. Dropped on
+// inventory.changed; the TTL covers a path that moves the tool without the event.
+const PICK_TTL_MS = 60_000;
+const pickCache = new Map();   // playerId → { has, at }
+on('inventory.changed', ({ actor }) => { if (actor?.id) pickCache.delete(actor.id); });
+async function stillHasPick(playerId) {
+  const hit = pickCache.get(playerId);
+  if (hit && Date.now() - hit.at < PICK_TTL_MS) return hit.has;
+  const has = await hasPick(playerId);
+  pickCache.set(playerId, { has, at: Date.now() });
+  return has;
+}
+
 // ── Table + per-zone stock loading (with lazy replenish) ──────────────────────
 // Reuses the scavenging_* schema verbatim; per-zone stock is shared by item id if
 // a zone happens to run more than one gathering system on the same item (harmless,
@@ -118,7 +131,7 @@ async function runAttempt(player, st, nowMs) {
   if (!zone || !tableId) { stopMining(player.id, st.zoneId, player.handle); return; }
 
   // Lost the pick mid-work (dropped, stashed, stolen) — stop like fishing does.
-  if (!(await hasPick(player.id))) {
+  if (!(await stillHasPick(player.id))) {
     out(player.id, 'Without a tool in hand, there\'s no working this rock.');
     stopMining(player.id, st.zoneId, player.handle);
     return;

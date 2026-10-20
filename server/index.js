@@ -94,6 +94,7 @@ import {
 	setGhostTokenStore,
 	claimGuestAccount,
 	flushPlayerCountLog,
+	publicOnlineRoster,
 } from "./api/routes.js";
 import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhostBroadcast } from "./engine/commands/ghost.js";
 import { activateForcefield, deactivateForcefield, reconcileApartmentDoorLocks, reconcileNpcHomesVsOwnership } from "./engine/apartments.js";
@@ -173,6 +174,28 @@ setGhostTokenStore((token, playerId, zoneId) => {
 });
 
 
+// What the client's sleep bar shows, per socket: 0 awake, 1 asleep, 2 dreaming. Three
+// message types move it (dispatch.js `sleep`, `sleep_end`, `sleep_state`), so every
+// send of one notes it here, and the per-reply stamp in handleGameCommand goes out
+// only when the server's truth differs from what this socket was last told.
+const sleepUiShown = new WeakMap();
+function sleepUiKey(message) {
+	switch (message?.type) {
+		case "sleep_state": return message.sleeping ? (message.dreaming ? 2 : 1) : 0;
+		case "sleep": return 1;
+		case "sleep_end": return 0;
+		default: return undefined;
+	}
+}
+function noteSleepUi(ws, message) {
+	const k = sleepUiKey(message);
+	if (k !== undefined) sleepUiShown.set(ws, k);
+}
+// The room minimap this socket last received (JSON), so a look that would repeat it
+// can leave it off. Pushed looks and moves note it too, or the client could be showing
+// a pushed map the server thinks it never sent.
+const lastMinimapSent = new WeakMap();
+
 function broadcast(
 	zoneId,
 	message,
@@ -190,6 +213,8 @@ function broadcast(
 		if (message?.type === "dialogue") noteDialogueFrame(targetPlayerId, message, getLivePlayer(targetPlayerId)?.current_zone);   // what handleDialogue may accept next
 		const ws = playerSockets.get(targetPlayerId);
 		if (ws?.readyState === 1) {
+			noteSleepUi(ws, message);
+			if (message.minimap && (message.type === "look" || message.type === "move")) lastMinimapSent.set(ws, JSON.stringify(message.minimap));
 			ws.send(payload);
 			if (message.type === "kicked") closeAfterKick(ws);
 		}
@@ -317,6 +342,9 @@ const assetFills = new Map();
 // WebCrypto's digest, which is async too. Nothing in a fill blocks the loop.
 const brotliAsync = promisify(brotliCompress);
 const gzipAsync = promisify(gzip);
+// API JSON below this many characters goes out raw: the headers and the CPU cost
+// more than the bytes saved.
+const API_COMPRESS_MIN = 1024;
 
 // ⚠ AND THE STAT IS RATE-LIMITED, BECAUSE HALF OF PROBLEM 2 ABOVE SURVIVED THE FIX FOR IT. That
 // note names the cost as "a synchronous readFileSync + statSync" on the loop that also delivers
@@ -550,13 +578,31 @@ const httpServer = createServer(async (req, res) => {
 				body: { error: process.env.NODE_ENV === "production" ? "Internal server error" : (err.message || "Internal server error") },
 			};
 		}
+		// 304 Not Modified carries no body (the client reuses its cached copy).
+		const json = result.status === 304 ? undefined : JSON.stringify(result.body);
+		// Compressed past API_COMPRESS_MIN, the way static files are, and off the loop
+		// the same way (zlib runs on the libuv threadpool). The audio samples are
+		// base64 in JSON and the dev panel's lists are whole tables; both went out raw.
+		let encoded = null, encoding = null;
+		if (json && json.length >= API_COMPRESS_MIN) {
+			const accepts = String(req.headers["accept-encoding"] || "");
+			if (/\bbr\b/.test(accepts)) {
+				encoded = await brotliAsync(json, { params: { [constants.BROTLI_PARAM_QUALITY]: 4 } }).catch(() => null);
+				if (encoded) encoding = "br";
+			}
+			if (!encoded && /\bgzip\b/.test(accepts)) {
+				encoded = await gzipAsync(json, { level: 6 }).catch(() => null);
+				if (encoded) encoding = "gzip";
+			}
+		}
 		res.writeHead(result.status, {
 			"Content-Type": "application/json",
 			...cors,
 			...(result.headers || {}),
+			...(json && json.length >= API_COMPRESS_MIN ? { Vary: "Accept-Encoding" } : {}),
+			...(encoding ? { "Content-Encoding": encoding } : {}),
 		});
-		// 304 Not Modified carries no body (the client reuses its cached copy).
-		res.end(result.status === 304 ? undefined : JSON.stringify(result.body));
+		res.end(encoded || json);
 		return;
 	}
 
@@ -1172,12 +1218,15 @@ async function logoutLiveSession(playerId, handle) {
 			// current value under it, which the row must capture.
 			clearActiveDrugBuffs(player);
 			await query(
-				"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, hp=$2, stamina=$3, offline_sleeping=TRUE WHERE id=$4",
+				// horniness only when the MIS minute batch hasn't written its last rise yet
+				// (plugins/mis marks `_hornyDirty` rather than writing per beat).
+				"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, hp=$2, stamina=$3, offline_sleeping=TRUE, horniness=COALESCE($5, horniness) WHERE id=$4",
 				// persistableZone, not current_zone — dropping mid-dream or
 				// mid-void-crossing would otherwise checkpoint a RAM-only zone id
 				// into the row and strand the player somewhere that stops existing.
-				[persistableZone(player), player.hp, player.stamina, playerId],
+				[persistableZone(player), player.hp, player.stamina, playerId, player._hornyDirty ? Math.round(player.horniness || 0) : null],
 			).catch(() => {});
+			player._hornyDirty = false;
 			player._posDirty = false; // authoritative clean-exit checkpoint for position (see cmdMove)
 			player._resDirty = false; // ...and for hp/stamina (see flushDirtyResources) — closes the combat-log window on a graceful logout
 		} else {
@@ -1190,10 +1239,13 @@ async function logoutLiveSession(playerId, handle) {
 		// knows this player — the live object (and its Map) is discarded
 		// by removeLivePlayer a few lines down. Wear too: it only flushed on
 		// the minute batch, so a logout within a minute of a fight dropped it.
-		if (player) await flushRelations(player).catch(() => {});
-		if (player) await flushMutations(player).catch(() => {});
-		if (player) await flushWear(player).catch(() => {});
-		if (player) await flushSkillIp(player.id).catch(() => {});
+		// Four tables, so the four go out together.
+		if (player) await Promise.all([
+			flushRelations(player).catch(() => {}),
+			flushMutations(player).catch(() => {}),
+			flushWear(player).catch(() => {}),
+			flushSkillIp(player.id).catch(() => {}),
+		]);
 	} catch (err) {
 		console.error(`[logout] teardown step failed for ${handle}: ${err?.stack || err}`);
 	} finally {
@@ -1203,7 +1255,9 @@ async function logoutLiveSession(playerId, handle) {
 		evictPlayerFlags(playerId);
 		emit('player.logout', { id: playerId, handle });
 		logActivity('disconnect', handle);
-		broadcast(null, { type: 'online_change' });
+		// The roster rides the event, so no client has to fetch it back. Still live
+		// at this point, so the one leaving is taken out by hand.
+		broadcast(null, { type: 'online_change', players: publicOnlineRoster().filter((p) => p.id !== playerId) });
 		playerSockets.delete(playerId);
 		removeLivePlayer(playerId);
 		loggingOut.delete(playerId);
@@ -1711,9 +1765,6 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 		died_offline: player.died_offline || 0,
 		home_zone: player.home_zone || null,
 	};
-	const { total: totalXp, net: netXp } = await getNetXp(player.id);
-	livePlayer.xp = Math.floor(netXp);
-	livePlayer.total_xp = totalXp;
 	// Who this player has met, and how it went. ONE indexed query here is the
 	// entire DB cost of the relationship system for the whole session — every
 	// later read (dialogue gates, greetings, vendor manner) is answered from the
@@ -1722,11 +1773,14 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 	// On a RECONNECT there may still be a live object from the old session whose
 	// Map holds unflushed conversations. Flush it BEFORE reading, or the fresh
 	// hydrate races it and the last few minutes of knowing someone are lost.
+	// The four flushes write four different tables, so they go out together.
 	const priorSession = getLivePlayer(player.id);
-	if (priorSession) await flushRelations(priorSession).catch(() => {});
-	if (priorSession) await flushMutations(priorSession).catch(() => {});
-	if (priorSession) await flushWear(priorSession).catch(() => {});
-	if (priorSession) await flushSkillIp(priorSession.id).catch(() => {});
+	if (priorSession) await Promise.all([
+		flushRelations(priorSession).catch(() => {}),
+		flushMutations(priorSession).catch(() => {}),
+		flushWear(priorSession).catch(() => {}),
+		flushSkillIp(priorSession.id).catch(() => {}),
+	]);
 	// Independent reads — one round trip's latency, not two.
 	// The ideology profile (stance + strongest path) is hydrated for the same
 	// reason: reputation decay consults it on every vendor price lookup, and five
@@ -1734,7 +1788,9 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 	// player_flags joins the same batch: it's the mandated home for per-player
 	// scalar state, so it's read constantly at runtime (~70 call sites) and was
 	// costing a round trip every time. One query here, Map lookups thereafter.
-	await Promise.all([
+	// Net XP joins it too: it reads player_skills, which the flushes above settle.
+	const [{ total: totalXp, net: netXp }] = await Promise.all([
+		getNetXp(player.id),
 		hydrateRelations(livePlayer),
 		hydrateIdeologyProfile(livePlayer),
 		hydratePlayerFlags(livePlayer),
@@ -1743,6 +1799,8 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 		// rest of the login batch.
 		hydrateMutations(livePlayer),
 	]);
+	livePlayer.xp = Math.floor(netXp);
+	livePlayer.total_xp = totalXp;
 	// Combat stance persists across sessions (player_flags), but is read from the
 	// LIVE object on every to-hit roll — getFlag is a DB round trip and can never
 	// live in that hot path. Login is the one place it's fetched.
@@ -1793,19 +1851,23 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 	}
 	setLivePlayer(player.id, livePlayer);
 	logActivity('connect', player.handle);
-	broadcast(null, { type: 'online_change' });
-	await deactivateForcefield(player.id, livePlayer.home_zone, broadcast);
-	await autoEquipOnLogin(player.id);
-	await recomputeEquipped(livePlayer);
-	addPlayerToZone(player.id, livePlayer.current_zone);
+	broadcast(null, { type: 'online_change', players: publicOnlineRoster() });
 	const diedOffline = player.died_offline;
-	await query(
-		// Logging off asleep in a bed is a legitimate way to spend the night: you
-		// wake rested rather than having to sit and watch the clock. That is the
-		// escape valve that keeps fatigue from becoming a chore.
-		"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), last_slept_at=CASE WHEN offline_sleeping THEN EXTRACT(EPOCH FROM NOW())*1000 ELSE last_slept_at END, offline_sleeping=FALSE, died_offline=FALSE WHERE id=$1",
-		[player.id],
-	);
+	// Three independent pieces of work, so they go out together. The UPDATE still
+	// lands before the room is described below, or the player would be listed
+	// asleep in their own room.
+	await Promise.all([
+		deactivateForcefield(player.id, livePlayer.home_zone, broadcast),
+		autoEquipOnLogin(player.id).then(() => recomputeEquipped(livePlayer)),
+		query(
+			// Logging off asleep in a bed is a legitimate way to spend the night: you
+			// wake rested rather than having to sit and watch the clock. That is the
+			// escape valve that keeps fatigue from becoming a chore.
+			"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), last_slept_at=CASE WHEN offline_sleeping THEN EXTRACT(EPOCH FROM NOW())*1000 ELSE last_slept_at END, offline_sleeping=FALSE, died_offline=FALSE WHERE id=$1",
+			[player.id],
+		),
+	]);
+	addPlayerToZone(player.id, livePlayer.current_zone);
 	// ...and mirror that onto the live object. livePlayer was built from the
 	// PRE-update row, and fatigueOf() reads the live object — without this the
 	// session right after a logout plays at the fatigue you logged off with and
@@ -1867,20 +1929,17 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 		}),
 	);
 
-	try {
-		const history = await getChannelHistory(livePlayer);
-		if (Object.keys(history).length) {
-			ws.send(JSON.stringify({ type: "channel_history", history }));
+	// Channel history and the MOTD are fetched together and sent in the old order.
+	const [historyRes, motdRes] = await Promise.allSettled([getChannelHistory(livePlayer), getMotd()]);
+	if (historyRes.status === "fulfilled") {
+		if (Object.keys(historyRes.value).length) {
+			ws.send(JSON.stringify({ type: "channel_history", history: historyRes.value }));
 		}
-	} catch (err) {
-		console.error("channel history load failed:", err.message);
+	} else {
+		console.error("channel history load failed:", historyRes.reason?.message);
 	}
-
 	// Send all three MOTD templates to client; client picks size based on its settings
-	try {
-		const motd = await getMotd();
-		ws.send(JSON.stringify({ type: 'motd', ...motd }));
-	} catch {}
+	if (motdRes.status === "fulfilled") ws.send(JSON.stringify({ type: 'motd', ...motdRes.value }));
 
 	const bodyTempLoginMsg = loginBodyTempMessage(livePlayer.body_temp_c);
 	let zone = getZone(livePlayer.current_zone);
@@ -1924,14 +1983,16 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 		// the ONE that doesn't come back through handleCommand, and without this a
 		// `log`-rung player lands in the world with the top pane still on screen and
 		// the room they're standing in absent from their log until they first move.
-		ws.send(
-			JSON.stringify(stampToLog(livePlayer, {
-				type: "look",
-				message: (zoneWasDeleted ? describeVoidTeleport() : "") + await describeZone(zone, livePlayer),
-				zone: zone.id,
-				minimap: getMinimapData(zone.id, 8, livePlayer),
-			})),
-		);
+		const loginOut = {};
+		const loginLook = {
+			type: "look",
+			message: (zoneWasDeleted ? describeVoidTeleport() : "") + await describeZone(zone, livePlayer, loginOut),
+			zone: zone.id,
+			minimap: getMinimapData(zone.id, 8, livePlayer),
+			visibility: loginOut.vis,
+		};
+		lastMinimapSent.set(ws, JSON.stringify(loginLook.minimap));
+		ws.send(JSON.stringify(stampToLog(livePlayer, loginLook)));
 		if (zoneWasDeleted) {
 			broadcast(zone.id, { type: "zone_event", message: `${player.handle} flickers into existence out of nowhere.` }, player.id);
 		}
@@ -2097,9 +2158,30 @@ async function handleGameCommand(ws, session, msg) {
 	// six to notify the client — the exact mistake that left wakeFromDream
 	// uncalled on half of them — the truth is stamped on whatever we were already
 	// about to send. One site, and it cannot drift out of sync with the server.
-	ws.send(JSON.stringify({ type: 'sleep_state', sleeping: !!player.sleeping, dreaming: !!player.sleeping?.inDream }));
+	// Sent only when it differs from what this socket's sleep bar already shows
+	// (sleepUiShown, noted on every sleep-type send). A boat or podracer syncs four
+	// times a second, and each sync paid for a frame that said "still awake".
+	const sleepNow = { type: 'sleep_state', sleeping: !!player.sleeping, dreaming: !!player.sleeping?.inDream };
+	if (sleepUiShown.get(ws) !== sleepUiKey(sleepNow)) {
+		noteSleepUi(ws, sleepNow);
+		ws.send(JSON.stringify(sleepNow));
+	}
+	// A silent `noop` with nothing riding on it has no reader: the client's handler
+	// is empty. Vehicle syncs answer this way several times a second.
+	if (result?.type === 'noop' && msg.silent && !result.player_update) result = null;
+	// The room minimap is about a third of a look reply, and the client keeps the last
+	// one it drew (`if (msg.minimap)` in dispatch.js). A look whose minimap is the one
+	// this socket was last sent leaves it off; a move always carries its own.
+	if (result?.minimap && (result.type === 'look' || result.type === 'move')) {
+		const mm = JSON.stringify(result.minimap);
+		if (result.type === 'look' && lastMinimapSent.get(ws) === mm) {
+			result = { ...result };
+			delete result.minimap;
+		} else lastMinimapSent.set(ws, mm);
+	}
 	if (result) {
 		noteDialogueFrame(player.id, result, player.current_zone);   // `talk` opens a conversation this way
+		noteSleepUi(ws, result);
 		ws.send(JSON.stringify(stampToLog(player, result, !!msg.silent)));
 		if (result.player_update)
 			ws.send(

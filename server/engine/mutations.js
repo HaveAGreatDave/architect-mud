@@ -254,10 +254,44 @@ export async function flushMutations(player) {
   }
 }
 
+// Every live player's dirty expressions in ONE upsert, rather than one
+// flushMutations per player (a query and a pool slot each, every minute).
 export async function flushAllMutations() {
-  const dirty = [];
-  for (const p of world.players.values()) if (p._mutationsDirty?.size) dirty.push(p);
-  await Promise.all(dirty.map(p => flushMutations(p)));
+  const taken = [];   // [player, mutationIds]
+  const rows = [];
+  const params = [];
+  for (const p of world.players.values()) {
+    const dirty = p._mutationsDirty;
+    if (!dirty?.size) continue;
+    const ids = [...dirty];
+    dirty.clear();   // cleared up-front: a change during the write re-marks it for the next flush
+    taken.push([p, ids]);
+    for (const id of ids) {
+      const rec = p._mutations.get(id);
+      if (!rec) continue;   // removals are written eagerly, never through the dirty set
+      const b = params.length;
+      rows.push(`($${b + 1}::text, $${b + 2}::text, $${b + 3}::smallint, $${b + 4}::text, $${b + 5}::bigint, $${b + 6}::smallint, $${b + 7}::boolean, $${b + 8}::bigint)`);
+      params.push(p.id, id, rec.expression, rec.source, rec.acquired_at, rec.acquired_expression,
+        rec.diagnosed !== false, rec.suppressed_until ?? null);
+    }
+  }
+  if (!rows.length) return;
+  try {
+    await query(
+      `INSERT INTO player_mutations (player_id, mutation_id, expression, source, acquired_at, acquired_expression, diagnosed, suppressed_until)
+       VALUES ${rows.join(', ')}
+       ON CONFLICT (player_id, mutation_id) DO UPDATE
+         SET expression = EXCLUDED.expression,
+             source = EXCLUDED.source,
+             diagnosed = EXCLUDED.diagnosed,
+             suppressed_until = EXCLUDED.suppressed_until,
+             acquired_expression = COALESCE(player_mutations.acquired_expression, EXCLUDED.acquired_expression)`,
+      params
+    );
+  } catch (err) {
+    for (const [p, ids] of taken) for (const id of ids) p._mutationsDirty.add(id);
+    console.error(`[mutations] batched flush failed: ${err.message}`);
+  }
 }
 
 const clampExpression = v => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));

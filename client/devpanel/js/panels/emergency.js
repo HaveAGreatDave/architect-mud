@@ -88,7 +88,9 @@ function _startCrimeLogPoll() {
   _refreshCrimeLog();
   _refreshJailRoll();
   // One timer for both tables — they live on the same panel and share a cadence.
-  _crimeLogTimer = setInterval(() => { _refreshCrimeLog(); _refreshJailRoll(); }, 3000);
+  // Skipped while the tab is hidden: each is a query, and a dev tab left open in the
+  // background kept the database awake.
+  _crimeLogTimer = setInterval(() => { if (document.hidden) return; _refreshCrimeLog(); _refreshJailRoll(); }, 3000);
 }
 
 // ── Prison roll: who's inside, and the pardon button ─────────────────────────

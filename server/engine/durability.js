@@ -383,6 +383,9 @@ export async function flushWear(player) {
         WHERE pi.id = v.id`,
       params
     );
+    // The cached weapon row's stored condition is now behind the DB's, and the
+    // pending wear it was paired with is gone: re-read it on the next swing.
+    delete player._equippedWeapon;
   } catch (err) {
     // Put the deltas back so the next flush retries. A lost wear write is a free
     // swing; a throw inside a scheduled tick is everyone's problem.
@@ -391,10 +394,41 @@ export async function flushWear(player) {
   }
 }
 
+// Every live player's pending wear in ONE statement. It was one flushWear per
+// player under a Promise.all: a single round trip of latency, but a query and a
+// pool slot per player every minute.
 export async function flushAllWear() {
-  const dirty = [];
-  for (const p of world.players.values()) if (p._wearPending?.size) dirty.push(p);
-  await Promise.all(dirty.map((p) => flushWear(p)));
+  const taken = [];   // [player, entries]
+  const rows = [];
+  const params = [];
+  for (const p of world.players.values()) {
+    const pending = p._wearPending;
+    if (!pending?.size) continue;
+    const entries = [...pending.entries()];
+    pending.clear();   // cleared up-front: the deltas are now owned by this write
+    taken.push([p, entries]);
+    for (const [id, amount] of entries) {
+      const b = params.length;
+      rows.push(`($${b + 1}::text, $${b + 2}::real)`);
+      params.push(id, amount);
+    }
+  }
+  if (!rows.length) return;
+  try {
+    await query(
+      `UPDATE player_inventory AS pi
+          SET condition = GREATEST(0, pi.condition - v.amount)
+         FROM (VALUES ${rows.join(', ')}) AS v(id, amount)
+        WHERE pi.id = v.id`,
+      params
+    );
+    for (const [p] of taken) delete p._equippedWeapon;   // see flushWear
+  } catch (err) {
+    for (const [p, entries] of taken) {
+      for (const [id, amount] of entries) p._wearPending.set(id, (p._wearPending.get(id) || 0) + amount);
+    }
+    console.error(`[durability] batched flush failed: ${err.message}`);
+  }
 }
 
 // ── Display ──────────────────────────────────────────────────────────────────

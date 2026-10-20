@@ -833,12 +833,16 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // registered in gameLoop.js) batch the whole server into one UPDATE. See
   // docs/architecture.md (Persistence Tiers) and the movement-lag audit (Read Tiers).
   if (isInteriorZone(zone) !== isInteriorZone(targetZone)) {
+    // Not awaited: RAM already holds the true position, and nothing on this path
+    // reads the row back, so the reply needn't wait a round trip for it. The write
+    // carries exactly what flushDirtyPositions does (current_zone, stamina), so a
+    // failure just marks the player dirty and the minute flush writes it instead.
     const cols = Object.keys(pendingWrite);
-    await query(
+    player._posDirty = false;
+    query(
       `UPDATE players SET ${cols.map((c, i) => `${c}=$${i + 1}`).join(', ')} WHERE id=$${cols.length + 1}`,
       [...cols.map(c => pendingWrite[c]), player.id]
-    );
-    player._posDirty = false;
+    ).catch(() => { player._posDirty = true; });
   } else {
     player._posDirty = true;
   }

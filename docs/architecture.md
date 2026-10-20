@@ -376,8 +376,9 @@ As built (all in `server/engine/`):
 | combat `hp` (+ `stamina`) | `_resDirty` | `flushDirtyResources` (combat.js), called at end of `tick()` | 1 s (combat tick) | ≤ ~1 s |
 | survival `hunger`/`thirst`/`hp`/`stamina`/`body_temp_c` | deferred into a local `Set` | inline batch at end of `resourceTick` (gameLoop.js) | `'1m'` scheduler | ≤ ~1 min |
 | `player_skills.ip` from `awardIp` | `_pendingIp` Map (ip.js) | `flushAllSkillIp`; logout, reconnect and drain flush too; direct `player_skills` readers call `flushSkillIp` first | `'1m'` scheduler | ≤ ~1 min |
+| `players.horniness` (MIS meter) | `_hornyDirty` | the MIS decay batch (plugins/mis/index.js); the logout write carries it too | `'1m'` scheduler | ≤ ~1 min |
 
-`restRegenTick` (hp/stamina regen) writes nothing of its own — it sets `_resDirty` and rides
+`restRegenTick` (hp/stamina regen) and swimming's stroke and tread drain write nothing of their own — they set `_resDirty` and ride
 `flushDirtyResources`. Position also folds `stamina` into its flush; combat also carries
 `stamina`; the same value written by more than one flush is a harmless last-writer-wins no-op.
 
@@ -427,8 +428,8 @@ discipline as deciding a write's persistence tier:
 |---|---|---|---|
 | **Boot-loaded world Map** | content + live entity state read constantly | **every** writer funnels through a helper that updates Map + DB together | `world.zones/npcs/doors/orgs/furniture/spawnTimers…` (world.js) |
 | **Write-through module cache** | small global tables | all writers live in the one module that owns the cache | world flags (flags.js), per-player skill IP (ip.js), **item templates (items-cache.js — every items writer calls reloadItem/deleteItemCache; runtime minters: keycards, datachips, cassettes)** |
-| **Event-bust + TTL cache** | derived per-player values | main mutation paths emit an event that busts; a short TTL bounds the writers that don't; staleness must be **benign** | carried weight, equipped weapon (`inventory.changed` + 5 s) |
-| **TTL content cache** | authored content, static at runtime | dev CRUD invalidates; TTL covers out-of-band writers | quest definitions (plugins/quests, 30 s); `security_devices` (plugins/surveillance: re-read only after `invalidateDeviceCache()`, which every runtime writer calls, including the Nullcraft ops and zone delete; a 30 min backstop covers the content deploy, regress and offline scripts) |
+| **Event-bust + TTL cache** | derived per-player values | main mutation paths emit an event that busts; a short TTL bounds the writers that don't; staleness must be **benign** | carried weight; equipped weapon (`inventory.changed` and the wear flush, + 30 s); a fisher's rod and bait, a miner's pick (`inventory.changed` + 60 s); active `player_quests` rows (any write by the quests plugin + 30 s) |
+| **TTL content cache** | authored content, static at runtime | dev CRUD invalidates; TTL covers out-of-band writers | quest definitions (plugins/quests, 30 s); scavenging tables and their entries (engine/zone-stock.js, 10 min); a camera's `recording_buffer` (plugins/broadcast, busted by `CAMERA_RECORD` and the dev routes, 5 min); `security_devices` (plugins/surveillance: re-read only after `invalidateDeviceCache()`, which every runtime writer calls, including the Nullcraft ops and zone delete; a 30 min backstop covers the content deploy, regress and offline scripts) |
 | **Query fresh** | anything gameplay-critical with uncoordinated writers | none needed — the DB is the only truth | `wanted`/`heat` player flags; `generators`/`power_zones` (the power sim re-reads both every cycle) |
 
 **The cache-safety test: a cache is only as safe as its write funnel.** Before caching a table,
