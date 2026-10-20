@@ -4,7 +4,8 @@
 // cleaned up in a finally, so it never touches the six real posters.
 import { query } from '../../server/models/db.js';
 import { world, setApartmentCache, insertFurniture, deleteFurnitureWhere } from '../../server/engine/world.js';
-import { hooks, _test } from './index.js';
+import { getFlag, clearFlag } from '../../server/engine/flags.js';
+import { hooks, _test, reconcileTakenPosters } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -44,13 +45,34 @@ export default async function regress({ run, check, getPlayer }) {
     let inv = await query(`SELECT custom_data FROM player_inventory WHERE player_id=$1 AND item_id='item_poster_regress'`, [p.id]);
     check('rolled poster is in inventory with snapshot', inv.rows.length === 1 && inv.rows[0].custom_data?.name === 'hero poster: REGRESS DUMMY', JSON.stringify(inv.rows[0]?.custom_data));
 
+    const taken = await getFlag('world', 'poster_taken:regress');
+    check('takedown of an authored poster records it as taken', taken === 'true', String(taken));
+
     r = await run('putup regress');
     check('putup hangs it back on the wall', /smooth it onto the wall/i.test(r?.message || ''), r?.message);
+    const hung = () => query(`SELECT id, zone_id, origin, owner_id FROM furniture WHERE flags->>'poster_key'='regress'`);
+    f = await hung();
+    check('re-hung poster is a fresh player row, not the authored id',
+      f.rows.length === 1 && /^furn_[0-9a-f]{8}$/.test(f.rows[0].id) && f.rows[0].origin === 'player' && f.rows[0].owner_id === p.id,
+      JSON.stringify(f.rows));
+
+    // ── Simulated re-import: the upsert puts the authored row back on its wall ─
+    await insertFurniture({
+      id: 'furn_regress_poster', zone_id: savedZone, name: 'hero poster: REGRESS DUMMY',
+      description: 'A test poster.', object_type: 'decoration',
+      flags: JSON.stringify({ hero_poster: true, poster_key: 'regress' }),
+    });
+    await reconcileTakenPosters();
+    f = await hung();
+    check('takedown survives a re-import: authored row removed again',
+      !f.rows.some(x => x.id === 'furn_regress_poster'), JSON.stringify(f.rows));
+    check('re-import leaves the player copy where it hangs',
+      f.rows.length === 1 && f.rows[0].zone_id === zone && f.rows[0].origin === 'player', JSON.stringify(f.rows));
 
     // ── `take <poster>` — the natural verb peels it too, and falls through otherwise ─
     r = await run('take regress');
     check('take peels a hanging poster', /roll it into a tube/i.test(r?.message || ''), r?.message);
-    f = await query(`SELECT 1 FROM furniture WHERE id='furn_hero_poster_regress'`);
+    f = await hung();
     check('take removed the wall poster', f.rows.length === 0);
     // Not a poster → plugin returns undefined so the engine take runs (no ground items here).
     r = await run('take nonexistent-thing');
@@ -58,7 +80,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // Re-hang so the seam-reveal section below has the poster back on the wall.
     await run('putup regress');
-    f = await query(`SELECT zone_id FROM furniture WHERE id='furn_hero_poster_regress'`);
+    f = await query(`SELECT zone_id FROM furniture WHERE flags->>'poster_key'='regress'`);
     check('furniture recreated in current zone', f.rows.length === 1 && f.rows[0].zone_id === zone, JSON.stringify(f.rows));
     inv = await query(`SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id='item_poster_regress'`, [p.id]);
     check('rolled poster consumed on putup', inv.rows.length === 0);
@@ -118,7 +140,8 @@ export default async function regress({ run, check, getPlayer }) {
     check('full reveal supersedes the GRU pair hint', !/three deliberate letters/i.test(full || ''), full);
     check('full reveal still offers the take link', /data-action="take"/.test(full || ''), full);
   } finally {
-    await deleteFurnitureWhere(`DELETE FROM furniture WHERE id IN ('furn_regress_poster','furn_hero_poster_regress','furn_regress_cyd') OR id LIKE 'furn_regress_mural_%'`);
+    await deleteFurnitureWhere(`DELETE FROM furniture WHERE id IN ('furn_regress_poster','furn_regress_cyd') OR id LIKE 'furn_regress_mural_%' OR flags->>'poster_key'='regress'`);
+    await clearFlag('world', 'poster_taken:regress');
     await query(`DELETE FROM player_inventory WHERE player_id=$1 AND item_id='item_poster_regress'`, [p.id]);
     p.current_zone = savedZone;
     world.apartments.delete(aptId);

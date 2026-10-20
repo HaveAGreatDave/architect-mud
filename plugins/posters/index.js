@@ -9,8 +9,9 @@
  * exact poster survives the move. `putup` unrolls a carried poster onto the wall
  * of a home the player owns (gated on playerControlsApt — you can strip a poster
  * from any public wall, but you can only re-hang it in your own apartment). Only
- * one instance of each poster exists, so taking one bare-strips it from town
- * until it's re-hung. This mirrors the generator plugin's pack/deploy pattern.
+ * one instance of each poster exists, so taking one bare-strips it from town;
+ * re-hanging it mints a player-owned row with a fresh id, and the authored row
+ * stays gone across content imports (a poster_taken:<key> world flag). This mirrors the generator plugin's pack/deploy pattern.
  *
  * The prose lives in the DB (furniture rows / item custom_data), not here — the
  * only content this file owns is the tiny mechanical fact of which two posters
@@ -24,7 +25,8 @@
  */
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getApartment, insertFurniture, deleteFurniture, getZoneFurniture } from '../../server/engine/world.js';
+import { getApartment, insertFurniture, deleteFurniture, deleteFurnitureWhere, getZoneFurniture } from '../../server/engine/world.js';
+import { setFlag, getWorldFlagsByPrefix } from '../../server/engine/flags.js';
 import { playerControlsApt } from '../../server/engine/apartments.js';
 import { escAttr } from '../../server/engine/text.js';
 
@@ -155,11 +157,32 @@ function hangingKeys(zone) {
     .map(f => f.flags?.poster_key).filter(Boolean));
 }
 
+// Provenance. Authored posters are content rows with files under
+// content/furniture/; a re-hung poster is a player row with a furn_<8hex> id,
+// the shape the export and the import's deletion pass both skip. Never reuse an
+// authored id for a player row: the import's upsert would move it back.
+const TAKEN_PREFIX = 'poster_taken:';
+const isAuthoredPoster = (f) => f.origin !== 'player' && !/^furn_[0-9a-f]{8}$/.test(String(f.id));
+
+// Remove authored posters somebody has taken down. Runs once when the plugin
+// loads (after the world, so the furniture cache is warm); exported for regress.
+export async function reconcileTakenPosters() {
+  const keys = (await getWorldFlagsByPrefix(TAKEN_PREFIX)).map(([k]) => k.slice(TAKEN_PREFIX.length));
+  if (!keys.length) return [];
+  return deleteFurnitureWhere(
+    `DELETE FROM furniture WHERE origin='authored' AND flags->>'hero_poster'='true' AND flags->>'poster_key' = ANY($1)`,
+    [keys]);
+}
+
 // Peel one resolved poster furniture row off the wall into a carried rolled item.
 async function peelPoster(f, player, broadcast) {
   const key = f.flags?.poster_key;
   if (!key) return { type: 'error', message: `That won't come off the wall.` };
 
+  // An authored poster's row comes back on every content import (its file is
+  // still in git), so record that it's been taken; reconcileTakenPosters()
+  // removes it again when the plugin loads after the deploy restart.
+  if (isAuthoredPoster(f)) await setFlag('world', `${TAKEN_PREFIX}${key}`, 'true');
   await deleteFurniture(f.id);
   await query(
     `INSERT INTO player_inventory (id, player_id, item_id, quantity, custom_data) VALUES ($1,$2,$3,1,$4)`,
@@ -230,16 +253,13 @@ async function cmdPutup(args, raw, player, broadcast) {
   const cd = r.custom_data || {};
   const key = cd.poster_key || r.item_id.replace('item_poster_', '');
 
-  // Exactly one instance of each poster exists in the world; move it here.
+  // A fresh player row, never the authored id (see isAuthoredPoster).
   await insertFurniture({
-    id: `furn_hero_poster_${key}`, zone_id: player.current_zone,
+    id: `furn_${randomUUID().slice(0, 8)}`, zone_id: player.current_zone,
     name: cd.name, description: cd.description, object_type: 'decoration',
     flags: JSON.stringify({ hero_poster: true, poster_key: key }),
     origin: 'player', owner_id: player.id,
-  }, `ON CONFLICT (id) DO UPDATE SET
-       zone_id=EXCLUDED.zone_id, name=EXCLUDED.name, description=EXCLUDED.description,
-       object_type='decoration', flags=EXCLUDED.flags,
-       origin='player', owner_id=EXCLUDED.owner_id`);
+  });
   await query('DELETE FROM player_inventory WHERE id=$1', [r.id]);
 
   broadcast(player.current_zone,
@@ -278,6 +298,9 @@ export const hooks = {
     return out;
   },
 };
+
+try { await reconcileTakenPosters(); }
+catch (e) { console.warn(`  posters: reconcile of taken posters failed: ${e.message}`); }
 
 export const commands = { takedown: cmdTakedown, take: cmdTake, putup: cmdPutup };
 
