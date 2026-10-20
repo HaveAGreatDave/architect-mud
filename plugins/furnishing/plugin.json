@@ -1,0 +1,11 @@
+{
+  "name": "furnishing",
+  "version": "1.0.0",
+  "description": "Player furniture in rooms they control. `place <item>` sets a carried furniture item down as a piece in your flat, your corp's HQ or your own storefront; `take <piece>` picks your own piece back up as an item, if you can carry it; and when a property is released (moved out, evicted, repossessed, HQ torn down) every piece a player placed there goes back to that player's inventory, container contents included. Placed rows are `origin='player'` with a `furn_<8hex>` id, so the content export and import never touch them. The buy-side carry choice lives in the engine's furniture-shop.js.",
+  "commands": ["place"],
+  "specializedActions": ["take"],
+  "events": {
+    "consumes": ["property.released"],
+    "emits": ["inventory.changed"]
+  }
+}

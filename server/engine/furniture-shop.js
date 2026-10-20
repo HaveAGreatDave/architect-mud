@@ -1,7 +1,8 @@
 /**
- * Furniture shopping — buying furniture-type items delivers a placed furniture
- * piece into one of the player's owned apartments instead of adding an item to
- * inventory.
+ * Furniture shopping. Buying a furniture-type item delivers a placed piece into
+ * one of the player's apartments, or, when the piece is light enough to carry
+ * without being encumbered, the player can carry it out as an item and 'place'
+ * it themselves (plugins/furnishing).
  *
  * A furniture item is "consumer" (sellable + placeable) only if its
  * flags.interactions include something you can do with it: sit / lean / lie /
@@ -14,6 +15,11 @@
  * day) — so the same piece rarely costs exactly the same twice.
  */
 import { query } from '../models/db.js';
+import { emit } from './events.js';
+import { getItem, getItemCache } from './items-cache.js';
+import { giveItemById } from './inventory.js';
+import { carryCapacity, computeCarriedWeight } from './commands/inventory.js';
+import { playerControlsApt } from './apartments.js';
 import { getIdeologyDiscount } from './ideologies.js';
 import { adjustCredits } from './economy.js';
 import { registerAction } from './actions.js';
@@ -53,14 +59,36 @@ function rollVariation() {
   return 1 + (Math.random() * 2 - 1) * spread;
 }
 
-async function ownedApartments(playerId) {
-  const { rows } = await query(
-    `SELECT a.zone_id, z.name, a.building_name FROM apartments a
-     JOIN zones z ON z.id = a.zone_id
-     WHERE a.owner_id = $1 ORDER BY z.name`,
-    [playerId]
-  );
-  return rows;
+// The apartments this player can have a piece delivered to: their own flats and
+// a corp HQ they manage. Read from world.apartments, so a purchase costs no query.
+function deliverableApartments(player) {
+  const out = [];
+  for (const [zoneId, apt] of world.apartments) {
+    if (!playerControlsApt(player, apt)) continue;
+    out.push({ zone_id: zoneId, name: world.zones.get(zoneId)?.name || zoneId, building_name: apt.building_name || null });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Can this player take on `grams` more without being too heavy to walk? The
+// encumbrance move gate blocks at carried > capacity, so equal is still fine.
+export async function canCarryExtra(player, grams) {
+  const carried = await computeCarriedWeight(player);
+  return carried + (Number(grams) || 0) <= carryCapacity(player);
+}
+
+// The item a placed piece turns back into (plugins/furnishing `take` and
+// release boxing). Pieces placed since furnishing shipped carry flags.item_id;
+// older bought pieces only have the item's name.
+export function itemForPlacedPiece(row) {
+  const byId = row?.flags?.item_id && getItem(row.flags.item_id);
+  if (byId) return byId;
+  const name = String(row?.name || '').toLowerCase();
+  if (!name) return null;
+  for (const item of getItemCache().values()) {
+    if (item.type === 'furniture' && String(item.name).toLowerCase() === name) return item;
+  }
+  return null;
 }
 
 // A varied, in-character line the vendor gives when a piece is on its way home.
@@ -78,55 +106,82 @@ function deliveryLine(npc, item, aptName, buildingName) {
   return `${npc.name || 'The vendor'} nods. ${line}`;
 }
 
-// Insert a placed furniture piece from an item definition into a zone.
-async function placeFurniture(item, base, zoneId, ownerId) {
+// Insert a placed furniture piece from an item definition into a zone. The id
+// is `furn_<8hex>` and origin 'player' on purpose: the content export and the
+// import's deletion pass both skip such rows, so a deploy never touches them.
+export async function placeFurnitureFromItem(item, zoneId, ownerId, { price } = {}) {
   // Carry the item's own flags across, not just `interactions`. Only the latter used to
   // survive, which meant every functional furniture item — a kettle's `brew_tier`, a heater's
   // element — became an inert prop the moment somebody bought it rather than authoring it into
   // a room. `power_draw_kw` is promoted to its column so the appliance verbs can find it.
-  const flags = { ...(item.flags || {}), interactions: furnitureInteractions(item) };
+  const flags = { ...(item.flags || {}), interactions: furnitureInteractions(item), item_id: item.id };
   const draw = Number(flags.power_draw_kw);
   delete flags.power_draw_kw;
   const id = `furn_${randomUUID().slice(0, 8)}`;
   await insertFurniture({
     id, zone_id: zoneId, name: item.name, description: item.tags?.description ?? item.description,
-    flags: JSON.stringify(flags), object_type: furnitureObjectType(flags), price: base,
+    flags: JSON.stringify(flags), object_type: furnitureObjectType(flags), price: price ?? item.value ?? null,
     origin: 'player', owner_id: ownerId ?? null,
     ...(Number.isFinite(draw) ? { power_draw_kw: draw } : {}),
   });
   return id;
 }
 
-// Charge the player, place the piece, credit the vendor.
-async function finalizePurchase(player, npc, item, price, base, aptZone, aptName, buildingName) {
+// What the vendor says when the player carries a piece out themselves.
+function carryLine(npc, item) {
+  const lines = [
+    `"It's yours. Mind the door frame."`,
+    `"Lift with your legs."`,
+    `"No returns once it's out the door."`,
+    `"Saves me a delivery. Go on."`,
+  ];
+  const line = lines[Math.floor(Math.random() * lines.length)];
+  return `${npc?.name || 'The vendor'} pushes the ${item.name} across to you. ${line}`;
+}
+
+// Charge the player, then either place the piece in `dest` (an apartment) or,
+// when dest.carry is set, hand it over as an item. Credits the vendor.
+async function finalizePurchase(player, npc, item, price, base, dest) {
   if (!await adjustCredits(player, -price, undefined, 'furniture:buy')) {
     return { type: 'error', message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.\n${vendorBuyReaction(npc, 'poor')}` };
   }
-  await placeFurniture(item, base, aptZone, player.id);
+  let line;
+  if (dest.carry) {
+    await giveItemById(player.id, item.id, 1);
+    emit('inventory.changed', { actor: player });
+    line = `${carryLine(npc, item)} <span class="text-dim">(Type 'place ${item.name}' in a room you own.)</span>`;
+  } else {
+    await placeFurnitureFromItem(item, dest.zone_id, player.id, { price: base });
+    line = deliveryLine(npc, item, dest.name, dest.building_name);
+  }
   if (npc?.id) {
     const { rows: vc } = await query('UPDATE npcs SET vendor_credits = vendor_credits + $1 WHERE id = $2 RETURNING vendor_credits', [price, npc.id]);
     if (vc.length) syncNpc(npc.id, { vendor_credits: vc[0].vendor_credits });
   }
   return {
     type: 'buy',
-    message: `You buy the ${item.name} for ${price} credits. ${deliveryLine(npc, item, aptName, buildingName)} (${player.credits} credits remaining)`,
+    message: `You buy the ${item.name} for ${price} credits. ${line} (${player.credits} credits remaining)`,
     player_update: { credits: player.credits },
   };
 }
 
 /**
- * Entry point from cmdBuy when the resolved item is consumer furniture.
- *   - 0 apartments  → the vendor refuses.
- *   - 1 apartment   → deliver there.
- *   - >1 apartments → prompt which unit, then deliver via furniture.deliver.
+ * Entry point from cmdBuy (and the shop window) when the item is consumer
+ * furniture. Carrying is offered only when the piece wouldn't leave the player
+ * too heavy to walk.
+ *   - no apartment, can't carry   → the vendor refuses.
+ *   - no apartment, can carry     → carry it out.
+ *   - one apartment, can't carry  → deliver there.
+ *   - otherwise                   → prompt: each apartment, plus carry if it fits.
  */
 export async function buyFurniture(player, npc, item, catalogueEntry) {
   if (isVendorClosed(npc)) return { type: 'error', message: vendorClosedLine(npc) };
-  const apts = await ownedApartments(player.id);
-  if (!apts.length) {
+  const apts = deliverableApartments(player);
+  const carryable = await canCarryExtra(player, item.weight);
+  if (!apts.length && !carryable) {
     return {
       type: 'error',
-      message: `${npc.name} looks you over. "No fixed address? I don't sell furniture to people with nowhere to put it. Get yourself a place first."`,
+      message: `${npc.name} looks you over. "You can't carry that, and I don't deliver to people with no fixed address. Get yourself a place first."`,
     };
   }
 
@@ -134,18 +189,19 @@ export async function buyFurniture(player, npc, item, catalogueEntry) {
   const base = catalogueEntry?.price ?? item.value;
   const price = Math.max(1, Math.round(base * (1 - discount) * rollVariation()));
 
-  if (apts.length === 1) {
-    return finalizePurchase(player, npc, item, price, base, apts[0].zone_id, apts[0].name, apts[0].building_name);
-  }
+  if (!apts.length) return finalizePurchase(player, npc, item, price, base, { carry: true });
+  if (apts.length === 1 && !carryable) return finalizePurchase(player, npc, item, price, base, apts[0]);
 
-  // Own more than one place — ask where to deliver. The purchase (fixed price)
+  // A choice to make: which place, or carry it. The purchase (fixed price)
   // rides along on each candidate so the choice just picks a destination.
+  const purchase = { npcId: npc.id, item, price, base };
   const candidates = apts.map(a => ({
     name: a.name,
     zone_id: a.zone_id,
     building_name: a.building_name,
-    _purchase: { npcId: npc.id, item, price, base },
+    _purchase: purchase,
   }));
+  if (carryable) candidates.push({ name: 'Carry it out yourself', carry: true, _purchase: purchase });
   createSelectionState(player.id, candidates, {
     verb: 'deliver_furniture',
     dispatchType: 'furniture.deliver',
@@ -153,7 +209,7 @@ export async function buyFurniture(player, npc, item, catalogueEntry) {
   });
   return {
     type: 'output',
-    message: `You own ${apts.length} places. Where should the ${item.name} (${price}₵) be delivered?\n${formatSelectionPage({ allCandidates: candidates, visibleIndex: 0, pageSize: 5 })}`,
+    message: `Where should the ${item.name} (${price}₵) go?\n${formatSelectionPage({ allCandidates: candidates, visibleIndex: 0, pageSize: 5 })}`,
   };
 }
 
@@ -165,6 +221,10 @@ registerAction({
     const p = apt?._purchase;
     if (!apt || !p) return { type: 'error', message: 'That order slipped away. Try buying it again.' };
     const npc = world.npcs.get(p.npcId) || { id: p.npcId, name: 'the vendor' };
-    return finalizePurchase(actor, npc, p.item, p.price, p.base, apt.zone_id, apt.name, apt.building_name);
+    // The player may have picked something up while the prompt was open.
+    if (apt.carry && !await canCarryExtra(actor, p.item.weight)) {
+      return { type: 'error', message: `You couldn't carry the ${p.item.name} as you are now. Buy it again and have it delivered.` };
+    }
+    return finalizePurchase(actor, npc, p.item, p.price, p.base, apt.carry ? { carry: true } : apt);
   },
 });

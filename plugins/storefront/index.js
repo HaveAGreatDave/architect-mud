@@ -637,9 +637,12 @@ async function cmdSellShop(player) {
 // Shared teardown: clears the deed back to vacant. Used by SELLSHOP and by
 // repossession (which seizes the stock separately BEFORE calling this).
 export async function releaseShop(zoneId) {
+  const ownerId = deeds.get(zoneId)?.owner_id || null;
   await query(`DELETE FROM storefronts WHERE zone_id=$1`, [zoneId]);
   setDeed(zoneId, null);
   dropListings(zoneId);
+  // Furniture players placed here goes back to them (plugins/furnishing).
+  emit('property.released', { zoneId, ownerId, kind: 'storefront' });
 }
 
 // ── The room ─────────────────────────────────────────────────────────────────

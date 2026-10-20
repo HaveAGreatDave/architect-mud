@@ -191,7 +191,7 @@ export const REGISTRY = [
     // origin/owner_id: provenance columns, never carried in files (fresh
     // inserts default to 'authored', which is correct for imported content).
     excludeColumns: ['light_on', 'light_on_intended', 'origin', 'owner_id'],
-    runtimeInserts: 'environment.js junction-box autobuild (kept authored: deterministic ids, converges with dev-authored fixes); origin=player writers: furniture-shop.js, corps HQ terminal, surveillance planted devices, posters, generator plugin' },
+    runtimeInserts: 'environment.js junction-box autobuild (kept authored: deterministic ids, converges with dev-authored fixes); origin=player writers: furniture-shop.js, furnishing plugin (place; take and release delete), corps HQ terminal, surveillance planted devices, posters, generator plugin' },
   { table: 'doors', class: 'content', pk: ['id'], readTier: 'boot',
     // is_open/lock_state/is_locked/hp/tags are CONTENT: they carry authored initial
     // state (a vault ships locked; lock_state defaults to NULL = disengaged, which a

@@ -726,6 +726,9 @@ export async function cmdUnrent(player) {
 
 // Shared teardown used by both cmdUnrent and the rent-collection tick.
 export async function releaseApartment(apt, zoneId) {
+	// Read before the UPDATE nulls it, for the property.released payload.
+	const ownerId = apt?.owner_id ?? getApartment(zoneId)?.owner_id ?? null;
+	const kind = apt?.owner_type === 'org' ? 'corp_hq' : 'apartment';
 	const updated = await query(
 		`UPDATE apartments SET owner_id=NULL, owner_handle=NULL, owner_type='player', owner_org_id=NULL, is_locked=0, date_rented=NULL, rent_due_date=NULL, building_name=NULL WHERE zone_id=$1 RETURNING *`,
 		[zoneId],
@@ -741,6 +744,9 @@ export async function releaseApartment(apt, zoneId) {
 			setDoorCache(door.id, door);
 		}
 	}
+
+	// Furniture players placed here goes back to them (plugins/furnishing).
+	emit('property.released', { zoneId, ownerId, kind });
 }
 
 // Release a corp HQ back to vacant (clears org ownership + unlocks the door).

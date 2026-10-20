@@ -96,6 +96,7 @@ Return values from subscribers are ignored. Async subscribers run but their reje
 | `zone.entered` | `{ actor, zone, from }` |
 | `flag.set` | `{ actor, scope, flag, value }` |
 | `flag.cleared` | `{ actor, scope, flag }` |
+| `property.released` | `{ zoneId, ownerId, kind }`: a flat, corp HQ or storefront went back on the market (`releaseApartment` in apartments.js, `releaseShop` in the storefront plugin). `kind` is `apartment`, `corp_hq` or `storefront`; `ownerId` is who held it and may be null. The furnishing plugin boxes placed furniture on it |
 | `player.wiped` | `{ playerIds }`: emitted by `reincarnatePlayer` and `purgePlayers` after their per-player DELETEs, so a plugin that mirrors one of those tables in RAM can drop the rows |
 
 **Events vs. hooks:** `emit` is fire-and-forget notification (past tense, no return value). `fireHook` (in `plugins.js`) is request/response middleware (present tense, can modify data). Use events for "this happened"; use hooks for "should I allow this" or "add data to this".

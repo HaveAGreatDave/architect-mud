@@ -344,6 +344,16 @@ The sync is **bidirectional**, so the two never drift regardless of which comman
 
 `sleep` mechanics are covered in [systems-survival.md](systems-survival.md).
 
+### Furniture in your place
+
+Buying furniture is [furniture-shop.js](../server/engine/furniture-shop.js); placing and picking it up is the [furnishing plugin](../plugins/furnishing/README.md).
+
+- **Buying:** the vendor delivers to a flat you rent or a corp HQ you manage. "Carry it out yourself" is offered too, but only when the piece wouldn't leave you too heavy to walk (`carryCapacity`, 14 kg plus 1 kg per Brawn point). With no flat, a light piece is carried and a heavy one is refused.
+- **`place <item>`** puts a carried furniture item down in a room you control: a rented flat, your corp's HQ, or a storefront you own. A room holds at most 12 player pieces.
+- **`take <piece>`** picks up a piece you placed, if nobody is sitting on it, nothing is stored in it, and you can carry it.
+- **Moving out or eviction:** `releaseApartment` and the storefront's `releaseShop` emit `property.released`, and every piece a player placed in that room goes back to their inventory, with what was stored inside it. Heavy pieces land anyway; the encumbrance gate then stops the player walking until they drop or place something.
+- Placed pieces are `furniture` rows with `origin='player'` and a `furn_<8hex>` id. They persist in Postgres across restarts, and the content pipeline never exports, overwrites or deletes them.
+
 ## Player-owned shops (storefronts)
 
 The [storefront plugin](../plugins/storefront/README.md); commands `deed` / `buyshop` /
