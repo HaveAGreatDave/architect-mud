@@ -1,5 +1,5 @@
-import { query } from '../../models/db.js';
-import { getZone } from '../world.js';
+import { getZone, getZoneFurniture } from '../world.js';
+import { cmpText } from '../furniture-match.js';
 import { getZonePowerStatus, getZoneVisibility, setWindowState, getWindowsForZone } from '../environment.js';
 import { cmdRent, cmdUnrent, cmdPrepay, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, cmdDoze } from '../apartments.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
@@ -50,7 +50,8 @@ async function cmdLightView(player) {
 
   const vis = getZoneVisibility(zone.id);
   const powerStatus = getZonePowerStatus(zone.id);
-  const { rows: lights } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' ORDER BY light_type,name`, [zone.id]);
+  const lights = getZoneFurniture(zone.id).filter(f => f.object_type === 'light')
+    .sort((a, b) => cmpText(a.light_type, b.light_type) || cmpText(a.name, b.name));
   const windows = getWindowsForZone(zone.id);
 
   const maxArtificial = powerStatus === 'powered' ? vis.artificialLight

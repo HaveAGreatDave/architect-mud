@@ -1,5 +1,5 @@
 import { query, withTransaction } from "../models/db.js";
-import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership, moveNpcToZone, updateNpc, clearNpcHomeOverride, getConnection } from "./world.js";
+import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership, moveNpcToZone, updateNpc, clearNpcHomeOverride, getConnection, getZoneFurniture } from "./world.js";
 import { findPath } from "./pathfinding.js";
 import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
@@ -1028,10 +1028,7 @@ export async function cmdSleep(player, broadcastFn, opts = {}) {
 
 	// Look for somewhere to lie — furniture with a 'lie' interaction, or named like a bed/couch.
 	const BED_NAMES = /\b(bed|cot|bunk|mattress|couch|sofa|futon|hammock|cot|pallet|bedroll|sleeping bag|lounger)\b/i;
-	const { rows: furnitureRows } = await query(
-		`SELECT * FROM furniture WHERE zone_id=$1 LIMIT 20`,
-		[player.current_zone],
-	);
+	const furnitureRows = getZoneFurniture(player.current_zone).slice(0, 20);
 	const lieSpot = furnitureRows.find(f =>
 		f.flags?.interactions?.includes?.('lie') || BED_NAMES.test(f.name)
 	);

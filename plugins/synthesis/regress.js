@@ -248,11 +248,11 @@ export default async function regress({ run, check, getPlayer }) {
   const anyItem = (await query('SELECT id FROM items LIMIT 1')).rows[0]?.id;
   check('an item exists to exercise the vault round-trip', !!anyItem, anyItem);
   if (anyItem) {
-    await query(
-      `INSERT INTO furniture (id,zone_id,name,description,flags,object_type)
-       VALUES ('furn_regress_vault',$1,'chem vault','test vault','{}'::jsonb,'container')
-       ON CONFLICT (id) DO UPDATE SET zone_id=$1, object_type='container'`,
-      [zone]
+    // Through the funnel: container lookups read the furniture cache, so a raw
+    // INSERT would leave the vault invisible to `pullid`.
+    await insertFurniture(
+      { id: 'furn_regress_vault', zone_id: zone, name: 'chem vault', description: 'test vault', flags: '{}', object_type: 'container' },
+      `ON CONFLICT (id) DO UPDATE SET zone_id=EXCLUDED.zone_id, object_type='container'`
     );
     const owner = '_vault_furn_regress_vault';
     try {
@@ -281,7 +281,7 @@ export default async function regress({ run, check, getPlayer }) {
       await query(`DELETE FROM player_inventory WHERE id IN ('pi_rv1','pi_rv2')`);
       await query(`DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2`, [p.id, anyItem]);
       await query(`DELETE FROM player_inventory WHERE player_id=$1`, [owner]);
-      await query(`DELETE FROM furniture WHERE id='furn_regress_vault'`);
+      await deleteFurniture('furn_regress_vault');
     }
   }
 }

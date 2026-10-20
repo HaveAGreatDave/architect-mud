@@ -26,6 +26,7 @@ import { dispatchAction } from '../../server/engine/actions.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
+import { hasKey, jsonText } from '../../server/engine/furniture-match.js';
 // The shop DOOR: the lock type, the trading-hours card, and the four predicates
 // the refusal below shares with it. See ./shopdoor.js for why they live there.
 import {
@@ -372,10 +373,9 @@ async function cmdCheckout(player) {
   if (!unpaid.length) return { type:'error', message:"You've nothing to pay for." };
 
   // The counter is the till: furniture in this room flagged `checkout: <npcId>`.
-  const { rows: counters } = await query(
-    `SELECT id, name, flags->>'checkout' AS vendor_id FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'checkout')`,
-    [player.current_zone]
-  );
+  const counters = getZoneFurniture(player.current_zone)
+    .filter(f => hasKey(f.flags, 'checkout'))
+    .map(f => ({ id: f.id, name: f.name, vendor_id: jsonText(f.flags.checkout) }));
 
   // Failing that, the person is the till. You should be able to hand a shopkeeper
   // money while standing in front of them, and a counter is furniture that may not

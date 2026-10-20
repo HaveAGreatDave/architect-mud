@@ -6,7 +6,8 @@ import { foodLoad, applyThirst } from '../bodily.js';
 import { satiationLine, slakeLine, portionLine } from '../appetite.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
 import { burnCharge, rowIsMergeable, MERGEABLE_SQL } from '../inventory.js';
-import { getZonePlayers, getZoneNpcs, getZoneFurniture } from '../world.js';
+import { getZonePlayers, getZoneNpcs, getZoneFurniture, getFurnitureById } from '../world.js';
+import { ilike, jsonText, cmpText } from '../furniture-match.js';
 import { emit, on } from '../events.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
 import { fireSpecializedAction } from '../specializedActions.js';
@@ -558,12 +559,9 @@ async function cmdGive(argStr, player, broadcast) {
 const FURNITURE_NATIVE_VERB = { atm: 'atm', tv: 'tv', water_source: 'drink' };
 
 async function cmdUseFurniture(targetStr, player, broadcast) {
-  const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
-    [player.current_zone, `%${targetStr}%`]
-  );
-  if (!rows.length) return { type:'error', message:`No usable item "${targetStr}" found.` };
-  const f = rows[0];
+  const pat = `%${targetStr}%`;
+  const f = getZoneFurniture(player.current_zone).find(r => ilike(r.name, pat));
+  if (!f) return { type:'error', message:`No usable item "${targetStr}" found.` };
   const flags = f.flags || {};
 
   // Delegate to the native verb for this furniture type so the plugin handler runs.
@@ -1187,11 +1185,10 @@ export async function loadContainerById(id, player) {
     [id, player.id, `_ground_${player.current_zone}`]
   );
   if (rows.length) return { id: rows[0].id, name: rows[0].name, tags: rows[0].tags, kind: 'item', isTrash: false };
-  const { rows: fRows } = await query(
-    `SELECT id,name,flags,power_draw_kw FROM furniture WHERE id=$1 AND zone_id=$2 AND object_type='container'`,
-    [id, player.current_zone]
-  );
-  if (fRows.length) return { id: fRows[0].id, name: fRows[0].name, tags: fRows[0].flags, power_draw_kw: fRows[0].power_draw_kw, kind: 'furniture', isTrash: fRows[0].flags?.trash_bin === true };
+  const f = getFurnitureById(id);
+  if (f && f.zone_id === player.current_zone && f.object_type === 'container') {
+    return { id: f.id, name: f.name, tags: f.flags, power_draw_kw: f.power_draw_kw, kind: 'furniture', isTrash: f.flags?.trash_bin === true };
+  }
   return null;
 }
 
@@ -1547,7 +1544,23 @@ export function containerReply(view, player, doneLine = null) {
 // furniture's own NAME beats a match on an alias, and among alias matches the
 // non-frozen box wins — "fridge" means the refrigerated body, and a player who
 // means the cold half types "freezer", which the name match already answers.
-const FURN_MATCH_ORDER = `ORDER BY (name ILIKE $2) DESC, (flags->>'preserves' = 'frozen') ASC, id`;
+//
+// Read from the furniture cache. It keeps the order of the SQL it replaced,
+// `ORDER BY (name ILIKE $2) DESC, (flags->>'preserves' = 'frozen') ASC, id`,
+// NULL sorting last: a box with no `preserves` at all ranks after a frozen one.
+function findFurnitureContainer(zoneId, nameStr) {
+  const pat = `%${nameStr}%`;
+  const hits = [];
+  for (const f of getZoneFurniture(zoneId)) {
+    if (f.object_type !== 'container') continue;
+    const byName = ilike(f.name, pat);
+    if (!byName && !ilike(jsonText(f.flags?.aliases), pat)) continue;
+    const p = jsonText(f.flags?.preserves);
+    hits.push({ f, byName: byName ? 1 : 0, cold: p == null ? 2 : p === 'frozen' ? 1 : 0 });
+  }
+  hits.sort((a, b) => (b.byName - a.byName) || (a.cold - b.cold) || cmpText(a.f.id, b.f.id));
+  return hits[0]?.f || null;
+}
 
 async function cmdOpenContainer(nameStr, player, broadcast) {
   if (!nameStr) return null;
@@ -1555,12 +1568,9 @@ async function cmdOpenContainer(nameStr, player, broadcast) {
   if (container === 'ambiguous') return null;
   if (!container) {
     // No item container matched — try a furniture container in this zone.
-    const { rows } = await query(
-      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) ${FURN_MATCH_ORDER} LIMIT 1`,
-      [player.current_zone, `%${nameStr}%`]
-    );
-    if (!rows.length) return null;
-    container = { id: rows[0].id };
+    const f = findFurnitureContainer(player.current_zone, nameStr);
+    if (!f) return null;
+    container = { id: f.id };
   }
   const view = await buildContainerView(container.id, player);
   if (view.type === 'container_view') {
@@ -1973,10 +1983,10 @@ async function cmdStow(argStr, player) {
 
   // Check for trash bin furniture before normal container resolution.
   if (containerPart) {
-    const { rows: trashRows } = await query(
-      `SELECT id,name FROM furniture WHERE zone_id=$1 AND name ILIKE $2 AND flags->>'trash_bin'='true' LIMIT 1`,
-      [player.current_zone, `%${containerPart}%`]
-    );
+    const binPat = `%${containerPart}%`;
+    const bin = getZoneFurniture(player.current_zone)
+      .find(f => ilike(f.name, binPat) && jsonText(f.flags?.trash_bin) === 'true');
+    const trashRows = bin ? [bin] : [];
     if (trashRows.length) {
       if (bulk) {
         const pool = await bulkStowPool(player);
@@ -2001,11 +2011,8 @@ async function cmdStow(argStr, player) {
   if (container === 'ambiguous') return { type:'error', message:`Which container? Try "stow <item> in <name>".` };
   if (!container && containerPart) {
     // No item/ground container matched — fall through to a furniture container in this zone.
-    const { rows: fRows } = await query(
-      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) ${FURN_MATCH_ORDER} LIMIT 1`,
-      [player.current_zone, `%${containerPart}%`]
-    );
-    if (fRows.length) container = await loadContainerById(fRows[0].id, player);
+    const f = findFurnitureContainer(player.current_zone, containerPart);
+    if (f) container = await loadContainerById(f.id, player);
   }
   if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
 
@@ -2088,11 +2095,8 @@ async function cmdPull(argStr, player) {
     // No item/ground container matched — fall through to a furniture container in
     // this zone, same as `stow` does. Without this the text path could never reach
     // a shop cooler or any other furniture container; only the GUI `pullid` could.
-    const { rows: fRows } = await query(
-      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) ${FURN_MATCH_ORDER} LIMIT 1`,
-      [player.current_zone, `%${containerPart}%`]
-    );
-    if (fRows.length) container = await loadContainerById(fRows[0].id, player);
+    const f = findFurnitureContainer(player.current_zone, containerPart);
+    if (f) container = await loadContainerById(f.id, player);
   }
   if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
 

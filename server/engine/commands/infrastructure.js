@@ -16,7 +16,8 @@ import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
 import { hasTag, tagValue } from '../tags.js';
 import { recomputePower } from '../environment.js';
-import { updateFurniture } from '../world.js';
+import { updateFurniture, getZoneFurniture } from '../world.js';
+import { ilike } from '../furniture-match.js';
 import { emit } from '../events.js';
 
 // Tunable per object_type. Playtest and adjust freely — HP lives on the row,
@@ -26,19 +27,22 @@ const DEVICE_SPECS = {
   junction_box: { requiresDemolition: false, soak: 4  }, // melee allowed but heavily resisted
 };
 
-async function findDestructible(zoneId, targetStr) {
-  const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND hp_max IS NOT NULL AND name ILIKE $2
-     ORDER BY length(name) LIMIT 1`,
-    [zoneId, `%${targetStr}%`]
-  );
-  return rows[0] || null;
+// The shortest matching name wins, as `ORDER BY length(name)` did when this was a query.
+function findDestructible(zoneId, targetStr) {
+  const pat = `%${targetStr}%`;
+  let best = null, bestLen = Infinity;
+  for (const f of getZoneFurniture(zoneId)) {
+    if (f.hp_max == null || !ilike(f.name, pat)) continue;
+    const len = [...f.name].length;
+    if (len < bestLen) { best = f; bestLen = len; }
+  }
+  return best;
 }
 
 // Returns a command result, or null when there's no destructible unit matching
 // `targetStr` here (so cmdAttack can fall through to players / "can't find").
 export async function cmdAttackDestructible(targetStr, player, broadcast) {
-  const f = await findDestructible(player.current_zone, targetStr);
+  const f = findDestructible(player.current_zone, targetStr);
   if (!f) return null;
   const spec = DEVICE_SPECS[f.object_type];
   if (!spec) return null;
@@ -127,7 +131,7 @@ async function destroyDevice(f, player, broadcast, damage) {
 // fires the power-up sound + flash + ambience via the environment reconcile.
 export async function cmdRepairDevice(targetStr, player, broadcast) {
   if (!targetStr) return { type: 'error', message: 'Repair what?' };
-  const f = await findDestructible(player.current_zone, targetStr);
+  const f = findDestructible(player.current_zone, targetStr);
   if (!f || !DEVICE_SPECS[f.object_type])
     return { type: 'error', message: `There's no repairable machinery here matching "${targetStr}".` };
   if ((f.hp ?? 0) >= (f.hp_max ?? 0))

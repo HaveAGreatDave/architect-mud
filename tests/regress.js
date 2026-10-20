@@ -2790,6 +2790,77 @@ check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items
   }
 }
 
+// Furniture lookups on the command path read the cache (getZoneFurniture), not
+// the table. Each one replaced a SELECT with ILIKE '%x%' and sometimes an ORDER
+// BY; these pin that the cache form finds the same row the SQL did, in a
+// different case, by part of the name, and with `_` still a one-character
+// wildcard.
+{
+  const me = getPlayer();
+  const savedZone = me.current_zone, savedRole = me.role;
+  const FZ = 'zone_furncache_regress';
+  const FURN = [
+    ['furn_fc_lamp', 'Probe Desk Lamp', 'light', { interactions: ['switch'] }, { light_type: 'lamp', light_on: 0 }],
+    ['furn_fc_strip', 'probe strip light', 'light', {}, { light_type: 'overhead', light_on: 0 }],
+    ['furn_fc_bare', 'probe bare bulb', 'light', {}, { light_type: null, light_on: 0 }],
+    ['furn_fc_icebox', 'probe icebox', 'container', { container: 4000, aliases: ['probecold'], preserves: 'refrigerated' }, {}],
+    ['furn_fc_deep', 'probe deep freeze', 'container', { container: 4000, aliases: ['probecold', 'probechill'], preserves: 'frozen' }, {}],
+    ['furn_fc_tin', 'probe tin box', 'container', { container: 4000, aliases: ['probecold', 'probechill', 'freeze'] }, {}],
+    ['furn_fc_bin', 'probe rubbish bin', 'trash', { trash_bin: true }, {}],
+    ['furn_fc_jbox', 'probe junction box', 'junction_box', {}, { hp: 0, hp_max: 10 }],
+    ['furn_fc_jb', 'probe jbox', 'junction_box', {}, { hp: 0, hp_max: 10 }],
+  ];
+  try {
+    registerTransientZone({ id: FZ, name: 'furniture cache probe room', description: 'A room.', exits: {}, flags: { is_interior: true } });
+    for (const [id, name, object_type, flags, extra] of FURN) {
+      await insertFurniture({ id, name, description: name, object_type, zone_id: FZ, flags: JSON.stringify(flags), ...extra },
+        'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id, name=EXCLUDED.name');
+    }
+    me.current_zone = FZ;
+    addPlayerToZone(me.id, FZ);
+
+    let r = await run('use PROBE DESK');
+    check('furniture cache: `use` finds furniture in another case, by part of its name',
+      r?.type === 'error' && /Probe Desk Lamp like that/.test(r.message || ''), r?.message);
+    r = await run('use desk_lamp');
+    check('furniture cache: `_` is still a one-character wildcard, as ILIKE had it',
+      /Probe Desk Lamp like that/.test(r?.message || ''), r?.message);
+    r = await run('use probe sofa');
+    check('furniture cache: `use` on nothing here still says so', /No usable item/.test(r?.message || ''), r?.message);
+
+    r = await run('examine DESK LA');
+    check('furniture cache: `examine` reaches the piece by partial name', /Probe Desk Lamp/.test(r?.message || ''), r?.message?.slice(0, 160));
+
+    r = await run('switch off desk lamp');
+    check('furniture cache: `switch` finds the light', /already off/.test(r?.message || ''), r?.message);
+
+    r = await run('open PROBECOLD');
+    check('furniture cache: an alias match picks the non-frozen box', r?.containerId === 'furn_fc_icebox', r?.containerId || r?.message);
+    r = await run('open freeze');
+    check('furniture cache: a name match beats an alias match', r?.containerId === 'furn_fc_deep', r?.containerId || r?.message);
+    r = await run('open probechill');
+    check('furniture cache: a box with no `preserves` ranks after a frozen one (NULLs last, as the SQL sorted)',
+      r?.containerId === 'furn_fc_deep', r?.containerId || r?.message);
+
+    r = await run('stow nothingatall in RUBBISH');
+    check('furniture cache: `stow` finds the trash bin', /You don't have "nothingatall"/.test(r?.message || ''), r?.message);
+
+    r = await run('attack PROBE J');
+    check('furniture cache: `attack` takes the shortest matching destructible', /probe jbox is already wrecked/.test(r?.message || ''), r?.message);
+
+    me.role = 'admin';
+    r = await run('lightview');
+    check('furniture cache: `lightview` sorts by light_type then name, NULL type last',
+      (r?.lights || []).map(l => l.id).join() === 'furn_fc_lamp,furn_fc_strip,furn_fc_bare', (r?.lights || []).map(l => l.id).join());
+  } finally {
+    me.role = savedRole;
+    removePlayerFromZone(me.id, FZ);
+    for (const [id] of FURN) await deleteFurniture(id).catch(() => {});
+    removeTransientZone(FZ);
+    me.current_zone = savedZone;
+  }
+}
+
 // Restocking furniture container (engine law in buildContainerView): a container
 // flagged `restock_items` keeps one of each listed item present — take one and the
 // refreshed view a pull returns respawns it, so the supply is bottomless. Seed a

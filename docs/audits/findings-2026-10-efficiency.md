@@ -30,7 +30,7 @@ The server parses each file once at boot, so comments cost nothing there. The cl
 |---|---|---|
 | `draw curtains` answered "Unknown command." to anyone who isn't awakened. Psionics' `cmdDraw` returned an error instead of `undefined`, so the engine's curtain alias never ran. (`reach` and `press` have no engine verb behind them, so their error is right.) | `plugins/psionics/index.js:165-178`, `server/engine/commands/housing.js:95` | fixed `c0acdd34f`, with a regress check |
 | Void rooms never use `walkTerrain`. `mkRoom` takes a `pt` for it but rolls terrain with `pick(rng, VOID_TERRAINS)`, so `WALK_TERRAIN` (cliff to plateau, water to sand) never applies, though [systems-wildlands-ground.md](../systems-wildlands-ground.md) says it does. Wiring it in re-rolls every void room's terrain, so it needs a decision. | `plugins/voidwalking/index.js:371-389` | open: decision |
-| `use <furniture>` and about 20 other command paths `SELECT` from `furniture`, although it's a boot-loaded Map with a write funnel. That's one round trip per command. CLAUDE.md said furniture wasn't cached; fixed. | `commands/inventory.js:562` and others; see batch 4 | doc fixed; code open |
+| `use <furniture>` and about 20 other command paths `SELECT` from `furniture`, although it's a boot-loaded Map with a write funnel. That's one round trip per command. CLAUDE.md said furniture wasn't cached; fixed. | `commands/inventory.js:562` and others; see batch 4 | done |
 
 ## Dead code
 
@@ -127,7 +127,7 @@ These are open.
 | 1 | The `draw` bug | done `c0acdd34f` |
 | 2 | Delete one-shots, sandbox pages and strays | open |
 | 3 | Dead functions | done |
-| 4 | Furniture reads from RAM | open |
+| 4 | Furniture reads from RAM | done: 13 command-path SELECTs read the cache through server/engine/furniture-match.js, which keeps ILIKE, ORDER BY and NULL ordering; regress pins each |
 | 5 | Shared helpers | part done (escaper, lerp, RNG, three server helpers); message wrappers, `mkZone`, drag copies open |
 | 6 | CSS out of JS strings; styles.css grouping and dead rules | CSS moved; styles.css open |
 | 7 | glbench helpers | proposal: 65 canvas setups differ in id, holder and size, so each needs hand work and a bench re-run |

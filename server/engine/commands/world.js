@@ -1,6 +1,7 @@
 import { query, logActivity } from '../../models/db.js';
 import { setFlags, evictPlayerFlags } from '../flags.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, doorOnLink, getZoneDoors, spawnEnemySync, world, getApartment, updateFurniture, getZoneFurniture } from '../world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, doorOnLink, getZoneDoors, spawnEnemySync, world, getApartment, updateFurniture, getZoneFurniture, getFurnitureById } from '../world.js';
+import { ilike } from '../furniture-match.js';
 import { getLockTagPublic } from './doors.js';
 import { isApartmentZone, getBuildingName, releaseApartment, findNearestVacantApartment, rehomeNpc, clearNpcResidence } from '../apartments.js';
 import { sendToPlayer } from '../messaging.js';
@@ -644,9 +645,10 @@ async function cmdExamine(targetStr, player, broadcast) {
   // out of that query's results: the bed is a sleeping lion, `examine lion`
   // works, and `examine bed` finds no bed, because there isn't one.
   const named = findTransformByName(player.id, targetStr);
-  const { rows: furnitureRowsRaw } = named
-    ? await query(`SELECT * FROM furniture WHERE id=$1`, [named.furnitureId])
-    : await query(`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2`, [player.current_zone, `%${targetStr}%`]);
+  const furnPat = `%${targetStr}%`;
+  const furnitureRowsRaw = named
+    ? [getFurnitureById(named.furnitureId)].filter(Boolean)
+    : getZoneFurniture(player.current_zone).filter(f => ilike(f.name, furnPat));
   const furnitureRows = named ? furnitureRowsRaw : furnitureRowsRaw.filter(f => !isTransformed(player.id, f.id));
   if (furnitureRows.length) {
     let f = furnitureRows[0];
@@ -661,8 +663,7 @@ async function cmdExamine(targetStr, player, broadcast) {
       if (fr.type === 'match') f = fr.candidate;
     }
     // A psychedelic can have made this piece into something else, for this viewer
-    // only. Applied here rather than at the query because this row came straight
-    // from the DB, not the cache — but the same rule holds: never mutate, copy.
+    // only. This row is the cache's own object, so never mutate it: copy.
     const tf = getTransform(player.id, f.id);
     if (tf) {
       const look = tf.looks?.length ? tf.looks[Math.floor(Math.random() * tf.looks.length)] : null;
@@ -1331,9 +1332,9 @@ async function cmdEvict(args, player) {
 
 async function applyLightSwitch(nameStr, dir, player, broadcast) {
   if (!nameStr) return { type:'error', message:'Specify a light name.' };
-  const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${nameStr}%`]);
-  if (!rows.length) return { type:'error', message:`You don't see a light called "${nameStr}" here.` };
-  const light = rows[0];
+  const lightPat = `%${nameStr}%`;
+  const light = getZoneFurniture(player.current_zone).find(f => f.object_type === 'light' && ilike(f.name, lightPat));
+  if (!light) return { type:'error', message:`You don't see a light called "${nameStr}" here.` };
   if (light.light_type === 'streetlight') {
     return { type:'error', message:`${light.name} is city-grid infrastructure. It comes on by itself once it gets dark. There's no switch out here.` };
   }
@@ -1527,14 +1528,12 @@ async function cmdTargetHelp(targetStr, player) {
   // Same rule as examine: while a piece is wearing another shape for this
   // viewer, the new name is the one their smart bar has to answer to.
   const tf = findTransformByName(player.id, targetStr);
-  const { rows: fr } = tf
-    ? await query(`SELECT * FROM furniture WHERE id=$1`, [tf.furnitureId])
-    : await query(
-        `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
-        [player.current_zone, `%${targetStr}%`]
-      );
-  if (fr.length) {
-    const f = tf ? { ...fr[0], name: tf.name } : fr[0];
+  const furnPat = `%${targetStr}%`;
+  const hit = tf
+    ? getFurnitureById(tf.furnitureId)
+    : getZoneFurniture(player.current_zone).find(r => ilike(r.name, furnPat));
+  if (hit) {
+    const f = tf ? { ...hit, name: tf.name } : hit;
     const n = f.name.toLowerCase();
     return render(f.name, furnitureVerbs(f, player).map(v => ({ verb: v, target: verbTarget(v, n) })));
   }
