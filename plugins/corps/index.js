@@ -21,6 +21,8 @@ import { releaseCorpHq } from '../../server/engine/apartments.js';
 import { sendToChatChannel } from '../../server/engine/channels.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { schedule } from '../../server/engine/scheduler.js';
+import { getGameDate } from '../../server/engine/environment.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { on } from '../../server/engine/events.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
@@ -1261,8 +1263,36 @@ export { DESTABILIZE, applyInfluence, isAtWar, onHostileAct };
 // Tablet's Territory Map sub-screen (same tiles the `corp map` overlay uses).
 export { buildConsolePayload, cmdCorpMap };
 
-// Settle territory income/upkeep + grip drift once a day.
-schedule('24h', () => runTerritoryTick().catch(e => console.error('[corps] territory tick error:', e.message)));
+// ── Daily settlement, on the game calendar ──────────────────────────────────
+// Territory (income − upkeep, grip drift) and ventures (floor − upkeep, dormancy,
+// projection) settle once per GAME day. They used to be '24h' cadences, phased
+// from boot and idle-gated, so payouts followed uptime and a firing on an empty
+// world lost the day.
+//
+// An idle-gated 1m check compares the calendar date with the last date settled
+// (a world flag, served from RAM after one read). It's the check, not
+// environment.dayRollover, that decides: the clock only advances while someone is
+// on, so after an empty stretch tick1m crosses several days back to back and
+// would fire several rollovers, and the boot catch-up fires none. Either way the
+// first minute with players settles once.
+const SETTLED_FLAG = 'corps_settled_date';
+let settling = false;
+async function settleCorpDay({ date = getGameDate(), tasks = [runTerritoryTick, runVentureTick] } = {}) {
+  if (!date || settling) return false;
+  settling = true;
+  try {
+    if ((await getFlag('world', SETTLED_FLAG)) === date) return false;
+    // Marked before paying: a settlement that throws waits for tomorrow rather
+    // than paying the same day twice.
+    await setFlag('world', SETTLED_FLAG, date);
+    for (const t of tasks) await t().catch(e => console.error('[corps] daily settlement error:', e.message));
+    return true;
+  } finally {
+    settling = false;
+  }
+}
+export { settleCorpDay, SETTLED_FLAG };
+schedule('1m', () => settleCorpDay().catch(e => console.error('[corps] daily settlement error:', e.message)));
 
 // ── Corporate Assets (ventures.js) ──────────────────────────────────────────
 // Live: a cut of every sale at an owned business's storefront vendor.
@@ -1288,7 +1318,6 @@ on('vendor.safeHackWitnessed', (e) => destab(e.player, e.zoneId, DESTABILIZE.hac
 on('enemy.killed',             (e) => destab(e.actor, e.actor?.current_zone, DESTABILIZE.kill));
 on('npc.killed',               (e) => destab(e.actor, e.actor?.current_zone, DESTABILIZE.kill));
 on('player.death',             (e) => destab(e.killer, e.deathZone || e.player?.current_zone, DESTABILIZE.kill));
-// Daily: settle each business's floor − upkeep, dormancy, and influence projection.
-schedule('24h', () => runVentureTick().catch(e => console.error('[corps] venture tick error:', e.message)));
+// The daily venture settlement runs in settleCorpDay, above.
 
 console.log('[corps] Plugin loaded.');

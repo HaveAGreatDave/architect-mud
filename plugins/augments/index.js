@@ -139,8 +139,8 @@ schedule('1m', async () => {
 // --- the campus tops you up without being asked ----------------------------
 // One of the small ways membership reads as membership: sockets everywhere and
 // nobody mentioning them. Cheap — a sync charge read and an early return.
-on('zone.entered', ({ player, zoneId }) => {
-  if (player) onPowerZone(player, zoneId || player.current_zone);
+on('zone.entered', ({ actor, zone }) => {
+  if (actor) onPowerZone(actor, zone || actor.current_zone);
 });
 
 // --- login -----------------------------------------------------------------

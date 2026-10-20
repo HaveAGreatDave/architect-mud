@@ -2,7 +2,8 @@
 // Covers the corp-recruitment-poster `furniture.describe` branch: it claims only
 // `corp_poster` furniture and returns undefined for everything else, so the
 // posters plugin's own hook still runs (hook contract: last non-undefined wins).
-import { _corpPosterPitch, consoleText, colorDistance, MIN_COLOR_DISTANCE, DESTABILIZE } from './index.js';
+import { _corpPosterPitch, consoleText, colorDistance, MIN_COLOR_DISTANCE, DESTABILIZE, settleCorpDay, SETTLED_FLAG } from './index.js';
+import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
 import { CORP_ASSET_TYPES, ventureConsoleBlock, warehouseStoreCapacity } from './ventures.js';
 import { RACKET_BANDS, FEAR_HALFLIFE_DAYS, FEAR_CAP, fearNow, fearBand, racketConsoleBlock } from './rackets.js';
 
@@ -138,4 +139,25 @@ export default async function regress({ run, check }) {
   check('log console: a written snapshot, not a panel', snap.type === 'output' && /500₵/.test(snap.message) && /The Slip: HELD/.test(snap.message));
   check('log console: escapes the corp name', /Regress &lt;Co&gt;/.test(snap.message));
   check('log console: names the verbs', /corp help/.test(snap.message));
+
+  // ── Daily settlement follows the game calendar, once per date ─────────────
+  // Fake tasks, so nothing pays; the real flag is restored after.
+  {
+    const saved = await getFlag('world', SETTLED_FLAG);
+    let runs = 0;
+    const tasks = [async () => { runs++; }];
+    try {
+      await setFlag('world', SETTLED_FLAG, '1900-01-01');
+      check('settle: an already-settled date pays nothing',
+        (await settleCorpDay({ date: '1900-01-01', tasks })) === false && runs === 0, runs);
+      // Concurrent calls on a new date (a missed day caught up) settle once.
+      await Promise.all([settleCorpDay({ date: '1900-01-04', tasks }), settleCorpDay({ date: '1900-01-04', tasks })]);
+      await settleCorpDay({ date: '1900-01-04', tasks });
+      check('settle: a missed day catches up exactly once', runs === 1, runs);
+      check('settle: the settled date is recorded', (await getFlag('world', SETTLED_FLAG)) === '1900-01-04');
+    } finally {
+      if (saved === undefined) await clearFlag('world', SETTLED_FLAG);
+      else await setFlag('world', SETTLED_FLAG, saved);
+    }
+  }
 }

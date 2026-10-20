@@ -17,7 +17,8 @@ import { onStrain, heatOf, HEAT_COOL_PER_SEC, heatBand, CRITICAL, faultHarm } fr
 import { survivalChance } from './death.js';
 import { BOARD_SWING } from './tuning.js';
 import { artifactsFor, allPrintArtifacts } from './artifacts.js';
-import { drawOf, netDrawOf, powerDown, chargeOf, setFull, METABOLIC_TRICKLE } from './power.js';
+import { drawOf, netDrawOf, powerDown, chargeOf, setFull, capacityOf, METABOLIC_TRICKLE } from './power.js';
+import { emit } from '../../server/engine/events.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -428,6 +429,22 @@ export default async function regress({ run, check, getPlayer }) {
     powP._reserveCharge.charge_at = Date.now() - 3_600_000 * 50;
     check('charge decays lazily from its own timestamp', chargeOf(powP) <= full, `${full} → ${chargeOf(powP)}`);
     check('…and never below zero', chargeOf(powP) >= 0, chargeOf(powP));
+  }
+
+  // ── The campus tops you up, through the real zone.entered event ─────────
+  // The subscriber once read { player, zoneId } off an event that sends
+  // { actor, zone }, so it never ran.
+  {
+    const campus = [...world.zones.values()].find(z => z?.flags?.ascendant_campus);
+    check('campus: a zone flagged ascendant_campus exists', !!campus);
+    if (campus) {
+      p._reserveCharge = { charge: 0, charge_at: Date.now() };
+      const before = chargeOf(p);
+      emit('zone.entered', { actor: p, zone: campus.id, from: p.current_zone });
+      check('campus: entering a campus zone tops up charge',
+        before < capacityOf(p) && chargeOf(p) === capacityOf(p), `${before} -> ${chargeOf(p)}/${capacityOf(p)}`);
+      delete p._reserveCharge;
+    }
   }
 
   // cleanup

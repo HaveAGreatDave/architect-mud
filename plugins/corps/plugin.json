@@ -7,7 +7,7 @@
   "specializedActions": [{ "verb": "use", "requiredTag": "corp_terminal" }],
   "events": ["vendor.purchase", "crime.witnessed", "atm.jacked", "hack.success", "vendor.safeHackWitnessed", "enemy.killed", "npc.killed", "player.death"],
   "emits": ["extortion.witnessed"],
-  "ticks": ["24h territory settlement", "24h venture settlement"],
+  "ticks": ["1m game-day settlement check (territory + ventures, once per game date)"],
   "dataSchema": {
     "orgs": "corp identity + treasury + tier; NPC factions share the table (is_npc=1)",
     "org_ranks": "per-corp custom ranks carrying a permission bitmask (server/engine/org-perms.js)",

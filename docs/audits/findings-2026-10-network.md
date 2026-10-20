@@ -82,5 +82,5 @@ The crash-loss trades were agreed before the pass: airborne aircraft up to 60 s,
 | Finding | Where | Status |
 |---|---|---|
 | A pinched sleeper who logged back in kept being walked home, and the walker wrote their row under the live player | `plugins/pinch/index.js` | fixed in this pass |
-| The augments `zone.entered` subscriber reads `{ player, zoneId }`, but the event sends `{ actor, zone }`, so the campus top-up never runs | `plugins/augments/index.js:141` | open |
-| Corps territory and venture ticks are `24h` cadences phased from boot, so payouts follow uptime, and a firing on an empty world skips the day | `plugins/corps/index.js:1271,1298` | open |
+| The augments `zone.entered` subscriber reads `{ player, zoneId }`, but the event sends `{ actor, zone }`, so the campus top-up never runs | `plugins/augments/index.js:141` | fixed 2026-10-20: reads `{ actor, zone }`; regress emits the event into a campus zone |
+| Corps territory and venture ticks are `24h` cadences phased from boot, so payouts follow uptime, and a firing on an empty world skips the day | `plugins/corps/index.js:1271,1298` | fixed 2026-10-20: `settleCorpDay` settles once per game date from an idle-gated 1m check on a world flag |
