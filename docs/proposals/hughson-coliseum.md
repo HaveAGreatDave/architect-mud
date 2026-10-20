@@ -31,7 +31,8 @@ Where it's told:
 | The stands | his seat behind home plate, folded up, kept clean and never sat in |
 | Ray Dombrowski | the `charles` node of his dialogue: the cheques, the handshake, the name |
 | The booth | one sign-on line and four `chatter` lines for Chip Vega in [baseball.bsm](../../data/scripts/baseball.bsm) |
-| The main gate | the name plate: CHARLES B. HUGHSON over COLISEUM in raised gilt, and the gilt sun with a baseball for its disc over it (§5) |
+| The bowl wall | his name cut into the stone in one line, on Sorrel Way and again on Halcyon Boulevard (§5) |
+| The main gate | two Guardians in the manner of Cleveland's bridge, GRANDSTAND in raised gilt on its plate, and the gilt sun with a baseball for its disc over it (§5) |
 | The broadcast | the main gate's name plate in the 3-D view, painted as the map's (`sports_pools.venue.name`, §7) |
 | The trades | Lorna Pruitt's mother's peanuts on opening day, the photograph over Mulcahy's fireplace, and Odessa Kimble on the sunburst (§10) |
 
@@ -178,19 +179,30 @@ authored with (`facing`: south for eight of them, north for the bleacher gate).
     columns.
   - Four stepped light towers at the corners: a fluted shaft, two setbacks, a bronze lamp house with
     its floods turned to the field, a crown and a finial with a red beacon after dark.
-  - The main gate on Sorrel Way, a stepped frontispiece between two fluted pylons: a portal in
-    three receding orders round bronze doors and a sunburst fanlight, a grille gate with a lantern
-    over it either side, the name plate, the gilt rising sun on the setback with a baseball for its
-    disc, and the flag. The bleacher gate is its smaller twin with BLEACHERS on its plate.
+  - The main gate on Sorrel Way, a stepped frontispiece between two Guardian pylons: a portal in
+    three receding orders round bronze doors and a sunburst fanlight, a narrow grille gate with a
+    lantern over it either side, GRANDSTAND on its plate, the gilt rising sun on the setback with a
+    baseball for its disc, and the flag. The bleacher gate is its smaller twin with BLEACHERS on its
+    plate.
+  - The Guardians, after the Hope Memorial Bridge's in Cleveland: each pylon fluted below, and on a
+    corbel halfway up a helmeted, square-shouldered figure in relief, robed to the feet, the west
+    one cradling a gilt ball and the east one resting on a gilt bat held point-down. The figure is
+    carved as convex outlines lit as stone (`carve`), not boxes: a box wears its palette's block
+    joints, and a figure built of them read as stacked masonry. The relief is 0.013 deep at most,
+    because the tile ends 0.02 off the frontispiece.
   - The roof: three shells, below.
-- ⚠ **The name goes on once**, on the main gate's plate, and it's built to the Meridian's standard:
-  a flat bronze plate (a box would wear its palette's window skin over the letters) standing 0.016
-  off the stone, a double gilt fillet, a five-ray sunburst at each end, raised gilt letters in the
-  `deco` hand that cast their shadow onto the plate (`embossText`, exported from coliseum.js for
-  the trades), a halo round the plate after dark and floodlights under it. His name and COLISEUM
-  are two lines, each set to its own width so the letters keep their proportions; his line is
-  0.044 tall, because the deco hand leaves room above and below and a 0.037 band lettered his name
-  at half the plate's width.
+- ⚠ **The name goes on twice, by request**: cut into the bowl wall on Sorrel Way and again on
+  Halcyon Boulevard, an exception to one building, one name. Each face has a plain stone band
+  under the frieze (`BAND`) on its longest clear run, from its gate to the far corner tower
+  (`bandRun`); the windows under it stop short and the fins break round it. The name is one
+  line in the `deco` hand, cut rather than raised: a dark copy up and left, a pale lip down and
+  right, and the cut over both. Each word is baked cropped to its ink and the line is laid out
+  from the bakes' widths, so each word is drawn whole by the tile its middle is on.
+- The gate plates are built to the Meridian's standard: a flat bronze plate (a box would wear its
+  palette's window skin over the letters) standing off the stone, a double gilt fillet, raised gilt
+  letters in the `deco` hand that cast their shadow onto the plate (`embossText`, exported from
+  coliseum.js for the trades), and on the main gate a halo round the plate after dark and
+  floodlights under it.
 - **The roof** is three segmental vaults across the bowl from rail to rail, each smaller and lower
   than the one before so they nest: the first fixed over the bleachers, the other two riding the
   rails' steps. Shut, they're one vault from Halcyon Boulevard to Sorrel Way; open, the two nest
@@ -274,14 +286,32 @@ own, at full size, and the bowl round them is the map's model, transcribed
 - **The wall** between the fins is painted in the shader (`EXTERIOR_GLSL`): coursed limestone, and in
   every bay a concourse window in a bronze frame with its glazing bars, the bronze spandrel over it
   and the gilt chevron, the concourse lit behind every night and the floods washing up the stone.
+  Under the name band the window stops short of it with no spandrel, as on the map: the shader
+  reads the band's run on each face from `BAND_UV`, keyed by the side seed in the wall's colour.
   The rest of the bowl is geometry, shaded as `DECO` stone, `GILT` bronze and gilt, and `GLAZE` glass
   lit from inside.
-- **The name plates** are painted to the map's measures (`paintPlateCanvas`, one atlas for both
-  gates, `PLATE_ATLAS`): dark bronze, a double gilt fillet, a five-ray sunburst at each end, and his
-  name over COLISEUM in raised gilt in Limelight, the map's deco hand, each line as large as its band
-  allows, every letter lit along its top and casting its shadow down and to the right. ⚠ **A line is
-  never squeezed**: one too long for its band is set smaller. The plate stands off the frontispiece
-  on a bronze bracket, with a halo round it after dark. `ballpark-smoke` holds the lettering to this.
+- **The name band** is the map's `BAND` on the run `bandRun` picks, on Sorrel Way and on the
+  boulevard (`BAND_RUNS`), and the fins break round it. His name is cut into it in one line in
+  Limelight: the cut's upper wall in shadow up and left, its lit lip down and right, and the cut over
+  both, set as wide as the run allows inside 0.05 tiles at each end. The band's face is a `DECO` quad
+  a hair proud of its stone, textured from the plates' atlas, so it takes the stone's light and
+  coursing and meets the band without a seam. Each face's line is painted once across two cells,
+  the reader's left half and the right, each cell its half of the band's shape in feet.
+  ⚠ **The atlas paints the stone grey** (`BAND_STONE`), so the lip can be paler than the stone round
+  it; the quad's colour is the band's over that grey, so the stone matches its box.
+- **The Guardians** are the map's, line for line: the pylons, their stepped caps and flutes, the
+  corbels, and the carved figures with the gilt ball on the west one and the gilt bat on the east.
+  ⚠ The figures are `DECO` with a negative uv (`DRESSED`), which the shader leaves uncoursed, because
+  the wall's 2.6 ft joints across a figure read as stacked masonry. ⚠ The ball's height is its
+  radius times `KH / ftUp(1)`, not the map's 1/1.4, so it stays round at this view's proportions.
+  The grille gates either side are the map's narrow ones.
+- **The plates** are painted to the map's measures (`paintPlateCanvas`, one atlas, `PLATE_ATLAS`):
+  dark bronze, a double gilt fillet, and GRANDSTAND on the main gate's (`MAIN_PLATE`, 0.33 by 0.09
+  tiles, clear of the Guardians) and BLEACHERS on the bleacher gate's, in raised gilt in Limelight,
+  every letter lit along its top and casting its shadow down and to the right. ⚠ **No line is ever
+  squeezed**: one too long for its space is set smaller. The plate stands off the frontispiece on a
+  bronze bracket, with a halo round it after dark. `ballpark-smoke` holds the plates and the band
+  to this.
 - **The roof** is three batches, one a shell, built shut and drawn where the roof has got to
   (`shellShift`, the `uShift` uniform). The broadcast puts the roof on every Gameday line as it airs
   (`roof`, 1 shut and 0 open, from `venue.roof` at the block's middle tile, `gamedayOnAir`). The view

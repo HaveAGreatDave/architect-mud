@@ -10,11 +10,12 @@
 //      distances and the warning track's uniform; its board moves the board; its towers
 //      their lamps. The bowl round it is the map's Coliseum (glass/models/coliseum.js): the
 //      outline its square on the foul lines, the wall facing out on all four sides and in over
-//      the stands, a tower at each corner, the name plate on the main gate across from home on
-//      Sorrel Way. The roof's three shells cover the bowl shut and nest open, clear each other,
-//      and spring from the rails; the lights cross from the towers to the decks with no jump;
-//      the roof's travel eases over the map's ninety seconds; and the plates letter his name
-//      over COLISEUM, raised and never squeezed.
+//      the stands, a tower at each corner, the plate on the main gate across from home on Sorrel
+//      Way, and the name band on Sorrel Way and the boulevard, read from the street. The roof's
+//      three shells cover the bowl shut and nest open, clear each other, and spring from the
+//      rails; the lights cross from the towers to the decks with no jump; the roof's travel eases
+//      over the map's ninety seconds; and the plates say GRANDSTAND and BLEACHERS in raised gilt
+//      and the bands his name cut in one line, none of it ever squeezed.
 //   2. THE MATRICES AGREE WITH THE PINHOLE. camera.js writes each shot out as GL matrices
 //      and works the same shot out from the camera's own axes. If they drift, the director
 //      (which frames with `project`) and the picture disagree about what's in shot. Every
@@ -169,9 +170,25 @@ check('defaults: the board inside the outline', G.insideOutline(base.outline, ba
   // frontispiece outside the wall and facing out, and the bleacher gate's on the boulevard
   const { c, n: sn } = M.PARK_SIGN, [s3, s1] = G.sOf(c);
   const signN = [base.sign.data[3], base.sign.data[4], base.sign.data[5]];
-  check('defaults: the name plate hangs on the main gate, across from home on Sorrel Way, facing out', base.sign.n === 12 && Math.abs(s3) < 1 && s1 < n && s1 > n - 8 && !G.insideOutline(base.outline, c) && G.insideOutline(base.outline, c, 8)
+  check('defaults: the plate hangs on the main gate, across from home on Sorrel Way, facing out', base.sign.n === 36 && Math.abs(s3) < 1 && s1 < n && s1 > n - 8 && !G.insideOutline(base.outline, c) && G.insideOutline(base.outline, c, 8)
     && signN.every((v, i) => Math.abs(v - sn[i]) < 1e-6) && sn[0] > 0 && sn[2] < 0, `s3 ${s3.toFixed(1)}, s1 ${s1.toFixed(1)}`);
-  check('defaults: the plate is the map\'s, 0.47 by 0.14 tiles', Math.abs(M.PARK_SIGN.w / M.PARK_SIGN.h - (0.47 * (BOWL.near + BOWL.far) / 2.94) / (0.14 * 226)) < 1e-6);
+  check('defaults: the plate is the map\'s, 0.33 by 0.09 tiles', Math.abs(M.PARK_SIGN.w / M.PARK_SIGN.h - (0.33 * (BOWL.near + BOWL.far) / 2.94) / (0.09 * 226)) < 1e-6);
+  // the name band: after the two plates in the sign batch, two halves on each of the two long faces,
+  // on the band's front just outside the wall, from its foot to the frieze, facing the street, the
+  // line running to the reader's right and the halves meeting
+  {
+    const sd = base.sign.data, at = (v) => [sd[v * M.STRIDE], sd[v * M.STRIDE + 1], sd[v * M.STRIDE + 2]];
+    const halves = [0, 1, 2, 3].map((q) => { const v = 12 + q * 6, o = v * M.STRIDE; return { a: at(v), b: at(v + 1), top: at(v + 2), n: [sd[o + 3], sd[o + 4], sd[o + 5]], mat: sd[o + 11] }; });
+    const zb = [G.ftUp(0.268), Z.wall], s1Of = (h) => G.sOf(h.a)[1];
+    const ok = halves.map((h) => {
+      const right = [h.n[2], 0, -h.n[0]], run = [h.b[0] - h.a[0], 0, h.b[2] - h.a[2]];   // cross(-n, up)
+      const out = !G.insideOutline(base.outline, h.a) && G.insideOutline(base.outline, h.a, 12) && G.insideOutline(base.outline, [h.a[0] - h.n[0] * 30, 0, h.a[2] - h.n[2] * 30]);
+      return h.mat === M.MAT.DECO && out && run[0] * right[0] + run[2] * right[2] > 0 && Math.abs(h.a[1] - zb[0]) < 0.01 && Math.abs(h.top[1] - zb[1]) < 0.01;
+    });
+    const meet = [0, 2].every((q) => Math.hypot(halves[q].b[0] - halves[q + 1].a[0], halves[q].b[2] - halves[q + 1].a[2]) < 1e-3);
+    check('defaults: the name band is on Sorrel Way and the boulevard, outside, reading left to right from the street',
+      ok.every(Boolean) && meet && s1Of(halves[0]) < n && s1Of(halves[2]) > f, ok.map((v) => (v ? 1 : 0)).join('') + (meet ? '' : ' halves apart'));
+  }
   // the lights: a tower at each corner of the bowl with its lamps up in its lamp house and a place
   // under a deck for its light when the roof is shut, and a row under each deck
   const towers = base.field.towers.filter((T) => T.kind === 'tower'), decks = base.field.towers.filter((T) => T.kind === 'deck');
@@ -246,8 +263,10 @@ check('defaults: the board inside the outline', G.insideOutline(base.outline, ba
 }
 
 // ── the plates ───────────────────────────────────────────────────────────────
-// His name goes on the main gate's plate the way the map letters it: his name over COLISEUM, each
-// line in its own band, raised (a shadow, a highlight and the gilt face), never squeezed.
+// The main gate's plate says GRANDSTAND and the bleacher gate's BLEACHERS, raised (a shadow, a
+// highlight and the gilt face); his name is cut into the band on each face in one line, the shadowed
+// wall up and left, the lit lip down and right and the cut over both, each half in its own cell. The
+// deco hand throughout, and nothing squeezed.
 {
   const RB = await import(P + 'gl/ballpark.js');
   const calls = [];
@@ -258,12 +277,25 @@ check('defaults: the board inside the outline', G.insideOutline(base.outline, ba
     set: (t, k, v) => { t[k] = v; return true; } }) }) };
   RB.paintPlateCanvas(rec, 'Charles B. Hughson Coliseum');
   const of = (s) => calls.filter((c) => c.a[0] === s);
-  const A = M.PLATE_ATLAS, name = of('CHARLES B. HUGHSON'), col = of('COLISEUM'), bl = of('BLEACHERS');
-  const inCell = (c, [x, y, w, h]) => c.a[1] > x && c.a[1] < x + w && c.a[2] > y && c.a[2] < y + h;
-  check('the plates: his name over COLISEUM, as the map sets them', JSON.stringify(RB.plateLines('Charles B. Hughson Coliseum')) === '["CHARLES B. HUGHSON","COLISEUM"]');
-  check('the plates: each line raised, a shadow, a highlight and its gilt face, in the deco hand', [name, col, bl].every((l) => l.length === 3 && l.every((c) => /Limelight/.test(c.font))), [name.length, col.length, bl.length].join(','));
-  check('the plates: never squeezed to fit', calls.every((c) => c.a.length === 3), calls.filter((c) => c.a.length !== 3).map((c) => c.a[0]).join(', '));
-  check('the plates: his name over COLISEUM on the main gate\'s, BLEACHERS on the bleacher gate\'s', name.every((c) => inCell(c, A.main)) && col.every((c) => inCell(c, A.main)) && bl.every((c) => inCell(c, A.bleach)) && name[2].a[2] < col[2].a[2]);
+  const A = M.PLATE_ATLAS, line = 'CHARLES B. HUGHSON COLISEUM', gs = of('GRANDSTAND'), bl = of('BLEACHERS'), cut = of(line);
+  const inCell = (c, [x, y, w, h]) => c.a[1] >= x && c.a[1] <= x + w && c.a[2] > y && c.a[2] < y + h;
+  check('the plates: the band cuts his name in one line, as the map does', RB.bandLine('Charles B. Hughson Coliseum') === line && calls.every((c) => [line, 'GRANDSTAND', 'BLEACHERS'].includes(c.a[0])), [...new Set(calls.map((c) => c.a[0]))].join(' / '));
+  check('the plates: GRANDSTAND on the main gate\'s, BLEACHERS on the bleacher gate\'s, each raised', gs.length === 3 && bl.length === 3 && gs.every((c) => inCell(c, A.main)) && bl.every((c) => inCell(c, A.bleach)));
+  check('the plates: every line in the deco hand, never squeezed to fit', calls.every((c) => /Limelight/.test(c.font) && c.a.length === 3), calls.filter((c) => c.a.length !== 3).map((c) => c.a[0]).join(', '));
+  // three copies in each of the four band cells: the shadowed wall, then the lit lip, then the cut
+  const cells = [...A.band.s, ...A.band.n], grey = (c) => +/\d+/.exec(c.fill)[0], stone = M.BAND_STONE;
+  const cutOk = cells.every((cell) => {
+    const cs = cut.filter((c) => c.a[2] > cell[1] && c.a[2] < cell[1] + cell[3]);   // (each half is the whole line centred on its edge)
+    return cs.length === 3 && grey(cs[0]) < stone && grey(cs[1]) > stone && grey(cs[2]) < stone
+      && cs[0].a[1] < cs[2].a[1] && cs[0].a[2] < cs[2].a[2] && cs[1].a[1] > cs[2].a[1] && cs[1].a[2] > cs[2].a[2];
+  });
+  check('the plates: his name cut into both bands, the wall up and left, the lip down and right, the cut over both', cut.length === 12 && cutOk, `${cut.length} copies`);
+  // each band cell is its half of the face's band in feet, so the letters aren't stretched, and no
+  // cell overlaps another
+  const kh = (G.BOWL.near + G.BOWL.far) / 2.94, bandH = M.BOWL_Z.wall - G.ftUp(0.268), rects = [A.main, A.bleach, ...cells];
+  const shaped = ['s', 'n'].every((k) => { const r = M.BAND_RUNS[k], [, , w, h] = A.band[k][0], want = ((r[1] - r[0]) / 2) * kh / bandH; return Math.abs(w / h - want) / want < 0.01; });
+  const apart = rects.every((r, i) => rects.every((q, j) => i >= j || r[1] + r[3] <= q[1] || q[1] + q[3] <= r[1] || r[0] + r[2] <= q[0] || q[0] + q[2] <= r[0])) && rects.every((r) => r[0] + r[2] <= A.w && r[1] + r[3] <= A.h);
+  check('the plates: each band cell is its band\'s shape in feet, and no cell overlaps another', shaped && apart);
 }
 
 // A venue of its own: a short porch, a deep centre field, a high wall, the board in left-centre.

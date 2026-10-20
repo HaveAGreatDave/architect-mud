@@ -24,7 +24,8 @@
 //   DECO, GILT  the rest of the bowl's outside: its stone, and its bronze, gilt and copper
 //   GLAZE     glass lit from inside: the clerestory and the roof's glazing when it's shut (uv.x
 //             0), the towers' slits every night (uv.x 1)
-//   PLAQUE    the name plates over the gates, painted (ballpark.js paintPlates)
+//   PLAQUE    the plates over the gates, painted (ballpark.js paintPlates); the name cut in the
+//             band beside them is DECO from the same atlas
 //   FACADE, STREET, POOL  the city round the park (gl/cityscape.js): facades and streets
 //             painted from their coordinates, and the pool of light under a street lamp
 //
@@ -340,7 +341,7 @@ function wallNumbers(fence) {
 //           alpha-tested, one cell of a four-cell atlas each), board (the scoreboard),
 //           exterior (the bowl's wall between the fins)
 //   translucent: net (the backstop)
-//   sign: the name plates over the two gates, painted (PLATE_ATLAS)
+//   sign: the plates over the two gates and the name cut in the band beside them, painted (PLATE_ATLAS)
 //   lamps: what burns on its own, each lit by the renderer as the hour and the roof have it:
 //          tower (the towers' floods), deck (the rows under the decks), beacon, lantern, halo
 //   roof: [{ batch, fixed }], a shell each, built shut and drawn at shellShift
@@ -442,6 +443,29 @@ const TOWER = Object.freeze({ r0: 0.105, z0: 0.62, r1: 0.08, z1: 0.76, r2: 0.062
 const MAIN_U = 1.47 - BOWL.near / KH;
 const GATE = Object.freeze({ u: MAIN_U, hw: 0.30, face: 1.48, top: 0.53 });
 const BGATE = Object.freeze({ u: -0.96, hw: 0.24, face: -1.48, top: 0.44 });
+// The Guardians either side of the main gate: a pylon `hw` half wide, standing to `top`.
+const GUARD = Object.freeze({ hw: 0.055, top: 0.60 });
+// The main gate's plate, z0 to z1 and `hw` either side, narrow enough to stand clear of them.
+export const MAIN_PLATE = Object.freeze({ z0: 0.385, z1: 0.475, hw: 0.165 });
+// The name band on Sorrel Way and the boulevard: plain stone in the wall under the frieze, `d` proud,
+// over windows cut short for it, from the face's gate to the corner tower on its longer side
+// (`bandRun`). The towers stand at 1.37 on the map, as the venue's do here.
+const BAND = Object.freeze({ z0: 0.268, z1: Z.wall, d: 0.026 });
+const TW = 1.37 - TOWER.r0;
+const bandRun = (g) => {
+  const a = [-TW, g.u - g.hw - 0.03], b = [g.u + g.hw + 0.03, TW];
+  return a[1] - a[0] >= b[1] - b[0] ? a : b;
+};
+// Each face's run, in block u: `s` on Sorrel Way, `n` on the boulevard. The shader stops the windows
+// short under it (ballpark.js EXTERIOR_GLSL).
+export const BAND_RUNS = Object.freeze({ s: Object.freeze(bandRun(GATE)), n: Object.freeze(bandRun(BGATE)) });
+// The same for the shader, as the wall's uv has it (feet along from the first fin), with the heights
+// in feet that a window under the band stops at: its frame, and its glass.
+export const BAND_UV = Object.freeze({ s: BAND_RUNS.s.map((t) => (t - FIN_AT[0]) * KH), n: BAND_RUNS.n.map((t) => (t - FIN_AT[0]) * KH),
+  frame: ftUp(BAND.z0 - 0.010), glass: ftUp(BAND.z0 - 0.016) });
+// A carved face: the DECO shader leaves the coursing off a face whose uv.x is negative, because a
+// figure with the wall's joints across it read as stacked masonry on the map.
+const DRESSED = [-1, 0];
 // The roof: the map's three shells, biggest first, each a segmental vault across the bowl from rail
 // to rail (`c` its half-span, `zs` where it springs, `rise` to its crown) and `len` long; `open` and
 // `shut` are where its north end is. The first is fixed over the bleachers on the boulevard side and
@@ -503,9 +527,19 @@ export function roofTrack(ms) {
   };
 }
 
-// The plates' atlas (ballpark.js paintPlates): the main gate's in the top of the canvas, the
-// bleacher gate's under it, in pixels.
-export const PLATE_ATLAS = Object.freeze({ w: 2048, h: 1024, main: Object.freeze([0, 0, 2048, 660]), bleach: Object.freeze([0, 690, 1336, 410]) });
+// The plates' atlas (ballpark.js paintPlates), in pixels: the main gate's plate at the top, the
+// bleacher gate's under it, and under them the name band on each face in two halves, the reader's
+// left first (`band.s`, `band.n`). Each cell is its face's shape in feet, so nothing is stretched;
+// halves, so the band's letters have twice the pixels a single 2048 row would give them.
+export const PLATE_ATLAS = (() => {
+  const W = 2048, band = {};
+  let y = 1056;
+  for (const k of ['s', 'n']) {
+    const r = BAND_RUNS[k], h = Math.round(W * ftUp(BAND.z1 - BAND.z0) / (((r[1] - r[0]) / 2) * KH));
+    band[k] = Object.freeze([0, 1].map(() => { const c = Object.freeze([0, y, W, h]); y += h + 20; return c; }));
+  }
+  return Object.freeze({ w: W, h: 2048, main: Object.freeze([0, 0, W, 606]), bleach: Object.freeze([0, 626, 1336, 410]), band: Object.freeze(band) });
+})();
 
 const COL = Object.freeze({
   stone: lin('#a48a66'), trim: lin('#968e7c'), fin: lin('#c6c4be'), bronze: lin('#604428'), copper: lin('#4e8a76'),
@@ -552,7 +586,7 @@ function bdrum(b, u, v, z0, z1, r0, r1, col, mat, segs = 8) {
 }
 
 // Builds the bowl into the park's batches (B), from the venue's lights (field.towers). Returns the
-// plates' batch (the name over each gate, drawn once it's painted), the lamps' batches (the towers'
+// plates' batch (the plate over each gate and the name in the bands, drawn once they're painted), the lamps' batches (the towers'
 // floods, the decks' rows, the beacons, the lanterns and the plates' halo, each lit on its own), and
 // the roof: a batch a shell, built shut, with how far it travels open.
 function buildBowl(B, field) {
@@ -599,10 +633,18 @@ function buildBowl(B, field) {
     const gs = n[1] === 1 ? GATE : n[1] === -1 ? BGATE : null;
     const runs = gs ? [[-run + 0.01, gs.u - gs.hw], [gs.u + gs.hw, run - 0.01]] : [[-run + 0.01, run - 0.01]];
     for (const [t0, t1] of runs) sideFace(plain, n, t0, t1, -0.016, Z.frieze + 0.004, Z.cler - 0.004, COL.glass, MAT.GLAZE, [0, 0]);
-    // the fins, marble-pale through the frieze and the clerestory to break the cornice, capped
+    // the name band on Sorrel Way and the boulevard, its face the lettered cells (bandAt)
+    const bnd = n[1] === 1 ? BAND_RUNS.s : n[1] === -1 ? BAND_RUNS.n : null;
+    const inBand = (t) => !!bnd && t > bnd[0] && t < bnd[1];
+    if (bnd) sideBox(n, bnd[0], bnd[1], -0.01, BAND.d, BAND.z0, BAND.z1, COL.trim, MAT.DECO);
+    // the fins, marble-pale through the frieze and the clerestory to break the cornice, capped; under
+    // the band they stop, and carry on over it
     FIN_AT.forEach((t) => {
       if (gate(t)) return;
-      sideBox(n, t - 0.011, t + 0.011, -0.01, 0.022, Z.plinth, 0.49, COL.fin, MAT.DECO);
+      if (inBand(t)) {
+        sideBox(n, t - 0.011, t + 0.011, -0.01, 0.022, Z.plinth, BAND.z0, COL.fin, MAT.DECO);
+        sideBox(n, t - 0.011, t + 0.011, -0.01, 0.022, BAND.z1, 0.49, COL.fin, MAT.DECO);
+      } else sideBox(n, t - 0.011, t + 0.011, -0.01, 0.022, Z.plinth, 0.49, COL.fin, MAT.DECO);
       sideBox(n, t - 0.007, t + 0.007, -0.01, 0.017, 0.49, 0.512, COL.trim, MAT.DECO);
     });
   });
@@ -680,6 +722,9 @@ function buildBowl(B, field) {
   const plates = createBatch(64);
   mainGate(plain, lamps, plates);
   bleacherGate(plain, lamps, plates);
+  // and the park's name cut into the band on both faces, read from the street each is on
+  bandAt(plates, [0, 1], BAND_RUNS.s, PLATE_ATLAS.band.s, true);
+  bandAt(plates, [0, -1], BAND_RUNS.n, PLATE_ATLAS.band.n, false);
 
   // 10) THE ROOF. Each shell built shut, as a batch of its own the renderer draws where the roof
   //     has got to (shellShift): its panels across the vault and their underside, the glazing down
@@ -785,25 +830,95 @@ function plateAt(plain, lamps, plates, gu, yp, pz0, pz1, phw, sgOut, cell, east)
   quad(plates, Wp[0], Wp[1], Wp[2], Wp[3], norm(sf(0, -sgOut)), WHITE, MAT.PLAQUE, [[u0, v1], [u1, v1], [u1, v0], [u0, v0]]);
 }
 
-// The main gate on Sorrel Way: a stepped frontispiece between two fluted pylons, a portal in three
-// receding orders round bronze doors and a sunburst fanlight, a grille gate with a lantern over it
-// either side, the name plate, the gilt rising sun on the setback with a baseball for its disc, and
-// the flag. The map's section 8, line for line.
+// The park's name cut into a face's band (the map's `inscribe`): the band's front, a hair proud of
+// its stone, in two halves from the reader's left, each one cell of the atlas, where paintPlates has
+// cut the line. DECO, so it takes the stone's light and coursing and meets the band without a seam.
+// `east` whether the reader's right is the map's east.
+// ⚠ THE ATLAS PAINTS THE STONE GREY (BAND_STONE), so the cut's lit lip can be paler than the stone
+// round it; the face's colour is the band's over that grey, so the stone matches its box.
+export const BAND_STONE = 200;
+function bandAt(plates, n, run, cells, east) {
+  const d = BAND.d + 0.0015, mid = (run[0] + run[1]) / 2, ends = east ? [run[0], mid, run[1]] : [run[1], mid, run[0]];
+  const W = PLATE_ATLAS.w, Hh = PLATE_ATLAS.h, nn = norm(sf(0, -n[1])), col = mul(COL.trim, 1 / decode(BAND_STONE / 255));
+  cells.forEach(([cx, cy, cw, ch], i) => {
+    const L = ends[i], R = ends[i + 1], u0 = cx / W, u1 = (cx + cw) / W, v0 = cy / Hh, v1 = (cy + ch) / Hh;
+    const Wp = [[L, BAND.z0], [R, BAND.z0], [R, BAND.z1], [L, BAND.z1]].map(([t, z]) => B2T(t, n[1] * (OUT + d), z));
+    quad(plates, Wp[0], Wp[1], Wp[2], Wp[3], nn, col, MAT.DECO, [[u0, v1], [u1, v1], [u1, v0], [u0, v0]]);
+  });
+}
+
+// The main gate on Sorrel Way: a stepped frontispiece between two Guardian pylons, a portal in three
+// receding orders round bronze doors and a sunburst fanlight, a narrow grille gate with a lantern over
+// it either side, GRANDSTAND on its plate, the gilt rising sun on the setback with a baseball for its
+// disc, and the flag. The map's section 8, line for line.
 function mainGate(plain, lamps, plates) {
   const G = GATE, gu = G.u, gf = G.face, u0 = gu - G.hw, u1 = gu + G.hw;
   const face = (pts, col, mat = MAT.DECO, uv) => bface(plain, pts, [0, 1, 0], col, mat, uv);
   bbox(plain, u0, u1, BACK, gf, Z.plinth, G.top, COL.stone, MAT.DECO);
   bbox(plain, u0 - 0.005, u1 + 0.005, BACK, gf + 0.006, 0, Z.plinth, COL.granite, MAT.DECO);
   bbox(plain, u0, u1, BACK, gf + 0.004, G.top, G.top + 0.012, COL.trim, MAT.DECO, COL.copper);
-  bbox(plain, gu - 0.20, gu + 0.20, BACK, gf - 0.004, G.top + 0.012, 0.60, COL.stone, MAT.DECO);
-  bbox(plain, gu - 0.20, gu + 0.20, BACK, gf - 0.001, 0.60, 0.61, COL.trim, MAT.DECO, COL.copper);
+  // the setback, between the pylons' inner faces
+  const sb = G.hw - 2 * GUARD.hw;
+  bbox(plain, gu - sb, gu + sb, BACK, gf - 0.004, G.top + 0.012, 0.60, COL.stone, MAT.DECO);
+  bbox(plain, gu - sb, gu + sb, BACK, gf - 0.001, 0.60, 0.61, COL.trim, MAT.DECO, COL.copper);
   bbox(plain, gu - 0.10, gu + 0.10, BACK, gf - 0.008, 0.61, 0.655, COL.stone, MAT.DECO, COL.copper);
-  // the pylons, fluted, with stepped caps
-  for (const pu of [u0 + 0.03, u1 - 0.03]) {
-    bbox(plain, pu - 0.03, pu + 0.03, BACK, gf + 0.017, 0, 0.56, COL.stone, MAT.DECO);
-    bbox(plain, pu - 0.024, pu + 0.024, BACK, gf + 0.014, 0.56, 0.575, COL.trim, MAT.DECO, COL.copper);
-    bbox(plain, pu - 0.016, pu + 0.016, BACK, gf + 0.010, 0.575, 0.592, COL.trim, MAT.DECO, COL.copper);
-    for (const o of [-0.015, 0, 0.015]) face([[pu + o - 0.0018, gf + 0.0175, 0.52], [pu + o + 0.0018, gf + 0.0175, 0.52], [pu + o + 0.0018, gf + 0.0175, 0.06], [pu + o - 0.0018, gf + 0.0175, 0.06]], COL.flute);
+  // THE GUARDIANS, after the Hope Memorial Bridge's in Cleveland: a pylon either side of the gate,
+  // fluted below, and on a corbel halfway up it a helmeted figure in relief, robed to the feet,
+  // square-shouldered, the west one cradling a gilt ball and the east one resting on a gilt bat held
+  // point-down. ⚠ ROUND ON THE MAP IS ROUND HERE TOO: the map draws z 1.4 times taller and this view
+  // ftUp, so a circle's height is its radius times ZR, not the map's 1/1.4.
+  const ZR = KH / ftUp(1), FIG = lin('#c8b89a'), FOLD = lin('#968870');
+  for (const [sg, pu] of [[-1, u0 + GUARD.hw], [1, u1 - GUARD.hw]]) {
+    const ph = GUARD.hw, yF = gf + 0.006;
+    bbox(plain, pu - ph - 0.006, pu + ph + 0.006, BACK, gf + 0.010, 0, Z.plinth, COL.granite, MAT.DECO);
+    bbox(plain, pu - ph, pu + ph, BACK, yF, Z.plinth, GUARD.top, COL.stone, MAT.DECO);
+    bbox(plain, pu - ph + 0.006, pu + ph - 0.006, BACK, yF - 0.002, GUARD.top, GUARD.top + 0.012, COL.trim, MAT.DECO, COL.copper);
+    bbox(plain, pu - ph + 0.017, pu + ph - 0.017, BACK, yF - 0.006, GUARD.top + 0.012, GUARD.top + 0.026, COL.trim, MAT.DECO, COL.copper);
+    bbox(plain, pu - ph + 0.029, pu + ph - 0.029, BACK, yF - 0.010, GUARD.top + 0.026, GUARD.top + 0.038, COL.trim, MAT.DECO, COL.copper);
+    for (const o of [-0.03, 0, 0.03]) face([[pu + o - 0.002, yF + 0.0006, 0.25], [pu + o + 0.002, yF + 0.0006, 0.25], [pu + o + 0.002, yF + 0.0006, 0.06], [pu + o - 0.002, yF + 0.0006, 0.06]], COL.flute);
+    // the corbel, stepped
+    bbox(plain, pu - 0.032, pu + 0.032, yF, yF + 0.008, 0.256, 0.272, COL.trim, MAT.DECO);
+    bbox(plain, pu - 0.044, pu + 0.044, yF, yF + 0.012, 0.272, 0.286, COL.trim, MAT.DECO);
+    // The figure, carved (the map's `carve`): each piece a convex outline [u, z] on the pylon's face,
+    // its front `d` proud and its sides back to the face, dressed stone with no coursing.
+    const carve = (sil, d) => {
+      const cu = sil.reduce((t, p) => t + p[0], 0) / sil.length, cz = sil.reduce((t, p) => t + p[1], 0) / sil.length;
+      face(sil.map(([a, z]) => [pu + a, yF + d, z]), FIG, MAT.DECO, DRESSED);
+      sil.forEach((p, i) => {
+        const q = sil[(i + 1) % sil.length], mu = (p[0] + q[0]) / 2 - cu, mz = (p[1] + q[1]) / 2 - cz;
+        let nu = q[1] - p[1], nz = -(q[0] - p[0]);
+        if (nu * mu + nz * mz < 0) { nu = -nu; nz = -nz; }
+        bface(plain, [[pu + p[0], yF, p[1]], [pu + q[0], yF, q[1]], [pu + q[0], yF + d, q[1]], [pu + p[0], yF + d, p[1]]], [nu, 0, nz], FIG, MAT.DECO, DRESSED);
+      });
+    };
+    carve([[-0.030, 0.286], [0.030, 0.286], [0.025, 0.432], [-0.025, 0.432]], 0.009);   // the robe, to the feet
+    carve([[-0.025, 0.432], [0.025, 0.432], [0.036, 0.490], [-0.036, 0.490]], 0.011);   // the chest
+    carve([[-0.038, 0.488], [0.038, 0.488], [0.038, 0.498], [0.031, 0.505], [-0.031, 0.505], [-0.038, 0.498]], 0.010);   // the shoulders, squared
+    for (const sa of [-1, 1]) carve([[sa * 0.038, 0.492], [sa * 0.030, 0.492], [sa * 0.026, 0.446], [sa * 0.034, 0.446]], 0.012);   // the upper arms
+    carve([[-0.007, 0.503], [0.007, 0.503], [0.007, 0.513], [-0.007, 0.513]], 0.008);   // the neck
+    carve([[-0.0125, 0.519], [-0.008, 0.513], [0.008, 0.513], [0.0125, 0.519], [0.0125, 0.535], [0.008, 0.541], [-0.008, 0.541], [-0.0125, 0.535]], 0.012);   // the head
+    carve([[-0.0155, 0.531], [0.0155, 0.531], [0.0145, 0.546], [0.008, 0.555], [-0.008, 0.555], [-0.0145, 0.546]], 0.013);   // the helmet
+    carve([[-0.004, 0.553], [0.004, 0.553], [0.003, 0.565], [-0.003, 0.565]], 0.012);   // its crest
+    for (const o of [-0.014, 0, 0.014]) face([[pu + o - 0.0012, yF + 0.0093, 0.425], [pu + o + 0.0012, yF + 0.0093, 0.425], [pu + o + 0.0012, yF + 0.0093, 0.292], [pu + o - 0.0012, yF + 0.0093, 0.292]], FOLD, MAT.DECO, DRESSED);   // the robe's folds
+    face([[pu - 0.0125, yF + 0.0122, 0.531], [pu + 0.0125, yF + 0.0122, 0.531], [pu + 0.0125, yF + 0.0122, 0.526], [pu - 0.0125, yF + 0.0122, 0.526]], FOLD, MAT.DECO, DRESSED);   // the brim's shadow over the eyes
+    // the forearms across the body, and what the hands hold
+    if (sg < 0) {
+      carve([[-0.033, 0.437], [0.033, 0.437], [0.033, 0.452], [-0.033, 0.452]], 0.0125);
+      const yb = yF + 0.0133, rr = 0.017, zc = 0.452 + rr * ZR, disc = [];
+      for (let k = 0; k < 16; k++) { const a = TAU * k / 16; disc.push([pu + Math.cos(a) * rr, yb, zc + Math.sin(a) * rr * ZR]); }
+      face(disc, COL.gilt, MAT.GILT);
+      for (const ss of [-1, 1]) {   // its stitches, two arcs bowed in toward the middle
+        const pts = [];
+        for (let k = 0; k <= 4; k++) { const a = -1.2 + 2.4 * k / 4; pts.push([pu + ss * rr * (0.8 - 0.35 * Math.cos(a)), zc + Math.sin(a) * rr * 0.8 * ZR]); }
+        for (let k = 0; k < 4; k++) face([[pts[k][0] - 0.001, yb + 0.0004, pts[k][1]], [pts[k + 1][0] - 0.001, yb + 0.0004, pts[k + 1][1]], [pts[k + 1][0] + 0.001, yb + 0.0004, pts[k + 1][1]], [pts[k][0] + 0.001, yb + 0.0004, pts[k][1]]], COL.red);
+      }
+    } else {
+      const yb = yF + 0.0115;   // the bat stands on the robe, under the hands
+      face([[pu - 0.0028, yb, 0.47], [pu + 0.0028, yb, 0.47], [pu + 0.0085, yb, 0.30], [pu - 0.0085, yb, 0.30]], COL.gilt, MAT.GILT);
+      face([[pu - 0.006, yb, 0.476], [pu + 0.006, yb, 0.476], [pu + 0.006, yb, 0.469], [pu - 0.006, yb, 0.469]], COL.gilt, MAT.GILT);   // the knob
+      carve([[-0.033, 0.446], [0.033, 0.446], [0.033, 0.46], [-0.033, 0.46]], 0.0125);
+      carve([[-0.009, 0.443], [0.009, 0.443], [0.009, 0.468], [-0.009, 0.468]], 0.0132);   // the hands, one over the other on the handle
+    }
   }
   // the portal: three orders, the inner one least proud, each stepping out and up
   const ow = 0.075, zO = 0.27, dz = 0.022;
@@ -830,19 +945,20 @@ function mainGate(plain, lamps, plates) {
       face([[gu - s * w, yd + 0.0004, zb + c * w], [gu + s * w, yd + 0.0004, zb - c * w], [gu + c * r + s * w, yd + 0.0004, zb + s * r - c * w], [gu + c * r - s * w, yd + 0.0004, zb + s * r + c * w]], COL.bronze, MAT.GILT);
     }
   }
-  // the grille gates either side: dark openings under lit transoms, iron bars, a bronze lantern over each
-  for (const bu of [u0 + 0.112, u1 - 0.112]) {
-    face([[bu - 0.045, yd, 0.16], [bu + 0.045, yd, 0.16], [bu + 0.045, yd, 0], [bu - 0.045, yd, 0]], COL.grille, MAT.GLAZE, [1, 0]);
-    face([[bu - 0.045, yd, 0.19], [bu + 0.045, yd, 0.19], [bu + 0.045, yd, 0.166], [bu - 0.045, yd, 0.166]], COL.lobby, MAT.GLAZE, [1, 0]);
-    bbox(plain, bu - 0.054, bu + 0.054, gf - 0.01, gf + 0.008, 0.19, 0.204, COL.trim, MAT.DECO);
-    for (const sg of [-1, 1]) bbox(plain, bu + sg * 0.05 - 0.005, bu + sg * 0.05 + 0.005, gf - 0.01, gf + 0.008, 0, 0.19, COL.trim, MAT.DECO);
-    for (let k = -3; k <= 3; k++) bbox(plain, bu + k * 0.012 - 0.0008, bu + k * 0.012 + 0.0008, yd + 0.0006, yd + 0.0022, 0.005, 0.158, lin('#202224'), MAT.METAL);
+  // the grille gates either side, narrow between a Guardian and the portal: dark openings under lit
+  // transoms, iron bars, a bronze lantern over each
+  for (const bu of [gu - 0.1535, gu + 0.1535]) {
+    face([[bu - 0.022, yd, 0.16], [bu + 0.022, yd, 0.16], [bu + 0.022, yd, 0], [bu - 0.022, yd, 0]], COL.grille, MAT.GLAZE, [1, 0]);
+    face([[bu - 0.022, yd, 0.19], [bu + 0.022, yd, 0.19], [bu + 0.022, yd, 0.166], [bu - 0.022, yd, 0.166]], COL.lobby, MAT.GLAZE, [1, 0]);
+    bbox(plain, bu - 0.028, bu + 0.028, gf - 0.01, gf + 0.008, 0.19, 0.204, COL.trim, MAT.DECO);
+    for (const sg of [-1, 1]) bbox(plain, bu + sg * 0.025 - 0.003, bu + sg * 0.025 + 0.003, gf - 0.01, gf + 0.008, 0, 0.19, COL.trim, MAT.DECO);
+    for (let k = -2; k <= 2; k++) bbox(plain, bu + k * 0.008 - 0.0008, bu + k * 0.008 + 0.0008, yd + 0.0006, yd + 0.0022, 0.005, 0.158, lin('#202224'), MAT.METAL);
     bdrum(plain, bu, gf + 0.0095, 0.214, 0.22, 0.0095, 0.0095, COL.bronze, MAT.GILT);
     bdrum(lamps.lantern, bu, gf + 0.0095, 0.22, 0.256, 0.0085, 0.0085, [6, 4.6, 2.8], MAT.EMISSIVE);
     bdrum(plain, bu, gf + 0.0095, 0.256, 0.264, 0.0095, 0.004, COL.bronze, MAT.GILT);
   }
-  // THE NAME PLATE, standing 0.016 off the stone
-  plateAt(plain, lamps, plates, gu, gf + 0.016, 0.36, 0.50, 0.235, 1, PLATE_ATLAS.main, true);
+  // THE PLATE, GRANDSTAND on it, standing 0.016 off the stone and clear of the Guardians
+  plateAt(plain, lamps, plates, gu, gf + 0.016, MAIN_PLATE.z0, MAIN_PLATE.z1, MAIN_PLATE.hw, 1, PLATE_ATLAS.main, true);
   // the rising sun on the setback's face: a gilt baseball for its disc, red stitching, nine rays
   {
     const ys = gf - 0.004 + 0.0015, zs = G.top + 0.012, rd = 0.019;
@@ -897,7 +1013,7 @@ function bleacherGate(plain, lamps, plates) {
 
 // The main gate's plate, for the gates: its middle, the way it faces, and its half-width and
 // half-height in feet.
-export const PARK_SIGN = Object.freeze({ c: B2T(GATE.u, GATE.face + 0.016, 0.43), n: norm(sf(0, -1)), w: 0.235 * KH, h: ftUp(0.07) });
+export const PARK_SIGN = Object.freeze({ c: B2T(GATE.u, GATE.face + 0.016, (MAIN_PLATE.z0 + MAIN_PLATE.z1) / 2), n: norm(sf(0, -1)), w: MAIN_PLATE.hw * KH, h: ftUp((MAIN_PLATE.z1 - MAIN_PLATE.z0) / 2) });
 
 // Where the scoreboard hangs and which way it faces: centre, normal (toward the plate),
 // the face's horizontal axis, half-width and half-height, and its yaw in degrees.

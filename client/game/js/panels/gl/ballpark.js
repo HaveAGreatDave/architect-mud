@@ -22,7 +22,7 @@
 // 'createBallparkRenderer' returns null with no WebGL2, float target or shader, and the view falls
 // back to the 2-D Gameday. ⚠ NO FACE CULLING, as in arena.js: builders don't keep one winding.
 
-import { buildPark, buildDress, crowdMorph, createBatch, ellipsoid, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT, BAY, PLATE_ATLAS, roofLights, roofTrack, shellShift } from './ballpark-mesh.js';
+import { buildPark, buildDress, crowdMorph, createBatch, ellipsoid, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT, BAY, BAND_RUNS, BAND_STONE, BAND_UV, MAIN_PLATE, PLATE_ATLAS, roofLights, roofTrack, shellShift } from './ballpark-mesh.js';
 import { insideOutline } from '../diamond/geo.js';
 import { ROOF_MS } from '../world-feed.js';
 import { CROWD_VS, flashesAt } from './crowd.js';
@@ -190,8 +190,10 @@ void headShade(inout vec3 alb, inout float rough, inout float f0s, inout float w
 // limestone in coursed ashlar, and in every bay between the fins a tall window onto the concourse in
 // a bronze frame with its glazing bars, a bronze spandrel over it and a gilt chevron in the
 // spandrel, the concourse lit behind every night with people against the light, and the floods at
-// the wall's foot washing up the stone. vUv is (feet along from the first fin, feet up); vCol.r is
-// a seed a side. The numbers are the map's (glass/models/coliseum.js) at the broadcast's size.
+// the wall's foot washing up the stone. Under the name band on Sorrel Way and the boulevard
+// (BAND_UV) the window stops short of it, with no spandrel. vUv is (feet along from the first fin,
+// feet up); vCol.r is a seed a side, 0 outside on Sorrel Way and 0.25 outside on the boulevard. The
+// numbers are the map's (glass/models/coliseum.js) at the broadcast's size.
 const g3 = (hex) => `vec3(${lin(hex).map((v) => v.toFixed(5)).join(', ')})`;
 const EXTERIOR_GLSL = `
 float wallHash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -211,10 +213,13 @@ void exterior(out vec3 alb, out float rough, out float f0s, out vec3 emis, out f
   float joint = max(1.0 - smoothstep(0.02, 0.02 + jw * 1.5, abs(fract(cv + 0.5) - 0.5)), 1.0 - smoothstep(0.01, 0.01 + jw * 1.5, abs(fract(ju + 0.5) - 0.5))) * fade;
   alb = STONE * (0.88 + 0.2 * n1.g) * (1.0 - 0.16 * joint);
   rough = 0.82; f0s = 0.03; metal = 0.0; emis = vec3(0.0);
-  // the window, its frame and the spandrel over it
-  float frame = rectAA(q, vec2(-17.1, 21.2), vec2(17.1, 65.8), fw);
-  float glass = rectAA(q, vec2(-15.4, 22.6), vec2(15.4, 64.4), fw);
-  float span = rectAA(q, vec2(-15.4, 66.9), vec2(15.4, 74.1), fw);
+  // the window, its frame and the spandrel over it; under the band, stopped short with no spandrel
+  float bc = (bayI + 0.5) * BAY;
+  vec2 br = vCol.r < 0.06 ? vec2(${BAND_UV.s.map((v) => v.toFixed(2)).join(', ')}) : abs(vCol.r - 0.25) < 0.06 ? vec2(${BAND_UV.n.map((v) => v.toFixed(2)).join(', ')}) : vec2(1e9, -1e9);
+  float banded = step(br.x, bc) * step(bc, br.y);
+  float frame = rectAA(q, vec2(-17.1, 21.2), vec2(17.1, mix(65.8, ${BAND_UV.frame.toFixed(2)}, banded)), fw);
+  float glass = rectAA(q, vec2(-15.4, 22.6), vec2(15.4, mix(64.4, ${BAND_UV.glass.toFixed(2)}, banded)), fw);
+  float span = rectAA(q, vec2(-15.4, 66.9), vec2(15.4, 74.1), fw) * (1.0 - banded);
   float bronze = max(frame, span);
   alb = mix(alb, BRONZE * (0.9 + 0.2 * n1.r), bronze); metal = bronze; rough = mix(rough, 0.34, bronze);
   // the glazing bars, one up the middle and one across every ten and a half feet
@@ -305,11 +310,13 @@ void main() {
     else exterior(alb, rough, f0s, emis, metal);
     ao = mix(0.62, 1.0, smoothstep(0.0, 1.6, vPos.y));
   } else if (vMat == ${MAT.DECO}) {
-    // the bowl's stone, its towers and its gates: coursed, mottled, and washed by the floods at its foot
+    // the bowl's stone, its towers and its gates: coursed, mottled, and washed by the floods at its foot.
+    // A carved face (uv.x negative, the Guardians) is dressed stone with no coursing; the name band's
+    // face takes its cut letters from the plates' atlas (alb, the texture under vCol).
     float cv = vPos.y / 2.6, jw = fwidth(cv);
-    float joint = (1.0 - smoothstep(0.02, 0.02 + jw * 1.5, abs(fract(cv + 0.5) - 0.5))) * (1.0 - smoothstep(0.08, 0.3, jw));
+    float joint = (1.0 - smoothstep(0.02, 0.02 + jw * 1.5, abs(fract(cv + 0.5) - 0.5))) * (1.0 - smoothstep(0.08, 0.3, jw)) * step(-0.5, vUv.x);
     vec4 nz = texture(uGrass, (vPos.xz + vPos.yy) / 9.0);
-    alb = vCol * (0.9 + 0.18 * nz.g) * (1.0 - 0.12 * joint);
+    alb = alb * (0.9 + 0.18 * nz.g) * (1.0 - 0.12 * joint);
     rough = 0.8; f0s = 0.03;
     emis = alb * vec3(1.0, 0.8, 0.58) * exp(-vPos.y / 50.0) * 0.5;
     ao = mix(0.62, 1.0, smoothstep(0.0, 1.6, vPos.y));
@@ -561,14 +568,15 @@ const netCanvas = (doc) => canvasOf(doc, 128, 128, (g) => {
 });
 
 // ── the name plates ─────────────────────────────────────────────────────────
-// The two plates over the Coliseum's gates (ballpark-mesh.js PLATE_ATLAS), painted as the map makes
-// the main gate's at the Meridian's standard (glass/models/coliseum.js, section 8): a dark bronze
-// plate, a double gilt fillet, a five-ray sunburst rising at each end, and the venue's name in raised
-// gilt in the deco hand, his name over COLISEUM, each line set to its own width so the letters keep
-// their proportions, every letter catching the light along its top and casting its shadow down and
-// to the right onto the bronze. The bleacher gate's says BLEACHERS inside a single fillet. Every
-// measure is the map's, in its tiles, across the plate's own width and height.
-// ⚠ HIS NAME IS NEVER SQUEEZED. A line too long for its band is set smaller, never narrower: a
+// The two plates over the Coliseum's gates and the name band beside them (ballpark-mesh.js
+// PLATE_ATLAS), painted as the map makes them (glass/models/coliseum.js, sections 6 and 8). The main
+// gate's plate is the Meridian's standard: dark bronze, a double gilt fillet and GRANDSTAND in raised
+// gilt in the deco hand, every letter catching the light along its top and casting its shadow down
+// and to the right onto the bronze. The bleacher gate's says BLEACHERS inside a single fillet. Every
+// measure is the map's, in its tiles, across the plate's own width and height. The venue's name is
+// cut into the band in one line, the reverse of the plates' gilt: the cut's upper wall in shadow up
+// and left, its lower lip catching the light down and right, and the cut over both.
+// ⚠ NOTHING IS EVER SQUEEZED. A line too long for its band is set smaller, never narrower: a
 // squeezed name read as a different hand from the map's.
 export const DECO_FACE = (px) => `${Math.round(px)}px Limelight, "Copperplate Gothic Bold", Copperplate, "Sitka Banner", Optima, "Palatino Linotype", serif`;
 let decoP = null;
@@ -579,12 +587,13 @@ export function loadDecoFace(doc) {
     .then((f) => { doc.fonts.add(f); return true; }, () => false);
   return decoP;
 }
-// The lines a venue's name is set in: all but its last word over its last.
-export function plateLines(name) {
-  const words = (String(name || '').trim() || 'Charles B. Hughson Coliseum').toUpperCase().split(/\s+/);
-  const last = words.length > 1 ? words.pop() : '';
-  return last ? [words.join(' '), last] : [words.join(' ')];
+// The line the venue's name is cut in: all of it, in capitals, as the map's band has it.
+export function bandLine(name) {
+  return (String(name || '').trim() || 'Charles B. Hughson Coliseum').toUpperCase().split(/\s+/).join(' ');
 }
+// The band's stone and its cut, over the stone's grey (BAND_STONE, ballpark-mesh.js): the shadowed
+// wall, the cut's floor and the lit lip, paler than the stone round it.
+const CUT = Object.freeze({ deep: 'rgb(46,46,46)', cut: 'rgb(112,112,112)', lip: 'rgb(255,255,255)' });
 export function paintPlateCanvas(doc, name) {
   const A = PLATE_ATLAS;
   return canvasOf(doc, A.w, A.h, (g) => {
@@ -610,54 +619,40 @@ export function paintPlateCanvas(doc, name) {
       g.fillStyle = 'rgba(255,244,210,0.6)'; g.fillRect(x - d * 0.35, y - d * 0.35, w, h);
       g.fillStyle = giltFill(y, y + h); g.fillRect(x, y, w, h);
     };
-    const giltPoly = (pts, d) => {
-      const path = (ox, oy) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x + ox, y + oy) : g.moveTo(x + ox, y + oy))); g.closePath(); };
-      const ys = pts.map((p) => p[1]);
-      path(d, d); g.fillStyle = 'rgba(10,6,2,0.85)'; g.fill();
-      path(-d * 0.35, -d * 0.35); g.fillStyle = 'rgba(255,244,210,0.6)'; g.fill();
-      path(0, 0); g.fillStyle = giltFill(Math.min(...ys), Math.max(...ys)); g.fill();
-    };
-    // a line of raised gilt letters, as large as its band allows without squeezing, centred in it
-    const letters = (text, x0, x1, y0, y1) => {
-      const bw = x1 - x0, bh = y1 - y0;
+    // the size a line is set at to fill x0..x1 by y0..y1, as large as it allows without squeezing
+    const fit = (text, bw, bh, k) => {
       g.textAlign = 'center'; g.textBaseline = 'alphabetic';
       let px = bh / 0.7;
       g.font = DECO_FACE(px);
       const m = g.measureText?.(text);
       const cap = m && m.actualBoundingBoxAscent > 0 ? m.actualBoundingBoxAscent / px : 0.7;
-      px = Math.min(px, (bh * 0.84) / cap);
+      px = Math.min(px, (bh * k) / cap);
       g.font = DECO_FACE(px);
       const w = g.measureText?.(text)?.width || 0;
       if (w > bw * 0.97) { px *= (bw * 0.97) / w; g.font = DECO_FACE(px); }
+      return { px, cap };
+    };
+    // a line of raised gilt letters, centred in its band
+    const letters = (text, x0, x1, y0, y1) => {
+      const { px, cap } = fit(text, x1 - x0, y1 - y0, 0.84);
       const cx = (x0 + x1) / 2, base = (y0 + y1) / 2 + (cap * px) / 2, d = Math.max(2, px * 0.045);
       g.fillStyle = 'rgba(10,6,2,0.85)'; g.fillText(text, cx + d, base + d * 1.2);
       g.fillStyle = 'rgba(255,244,210,0.6)'; g.fillText(text, cx - d * 0.35, base - d * 0.35);
       g.fillStyle = giltFill(base - cap * px, base); g.fillText(text, cx, base);
     };
 
-    // THE MAIN GATE: his name over COLISEUM. The plate is 0.47 by 0.14 tiles; its double fillet a
-    // gilt border 0.0055 in and a fine line 0.0024 wide 0.012 in.
-    plate(A.main, 0.47, 0.14, (sx, sy, cw, ch) => {
+    // THE MAIN GATE: GRANDSTAND, where it lets you in. The plate is 0.33 by 0.09 tiles; its double
+    // fillet a gilt border 0.0055 in and a fine line 0.0024 wide 0.012 in; the letters 0.141 either
+    // side of the middle, from 0.004 inside the fine line at the foot to 0.004 inside it at the top.
+    const MP = MAIN_PLATE;
+    plate(A.main, 2 * MP.hw, MP.z1 - MP.z0, (sx, sy, cw, ch) => {
       const ft = 0.0055, inn = 0.012, lt = 0.0024, d = 3;
       giltRect(0, 0, cw, ft * sy, d); giltRect(0, ch - ft * sy, cw, ft * sy, d);
       giltRect(0, 0, ft * sx, ch, d); giltRect(cw - ft * sx, 0, ft * sx, ch, d);
       giltRect(inn * sx, inn * sy, cw - 2 * inn * sx, lt * sy, 2); giltRect(inn * sx, ch - inn * sy - lt * sy, cw - 2 * inn * sx, lt * sy, 2);
       giltRect(inn * sx, inn * sy, lt * sx, ch - 2 * inn * sy, 2); giltRect(cw - inn * sx - lt * sx, inn * sy, lt * sx, ch - 2 * inn * sy, 2);
-      // a five-ray sunburst at each end, rising from the inner line
-      for (const sg of [-1, 1]) {
-        const cx = cw / 2 + sg * (0.235 - inn - 0.022) * sx, cy = ch - (inn + 0.002) * sy, r = 0.075, w = 0.0024;
-        for (let k = 1; k < 6; k++) {
-          const a = (Math.PI * k) / 6, c = Math.cos(a), s = Math.sin(a);
-          const P = (du, dz) => [cx + du * sx, cy - dz * sy];
-          giltPoly([P(-s * w, c * w), P(s * w, -c * w), P(c * r * 0.3 + s * w, s * r - c * w), P(c * r * 0.3 - s * w, s * r + c * w)], 2.5);
-        }
-      }
-      // the lettering: his line 0.449 to 0.493 and 0.18 either side of the middle, COLISEUM 0.379 to
-      // 0.445 and 0.165 either side, on a plate from 0.36 to 0.50
-      const [l1, l2] = plateLines(name);
-      const Y = (z) => (0.50 - z) * sy, X = (du) => cw / 2 + du * sx;
-      if (l2) { letters(l1, X(-0.18), X(0.18), Y(0.493), Y(0.449)); letters(l2, X(-0.165), X(0.165), Y(0.445), Y(0.379)); }
-      else letters(l1, X(-0.20), X(0.20), Y(0.46), Y(0.40));
+      const Y = (z) => (MP.z1 - z) * sy, X = (du) => cw / 2 + du * sx, hw = MP.hw - 0.024;
+      letters('GRANDSTAND', X(-hw), X(hw), Y(MP.z1 - inn - 0.004), Y(MP.z0 + inn + 0.004));
     });
     // THE BLEACHER GATE: BLEACHERS inside a single fillet, on a plate 0.30 by 0.085 tiles
     plate(A.bleach, 0.30, 0.085, (sx, sy, cw, ch) => {
@@ -666,6 +661,23 @@ export function paintPlateCanvas(doc, name) {
       giltRect(0, 0, ft * sx, ch, d); giltRect(cw - ft * sx, 0, ft * sx, ch, d);
       letters('BLEACHERS', cw / 2 - 0.125 * sx, cw / 2 + 0.125 * sx, 0.016 * sy, ch - 0.016 * sy);
     });
+    // THE NAME BAND on each face: the whole run in two cells, the reader's left first, the line set
+    // once across both and each cell showing its half. As wide as the run allows inside 0.05 tiles at
+    // each end, as the map's is, and its capitals never taller than 0.78 of the band.
+    const line = bandLine(name);
+    for (const k of ['s', 'n']) {
+      const cells = A.band[k], cw = cells[0][2], ch = cells[0][3], W = 2 * cw, len = BAND_RUNS[k][1] - BAND_RUNS[k][0];
+      const m = 0.05 * (W / len), { px, cap } = fit(line, W - 2 * m, ch, 0.78);
+      const cx = W / 2, base = ch / 2 + (cap * px) / 2, d = Math.max(1.5, cap * px * 0.022);
+      cells.forEach(([x, y], i) => {
+        g.save(); g.beginPath(); g.rect(x, y, cw, ch); g.clip(); g.translate(x - i * cw, y);
+        g.fillStyle = `rgb(${BAND_STONE},${BAND_STONE},${BAND_STONE})`; g.fillRect(i * cw, 0, cw, ch);
+        g.fillStyle = CUT.deep; g.fillText(line, cx - d, base - d);
+        g.fillStyle = CUT.lip; g.fillText(line, cx + d * 1.25, base + d * 1.2);
+        g.fillStyle = CUT.cut; g.fillText(line, cx, base);
+        g.restore();
+      });
+    }
   });
 }
 

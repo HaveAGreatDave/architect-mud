@@ -8,8 +8,10 @@
 // An art deco ballpark from the Meridian's decade, kept up, under a retractable roof added long after
 // it opened. Pale limestone on a granite plinth, ranked with fins between tall concourse windows, a
 // frieze and a glazed clerestory under a copper-flashed cornice, and a stepped light tower at each
-// corner. The main gate on Sorrel Way is a stepped frontispiece with the name in raised gilt on a
-// bronze plate; the bleacher gate on Halcyon Boulevard is its smaller twin. The roof is three
+// corner. The park's name is cut into a stone band along the wall on Sorrel Way and again on Halcyon
+// Boulevard, one line each. The main gate on Sorrel Way is a stepped frontispiece between two
+// Guardians in the manner of Cleveland's bridge, GRANDSTAND in raised gilt on its bronze plate; the
+// bleacher gate on the boulevard is its smaller twin. The roof is three
 // steel-and-glass shells on rails along the east and west decks. Shut, they're one long vault with a
 // fan window at each end. Open, the two that travel are nested under the fixed one over the
 // bleachers, and the infield and the grandstand have the sky.
@@ -87,6 +89,16 @@ const TOWER = { at: 1.37, r0: 0.105, z0: 0.62, r1: 0.08, z1: 0.76, r2: 0.062, z2
 // The two gates. `face` is the frontispiece's front plane, a hair proud of the bowl.
 const GATE = { u: 0.94, hw: 0.30, face: 1.48, top: 0.53 };
 const BGATE = { u: -0.96, hw: 0.24, face: -1.48, top: 0.44 };
+// The Guardians either side of the main gate: a pylon `hw` half wide, standing to `top`.
+const GUARD = { hw: 0.055, top: 0.60 };
+// The name band on the two gate faces: plain stone in the wall under the frieze, `d` proud, over
+// windows cut short for it. It runs from the face's gate to the corner tower on the longer side.
+const BAND = { z0: 0.268, z1: Z.wall, d: 0.026 };
+const TW = TOWER.at - TOWER.r0;    // a corner tower's inner side, along a face
+const bandRun = (g) => {
+  const a = [-TW, g.u - g.hw - 0.03], b = [g.u + g.hw + 0.03, TW];
+  return a[1] - a[0] >= b[1] - b[0] ? a : b;
+};
 
 // ── THE ROOF ─────────────────────────────────────────────────────────────────────────────────
 // Three shells, biggest first, each a segmental vault across the bowl from rail to rail (`c` its
@@ -449,6 +461,38 @@ export const COLISEUM_ARMS = {
     const winCol = mixRgb(mixRgb([46, 56, 64], [24, 28, 34], dn), WARM, winK);
     const clerCol = mixRgb(mixRgb([52, 64, 74], GLASS_DARK, dn), GLOW, dn * (0.3 + 0.7 * st.domeK));
     const frameCol = BRONZE_RGB.map((c) => c * dusk), giltCol = GILT.map((c) => c * (1 - 0.35 * dn));
+    const nameText = ((name || '').trim() || 'Charles B. Hughson Coliseum').toUpperCase();
+    // Cut letters, the reverse of `embossText`: the V in shadow, its upper wall darker still and its
+    // lower lip catching the light, drawn as three copies, the dark one up and left of the letter,
+    // the pale one down and right, and the cut over both. Each word is baked cropped to its ink and
+    // the line laid out from the bakes' widths, so every word is drawn whole by the tile its middle
+    // is on and the line still reads as one.
+    // ⚠ THE BAKE DECIDES THE LAYOUT. A word's width is its canvas's aspect at the line's height, so
+    // the line moves once when Limelight loads and the cache is cleared, and never after.
+    const cutK = Math.round((1 - 0.6 * dn) * 8) / 8;
+    const cutCol = rgb([92, 80, 63].map((c) => c * cutK)), lipCol = rgb([232, 222, 200].map((c) => c * cutK));
+    const deepCol = rgb([40, 34, 27].map((c) => c * cutK));
+    const inscribe = (n, t0, t1) => {
+      const words = nameText.split(/\s+/), bake = (w, col) => bakeSignText(w, col, 0, false, true, true, { font: 'deco' });
+      const cuts = words.map((w) => bake(w, cutCol));
+      if (cuts.some((c) => !c || !(c.width > 0) || !(c.height > 0))) return;
+      const asp = cuts.map((c) => c.width / c.height), A = asp.reduce((a, b) => a + b, 0);
+      const hz = Math.min((BAND.z1 - BAND.z0) * 1.15, (t1 - t0) / A / ZK);   // the line's height, in z
+      const za = (BAND.z0 + BAND.z1 - hz) / 2, zb = za + hz, r = n[1];      // r: east is the reader's right on Sorrel Way, left from the boulevard
+      const tc = (t0 + t1) / 2;
+      let at = -hz * ZK * A / 2;
+      words.forEach((w, i) => {
+        const wl = hz * ZK * asp[i], ta = tc + r * at, tb = tc + r * (at + wl);
+        at += wl;
+        if (!inTile((ta + tb) / 2, n[1] * (OUT - 0.01))) return;
+        const quad = (ox, oz, dd) => [[ta, zb], [tb, zb], [tb, za], [ta, za]]
+          .map(([t, z]) => B3(...SPT(n, t + r * ox, BAND.d + dd, z + oz))).map((p) => cam.proj(p[0], p[1], p[2]));
+        const lay = (tex, q, a) => { if (tex && q.every((p) => p.f > 0.065)) emitSurfaceText(ctx, cam, q, tex, false, a); };
+        lay(bake(w, deepCol), quad(-0.0011, 0.0010, 0.0008), alpha * 0.9);
+        lay(bake(w, lipCol), quad(0.0014, -0.0013, 0.0014), alpha * 0.85 * (1 - 0.6 * dn));
+        lay(cuts[i], quad(0, 0, 0.0022), alpha);
+      });
+    };
     SIDES.forEach((n, k) => {
       const ns = !!n[1], run = ns ? OUT + 0.01 : BACK;   // north and south take the corners
       const s = 200 + k * 10;
@@ -464,20 +508,34 @@ export const COLISEUM_ARMS = {
       const gs = n[1] === 1 ? GATE : n[1] === -1 ? BGATE : null;
       const clerRuns = gs ? [[-run + 0.01, gs.u - gs.hw], [gs.u + gs.hw, run - 0.01]] : [[-run + 0.01, run - 0.01]];
       for (const [t0, t1] of clerRuns) sideFace(n, t0, t1, -0.016, Z.frieze + 0.004, Z.cler - 0.004, clerCol);
+      // The name band on Sorrel Way and the boulevard: the longest clear run of the face, between its
+      // gate and the far corner tower (bandRun). The fins stop under it and carry on over it.
+      const bnd = gs ? bandRun(gs) : null;
+      const inBand = (t) => !!bnd && t > bnd[0] && t < bnd[1];
+      if (bnd) sideBox(n, bnd[0], bnd[1], -0.01, BAND.d, BAND.z0, BAND.z1, TRIM, true, s + 5);
       // The fins: marble-pale, standing through the frieze and the clerestory to break the cornice,
       // each with a stepped cap. The deco vertical, and the frame the windows sit in.
       FIN_AT.forEach((t, j) => {
         if (gate(t)) return;
-        sideBox(n, t - 0.011, t + 0.011, -0.01, 0.022, Z.plinth, 0.49, FINC, true, s + 20 + j);
+        if (inBand(t)) {
+          sideBox(n, t - 0.011, t + 0.011, -0.01, 0.022, Z.plinth, BAND.z0, FINC, true, s + 20 + j);
+          sideBox(n, t - 0.011, t + 0.011, -0.01, 0.022, BAND.z1, 0.49, FINC, true, s + 60 + j);
+        } else sideBox(n, t - 0.011, t + 0.011, -0.01, 0.022, Z.plinth, 0.49, FINC, true, s + 20 + j);
         sideBox(n, t - 0.007, t + 0.007, -0.01, 0.017, 0.49, 0.512, TRIM, true, s + 40 + j);
       });
       // Between each pair of fins a tall window onto the concourse in a bronze frame, a bronze
-      // spandrel over it, and a gilt chevron in the spandrel.
+      // spandrel over it, and a gilt chevron in the spandrel. Under the band the window stops short
+      // of it, with no spandrel.
       for (let j = 0; j + 1 < FIN_AT.length; j++) {
         const tc = (FIN_AT[j] + FIN_AT[j + 1]) / 2;
         if (gate(tc)) continue;
         // ⚠ A FEW THOUSANDTHS PROUD, NOT A HAIR. These are mesh on GLASS 2, depth-tested against the
         // wall they're on, and a frame a thousandth off its wall shimmers through it at range.
+        if (inBand(tc)) {
+          sideFace(n, tc - 0.082, tc + 0.082, 0.003, 0.094, BAND.z0 - 0.010, frameCol);
+          sideFace(n, tc - 0.074, tc + 0.074, 0.0042, 0.100, BAND.z0 - 0.016, winCol);
+          continue;
+        }
         sideFace(n, tc - 0.082, tc + 0.082, 0.003, 0.094, 0.291, frameCol);
         sideFace(n, tc - 0.074, tc + 0.074, 0.0042, 0.100, 0.285, winCol);
         sideFace(n, tc - 0.074, tc + 0.074, 0.0042, 0.296, 0.328, frameCol);
@@ -487,6 +545,8 @@ export const COLISEUM_ARMS = {
           vface([b2, a2, a, b], [n[0], n[1], 0], giltCol);
         }
       }
+      // THE NAME, CUT INTO THE BAND in one line, read from the street the face is on.
+      if (bnd && facing(0, n[1], (bnd[0] + bnd[1]) / 2, n[1] * OUT)) inscribe(n, bnd[0] + 0.05, bnd[1] - 0.05);
     });
     // The decks over the east and west concourse, roofed in copper, with columns under their inner
     // edge and the rails along them: the girder's two steps, one for each shell that rides it.
@@ -562,25 +622,83 @@ export const COLISEUM_ARMS = {
       }
     }
 
-    // 8) THE MAIN GATE on Sorrel Way: a stepped frontispiece between two fluted pylons, a portal in
-    //    three receding orders round bronze doors and a sunburst fanlight, a grille gate either side,
-    //    and over it all the name, in raised gilt on a bronze plate with a double gilt fillet and a
-    //    sunburst at each end, backlit after dark. A gilt sun rises from the setback over it, a
-    //    baseball for its disc, and the flag flies from the top. The name goes on here and nowhere else.
+    // 8) THE MAIN GATE on Sorrel Way: a stepped frontispiece between two Guardian pylons, a portal in
+    //    three receding orders round bronze doors and a sunburst fanlight, a narrow grille gate
+    //    either side, and over it GRANDSTAND in raised gilt on a bronze plate with a double gilt
+    //    fillet, backlit after dark. A gilt sun rises from the setback over it, a baseball for its
+    //    disc, and the flag flies from the top. The park's name is cut into the wall beside it (6).
     if (inTile(GATE.u, OUT - 0.01)) {
       const G = GATE, gu = G.u, gf = G.face, u0 = gu - G.hw, u1 = gu + G.hw;
       box(u0, u1, BACK, gf, Z.plinth, G.top, STONE, false, 400);
       box(u0 - 0.005, u1 + 0.005, BACK, gf + 0.006, 0, Z.plinth, GRANITE, true, 401);
       box(u0, u1, BACK, gf + 0.004, G.top, G.top + 0.012, ledge, true, 402);
-      box(gu - 0.20, gu + 0.20, BACK, gf - 0.004, G.top + 0.012, 0.60, STONE, false, 403);
-      box(gu - 0.20, gu + 0.20, BACK, gf - 0.001, 0.60, 0.61, ledge, true, 404);
+      // the setback, between the pylons' inner faces
+      const sb = G.hw - 2 * GUARD.hw;
+      box(gu - sb, gu + sb, BACK, gf - 0.004, G.top + 0.012, 0.60, STONE, false, 403);
+      box(gu - sb, gu + sb, BACK, gf - 0.001, 0.60, 0.61, ledge, true, 404);
       box(gu - 0.10, gu + 0.10, BACK, gf - 0.008, 0.61, 0.655, facePals(E, { side: STONE, roof: COPPER }), true, 405);
-      // the pylons, fluted, with stepped caps
-      for (const pu of [u0 + 0.03, u1 - 0.03]) {
-        box(pu - 0.03, pu + 0.03, BACK, gf + 0.017, 0, 0.56, STONE, false, 410);
-        box(pu - 0.024, pu + 0.024, BACK, gf + 0.014, 0.56, 0.575, ledge, true, 411);
-        box(pu - 0.016, pu + 0.016, BACK, gf + 0.010, 0.575, 0.592, ledge, true, 412);
-        for (const o of [-0.015, 0, 0.015]) face([[pu + o - 0.0018, gf + 0.0195, 0.52], [pu + o + 0.0018, gf + 0.0195, 0.52], [pu + o + 0.0018, gf + 0.0195, 0.06], [pu + o - 0.0018, gf + 0.0195, 0.06]], [0, 1, 0], [96 * dusk, 84 * dusk, 66 * dusk]);
+      // THE GUARDIANS, after the Hope Memorial Bridge's in Cleveland: a pylon either side of the gate,
+      // fluted below, and standing on a corbel halfway up it a helmeted figure in relief, robed to
+      // the feet, square-shouldered, holding the game before him. The west one cradles a ball, the
+      // east one rests on a bat held point-down like a sword. Stone, the ball and the bat gilt.
+      // ⚠ THE RELIEF IS 0.013 DEEP AT MOST. The pylon's face is 0.006 off the frontispiece and the
+      // tile ends 0.02 off it, at the edge of Sorrel Way, where `box` cuts everything off.
+      const fluteCol = [96 * dusk, 84 * dusk, 66 * dusk], FIGC = [200, 184, 154];
+      for (const [sg, pu] of [[-1, u0 + GUARD.hw], [1, u1 - GUARD.hw]]) {
+        const ph = GUARD.hw, yF = gf + 0.006;
+        box(pu - ph - 0.006, pu + ph + 0.006, BACK, gf + 0.010, 0, Z.plinth, GRANITE, true, 410);
+        box(pu - ph, pu + ph, BACK, yF, Z.plinth, GUARD.top, STONE, false, 411);
+        box(pu - ph + 0.006, pu + ph - 0.006, BACK, yF - 0.002, GUARD.top, GUARD.top + 0.012, ledge, true, 412);
+        box(pu - ph + 0.017, pu + ph - 0.017, BACK, yF - 0.006, GUARD.top + 0.012, GUARD.top + 0.026, ledge, true, 413);
+        box(pu - ph + 0.029, pu + ph - 0.029, BACK, yF - 0.010, GUARD.top + 0.026, GUARD.top + 0.038, ledge, true, 414);
+        for (const o of [-0.03, 0, 0.03]) face([[pu + o - 0.002, yF + 0.0006, 0.25], [pu + o + 0.002, yF + 0.0006, 0.25], [pu + o + 0.002, yF + 0.0006, 0.06], [pu + o - 0.002, yF + 0.0006, 0.06]], [0, 1, 0], fluteCol);
+        // the corbel, stepped
+        box(pu - 0.032, pu + 0.032, yF, yF + 0.008, 0.256, 0.272, TRIM, true, 415);
+        box(pu - 0.044, pu + 0.044, yF, yF + 0.012, 0.272, 0.286, TRIM, true, 416);
+        // The figure, carved: each piece a convex outline [u, z] on the pylon's face, its front `d`
+        // proud and its sides back to the face. ⚠ DRESSED STONE, NOT BOXES. A box wears its
+        // palette's block joints, and the first figure, built of boxes, read as stacked masonry.
+        const carve = (sil, d, alb = FIGC) => {
+          const cu = sil.reduce((t, p) => t + p[0], 0) / sil.length, cz = sil.reduce((t, p) => t + p[1], 0) / sil.length;
+          litFace(sil.map(([a, z]) => [pu + a, yF + d, z]), [0, 1, 0], alb, 'stone');
+          sil.forEach((p, i) => {
+            const q = sil[(i + 1) % sil.length], mu = (p[0] + q[0]) / 2 - cu, mz = ((p[1] + q[1]) / 2 - cz) * ZK;
+            let nu = (q[1] - p[1]) * ZK, nz = -(q[0] - p[0]);
+            if (nu * mu + nz * mz < 0) { nu = -nu; nz = -nz; }
+            litFace([[pu + p[0], yF, p[1]], [pu + q[0], yF, q[1]], [pu + q[0], yF + d, q[1]], [pu + p[0], yF + d, p[1]]], [nu, 0, nz], alb, 'stone');
+          });
+        };
+        carve([[-0.030, 0.286], [0.030, 0.286], [0.025, 0.432], [-0.025, 0.432]], 0.009);   // the robe, to the feet
+        carve([[-0.025, 0.432], [0.025, 0.432], [0.036, 0.490], [-0.036, 0.490]], 0.011);   // the chest
+        carve([[-0.038, 0.488], [0.038, 0.488], [0.038, 0.498], [0.031, 0.505], [-0.031, 0.505], [-0.038, 0.498]], 0.010);   // the shoulders, squared
+        for (const sa of [-1, 1]) carve([[sa * 0.038, 0.492], [sa * 0.030, 0.492], [sa * 0.026, 0.446], [sa * 0.034, 0.446]], 0.012);   // the upper arms
+        carve([[-0.007, 0.503], [0.007, 0.503], [0.007, 0.513], [-0.007, 0.513]], 0.008);   // the neck
+        carve([[-0.0125, 0.519], [-0.008, 0.513], [0.008, 0.513], [0.0125, 0.519], [0.0125, 0.535], [0.008, 0.541], [-0.008, 0.541], [-0.0125, 0.535]], 0.012);   // the head
+        carve([[-0.0155, 0.531], [0.0155, 0.531], [0.0145, 0.546], [0.008, 0.555], [-0.008, 0.555], [-0.0145, 0.546]], 0.013);   // the helmet
+        carve([[-0.004, 0.553], [0.004, 0.553], [0.003, 0.565], [-0.003, 0.565]], 0.012);   // its crest
+        const fold = [150 * dusk, 136 * dusk, 112 * dusk];
+        for (const o of [-0.014, 0, 0.014]) face([[pu + o - 0.0012, yF + 0.0093, 0.425], [pu + o + 0.0012, yF + 0.0093, 0.425], [pu + o + 0.0012, yF + 0.0093, 0.292], [pu + o - 0.0012, yF + 0.0093, 0.292]], [0, 1, 0], fold);   // the robe's folds
+        face([[pu - 0.0125, yF + 0.0122, 0.531], [pu + 0.0125, yF + 0.0122, 0.531], [pu + 0.0125, yF + 0.0122, 0.526], [pu - 0.0125, yF + 0.0122, 0.526]], [0, 1, 0], fold);   // the brim's shadow over the eyes
+        // the forearms across the body, and what the hands hold
+        if (sg < 0) {
+          carve([[-0.033, 0.437], [0.033, 0.437], [0.033, 0.452], [-0.033, 0.452]], 0.0125);
+          const yb = yF + 0.0133, zc = 0.452 + 0.017 / ZK, rr = 0.017, disc = [];
+          for (let k = 0; k < 16; k++) { const a = 2 * Math.PI * k / 16; disc.push([pu + Math.cos(a) * rr, yb, zc + Math.sin(a) * rr / ZK]); }
+          face(disc, [0, 1, 0], giltCol);
+          for (const ss of [-1, 1]) {   // its stitches, two arcs bowed in toward the middle
+            const pts = [];
+            for (let k = 0; k <= 4; k++) { const a = -1.2 + 2.4 * k / 4; pts.push([pu + ss * rr * (0.8 - 0.35 * Math.cos(a)), zc + Math.sin(a) * rr * 0.8 / ZK]); }
+            for (let k = 0; k < 4; k++) face([[pts[k][0] - 0.001, yb + 0.0004, pts[k][1]], [pts[k + 1][0] - 0.001, yb + 0.0004, pts[k + 1][1]], [pts[k + 1][0] + 0.001, yb + 0.0004, pts[k + 1][1]], [pts[k][0] + 0.001, yb + 0.0004, pts[k][1]]], [0, 1, 0], [170 * dusk, 40 * dusk, 34 * dusk]);
+          }
+        } else {
+          const yb = yF + 0.0115;   // the bat stands on the robe, under the hands
+          face([[pu - 0.0028, yb, 0.47], [pu + 0.0028, yb, 0.47], [pu + 0.0085, yb, 0.30], [pu - 0.0085, yb, 0.30]], [0, 1, 0], giltCol);
+          face([[pu - 0.006, yb, 0.476], [pu + 0.006, yb, 0.476], [pu + 0.006, yb, 0.469], [pu - 0.006, yb, 0.469]], [0, 1, 0], giltCol);   // the knob
+          carve([[-0.033, 0.446], [0.033, 0.446], [0.033, 0.46], [-0.033, 0.46]], 0.0125);
+          carve([[-0.009, 0.443], [0.009, 0.443], [0.009, 0.468], [-0.009, 0.468]], 0.0132);   // the hands, one over the other on the handle
+        }
+        // floodlit from the pavement after dark
+        if (dn > 0.05) pool(ctx, cam, ...P(pu, gf + 0.012), 0.42, '255,222,170', 13, alpha * 0.35 * dn);
       }
       // The portal: three orders, the inner one least proud, each stepping out and up.
       const ow = 0.075, zO = 0.27, dz = 0.022;
@@ -609,21 +727,23 @@ export const COLISEUM_ARMS = {
           face([[gu - s * w, yd + 0.0004, zb + c * w], [gu + s * w, yd + 0.0004, zb - c * w], [gu + c * r + s * w, yd + 0.0004, zb + s * r - c * w], [gu + c * r - s * w, yd + 0.0004, zb + s * r + c * w]], [0, 1, 0], frameCol);
         }
       }
-      // The grille gates either side: dark openings under lit transoms, iron bars when you're close.
-      for (const bu of [u0 + 0.112, u1 - 0.112]) {
-        face([[bu - 0.045, yd, 0.16], [bu + 0.045, yd, 0.16], [bu + 0.045, yd, 0], [bu - 0.045, yd, 0]], [0, 1, 0], mixRgb([30, 26, 22], [140, 104, 64], dn * 0.6));
-        face([[bu - 0.045, yd, 0.19], [bu + 0.045, yd, 0.19], [bu + 0.045, yd, 0.166], [bu - 0.045, yd, 0.166]], [0, 1, 0], lobby);
-        box(bu - 0.054, bu + 0.054, gf - 0.01, gf + 0.008, 0.19, 0.204, TRIM, true, 430);
-        for (const sg of [-1, 1]) box(bu + sg * 0.05 - 0.005, bu + sg * 0.05 + 0.005, gf - 0.01, gf + 0.008, 0, 0.19, TRIM, true, 432);
-        if (NEAR) for (let k = -3; k <= 3; k++) emitWire(ctx, cam, B3(bu + k * 0.012, yd + 0.002, 0.005), B3(bu + k * 0.012, yd + 0.002, 0.158), 1.2, 'rgba(30,32,34,0.92)', alpha, { pull: 0.004 });
+      // The grille gates either side, narrow between a Guardian and the portal: dark openings under
+      // lit transoms, iron bars when you're close.
+      for (const bu of [gu - 0.1535, gu + 0.1535]) {
+        face([[bu - 0.022, yd, 0.16], [bu + 0.022, yd, 0.16], [bu + 0.022, yd, 0], [bu - 0.022, yd, 0]], [0, 1, 0], mixRgb([30, 26, 22], [140, 104, 64], dn * 0.6));
+        face([[bu - 0.022, yd, 0.19], [bu + 0.022, yd, 0.19], [bu + 0.022, yd, 0.166], [bu - 0.022, yd, 0.166]], [0, 1, 0], lobby);
+        box(bu - 0.028, bu + 0.028, gf - 0.01, gf + 0.008, 0.19, 0.204, TRIM, true, 430);
+        for (const sg of [-1, 1]) box(bu + sg * 0.025 - 0.003, bu + sg * 0.025 + 0.003, gf - 0.01, gf + 0.008, 0, 0.19, TRIM, true, 432);
+        if (NEAR) for (let k = -2; k <= 2; k++) emitWire(ctx, cam, B3(bu + k * 0.008, yd + 0.002, 0.005), B3(bu + k * 0.008, yd + 0.002, 0.158), 1.2, 'rgba(30,32,34,0.92)', alpha, { pull: 0.004 });
         // a bronze lantern over it, on the body's face, lit from dusk
         const [lx, ly] = P(bu, gf + 0.0095);
         drum(ctx, cam, lx, ly, 0.214, 0.262, 0.0085, 0.0085, 8, alpha, () => rgb(dn > 0.05 ? [255, 214, 150] : BRONZE_RGB), rgb(BRONZE_RGB), BRONZE);
         if (dn > 0.05) pool(ctx, cam, lx, ly, 0.238, '255,206,140', 7, alpha * 0.6 * dn);
       }
-      // THE NAME PLATE. Flat, not a box (a box wears its palette's window skin over the lettering),
-      // standing 0.016 off the stone so the backlight has somewhere to come out of.
-      const pz0 = 0.36, pz1 = 0.50, phw = 0.235, yp = gf + 0.016, yg = yp + 0.0015;
+      // THE PLATE. Flat, not a box (a box wears its palette's window skin over the lettering),
+      // standing 0.016 off the stone so the backlight has somewhere to come out of. Narrow enough
+      // to stand clear of the Guardians.
+      const pz0 = 0.385, pz1 = 0.475, phw = 0.165, yp = gf + 0.016, yg = yp + 0.0015;
       const PQ = (y, x0, x1, za, zb, col) => face([[x0, y, zb], [x1, y, zb], [x1, y, za], [x0, y, za]], [0, 1, 0], col);
       // the halo: a rim of light round the plate on the plane just behind it after dark, its shadow by day
       const rim = dn > 0.05 ? mixRgb([30, 22, 14], [255, 206, 130], Math.min(1, dn * 1.4)) : [30, 22, 14];
@@ -637,29 +757,13 @@ export const COLISEUM_ARMS = {
       PQ(yg, gu - phw, gu - phw + ft, pz0, pz1, giltCol); PQ(yg, gu + phw - ft, gu + phw, pz0, pz1, giltCol);
       PQ(yg, gu - phw + inn, gu + phw - inn, pz1 - inn, pz1 - inn + lt, giltCol); PQ(yg, gu - phw + inn, gu + phw - inn, pz0 + inn - lt, pz0 + inn, giltCol);
       PQ(yg, gu - phw + inn - lt, gu - phw + inn, pz0 + inn - lt, pz1 - inn + lt, giltCol); PQ(yg, gu + phw - inn, gu + phw - inn + lt, pz0 + inn - lt, pz1 - inn + lt, giltCol);
-      // a five-ray sunburst at each end, rising from the inner line
-      for (const sg of [-1, 1]) {
-        const cx = gu + sg * (phw - inn - 0.022), zc = pz0 + inn + 0.002, r = 0.075;
-        for (let k = 1; k < 6; k++) {
-          const a = Math.PI * k / 6, c = Math.cos(a), s = Math.sin(a), w = 0.0024;
-          face([[cx - s * w, yg, zc + c * w], [cx + s * w, yg, zc - c * w], [cx + c * r * 0.3 + s * w, yg, zc + s * r - c * w], [cx + c * r * 0.3 - s * w, yg, zc + s * r + c * w]], [0, 1, 0], giltCol);
-        }
-      }
-      // The lettering: his name over COLISEUM, each line set to its own width so the letters keep
-      // their proportions, COLISEUM the larger. Raised gilt, each letter casting its shadow down and
-      // right onto the bronze. Surface text, never billboarded.
+      // GRANDSTAND, where this gate lets you in, as its twin's says BLEACHERS: raised gilt, each
+      // letter casting its shadow down and right onto the bronze. Surface text, never billboarded.
       if (facing(0, 1, gu, yp)) {
-        const words = ((name || '').trim() || 'Charles B. Hughson Coliseum').toUpperCase().split(/\s+/);
-        const line2 = words.length > 1 ? words.pop() : '', line1 = words.join(' ');
-        // ⚠ HIS LINE IS SET TALLER THAN IT LOOKS IT NEEDS. The deco hand leaves room above and below a
-        // line, so a 0.037 band lettered his name at about half the plate's width; at 0.044 it reads
-        // from across Sorrel Way.
-        const lines = line2 ? [[line1, 0.449, 0.493, 0.18], [line2, 0.379, 0.445, 0.165]] : [[line1, 0.40, 0.46, 0.20]];
-        for (const [txt, za, zb, hw] of lines) {
-          const quad = (ox, oz) => { const y = yg + (ox ? 0.001 : 0.002), sx = ox * 0.0016, sz = oz * 0.0016;
-            return [B3(gu - hw + sx, y, zb + sz), B3(gu + hw + sx, y, zb + sz), B3(gu + hw + sx, y, za + sz), B3(gu - hw + sx, y, za + sz)].map((p) => cam.proj(p[0], p[1], p[2])); };
-          embossText(ctx, cam, quad, txt, '#ecc97e', '#120c06', night, alpha, { font: 'deco', fit: (2 * hw) / ((zb - za) * ZK) });
-        }
+        const hw = phw - 0.024, za = pz0 + inn + 0.004, zb = pz1 - inn - 0.004;
+        const quad = (ox, oz) => { const y = yg + (ox ? 0.001 : 0.002), sx = ox * 0.0016, sz = oz * 0.0016;
+          return [B3(gu - hw + sx, y, zb + sz), B3(gu + hw + sx, y, zb + sz), B3(gu + hw + sx, y, za + sz), B3(gu - hw + sx, y, za + sz)].map((p) => cam.proj(p[0], p[1], p[2])); };
+        embossText(ctx, cam, quad, 'GRANDSTAND', '#ecc97e', '#120c06', night, alpha, { font: 'deco', fit: (2 * hw) / ((zb - za) * ZK) });
       }
       // floodlit from below after dark, and backlit
       if (dn > 0.05) {
