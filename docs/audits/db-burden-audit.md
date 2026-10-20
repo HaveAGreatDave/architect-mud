@@ -39,8 +39,9 @@ audit is how you re-challenge the codebase against it.
 > 4. **Cache-safety check (the non-negotiable).** For anything you propose caching, grep EVERY
 >    `INSERT/UPDATE/DELETE` against that table first and list the writers that would bypass the
 >    cache. If writers are scattered, the finding is "needs a write funnel first," not "add a
->    cache" — a stale cache that misrenders is worse than the round trip (see the deliberately
->    uncached `furniture` and `npcs` rows).
+>    cache" — a stale cache that misrenders is worse than the round trip. `furniture` and `npcs`
+>    had to earn their write funnels before they were cached; a `SELECT … FROM furniture` on a
+>    command path is now a finding (use `getZoneFurniture`).
 >
 > Prove hot findings by counting actual queries (instrument `query()` with a counter or log in a
 > dev run) before proposing changes. Recommendations must be surgical and regress-gated

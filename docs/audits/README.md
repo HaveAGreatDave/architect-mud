@@ -71,6 +71,9 @@ are *reusable prompts*; these are the *results* of a sweep):
   Doors and built parts are the furthest from the bar. Seven defects confirmed in code, including
   three Reach roofs that have never drawn. A first fix pass (2026-10-05) cleared the defects,
   the buried frontages, the square slabs and the authored lights; doors are the largest open item.
+- [findings-2026-10-efficiency.md](findings-2026-10-efficiency.md): where the 775k lines are, what's
+  dead, what's copied, and what we do slowly out of habit. Live code is already pruned; the bulk is
+  comments, CSS kept in JS strings and one-shot scripts that already ran. Fix batches tracked in it.
 - [emdash-sweep.md](emdash-sweep.md) — running status of the em dash rule ([story.md](../story.md),
   Tone): the dash is a voice marker reserved for the Architect and the Ascendants, so every other
   line has to lose it. Dialogue and broadcast copy are **done** (~2080 fixes); ~3019 occurrences
