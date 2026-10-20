@@ -187,7 +187,7 @@ function unbindPaxKeys() {
 }
 
 export function updateCockpit(state) {
-  if (isFlightSimActive()) return;   // the continuous cockpit owns the pane — don't mount the glass HUD over it
+  if (isFlightSimActive()) return;   // the continuous cockpit owns the pane
   ensureHudStyles();
   const now = performance.now();
   _target = state || {};
@@ -341,7 +341,7 @@ function paintWindow(id, a, s) {
   paintWindshield(id, {
     pitch: a.pitch, bank: a.roll, height: a.height ?? 0, speed: speedFrac,
     hour: s.sky?.hour, moon: s.sky?.moon, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
-    event: s.sky?.event,   // named hero event — outranks `weather` for the canopy grade
+    event: s.sky?.event,   // outranks `weather` for the canopy grade
     wxField: s.sky?.field, wxGround: s.sky?.ground, acX: a.fx, acY: a.fy,   // spatial weather cells, the ground they have already soaked, and our world position
     map: s.map || _lastMap,
     skyline: s.skyline,   // the tall towers outside the window; windshield.js keeps every one it has been sent
@@ -350,7 +350,7 @@ function paintWindow(id, a, s) {
     airport: s.ground?.theme || _lastGround?.theme,
     helipad: s.ground?.helipad ?? _lastGround?.helipad ?? false,
     biomeBelow: s.biomeBelow ?? _lastBiome,
-    roll: a.rwyRoll || 0,   // ground-roll distance — how far down the strip you've travelled
+    roll: a.rwyRoll || 0,   // ground-roll distance
     regions: s.regions ?? _lastRegions,   // drives the windshield region atmosphere grade (The Reach dust, …)
     side: paxView === 'side', viewYaw: paxView === 'rear' ? 180 : 0,
     // Porthole frame for side/rear only; forward looks out through the windscreen.
@@ -817,7 +817,7 @@ function renderCheckride(F, cr) {
   for (const key of (cr.highlight || [])) document.getElementById(CKRIDE_GLOW[key])?.classList.add('ck-glow');
 }
 
-// ── Flaps control — per-airframe style ────────────────────────────────────────
+// ── Flaps, per airframe ──────────────────────────────────────────────────────
 // Detents map onto the model's 0..1 `flaps`. johnson: Cessna lever; quadrant: airliner gate;
 // switch: 3-position toggle. null: no flaps.
 const FLAP_STYLES = {
@@ -2593,11 +2593,8 @@ export function openFlightSim(opts = {}) {
       lean: () => drakeMode(2),
       ramp: () => drakeRamp(),
       dive: () => F.subToggle?.(),
-      // The two compartments under the dash. Opening one also lists what is in it (drake-stores.js).
-      // The door animates open and the ordinary container panel comes up over it; closing the panel,
-      // or folding it to its title bar, shuts the door again (container.js fires drake-store-close),
-      // and expanding a folded one opens it (drake-store-open).
-      // The ice bucket: a click drinks a glass, a shift-click pours one for everyone else aboard.
+      // Dash compartments: the container panel's close/fold events shut the door (drake-store-close/open).
+      // Bucket: click drinks, shift-click pours for everyone aboard.
       bucket: (e) => sendCmd(e?.shiftKey ? 'champagne pour' : 'champagne drink'),
       pantry: () => { F.dk.pantry = !F.dk.pantry; if (F.dk.pantry) sendCmdSilent('pantry view'); },
       locker: () => { F.dk.locker = !F.dk.locker; if (F.dk.locker) sendCmdSilent('locker view'); },
@@ -2614,7 +2611,7 @@ export function openFlightSim(opts = {}) {
       const dx = e.clientX - dkDrag.x0, dy = e.clientY - dkDrag.y0;
       if (dkDrag.kind === 'yoke') { F.input.aileron = clamp1(dx / dkDrag.span); F.input.elevator = clamp1(dy / (dkDrag.span * 0.7)); }
       else if (dkDrag.kind === 'throttle') F.input.throttle = clampNum(dkDrag.t0 - dy / dkDrag.span, 0, 1);
-      // Trim: down is nose up, the console wheel's own direction.
+      // Down is nose up.
       else if (dkDrag.kind === 'trim') F.setTrim?.(dkDrag.tr0 + (dy / dkDrag.span) * (F.TRIM_MAX || 0.6) * 2);
     };
     const dragEnd = () => {
@@ -2634,12 +2631,9 @@ export function openFlightSim(opts = {}) {
     add(window, 'pointerup', dragEnd);
     add(window, 'pointercancel', dragEnd);
 
-    // The 3-D cockpit: the renderer leaves where each control landed on screen (interiorHotspots),
-    // and a press on one is taken here, in the CAPTURE phase, before the glass-as-stick and the free
-    // camera can claim it. A press anywhere else goes through untouched.
+    // 3-D cockpit: hit-test interiorHotspots on capture, before the mouse stick and free camera.
     const view = q('.fsim-view'), ws = q('#fsim-ws');
-    // The control under the pointer, or null: one hit test for the press AND the hover, so the
-    // hand cursor can never promise a control the click would miss.
+    // One hit test for press and hover, so the cursor never promises a control the click misses.
     const hotAt = (e) => {
       if (F.external || !ws) return null;
       const hs = interiorHotspots();
@@ -2651,11 +2645,7 @@ export function openFlightSim(opts = {}) {
       for (const h of hs.list) { const d = Math.hypot(x - h.x, y - h.y); if (d <= h.r && d < bd) { bd = d; best = h; } }
       return best;
     };
-    // HOVER: a hand over a switch, an open hand over something you drag, and the control named to the
-    // renderer so it can put a halo round it (interior-drake.js `hover`).
-    // A TOOLTIP names the control and what it is doing now, beside the pointer. The dash labels are
-    // small and some sit under a part of the dash from the pilot's seat; this is the one that is
-    // always readable. It is a DOM element, so it is crisp at any resolution and never lit by the cabin.
+    // Hover: cursor, halo (F.dkHover) and a DOM tooltip naming the control and its state.
     const tip = document.createElement('div');
     tip.className = 'dk-tip'; tip.setAttribute('aria-hidden', 'true');
     tip.style.cssText = 'position:fixed;z-index:60;pointer-events:none;display:none;padding:3px 8px;border-radius:4px;'
@@ -2665,7 +2655,6 @@ export function openFlightSim(opts = {}) {
     F.dkTipEl = tip;
     const onOff = (b) => (b ? 'ON' : 'OFF');
     const DK_TIP = {
-      // A kit cockpit's switches (interior-cockpit-kit.js), whatever the panel letters them.
       'ck:master': () => ['ENGINE', F.engineOn ? 'running · click to shut down (on the ground, stopped)' : 'off · click or press I to start'],
       'ck:land': () => ['LANDING LIGHTS', onOff(!!F.landingLight)],
       'ck:taxi': () => ['TAXI LIGHTS', `on the landing-light circuit · ${onOff(!!F.landingLight)}`],
@@ -2720,17 +2709,15 @@ export function openFlightSim(opts = {}) {
       const best = hotAt(e);
       if (!best) return;
       e.preventDefault(); e.stopImmediatePropagation();
-      F.dkPress = { id: best.id, t: performance.now() };   // a flash on the control that was pressed
+      F.dkPress = { id: best.id, t: performance.now() };
       if (best.kind !== 'click') view.style.cursor = 'grabbing';
-      // The quack is held, not clicked: it sounds and stays sunk until the window's pointerup (dragEnd).
+      // The quack is held until pointerup (dragEnd).
       if (best.id === 'quack') { F.dkQuackHold = true; drakeQuackDown(); }
       else if (best.kind === 'click') DK_ACT[best.id]?.(e);
-      // The pedals in the dash-top well are the rudder: held, exactly like the ,/. keys.
       else if (best.kind === 'rudder') { F.dkRudHold = best.id === 'rudderL' ? -1 : 1; F.pedalKey = F.dkRudHold; }
       else dragStart(best.kind, e, best.kind === 'yoke' ? 110 : 90);
     }, true);
-    // THE MOUSE WHEEL on a 3-D wheel or knob turns it, as it does on the 2-D panel's wheels: the trim a
-    // notch per click (the same step as the overlay drum), the gun convergence a tenth of a tile.
+    // Mouse wheel turns the 3-D trim wheel and convergence knob.
     add(view, 'wheel', (e) => {
       const h = hotAt(e);
       if (!h || (h.kind !== 'trim' && h.id !== 'conv')) return;
@@ -2740,8 +2727,6 @@ export function openFlightSim(opts = {}) {
       else { setDrakeConv(drakeConv() - dir * 0.1); fsimToast('◎ GUNS CONVERGE AT ' + drakeConv().toFixed(1)); }
       F.dkPress = { id: h.id, t: performance.now() };
     }, { capture: true, passive: false });
-    // ⚠ A HAND OVER ANYTHING YOU CAN CLICK, so the 3-D controls announce themselves the way a button
-    // does. The same hit test as the press above, on the renderer's own hotspot list.
     let dkHover = false;
     add(view, 'pointermove', (e) => {
       if (!ws || dkDrag) return;
@@ -2757,11 +2742,10 @@ export function openFlightSim(opts = {}) {
       if (over !== dkHover) { dkHover = over; ws.style.cursor = over ? 'pointer' : ''; }
     });
 
-    // The external overlay.
     const dkx = q('#dkx');
     if (dkx) {
       for (const b of dkx.querySelectorAll('[data-dk]')) {
-        if (b.dataset.dk === 'quack') {   // held, not clicked: the quack runs while the button is down
+        if (b.dataset.dk === 'quack') {   // held
           add(b, 'pointerdown', (e) => { if (e.button) return; e.preventDefault(); drakeQuackDown(); });
           for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) add(b, ev, drakeQuackUp);
         } else add(b, 'click', () => DK_ACT[b.dataset.dk]?.());
@@ -2777,9 +2761,7 @@ export function openFlightSim(opts = {}) {
         const W = wheel.width, H = wheel.height, ail = F.input.aileron || 0, elev = F.input.elevator || 0;
         g.clearRect(0, 0, W, H);
         g.save(); g.translate(W / 2, H / 2 + elev * 10); g.rotate(ail * 1.0);
-        // ⚠ THE SAME WHEEL AS THE COCKPIT'S: every part comes off DRAKE_WHEEL (interior-drake.js), in
-        // metres with y up, so this only scales and flips it. Faked depth: each solid is laid twice,
-        // a dark copy offset down-right under a lit one, the way a thick part reads in a 3/4 light.
+        // ⚠ Drawn from DRAKE_WHEEL (interior-drake.js) so it matches the cockpit's; never redraw it here.
         const DW = DRAKE_WHEEL, k = 640, oy = 0.029;
         const P = (x, y) => [x * k, -(y + oy) * k];
         const rgb = (c, m = 1) => `rgb(${c.map((v) => Math.round(Math.min(255, v * m))).join(',')})`;
@@ -2789,7 +2771,6 @@ export function openFlightSim(opts = {}) {
         };
         const disc = (x, y, r, fill, dx = 0, dy = 0) => { const [px, py] = P(x, y); g.beginPath(); g.arc(px + dx, py + dy, r * k, 0, Math.PI * 2); g.fillStyle = fill; g.fill(); };
         const grips = [1, -1].map((sx) => DW.grip.map(([x, y]) => [x * sx, y]));
-        // Depth first: the sides of the body and the grips, then their faces.
         for (const p of DW.body) poly(p, '#0b0c0e', 3, 4);
         for (const p of grips) poly(p, '#1c1b1b', 4, 5);
         for (const p of DW.body) {
@@ -2797,7 +2778,6 @@ export function openFlightSim(opts = {}) {
           const cf = g.createLinearGradient(0, y0, 0, y1); cf.addColorStop(0, rgb(DW.weave)); cf.addColorStop(1, rgb(DW.carbon));
           poly(p, cf);
         }
-        // The weave, as a diagonal hatch clipped to the body.
         g.save(); g.beginPath();
         for (const p of DW.body) p.forEach(([x, y], i) => { const [px, py] = P(x, y); g[i ? 'lineTo' : 'moveTo'](px, py); });
         g.clip(); g.strokeStyle = 'rgba(120,128,140,.22)'; g.lineWidth = 1.5;
@@ -2809,7 +2789,6 @@ export function openFlightSim(opts = {}) {
           poly(p, gr);
         }
         for (const t of DW.wheels) { const [px, py] = P(t.x, t.y); g.fillStyle = rgb(t.rgb, 0.55); g.fillRect(px - 5, py - 4, 10, 10); g.fillStyle = rgb(t.rgb); g.fillRect(px - 5, py - 6, 10, 9); }
-        // Shift lights off the throttle, and the screen.
         const lit = (F.powered ? (F.input.throttle || 0) : 0) * DW.leds.n;
         for (let i = 0; i < DW.leds.n; i++) {
           const f = i / (DW.leds.n - 1), col = f < 0.4 ? '70,230,110' : f < 0.75 ? '255,190,60' : '255,70,60';
@@ -2820,7 +2799,6 @@ export function openFlightSim(opts = {}) {
         g.beginPath(); g.roundRect(ax, ay, bx - ax, by - ay, 3); g.fillStyle = F.powered ? '#1e4634' : '#0a100c'; g.fill();
         g.fillStyle = F.powered ? '#aaffc8' : '#2a4a34'; g.font = 'bold 20px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
         g.fillText(F.powered ? String(Math.round(F.disp?.ias || 0)).padStart(3, '0') : '---', (ax + bx) / 2, (ay + by) / 2 - 2);
-        // The buttons and the two rotaries, each with a dark underside so it stands off the face.
         for (const b of DW.buttons) { disc(b.x, b.y, b.r, rgb(b.rgb, 0.45), 1.5, 2); disc(b.x, b.y, b.r, rgb(b.rgb)); }
         for (const kn of DW.knobs) {
           disc(kn.x, kn.y, kn.r * 1.25, '#1e2024', 1, 1);
@@ -2834,13 +2812,13 @@ export function openFlightSim(opts = {}) {
         if (document.body.classList.contains('fsim-external')) {
           drawWheel();
           if (knob) knob.style.top = (6 + (1 - (F.input.throttle || 0)) * 82) + 'px';
-          const tf = ((F.input.trim || 0) / (F.TRIM_MAX || 0.6) + 1) / 2;   // 0 nose down (top) .. 1 nose up (bottom)
+          const tf = ((F.input.trim || 0) / (F.TRIM_MAX || 0.6) + 1) / 2;
           if (trimMark) trimMark.style.top = (6 + tf * 82) + 'px';
           const trm = F.input.trim || 0, tmax = F.TRIM_MAX || 0.6;
           if (trimRidges) trimRidges.style.transform = 'translateY(' + (trm / tmax * 24).toFixed(1) + 'px)';
           if (trimVal2) { const n = Math.round(trm / tmax * 100); trimVal2.textContent = n === 0 ? '0' : (n > 0 ? '+' : '−') + Math.abs(n); trimVal2.classList.toggle('set', n !== 0); }
           const conv = F.dk.conv || 0, wb = dkx.querySelector('.dkx-wings');
-          if (wb) wb.classList.toggle('moving', conv > 0.01 && conv < 0.99);   // the gate stays PLANE, like the cockpit's own HELI · PLANE · BOAT · SUB; it only pulses while she converts
+          if (wb) wb.classList.toggle('moving', conv > 0.01 && conv < 0.99);   // pulses while converting
           const st = { power: F.powered, lights: F.landingLight, cabin: F.domeLight, gear: !F.gearUp, guns: F.armed, nv: F.dk.nv, wings: (F.dk.conv || 0) >= 0.99, mode0: drakeModeNow() === 0, mode1: drakeModeNow() === 1, mode2: drakeModeNow() === 2, mode3: drakeModeNow() === 3 };
           for (const b of dkx.querySelectorAll('[data-dk]')) {
             const id = b.dataset.dk;
@@ -2855,64 +2833,44 @@ export function openFlightSim(opts = {}) {
     }
   }
 
-  // External / cockpit view toggle — the ◎ EXT button mirrors the V key; both call setExternal
-  // so the button's lit state and F.external stay in sync however you flip it.
   const viewBtn = q('#fsim-viewbtn');
-  // ⚠ AND STEPPING BACK INSIDE STOWS THE DETACHED CAMERA, the way the cab's own view switch does.
-  // There is nothing to detach from behind the glass — `paintWindshield` only reads `freeCam` in
-  // the external view — so a camera left running there is one holding the keyboard with nothing on
-  // screen to say why. The death-cam borrows this to force the external view; that direction never
-  // has a camera out to stow, so the guard costs it nothing.
+  // ⚠ Going back inside stows the free camera, or it holds the keyboard with nothing on screen.
   setExternal = (on) => {
     if (!on && freeCam.active) { freeCam.close(); setFreeCamChrome(false); }
     F.external = on; if (viewBtn) viewBtn.classList.toggle('on', on); document.body.classList.toggle('fsim-external', on); fsimToast(on ? '◎ EXTERNAL VIEW' : '◎ COCKPIT VIEW');
   };
-  F.setExternalView = setExternal;   // the crash death-cam borrows it to force the external view
+  F.setExternalView = setExternal;   // the crash death-cam uses it
   add(viewBtn, 'click', () => setExternal(!F.external));
 
-  // ⟲ Reset — SWING the orbit camera from wherever it is back to just behind and above the craft
-  // (the frame loop eases yaw/elevation/zoom to rest; a manual drag cancels it mid-swing).
+  // ⟲ The frame loop eases the orbit back to rest; a drag cancels it.
   add(q('#fsim-orbitreset'), 'click', () => { F.orbitResetting = true; fsimToast('⟲ CAMERA RESET'); });
 
-  // Refuel — shown only when parked on a fuelled strip (the frame loop toggles it). Fires the
-  // same `refuel` verb the command line uses; the server tops the tank and pushes fuel back.
+  // Refuel: shown only when parked on a fuelled strip.
   add(q('#fsim-refuel'), 'click', (e) => { e.stopPropagation(); sendCmdSilent('refuel'); fsimToast('REFUELLING…'); });
 
-  // Radio target-cycle buttons — the panel twin of the [ / ] / \ keys.
   add(q('#fsim-tgt-prev'), 'click', () => cycleApTarget(-1));
   add(q('#fsim-tgt-next'), 'click', () => cycleApTarget(1));
   add(q('#fsim-tgt-clear'), 'click', () => clearApTarget());
-  add(q('#fsim-tgt-name'), 'click', () => gpsOpen());   // the radio's TGT readout is the 2-D GPS
+  add(q('#fsim-tgt-name'), 'click', () => gpsOpen());
 
-  // Focus model: the sim pane owns the keyboard by default on embark (so A/Z/Q/E/S…
-  // drive the plane immediately). Clicking anywhere on the pane takes focus off the
-  // command box; clicking the command box directly gives it back to typing. See seat-keys.js —
-  // one implementation for all five seats, bound where the free camera cannot swallow it.
+  // The pane owns the keyboard on embark (seat-keys.js).
   claimSeatKeyboard(root, { label: 'SIM' });
 
   F.last = performance.now();
   F.raf = requestAnimationFrame(fsimFrame);
 }
 
-// Sample the atmosphere at the aircraft from the live weather (the "wind is the foundation"
-// layer). Returns a steady-plus-gusting wind vector + a turbulence intensity, both scaled by
-// weather severity. The prevailing wind direction comes from the weather field (the same wind that
-// drifts the clouds/rain/storm cells), falling back to a per-hour bearing when the field is absent.
+// Wind (with gusts) and turbulence at the aircraft from the live weather.
 const WX_SEV = { clear: 0, cloudy: 0.22, fog: 0.12, rain: 0.5, snow: 0.4, storm: 1.0 };
 function weatherAtmos(F, now) {
   const wx = (F.sky?.weather || 'clear').toLowerCase();
   const sev = WX_SEV[wx] ?? 0.2;
   const t = now * 0.001;
-  // ⚠ THE SHARED GUST, OFF THE WALL CLOCK, so two pilots in one squall feel the same gust and the
-  // windsock on the field below lifts in it too (client/shared/wind-gust.js). This was a private sine
-  // on this client's own clock.
-  // ⚠ AND NO WEATHER BASELINE ANY MORE. `sev * 13` kt was this file's own answer to a wind that did
-  // not follow the weather; F.sky.wind is now the server's wind at the aircraft's tile, raised under
-  // a storm cell (getWindKphAtGrid), so adding a baseline as well counts the storm twice.
+  // ⚠ Gusts come off the wall clock (shared/wind-gust.js) so every client agrees.
+  // ⚠ No weather baseline: F.sky.wind already includes the storm cell, so adding one counts it twice.
   const wallNow = Date.now(), storm = stormOf(F.sky?.weather);
-  const windKt = (F.sky?.wind || 0) * 0.28 * windGust(wallNow, storm);   // reported windKph→kt (the flight model's own scale)
-  // The prevailing wind that drifts the weather cells, so the arrow points where the clouds go,
-  // veering with the gusts. Falls back to the old per-hour bearing only when the field isn't plumbed.
+  const windKt = (F.sky?.wind || 0) * 0.28 * windGust(wallNow, storm);   // the flight model's kph-to-kt scale
+  // The weather field's wind, so the arrow points where the clouds go; a per-hour bearing if absent.
   const windDir = ((F.sky?.field?.wind?.dir ?? ((((F.sky?.hour || 12) * 17 + 40) % 360 + 360) % 360))
     + windVeer(wallNow, storm) + 360) % 360;
   return { sev, windKt, windDir, turb: sev };
@@ -2926,10 +2884,7 @@ function mapCellAt(F, x, y) {
   return row ? row[x - F.mapCenter.x + R] || null : null;
 }
 
-// Off-map guard: if the tiles right under us are void (the endless-desert buffer beyond
-// Landing report card — grades the touchdown by sink rate (fpm at contact) and flashes a big
-// letter grade + the fpm + a wisecrack over the windshield for a couple of seconds. ~200 fpm is
-// a good arrival; 800 fpm is the gear-breaking crash threshold; everything between is graded.
+// Landing card graded by sink rate at contact; 800 fpm breaks the gear.
 const LANDING_GRADES = [
   [60,  'A+', 'butter', '🧈 BUTTER. Absolutely greased it.'],
   [120, 'A',  'butter', 'Silky. The passengers applauded.'],
@@ -2963,41 +2918,27 @@ function showLandingCard(root, fpm, crashed) {
   setTimeout(() => { card.classList.remove('show'); setTimeout(() => { try { card.remove(); } catch {} }, 400); }, crashed ? 2600 : 2200);
 }
 
-// Full-stop landing → cut the engine, report grounded+stopped, and park. The server
-// disembarks everyone at a real airfield, so we open straight into the hangar bay for
-// this airport; off-field (a VTOL set-down) we just hand the pane back to the room view.
+// Full stop: cut the engine, report, park. At a field (or the Echelon) open the hangar; else look.
 function finishLanding(F, s) {
-  if (F.landed) return;   // once per touchdown
+  if (F.landed) return;
   F.landed = true; F.rolling = false;
-  F.engineOn = false; F.nightLight = false; F.landingLight = false;   // engine cut on park → all lights out
+  F.engineOn = false; F.nightLight = false; F.landingLight = false;
   const eb = document.getElementById('fsim-eng'); if (eb) eb.classList.remove('on');
   try { spoolDown(F.cls); } catch {}
-  // A deck-cam landing reports the ECHELON's own tile (captured when she grabbed us), not our smooth
-  // position — which can round a tile off her hull and make the server treat it as an off-field
-  // set-down (towing the craft back to the origin airfield). Reporting her tile lands us squarely on
-  // her helipad so she parks on the pad and disembarks us onto her deck.
+  // ⚠ A deck landing reports the Echelon's tile; our own position can round off her hull into a tow.
   const px = F.deckLandTile ? F.deckLandTile[0] : F.pos.x, py = F.deckLandTile ? F.deckLandTile[1] : F.pos.y;
   sendCmdSilent(`flightsync ${px.toFixed(2)} ${py.toFixed(2)} 0 0 ${Math.round(s.heading)} 0 0 1 0`);
-  // Carry the landing tile IN the land event too: the server processes this and the flightsync above
-  // concurrently (the ws message handler doesn't serialize a player's commands), so `land` must not
-  // depend on flightsync having landed first — otherwise it reads the stale airborne position, resolves
-  // off the Echelon, and tows the heli away instead of parking it in her hangar (the intermittent miss).
+  // ⚠ The tile rides in `land` too: the server doesn't serialize a player's commands, so it can't rely on the sync.
   sendCmdSilent(`flightevent land ${F.landGrade || 'F-'} ${Math.round(F.landFpm || 0)} ${px.toFixed(2)} ${py.toFixed(2)}`);
-  // A deck-cam (yacht) landing is flagged by deckLandTile — more reliable than F.onYacht, which the
-  // server may have cleared by the time the cinematic ends. It opens the helipad bay and holds the
-  // quiet, rotors-stopped frame a few beats before the hangar pops; a normal field landing hands off
-  // promptly as before.
+  // deckLandTile, not F.onYacht, which the server may have cleared by now.
   const deckLanding = !!F.deckLandTile;
   const toHangar = !!F.onField || deckLanding;
   setTimeout(() => { closeFlightSim(); sendCmdSilent(toHangar ? 'hangar' : 'look'); }, deckLanding ? DECK_HANDOFF_MS : 600);
 }
 
 // ── Deck-cam auto-land cinematic ────────────────────────────────────────────────────────────
-// When the Echelon captures a hovering heli, we take the windshield over with a spectator camera
-// around her and fly the helicopter down onto the pad, the camera tracking it as it settles —
-// then hand off to the normal park (finishLanding → hangar bay). Reuses the flight renderer
-// wholesale (paintWindshield with external + hideOwnShip — the same trick the Helm chase view
-// uses), drawing the descending heli as a world CONTACT whose altitude eases to zero.
+// When the Echelon captures a hovering heli, a spectator camera flies it down onto the pad, then
+// finishLanding parks it. The heli is drawn as a contact (external + hideOwnShip, as the Helm does).
 
 // A small open-water window with the Echelon at its centre, built once per cinematic.
 function deckLandingWindow(F) {
@@ -3009,39 +2950,23 @@ function deckLandingWindow(F) {
   return map;
 }
 
-// Cinematic timeline: a wide APPROACH shot as she comes in, dolly down to a CLOSE helipad shot for
-// the descent, then a SETTLE hold on the pad where the engine spools down before we hand off to the
-// park. The camera pose is value-continuous across the shots AND (via the ease-in-out `smooth` below)
-// velocity-continuous, so the dolly glides smoothly between shots with no speed jump at the seams.
-// The HOLD stays with her until the rotors fully stop (DECK_SPINDOWN) and then a further DECK_LINGER
-// (2s) on the still, quiet heli before the hand-off.
-// WIDE: a long, dramatic fly-in from out over the Basin, descending toward the pad. DROP: dolly down
-// to a close-up on the deck IN FRONT of her, tracking the last ~50ft down. HOLD: same close-up while
-// the rotors spin down and she goes quiet — a few beats before the hangar.
+// Shots: WIDE fly-in, DROP to a close-up for the last ~50 ft, HOLD while the rotors stop and a beat after.
+// The pose is value- and velocity-continuous across the seams.
 const DECK_WIDE = 4000, DECK_DROP = 3000;
-const DECK_SPINDOWN = 1900;   // rotors wind from full-speed to a dead stop over this stretch of the HOLD
-const DECK_LINGER = 2000;     // then we STAY with her, camera settled on the still heli, for 2 more seconds
-const DECK_HOLD = DECK_SPINDOWN + DECK_LINGER;   // HOLD = spin-down + the 2s linger
+const DECK_SPINDOWN = 1900;
+const DECK_LINGER = 2000;
+const DECK_HOLD = DECK_SPINDOWN + DECK_LINGER;
 const DECK_TOTAL = DECK_WIDE + DECK_DROP + DECK_HOLD;
-const DECK_HANDOFF_MS = 600;   // the 2s live linger now carries the post-shutdown stillness, so hand off promptly after
-// Overall size of the Echelon's 3D model — a uniform shrink of her whole yacht-local frame. KEEP IN
-// SYNC with YACHT_SCALE in windshield.js: every yacht-local constant here (the pad at fore-aft 0.28,
-// the deck floor z, the catch radius) is multiplied by it so the deck-landing capture + cinematic
-// stay square on the (scaled) pad.
+const DECK_HANDOFF_MS = 600;
+// ⚠ Keep in sync with YACHT_SCALE in windshield.js; every yacht-local constant here is scaled by it.
 const YACHT_SCALE = 0.4;
-// The Echelon's helipad floor is no longer a number here: she HEAVES, so where her deck is is a
-// question with a clock in it. windshield.js's yachtPadZ() is the one answer — see yachtRide().
-const DECK_DROP_FT = 75;    // the close "standing on deck" shot picks her up here and watches her drop in almost on top of you
+// The deck heaves, so its height comes from yachtPadZ(), never a constant.
+const DECK_DROP_FT = 75;    // height the close-up shot picks her up at
 
-// Auto-land catch zone: how close (tiles, from the pad centre) + how low (ft) you must be for her to
-// grab you. Matches the drawn catch volume — radius a hair beyond its (now scaled) footprint so entering
-// the ring captures, ceiling = the column top (PAD_CATCH_CEIL 0.5 × CONTACT_ALT_K⁻¹ 600 ≈ 300ft).
+// Auto-land catch zone; matches the drawn catch volume.
 const YACHT_CATCH_RADIUS = 0.7 * YACHT_SCALE, YACHT_CATCH_CEIL_FT = 300;
 
-// Real-time distance to the Echelon's helipad from our smooth position (not the laggy server flag):
-// find her cell in the streamed window → her hull-centre world tile (+ any sub-tile glide) → rotate
-// the local pad offset (oy +0.28) into the world → distance from us. Returns { dist (tiles), hdg }
-// or null when she isn't in the window. The pad centre matches the drawn catch volume + the deck-cam.
+// Distance to the Echelon's helipad from our smooth position: { dist, hdg, tile, hull } or null.
 function yachtProximity(F) {
   const map = F.map; if (!Array.isArray(map) || !map.length || !F.mapCenter || !F.pos) return null;
   const R = (map.length - 1) / 2;
@@ -3050,13 +2975,11 @@ function yachtProximity(F) {
     for (let rx = 0; rx < row.length; rx++) {
       const c = row[rx]; if (!c || c.mark !== 'yacht') continue;
       const sub = c.sub || { x: 0, y: 0 };
-      const yx = F.mapCenter.x + (rx - R) + sub.x, yy = F.mapCenter.y + (ry - R) + sub.y;   // hull-centre world tile
+      const yx = F.mapCenter.x + (rx - R) + sub.x, yy = F.mapCenter.y + (ry - R) + sub.y;
       const hr = (c.heading || 0) * Math.PI / 180;
-      const PAD_OY = 0.28 * YACHT_SCALE;   // aft helipad offset, shrunk with the hull
-      const px = yx - PAD_OY * Math.sin(hr), py = yy + PAD_OY * Math.cos(hr);                 // aft helipad centre
-      // tile = her COMMITTED grid tile (no sub-tile render lead), so surfaceAt resolves her zone.
-      // hull = her hull-centre world tile, so the deck-cam can express our capture position in her
-      // local frame and fly the cinematic in from where we ACTUALLY are.
+      const PAD_OY = 0.28 * YACHT_SCALE;
+      const px = yx - PAD_OY * Math.sin(hr), py = yy + PAD_OY * Math.cos(hr);
+      // tile: her committed grid tile, so surfaceAt resolves her zone. hull: for the deck-cam's start.
       return { dist: Math.hypot(px - F.pos.x, py - F.pos.y), hdg: c.heading || 0, tile: [Math.round(F.mapCenter.x + (rx - R)), Math.round(F.mapCenter.y + (ry - R))], hull: [yx, yy] };
     }
   }
@@ -3064,32 +2987,13 @@ function yachtProximity(F) {
 }
 
 // ── Helipads: the Solenne's roof, and the three on the ground ────────────────────────────────
-// The catch window IS the drawn column: the radius and the ceiling are imported from the renderer
-// rather than restated here, so the ring you fly into is the ring that grabs you and the two can
-// never drift. The ceiling converts world-z → feet through the contact-altitude scale (600 ft/z).
-// ⚠ THE CEILING IS A HEIGHT IN THE DRAWN COLUMN, SO IT IS NO LONGER A FIXED NUMBER OF FEET.
-// The guidance column is drawn ROOF_CATCH_CEIL_Z above the pad in world-z; the arming test is in
-// altitude. Those were reconciled by a flat 600 ft per z, which was only ever right at one height
-// — and now that altitude and world-z are related by the render curve (see altForRoofZ), the same
-// half-unit of z is 158 ft above a tower and a few feet above a shed. Derived per pad, so the ring
-// you fly into stays the ring that grabs you, which is the invariant this whole block is built on.
-// ⚠ IN THE RESTING FRAME, because that is what `padFt` is now — subtracting one curve's answer
-// from the other's is a 159 ft error on the Solenne and a few feet on a shed.
+// ⚠ The catch window is the drawn column: radius and ceiling come from the renderer, and the ceiling is
+// derived per pad through altRestingOnZ (z to feet isn't linear), so the ring you see is the ring that grabs.
 const padCeilFt = (padZ, padFt) => Math.max(60, altRestingOnZ(padZ + ROOF_CATCH_CEIL_Z) - padFt);
-const ROOF_LAND_MS = 2800;   // guided descent from capture to skids-down
+const ROOF_LAND_MS = 2800;
 
-// Nearest HELIPAD in the streamed window. Two shapes, one capture:
-//
-//   a ROOFTOP pad is a tile that is both an airfield and a building, and its deck height comes from
-//   the same captured model geometry CFIT reads — so the deck we land on is the deck we drew;
-//
-//   a GROUND pad is an airfield tile marked `pad` (a VTOL-only field), and its deck is the ground.
-//
-// ⚠ THE OLD TEST WAS "field AND building", WHICH IS ONE FIELD IN THE WHOLE WORLD. It reads as the
-// rooftop rule it was written for, and it silently meant the three ground helipads were the only
-// airfields in the game you could not be brought down onto — while the game calls them helipads on
-// the roster, in the charter desk and on the map. A pad is a pad; where its deck happens to be is a
-// question about its height, not about whether it catches you.
+// Nearest helipad: a rooftop pad (field + building, deck from the captured geometry) or a ground pad
+// (field marked `pad`, deck at zero). ⚠ Both catch; never test only "field and building".
 function padProximity(F) {
   const map = F.map; if (!Array.isArray(map) || !map.length || !F.mapCenter || !F.pos) return null;
   const R = (map.length - 1) / 2;
@@ -3101,12 +3005,8 @@ function padProximity(F) {
       const wx = F.mapCenter.x + (rx - R), wy = F.mapCenter.y + (ry - R);
       const dist = Math.hypot(wx - F.pos.x, wy - F.pos.y);
       if (dist > 4 || (best && dist >= best.dist)) continue;
-      // ⚠ A GROUND PAD IS AT ZERO AND THAT IS A REAL ANSWER, not a missing one. The rooftop probe
-      // returns 0 both for "no building here" and for "you are between two wings", so the old code
-      // read the height as the existence test. On a bare pad there is no building by definition, so
-      // the tile has to be asked first and the height second.
-      // ⚠ AND `padFt` IS THE ALTITUDE THE SKIDS REST AT, not the one the eye is level with — this
-      // number is a touchdown target, and `altForRoofZ` put it 159 ft down inside the tower.
+      // ⚠ Ask the tile first: a height of 0 is a real ground pad, not a missing one.
+      // ⚠ padFt is where the skids rest (altRestingOnZ), never altForRoofZ.
       const padZ = c.bt ? modelTopZAt(wx, wy, c, wx, wy) : 0;
       const padFt = altRestingOnZ(padZ);
       if (c.bt ? padZ > 0 : !!c.pad) best = { dist, padFt, padZ, tile: [wx, wy] };
@@ -3115,9 +3015,7 @@ function padProximity(F) {
   return best;
 }
 
-// One cell out of the streamed window, by absolute world tile. The index arithmetic is the same
-// three lines padProximity and buildingCollisionAt each run inline; this is for the callers that
-// want ONE named tile rather than a sweep.
+// One cell of the streamed window by world tile.
 function windowCellAt(F, wx, wy) {
   const map = F.map;
   if (!Array.isArray(map) || !map.length || !F.mapCenter) return null;
@@ -3128,60 +3026,38 @@ function windowCellAt(F, wx, wy) {
 }
 
 // ── Parked on a rooftop pad ──────────────────────────────────────────────────────────────────
-// ⚠ THE DECK IS THE GROUND UP HERE, AND THE SIM'S GROUND IS ZERO. A rooftop pad is filed as an
-// airfield on the tile the TOWER stands on — the Solenne's Sky Pad and the street outside its
-// lobby are the same cell — so a helicopter parked there spawned at street level, inside the
-// building it is supposed to be sitting on top of. You looked out of the canopy at the lobby
-// canopy, and lifting the collective flew you up through thirty floors of apartments.
-//
-// The deck comes from the same captured geometry CFIT reads (`modelTopZAt`, the world-z twin of
-// the probe in buildingRoofFtAt), so the roof we sit on is the roof we would have hit — one loop,
-// no second idea of where the top of the building is. Rotorcraft only: nothing else parks on a roof.
-//
-// ⚠ CONVERTED THROUGH `altRestingOnZ`, NOT `altForRoofZ`. The eye rides a fixed 0.24 z above the
-// skids, which on this crown is 159 real feet — enough to park the aircraft eight storeys down
-// inside the tower with its canopy level with the deck, which is what the first cut of this did.
+// ⚠ A rooftop pad shares its tile with the street, so a parked heli needs the roof as its ground or it
+// spawns inside the tower. Deck from modelTopZAt (as CFIT), converted through altRestingOnZ, never altForRoofZ.
 function parkedDeck(F) {
   if (!F.heli || !F.pos) return null;
   const tx = Math.round(F.pos.x), ty = Math.round(F.pos.y);
   const c = windowCellAt(F, tx, ty);
-  if (!c || c.kind !== 'field' || !c.bt) return null;   // an airfield tile that is ALSO a building = a rooftop pad
+  if (!c || c.kind !== 'field' || !c.bt) return null;
   const z = modelTopZAt(tx, ty, c, tx, ty);
   if (!(z > 0)) return null;
   return { tile: [tx, ty], ft: altRestingOnZ(z), left: false };
 }
 
-// The floor the flight model clamps to this frame. Zero for every strip and ground pad in the
-// game; the roof for the deck we started on, until we leave it.
-//
-// ⚠ THE LATCH IS LOAD-BEARING AND IT ONLY EVER CLOSES. Without it, flying back over the tower a
-// hundred feet below its parapet would snap the aircraft UP onto the deck and set `onGround` —
-// which suppresses the CFIT test that runs later in the same frame, turning a fatal flight into
-// a building into a free rooftop landing. Coming back to a pad is the capture's job (padProximity
-// → startRoofLanding), which arrives from ABOVE, and never this floor's.
+// The floor this frame: zero, or the deck we started on until we leave it.
+// ⚠ The `left` latch only closes; reopening it would snap a low pass onto the roof and skip CFIT.
 function deckFloorFt(F, s) {
-  if (F.roofLock) return F.roofLock.padFt;   // the guided set-down owns the floor while it flies us down
+  if (F.roofLock) return F.roofLock.padFt;
   const d = F.padDeck;
   if (!d || d.left) return 0;
   const c = windowCellAt(F, d.tile[0], d.tile[1]);
   const z = c ? modelTopZAt(d.tile[0], d.tile[1], c, F.pos.x, F.pos.y) : 0;
   if (z > 0) return altRestingOnZ(z);
-  // The probe found no roof under us. Airborne, that is the departure — off the edge, and the floor
-  // below is the street. On the skids it means the probe could not answer at all (the window has
-  // scrolled or has not arrived), and dropping the floor there posts the aircraft through its own
-  // deck, so hold the height it spawned at.
+  // No roof: airborne means we've left; on the skids the probe just can't answer, so hold the height.
   if (!s.onGround) { d.left = true; return 0; }
   return d.ft;
 }
 
-// Capture: freeze the pilot's inputs out of the vertical/lateral solution and fly the last few
-// seconds onto the pad centre. No cinematic — a rooftop set-down is a working arrival, not the
-// Echelon's set piece, and the pilot keeps the view they were flying.
+// Pad capture: fly the last few seconds onto the pad centre. No cinematic.
 function startRoofLanding(F, s, now, prox) {
   F.roofLock = { t0: now, padFt: prox.padFt, tile: prox.tile,
     from: { x: F.pos.x, y: F.pos.y, alt: s.altitude, hdg: s.heading } };
-  F.roofDeparted = false;   // a lift-off from this pad must leave the window before it can grab again
-  F.landGrade = 'A'; F.landFpm = Math.round(Math.max(0, -(s.vs || 0)));   // a guided set-down grades clean
+  F.roofDeparted = false;   // must leave the window before it can grab again
+  F.landGrade = 'A'; F.landFpm = Math.round(Math.max(0, -(s.vs || 0)));
   if (F.toast) F.toast('PAD LOCK: the deck has you. Coming down.');
 }
 
@@ -3193,67 +3069,51 @@ function stepRoofLanding(F, s, now) {
   F.pos.y = L.from.y + (L.tile[1] - L.from.y) * e;
   s.altitude = L.from.alt + (L.padFt - L.from.alt) * e;
   s.airspeed = Math.max(0, s.airspeed * (1 - e));
-  s.vs = (L.padFt - L.from.alt) / Math.max(0.001, ROOF_LAND_MS / 1000) * 60 * (1 - e);   // fpm, easing to a hover
-  s.bank = 0; s.pitch = 6 * e;   // nose eases up into the flare as she settles
+  s.vs = (L.padFt - L.from.alt) / Math.max(0.001, ROOF_LAND_MS / 1000) * 60 * (1 - e);
+  s.bank = 0; s.pitch = 6 * e;
   if (t < 1) return;
   F.roofLock = null;
-  // She is parked on the roof now, so the roof is the ground — hand the floor from the lock to the
-  // deck. Without this the model reads a floor of zero for the beat between touchdown and the
-  // hand-off to the hangar bay, and drops her off the building she just landed on.
+  // ⚠ Hand the floor to the deck, or she drops off the roof before the hangar hand-off.
   F.padDeck = { tile: L.tile, ft: L.padFt, left: false };
-  F.deckLandTile = L.tile;   // report the landing AT the pad tile, so the server parks us on the roof
+  F.deckLandTile = L.tile;
   finishLanding(F, s);
 }
 
 function startDeckLanding(F, s, now, prox) {
-  // Her real heading (frames the deck-cam the way the sim just did) + her hull tile (so we report the
-  // landing AT the Echelon, not at our smooth position — which can round a tile off her and get the
-  // craft towed off as an "off-field" landing). Both from the proximity probe that armed the capture.
   const hdg = prox?.hdg || 0;
-  // Our ACTUAL position at the instant of capture, in her local frame (beam ox, fore-aft oy), so the
-  // fly-in starts from where we really are instead of snapping out to a canned start pose. Inverse of
-  // `loc` (rotate the world offset from her hull centre by −heading). Falls back to the canned start
-  // if the hull probe is missing.
+  // Our capture position in her local frame (inverse of `loc`), so the fly-in starts where we are.
   const hr = hdg * Math.PI / 180, sh = Math.sin(hr), ch = Math.cos(hr);
   let start = null;
   if (prox?.hull && F.pos) {
     const wx = F.pos.x - prox.hull[0], wy = F.pos.y - prox.hull[1];
     start = [wx * ch + wy * sh, -wx * sh + wy * ch];
   }
-  // Real helideck procedure: approach on the OPPOSITE heading to the ship, then pedal-turn to align with
-  // her before touchdown. So the fly-in holds hdg+180 and swings round to her heading over the descent.
+  // Approach on the reciprocal heading, then turn to hers during the drop (helideck procedure).
   const hdg0 = (hdg + 180) % 360;
-  // Carry the REAL capture altitude into the start (only floored enough to leave room to descend), so the
-  // fly-in begins at the heli's actual height — the 3D position she was really at, not a canned one.
   F.deckCine = { t0: now, hdg, hdg0, alt0: Math.max(DECK_DROP_FT + 20, s.altitude), start, done: false, seg: -1 };
-  F.deckLandTile = prox?.tile || null;   // the Echelon's tile — finishLanding reports her here so she parks on the pad
+  F.deckLandTile = prox?.tile || null;
   F._deckMap = null;
-  F.landGrade = 'A'; F.landFpm = Math.round(Math.max(0, -(s.vs || 0)));   // a guided set-down grades clean
+  F.landGrade = 'A'; F.landFpm = Math.round(Math.max(0, -(s.vs || 0)));
   if (F.toast) F.toast('The Echelon has you, coming in to land.');
 }
 
-// Shortest-path angular interpolation (deg) — so a yaw from, say, 350°→10° swings +20° across north,
-// not −340° the long way round.
+// Shortest-path angle lerp (deg).
 function lerpAngle(a, b, t) {
   const d = ((b - a + 540) % 360) - 180;
   return (a + d * t + 360) % 360;
 }
 // ── Crash break-up death-cam ──────────────────────────────────────────────────
-// A severe write-off snaps to the external chase view and tumbles the wreck while a wing
-// (plus a tailplane and the fin) shear off; the fuselage falls, SLAMS into the ground at IMPACT_T
-// where the shed parts scatter and settle INDEPENDENTLY, crumpling onto the deck, then the crash is
-// reported to the server (which destroys the craft + kills every occupant + closes the sim). The
-// report is deferred by BREAKUP_MS so the player always sees her come apart — the death is inevitable.
-const BREAKUP_MS = 3400;   // fall → impact → settle-and-burn beat before the crash is reported
+// A severe write-off forces the external view and breaks the aircraft up; the crash is reported
+// to the server only after BREAKUP_MS, so the player always sees it.
+const BREAKUP_MS = 3400;
 const IMPACT_T = 0.42;     // fraction of the timeline where the wreck reaches the ground
 
-// Plain-English surface names for the "she's coming apart" battle-damage toast.
 const SHEAR_TOAST = { leftWing: 'LEFT WING', rightWing: 'RIGHT WING', tail: 'TAILPLANE', rudder: 'RUDDER' };
 
 function beginCrashBreakup(F, reason) {
-  if (F.crashCine) return;                               // already coming apart
+  if (F.crashCine) return;
   F.rolling = false; F.reportedAirborne = false;
-  if (F.setExternalView) F.setExternalView(true);        // force the death cam
+  if (F.setExternalView) F.setExternalView(true);
   const h0 = Math.min(1, Math.sqrt(Math.max(0, F.s?.altitude || 0) / 3000));
   F.crashCine = { t0: performance.now(), reason, reported: false,
     bank0: F.s?.bank || 0, pitch0: F.s?.pitch || 0, hdg: F.s?.heading || 0, h0 };
@@ -3262,57 +3122,41 @@ function beginCrashBreakup(F, reason) {
 function stepCrashBreakup(F, now) {
   const C = F.crashCine, root = document.getElementById('fsim-root');
   const t = clampNum((now - C.t0) / BREAKUP_MS, 0, 1);
-  // FALL: 0 at break-up → 1 at ground impact (IMPACT_T). She accelerates down under "gravity".
   const fall = clampNum(t / IMPACT_T, 0, 1);
   const eFall = fall * fall;
-  // POST: 0 at impact → 1 at the report. Drives the settle: a small dead-cat bounce, and the
-  // fuselage easing from its tumbling attitude into a fixed crashed pose (rolled onto a wing,
-  // nose buried) — it STOPS cartwheeling once it's on the deck.
+  // POST: 0 at impact to 1 at the report; a small bounce, then the tumble damps to a resting pose.
   const post = clampNum((t - IMPACT_T) / (1 - IMPACT_T), 0, 1);
   const bounce = post > 0 ? Math.sin(post * Math.PI) * 0.05 * (1 - post) : 0;
-  const height = C.h0 * (1 - eFall) + C.h0 * bounce;      // the ground rises to meet her, then a settle hop
-  // FUSELAGE: it tumbles as it drops, then the tumble DAMPS OUT and it settles roughly flat on its
-  // belly (a slight cant) — it STOPS moving once it's down, so the frame the pieces sit in is
-  // ground-aligned rather than rolled onto a wing (which used to drag every shed part into the cant).
-  const settle = 1 - Math.pow(1 - post, 3);              // 0 at impact → 1 fully at rest
+  const height = C.h0 * (1 - eFall) + C.h0 * bounce;
+  // The fuselage settles roughly flat so the pieces' frame is ground-aligned.
+  const settle = 1 - Math.pow(1 - post, 3);
   const tumbleB = C.bank0 + 96 * fall, tumbleP = C.pitch0 - 42 * fall;
-  const bank = tumbleB * (1 - settle) + 16 * settle;     // settles slightly canted onto one side
-  const pitch = tumbleP * (1 - settle) + -6 * settle;    // nose just into the ground
-  // Debris: each shed part flies on its OWN clock — it tears free, tumbles on all three axes about
-  // its OWN centroid, scatters out across the deck, and comes to rest FLAT (roll+pitch damp to zero)
-  // where it lands. Staggered `land` times keep the pieces off lockstep. The renderer draws these
-  // decoupled from the fuselage's attitude (heading-only), so instead of one rigid shape spreading
-  // you see the wing cartwheeling one way, the tail spinning another, each crumpling onto the ground.
-  // ⚠ EVERY FACE HAS AN OWNER. A face no part claims rides the hull's transform, which is what made
-  // a break-up read as one model with a few bits sliding off it. What is left of the mid fuselage IS
-  // the hull; everything else is a piece with its own clock. Order matters: `shedPartFor` takes the
-  // first match, so the nose/tail sections are listed before the catch-all body roles.
-  // Each piece also carries its own FALL (`drop`, 1 at release → 0 on the ground) and a `rest` pose it
-  // tips into when it lands; the renderer turns `drop` into height and puts the piece's lowest rotated
-  // vertex on the ground, so nothing floats at its as-built height or sinks through the deck.
-  // `seed` varies the scatter per crash while keeping the whole thing a pure function of t.
+  const bank = tumbleB * (1 - settle) + 16 * settle;
+  const pitch = tumbleP * (1 - settle) + -6 * settle;
+  // Each piece has its own clock, fall (`drop`) and resting pose; the renderer grounds its lowest vertex.
+  // ⚠ Every face needs an owner or it rides the hull. Order matters: shedPartFor takes the first match.
+  // `seed` varies the scatter per crash; the whole thing stays a pure function of t.
   const seed = C.seed ?? (C.seed = ((Math.sin(C.hdg * 12.9898 + C.bank0 * 78.233) * 43758.5453) % 1 + 1) % 1);
   const jit = (k, amt) => 1 + amt * (Math.sin((seed + k) * 91.7) );
   const debris = ({ roles, side, fRange, dir, spin, mag, land, rest: restRot = [0, 0] }, k) => {
-    const air = clampNum(t / land, 0, 1);                       // 0 → 1 at this piece's ground contact
-    const rest = clampNum((t - land) / (1 - land), 0, 1);       // 0 → 1 after it lands
-    const ao = 1 - Math.pow(1 - air, 2);                        // ease-out flight → freezes at landing
-    const hop = rest > 0 ? Math.sin(rest * Math.PI) * 0.06 * (1 - rest) : 0;   // a shallow bounce that dies out
+    const air = clampNum(t / land, 0, 1);
+    const rest = clampNum((t - land) / (1 - land), 0, 1);
+    const ao = 1 - Math.pow(1 - air, 2);
+    const hop = rest > 0 ? Math.sin(rest * Math.PI) * 0.06 * (1 - rest) : 0;
     const m = mag * jit(k, 0.25);
-    // Roll/pitch tumble while it flies, then ease to the NEAREST equivalent of its resting pose
-    // (a wing flat or upside down, the fin on its side) rather than unwinding back to level.
+    // Ease to the nearest equivalent of the resting pose rather than unwinding.
     const settleTo = (a, r) => r + 2 * Math.PI * Math.round((a - r) / (2 * Math.PI));
     const e = 1 - Math.pow(1 - rest, 3);
     const rx = spin[0] * jit(k + 3, 0.2), ry = spin[1] * jit(k + 5, 0.2);
     const rot = [
       rx * ao + (settleTo(rx, restRot[0]) - rx) * e,
       ry * ao + (settleTo(ry, restRot[1]) - ry) * e,
-      spin[2] * ao,                                             // yaw is kept: any heading down
+      spin[2] * ao,
     ];
     return {
       roles, side, fRange, ballistic: true, hop,
-      drop: 1 - air * air,                                      // its own fall under "gravity", not the hull's
-      scatter: [dir[0] * m * ao, dir[1] * m * ao],              // fan out in the ground plane, ease to rest
+      drop: 1 - air * air,
+      scatter: [dir[0] * m * ao, dir[1] * m * ao],
       rot,
     };
   };
@@ -3329,11 +3173,10 @@ function stepCrashBreakup(F, now) {
     { roles: ['nacelle', 'prop', 'strut'],  side: -1,   dir: [ 0.7, -1.0], spin: [-2.6,  2.0, -1.0], mag: 0.8, land: 0.45, rest: [-H, 0] },
     { roles: ['gear'],                      side: null, dir: [-0.2,  0.1], spin: [ 1.2,  0.8,  0.4], mag: 0.4, land: 0.43, rest: [H, 0] },   // gear torn off under her
   ].map(debris);
-  const wreckFx = null;                                   // no fire/smoke — she just comes apart and crumples
+  const wreckFx = null;
   paintWindshield('fsim-ws', {
     external: true, hideOwnShip: false, phase: 'cruise', worldBlend: 1,
-    // The same airframe and paint the chase view was drawing a moment ago: a Drake's livery variant
-    // is a different mesh, and leaving it off broke a painted Drake up into stock parts.
+    // ⚠ Pass the livery variant: a Drake variant is a different mesh.
     cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, heading: C.hdg, bank, pitch, livery: F.livery,
     ...(F.cls === 'drake' && F.livery?.variant && F.livery.variant !== 'stock' ? { variant: F.livery.variant } : {}),
     gearAnim: F.gearAnim ?? 1, enginePct: 0, engineOn: false, breakup: { t, parts, state: C }, wreckFx,
@@ -3344,8 +3187,8 @@ function stepCrashBreakup(F, now) {
   });
   if (t >= 1 && !C.reported) {
     C.reported = true;
-    if (root) showLandingCard(root, 900, true);            // the F / CRASHED climax card
-    sendCmdSilent(`flightevent crash ${C.reason}`);        // server destroys the craft + closes the sim
+    if (root) showLandingCard(root, 900, true);
+    sendCmdSilent(`flightevent crash ${C.reason}`);
   }
 }
 
@@ -3353,94 +3196,59 @@ function stepDeckLanding(F, now) {
   const C = F.deckCine; if (!C) return;
   const el = now - C.t0;
   const ease = (t) => 1 - Math.pow(1 - t, 2.2);
-  // Ease-IN-OUT for the CAMERA dolly: velocity is zero at BOTH ends of every shot, so where one shot's
-  // camera move hands to the next the pan has no velocity jump — the dolly glides smoothly between shots
-  // instead of snapping speed at each seam (the heli's own motion keeps the ease-out `ease` above).
+  // Ease-in-out for the camera so there's no speed jump at the shot seams.
   const smooth = (t) => { const c = clampNum(t, 0, 1); return c * c * (3 - 2 * c); };
   const hr = C.hdg * Math.PI / 180, sinh = Math.sin(hr), cosh = Math.cos(hr);
-  // yacht-local (beam ox +stbd, fore-aft oy +aft) → world offset from the hull, the same transform
-  // drawYacht uses — so a local point tracks the deck whatever way she's pointing.
+  // Yacht-local (beam ox, fore-aft oy) to world, as drawYacht does.
   const loc = (ox, oy) => [-oy * sinh + ox * cosh, oy * cosh + ox * sinh];
-  // Work in her LOCAL frame (beam ox, fore-aft oy) and convert to world with `loc` exactly ONCE
-  // (at the projection below) — the pad/start were being loc()'d twice, which slid the touchdown off
-  // the pad ("left of the pad") whenever her heading wasn't due north.
-  const PAD = [0, 0.28 * YACHT_SCALE];   // helipad centre (local), on the scaled hull
-  // Fly in from where the pilot ACTUALLY was at capture (interpolated in), so the cinematic is
-  // continuous with the approach — no teleport. Fall back to the canned starboard-quarter pose (also
-  // scaled with the hull, so a smaller Echelon frames the fly-in proportionally).
-  const START = C.start || [1.0 * YACHT_SCALE, 1.7 * YACHT_SCALE];   // fly-in start (local): captured real position, or the canned pose
-  const padWorld = loc(PAD[0], PAD[1]);  // pad centre as a WORLD offset from the hull — the close-up centres here
-  // `lookAt` is the ground point the camera centres on (mapOffset). WIDE frames the whole ship as she
-  // flies in; the close-up re-aims onto the PAD and sits IN FRONT of her (extYaw ~180 = dead ahead of
-  // the nose, looking back at her face) low on the deck, tracking the last 50ft + the shutdown.
+  // ⚠ Work in her local frame and apply `loc` exactly once, or the touchdown slides off the pad.
+  const PAD = [0, 0.28 * YACHT_SCALE];
+  const START = C.start || [1.0 * YACHT_SCALE, 1.7 * YACHT_SCALE];   // captured position, or a canned pose
+  const padWorld = loc(PAD[0], PAD[1]);
+  // `lookAt` is the ground point the camera centres on (mapOffset).
   let phase, ox, oy, alt, power = 0.8, propSpin = 1, landing = false, cam, lookAt = [0, 0], dome = false;
   if (el < DECK_WIDE) {
-    // SHOT 1 — the fly-in, from an ON-DECK camera standing FORWARD of the pad (at the base of the
-    // deckhouse) looking AFT over the pad, so the deckhouse is BEHIND the camera and out of frame and
-    // she flies in over the open water toward you. Not a view of the whole boat — you're on her deck.
+    // Shot 1: on-deck camera forward of the pad, looking aft as she flies in over the water.
     phase = 'wide'; const lp = ease(el / DECK_WIDE), clp = smooth(el / DECK_WIDE);
-    ox = START[0] + (PAD[0] - START[0]) * lp; oy = START[1] + (PAD[1] - START[1]) * lp;   // fly IN
+    ox = START[0] + (PAD[0] - START[0]) * lp; oy = START[1] + (PAD[1] - START[1]) * lp;
     alt = C.alt0 + (DECK_DROP_FT - C.alt0) * lp;
     landing = lp > 0.75; dome = true;
-    cam = { yaw: 180, pitch: 0.14, zoom: 0.85 - clp * 0.40 };   // looking AFT down the deck over the pad — reads her 3D fly-in, dollying toward the DROP
+    cam = { yaw: 180, pitch: 0.14, zoom: 0.85 - clp * 0.40 };
     lookAt = padWorld;
   } else if (el < DECK_WIDE + DECK_DROP) {
-    // SHOT 2 — the same ON-DECK vantage (standing at the deckhouse, looking AFT over the pad), holding
-    // low as she drops the last 75ft straight down in front of you onto the pad, open sea behind her.
-    // No crane, no orbit — you stay planted on the deck and she comes down to you.
+    // Shot 2: same vantage, dollying in as she drops the last 75 ft.
     phase = 'drop'; const lp = ease((el - DECK_WIDE) / DECK_DROP), clp = smooth((el - DECK_WIDE) / DECK_DROP);
     ox = PAD[0]; oy = PAD[1]; alt = DECK_DROP_FT * (1 - lp); landing = true;
-    cam = { yaw: 180, pitch: 0.14 - clp * 0.02, zoom: 0.45 - clp * 0.15 };   // hold the deck-level aft-looking view, dollying RIGHT onto the pad (down to 0.30) as she settles in
+    cam = { yaw: 180, pitch: 0.14 - clp * 0.02, zoom: 0.45 - clp * 0.15 };
     lookAt = padWorld;
   } else {
-    // SHOT 3 — she's down; the camera arcs round from dead-ahead to a three-quarter broadside and
-    // GROWS her into a big on-pad "inspect" close-up (like the hangar walkaround — right on top of
-    // the helipad so she fills the frame) while the rotors spin down, before the hand-off to the hangar.
+    // Shot 3: arc to a three-quarter close-up while the rotors spin down.
     phase = 'hold'; const hEl = el - DECK_WIDE - DECK_DROP;
     ox = PAD[0]; oy = PAD[1]; alt = 0; landing = true;
-    const spin = Math.min(1, hEl / DECK_SPINDOWN);   // 0 = full-speed → 1 = dead stop at DECK_SPINDOWN, then we linger
-    power = 0.5 * (1 - spin); propSpin = 1 - spin;   // rotors fully stopped when the spin-down completes
-    const ip = smooth(hEl / DECK_SPINDOWN);   // settle the tight framing AS the rotors wind down, then hold it through the 2s linger
-    // Dolly the CAMERA in (zoom 0.30→0.16) and swing to a three-quarter broadside — the heli AND the
-    // pad scale together, a true zoom to a tight on-pad crop (NOT an enlarged model). Her real size
-    // never changes; the camera just gets right on top of her. Pitch eases hard DOWN (→ -0.42) so the
-    // eye-height drops to the heli's OWN mid-height — a level, close, water-skimming side shot (this is
-    // a Mode-7 cam: no tilt, so dropping EH to her height IS looking level across at her, not down).
+    const spin = Math.min(1, hEl / DECK_SPINDOWN);
+    power = 0.5 * (1 - spin); propSpin = 1 - spin;
+    const ip = smooth(hEl / DECK_SPINDOWN);
+    // A camera zoom, never a bigger model. Mode-7 has no tilt, so the low pitch drops the eye to her height.
     cam = { yaw: lerpAngle(180, 110, ip), pitch: 0.12 - 0.54 * ip, zoom: 0.30 - 0.14 * ip };
     lookAt = padWorld;
     if (C.seg !== 2) { C.seg = 2; if (F.toast) F.toast('Skids down: winding down.'); }
   }
   const [hx, hy] = loc(ox, oy);
-  // Yaw from our captured heading round to HERS over the approach + drop, so she lines up with the
-  // deck as PART of the fly-in (no snap) and is square by the time she settles. No time pressure —
-  // the ~7s of WIDE+DROP carries the whole turn.
-  // Hold the OPPOSITE approach heading through the WIDE fly-in, then swing round to HER heading over the
-  // DROP so she's square with the deck by touchdown — "turn to it before landing".
+  // Hold the reciprocal through WIDE, turn to her heading over DROP.
   const rot = ease(clampNum((el - DECK_WIDE) / DECK_DROP, 0, 1));
   const heliHdg = lerpAngle(C.hdg0 ?? C.hdg, C.hdg, rot);
-  // Attitude: nose gently down on the way in, a nose-UP FLARE as she nears the deck (she rears back
-  // to arrest the sink), then eases level as she settles onto the pad and winds down.
+  // Nose down on the way in, flare near the deck, level on the pad.
   let heliPitch;
   if (phase === 'wide') heliPitch = -2 * clampNum(alt / 30, 0, 1);
   else if (phase === 'drop') heliPitch = -2 + 8 * ease(clampNum((DECK_DROP_FT - alt) / DECK_DROP_FT, 0, 1));
   else heliPitch = 6 * (1 - ease(clampNum((el - DECK_WIDE - DECK_DROP) / (DECK_SPINDOWN * 0.6), 0, 1)));
   const heli = {
     id: 'deck-heli', dx: hx - lookAt[0], dy: hy - lookAt[1],
-    // groundZ pins her gear to the physical helipad deck (its world-z in drawYacht), so `altDiff` is
-    // her height in FEET ABOVE the pad — skids square on the deck at 0, not floating at eye height.
-    // ⚠ THE DECK MOVES NOW, so this asks where it IS rather than restating a constant. It used to
-    // be a second copy of windshield.js's YACHT_DECK_Z, which is right for a ship that cannot move
-    // and is a helicopter landing on a deck that is not there for one that can.
+    // groundZ is the pad deck, so altDiff is feet above it. ⚠ The deck heaves: ask yachtPadZ, never a constant.
     groundZ: yachtPadZ(0, 0, C.hdg), altDiff: alt,
-    // `armed` is the AIRFRAME, not the master-arm switch: it picks the attack-heli mesh out of the
-    // class the Viper shares with the Dragonfly — the same expression the live external view uses
-    // (see the paintWindshield call in the frame loop). Without it the cinematic landed every
-    // gunship as a Dragonfly, and the deck contact measurements (skid height, rotor anchors) were
-    // taken off the wrong airframe too.
+    // ⚠ `armed` picks the airframe mesh (Viper vs Dragonfly), not the master-arm state.
     cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, hdg: heliHdg, bank: 0, pitch: heliPitch,
-    // The Viper mesh is already VIPER_SCALE (2×) larger than the Dragonfly's, so the cinematic's
-    // framing multiplier divides that back out — otherwise the gunship arrives at ~3.8× and
-    // overflows the pad it's landing on. Both airframes now fill the frame the same way.
+    // Divide out VIPER_SCALE so both helis frame the same.
     livery: F.livery, sizeMul: (F.cls === 'heli' && F.hardpoints > 0) ? 1.9 / VIPER_SCALE : 1.9,
     power, propSpin, propDisc: propSpin > 0.15 ? 1 : 0,
     lights: true, landing,
@@ -3451,33 +3259,15 @@ function stepDeckLanding(F, now) {
     height: 0, speed: 0, hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wxField: F.sky?.field, wxGround: F.sky?.ground,
     map: deckLandingWindow(F), mapCenter: { x: 0, y: 0 }, mapOffset: { x: lookAt[0], y: lookAt[1] },
     acX: 0, acY: 0, biomeBelow: 'water', airport: 'default',
-    contacts: [heli], padDome: dome ? { armed: true } : null,   // bubble shown during the wide approach, gone once on deck
+    contacts: [heli], padDome: dome ? { armed: true } : null,
   });
   if (el >= DECK_TOTAL && !C.done) { C.done = true; F.deckCine = null; F._deckMap = null; finishLanding(F, F.s); }
 }
 
-// ⚠ THE TOAST IS A CLOSURE, AND THE FRAME LOOP IS NOT INSIDE IT.
-//
-// `const fsimToast = …` lives in the panel-setup closure with the elements it writes to. This
-// function does not: `fsimFrame` is module-level, so a bare `fsimToast(…)` anywhere below here is
-// a ReferenceError against a name that is very visibly defined a few hundred lines up — and
-// because the loop re-arms with `requestAnimationFrame` at its END, a throw does not skip a frame,
-// it ENDS THE SIM. The aeroplane stops in mid air with the last frame painted and the DOM buttons
-// still working, which looks like anything except a scoping mistake.
-//
-// It shipped that way: the bomb release's "nose down" nag was the first line in the frame loop to
-// reach for it, so pressing FIRE with bombs selected out of a dive killed the sim every time. The
-// missile path next to it had `if (F.toast) F.toast(…)` and was fine, which is the tell — two
-// conventions for one thing, and only one of them works here.
-//
-// So the name resolves from the frame loop too. The closure's own const still SHADOWS this inside
-// the setup function (same behaviour there, no call site changed); out here it routes through the
-// `F.toast` handle that was already being published for exactly this purpose.
+// ⚠ Module-level twin of the setup closure's fsimToast, so a call from fsimFrame isn't a ReferenceError.
 function fsimToast(txt) { try { _fsim?.toast?.(txt); } catch {} }
 
-// THE DIVE GAUGE: a depth column and two ballast tanks. The column is scaled to the deeper of the
-// seabed and her rated depth (plus a margin), so the rating line and the bottom are both on it and
-// the marker has room to go past the rating, which is the one place you need to see it coming.
+// Dive gauge, scaled so the rating line, the seabed and some overrun all fit.
 function drawSubGauge(D) {
   const el = (id) => document.getElementById(id);
   const depth = D.subVis || 0, rating = D.subRating || 25, floor = D.subFloor;
@@ -3489,7 +3279,6 @@ function drawSubGauge(D) {
   const fl = el('fsim-subfloor');
   if (fl) { fl.style.display = floor > 0 ? '' : 'none'; if (floor > 0) fl.style.top = pct(floor); }
   const b = D.ballastVis || 0;
-  // A tank fills from the bottom; the surface inside it sloshes while the water is moving.
   const moving = (D.ventFlood || 0) + (D.ventBlow || 0);
   const slosh = moving > 0.05 ? Math.sin(performance.now() / 140) * 3 * moving : 0;
   for (const [id, k] of [['fsim-subfill-l', 1], ['fsim-subfill-r', -1]]) {
@@ -3515,8 +3304,7 @@ function drawSubGauge(D) {
   }
 }
 
-// See the note above hudFrame. The body re-arms itself on every path that returns normally, so
-// the wrapper re-arms only when it threw before getting there.
+// See frameFault: the wrapper re-arms only when the body threw.
 function fsimFrame(now) {
   try { fsimFrameBody(now); }
   catch (err) {
@@ -3528,67 +3316,35 @@ function fsimFrameBody(now) {
   const F = _fsim; if (!F) return;
   const root = document.getElementById('fsim-root');
   if (!root) { closeFlightSim(); return; }
-  // Frame delta — drives per-frame input sampling + display smoothing below. The flight
-  // model itself integrates in fixed sub-steps (see the accumulator further down), so a
-  // slightly bigger cap here is safe: it just widens how much sim time one frame may catch up.
   const dt = clampNum((now - F.last) / 1000, 0, 0.25); F.last = now;
   const { s, P, input } = F;
 
-  // Auto-land cinematic: once the Echelon has captured a hovering heli, we hand the whole view over
-  // to a deck-cam that flies her down onto the pad (physics + controls are frozen). Runs its own
-  // render + schedules the next frame, then bails out of the live sim step.
+  // The cinematics freeze physics and render themselves.
   if (F.deckCine) { stepDeckLanding(F, now); F.raf = requestAnimationFrame(fsimFrame); return; }
-  // Crash death-cam: physics is frozen; the cinematic drives its own external render + reports the
-  // crash at the end (which closes the sim). Holds the last frame until the server tears us down.
   if (F.crashCine) { stepCrashBreakup(F, now); F.raf = requestAnimationFrame(fsimFrame); return; }
-  // After the cinematic ends (F.landed) we must NOT resume the live sim for the hand-off beat — that
-  // would repaint the real (still-airborne) craft for a frame and flash "the heli flying after it
-  // landed". Hold the last deck-cam frame (she's on the pad, rotors stopped) until closeFlightSim.
+  // ⚠ Once landed, hold the last frame; resuming the sim would flash the craft airborne again.
   if (F.landed) { F.raf = requestAnimationFrame(fsimFrame); return; }
 
-  // Frame profiling (off by default, free when off — see the profiler block in windshield.js).
-  // `frame` is the WHOLE rAF handler from here down: the first profile run measured
-  // paintWindshield at 25.7ms while the sim ran at 13fps (~77ms/frame), so two thirds of the
-  // frame was somewhere nobody had looked. These phases exist to find it.
-  //
-  // Opened AFTER the three cinematic early-returns above deliberately — a perfBegin before them
-  // would leak an unclosed stack entry every cinematic frame and quietly corrupt the table.
+  // ⚠ Opened after the early returns above, or each cinematic frame leaks an unclosed perf entry.
   perfBegin('frame');
 
-  // The mouse stick does its own work in the move handler — this is only the optional sprung
-  // return, which is off by default. See mousestick.js.
   mouseStick.step(dt);
-  // Yoke springs to centre when released. ⚠ AND AN ARMED STICK IS A HAND ON THE YOKE — without
-  // that term the spring pulls toward zero on every frame while the mouse pushes back, so the
-  // column settles somewhere between the two, which reads as the mouse having about half the
-  // authority the pad has AND as something quietly dragging it home. That is exactly the
-  // complaint the whole control was rewritten over; the spring only gets the column back once the
-  // mouse has been handed in.
+  // Yoke springs to centre when released. ⚠ An armed stick counts as a hand on it, or the spring fights the mouse.
   const stickOn = mouseStick.armed && !F.yokeDrag;
   if (!F.yokeDrag && !stickOn) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
-  // ⚠ THE PAD STILL WINS. Both write the same two fields, so the last writer is the one that
-  // flies — and a pilot who grabs the physical yoke while the glass is armed means the yoke.
+  // ⚠ The yoke pad wins over the armed stick.
   if (stickOn) { input.aileron = mouseStick.x; input.elevator = mouseStick.y; }
-  // The dive computer commands the elevator AFTER the spring and BEFORE the model — so a hand on
-  // the yoke (which holds yokeDrag, skipping the spring above) is the last word, and everything
-  // downstream sees one ordinary elevator input. See toggleDiveAuto.
-  freeCam.step(dt);   // the camera flies on the same clock the aircraft does
-  // ⚠ AN ARMED STICK IS NOT A HAND ON THE YOKE FOR THIS ONE, A DEFLECTED ONE IS. Arming is a mode
-  // and holding the pad is a grip: cancelling the dive computer the instant somebody switches
-  // control schemes would make the two features unusable together, while a stick actually pushed
-  // off centre is the pilot taking it back — which is exactly what `yokeDrag` means here.
+  freeCam.step(dt);
+  // Dive computer: after the spring, before the model. ⚠ A deflected stick cancels it; merely armed doesn't.
   const handOn = F.yokeDrag || mouseStick.deflected;
   if (F.diveAuto && !handOn) F.flyDiveAuto(F.s, input, dt);
   else if (F.diveAuto && handOn) { F.diveAuto = null; fsimToast('◇ DIVE COMPUTER OFF: you have it'); }
-  // The button follows the state rather than the click, because the state changes on its own —
-  // at the release, at the recovery, and the moment a hand touches the yoke.
+  // The button follows the state, which changes on its own.
   if (F.diveAuto !== F._diveBtnState) {
     F._diveBtnState = F.diveAuto;
     const db = document.getElementById('fsim-divebtn');
     if (db) { db.classList.toggle('hot', !!F.diveAuto); db.textContent = F.diveAuto === 'pull' ? '⤴ PULL' : '⤵ DIVE'; }
   }
-  // External-view orbit LOCKS wherever you left it (no spring-back). The ⟲ reset SWINGS it home:
-  // ease the yaw/elevation/zoom back to the resting behind-and-above pose, then settle exactly.
   if (F.orbitResetting) {
     const k = Math.min(1, dt * 6);
     F.extOrbit = lerpN(F.extOrbit || 0, 0, k);
@@ -3598,132 +3354,83 @@ function fsimFrameBody(now) {
       F.extOrbit = 0; F.extPitch = REST_PITCH; F.extZoom = 1; F.orbitResetting = false;
     }
   }
-  // Keyboard throttle (A/Z held) ramps the lever ~2s full-sweep.
   if (F.throttleKey) input.throttle = clampNum(input.throttle + F.throttleKey * dt * 0.5, 0, 1);
-  // Pedals held (,/. or X/C): ramp toward the held side, spring to centre on release. The heli
-  // tail rotor yaws the nose in the flight model; on a fixed-wing the model ignores pedal, so this
-  // only swings the rudder surface on the external view. Same ramp either way.
   input.pedal = F.pedalKey ? clampNum(input.pedal + F.pedalKey * dt * 2.2, -1, 1) : lerpN(input.pedal, 0, Math.min(1, dt * 12));
-  // Belly-down: gear stowed with weight on the wheels. She's grinding on her keel — no wheels to
-  // roll on, so no thrust reaches the ground and she can't move or take off until the gear's back
-  // down (or you ABORT for a tow). This is the punishment for raising the gear parked/rolling.
-  // ⚠ EXCEPT A DRAKE ON THE WATER, which is afloat on her hull and drives on her pusher (drake-water.js).
+  // Gear up on the ground: no thrust until it's down. ⚠ Not a Drake on the water.
   const bellyDown = s.onGround && F.gearRetract && F.gearUp && !(F.dk && F.dk.onWater);
-  // Visor lock: the Leviathan can't ROLL until its cargo nose is closed and locked forward. The
-  // engines still light and idle while it's open, but the THROTTLE IS BAULKED at idle — a real
-  // interlock holds the levers, it doesn't let you firewall them into a load of thrust that quietly
-  // goes nowhere. (Severing thrust alone, which is what `noThrust` does below, left the lever free
-  // to sit at 100% doing nothing, which reads as a broken aeroplane rather than a locked one.)
-  // `noThrust` stays as the backstop. No visor → always "locked".
+  // Open cargo nose: the throttle is baulked at idle (noThrust is the backstop).
   const visorLocked = !F.hasVisor || (F.noseVisor ?? 0) <= 0.02;
   if (!visorLocked) {
     if ((input.throttle > 0.02 || F.throttleKey > 0) && !(F.visorBaulkT > 0)) {
-      F.visorBaulkT = 2.5;                       // one nudge, then quiet — this fires off a held key
+      F.visorBaulkT = 2.5;                       // one toast per held key
       if (F.toast) F.toast('THROTTLE BAULKED: cargo nose is open.');
     }
-    input.throttle = 0; F.throttleKey = 0;       // levers held at idle until the nose locks forward
+    input.throttle = 0; F.throttleKey = 0;
   }
   if (F.visorBaulkT > 0) F.visorBaulkT = Math.max(0, F.visorBaulkT - dt);
-  // Effective throttle: the lever always moves, but there's no thrust unless the
-  // engine master switch is on and the tank isn't dry (dead stick) — and never on the belly.
   const thr = (F.engineOn && !F.deadStick && !bellyDown) ? input.throttle : 0;
 
-  // Sample the atmosphere from the live weather → wind vector + turbulence intensity.
-  // (Sampled once per rendered frame and held across the fixed sub-steps below.)
+  // Weather and thermals are sampled once per frame and held across the sub-steps.
   const atmos = F.atmos = weatherAtmos(F, now);
-  // Thermals: the vertical air at our position this frame (ft/min), from the same pure field the
-  // server bounds engine-off climb against. Held across the sub-steps like the wind. A column's
-  // edge is where real air is roughest, so the lift also adds a little turbulence.
-  // The audio vario, switched on when a pilot would have it: engine off or throttle back, which is
-  // when she is soaring rather than being flown on power.
+  // Thermal lift uses the same field the server bounds engine-off climb with. Vario only when soaring.
   varioTick(s.vs, !s.onGround && (!F.engineOn || F.deadStick || (F.input?.throttle ?? 1) <= 0.25));
   F.lift = s.onGround ? 0 : thermalLift(F.pos.x, F.pos.y, s.altitude || 0, Date.now(), F.sky, (x, y) => heatOfCell(mapCellAt(F, x, y)));
-  window.__thermalHere = { lift: F.lift, alt: s.altitude || 0, vs: s.vs || 0, at: Date.now() };   // read by `.thermals`
+  window.__thermalHere = { lift: F.lift, alt: s.altitude || 0, vs: s.vs || 0, at: Date.now() };   // read by `thermals`
   if (F.lift) atmos.turb = Math.min(1, atmos.turb + Math.min(0.28, Math.abs(F.lift) / 2200));
 
   // ── Fixed-timestep physics ────────────────────────────────────────────────────
-  // The flight model + turbulence + world translation advance in fixed 1/60 s slices, so
-  // handling is identical at 30/60/144 fps and the sim stays deterministic (which helps
-  // server reconciliation). Input + weather are sampled once per frame (above); collision,
-  // phase transitions and rendering happen once per frame (below, on the settled state).
-  // Leftover time carries in F.acc, capped at 0.5 s and 8 steps so a long tab-stall drains
-  // instead of spiralling.
+  // Fixed 1/60 s steps so handling is frame-rate independent; capped at 0.5 s and 8 steps after a stall.
   const FIXED = 1 / 60;
-  // Where the ground is this frame. Zero everywhere but a rooftop pad we are still standing on.
   s.groundFt = deckFloorFt(F, s);
   F.acc = Math.min((F.acc || 0) + dt, 0.5);
   let nSteps = 0;
   perfBegin('sim:physics');
   while (F.acc >= FIXED && nSteps < 8) {
     const h = FIXED;
-    // gear: extended fraction of RETRACTABLE gear (1 = down/locked, 0 = up) — feeds the model's
-    // gear-drag term so leaving the wheels down bleeds speed. Fixed-gear craft report 0 (their
-    // gear drag is already baked into dragP), so they take no extra penalty.
-    // collRaw + power let the heli model autorotate: the collective lever keeps working with the
-    // engine dead (power=false), so a rotor-out descent is flyable to a flared touchdown. Fixed-wing
-    // ignores both. power gates on engine master / dead-stick / belly (same conditions that gate thr).
+    // gear: fixed gear reports 0 (its drag is in dragP). collRaw and power let a heli autorotate.
     step(s, { lift: F.lift || 0, elevator: input.elevator, aileron: input.aileron, throttle: thr, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), noThrust: !visorLocked, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
-    // BOAT / SUB (the Drake): the tail rotor is a pusher. She stays on (or in) the water whatever the
-    // collective asks for, the throttle sets her speed and the pedals and stick steer her. Leaving
-    // takes the HELI gate, which clears D.boat.
+    // BOAT / SUB: the tail rotor pushes, the throttle sets speed, pedals and stick steer.
     if (F.dk?.boat && (F.dk.onWater || F.waterBelow) && F.engineOn && !F.deadStick) {
       const under = F.dk.submerged > 0, vmax = under ? SUB_MAX_KT : BOAT_MAX_KT;
       s.onGround = true; s.vs = 0; s.altitude = s.groundFt || 0; s.bank = 0;
-      // ── UNDER THE WATER SHE FLIES LIKE DESCENT ──────────────────────────────
-      // The yoke points her nose anywhere — back to climb, forward to dive, over to turn — and holds
-      // where it is left; the throttle drives her along the way she points. How much of that way is
-      // up or down becomes the ballast order (D.subVz, sent as planes below), so the pilot never works
-      // the tanks. The trim wheel stays the quick straight dive or rise on top of it.
+      // Under water the yoke points the nose and it holds; the vertical part of travel becomes the
+      // ballast order (D.subVz), so the pilot never works the tanks.
       const D = F.dk;
       if (under) D.subPitch = clampNum((D.subPitch || 0) + (input.elevator || 0) * 55 * h, -75, 75);
       else D.subPitch = (D.subPitch || 0) * Math.max(0, 1 - h * 2);
       s.pitch = D.subPitch;
       const pr = D.subPitch * Math.PI / 180, v = (input.throttle || 0) * vmax;
-      // Nose down on the bottom, the way down is shut: what the throttle can't spend going deeper
-      // it spends going along, so she slides over the seabed instead of stalling on it.
+      // Nose down on the seabed: she slides along it.
       const onBottom = under && D.subPitch < 0 && D.subFloor != null && D.submerged >= D.subFloor - 1.1;
       const along = under ? (onBottom ? 1 : Math.cos(pr)) : 1;
       s.airspeed += (v * along - s.airspeed) * Math.min(1, h * (under ? 0.8 : 0.5));
-      // Metres a second up (+) or down (−) along her nose: 1 kt is 0.514 m/s.
       D.subVz = under ? v * 0.514 * Math.sin(pr) : 0;
       const steer = clampNum((input.pedal || 0) + (input.aileron || 0), -1, 1);
-      // A submarine turns on the spot; a hull on the surface needs way on to answer the helm.
+      // Submerged she turns on the spot; on the surface she needs way on.
       const bite = under ? 1 : Math.min(1, (Math.abs(s.airspeed) + 3) / 14);
       s.heading = ((s.heading + steer * (under ? 40 : 34) * bite * h) % 360 + 360) % 360;
     }
 
-    // Model events. OVER-G: the airframe groans and the master lamp calls it — the flight model
-    // now derives a real load factor from the angle of attack (flight-model.js §6a), so hauling
-    // the wings off her is finally something you can do, and hear.
     for (const ev of (s.events || [])) {
       if (ev.type === 'overg') { creak('stress'); F.overGLamp = 1.4; F.shake = Math.max(F.shake, 5); }
     }
     if (F.overGLamp > 0) F.overGLamp = Math.max(0, F.overGLamp - h);
 
-    // Turbulence: the air disturbs the AIRCRAFT (you correct it), it never cheats the physics.
-    // Deterministic summed-sine "noise" (no RNG) rolls/pitches you and bumps lift, ∝ severity.
+    // Turbulence disturbs the attitude, never the physics. Deterministic sines, no RNG.
     if (atmos.turb > 0.01 && !s.onGround) {
       const t = now * 0.001, g = atmos.turb;
       const nRoll = Math.sin(t * 3.1) + 0.6 * Math.sin(t * 7.7 + 2) + 0.8 * Math.sin(t * 1.3);
       const nPitch = Math.sin(t * 2.3 + 1.5) + 0.6 * Math.sin(t * 5.1 + 0.7);
       s.bank = clampNum(s.bank + nRoll * g * 5.5 * h, -70, 70);
       s.pitch = clampNum(s.pitch + nPitch * g * 3.5 * h, -35, 35);
-      s.vs += nRoll * g * 130 * h;                              // gusty lift / ballooning
+      s.vs += nRoll * g * 130 * h;
     }
 
-    // Move through the world whenever rolling or flying — the takeoff roll translates
-    // you forward down the runway (buildings grow and pass); liftoff just adds altitude.
-    // Guard on |airspeed| so a heli backing up (aft cyclic → negative airspeed) actually
-    // slides rearward: the velocity below already carries the sign, so this gate just has
-    // to admit it. Without the abs a nose-up hover pitches back but never moves.
+    // |airspeed|, so a heli backing up moves rearward.
     if (Math.abs(s.airspeed) > 0.5) {
-      // Ground pace is quick so you actually roll down the runway, then decays FAST with altitude
-      // (exp, groundDecay-ft e-fold), and the cruise stretch comes in higher up (paceAt).
       const pace = paceAt(s.altitude, P.worldPaceMult || 1);
-      const d = Math.abs(s.airspeed) * pace * h, hr = s.heading * Math.PI / 180;   // odometer distance is magnitude — backing up shouldn't wind travel/rollDist backwards
-      // Ground track = air velocity + wind (airborne only — on the wheels the gear holds you to
-      // the ground). A crosswind drifts you off the runway centreline; a head/tailwind slows/speeds
-      // your progress over the ground while airspeed (through the air) is unchanged.
+      const d = Math.abs(s.airspeed) * pace * h, hr = s.heading * Math.PI / 180;   // odometer is magnitude
+      // Wind drifts the ground track only when airborne.
       let vx = Math.sin(hr) * s.airspeed, vy = -Math.cos(hr) * s.airspeed;
       if (!s.onGround && atmos.windKt > 0.2) { const wr = atmos.windDir * Math.PI / 180; vx += Math.sin(wr) * atmos.windKt; vy += -Math.cos(wr) * atmos.windKt; }
       F.pos.x += vx * pace * h; F.pos.y += vy * pace * h;
@@ -3734,47 +3441,34 @@ function fsimFrameBody(now) {
   }
   perfEnd();   // sim:physics
 
-  // Gear position eases toward its target (0 = up/stowed, 1 = down/locked) over ~1.6s so the
-  // external view shows it swinging out and tucking away, not snapping.
+  // Gear eases 0 (up) to 1 (down).
   if (F.gearRetract && F.dk) {
-    // The Drake's gear runs at a constant rate (3 s end to end) so the doors, the slide and the lock
-    // land where the sound puts them; the mesh sequences them off this one number.
-    // The feet stay in the bay on the water: she floats and drives on her hull.
+    // The Drake's runs at a constant 3 s so the mesh sequence matches the sound.
     const tgt = F.gearUp ? 0 : 1, g0 = F.gearAnim ?? 1;
     F.gearAnim = g0 + clampNum(tgt - g0, -dt / 3, dt / 3);
   } else if (F.gearRetract) { const tgt = F.gearUp ? 0 : 1; F.gearAnim = lerpN(F.gearAnim ?? 1, tgt, Math.min(1, dt / 1.6)); }
   if (F.dk) {
     const D = F.dk;
-    D.conv += clampNum((D.wing ? 1 : 0) - D.conv, -dt / 7, dt / 7);      // seven seconds end to end
+    D.conv += clampNum((D.wing ? 1 : 0) - D.conv, -dt / 7, dt / 7);      // 7 s end to end
     D.ramp += clampNum((D.rampOpen ? 1 : 0) - D.ramp, -dt / 4, dt / 4);
     const want = D.conv >= 0.5 ? D.wingP : D.rotorP;
     if (want && F.P !== want) { F.P = want; F.heli = !!want.heli; }
   }
   else F.gearAnim = 1;
 
-  // Leviathan cargo visor nose: parked with the engine shut down the whole forward section hinges
-  // fully UP (~90°), exposing the hold + ramp; powering on lowers it home. LINEAR travel over a
-  // full 5s (a big hydraulic visor is slow, and it must read as a deliberate ~5s close after you
-  // hit power), so both the external model and the cockpit camera swing at a steady rate, not an
-  // ease-out that finishes early. Only the heavy (Leviathan) mesh has a visor.
+  // Leviathan cargo visor: open when cold and parked, linear 5 s travel.
   if (F.hasVisor === undefined) F.hasVisor = !!visorSpecFor(F.cls);
   if (F.hasVisor) {
-    // Target: the manual switch wins while she's stopped on the ground, otherwise the automatic rule
-    // (cold and parked ⇒ open). Any movement drops the override, so a nose left open by the switch
-    // closes itself the moment you roll rather than latching open forever.
+    // The switch wins while parked; any movement drops the override.
     const parked = s.onGround && s.airspeed < 5;
     if (!parked) F.visorWant = null;
     const tgt = (parked && F.visorWant != null) ? F.visorWant : ((!F.engineOn && parked) ? 1 : 0);
-    if (F.noseVisor === undefined) F.noseVisor = tgt;   // already raised if you board her cold — no start-up sweep
-    const stepV = dt / 5;                               // 0→1 (or 1→0) in five seconds flat
+    if (F.noseVisor === undefined) F.noseVisor = tgt;   // no sweep on boarding
+    const stepV = dt / 5;
     const wasOpen = F.noseVisor > 0.02;
     F.noseVisor = F.noseVisor < tgt ? Math.min(tgt, F.noseVisor + stepV) : Math.max(tgt, F.noseVisor - stepV);
-    // The moment the lock takes is the moment thrust reaches the ground, so it gets its own call —
-    // otherwise the five seconds end in silence and you're left guessing whether you may roll.
     if (wasOpen && F.noseVisor <= 0.02) { if (F.toast) F.toast('NOSE LOCKED: cleared to taxi.'); }
-    // Switch LED follows the actual visor, not the request, so it reads as a state lamp during the
-    // five-second travel rather than snapping the moment you press it. Element cached — this runs
-    // every frame.
+    // The LED follows the visor, not the request.
     if (F._visorBtn === undefined) F._visorBtn = document.getElementById('fsim-visorsw');
     if (F._visorBtn) F._visorBtn.classList.toggle('on', F.noseVisor > 0.02);
     if (F._thrBox === undefined) F._thrBox = document.getElementById('fsim-thr');
@@ -3782,22 +3476,15 @@ function fsimFrameBody(now) {
   }
 
   // ── Rooftop helideck auto-land ────────────────────────────────────────────────────
-  // A rooftop pad is the one place in the city where you WANT to end up on top of a building,
-  // and every other system here exists to stop that happening (CFIT). So the pad gets the
-  // Echelon's contract instead: fly into the drawn catch column and the deck takes you down.
-  // The lock overrides the flight model for the last few seconds — CFIT is suppressed with it,
-  // because the tower we're descending onto is the destination, not an obstacle.
+  // Fly into the catch column and the deck brings you down; CFIT is suppressed during the lock.
   const roofProx = (F.heli && !F.landed && !F.deckCine && F.reportedAirborne) ? padProximity(F) : null;
   const roofCeil = roofProx ? padCeilFt(roofProx.padZ, roofProx.padFt) : 0;
-  // Arrival or departure — the whole decision, in pad-catch.js so it can be held to a headless
-  // gate. The departure latch is the Echelon's contract (lifting off a pad flies you straight up
-  // through its own catch column, and without a latch the climb-out is grabbed and set back down);
-  // what that file adds is the two buffers a boolean latch could never carry — see its header.
+  // The arrive/depart decision lives in pad-catch.js, under a headless gate.
   const roofStep = padCatchStep(F.roofDeparted, roofProx, roofCeil, s, ROOF_CATCH_R);
   F.roofDeparted = roofStep.departed;
   const roofArmed = roofStep.armed;
-  F.roofPadShow = !!(roofProx && roofProx.dist <= 3.5);   // the column is drawn from a way out — it's guidance
-  F.roofPadArmed = roofArmed;   // the column only lights when it will actually take you — on the way up it stays dark
+  F.roofPadShow = !!(roofProx && roofProx.dist <= 3.5);
+  F.roofPadArmed = roofArmed;   // lit only when it will take you
   if (roofProx && !F.roofLock && !roofArmed && !F.roofNoticed && F.roofDeparted === true
       && roofProx.dist <= ROOF_CATCH_R * 1.6 && s.altitude > roofProx.padFt + roofCeil
       && s.altitude <= roofProx.padFt + roofCeil + 160) {
@@ -3808,11 +3495,7 @@ function fsimFrameBody(now) {
   if (F.roofLock) { stepRoofLanding(F, s, now); F.cfitCd = Math.max(F.cfitCd || 0, 1); }
   else if (!roofProx) F.roofNoticed = false;
 
-  // ── Building collision (CFIT) — flying into a tower you can see out the glass ─────
-  // Checks the aircraft's swept path this frame against the deterministic building geometry
-  // the windshield is drawing. A deep/fast hit writes her off (crash cfit); a shallow clip of
-  // the roofline is a hard jolt + real hull damage you fly out of (clip). Debounced so one
-  // rooftop doesn't bill every frame; suppressed once she's already gone in.
+  // ── Building collision (CFIT) ─────────────────────────────────────────────
   perfBegin('sim:cfit');
   if (!s.onGround && !(F.cfitCd > 0)) {
     const hit = buildingCollisionAt(F, s);
@@ -3820,18 +3503,14 @@ function fsimFrameBody(now) {
       F.cfitCd = 9999; F.reportedAirborne = false; F.rolling = false;
       groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
       F.shake = 20;
-      beginCrashBreakup(F, 'cfit');   // death cam: she comes apart before the crash is reported
+      beginCrashBreakup(F, 'cfit');
       if (F.toast) F.toast('CRASH: you flew into a building');
     } else if (hit) {
-      // A crawling contact — the only survivable one. She BOUNCES: shoved back the way she came
-      // and stopped dead, with a scrape's worth of damage. Deliberately a positional shove rather
-      // than the old "pop up to the roofline", which would have thrown a heli hovering beside a
-      // tower straight up onto its roof — the point here is to be kept OUT of the structure, not
-      // lifted over it.
+      // A slow contact bounces: shoved back along the track, never popped up onto the roof.
       F.cfitCd = 1.6;
       F.hull = Math.max(0, (F.hull || 100) - 6); F.hitFlashT = performance.now();
       const hd = (s.heading || 0) * Math.PI / 180;
-      F.pos.x -= Math.sin(hd) * 0.16; F.pos.y += Math.cos(hd) * 0.16;   // back off along our own track
+      F.pos.x -= Math.sin(hd) * 0.16; F.pos.y += Math.cos(hd) * 0.16;
       s.airspeed = 0; s.vs = Math.min(s.vs, 0);
       s.bank = clampNum(s.bank + (s.bank >= 0 ? 6 : -6), -70, 70);
       groundFx('touchdownHard'); csfx('flight-touchdown', 'hololock-lose');
@@ -3843,55 +3522,38 @@ function fsimFrameBody(now) {
   if (F.cfitCd > 0 && F.cfitCd < 9999) F.cfitCd = Math.max(0, F.cfitCd - dt);
   F.cfitPrev = { x: F.pos.x, y: F.pos.y };
   perfEnd();   // sim:cfit
-  // Everything between collision and the repaint: transitions, autopilot/guidance, targeting,
-  // engine audio, gauge smoothing and the instrument DOM writes. ~400 lines that nothing had ever
-  // timed, and the largest un-phased block in the handler — so if the missing two thirds of the
-  // frame is anywhere, the arithmetic says look here first. (No early returns in this range, so
-  // the phase always closes.)
+  // ⚠ No early returns until this phase closes.
   perfBegin('sim:systems');
 
-  // THE DRAKE ON THE WATER (drake-water.js): the feet read the water, go forward as skis, skid and
-  // then paddle; the sea under her drags, rocks and — hit hard enough — hurts her.
+  // The Drake on the water (drake-water.js).
   if (F.dk) {
-    // Over water by EITHER account: the server's biome, or the depth the client's seabed window reads under
-    // her. The server fills its answer from map tiles, so past the edge of the map it said nothing and
-    // she was never on the water — BOAT refused and a plane landing never became one.
+    // ⚠ Water by the server's biome OR the client's seabed depth: past the map edge the biome says nothing.
     { const dm = depthMAt(F.pos.x + 0.5, F.pos.y + 0.5); F.waterBelow = F.biomeBelow === 'water' || (dm != null && dm > 0.3); }
     const pace = RENDER_TUNE.worldPace * (P.worldPaceMult || 1) * RENDER_TUNE.groundBoost;
     const wr = drakeWaterFrame(F, s, dt, Date.now(), drakeSeaAmps(F), pace);
     F.dk.ride = wr.ride;
     F.dk.flarePitch = wr.flare;
-    // ── THE CROSSING (plugins/submersible) ───────────────────────────────────
-    // The server steps her depth once a second; the eye must not. `subVis` eases toward it, and
-    // SLOWLY near the surface: settling awash and breaking out both take seconds, which is most of
-    // what makes the crossing feel like a hull full of water rather than a camera cut.
-    // WHERE the eye crosses is the renderer's to say (windshield.js knows the eye's real height in
-    // this view, cockpit or chase), so the sounds follow its `subCrossing()` rather than a guess here.
+    // The surface crossing: subVis eases toward the server's per-second depth, slowly in the top 2 m.
+    // Where the eye crosses is windshield.js's call (subCrossing).
     {
-      const D = F.dk, SLOW_M = 2.0;   // the top two metres, where settling and breaking out take seconds
+      const D = F.dk, SLOW_M = 2.0;
       const target = D.submerged || 0;
       let vis = D.subVis || 0;
       const nearTop = vis < SLOW_M;
       vis += clampNum(target - vis, -(nearTop ? 0.55 : 3.2) * dt, (nearTop ? 0.4 : 2.4) * dt);
       if (target <= 0 && vis < 0.01) vis = 0;
       D.subVis = vis;
-      // Afloat she sits DOWN in the water (drakeFloat, windshield.js) and the gun stubs swing up clear of it
-      // (the 'boat' anim channel). Eased so a set-down settles rather than snapping.
+      // Afloat she sits down in the water and the gun stubs swing up ('boat' channel).
       D.floatVis = (D.floatVis || 0) + clampNum((D.onWater || D.boat || vis > 0 || (F.waterBelow && !F.onYacht && (s.altitude || 0) - (s.groundFt || 0) < 4) ? 1 : 0) - (D.floatVis || 0), -dt * 0.8, dt * 0.8);
       const cr = subCrossing(), eyeUnder = !!cr.under, was = !!D.eyeUnder;
-      // The plunge/breach sounds are played off windshield.js's 'sea:crossing' event now
-      // (engine-audio.js crossingFx), scaled by speed x mass and shared with every seat.
+      // Plunge/breach sounds come off the 'sea:crossing' event (engine-audio.js crossingFx).
       D.eyeUnder = eyeUnder;
-      // The engine heard through the water: eased, never switched.
       D.uw = (D.uw || 0) + clampNum((eyeUnder ? 1 : 0) - (D.uw || 0), -dt * 1.5, dt * 2.5);
     }
-    // THE BALLAST, animated. The server reports the tanks once a second; between reports the gauge
-    // and the vents run toward full or empty at the server's own rates, starting the moment the
-    // button is pressed (`subBlowLocal`) rather than a second later. A report that disagrees by
-    // more than a quarter snaps it back, so the picture cannot wander from the arithmetic.
+    // Ballast animates at the server's rates between reports; a report off by more than a quarter snaps it.
     {
       const D = F.dk;
-      // Asked to dive and nothing came back: the server said no, so stop filling tanks it never flooded.
+      // A dive request with no answer was refused.
       if (D.subBlowLocal === false && !(D.submerged > 0) && D.subAskAt && performance.now() - D.subAskAt > 3000) {
         D.subBlowLocal = null; D.subAskAt = 0; D.subPending = null;
         fsimToast(F.engineOn ? 'SUB: she would not go under' : 'SUB: start the engine first');
@@ -3903,25 +3565,18 @@ function fsimFrameBody(now) {
       const prev = b;
       b += clampNum(want - b, -dt / (D.subBlowS || 3), dt / (D.subFloodS || 4));
       D.ballastVis = b;
-      // Which way the water is moving through the vents, 0..1: the 3-D view hangs bubbles off it.
+      // Vent flow 0..1; the 3-D view hangs bubbles off it.
       D.ventFlood = b > prev ? Math.min(1, (b - prev) / dt * (D.subFloodS || 4)) : 0;
       D.ventBlow = b < prev ? Math.min(1, (prev - b) / dt * (D.subBlowS || 3)) : 0;
     }
-    // THE DIVE PLANES. With the tanks flooded the stick flies her depth: pull back to rise, push to
-    // dive, centre to hold. Scaled by how much way she has on (planes need water moving over them),
-    // but never to nothing, or a stopped Drake could not be steered at all. The server owns the
-    // depth, so this sends an order: on a real change, and again every second while held, because
-    // the server drops an order it has not heard renewed (sub.js PLANES_STALE_S).
+    // Dive planes. ⚠ Resent every second while held: the server drops an unrenewed order (PLANES_STALE_S).
     {
       const D = F.dk;
       const flooded = D.submerged > 0 && !(D.subBlowLocal ?? D.subBlow ?? true);
-      // DEPTH IS THE TRIM WHEEL: how far off the middle sets how fast she dives (nose down) or rises
-      // (nose up); centred holds depth. The yoke drives her round instead (see BOAT / SUB above). The
-      // ballast follows by itself: trimmed down with the tanks blown, they flood again.
+      // Trim sets the dive or rise rate, plus the vertical share of the yoke-pointed travel.
+      // Trimming down with the tanks blown floods them again.
       const under = D.submerged > 0;
-      // The trim wheel is the full rate (plugins/submersible PLANE_MS, 5 m/s); the way the nose points
-      // under throttle can use all of it, so a pointed dive moves along the nose at the throttle's speed
-      // (Descent-style) rather than losing the vertical share to a cap.
+      // Mirrors PLANE_MS in plugins/submersible (m/s).
       const PL_MS = 5;
       const yokePl = clampNum(-(D.subVz || 0) / PL_MS, -1, 1);
       let pl = under ? clampNum(-clampNum((input.trim || 0) / (F.TRIM_MAX || 0.6), -1, 1) + yokePl, -1, 1) : 0;
@@ -3940,7 +3595,6 @@ function fsimFrameBody(now) {
       } else if (!flooded) D.planesSent = 0;
       D.planesVis = pl;
     }
-    // DIVE / SURFACE: shown whenever she is on or under the water; the readout is the server's.
     {
       const box = document.getElementById('fsim-sub');
       const inWater = F.dk.onWater || F.dk.submerged > 0;
@@ -3960,15 +3614,12 @@ function fsimFrameBody(now) {
       }
     }
     if (wr.drag && s.onGround && s.airspeed > 0) s.airspeed = Math.max(0, s.airspeed - wr.drag * dt);
-    // Feet out, low over water on the way down: she lands on her hull, so say so.
     F.dk.gearWarnT = (F.dk.gearWarnT || 0) - dt;
     if (wr.gearWarn && F.dk.gearWarnT <= 0) { F.dk.gearWarnT = 6; if (F.toast) F.toast('⚠ GEAR DOWN OVER WATER: raise it, she lands on her hull'); }
-    // Off the water, BOAT is over.
     if (F.dk.boat && !F.waterBelow && !(F.dk.submerged > 0)) F.dk.boat = false;
-    // Setting down on the water does NOT change mode: BOAT is the pilot's call, from the lever (the
-    // touchdown toast says "BOAT to drive"). SUB stays gated on BOAT (drakeModeReady(3)).
+    // Setting down on water never changes mode; BOAT is the pilot's call.
     if (wr.snap) drakeSnapFeet(F);
-    // Coming down on land with the feet tucked: warn, never lower them for the pilot.
+    // Feet up over land: warn, never lower them for the pilot.
     F.dk.feetWarnT = (F.dk.feetWarnT || 0) - dt;
     if (wr.autoGearDown && F.dk.feetWarnT <= 0) { F.dk.feetWarnT = 6; if (F.toast) F.toast('⚠ FEET UP OVER LAND: lower the gear'); }
     if (wr.hullPct) {
@@ -3978,28 +3629,16 @@ function fsimFrameBody(now) {
     }
   }
 
-  // Transitions → tell the server. Track descent rate while airborne so touchdown knows
-  // how hard the arrival was (soft squeak vs firm thump).
+  // Transitions to the server; sink rate is tracked for the touchdown.
   if (!s.onGround) { F.touchVs = s.vs; F.peakAltSinceLift = Math.max(F.peakAltSinceLift || 0, s.altitude); }
   if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; F.rolling = false; F.peakAltSinceLift = s.altitude; F.liftFloorFt = s.groundFt || 0; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
   if (s.onGround && F.reportedAirborne) {
     F.reportedAirborne = false;
-    const sinkFpm = -(F.touchVs || 0);   // descent rate at contact (ft/min; +ve = sinking)
-    // A shaky rotation can hop the aircraft a few feet up and straight back down before it's
-    // really established a climb — that's a rejected-takeoff bounce, not a hard landing, so
-    // don't let its (very real, very fast) sink rate write the plane off. Only arm the
-    // hard-landing crash check once she's actually climbed clear of the ground.
-    // ⚠ HEIGHT ABOVE THE DECK SHE LEFT, not altitude. Off a rooftop pad the peak opens seventeen
-    // hundred feet up and an absolute test is true before the skids are clear, which arms the
-    // write-off check on the very bounce it exists to forgive.
+    const sinkFpm = -(F.touchVs || 0);   // ft/min, positive sinking
+    // A takeoff bounce isn't a landing: the crash checks arm only after 25 ft of climb.
+    // ⚠ Measured above the deck she left, never absolute altitude (rooftop pads).
     const establishedClimb = (F.peakAltSinceLift || 0) - (F.liftFloorFt || 0) >= 25;
-    // The Echelon sits on a water tile (her district is water), so a set-down on OR alongside her
-    // reads as "over water" — but that's the helipad, not a ditching. F.onYacht suppresses the
-    // ditch so the touchdown rolls through to the auto-land path below (server snaps it to the pad).
-    // ⚠ EXCEPT THE DRAKE, WHICH FLOATS: a boat hull and paddle feet, so a gentle set-down on water
-    // is a landing like any other. Too hard is still a ditching, hull or no hull.
-    // ⚠ EXCEPT THE DRAKE, WHICH FLOATS: a boat hull and paddle feet, judged by drake-water.js —
-    // feet out skid in like a duck, gear up is a belly landing, and only a real smash is a ditching.
+    // Water is a ditching, except at the Echelon (F.onYacht) and for the Drake, judged by drake-water.js.
     const dkWater = !!(F.dk && (F.waterBelow ?? F.biomeBelow === 'water') && !F.onYacht);
     const dkV = dkWater ? judgeWaterTouchdown({ sinkFpm, kt: s.airspeed, gearDown: !F.gearRetract || !F.gearUp, feetGone: !!F.dk.feetGone, rough: seaRough(drakeSeaAmps(F)) }) : null;
     const overWater = F.biomeBelow === 'water' && !F.onYacht && !(dkV && !dkV.ditch);
@@ -4012,92 +3651,61 @@ function fsimFrameBody(now) {
     }
     sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} 0 1 0`);
     if (overWater && establishedClimb) {
-      // Touched down on open water — nothing in the fleet floats, so it's an instant ditching,
-      // not a landing. (Only once she's actually flown, so a bounce over a bay tile on the
-      // takeoff roll doesn't count.) The server sinks the craft + closes the sim.
       F.rolling = false;
       groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
       F.shake = 16;
-      beginCrashBreakup(F, 'ditched');   // death cam shows her break up, then reports + shows the card
+      beginCrashBreakup(F, 'ditched');
       if (F.toast) F.toast('CRASH: you ditched in the water');
     } else if (sinkFpm > 800 && establishedClimb && !dkWater) {
-      // Slammed it in — a touchdown sinking faster than 800 fpm breaks the gear/airframe. (Raised
-      // from 600 to make landings more forgiving: a firm arrival now rolls out instead of writing her off.)
-      // Report a crash: the server destroys the craft and closes the sim (cockpit_close).
       F.rolling = false;
       groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
-      F.shake = 18;   // slammed it in — a big jolt
-      beginCrashBreakup(F, 'hardlanding');   // death cam shows her break up, then reports + shows the card
+      F.shake = 18;
+      beginCrashBreakup(F, 'hardlanding');
       if (F.toast) F.toast('CRASH: you slammed it in too hard');
     } else {
-      // Touchdown → keep the sim open and ROLL OUT. We don't park yet: chop the throttle
-      // and hold the yoke back to brake to a stop, then cut the ENGINE to taxi into the
-      // hangar and disembark — or power back up for a touch-and-go. The tile is reported
-      // above so the server marks us grounded (no overfly noise / airspace rules taxiing).
-      // Reuse the same park-on-shutdown flow. A heli sets down vertically (no rollout), so it's
-      // already "stopped" — hint the shutdown straight away; a fixed-wing rolls out first.
+      // Touchdown: the sim stays open for the roll-out (or a touch-and-go).
       F.rolling = true; F.stopHinted = !!F.heli; F.landed = false;
-      groundFx((F.touchVs || 0) < -500 ? 'touchdownHard' : 'touchdown');   // squeak/thump on contact
-      F.shake = clampNum(sinkFpm / 55, 0, 14);   // jolt scales with how hard the wheels hit
-      // GRADE + flash the report card ONLY for a real arrival. A low hop during the takeoff
-      // roll (never climbed clear) is a rejected-takeoff bounce, not a landing — no grade card,
-      // and landGrade stays null so a shutdown here reports no landing.
+      groundFx((F.touchVs || 0) < -500 ? 'touchdownHard' : 'touchdown');
+      F.shake = clampNum(sinkFpm / 55, 0, 14);
+      // Graded only for a real arrival; a takeoff bounce reports no landing.
       if (establishedClimb) {
-        F.landGrade = landingGrade(sinkFpm).grade; F.landFpm = Math.round(sinkFpm);   // reported to the server for landing IP
-        showLandingCard(root, sinkFpm);   // graded report card flashes over the glass
+        F.landGrade = landingGrade(sinkFpm).grade; F.landFpm = Math.round(sinkFpm);
+        showLandingCard(root, sinkFpm);
         if (F.toast) F.toast(F.heli ? 'DOWN: lift off again, or type disembark to climb out' : 'ROLL OUT: brake to a stop, then cut the ENGINE to park');
       } else { F.landGrade = null; F.landFpm = 0; }
     }
   }
-  // Rolled to a stop on the ground → prompt the shutdown that taxis you into the hangar.
+  // Stopped: a fixed-wing at a field parks itself; a heli parks only on the Echelon, else prompt.
   if (F.rolling && s.onGround && s.airspeed < 5) {
-    // A FIXED-WING that's rolled to a stop AT an airfield shuts down and taxis into the hangar
-    // automatically (no manual engine-cut). A HELICOPTER never auto-parks/leaves the sim on
-    // landing — it stays put so the pilot can lift off again or look around, and leaves only by
-    // typing `disembark`. Off-field (a VTOL flared onto open ground) we just prompt the shutdown.
-    // The one exception is the Echelon: a Dragonfly setting down alongside her auto-lands on the
-    // helipad (F.onYacht), so you don't hunt for her exact tile or have to type disembark.
     if ((F.onField && !F.heli) || (F.heli && F.onYacht)) finishLanding(F, s);
     else if (!F.stopHinted) { F.stopHinted = true; if (F.toast) F.toast(F.heli ? 'DOWN: type disembark to climb out' : 'STOPPED: cut the ENGINE to shut down & park'); }
   }
 
-  // Client-side proximity to the pad (real-time, from our smooth position + the streamed window),
-  // so a fast fly-through registers the instant we're over the zone — unlike the server `onYacht`
-  // flag, which arrives on the HUD cadence and lags a quick pass right out of the catch.
+  // Client-side, because the server's onYacht lags a fast pass out of the catch.
   const prox = yachtProximity(F);
   const nearPad = !!(prox && prox.dist <= YACHT_CATCH_RADIUS);
 
-  // Departure latch: after setting down (or being parked) on the Echelon you must actually LEAVE
-  // her before the auto-land can grab you again — otherwise lifting off her pad instantly re-
-  // triggers the capture. You've "departed" once you climb just clear of the catch ceiling OR fly out
-  // of the catch radius. Sitting on her deck disarms it; a fresh airborne approach is armed by default.
-  const YACHT_REARM_FT = YACHT_CATCH_CEIL_FT + 50;   // just above the ~300ft catch ceiling (buffer avoids re-grab chatter at the lip)
-  if (s.onGround && nearPad) F.yachtDeparted = false;              // on her deck → disarm re-grab
-  else if (!nearPad || s.altitude > YACHT_REARM_FT) { F.yachtDeparted = true; F.autoLandNoticed = false; }   // flew clear / climbed just above the catch ceiling — re-arm
+  // ⚠ Departure latch: leave the radius or climb past the ceiling before she can grab you again.
+  const YACHT_REARM_FT = YACHT_CATCH_CEIL_FT + 50;   // buffer against chatter at the lip
+  if (s.onGround && nearPad) F.yachtDeparted = false;
+  else if (!nearPad || s.altitude > YACHT_REARM_FT) { F.yachtDeparted = true; F.autoLandNoticed = false; }
 
-  // Early heads-up just above the drawn catch volume (its top is ~300ft), so the hand-off is never
-  // a surprise.
   if (F.heli && nearPad && F.yachtDeparted && !s.onGround && !F.landed && !F.deckCine && F.reportedAirborne
       && s.altitude <= 440 && s.altitude > YACHT_CATCH_CEIL_FT && !F.autoLandNoticed) {
     F.autoLandNoticed = true;
     if (F.toast) F.toast('⚠ AUTO-LAND ARMING: drop into the green zone over the pad and she\'ll bring you down.');
   }
-  // Capture the MOMENT you fly into the drawn catch volume — over the pad (nearPad) and below its
-  // ~300ft ceiling. NO speed or vertical-rate gate: run straight through it and she takes you. The
-  // only guard is the departure latch (so a takeoff off her own pad doesn't instantly re-grab you).
+  // Capture on entry, with no speed or sink gate.
   if (F.heli && nearPad && F.yachtDeparted && !s.onGround && !F.landed && !F.deckCine && F.reportedAirborne
       && s.altitude <= YACHT_CATCH_CEIL_FT) {
     startDeckLanding(F, s, now, prox);
   }
 
-  // Stall horn (intermittent → continuous).
   fsimHorn(F, dt);
 
   const r = readout(s, P), d = F.disp;
   d.ias = lerpN(d.ias, r.airspeed, Math.min(1, dt * 6)); d.alt = lerpN(d.alt, r.altitude, Math.min(1, dt * 5));
-  // Feed the two big bottom-right gauges. They're shown in external view (the dashboard is
-  // hidden there) and on mobile (the interior dashboard is pared down — these are the legible
-  // speed/altitude readout). Hidden otherwise, so the writes are a harmless no-op on desktop.
+  // The big IAS/ALT gauges show in the external view and on mobile.
   {
     const ig = document.getElementById('fsim-extg-ias'); if (ig) ig.textContent = Math.round(d.ias);
     const ag = document.getElementById('fsim-extg-alt'); if (ag) ag.textContent = Math.round(d.alt);
@@ -4106,28 +3714,24 @@ function fsimFrameBody(now) {
   d.pitch = lerpN(d.pitch, r.pitch, Math.min(1, dt * 10)); d.bank = lerpN(d.bank, r.bank, Math.min(1, dt * 10));
   const dh = ((r.heading - d.hdg + 540) % 360) - 180; d.hdg = (d.hdg + dh * Math.min(1, dt * 6) + 360) % 360;
 
-  // PFD (attitude + speed/altitude tapes + heading + VSI) and MFD (map).
   paintPFD(document.getElementById('fsim-pfd'), {
-    // A Drake on the water rocks with the sea under her (drake-water.js) — the view and the model both.
+    // A Drake on the water rocks with the sea.
     pitch: d.pitch + (F.dk?.onWater && F.dk.ride ? F.dk.ride.pitch : 0) + (F.dk?.flarePitch || 0), bank: d.bank + (F.dk?.onWater && F.dk.ride ? F.dk.ride.roll : 0), ias: d.ias, alt: d.alt, vs: d.vs, hdg: d.hdg, slip: r.slip || 0,
     vr: P.vr, vne: P.vne, vs0: P.vs0, sm: s.stallMargin, fuelPct: Math.round(F.fuel / (F.fuelCap || 1) * 100),
     warn: r.stalled || s.stallMargin < 0.35, bingo: F.fuel <= 0 || F.warn === 'BINGO', night: F.nightLight,
   });
   paintMFD(document.getElementById('fsim-mfd'), F, d);
 
-  // Bottom-left badge sheen tracks the outside light: a bright midday glints off the
-  // metal (--sheen→1), dusk dims it, night kills it. Overcast/precip damps the glint.
+  // Placard sheen tracks daylight and weather.
   if (root) {
     const hr = F.sky?.hour ?? 12;
     const day = clampNum(Math.sin(clampNum((hr - 6) / 12, 0, 1) * Math.PI), 0, 1);
     const wx = (F.sky?.weather || 'clear').toLowerCase();
     const wxMul = wx === 'clear' ? 1 : wx === 'cloudy' ? 0.5 : wx === 'fog' ? 0.28 : 0.4;
-    root.style.setProperty('--sheen', (day * wxMul * 0.42).toFixed(2));   // a restrained glint — the plate reads matte-stamped, not glossy
+    root.style.setProperty('--sheen', (day * wxMul * 0.42).toFixed(2));
   }
 
-  // Cosmetic engine gauges: the sim runs a single rpm, so fan it out across the airframe's
-  // engine count (a slow per-engine wander — real engines never sync perfectly) and give
-  // each its own thermal lag. Twins thus read two live RPM + two temp dials. Dials only.
+  // Cosmetic: the one sim rpm fanned out per engine with a little wander and thermal lag.
   const nEng = Math.max(1, F.engines || 1);
   if (F.rpms.length !== nEng) F.rpms = new Array(nEng).fill(0);
   if (F.temps.length !== nEng) F.temps = new Array(nEng).fill(F.temp || 40);
@@ -4136,32 +3740,27 @@ function fsimFrameBody(now) {
   for (let i = 0; i < nEng; i++) {
     const wob = engRunning ? Math.sin(F.engWander * 1.3 + i * 2.2) * 0.02 : 0;
     F.rpms[i] = clampNum(s.rpm * (1 + wob), 0, 1);
-    F.temps[i] = lerpN(F.temps[i], 40 + F.rpms[i] * 175 + i * 7, Math.min(1, dt * 0.35));   // downstream engines run a touch hotter
+    F.temps[i] = lerpN(F.temps[i], 40 + F.rpms[i] * 175 + i * 7, Math.min(1, dt * 0.35));
   }
-  F.temp = F.temps[0];   // keep the single field in sync for legacy readers
+  F.temp = F.temps[0];
   F.battery = clampNum(F.battery + ((F.engineOn && s.rpm > 0.2) ? 5 : -1.1) * dt, 0, 100);
   paintGauges(document.getElementById('fsim-gauges'), {
     engines: nEng, rpms: F.rpms, temps: F.temps, eng: F.engStyle,
     rpm: F.rpms[0], temp: F.temps[0], ias: r.airspeed, vr: P.vr, vne: P.vne, vs0: P.vs0,
     fuelPct: Math.round(F.fuel / (F.fuelCap || 1) * 100), battery: F.battery,
     stall: r.stalled, warn: r.stalled || s.stallMargin < 0.35, hornBeat: F.hornBeat, night: F.nightLight,
-    lowNr: !!s.lowNr, vrs: !!s.vrs, autorot: !!s.autorot,   // heli: low-rotor-RPM + settling-with-power + autorotation annunciators
-    // Extra panel furniture (annunciator strip · secondary bar gauges · reaper gun/stores):
+    lowNr: !!s.lowNr, vrs: !!s.vrs, autorot: !!s.autorot,   // heli annunciators
     craft: F.craftType, engineOn: F.engineOn, airborne: F.reportedAirborne, prpm: F.rpms[0] || 0,
     gear: F.gearRetract ? (F.gearUp ? 'up' : 'down') : 'fixed',
-    hasVisor: !!F.hasVisor, noseVisor: F.noseVisor ?? 0,   // cargo-nose annunciator (Leviathan): lit until the visor locks forward
+    hasVisor: !!F.hasVisor, noseVisor: F.noseVisor ?? 0,
 
     hardpoints: F.hardpoints, armed: F.armed, weapon: F.weapon, msl: F.msl,
     gunRounds: F.gunRounds, gunCap: F.gunCap,
-    avionicsOut: !!F.avionicsOut,   // EMP — the whole panel is dark
+    avionicsOut: !!F.avionicsOut,   // EMP: the panel is dark
   });
 
-  // Full yoke: roll with aileron + a 3-D pull toward/away with elevator (capped so it
-  // stays in frame). Green light glows near best-climb pull; red light glows on stall.
   const yk = document.getElementById('fsim-yoke-svg');
   if (yk) yk.style.transform = `translateX(${input.aileron * 7}px) translateY(${input.elevator * 18}px) rotateX(${-input.elevator * 34}deg) rotateZ(${input.aileron * 30}deg) scale(${1 + Math.max(0, input.elevator) * 0.2})`;
-  // Rudder pedals tip forward with the live deflection (left plate on <0, right on >0) — the --d
-  // var (0..1) feeds the plate's perspective tilt in CSS, so keyboard + touch read alike.
   const pd = input.pedal || 0;
   if (F.pedalLFace) F.pedalLFace.style.setProperty('--d', Math.max(0, -pd).toFixed(3));
   if (F.pedalRFace) F.pedalRFace.style.setProperty('--d', Math.max(0, pd).toFixed(3));
@@ -4170,9 +3769,7 @@ function fsimFrameBody(now) {
   const gL = document.getElementById('fsim-yk-green'), rL = document.getElementById('fsim-yk-red');
   const atClimb = input.elevator > 0.40 && input.elevator < 0.66;
   const stalling = r.stalled || s.stallMargin < 0.35;
-  // The left LED does double duty: GREEN near a best-climb pull, and — when you're gliding
-  // dead-stick (little/no power, airborne) at the type's best-glide speed — it turns BLUE, so an
-  // engine-out pilot just flies the blue light for max range. Best-glide takes the LED when both apply.
+  // Left LED: green near a best-climb pull, blue at best-glide speed with little power (glide wins).
   const bg = P.bestGlide || 0;
   const atGlide = !s.onGround && thr < 0.15 && bg > 0 && Math.abs(s.airspeed - bg) <= Math.max(3, bg * 0.06);
   if (gL) {
@@ -4182,13 +3779,10 @@ function fsimFrameBody(now) {
   }
   if (rL) { rL.style.opacity = stalling ? '1' : '0.2'; rL.style.filter = stalling ? 'drop-shadow(0 0 5px #e0403a)' : 'none'; }
 
-  // Throttle quadrant lever.
   const lever = document.getElementById('fsim-thr-lever'), tv = document.getElementById('fsim-thrv');
   if (lever) lever.style.bottom = (10 + input.throttle * 70) + '%';
   if (tv) tv.textContent = Math.round(input.throttle * 100) + '%';
 
-  // Fuel chip (always on) + REFUEL button (only when parked on an airfield tile with the
-  // wheels down; the server rejects a wrong-fuel field with its own message).
   const fuelWrap = document.getElementById('fsim-fuel');
   if (fuelWrap) {
     const pct = Math.max(0, Math.round(F.fuel / (F.fuelCap || 1) * 100));
@@ -4199,20 +3793,14 @@ function fsimFrameBody(now) {
     fuelWrap.classList.toggle('full', pct >= 100);
   }
 
-  // Disembark button — only offered while on the ground (you can't climb out mid-air).
   document.getElementById('fsim-disembarkbtn')?.classList.toggle('on', !!s.onGround);
 
-  // Landing guide: show the glideslope gates once airborne, low, and within reach of the
-  // departure runway (so it appears as you turn back to land). FIXED-WING ONLY — a helicopter/VTOL
-  // descends vertically onto a helipad, so the Star Fox glideslope boxes make no sense for it; it's
-  // guided by the auto-land catcher dome (padDome) instead.
+  // Glideslope guide near the departure runway, fixed-wing only.
   const rwDist = Math.hypot(F.rwOrigin.x - F.pos.x, F.rwOrigin.y - F.pos.y);
-  const landGuide = (F.reportedAirborne && !F.heli && r.altitude < 1600 && rwDist < 16) ? { alt: r.altitude, boxes: !!F.checkride } : null;   // boxes: checkride only for now; alt still drives the PAPI
+  const landGuide = (F.reportedAirborne && !F.heli && r.altitude < 1600 && rwDist < 16) ? { alt: r.altitude, boxes: !!F.checkride } : null;   // boxes on a checkride; alt drives the PAPI
 
-  // ── Air-to-air traffic (Phase A: see-only) ──────────────────────────────────
-  // Dead-reckon each relayed contact from its last-known heading/speed, express it
-  // relative to us (world tiles + altitude delta), and designate the one nearest the
-  // boresight so the windshield can bracket it. `contactNear` drives the sync cadence.
+  // ── Air traffic ─────────────────────────────────────────────────────────────
+  // Dead-reckon contacts and designate the one nearest the boresight. contactNear drives the sync cadence.
   let contactView = null, designated = null, contactNear = Infinity;
   if (F.contacts && F.contacts.length && F.reportedAirborne) {
     contactView = [];
@@ -4223,12 +3811,10 @@ function fsimFrameBody(now) {
       const cx = c.x + Math.sin(hr) * spd * drS, cy = c.y - Math.cos(hr) * spd * drS;
       const dx = cx - F.pos.x, dy = cy - F.pos.y, rng = Math.hypot(dx, dy);
       if (rng < contactNear) contactNear = rng;
-      const brg = Math.atan2(dx, -dy) * 180 / Math.PI;                    // bearing to contact
-      const bore = Math.abs(((brg - s.heading + 540) % 360) - 180);       // off our nose
-      // A ground contact (taxiing / on its takeoff roll) pins its gear to the world ground plane
-      // (groundZ 0 = the runway the viewer sees), so it rolls along the strip instead of floating at
-      // our eye level. Airborne contacts stay camera-relative on their altitude delta as before.
-      const brk = surfaceBreakup(c.surfaces);   // a battle-damaged bogey renders its sheared wing/tail GONE, not pristine
+      const brg = Math.atan2(dx, -dy) * 180 / Math.PI;
+      const bore = Math.abs(((brg - s.heading + 540) % 360) - 180);
+      // A ground contact pins to groundZ 0; airborne ones use the altitude delta.
+      const brk = surfaceBreakup(c.surfaces);
       const cv = c.onGround
         ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, ias: c.ias || 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.cls === 'drake' && c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear }
         : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.cls === 'drake' && c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear };
@@ -4237,35 +3823,28 @@ function fsimFrameBody(now) {
     }
     if (designated) designated.designated = true;
   }
-  F.designatedId = designated ? designated.id : null;   // so the MFD can ring the same contact
+  F.designatedId = designated ? designated.id : null;
 
-  // Gun solution (Phase B, manual pipper): how close the designated bogey is to the
-  // boresight (horizontal bore + vertical elevation off our own nose) inside gun range.
-  // aimQuality 0..1 falls off with the total cone angle; the server takes it on faith
-  // within its own lenient gate and rolls the defender's jink against it.
+  // Gun solution: aimQuality 0..1 off the cone angle; the server trusts it within its own gate.
   F.gunSolution = null;
   if (designated && F.hardpoints > 0 && F.armed && F.weapon !== 'msl') {
     const elev = Math.atan2((designated.altDiff || 0) * GUN_ALT_K, Math.max(0.1, designated.rng)) * 180 / Math.PI;
     const totalOff = Math.hypot(designated.bore, elev - (s.pitch || 0));
     const inRange = designated.rng <= GUN_RANGE;
     let aimQ = inRange ? Math.max(0, 1 - totalOff / GUN_CONE) : 0;
-    // The Drake converges its two guns at a set range: rounds bunch there and spread either side of it,
-    // so a target near the CONV setting takes the most. Never below 0.7 of the plain solution.
+    // Drake convergence weighting, never below 0.7.
     if (F.dk) aimQ *= 0.7 + 0.3 * Math.exp(-(((designated.rng - drakeConv()) / 0.6) ** 2));
     F.gunSolution = { id: designated.id, aimQuality: aimQ, ready: inRange && aimQ > 0.02 };
   }
   const solReady = !!(F.gunSolution && F.gunSolution.ready);
 
-  // Missile seeker (Phase C): with MSL selected, holding the designated bogey inside the
-  // seeker envelope builds a lock over MSL_LOCK_MS; full bar → ask the server (`airlock`),
-  // which owns the lock and warns the target's RWR. Wander out and the lock decays off.
+  // Seeker: holding a bogey in the envelope builds a lock; the server owns it (`airlock`).
   F.swarmReady = null;
   if (F.salvo > 1 && F.weapon === 'msl' && F.armed && F.hardpoints > 0 && F.reportedAirborne) {
-    // Swarm airframe (Viper): NO lock cycle — point the nose at a bogey inside the forward
-    // envelope and a ripple shot is live immediately. No seeker tone, no RWR lock warning.
+    // Swarm: no lock cycle.
     if (designated && designated.rng <= MSL_RANGE && designated.bore <= SWARM_CONE) F.swarmReady = designated.id;
   } else if (F.weapon === 'msl' && F.armed && F.hardpoints > 0 && designated && F.reportedAirborne) {
-    if (F.seekId !== designated.id) { F.seekId = designated.id; F.lockProg = 0; }   // new bogey → start over
+    if (F.seekId !== designated.id) { F.seekId = designated.id; F.lockProg = 0; }
     const inEnv = designated.rng <= MSL_RANGE && designated.bore <= MSL_CONE;
     if (inEnv) {
       F.lockProg = Math.min(1, F.lockProg + dt * 1000 / MSL_LOCK_MS);
@@ -4280,22 +3859,18 @@ function fsimFrameBody(now) {
       if (F.lockId && F.lockProg <= 0) { sendCmdSilent('airunlock'); F.lockId = null; if (F.toast) F.toast('LOCK LOST'); }
     }
   } else if (F.lockId || F.lockProg > 0 || F.seekId) {
-    if (F.lockId) sendCmdSilent('airunlock');   // weapon deselected / target gone → drop it server-side too
+    if (F.lockId) sendCmdSilent('airunlock');
     F.lockId = null; F.lockProg = 0; F.seekId = null;
   }
 
-  // Trigger held → guns squirt bursts at the client cadence (the server enforces its own
-  // harder cap + validates the shot); missiles are a single launch per squeeze off a full
-  // lock. With no air solution, an armed craft still falls back to the ground-AA strafe pass.
+  // Trigger: guns burst at the client cadence (server caps), missiles one per squeeze, else a ground strafe.
   if (F.firing && F.armed && F.reportedAirborne) {
     if (F.weapon === 'bomb') {
-      // One bomb per squeeze, and only when the dive is actually set. The client checks the
-      // gate purely so the trigger feels dead in level flight rather than firing a command
-      // that gets refused — the SERVER decides, off its own reconciled telemetry.
+      // One bomb per squeeze. The dive check here is only feel; the server decides.
       if (!F.fireHeld && F.bombs > 0 && (!F.lastBombMs || now - F.lastBombMs >= 2500)) {
         if (diveQuality(s) > 0) {
           F.lastBombMs = now;
-          F.bombs = Math.max(0, F.bombs - 1);   // optimistic; flight_ctx refreshes the authoritative count
+          F.bombs = Math.max(0, F.bombs - 1);   // optimistic
           sendCmdSilent('bomb');
           if (F.paintPips) F.paintPips();
         } else if (!F.bombNagMs || now - F.bombNagMs > 1500) {
@@ -4304,17 +3879,13 @@ function fsimFrameBody(now) {
         }
       }
     } else if (F.weapon === 'msl' && F.salvo > 1) {
-      // Swarm: one ripple per squeeze, no lock required. A bogey under the nose takes it;
-      // with nothing in the air the salvo goes to the GROUND — the attack heli's real job
-      // (a standoff strike on what's ahead, rather than the gun pass's overfly).
+      // Swarm: one ripple per squeeze, at a bogey or else the ground ahead.
       if (!F.fireHeld && F.msl > 0 && (!F.lastMslMs || now - F.lastMslMs >= SWARM_FIRE_MS)) {
         F.lastMslMs = now;
-        const n = Math.min(F.salvo, F.msl);       // the rails can't ripple more than they are holding
-        F.msl = Math.max(0, F.msl - F.salvo);     // optimistic; flight_ctx refreshes the authoritative count
+        const n = Math.min(F.salvo, F.msl);
+        F.msl = Math.max(0, F.msl - F.salvo);     // optimistic
         sendCmdSilent(F.swarmReady ? `airfire swarm ${F.swarmReady}` : 'airfire swarm ground');
         F.muzzleT = now;
-        // Fly the ripple you just fired: at the bogey if there's one under the nose, otherwise
-        // at the ground point the boresight is pointed at (the standoff strike).
         launchShots(F, now, n, F.swarmReady ? { id: F.swarmReady } : groundAim(F, s), 1);
         try { missileRippleFx(n, F.external); } catch {}
         if (F.paintPips) F.paintPips();
@@ -4322,47 +3893,37 @@ function fsimFrameBody(now) {
     } else if (F.weapon === 'msl') {
       if (!F.fireHeld && F.lockId && F.msl > 0 && (!F.lastMslMs || now - F.lastMslMs >= MSL_FIRE_MS)) {
         F.lastMslMs = now;
-        F.msl = Math.max(0, F.msl - 1);   // optimistic; flight_ctx refreshes the authoritative count
+        F.msl = Math.max(0, F.msl - 1);   // optimistic
         sendCmdSilent(`airfire missile ${F.lockId}`);
         F.muzzleT = now;
-        launchShots(F, now, 1, { id: F.lockId }, 0.15);   // a locked shot flies straight — it knows where it's going
+        launchShots(F, now, 1, { id: F.lockId }, 0.15);   // locked: little wander
         try { missileFx(); } catch {}
         if (F.paintPips) F.paintPips();
       }
     } else if (!F.lastFireMs || now - F.lastFireMs >= F.gunMs) {
       F.lastFireMs = now;
-      F.muzzleT = now;                                  // flash + tracers show whenever the trigger's down, solution or not
-      // FX every squirt for feel, but only fire the actual command at the server's burst
-      // cadence — anything faster is a server-side no-op that still burns rate-limit budget.
+      F.muzzleT = now;
+      // FX every squirt; the command only at the server's burst cadence (see GUN_CMD_AIR_MS).
       const cmdGap = solReady ? GUN_CMD_AIR_MS : GUN_CMD_GROUND_MS;
       if (!F.lastGunCmdMs || now - F.lastGunCmdMs >= cmdGap) {
         F.lastGunCmdMs = now;
         if (solReady) sendCmdSilent(`airfire guns ${F.gunSolution.id} ${F.gunSolution.aimQuality.toFixed(2)}`);
         else if (F.hardpoints > 0) sendCmdSilent('fire');
       }
-      // Rounds/squirt scales with the cadence, so the light chin gun eats its belt at a
-      // believable rate rather than a cannon's (the drum readout is cosmetic either way).
       F.gunRounds = Math.max(0, F.gunRounds - (F.chinGun ? 30 : 65));
       try { gunFx(F.external, F.chinGun); } catch {}
     }
   }
-  F.fireHeld = F.firing;   // edge detect: one missile per trigger squeeze
-  // Reticle: amber when armed, pulsing while the seeker builds, green on a firing solution
-  // (guns on target, or a full missile lock).
+  F.fireHeld = F.firing;   // edge detect: one missile per squeeze
   const retEl = document.getElementById('fsim-reticle');
   if (retEl) {
     retEl.classList.toggle('lock', solReady || !!F.lockId || !!F.swarmReady);
     retEl.classList.toggle('seek', F.weapon === 'msl' && F.lockProg > 0 && !F.lockId);
   }
 
-  // Airport target guide — the selected field (default: the nearest) resolved to a live
-  // tile-offset from the craft, for the windshield's in-view accent ring / off-screen Home
-  // waypoint. Tracked by airfield id; falls back to the nearest whenever the target drops out.
+  // Target guide: the selected destination as a live offset; falls back to the first when it drops out.
   let apTarget = null;
-  // Destinations = airfields + named landmarks + spatial regions (same shape), so the guide can
-  // lock onto any of them. When the pilot has cleared all waypoints (F.apCleared) we resolve
-  // nothing and leave the readout blank — no auto-snap back to the nearest field.
-  // A GPS destination lasts only while the guide is on it (THE GPS PICKER).
+  // A GPS destination lasts only while the guide is on it.
   if (F.gpsDest && F.apTargetId !== 'gps') F.gpsDest = null;
   const fieldList = [...(F.gpsDest ? [F.gpsDest] : []), ...(F.waypoint ? [F.waypoint] : []), ...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
   const nmEl = document.getElementById('fsim-tgt-name');
@@ -4373,17 +3934,13 @@ function fsimFrameBody(now) {
     const tgt = fieldList.find((f) => f.id === F.apTargetId) || fieldList[0];
     if (tgt.gx != null) {
       const adx = tgt.gx - F.pos.x, ady = tgt.gy - F.pos.y;
-      // `kind` ('tile' for a map designation, absent for a place) is what picks the
-      // windshield's crosshair over the gold airfield ring, and what the bombsight reads.
+      // `kind` 'tile' picks the crosshair over the airfield ring.
       apTarget = { dx: adx, dy: ady, name: tgt.name, dist: Math.round(Math.hypot(adx, ady)), kind: tgt.kind || 'place', gx: tgt.gx, gy: tgt.gy };
     }
-    // Name + live distance-to-run (tiles), matching the windshield field list's "NAME 42".
     if (nmEl) nmEl.textContent = (tgt.name || 'FIELD').slice(0, 8).toUpperCase() + (apTarget ? '  ' + apTarget.dist : '');
   }
 
-  // Checkride pilot-wings rings — resolve absolute gate tiles to live offsets for the
-  // windshield, and detect a fly-through of the ACTIVE ring (the client owns the plane's
-  // world position), reporting it to the server which advances the ride.
+  // Checkride rings: the client detects a fly-through of the active ring and reports it.
   let gateView = null;
   const cr = F.checkride;
   if (cr && Array.isArray(cr.gates) && cr.gates.length) {
@@ -4392,57 +3949,34 @@ function fsimFrameBody(now) {
     if (g && F.lastGateSent !== cr.gateIdx) {
       const gdx = g.gx - F.pos.x, gdy = g.gy - F.pos.y;
       if (Math.hypot(gdx, gdy) < g.r && Math.abs(s.altitude - g.alt) < g.altTol) {
-        F.lastGateSent = cr.gateIdx;   // one report per gate; re-arms when the server advances gateIdx
+        F.lastGateSent = cr.gateIdx;   // one report per gate
         sendCmdSilent(`flightevent gate ${cr.gateIdx}`);
       }
     }
   }
 
-  // Prop/rotor spool choreography for the external chase model. BLADES: F.propSpin rises when the
-  // engine is on (idling even at zero throttle) and winds DOWN to a dead stop a beat after shutdown
-  // — spin-up brisk, wind-down lazy. F.propPhase accumulates the actual rotation angle at a rate
-  // that scales with the spool, so the blades visibly slow to rest instead of snapping to a halt.
-  // DISC: propDisc is keyed to real rpm/throttle, so the translucent blur fades IN only as you power
-  // up and fades OUT first on shutdown (blades still turning under it). Reverses the startup order.
-  // WINDMILL: with the engine dead (out of fuel/power) the prop hangs stopped — but the airflow of
-  // a dive can still drive it. Past cruise the blades freewheel, winding up toward Vne; below cruise
-  // there's not enough bite so it settles to a complete rest. (Helis autorotate differently — left
-  // to wind fully down.) No disc under it (propDisc rides real rpm ≈ 0), so it reads as a slow
-  // free-spinning prop, not powered.
-  // ELECTRICAL POWER, derived once and read by everything that draws current. The master switch
-  // is not the only way the power dies: a dry tank stops the engine without touching the switch,
-  // and an EMP kills the boards. Reading F.engineOn instead left the nav lamps, the landing lamps
-  // and the panel backlight burning on a dead-stick glider.
+  // ⚠ Electrical power, derived once: a dry tank or an EMP kills it too, not only the master.
   const wasPowered = F.powered;
   F.powered = F.engineOn && !F.deadStick && !F.avionicsOut;
   if (F.powered !== wasPowered && F.syncLights) F.syncLights();
 
-  // The engine is LIVE only while it's both switched on and fed — a dry tank hands the prop to
-  // the airflow (windmill) exactly the way a master cut does.
+  // Prop spool for the external model: spins up brisk, winds down lazy, windmills past cruise when
+  // the engine is dead. The blur disc follows real rpm.
   const engLive = F.engineOn && !F.deadStick;
   const windmill = (!F.heli && !engLive)
     ? clampNum((r.airspeed - P.cruise) / Math.max(1, (P.vne || 120) - P.cruise), 0, 1) * 0.55
     : 0;
   const propTgt = engLive ? 0.20 + 0.80 * clampNum(s.rpm, 0, 1) : windmill;
   F.propSpin = lerpN(F.propSpin || 0, propTgt, Math.min(1, dt * (propTgt > (F.propSpin || 0) ? 2.2 : 1.0)));
-  // The lerp only ever ASYMPTOTES toward zero, so without a deadband the blades creep forever and
-  // the prop never actually parks. Snap the last sliver to a dead stop, and freeze the angle there.
+  // Deadband, or the lerp never quite parks the prop.
   if (propTgt <= 0 && F.propSpin < 0.02) F.propSpin = 0;
-  F.propPhase = (F.propPhase || 0) + dt * F.propSpin * 34;   // rev rate ∝ spool → frozen at rest
-  const propDisc = clampNum((d.rpm - 0.12) / 0.45, 0, 1);    // no disc at idle; fully in by ~57% rpm
+  F.propPhase = (F.propPhase || 0) + dt * F.propSpin * 34;
+  const propDisc = clampNum((d.rpm - 0.12) / 0.45, 0, 1);    // none at idle, full by ~57% rpm
 
   perfEnd();   // sim:systems
   perfBegin('sim:paint');
-  // Live bomb bursts, resolved from their world tiles to offsets from the craft each frame —
-  // exactly as the target ring and the checkride gates are — and retired when they burn out.
-  // ── THE BOMB ON ITS WAY DOWN ────────────────────────────────────────────────
-  // The server resolves a release instantly and tells us where it landed, which is right — the
-  // damage must not depend on a client animation. But it meant the ONLY thing a pilot ever saw of
-  // their own weapon was a fireball appearing out of nothing, so the aeroplane's whole reason for
-  // existing happened off screen. So the burst is HELD for the fall: the bomb is drawn tracking
-  // from where it was released to where the server says it went, and the explosion is spawned when
-  // it arrives. Nothing here decides anything — the outcome is already settled and this is the
-  // playback of it, which is why a lost frame or a slow client changes nothing but the picture.
+  // Bombs: the server resolves the release at once; the client plays back the fall and spawns the
+  // burst on arrival. Playback only, it decides nothing.
   if (F.drops.length) {
     const tNow = performance.now();
     for (const d2 of F.drops) {
@@ -4461,20 +3995,14 @@ function fsimFrameBody(now) {
   const burstView = F.bursts.length
     ? F.bursts.map((b) => ({ dx: b.gx - F.pos.x, dy: b.gy - F.pos.y, age: (performance.now() - b.t0) / b.life, scale: b.scale }))
     : null;
-  // The falling stores, offset from the craft the same way. `t` is 0..1 down the fall; the
-  // windshield owns the height, because it is the only place that knows where this aeroplane's
-  // belly is in world-z. The ground track is a straight run from the release point to the aim
-  // point — a released bomb keeps the speed it was let go with, and over a second and a half of
-  // fall that reads exactly like the aeroplane throwing it forward.
+  // Falling stores: `t` 0..1; the windshield owns the height. Straight ground track to the aim point.
   const dropView = F.drops.length
     ? F.drops.map((b) => {
       const t = clampNum((performance.now() - b.t0) / b.fall, 0, 1);
       return { dx: (b.x0 + (b.gx - b.x0) * t) - F.pos.x, dy: (b.y0 + (b.gy - b.y0) * t) - F.pos.y, t };
     })
     : null;
-  // The bombsight, on the SAME tile cmdBomb will read: the designated waypoint if it is ahead
-  // and in reach, otherwise the tile the nose is pointed at. Kept in step with the server's own
-  // BOMB_RANGE/BOMB_REACH/BOMB_CONE — if these drift, the sight lies about where the bomb goes.
+  // ⚠ The bombsight must pick the tile cmdBomb will: keep in step with BOMB_RANGE/BOMB_REACH/BOMB_CONE.
   let bombsight = null;
   if (F.bombCap > 0 && F.weapon === 'bomb' && F.reportedAirborne) {
     const th = (s.heading || 0) * Math.PI / 180;
@@ -4493,74 +4021,41 @@ function fsimFrameBody(now) {
     bursts: burstView,
     drops: dropView,
     bombsight,
-    pitch: d.pitch + (F.dk?.onWater && F.dk.ride ? F.dk.ride.pitch : 0) + (F.dk?.flarePitch || 0), bank: d.bank + (F.dk?.onWater && F.dk.ride ? F.dk.ride.roll : 0),   // a Drake on the water rocks with the sea
-    // ⚠ THE AIRFRAME'S OWN HEADING, which is what the flight deck is bolted to. `heading` below is
-    // where the EYE points once a look is added; a room anchored to that turns with your head and
-    // can never be looked away from. The yoke reads the stick itself, not the attitude it produced.
+    pitch: d.pitch + (F.dk?.onWater && F.dk.ride ? F.dk.ride.pitch : 0) + (F.dk?.flarePitch || 0), bank: d.bank + (F.dk?.onWater && F.dk.ride ? F.dk.ride.roll : 0),
+    // ⚠ The flight deck is anchored to the airframe heading, never the eye's, or it turns with your head.
     ownHdg: s.heading,
     stick: { x: clampNum(F.input.aileron || 0, -1, 1), y: clampNum(F.input.elevator || 0, -1, 1) },
     trim: F.input.trim || 0,
-    // The Drake's gun convergence (the CONV knob): where its two gun lines meet. Absent on anything else.
     gunConv: F.dk ? drakeConv() : null,
-    // The master arm (not `armed`, which is the airframe): the convergence mark shows only while the guns are live.
+    // The master arm (`armed` is the airframe).
     gunsLive: !!F.armed,
-    // Render height fraction (drives eye-height/compression). Referenced to 3000ft with a
-    // sqrt curve so it ramps HARD off the deck — by ~500ft you're visibly above the buildings.
-    // Use the RAW s.altitude, not the whole-foot-rounded readout: the sqrt is steepest just off
-    // the deck, so feeding rounded feet made the eye-height jump in visible steps on the climb-out
-    // (worst on slow climbers). The raw float climbs continuously.
-    // The Drake under the water (plugins/submersible): her hull's depth in metres, eased (subVis), and whether she
-    // is in the water at all, which is what puts bubbles off her stern.
     drakeVent: F.dk ? { flood: F.dk.ventFlood || 0, blow: F.dk.ventBlow || 0 } : null, subHull: F.dk?.subVis || 0, drakeWater: !!(F.dk && (F.dk.onWater || F.dk.submerged > 0 || F.dk.subVis > 0)),
-    // Her model sinks with her (tiles; SEA_TILE_M is 7 m), and a chase camera orbiting her follows it.
+    // Her model sinks with her (SEA_TILE_M is 7 m).
     ...(F.dk?.subVis > 0 ? { rideZ: -F.dk.subVis / 7 } : {}),
     drakeFloat: F.dk?.floatVis || 0,
+    // ⚠ Raw s.altitude, never the rounded readout: the sqrt is steepest off the deck and rounding steps the eye.
     height: Math.min(1, Math.sqrt(Math.max(0, s.altitude) / 3000)), speed: clampNum(r.airspeed / (P.vne || 120), 0, 1),
-    // Big IAS/ALT/VSI readouts over the glass — the two numbers the eye needs most, boxed large so
-    // they read at a glance in every cockpit. vne feeds the tape a redline warn when the speed reddens.
     ias: Math.round(r.airspeed), alt: Math.round(r.altitude), vsi: Math.round(s.vs), vne: P.vne, vs0: P.vs0,
-    // ── ⚠ THE PANEL READS THE SIM, NOT A SET OF DEFAULTS ───────────────────────
-    //
-    // The flight panel shipped reading a dozen fields that were never on this payload, so it fell
-    // back to the authored value for every one of them: the engine cluster, the annunciators, the
-    // gear lever, the flap gate and the rudder pedals were all parked at a constant and looked
-    // exactly as if they were working. A gauge that cannot be wrong is not an instrument.
-    //
-    // ⚠ AND ONLY WHAT THE SIM ACTUALLY HAS IS SENT. There is no manifold pressure, no oil pressure,
-    // no ammeter, no prop governor, no mixture and no airframe ice in this flight model, so those
-    // gauges are gone rather than fed a plausible number — the same rule the radio stack is drawn
-    // under, which is visibly equipment and visibly not reading anything.
+    // ── Panel feed ──
+    // ⚠ The panel must read these live values, and only what the sim models; never feed a gauge a plausible constant.
     rpmFrac: F.rpms[0] || 0,
-    // The engine temperature runs 40 to about 215 by its own model; the gauge wants 0..1.
     oilTemp: clampNum((((F.temps && F.temps[0]) || 40) - 40) / 175, 0, 1),
     fuel: clampNum((s.fuelPct ?? 100) / 100, 0, 1),
     hull: clampNum((s.hullPct ?? 100) / 100, 0, 1),
     throttle: clampNum(F.input.throttle ?? 0, 0, 1),
-    // ⚠ THE FLAP LEVER IS A GATE AND THE MODEL'S INPUT IS CONTINUOUS. The detents ARE the control —
-    // flaps are selected to a position — so the 0..1 the aerodynamics reads is quantised to the four
-    // notches the lever has, rather than the lever being redrawn as a slider to match the float.
+    // The lever is a gate: the 0..1 input quantised to its notches.
     flapNotch: Math.round(clampNum(F.input.flaps || 0, 0, 1) * 3),
     rudder: clampNum(F.input.pedal || 0, -1, 1),
-    // ⚠ A FIXED-GEAR AEROPLANE HAS NO GEAR LEVER, which is why the flag is sent rather than just the
-    // position: drawing a handle for a leg that does not retract is a control with nothing behind it.
+    // Fixed gear draws no lever.
     gearFixed: !F.gearRetract,
     gearDown: !F.gearRetract || !F.gearUp,
     stall: !!(s.stalled || s.stallMargin < 0.35),
     bingo: !!(F.fuel <= 0 || F.warn === 'BINGO'),
     powered: !!F.powered, altOn: !!F.engineOn,
-    // The seconds after the engine master went on: a cockpit holds its key at START and lights its
-    // START lamps for them. Not off the rpm, which is the spooled throttle and reads 0 at idle.
+    // Off the start timer, not rpm (which reads 0 at idle).
     starting: !!(F.engineOn && F.engStartT && performance.now() - F.engStartT < ENGINE_START_MS),
     landingLight: !!F.landingLight, panelLight: !!F.nightLight,
-    // Use the RAW s.heading, not the whole-degree-rounded readout the PFD tape eases toward
-    // (d.hdg). readout() quantises heading to integer degrees; easing the WORLD toward that
-    // stair-stepped target stutters the pan, and a 1° step throws distant horizon features
-    // several pixels sideways — the "horizon jumps around when you yaw". The raw float yaws
-    // continuously. (Same reason height uses raw s.altitude above.) d.hdg stays for the HUD.
-    // ⚠ THE SPRING LIVES HERE BECAUSE HERE IS ALREADY PER FRAME — no timer, no rAF of its own and
-    // nothing to cancel when the seat closes. Held, it tracks the cursor; released, it is an
-    // exponential back to zero. Suppressed in the chase camera and off the nose, where the middle
-    // button is the orbit and there is no panel under the cursor to parallax against.
+    // Head look: decays back when released, off in the chase view and side views.
     ...(() => {
       F.look = F.look || { x: 0, y: 0 };
       if (F.external || F.viewYaw) { F.look.x = 0; F.look.y = 0; F.looking = false; return {}; }
@@ -4570,113 +4065,76 @@ function fsimFrameBody(now) {
         if (Math.abs(F.look.y) < 0.002) F.look.y = 0;
       }
       if (!(F.look.x || F.look.y)) return {};
-      // ⚠ WITH THE FLIGHT DECK AS GEOMETRY THE MIDDLE DRAG TURNS THE HEAD, not just leans it: there
-      // is a room to look round now — the panel under your knees, the overhead, the wall beside
-      // you, the seat behind — and a lean of a few centimetres can reach none of it. The lean rides
-      // along scaled down, as it does in the cab, because turning further does not move your neck
-      // further. At cockpit3d 0 the painted panel is up and the lean is all there is.
+      // With a 3-D deck the drag turns the head, with a small lean; the painted panel only leans.
       return RENDER_TUNE.cockpit3d
-        ? { lookYaw: F.look.x * 150, lookPitch: -F.look.y * 70,   /* cursor down looks down: screen y grows downward, pitch grows upward */ lookLean: { x: F.look.x * 0.14, y: F.look.y * 0.14 } }
+        ? { lookYaw: F.look.x * 150, lookPitch: -F.look.y * 70,   /* screen y is down, pitch is up */ lookLean: { x: F.look.x * 0.14, y: F.look.y * 0.14 } }
         : { lookLean: { x: F.look.x, y: F.look.y } };
     })(),
+    // ⚠ Raw s.heading, never the integer readout, or the horizon steps as you yaw.
     hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wind: F.sky?.wind, heading: s.heading,
-    // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
     wxField: F.sky?.field, wxGround: F.sky?.ground, acX: F.pos.x, acY: F.pos.y,
     map: F.map, skyline: F.skyline, mapCenter: F.mapCenter, roads: F.roads, phase: 'cruise', airport: F.airport, helipad: !!F.helipad, biomeBelow: F.biomeBelow,
-    actors: F.actors,   // the street population under us — drawn only on a low pass (see drawStreetActors)
-    regions: F.regions,   // drives the windshield region atmosphere grade (The Reach dust, …)
+    actors: F.actors,   // drawn only on a low pass
+    regions: F.regions,
     mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y }, travel: F.travel,
-    // World-fixed runway: its origin + heading in the world, offset from the craft — so it
-    // stays put and recedes/rotates naturally as you fly away (not glued ahead of the nose).
     runway: { ox: F.rwOrigin.x - F.pos.x, oy: F.rwOrigin.y - F.pos.y, hdg: F.rwHdg, len: F.rwLen, alt: clampNum(s.altitude / 320, 0, 1) },
     landGuide,
     hud: true,
-    threat: (F.aa && F.reportedAirborne) ? F.aa : null,   // AA envelope telegraph → pulsing banner + tape chevron
+    threat: (F.aa && F.reportedAirborne) ? F.aa : null,
     airports: navFields(F), apTarget, apTargetId: F.apTargetId,
-    // What a cockpit's GPS screen points at (interior-cockpit-kit.js panelGps): the target off the nose.
+    // For a cockpit GPS screen (panelGps).
     gpsTo: apTarget ? { rel: (((Math.atan2(apTarget.dx, -apTarget.dy) * 180 / Math.PI) - s.heading) % 360 + 540) % 360 - 180, dist: apTarget.dist } : null, viewYaw: F.viewYaw, extYaw: F.extOrbit || 0, extPitch: F.extPitch ?? REST_PITCH,
-    // Looking off the nose (Q/E/S) → frame the view as a side cabin window instead of the
-    // forward windscreen. The real, rotated Mode-7 world still renders behind the pane.
     windowClass: F.viewYaw ? F.cls : undefined,
     windVec: (atmos.windKt > 1 && F.reportedAirborne) ? { dir: atmos.windDir, kt: atmos.windKt } : null,
     contacts: contactView, designated,
-    // Phase B guns: tracers stream out whenever the trigger's held (armed, airborne,
-    // gun selected) — solution or not — so you can SEE where you're shooting and walk
-    // the rounds onto the bogey. A hull readout + a red battle-damage flash on a hit.
+    // Tracers whenever the trigger is held, solution or not.
     firing: !!(F.firing && F.armed && F.reportedAirborne && F.weapon !== 'msl'), muzzle: F.muzzleT && (now - F.muzzleT < 60), muzzleT: F.muzzleT || 0, gunMs: F.gunMs,
-    chinGun: F.chinGun,   // gun station: one barrel under the nose (heli) vs a pair under the wings
-    // Missiles in the air right now — flown client-side (stepShots), drawn as real world objects.
+    chinGun: F.chinGun,
     missiles: stepShots(F, now, dt, s),
-    flares: stepFlares(F, now, dt, s),   // countermeasure pellets burning away behind us
-    // Two-part gunsight: shown while the guns are armed + airborne (aiming, not only firing). Also
-    // aligns the chase camera dead-astern so the boresight runs up the screen centre (windshield.js).
+    flares: stepFlares(F, now, dt, s),
+    // The gunsight also aligns the chase camera dead astern (windshield.js).
     reticle: !!(F.armed && F.reportedAirborne && F.weapon !== 'msl'),
     hull: F.hull, hitFlash: F.hitFlashT ? clampNum(1 - (now - F.hitFlashT) / 400, 0, 1) : 0,
-    breakup: surfaceBreakup(F.surfaces),   // sheared structural surfaces → the external/chase view shows the wing simply GONE (live, not the crash cinematic)
-    // Incoming ground-AA tracer: bearing it's arriving from + a 0..1 progress fraction
-    // (volley animates in over AA_TRACER_MS, then clears). dx/dy = the firing site's live
-    // tile-offset from us (recomputed each frame so the volley stays anchored to the gun
-    // while we move) → the windshield's 3D world tracers; null falls back to the 2D streak.
+    breakup: surfaceBreakup(F.surfaces),   // sheared surfaces drawn gone
+    // Incoming AA volley; dx/dy anchor it to the gun each frame, null falls back to the 2-D streak.
     aaTracer: (F.aaTracerT && (now - F.aaTracerT) < AA_TRACER_MS)
       ? { bearing: F.aaTracerBearing, t: (now - F.aaTracerT) / AA_TRACER_MS,
           dx: F.aaTracerX != null ? F.aaTracerX - F.pos.x : null,
           dy: F.aaTracerY != null ? F.aaTracerY - F.pos.y : null,
-          hit: !!F.aaTracerHit,   // hit → rounds walk onto the cockpit; miss → streak wide
+          hit: !!F.aaTracerHit,
           seed: F.aaTracerSeed || 1 } : null,
-    // The AA batteries and the fireworks are not on this object any more: the batteries are map
-    // marks every view draws (`aa`), and a burst is kept by world tile in world-feed.js, which the
-    // windshield reads for whichever seat is open.
-    // External chase view (V): draw the ship from behind with its gear, animating up/down.
-    // Prop/rotor spin is driven by engine RPM (spooled fraction of throttle → reacts to the
-    // engine being on and to throttle, with spool lag), NOT airspeed — so she turns at idle on
-    // the ramp and winds up with the throttle instead of only spinning once she's moving.
     external: F.external, extZoom: F.extZoom || 1, freeCam: freeCam.view(), cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, livery: LIVERY_PREVIEW || F.livery, ...(F.cls === 'drake' && (LIVERY_PREVIEW || F.livery)?.variant && (LIVERY_PREVIEW || F.livery).variant !== 'stock' ? { variant: (LIVERY_PREVIEW || F.livery).variant } : {}), enginePct: d.rpm,
-    // The modelled cockpits' weapons and working controls (interior-<id>.js). ⚠ NOT `armed`, which
-    // above already means "this helicopter is the Viper" and picks the cabin.
+    // For the modelled cockpits. ⚠ Not `armed`, which picks the Viper airframe.
     weaponsArmed: !!F.armed, weapon: F.weapon, bombs: F.bombs, missiles: F.msl, ammo: F.gunRounds,
     diveBrake: F.diveAuto ? 1 : 0, siren: F.bombCap > 0 && diveQuality(F.s) > 0,
     spraying: !!(F.sprayT && performance.now() - F.sprayT < 1900),
-    ckHover: F.dkHover || null, ckPress: F.dkPress && performance.now() - F.dkPress.t < 220 ? F.dkPress.id : null,   // a kit cockpit's halo (interior-cockpit-kit.js)
-    engineOn: F.powered, landingLight: F.landingLight, dome: !!(F.domeLight && F.powered),   // nav/strobe/beacon die with the POWER (master cut, dry tank or EMP); landing lamps add a bright forward set
-    panelLight: F.nightLight,   // PANEL switch → richer warm instrument glow reflected up onto the lower canopy
+    ckHover: F.dkHover || null, ckPress: F.dkPress && performance.now() - F.dkPress.t < 220 ? F.dkPress.id : null,
+    engineOn: F.powered, landingLight: F.landingLight, dome: !!(F.domeLight && F.powered),   // nav lights follow power, not the master
+    panelLight: F.nightLight,
 
-    propPhase: F.propPhase, propSpin: F.propSpin, propDisc,   // external prop/rotor spool choreography (blades spin up → disc fades in; reversed on shutdown)
-    // Live control-surface deflection for the external chase model: ailerons/elevator/flaps
-    // swing to the pilot's own inputs (elevator folds in trim, which the flight model also adds).
-    // rudder: desktop flies it by hand on the ,/. pedals (F.input.pedal); touch devices have no
-    // keyboard, so their fin auto-coordinates — a half-throw deflection INTO the roll as you bank.
+    propPhase: F.propPhase, propSpin: F.propSpin, propDisc,
+    // Surface deflection for the external model; touch auto-coordinates the rudder into the roll.
     ctrl: F.external ? { aileron: F.input.aileron, elevator: clampNum(F.input.elevator + (F.input.trim || 0), -1, 1), flaps: F.input.flaps, rudder: clampNum((F.input.pedal || 0) + (_touchPrimary ? 0.5 * F.input.aileron : 0), -1, 1) } : null,
-    gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,   // fixed-gear craft are always down
-    // The Drake's moving parts (mesh channels) and its cockpit's switches (interior-drake.js).
+    gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
     anim: F.dk ? drakeAnim(F.dk) : undefined,
     drakeCab: F.dk ? { ...drakeAnim(F.dk), ramp: F.dk.ramp, nv: F.dk.nv, gunsArmed: F.armed, gear: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
       quack: !!F.dk.quackHeld || performance.now() - F.dk.quackT < 400, champagne: DK_CHAMPAGNE, quackP: F.dk.quackHeld ? Math.min(1, (performance.now() - F.dk.quackT) / QUACK_SQUEEZE_MS) : 0, ammo: F.gunRounds, convert: F.dk.conv, wingTarget: !!F.dk.wing,
       hover: F.dkHover || null, press: F.dkPress && performance.now() - F.dkPress.t < 220 ? F.dkPress.id : null,
       gps: drakeGps(F), plate: F.livery?.plate || '', trim: F.livery?.itrim || (F.livery?.variant === 'noir' || F.livery?.variant === 'quackhawk' ? F.livery.variant : 'stock'), mode: F.drakeModeNow ? F.drakeModeNow() : 0, ready: [0, 1, 2, 3].map((k) => F.drakeModeReady ? F.drakeModeReady(k) : false), dive: { boat: !!F.dk.boat && (!!F.dk.onWater && !(F.dk.submerged > 0)), under: F.dk.submerged > 0 && !(F.dk.subBlowLocal ?? F.dk.subBlow ?? true), moving: (F.dk.ventFlood || 0) > 0.05 || (F.dk.ventBlow || 0) > 0.05 }, pantry: dkEase(F.dk, 'pantry'), locker: dkEase(F.dk, 'locker') } : null,
-    noseVisor: F.hasVisor ? clampNum(F.noseVisor ?? 0, 0, 1) : 0,   // Leviathan cargo visor: raised when parked/cold, lowered under power (drives the external model swing)
-    cockpitTilt: F.hasVisor ? clampNum(F.noseVisor ?? 0, 0, 1) : 0,   // …and pitches the first-person camera up to match the raised nose (cockpit view only)
+    noseVisor: F.hasVisor ? clampNum(F.noseVisor ?? 0, 0, 1) : 0,
+    cockpitTilt: F.hasVisor ? clampNum(F.noseVisor ?? 0, 0, 1) : 0,   // first-person camera pitches with the raised nose
     onGround: !!r.onGround,
-    // Auto-land guidance dome over the Echelon's helipad — shown whenever you're flying a heli
-    // near her (the dome only draws if a yacht cell is actually in the world window). It ARMS
-    // (brightens/quickens) the moment you're inside the capture window (F.onYacht), telling you
-    // she's about to take you. Cleared during the deck-cam cinematic (that view draws its own).
+    // Echelon guidance dome, armed inside the capture window.
     padDome: (F.heli && F.reportedAirborne && !F.deckCine) ? { armed: !!F.onYacht } : null,
-    // The same guidance over a ROOFTOP helideck (the Solenne Sky Pad). Drawn from a few tiles out so
-    // you can see where the approach is, and armed once you're inside the window / already locked.
     roofPad: (F.heli && F.reportedAirborne && !F.deckCine && F.roofPadShow) ? { armed: !!(F.roofPadArmed || F.roofLock) } : null,
   });
   perfEnd();   // sim:paint
 
-  // Drug/booze impairment: warp the out-the-window view if the pilot is flying loaded.
   perfBegin('sim:drugfx');
   applyFlightDrugFx(root.querySelector('.fsim-view'), document.getElementById('fsim-ws'), dt);
   perfEnd();
 
-  // Stream state to the server while flying AND during any ground roll — the landing
-  // roll-out (F.rolling) and, just as importantly, the PRE-TAKEOFF taxi: without this the
-  // plane rolls across the apron on screen while the server still has her sat at the gate,
-  // so taxiing never moved her (and other pilots never saw the ground contact).
-  // Cadence tightens to ~3 Hz when traffic is close (the dogfight bubble), 1.2s otherwise.
+  // Sync while flying, rolling out and ⚠ taxiing, or the server keeps her at the gate. ~3 Hz near traffic.
   const taxiing = s.onGround && F.engineOn;
   const syncEvery = contactNear <= FAST_SYNC_RANGE ? 0.33 : 1.2;
   F.syncAcc += dt; F.audioAcc += dt;
@@ -4684,8 +4142,7 @@ function fsimFrameBody(now) {
     F.syncAcc = 0;
     sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} ${Math.round(s.altitude)} ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} ${Math.round(s.vs)} ${s.onGround ? 1 : 0} ${s.stalled ? 1 : 0} ${Math.round(s.bank || 0)} ${Math.round((s.pitch || 0) + (F.dk?.flarePitch || 0))}${drakeSyncTail(F)}`);
     if (F.dk?.subPending) { sendCmdSilent(F.dk.subPending); F.dk.subPending = null; }
-    // Where our murmurations really are (MURMUR_MEASURED), so the server's strike test hits the cloud
-    // we can see rather than its shared centre. Every couple of seconds, only flocks within reach.
+    // Our measured murmurations, so the server's bird strike hits the cloud we see.
     F.flockAcc = (F.flockAcc || 0) + syncEvery;
     if (F.flockAcc >= 2 && MURMUR_MEASURED.size) {
       F.flockAcc = 0;
@@ -4698,46 +4155,26 @@ function fsimFrameBody(now) {
       }
       if (parts.length) sendCmdSilent('flocksync ' + parts.join(' '));
     }
-    // NB: mapCenter is NOT advanced here — it stays paired with the map the server sends back
-    // (updated in flightSimContext), so buildings never jump/re-seed on a window recenter.
+    // ⚠ Never advance mapCenter here; it stays paired with the server's map (flightSimContext).
   }
   if (F.audioAcc >= 0.25) {
     F.audioAcc = 0;
-    // Perspective: external chase view = you're OUTSIDE the airframe → the full, bright
-    // exterior mix; cockpit view = you're in the cabin → the muffled interior mix (engine-audio
-    // rolls the highs/wind off + drops the tone filter when perspective isn't 'exterior').
-    // Doppler is only meaningful from the orbit cam: the engine sits at the aircraft, the camera
-    // trails it, so pitch bends with the airspeed component along the aircraft→camera line —
-    // receding (lower) when the cam is behind, approaching (higher) when you swing it out front,
-    // neutral abeam. Inside the cabin you ride with the engine, so no doppler (1).
+    // Exterior or muffled interior mix; doppler only from the orbit camera.
     let doppler = 1;
     if (F.external) {
-      const vlos = -(s.airspeed || 0) * Math.cos(((F.extOrbit || 0)) * Math.PI / 180);   // >0 = closing on the cam
+      const vlos = -(s.airspeed || 0) * Math.cos(((F.extOrbit || 0)) * Math.PI / 180);   // >0 closing
       doppler = clampNum(1 / (1 - vlos / DOPPLER_C), 0.92, 1.1);
     }
     updateEngineAudio({ continuous: true, airborne: F.reportedAirborne, engineOn: F.engineOn, class: F.cls, throttle: Math.round(thr * 100), spd: Math.round(s.airspeed), engines: [{ pct: Math.round(s.rpm * 100) }], bandIndex: s.altitude > 500 ? 1 : 0, sky: F.sky, atmos: F.atmos, acX: F.pos.x, acY: F.pos.y,
       rpm: s.rpm, airspeed: s.airspeed, vs: s.vs, altitude: s.altitude, onGround: s.onGround, groundSpeed: s.onGround ? s.airspeed : 0,
       stallMargin: s.stallMargin, stalled: s.stalled, flaps: input.flaps,
       perspective: F.external ? 'exterior' : 'interior', doppler, underwater: F.dk?.uw || 0 });
-    // ── AND WHATEVER IS ON THE WATER UNDER YOU ──────────────────────────────
-    // The pass-by voices, from the seat that can already see a boat. ⚠ NO NEW WIRE AND NO NEW
-    // REQUEST: `F.contacts` is the feed this cockpit has always been sent, `boatContactsNear` now
-    // stamps `marine` on the hulls in it, and everything a voice needs — position, heading, speed,
-    // revs, throttle — was already in that payload for the renderer's sake. A boat you cannot see
-    // is not in the list, so you cannot hear one either.
-    //
-    // ⚠ KNOTS TO MPH AT THE BOUNDARY. An aircraft's `airspeed` is knots and `closingMph` is mph,
-    // and the two are close enough that getting it wrong would sound plausible and be 15% out.
+    // Boats below, from the existing contacts feed (no new request). ⚠ Knots to mph here.
     updateBoatContacts({ x: F.pos.x, y: F.pos.y, hdg: F.hdg || 0, speed: (s.airspeed || 0) * KT_TO_MPH },
       F.contacts || []);
   }
 
-  // Impact screen-shake — a decaying jitter on the whole panel, kicked by the sink rate at
-  // touchdown (or a crash/clip). Bigger arrival = bigger jolt; settles in ~0.15s.
-  // STALL BUFFET rides the same channel but SUSTAINED, not decaying: as the angle of attack
-  // comes up on the critical angle the separating flow burbles over the tail and the airframe
-  // shakes. It's the warning you feel before the horn — the old model had nothing at all
-  // between "flying fine" and "a wing just dropped", which is why the break came as a surprise.
+  // Impact shake decays; stall buffet is sustained and warns before the horn.
   const buffet = (F.s && !F.s.onGround) ? (F.s.buffet || 0) : 0;
   const shakeAmt = Math.max(F.shake || 0, buffet * 2.8);
   if (shakeAmt > 0.2) {
@@ -4748,18 +4185,16 @@ function fsimFrameBody(now) {
   } else if (F.shakeOn) { root.style.transform = ''; F.shake = 0; F.shakeOn = false; }
 
   perfEnd();    // frame
-  perfTick();   // prints + resets on a 2s window
+  perfTick();
   F.raf = requestAnimationFrame(fsimFrame);
 }
 
 // ── The dive gate (the Shrike) ────────────────────────────────────────────────
-// Kept here as named constants because THREE things read them — the siren, the HUD ladder and
-// the release cue — and the server's cmdBomb holds the same numbers as the authority. The
-// client's copy decides only what you SEE and HEAR; nothing here is trusted for a release.
+// The server's cmdBomb holds the authoritative copy; these only drive what you see and hear.
 const DIVE_MIN_DEG = 35;    // nose-down angle the release needs
 const DIVE_IAS_MIN = 140;   // and the speed it needs with it
 const DIVE_BEST_DEG = 80;   // a dive this steep is as good as it gets
-// One scalar for how well the dive is set, 0..1 — the same shape the server scores accuracy on.
+// 0..1, the same shape the server scores accuracy on.
 function diveQuality(s) {
   if (!s || s.onGround || !s.airborne) return 0;
   const down = -(s.pitch || 0);
@@ -4767,10 +4202,7 @@ function diveQuality(s) {
   const spd = Math.max(0, Math.min(1.3, (s.ias || 0) / DIVE_IAS_MIN));
   return Math.max(0, Math.min(1, ang * spd));
 }
-// The wail. It is wind-driven off the dive itself, so it starts to sing BEFORE the release gate
-// opens (from about 20° down) and peaks with the dive — the ground hearing it wind up is the
-// warning, and a siren that only sounded once you were legal to drop would arrive too late to
-// be that. Silent on every other airframe: this is hardware in the Shrike's leg fairings.
+// The Shrike's dive siren starts from about 20° down, before the release gate opens.
 function fsimSiren(F) {
   if (F.craftType !== 'shrike') return;
   const s = F.s;
@@ -4780,8 +4212,7 @@ function fsimSiren(F) {
   diveSiren(lean * spd);
 }
 
-// The bombsight readout: dive angle, whether the gate is open, and the rack. Only on an
-// airframe that carries bombs — every other cockpit never builds the element at all.
+// Dive angle, speed and rack readout; bomb carriers only.
 function fsimDiveLadder(F) {
   const el = document.getElementById('fsim-dive'); if (!el) return;
   const s = F.s;
@@ -4791,13 +4222,11 @@ function fsimDiveLadder(F) {
   const ready = angOk && spdOk && F.bombs > 0 && F.armed;
   el.style.opacity = down > 8 || ready ? '1' : '0.34';
   el.className = 'fsim-dive' + (ready ? ' ready' : angOk || spdOk ? ' near' : '');
-  // Three facts, in the order you need them going over the top: how steep, how fast, how many.
   el.innerHTML = `<span class="fd-ang${angOk ? ' ok' : ''}">${down > 0 ? '▼' : '▲'} ${Math.abs(Math.round(down))}°</span>`
     + `<span class="fd-spd${spdOk ? ' ok' : ''}">${Math.round(ias)} kt</span>`
     + `<span class="fd-rack">${F.bombs > 0 ? '●'.repeat(F.bombs) : 'EMPTY'}</span>`
     + (ready ? '<span class="fd-cue">RELEASE</span>' : '');
-  // The cue chimes ONCE per dive, at the moment the gate opens — the pilot is looking at the
-  // ground, not at a readout, so the moment has to be audible.
+  // Chimes once per dive as the gate opens.
   if (ready && !F._diveCue) { F._diveCue = true; try { lockTone(); } catch {} }
   if (!angOk) F._diveCue = false;
 }
@@ -4807,10 +4236,8 @@ function fsimHorn(F, dt) {
   fsimDiveLadder(F);
   const lamp = document.getElementById('fsim-lamp'); if (!lamp) return;
   const { s } = F;
-  // The lamp + audible horn: continuous in the stall, pulsing on the approach, silent otherwise.
-  if (s.onGround) { lamp.style.opacity = 0; stallHorn(0); return; }   // no warning parked/rolling
-  // On the heli the same lamp/horn channel warns of low rotor RPM + settling-with-power; the
-  // fixed-wing uses it for the stall. stallMargin carries the danger level for either.
+  // Continuous in the stall, pulsing on the approach. A heli uses it for low rotor RPM and VRS.
+  if (s.onGround) { lamp.style.opacity = 0; stallHorn(0); return; }
   if (F.heli) {
     if (s.lowNr || s.vrs) { lamp.textContent = s.vrs ? '⚠ SETTLING WITH POWER' : '⚠ LOW ROTOR RPM'; lamp.style.opacity = 1; stallHorn(0.6); }
     else if (s.stallMargin < 0.35) { F.hornBeat = (F.hornBeat + dt * (2 + (0.35 - s.stallMargin) * 10)) % 1; const on = F.hornBeat < 0.5; lamp.textContent = '⚠ LOW ROTOR RPM'; lamp.style.opacity = on ? 1 : 0; stallHorn(on ? 0.4 : 0); }
@@ -4844,8 +4271,7 @@ function pfdTape(ctx, x, w, H, val, step, count, warn, marks) {
   ctx.restore();
 }
 
-// Instrument night lighting: an accent backlight bloom over the glass + a lit accent
-// rim just inside the bezel, so the dials read as edge-lit in the dark. Drawn last.
+// Night panel lighting: accent bloom and a lit rim. Drawn last.
 function nightGlow(ctx, W, H) {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -4879,9 +4305,7 @@ function paintPFD(cv, s) {
   ctx.beginPath(); ctx.moveTo(cx - 15, cy); ctx.lineTo(cx - 6, cy); ctx.lineTo(cx - 6, cy + 3); ctx.moveTo(cx + 15, cy); ctx.lineTo(cx + 6, cy); ctx.lineTo(cx + 6, cy + 3); ctx.stroke();
   ctx.fillStyle = '#ffcf3e'; ctx.fillRect(cx - 1.5, cy - 1.5, 3, 3);
   ctx.beginPath(); ctx.moveTo(cx, 5); ctx.lineTo(cx - 4, 11); ctx.lineTo(cx + 4, 11); ctx.closePath(); ctx.fillStyle = '#dff0ff'; ctx.fill();
-  // Slip/skid ball (inclinometer): a ball in a curved tube below the attitude ball. Centred when
-  // coordinated; a FORWARD SLIP (crossed controls) shoves it toward the LOW wing — glowing amber with
-  // a SLIP legend — so you can read the slip you're holding to salvage a high/hot approach.
+  // Slip ball: a forward slip pushes it toward the low wing and lights it amber.
   const slip = clampNum(s.slip || 0, 0, 1), half = 22, yB = Math.min(H - 8, cy + 30);
   const off = slip * Math.sign(s.bank || 0) * (half - 5);
   ctx.save();
@@ -4905,35 +4329,27 @@ function paintPFD(cv, s) {
 }
 
 // ── Engine gauge cluster (RPM · temp · speed · fuel · battery + stall lamp) ────
-// A high-fidelity 270° instrument dial: recessed face + machined bezel with a rim
-// catch-light, tick marks, coloured zone marks, a glowing value arc, a tapered white
-// needle on a metallic hub, a label above and a recessed digital read-out below.
+// A 270° dial.
 function arcGauge(ctx, cx, cy, r, frac, label, val, opts) {
   opts = opts || {};
   const A0 = Math.PI * 0.75, A1 = Math.PI * 2.25, sweep = A1 - A0, lw = Math.max(2, r * 0.16);
   frac = clampNum(frac, 0, 1);
   const col = opts.col || '#5fe0a0';
   ctx.lineCap = 'round'; ctx.textAlign = 'center';
-  // Recessed instrument face + machined bezel ring with a top rim catch-light.
   const face = ctx.createRadialGradient(cx, cy - r * 0.35, r * 0.15, cx, cy, r * 1.25);
   face.addColorStop(0, '#182028'); face.addColorStop(0.72, '#0b1218'); face.addColorStop(1, '#05090d');
   ctx.fillStyle = face; ctx.beginPath(); ctx.arc(cx, cy, r * 1.2, 0, 7); ctx.fill();
   ctx.lineWidth = Math.max(1.4, r * 0.1); ctx.strokeStyle = 'rgba(58,74,90,0.6)'; ctx.beginPath(); ctx.arc(cx, cy, r * 1.2, 0, 7); ctx.stroke();
   ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(190,215,235,0.10)'; ctx.beginPath(); ctx.arc(cx, cy, r * 1.2, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke();
-  // Background track.
   ctx.strokeStyle = 'rgba(52,72,88,0.55)'; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, r, A0, A1); ctx.stroke();
-  // Tick marks (major every other) just outside the track.
   for (let i = 0; i <= 8; i++) {
     const a = A0 + sweep * (i / 8), major = i % 2 === 0, r0 = r + lw * 0.55, r1 = r0 + (major ? 3 : 1.6);
     ctx.strokeStyle = major ? 'rgba(150,180,205,0.55)' : 'rgba(120,150,175,0.32)'; ctx.lineWidth = major ? 1.2 : 0.7;
     ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); ctx.stroke();
   }
-  // Coloured zone marks (redline / Vr / Vs0 …).
   if (opts.marks) for (const m of opts.marks) { const a = A0 + sweep * clampNum(m.v, 0, 1); ctx.strokeStyle = m.col; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, r, a - 0.05, a + 0.05); ctx.stroke(); }
-  // Value arc with a soft glow in its own colour.
   const va = A0 + sweep * frac;
   ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = Math.max(2, r * 0.22); ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx, cy, r, A0, va); ctx.stroke(); ctx.restore();
-  // Tapered needle (dark underlay → bright top) on a metallic hub.
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(va);
   ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.moveTo(-r * 0.17, -1.4); ctx.lineTo(r * 0.86, -0.2); ctx.lineTo(r * 0.86, 1.0); ctx.lineTo(-r * 0.17, 1.6); ctx.closePath(); ctx.fill();
   ctx.fillStyle = '#eef4fb'; ctx.beginPath(); ctx.moveTo(-r * 0.17, -0.9); ctx.lineTo(r * 0.84, -0.4); ctx.lineTo(r * 0.84, 0.4); ctx.lineTo(-r * 0.17, 0.9); ctx.closePath(); ctx.fill();
@@ -4941,10 +4357,8 @@ function arcGauge(ctx, cx, cy, r, frac, label, val, opts) {
   const hub = ctx.createRadialGradient(cx - 1, cy - 1, 0.4, cx, cy, 3.2);
   hub.addColorStop(0, '#d2dde6'); hub.addColorStop(1, '#39454f');
   ctx.fillStyle = hub; ctx.beginPath(); ctx.arc(cx, cy, 2.6, 0, 7); ctx.fill();
-  // Label above — font scales with the dial so a big gauge reads big.
   const lblF = Math.max(6, Math.round(r * 0.32)), valF = Math.max(7, Math.round(r * 0.4));
   ctx.fillStyle = '#a3b7c7'; ctx.font = `${lblF}px monospace`; ctx.textBaseline = 'alphabetic'; ctx.fillText(label, cx, cy - r - Math.max(3, r * 0.12));
-  // Recessed digital read-out pill below the hub.
   const vy = cy + r * 0.56, pw = Math.max(20, r * 1.15), ph = Math.max(9, r * 0.52), px0 = cx - pw / 2, py0 = vy - ph / 2, rr = 2;
   ctx.beginPath(); ctx.moveTo(px0 + rr, py0); ctx.arcTo(px0 + pw, py0, px0 + pw, py0 + ph, rr); ctx.arcTo(px0 + pw, py0 + ph, px0, py0 + ph, rr); ctx.arcTo(px0, py0 + ph, px0, py0, rr); ctx.arcTo(px0, py0, px0 + pw, py0, rr); ctx.closePath();
   ctx.fillStyle = 'rgba(3,8,12,0.85)'; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 0.6; ctx.stroke();
@@ -4953,17 +4367,13 @@ function arcGauge(ctx, cx, cy, r, frac, label, val, opts) {
 
 
 // ── Extra gauge-panel furniture ──────────────────────────────────────────────
-// The engine dials only fill two narrow columns at the panel's edges; the wide bands
-// between them and the centre stick used to be dead black. These fill that space with
-// an annunciator tile grid, slim secondary bar instruments, and (reaper only) a GAU-8
-// ammo/stores block — all kept clear of the stick so they never sit under it at rest.
+// Annunciators, bar gauges and the Reaper's stores block, kept clear of the centre stick.
 function fsPill(ctx, x, y, w, h, rr) {
   rr = Math.min(rr, w / 2, h / 2);
   ctx.beginPath();
   ctx.moveTo(x + rr, y); ctx.arcTo(x + w, y, x + w, y + h, rr); ctx.arcTo(x + w, y + h, x, y + h, rr);
   ctx.arcTo(x, y + h, x, y, rr); ctx.arcTo(x, y, x + w, y, rr); ctx.closePath();
 }
-// A grid of caution/annunciator lamps: dim when nominal, glowing in their alarm colour when lit.
 function annunTiles(ctx, x0, y0, x1, y1, tiles) {
   if (!tiles.length || x1 - x0 < 30) return;
   const cols = (x1 - x0) > 92 ? 2 : 1, rowsN = Math.ceil(tiles.length / cols), gap = 3;
@@ -4979,7 +4389,6 @@ function annunTiles(ctx, x0, y0, x1, y1, tiles) {
     ctx.font = `bold ${Math.min(8, th * 0.56)}px monospace`; ctx.fillText(t.lbl, x + tw / 2, y + th / 2 + 0.5);
   });
 }
-// Slim bottom-anchored bar instruments (oil pressure / fuel flow / hydraulics) with a caption.
 function barCluster(ctx, x0, x1, H, items) {
   const yTop = H * 0.16, yBot = H * 0.80, n = items.length, slot = (x1 - x0) / n, bw = Math.min(13, slot * 0.52);
   items.forEach((it, i) => {
@@ -4993,8 +4402,7 @@ function barCluster(ctx, x0, x1, H, items) {
     ctx.fillText(it.lbl, cx, yBot + 3);
   });
 }
-// Reaper-only GAU-8 gun/stores block: a rotary-odometer rounds counter + depletion bar,
-// a master-ARM lamp and the selected-weapon readout.
+// Reaper GAU-8 stores block.
 function gunStores(ctx, x0, x1, yTop, yBot, g) {
   const cx = (x0 + x1) / 2, w = Math.min(x1 - x0, 128), bx0 = cx - w / 2;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
@@ -5029,16 +4437,12 @@ function paintGauges(cv, g) {
   const ctx = cv.getContext('2d'); ctx.save(); ctx.scale(dpr, dpr);
   const W = cw, H = ch; ctx.clearRect(0, 0, W, H);
   const rpms = g.rpms || [g.rpm || 0], temps = g.temps || [g.temp || 40], nEng = Math.max(1, g.engines || 1);
-  // spec[2] carries the engine index (1-based; 0 = single-engine, no suffix) — the draw
-  // cases below label it per powerplant (piston RPM/TEMP · turboprop TQ/ITT · jet N1/EGT).
+  // spec[2] is the 1-based engine index, 0 for a single engine.
   const rpmSpec = (i) => ['rpm', rpms[i] || 0, nEng > 1 ? i + 1 : 0];
   const tempSpec = (i) => ['temp', temps[i] || 40, nEng > 1 ? i + 1 : 0];
   const eng = g.eng || 'piston';
   const suffix = (n) => (n ? ' ' + n : '');
-  // FAT, READABLE cluster: only the primary powerplant dials + the L/R fuel pair live here now.
-  // Airspeed reads off the PFD tape and the STALL / LOW-ROTOR lamp lives over the view, so those
-  // redundant dials are dropped — which lets a single-engine craft run just TWO rows of big dials
-  // flanking the yoke (twins fill three, a 4-engine heavy five). Fuel is a proper L/R tank pair.
+  // Only the powerplant dials and the L/R fuel pair, so the dials can be big.
   let leftCol, rightCol;
   if (nEng === 1) {
     leftCol = [rpmSpec(0), ['fuel', 'L']];
@@ -5049,25 +4453,19 @@ function paintGauges(cv, g) {
     rightCol = []; for (let i = half; i < nEng; i++) rightCol.push(rpmSpec(i), tempSpec(i)); rightCol.push(['fuel', 'R']);
   }
   const rows = Math.max(2, leftCol.length, rightCol.length), chd = H / rows;
-  // Radius is as big as the row height allows (leaving room for the label above + read-out below)
-  // and capped by the width so a dial never crowds the yoke rising up the centre.
   const r = Math.min(chd * 0.38, W * 0.19);
   const col = Math.max(r * 1.28, W * 0.04), colL = col, colR = W - col;
   const yAt = (i) => (i + 0.5) * chd;
   const draw = (spec, x, y) => {
     switch (spec[0]) {
       case 'rpm': {
-        // Primary power dial, labelled + scaled per powerplant: piston reads RPM (×100),
-        // turboprop reads TORQUE %, turbofan/jet reads N1 % (fan speed). Same 0..1 frac.
         const lbl = (eng === 'turboprop' ? 'TQ' : eng === 'turbofan' ? 'N1' : eng === 'heli' ? 'ROTOR' : 'RPM') + suffix(spec[2]);
         const val = eng === 'piston' ? Math.round(spec[1] * 100) : Math.round(spec[1] * 100) + '%';
-        // A heli's rotor RPM has a green governed band and reds at BOTH ends (droop + overspeed).
         const marks = eng === 'heli' ? [{ v: 0.55, col: '#ff5a5b' }, { v: 0.6, col: '#5fe0a0' }, { v: 1, col: '#5fe0a0' }] : [{ v: 0.92, col: '#ff5a5b' }];
         arcGauge(ctx, x, y, r, spec[1], lbl, val, { col: eng === 'heli' && spec[1] < 0.6 ? '#ff5a5b' : ACCENT, marks }); break;
       }
       case 'temp': {
-        // Thermal dial: piston oil TEMP, turboprop ITT, turbofan EGT — turbines run far
-        // hotter, so map the same 0..1 thermal frac onto realistic turbine-gas ranges.
+        // Turbines map the same 0..1 onto turbine-gas ranges.
         const tf = clampNum((spec[1] - 40) / 175, 0, 1);
         const lbl = (eng === 'turboprop' ? 'ITT' : eng === 'turbofan' ? 'EGT' : eng === 'heli' ? 'CHT' : 'TEMP') + suffix(spec[2]);
         const val = eng === 'turboprop' ? Math.round(300 + tf * 520) + '°'
@@ -5081,16 +4479,13 @@ function paintGauges(cv, g) {
   leftCol.forEach((s, i) => draw(s, colL, yAt(i)));
   rightCol.forEach((s, i) => draw(s, colR, yAt(i)));
 
-  // ── Fill the dead bands between the dial columns and the centre stick ──────────
   const dialHalf = r * 1.22, innerL = colL + dialHalf + 8, innerR = colR - dialHalf - 8;
-  const koL = W * 0.35, koR = W * 0.65;   // centre keep-out (the stick lives here at rest)
-  // Left band → secondary bar instruments (cosmetic, driven off the primary powerplant).
+  const koL = W * 0.35, koR = W * 0.65;   // centre keep-out for the stick
   if (koL - innerL > 40) barCluster(ctx, innerL, koL, H, [
     { lbl: 'OIL', frac: g.engineOn ? 0.5 + g.prpm * 0.45 : 0.05, col: '#5fe0a0' },
     { lbl: 'FLOW', frac: g.engineOn ? Math.max(0.05, g.prpm) : 0, col: '#ffb23e' },
     { lbl: 'HYD', frac: g.engineOn ? 0.68 + g.prpm * 0.28 : 0.08, col: '#5fd0ff' },
   ]);
-  // Right band → annunciator lamps, with the reaper's GAU-8 stores block stacked above them.
   if (innerR - koR > 40) {
     const gun = g.craft === 'reaper' && g.hardpoints > 0;
     const tiles = [
@@ -5099,8 +4494,6 @@ function paintGauges(cv, g) {
       { lbl: 'GEN', on: g.battery < 20, col: '#ff5a5b' },
       { lbl: 'STALL', on: !!g.stall, col: '#ff5a5b' },
     ];
-    // NOSE lamp — only on an airframe that HAS a cargo visor, and lit for exactly as long as the
-    // nose is off its lock. It's a red lamp because while it's lit the aeroplane cannot move.
     if (g.hasVisor) tiles.push({ lbl: 'NOSE', on: (g.noseVisor || 0) > 0.02, col: '#ff5a5b' });
     if (eng === 'heli') tiles.push({ lbl: 'AUTO', on: !!g.autorot, col: '#ffb23e' }, { lbl: 'LO NR', on: !!g.lowNr, col: '#ff5a5b' }, { lbl: 'VRS', on: !!g.vrs, col: '#ff5a5b' });
     if (g.hardpoints > 0 && !gun) tiles.push({ lbl: 'ARM', on: !!g.armed, col: '#ff5a3a' });
@@ -5108,9 +4501,7 @@ function paintGauges(cv, g) {
     else annunTiles(ctx, koR, H * 0.14, innerR, H * 0.86, tiles);
   }
   if (g.night) nightGlow(ctx, W, H);
-  // EMP: the dials are drawn and then buried. Painting them first and covering
-  // them is deliberate — a faint ghost of the needles behind dead glass reads as
-  // hardware that has lost power, where an empty canvas would just look broken.
+  // EMP: drawn, then covered, so a ghost of the needles reads as dead hardware.
   if (g.avionicsOut) {
     ctx.fillStyle = 'rgba(4,7,10,0.93)';
     ctx.fillRect(0, 0, W, H);
@@ -5138,40 +4529,34 @@ function paintMFD(cv, F, d) {
   const ctx = cv.getContext('2d'); ctx.save(); ctx.scale(dpr, dpr);
   const W = cw, H = ch; ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#050a10'; ctx.fillRect(0, 0, W, H);
   const ox = F.pos.x - F.mapCenter.x, oy = F.pos.y - F.mapCenter.y, hdgRad = (d.hdg || 0) * Math.PI / 180;
-  // TRACK-UP minimap: the map ROTATES so your direction of travel is always toward the top;
-  // the aircraft marker stays fixed pointing up. A north pointer swings round to show North.
+  // Track-up.
   ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(-hdgRad); ctx.translate(-W / 2, -H / 2);
   if (F.mfdMode === 'nav') paintNav(ctx, W, H, F, ox, oy); else paintLocal(ctx, W, H, F, ox, oy);
-  // Air-to-air traffic blips, plotted north-up inside the track-up frame (Phase A).
   const cellPx = F.mfdMode === 'nav' ? Math.hypot(W, H) / ((F.map?.length || 9)) * 1.1 : Math.min(W, H) / 5;
   paintMfdContacts(ctx, W, H, F, cellPx);
   ctx.restore();
-  // Fixed aircraft marker — always points up (= where you're heading).
   ctx.save(); ctx.translate(W / 2, H / 2);
   ctx.fillStyle = '#ffcf3e'; ctx.strokeStyle = '#1a1200'; ctx.lineWidth = 0.6;
   ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 6); ctx.lineTo(0, 3); ctx.lineTo(-5, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
-  // North pointer — sits toward North on the rotated map (opposite your heading offset).
   const rr = Math.min(W, H) * 0.4, nx = W / 2 - Math.sin(hdgRad) * rr, ny = H / 2 - Math.cos(hdgRad) * rr;
   ctx.fillStyle = accA(0.8); ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('N', nx, ny);
   if (F.nightLight) nightGlow(ctx, W, H);
   ctx.restore();
 }
 
-// Full 5×5 tiles centred on the craft, straight from the always-complete map window —
-// no fog of war, every cell shown (off-window cells read as neutral, never blank).
+// 5×5 tiles around the craft; off-window cells read neutral.
 function paintLocal(ctx, W, H, F, ox, oy) {
   const map = F.map;
   if (!map || !map.length) { ctx.fillStyle = '#456'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('NO MAP', W / 2, H / 2); return; }
-  const R = (map.length - 1) / 2, cell = Math.min(W, H) / 5;   // 5 tiles visible across the panel
-  const drawHalf = 3;                                         // draw 7×7 so track-up rotation still fills the corners
+  const R = (map.length - 1) / 2, cell = Math.min(W, H) / 5;
+  const drawHalf = 3;                                         // 7×7, so track-up rotation fills the corners
   const ccx = R + ox, ccy = R + oy, bx = Math.round(ccx), by = Math.round(ccy);
-  const fx = ccx - bx, fy = ccy - by;                        // sub-tile offset → smooth scroll
+  const fx = ccx - bx, fy = ccy - by;
   for (let dy = -drawHalf; dy <= drawHalf; dy++) for (let dx = -drawHalf; dx <= drawHalf; dx++) {
     const c = (map[by + dy] && map[by + dy][bx + dx]) || null;
     const sx = W / 2 + (dx - fx) * cell, sy = H / 2 + (dy - fy) * cell;
-    // A runway tile is field green and a taxiway or apron a darker one (`rwy`, deriveSurfaceCell): the runway
-    // stopped being a road on the cell, which is what used to draw it here as a tan bar.
+    // Runways read `rwy` (deriveSurfaceCell), never `road`.
     const col = !c ? '#12202c' : c.kind === 'air' ? '#0a1119' : c.kind === 'field' || c.rwy === 'ns' || c.rwy === 'ew' ? '#5fe0a0'
       : c.rwy === 'pad' ? '#3c8a68' : c.kind === 'nofly' ? '#7a2a2a' : (MFD_BCOL[c.biome] || '#2a3540');
     ctx.fillStyle = col; ctx.fillRect(sx - cell / 2, sy - cell / 2, cell - 1, cell - 1);
@@ -5180,10 +4565,7 @@ function paintLocal(ctx, W, H, F, ox, oy) {
   }
 }
 
-// Traffic blips on the track-up MFD: each contact is a red dart pointing along its own
-// heading (relative to ours, since the frame is already track-up rotated), dead-reckoned
-// like the windshield. Off-panel contacts clamp to the edge as a hollow marker. Drawn
-// inside the rotated frame, so north-up tile offsets land track-up automatically.
+// Traffic darts, dead-reckoned and clamped to the edge, drawn inside the rotated frame.
 function paintMfdContacts(ctx, W, H, F, cell) {
   const cs = F.contacts; if (!cs || !cs.length) return;
   const now = performance.now(), lim = Math.min(W, H) * 0.46;
@@ -5195,12 +4577,10 @@ function paintMfdContacts(ctx, W, H, F, cell) {
     const mag = Math.hypot(px, py); let edge = false;
     if (mag > lim) { const k = lim / mag; px *= k; py *= k; edge = true; }
     const des = c.id && c.id === F.designatedId;
-    // Fill the dart in the bogey's livery base (paint identification); a thin red edge +
-    // red designator ring keep hostility legible on the radar.
     const baseHex = c.livery && /^#[0-9a-fA-F]{6}$/.test(c.livery.base || '') ? c.livery.base : '#c85050';
     ctx.save(); ctx.translate(W / 2 + px, H / 2 + py);
     if (des) { ctx.strokeStyle = '#ff5b5b'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, 5.5, 0, 7); ctx.stroke(); }
-    ctx.rotate(hr);   // world heading; the frame's -ownHdg rotation makes it read track-up
+    ctx.rotate(hr);
     ctx.globalAlpha = edge ? 0.55 : 1;
     ctx.fillStyle = baseHex; ctx.strokeStyle = 'rgba(255,91,91,0.85)'; ctx.lineWidth = 0.6;
     ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(3, 4); ctx.lineTo(0, 2); ctx.lineTo(-3, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -5211,8 +4591,7 @@ function paintMfdContacts(ctx, W, H, F, cell) {
 function paintNav(ctx, W, H, F, ox, oy) {
   const map = F.map;
   if (!map || !map.length) { ctx.fillStyle = '#456'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('NO MAP', W / 2, H / 2); return; }
-  // Overscan: size cells so the whole 9×9 window spans the panel DIAGONAL — then track-up
-  // rotation never reveals empty corners (the outer rings just run off the visible edges).
+  // Overscan to the panel diagonal so track-up rotation never shows empty corners.
   const R = (map.length - 1) / 2, cell = Math.hypot(W, H) / map.length * 1.1;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx];
@@ -5224,40 +4603,25 @@ function paintNav(ctx, W, H, F, ox, oy) {
   ctx.strokeStyle = accA(0.18); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(W / 2, H / 2, Math.min(W, H) * 0.32, 0, 7); ctx.stroke();
 }
 
-// A bomb going off, from the server that resolved it. Anchored to the WORLD TILE it landed on
-// rather than to a screen position, so the fireball stays where the bomb went while you haul
-// off the target and it slides away underneath you — which is the whole reason to draw it in
-// the 3D view instead of flashing the screen. `q` (dive quality) sizes it a little: a
-// well-aimed bomb reads bigger because you are closer to it and looking straight down at it.
+// A bomb release the server resolved: anchored to its world tile; `q` sizes the burst a little.
 export function flightBurst(msg) {
   const F = _fsim; if (!F || !msg || !Number.isFinite(msg.gx)) return;
   const now = performance.now();
-  // NOT A DETONATION — A RELEASE. The bomb falls first (see the drop pass in the frame loop),
-  // and the fireball is spawned when it gets there. The fall is short and fixed rather than
-  // integrated: it is a playback of an outcome the server already decided, so the only thing that
-  // matters about the timing is that it reads as a weapon leaving the aeroplane and arriving.
+  // The bomb falls for a fixed time first; the frame loop spawns the burst on arrival.
   F.drops.push({ gx: msg.gx, gy: msg.gy, x0: F.pos.x, y0: F.pos.y, t0: now, fall: 1500,
     scale: 0.85 + 0.35 * (msg.q || 0) });
-  // AND THE RELEASE IS WHAT ENDS THE DIVE. This is the phase change the dive computer exists
-  // around: the bomb is gone, so there is nothing left to aim and the only thing left to do is
-  // get out. Doing it here rather than at the keypress means it fires off the SERVER's
-  // confirmation that a bomb actually left the aeroplane — a refused release keeps you diving.
+  // The confirmed release switches the dive computer to the pull-out; a refused one keeps diving.
   if (F.diveAuto === 'push') F.diveAuto = 'pull';
-  if (F.drops.length > 6) F.drops.shift();   // a hard cap — nothing sensible has six in the air
+  if (F.drops.length > 6) F.drops.shift();
 }
 
-// Server context push (authoritative fuel + the world below).
-// The Drake under the water (plugins/submersible). Depth in metres, 0 when she is up. Its own
-// message rather than a field on flight_ctx, because flight_ctx assigns some fields unconditionally
-// and a partial one would wipe the roads and actors off the canopy.
-// The glasses left in the Drake's champagne (plugins/flight/champagne.js). null until the server
-// has said, which draws a full bottle: an unopened Drake has one.
+// Glasses left in the Drake's champagne; null draws a full bottle.
 let DK_CHAMPAGNE = null;
 export function drakeChampagne(n) { DK_CHAMPAGNE = Number.isFinite(n) ? n : null; }
+// ⚠ Its own message, not a flight_ctx field: a partial flight_ctx would wipe roads and actors.
 export function drakeSubmerged(msg) {
   const F = _fsim; if (!F?.dk || !msg) return;
-  // The server said no to a dive, and why (plugins/submersible refuse). Stop filling the tanks now
-  // rather than after the frame's three-second wait, and say the reason instead of a shrug.
+  // A refused dive: stop the tanks now and say why.
   if (msg.refused) {
     F.dk.subBlowLocal = null; F.dk.subAskAt = 0; F.dk.subPending = null;
     fsimToast('SUB: ' + msg.refused);
@@ -5268,49 +4632,38 @@ export function drakeSubmerged(msg) {
   F.dk.subAirMax = msg.airMax ?? null;
   if (!(F.dk.submerged > 0) && F.dk.subWant > 0 && msg.depth === 0 && msg.surfaced) F.dk.subWant = 0;
   F.dk.subRating = msg.rating ?? null;
-  // The ballast: the server's figure, which the frame eases the gauge and the vents toward.
   F.dk.subBallast = +msg.ballast || 0;
   F.dk.subBlow = msg.blow !== false;
-  F.dk.subBlowLocal = null;            // the server has answered the button; its word wins now
+  F.dk.subBlowLocal = null;            // the server's word wins now
   F.dk.subAskAt = 0;
   if (msg.floodS) F.dk.subFloodS = +msg.floodS;
   if (msg.blowS) F.dk.subBlowS = +msg.blowS;
   F.dk.subFloor = msg.floor ?? null;
 }
 
-// The GPS directory, answering the picker's flightgps (THE GPS PICKER in openFlightSim).
+// The GPS directory, answering flightgps.
 export function flightSimGps(msg) {
   const F = _fsim; if (!F || !msg) return;
   F.gpsDir = Array.isArray(msg.regions) ? msg.regions : [];
   F.gpsRender?.();
 }
 
+// Server context push: fuel and the world below.
 export function flightSimContext(msg) {
   const F = _fsim; if (!F || !msg) return;
   if (msg.fuel != null) F.fuel = msg.fuel;
   if (msg.fuelCap != null) F.fuelCap = msg.fuelCap;
-  // Update the map AND its window centre together so they stay paired (no recenter jump).
-  // Interned: an unchanged cell keeps its object and an unchanged window its array, or every push
-  // threw away every cache GLASS keeps per building (panels/map-intern.js).
+  // ⚠ Map and centre update together. Interned so GLASS keeps its per-building caches (map-intern.js).
   if (msg.map) { F.map = internMap(F.map, F.mapCenter?.x, F.mapCenter?.y, msg.map, msg.mapX, msg.mapY); if (msg.mapX != null) F.mapCenter = { x: msg.mapX, y: msg.mapY }; }
-  if (msg.skyline) F.skyline = msg.skyline;   // the tall towers outside that window (windshield.js noteSkyline)
-  // The highway past the edge of that window, as polylines in absolute world tiles. Assigned
-  // unconditionally for the same reason `actors` is: the server sends null the moment there is no
-  // road in range, and reading that as no news would leave a highway drawn across an empty desert
-  // three regions away from the one it belongs to.
+  if (msg.skyline) F.skyline = msg.skyline;
+  // ⚠ roads and actors: null or empty is a real answer, never "no news".
   if (msg.roads !== undefined) F.roads = msg.roads;
-  // The street population, in absolute tile coords, paired with the map for the same reason it is.
-  // Assigned unconditionally: an EMPTY list is a real answer (everybody went indoors) and must not
-  // be read as "no news", or the last people seen would stand on the pavement forever.
   if (msg.actors !== undefined) F.actors = msg.actors;
   if (msg.minimap) F.minimap = msg.minimap;
   if (msg.fields) F.fields = msg.fields;
-  if (msg.landmarks) F.landmarks = msg.landmarks;   // named buildings the target guide can lock onto (cycled alongside fields)
-  if (msg.regions) F.regions = msg.regions;   // spatial world-map places (Coldwater Basin…) the guide can lock onto (cycled alongside fields/landmarks)
-  // The pilot's own tile designation from the tablet map. Auto-selects, because tapping
-  // 'Target here' is an explicit act of intent and nobody wants to then hunt for it with
-  // the cycle key. Latched on a CHANGE of coords only -- re-selecting it on every 2s push
-  // would make [ / ] unusable, since the guide would snap back a moment after every step.
+  if (msg.landmarks) F.landmarks = msg.landmarks;
+  if (msg.regions) F.regions = msg.regions;
+  // The tablet waypoint auto-selects. ⚠ Only on a change of coords, or [ / ] snaps back every push.
   {
     const wp = msg.waypoint || null;
     const key = wp ? wp.gx + ',' + wp.gy : '';
@@ -5321,61 +4674,50 @@ export function flightSimContext(msg) {
     }
     F.waypoint = wp;
   }
-  if ('onField' in msg) F.onField = !!msg.onField;   // rolled onto a real airfield → auto-park + open the hangar on full stop
-  if ('onYacht' in msg) F.onYacht = !!msg.onYacht;   // a VTOL set down alongside the Echelon → auto-land on her helipad
-  if (msg.occupants) { F.occupants = msg.occupants; if (msg.seats) F.seats = msg.seats; renderSeats(F); }   // cabin readout keeps pace with boarding
-  if ('cargo' in msg) F.cargoKg = msg.cargo;   // current hold weight (drives the J jettison bind)
+  if ('onField' in msg) F.onField = !!msg.onField;
+  if ('onYacht' in msg) F.onYacht = !!msg.onYacht;
+  if (msg.occupants) { F.occupants = msg.occupants; if (msg.seats) F.seats = msg.seats; renderSeats(F); }
+  if ('cargo' in msg) F.cargoKg = msg.cargo;
   if (msg.sky) F.sky = msg.sky;
-  if ('avionicsOut' in msg) F.avionicsOut = !!msg.avionicsOut;   // EMP pulse — the panel is dead until the boards reboot
+  if ('avionicsOut' in msg) F.avionicsOut = !!msg.avionicsOut;   // EMP
   if ('biomeBelow' in msg) F.biomeBelow = msg.biomeBelow;
   if ('surface' in msg) { F.surface = msg.surface; const tEl = document.getElementById('fsim-tile'); if (tEl) tEl.textContent = (msg.surface || '—').toUpperCase(); }
-  if (typeof msg.hull === 'number') F.hull = msg.hull;   // authoritative hull for the cockpit readout
-  if ('feetGone' in msg && F.dk) F.dk.feetGone = !!msg.feetGone;   // the Drake's feet, off since a bad water landing (drake-water.js)
-  if ('surfaces' in msg) F.surfaces = msg.surfaces || null;   // authoritative sheared-surface state → asymmetric physics + live breakup model (null = intact/repaired)
-  if (typeof msg.msl === 'number' && msg.msl !== F.msl) { F.msl = msg.msl; if (F.paintPips) F.paintPips(); }   // authoritative rail count
+  if (typeof msg.hull === 'number') F.hull = msg.hull;
+  if ('feetGone' in msg && F.dk) F.dk.feetGone = !!msg.feetGone;
+  if ('surfaces' in msg) F.surfaces = msg.surfaces || null;   // sheared surfaces; null is intact
+  if (typeof msg.msl === 'number' && msg.msl !== F.msl) { F.msl = msg.msl; if (F.paintPips) F.paintPips(); }
   if (typeof msg.bombCap === 'number') {
     F.bombCap = msg.bombCap;
-    // The rack count is the ONLY thing that decides whether this aeroplane has a bomber's
-    // controls, and it does not arrive until the first context push — which is why the buttons
-    // are built hidden and revealed here rather than gated at build time off a count nobody had.
+    // The rack count arrives only here, so the bomber buttons are built hidden and revealed now.
     for (const id of ['#fsim-bombbtn', '#fsim-divebtn']) {
       const b = document.querySelector(id); if (b) b.style.display = F.bombCap > 0 ? '' : 'none';
     }
   }
-  if (typeof msg.bombs === 'number' && msg.bombs !== F.bombs) { F.bombs = msg.bombs; if (F.paintPips) F.paintPips(); }   // authoritative rack count
+  if (typeof msg.bombs === 'number' && msg.bombs !== F.bombs) { F.bombs = msg.bombs; if (F.paintPips) F.paintPips(); }
   F.warn = msg.warn || null;
-  // Guided checkride: store the current instruction + ring gates, and refresh the
-  // persistent guidance card + control spotlight. renderCheckride redraws only on a stage
-  // change, so this is cheap to call every tick.
   if ('checkride' in msg) {
     F.checkride = msg.checkride;
     renderCheckride(F, msg.checkride);
   }
   const wasExposed = !!(F.aa && F.aa.exposed);
-  F.aa = msg.aa || null;       // AA engagement-envelope telegraph (drives the windshield threat banner)
-  if (F.aa && F.aa.exposed && !wasExposed) aaWarn();   // RWR "deedle" the instant you enter the envelope
-  F.deadStick = F.fuel <= 0;   // dead-stick when dry; clears once refuelled
+  F.aa = msg.aa || null;       // AA envelope
+  if (F.aa && F.aa.exposed && !wasExposed) aaWarn();
+  F.deadStick = F.fuel <= 0;
 }
 
-// Air-to-air hit feedback (Phase B). `taken` → red battle-damage flash + hull update +
-// warning toast; `dealt` → a brief hit confirmation. Purely feedback; the hull/kill
-// consequences are already authoritative on the server.
+// Hit feedback only; the consequences are the server's.
 export function flightSimAirHit(msg) {
   const F = _fsim; if (!F || !msg) return;
   if (msg.role === 'taken') {
     F.hitFlashT = performance.now();
     if (typeof msg.hullPct === 'number') F.hull = msg.hullPct;
-    // A structural shear this hit: record the lost surface immediately (the flight_ctx that
-    // follows carries the full authoritative map, but this makes the wing let go on the same
-    // frame as the flash) → asymmetric physics kicks in + the live breakup model shows it gone.
+    // Record a shear now so the wing goes with the flash; flight_ctx follows with the full map.
     if (msg.sheared) {
       F.surfaces = { ...(F.surfaces || {}), [msg.sheared]: 0 };
-      F.shake = Math.max(F.shake || 0, 30);   // a wing coming off throws the whole panel, harder than any ordinary hit
+      F.shake = Math.max(F.shake || 0, 30);
       if (F.toast) F.toast(`💥 STRUCTURAL FAILURE: ${SHEAR_TOAST[msg.sheared] || 'SURFACE'} GONE`);
     } else {
-      // Impact shake scaled by how hard the hit bit into the hull (msg.dmg = hull % lost) —
-      // a graze rattles, a heavy burst/missile throws the whole panel. `max` so a big jolt
-      // isn't softened by a lingering one; the frame loop decays it.
+      // Shake scales with hull lost (msg.dmg).
       F.shake = Math.max(F.shake || 0, clampNum((msg.dmg ?? 8) * 0.9, 5, 28));
       if (F.toast) F.toast(`⚠ TAKING FIRE${msg.by ? ' · ' + msg.by : ''}, HULL ${msg.hullPct}%`);
     }
@@ -5385,10 +4727,7 @@ export function flightSimAirHit(msg) {
   }
 }
 
-// Confirmed-kill banner: the server pushes `flight_kill` whenever this pilot cuts down a
-// target (strafe on the ground, or an air-to-air splash). We slam a big, loud entry across
-// the top of the glass so a kill reads even with the text pane hidden. Entries stack and
-// self-remove once their fade animation is done; the list is capped so a burst can't pile up.
+// Kill banner on `flight_kill`, capped at four.
 export function flightSimKill(msg) {
   const F = _fsim; if (!F || !msg) return;
   const feed = document.getElementById('fsim-killfeed'); if (!feed) return;
@@ -5397,15 +4736,12 @@ export function flightSimKill(msg) {
   const name = String(msg.name || 'target').replace(/[<>]/g, '');
   el.innerHTML = `★ KILL: <b>${name}</b>`;
   feed.appendChild(el);
-  while (feed.childElementCount > 4) feed.removeChild(feed.firstChild);   // cap the visible stack
-  setTimeout(() => el.remove(), 3300);   // outlasts the in+hold+out CSS animation
+  while (feed.childElementCount > 4) feed.removeChild(feed.firstChild);
+  setTimeout(() => el.remove(), 3300);   // outlasts the CSS animation
   try { hitFx(); } catch {}
 }
 
-// RWR / countermeasure pushes (Phase C). `lock` = someone's seeker has you; `missile` = a
-// launch warning (warble + a hard toast — flares are the answer); `flares` = your own burst
-// confirmed by the server (play the launch FX); `clear`/`lockbreak` = the threat picture
-// relaxed. All feedback — every consequence is already authoritative server-side.
+// RWR and countermeasure pushes; feedback only.
 export function flightSimAirThreat(msg) {
   const F = _fsim; if (!F || !msg) return;
   switch (msg.kind) {
@@ -5424,7 +4760,7 @@ export function flightSimAirThreat(msg) {
       launchFlares(F, F.s);
       break;
     case 'lockbreak':
-      F.lockId = null; F.lockProg = 0; F.seekId = null;   // the server dropped our seeker lock
+      F.lockId = null; F.lockProg = 0; F.seekId = null;
       if (F.toast) F.toast('LOCK LOST');
       break;
     case 'clear':
@@ -5434,53 +4770,39 @@ export function flightSimAirThreat(msg) {
   }
 }
 
-// Incoming ground-AA tracer: purely visual, no damage here (that's the `air_hit` push if it
-// connects) — just draws where the fire is coming from so it isn't invisible/undodgeable.
-// Carries the emplacement's world tile (msg.x/y) so the windshield can raise the volley
-// from the actual gun in 3D; 900ms gives the rounds time to visibly climb from the ground.
+// Incoming AA tracer, visual only (damage is `air_hit`); raised from the gun's world tile.
 const AA_TRACER_MS = 900;
 export function flightSimAaTracer(msg) {
   const F = _fsim; if (!F || !msg) return;
   F.aaTracerT = performance.now();
   F.aaTracerBearing = msg.bearing || 0;
-  F.aaTracerX = Number.isFinite(msg.x) ? msg.x : null;   // site world tile (null → screen-space fallback)
+  F.aaTracerX = Number.isFinite(msg.x) ? msg.x : null;   // null falls back to screen space
   F.aaTracerY = Number.isFinite(msg.y) ? msg.y : null;
-  F.aaTracerHit = !!msg.hit;                             // server's hit/miss → tracer geometry
-  F.aaTracerSeed = Math.random() * 100;                  // stable per-volley spread pattern
+  F.aaTracerHit = !!msg.hit;
+  F.aaTracerSeed = Math.random() * 100;
   const near = msg.near ?? 0.5;
-  try { aaGunFx(near, seatSpot(msg.x, msg.y)); } catch {}   // the gun's heavy report from below, from where the battery is…
-  try { tracerFx(near); } catch {}  // …and the round whipping past you
+  try { aaGunFx(near, seatSpot(msg.x, msg.y)); } catch {}
+  try { tracerFx(near); } catch {}
 }
 
-// Admin fireworks burst: the boom, for an airborne occupant. The burst itself is kept by world tile
-// in world-feed.js (dispatch notes it for every view) and the windshield draws it from there. The
-// boom rides along in the payload only to an aircraft, played here scaled by our distance from the
-// launch, so a far-off pilot hears only a faint pop.
+// Fireworks boom for a pilot, by distance; the burst itself is drawn from world-feed.js.
 export function flightSimFireworks(msg) {
   const F = _fsim; if (!F || !msg) return;
   if (msg.sfx && F.pos) {
-    const d = Math.max(Math.abs(msg.x - F.pos.x), Math.abs(msg.y - F.pos.y));   // chebyshev tiles
+    const d = Math.max(Math.abs(msg.x - F.pos.x), Math.abs(msg.y - F.pos.y));
     const gain = Math.max(0, 1 - d / 40);
-    const at = seatSpot(msg.x, msg.y);   // and from where it burst, in a seat; the gain already has the distance
+    const at = seatSpot(msg.x, msg.y);
     if (gain > 0.05) { try { window.AudioEngine?.playSfx(msg.sfx, gain, at ? { position: at, rolloff: 0, doppler: false } : {}); } catch {} }
   }
 }
 
-// Storm lightning relayed from the server. The engine's stormTick is the single
-// strike authority; each located strike (world tile + intensity) is handed to the
-// windshield, which renders it as a 3-D bolt out the canopy when it's within view.
+// Storm lightning from the server's stormTick.
 export function flightSimLightning(msg) {
   if (!msg) return;
   pushLightningStrike(msg.gx, msg.gy, msg.intensity, !!msg.cc);
 }
 
-// The ag-plane's hopper, answered by `hopperbay`. Draws the tank's gauge and one row per
-// container of liquid in the pilot's hands; pressing a row pours it and re-asks, so the gauge
-// climbs under your finger and an emptied can drops off the list on its own.
-//
-// A hopper holds ONE fluid at a time, so anything that isn't already in there is shown DISABLED
-// with the clash spelled out rather than hidden — a can that has vanished is a bug report, and a
-// can that says why it can't go in is an instruction. Same rule as the hangar bench's Hopper tab.
+// The hopper card, answering `hopperbay`. A can of another fluid shows disabled with the reason, never hidden.
 export function flightSimHopper(msg) {
   const F = _fsim; if (!F || !msg) return;
   const card = document.getElementById('fsim-hop'); if (!card) return;
@@ -5507,32 +4829,22 @@ export function flightSimHopper(msg) {
   card.querySelector('#fsim-hop-x')?.addEventListener('click', () => card.classList.remove('on'));
   card.querySelectorAll('.hop-can').forEach((b) => b.addEventListener('click', () => {
     sendCmdSilent(`loadhopper with ${b.getAttribute('data-can')}`);
-    sendCmdSilent('hopperbay');   // the pour's own re-ask: the server answers in order, so this reads the tank AFTER it
+    sendCmdSilent('hopperbay');   // answered in order, so it reads the tank after the pour
   }));
 }
 
-// Air-to-air traffic relay (Phase A: see-only). Each contact carries world position +
-// heading/speed so the frame loop can dead-reckon it smoothly between relays. Stamped
-// with receipt time for the dead-reckon window.
+// Traffic relay, stamped with receipt time for dead reckoning.
 export function flightSimContacts(msg) {
   const F = _fsim; if (!F || !msg) return;
   const now = performance.now();
   F.contacts = (msg.contacts || []).map(c => ({ ...c, t: now }));
 }
 
-// Active ground AA emplacements (world tiles) for the 3D windshield. Refreshed ~1Hz —
-// the ground doesn't move, so no dead-reckon; the frame loop just re-offsets them from
-// our own smooth position each render.
-// True while the continuous cockpit owns the area pane — dispatch uses this to stop
-// room `look`/`move` renders from clobbering the cockpit out from under the pilot.
+// Dispatch uses this to keep room renders off the cockpit.
 export function isFlightSimActive() { return !!_fsim; }
 
-// Called on every login. The sim outlives the socket, so a server restart mid-flight leaves this
-// cockpit flying an aircraft the server no longer seats anyone in: syncs, the landing and
-// 'disembark' all fell on the floor, and climbing out on the far pad put the pilot back in the
-// room they boarded from. 'flightresume' asks for the seat back (the server checks the row says
-// it is ours). Still flying, she then re-reports wheels-up, which the server ignores if it already
-// has her airborne and treats as the takeoff it missed if the restart came during the taxi.
+// On every login: ⚠ the sim outlives the socket, so ask for the seat back after a server restart
+// and re-report wheels-up (the server ignores a duplicate).
 export function resumeFlightAfterLogin() {
   const F = _fsim;
   if (!F || !F.aircraftId) return;
@@ -5541,13 +4853,9 @@ export function resumeFlightAfterLogin() {
 }
 
 // ── THE HANGAR'S HOOKS ───────────────────────────────────────────────────────
-// The hangar bench comes to the cockpit when she is standing on the hangar floor (hangar-bay.js,
-// service mode), the way the depot's comes to the cab (cab-view.js cabServiceHost). It needs three
-// things from the seat and they are all here, so it never reaches into F: somewhere to mount, a
-// paint job shown on her before it is bought, and the camera.
+// For the hangar bench (hangar-bay.js), so it never reaches into F.
 export function cockpitServiceHost() { return _fsim ? document.querySelector('#fsim-root .fsim-view') : null; }
-// ⚠ A PREVIEW, NEVER THE PAINT: it sits over F.livery in the chase view only, is cleared when the
-// bench closes, and the server's push after a respray replaces F.livery with the real thing.
+// ⚠ A preview over F.livery in the chase view only; never the paint itself.
 let LIVERY_PREVIEW = null;
 export function cockpitPreview({ livery = null } = {}) { LIVERY_PREVIEW = livery || null; }
 /** Read the view ('ext' or 'cab') with no argument; set it with one. */
@@ -5555,9 +4863,7 @@ export function cockpitView(mode, { quarter = false } = {}) {
   const F = _fsim; if (!F) return null;
   if (mode === 'ext' || mode === 'cab') F.setExternalView?.(mode === 'ext');
   if (quarter && mode === 'ext') {
-    // The maintenance shot: 3/4 off her FRONT-RIGHT, a little above, dollied all the way in to the
-    // renderer's standoff so the eye is in the hangar with her (windshield.js clamps a zoom under the
-    // standoff to it). Same angle arithmetic as the cab's opening shot.
+    // Front-right three-quarter, zoomed to the renderer's standoff.
     F.orbitResetting = false;
     F.extOrbit = ((225 - (RENDER_TUNE.chaseYaw || 0)) % 360 + 360) % 360;
     F.extPitch = 0.32; F.extZoom = 0.01;
@@ -5584,19 +4890,10 @@ export function cockpitFrame(shot, ms = 700) {
     { yaw: shot.yaw - (RENDER_TUNE.chaseYaw || 0), pitch: shot.pitch, zoom: shot.zoom }, ms);
 }
 
-// True while the discrete cockpit HUD (charter passengers, and any non-continuous
-// aircraft occupant) owns the area pane — same purpose as isFlightSimActive() above,
-// for the OTHER cockpit renderer. Without this, a `refresh`-flagged zone_event (e.g.
-// touchdown landing the passenger's zone before they've disembarked) schedules a
-// debounced silent `look` that clobbers the HUD with plain room text mid-landing.
+// As isFlightSimActive, for the glass HUD: ⚠ without it a `refresh` zone_event clobbers it mid-landing.
 export function isCockpitHudActive() { return !!document.getElementById('ck-hud-root'); }
 
-// Read-only snapshot of the live flight position + window centre. The real game feeds
-// fresh map windows from the server (flightSimContext); the login-less flightsim.html
-// test page has no server, so it reads this each frame to know when the aircraft has
-// crossed far enough from the current window centre to regenerate a procedural window
-// and push it back through flightSimContext — the exact seam the server uses. Returns
-// null when no sim is active. Never called in the real game.
+// For the server-less flightsim.html test page, which regenerates map windows itself. Unused in the game.
 export function flightSimSnapshot() {
   const F = _fsim; if (!F) return null;
   return {
@@ -5610,39 +4907,34 @@ export function closeFlightSim() {
   const F = _fsim; if (!F) return;
   _fsim = null;
   LIVERY_PREVIEW = null;
-  // A bench docked on this cockpit (hangar-bay.js service mode) goes with it.
   window.dispatchEvent(new Event('fsim:closed'));
   if (F.raf) cancelAnimationFrame(F.raf);
   if (F.toastT) clearTimeout(F.toastT);
-  F.dkTipEl?.remove();   // the Drake switch tooltip lives on <body>, so the seat has to take it down
-  F.gpsClose?.();        // …and so does the GPS picker
+  F.dkTipEl?.remove();   // these two live on <body>
+  F.gpsClose?.();
   for (const [t, ty, fn, op] of F.listeners) { try { t.removeEventListener(ty, fn, op); } catch {} }
   try { disposeWindshield('fsim-ws'); } catch {}
   try { clearFlightDrugFx(document.getElementById('fsim-root')?.querySelector('.fsim-view'), document.getElementById('fsim-ws')); } catch {}
   stopEngineAudio(); stopBoatContacts();
-  document.body.classList.remove('fsim-fullscreen');   // drop the immersive layout if it was on
-  document.body.classList.remove('fsim-hidepanel');    // …and the lighter hide-panel layout
-  document.body.classList.remove('fsim-noglass');     // …and the folded instrument rows
-  document.body.classList.remove('fsim-external');     // …and the external chase-cam layout
-  exitBigScreen();                                     // …and big screen, which owns the page rather than the pane
-  endSeatKeyboard();                                     // …and the keyboard goes back to the command bar
-  // ⚠ AND THE DETACHED CAMERA IS PUT AWAY. `freeCam` is module-scoped (one sim, like `F`), so a
-  // pilot who climbed out with it still out would have found the NEXT aircraft holding its trim
-  // with the keyboard already spoken for — and the chrome class outlives the panel that set it.
+  document.body.classList.remove('fsim-fullscreen');
+  document.body.classList.remove('fsim-hidepanel');
+  document.body.classList.remove('fsim-noglass');
+  document.body.classList.remove('fsim-external');
+  exitBigScreen();
+  endSeatKeyboard();
+  // ⚠ The free camera and mouse stick are module-scoped and listen on the window: release both,
+  // or the next aircraft opens with the keyboard taken and the cursor hidden.
   freeCam.close();
-  document.body.classList.remove('fsim-freecam');      // …and the controls come back with it
+  document.body.classList.remove('fsim-freecam');
   freeIdle?.unbind(); freeIdle = null;
-  // …and the glass gives the mouse back. Same reasoning one line up, and one rung worse if it is
-  // missed: the stick listens on the window, so an unreleased binding would go on hiding the
-  // cursor and reading the pointer over whatever panel replaced the cockpit.
   stickUnbind?.(); stickUnbind = null;
-  document.body.classList.remove('fsim-active');       // …and the d-pad comes back: you're walking again
-  window.dispatchEvent(new Event('pane:released'));    // phones collapse the area pane back to where they keep it
-  suppressWeatherFx(false, 'cockpit');   // back to the room view — let the outdoor overlay resume
+  document.body.classList.remove('fsim-active');
+  window.dispatchEvent(new Event('pane:released'));
+  suppressWeatherFx(false, 'cockpit');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 2. TARGETING — the gun-pass reticle deck
+// 2. TARGETING: the gun-pass reticle deck
 // ══════════════════════════════════════════════════════════════════════════════
 export function openTargeting(opts = {}) {
   ensureMgStyles(); ensureChassisStyles();

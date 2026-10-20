@@ -800,7 +800,7 @@ function addGearPod(faces, f, g, wz) {
     faces.push({ role: 'gear', sh: 0.58, p: [sTop[i], sTop[j], sMid[j], sMid[i]] });   // upper cylinder (dull)
     faces.push({ role: 'gear', sh: 0.9, p: [sMid[i], sMid[j], sLow[j], sLow[i]] });    // lower piston (polished)
   }
-  // Scissor / torque link — a shallow forward 'V' off the front of the strut.
+  // Scissor / torque link, a shallow forward 'V' off the front of the strut.
   const flF = f - 0.02 + sr, lw = 0.008, kneeF = flF + 0.04, kneeZ = midZ + 0.015;
   faces.push({ role: 'gear', sh: 0.8, p: [V(flF, g - lw, legTop + 0.005), V(flF, g + lw, legTop + 0.005), V(kneeF, g + lw, kneeZ), V(kneeF, g - lw, kneeZ)] });
   faces.push({ role: 'gear', sh: 0.68, p: [V(kneeF, g - lw, kneeZ), V(kneeF, g + lw, kneeZ), V(flF, g + lw, sBot + 0.01), V(flF, g - lw, sBot + 0.01)] });
@@ -1523,7 +1523,7 @@ function buildCub(detail = 1) {
             V(lp[0] + 0.02, s * (CU_SPAN + 0.012), lp[2] - 0.010), V(lp[0] - 0.02, s * (CU_SPAN + 0.012), lp[2] - 0.010)] });
     }
   }
-  // No flaps — a J-3 has none. Ailerons only, outboard, on the real trailing edge.
+  // No flaps, a J-3 has none. Ailerons only, outboard, on the real trailing edge.
   if (detail) for (const s of [1, -1]) {
     const le = (g) => cuPt(s * g, 0.66, 0.5), te = (g) => cuPt(s * g, 1, 0.5);
     pushCtrlSurface(faces, 'aileron', s, 0.82, le(0.60), le(1.12), te(0.60), te(1.12), 0.28, 'z', 0.010);
@@ -2245,17 +2245,17 @@ const _truckKeys = [];
 // ── Trucks (THE LONG HAUL) ──
 // Ground vehicles in the same normalised [fore, right, up] box, so CONTACT_SIZE scales them.
 // Each row is a proportion set: the same builder runs per type, so a new truck is a row, never a function.
-//  cab      — how far forward the cab box runs (a cab-over has almost no nose; a conventional does)
-//  nose     — bonnet length; 0 makes it a cab-over, which is what the little ones are
-//  hi       — cab roof height, the single strongest read of size at distance
-//  sleeper  — 0 for a day cab; the long-haul rigs get a hump you can see from a mile off
-//  axles    — rear axle groups under the tractor
-//  stacks   — vertical exhaust behind the cab: nothing says heavy truck faster
-//  w        — half-width
-//  aero     — 0..1 how much roof fairing the cab wears (0 is a bare flat-top, 1 a full wind kit)
-//  skirt    — 1 if the tractor has side fairings between the steps and the drives
-//  lamps    — 0..1 how much LIGHT the thing wears: marker rows, a bar on the bumper, beltline strip
-//  rig      — what a BOBTAIL carries on its bare deck ('cage' scrap hauler, 'rack' strapped load,
+//  cab     , how far forward the cab box runs (a cab-over has almost no nose; a conventional does)
+//  nose    , bonnet length; 0 makes it a cab-over, which is what the little ones are
+//  hi      , cab roof height, the single strongest read of size at distance
+//  sleeper , 0 for a day cab; the long-haul rigs get a hump you can see from a mile off
+//  axles   , rear axle groups under the tractor
+//  stacks  , vertical exhaust behind the cab: nothing says heavy truck faster
+//  w       , half-width
+//  aero    , 0..1 how much roof fairing the cab wears (0 is a bare flat-top, 1 a full wind kit)
+//  skirt   , 1 if the tractor has side fairings between the steps and the drives
+//  lamps   , 0..1 how much LIGHT the thing wears: marker rows, a bar on the bumper, beltline strip
+//  rig     , what a BOBTAIL carries on its bare deck ('cage' scrap hauler, 'rack' strapped load,
 //             null for the long-haul tractors, which run clean because they are built to pull)
 // ⚠ `hi` against `2w` sets how tall a rig reads; trailers read against `deck` (length), and `tTop` derives from `hi`.
 // ⚠ Collision is unaffected: the CFIT sweep probes its own `clearZ` (windshield.js), so this table stays a visual dial.
@@ -3323,9 +3323,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
       poly('strut', 0.62, [[scrF0 + 0.004, wg - 0.030, scrLo + 0.006], [scrF0 + 0.004, wg + 0.030, scrLo + 0.006],
                            [scrF0 + 0.010, wg + 0.030, scrLo + 0.020], [scrF0 + 0.010, wg - 0.030, scrLo + 0.020]]);
     }
-    // AIR AND ELECTRICAL LINES off the back of the cab, arcing down to the deck — the umbilical
-    // that says this vehicle is meant to have something else attached to it. Three short segments
-    // rather than a curve: at this scale that IS a curve, and it costs three boxes.
+    // Air and electrical lines off the back of the cab, three segments.
     for (const g of [-1, 1]) {
       const gg = g * S.w * 0.30;
       for (let i = 0; i < 3; i++) {
@@ -3333,56 +3331,42 @@ function buildTruck(variant = 'hauler', detail = 1) {
         box(f0, f0 + 0.016, 0.004, 0.086 - i * 0.010, 0.092 - i * 0.010, 'strut', null, gg);
       }
     }
-    // CATWALK GRATING on the deck plate between the rails — the surface you actually stand on to
-    // reach those lines, and the deck was the largest untouched panel left on a coupled rig.
+    // Catwalk grating.
     for (let i = 0; i < 4; i++) {
       const f = frame0 + 0.016 + i * 0.018;
       box(f, f + 0.006, S.w * 0.74, 0.070, 0.073, 'strut');
     }
-    // Deck-corner marker lamps, which is where a driver's own light comes from when they are back
-    // there in the dark coupling something up.
+    // Deck-corner markers.
     for (const g of [-1, 1]) box(frame0 + 0.004, frame0 + 0.012, 0.006, 0.072, 0.078, 'window', [236, 176, 96], g * S.w * 0.78);
   }
-  // ── AND THE HARDWARE ONLY THE EXPENSIVE ONES HAVE ──────────────────────────
+  // ── Hardware only the expensive ones have ──
   if (rich(0.7)) {
     for (const g of [-1, 1]) {
       const gw = g * S.w;
-      // A second chrome strap on the tank, and a polished cap on the filler — the visible sign of a
-      // truck that gets washed.
       box(cab0 - 0.082, cab0 - 0.012, 0.024, 0.072, 0.078, 'window', CHROME, g * S.w * 0.88);
       box(cab0 - 0.041, cab0 - 0.029, 0.009, 0.093, 0.096, 'window', CHROME, g * S.w * 0.88);
-      // Chromed mirror-arm braces, doubling the arm back to the A-pillar.
       box(cab1 - 0.030, cab1 - 0.022, 0.020, S.hi * 0.58, S.hi * 0.60, 'window', CHROME, g * (S.w + 0.012));
-      // A window visor over the door glass — the little peaked awning, pure 1950s, pure money.
+      // Window visor over the door glass.
       poly('body', 0.90, [[cab1 - 0.108, gw, S.hi * 0.90], [cab1 - 0.012, gw, S.hi * 0.90],
                           [cab1 - 0.016, gw + g * 0.016, S.hi * 0.93], [cab1 - 0.104, gw + g * 0.016, S.hi * 0.93]]);
     }
-    // A chrome band round the base of each stack, where the heat shield meets the pipe.
     for (let i = 0; i < S.stacks; i++) {
       const g = (S.stacks === 1 ? 0 : (i ? 1 : -1)) * S.w * 0.94;
       box(cab0 - 0.017, cab0 + 0.017, 0.016, 0.138, 0.146, 'window', CHROME, g);
     }
   }
 
-  // THE BACK OF THE TRACTOR. Bobtail is a real way to drive, and running empty is the one time
-  // this face is what another driver sees for an hour — it was a blank grey wall.
+  // Back of the tractor.
   for (const g of [-1, 1]) box(frame0 - 0.012, frame0 - 0.004, 0.016, 0.052, 0.070, 'window', [196, 66, 54], g * S.w * 0.66);
   if (fine) box(frame0 - 0.011, frame0 - 0.004, S.w * 0.30, 0.074, 0.080, 'window', [230, 210, 140]);
-  // ⚠ THERE IS NO UNDERGLOW GEOMETRY, AND THERE MUST NOT BE. It used to be two emissive boxes along
-  // the frame rails — and a box is a SOLID: it took the shading pass like any other panel, so from
-  // above it read as two flat teal pads bolted under the truck rather than as light. A lamp you can
-  // see the far edge of is a painted panel. The underglow is now a screen-space glow pool at the
-  // lamp layer (`vehicleLamps().under` + its draw in windshield.js), where light belongs and where
-  // it can spill onto the road under the truck instead of ending at its own corners.
-  // A beacon on the roof of the rigs with no wind kit — the working trucks' equivalent of the
-  // long-hauler's sensor pod, so each end of the ladder has its own thing on top.
+  // ⚠ No underglow geometry: a box reads as a slab. It's a glow pool at the lamp layer (`vehicleLamps().under`).
+  // Roof beacon on rigs without a wind kit.
   if (fine && S.aero < 0.5) {
     const bTop = S.hi + S.sleeper;
     box(cab1 - 0.078, cab1 - 0.056, 0.014, bTop, bTop + 0.006, 'strut');
     box(cab1 - 0.075, cab1 - 0.059, 0.011, bTop + 0.006, bTop + 0.017, 'window', [244, 168, 64]);
   }
-  // What a BOBTAIL carries on its bare deck. The deck plate was the largest blank surface on the
-  // cheap trucks, and a scrap rig running with an empty cage is a silhouette in its own right.
+  // What a bobtail carries on its bare deck.
   if (!hitched && S.rig === 'cage') {
     for (const g of [-1, 1]) {
       for (const f of [frame0 + 0.014, cab0 - 0.014]) box(f - 0.004, f + 0.004, 0.005, 0.070, 0.150, 'strut', null, g * S.w * 0.74);
@@ -3394,35 +3378,10 @@ function buildTruck(variant = 'hauler', detail = 1) {
     if (fine) for (const f of [frame0 + 0.052, frame0 + 0.088]) box(f - 0.003, f + 0.003, S.w * 0.68, 0.112, 0.116, 'strut');   // ratchet straps
   }
 
-  // ── WHAT THE DRIVER BOLTED ON ──────────────────────────────────────────────
-  //
-  // Cosmetic fittings (plugins/trucking/fittings.js). They arrive as a `^ab.cd` suffix on the
-  // variant string — the channel every consumer of this mesh already threads — so a bull bar
-  // reaches the cab, the depot turntable, the dealer wireframe and a stranger's windscreen without
-  // one payload growing a field.
-  //
-  // FOUR RULES, and they are the whole reason this is a hundred lines rather than a subsystem.
-  //
-  // ⚠ IT IS BUILT HERE, INSIDE `buildTruck`, AND NOT COMPOSED OUTSIDE IT. Everything after this
-  // point transforms the mesh — the centring shift, the parked settle, the solo ground-fit — and a
-  // part appended afterwards would be authored in coordinates the model does not stay in. That is
-  // the identical bug the ⚠ on `TRUCK_META.shift` describes as "floating headlights", and a bull
-  // bar is a bigger thing to have floating in the road than a lamp.
-  //
-  // ⚠ AND IT IS BUILT BEFORE `tractorFaces`. Every fitting is bolted to the TRACTOR, and the split
-  // point below is what a dropped box is cut at — so a fitting emitted after it would survive the
-  // splice and a trailer standing on its legs in a yard would be wearing somebody's roof cage.
-  //
-  // NOTHING NEW IS COLOURED. Every part is drawn in `CHROME`, `ACCENT`, or a plain `strut`/`body`
-  // role, which means it takes the player's `bright`, `glow` and `hw` colours through `PK` with no
-  // new key, no new field on the paint and nothing for the booth to learn. That is why the neon
-  // fittings need no colour of their own: they are ACCENT, so they wear the running-light colour
-  // the player already chose, and a rig with a green beltline gets green stack sleeves for free.
-  //
-  // NO FITTING IS EVER LOAD-BEARING GEOMETRY. Nothing here publishes a pod, moves a lamp station,
-  // changes the door rectangle or touches the kingpin. A fitting is faces and nothing else, so
-  // there is no configuration of them that can put a truck's lights, its decal or its trailer in
-  // the wrong place — which is what keeps thirty-eight parts from being thirty-eight ways to break one mesh.
+  // ── Fittings ── (plugins/trucking/fittings.js), as a `^ab.cd` suffix on the variant.
+  // ⚠ Built inside buildTruck, before the centring and settle transforms, and before `tractorFaces` so a
+  // dropped trailer doesn't keep them. Colours only via CHROME/ACCENT/strut/body, so the livery reaches them.
+  // A fitting is faces only: it never moves a pod, lamp, decal or the kingpin.
   const FITS = new Set(String(str).match(/\^([a-z.]+)/)?.[1].split('.') || []);
   const fitStart = faces.length;
   if (FITS.size) {
@@ -3438,8 +3397,6 @@ function buildTruck(variant = 'hauler', detail = 1) {
     if (FITS.has('tu')) {                        // Tusk Bar — four lengths of pipe, sharpened
       box(barF - 0.004, barF + 0.010, S.w * 0.96, 0.058, 0.074, 'strut');
       for (const g of [-0.72, -0.24, 0.24, 0.72]) {
-        // Three shrinking boxes on the axis: the same trick `bullet` uses, which at this scale is a
-        // point rather than a cylinder — which is the entire information a tusk carries.
         for (let i = 0; i < 3; i++) {
           const k = 1 - i * 0.3;
           box(barF + 0.010 + i * 0.020, barF + 0.030 + i * 0.020, 0.011 * k, 0.066 - 0.011 * k, 0.066 + 0.011 * k, 'strut', null, g * S.w);
@@ -3460,8 +3417,6 @@ function buildTruck(variant = 'hauler', detail = 1) {
     if (FITS.has('sx')) {                        // Spike Rack — rebar, cut, sharpened, stood up in a row
       box(barF - 0.004, barF + 0.008, S.w * 0.98, 0.050, 0.060, 'strut');
       for (const g of [-0.84, -0.50, -0.17, 0.17, 0.50, 0.84]) {
-        // Three shrinking boxes UP the axis rather than along it — the tusk trick stood on end,
-        // which is the only way a point reads at a scale where a cone costs a dozen facets.
         for (let i = 0; i < 3; i++) {
           const k = 1 - i * 0.3;
           box(barF - 0.003, barF + 0.007, 0.005 * k, 0.060 + i * 0.016, 0.076 + i * 0.016, 'strut', null, g * S.w);
@@ -3469,9 +3424,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
       }
     }
     if (FITS.has('gb')) {                        // Grader Blade — a mouldboard on an angle, so what it catches goes SIDEWAYS
-      // The whole read is the rake: a blade square across the nose is a ram plate, and a blade with
-      // one corner low is a machine that clears a road. So the two long edges are at different
-      // heights left and right, which a box cannot be and a quad is for free.
+      // A raked blade: the two long edges at different heights.
       poly('strut', 0.80, [[barF + 0.004, -S.w * 1.10, 0.024], [barF + 0.004, S.w * 1.10, 0.050],
                            [barF + 0.036, S.w * 1.06, 0.106], [barF + 0.036, -S.w * 1.06, 0.080]]);
       poly('gear', 0.52, [[barF + 0.004, -S.w * 1.10, 0.024], [barF + 0.004, S.w * 1.10, 0.050],
@@ -3480,16 +3433,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
       for (const g of [-1, 1]) box(barF - 0.028, barF + 0.006, 0.008, 0.044, 0.068, 'strut', null, g * S.w * 0.66);   // the rams back to the frame
     }
 
-    // ── SCREEN ──
-    // ⚠ EVERYTHING HERE LIVES IN THE WINDSCREEN'S OWN RAKED PLANE, AND STANDS AHEAD OF IT. The
-    // screen is a single `poly`, the painter's sort gives a face ONE depth, and the rule the grille
-    // fins are placed by applies here word for word — NOTHING ON THE FACE MAY SHARE A FORE-AFT
-    // SLICE WITH THE PANEL BEHIND IT. A bar authored in the glass plane is a bar the glass paints
-    // over from one side of the truck and not the other.
-    //
-    // So `scrP` is that plane parameterised 0 (sill) to 1 (header) and pushed forward by `SD`, and
-    // every piece below is quads in it. Nothing here is a box: a box has a fore-aft thickness and
-    // the plane is raked, so a box on it is a brick lying against a slope.
+    // ── Screen ── ⚠ Quads in the windscreen's raked plane, pushed ahead by `SD`: nothing may share the glass's fore-aft slice.
     if (FITS.has('zm') || FITS.has('zp') || FITS.has('zb')) {
       const SD = 0.010;
       const scrP = (t, g) => [scrF0 + (scrF1 - scrF0) * t + SD, g, scrLo + (scrHi - scrLo) * t];
@@ -3537,16 +3481,13 @@ function buildTruck(variant = 'hauler', detail = 1) {
     if (FITS.has('tm')) {                        // Totem Rack — everything on it was taken off something
       const f = cab0 - 0.004;
       box(f - 0.003, f + 0.003, S.w * 0.86, roofZ + 0.002, roofZ + 0.008, 'strut');
-      // Deliberately IRREGULAR — evenly spaced trophies read as a product and a trophy rack is the
-      // one fitting in the catalogue that must not look bought.
+      // Irregular on purpose: evenly spaced reads as bought.
       for (const [g, h, w] of [[-0.78, 0.030, 0.010], [-0.30, 0.046, 0.007], [0.16, 0.024, 0.012], [0.66, 0.038, 0.008]]) {
         box(f - 0.004, f + 0.004, w, roofZ + 0.008, roofZ + 0.008 + h, 'gear', null, g * S.w);
       }
     }
     if (FITS.has('np')) {                        // Roof Parapet — plate up round the sleeper, CUT LOW at the front
-      // The low front wall is the whole sentence. A parapet all the same height is a luggage rack;
-      // one you could rest your elbows on at the front and nothing else is a firing position, and
-      // the model never says so anywhere but in that one number.
+      // The low front wall is what makes it a firing position.
       const f0 = cab1 - 0.150, f1 = cab0 + 0.008;
       for (const g of [-1, 1]) box(f0, f1, 0.005, roofZ + 0.002, roofZ + 0.032, 'gear', null, g * S.w * 0.90);
       box(f0, f0 + 0.007, S.w * 0.90, roofZ + 0.002, roofZ + 0.017, 'gear');
@@ -3559,16 +3500,13 @@ function buildTruck(variant = 'hauler', detail = 1) {
     if (FITS.has('af')) {                        // Aerial Farm — five whips, none of them the same length
       const f = cab0 + 0.006;
       box(f - 0.004, f + 0.004, S.w * 0.82, roofZ, roofZ + 0.007, 'strut');
-      // IRREGULAR, for the reason written on the totem rack above: five whips at one height is an
-      // array somebody bought and five at five heights is a pile somebody assembled.
       for (const [g, h] of [[-0.86, 0.086], [-0.42, 0.052], [0.04, 0.106], [0.50, 0.066], [0.88, 0.040]]) {
         box(f - 0.002, f + 0.002, 0.002, roofZ + 0.007, roofZ + 0.007 + h, 'strut', null, g * S.w);
         if (fine) box(f - 0.003, f + 0.003, 0.004, roofZ + 0.005 + h, roofZ + 0.009 + h, 'window', CHROME, g * S.w);   // the tip
       }
     }
 
-    // ── STACKS ── (only where the truck has any: a scrapper has none, and a fitting that appears
-    // on a truck with nothing to fit it to is worse than one that quietly does not)
+    // ── Stacks ── Only on trucks that have them.
     if (S.stacks > 0) {
       const stackTop = roofZ + 0.062;
       for (let i = 0; i < S.stacks; i++) {
@@ -3585,8 +3523,6 @@ function buildTruck(variant = 'hauler', detail = 1) {
         }
         if (FITS.has('so')) {                    // Soot Pipes — tarred to the shield, and a rain flap sitting crooked
           box(cab0 - 0.021, cab0 + 0.021, 0.020, stackTop - 0.034, stackTop + 0.004, 'gear', null, g);
-          // The flap is OFFSET rather than centred, because a rain cap that has ever been open
-          // never sits square again, and that is the entire difference between this and a new pipe.
           box(cab0 - 0.026, cab0 + 0.010, 0.022, stackTop + 0.004, stackTop + 0.010, 'gear', null, g);
         }
       }
@@ -3609,8 +3545,6 @@ function buildTruck(variant = 'hauler', detail = 1) {
         box(cab1 - 0.120, cab0 - 0.010, 0.004, 0.028, 0.036, 'strut', null, gw + g * 0.010);
         for (let i = 0; i < 5; i++) {
           const f = cab1 - 0.112 + i * 0.026;
-          // A blade is a square standing on its corner: two crossed boxes at this scale, which is
-          // what stops a disc read from costing a dozen facets each, five a side, on every truck.
           box(f - 0.014, f + 0.014, 0.003, 0.024, 0.030, 'window', CHROME, gw + g * 0.014);
           box(f - 0.004, f + 0.004, 0.003, 0.014, 0.040, 'window', CHROME, gw + g * 0.014);
         }
@@ -3622,9 +3556,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
       }
       if (FITS.has('xr')) {                      // Spear Rack — pipe racked where a ladder would go
         for (const f of [cab1 - 0.096, cab0 + 0.024]) box(f - 0.004, f + 0.004, 0.013, S.hi * 0.28, S.hi * 0.42, 'strut', null, gw + g * 0.013);
-        // TWO OF THEM ARE GROUND TO A POINT AND TWO ARE JUST PIPE — the catalogue says so, so the
-        // mesh has to: the tapered pair get the shrinking-box treatment off the front end and the
-        // other two run out square.
+        // Two ground to a point, two plain pipe.
         for (let i = 0; i < 4; i++) {
           const z = S.hi * 0.29 + i * 0.009, gg = gw + g * (0.009 + i * 0.0025);
           box(cab1 - 0.104, cab0 + 0.030, 0.004, z, z + 0.005, 'gear', null, gg);
@@ -3642,30 +3574,19 @@ function buildTruck(variant = 'hauler', detail = 1) {
       }
     }
 
-    // ── UNDERLIGHTS ──
-    // ⚠ TWO OF THESE THREE ARE NOT GEOMETRY AT ALL, and that is the rule written on `pod()`: a lit
-    // patch of road was a BOX, and a box takes the shading pass and has edges, so four of them read
-    // as teal paving slabs bolted to the tarmac. `ug` therefore emits NOTHING here and is answered
-    // entirely at the lamp layer (`vehicleLamps`), where light spills instead of ending at a corner.
-    // What IS drawn is the FIXTURE — a tube has a body, and you can see it from alongside.
+    // ── Underlights ── `ug` light is drawn at the lamp layer; only the fixture is geometry here.
     if (FITS.has('ug')) for (const g of [-1, 1]) box(nose0 + 0.020, frame0 + 0.06, 0.006, 0.022, 0.028, 'window', ACCENT, g * S.w * 0.86);
     if (FITS.has('hl')) for (const [f, g] of podAt.filter(([, , , deck]) => !deck).map(([f, g]) => [f, g])) {
-      // A ring round a housing, as four short bars — the housing is a box, so a "ring" that is
-      // actually a ring would be the only curved thing on the entire vehicle.
       box(f - 0.030, f + 0.030, 0.027, 0.030, 0.034, 'window', ACCENT, g);
       box(f - 0.032, f - 0.026, 0.026, 0.030, 0.052, 'window', ACCENT, g);
       box(f + 0.026, f + 0.032, 0.026, 0.030, 0.052, 'window', ACCENT, g);
     }
     if (FITS.has('bn')) for (const g of [-1, 1]) box(cab0 + 0.014, cab1 - 0.014, 0.004, S.hi * 0.425, S.hi * 0.455, 'window', ACCENT, g * S.w);
-    // The one thing in this slot that is not a light, and it is here rather than under the flanks
-    // because it is a thing about the ROAD under the truck — which is what the slot is for.
     if (FITS.has('dc')) for (const g of [-1, 1]) {   // Drag Chains — hung off both rails, sweeping
       box(frame0 + 0.020, cab1 - 0.060, 0.004, 0.026, 0.030, 'strut', null, g * S.w * 0.64);
       const span = (cab1 - 0.060) - (frame0 + 0.020);
       for (let i = 0; i < 5; i++) {
-        // Uneven lengths, and the shortest is not at either end: a set of chains all reaching the
-        // same point is a curtain, and what this is meant to read as is five separate chains that
-        // have each been dragged a different distance.
+        // Uneven lengths so they read as separate chains.
         const drop = [0.020, 0.006, 0.017, 0.009, 0.014][i];
         box(frame0 + 0.028 + i * (span - 0.016) / 4 - 0.003, frame0 + 0.028 + i * (span - 0.016) / 4 + 0.003,
           0.003, 0.026 - drop, 0.028, 'gear', null, g * S.w * 0.64);
@@ -3703,15 +3624,10 @@ function buildTruck(variant = 'hauler', detail = 1) {
       box(cab0 - 0.062, cab0 - 0.010, 0.058, 0.076, 0.126, 'body');
       for (const z of [0.086, 0.114]) box(cab0 - 0.064, cab0 - 0.008, 0.060, z, z + 0.005, 'strut');   // the straps holding it upright
       box(cab0 - 0.038, cab0 - 0.028, 0.011, 0.126, 0.136, 'strut');                                   // the filler
-      // THE TAP IS THE WHOLE POINT AND IT IS FOUR MILLIMETRES OF BOX. Out there a tank is a thing
-      // you own; a tank with a tap on the outside is a thing other people can be given some of, and
-      // that is the sentence this fitting is for.
       if (fine) box(cab0 - 0.070, cab0 - 0.060, 0.006, 0.062, 0.080, 'window', CHROME);
     }
 
-    // ── MASCOT ──
-    // On the bonnet where there is one, and on the cowl where there is not — `S.nose` is zero on a
-    // cab-over, and a mascot floating a hand's width ahead of the windscreen is worse than none.
+    // ── Mascot ── On the bonnet, or the cowl on a cab-over.
     if (FITS.has('sk') || FITS.has('cb') || FITS.has('dh') || FITS.has('wi')) {
       const mF = S.nose > 0.02 ? nose1 - 0.030 : cab1 - 0.020;
       const mZ = S.nose > 0.02 ? 0.128 : S.hi * 0.96;
@@ -3726,9 +3642,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
         for (const g of [-1, 1]) box(mF + 0.006, mF + 0.009, 0.002, mZ + 0.008, mZ + 0.011, 'glass', [30, 40, 60], g * 0.004);
       }
       if (FITS.has('wi')) {                      // Wheel Idol — a steering wheel stood upright, FACING THE ROAD
-        // A ring is four bars at this scale (the same answer the lifter halos give), and the plane
-        // it stands in is what the fitting means: across the truck, not along it, so the thing is
-        // presented to what is coming rather than to the person driving.
+        // Stands across the truck, facing the road.
         box(mF - 0.005, mF + 0.005, 0.007, mZ, mZ + 0.009, 'strut');                                  // the plinth
         for (const z of [mZ + 0.009, mZ + 0.045]) box(mF - 0.002, mF + 0.002, 0.021, z, z + 0.004, 'window', CHROME);
         for (const g of [-1, 1]) box(mF - 0.002, mF + 0.002, 0.003, mZ + 0.009, mZ + 0.049, 'window', CHROME, g * 0.019);
@@ -3738,49 +3652,22 @@ function buildTruck(variant = 'hauler', detail = 1) {
     }
   }
 
-  // ⚠ AND EVERY FITTING FACE IS MARKED AS ONE. The centring below derives the model's origin from
-  // its own extremes — so a ram plate reaching ahead of the bumper and a banner pole reaching aft of
-  // the cab MOVED THE WHOLE TRUCK relative to its own position, by about a tenth of a truck on a
-  // fully fitted rig. Every lamp station, the door decal and the kingpin are placed through that
-  // shift, so the symptom would have been a fitted truck whose headlights sit inside its own bumper
-  // and whose trailer hangs off the wrong point. A bolt-on must never be able to move the thing it
-  // is bolted to, so the bounds scan skips these. (Caught by regress, not by eye.)
+  // ⚠ Fitting faces are marked so the bounds scan skips them: a bolt-on must never shift the centring
+  // (lamps, decal and kingpin are placed through it).
   for (let i = fitStart; i < faces.length; i++) faces[i].fit = 1;
   const tractorFaces = faces.length;   // the split point: everything before here is the tractor
   if (hitched) {
-    // The trailer. It is a SEPARATE body drawn straight behind the tractor, which is honest for
-    // every view this mesh is used in (a passing aircraft, a contact in the window, the yard) —
-    // and it is also the seam where a future articulated draw hangs its angle, since the two
-    // halves are already two groups of faces rather than one welded box.
-    // ⚠ THE NOSE OF THE BOX SITS OVER THE FIFTH WHEEL, not behind the tractor. It began at
-    // `frame0 - 0.02`, which is aft of the whole chassis: the rig read as a truck towing a
-    // separate box on a drawbar rather than as a semi, and the kingpin — the one point the
-    // articulation turns about — had no geometry over it at all. Forward of the plate's own
-    // centre now, so the tractor is genuinely UNDER its load and the pivot is inside both bodies.
-    // ⚠ AND IT STOPS AT THE PLATE. The first cut put the nose at `frame0 + 0.11`, which is FORWARD
-    // of `cab0` — the box began inside the back of the cab and the rig read as a trailer riding up
-    // over its own tractor. A kingpin is at the BACK of the truck; the box hangs off it and the gap
-    // between its nose and the sleeper is the swing clearance a real one turns in (see the tail-swing
-    // template). So the nose is the plate's own centre: the pin is on the box's front edge, the
-    // tractor's rear axles are under the first few feet of it, and nothing overlaps the cab.
+    // The trailer, a separate body behind the tractor (the articulation seam). ⚠ Its nose is the fifth wheel's
+    // centre: further aft reads as a drawbar, further forward runs into the cab.
     const t1 = frame0 + 0.06, t0 = t1 - S.deck;
-    // THE FLATTEST PANEL ON THE RIG, and it was flat because this was a constant. At 0.135 over a
-    // deck the box stood 0.175 tall in a body 0.36 across — a shipping container half the height it
-    // should be, and the single biggest surface the eye lands on. Derived from the cab now, so the
-    // two are one vehicle: a box comes out fractionally above the tractor's roof fairing, which is
-    // where a real one sits, and it tracks any future change to `hi` instead of drifting from it.
     const tTop = deckTop + S.hi * 0.95;
-    // THE BOX, and its front corners are RADIUSED — two stepped slices, which at this scale reads as
-    // a radius and is what buys the swing clearance (see NOSE_TAPER). The body is full width from
-    // the back to `tBev`; ahead of that it steps in twice to the nose face.
+    // The box, with stepped (radiused) front corners for swing clearance (NOSE_TAPER). Height derives from `hi`.
     const tBev = t1 - 0.030;
     box(t0, tBev, S.w * 1.02, 0.075, tTop, 'body');                 // the box
     box(tBev, tBev + 0.016, S.w * 1.02 * ((1 + NOSE_TAPER) / 2), 0.075, tTop, 'body');   // first step in
     box(tBev + 0.016, t1, boxNoseHalf(S), 0.075, tTop, 'body');     // the nose face itself
     box(t0 + 0.01, tBev, S.w * 0.99, tTop, tTop + 0.010, 'body');   // roof cap, stopping at the taper
-    // RIBS. A trailer flank is a corrugated wall, and a bare quad is the flattest surface in the
-    // whole model — six shallow ribs a side cost nothing and give the biggest panel on the rig
-    // something for the light to break on.
+    // Ribs on the flank.
     for (let i = 0; fine && i < 6; i++) {
       const f = t0 + 0.03 + i * (S.deck - 0.06) / 5;
       for (const g of [-1, 1]) box(f - 0.004, f + 0.004, 0.004, 0.085, tTop - 0.008, 'strut', null, g * S.w * 1.03);
@@ -3790,102 +3677,50 @@ function buildTruck(variant = 'hauler', detail = 1) {
     box(t0, t0 + 0.006, S.w * 1.0, 0.075, tTop - 0.005, 'strut');     // the doors, at the back
     for (const g of [-1, 1]) box(t0 - 0.001, t0 + 0.002, 0.004, 0.080, tTop - 0.010, 'strut', null, g * S.w * 0.5);   // lock bars
     for (const g of [-1, 1]) box(t0 - 0.002, t0 + 0.004, 0.014, 0.088, 0.104, 'window', [186, 62, 52], g * S.w * 0.78);   // tail lamps
-    // Landing legs: the two cranked struts a dropped trailer stands on. They are the reason a box
-    // parked in a yard doesn't fall on its nose, and the yard is exactly where this mesh is seen.
+    // Landing legs.
     for (const g of [-1, 1]) box(t1 - 0.09, t1 - 0.075, 0.010, 0.005, 0.078, 'strut', null, g * S.w * 0.72);
     for (const g of [-gOut, gOut]) {                                   // lifter bogie under the tail
       pod(t0 + 0.075, g, 0.050, 1.0, true); pod(t0 + 0.185, g, 0.050, 1.0, true);
     }
     if (S.skirt) for (const g of [-1, 1]) box(t0 + 0.20, t1 - 0.03, 0.008, 0.040, 0.078, 'body', null, g * S.w * 0.98);   // trailer skirt
     for (const g of [-1, 1]) box(t0 - 0.012, t0 - 0.004, 0.026, 0.01, 0.06, 'strut', null, g * S.w * 0.7);  // mudflaps
-    // THE BACK OF THE BOX, which is the face you look at for an entire crossing behind somebody
-    // else's rig and the one a dropped trailer shows the yard. It had doors, lock bars and lamps
-    // and nothing else. None of this is trim — a hinge is not a luxury — so it rides `fine` and
-    // every trailer gets it, which matters twice over now that a solo box stands on its own pin.
+    // Back of the box: structural detail on `fine`, so every trailer gets it.
     if (fine) {
-      // Hinge straps down the outer edge of each door leaf, three a side.
       for (const g of [-1, 1]) for (let i = 0; i < 3; i++) {
         const z = 0.092 + i * (tTop - 0.115) / 2;
         box(t0 - 0.003, t0 + 0.004, 0.010, z, z + 0.012, 'strut', null, g * S.w * 0.92);
       }
-      // The DOT bar under the doors — the steel underrun guard, on its two drops.
+      // DOT underrun bar.
       box(t0 - 0.010, t0 - 0.002, S.w * 0.92, 0.048, 0.058, 'strut');
       for (const g of [-1, 1]) box(t0 - 0.008, t0 - 0.004, 0.006, 0.058, 0.075, 'strut', null, g * S.w * 0.60);
-      // A placard on the right-hand leaf, and the reflective chevron strip across the sill.
       box(t0 - 0.001, t0 + 0.002, 0.020, tTop * 0.62, tTop * 0.62 + 0.026, 'window', [210, 198, 160], S.w * 0.42);
       box(t0 - 0.002, t0 + 0.001, S.w * 0.86, 0.078, 0.086, 'window', [222, 154, 62]);
-      // Handrail and a step by the doors: what a driver uses to get up into the box.
       box(t0 + 0.002, t0 + 0.006, 0.004, 0.086, tTop * 0.55, 'strut', null, -S.w * 0.86);
       box(t0 + 0.004, t0 + 0.020, 0.012, 0.046, 0.051, 'strut', null, -S.w * 0.78);
-      // Roof bows, read from outside as the shallow ridges across the cap.
       for (let i = 0; i < 5; i++) {
         const f = t0 + 0.05 + i * (S.deck - 0.10) / 4;
         box(f - 0.003, f + 0.003, S.w * 0.98, tTop + 0.010, tTop + 0.013, 'body');
       }
-      // Air-line couplings and the electrical socket on the nose of the box, which is the half of
-      // the umbilical the tractor's own hoses reach for.
+      // Air and electrical couplings on the box's nose.
       for (const g of [-1, 1]) box(t1 - 0.004, t1 + 0.004, 0.007, 0.088, 0.098, 'strut', null, g * S.w * 0.28);
     }
   }
 
-  // ── WHICH HALF OF THE RIG A FACE BELONGS TO ────────────────────────────────
-  // The box gets its own colour in the paint model (`deck`), and this is the whole of what that
-  // cost: the trailer block above is bounded by `tractorFaces`, so which faces are the box is
-  // already known here and nowhere else. Stamped once at build time on a face list that is cached
-  // per variant and shared by every frame and every contact, so it is one flag, not a per-frame
-  // test — the same reasoning as `part` and `cen` above.
-  //
-  // ⚠ AND IT IS STAMPED BEFORE THE SOLO SPLICE, not after. `faces.splice(0, tractorFaces)` throws
-  // the tractor away for a dropped box, and after that there is no boundary left to find: every
-  // face is the trailer, and a mark computed from an index would call the whole thing a tractor.
+  // Mark the trailer's faces (`deck`, its own livery colour). ⚠ Before the solo splice, or there's no boundary left.
   for (let i = tractorFaces; i < faces.length; i++) faces[i].deck = 1;
 
-  // THROW THE TRACTOR AWAY, if this was only ever meant to be the box. Everything from
-  // `tractorFaces` on is the trailer, so a dropped box is the SAME geometry you tow — same ribs,
-  // same doors, same tape, same lamps — rather than a second model that would need keeping in step
-  // with this one and wouldn't be. It happens before the centring below, which is what puts a
-  // standing trailer on its own middle instead of on the middle of a truck that is not there.
+  // Solo: throw the tractor away, so a dropped box is the same geometry you tow. Before centring.
   if (solo) faces.splice(0, tractorFaces);
-  // CENTRE IT. The tractor is laid out forward from a nose anchor, so a bobtail Barrow ended up
-  // sitting entirely in the front half of the normalised box — and every consumer of this mesh
-  // (contacts in the window, the schematic, the wireframe) places it by its ORIGIN, so it would
-  // have drawn visibly ahead of where the truck actually is, and spun about its own bumper in the
-  // dealer's turntable. Eight variants, eight different lengths; centring is derived, never typed.
+  // Centre it: consumers place the mesh by its origin. Derived per variant, never typed.
   let lo = Infinity, hi = -Infinity;
   for (const f of faces) { if (f.fit) continue; for (const p of f.p) { if (p[0] < lo) lo = p[0]; if (p[0] > hi) hi = p[0]; } }
-  // ⚠ A DROPPED BOX HANGS OFF ITS PIN, NOT OFF ITS MIDDLE. Centring is right for a vehicle, whose
-  // position is its own centre — and wrong for a solo trailer, because the point the server stores
-  // for one is the COUPLING POINT (trailers.js: the tractor's pose at the moment the pin came out).
-  // Centred, the box was drawn half its own length too far forward, so the picture invited you to
-  // drive into the middle of it and the rule then refused you at the flank. Anchoring on the front
-  // station puts the pin on the origin and the box behind it, which is where it is standing.
+  // ⚠ A solo box is anchored on its pin (its front station): the server stores the coupling point.
   const shift = solo ? hi : (lo + hi) / 2;
-  // Through a SET, because `box()` shares each corner vertex between the three quads that meet at
-  // it — walking `faces` and subtracting per reference moves the same corner up to three times and
-  // shears the model apart. (It did: the first cut put every truck further off-centre than it
-  // started, and the regress case caught it.)
-  // A SHUT-DOWN RIG SETTLES BY ITS RIDE HEIGHT; A DROPPED BOX SETTLES ONTO ITS LEGS, and those are
-  // two different numbers. HOVER is what a lifter holds the chassis up by, which is the right drop
-  // for a truck switching off and the wrong one for a trailer that was never hovering — applying it
-  // to a solo box put its landing legs through the road. So solo is fitted to the ground below,
-  // from its own lowest point, and needs no constant at all.
+  // Through a Set, because box() shares corner vertices between faces. Parked rigs settle by HOVER;
+  // a solo box is ground-fitted from its own lowest point instead.
   const settle = parked;
-  // ⚠ AND THE BOX CENTRES MOVE WITH THE VERTICES. This is the bug behind every "part shows through
-  // another part" report on this mesh, and it is one line long. `box()` stamps each face with its
-  // own solid's centre so the backface cull and the sun normal know which way is OUT — and then this
-  // block slid every VERTEX back by `shift` and left every centre where it was authored. So the cull
-  // measured outward from a point a fifth of a truck away from the box it belongs to: faces whose
-  // normal lies along x got a confidently WRONG answer (a lifter pad culled from one side and drawn
-  // from the other, which is why the reports were always "the back-left one" and never "all four"),
-  // and faces whose normal is perpendicular to x got a dot product of zero and a coin flip.
-  //
-  // The lamp block below already knew this — it re-derives its stations through `TRUCK_META.shift`
-  // for exactly the same reason, and its own comment calls the symptom "floating headlights". The
-  // mesh had the identical problem somewhere nobody could see it, because a wrong cull does not look
-  // like geometry in the wrong place, it looks like a renderer that flickers.
-  //
-  // Through the SAME `seen` set as the vertices, and that is not tidiness: the six faces of a box
-  // share one centre array, so subtracting per face would move it six times.
+  // ⚠ Box centres (`cen`) move with the vertices, through the same Set (six faces share one centre),
+  // or the cull and sun normal measure from the wrong point and parts flicker or show through.
   if (shift || settle) {
     const seen = new Set();
     for (const f of faces) {
@@ -3898,23 +3733,11 @@ function buildTruck(variant = 'hauler', detail = 1) {
       if (seen.has(p)) continue;
       seen.add(p);
       p[0] -= shift;
-      // AND IT SETTLES. A parked rig comes down the full ride height as one rigid body, so the
-      // lifters end up on the ground and everything above them keeps its own proportions — which
-      // is what a vehicle sitting down looks like, and what raising only the pods would not have
-      // been (that leaves the chassis floating over a gap).
+      // A parked rig settles as one rigid body.
       if (settle) p[2] -= HOVER;
     }
   }
-  // ⚠ PUBLISH THE CENTRING, because the lamps are placed in the coordinates this function laid the
-  // mesh out in and the mesh does not stay in them. `truckLampGeom` anchors everything to the 0.40
-  // nose station; the block above then slides the whole model back by `shift` (~0.165) to centre it
-  // on its origin — so a headlamp glow drawn at the geometry's own number sits a sixth of a truck
-  // length AHEAD of the bumper, hanging in the road. That is the "floating headlights" bug, and it
-  // is not a tuning error: it is one transform applied to the mesh and not to the lights. Anything
-  // that wants to put light on this model reads its stations through here.
-  // GROUND-FIT A SOLO BOX. Its lowest point becomes z = 0, so the legs stand ON the road whatever
-  // the trailer's own geometry happens to be — derived, never a tuned constant, and therefore still
-  // right the day somebody changes the landing legs.
+  // ⚠ Publish the centring (TRUCK_META) so lamps and decals follow the mesh. Ground-fit a solo box.
   let drop = settle ? HOVER : 0;
   if (solo) {
     let zmin = Infinity;
@@ -3925,52 +3748,17 @@ function buildTruck(variant = 'hauler', detail = 1) {
       drop = zmin;
     }
   }
-  // ── AND WHERE THE DOOR IS ──────────────────────────────────────────────────
-  // The one flat panel on the whole rig at the height of somebody standing next to it, and the one
-  // a haulier signwrites. Door art is painted onto it (drawTruckDoorArt), and the rectangle has to
-  // come from HERE for exactly the reason `shift` and `pods` do: the four rigs are four different
-  // sizes, the cab is laid out from the nose station and then the whole mesh slides back to centre
-  // on its origin. A decal placed from a constant lands on a different part of every truck, and on
-  // the road ahead of the smallest one.
-  //
-  // ── ⚠ IT IS THE CLEAR PANEL, NOT THE WHOLE FLANK ───────────────────────────
-  // This rectangle used to be the door's outline plus a bit, and a signwriter would never have used
-  // it: it ran cab1−0.108 → cab1−0.030 and up to S.hi×0.50, which is three separate collisions.
-  // Forward of cab1−0.048 is not the door at all — that is the B-post and then the quarter light,
-  // so the art spilled off the panel onto the cowl. The CHROME SPEAR crosses at S.hi×0.36…0.40 and
-  // the BELTLINE STRIP at ×0.47…0.505, so the decal was printed straight over both: an eye with a
-  // chrome bar through it and a lit strip across its top, which is what a decal applied over the
-  // trim looks like, because that is what it was.
-  //
-  // So it is now the panel the brightwork LEAVES: aft of the B-post, and under the spear. Every
-  // bound is stated against the thing it clears rather than as a tuned number, which is what stops
-  // it drifting back the next time a bit of trim moves — if you move the spear, move this.
-  //
-  //   f — cab1−0.104 → cab1−0.052: the door skin itself, one hair inside the window above it.
-  //   z — S.hi×0.185 → ×0.345: floor is clear of the step boxes (abs 0.030…0.044) on the shortest
-  //       rig in the fleet; ceiling is under the spear on the tallest.
-  //
-  // `g` is the flank half-width; the renderer picks which flank is facing the camera.
+  // ── The door panel ── Where door art goes (drawTruckDoorArt), from here so it fits each rig.
+  // ⚠ It's the clear panel aft of the B-post and under the chrome spear and beltline strip. If you move the spear, move this.
+  // `g` is the flank half-width.
   const doorF1 = cab1 - 0.052 - shift, doorF0 = cab1 - 0.104 - shift;
   const doorZ0 = S.hi * 0.185 - drop, doorZ1 = S.hi * 0.345 - drop;
-  // ── AND WHERE THE KINGPIN IS ───────────────────────────────────────────────
-  // The middle of the fifth-wheel plate, in the CENTRED frame every consumer of this mesh places
-  // it by. It is here for one reason: an articulated draw turns the box about this point, and the
-  // point is a fact about the geometry rather than a number the renderer could guess. A tractor
-  // laid out from a nose anchor and then slid back to centre has no fixed relationship between
-  // 'the plate' and 'the origin' — four rigs, four different answers — so anything reconstructing
-  // it outside this function is reconstructing it wrong for three of them.
-  //
-  // ⚠ NULL ON A SOLO BOX, AND THAT IS NOT AN OMISSION. A dropped trailer is already anchored ON
-  // its pin (see the ⚠ on `shift` above — solo centres on `hi`, the front station), so its pin is
-  // its origin and a second number saying so would be a second thing to keep in step.
+  // ── The kingpin ── Middle of the fifth wheel in the centred frame; the articulation turns about it.
+  // Null on a solo box, which is already anchored on its pin.
   TRUCK_META.set(str + ':' + detail, {
     shift, drop, pods: podAt,
     pin: solo ? null : (PIN_F0 + PIN_F1) / 2 - shift,
-    // …and the two numbers a clearance check needs: the back of the cab the box swings toward, and
-    // the box's own half-width, which is the radius that swings. Published rather than re-derived
-    // because the whole point of `frameBack` is that they are related, and a test that assumed the
-    // relation could not catch it being broken.
+    // The clearance check's inputs, published so a test can catch the frameBack relation breaking.
     cabBack: solo ? null : cab0 - shift,
     boxHalf: boxNoseHalf(S),   // the corner that swings is the NOSE corner — see NOSE_TAPER
     door: solo ? null : { f0: doorF0, f1: doorF1, z0: doorZ0, z1: doorZ1, g: S.w },
@@ -3979,11 +3767,9 @@ function buildTruck(variant = 'hauler', detail = 1) {
 }
 // variant+detail → { shift, drop, pods, pin, cabBack, boxHalf, door }. See the ⚠ at the end of buildTruck.
 const TRUCK_META = new Map();
-// Read-only, for the regress suite: the door panel and the centring are facts about the mesh that
-// nothing outside this file can otherwise see, and door art is placed from them.
+// Read-only, for the regress suite.
 export const truckMeta = (key) => TRUCK_META.get(key) || null;
-// A wreck: a generic hull minus its right wing, both fins, canopy, and windows — a
-// stripped carcass. Built off the plain default (no gear/struts/prop) so it stays neutral.
+// A wreck: a stripped default hull.
 function buildWreck() {
   if (_cache.wreck) return _cache.wreck;
   const stripped = new Set(['glass', 'window', 'fin', 'rudder', 'aileron', 'flap', 'elevator']);   // a carcass keeps no tidy control surfaces
@@ -3993,13 +3779,8 @@ function buildWreck() {
   return faces;
 }
 
-// ── Procedural hull texture ───────────────────────────────────────────────────
-// A single memoised grayscale panel texture (seams + rivet rows + faint noise + a
-// weathering streak), mapped over each hull face in 'overlay' blend so it adds real
-// surface detail WITHOUT shifting the livery colour — the same procedural-canvas trick
-// the windshield's wallTex uses for buildings, so the planes gain detail with zero art
-// assets. Only the flat hull panels take it; glass/gear/gun/wheels stay clean. Applied in
-// the single-craft turntable (bench hero + walkaround inspect), not the tiny floor row.
+// ── Procedural hull texture ── A memoised grey panel texture overlaid on hull faces, so it adds detail without
+// shifting the livery. Used by the single-craft turntable only.
 const TEXTURED = new Set(['body', 'wing', 'stab', 'fin', 'nacelle', 'aileron', 'flap', 'elevator', 'rudder']);
 const TEX_STRENGTH = { gloss: 0.32, satin: 0.46, matte: 0.56, weathered: 0.7 };
 let _hullTex = null;
@@ -4046,20 +3827,12 @@ function overlayHull(ctx, P, strength) {
   ctx.restore();
 }
 
-// ── Jazz livery (procedural Memphis dry-brush splatter) ───────────────────────
-// The one pattern the per-facet base/trim picker can't express: a fine squiggle over
-// dry-brush zigzag bands. Baked ONCE per colour-set into an opaque bone-ground texture,
-// then affine-mapped across the hull facets in BODY space (jazzUV) so the pattern is
-// continuous across facets — and both flanks mirror (V keys off up/right, not the sign of
-// g), exactly like a real painted livery. Seeded off the colours: same scheme → same
-// splatter, so the paint never shimmers between the hangar and the sky.
+// ── Jazz livery ── Memphis dry-brush splatter, baked once per colour set and mapped in body space (jazzUV),
+// so it's continuous across facets and both flanks mirror. Seeded off the colours so it never shimmers.
 export const JAZZ_ROLE = new Set(['body', 'wing', 'aileron', 'flap', 'stab', 'elevator', 'fin', 'rudder', 'nacelle']);
 const JAZZ_GROUND = [238, 231, 214];   // bone undercoat (the "cup paper" the colours pop against)
 const JZ_TW = 256, JZ_TH = 140;
-// Supersample the baked texture: the artwork is authored in the 256×140 design space below, but
-// rendered into a canvas JZ_SS× larger (via ctx.scale) so the affine hull mapping has finer texels
-// to sample — crisper paint on a large close-up hull, same pattern. jazzUV scales to match. One-time
-// bake per colour-set (cached), so the extra cost is paid once.
+// Supersampled bake for crisper close-ups; jazzUV scales to match.
 const JZ_SS = 3;
 const _jazzCache = new Map();
 function jzRng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -4118,17 +3891,13 @@ export function jazzTex(c0, c1, c2, ground) {
   _jazzCache.set(key, cv); return cv;
 }
 const jzClamp = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-// Body coords [f=fore, g=right, h=up] → jazz texture pixel. Fore drives U along the length;
-// across drives V (up for the fuselage/tail, right for the flat wings). g's sign is dropped so
-// port and starboard wear the same side-profile paint. Clamped so the hull stays on-texture.
+// Body coords to texture pixels. Fore drives U; V is up (or right on wings). g's sign is dropped so flanks mirror.
 export function jazzUV(v, role) {
   const along = 0.5 + v[0] * 0.42;
   const across = 0.5 - ((role === 'wing' || role === 'aileron' || role === 'flap') ? v[1] * 0.30 : v[2] * 0.55);
   return [jzClamp(along) * JZ_TW * JZ_SS, jzClamp(across) * JZ_TH * JZ_SS];
 }
-// Paint the baked jazz texture into ONE projected facet, MULTIPLY over its already-shaded bone
-// fill — so the facet's own light/finish shading carries through onto the colours (the plane
-// still reads 3D). `uv` are the per-vertex texture coords from jazzUV.
+// Multiply over the facet's shaded fill, so its lighting carries through.
 export function overlayJazz(ctx, P, uv, img) {
   const n = P.length; if (n < 3 || n > 4) return;
   const d = P.map(q => [q.sx, q.sy]);
@@ -4140,11 +3909,7 @@ export function overlayJazz(ctx, P, uv, img) {
   ctx.restore();
 }
 
-// Glass sheen — overlay a soft procedural highlight on a filled canopy/window pane so it
-// reads as curved glass rather than a flat dark polygon: a bright top-left wash, a hot
-// diagonal specular streak down the middle, and a darker lower edge. Cheap (one clipped
-// gradient rect per pane), shared by every renderer (turntable + fleet + in-flight). `pts`
-// are projected points with .sx/.sy.
+// Glass sheen: a sky wash, a specular streak and a darker lower edge on each pane. Shared by every renderer.
 export function glassSheen(ctx, pts) {
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   for (const q of pts) { if (q.sx < x0) x0 = q.sx; if (q.sx > x1) x1 = q.sx; if (q.sy < y0) y0 = q.sy; if (q.sy > y1) y1 = q.sy; }
@@ -4163,38 +3928,19 @@ export function glassSheen(ctx, pts) {
   ctx.restore();
 }
 
-// ── Canopy art (procedural, painted onto the glass) ───────────────────────────
-// Everything that makes a cockpit read as a CANOPY rather than a blue-tinted blister — heavy
-// mullions, the sky reflection, the dark interior, people in there — is baked into ONE
-// transparent canvas per airframe style and mapped through the authored per-facet UVs. Alpha
-// matters: the glazed areas stay translucent so each facet's own lit/shaded fill carries through
-// (the canopy still bends with the light), while frames and crew silhouettes paint opaque.
-//
-// Texture space (shared by every style): U 0→CP_TW runs windscreen→rear canopy, V 0→CP_TH runs
-// right sill→roof→left sill. Symmetric about V=0.5 so port and starboard wear the same glass.
-// The Viper's frame stations mirror its mesh's STATION_U/GLAZE so a mullion always lands on a
-// real facet seam; the fixed-wing bubbles unwrap the same way (segment → U, arc → V), so the
-// same spec shape drives both.
-// The numbers live in client/shared/vehicle-mesh.js, because an authored mesh's glazed facets carry
-// UVs in these units and the compiler there has to agree with the painter here.
+// ── Canopy art ── One transparent canvas per airframe style, mapped through the facet UVs. Glazed areas stay
+// translucent so the facet's shading shows; frames and crew are opaque. U runs windscreen to rear, V sill to
+// roof to sill (symmetric). Frame posts sit on the mesh's STATION_U seams. Units are in client/shared/vehicle-mesh.js.
 export const CP_TW = _CP_TW, CP_TH = _CP_TH;
 
-// Per-airframe canopy specs. Each is the same five things — the glass wash, who's inside, the
-// panel glow, the specular rake, and the frame — so a new airframe is a data entry, not code.
-//   wash    sill→roof→sill gradient stops (this is what sets the whole character: a gunship's
-//           near-opaque smoked glass vs a light aircraft's big bright greenhouse)
-//   crew    silhouettes behind the glass: u/v placement, scale, and what they're wearing
-//   glow    instrument light spilling up onto the inside of the windscreen, per station
-//   spec    hard diagonal sun streaks, clipped to a band of V (the roof panes)
-//   frame   posts (U bars), sills/hairs (V bars), the centreline beam, and the perimeter
+// Per-airframe specs: wash (sill-roof-sill gradient), crew, glow, spec (sun streaks in a V band) and frame.
 const CANOPY_ART = {
-  // Viper — a gunship's smoked armoured glass: dark, tight, heavily framed, two helmets inside.
+  // Viper, a gunship's smoked armoured glass: dark, tight, heavily framed, two helmets inside.
   viper: {
     wash: [[0.00, 'rgba(6,11,16,0.90)'], [0.16, 'rgba(9,16,23,0.82)'], [0.34, 'rgba(34,60,80,0.40)'],
            [0.46, 'rgba(150,196,222,0.32)'], [0.54, 'rgba(150,196,222,0.32)'], [0.66, 'rgba(34,60,80,0.40)'],
            [0.84, 'rgba(9,16,23,0.82)'], [1.00, 'rgba(6,11,16,0.90)']],
-    // V=0.30/0.70 puts them mid-CHEEK-pane rather than on a sill rail, so a mullion never bisects
-    // a head; one per side means a crewman shows whichever cheek is turned to you.
+    // Crew sit mid-cheek-pane so a mullion never bisects a head.
     crew: [{ u: 0.29, v: 0.30, sc: 0.9, visor: 'rgba(96,190,150,0.55)' }, { u: 0.29, v: 0.70, sc: 0.9, visor: 'rgba(96,190,150,0.55)' },
            { u: 0.71, v: 0.30, sc: 1.0, visor: 'rgba(96,190,150,0.55)' }, { u: 0.71, v: 0.70, sc: 1.0, visor: 'rgba(96,190,150,0.55)' }],
     glow: { u: [0.06, 0.50], col: '70,150,190', a: 0.22, r: 70 },
@@ -4203,70 +3949,43 @@ const CANOPY_ART = {
       posts: [[0.00, 8], [0.14, 8], [0.44, 13], [0.56, 13], [0.86, 8], [1.00, 8]],   // the tandem step is the beefiest frame on the aircraft
       sills: [[0.20, 10], [0.80, 10]], hairs: [0.40, 0.60], mid: 5, edge: 16 },
   },
-  // Mayfly — a Cessna cabin: a big, bright, almost clear greenhouse with slim white frames and
-  // two people sitting SIDE BY SIDE up front. The opposite read to the Viper on purpose — you can
-  // see straight through a light single, and that legibility is the whole charm of the airframe.
-  //
-  // Since the cabin became the HULL (buildCessna's GLAZE/STATION_U), which of this sheet shows
-  // depends on the facet, exactly as it does on the Mule. The WINDSCREEN bay (U 0–0.18) glazes the
-  // full upper half, so all of V 0–1 is glass there — a two-pane wraparound split by the centre
-  // post at V 0.5. The bays behind it glaze the upper flank alone, so only V 0–1/6 and 5/6–1 show
-  // and the middle of the sheet is painted cabin roof that is never drawn. Everything below is
-  // authored to those bands: put a detail on the crown aft of the screen and it doesn't exist.
+  // Mayfly: a bright clear greenhouse, two seats abreast. Only the windscreen bay (U 0 to 0.18) shows all of V;
+  // behind it only V 0 to 1/6 and 5/6 to 1 are glass, so a detail on the crown aft of the screen never draws.
   mayfly: {
     wash: [[0.00, 'rgba(22,34,44,0.62)'], [0.14, 'rgba(38,62,80,0.44)'], [0.32, 'rgba(120,168,196,0.26)'],
            [0.46, 'rgba(196,226,244,0.30)'], [0.54, 'rgba(196,226,244,0.30)'], [0.68, 'rgba(120,168,196,0.26)'],
            [0.86, 'rgba(38,62,80,0.44)'], [1.00, 'rgba(22,34,44,0.62)']],
-    // Two heads abreast at the SAME station (u), one at each side window — a side-by-side cabin.
-    // u 0.30 is the front seats (between the A-pillar and the door post); V 0.08/0.92 is eye level
-    // inside the glazed flank band, which is the only part of the sheet the side bays draw.
+    // Two heads abreast at the front seats, at eye level in the glazed flank band.
     crew: [{ u: 0.30, v: 0.08, sc: 0.85, hair: 'rgba(58,44,36,0.9)' }, { u: 0.30, v: 0.92, sc: 0.85, hair: 'rgba(30,32,38,0.9)' }],
     glow: { u: [0.05, 0.12], col: '120,190,150', a: 0.16, r: 56 },
     spec: { band: [0.0, 1.0], streaks: [[0.06, 30, 0.20], [0.13, 20, 0.13]] },   // sun rake across the windscreen U
     frame: { col: 'rgba(34,38,44,0.9)', lit: 'rgba(140,150,160,0.25)',   // dark rubber window seals: white edging read as a drawn outline round every pane
-      // Posts on the mesh's own STATION_U seams: the windscreen base (0), the beefy A-pillar where
-      // the screen meets the cabin (0.18), the door's aft post (0.66) and the front edge of the
-      // rear quarter light (0.74). Between those last two the HULL is unglazed, so the frame here
-      // is only the edging on either side of a real painted post — don't widen it into a fake one.
+      // Posts on the mesh's STATION_U seams. Between 0.66 and 0.74 the hull is an unglazed painted post.
       posts: [[0.00, 7], [0.26, 11], [0.66, 6], [0.74, 6], [0.86, 7]],   // 0.26: the A-pillar, where the screen ends at f 0.35; 0.86: the rear window ends at the f 0 → -0.12 bay
       sills: [[2 / 6, 6], [4 / 6, 6]],   // the TOP of the side glass (it runs k 0-1 and k 4-5); a line at k=1 cut every window in half
       mid: 0, edge: 11 },   // mid 0: a 172's windscreen is one pane, no centre post
   },
-  // Mule — a Twin Otter FLIGHT DECK: a working commercial cockpit. Darker green-tinted glass than
-  // the Mayfly, chunky dark frames, two pilots abreast, panel glow up the windscreen, and wipers
-  // parked across the screen (the detail that says airliner rather than plaything).
+  // Mule: a Twin Otter flight deck, green-tinted, chunky frames, two pilots, panel glow, wipers.
   mule: {
     wash: [[0.00, 'rgba(12,20,26,0.80)'], [0.16, 'rgba(20,36,46,0.66)'], [0.34, 'rgba(58,102,116,0.34)'],
            [0.47, 'rgba(150,198,208,0.30)'], [0.53, 'rgba(150,198,208,0.30)'], [0.66, 'rgba(58,102,116,0.34)'],
            [0.84, 'rgba(20,36,46,0.66)'], [1.00, 'rgba(12,20,26,0.80)']],
-    // The Mule glazes its HULL (FW_PARAMS.prop.glaze), so which of this sheet shows depends on the
-    // facet. The WINDSCREEN bays (U 0–0.20) glaze the full upper half → all of V 0–1 is glass, a
-    // two-pane wraparound split by the centre post at V=0.5. The SIDE-WINDOW bays (U 0.20–0.90)
-    // glaze only the side band → just V 0–⅙ and ⅚–1 show; the middle of the sheet there is cabin
-    // roof (painted, never drawn). So crew/glow sit low in V (the side glass) or forward in U (the
-    // windscreen); the centre post + window-line frames are the only things crossing the crown.
+    // Glazed hull: windscreen bays (U 0 to 0.20) show all of V; side bays only V 0 to 1/6 and 5/6 to 1.
     crew: [{ u: 0.32, v: 0.09, sc: 0.95, cap: true, hair: 'rgba(24,26,32,0.92)' },
            { u: 0.32, v: 0.91, sc: 0.95, cap: true, hair: 'rgba(24,26,32,0.92)' }],
     glow: { u: [0.05, 0.12], col: '90,170,200', a: 0.26, r: 66 },   // panel glow up the windscreen
     spec: { band: [0.0, 1.0], streaks: [[0.09, 22, 0.18], [0.15, 14, 0.11]] },   // sun rake clipped to the windscreen U
     frame: { col: 'rgba(38,42,48,0.95)', lit: 'rgba(96,104,114,0.5)',
-      // U posts on the real ring seams (glaze f 0.70→0.30 ⇒ U 0→1): windscreen front (0), its
-      // inter-bay divider (0.10), the beefy A-pillar where the screen meets the cabin (0.20),
-      // the side-window divider (0.55), and the aft edge of the side glass (0.90).
+      // U posts on the real ring seams (glaze f 0.70 to 0.30).
       posts: [[0.00, 8], [0.10, 6], [0.20, 12], [0.55, 8], [0.90, 8], [1.00, 8]],
       sills: [[1 / 6, 8], [5 / 6, 8]],   // window line — the side-band/cheek seam; the base of the windscreen wrap
       hairs: [], mid: 7, edge: 14, extra: 'wipers' },   // mid = the windscreen CENTRE POST between the two panes (V=0.5; only the windscreen glazes the crown, so it shows there alone)
   },
-  // Reaper — an A-10's canopy: a single-seat bubble of thick armoured glass with the faint GOLD
-  // flash of its lamination, near-frameless over the crown (that's the Warthog's whole visibility
-  // pitch) but shut off up front by a heavy bow frame carrying the HUD. One pilot, helmeted, visor
-  // down, green HUD light on the inside of the screen. arc 5 ⇒ V bands of 0.2: side panes at the
-  // sills, the crown pane across V 0.4–0.6.
+  // Reaper: an A-10 bubble, gold-flashed, near-frameless over the crown, heavy bow frame. arc 5 gives V bands of 0.2.
   reaper: {
     wash: [[0.00, 'rgba(8,12,14,0.86)'], [0.15, 'rgba(14,22,24,0.74)'], [0.32, 'rgba(58,74,54,0.38)'],
            [0.44, 'rgba(196,196,150,0.26)'], [0.56, 'rgba(196,196,150,0.26)'], [0.68, 'rgba(58,74,54,0.38)'],
            [0.85, 'rgba(14,22,24,0.74)'], [1.00, 'rgba(8,12,14,0.86)']],
-    // Single seat: ONE station, a head showing at each side pane (whichever cheek is turned to you).
     crew: [{ u: 0.30, v: 0.28, sc: 1.0, visor: 'rgba(120,200,160,0.5)', hair: 'rgba(24,28,26,0.94)' },
            { u: 0.30, v: 0.72, sc: 1.0, visor: 'rgba(120,200,160,0.5)', hair: 'rgba(24,28,26,0.94)' }],
     glow: { u: [0.05, 0.14], col: '110,220,140', a: 0.24, r: 62 },   // HUD + panel light up the bow
@@ -4276,18 +3995,8 @@ const CANOPY_ART = {
       sills: [[0.20, 9], [0.80, 9]],   // the canopy rails the clamshell seals onto — a real facet seam at arc 5
       hairs: [0.40, 0.60], mid: 0, edge: 13 },
   },
-  // Leviathan — an An-124 FLIGHT DECK glazed into the hull (FW_PARAMS.heavy.glaze). A working heavy
-  // freighter's office, and the read to chase is a WORKPLACE seen from outside: a small bright patch
-  // of green-tinted glass high on a very long grey fuselage, chunky painted frames, sun blinds half
-  // down, a black glareshield coaming under the screen, wipers parked on the sill, and a full Antonov
-  // crew — two pilots at the screen, engineer and navigator at the side glass behind them.
-  //
-  // Which of this sheet shows depends on the facet, and the important thing is what NEVER shows: the
-  // crown is unglazed, so the middle band of the sheet (V 0.375–0.625) is painted spine and is never
-  // drawn. The WINDSCREEN bay (U 0–0.364) glazes the upper cheeks — V 0.125–0.375 and 0.625–0.875,
-  // a pane pair either side of the spine — and the side-glass bays behind it glaze only the high
-  // strip V 0.25–0.375 / 0.625–0.75. Everything painted here is authored to those bands: put a
-  // detail on the crown and it simply doesn't exist.
+  // Leviathan: an An-124 flight deck glazed into the hull, with a four-person crew. The crown (V 0.375 to 0.625)
+  // is never drawn; the windscreen bay glazes V 0.125-0.375 and 0.625-0.875, side glass only 0.25-0.375 / 0.625-0.75.
   leviathan: {
     wash: [[0.00, 'rgba(10,18,22,0.82)'], [0.12, 'rgba(16,30,36,0.72)'], [0.26, 'rgba(46,88,98,0.40)'],
            [0.34, 'rgba(132,184,192,0.30)'], [0.42, 'rgba(150,200,206,0.26)'], [0.50, 'rgba(52,96,104,0.42)'],
@@ -4300,49 +4009,30 @@ const CANOPY_ART = {
     glow: { u: [0.06, 0.20], col: '90,180,190', a: 0.24, r: 44 },
     spec: { band: [0.0, 1.0], streaks: [[0.14, 16, 0.16], [0.26, 10, 0.10]] },   // sun rake clipped to the windscreen U
     frame: { col: 'rgba(40,44,50,0.95)', lit: 'rgba(104,112,122,0.5)',
-      // UNDIVIDED. One unbroken strip of glass: no centre post, no pane hairlines, no inter-bay
-      // pillars — only the perimeter and the sill rails top and bottom of the band. The blinds and
-      // wipers went with them: on a strip this narrow each of those was a line straight across the
-      // window, and a few lines across a small band is all you would have seen of it.
+      // Undivided: perimeter and sill rails only. On a strip this narrow, posts, blinds and wipers each became a line across it.
       posts: [], hairs: [], mid: 0,
       sills: [[0.25, 7], [0.75, 7]],   // the window line — the only structure left
       edge: 11, extra: ['glareshield'],
-      // The glareshield sits just inside each sill, clipped to the windscreen U — the one bit of
-      // interior structure worth keeping, because it's what stops a small dark strip reading as a
-      // painted-on slot rather than a window with a cockpit behind it.
+      // The glareshield inside each sill, so the strip reads as a window with a cockpit behind it.
       shieldV: [[0.25, 0.315], [0.75, 0.685]], deckU: 0.5 },
   },
-  // Grasshopper — an XCub (per ref photo): the big wraparound backcountry greenhouse. A SKYLIGHT
-  // over the crown (you look up through the wing root), deep curved side glass, a black steel cage
-  // with white-painted frames, and TANDEM seating — one behind the other, headsets and shades on,
-  // in the high-vis jackets everybody wears out in the bush.
-  //
-  // Since the cabin became the HULL (buildCub's GLAZE/STATION_U) this sheet is read per FACET, as
-  // the Mayfly's and the Mule's are — but a Cub glazes the CROWN as well as the flanks, so unlike
-  // those two the middle of this sheet (V 1/3–2/3, the skylight band) is drawn rather than painted
-  // over. That is why `sills` sit where they do: they are the real facet seams either side of the
-  // roof glass, not a decorative rail.
+  // Grasshopper: an XCub greenhouse with a skylight, black cage with white frames, tandem crew.
+  // Unlike the Mayfly the crown band (V 1/3 to 2/3) is glass, so `sills` sit on the real seams either side.
   xcub: {
     wash: [[0.00, 'rgba(18,28,36,0.66)'], [0.13, 'rgba(30,50,64,0.46)'], [0.30, 'rgba(108,158,186,0.26)'],
            [0.44, 'rgba(206,234,248,0.34)'], [0.56, 'rgba(206,234,248,0.34)'], [0.70, 'rgba(108,158,186,0.26)'],
            [0.87, 'rgba(30,50,64,0.46)'], [1.00, 'rgba(18,28,36,0.66)']],
-    // TANDEM: two stations at different U (fore/aft), each showing a head at both side windows.
     crew: [{ u: 0.30, v: 0.08, sc: 0.9, shades: true, jacket: '206,74,34' }, { u: 0.30, v: 0.92, sc: 0.9, shades: true, jacket: '206,74,34' },
            { u: 0.62, v: 0.08, sc: 0.9, shades: true, jacket: '32,36,44' }, { u: 0.62, v: 0.92, sc: 0.9, shades: true, jacket: '32,36,44' }],
     glow: { u: [0.06], col: '110,180,210', a: 0.18, r: 52 },
     spec: { band: [0.20, 0.80], streaks: [[0.30, 38, 0.22], [0.74, 20, 0.12]] },
     frame: { col: 'rgba(22,24,28,0.95)', lit: 'rgba(238,240,244,0.75)',   // black cage, white-painted highlight
-      // On buildCub's own STATION_U seams: windscreen base (0), the A-pillar where the screen meets
-      // the cabin frame (0.18), the door's two posts (0.48/0.78), and the aft bulkhead (1).
+      // On buildCub's STATION_U seams.
       posts: [[0.00, 8], [0.18, 9], [0.48, 6], [0.78, 6], [1.00, 8]],
       sills: [[1 / 3, 6], [2 / 3, 6]],   // the skylight's edge rails — and exactly the V-band edges of the crown facets (k2/k3)
       mid: 3, edge: 12, extra: 'skylight' },
   },
-  // Locust — an ag-plane's office: a small, deep, HEAVILY caged greenhouse sat up on top of the
-  // hopper. The read is armoured farm equipment, not a light plane — thick roll-cage frames in
-  // yellow-primed steel (the same #ffd24a the flightdeck skin is keyed to), amber-tinted glass
-  // against the glare of flying at fifteen feet all day, and the chunky bow frame carrying the
-  // wire cutter. Tandem seats, both crew in ear defenders. arc 5 ⇒ sills at V 0.2/0.8.
+  // Locust: a deep caged greenhouse on the hopper, yellow-primed frames, amber glass, tandem crew. arc 5.
   locust: {
     wash: [[0.00, 'rgba(16,20,22,0.78)'], [0.15, 'rgba(28,34,32,0.62)'], [0.32, 'rgba(92,112,96,0.34)'],
            [0.45, 'rgba(214,206,158,0.30)'], [0.55, 'rgba(214,206,158,0.30)'], [0.68, 'rgba(92,112,96,0.34)'],
@@ -4355,12 +4045,7 @@ const CANOPY_ART = {
       posts: [[0.00, 14], [0.16, 9], [0.46, 10], [0.78, 8], [1.00, 10]],   // the bow frame is the heaviest — it's a wire cutter's anchor
       sills: [[0.20, 9], [0.80, 9]], hairs: [0.32, 0.62], mid: 6, edge: 14 },
   },
-  // Shrike — the glasshouse. A LONG greenhouse over two crew in tandem, and the length is the
-  // whole read, so it gets more frame posts than anything else here: a canopy this long with the
-  // usual three or four bays looks like a bubble that has been stretched, and it needs to look
-  // like a row of panes bolted into a cage. Two crew at opposite ends, facing opposite ways —
-  // the one at the back is the gunner, and putting him at 0.80 is what stops the whole thing
-  // reading as a single-seat fighter with a lot of glass behind the pilot.
+  // Shrike: a long tandem glasshouse with many posts; the gunner sits at 0.80, facing aft.
   shrike: {
     wash: [[0.00, 'rgba(12,16,20,0.84)'], [0.14, 'rgba(20,30,36,0.68)'], [0.32, 'rgba(70,98,110,0.36)'],
            [0.46, 'rgba(168,200,214,0.30)'], [0.56, 'rgba(168,200,214,0.30)'], [0.70, 'rgba(70,98,110,0.36)'],
@@ -4372,21 +4057,11 @@ const CANOPY_ART = {
     glow: { u: [0.09], col: '120,230,190', a: 0.20, r: 46 },   // the sight head, lit, down in the nose
     spec: { band: [0.18, 0.82], streaks: [[0.22, 34, 0.19], [0.62, 22, 0.12]] },
     frame: { col: 'rgba(28,34,32,0.96)', lit: 'rgba(150,220,196,0.42)',
-      // Many, evenly spaced: this is a framed greenhouse, not a moulded blister.
       posts: [[0.00, 13], [0.13, 8], [0.28, 8], [0.42, 7], [0.56, 7], [0.70, 7], [0.86, 8], [1.00, 11]],
       sills: [[0.22, 8], [0.78, 8]], hairs: [0.34, 0.66], mid: 6, edge: 13 },
   },
-  // THE CAB (THE LONG HAUL). A truck windscreen is not a canopy and should not read as one: it is
-  // one enormous flat pane, deeply raked, with sky across the top two-thirds and the dark of the
-  // cab underneath — plus the three things every one of them has and no aircraft does. WIPERS
-  // parked across the bottom (two great arms, the give-away at any distance). A GLARESHIELD, which
-  // here is the dash: a black shelf along the sill with instrument light coming off it. And a
-  // DRIVER sitting to one side of the centreline rather than crew abreast on it, because a cab has
-  // one seat that matters and the asymmetry is instantly legible as a road vehicle.
-  //
-  // V is ACROSS the screen and U is UP it (the mesh maps the quad corner-for-corner), so the sill
-  // furniture lives at low U and the sky wash runs the U axis — the opposite of the arc-unwrapped
-  // canopies above, and the reason the numbers here look nothing like theirs.
+  // Truck cab: one big raked pane, sky over the dark cab, with wipers, a dash glareshield and one driver off-centre.
+  // V runs across the screen and U up it, the opposite of the canopies above.
   truckcab: {
     wash: [[0.00, 'rgba(10,13,16,0.88)'], [0.22, 'rgba(18,28,36,0.70)'], [0.44, 'rgba(64,104,126,0.34)'],
            [0.62, 'rgba(150,196,220,0.30)'], [0.82, 'rgba(178,214,232,0.26)'], [1.00, 'rgba(120,164,192,0.34)']],
@@ -4400,14 +4075,12 @@ const CANOPY_ART = {
       shieldV: [[0.00, 0.20]], deckU: 1, browV: [[1.00, 0.86]],
       extra: ['glareshield', 'wipers', 'brow'] },
   },
-  // Drake — the pilot sits in the EYE, but the eyes are screens the cabin looks out through, not
-  // glass: from outside they are opaque, a dark lens with the iris and a sheen and nobody behind it.
+  // Drake: the eyes are screens, opaque from outside: a dark lens with an iris and a sheen.
   drakeeye: {
     wash: [[0.00, 'rgb(14,11,8)'], [0.26, 'rgb(30,24,18)'], [0.50, 'rgb(52,44,34)'],
            [0.74, 'rgb(30,24,18)'], [1.00, 'rgb(14,11,8)']],
     spec: { band: [0.0, 0.42], streaks: [[0.42, 26, 0.18], [0.58, 14, 0.1]] },
     frame: { col: 'rgba(0,0,0,0)', lit: 'rgba(0,0,0,0)', posts: [], sills: [], hairs: [], mid: 0, edge: 1 },
-    // The duck's iris, low in the forward corner. Forward is low U and up is low V on this sheet.
     iris: { u: 0.35, v: 0.6, r: 32 },
   },
 };
@@ -4419,61 +4092,48 @@ export function canopyTex(art = 'viper') {
   const cv = document.createElement('canvas'); cv.width = CP_TW; cv.height = CP_TH;
   const g = cv.getContext('2d'), W = CP_TW, H = CP_TH;
 
-  // 1) The glass itself — a sill→roof→sill wash. Bright sky reflection across the roof band,
-  //    falling away to a darker interior read down at the sills where you're looking through the
-  //    side glass into the cockpit rather than at the sky.
+  // 1) The glass: a sill-roof-sill wash.
   const gl = g.createLinearGradient(0, 0, 0, H);
   for (const [st, col] of S.wash) gl.addColorStop(st, col);
   g.fillStyle = gl; g.fillRect(0, 0, W, H);
 
-  // Style extras. `extra` is one name or a LIST of them — a flight deck wants blinds AND a
-  // glareshield AND wipers, and each is an independent little painter rather than a mode.
+  // `extra` is a name or a list; each is an independent painter.
   const EX = (n) => [].concat(S.frame.extra || []).includes(n);
 
-  // 1b) Style extras that belong UNDER the crew and frames.
+  // 1b) Extras under the crew and frames.
   if (EX('glareshield')) {
-    // The coaming: the black anti-glare shelf under the windscreen, seen from outside as a hard dark
-    // band hugging the sill with the instrument panel's own light leaking up off it. This is the
-    // detail that stops a big pane reading as an empty hole — there's an INSTRUMENT PANEL in there.
+    // Glareshield: the dark shelf under the screen, with panel light leaking up.
     const dU = S.frame.deckU ?? 1;
     for (const [vS, vI] of (S.frame.shieldV || [])) {
       const y0 = Math.min(vS, vI) * H, y1 = Math.max(vS, vI) * H;
       const cg = g.createLinearGradient(0, vS * H, 0, vI * H);
       cg.addColorStop(0, 'rgba(6,8,10,0.92)'); cg.addColorStop(0.55, 'rgba(10,14,18,0.62)'); cg.addColorStop(1, 'rgba(10,14,18,0)');
       g.fillStyle = cg; g.fillRect(0, y0, W * dU, y1 - y0);
-      // Panel light spilling off the shelf onto the glass just above it.
       const lg = g.createLinearGradient(0, vI * H, 0, vS * H);
       lg.addColorStop(0, 'rgba(70,190,170,0)'); lg.addColorStop(1, 'rgba(70,190,170,0.20)');
       g.fillStyle = lg; g.fillRect(0, y0, W * dU * 0.9, y1 - y0);
     }
   }
   if (EX('brow')) {
-    // The BROW. On the real aeroplane the flight deck is recessed into a fuselage that overhangs it,
-    // so the top of every pane sits in the shadow of its own roofline — and the eye reads that band
-    // of shade as depth. Without it the glass is a decal lying flat on the skin; with it the cockpit
-    // is set INTO the nose, which is the single biggest fidelity win available here.
+    // Brow: shade under the roofline so the deck reads recessed.
     for (const [vRail, vIn] of (S.frame.browV || [])) {
       const bg = g.createLinearGradient(0, vRail * H, 0, vIn * H);
       bg.addColorStop(0, 'rgba(4,7,10,0.78)'); bg.addColorStop(0.6, 'rgba(6,10,14,0.30)'); bg.addColorStop(1, 'rgba(6,10,14,0)');
-      // Clipped to the U band AFT of the screen: a wraparound windscreen has open sky over it, so a
-      // brow there would be shading the pane from a roofline that isn't there.
+      // Only aft of the screen: a wraparound has open sky over it.
       const bU = S.frame.deckU ?? 0;
       g.fillStyle = bg;
       g.fillRect(bU * W, Math.min(vRail, vIn) * H, (1 - bU) * W, Math.abs(vIn - vRail) * H);
     }
   }
   if (S.panes) {
-    // Per-pane tint step. Flat panes at different angles never catch the sky identically, and a
-    // uniform wash across the whole sheet is what makes faceted glass read as one printed sticker.
-    // Alternating a hair of light and dark per bay costs nothing and breaks that up.
+    // Per-pane tint step, so faceted glass doesn't read as one sticker.
     S.panes.forEach(([u0, u1], i) => {
       g.fillStyle = i % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(0,10,16,0.07)';
       g.fillRect(u0 * W, 0, (u1 - u0) * W, H);
     });
   }
   if (EX('blinds')) {
-    // Sun blinds pulled part-way down from the roofline — never level with each other, because no
-    // two crew ever set them the same, and that asymmetry is most of what sells them as blinds.
+    // Sun blinds, never level with each other.
     const dU = S.frame.deckU ?? 1;
     (S.frame.blindV || []).forEach(([vTop, vBot], i) => {
       const y0 = Math.min(vTop, vBot) * H, y1 = Math.max(vTop, vBot) * H, drop = i ? 0.82 : 1;
@@ -4484,45 +4144,37 @@ export function canopyTex(art = 'viper') {
     });
   }
   if (EX('skylight')) {
-    // The Cub skylight: an overhead pane running the length of the crown, so the roof band reads
-    // as open sky rather than fabric. Brighter than the wash and squared off at the door station.
+    // Cub skylight down the crown.
     const sk = g.createLinearGradient(0, H * 0.38, 0, H * 0.62);
     sk.addColorStop(0, 'rgba(150,206,240,0)'); sk.addColorStop(0.5, 'rgba(186,226,252,0.34)'); sk.addColorStop(1, 'rgba(150,206,240,0)');
     g.fillStyle = sk; g.fillRect(W * 0.16, H * 0.38, W * 0.62, H * 0.24);
   }
 
-  // 2) Interior: the crew. Silhouettes sitting low in the frame (V near the sills is eye level
-  //    through the side glass). Vague on purpose — a hard shape at this size reads as a decal, a
-  //    soft one reads as somebody in there.
+  // 2) Crew: soft silhouettes (a hard shape reads as a decal).
   for (const c of (S.crew || [])) {
     const cx = c.u * W, cy = c.v * H, sc = c.sc || 1;
-    // Torso haze — tinted by the jacket where the airframe's people wear one.
     const jk = c.jacket || '5,8,12';
     const sh = g.createRadialGradient(cx, cy, 2, cx, cy, 30 * sc);
     sh.addColorStop(0, `rgba(${jk},${c.jacket ? 0.8 : 0.94})`); sh.addColorStop(1, `rgba(${jk},0)`);
     g.fillStyle = sh; g.beginPath(); g.ellipse(cx, cy, 24 * sc, 26 * sc, 0, 0, 7); g.fill();
-    // Head — a helmet, a cap, or hair.
     g.fillStyle = c.hair || 'rgba(3,5,8,0.92)';
     g.beginPath(); g.ellipse(cx, cy, 12 * sc, 10 * sc, 0, 0, 7); g.fill();
     if (c.cap) { g.fillStyle = 'rgba(14,16,20,0.95)'; g.beginPath(); g.ellipse(cx - 6 * sc, cy - 3 * sc, 9 * sc, 4 * sc, 0, 0, 7); g.fill(); }   // peaked cap, brim toward the nose
-    // Eyewear — a visor glow (gunship) or dark shades (everyone else). U falls toward the nose,
-    // so putting it on the -u side of the head makes them look FORWARD.
+    // Visor or shades on the -u side, so they look forward.
     if (c.visor) { g.fillStyle = c.visor; g.beginPath(); g.ellipse(cx - 7 * sc, cy + 1.5 * sc, 4.5 * sc, 2.6 * sc, 0, 0, 7); g.fill(); }
     else if (c.shades) {
       g.fillStyle = 'rgba(8,10,14,0.9)'; g.beginPath(); g.ellipse(cx - 7 * sc, cy + 1 * sc, 4.2 * sc, 2.2 * sc, 0, 0, 7); g.fill();
       g.fillStyle = 'rgba(60,68,78,0.9)'; g.beginPath(); g.ellipse(cx + 4 * sc, cy - 1 * sc, 3.4 * sc, 5 * sc, 0, 0, 7); g.fill();   // headset cup on the ear behind
     }
   }
-  // Instrument glow spilling up onto the inside of the windscreen at each station.
+  // Instrument glow.
   if (S.glow) for (const u of S.glow.u) {
     const cx = u * W, r = S.glow.r || 70, hg = g.createRadialGradient(cx, H / 2, 4, cx, H / 2, r);
     hg.addColorStop(0, `rgba(${S.glow.col},${S.glow.a})`); hg.addColorStop(1, `rgba(${S.glow.col},0)`);
     g.fillStyle = hg; g.fillRect(cx - r, 0, r * 2, H);
   }
 
-  // The Drake's iris is a gauge on the dash, seen through the glass from outside: a brass bezel, a
-  // dark lit face and a needle. Read from outside it is the duck's iris; it is also just what is in
-  // there. Before the specular, so the glass's own streaks still rake across it.
+  // The Drake's iris: a gauge seen through the glass. Before the specular.
   if (S.iris) {
     const { u, v, r } = S.iris, ix = u * W, iy = v * H;
     const rim = g.createLinearGradient(ix - r, iy - r, ix + r, iy + r);
@@ -4537,8 +4189,7 @@ export function canopyTex(art = 'viper') {
     g.fillStyle = 'rgba(255,255,255,0.85)'; g.beginPath(); g.arc(ix - r * 0.32, iy - r * 0.34, r * 0.16, 0, 7); g.fill();
   }
 
-  // 3) Specular: hard diagonal streaks raking across the greenhouse, the way a low sun catches
-  //    flat panes. Clipped to the roof band so the side glass stays dark.
+  // 3) Specular streaks, clipped to the roof band.
   g.save();
   g.beginPath(); g.rect(0, H * S.spec.band[0], W, H * (S.spec.band[1] - S.spec.band[0])); g.clip();
   for (const [uu, wd, a] of S.spec.streaks) {
@@ -4550,8 +4201,7 @@ export function canopyTex(art = 'viper') {
   }
   g.restore();
 
-  // 4) Mullions — the structural frame. Bars along the station seams (U) and the sill chines (V),
-  //    plus a centreline beam up the windscreen. Opaque: this is airframe, not glass.
+  // 4) Mullions: opaque frame bars.
   g.lineCap = 'butt';
   const F = S.frame;
   const bar = (x0, y0, x1, y1, w, col) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
@@ -4559,37 +4209,31 @@ export function canopyTex(art = 'viper') {
     const x = u * W;
     bar(x, 0, x, H, hv, F.col); bar(x - hv * 0.34, 0, x - hv * 0.34, H, 1.6, F.lit);   // a lit highlight down one edge
   }
-  // Longitudinal chines: only the SILL rails are structure worth painting. The roof/cheek seams
-  // are real facet edges the renderers already stroke — bar them too and the greenhouse reads as
-  // a bus window grid, so they get a hairline glint and nothing more.
+  // Only the sill rails get bars; the roof seams get a hairline, or it reads as a bus window grid.
   for (const [v, hv] of F.sills) {
     const y = v * H;
     bar(0, y, W, y, hv, F.col); bar(0, y - hv * 0.34, W, y - hv * 0.34, 1.6, F.lit);
   }
   for (const v of (F.hairs || [])) bar(0, v * H, W, v * H, 1.4, F.lit);
   if (F.mid) { bar(0, H / 2, W, H / 2, F.mid, F.col); bar(0, H / 2 - F.mid * 0.34, W, H / 2 - F.mid * 0.34, 1.4, F.lit); }
-  // 4b) Style extras that belong ON TOP of the frame.
+  // 4b) Extras on top of the frame.
   if (EX('wipers')) {
-    // Two wiper arms parked low across the windscreen — the flight-deck tell. Parked ON the sill
-    // (frame.wiperV) so they lie in glass a class actually glazes rather than out on painted metal.
+    // Wipers parked on the sill (`frame.wiperV`), in glass the class glazes.
     g.strokeStyle = 'rgba(18,20,24,0.85)'; g.lineWidth = 3; g.lineCap = 'round';
     for (const v of (F.wiperV || [0.06, 0.94])) { g.beginPath(); g.moveTo(W * 0.02, v * H); g.lineTo(W * 0.20, (v > 0.5 ? v - 0.13 : v + 0.13) * H); g.stroke(); }
     g.lineCap = 'butt';
   }
   if (EX('skylight')) {
-    // The cage: a diagonal door brace running down from the roof to the sill on each side — the
-    // steel triangle you see through the XCub's side glass.
+    // The XCub's diagonal door brace.
     g.strokeStyle = F.col; g.lineWidth = 4;
     for (const [v0, v1] of [[0.42, 0.15], [0.58, 0.85]]) { g.beginPath(); g.moveTo(W * 0.46, v0 * H); g.lineTo(W * 0.70, v1 * H); g.stroke(); }
   }
-  // Perimeter: the canopy sill and the front/rear frames close the greenhouse off from the paint.
+  // Perimeter.
   g.strokeStyle = F.col; g.lineWidth = F.edge; g.strokeRect(0, 0, W, H);
 
   _canopyTex[art] = cv; return cv;
 }
-// Paint the baked canopy art into ONE projected facet over its already-shaded fill. Unlike
-// overlayJazz this composites source-over, not multiply — the frames have to sit ON the glass
-// as solid structure, while the texture's own alpha lets the lit fill read through the panes.
+// Canopy art onto one facet, source-over so frames sit on the glass.
 export function drawCanopyGlass(ctx, P, uv, art) {
   const n = P.length; if (n < 3 || n > 4) return;
   const img = canopyTex(art), d = P.map(q => [q.sx, q.sy]);
@@ -4600,30 +4244,21 @@ export function drawCanopyGlass(ctx, P, uv, art) {
   ctx.restore();
 }
 
-// ── Nose art (real, procedural decals) ────────────────────────────────────────
-// Each decal is a small transparent canvas painted once, then mapped onto a panel on the
-// forward fuselage side — the VISIBLE (nearer) side only, so it never bleeds through from
-// behind. Front of the art = nose. Opaque art over the paint (source-over, not overlay).
+// ── Nose art ── Small canvases painted once and mapped onto the forward fuselage, near side only. Front of the art is the nose.
 const _decalCache = {};
 function decalTex(id) {
   if (id in _decalCache) return _decalCache[id];
   const W = 72, H = 44, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
   if (id === 'sharkmouth') {
-    // ⚠ U = 0 IS THE NOSE. drawNoseArt maps texture column 0 to the FORWARD end of the panel on
-    // both flanks (reach decals never flip), so everything about this animal's head has to be
-    // drawn facing LEFT. It was drawn facing right: the eye sat at U 0.14 — out on the spinner,
-    // in front of its own mouth — and the maw was widest at the BACK and pinched at the front,
-    // which is a shark swimming away from you. A sharkmouth gapes at the tip and closes aft, and
-    // the eye is up on the cowl BEHIND the jaw hinge, which is where it goes now.
+    // ⚠ U = 0 is the nose: draw the head facing left. Gapes at the tip, eye aft of the hinge.
     const gape = H * 0.46, hinge = H * 0.10, jawX = W * 0.66;   // half-heights at the tip and at the hinge
     g.fillStyle = '#9c1717';                                    // the red maw
     g.beginPath();
     g.moveTo(1, H * 0.50 - gape); g.lineTo(jawX, H * 0.50 - hinge);
     g.lineTo(jawX, H * 0.50 + hinge); g.lineTo(1, H * 0.50 + gape);
     g.closePath(); g.fill();
-    // Teeth ride the lip line, so they shrink with the closing jaw rather than marching along at
-    // one size — that taper is most of what makes a row of triangles read as a mouth.
+    // Teeth shrink along the closing jaw.
     g.fillStyle = '#f2f2ea';
     for (let i = 0; i < 7; i++) {
       const t = i / 7, x = 3 + t * (jawX - 10), half = gape + (hinge - gape) * t, w = 6.5 - t * 3;
@@ -4631,7 +4266,6 @@ function decalTex(id) {
       const x2 = x + 4.5, half2 = gape + (hinge - gape) * (t + 0.06), w2 = w * 0.92;
       g.beginPath(); g.moveTo(x2, H * 0.50 + half2); g.lineTo(x2 + w2, H * 0.50 + half2); g.lineTo(x2 + w2 * 0.5, H * 0.50 + half2 * 0.42); g.closePath(); g.fill();
     }
-    // The eye: aft of the hinge and high on the cowl, glaring FORWARD over the mouth.
     g.fillStyle = '#f2f2ea'; g.beginPath(); g.arc(W * 0.80, H * 0.20, 5.4, 0, 7); g.fill();
     g.fillStyle = '#101010'; g.beginPath(); g.arc(W * 0.775, H * 0.20, 2.5, 0, 7); g.fill();   // pupil forward in the socket — it is looking where it is going
   } else if (id === 'killmarks') {
@@ -4687,8 +4321,7 @@ function decalTex(id) {
   } else { _decalCache[id] = null; return null; }
   _decalCache[id] = c; return c;
 }
-// Even–odd point-in-polygon over a projected {sx,sy} ring — used to cull decal cells hidden
-// behind a nearer appendage (wing/nacelle/gear/…) that paints in front of the fuselage flank.
+// Even-odd point-in-polygon, to skip decal cells behind a nearer appendage.
 function ptInScreenPoly(x, y, P) {
   let inside = false;
   for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
@@ -4701,21 +4334,9 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null, near = MODEL_N
   const id = lv?.decal; if (!id || id === 'none') return;
   const img = decalTex(id); if (!img) return;
   const p = fwParams(cls) || fwParams('prop');
-  // The decal is mapped onto the ACTUAL fuselage surface, front(nose)→rear, rather than as a flat
-  // billboard at the widest half-width. A billboard overshoots the rounded/boxy hull and hangs the
-  // art off the edge; instead each grid vertex is pushed out to the hull's cross-section at its
-  // (f, h), so the art WRAPS around the curve. It's centred on the fuselage centreline — which
-  // droops with the nose — so it sits LOW on the flank (accommodating it flat first), and only curls
-  // onto the shoulder/belly where it's too tall to lie flat. Reconstructs the same cross-section
-  // buildFixedWing skins (radius taper + boxy superellipse) so the decal tracks the real hull.
-  // The mouth/flame decals READ better wrapped onto the nose cone itself (that's where a real
-  // sharkmouth belongs), so they reach forward toward the tip; the centred emblems stay flat on
-  // the mid-flank where the cone taper won't pinch them.
-  // A class whose hull is a TABLE rather than a formula (the Cessna) serves its own section, so the
-  // wrap below reads the geometry the mesh was skinned from instead of reconstructing a shape this
-  // aeroplane doesn't have. Everything else keeps the parametric reconstruction unchanged.
-  // A mesh file that names its fuselage loft (`hull`) serves the section from that loft, so art on an
-  // authored airframe wraps its real hull and follows an edit to it.
+  // Wrap the decal onto the real fuselage section (pushed out to the hull at each grid point), centred on the
+  // drooping centreline. Sharkmouth and flames reach onto the nose cone; emblems stay mid-flank.
+  // Tabled hulls (Cessna, Cub) and mesh `hull` lofts serve their own section; the rest reconstruct buildFixedWing's.
   const hull = meshHull(cls);
   const CS = hull ? hull.CS : cls === 'ultralight' ? cessnaSection : cls === 'grasshopper' ? cubSection : null;
   const noseF = hull ? hull.noseF : cls === 'ultralight' ? 0.72 : cls === 'grasshopper' ? 0.80 : p.noseF;
@@ -4724,9 +4345,7 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null, near = MODEL_N
   const fr = p.fr, fv = p.fv, shapeExp = 1 - (p.boxy || 0) * 0.55;
   const noseK = p.noseBlunt || 2.4, tube = p.bodyTube || 0, cowl = p.noseCowl || 0, OUT = 1.03;
   const radAt = (f) => { let u = Math.min(1, Math.abs(f / p.noseF)); u = u <= tube ? 0 : (u - tube) / (1 - tube); return cowl + (1 - cowl) * Math.pow(Math.max(0, 1 - Math.pow(u, noseK)), 1 / noseK); };
-  // Height profile, mirroring buildFixedWing's radVAt: on a class whose nose sheds height faster
-  // than width the flank is SHORTER up front, and wrapping the decal on the plan taper alone hangs
-  // it off the top of the snout.
+  // Height profile, mirroring buildFixedWing's radVAt.
   const radVAt = (f) => {
     if (!(p.noseVTaper && f > 0)) return radAt(f);
     let u = Math.min(1, f / p.noseF); u = u <= tube ? 0 : (u - tube) / (1 - tube);
@@ -4747,8 +4366,7 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null, near = MODEL_N
   };
   const mid = (fF + fR) / 2, cM = czAt(mid);
   const sign = proj(...surf(mid, cM, 1)).z <= proj(...surf(mid, cM, -1)).z ? 1 : -1;   // the flank facing you
-  // Fills the flank; taller art curls over the shoulder. On the tabled hull the flank height is
-  // read off the section at the middle of the decal's own run, not a single class-wide radius.
+  // Fills the flank; taller art curls over the shoulder.
   const hHalf = (CS ? CS(mid).rvB * 0.92 : fv * 0.72);
   const Nc = 6, Nr = 3, W = img.width, H = img.height, grid = [];
   let anyNear = false;
@@ -4756,8 +4374,7 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null, near = MODEL_N
     const row = [];
     for (let i = 0; i <= Nc; i++) {
       const f = fF + (fR - fF) * (i / Nc);
-      // Reach decals ride the nose cone, so the vertical band tapers with the shrinking radius —
-      // it hugs the cone to the tip instead of overshooting the thin front as a fixed-height slab.
+      // Reach decals taper with the cone.
       const hh = reach ? hHalf * (0.30 + 0.70 * (CS ? CS(f).rg / CS(0).rg : radVAt(f))) : hHalf;
       const h = czAt(f) + hh - 2 * hh * (j / Nr);   // top(j=0) → bottom
       const P = proj(...surf(f, h, sign)); row.push(P); if (P.z > near) anyNear = true;
@@ -4765,14 +4382,7 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null, near = MODEL_N
     grid.push(row);
   }
   if (!anyNear) return;
-  // Texture-mapping the decal onto a handedness-flipped flank reads it BACKWARDS, so key the U flip
-  // off the projected screen winding of the decal grid (nose→tail top edge × nose top→bottom left
-  // edge). The authored source winding is positive; when the visible flank projects to a negative
-  // winding we flip U to un-mirror it. This is only right for the flat mid-flank EMBLEMS (a mirrored
-  // emblem/text reads backwards). The directional reach decals (sharkmouth/flames) are physically
-  // nose-anchored — the grid already tracks the real fore-aft axis, so texture-nose sits at the
-  // plane's nose on BOTH flanks. Flipping those would sweep the flames off the tip the wrong way,
-  // so reach decals never flip.
+  // Un-mirror emblems on a flipped flank, keyed off the projected winding. Reach decals never flip: they're nose-anchored.
   const n0 = grid[0][0], nT = grid[0][Nc], bL = grid[Nr][0];
   const cross = (nT.sx - n0.sx) * (bL.sy - n0.sy) - (nT.sy - n0.sy) * (bL.sx - n0.sx);
   const flip = !reach && cross > 0;   // un-mirror emblems onto the visible flank (winding sign corrected — was reading backwards)
@@ -4781,8 +4391,7 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null, near = MODEL_N
   for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {
     const a = grid[j][i], b = grid[j][i + 1], c = grid[j + 1][i + 1], d = grid[j + 1][i];
     if (a.z <= near || b.z <= near || c.z <= near || d.z <= near) continue;             // skip cells crossing behind the eye
-    // Occlusion: skip a cell whose centre sits behind a NEARER appendage face (wing/nacelle/gear/…),
-    // so the decal no longer paints through parts of the airframe standing in front of the flank.
+    // Skip cells behind a nearer appendage.
     const mx = (a.sx + b.sx + c.sx + d.sx) / 4, my = (a.sy + b.sy + c.sy + d.sy) / 4;
     const mz = (a.z + b.z + c.z + d.z) / 4;
     if (occ.some(o => o.z < mz && ptInScreenPoly(mx, my, o.P))) continue;
@@ -4793,33 +4402,16 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null, near = MODEL_N
   }
 }
 
-// ── HULL ART ─────────────────────────────────────────────────────────────────
-//
-// What a boat wears, and it goes where a boat actually wears it: the topside, between the chine and
-// the sheer, amidships. That strip is the one surface on a hull you READ rather than look at — it
-// is where the builder's name goes, where a race number goes, and where every photograph of one of
-// these boats puts its graphics.
-//
-// ⚠ IT IS NOT `drawNoseArt` WITH DIFFERENT NUMBERS, for the same reason the door art is not. That
-// function reconstructs a FIXED-WING fuselage — radius taper, superellipse section, drooping
-// centreline — and its fallback when it does not recognise a class is `fwParams('prop')`, so
-// pointed at a boat it maps the artwork onto the cross-section of a Twin Otter that is not there.
-// A hull has stations, and they are published for exactly this.
-//
-// ⚠ AND THE BAND IS INSET FROM BOTH EDGES. The chine carries a hard lip and the sheer carries the
-// boot stripe; art run flush to either is art with a bright line through it.
+// ── Hull art ── On the topside between chine and sheer, amidships.
+// ⚠ Not drawNoseArt: that reconstructs a fixed-wing fuselage and falls back to a Twin Otter. A hull uses its stations.
+// ⚠ The band is inset from the chine lip and the boot stripe.
 export function drawBoatHullArt(ctx, proj, cls, detail, lv, occluders = null, near = MODEL_NEAR_Z) {
   const id = lv?.decal; if (!id || id === 'none') return;
-  // ⚠ THE SIGNWRITING FAMILY, NOT THE NOSE-ART ONE. `decalTex` holds squadron markings — a
-  // sharkmouth, kill tallies, an ace — which are things painted on an AIRCRAFT because of what it
-  // did. `doorArtTex` holds the crests, skulls, dice, flames and saints a haulier puts on a door,
-  // and that is the same impulse, the same trade and the same graphic vocabulary as the topside of
-  // a go-fast boat. Both are square-ish procedural canvases, so the mapping below does not care.
+  // The signwriting family (doorArtTex), not the nose-art one.
   const img = doorArtTex(id); if (!img) return;
   const meta = BOAT_META.get(cls + ':' + (detail >= 1 ? 1 : 0)) || BOAT_META.get(cls + ':1');
   const ST = meta && meta.stations; if (!ST || ST.length < 2) return;
 
-  // The station pair bracketing a fore-aft position, interpolated.
   const at = (f) => {
     for (let i = 0; i < ST.length - 1; i++) {
       const a = ST[i], b = ST[i + 1];
@@ -4832,20 +4424,11 @@ export function drawBoatHullArt(ctx, proj, cls, detail, lv, occluders = null, ne
     const e = f > ST[0].f ? ST[0] : ST[ST.length - 1];
     return { cw: e.cw, cz: e.cz, sw: e.sw, sz: e.sz };
   };
-  // The panel available to signwrite: aft of the fine entry, forward of the motors. Both ends are
-  // fractions of the hull rather than literals, so a longer boat offers a longer panel.
+  // The signwritable panel, as fractions of the hull.
   const pF = ST[0].f * 0.34, pR = ST[ST.length - 1].f * 0.62;
   const INSET = 0.22;                                  // how far in from chine and sheer
-  // ── ⚠ THE ART KEEPS ITS OWN ASPECT, AND THE PANEL IS ONLY A BUDGET ─────────
-  //
-  // Mapping the texture across the WHOLE run is the obvious thing and it is wrong: this panel is
-  // about 1.1 hull units long and a couple of hundredths tall, so a square decal stretched over it
-  // comes out ten times wider than it was drawn. A skull becomes a smear. So the height of the band
-  // is what is fixed — it is set by the hull — and the LENGTH is then solved from the texture's own
-  // aspect, centred in the run. This is `fitSignPts`'s rule for signage, for the same reason.
-  //
-  // ⚠ AND IT IS CLAMPED TO THE RUN, so a very wide decal shrinks to fit rather than running off the
-  // bow. The band loses height in that case, which keeps the aspect rather than the size.
+  // ⚠ The art keeps its aspect: the band's height is set by the hull and the length solved from the texture,
+  // clamped to the run (shrinking height to keep aspect).
   const mid0 = (pF + pR) / 2;
   const sMid = at(mid0);
   let bandH = (sMid.sz - sMid.cz) * (1 - 2 * INSET);   // the band's height in hull units
@@ -4853,21 +4436,19 @@ export function drawBoatHullArt(ctx, proj, cls, detail, lv, occluders = null, ne
   const runL = Math.abs(pF - pR);
   if (bandL > runL) { bandH *= runL / bandL; bandL = runL; }
   const fF = mid0 + bandL / 2, fR = mid0 - bandL / 2;
-  // With the length solved, the band is centred vertically on the panel and is `bandH` tall.
   const vMid = 0.5;
   const halfV = () => {
     const s = at(mid0);
     return bandH / (2 * ((s.sz - s.cz) || 1e-6));       // as a fraction of chine-to-sheer
   };
-  // t: 0 at the bottom of the ART BAND, 1 at the top — which is no longer the chine and the sheer,
-  // because the band is now sized by the texture rather than by the panel.
+  // t: 0 at the bottom of the art band, 1 at the top.
   const hV = halfV();
   const surf = (f, t, sign) => {
     const s = at(f);
     const u = vMid + (t - 0.5) * 2 * hV;
     return [f, sign * (s.cw + (s.sw - s.cw) * u), s.cz + (s.sz - s.cz) * u];
   };
-  // Which flank is facing you — the same nearest-z test drawNoseArt uses.
+  // The near flank.
   const mid = (fF + fR) / 2;
   const sign = proj(...surf(mid, 0.5, 1)).z <= proj(...surf(mid, 0.5, -1)).z ? 1 : -1;
 
@@ -4876,16 +4457,13 @@ export function drawBoatHullArt(ctx, proj, cls, detail, lv, occluders = null, ne
   for (let j = 0; j <= Nr; j++) {
     const row = [];
     for (let i = 0; i <= Nc; i++) {
-      // top(j=0) is the SHEER end of the band, so the texture is not upside down.
       const P = proj(...surf(fF + (fR - fF) * (i / Nc), 1 - j / Nr, sign));
       row.push(P); if (P.z > near) anyNear = true;
     }
     grid.push(row);
   }
   if (!anyNear) return;
-  // ⚠ UN-MIRROR ON THE FAR FLANK, exactly as the nose art does and for the same reason: lettering
-  // painted on a handedness-flipped surface reads backwards, and a boat's name is the one decal
-  // that is always lettering.
+  // ⚠ Un-mirror on the far flank: a boat's name is lettering.
   const n0 = grid[0][0], nT = grid[0][Nc], bL = grid[Nr][0];
   const cross = (nT.sx - n0.sx) * (bL.sy - n0.sy) - (nT.sy - n0.sy) * (bL.sx - n0.sx);
   const flip = cross > 0;
@@ -4904,24 +4482,8 @@ export function drawBoatHullArt(ctx, proj, cls, detail, lv, occluders = null, ne
   }
 }
 
-// ── DOOR ART ─────────────────────────────────────────────────────────────────
-// The other thing a truck wears, and it goes where a truck actually wears it: the flat panel under
-// the door glass, at the height of somebody standing beside the cab. That is where a haulier
-// signwrites, and it is the only surface on the rig you read rather than look at.
-//
-// ⚠ THIS IS NOT `drawNoseArt` WITH DIFFERENT NUMBERS, and the attempt to make it be one is the
-// mistake worth naming. That function reconstructs a fixed-wing HULL — radius taper, superellipse
-// cross-section, drooping centreline — so it can wrap art around a fuselage, and it reads its shape
-// out of `FW_PARAMS`, a table a truck has no row in. Pointed at a rig it silently falls back to a
-// Twin Otter and maps the art onto the shape of an aeroplane that is not there. A truck's door is
-// FLAT. There is nothing to wrap it onto and nothing to reconstruct — four corners out of the
-// mesh's own published metadata, and a grid across them for the perspective.
-//
-// ⚠ AND THE RECTANGLE COMES FROM `TRUCK_META`, NEVER FROM A CONSTANT. The four rigs are four
-// different sizes and the whole mesh slides back to centre on its origin after it is laid out (see
-// the ⚠ at the end of buildTruck) — the same transform that once left the headlamps hanging in the
-// road ahead of the bumper. Art placed from a hardcoded station lands on the wrong panel of three
-// trucks and on the tarmac beside the fourth.
+// ── Door art ── On the flat panel under the door glass.
+// ⚠ Not drawNoseArt (it wraps a fixed-wing hull from FW_PARAMS). The rectangle comes from TRUCK_META, never a constant.
 const _doorCache = {};
 function doorArtTex(id) {
   if (id in _doorCache) return _doorCache[id];
@@ -4930,8 +4492,6 @@ function doorArtTex(id) {
   const M = S / 2;
   g.lineJoin = 'round'; g.lineCap = 'round';
   if (id === 'crest') {
-    // A haulage crest: the shield every firm in the Basin puts on a door, with a road running out
-    // of it to a horizon. Sincere, and slightly too pleased with itself, which is the point.
     g.fillStyle = '#1b2b3c'; g.strokeStyle = '#d9c07a'; g.lineWidth = 2.5;
     g.beginPath(); g.moveTo(M, 4); g.lineTo(S - 8, 13); g.lineTo(S - 8, S * 0.58);
     g.quadraticCurveTo(S - 10, S - 8, M, S - 4); g.quadraticCurveTo(10, S - 8, 8, S * 0.58);
@@ -4951,7 +4511,6 @@ function doorArtTex(id) {
     g.fillStyle = '#c8a23a'; g.beginPath(); g.arc(M, 12, 4.6, 0, 7); g.fill();        // head
     g.fillStyle = '#141719'; g.beginPath(); g.arc(M + 1.6, 11, 1.3, 0, 7); g.fill();  // eye
   } else if (id === 'skull') {
-    // Skull over crossed pistons — the pirate flag of a trade that runs on engines.
     g.strokeStyle = '#c9ccd2'; g.lineWidth = 5;
     g.beginPath(); g.moveTo(11, S - 9); g.lineTo(S - 11, 20); g.moveTo(S - 11, S - 9); g.lineTo(11, 20); g.stroke();
     g.fillStyle = '#8f949c';
@@ -4966,8 +4525,7 @@ function doorArtTex(id) {
     g.lineWidth = 1.2; g.strokeStyle = '#0c0e11';
     for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(M + i * 3.2, M + 8); g.lineTo(M + i * 3.2, M + 14); g.stroke(); }
   } else if (id === 'pinup') {
-    // A silhouette off a mudflap, moved up to the door. Kept to a shape — this is a decal on a
-    // truck, not a picture of a person, and the whole read is the outline.
+    // A mudflap silhouette, kept to an outline.
     g.fillStyle = '#e2c04a';
     g.beginPath(); g.arc(M + 3, 13, 5.5, 0, 7); g.fill();                              // head
     g.beginPath();                                                                     // the reclining line
@@ -5008,8 +4566,7 @@ function doorArtTex(id) {
     g.fillStyle = '#0a0d10'; g.beginPath(); g.arc(M, M + 5, 2.8, 0, 7); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.arc(M - 2.4, M + 2.4, 1.4, 0, 7); g.fill();
   } else if (id === 'route') {
-    // A route shield. The number is deliberately the ONE road out of Coldwater, which is the road
-    // this whole system is about, and a driver who has run it will know that without being told.
+    // A route shield: route 1, the one road out of Coldwater.
     g.fillStyle = '#f0f1f3'; g.strokeStyle = '#15181c'; g.lineWidth = 2.6;
     g.beginPath(); g.moveTo(10, 12); g.lineTo(S - 10, 12); g.lineTo(S - 10, S * 0.60);
     g.quadraticCurveTo(S - 12, S - 8, M, S - 5); g.quadraticCurveTo(12, S - 8, 10, S * 0.60);
@@ -5018,8 +4575,6 @@ function doorArtTex(id) {
     g.font = 'bold 9px sans-serif'; g.fillText('BASIN', M, 20);
     g.font = 'bold 20px sans-serif'; g.fillText('1', M, 36);
   } else if (id === 'saint') {
-    // The saint of the road: a haloed figure with a staff, carrying something across water. Nobody
-    // in Coldwater agrees on who it is and every long-haul cab has one.
     g.fillStyle = '#c8a23a'; g.beginPath(); g.arc(M - 2, 14, 9, 0, 7); g.fill();       // halo
     g.fillStyle = '#20303f'; g.beginPath(); g.arc(M - 2, 14, 6, 0, 7); g.fill();
     g.fillStyle = '#dfe4ea';
@@ -5045,23 +4600,14 @@ function doorArtTex(id) {
   _doorCache[id] = c; return c;
 }
 
-// Paint whatever is on the door onto the flank facing the camera. `proj` is the model-space
-// projector every truck renderer already has — [f, g, h] to {sx, sy, z}, with z a camera depth.
+// Paint the door art on the near flank. `proj` maps [f, g, h] to {sx, sy, z}.
 export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = null, near = MODEL_NEAR_Z) {
   const id = lv && lv.art; if (!id || id === 'none') return;
   const meta = TRUCK_META.get(String(variant || 'hauler') + ':' + (detail ? 1 : 0));
   const d = meta && meta.door; if (!d) return;                       // a dropped box has no cab
   const img = doorArtTex(id); if (!img) return;
-  // WHICH FLANK. Both doors exist; only the near one is painted, because the far one is behind the
-  // cab and would draw straight through it — the same reason drawNoseArt picks a side.
-  // ⚠ AND IT SITS ON THE DOOR, NOT 3% OFF IT. `drawNoseArt` stands its decal proud of the hull
-  // because it is wrapping a CURVE and the grid's chords would otherwise sink inside the skin
-  // between vertices. A door is flat, there are no chords, and nothing here is depth-tested — the
-  // art is painted after every face — so the overhang bought nothing and cost the one thing that
-  // showed: standing proud makes the decal NEARER THAN ITS OWN PANEL, so it crosses the near plane
-  // first and switches off while the door is still in front of you. 3.5% of a flank half-width is
-  // a couple of centimetres of daylight, which is most of a paint job's thickness away from the
-  // truck. Enough to stay off the surface, and no more.
+  // Only the near door. ⚠ OUT is only 0.4%: a door is flat, and standing the decal proud makes it cross the
+  // near plane before its panel does.
   const mf = (d.f0 + d.f1) / 2, mz = (d.z0 + d.z1) / 2, OUT = 1.004;
   const sign = proj(mf, d.g * OUT, mz).z <= proj(mf, -d.g * OUT, mz).z ? 1 : -1;
   const Nc = 3, Nr = 3, grid = [];
@@ -5076,19 +4622,14 @@ export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = nul
     grid.push(row);
   }
   if (!anyNear) return;
-  // ⚠ AND IT UN-MIRRORS. A door panel is the same rectangle on both flanks, so the art on the off
-  // side reads backwards unless U is flipped — which matters most for the one design with letters
-  // in it, and is the first thing anybody notices on the others. Keyed off the projected winding,
-  // exactly as drawNoseArt does it, rather than off `sign`: the winding is what actually decides,
-  // and it already accounts for a camera that has gone round the back.
+  // ⚠ Un-mirror, keyed off the projected winding.
   const n0 = grid[0][0], nT = grid[0][Nc], bL = grid[Nr][0];
   const cross = (nT.sx - n0.sx) * (bL.sy - n0.sy) - (nT.sy - n0.sy) * (bL.sx - n0.sx);
   const flip = cross > 0;
   const W = img.width, H = img.height;
   const uOf = (col) => (flip ? (Nc - col) : col) / Nc * W;
   const occ = occluders || [];
-  // The cells that survive the near plane, collected before anything is drawn — the occlusion pass
-  // needs the whole panel's screen bounds before it can decide which occluders are worth testing.
+  // Collect surviving cells first; the occlusion pass needs the panel's screen bounds.
   const quads = [];
   for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {
     const a = grid[j][i], b = grid[j][i + 1], c = grid[j + 1][i + 1], e = grid[j + 1][i];
@@ -5104,12 +4645,7 @@ export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = nul
       if (P.sy < by0) by0 = P.sy; if (P.sy > by1) by1 = P.sy;
     }
   }
-  // ⚠ WHICH OCCLUDERS MATTER IS A BOX TEST, NOT A CENTROID ONE. The obvious filter is the old
-  // point-in-polygon check reused to pre-select occluders — and it would hand straight back the bug
-  // being fixed here, because an arm lying across a cell without covering its middle is exactly the
-  // case that must survive. Relevance is overlapping screen bounds plus being in front of at least
-  // one cell, which is deliberately generous: over-including costs a few path segments, and the
-  // clip below is what actually decides what is hidden.
+  // ⚠ Pre-select occluders by bounding box, not centroid: an arm across a cell's edge must still clip it.
   const hits = occ.filter((o) => {
     if (!(o.z < maxZ) || !o.P || o.P.length < 3) return false;
     let ax0 = Infinity, ay0 = Infinity, ax1 = -Infinity, ay1 = -Infinity;
@@ -5119,24 +4655,9 @@ export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = nul
     }
     return ax1 >= bx0 && ax0 <= bx1 && ay1 >= by0 && ay0 <= by1;
   });
-  // ⚠ AN OCCLUDER USED TO HIDE A WHOLE CELL OR NONE OF IT. The test was one point — the cell's
-  // centroid — against each occluder's screen polygon, so a mirror arm lying across half a cell
-  // either erased that entire ninth of the door or vanished from it, depending on which side of the
-  // middle it happened to fall. On a 3x3 grid that is a ninth of the artwork turning on one pixel,
-  // and what it reads as is the decal FLICKERING between two wrong answers as the camera moves.
-  //
-  // Coverage is per pixel now and depth stays per cell. The cell and every occluder in front of it
-  // go into ONE path which is clipped 'evenodd', so a point inside the cell and inside an occluder
-  // crosses twice, comes out even, and is not drawn — the occluder's own outline becomes the edge
-  // of the artwork instead of the cell boundary. Depth is left exactly as coarse as it was: an
-  // occluder in front of the top row and behind the bottom one still only eats the top row.
-  //
-  // ⚠ AND IT IS DELIBERATELY NOT AN OFFSCREEN BUFFER. destination-out into a scratch canvas is the
-  // other way to write this and it is more exact where two occluders OVERLAP (even-odd lets the
-  // crossing region back through). It was built that way first and taken back out: the decal then
-  // reaches the frame as one composited bitmap, and scripts/shapes/truck-doorart.mjs measures where
-  // the decal LANDED by watching the door texture hit the canvas triangle by triangle. Buffering it
-  // blinds the only automated check this renderer has, to fix a sliver where two mirrors cross.
+  // Coverage is per pixel and depth per cell: the cell and the occluders in front of it share one 'evenodd' clip,
+  // so an occluder's outline becomes the art's edge. ⚠ Not an offscreen buffer: scripts/shapes/truck-doorart.mjs
+  // watches the door texture land triangle by triangle, and buffering blinds it.
   for (const q of quads) {
     const front = hits.filter(o => o.z < q.mzz);
     const s0 = [uOf(q.i), q.j / Nr * H], s1 = [uOf(q.i + 1), q.j / Nr * H];
@@ -5161,15 +4682,10 @@ export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = nul
 }
 
 
-// ── True-3D inspect environment ───────────────────────────────────────────────
-// A ground plane drawn THROUGH the same camera as the model (so it slides + parallaxes
-// correctly as you walk/orbit), instead of the fixed 2D hangar backdrop. A dark ambient
-// wash + a receding grid + a soft contact pool under the craft — enough of a floor to feel
-// grounded in a real space.
+// ── True-3D inspect environment ── A floor drawn through the model's camera, so it parallaxes.
 const FLOOR_Z = -0.27;   // ground plane, just under the wheels
 function drawInspectBackdrop(ctx, w, h, venue = null, sky = null) {
   if (venue === 'helipad' || venue === 'ramp') {
-    // Open sky over the pad — the live sky/weather palette, sea-dark toward the deck.
     const pal = skyPalette(sky), g = ctx.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, rgbStr(pal.top)); g.addColorStop(0.5, rgbStr(pal.hor)); g.addColorStop(1, rgbStr(mix3(pal.hor, [8, 12, 18], 0.7)));
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
@@ -5203,17 +4719,9 @@ function drawFloorGrid(ctx, proj) {
   }
 }
 
-// ── Walk-inspect hangar room ──────────────────────────────────────────────────
-// A 3D-projected industrial bay wrapped around the plane for the first-person WALK camera —
-// drawn through the SAME free `proj` as the floor grid + model, so it holds still in world
-// space as you walk. Four dark walls + a dark ceiling, and — on the wall the nose points at —
-// an OPEN BAY DOOR onto the real outside sky/weather (skyPalette: the same read the floor
-// scene and the flight windshield use). Painted before the floor grid + plane so both sit in it.
+// ── Walk-inspect hangar room ── Walls, ceiling and an open bay door onto the live sky, through the same `proj`.
 const ROOM_R = 6.6, ROOM_CEIL = 2.7, ROOM_NEAR = 0.2;
-// Sutherland–Hodgman clip of a MODEL-space polygon against the camera near plane (keep proj
-// depth > near), interpolating model points along crossing edges. So a wall/ceiling that swings
-// partway behind the eye is TRIMMED to the visible slice, not dropped whole — which is what made
-// the walls flash to black at grazing angles. Returns the clipped model polygon (may be empty).
+// Sutherland-Hodgman near-plane clip in model space, so a wall partly behind the eye is trimmed, not dropped.
 function clipNear(modelPts, proj) {
   const zc = modelPts.map(p => ({ m: p, z: proj(p[0], p[1], p[2]).z })), out = [];
   for (let i = 0; i < zc.length; i++) {
@@ -5225,7 +4733,6 @@ function clipNear(modelPts, proj) {
 }
 function drawInspectRoom(ctx, proj, sky) {
   const R = ROOM_R, F0 = FLOOR_Z, C0 = ROOM_CEIL;
-  // Near-clip a model polygon, project it, fill it (style may depend on the projected pts).
   const poly = (modelPts, styleFn) => {
     const cl = clipNear(modelPts, proj); if (cl.length < 3) return false;
     const P = cl.map(p => proj(p[0], p[1], p[2]));
@@ -5233,9 +4740,7 @@ function drawInspectRoom(ctx, proj, sky) {
     ctx.fillStyle = styleFn(P); ctx.fill(); return true;
   };
   poly([[-R, -R, C0], [R, -R, C0], [R, R, C0], [-R, R, C0]], () => '#10161c');   // ceiling
-  // A bank of overhead work-lights: four parallel strip fixtures hung just under the ceiling —
-  // a dark housing + a bright emissive tube, each with a soft screen-space bloom so the bay
-  // reads as actively lit from above. Drawn after the ceiling, before the walls/plane.
+  // Overhead strip lights with a soft bloom.
   const zL = C0 - 0.05, gHalf = 3.6;
   for (const f of [-3.4, -1.1, 1.2, 3.5]) {
     poly([[f - 0.22, -gHalf, zL], [f + 0.22, -gHalf, zL], [f + 0.22, gHalf, zL], [f - 0.22, gHalf, zL]], () => 'rgb(24,28,34)');   // housing
@@ -5257,13 +4762,8 @@ function drawInspectRoom(ctx, proj, sky) {
   ];
   walls.forEach((c, i) => { if (poly(c, wallGrad) && i === 1) drawInspectBayDoor(ctx, proj, sky, -R, F0); });
 }
-// The open bay door in the -f (tail) wall. The world BEYOND it is REAL 3D geometry drawn through
-// the same camera — a tarmac apron receding to the horizon, a nearby AIR-TRAFFIC-CONTROL TOWER,
-// and rows of lit-up buildings + rooftop billboards at staggered depths — so it gains true
-// parallax as you walk, instead of a flat billboard. Sky + ground + structures are clipped to the
-// door opening and tinted by the live sky/weather palette; the live weather (rain/snow/haze) and
-// its lightning (sky.fx from hangar-ambience) animate over the top. The whole diorama sells that
-// the hangar sits in the same world/weather the player is actually in.
+// The open bay door: a real 3D apron, ATC tower and lit buildings beyond it, clipped to the opening and tinted
+// by the live sky, with weather and lightning over the top.
 function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
   const dH = 2.6, dTop = 2.0;
   const door = clipNear([[fWall, -dH, F0], [fWall, dH, F0], [fWall, dH, dTop], [fWall, -dH, dTop]], proj);
@@ -5281,14 +4781,11 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
   };
   ctx.save();
   ctx.beginPath(); ctx.moveTo(DP[0].sx, DP[0].sy); for (let i = 1; i < DP.length; i++) ctx.lineTo(DP[i].sx, DP[i].sy); ctx.closePath(); ctx.clip();
-  // 1) Sky — the far backdrop, filling the whole opening (ground + structures paint over the lower half).
+  // 1) Sky.
   const sg = ctx.createLinearGradient(0, yTop - dh, 0, yBot);
   sg.addColorStop(0, rgbStr(pal.top)); sg.addColorStop(1, rgbStr(pal.hor));
   ctx.fillStyle = sg; ctx.fillRect(x0 - 6, yTop - dh, dw + 12, dh * 2 + 6);
-  // Stars in a clear night sky (deterministic, upper half only). This is the flat sky through a
-  // hangar door, not the canopy's projected dome — but the same rule applies and is the whole
-  // reason it reads as sky: MOST of them are barely there and a few are obviously bright, with a
-  // spectral tint on each. A field of identical dots is a field of pixels.
+  // Stars on a clear night: most faint, a few bright, each tinted.
   if (night > 0.55 && /clear/.test(wx)) {
     for (let i = 0; i < 110; i++) {
       const m = 0.12 + Math.pow(hash01(i * 3.3), 3) * 0.88;
@@ -5298,16 +4795,14 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
       ctx.fillRect(sx, sy, sz, sz);
     }
   }
-  // 2) Sun / moon (clear skies) — a soft disc up in the sky, before the ground/blocks so a low sun
-  //    sets behind them.
+  // 2) Sun or moon, before the ground so a low sun sets behind it.
   if (/^(clear|dust)$/.test(wx)) {
     const sx = x0 + dw * (night > 0.4 ? 0.28 : 0.68), sy = yTop + dh * 0.26, disc = night > 0.4 ? [220, 224, 236] : [255, 246, 214];
     const rg = ctx.createRadialGradient(sx, sy, 1, sx, sy, dw * 0.14);
     rg.addColorStop(0, rgbStr(disc, 0.92)); rg.addColorStop(1, rgbStr(disc, 0));
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(sx, sy, dw * 0.14, 0, 7); ctx.fill();
   }
-  // 3) Tarmac apron — one big ground quad from just outside the sill running to the far distance,
-  //    laid down before the structures so each base sits on it. A dashed centreline hints a taxiway.
+  // 3) Tarmac apron with a dashed taxi line.
   const out = fWall - 0.15;
   const gp = [[out, -16, F0], [out, 16, F0], [-46, 16, F0], [-46, -16, F0]].map(p => proj(p[0], p[1], p[2]));
   if (!gp.some(q => q.z <= ROOM_NEAR)) {
@@ -5319,10 +4814,7 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
     for (let ff = out - 0.5; ff > -30; ff -= 1.4) { const p = proj(ff, 0, F0 + 0.005); if (p.z <= ROOM_NEAR) break; ff === out - 0.5 ? ctx.moveTo(p.sx, p.sy) : ctx.lineTo(p.sx, p.sy); }
     ctx.stroke(); ctx.setLineDash([]);
   }
-  // 4) Distant buildings — three depth bands (far → near so nearer blocks occlude). Far ones are
-  //    hazed toward the horizon colour + shorter; near ones darker + taller, with a receding side
-  //    face (so they read as massed BLOCKS, not flat cutouts), lit window grids, and the odd
-  //    rooftop billboard. Deterministic layout (seeded off k+band) so nothing jitters frame to frame.
+  // 4) Buildings in three depth bands, far to near, seeded so nothing jitters.
   const litRGB = night > 0.4 ? [255, 216, 150] : [150, 170, 188];
   const litProb = night > 0.4 ? 0.5 : 0.16;
   const bands = [
@@ -5343,10 +4835,9 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
       if (b.sign && (s % 3 === 0)) bayBillboard(ctx, proj, fillModel, f, gc, top, s);
     }
   }
-  // 5) The ATC tower — a nearby, unmistakable landmark: a tapered shaft, a slant-glass control cab,
-  //    a mast with a red obstruction blink, and an alternating white/green airport beacon.
+  // 5) The ATC tower.
   drawATCTower(ctx, proj, fillModel, pal, night);
-  // 6) Live weather over the diorama — precip animates only when Motion/WeatherFX is on (fx.motion).
+  // 6) Live weather (precip only with fx.motion).
   if (fx.motion && /rain|storm/.test(wx)) {
     const slant = 3 + Math.min(8, (sky?.wind || 0) / 6);
     ctx.strokeStyle = rgbStr([192, 212, 236], wx === 'storm' ? 0.55 : 0.42); ctx.lineWidth = 1.2;
@@ -5356,15 +4847,11 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
       ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - slant, py + 12); ctx.stroke();
     }
   } else if (fx.motion && wx === 'snow') {
-    // Blizzard proxy: snow collapses to one 'snow' string server-side, so wind is the only
-    // "how hard is it coming down" signal we get — calm flurry ⇒ 0, wind-blown whiteout ⇒ 1.
+    // Snow intensity from wind: the server sends only 'snow'.
     const bliz = Math.min(1, (sky?.wind || 0) / 45);
-    // Whiteout haze over the diorama — a thin milky wash in calm snow, a dense veil in a blizzard.
     ctx.fillStyle = rgbStr([236, 242, 250], 0.08 + bliz * 0.42);
     ctx.fillRect(x0, yTop, dw, dh);
-    // Driving snow: a straight, purposeful fall (no lazy flutter), raked by the wind. Motion is
-    // time-driven in a normalized [0,1] track then mapped into the door box, so walking only
-    // parallax-scales the flakes — it never jumps or speeds up their fall.
+    // Snow falls on a normalised time track mapped into the door, so walking only parallax-scales it.
     const slant = 2 + bliz * 16, fall = 0.5 + bliz * 0.8;
     ctx.fillStyle = rgbStr([240, 246, 253], 0.85);
     const count = 26 + Math.round(bliz * 34);
@@ -5380,17 +4867,10 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
     fg.addColorStop(0, 'rgba(198,204,212,0)'); fg.addColorStop(1, `rgba(198,204,212,${wx === 'fog' ? 0.4 : 0.22})`);
     ctx.fillStyle = fg; ctx.fillRect(x0 - 6, yBot - fH, dw + 12, fH);
   }
-  // 7) Lightning — the full-door flash (lights the whole scene) then the bolt on top of it.
+  // 7) Lightning: the flash, then the bolt.
   if (fx.flash > 0.01) { ctx.fillStyle = `rgba(222,232,255,${Math.min(0.72, fx.flash * 0.72)})`; ctx.fillRect(x0 - 6, yTop - dh, dw + 12, dh * 2 + 6); }
-  // The door reader for a lightning tree — see client/shared/lightning-draw.js. It drops
-  // DOOR_BOLT_DROP of the door's height, and its lateral offsets are scaled by that same span
-  // rather than by the width: the tree is authored square, so scaling `ox` by a door's width fans
-  // every branch out to an angle nobody chose.
-  //
-  // ⚠ AND THE ENVELOPE IS THE SHARED ONE. This used to be a straight linear fade over 240ms, which
-  // is a bolt that DIMS — where what lightning does is stammer, two or three return strokes up the
-  // same channel. It reads the same `boltBright` the canopy does, so the door and the cockpit agree
-  // about what a flash looks like.
+  // The door's bolt reader (client/shared/lightning-draw.js): offsets scale by the drop span, not the width.
+  // Uses the shared `boltBright` envelope, as the canopy does.
   if (fx.bolt && fx.bolt.branches) {
     const { ch, br } = boltBright(fx.bolt, performance.now() - fx.bolt.born);
     if (ch > 0.02) {
@@ -5402,11 +4882,7 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
   ctx.strokeStyle = 'rgba(36,44,52,0.95)'; ctx.lineWidth = 4;                  // heavy door frame
   ctx.beginPath(); ctx.moveTo(DP[0].sx, DP[0].sy); for (let i = 1; i < DP.length; i++) ctx.lineTo(DP[i].sx, DP[i].sy); ctx.closePath(); ctx.stroke();
 }
-// ── Walk-inspect: the open ramp ───────────────────────────────────────────────
-// A craft parked outside (no hangar, or not stored in it) is worked on where she stands: a
-// concrete apron under the live sky, a painted tie-down box around her, a taxi line out to a
-// runway along one side with its edge lights, and a hazy tree-and-shed line on the horizon.
-// Same free `proj` as the model, drawn first so she sits on it.
+// ── Walk-inspect: the open ramp ── Apron, tie-down box, runway with edge lights, horizon line.
 function drawRampRoom(ctx, proj, sky) {
   const F0 = FLOOR_Z, pal = skyPalette(sky), night = pal.night;
   const poly = (pts, style) => {
@@ -5416,7 +4892,6 @@ function drawRampRoom(ctx, proj, sky) {
     ctx.fillStyle = typeof style === 'function' ? style(P) : style; ctx.fill();
   };
   const flat = (f0, g0, f1, g1, style, dz = 0) => poly([[f0, g0, F0 + dz], [f1, g0, F0 + dz], [f1, g1, F0 + dz], [f0, g1, F0 + dz]], style);
-  // Grass out to the horizon, then the concrete.
   flat(-60, -60, 60, 60, (P) => {
     const ys = P.map(q => q.sy), g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys));
     g.addColorStop(0, rgbStr(mix3(pal.hor, [40, 52, 36], 0.6))); g.addColorStop(1, rgbStr(mix3([46, 60, 38], [10, 14, 12], night * 0.8)));
@@ -5424,7 +4899,6 @@ function drawRampRoom(ctx, proj, sky) {
   });
   const conc = mix3([112, 114, 110], [26, 28, 32], night * 0.75);
   flat(-9, -5, 9, 5, rgbStr(conc));
-  // The runway along the left, with its centreline and edge lights.
   const asph = mix3([58, 60, 62], [16, 17, 20], night * 0.75);
   flat(-40, -11, 40, -6.5, rgbStr(asph), 0.001);
   for (let f = -38; f < 38; f += 3) flat(f, -8.84, f + 1.6, -8.66, 'rgba(236,236,230,0.8)', 0.002);
@@ -5435,12 +4909,10 @@ function drawRampRoom(ctx, proj, sky) {
     ctx.fillStyle = lit ? 'rgba(255,238,190,0.95)' : 'rgba(210,210,200,0.7)';
     ctx.beginPath(); ctx.arc(c.sx, c.sy, r, 0, 7); ctx.fill();
   }
-  // Tie-down box and the taxi line out of it.
   const box = 'rgba(232,196,70,0.85)';
   flat(-2.2, -1.9, 2.2, -1.82, box, 0.002); flat(-2.2, 1.82, 2.2, 1.9, box, 0.002);
   flat(-2.2, -1.9, -2.12, 1.9, box, 0.002); flat(2.12, -1.9, 2.2, 1.9, box, 0.002);
   flat(2.2, -0.04, 7, 0.04, box, 0.002); flat(6.96, -6.5, 7.04, 0.04, box, 0.002);
-  // A horizon line of trees and sheds, tangential billboards so it wraps as you turn.
   for (let i = 0; i < 26; i++) {
     const a = i / 26 * Math.PI * 2, R = 34 + hash01(i * 4.1) * 6;
     const cf = Math.cos(a) * R, cg = Math.sin(a) * R, tf = -Math.sin(a), tg = Math.cos(a);
@@ -5450,7 +4922,6 @@ function drawRampRoom(ctx, proj, sky) {
     ctx.fillStyle = rgbStr(mix3(pal.hor, [30, 38, 32], 0.45));
     ctx.beginPath(); ctx.moveTo(P[0].sx, P[0].sy); for (let k = 1; k < 4; k++) ctx.lineTo(P[k].sx, P[k].sy); ctx.closePath(); ctx.fill();
   }
-  // A soft contact shadow under her.
   const o = proj(0, 0, F0);
   if (o.z > ROOM_NEAR) {
     const rr = Math.max(30, Math.min(220, 260 / o.z));
@@ -5461,38 +4932,28 @@ function drawRampRoom(ctx, proj, sky) {
   }
 }
 
-// ── Walk-inspect: the Echelon's open boat helipad ─────────────────────────────
-// The yacht variant of drawInspectRoom — no roof, no walls. An open non-slip deck
-// disc (painted 'H' + ring of breathing red pad lights), a low guard rail around the
-// water's edge, the smoked-glass deckhouse rising forward of the pad, and the Basin
-// lapping out to a distant lit skyline on every open side. Same free `proj` as the
-// grid + model, so it holds in world space as you walk; skyPalette ties the water +
-// sky to the live weather. Drawn before the model so the craft sits ON the pad.
+// ── Walk-inspect: the Echelon's boat helipad ── Open deck, rail, deckhouse forward, water and skyline round it.
 const DECK_R = 2.55;
 function drawHelipadRoom(ctx, proj, sky, w, h) {
   const F0 = FLOOR_Z, pal = skyPalette(sky), night = pal.night, wx = pal.weather;
-  // Near-clipped projected fill (walls/water span the camera near plane).
   const poly = (modelPts, style) => {
     const cl = clipNear(modelPts, proj); if (cl.length < 3) return;
     const P = cl.map(p => proj(p[0], p[1], p[2]));
     ctx.beginPath(); ctx.moveTo(P[0].sx, P[0].sy); for (let i = 1; i < P.length; i++) ctx.lineTo(P[i].sx, P[i].sy); ctx.closePath();
     ctx.fillStyle = typeof style === 'function' ? style(P) : style; ctx.fill();
   };
-  // A projected model quad with NO clipping (structures out past the near plane) — skip if any
-  // corner is behind the eye. Used for the deckhouse + skyline blocks that never straddle it.
+  // Unclipped projected quad for structures that never straddle the near plane.
   const fillModel = (pts, style) => {
     const P = pts.map(p => proj(p[0], p[1], p[2])); if (P.some(q => q.z <= ROOM_NEAR)) return;
     ctx.fillStyle = style; ctx.beginPath(); ctx.moveTo(P[0].sx, P[0].sy); for (let i = 1; i < P.length; i++) ctx.lineTo(P[i].sx, P[i].sy); ctx.closePath(); ctx.fill();
   };
-  // 1) The Basin — one big water plane at deck level out to the far distance; the deck +
-  //    structures paint over its middle. Gradient: hazed horizon far, dark water near.
+  // 1) The Basin.
   poly([[-46, -46, F0], [46, -46, F0], [46, 46, F0], [-46, 46, F0]], (P) => {
     const ys = P.map(q => q.sy), g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys));
     g.addColorStop(0, rgbStr(mix3(pal.hor, [16, 26, 40], 0.55))); g.addColorStop(1, rgbStr(mix3([10, 16, 24], [4, 8, 14], night)));
     return g;
   });
-  // 2) Distant skyline ringing the Basin — a circle of hazed slabs, each a tangential
-  //    billboard so the city wraps the horizon as you turn. Lit windows at night.
+  // 2) Skyline ring of tangential billboards.
   const litRGB = night > 0.4 ? [255, 214, 150] : [150, 170, 188];
   for (let i = 0; i < 20; i++) {
     const a = i / 20 * Math.PI * 2, R = 30 + hash01(i * 3.3) * 5;
@@ -5509,7 +4970,7 @@ function drawHelipadRoom(ctx, proj, sky, w, h) {
       }
     }
   }
-  // 3) The deck — a dark non-slip disc, its rim caught by a thin light line.
+  // 3) The deck.
   const deckPts = []; for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; deckPts.push([Math.cos(a) * DECK_R, Math.sin(a) * DECK_R, F0]); }
   poly(deckPts, 'rgb(19,22,27)');
   // 4) The painted landing circle + 'H'.
@@ -5520,7 +4981,7 @@ function drawHelipadRoom(ctx, proj, sky, w, h) {
   const Hcol = 'rgba(224,232,240,0.6)', z2 = F0 + 0.003;
   const bar = (f0, f1, g0, g1) => poly([[f0, g0, z2], [f1, g0, z2], [f1, g1, z2], [f0, g1, z2]], Hcol);
   bar(-0.7, 0.7, -0.55, -0.39); bar(-0.7, 0.7, 0.39, 0.55); bar(-0.1, 0.1, -0.39, 0.39);
-  // 5) Recessed pad lights around the rim — a slow, patient red, each with a soft bloom.
+  // 5) Red pad lights.
   for (let k = 0; k < 16; k++) {
     const a = k / 16 * Math.PI * 2, p = proj(Math.cos(a) * (DECK_R - 0.14), Math.sin(a) * (DECK_R - 0.14), F0 + 0.02);
     if (p.z <= ROOM_NEAR) continue;
@@ -5530,9 +4991,7 @@ function drawHelipadRoom(ctx, proj, sky, w, h) {
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(p.sx, p.sy, r * 1.7, 0, 7); ctx.fill();
     ctx.fillStyle = 'rgba(255,96,74,0.95)'; ctx.beginPath(); ctx.arc(p.sx, p.sy, r * 0.42, 0, 7); ctx.fill();
   }
-  // 5b) Deck floodlights — the Echelon is a powered vessel, so her pad stays lit
-  //     after dark instead of going black; the wash tracks how dark the sky's gone.
-  //     Drawn before the rails/deckhouse so those still read crisply on top.
+  // 5b) Deck floodlights after dark.
   if (night > 0.04) {
     const pc = proj(0, 0, F0 + 0.01);
     if (pc.z > ROOM_NEAR) {
@@ -5542,25 +5001,21 @@ function drawHelipadRoom(ctx, proj, sky, w, h) {
       ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(pc.sx, pc.sy, fr, 0, 7); ctx.fill();
     }
   }
-  // 6) Low guard rail around the OPEN edge (skip the forward wedge where the deckhouse is).
+  // 6) Guard rail round the open edge.
   const railZ = F0 + 0.34, open = (a) => Math.cos(a) < 0.5;
   ctx.strokeStyle = 'rgba(150,168,184,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); started = false;
   for (let k = 0; k <= 44; k++) { const a = k / 44 * Math.PI * 2; if (!open(a)) { started = false; continue; } const p = proj(Math.cos(a) * (DECK_R + 0.04), Math.sin(a) * (DECK_R + 0.04), railZ); if (p.z <= ROOM_NEAR) { started = false; continue; } started ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy); started = true; }
   ctx.stroke();
   for (let k = 0; k < 22; k++) { const a = k / 22 * Math.PI * 2; if (!open(a)) continue; const bx = Math.cos(a) * (DECK_R + 0.04), bg = Math.sin(a) * (DECK_R + 0.04), p0 = proj(bx, bg, F0), p1 = proj(bx, bg, railZ); if (p0.z <= ROOM_NEAR || p1.z <= ROOM_NEAR) continue; ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke(); }
-  // 7) The deckhouse — a stepped mirror-black superstructure forward of the pad, a smoked-
-  //    glass band, and a masthead beacon. Fixed shades (no cull): front lit, sides darker.
+  // 7) The deckhouse.
   const hf0 = DECK_R - 0.15, hf1 = DECK_R + 3.2, hg = 1.95, hz1 = F0 + 1.35, hz2 = F0 + 2.15;
   const glass = (P) => { const ys = P.map(q => q.sy), g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys)); g.addColorStop(0, 'rgba(58,80,104,0.9)'); g.addColorStop(1, 'rgba(24,34,46,0.95)'); return g; };
-  // sides (recede to +f) — drawn first so the front face overlaps them
   for (const s of [1, -1]) fillModel([[hf0, s * hg, F0], [hf1, s * hg, F0], [hf1, s * hg, hz2], [hf0, s * hg, hz1]], 'rgb(12,13,17)');
   fillModel([[hf0, -hg, hz2 - 0.005], [hf0, hg, hz2 - 0.005], [hf1, hg, hz2], [hf1, -hg, hz2]], 'rgb(20,22,28)');   // roof
   fillModel([[hf0, -hg, F0], [hf0, hg, F0], [hf0, hg, hz1], [hf0, -hg, hz1]], 'rgb(16,17,22)');                     // lower hull front (mirror-black)
   poly([[hf0, -hg, hz1 - 0.02], [hf0, hg, hz1 - 0.02], [hf0, hg, hz2], [hf0, -hg, hz2]], glass);                    // smoked-glass band
-  // Glass mullions.
   ctx.strokeStyle = 'rgba(120,150,178,0.35)'; ctx.lineWidth = 1;
   for (let gg = -hg + 0.4; gg < hg; gg += 0.5) { const a = proj(hf0, gg, hz1 - 0.02), b = proj(hf0, gg, hz2); if (a.z <= ROOM_NEAR || b.z <= ROOM_NEAR) continue; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); }
-  // Masthead beacon — a small warm light atop the deckhouse.
   const bc = proj(hf0 + 1.2, 0, hz2 + 0.9);
   if (bc.z > ROOM_NEAR) {
     const r = clampN(24 / bc.z, 3, 12), rg = ctx.createRadialGradient(bc.sx, bc.sy, 1, bc.sx, bc.sy, r * 2);
@@ -5568,7 +5023,7 @@ function drawHelipadRoom(ctx, proj, sky, w, h) {
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(bc.sx, bc.sy, r * 2, 0, 7); ctx.fill();
     ctx.fillStyle = 'rgba(255,244,214,0.95)'; ctx.beginPath(); ctx.arc(bc.sx, bc.sy, r * 0.4, 0, 7); ctx.fill();
   }
-  // 8) Live precip over the open deck (only with Motion/WeatherFX on).
+  // 8) Live precip (only with fx.motion).
   const fx = sky?.fx || {};
   if (fx.motion && /rain|storm/.test(wx)) {
     const now = performance.now() / 1000, slant = 3 + Math.min(8, (sky?.wind || 0) / 6);
@@ -5577,10 +5032,9 @@ function drawHelipadRoom(ctx, proj, sky, w, h) {
   }
 }
 
-// Deterministic 0..1 hash — a stable per-index value so windows/billboards/stars don't jitter.
+// Stable per-index hash, so windows, billboards and stars don't jitter.
 const hash01 = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
-// A grid of lit/dark windows on a building's camera-facing front face (constant f), in MODEL space
-// so it parallaxes with the block. Warm-lit at night, dark glass by day; seeded per pane.
+// Lit and dark windows on a building's front face, in model space.
 function bayWindows(fillModel, f, g0, g1, zBase, zTop, seed, litRGB, litProb) {
   const cols = 3, rows = Math.max(2, Math.min(6, Math.round((zTop - zBase) / 0.34)));
   const cw = (g1 - g0) / cols, rh = (zTop - zBase) / rows, mx = cw * 0.26, mz = rh * 0.28;
@@ -5590,8 +5044,7 @@ function bayWindows(fillModel, f, g0, g1, zBase, zTop, seed, litRGB, litProb) {
     fillModel([[f, a, zb], [f, bb, zb], [f, bb, zt], [f, a, zt]], lit ? rgbStr(litRGB, 0.92) : 'rgba(12,15,20,0.5)');
   }
 }
-// A glowing rooftop billboard on a near building — a support strut + a saturated emissive panel,
-// plus a soft screen-space bloom so it reads as a lit sign in the skyline.
+// A lit rooftop billboard with a bloom.
 function bayBillboard(ctx, proj, fillModel, f, gc, zTop, seed) {
   const hue = Math.floor(hash01(seed * 3.13) * 360), bw = 0.85, zb = zTop + 0.12, zt = zb + 0.5;
   fillModel([[f, gc - 0.03, zTop], [f, gc + 0.03, zTop], [f, gc + 0.03, zb], [f, gc - 0.03, zb]], 'rgba(18,20,24,0.85)');   // support
@@ -5604,52 +5057,43 @@ function bayBillboard(ctx, proj, fillModel, f, gc, zTop, seed) {
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(c0.sx, c0.sy, rad, 0, 7); ctx.fill();
   }
 }
-// The air-traffic-control tower off to one side of the apron — the apron's hero landmark, so it's
-// built up from a lot of small faces rather than a few big ones: a splayed plinth base, a banded
-// tapered shaft with a service ladder, an outrigger catwalk gallery with a railing, a wider control
-// cab with outward-leaning mullioned glass and a parapet roof, and a roof equipment cluster (a
-// sweeping surveillance-radar bar, whip antennas, a dish) topped by a mast carrying a red
-// obstruction blink and an alternating white/green rotating airport beacon. Everything is model-space
-// so it parallaxes as you walk; faces are emitted strictly back(side)→front, bottom→top for painter's
-// depth (fillModel has no z-buffer). Only the +f (front) and +g (side) faces ever face the camera.
+// The ATC tower, many small faces. ⚠ fillModel has no z-buffer: emit faces back (side) to front, bottom to top.
+// Only the +f front and +g side ever face the camera.
 function drawATCTower(ctx, proj, fillModel, pal, night) {
   const g = 8.4, f = -20, base = FLOOR_Z, fB = f - 0.9, t = performance.now() / 1000;
-  // Concrete tones keyed to the sky so the tower sits in the same light as the diorama; the receding
-  // +g side is a shade darker than the camera-facing front. `p` = palette-mix helper.
+  // Concrete tones keyed to the sky.
   const p = (rgb, k = 0.62) => rgbStr(mix3(pal.hor, rgb, k));
   const shaftF = p([54, 60, 68]), shaftS = p([34, 38, 44]);
   const trimF = p([74, 82, 92]), trimS = p([48, 54, 62]);
   const steelF = 'rgb(38,42,48)', steelS = 'rgb(24,27,32)';
-  // A tapered vertical segment centred on g: receding +g side first, then the camera-facing front.
+  // A tapered segment: +g side, then front.
   const tier = (zb, zt, wb, wt, cF, cS) => {
     fillModel([[f, g + wb, zb], [fB, g + wb * 0.9, zb], [fB, g + wt * 0.9, zt], [f, g + wt, zt]], cS);   // +g side
     fillModel([[f, g - wb, zb], [f, g + wb, zb], [f, g + wt, zt], [f, g - wt, zt]], cF);                  // front
   };
-  // A thin horizontal band/ledge (slightly proud of the shaft) — its underside + front fascia.
+  // A thin proud ledge: underside and fascia.
   const band = (z, w, h, cF, cS) => {
     fillModel([[f - 0.02, g - w, z], [f - 0.02, g + w, z], [fB, g + w * 0.9, z], [fB, g - w * 0.9, z]], cS);   // underside
     fillModel([[f - 0.02, g - w, z], [f - 0.02, g + w, z], [f - 0.02, g + w, z + h], [f - 0.02, g - w, z + h]], cF);   // fascia
   };
 
-  // 1) Splayed plinth base — a wide short block flaring to the ground, with a dark service doorway.
+  // 1) Plinth with doorway.
   const plZ = base + 0.5;
   tier(base, plZ, 0.9, 0.66, p([46, 52, 60]), p([30, 34, 40]));
   fillModel([[f - 0.02, g - 0.16, base + 0.04], [f - 0.02, g + 0.16, base + 0.04], [f - 0.02, g + 0.13, base + 0.34], [f - 0.02, g - 0.13, base + 0.34]], 'rgb(14,16,20)');   // doorway
 
-  // 2) Banded, tapered shaft — split into stacked segments with proud trim ledges between them, so
-  //    the column reads as poured concrete lifts rather than one smooth cone.
+  // 2) Banded tapered shaft.
   const shaftTop = base + 3.4;
   const lifts = [[plZ, 0.62], [plZ + 0.95, 0.55], [plZ + 1.9, 0.48], [shaftTop, 0.4]];
   for (let i = 0; i < lifts.length - 1; i++) {
     tier(lifts[i][0], lifts[i + 1][0], lifts[i][1], lifts[i + 1][1], shaftF, shaftS);
     band(lifts[i + 1][0] - 0.03, lifts[i + 1][1] + 0.05, 0.08, trimF, trimS);
   }
-  // Service ladder up the front — two dark rails + evenly-spaced rungs.
+  // Service ladder.
   for (const rg of [-0.06, 0.06]) fillModel([[f - 0.03, g + rg - 0.012, plZ], [f - 0.03, g + rg + 0.012, plZ], [f - 0.03, g + rg + 0.012, shaftTop], [f - 0.03, g + rg - 0.012, shaftTop]], 'rgba(16,18,22,0.85)');
   for (let z = plZ + 0.14; z < shaftTop - 0.1; z += 0.26) fillModel([[f - 0.03, g - 0.07, z], [f - 0.03, g + 0.07, z], [f - 0.03, g + 0.07, z + 0.03], [f - 0.03, g - 0.07, z + 0.03]], 'rgba(16,18,22,0.8)');
 
-  // 3) Outrigger catwalk gallery — a deck wider than the cab wrapping the top of the shaft, with an
-  //    underside, a fascia, and a railing (posts + top rail) around the front and +g side.
+  // 3) Catwalk gallery with railing.
   const galZ = shaftTop, gW = 1.0, galF = -0.06;   // galF: front deck edge pulled toward camera
   fillModel([[f + galF, g - gW, galZ], [f + galF, g + gW, galZ], [fB - 0.1, g + gW * 0.9, galZ], [fB - 0.1, g - gW * 0.9, galZ]], steelS);   // deck underside
   band(galZ, gW, 0.1, steelF, steelS);   // deck fascia lip
@@ -5658,28 +5102,26 @@ function drawATCTower(ctx, proj, fillModel, pal, night) {
   fillModel([[f + galF, g + gW, railZ - 0.03], [fB - 0.1, g + gW * 0.9, railZ - 0.03], [fB - 0.1, g + gW * 0.9, railZ], [f + galF, g + gW, railZ]], 'rgba(120,130,142,0.7)');   // side top rail
   for (let gg = -gW + 0.12; gg <= gW - 0.06; gg += 0.32) fillModel([[f + galF, g + gg - 0.015, galZ], [f + galF, g + gg + 0.015, galZ], [f + galF, g + gg + 0.015, railZ], [f + galF, g + gg - 0.015, railZ]], 'rgba(140,150,162,0.55)');   // front railing posts
 
-  // 4) Control cab — the wider glass box, its front leaning OUT over the gallery (classic tower rake).
+  // 4) Control cab, front raked outward.
   const cabZb = galZ + 0.06, cabZt = cabZb + 0.82, cw = 0.88, lean = 0.2;
   fillModel([[f, g + cw, cabZb], [fB, g + cw * 0.92, cabZb], [fB, g + cw * 0.92, cabZt], [f - lean, g + cw, cabZt]], p([26, 30, 36], 0.6));   // cab +g side wall
   const glass = night > 0.4 ? [150, 210, 184] : [96, 138, 156];
   fillModel([[f, g - cw, cabZb + 0.05], [f, g + cw, cabZb + 0.05], [f - lean, g + cw, cabZt], [f - lean, g - cw, cabZt]], rgbStr(glass, 0.94));   // raked glass band
-  // Lit consoles glimpsed behind the glass at night — a few warm specks low in the pane.
   if (night > 0.4) for (const gg of [-cw * 0.6, -cw * 0.15, cw * 0.35]) fillModel([[f - lean * 0.35, g + gg - 0.05, cabZb + 0.12], [f - lean * 0.35, g + gg + 0.05, cabZb + 0.12], [f - lean * 0.4, g + gg + 0.05, cabZb + 0.24], [f - lean * 0.4, g + gg - 0.05, cabZb + 0.24]], 'rgba(255,206,150,0.8)');
-  // Mullions — dark verticals over the glass, plus a horizontal transom, so it reads as a window band.
+  // Mullions and transom.
   for (const gg of [-cw * 0.66, -cw * 0.33, 0, cw * 0.33, cw * 0.66]) fillModel([[f - lean * 0.5, g + gg - 0.02, cabZb + 0.06], [f - lean * 0.5, g + gg + 0.02, cabZb + 0.06], [f - lean, g + gg + 0.02, cabZt], [f - lean, g + gg - 0.02, cabZt]], 'rgba(16,20,26,0.78)');
   fillModel([[f - lean * 0.62, g - cw, cabZb + 0.5], [f - lean * 0.62, g + cw, cabZb + 0.5], [f - lean * 0.66, g + cw, cabZb + 0.55], [f - lean * 0.66, g - cw, cabZb + 0.55]], 'rgba(16,20,26,0.7)');   // transom
-  // Parapet roof — a shallow slab overhanging the glass, with a thin fascia edge.
+  // Parapet roof.
   const roofZ = cabZt, roofZt = roofZ + 0.16;
   fillModel([[f - lean, g + cw, roofZ], [fB, g + cw * 0.92, roofZ], [fB, g + cw * 0.92, roofZt], [f - lean, g + cw, roofZt]], 'rgb(30,34,40)');   // roof +g fascia (side)
   fillModel([[f - lean, g - cw, roofZ], [f - lean, g + cw, roofZ], [f - lean, g + cw, roofZt], [f - lean, g - cw, roofZt]], 'rgb(38,43,50)');   // roof front fascia
   fillModel([[f - lean, g - cw, roofZt], [f - lean, g + cw, roofZt], [fB, g + cw * 0.92, roofZt], [fB, g - cw * 0.92, roofZt]], 'rgb(24,28,34)');   // roof top
 
-  // 5) Roof equipment cluster — antennas + a dish rise off the parapet, and the mast tops it out.
+  // 5) Roof equipment and mast.
   const rf = f - lean * 0.5;
   fillModel([[rf, g - cw * 0.55 - 0.04, roofZt], [rf, g - cw * 0.55 + 0.04, roofZt], [rf, g - cw * 0.55 + 0.04, roofZt + 0.16], [rf, g - cw * 0.55 - 0.04, roofZt + 0.16]], 'rgb(20,23,28)');   // dish pedestal
   fillModel([[rf - 0.02, g - cw * 0.55 - 0.18, roofZt + 0.1], [rf - 0.02, g - cw * 0.55 + 0.18, roofZt + 0.1], [rf - 0.06, g - cw * 0.55 + 0.14, roofZt + 0.34], [rf - 0.06, g - cw * 0.55 - 0.14, roofZt + 0.34]], 'rgba(180,190,202,0.85)');   // dish face
   for (const gg of [cw * 0.2, cw * 0.5]) fillModel([[rf, g + gg - 0.015, roofZt], [rf, g + gg + 0.015, roofZt], [rf, g + gg + 0.015, roofZt + 0.4 + gg], [rf, g + gg - 0.015, roofZt + 0.4 + gg]], 'rgba(30,34,40,0.9)');   // whip antennas
-  // Mast + lights.
   const mastTop = roofZt + 0.8;
   fillModel([[rf - 0.08, g - 0.04, roofZt], [rf - 0.08, g + 0.04, roofZt], [rf - 0.08, g + 0.04, mastTop], [rf - 0.08, g - 0.04, mastTop]], 'rgba(20,22,26,0.9)');
   const mast = proj(rf - 0.08, g, mastTop);
@@ -5688,15 +5130,14 @@ function drawATCTower(ctx, proj, fillModel, pal, night) {
     let rg = ctx.createRadialGradient(mast.sx, mast.sy, 1, mast.sx, mast.sy, 11);
     rg.addColorStop(0, `rgba(255,60,50,${0.35 + blink * 0.55})`); rg.addColorStop(1, 'rgba(255,60,50,0)');
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(mast.sx, mast.sy, 11, 0, 7); ctx.fill();
-    // Surveillance-radar bar sweeping over the roof — a thin foreshortened line rotating about the
-    // roof centre, so the tower reads as an active, staffed facility.
+    // Sweeping radar bar.
     const rc = proj(f - lean, g, roofZt + 0.12);
     if (rc.z > ROOM_NEAR) {
       const len = Math.max(7, Math.min(34, 30 / rc.z)), a = t * 1.7, dx = Math.cos(a) * len, dy = Math.sin(a) * len * 0.36;
       ctx.strokeStyle = 'rgba(150,200,172,0.75)'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(rc.sx - dx, rc.sy - dy); ctx.lineTo(rc.sx + dx, rc.sy + dy); ctx.stroke(); ctx.lineCap = 'butt';
     }
-    // Airport beacon on the cab roof — alternating white/green sweep.
+    // Airport beacon, white/green.
     const beacon = proj(f - lean, g + cw * 0.6, roofZt + 0.18);
     if (beacon.z > ROOM_NEAR) {
       const green = (t % 2) < 1, col = green ? '80,255,150' : '245,250,255', ph = 0.4 + 0.6 * Math.abs(Math.sin(t * Math.PI));
@@ -5707,90 +5148,28 @@ function drawATCTower(ctx, proj, fillModel, pal, night) {
   }
 }
 
-// ── THE DEPTH PASS, WRITTEN ONCE ─────────────────────────────────────────────
-// Every renderer of the truck mesh needs the same twenty lines, and the ⚠ at the top of
-// model-raster.js is about what happens when they are written twenty lines at a time: the buffer
-// went into the walkaround while the chase camera kept sorting, and before that the part sort went
-// into the windscreen while the forecourt kept sorting. Each time the work was real, verified in
-// one view, and had no effect in the others — so the dance lives here and the callers hand it
-// their faces.
-//
-// A face record needs `P` (projected {sx, sy, z}, smaller z nearer), `rv` (its shaded colour as
-// numbers) and optionally `alpha`. Each one comes back stamped with `seen`: whether it still owns
-// its own centre once everything nearer has been laid down, which is what the canvas detail passes
-// (jazz splatter, hull texture, canopy art, glass sheen) are gated on — a face that lost cannot
-// paint its decoration over the panel hiding it.
-//
-// Returns FALSE when there was nothing to do, the model is too small to be worth it, or the blit
-// could not land (a headless harness has no canvas to compose through). A false is the caller's cue
-// to fall the whole way back to sortTruckFaces — not to skip the fills it is no longer doing.
+// ── The shared depth pass ── One copy for every vehicle renderer; see docs/reference/glass-notes.md#model-depth-pass
+// A face record needs `P` ({sx, sy, z}, smaller z nearer), `rv` and optional `alpha`; each comes back with `seen`,
+// which gates the canvas detail passes. A false return means fall back to sortTruckFaces.
 const RASTER_MIN_PX = 46;           // below this on screen a rig keeps the sort: too small to see a mistake in
-// ⚠ AND THIS NUMBER IS A FRAME TIME, NOT A TASTE. These panels are not the windscreen: there the
-// rig is a couple of hundred pixels across and the budget never binds, while here the model FILLS
-// the pane and it binds every frame. Measured on this mesh, the pass runs at roughly 30ns per
-// buffer pixel — so a full-pane rig supersampled to a retina ratio is 840k pixels and ~25ms, which
-// is not a slow frame, it is no frame at all on a 60fps loop that redraws a static shed.
-//
-// 200k lands the worst case (one rig filling the pane) at ~6ms and scale 1 — exactly what the hero
-// shot has always shipped — while a row of six small rigs, which is cheap, still gets the full
-// device ratio. That is the trade: the sharpening is what gives way under load, never the pass.
+// ⚠ A frame-time budget (~30 ns per buffer pixel): under load the supersampling gives way, never the pass.
 const RASTER_BUDGET_PX = 200_000;
-// The canvas's own transform, which on every canvas in this client is the device-pixel ratio. Read
-// off the context rather than off `window`, so a caller that scales differently — or a harness with
-// no transform at all — gets the truth rather than an assumption.
+// The canvas transform's scale (the device ratio), read off the context.
 function canvasScale(ctx) {
   try {
     const m = ctx.getTransform ? ctx.getTransform() : null;
     return m ? clampN(Math.hypot(m.a || 1, m.b || 0) || 1, 1, 2) : 1;
   } catch { return 1; }
 }
-// ⚠ IT WAS `truckDepthPass`, AND THE NAME WAS THE ARGUMENT. The buffer went in for a truck because
-// a truck is a pile of bolted-on boxes, and an airframe was left on the sort because it is "one
-// smooth hull, the shape a sort IS right for". That is true of a fuselage and false of everything
-// hung off it — nacelles, pods, sponsons, gear legs, stub wings, the Viper's stores. Those are the
-// same nested-box problem the sort cannot express, and they had it the whole time. The pass never
-// knew what a truck was; only its name did.
-//
-// ── …AND IT IS SPLIT IN TWO BECAUSE ONE VIEW CANNOT BLIT WHERE IT BUILDS ─────
-//
-// There were two copies of this dance: this one, and an inline block in windshield.js. That is the
-// exact shape of the failure the ⚠ above keeps describing — a fix lands in one and silently does
-// nothing in the other — so there is now one, and the differences are options rather than a second
-// forty lines.
-//
-// The windscreen does everything here and three things more, and only one of them needed a new
-// shape. World occlusion and lighting are HOOKS (`occlude`, `light`), because `occluderWindow` and
-// `vehicleLightRig` are world-pass concerns that cannot move into this file. But the BLIT genuinely
-// has to happen somewhere else: everything on the road — the contact shadow, the lifter wash, the
-// thrust cones — is painted between the buffer being filled and the model going down, and a
-// one-call pass would put the truck under its own pool of light. Hence build → (ground) → commit.
-//
-// `modelDepthPass` is the both-at-once wrapper, which is what a panel wants and what the two panel
-// callers already had.
-//
-// ⚠ THE FACE RECORD IS READ THROUGH `ptsKey`/`zKey` RATHER THAN RENAMED IN EITHER FILE. The panels
-// carry `fc.P` with `{sx, sy, z}` and the windscreen carries `fc.pts` with `{sx, sy, f}` — the same
-// three numbers under two house conventions, each used consistently across a very large file.
-// Renaming one to match the other is a wide, silent diff through code that has nothing to do with
-// this; two accessor strings read per FACE (never per pixel) cost nothing and touch nothing.
+// Split into build and commit so the windscreen can paint ground light between them. Face records are read
+// through `ptsKey`/`zKey` (panels: P/z, windscreen: pts/f).
 const RASTER_PAD = 1;
 
-// ── HOW MANY MODELS WENT THROUGH THE ONE PASS ────────────────────────────────
-// A test seam, not instrumentation, and the third of its kind — `rasterCount` and `shadeCount` in
-// model-raster.js are the other two, and they exist because the same failure keeps recurring: a fix
-// for this mesh is written, verified in ONE renderer, and silently has no effect in the others.
-//
-// Those two prove a renderer reached the RASTERISER. This one proves it reached the SHARED PASS,
-// which is a different claim and the one that matters now there is only one pass to fall off. A
-// view that grew its own forty-line copy again would still move `rasterCount` and would look
-// entirely healthy; it would stop moving this. The smoke asserts the two move in LOCKSTEP, so a
-// second copy is a failure rather than a thing somebody has to notice.
+// Test seam: models through the shared pass. The smoke asserts it moves in lockstep with model-raster's rasterCount.
 let _depthPassCount = 0;
 export const depthPassCount = () => _depthPassCount;
 
-// The build half. Returns a PASS handle, or null when there is nothing to do, the model is too
-// small to be worth it, or the whole mesh is translucent — in every one of which cases the caller
-// falls the whole way back to its own sort, exactly as before.
+// Build half: a pass handle, or null (nothing to do, too small, all translucent) so the caller falls back to its sort.
 export function depthPassBuild(ctx, drawn, {
   min = 0, budget = RASTER_BUDGET_PX, scale = null, pad = RASTER_PAD,
   ptsKey = 'P', zKey = 'z', box = null,
@@ -5799,8 +5178,6 @@ export function depthPassBuild(ctx, drawn, {
   if (!drawn.length) return null;
   let x0, y0, x1, y1;
   if (box) {
-    // The windscreen accumulates this box while it projects, so handing it over saves a second walk
-    // of every vertex on the hot path. Identical numbers either way.
     x0 = box.minx; y0 = box.miny; x1 = box.maxx; y1 = box.maxy;
   } else {
     x0 = Infinity; y0 = Infinity; x1 = -Infinity; y1 = -Infinity;
@@ -5814,34 +5191,14 @@ export function depthPassBuild(ctx, drawn, {
   x0 = Math.floor(x0) - pad; y0 = Math.floor(y0) - pad;
   x1 = Math.ceil(x1) + pad; y1 = Math.ceil(y1) + pad;
   const bw = x1 - x0, bh = y1 - y0;
-  // ⚠ SUPERSAMPLED TO THE CANVAS'S OWN SCALE. These canvases are measured in CSS pixels and drawn
-  // through a device-ratio transform, so a buffer built in CSS pixels lands as the only soft object
-  // in an otherwise crisp frame — and it is the object the player is looking at. The budget is what
-  // keeps that graceful: a rig dragged until it fills the pane gives up the sharpening rather than
-  // the frame. A caller that already knows the frame's ratio passes it; a panel reads the transform.
+  // Supersampled to the canvas scale, capped by the budget.
   const base = scale == null ? canvasScale(ctx) : clampN(scale || 1, 1, 2);
   const sc = Math.max(1, Math.min(base, Math.sqrt(budget / Math.max(1, bw * bh))));
-  // ── ⚠ ONLY THE OPAQUE HALF GOES INTO THE BUFFER ────────────────────────────
-  // The depth test REPLACES a pixel; it does not composite. A half-faded face written into the
-  // buffer therefore does not blend with the wing behind it — it takes the pixel outright and
-  // carries its own alpha to the blit, so what shows through is the SCENE, not the wing. Retracting
-  // gear would open a translucent hole straight through the aeroplane. Nothing on a truck is ever
-  // translucent, which is why the buffer never had to answer this until the airframes arrived.
-  //
-  // So they stay out of it and are painted on canvas after the blit, depth-tested against the
-  // buffer at their centre like every other detail pass here. The box above is still measured off
-  // EVERY face, so the buffer covers the whole model rather than the opaque part of it.
+  // ⚠ Only opaque faces go in the buffer: the depth test replaces pixels, so a translucent face would punch a hole.
+  // They're painted after the blit. The box is still measured off every face.
   const solid = drawn.filter(fc => (fc.alpha ?? 1) >= 0.999);
   if (!solid.length) return null;
-  // ⚠ THIS ARRAY IS HANDED TO THE LIGHT HOOK UNCHANGED. `shadeRaster` reads a face's normal by the
-  // index the rasteriser stored per pixel, so the array it is given must be the identical array in
-  // the identical order. Building a second one for the rig would be a second chance to have it
-  // drift by a face — a truck lit as though its panels pointed somewhere else, which reads as a
-  // shading bug rather than the indexing one it is.
-  //
-  // `w`/`n` ride along whenever the caller's records carry them. A panel's do not, and `rasterFaces`
-  // demands them on EVERY face before it will light anything, so an unlit caller stays unlit for
-  // free rather than by remembering to say so.
+  // ⚠ The light hook gets this exact array: shadeRaster reads normals by stored face index.
   const rf = solid.map(fc => ({
     pts: fc[ptsKey].map(q => ({ x: q.sx, y: q.sy, z: q[zKey] })),
     r: fc.rv[0], g: fc.rv[1], b: fc.rv[2], a: 255,
@@ -5849,40 +5206,18 @@ export function depthPassBuild(ctx, drawn, {
   }));
   const res = rasterFaces(rf, x0, y0, bw, bh, sc, lit);
   if (!res) return null;
-  // ⚠ HERE, AND NOT AT THE TOP OF THE FUNCTION. `rasterFaces` bumps its own counter only when it
-  // returns a buffer, so counting an attempt rather than a success would drift the two apart on
-  // every declined pass and make the lockstep assertion noise instead of a gate.
+  // ⚠ Counted here, on success, to stay in lockstep with rasterCount.
   _depthPassCount++;
-  // ── …AND THE OTHER HALF OF THE SAME QUESTION: WHAT IS IT STANDING BEHIND? ──
-  // The buffer above settles which of the model's own panels owns a pixel, and settles nothing at
-  // all about the shed it is parked in. Buildings are canvas fills painted before this and the model
-  // is painted after them, so paint order was the whole answer, and paint order says the truck wins
-  // — from every angle, at every distance. That is the rig showing through a wall. The hook hands
-  // back the world's own solids rasterised over exactly this box at exactly this scale, and returns
-  // null unless something is actually overlapping — so the pass costs nothing except in the frames
-  // it exists for.
+  // World occlusion: the hook rasterises nearby solids over this box, or returns null.
   const occWin = occlude ? occlude(x0, y0, bw, bh, sc) : null;
   if (occWin) maskRaster(res, occWin, occBias);
-  // ── …AND ONLY NOW IS IT WORTH LIGHTING ──────────────────────────────────────
-  // After the mask, never before. `maskRaster` clears the alpha of every pixel a building owns, and
-  // shading those would be paid for and then thrown away — on a rig in a depot doorway that is a
-  // third of the model. The light pass skips a cleared pixel for free.
+  // Light after the mask, so masked pixels aren't shaded.
   if (res.lit && light) light(res, rf);
   return { res, occWin, occBias, x0, y0, sc, ptsKey, zKey };
 }
 
-// The commit half: land the buffer on the canvas, then tell every face whether it survived.
-//
-// Returns FALSE when the blit could not land (a headless harness has no canvas to compose through),
-// which is the caller's cue to fall the whole way back to its own sort — not to skip the fills it
-// is no longer doing. A rasterOK set on faith there is a model drawn nowhere at all.
-// ⚠ `skipBlit` KEEPS THE VERDICT AND DROPS THE PICTURE, which is a real thing to want and not a
-// debug switch. When the body has already been drawn as real triangles on the depth buffer, the
-// canvas must not lay it down a second time — but the four detail passes below still have to know
-// which faces WON, because a face that lost cannot paint its splatter, its glass or its lamp onto
-// whatever is hiding it. That verdict is this function's other half, and it is the expensive half's
-// only consumer. ⚠ It returns TRUE with no blit, and that is honest rather than optimistic: there
-// is no image to fail to land, and the stamping below is exactly as valid either way.
+// Commit half: blit, then stamp each face's `seen`. False if the blit couldn't land (fall back to the sort).
+// `skipBlit` keeps the verdict without drawing, for a body already on the GL depth buffer.
 export function depthPassCommit(ctx, pass, drawn, opts = {}) {
   if (!pass) return false;
   const { res, occWin, occBias, x0, y0, sc, ptsKey, zKey } = pass;
@@ -5894,71 +5229,39 @@ export function depthPassCommit(ctx, pass, drawn, opts = {}) {
     const n = P.length, zc = cz / n;
     const bx = Math.round((cx / n - x0) * sc), by = Math.round((cy / n - y0) * sc);
     const on = bx >= 0 && by >= 0 && bx < res.w && by < res.h;
-    // Two different questions, and they are not the same test. A face IN the buffer asks whether it
-    // still owns its own centre — did it win. A face kept OUT of it asks whether anything opaque
-    // took that pixel in front of it — is it still visible. An empty pixel reads Infinity, which
-    // answers the second one "yes" for free.
+    // In the buffer: did it win its centre. Out of it: is anything opaque in front.
     fc.offBuf = !((fc.alpha ?? 1) >= 0.999);
     fc.seen = on
       && (fc.offBuf ? depthAt(res, bx, by) > zc
                     : Math.abs(depthAt(res, bx, by) - zc) < Math.max(1e-4, zc * 0.02))
-      // ⚠ AND IT HAS TO HAVE BEATEN THE WORLD, NOT JUST THE REST OF THE MODEL. `maskRaster` clears
-      // the model's own alpha where a building owns the pixel, but leaves the depth behind it — so a
-      // panel that won every argument with its neighbours and then lost to a wall would still be
-      // reported as visible, and would paint its splatter, its glass sheen and its lamp glow onto
-      // the wall standing in front of it. Without an `occlude` hook there is no window and this term
-      // is free.
+      // ⚠ And it must beat the world occlusion window too.
       && (!occWin || !(depthWinAt(occWin, bx, by) + occBias < zc));
   }
   return true;
 }
 
-// Build and commit in one, which is what a panel wants: it has no ground light to paint between the
-// two halves, so there is nothing to defer for.
+// Build and commit in one, for panels.
 function modelDepthPass(ctx, drawn, opts = {}) {
   const pass = depthPassBuild(ctx, drawn, opts);
   return pass ? depthPassCommit(ctx, pass, drawn) : false;
 }
 
-// ── Turntable renderer (hangar hero view) ─────────────────────────────────────
-// Draws the model into a 2D canvas on a perspective camera (elevated, looking down the
-// nose), spun about the vertical axis by `yaw`, at camera elevation `elev` (the walkaround
-// inspect mode drives yaw/elev/zoom from pointer input, or a free `cam`). Faces are depth-
-// sorted (painter's), lit by a soft key light, painted in the livery + hull texture + nose
-// art. `floor` adds the 3D ground grid. A wreck slumps + desaturates.
+// ── Turntable renderer ── Perspective camera, spun by `yaw` at `elev` (or a free `cam`), lit by a key light.
 export function drawTurntable(ctx, opts) {
   ctx.clearRect(0, 0, opts.w, opts.h);
   paintTurntable(ctx, opts);
 }
 
-// The turntable's paint step alone, with NO clear — so a caller that's already
-// painted a backdrop into the canvas (drawHangarFloorBay below) can draw the plane
-// on top of it in the same pass instead of the model wiping the scene behind it.
+// The paint step with no clear, for callers that already drew a backdrop.
 function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null, fit = 0, lift = 0, idleRoll = 0, budget = RASTER_BUDGET_PX }) {
-  // `variant` is the ground-vehicle channel (THE LONG HAUL) — which of the four trucks, and
-  // whether a box is on the back. Every aircraft caller passes nothing and is unaffected; the
-  // depot's turntable, walkaround and bench hero shot all ride this one argument.
+  // `variant` is the ground-vehicle channel.
   const faces = (wreck ? wreckFaces() : aircraftFaces(cls, 1, armed, variant)).map(poseAtRest);
-  // Taildraggers (the Grasshopper, and the Viper) rest NOSE-HIGH on the ground — tilt the static
-  // model to its 3-point sit here too (the floor/room proj below is left untilted). Nose-up: f' = f·c − h·s.
+  // Taildraggers sit nose-high: tilt the model (not the floor).
   const _gp = groundPitchFor(cls, armed) * Math.PI / 180;
   const _cg = Math.cos(_gp), _sg = Math.sin(_gp);
   const tiltV = _gp ? (v) => [v[0] * _cg - v[2] * _sg, v[1], v[0] * _sg + v[2] * _cg] : null;
-  // SHOWROOM SIZING, and it is why a truck no longer floats. Everything in this view — the room's
-  // 6.6-unit walls, the floor grid, the walk camera's speed and its exclusion ellipse, and
-  // FLOOR_Z itself — is measured in AEROPLANES, because for a long time an aeroplane was the only
-  // thing that ever stood here. A truck is built at ±0.22, so it arrived as a die-cast model in an
-  // aircraft hangar: a fifth of the frame at any camera you could reach, and — the tell that gave
-  // the whole thing away — hovering, because its parked lifters rest at z≈0 and the ground plane
-  // is at −0.27, an aircraft's undercarriage. That is nearly a whole truck-height of daylight
-  // under a machine whose comment two hundred lines up says it has SETTLED onto its lifters.
-  //
-  // `fit` is the span (in those aeroplane units) the model should occupy, and both corrections
-  // fall out of one derivation rather than two tuned constants: scale the mesh so its longest
-  // ground-plane span reads `fit`, then DROP IT until its own lowest vertex is exactly on the
-  // floor plane. Callers that pass no `fit` get the identity transform, so every aircraft view is
-  // untouched to the pixel. The room is then correctly proportioned around the subject for free:
-  // a 2-unit rig in a 13-unit shed is a garage, where a 0.45-unit one was a cathedral.
+  // `fit`: scale the model so its longest ground span reads `fit` (the room is sized in aircraft units), then drop
+  // it onto the floor. No `fit` is the identity, so aircraft views are unchanged.
   let mScale = 1, mDrop = 0;
   if (fit) {
     let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
@@ -5969,17 +5272,9 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     const span = Math.max(hi[0] - lo[0], hi[1] - lo[1]);
     if (span > 1e-4) { mScale = fit / span; mDrop = FLOOR_Z - lo[2] * mScale; }
   }
-  // `lift` raises the whole body off that floor as ONE RIGID THING — the depot's start-up
-  // sequence drives it while the lifters take the weight. It is deliberately not part of the mesh:
-  // the parked and running meshes differ by the ride height already, and animating BETWEEN two
-  // memoised face lists would mean interpolating vertices that don't correspond.
+  // `lift` raises the body as one rigid thing (the depot start-up).
   mDrop += lift;
-  // The one model→world transform, tilt included. Both projection call sites below go through it,
-  // so a fitted model cannot be drawn at one size and have its props/decals drawn at another.
-  // `idleRoll` is the small rock about the long axis a machine held up at four corners never stops
-  // doing. It is applied here rather than as a livery/pose because it changes every frame, and it
-  // is a ROTATION about the model's own centre, not a shear — the wheels-off-the-ground look comes
-  // apart immediately if one end of the rig lifts without the other end dropping.
+  // The one model-to-world transform. `idleRoll` is a small rotation about the model's own long axis.
   const cIR = Math.cos(idleRoll), sIR = Math.sin(idleRoll);
   const modelV = (v0) => {
     const v = tiltV ? tiltV(v0) : v0;
@@ -5995,10 +5290,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   const Ln = Math.hypot(-0.25, -0.45, 0.86), lx = -0.25 / Ln, ly = -0.45 / Ln, lz = 0.86 / Ln;
   let proj, eyeW;   // eyeW = the camera position in the SAME space the face normals live in (P.wx/wy/wz), for backface culling
   if (cam) {
-    // FREE WALK CAMERA: eye at (x forward, y right, z up) in the craft's own frame, looking
-    // along yaw (azimuth in the ground plane) + pitch. WASD moves the eye, drag turns the head.
-    // World coords are returned raw so the key light stays fixed in the room (the lit side is
-    // consistent as you walk around, unlike the turntable where the light rides the camera).
+    // Free walk camera in the craft frame. World coords are returned raw so the key light stays fixed in the room.
     const focal = Math.min(w, h) * 0.92 * (cam.fov || 1);
     const cyw = Math.cos(cam.yaw), syw = Math.sin(cam.yaw), cpi = Math.cos(cam.pitch), spi = Math.sin(cam.pitch);
     proj = (f, g, hh) => {
@@ -6010,7 +5302,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     };
     eyeW = [cam.x, cam.y, cam.z];   // the free-walk eye, already in model/world (f,g1,h1) space
   } else {
-    // ORBIT TURNTABLE: fixed distance, yaw about up + a ¾ elevation tilt, zoom via focal.
+    // Orbit turntable.
     const E = clampN(elev, 0.04, 1.35), cosE = Math.cos(E), sinE = Math.sin(E);
     const cy = Math.cos(yaw), sy = Math.sin(yaw);
     const camDist = 3.5, focal = Math.min(w, h) * 1.75 * zoom;
@@ -6035,53 +5327,24 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     if (visorHidden(face)) continue;       // parked on the turntable she sits nose-CLOSED, so the hold isn't there to punch through her belly
     const P = face.p.map(v => { const t = modelV(v); return proj(t[0], t[1], t[2]); });
     if (P.some(q => q.z <= MODEL_NEAR_Z)) continue;
-    // Newell's method for the face normal (sum over all edges) — stays valid even when ONE
-    // edge of the polygon collapses to zero length, which happens at the nose/tail cone tips
-    // where a whole cross-section ring degenerates to a point. The old two-edge cross product
-    // used P[0]→P[1] as its first edge, so a collapsed front ring (P[0]===P[1]) gave a zero
-    // normal → the body cull dropped the entire nose cone (the "missing nose" bug).
+    // Newell's method for the normal, so a face with one collapsed edge (a cone tip) still has one.
     let nx = 0, ny = 0, nz = 0;
     for (let i = 0; i < P.length; i++) {
       const c = P[i], d = P[(i + 1) % P.length];
       nx += (c.wy - d.wy) * (c.wz + d.wz); ny += (c.wz - d.wz) * (c.wx + d.wx); nz += (c.wx - d.wx) * (c.wy + d.wy);
     }
     const nl = Math.hypot(nx, ny, nz) || 1;
-    // Backface cull the CLOSED-HULL roles (fuselage skin, canopy, windows). Painter's
-    // sort alone lets a far-side hull facet win the depth test in places and bleed through
-    // the near side; these surfaces wrap a body centred on the origin, so a normal oriented
-    // outward-from-origin that faces AWAY from the eye is the hidden back and can be dropped.
-    // Appendages (wings/stabs/fins/nacelles/gear) are thin or off-axis, so they stay two-sided.
-    // ⚠ A BOX IS CULLED AGAINST ITS OWN CENTRE, NOT THE MODEL'S. `face.cen` is stamped where the
-    // geometry is emitted and is the only point that knows which six quads bound one convex solid;
-    // measured from the model origin instead, every box forward of the axle has its normal flipped
-    // and its hidden back face is kept — which is half the mesh painting from the inside out. That
-    // is most of "you can see parts through other parts" on a truck, and it is why an airframe never
-    // showed it: an airframe is one hull centred on the origin, so the model centre WAS its centre.
+    // Backface-cull closed-hull roles against the model centre. ⚠ A face with `cen` is culled against its own box's
+    // centre instead; measured from the origin, half a truck painted inside out.
     let culled = false;
     if (face.cen) {
       const t = modelV(face.cen);
       let cx = 0, cy = 0, cz = 0; for (const q of P) { cx += q.wx; cy += q.wy; cz += q.wz; }
       const n = P.length; cx /= n; cy /= n; cz /= n;
-      // Outward = away from the BOX's centre, projected into the same space the vertices live in.
       const tp = proj(t[0], t[1], t[2]);
       const dx = cx - tp.wx, dy = cy - tp.wy, dz = cz - tp.wz;
-      // ⚠ A BOX CAN BE A SHEET, and then it has no outward. Several of the mesh's boxes are
-      // deliberately flat in one axis — a lens, a chrome band, a step plate — and on those the two
-      // opposing faces sit ON the centre, so `cx-tp.wx` is numerical noise and its SIGN is a coin
-      // flip. Cull on that and the coin decides whether a headlamp has a lens this frame, which is
-      // how this pass first took an eye off the Continental. No confident outward, no cull: the
-      // sheet is two-sided, exactly as it was before any of this.
-      // ⚠ AND THE TEST IS THE OFFSET ALONG THE NORMAL, NOT THE LENGTH OF THE OFFSET. This is the
-      // second half of the same bug and it is the one that survived: `cen` is the anchor the box was
-      // laid out from, which for several of them is nowhere near the middle of the face it stamps —
-      // a deck plate at z 0.098 carrying a `cen` at (0.075, 0, 0.098). Its offset is LONG (a fifth
-      // of a truck, in x) so the magnitude guard passed it happily, but every bit of that length is
-      // SIDEWAYS to a face whose normal is straight up: the projection onto the normal is zero, and
-      // the sign of zero is the coin flip all over again — this time on a face big enough to see.
-      // Two faces on a hauler flipped on ~150 of 360 orbit steps, which is the flashing on the
-      // truck's flanks. So: no confident outward ALONG THE NORMAL, no cull. `nl` is Newell's length
-      // (twice the area), so dividing by it makes this a distance in world units rather than
-      // something that scales with how big the face happens to be.
+      // ⚠ No confident outward along the normal, no cull: a flat box (lens, band, plate) or a `cen` offset sideways
+      // to the face gives a zero dot product and a coin-flip cull. Divided by Newell's length so it's a world distance.
       if (Math.abs(nx * dx + ny * dy + nz * dz) / nl > 1e-4) {
         const out = (nx * dx + ny * dy + nz * dz) < 0 ? -1 : 1;
         if (out * (nx * (eyeW[0] - cx) + ny * (eyeW[1] - cy) + nz * (eyeW[2] - cz)) <= 0) culled = true;
@@ -6098,19 +5361,12 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     if (wreck) rgb = mix3(rgb, [74, 72, 66], 0.55);
     let z = 0; for (const q of P) z += q.z;
     const avgZ = z / P.length;
-    // WALK view: fade a face toward transparent as the eye gets right up against it, so the
-    // hull goes see-through when you walk under/into her (otherwise the near fuselage fills the
-    // frame and hides the BOARD prompt). Ghost floor keeps a faint outline rather than nothing.
+    // Walk view: faces fade as the eye gets close, so you can see the BOARD prompt.
     const alpha = cam ? clampN((avgZ - 0.25) / 0.9, 0.08, 1) : 1;
-    // The three keys the part sort reads, plus the far extent it uses to tell a genuine ambiguity
-    // from a rail that is simply behind a box. `z` here is the depot camera's depth, which is the
-    // same monotonic quantity the windscreen calls `f` — see sortTruckFaces.
+    // The part sort's keys (see sortTruckFaces); `z` here is the same quantity the windscreen calls `f`.
     let nf = Infinity, xf = -Infinity, hf = Infinity;
     for (const q of P) { if (q.z < nf) nf = q.z; if (q.z > xf) xf = q.z; if (q.gz != null && q.gz < hf) hf = q.gz; }
-    // ⚠ THE SHADE IS COMPUTED ONCE AND KEPT BOTH WAYS. `col` is the CSS string canvas wants; `rv`
-    // is the same numbers the depth rasteriser writes into a pixel buffer. Deriving one from the
-    // other later means parsing "rgb(83,42,28)" for every face of every frame, and having the
-    // rasteriser apply its own lighting means two shading models that agree until one is edited.
+    // ⚠ The shade is computed once and kept as both a CSS string (`col`) and numbers (`rv`) for the rasteriser.
     const shk = face.sh * pal.fmul * light * (wreck ? 0.8 : 1);
     const rv = [clampN(rgb[0] * shk, 0, 255) | 0, clampN(rgb[1] * shk, 0, 255) | 0, clampN(rgb[2] * shk, 0, 255) | 0];
     const rec = { P, role: face.role, avgZ, alpha, part: face.part, nf, xf, hf: hf === Infinity ? null : hf, af: avgZ, i: drawn.length, rv, col: shadeRgb(rgb, shk) };
@@ -6118,28 +5374,8 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     if (face.uv) { rec.cuv = face.uv; rec.cart = face.art; }        // canopy art: UVs + style authored on the mesh, not derived
     drawn.push(rec);
   }
-  // A truck is nested convex boxes and cannot be ordered per face — see sortTruckFaces. Everything
-  // with wings still takes the plain mean-depth sort it always had.
-  // ── THE TRUCK IS DRAWN WITH A DEPTH BUFFER, NOT AN ORDER ────────────────────
-  // Four keys were tried here and each one fixed the case in front of it: mean depth, nearest
-  // vertex, ground-plane depth, distance-to-box. They fail for the same reason, which is not the
-  // key — a big panel can be behind a small one in one place and in front of it in another, and no
-  // single number per part can say so. So the fills go through a per-pixel depth test instead (see
-  // model-raster.js), which is exact from every angle including straight down, and has nothing left
-  // to flicker because depth is continuous.
-  //
-  // ⚠ AND THE DETAIL PASSES STILL RUN ON CANVAS, GATED ON WHAT WON. Jazz splatter, hull texture,
-  // canopy art and the glass sheen are canvas drawing and stay that way — re-implementing them
-  // inside a software rasteriser would be a second copy of four effects. A face asks the depth
-  // buffer whether it owns its own centre; if something nearer took that pixel, its detail is
-  // skipped. Cheap, and it cannot paint a hidden face's decoration over the panel hiding it.
-  //
-  // ⚠ AND EVERYTHING WITH WINGS NOW TAKES IT TOO. It used to keep the mean-depth sort on the
-  // grounds that an airframe is one smooth hull — true of the fuselage, and false of every nacelle,
-  // pod, sponson, gear leg and stub wing bolted to it, which are the same nested boxes no single
-  // depth per part can order. See the note on modelDepthPass.
-  // The hero shot is the SUBJECT of its camera, so it takes the pass at any size — see the `min`
-  // the floor scene passes, which is for a row of machines rather than one.
+  // Every model goes through the shared depth pass (see modelDepthPass). Detail passes stay on canvas, gated on
+  // `seen`. The hero shot takes the pass at any size. Falls back to the sorts if the pass declines.
   if (!wreck) pushParkedRotorFaces(drawn, cls, armed, 2.3, (v) => { const t = modelV(v); return proj(t[0], t[1], t[2]); }, 0.2);
   const rasterOK = modelDepthPass(ctx, drawn, { budget });
   if (!rasterOK) {
@@ -6158,10 +5394,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     else if (TEXTURED.has(fc.role)) overlayHull(ctx, fc.P, texStr);   // procedural panel/rivet detail
     if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv, fc.cart);          // greenhouse: mullions, sky reflection, the crew behind the glass
     if (!wreck && (fc.role === 'glass' || fc.role === 'window')) glassSheen(ctx, fc.P);   // glassy specular on canopy/windows
-    // ⚠ NO OUTLINE OVER A DEPTH-BUFFERED MODEL. The stroke is drawn on the face's whole outline,
-    // including the parts of it that lost the depth test, so it would draw the hidden half of every
-    // box as a wireframe over the panel in front of it. Half its job was hiding sort seams anyway,
-    // and there are none left.
+    // ⚠ No outline over a depth-buffered model: the stroke would draw the hidden half of every box.
     if (!rasterOK || fc.offBuf) { ctx.strokeStyle = 'rgba(8,10,14,0.55)'; ctx.lineWidth = 1; ctx.stroke(); }
     if (!wreck && livery?.finish === 'gloss' && fc.role === 'body') {
       ctx.save(); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1.4;
@@ -6169,43 +5402,21 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     }
     if (fc.alpha < 1) ctx.globalAlpha = 1;
   }
-  // Appendage faces (wings/nacelles/gear/…) become nose-art occluders so the decal is culled where
-  // a nearer part of the airframe stands in front of the flank, instead of painting straight over it.
-  // The decal layer. A truck's goes on its DOOR and an airframe's on its nose — same idea, two
-  // completely different surfaces, and one of them is flat (see drawTruckDoorArt).
+  // Decals: truck art on the door, aircraft art on the nose. Appendages occlude them.
   if (!wreck) {
     const occD = drawn.filter(fc => OCCLUDE_ROLE.has(fc.role)).map(fc => ({ P: fc.P, z: fc.avgZ }));
-    // ⚠ THE DECAL GOES THROUGH `modelV`, LIKE EVERY OTHER VERTEX IN THIS FUNCTION. Both painters
-    // place their art from the MESH's own coordinates — drawNoseArt reconstructs the hull section,
-    // drawTruckDoorArt reads the door rectangle out of TRUCK_META — and `proj` alone is the WORLD
-    // projector, one transform short of where the model actually is. Handed the raw one, the art was
-    // drawn at the unfitted size and the unfitted height, which on an aircraft is invisible (no
-    // aircraft caller passes `fit`, so the transform is the identity) and on a truck was total: the
-    // depot fits the rig to the room, so `mScale` is about 4× and `mDrop` the better part of a
-    // truck-height, and the door art landed as a thumbnail buried in the chassis — painted every
-    // frame, never once on the door. Same adapter the rotor pass has always used, and the same shape
-    // windshield.js passes from the road, which is why the art was right out there and wrong in here.
+    // ⚠ The decal goes through `modelV` like every vertex: with the raw `proj`, a fitted truck's door art landed in the chassis.
     const projM = (f, g, hh) => { const t = modelV([f, g, hh]); return proj(t[0], t[1], t[2]); };
     if (cls === 'truck') drawTruckDoorArt(ctx, projM, variant || 'hauler', 1, livery, occD, MODEL_NEAR_Z);
     else drawNoseArt(ctx, projM, cls, livery, occD, MODEL_NEAR_Z);
   }
-  // Props/rotors: crisp stopped blades, already in `drawn` (pushParkedRotorFaces) so the depth
-  // pass can hide them behind the hull.
-  // THE CONTACT PATCH, handed back to the caller. An effects layer that wants to put light and
-  // dust on the ground under this machine needs to know where the ground under it IS on screen,
-  // and this function is the only thing in the process that knows the camera. Guessing it from
-  // canvas fractions works right up until somebody drags the turntable or walks two paces left.
-  // `ppu` is pixels per world unit at that depth, so an effect can be sized in world units too.
+  // Rotors are already in `drawn`. Return the contact patch on screen (`ppu` = pixels per world unit) for ground effects.
   const gp = proj(0, 0, FLOOR_Z);
   const gpx = proj(0, 1, FLOOR_Z);
   return { ground: gp, ppu: Math.abs(gpx.sx - gp.sx) || Math.min(w, h) * 0.4, front: proj(mScale ? 0.5 * fit : 0.5, 0, FLOOR_Z) };
 }
 
-// ── Outside world glimpse (through the open bay door) ─────────────────────────
-// A tiny sky + weather read, keyed off the same environment state the flight
-// windshield uses — clipped to the door's trapezoid so the hangar always feels
-// like it is sitting in the same world/weather the player is actually in, not a
-// timeless box. `sky = { hour, weather, wind }` (plugins/flight/state.js skyState()).
+// ── Outside world through the bay door ── `sky = { hour, weather, wind }` (plugins/flight/state.js skyState()).
 const WEATHER_SKY = {
   clear:   { top: [70, 140, 196], hor: [196, 220, 232] },
   cloudy:  { top: [104, 116, 128], hor: [172, 180, 188] },
@@ -6233,18 +5444,15 @@ function drawOutsideWorld(ctx, x0, yTop, x1, yBot, sky) {
   let g = ctx.createLinearGradient(0, yTop, 0, groundY);
   g.addColorStop(0, rgbStr(pal.top)); g.addColorStop(1, rgbStr(pal.hor));
   ctx.fillStyle = g; ctx.fillRect(x0, yTop, x1 - x0, groundY - yTop);
-  // A hazy distant skyline silhouette — reads as "the field beyond the door", not a void.
   ctx.fillStyle = rgbStr(mix3(pal.hor, [20, 24, 30], 0.55), 0.6);
   const bw = (x1 - x0) / 7;
   for (let i = 0; i < 7; i++) {
     const bh = (groundY - yTop) * (0.08 + ((i * 37) % 5) / 22);
     ctx.fillRect(x0 + i * bw, groundY - bh, bw * 0.8, bh);
   }
-  // Ground strip (tarmac, not the hangar's own floor — this is OUTSIDE the door).
   const gg = ctx.createLinearGradient(0, groundY, 0, yBot);
   gg.addColorStop(0, rgbStr(mix3(pal.hor, [30, 34, 38], 0.4))); gg.addColorStop(1, 'rgba(20,24,28,0.9)');
   ctx.fillStyle = gg; ctx.fillRect(x0, groundY, x1 - x0, yBot - groundY);
-  // Sun/moon — only reads clearly when the sky isn't overcast/precipitating.
   if (/^(clear|dust)$/.test(pal.weather)) {
     const sx = cx + (pal.night > 0.4 ? -1 : 1) * (x1 - x0) * 0.22, sy = yTop + (groundY - yTop) * 0.32;
     const disc = pal.night > 0.4 ? [220, 224, 236] : [255, 246, 214];
@@ -6253,19 +5461,8 @@ function drawOutsideWorld(ctx, x0, yTop, x1, yBot, sky) {
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(sx, sy, (x1 - x0) * 0.12, 0, 7); ctx.fill();
     ctx.fillStyle = rgbStr(disc, 0.9); ctx.beginPath(); ctx.arc(sx, sy, (x1 - x0) * 0.03, 0, 7); ctx.fill();
   }
-  // Weather flourishes.
-  //
-  // THE RAIN FALLS. It used to be 14 static scratches — the only picture of the weather a driver
-  // standing in a shed gets, and it was frozen, so the world through the door read as a painting of
-  // a wet day rather than a wet day. The pane's own overlay can't help here: that layer is an
-  // OUTDOOR effect and it is suppressed while a panel owns the pane (weather-fx.js), which is
-  // exactly right — it was raining *inside the garage* before. So the doorway draws its own.
-  //
-  // Deterministic per streak (index → x, speed, phase) plus wall-clock, so it animates without
-  // holding any state and without a per-frame Math.random that would teleport every drop.
-  // ⚠ RAIN ON THE FIELD OUTSIDE, NOT RAIN SOMEWHERE TODAY. `sky.here` is what is falling on the
-  // apron (hangars.js); rain only falls under a cell, so the day's word alone rained through the
-  // door on every dry field of a wet day. A payload without `here` keeps the word.
+  // Weather. Rain animates per streak from a stable index plus the clock; the pane's own weather overlay is off
+  // while a panel owns the pane. ⚠ Rain only if it's falling on this field (`sky.here`, hangars.js), not just today.
   const here = sky?.here;
   const raining = here ? (here.precipRate > 0 && here.precipType !== 'snow')
     : (pal.weather === 'rain' || pal.weather === 'storm');
@@ -6281,7 +5478,7 @@ function drawOutsideWorld(ctx, x0, yTop, x1, yBot, sky) {
       ctx.strokeStyle = rgbStr([190, 210, 230], 0.16 + 0.26 * ((i * 17) % 10) / 10);
       ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - len * 0.3, ry + len); ctx.stroke();
     }
-    // …and it lands. A few splash rings on the tarmac outside, on the same clock.
+    // Splash rings.
     ctx.strokeStyle = rgbStr([200, 218, 236], 0.22);
     for (let i = 0; i < (heavy ? 9 : 6); i++) {
       const px = x0 + ((i * 37) % 100) / 100 * spanX;
@@ -6305,21 +5502,9 @@ function drawOutsideWorld(ctx, x0, yTop, x1, yBot, sky) {
 }
 const rgbStr = (c, a) => a == null ? `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})` : `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 
-// ── Hangar interior backdrop ────────────────────────────────────────────────
-// A stylized bay behind the turntable: a converging-line floor, corrugated side
-// walls, overhead truss + hanging work-lights, floor clutter (crates, drums,
-// a tool cart, a hazard-striped inspection lane, a hose reel), and an open bay
-// door at the back showing the actual outside sky/weather. Pure background —
-// painted first, no clearRect of its own (the caller clears once for the whole
-// composed scene). `tint` washes the door-light strip a pilot's signature colour
-// (the CHARTER Mule bay); `sky` drives the world glimpse through the door.
-// The floor-scene backdrop for a YACHT field (the Echelon): an open-air aft helipad
-// instead of the industrial bay — sky + Basin + a distant skyline over the horizon, a
-// compact non-slip deck (painted 'H' + ring + red pad lights) reading much smaller than
-// a hangar floor, and the mirror-black deckhouse to one side. No roof, no truss.
+// ── Helipad backdrop ── The floor scene for a yacht field (the Echelon): sky, Basin, skyline, deck and deckhouse.
 function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
   const pal = skyPalette(sky), horizon = h * 0.44, cx = w / 2;
-  // Sky.
   let g = ctx.createLinearGradient(0, 0, 0, horizon);
   g.addColorStop(0, rgbStr(pal.top)); g.addColorStop(1, rgbStr(pal.hor));
   ctx.fillStyle = g; ctx.fillRect(0, 0, w, horizon);
@@ -6329,17 +5514,13 @@ function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
     rg.addColorStop(0, rgbStr(disc, 0.9)); rg.addColorStop(1, rgbStr(disc, 0));
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(sx, sy, w * 0.09, 0, 7); ctx.fill();
   }
-  // Distant skyline across the water.
   ctx.fillStyle = rgbStr(mix3(pal.hor, [20, 26, 34], 0.5), 0.72);
   const bw = w / 11;
   for (let i = 0; i < 11; i++) { const bh = horizon * (0.12 + hash01(i * 4.2) * 0.42); ctx.fillRect(i * bw, horizon - bh, bw * 0.84, bh); }
-  // Sea from the horizon down to the deck.
   g = ctx.createLinearGradient(0, horizon, 0, h);
   g.addColorStop(0, rgbStr(mix3(pal.hor, [14, 24, 38], 0.55))); g.addColorStop(1, 'rgb(9,14,20)');
   ctx.fillStyle = g; ctx.fillRect(0, horizon, w, h - horizon);
-  // The superstructure — a LONG, LOW, mirror-black deckhouse stepping up in set-back tiers across the
-  // far deck edge, so the scene reads as sitting on a big beamy megayacht (her flight-sim profile), not
-  // a single billboard block. Weighted left of centre so the parked craft stay clear of it.
+  // A long low tiered deckhouse, left of centre so the craft stay clear.
   const ssL = w * 0.02, baseY = horizon + h * 0.015;
   const tierBox = (x0, x1, yTop, yBot) => {
     ctx.fillStyle = '#0f1116'; ctx.fillRect(x0, yTop, x1 - x0, yBot - yTop);                              // mirror-black body
@@ -6355,19 +5536,16 @@ function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
   tierBox(ssL,               w * 0.60, t1, baseY);   // main deck house — long & low base
   tierBox(ssL + w * 0.07,    w * 0.50, t2, t1);      // upper saloon, set back + in
   tierBox(ssL + w * 0.14,    w * 0.40, t3, t2);      // bridge deck, set back again
-  // Short mast + warm masthead beacon off the bridge.
   const mx = ssL + w * 0.25, mtop = t3 - h * 0.05;
   ctx.strokeStyle = 'rgba(120,140,160,0.6)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(mx, t3); ctx.lineTo(mx, mtop); ctx.stroke();
   const mbg = ctx.createRadialGradient(mx, mtop, 1, mx, mtop, 8); mbg.addColorStop(0, 'rgba(255,238,200,0.8)'); mbg.addColorStop(1, 'rgba(255,238,200,0)');
   ctx.fillStyle = mbg; ctx.beginPath(); ctx.arc(mx, mtop, 8, 0, 7); ctx.fill();
   ctx.fillStyle = 'rgba(255,244,214,0.95)'; ctx.beginPath(); ctx.arc(mx, mtop, 1.8, 0, 7); ctx.fill();
-  // The deck — a compact non-slip pad, a perspective trapezoid narrower at the far edge.
   const dTopY = horizon + h * 0.04, dTopHalf = w * 0.2, dBotHalf = w * 0.66;
   ctx.beginPath(); ctx.moveTo(cx - dTopHalf, dTopY); ctx.lineTo(cx + dTopHalf, dTopY); ctx.lineTo(cx + dBotHalf, h); ctx.lineTo(cx - dBotHalf, h); ctx.closePath();
   g = ctx.createLinearGradient(0, dTopY, 0, h); g.addColorStop(0, '#1f252c'); g.addColorStop(1, '#0f1318');
   ctx.fillStyle = g; ctx.fill();
   ctx.save(); ctx.clip();   // keep the markings + lights on the deck
-  // Painted landing circle + 'H'.
   const px = cx, py = h * 0.72, rx = w * 0.2, ry = h * 0.12;
   ctx.strokeStyle = 'rgba(208,222,236,0.45)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(px, py, rx, ry, 0, 0, 7); ctx.stroke();
   ctx.fillStyle = 'rgba(224,232,240,0.5)';
@@ -6375,7 +5553,6 @@ function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
   ctx.fillRect(px - hw - barW / 2, py - hh, barW, hh * 2);
   ctx.fillRect(px + hw - barW / 2, py - hh, barW, hh * 2);
   ctx.fillRect(px - hw, py - hh * 0.16, hw * 2, hh * 0.32);
-  // Recessed red pad lights around the rim.
   for (let k = 0; k < 14; k++) {
     const a = k / 14 * Math.PI * 2, lx = px + Math.cos(a) * rx * 1.06, ly = py + Math.sin(a) * ry * 1.06;
     const rg = ctx.createRadialGradient(lx, ly, 1, lx, ly, 9);
@@ -6384,8 +5561,7 @@ function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
     ctx.fillStyle = 'rgba(255,96,74,0.9)'; ctx.beginPath(); ctx.arc(lx, ly, 2.4, 0, 7); ctx.fill();
   }
   ctx.restore();
-  // A soft pool of light where the craft sit — the Echelon's deck floods, so it
-  // stays lit after dark rather than going black; the wash strengthens as the sky darkens.
+  // A pool of deck floodlight, stronger after dark.
   const floodA = 0.16 + pal.night * 0.26;
   const pool = ctx.createRadialGradient(cx, h * 0.82, 4, cx, h * 0.82, w * 0.5);
   pool.addColorStop(0, `rgba(222,234,248,${floodA})`); pool.addColorStop(1, 'rgba(222,234,248,0)');
@@ -6395,23 +5571,13 @@ function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
 }
 
-// ── The covered dock ─────────────────────────────────────────────────────────
-// NOT THE DEPOT WITH A BLUE FLOOR ON IT, for the reason drawDepotBackdrop sets out at length about
-// the hangar: what separates these buildings is the work, not the decoration. A boathouse is a roof
-// on columns over a SLOT OF OPEN WATER — the floor is the thing that moves — and everything in it
-// follows from that: no bays painted on anything, because you cannot paint water; a gantry track
-// down the length rather than a pit across it, because a hull comes OUT upwards; and one open end
-// where the roof simply stops and the Basin carries on, which is the only wall this room has.
-//
-// ⚠ THE WATER IS LIT FROM UNDER. That is the marina's own prose ("the water under the dock is lit
-// from below and the room is not"), and it is also the only way a dark interior over dark water
-// reads as anything at all: a flat dark quad with a boat on it is a boat on a black floor.
+// ── The covered dock ── A roof on columns over a slot of open water, a gantry hoist, and one open end onto the Basin.
+// ⚠ The water is lit from under, or it reads as a boat on a black floor.
 function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   const pal = skyPalette(sky), night = pal.night ?? 0;
   const horizon = h * 0.44, cx = w / 2;
 
-  // ── The open end: the roof stops and the Basin carries on ──────────────────
-  // Sized off how many hulls are in here, the same way the hangar's door is.
+  // The open end, sized off the hull count.
   const mouthW = w * (0.3 + doorFrac * 0.26), mouthT = h * 0.12, mouthB = horizon + h * 0.02;
   ctx.fillStyle = '#0b0f14'; ctx.fillRect(0, 0, w, horizon);
   let g = ctx.createLinearGradient(0, mouthT, 0, mouthB);
@@ -6427,9 +5593,7 @@ function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   }
   ctx.restore();
 
-  // ── The roof, and the columns holding it up ────────────────────────────────
-  // Deliberately heavy and deliberately close: the hall's own description is columns you can get
-  // both arms around "and no more than that", so they are the scale reference in the room.
+  // Roof and columns (the room's scale reference).
   const eave = h * 0.1;
   ctx.fillStyle = '#10151b'; ctx.fillRect(0, 0, w, eave);
   ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, eave - 5, w, 5);
@@ -6440,7 +5604,7 @@ function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
     cg.addColorStop(0, '#0d1116'); cg.addColorStop(0.45, '#242c34'); cg.addColorStop(1, '#0b0e12');
     ctx.fillStyle = cg; ctx.fillRect(x - cw, top, cw * 2, bot - top);
   }
-  // The travel hoist on its gantry: rails down the length, and the crab parked over the slot.
+  // Gantry rails and the parked crab.
   ctx.strokeStyle = 'rgba(120,136,152,0.45)'; ctx.lineWidth = 3;
   for (const sgn of [-1, 1]) {
     ctx.beginPath();
@@ -6449,9 +5613,7 @@ function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
     ctx.stroke();
   }
   ctx.fillStyle = '#2a323b'; ctx.fillRect(cx - w * 0.05, eave + h * 0.015, w * 0.1, h * 0.028);
-  // ⚠ THE SLINGS HANG OFF IT, and a travel hoist with nothing hanging from it is a footbridge.
-  // Two webbing straps and the falls between them — the shape of the machine that picks a hull up
-  // by the middle, which is the one piece of plant in this building a garage has no equivalent of.
+  // Slings hang from it.
   ctx.strokeStyle = 'rgba(150,164,178,0.5)'; ctx.lineWidth = 1.4;
   for (const off of [-w * 0.032, w * 0.032]) {
     ctx.beginPath(); ctx.moveTo(cx + off, eave + h * 0.043); ctx.lineTo(cx + off, eave + h * 0.105); ctx.stroke();
@@ -6462,14 +5624,10 @@ function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   ctx.quadraticCurveTo(cx, eave + h * 0.135, cx + w * 0.032, eave + h * 0.105);
   ctx.stroke();
 
-  // ⚠ THE SLOT IS MOST OF THE FRAME, because the CAMERA fits the row of hulls to the width of the
-  // canvas and the backdrop cannot argue with it — a narrow slot with a wide camera puts a boat
-  // sitting on the deck planking with water visible either side of her, which is exactly what the
-  // first cut drew. The decks are what is left in the bottom corners.
+  // ⚠ The slot fills most of the frame: the camera fits the hull row to the canvas width.
   const deckTop = horizon + h * 0.02, slotTop = w * 0.26, slotBot = w * 1.02;
 
-  // ── The slot itself ────────────────────────────────────────────────────────
-  // Drawn BEFORE the decks so their cleats and fenders overhang it, which is what a deck does.
+  // The slot, before the decks so their fittings overhang it.
   ctx.beginPath();
   ctx.moveTo(cx - slotTop, deckTop); ctx.lineTo(cx + slotTop, deckTop);
   ctx.lineTo(cx + slotBot, h); ctx.lineTo(cx - slotBot, h); ctx.closePath();
@@ -6481,9 +5639,7 @@ function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   const pool = ctx.createRadialGradient(cx, h * 0.86, 4, cx, h * 0.86, w * 0.55);
   pool.addColorStop(0, 'rgba(120,200,206,' + underA.toFixed(3) + ')'); pool.addColorStop(1, 'rgba(120,200,206,0)');
   ctx.fillStyle = pool; ctx.fillRect(0, deckTop, w, h - deckTop);
-  // ⚠ AND THE OPEN END LAYS ITS OWN LIGHT DOWN THE SLOT, which is most of what says this water is
-  // water and that end is open. A daylit mouth throws a pale wedge toward the camera; at night it
-  // throws almost nothing, and the under-deck pool above is what carries the room instead.
+  // The open end throws daylight down the slot; at night the under-deck pool carries the room.
   const mouthLight = ctx.createLinearGradient(0, deckTop, 0, h);
   const mLA = 0.17 * (1 - night);
   mouthLight.addColorStop(0, rgbStr(pal.hor, mLA));
@@ -6493,8 +5649,7 @@ function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   ctx.beginPath();
   ctx.moveTo(cx - mouthW * 0.4, deckTop); ctx.lineTo(cx + mouthW * 0.4, deckTop);
   ctx.lineTo(cx + w * 0.30, h); ctx.lineTo(cx - w * 0.30, h); ctx.closePath(); ctx.fill();
-  // Ripple: horizontal bands that widen and separate toward the camera, which is all perspective on
-  // flat water ever is. Still — nothing here animates, because a dock screen is a photograph.
+  // Static ripple bands, widening toward the camera.
   ctx.strokeStyle = 'rgba(160,214,220,0.16)';
   for (let k = 1; k < 16; k++) {
     const f = Math.pow(k / 16, 1.7), y = deckTop + (h - deckTop) * f;
@@ -6527,26 +5682,22 @@ function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
       ctx.stroke();
     }
     ctx.restore();
-    // The rubbing strake down the slot edge, and the cleats and fenders on it. ⚠ THIS IS THE
-    // DIFFERENCE, and it is not decoration: a depot's floor edge is a painted line and a dock's is
-    // a piece of timber with hardware bolted to it, because something heavy comes alongside it.
+    // Rubbing strake, cleats and fenders on the slot edge.
     ctx.strokeStyle = 'rgba(70,84,96,0.8)'; ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(cx + sgn * slotTop, deckTop); ctx.lineTo(cx + sgn * slotBot, h); ctx.stroke();
     for (let k = 0; k < 6; k++) {
       const f = (k + 0.5) / 6;
       const x = cx + sgn * (slotTop + (slotBot - slotTop) * f), y = deckTop + (h - deckTop) * f;
-      // The cleat, standing on the deck…
       ctx.fillStyle = 'rgba(148,162,176,0.55)';
       ctx.fillRect(x + sgn * 4, y - 2 - f * 4, 4 + f * 6, 2 + f * 4);
-      // …and a fender hung off it over the water, which is a thing no yard has ever needed.
       const fr = 2 + f * 7;
       ctx.fillStyle = 'rgba(28,34,40,0.85)';
       ctx.beginPath(); ctx.ellipse(x - sgn * fr * 0.6, y + fr * 0.5, fr * 0.45, fr, 0, 0, 7); ctx.fill();
       ctx.strokeStyle = 'rgba(120,136,152,0.35)'; ctx.lineWidth = Math.max(0.6, f * 1.2);
       ctx.beginPath(); ctx.moveTo(x + sgn * 2, y - f * 3); ctx.lineTo(x - sgn * fr * 0.6, y - fr * 0.4); ctx.stroke();
     }
-    // A ladder down the face of the deck into the water, near the camera where it can be seen.
+    // Ladder into the water.
     {
       const f = 0.82;
       const x = cx + sgn * (slotTop + (slotBot - slotTop) * f), y = deckTop + (h - deckTop) * f;
@@ -6566,7 +5717,7 @@ function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   };
   deckQuad(-1); deckQuad(1);
 
-  // Cradles down one side — the hall's own south wall, and the only dry thing in the room.
+  // Cradles on the dry side.
   ctx.fillStyle = 'rgba(58,44,30,0.8)';
   for (let k = 0; k < 3; k++) {
     const f = 0.15 + k * 0.28, y = deckTop + (h - deckTop) * f;
@@ -6574,7 +5725,7 @@ function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
     ctx.fillRect(x, y, w * (0.03 + f * 0.04), h * (0.02 + f * 0.03));
   }
 
-  // Strip lights under the roof — cold, few, and a long way up.
+  // Strip lights high under the roof.
   for (const t of [0.34, 0.5, 0.66]) {
     const lx = t * w, ly = eave + h * 0.008;
     const lg = ctx.createRadialGradient(lx, ly, 2, lx, ly, w * 0.13);
@@ -6588,34 +5739,13 @@ function drawDockBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
 }
 
-// ── The truck depot ──────────────────────────────────────────────────────────
-// NOT THE HANGAR WITH AN OIL STAIN ON IT. The first cut drew the yard by handing
-// `drawHangarBackdrop` a brown tint and a wider door, which is a reasonable saving right up until
-// you look at it: the room still had an aircraft hangar's fluorescent truss hanging where a rig's
-// stacks would be, aviation crates on the floor, and a polished-concrete sheen no yard has ever
-// had. What actually distinguishes the two buildings is not decoration, it's the WORK:
-//   · sodium, not fluorescent — a yard is lit amber from wall floods, never white from above,
-//     and nothing HANGS from the roof because the tallest thing in here is 13 feet of exhaust
-//   · an inspection PIT in the floor, the one feature no hangar has and every depot does
-//   · bays, not a lane — a yard is painted into numbered parking bays that converge on the door
-//   · what's stacked against the wall is LIFTER PODS and drums, not aviation crates
-// It shares `drawOutsideWorld` and the hazard-stripe helper with the hangar, because the weather
-// beyond the door and the paint on the floor genuinely are the same thing in both buildings.
+// ── The truck depot ── Sodium wall floods (nothing hangs from the roof), an inspection pit, painted bays,
+// lifter pods and drums. Shares drawOutsideWorld and the hazard stripe with the hangar.
 function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   const horizon = h * 0.46, floorTop = horizon, cx = w / 2;
   const night = sky?.night ?? 0;
-  // ── ⚠ A WORKING DEPOT IS A LIT ROOM ────────────────────────────────────────
-  // This read as a shed at dusk: a dark wall, two small pools of sodium, and a heavy vignette over
-  // the lot. It is the wrong mood for the building — the pit, the gantry and the hoist are all
-  // things somebody has to SEE to use, and a yard that keeps its own floor dark is a yard nobody
-  // could work a night shift in. The windshield's own bay already says this in as many words
-  // (`inLit`, 'a workplace is LIT, so the inside barely darkens at night'); this backdrop simply
-  // never got the memo, and the panel is where a player spends the longest looking at it.
-  //
-  // So the light comes up: a wall that is lit rather than merely grey, floods that reach across the
-  // bay instead of haloing their own bracket, a floor wash with some throw in it, and a vignette
-  // that frames instead of closing in. Still sodium, still dirty, still not a showroom.
-  // Back wall: a block lower course under a corrugated upper, warmer and dirtier than the hangar's.
+  // A working depot is lit: the pit, gantry and hoist must be visible.
+  // Back wall: block course under corrugated upper.
   let g = ctx.createLinearGradient(0, 0, 0, horizon);
   g.addColorStop(0, '#3a3836'); g.addColorStop(1, '#55544e');
   ctx.fillStyle = g; ctx.fillRect(0, 0, w, horizon);
@@ -6624,8 +5754,7 @@ function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   ctx.fillStyle = 'rgba(24,24,26,0.22)'; ctx.fillRect(0, horizon * 0.62, w, horizon * 0.38);      // block course
   ctx.strokeStyle = 'rgba(180,176,168,0.10)';
   for (let y = horizon * 0.62; y < horizon; y += 9) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-  // Bay numbers stencilled on the wall — the yard tells you where to park, which is most of what
-  // makes a depot read as a depot rather than a shed with vehicles in it.
+  // Stencilled bay numbers.
   ctx.font = 'bold 26px monospace'; ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(232,206,140,0.30)';
   ctx.fillText('02', w * 0.16, horizon * 0.52); ctx.fillText('03', w * 0.84, horizon * 0.52);
@@ -6633,8 +5762,7 @@ function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   drawNoticeBoard(ctx, w * 0.06, horizon * 0.62, 34, 24);
   drawExtinguisher(ctx, w * 0.95, horizon * 0.74);
 
-  // The roller shutter, rolled most of the way up: a drum of coiled slat above the opening. A
-  // depot's door is wide and SHORT — it is sized to a trailer, and the lintel is right on its roof.
+  // A roller shutter rolled up over a wide, short door.
   const doorW = w * doorFrac, doorH = horizon * 0.66, doorY = horizon - doorH;
   ctx.save();
   ctx.beginPath();
@@ -6650,8 +5778,7 @@ function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   ctx.beginPath(); ctx.moveTo(cx - doorW * 0.5, doorY); ctx.lineTo(cx - doorW * 0.5, horizon);
   ctx.moveTo(cx + doorW * 0.5, doorY); ctx.lineTo(cx + doorW * 0.5, horizon); ctx.stroke();
 
-  // Sodium floods on wall brackets, throwing DOWN the wall — no ceiling truss, nothing hanging in
-  // the space a rig's stacks occupy. Two of them, amber, and they carry the whole room's colour.
+  // Sodium wall floods throwing down the wall.
   for (const fx of [w * 0.12, w * 0.38, w * 0.62, w * 0.88]) {
     ctx.strokeStyle = 'rgba(120,120,112,0.6)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(fx, horizon * 0.10); ctx.lineTo(fx, horizon * 0.20); ctx.stroke();
@@ -6661,16 +5788,14 @@ function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
     lg.addColorStop(0, `rgba(255,214,146,${0.52 + night * 0.16})`); lg.addColorStop(0.55, 'rgba(255,206,124,0.16)'); lg.addColorStop(1, 'rgba(255,206,124,0)');
     ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(fx, horizon * 0.26, R, 0, 7); ctx.fill();
   }
-  // A gantry beam across the back of the bay with a chain hoist hanging off it — the depot's own
-  // overhead, low and structural, where the hangar has a lighting truss.
+  // Gantry beam and chain hoist.
   ctx.strokeStyle = 'rgba(96,94,88,0.9)'; ctx.lineWidth = 5;
   ctx.beginPath(); ctx.moveTo(0, horizon * 0.34); ctx.lineTo(w, horizon * 0.34); ctx.stroke();
   ctx.strokeStyle = 'rgba(70,70,66,0.85)'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(w * 0.34, horizon * 0.34); ctx.lineTo(w * 0.34, horizon * 0.52); ctx.stroke();
   ctx.fillStyle = '#5a4a2a'; ctx.fillRect(w * 0.34 - 5, horizon * 0.52, 10, 8);
 
-  // Floor: oil-dark concrete, warmer than the hangar's polished grey, with painted BAYS rather
-  // than a single lane, and a couple of old spills soaked into it.
+  // Oil-dark floor with painted bays and spills.
   g = ctx.createLinearGradient(0, floorTop, 0, h);
   g.addColorStop(0, '#55504a'); g.addColorStop(1, '#332f2c');
   ctx.fillStyle = g; ctx.fillRect(0, floorTop, w, h - floorTop);
@@ -6683,8 +5808,7 @@ function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
     st.addColorStop(0, 'rgba(12,10,10,0.5)'); st.addColorStop(1, 'rgba(12,10,10,0)');
     ctx.fillStyle = st; ctx.beginPath(); ctx.ellipse(w * sx, h * sy, w * sr, w * sr * 0.42, 0, 0, 7); ctx.fill();
   }
-  // THE PIT. The one thing a hangar never has: a lined trench in the floor with a rail round it,
-  // set off the parking bay so nothing is ever parked over it.
+  // The pit, off the parking bays, with a rail.
   const pitY = floorTop + (h - floorTop) * 0.34, pitH = (h - floorTop) * 0.26;
   ctx.beginPath();
   ctx.moveTo(w * 0.055, pitY + pitH); ctx.lineTo(w * 0.145, pitY); ctx.lineTo(w * 0.27, pitY); ctx.lineTo(w * 0.235, pitY + pitH);
@@ -6698,13 +5822,11 @@ function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   ctx.beginPath(); ctx.moveTo(w * 0.075, pitY + pitH - 16); ctx.lineTo(w * 0.255, pitY + pitH - 16); ctx.stroke();
 
   drawHazardStripe(ctx, 0, h - (h - floorTop) * 0.08, w, (h - floorTop) * 0.05);
-  // Yard clutter: a rack of spare LIFTER PODS (this fleet's tyre stack), drums, and a charge post
-  // with its hose looped over the handle.
+  // Yard clutter: spare lifter pods, drums, a charge post.
   drawPodStack(ctx, w * 0.055, h * 0.70);
   drawDrum(ctx, w * 0.16, h * 0.735, 9, '#6a5a24');
   drawDrum(ctx, w * 0.20, h * 0.75, 8, '#5a2a22');
   drawChargePost(ctx, w * 0.90, h * 0.72, night);
-  // The floor wash is sodium here, not the hangar's cold white.
   const pool = ctx.createRadialGradient(cx, h * 0.88, 4, cx, h * 0.88, w * 0.55);
   pool.addColorStop(0, `rgba(255,216,156,${0.26 + night * 0.10})`); pool.addColorStop(0.5, 'rgba(255,214,150,0.10)'); pool.addColorStop(1, 'rgba(255,214,150,0)');
   ctx.fillStyle = pool; ctx.fillRect(0, floorTop, w, h - floorTop);
@@ -6712,8 +5834,7 @@ function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.20)');   // frames the bay; it used to close it in
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
 }
-// A stack of spare lifter pods on a pallet — the depot's answer to a tyre stack, and the prop that
-// most directly says "the things this place works on do not have wheels".
+// Spare lifter pods on a pallet.
 function drawPodStack(ctx, x, y) {
   ctx.fillStyle = '#4a4038'; ctx.fillRect(x - 4, y + 12, 46, 5);                       // pallet
   for (let i = 0; i < 3; i++) {
@@ -6725,8 +5846,7 @@ function drawPodStack(ctx, x, y) {
     ctx.beginPath(); ctx.ellipse(x + 19, py + 2, pw / 2 - 3, 3.4, 0, 0.2, 2.94); ctx.stroke();
   }
 }
-// A charge post: the yard's fuel island for a machine that runs on cells, with its cable looped
-// over the handle and a live indicator that brightens after dark.
+// A charge post with its cable and a live indicator.
 function drawChargePost(ctx, x, y, night = 0) {
   ctx.fillStyle = '#3c4248'; ctx.fillRect(x, y - 34, 14, 34);
   ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(x, y - 34, 14, 34);
@@ -6737,21 +5857,15 @@ function drawChargePost(ctx, x, y, night = 0) {
 
 function drawHangarBackdrop(ctx, w, h, { tint, doorFrac = 0.34, sky } = {}) {
   const horizon = h * 0.46, floorTop = horizon, cx = w / 2;
-  // Back wall + ceiling above the horizon — a lit industrial grey, not a black void.
   let g = ctx.createLinearGradient(0, 0, 0, horizon);
   g.addColorStop(0, '#2a343e'); g.addColorStop(1, '#3a4650');
   ctx.fillStyle = g; ctx.fillRect(0, 0, w, horizon);
-  // Corrugated wall panels (vertical ribs, fainter toward the edges).
   ctx.strokeStyle = 'rgba(200,216,230,0.16)'; ctx.lineWidth = 1;
   for (let x = 0; x <= w; x += 14) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, horizon); ctx.stroke(); }
-  // A pinned-up notice board + a wall-mounted extinguisher — small human touches
-  // off to one side, clear of the door and the planes.
   drawNoticeBoard(ctx, w * 0.07, horizon * 0.28, 34, 24);
   drawExtinguisher(ctx, w * 0.93, horizon * 0.7);
 
-  // Open bay door: the real world beyond it (sky/weather), tinted by the pilot
-  // colour at the edges when given. Wide enough to read as a real open bay, not
-  // a slit — the room feels lit from beyond it, not just lamp-lit.
+  // Open bay door onto the live sky, edge-tinted by the pilot colour when given.
   const doorW = w * doorFrac, doorH = horizon * 0.78, doorY = horizon - doorH;
   ctx.save();
   ctx.beginPath();
@@ -6771,7 +5885,7 @@ function drawHangarBackdrop(ctx, w, h, { tint, doorFrac = 0.34, sky } = {}) {
   ctx.lineTo(cx + doorW * 0.5, doorY); ctx.lineTo(cx + doorW * 0.42, horizon);
   ctx.closePath();
   ctx.strokeStyle = 'rgba(40,48,56,0.7)'; ctx.lineWidth = 3; ctx.stroke();
-  // Overhead truss + hanging lamps, brighter pools of light on the ceiling.
+  // Overhead truss and hanging lamps.
   ctx.strokeStyle = 'rgba(150,168,184,0.55)'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(0, horizon * 0.12); ctx.lineTo(w, horizon * 0.12); ctx.stroke();
   for (let i = 0; i < 5; i++) {
@@ -6781,7 +5895,7 @@ function drawHangarBackdrop(ctx, w, h, { tint, doorFrac = 0.34, sky } = {}) {
     lg.addColorStop(0, 'rgba(255,250,230,0.8)'); lg.addColorStop(1, 'rgba(255,250,230,0)');
     ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(lx, horizon * 0.3, 22, 0, 7); ctx.fill();
   }
-  // Floor: perspective grid converging on the door, bright polished-concrete gradient.
+  // Floor grid converging on the door.
   g = ctx.createLinearGradient(0, floorTop, 0, h);
   g.addColorStop(0, '#454f58'); g.addColorStop(1, '#262e35');
   ctx.fillStyle = g; ctx.fillRect(0, floorTop, w, h - floorTop);
@@ -6793,27 +5907,19 @@ function drawHangarBackdrop(ctx, w, h, { tint, doorFrac = 0.34, sky } = {}) {
     const y = floorTop + (h - floorTop) * f;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
   }
-  // A yellow hazard-striped inspection lane running along the near edge — the
-  // kind of floor marking every real hangar has, and an easy "lived-in" tell.
+  // Hazard-striped inspection lane.
   drawHazardStripe(ctx, 0, h - (h - floorTop) * 0.1, w, (h - floorTop) * 0.045);
-  // Floor clutter flanking the room, clear of the door and the plane lane: a
-  // stack of crates + oil drums on the left, a mechanic's tool cart + a coiled
-  // hose reel on the right.
   drawClutterLeft(ctx, w, h, floorTop);
   drawClutterRight(ctx, w, h, floorTop);
-  // A bright pool of light under where the plane(s) sit.
   const pool = ctx.createRadialGradient(cx, h * 0.86, 4, cx, h * 0.86, w * 0.5);
   pool.addColorStop(0, 'rgba(230,238,246,0.28)'); pool.addColorStop(1, 'rgba(230,238,246,0)');
   ctx.fillStyle = pool; ctx.fillRect(0, floorTop, w, h - floorTop);
-  // A light vignette — enough to frame the scene without darkening it.
   const vg = ctx.createRadialGradient(cx, h * 0.5, Math.min(w, h) * 0.45, cx, h * 0.5, Math.max(w, h) * 0.85);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.28)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
 }
 
-// ── Lived-in detail props (pure 2D flourishes, screen-space — this is the flat
-// backdrop layer behind the 3D-projected planes, so they're drawn the same way
-// the wall/floor/door already are) ─────────────────────────────────────────────
+// ── Lived-in props (screen-space 2D, like the rest of the backdrop) ──
 function drawNoticeBoard(ctx, x, y, w, h) {
   ctx.fillStyle = '#5a4630'; ctx.fillRect(x, y, w, h);
   ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h);
@@ -6828,8 +5934,7 @@ function drawExtinguisher(ctx, x, y) {
   ctx.fillStyle = '#2a2f34'; ctx.fillRect(x + 1, y - 11, 6, 3);
   ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.stroke();
 }
-// A yellow/black hazard-striped strip along the floor's near edge (perspective-
-// sheared to sit flush with the converging floor grid).
+// Hazard stripe, sheared to sit flush with the floor grid.
 function drawHazardStripe(ctx, x0, y, w, thick) {
   ctx.save();
   ctx.beginPath(); ctx.rect(x0, y, w, thick); ctx.clip();
@@ -6862,50 +5967,36 @@ function drawClutterLeft(ctx, w, h, floorTop) {
 }
 function drawClutterRight(ctx, w, h, floorTop) {
   const bx = w * 0.86, by = h * 0.76;
-  // Mechanic's tool cart — a squat box on wheels with a couple of drawers.
   ctx.fillStyle = '#3a4a58'; ctx.fillRect(bx, by, 40, 22);
   ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(bx, by, 40, 22);
   ctx.strokeStyle = 'rgba(0,0,0,0.3)'; for (const dy of [7, 14]) { ctx.beginPath(); ctx.moveTo(bx, by + dy); ctx.lineTo(bx + 40, by + dy); ctx.stroke(); }
   ctx.fillStyle = '#1a2026'; ctx.beginPath(); ctx.arc(bx + 7, by + 26, 4, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(bx + 33, by + 26, 4, 0, 7); ctx.fill();
-  // A coiled hose/cable reel mounted on the wall just above.
   ctx.strokeStyle = 'rgba(200,80,50,0.55)'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(bx + 20, by - 24, 12, 0.2, 5.8); ctx.stroke();
   ctx.beginPath(); ctx.arc(bx + 20, by - 24, 8, 0.2, 5.8); ctx.stroke();
 }
 
-// One "bay" on the hangar floor: the backdrop + a plane's turntable composed into
-// a single canvas — the hangar-bay app's per-craft cards and the mechanics-bench
-// hero shot both draw through this instead of a bare (background-less) turntable.
+// One hangar-floor bay: backdrop plus turntable, for the hangar cards and the bench hero shot.
 export function drawHangarFloorBay(ctx, opts) {
   ctx.clearRect(0, 0, opts.w, opts.h);
-  // flat: true skips the hangar-room backdrop and leaves the canvas transparent —
-  // used by the mechanics-bench hero shot, which sits over the panel's own themed
-  // background instead of a hangar interior.
+  // `flat` skips the backdrop and leaves the canvas transparent.
   if (opts.floor3d) drawInspectBackdrop(ctx, opts.w, opts.h, opts.venue, opts.sky);   // walkaround inspect — a 3D floor, not the 2D room
-  // The bench hero stands in the SAME building the floor scene showed. It used to draw the hangar
-  // whatever venue it was handed, so a rig on the bench was parked in an aircraft shed one tab away
-  // from its own depot.
+  // The bench hero stands in the venue's own building.
   else if (opts.venue === 'garage' && !opts.flat) drawDepotBackdrop(ctx, opts.w, opts.h, { sky: opts.sky });
   else if (!opts.flat) drawHangarBackdrop(ctx, opts.w, opts.h, { tint: opts.tint, sky: opts.sky });
-  // Returns the turntable's ground anchor (see paintTurntable) so a caller can draw its own
-  // effects layer on the concrete under the machine. Aircraft callers ignore it, as they always did.
+  // Returns the turntable's ground anchor for the caller's effects.
   return opts.cls ? paintTurntable(ctx, opts) : null;
 }
 
-// ── THE PAINT BOOTH: a night garage in the NFS Underground mould ─────────────
-// Any vehicle on a turning platform in a dark tiled garage: neon tubes down the back wall, a wet
-// floor that throws them back, a chrome turntable with a chasing light ring, and underglow under
-// the machine in its own accent colour. It's a stage, not a place: the garage is drawn in 2-D
-// behind the turntable model and the platform sits where that model says its ground is (last
-// frame's anchor, so the disc tracks the craft's size). Any class drawHangarFloorBay can draw can
-// stand on it: aircraft, trucks, boats.
+// ── The paint booth ── A night garage stage: neon tubes, a wet reflective floor, a chrome turntable with a
+// chasing ring and underglow. The platform sits on last frame's ground anchor. Any drawable class can stand on it.
 const _boothAnchor = new WeakMap();
 const BOOTH_NEON = ['64,220,255', '196,72,255', '255,60,170'];
 function boothGlow(hex) {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
   if (!m) return BOOTH_NEON[0];
   const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
-  // A dark or grey accent makes no glow worth the name, so it falls back to the house cyan.
+  // A dark or grey accent falls back to the house cyan.
   const hi = Math.max(r, g, b), lo = Math.min(r, g, b);
   if (hi < 90 || hi - lo < 40) return BOOTH_NEON[0];
   const k = 255 / hi;
@@ -6920,10 +6011,9 @@ export function drawPaintBooth(ctx, opts) {
   let g = ctx.createLinearGradient(0, 0, 0, hor);
   g.addColorStop(0, '#05060c'); g.addColorStop(0.7, '#0d1020'); g.addColorStop(1, '#171a30');
   ctx.fillStyle = g; ctx.fillRect(0, 0, w, hor);
-  // Roller-door ribs, faint.
   ctx.strokeStyle = 'rgba(120,140,200,0.07)'; ctx.lineWidth = 1;
   for (let y = hor * 0.18; y < hor; y += 7) { ctx.beginPath(); ctx.moveTo(w * 0.24, y); ctx.lineTo(w * 0.76, y); ctx.stroke(); }
-  // Neon tubes: two verticals either side and a long bar over the door, with a slow buzz.
+  // Neon tubes with a slow buzz.
   const tube = (x0, y0, x1, y1, rgb, a) => {
     ctx.save(); ctx.lineCap = 'round';
     ctx.strokeStyle = `rgba(${rgb},${0.16 * a})`; ctx.lineWidth = 14; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
@@ -6938,14 +6028,12 @@ export function drawPaintBooth(ctx, opts) {
     [w * 0.26, hor * 0.12, w * 0.74, hor * 0.12, BOOTH_NEON[0], buzz(2)],
   ];
   for (const tb of tubes) tube(...tb);
-  // The floor: wet dark concrete with a tile seam grid running to the horizon.
   g = ctx.createLinearGradient(0, hor, 0, h);
   g.addColorStop(0, '#12142a'); g.addColorStop(1, '#040408');
   ctx.fillStyle = g; ctx.fillRect(0, hor, w, h - hor);
   ctx.strokeStyle = 'rgba(140,160,255,0.08)'; ctx.lineWidth = 1;
   for (let i = -8; i <= 8; i++) { ctx.beginPath(); ctx.moveTo(w / 2 + i * w * 0.02, hor); ctx.lineTo(w / 2 + i * w * 0.16, h); ctx.stroke(); }
   for (let k = 1; k < 7; k++) { const y = hor + (h - hor) * (k / 7) ** 1.7; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-  // The tubes again, smeared down the wet floor.
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const [x0, , , , rgb, a] of tubes.slice(0, 2)) {
     const rg = ctx.createLinearGradient(0, hor, 0, h);
@@ -6953,12 +6041,11 @@ export function drawPaintBooth(ctx, opts) {
     ctx.fillStyle = rg; ctx.fillRect(x0 - 5, hor, 10, h - hor);
   }
   ctx.restore();
-  // The platform, where the model's ground was last frame.
+  // The platform, on last frame's ground anchor.
   const an = _boothAnchor.get(ctx.canvas) || { sx: w / 2, sy: h * 0.66 };
   const R = Math.min(w * 0.4, h * 0.62), ry = R * 0.2;
   const glow = boothGlow(opts.livery?.accent || opts.livery?.trim);
   const disc = (r, fill) => { ctx.beginPath(); ctx.ellipse(an.sx, an.sy, r, r * ry / R, 0, 0, 7); ctx.fillStyle = fill; ctx.fill(); };
-  // Underglow: a pool of the machine's accent colour spilling past the disc.
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   ctx.translate(an.sx, an.sy); ctx.scale(1, ry / R);
   const ug = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R * 1.6);
@@ -6970,7 +6057,6 @@ export function drawPaintBooth(ctx, opts) {
   const dg = ctx.createLinearGradient(an.sx - R, 0, an.sx + R, 0);
   dg.addColorStop(0, '#15171f'); dg.addColorStop(0.5, '#3b3f4c'); dg.addColorStop(1, '#15171f');
   disc(R, dg);
-  // Chrome rim, then a ring of LEDs chasing round it in the underglow colour.
   ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(220,228,246,0.9)';
   ctx.beginPath(); ctx.ellipse(an.sx, an.sy, R, ry, 0, 0, 7); ctx.stroke();
   for (let i = 0; i < 32; i++) {
@@ -6986,12 +6072,9 @@ export function drawPaintBooth(ctx, opts) {
   }
   ctx.restore();
   ctx.save(); ctx.globalAlpha = 0.14; disc(R * 0.7, 'rgba(200,210,255,0.4)'); ctx.restore();
-  // The vehicle, turning.
-  // A spinning showpiece fills the pane, so it rasterises on a tighter budget than a still hero
-  // shot: the supersample is what gives way, and on a model that never stops turning nobody sees it.
+  // The vehicle, on a tighter raster budget: a spinning model never shows the lost supersampling.
   const res = drawHangarFloorBayOnto(ctx, { ...opts, flat: true, yaw: (opts.spin ?? t * 0.35) + (opts.yaw || 0), elev: opts.elev ?? 0.28, zoom: opts.zoom ?? 1.2, budget: opts.budget ?? BOOTH_BUDGET_PX });
   if (res?.ground) _boothAnchor.set(ctx.canvas, { sx: res.ground.sx, sy: res.ground.sy });
-  // Two coloured key lights raking in from the corners, added over everything.
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const [fx, rgb] of [[0.06, BOOTH_NEON[2]], [0.94, BOOTH_NEON[0]]]) {
     const sx = w * fx, cg = ctx.createLinearGradient(sx, 0, an.sx, an.sy);
@@ -6999,25 +6082,16 @@ export function drawPaintBooth(ctx, opts) {
     ctx.fillStyle = cg; ctx.beginPath(); ctx.moveTo(sx - 10, 0); ctx.lineTo(sx + 10, 0); ctx.lineTo(an.sx + R * 0.5, an.sy); ctx.lineTo(an.sx - R * 0.5, an.sy); ctx.closePath(); ctx.fill();
   }
   ctx.restore();
-  // A vignette to pull the eye in.
   const vg = ctx.createRadialGradient(w / 2, h * 0.55, Math.min(w, h) * 0.3, w / 2, h * 0.55, Math.max(w, h) * 0.75);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.6)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
 }
-// drawHangarFloorBay clears the canvas first; the booth has already drawn, so this skips the clear.
+// Like drawHangarFloorBay without the clear.
 function drawHangarFloorBayOnto(ctx, opts) { return opts.cls ? paintTurntable(ctx, opts) : null; }
 
-// ── The hangar FLOOR: one continuous 3D room, every craft parked in it ────────
-// A single shared camera (not one camera per plane) looks across a raked showroom
-// row: each entry sits at its own lateral offset in the SAME world space, so
-// they're genuinely side-by-side in one hangar rather than a strip of independent
-// thumbnails. `entries = [{ id, cls, livery, wreck, tint, label }]`. Returns the
-// screen-space hit circle for each entry so the caller can do click-to-select on
-// the one canvas (there's no per-plane DOM element to attach a listener to).
-// Resolve a click on a floor canvas to one of drawHangarScene's hit records. Silhouette boxes win
-// over the footprint circles, and the NEAREST box wins when two overlap — a rig parked behind
-// another is exactly the case where the one in front is what you meant. The circle is only reached
-// when nothing was drawn for that machine, so a click near a bay is never simply ignored.
+// ── The hangar floor ── One shared camera over a row of craft in the same room.
+// `entries = [{ id, cls, livery, wreck, tint, label }]`; returns hit records for click-to-select.
+// pickSceneHit: the nearest silhouette box wins; footprint circles are the fallback.
 export function pickSceneHit(hits, x, y) {
   let best = null, bestZ = Infinity;
   for (const h of hits) {
@@ -7039,26 +6113,17 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
   ctx.clearRect(0, 0, w, h);
   const n = entries.length;
   if (venue === 'helipad') drawHelipadBackdrop(ctx, w, h, { sky });
-  // A covered dock is its own room for the same reason a depot is — see drawDockBackdrop.
   else if (venue === 'dock') drawDockBackdrop(ctx, w, h, { doorFrac: Math.min(0.9, 0.4 + n * 0.12), sky });
-  // A truck depot is its OWN room — see drawDepotBackdrop for why a tint over the hangar wasn't it.
   else if (venue === 'garage') drawDepotBackdrop(ctx, w, h, { doorFrac: Math.min(0.9, 0.5 + n * 0.05), sky });
   else drawHangarBackdrop(ctx, w, h, { doorFrac: Math.min(0.86, 0.34 + n * 0.05), sky });
   if (!n) return [];
 
   const E = 0.34, cosE = Math.cos(E), sinE = Math.sin(E);
   const camYaw = 0.5, cy = Math.cos(camYaw), sy = Math.sin(camYaw);
-  // Real per-craft size + a FIXED lane pitch (size-independent) so a big craft doesn't shove its
-  // neighbours. The camera then FITS the scene: stand back far enough to clear the row's depth +
-  // the biggest craft, then pick the focal that fills the frame — so it zooms IN for a few small
-  // craft and OUT when there are many, or a Leviathan's on the floor.
+  // Real per-craft size, then fit the camera to the row.
   const scales = entries.map(e => MODEL_SCALE[e.cls] || 1);
   const maxSc = Math.max(...scales);
-  // Build each model ONCE (aircraftFaces is memoised, but the bounds pass needs the vertices) and
-  // fit the camera to what is ACTUALLY there rather than to a guessed ±1.2-unit box. That guess was
-  // near enough for an airframe (they measure ±1.05 across the wing) and five times too big for a
-  // truck, which is built at ±0.2 — so the machine with the most room to spare on the floor, one
-  // rig alone in the garage, was drawn as the smallest thing the renderer has ever put on screen.
+  // Build each model once and fit to its real bounds (a truck is a fifth of an airframe).
   const models = entries.map(e => (e.wreck ? wreckFaces() : aircraftFaces(e.cls, 1, !!e.armed, e.variant || '')).map(poseAtRest));
   const bounds = models.map((faces, i) => {
     const s = scales[i];
@@ -7067,23 +6132,17 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     if (lo[0] > hi[0]) { lo = [-1.2 * s, -1.1 * s, -0.35 * s]; hi = [1.2 * s, 1.1 * s, 0.62 * s]; }
     return { lo, hi };
   });
-  // Lane pitch is size-independent WITHIN a floor (a big craft must not shove its neighbours) but it
-  // is measured off the widest thing standing there, so a row of trucks parks like trucks rather
-  // than with three empty bays of concrete between each pair. Aircraft still land on the old 2.6.
+  // Lane pitch is fixed within a floor but measured off the widest thing there (aircraft keep 2.6).
   const maxW = Math.max(...bounds.map(b => b.hi[1] - b.lo[1]));
   const spacing = Math.min(2.6, Math.max(0.6, maxW * 1.9));
   const laneOf = (i) => (i - (n - 1) / 2) * spacing;
   const spread = (n - 1) / 2 * spacing;
-  // Standing-back distance follows the size of the thing too. Focal alone would fill the frame from
-  // anywhere, but a camera parked four units off a half-unit truck is a long lens: correctly sized
-  // and perspective-flat, a photograph of a model. The reference span is an airframe's, so every
-  // aeroplane keeps exactly the distance it had.
+  // Stand-back distance scales with size too, or a small truck is shot on a long lens. Aircraft keep their distance.
   const maxSpan = Math.max(...bounds.map(b => Math.max(b.hi[0] - b.lo[0], b.hi[1] - b.lo[1])));
   const fitK = clampN(maxSpan / 2.2, 0.4, 1);
   const camDist = (3.1 + maxSc * 0.85) * fitK + spread * 0.32;
   const ox = w / 2, oy = h * 0.6;
-  // Focal-independent screen offset (per unit focal) — project each craft's rough bounding box
-  // and take the focal that fits the widest/tallest extent within the frame, with a little air.
+  // Fit the focal to every craft's projected bounding box.
   const rel = (F, G, H) => { const fx = F * cy - G * sy, gy = F * sy + G * cy; const camY = H * cosE - fx * sinE, camZ = fx * cosE + H * sinE; const z = Math.max(0.3, camDist - camZ); return { x: gy / z, y: camY / z }; };
   let exX = 1e-3, exTop = 1e-3, exBot = 1e-3;
   entries.forEach((e, i) => {
@@ -7097,14 +6156,12 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
   const focal = clampN(Math.min((0.46 * w) / exX, (oy - 0.06 * h) / exTop, (0.94 * h - oy) / exBot),
     0.45 * Math.min(w, h), 2.6 * Math.min(w, h));
   const Ln = Math.hypot(-0.25, -0.45, 0.86), lx = -0.25 / Ln, ly = -0.45 / Ln, lz = 0.86 / Ln;
-  // Project a point in ROOM space (F,G,H) — G carries the row's lateral spread.
+  // Project a room-space point; G carries the lane offset.
   const proj = (F, G, H) => {
     const fx = F * cy - G * sy, gy = F * sy + G * cy, hz = H;
     const camY = hz * cosE - fx * sinE, camZ = fx * cosE + hz * sinE;
     const z = camDist - camZ;
-    //  is the same depth with the camera ELEVATION taken out — the ground-plane distance the
-    // truck part sort keys on. See the ⚠ on  in sortTruckFaces: height must not decide which of
-    // two boxes on a chassis is in front. Costs one multiply and is ignored by everything else.
+    // `gz` is depth without the camera elevation, the ground-plane key sortTruckFaces uses.
     return { sx: ox + gy * focal / z, sy: oy - camY * focal / z, z, gz: camDist - fx * cosE, wx: fx, wy: gy, wz: hz };
   };
   const eyeW = [camDist * cosE, 0, camDist * sinE];   // the shared camera in (fx,gy,hz) space, for backface culling
@@ -7114,8 +6171,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     const laneG = (i - (n - 1) / 2) * spacing;
     const sc = scales[i];   // real relative size — a Cessna parks much smaller than a Twin Otter
     const faces = models[i];
-    // Taildraggers (Grasshopper/Locust, and the Viper) park nose-high on the tailwheel — same
-    // 3-point sit the turntable applies, so a craft looks identical on the floor and on the bench.
+    // Taildraggers park nose-high, as on the turntable.
     const gpr = e.wreck ? 0 : groundPitchFor(e.cls, !!e.armed) * Math.PI / 180;
     const cgp = Math.cos(gpr), sgp = Math.sin(gpr);
     const tilt = gpr ? (v) => [v[0] * cgp - v[2] * sgp, v[1], v[0] * sgp + v[2] * cgp] : null;
@@ -7124,8 +6180,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     const roll = e.wreck ? -0.22 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
     const selected = e.id === selId;
     const cen = proj(0, laneG, 0);   // this plane's own centre in normal-space (its lane, not the origin) — for backface culling
-    // A model-space point through exactly the transform its vertices take. Written once so a box's
-    // own centre cannot be projected through a slightly different chain than the box it belongs to.
+    // A model point through exactly its vertices' transform.
     const projModelPoint = (v0) => {
       const v = tilt ? tilt(v0) : v0;
       const vy = v[1] * sc, vz = v[2] * sc;
@@ -7142,31 +6197,21 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
         return proj(v[0] * sc, laneG + g1, h1);
       });
       if (P.some(q => q.z <= 0.15)) continue;   // skip just this FACE, not the whole plane
-      // Newell's method for the face normal — stays valid when one edge collapses to zero length
-      // (the nose/tail cone rings degenerate to a point), so the body cull no longer drops the
-      // whole nose cone off a zero normal (the "missing nose" bug).
+      // Newell's method (see paintTurntable).
       let nx = 0, ny = 0, nz = 0;
       for (let i = 0; i < P.length; i++) {
         const c = P[i], d = P[(i + 1) % P.length];
         nx += (c.wy - d.wy) * (c.wz + d.wz); ny += (c.wz - d.wz) * (c.wx + d.wx); nz += (c.wx - d.wx) * (c.wy + d.wy);
       }
       const nl = Math.hypot(nx, ny, nz) || 1;
-      // Backface cull the closed-hull roles so a far-side facet can't bleed through the near side
-      // (painter's sort alone lets it win in places). Outward is measured from THIS plane's centre.
-      // ⚠ A BOX IS CULLED AGAINST ITS OWN CENTRE — see the same note in paintTurntable. `face.cen`
-      // bounds one convex solid; the lane centre bounds the whole machine, and for a rig that is a
-      // different point for every one of the dozens of boxes bolted along it.
+      // Backface cull against the plane's own lane centre, or ⚠ a box's own `cen` (see paintTurntable).
       const solidCen = face.cen ? projModelPoint(face.cen) : null;
       if (solidCen || CULL_ROLE.has(face.role)) {
         let cx = 0, cy2 = 0, cz2 = 0; for (const q of P) { cx += q.wx; cy2 += q.wy; cz2 += q.wz; }
         const m = P.length; cx /= m; cy2 /= m; cz2 /= m;
         const ref = solidCen || cen;
         const dx = cx - ref.wx, dy = cy2 - ref.wy, dz = cz2 - ref.wz;
-        // ⚠ A flat box is a SHEET and has no outward — see the same guard in paintTurntable. It is
-        // what keeps a headlamp lens two-sided instead of letting rounding decide it is a back face.
-        // ⚠ ALONG THE NORMAL, not the length of the offset — the third copy of this test and the
-        // same correction. A long offset that is entirely SIDEWAYS to the face says nothing about
-        // which side of it is out, and the sign of that zero is what flickered.
+        // ⚠ No confident outward along the normal, no cull (see paintTurntable).
         if (solidCen && Math.abs(nx * dx + ny * dy + nz * dz) / nl <= 1e-4) { /* two-sided: no confident outward */ }
         else {
           const out = (nx * dx + ny * dy + nz * dz) < 0 ? -1 : 1;   // flip normal to point away from that centre
@@ -7180,9 +6225,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       let nf = Infinity, xf = -Infinity, hf = Infinity;
       for (const q of P) { if (q.z < nf) nf = q.z; if (q.z > xf) xf = q.z; if (q.gz != null && q.gz < hf) hf = q.gz; }
       const avgZf = z / P.length;
-      // ⚠ THE SHADE IS COMPUTED ONCE AND KEPT BOTH WAYS — the same rule as paintTurntable. `col` is
-      // the CSS string canvas wants; `rv` is the same numbers the depth rasteriser writes into a
-      // pixel buffer. Two derivations agree until one of them is edited.
+      // ⚠ Shade kept both ways, as in paintTurntable.
       const shk = face.sh * pal.fmul * light * (selected ? 1.12 : 1) * (e.wreck ? 0.8 : 1);
       const rv = [clampN(rgb[0] * shk, 0, 255) | 0, clampN(rgb[1] * shk, 0, 255) | 0, clampN(rgb[2] * shk, 0, 255) | 0];
       const rec = { P, role: face.role, avgZ: avgZf, part: face.part, nf, xf, hf: hf === Infinity ? null : hf, af: avgZf, i: drawn.length, rv, col: shadeRgb(rgb, shk) };
@@ -7191,15 +6234,9 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       drawn.push(rec);
     }
     const origin = proj(0.2, laneG, 0);
-    // The click target is the machine's own on-screen size — a fixed fraction of the focal made
-    // every truck's circle overlap its neighbours', since a rig is a quarter of an airframe wide.
+    // Click circle sized to the machine.
     const bb = bounds[i], half = Math.max(bb.hi[0] - bb.lo[0], bb.hi[1] - bb.lo[1]) * 0.25;
-    // Two click targets, not one. The circle is centred on the machine's FOOTPRINT at floor level and
-    // sized off a quarter of its longest axis — fine as a fallback, wrong as the whole answer for
-    // anything longer than it is wide: on a rig it covers the middle of the chassis and misses both
-    // the cab you were actually aiming at and the body standing well above H=0. So the real target is
-    // the silhouette's own screen-space box, taken from the faces that were just projected — it is
-    // exactly the pixels the player can see, at no extra projection cost.
+    // Real target: the silhouette's screen box, plus a footprint circle sized to the machine as a fallback.
     let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9;
     for (const rec of drawn) for (const q of rec.P) {
       if (q.sx < bx0) bx0 = q.sx; if (q.sx > bx1) bx1 = q.sx;
@@ -7211,13 +6248,11 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     return { entry: e, faces: drawn.filter(Boolean), avgZ: proj(0, laneG, 0).z, laneG, origin, selected, sc, jazzImg, tilt };
   });
 
-  // Depth-sort WHOLE PLANES first (far to near), then faces within each — so one
-  // plane never bleeds through the fuselage of the one behind it.
+  // Sort whole craft far to near, then faces within each.
   groups.sort((a, b) => b.avgZ - a.avgZ);
   ctx.lineJoin = 'round';
   for (const grp of groups) {
-    // A bright ground spotlight under the selected craft (or the pilot-tinted glow
-    // under the CHARTER Mule) — read before the model so it sits under the wheels.
+    // Spotlight under the selected craft (or the CHARTER Mule's tint).
     if (grp.selected || grp.entry.tint) {
       const col = grp.entry.tint ? (hex2rgb(grp.entry.tint) || [79, 184, 224]) : [143, 208, 255];
       const spotR = Math.max(50, Math.min(140, (focal / grp.origin.z) * 0.5));
@@ -7225,30 +6260,13 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       ring.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},0.4)`); ring.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
       ctx.fillStyle = ring; ctx.beginPath(); ctx.arc(grp.origin.sx, grp.origin.sy + 8, spotR, 0, 7); ctx.fill();
     }
-    // ── THE FLOOR IS ORDERED TO THE CAMERA, NOT TO A KEY ───────────────────────
-    // Same depth buffer the windscreen and the walkaround use, and it is here because this was the
-    // last renderer of the truck mesh still sorting. Which is exactly the failure model-raster.js
-    // keeps a counter for: a rig was solid out of the windscreen you drive it from and on the bench
-    // you tune it at, and still had a grille bar in front of the panel it is screwed to on the
-    // forecourt you buy it from. A pile of nested convex boxes has no correct per-part order — a
-    // big panel is behind a small one over here and in front of it over there — so the fills go
-    // through a per-pixel depth test, exact from every angle including straight down.
-    //
-    // ⚠ EACH MACHINE GETS ITS OWN PASS, AND THE ROW IS STILL PAINTED FAR→NEAR. Two rigs a lane
-    // apart never interpenetrate, so one buffer per machine is both cheaper and enough; the
-    // whole-plane sort above is what keeps the row itself in order.
-    //
-    // The sort below is the live fallback for every frame the blit cannot land, so it is still
-    // gated: the lamp smoke asks model-raster's `_setBlitEnabled` for it by name and measures the
-    // draw order exactly as it always did.
-    // Its hysteresis is keyed per ENTRY *and per mesh* — part ids come from one build-time counter,
-    // so the same integer means a different box in a different variant, and a lot that swaps a
-    // hauler for a drayman under one id would hand the new mesh the old mesh's part order.
+    // Each machine goes through the shared depth pass on its own (lanes never interpenetrate); the row stays far to near.
+    // The sort is the fallback (the lamp smoke forces it via model-raster's `_setBlitEnabled`). Hysteresis is keyed per
+    // entry and per mesh, because part ids repeat across variants.
     const faces = grp.faces;
     if (!grp.entry.wreck) pushParkedRotorFaces(faces, grp.entry.cls, !!grp.entry.armed, 1.9 + grp.laneG * 0.6,
       (v0) => { const v = grp.tilt ? grp.tilt(v0) : v0; return proj(v[0] * grp.sc, grp.laneG + v[1] * grp.sc, v[2] * grp.sc); }, 0.15);
-    // A budget shared across the row: eight rigs at full device resolution is eight times the most
-    // expensive thing in the frame, and the sharpening is what gives way — never the pass.
+    // The raster budget is shared across the row.
     const rasterOK = modelDepthPass(ctx, faces, { min: RASTER_MIN_PX, budget: RASTER_BUDGET_PX / Math.max(1, n) });
     if (!rasterOK) {
       if (grp.entry.cls === 'truck') sortTruckFaces(faces, { id: `lot:${grp.entry.id}:${grp.entry.variant || ''}` }, 1);
@@ -7263,15 +6281,10 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       if (fc.uv) overlayJazz(ctx, fc.P, fc.uv, grp.jazzImg);   // Memphis splatter (same body-space map as the turntable)
       if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv, fc.cart);  // greenhouse art (same authored map as the turntable)
       if (!grp.entry.wreck && (fc.role === 'glass' || fc.role === 'window')) glassSheen(ctx, fc.P);   // glassy specular on canopy/windows
-      // ⚠ NO OUTLINE OVER A DEPTH-BUFFERED MODEL — the stroke follows a face's WHOLE outline,
-      // including the half that lost the depth test, so it would draw the hidden part of every box
-      // as a wireframe over the panel in front of it. Half its job was hiding sort seams anyway.
+      // ⚠ No outline over a depth-buffered model (see paintTurntable).
       if (!rasterOK) { ctx.strokeStyle = 'rgba(8,10,14,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
     }
-    // A thin bright outline on the SELECTED craft — reads at a glance in a room
-    // full of other planes, where a colour cue alone would be too subtle. ONLY where there is
-    // something to tell it apart FROM: on every body/wing quad of a lone machine it stops reading
-    // as a highlight and starts reading as a blue wireframe box drawn over the paint.
+    // Outline the selected craft, only when there's more than one.
     if (grp.selected && n > 1) {
       for (const fc of faces) {
         if (rasterOK && !fc.seen) continue;   // a highlight on a face that lost the depth test is a line through the bodywork
@@ -7283,7 +6296,6 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
         }
       }
     }
-    // Floating tail label — always legible regardless of paint colour.
     if (grp.entry.label) {
       const ly = grp.origin.sy + 20;
       ctx.font = `${grp.selected ? 'bold ' : ''}11px monospace`; ctx.textAlign = 'center';

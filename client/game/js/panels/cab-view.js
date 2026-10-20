@@ -22,7 +22,7 @@ import { suppressWeatherFx } from './weather-fx.js';
 import { createHelmWheel, TRUCK_LOCK_TURNS, TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { truckLivery } from './aircraft3d.js';   // stored paint → renderer livery, the one conversion
 import { sendCmdSilent } from '../net.js';
-import { CAB_VIEW_TUNE } from '../../../shared/cab-render-tune.js';   // this view's own load-shedding numbers — see that file for why they are not RENDER_TUNE's
+import { CAB_VIEW_TUNE } from '../../../shared/cab-render-tune.js';   // this view's own load-shedding numbers (see that file)
 import { TILES_PER_MILE } from '../../../shared/road-units.js';   // the one tiles→miles conversion, shared with the server
 import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
 import { makeDraggable } from './confirm.js';
@@ -824,7 +824,7 @@ export function openCab(ctx = {}) {
     autoClutch: autoCluPref(),   // manual mode works the clutch for you unless this is off
     autoDip: 0,
     knob: knobPref(),
-    auto: autoPref(),   // automatic shifting — a hand on the lever, never a different gearbox
+    auto: autoPref(),   // automatic shifting: a hand on the lever, never a different gearbox
     shiftSeq: null,     // the beat of a shift in progress (autoShift)
     shiftCool: 0,
     map: ctx.map, mapX: ctx.mapX, mapY: ctx.mapY,
@@ -918,7 +918,7 @@ export function openCab(ctx = {}) {
     el.addEventListener('pointercancel', off);
     el.addEventListener('keydown', (e) => { if (isPress(e) && !e.repeat) on(e); });
     el.addEventListener('keyup', (e) => { if (isPress(e)) off(); });
-    el.addEventListener('blur', () => off());          // tabbed away mid-press — nothing else releases it
+    el.addEventListener('blur', () => off());          // tabbed away mid-press; nothing else releases it
     addEventListener('pointerup', off);
     winOff.push(() => off());
   };
@@ -1300,109 +1300,54 @@ export function openCab(ctx = {}) {
   }
 
   // ── WHO HAS THE KEYBOARD ───────────────────────────────────────────────────
-  //
-  // The cab listens on the WINDOW and steps aside for a focused text field (see st.onKey), which is
-  // correct and which is also how a driver ends up typing "aaazzzxc" into the command bar without
-  // ever finding out: the bar is three inches under the windscreen, it is where every other part of
-  // this game wants focus, and nothing about a truck ever asked for it back.
-  //
-  // So the cab TAKES it — once on mount, and again on any press inside the pane — and says so on
-  // the glass. Nothing is trapped: clicking the command bar gives it straight back, because a
-  // driver who wants to say something to the room must be able to, and the tag flips to tell them
-  // the keys went with it.
-  //
-  // ⚠ THAT IS ALL SHARED NOW (seat-keys.js), AND IT WAS A DOZEN LINES IN THREE PLACES. The flight
-  // sim and the charter cabin each carried their own copy of it and the wheelhouse and free look
-  // carried none, so two of the five seats simply never took the keyboard. Moving it also fixed a
-  // fault every copy had: this bound on the BUBBLE, and `bindFreeCamPointer` stops a pointerdown
-  // dead on the capture phase of the glass inside this pane — so with the camera off its mount,
-  // clicking the picture stopped handing the keys back, in the one mode where the keys are the
-  // whole control scheme.
-  //
-  // The chip stays the cab's own: it is placed against the shelf and hides its quiet half on a
-  // touch screen, and both of those are judgements about a truck rather than about seats.
+  // The cab takes the keyboard on mount and on any press in the pane, and says so on the glass;
+  // clicking the command bar hands it back. Shared with the other seats in seat-keys.js; the chip is the cab's own.
   st.cabWrap = container.querySelector('.cab-wrap');
   claimSeatKeyboard(st.cabWrap, { label: 'CAB', tag: container.querySelector('.cab-focustag') });
   touchWipers(st);   // before the paint: st.paintWipers isn't assigned yet this early in the mount
   paintWipers();
 
   // ── THE GATE ───────────────────────────────────────────────────────────────
-  //
-  // THE SLOT TABLE IS THE WHOLE THING. Positions are in the plate's own 0..1 space so the gate can
-  // be any size on any screen, and `slot` is the position IN THE RANGE (1-4) rather than a gear —
-  // the gear is `slot + range*4`, which is the one line that makes this a tree instead of eight
-  // hard-coded holes and is why adding a nine-speed later is a number, not a layout.
   const GATE = CAB_GATE;
   const gearOfSlot = (s) => (s.gear != null ? s.gear : s.slot + (st.range ? 4 : 0));
-  // Where the knob SITS when nobody is holding it: the slot the box is actually in. A gate that did
-  // not do this would be a control that forgets what it did, which is the one thing a gearstick is
-  // incapable of.
+  // Where the knob rests: the slot the box is actually in.
   const slotOfGear = (g) => GATE.find((s) => gearOfSlot(s) === g) || null;
   {
     const gate = container.querySelector('.cab-gate');
     const lever = container.querySelector('.cab-lever');
     const rangeBtn = container.querySelector('.cab-range');
     let drag = null;
-    // WHERE THE LEVER IS ROOTED. Below the plate and on the left rail's line — the floor of the cab
-    // is off the bottom of this box, and a stick that pivoted at the middle of the gate would lean
-    // the wrong way in the top half. In gate fractions, so it moves with the plate at every size.
-    // ── HOW FAR THE KNOB IS FROM THE SLOT ─────────────────────────────────────
-    // The rod is a fixed length at a fixed lean, so the knob sits at a constant offset above the
-    // point the lever passes through the gate. These two numbers ARE that offset, and they are the
-    // only reason the drag needs to know the stick exists: your hand is on the knob, and the thing
-    // being positioned is the base. Without the correction the slot snaps up to the pointer and the
-    // lever ends up a stick-length above wherever you meant to put it — which reads as the gate
-    // being mis-aligned rather than as the grab being offset.
-    // ⚠ THE CSS TAKES ITS LENGTH FROM HERE (`--cab-stick`, set on the gate at mount), so there is
-    // one number rather than a constant in a stylesheet and a matching guess in a handler.
+    // The knob sits a fixed stick-length above the slot the rod passes through; a drag corrects by
+    // this offset, since the hand is on the knob. ⚠ The CSS reads its length from '--cab-stick', set here.
     const STICK_PX = 34, LEAN_DEG = -7;
     const KNOB_DX = Math.sin(LEAN_DEG * Math.PI / 180) * STICK_PX;
     const KNOB_DY = -Math.cos(LEAN_DEG * Math.PI / 180) * STICK_PX;
     gate.style.setProperty('--cab-stick', STICK_PX + 'px');
-    // Nothing but the two fractions now. The stick and the knob are children of this point, so they
-    // come with it — there is no second geometry to keep in step and no rect to measure.
     const put = (x, y) => {
       lever.style.setProperty('--gx', x.toFixed(3));
       lever.style.setProperty('--gy', y.toFixed(3));
-      // …and the painted gate draws the knob at the same point. ⚠ HERE RATHER THAN IN 'glide', so
-      // a DRAG publishes it too — a hand on the shelf's lever moves the painted one, which is the
-      // whole claim that there is one gearbox rather than two pictures of one.
+      // ⚠ Published here rather than in glide, so a drag on the shelf lever moves the painted one too.
       st.gatePos = { x, y };
     };
-    // What the painted gate is handed: the slot table in its own 0..1 space, labelled from the
-    // range the way the plate's own slots are, and where the knob is right now. The renderer
-    // derives its rails from the points, so a nine-speed box is a row in CAB_GATE and nothing at
-    // all in windshield.js.
+    // What the painted gate gets: the slot table in 0..1, labelled for the range, and the knob position.
+    // The renderer derives its rails from the points.
     st.gateView = () => ({
       pts: GATE.map((g) => ({ x: g.x, y: g.y, label: g.label || String(gearOfSlot(g)) })),
       at: st.gatePos || { x: 0.38, y: 0.50 },
       range: !!st.range,
       knob: st.knob || 'ball',
     });
-    // ── THE LEVER MOVES, IT DOES NOT TELEPORT ─────────────────────────────────
-    // Every shift used to write the new slot straight onto the element, which is right for a hand
-    // (yours was already there) and wrong for the automatic, whose whole justification is that you
-    // can watch it work. So the knob is eased toward wherever it is supposed to be, and because it
-    // eases toward the SLOT rather than along an authored path, an auto shift crosses the gate the
-    // way the gate is shaped: out through neutral, then over, because the sequence parks it in
-    // neutral for a beat on the way (see autoShift).
-    //
-    // ⚠ NEVER WHILE A HAND IS ON IT. A drag writes the position every pointermove, and easing that
-    // would put the knob a frame behind the pointer — the one place a lag is unmistakable.
-    // ⚠ AND IT SNAPS ON THE FIRST PAINT, or the lever slides in from the corner of the plate every
-    // time the cab is mounted, which reads as the truck arriving with the stick in the wrong place.
+    // ── THE LEVER MOVES, IT DOESN'T TELEPORT ─────────────────────────────────
+    // The knob eases toward its slot so the automatic can be watched. ⚠ Never while a hand is on it
+    // (a frame of lag under the pointer shows), and it snaps on the first paint.
     let at = null, lastPut = 0;
-    const GLIDE_SPEED = 6.5;   // gate fractions a second — the crossgate is ~0.1 s, a whole H ~0.25 s
+    const GLIDE_SPEED = 6.5;   // gate fractions a second: crossgate ~0.1 s, a whole H ~0.25 s
     const glide = (x, y) => {
       const now = performance.now();
       const dt = at ? Math.min(0.1, (now - lastPut) / 1000) : 0;
       lastPut = now;
       if (!at) { at = { x, y }; put(x, y); return; }
-      // ALONG THE RAILS, never across them. A straight-line ease cut the corner from 4 to 5 through
-      // the plate between the slots, which is the one move a gate physically forbids. So the knob
-      // walks the channel network at a constant speed: along its own rail to the crossgate, across,
-      // then into the slot — and an auto shift is visibly a stick moving through each position on
-      // the way. Same column (1 to 2, or N to itself) is one straight run.
+      // Along the rails at constant speed, never a straight line across the plate.
       let step = GLIDE_SPEED * dt;
       const route = Math.abs(at.x - x) < 0.004 ? [[x, y]] : [[at.x, 0.5], [x, 0.5], [x, y]];
       for (const [wx, wy] of route) {
@@ -1415,10 +1360,8 @@ export function openCab(ctx = {}) {
     };
     // A drag has the knob under the pointer; when it ends, the ease resumes from where it was left.
     const dropGlide = (x, y) => { at = { x, y }; lastPut = performance.now(); };
-    // Rest the knob wherever the box is. Called on every frame's readout paint (see paintGate) so a
-    // shift from ANY source — the keys, the ▲▼ buttons, the splitter — moves the lever too.
-    // THE SLOTS ARE LABELLED FROM THE RANGE, every frame — a plate reading 1 2 3 4 while the
-    // collar says HI is a plate lying about four of its six positions.
+    // Rest the knob wherever the box is, every frame, so a shift from any source moves the lever.
+    // Slot labels follow the range every frame.
     const slots = [...container.querySelectorAll('.cab-slot')];
     const paintSlots = () => {
       for (const el of slots) {
@@ -1434,21 +1377,14 @@ export function openCab(ctx = {}) {
     st.paintGate = () => {
       paintSlots();
       if (drag) return;
-      // THE RANGE IS DERIVED, NEVER REMEMBERED SEPARATELY. `,` and `.` and the ▲▼ buttons all walk
-      // the box sequentially and know nothing about a gate, so if the lever's range were its own
-      // stored fact it would go stale the first time somebody used a key — the knob sitting in slot
-      // 2 while the truck was in 6. The gear is the truth; which half of the gate you are looking at
-      // falls out of it.
+      // ⚠ The range is derived from the gear, never stored separately: the sequential keys know nothing of the gate.
       if (st.sim.gear > 0 && st.range !== st.sim.gear > 4) { st.range = st.sim.gear > 4; syncRange(); }
       const s = slotOfGear(st.sim.gear);
-      // A gear with no slot is one the OTHER range owns (you are in 6 with the lever showing LO).
-      // The knob goes to neutral and the range button is the thing that is wrong, which is exactly
-      // what it looks like in the cab.
+      // A gear with no slot belongs to the other range: the knob goes to neutral.
       glide(s ? s.x : 0.38, s ? s.y : 0.50);
       gate.classList.toggle('cab-gate-off', !s && st.sim.gear !== 0);
     };
-    // NEAREST LEGAL SLOT, never "wherever you let go". A gate is a physical constraint and the
-    // strongest thing it does is stop you selecting something that is not a gear.
+    // Nearest legal slot, never wherever you let go.
     const snap = (px, py) => {
       let best = null, bd = Infinity;
       for (const s of GATE) {
@@ -1457,23 +1393,16 @@ export function openCab(ctx = {}) {
       }
       return best;
     };
-    // ── THE LEVER CANNOT LEAVE THE SLOTS ──────────────────────────────────────
-    // The knob used to follow the pointer anywhere on the plate and only snap to a gear when you
-    // let go, which is a lever floating over a diagram of a gate rather than a lever IN one. A real
-    // gate is a physical constraint you can feel the whole way through the movement — you push
-    // across the crossgate and it stops, you pull down a rail and it will not go sideways — and
-    // that constraint is most of what makes an H-pattern learnable without reading anything.
-    // So the pointer is PROJECTED onto the milled channels every frame. These four segments are the
-    // same rails the plate draws (.cab-rail-l/-r/-x/-rev), in the same fractions.
+    // ── THE LEVER CAN'T LEAVE THE SLOTS ──────────────────────────────────────
+    // The pointer is projected onto the milled channels every frame: the same rails the plate draws.
     const CHANNELS = [
-      [0.24, 0.15, 0.24, 0.85],   // left rail — 1 over 2
-      [0.52, 0.15, 0.52, 0.85],   // right rail — 3 over 4
+      [0.24, 0.15, 0.24, 0.85],   // left rail: 1 over 2
+      [0.52, 0.15, 0.52, 0.85],   // right rail: 3 over 4
       [0.80, 0.50, 0.80, 0.85],   // reverse's dogleg, off the crossgate
       [0.24, 0.50, 0.80, 0.50],   // the crossgate everything passes through
     ];
-    // Nearest point on the channel network. Plain segment projection, four times — the aspect
-    // squash the snap test uses is deliberately NOT applied here: this is a position on screen, not
-    // a question about which gear you meant, and squashing it would slide the knob off the rail.
+    // Nearest point on the network. ⚠ The snap's aspect squash isn't applied: this is a screen
+    // position, and squashing would slide the knob off the rail.
     const onChannel = (px, py) => {
       let bx = px, by = py, bd = Infinity;
       for (const [x0, y0, x1, y1] of CHANNELS) {
@@ -1489,24 +1418,19 @@ export function openCab(ctx = {}) {
       drag = { id: e.pointerId };
       lever.setPointerCapture?.(e.pointerId);
       lever.classList.add('on');
-      // ⚠ TAKING HOLD OF THE LEVER NO LONGER DIPS THE CLUTCH FOR YOU. It used to, with a CLUTCH IN
-      // plate announcing that it had, and the effect was that the pedal existed and was never the
-      // reason anything worked. The one-mouse problem that was solving is solved on the PEDAL
-      // instead — a tap latches the clutch in — so a single pointer still has both halves of a
-      // shift available without the box doing the difficult half on your behalf.
+      // Taking the lever doesn't dip the clutch; a tap on the pedal latches it instead.
       e.preventDefault(); e.stopPropagation();
     });
     const move = (e) => {
       if (!drag || !st) return;
       const b = gate.getBoundingClientRect();
       if (!b.width) return;
-      // Your hand is on the KNOB; what gets positioned is the slot the rod passes through, a stick
-      // below it. See KNOB_DX/KNOB_DY.
+      // The hand is on the knob; position the slot below it (KNOB_DX/KNOB_DY).
       const fx = (e.clientX - b.left - KNOB_DX) / b.width;
       const fy = (e.clientY - b.top - KNOB_DY) / b.height;
       const [px, py] = onChannel(fx, fy);
-      put(px, py);            // ⚠ NOT `glide` — the knob is under the pointer; see the note on glide
-      dropGlide(px, py);      // …and the ease picks up from here when the hand lets go
+      put(px, py);            // ⚠ not glide: the knob is under the pointer
+      dropGlide(px, py);      // ...and the ease picks up from here on release
       const s = snap(px, py);
       gate.dataset.aim = s ? String(gearLabelOf(gearOfSlot(s))) : '';
     };
@@ -1526,8 +1450,7 @@ export function openCab(ctx = {}) {
     lever.addEventListener('pointermove', move);
     lever.addEventListener('pointerup', drop);
     lever.addEventListener('pointercancel', drop);
-    // A gate you can also just POINT AT. Dragging is the control; clicking the slot you want is the
-    // same act with less wrist, and on a touch screen it is the only comfortable one.
+    // Clicking a slot is the same act as dragging to it.
     gate.addEventListener('click', (e) => {
       if (e.target === lever || lever.contains(e.target)) return;
       const b = gate.getBoundingClientRect();
@@ -1535,22 +1458,14 @@ export function openCab(ctx = {}) {
       const s = snap((e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height);
       if (s) { selectGear(gearOfSlot(s)); st.paintGate?.(); }
     });
-    // ── AND THE PAINTED GATE POINTS AT THE SAME SLOTS ─────────────────────────
-    // The console's gate is this plate drawn on the dash, so a press on it is the click handler
-    // above in the plate's own 0..1 space — one snap, one selectGear, one repaint. It takes
-    // fractions rather than an event because the point it is given has already been resolved
-    // against a rectangle the RENDERER recorded, which is the only thing that knows where the
-    // painted plate is.
+    // The painted gate's press, in the plate's 0..1 space as resolved against the renderer's rect.
     st.gateSnapAt = (fx, fy) => {
       const g = snap(fx, fy);
       if (g) { selectGear(gearOfSlot(g)); st.paintGate?.(); }
     };
     // ── THE GEARSHIFT WINDOW ──────────────────────────────────────────────────
-    // Clicking the painted gate opens the shelf's own gate in a floating, draggable window — the
-    // real lever you can drag through the H, the slot buttons, the range and splitter collars, AUTO
-    // and REV. ⚠ IT IS THE SAME ELEMENT, MOVED, NEVER A COPY: every handler above is bound to it,
-    // so there is still one gearbox, and closing puts it back in the shelf where the screen reader
-    // and the touch layout expect it. The painted knob and this one read the same `st.gatePos`.
+    // ⚠ It holds the shelf's own gate element, moved, never a copy, so there's still one gearbox;
+    // closing puts it back where the screen reader and touch layout expect it.
     const gateCol = container.querySelector('.cab-col-gate');
     const gateHome = gateCol?.parentNode, gateNext = gateCol?.nextSibling;
     let shiftWin = null;
@@ -1599,17 +1514,8 @@ export function openCab(ctx = {}) {
       });
     }
     rangeBtn.addEventListener('click', (e) => {
-      // THE RANGE MOVES THE GEAR WITH IT, and that is the point of a range change rather than a
-      // display toggle: the lever has not moved, so you are in the same SLOT — one range up is four
-      // ratios up. Flicking it in neutral changes nothing but which four gears the gate offers.
-      // ⚠ WHICH SLOT YOU ARE IN IS ASKED BEFORE THE COLLAR MOVES, and getting that order wrong is
-      // why the collar did nothing at all. `slotOfGear` resolves through `gearOfSlot`, which reads
-      // `st.range` — so asking it AFTER the flip searched the range you had just left: in 6th,
-      // dropping to LO looked for a slot numbered 6 among four slots numbered 1–4, found nothing,
-      // and the gear was silently never changed. The collar's label moved, the box did not, and the
-      // truck was in a gear the gate said it could not be in. It failed in both directions for the
-      // same reason; HI→LO is simply the one you notice, because that is the one you reach for when
-      // something needs pulling.
+      // The range moves the gear with it (same slot, four ratios up or down).
+      // ⚠ Ask which slot you're in before flipping: slotOfGear reads 'st.range'.
       const cur = slotOfGear(st.sim.gear);
       st.range = !st.range;
       const rl = rangeBtn.querySelector('b'); if (rl) rl.textContent = st.range ? 'HI' : 'LO';
@@ -1620,35 +1526,16 @@ export function openCab(ctx = {}) {
     });
     winOff.push(() => { drag = null; });
   }
-  // ── THE CLUTCH IS NOT OPTIONAL, AND THE BOX SAYS SO ─────────────────────────
-  //
-  // This gearbox is not synchronised — nothing in a class 8 is — so a gear goes in when the clutch
-  // is in and grinds when it is not. That used to be papered over: taking hold of the lever dipped
-  // the clutch FOR you and lit a CLUTCH IN plate saying it had, which meant the pedal existed and
-  // was never the reason anything happened. A control that quietly does the hard half teaches the
-  // player that the hard half is not there.
-  //
-  // So: every route into a gear passes through here, and with the clutch out the shift is REFUSED.
-  // What you get is what a real missed shift gives you — the lever comes out of the gear it was in,
-  // you are in NEUTRAL, it makes a noise everybody in the yard can hear, and the truck is now
-  // coasting. That last part is the answer to "why did I lose acceleration after shifting": you
-  // hadn't got a gear, and nothing was telling you.
-  //
-  // TWO THINGS NEVER GRIND, because they don't in a truck either:
-  //   · pulling it OUT of gear into neutral — you can knock a box out of gear with your knuckles
-  //   · a box that is already in neutral, which has nothing to disengage
+  // ── THE CLUTCH ISN'T OPTIONAL ─────────────────────────
+  // The box isn't synchronised: with the clutch out a shift is refused and grinds into neutral.
+  // Pulling into neutral, or shifting from neutral, never grinds.
   const clutchIn = () => (st.input.clutch || 0) > 0.5;
-  // What a ±1 sequential move would actually LAND on — the same clamp truckShift applies, so the
-  // gate is asked about the gear you are going to get rather than the one you asked for.
+  // What a ±1 sequential move would land on, the same clamp truckShift applies.
   const gearWithin = (g) => Math.max(-1, Math.min(P.gears.length - 1, g | 0));
   function grind(target) {
-    // Out of gear, loudly. `truckSelectGear` is the same door the successful shift uses.
     truckSelectGear(st.sim, P, 0);
     grindCue();
-    // AND IT COSTS SOMETHING. The gearbox is entirely client-side, so this is the only place that
-    // can know a shift was fluffed — the server owns what it is worth, exactly as it does for a
-    // collision (`truckevent bump|crash`). It rate-limits the event itself; this rate-limits the
-    // sending, because a held key against a refusing box should not become a packet storm.
+    // The server decides what a fluffed shift costs; this only rate-limits the sending.
     const now = performance.now();
     if (!st.lastGrindSent || now - st.lastGrindSent > 900) {
       st.lastGrindSent = now;
@@ -1656,12 +1543,9 @@ export function openCab(ctx = {}) {
     }
     const gate = container.querySelector('.cab-gate');
     if (gate) {
-      // Restart the flash even on a grind that lands inside the last one — `void offsetWidth` is
-      // what makes the class re-trigger its animation rather than being a no-op.
+      // 'void offsetWidth' restarts the animation on a grind inside the last one.
       gate.classList.remove('grind'); void gate.offsetWidth; gate.classList.add('grind');
-      // The plate says CLUTCH the first few times and then stops. It is a tell, not a tutorial: a
-      // driver who has understood it does not need telling on every fluffed shift, and this is the
-      // one label in the cab that would otherwise be shouting during the exact moment you are busy.
+      // The CLUTCH tell shows the first few times only.
       if ((st.grinds = (st.grinds || 0) + 1) <= 3) {
         gate.dataset.tell = 'CLUTCH';
         clearTimeout(st.grindTell);
@@ -1672,29 +1556,25 @@ export function openCab(ctx = {}) {
     st.paintGate?.();
     return true;
   }
-  // Every gear change in the cab funnels through this: the H-gate, the slot buttons, the range
-  // switch, the sequential keys, the splitter and the R key.
+  // Every gear change in the cab funnels through this.
   function shiftGate(target) {
-    if (target === st.sim.gear) return false;                      // not a shift at all
+    if (target === st.sim.gear) return false;                      // not a shift
     if (target === 0 || st.sim.gear === 0) return false;           // out of gear / already out: free
     if (clutchIn()) return false;
-    // THE AUTOMATIC CLUTCH: the pedal goes in for the shift and comes back up on its own (see
-    // autoClutchStep). In NOW, so the step this gear lands on already sees it disengaged.
+    // Automatic clutch: in now, so this step's gear lands disengaged (autoClutchStep lifts it).
     if (st.autoClutch) { st.input.clutch = 1; st.autoDip = 0.3; return false; }
     grind(target);
-    return true;                                                    // handled — do not put it in gear
+    return true;                                                    // handled: don't put it in gear
   }
   st.shiftGate = shiftGate;
 
-  // ONE DOOR for every way of choosing a gear, so the reverse rule is written once. The H-gate, the
-  // R button and the R key all arrive here.
+  // One door for choosing a gear, so the reverse rule is written once.
   function selectGear(g) {
     if (g < 0) { toggleReverse(); return; }
-    if (st.sim.gear < 0 && Math.abs(st.sim.speed) >= 2) return;   // rolling backwards: not yet
+    if (st.sim.gear < 0 && Math.abs(st.sim.speed) >= 2) return;   // rolling backwards
     if (shiftGate(g)) return;
     truckSelectGear(st.sim, P, g);
-    // Keep the lever's own range honest with the box: shifting to 6 with the ▲ button has to move
-    // the gate into HI, or the knob would sit in a slot that means something else.
+    // Keep the gate's range in step with the box.
     if (g > 0) st.range = g > 4;
     syncRange();
   }
@@ -1707,20 +1587,12 @@ export function openCab(ctx = {}) {
   }
   const gearLabelOf = (g) => (g < 0 ? 'R' : g === 0 ? 'N' : String(g));
 
-  // The gearbox, by hand. `tap` is a click/touch that fires ONCE per press — a shift is an edge,
-  // unlike a pedal, and a button that auto-repeated would walk the box to neutral if you rested a
-  // thumb on it.
+  // 'tap' fires once per press: a shift is an edge.
   const tap = (sel, fn) => {
     const el = container.querySelector(sel);
     el.addEventListener('click', (e) => { fn(); e.preventDefault(); });
   };
-  // ▲▼ and the R key are gone from the shelf: every gear including reverse is a slot on the gate
-  // now, and the gate's slots are real buttons. The KEYS are untouched — ',' '.' 'r' still work,
-  // and so does the splitter collar.
-  // THE KEY IS A HOLD, so it is wired like the pedals rather than like the rockers: press turns it
-  // (off instantly, or round to START), release lets it spring back off START. `pointercancel` and
-  // a window-level release are both covered, or dragging off the barrel leaves the starter running
-  // with nothing on screen turned.
+  // The key barrel is a hold, wired like the pedals, with every release path covered.
   {
     const barrel = container.querySelector('.cab-keybarrel');
     if (barrel) {
@@ -1734,29 +1606,20 @@ export function openCab(ctx = {}) {
       barrel.addEventListener('pointerup', release);
       barrel.addEventListener('pointercancel', release);
       barrel.addEventListener('pointerleave', release);
-      // Keyboard operation of the button itself (Space/Enter on a focused control fires `click`,
-      // which no hold can be built from) — one press cranks, and it stops on its own timer.
+      // Space/Enter fire click with no hold, so one press toggles.
       barrel.addEventListener('click', (e) => { if (e.detail === 0) toggleIgnition(); });
     }
   }
   tap('.cab-splitbtn', () => splitGear());
   tap('.cab-wipe', () => cycleWipers());
-  // THE HEADLIGHTS. Latching, defaults on (see the markup note), and purely local state — the
-  // telemetry packet carries it out on the next frame, so there is nothing to await and nothing to
-  // persist. Toggling repaints the rocker immediately rather than waiting for a server round trip,
-  // which is the same rule the instrument voices follow: your own control answers your own hand.
+  // Headlights: local state the telemetry carries out; repainted at once.
   tap('.cab-heads', () => setHeads(!st.heads));
   tap('.cab-dome', () => setDome(!st.dome));
-  // ── THE CORD IS OPEN FOR AS LONG AS YOU PULL IT ─────────────────────────────
-  //
-  // ⚠ YOUR OWN HORN NEVER WAITS FOR THE SERVER — the instruments' rule (systems-procedural-audio),
-  // and for the same reason: a round trip between pulling the cord and hearing the trumpets is the
-  // difference between a horn and a website. So the sustained voice starts locally on press and
-  // stops locally on release, and the VERB is sent once, on release, carrying how long it was held.
-  // The room then hears a blast of the length the driver actually gave it, from one packet, rather
-  // than a fixed toot — or a packet a frame for as long as somebody leans on it.
+  // ── THE HORN SOUNDS FOR AS LONG AS YOU PULL IT ─────────────────────────────
+  // ⚠ Your own horn never waits for the server: the voice is local, and the verb goes once on
+  // release with how long it was held.
   function hornDown() {
-    if (st.hornAt) return;                       // already open; a second finger is not a second horn
+    if (st.hornAt) return;                       // already open
     st.hornAt = performance.now();
     airHornOn(TYPE_ID, HORN);
   }
@@ -1765,8 +1628,7 @@ export function openCab(ctx = {}) {
     const secs = Math.min(4, (performance.now() - st.hornAt) / 1000);
     st.hornAt = 0;
     airHornOff();
-    // Rounded to hundredths: the wire does not need a float with fourteen digits on it, and the
-    // server clamps it again anyway (a client is not trusted with how long a noise lasts).
+    // The server clamps the duration again.
     sendCmdSilent(`horn ${Math.max(0.15, secs).toFixed(2)}`);
   }
   st.hornDown = hornDown; st.hornUp = hornUp;
@@ -1775,34 +1637,15 @@ export function openCab(ctx = {}) {
     if (hb) {
       hb.addEventListener('pointerdown', (e) => { e.preventDefault(); hb.setPointerCapture?.(e.pointerId); hornDown(); });
       for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) hb.addEventListener(ev, hornUp);
-      // Keyboard operation of the button (Space/Enter fire `click` with no pointer): a short toot,
-      // because there is no hold to read.
+      // Keyboard activation has no hold to read: a short toot.
       hb.addEventListener('click', (e) => { if (e.detail === 0) { hornDown(); setTimeout(hornUp, 350); } });
     }
   }
 
   // ── WHICH DRIVE KEYS ARE PHYSICALLY DOWN ────────────────────────────────────
-  //
-  // Nothing recorded this, and three separate bugs were all the same missing fact.
-  //
-  // A held control is written straight into `st.input` by the key handler, so the ONLY thing that
-  // ever let go of it was the matching keyup arriving at this window. Every route by which that
-  // keyup can fail to arrive was therefore a truck that never stopped accelerating — clicking into
-  // the command box mid-drive, or Alt-Tabbing to another window, in both cases with A still down.
-  // And the one path that deliberately drops the pedal (the camera coming off its mount) could not
-  // put it back, because there was nothing to put it back FROM: `exitFreeCam` carried a comment
-  // promising it restored the throttle "from the KEY STATE", and no key state existed, so a driver
-  // holding A through an O…O round trip got the pedal back only by releasing and pressing again.
-  //
-  // One Set fixes all three, and it is deliberately a record of the KEYBOARD rather than a second
-  // copy of the controls: `st.input` stays the one statement of what the truck is being told to do,
-  // and this only ever says which fingers are still on which keys. A pedal held by a POINTER is not
-  // in here at all — that is `hold()`'s business and it has its own pointer discipline.
-  //
-  // ⚠ The table is the release, not the press. Each entry undoes exactly what its key's own branch
-  // in `onKey` does, guarded the same way (letting go of Q while E is still down must leave you
-  // looking right, not snap you forward into a bend) — so a release through this path and a release
-  // through the ordinary keyup are the same release, and running both is a no-op.
+  // A record of the keyboard only, so a missed keyup (command box, Alt-Tab, the free camera) can still
+  // release a held control. ⚠ Each entry undoes exactly what its key's branch in onKey does, guarded
+  // the same way, so running it twice is a no-op. Pointer holds aren't in here.
   const HOLD_KEYS = new Map([
     ['a', () => { st.input.throttle = 0; if (st.heldBy) st.heldBy.throttle = 0; }],
     ['z', () => { st.input.brake = 0; if (st.heldBy) st.heldBy.brake = 0; }],
@@ -1815,7 +1658,7 @@ export function openCab(ctx = {}) {
     ['q', () => { if (st.viewYaw === -90) { st.viewYaw = 0; st.showViewTag?.(0); } }],
     ['e', () => { if (st.viewYaw === 90) { st.viewYaw = 0; st.showViewTag?.(0); } }],
     ['s', () => { if (st.viewYaw === 180) { st.viewYaw = 0; st.showViewTag?.(0); } }],
-    ['h', () => st.hornUp?.()],   // the cord: a blast that never ends is the loudest version of this bug
+    ['h', () => st.hornUp?.()],   // a blast that never ends
   ]);
   const typingNow = (el) => /^(INPUT|TEXTAREA)$/.test(el?.tagName || '') || !!el?.isContentEditable;
   st.keysDown = new Set();
@@ -1823,16 +1666,12 @@ export function openCab(ctx = {}) {
     if (!st || !st.keysDown.delete(k)) return;
     HOLD_KEYS.get(k)?.();
   }
-  // Everything at once — the window losing focus, or the tab going to the background.
+  // Everything at once: the window losing focus, or the tab hidden.
   function releaseAllHeldKeys() {
     if (!st) return;
     for (const k of [...st.keysDown]) releaseHeldKey(k);
   }
-  // ⚠ A KEY YOU CANNOT LET GO OF IS THE WORST OF THE THREE. Alt-Tab away with the throttle down and
-  // the keyup is delivered to whatever you switched to; this window never hears it, so the rig
-  // drives off on its own while you are reading something else. Both hooks, because they answer
-  // different questions — `blur` is "this window is no longer taking keys" and `visibilitychange` is
-  // "this tab is not on screen", and a driver can reach either one without the other.
+  // ⚠ After Alt-Tab the keyup goes elsewhere. Both hooks, since blur and visibilitychange each happen alone.
   st.onWinBlur = releaseAllHeldKeys;
   st.onVisibility = () => { if (document.hidden) releaseAllHeldKeys(); };
   addEventListener('blur', st.onWinBlur);
@@ -1841,41 +1680,19 @@ export function openCab(ctx = {}) {
   st.onKey = (e) => {
     const k = e.key.toLowerCase();
     const down = e.type === 'keydown';
-    // ⚠ A KEYUP IS HEARD EVEN WHEN THE HANDS HAVE MOVED TO THE TEXT BAR. The typing guard below is
-    // right for a keydown — a driver writing a message must not be shifting gear — and it was
-    // catastrophic for a keyup: hold A, click into the command box, and the release for A is
-    // addressed to an INPUT, gets dropped here, and the throttle is left pinned at 1 with no key
-    // held and nothing on screen to say so. The truck accelerates until you go back to the road and
-    // press-release A over it. So the RECORD is settled before the guard: a press only counts while
-    // the cab has the keyboard, and a release always counts, wherever it is delivered.
+    // ⚠ The record is settled before the typing guard: a press counts only while the cab has the
+    // keyboard, a release always counts, or a pedal stays pinned after clicking into the command box.
     if (down) { if (!typingNow(e.target) && HOLD_KEYS.has(k)) st.keysDown.add(k); }
     else releaseHeldKey(k);
     if (typingNow(e.target)) {
-      // ⚠ AND THE CAMERA'S KEYS ARE THAT SAME RULE — the paragraph above was written for the
-      // throttle and the detached camera was left behind it. Hold W, click into the command box,
-      // and the release for W is addressed to an INPUT and dropped here: the camera flies on over
-      // a city nobody is steering, which is the truck bug one layer out.
+      // ⚠ The camera's keys too: a dropped W release would fly the camera on unsteered.
       if (!down) freeCam.onKey(k, false);
       return;
     }
     // ── THE CAMERA OFF ITS MOUNT ────────────────────────────────────────────
-    // `O` for observer, which is free on all three panels that render a windshield — the cab alone
-    // already spends twenty-six keys, so this was chosen by elimination rather than by mnemonic.
-    // It only means anything in the external view: there is nothing to detach from behind the glass.
-    //
-    // ⚠ AND IT HOLDS THE TRUCK. The wheel and the throttle are about to belong to the camera, so
-    // whatever the driver was doing with them is latched: the throttle to whatever speed it had, the
-    // wheel to centre. Without that the rig keeps its last input forever — a truck detached from its
-    // camera mid-corner would spiral off the road while you photographed it, which is a bug wearing
-    // a feature's coat. Cruise is the machinery for exactly this and already exists, so it is used
-    // rather than a second speed-hold nobody else knows about.
-    // ⚠ THE EXTERNAL VIEW IS REQUIRED TO ENTER AND MUST NEVER BE REQUIRED TO LEAVE. Gating the whole
-    // toggle on `st.external` built a trap: the view button is a CLICK, so a driver could detach the
-    // camera and then click back to the cockpit view — leaving the camera active (swallowing every
-    // key, including the throttle) with no way to stow it, because the key that stows it had just
-    // stopped working. Holding A did nothing, the pedal read empty, and the truck coasted on the
-    // hold. Entering is conditional; leaving is not, and `exitFreeCam` is the one way out so the
-    // button below can use it too.
+    // O (free on every windshield panel). Entering holds the truck: cruise at its speed, wheel centred.
+    // ⚠ The external view is needed to enter, never to leave, or a driver who clicks back to the
+    // cab is stuck with a camera that swallows every key.
     if (k === 'o' && down && !e.repeat && (st.external || freeCam.active)) {
       if (freeCam.active) exitFreeCam();
       else {
@@ -1888,110 +1705,58 @@ export function openCab(ctx = {}) {
       return;
     }
     // ── THE MARKS OFF THE GLASS ─────────────────────────────────────────────
-    // Ahead of the camera's key claim, and ahead of the `freeCam.active` bail, on purpose: a
-    // detached camera hides these anyway (see NAV_MARKS in windshield.js), and a driver setting the
-    // switch while lining a shot up is setting it for the seat they are about to come back to.
-    // N is the last free letter on this keyboard — see the ⚠ on POINTER_KEY in freecam.js.
+    // Before the camera's key claim on purpose: the switch is for the seat you'll come back to.
+    // N was the last free letter (see POINTER_KEY in freecam.js).
     if (k === 'n' && down && !e.repeat) { e.preventDefault(); markSwitchTold(navMarks()); return; }
-    // While it is detached the camera owns its keys and the truck hears none of them.
-    // ⚠ AND IT EATS THE EVENT. Without this the arrows keep their default and SCROLL THE PAGE
-    // underneath a camera that is turning perfectly well — the view jumps, the turn is lost in it,
-    // and the control reads as dead. A key this owns is a key nothing else gets, including the
-    // browser.
+    // While detached the camera owns its keys. ⚠ It eats the event, or the arrows scroll the page.
     if (freeCam.onKey(k, down)) { e.preventDefault(); return; }
     if (freeCam.active) return;
     if (k === 'a') st.input.throttle = down ? 1 : 0;
-    // Z is the flight sim's throttle-DOWN key and the brake here, which is the same gesture in a
-    // vehicle with no reverse thrust. SPACE is an alias for it because it is the key every hand
-    // reaches for to stop a moving thing, and a truck has no guns for it to conflict with (the
-    // flight sim's Space is the trigger). Its default is a page scroll, so it must be eaten.
     else if (k === 'z') st.input.brake = down ? 1 : 0;
     else if (k === 'l' && down) setHeads(!st.heads);
     else if (k === 'i' && down && !e.repeat) setDome(!st.dome);
     // ── ⚠ THE CAB AND THE COCKPIT SHARE A KEYBOARD ────────────────────────────
-    // These four moved so that a player who flies and drives is not learning two contradictory
-    // maps for the same hand. The flight sim is the elder system and the one with more keys, so it
-    // wins every collision:
-    //
-    //   X / C   steer left / right     — the cockpit's rudder. Was clutch / Jake.
-    //   V       external view          — the cockpit's chase key. Was wipers, and F.
-    //   SPACE   clutch                 — freed by moving the brake to Z alone, and unbound in the
-    //                                    cockpit, so it costs nothing there. It is also the right
-    //                                    key for it: a big held control for the hand that is not
-    //                                    on the stick, which is what makes a mouse shift possible.
-    //   J       Jake brake             — mnemonic, and unbound in the cab.
-    //   W       wipers                 — mnemonic, and the cab never bound it (there is no
-    //                                    look-forward key here; forward is where you are looking).
-    //
-    // ⚠ `,` AND `.` ARE THE ONE DELIBERATE EXCEPTION and stay on the gearbox. They are the
-    // cockpit's SECONDARY rudder binding — the alternate for keyboards that make X/C awkward — so
-    // the primary is synced and only the fallback differs. Moving them would cost the dash hint and
-    // every hand that already knows them to buy parity on a key most pilots never press.
-    // F is kept as a silent alias for the external view: it costs one line and it means nobody who
-    // learned the old key finds it dead.
+    // The flight sim wins every collision: X/C steer (rudder), V external view, Space clutch, J Jake,
+    // W wipers. ',' and '.' stay on the gearbox (they're only the cockpit's secondary rudder). F is
+    // a silent alias for V.
     else if (k === ' ') { st.input.clutch = down ? 1 : 0; st.heldBy = st.heldBy || {}; st.heldBy.clutch = down ? 1 : 0; }
     else if (k === 'j') st.input.jake = down ? 1 : 0;
-    // SHIFTING WITHOUT HUNTING FOR THE PUNCTUATION KEYS. `,` and `.` stay — they are what the dash
-    // has always hinted and what any existing muscle memory has — but they are two of the worst
-    // keys on the board to find with a hand that is also holding A and Z, and shifting is the thing
-    // this gearbox asks you to do most. So ↑/↓ shift up and down, which puts the whole gearbox on
-    // the arrow cluster the other hand is already steering with: ← → is the wheel, ↑ ↓ is the box.
-    // ⚠ NOT W/S, tempting as the WASD read is: S is look-behind and it is the flight sim's key,
-    // and that parity is worth more than any convenience this could buy.
+    // ↑/↓ shift too, beside the steering. ⚠ Not W/S: S is look-behind, the flight sim's key.
     else if (down && !e.repeat && (k === ',' || k === '.' || k === 'arrowup' || k === 'arrowdown')) {
-      // Through the same gate the lever goes through: a sequential shift is a shift, and the box
-      // does not care which control asked for it. (This used to dip the clutch for you for 320ms.
-      // That is the half of shifting the pedal is FOR — see shiftGate.)
+      // Through the same gate as the lever.
       const want = gearWithin((st.sim.gear ?? 1) + ((k === '.' || k === 'arrowup') ? 1 : -1));
       if (!st.shiftGate?.(want)) truckShift(st.sim, P, (k === '.' || k === 'arrowup') ? 1 : -1);
     }
-    // Cruise. Not a held control and not on a pedal key: it is the switch that means "stop holding
-    // the pedal", so it gets its own press.
+    // Cruise is a latch, so its own press.
     else if (down && !e.repeat && k === 'g') toggleCruise();
-    // K for the key. Not a held control — you turn it, it stays turned — so it is an edge like
-    // cruise and reverse rather than a pedal.
-    // K is the key, and it HOLDS like the key does: press to turn it (off, or round to crank),
-    // release to let it spring back. `e.repeat` filtered so autorepeat is not a second turn.
+    // K turns the key and holds like one: release lets it spring back. e.repeat isn't a second turn.
     else if (k === 'k') { if (down && !e.repeat) toggleIgnition(); else if (!down) st.stopCrank?.(); }
     else if (down && !e.repeat && k === '/') splitGear();
-    // REVERSE is its own key rather than "shift down past first", because walking a driver through
-    // neutral into reverse by accident at twenty miles an hour is not a skill test, it is a bug
-    // report. It only takes at a stop, which is where a real box lets you have it too.
+    // Reverse is its own key so a downshift can never find it by accident; it only takes at a stop.
     else if (down && !e.repeat && k === 'r') toggleReverse();
     else if (down && !e.repeat && k === 'w') cycleWipers();
     else if (down && !e.repeat && k === 'p') st.setPark?.(!st.park);
-    // M — automatic shifting. Not on the gearbox cluster (↑↓ , .) deliberately: those are the box,
-    // and a key that switches the box off does not belong among the keys that work it.
+    // M (automatic) stays off the gearbox cluster: a key that switches the box off doesn't belong among those that work it.
     else if (down && !e.repeat && k === 'm' && e.shiftKey) st.setAutoClutch?.(!st.autoClutch);
     else if (down && !e.repeat && k === 'm') st.setAuto?.(!st.auto);
-    // V, the cockpit's own chase key — see the sync note above. F is kept as a silent alias so
-    // nobody who learned the cab's old key finds it dead.
     else if (down && !e.repeat && (k === 'v' || k === 'f')) st.setExternal?.(!st.external);
     // Shift+/ arrives as '?', so the splitter's own '/' branch above never sees it.
     else if (down && !e.repeat && k === '?') st.toggleHelp?.();
     else if (down && !e.repeat && k === 'd') container.querySelector('.cab-dmg-strip')?.click();
-    // T, not G — G is cruise control and has been since the box was built. Every obvious letter
-    // for 'food' was already a control, which is what a cab with twenty-odd of them costs.
+    // T, because every obvious letter for food was taken.
     else if (down && !e.repeat && k === 't') st.toggleGalley?.();
-    // Y for the latches. Another letter picked by elimination rather than by meaning — L is the
-    // headlights and has been since before there was a door to lock.
+    // Y, by elimination: L is the headlights.
     else if (down && !e.repeat && k === 'y') container.querySelector('.cab-latchbtn')?.click();
     else if (down && k === 'escape' && !container.querySelector('.cab-help')?.hidden) st.toggleHelp?.(false);
-    // H is the cord and it HOLDS: down opens it, up closes it and sends the length. (`e.repeat`
-    // filtered so autorepeat is not a stream of pulls.)
+    // H holds: down opens the horn, up closes it and sends the length.
     else if (k === 'h') { if (down && !e.repeat) st.hornDown?.(); else if (!down) st.hornUp?.(); }
-    // STEERING BY KEYBOARD. Until this existed a keyboard driver could accelerate, brake and shift
-    // — and could not turn, which is not a harder way to drive, it is not driving. It goes through
-    // the wheel widget so the wheel on screen turns with it.
-    // Q / E / S — held shoulder-checks, on the flight sim's own three keys so the habit carries.
-    // The release is guarded on the CURRENT yaw, so letting go of Q while E is still down leaves
-    // you looking right rather than snapping forward into a bend you cannot see.
+    // Q / E / S: held shoulder checks. ⚠ The release is guarded on the current yaw, so letting go of
+    // Q with E still down leaves you looking right.
     else if (k === 'q' || k === 'e' || k === 's') {
       const yaw = k === 'q' ? -90 : k === 'e' ? 90 : 180;
       if (down) { st.viewYaw = yaw; st.showViewTag?.(yaw); }
       else if (st.viewYaw === yaw) { st.viewYaw = 0; st.showViewTag?.(0); }
     }
-    // X / C are the cockpit's rudder keys and steer here for the same reason — see the sync note.
     else if (k === 'arrowleft' || k === 'arrowright' || k === 'x' || k === 'c') {
       const dir = (k === 'arrowleft' || k === 'x') ? -1 : 1;
       if (down) st.steerKey = dir;
@@ -2004,12 +1769,8 @@ export function openCab(ctx = {}) {
   addEventListener('keydown', st.onKey);
   addEventListener('keyup', st.onKey);
 
-  // Reverse lives in ONE place, because it is reached from a key and from a button and the rule
-  // (only at a stop) must not end up written twice and drift.
-  // Cruise lives in ONE place for the same reason reverse does: it is reached from a key, from a
-  // rocker on the dash and from the frame loop's own cancel conditions, and three copies of "what
-  // does the lamp say now" is three chances for the lamp to lie about the state of the truck.
-  // `null` is off; a number is the demanded mph.
+  // Cruise lives in one place: it's reached from a key, the rocker and the frame loop's cancels.
+  // null is off; a number is the demanded mph.
   function setCruise(v) {
     st.cruise = v;
     const el = container.querySelector('.cab-cruise');
@@ -2022,36 +1783,14 @@ export function openCab(ctx = {}) {
   }
   st.setCruise = setCruise;
   // ── AUTOMATIC SHIFTING ──────────────────────────────────────────────────────
-  //
-  // ⚠ IT IS A HAND, NOT A GEARBOX. Exactly the rule cruise control keeps two paragraphs up, and for
-  // the same reason: this writes `st.input.clutch` and calls `selectGear` — the same pedal and the
-  // same door the H-gate, the arrow keys and the splitter go through — so the shift gate, the
-  // grind, the stall check, the torque curve and the load all still decide what happens. A version
-  // that wrote `st.sim.gear` would be a different truck wearing this one's dashboard, and it would
-  // be the only route into a gear in the cab that could not fluff a shift.
-  //
-  // AND THAT IS WHY THE LEVER MOVES. The whole visible cost of a shift in this cab is the second
-  // your hands are busy, and a switch that skipped it would be teaching the box is optional. So it
-  // takes the time a shift takes, in the order a shift happens — dip, out through neutral, into the
-  // slot, let it up — and the stick on the dash does it in front of you.
-  // WHAT THE DRIVER LEFT IT ON, and it defaults to ON. A first-time driver climbing into an
-  // eight-speed crash box with a range collar and a splitter is not being given a gearbox, they
-  // are being given a reason to get out — so the automatic hand is on the lever until somebody
-  // takes it off, and once they have, it stays off. Per browser rather than per account: it is a
-  // control preference like the pane heights beside it, not world state.
-  //
-  // ⚠ THE STORED VALUE IS ONLY EVER WRITTEN BY THE DRIVER. `setAuto` persists, the touch force-on
-  // does not: a touch screen can't switch it off (see the guard in setAuto), so recording that as
-  // a choice would carry a decision nobody made onto their desktop.
+  // ⚠ It's a hand, never a gearbox: it writes 'st.input.clutch' and calls selectGear, so the gate,
+  // grind, stall and load all still decide, and the lever visibly moves. It defaults on, per browser.
+  // ⚠ Only the driver writes the stored value; the touch force-on isn't a choice and isn't saved.
   function setAuto(on, remember = true) {
-    // ⚠ ON TOUCH IT DOESN'T SWITCH OFF. The touch shelf carries no gearbox at all (see THE TOUCH
-    // SHELF), so a driver who turned this off would have no way into a gear. It's refused here
-    // rather than hidden, because the same call arrives from the click handler, the M key on a
-    // tablet's keyboard and the painted switch.
+    // ⚠ On touch it never switches off: the touch shelf has no gearbox.
     if (cabTouch()) { on = true; remember = false; }
     st.auto = !!on;
-    // Never leave the clutch pinned in by a driver that has just been switched off mid-shift: the
-    // truck would coast, silently, with no pedal down and nothing to explain it.
+    // Never leave the clutch pinned in by a sequence that was just switched off.
     if (!on && st.shiftSeq) { st.shiftSeq = null; if (!st.heldBy?.clutch && !st.clutchLatched) st.input.clutch = 0; }
     const el = container.querySelector('.cab-auto');
     if (el) { el.classList.toggle('on', st.auto); el.setAttribute('aria-pressed', st.auto ? 'true' : 'false'); el.dataset.dash = st.auto ? 'AUTO' : 'MANUAL'; const sp = el.querySelector('span'); if (sp) sp.textContent = st.auto ? 'AUTO' : 'MAN'; }
@@ -2059,8 +1798,7 @@ export function openCab(ctx = {}) {
   }
   st.setAuto = setAuto;
   function setAutoClutch(on, remember = true) {
-    // Same rule and the same reason: the automatic doesn't take the box out of gear at a stop, so
-    // with no clutch pedal on the touch shelf it's this that keeps the engine from stalling.
+    // Same on touch: with no clutch pedal there, this keeps the engine from stalling.
     if (cabTouch()) { on = true; remember = false; }
     st.autoClutch = !!on;
     if (!on && !st.heldBy?.clutch && !st.clutchLatched && !st.shiftSeq) st.input.clutch = 0;
@@ -2070,87 +1808,35 @@ export function openCab(ctx = {}) {
   }
   st.setAutoClutch = setAutoClutch;
   setAutoClutch(st.autoClutch, false);
-  // And it starts on there (the guard in setAuto), because a driver who climbs in and finds
-  // neutral with no lever has been handed a truck with no way to move it. On every other cab the
-  // stored preference has already put the switch where the driver left it, so this only has to
-  // paint the button, since `st.auto` was set from it when the state was built.
+  // Paints the switch; 'st.auto' already came from the stored preference.
   setAuto(st.auto, false);
   // ── THE PARK BRAKE ──────────────────────────────────────────────────────────
-  //
-  // ⚠ IT IS THE BRAKE PEDAL, NOT A NEW FORCE. Same rule as cruise and the automatic: it writes
-  // `st.input.brake`, so the retardation, the fade model, the surface and the load all still apply
-  // and there is nothing new for the model to learn. What makes it a PARK brake rather than a very
-  // patient foot is that it is a latch and that it survives the engine — spring brakes are held ON
-  // by springs and released by air, which is precisely why a truck with no air pressure is a truck
-  // you cannot move, and why this is the one control that still means something with the key off.
-  //
-  // It refuses to come off above a walking pace. Not a safety rail — a real valve will pop out at
-  // any speed and it is a genuinely frightening thing to do — but because the only reason to reach
-  // for it while rolling is a misclick, and the cab is not the place to model that particular way
-  // of destroying a rig.
+  // ⚠ It's the brake pedal latched, never a new force: it writes 'st.input.brake'. It works with the
+  // key off (spring brakes) and won't come on above a walking pace.
   function setPark(on) {
-    if (on && Math.abs(st.sim.speed) > 3) return;      // it is a park brake; you are not parked
+    if (on && Math.abs(st.sim.speed) > 3) return;      // not parked
     st.park = !!on;
-    // ⚠ THE PARK BRAKE SUSPENDS THE AUTOMATIC, IT NO LONGER SWITCHES IT OFF. Cruise is cancelled
-    // because a set speed is a thing you asked for once and it should not survive you stopping; the
-    // automatic is a way of driving, and taking it away silently is how a driver ends up rolling
-    // around in manual wondering why the box stopped shifting. Reverse works the same way — see the
-    // inhibit in autoShift, which is the one place that decides whether the automatic has anything
-    // to do right now. Both conditions clear by themselves, and the automatic simply resumes.
+    // ⚠ The park brake cancels cruise but only suspends the automatic (see the inhibit in autoShift).
     if (st.park) st.setCruise?.(null);
     const el = container.querySelector('.cab-parkbtn');
     if (el) {
       el.classList.toggle('on', st.park);
       el.setAttribute('aria-pressed', String(st.park));
-      // The word on the knob is what your hand does NEXT — the same convention the trailer air
-      // valve uses, and the reason its legend reads PUSH/PULL rather than ON/OFF.
+      // The word on the knob is what your hand does next.
       const w = el.querySelector('em');
       if (w) w.textContent = st.park ? 'PUSH' : 'PULL';
     }
-    // AND IF THERE IS NOTHING LEFT TO DO, THIS IS GETTING OUT. Setting the spring brakes on a
-    // stationary truck is the last step of parking it and there is no other reason to do it — so
-    // the knob finishes the sequence rather than leaving the driver to find a verb for the part
-    // they have visibly already done. It sends the ORDINARY `park` command, which locks up, flushes
-    // and closes this panel.
-    //
-    // ⚠ IT IS SENT WITH THE ENGINE RUNNING TOO, AND THE COMMENT HERE ALREADY SAID SO WHILE THE
-    // GUARD DID THE OPPOSITE. The line read "the cab decides nothing about whether it is allowed,
-    // and with the engine running the verb's own refusal is the one that speaks" — and then gated
-    // on `st.sim.stalled`, so with the engine running NOTHING was sent and nothing spoke. A driver
-    // pulled the park brake expecting to climb down, got silence, and had no way to learn that the
-    // key was the missing step. `parkRig` refuses in one clear sentence that names the key; letting
-    // it say so is the whole point of not deciding here.
-    // ⚠ AND THE SEND IS NOT DECIDED HERE, BECAUSE THE MOMENT YOU PULL THE KNOB IS NOT THE MOMENT
-    // YOU ARE STOPPED. The knob comes out at anything under 3 mph (above), and the verb only went
-    // out under 0.5 — so a driver who pulled it at a crawl set the brakes, watched the legend flip
-    // to PUSH, and got NOTHING: the rig then coasted to rest with the knob already on, so pressing
-    // it again pushed it back IN. That is the whole of "park sometimes does nothing", and it is not
-    // discoverable from the seat, because the control visibly worked.
-    //
-    // So the intent is LATCHED and the frame loop fires it when the rig actually comes to rest (see
-    // the exit-cab block in the readout sync). `parkSent` is the one-shot: cleared whenever the
-    // brake is pushed back in, which is also what lets a driver who changed their mind change it.
+    // Setting it on a stopped truck means getting out: the ordinary 'park' verb follows, sent with
+    // the engine running too so parkRig can say the key is the missing step.
+    // ⚠ The send is latched, never decided here: the knob comes on under 3 mph and the frame loop
+    // fires it once the rig is at rest (the exit-cab block). Pushing the knob in clears 'parkSent'.
     if (!st.park) st.parkSent = false;
   }
   st.setPark = setPark;
-  // Toggling it ON takes the speed you are DOING, which is the only number a driver ever means by
-  // it — there is no set-point to dial, because dialling one is a menu and this is a truck.
   // ── THE KEY ─────────────────────────────────────────────────────────────────
-  //
-  // Off is a real state, not a pause: the engine is dead, the drive is gone, and the rig rolls to a
-  // stop on its own rolling resistance exactly as a stall does. It IS the stall flag — there is one
-  // "this engine is not turning" in the model and adding a second would mean every reader (the
-  // audio, the lifter wash, the gear readout, the parked pose) had to learn about both.
-  //
-  // Starting is the model's own rule and is not restated here: `input.starter` only takes with the
-  // clutch in or the box in neutral (flight-model.js), which is why turning the key in gear with
-  // your foot off the pedal does nothing but churn. The cab holds the starter for a moment rather
-  // than setting it for a frame, because a key you turn and release is a key you have to hold.
-  // ⚠ THE BARREL'S ANGLE IS THE ENGINE, NOT THE POINTER. Three positions, and which one it is
-  // sitting at is derived from the truck rather than remembered here: OFF when the motor is dead,
-  // ON when it is running, and START only while a hand is actually holding it round. A key that
-  // remembered its own angle would sit at ON over an engine that had stalled underneath it, which
-  // is the exact lie the lamp comment two paragraphs down was already written to avoid.
+  // Off is the stall flag: one "engine not turning" in the model. Starting is the model's rule
+  // (clutch in or neutral, flight-model.js). ⚠ The barrel's angle is derived from the engine, never
+  // remembered, or it sits at ON over a stalled motor.
   const KEY_DEG = { off: 0, on: 38, start: 74 };
   function paintKey() {
     const el = container.querySelector('.cab-keybarrel');
@@ -2162,46 +1848,30 @@ export function openCab(ctx = {}) {
     el.setAttribute('aria-pressed', String(!st.sim.stalled));
   }
   st.paintKey = paintKey;
-  // TURNING IT OFF is instant and needs no hold — a key going anticlockwise has nothing to fight.
+  // Turning it off is instant.
   function ignitionOff() {
     if (st.sim.stalled) return;
-    st.sim.stalled = true;                       // the engine stops, everything downstream follows
+    st.sim.stalled = true;
     st.input.throttle = 0;
-    st.setCruise?.(null);                        // a dead engine is not holding a speed
-    // ⚠ A KEY-OFF IS A DECISION TO STOP, AND A STALL IS NOT. The flag is what separates them, and
-    // it has to exist: the frame loop below brings a shut-down rig to a standstill and holds it
-    // there, and doing that off `sim.stalled` alone would slam the brakes on the moment a driver
-    // lugged it to death at forty — punishing a mistake with a handbrake turn. Only the key sets
-    // this; cranking clears it, so the truck is free again the instant somebody asks for it.
+    st.setCruise?.(null);
+    // ⚠ A key-off is a decision to stop and a stall isn't: only 'shutdown' makes the frame loop hold
+    // the rig still, so a lugged stall at forty isn't punished with the brakes. Cranking clears it.
     st.shutdown = true;
     stopCrank();
     keyCue(false);
     paintKey();
     st.paintControls?.();
   }
-  // …and HOLDING IT ROUND cranks for as long as you hold it. The old version turned the starter on
-  // for a fixed 900ms and let go for you, which meant a rig that needed a second turn had to be
-  // clicked again rather than simply held — and it is the only control in the cab that behaved like
-  // a keypress when the real thing is unambiguously a hold.
+  // Holding it round cranks for as long as you hold it.
   function startCrank() {
     if (!st.sim.stalled || st.cranking) return;
-    // Asking for the engine releases the settle — see ignitionOff. The brake goes back to whatever
-    // a foot is actually doing rather than being left where the settle put it, or the rig would
-    // start up with the pedal on the floor and nothing on screen to say why.
+    // Asking for the engine releases the settle, and the brake goes back to what a foot is doing.
     st.shutdown = false;
     if (!st.heldBy?.brake) st.input.brake = 0;
-    // ⚠ THE ONE REFUSAL IN THIS CAB THAT HAS TO SAY ITS NAME. The model will not restart an engine
-    // that is coupled to the road (flight-model.js: `clutch > 0.5 || ratio === 0`), which is the
-    // correct rule and completely invisible: you turn the key, the starter churns, nothing happens,
-    // and every readable signal in the cab — fuel, air, the lamp — says the truck is fine. It read
-    // as a broken button, and it was reported as one. So the cab says what the gearbox is doing
-    // BEFORE it spends four seconds proving it. The line names the fix, not the fault, because a
-    // driver who has just been told "clutch or neutral" can act on it without a manual.
+    // ⚠ The one refusal that has to say its name: the model won't crank an engine coupled to the
+    // road, and silently that reads as a broken button. Say the fix before the churn.
     if (!(st.input.clutch > 0.5 || st.sim.gear === 0)) {
-      // TWO SURFACES, because they answer two different people. The gate plate flashes its CLUTCH
-      // tell — the same one a fluffed shift raises, in the same place your eye already is — and the
-      // line goes to the log, which is where the record lives for anyone driving at the bottom rung
-      // of Display Mode (see systems-display-mode). Neither is a new channel.
+      // The gate's CLUTCH tell where the eye is, and a line in the log for the bottom display rung.
       const gate = container.querySelector('.cab-gate');
       if (gate) {
         gate.classList.remove('grind'); void gate.offsetWidth; gate.classList.add('grind');
@@ -2210,24 +1880,18 @@ export function openCab(ctx = {}) {
         st.grindTell = setTimeout(() => { if (gate.dataset) gate.dataset.tell = ''; }, 1800);
         setTimeout(() => gate.classList.remove('grind'), 420);
       }
-      // ⚠ LOADED ON DEMAND, NEVER IMPORTED AT THE TOP. A static import of render.js from here
-      // closes a cycle through the boot chain — render.js → smartbar → smartbar-macros → input.js →
-      // this file — and a cycle on the path that mounts the client is not worth one line of text.
-      // ESM would probably have coped, and 'probably' is the wrong word for the module that draws
-      // the room. Loaded here it cannot run before the log exists, because nothing can turn a key
-      // in a cab that has not been drawn yet.
+      // ⚠ Loaded on demand: a static import of render.js closes a cycle through the boot chain
+      // (render.js, smartbar, smartbar-macros, input.js, this file).
       import('../render.js').then((r) => r.appendHtml(
         "The starter churns and the engine won't catch: the box is still in gear. <b>Clutch in</b>, or find <b>neutral</b>, and turn the key again.",
         'msg-system')).catch(() => { /* the gate plate already said it — the log line is the second surface, not the only one */ });
-      // The starter still turns: refusing to crank at all would be a second invisible rule on top
-      // of the first, and the churn is the sound that makes the message make sense.
+      // The starter still turns; the churn is what makes the message make sense.
     }
     st.cranking = true;
     st.input.starter = 1;
     keyCue(true);
     paintKey();
-    // A starter motor is not infinite and a held key must not become one: it gives up after a few
-    // seconds the way a real one does rather than churning for as long as somebody leans on it.
+    // A starter gives up after a few seconds.
     clearTimeout(st.crankT);
     st.crankT = setTimeout(() => stopCrank(), 4000);
   }
@@ -2237,7 +1901,7 @@ export function openCab(ctx = {}) {
     paintKey();
   }
   st.startCrank = startCrank; st.stopCrank = stopCrank; st.ignitionOff = ignitionOff;
-  // The one-press form the K key and a tap still use: off if it is running, crank if it is not.
+  // The one-press form for the K key and a tap.
   function toggleIgnition() {
     if (!st.sim.stalled) ignitionOff();
     else startCrank();
@@ -2250,31 +1914,18 @@ export function openCab(ctx = {}) {
   }
 
 
-  // The REV button's door, and it is deliberately not `toggleReverse`. That one throws the lever
-  // straight across, which is the right thing for the R key (a hand on a stick) and the wrong thing
-  // for a button pressed by somebody who has the automatic on and both hands off — they would see
-  // the gear number change and nothing else. This goes through `beginShift`, the automatic's own
-  // sequence, so the clutch dips, the stick comes out to neutral, it sits there for a beat and then
-  // goes across. Same machinery, so there is no second idea about how this box is shifted.
+  // The REV button runs the automatic's own sequence (beginShift), so the shift is visible;
+  // toggleReverse throws the lever straight across for the R key.
   function engageReverse() {
-    if (Math.abs(st.sim.speed) >= 2) return;      // the same standstill rule the lever has
+    if (Math.abs(st.sim.speed) >= 2) return;      // the lever's standstill rule
     if (st.shiftSeq) return;                      // one shift at a time
-    beginShift(st.sim.gear < 0 ? 0 : -1);         // in reverse → back to neutral; otherwise into it
+    beginShift(st.sim.gear < 0 ? 0 : -1);         // reverse goes to neutral; otherwise into reverse
   }
   st.engageReverse = engageReverse;
   function toggleReverse() {
     if (Math.abs(st.sim.speed) >= 2) return;
-    // THE LEFT FOOT IS AUTOMATIC ON THIS ONE, and reverse is the only slot on the gate that gets
-    // that. Everywhere else the clutch is half of shifting and the player owns it — see the note on
-    // the sequential keys, which deliberately stopped dipping it for you. Reverse is different for
-    // a reason that is already written into the guard above: it can ONLY be selected stopped, so
-    // there is no version of this where the automatic foot is covering for a shift that should have
-    // cost something. What it was actually costing was a grind every time somebody backed onto a
-    // dock, from a pedal they were already holding a wheel and a throttle against.
-    //
-    // Dipped and released around the shift rather than latched, so nothing is left holding the
-    // clutch down afterwards — and the release honours a hand that IS on the pedal (or the latch),
-    // exactly as the automatic's own sequence does when it lets one up.
+    // The clutch is automatic for reverse only: it can only be chosen stopped, so there's no shift to
+    // fluff. Dipped and released around it, honouring a hand or latch on the pedal.
     const held = st.input.clutch;
     st.input.clutch = 1;
     if (!st.shiftGate?.(st.sim.gear < 0 ? 1 : -1)) {
@@ -2282,48 +1933,37 @@ export function openCab(ctx = {}) {
     }
     st.input.clutch = (st.heldBy?.clutch || st.clutchLatched) ? held : 0;
   }
-  // THE SPLITTER IS HALF A SHIFT, AND HALF A SHIFT IS STILL A SHIFT. The collar moves dog teeth in
-  // the same box; flicking it under load with the clutch out is the classic way to lose a ratio and
-  // find neutral at speed, which is exactly what shiftGate does to you.
+  // The splitter is half a shift, so it goes through shiftGate too.
   function splitGear() {
     const want = gearWithin((st.sim.gear ?? 1) + (st.sim.split ? -1 : 1));
     if (st.shiftGate?.(want)) return;
     truckSplit(st.sim, P);
   }
 
-  // Wipers, off → intermittent → low → high → off. Purely a client-side control: the blade is
-  // drawn on the glass and clears the drops that are drawn on the glass, and neither of those
-  // things is a fact about the world, so nothing is told to the server about it.
+  // Wipers off, intermittent, low, high. Client-only: nothing about them is world state.
   function paintWipers() {
     const w = st.wipers | 0;
     const stalk = container.querySelector('.cab-stalk');
     if (stalk) {
       stalk.style.setProperty('--pos', String(w));
       stalk.classList.toggle('on', w > 0);
-      // The hint is painted here rather than only on a weather push, so switching the wipers off
-      // in the rain brings it straight back.
+      // Painted here too, so switching off in the rain brings the hint straight back.
       stalk.classList.toggle('hint', cabWet(st) && !w);
       const lbl = stalk.querySelector('.cab-stalk-pos');
       if (lbl) lbl.textContent = WIPE_POS[w] || 'OFF';
-      // The stalk's own detent is the state, so the accessible name carries it too — a screen
-      // reader gets "Wipers, low" rather than a control it has to press to learn anything about.
       stalk.setAttribute('aria-label', 'Wipers: ' + (WIPE_POS[w] || 'OFF').toLowerCase());
     }
   }
   st.paintWipers = paintWipers;
   // ── THE HEADLIGHT SWITCH ───────────────────────────────────────────────────
-  // Latching, on by default — see the rocker's markup for why the default is ON rather than OFF.
-  // Purely local: the sim reads `st.heads` for the beam and the telemetry packet carries it to the
-  // server for other drivers, so there is nothing to await here and nothing to persist.
+  // On by default; the telemetry packet carries it to other drivers.
   if (st.heads === undefined) st.heads = true;
   function setHeads(on) {
     st.heads = !!on;
     const el = container.querySelector('.cab-heads');
     if (el) {
       el.classList.toggle('on', st.heads);
-      // ⚠ THE <span>, NOT THE BUTTON. The rocker also holds its tell-tale lamp (`<i>`), and a
-      // textContent write on the button deletes it — which is exactly what happened the first time
-      // the wiper stalk became a rocker, two controls along.
+      // ⚠ Write the <span>, never the button: textContent on the button deletes its tell-tale lamp.
       const lbl = el.querySelector('span');
       if (lbl) lbl.textContent = st.heads ? 'LAMPS' : 'DARK';
       el.setAttribute('aria-pressed', st.heads ? 'true' : 'false');
@@ -2331,17 +1971,15 @@ export function openCab(ctx = {}) {
     }
   }
   st.setHeads = setHeads;
-  // -- THE DOME LAMP ----------------------------------------------------------
-  // Latching, on by default, and it never leaves this client: the renderer reads it off the frame
-  // options and there is nothing about the inside of your cab another driver could see.
+  // ── THE DOME LAMP ──────────────────────────────────────────────────────────
+  // On by default and local only: nobody outside the cab can see it.
   if (st.dome === undefined) st.dome = true;
   function setDome(on) {
     st.dome = !!on;
     const el = container.querySelector('.cab-dome');
     if (el) {
       el.classList.toggle('on', st.dome);
-      // WARNING: the <span>, not the button — the rocker carries its own tell-tale lamp (<i>) and
-      // a textContent write on the button deletes it. Same trap as the headlights above.
+      // ⚠ The <span>, as with the headlights.
       const lbl = el.querySelector('span');
       if (lbl) lbl.textContent = st.dome ? 'CAB' : 'DARK';
       el.setAttribute('aria-pressed', st.dome ? 'true' : 'false');
@@ -2354,9 +1992,7 @@ export function openCab(ctx = {}) {
     paintWipers();
     const el = container.querySelector('.cab-wipe');
     if (el) {
-      // The LABEL is the state, so it is the label that changes — and it is the <span>, not the
-      // button, because the button also holds the tell-tale lamp and a textContent write would
-      // delete it. (That is exactly what happened the first time the stalk became a rocker.)
+      // ⚠ The <span>, as with the headlights.
       const lbl = el.querySelector('span');
       if (lbl) lbl.textContent = ['WIPE', 'INT', 'LO', 'HI'][st.wipers];
       el.classList.toggle('on', st.wipers > 0);
@@ -2364,10 +2000,7 @@ export function openCab(ctx = {}) {
   }
 
   // ── THE VIEW CHROME ────────────────────────────────────────────────────────
-  // Fullscreen and hide-panel are BODY classes, exactly as the flight sim and the hangar do it
-  // (`fsim-fullscreen` / `fsim-hidepanel`), because what they change is the page layout and not
-  // anything about the cab. Fullscreen supersedes hide-panel — the same precedence, so a player who
-  // learned it in an aircraft does not have to learn it again in a truck.
+  // Fullscreen and hide-panel are body classes, as in the flight sim; fullscreen supersedes hide-panel.
   const fsBtn = container.querySelector('.cab-fsbtn');
   const hideBtn = container.querySelector('.cab-hidebtn');
   const viewBtn = container.querySelector('.cab-viewbtn');
@@ -2381,58 +2014,37 @@ export function openCab(ctx = {}) {
     hideBtn.classList.toggle('on', on);
     if (on) { document.body.classList.remove('cab-fullscreen'); fsBtn.classList.remove('on'); }
   });
-  // The third rung. It does not supersede the other two the way they supersede each other — it is
-  // a different layer (the page rather than the pane), so whatever ⛶ or ⊟ were set to is what the
-  // driver comes back to. bigscreen.js keeps the lit state, because Esc can leave it without this
-  // button being touched.
+  // Big screen is a separate layer, so ⛶ and ⊟ keep their state; bigscreen.js keeps its lit state.
   bindBigScreenButton(container.querySelector('.cab-bigbtn'));
-  // ⚠ AND ON A PHONE IT STARTS HIDDEN. The room description and the log are below the pane, and on
-  // a phone that is the last third of a screen the road was already fighting for — a driver in a
-  // cab is looking out of the windscreen, and the room they are parked in has nothing to say until
-  // they climb down. Shared with the other five panels that take over the pane; the rules are in
-  // compact-view.js, including why it is a default and never a lock.
+  // On a phone the panel starts hidden; the rules are in compact-view.js.
   seatHidePanel('cab-hidepanel', hideBtn);
-  window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told; an app that mounts there has to say so
-  // THE EXTERNAL VIEW. The renderer has had a real chase camera the whole time — the cab's own
-  // header note lists `external` among the things it deliberately did not pass — so this is not a
-  // new camera, it is the existing one turned on, model and all. The rig is NOT a world object and
-  // must never become one (the collision probe would hit it); it is the renderer's own-ship, which
-  // is exactly the seam every aircraft already uses to be the thing the world is drawn for.
+  window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told
+  // The external view is the renderer's existing chase camera. ⚠ The rig must never become a world
+  // object (the collision probe would hit it); it's the renderer's own-ship.
   viewBtn.addEventListener('click', () => setExternal(!st.external));
   function setExternal(on) {
-    // Stepping back inside stows the camera. There is nothing to detach from behind the glass, and
-    // a camera left running there is one holding the keyboard hostage — see the ⚠ on the O key.
+    // Stepping back inside stows the camera, or it holds the keyboard hostage.
     if (!on) st.exitFreeCam?.();
     st.external = !!on;
     viewBtn.classList.toggle('on', st.external);
     viewBtn.textContent = st.external ? '◎ CAB' : '◎ EXT';
     container.querySelector('.cab-wrap')?.classList.toggle('cab-ext', st.external);
-    // Outside the cab there is no dash, so the glass gauge is the only fuel reading there is —
-    // repaint on the switch rather than waiting for the next server push, or stepping out shows
-    // nothing for up to a second.
+    // Outside there's no dash, so repaint the glass fuel gauge now.
     paintFuelGauge(st);
     const rst = container.querySelector('.cab-orbitreset');
     if (rst) rst.hidden = !st.external;
-    // A drag that started as steering must not become an orbit halfway through, and vice versa.
+    // A drag that started as steering mustn't become an orbit, and vice versa.
     st.wheel?.setDragging(false);
   }
   st.setExternal = setExternal;
-  // THE ONE WAY OUT, so the key, the view button and the teardown all hand the truck back the same
-  // way. ⚠ It restores the throttle from the KEY STATE rather than to zero: a driver who was holding
-  // A throughout is still holding it, and autorepeat may not fire again for them — so releasing the
-  // camera has to give the pedal back rather than wait to be told about it a second time.
+  // The one way out, for the key, the view button and teardown alike.
   function exitFreeCam() {
     if (!freeCam.active) return;
     freeCam.close();
-    // A driver who was NOT on cruise before must not discover they are on it after — the sort of
-    // thing you only notice at a junction.
+    // A driver who wasn't on cruise before mustn't be on it after.
     if (!st.freeHold?.cruise) setCruise(null);
     st.freeHold = null;
-    // ⚠ AND THE PEDALS COME BACK FROM THE KEY RECORD, WHICH IS WHAT THE COMMENT ABOVE THIS FUNCTION
-    // HAS ALWAYS CLAIMED. It could not: entering zeroed `st.input` and nothing anywhere remembered
-    // that A was still down, so autorepeat never fired again for that press and the throttle stayed
-    // dead until the driver released and pressed it a second time. Detaching the camera is allowed
-    // to take the truck away; it is not allowed to keep it.
+    // ⚠ The pedals and steering come back from the key record, since autorepeat won't fire again for a held key.
     for (const [k, ctl] of [['a', 'throttle'], ['z', 'brake'], [' ', 'clutch'], ['j', 'jake']]) {
       st.input[ctl] = st.keysDown.has(k) ? 1 : 0;
       if (st.heldBy) st.heldBy[ctl] = st.input[ctl];
@@ -2444,17 +2056,8 @@ export function openCab(ctx = {}) {
   }
   st.exitFreeCam = exitFreeCam;
   // ── THE ROUTE PICKER ───────────────────────────────────────────────────────
-  //
-  // THE SCREEN PROPOSES; THE VERB DECIDES. Every row here sends the ordinary `route <key>` command
-  // — the same string a player could type — and that command owns all of the rules: whether the
-  // fork is still ahead, whether a contracted load overrides the choice, what happens to the
-  // odometer. This panel re-implements none of it, and must not start: the moment it decides
-  // anything, there are two answers to "can I go there" and they disagree the first time a tank
-  // gets smaller.
-  //
-  // Which is also why an unreachable destination is shown and NOT hidden. A greyed row that says
-  // why is information; a missing row is a mystery, and the fuel judgement ("further than your tank,
-  // one way") is a call the driver is allowed to make.
+  // ⚠ The screen proposes and the verb decides: every row sends 'route <key>', which owns every rule.
+  // Never decide anything here. Unreachable destinations are shown greyed with the reason, never hidden.
   {
     const box = container.querySelector('.cab-routes');
     const REACH = {
@@ -2463,17 +2066,10 @@ export function openCab(ctx = {}) {
       far: ['r-far', 'well past your range'],
     };
     const body = () => box?.querySelector('.cab-gps-body');
-    // WHICH APP IS UP is one variable and the tabs are the only writer. The renderers below are
-    // otherwise unchanged — they paint the body, and the body does not care whether it is currently
-    // sitting in the dash or in a floating window.
+    // Which app is up; the tabs are the only writer.
     st.gpsApp = 'route';
     function renderGps() {
-      // ⚠ THE WHOLE UNIT, NOT THE ROUTE APP. An EMP takes the head, and the head is
-      // what the three tabs are painted on — a dead plotter that still let you flip
-      // to MAP and read your own position off it would be a unit that is only
-      // pretending to be broken. The tabs stay clickable on purpose: pressing
-      // buttons on a dead screen is what a person does, and it says the same thing
-      // whichever one you press.
+      // ⚠ An EMP kills the whole unit, every tab: a plotter that still showed MAP would be pretending.
       if (st.elecOut) {
         const el = body(); if (!el) return;
         el.innerHTML = '<div class="cab-routes-none cab-gps-dead">NO SIGNAL<br><span>the head took the pulse</span></div>';
@@ -2485,18 +2081,8 @@ export function openCab(ctx = {}) {
     }
     st.renderMapApp = () => { if (st.gpsApp === 'map') renderMapApp(); };
     // ── THE MAP ────────────────────────────────────────────────────────────────
-    // The GPS could name where you were going and how far it was, and could not show you where you
-    // WERE. Everything this draws was already on the wire and being spent on the windshield: the
-    // same `map` window the 3D view extrudes its buildings from, the same `s`/`L` the odometer is
-    // derived from, the same `routes` the picker lists. Nothing was added to the context for it,
-    // which is the whole reason it is worth having — a second position channel would be a second
-    // thing to disagree with the road.
-    //
-    // TWO ANSWERS, because "where am I" has two at any moment. In a city you want the streets
-    // around you, so it draws the window: north up, buildings solid, roads light, you in the
-    // middle. Out on the corridor a window of void road tells you nothing at all — every tile looks
-    // like the last one, which is the point of the void — so it draws the ROUTE instead, as a line
-    // from where you left to where you are aimed, with the nodes on it and you somewhere along.
+    // Drawn only from what's already on the wire: the 'map' window, 's'/'L' and 'routes'. ⚠ Never add
+    // a second position channel. In a city it draws the window north-up.
     function renderMapApp() {
       const el = body(); if (!el) return;
       const corridor = (st.L || 0) > 0 && (st.sim?.leg || st.leg) !== 'city';
@@ -2507,42 +2093,25 @@ export function openCab(ctx = {}) {
       if (!cv || !cv.getContext) return;
       const g = cv.getContext('2d');
       g.clearRect(0, 0, cv.width, cv.height);
-      // ⚠ THE CORRIDOR GETS THE MAP TOO NOW, AND THE STRIP BECOMES ITS FOOTER. The note above used
-      // to end "so it draws the ROUTE instead", and that was right when the void was a ruler-
-      // straight run of identical tiles. It has not been that for a while: the road BENDS, the
-      // verge is a classified band either side of a real centreline, there are mile boards and
-      // junction pylons on the shoulder, forks with sibling limbs, and wrecks where somebody did
-      // not finish. A window of that is worth looking at — and the one thing a progress bar can
-      // never show you is the bend you are already in.
-      //
-      // So both, rather than a choice: the window is the instrument and the strip is the ribbon
-      // under it, still carrying the nodes, the mileage and the turn call. Nothing new is on the
-      // wire for any of it — `st.map` is synthesised on the corridor exactly as it is in a city
-      // (see providerFor in plugins/trucking/state.js), and the windshield has been eating it the
-      // whole time.
+      // On the corridor it's the window plus the route strip as a footer ('st.map' is synthesised
+      // there too; see providerFor in plugins/trucking/state.js).
       const RIBBON = 54;
       const full = { x: 0, y: 0, w: cv.width, h: cv.height };
       if (corridor) {
-        // The window draws SILENT out here — one legend, and it is the strip's, because miles to
-        // run and the turn call beat a tile coordinate nobody can do anything with in the void.
+        // The window draws without a legend here; the strip's legend is the useful one.
         drawLocalMap(g, cv, null, { x: 0, y: 0, w: cv.width, h: cv.height - RIBBON });
         drawRouteStrip(g, cv, leg, { x: 0, y: cv.height - RIBBON, w: cv.width, h: RIBBON });
       } else drawLocalMap(g, cv, leg, full);
     }
-    // Colours are deliberately few and flat. This is an instrument, not a picture: what a driver
-    // needs off it in a glance is where the roads are and where the buildings are not.
+    // Few flat colours: it's an instrument.
     const MAP_INK = { road: '#4d5560', bldg: '#20262e', water: '#1d3550', field: '#2c3a2e', land: '#2a2620', air: '#12151a',
-      // The two the corridor needs and a city does not: the made surface you want to be on, and the
-      // graded band either side of it that is merely slow. They are close together on purpose — the
-      // verge is not a hazard stripe, it is the same road with less of it under you.
+      // Corridor only: the paved surface and the slower graded verge, deliberately close in tone.
       paved: '#5a6472', verge: '#403a30' };
     function cellInk(c) {
       if (!c || c.kind === 'air') return MAP_INK.air;
       if (c.bt) return MAP_INK.bldg;
-      // ⚠ THE CORRIDOR IS A BAND, NOT A LINE, so `road` alone flattens the whole width to one grey
-      // and the driver cannot see which part of it they are on — which out here is the only
-      // question the map is being asked. `rt`/`rw` are the tile's own offset from the centreline
-      // and the paved half-width, and they travel together or not at all (see deriveSurfaceCell).
+      // ⚠ The corridor is a band: 'rt' (offset from centreline) and 'rw' (paved half-width) travel
+      // together (see deriveSurfaceCell).
       if (c.rdeg !== undefined && c.rw !== undefined) {
         return Math.abs(c.rt || 0) <= c.rw ? MAP_INK.paved : MAP_INK.verge;
       }
@@ -2551,9 +2120,7 @@ export function openCab(ctx = {}) {
       if (c.kind === 'field') return MAP_INK.field;
       return MAP_INK.land;
     }
-    // `rect` is the box on the canvas this map may have, because on the corridor it shares the
-    // glass with the route ribbon. `leg` is optional for the same reason — two functions writing
-    // the one legend element means whichever ran last wins, silently.
+    // 'rect' is this map's box on the canvas; 'leg' is optional so the map and the strip don't both write the legend.
     function drawLocalMap(g, cv, leg, rect = { x: 0, y: 0, w: cv.width, h: cv.height }) {
       const rows = st.map;
       if (!rows || !rows.length) { if (leg) leg.innerHTML = '<span class="cab-routes-none">No fix.</span>'; return; }
@@ -2563,11 +2130,7 @@ export function openCab(ctx = {}) {
         g.fillStyle = cellInk(rows[r][c]);
         g.fillRect(ox + c * px, oy + r * px, Math.ceil(px), Math.ceil(px));
       }
-      // THE THINGS ON THE SHOULDER. A board, a set of junction pylons, a depot door — the landmarks
-      // that make one stretch of corridor distinguishable from the next, which is precisely what
-      // the old note said a void window could never be. They ride the `mark` channel the windshield
-      // already extrudes from, so nothing is authored twice and a mark that never reaches the 3D
-      // view can never appear here either.
+      // Roadside landmarks from the 'mark' channel the windshield extrudes, so nothing's authored twice.
       const MARK_INK = { sign: '#c9d2dc', pylons: '#7d8794', bay: '#e8b455', gate: '#9aa6b4', statue: '#6f7a88' };
       for (let r = 0; r < n; r++) for (let c = 0; c < rows[r].length; c++) {
         const ink = MARK_INK[rows[r][c]?.mark];
@@ -2576,10 +2139,8 @@ export function openCab(ctx = {}) {
         const d = Math.max(2, px * 0.42);
         g.fillRect(ox + (c + 0.5) * px - d / 2, oy + (r + 0.5) * px - d / 2, d, d);
       }
-      // ⚠ THE TRUCK IS NOT AT THE CENTRE OF THE WINDOW, it is at its own fractional position inside
-      // the centre TILE — `mapX/mapY` are the window's rounded centre and `sim.x/y` are where the
-      // wheels are. Drawing it dead centre would be right three times out of four and visibly
-      // lagging the rest of the time, which on a map reads as the map being wrong.
+      // ⚠ The truck sits at its fractional position in the centre tile: 'mapX/mapY' are the rounded
+      // centre, 'sim.x/y' are the wheels.
       const cx = ox + (n / 2 + ((st.sim?.x ?? st.mapX) - st.mapX)) * px;
       const cy = oy + (n / 2 + ((st.sim?.y ?? st.mapY) - st.mapY)) * px;
       const hd = ((st.sim?.heading ?? 0)) * Math.PI / 180;
@@ -2594,19 +2155,11 @@ export function openCab(ctx = {}) {
           + `<span class="td-dim"> · heading ${Math.round(st.sim?.heading ?? 0)}° · ${esc(String(st.input?.surface || 'road')).toUpperCase()}</span>`;
       }
     }
-    // The corridor, drawn as the thing it is: one line with a start, an end and you on it. `s`/`L`
-    // are the server's own numbers — the same pair the odometer is derived from — so the dot cannot
-    // drift from the mileage printed under it.
-    // It is now the FOOTER of the corridor map rather than the whole of it, so it takes a `rect`
-    // and lives in it — the line sits high in the band with the two end labels under it, which is
-    // the only arrangement that fits without either clipping the words or stealing height from the
-    // window above. The geometry is the only thing that changed; every number it prints is still
-    // the server's own.
+    // The corridor as one line, drawn in 'rect' as the map's footer. 's'/'L' are the server's own,
+    // so the dot can't drift from the mileage.
     function drawRouteStrip(g, cv, leg, rect = { x: 0, y: 0, w: cv.width, h: cv.height }) {
       const L = Math.max(1, st.L || 1), s = Math.max(0, Math.min(L, st.s || 0));
       const x0 = rect.x + 34, x1 = rect.x + rect.w - 34, y = rect.y + 18;
-      // A hairline over the band, so the ribbon reads as an instrument under the map rather than as
-      // the bottom of it.
       g.strokeStyle = '#252c34'; g.lineWidth = 1;
       g.beginPath(); g.moveTo(rect.x + 6, rect.y + 0.5); g.lineTo(rect.x + rect.w - 6, rect.y + 0.5); g.stroke();
       g.strokeStyle = '#39424e'; g.lineWidth = 10; g.lineCap = 'round';
@@ -2625,13 +2178,8 @@ export function openCab(ctx = {}) {
       g.fillStyle = '#8c98a6'; g.font = '11px system-ui, sans-serif';
       g.textAlign = 'left'; g.fillText('start', x0 - 8, y + 22);
       g.textAlign = 'right'; g.fillText(destName() || 'the road', x1 + 8, y + 22);
-      // Miles, in the same unit the boards and the `route` verb use — see TILES_PER_MILE. A dash
-      // that disagreed with a sign the driver just passed would make both useless.
-      // ⚠ DERIVED FROM THE DESTINATION'S OWN MILEAGE, never counted here. The picker already prints
-      // a total for this road and the server already says how far along it you are, so the two
-      // together are the remaining distance — and it is the SAME total the driver read on the row
-      // they picked. A second mileage computed on the client is the one that ends up disagreeing
-      // with a board by the roadside.
+      // Miles in the boards' unit (TILES_PER_MILE). ⚠ Derived from the destination's own mileage and
+      // the server's progress, never counted here, so it matches the row the driver picked.
       const cur = st.routes?.dests?.find((d) => d.current) || st.routes?.dests?.find((d) => d.key === st.aim);
       const total = cur?.miles;
       const left = total != null ? Math.max(0, Math.round(total * (1 - s / L))) : null;
@@ -2641,15 +2189,8 @@ export function openCab(ctx = {}) {
         + `<div class="cab-gps-instr">${nextInstruction()}</div>`;
     }
     // ── THE INSTRUCTION ────────────────────────────────────────────────────────
-    // Read off the ROAD, not off a route plan: `rdeg` is the corridor's own heading at the tile you
-    // are on — the same number the auto-tiler and the sign posts are struck from — so the dash can
-    // never tell you to bear left down a road that goes right. It is deliberately the tile you are
-    // ON rather than one some distance ahead: the window is centred on the truck, a lookahead would
-    // have to guess how far, and the bend radius is floored well above a tile (see MIN_RADIUS), so
-    // the road under you and the road just ahead of you cannot disagree by much.
-    //
-    // ⚠ And it says nothing at all when it has nothing to say. A GPS that repeats "continue
-    // straight" every second is one you stop reading, which is how you miss the one time it matters.
+    // Read off 'rdeg', the corridor's heading at the tile you're on, so it can't contradict the road.
+    // Quiet when there's nothing to say.
     function nextInstruction() {
       const rows = st.map;
       if (!rows || !rows.length) return '';
@@ -2670,9 +2211,7 @@ export function openCab(ctx = {}) {
       return cur ? cur.heading : null;
     }
     st.renderGps = renderGps;
-    // The rig's condition, as a GPS page. Deliberately the SAME rows the damage card draws — it
-    // reads `st.dmg`, the payload the server already pushes — because two renderings of one set of
-    // numbers is how two renderings end up disagreeing.
+    // The rig's condition as a GPS page: the same 'st.dmg' rows the damage card draws.
     function renderDamageApp() {
       const el = body(); if (!el) return;
       const d = st.dmg;
@@ -2702,8 +2241,7 @@ export function openCab(ctx = {}) {
           + `<span class="cab-route-d">${d.miles} miles &middot; ${note}</span>`
           + `${d.current ? '<i>▸ running for this</i>' : ''}</button>`;
       }).join('');
-      // The one thing the picker says on its own account, and it is a statement about the ROAD
-      // rather than a decision about the player: past the junction there is nothing to choose.
+      // Past the junction there's nothing to choose.
       const foot = R.forkAhead
         ? '<div class="cab-routes-ft">The fork is still ahead.</div>'
         : '<div class="cab-routes-ft warn">The fork is behind you. This is the road you\'re on.</div>';
@@ -2714,31 +2252,23 @@ export function openCab(ctx = {}) {
       if (!box) return;
       box.hidden = on === undefined ? !box.hidden : !on;
       renderGps();
-      // NOTHING IS REQUESTED ON OPEN. The tempting move is to ask the server for a fresh list, and
-      // the only channel to hand is `trucksync` — which is TELEMETRY, clamped against wall-clock to
-      // defend the odometer. Sending a synthetic one to provoke a reply would be feeding the
-      // anti-cheat envelope a position the truck is not at, to refresh a menu. The cab is already
-      // pushed on every tile change and once a second as a floor, so the list is at most a second
-      // old, and the verb re-checks everything anyway.
+      // ⚠ Nothing is requested on open: the only channel is 'trucksync' telemetry, and a fake one
+      // would feed the anti-cheat a position the truck isn't at. The list is at most a second old.
       grabSeatKeys();
     };
-    // Tabs, close, and the pop-out. All three are one delegated listener on the header, because
-    // the header is one control strip and three listeners on three buttons is three chances for one
-    // of them to be bound to an element that a re-render has since replaced.
+    // One delegated listener on the header, since re-renders replace the buttons.
     box?.querySelector('.cab-gps-hd')?.addEventListener('click', (e) => {
       const tab = e.target.closest?.('.cab-gps-tab');
       if (tab) {
         st.gpsApp = tab.dataset.app;
         for (const t of box.querySelectorAll('.cab-gps-tab')) t.classList.toggle('on', t === tab);
         renderGps();
-        grabSeatKeys();                       // tapping the screen must not cost you the wheel
+        grabSeatKeys();                       // tapping the screen mustn't cost you the wheel
         e.preventDefault(); return;
       }
       if (e.target.closest?.('.cab-gps-x')) { st.toggleRoutePicker(false); e.preventDefault(); return; }
       if (e.target.closest?.('.cab-gps-pop')) {
-        // POPPING OUT IS A CLASS, NOT A NEW WINDOW. The panel keeps its DOM, its listeners and its
-        // renderers; all that changes is where it is positioned and that it now has a title bar you
-        // can drag. Cloning it into a real dialog would have meant two of everything.
+        // Popping out is a class on the same DOM, never a new window.
         const out = box.classList.toggle('cab-gps-out');
         if (out && !box.style.left) { box.style.left = '18vw'; box.style.top = '16vh'; }
         renderGps();
@@ -2746,15 +2276,13 @@ export function openCab(ctx = {}) {
         e.preventDefault(); return;
       }
     });
-    // Dragging the popped-out unit by its header. Pointer capture, so it keeps following the finger
-    // when the cursor outruns the box — the same reason every held control in this cab claims its
-    // pointer.
+    // Dragging the popped-out unit by its header, with pointer capture.
     {
       const hd = box?.querySelector('.cab-gps-hd');
       let drag = null;
       hd?.addEventListener('pointerdown', (e) => {
         if (!box.classList.contains('cab-gps-out')) return;
-        if (e.target.closest('.cab-gps-tab,.cab-gps-pop,.cab-gps-x')) return;   // buttons are buttons first
+        if (e.target.closest('.cab-gps-tab,.cab-gps-pop,.cab-gps-x')) return;   // buttons first
         const r = box.getBoundingClientRect();
         drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
         hd.setPointerCapture?.(e.pointerId);
@@ -2762,7 +2290,7 @@ export function openCab(ctx = {}) {
       });
       hd?.addEventListener('pointermove', (e) => {
         if (!drag) return;
-        // Clamped to the window, or a panel dragged off the edge is a panel you cannot get back.
+        // Clamped to the window, or it can be dragged off for good.
         box.style.left = Math.max(0, Math.min(innerWidth - 80, e.clientX - drag.dx)) + 'px';
         box.style.top = Math.max(0, Math.min(innerHeight - 40, e.clientY - drag.dy)) + 'px';
       });
@@ -2774,8 +2302,7 @@ export function openCab(ctx = {}) {
     box?.addEventListener('click', (e) => {
       const btn = e.target.closest?.('.cab-route');
       if (!btn) return;
-      // Straight to the verb, by key. No confirmation and no client-side refusal — if the road says
-      // no, the road says so in its own words, in the log, where every other refusal lives.
+      // Straight to the verb; refusals come back in the log.
       sendCmdSilent('route ' + btn.dataset.key);
       st.toggleRoutePicker(false);
       e.preventDefault();
@@ -2787,10 +2314,7 @@ export function openCab(ctx = {}) {
   });
 
   // ── THE DAMAGE HUD ─────────────────────────────────────────────────────────
-  // Two densities over one payload. `renderDamage` is called from `cabContext` (the server push)
-  // rather than from the frame loop, because damage changes when the server says so — a few times a
-  // minute at most — and repainting four DOM bars at 60fps to show a number that has not moved is
-  // the kind of cost that only shows up on somebody else's laptop.
+  // Two densities over one payload. Repainted from the server push (cabContext), never per frame.
   const dmgStrip = container.querySelector('.cab-dmg-strip');
   const dmgFull = container.querySelector('.cab-dmg-full');
   dmgStrip.addEventListener('click', () => {
@@ -2800,15 +2324,8 @@ export function openCab(ctx = {}) {
   });
   st.renderDamage = (d) => {
     if (!d) return;
-    // ── YOU HEAR IT BEFORE YOU READ IT ────────────────────────────────────────
-    // A component crossing into a worse band is an EVENT, and the sound is how a driver finds out
-    // about it with their eyes on the road. Fired from the band the server already computed rather
-    // than from a threshold this file keeps its own copy of — the pip, the bar, the log line and
-    // the noise then all change at exactly the same moment, which is the only version of this that
-    // does not eventually read as a bug.
-    //
-    // ⚠ ONLY ON THE WAY DOWN. A repair also changes the band, and a bearing knock celebrating a
-    // successful bench visit would be an odd thing to sit through.
+    // A component dropping into a worse band plays a cue, from the server's band so the pip, bar,
+    // log and sound change together. ⚠ Only on the way down: a repair changes the band too.
     const prev = st.dmg;
     if (prev) {
       for (const part of DMG_PARTS) {
@@ -2818,8 +2335,7 @@ export function openCab(ctx = {}) {
       }
     }
     st.dmg = d;
-    // The strip: one pip per component, and the WORST one drives whether the whole strip is
-    // shouting. A driver should not have to read four pips to find out that one of them is red.
+    // One pip per component; the worst one sets the whole strip's alarm.
     const parts = DMG_PARTS.filter(p => d[p.key]);
     const worst = parts.reduce((w, p) => Math.min(w, d[p.key].v), 1);
     dmgStrip.innerHTML = parts.map(p =>
@@ -2835,13 +2351,11 @@ export function openCab(ctx = {}) {
     }).join('')
       + `<p class="cab-dmg-foot">A bench is <b>rig repair shop</b> at a depot, or one part at a time: `
       + `<b>rig repair shop engine</b>. Out here, <b>fix</b> needs a box of spares.</p>`;
-    // …and if the GPS is showing the rig page, it is showing THESE numbers, so it repaints here
-    // rather than on a timer of its own.
+    // The GPS rig page shows these same numbers, so repaint it here.
     if (st.gpsApp === 'damage') st.renderGps?.();
   };
 
-  // The controls card. Built from ONE table so the legend cannot drift from the buttons — every row
-  // here names a control that exists above, and a control with no row is a control nobody finds.
+  // The controls card, built from the CONTROLS table.
   const helpEl = container.querySelector('.cab-help');
   helpEl.innerHTML = `<h4>DRIVING</h4><dl>${CONTROLS.map(([k, d]) =>
     `<dt>${k}</dt><dd>${d}</dd>`).join('')}</dl>
@@ -2855,11 +2369,8 @@ export function openCab(ctx = {}) {
   st.toggleHelp = toggleHelp;
 
   // ── THE GALLEY FLAP ────────────────────────────────────────────────────────
-  // Opening it ASKS. The list is not on the cab push and must not be — 'cabContext' runs several
-  // times a second and an inventory join in it is a remote round trip per push, on the hottest path
-  // this plugin owns. So one 'galley' the moment the flap opens, and never again until it opens
-  // again. The bars are painted immediately from what the client already has, so the panel is never
-  // blank while the reply is in flight.
+  // ⚠ Opening it asks once ('galley'); the list must never ride cabContext, which runs several times
+  // a second and would pay an inventory query per push. The bars paint at once from local state.
   const galleyEl = container.querySelector('.cab-galley');
   const toggleGalley = (show) => {
     const open = show === undefined ? galleyEl.hidden : show;
@@ -2868,13 +2379,12 @@ export function openCab(ctx = {}) {
     if (open) {
       galleyEl.querySelector('.cab-galley-body').innerHTML = '<i class="cab-galley-wait">…</i>';
       paintGalleyVitals(st);
-      // ⚠ FLAGGED AS OURS. See cabGalley: a reply the PANEL asked for must never re-open a flap the
-      // driver has closed in the meantime.
+      // ⚠ Flagged as ours (see cabGalley), so the reply can't re-open a flap the driver closed.
       st.galleyAsked = true;
       sendCmdSilent('galley');
     }
   };
-  // The latch. Sends the ordinary verb and waits for the payload — see paintLatch.
+  // The latch sends the ordinary verb and waits for the payload (paintLatch).
   container.querySelector('.cab-latchbtn').addEventListener('click', () => {
     sendCmdSilent(st.locked ? 'unlock cab' : 'lock cab');
   });
@@ -2882,9 +2392,7 @@ export function openCab(ctx = {}) {
 
   container.querySelector('.cab-galleybtn').addEventListener('click', () => toggleGalley());
   galleyEl.querySelector('.cab-galley-x').addEventListener('click', () => toggleGalley(false));
-  // Delegated, because the rows are rebuilt on every reply and a listener per row is a listener per
-  // row to lose. Eating REFRESHES rather than closing: the commonest thing a driver wants after a
-  // sandwich is the next sandwich, and the reply that comes back is the authority on what is left.
+  // Delegated, since rows are rebuilt each reply. Eating refreshes rather than closing.
   galleyEl.addEventListener('click', (e) => {
     const b = e.target.closest?.('.cab-galley-item');
     if (!b) return;
@@ -2895,9 +2403,7 @@ export function openCab(ctx = {}) {
   st.toggleGalley = toggleGalley;
   st.renderGalley = (msg) => renderGalley(st, msg);
 
-  // The pick-up button. Sends the BARE verb — the fugitive's sleeper-or-trailer question belongs to
-  // the verb, which asks it in the log, and a panel that pre-empted that choice would be making the
-  // one decision this whole system exists to put in front of a driver.
+  // Sends the bare verb: the fugitive's sleeper-or-trailer question belongs to the verb.
   container.querySelector('.cab-hitchalert').addEventListener('click', (e) => {
     if (e.target.closest?.('.cab-hitch-go')) sendCmdSilent('pickup');
   });
@@ -2907,37 +2413,10 @@ export function openCab(ctx = {}) {
   return st;
 }
 
-// ── THE SHED BELONGS TO THE WORLD NOW, NOT TO THE GLASS ─────────────────────
-//
-// A haul starts inside a building, and for a while the shed around you was four CSS gradients and a
-// slatted panel laid OVER the windscreen, lifted on a 2.4s keyframe with the throttle held dead
-// underneath it. That was the right trick while a depot was one flat box in the render: the overlay
-// was the only shed there was.
-//
-// The depot is a real model now — walls, a roof, an interior you sit in, and a roller door whose
-// leaf rides the distance from your own bumper to the aperture (drawVehicleBay in windshield.js).
-// So the overlay had become a SECOND door in front of the first one, running on its own clock: it
-// opened whether or not the real one had, and it pinned the throttle at exactly the moment the real
-// door needs you to roll at it to lift. Nothing replaces it — you are in the shed, and you drive out
-// of the shed.
 
-// The server's authoritative push. It owns the world window, the odometer and the surface; the
-// client owns everything between frames. Position is NOT snapped from here unless the server has
-// actually moved us (a bog), because yanking a driver's position 4×/s is the one thing that would
-// make this feel worse than a text prompt.
-// The 'galley' verb's reply, routed in from dispatch. A no-op with no cab up — the verb is an
-// ordinary one and can be typed standing on a forecourt, where the log is the surface and this
-// panel does not exist. Nothing here decides anything: the list, the verbs and the numbers on each
-// row are all the server's, and this only paints them.
-// ⚠ A REPLY WE ASKED FOR PAINTS; A REPLY THE PLAYER ASKED FOR OPENS. This used to open the flap
-// unconditionally, which is why it would not close: opening it sends a silent `galley`, eating from
-// it sends another, and both replies land a moment later and put the flap straight back up. Pressing
-// ✕ during that window — which is most of the window, because the reply is a round trip — looked
-// like a button that did nothing.
-//
-// The panel's own refreshes now stamp `galleyAsked`, so they only ever REPAINT. A player who types
-// `galley` in the log has no stamp, and that still opens the flap, because asking for the galley
-// is a request to see it.
+// The 'galley' verb's reply, routed from dispatch; a no-op with no cab up. Paint only.
+// ⚠ A reply the panel asked for ('galleyAsked') only repaints; one the player typed opens the flap.
+// Otherwise the panel's own refreshes kept re-opening a flap the driver had just closed.
 export function cabGalley(msg) {
   if (!st) return;
   const ours = st.galleyAsked;
@@ -2946,99 +2425,68 @@ export function cabGalley(msg) {
   st.renderGalley?.(msg);
 }
 
+// The server's push: it owns the world window, odometer and surface. Position is snapped only when
+// the server moved the rig (a bog).
 export function cabContext(ctx) {
   if (!st) return;
-  // A repair or a tune committed at the bench arrives on the next push, so a truck that got its
-  // brakes back gets them back while you are sitting in it rather than at the next mount.
+  // A bench repair or tune arrives on the next push and takes effect in the seat.
   if (ctx.params || ctx.typeId) setParams(ctx);
   if (ctx.condition != null) st.condition = ctx.condition;
-  // The damage HUD repaints on the SERVER push, never in the frame loop — see renderDamage.
   if (ctx.dmg) st.renderDamage?.(ctx.dmg);
   // Interned: see panels/map-intern.js.
   if (ctx.map) { st.map = internMap(st.map, st.mapX, st.mapY, ctx.map, ctx.mapX, ctx.mapY); st.mapX = ctx.mapX; st.mapY = ctx.mapY; st.renderMapApp?.(); }
   // The South Lock: you rolled out on amber. The lamps are already red in the map above.
   if (ctx.lockAlarm) lockKlaxon();
-  // The road past the edge of that window, as polylines in absolute world tiles — the cab window is
-  // 30 tiles and the ground runs to the horizon. Same 'undefined vs null' rule as the two lines
-  // below: null is the server saying there is no road in range, and it has to CLEAR.
+  // The road past the window as polylines in world tiles. null means no road in range and must clear.
   if (ctx.roads !== undefined) st.roads = ctx.roads;
-  // The towers past the window and the region's colour grade. They ride every eighth tile, not every
-  // push (trucking/state.js farView), so an absent key keeps what the cab already has.
+  // Towers and colour grade ride every eighth tile (trucking/state.js farView); absent keeps the last.
   if (ctx.skyline) st.skyline = ctx.skyline;
   if (ctx.regions) st.regions = ctx.regions;
-  // The street population, paired with the map. An empty list is a real answer, not an absent one —
-  // see the same note in cockpit.js flightSimContext.
+  // An empty list is a real answer (see cockpit.js flightSimContext).
   if (ctx.actors !== undefined) st.actors = ctx.actors;
-  // The one figure on the corridor. Same 'undefined vs null' rule as the list above: null is the
-  // server saying nobody is out there, and only an absent key leaves the last answer standing.
+  // null is nobody out there; only an absent key keeps the last answer.
   if (ctx.hitcher !== undefined) { st.hitcher = ctx.hitcher; paintHitchAlert(st); }
   if (ctx.locked !== undefined) { st.locked = !!ctx.locked; paintLatch(st); paintHitchAlert(st); }
   st.s = ctx.s ?? st.s; st.L = ctx.L ?? st.L;
   st.aim = ctx.aim !== undefined ? ctx.aim : st.aim;
-  if (ctx.routes !== undefined) { st.routes = ctx.routes; st.renderRoutePicker?.(); }   // what the GPS names — the route verb owns the aiming
-  // THE DASH IS DEAD (an EMP pulse caught the rig). One flag, and everything that is
-  // a SCREEN reads it: the nav head here and its 3-D face on the dash. The road, the
-  // mirrors, the weather and the wheel are untouched, because none of them is a
-  // screen. ⚠ It repaints the unit on the EDGE rather than every push — the panel is
-  // re-rendered whenever the flag changes in either direction, so the "no signal"
-  // card arrives the instant the pulse lands and is gone the instant it reboots.
+  if (ctx.routes !== undefined) { st.routes = ctx.routes; st.renderRoutePicker?.(); }   // the route verb owns the aiming
+  // The dash is dead (EMP): every screen reads this flag. Repainted on the edge, both ways.
   if (ctx.elecOut !== undefined && !!ctx.elecOut !== !!st.elecOut) { st.elecOut = !!ctx.elecOut; st.renderGps?.(); }
   st.node = ctx.node ?? st.node; st.nodes = ctx.nodes ?? st.nodes;
   if (ctx.surface) st.input.surface = ctx.surface;
-  // The dirt, four times a second like everything else here. It is assigned rather than merged and
-  // it is the SERVER's number in every case: a wash committed at a bench arrives on this push, and
-  // a client that kept accruing its own would put the muck straight back on.
+  // Grime is always the server's number, or a bench wash would be undone.
   if (ctx.grime != null) st.grime = ctx.grime;
   if (ctx.fits !== undefined) FITS = ctx.fits || '';
-  // …stamped on arrival, which is what gives contactsFor an age to reckon from.
+  // Stamped on arrival, which gives contactsFor an age.
   if (ctx.contacts) {
     st.contacts = ctx.contacts.map(c => ({ ...c, t: performance.now() }));
     (st.contactTrack || (st.contactTrack = makeContactTrack())).update(ctx.contacts);
   }
-  // THE BOXES STANDING IN THE YARD. They arrive in the same contact shape the aircraft do (see
-  // trailers.js trailersNear), so they need no renderer of their own — they are concatenated into
-  // the contact list below and drawn by the same code that draws another player's rig.
+  // Trailers in the yard arrive in contact shape (trailers.js trailersNear) and draw as contacts.
   if (ctx.trailers) st.trailers = ctx.trailers.map(c => ({ ...c, t: performance.now() }));
   if (ctx.hitchable !== undefined) { st.hitchable = ctx.hitchable; paintHitchBtn(st); }
-  // The pump under the nose, and the balance the handle meters against. `null` is a real answer —
-  // it is most of the world — so this assigns rather than merges.
+  // The pump and the balance it meters against; null is a real answer.
   if (ctx.pump !== undefined) { st.pump = ctx.pump || null; paintPumpBtn(st); paintFuelGauge(st); }
-  // Out of diesel: the server says so and the pedal stops meaning anything. It clamps the speed
-  // its own side too — this is the feel, not the enforcement.
+  // Out of diesel; the server clamps the speed too.
   if (ctx.dry != null) { st.dry = !!ctx.dry; paintFuelGauge(st); }
-  // The tank has been in this payload since phase 1 (state.js packs `fuel`) and the cab has never
-  // read it — a driver got a boolean at the moment they ran out and nothing at all before it. The
-  // gauge is the warning; running dry with a needle on the peg is the driver's fault, which is the
-  // only version of that event worth having.
-  // ⚠ NOT WHILE THE HANDLE IS DOWN. A push lands about once a second, and the server's fuel is the
-  // pre-pour figure until the commit — so accepting it mid-pour drags the needle back to where the
-  // tank was every second while the driver is watching it rise. The commit's own push (`pumped`)
-  // arrives after the handle is released and lands normally, which is the correction that matters.
+  // ⚠ Not while the handle is down: the server's pre-pour figure would drag the needle back each
+  // second. The commit's own push lands after release.
   if (ctx.fuel != null && !st.pumping) { st.fuel = Math.max(0, Math.min(1, ctx.fuel)); paintPumpBtn(st); paintFuelGauge(st); }
   if (ctx.broken !== undefined) st.broken = ctx.broken || null;
   if (ctx.hour != null) st.hour = ctx.hour;
   if (ctx.moon != null) st.moon = ctx.moon;
   if (ctx.wind != null) st.wind = ctx.wind;
-  // ⚠ `wxField` MAY LEGITIMATELY BE NULL — the field packet is omitted on a day with no cells at
-  // all — so these take the key's PRESENCE as the signal, not its truthiness. Written as `!==
-  // undefined` the way `ctx.trailer` and `ctx.broken` already are; `if (ctx.wxField)` would pin
-  // the last storm's cells to the canopy for the rest of the haul once the sky cleared.
+  // ⚠ wxField may legitimately be null, so test presence, never truthiness, or the last storm sticks.
   if (ctx.wxField !== undefined) st.wxField = ctx.wxField || null;
-  // The ground's own state, same latch and same reason: it is absent from a push that carries no
-  // sky rather than meaning "dry and bare".
   if (ctx.wxGround !== undefined) st.wxGround = ctx.wxGround || null;
   if (ctx.wxEvent !== undefined) st.wxEvent = ctx.wxEvent || null;
   if (ctx.weather) {
     st.weather = ctx.weather;
-    // Ask once, on the control itself. A driver who has never needed the stalk has no reason to
-    // know it is there, and the moment they do need it is the moment rain starts hitting the glass.
-    // paintWipers reads the weather (cabWet), so the hint follows it.
+    // paintWipers reads the weather, so the stalk's hint follows it.
     st.paintWipers?.();
   }
   if (ctx.weather || ctx.wxEvent !== undefined) touchWipers(st);
-  // The trailer is the SERVER's fact; φ is the CLIENT's simulation of it — the same split as
-  // everything else in the cab. Hitching mid-drive straightens the box behind us rather than
-  // snapping it to an angle nobody drove it to.
+  // The trailer is the server's fact, the articulation angle the client's. A new hitch starts straight.
   if (ctx.trailer !== undefined) {
     const want = !!ctx.trailer;
     if (want !== st.sim.hitched) { st.sim.hitched = want; st.sim.phi = 0; st.sim.trailerHeading = st.sim.heading; }
@@ -3049,39 +2497,23 @@ export function cabContext(ctx) {
 }
 
 // ── Collision ────────────────────────────────────────────────────────────────
-// The flight sim's CFIT probe, at ground level. `groundObstructionAt` is the shared geometry (see
-// windshield.js) — the same segments the building is DRAWN from, so what you can see is what you
-// can hit, and a model that changes shape on a seed collides as it actually looks.
-//
-// THREE AVIATION GATES ARE DELIBERATELY DROPPED from cockpit.js's buildingCollisionAt:
-//   • `if (s.onGround) return null` — the entire premise there, and the opposite of ours
-//   • the "must be visible on the glass" window (VISIBLE_NEAR_F..VISIBLE_FAR_F) — an aircraft
-//     rule ("a building that isn't drawn can't hurt you"); at 15 tiles of ground fog it would
-//     make near buildings non-solid, which is worse than the problem it solves
-//   • the altitude penetration test — at ground level any obstruction is a hit
-//
-// What is KEPT is the sweep, and it is the important part: a truck at 68 mph covers most of a tile
-// between frames, so testing only the endpoint would let it tunnel clean through a wall.
+// The flight sim's CFIT probe at ground level, on the same geometry the buildings are drawn from.
+// Dropped from cockpit.js: the on-ground bail, the visible-window gate (fog would make near walls
+// non-solid) and the altitude test. Kept: the sweep, or a fast truck tunnels through a wall.
 const SWEEP = 4;
 const TRUCK_CLEAR_Z = 0.010;   // cab roof in render world-z (FLOOR_Z is one storey ≈ 0.028)
-// …and the other end of the rig: TRUCK_STEP_Z, the height below which a thing is ridden over rather
-// than hit. It lives in windshield.js beside the probe that reads it, because the model arms that
-// draw a kerb have to be able to check what counts as one. See the note on it there — the forecourt
-// islands were colliding as walls until this existed.
+// TRUCK_STEP_Z (windshield.js) is the height below which a thing is ridden over, such as a kerb.
 const BUMP_MPH = 12;           // at or below this it is a bump; above it, you hit something
-// Below this the server is never told at all. A kerb at walking pace is not an incident and does
-// not need a sentence in the log — the rebound and the jolt on the glass have already said it.
+// Below this the server isn't told: the rebound and jolt say enough.
 const REPORT_MPH = 6;
 
-// The physical answer to a wall, on the glass rather than in the log. Scaled by how hard you came
-// in, so a nudge is a twitch and a real hit throws the whole view — which is the feedback that
-// makes the printed line unnecessary at low speed.
+// The jolt on the glass, scaled by impact speed.
 function bumpJolt(mph) {
   const wrap = st?.container?.querySelector('.cab-wrap');
   if (!wrap) return;
   if (document.documentElement.getAttribute('data-motion') === 'off') return;
   wrap.classList.remove('cab-jolt', 'cab-jolt-hard');
-  void wrap.offsetWidth;                                   // restart the animation on a repeat hit
+  void wrap.offsetWidth;                                   // restart the animation
   wrap.classList.add(mph > BUMP_MPH ? 'cab-jolt-hard' : 'cab-jolt');
   setTimeout(() => wrap.classList.remove('cab-jolt', 'cab-jolt-hard'), 620);
   try {
@@ -3098,9 +2530,8 @@ function obstructionAhead(st) {
   if (!map || !map.length) return 0;
   const R = (map.length - 1) / 2;
   const from = st.prev || { x: st.sim.x, y: st.sim.y };
-  // The cells round a point, for the South Lock's walls (see lockWallZAt in windshield.js).
-  // ⚠ NOT WHEN THE RIG STARTS INSIDE ONE. The outer door comes down on a lockdown, and a rig that
-  // was in the doorway at that moment must be able to back out of it rather than be held in it.
+  // The cells round a point, for the South Lock's walls (lockWallZAt). ⚠ Not when the rig starts
+  // inside one, so a rig in the doorway at lockdown can back out.
   const near = (x, y) => { const r = map[Math.round(y - mc.y + R)]; return r && r[Math.round(x - mc.x + R)]; };
   const fx = Math.round(from.x), fy = Math.round(from.y);
   const lockAt = groundObstructionAt(fx, fy, null, from.x, from.y, TRUCK_CLEAR_Z, TRUCK_STEP_Z, near) > 0 ? null : near;
@@ -3109,7 +2540,7 @@ function obstructionAhead(st) {
     const t = i / SWEEP;
     const px = from.x + (st.sim.x - from.x) * t, py = from.y + (st.sim.y - from.y) * t;
     const wx = Math.round(px), wy = Math.round(py);
-    // Cheap reject before the per-segment maths, same as the flight sweep.
+    // Cheap reject first, as in the flight sweep.
     if (Math.abs(px - wx) > MODEL_MAX_EXTENT * (RENDER_TUNE.bldgFoot || 1)) continue;
     const rx = Math.round(wx - mc.x + R), ry = Math.round(wy - mc.y + R);
     const cell = map[ry] && map[ry][rx];
@@ -3120,10 +2551,7 @@ function obstructionAhead(st) {
   return worst;
 }
 
-// A shift, as a sound. Two cues rather than a sample: the lever through the gate (a short metal
-// impact, dry) and the clutch taking the load again a beat later (a softer thud). Built from the
-// same procedural generator everything else in the game uses, so it sits in the mix correctly and
-// costs no asset.
+// A shift as sound: the lever through the gate, then the clutch taking up a beat later.
 function shiftCue(half, toNeutral) {
   const A = window.AudioEngine, S = window.ProceduralSFX;
   if (!A || !S) return;
@@ -3131,18 +2559,13 @@ function shiftCue(half, toNeutral) {
     const fire = () => { try { const d = S.buildActionCue(o); if (d) A.playSfx(d, gain); } catch { /* never load-bearing */ } };
     if (delay) setTimeout(fire, delay); else fire();
   };
-  const seed = 3300 + ((performance.now() | 0) % 997);   // the gate is never quite the same twice
+  const seed = 3300 + ((performance.now() | 0) % 997);
   cue({ action: 'impact', surface: 'metal', intensity: half ? 0.28 : 0.5, seed }, half ? 0.16 : 0.3);
-  // Into neutral there is nothing to take up — the second half of the sound is the clutch biting,
-  // and in neutral it never does.
+  // Into neutral the clutch never bites, so no second half.
   if (!toNeutral) cue({ action: 'impact', surface: 'rubber', intensity: half ? 0.2 : 0.36, seed: seed + 41 }, half ? 0.12 : 0.22, half ? 90 : 150);
 }
 
-// A MISSED SHIFT, as a sound: dog teeth skating off each other, which is a SCRAPE rather than the
-// impact a clean shift makes. Deliberately the loudest thing the gearbox can do — the whole point
-// of a grind is that it is unmistakeable and slightly awful, and a subtle one would be a mechanic
-// nobody notices they are failing. Two overlapping scrapes at different seeds so it rasps rather
-// than pings, and a dry metal knock under it for the lever hitting the gate.
+// A missed shift: overlapping metal scrapes and a knock. Deliberately the loudest thing the box does.
 function grindCue() {
   const A = window.AudioEngine, S = window.ProceduralSFX;
   if (!A || !S) return;
@@ -3156,11 +2579,7 @@ function grindCue() {
   cue({ action: 'impact', surface: 'metal', intensity: 0.45, seed: seed + 71 }, 0.22, 30);
 }
 
-// The key, as a sound. Turning it OFF is one soft mechanical click and then the absence of an
-// engine, which the engine audio does for free the moment rpm goes to zero — so there is nothing to
-// play but the switch. Turning it ON is the switch plus the starter, and the starter is deliberately
-// NOT a triumphant noise: it is a big cold motor churning, and whether it catches is the model's
-// business, not this cue's.
+// The key: a switch click, plus a cold starter churn when turning on. Whether it catches is the model's call.
 function keyCue(on) {
   const A = window.AudioEngine, S = window.ProceduralSFX;
   if (!A || !S) return;
@@ -3173,25 +2592,8 @@ function keyCue(on) {
   if (on) cue({ action: 'scrape', surface: 'metal', intensity: 0.5, seed: seed + 19 }, 0.26, 90);
 }
 
-// ── THE RIG, SEEN FROM OUTSIDE ───────────────────────────────────────────────
-// There is nothing here but a caption, and that is the point.
-//
-// This used to be a hand-rolled eight-corner box painted over the finished frame, because the
-// renderer was told to hide its own model ('hideOwnShip'). Two things were wrong with that and
-// they were the same thing: a box has no BOBTAIL — a tractor with nothing behind it read as a slab
-// the same as a loaded one — and the camera it drew through was a RESTATEMENT of the renderer's
-// three numbers rather than the renderer's own, so an orbit turned the world under a rig that
-// stayed put. Both are gone with the model: the truck is now the same 'buildTruck' mesh the depot
-// floor and everybody else's windscreen draw, through the same own-ship chase path the aircraft
-// use, so heading, ground anchoring, scale and the empty silhouette all come from one place.
-//
-// What could NOT come from there is this: the renderer knows what a truck looks like and nothing
-// about what it is doing. Jackknifing is a fact about the drive, said on the picture because this
-// is the view you would see it happening in.
-// THE HITCH BUTTON'S WHOLE BEHAVIOUR, in one place: it is present when there is something to do
-// with the fifth wheel and absent otherwise, and the label says WHICH box. Driven off the server's
-// own `hitchable` (state.js), never from a client-side guess at distance — the cab does not own the
-// rule and must not appear to.
+// The hitch knob shows when there's something to do with the fifth wheel, driven by the server's
+// 'hitchable' (state.js), never a client guess at distance.
 function paintHitchBtn(st) {
   const el = st?.container?.querySelector('.cab-hitchbtn');
   if (!el) return;
@@ -3200,10 +2602,7 @@ function paintHitchBtn(st) {
   const show = coupled || !!target;
   el.hidden = !show;
   if (!show) return;
-  // COUPLED IS THE KNOB PUSHED IN. The 'out' class is the knob standing proud of its collar with the
-  // lamp lit, which is a bobtail with something in reach; without it the knob is home and flush.
-  // The stamped word is the ACTION, not the state — a hand on a push-pull knob wants to be told
-  // which way to move it, and the lamp above already says whether anything is connected.
+  // Coupled is the knob pushed in; the stamped word is the action, not the state.
   const w = el.querySelector('.cab-knobface em');
   if (w) w.textContent = coupled ? 'PULL' : 'PUSH';
   el.classList.toggle('out', !coupled);
@@ -3213,11 +2612,7 @@ function paintHitchBtn(st) {
     : `Push the air supply in and couple to ${target?.name || 'the trailer'} (hitch)`);
 }
 
-// THE PUMP HANDLE'S PRESENCE, on the same rule as the hitch knob above: the world affords it or it
-// is not on the panel. Three conditions, and each is a different kind of "there is nothing to do
-// here" — no pump under the nose, the tank already full, or a driver who cannot pay for a splash.
-// The last one is why the balance rides in the payload at all: a handle you can grab and get
-// nothing out of is worse than a handle that is not there.
+// The pump handle shows only with a pump under the nose, room in the tank and money for a splash.
 function paintPumpBtn(st) {
   const el = st?.container?.querySelector('.cab-pumpbtn');
   if (!el) return;
@@ -3226,23 +2621,15 @@ function paintPumpBtn(st) {
   const show = !!p && room > 0.02 && (p.credits || 0) >= Math.round((p.full || 380) * 0.01);
   el.hidden = !show;
   if (!show) return;
-  // What a full one costs, said before you pull it rather than after. The tooltip is the price
-  // board; the readout while held is the meter.
+  // The tooltip is the price board; the readout while held is the meter.
   el.setAttribute('title', `Diesel: ${p.full}₵ a tank, ${Math.round(room * p.full)}₵ to fill this one.`
     + ` HOLD the handle: it fills while you hold it and charges you when you let go.`);
   el.setAttribute('aria-label', `Fuel pump: hold to fill, ${Math.round(room * p.full)} credits for a full tank`);
 }
 
 // ── THE GLASS FUEL GAUGE ─────────────────────────────────────────────────────
-// Painted from the SAME `st.fuel` the dash dial reads and the pump handle moves, so all three
-// always agree — including mid-pour, where `st.fuel` is the client's optimistic needle and the
-// server's number lands a beat later (see the pump handle for that split).
-//
-// ⚠ WHEN IT IS UP is the whole design of it. In the external view there is nothing else that reads
-// out anything at all, so it is always up. In the cab the dash already has the dial, so this only
-// appears when there is a reason to watch: at a pump, or under the reserve mark, where the number
-// stops being scenery and becomes a decision. A permanent second gauge six inches from the first
-// would be the sort of HUD clutter this cab has otherwise been careful not to grow.
+// Painted from the same 'st.fuel' as the dash dial and the pump. Always up outside the cab; inside,
+// only at a pump or under reserve.
 function paintFuelGauge(st) {
   const el = st?.container?.querySelector('.cab-fuel');
   if (!el) return;
@@ -3259,10 +2646,7 @@ function paintFuelGauge(st) {
   q('.cab-fuel-pct', `${pct}%`);
   const fill = el.querySelector('.cab-fuel-fill');
   if (fill) fill.style.width = `${(f * 100).toFixed(1)}%`;
-  // The note line is the one place the gauge says anything: the rate you are being charged while
-  // the handle is down, and what it would cost to fill from here while you are stood at a pump.
-  // Two decimals, because that is the number on the pylon outside and they have to be the same
-  // price said twice — see `each` on the fuel.prices row.
+  // Two decimals, to match the pylon price ('each' on the fuel.prices row).
   const p = st.pump;
   q('.cab-fuel-note', st.pumping && p ? `${(p.full / 100).toFixed(2)}/%`
     : p ? `${Math.round((1 - f) * p.full)}₵ to fill` : low ? 'RESERVE' : '');
@@ -3270,17 +2654,8 @@ function paintFuelGauge(st) {
 }
 
 // ── THE PERSON IN THE SEAT ───────────────────────────────────────────────────
-// Everything else on this glass reads out the TRUCK. This reads out the driver, and it is the only
-// thing between a long haul and dying of thirst with a full tank and four green damage pips.
-//
-// ⚠ NOTHING HERE ASKS THE SERVER ANYTHING. 'gameState.player' is the same object the vitals rail
-// under the log is drawn from, updated by every 'player_update' and every 'resource_tick'. So the
-// band and the bars are free, they can never disagree with the rail, and there is no cab-only copy
-// of a number the rest of the client already has.
-//
-// The two thresholds are not a taste call. RED is 0, because 0 is exactly where the resource tick
-// starts taking HP (see gameLoop.js) — the flash is not a prediction, it is the damage, reported.
-// AMBER is early enough to still be a decision rather than an announcement.
+// Read from 'gameState.player', which every player_update and resource_tick already updates: no
+// request. Red is 0, where the resource tick starts taking HP (gameLoop.js).
 const VIT_AMBER = 25;
 function vitalsNow() {
   const pl = gameState?.player;
@@ -3295,22 +2670,18 @@ function paintVitBand(st) {
   if (!el) return;
   const v = vitalsNow();
   if (!v) { el.hidden = true; return; }
-  // Thirst first when both are biting. It kills twice as fast (−2 HP a tick against hunger's −1),
-  // so if a driver only reads one word before looking back at the road it has to be that one.
+  // Thirst first: it kills twice as fast.
   const rows = [];
   if (v.thirst <= VIT_AMBER) rows.push({ w: 'THIRST', dead: v.thirst === 0 });
   if (v.hunger <= VIT_AMBER) rows.push({ w: 'HUNGER', dead: v.hunger === 0 });
   if (!rows.length) { el.hidden = true; el.textContent = ''; return; }
   const txt = rows.map(r => r.w).join('  ·  ');
   el.hidden = false;
-  // Written only on CHANGE. This runs several times a second and the band sits in an aria-live
-  // region — reassigning identical text is what makes a screen reader say 'HUNGER' forever, which
-  // is the accessibility version of the flashing it is already doing visually.
+  // ⚠ Written only on change: it's an aria-live region, and identical rewrites get re-announced.
   if (el.textContent !== txt) el.textContent = txt;
   el.classList.toggle('bad', rows.some(r => r.dead));
 }
-// The bars in the flap. Same two numbers, said as figures for anyone who wants to know how much
-// road they have rather than merely that they are in trouble.
+// The flap's bars: the same two numbers as figures.
 function paintGalleyVitals(st) {
   const el = st?.container?.querySelector('.cab-galley');
   if (!el || el.hidden) return;
@@ -3322,9 +2693,7 @@ function paintGalleyVitals(st) {
     if (num) { const t = Math.round(v[k]) + '%'; if (num.textContent !== t) num.textContent = t; }
   }
 }
-// The list itself, from the verb's own reply. One row per thing, one button per row, and the button
-// sends the exact verb string the log printed — a player using this panel and a player typing are
-// running the identical command.
+// One button per row, sending the exact verb string the log printed.
 function renderGalley(st, msg) {
   const el = st?.container?.querySelector('.cab-galley');
   if (!el) return;
@@ -3336,8 +2705,7 @@ function renderGalley(st, msg) {
   }
   body.innerHTML = items.map(i => {
     const cmd = (i.verb + ' ' + i.name).replace(/"/g, '&quot;');
-    // What it is WORTH, because the whole reason to open this flap is to decide which of three
-    // things to spend. Straight off the item's own restore tags — the panel derives nothing.
+    // What it's worth, straight off the item's restore tags.
     const gain = [i.food ? '+' + i.food + ' food' : '', i.water ? '+' + i.water + ' water' : ''].filter(Boolean).join('  ');
     const qty = i.qty > 1 ? ' ×' + i.qty : '';
     return '<button class="cab-galley-item" data-cmd="' + cmd + '">'
@@ -3347,14 +2715,7 @@ function renderGalley(st, msg) {
   }).join('');
   paintGalleyVitals(st);
 }
-// SOMEBODY ON THE SHOULDER, as something that stays on the screen. The renderer draws the figure
-// out on the road; this is the half that survives a driver looking at the gearbox for four seconds,
-// which is the entire reason the feature needed anything at all — a single emote at a node boundary
-// is a notification you can miss by blinking.
-//
-// It shows what the ROADSIDE can tell you and no more: how they are standing, and nothing about
-// what they will do. That restraint is the system's own rule (hitchers.js) — every one of them is
-// worth stopping for and every one can cost you, and you cannot tell which from out here.
+// The hitcher card. It shows what the roadside can tell you, never what they'll do (hitchers.js).
 const HITCH_LOOK = {
   mechanic: 'Somebody sitting on a toolbox, back to the wind.',
   local: 'A man in a coat two sizes too big, watching the road.',
@@ -3366,17 +2727,12 @@ function paintHitchAlert(st) {
   if (!el) return;
   const hh = st.hitcher;
   if (!hh) { if (!el.hidden) { el.hidden = true; el.innerHTML = ''; el.dataset.tok = ''; } return; }
-  // ⚠ THE KEY IS THE PERSON *AND* THE LATCH. Keyed on the token alone, a driver who locked up
-  // while somebody was in front of them went on reading a card that said the doors were open.
+  // ⚠ Keyed on the person and the latch, or locking up leaves a card saying the doors are open.
   const key = hh.t + (st.locked ? '|L' : '|O');
-  if (el.dataset.tok === key) return;       // unchanged — never rebuild under a hand
+  if (el.dataset.tok === key) return;       // never rebuild under a hand
   el.dataset.tok = key;
   el.hidden = false;
-  // WHAT THE DOOR IS DOING, said here rather than left to the button in the corner. This is the one
-  // moment the latch state is load-bearing, and a driver reading this card is by definition looking
-  // at the road and not at the chrome. It is a statement of fact, never a warning: stopping with the
-  // doors open is a legitimate way to pick somebody up, and the card must not editorialise about a
-  // choice the player has not made yet.
+  // Says what the door is doing, as a fact, never a warning.
   el.innerHTML = '<b>ON THE SHOULDER</b>'
     + '<span>' + (HITCH_LOOK[hh.kind] || 'Somebody with a hand out.') + '</span>'
     + '<em>' + (st.locked
@@ -3385,23 +2741,15 @@ function paintHitchAlert(st) {
     + '<button class="cab-hitch-go">PICK UP</button>';
 }
 
-// THE DOOR LATCHES. Two states, and the button reads out the one you are IN rather than the one
-// pressing it would take you to — a control labelled with its own action is fine for a horn and
-// wrong for a lock, where the entire question a driver has is "is it down right now".
-//
-// The server owns it (it persists per truck in custom_data, and the 'lock' verb can change it
-// without this panel being involved), so this paints 'st.locked' and never toggles it locally. A
-// button that flipped its own class and then waited for the payload would show the wrong state for
-// a round trip, which on the one control whose value is certainty is worse than showing nothing.
+// The door latch reads the state you're in. The server owns it (per truck, and the 'lock' verb), so
+// this paints 'st.locked' and never toggles locally.
 function paintLatch(st) {
   const el = st?.container?.querySelector('.cab-latchbtn');
   if (!el) return;
   const locked = !!st.locked;
   el.classList.toggle('on', locked);
   el.setAttribute('aria-pressed', locked ? 'true' : 'false');
-  // ⚠ THE PADDLE, NOT THE BUTTON. This wrote el.textContent while the latch was a chrome pill with
-  // nothing inside it. It is a rocker on the switch panel now — a tell-tale, a paddle and a legend
-  // — and writing textContent on one of those deletes the switch and leaves a word behind.
+  // ⚠ Write the legend span, never textContent on the rocker, which would delete the switch.
   const legend = el.querySelector('u span') || el;
   const txt = locked ? 'LOCKED' : 'OPEN';
   if (legend.textContent !== txt) legend.textContent = txt;
@@ -3412,20 +2760,8 @@ function paintLatch(st) {
 }
 
 // ── THE PUMP, AS A SOUND ─────────────────────────────────────────────────────
-// Diesel going into a tank is three things at once and none of them is a sample: the rush of the
-// liquid, the pump's own motor under it, and the meter counting. Built from the shared generator
-// the rest of the game uses (`pour` for the flow, `impact` for the mechanism), so it sits in the
-// mix at the right level and costs no asset — the same argument as every other cue in this file.
-//
-// ⚠ RE-FIRED ON A CADENCE, NOT LOOPED. The generator produces one-shot cues; there is no sustain
-// primitive, and inventing one for this would be a second audio path to maintain. So the flow is a
-// short `pour` re-fired just inside its own length, which reads as continuous, and it is driven
-// from the SAME 50ms tick that moves the needle — no second timer to leak if the panel closes
-// mid-pour.
-//
-// ⚠ AND IT VARIES. Every cue in the shared generator jitters (see `vary`), which is exactly right
-// here: a pump re-firing an identical 400ms burst reads as a stuck loop, and the whole reason this
-// is generated rather than sampled is that it never has to.
+// ⚠ The generator has no sustain, so the flow is a short 'pour' re-fired on the needle's own 50ms
+// tick (no second timer to leak). The generator's jitter keeps it from sounding like a stuck loop.
 const PUMP_FLOW_MS = 380;
 function pumpFlowCue(seed) {
   const A = window.AudioEngine, S = window.ProceduralSFX;
@@ -3433,14 +2769,12 @@ function pumpFlowCue(seed) {
   try {
     const flow = S.buildActionCue({ action: 'pour', material: 'liquid', flow: 0.42, intensity: 0.5, seed });
     if (flow) A.playSfx(flow, 0.16);
-    // The motor, an octave under the rush — a short, dull metal knock is what a diaphragm pump
-    // sounds like through a hose, and re-firing it on the same cadence gives the flow a pulse.
+    // The pump motor under the rush, giving the flow a pulse.
     const motor = S.buildActionCue({ action: 'impact', surface: 'metal', intensity: 0.12, seed: seed + 17 });
     if (motor) A.playSfx(motor, 0.07);
   } catch { /* audio is never load-bearing */ }
 }
-// The nozzle going in, and the handle clicking off. Two ends of the same act, and the second one is
-// the sound a driver is actually listening for.
+// The nozzle going in, and the handle clicking off.
 function pumpEndCue(kind) {
   const A = window.AudioEngine, S = window.ProceduralSFX;
   if (!A || !S) return;
@@ -3468,33 +2802,13 @@ function drawRigOverlay(st, r) {
 }
 
 // ── THE ROAD, ON THE GLASS AND IN THE AIR ────────────────────────────────────
-//
-// Two effects that share a function because they share a cause and must never disagree: the dust
-// the wheels are throwing RIGHT NOW, and the film that dust has left on the windscreen over the
-// last four hundred miles.
-//
-// IT IS DRAWN, NOT SIMULATED. There is no particle system here and there should not be — the
-// windscreen is a 2D overlay over a Mode-7 world, so a real 3D dust volume would need depth it
-// cannot have and would cost a frame budget the cab is already the tightest consumer of. What a
-// driver actually reads is a warm haze low in the frame that pulses with the throttle and dies
-// when they stop, and that is four gradients and a scatter of specks.
-//
-// ⚠ THE SPECKS ARE HASHED, NOT ROLLED. A Math.random() per speck per frame is boiling static that
-// reads as television snow rather than as dirt; each speck's lane and lifetime come from its own
-// index through a stable hash and it moves on a CLOCK, so it drifts past you. Same reason the
-// world renderer's star grain is hashed.
-//
-// ⚠ AND THE FILM NEVER HIDES A CONTACT. It is a wash over the outer frame, capped low — see
-// FILM_MAX. A driver must never fail to see a truck coming because of a cosmetic system: the
-// moment dirt costs you information, washing stops being taste and becomes a tax, which is
-// precisely the design this was built not to be.
-const FILM_MAX = 0.30;                 // the dirtiest a windscreen is ever allowed to get
-// How much loose material each surface has to throw. The same vocabulary the server answers in
-// (`surfaceUnder`), so nothing here maps terrain — and the tarmac is deliberately not zero,
-// because a highway at speed does throw grit and that is half of what was asked for.
+// The dust the wheels throw now, and the film it has left on the windscreen. Drawn, not simulated.
+// ⚠ Specks are hashed from their index and move on a clock, never Math.random per frame.
+// ⚠ The film never hides a contact: it's capped at FILM_MAX on the outer frame.
+const FILM_MAX = 0.30;
+// Loose material per surface, in the server's 'surfaceUnder' vocabulary. Tarmac throws some grit.
 const DUST_SURFACE = { road: 0.22, dirt: 0.8, shoulder: 0.95, offroad: 1 };
-// Rain kills the plume outright: wet ground does not lift. It does NOT clear the film (see the
-// RAIN_FLOOR note in filth.js) — a wet road is exactly when a windscreen is at its worst.
+// Rain kills the plume but never clears the film (RAIN_FLOOR in filth.js).
 const DUST_WET = { rain: 0.1, storm: 0.05, snow: 0.15 };
 const hash1 = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
@@ -3503,26 +2817,20 @@ function drawRoadFilm(st, dt) {
   if (!cv || !cv.getContext || !cv.clientWidth) return;
   const grime = Math.max(0, Math.min(1, st.grime || 0));
 
-  // ── how hard the wheels are working the ground ──
-  // Speed against a nominal motorway rather than against the truck's own top speed: a Krell flat
-  // out throws what a Continental at the same road speed throws, because it is the same road.
+  // How hard the wheels work the ground: speed against a nominal motorway, so every truck throws the same at the same speed.
   const mph = Math.abs(st.sim?.speed || 0);
   const roll = Math.min(1, mph / 55);
   const loose = DUST_SURFACE[st.input?.surface] ?? DUST_SURFACE.road;
   const wet = DUST_WET[st.weather] ?? 1;
-  // …and the throttle, because a driver who stands on it in the dirt should SEE it. Squared, so it
-  // is the last third of the pedal that does it rather than every touch.
+  // The last third of the throttle digs harder (squared).
   const dig = 1 + 0.5 * Math.pow(st.input?.throttle || 0, 2);
   const want = Math.min(1, roll * loose * wet * dig);
-  // The plume has inertia both ways — it builds behind you and it hangs after you lift. Without
-  // the lag it strobes with the throttle, which reads as a fault rather than as air.
+  // The plume lags both ways, or it strobes with the throttle.
   const k = Math.min(1, (dt || 0.016) * 2.4);
   st.dust = (st.dust || 0) + (want - (st.dust || 0)) * k;
   const dust = st.dust;
 
-  // The film thins for as long as the blades are moving, and a little more the faster they go. It
-  // is NOT cleared: a dry wiper on a dusty screen smears, which every driver knows, so the best a
-  // stalk can do in here is take the edge off it.
+  // Wipers thin the film but never clear it: a dry blade smears.
   const wipe = 1 - 0.22 * Math.min(3, st.wipers | 0) / 3;
   const film = Math.min(FILM_MAX, grime * 0.34) * wipe;
   if (film < 0.004 && dust < 0.01) return;
@@ -3534,16 +2842,13 @@ function drawRoadFilm(st, dt) {
   g.setTransform(kx, 0, 0, kx, 0, 0);
 
   // ── THE FILM ──
-  // Heaviest at the corners and along the bottom of the glass, which is where a blade does not
-  // reach and where the cowl throws it. A flat wash over the whole screen would read as a colour
-  // grade on the world rather than as something ON the glass a hand's width in front of you.
+  // Heaviest at the corners and the bottom edge, so it reads as on the glass.
   if (film > 0.004) {
     const rad = g.createRadialGradient(W * 0.5, H * 0.46, Math.min(W, H) * 0.18, W * 0.5, H * 0.5, Math.max(W, H) * 0.72);
     rad.addColorStop(0, 'rgba(126,106,74,0)');
     rad.addColorStop(0.62, 'rgba(126,106,74,' + (film * 0.5).toFixed(3) + ')');
     rad.addColorStop(1, 'rgba(108,90,62,' + film.toFixed(3) + ')');
     g.fillStyle = rad; g.fillRect(0, 0, W, H);
-    // The dried run-off along the bottom edge — the one part of a windscreen nothing ever cleans.
     const lin = g.createLinearGradient(0, H, 0, H * 0.72);
     lin.addColorStop(0, 'rgba(96,80,56,' + (film * 1.25).toFixed(3) + ')');
     lin.addColorStop(1, 'rgba(96,80,56,0)');
@@ -3551,9 +2856,7 @@ function drawRoadFilm(st, dt) {
   }
 
   // ── THE PLUME ──
-  // A warm veil off each bottom corner, where the drive wheels are. Two of them rather than one
-  // band across the floor, because a single band reads as fog and a pair reads as WHEELS, which is
-  // the one thing this effect has to say.
+  // A veil off each bottom corner: a pair reads as wheels, one band as fog.
   if (dust > 0.01) {
     const a = dust * (0.10 + 0.16 * loose);
     for (const sx of [0.13, 0.87]) {
@@ -3563,22 +2866,18 @@ function drawRoadFilm(st, dt) {
       r.addColorStop(1, 'rgba(150,126,90,0)');
       g.fillStyle = r; g.fillRect(0, H * 0.5, W, H * 0.5);
     }
-    // …and the grit itself, going up past the glass. The count scales with the plume, so an idling
-    // truck draws none at all, and every speck is a short streak rather than a dot — a dot at this
-    // speed is a dead pixel, and a streak is something going past you.
+    // The grit: streaks, scaled with the plume, so an idling truck draws none.
     const n = Math.round(dust * 46);
     const t = performance.now() / 1000;
     g.strokeStyle = 'rgba(196,172,132,' + (0.10 + 0.30 * dust).toFixed(3) + ')';
     g.lineWidth = 1;
     g.beginPath();
     for (let i = 0; i < n; i++) {
-      // Each speck owns a lane, a lifetime and a phase. Rising, because the air off a turning
-      // wheel goes up — dust that fell would read as snow.
+      // Each speck owns a lane, lifetime and phase, rising off the wheel.
       const life = 0.5 + hash1(i * 3.1) * 0.9;
       const ph = (t / life + hash1(i * 7.7)) % 1;
       const lane = hash1(i * 5.3);
-      // Pushed toward the edges of the screen by the same argument the veils are: the middle of
-      // the glass is the part you are looking through, and is the last place to put moving clutter.
+      // Pushed to the edges, away from the part of the glass you look through.
       const x = W * (lane < 0.5 ? lane * 0.44 : 0.56 + (lane - 0.5) * 0.88);
       const y = H * (1.02 - ph * (0.34 + 0.26 * dust));
       const len = 3 + 16 * ph * dust;
@@ -3590,38 +2889,21 @@ function drawRoadFilm(st, dt) {
 }
 
 // ── THE AUTOMATIC'S HAND ─────────────────────────────────────────────────────
-//
-// A shift is four beats and it takes about as long as it takes a person: dip the clutch, pull it
-// out through neutral, push it into the slot, let the clutch up. Every beat writes the controls a
-// player writes — see setAuto for why that is not negotiable — so the box can still be fluffed, the
-// engine can still be lugged, and the readouts have nothing new to learn.
-//
-// ⚠ WHILE IT IS MID-SHIFT THE DRIVER OWNS THE CLUTCH, and it must therefore not fight the pedal:
-// a player who stamps on the clutch during an auto shift is doing the same thing the driver is, and
-// a player who latches it is entitled to. So the release beat only lets the pedal up if nothing
-// human is holding it down.
-const SHIFT_DIP = 0.16;      // s — the pedal going in before the lever moves at all
-const SHIFT_OUT = 0.20;      // s — out of the old gear, sat in neutral (the pause you can SEE)
-const SHIFT_IN = 0.22;       // s — across the gate and into the new slot
-const SHIFT_COOL = 0.45;     // s — how soon after one shift it will consider another
-// ⚠ THE FLOOR UNDER THE OVERRUN RULE, AND THE REASON IT HAS TO EXIST. "Never downshift off the
-// throttle" (see below) is right for a lift at cruise and fatal on the way to a stop — slowing down
-// is precisely when a driver goes DOWN the box, and written as a throttle gate ALONE the automatic
-// did nothing at all on a closed throttle: it sat in eighth from the bottom of the band (72 mph in
-// a Drayman) the whole way down to the stall speed of that gear (19), and then shut the engine off.
-// Which is the one failure a driver who switched the assist ON is least equipped to read.
-//
-// So under this the throttle stops being consulted. It sits well below `band[0]` (0.42), so an
-// ordinary lift never starts it walking down the box, and well above `STALL_RPM` (0.11) with a
-// whole ratio step (~1.3×) of headroom — one save lands back around 0.34, which is what lets the
-// chain run a gear at a time instead of needing to catch the whole box in one grab.
+// A shift is four beats: dip, out to neutral, into the slot, clutch up. Each writes the player's own
+// controls (see setAuto). ⚠ The release beat lets the pedal up only if no hand or latch holds it.
+const SHIFT_DIP = 0.16;      // s: the pedal going in before the lever moves
+const SHIFT_OUT = 0.20;      // s: sat in neutral (the visible pause)
+const SHIFT_IN = 0.22;       // s: across the gate into the new slot
+const SHIFT_COOL = 0.45;     // s: before it considers another shift
+// ⚠ Below SAVE_RPM the overrun rule ("never downshift off the throttle") stops applying, or the
+// automatic rides top gear down to a stall when braking. Below band[0] (0.42), a ratio step above STALL_RPM.
 const SAVE_RPM = 0.26;
 function autoShift(dt) {
   const seq = st.shiftSeq;
   if (seq) {
     seq.t += dt;
     if (seq.phase === 'dip') {
-      st.input.clutch = 1;                       // the pedal, not a flag: the model reads this one
+      st.input.clutch = 1;                       // the pedal itself; the model reads this
       if (seq.t >= SHIFT_DIP) { seq.phase = 'out'; seq.t = 0; st.selectGear?.(0); }
     } else if (seq.phase === 'out') {
       st.input.clutch = 1;
@@ -3630,7 +2912,7 @@ function autoShift(dt) {
       st.input.clutch = 1;
       if (seq.t >= SHIFT_IN) { seq.phase = 'up'; seq.t = 0; }
     } else {
-      // Let it up — unless a hand is on it (see the ⚠ above).
+      // Let it up, unless a hand is on it.
       if (!st.heldBy?.clutch && !st.clutchLatched) st.input.clutch = 0;
       st.shiftSeq = null;
       st.shiftCool = SHIFT_COOL;
@@ -3639,75 +2921,39 @@ function autoShift(dt) {
   }
   if (st.shiftCool > 0) st.shiftCool -= dt;
   if (!st.auto || !P) return;
-  // ── WHAT SUSPENDS THE AUTOMATIC, AND WHY IT IS A SUSPENSION ─────────────────
-  // Reverse is deliberately never chosen FOR you — which way a truck is pointed when it moves is the
-  // one decision that must stay with the person who can see out of the window. But that is a reason
-  // for the automatic to have NOTHING TO DO while reverse is selected, not a reason to switch it
-  // off: come back out of reverse and the driver has not changed their mind about how they want to
-  // drive, and a box that quietly reverted to manual behind them is a box that stopped shifting for
-  // no reason they can see. The park brake is the same argument (see setPark, which used to call
-  // setAuto(false) here and is what actually made "AUTO is off after reversing" happen — you stop,
-  // you park, you select R, and the switch you never touched is gone by the time you pull away).
-  // So both are inhibits, tested every tick and clearing themselves.
+  // Reverse and the park brake suspend the automatic, never switch it off; both clear themselves.
   if (st.dry || st.broken || st.sim.stalled || st.sim.gear < 0 || st.park) return;
-  // ⚠ AND THE COOLDOWN GATES A DECISION, NOT A RESCUE. `SHIFT_COOL` exists so the box does not hunt
-  // at a ratio boundary — but an engine already under `SAVE_RPM` is not a boundary case, it is out
-  // of revs, and a driver going down the box in front of a junction does not wait half a second
-  // between grabs. It still cannot overlap a shift (one at a time, above); it just stops pausing.
-  // Without the exemption the chain from eighth under full brakes arrives at second a tenth of a
-  // second late and stalls there, which is the same bug again three gears further down.
+  // ⚠ The cooldown gates a decision, never a rescue: under SAVE_RPM it doesn't pause between grabs,
+  // or a braking chain arrives late and stalls.
   const saving = (st.sim.rpm || 0) < SAVE_RPM && st.sim.gear > 1;
   if (st.shiftCool > 0 && !saving) return;
-  // ⚠ WHICH GEAR IT WANTS IS `bestGear`, NOT A SECOND OPINION. That function already exists and the
-  // cab already prints its answer as the suggested gear on the dash — so the automatic obeying it
-  // means the light telling you what to do and the hand doing it can never disagree, which they
-  // would within a week if this had its own table of ratios.
+  // ⚠ The target is bestGear, the same answer the dash prints, so the light and the hand agree.
   const want = bestGear(st.sim.speed, P);
-  // PULLING AWAY. Out of gear on the throttle is a driver who wants a gear, and at a standstill
-  // that is first whatever the ratios say.
+  // Pulling away from neutral on the throttle: first at a standstill.
   if (st.sim.gear === 0) {
     if ((st.input.throttle || 0) > 0.05) beginShift(Math.abs(st.sim.speed) < 2.8 ? 1 : want);
     return;
   }
   if (want === st.sim.gear) return;
-  // ONE GEAR AT A TIME, even when the suggestion is three away. Skipping is a thing an experienced
-  // driver does and this is not a shortcut — it is the process, shown. Two beats of it in a row is
-  // also how a downshift into a hill reads: busy, which it is.
+  // One gear at a time, so the process shows.
   const step1 = want > st.sim.gear ? st.sim.gear + 1 : st.sim.gear - 1;
   if (step1 < 1) return;
-  // …and only once the revs agree, or it hunts at every boundary where the ratio maths is a hair
-  // either side. `band` is the pair the dash lights IN BAND from, so this is the same instrument.
+  // ...and only once the revs agree ('band' is the dash's IN BAND pair), or it hunts.
   const [lo, hi] = P.band || [0.55, 0.8];
-  const rpm = st.sim.rpm || 0;                    // a fraction of redline — see truckReadout, which is what multiplies it by 100
-  // ⚠ AN UPSHIFT CANNOT WAIT FOR THE TOP OF THE BAND, because a truck does not always GET there.
-  // 'rpm > hi' was the whole gate, and it reads as obviously right: wind it out, then grab the next
-  // one. What it misses is that a gear's terminal speed is wherever drag balances torque, and
-  // torque is already falling off above the band — so a truck that has stopped accelerating
-  // plateaus just UNDER 'hi' and sits there. The dash prints a taller suggested gear, the driver
-  // can see it, and the box never takes it. Loaded, where the plateau is lower still, that stranded
-  // the top two or three ratios permanently: the automatic simply stopped shifting halfway up.
-  //
-  // So the second clause is the rule a driver actually uses — take the next one when the next one
-  // will still PULL. 'want' (bestGear, above) has already said the taller gear is the better place
-  // to be; this only asks whether the engine survives the drop, which is 'rpm' scaled by the ratio
-  // change. Both clauses are kept rather than swapped: winding it past 'hi' must still shift even
-  // when the drop would land under the band, which is what gets first into second at all.
+  const rpm = st.sim.rpm || 0;                    // fraction of redline
+  // ⚠ An upshift can't wait for the top of the band: a truck often plateaus just under 'hi', which
+  // stranded the top ratios. So also shift when the next gear will still pull ('rpmNext >= lo').
   if (step1 > st.sim.gear) {
     const rpmNext = rpm * (P.gears[step1] / P.gears[st.sim.gear]);
     if (rpm > hi || rpmNext >= lo) beginShift(step1);
     return;
   }
-  // Not on the overrun: lifting off drops the revs, and a box that downshifted every time you came
-  // off the throttle would work its way down the gears the whole way down a hill. That rule only
-  // holds while the engine still has somewhere to fall, though — past `SAVE_RPM` it is out of room
-  // and the gear comes out whatever the right foot is doing.
+  // Never downshift on the overrun, unless the engine is out of room (saving).
   if (saving || (rpm < lo && (st.input.throttle || 0) > 0.15)) beginShift(step1);
 }
-// THE AUTOMATIC CLUTCH'S FOOT. Never while a human has the pedal or the automatic is mid-shift.
-// It holds the pedal in for a moment after a shift (shiftGate set autoDip), holds it in at a stop
-// in gear so the engine cannot stall (off the throttle with the revs near the floor), holds it in
-// while stalled so the key will crank, and otherwise lets it up — the model's own launch slip
-// (flight-model LAUNCH_MPH) does the feathering on the way off the line.
+// The automatic clutch: never while a human has the pedal or a shift is running. It dips after a
+// shift (autoDip), holds in at a stop in gear and while stalled, and otherwise lets the model's
+// launch slip feather it.
 function autoClutchStep(dt) {
   if (!st.autoClutch || st.shiftSeq) return;
   if (st.heldBy?.clutch || st.clutchLatched) { st.autoDip = 0; return; }
@@ -3724,138 +2970,62 @@ function frame(now) {
   if (!st) return;
   const dt = Math.max(0, Math.min(0.1, (now - st.last) / 1000));
   st.last = now;
-  // -- THE CAB IS PROFILEABLE, ON THE SAME TABLE THE COCKPIT PRINTS -----------
-  // '__wsProfile(true)' has existed since the flight sim's frame was first chased down, and in the
-  // cab it printed a table with nothing in it: the phases are opened by the CALLER (that is the
-  // whole reason 'frame' is whatever the caller declares it to be), and this loop opened none. So
-  // the one view whose camera sits at ground level in a dense city -- the worst case this renderer
-  // has, and the one place the frame rate actually gets complained about -- was the one view you
-  // could not ask where its frame went.
-  //
-  // Same three phase names the cockpit uses, deliberately, so a cab profile and a sim profile are
-  // read against each other rather than each needing its own key. Free when off (one boolean test
-  // per call). 'frame' is closed AFTER the catch, so a bad frame cannot leave the stack dirty and
-  // mis-attribute every later one.
+  // Profile phases use the cockpit's names so profiles compare. 'frame' closes after the catch.
   perfBegin('frame');
   try {
     st.prev = { x: st.sim.x, y: st.sim.y };
-    // Dead in the water, for either reason. A broken rig behaves exactly as a dry one does at the
-    // wheel — the pedal stops meaning anything and the motor is not turning — because from the
-    // driver's seat those two situations ARE the same situation, and giving the breakdown its own
-    // client-side behaviour would have been a second copy of the same three lines.
+    // Dry and broken behave the same at the wheel.
     if (st.dry || st.broken) { st.input.throttle = 0; st.sim.rpm = 0; }
     // ── KEY OFF MEANS STOPPED ──────────────────────────────────────────────────
-    // A truck whose driver has switched it off should come to rest and STAY there, and it did not:
-    // the model has no reason to stop a rolling body, so a shut-down rig kept its momentum, kept
-    // its yaw rate, and the trailer went on swinging behind it — a dead machine drifting down the
-    // road with its lifters down. The fix is the driver's own foot, not a new rule in the physics:
-    // the settle applies the brake through `st.input`, which is the same number the pedal writes,
-    // so the load, the surface and the trailer all still decide how long it takes to stop.
-    //
-    // ⚠ IT IS THE KEY, NOT THE STALL — see `st.shutdown` in ignitionOff. And once it is actually
-    // stopped, the residual rates are zeroed rather than left to decay: below walking pace the
-    // sway is all that is left of them, and a parked truck that is still rocking is exactly the
-    // thing the parked pose was built to stop. Steering is dropped too, so a wheel left over from
-    // the last corner cannot walk the nose round while the rig settles.
+    // The settle brakes through 'st.input' like a foot, so load and surface still decide the stop.
+    // ⚠ Keyed on 'st.shutdown', never the stall. Once stopped the residual rates are zeroed.
     if (st.shutdown) {
       st.input.throttle = 0;
       st.input.brake = 1;
       st.input.steer = 0;
-      // The trailer is deliberately NOT touched: a tractor that is not moving cannot swing it, so
-      // zeroing the tractor's rates settles the box for free. Writing its heading here would be a
-      // second opinion about an angle the model already owns.
+      // The trailer settles by itself once the tractor stops; its heading is the model's.
       if (Math.abs(st.sim.speed) < 0.4) { st.sim.speed = 0; st.sim.yawRate = 0; st.sim.slip = 0; }
     }
-    // (A throttle lock used to live here, holding the pedal dead while the overlay's door lifted.
-    // The door is in the world now and it lifts BECAUSE you drive at it — see "THE SHED BELONGS TO
-    // THE WORLD NOW" above. Nothing may pin the throttle in a shed again: that is the one input the
-    // real door is waiting on.)
+    // ⚠ Nothing may pin the throttle in a shed: the depot door lifts because you drive at it.
     // ── CRUISE ────────────────────────────────────────────────────────────────
-    // A held throttle across four hundred tiles of straight corridor is not a skill, it is a
-    // finger. So: lock the speed you are at and the pedal is worked for you.
-    //
-    // ⚠ IT IS A DRIVER, NOT A CHEAT VALVE. It writes `st.input.throttle` — the SAME number the
-    // pedal and the A key write — and nothing else, so the gearbox, the torque curve, the surface,
-    // the load and the hill all still decide what that throttle actually buys. Set it on a climb
-    // in too high a gear and you will lug and slow down exactly as you would with your foot flat,
-    // because it has no authority the pedal does not have. A version that wrote `speed` would be a
-    // teleport with a lamp on it.
-    //
-    // It cancels the way cruise control cancels on every vehicle that has ever had it: the brake,
-    // the clutch, a stall, or losing the drive. Deliberately NOT cancelled by steering — holding a
-    // long bend at a set speed is most of what it is for.
+    // ⚠ It writes only 'st.input.throttle', so it has no authority the pedal lacks. Cancelled by
+    // the brake, clutch, stall or losing the drive; steering doesn't cancel it.
     if (st.cruise != null) {
       if (st.input.brake > 0 || st.input.clutch > 0 || st.dry || st.broken || st.sim.stalled
-        // ⚠ Through `st.setCruise`, not a bare call: this loop is a module-level function and the
-        // switch's own writer closes over the cab that owns the lamp. Cancelling without going
-        // through it would leave the rocker lit over a truck that is no longer on cruise.
+        // ⚠ Through 'st.setCruise', the writer that owns the lamp.
         || st.sim.gear <= 0 || Math.abs(st.sim.speed) < 5.5) st.setCruise?.(null);
       else {
-        // Proportional, and gentle: a truck's mass means a hard correction reads as surging.
+        // Proportional and gentle, or a heavy truck surges.
         st.input.throttle = Math.max(0, Math.min(1, (st.cruise - st.sim.speed) * 0.18));
       }
     }
-    // The camera flies on the same clock the truck does, and BEFORE the frame is painted, so a held
-    // key moves it this frame rather than next one.
+    // The camera steps before the paint, so a held key moves it this frame.
     perfBegin('sim:physics');
     freeCam.step(dt);
     autoShift(dt);
     autoClutchStep(dt);
-    // THE SPRING BRAKES, applied where a foot would be — see setPark. Written AFTER cruise (which
-    // it cancels on the way on) and after the automatic, and before `step`, so it is the last word
-    // on the pedal for this frame: pulling the knob out while somebody is on the throttle holds the
-    // truck, which is what a park brake is for and what makes forgetting it a real mistake.
+    // The spring brakes: the last word on the pedal this frame, after cruise and the automatic.
     if (st.park) st.input.brake = 1;
     step(st.sim, st.input, P, dt);
     const r = truckReadout(st.sim, P);
     // ── WHAT IS THROWING THE CAB ABOUT ────────────────────────────────────────
-    // Two numbers in g, for anything inside the cab that has mass: the trinkets on the header and
-    // the dash (see cab-trinkets.js), and whatever else ever wants them.
-    //
-    // ⚠ THE CORNERING ONE IS NOT A DERIVATIVE. `yawRate` is already a rate the model publishes, and
-    // lateral acceleration on a body going round a bend is v·ω exactly — so it comes out of the sim
-    // clean, with no frame-to-frame differencing and none of the noise that would come with it. The
-    // longitudinal one has no such shortcut and IS a derivative, which is why it is the only one
-    // that needs a previous value kept.
-    //
-    // ⚠ AND IT IS SMOOTHED, BECAUSE d(speed)/dt OFF A ROUNDED READOUT IS A SQUARE WAVE. `speed` is
-    // a float, but the gearbox steps it, the surface model steps it, and a shift drops it in one
-    // frame — so the raw difference spikes to several g on a gearchange and a bobblehead reads as
-    // being hit with a hammer every time you go up the box. One-pole, about a tenth of a second,
-    // which is fast enough that stamping on the brakes still registers as stamping on it.
+    // G-forces for the cab trinkets (cab-trinkets.js). Lateral is v·ω straight from the sim;
+    // longitudinal is a derivative, smoothed one-pole (~0.1 s) or every shift spikes it.
     {
       const MPH_FPS = 1.4667, G_FPS2 = 32.17;
-      // ⚠ SIGNED SPEED, NOT ITS MAGNITUDE. `yawRate` already carries the direction of travel (it
-      // comes out of a signed rate times the steer angle), and v·ω with both signed is v²·tanδ/L —
-      // which points at the side you steered toward whichever way the truck is rolling, because a
-      // turn centre is decided by the front wheels and not by the gearbox. Taking the magnitude of
-      // one of the two throws the dice the wrong way every time you back off a bay.
+      // ⚠ Signed speed: yawRate already carries direction, so v·ω points the steered way when reversing too.
       const lat = (st.sim.speed * MPH_FPS) * ((st.sim.yawRate || 0) * Math.PI / 180) / G_FPS2;
       const raw = dt > 0 ? ((st.sim.speed - st.geeSpeed) * MPH_FPS / dt) / G_FPS2 : 0;
       st.geeSpeed = st.sim.speed;
       const k = dt > 0 ? Math.min(1, dt / 0.10) : 0;
-      // Clamped at a g either way. A rig does not pull one, and the only things that reach these
-      // numbers are the rebound below and a dropped frame — neither of which should be allowed to
-      // put a pair of dice through the roof lining.
+      // Clamped at 1 g; only the rebound and dropped frames get near it.
       st.gee.lat = Math.max(-1, Math.min(1, st.gee.lat + (lat - st.gee.lat) * k));
       st.gee.lon = Math.max(-1, Math.min(1, st.gee.lon + (raw - st.gee.lon) * k));
     }
     perfEnd();   // sim:physics
 
-    // Solid geometry. THE WALL PUSHES BACK; it does not swallow you.
-    //
-    // This used to put the truck back where it was and set the speed to zero, and that was the
-    // wrong outcome for two reasons that only show up once you are actually driving. A dead stop
-    // against a facade leaves the rig nosed INTO the geometry with the throttle still down, so the
-    // next frame collides again, and again, at whatever speed the pedal has rebuilt — which is the
-    // log full of identical "something plastic gives" lines. And a truck that simply stops is a
-    // truck you cannot recover without finding reverse, in a gearbox, while touching a building.
-    //
-    // So it REBOUNDS: put back to the last clear position, then pushed a little further back along
-    // the way it came, with the speed reversed and heavily damped. You end up a truck's length off
-    // the wall, rolling gently backwards, pointed the way you were — which you can drive out of.
-    // `hitCd` is now a genuine quiet window rather than a re-fire guard, because the rebound has
-    // already separated the two bodies.
+    // Solid geometry. The wall pushes back: return to the last clear spot, nudge further back, and
+    // roll gently backwards, so the driver can drive out. 'hitCd' is a quiet window afterwards.
     if (st.hitCd > 0) st.hitCd -= dt;
     else if (obstructionAhead(st) > 0) {
       const mph = Math.abs(st.sim.speed);
@@ -3863,22 +3033,14 @@ function frame(now) {
       const dirSign = Math.sign(st.sim.speed) || 1;
       st.sim.x = st.prev.x - Math.sin(h) * 0.35 * dirSign;
       st.sim.y = st.prev.y + Math.cos(h) * 0.35 * dirSign;
-      // A rebound, not a bounce-house: you keep a fifth of what you arrived with, backwards, and
-      // never more than walking pace. Hitting a wall harder must not launch you further off it.
+      // A fifth of the speed, backwards, never more than walking pace.
       st.sim.speed = -dirSign * Math.min(6, mph * 0.2);
       st.sim.yawRate = 0;
       st.sim.brakeTemp = st.sim.brakeTemp || 0;
-      // ONE LINE PER IMPACT, and only for impacts worth a line. Nudging a kerb at three miles an
-      // hour in a yard is not an event, it is parking; the server hears about it only if the rig
-      // actually took something. The cooldown is long enough that scraping down a row of frontages
-      // reads as one incident rather than eleven.
+      // One line per impact worth one; the cooldown makes a scrape down a frontage one incident.
       st.hitCd = mph > BUMP_MPH ? 1.6 : 4.0;
-      // WHICH END OF THE TRUCK MET IT. The server has no geometry at all, so this is the one fact
-      // about a collision only the client can know — and it decides which components take the
-      // damage (damage.js `impactSplit`). Reversing is a rear impact by definition; with the wheel
-      // wound over you are scraping the flank rather than nosing into it, which is the case that
-      // costs you a tyre. Deliberately not forgeable in any useful direction: every area routes the
-      // same TOTAL into the truck and only the destination changes.
+      // Which end met it: only the client knows, and it picks the damaged parts (damage.js impactSplit).
+      // Not usefully forgeable: every area routes the same total.
       const area = st.sim.speed < 0 ? 'rear'
         : Math.abs(st.input.steer || 0) > 0.45 ? 'side'
         : 'front';
@@ -3889,29 +3051,18 @@ function frame(now) {
     const q = (s) => st.container.querySelector(s);
     q('.cab-mph').textContent = r.speed;
     q('.cab-odo').textContent = Math.max(0, Math.round(st.L - st.s));
-    // The one readout that is allowed to stop saying what it is named after: a driver who is not
-    // going anywhere needs to be told WHY before they need to be told what they are parked on.
+    // The surface readout says why you're stopped first.
     q('.cab-surface').textContent = st.broken ? 'BROKEN' : st.dry ? 'NO FUEL' : (st.input.surface || 'road').toUpperCase();
     q('.cab-surface').className = 'cab-surface s-' + (st.broken ? 'offroad' : st.input.surface);
-    // The box. `best` is shown as a HINT beside the gear and never acted on — an automatic in a
-    // truck sim is the whole game deleted. The tach is the same numbers as a dial because you are
-    // meant to be able to drive on the sound alone and glance at this to confirm.
-    // The controls follow the truck, whatever moved them — a key, a button, a drag.
+    // The controls follow the truck, whatever moved them.
     st.paintGate?.();
     st.paintControls?.();
-    // The key's ANGLE is the ENGINE, not the switch: a key turned on that did not catch springs
-    // back to OFF, and saying otherwise would make the one control whose whole job is "is this
-    // thing running" lie. (See paintKey — the barrel derives all three positions from the truck.)
+    // The key's angle is the engine (paintKey).
     st.paintKey?.();
     const gearEl = q('.cab-gear');
     gearEl.textContent = r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : ''));
     gearEl.className = 'cab-gear' + (r.stalled ? ' g-stall' : r.inBand ? ' g-band' : '');
-    // The REV lamp is DERIVED FROM THE BOX, never remembered by the button — the same rule the key
-    // barrel follows. Reverse can be left by the lever, the gate, the R key or an automatic upshift
-    // out of it, and a button holding its own idea of the state would be lit over a truck that is
-    // in first. It also goes dim while rolling, because that is when the control refuses.
-    // ⚠ `q`, NOT `container` — this function is module scope and does not close over the cab that
-    // owns the markup. Everything around it already went through `q` for that reason.
+    // The REV lamp is derived from the box, and dims while rolling. ⚠ Use 'q': this is module scope.
     const rev = q('.cab-revbtn');
     if (rev) {
       rev.classList.toggle('on', r.gear < 0);
@@ -3919,98 +3070,53 @@ function frame(now) {
       rev.disabled = Math.abs(st.sim.speed) >= 2;
     }
     // ── GETTING OUT ────────────────────────────────────────────────────────────
-    // ⚠ THE NUMBER IS THE SERVER'S. `parkRig` refuses above `PARK_STOPPED_MPH` (0.6) in
-    // plugins/trucking/index.js, and the cab used to test 0.5 — a sliver where the client sent a
-    // command the server then refused, which reads to the driver as the same silence as not sending
-    // one. One threshold, kept here as a named constant so the next person can find its twin.
+    // ⚠ Matches the server's PARK_STOPPED_MPH in plugins/trucking/index.js.
     const PARK_SEND_MPH = 0.6;
     const stopped = Math.abs(st.sim.speed) <= PARK_SEND_MPH;
-    // The latched pull, fired the frame the rig actually comes to rest — see setPark.
+    // The latched pull fires the frame the rig comes to rest (setPark).
     if (st.park && stopped && !st.parkSent) { st.parkSent = true; sendCmdSilent('park'); }
-    // AND THE EXPLICIT DOOR. `park` being the way out is emergent — it is a brake knob that happens
-    // to end the drive — which is fine once you know it and invisible until then. This button says
-    // the thing out loud, and it is DERIVED rather than remembered (the same rule as the REV lamp
-    // above): it lives whenever the brake is set and the rig is stopped, and it is dim otherwise, so
-    // the sequence reads off the dash — stop, park, climb down. It sends the ordinary `park` verb
-    // and knows nothing else; there is no second get-out path on the server.
+    // The exit button is derived: lit when parked and stopped. It sends the ordinary 'park' verb.
     const exit = q('.cab-exitbtn');
     if (exit) exit.disabled = !(st.park && stopped);
-    // `BEST` is the shift indicator, and it is a fleet privilege — see CAB_KIT. In a Barrow or a
-    // Courier the hint reverts to the keys, which is all a cheap dash has ever told anybody.
+    // BEST (the shift indicator) is a tier privilege; see CAB_KIT.
     const kit = kitFor(P);
     q('.cab-gearhint').textContent = r.stalled ? 'ENGINE OFF · CLUTCH + KEY'
       : kit.best ? `GEAR · BEST ${r.best}` : 'GEAR · , .';
-    // THE INSTRUMENTS ARE ON THE DASH, in the scene — see the field block in the paintWindshield
-    // call below, and drawCabInterior in windshield.js. Nothing is painted from here.
+    // The instruments are drawn on the dash in the scene (drawCabInterior); nothing is painted here.
 
-    // The rig. Brake temperature is a WORD, not a number, because nobody reads a gauge in
-    // Fahrenheit while a hill is happening to them — and it goes amber before it fades, so a
-    // driver who is paying attention gets to do something about it.
-    // A GRADED GAUGE IS A TIER-2 LUXURY; below it the drums have a WARNING LAMP and nothing else,
-    // so a cheap truck tells you the brakes are gone at the moment they are gone rather than
-    // watching them go. The fade itself is identical — this is what you can see of it, never what
-    // is happening. (Which is also why FADING is never suppressed: a lamp that doesn't light is
-    // not a fleet ladder, it is a bug.)
+    // Brake temperature is a word. Below tier 2 there's only a warning lamp; FADING always shows.
     const bEl = q('.cab-brakes');
     const bt = r.brakeTemp;
     bEl.textContent = r.fading ? 'FADING'
       : !kit.brakeTemp ? 'OK'
       : bt > 0.42 ? 'HOT' : bt > 0.2 ? 'WARM' : 'COLD';
     bEl.className = 'cab-brakes' + (r.fading ? ' b-fade' : kit.brakeTemp && bt > 0.42 ? ' b-hot' : '');
-    // The articulation angle in DEGREES is the Orlov's alone — everyone else reverses on the
-    // mirrors, which is where the angle has always actually been readable.
+    // Articulation angle in degrees is the Orlov's alone.
     q('.cab-riginfo').textContent = r.hitched
       ? (r.folding ? 'JACKKNIFING'
         : kit.trailerAngle ? `TRAILER ${r.phi > 0 ? '+' : ''}${r.phi.toFixed(0)}°` : 'TRAILER')
       : 'BOBTAIL';
     q('.cab-riginfo').className = 'cab-riginfo' + (r.folding ? ' b-fade' : '');
 
-    // THE GEARBOX HAS A VOICE. `s.shifted` has been set by truckShift since phase 1.5 and nothing
-    // has ever listened to it — the box was silent, which is why shifting felt like changing a
-    // number rather than operating a machine. A shift in a real truck is three sounds in about a
-    // third of a second: the lever going through the gate, the engine dropping off the load, and
-    // the clutch taking it back up. Two cues and an rpm dip get all of it.
-    //
-    // It rides `sim.gear` rather than the flag, because the flag is set by the auto box and the
-    // splitter too and they are all the same event to an ear. A SPLIT is deliberately quieter — it
-    // is an air valve on the knob, not a lever through a gate.
+    // The gearbox's voice, keyed on 'sim.gear' so every source sounds the same. A split is quieter.
     if (st.sim.gear !== st.lastGear || st.sim.split !== st.lastSplit) {
       const half = st.sim.gear === st.lastGear;        // same gear, splitter moved
       shiftCue(half, st.sim.gear === 0);
-      // The engine drops off the load for a moment. Purely cosmetic — the model has already
-      // computed the real rpm from road speed through the new ratio, and this is the tenth of a
-      // second of clutch travel that model does not simulate, applied to what the EAR gets only.
+      // An ear-only rpm dip for the clutch travel the model doesn't simulate.
       st.rpmDip = half ? 0.06 : 0.14;
       st.lastGear = st.sim.gear; st.lastSplit = st.sim.split;
     }
     if (st.rpmDip > 0) st.rpmDip = Math.max(0, st.rpmDip - dt * 0.9);
 
-    // The voice. rpm/gear/surface are the three things a diesel tells you about, so all three go
-    // over; `continuous: true` picks the live parametric synth rather than the deck-craft loops.
-    // THROTTLE IS BOOST, not the pedal: `r.pedal` is the spooled number the engine is actually
-    // making, so the note comes up with the pull instead of snapping the instant a key goes down —
-    // which is most of what makes a big diesel sound heavy.
-    // A bay's rev (cabRev) needs the voice updated faster than the 220 ms cadence, or half a second
-    // of blip is two samples of it.
+    // The engine voice. Throttle is boost ('r.pedal'), so the note rises with the pull. A bay rev
+    // (cabRev) needs a faster cadence than 220 ms.
     const kick = revKick(now);
     if (now - st.lastAudio >= (kick > 0 ? 40 : 220)) {
       st.lastAudio = now;
-      // What continuing to drive on it sounds like. Scaled off the worst component and driven from
-      // the same payload the gauges read, so the sound IS the gauge rather than a second opinion
-      // about it. Cheap enough for the frame loop: it sets one loop gain and returns.
+      // The damage bed, from the same payload the gauges read.
       damageBed(st.dmg && Object.fromEntries(DMG_PARTS.map((p) => [p.key, st.dmg[p.key]?.v ?? 1])),
         !st.dry && !st.broken);
-      // ── A DEAD ENGINE IS A SILENT ONE, ONCE IT IS DOWN ────────────────────
-      // `engineOn` was `!st.dry` and nothing else, so switching the key off left the whole bed
-      // running — the lifter wash, the idle, all of it — over a truck whose rev counter read zero
-      // and whose mesh had already settled. Every other reader of "is this engine turning" is the
-      // stall flag; this was the one that had its own idea.
-      //
-      // ⚠ NOT INSTANT, THOUGH. The pods take a moment to sink onto their shrouds and the sound has
-      // to come down WITH the truck, not before it — cutting the wash the frame the key turns is
-      // the same wrongness in the other direction, and it is what makes a shutdown read as a bug
-      // rather than as a machine settling. So the bed plays on for the length of the settle and
-      // then stops, which is the same window the renderer's own `hoverLift` takes to give up.
+      // A dead engine goes silent after the settle (SETTLE_MS, matching the renderer's hoverLift), not at once.
       const dead = st.sim.stalled || st.dry || st.broken;
       if (dead && !st.deadAt) st.deadAt = performance.now();
       else if (!dead && st.deadAt) st.deadAt = 0;
@@ -4023,51 +3129,15 @@ function frame(now) {
         groundSpeed: r.speed, surface: st.input.surface || 'road',
         cabin: !st.external, weather: st.weather,
       });
-      // ── AND WHATEVER IS ON THE WATER BESIDE THE ROAD ──────────────────────
-      // A waterfront run puts a driver within earshot of the basin, and `st.contacts` is the same
-      // `vehicle.contacts` feed that already puts those hulls in the mirror — so the pass-by voices
-      // cost one call and no new wire. ⚠ A TRUCK'S OWN SPEED IS ALREADY MPH, unlike the cockpit's,
-      // which is knots: same field name on the same payload, two units, which is the divergence the
-      // renderer's own note flags. Converting here would put the listener 15% fast and bend every
-      // boat the wrong way.
+      // Boats beside the road, from the same contacts feed. ⚠ A truck's speed is mph, the cockpit's
+      // knots; don't convert here.
       updateBoatContacts({ x: st.sim.x, y: st.sim.y, hdg: st.sim.heading || 0, speed: r.speed || 0 },
         st.contacts || []);
     }
 
-    // Hand the world to the flight sim's renderer. `height: 0` is the ground camera; the map
-    // window came from the server and was derived by the same mapWindow a cockpit uses.
-    // THE EXTERNAL VIEW IS THE FLIGHT SIM'S OWN CHASE, MODEL AND ALL.
-    //
-    // It used to pass `hideOwnShip` and then paint a bespoke eight-corner box over the finished
-    // frame — a second truck, in a second projection, with its own copy of the camera pose. Both
-    // bugs that came out of that were the same bug: the model was a BOX, so it had no bobtail
-    // silhouette (a tractor with nothing on it still read as a slab), and its camera was a
-    // restatement of the renderer's rather than the renderer's, so orbiting turned the world
-    // underneath a rig that would not turn with it.
-    //
-    // `buildTruck` has existed the whole time — it is what the depot floor, the wireframe and a rig
-    // seen from somebody's cockpit all draw, it takes the `<typeId>[+t]` grammar, and BOBTAIL IS A
-    // REAL SILHOUETTE in it. So the cab stops drawing its own truck and asks for the same one
-    // everybody else sees, through the same own-ship path the aircraft use: the model keeps its
-    // true heading while the camera orbits, the ground anchor pins it to the road, and running
-    // empty looks like running empty because the mesh is short.
-    //
-    // `tier` is still passed and does not need gating — drawCabInterior is already `!ext` inside
-    // the renderer, so the painted cab suppresses itself the moment the camera leaves it.
     // ── THE MIRRORS, RENDERED ───────────────────────────────────────────────
-    //
-    // ⚠ BEFORE THE FORWARD VIEW AND NEVER INSIDE IT. drawCabMirror runs from drawCabInterior,
-    // which runs from paintCabDash, which paintWindshield calls near the end of its own frame —
-    // so rendering the rear view from in there is paintWindshield re-entering itself with every
-    // module-level sink (FACE_SINK, MESH_SINK, SPRITE_SINK, the decal and stroke sinks) already
-    // armed for the frame it is in the middle of. It would not throw; it would quietly collect
-    // the mirror's geometry into the windscreen's own buffers. So the cab renders it first and
-    // hands the finished bitmap over as an ordinary view field.
-    //
-    // ⚠ AND IT IS THROTTLED, BECAUSE IT IS A SECOND WORLD PASS. A mirror at four frames a second
-    // reads as a mirror; the eye is not tracking anything in it, it is checking whether something
-    // is there. Tying it to the forward frame doubles the most expensive thing this view does for
-    // a picture the size of a stamp.
+    // ⚠ Rendered before the forward view, never inside it: from drawCabMirror it would re-enter
+    // paintWindshield with the frame's sinks armed and leak geometry into the windscreen. Throttled to REAR_MS.
     if (!st.external && st.map) {
       const nowMs = performance.now();
       if (!st._rearAt || nowMs - st._rearAt > REAR_MS) {
@@ -4078,19 +3148,11 @@ function frame(now) {
             paintWindshield(st.id + '-rear', {
               cls: 'truck', phase: 'ground', worldBlend: 1, bare: true,
               height: 0, eyeH: 0.12, speed: Math.min(1, Math.abs(st.sim.speed || 0) / 68),
-              // ⚠ THE HEADING IS THE RIG'S, TURNED ROUND — not the camera's. A shoulder-check
-              // swings st.viewYaw, and a mirror that swung with your head would be a mirror
-              // bolted to your head.
+              // ⚠ The rig's heading turned round, never the camera's: a mirror doesn't follow your head.
               heading: ((st.sim.heading || 0) + 180) % 360,
-              // A wing mirror is a NARROW instrument: it shows a lane and a bit, not a panorama.
-              // fovMul scales both focal lengths together, so this is a field of view and not a
-              // horizontal squash — see the note on it in makeCam.
+              // A narrow instrument; fovMul scales both focal lengths (makeCam).
               fovMul: 0.62,
-              // ⚠ THE CENTRE AND THE OFFSET DO NOT MOVE WITH THE SLICE. 'mapCenter' is the tile
-              // the window is built around and 'mapOffset' is where in it the rig is standing;
-              // only the ARRAY shrinks, and the renderer derives its own radius from
-              // '(map.length - 1) / 2'. Shifting either to "re-centre" the smaller window would
-              // put the mirror somewhere the truck is not.
+              // ⚠ Centre and offset don't move with the slice; the renderer derives its radius from the array.
               map: rearMap(st.map), mapCenter: { x: st.mapX, y: st.mapY },
               mapOffset: { x: st.sim.x - st.mapX, y: st.sim.y - st.mapY },
               hour: st.hour, weather: st.weather, event: st.wxEvent,
@@ -4099,7 +3161,7 @@ function frame(now) {
               landingLight: st.heads, wipers: 0,
             });
             st.rearImg = rc;
-          } catch (e) { st.rearImg = null; }   // a mirror that cannot render falls back to the stub
+          } catch (e) { st.rearImg = null; }   // falls back to the stub
         }
       }
     }
@@ -4107,246 +3169,92 @@ function frame(now) {
     paintWindshield(st.id, {
       rearImg: st.rearImg || null,
       cls: 'truck', phase: 'ground', worldBlend: 1,
-      // NEVER DOWNSCALE THE ROAD. The renderer's dynamic resolution defends frame rate by shrinking
-      // the backing store, which is right for a sim looking at clouds and wrong for a cab looking at
-      // lane markings a metre away — and because a fullscreen canvas is where it actually engages,
-      // the symptom was "fullscreen makes it blurry". Rendering at native and taking the frame cost
-      // is the trade this view wants.
-      // 'resFloor' is a scale on top of the device ratio, so asking for 1 meant "native" on a 1x
-      // monitor and "four times the pixels, and no adaptive relief in either direction" on a 2x one
-      // -- the dial pinned solid on exactly the machines paying the most. 'resFloorPx' is the same
-      // sentence in the unit that was meant: never below ONE BACKING PIXEL PER CSS PIXEL. On a 1x
-      // display that is the identical pin this view already had; on a 2x display the scene may drop
-      // to half scale under load and is STILL sharper than a 1x monitor at full resolution. The raw
-      // floor goes to the clamp minimum so the pixel floor is the one that governs.
+      // Never below one backing pixel per CSS pixel (resFloorPx); lane markings must stay sharp.
       resFloor: 0.5, resFloorPx: 1,
-      // …AND GO THE OTHER WAY WHEN THERE IS ROOM. Native is the floor, not the goal: at 1:1 on an
-      // ordinary monitor every hard edge in this view — lane markings, the panel lines on the rig
-      // in front, the aerial — is drawn with no antialiasing at all, and fullscreen is where that
-      // is most obvious because the edges get bigger, not softer. So the scene is rendered at up to
-      // twice the linear resolution and scaled down into the box, which is the one place a picture
-      // gets sharper by being made larger first. It backs off on its own if the frames cost too
-      // much (see the supersample note in paintWindshield) — no setting, no cliff.
+      // Supersample up to 2x; it backs off on its own (see paintWindshield).
       superSample: 2,
-      // -- THE GROUND CAMERA'S OWN LOAD-SHEDDING NUMBERS ----------------------
-      // RENDER_TUNE's distance block is in tiles and was calibrated from a cockpit, where a building
-      // is small and far away. Down here the camera is at ground level in a dense city and the same
-      // numbers mean something else -- so this view brings its own. Only keys that decide how much
-      // work to SKIP may be set (see VIEW_TUNABLE); geometry is not overridable, because the
-      // collision helpers read that outside the frame and the picture and the solid world must never
-      // disagree. The numbers live next to the ones they override so the smoke can drive them too.
+      // The ground camera's own load-shedding numbers. Only skip-work keys may be set (VIEW_TUNABLE);
+      // geometry never, since collision reads it outside the frame.
       tune: CAB_VIEW_TUNE,
-      // Which of the four, and whether there is a box on the back. The ONE string that decides the
-      // shape, and it is the same one the yard hands its turntable.
-      //
-      // ⚠ `~p` IS THE SHUT-DOWN POSE, AND THE ROAD NEVER ASKED FOR IT. The mesh has had a parked
-      // pose since the lifters were built — a stalled rig settles onto its skirts and the emitter
-      // bands stop being drawn — but the only caller passing `~p` was the depot panel's turntable.
-      // So out here a truck with a dead engine went on hovering with its bands lit, which is the
-      // exact tell the parked pose was written to kill: a machine holding itself up on light it is
-      // not making. It is one suffix, and the whole settle comes with it.
-      // ⚠ THE FITTING SUFFIX GOES LAST, after the trailer and parked markers. The mesh strips from
-      // the first `~` or `^` to read the type, so a suffix in front of `+t` would take the trailer
-      // marker with it and a loaded rig would render bobtail.
+      // The one string that decides the shape. '~p' is the parked pose for a dead engine.
+      // ⚠ The fitting suffix goes last: the mesh strips from the first '~' or '^', which would eat '+t'.
       variant: TYPE_ID + (r.hitched ? '+t' : '') + (r.stalled ? '~p' : '') + FITS,
-      // WHAT THE ROAD UNDER IT IS LIT BY. The engine drives the lifters, so RPM is the right
-      // instrument — what was wrong was the SCALE, not the signal.
-      //
-      // A diesel idles at 0.16 of redline, so reading rpm as a straight fraction put a running,
-      // idling rig at about a tenth of full wash: switched on and still nearly dark, which is the
-      // one state that has to read as alive. The curve is anchored at idle instead. Below it —
-      // cranking, or dying — the wash comes up from nothing, so a start is visible as the lifters
-      // catching; AT idle it is already bright; and the top of the rev range takes it the rest of
-      // the way, so working the engine visibly lights the road under the skirts.
-      // ⚠ `IDLE` is imported from the model rather than written here. A second copy of the idle
-      // speed is a number that silently disagrees with the engine the first time the engine moves.
+      // Lifter wash from rpm, anchored at idle so a running idle rig is already bright.
+      // ⚠ IDLE comes from the model; never restate it.
       power: r.stalled ? 0
         : (st.sim.rpm || 0) <= IDLE ? 0.55 * ((st.sim.rpm || 0) / IDLE)
         : 0.55 + 0.45 * Math.min(1, ((st.sim.rpm || 0) - IDLE) / (1 - IDLE)),
-      // ⚠ THE BOX KEEPS ITS OWN COLOUR HERE TOO. `deck` is this tractor's opinion; the stamp on the
-      // trailer row is the box's own, and it has to win in every view or the same trailer is one
-      // colour standing in the yard and another one behind you. Server-sent (see cabContext) —
-      // the client is not deciding this, it is being told.
-      // …AND HOW MUCH ROAD IS ON TOP OF IT. Second argument to the one conversion (see
-      // client/shared/truck-livery.js), so the rig in the chase camera browns exactly as the rig on
-      // the depot turntable does and neither of them owns a dirt model.
+      // ⚠ The trailer's own colour wins over 'deck' in every view (server-sent). Grime goes through the
+      // one livery conversion (client/shared/truck-livery.js).
       livery: { ...truckLivery(PAINT_PREVIEW || PAINT, st.grime || 0), ...(st.trailer?.colour ? { deck: st.trailer.colour } : {}) },
-      // The orbit is the player's now, not two constants — drag on the glass, wheel to dolly, ⟲ to
-      // put it back down the road.
-      // YAW IS THE PLAYER'S, ALWAYS AND AT EVERY DISTANCE — see the ⚠ on chaseAmt. Only the height
-      // is overridden, and only while dollied in; `st.extPitch` itself is untouched, so backing the
-      // wheel off hands the camera back exactly as they left it.
+      // ⚠ Yaw is always the player's; only the height is overridden while dollied in (chaseAmt).
       ...(st.external ? {
         external: true,
         extYaw: st.extYaw,
         extPitch: st.extPitch + (CHASE_PITCH - st.extPitch) * chaseAmt(st.extZoom),
         extZoom: 1.15 * st.extZoom,
       } : {}),
-      // Shoulder-checks are suppressed in the chase camera, which is already showing you what they
-      // are for — and yawing a third-person view off the vehicle it is following is just lost.
+      // No shoulder checks in the chase camera.
       viewYaw: st.external ? 0 : (st.viewYaw || 0),
-      // ── ⚠ THE SPRING IS HERE, BECAUSE HERE IS ALREADY PER FRAME ────────────
-      // A peek that returns needs something advancing it, and this block runs once a frame by
-      // construction — so the decay costs no timer, no rAF of its own and nothing to cancel when
-      // the cab closes. Held, it tracks the cursor; released, it is an exponential back to zero.
-      // ⚠ AND IT IS SUPPRESSED IN THE CHASE CAMERA for the reason the shoulder-checks are: the
-      // middle button is the ORBIT out there, and a peek riding along with it would fight the drag.
+      // The peek's spring runs here, once a frame, with no timer. Suppressed in the chase camera,
+      // where the middle button orbits.
       ...(() => {
         if (st.external) { st.look.x = 0; st.look.y = 0; st.looking = false; st.freeLook = false; return { lookYaw: 0, lookPitch: 0 }; }
-        // ⚠ THE SPRING IS SKIPPED, NEVER SLOWED. A very slow decay reads as a head that drifts
-        // back to the windscreen on its own, which is worse than either behaviour — you cannot
-        // look at something and leave it there, and you cannot let go and be back.
+        // ⚠ The spring is skipped while latched, never slowed: a slow drift is worse than either.
         if (!st.looking && !st.freeLook) { st.look.x *= CAB_PEEK_DECAY; st.look.y *= CAB_PEEK_DECAY;
           if (Math.abs(st.look.x) < 0.002) st.look.x = 0;
           if (Math.abs(st.look.y) < 0.002) st.look.y = 0; }
-        // ⚠ THE LEAN RIDES ALONG AT BOTH SETTINGS AND IS NOT SCALED UP WITH THE YAW. It is a
-        // TRANSLATION of the eye inside the cab — how far a driver's head can actually move — and
-        // turning further does not move your neck further. Scaling it with the look would post
-        // your head out through the door.
-        // ⚠ AND IN A CAB THAT IS ALL GEOMETRY THE PEEK IS THE FULL RANGE TOO. The 26° limit exists
-        // because past it the painted board would be drawn over a side window; with the board
-        // modelled there is nothing to protect, and a peek that stops short of the door is a peek
-        // that cannot see the mirror it was for. The spring back is untouched.
+        // ⚠ The lean is a head translation, so it isn't scaled with the yaw. In a modelled cab
+        // (cockpit3d) the peek gets the full range: there's no painted board to protect.
         return (st.freeLook || RENDER_TUNE.cockpit3d)
           ? { lookYaw: st.look.x * CAB_LOOK_YAW, lookPitch: -st.look.y * CAB_LOOK_PITCH,
               lookLean: { x: st.look.x * 0.14, y: st.look.y * 0.14 } }
           : { lookYaw: st.look.x * CAB_PEEK_YAW, lookPitch: 0, lookLean: { x: st.look.x, y: st.look.y } };
       })(),
-      // Off its mount. Null every other frame, which is what keeps the chase path untouched.
+      // Off its mount; null otherwise.
       freeCam: freeCam.view(),
-      // ⚠ TWO SPEEDS, AND THEY ARE NOT THE SAME NUMBER. `speed` is NORMALISED (0..1 of a nominal
-      // 68 mph) because that is what the world renderer wants — it drives motion blur, road rush,
-      // wind noise, none of which are in mph. `mph` is the real figure, and it exists because the
-      // speedometer was reading the normalised one: at sixty miles an hour the dial printed "1".
-      // ── WHERE THE DRIVER'S EYES ARE ────────────────────────────────────────
-      // The cab used to take the renderer's aircraft-on-the-tarmac camera whole (see the ⚠ in
-      // `makeCam`). Two numbers put it in a truck instead, and they are only sent for the INTERIOR:
-      // the chase camera anchors its model against the shared constants, so overriding them out
-      // there would move the rig itself rather than the eye looking at it.
-      //   eyeH   0.24 → 0.12. The aircraft value is lifted so the near ground falls off the bottom
-      //          of a bare windscreen; a truck has a dash doing that already, so all the lift did
-      //          was seat the driver above where they are sitting.
-      //          ⚠ AND THE UNIT IS THE SHED, NOT THE CITY. The one building with a known real size
-      //          around this camera is the bay (BAY.RIDGE = 2.2 storeys = 26 ft, so 1.0 world-z is
-      //          about 61 ft in here). 0.17 was therefore a 10-ft eye — a cherry picker, not a
-      //          cab — and it read exactly that way from inside: you sat looking DOWN at a roller
-      //          door. 0.12 is ~7.5 ft, which is where a conventional's eyes actually are.
-      //   fovMul 0.82 → ~1.0 effective. The stock focal length pulls the world toward the vanishing
-      //          point, which is what made everything out of the glass read small and far.
+      // ⚠ Two speeds: 'speed' is 0..1 of 68 mph for the renderer, 'mph' the real figure.
+      // Interior-only eye height and field of view: the chase camera anchors its model against the
+      // shared constants. See docs/reference/glass-notes.md#truck-cab-eye-height-and-prop-scale
       ...(st.external ? {} : { eyeH: 0.12, fovMul: 1.22 }),
-      // ── AND HOW BIG THE PEOPLE OUT OF IT ARE ───────────────────────────────
-      // Same unit, same argument, one layer down. The renderer's ground scatter — trees, lamps,
-      // bollards and the figures on the pavement — is sized in raw PIXELS rather than in world-z
-      // (see the ⚠ over 'propS' in windshield.js), so it was doing two wrong things at once from
-      // in here: not growing with the cab's taller canvas, and undersized to begin with.
-      //
-      // The shed gives the second number as plainly as it gave the first. At ~61 ft to the world-z
-      // unit, the actor drawer's stock constant works out at 3.4 ft of person — which is why
-      // everyone on the pavement read as a bollard with a head. 1.75 puts an adult at about
-      // 5 ft 10 and takes the street furniture up with them, because every one of those constants
-      // was eyeballed against the same wrong scale.
-      //
-      // ⚠ SENT FOR BOTH SEATS, UNLIKE THE TWO ABOVE. 'eyeH'/'fovMul' are interior-only because
-      // they would move the RIG when the chase camera is anchoring its model against them. This
-      // one moves nothing but the scatter, and the chase view is a road-level camera looking at
-      // the same street, so it wants the same people.
-      //
-      // The aircraft is deliberately left at 1. The constants are just as wrong up there, but
-      // nothing in that view is ever close enough to the ground for it to read, and a silent
-      // change to nine other cameras is not what a truck window is for.
+      // Ground scatter and people scale, sent for both views (it moves only the scatter). Same doc section.
       propMul: 1.75,
       height: 0, speed: r.speed / 68, mph: r.speed,
-      // ⚠ SIGNED, AND IT IS THE SIM'S OWN SIGN — NOT THE GEARBOX'S.
-      // This read `(r.reversing ? -1 : 1) * (r.speed / 68)` on the belief that `truckReadout.speed`
-      // is a magnitude with the direction living in `reversing`. It is not: `stepTruck` clamps
-      // `s.speed` to [−cap·REVERSE_CAP, cap] and the readout rounds it, sign and all. So backing up
-      // negated a number that was ALREADY negative and `drive` came out positive — the thrust cones
-      // fired off the back of the truck while it reversed, which reads as driving forwards with the
-      // model turned round, and is the exact failure the renderer's own ⚠ warns about ("keyed on
-      // the direction of TRAVEL, not on the gearbox"; `reversing` is `s.gear < 0`, the gearbox).
-      // Taken straight off the sim, so a rig rolling forward with reverse selected is still being
-      // pushed forward, and a stationary one fires neither end.
+      // ⚠ Signed, from the sim: readout speed already carries the sign, so never negate on 'reversing'.
       drive: Math.max(-1, Math.min(1, (st.sim.speed || 0) / 68)),
       heading: st.sim.heading, hour: st.hour, weather: st.weather, moon: st.moon, wind: st.wind,
-      // Headlights. There is no switch on the dash and there should not be one: a rig runs lit,
-      // and the renderer only throws the beam when the seeing is bad enough to want it (night OR
-      // weather — see the gloom gate in paintWindshield). A driver in midday fog was the case that
-      // made this necessary; before it, the one condition that needed lamps was the one that
-      // couldn't have them.
-      // ⚠ WAS A HARDCODED `true`. The renderer still owns WHEN a beam is worth drawing (the gloom
-      // gate — night or filthy weather), but whether the lamps are ON is now the driver's, so this
-      // is the switch rather than an assumption about it.
+      // The headlight switch; the renderer still decides when a beam is worth drawing.
       landingLight: !!st.heads,
-      // THE OTHER SWITCH. The dome lamp is a purely local, purely visual fact about the inside of
-      // this cab, so unlike the headlights it goes no further than the renderer — no packet field,
-      // no column. Absent means ON, which is what keeps the depot turntable and the shape smoke
-      // rendering the cab they always did.
+      // The dome lamp stays local. Absent means on, for the turntable and the smoke.
       dome: st.dome !== false,
-      // Brake lamps, for the rig's own rear and for anyone behind. Taken off the same
-      // `st.input.brake` the retardation model reads, so the lamps cannot disagree with the pedal.
+      // Brake lamps from the same 'st.input.brake' the model reads.
       braking: (st.input.brake || 0) > 0.02 || !!st.park,
       wipers: st.wipers | 0,
-      // The mirrors need the articulation angle — it is the only place it is visible. The
-      // binnacle needs the same numbers the DOM readouts show, because they are the same
-      // instruments seen from the seat rather than a second set of facts.
-      // Which cab is drawn around the view — the panels, the bezels, the marker lights and how
-      // many dials are in the binnacle. One number; the table is CAB_TRIM in windshield.js.
-      // `trim` is the bench's retrim over the top of it, and reaches the SURFACE only: a retrimmed
-      // Barrow can be walnut and brass and still has one dial, because the ladder is instruments.
+      // Which cab is drawn (CAB_TRIM in windshield.js). 'trim' changes surfaces only, never instruments.
       tier: P.tier, trim: TRIM_PREVIEW || TRIM,
-      // What the driver has hung, stood and bolted in here (cab-trinkets.js), and the two numbers
-      // the ones with mass swing on. Neither goes any further than this renderer — nobody but the
-      // driver is ever shown the inside of a cab, so unlike `fits` there is no wire suffix and no
-      // contact payload for either of them.
+      // Cab fittings (cab-trinkets.js) and the g they swing on; local to this renderer.
       cab: CABFITS, gee: st.gee,
-      // ⚠ THE MAKE, FROM THE ONE PLACE IT IS WRITTEN DOWN. The renderer knows the four makes only as
-      // comments beside the trim ladder, and the GPS boots with the maker's wordmark on it — so the
-      // name is sent rather than duplicated. A second copy in windshield.js would be four strings
-      // that have to be kept in step with these, which is how a Drayman ends up booting as a Courier.
+      // ⚠ The make is sent from CAB_KIT, never duplicated in windshield.js.
       make: kit.label,
-      // ⚠ THE TRAILER'S OWN HEADING GOES OVER, NOT JUST THE ANGLE BETWEEN. `phi` is
-      // `heading - trailerHeading` (flight-model), and a renderer handed the difference has to
-      // pick a sign to put it back together with — I picked the wrong one, and the box LED the
-      // turn instead of lagging it, which reads as the trailer steering the truck. The sim owns
-      // the absolute angle; sending it means nothing downstream can reconstruct it backwards.
+      // ⚠ Send the trailer's absolute heading, not only 'phi': reconstructing it picks a sign, and the wrong one leads the turn.
       hitched: r.hitched, phi: r.phi, trailerHeading: r.trailerHeading,
       rpmFrac: r.rpm / 100, band: P.band, inBand: r.inBand, topSpeed: P.topSpeed,
-      // ── THE DASH IS THE DASH ─────────────────────────────────────────────
-      // Everything the instrument panel needs, and nothing it does not. It is all derived here
-      // rather than in the renderer because the renderer must not know what a CAB_KIT is: it
-      // paints what a truck's dash shows, and WHICH truck this is, is the cab's question.
+      // The dash's data is derived here: the renderer must not know what a CAB_KIT is.
       steer: st.wheel?.getLock?.() ?? 0,
-      // ── THE WHOLE DASH, NOT FIVE SWITCHES OF IT ──────────────────────────
-      // 'console' is the renderer's word for "the shelf is not on screen, so draw everything" —
-      // asked of the MEDIA rather than remembered, because a window dragged onto a touch screen is
-      // a thing that happens and the answer has to be right on the next frame rather than at the
-      // next mount. 'ctl' and 'gate' are views of the shelf itself (see CAB_CTL): what the buttons
-      // currently say, in the order a truck arranges them.
+      // 'console' means draw the full dash (no shelf on screen), asked of the media every frame.
+      // 'ctl' and 'gate' are views of the shelf (CAB_CTL).
       console: !cabTouch(),
-      // What the driver's feet are doing. Straight off the same 'st.input' the physics reads, so a
-      // painted pedal cannot disagree with the one the truck is being driven by — it is the rule
-      // the brake lamps a few lines up already follow.
+      // Feet, straight off 'st.input'.
       pedals: { clutch: st.input.clutch || 0, brake: st.input.brake || 0, throttle: st.input.throttle || 0 },
       ctl: st.ctlCells ? st.ctlCells() : null,
       gate: st.gateView ? st.gateView() : null,
       gearLabel: r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : '')),
       stalled: r.stalled,
-      // WHAT HOLDS THE TRUCK OFF THE ROAD. The lifters run off the engine, so a dry tank or a
-      // broken rig settles onto its shrouds — which is the same fact the audio and the pedal
-      // already use, reported once more to the renderer rather than inferred there from speed.
+      // The lifters run off the engine.
       engineOn: !st.dry && !st.broken,
       fuel: st.dry ? 0 : (st.fuel ?? 1),
       legFrac: st.L ? Math.max(0, Math.min(1, st.s / st.L)) : 0,
-      // The GPS screen. 'aim' is the route destKey the server sent; the distance left is derived
-      // from the leg the cab is already driving rather than asked for a second time.
-      //
-      // ⚠ THE DIVISOR IS THE ONE CONVERSION, NOT A NUMBER THAT LOOKS ABOUT RIGHT. This was /12 —
-      // written before tiles-to-miles existed anywhere — while corridor.js has since declared
-      // TILES_PER_MILE = 3 and the sign boards, the 'route' verb and the GPS route picker all
-      // print against that. So the strip under the map read a QUARTER of what every other surface
-      // in the same cab said, which is precisely the failure the 'miles, not tiles' rule names: a
-      // board saying 240 while the dash says 60 means a driver cannot budget a tank against
-      // either. Imported rather than restated, so there is still exactly one of them.
+      // 'aim' is the server's destKey. ⚠ Miles via the one TILES_PER_MILE, so the dash matches the boards.
       aim: st.aim || null,
       legLeft: st.L ? Math.max(0, (st.L - st.s) / TILES_PER_MILE) : null,
       brakeTemp: r.brakeTemp, fading: r.fading, brakeGauge: kit.brakeTemp,
@@ -4358,118 +3266,52 @@ function frame(now) {
         trail: r.hitched && r.folding,
         dmg: st.dmg ? Object.values(st.dmg).some((d) => d && d.v < 0.4) : false,
       },
-      // Aircraft passing over. The cab used to be deliberately blind to traffic; it is not any
-      // more, because a world where a pilot can see a truck but a driver cannot see a plane is
-      // half a world. Same channel, same renderer, no new code on either side.
-      // ⚠ CAMERA-RELATIVE, AND THAT CONVERSION IS THE WHOLE REASON THIS CAB HAS NEVER DRAWN A
-      // CONTACT. `paintWindshield` documents its contact shape as {dx, dy, altDiff, rng, …} — an
-      // offset from the eye — and both server lists arrive in WORLD tiles (`x`, `y`), because that
-      // is the only frame a server can speak. The cockpit has always converted before handing them
-      // over (see contactView there); the cab concatenated the raw rows straight through, so every
-      // contact reached drawContacts with `c.dx` undefined, projected to NaN, failed the on-screen
-      // test and fell out through the off-screen chevron branch. Nothing was ever drawn and nothing
-      // ever errored.
-      //
-      // It was invisible because both halves looked right on their own: the boxes were in the
-      // payload (the server proves it), the renderer draws contacts (the sim proves it), and the
-      // one line between them was speaking a different coordinate system. It is not only the
-      // trailers — the aircraft this cab was deliberately given so a driver could watch a Mule come
-      // over the yard have never been drawn either.
+      // Contacts. ⚠ The renderer wants camera-relative {dx, dy, ...}; the server sends world tiles, so
+      // contactsFor converts (as the cockpit's contactView does), or nothing ever draws.
       contacts: contactsFor(st),
       map: st.map, mapCenter: { x: st.mapX, y: st.mapY }, roads: st.roads,
-      actors: st.actors,   // the people on the pavement either side of the road
-      roadside: st.hitcher || null,   // …and the one standing on the shoulder out on the void road
+      actors: st.actors,   // people on the pavement
+      roadside: st.hitcher || null,   // the hitcher on the void road's shoulder
       mapOffset: { x: st.sim.x - st.mapX, y: st.sim.y - st.mapY },
-      // WHERE WE ARE, AND WHAT IS OVER US. `acX/acY` were already here for the lightning, which is
-      // why bolts worked in the cab while the clouds and rain they come out of did not: without
-      // `wxField` the renderer's wxSample is null for the whole drive, so there were no local cells
-      // to drive into, no local storm darkening, and none of the ambient cloud/precip floors that
-      // ride that packet. `event` outranks `weather` for everything visual — it is what makes an
-      // acid downpour green through the windscreen instead of ordinary rain.
+      // 'wxField' drives the local cells and precipitation; 'event' outranks 'weather' visually.
       acX: st.sim.x, acY: st.sim.y,
       wxField: st.wxField, wxGround: st.wxGround, event: st.wxEvent,
-      // The nav head on the dash is a SCREEN, so it goes out with the rest of them.
-      // Passed through rather than read from the panel's own state because the
-      // renderer owns the dash and has never heard of `st`.
+      // The nav head is a screen, so the EMP kills it.
       elecOut: !!st.elecOut,
     });
-    // Where the fascia's switches landed this frame — taken now, because the mirror's own pass
-    // (bare, so no interior) clears the renderer's copy on the frames it runs.
+    // Taken now, because the mirror's bare pass clears the renderer's copy.
     st.hot = st.external || freeCam.active ? null : interiorHotspots();
-    // The rig itself is the renderer's now; this is only what the renderer cannot know.
+    // Only what the renderer can't know.
     if (st.external) { st.tier = P.tier; drawRigOverlay(st, r); }
-    // The road, on the glass and in the air. After the world and after the rig, because it is
-    // between them and the eye — and on the same canvas, because it is not a thing in the world.
+    // After the world and the rig, on the same canvas.
     drawRoadFilm(st, dt);
     perfEnd();   // sim:paint
 
     // ── THE DRIVER, FOUR TIMES A SECOND ────────────────────────────────────
-    // Not once per frame, and not off the vitals message either. Once per frame is sixty DOM reads
-    // a second for two numbers that move every few minutes; hooking the message would mean editing
-    // render.js's update path so the log's vitals rail could tell a truck about itself, which is a
-    // wire between two things that have no other reason to know about each other.
-    //
-    // A throttled poll off the loop that is already running is the cheap, local answer, and both
-    // painters bail on an unchanged string, so the steady state is two number comparisons.
+    // A throttled poll; both painters bail on unchanged text.
     if (now - (st.vitAt || 0) > 250) {
       st.vitAt = now;
       paintVitBand(st);
       paintGalleyVitals(st);
     }
 
-    // Stopped and pointing the same way as last time we spoke? Nothing the server needs to know
-    // has changed, so drop to the heartbeat. `rolling` is the whole gate — a truck that is not
-    // moving cannot cross a node, burn fuel, break down or bog.
+    // Fast while rolling, heartbeat when stopped.
     const rolling = Math.abs(st.sim.speed) >= 0.5;
-    // ⚠ …EXCEPT THAT COMING TO A STOP IS ITSELF THE NEWS, AND THE HEARTBEAT IS 2.5 SECONDS.
-    //
-    // The gate above is right about the STREAM and wrong about the EDGE. The instant the truck
-    // drops under half a mile an hour the cadence falls from 500ms to 2500ms — so the last thing
-    // the server heard can be the speed from BEFORE the stop, and it goes on believing that for up
-    // to two and a half seconds after the rig is standing still.
-    //
-    // `park` refuses over PARK_STOPPED_MPH (0.6), so what that buys the driver is: brake to a halt,
-    // watch the needle sit on zero, reach for the brake knob, and get told 'not while it is still
-    // rolling'. Nothing on the dash agrees with the refusal and nothing the driver can do makes it
-    // go away except waiting, without being told that is what they are doing. It reads as the truck
-    // refusing to stop.
-    //
-    // So the edge is sent immediately, in both directions — stopping is worth knowing at once, and
-    // so is pulling away. The interval still governs everything between edges, which is the part
-    // that was actually saving packets.
-    //
-    // ⚠ THE SERVER DROPS ANYTHING INSIDE MIN_SYNC_MS (120ms) AND RETURNS BEFORE IT READS THE SPEED,
-    // so an edge fired too soon after the last packet would be swallowed and we would be back to
-    // waiting out the heartbeat. `lastSync` is therefore left ALONE when it is too early, so the
-    // next frame tries again — which bounds the whole thing at about a tenth of a second rather
-    // than at the heartbeat.
+    // The rolling/stopped edge is sent at once, or the
+    // server keeps a stale speed and 'park' refuses. ⚠ Inside MIN_SYNC_MS the server drops the packet
+    // unread, so 'lastSync' is left alone and the next frame retries.
     const edge = rolling !== st.wasRolling;
-    if (edge && now - st.lastSync < MIN_SYNC_MS) { /* too soon to be heard — retry next frame */ }
+    if (edge && now - st.lastSync < MIN_SYNC_MS) { /* too soon to be heard: retry next frame */ }
     else if (edge || now - st.lastSync >= (rolling ? SYNC_MS : IDLE_SYNC_MS)) {
       st.wasRolling = rolling;
       st.lastSync = now;
-      // Packed numerics, matching cmdTruckSync's unpack order exactly: s t hdg spd x y.
-      // The client reports WHERE IT IS, not how far it has come — the server derives the odometer
-      // from the position against its own corridor geometry (reconcileTruck). The two leading
-      // slots are kept in the frame as a fallback for a bogged rig, whose position is off-road and
-      // therefore locates nowhere. Sending a self-reported distance would let a client weave and
-      // be paid for the extra tarmac.
-      // ⚠ THE SECOND SLOT WAS A LITERAL 0 AND IS NOW THE IGNITION. The server had no idea whether
-      // the engine was running — it reads position, heading and speed, and a stopped truck and a
-      // shut-down one are the same thing to all three. `park` needs to know (you cannot set the
-      // brake and walk away from a running truck), so rather than open a second channel for one
-      // bit, it rides the dead field that was already in the packet at the same four-a-second
-      // cadence. 1 = running, 0 = key off.
-      // ⚠ A SEVENTH SLOT: THE LAMPS, AS A BITFIELD. Same packet, same four-a-second cadence, no new
-      // route and nothing persisted — the identical trick the ignition bit plays in slot two. One
-      // integer carries every lamp the outside of this truck can show, so adding a third (indicators,
-      // one day) costs no packet change at all.
-      //   bit 0 = headlights   bit 1 = brake lamps
+      // Packed in cmdTruckSync's order: s, ignition (1 running, 0 key off), hdg, spd, x, y, lamps.
+      // The server derives the odometer from position; never send a distance. Lamps bitfield: bit 0
+      // headlights, bit 1 brake lamps.
       sendCmdSilent(`trucksync ${st.s.toFixed(2)} ${st.sim.stalled ? 0 : 1} ${Math.round(st.sim.heading)} ${Math.round(st.sim.speed)} ${st.sim.x.toFixed(3)} ${st.sim.y.toFixed(3)} ${(st.heads ? 1 : 0) | (((st.input.brake || 0) > 0.02 || st.park) ? 2 : 0)}`);
     }
   } catch (e) {
-    // Same discipline as helm-view: the renderer has no internal try/catch, so one bad frame must
-    // not kill the loop and strand a driver looking at a frozen picture.
+    // The renderer has no try/catch; one bad frame mustn't kill the loop.
     if (!st._errLogged) { console.error('[cab] frame error (view kept alive — report this stack):', e); st._errLogged = true; }
   }
   perfEnd();    // frame
@@ -4477,28 +3319,15 @@ function frame(now) {
   st.raf = requestAnimationFrame(frame);
 }
 
-// Styles live with the panel (the one-file-per-panel convention), injected once.
-// The two server lists, everything moving near the truck and boxes standing in the yard, in the
-// frame the renderer actually reads. World tiles in, offsets from the truck out.
-//
-// A box is STATIC and the rest are not, so the moving list is dead-reckoned between pushes by the
-// shared track (world-feed.js), on a velocity differenced from the pushes. It used to read `ias` off
-// the wire at 0.02 tiles a knot, which was right for nothing: the list now carries boats (knots
-// from mph), rigs (mph) and aircraft (whose ground rate is a tune), and each walked a different
-// wrong distance and snapped back at the next push.
-//
-// ⚠ AND A RIG IS DRAWN AT THE ROAD'S OWN SCALE, not at the one an aeroplane sees it at.
-// CONTACT_SIZE.truck is honest (from the air a rig SHOULD be a detail on the tarmac), and the
-// hero model multiplies it by seven to frame against lane markings that are metres across. That
-// argument is about the road, so it applies to everything on the road: without it, a box parked
-// beside your own cab draws at a seventh of its size. `sizeMul` rather than a size override,
-// because it is the one field that reaches the draw, the ground anchor and the occlusion size together.
+// The two server lists in the renderer's frame: world tiles in, offsets from the truck out. Moving
+// contacts are dead-reckoned by the shared track (world-feed.js). Rigs get ROAD_RIG_MUL via
+// 'sizeMul', which reaches the draw, ground anchor and occlusion together.
 function contactsFor(st) {
   const ax = st.sim.x, ay = st.sim.y;
   const out = st.contactTrack ? st.contactTrack.frame(ax, ay, { roadRig: ROAD_RIG_MUL }) : [];
   for (const c of st.trailers || []) {
     const dx = c.x - ax, dy = c.y - ay;
-    // A box rests on the tarmac the cab is already sitting on, never at windscreen height.
+    // A box rests on the tarmac.
     out.push({ ...c, dx, dy, rng: Math.hypot(dx, dy), sizeMul: (c.sizeMul || 1) * (c.cls === 'truck' ? ROAD_RIG_MUL : 1),
       groundZ: 0, altDiff: 0 });
   }
@@ -4516,40 +3345,33 @@ function ensureCabStyles() {
 export function closeCab() {
   if (!st) return;
   PAINT_PREVIEW = null; TRIM_PREVIEW = null;
-  // The immersive layouts are the PAGE's, not the pane's — nothing else takes them down, and a
-  // driver who parked in fullscreen would be left with no log and no command box.
+  // The immersive layouts are the page's; nothing else takes them down.
   document.body.classList.remove('cab-fullscreen', 'cab-hidepanel');
-  exitBigScreen();                                   // …and the rung above them, which owns the page rather than the pane
-  window.dispatchEvent(new Event('pane:released'));  // hand the collapsed pane back to the phone layout
-  // The camera goes back on its mount with the cab. Not merely tidiness: it holds a key set, and a
-  // dismount while a movement key is down would leave that key latched for the next drive.
+  exitBigScreen();
+  window.dispatchEvent(new Event('pane:released'));
+  // The camera holds a key set; a dismount mid-key would latch it for the next drive.
   freeCam.close();
   st.freeCamUnbind?.(); st.freeCamUnbind = null;
   freeIdle?.unbind(); freeIdle = null;
   st.freeHold = null;
   suppressWeatherFx(false, 'cab');
   cancelAnimationFrame(st.raf);
-  stopEngineAudio(); stopBoatContacts();                                 // the diesel does not idle on in an empty room
-  stopDamageBed();                                   // …and neither does the rattle it was making
+  stopEngineAudio(); stopBoatContacts();
+  stopDamageBed();
   removeEventListener('keydown', st.onKey);
   removeEventListener('keyup', st.onKey);
-  endSeatKeyboard(st.cabWrap);                       // the keyboard goes back to the command bar with the cab
-  // The key record's own two hooks. They are the window's and the document's, so nothing else takes
-  // them down, and a driver who parked and drove again would stack another pair on the last.
+  endSeatKeyboard(st.cabWrap);
+  // Window and document hooks would stack on the next drive.
   if (st.onWinBlur) removeEventListener('blur', st.onWinBlur);
   if (st.onVisibility) document.removeEventListener('visibilitychange', st.onVisibility);
-  // Each pedal and steer button parked a release on the window (a pointerup that lands outside the
-  // control still has to let go of it). They are not the pane's, so nothing else takes them down,
-  // and a driver who parked and drove again would stack another set on top of the last.
+  // The pedals' and buttons' window releases, likewise.
   (st.winOff || []).forEach((off) => removeEventListener('pointerup', off));
   st.shelfRO?.disconnect?.();
   st.wheel?.destroy?.();
-  // The knob deregisters itself from the radio's repaint set; the radio's own state survives,
-  // because a driver at the log rung still has a set even with no cab on screen.
+  // The radio's own state survives, for the log rung.
   st.cbWidget?.dispose?.();
   disposeWindshield(st.id);
-  // The rear camera is its own scene and its own GL context — see the note on .cab-rearcam. A seat
-  // that closed without releasing it is the helm's own bug at one remove.
+  // The rear camera has its own GL context.
   disposeWindshield(st.id + '-rear');
   st.container.innerHTML = '';
   st = null;

@@ -30,16 +30,16 @@ const HELI_GROUND_EFFECT_FT = 40; // AGL band (~a rotor diameter) of downwash cu
 export const TYPES = {
   mayfly: {
     name: 'Mayfly',
-    mass: 1.0,            // relative inertia — scales every rate + the force→accel maps
-    thrustMax: 11.5,      // full-power airspeed authority (kt/s) — ample power to climb & hold speed
-    vr: 40,               // rotate speed (kt) — below this, pitch authority is mushy
-    vs0: 24,              // clean 1g stall speed (kt) — low = very stall-resistant trainer
-    vne: 120,             // never-exceed (kt) — the server envelope clamp
-    cruise: 80,           // trimmed level-flight speed (kt) — lift≈weight target (roomy stall margin)
-    pitchRate: 11,        // deg/s of pitch at full elevator & full authority — lower = best climb needs more back-pressure
-    pitchTau: 0.6,        // how long the yoke's pitch effect takes to build (s) — heavy control
+    mass: 1.0,            // relative inertia: scales every rate + the force→accel maps
+    thrustMax: 11.5,      // full-power airspeed authority (kt/s): ample power to climb & hold speed
+    vr: 40,               // rotate speed (kt): below this, pitch authority is mushy
+    vs0: 24,              // clean 1g stall speed (kt): low = very stall-resistant trainer
+    vne: 120,             // never-exceed (kt): the server envelope clamp
+    cruise: 80,           // trimmed level-flight speed (kt): lift≈weight target (roomy stall margin)
+    pitchRate: 11,        // deg/s of pitch at full elevator & full authority: lower = best climb needs more back-pressure
+    pitchTau: 0.6,        // how long the yoke's pitch effect takes to build (s): heavy control
     rollRate: 52,         // deg/s of bank at full aileron & full authority
-    rollTau: 0.55,        // how long the yoke's roll effect takes to build (s) — heavy control
+    rollTau: 0.55,        // how long the yoke's roll effect takes to build (s): heavy control
     engineLag: 1.3,       // throttle→rpm time constant (s); turbines will be larger
     pitchStable: 0.9,     // self-level rate when elevator released (seeks stability)
     rollStable: 1.1,      // wings-level rate when aileron released
@@ -49,9 +49,9 @@ export const TYPES = {
     flapLift: 0.35,       // extra lift per unit flap
     flapVs: 0.18,         // stall-speed reduction per unit flap
     rollFric: 1.6,        // ground rolling friction (kt/s) with throttle at idle
-    brake: 5.5,           // extra ground deceleration (kt/s) at full back-pressure — wheel brakes for the rollout
+    brake: 5.5,           // extra ground deceleration (kt/s) at full back-pressure: wheel brakes for the rollout
     groundSteer: 30,      // nosewheel/tiller authority (deg/s) while taxiing; fades out toward rotation speed
-    aoaCrit: 19,          // critical angle of attack (deg) — high = forgiving, resists the stall
+    aoaCrit: 19,          // critical angle of attack (deg): high = forgiving, resists the stall
     liftScale: 1.0,       // scales the whole lift/weight pair (cancels; kept as a knob)
     vsMax: 525,           // max sustained climb (ft/min)
     vsGain: 1600,         // how hard excess lift converts to vertical speed
@@ -105,7 +105,7 @@ export const TYPES = {
     vne: 100, cruise: 78, vs0: 14,        // vs0 doubles as the translational-lift (ETL) speed
     vr: 0, aoaCrit: 90, liftScale: 1,
     pitchRate: 30, pitchTau: 0.35, rollRate: 46, rollTau: 0.3,   // nimble, twitchy cyclic
-    pitchStable: 1.5, rollStable: 1.7,    // weak-ish self-level — needs constant small corrections
+    pitchStable: 1.5, rollStable: 1.7,    // weak-ish self-level: needs constant small corrections
     yawRate: 95,                          // pedal (tail-rotor) authority in the hover, deg/s
     engineLag: 0.9,                       // rotor spool time
     cyclicThrust: 3.2,                    // disc-tilt → horizontal accel (kt/s per deg of lean)
@@ -115,7 +115,7 @@ export const TYPES = {
     // knee (~0.7 collective). vsMax is a clamp kept above that rate; never let it decide the climb.
     vsGain: 850, vsGainUp: 1400, vsMax: 1900, vsTau: 0.9,   // ~1720 fpm at the droop knee
     vrsVs: 480,                           // settling-with-power onset (fpm sink) when slow + powered
-    rollFric: 11,                         // skid friction on the ground — skids bite and stop her quickly (no long rollout)
+    rollFric: 11,                         // skid friction on the ground: skids bite and stop her quickly (no long rollout)
     ceiling: 32000,
   },
   // Viper: attack helicopter (Apache analogue). Heavy, stabilised, the fastest rotorcraft.
@@ -124,19 +124,19 @@ export const TYPES = {
     vne: 190, cruise: 150, vs0: 22,       // vs0 doubles as the translational-lift (ETL) speed
     vr: 0, aoaCrit: 90, liftScale: 1,
     pitchRate: 22, pitchTau: 0.5, rollRate: 40, rollTau: 0.45,   // authoritative but heavier cyclic
-    pitchStable: 1.0, rollStable: 1.15,   // stabilised FCS — she holds an attitude you set
+    pitchStable: 1.0, rollStable: 1.15,   // stabilised FCS: she holds an attitude you set
     yawRate: 68,                          // big tail rotor on a long boom: slower pedal turns than the Mini 500
     engineLag: 1.2,                       // twin turbines spool slower than a piston kit-heli
-    cyclicThrust: 5.0,                    // heavy, powerful disc — real acceleration off a lean
+    cyclicThrust: 5.0,                    // heavy, powerful disc: real acceleration off a lean
     dragP: 0.00105,                       // slippery armoured body: holds speed, high top end
     liftMax: 2.4, hoverThrust: 1.0,       // strong power margin even loaded on the rails
     // Her lower liftMax gives a smaller climb deficit than the Dragonfly's, so vsGainUp is higher to
     // out-climb her. Tune climb here, not on liftMax, which also moves hover authority and VRS.
     vsGain: 1000, vsGainUp: 2100, vsMax: 2800, vsTau: 1.0,   // ~2050 fpm at the droop knee
-    vrsVs: 620,                           // high disc loading — settles later, then bites harder
+    vrsVs: 620,                           // high disc loading: settles later, then bites harder
     rollFric: 9,                          // wheeled gear, but she stops short (no rollout)
     ceiling: 34000,
-    groundPitch: 7,   // TAILDRAGGER: mains forward, tailwheel on the boom — she squats nose-high parked, flies the tail off first
+    groundPitch: 7,   // TAILDRAGGER: mains forward, tailwheel on the boom: she squats nose-high parked, flies the tail off first
   },
   // Drake: luxury compound coaxial with a ducted pusher (no tail rotor). Heavy, stable, lazy yaw.
   drake: {
@@ -188,7 +188,7 @@ export const TYPES = {
     pitchRate: 9, pitchTau: 0.65, rollRate: 42, rollTau: 0.62, engineLag: 1.4,
     pitchStable: 1.05, rollStable: 1.25, dragP: 0.00139, flapDrag: 0.55, flapLift: 0.4, flapVs: 0.2,
     rollFric: 1.7, aoaCrit: 20, liftScale: 1.0, vsMax: 750, vsGain: 1550, vsTau: 1.0,
-    brake: 5.5, groundSteer: 30, ceiling: 22000, ldMax: 4.9, gLimit: 4.4,   // big draggy ag wing — she does not glide far
+    brake: 5.5, groundSteer: 30, ceiling: 22000, ldMax: 4.9, gLimit: 4.4,   // big draggy ag wing: she does not glide far
     groundPitch: 10,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel
   },
   // ── Ground vehicles ────────────────────────────────────────────────────────
@@ -372,15 +372,15 @@ export function createState(p) {
     // Floor under the wheels (ft). 0 except on a rooftop pad, where the owner sets it per frame
     // (cockpit.js deckFloorFt) from the roof geometry CFIT reads.
     groundFt: 0,
-    tailDown: 1,           // taildragger heli: tailwheel planted (the parked 3-point sit) — see stepHeli §2
+    tailDown: 1,           // taildragger heli: tailwheel planted (the parked 3-point sit): see stepHeli §2
     vs: 0,                 // ft/min
     rpm: 0,                // 0..1 (spooled fraction of throttle)
     elevEff: 0,            // the yoke's built-up pitch effect (lags the raw input)
     rollEff: 0,            // the yoke's built-up roll effect (lags the raw input)
     aoa: 0, stallMargin: 1, stalled: false, stallTimer: 0, stallDir: 0,
-    stallDepth: 0,         // 0..1 — how far past the critical angle the wing is (drives the CL collapse, the wing-drop and the sink)
-    buffet: 0,             // 0..1 — pre-stall burble; the cockpit shakes on it
-    g: 1,                  // load factor — real, derived from the AoA the wing is actually at (§6a)
+    stallDepth: 0,         // 0..1: how far past the critical angle the wing is (drives the CL collapse, the wing-drop and the sink)
+    buffet: 0,             // 0..1: pre-stall burble; the cockpit shakes on it
+    g: 1,                  // load factor: real, derived from the AoA the wing is actually at (§6a)
     overG: false,          // latched so the airframe groans ONCE per excursion past gLimit, not every frame
 
     slip: 0,               // forward-slip intensity (0..1), eased from crossed-control input
@@ -399,7 +399,7 @@ function stepHeli(state, input, p, dt) {
   // Cyclic folds in trim so a centred stick holds the trimmed attitude.
   const cycP = clamp((input.elevator || 0) + (input.trim || 0), -1, 1);   // aft (+1) = nose up / decelerate
   const cycR = clamp(input.aileron || 0, -1, 1);     // right (+1) = bank right
-  const coll = clamp(input.collRaw ?? input.throttle ?? 0, 0, 1);   // collective lever — the pilot works it even engine-out (for autorotation)
+  const coll = clamp(input.collRaw ?? input.throttle ?? 0, 0, 1);   // collective lever: the pilot works it even engine-out (for autorotation)
   const powered = input.power !== false;             // engine driving the rotor (false ⇒ dead engine, autorotation)
   const pedal = clamp(input.pedal || 0, -1, 1);
 
@@ -505,7 +505,7 @@ function stepHeli(state, input, p, dt) {
   s.vrs = vrs > 0.25;
   s.stallMargin = clamp((Nr - 0.5) / 0.4, 0, 1);   // reuse the margin channel to drive the horn
 
-  // 7. Ground contact — set down vertically (no rollout). A hard arrival flags a heavy touchdown.
+  // 7. Ground contact: set down vertically (no rollout). A hard arrival flags a heavy touchdown.
   const floor = s.groundFt || 0;
   if (s.altitude <= floor) {
     if (!s.onGround && s.vs < -300) s.events.push({ type: 'touchdown', severity: s.vs < -600 ? 'hard' : 'firm', vs: s.vs });
@@ -540,8 +540,8 @@ export const IDLE = 0.16;        // idle, as a fraction of redline
 const STALL_RPM = 0.11;          // below this in gear, clutch out, it dies
 // ⚠ Absolute mph: scale these with the fleet's speeds, or a truck can feather away in top gear.
 const LAUNCH_MPH = 8.4;          // below this, ON THE THROTTLE, a driver is feathering the clutch
-const CRAWL_MPH  = 2.8;          // below this the clutch is always in — parking must not stall you
-const REVERSE_RATIO = 1.35;    // reverse is deeper than first — the slowest, strongest gear there is
+const CRAWL_MPH  = 2.8;          // below this the clutch is always in: parking must not stall you
+const REVERSE_RATIO = 1.35;    // reverse is deeper than first: the slowest, strongest gear there is
 // First gets back some of the spread the sqrt in 'ratioBoost' flattens: more shove on launches and
 // hill starts, applied to the ratio term rather than the pedal lag. Reverse borrows it.
 const FIRST_BOOST = 1.9;
@@ -745,7 +745,7 @@ function stepTruck(state, input, p, dt) {
 
   // 3. Bicycle model: yaw = v·tan(δ)/L.
   const delta = steer * truckSteerLock(s.speed, s.hitched) * D2R;
-  const tps = s.speed / p.tileMph;                    // tiles per second — the sim's real velocity
+  const tps = s.speed / p.tileMph;                    // tiles per second: the sim's real velocity
   // ⚠ Grip fades in with speed: a crawl is pure kinematics, or full lock in the dirt depot does nothing.
   // `p.tread` is tyre wear (plugins/trucking/service.js); absent means 1.
   const grip = surf.grip * (p.tread ?? 1);
@@ -824,7 +824,7 @@ export function truckReadout(s, p) {
     inBand: !!s.inBand, stalled: !!s.stalled,
     pedal: +(s.pedal || 0).toFixed(2),
     rich: +(s.rich || 0).toFixed(2),
-    bang: +(s.bang || 0).toFixed(2),           // BOOST, not pedal position — what the engine is actually making
+    bang: +(s.bang || 0).toFixed(2),           // BOOST, not pedal position: what the engine is actually making
 
     best: bestGear(s.speed, p),                 // a suggestion, never an automatic
     slip: +s.slip.toFixed(2),
@@ -1129,7 +1129,7 @@ export function stepBoat(s, input, p, dt) {
   // more grip. Up (+1): faster, worse hump, flies off faces. ⚠ Every term is `1 + k * trim`, so
   // trim 0 is exactly neutral.
   const trim = clamp(input.trim || 0, -1, 1);
-  const TRIM_DRAG = 0.16;      // bow up sheds parasitic drag — the top-speed half
+  const TRIM_DRAG = 0.16;      // bow up sheds parasitic drag: the top-speed half
   const TRIM_HUMP = 0.30;      // …and makes the hump worse, which is the price out of the hole
   const TRIM_GRIP = 0.22;      // bow down puts the forefoot in: authority and less slide
   const TRIM_FLY  = 0.45;      // …and bow up is what actually throws her off a face
@@ -1165,7 +1165,7 @@ export function stepBoat(s, input, p, dt) {
   s.rich = clamp((lever - s.pedal) * 2.6, 0, 1);
   s.bang = clamp((s.pedal - lever) * 1.7, 0, 1) * clamp((s.rpm - IDLE) / (1 - IDLE || 1), 0, 1);
 
-  const tps = s.speed / (p.tileMph || 95);        // tiles per second — the sim's real velocity
+  const tps = s.speed / (p.tileMph || 95);        // tiles per second: the sim's real velocity
 
   // ── 5. STEERING, AND WHY IT IS BAD ─────────────────────────────────────────
   // Rudder authority falls with speed, and way doesn't follow the bow: `drift` is a real lateral
@@ -1479,59 +1479,37 @@ export function step(state, input, p, dt) {
   if (s.onGround && vsTarget <= 0) {
     s.vs = 0;                                 // on the wheels
   } else {
-    const tau = p.vsTau * (1 - 0.6 * geLift);   // the cushion pushes back NOW; don't let vertical inertia post-date it
+    const tau = p.vsTau * (1 - 0.6 * geLift);   // the cushion acts now, not after the vertical lag
     s.vs += (vsTarget - s.vs) * Math.min(1, dt / tau);
     s.altitude += (s.vs / 60) * dt;
   }
 
-  // 8. Airspeed: thrust − drag − the gravity component of pitch (climbing bleeds
-  //    speed) − ground friction while rolling.
-  // Nose-down at low power the airframe is clean + unloaded, so it sheds parasitic drag and a
-  // descent BUILDS speed (gravity beats drag) — a real glide/dive accelerates well past cruise.
-  // Fades in with how far the nose is below the horizon and only at low throttle, so powered
-  // level flight, cruise and top speed are all untouched; it's gone the moment you level out.
-  // A nose-down attitude cleans and unloads the airframe: parasitic drag falls away so gravity
-  // wins and ANY dive accelerates hard past cruise — regardless of power, not just a dead-stick
-  // glide. Ramps in with how far the nose is below the horizon and is gone the instant you level
-  // out (pitch → 0), so powered level flight, cruise and top speed stay untouched.
-  const diveClean = s.pitch < 0 ? clamp(-s.pitch / 11, 0, 1) : 0;   // ramps in with how far the nose is below the horizon (full by ~11° down)
-  const diveShed = p.diveShed ?? DIVE_SHED;   // how much parasitic drag a dive sheds (feel knob; low = real gravity carries the dive)
-  // Gear drag: extended RETRACTABLE gear hangs into the airstream and bleeds speed (∝ V²), a real
-  // penalty for cruising with the wheels down. Scaled as a fraction of the airframe's own parasitic
-  // drag (per-type via gearDragFrac, default 0.35) so it's proportioned to each craft. `input.gear`
-  // is the extended fraction (0 = up, 1 = down); fixed-gear craft pass 0 (drag already in dragP).
+  // 8. Airspeed: thrust − drag − gravity along the path − ground friction. A nose-down attitude sheds
+  //    some parasitic drag (diveShed), full by ~11° down and gone when level.
+  const diveClean = s.pitch < 0 ? clamp(-s.pitch / 11, 0, 1) : 0;
+  const diveShed = p.diveShed ?? DIVE_SHED;
+  // Retractable gear drag, a fraction (gearDragFrac, default 0.35) of dragP. `input.gear` is 0 up..1 down;
+  // fixed-gear craft pass 0 (their drag is already in dragP).
   const gearExt = clamp(input.gear || 0, 0, 1);
-  const drag = (p.dragP + flaps * p.flapDrag * 0.0022) * s.airspeed * s.airspeed * (1 - diveShed * diveClean)  // parasitic drag ∝ V² (a dive sheds `diveShed` of it → gravity-along-γ does the rest of the work). Flap drag term raised so extending flaps bleeds speed decisively on final — you can get slow for the touchdown zone instead of floating past it (overshoot)
-             + gearExt * (p.gearDragFrac ?? 0.35) * p.dragP * s.airspeed * s.airspeed                     // gear-down parasitic drag (retractable craft only)
-             + T.kInd * clNow * clNow * s.airspeed * s.airspeed                  // INDUCED DRAG, CDi = kInd·CL², for every airframe. Replaces BOTH the old `aoa²·V` fudge (wrong exponent on V, so it wasn't induced drag) and the Leviathan-only, rpm-gated `glideDrag` patch. Because CL rises with a pull it still penalises a hard haul-back — harder, in fact, since CL² is where the g goes — and because it goes as 1/V² at a fixed load it finally gives the whole fleet a back side to the power curve: slow down past best glide and the sink gets WORSE, which is the "region of reversed command" a low, slow approach is supposed to fear. A nose-down push unloads the wing (low CL), so it still never penalises a dive. kInd is derived per type from `ldMax` — see tuning().
-             + s.slip * (p.slipDrag ?? SLIP_DRAG) * s.airspeed * s.airspeed      // forward slip (§5b): the sideways fuselage adds big drag → you SINK without the descent building speed
-             + s.stallDepth * 0.9 * p.dragP * s.airspeed * s.airspeed;           // separated flow is a barn door — a developed stall bleeds energy on top of the CL collapse
-  // Gravity accelerates the airframe along its actual VELOCITY VECTOR (the flight-path angle γ),
-  // not along where the NOSE points. Fast/powered/diving the wing carries its weight at a low AoA
-  // so γ≈pitch and this is identical to before (cruise, climb, top speed, dive all untouched). They
-  // only diverge when the wing MUSHES (slow, high AoA): the nose sits shallow but the plane sinks
-  // steeply — and that steep descent must build speed back. Crediting pitch instead of γ there made
-  // the sink "free" energy loss, so a shallow glide bled off into a stall instead of settling; using
-  // γ closes the energy loop, so a slightly-nose-down attitude self-trims to a stable glide speed.
-  // Uses the flight path as it stands AFTER §7's update, not the previous frame's — the stale
-  // read cost a step of energy closure, which matters when the harness steps at a coarse dt.
+  const drag = (p.dragP + flaps * p.flapDrag * 0.0022) * s.airspeed * s.airspeed * (1 - diveShed * diveClean)  // parasitic ∝ V², less the dive shed; flap drag sized to bleed speed on final
+             + gearExt * (p.gearDragFrac ?? 0.35) * p.dragP * s.airspeed * s.airspeed                     // gear down
+             + T.kInd * clNow * clNow * s.airspeed * s.airspeed                  // induced drag, CDi = kInd·CL² (see tuning())
+             + s.slip * (p.slipDrag ?? SLIP_DRAG) * s.airspeed * s.airspeed      // forward slip (§5b)
+             + s.stallDepth * 0.9 * p.dragP * s.airspeed * s.airspeed;           // separated flow drag in a stall
+  // Gravity acts along the flight path γ (after §7's update), not the nose, which closes the energy
+  // loop: a mushing descent builds speed back, so a shallow glide settles instead of stalling.
   const grav = G_KT * Math.sin(Math.atan2(s.vs / 101.33, Math.max(1, s.airspeed)));
-  // Ground friction: idle rolling drag, plus wheel brakes from FORWARD pressure (push the
-  // yoke, elevator < 0). Pushing also pins the nose to the runway, so braking never fights
-  // the back-pressure you use to rotate and lift off — they're opposite gestures.
-  // Forward yoke works the wheel brakes — EXCEPT on a taildragger, where forward stick is the
-  // tail-raise gesture on the takeoff roll (toe brakes, not stick brakes), so it must not fight it.
+  // Ground friction plus wheel brakes on forward yoke (opposite to the rotate gesture). Not on a
+  // taildragger, where forward stick raises the tail.
   const brake = (s.onGround && !p.groundPitch) ? clamp(-elevator, 0, 1) * (p.brake || 0) : 0;
   const fric = s.onGround ? p.rollFric * (1 - s.rpm) + brake : 0;
   s.airspeed = Math.max(0, s.airspeed + ((thrust - drag) / p.mass - grav - fric) * dt);
   s.groundSpeed = s.airspeed;
 
-  // 9. Ground contact. Liftoff is emergent: once lift ≥ weight at rotation, altitude
-  //    climbs off zero. Coming back down, a hard arrival is flagged by sink rate.
+  // 9. Ground contact. Liftoff is emergent; a hard arrival is flagged by sink rate.
   const floor = s.groundFt || 0;
   if (s.altitude <= floor) {
-    // Arrival severity scales with the airframe: a flat absolute fpm judged a Grasshopper and a
-    // 5.0-mass freighter identically, when the gear that carries the freighter is built for it.
+    // Arrival severity scales with mass.
     const firmVs = -300 * (0.8 + 0.2 * (p.mass || 1)), hardVs = -700 * (0.8 + 0.2 * (p.mass || 1));
     if (!s.onGround && s.vs < firmVs) s.events.push({ type: 'touchdown', severity: s.vs < hardVs ? 'hard' : 'firm', vs: s.vs });
     s.altitude = floor;
@@ -1544,7 +1522,7 @@ export function step(state, input, p, dt) {
   return s;
 }
 
-// A convenience read-out the harness / HUD can format (the shared state contract).
+// Read-out for the harness and HUD.
 export function readout(s, p) {
   return {
     airspeed: Math.round(s.airspeed),
