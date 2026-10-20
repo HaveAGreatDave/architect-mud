@@ -50,7 +50,11 @@ function scene({ furniture, where }) {
     if (x === R) return { ...base, rd: 'ns', ...(on ? { sl: 1 } : {}) };
     // Plain ground either side, deliberately with no buildings at all: a building is the one thing
     // that could hide a lamp for a reason that has nothing to do with the clip being tested.
-    return { kind: 'land', biome: 'citycore', flr: 0, ...(on ? { sl: (x + y) % 2, rd: 'ew' } : {}) };
+    // Every other column, never a solid apron: a lamp or mast whose kerb has more road beyond it is
+    // on a centreline and is skipped (midRoad in drawStreetLamps, the corner test in
+    // drawTrafficSignals), so a fully paved apron draws nothing. Single-file streets, ground between.
+    if (on && (x - R) % 2 === 0) return { ...base, rd: 'ns', sl: (x + y) % 2 };
+    return { kind: 'land', biome: 'citycore', flr: 0 };
   }));
 }
 
