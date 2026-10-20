@@ -150,7 +150,7 @@ const QUAD = [{ p: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], rgb: [60, 60, 6
     for (const [name, why] of wants) {
       ok(gate.includes(name), 'the pool is no longer gated on ' + name + ' — ' + why + '. The gate now reads: ' + gate);
     }
-    const body = src.slice(i, i + 1800);
+    const body = src.slice(i, i + 2600);
     // The per-light falloff lives in poolLight(), shared by the slot loop and the light grid.
     const j = src.indexOf('vec3 poolLight(');
     ok(j > 0, 'poolLight() has gone from ground.js — the falloff and the height floor below are checked in it.');
@@ -158,7 +158,7 @@ const QUAD = [{ p: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], rgb: [60, 60, 6
     // ⚠ AND IT ADDS INTO THE HEADROOM. `c + k` saturates a painted line to white long before it
     // saturates the tarmac beside it, so a pool crossing a road marking blows the line out and
     // leaves a hard white bar across the middle of it — the one place a marking is most needed.
-    ok(/c \+= pool \* \([^;]*\) \* max\(vec3\(0\.0\), 1\.0 - c\)/.test(body),
+    ok(/c \+= (pool|lit) \* \([^;]*\) \* max\(vec3\(0\.0\), 1\.0 - c\)/.test(body),
       'the pool is added straight onto the road rather than into the headroom left on it — a painted line under a lamp goes to white.');
     // The shape is the irradiance of a point source on a plane, normalised to 1 beneath it. A
     // Gaussian somebody fitted would have an edge; this does not, which is the whole complaint.

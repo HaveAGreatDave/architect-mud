@@ -169,7 +169,7 @@ wants* is the deepest thread ([story.md](story.md)). Corps give it something to 
   grip + tracked `challenger_org_id` + base_income/base_upkeep), cached in `world.zoneControl`. Context-sensitive
   `corp claim` (apartment→HQ, claimable zone→territory; claimable = danger≠safe or `flags.claimable`), plus
   `corp contest` (an Intimidate check erodes a rival's grip; **seizes** the zone at 0%) and `corp reinforce`
-  (spend treasury → +grip). Daily tick (`runTerritoryTick`, run with `runVentureTick` by `settleCorpDay` once per GAME date: an idle-gated 1m check against the `corps_settled_date` world flag, so a day missed while the world was empty is settled once on the next minute with players): income−upkeep to each controller's
+  (spend treasury → +grip). Daily tick (`runTerritoryTick`, run with `runVentureTick` by `settleCorpDay` once per GAME date: a 1m check, run only while players are on, against the `corps_settled_date` world flag, so a day missed while the world was empty is settled once on the next minute with players): income−upkeep to each controller's
   treasury (overextension bleeds it — the natural cap), uncontested grip consolidates toward 100, contested
   erodes and flips. **Architect heat** = concentration (zones held + treasury) → drives the console LED deck +
   sidebar. Client: console territory column shows real tug-bars (contested pulse, live-patched), and the

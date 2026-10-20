@@ -168,7 +168,8 @@ function measure(L, ex, ey, eh, wet, glint, pool, eps, sw = 1, sk = 1, gw = 1, g
 
 // How far a lamp's pool reaches, in tiles, or 0 if it never lifts the road by `eps`. Mirrors
 // `poolLight`: hs * h^3 / (d^2 + h^2)^1.5 with h = max(0.14, z) and hs = min(1, 0.33^2 / h^2),
-// times the colour and `gain` (uPool times the night; the fog and headroom factors are at most 1).
+// times the colour and `gain` (uPool times the night; the fog and headroom factors are at most 1,
+// and the soft saturation 0.6 * (1 - exp(-x)) is never more than x, so this still bounds it).
 export function poolRadius(L, gain, eps = LIGHTGRID_TUNE.eps) {
   if (!(gain > 0)) return 0;
   const h = Math.max(0.14, L.p[2]);

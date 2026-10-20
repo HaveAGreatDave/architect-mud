@@ -68,7 +68,10 @@ const check = (cond, msg) => { if (!cond) problems.push(msg); };
       'refl = 0.02 + 0.98 * pow(1.0 - cosI, 5.0);',
       'pud = smoothstep(level, level + band, hollow);',
       'return gp * gp * gp;',
-      'c += pool * (uPool * clamp(uNight, 0.0, 1.0) * (1.0 - gfog)) * max(vec3(0.0), 1.0 - c);',
+      // The pool saturates softly: 0.6 * (1 - exp(-x)) is never more than x, so the radius
+      // poolRadius measures for the linear term still covers it.
+      'vec3 lit = 1.0 - exp(-pool * (uPool * clamp(uNight, 0.0, 1.0)));',
+      'c += lit * (0.6 * (1.0 - gfog)) * max(vec3(0.0), 1.0 - c);',
     ]],
   };
   for (const [name, [body, lines]] of Object.entries(want)) {
