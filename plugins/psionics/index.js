@@ -55,7 +55,7 @@ import { teachVerb, sendToPlayer } from '../../server/engine/messaging.js';
 import { effectiveSkill } from '../../server/engine/skills.js';
 import {
   psiState, psiRank, psiFocus, psiSecondFocus, hasChosenFocus,
-  strainBandOf, forgetPlayer, isAwakened, maxResonance,
+  strainBandOf, forgetPlayer, isAwakened, maxResonance, abilityRefusal, UNKNOWN,
 } from '../../server/engine/psionics.js';
 import {
   getDisciplines, getPsiAbilities, rankAtLeast, RANKS, rankIndex,
@@ -162,9 +162,13 @@ async function cmdStill(args, raw, player) {
   return still(player);
 }
 
+// `draw` is also the engine's curtain verb (housing.js). Anything that isn't a
+// psion's draw returns undefined so the dispatcher falls through to it.
 async function cmdDraw(args, raw, player, broadcast) {
-  if (!isAwakened(player)) return { type: 'error', message: 'Unknown command.' };
-  return draw(player, (args || []).join(' ').trim(), broadcast);
+  const target = (args || []).join(' ').trim();
+  if (!isAwakened(player) || /\bcurtains?\b/i.test(target)) return undefined;
+  if (abilityRefusal(player, 'draw', 'object') === UNKNOWN) return undefined;
+  return draw(player, target, broadcast);
 }
 
 async function cmdReach(args, raw, player, broadcast) {

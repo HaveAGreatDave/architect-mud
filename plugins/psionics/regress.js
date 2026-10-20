@@ -29,7 +29,7 @@ import { _test as purifier } from './purifier.js';
 import { SKILLS } from '../../server/engine/skills.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 
-export default async function regress({ check, getPlayer }) {
+export default async function regress({ run, check, getPlayer }) {
   const ZONE = 'zone_regress_psi';
 
   // ── The vocabulary contracts (the mutation-effects build-failure pattern) ──
@@ -84,6 +84,12 @@ export default async function regress({ check, getPlayer }) {
   check("an unawakened player can't press", abilityRefusal(p, 'press', 'person') === UNKNOWN);
   check('an unknown ability id is UNKNOWN, never a crash',
     abilityRefusal(p, 'no_such_ability', 'person') === UNKNOWN);
+
+  // `draw` is also the curtain verb, so an unawakened player reaches that,
+  // not "Unknown command." (the plugin used to swallow it for everyone).
+  const curtain = await run('draw curtains');
+  check('an unawakened draw curtains reaches the curtain verb',
+    /window|curtain/i.test(curtain?.message || ''), curtain?.message);
 
   // Awakened: the entry abilities open, the later ones stay invisible.
   p._flags.set('psi_rank', 'awakened');
