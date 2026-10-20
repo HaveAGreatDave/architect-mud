@@ -24,6 +24,7 @@
 
 import { buildPark, buildDress, crowdMorph, createBatch, ellipsoid, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT, BAY, BAND_RUNS, BAND_STONE, BAND_UV, MAIN_PLATE, PLATE_ATLAS, roofLights, roofTrack, shellShift } from './ballpark-mesh.js';
 import { insideOutline } from '../diamond/geo.js';
+import { breathe } from '../diamond/anim.js';
 import { ROOF_MS } from '../world-feed.js';
 import { CROWD_VS, flashesAt } from './crowd.js';
 import { paintInfield, paintMark, smoothPoly, DIRT_RECT } from '../diamond/dirt.js';
@@ -958,7 +959,16 @@ export function createBallparkRenderer(canvas, opts = {}) {
       joints.set(slot, sol.J);
       palette.write(slot, skinRows(boneFrames(sol, frames), bindOf(pose.scale || 1), skinBuf));
     }
+    // where the cast stands each man, by slot, for `idle`
+    const rests = new Map();
+    // Everyone nobody's posed this frame (`posed`, a Set of slots) breathes where the cast stands
+    // him (diamond/anim.js breathe), so a stretch of the call that describes nothing leaves nobody
+    // frozen.
+    function idle(t, posed) {
+      for (const [slot, rest] of rests) if (!posed.has(slot)) setPose(slot, breathe(rest, t, slot));
+    }
     function setCast(cast, teams) {
+      rests.clear();
       // the kits for whoever's new, and each side's monogram
       const res = paintKitAtlas(doc, cast, teams, kits);
       kits = res.canvas;
@@ -993,7 +1003,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
         const f = faceFor(look), i = c.look.slot * 4;
         HA.set([...f.skin, f.layout], i); HB.set([...f.hair, f.style], i); HC.set([...f.iris, f.eyeBlack], i); HD.set([...f.lip, f.seed], i);
         // each where the cast stands him, until something moves him
-        setPose(c.look.slot, Object.assign(c.mirror ? mirrorPose(POSES[c.pose]()) : POSES[c.pose](), { at: c.at, yaw: c.yaw, scale: c.scale }));
+        const rest = Object.assign(c.mirror ? mirrorPose(POSES[c.pose]()) : POSES[c.pose](), { at: c.at, yaw: c.yaw, scale: c.scale });
+        rests.set(c.look.slot, rest);
+        setPose(c.look.slot, rest);
       }
       refreshCasters();
       return queue.length;
@@ -1585,7 +1597,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // keeps it), the first one heard taken as where it is; `roof` is { p, to, moving } now, and the
       // view keeps drawing while it moves
       setRoof, get roof() { const now = clock(); return { p: roofT.at(now), to: roofT.to, moving: roofT.moving(now) }; },
-      render, setBoard, setCast, setPose, setBall, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
+      render, setBoard, setCast, setPose, idle, setBall, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
       markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setWeather, get look() { return look; },
       setTime: (t) => { worldT = Number.isFinite(t) ? t : 0; weather.setTime(worldT); },
       get cityLights() { return cityLights.counts; },

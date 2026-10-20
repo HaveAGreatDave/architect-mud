@@ -1509,6 +1509,13 @@ so a narrator cannot read the other league's records.
   league was hurt at once, which makes "their best man is out" meaningless. Deaths reset
   with the season when the chain re-anchors — which is exactly right for a league whose
   own lore says there are no records and no office to keep them.
+- **The pregame open.** Both sports put a `pregame` card (`pregameFx` in `index.js`) on the
+  first spoken line after the title card: tonight's two clubs with their records and places,
+  and the league table with them picked out (the top eight, plus either club if it sits
+  lower). It holds 18 seconds, through the matchup line, and the booth's lines run along its
+  bottom as a caption strip (`_applyPregame` in `tv.js`). A plain night's matchup line has
+  no card of its own; the Cup, the final and a rivalry keep theirs. The `textgames` rung
+  draws the same open in characters, and the `log` rung gets it written out (`pregameLines`).
 - **Intermissions.** Between periods the broadcast reads the period back: scoring
   summary, shot clock, penalties, casualties. Every number is counted from beats already
   aired, so an intermission can't disagree with the game. **No intermission in overtime.**

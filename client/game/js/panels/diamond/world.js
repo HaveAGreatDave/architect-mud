@@ -15,7 +15,7 @@
 //
 // Pure: no WebGL and no DOM, so the gates run it.
 
-import { sampleClip, mixPose, reach, lookAt, aimBat, traitsOf, rootAt, rebase } from './anim.js';
+import { sampleClip, mixPose, reach, lookAt, aimBat, traitsOf, rootAt, rebase, breathe, movingEnds } from './anim.js';
 import { groundHeight, DEG } from './geo.js';
 import { CLIPS } from './clips.js';
 
@@ -129,6 +129,12 @@ export function createWorld() {
     if (a && P.bat) {
       const w = weight(a, t);
       if (w > 0) P = aimBat(P, toLocal(F, targetOf(a, t)), w, { reach: a.reach, follow: a.follow, scale: b.scale, ground: opts.ground });
+    }
+    // a clip played out and held on its last frame: he breathes on from there, eased in, so a
+    // pause in the play (a call that describes nothing) never freezes him
+    if (!movingEnds(b.clip).end && !b.clip.loop && o.idle !== false) {
+      const over = (t - b.start) * b.speed - b.clip.duration;
+      if (over > 0 && !b.layers.reach && !b.layers.aim) P = breathe(P, t, b.slot, smooth(over / 0.8));
     }
     const l = o.look !== false && b.layers.look;
     if (l) {

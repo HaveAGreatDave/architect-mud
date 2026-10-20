@@ -199,7 +199,7 @@ function standingsLines(ov) {
 
 // One place both tick paths call, so the live loop and the catch-up replay can't
 // drift on what a log-rung viewer is told.
-function sendOverlayLines(playerId, scorebugOverlay, standingsOverlay) {
+function sendOverlayLines(playerId, scorebugOverlay, standingsOverlay, graphic = null) {
   const line = scorebugLine(scorebugOverlay);
   if (line && _lastBugLine.get(playerId) !== line) {
     _lastBugLine.set(playerId, line);
@@ -207,6 +207,8 @@ function sendOverlayLines(playerId, scorebugOverlay, standingsOverlay) {
   }
   const table = standingsLines(standingsOverlay);
   if (table) sendToPlayer(playerId, { type: 'output', message: table });
+  const open = pregameLines(graphic);
+  if (open) sendToPlayer(playerId, { type: 'output', message: open });
 }
 
 // The TV-guide button asks for the tuned channel's running order + the current time.
@@ -964,7 +966,10 @@ const GRAPHIC_STYLES = new Set(['svg', 'ascii_art', 'credits']);
 // 'ascii' shows its raw markup as text. Sniffing the content sidesteps both.
 function graphicStyle(graphic) {
   if (!graphic) return 'ascii_art';
-  return /^\s*<svg[\s>]/i.test(graphic.content || '') ? 'svg' : 'ascii_art';
+  // Leading comments and an XML prolog don't count: an SVG that opens with a header
+  // comment (the CPhL open does) is still SVG.
+  const head = (graphic.content || '').replace(/^(?:\s*(?:<!--[\s\S]*?-->|<\?xml[\s\S]*?\?>))*/, '');
+  return /^\s*<svg[\s>]/i.test(head) ? 'svg' : 'ascii_art';
 }
 
 function formatMessage(text, deviceType, zone, style) {
@@ -2547,6 +2552,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
       // to accidentally read the other league's.
       recordOf: (team) => recordOf(team, sportMod.id),
       standings: ((_standingsCaches.get(sportMod.id) || {}).rows || []).slice(0, 8),
+      pregame: (opts) => pregameFx(sportMod.id, (_standingsCaches.get(sportMod.id) || {}).rows, opts),
       lastId: () => prevId,
     }) || {};
     outroId = r.outroId || null;
@@ -2602,10 +2608,13 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const hasRecords = awayRecord !== '0-0' || homeRecord !== '0-0';
   const gameTok = { announcer, away: away.name, home: home.name, awayRecord, homeRecord };
   const pregameBug = bug('PRE-GAME', 0, 0, 0, [false, false, false]);
-  say(pick(...(ws ? ['worldseries.intro', 'intro'] : ['intro'])), gameTok, pregameBug);
+  // The pregame open goes up with the first line and holds through the matchup, so the
+  // matchup line carries a card of its own only on the night of the final.
+  const pregame = pregameFx('baseball', (_standingsCaches.get('baseball') || {}).rows, { away: away.name, home: home.name, awayRecord, homeRecord, show: 'DEADBALL' });
+  say(pick(...(ws ? ['worldseries.intro', 'intro'] : ['intro'])), gameTok, pregameBug, pregame);
   const muGraphic = ws
     ? { overlayType: 'sportsfx', kind: 'worldseries', final: sportMod.season?.finalName || 'Final', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.6 }
-    : { overlayType: 'sportsfx', kind: 'matchup', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.0 };
+    : null;
   say(pick(...(ws ? ['worldseries.matchup', 'matchup.records', 'matchup'] : (hasRecords ? ['matchup.records', 'matchup'] : ['matchup']))), gameTok, pregameBug, muGraphic);
 
   // The half-innings, so each can be narrated as a full "stage": EVERY one of the three
@@ -3118,6 +3127,43 @@ const STANDINGS_BUG = {
 function standingsBugFor(sport, rows) {
   const spec = STANDINGS_BUG[sport] || STANDINGS_BUG.baseball;
   return { overlayType: 'standings', sport, title: spec.title, duration: 9, rows: rows.slice(0, 8).map(spec.row) };
+}
+
+// The pregame open: what the screen shows from the top of a game until the first pitch or
+// the puck drop. The league table with tonight's two clubs picked out, and a card for each
+// of them. One builder for both leagues, so Deadball and the CPhL open the same way. Pure
+// over the rows it's given, so the suite can build one without a game on the air. A club
+// below the top eight is still listed, at its own place, because the open is about them.
+function pregameFx(sport, rows, { away, home, awayRecord, homeRecord, brand = null, show = null, duration = 18 } = {}) {
+  const spec = STANDINGS_BUG[sport] || STANDINGS_BUG.baseball;
+  const all = Array.isArray(rows) ? rows : [];
+  const rankOf = (team) => { const i = all.findIndex(r => r.team === team); return i < 0 ? null : i + 1; };
+  const shown = all.slice(0, 8).map((r, i) => ({ rank: i + 1, ...spec.row(r) }));
+  for (const team of [away, home]) {
+    const rank = rankOf(team);
+    if (rank && rank > 8) shown.push({ rank, ...spec.row(all[rank - 1]) });
+  }
+  const side = (team, record) => ({ name: team, record: record || null, rank: rankOf(team) });
+  return {
+    overlayType: 'sportsfx', kind: 'pregame', sport,
+    ...(brand ? { brand } : {}), ...(show ? { show } : {}),
+    title: spec.title, away: side(away, awayRecord), home: side(home, homeRecord),
+    rows: shown, duration,
+  };
+}
+
+// The pregame open written out, for a viewer on the log rung: who's playing, then the table.
+function pregameLines(fx) {
+  if (fx?.kind !== 'pregame') return null;
+  const team = (t) => `${escAttr(t.name)}${t.record && /[1-9]/.test(t.record) ? ` (${escAttr(t.record)})` : ''}`;
+  const head = `<span class="text-cyan">TONIGHT</span>  ${team(fx.away)} at ${team(fx.home)}`;
+  const playing = new Set([fx.away.name, fx.home.name]);
+  const rows = (fx.rows || []).map(r => {
+    const rec = fx.sport === 'hockey' ? `${r.wins}-${r.losses}-${r.otl || 0}, ${r.points || 0} pts` : `${r.wins}-${r.losses}`;
+    const line = `  ${String(r.rank).padStart(2)}. ${escAttr(r.team)} <span class="text-dim">${rec}</span>`;
+    return playing.has(r.team) ? `<b>${line}</b>` : line;
+  });
+  return rows.length ? `${head}\n<span class="text-cyan">${escAttr(fx.title)}</span>\n${rows.join('\n')}` : head;
 }
 
 async function refreshStandings(nowMs, sport = 'baseball') {
@@ -5733,7 +5779,7 @@ async function broadcastTick() {
           // A log-rung viewer has no panel to take an overlay, so the score and the
           // standings flash are written out instead (score only when it changes —
           // the bug rides every line, which would be spam in a log).
-          if (toLog) sendOverlayLines(player.id, scorebugOverlay, standingsOverlay);
+          if (toLog) sendOverlayLines(player.id, scorebugOverlay, standingsOverlay, result.graphic);
           if (!toLog) {
             // Overlays are panel-only by nature. Sending them to a viewer with no panel
             // is pure wire traffic they can never see.
@@ -5993,7 +6039,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
       if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
       if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song, owner: 'tv', ...(result.songOnce ? { once: true } : {}) });
       if (isSample) sendToPlayer(pid, { type: 'audio_sample', def: result.sample });
-      if (toLog) { sendOverlayLines(pid, scorebugOverlay, standingsOverlay); continue; }
+      if (toLog) { sendOverlayLines(pid, scorebugOverlay, standingsOverlay, result.graphic); continue; }
       if (scorebugOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
       if (gamedayOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: gamedayOverlay });
       if (standingsOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: standingsOverlay });
@@ -10642,7 +10688,7 @@ export const _test = {
   sportsSlotLabel: _sportsSlotLabel, sportsScheduleSlots: _sportsScheduleSlots,
   // The log-rung overlay renderers. Pure over a payload, so the suite can assert
   // them without waiting for a ballgame to be scheduled.
-  scorebugLine, standingsLines,
+  scorebugLine, standingsLines, pregameFx, pregameLines,
   // The live season cache. Exposed ONLY so the guide-caption suite can pin the
   // phase it is asserting: `_sportsSlotLabel` takes the final's branch when
   // one is pending, which is correct behaviour but made the test depend on

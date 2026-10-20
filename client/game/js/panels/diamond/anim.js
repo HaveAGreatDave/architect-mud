@@ -422,6 +422,27 @@ function planted(clip, P, t, ground, s, holds = {}, here = clip.root ? rootAt(cl
 // A foot on the ground in both stays on it. A bat in only one of them changes hands halfway, so a
 // crossfade shouldn't be where a bat comes or goes; a clip does that at a key. `opts` as for
 // sampleClip (`ground`, `scale`).
+// A man stood still is never quite still: he breathes, his weight drifts from foot to foot and he
+// looks about. `breathe` lays that over any pose at world time t, at weight w, his own pace and
+// phase off `seed` (his slot), so a call that describes nothing doesn't freeze the park. The feet
+// are where the pose put them; only the pelvis, torso, head and (without a bat) the wrists move.
+export function breathe(P, t, seed = 0, w = 1) {
+  if (w <= 0) return P;
+  const h = hashStr('idle:' + seed), ph = (k) => ((h >>> (k * 4)) & 15) / 16 * Math.PI * 2;
+  const pace = 0.9 + ((h >>> 24) & 15) / 60;
+  const breath = Math.sin(t * Math.PI * 2 / (3.6 * pace) + ph(0)) * w;
+  const sway = Math.sin(t * Math.PI * 2 / (7.5 * pace) + ph(1)) * w;
+  const look = Math.sin(t * Math.PI * 2 / (9.5 * pace) + ph(2)) * w;
+  const out = { ...P };
+  if (P.pelvis) out.pelvis = [P.pelvis[0] + 0.05 * sway, P.pelvis[1] + 0.02 * breath, P.pelvis[2]];
+  const add3 = (k, d) => { const v = P[k] || [0, 0, 0]; out[k] = [(v[0] || 0) + d[0], (v[1] || 0) + d[1], (v[2] || 0) + d[2]]; };
+  add3('chest', [1.4 * breath, 0, 1.2 * sway]);
+  add3('neck', [0, 3 * look, 0]);
+  add3('head', [0.8 * breath, 7 * look, 0]);
+  if (!P.bat) for (const k of ['wrL', 'wrR']) if (P[k]) out[k] = [P[k][0], P[k][1] + 0.03 * breath, P[k][2]];
+  return out;
+}
+
 export function mixPose(a, b, w, opts = {}) {
   w = clamp(w, 0, 1);
   if (w <= 0) return a;

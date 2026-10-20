@@ -287,7 +287,10 @@ export function createGrandstandView(host, opts = {}) {
         replay.acc += dt * mods.REPLAY.rate;
         while (replay.acc >= mods.DT && RW.t < replay.to) { RW.step(mods.DT); replay.acc -= mods.DT; }
       }
-      for (const b of RW.bodies.values()) { const P = RW.pose(b.slot); if (P) R.setPose(b.slot, P); }
+      const posed = new Set();
+      for (const b of RW.bodies.values()) { const P = RW.pose(b.slot); if (P) { R.setPose(b.slot, P); posed.add(b.slot); } }
+      // whoever nothing's playing breathes where he stands
+      R.idle?.(RW.t, posed);
       R.setBall(RW.ballAt());
       R.setSpectacle?.(replay ? replay.D.fx : D.fx, RW.t);
       R.setCrowd?.(loud, W.t, !calm);

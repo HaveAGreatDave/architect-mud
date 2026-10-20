@@ -354,7 +354,10 @@ export function narrate(ctx) {
   // otherwise the absence is invisible and the feature may as well not exist.
   const callups = [...(away.dressed || []), ...(home.dressed || [])].filter(d => d.callup);
   const preBug = bug('PRE-GAME', 0, 0);
-  say(pick(...(ws ? ['cup.intro', 'intro'] : rivalry ? ['rivalry.intro', 'intro'] : ['intro'])), gameTok, preBug);
+  // The pregame open (index.js pregameFx): the table and tonight's two clubs, up from the
+  // first line to the drop. The Cup and a rivalry still get their own card on the matchup.
+  const pregame = ctx.pregame ? ctx.pregame({ away: away.name, home: home.name, awayRecord, homeRecord, brand: 'cphl', show: 'CLUSTER PUCK' }) : null;
+  say(pick(...(ws ? ['cup.intro', 'intro'] : rivalry ? ['rivalry.intro', 'intro'] : ['intro'])), gameTok, preBug, pregame);
   // The Cup outranks a rivalry (it IS the bigger night); otherwise a grudge match gets
   // its own matchup line and its own card.
   say(
@@ -362,7 +365,7 @@ export function narrate(ctx) {
       : rivalry ? ['rivalry.matchup', 'matchup.records', 'matchup']
       : (hasRecords ? ['matchup.records', 'matchup'] : ['matchup']))),
     gameTok, preBug,
-    {
+    (pregame && !ws && !rivalry) ? null : {
       overlayType: 'sportsfx', kind: ws ? 'hockeycup' : rivalry ? 'hockeyrivalry' : 'matchup',
       rivalry,
       // `brand` is what tells a shared card (the matchup graphic is Deadball's too) to

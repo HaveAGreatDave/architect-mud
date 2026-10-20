@@ -16,6 +16,7 @@ import { renderMarkup } from '../markup.js';
 import { cphlMark, cphlLockup } from './cphl-brand.js';
 import { crestSvg, clubOf, wantClubs, onClubs } from './club-crest.js';
 import { wantVenue } from './venue.js';
+import { state } from '../state.js';
 
 // The two sports sub-screens (gameday.js, gameday-rink.js) are about 209 KB, and they
 // were in the boot download for every player. They load on the first sports broadcast
@@ -134,6 +135,8 @@ export function createTvView(root, opts = {}) {
   let _tuneTimer = null;
   let _standingsTimer = null;
   let _fxTimer = null;
+  let _lastSpoken = null;   // the last line the booth said, so an open that lands just after it can caption it
+  let _pregameUp = false;   // the pregame open is on screen; spoken lines go to its caption strip
   let _gamedayView = null;
   let _gamedaySport = null;   // which sport the mounted sub-screen renders
   let _stationName = '';      // the tuned station's name, for a sub-screen's corner bug
@@ -731,6 +734,8 @@ export function createTvView(root, opts = {}) {
     // Sports "jumbotron" FX. While the Gameday sub-screen is open, render it Gameday-
     // native (a compact card over the field) instead of taking over the whole screen.
     if (overlay && overlay.overlayType === 'sportsfx') {
+      // The pregame open runs before there's a field to show, so it always takes the screen.
+      if (overlay.kind === 'pregame') { _applyPregame(overlay); return; }
       if (_gamedayOpen && _gamedayView) _gamedayView.showCard(overlay);
       else _applySportsFx(overlay);
       return;
@@ -1497,11 +1502,104 @@ export function createTvView(root, opts = {}) {
     const tag = _networkTag();
     host.innerHTML = (tag ? `<div class="tv-fx-net">${tag}</div>` : '') + inner;
     host.className = `tv-fx-host on fx-${fx.kind}`;
+    _pregameUp = false;
     if (_fxTimer) clearTimeout(_fxTimer);
     _fxTimer = setTimeout(_clearSportsFx, (fx.duration || 3.5) * 1000);
   }
 
+  // ── the pregame open ──────────────────────────────────────────────────────
+  // From the top of a game to the first pitch or the drop: tonight's two clubs, the league
+  // table with them picked out, and the booth's lines along the bottom as a caption strip.
+  // Graphical on the visual rung; on 'textgames' the same open is drawn in characters. The
+  // 'log' rung never gets here: the server writes the open to the log (pregameLines).
+  function _applyPregame(fx) {
+    const host = el('fx');
+    if (!host) return;
+    const rung = state.player?.displayRung;
+    const text = rung === 'textgames' || rung === 'log';
+    const hockey = fx.sport === 'hockey';
+    const playing = new Set([fx.away?.name, fx.home?.name]);
+    const rec = (r) => hockey ? `${r.wins}-${r.losses}-${r.otl || 0}` : `${r.wins}-${r.losses}`;
+    const pts = (r) => hockey ? String(r.points || 0) : ((r.rd > 0 ? '+' : '') + (r.rd || 0));
+    const rows = Array.isArray(fx.rows) ? fx.rows : [];
+    const ord = (n) => { const v = n % 100; return n + ((v >= 11 && v <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'); };
+    const said = (t) => t?.record && /[1-9]/.test(t.record) ? t.record : 'no record yet';
+    const place = (t) => t?.rank && rows.length && /[1-9]/.test(t.record || '') ? `${ord(t.rank)} in the league` : '';
+    let inner;
+    if (text) {
+      const pad = (v, n) => String(v).slice(0, n).padEnd(n);
+      const side = (t) => `${pad(t?.name || '', 22)} ${pad(said(t), 14)} ${place(t)}`;
+      const lines = [
+        `== ${fx.show || 'TONIGHT'} : PREGAME ==`,
+        '',
+        `AWAY  ${side(fx.away)}`,
+        `HOME  ${side(fx.home)}`,
+        '',
+        fx.title || 'STANDINGS',
+        `     ${pad('CLUB', 22)} ${pad(hockey ? 'W-L-OTL' : 'W-L', 9)} ${hockey ? 'PTS' : 'RD'}`,
+        ...rows.map(r => `${playing.has(r.team) ? '>' : ' '}${String(r.rank).padStart(2)}.  ${pad(r.team, 22)} ${pad(rec(r), 9)} ${pts(r)}`),
+      ];
+      inner =
+        `<div class="tv-pg tv-pg-text">` +
+          `<pre class="tv-pg-pre">${_esc(lines.join('\n'))}</pre>` +
+          `<div class="tv-pg-caption" aria-live="off"></div>` +
+        `</div>`;
+    } else {
+      const card = (t, where) =>
+        `<div class="tv-pg-club ${where}">` +
+          (_crest(t?.name, 64, 'tv-pg-crest') || '') +
+          `<div class="tv-pg-club-txt">` +
+            `<div class="tv-pg-where">${where === 'away' ? 'Away' : 'Home'}</div>` +
+            `<div class="tv-pg-nm">${_esc(t?.name || '')}</div>` +
+            `<div class="tv-pg-rec">${_esc(said(t))}${place(t) ? ` <span>${_esc(place(t))}</span>` : ''}</div>` +
+          `</div>` +
+        `</div>`;
+      const table = rows.length
+        ? `<div class="tv-pg-table">` +
+            `<div class="tv-pg-th"><span>${_esc(String(fx.title || 'STANDINGS').replace(/^.*:\s*/, ''))}</span><b>${hockey ? 'W-L-OTL' : 'W-L'}</b><b>${hockey ? 'PTS' : 'RD'}</b></div>` +
+            rows.map((r, i) =>
+              `<div class="tv-pg-row${playing.has(r.team) ? ' on' : ''}" style="animation-delay:${(0.5 + i * 0.07).toFixed(2)}s">` +
+                `<i>${r.rank}</i><span class="chip" style="background:${_teamColour(r.team, fx.sport)}"></span>` +
+                `<span class="nm">${_esc(r.team)}</span><b>${_esc(rec(r))}</b><b>${_esc(pts(r))}</b>` +
+              `</div>`).join('') +
+          `</div>`
+        : `<div class="tv-pg-table empty">Opening night. Nobody has a record yet.</div>`;
+      inner =
+        `<div class="tv-pg${fx.brand === 'cphl' ? ' cphl' : ''}">` +
+          `<div class="tv-pg-head">` +
+            (fx.brand === 'cphl' ? cphlLockup('Pregame', '22px') : `<div class="tv-pg-show">${_esc(fx.show || 'TONIGHT')}</div><div class="tv-pg-label">Pregame</div>`) +
+          `</div>` +
+          `<div class="tv-pg-body">` +
+            `<div class="tv-pg-clubs">${card(fx.away, 'away')}<div class="tv-pg-at">at</div>${card(fx.home, 'home')}</div>` +
+            table +
+          `</div>` +
+          `<div class="tv-pg-caption" aria-live="off"></div>` +
+        `</div>`;
+    }
+    const tag = text ? '' : _networkTag();
+    host.innerHTML = (tag ? `<div class="tv-fx-net">${tag}</div>` : '') + inner;
+    host.className = 'tv-fx-host on fx-pregame';
+    _pregameUp = true;
+    // The line that brought the open up is already on screen; carry it into the strip.
+    if (_lastSpoken && performance.now() - _lastSpoken.at < 4000) _pregameCaption(_lastSpoken.text);
+    if (_fxTimer) clearTimeout(_fxTimer);
+    _fxTimer = setTimeout(_clearSportsFx, (fx.duration || 18) * 1000);
+  }
+
+  function _pregameCaption(text) {
+    if (!_pregameUp) return;
+    const strip = el('fx')?.querySelector('.tv-pg-caption');
+    if (!strip) return;
+    const t = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!t) return;
+    strip.textContent = t;
+    strip.classList.remove('in');
+    void strip.offsetWidth;   // restart the slide-in for each new line
+    strip.classList.add('in');
+  }
+
   function _clearSportsFx() {
+    _pregameUp = false;
     if (_fxTimer) { clearTimeout(_fxTimer); _fxTimer = null; }
     const host = el('fx');
     if (host) { host.innerHTML = ''; host.className = 'tv-fx-host'; }
@@ -1710,6 +1808,11 @@ export function createTvView(root, opts = {}) {
     // only place the speech queue is allowed to resync. See _sceneBeat().
     const spoken = !style || style === 'raw' || style === 'emote' || style === 'narrate' || style === 'system';
     if (!spoken) _sceneBeat();
+    // The pregame open shows the booth's line along its bottom edge.
+    if (spoken) {
+      _lastSpoken = { text: new DOMParser().parseFromString(String(text), 'text/html').body.textContent, at: performance.now() };
+      _pregameCaption(_lastSpoken.text);
+    }
 
     // Clear before title cards, and after them on the next message
     if (isTitleCard || _clearAfterTitleCard) {

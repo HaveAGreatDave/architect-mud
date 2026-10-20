@@ -58,6 +58,25 @@ Fallout reads as Fallout with almost no twists because the world lives in the no
 
 Each keeps at most one tilt, and it sits in a concrete noun or a flat second fact: the blank board, the coats still on, the meter.
 
+### Feelings and the body
+
+Lines about what the player feels (withdrawal, drugs, hunger, injury, sleep, fear) follow the same rule, and they're where it's broken most. Say what the body is doing in the words a person would use to tell a friend. One or two symptoms, then stop.
+
+- **Name the symptom.** "Your hands shake", not "your hands are doing something small and constant".
+- **No metaphor standing in for a feeling.** "Your heart is pounding", not "your whole body is ringing like something struck it".
+- **No clever measurement.** "You can't sleep more than an hour or two at a time", not "you sleep in ninety-minute pieces".
+- **No personification of the room or the body.** "Things move at the edge of your vision", not "the room starts contributing".
+- **Speak from the moment.** A line describes where the character is now: "It'll be days before you sleep through the night", not "it's days before".
+
+| Before | After |
+|---|---|
+| You sleep in ninety-minute pieces and come out of each one already sitting up. Four days of that, and the nights are the last thing to come back. | You can't sleep more than an hour or two at a time, and you wake up with a jolt every time. It'll be days before you sleep through the night again. |
+| Every joint you own reports in. Nothing is injured. Everything is present. | Every joint aches. Nothing's injured. It all just hurts. |
+| Light is too bright and sound is too close, and you've read the same line four times without any of it going in. | Light hurts, noise hurts, and you've read the same line four times without taking it in. |
+| The headache has arrived properly now, and it has a pulse, and the pulse is yours. | It's a proper headache now, throbbing in time with your pulse. |
+
+The withdrawal lines in `scripts/content/withdrawal-stages.mjs` are the worked set, rewritten 2026-10-20.
+
 ## Length
 
 Measured on 2026-09-27, rooms had a median of 47 words and ran to 331; NPC descriptions a median of 56, with 55% of them carrying a tic. Fallout 2's scenery text averages 9 words. A MUD room needs more than that, since it has to name what's in it and where you can go, but not six times more.

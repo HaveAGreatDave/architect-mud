@@ -23942,6 +23942,39 @@ function webBaysAt(cam, dx, dy, hWorld, full) {
 // ⚠ AND A CALLER THAT HAS ALREADY PROJECTED ITS ENDS STILL HANDS OVER THE WORLD ONES. A screen
 // point cannot be put in a vertex buffer, and re-deriving the world point from it is how the two
 // renderers start disagreeing about where a mast is.
+// ── THE CEL LOOK'S INK ROUND STREET STEEL ───────────────────────────────────
+//
+// The ink pass (gl/ssao.js) finds its lines in the depth prepass, and the stroke and decal layers
+// aren't in it, so a lamp standard or a signal mast stood un-inked in an inked city. These draw
+// the keyline by hand: the same member again, `glInkPx` wider each side in the ink colour (gl/
+// context.js INK_COL), pulled half as far toward the eye so the steel wins the middle and the ink
+// shows only at the rim. Faded out to `glInkFar` the way the shared lines are. GPU only, and only
+// while `glInk` is on. Returns the fade so a caller can skip work when it's 0.
+const STEEL_INK_CSS = 'rgb(10,10,18)';
+function steelInkK(cam, P) {
+  if (!(RENDER_TUNE.glInk > 0) || !(STROKE_SINK && TUNE.glDeco)) return 0;
+  const f = cam.proj(P[0], P[1], P[2]).f, far = RENDER_TUNE.glInkFar || 24;
+  const t = clamp((f - far * 0.6) / (far * 0.4), 0, 1);
+  return RENDER_TUNE.glInk * (1 - t * t * (3 - 2 * t));
+}
+function steelInkPx() { return Math.max(1, (RENDER_TUNE.glInkPx > 0 ? RENDER_TUNE.glInkPx : 1.5) * (window.devicePixelRatio || 1)); }
+function inkWire(ctx, cam, A, B, wPx, alpha, lift) {
+  const k = steelInkK(cam, A);
+  if (k > 0) emitWire(ctx, cam, A, B, wPx + 2 * steelInkPx(), STEEL_INK_CSS, alpha * k, { lift: lift * 0.5 });
+}
+// A flat plate's keyline: the polygon grown about its own centre by the ink width at its depth.
+function inkFill(ctx, cam, W, alpha, lift) {
+  const n = W.length, c = [0, 0, 0];
+  for (const p of W) { c[0] += p[0] / n; c[1] += p[1] / n; c[2] += p[2] / n; }
+  const k = steelInkK(cam, c);
+  if (!(k > 0)) return;
+  const f = cam.proj(c[0], c[1], c[2]).f, grow = steelInkPx() * f / cam.FL;
+  const G = W.map((p) => {
+    const d = [p[0] - c[0], p[1] - c[1], p[2] - c[2]], L = Math.hypot(d[0], d[1], d[2]) || 1;
+    return [p[0] + d[0] / L * grow, p[1] + d[1] / L * grow, p[2] + d[2] / L * grow];
+  });
+  emitDecoFill(ctx, cam, G, STEEL_INK_CSS, alpha * k, lift * 0.5);
+}
 function emitWire(ctx, cam, A, B, wPx, css, alpha, opts = {}) {
   // ⚠ A SEGMENT THAT CROSSES THE EYE PLANE IS CLIPPED, NEVER DROPPED. `cam.proj` floors `f` at
   // 0.06 so a point behind the eye projects to nonsense, which is why this refused any segment with
@@ -33432,6 +33465,12 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
       MAST_H * m0 + (MAST_H - 0.004) * m1 + (MAST_H - 0.012) * m2];
   };
   if (onGPU) {
+    // The cel look's keyline (inkWire), under the pole and the boom it outlines.
+    inkWire(ctx, cam, [dx, dy, 0], [dx, dy, MAST_H], wPx(POLE_R0 * 1.6, POLE_R1, base.f), alpha, LIFT);
+    for (let i = 0; i < 5; i++) {
+      const t0 = i / 5, t1 = (i + 1) / 5;
+      inkWire(ctx, cam, BZ(t0), BZ(t1), wPx(BOOM_R0 + (BOOM_R1 - BOOM_R0) * t0, BOOM_R0 + (BOOM_R1 - BOOM_R0) * t1, top.f + (tip.f - top.f) * t0), alpha, LIFT);
+    }
     emitWire(ctx, cam, [dx, dy, 0], [dx, dy, 0.02], wPx(POLE_R0 * 1.6, POLE_R0 * 1.35, base.f), 'rgba(40,44,52,0.96)', alpha, { lift: LIFT });
     emitWire(ctx, cam, [dx, dy, 0], [dx, dy, MAST_H], wPx(POLE_R0, POLE_R1, base.f), STEEL_FILL, alpha, { lift: LIFT });
     // The accent band: a lit strip at head height on the mast, in the phase colour, so the junction
@@ -33478,7 +33517,10 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
   for (const h of heads) {
     const b0 = cam.proj(h.hx, h.hy, hangZ), b1 = cam.proj(h.hx, h.hy, hangZ - BRACKET_H);
     if (b0.f <= 0.1) continue;
-    if (onGPU) emitWire(ctx, cam, [h.hx, h.hy, hangZ], [h.hx, h.hy, hangZ - BRACKET_H], wPx(0.004, 0.0035, b0.f), STEEL_FILL, alpha, { lift: LIFT });
+    if (onGPU) {
+      inkWire(ctx, cam, [h.hx, h.hy, hangZ], [h.hx, h.hy, hangZ - BRACKET_H], wPx(0.004, 0.0035, b0.f), alpha, LIFT);
+      emitWire(ctx, cam, [h.hx, h.hy, hangZ], [h.hx, h.hy, hangZ - BRACKET_H], wPx(0.004, 0.0035, b0.f), STEEL_FILL, alpha, { lift: LIFT });
+    }
     else drawSteel(ctx, [px(b0, 0.004), px(b1, 0.0035)], STEEL_FILL, false);               // the drop bracket
     signalHead(ctx, cam, h.hx, h.hy, hangZ - BRACKET_H, arm, face, lamp, s, night, onGPU ? { alpha, lift: LIFT } : null);
   }
@@ -33487,7 +33529,10 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
   const cbx = dx - arm[0] * 0.26, cby = dy - arm[1] * 0.26;
   const cobra = cam.proj(cbx, cby, MAST_H + 0.01);
   if (cobra.f > 0.1) {
-    if (onGPU) emitWire(ctx, cam, [dx, dy, MAST_H], [cbx, cby, MAST_H + 0.01], wPx(0.005, 0.0035, top.f), STEEL_FILL, alpha, { lift: LIFT });
+    if (onGPU) {
+      inkWire(ctx, cam, [dx, dy, MAST_H], [cbx, cby, MAST_H + 0.01], wPx(0.005, 0.0035, top.f), alpha, LIFT);
+      emitWire(ctx, cam, [dx, dy, MAST_H], [cbx, cby, MAST_H + 0.01], wPx(0.005, 0.0035, top.f), STEEL_FILL, alpha, { lift: LIFT });
+    }
     else drawSteel(ctx, [px(top, 0.005), px(cobra, 0.0035)], STEEL_FILL, false);
     // The luminaire is a HORIZONTAL plate, so it is laid out in a frame with no vertical extent at
     // all: it thins to a sliver as you come level with it and opens out as you pass under it, which
@@ -33503,6 +33548,7 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
     const plate = [[-0.016, 0, -0.009], [0.016, 0, -0.009], [0.019, 0, 0.009], [-0.019, 0, 0.009]];
     const glassQ = [[-0.012, -0.003, -0.006], [0.012, -0.003, -0.006], [0.014, -0.003, 0.006], [-0.014, -0.003, 0.006]];
     if (onGPU) {
+      inkFill(ctx, cam, plate.map((p) => LW(p[0], p[1], p[2])), alpha, LIFT);
       emitDecoFill(ctx, cam, plate.map((p) => LW(p[0], p[1], p[2])), 'rgba(70,74,82,0.95)', alpha, LIFT);
       emitDecoFill(ctx, cam, glassQ.map((p) => LW(p[0], p[1], p[2])), litCss, alpha, LIFT);
     } else if (LB) {
@@ -33574,6 +33620,8 @@ function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night, gpu) {
   // looking at the far side of this same head; a real junction hangs a head per approach and this is
   // those heads as one object. The phase they show is identical by construction.
   const W2 = HEAD_W / 2;
+  // The cel look's keyline round the housing (inkFill), behind the far face so the box sits in it.
+  if (gpu) inkFill(ctx, cam, [[-W2, 0, -cF], [W2, 0, -cF], [W2, -HEAD_H, -cF], [-W2, -HEAD_H, -cF]].map((p) => W(p[0], p[1], p[2])), gpu.alpha, gpu.lift);
   quad([[-W2, 0, -cF], [W2, 0, -cF], [W2, -HEAD_H, -cF], [-W2, -HEAD_H, -cF]], 'rgba(18,20,25,0.94)');   // the far face, so the box is solid edge-on
   if (s > 2.4) quad([[aS, 0, -cF], [aS, 0, cF], [aS, -HEAD_H, cF], [aS, -HEAD_H, -cF]], 'rgba(23,26,32,0.94)');   // the flank
   quad([[-W2, 0, cF], [W2, 0, cF], [W2, -HEAD_H, cF], [-W2, -HEAD_H, cF]], 'rgba(31,35,42,0.95)');               // the lens face
@@ -33967,6 +34015,14 @@ function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed, tone 
     const LIFT = 0.02;
     // A standard fifty years on: a composite column on a squat foot, an accent band that glows when
     // the lamp is on, and a swept arm ending in a long thin LED blade rather than a cobra pan.
+    // The cel look's keyline (inkWire, inkFill) goes under the column, the arm and the blade first.
+    inkWire(ctx, cam, [dx, dy, 0], [dx, dy, 0.34], wPx(LAMP_R0 * 1.7, LAMP_R1, base.f), alpha, LIFT);
+    inkWire(ctx, cam, [dx, dy, 0.34], [dx + inward[0] * 0.07, dy + inward[1] * 0.07, 0.346], wPx(LAMP_R1, LAMP_R1 * 0.8, top.f), alpha, LIFT);
+    inkWire(ctx, cam, [dx + inward[0] * 0.07, dy + inward[1] * 0.07, 0.346], [ax, ay, 0.333], wPx(LAMP_R1 * 0.8, LAMP_R1 * 0.6, top.f), alpha, LIFT);
+    {
+      const Fi = (a, c) => [ax + inward[0] * a + inward[1] * c, ay + inward[1] * a - inward[0] * c, 0.33];
+      inkFill(ctx, cam, [Fi(-0.034, -0.0065), Fi(0.020, -0.0065), Fi(0.024, 0.0065), Fi(-0.030, 0.0065)], alpha, LIFT);
+    }
     emitWire(ctx, cam, [dx, dy, 0], [dx, dy, 0.022], wPx(LAMP_R0 * 1.7, LAMP_R0 * 1.4, base.f), 'rgba(40,44,52,0.96)', alpha, { lift: LIFT });
     emitWire(ctx, cam, [dx, dy, 0], [dx, dy, 0.34], wPx(LAMP_R0, LAMP_R1, base.f), 'rgba(52,57,66,0.94)', alpha, { lift: LIFT });
     const bandCss = lit ? `rgba(120,224,255,${0.70 + night * 0.30})` : 'rgba(58,72,84,0.94)';

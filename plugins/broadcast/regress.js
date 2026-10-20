@@ -227,6 +227,31 @@ export default async function regress({ check, run, getPlayer }) {
     check('network open: the hockey card holds for the whole theme', Math.abs(hold - (16 * 16 * 60000) / 150 / 4) < 1, String(hold));
   }
 
+  // ── The pregame open ──────────────────────────────────────────────────────
+  // Both sports put the open (index.js pregameFx) on the first line after the title card: the
+  // two clubs playing and the league table, held until the first pitch or the drop. A plain
+  // night's matchup line carries no card of its own, or it would knock the open off the screen.
+  for (const [file, id, seed, sport] of [['bc_1783289744953', 'bc_regress_pg', 40001, 'baseball'], ['bc_cluster_puck', 'bc_regress_pg_cphl', 41, 'hockey']]) {
+    const row = JSON.parse(readFileSync(new URL(`../../content/media_broadcasts/${file}.json`, import.meta.url), 'utf8')).sports_pools;
+    const g = _test.assembleSportsGraph(row, id, seed, null);
+    const says = g ? Object.values(g.nodes).filter((n) => n.type === 'say') : [];
+    const gfx = (n) => n.data?.graphic || n.graphic || null;
+    const open = says.map(gfx).find((x) => x?.kind === 'pregame');
+    check(`pregame open: ${sport} airs one`, !!open && open.sport === sport && !!open.away?.name && !!open.home?.name && open.away.name !== open.home.name, JSON.stringify(open)?.slice(0, 200));
+    check(`pregame open: ${sport} puts it on the first spoken line`, gfx(says[0] || {})?.kind === 'pregame', JSON.stringify(gfx(says[0] || {}))?.slice(0, 120));
+    check(`pregame open: ${sport} holds long enough to read`, open?.duration >= 12, String(open?.duration));
+  }
+  {
+    const rows = Array.from({ length: 10 }, (_, i) => ({ team: `Club ${i + 1}`, wins: 10 - i, losses: i, otl: 1, points: 21 - 2 * i }));
+    const fx = _test.pregameFx('hockey', rows, { away: 'Club 2', home: 'Club 10', awayRecord: '9-1-1', homeRecord: '1-9-1', brand: 'cphl' });
+    check('pregame open: the table is the top eight plus a club below it that plays tonight',
+      fx.rows.length === 9 && fx.rows[8].team === 'Club 10' && fx.rows[8].rank === 10 && fx.home.rank === 10 && fx.away.rank === 2, JSON.stringify(fx.rows.map((r) => r.rank)));
+    const log = _test.pregameLines(fx);
+    check('pregame open: the log rung gets it written out', /TONIGHT/.test(log) && log.includes('Club 2 (9-1-1) at Club 10') && log.includes('<b>') && /21 pts/.test(log), log);
+    check('pregame open: opening night still names the clubs', /Away A at Home B/.test(_test.pregameLines(_test.pregameFx('baseball', [], { away: 'Away A', home: 'Home B', awayRecord: '0-0', homeRecord: '0-0' }))));
+    check('pregame open: any other card writes nothing to the log', _test.pregameLines({ kind: 'matchup' }) === null && _test.pregameLines(null) === null);
+  }
+
   // The final's airtime: it's pinned to the NEXT nightly @airtime slot (so it airs
   // — and is advertised in the news/TV guide — at the fixed evening time), not "the next hour".
   const G = _test.SPORTS_GAMES_PER_DAY;   // 8 → slot-of-day 6 == the 18:00–21:00 block
