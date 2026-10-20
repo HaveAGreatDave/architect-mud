@@ -1368,7 +1368,12 @@ void main() {
     // falls off with distance on its own. This one does not: its falloff is measured from the
     // LIGHT, so a pool thirty tiles away under its own lamp is at full strength and would punch
     // through a fog the road it is lying on has already dissolved into.
-    c += pool * (uPool * clamp(uNight, 0.0, 1.0) * (1.0 - gfog)) * max(vec3(0.0), 1.0 - c);
+    // ⚠ AND IT SATURATES SOFTLY, BELOW WHITE. With the light grid on, a pixel sums every lamp in
+    // its cell rather than a capped six, and on a lit junction four overlapping pools added
+    // linearly took the whole carriageway to white. 1 - exp(-x) is the same as x for one lamp's
+    // fringe, rolls off where pools overlap, and 0.6 keeps the brightest spot short of white.
+    vec3 lit = 1.0 - exp(-pool * (uPool * clamp(uNight, 0.0, 1.0)));
+    c += lit * (0.6 * (1.0 - gfog)) * max(vec3(0.0), 1.0 - c);
   }
   // ── AND THE LIGHT IN THE AIR OVER THE ROAD ─────────────────────────────────
   //
