@@ -1,8 +1,8 @@
 # GLASS 2 clustered lights and TAA
 
-**Status: A1 built (2026-10-18, see [A1 finished](#a1-finished-2026-10-18)); B built and still
-being judged (see [B as built](#b-as-built-2026-10-18)); A2 built (see [A2 as built](#a2-as-built-2026-10-18)).
-All three switches are 0.** Two pieces of work for GLASS 2, each behind a `RENDER_TUNE` switch
+**Status: A1 built, and on since 2026-10-19 except on phones (see [A1 on](#a1-on-2026-10-19)); B
+built and still being judged (see [B as built](#b-as-built-2026-10-18)); A2 built (see
+[A2 as built](#a2-as-built-2026-10-18)). `glTaa` and `LIGHT_TUNE.sign` are 0.** Two pieces of work for GLASS 2, each behind a `RENDER_TUNE` switch
 whose 0 is today's picture: a clustered light list that lifts the per-frame light cap, then a new
 short-reach light from each sign onto its own wall (`glCluster`); and temporal anti-aliasing
 (`glTaa`). Both stay on WebGL2. Neither needs WebGPU: the light list goes in data textures, and TAA
@@ -157,6 +157,23 @@ against the slots: walls near lamps the slots dropped now lift.
 splices the colour helpers in just before main(), after `massLight`; without them the city falls
 back to 2-D everywhere. And the road's off-grid skip (a light wholly outside the ground) must not
 apply in mass mode, where a wall past the grid reads the edge cell.
+
+## A1 on (2026-10-19)
+
+`glCluster` is 1, and 0 in `PHONE_TIER`. `__glCluster()` in the Modelshop (chase seat, 960x540,
+median of 21 waited-on world passes, 23:00):
+
+| | Slots | Grid |
+|---|---|---|
+| Dry: frame time | 14.1 ms | 14.1 ms |
+| Dry: frame moved | | 0.91%, nearly all brighter |
+| Wet: lights on the road | 6 (pools 16) | 108 |
+| Wet: frame time | 18.1 ms | 22.1 ms |
+| Wet: frame moved | | 32.2%, 24.8% brighter, nothing at 250 or over |
+
+At 13:00 the wet street costs the same either way. By eye, the grid's wet street carries the tail
+lights and the signs' spill in the tarmac where the slot road was grey. The cost lands on the wet
+night alone, which is why phones keep the slots.
 
 ## B: TAA (`glTaa`, needs `glHdr` 1)
 

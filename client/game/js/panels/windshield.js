@@ -1347,8 +1347,10 @@ export const RENDER_TUNE = {
   glLightSlots: 16,
   // The light grid (gl/lightgrid.js, docs/proposals/glass-lights-and-taa.md): 1 hands the wet road
   // every light in the frame, binned on the ground by where its streak and pool can land, in place
-  // of the six slots it reflects now. Off until it's been judged on a rainy street.
-  glCluster: 0,
+  // of the six slots it reflected before. On since 2026-10-19: in `__glCluster()` (Modelshop, chase
+  // seat, 960x540) a dry night costs nothing and moves 0.9% of the frame; a wet night puts 108 lights
+  // on the road instead of 6, blows nothing, and costs about 4 ms (18.1 to 22.1). Off on phones.
+  glCluster: 1,
   // Temporal anti-aliasing (gl/taa.js): the city, the ground, the water and the people are drawn a
   // sub-pixel off each frame and blended into a reprojected history, which takes the shimmer off
   // thin mullions, window grids and highlights that MSAA can't reach. Signs, lettering, sprites,
@@ -2105,7 +2107,7 @@ export const RENDER_TUNE = {
 // The six materials switches turned on 2026-10-18 (the material and surface pages, the sky cube, GGX,
 // linear light and the tone curve) were only ever measured on one discrete GPU, so a phone keeps the
 // picture from before them too: two of them are whole extra atlas pages, and the last two need glHdr.
-export const PHONE_TIER = Object.freeze({ glSsao: 0, glShadow: 0, glMsaa: 0, glHdr: 0,
+export const PHONE_TIER = Object.freeze({ glSsao: 0, glShadow: 0, glMsaa: 0, glHdr: 0, glCluster: 0,
   glMatPage: 0, glSurfPage: 0, glEnvCube: 0, glGGX: 0, glLinear: 0, glTonemap: 0 });
 export const GL_TIER = (() => {
   try {

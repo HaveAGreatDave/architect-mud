@@ -2040,7 +2040,7 @@ Deadball's 3-D park, on by default (the `deadball.grandstand` flag set to `'0'` 
 
 ## The light grid and TAA (`glCluster`, `glTaa`)
 
-Both are off. The plan, what was measured and the traps are in
+The light grid is on since 2026-10-19 (off on phones); TAA is off. The plan, what was measured and the traps are in
 [glass-lights-and-taa.md](../proposals/glass-lights-and-taa.md); the short version:
 
 - **The light grid** (gl/lightgrid.js) bins every light in the frame by where it can land, on the
