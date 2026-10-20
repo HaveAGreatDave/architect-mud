@@ -81,7 +81,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('Time tab has a hero, the four skips and the speed chips',
       tscr?.activeTab === 'time' && !!tscr.detail.hero && ['t_skip_4', 't_skip_8', 't_skip_12', 't_skip_24'].every(id => tscr.actions.some(a => a.id === id && a.confirm)) && tscr.actions.some(a => a.id === 't_speed' && a.chips),
       JSON.stringify(tscr?.actions?.map(a => a.id)));
-    check('Weather tab carries the five tabs', screen?.tabs?.length === 5 && screen.activeTab === 'weather');
+    check('Weather tab carries the six tabs', screen?.tabs?.length === 6 && screen.activeTab === 'weather');
 
     // The ESP: on and off through the verb, the tab following it, and a player refused.
     // The roof tab: the button moves the roof and holds it, and auto hands it back.
