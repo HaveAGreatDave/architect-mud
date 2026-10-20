@@ -50,6 +50,10 @@
   button:hover { border-color: #3d4b5a; }
   button.on { border-color: var(--ms-accent); color: var(--ms-accent); background: #16222b; }
   button.mini { padding: 0 5px; font-size: 11px; line-height: 16px; }
+  /* a link to another of the Modelshop's pages, dressed as a toolbar button */
+  a.navbtn { background: #1b2129; color: var(--ms-ink); border: 1px solid var(--ms-line); padding: 4px 9px; font: inherit; border-radius: 3px; text-decoration: none; }
+  a.navbtn:hover { border-color: #3d4b5a; }
+  a.navbtn[hidden] { display: none; }
   kbd { background: #10141a; border: 1px solid var(--ms-line); border-radius: 2px; padding: 0 3px; font-size: 10px; color: var(--ms-dim); }
 
   section { padding: 9px 11px; border-bottom: 1px solid var(--ms-line); }
@@ -136,6 +140,9 @@
       <button id="mode-rotate" title="Rotate the selected piece about its own axis">Rotate <kbd>R</kbd></button>
       <button id="tools-open" title="Every mode and every primitive, with what each one is for">Tools <kbd>T</kbd></button>
       <button id="frame" title="Frame the model again">Frame <kbd>F</kbd></button>
+      <!-- The Modelshop's other pages, each in its own tab. The cab shows on a truck only (app.js cabLink). -->
+      <a id="cablink" class="navbtn" target="_blank" rel="noopener" hidden title="This truck's cab from the driver's seat, with the things a driver hangs in it">Cab interior ↗</a>
+      <a class="navbtn" href="/actor-lab.html" target="_blank" rel="noopener" title="Street figures: the shipping shader beside a proposed one">Actor Lab ↗</a>
     </div>
     <div id="hud"></div>
 <div id="toolbox">

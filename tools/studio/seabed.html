@@ -16,6 +16,7 @@
 </head>
 <body>
 <header>
+  <a href="/" style="color:var(--dim)">← Studio</a>
   <strong>Seabed</strong>
   <label>px/tile <input id="px" type="number" min="1" max="12" value="4" style="width:44px"></label>
   <label><input id="open" type="checkbox"> tiles outside the map are open sea</label>
@@ -28,8 +29,10 @@
 <script type="module">
 import { seabedDepth, seabedMaterial, shoreField, wrecksNear, seabedZoneId, SHORE_SEARCH } from '/client/shared/seabed.js';
 
-const res = await fetch('/api/world');
-if (!res.ok) { document.getElementById('stat').textContent = 'no baked world — npm run snapshot:flight'; throw new Error('no world'); }
+// The coast as content/ has it now, from the Studio (serve.mjs /api/seabed), so a shore just painted
+// is the shore shaded here. Reload to see an edit.
+const res = await fetch('/api/seabed');
+if (!res.ok) { document.getElementById('stat').textContent = 'no world map in content/'; throw new Error('no world'); }
 const W = await res.json();
 const B = W.bounds;
 const cellAt = (x, y) => W.cells[x + ',' + y];

@@ -12,7 +12,7 @@ The Drake goes under. A salvage frontier on a procedural seabed.
 
 ## How it works
 
-- The seabed is `client/shared/seabed.js`, one deterministic function of position. Nothing is stored. The gate is `npm run gl:seabed`; the picture is `/seabed.html` in the Modelshop.
+- The seabed is `client/shared/seabed.js`, one deterministic function of position. Nothing is stored. The gate is `npm run gl:seabed`; the picture is the Map Studio's Seabed page (`/seabed.html`, linked from its header).
 - `sub.js` is the dive as pure arithmetic: five hull tiers (25 m to 1100 m, 4 to 18 minutes of air), descent and ascent rates, air warnings, the emergency blow, and crush damage past the rating.
 - **The air supply belongs to the Drake, not to the dive.** A dive starts with what is in the tanks and spends it; they refill only while she is up (not submerged) and her engine is running, full from empty in 90 s. She will not go under below 15%. The figure lives in RAM (`live.subAir`) and is banked to `custom_data.sub_air`, so a restart does not hand out full tanks. `sonar` shows it on the surface.
 - `index.js` reads the live aircraft from `plugins/flight/state.js`, steps every submerged Drake once a second, and narrates. Crush is ordinary `row.damage`; at 1 it is flight's `crash(live, 'imploded')`.

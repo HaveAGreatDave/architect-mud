@@ -15,11 +15,15 @@
   .row { padding: 0 12px 10px; opacity: .7 }
 </style>
 <header>
+  <a href="/" style="color:#8b97a5">← Modelshop</a>
+  <label>truck <select id="truck"></select></label>
   <label>header <select id="hang"></select></label>
   <label>dash <select id="dash"></select></label>
   <label>wheel <select id="wheel"></select></label>
   <label>tier <select id="tier"><option>0</option><option>1</option><option selected>2</option><option>3</option></select></label>
   <label>hour <input id="hour" type="range" min="0" max="23" value="13" style="width:90px"></label>
+  <label title="Turn your head, as the cab's free look does: the dash trinket stands on the passenger side">look <input id="look" type="range" min="-80" max="80" value="0" style="width:90px"></label>
+  <label>up <input id="lookup" type="range" min="-40" max="30" value="0" style="width:60px"></label>
   <button id="drive">drive a bend</button>
   <button id="brake">stand on the brakes</button>
 </header>
@@ -31,6 +35,28 @@
 <script type="module">
 import { paintWindshield } from '/client/game/js/panels/windshield.js';
 import { TRINKETS, TRINKET_IDS, CAB_SLOTS } from '/client/shared/cab-trinkets.js';
+import { TRUCK_TYPES } from '/client/game/js/panels/flight-model.js';
+import { installGL } from '/client/game/js/panels/gl/install.js';
+
+// ⚠ GLASS 2 HAS TO BE INSTALLED, OR THERE IS NO CAB. A truck has a 3-D shell (interior-shell.js), so
+// the game draws its cab, dash and trinkets as geometry in the GL pass and leaves the flat dash on
+// #cab-dash empty (windshield.js full3d). The game installs the pass when cockpit.js loads; a page
+// that only imports windshield.js gets the 2-D world through the glass and no cab at all.
+installGL();
+
+// Which truck's cab: ?truck=<id> from a truck's page in the Modelshop, the Drayman by default. Its
+// tier is the cab's trim and its name the make on the dash; the tier picker can still try another.
+const truckSel = document.getElementById('truck'), tierSel = document.getElementById('tier');
+truckSel.innerHTML = TRUCK_TYPES.map((t) => `<option value="${t.id}">${t.name}</option>`).join('');
+const asked = new URLSearchParams(location.search).get('truck');
+truckSel.value = TRUCK_TYPES.some((t) => t.id === asked) ? asked : 'drayman';
+const truckNow = () => TRUCK_TYPES.find((t) => t.id === truckSel.value);
+const pickTruck = () => {
+  tierSel.value = String(truckNow().tier);
+  history.replaceState(null, '', '?truck=' + encodeURIComponent(truckSel.value));
+};
+truckSel.onchange = pickTruck;
+pickTruck();
 
 for (const s of CAB_SLOTS) {
   const sel = document.getElementById(s.id);
@@ -63,10 +89,11 @@ function frame(now) {
   paintWindshield('cab', {
     map, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, eyeH: 0.12, fovMul: 1.22,
     hour: +document.getElementById('hour').value, weather: 'clear', speed: 0.42, mph: 29,
-    heading: 0, tier: +document.getElementById('tier').value, variant: 'rigid', make: 'VACHON DRAYMAN',
+    heading: 0, tier: +tierSel.value, variant: truckSel.value, make: truckNow().name.toUpperCase(),
     mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0, y: 0 },
     steer: Math.max(-1, Math.min(1, lat * 2.2)), rpm: 1400, gear: 6, console: true,
     cab, gee: { lat, lon },
+    lookYaw: +document.getElementById('look').value, lookPitch: +document.getElementById('lookup').value,
   });
   document.getElementById('read').textContent =
     `lat ${lat.toFixed(3)} g · lon ${lon.toFixed(3)} g · ${cab.join(', ') || 'bare cab'}`;

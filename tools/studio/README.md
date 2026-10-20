@@ -380,6 +380,16 @@ would be the one path into this content with no validation behind it. `content/e
 is opened read-only, for the numbers behind the colour. `npm run test:regress` pins the
 absence.
 
+## The seabed
+
+**Seabed ↗** in the header opens `/seabed.html` in its own tab: the procedural seabed
+(`client/shared/seabed.js`) as a depth or material map under the coast, with the wrecks on it. It
+reads `/api/seabed`, the world map's ground-floor tiles from the content this server holds, each
+with the biome the flight derive gives it (`plugins/flight/biomes.js` `biomeOf`), so a shore you
+have just painted is the shore it shades. Reload the page to see an edit. A zone file carries no
+`danger`, and danger only ever picks between two land biomes, so the sea comes out the same as the
+flight bake's. It's a picture; `npm run gl:seabed` is the gate.
+
 ## Following a door
 
 A tile that leaves the map is **outlined**. **Double-click it** and the Studio opens

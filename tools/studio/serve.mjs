@@ -54,6 +54,7 @@ import { applyAnchor, expectedAnchor } from '../../scripts/content/map-anchor.mj
 // and a rule about what moving a building means must have exactly one home.
 import { planMove, planRotate, buildingOf, attachmentsOf, isBuildingish } from '../../scripts/content/transform.mjs';
 import { lintContentTree } from '../../scripts/content/lint.mjs';
+import { biomeOf } from '../../plugins/flight/biomes.js';
 // tags.js pulls in client/shared/tagCatalog.js for its side effect, so the
 // catalog the game validates against is the catalog this tool builds forms from.
 import { validateTags, validateZoneColumns, zoneColumnCatalog, districtColumnCatalog, validateDistrictColumns, TAG_CATALOG } from '../../server/engine/tags.js';
@@ -1256,6 +1257,34 @@ const server = createServer(async (req, res) => {
         const buf = await readFile(join(HERE, '..', '..', 'client', 'game', 'assets', 'zone-icons', `${icon[1]}.svg`));
         return send(res, 200, buf, 'image/svg+xml; charset=utf-8');
       } catch { return send(res, 404, 'no such icon', 'text/plain; charset=utf-8'); }
+    }
+
+    // THE SEABED (client/shared/seabed.js) drawn as a depth map over the coast, for judging its
+    // shape by eye. It lives here because the coast is what this tool edits: the page reads the
+    // tree this server holds, so a shore you have just painted is the shore it shades, where the
+    // flight bake it used to read went stale at every edit. `gl:seabed` is the gate; this is a
+    // picture. The modules are the seabed's three and nothing else.
+    if (req.method === 'GET' && path === '/seabed.html') {
+      return send(res, 200, await readFile(join(HERE, 'seabed.html')), 'text/html; charset=utf-8');
+    }
+    const seaMod = /^\/client\/shared\/(seabed|landform|sea-swell)\.js$/.exec(path);
+    if (req.method === 'GET' && seaMod) {
+      return send(res, 200, await readFile(join(HERE, '..', '..', 'client', 'shared', `${seaMod[1]}.js`)), 'text/javascript; charset=utf-8');
+    }
+    // Every world tile on the ground floor and its biome, by the flight derive's own rule
+    // (plugins/flight/biomes.js biomeOf), in the shape the flight bake has: { bounds, cells }.
+    // A zone file carries no `danger` (it is computed live), and that only ever picks between
+    // two land biomes, so what is sea comes out the same as the bake's.
+    if (req.method === 'GET' && path === '/api/seabed') {
+      const cells = {};
+      let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
+      for (const z of tree.zones.values()) {
+        if (z.map_id !== 'map_world' || (z.grid_z ?? 0) !== 0 || z.grid_x == null || z.grid_y == null) continue;
+        cells[z.grid_x + ',' + z.grid_y] = { biome: biomeOf(z) };
+        minx = Math.min(minx, z.grid_x); maxx = Math.max(maxx, z.grid_x); miny = Math.min(miny, z.grid_y); maxy = Math.max(maxy, z.grid_y);
+      }
+      if (!Number.isFinite(minx)) return json(res, 404, { error: 'no map_world tiles in content/' });
+      return json(res, 200, { bounds: { minx, maxx, miny, maxy }, cells });
     }
 
     // The catalog IS the form. Shipped whole so the client renders fields it has

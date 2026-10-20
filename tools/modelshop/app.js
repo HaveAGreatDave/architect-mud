@@ -358,8 +358,18 @@ function select(key) {
   selectedSeg = -1;
   invalidateEdit(key);
   $('modelname').textContent = bare(key);
+  cabLink();
   fillCompare();
   preset(state.preset);
+}
+
+// The cab from the driver's seat with the driver's things in it (cabtrinkets.html), offered on a
+// truck's page only: a truck is the one vehicle with a cab anything hangs in (client/shared/cab-trinkets.js).
+function cabLink() {
+  const v = entryOf(state.key)?.vehicle, a = $('cablink');
+  const on = v?.cls === 'truck' && !!v.variant;
+  a.hidden = !on;
+  if (on) a.href = '/cabtrinkets.html?truck=' + encodeURIComponent(v.variant);
 }
 
 // ── the viewport ────────────────────────────────────────────────────────────
@@ -1401,6 +1411,7 @@ addEventListener('resize', () => { if (!state.spin) draw(); });
 
 initViewport();
 $('modelname').textContent = bare(state.key);
+cabLink();
 fillCompare();
 preset('cockpit');
 // The editor loads its documents after the first paint, so the inspector is usable

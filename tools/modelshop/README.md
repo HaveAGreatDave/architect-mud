@@ -33,6 +33,15 @@ which starts it for you the way the Map Studio link does. Both links share one l
 | <kbd>O</kbd> / <kbd>T</kbd> | the model browser · show or hide the tool palette |
 | <kbd>F</kbd> | re-frame |
 
+**Its other pages** open from the toolbar in their own tab. **Actor Lab ↗** is always there, and
+the Actor Lab's header goes on to the **Pose Lab**. **Cab interior ↗** shows on a truck's page only
+and opens `/cabtrinkets.html?truck=<id>`, that truck's cab with the driver's things hung in it: a
+truck is the one vehicle with a cab anything hangs in (`client/shared/cab-trinkets.js`). The cab
+is GLASS 2 geometry, so the page installs the GL pass the way the game does; without it the glass
+shows the road and no cab. The dash trinket stands on the passenger side, so turn the `look`
+slider to see it. The
+seabed map moved to the Studio, whose coast it shades.
+
 **Every model arrives framed.** The framing is SOLVED, not guessed: the model own bounds go to
 `previewFit()`, which returns the distance that fills the picture on whichever axis is tight. It
 used to be a formula off the roof height, which suited a mid-rise and left a shed tiny and a spire

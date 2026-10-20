@@ -212,11 +212,6 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && path === '/actor-lab.html') {
       return send(res, 200, await readFile(join(HERE, 'actor-lab.html')), 'text/html; charset=utf-8');
     }
-    // The procedural seabed (client/shared/seabed.js) drawn as a depth map over the real coast, for
-    // judging its shape by eye. scripts/shapes/seabed.mjs is what gates it; this is only a picture.
-    if (req.method === 'GET' && path === '/seabed.html') {
-      return send(res, 200, await readFile(join(HERE, 'seabed.html')), 'text/html; charset=utf-8');
-    }
     // The tool's own modules. Name-restricted and joined onto this directory, so it cannot climb
     // out of it — the same shape as the client allowlist below, and the reason it is a pattern
     // rather than a list of filenames is that `app.js` importing `./editor.js` 404s otherwise.
