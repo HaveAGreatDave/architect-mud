@@ -45907,8 +45907,13 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
     // wall. A blade's anchor is authored INSIDE the facade — which is what BLADE_PROUD exists for —
     // so a face pulled 0.25 and sides pulled 0.05 would separate by a fifth of a tile and the board
     // would float off its own edges. So these go through emitDecoQuad with a solid texture.
-    const dark = '#0e0a10', S = SOLID;
-    const side = (pts) => {
+    // ⚠ THE BOX IS THE FACE, NOT THE QUAD. `SOLID.hw` and `z0/z1` are the PADDED extents that carry
+    // the baked halo; a box built on them is a black frame twice the blade's width standing round it
+    // whenever the sign is lit. So the sides take the lit face's half-width and ends.
+    const fmid = (SOLID.z0 + SOLID.z1) / 2;
+    const S = { ...SOLID, hw: fW, z0: fmid - fL, z1: fmid + fL - fL * 2 * cv };
+    const dark = '#0e0a10';
+    const side = (pts, pull = BLADE_PROUD) => {
       const pr = pts.map((q) => cam.proj(q[0], q[1], q[2]));
       if (pr.some((q) => q.f <= 0.12)) return;
       // ⚠ KEYED 'blade|…' AND NOT 'solid|…'. glself tags a decal by the first segment of its key, so
@@ -45921,7 +45926,7 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
         ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = dark;
         ctx.beginPath(); pr.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy));
         ctx.closePath(); ctx.fill(); ctx.restore();
-      }, DECO_LIFT, BLADE_PROUD);
+      }, DECO_LIFT, pull);
       if (DECAL_SINK) tintSince(n0, decoTint(dark), null);
     };
     // ⚠ BACKFACE-CULLED, AND THAT IS A COST DECISION AS MUCH AS A CORRECTNESS ONE. A box has six
@@ -45940,13 +45945,16 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
       side([[S.kx + S.px * S.hw, S.ky + S.py * S.hw, S.z1], [S.kx - S.px * S.hw, S.ky - S.py * S.hw, S.z1],
             [S.kx - S.px * S.hw, S.ky - S.py * S.hw, S.z0], [S.kx + S.px * S.hw, S.ky + S.py * S.hw, S.z0]]);
     }
+    // The two edges and the cap take DECO_PULL, not BLADE_PROUD: at face width a full blade pull
+    // carries an edge seen at 55° through the building next door (glneighbour). The pull only moves
+    // depth, so the part left inside the facade is hidden by it, which is where it really is.
     for (const sg of [1, -1]) {
       if (!seen(dx + S.px * S.hw * sg, dy + S.py * S.hw * sg, S.px * sg, S.py * sg)) continue;
       side([[S.fx + S.px * S.hw * sg, S.fy + S.py * S.hw * sg, S.z1], [S.kx + S.px * S.hw * sg, S.ky + S.py * S.hw * sg, S.z1],
-            [S.kx + S.px * S.hw * sg, S.ky + S.py * S.hw * sg, S.z0], [S.fx + S.px * S.hw * sg, S.fy + S.py * S.hw * sg, S.z0]]);
+            [S.kx + S.px * S.hw * sg, S.ky + S.py * S.hw * sg, S.z0], [S.fx + S.px * S.hw * sg, S.fy + S.py * S.hw * sg, S.z0]], DECO_PULL);
     }
     side([[S.fx + S.px * S.hw, S.fy + S.py * S.hw, S.z1], [S.fx - S.px * S.hw, S.fy - S.py * S.hw, S.z1],
-          [S.kx - S.px * S.hw, S.ky - S.py * S.hw, S.z1], [S.kx + S.px * S.hw, S.ky + S.py * S.hw, S.z1]]);
+          [S.kx - S.px * S.hw, S.ky - S.py * S.hw, S.z1], [S.kx + S.px * S.hw, S.ky + S.py * S.hw, S.z1]], DECO_PULL);
   } else {
     const gn = 1 / (1 - 2 * pad) - 1, gl = (len / 2) * (1 / (1 - 2 * padY) - 1);
     const gx = nx * gn, gy = ny * gn, lx = ux / len * gl, ly = uy / len * gl;

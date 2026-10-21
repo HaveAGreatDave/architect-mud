@@ -30,7 +30,7 @@
 // time-lapse is the one locked-off shot, the whole sheet from high up, in every view.
 
 import { clamp } from './util.js';
-import { RL, RW, GOAL_X, MID_Y } from './geo.js';
+import { RL, RW, GOAL_X, MID_Y, BOARD_H } from './geo.js';
 
 export const NEAR = 0.6, FAR = 600;
 
@@ -54,6 +54,8 @@ function smooth(x, target, st, time, dt, maxV = Infinity) {
 export function camAxes(yaw) { return yaw ? { fx: 1, fy: 0, rx: 0, ry: -1 } : { fx: 0, fy: 1, rx: 1, ry: 0 }; }
 
 const KEYS = ['lx', 'ly', 'lz', 'dist', 'pitch', 'fm'];
+// the steepest a vertical framing tilts to keep its eye out of the end stands
+const EYE_MAX_PITCH = 1.2;
 // how long each number takes to settle, seconds
 const TIME = { lx: 0.55, ly: 0.7, lz: 0.6, dist: 0.8, pitch: 0.8, fm: 0.7 };
 
@@ -70,6 +72,23 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
   // The framing for this instant: the puck (or whatever the director is following), led a
   // little in the direction it's going, and the net it's going at when that matters.
   function target(dt, aspect) {
+    const tg = framing(dt, aspect);
+    // THE VERTICAL EYE STAYS OUT OF THE END STANDS. It sits back down the sheet from what it
+    // looks at, so a close framing at the low end (a scrum on that net: 21 ft past the boards
+    // and 16 up) put it inside the stands, looking through them. The usual high framing
+    // clears them; a low one is tilted steeper, then brought in, until it does.
+    if (api.view !== 'vertical') return tg;
+    let { pitch, dist } = tg;
+    const inStands = () => {
+      const x = tg.lx - dist * Math.cos(pitch), z = tg.lz + dist * Math.sin(pitch);
+      return x < 0 && z < BOARD_H + 4 + (-x / 45) * (40 - BOARD_H);
+    };
+    for (let i = 0; i < 40 && inStands(); i++) {
+      if (pitch < EYE_MAX_PITCH) pitch = Math.min(EYE_MAX_PITCH, pitch + 0.03); else dist *= 0.95;
+    }
+    return pitch === tg.pitch && dist === tg.dist ? tg : { ...tg, pitch, dist };
+  }
+  function framing(dt, aspect) {
     const c = W.cam, f = c.focus;
     if (pf && dt > 0) {
       const k = 1 - Math.exp(-dt * 3);

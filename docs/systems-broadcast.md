@@ -1659,7 +1659,7 @@ they differ or while the count isn't eight.
 
 | Club | Home | Colours | Crest |
 |---|---|---|---|
-| Coldwater Basin Blue Birds | Old Coldwater, by the Meridian | the Blue Jays' City Connect set: night blue, royal and red | a night-blue roundel ringed in royal and red, and breaking out of it a mean blue jay's head in silhouette: crest swept back, black beak, red eye under a brow cut down at the beak, white throat under the black necklace |
+| Basin Blue Birds | Old Coldwater, by the Meridian | the Blue Jays' City Connect set: night blue, royal and red | a night-blue roundel ringed in royal and red, and breaking out of it a mean blue jay's head in silhouette: crest swept back, black beak, red eye under a brow cut down at the beak, white throat under the black necklace |
 | Coldwater Crows | Coldwater | red, black and bone | a die-cut red sticker after a 1909 minor-league one: "Still Watching" round the arch, a crow with its wings up perched on a bat, the club's name in Tuscan capitals over "Baseball Club", "Est. 2022" down the left and "Deadball" down the right |
 | Rustpile Rats, Neon District Wolves, Slagworks Slaggers, Undermarket Moles, Docklands Drowners, Static Saints | | | placeholders, to be replaced; no identity, so they wear the house kits and get no crest |
 

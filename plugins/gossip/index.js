@@ -234,7 +234,7 @@ on('gossip.housing', ({ player, zoneId }) => {
 // talk — capped as its own group so a busy schedule can't bury real news. Every
 // game keyed by gameId so a mid-window re-sim (restart) coalesces, not piles.
 // Each team seen feeds the roster that NPC allegiances (favTeam) are drawn from.
-on('sports.game', ({ gameId, away, home, awayScore, homeScore, winner }) => {
+on('sports.game', ({ gameId, away, home, awayScore, homeScore, winner, endsAtMs }) => {
   if (!away || !home || awayScore == null || homeScore == null) return;
   if (winner !== away && winner !== home) return;
   // Fallback only: until the content roster is pinned, learn teams from the games
@@ -242,11 +242,21 @@ on('sports.game', ({ gameId, away, home, awayScore, homeScore, winner }) => {
   if (!rosterPinned && !(teamRoster.has(away) && teamRoster.has(home))) {
     teamRoster.add(away); teamRoster.add(home); teamAliases = null;
   }
-  add('sports_score', {
+  // The broadcast decides the game when the slot opens, so the event carries the
+  // final before a minute of it has aired. Nobody talks about a result until the
+  // slot has wrapped, or a neighbour spoils the game you're watching. A restart
+  // loses the timer, but the heartbeat re-emits the slot's game on boot.
+  const tell = () => add('sports_score', {
     coalesceKey: `sports|${gameId || `${away}|${home}`}`, capGroup: 'sports',
     vars: { away, home, awayScore, homeScore, winner },
   });
+  const wait = (Number(endsAtMs) || 0) - Date.now();
+  if (wait <= 0) return tell();
+  if (pendingScores.has(gameId)) return;
+  pendingScores.add(gameId);
+  setTimeout(() => { pendingScores.delete(gameId); tell(); }, wait).unref?.();
 });
+const pendingScores = new Set();
 
 on('weather.thunder', ({ zoneId }) => {
   if (!zoneId) return;

@@ -221,7 +221,7 @@ const KNOWN = new Map([
   // single face before, 24.5 each for the four now, because a face built in world units sits where
   // the building actually is instead of at a screen-space half-width. If this climbs again without
   // the part gaining geometry, that is the regression this budget is here to catch.
-  ['decal:blade', { budget: 51, why:
+  ['decal:blade', { budget: 43, why:
    '`neonBlade` mounts its anchor INSIDE the facade — on type:bar, 0.16 of a tile forward against a '
    + 'front wall at 0.328 — because the painter\'s queue always sorted it clear and nobody ever had '
    + 'to place it properly. At a tie-breaker pull the wall wins and the only part of the sign that '

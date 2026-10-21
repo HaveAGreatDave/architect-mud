@@ -3441,7 +3441,7 @@ export default async function regress({ check, run, getPlayer }) {
     const clubs = row.clubs || {};
     const strays = Object.keys(clubs).filter((t) => !teams.includes(t));
     check('deadball: every club with an identity is in the league', !strays.length, strays.join(', '));
-    check('deadball: the Blue Birds and the Crows have identities', !!(clubs['Coldwater Basin Blue Birds'] && clubs['Coldwater Crows']), Object.keys(clubs).join(', '));
+    check('deadball: the Blue Birds and the Crows have identities', !!(clubs['Basin Blue Birds'] && clubs['Coldwater Crows']), Object.keys(clubs).join(', '));
     for (const [name, c] of Object.entries(clubs)) {
       check(`deadball: ${name} have a crest, full and small`, !!(c?.crest?.layers?.length && c?.crest?.small?.length), JSON.stringify(Object.keys(c || {})));
       check(`deadball: ${name} have home and road kits`, ['home', 'road'].every((s) => /^#[0-9a-f]{6}$/i.test(c?.kit?.[s]?.base || '') && c.kit[s].wordmark), JSON.stringify(c?.kit || null));

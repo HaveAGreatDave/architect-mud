@@ -11186,6 +11186,7 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
    flat fill, hairline edge, and the accent carried by fill rather than a halo. */
 #tv-window[data-skin="flatscreen"] #tv-close-btn,
 #tv-window[data-skin="flatscreen"] #tv-read-btn,
+#tv-window[data-skin="flatscreen"] #tv-popout-btn,
 #tv-window[data-skin="flatscreen"] #tv-schedule-btn,
 #tv-window[data-skin="flatscreen"] #tv-gameday-btn,
 #tv-window[data-skin="flatscreen"] #tv-deck-btn,
@@ -11199,6 +11200,7 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 	color: rgba(226, 240, 236, 0.55);
 }
 #tv-window[data-skin="flatscreen"] #tv-read-btn:hover,
+#tv-window[data-skin="flatscreen"] #tv-popout-btn:hover,
 #tv-window[data-skin="flatscreen"] #tv-schedule-btn:hover,
 #tv-window[data-skin="flatscreen"] #tv-gameday-btn:hover,
 #tv-window[data-skin="flatscreen"] #tv-deck-btn:hover,
@@ -11370,7 +11372,8 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 	box-shadow: 0 0 10px rgba(180, 20, 0, 0.45), inset 0 0 5px rgba(180, 20, 0, 0.15);
 }
 /* Read-aloud toggle — matches the close button; lights up when engaged */
-#tv-read-btn {
+#tv-read-btn,
+#tv-popout-btn {
 	background: #0c100e;
 	border: 2px solid #1e2e28;
 	color: #2e4840;
@@ -11387,7 +11390,8 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 	justify-content: center;
 	transition: color 0.2s, border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
-#tv-read-btn:hover {
+#tv-read-btn:hover,
+#tv-popout-btn:hover {
 	color: var(--tv-header-color, #37d67a);
 	border-color: var(--tv-header-color, #2e6a44);
 }
@@ -11396,6 +11400,14 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 	border-color: var(--tv-header-color, #37d67a);
 	box-shadow: 0 0 10px rgba(55, 214, 122, 0.4), inset 0 0 5px rgba(55, 214, 122, 0.15);
 }
+
+/* The pop-out: the set in a window of its own (popOut in tv.js). A phone gets no second window. */
+html[data-density="compact"] #tv-popout-btn { display: none; }
+html.tv-popped, html.tv-popped body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+html.tv-popped #tv-panel { position: fixed; inset: 0; pointer-events: auto; }
+html.tv-popped #tv-window { width: 100vw; height: 100vh; aspect-ratio: auto; max-width: none; max-height: none; position: static !important; margin: 0 !important; border: none; outline: none; }
+html.tv-popped #tv-header { cursor: default !important; }
+
 /* TV-guide toggle — same chassis button as read-aloud; always available, lit while
    the schedule sub-screen is open (.on). */
 #tv-schedule-btn {
@@ -11851,7 +11863,7 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 #tv-standings-panel {
 	position: absolute;
 	inset: 45px 0 72px 0;
-	z-index: 48;
+	z-index: 50;  /* over the live game (#tv-gameday is 48) */
 	display: none;
 	flex-direction: column;
 	background:

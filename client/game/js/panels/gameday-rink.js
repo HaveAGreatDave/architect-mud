@@ -187,6 +187,27 @@ export function createRinkView(host, opts = {}) {
       `<div class="gdr-cap"><span class="gdr-cap-text">${_esc(caption)}</span></div>` +
     `</div>`;
   }
+  // THE CLOCK RUNS BETWEEN PLAYS. The booth sends the clock once a play, 18 to 54 seconds
+  // of it apart, so the header ticks down a second at a time toward the latest one (faster
+  // when it has fallen behind) and holds there until the next, as a clock stops at a
+  // whistle. A new period, or a clock that has gone up, starts again where it says.
+  const clk = { shown: null, aim: 0, section: null, text: '' };
+  const clockText = (s) => { const t = Math.max(0, Math.ceil(s - 1e-6)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+  function clockAim(p) {
+    if (!Number.isFinite(p.clockSecs)) { clk.shown = null; return (clk.text = p.clock || ''); }
+    clk.aim = p.clockSecs;
+    if (clk.shown == null || clk.section !== p.section || clk.aim > clk.shown) clk.shown = clk.aim;
+    clk.section = p.section;
+    return (clk.text = clockText(clk.shown));
+  }
+  function clockTick(real) {
+    if (clk.shown == null || clk.shown <= clk.aim) return;
+    clk.shown = Math.max(clk.aim, clk.shown - real * Math.max(1, (clk.shown - clk.aim) / 6));
+    const t = clockText(clk.shown);
+    if (t === clk.text) return;
+    clk.text = t;
+    const el = host?.querySelector('.gdr-head-time'); if (el) el.textContent = t;
+  }
   // the header redraws with crests when the club identities turn up mid-game
   let offClubs = null;
   // Until the play lands the header can't say how it ends: a goal's payload carries the
@@ -200,7 +221,7 @@ export function createRinkView(host, opts = {}) {
     el.innerHTML =
       `<span class="gdr-head-badge">${cphlMark('17px')}<i>CPhL</i></span>` +
       `<span class="gdr-head-score">${_crest(p.awayTeam, 16)}${_esc(p.awayAbbr || p.awayTeam || 'AWY')} <b>${sc.away | 0}</b>: <b>${sc.home | 0}</b> ${_esc(p.homeAbbr || p.homeTeam || 'HOM')}${_crest(p.homeTeam, 16)}</span>` +
-      `<span class="gdr-head-clock">${p.type === 'intermission' ? 'INTERMISSION' : `${_esc(p.section || '')} ${_esc(p.clock || '')}`}</span>` +
+      `<span class="gdr-head-clock">${p.type === 'intermission' ? 'INTERMISSION' : `${_esc(p.section || '')} <span class="gdr-head-time">${_esc(clockAim(p))}</span>`}</span>` +
       (p.rivalry ? '<span class="gdr-head-rival">RIVALRY</span>' : '') +
       (p.strength && p.strength !== 'even' && p.type !== 'intermission' ? `<span class="gdr-head-str ${_esc(p.strength)}">${_esc(p.strength.toUpperCase())}</span>` : '');
     const st = host.querySelector('.gdr-strip');
@@ -264,6 +285,7 @@ export function createRinkView(host, opts = {}) {
     W.alpha = acc / DT;
     if (R.lost) fallback();
     R.render(now);
+    clockTick(raw);
     govern(raw);
   }
   // QUALITY FOLLOWS THE REAL FRAME TIME, not the time spent in our own code: most of a

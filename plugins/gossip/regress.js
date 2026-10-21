@@ -44,6 +44,11 @@ export default async function regress({ run, check, getPlayer }) {
   const asked = pool.recall(p.current_zone, { n: 50 });
   check('ask-only gossip surfaces when asked', asked.some(i => i.id === secret.id), 'secret must appear in unfiltered recall');
 
+  // sports: a game still on the air is nobody's gossip yet; its final would spoil it
+  emit('sports.game', { gameId: 'gtest-onair', away: 'Static Saints', home: 'Coldwater Kingfishers', awayScore: 9, homeScore: 1, winner: 'Static Saints', endsAtMs: Date.now() + 3600000 });
+  await Promise.resolve();
+  check('a game still on air stays out of the pool', !pool.all().some(i => i.vars?.awayScore === 9), 'the final leaked before the slot ended');
+
   // sports: an aired game becomes a capped, global 'sports' rumour
   emit('sports.game', { gameId: 'gtest-game-1', away: 'Rustpile Rats', home: 'Coldwater Kingfishers', awayScore: 7, homeScore: 4, winner: 'Rustpile Rats' });
   await Promise.resolve();

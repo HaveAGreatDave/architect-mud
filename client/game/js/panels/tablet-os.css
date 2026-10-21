@@ -3432,6 +3432,8 @@ html[data-density="compact"] #tablet-os-overlay .tos-mf:disabled { opacity:.35; 
 #tablet-os-overlay .tos-tv-screen [data-tv="schedule"].on,
 #tablet-os-overlay .tos-tv-screen [data-tv="standings-panel"].on,
 #tablet-os-overlay .tos-tv-screen [data-tv="gameday"].on { display:flex; }
+/* Standings sit over the live game (gameday is 48), never under it. */
+#tablet-os-overlay .tos-tv-screen [data-tv="standings-panel"] { z-index:50; }
 #tablet-os-overlay .tos-tv-screen [data-tv="scorebug"] { position:absolute; right:8px; bottom:8px; z-index:45; display:none;
   pointer-events:none; background:rgba(0,0,0,.82); border:1px solid var(--tv-border);
   border-left:3px solid var(--tv-header-color); border-radius:2px; padding:4px 7px; font-size:0.625rem; }

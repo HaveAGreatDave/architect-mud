@@ -142,6 +142,7 @@ export function createTvView(root, opts = {}) {
   let _stationName = '';      // the tuned station's name, for a sub-screen's corner bug
   let _channelNumber = 0;     // and its number, for the network's tag on a sports bug
   let _gamedayOpen = false;
+  let _gamedayDismissed = false;   // the viewer shut it this broadcast; don't reopen it on the next play
   let _lastGameday = null;
   let _scheduleOpen = false;
   let _scheduleTimer = null;
@@ -673,6 +674,7 @@ export function createTvView(root, opts = {}) {
     // shared: if the zone theme or the player's own AMP tape is what's currently
     // playing, this is a no-op and their music keeps going.
     window.AudioEngine?.stopMusicOwnedBy('tv');
+    popIn();
     opts.onClose?.();
   }
 
@@ -990,6 +992,9 @@ export function createTvView(root, opts = {}) {
     if (btn) btn.classList.add('avail');
     _brandGamedayBtn(gd && gd.sport === 'hockey' ? 'hockey' : 'baseball');
     loadGamedayViews().catch(() => { /* retried when the button is pressed */ });
+    // On the visual rung the game opens by itself; the other rungs keep it behind the button.
+    const rung = state.player?.displayRung;
+    if (!_gamedayOpen && !_gamedayDismissed && _tvOpen && (!rung || rung === 'visual')) { _toggleGameday(); return; }
     if (_gamedayOpen) {
       _gamedayViewFor(gd, el('gameday'))
         .then((view) => { if (_gamedayOpen && _lastGameday === gd) view.apply(gd); })
@@ -1002,6 +1007,7 @@ export function createTvView(root, opts = {}) {
     const btn = el('gameday-btn');
     if (!host) return;
     _gamedayOpen = !_gamedayOpen;
+    if (!_gamedayOpen) _gamedayDismissed = true;
     host.classList.toggle('on', _gamedayOpen);
     btn?.classList.toggle('on', _gamedayOpen);
     if (_gamedayOpen) {
@@ -1021,6 +1027,7 @@ export function createTvView(root, opts = {}) {
   // lingers. Hides the toggle until the next sports broadcast reveals it again.
   function _clearGameday() {
     _gamedayOpen = false;
+    _gamedayDismissed = false;
     _lastGameday = null;
     _gamedayView?.clear();
     _gamedayView = null; _gamedaySport = null;   // next sport mounts its own view
@@ -2158,6 +2165,18 @@ export function createTvView(root, opts = {}) {
 
     window.addEventListener('game-disconnect', () => { if (_tvOpen) shutdown(); });
 
+    // Pop-out: the whole set moves into a window of its own, so it can sit on a second
+    // monitor. It's the same node, so every broadcast keeps rendering into it.
+    const popBtn = el('popout-btn');
+    if (popBtn) {
+      if (typeof window.open !== 'function') popBtn.hidden = true;
+      popBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_popWin) popIn(); else popOut();
+      });
+    }
+    window.addEventListener('pagehide', () => { if (_popWin) _popWin.close(); });
+
     // Draggable TV window
     const header = el('header');
     const win = el('window');
@@ -2184,6 +2203,53 @@ export function createTvView(root, opts = {}) {
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && _tvOpen) shutdown();
     });
+  }
+
+  let _popWin = null, _popHome = null;
+
+  function popOut() {
+    if (_popWin || !_tvOpen) return;
+    const w = window.open('', 'architect-tv', 'popup,width=800,height=560');
+    if (!w) {
+      const btn = el('popout-btn');
+      if (btn) btn.title = 'Pop-out blocked: allow pop-ups for this site';
+      return;
+    }
+    const d = w.document;
+    d.open();
+    d.write('<!doctype html><html class="tv-popped"><head><meta charset="utf-8"><title>Architect TV</title></head><body></body></html>');
+    d.close();
+    // The same sheets as the game, including any a panel loaded at runtime.
+    for (const n of document.head.querySelectorAll('link[rel="stylesheet"], style')) {
+      const c = n.cloneNode(true);
+      if (c.href) c.href = n.href;
+      d.head.appendChild(c);
+    }
+    // and the page's theme and density, which the sheets key off <html>
+    for (const a of document.documentElement.attributes) d.documentElement.setAttribute(a.name, a.value);
+    d.documentElement.classList.add('tv-popped');
+    _popHome = { parent: root.parentNode, next: root.nextSibling };
+    const win = el('window');
+    if (win) { win.style.position = ''; win.style.left = ''; win.style.top = ''; win.style.margin = ''; }
+    d.body.appendChild(d.adoptNode(root));
+    _popWin = w;
+    el('popout-btn')?.classList.add('on');
+    el('popout-btn')?.setAttribute('title', 'Bring the TV back into the game');
+    d.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && _tvOpen) shutdown(); });
+    w.addEventListener('pagehide', () => { if (_popWin === w) popIn(); });
+    w.focus();
+  }
+
+  function popIn() {
+    const w = _popWin;
+    if (!w) return;
+    _popWin = null;
+    if (_popHome?.parent) _popHome.parent.insertBefore(document.adoptNode(root), _popHome.next);
+    _popHome = null;
+    const btn = el('popout-btn');
+    btn?.classList.remove('on');
+    btn?.setAttribute('title', 'Pop out: watch in its own window');
+    try { if (!w.closed) w.close(); } catch {}
   }
 
   // Tear the surface down without the close ceremony — used when the host element

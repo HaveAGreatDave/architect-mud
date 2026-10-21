@@ -20,7 +20,7 @@ postseason bugs fixed, the final named the Curtain Call, its gold graphics, the 
 the line-ups read under searchlights, and the champions crowned with confetti, fireworks over the park
 and the city, a pile on the mound and the trophy; and Phase 6 but for seats in person, the park on the
 map as the Charles B. Hughson Coliseum ([hughson-coliseum.md](hughson-coliseum.md)). The league is eight
-clubs, two of them (the Coldwater Basin Blue Birds and the Coldwater Crows) with identities; the other six, the kits on the players, seats in person and Phase 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+clubs, two of them (the Basin Blue Birds and the Coldwater Crows) with identities; the other six, the kits on the players, seats in person and Phase 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.

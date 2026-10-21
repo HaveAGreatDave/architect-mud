@@ -267,7 +267,7 @@ function crowsCrest() {
   };
 }
 
-// COLDWATER BASIN BLUE BIRDS. A night-blue roundel ringed in royal and red, and breaking
+// BASIN BLUE BIRDS. A night-blue roundel ringed in royal and red, and breaking
 // out of it a blue jay's head in silhouette, crest swept back, a black beak, a red eye under
 // a brow cut down at the beak, and the white throat under the jay's black necklace. The colours are
 // the Blue Jays' City Connect ("Night Mode") set, matched by eye: pitch blue, hyper royal,
@@ -338,7 +338,7 @@ function blueBirdsCrest() {
 // baseball fields the 3-D kits will want (fabric, bill, stirrups, pants, number, wordmark).
 const CLUBS = {
   // the oldest club in the league, from before the collapse; Sir Charles's club
-  'Coldwater Basin Blue Birds': {
+  'Basin Blue Birds': {
     district: 'Old Coldwater',
     home: 'Old Coldwater, by the Meridian',
     founded: 2019,
