@@ -110,10 +110,13 @@ the trucks drive ([systems-trucking.md](../../docs/systems-trucking.md)), throug
   exactly where it reported if the road has it there). Anywhere else the map simply ends: the racer
   is stopped on the last tile and the client follows.
 - **The drive is the crossing.** On the corridor `reconcileCorridor` derives the odometer and the
-  room from the reported position, and `crossToNode` walks the player down the crossing's rooms, so
-  `current_zone` steps along them and voidwalking's own teardown and traces run untouched. The wheels
-  take the fork: steer onto the other limb and you are on it. Backing to the gate once you have been
-  out past it leaves by the gate; the far end lands you in the far region, still driving.
+  room from the reported position, and `walkToNode` walks the player down the crossing's rooms one at
+  a time, however many a report crossed, so `current_zone` steps along them, voidwalking's room
+  window keeps up, and its teardown and traces run untouched. The wheels take the fork: steer onto
+  the other limb and you are on it, walked back to the shared trunk and up the new limb (the two
+  roads share a different length of tarmac than the crossing has shared rooms). Backing to the gate
+  once you have been out past it leaves by the gate; the far end lands you in the far region, still
+  driving.
 - **Stopping out there.** Parking, climbing out or a wreck on the corridor leaves you in the current
   crossing room, with the racer parked in that room; `podracer` from the room puts it back on the
   road where it was left. When the crossing ends with a racer still in it, the racer goes back to the

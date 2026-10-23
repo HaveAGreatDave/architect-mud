@@ -1659,8 +1659,7 @@ export async function flushZone(player, rig) {
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [player.current_zone, player.id]).catch(() => {});
 }
 
-export async function crossToNode(player, rig, node) {
-  const to = rig.chain[node];
+export async function crossToNode(player, rig, node, to = rig.chain[node]) {
   if (!to || to === player.current_zone) { rig.node = node; return null; }
   const zone = getZone(to);
   if (!zone) return null;                                   // instance torn down under us — caller aborts
@@ -1695,6 +1694,43 @@ export async function crossToNode(player, rig, node) {
   // you simply do not walk into it.
   emit('zone.entered', { actor: player, zone: to, mounted: true });
   return zone;
+}
+
+// ── Walking the chain to where the odometer says ─────────────────────────────
+//
+// `crossToNode` moves you one room, and asks for the room to exist. voidwalking materialises a
+// window of WINDOW_R rooms round each member by GRAPH distance and advances it on every
+// zone.entered, so a report that crosses more than that in one go (a fast vehicle, a stalled tab)
+// finds its room not made, and taking the fork with the wheels is the worst case of it: the two
+// roads share more or less tarmac than the crossing has shared rooms, so the odometer can put you in
+// the old limb's rooms while you are still on shared pavement, and the first room of the new limb
+// is then nowhere near you in the graph. This walks it: back down the chain you were on until a room
+// both chains hold, then forward along the new one, one room at a time, so the window keeps up.
+//
+// `chainBefore` is the chain the rig had before the fork was taken (null when it did not change).
+// Returns the room you end in, or null when a room along the way genuinely does not exist, which
+// means the instance was torn down under you.
+export async function walkToNode(player, rig, node, chainBefore = null) {
+  const chain = rig.chain || [];
+  let at = chain.indexOf(player.current_zone);
+  if (at < 0 && chainBefore) {
+    // In the old limb. Back along it to the last room the new chain also holds.
+    let j = chainBefore.indexOf(player.current_zone);
+    while (j > 0 && chain.indexOf(chainBefore[j]) < 0) {
+      j--;
+      if (!getZone(chainBefore[j])) return null;
+      await crossToNode(player, rig, rig.node, chainBefore[j]);
+    }
+    at = chain.indexOf(player.current_zone);
+  }
+  if (at < 0) at = rig.node;
+  const dir = node > at ? 1 : -1;
+  for (let n = at + dir; dir > 0 ? n <= node : n >= node; n += dir) {
+    if (!getZone(chain[n])) return null;
+    await crossToNode(player, rig, n);
+  }
+  rig.node = node;
+  return getZone(chain[node]) || null;
 }
 
 // ── The push to the cab ──────────────────────────────────────────────────────

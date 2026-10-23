@@ -419,8 +419,11 @@ last mile into the yard is part of the haul.
 
 **The leg is vehicle-neutral, and the podracer rides it.** `providerFor`, `joinCorridor`,
 `switchLimb`, `reconcileCorridor` (the position-derived odometer, the fork by steering and the
-bogged test, split out of `reconcileTruck`), `crossToNode` and `landOn` (the step off at either end)
-read only the leg fields on the object they are handed. The podracer (plugins/podracer/seat.js)
+bogged test, split out of `reconcileTruck`), `crossToNode`, `walkToNode` (every room a report
+crossed, one at a time, and back through the old limb to the shared trunk at a fork, so the
+crossing's room window keeps up) and `landOn` (the step off at either end) read only the leg fields
+on the object they are handed. The truck's sync still calls `crossToNode` for one room and parks on
+a missing one; moving it onto `walkToNode` is a follow-up. The podracer (plugins/podracer/seat.js)
 drives off the Scarletwastes rim through them, so no vehicle is confined by an invisible fence. A
 rule about trucks (the 25 mph `speedCap` on joining, diesel, wear) stays in the truck's own code.
 

@@ -13,7 +13,7 @@
 // a region runs on the region's placed tiles; past a road mouth on the rim it is on the void
 // highway, the same corridor the trucks drive, through the same code (plugins/trucking/state.js:
 // `providerFor` says what is under it, `reconcileCorridor` where that is along the road and which
-// room, `crossToNode` walks the player down the crossing, `landOn` steps off at either end). The
+// room, `walkToNode` walks the player down the crossing, `landOn` steps off at either end). The
 // racer has two legs like a rig does, `city` and `corridor`, and the ground test is the leg's
 // provider. A report over no ground at all is refused as `edge`; a report off the placed map where a
 // void begins is the racer leaving the world, and the crossing is launched under it.
@@ -35,7 +35,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 // The crossing and the road over it, read where the trucks read them. voidwalking owns the rooms;
 // trucking owns the tarmac and the leg a vehicle rides along it.
 import { launchCrossing, voidGateOf, crossingInfo, crossingChain, crossingDest } from '../voidwalking/index.js';
-import { joinCorridor, providerFor, reconcileCorridor, crossToNode, landOn, unbog } from '../trucking/state.js';
+import { joinCorridor, providerFor, reconcileCorridor, walkToNode, landOn, unbog } from '../trucking/state.js';
 import { corridorLocate, corridorPos, sOfNode } from '../trucking/corridor.js';
 // A cycle with index.js, safe because `rigs` and `seated` are only read inside function bodies.
 import { rigs, seated } from './index.js';
@@ -315,6 +315,7 @@ export async function trackRacer(player, rig, dtMs, p, broadcast) {
     if (cell) { rig.zoneId = cell.id; return { snap: false }; }
     return leaveTheMap(player, rig, broadcast);
   }
+  const chainBefore = rig.chain;
   const r = reconcileCorridor(rig, Math.max(1, dtMs), racerTilesPerSec(p));
   if (r.bogged) {
     // No road has it. Over placed ground that is a region, and the racer is in it; over nothing it
@@ -332,14 +333,10 @@ export async function trackRacer(player, rig, dtMs, p, broadcast) {
     say(player.id, `<span class="text-amber">The turbines find the other road and hold it. You are on the ${r.tookFork.name} limb now.</span> ${dim('Steer back across if that was not what you meant.')}`);
   }
   if (r.moved) {
-    // ONE ROOM AT A TIME, however many the report crossed. voidwalking materialises a window of a
-    // few rooms round each member and advances it on every zone.entered, so a racer at speed (or a
-    // report after a stalled tab) that jumps past the window finds the far room not made. Stepping
-    // through the rooms between lets the window keep up. A room still missing after that is an
-    // instance torn down under the racer: out of the seat, where you stand.
-    const dir = r.node > rig.node ? 1 : -1;
-    for (let n = rig.node + dir; dir > 0 ? n <= r.node : n >= r.node; n += dir) await crossToNode(player, rig, n);
-    const zone = getZone(rig.chain[r.node]);
+    // ONE ROOM AT A TIME, however many the report crossed, and back through the old limb to the
+    // shared trunk when the wheels took the fork (walkToNode says why). A room still missing after
+    // that is an instance torn down under the racer: out of the seat, where you stand.
+    const zone = await walkToNode(player, rig, r.node, r.tookFork ? chainBefore : null);
     if (!zone || player.current_zone !== zone.id) { await parkRacer(player, broadcast, true); return { snap: false }; }
     rig.zoneId = zone.id;   // the room you are in now: where parking out here leaves you
     if (rig.trunk && r.node === rig.trunk - 1) {

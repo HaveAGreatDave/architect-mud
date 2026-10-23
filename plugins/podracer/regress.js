@@ -497,6 +497,35 @@ export default async function regress({ run, check, getPlayer }) {
               `node ${r2b?.node} s ${r2b?.s?.toFixed(1)} in ${pl.current_zone}`);
           }
 
+          // Taking the fork with the wheels. The two roads share a different length of tarmac than the
+          // crossing has shared rooms, so the odometer can have you in the old limb's rooms while you
+          // are still on shared pavement; the first room of the new limb is then far away in the
+          // crossing graph and not made. walkToNode backs you down to the trunk and up the new limb.
+          // This is the case that climbed a racer out at the Reach turn-off with the fork message.
+          {
+            const r0 = rigs.get(pl.id);
+            const other = r0?.route?.branches?.[0];
+            if (other?.route?.trunkL > 8) {
+              const tl = other.route.trunkL;
+              let ok = true;
+              for (let s = Math.max(9, r0.s + 3); s < tl - 2 && ok; s += 3) {
+                const q = corridorPos(r0.route, s, 0);
+                rigs.get(pl.id).at = Date.now() - 1000;
+                await run(pkt(q.x.toFixed(3), q.y.toFixed(3), q.heading, 120));
+                ok = seated.has(pl.id);
+              }
+              check('the trunk is driven up to the turn-off without losing the seat', ok);
+              const q = corridorPos(other.route, tl + 1, 0);
+              rigs.get(pl.id).at = Date.now() - 3000;
+              await run(pkt(q.x.toFixed(3), q.y.toFixed(3), q.heading, 120));
+              const rf = rigs.get(pl.id);
+              check(`steering onto the ${other.key} limb takes it and keeps the seat`,
+                seated.has(pl.id) && rf?.destKey === other.key, `${rf?.destKey} seated=${seated.has(pl.id)}`);
+              check('…standing in the new limb\'s room the odometer says',
+                !!rf?.chain && pl.current_zone === rf.chain[rf.node], `${pl.current_zone} vs ${rf?.chain?.[rf?.node]}`);
+            }
+          }
+
           // Park out here: you are left in the crossing room and the racer is parked in it.
           const room = pl.current_zone;
           const cur = rigs.get(pl.id);
