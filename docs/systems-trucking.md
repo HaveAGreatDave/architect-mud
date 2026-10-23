@@ -417,6 +417,13 @@ A haul is driven in two different worlds and the rig moves between them by swapp
 copy of it); `leaveCorridor` fires on arrival, so you come off the highway **still driving** and the
 last mile into the yard is part of the haul.
 
+**The leg is vehicle-neutral, and the podracer rides it.** `providerFor`, `joinCorridor`,
+`switchLimb`, `reconcileCorridor` (the position-derived odometer, the fork by steering and the
+bogged test, split out of `reconcileTruck`), `crossToNode` and `landOn` (the step off at either end)
+read only the leg fields on the object they are handed. The podracer (plugins/podracer/seat.js)
+drives off the Scarletwastes rim through them, so no vehicle is confined by an invisible fence. A
+rule about trucks (the 25 mph `speedCap` on joining, diesel, wear) stays in the truck's own code.
+
 City zone changes are **RAM-only** — at cruise a tile passes every ~1.3 s, so a `current_zone` write
 per tile would be a DB round trip on the hottest path in the system. The row is flushed once, on
 park/arrive, exactly as voidwalking flushes `crossing_room` on logout.

@@ -10,7 +10,12 @@ import { _test as idx, rigs, seated } from './index.js';
 import { _test as text, cmdPod } from './texthelm.js';
 import { displayRung, setDisplayRung, DISPLAY_MODE_FLAG } from '../../server/engine/presentation.js';
 import { setFlag } from '../../server/engine/flags.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, setLivePlayer, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
+import { query } from '../../server/models/db.js';
+import { surfaceAt, mapWindow } from '../flight/state.js';
+import { regionGates } from '../trucking/state.js';
+import { corridorPos } from '../trucking/corridor.js';
+import { _test as voidTest } from '../voidwalking/index.js';
 import * as lot from './lot.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -177,8 +182,11 @@ export default async function regress({ run, check, getPlayer }) {
     check('hull, turbines and fuel never go up', up.ok && up.rig.hull === 0.8 && up.rig.eng[0] === 0.9 && up.rig.fuel === 0.6);
     const jump = seat.checkSync(base, pkt({ x: 1034 }), 1250, p);
     check('a ten-tile jump in a quarter second is refused', !jump.ok && jump.why === 'jump');
-    const out = seat.checkSync(base, pkt({ x: 990 }), 1250, p);
-    check('a report outside the Scarletwastes is refused', !out.ok && out.why === 'box');
+    // No box: the test is ground. A report over none is refused; the same report over ground is taken.
+    const out = seat.checkSync(base, pkt({ x: 990 }), 1250, p, (x) => (x >= 1000 ? { id: 'ground' } : null));
+    check('a report over no ground is refused as the edge', !out.ok && out.why === 'edge');
+    const over = seat.checkSync(base, pkt({ x: 1024.5 }), 1250, p, () => ({ id: 'ground' }));
+    check('…and the same report over ground is taken', over.ok);
     const far = seat.checkSync(base, pkt({ ex: 1030 }), 1250, p);
     check('the turbines are clamped to the cables', far.ok && Math.hypot(far.rig.ex - far.rig.x, far.rig.ey - far.rig.y) < 0.5);
     const torn = seat.checkSync({ ...base, binder: false }, pkt({ bind: 1 }), 1250, p);
@@ -407,6 +415,113 @@ export default async function regress({ run, check, getPlayer }) {
       await dropSeat(pl.id);
       if (saved) await setDisplayRung(pl, saved);
       else { await setFlag('player', DISPLAY_MODE_FLAG, '', pl).catch(() => {}); pl.displayRung = undefined; }
+    }
+  }
+
+  // ── Off the rim and onto the highway ────────────────────────────────────────
+  //
+  // No vehicle is confined by an invisible fence. A racer driven off the Scarletwastes at a road
+  // mouth joins the void corridor the trucks drive, through trucking's own leg code: the crossing is
+  // launched under it, its map and ground come from the road, the odometer and the room derive from
+  // the position, and parking out there leaves you in the crossing room with the racer parked in it.
+  {
+    const pl = getPlayer();
+    const KEY = 'region_scarletwastes';
+    const gates = regionGates(KEY);
+    // The west mouth, toward Coldwater: the one with the smallest x.
+    const gate = gates.length ? gates.reduce((a, b) => (b.x < a.x ? b : a)) : null;
+    const off = gate && [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => ({ x: gate.x + dx, y: gate.y + dy, h: dx < 0 ? 270 : dx > 0 ? 90 : dy < 0 ? 0 : 180 }))
+      .find((t) => !surfaceAt(t.x, t.y));
+    check('the Scarletwastes publishes a road mouth with open waste past it', !!gate && !!off, JSON.stringify({ gate, off }));
+    if (gate && off) {
+      voidTest.setWindow(2900);
+      voidTest.setEncounters(false);
+      const id = 'pod_regress_corridor';
+      const zone0 = pl.current_zone;
+      const pkt = (x, y, h, sp) => `podsync ${x} ${y} ${h} ${sp} 1 1 1 1 1 1 3 1 ${x} ${y} ${h}`;
+      let inst = null;
+      try {
+        await query('DELETE FROM podracers WHERE id = $1', [id]);
+        await query(`INSERT INTO podracers (id, type_id, name, owner_id, park_zone, fuel, condition, custom_data)
+          VALUES ($1, 'podracer', 'Regress Racer', $2, $3, 1, 1, '{}'::jsonb)`, [id, pl.id, gate.id]);
+        const row = (await query('SELECT * FROM podracers WHERE id = $1', [id])).rows[0];
+        // Standing on the rim tile the racer is parked on, with no muster or crossing left over from
+        // another suite (the trucking suite's own note on this).
+        removePlayerFromZone(pl.id, pl.current_zone);
+        pl.current_zone = gate.id; addPlayerToZone(pl.id, gate.id);
+        setLivePlayer(pl.id, pl);
+        delete pl._crossing;
+        voidTest.playerStaging.delete(pl.id);
+        for (const [sid, st] of voidTest.stagings) if (st.leaderId === pl.id) voidTest.stagings.delete(sid);
+
+        await mountRacer(pl, row);
+        const rig = rigs.get(pl.id);
+        check('a racer parked on the rim tile is mounted, on the city leg', seated.get(pl.id) === id && rig?.leg === 'city', rig?.leg);
+        check('…and the approach already has the highway past the rim in its ground',
+          !!seat.groundFor(rig)(off.x, off.y) && !surfaceAt(off.x, off.y));
+
+        // Drive off the rim: one tile past it, where the placed map ends and the road does not.
+        rig.at = Date.now() - 500;
+        await run(pkt(off.x, off.y, off.h, 60));
+        const r1 = rigs.get(pl.id);
+        check('driving off the rim starts a crossing', !!pl._crossing);
+        check('…and the racer is on the corridor leg with a road and a chain', r1?.leg === 'corridor' && !!r1.route && r1.chain?.length > 0, r1?.leg);
+        check('…standing in the first room of it', !!r1?.chain && r1.chain[0] === pl.current_zone, pl.current_zone);
+        check('…where it reported, not snapped back to the gate', !!r1 && Math.hypot(r1.x - off.x, r1.y - off.y) < 0.01, `${r1?.x},${r1?.y}`);
+        inst = pl._crossing && voidTest.crossings.get(pl._crossing.instanceId);
+
+        // A corridor report: six tiles down the road. The odometer is derived from the position.
+        if (r1?.route) {
+          const p6 = corridorPos(r1.route, 6, 0);
+          r1.at = Date.now() - 2000;
+          await run(pkt(p6.x.toFixed(3), p6.y.toFixed(3), p6.heading, 120));
+          const r2 = rigs.get(pl.id);
+          check('a corridor report is taken, with no box to refuse it', !!r2 && Math.hypot(r2.x - p6.x, r2.y - p6.y) < 0.01, `${r2?.x},${r2?.y}`);
+          check('…and the odometer is derived from the position', !!r2 && Math.abs(r2.s - 6) < 0.6, r2?.s);
+          check('…in the room the odometer says', !!r2?.chain && pl.current_zone === r2.chain[r2.node], `${pl.current_zone} vs ${r2?.chain?.[r2?.node]}`);
+          const win = mapWindow({ grid_x: Math.round(p6.x), grid_y: Math.round(p6.y) }, 1, seat.groundFor(r2));
+          check('…with its map window drawn from the road', win[1][1].kind !== 'air' && !!win[1][1].road, JSON.stringify(win[1][1]).slice(0, 80));
+          check('the text helm sees tarmac there, not the edge of the waste',
+            !text.solidAt(p6.x, p6.y, seat.groundFor(r2)) && text.groundAt(p6.x, p6.y, seat.groundFor(r2)) === 'road');
+
+          // Park out here: you are left in the crossing room and the racer is parked in it.
+          const room = pl.current_zone;
+          r2.speed = 0;
+          const parked = await run('podevent park');
+          check('parking on the corridor leaves you in the crossing room', pl.current_zone === room && !seated.has(pl.id), parked?.message?.slice(0, 60));
+          const after = (await query('SELECT park_zone FROM podracers WHERE id = $1', [id])).rows[0];
+          check('…and the racer is parked in that room', after?.park_zone === room, after?.park_zone);
+
+          // Back in from the room: the racer goes back onto the road where it was left.
+          await mountRacer(pl, { ...row, park_zone: room });
+          const r3 = rigs.get(pl.id);
+          check('climbing back in from the crossing room puts it on the road there', r3?.leg === 'corridor' && pl.current_zone === room, r3?.leg);
+          await dropSeat(pl.id);
+        }
+
+        // The crossing ends with the racer parked in it: it goes back to the rim tile.
+        if (inst) {
+          voidTest.teardownInstance(inst);
+          inst = null;
+          let home = null;
+          for (let i = 0; i < 40 && home !== gate.id; i++) {
+            await new Promise((r) => setTimeout(r, 50));
+            home = (await query('SELECT park_zone FROM podracers WHERE id = $1', [id])).rows[0]?.park_zone;
+          }
+          check('a crossing torn down with a racer parked in it sends the racer back to the rim', home === gate.id, home);
+        }
+      } finally {
+        await dropSeat(pl.id);
+        if (inst && voidTest.crossings.has(inst.id)) voidTest.teardownInstance(inst);
+        delete pl._crossing;
+        voidTest.setEncounters(true);
+        voidTest.setWindow(null);
+        await query('DELETE FROM podracers WHERE id = $1', [id]).catch(() => {});
+        removePlayerFromZone(pl.id, pl.current_zone);
+        pl.current_zone = zone0; addPlayerToZone(pl.id, zone0);
+        setLivePlayer(pl.id, pl);
+        await query('UPDATE players SET current_zone = $1 WHERE id = $2', [zone0, pl.id]).catch(() => {});
+      }
     }
   }
 

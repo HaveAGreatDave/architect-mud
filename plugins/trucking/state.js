@@ -998,7 +998,14 @@ function previewFor(rig) {
 }
 
 // City → corridor. Called when the rig drives off the rim into a live crossing.
-export function joinCorridor(rig, { instanceId, destKey, voidKey, window, chain, dest, trunk = 1 }) {
+//
+// ⚠ VEHICLE-NEUTRAL, with the functions under it (`switchLimb`, `leaveCorridor`, `landOn`,
+// `crossToNode`, `reconcileCorridor`, `providerFor`). They read and write the leg fields on the
+// object they are handed and nothing a truck alone has, and the podracer (plugins/podracer/seat.js)
+// drives off the Scarletwastes rim through them. A rule about trucks goes in the caller, not here.
+// `speedCap` is the one such rule that was here: a truck does not leave the world at cruise, a racer
+// leaves it at whatever it was doing.
+export function joinCorridor(rig, { instanceId, destKey, voidKey, window, chain, dest, trunk = 1, speedCap = 25 }) {
   rig.leg = 'corridor';
   rig.instanceId = instanceId; rig.destKey = destKey; rig.voidKey = voidKey;
   rig.window = window; rig.chain = chain; rig.dest = dest; rig.trunk = Math.max(1, trunk | 0);
@@ -1006,7 +1013,7 @@ export function joinCorridor(rig, { instanceId, destKey, voidKey, window, chain,
   rig.s = 0; rig.t = 0; rig.node = 0; rig.sMax = 0;
   const start = corridorPos(rig.route, 0, 0);
   rig.x = start.x; rig.y = start.y; rig.heading = start.heading;
-  rig.speed = Math.min(rig.speed, 25);   // you don't leave the world at cruise
+  rig.speed = Math.min(rig.speed, speedCap);
   return rig;
 }
 
@@ -1048,6 +1055,20 @@ export function leaveCorridor(rig, x, y, heading = 180) {
   rig.leg = 'city';
   rig.x = x; rig.y = y; rig.heading = heading;
   rig.route = null; rig.chain = null; rig.s = 0; rig.t = 0; rig.node = 0;
+  return rig;
+}
+// The whole step off the highway onto a placed tile: the far region on arrival, the tile you left
+// from on turning back, or whatever ground the wheels found. The player is moved in RAM and the row
+// written once, and `zone.entered` fires on a room outside the crossing's set, which is what tells
+// voidwalking to tear the instance down. The prose is the caller's; this is the move.
+export async function landOn(player, rig, zone) {
+  removePlayerFromZone(player.id, player.current_zone);
+  addPlayerToZone(player.id, zone.id);
+  player.current_zone = zone.id;
+  emit('zone.entered', { actor: player, zone: zone.id });
+  await query('UPDATE players SET current_zone=$1 WHERE id=$2', [zone.id, player.id]).catch(() => {});
+  leaveCorridor(rig, zone.grid_x, zone.grid_y, rig.heading);
+  rig.zoneId = zone.id; rig.zoneDirty = false;
   return rig;
 }
 export function dismountRig(playerId) {
@@ -1264,11 +1285,26 @@ export function reconcileTruck(rig, d, now = Date.now()) {
   }
 
   // ── Corridor leg ──
-  // Bogged: past the OFF-ROAD limit — four times the paved half-width — there is no ground left to
-  // synthesise, the rig stalls, and the caller puts it back on the shoulder. This used to fire at
-  // the edge of the tarmac, which made the verge a wall wearing a penalty's clothes. Now leaving
-  // the road is ordinary driving that is slow and eats tyres (see WHEEL_SURFACE in damage.js), and
-  // this is only the far end of that: somewhere you have to genuinely set out for.
+  // The road's own part of the reconcile: where the reported position is along it, which limb has
+  // the wheels, and whether any road has them at all. It is the same for every vehicle on the
+  // highway, so it is its own function below and the podracer reads it too.
+  return reconcileCorridor(rig, dtMs, topTilesPerSec(), d.s);
+}
+
+// ── THE CORRIDOR'S HALF OF A RECONCILE, FOR ANY VEHICLE ON IT ────────────────
+//
+// Takes a rig that is on the corridor leg (`route`, `chain`, `instanceId`, `s`, `t`, `node`,
+// `sMax`, `x`, `y`) and the elapsed time, derives the odometer from the reported position, lets
+// the wheels take a fork, and says which room that puts you in. Nothing here is about diesel,
+// wear or a trailer: `reconcileTruck` does those first and hands over; the podracer's seat does its
+// own envelope and hands over the same way. `tilesPerSec` is the vehicle's flat-out, with slack.
+//
+// Bogged: past the OFF-ROAD limit — four times the paved half-width — there is no ground left to
+// synthesise, the rig stalls, and the caller puts it back on the shoulder. This used to fire at
+// the edge of the tarmac, which made the verge a wall wearing a penalty's clothes. Now leaving
+// the road is ordinary driving that is slow and eats tyres (see WHEEL_SURFACE in damage.js), and
+// this is only the far end of that: somewhere you have to genuinely set out for.
+export function reconcileCorridor(rig, dtMs, tilesPerSec, claimedS = NaN) {
   // ── TAKING THE FORK BY STEERING INTO IT ────────────────────────────────────
   //
   // The junction was a thing you could SEE and not a thing you could DRIVE. Both limbs are
@@ -1356,8 +1392,8 @@ export function reconcileTruck(rig, d, now = Date.now()) {
   // The anti-cheat job survives intact, because it was never the direction that mattered — it was
   // the RATE. Clamping |Δs| against wall-clock says exactly what the old ceiling said ("you cannot
   // have covered more ground than flat-out in this interval") and says it about both directions.
-  const room = topTilesPerSec() * (dtMs / 1000);
-  const claimed = hit ? hit.s : (Number.isFinite(d.s) ? d.s : rig.s);
+  const room = tilesPerSec * (dtMs / 1000);
+  const claimed = hit ? hit.s : (Number.isFinite(claimedS) ? claimedS : rig.s);
   rig.s = Math.max(0, Math.min(rig.route.L,
     Math.max(rig.s - room, Math.min(claimed, rig.s + room))));
   // THE HIGH-WATER MARK. Not the odometer — that can now go down — but the furthest out this rig
@@ -1367,7 +1403,7 @@ export function reconcileTruck(rig, d, now = Date.now()) {
   // Lateral is derived too, and merely bounded — nothing economic depends on it.
   if (hit) rig.t = Math.max(-rig.route.R, Math.min(rig.route.R, hit.t));
   const node = nodeAt(rig.route, rig.s, rig.chain.length);
-  return { moved: node !== rig.node, node, bogged, city: false, tookFork };
+  return { moved: node !== rig.node, node, bogged, city: false, tookFork, hit };
 }
 
 // The breakdown announcement, shared by BOTH rungs — it lives here rather than in either of them

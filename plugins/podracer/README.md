@@ -3,8 +3,8 @@
 The Rasp Twinspool: two salvaged turbines on a binder, towing a cockpit pod on two cables. Sold and
 hired in the racer bay at the Deadleg, in the Scarletwastes, and raced over the region.
 
-**Status: Phase 1 built (2026-10-08); text helm built (2026-10-18).** Buy, hire, service, sell, recover, drive, park, break down and wreck, from a depot
-to the depot standard, on every Display Mode rung. Racing (courses, laps, times) is not built.
+**Status: Phase 1 built (2026-10-08); text helm built (2026-10-18); the void highway (2026-10-22).** Buy, hire, service, sell, recover, drive, park, break down and wreck, from a depot
+to the depot standard, on every Display Mode rung, over the region and down the void highway to the next one. Racing (courses, laps, times) is not built.
 
 ## The racers
 
@@ -88,8 +88,39 @@ and parts.
   all work (CAM, HELP, TOW, EXIT). Cold with a torn binder, it says so and points at TOW.
 - **The client integrates, the server checks.** `podsync` carries the pod's position and the state
   that can only go down; [seat.js](seat.js) refuses a report that moved further than the racer could
-  have and puts the client back, keeps the racer inside the Scarletwastes box, and clamps the
-  turbines' drawn offset to the cables.
+  have and puts the client back, refuses one over no ground at all (`edge`), and clamps the
+  turbines' drawn offset to the cables. There is no bounding box.
+
+## The highway
+
+No vehicle is confined by an invisible fence. A racer runs anywhere there is ground, and at a road
+mouth on the region's rim the ground goes on: the void highway between regions, the same corridor
+the trucks drive ([systems-trucking.md](../../docs/systems-trucking.md)), through the same code.
+
+- **Two legs, one provider.** The live racer carries a `leg` like a rig does. In a region (`city`)
+  the ground is the placed world, and near a road mouth the approach composes the highway it leads
+  to, so the tarmac is on the seat's map before the rim. On the corridor the ground is the road,
+  its verge and the world underneath. `groundFor(rig)` in [seat.js](seat.js) is trucking's
+  `providerFor`, and it feeds the envelope, the seat's map window and the text helm's eyes alike.
+  The client's `solid()` is unchanged: a tile with no ground is rock, and past the rim there is
+  ground where the road is and nowhere else.
+- **Leaving the world.** A report off the placed map where a void begins goes through voidwalking's
+  `launchCrossing`, as walking off the edge does, and the racer lays its road over the chain that
+  produced (`joinCorridor`, with no speed cap: a racer leaves at whatever it was doing, and stays
+  exactly where it reported if the road has it there). Anywhere else the map simply ends: the racer
+  is stopped on the last tile and the client follows.
+- **The drive is the crossing.** On the corridor `reconcileCorridor` derives the odometer and the
+  room from the reported position, and `crossToNode` walks the player down the crossing's rooms, so
+  `current_zone` steps along them and voidwalking's own teardown and traces run untouched. The wheels
+  take the fork: steer onto the other limb and you are on it. Backing to the gate once you have been
+  out past it leaves by the gate; the far end lands you in the far region, still driving.
+- **Stopping out there.** Parking, climbing out or a wreck on the corridor leaves you in the current
+  crossing room, with the racer parked in that room; `podracer` from the room puts it back on the
+  road where it was left. When the crossing ends with a racer still in it, the racer goes back to the
+  rim tile the crossing set out from (`crossing.ended`), and a restart puts one stranded in an
+  `xing_…` room in the first racer bay.
+- **The text helm** reads the same provider: `pod look` on the corridor names graded road and the
+  edge of the waste where the band ends.
 
 ## The text helm
 
@@ -186,6 +217,7 @@ None.
 
 - `player.login`, `player.logout`: drop the seat, flushing the racer's row.
 - `player.death`: the same, and close the pane.
+- `crossing.ended`: a racer parked in one of the crossing's rooms goes back to the rim tile it set out from.
 
 ## Tick usage
 
@@ -196,6 +228,10 @@ The seat's own sync flushes the row every ten seconds while a racer is running.
 ## Dependencies
 
 - `plugins/flight/state.js` for the map window, sky, contacts and `surfaceAt`, as the powerboat does.
+- `plugins/trucking/state.js` and `corridor.js` for the corridor leg: `providerFor`, `joinCorridor`,
+  `reconcileCorridor`, `crossToNode`, `landOn`, `unbog`, `corridorLocate`, `corridorPos`.
+- `plugins/voidwalking/index.js` for the crossing: `launchCrossing`, `voidGateOf`, `crossingInfo`,
+  `crossingChain`, `crossingDest`.
 
 ## Config
 

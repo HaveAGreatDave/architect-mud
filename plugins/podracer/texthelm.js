@@ -38,7 +38,7 @@ import { rowEng, rowCables, rowBinder, racerLiveryOf } from './lot.js';
 // A cycle with index.js and seat.js, safe because everything taken from them is only read inside
 // function bodies.
 import { rigs, seated } from './index.js';
-import { flushRig, breakdownRacer, wreckRacer, parkRacer, bayLotAt, bayDoors, cmdPodEvent } from './seat.js';
+import { flushRig, breakdownRacer, wreckRacer, parkRacer, bayLotAt, bayDoors, cmdPodEvent, groundFor, trackRacer } from './seat.js';
 
 const TICK = '1s';
 const STEP = 1 / 60;               // the seat's frame
@@ -82,12 +82,17 @@ export const isTextRacing = (pid) => runs.has(pid);
 // ── The ground ─────────────────────────────────────────────────────────────────
 //
 // What the seat's map window says, tile by tile, through the flight sim's own derivation: the
-// seat's `solid()` (outside the region, high ground, any building but a bay door) and `surfaceAt()`.
-// Content, so a tile is kept until the cache is cleared, which a new run does when nobody else is
-// racing by text.
+// seat's `solid()` (no ground, high ground, any building but a bay door) and the leg's ground
+// provider (seat.js groundFor): the placed world in a region, the highway and its verge on the
+// corridor. The placed world is content, so those tiles are kept until the cache is cleared, which a
+// new run does when nobody else is racing by text; a road's cells are synthesised and not cached.
 const _cells = new Map();
-function cellAt(x, y) {
+function cellAt(x, y, at = surfaceAt) {
   const gx = Math.round(x), gy = Math.round(y), k = gx + ',' + gy;
+  if (at !== surfaceAt) {
+    const z = at(gx, gy);
+    return z ? deriveSurfaceCell(z, gx, gy, at) : { kind: 'air' };
+  }
   let c = _cells.get(k);
   if (c === undefined) {
     const z = surfaceAt(gx, gy);
@@ -97,28 +102,28 @@ function cellAt(x, y) {
   }
   return c;
 }
-export function solidAt(x, y) {
-  const c = cellAt(x, y);
+export function solidAt(x, y, at = surfaceAt) {
+  const c = cellAt(x, y, at);
   return c.kind === 'air' || !!c.hi || (!!c.bt && c.mark !== 'bay');
 }
-export function groundAt(x, y) {
-  const c = cellAt(x, y);
+export function groundAt(x, y, at = surfaceAt) {
+  const c = cellAt(x, y, at);
   if (c.biome === 'water' || c.sub) return 'water';
   if (c.road || c.ft === 'dust') return 'road';
   return 'redrock';
 }
-function solidName(x, y) {
-  const c = cellAt(x, y);
+function solidName(x, y, at = surfaceAt) {
+  const c = cellAt(x, y, at);
   if (c.kind === 'air') return 'the edge of the waste';
   if (c.hi) return 'rock';
   return c.bn || 'a building';
 }
 
 /** The nearest solid thing along `deg` from (x, y), as { d, what }, or null inside `max` tiles. */
-export function clearAhead(x, y, deg, max = LOOK_TILES) {
+export function clearAhead(x, y, deg, max = LOOK_TILES, at = surfaceAt) {
   const fx = Math.sin(deg * D2R), fy = -Math.cos(deg * D2R);
   for (let d = 0.25; d <= max; d += 0.25) {
-    if (solidAt(x + fx * d, y + fy * d)) return { d, what: solidName(x + fx * d, y + fy * d) };
+    if (solidAt(x + fx * d, y + fy * d, at)) return { d, what: solidName(x + fx * d, y + fy * d, at) };
   }
   return null;
 }
@@ -143,6 +148,8 @@ export function makeRun(row, at, { pid = null, rung = 'textgames', ground = null
     pid, racerId: row.id, typeId: row.type_id || 'podracer', p, s,
     rigName: row.name || 'racer', name: row.name || p.name,
     livery: racerLiveryOf(row), rung: rung === 'log' ? 'log' : 'textgames', ground,
+    // The ground provider for this run's leg, set by the tick from the live racer (seat.js groundFor).
+    at: surfaceAt,
     fuel: clamp01(row.fuel),
     want: { thrust: 0, bearing: null, brake: false, reverse: false, boost: false, slide: false, dock: false },
     lever: [0, 0], split: 0, crank: 0, sliding: false,
@@ -182,7 +189,8 @@ function inputFor(run, h) {
     dockToggle, slide, boost: !!want.boost,
     starter: run.crank > 0 && run.lever[0] < 0.05 && run.lever[1] < 0.05,
     fuel: run.fuel,
-    solid: run.ground?.solid || solidAt, surface: (run.ground?.surface || groundAt)(s.x, s.y),
+    solid: run.ground?.solid || ((x, y) => solidAt(x, y, run.at)),
+    surface: run.ground?.surface ? run.ground.surface(s.x, s.y) : groundAt(s.x, s.y, run.at),
   };
 }
 
@@ -292,7 +300,7 @@ export function lookLine(run) {
   const { s } = run;
   const seen = [];
   for (let i = 0; i < 8; i++) {
-    const hit = clearAhead(s.x, s.y, i * 45, 10);
+    const hit = clearAhead(s.x, s.y, i * 45, 10, run.at);
     if (hit) seen.push(`${hit.what} ${tiles(hit.d)} ${COMPASS[i]}`);
   }
   const open = 8 - seen.length;
@@ -304,22 +312,22 @@ export function lookLine(run) {
     const b = norm(Math.atan2(near.x - s.x, -(near.y - s.y)) * R2D);
     home = d < 0.6 ? ' You are in the shed door.' : ` The shed door is ${tiles(d)} away, bearing ${hdg(b)} (<b>pod home</b>).`;
   }
-  const ground = { road: 'graded road', water: 'water', redrock: 'red hardpan' }[groundAt(s.x, s.y)];
+  const ground = { road: 'graded road', water: 'water', redrock: 'red hardpan' }[groundAt(s.x, s.y, run.at)];
   return `Over ${ground}, heading ${hdg(pairHeading(s))}. `
     + (seen.length ? `Within ten tiles: ${seen.join('; ')}.` : 'Nothing solid within ten tiles any way.')
     + (seen.length && open ? ` Open ${open === 1 ? 'one way' : `${open} ways`}.` : '') + home;
 }
 
 function hitLine(ev, run) {
-  const what = nearSolid(run.s.x, run.s.y);
+  const what = nearSolid(run.s.x, run.s.y, run.at);
   if (ev.part === 'turbines') return `The turbines clash together at ${ev.mph} mph.`;
   if (ev.part === 'pod') return `The pod hits ${what} at ${ev.mph} mph. Pod ${pct(run.s.hull)}.`;
   const i = ev.part === 'right' ? 1 : 0;
   return `The ${ev.part} turbine hits ${what} at ${ev.mph} mph. It is at ${pct(run.s.engHp[i])}.`;
 }
-function nearSolid(x, y) {
+function nearSolid(x, y, at = surfaceAt) {
   for (let r = 1; r <= 2; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-    if (solidAt(x + dx * 0.5, y + dy * 0.5)) return solidName(x + dx * 0.5, y + dy * 0.5);
+    if (solidAt(x + dx * 0.5, y + dy * 0.5, at)) return solidName(x + dx * 0.5, y + dy * 0.5, at);
   }
   return 'something solid';
 }
@@ -382,7 +390,7 @@ async function tell(live, run, events, dt) {
   // What is coming. The seat shows you the rock; this says how far it is.
   const now = Date.now();
   if (s.speed > 5 && now - run.warnAt > WARN_EVERY_MS) {
-    const hit = clearAhead(s.x, s.y, travelHeading(s));
+    const hit = clearAhead(s.x, s.y, travelHeading(s), LOOK_TILES, run.at);
     if (hit && (hit.d < WARN_TILES || hit.d / (s.speed / p.tileMph) < WARN_S)) {
       run.warnAt = now;
       say(`<span class="text-red">${hit.what[0].toUpperCase() + hit.what.slice(1)}, ${tiles(hit.d)} ahead at ${Math.round(s.speed)} mph.</span>`);
@@ -528,8 +536,15 @@ export async function tick() {
     try {
       const dt = (now - run.last) / 1000;
       run.last = now;
+      // The ground this frame reads is the live racer's leg: the region's tiles, or the road's.
+      run.at = groundFor(rigs.get(pid));
       const events = stepRun(run, dt);
       const rig = publish(run, now);
+      // Where that is in the world, through the seat's own tracking: off the rim and onto the road,
+      // down the crossing's rooms, off at either end. A move the server made is put on the model.
+      const moved = await trackRacer(live, rig, dt * 1000, run.p, null);
+      if (!runs.has(pid)) continue;
+      if (moved.snap) placePodracer(run.s, run.p, rig.x, rig.y, rig.heading);
       await tell(live, run, events, dt);
       if (runs.has(pid) && now - (rig.flushed || 0) > FLUSH_MS) await flushRig(rig).catch(() => {});
     } catch (e) {

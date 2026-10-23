@@ -5,8 +5,10 @@
 //
 //  · Two levers, one per turbine. W and S run both; A and D take thrust off one side to turn,
 //    because more thrust on the left turbine turns the craft right. Each lever can be dragged too.
-//  · The world pushes back. Cliffs, mesas, buildings and the rim of the region are solid, through
-//    `solid()` below; the model bounces off them and reports the hit.
+//  · The world pushes back. Cliffs, mesas, buildings and any tile with no ground under it are solid,
+//    through `solid()` below; the model bounces off them and reports the hit. Past a road mouth on
+//    the rim the server's window carries the void highway, so the road out is ground and the waste
+//    beside it is not (plugins/podracer/seat.js, The highway in the README).
 //  · Three cameras on V: the seat, and a near and a far chase. From the seat the pod is its own
 //    interior (client/shared/interior-podracer.js) and the turbines and cables out ahead are the
 //    craft's mesh, drawn from the seat (windshield.js `seatModel`). The levers, START and BRAKE in
@@ -57,8 +59,8 @@ const wrap180 = (d) => ((d + 540) % 360) - 180;
 
 // ── The map window ─────────────────────────────────────────────────────────────
 // An unknown tile is open ground: the window is finite and the craft reaches its edge between
-// streams. A tile the server sends as `air` is outside every region, which here is the rim of the
-// Scarletwastes, and is solid.
+// streams. A tile the server sends as `air` has no ground: outside every region and off the highway's
+// band. It is solid.
 const OPEN = { kind: 'land', road: 0 };
 function cellAt(dx, dy) {
   const gx = Math.round(st.cx + dx), gy = Math.round(st.cy + dy);

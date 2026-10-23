@@ -11,7 +11,7 @@ import { grimeOf, grimeBand, washCost } from './filth.js';
 import { FITTINGS, FIT_IDS, SLOTS, installedFits, fitInSlot, fitSuffix, priceFor } from './fittings.js';
 import { TRINKETS, TRINKET_IDS, CAB_SLOTS, installedTrinkets, trinketPrice } from '../../client/shared/cab-trinkets.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
-import { on, emit } from '../../server/engine/events.js';
+import { on } from '../../server/engine/events.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { setPosture } from '../../server/engine/posture.js';
 import { query } from '../../server/models/db.js';
@@ -114,7 +114,7 @@ registerCrossingDistance((fromRegion, toRegion) => {
 import { routeOptions, aimedDest, destByWord } from './routes.js';
 import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
-  joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
+  joinCorridor, landOn, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
   announceBreak, switchLimb, atOrBeforeFork, cbLine, passSign, passPlaza, passHitcher, markWreck, pumpAt, pumpClamp, FUEL_FULL,
   gatePair, destsFromGate, rigLocked, tryDoorBoard, doorBoardLine,
   _clearGateCache, networkRoute,
@@ -2143,15 +2143,8 @@ async function retreat(player, rig) {
   // No origin tile: park's fail-safe, out of the cab rather than in a sim with no world.
   if (!home || home.grid_x == null) { await forcedPark(player); return; }
 
-  removePlayerFromZone(player.id, player.current_zone);
-  addPlayerToZone(player.id, home.id);
-  player.current_zone = home.id;
-  // Outside the roomSet, so voidwalking tears the instance down on this event.
-  emit('zone.entered', { actor: player, zone: home.id });
-  await query('UPDATE players SET current_zone=$1 WHERE id=$2', [home.id, player.id]).catch(() => {});
-
-  leaveCorridor(rig, home.grid_x, home.grid_y, rig.heading);
-  rig.zoneId = home.id; rig.zoneDirty = false;
+  // Outside the roomSet, so voidwalking tears the instance down on the event landOn fires.
+  await landOn(player, rig, home);
   pushCab(rig, { arrived: true });
   // The load and contract stay live: coming back isn't charged as a failure.
   sendToPlayer(player.id, {
@@ -2167,16 +2160,9 @@ async function arrive(player, rig) {
   const dest = rig.dest && getZone(rig.dest);
   if (!dest || dest.grid_x == null) { await forcedPark(player); return; }
 
-  removePlayerFromZone(player.id, player.current_zone);
-  addPlayerToZone(player.id, dest.id);
-  player.current_zone = dest.id;
   // Outside the crossing's roomSet, so voidwalking's zone.entered handler tears the instance down.
   // You don't dismount: the last mile into a yard is part of the haul.
-  emit('zone.entered', { actor: player, zone: dest.id });
-  await query('UPDATE players SET current_zone=$1 WHERE id=$2', [dest.id, player.id]).catch(() => {});
-
-  leaveCorridor(rig, dest.grid_x, dest.grid_y, rig.heading);
-  rig.zoneId = dest.id; rig.zoneDirty = false;
+  await landOn(player, rig, dest);
   pushCab(rig, { arrived: true });
   sendToPlayer(player.id, {
     type: 'emote',

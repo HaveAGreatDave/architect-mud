@@ -23,7 +23,7 @@ import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.j
 import { takeFreshVehicle } from '../../server/engine/fresh-vehicle.js';
 import { buyRacer, hireRacer, returnRacer, sellRacer, serviceRow, listRacers, racerHere, isLot, stockLines,
   racerLine, myRacers, racerPanel, sweepHires, recoverRacer, paintRow } from './lot.js';
-import { mountRacer, cmdPodSync, cmdPodEvent, dropSeat, bayLotAt, pushBay, svcState, recoverSeated } from './seat.js';
+import { mountRacer, cmdPodSync, cmdPodEvent, dropSeat, bayLotAt, pushBay, svcState, recoverSeated, homeLot } from './seat.js';
 import { PODRACER_TYPES, podracerPoseFrom } from '../../client/game/js/panels/podracer-model.js';
 import { cmdPod, textPodCtx } from './texthelm.js';
 
@@ -239,4 +239,27 @@ const events = {
 };
 for (const [name, fn] of Object.entries(events)) on(name, (payload) => { try { fn(payload || {}); } catch (e) { console.error('[podracer] ' + name + ':', e.message); } });
 
-export const _test = { racerContactsNear, pushDepot };
+// ── A racer left on the highway ────────────────────────────────────────────────
+// A racer parked on the corridor is parked in a transient crossing room. When the crossing ends it
+// goes to the tile the crossing set out from (the rim), as the trucks do, and a restart puts any
+// racer still in an `xing_…` room in the first racer bay, since the rim it came from is gone with
+// the RAM. Fired before the rooms are unregistered: voidwalking's teardownInstance.
+export async function recoverRacersFrom(rooms, home) {
+  if (!rooms?.length || !home) return 0;
+  const { rowCount } = await query(
+    `UPDATE podracers SET park_zone = $1, custom_data = COALESCE(custom_data, '{}'::jsonb) - 'heading' WHERE park_zone = ANY($2)`,
+    [home, rooms]).catch(() => ({ rowCount: 0 }));
+  return rowCount || 0;
+}
+on('crossing.ended', async ({ rooms, origin }) => {
+  const n = await recoverRacersFrom(rooms, origin || homeLot()).catch(() => 0);
+  if (n) console.log(`[podracer] ${n} racer(s) left on a crossing that ended are back on the rim.`);
+});
+setTimeout(async () => {
+  const { rows } = await query(`SELECT DISTINCT park_zone FROM podracers WHERE park_zone LIKE 'xing\\_%'`).catch(() => ({ rows: [] }));
+  if (!rows.length) return;
+  const n = await recoverRacersFrom(rows.map((r) => r.park_zone), homeLot()).catch(() => 0);
+  if (n) console.log(`[podracer] ${n} racer(s) stranded in void rooms by a restart are back in the bay.`);
+}, 0);
+
+export const _test = { racerContactsNear, pushDepot, recoverRacersFrom };

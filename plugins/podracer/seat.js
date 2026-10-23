@@ -8,10 +8,19 @@
 //
 // The server trusts only the pod's position. The turbines' offset from it is for drawing other
 // players' racers and is clamped to the length of the cables.
+//
+// WHERE IT MAY GO: anywhere there is ground, and nowhere there is not. There is no box. A racer in
+// a region runs on the region's placed tiles; past a road mouth on the rim it is on the void
+// highway, the same corridor the trucks drive, through the same code (plugins/trucking/state.js:
+// `providerFor` says what is under it, `reconcileCorridor` where that is along the road and which
+// room, `crossToNode` walks the player down the crossing, `landOn` steps off at either end). The
+// racer has two legs like a rig does, `city` and `corridor`, and the ground test is the leg's
+// provider. A report over no ground at all is refused as `edge`; a report off the placed map where a
+// void begins is the racer leaving the world, and the crossing is launched under it.
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { getZone, getAllZones, getMinimapData } from '../../server/engine/world.js';
+import { getZone, getAllZones, getMinimapData, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { applyStrikeToPlayer } from '../../server/engine/combat.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
@@ -23,14 +32,18 @@ import { streetActors } from '../../server/engine/street-actors.js';
 import { PODRACER_TYPES } from '../../client/game/js/panels/podracer-model.js';
 import { typeOf, isLot, rowEng, rowCables, rowBinder, recoverFee, racerLiveryOf, hireOf, hireLeft, sweepHires, racerPanel } from './lot.js';
 import { adjustCredits } from '../../server/engine/economy.js';
+// The crossing and the road over it, read where the trucks read them. voidwalking owns the rooms;
+// trucking owns the tarmac and the leg a vehicle rides along it.
+import { launchCrossing, voidGateOf, crossingInfo, crossingChain, crossingDest } from '../voidwalking/index.js';
+import { joinCorridor, providerFor, reconcileCorridor, crossToNode, landOn, unbog } from '../trucking/state.js';
+import { corridorLocate, corridorPos, sOfNode } from '../trucking/corridor.js';
 // A cycle with index.js, safe because `rigs` and `seated` are only read inside function bodies.
 import { rigs, seated } from './index.js';
 import { startTextPod, stopTextPod } from './texthelm.js';
 
 export const RADIUS = 20;               // must match RAD in client/game/js/panels/podracer-view.js
-// The Scarletwastes, where a racer may run. The client treats the rim as a wall; this is the check.
-export const BOX = { x0: 1000, x1: 1092, y0: 950, y1: 1001 };
-const BOX_MARGIN = 1;
+// Backing to the gate you came in by leaves by it, once you have been further out than this.
+const RETREAT_ARM = 2;
 const FLUSH_MS = 10_000;
 const CONTACT_PUSH_MS = 1000;
 const ACTOR_PUSH_MS = 2000;
@@ -44,7 +57,18 @@ const STOP_MPH = 5;                     // parking needs it all but stopped
 const TAUGHT = 'podracer_taught';
 
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v ?? 1)));
-const inBox = (x, y, m = 0) => x >= BOX.x0 - m && x <= BOX.x1 + m && y >= BOX.y0 - m && y <= BOX.y1 + m;
+const say = (pid, message) => sendToPlayer(pid, { type: 'emote', message });
+const dim = (t) => `<span class="text-dim">${t}</span>`;
+
+/**
+ * What is under a racer, tile by tile: the leg's provider. In a region that is the placed world, and
+ * near a road mouth the approach composes the highway it leads to, so the tarmac is there before you
+ * reach the rim. On the corridor it is the road, its verge and the world underneath. A racer with no
+ * leg yet (the pure envelope tests build one from a bare position) gets the placed world.
+ */
+export function groundFor(rig) { return rig?.leg ? providerFor(rig) : surfaceAt; }
+// The racer's flat-out in tiles a second, with the envelope's slack: the odometer clamp on the road.
+const racerTilesPerSec = (p) => (p.topSpeed / p.tileMph) * JUMP_SLACK;
 
 
 // ── The bay ────────────────────────────────────────────────────────────────────
@@ -81,7 +105,9 @@ export function startOf(row) {
     if (!door || door.map_id !== 'map_world') return null;
     return { x: door.grid_x, y: door.grid_y, heading: HEADING_OF[door.flags?.entrance] ?? 180, bay: zone.id };
   }
-  if (zone.map_id !== 'map_world' || !inBox(zone.grid_x, zone.grid_y)) return null;
+  // Any placed tile in any region. A crossing room has no grid and is mounted from the road instead
+  // (mountRacer, below).
+  if (zone.map_id !== 'map_world' || zone.grid_x == null) return null;
   return { x: zone.grid_x, y: zone.grid_y, heading: Number(row.custom_data?.heading) || 0, bay: null };
 }
 
@@ -96,14 +122,14 @@ function farOf(x, y) {
   return { skyline: skylineNear(x, y, RADIUS), regions: nearbyRegions(x, y), roads: farRoadsNear(x, y, FAR_ROAD_R) };
 }
 
-export function seatContext(row, at, playerId) {
+export function seatContext(row, at, playerId, rig = null) {
   const sky = skyState(at.x, at.y) || {};
   return {
     name: row.name || typeOf(row.type_id)?.name || 'racer',
     typeId: row.type_id,
     gx: at.x, gy: at.y,
     heading: at.heading ?? (Number(row.custom_data?.heading) || 0),
-    map: mapWindow({ grid_x: at.x, grid_y: at.y }, RADIUS),
+    map: mapWindow({ grid_x: at.x, grid_y: at.y }, RADIUS, groundFor(rig)),
     params: PODRACER_TYPES[row.type_id] || PODRACER_TYPES.podracer,
     hull: clamp01(row.condition), fuel: clamp01(row.fuel), eng: rowEng(row), cables: rowCables(row), binder: rowBinder(row),
     recoverFee: typeOf(row.type_id) ? recoverFee(typeOf(row.type_id)) : 0,
@@ -120,8 +146,11 @@ export function seatContext(row, at, playerId) {
 export async function mountRacer(player, row) {
   const t = typeOf(row.type_id);
   if (!t) return { type: 'error', message: 'That racer is a type the yard no longer knows how to start.' };
-  const at = startOf(row);
-  if (!at) return { type: 'error', message: 'It is not sitting anywhere it could be started from.' };
+  let at = startOf(row);
+  // Left on the highway: the row's park_zone is the crossing room you are standing in, and the racer
+  // goes back onto the road at that room, as a truck does (trucking's mountOnCrossing).
+  const road = !at && player._crossing && row.park_zone === player.current_zone ? roadJoinFor(player) : null;
+  if (!at && !road) return { type: 'error', message: 'It is not sitting anywhere it could be started from.' };
   if (hireOf(row) && hireLeft(row) <= 0) {
     await sweepHires(player.id);
     return { type: 'error', message: 'The hire has run out. The yard has taken it back.' };
@@ -135,24 +164,50 @@ export async function mountRacer(player, row) {
       : 'The binder is torn out and it is going nowhere. The racer bay at the Deadleg can send the flatbed: <b>podracer recover</b>.' };
   }
   seated.set(player.id, row.id);
-  rigs.delete(player.id);
   svcState.delete(player.id);
+  // The live racer, seeded now rather than on the first report, so its leg is known from the first
+  // map the seat is sent: the approach road is in that window.
+  const rig = seedRig(player, row.id, row);
+  if (road) {
+    joinCorridor(rig, { ...road, speedCap: Infinity });
+    const i = rig.chain.indexOf(player.current_zone);
+    if (i > 0) { rig.node = i; rig.s = sOfNode(rig.route, i); rig.sMax = rig.s; }
+    const pp = corridorPos(rig.route, rig.s, 0);
+    rig.x = pp.x; rig.y = pp.y; rig.heading = pp.heading; rig.zoneId = player.current_zone;
+    at = { x: rig.x, y: rig.y, heading: rig.heading, bay: null, road: true };
+  } else {
+    rig.x = at.x; rig.y = at.y; rig.heading = at.heading;
+    rig.zoneId = surfaceAt(at.x, at.y)?.id || null;
+  }
+  const line = at.bay
+    ? 'The yard lets the racer down off the blocks in the shed door, turbines out at the hardpan. You climb into the pod and pull the straps over your shoulders.'
+    : at.road
+      ? 'You climb back into the pod where you left it, on the shoulder of the highway. The turbines are cold.'
+      : 'You climb down into the pod and pull the straps over your shoulders. The turbines are cold.';
   // The text rungs drive the same racer by orders (texthelm.js). The rung is read here, once, and
   // latched on the run: the tick never asks.
   if (await prefersTextMinigamesOrDefault(player)) {
     startTextPod(player, row, at, (await prefersLoggedPanelsOrDefault(player)) ? 'log' : 'textgames');
     sendToPlayer(player.id, { type: 'podracer_close' });
-    return { type: 'emote', message: (at.bay
-      ? 'The yard lets the racer down off the blocks in the shed door, turbines out at the hardpan. You climb into the pod and pull the straps over your shoulders.'
-      : 'You climb down into the pod and pull the straps over your shoulders. The turbines are cold.')
+    return { type: 'emote', message: line
       + ` <span class="text-dim">Heading ${Math.round(at.heading ?? 0)}. <b>pod start</b> lights the turbines, <b>pod half</b> or <b>pod full</b> for thrust, <b>pod 270</b> to steer for a heading, <b>pod look</b> for what is round you, <b>pod park</b> to climb out. <b>pod help</b> has every order.</span>` };
   }
   const first = !(await getFlag('player', TAUGHT, player));
   sendToPlayer(player.id, { type: 'podracer_close' });
-  sendToPlayer(player.id, { type: 'podracer_sim', ...seatContext(row, at, player.id), first });
-  return { type: 'emote', message: at.bay
-    ? 'The yard lets the racer down off the blocks in the shed door, turbines out at the hardpan. You climb into the pod and pull the straps over your shoulders.'
-    : 'You climb down into the pod and pull the straps over your shoulders. The turbines are cold.' };
+  sendToPlayer(player.id, { type: 'podracer_sim', ...seatContext(row, at, player.id, rig), first });
+  return { type: 'emote', message: line };
+}
+
+// The crossing you are standing in, as the arguments joinCorridor takes, or null. The first limb
+// offered from this mouth; the wheels take another at the fork.
+function roadJoinFor(player) {
+  const instanceId = player._crossing?.instanceId;
+  const info = instanceId ? crossingInfo(instanceId) : null;
+  const destKey = info?.dests?.[0]?.key;
+  const chain = destKey ? crossingChain(instanceId, destKey) : [];
+  if (!chain.length) return null;
+  return { instanceId, destKey, voidKey: info.voidKey, window: info.window, chain,
+    dest: crossingDest(instanceId, destKey), trunk: info.trunk };
 }
 
 // ── The telemetry ──────────────────────────────────────────────────────────────
@@ -163,9 +218,12 @@ export async function mountRacer(player, row) {
 //   ex ey eh are the turbines' centre and heading, for other players' screens
 //
 // Pure, so the regress suite can drive it without a socket. Returns { ok, rig } or { ok: false, why }.
-export function checkSync(was, n, now, p) {
+// `at` is the ground: the leg's provider (groundFor). A report over nothing is `edge`: the client
+// already treats a tile with no ground as rock, so a report there is a client that disagrees with
+// the server about where the world is, and the server wins.
+export function checkSync(was, n, now, p, at = groundFor(was)) {
   const [x, y, heading, speed, hull, engL, engR, fuel, leverL, leverR, cables, binder, ex, ey, eh] = n;
-  if (!inBox(x, y, BOX_MARGIN)) return { ok: false, why: 'box' };
+  if (!at(Math.round(x), Math.round(y))) return { ok: false, why: 'edge' };
   if (Number.isFinite(was.x) && Number.isFinite(was.y) && was.at) {
     const dt = Math.min(JUMP_MAX_S, Math.max(0, (now - was.at) / 1000));
     const reach = (p.topSpeed / p.tileMph) * dt * JUMP_SLACK + JUMP_TILES;
@@ -196,7 +254,7 @@ export function checkSync(was, n, now, p) {
   return { ok: true, rig };
 }
 
-export async function cmdPodSync(args = [], raw, player) {
+export async function cmdPodSync(args = [], raw, player, broadcast) {
   const id = seated.get(player.id);
   if (!id) return null;
   const n = args.map(Number);
@@ -204,7 +262,8 @@ export async function cmdPodSync(args = [], raw, player) {
   const was = rigs.get(player.id) || await seedRig(player, id);
   if (!was) return null;
   const p = PODRACER_TYPES[was.typeId] || PODRACER_TYPES.podracer;
-  const res = checkSync(was, n, Date.now(), p);
+  const now = Date.now();
+  const res = checkSync(was, n, now, p, groundFor(was));
   if (!res.ok) {
     // Put the client back where the server last believed it was.
     if (Number.isFinite(was.x)) sendToPlayer(player.id, { type: 'podracer_ctx', snap: { x: was.x, y: was.y, heading: was.heading } });
@@ -212,13 +271,18 @@ export async function cmdPodSync(args = [], raw, player) {
   }
   const rig = res.rig;
   rigs.set(player.id, rig);
+  // Where that puts it in the world: the tile under it, or the room along the road, or off the map
+  // and onto the highway. A move the server made (the shoulder, the far gate) is snapped on the client.
+  const moved = await trackRacer(player, rig, was.at ? now - was.at : 0, p, broadcast);
+  if (!seated.has(player.id)) return null;
+  if (moved.snap) sendToPlayer(player.id, { type: 'podracer_ctx', snap: { x: rig.x, y: rig.y, heading: rig.heading } });
 
   const cx = Math.round(rig.x), cy = Math.round(rig.y);
   if (!Number.isFinite(rig.mapX)) { rig.mapX = cx; rig.mapY = cy; }
-  else if (Math.abs(cx - rig.mapX) > 8 || Math.abs(cy - rig.mapY) > 8) {
+  else if (Math.abs(cx - rig.mapX) > 8 || Math.abs(cy - rig.mapY) > 8 || moved.remap) {
     rig.mapX = cx; rig.mapY = cy;
     const sky = skyState(cx, cy) || {};
-    sendToPlayer(player.id, { type: 'podracer_ctx', gx: cx, gy: cy, map: mapWindow({ grid_x: cx, grid_y: cy }, RADIUS),
+    sendToPlayer(player.id, { type: 'podracer_ctx', gx: cx, gy: cy, map: mapWindow({ grid_x: cx, grid_y: cy }, RADIUS, groundFor(rig)),
       hour: sky.hour, weather: sky.weather, wxField: sky.field || null, wxGround: sky.ground || null,
       contacts: worldContactsNear(cx, cy, 26, 'pod_' + player.id), ...farOf(cx, cy),
       actors: streetActors(cx, cy, RADIUS, player.id) });
@@ -234,6 +298,133 @@ export async function cmdPodSync(args = [], raw, player) {
   svcTick(player, rig);
   if (Date.now() - (rig.flushed || 0) > FLUSH_MS) await flushRig(rig);
   return null;
+}
+
+// ── Where the racer is, in the world ───────────────────────────────────────────
+//
+// Run after every accepted report, from the seat's sync and the text helm's tick alike. In a region
+// it notes the tile under the racer; off the placed map it launches the crossing; on the corridor it
+// derives the odometer and the room from the position, as the trucks do (reconcileCorridor), walks
+// the player down the crossing, takes the fork with the wheels, and steps off at either end.
+// Returns { snap, remap }: snap when the server moved the racer and the client must follow, remap
+// when the ground under it changed kind and the map window must be dealt again.
+export async function trackRacer(player, rig, dtMs, p, broadcast) {
+  const cx = Math.round(rig.x), cy = Math.round(rig.y);
+  if (rig.leg !== 'corridor') {
+    const cell = surfaceAt(cx, cy);
+    if (cell) { rig.zoneId = cell.id; return { snap: false }; }
+    return leaveTheMap(player, rig, broadcast);
+  }
+  const r = reconcileCorridor(rig, Math.max(1, dtMs), racerTilesPerSec(p));
+  if (r.bogged) {
+    // No road has it. Over placed ground that is a region, and the racer is in it; over nothing it
+    // is put back on the shoulder, facing down the road, stopped.
+    const cell = surfaceAt(cx, cy);
+    if (cell?.grid_x != null) return settle(player, rig, cell, 'The road lets go of you and there is placed ground under the turbines again.');
+    unbog(rig);
+    say(player.id, '<span class="text-amber">The turbines dig into soft waste and the pod slews round behind them. It takes a long while to haul it back onto the graded road.</span>');
+    return { snap: true };
+  }
+  // ⚠ Both ends are checked every report, not only on `moved`: the node stops changing in the last room.
+  if (rig.s >= rig.route.L - 1) return arriveRacer(player, rig);
+  if (rig.s <= 0.5 && (rig.sMax || 0) > RETREAT_ARM) return retreatRacer(player, rig);
+  if (r.tookFork) {
+    say(player.id, `<span class="text-amber">The turbines find the other road and hold it. You are on the ${r.tookFork.name} limb now.</span> ${dim('Steer back across if that was not what you meant.')}`);
+  }
+  if (r.moved) {
+    const zone = await crossToNode(player, rig, r.node);
+    // The instance was torn down under the racer: out of the seat, where you stand.
+    if (!zone) { await parkRacer(player, broadcast, true); return { snap: false }; }
+    rig.zoneId = zone.id;   // the room you are in now: where parking out here leaves you
+    if (rig.trunk && r.node === rig.trunk - 1) {
+      const info = crossingInfo(rig.instanceId);
+      const others = (info?.dests || []).filter((d) => d.key !== rig.destKey);
+      if (others.length) {
+        say(player.id, '<span class="text-amber">A junction: the graded road splits round a stand of dead pylons and both halves go on being road.</span> '
+          + dim(`You are on the ${info.dests.find((d) => d.key === rig.destKey)?.heading || 'far'} side of it. ${others.map((d) => `<b>${d.heading}</b>`).join(', ')} the other way: steer onto it.`));
+      }
+    }
+    sendToPlayer(player.id, { type: 'zone_event', message: dim(`(${zone.name})`), minimap: getMinimapData(zone.id, 8, player) });
+  }
+  return { snap: false };
+}
+
+// ── The rim: region to corridor ────────────────────────────────────────────────
+//
+// The racer is off the placed map. Behind a road mouth there is a void, and leaving the world there
+// is the same event as walking off the edge, so it goes through voidwalking's own launchCrossing and
+// the racer lays its road over the chain that produced, as a truck does. Anywhere else the map
+// simply ends: the racer is stopped on the last tile and the client follows.
+async function leaveTheMap(player, rig, broadcast) {
+  const from = getZone(rig.zoneId);
+  const gate = from && voidGateOf(from);
+  const back = () => {
+    if (from?.grid_x != null) { rig.x = from.grid_x; rig.y = from.grid_y; }
+    rig.speed = 0;
+    return { snap: true };
+  };
+  if (!gate || player._crossing) {
+    say(player.id, '<span class="text-amber">The ground runs out. Past the last of the hardpan nobody has made a way across.</span>');
+    return back();
+  }
+  // The crossing hangs off the tile you leave from, so stand on it first. RAM only: the launch writes
+  // the row with the room it puts you in.
+  if (player.current_zone !== from.id) {
+    removePlayerFromZone(player.id, player.current_zone);
+    addPlayerToZone(player.id, from.id);
+    player.current_zone = from.id;
+  }
+  const px = rig.x, py = rig.y, ph = rig.heading, speed = rig.speed;
+  await launchCrossing(player, gate, broadcast, null);
+  const road = roadJoinFor(player);
+  if (!road) {
+    say(player.id, '<span class="text-amber">The road out of here goes nowhere anyone has charted.</span>');
+    return back();
+  }
+  joinCorridor(rig, { ...road, speedCap: Infinity });
+  // The racer stays exactly where it reported if the road has it there; otherwise it starts at the
+  // gate. A truck leaves the world at a crawl and is re-seated; a racer leaves it at speed, and being
+  // moved under the driver at 250 mph is a crash the server caused.
+  const hit = corridorLocate(rig.route, px, py);
+  let snap = true;
+  if (hit) {
+    rig.x = px; rig.y = py; rig.heading = ph;
+    rig.s = Math.max(0, Math.min(rig.route.L, hit.s)); rig.sMax = rig.s;
+    rig.t = Math.max(-rig.route.R, Math.min(rig.route.R, hit.t));
+    snap = false;
+  }
+  rig.speed = speed;
+  rig.zoneId = player.current_zone;
+  const info = crossingInfo(road.instanceId);
+  const aimed = info?.dests?.find((d) => d.key === road.destKey);
+  say(player.id, '<span class="text-amber">The last of the placed ground goes under the turbines and the map ends. The road does not.</span>'
+    + (aimed ? `\n${dim(`Running for ${aimed.heading}.${(info.dests?.length || 0) > 1 ? ` The road forks ${info.trunk} rooms out: steer onto the limb you want.` : ''}`)}` : ''));
+  return { snap, remap: true };
+}
+
+// ── Either end of the road ─────────────────────────────────────────────────────
+//
+// Off the corridor and onto a placed tile, through the shared landOn: the player is moved and the
+// instance torn down by the event it fires. The racer keeps the pose it reported if that pose is
+// over placed ground, and is put on the tile if not.
+async function settle(player, rig, zone, line) {
+  const px = rig.x, py = rig.y, ph = rig.heading;
+  await landOn(player, rig, zone);
+  const over = surfaceAt(Math.round(px), Math.round(py));
+  if (over) { rig.x = px; rig.y = py; rig.heading = ph; rig.zoneId = over.id; }
+  say(player.id, `<span class="text-green">${line}</span>`);
+  return { snap: !over, remap: true };
+}
+async function arriveRacer(player, rig) {
+  const dest = rig.dest && getZone(rig.dest);
+  if (!dest || dest.grid_x == null) { await parkRacer(player, null, true); return { snap: false }; }
+  return settle(player, rig, dest, 'The haze thins and there is a town in it: low buildings, lights somebody pays for. The turbines are over placed ground again.');
+}
+async function retreatRacer(player, rig) {
+  const info = rig.instanceId ? crossingInfo(rig.instanceId) : null;
+  const home = info && getZone(info.originZone);
+  if (!home || home.grid_x == null) { await parkRacer(player, null, true); return { snap: false }; }
+  return settle(player, rig, home, 'The waste lets go and the rim comes back up out of the dust, from the wrong side. You are where you started.');
 }
 
 // ── The bay overlay ────────────────────────────────────────────────────────────
@@ -258,19 +449,22 @@ export async function pushBay(player, lotId = svcState.get(player.id)) {
   return true;
 }
 
-async function seedRig(player, racerId) {
-  const r = await query('SELECT * FROM podracers WHERE id = $1', [racerId]);
-  const b = r.rows[0];
-  if (!b) return null;
-  const rig = {
-    playerId: player.id, racerId: b.id, typeId: b.type_id, name: b.name || 'racer',
-    hull: clamp01(b.condition), fuel: clamp01(b.fuel), eng: rowEng(b), cables: rowCables(b), binder: rowBinder(b),
-    livery: racerLiveryOf(b),
-    x: null, y: null, heading: 0, speed: 0, lever: [0, 0],
-    flushed: Date.now(),
+// The live racer from its row. Given the row it is sync (mountRacer has one); without, it is read.
+function seedRig(player, racerId, row = null) {
+  const build = (b) => {
+    const rig = {
+      playerId: player.id, racerId: b.id, typeId: b.type_id, name: b.name || 'racer',
+      hull: clamp01(b.condition), fuel: clamp01(b.fuel), eng: rowEng(b), cables: rowCables(b), binder: rowBinder(b),
+      livery: racerLiveryOf(b),
+      x: null, y: null, heading: 0, speed: 0, lever: [0, 0],
+      leg: 'city', zoneId: null,
+      flushed: Date.now(),
+    };
+    rigs.set(player.id, rig);
+    return rig;
   };
-  rigs.set(player.id, rig);
-  return rig;
+  if (row) return build(row);
+  return query('SELECT * FROM podracers WHERE id = $1', [racerId]).then((r) => (r.rows[0] ? build(r.rows[0]) : null));
 }
 
 export async function flushRig(rig) {
@@ -285,16 +479,16 @@ export async function flushRig(rig) {
 
 // ── Where you climb out ────────────────────────────────────────────────────────
 //
-// The nearest tile to (x, y) a person can stand on: a mapped zone in the region that is not a
-// building facade and not high ground. Searched outward in rings, so a racer stopped against a
-// cliff leaves you at its foot.
+// The nearest tile to (x, y) a person can stand on: a placed zone that is not a building facade and
+// not high ground. Searched outward in rings, so a racer stopped against a cliff leaves you at its
+// foot. On the corridor there is no placed tile and the answer is the crossing room (parkRacer).
 export function standTileNear(x, y) {
   const cx = Math.round(x), cy = Math.round(y);
   for (let r = 0; r <= 4; r++) {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
       const c = surfaceAt(cx + dx, cy + dy);
-      if (!c?.id || !inBox(cx + dx, cy + dy)) continue;
+      if (!c?.id) continue;
       const t = c.flags?.terrain;
       if (c.flags?.building_type || t === 'cliff' || t === 'plateau' || t === 'water') continue;
       return c.id;
@@ -317,16 +511,30 @@ async function leaveSeat(player, rig, zoneId, line, broadcast) {
     zone: zoneId, minimap: getMinimapData(zoneId, 8, player) };
 }
 
-export async function parkRacer(player, broadcast) {
+// Where a stopped racer leaves you: the lot behind a bay door, the crossing room on the corridor
+// (the racer is parked in that room, and comes back out of it with `podracer`), or the nearest
+// standable tile.
+function restingZone(row, rig) {
+  if (rig && Number.isFinite(rig.x)) {
+    const bay = bayLotAt(rig.x, rig.y);
+    if (bay) return { bay, zoneId: bay };
+    if (rig.leg === 'corridor' && getZone(rig.zoneId)) return { bay: null, zoneId: rig.zoneId };
+    return { bay: null, zoneId: standTileNear(rig.x, rig.y) || row.park_zone };
+  }
+  const bay = isLot(getZone(row.park_zone)) ? row.park_zone : null;
+  return { bay, zoneId: bay || row.park_zone };
+}
+
+// `forced`: the ground went (a crossing torn down under the racer), so speed is no refusal.
+export async function parkRacer(player, broadcast, forced = false) {
   const row = await seatedRow(player);
   if (!row) { stopTextPod(player.id); seated.delete(player.id); rigs.delete(player.id); sendToPlayer(player.id, { type: 'podracer_sim_close' }); return null; }
   const rig = rigs.get(player.id);
-  if (rig && rig.speed > STOP_MPH) {
+  if (!forced && rig && rig.speed > STOP_MPH) {
     return { type: 'error', message: 'Not at this speed. Take the levers off and let it stop.' };
   }
   // On a bay door it goes back up on the blocks in that lot. Never moved, it is still in its bay.
-  const bay = rig && Number.isFinite(rig.x) ? bayLotAt(rig.x, rig.y) : (isLot(getZone(row.park_zone)) ? row.park_zone : null);
-  const zoneId = bay || (rig && Number.isFinite(rig.x) ? standTileNear(rig.x, rig.y) || row.park_zone : row.park_zone);
+  const { bay, zoneId } = restingZone(row, rig);
   if (rig) await flushRig(rig);
   await query(`UPDATE podracers SET park_zone = $2,
       custom_data = jsonb_set(COALESCE(custom_data, '{}'::jsonb), '{heading}', to_jsonb($3::int))
@@ -359,7 +567,7 @@ export async function wreckRacer(player, why, broadcast) {
   const t = typeOf(row.type_id) || PODRACER_TYPES.podracer;
   const speed = rig?.speed ?? 0;
   await query('DELETE FROM podracers WHERE id = $1', [row.id]).catch(() => {});
-  const zoneId = rig && Number.isFinite(rig.x) ? standTileNear(rig.x, rig.y) || row.park_zone : row.park_zone;
+  const zoneId = restingZone(row, rig).zoneId;
   const plan = wreckPlan(speed, t.topSpeed);
   const parts = [];
   let killed = false;
@@ -468,4 +676,7 @@ export async function dropSeat(playerId) {
   if (rig) await flushRig(rig).catch(() => {});
 }
 
-export const _test = { checkSync, wreckPlan, breakdownPlan, standTileNear, inBox, BOX, startOf, bayLotAt };
+/** The first racer bay's lot room: where a racer with no home is sent. */
+export function homeLot() { return [...bays().values()][0] || null; }
+
+export const _test = { checkSync, wreckPlan, breakdownPlan, standTileNear, startOf, bayLotAt, groundFor, trackRacer, restingZone, RETREAT_ARM };
