@@ -14,7 +14,7 @@ import { getZone, setLivePlayer, addPlayerToZone, removePlayerFromZone } from '.
 import { query } from '../../server/models/db.js';
 import { surfaceAt, mapWindow } from '../flight/state.js';
 import { regionGates } from '../trucking/state.js';
-import { corridorPos } from '../trucking/corridor.js';
+import { corridorPos, roomLenOf, nodeAt } from '../trucking/corridor.js';
 import { _test as voidTest } from '../voidwalking/index.js';
 import * as lot from './lot.js';
 
@@ -484,9 +484,23 @@ export default async function regress({ run, check, getPlayer }) {
           check('the text helm sees tarmac there, not the edge of the waste',
             !text.solidAt(p6.x, p6.y, seat.groundFor(r2)) && text.groundAt(p6.x, p6.y, seat.groundFor(r2)) === 'road');
 
+          // A report that crosses several rooms at once (a racer at speed, a tab that stalled): every
+          // room between is walked, so the crossing's window keeps up and nobody is thrown out.
+          const rl = roomLenOf(r2.route), hop = Math.min(6, Math.floor(13 / rl));
+          if (hop >= 4) {
+            const pT = corridorPos(r2.route, 6 + hop * rl + 0.1, 0);
+            r2.at = Date.now() - 3000;
+            await run(pkt(pT.x.toFixed(3), pT.y.toFixed(3), pT.heading, 120));
+            const r2b = rigs.get(pl.id);
+            check(`a report ${hop} rooms on walks every room between and keeps the seat`,
+              seated.has(pl.id) && !!r2b?.chain && r2b.node === nodeAt(r2b.route, r2b.s, r2b.chain.length) && pl.current_zone === r2b.chain[r2b.node],
+              `node ${r2b?.node} s ${r2b?.s?.toFixed(1)} in ${pl.current_zone}`);
+          }
+
           // Park out here: you are left in the crossing room and the racer is parked in it.
           const room = pl.current_zone;
-          r2.speed = 0;
+          const cur = rigs.get(pl.id);
+          cur.speed = 0;
           const parked = await run('podevent park');
           check('parking on the corridor leaves you in the crossing room', pl.current_zone === room && !seated.has(pl.id), parked?.message?.slice(0, 60));
           const after = (await query('SELECT park_zone FROM podracers WHERE id = $1', [id])).rows[0];

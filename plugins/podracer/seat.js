@@ -332,9 +332,15 @@ export async function trackRacer(player, rig, dtMs, p, broadcast) {
     say(player.id, `<span class="text-amber">The turbines find the other road and hold it. You are on the ${r.tookFork.name} limb now.</span> ${dim('Steer back across if that was not what you meant.')}`);
   }
   if (r.moved) {
-    const zone = await crossToNode(player, rig, r.node);
-    // The instance was torn down under the racer: out of the seat, where you stand.
-    if (!zone) { await parkRacer(player, broadcast, true); return { snap: false }; }
+    // ONE ROOM AT A TIME, however many the report crossed. voidwalking materialises a window of a
+    // few rooms round each member and advances it on every zone.entered, so a racer at speed (or a
+    // report after a stalled tab) that jumps past the window finds the far room not made. Stepping
+    // through the rooms between lets the window keep up. A room still missing after that is an
+    // instance torn down under the racer: out of the seat, where you stand.
+    const dir = r.node > rig.node ? 1 : -1;
+    for (let n = rig.node + dir; dir > 0 ? n <= r.node : n >= r.node; n += dir) await crossToNode(player, rig, n);
+    const zone = getZone(rig.chain[r.node]);
+    if (!zone || player.current_zone !== zone.id) { await parkRacer(player, broadcast, true); return { snap: false }; }
     rig.zoneId = zone.id;   // the room you are in now: where parking out here leaves you
     if (rig.trunk && r.node === rig.trunk - 1) {
       const info = crossingInfo(rig.instanceId);
