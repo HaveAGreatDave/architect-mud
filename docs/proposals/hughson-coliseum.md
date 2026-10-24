@@ -175,7 +175,14 @@ authored with (`facing`: south for eight of them, north for the bleacher gate).
     (`ty_palais_stone`, the Palais's, for a deco hall kept up), a frieze, a glazed clerestory set back
     behind the fins, and a cornice flashed in copper. Marble-pale fins rank every face, with a tall
     concourse window in a bronze frame between each pair, a bronze spandrel over it and a gilt
-    chevron in the spandrel. The east and west decks run in from the wall under the rails, on
+    chevron in the spandrel. The window is three lights: the middle one the widest and tallest,
+    the two either side stopped a step lower at a bronze panel, two transoms across, and a gilt
+    sunburst rising off the step in the middle light's head. On the outfield faces, the boulevard
+    and the west, it's a bigger window (`WIN_OPEN`) with no spandrel. It has five lights, about 40 ft
+    wide from a 17 ft sill to 75 ft, and steps down twice toward the frame. Under the name band
+    either window is square-headed with no sun. Their numbers and the sun are in
+    [coliseum-window.js](../../client/game/js/panels/glass/coliseum-window.js), which the map and
+    the broadcast both read. The east and west decks run in from the wall under the rails, on
     columns.
   - Four stepped light towers at the corners: a fluted shaft, two setbacks, a bronze lamp house with
     its floods turned to the field, a crown and a finial with a red beacon after dark.
@@ -286,12 +293,29 @@ own, at full size, and the bowl round them is the map's model, transcribed
 - ⚠ **The left-field deck's columns stand at its back.** The map's columns stand 1.18 tiles out on
   both sides; on the left-field side that's in the broadcast's bleachers.
 - **The wall** between the fins is painted in the shader (`EXTERIOR_GLSL`): coursed limestone, and in
-  every bay a concourse window in a bronze frame with its glazing bars, the bronze spandrel over it
-  and the gilt chevron, the concourse lit behind every night and the floods washing up the stone.
-  Under the name band the window stops short of it with no spandrel, as on the map: the shader
-  reads the band's run on each face from `BAND_UV`, keyed by the side seed in the wall's colour.
-  The rest of the bowl is geometry, shaded as `DECO` stone, `GILT` bronze and gilt, and `GLAZE` glass
-  lit from inside.
+  every bay a concourse window in a bronze frame with the map's tracery and sun, the bronze spandrel
+  over it and the gilt chevron, the concourse lit behind every night and the floods washing up the
+  stone. Under the name band the window stops short of it with no spandrel, as on the map: the
+  shader reads the band's run on each face from `BAND_UV`, keyed by the side seed in the wall's
+  colour. The rest of the bowl is geometry, shaded as `DECO` stone, `GILT` bronze and gilt, and
+  `GLAZE` glass lit from inside.
+- **The outfield faces are open.** On the boulevard and the west, the faces beyond the outfield,
+  each window's glass is cut through both skins of the wall (`wallRects` cuts the painted wall
+  round the holes), so from the field the city shows through them. These are the bigger windows
+  (`WIN_OPEN`). From home plate the bleachers hide the wall below about 40 ft, so the window's
+  height is what lets the city show. Behind each opening is a concourse 15 ft deep, with a floor at
+  the sills, a ceiling at the heads and a lamp strip lit every night. The window's bronze is
+  geometry in the outer skin (`tracery`): mullions, transoms, the stepped head panels and the gilt
+  sun. Its glass is one translucent pane (`glazing`, `GLAZE` with uv.x 2, which lights nothing).
+  The open faces' wall carries green 1 in its colour, so the shader paints the bigger frame round
+  the holes and no spandrel. Sorrel Way and the east keep their windows painted, because the
+  grandstand stands against them. On the map the outfield stands are banked against the wall's
+  inside, so only the broadcast cuts through. The two bays behind the bleacher gate stay shut and
+  are painted, so there are 18 openings. `ballpark-smoke` checks the panes and that no piece of the
+  wall crosses an opening.
+- ⚠ **A gate's body stops inside the wall** (`GATE_BACK`), 0.004 tiles short of the inner face. It
+  used to run back to the inner face's own plane, and from the field its stone fought the window
+  painted there in streaks.
 - **The name band** is the map's `BAND` on the run `bandRun` picks, on Sorrel Way and on the
   boulevard (`BAND_RUNS`), and the fins break round it. His name is cut into it in one line in
   Limelight: the cut's upper wall in shadow up and left, its lit lip down and right, and the cut over

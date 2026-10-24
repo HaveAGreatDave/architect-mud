@@ -54,6 +54,7 @@ import {
   facePals, faceYaw, glowPool, materialIdOf, nearOrMesh, rgb, windFlag,
 } from '../../windshield.js';
 import { flatOut } from './downtown.js';
+import { WIN, WIN_OPEN, sunburst, headPanels } from '../coliseum-window.js';
 import { venueLive, venueRoof } from '../../world-feed.js';
 
 // ── THE FIELD, IN BLOCK COORDINATES ──────────────────────────────────────────────────────────
@@ -95,6 +96,8 @@ const GUARD = { hw: 0.055, top: 0.60 };
 // windows cut short for it. It runs from the face's gate to the corner tower on the longer side.
 const BAND = { z0: 0.268, z1: Z.wall, d: 0.026 };
 const TW = TOWER.at - TOWER.r0;    // a corner tower's inner side, along a face
+// The sun in each window's head, round though the arm draws heights ZK times taller.
+const SUNBURST = sunburst(1 / ZK), SUNBURST_OPEN = sunburst(1 / ZK, WIN_OPEN);
 const bandRun = (g) => {
   const a = [-TW, g.u - g.hw - 0.03], b = [g.u + g.hw + 0.03, TW];
   return a[1] - a[0] >= b[1] - b[0] ? a : b;
@@ -533,21 +536,29 @@ export const COLISEUM_ARMS = {
         } else sideBox(n, t - 0.011, t + 0.011, -0.01, 0.022, Z.plinth, 0.49, FINC, true, s + 20 + j);
         sideBox(n, t - 0.007, t + 0.007, -0.01, 0.017, 0.49, 0.512, TRIM, true, s + 40 + j);
       });
-      // Between each pair of fins a tall window onto the concourse in a bronze frame, a bronze
-      // spandrel over it, and a gilt chevron in the spandrel. Under the band the window stops short
-      // of it, with no spandrel.
+      // Between each pair of fins a tall window onto the concourse in a bronze frame (glass/
+      // coliseum-window.js): the middle light the tallest under a gilt sun, the lights outside it
+      // stepping down toward the frame at bronze panels, and transoms across. On Sorrel Way and the
+      // east it's three lights under a bronze spandrel with a gilt chevron; on the outfield faces,
+      // the boulevard and the west, it's the bigger window, five lights from a lower sill up through
+      // where the spandrel would be. Under the band a window stops short of it, square-headed, with
+      // no sun and no spandrel. The broadcast cuts the outfield faces' windows through the wall; on
+      // the map the outfield stands are banked against its inside.
+      const W = n[1] === -1 || n[0] === -1 ? WIN_OPEN : WIN, sun = W === WIN ? SUNBURST : SUNBURST_OPEN;
       for (let j = 0; j + 1 < FIN_AT.length; j++) {
         const tc = (FIN_AT[j] + FIN_AT[j + 1]) / 2;
         if (gate(tc)) continue;
         // ⚠ A FEW THOUSANDTHS PROUD, NOT A HAIR. These are mesh on GLASS 2, depth-tested against the
         // wall they're on, and a frame a thousandth off its wall shimmers through it at range.
-        if (inBand(tc)) {
-          sideFace(n, tc - 0.082, tc + 0.082, 0.003, 0.094, BAND.z0 - 0.010, frameCol);
-          sideFace(n, tc - 0.074, tc + 0.074, 0.0042, 0.100, BAND.z0 - 0.016, winCol);
-          continue;
-        }
-        sideFace(n, tc - 0.082, tc + 0.082, 0.003, 0.094, 0.291, frameCol);
-        sideFace(n, tc - 0.074, tc + 0.074, 0.0042, 0.100, 0.285, winCol);
+        const banded = inBand(tc), top = banded ? W.band : W.z1;
+        sideFace(n, tc - W.frame, tc + W.frame, 0.003, W.frameZ[0], banded ? W.bandFrame : W.frameZ[1], frameCol);
+        sideFace(n, tc - W.hw, tc + W.hw, 0.0042, W.z0, top, winCol);
+        for (const m of W.mulls) for (const sg of [-1, 1]) sideFace(n, tc + sg * m - W.bar, tc + sg * m + W.bar, 0.0054, W.z0, top, frameCol);
+        for (const z of W.transoms) sideFace(n, tc - W.hw, tc + W.hw, 0.0054, z - W.bar, z + W.bar, frameCol);
+        if (banded) continue;
+        for (const [t0, t1, z0, z1] of headPanels(W)) for (const sg of [-1, 1]) sideFace(n, tc + Math.min(sg * t0, sg * t1), tc + Math.max(sg * t0, sg * t1), 0.0054, z0, z1, frameCol);
+        for (const poly of sun) vface(poly.map(([t, z]) => SPT(n, tc + t, 0.006, z)), [n[0], n[1], 0], giltCol);
+        if (!W.spandrel) continue;
         sideFace(n, tc - 0.074, tc + 0.074, 0.0042, 0.296, 0.328, frameCol);
         for (const sg of [-1, 1]) {
           const a = SPT(n, tc + sg * 0.034, 0.0054, 0.300), b = SPT(n, tc, 0.0054, 0.319);

@@ -153,19 +153,50 @@ check('defaults: the board inside the outline', G.insideOutline(base.outline, ba
   const edgeD = (p) => Math.min(...base.outline.map((a, i) => { const c = base.outline[(i + 1) % base.outline.length], ab = [c[0] - a[0], c[2] - a[2]], ap = [p[0] - a[0], p[2] - a[2]], t = Math.max(0, Math.min(1, (ap[0] * ab[0] + ap[1] * ab[1]) / (ab[0] * ab[0] + ab[1] * ab[1]))); return Math.hypot(ap[0] - ab[0] * t, ap[1] - ab[1] * t); }));
   check('defaults: the outline is the bowl\'s square on the foul lines', base.outline.length === 4 && [[n, n], [n, f], [f, f], [f, n]].every(([a, c], i) => { const q = G.sOf(base.outline[i]); return Math.abs(q[0] - a) < 1e-6 && Math.abs(q[1] - c) < 1e-6; }));
   // its outside on the outline and facing out, its inside the wall's thickness in and facing the stands
-  let outer = 0, inner = 0, wrong = 0;
+  // (each face is cut into pieces round its openings on the outfield faces, so it's counted by side)
+  const outer = new Set(), inner = new Set();
+  let wrong = 0;
   for (let v = 0; v < b.n; v += 6) {
-    const o = v * M.STRIDE, q = o + M.STRIDE;
+    const o = v * M.STRIDE, q = o + 2 * M.STRIDE;
     const mid = [(b.data[o] + b.data[q]) / 2, 0, (b.data[o + 2] + b.data[q + 2]) / 2], nn = [b.data[o + 3], 0, b.data[o + 5]];
     const out = !G.insideOutline(base.outline, [mid[0] + nn[0] * 30, 0, mid[2] + nn[2] * 30]);
     // (the north and south walls run two feet past the corners, over the east and west ones' ends)
-    const d = edgeD(mid);
+    const d = edgeD(mid), side = `${Math.round(nn[0] * 10)},${Math.round(nn[2] * 10)}`;
     for (let k = 0; k < 6; k++) heights.add(Math.round(b.data[o + k * M.STRIDE + 1] * 100) / 100);
-    if (out && d <= 3) outer++; else if (!out && d > 10 && d < 20) inner++; else wrong++;
+    if (out && d <= 3) outer.add(side); else if (!out && d > 10 && d < 20) inner.add(side); else wrong++;
   }
-  check('defaults: the bowl\'s wall faces out on all four sides, on the outline, and in over the stands', outer === 4 && inner === 4 && wrong === 0, `${outer} out, ${inner} in, ${wrong} wrong`);
-  const Z = M.BOWL_Z;
-  check('defaults: the wall stands from the plinth to the frieze', heights.size === 2 && heights.has(Math.round(Z.plinth * 100) / 100) && heights.has(Math.round(Z.wall * 100) / 100), [...heights].join(','));
+  check('defaults: the bowl\'s wall faces out on all four sides, on the outline, and in over the stands', outer.size === 4 && inner.size === 4 && wrong === 0, `${outer.size} out, ${inner.size} in, ${wrong} wrong`);
+  const Z = M.BOWL_Z, hs = [...heights];
+  check('defaults: the wall stands from the plinth to the frieze', Math.min(...hs) === Math.round(Z.plinth * 100) / 100 && Math.max(...hs) === Math.round(Z.wall * 100) / 100, hs.join(','));
+  // the outfield faces' windows, cut through: a pane of glass in each opening, in the outer face of
+  // the boulevard or the west, between the sill and the head, and none on the other two faces
+  {
+    const gz = base.translucent.get('glazing'), panes = [];
+    for (let v = 0; gz && v < gz.n; v += 6) {
+      const o = v * M.STRIDE, ys = [0, 1, 2, 5].map((k) => gz.data[o + k * M.STRIDE + 1]);
+      const mid = [0, 2].map((k) => (gz.data[o + k] + gz.data[o + 2 * M.STRIDE + k]) / 2);
+      panes.push({ s: G.sOf([mid[0], 0, mid[1]]), y0: Math.min(...ys), y1: Math.max(...ys), mat: gz.data[o + 11] });
+    }
+    const far = (p) => Math.abs(p.s[0] - G.BOWL.far) < 1 || Math.abs(p.s[1] - G.BOWL.far) < 1;
+    const { WIN_OPEN: WIN } = await import('../../client/game/js/panels/glass/coliseum-window.js');
+    check('the windows: 18 cut through the boulevard\'s and the west\'s faces (two bays behind the bleacher gate)', panes.length === 18 && panes.every(far)
+      && panes.filter((p) => Math.abs(p.s[0] - G.BOWL.far) < 1).length === 10, `${panes.length} panes, ${panes.filter(far).length} on the far faces`);
+    check('the windows: each pane from the sill to the head, clear glass', panes.every((p) => Math.abs(p.y0 - G.ftUp(WIN.z0)) < 0.01 && (Math.abs(p.y1 - G.ftUp(WIN.z1)) < 0.01 || Math.abs(p.y1 - G.ftUp(WIN.band)) < 0.01) && p.mat === M.MAT.GLAZE),
+      panes.map((p) => `${p.y0.toFixed(1)}-${p.y1.toFixed(1)}`).slice(0, 3).join(' '));
+    // and the wall's pieces leave each opening open: no exterior face crosses a pane's middle
+    let blocked = 0;
+    for (const p of panes) {
+      const ym = (p.y0 + p.y1) / 2;
+      for (let v = 0; v < b.n; v += 6) {
+        const o = v * M.STRIDE, ys = [0, 1, 2, 5].map((k) => b.data[o + k * M.STRIDE + 1]);
+        if (Math.min(...ys) > ym || Math.max(...ys) < ym) continue;
+        const ss = [0, 1, 2, 5].map((k) => G.sOf([b.data[o + k * M.STRIDE], 0, b.data[o + k * M.STRIDE + 2]]));
+        const ax = Math.abs(p.s[0] - G.BOWL.far) < 1 ? 1 : 0, along = ss.map((q) => q[ax]), at = p.s[ax];
+        if (Math.abs(ss[0][1 - ax] - p.s[1 - ax]) < 20 && Math.min(...along) < at && Math.max(...along) > at) blocked++;
+      }
+    }
+    check('the windows: open through both skins of the wall', blocked === 0, `${blocked} faces across an opening`);
+  }
   // the plates: the main gate's on Sorrel Way straight across from home plate, standing off the
   // frontispiece outside the wall and facing out, and the bleacher gate's on the boulevard
   const { c, n: sn } = M.PARK_SIGN, [s3, s1] = G.sOf(c);

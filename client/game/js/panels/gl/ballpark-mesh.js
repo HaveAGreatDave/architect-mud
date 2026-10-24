@@ -20,10 +20,12 @@
 //   BOARD     the scoreboard: lamps drawn from a small mask of the line score
 //   HEAD, EAR, HAIR, NECK  a player's head, shaded as the Actor Lab shades the street figure's
 //   EXTERIOR  the bowl's wall between the fins, limestone with a concourse window in a bronze
-//             frame in every bay, painted in the shader from feet along and feet up (uv)
+//             frame in every bay, painted in the shader from feet along and feet up (uv); on the
+//             outfield faces the window's glass is a hole, and its bronze is geometry
 //   DECO, GILT  the rest of the bowl's outside: its stone, and its bronze, gilt and copper
 //   GLAZE     glass lit from inside: the clerestory and the roof's glazing when it's shut (uv.x
-//             0), the towers' slits every night (uv.x 1)
+//             0), the towers' slits and the concourse's lamps every night (uv.x 1); and the
+//             outfield windows' clear glass, translucent, which lights nothing (uv.x 2)
 //   PLAQUE    the plates over the gates, painted (ballpark.js paintPlates); the name cut in the
 //             band beside them is DECO from the same atlas
 //   FACADE, STREET, POOL  the city round the park (gl/cityscape.js): facades and streets
@@ -34,6 +36,7 @@
 // ⚠ NO FACE CULLING, as in arena.js: the builders don't keep one winding.
 
 import { DEG, BAGS, MOUND, RUBBER, FOUL_GROUND, moundHeight, venueField, fenceDistance, parkOutline, insideOutline, seeded, BOWL, sf, sOf, fromBlock, ftUp } from '../diamond/geo.js';
+import { WIN_OPEN, sunburst, headPanels } from '../glass/coliseum-window.js';
 
 export const STRIDE = 12;
 export const MAT = Object.freeze({
@@ -413,7 +416,7 @@ export function buildPark(venue, opts = {}) {
     for (const a of [-40, 40]) box(B('plain'), madd(add(add([c[0], 0, c[2]], mul(t, a)), [0, 22.5, 0]), n, -2.5), [2, 22.5, 2], yaw, lin('#55585c'), MAT.METAL);
   }
   // the bowl round it all, its towers, its gates and its roof
-  const deco = buildBowl(B, field);
+  const deco = buildBowl(B, field, (key) => { let b = translucent.get(key); if (!b) { b = createBatch(); translucent.set(key, b); } return b; });
   return { opaque, translucent, sign: deco.plates, lamps: deco.lamps, roof: deco.roof, crowd: { sit: new Float32Array(crowd.sit), stand: new Float32Array(crowd.stand), cheer: new Float32Array(crowd.cheer) },
     field, outline, numbers: texts, board };
 }
@@ -433,6 +436,9 @@ const KH = (BOWL.near + BOWL.far) / 2.94;
 const B2T = (u, v, z = 0) => sf(fromBlock(u), fromBlock(v), ftUp(z));
 const toBlock = (s) => 1.47 - (s + BOWL.near) / KH;
 const OUT = 1.47, BACK = 1.40, DECK = 1.13;
+// ⚠ A GATE'S BODY STOPS INSIDE THE WALL, short of its inner face. In the inner face's own plane its
+// back fought the window painted there, and from the field the window came and went in streaks.
+const GATE_BACK = BACK + 0.004;
 const Z = Object.freeze({ plinth: 0.04, wall: 0.34, frieze: 0.37, cler: 0.43, corn: 0.46 });
 export const BOWL_Z = Object.freeze(Object.fromEntries(Object.entries(Z).map(([k, z]) => [k, ftUp(z)])));
 const RAIL_OUT = [1.19, 1.25, 0.49], RAIL_IN = [1.16, 1.19, 0.475];
@@ -463,6 +469,32 @@ export const BAND_RUNS = Object.freeze({ s: Object.freeze(bandRun(GATE)), n: Obj
 // in feet that a window under the band stops at: its frame, and its glass.
 export const BAND_UV = Object.freeze({ s: BAND_RUNS.s.map((t) => (t - FIN_AT[0]) * KH), n: BAND_RUNS.n.map((t) => (t - FIN_AT[0]) * KH),
   frame: ftUp(BAND.z0 - 0.010), glass: ftUp(BAND.z0 - 0.016) });
+// The concourse windows (glass/coliseum-window.js, the map's): one a bay between each pair of fins.
+// The outfield faces, the boulevard's and the west's, have the bigger one (WIN_OPEN) cut through
+// the wall (buildBowl), and their wall's colour says so (green 1), so the shader paints its frame.
+const WIN_BAYS = FIN_AT.slice(1).map((t, j) => (FIN_AT[j] + t) / 2);
+export const OPEN_FACE = (n) => n[1] === -1 || n[0] === -1;
+// The sun in a window's head, round at this view's proportions: a tile along is KH feet, a tile up 226.
+const SUNBURST = sunburst(KH / ftUp(1), WIN_OPEN);
+// GLAZE's uv: the concourse's lamps, lit every night; and clear glass, which lights nothing.
+const LIT_NIGHTLY = [[1, 0], [1, 0], [1, 0], [1, 0]], CLEAR = [[2, 0], [2, 0], [2, 0], [2, 0]];
+// A face's wall between `z0` and `z1`, from -run to run along it, less the rectangles `holes`
+// ([t0, t1, z0, z1]), as rectangles: cut into courses at every hole's sill and head, and each
+// course into the runs between the holes that cross it.
+export function wallRects(run, holes, z0, z1) {
+  const zs = [...new Set([z0, z1, ...holes.flatMap((h) => [h[2], h[3]])])].filter((z) => z >= z0 && z <= z1).sort((a, b) => a - b);
+  const out = [];
+  for (let i = 0; i + 1 < zs.length; i++) {
+    const za = zs[i], zb = zs[i + 1];
+    let t = -run;
+    for (const h of holes.filter((h) => h[2] <= za && h[3] >= zb).sort((a, b) => a[0] - b[0])) {
+      if (h[0] > t) out.push([t, h[0], za, zb]);
+      t = Math.max(t, h[1]);
+    }
+    if (t < run) out.push([t, run, za, zb]);
+  }
+  return out;
+}
 // A carved face: the DECO shader leaves the coursing off a face whose uv.x is negative, because a
 // figure with the wall's joints across it read as stacked masonry on the map.
 const DRESSED = [-1, 0];
@@ -546,6 +578,7 @@ const COL = Object.freeze({
   granite: lin('#3a3e44'), conc: lin('#7a7e82'), inner: lin('#3c3a36'), shell: lin('#b8bcba'), shellIn: lin('#6a7074'), steel: lin('#3e4448'),
   rib: lin('#604a32'), gilt: lin('#deb260'), glass: lin('#3a4c58'), lobby: lin('#40505a'), grille: lin('#1e1a16'),
   flute: lin('#60543f'), red: lin('#aa2822'), plate: lin('#1e1610'), pole: lin('#d9d9d4'), flag: lin('#16264a'),
+  floor: lin('#8c8272'), pane: lin('#1c262e'),
 });
 const LAMP_LIT = [26, 25, 22], LAMP_DEAD = lin('#1a1b1d');
 
@@ -589,7 +622,7 @@ function bdrum(b, u, v, z0, z1, r0, r1, col, mat, segs = 8) {
 // plates' batch (the plate over each gate and the name in the bands, drawn once they're painted), the lamps' batches (the towers'
 // floods, the decks' rows, the beacons, the lanterns and the plates' halo, each lit on its own), and
 // the roof: a batch a shell, built shut, with how far it travels open.
-function buildBowl(B, field) {
+function buildBowl(B, field, BT) {
   const plain = B('plain');
   const lamps = { tower: createBatch(2048), deck: createBatch(1024), beacon: createBatch(256), lantern: createBatch(512), halo: createBatch(128) };
   const SIDES = [[0, 1], [0, -1], [1, 0], [-1, 0]];
@@ -600,42 +633,86 @@ function buildBowl(B, field) {
   };
   const sideFace = (b, n, t0, t1, d, z0, z1, col, mat, uv) => bface(b, [SPT(n, t0, d, z1), SPT(n, t1, d, z1), SPT(n, t1, d, z0), SPT(n, t0, d, z0)], [n[0], n[1], 0], col, mat, uv);
 
+  // The concourse behind an open face: a floor at the sills, a ceiling at the heads with a strip of
+  // lamps down it lit every night, and a wall across each end. From the field, through an opening,
+  // it's the corridor and the backs of the windows; from the street, the corridor and the stands.
+  // The skins' backs are the dark of an unlit room (ballpark.js, a back face of EXTERIOR).
+  const glazing = BT('glazing');
+  const concourse = (n, run) => {
+    const P = (t, d, z) => B2T(...SPT(n, t, d, z)), zf = WIN_OPEN.z0, zc = WIN_OPEN.z1 + 0.004;
+    quad(plain, P(-run, -0.07, zf), P(run, -0.07, zf), P(run, 0, zf), P(-run, 0, zf), [0, 1, 0], COL.floor, MAT.CONCRETE);
+    quad(plain, P(-run, 0, zc), P(run, 0, zc), P(run, -0.07, zc), P(-run, -0.07, zc), [0, -1, 0], COL.inner, MAT.CONCRETE);
+    quad(plain, P(-run, -0.04, zc - 0.001), P(run, -0.04, zc - 0.001), P(run, -0.03, zc - 0.001), P(-run, -0.03, zc - 0.001), [0, -1, 0], COL.lobby, MAT.GLAZE, LIT_NIGHTLY);
+    for (const t of [-run, run]) {
+      const inward = norm(sub(P(0, -0.035, zf), P(t, -0.035, zf)));
+      quad(plain, P(t, -0.07, zf), P(t, 0, zf), P(t, 0, zc), P(t, -0.07, zc), inward, COL.inner, MAT.CONCRETE);
+    }
+  };
+  // One opening's bronze and glass, in the outer skin (WIN_OPEN): the glass across it, the mullions
+  // and the transoms, and over the lights outside the middle one a bronze panel each, stepping down
+  // toward the frame, with the step the middle light rises past to the head under its sun. Under the
+  // band it's square-headed and has no sun.
+  const tracery = (n, tc, banded) => {
+    const W = WIN_OPEN, top = banded ? W.band : W.z1, bronze = (t0, t1, z0, z1) => sideBox(n, t0, t1, -0.004, 0.004, z0, z1, COL.bronze, MAT.GILT);
+    const G = [[tc - W.hw, W.z0], [tc + W.hw, W.z0], [tc + W.hw, top], [tc - W.hw, top]].map(([t, z]) => B2T(...SPT(n, t, 0, z)));
+    quad(glazing, G[0], G[1], G[2], G[3], norm(sf(-n[0], -n[1], 0)), COL.pane, MAT.GLAZE, CLEAR);
+    for (const m of W.mulls) for (const sg of [-1, 1]) bronze(tc + sg * m - W.bar, tc + sg * m + W.bar, W.z0, top);
+    for (const z of W.transoms) bronze(tc - W.hw, tc + W.hw, z - W.bar, z + W.bar);
+    if (banded) return;
+    for (const [t0, t1, z0, z1] of headPanels(W)) for (const sg of [-1, 1]) bronze(tc + Math.min(sg * t0, sg * t1), tc + Math.max(sg * t0, sg * t1), z0, z1);
+    // the sun, on both sides of the glass: gilt from the street, and its back seen from the concourse
+    for (const poly of SUNBURST) for (const s of [1, -1]) bface(plain, poly.map(([t, z]) => SPT(n, tc + t, s * 0.0045, z)), [s * n[0], s * n[1], 0], COL.gilt, MAT.GILT);
+  };
+
   // 6) THE WALL, all four sides: a granite plinth, the limestone wall with a concourse window in
-  //    every bay (painted, EXTERIOR), a frieze, the clerestory set back behind the fins, and the
-  //    cornice flashed in copper. North and south run to the corners; east and west stop inside them.
+  //    every bay, a frieze, the clerestory set back behind the fins, and the cornice flashed in
+  //    copper. North and south run to the corners; east and west stop inside them.
+  //    ⚠ THE OUTFIELD FACES ARE OPEN. On the boulevard and the west the windows are cut through
+  //    both skins onto a concourse between them (`concourse`), with their bronze and glass in the
+  //    outer skin (`tracery`), so the city shows through them from the field. Sorrel Way and the
+  //    east have the grandstand against them and keep the windows painted (EXTERIOR).
   const ext = B('exterior');
   SIDES.forEach((n, k) => {
     const ns = !!n[1], run = ns ? OUT + 0.01 : BACK;
+    // ⚠ NOT ACROSS A GATE: its frontispiece stands in front of this face
+    const gate = (t) => (n[1] === 1 && t > GATE.u - GATE.hw - 0.04 && t < GATE.u + GATE.hw + 0.04)
+      || (n[1] === -1 && t > BGATE.u - BGATE.hw - 0.04 && t < BGATE.u + BGATE.hw + 0.04);
+    const gs = n[1] === 1 ? GATE : n[1] === -1 ? BGATE : null;
+    // the name band on Sorrel Way and the boulevard, its face the lettered cells (bandAt)
+    const bnd = n[1] === 1 ? BAND_RUNS.s : n[1] === -1 ? BAND_RUNS.n : null;
+    const inBand = (t) => !!bnd && t > bnd[0] && t < bnd[1];
     sideBox(n, -run, run, -0.07, 0.008, 0, Z.plinth, COL.granite, MAT.DECO);
     sideBox(n, -run, run, -0.07, 0.006, Z.wall, Z.frieze, COL.trim, MAT.DECO);
     sideBox(n, -run, run, -0.07, -0.018, Z.frieze, Z.cler, COL.stone, MAT.DECO);
     sideBox(n, -run, run, -0.07, 0.01, Z.cler, Z.corn, COL.trim, MAT.DECO, COL.copper);
     {
       // the wall between plinth and frieze, its feet along from the first fin so the windows fall
-      // between the fins
-      const A = SPT(n, -run, 0, Z.plinth), C2 = SPT(n, run, 0, Z.plinth), D2 = SPT(n, run, 0, Z.wall), E2 = SPT(n, -run, 0, Z.wall);
-      const ux = (t) => (t - FIN_AT[0]) * KH, y0 = ftUp(Z.plinth), y1 = ftUp(Z.wall);
-      const W = [A, C2, D2, E2].map(([u, v, z]) => B2T(u, v, z)), out = sf(-n[0], -n[1], 0), nn = norm(out);
-      const uvs = [[ux(-run), y0], [ux(run), y0], [ux(run), y1], [ux(-run), y1]];
-      quad(ext, W[0], W[1], W[2], W[3], nn, [k * 0.25, 0, 0], MAT.EXTERIOR, uvs);
+      // between the fins; on an open face, cut round the openings
+      const ux = (t) => (t - FIN_AT[0]) * KH, nn = norm(sf(-n[0], -n[1], 0));
+      const bays = OPEN_FACE(n) ? WIN_BAYS.filter((tc) => !gate(tc)) : [];
+      const holes = (outside) => bays.map((tc) => [tc - WIN_OPEN.hw, tc + WIN_OPEN.hw, WIN_OPEN.z0, outside && inBand(tc) ? WIN_OPEN.band : WIN_OPEN.z1]);
+      for (const [ta, tb, za, zb] of wallRects(run, holes(true), Z.plinth, Z.wall)) {
+        const W = [[ta, za], [tb, za], [tb, zb], [ta, zb]].map(([t, z]) => B2T(...SPT(n, t, 0, z)));
+        quad(ext, W[0], W[1], W[2], W[3], nn, [k * 0.25, bays.length ? 1 : 0, 0], MAT.EXTERIOR, [[ux(ta), ftUp(za)], [ux(tb), ftUp(za)], [ux(tb), ftUp(zb)], [ux(ta), ftUp(zb)]]);
+      }
       // and its inside over the stands, the same stone and the same windows onto the concourse, so the
-      // bowl seen from the field is the one seen from the street
-      const I = [SPT(n, run, -0.07, Z.plinth), SPT(n, -run, -0.07, Z.plinth), SPT(n, -run, -0.07, Z.wall), SPT(n, run, -0.07, Z.wall)].map(([u, v, z]) => B2T(u, v, z));
-      quad(ext, I[0], I[1], I[2], I[3], mul(nn, -1), [k * 0.25 + 0.125, 0, 0], MAT.EXTERIOR, [[ux(-run), y0], [ux(run), y0], [ux(run), y1], [ux(-run), y1]]);
+      // bowl seen from the field is the one seen from the street (its uv runs the other way, so the
+      // bays read from the field as they do from the street). Inside, nothing stops a window short.
+      for (const [ta, tb, za, zb] of wallRects(run, holes(false), Z.plinth, Z.wall)) {
+        const I = [[tb, za], [ta, za], [ta, zb], [tb, zb]].map(([t, z]) => B2T(...SPT(n, t, -0.07, z)));
+        quad(ext, I[0], I[1], I[2], I[3], mul(nn, -1), [k * 0.25 + 0.125, bays.length ? 1 : 0, 0], MAT.EXTERIOR, [[ux(-tb), ftUp(za)], [ux(-ta), ftUp(za)], [ux(-ta), ftUp(zb)], [ux(-tb), ftUp(zb)]]);
+      }
       const J = [SPT(n, -run, -0.07, 0), SPT(n, run, -0.07, 0), SPT(n, run, -0.07, Z.plinth), SPT(n, -run, -0.07, Z.plinth)].map(([u, v, z]) => B2T(u, v, z));
       quad(plain, J[0], J[1], J[2], J[3], mul(nn, -1), COL.inner, MAT.CONCRETE);
       const K = [SPT(n, -run, -0.07, Z.wall), SPT(n, run, -0.07, Z.wall), SPT(n, run, -0.07, Z.corn), SPT(n, -run, -0.07, Z.corn)].map(([u, v, z]) => B2T(u, v, z));
       quad(plain, K[0], K[1], K[2], K[3], mul(nn, -1), COL.stone, MAT.DECO);
+      if (bays.length) {
+        concourse(n, run);
+        for (const tc of bays) tracery(n, tc, inBand(tc));
+      }
     }
-    // ⚠ NOT ACROSS A GATE: its frontispiece stands in front of this face
-    const gate = (t) => (n[1] === 1 && t > GATE.u - GATE.hw - 0.04 && t < GATE.u + GATE.hw + 0.04)
-      || (n[1] === -1 && t > BGATE.u - BGATE.hw - 0.04 && t < BGATE.u + BGATE.hw + 0.04);
-    const gs = n[1] === 1 ? GATE : n[1] === -1 ? BGATE : null;
     const runs = gs ? [[-run + 0.01, gs.u - gs.hw], [gs.u + gs.hw, run - 0.01]] : [[-run + 0.01, run - 0.01]];
     for (const [t0, t1] of runs) sideFace(plain, n, t0, t1, -0.016, Z.frieze + 0.004, Z.cler - 0.004, COL.glass, MAT.GLAZE, [0, 0]);
-    // the name band on Sorrel Way and the boulevard, its face the lettered cells (bandAt)
-    const bnd = n[1] === 1 ? BAND_RUNS.s : n[1] === -1 ? BAND_RUNS.n : null;
-    const inBand = (t) => !!bnd && t > bnd[0] && t < bnd[1];
     if (bnd) sideBox(n, bnd[0], bnd[1], -0.01, BAND.d, BAND.z0, BAND.z1, COL.trim, MAT.DECO);
     // the fins, marble-pale through the frieze and the clerestory to break the cornice, capped; under
     // the band they stop, and carry on over it
@@ -854,14 +931,14 @@ function bandAt(plates, n, run, cells, east) {
 function mainGate(plain, lamps, plates) {
   const G = GATE, gu = G.u, gf = G.face, u0 = gu - G.hw, u1 = gu + G.hw;
   const face = (pts, col, mat = MAT.DECO, uv) => bface(plain, pts, [0, 1, 0], col, mat, uv);
-  bbox(plain, u0, u1, BACK, gf, Z.plinth, G.top, COL.stone, MAT.DECO);
-  bbox(plain, u0 - 0.005, u1 + 0.005, BACK, gf + 0.006, 0, Z.plinth, COL.granite, MAT.DECO);
-  bbox(plain, u0, u1, BACK, gf + 0.004, G.top, G.top + 0.012, COL.trim, MAT.DECO, COL.copper);
+  bbox(plain, u0, u1, GATE_BACK, gf, Z.plinth, G.top, COL.stone, MAT.DECO);
+  bbox(plain, u0 - 0.005, u1 + 0.005, GATE_BACK, gf + 0.006, 0, Z.plinth, COL.granite, MAT.DECO);
+  bbox(plain, u0, u1, GATE_BACK, gf + 0.004, G.top, G.top + 0.012, COL.trim, MAT.DECO, COL.copper);
   // the setback, between the pylons' inner faces
   const sb = G.hw - 2 * GUARD.hw;
-  bbox(plain, gu - sb, gu + sb, BACK, gf - 0.004, G.top + 0.012, 0.60, COL.stone, MAT.DECO);
-  bbox(plain, gu - sb, gu + sb, BACK, gf - 0.001, 0.60, 0.61, COL.trim, MAT.DECO, COL.copper);
-  bbox(plain, gu - 0.10, gu + 0.10, BACK, gf - 0.008, 0.61, 0.655, COL.stone, MAT.DECO, COL.copper);
+  bbox(plain, gu - sb, gu + sb, GATE_BACK, gf - 0.004, G.top + 0.012, 0.60, COL.stone, MAT.DECO);
+  bbox(plain, gu - sb, gu + sb, GATE_BACK, gf - 0.001, 0.60, 0.61, COL.trim, MAT.DECO, COL.copper);
+  bbox(plain, gu - 0.10, gu + 0.10, GATE_BACK, gf - 0.008, 0.61, 0.655, COL.stone, MAT.DECO, COL.copper);
   // THE GUARDIANS, after the Hope Memorial Bridge's in Cleveland: a pylon either side of the gate,
   // fluted below, and on a corbel halfway up it a helmeted figure in relief, robed to the feet,
   // square-shouldered, the west one cradling a gilt ball and the east one resting on a gilt bat held
@@ -870,11 +947,11 @@ function mainGate(plain, lamps, plates) {
   const ZR = KH / ftUp(1), FIG = lin('#c8b89a'), FOLD = lin('#968870');
   for (const [sg, pu] of [[-1, u0 + GUARD.hw], [1, u1 - GUARD.hw]]) {
     const ph = GUARD.hw, yF = gf + 0.006;
-    bbox(plain, pu - ph - 0.006, pu + ph + 0.006, BACK, gf + 0.010, 0, Z.plinth, COL.granite, MAT.DECO);
-    bbox(plain, pu - ph, pu + ph, BACK, yF, Z.plinth, GUARD.top, COL.stone, MAT.DECO);
-    bbox(plain, pu - ph + 0.006, pu + ph - 0.006, BACK, yF - 0.002, GUARD.top, GUARD.top + 0.012, COL.trim, MAT.DECO, COL.copper);
-    bbox(plain, pu - ph + 0.017, pu + ph - 0.017, BACK, yF - 0.006, GUARD.top + 0.012, GUARD.top + 0.026, COL.trim, MAT.DECO, COL.copper);
-    bbox(plain, pu - ph + 0.029, pu + ph - 0.029, BACK, yF - 0.010, GUARD.top + 0.026, GUARD.top + 0.038, COL.trim, MAT.DECO, COL.copper);
+    bbox(plain, pu - ph - 0.006, pu + ph + 0.006, GATE_BACK, gf + 0.010, 0, Z.plinth, COL.granite, MAT.DECO);
+    bbox(plain, pu - ph, pu + ph, GATE_BACK, yF, Z.plinth, GUARD.top, COL.stone, MAT.DECO);
+    bbox(plain, pu - ph + 0.006, pu + ph - 0.006, GATE_BACK, yF - 0.002, GUARD.top, GUARD.top + 0.012, COL.trim, MAT.DECO, COL.copper);
+    bbox(plain, pu - ph + 0.017, pu + ph - 0.017, GATE_BACK, yF - 0.006, GUARD.top + 0.012, GUARD.top + 0.026, COL.trim, MAT.DECO, COL.copper);
+    bbox(plain, pu - ph + 0.029, pu + ph - 0.029, GATE_BACK, yF - 0.010, GUARD.top + 0.026, GUARD.top + 0.038, COL.trim, MAT.DECO, COL.copper);
     for (const o of [-0.03, 0, 0.03]) face([[pu + o - 0.002, yF + 0.0006, 0.25], [pu + o + 0.002, yF + 0.0006, 0.25], [pu + o + 0.002, yF + 0.0006, 0.06], [pu + o - 0.002, yF + 0.0006, 0.06]], COL.flute);
     // the corbel, stepped
     bbox(plain, pu - 0.032, pu + 0.032, yF, yF + 0.008, 0.256, 0.272, COL.trim, MAT.DECO);
@@ -989,14 +1066,14 @@ function mainGate(plain, lamps, plates) {
 function bleacherGate(plain, lamps, plates) {
   const G = BGATE, gu = G.u, gf = G.face, u0 = gu - G.hw, u1 = gu + G.hw, yd = gf - 0.0015;
   const face = (pts, col, mat = MAT.DECO, uv) => bface(plain, pts, [0, -1, 0], col, mat, uv);
-  bbox(plain, u0, u1, gf, -BACK, Z.plinth, G.top, COL.stone, MAT.DECO);
-  bbox(plain, u0 - 0.005, u1 + 0.005, gf - 0.006, -BACK, 0, Z.plinth, COL.granite, MAT.DECO);
-  bbox(plain, u0, u1, gf - 0.004, -BACK, G.top, G.top + 0.012, COL.trim, MAT.DECO, COL.copper);
-  bbox(plain, gu - 0.16, gu + 0.16, gf + 0.004, -BACK, G.top + 0.012, 0.50, COL.stone, MAT.DECO);
-  bbox(plain, gu - 0.16, gu + 0.16, gf + 0.001, -BACK, 0.50, 0.51, COL.trim, MAT.DECO, COL.copper);
+  bbox(plain, u0, u1, gf, -GATE_BACK, Z.plinth, G.top, COL.stone, MAT.DECO);
+  bbox(plain, u0 - 0.005, u1 + 0.005, gf - 0.006, -GATE_BACK, 0, Z.plinth, COL.granite, MAT.DECO);
+  bbox(plain, u0, u1, gf - 0.004, -GATE_BACK, G.top, G.top + 0.012, COL.trim, MAT.DECO, COL.copper);
+  bbox(plain, gu - 0.16, gu + 0.16, gf + 0.004, -GATE_BACK, G.top + 0.012, 0.50, COL.stone, MAT.DECO);
+  bbox(plain, gu - 0.16, gu + 0.16, gf + 0.001, -GATE_BACK, 0.50, 0.51, COL.trim, MAT.DECO, COL.copper);
   for (const pu of [u0 + 0.025, u1 - 0.025]) {
-    bbox(plain, pu - 0.025, pu + 0.025, gf - 0.015, -BACK, 0, 0.47, COL.stone, MAT.DECO);
-    bbox(plain, pu - 0.019, pu + 0.019, gf - 0.012, -BACK, 0.47, 0.484, COL.trim, MAT.DECO, COL.copper);
+    bbox(plain, pu - 0.025, pu + 0.025, gf - 0.015, -GATE_BACK, 0, 0.47, COL.stone, MAT.DECO);
+    bbox(plain, pu - 0.019, pu + 0.019, gf - 0.012, -GATE_BACK, 0.47, 0.484, COL.trim, MAT.DECO, COL.copper);
     for (const o of [-0.012, 0.012]) face([[pu + o + 0.0018, gf - 0.0155, 0.44], [pu + o - 0.0018, gf - 0.0155, 0.44], [pu + o - 0.0018, gf - 0.0155, 0.06], [pu + o + 0.0018, gf - 0.0155, 0.06]], COL.flute);
   }
   for (const bu of [gu - 0.07, gu + 0.07]) {

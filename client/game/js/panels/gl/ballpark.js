@@ -23,7 +23,8 @@
 // back to the 2-D Gameday. ⚠ NO FACE CULLING, as in arena.js: builders don't keep one winding.
 
 import { buildPark, buildDress, crowdMorph, createBatch, ellipsoid, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT, BAY, BAND_RUNS, BAND_STONE, BAND_UV, MAIN_PLATE, PLATE_ATLAS, roofLights, roofTrack, shellShift } from './ballpark-mesh.js';
-import { insideOutline } from '../diamond/geo.js';
+import { insideOutline, ftUp } from '../diamond/geo.js';
+import { WIN, WIN_OPEN, RAYS, SUN, rayReach } from '../glass/coliseum-window.js';
 import { breathe } from '../diamond/anim.js';
 import { ROOF_MS } from '../world-feed.js';
 import { CROWD_VS, flashesAt } from './crowd.js';
@@ -189,16 +190,50 @@ void headShade(inout vec3 alb, inout float rough, inout float f0s, inout float w
 
 // The bowl's wall between the fins (ballpark-mesh.js buildBowl), as the map's Coliseum has it:
 // limestone in coursed ashlar, and in every bay between the fins a tall window onto the concourse in
-// a bronze frame with its glazing bars, a bronze spandrel over it and a gilt chevron in the
-// spandrel, the concourse lit behind every night with people against the light, and the floods at
-// the wall's foot washing up the stone. Under the name band on Sorrel Way and the boulevard
-// (BAND_UV) the window stops short of it, with no spandrel. vUv is (feet along from the first fin,
-// feet up); vCol.r is a seed a side, 0 outside on Sorrel Way and 0.25 outside on the boulevard. The
-// numbers are the map's (glass/models/coliseum.js) at the broadcast's size.
+// a bronze frame with its tracery (glass/coliseum-window.js), a bronze spandrel over it and a gilt
+// chevron in the spandrel, the concourse lit behind every night with people against the light, and
+// the floods at the wall's foot washing up the stone. Under the name band on Sorrel Way and the
+// boulevard (BAND_UV) the window stops short of it, with no spandrel. vUv is (feet along from the
+// first fin, feet up); vCol.r is a seed a side, 0 outside on Sorrel Way and 0.25 outside on the
+// boulevard. The numbers are the map's at the broadcast's size. On the outfield faces the glass is a
+// hole in this wall and the tracery is geometry (ballpark-mesh.js tracery), so this paints only the
+// stone, the frame's rim round the hole and the spandrel there.
 const g3 = (hex) => `vec3(${lin(hex).map((v) => v.toFixed(5)).join(', ')})`;
+// A window painted, from its spec (glass/coliseum-window.js), as a GLSL function of the point in its
+// bay (q, feet from the bay's middle along and from the foot up): how much of it is the frame, the
+// glass, the bronze across the glass and the gilt sun. A tile along the face is KH feet and a tile
+// up 226, so the sun is round. The bronze is the mullions and the transoms, a panel over each light
+// outside the middle one from its step up, and the step the sun rises off.
+function windowGlsl(name, W) {
+  const KH = BAY / 0.245, f = (x) => x.toFixed(3), F = (t) => f(t * KH), Z = (z) => f(ftUp(z));
+  const zPerT = KH / ftUp(1), R0 = SUN.hub * 1.3 * KH, bar = F(W.bar), barV = Z(W.bar), m0 = F(W.mulls[0]), s0 = Z(W.steps[0]);
+  const L = [];
+  L.push(`void ${name}(vec2 q, float banded, vec2 fw, out float frame, out float glass, out float bars, out float sun) {`);
+  L.push(`  float bu = q.x, v = q.y, ab = abs(bu), bx = fw.x * 1.5, by = fw.y * 1.5, head = 1.0 - banded;`);
+  L.push(`  frame = rectAA(q, vec2(-${F(W.frame)}, ${Z(W.frameZ[0])}), vec2(${F(W.frame)}, mix(${Z(W.frameZ[1])}, ${Z(W.bandFrame)}, banded)), fw);`);
+  L.push(`  glass = rectAA(q, vec2(-${F(W.hw)}, ${Z(W.z0)}), vec2(${F(W.hw)}, mix(${Z(W.z1)}, ${Z(W.band)}, banded)), fw);`);
+  L.push('  bars = 0.0;');
+  for (const m of W.mulls) L.push(`  bars = max(bars, 1.0 - smoothstep(${bar}, ${bar} + bx, abs(ab - ${F(m)})));`);
+  for (const t of W.transoms) L.push(`  bars = max(bars, 1.0 - smoothstep(${barV}, ${barV} + by, abs(v - ${Z(t)})));`);
+  W.steps.forEach((s, i) => L.push(`  bars = max(bars, head * smoothstep(${F(W.mulls[i] - W.bar)} - bx, ${F(W.mulls[i] - W.bar)} + bx, ab) * smoothstep(${Z(s - W.bar)} - by, ${Z(s - W.bar)} + by, v));`));
+  L.push(`  bars = max(bars, head * (1.0 - smoothstep(${barV}, ${barV} + by, abs(v - ${s0}))) * (1.0 - smoothstep(${m0} - bx, ${m0} + bx, ab)));`);
+  L.push(`  vec2 sq = vec2(bu, v - ${Z(W.steps[0] + W.bar)});`);
+  L.push(`  sun = 1.0 - smoothstep(${F(SUN.hub)} - bx, ${F(SUN.hub)} + bx, length(sq));`);
+  // each ray a triangle from just off the hub to its reach, its half-width tapering to nothing
+  for (const deg of RAYS) {
+    const a = deg * Math.PI / 180, R = rayReach(deg, zPerT, W) * KH;
+    L.push(`  { vec2 d = vec2(${f(Math.cos(a))}, ${f(Math.sin(a))}); float al = dot(sq, d), w = ${f(SUN.foot * KH)} * clamp(1.0 - (al - ${f(R0)}) / ${f(R - R0)}, 0.0, 1.0);`);
+    L.push(`    sun = max(sun, step(${f(R0)}, al) * step(al, ${f(R)}) * (1.0 - smoothstep(w, w + bx, abs(dot(sq, vec2(-d.y, d.x)))))); }`);
+  }
+  L.push(`  sun *= head * step(0.0, sq.y) * step(ab, ${m0});`);
+  L.push('}');
+  return L.join('\n');
+}
 const EXTERIOR_GLSL = `
 float wallHash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float rectAA(vec2 p, vec2 lo, vec2 hi, vec2 fw) { vec2 a = smoothstep(lo - fw, lo + fw, p) * (1.0 - smoothstep(hi - fw, hi + fw, p)); return a.x * a.y; }
+${windowGlsl('winWall', WIN)}
+${windowGlsl('winOpen', WIN_OPEN)}
 const vec3 STONE = ${g3('#a48a66')}, BRONZE = ${g3('#604428')}, GILT_C = ${g3('#deb260')}, GLASS_C = ${g3('#1c262e')};
 const vec3 FLOOD = vec3(1.0, 0.8, 0.58);
 void exterior(out vec3 alb, out float rough, out float f0s, out vec3 emis, out float metal) {
@@ -218,15 +253,17 @@ void exterior(out vec3 alb, out float rough, out float f0s, out vec3 emis, out f
   float bc = (bayI + 0.5) * BAY;
   vec2 br = vCol.r < 0.06 ? vec2(${BAND_UV.s.map((v) => v.toFixed(2)).join(', ')}) : abs(vCol.r - 0.25) < 0.06 ? vec2(${BAND_UV.n.map((v) => v.toFixed(2)).join(', ')}) : vec2(1e9, -1e9);
   float banded = step(br.x, bc) * step(bc, br.y);
-  float frame = rectAA(q, vec2(-17.1, 21.2), vec2(17.1, mix(65.8, ${BAND_UV.frame.toFixed(2)}, banded)), fw);
-  float glass = rectAA(q, vec2(-15.4, 22.6), vec2(15.4, mix(64.4, ${BAND_UV.glass.toFixed(2)}, banded)), fw);
-  float span = rectAA(q, vec2(-15.4, 66.9), vec2(15.4, 74.1), fw) * (1.0 - banded);
+  // the window (glass/coliseum-window.js): the outfield faces' bigger one where the wall's colour
+  // says it's an open face (green), with no spandrel; where its glass is cut through, the paint
+  // inside the frame is never drawn, and what's left is the frame's rim and a gate's shut bays
+  float open = step(0.5, vCol.g), frame, glass, bars, sun;
+  if (open > 0.5) winOpen(q, banded, fw, frame, glass, bars, sun);
+  else winWall(q, banded, fw, frame, glass, bars, sun);
+  float span = rectAA(q, vec2(-15.4, 66.9), vec2(15.4, 74.1), fw) * (1.0 - banded) * (1.0 - open);
   float bronze = max(frame, span);
   alb = mix(alb, BRONZE * (0.9 + 0.2 * n1.r), bronze); metal = bronze; rough = mix(rough, 0.34, bronze);
-  // the glazing bars, one up the middle and one across every ten and a half feet
-  float hb = abs(fract((v - 22.6) / 10.45 + 0.5) - 0.5) * 10.45;
-  float bars = max(1.0 - smoothstep(0.3, 0.3 + fw.x * 1.5, abs(bu)), 1.0 - smoothstep(0.25, 0.25 + fw.y * 1.5, hb));
-  float pane = glass * (1.0 - bars);
+  float pane = glass * (1.0 - bars) * (1.0 - sun);
+  alb = mix(alb, GILT_C, sun * glass); rough = mix(rough, 0.26, sun * glass);
   alb = mix(alb, GLASS_C, pane); metal *= 1.0 - pane; rough = mix(rough, 0.07, pane); f0s = mix(f0s, 0.06, pane);
   // the concourse behind it, lit every night but for a bay here and there, its people against the light
   float lit = step(0.16, wallHash(vec2(bayI, vCol.r * 17.0 + 3.0)));
@@ -333,7 +370,7 @@ void main() {
     // glass lit from inside after dark: the roof's glazing and the clerestory by how shut the roof
     // is (uv.x 0), the towers' slits, the lobby and the gates every night (uv.x 1)
     rough = 0.06; f0s = 0.06;
-    emis = vUv.x > 0.5 ? vec3(1.0, 0.83, 0.6) * 0.14 : vec3(1.0, 0.84, 0.62) * 0.16 * uDome;
+    emis = vUv.x > 1.5 ? vec3(0.0) : vUv.x > 0.5 ? vec3(1.0, 0.83, 0.6) * 0.14 : vec3(1.0, 0.84, 0.62) * 0.16 * uDome;
   } else if (vMat == ${MAT.GROUND}) {
     // the field, painted: grass and its mowing, the track, the lines, then the infield canvas
     vec2 xz = vPos.xz;
