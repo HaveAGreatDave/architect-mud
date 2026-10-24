@@ -86,8 +86,8 @@ export default async function regress({ check, run, getPlayer }) {
   // its title card. What reached the viewer was the OFF-AIR card — a dead channel
   // rather than the wrong programme, which is why it read as an engine fault.
   //
-  // Empty airSlots means continuous, so these two fixtures are airing at any slot and
-  // the case does not depend on the world clock (regress boots no environment).
+  // Empty airSlots means continuous, so these two fixtures are airing at any slot. Whether
+  // the slot has a game to air is the slate's (below).
   //
   // ⚠ THE BLACKBOARD IS THE ASSERTION, NOT THE RETURN VALUE. Both outcomes answer null
   // here — a refused tape because the guard returned early, an accepted one because the
@@ -116,12 +116,18 @@ export default async function regress({ check, run, getPlayer }) {
 
       // Same sport, no conflict: on a Deadball night the tape and the slot are one
       // broadcast, which is why only the hockey nights broke. The guard must not
-      // swallow that case too.
-      state.graphBlackboard = freshBB();
-      _test.playDeckItem(mkItem('hockey'), state, Date.now());
-      check('deck: a hockey tape still plays on a hockey night',
-        String(state.graphBlackboard.activeBroadcastId || '').startsWith('hockey:'),
-        String(state.graphBlackboard.activeBroadcastId));
+      // swallow that case too. Since the daily slate a sports graph exists only in a slot the
+      // slate gives that sport a game, so this half depends on the clock after all: asked in
+      // a Deadball or empty slot, getSportsGraph has no game and nothing reaches the
+      // blackboard whatever the guard does. It checks in hockey slots only.
+      const slot = _test.sportsSlotIndex();
+      if (_test.sportsMatchupForSlot(slot, mkScript('hockey').teams, 'hockey')) {
+        state.graphBlackboard = freshBB();
+        _test.playDeckItem(mkItem('hockey'), state, Date.now());
+        check('deck: a hockey tape still plays on a hockey night',
+          String(state.graphBlackboard.activeBroadcastId || '').startsWith('hockey:'),
+          String(state.graphBlackboard.activeBroadcastId));
+      }
     } finally {
       _test.channelRuntime.delete(chId);
     }
