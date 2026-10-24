@@ -1,0 +1,19 @@
+{
+  "channel_type": "playlist",
+  "commercial_pool": [],
+  "description": "KSAB's sports network. Every Deadball and Cluster Puck game, live from the ground, around the clock.",
+  "enabled": 1,
+  "id": "ch_5_cinqo",
+  "idle_broadcast_id": null,
+  "loop_playlist": 1,
+  "name": "KSAB5 The Cinqo",
+  "news_categories": [],
+  "number": 5,
+  "offline_graphic_id": "graphic_1782712334278",
+  "priority": 0,
+  "schedule_mode": "daily",
+  "station_name": "",
+  "studio_zone_id": null,
+  "theme_id": "theme_1782711826653",
+  "updated_at": null
+}

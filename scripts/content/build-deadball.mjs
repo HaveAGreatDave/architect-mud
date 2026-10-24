@@ -100,4 +100,4 @@ patch(GRAPHIC_FILE, { content: titleAsset.content.replace(/\r\n/g, '\n') });
 
 console.log(`\n✓ Deadball rebuilt from baseball.bsm`);
 console.log(`  ${sportsScript.teams.length} clubs · ${sportsScript.players.length} players · ${Object.keys(sportsScript.pools).length} line pools · airSlots ${JSON.stringify(sportsScript.airSlots)}`);
-console.log(`  Playlist row (content/media_channel_playlist/ksab-16-1800-95.json) is schedule, not script — untouched.`);
+console.log('  Airing is the KSAB5 slate row (content/media_channel_playlist/ksab5-slate.json), not the script.');

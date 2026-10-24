@@ -1,0 +1,20 @@
+{
+  "description": "KSAB5's transmitter: a rack deck patched to the outside-broadcast lines from both grounds. A strip of tape on it reads THE CINQO.",
+  "flags": {
+    "channel_id": "ch_5_cinqo",
+    "deck_cassettes": [],
+    "interactions": [],
+    "media_deck": true,
+    "tv_dial_freq": 5
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_deck_ksab5",
+  "light_type": "lamp",
+  "lumen_output": 400,
+  "name": "Media Deck",
+  "object_type": "furniture",
+  "power_draw_kw": 2,
+  "price": 0,
+  "zone_id": "zone_ksab_lobby"
+}

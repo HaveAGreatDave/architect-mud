@@ -1,0 +1,14 @@
+{
+  "broadcast_id": null,
+  "channel_id": "ch_7_1782953079593",
+  "conditions": {
+    "calendar": "month_end"
+  },
+  "days": 127,
+  "duration_override": 10800,
+  "id": "ksab-17-2100-cup-relay",
+  "priority": 1,
+  "slot_type": "relay",
+  "source_channel_id": "ch_5_cinqo",
+  "start_time": 75600
+}

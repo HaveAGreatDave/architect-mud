@@ -140,7 +140,9 @@ export default async function regress({ check, run, getPlayer }) {
   // a final's finalists come in seeded order, and the top seed is the home side
   const fin = _test.sportsGameForSlot(script, 12345, { teams: ['Kings', 'Rats'], worldSeries: true });
   check('a final: the top seed hosts', fin && fin.game.home.name === 'Kings' && fin.game.away.name === 'Rats', JSON.stringify(fin?.matchup));
-  const c = _test.sportsGameForSlot(script, 12346, null);
+  // 12346 is the other sport's slot on the slate, so the next Deadball game is 12347.
+  check('the other sport\'s slot has no Deadball game', _test.sportsGameForSlot(script, 12346, null) === null, 'slot 12346');
+  const c = _test.sportsGameForSlot(script, 12347, null);
   check('a different slot rolls a different game',
     a.game.away.name !== c.game.away.name || a.game.home.name !== c.game.home.name || a.game.awayScore !== c.game.awayScore || a.game.homeScore !== c.game.homeScore,
     'adjacent slots differ');
@@ -156,8 +158,21 @@ export default async function regress({ check, run, getPlayer }) {
     const { sportsHash } = await import('./rng.js');
     const { BASEBALL } = await import('./sports/baseball.js');
     const fnv = (s) => { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0; return h.toString(16).padStart(8, '0'); };
+    // This pins the SIM, not the schedule. The daily slate (2026-10) replaced the matchups
+    // every slot used to get, so the hundred games are played with the matchups they aired
+    // with, from the old one-round-robin-a-day schedule kept here, passed in as explicit
+    // teams. That gives the same seed and the same game as before.
+    const { sportsRng, sportsShuffle } = await import('./rng.js');
+    const airedMatchup = (slot) => {
+      const order = sportsShuffle(script.teams, sportsRng(sportsHash(Math.floor(slot / 8), 0x5c4e)));
+      const rounds = _test.roundRobinRounds(order.length);
+      const total = rounds.length * rounds[0].length;
+      const flat = (Math.floor(slot / 8) * 2 * rounds[0].length + (slot % 8)) % total;
+      const [ai, hi] = rounds[Math.floor(flat / rounds[0].length)][flat % rounds[0].length];
+      return (sportsHash(slot, 0xa17f) & 1) === 1 ? [order[ai], order[hi]] : [order[hi], order[ai]];   // [home, away]
+    };
     const fpGame = (slot, override) => {
-      const gs = _test.sportsGameForSlot(script, slot, override || null);
+      const gs = _test.sportsGameForSlot(script, slot, override || { teams: airedMatchup(slot) });
       const g = gs.game, ab = [];
       let idx = 0;
       for (const bt of g.beats) {
@@ -191,7 +206,7 @@ export default async function regress({ check, run, getPlayer }) {
   check('round-robin: every team plays once per round', rounds[0].length === 4 && seen.size === 8, JSON.stringify(rounds[0]));
 
   // A matchup is a real pairing of two distinct teams from the roster.
-  const m = _test.sportsMatchupForSlot(999, script.teams);
+  const m = _test.sportsMatchupForSlot(998, script.teams);
   check('matchup picks two distinct roster teams', m && m.away !== m.home && script.teams.includes(m.away) && script.teams.includes(m.home), JSON.stringify(m));
 
   // Featured-slot airing gate: no airSlots ⇒ continuous; an out-of-range set ⇒ dark now,
@@ -207,7 +222,7 @@ export default async function regress({ check, run, getPlayer }) {
   // 132 bpm; the open drawn on the card is cut to the same length.
   {
     const deadball = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_1783289744953.json', import.meta.url), 'utf8')).sports_pools;
-    const g = _test.assembleSportsGraph(deadball, 'bc_regress_open', 40001, null);
+    const g = _test.assembleSportsGraph(deadball, 'bc_regress_open', 40002, null);
     const card = g && Object.values(g.nodes).find((n) => n.type === 'title_card');
     check('network open: Deadball\'s title card carries its theme', card?.data?.theme === 'ksab7_deadball_theme' && card?.data?.graphic_id === 'bb_deadball_title', JSON.stringify(card?.data));
     const hold = card ? _test.nodeHoldMs(card) : 0;
@@ -220,7 +235,7 @@ export default async function regress({ check, run, getPlayer }) {
     const bsm = readFileSync(new URL('../../data/scripts/hockey.bsm', import.meta.url), 'utf8');
     const theme = (/^@theme\s+(\S+)/m.exec(bsm) || [])[1];
     check('network open: the hockey row plays the theme its script names', theme === 'ksab7_cphl_theme' && row.theme === theme, `${row.theme} vs ${theme}`);
-    const g = _test.assembleSportsGraph(row, 'bc_regress_open_cphl', 41, null);
+    const g = _test.assembleSportsGraph(row, 'bc_regress_open_cphl', 42, null);
     const card = g && Object.values(g.nodes).find((n) => n.type === 'title_card');
     check('network open: Cluster Puck\'s title card carries its theme', card?.data?.theme === 'ksab7_cphl_theme' && card?.data?.graphic_id === 'cphl_title', JSON.stringify(card?.data));
     const hold = card ? _test.nodeHoldMs(card) : 0;
@@ -231,7 +246,7 @@ export default async function regress({ check, run, getPlayer }) {
   // Both sports put the open (index.js pregameFx) on the first line after the title card: the
   // two clubs playing and the league table, held until the first pitch or the drop. A plain
   // night's matchup line carries no card of its own, or it would knock the open off the screen.
-  for (const [file, id, seed, sport] of [['bc_1783289744953', 'bc_regress_pg', 40001, 'baseball'], ['bc_cluster_puck', 'bc_regress_pg_cphl', 41, 'hockey']]) {
+  for (const [file, id, seed, sport] of [['bc_1783289744953', 'bc_regress_pg', 40002, 'baseball'], ['bc_cluster_puck', 'bc_regress_pg_cphl', 42, 'hockey']]) {
     const row = JSON.parse(readFileSync(new URL(`../../content/media_broadcasts/${file}.json`, import.meta.url), 'utf8')).sports_pools;
     const g = _test.assembleSportsGraph(row, id, seed, null);
     const says = g ? Object.values(g.nodes).filter((n) => n.type === 'say') : [];
@@ -252,22 +267,120 @@ export default async function regress({ check, run, getPlayer }) {
     check('pregame open: any other card writes nothing to the log', _test.pregameLines({ kind: 'matchup' }) === null && _test.pregameLines(null) === null);
   }
 
-  // The final's airtime: it's pinned to the NEXT nightly @airtime slot (so it airs
-  // — and is advertised in the news/TV guide — at the fixed evening time), not "the next hour".
-  const G = _test.SPORTS_GAMES_PER_DAY;   // 8 → slot-of-day 6 == the 18:00–21:00 block
-  const fromMorning = _test.nextAirSlot(40 * G + 0, [6], G);   // start of a day (slot-of-day 0)
-  check('WS pins to tonight\'s evening slot', fromMorning.slot % G === 6 && fromMorning.hour === 18, JSON.stringify(fromMorning));
-  const fromEvening = _test.nextAirSlot(40 * G + 6, [6], G);   // seeded DURING the evening block
-  check('WS seeded at the evening slot rolls to the next night', fromEvening.slot === 41 * G + 6 && fromEvening.hour === 18, JSON.stringify(fromEvening));
-  check('continuous league (no airSlots) uses the next slot', _test.nextAirSlot(100, null, G).slot === 101, JSON.stringify(_test.nextAirSlot(100, null, G)));
-  // KSAB's Deadball is on Monday, Wednesday and Friday: a final seeded on a Tuesday morning waits
-  // for Wednesday's evening slot rather than going out on a night nobody airs it. Day n's weekday
-  // is n % 7 here, 0 Monday, so day 36 is a Tuesday.
-  const mwf = (slot) => [0, 2, 4].includes(Math.floor(slot / G) % 7);
-  const tue = _test.nextAirSlot(36 * G, [6], G, mwf);
-  check('the final waits for a night its channel airs it', tue.slot === 37 * G + 6 && mwf(tue.slot), JSON.stringify(tue));
-  const wed = _test.nextAirSlot(35 * G + 7, [6], G, mwf);   // Monday night, after the game: Wednesday
-  check('...and skips the nights between', wed.slot === 37 * G + 6, JSON.stringify(wed));
+  // ── The daily slate ─────────────────────────────────────────────────────────
+  // docs/proposals/daily-slate.md. Sixty-two days over two month ends, with the real clubs.
+  const G = _test.SPORTS_GAMES_PER_DAY;
+  {
+    const pools = (f) => JSON.parse(readFileSync(new URL(`../../content/media_broadcasts/${f}.json`, import.meta.url), 'utf8')).sports_pools;
+    const db = pools('bc_1783289744953'), hk = pools('bc_cluster_puck');
+    const d0 = Math.floor(Date.UTC(2035, 0, 1) / 86400000);
+    const bad = [], spread = [];
+    let month = null, tally = null, cupDays = 0;
+    const closeMonth = () => { if (tally) for (const [sp, m] of Object.entries(tally)) { const v = [...m.values()]; spread.push([month, sp, Math.max(...v) - Math.min(...v), v.length]); } };
+    for (let d = d0; d < d0 + 62; d++) {
+      const m = new Date(d * 86400000).toISOString().slice(0, 7);
+      if (m !== month) { closeMonth(); month = m; tally = { baseball: new Map(), hockey: new Map() }; }
+      const day = _test.sportsSlateForDay(d, [db, hk]);
+      const games = day.filter((g) => g.away);
+      if (_test.isCupDay(d)) {
+        cupDays++;
+        const fin = day.filter((g) => g.final);
+        if (games.length || fin.length !== 2 || fin.some((g) => g.sod < 6) || new Set(fin.map((g) => g.sport)).size !== 2) bad.push(`${m} Cup day ${JSON.stringify(day)}`);
+        continue;
+      }
+      if (games.length !== 8) bad.push(`day ${d}: ${games.length} games`);
+      for (const sp of ['baseball', 'hockey']) {
+        const teams = games.filter((g) => g.sport === sp).flatMap((g) => [g.away, g.home]);
+        if (new Set(teams).size !== teams.length) bad.push(`day ${d}: a ${sp} club plays twice`);
+      }
+      if (day[6].sport !== (d % 2 === 0 ? 'baseball' : 'hockey') || day[7].sport === day[6].sport) bad.push(`day ${d}: slots don't alternate`);
+      for (const t of [day[6].away, day[6].home]) tally[day[6].sport].set(t, (tally[day[6].sport].get(t) || 0) + 1);
+      for (const g of day) {
+        const mm = _test.sportsMatchupForSlot(g.slot, (g.sport === 'baseball' ? db : hk).teams, g.sport);
+        if ((mm?.away || null) !== g.away || (mm?.home || null) !== g.home) bad.push(`slot ${g.slot}: the lookup disagrees with the slate`);
+      }
+    }
+    check('slate: 8 games a day, no club twice, sports alternating', bad.length === 0 && cupDays === 2, bad.slice(0, 4).join('; '));
+    // Greedy, so not proven exact: measured at 1 or 2 across 2035's first two months.
+    const wide = spread.filter(([, , s, n]) => s > 2 || n !== 8);
+    check('slate: every club is on at 18:00 within two games of every other over a month', spread.length === 4 && !wide.length, JSON.stringify(spread));
+    const cal = _test.seasonCalendar('baseball', (d0 + 30) * G + 2);
+    check('calendar: the 31st is Cup day and the next season starts on the 1st', cal.isCupDay && cal.monthDays === 31 && cal.seasonStartDate === '2035-02-01' && cal.seasonStartSlot === (d0 + 31) * G, JSON.stringify(cal));
+    check('calendar: each sport\'s final is in its last slot on Cup day', [cal.finalSlot, _test.seasonCalendar('hockey', d0 * G).finalSlot].sort().join() === [(d0 + 30) * G + 6, (d0 + 30) * G + 7].join(), String(cal.finalSlot));
+    check('calendar: a Cup-day final is no regular game', _test.sportsMatchupForSlot(cal.finalSlot, db.teams, 'baseball') === null, String(cal.finalSlot));
+    check('calendar: mid-month, the season started on the 1st', _test.seasonCalendar('hockey', (d0 + 40) * G).seasonStartSlot === (d0 + 31) * G, 'february');
+  }
+
+  // ── KSAB5's slate row and KSAB-TV's relay ───────────────────────────────────
+  // docs/proposals/daily-slate.md. Built on throwaway channels so the dev DB's grid
+  // doesn't matter; the day is whatever the world clock says, and every check reads the
+  // slate for that day rather than assuming one.
+  {
+    const pools = (f) => JSON.parse(readFileSync(new URL(`../../content/media_broadcasts/${f}.json`, import.meta.url), 'utf8')).sports_pools;
+    const lib = new Map([
+      ['reg-bc-db', { id: 'reg-bc-db', name: 'Deadball', sports_pools: pools('bc_1783289744953') }],
+      ['reg-bc-hk', { id: 'reg-bc-hk', name: 'Cluster Puck', sports_pools: pools('bc_cluster_puck') }],
+    ]);
+    const row = (id, extra) => ({ id, start_time: 0, duration_override: 86400, days: 127, priority: 0, ...extra });
+    const slate = _test.scheduleRowItems(row('reg-slate', { slot_type: 'sports_slate' }), { broadcasts: ['reg-bc-db', 'reg-bc-hk'] }, lib);
+    check('slate row: one item per broadcast, each marked for the slate',
+      slate.length === 2 && slate.every((i) => i.playback_mode === 'sports' && i.sportsScript?._slate && i.slotType === 'sports_slate'), JSON.stringify(slate.map((i) => i.id)));
+    const relay = (id, src) => _test.scheduleRowItems(row(id, { slot_type: 'relay', source_channel_id: src }), {}, lib);
+    const chans = {
+      'reg-ch-src': { channelId: 'reg-ch-src', name: 'Source TV', playlist: slate },
+      'reg-ch-rel': { channelId: 'reg-ch-rel', name: 'Relay TV', playlist: relay('reg-relay', 'reg-ch-src') },
+      'reg-ch-self': { channelId: 'reg-ch-self', name: 'Self TV', playlist: relay('reg-self', 'reg-ch-self') },
+      'reg-ch-chain': { channelId: 'reg-ch-chain', name: 'Chain TV', playlist: relay('reg-chain', 'reg-ch-rel') },
+      'reg-ch-dark': { channelId: 'reg-ch-dark', name: 'Dark TV', playlist: relay('reg-dark', 'reg-ch-empty') },
+      'reg-ch-empty': { channelId: 'reg-ch-empty', name: 'Empty TV', playlist: [] },
+    };
+    for (const [id, st] of Object.entries(chans)) _test.channelRuntime.set(id, st);
+    try {
+      const today = Math.floor(_test.sportsSlotIndex() / G);
+      const bad = [];
+      for (let sod = 0; sod < G; sod++) {
+        const secs = sod * 10800 + 600;
+        const own = _test.pickDailySlot(slate, secs, 1);
+        const want = slate.find((i) => _test.slateHasGame(i.sportsScript, today * G + sod)) || null;
+        if (own !== want) bad.push(`slot ${sod}: picked ${own?.id || 'nothing'}, the slate has ${want?.id || 'nothing'}`);
+        const r = _test.pickDailySlot(chans['reg-ch-rel'].playlist, secs, 1);
+        const via = _test.relayedItem(chans['reg-ch-rel'], r, secs, 1);
+        if ((via?.broadcastId || null) !== (own?.broadcastId || null)) bad.push(`slot ${sod}: the relay carries ${via?.broadcastId || 'nothing'}, the source ${own?.broadcastId || 'nothing'}`);
+        if (via && !/ · via Source TV$/.test(via.broadcastName)) bad.push(`slot ${sod}: relay named "${via.broadcastName}"`);
+      }
+      check('slate row: each slot airs the sport with a game in it, and the relay carries the same', !bad.length, bad.slice(0, 3).join('; '));
+      const at = (id) => _test.relayedItem(chans[id], chans[id].playlist[0], 600, 1);
+      check('relay: a relay of its own channel carries nothing', at('reg-ch-self') === null);
+      check('relay: a relay of a relay carries nothing (one hop)', at('reg-ch-chain') === null);
+      check('relay: a source with nothing on gives the off-air card', at('reg-ch-dark') === null);
+      // A month_end row airs on Cup day only.
+      const cup = _test.scheduleRowItems(row('reg-cup', { slot_type: 'relay', source_channel_id: 'reg-ch-src', priority: 1 }), { calendar: 'month_end' }, lib);
+      const onCup = _test.pickDailySlot(cup, 600, 1) === cup[0];
+      check('relay: a month_end row airs only on the last day of the month', onCup === _test.isCupDay(today), `today ${today}, aired ${onCup}`);
+      // The guide lists today's games, matchups only.
+      const guide = _test.slateScheduleSlots(chans['reg-ch-src']);
+      check('slate guide: lists today\'s games with clock times and no scores',
+        Array.isArray(guide) && guide.every((g) => /^\d\d:00$/.test(g.todLabel) && !/\d+-\d+/.test(g.name)) && (guide.length === 8 || _test.isCupDay(today)), JSON.stringify(guide.slice(0, 2)));
+
+      // One game on two channels is announced once. The relay isn't a sports channel at
+      // all, so give a second channel the same slate item to be sure the dedupe is by game.
+      _test.channelRuntime.set('reg-ch-twin', { channelId: 'reg-ch-twin', name: 'Twin TV', playlist: slate });
+      const { on: onEvent, off: offEvent } = await import('../../server/engine/events.js');
+      const seen = [];
+      const hear = (g) => { if (String(g?.gameId || '').startsWith('reg-bc-')) seen.push(g.gameId); };
+      onEvent('sports.game', hear);
+      try {
+        await _test.sportsHeartbeat();
+        await _test.sportsHeartbeat();
+      } finally {
+        if (typeof offEvent === 'function') offEvent('sports.game', hear);
+      }
+      const playing = slate.some((i) => _test.slateHasGame(i.sportsScript, _test.sportsSlotIndex()));
+      check('heartbeat: a game on two channels is announced once', playing ? seen.length === 1 : seen.length === 0, JSON.stringify(seen));
+    } finally {
+      for (const id of [...Object.keys(chans), 'reg-ch-twin']) _test.channelRuntime.delete(id);
+    }
+  }
 
   // ── News bulletin assembly ──────────────────────────────────────────────────
   // A news broadcast reads live stories and reads them out through anchor/reporter
@@ -2392,8 +2505,12 @@ export default async function regress({ check, run, getPlayer }) {
       setPhase('baseball', { phase: 'regular', finalistA: null, finalistB: null });
       setPhase('hockey', { phase: 'regular', finalistA: null, finalistB: null });
 
-      const puck = L(mkItem('hockey'));
-      const ball = L(mkItem('baseball'));
+      // Each sport is captioned from a slot it plays in: on the slate the other sport's
+      // slots have no game of its own to name.
+      const teams8 = mkItem('hockey').sportsScript.teams;
+      const slotFor = (sport) => { for (let s = 40000; s < 40100; s++) if (_test.sportsMatchupForSlot(s, teams8, sport)) return s; return null; };
+      const puck = L(mkItem('hockey'), slotFor('hockey'));
+      const ball = L(mkItem('baseball'), slotFor('baseball'));
       check('guide: a hockey slot is captioned CLUSTER PUCK, never DEADBALL',
         /^CLUSTER PUCK: /.test(puck || '') && !/DEADBALL/.test(puck || ''), String(puck));
       check('guide: a baseball slot is still captioned DEADBALL',
@@ -2402,11 +2519,11 @@ export default async function regress({ check, run, getPlayer }) {
       // …and the branch that used to break it, now asserted on purpose: a pending
       // final outranks the regular caption, per sport, without leaking across.
       setPhase('baseball', { phase: 'worldseries', finalistA: 'Static Saints', finalistB: 'Bunker Hill Bruisers' });
-      const wsBall = L(mkItem('baseball'));
+      const wsBall = L(mkItem('baseball'), slotFor('baseball'));
       check('guide: a pending Curtain Call outranks the DEADBALL caption',
         /CURTAIN CALL: Static Saints vs Bunker Hill Bruisers/.test(wsBall || ''), String(wsBall));
       check('guide: …and a baseball final never re-captions the hockey slot',
-        /^CLUSTER PUCK: /.test(L(mkItem('hockey')) || ''), String(L(mkItem('hockey'))));
+        /^CLUSTER PUCK: /.test(L(mkItem('hockey'), slotFor('hockey')) || ''), String(L(mkItem('hockey'), slotFor('hockey'))));
     } finally {
       caches.clear();
       for (const [k, v] of saved) caches.set(k, v);
@@ -2543,7 +2660,7 @@ export default async function regress({ check, run, getPlayer }) {
       check('hockey: the booth reads a matchup as versus', voiceBsm.vs === 1, voiceLine);
       const script = row.sports_pools, wrong = [];
       let withLex = 0, sayNodes = 0, voiced = 0;
-      for (const slot of [3, 41, 206]) {
+      for (const slot of [3, 42, 206]) {   // hockey's slots on the slate
         const graph = _test.assembleSportsGraph(script, 'bc_regress_cphl', slot, null);
         for (const n of Object.values(graph.nodes || {})) {
           if (n.type !== 'say' || !n.data?.text) continue;
@@ -2902,7 +3019,7 @@ export default async function regress({ check, run, getPlayer }) {
         `${durations.length} injuries, max ${Math.max(0, ...durations)}`);
 
       // Baseball must be untouched by all of this — its sim ignores the fourth argument.
-      const bb = _test.sportsGameForSlot({ teams: ['A', 'B', 'C', 'D'], players: [], pools: {} }, 99, null);
+      const bb = _test.sportsGameForSlot({ teams: ['A', 'B', 'C', 'D'], players: [], pools: {} }, 102, null);
       check('baseball is unaffected by the injury chain', !!bb && bb.game.awayScore >= 0, 'baseball still sims');
     }
 
@@ -3400,10 +3517,10 @@ export default async function regress({ check, run, getPlayer }) {
     check('sim switch: @sim 2 in a .bsm compiles to sports_pools.sim', bsm('@type sports\n@sport baseball\n@sim 2\n').sportsScript?.sim?.version === 2, 'no sim');
     const recorded = _test.getSimSwitch('baseball');   // whatever this database has recorded
     try {
-      _test.setSimSwitch('baseball', { from: 50000, until: 50010 });
+      _test.setSimSwitch('baseball', { from: 50000, until: 50011 });   // 50011, not 50010: that slot is hockey's
       const ver = (slot) => _test.sportsGameForSlot(deadball, slot, null).game.version || 1;
       check('sim switch: a slot before it plays v1 and the slot it starts at plays v2', ver(49999) === 1 && ver(50000) === 2, `${ver(49999)}, ${ver(50000)}`);
-      check('sim switch: a slot after it ends plays v1 again', ver(50010) === 1, String(ver(50010)));
+      check('sim switch: a slot after it ends plays v1 again', ver(50011) === 1, String(ver(50011)));
 
       // The booth: lines for every new play and for a tied score, and under v2 every play
       // on the bases that airs is called with every token filled.
@@ -3416,6 +3533,7 @@ export default async function regress({ check, run, getPlayer }) {
       const badLines = [];
       for (let slot = 70000; slot < 70012; slot++) {
         const g = _test.assembleSportsGraph(deadball, 'bc_regress_v2', slot, null);
+        if (!g) continue;   // hockey's slot
         for (const n of Object.values(g.nodes)) {
           const d = n.data || {};
           if (d.gameday?.phase === 'run') aired++;

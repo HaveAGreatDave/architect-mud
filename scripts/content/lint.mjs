@@ -480,6 +480,34 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
       errors.push(`maps/${f.name}: no "name" and none derivable — parent_zone_id "${f.data.parent_zone_id ?? ''}" names no zone carrying a building_name. Author a name, or fix the anchor.`);
     }
   }
+  // Playlist rows that aren't one broadcast in one slot (docs/proposals/daily-slate.md).
+  // A relay airs another channel's picture and resolves one hop only, so a relay pointed
+  // at its own channel, at no channel, or at a channel with a relay of its own would sit
+  // on the off-air card. A sports slate names its broadcasts in conditions.broadcasts,
+  // which no FK can check.
+  {
+    const rows = (entries.find(e => e.entry.table === 'media_channel_playlist')?.files || []).map(f => f.data);
+    const channels = new Set((entries.find(e => e.entry.table === 'media_channels')?.files || []).map(f => f.data.id));
+    const sportsBroadcasts = new Set((entries.find(e => e.entry.table === 'media_broadcasts')?.files || [])
+      .filter(f => f.data.playback_mode === 'sports').map(f => f.data.id));
+    const relaying = new Set(rows.filter(r => r.slot_type === 'relay').map(r => r.channel_id));
+    for (const r of rows) {
+      const label = `media_channel_playlist/${r.id}.json`;
+      if (r.slot_type === 'relay') {
+        const src = r.source_channel_id;
+        if (!src || !channels.has(src)) errors.push(`${label}: a relay needs source_channel_id naming a channel (got "${src ?? ''}")`);
+        else if (src === r.channel_id) errors.push(`${label}: a relay can't relay its own channel`);
+        else if (relaying.has(src)) errors.push(`${label}: its source ${src} has relay rows of its own; a relay resolves one hop only`);
+      } else if (r.source_channel_id) {
+        errors.push(`${label}: source_channel_id is only read on a relay row (slot_type "relay")`);
+      }
+      if (r.slot_type === 'sports_slate') {
+        const ids = Array.isArray(r.conditions?.broadcasts) ? r.conditions.broadcasts : [];
+        if (!ids.length) errors.push(`${label}: a sports slate needs conditions.broadcasts`);
+        for (const id of ids) if (!sportsBroadcasts.has(id)) errors.push(`${label}: conditions.broadcasts names "${id}", which isn't a sports broadcast`);
+      }
+    }
+  }
   // regions.defaults holds the region-level rung of resolveDefault (spec §1.3),
   // and its keys are ZONE columns — so a default inherits whatever FK that column
   // has. Postgres cannot enforce a reference living inside a JSONB value, which

@@ -789,10 +789,30 @@ There is **no show-type registry** — a type is a `playback_mode` string branch
 ## Sports — two codes, one pipeline
 
 Two shows share the `sports` pipeline: **DEADBALL** (baseball, `bc_1783289744953`) and
-**CLUSTER PUCK** (CPhL hockey, `bc_cluster_puck`). Both live on KSAB-TV at 18:00 —
-Deadball Mon/Wed/Fri, Cluster Puck **Tue + Thu + Sun**, Jackpot Protocol Saturday. A
-script declares its code with `@sport`, and **that is the only thing that selects a
-sport module**; nothing else in the pipeline may branch on it.
+**CLUSTER PUCK** (CPhL hockey, `bc_cluster_puck`). A script declares its code with
+`@sport`, and **that is the only thing that selects a sport module**; nothing else in the
+pipeline may branch on it.
+
+**The daily slate** ([proposals/daily-slate.md](proposals/daily-slate.md), Phases 1 and 2
+built). Every club plays every in-game day. The two sports share the day's eight 3-hour
+slots, taking turns, and the pattern swaps each day, so each gets the 18:00 game every other
+day (`sportsSlateForDay`, `sportsMatchupForSlot`; the order is SPORTS's). The 18:00 game
+goes to the pairing whose clubs have had the fewest 18:00 games that month. A season is the
+in-game month, and its last day is Cup day: each sport plays only its final, in its last slot.
+
+- **KSAB5 "The Cinqo"** (channel 5, `ch_5_cinqo`) airs every game, live, round the clock,
+  from one playlist row of `slot_type` **`sports_slate`**
+  ([ksab5-slate.json](../content/media_channel_playlist/ksab5-slate.json)). It lists its
+  broadcasts in `conditions.broadcasts` and airs whichever has a game in the slot. A slate
+  item ignores the script's `airSlots`.
+- **KSAB-TV** carries the 18:00 game through a **`relay`** row, which has no programme of its
+  own and airs whatever `source_channel_id` is showing (`_relayedItem`, one hop only; a relay
+  of its own channel or of a relaying channel shows the off-air card, and `content:lint`
+  refuses both). On Cup day a second relay row at 21:00 (`conditions.calendar: 'month_end'`,
+  priority 1) carries the other final. At equal priority the narrower day mask wins, so
+  Saturday's 18:00 show still beats the every-day relay.
+- `sports.game` fires once per game however many channels carry it, keyed by broadcast and
+  slot. A park's lights follow the game being played there, not the channel.
 
 Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
 A high-fidelity 3-D one on Rinkside's pattern, with a 1990s arcade look and the park inside the
@@ -1777,12 +1797,73 @@ is shorter.
 | `../gl/arena.js` | The GLASS 2 renderer (WebGL2), the one the view prefers. See *Two renderers* below. |
 | `../gl/arena-mesh.js` | Bodies, nets, the Zamboni, the puck, debris and limbs as triangles, built each frame from the joints. Pure, so the smoke gate runs it in node. |
 | `../gl/arena-heads.js` | The heads: the street figures' generator, drawn from the records `arena-mesh.js` leaves. |
+| `../gl/arena-crowd.js` | The bowl of seats round the sheet and the fans in it: where every seat is and the order they sell, the fans as instances, and their shaders. Pure, so the arena smoke checks it in node. |
 | `faces.js` | Which face, eyes and haircut a man gets, off his name. |
 
 **Frames.** The sim's payloads speak fractions of the sheet (`x` along it, `y` across it);
 `geo.js` converts to feet once. `y = 0` is the camera side. The away club attacks `+x`
 every period, which is how `synthPossession` writes its keyframes, and a goal's last
 keyframe (`x` ≈ 0.955) lies past `GEO.goalLine[1]`, which the broadcast regress asserts.
+
+**The bodies (GLASS 2).** A skater's legs and arms are each one surface swept down the
+joints they run through (`limbRings` in [arena-mesh.js](../client/game/js/panels/gl/arena-mesh.js)),
+so a knee or an elbow bends the one shape rather than two tubes meeting in a seam, and the
+profile is the kit over its pads: pants wide over the hip pads and thigh to a hem above the
+knee, the sock over the shin guard and out over its knee cup, a sleeve over the elbow pad and
+loose at the cuff over a gauntlet glove. His sweater is boxy over the shoulder pads and hangs
+over the top of the pants. An official, a medic and the ice crew wear trousers to the skate. A
+goalie's pads are flat-faced boards about eleven inches wide with the knee stack on top. A near
+skater is about 3,300 triangles (the arena smoke holds him to 3,600 and a full frame to 60k).
+The 2-D renderer (figure.js) keeps the slimmer shapes.
+
+**The crowd (GLASS 2).** A bowl of sixteen rows of seats runs round the whole sheet behind the
+glass, corners and all, a seat back and pan a place, and a fan sits in as many as the night
+draws ([arena-crowd.js](../client/game/js/panels/gl/arena-crowd.js)). The fan is Deadball's
+(`crowdMorph`), one figure in three poses instanced a seat, so a full house of about 5,100 is a
+few draw calls. The narrator puts `gate`, the share of the seats sold, on every payload: a Cup
+final sells out; otherwise it's the two clubs' places in the table, a rivalry on top, and the
+night's luck off the seed, between 0.3 and 0.97. Seats sell best first (low, near centre ice,
+with chance in it), so a thin house leaves the upper corners and ends empty. Most fans wear the
+home colour or their own clothes; the visitors' sit mostly in one far corner in their club's
+colour, and each side stands up for its own goals (`roarOf`). The broadcast cameras don't draw
+the near stands they sit in, and the vertical camera doesn't draw the end behind it: the seats
+and fans are kept in four groups by those two tests, and a hidden group costs nothing. The
+quality rungs thin the fans too (`crowd`, down to 0.45), dropping the worst seats first. The
+2-D renderer keeps the painted crowd.
+
+**The stat line.** While a goal is run back, a lower third puts up the scorer's season: games,
+goals, assists, points and shooting percentage, tonight's included, and a tag on his second goal of
+the night or a hat trick, over four bars for his speed, hands, passing and checking (his rink
+ratings, the ones he skates and handles with, on a 40 to 99 scale). After a glove, pad or
+breakaway save, one puts up the goalie's for five and a half seconds: games, wins, save percentage,
+goals against average, and his saves tonight. The numbers are the league's: the standings fold
+keeps every skater's and goalie's line (`foldExtras` and `summariseExtras` in hockey.js), the
+broadcast hands it to the narrator as `season`, and the narrator adds tonight's from the beats so
+far and puts `scorerLine` on a goal's payload and `goalieLine` on a big save's. The sweater
+number and the ratings are the body wearing his name. The rink smoke fails a goal's replay without
+its scorer's card or a big save without its goalie's.
+
+**The ink.** A thick dark outline round the players, as a cel-shaded game draws them: each body
+is drawn again before itself in the ink colour, pushed out along its normals by about a tenth
+of a foot on the screen (held between 1.2 and 3.6 px of a 900-wide picture) and set a little
+behind it, so the line shows round the edge and round an arm or a stick in front of him. It's on
+by default; the person button on the picture turns it off for that browser (`rinkInk`).
+
+**Small motions.** At a whistle, once a man has coasted down, he takes a breather: bent over,
+gloves on his knees, the stick across them, and up again as play goes on (`rest` in rig.js,
+off the sim's `idle`). A man a give-and-go is going to calls for it with two taps of his blade
+on the ice (`tap`) before it's played.
+
+**The hands ease.** A pose that changes its mind (one-handed at speed and back, shielding the
+puck, reaching to defend, a pass ending) used to move both hands to the new place in one frame,
+stick and all. With a stick in his hands, the stick fit decides them, and its blade is where a puck
+he carries rides (`pocketOf` in sim.js), so the blade is never eased: the top hand's direction from
+the blade is, at the stick's exact length, and the bottom hand moves with the stick (`easeStick` in
+rig.js). Without a stick fit (an official, a fight, a stick held up or across) both hands ease
+straight to their places (`easeHands`). About a quarter of a second for an ordinary move, quicker
+in an action, and nearly at once in a shot, a deke or a punch. The head turns the same way, slower
+(`easeLook`), and a goalie's hands ease quickly. The easing is kept on the body against the
+instant, as the blade's is, so the picture and its reflection ease once.
 
 **One shape for every body.** Every field the sim, the director or the rig hangs on a man is
 declared in `makeBody` (sim.js), in one order, undefined until it's used. Added as they came
@@ -1815,7 +1896,7 @@ the puck it needs, walks them through the beat and hands them back to the ambien
   it'll be as it gets there and redirected when it reaches it. Either way the man who
   feeds it wears the name the booth gave him (`feeder` on the `shot` cue). Where the puck goes comes from the
   outcome: into the net for a goal, into the glove, the chest, the pad, off the post, wide,
-  into a defender who drops to block it, or poked off the stick on a breakaway. A dump
+  into a defender who drops to block it, or, on a breakaway, a save (below). A dump
   goes in from about where the sim had it: when the play joined with the puck well short
   of that (his own end, say), he carries it up first, since a dump from there would be
   icing and leave his side chasing it the length of the ice. A save
@@ -1913,8 +1994,8 @@ off (`charging`). From a stop he counts as closing at the speed he means to go, 
 forechecker stood in front of a carrier doesn't hold him there.
 
 The director plays nothing in a rush until the man it needs actually has the puck (a
-`fetch` leg). A man early for a touch curls round its spot at a skater's pace rather than
-standing on it with the puck. A dump is aimed at the next touch and bleeds speed to settle
+`fetch` leg). A man early for a touch makes a play with the puck near its spot rather than
+standing on it (see *Time on the puck* below). A dump is aimed at the next touch and bleeds speed to settle
 there (`W.settleAt`), and a shot that's a goal is aimed so its line crosses the goal line
 between the posts from wherever it's taken; one that still misses is steered in through the
 mouth rather than placed in the net. The rink smoke fails on any step of the puck over
@@ -1942,9 +2023,8 @@ takeaway the booth calls that isn't a battle on the ice, or whose puck comes loo
 0.6 s off its line. With the forechecker a long way off and the line close, the man with the
 puck brings it up the ice to him, as a man breaking out does.
 
-Nobody stands frozen in a battle, either. A carrier waiting on his next touch curls round
-the spot, turning away from their nearest man and keeping his body between that man and the
-puck (`protect`). Their ambient forechecker on a man the director is staging works round the
+Nobody stands frozen in a battle, either. A carrier waiting on his next touch keeps his
+body between their nearest man and the puck (`protect`) as he works it. Their ambient forechecker on a man the director is staging works round the
 man and back with him, shoulder to shoulder, rather than leaning on him. A man chasing a
 loose puck turns to it as he gets close, and takes it at his skates if that's where it is:
 run onto it, two of them once stood on a puck dead in the corner for ten seconds.
@@ -1970,7 +2050,7 @@ the near boards by the benches (`overBoards`, the one place anybody appears), an
 is carried, passed, tossed or held. Between plays the linesman carries it in his right hand
 (`pk.held` on an official), so it reaches the next dot when he does. An instant replay is
 the one change of picture, and it is made behind a wipe: the league's band sweeps across
-the screen and the switch happens while it covers it.
+the screen with REPLAY on it, and the switch happens while it covers it.
 
 The world is drawn between its last two 120 Hz steps (`W.alpha`, set by the view's frame
 loop): each man from `x0, y0` to `x, y`, the puck from `drawn0` to `drawn`. So it moves
@@ -2024,8 +2104,46 @@ in (`W.cam.drama`). The rink smoke fails a breakaway whose shooter never has the
 it less than 40 ft out, or has a man of theirs nearer the goalie at any step from then to
 his shot.
 
+**A breakaway stopped is a save.** In alone, he shows the forehand a little before the
+shot's time, the goalie comes out to him and drops, and he pulls it across the top of the
+crease and shoots for the far post. The goalie throws himself across after it: for one
+along the ice he stacks his pads against the post (`stack`), for one off it he lays out
+headfirst with the glove or the blocker reaching (`dive`). Both lay him out in a third of a
+second and get him back up over the last 0.6 s of the action (`layOut` in rig.js), so he
+isn't stood up in one frame. The puck comes off him into the far corner, a WHAT A SAVE banner
+goes up once the save has been seen, and the shooter carries on past the net with a glove
+to his helmet (`rue`). It used to be a poke check: the puck chipped back up the ice off his
+stick before he ever shot. The rink smoke fails a breakaway stopped by anything but a stack
+or a dive, or one that lands more than 1.2 s off its outcome line.
+
+**Time on the puck.** A man with the puck and time on his hands makes a play with it. With
+the time for the round trip, he gives it to an open man of his (14 to 36 ft off, nobody of
+theirs on him or in the lane, and nobody the booth has a touch for still to come) and skates
+to open ice across the spot and a stride up the ice, and that man gives it straight back
+(`giveGo`). He waits about two seconds before he does, one with their man on him, and
+never does it in a breakaway's build-up or when the rush has under 3.5 s in hand (`slack`:
+the time to the shot's line, less the time to skate the touches still to come). Its passes
+are short and soft, so one that goes by doesn't run the length of the ice, and if one does,
+whichever of the two is nearer goes and gets it. A give-and-go still out when the touch is
+due comes straight back, and the touch waits for it, two seconds at most. Between times he
+works the puck across the ice and cuts back (`weave`): to a point on one side of the spot,
+then the other, along a line across their nearest man, each turn back going the way that
+undoes the last one, so his path is an S or a figure of eight. A point man walks the line
+instead. No point is ever behind a goal line: there, the puck caught on the back of the net.
+He used to curl round the spot: measured on two games, a third of the time anybody had the
+puck was in a spell with a full circle in it, and the longest had four. The rink smoke fails a
+game with more than eight spells past a turn and a half on one man's stick, with more than
+15% of the time on the puck in a spell with a full circle, or with fewer than six
+give-and-goes (it runs about 9 to 30 a game; with none of this it was 0 to 2).
+
+Between beats the longer a man holds it, the more it costs him. Past a second and a half his
+control drops a little every second (`control` in sim.js), which makes a stick check on him
+more likely to win it; past two and a half seconds the next nearest man of theirs comes at
+him too, from the goal side; and held a second with one of theirs within 6 ft he moves it at
+once rather than waiting for his next look.
+
 **Shots in stride.** Nobody parks on his spot and waits for his line. A shooter early for it
-curls round a point a few feet back from the spot (wider with seconds in hand), comes
+makes a play or works it across in front of the spot (above), comes
 through it as the shot is called and keeps skating through the release; a slapshot's man
 glides into his. The one-timer man drifts off his spot and glides through it as the pass
 comes, the man waiting to tip a shot works the top of the crease and lifts the stick of the
@@ -2185,6 +2303,15 @@ lit triangles with a depth buffer:
 
 The frame governor in `gameday-rink.js` steps through the renderer's own `rungs`: for the
 arena, resolution, then the mirror's size, then the men in the reflection.
+
+**The gates.** Each end wall has a doorway at the Zamboni's gate (`GATE_Y`, nine feet wide) with a
+pair of doors in it, boards below and glass above like the wall (`buildDoors` in arena-mesh.js; the
+2-D renderer draws the wall whole). They swing out away from the ice when the Zamboni comes within
+26 ft of the gate or a crewman within 14 ft, and shut behind them, on the Zamboni's time-lapse while
+it's out (`W.doors`, `stepDoors` in sim.js). The boards the puck plays off are whole: the doorway is
+only drawn. The Zamboni waits for the officials to be off the ice as well as the teams (or seven
+and a half seconds), and the linesman goes off without the puck if he hasn't got it in four:
+skating off with it behind the machine, he cut the fresh ice.
 
 **The Zamboni.** Ken Raven drives it (`content/npcs/npc_slush_raven.json`, rinkside at
 Golden Goose Gardens), and the booth names him as it comes on. First the ice crew, two men
@@ -2387,8 +2514,8 @@ Two read Actions serve anything that wants league data without touching the sim:
 **`broadcast.getNextOnAir`** — *the one game the schedule puts on next*, optionally
 narrowed by `{ sport }` or `{ team }`. It walks forward from the current slot over
 every channel's sports playlist items, clearing **both** gates a real airing clears
-(the script's `airSlots` hour **and** the item's day mask, with day-of-week advanced
-per slot), and returns the first match. Query-free — grids, season and clock are all
+(the script's `airSlots` hour, or for a slate item the slate itself, **and** the item's
+day mask, with day-of-week advanced per slot), and returns the first match. Query-free — grids, season and clock are all
 in memory — and only the matching slot is ever simulated, which is what makes it
 safe on the tablet's home screen (the Sports home widget is its only consumer).
 
@@ -2404,9 +2531,8 @@ the broadcast worth doing.
 ### Rebuilding the show from its script
 
 `data/scripts/hockey.bsm` is the source of the show. `node scripts/content/build-cluster-puck.mjs`
-recompiles it into the broadcast, graphic and playlist rows under `content/`, so the file
-in git and the shipped row can't drift. The one thing it can't do — handing Deadball's two
-nights back — is the `days` mask in content/media_channel_playlist/ksab-16-1800-95.json.
+recompiles it into the broadcast and graphic rows under `content/`, so the file in git and
+the shipped row can't drift. It writes no playlist row: airing is KSAB5's slate row.
 
 ---
 

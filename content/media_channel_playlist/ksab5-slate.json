@@ -1,0 +1,17 @@
+{
+  "broadcast_id": null,
+  "channel_id": "ch_5_cinqo",
+  "conditions": {
+    "broadcasts": [
+      "bc_1783289744953",
+      "bc_cluster_puck"
+    ]
+  },
+  "days": 127,
+  "duration_override": 86400,
+  "id": "ksab5-slate",
+  "priority": 0,
+  "slot_type": "sports_slate",
+  "source_channel_id": null,
+  "start_time": 0
+}

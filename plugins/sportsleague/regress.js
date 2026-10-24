@@ -32,10 +32,14 @@ export default async function regress({ run, check }) {
   const champs = await run('champions');
   check('champions routed', champs?.type === 'output', champs?.message);
 
-  // Season clock: the day math that decides when a final triggers.
-  check('season length spans a 30-day month', _test.daysBetween('2035-01-01', '2035-01-31') === 30, 'jan');
-  check('season length spans a month boundary', _test.daysBetween('2035-01-15', '2035-02-14') === 30, 'cross-month');
-  check('daysBetween is null on unknown date', _test.daysBetween(null, '2035-01-01') === null, 'null-guard');
+  // Season clock: a season is the calendar month, its final on Cup day, the last day. The
+  // calendar is broadcast's (plugins/broadcast/regress.js checks the slate under it); this
+  // checks the seam the season tick reads.
+  const { dispatchAction } = await import('../../server/engine/actions.js');
+  const day0 = Math.floor(Date.UTC(2035, 1, 1) / 86400000);   // 1 February 2035
+  const cal = await dispatchAction({ type: 'broadcast.getSeasonCalendar', params: { sport: 'hockey', slot: day0 * 8 + 3 } });
+  check('season: February 2035 has 28 days and its Cup day is the 28th', cal?.monthDays === 28 && cal.cupDayStartSlot === (day0 + 27) * 8 && !cal.isCupDay, JSON.stringify(cal));
+  check('season: the final is played on Cup day', cal && cal.finalSlot >= cal.cupDayStartSlot && cal.finalSlot < cal.cupDayStartSlot + 8, String(cal?.finalSlot));
 
   const emptyChamps = _test.formatChampions([]);
   check('formats empty champions', /trophy case is empty/i.test(emptyChamps), emptyChamps);

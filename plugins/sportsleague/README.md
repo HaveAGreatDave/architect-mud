@@ -10,10 +10,10 @@
 
 ## Seasons & the Curtain Call
 
-A season runs **`SPORTS_SEASON_DAYS` in-game days** (default 30 ≈ a month, driven by `world_clock.game_date`). A 1-minute tick counts the days elapsed since the season began; when it hits the limit (and the runner-up has played at least `SPORTS_MIN_WS_GAMES`), the **top two teams** are seeded into a single-game final, Deadball's **Curtain Call**. The top seed is the home side. The final's slot is the league's own airtime on a day its channel airs it. Tune `SPORTS_SEASON_DAYS` (top of `index.js`) up if seasons feel too short on your clock, down if they drag. Broadcast reads the season (via `sportsleague.getSeason`) and runs *those two teams* with championship branding instead of a random matchup. When that game airs, its result crowns the champion, closes the season (kept as history), **wipes the standings**, and opens the next season. There is always a champion — the sim never ties.
+A season is the **in-game calendar month** (`world_clock.game_date`). Every club plays every day on the daily slate ([docs/proposals/daily-slate.md](../../docs/proposals/daily-slate.md)), and the month's last day is **Cup day**. At the first season tick of Cup day (if the runner-up has played at least `SPORTS_MIN_WS_GAMES`), the **top two teams** are seeded into a single-game final, Deadball's **Curtain Call**, played in the sport's last slot of the day (18:00 or 21:00). The top seed is the home side. Broadcast owns the calendar and answers `broadcast.getSeasonCalendar`. A tick that comes after Cup day still seeds the final in its own slot and crowns it from its result; a season that can't seed one by then closes with no champion. Broadcast reads the season (via `sportsleague.getSeason`) and runs *those two teams* with championship branding instead of a random matchup. When that game airs, its result crowns the champion, closes the season (kept as history), **wipes the standings**, and opens the next season. There is always a champion — the sim never ties.
 
-**Eras.** A league in `LEAGUES` can name an `era` (the CPhL's is `cphl-8`, the eight
-neighbourhood clubs; Deadball's is `deadball-8`, the eight clubs it was cut to in October 2026).
+**Eras.** A league in `LEAGUES` can name an `era` (the CPhL's is `cphl-8-slate` and Deadball's
+`deadball-8-slate`: eight clubs each, on the daily slate since October 2026).
 Every season records the era it opened in, and when the league's era
 moves on, the next season tick closes the open season with no champion and opens a fresh one
 (`staleEra` and `closeForEra`). That is how a new roster starts at 0-0 on the deploy that

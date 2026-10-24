@@ -1937,6 +1937,9 @@ export const SCHEMA_SQL = `
   -- set), so "Thursday at 20:00 it's the fight instead" is one extra row, not a
   -- second schedule. See _pickDailySlot() in plugins/broadcast/index.js.
   ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS days SMALLINT NOT NULL DEFAULT 127;
+  -- A relay row (slot_type 'relay') airs whatever this channel is showing at the time
+  -- (docs/proposals/daily-slate.md). Null on every other row.
+  ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS source_channel_id TEXT;
 
   -- media_broadcasts.channel_id ↔ media_channels.idle_broadcast_id form a FK cycle.
   -- Immediate checking makes them un-restorable (no insert order satisfies both), so

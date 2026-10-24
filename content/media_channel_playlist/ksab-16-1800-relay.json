@@ -1,11 +1,12 @@
 {
-  "broadcast_id": "bc_cluster_puck",
+  "broadcast_id": null,
   "channel_id": "ch_7_1782953079593",
   "conditions": [],
-  "days": 74,
+  "days": 127,
   "duration_override": 10800,
-  "id": "ksab-16b-1800-10",
+  "id": "ksab-16-1800-relay",
   "priority": 0,
-  "slot_type": "broadcast",
+  "slot_type": "relay",
+  "source_channel_id": "ch_5_cinqo",
   "start_time": 64800
 }

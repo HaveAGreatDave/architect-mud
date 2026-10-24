@@ -187,10 +187,16 @@ async function _schedLoadItems() {
         || 3600;
       const cond = item.conditions ? (typeof item.conditions === 'string' ? JSON.parse(item.conditions) : item.conditions) : {};
       const isBreak = item.slot_type === 'commercial_break';
+      // A relay airs another channel and a sports slate lists its broadcasts in its
+      // conditions; neither has a broadcast_id to name it by.
+      const name = isBreak ? 'Commercial Break'
+        : item.slot_type === 'relay' ? 'Relay: ' + (item.source_channel_id || '?')
+        : item.slot_type === 'sports_slate' ? 'Sports slate (' + (cond.broadcasts || []).length + ')'
+        : (bc.name || item.broadcast_id);
       return {
         id:                item.id,
         broadcast_id:      item.broadcast_id,
-        broadcast_name:    isBreak ? 'Commercial Break' : (bc.name || item.broadcast_id),
+        broadcast_name:    name,
         broadcast_category: isBreak ? 'commercial' : (bc.category || 'general'),
         slot_type:         item.slot_type || 'broadcast',
         start_time:        item.start_time || 0,
@@ -198,6 +204,12 @@ async function _schedLoadItems() {
         duration_override: item.duration_override || null,
         days:              _schedDayMask(item.days),
         npc_staff:         Array.isArray(cond.npc_staff) ? cond.npc_staff : [],
+        // Kept so a save writes them back: the slate's broadcasts and a calendar
+        // condition live in conditions beside npc_staff, a relay names its source, and
+        // a row's priority decides which of two overlapping rows airs.
+        conditions:        cond && !Array.isArray(cond) ? cond : {},
+        source_channel_id: item.source_channel_id || null,
+        priority:          item.priority || 0,
       };
     });
   } catch { _schedItems = []; }
@@ -1149,7 +1161,9 @@ async function _schedSave() {
     days:              _schedDayMask(item.days),
     // Always an object — the engine reads conditions.npc_staff; an empty [] would
     // read as undefined and silently drop the slot from the studio staff recompute.
-    conditions:        { npc_staff: item.npc_staff },
+    conditions:        { ...(item.conditions || {}), npc_staff: item.npc_staff },
+    source_channel_id: item.source_channel_id || null,
+    priority:          item.priority || 0,
   }));
   try {
     const res = await directAPI(`/broadcast/channels/${_schedChannelId}/playlist`, 'PUT', payload);

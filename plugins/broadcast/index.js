@@ -688,11 +688,15 @@ function _slotAirsOn(item, dayOfWeek) {
 // The one slot on air at `gameSecs` on `dayOfWeek`. Every daily-schedule read goes
 // through here so the runner, the NPC shift checker, the "what's on now" panel and
 // the viewer's TV guide can never disagree about which slot won.
+// A slate item airs only where its sport has a game, and a `month_end` row only on Cup
+// day. Both are read against TODAY's in-game day: every caller asks about today.
 function _pickDailySlot(playlist, gameSecs, dayOfWeek) {
   let best = null;
   for (const i of playlist || []) {
     if (gameSecs < i.startTime || gameSecs >= i.startTime + i.duration) continue;
     if (!_slotAirsOn(i, dayOfWeek)) continue;
+    if (i.calendar === 'month_end' && !isCupDay(slotDay(sportsSlotIndex()))) continue;
+    if (i.slotType === 'sports_slate' && !sportsAiring(i.sportsScript, _slotAtGameSecs(gameSecs))) continue;
     if (!best) { best = i; continue; }
     const pi = i.priority || 0, pb = best.priority || 0;
     if (pi !== pb) { if (pi > pb) best = i; continue; }
@@ -701,6 +705,20 @@ function _pickDailySlot(playlist, gameSecs, dayOfWeek) {
     if (i.startTime > best.startTime) best = i;
   }
   return best;
+}
+
+// What a relay item carries: the source channel's own pick at the same moment, as a copy
+// named for the relay ("Deadball · via KSAB5 The Cinqo"). Sports seek by the shared clock,
+// so the relay shows the same moment of the same game as the source. One hop only: a
+// relay pointed at its own channel, or at a channel that is itself relaying, carries
+// nothing, and nor does one whose source has nothing on; the channel shows its off-air
+// card.
+function _relayedItem(state, item, gameSecs, dayOfWeek) {
+  const src = item?.sourceChannelId ? channelRuntime.get(item.sourceChannelId) : null;
+  if (!src || src.channelId === state?.channelId) return null;
+  const s = _pickDailySlot(src.playlist, gameSecs, dayOfWeek);
+  if (!s || s.slotType === 'relay') return null;
+  return { ...s, broadcastName: `${s.broadcastName || src.name} · via ${src.name}`, relayedFrom: src.channelId };
 }
 
 // CALL TIME. How long before a slot opens its cast are already on the clock, expressed in
@@ -1023,6 +1041,51 @@ async function sportsLibrary() {
   return scripts;
 }
 
+// The runtime items for a playlist row that isn't one broadcast in one slot.
+//
+// A SPORTS SLATE (`slot_type` 'sports_slate') lists its broadcasts in
+// `conditions.broadcasts` and airs whichever of them has a game in the current slot, by
+// the daily slate (sportsSlateForDay). It becomes one item per broadcast, all over the
+// row's hours; each carries its script marked `_slate`, so sportsAiring and
+// _pickDailySlot let it on only in its own sport's slots. KSAB5 carries every game with
+// one such row.
+//
+// A RELAY (`slot_type` 'relay') has no programme of its own. It airs whatever
+// `source_channel_id` is showing at the time (getCurrentMessage resolves it), so a
+// simulcast is one row and needs no knowledge of what's on the other channel.
+//
+// Either can carry `conditions.calendar: 'month_end'`, which airs it only on the last day
+// of the in-game month (Cup day).
+function _scheduleRowItems(item, cond, slateBroadcasts) {
+  const base = {
+    slotType: item.slot_type,
+    startTime: item.start_time,
+    duration: item.duration_override || 86400 - item.start_time,
+    days: _dayMask(item.days),
+    priority: item.priority || 0,
+    calendar: cond?.calendar || null,
+    npcStaff: [], messages: [], fallbackMessages: [], message_interval: 5,
+    broadcastGraph: null, passDuration: null, locationZoneId: null, filmRuntime: null, filmRunStart: null,
+  };
+  if (item.slot_type === 'relay') {
+    return [{ ...base, id: item.id, broadcastId: null, broadcastName: null, playback_mode: null, sourceChannelId: item.source_channel_id || null }];
+  }
+  const out = [];
+  for (const bid of Array.isArray(cond?.broadcasts) ? cond.broadcasts : []) {
+    const b = slateBroadcasts.get(bid);
+    let pools = b?.sports_pools;
+    if (typeof pools === 'string') { try { pools = JSON.parse(pools); } catch { pools = null; } }
+    if (!pools?.teams) { console.warn(`[broadcast] slate row ${item.id}: ${bid} isn't a sports broadcast with clubs`); continue; }
+    const fb = b.fallback_messages;
+    out.push({
+      ...base, id: `${item.id}:${bid}`, broadcastId: bid, broadcastName: b.name || null,
+      playback_mode: 'sports', sportsScript: { ...pools, _slate: true },
+      fallbackMessages: Array.isArray(fb) ? fb : (fb ? JSON.parse(fb) : []),
+    });
+  }
+  return out;
+}
+
 async function loadChannelRuntimes() {
   // Drop the sports library first: the caller has just written media_broadcasts.
   _sportsLibrary = null;
@@ -1132,9 +1195,30 @@ async function loadChannelRuntimes() {
       }
     }
 
+    // A SPORTS SLATE row names its broadcasts in `conditions.broadcasts` rather than in
+    // broadcast_id, so the join above brought none of them. One read for every slate
+    // row on every channel.
+    const condOf = (item) => {
+      if (item.conditions && typeof item.conditions === 'object') return item.conditions;
+      try { return item.conditions ? JSON.parse(item.conditions) : {}; } catch { return {}; }
+    };
+    const slateIds = [...new Set(playlist.filter((p) => p.slot_type === 'sports_slate')
+      .flatMap((p) => (Array.isArray(condOf(p).broadcasts) ? condOf(p).broadcasts : [])))];
+    const slateBroadcasts = new Map();
+    if (slateIds.length) {
+      const { rows } = await query(
+        `SELECT id, name, sports_pools, fallback_messages FROM media_broadcasts WHERE id = ANY($1) AND playback_mode = 'sports'`, [slateIds]);
+      for (const b of rows) slateBroadcasts.set(b.id, b);
+    }
+
     const playlistByChannel = new Map();
     const deckSyncSlots = new Map();
     for (const item of playlist) {
+      if (item.slot_type === 'sports_slate' || item.slot_type === 'relay') {
+        if (!playlistByChannel.has(item.channel_id)) playlistByChannel.set(item.channel_id, []);
+        for (const it of _scheduleRowItems(item, condOf(item), slateBroadcasts)) playlistByChannel.get(item.channel_id).push(it);
+        continue;
+      }
       // Same as the query this replaced: COALESCE(duration_override, 300).
       if (!deckSyncSlots.has(item.channel_id)) deckSyncSlots.set(item.channel_id, []);
       deckSyncSlots.get(item.channel_id).push({
@@ -2187,7 +2271,7 @@ const SPORTS_DEFAULT_NAMES = BASEBALL.defaultNames;
 // timeScale, restart and reset the season, since the slot size — and thus the standings
 // window — is denominated in slots.)
 const SPORTS_DAY_MS = 24 * 60 * 60 * 1000;             // real ms in one in-game day at timeScale 1
-const SPORTS_GAMES_PER_DAY = 8;                        // games per IN-GAME day (one round for 16 teams)
+const SPORTS_GAMES_PER_DAY = 8;                        // slots per IN-GAME day, shared by the sports on the slate
 const SPORTS_GAME_FILL = 0.85;                         // fraction of a slot the play-by-play fills (rest = post-game)
 const SPORTS_SLOT_FALLBACK_MS = SPORTS_DAY_MS / SPORTS_GAMES_PER_DAY;   // 3h — used only before the clock loads
 const SPORTS_SLOT_GAME_MIN = 1440 / SPORTS_GAMES_PER_DAY;   // in-game minutes per game (180 = a 3-in-game-hour block)
@@ -2230,10 +2314,13 @@ const sportsSlotEndsAtMs = () => Date.now() + ((SPORTS_SLOT_GAME_MIN - sportsSlo
 // indices 0..SPORTS_GAMES_PER_DAY-1) features ONLY those games each in-game day — one full
 // game, grid-snapped, at a fixed in-game time. Empty/absent ⇒ continuous (every slot,
 // back-to-back games).
-function sportsAiring(script) {
+// A slate item's script (`_slate`, from a KSAB5-style sports_slate row) ignores airSlots:
+// it airs in every slot where its sport has a game.
+function sportsAiring(script, slot = sportsSlotIndex()) {
+  if (script?._slate) return slateHasGame(script, slot);
   const slots = script?.airSlots;
   if (!Array.isArray(slots) || !slots.length) return true;
-  return slots.includes(sportsSlotOfDay());
+  return slots.includes(slotSod(slot));
 }
 
 // Circle-method round-robin: for N teams (padded to even with a BYE), returns N-1
@@ -2252,31 +2339,154 @@ function roundRobinRounds(n) {
   return rounds;
 }
 
-// The matchup airing in a given global slot. The day picks a deterministic team
-// order + a rolling window into the round-robin so pairings vary day to day while
-// staying balanced; home/away flips on a per-slot coin. A pairing that lands on the
-// BYE (odd roster) is skipped to the next real one. Returns { away, home } or null.
-function sportsMatchupForSlot(slot, teams) {
+// ── The daily slate ──────────────────────────────────────────────────────────
+// Every club plays every in-game day (docs/proposals/daily-slate.md). The sports share
+// the day's eight slots, taking turns, and the pattern swaps each day: on an even day
+// the first sport in SPORTS has 00, 06, 12 and 18 and the second 03, 09, 15 and 21, and
+// on an odd day the other way round. So each sport gets the 18:00 game, KSAB-TV's, every
+// other day. In its four slots a sport plays one round of its round robin. The club
+// order is shuffled once a month, not once a day, so a month walks the whole round
+// robin. The pairings are shuffled into the slots by the day's seed, except the 18:00
+// one, which goes to the pairing whose clubs have had the fewest 18:00 games so far this
+// month, so every club is on KSAB-TV about as often as every other.
+//
+// The last day of the in-game month is Cup day. Each sport plays only its final, in its
+// last slot of the day, and every other slot is empty. The finalists are the league's
+// (postseasonOverride), so the slate marks the slot as the final and names nobody.
+//
+// All of it is a pure function of the day number and the club names, like the games.
+const SLATE_SPORTS = Object.keys(SPORTS);
+const SLATE_FEATURED_SOD = 6;   // 18:00, the slot KSAB-TV carries
+const DAY_MS = 86400000;
+const slateDate = (day) => new Date(day * DAY_MS);
+// The in-game day a slot falls on, and its slot of the day.
+const slotDay = (slot) => Math.floor(slot / SPORTS_GAMES_PER_DAY);
+const slotSod = (slot) => ((slot % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY) % SPORTS_GAMES_PER_DAY;
+// The first day of `day`'s month, and whether `day` is the month's last.
+const monthStartDay = (day) => day - (slateDate(day).getUTCDate() - 1);
+const isCupDay = (day) => slateDate(day + 1).getUTCDate() === 1;
+const monthEndDay = (day) => { const d = slateDate(day); return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0) / DAY_MS); };
+// The sport that plays in slot-of-day `sod` on `day`.
+const slateSportAt = (day, sod) => SLATE_SPORTS[(((sod + day) % SLATE_SPORTS.length) + SLATE_SPORTS.length) % SLATE_SPORTS.length];
+// A sport's slots-of-day on `day`, in time order.
+function slateSodsFor(sport, day) {
+  const out = [];
+  for (let s = 0; s < SPORTS_GAMES_PER_DAY; s++) if (slateSportAt(day, s) === sport) out.push(s);
+  return out;
+}
+// The slot a sport's Cup-day final is played in, given any slot in the season's month.
+function slateFinalSlot(sport, slot) {
+  const cup = monthEndDay(slotDay(slot));
+  const sods = slateSodsFor(sport, cup);
+  return sods.length ? cup * SPORTS_GAMES_PER_DAY + sods[sods.length - 1] : null;
+}
+const sportSalt = (sport) => sportsHash(...[...String(sport)].map((c) => c.charCodeAt(0)));
+
+// One sport's games on one day: [{ sod, away, home }] in time order, or on Cup day
+// [{ sod, final: true }]. `counts` holds each club's 18:00 games so far this month and
+// is read, not written.
+function buildSportDay(sport, day, names, counts) {
+  const sods = slateSodsFor(sport, day);
+  if (!sods.length) return [];
+  if (isCupDay(day)) return [{ sod: sods[sods.length - 1], final: true }];
+  const salt = sportSalt(sport);
+  const order = sportsShuffle(names, sportsRng(sportsHash(monthStartDay(day), salt, 0x5c4e)));
+  const rounds = roundRobinRounds(order.length);
+  const round = rounds[((day % rounds.length) + rounds.length) % rounds.length];
+  const pairs = sportsShuffle(
+    round.filter(([a, h]) => a < order.length && h < order.length).map(([a, h]) => [order[a], order[h]]),
+    sportsRng(sportsHash(day, salt, 0x51a7)),
+  );
+  // The fairest pairing takes 18:00. The shuffle above breaks ties.
+  let featured = null;
+  if (sods.includes(SLATE_FEATURED_SOD) && pairs.length) {
+    let best = 0, bestN = Infinity;
+    pairs.forEach(([a, h], i) => { const n = (counts.get(a) || 0) + (counts.get(h) || 0); if (n < bestN) { best = i; bestN = n; } });
+    featured = pairs.splice(best, 1)[0];
+  }
+  const out = [];
+  for (const sod of sods) {
+    const p = sod === SLATE_FEATURED_SOD && featured ? featured : pairs.shift();
+    if (!p) continue;
+    const flip = (sportsHash(day * SPORTS_GAMES_PER_DAY + sod, 0xa17f) & 1) === 1;
+    out.push(flip ? { sod, away: p[1], home: p[0] } : { sod, away: p[0], home: p[1] });
+  }
+  return out;
+}
+
+// Memoised by sport, day and roster. Building a day needs the month's earlier 18:00
+// games, so a miss walks from the first of the month, keeping every day it builds.
+const _slateMemo = new Map();
+const SLATE_MEMO_MAX = 256;
+function sportDaySlate(sport, day, names) {
+  const nk = names.join('\u0001');
+  const key = (d) => `${sport}|${d}|${nk}`;
+  const hit = _slateMemo.get(key(day));
+  if (hit) return hit;
+  const counts = new Map();
+  let out = [];
+  for (let d = monthStartDay(day); d <= day; d++) {
+    let s = _slateMemo.get(key(d));
+    if (!s) {
+      s = buildSportDay(sport, d, names, counts);
+      _slateMemo.set(key(d), s);
+      if (_slateMemo.size > SLATE_MEMO_MAX) _slateMemo.delete(_slateMemo.keys().next().value);
+    }
+    for (const g of s) {
+      if (g.final || g.sod !== SLATE_FEATURED_SOD) continue;
+      counts.set(g.away, (counts.get(g.away) || 0) + 1);
+      counts.set(g.home, (counts.get(g.home) || 0) + 1);
+    }
+    out = s;
+  }
+  return out;
+}
+
+// The whole day's slate across every sport with a script: [{ slot, sod, sport, away,
+// home, final }] in time order. `scripts` is one sports script per sport. A sport with
+// no script still owns its slots; they come back with no game.
+function sportsSlateForDay(day, scripts) {
+  const bySport = new Map();
+  for (const s of scripts || []) if (s?.teams) bySport.set(sportOf(s).id, s);
+  const out = [];
+  for (let sod = 0; sod < SPORTS_GAMES_PER_DAY; sod++) {
+    const sport = slateSportAt(day, sod);
+    const script = bySport.get(sport);
+    const g = script ? sportDaySlate(sport, day, sportsTeamNames(script.teams)).find((e) => e.sod === sod) : null;
+    out.push({ slot: day * SPORTS_GAMES_PER_DAY + sod, sod, sport, away: g?.away || null, home: g?.home || null, final: !!g?.final });
+  }
+  return out;
+}
+
+// The regular-season matchup in a given global slot, from the slate: { away, home }, or
+// null when the slot belongs to another sport, is a Cup-day final (the league names
+// those teams) or is empty.
+const _slateWarned = new Set();
+function sportsMatchupForSlot(slot, teams, sport = SLATE_SPORTS[0]) {
   const names = sportsTeamNames(teams);
   if (names.length < 2) return null;
-  const day = Math.floor(slot / SPORTS_GAMES_PER_DAY);
-  const slotOfDay = ((slot % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY) % SPORTS_GAMES_PER_DAY;
-  const order = sportsShuffle(names, sportsRng(sportsHash(day, 0x5c4e))); // daily team order
-  const rounds = roundRobinRounds(order.length);
-  const gamesPerRound = rounds[0].length;
-  const roundsPerDay = Math.max(1, Math.floor(SPORTS_GAMES_PER_DAY / gamesPerRound));
-  // Walk from the slot's nominal pairing, skipping BYE games (index ≥ order.length).
-  const total = rounds.length * gamesPerRound;
-  const base = (day * roundsPerDay * gamesPerRound) + slotOfDay;
-  for (let k = 0; k < total; k++) {
-    const flat = (base + k) % total;
-    const [ai, hi] = rounds[Math.floor(flat / gamesPerRound)][flat % gamesPerRound];
-    if (ai >= order.length || hi >= order.length) continue;   // BYE — try the next pairing
-    const flip = (sportsHash(slot, 0xa17f) & 1) === 1;
-    return flip ? { away: order[hi], home: order[ai] } : { away: order[ai], home: order[hi] };
+  if (!SLATE_SPORTS.includes(sport)) {
+    if (!_slateWarned.has(sport)) { _slateWarned.add(sport); console.warn(`[broadcast] sport "${sport}" isn't on the slate; it has no games`); }
+    return null;
   }
-  return null;
+  const day = slotDay(slot), sod = slotSod(slot);
+  if (slateSportAt(day, sod) !== sport) return null;
+  const g = sportDaySlate(sport, day, names).find((e) => e.sod === sod);
+  return g && !g.final ? { away: g.away, home: g.home } : null;
 }
+
+// Is a game of this script's sport being played in `slot`: a regular one off the slate,
+// or the final in its own slot once the league has seeded it? A Cup-day slot with no
+// final yet, and the other sport's slots, have none. The venue lights and the slate
+// items on a channel both ask this.
+function slateHasGame(script, slot) {
+  const sport = sportOf(script).id;
+  if (slateSportAt(slotDay(slot), slotSod(slot)) !== sport) return false;
+  return !!postseasonOverride(sport, slot) || !!sportsMatchupForSlot(slot, script.teams, sport);
+}
+// The slot that `gameSecs` (seconds since in-game midnight) falls in, today.
+const _slotAtGameSecs = (gameSecs) => slotDay(sportsSlotIndex()) * SPORTS_GAMES_PER_DAY
+  + Math.min(SPORTS_GAMES_PER_DAY - 1, Math.max(0, Math.floor(gameSecs / (SPORTS_SLOT_GAME_MIN * 60))));
 
 // Short 2–3 letter tag for the score bug (initials of a multi-word name, else first letters).
 function sportsAbbr(name) {
@@ -2424,7 +2634,7 @@ function sportsGameForSlot(script, slot, override, unavailable) {
   // a final's teams come seeded, the top seed first, and the top seed is the home side
   const matchup = override?.teams
     ? { away: override.teams[1], home: override.teams[0] }
-    : sportsMatchupForSlot(slot, script.teams);
+    : sportsMatchupForSlot(slot, script.teams, sportOf(script).id);
   if (!matchup) return null;
   // The whole club list rides along. A sport whose rosters belong to the LEAGUE rather
   // than to the game (hockey deals each club a disjoint, permanent six) can't derive
@@ -2552,6 +2762,9 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
       // to accidentally read the other league's.
       recordOf: (team) => recordOf(team, sportMod.id),
       standings: ((_standingsCaches.get(sportMod.id) || {}).rows || []).slice(0, 8),
+      // every man's season so far (a sport's summariseExtras), for the stat lines a narrator
+      // puts on its payloads
+      season: (_standingsCaches.get(sportMod.id) || {}).extras || null,
       pregame: (opts) => pregameFx(sportMod.id, (_standingsCaches.get(sportMod.id) || {}).rows, opts),
       lastId: () => prevId,
     }) || {};
@@ -2924,7 +3137,10 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
 // a purely internal event, zero client egress. Deduped per (channel, game) so a
 // game is announced once per slot. The result is deterministic, so this agrees
 // exactly with whatever any TV is showing.
-const _sportsHeartbeat = new Map();   // channelId -> last gameId emitted
+// Each game is announced ONCE, however many channels carry it (KSAB5, and KSAB-TV relaying
+// it): keyed by game id, cleared when the slot moves on.
+const _sportsHeartbeat = new Set();   // gameIds announced this slot
+let _sportsHeartbeatSlot = null;
 // Every sports broadcast on every channel that is AIRING RIGHT NOW. The old
 // version took the first sports item in each playlist and ignored airtime, which
 // was fine while Deadball was the only sport and silently wrong the moment a
@@ -2944,19 +3160,22 @@ function sportsChannels() {
       if (i.playback_mode !== 'sports' || !i.sportsScript) continue;
       if (!sportsAiring(i.sportsScript)) continue;
       if (dow != null && !_slotAirsOn(i, dow)) continue;
-      out.push({ channelId, script: i.sportsScript, broadcastId: i.broadcast_id || i.id });
+      // Keyed to the BROADCAST (runtime items carry it as broadcastId), so a game is one id
+      // whichever row or channel airs it.
+      out.push({ channelId, script: i.sportsScript, broadcastId: i.broadcastId || i.id });
     }
   }
   return out;
 }
 // ── GAME NIGHTS AT THE PARK ─────────────────────────────────────────────────────
-// A venue's light towers are on while the show that plays there is on air. The venue is content
+// A venue's light towers are on while a game is being played there (scriptsPlayingNow, off the
+// slate), whether or not a channel is showing it. The venue is content
 // (`sports_pools.venue.site.block`, the tiles the park stands on), so this names no park: any
 // sports script with a block lights it. The map derive asks `venue.lit` for every tile carrying
 // `flags.venue_lights` (plugins/flight/state.js); ⚠ SYNC AND QUERY-FREE, because the map window is,
 // so it answers from this set, which the heartbeat below keeps. A view that is open when it changes
 // is told by a `venue_lit` push (client/game/js/panels/world-feed.js keeps it by tile).
-let _venueLit = new Set();   // "x,y" of every tile of a venue whose show is on air now
+let _venueLit = new Set();   // "x,y" of every tile of a venue with a game on now
 function venueLit({ x, y } = {}) { return _venueLit.has(`${x},${y}`) ? { on: 1 } : undefined; }
 function refreshVenueLights(chans) {
   const next = new Set();
@@ -3058,16 +3277,31 @@ function refreshVenueRoofs(nowMs = Date.now(), push = true, weather = null) {
   for (const id of world.players.keys()) sendToPlayer(id, msg);
 }
 
+// The scripts with a game being played right now, whether or not any channel is showing
+// it: the slate decides who plays, and a park is lit for a game, not for a broadcast.
+async function scriptsPlayingNow() {
+  const slot = sportsSlotIndex(), seen = new Set(), out = [];
+  for (const script of await sportsLibrary()) {
+    const sport = sportOf(script).id;
+    if (!script?.teams || seen.has(sport) || !slateHasGame(script, slot)) continue;
+    seen.add(sport);
+    out.push({ script });
+  }
+  return out;
+}
+
 async function sportsHeartbeat() {
   const nowMs = Date.now();
   await recordSimSwitches();
+  // Every sport on the slate, aired or not. On Cup day every slot before the final is
+  // empty, so nothing else would refresh the season cache, and a final the league seeded
+  // at midnight would never be seen by slateHasGame. Throttled in refreshSeason, and the
+  // league answers from RAM.
+  for (const sport of SLATE_SPORTS) await refreshSeason(nowMs, sport);
   const chans = sportsChannels();
-  refreshVenueLights(chans);
+  refreshVenueLights(await scriptsPlayingNow());
   refreshVenueRoofs(nowMs);
   if (!chans.length) return;
-  // Background postseason detection, per sport, with no viewer needed. Deduped so two
-  // channels carrying the same sport cost one round trip.
-  for (const sport of new Set(chans.map(c => sportOf(c.script).id))) await refreshSeason(nowMs, sport);
   const slot = sportsSlotIndex();
   const endsAtMs = sportsSlotEndsAtMs();
   // EACH CHANNEL SIMULATES ITS OWN GAME. This used to sim chans[0] and emit that one
@@ -3083,8 +3317,9 @@ async function sportsHeartbeat() {
     const g = gs.game;
     const winner = g.awayScore === g.homeScore ? '' : (g.awayScore > g.homeScore ? g.away.name : g.home.name);
     const gameId = `${broadcastId || sportOf(script).id}:sport:${slot}${override?.worldSeries ? ':ws' : ''}`;
-    if (_sportsHeartbeat.get(channelId) === gameId) continue;
-    _sportsHeartbeat.set(channelId, gameId);
+    if (_sportsHeartbeatSlot !== slot) { _sportsHeartbeat.clear(); _sportsHeartbeatSlot = slot; }
+    if (_sportsHeartbeat.has(gameId)) continue;
+    _sportsHeartbeat.add(gameId);
     emit('sports.game', {
       channelId, gameId, sport: sportOf(script).id,
       away: g.away.name, home: g.home.name,
@@ -3244,17 +3479,20 @@ async function refreshSeason(nowMs, sport = 'baseball') {
   _seasonCaches.set(sport, next);
   return next;
 }
-// { teams:[a,b], worldSeries:true } once the Series is on AND its slot has arrived, so
-// the finalists take over the schedule from the WS slot until a champion is crowned.
+// { teams:[a,b], worldSeries:true } in the final's slot once the league has seeded it.
 // A postseason belongs to ONE sport's season, and handing a takeover to the wrong sim
 // would drop two ballclubs onto the ice. Each script gets its own sport's final —
 // Deadball's Curtain Call, Cluster Puck's Coldwater Cup — or nothing.
-const overrideFor = (script) => postseasonOverride(sportOf(script).id);
+const overrideFor = (script, slot) => postseasonOverride(sportOf(script).id, slot);
 
-function postseasonOverride(sport) {
+// The final is one game in one slot, the sport's last on Cup day. It took over every slot
+// from its own on while there was one game a day; with the slate the slot after it is
+// another sport's or tomorrow's first game, and the final mustn't spill into it before
+// the league crowns somebody.
+function postseasonOverride(sport, slot = sportsSlotIndex()) {
   const s = seasonOf(sport);
   if (s.phase !== 'worldseries' || !s.finalistA || !s.finalistB) return null;
-  if (s.wsSlot != null && sportsSlotIndex() < s.wsSlot) return null;   // the final airs from its slot on
+  if (s.wsSlot != null && slot !== s.wsSlot) return null;
   return { teams: [s.finalistA, s.finalistB], worldSeries: true };
 }
 
@@ -3263,7 +3501,10 @@ function postseasonOverride(sport) {
 // beat off the shared clock, and roll to the next game together at the top of the
 // hour. Cached module-wide and rebuilt only when the slot (or the World-Series
 // override) changes — one assembly per hour, not one per channel per tick.
-let _sportsGraphCache = { key: null, graph: null };
+// Several games can be on at once (KSAB5 carries the slate and KSAB-TV relays one), so
+// it holds a few, dropping the oldest.
+const _sportsGraphCache = new Map();
+const SPORTS_GRAPH_CACHE_MAX = 4;
 // Cache key carries the SPORT. With one sport a bare slot happened to be unique;
 // with two sharing a channel it silently returns the wrong graph. The broadcast id
 // was also hardcoded to the literal string 'deadball', so hockey's graph would
@@ -3283,10 +3524,11 @@ function getSportsGraph(script, slot, override) {
   if (!script) return null;
   const sport = script.sport || 'baseball';
   const key = `${sport}:${slot}${override?.worldSeries ? `|ws:${override.teams.join('|')}` : ''}`;
-  if (_sportsGraphCache.key !== key) {
-    _sportsGraphCache = { key, graph: assembleSportsGraph(script, sport, slot, override) };
+  if (!_sportsGraphCache.has(key)) {
+    _sportsGraphCache.set(key, assembleSportsGraph(script, sport, slot, override));
+    if (_sportsGraphCache.size > SPORTS_GRAPH_CACHE_MAX) _sportsGraphCache.delete(_sportsGraphCache.keys().next().value);
   }
-  return _sportsGraphCache.graph;
+  return _sportsGraphCache.get(key);
 }
 
 // ── News broadcasts ───────────────────────────────────────────────────────────
@@ -4579,7 +4821,11 @@ async function getCurrentMessage(state, nowMs) {
   if (scheduleMode === 'daily' && playlist.length) {
     const { minutes, dayOfWeek } = getEnvironmentState();
     const gameSecondsSinceMidnight = minutes * 60;
-    const item = _pickDailySlot(playlist, gameSecondsSinceMidnight, dayOfWeek);
+    let item = _pickDailySlot(playlist, gameSecondsSinceMidnight, dayOfWeek);
+    if (item?.slotType === 'relay') {
+      item = _relayedItem(state, item, gameSecondsSinceMidnight, dayOfWeek);
+      if (!item) return null;   // nothing to relay: the off-air card
+    }
     if (item) {
       if (item.slotType === 'commercial_break') { state.currentPlaybackMode = 'commercial'; return _playCommercial(state, nowMs); }
       state.currentFallbackMessages = item.fallbackMessages || [];
@@ -6340,6 +6586,10 @@ function nowBroadcastingFor(channelId) {
   let item = null;
   if (state.scheduleMode === 'daily') {
     item = _pickDailySlot(state.playlist, gameSecs, dayOfWeek);
+    if (item?.slotType === 'relay') {
+      item = _relayedItem(state, item, gameSecs, dayOfWeek);
+      if (!item) return { broadcast_id: null, name: 'Relay (source off air)', source: 'relay' };
+    }
   } else if (state.playlist.length && state.totalDuration > 0) {
     const elapsed = ((nowMs - state.loopOriginMs) / 1000) % state.totalDuration;
     item = state.playlist.find(i => elapsed >= i.startTime && elapsed < i.startTime + i.duration);
@@ -6414,8 +6664,11 @@ function _sportsScheduleSlots(script, cur) {
 // ballgame's table, with the run differential where a hockey club's points belong.
 // Falls back to baseball only when nothing sporting is on that channel at all.
 function sportOnChannel(channelId) {
-  const state = channelId ? channelRuntime.get(channelId) : null;
-  const dow = getEnvironmentState()?.dayOfWeek;
+  let state = channelId ? channelRuntime.get(channelId) : null;
+  const { minutes, dayOfWeek: dow } = getEnvironmentState() || {};
+  // A channel relaying another asks the source.
+  const now = state ? _pickDailySlot(state.playlist, (minutes ?? 0) * 60, dow) : null;
+  if (now?.slotType === 'relay') state = _relayedItem(state, now, (minutes ?? 0) * 60, dow) ? channelRuntime.get(now.sourceChannelId) : null;
   for (const i of state?.playlist || []) {
     if (i.playback_mode !== 'sports' || !i.sportsScript) continue;
     if (!sportsAiring(i.sportsScript)) continue;
@@ -6445,7 +6698,7 @@ async function sendTvStandings(playerId) {
 // The live matchup label for a sports slot in a running order — so a mixed channel's Deadball row
 // reads "DEADBALL — Away @ Home" (the game that's actually airing) like the dedicated sports guide
 // does, rather than the generic stored broadcast name. Returns null for any non-sports item.
-function _sportsSlotLabel(item) {
+function _sportsSlotLabel(item, slot = sportsSlotIndex()) {
   if (item.playback_mode !== 'sports' || !item.sportsScript) return null;
   // Per-item sport. KSAB carries both leagues in the same 18:00 window on different
   // nights, so a row keyed to Deadball's season would caption the hockey night with a
@@ -6453,11 +6706,34 @@ function _sportsSlotLabel(item) {
   const mod = sportOf(item.sportsScript);
   const brand = mod.brand || 'DEADBALL';
   const s = seasonOf(mod.id);
-  if (s.phase === 'worldseries' && s.finalistA && s.finalistB) {
+  if (s.phase === 'worldseries' && s.finalistA && s.finalistB && (s.wsSlot == null || s.wsSlot === slot)) {
     return `${mod.finalIcon || '⚾'} ${(mod.season?.finalName || 'Final').toUpperCase()}: ${s.finalistA} vs ${s.finalistB}`;
   }
-  const gs = sportsGameForSlot(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
-  return gs ? `${brand}: ${gs.game.away.name} @ ${gs.game.home.name}` : (item.broadcastName || brand);
+  // The matchup only: the guide must never simulate a score (getTeamCard's spoiler rule).
+  const m = sportsMatchupForSlot(slot, item.sportsScript.teams, mod.id);
+  return m ? `${brand}: ${m.away} @ ${m.home}` : (item.broadcastName || brand);
+}
+// A relay row's guide label: what its source airs at that time, said as a simulcast.
+function _relayLabel(state, item, dow) {
+  const via = _relayedItem(state, item, item.startTime, dow);
+  if (!via) return 'Off air';
+  return via.slotType === 'commercial_break' ? via.broadcastName
+    : `${_sportsSlotLabel(via, _slotAtGameSecs(item.startTime)) || via.broadcastName.split(' · via ')[0]} · via ${channelRuntime.get(via.relayedFrom)?.name}`;
+}
+// The guide for a channel carrying the slate: every game today, by slot, with a Cup-day
+// final under its own name. Matchups only, never a score.
+function _slateScheduleSlots(state) {
+  const items = state.playlist.filter((i) => i.slotType === 'sports_slate');
+  const day = slotDay(sportsSlotIndex());
+  const cur = sportsSlotIndex();
+  const out = [];
+  for (const g of sportsSlateForDay(day, items.map((i) => i.sportsScript))) {
+    const item = items.find((i) => sportOf(i.sportsScript).id === g.sport);
+    if (!item || (!g.away && !g.final)) continue;
+    if (g.final && !postseasonOverride(g.sport, g.slot)) continue;   // a final not yet seeded has no teams to list
+    out.push({ name: _sportsSlotLabel(item, g.slot), todLabel: _fmtHHMM(g.sod * SPORTS_SLOT_GAME_MIN), durationSec: SPORTS_SLOT_GAME_MIN * 60, onNow: g.slot === cur });
+  }
+  return out;
 }
 function sendTvSchedule(playerId, channelId) {
   const state = channelId ? channelRuntime.get(channelId) : null;
@@ -6486,14 +6762,18 @@ function sendTvSchedule(playerId, channelId) {
   const nonCommercial = state.playlist.filter((i) => i.slotType !== 'commercial_break');
   const sportsOnly = nonCommercial.length > 0 && nonCommercial.every((i) => i.playback_mode === 'sports' && i.sportsScript);
   const sportsItem = sportsOnly ? nonCommercial.find((i) => i.sportsScript) : null;
-  const sportsSlots = sportsItem ? _sportsScheduleSlots(sportsItem.sportsScript, sportsSlotIndex()) : null;
+  const sportsSlots = !sportsItem ? null
+    : sportsItem.slotType === 'sports_slate' ? _slateScheduleSlots(state)
+    : _sportsScheduleSlots(sportsItem.sportsScript, sportsSlotIndex());
   if (sportsSlots) {
     sendToPlayer(playerId, { ...base, scheduleMode: 'daily', slots: sportsSlots });
     return;
   }
   // On a mixed channel the Deadball row still reads with its live matchup, not the generic
   // broadcast name, so the guide matches what's actually on — the rest of the day is untouched.
-  const nameFor = (i) => (i.slotType === 'commercial_break') ? 'Commercial break' : (_sportsSlotLabel(i) || i.broadcastName || 'Untitled');
+  const nameFor = (i) => (i.slotType === 'commercial_break') ? 'Commercial break'
+    : i.slotType === 'relay' ? _relayLabel(state, i, getEnvironmentState().dayOfWeek)
+    : (_sportsSlotLabel(i, _slotAtGameSecs(i.startTime)) || i.broadcastName || 'Untitled');
   let slots;
   if (base.scheduleMode === 'daily') {
     const nowSec = nowMin * 60;
@@ -8312,49 +8592,30 @@ registerAction({
   handler: async () => ({ slot: sportsSlotIndex(), slotMs: sportsSlotMs(), gamesPerDay: SPORTS_GAMES_PER_DAY, ready: !!getEnvironmentState()?.date }),
 });
 
-// The next slot strictly AFTER `after` whose slot-of-day is one of `featured` (the
-// `@airtime` blocks) and, given `airs(slot)`, whose day the show is on the schedule for (a
-// Monday, Wednesday and Friday show isn't on on a Tuesday). It looks a week and a day ahead.
-// `featured` null/empty ⇒ the immediate next slot (continuous league). Returns `{ slot, hour }`
-// (hour = that block's in-game start hour). Pure.
-function nextAirSlot(after, featured, G, airs = null) {
-  const feat = (Array.isArray(featured) && featured.length) ? featured.map((n) => ((n % G) + G) % G) : null;
-  let slot = after + 1;
-  if (feat || airs) {
-    for (let k = 1; k <= G * 8; k++) {
-      const c = after + k;
-      if (feat && !feat.includes(((c % G) + G) % G)) continue;
-      if (airs && !airs(c)) continue;
-      slot = c; break;
-    }
-  }
-  return { slot, hour: (((slot % G) + G) % G) * (24 / G) };
+// The season calendar around `slot` for one sport. A season is the in-game month and its
+// final is played on the month's last day, in the sport's last slot (the slate's
+// `slateFinalSlot`). A season opened on Cup day belongs to the next month, since the only
+// games that day are the finals. `nextSlot` is the sport's next slot after `slot`, where a
+// final forced by staff is played. Pure; the sportsleague plugin reads it through
+// `broadcast.getSeasonCalendar`.
+function seasonCalendar(sport, slot) {
+  const G = SPORTS_GAMES_PER_DAY, day = slotDay(slot);
+  const m0 = monthStartDay(day), end = monthEndDay(day), cup = isCupDay(day);
+  const startDay = cup ? day + 1 : m0;
+  let nextSlot = null;
+  for (let c = slot + 1; c <= slot + G * 2 && nextSlot == null; c++) if (slateSportAt(slotDay(c), slotSod(c)) === sport) nextSlot = c;
+  return {
+    day, dayOfMonth: day - m0 + 1, monthDays: end - m0 + 1, isCupDay: cup,
+    monthStartSlot: m0 * G, cupDayStartSlot: end * G, finalSlot: slateFinalSlot(sport, slot),
+    seasonStartSlot: startDay * G, seasonStartDate: slateDate(startDay).toISOString().slice(0, 10),
+    nextSlot,
+  };
 }
-
-// Lets the sportsleague schedule a final onto the normal nightly slot instead of
-// "the next hour", so it airs — and can be advertised — at a predictable in-game time.
 registerAction({
-  type: 'broadcast.nextSportsAirSlot',
+  type: 'broadcast.getSeasonCalendar',
   handler: async ({ params = {} } = {}) => {
-    const after = Number.isFinite(params.after) ? params.after : sportsSlotIndex();
-    // Each show has its own nightly airtime, so a championship has to be pinned to the
-    // slot ITS league actually airs in — pinning the Cup to Deadball's hour would put
-    // the biggest game of the hockey season on at a time nobody tunes in for it.
-    const script = await anySportsScript(params.sport);
-    // ...and to a day its channel airs it: KSAB has Deadball on Monday, Wednesday and Friday, so a
-    // final pinned to a Tuesday was crowned without anyone seeing it. The days are the playlist's
-    // (the same walk as getNextOnAir); with no channel loaded, every day.
-    const G = SPORTS_GAMES_PER_DAY, now = sportsSlotIndex(), dow0 = getEnvironmentState()?.dayOfWeek;
-    const items = [];
-    for (const [, state] of channelRuntime) {
-      for (const i of state.playlist || []) {
-        if (i.playback_mode === 'sports' && i.sportsScript && (sportOf(i.sportsScript)?.id || 'baseball') === (params.sport || 'baseball')) items.push(i);
-      }
-    }
-    const airs = items.length && dow0 != null
-      ? (slot) => { const dow = ((Number(dow0) - 1 + Math.floor(slot / G) - Math.floor(now / G)) % 7 + 7) % 7 + 1; return items.some((i) => _slotAirsOn(i, dow)); }
-      : null;
-    return nextAirSlot(after, script?.airSlots, G, airs);
+    const slot = Number.isFinite(params.slot) ? params.slot : sportsSlotIndex();
+    return seasonCalendar(params.sport || SLATE_SPORTS[0], slot);
   },
 });
 
@@ -8432,7 +8693,8 @@ registerAction({
 registerAction({
   type: 'broadcast.getTeamCard',
   handler: async ({ params = {} } = {}) => {
-    const { sport = 'baseball', team, back = 24, ahead = 24 } = params;
+    // A club plays once a day, every day, so six days back is enough for five games of form.
+    const { sport = 'baseball', team, back = 48, ahead = 24 } = params;
     if (!team) return null;
     const script = await anySportsScript(sport);
     if (!script) return null;
@@ -8546,9 +8808,10 @@ registerAction({
       const dow = dow0 == null ? null : ((Number(dow0) - 1 + Math.floor(slot / G) - Math.floor(now / G)) % 7 + 7) % 7 + 1;
       for (const c of cands) {
         const slots = c.script.airSlots;
-        if (Array.isArray(slots) && slots.length && !slots.includes(sod)) continue;
+        if (c.script._slate) { if (!sportsAiring(c.script, slot)) continue; }   // a slate item: its own sport's games
+        else if (Array.isArray(slots) && slots.length && !slots.includes(sod)) continue;
         if (dow != null && !_slotAirsOn(c.item, dow)) continue;
-        const gs = sportsGameForSlot(c.script, slot, overrideFor(c.script));
+        const gs = sportsGameForSlot(c.script, slot, overrideFor(c.script, slot));
         if (!gs) continue;
         const g = gs.game;
         if (wantTeam && g.away.name !== wantTeam && g.home.name !== wantTeam) continue;
@@ -10633,7 +10896,7 @@ export const _test = {
   // the sport's script as the venue and club handlers find it
   anySportsScript,
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
-  sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
+  sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, seasonCalendar, sportsSlateForDay, sportDaySlate, slateSportAt, isCupDay, monthStartDay,
   assembleNewsGraph, newsFill, newsSceneNames,
   // The weather report had no test seam at all, which is how a two-line handover and a
   // 2am airing greeting you with "Afternoon, survivors" both shipped: the only thing that
@@ -10685,6 +10948,8 @@ export const _test = {
   adDurationSec: _adDurationSec, adAt: _adAt, graphDurationSec: _graphDurationSec,
   normalizeBroadcastGraph: _normalizeBroadcastGraph, CARD_MIN_HOLD_MS,
   pickDailySlot: _pickDailySlot, dayMask: _dayMask, dayLabel: _dayLabel, slotAirsOn: _slotAirsOn,
+  // KSAB5's slate row and KSAB-TV's relay (docs/proposals/daily-slate.md).
+  scheduleRowItems: _scheduleRowItems, relayedItem: _relayedItem, slateHasGame, sportsHeartbeat, sportsHeartbeatSeen: _sportsHeartbeat, slateScheduleSlots: _slateScheduleSlots,
   sportsSlotLabel: _sportsSlotLabel, sportsScheduleSlots: _sportsScheduleSlots,
   // The log-rung overlay renderers. Pure over a payload, so the suite can assert
   // them without waiting for a ballgame to be scheduled.
@@ -10861,11 +11126,11 @@ export const routeHandler = async (path, method, body, auth) => {
             const slotType = item.slot_type || 'broadcast';
             const cond = item.conditions || [];
             await query(
-              `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type,days)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+              `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type,days,source_channel_id)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
               [pid, id, item.broadcast_id || null, item.start_time || 0,
                item.duration_override || null, item.priority || 0,
-               JSON.stringify(cond), slotType, _dayMask(item.days)]
+               JSON.stringify(cond), slotType, _dayMask(item.days), slotType === 'relay' ? (item.source_channel_id || null) : null]
             );
           }
           // Single authority for NPC staffing: recalc derives each broadcast's hosts

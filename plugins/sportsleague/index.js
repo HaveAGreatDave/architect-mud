@@ -16,9 +16,10 @@
 // essentially no DB traffic. WHAT a game folds into is the sport's business, not this
 // plugin's: see `SEASON` in plugins/broadcast/sports/<name>.js.
 //
-// Seasons still run SPORTS_SEASON_DAYS in-game days; at season's end the top two teams
-// meet in a single championship game. The "reset" is just a pointer: the new season's
-// `start_slot` moves forward, so its computed window starts fresh. Only `sports_season`
+// A season is the in-game calendar month. Every club plays every day (the slate, in
+// plugins/broadcast), and on the month's last day, Cup day, the top two meet in a single
+// championship game. The "reset" is just a pointer: the new season's `start_slot` is the
+// first slot of the next month, so its computed window starts fresh. Only `sports_season`
 // is persisted — a handful of writes per season, never per game.
 // Commands: `standings`, `curtaincall`, `cup`, `champions`.
 import { query } from '../../server/models/db.js';
@@ -28,13 +29,11 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { hasActivePlayers } from '../../server/engine/world.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
-// A season runs SPORTS_SEASON_DAYS in-game days (~a month by default). When that many
-// in-game days have elapsed (and enough games have been played), the top two teams meet
-// in a single championship game; the winner is crowned, the standings window rolls
-// forward, and the next season opens. Tune SPORTS_SEASON_DAYS up if the in-game clock
-// makes seasons feel too short, down if they drag. Min-games guard stops a fast clock
-// from seeding a final off a thin sample.
-const SPORTS_SEASON_DAYS = 30;   // in-game days per season
+// The month's days, its Cup day and the final's slot come from broadcast's slate, which
+// owns the calendar (`broadcast.getSeasonCalendar`). The min-games guard stops a final
+// being seeded off a thin sample; a season that can't seed one by its final's slot
+// closes with no champion.
+const SPORTS_MAX_SEASON_DAYS = 31;
 const SPORTS_MIN_WS_GAMES = 8;   // the #2 team must have played at least this many
 
 // ── the leagues ──────────────────────────────────────────────────────────────
@@ -53,7 +52,9 @@ const LEAGUES = {
     sport: 'baseball', icon: '⚾', show: 'DEADBALL', league: 'COLDWATER LEAGUE',
     // Eight clubs, the Blue Birds and the Crows among them (docs/systems-broadcast.md, Deadball's
     // clubs), October 2026. The sixteen before had no era.
-    era: 'deadball-8',
+    // 'deadball-8-slate' from the daily slate (docs/proposals/daily-slate.md), which changed
+    // every matchup, so the season open at the cutover closes uncrowned.
+    era: 'deadball-8-slate',
     // the final is the Curtain Call (the season's last act, under the city's wall); its phase
     // in sports_season is still 'worldseries', a value, not a name anyone reads
     final: 'CURTAIN CALL', finalTitle: 'Curtain Call', finalCmd: 'curtaincall', start: 'First Pitch',
@@ -72,7 +73,8 @@ const LEAGUES = {
   hockey: {
     sport: 'hockey', icon: '🏒', show: 'CLUSTER PUCK', league: 'CPhL',
     // The eight neighbourhood clubs (docs/systems-broadcast.md, the clubs table), October 2026.
-    era: 'cphl-8',
+    // 'cphl-8-slate' from the daily slate, as Deadball's.
+    era: 'cphl-8-slate',
     final: 'COLDWATER CUP', finalTitle: 'Coldwater Cup', finalCmd: 'cup', start: 'Puck Drop',
     empty: "The CPhL hasn't dropped a puck yet. The Cluster Puck standings are empty.",
     head: '  W   L  OTL   PTS     GD',
@@ -116,10 +118,16 @@ async function currentSlot() {
   };
 }
 
+// The season calendar for a sport around a slot: the month's days, Cup day, the final's
+// slot and where the next season starts. Pure on broadcast's side, so no round trip.
+async function calendar(sport, slot) {
+  return dispatchAction({ type: 'broadcast.getSeasonCalendar', params: { sport, slot } }).catch(() => null);
+}
+
 // ── Season lifecycle ───────────────────────────────────────────────────────────
 
-// Current in-game date 'YYYY-MM-DD' (null if the clock isn't ready), its month, and a
-// UTC day-count for arithmetic. The season clock counts in-game days between dates.
+// Current in-game date 'YYYY-MM-DD' (null if the clock isn't ready) and its month, for a
+// season row opened before the calendar can answer.
 function gameDate() {
   const d = getEnvironmentState()?.date;
   return (typeof d === 'string' && d.length >= 10) ? d.slice(0, 10) : null;
@@ -127,19 +135,6 @@ function gameDate() {
 function gameMonth() {
   const d = gameDate();
   return d ? d.slice(0, 7) : '0000-00';
-}
-function toDayNumber(s) {
-  const t = s ? Date.parse(`${s}T00:00:00Z`) : NaN;
-  return Number.isNaN(t) ? null : Math.floor(t / 86400000);
-}
-// Whole days from one 'YYYY-MM-DD' to another (pure; null if either is unparseable).
-function daysBetween(fromStr, toStr) {
-  const a = toDayNumber(fromStr), b = toDayNumber(toStr);
-  return (a === null || b === null) ? null : (b - a);
-}
-// In-game days elapsed since `fromDate`, or null if either date is unknown.
-function daysElapsed(fromDate) {
-  return daysBetween(fromDate, gameDate());
 }
 
 // The active season row for a sport (the one not yet complete), or null. Highest
@@ -180,8 +175,9 @@ async function currentSeason(sport) {
 }
 
 // Open a fresh regular-season row if none is active. The season's `start_slot` anchors
-// its standings window: games from this slot forward count toward it. Season numbers run
-// per sport, so both leagues have a Season 1.
+// its standings window: games from this slot forward count toward it. It's the first slot
+// of the month, or of the next month on Cup day. Season numbers run per sport, so both
+// leagues have a Season 1.
 async function ensureSeason(sport) {
   const active = await currentSeason(sport);
   if (active) return active;
@@ -190,33 +186,33 @@ async function ensureSeason(sport) {
   ).catch(() => ({ rows: [{ n: 1 }] }));
   const n = rows[0]?.n || 1;
   const { slot, ready } = await currentSlot();
+  const cal = ready ? await calendar(sport, slot) : null;   // anchor only once the clock is live
+  const startDate = cal?.seasonStartDate || gameDate();
   await query(
     `INSERT INTO sports_season (sport, season_no, start_month, start_date, start_slot, phase, era)
      VALUES ($1, $2, $3, $4, $5, 'regular', $6)
      ON CONFLICT (sport, season_no) DO NOTHING`,
-    [sport, n, gameMonth(), gameDate(), ready ? slot : null, leagueOf(sport).era || null],   // anchor only once the clock is live
+    [sport, n, startDate ? startDate.slice(0, 7) : gameMonth(), startDate, cal ? cal.seasonStartSlot : null, leagueOf(sport).era || null],
   ).catch((e) => console.error('[sportsleague] ensureSeason error:', e.message));
   invalidateSeason(sport);
   return currentSeason(sport);
 }
 
-// Seed the championship: the top two teams (needs a real sample). It airs at the NEXT
-// nightly airtime slot (ws_slot) — the same fixed time the regular game airs, so it's a
-// scheduled marquee event, not a random hour — and the regular standings freeze at that
-// boundary. Returns the updated season row, or null if it couldn't seed.
-async function seedFinal(sport, season) {
+// Seed the championship: the top two teams (needs a real sample), playing in `wsSlot`,
+// the sport's last slot on Cup day (or the next slot, when staff force it). The regular
+// standings freeze at that slot. Returns the updated season row, or null if it couldn't
+// seed.
+async function seedFinal(sport, season, wsSlot) {
   const L = leagueOf(sport);
+  if (!Number.isFinite(wsSlot)) return null;
   const table = await queryStandings(sport);
   if (table.length < 2) return null;
   const [a, b] = table;
   if (L.played(b) < SPORTS_MIN_WS_GAMES) return null;           // guard: #2 must have played enough
   const clock = await currentSlot();
   if (!clock.ready) return null;                                // don't seed off a boot-placeholder slot
-  // Pin the final to the next featured airtime slot (falls back to next slot if the
-  // league airs continuously), so it lands at the advertised nightly time.
-  const air = await dispatchAction({ type: 'broadcast.nextSportsAirSlot', params: { after: clock.slot, sport } }).catch(() => null);
-  const wsSlot = Number.isFinite(air?.slot) ? air.slot : clock.slot + 1;
-  const airHour = Number.isFinite(air?.hour) ? air.hour : null;
+  const gpd = clock.gamesPerDay || 8;
+  const airHour = (((wsSlot % gpd) + gpd) % gpd) * (24 / gpd);
   await query(
     `UPDATE sports_season SET phase = 'worldseries', finalist_a = $1, finalist_b = $2, ws_slot = $3
       WHERE sport = $4 AND season_no = $5`,
@@ -224,12 +220,13 @@ async function seedFinal(sport, season) {
   ).catch((e) => console.error('[sportsleague] seed error:', e.message));
   invalidateSeason(sport);
   _standCaches.delete(sport);   // freeze the window at ws_slot now
-  // Advertise WHEN it airs so the news app + TV guide can state the time.
-  const gpd = clock.gamesPerDay || 8;
+  // Advertise WHEN it airs so the news app + TV guide can state the time. A final seeded
+  // late, after its slot (nobody was online on Cup day), is crowned on the next tick and
+  // isn't news.
   const dayNow = Math.floor(clock.slot / gpd), dayWs = Math.floor(wsSlot / gpd);
   const when = dayWs <= dayNow ? 'tonight' : (dayWs === dayNow + 1 ? 'tomorrow night' : `in ${dayWs - dayNow} nights`);
-  emit('sports.worldseries', { sport, show: L.show, final: L.finalTitle, start: L.start, seasonNo: season.season_no, teams: [a.team, b.team], wsSlot, airHour, when });
-  console.log(`[sportsleague] ${L.final} seeded (${sport} season ${season.season_no}): ${a.team} vs ${b.team} @ slot ${wsSlot} (${when}${airHour != null ? `, ${airHour}:00` : ''})`);
+  if (wsSlot >= clock.slot) emit('sports.worldseries', { sport, show: L.show, final: L.finalTitle, start: L.start, seasonNo: season.season_no, teams: [a.team, b.team], wsSlot, airHour, when });
+  console.log(`[sportsleague] ${L.final} seeded (${sport} season ${season.season_no}): ${a.team} vs ${b.team} @ slot ${wsSlot} (${when}, ${airHour}:00)`);
   return { ...season, phase: 'worldseries', finalist_a: a.team, finalist_b: b.team, ws_slot: wsSlot };
 }
 
@@ -265,22 +262,23 @@ function staleEra(sport, season) {
   return !!(era && season && (season.era || null) !== era);
 }
 
-// The league's roster has changed since this season opened: close it with no champion (the
-// champions history lists only seasons that have one) and open the next, which records the
-// new era and starts its standings window now. Whatever phase it was in, including a final
-// already seeded with two clubs that are no longer in the league.
-async function closeForEra(sport, season) {
-  const L = leagueOf(sport);
+// Close a season with no champion (the champions history lists only seasons that have one)
+// and open the next. Whatever phase it was in, including a final already seeded with two
+// clubs that are no longer in the league.
+async function closeUncrowned(sport, season, why) {
   await query(
     `UPDATE sports_season SET phase = 'complete', decided_at = NOW()
       WHERE sport = $1 AND season_no = $2 AND phase <> 'complete'`,
     [sport, season.season_no],
-  ).catch((e) => console.error('[sportsleague] era close error:', e.message));
+  ).catch((e) => console.error('[sportsleague] season close error:', e.message));
   invalidateSeason(sport);
   _standCaches.delete(sport);
-  console.log(`[sportsleague] ${L.league} is now ${L.era}: season ${season.season_no} closed with no champion, a fresh one opens`);
+  console.log(`[sportsleague] ${leagueOf(sport).league} season ${season.season_no} closed with no champion (${why}), a fresh one opens`);
   return ensureSeason(sport);
 }
+// The league's roster has changed since this season opened. The next season records the
+// new era.
+const closeForEra = (sport, season) => closeUncrowned(sport, season, `the league is now ${leagueOf(sport).era}`);
 
 // ── Standings (computed, cached) ────────────────────────────────────────────────
 
@@ -295,11 +293,17 @@ async function queryStandings(sport) {
   const { slot, gamesPerDay } = await currentSlot();
   // BIGINT columns come back as strings from node-pg — coerce before use.
   const startRaw = s?.start_slot != null ? Number(s.start_slot) : slot;
-  const endSlot = (s?.phase === 'worldseries' && s?.ws_slot != null) ? Number(s.ws_slot) : slot;
-  // Guardrail: a season can never span more than its own length (one game/team/day).
-  // If the roller ever stalls and the anchor goes stale, show the most recent
-  // season-length window rather than folding tens of thousands of games.
-  const maxWindow = SPORTS_SEASON_DAYS * (gamesPerDay || 8);
+  let endSlot = (s?.phase === 'worldseries' && s?.ws_slot != null) ? Number(s.ws_slot) : slot;
+  // A regular season ends at Cup day, even when nobody was online to seed its final then
+  // and the clock has run on into next month's games.
+  if (s?.phase === 'regular' && s?.start_slot != null) {
+    const cal = await calendar(sport, startRaw);
+    if (Number.isFinite(cal?.cupDayStartSlot)) endSlot = Math.min(endSlot, cal.cupDayStartSlot);
+  }
+  // Guardrail: a season can never span more than a month. If the roller ever stalls and
+  // the anchor goes stale, show the most recent month-long window rather than folding
+  // tens of thousands of games.
+  const maxWindow = SPORTS_MAX_SEASON_DAYS * (gamesPerDay || 8);
   const startSlot = (endSlot - startRaw > maxWindow) ? endSlot - maxWindow : startRaw;
   const key = `${s?.season_no || 0}:${startSlot}:${endSlot}`;
   const hit = _standCaches.get(sport);
@@ -453,18 +457,24 @@ async function cmdFinal(sport, args, raw, player) {
     const s = await ensureSeason(sport);
     if (!s) return { type: 'error', message: `No ${L.show} season is open yet.` };
     if (s.phase !== 'regular') return { type: 'error', message: `A ${L.finalTitle} is already set or underway.` };
-    const seeded = await seedFinal(sport, s);
+    // Forced, it's played in the sport's next slot rather than on Cup day.
+    const clock = await currentSlot();
+    const cal = clock.ready ? await calendar(sport, clock.slot) : null;
+    const seeded = await seedFinal(sport, s, cal?.nextSlot);
     if (!seeded) return { type: 'error', message: `Can't seed yet: need 2+ teams with the runner-up at ${SPORTS_MIN_WS_GAMES}+ games played.` };
-    return { type: 'output', message: `${L.icon} ${L.final} forced: ${seeded.finalist_a} vs ${seeded.finalist_b}. It airs at the top of the hour.` };
+    const gpd = clock.gamesPerDay || 8;
+    const hour = String(((seeded.ws_slot % gpd) + gpd) % gpd * (24 / gpd)).padStart(2, '0');
+    return { type: 'output', message: `${L.icon} ${L.final} forced: ${seeded.finalist_a} vs ${seeded.finalist_b}. It's played at ${hour}:00.` };
   }
   const s = await currentSeason(sport);
   const champ = await lastChampion(sport);
   const out = [];
   if (s?.phase === 'worldseries') out.push(`${L.icon} ${L.final} is ON: ${s.finalist_a} vs ${s.finalist_b} (Season ${s.season_no}). Winner takes all.`);
   else {
-    const day = s?.start_date ? daysElapsed(s.start_date) : null;
-    const prog = (day !== null) ? `, day ${Math.max(0, day) + 1} of ${SPORTS_SEASON_DAYS}` : '';
-    out.push(`Season ${s?.season_no || 1}: regular season${prog}. The top two meet in the ${L.finalTitle} when the season ends.`);
+    const clock = await currentSlot();
+    const cal = clock.ready ? await calendar(sport, clock.slot) : null;
+    const prog = cal ? `, day ${cal.dayOfMonth} of ${cal.monthDays}` : '';
+    out.push(`Season ${s?.season_no || 1}: regular season${prog}. The top two meet in the ${L.finalTitle} on the last day of the month.`);
   }
   if (champ) out.push(`Reigning champion: ${champ.champion}, beat ${champ.runner_up} ${champ.champ_score}-${champ.runner_score} (Season ${champ.season_no}).`);
   if (isDev && (!s || s.phase === 'regular')) out.push(`(dev: "${L.finalCmd} start" to force it now.)`);
@@ -519,20 +529,27 @@ async function seasonTickFor(sport) {
   if (!s.start_date || s.start_slot == null) {
     const c = await currentSlot();
     if (!c.ready) return;                     // wait for the in-game clock before anchoring
+    const cal = await calendar(sport, c.slot);
+    if (!cal) return;
     await query(
       `UPDATE sports_season SET start_date = COALESCE(start_date, $1), start_month = COALESCE(NULLIF(start_month,'0000-00'), $2), start_slot = COALESCE(start_slot, $3)
         WHERE sport = $4 AND season_no = $5`,
-      [gameDate(), gameMonth(), c.slot, sport, s.season_no],
+      [cal.seasonStartDate, cal.seasonStartDate.slice(0, 7), cal.seasonStartSlot, sport, s.season_no],
     ).catch(() => {});
     invalidateSeason(sport);
     return;
   }
-  // End the season by SLOTS elapsed — the same axis the standings fold uses — so the
-  // roll can never drift from the window. (Measuring off start_date left the season
-  // stranded in 'regular' whenever the date math failed, letting the window balloon.)
+  // Seed the final once Cup day of the season's month comes, measured in SLOTS, the same
+  // axis the standings fold uses, so the roll can't drift from the window. A tick that
+  // comes late (nobody online on Cup day) still seeds the final in its own slot, which is
+  // then crowned from its deterministic result. One that can't seed by then closes the
+  // season uncrowned rather than leaving it open into next month.
   const c = await currentSlot();
-  const seasonSlots = SPORTS_SEASON_DAYS * (c.gamesPerDay || 8);
-  if (c.ready && (c.slot - Number(s.start_slot)) >= seasonSlots) await seedFinal(sport, s);
+  if (!c.ready) return;
+  const cal = await calendar(sport, Number(s.start_slot));
+  if (!cal || c.slot < cal.cupDayStartSlot) return;
+  const seeded = await seedFinal(sport, s, cal.finalSlot);
+  if (!seeded && c.slot > cal.finalSlot) await closeUncrowned(sport, s, 'too few games for a final');
 }
 async function seasonTick() {
   for (const sport of await activeSports()) {
@@ -552,6 +569,6 @@ export const commands = {
   champions: (args) => cmdChampions(args),
 };
 
-export const _test = { formatStandings, formatChampions, formatExtras, daysBetween, staleEra, LEAGUES, queryExtras };
+export const _test = { formatStandings, formatChampions, formatExtras, staleEra, LEAGUES, queryExtras };
 
 console.log('[sportsleague] Plugin loaded.');
