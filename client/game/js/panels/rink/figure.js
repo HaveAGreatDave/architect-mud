@@ -197,7 +197,7 @@ export function drawBody(ctx, P, J, o) {
     const A = J[an], T = J[toe];
     if (missing[side > 0 ? 'legL' : 'legR'] && !gk) {
       const thighEnd = V.lerp(J[hip], J[kn], 0.9);
-      limb(J[hip], thighEnd, 0.46, 0.41, K.pants);
+      limb(J[hip], thighEnd, 0.5, 0.44, K.pants);
       limb(thighEnd, J[kn], 0.3, 0.28, K.sock);
       stump(J[kn], 0.24);
       continue;
@@ -232,17 +232,17 @@ export function drawBody(ctx, P, J, o) {
       }, -0.03);
       limb(J[hip], J[kn], 0.48, 0.44, '#e3e6e9', (a, b) => ringAt(J[hip], J[kn], 0.48, 0.44, 0.7, K.jersey, 0.12));
     } else {
-      limb3(J[kn], A, 0.3, 0.26, 0.2, K.sock, () => {
-        if (K.socks) for (const sb of K.socks) ringAt(J[kn], A, 0.3, 0.2, sb.at, sb.col, sb.w);
-        else { ringAt(J[kn], A, 0.3, 0.2, 0.3, K.trim, 0.11); ringAt(J[kn], A, 0.3, 0.2, 0.45, K.trim, 0.11); }
+      limb3(J[kn], A, 0.32, 0.29, 0.23, K.sock, () => {
+        if (K.socks) for (const sb of K.socks) ringAt(J[kn], A, 0.32, 0.23, sb.at, sb.col, sb.w);
+        else { ringAt(J[kn], A, 0.32, 0.23, 0.3, K.trim, 0.11); ringAt(J[kn], A, 0.32, 0.23, 0.45, K.trim, 0.11); }
       }, 0, 0.4);
       // the cap of the shin pad stands out at the front of the knee under the sock
       limb(V.add(J[kn], V.add(V.mul(F, 0.17), [0, 0, 0.12])), V.add(J[kn], V.add(V.mul(F, 0.18), [0, 0, -0.2])), 0.14, 0.12, K.sock, null, -0.015);
       // breezers: big through the hip and flared at the hem, the hockey silhouette
       const thighEnd = V.lerp(J[hip], J[kn], 0.9);
-      limb(J[hip], thighEnd, 0.46, 0.41, K.pants, () => {
-        ringAt(J[hip], thighEnd, 0.46, 0.41, 0.42, shade(K.pants, -0.3), 0.035);
-        ringAt(J[hip], thighEnd, 0.46, 0.41, 0.95, shade(K.pants, -0.45), 0.08);
+      limb(J[hip], thighEnd, 0.5, 0.44, K.pants, () => {
+        ringAt(J[hip], thighEnd, 0.5, 0.44, 0.42, shade(K.pants, -0.3), 0.035);
+        ringAt(J[hip], thighEnd, 0.5, 0.44, 0.95, shade(K.pants, -0.45), 0.08);
         // the stripe down the outside of the breezers
         if (lod) {
           const out = V.mul(Sh, side);

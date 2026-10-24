@@ -111,7 +111,7 @@ export const NEON_SIGNS = {
   // The name beside them is the one circuit in the place that has never failed.
   cherrypit: (() => {
     const P = Math.PI, R = 40;
-    // One cherry: round from `a0` to `a1`, with the dimple at the top where its stem goes in.
+    // One cherry: a circle from `a0` round to `a1` with the dimple at the top where its stem goes in.
     const fruit = (cx, cy, a0, a1) => (g) => {
       g.moveTo(cx + R * Math.cos(a0), cy + R * Math.sin(a0));
       g.arc(cx, cy, R, a0, 1.44 * P);
@@ -134,7 +134,7 @@ export const NEON_SIGNS = {
           g.moveTo(BX + 1, BY - R + 4); g.quadraticCurveTo(BX + 14, 50, KX, KY);
           g.moveTo(FX + 1, FY - R + 4); g.quadraticCurveTo(FX - 4, 60, KX, KY);
         } },
-        // The back cherry, missing its bottom right, and the front one whole, over it.
+        // The back cherry, missing its bottom-right, and the front one whole, over it.
         { ...RED, lw: 7, grp: 'back', path: fruit(BX, BY, 0.62 * P, 2.12 * P) },
         { ...RED, lw: 7, grp: 'front', path: fruit(FX, FY, 0.5 * P, 2.5 * P) },
         { c: '#ffd0e4', glow: '#ff6aa8', core: '#ffffff', lw: 4.5, grp: 'shine', path: arc(FX, FY, 24, 1.06 * P, 1.34 * P) },
@@ -144,7 +144,7 @@ export const NEON_SIGNS = {
         { ...PINK, lw: 2.2, word: 'the', x: 246, y: 80, size: 40 },
         { ...PINK, lw: 2.6, word: 'Cherry Pit', x: 300, y: 146, size: 70 },
       ],
-      // Each cherry is its own circuit: the back one is the bad one and drops out on its own.
+      // The two cherries are on separate circuits: the back one is the bad one and drops out on its own.
       seq: [
         { on: ['front', 'back', 'shine', 'shine2'], ms: 2200 },
         { on: ['front', 'shine'], ms: 70 },

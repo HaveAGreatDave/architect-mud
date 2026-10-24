@@ -58,6 +58,7 @@
     if (o.vibrato) L.vibrato = o.vibrato;
     if (o.tremolo) L.tremolo = o.tremolo;
     if (o.detune) L.detune = o.detune;
+    if (o.mods) L.mods = o.mods;
     return L;
   }
   // noise(): band of noise. `hz` and `q` place it (bandpass unless `type`), `to` sweeps it.
@@ -165,18 +166,30 @@
     linear: true, a: 0.003, d, s: 0.55, r: 0.03, gain: 0.13, delay });
 
   // ═══ H. GOAL HORN ════════════════════════════════════════════════════════════
-  // The signature: loud, blunt, sustained. One deep pitch with its 2nd, 3rd and 4th partials
-  // on their own gains and envelopes; FM on the fundamental for a rough brassy edge, opened
-  // at the onset and settling (the blat), a slow beat from two partials a hair apart, a little
-  // drive, and a lowpass so it's a horn and not a synth. No reverb tail, no crowd: the cheer
-  // is its own event, so the game decides when and how loud.
-  const HORN = 208;
+  // A FOG HORN, the air horn off a ship that an arena bolts under its roof: low, reedy and
+  // huge. Two sawtooth reeds at 116 Hz, a hair apart, so the blast wobbles slowly as two horns
+  // do, each scooping up into its pitch as the air arrives, through a lowpass so it's a reed
+  // and not a buzz, with a faint flutter in the air column. Over them a brassy FM partial and
+  // the 3rd, for presence on a small speaker, which won't play the 116 Hz underneath, and a
+  // breath of air riding the blast. When the air's cut it doesn't just stop: it groans down
+  // most of a fifth as it dies (the grunt), the way a diaphone does. That's GRUNT: each reed is
+  // pitched a fifth low and an envelope holds it up to the note, so on the release the
+  // envelope falls and takes the pitch down with the level. (A late layer for the grunt held
+  // its voice a second past the sound.) No reverb tail, no crowd: the cheer is its own event,
+  // so the game decides when and how loud.
+  const HORN = 116, FIFTH = 668;    // 1200 log2(1 / 0.68): the grunt's drop, in cents
+  const GRUNT = [{ id: 'grunt', type: 'env', a: 0.004, d: 0.05, s: 1, r: 0.42, to: [{ param: 'pitch', amount: FIFTH }] }];
+  const low = HORN * 0.68;
   const horn = () => [
-    tone({ hz: HORN, mod: 2, index: 1.6, indexEnd: 0.8, slide: 0.12, linear: true, a: 0.02, d: 0.12, s: 0.9, r: 0.22, gain: 0.12, drive: 0.1,
-      filter: { type: 'lowpass', freq: 2400, q: 0.5 } }),
-    tone({ hz: HORN * 2 + 0.6, mod: 2, index: 0.9, indexEnd: 0.45, slide: 0.15, linear: true, a: 0.026, d: 0.15, s: 0.85, r: 0.2, gain: 0.13 }),
-    tone({ hz: HORN * 3 - 0.5, linear: true, a: 0.03, d: 0.18, s: 0.8, r: 0.2, gain: 0.08 }),
-    tone({ hz: HORN * 4 + 0.9, linear: true, a: 0.034, d: 0.2, s: 0.7, r: 0.18, gain: 0.05 }),
+    tone({ hz: low * 0.92, to: low, bend: 0.16, wave: 'sawtooth', linear: true, a: 0.022, d: 0.12, s: 0.95, r: 0.42, gain: 0.21, mods: GRUNT,
+      filter: { type: 'lowpass', freq: 1900, q: 0.9 }, tremolo: { rate: 6.1, depth: 0.05 } }),
+    tone({ hz: (low + 0.9) * 0.92, to: low + 0.9, bend: 0.2, wave: 'sawtooth', linear: true, a: 0.026, d: 0.14, s: 0.9, r: 0.42, gain: 0.13, mods: GRUNT,
+      filter: { type: 'lowpass', freq: 1500, q: 0.8 } }),
+    tone({ hz: HORN * 2 * 0.95, to: HORN * 2, bend: 0.16, mod: 2, index: 1.4, indexEnd: 0.6, slide: 0.3, linear: true, a: 0.026, d: 0.16, s: 0.85, r: 0.3, gain: 0.15,
+      filter: { type: 'lowpass', freq: 2600, q: 0.5 } }),
+    tone({ hz: HORN * 3 - 0.7, linear: true, a: 0.035, d: 0.2, s: 0.75, r: 0.26, gain: 0.11 }),
+    tone({ hz: HORN * 4 + 1.1, linear: true, a: 0.04, d: 0.2, s: 0.7, r: 0.24, gain: 0.05 }),
+    noise({ hz: 560, q: 0.9, linear: true, a: 0.05, d: 0.2, s: 0.7, r: 0.3, gain: 0.05, tremolo: { rate: 6.1, depth: 0.2 } }),
   ];
 
   // ═══ I. PERIOD END ═══════════════════════════════════════════════════════════
@@ -238,8 +251,8 @@
     def('hk-signal', 'Signal — alert', 6, [beep(1046.5, 2, 0, 0.09)], { hold: 0.06, retro: CHIP, vary: STEADY }),
     def('hk-signal-two', 'Signal — two-part', 6, [beep(880, 0, 0, 0.06), beep(1174.7, 2, 0.11, 0.08)], { hold: 0.05, retro: CHIP, vary: STEADY }),
     // H — the goal horn: short, and long (one sustained blast, not repeats)
-    def('hk-goal-horn-short', 'Goal horn — short', 10, horn(), { hold: 0.7, vary: STEADY }),
-    def('hk-goal-horn', 'Goal horn', 10, horn(), { hold: 1.6, vary: STEADY }),
+    def('hk-goal-horn-short', 'Goal horn — short', 10, horn(), { hold: 0.55, vary: STEADY }),
+    def('hk-goal-horn', 'Goal horn', 10, horn(), { hold: 1.45, vary: STEADY }),
     // I — the end of a period
     def('hk-period-horn', 'Period end', 10, buzzer(), { hold: 1.3, vary: STEADY }),
     // K — the crowd's one-shots (the bed is crowdBed())

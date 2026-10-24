@@ -103,7 +103,9 @@ function body(b, label, mut, budget) {
 const skaters = W.bodies().filter((b) => b.kind === 'skater');
 // close up (det1) a man has gauntlets, a ridged helmet, ear guards and elbow pads, so his
 // budget is higher than a man at broadcast distance (det0)
-const BUD = [1500, 3200], BUD_GK = [1700, 3400];
+// (near, a skater is about 3,300 since his legs and arms became one swept surface each, the pants,
+// socks and sleeves shaped over their pads; a full frame is held to 60k below)
+const BUD = [1500, 3600], BUD_GK = [1700, 3400];
 body(skaters[0], 'skater', null, BUD);
 body(W.goalie.a, 'goalie', null, BUD_GK);
 body(W.officials[0], 'official', null, BUD);
@@ -415,6 +417,58 @@ body(skaters[8], 'skater missing his head', null, BUD);
   try { r = createArenaRenderer(cv, null, W, ice); } catch (e) { threw = e; }
   check('createArenaRenderer without WebGL2: no throw', !threw, threw && threw.message);
   check('createArenaRenderer without WebGL2: null, so the view draws in 2-D', r === null);
+}
+
+// ── 6. the crowd and its bowl (gl/arena-crowd.js) ─────────────────────────────
+// The fans are drawn instanced on the GPU, so this is the part node can hold: the seats, the
+// order they sell in, the groups each view draws, and the bowl's geometry.
+{
+  const C = await import(R + 'gl/arena-crowd.js');
+  const seats = C.rinkSeats();
+  check('the bowl seats a few thousand', seats.length > 3000 && seats.length < 8000, `${seats.length}`);
+  // (how far outside the rounded boards: from the rink's inner rectangle, less the corner radius)
+  const out = (s) => Math.hypot(s.x - Math.min(172, Math.max(28, s.x)), s.y - Math.min(57, Math.max(28, s.y))) - 28;
+  check('every seat is behind the boards and above them', seats.every((s) => out(s) >= C.D0 && s.z >= C.rowZ(0) && Number.isFinite(s.yaw)), `${Math.min(...seats.map(out)).toFixed(2)} ft`);
+  // a fan faces the ice: his yaw points back toward the middle of the sheet
+  check('every fan faces the ice', seats.every((s) => Math.cos(s.yaw) * (100 - s.x) + Math.sin(s.yaw) * (42.5 - s.y) > 0));
+  const rowOf = (s) => Math.round((s.z - C.rowZ(0)) / C.ROW_Z), half = seats.length >> 1;
+  const mean = (a) => a.reduce((n, s) => n + rowOf(s), 0) / a.length;
+  check('the low rows sell first', mean(seats.slice(0, half)) + 2 < mean(seats.slice(half)), `${mean(seats.slice(0, half)).toFixed(1)} vs ${mean(seats.slice(half)).toFixed(1)}`);
+  const fi = C.crowdInstances({ a: { jersey: '#ffffff', trim: '#aa2233' }, h: { jersey: '#112244', trim: '#ddaa22' } });
+  const total = fi.count.reduce((a, b) => a + b, 0);
+  check('the fans are every seat, in four groups end to end', total === seats.length && fi.data.length === total * C.INST && fi.start.every((st, i) => st === fi.count.slice(0, i).reduce((a, b) => a + b, 0)));
+  let inGroup = true, fin = true;
+  for (let g = 0; g < 4; g++) for (let k = fi.start[g]; k < fi.start[g] + fi.count[g]; k++) { const o = k * C.INST; if (C.layerOf(fi.data[o], fi.data[o + 1]) !== g) inGroup = false; }
+  for (const v of fi.data) if (!Number.isFinite(v)) fin = false;
+  check('each fan is in his seat\'s group, and every number is finite', inGroup && fin);
+  check('some of them are the visitors\' fans', (() => { let n = 0; for (let k = 0; k < total; k++) if (fi.data[k * C.INST + 7] < 0) n++; return n > total * 0.03 && n < total * 0.2; })());
+  // the near stands are hidden from the broadcast cameras, the left end from the vertical one
+  const hid = (view, x, y, z) => { const h = C.hideFor(view); return h[0] * x + h[1] * y + h[2] * z + h[3] > 0; };
+  check('the broadcast view hides the near stands and not the far', hid('broadcast', 100, -20, 10) && !hid('broadcast', 100, 120, 10) && !hid('broadcast', -20, 40, 10));
+  check('the vertical view hides the stand behind it and not the far end', hid('vertical', -20, 40, 10) && !hid('vertical', 220, 40, 10) && !hid('vertical', 100, -20, 10));
+  const BB = [0, 1, 2, 3].map(() => M.createBatch(1 << 15));
+  C.buildBowl(M, BB);
+  check('the bowl builds in all four layers, finite', BB.every((b) => b.n > 0 && finite(b)), BB.map((b) => b.n).join(','));
+  // how loud each side is: the side that scored is up, the other sits
+  const quiet = C.roarOf({ crowd: 0.15, lamp: 0 }), homeGoal = C.roarOf({ crowd: 1, lamp: 2, lampSide: 'a' }), awayGoal = C.roarOf({ crowd: 1, lamp: 2, lampSide: 'h' });
+  check('a quiet building sits, and each side stands for its own goals', quiet[0] === 0 && quiet[1] === 0 && homeGoal[0] > 0.9 && homeGoal[1] < 0.1 && awayGoal[1] > 0.9 && awayGoal[0] < 0.1);
+}
+
+// ── 7. the Zamboni's gates ────────────────────────────────────────────────────
+// Shut, each pair meets across the doorway in the end wall; open, it swings out off the ice.
+{
+  const Z = await import(R + 'rink/zamboni.js'), G = await import(R + 'rink/geo.js');
+  const ext = (open) => {
+    const b = M.createBatch(), t = M.createBatch();
+    M.buildDoors(b, t, open, Z.GATE_Y, Z.GATE_HALF, G.RL, G.BOARD_H, G.GLASS_H);
+    let minX = Infinity, maxX = -Infinity;
+    for (let i = 0; i < b.n; i++) { const x = b.data[i * M.STRIDE]; if (x < 100) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); } }
+    return { b, t, minX, maxX };
+  };
+  const shut = ext([0, 0]), open = ext([1, 1]), half = ext([0.5, 0.5]);
+  check('the gates build, shut, half open and open, finite', [shut, open, half].every((e) => e.b.n > 0 && e.t.n > 0 && finite(e.b) && finite(e.t)));
+  check('shut, the left gate stays in its wall', shut.minX > -0.4 && shut.maxX < 0.4, `${shut.minX.toFixed(2)}..${shut.maxX.toFixed(2)}`);
+  check('open, it swings out off the ice and never onto it', open.minX < -3.5 && open.maxX < 0.4, `${open.minX.toFixed(2)}..${open.maxX.toFixed(2)}`);
 }
 
 console.log(`arena smoke: ${passes}/${passes + failures} passed`);

@@ -1259,12 +1259,12 @@ Rings off the iron!
 ::endlines
 
 ::lines pbp.out.breakaway
-In alone. {goalie} pokes it away!
-{goalie} comes out and takes it off him!
-Poke check, {goalie}!
-Stopped on the breakaway!
+What a save by {goalie}!
+{goalie} goes across and gets a piece of it!
+Robbed! {goalie} gets there!
+{goalie} throws everything at it. Stopped!
 {goalie} STOPS him!
-{goalie} stands him up!
+{goalie} lays out and takes it away from him!
 ::endlines
 
 ::lines pbp.freeze
@@ -1499,9 +1499,9 @@ Nobody can find it.
 ::endlines
 
 ::lines pbp.after.breakaway
-{shooter} stumbles.
-{shooter} loses his feet.
-{shooter} is left looking at it.
+{shooter} can't believe it.
+{shooter} looks up at the rafters.
+{shooter} had half the net to shoot at.
 ::endlines
 
 ::lines pbp.hit.glass

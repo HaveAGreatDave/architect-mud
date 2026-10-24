@@ -94,6 +94,10 @@ export function exciteOf(key, heat = 0) {
   return Math.round(Math.max(-1, Math.min(1, x > 0 ? x + heat : x)) * 100) / 100;
 }
 
+// The saves the rink puts a goalie's stat line up for: the ones a viewer would want to know
+// who made.
+const BIG_SAVES = new Set(['glove', 'pad', 'breakaway']);
+
 export function narrate(ctx) {
   const {
     script, game, gs, ws, announcer,
@@ -133,6 +137,19 @@ export function narrate(ctx) {
   // viewer who tunes in during the second period should be able to tell why these two
   // have taken nine penalties, and the sim really did make it a nastier game.
   const rivalry = !!game.rivalry;
+  // HOW FULL THE BARN IS: `gate`, the share of the seats sold, on every payload as `rivalry`
+  // is, for the rink's crowd. A Cup final sells out. Otherwise it's how good the two clubs are
+  // (their places in the table, the middle when there's no table yet), a grudge match on top,
+  // and the night's own luck off the game's seed, so every viewer sees the same house.
+  const gate = (() => {
+    if (ws) return 1;
+    const table = Array.isArray(ctx.standings) ? ctx.standings : [], n = table.length;
+    const place = (t) => { const i = table.findIndex((r) => (r.team ?? r.name) === t); return i < 0 ? null : i; };
+    const pa = place(game.away.name), ph = place(game.home.name);
+    const good = n > 1 && pa != null && ph != null ? 1 - (pa + ph) / 2 / (n - 1) : 0.5;
+    const luck = ((Number(gs?.seed) >>> 0) % 1000) / 1000 - 0.5;
+    return Math.round(Math.min(0.97, Math.max(0.3, 0.42 + 0.38 * good + (rivalry ? 0.15 : 0) + 0.1 * luck)) * 100) / 100;
+  })();
   // The club identities' revision rides on every bug and payload; a client that hasn't
   // got this one asks for the set once (tv_clubs) and draws crests and kits from it.
   const clubsRev = ctx.sport?.clubsRevOf?.(script?.clubs) || '';
@@ -234,7 +251,31 @@ export function narrate(ctx) {
     }
     return '';
   };
+  // THE STAT LINES the rink puts up on a goal's replay and after a big save: the man's season
+  // before tonight (ctx.season, the standings fold's summariseExtras) and what he's done so far
+  // tonight, counted off the beats up to this one. A man the fold hasn't seen yet (the first
+  // night, a call-up) has a season of nothing.
+  const season = ctx.season || {}, onGoal = ctx.sport.onGoal;
+  const tonight = { g: new Map(), a: new Map(), sog: new Map(), sa: new Map(), sv: new Map() };
+  const bump = (m, k) => m.set(k, (m.get(k) || 0) + 1);
+  const linesAt = [];
+  for (const b of beats) {
+    if (b.type === 'goal') { bump(tonight.g, b.shooter); if (b.assist) bump(tonight.a, b.assist); bump(tonight.sog, b.shooter); if (b.goalie) bump(tonight.sa, b.goalie); }
+    else if (b.type === 'chance' && onGoal.has(b.kind)) { bump(tonight.sog, b.shooter); if (b.goalie) { bump(tonight.sa, b.goalie); bump(tonight.sv, b.goalie); } }
+    linesAt.push(b.type === 'goal' ? { scorerLine: skaterLine(b.shooter, b.teamName) }
+      : b.type === 'chance' && BIG_SAVES.has(b.kind) && b.goalie ? { goalieLine: goalieLine(b.goalie, b.oppName) } : null);
+  }
+  function skaterLine(name, team) {
+    const s = (season.players || {})[name] || { gp: 0, g: 0, a: 0, sog: 0 };
+    const g = s.g + (tonight.g.get(name) || 0), a = s.a + (tonight.a.get(name) || 0), sog = s.sog + (tonight.sog.get(name) || 0);
+    return { name, team, gp: s.gp + 1, g, a, pts: g + a, sog, tonightG: tonight.g.get(name) || 0 };
+  }
+  function goalieLine(name, team) {
+    const s = (season.goalies || {})[name] || { gp: 0, sa: 0, ga: 0, w: 0 };
+    return { name, team, gp: s.gp, sa: s.sa, ga: s.ga, w: s.w, tonightSv: tonight.sv.get(name) || 0, tonightSa: tonight.sa.get(name) || 0 };
+  }
   const gameday = (b, idx) => ({
+    ...(linesAt[idx - 1] || {}),
     sport: 'hockey',
     shooter: b.shooter || b.player || '', goalie: b.goalie || '',
     assist: b.assist || '',
@@ -255,7 +296,7 @@ export function narrate(ctx) {
     clubsRev,
     awayColours: away.profile?.colours || null,
     homeColours: home.profile?.colours || null,
-    rivalry,
+    rivalry, gate,
     // A seed for the club's own goal horn — every barn's horn should sound like that
     // barn's horn, and the soundset already varies a preset from a seed.
     hornSeed: hornSeedFor(b.teamName || away.name),
@@ -430,7 +471,7 @@ export function narrate(ctx) {
       goals: per.goals.slice(), casualties: per.casualties.slice(),
       shotsAway: per.shotsAway, shotsHome: per.shotsHome,
       penalties: per.pens, fights: per.fights, hits: per.hits,
-      standings: ctx.standings || [],
+      standings: ctx.standings || [], gate,
     }); said++;
     // The rink is showing the Zamboni come on while the booth reads the summary.
     call('pbp.zamboni.on', t, null, sb, { opt: true });

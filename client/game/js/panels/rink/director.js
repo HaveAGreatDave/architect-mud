@@ -148,6 +148,8 @@ export function createDirector(W, opts = {}) {
   const tagSide = (tag) => (tag === 'att' ? 'a' : tag === 'def' ? 'h' : null);
 
   function dress(p) {
+    // (how full the barn is tonight, for the crowd: gl/arena-crowd.js)
+    if (Number.isFinite(p.gate)) W.gate = p.gate;
     // the identities can land after the first payload: dress again when they do
     const dressed = `${clubOf(p.awayTeam, 'hockey') ? 1 : 0}${clubOf(p.homeTeam, 'hockey') ? 1 : 0}`;
     const key = `${p.awayTeam || ''}|${p.homeTeam || ''}|${dressed}`;
@@ -809,19 +811,17 @@ export function createDirector(W, opts = {}) {
         tb.tx = nd.x; tb.ty = nd.y; tb.maxV = 22;
         // (sprung: he takes it in stride, going)
         if (ba && nd === ba.S) { tb.tx = nd.x + dir * 16; tb.maxV = 20; tb.through = W.t + 0.1; }
-        const lu = (tb.x - cur.x) * Math.cos(cur.h) + (tb.y - cur.y) * Math.sin(cur.h);
-        const lv = -(tb.x - cur.x) * Math.sin(cur.h) + (tb.y - cur.y) * Math.cos(cur.h);
         // a drop pass is for a man right behind him; farther back it's played firmly; and it's
         // lifted only when the booth called a saucer (the kind rides on the touch's cue)
         const pd = hyp(tb.x - cur.x, tb.y - cur.y), said = cueAt(p, 'node', 'i', nd.oi);
-        const pkind = said && said.pass === 'saucer' ? 'saucer' : lu < -3 && pd < 14 ? 'drop' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : 'pass';
+        const pkind = said && said.pass === 'saucer' ? 'saucer' : passKind(cur, tb);
         W.act(cur, pkind, SHOTS[pkind].dur); cur.look = [tb.x, tb.y, 1];
         const from = cur, pass = { kind: 'pass', to: tb, from: cur, t: 0 };
         // (a shot called before it's away takes the leg over, and he keeps the puck to shoot)
         at(B, releaseAt(pkind), () => {
           if (leg !== pass) return;
           // led to where he'll be on his way to the touch's spot when it gets to him
-          const spd = pkind === 'drop' ? clamp(pd * 1.8, 16, 28) : 64 + r() * 14;
+          const spd = passSpeed(pkind, pd);
           W.give(from); pass.made = W.pass(from, tb, spd);
           tb.meetPass = W.t + 3;
           if (pkind === 'saucer') pk.vz = 7;
@@ -841,24 +841,187 @@ export function createDirector(W, opts = {}) {
       leg.tx = nd.x; leg.ty = nd.y;
     }
 
-    // A MAN WITH THE PUCK WAITING ON HIS NEXT TOUCH DOESN'T STAND ON IT. He curls round the
-    // spot he was holding it at, turning away from their nearest man and keeping his body
-    // between that man and the puck. Parked, he stood nose to nose with their forechecker,
-    // the two of them still for seconds at a time.
-    function keepMoving(m, at0, L) {
+    // A MAN WITH THE PUCK AND TIME ON HIS HANDS MAKES A PLAY WITH IT. Waiting on his next
+    // touch, he used to curl round the spot he was holding it at, turning away from their
+    // nearest man. Measured on two games, a third of all the time anybody had the puck was in
+    // a spell in which he'd turned a full circle, and the longest had four: a man skating
+    // rings round a defender until he was allowed to shoot. Now, with the time for it, he
+    // moves it to a man of his who's open and gets it back somewhere else (`giveGo`), sooner
+    // the closer their man is; and while he has it he works it across the ice and cuts back
+    // (`weave`), which never comes round to a full circle. Parked, he stood nose to nose with
+    // their forechecker for seconds at a time, so he never parks either.
+    function keepMoving(m, at0, L, left = 0, give = true) {
+      if (give && giveGo(m, at0, L, left)) return;
+      if (hyp(at0[0] - m.x, at0[1] - m.y) > 14) { m.tx = at0[0]; m.ty = at0[1]; m.maxV = 13; m.protect = 0; return; }
+      weave(m, at0, L, 7, 10);
+      shield(m);
+    }
+    // (never round the back of a net with it: the puck caught on the frame there and he spent
+    // four seconds digging at it)
+    const inFront = (x) => clamp(x, GOAL_X[0] + 6, GOAL_X[1] - 6);
+    // his body between their nearest man and the puck
+    function shield(m) {
+      const foe = W.nearestOf(W.mates(other(m.side)).filter((o) => o.active && !o.rag), m.x, m.y);
+      const fd = foe ? hyp(foe.x - m.x, foe.y - m.y) : 99;
+      if (fd < 9) { const lv = -(foe.x - m.x) * Math.sin(m.h) + (foe.y - m.y) * Math.cos(m.h); m.protect = lv >= 0 ? 1 : -1; } else m.protect = 0;
+    }
+    // THE WEAVE. To a point `R` ft one side of `home`, then the other, along a line across
+    // their nearest man (so he stays between that man and the puck), or across the ice with
+    // nobody close. Each cut back goes round the way that undoes the last one, so his path is
+    // an S or a figure of eight and his heading never winds up a whole turn. `L` keeps the
+    // state; a man without the puck uses it too, to get open near his spot. `line` has him
+    // walk the line instead: straight across the ice and back, his distance to the net kept,
+    // as a point man does (and so the picture keeps him and the net in frame).
+    function weave(m, home, L, R, v, line = false) {
+      const sp = hyp(m.vx, m.vy), h = sp > 3 ? Math.atan2(m.vy, m.vx) : null;
+      if (h != null && L.wh != null) L.wturn = (L.wturn || 0) + angWrap(h - L.wh);
+      if (h != null) L.wh = h;
+      let w = L.wv;
+      if (!w || W.t > w.until || hyp(w.x - m.x, w.y - m.y) < 3) {
+        const foe = W.nearestOf(W.mates(other(m.side)).filter((o) => o.active && !o.rag), m.x, m.y);
+        const fd = foe ? hyp(foe.x - m.x, foe.y - m.y) : 99, near = fd < 16 && !line;
+        const side = w ? -w.side : (m.seed % 2 ? 1 : -1);
+        const ax = near ? -(foe.y - m.y) / fd : 0, ay = near ? (foe.x - m.x) / fd : 1;
+        let x = home[0] + ax * side * R, y = home[1] + ay * side * R;
+        // (and a step off their man)
+        if (near) { x += (m.x - foe.x) / fd * 3; y += (m.y - foe.y) / fd * 3; }
+        // to the side of his line that has him turn back the other way
+        if (h != null) { const s = (L.wturn || 0) > 0 ? -1 : 1; x -= Math.sin(h) * s * 3.5; y += Math.cos(h) * s * 3.5; }
+        const c = insideRink(x, y, 5); if (c) { x = c.x; y = c.y; }
+        x = inFront(x);
+        w = L.wv = { x, y, side, until: W.t + 1.2 + r() * 0.8 };
+      }
+      m.tx = w.x; m.ty = w.y; m.maxV = v; m.through = W.t + 0.1;
+    }
+    // the pass that fits where the man is: a drop to a man right behind him, a backhand to his
+    // off side or behind, otherwise the forehand
+    function passKind(from, to) {
+      const lu = (to.x - from.x) * Math.cos(from.h) + (to.y - from.y) * Math.sin(from.h);
+      const lv = -(to.x - from.x) * Math.sin(from.h) + (to.y - from.y) * Math.cos(from.h);
+      return lu < -3 && hyp(to.x - from.x, to.y - from.y) < 14 ? 'drop' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : 'pass';
+    }
+    const passSpeed = (kind, d) => (kind === 'drop' ? clamp(d * 1.8, 16, 28) : 64 + r() * 14);
+    // (a give-and-go is played short and soft, so one that goes by him doesn't run the length
+    // of the ice)
+    const ggSpeed = (d) => clamp(d * 1.6 + 10, 28, 50);
+    // An open man of his for a give-and-go: 14 to 36 ft off, nobody of theirs within 8 ft of
+    // him or 4.5 ft of the line to him, and nobody the booth has a touch for still to come
+    // (it's the point man, as often as not).
+    function openMate(m) {
+      const skip = new Set([m]);
+      if (leg && leg.mover) skip.add(leg.mover);
+      for (let k = li; k < nodes.length; k++) {
+        const nd = nodes[k];
+        if (nd.body) skip.add(nd.body);
+        if (nd.carrier < 0) continue;
+        const nm = nameOf(nd.carrier), nb = nm ? D.names[att].get(nm) : null, sb = slotBody(nd.carrier);
+        if (nb) skip.add(nb); if (sb) skip.add(sb);
+      }
+      const opp = W.mates(def).filter((o) => o.active && !o.rag);
+      let best = null, bs = -1e9;
+      for (const o of W.mates(att)) {
+        if (skip.has(o) || !able(o) || o.scripted) continue;
+        const d = hyp(o.x - m.x, o.y - m.y);
+        if (d < 14 || d > 36) continue;
+        let open = 99, lane = 99;
+        for (const e of opp) {
+          open = Math.min(open, hyp(e.x - o.x, e.y - o.y));
+          const t = clamp(((e.x - m.x) * (o.x - m.x) + (e.y - m.y) * (o.y - m.y)) / (d * d), 0, 1);
+          lane = Math.min(lane, hyp(m.x + (o.x - m.x) * t - e.x, m.y + (o.y - m.y) * t - e.y));
+        }
+        if (open < 8 || lane < 4.5) continue;
+        const sc = open + lane * 0.8 - Math.abs(d - 24) * 0.3;
+        if (sc > bs) { bs = sc; best = o; }
+      }
+      return best;
+    }
+    // How much time the rush has in hand: to the shot's line, less what it takes to skate the
+    // touches still to come at a carrier's pace. A give-and-go spends two seconds or so, and
+    // spent where the rush needed them, the shot came late and from out of position.
+    function slack() {
+      const sc = cueOf(p, 'shot');
+      if (sc == null) return 0;
+      let d = 0, x = pk.x, y = pk.y;
+      for (let k = li; k < nodes.length - 1; k++) { d += hyp(nodes[k].x - x, nodes[k].y - y); x = nodes[k].x; y = nodes[k].y; }
+      return sc - (W.t - B.t0) - d / 20;
+    }
+    // THE GIVE-AND-GO. He passes to the open man and skates on to the other side of where he
+    // was holding it; that man has it a moment, still moving, and gives it back to him there.
+    // Started only with the time for the round trip and some over (`left`, seconds), after he's
+    // had it a couple of seconds (one, with their man on him), and not twice running. True
+    // while one is going on.
+    function giveGo(m, home, L, left) {
+      if (L.gg) return stepGiveGo(m, L.gg, L);
+      // (never in a breakaway's build-up: the man he'd give it to is the one who has to be left
+      // behind them, or one of theirs is drawn back to it)
+      if (ba || pk.carrier !== m || left < 3.2 || (L.ggAt != null && W.t - L.ggAt < 1.5) || slack() < 4.5) return false;
+      if (L.heldAt == null) L.heldAt = W.t;
       const foe = W.nearestOf(W.mates(def).filter((o) => o.active && !o.rag), m.x, m.y);
       const fd = foe ? hyp(foe.x - m.x, foe.y - m.y) : 99;
-      if (hyp(at0[0] - m.x, at0[1] - m.y) > 9) { m.tx = at0[0]; m.ty = at0[1]; m.maxV = 12; m.protect = 0; return; }
-      // (round the spot the way that takes him away from their man, once it's chosen)
-      if (L.spin == null || (fd < 8 && !L.spun)) {
-        const side = foe ? Math.sign(-(foe.x - m.x) * Math.sin(m.h) + (foe.y - m.y) * Math.cos(m.h)) : 0;
-        L.spin = side ? -side : (m.seed % 2 ? 1 : -1); L.spun = fd < 8;
+      if (W.t - L.heldAt < (fd < 8 ? 0.9 : 1.8)) return false;
+      const mate = openMate(m);
+      if (!mate) return false;
+      script(mate);
+      // where he'll have it back: open ice across the spot from the man he gave it to, a
+      // stride up the ice (sent through and past the spot, he went back toward his own end
+      // and the return went by him the length of the ice)
+      const across = Math.sign(home[1] - mate.y) || (m.seed % 2 ? 1 : -1);
+      let rx = home[0] + dir * 4, ry = home[1] + across * 9;
+      const c = insideRink(rx, ry, 6); if (c) { rx = c.x; ry = c.y; }
+      rx = inFront(rx);
+      const G = L.gg = { mate, rx, ry, phase: 'out', t0: W.t, back: false };
+      // he calls for it, his blade tapping the ice, and it's played to him
+      W.act(mate, 'tap', 0.45); W.sfx('stick', { x: mate.x }); m.look = [mate.x, mate.y, 1];
+      at(B, 0.3, () => {
+        if (L.gg !== G) return;
+        if (pk.carrier !== m) { endGiveGo(L); return; }
+        const kind = passKind(m, mate);
+        W.act(m, kind, SHOTS[kind].dur);
+        at(B, releaseAt(kind), () => {
+          if (L.gg !== G) return;
+          if (pk.carrier !== m) { endGiveGo(L); return; }
+          W.pass(m, mate, ggSpeed(hyp(mate.x - m.x, mate.y - m.y)));
+          mate.meetPass = W.t + 3; W.act(mate, 'receive', 0.6, [m.x, m.y]);
+          G.phase = 'flight';
+        });
+      });
+      return stepGiveGo(m, G, L);
+    }
+    function stepGiveGo(m, G, L) {
+      const mate = G.mate;
+      m.tx = G.rx; m.ty = G.ry; m.maxV = 15; m.protect = 0; m.through = W.t + 0.1;
+      if (G.phase === 'flight' && pk.carrier === mate) { G.phase = 'held'; G.heldAt = W.t; }
+      if (G.phase === 'held') {
+        // (he has it a moment and gives it straight back, skating on as he was)
+        mate.tx = mate.x + mate.vx * 0.5; mate.ty = mate.y + mate.vy * 0.5; mate.maxV = 10;
+        if (!G.back && (W.t - G.heldAt > 0.45 || G.hurry)) {
+          G.back = true;
+          const kind = passKind(mate, m);
+          W.act(mate, kind, SHOTS[kind].dur); mate.look = [m.x, m.y, 1];
+          at(B, releaseAt(kind), () => {
+            if (L.gg !== G || pk.carrier !== mate) return;
+            W.pass(mate, m, ggSpeed(hyp(m.x - mate.x, m.y - mate.y)));
+            m.meetPass = W.t + 3; W.act(m, 'receive', 0.6, [mate.x, mate.y]);
+            G.phase = 'return';
+          });
+        }
       }
-      const a = Math.atan2(m.y - at0[1], m.x - at0[0]) + L.spin * 0.8;
-      let cx = at0[0] + Math.cos(a) * 5, cy = at0[1] + Math.sin(a) * 5;
-      const c = insideRink(cx, cy, 4); if (c) { cx = c.x; cy = c.y; }
-      m.tx = cx; m.ty = cy; m.maxV = 9; m.through = W.t + 0.1;
-      if (fd < 9) { const lv = -(foe.x - m.x) * Math.sin(m.h) + (foe.y - m.y) * Math.cos(m.h); m.protect = lv >= 0 ? 1 : -1; } else m.protect = 0;
+      if (pk.carrier === m && G.phase !== 'out') { endGiveGo(L); return false; }
+      // (gone by one of them: whichever of the two gets to it first goes and gets it)
+      if ((G.phase === 'flight' || G.phase === 'return') && !pk.carrier && !pk.held && !pk.target && !pk.home) {
+        const by = able(mate) && etaOf(mate) < etaOf(m) ? mate : m;
+        W.collect(by);
+        if (by === mate) { G.phase = 'flight'; G.back = false; }
+      }
+      // (it's taken too long: whoever has it now keeps it, and it's played on from him)
+      if (W.t - G.t0 > 5) { endGiveGo(L); if (pk.carrier !== m && !pk.target && !(pk.carrier && pk.carrier.side === att)) W.collect(m); return false; }
+      return true;
+    }
+    function endGiveGo(L) {
+      const G = L.gg;
+      if (!G) return;
+      L.gg = null; L.ggAt = W.t; L.heldAt = W.t; L.wv = null;
+      if (G.mate !== cur && pk.carrier !== G.mate && pk.target !== G.mate) { G.mate.scripted = false; G.mate.look = null; }
     }
 
     // THE SHOT IS TAKEN IN STRIDE. Early for his line, he doesn't park on the spot it's shot
@@ -871,23 +1034,22 @@ export function createDirector(W, opts = {}) {
     function runUp(m, L, left, T) {
       const sx = L.sx, sy = L.sy, d = hyp(sx - m.x, sy - m.y), vr = RUN[T] || 13;
       const ul = hyp(netX - sx, MID_Y - sy) || 1, ux = (netX - sx) / ul, uy = (MID_Y - sy) / ul;
-      if (!L.drive && left > d / Math.max(vr, 16) + 0.25) {
-        if (L.curl == null) L.curl = m.seed % 2 ? 1 : -1;
+      if (L.gg || (!L.drive && left > d / Math.max(vr, 16) + 0.25)) {
         // (less far back the farther out the shot: a point shot's man walks the line, and the
         // picture keeps him and the net in frame)
         const back = clamp(50 - ul, 2, 8);
         let qx = sx - ux * back, qy = sy - uy * back;
-        // With seconds in hand he takes it round wider, out toward the wall on his side and
-        // back, and closes in to the tight curl as the shot comes. (Sent from a long way off
-        // he went straight through the spot and stood past it with the puck for eleven
-        // seconds; circling tight on it that long reads as a man killing time.)
-        const wide = left > 3.5 + d / 16, rad = wide ? 9 : 5;
-        if (wide) qy += (sy > MID_Y ? 1 : -1) * 6;
-        const qc = insideRink(qx, qy, rad + 1); if (qc) { qx = qc.x; qy = qc.y; }
-        const a = Math.atan2(m.y - qy, m.x - qx) + L.curl * 0.7;
-        let cx = qx + Math.cos(a) * rad, cy = qy + Math.sin(a) * rad;
-        const cc = insideRink(cx, cy, 4); if (cc) { cx = cc.x; cy = cc.y; }
-        m.tx = cx; m.ty = cy; m.maxV = d > rad + 14 ? 18 : wide ? 13 : 11; m.through = W.t + 0.1;
+        // With seconds in hand he makes a play first: a give-and-go with the open man, and
+        // back in to shoot. Short of that he works it across in front of the spot and cuts
+        // back, and comes through it as the shot is called. (He used to curl round a point
+        // here, wider with more time: with eight seconds to kill that was a ring and a half
+        // before every shot. Sent from a long way off he went straight through the spot and
+        // stood past it with the puck for eleven seconds.)
+        const qc = insideRink(qx, qy, 6); if (qc) { qx = qc.x; qy = qc.y; }
+        if (giveGo(m, [qx, qy], L, left - d / 16 - 0.6)) return;
+        if (hyp(qx - m.x, qy - m.y) > 14) { m.tx = qx; m.ty = qy; m.maxV = 18; m.through = W.t + 0.1; return; }
+        weave(m, [qx, qy], L, left > 3 ? 8 : 5, left > 3 ? 12 : 10, ul > 40);
+        shield(m);
         return;
       }
       // going: the line he takes through the spot is kept, so once past it he carries on
@@ -964,19 +1126,6 @@ export function createDirector(W, opts = {}) {
     function shoot(shooter) {
       if (D.beat !== B) return;
       const T = SHOTS[type] ? type : 'wrist';
-      if (kind === 'breakaway' && g && g.active) {
-        // in alone: the goalie comes out and pokes it off his stick before he can shoot
-        g.scripted = true; g.tx = g.x + attackDir(def) * 3.5; g.ty = lerp(g.y, shooter.y, 0.5); g.face = Math.atan2(shooter.y - g.y, shooter.x - g.x);
-        W.act(shooter, 'fake', 0.7);
-        at(B, 0.22, () => W.act(g, 'poke', 0.45));
-        at(B, 0.42, () => {
-          W.loose(-dir * 10 + (r() - 0.5) * 10, (r() < 0.5 ? 1 : -1) * (18 + r() * 10), 0);
-          W.sfx('poke'); W.act(shooter, 'stagger', 0.5); W.crowd = 0.9; land(B);
-        });
-        at(B, 0.9, () => { g.scripted = false; });
-        at(B, 1.8, () => finish(B));
-        return;
-      }
       // he can only shoot what's on his stick: one he hasn't got yet he goes and gets first
       // (and only as a last resort, eight seconds on, is it put on his stick wherever it is)
       if (pk.carrier !== shooter && (B.shotWait = (B.shotWait || 0) + 1) < 80) {
@@ -984,6 +1133,7 @@ export function createDirector(W, opts = {}) {
         at(B, 0.1, () => shoot(shooter));
         return;
       }
+      if (kind === 'breakaway' && g && g.active) { breakawaySave(shooter); return; }
       W.act(shooter, T, SHOTS[T].dur);
       if (T === 'slap' || T === 'onetimer') { shooter.tx = shooter.x + shooter.vx * 0.5; shooter.ty = shooter.y + shooter.vy * 0.5; shooter.maxV = 8; }
       else {
@@ -1001,6 +1151,51 @@ export function createDirector(W, opts = {}) {
         const tt = W.shoot(shooter, a.tgt, SPEED[T] || 80, T);
         W.sfx('shot', { type: T });
         react(a, tt);
+      });
+    }
+
+    // A BREAKAWAY STOPPED IS A SAVE. In alone, he shows the forehand, the goalie comes out to
+    // him and drops, he pulls it across the top of the crease and shoots for the far post,
+    // and the goalie throws himself across after it: the pads stacked along the post for one
+    // along the ice, or laid out headfirst with the glove or the blocker reaching for one off
+    // it. It comes off him into the far corner, and the shooter carries on past the net with
+    // a glove to his helmet. (It used to be a poke check: the puck chipped back up the ice off
+    // his stick before he ever shot.)
+    function breakawaySave(sh) {
+      const gl = g, out = -dir;
+      const sd = Math.sign(sh.y - MID_Y) || (r() < 0.5 ? 1 : -1);
+      const low = r() < 0.55, T = r() < 0.5 ? 'backhand' : 'wrist';
+      const tgt = [netX + out * 1.6, MID_Y - sd * (NET_HALF - 0.8), low ? 0.3 : 1.0];
+      // (his glove side is his left, as the rig has it)
+      const glSide = (x, y) => Math.sign(-(x - gl.x) * Math.sin(gl.h) + (y - gl.y) * Math.cos(gl.h)) || 1;
+      gl.scripted = true;
+      gl.tx = netX + out * 3.2; gl.ty = lerp(MID_Y, sh.y, 0.45); gl.face = Math.atan2(sh.y - gl.y, sh.x - gl.x);
+      W.act(sh, 'deke', 0.6);
+      sh.tx = netX + out * 5; sh.ty = MID_Y - sd * 3.5; sh.maxV = 15; sh.through = W.t + 0.1;
+      at(B, 0.12, () => W.act(gl, 'butterfly', 0.6, glSide(sh.x, sh.y)));
+      at(B, 0.42, () => {
+        if (D.beat !== B) return;
+        W.act(sh, T, SHOTS[T].dur);
+        // he reads it and goes: across to the far post, and down as it leaves the stick
+        gl.tx = netX + out * 1.8; gl.ty = MID_Y - sd * (NET_HALF - 1.5); gl.face = dir > 0 ? Math.PI : 0;
+        const s = glSide(tgt[0], tgt[1]);
+        at(B, Math.max(0, releaseAt(T) - 0.12), () => W.act(gl, low ? 'stack' : 'dive', 2.3, s));
+        at(B, releaseAt(T), () => {
+          if (D.beat !== B) return;
+          if (pk.carrier !== sh) W.give(sh, true);
+          const tt = W.shoot(sh, tgt, SPEED[T] || 75, T);
+          W.sfx('shot', { type: T });
+          at(B, tt, () => {
+            W.loose(out * (3 + r() * 5), -sd * (24 + r() * 12), low ? 1 : 2.5);
+            W.sfx(low ? 'pad' : 'chest'); W.sfx('roar'); W.crowd = 1; land(B);
+            // (the banner once the save's been seen: up at once, it covered him laid out)
+            if (p.goalie) at(B, 0.7, () => { W.banner = { text: 'WHAT A SAVE!', sub: surname(p.goalie).toUpperCase(), t0: W.t, dur: 1.5, col: '#7fd4ff' }; });
+            sh.tx = netX + dir * 6; sh.ty = MID_Y - sd * 11; sh.maxV = 12;
+            at(B, 0.45, () => W.act(sh, 'rue', 1.4));
+            at(B, 2.0, () => { gl.scripted = false; gl.face = null; });
+            at(B, 2.1, () => finish(B));
+          });
+        });
       });
     }
 
@@ -1172,6 +1367,8 @@ export function createDirector(W, opts = {}) {
         if (leg.foe) leg.foe.scripted = false;
         for (const o of [leg.from, leg.rival]) if (o && o !== cur) { o.scripted = false; o.protect = 0; }
         cur.face = null; cur.protect = 0;
+        // (a give-and-go still out: whoever of the two has it now is the man with it)
+        if (leg.gg) { const G = leg.gg; endGiveGo(leg); if (pk.carrier === G.mate && able(G.mate)) { cur.scripted = false; cur = G.mate; } }
         // (only to the man a pass is actually on its way to; one never made stays with the passer)
         if (leg.kind === 'pass' && leg.to && (pk.target === leg.to || pk.carrier === leg.to || pk.home === leg.to)) cur = leg.to;
         if (leg.kind === 'chase' && leg.chaser) cur = leg.chaser;
@@ -1314,21 +1511,27 @@ export function createDirector(W, opts = {}) {
       if (leg.kind === 'wait') {
         if (ba && leg.mover === ba.leaker) { leg.tx = ba.S.x; leg.ty = ba.S.y; }
         const m = leg.mover, left = leg.until - rel, dn = hyp(leg.tx - m.x, leg.ty - m.y);
-        if (left > 1.2 && dn < 12) {
-          // Early, and nearly there: he curls round the spot at a skater's pace, a stride
-          // ahead of himself on a circle about it, rather than standing on it with the puck
-          // waiting for the booth.
-          if (leg.curl == null) leg.curl = (r() < 0.5 ? 1 : -1);
-          const a = Math.atan2(m.y - leg.ty, m.x - leg.tx) + leg.curl * 0.7;
-          let cx = leg.tx + Math.cos(a) * 7, cy = leg.ty + Math.sin(a) * 7;
-          const c = insideRink(cx, cy, 4); if (c) { cx = c.x; cy = c.y; }
-          m.tx = cx; m.ty = cy; m.maxV = 11; m.through = W.t + 0.1;
+        if (m === cur && (leg.gg || (left > 1.2 && dn < 14))) {
+          // Early with the puck, and nearly there: he makes a play with it about the spot
+          // rather than standing on it waiting for the booth, and is through it in time.
+          keepMoving(m, [leg.tx, leg.ty], leg, left - 1.2);
+        } else if (left > 1.2 && dn < 12) {
+          // early without it, he works to get open about his spot
+          weave(m, [leg.tx, leg.ty], leg.mw ??= {}, 6, 10);
         } else {
           m.tx = leg.tx; m.ty = leg.ty;
           m.maxV = clamp(dn / Math.max(0.4, left), 5, 24);
         }
-        if (m !== cur) { cur.maxV = 9; if (leg.hold) keepMoving(cur, leg.hold, leg); }
-        if (left <= 0) { cur.protect = 0; leg = null; nextLeg(); }
+        if (m !== cur) { cur.maxV = 9; if (leg.hold) keepMoving(cur, leg.hold, leg, left); }
+        // (a give-and-go still out when the touch is due comes straight back, and the touch
+        // waits for it, two seconds at most; past that, whoever has it plays the touch)
+        if (leg.gg && left < 0.8) leg.gg.hurry = true;
+        if (left <= 0 && leg.gg && left > -2) return;
+        if (left <= 0) {
+          const G = leg.gg;
+          if (G) { endGiveGo(leg); if (pk.carrier === G.mate && able(G.mate)) { if (cur !== G.mate) cur.scripted = false; cur = script(G.mate); } }
+          cur.protect = 0; leg = null; nextLeg();
+        }
         return;
       }
       if (leg.kind === 'carry') {
@@ -1396,6 +1599,8 @@ export function createDirector(W, opts = {}) {
         if (leg.breakaway && g) { g.scripted = true; g.tx = g.x; g.ty = g.y; }
         // He can only shoot what's on his stick. Without it he's getting it (the sim's
         // `pursue` has him); with it he takes it to the spot it's shot from.
+        // (a give-and-go out from his run-up: the puck's on a man of his, and it's coming back)
+        if (leg.gg) { if (shotCue != null && shotCue - rel < 1.2) leg.gg.hurry = true; if (giveGo(sh, null, leg, 0)) return; }
         const has = pk.carrier === sh, d = hyp(leg.sx - sh.x, leg.sy - sh.y);
         if (has) { sh.tx = leg.sx; sh.ty = leg.sy; }
         else if (pk.home !== sh && pk.target !== sh && !pk.held) W.collect(sh);
@@ -1416,7 +1621,10 @@ export function createDirector(W, opts = {}) {
           }
           if (has && !(left <= 0 && !inRange) && !leg.breakaway && kind !== 'breakaway' && !p.breakaway) runUp(sh, leg, left, type);
           // (in alone, a breakaway stopped is stopped close in, where the goalie can get to him)
-          if (has && left <= 0 && inRange && (kind !== 'goal' || (d < 14 && inFront) || -left > 2.0) && (kind !== 'breakaway' || d < 12 || -left > 2.5)) { leg.kind = 'shooting'; shoot(sh); }
+          // (in alone he starts his deke a little before the shot's time, so the save it ends in
+          // lands as it's called)
+          const lead = kind === 'breakaway' && g && g.active ? 0.45 : 0;
+          if (has && left <= lead && inRange && (kind !== 'goal' || (d < 14 && inFront) || -left > 2.0) && (kind !== 'breakaway' || d < 12 || -left > 2.5)) { leg.kind = 'shooting'; shoot(sh); }
         } else if (has && (d < 5 || leg.t > 1.7)) { leg.kind = 'shooting'; shoot(sh); }
       } else if (leg.kind === 'wrapIn') {
         // late on its line, he cuts the corner and comes straight round the post
@@ -2223,14 +2431,16 @@ export function createDirector(W, opts = {}) {
     if (back != null) at(B, Math.max(10, back - 6.5), () => { W.zamboniOff(); teamsOn(); B.regroup = 'C'; B.stopped = true; W.cam.mode = 'broadcast'; });
     B.update = () => {
       if (B.stopped) return;
-      // the linesman collects the puck and goes off with it; the referee goes straight off
-      if (lin.active && !busyBody(lin) && fetchPuck(lin)) leave(lin, lin.x, false);
+      // the linesman collects the puck and goes off with it (or without it, four seconds on: the
+      // next period's draw picks it up off the ice); the referee goes straight off
+      if (lin.active && !busyBody(lin) && (fetchPuck(lin) || W.t - B.t0 > 4)) leave(lin, lin.x, false);
       if (ref.active && !busyBody(ref)) leave(ref, ref.x, false);
       // The Zamboni once the ice is clear, or near enough: the whole sheet, shown as a
       // time-lapse sped up to finish inside what's left of the break (about five and a half
       // minutes of a driver's time in a typical half minute on air), or ten times over
       // without the cue.
-      if (!W.zamboni && !B.zam && W.netsOut() && (W.skaters().length === 0 || W.t - B.t0 > 6)) {
+      // (the officials off too: the linesman skating off with the puck behind it cut the fresh ice)
+      if (!W.zamboni && !B.zam && W.netsOut() && ((W.skaters().length === 0 && !lin.active && !ref.active) || W.t - B.t0 > 7.5)) {
         B.zam = true;
         const left = back != null ? back - 7.5 - (W.t - B.t0) : null;
         W.startZamboni(opts.zamboniLapse || (left != null ? clamp(W.zamboniTime() / Math.max(1, left), 3, 60) : 10));

@@ -24,6 +24,7 @@ import { crestSvg, clubOf, onClubs } from './club-crest.js';
 import { GEO, DOTS } from './rink/geo.js';
 import { DT } from './rink/rig.js';
 import { SAVE, createDirector } from './rink/director.js';
+import { ratingsFor } from './rink/sim.js';
 import { loadClassicScript } from '../classic-script.js';
 
 function _esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -62,6 +63,11 @@ const CARD = {
 const GLOW_KEY = 'rinkGlowPuck';
 function glowSaved(win) { try { return win?.localStorage?.getItem(GLOW_KEY) === '1'; } catch { return false; } }
 function glowSave(win, on) { try { win?.localStorage?.setItem(GLOW_KEY, on ? '1' : '0'); } catch { /* storage blocked */ } }
+// THE INK, the thick dark outline round the players (gl/arena.js), is on unless a viewer turns
+// it off, and that's kept in this browser too.
+const INK_KEY = 'rinkInk';
+function inkSaved(win) { try { return win?.localStorage?.getItem(INK_KEY) !== '0'; } catch { return true; } }
+function inkSave(win, on) { try { win?.localStorage?.setItem(INK_KEY, on ? '1' : '0'); } catch { /* storage blocked */ } }
 // The camera: the broadcast view across the ice, or the NHL 96 view up and down it.
 const CAM_KEY = 'rinkCamView';
 function camSaved(win) { try { return win?.localStorage?.getItem(CAM_KEY) === 'vertical' ? 'vertical' : null; } catch { return null; } }
@@ -71,6 +77,7 @@ export function createRinkView(host, opts = {}) {
   const doc = host ? host.ownerDocument : null;
   const win = doc ? doc.defaultView : null;
   let glow = opts.glow != null ? !!opts.glow : glowSaved(win);
+  let ink = opts.ink != null ? !!opts.ink : inkSaved(win);
   let camView = opts.camera || camSaved(win);
   let caption = '', pendingCaption = null, pendingCard = null, cardTimer = null, holdTimer = null;
   let last = null, landed = true, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1;
@@ -179,6 +186,9 @@ export function createRinkView(host, opts = {}) {
         `<button type="button" class="gdr-glow" aria-pressed="${glow}" title="Glowing puck" aria-label="Glowing puck">` +
           `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.28"/><ellipse cx="12" cy="13" rx="6" ry="3.4" fill="#0b0c0f"/><ellipse cx="12" cy="11.6" rx="6" ry="3.4" fill="#2c2f36"/></svg>` +
         `</button>` +
+        `<button type="button" class="gdr-ink" aria-pressed="${ink}" title="Outlines" aria-label="Outlines">` +
+          `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="7" r="3.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M6.5 21v-4.5a5.5 5.5 0 0 1 11 0V21" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>` +
+        `</button>` +
         `<button type="button" class="gdr-cam" aria-pressed="${camView === 'vertical'}" title="Vertical camera" aria-label="Vertical camera">` +
           `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 12h8" stroke="currentColor" stroke-width="1.4"/><path d="M12 5.2l-2 2.2h4zM12 18.8l-2-2.2h4z" fill="currentColor"/></svg>` +
         `</button></div>` +
@@ -285,6 +295,7 @@ export function createRinkView(host, opts = {}) {
     W.alpha = acc / DT;
     if (R.lost) fallback();
     R.render(now);
+    l3Tick();
     clockTick(raw);
     govern(raw);
   }
@@ -311,7 +322,12 @@ export function createRinkView(host, opts = {}) {
     R = gl || mods.createRenderer(canvas, W, ice);
     rung = 0; slow = quick = 0;
     if (camView) R.view = camView;
-    R.glow = glow;
+    R.glow = glow; R.ink = ink;
+  }
+  function setInk(on) {
+    ink = !!on;
+    if (R) R.ink = ink;
+    host?.querySelector('.gdr-ink')?.setAttribute('aria-pressed', String(ink));
   }
   function setCam(v) {
     camView = v;
@@ -345,15 +361,28 @@ export function createRinkView(host, opts = {}) {
     addFullscreenButton(host.querySelector('.gdr-rink'), host);
     canvas = host.querySelector('.gdr-canvas');
     host.querySelector('.gdr-glow')?.addEventListener('click', () => { setGlow(!glow); glowSave(win, glow); });
+    host.querySelector('.gdr-ink')?.addEventListener('click', () => { setInk(!ink); inkSave(win, ink); });
     host.querySelector('.gdr-cam')?.addEventListener('click', () => { setCam(camView === 'vertical' ? 'broadcast' : 'vertical'); camSave(win, camView); });
     const { createIce, createWorld } = mods;
     ice = createIce(doc);
     W = createWorld(ice, 'rinkside');
     D = createDirector(W, {
-      onLand: () => { if (!landed) { landed = true; if (last) head(last); } reveal(); },
+      onLand: () => {
+        if (!landed) { landed = true; if (last) head(last); }
+        reveal();
+        // a big save: whose it was, as the booth calls it
+        if (last && last.type === 'chance' && last.goalieLine) showL3(statCard(last.goalieLine, true), 5.5, 'save');
+      },
       emit: (name, data) => { if (name === 'sfx') _sfx(data.key, data); },
       zamboniLapse: opts.zamboniLapse,
     });
+    // the scorer's stat line goes up with his goal's replay and comes down with it (and the
+    // frame loop checks again, for a replay that runs out on its own)
+    {
+      const RP = W.replay, start0 = RP.start, stop0 = RP.stop;
+      RP.start = (...a) => { const ok = start0(...a); l3Tick(); return ok; };
+      RP.stop = () => { stop0(); l3Tick(); };
+    }
     makeRenderer();
     start();
   }
@@ -377,6 +406,8 @@ export function createRinkView(host, opts = {}) {
       head(p);
       board(p.type === 'intermission' ? p : null);
       crowdPlay(p);
+      if (p.scorerLine) l3Goal = p.scorerLine;
+      if (l3Up === 'save') hideL3();
       D.stage(p);
       // A cued payload is the first line of a play the booth calls as it happens, so its
       // line goes up now and the picture follows the lines. Otherwise the line waits for
@@ -415,6 +446,62 @@ export function createRinkView(host, opts = {}) {
     el.className = `gdr-jumbo ${m.cls}`; void el.offsetWidth; el.classList.add('in');
     if (cardTimer) clearTimeout(cardTimer);
     cardTimer = setTimeout(() => el && el.classList.remove('in'), (fx.duration || 3.5) * 1000);
+  }
+  // ── the stat line ─────────────────────────────────────────────────────────
+  // A lower third with a man's season on it: up while his goal is run back, and for a few
+  // seconds after a big save (the payload's scorerLine and goalieLine, the narrator's). His
+  // sweater number and his ratings are the rink's own, off the body wearing his name, so the
+  // bars are the skater the viewer has been watching; the numbers are the league's.
+  let l3Goal = null, l3Up = null, l3Timer = null;
+  const pct = (n, d) => (d > 0 ? n / d : null);
+  const r99 = (v) => Math.round(40 + 59 * Math.max(0, Math.min(1, v)));
+  function bodyOf(line) {
+    if (!W || !D || !last) return null;
+    const side = line.team === last.homeTeam ? 'h' : 'a';
+    return D.state?.names?.[side]?.get(line.name) || null;
+  }
+  function statCard(line, goalie) {
+    const b = bodyOf(line), side = line.team === last?.homeTeam ? 'h' : 'a';
+    const num = goalie ? W?.goalie?.[side]?.num : b?.num;
+    const cell = (k, v) => `<span><i>${k}</i>${_esc(String(v))}</span>`;
+    let stats, tag = '', bars = '';
+    if (goalie) {
+      const sv = pct(line.sa - line.ga, line.sa), gaa = line.gp > 0 ? line.ga / line.gp : null;
+      stats = cell('GP', line.gp) + cell('W', line.w) + cell('SV%', sv == null ? '—' : sv.toFixed(3).replace(/^0/, '')) + cell('GAA', gaa == null ? '—' : gaa.toFixed(2));
+      if (line.tonightSa) tag = `${line.tonightSv} save${line.tonightSv === 1 ? '' : 's'} on ${line.tonightSa} tonight`;
+    } else {
+      const sh = pct(line.g, line.sog);
+      stats = cell('GP', line.gp) + cell('G', line.g) + cell('A', line.a) + cell('PTS', line.pts) + cell('SH%', sh == null ? '—' : (sh * 100).toFixed(1));
+      tag = line.tonightG >= 3 ? 'HAT TRICK' : line.tonightG === 2 ? 'His 2nd tonight' : '';
+      const rt = b?.rt || ratingsFor(line.name);
+      bars = [['SPEED', rt.skate], ['HANDS', rt.hands], ['PASSING', rt.pass], ['CHECKING', rt.check]]
+        .map(([k, v]) => `<span><i>${k}</i><b style="--v:${Math.max(0, Math.min(1, v)).toFixed(3)}"></b><em>${r99(v)}</em></span>`).join('');
+    }
+    return `<div class="gdr-l3-id">${_crest(line.team, 30) || ''}${num ? `<span class="num">${num | 0}</span>` : ''}<span class="nm">${_esc(String(line.name).toUpperCase())}</span>` +
+      `<span class="tm">${_esc(line.team || '')}${goalie ? ' · Goaltender' : ''}</span></div>` +
+      `<div class="gdr-l3-row"><span class="lbl">This season</span>${stats}${tag ? `<span class="tag">${_esc(tag)}</span>` : ''}</div>` +
+      (bars ? `<div class="gdr-l3-bars">${bars}</div>` : '');
+  }
+  function showL3(html, secs, why) {
+    const pic = host?.querySelector('.gdr-rink');
+    if (!pic) return;
+    let el = pic.querySelector('.gdr-l3');
+    if (!el) { el = doc.createElement('div'); el.className = 'gdr-l3'; pic.appendChild(el); }
+    el.innerHTML = html; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
+    l3Up = why;
+    if (l3Timer) clearTimeout(l3Timer);
+    l3Timer = secs ? setTimeout(hideL3, secs * 1000) : null;
+  }
+  function hideL3() {
+    if (l3Timer) { clearTimeout(l3Timer); l3Timer = null; }
+    host?.querySelector('.gdr-l3')?.classList.remove('in');
+    l3Up = null;
+  }
+  // (each frame: the scorer's line goes up with his goal's replay and comes down with it)
+  function l3Tick() {
+    const on = !!(W && W.replay && W.replay.active && W.replay.kind === 'goal');
+    if (on && l3Up !== 'replay' && l3Goal) showL3(statCard(l3Goal, false), 0, 'replay');
+    else if (!on && l3Up === 'replay') hideL3();
   }
   function showCard(fx) {
     if (!host || !fx || !CARD[fx.kind]) return;

@@ -25,6 +25,8 @@ export const ZW = 7.4;                  // the conditioner's width, ft
 export const COND = 2.35;               // the conditioner's middle, behind the rear axle
 export const AXLE = 3.0;                // the rear axle, behind the machine's own origin
 export const GATE_Y = 52.5, GATE_OUT = 16;
+// half the gate's width: the doorway in each end wall, and its two doors, a leaf each side
+export const GATE_HALF = 4.5;
 const OVERLAP = 0.4, S = ZW - OVERLAP;  // strip spacing
 const CRUISE = 11, ALAT = 4, ACC = 2.5, DEC = 3, GATE_V = 4.5;
 

@@ -90,6 +90,7 @@ async function play(slot) {
   W.emit = (n, d) => { if (n === 'goalIn') goalsIn++; emit(n, d); };
   const resurfaced = { n: 0 };
   const rs = W.ice.resurface; W.ice.resurface = (...a) => { resurfaced.n++; return rs(...a); };
+  const badGate = [];
   let lastFight = null, tApply = 0, landedAt = null, grabAt = null, boxAt = null, sawBreakaway = false, wearAtBreak = 0, rushB = null;
   // (the sheet as the Zamboni leaves it, before the teams come out and cut it up again)
   let zamOn = false, wearAfterZam = null, markedAfterZam = null, markedWhere = "";
@@ -123,6 +124,16 @@ async function play(slot) {
   // he meets it, so nearly every pass in a rush gets to him rather than going by him.
   const passes = { n: 0, missed: 0, list: [] };
   let pending = null;
+  // NOBODY SKATES RINGS WITH THE PUCK. A man waiting on his next touch or his shot makes a
+  // play with it (a give-and-go) or works it across and cuts back; he doesn't circle. Each
+  // spell on one man's stick has its heading wound up: past a turn and a half is a man going
+  // round and round. (Before this, about forty spells a game did, and a third of all the time
+  // on the puck was in a spell with a full circle in it.)
+  const rings = { spell: null, n: 0, list: [], held: 0, inRing: 0, gg: 0 };
+  const endSpell = () => { const S = rings.spell; if (!S) return; rings.held += W.t - S.t0; if (S.max > 2 * Math.PI) rings.inRing += W.t - S.t0; rings.spell = null; };
+  // A BREAKAWAY STOPPED IS A SAVE: the goalie stacks his pads or dives across, and never
+  // pokes it away before the shot.
+  const baSave = { n: 0, saves: 0, pokes: 0 };
   // AND PLAYED THE WAY THE BOOTH CALLED IT. The rink lifts a pass over a stick only when the
   // booth called a saucer, and a one-timer or a tip is struck straight off the pass (or the
   // shot it redirects), from the man the booth said fed it.
@@ -132,7 +143,12 @@ async function play(slot) {
   W.pass = (from, to, spd, at) => {
     const ok = pass0(from, to, spd, at);
     if (ok && to && D.kind() === 'rush' && W.puck.target === to) { passes.n++; pending = { to, t: W.t }; }
-    if (ok && to) lastPassTo.set(to, { from, t: W.t });
+    if (ok && to) {
+      // (given back to the man who just gave it to him: a give-and-go)
+      const back = lastPassTo.get(from);
+      if (back && back.from === to && W.t - back.t < 3.5 && D.kind() === 'rush') rings.gg++;
+      lastPassTo.set(to, { from, t: W.t });
+    }
     return ok;
   };
   // EVERY SOUND THE RINK ASKS FOR IS ONE THE SOUNDSET KNOWS (the event table in
@@ -142,6 +158,7 @@ async function play(slot) {
   W.sfx = (key, o) => { if (!sfxKeys.has(key)) unknownSfx.add(key); return sfx0(key, o); };
   const act0 = W.act;
   W.act = (b, name, dur, data) => {
+    if (b && b.kind === 'goalie' && curG && curG.kind === 'breakaway' && D.kind() === 'rush') { if (name === 'stack' || name === 'dive') baSave.saves++; if (name === 'poke') baSave.pokes++; }
     if (name === 'saucer' && b && b.scripted && D.kind() === 'rush' && !((curG && curG.cues) || []).some((c) => c.pass === 'saucer')) unasked.push(`${b.name || b.kind} at ${(W.t - tApply).toFixed(2)}s`);
     return act0(b, name, dur, data);
   };
@@ -237,6 +254,20 @@ async function play(slot) {
         if (dx * dx + dy * dy > 0.75 * 0.75) leaps.push(`${b.kind} ${b.side}${b.slot} ${Math.hypot(dx, dy).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'})`);
       }
       onIce = now;
+      {
+        const c = pk.carrier;
+        if (!c || c.kind !== 'skater' || W.frozen) endSpell();
+        else {
+          if (!rings.spell || rings.spell.c !== c) { endSpell(); rings.spell = { c, t0: W.t, h: null, turn: 0, max: 0, told: false }; }
+          const S = rings.spell;
+          if (c.vx * c.vx + c.vy * c.vy > 9) {
+            const h = Math.atan2(c.vy, c.vx);
+            if (S.h != null) { let d = h - S.h; if (d > Math.PI) d -= 2 * Math.PI; else if (d < -Math.PI) d += 2 * Math.PI; S.turn += d; S.max = Math.max(S.max, Math.abs(S.turn)); }
+            S.h = h;
+          }
+          if (!S.told && S.max > 3 * Math.PI) { S.told = true; rings.n++; rings.list.push(`${c.name || c.side + c.slot} ${(W.t - tApply).toFixed(1)}s into ${curG ? `${curG.type}/${curG.kind || ''}` : 'the game'}`); }
+        }
+      }
       const hb = D.state.beat;
       if (hb && hb.kind === 'boards' && !hb.landed && !W.frozen && camOff.length < 8) {
         const f = W.cam.focus;
@@ -317,6 +348,8 @@ async function play(slot) {
     // stoppage has for everybody to get to the next draw.
     if (!g) { run((l.hold || 400) / 1000); continue; }
     seen.add(g.type);
+    // (how full the barn is rides every payload, for the crowd: gl/arena-crowd.js)
+    if (!(g.gate >= 0.3 && g.gate <= 1)) badGate.push(`${g.type} ${g.gate}`);
     const label = `${slot}: ${g.type}${g.kind && g.kind !== g.type ? `/${g.kind}` : ''} at ${g.section} ${g.clock}`;
     let ok = true;
     tApply = W.t; landedAt = null; grabAt = null; boxAt = null; sawBreakaway = false; rushB = null;
@@ -404,7 +437,7 @@ async function play(slot) {
       check(`${label}: the takeaway the booth calls is a battle for the puck`, !!rushB && !!rushB.battled);
       if (rushB && rushB.tookAt != null) check(`${label}: the puck comes loose as the takeaway is called`, Math.abs(rushB.tookAt - cueT('takeaway')) < 0.6, `loose at ${rushB.tookAt.toFixed(2)}s, line at ${cueT('takeaway')}s`);
     }
-    if ((g.type === 'chance' || g.type === 'goal') && cueT('out') != null && g.kind !== 'breakaway') check(`${label}: the puck arrives as the outcome is called`, landedAt != null && landedAt > cueT('shot') && Math.abs(landedAt - cueT('out')) < (g.type === 'goal' ? 2.4 : 1.2), `${g.shotType}: landed ${landedAt?.toFixed(2)}s, outcome line ${cueT('out')}s`);
+    if ((g.type === 'chance' || g.type === 'goal') && cueT('out') != null) check(`${label}: the puck arrives as the outcome is called`, landedAt != null && landedAt > cueT('shot') && Math.abs(landedAt - cueT('out')) < (g.type === 'goal' ? 2.4 : 1.2), `${g.shotType}: landed ${landedAt?.toFixed(2)}s, outcome line ${cueT('out')}s`);
     check(`${label} resolves`, !D.busy() || g.type === 'intermission', `still ${D.kind()} after ${limit}s`);
     if (owed) { hitRp.owed++; if (hitRp.shown === shown0) hitRp.bad.push(`${label}: the booth brought up a hit the picture missed and it wasn't run back`); }
     if (g.type === 'goal') check(`${label}: it goes in`, goalsIn > before.goals && !!W.puck.inNet, `inNet=${W.puck.inNet}`);
@@ -415,6 +448,7 @@ async function play(slot) {
     if (g.kind === 'breakaway' || g.breakaway) check(`${label}: the breakaway gets its banner`, sawBreakaway);
     if (ba) {
       seen.add('breakaway');
+      if (g.kind === 'breakaway') baSave.n++;
       check(`${label}: the man in alone has the puck before he shoots`, ba.got, `${ba.name} never had it`);
       if (ba.got) {
         check(`${label}: he has it with the slot and more still to go`, ba.out >= 40, `${ba.out.toFixed(0)} ft from their goalie`);
@@ -432,6 +466,9 @@ async function play(slot) {
       // (it can start while the celebration is still going, before the beat resolves)
       if (RP.count === replays0) run(Math.max(0.5, rc + 2 - (W.t - tApply)), () => RP.count > replays0);
       check(`${label}: the replay starts on its cue`, RP.count > replays0);
+      // HIS SEASON IS UP WHILE IT RUNS: the scorer's stat line, in the lower third
+      const l3 = () => host.find('.gdr-l3');
+      if (g.scorerLine) check(`${label}: the scorer's season is up during his replay`, !RP.active || (l3() && l3().className.split(' ').includes('in') && (l3().innerHTML || '').includes(String(g.scorerLine.name).toUpperCase())), l3() ? l3().className : 'no card');
       let bad = 0, frames = 0, drew = 0;
       const rs = W.t;
       while (RP.active && W.t - rs < 20) {
@@ -447,6 +484,8 @@ async function play(slot) {
       if (lc != null) check(`${label}: the replay hands back as the booth comes back live`, Math.abs(endAt - lc) < 0.5, `ended ${endAt.toFixed(2)}s, live line ${lc}s`);
     }
     if (g.type === 'chance') check(`${label}: a ${g.kind} stays out`, goalsIn === before.goals);
+    // AND A BIG SAVE PUTS UP THE GOALIE'S: his season and his saves tonight, after it lands
+    if (g.type === 'chance' && g.goalieLine && landedAt != null) { const c = host.find('.gdr-l3'); check(`${label}: a big save puts up the goalie's season`, !!c && (c.innerHTML || '').includes(String(g.goalieLine.name).toUpperCase()), c ? c.innerHTML.slice(0, 80) : 'no card'); }
     if (g.type === 'fight') {
       const F = lastFight; lastFight = null;
       const loser = F && [F.l, F.r].find((b) => b.name === String(g.loser).split(' ').pop());
@@ -488,6 +527,7 @@ async function play(slot) {
   }
   // most draws with a line of their own go down right on it
   check(`${slot}: most draws go down as their line airs`, draws.n === 0 || draws.onCue / draws.n >= 0.75, `${draws.onCue}/${draws.n}`);
+  check(`${slot}: every play says how full the barn is`, badGate.length === 0, badGate.slice(0, 4).join(', '));
   check(`${slot}: no position ever went non-finite`, nan === 0, `${nan}`);
   check(`${slot}: the puck never jumps`, jumps.length === 0, `${jumps.length}: ${jumps.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody on the ice jumps`, leaps.length === 0, `${leaps.length}: ${leaps.slice(0, 4).join(', ')}`);
@@ -505,6 +545,10 @@ async function play(slot) {
   const strideV = shotsTaken.filter((q) => q.type === 'wrist' || q.type === 'snap' || q.type === 'backhand').map((q) => q.v).sort((x, y) => x - y);
   check(`${slot}: wrist, snap and backhand shots come off the move`, strideV.length > 20 && strideV[strideV.length >> 1] > 6, `median ${strideV.length ? strideV[strideV.length >> 1].toFixed(1) : '-'} ft/s over ${strideV.length}`);
   check(`${slot}: nobody stands still against a man of theirs`, frozenPairs.length === 0, `${frozenPairs.length}: ${frozenPairs.slice(0, 4).join('; ')}`);
+  endSpell();
+  check(`${slot}: nobody skates rings with the puck`, rings.n <= 8 && rings.inRing <= rings.held * 0.15, `${rings.n} spells past a turn and a half, ${(100 * rings.inRing / Math.max(1, rings.held)).toFixed(0)}% of the time on the puck in a spell with a full circle: ${rings.list.slice(0, 4).join(', ')}`);
+  check(`${slot}: a man with time makes a play with it (a give-and-go)`, rings.gg >= 6, `${rings.gg}`);
+  if (baSave.n) check(`${slot}: a breakaway stopped is a save, stacked or diving, never a poke`, baSave.saves >= baSave.n && baSave.pokes === 0, `${baSave.saves} saves, ${baSave.pokes} pokes in ${baSave.n} breakaways`);
   check(`${slot}: rush passes get to the man they're for`, passes.n > 20 && passes.missed <= Math.max(2, passes.n * 0.05), `${passes.missed} of ${passes.n} went by him: ${passes.list.slice(0, 4).join(', ')}`);
   check(`${slot}: the renderer drew`, renders > 100 && stub.drawn.images > 1000, `${renders} frames, ${stub.drawn.images} images`);
   check(`${slot}: the held caption went up`, String(host.find('.gdr-cap-text')?.textContent || '').length > 0);

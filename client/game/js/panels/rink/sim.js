@@ -146,7 +146,7 @@ export function makeBody(kind, side, slot, seed) {
     // Undefined until used, which reads exactly as a missing field does.
     x0: undefined, y0: undefined, idle: undefined, avoidAt: undefined, avoid: undefined, carve: undefined,
     accel: undefined, ampRate: undefined, hRate: undefined, turnRate: undefined, _va: undefined,
-    bladeE: undefined, bladeM: undefined, bladeT: undefined, feet: undefined, charging: undefined,
+    bladeE: undefined, bladeM: undefined, bladeT: undefined, handE: undefined, handM: undefined, handT: undefined, lookE: undefined, lookT: undefined, feet: undefined, charging: undefined,
     protect: undefined, defend: undefined, look: undefined, stopH: undefined, reachTo: undefined,
     touchT: undefined, puckAt: undefined, puckV: undefined, turnSfxAt: undefined, inReachAt: undefined,
     simFace: undefined, through: undefined, ring: undefined, fetchPrev: undefined, outAt: undefined,
@@ -169,14 +169,14 @@ export function createWorld(ice, seedKey) {
     puck: { x: 100, y: MID_Y, z: 0, vx: 0, vy: 0, vz: 0, carrier: null, target: null, held: null, passT0: 0, inNet: null, owner: null, home: null, tail: null, drawn: null, drawn0: null },
     parts: [], spray: [], debris: [], limbs: [], stretcher: null, zamboni: null, dryLapse: 0,
     flex: new Float32Array(PANELS), cracks: [], glassBlood: [], broken: new Set(),
-    crowd: 0.15, shake: 0, boardShake: 0, hitstop: 0, lamp: 0, lampSide: null, mourning: 0, dim: 0,
+    crowd: 0.15, gate: 0.7, doors: [0, 0], shake: 0, boardShake: 0, hitstop: 0, lamp: 0, lampSide: null, mourning: 0, dim: 0,
     banner: null, fight: null,
     // (what the live picture shows, as a renderer last drew it: the director asks whether a hit
     // was in it)
     view: null,
     cam: { mode: 'broadcast', focus: [100, MID_Y], zoom: 1, net: null },
     ev: [], script: null, puckScripted: false, allowGoal: false, frozen: false,
-    amb: { poss: 'a', nextPass: 1.5, lastTurn: 0, holdUntil: 0, fore: { a: null, h: null } },
+    amb: { poss: 'a', nextPass: 1.5, lastTurn: 0, holdUntil: 0, fore: { a: null, h: null }, heldBy: null, heldAt: 0, passTry: -9 },
     emit: () => {},
     kits: { a: null, h: null },
     pulled: { a: false, h: false },
@@ -1131,8 +1131,10 @@ export function createWorld(ice, seedKey) {
   const RT0 = { skate: 0.5, hands: 0.5, pass: 0.5, check: 0.5 };
   // HOW MUCH CONTROL HE HAS, 0 to 1: his hands, less what he's asking of them (speed, a hard
   // turn), less the man on him (a man on the side he's shielding it from counts for less), less
-  // what his last touch left him (`shaky`: a bobble, a check he rode out). dribble reads it.
-  function control(m, opp) {
+  // what his last touch left him (`shaky`: a bobble, a check he rode out), less how long he's
+  // had it (`held`, seconds: past a second and a half he's playing with it in front of them,
+  // and every second more is a little more of it to take). dribble reads it.
+  function control(m, opp, held = 0) {
     const rt = m.rt || RT0, sp = hyp(m.vx || 0, m.vy || 0);
     let press = 0;
     for (const o of opp) {
@@ -1142,7 +1144,7 @@ export function createWorld(ice, seedKey) {
       const lv = -(o.x - m.x) * Math.sin(m.h) + (o.y - m.y) * Math.cos(m.h), shielded = m.protect && Math.sign(lv) === m.protect;
       press = Math.max(press, (7 - d) / 7 * (0.7 + 0.6 * (o.rt || RT0).check) * (shielded ? 0.55 : 1));
     }
-    return clamp(0.5 + 0.45 * rt.hands - 0.22 * clamp(sp / 24, 0, 1) - 0.2 * clamp(Math.abs(m.turnRate || 0) / 3, 0, 1) - 0.3 * press - (m.shaky || 0) - 0.2 * (1 - (m.stam ?? 1)), 0.05, 1);
+    return clamp(0.5 + 0.45 * rt.hands - 0.22 * clamp(sp / 24, 0, 1) - 0.2 * clamp(Math.abs(m.turnRate || 0) / 3, 0, 1) - 0.3 * press - (m.shaky || 0) - 0.2 * (1 - (m.stam ?? 1)) - 0.07 * clamp(held - 1.5, 0, 4), 0.05, 1);
   }
   // HOW OPEN A PASSING LANE IS: along the line from the carrier to the man, how much sooner
   // the puck gets to each point than the quickest of theirs can get his stick there (a stick
@@ -1228,6 +1230,10 @@ export function createWorld(ice, seedKey) {
   function ambient(dt) {
     const pk = W.puck, A = W.amb;
     const carrier = pk.carrier;
+    // how long the man with it has had it: the longer, the less control he has (`control`), the
+    // more of them come at him, and the sooner he moves it
+    if (carrier !== A.heldBy) { A.heldBy = carrier; A.heldAt = W.t; }
+    const held = carrier && carrier.kind === 'skater' ? W.t - A.heldAt : 0;
     const free = !W.puckScripted && !W.frozen;
     // a goalie with it plays it up to a defenceman
     if (free && pk.held && pk.held.kind === 'goalie' && W.t > A.holdUntil) {
@@ -1245,6 +1251,9 @@ export function createWorld(ice, seedKey) {
       if (!fore || !fore.active || fore.rag || fore.scripted || W.t - (A.foreAt?.[side] || 0) > 2.5) {
         fore = nearestOf(team, pk.x, pk.y); A.fore[side] = fore; A.foreAt = A.foreAt || {}; A.foreAt[side] = W.t;
       }
+      // A MAN WHO HOLDS IT GETS A SECOND MAN ON HIM. Past two and a half seconds their next
+      // nearest comes at him too, from the goal side, to take it or take his time away.
+      const fore2 = carrier && carrier.side !== side && carrier.kind === 'skater' && !carrier.scripted && held > 2.5 ? nearestOf(team, carrier.x, carrier.y, fore) : null;
       // the jobs are handed out five times a second, not every step: nobody changes role faster
       if (W.t - (roleAt[side] ?? -9) > 0.2) { roleAt[side] = W.t; roles[side] = assignRoles(team, side, carrier); }
       // (one of his side the play has going at the man with the puck already: a second man on
@@ -1319,6 +1328,8 @@ export function createWorld(ice, seedKey) {
             // of the man, to turn him to the wall)
             tx = offBlue(side) - dir * 6; ty = lerp(MID_Y, c2.y, 0.5); mv = 20;
           } else { tx = c2.x - dir * 1.5; ty = c2.y + (MID_Y - c2.y) * 0.12; mv = 24; }
+        } else if (m === fore2 && !onHim) {
+          tx = carrier.x - dir * 2.5 + carrier.vx * 0.3; ty = carrier.y + (MID_Y - carrier.y) * 0.1 + carrier.vy * 0.3; mv = 23;
         } else {
           // everyone else plays his position (see `systemSpot`)
           const sp = systemSpot(m, side, attacking ? 'attack' : 'defend', carrier, roles[side]);
@@ -1349,7 +1360,7 @@ export function createWorld(ice, seedKey) {
         m.tx += (tx - m.tx) * kT; m.ty += (ty - m.ty) * kT;
         const st = m.stam ?? 1;
         m.maxV = mv * (0.93 + 0.14 * rt.skate) * (0.88 + 0.12 * st) * (m === carrier ? 0.97 - 0.05 * (1 - rt.hands) : 1); m.acc = 26 * (0.88 + 0.24 * rt.skate) * (0.9 + 0.1 * st);
-        if (m === carrier && free) m.ctl = control(m, opp);
+        if (m === carrier && free) m.ctl = control(m, opp, held);
         // what he does with his stick and his eyes
         m.protect = 0; m.defend = null; m.look = null;
         if (m === carrier) {
@@ -1392,7 +1403,10 @@ export function createWorld(ice, seedKey) {
     if (!free || !carrier || carrier.kind !== 'skater' || pk.carrier !== carrier) return;
     // the carrier moves it
     const side = carrier.side, dir = attackDir(side);
-    if (W.t > A.nextPass) {
+    // (held a second with a man of theirs on him, he moves it now rather than at his next look)
+    const pressed = held > 1 && W.t - (A.passTry ?? -9) > 0.6 && W.mates(side === 'a' ? 'h' : 'a').some((o) => !o.rag && hyp(o.x - carrier.x, o.y - carrier.y) < 6);
+    if (W.t > A.nextPass || pressed) {
+      A.passTry = W.t;
       // in the zone it moves quicker, man to man; through the neutral zone a carrier skates more
       const zone = (carrier.x - offBlue(side)) * dir > 0;
       A.nextPass = W.t + (zone ? 0.9 + rand() * 1.5 : 1.3 + rand() * 2.2);
@@ -1819,6 +1833,17 @@ export function createWorld(ice, seedKey) {
     return d && d0 ? [lerp(d0[0], d[0], a), lerp(d0[1], d[1], a), lerp(d0[2], d[2], a)] : [pk.x, pk.y, pk.z];
   };
 
+  // THE GATES' DOORS, the pair in each end wall (left, right), 0 shut to 1 open: they swing open
+  // for the Zamboni or a crewman near the gate and shut behind them, a little under a second
+  // each way, on the Zamboni's time-lapse while it's out, so they keep up with it.
+  function stepDoors(dt) {
+    const z = W.zamboni, k = dt * (z ? Math.max(1, z.lapse || 1) : 1);
+    [0, RL].forEach((gx, i) => {
+      const near = (x, y, r) => hyp(x - gx, y - GATE_Y) < r;
+      const want = (z && near(z.x, z.y, 26)) || crew.some((m) => m.active && near(m.x, m.y, 14));
+      W.doors[i] = clamp(W.doors[i] + (want ? 1.4 : -0.9) * k, 0, 1);
+    });
+  }
   W.step = (dt) => {
     W.t += dt;
     for (const b of bodies()) { b.x0 = b.x; b.y0 = b.y; }
@@ -1845,6 +1870,7 @@ export function createWorld(ice, seedKey) {
     stepParts(dt); stepSpray(dt);
     stepZamboni(dt);
     stepNets(dt);
+    stepDoors(dt);
     // (the water freezes on the machine's time-lapse while it's out, and goes on freezing on
     // it once it's gone, until the last strip has set: the period starts on dry ice)
     W.ice.dry(dt * (W.zamboni ? W.zamboni.lapse : W.dryLapse || 1));

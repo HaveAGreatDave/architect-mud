@@ -16,7 +16,7 @@
 import { V, clamp, lerp, rotZ, footFrame } from '../rink/util.js';
 import { rinkFace } from '../rink/faces.js';
 import { headMesh, hairMesh, HEAD_FEAT } from '../actor-head.js';
-import { maskColours } from '../rink/hud.js';
+import { maskColours, OFFICIAL_KIT, MEDIC_KIT, CREW_KIT } from '../rink/hud.js';
 
 export const STRIDE = 13;
 
@@ -483,9 +483,11 @@ export function disc(b, C, n, r, c, seg = 14, thick = 0.08) {
 }
 
 // ── the body ─────────────────────────────────────────────────────────────────
-// Torso cross-sections: [fraction pelvis→neck, half-width, half-depth, forward offset], the
-// same table figure.js draws from.
-const SK_RINGS = [[-0.14, 0.6, 0.42, 0.03], [0.3, 0.53, 0.38, 0.04], [0.64, 0.66, 0.45, 0.04], [0.78, 0.78, 0.5, -0.06], [0.9, 0.86, 0.44, -0.03], [1.03, 0.44, 0.32, -0.02]];
+// Torso cross-sections: [fraction pelvis→neck, half-width, half-depth, forward offset]. A
+// skater's is a hockey sweater over shoulder pads: boxy, its hem hanging loose over the top of
+// the pants, broad and round across the pads, in to the collar. (figure.js keeps the old, slimmer
+// table for the 2-D picture.) The collar is always the last ring.
+const SK_RINGS = [[-0.22, 0.88, 0.57, 0.02], [-0.08, 0.83, 0.54, 0.03], [0.3, 0.72, 0.5, 0.05], [0.6, 0.78, 0.53, 0.05], [0.77, 0.9, 0.56, -0.02], [0.9, 0.95, 0.5, -0.03], [0.98, 0.74, 0.42, -0.02], [1.04, 0.42, 0.32, -0.02]];
 const GK_RINGS = [[-0.14, 0.72, 0.52, 0.04], [0.3, 0.72, 0.56, 0.08], [0.64, 0.86, 0.62, 0.1], [0.78, 0.98, 0.62, -0.02], [0.9, 1.08, 0.56, 0.02], [1.04, 0.52, 0.4, 0]];
 const BOOT = rgb('#16171b'), HOLDER = rgb('#e7eaed'), STEEL = rgb('#cfd6dd'), STICK = rgb('#24262d'), TAPE = rgb('#f1f0ea'), RAW = rgb('#7a0a10'), BONE = rgb('#e9e1cf');
 const CAGE = rgb('#c6ccd2'), CAGE_GK = rgb('#1b1e23'), PAD = rgb('#eef0f2'), EYE = rgb('#1b1012'), LINER = rgb('#141518'), MASK_RIM = rgb('#202226');
@@ -509,6 +511,43 @@ function loft(b, rings, c, slot, seg = 16) {
   const f0 = rings[0].f ?? 0, f1 = rings[last].f ?? last, vrow = rings.map((r, k) => ((r.f ?? k) - f0) / ((f1 - f0) || 1));
   emitGrid(b, g, S, last, c, slot || null, vrow);
 }
+
+// A LIMB AS ONE SURFACE. Rings swept down the joints it runs through (hip, knee and ankle, or
+// shoulder, elbow and wrist), so a knee bends one surface instead of two tubes meeting in a seam,
+// and the pads under the kit (the pants' hip and thigh, the shin guard's knee cup, the elbow) are
+// the profile's shape rather than a ball stuck on. A station is [u, half-width, half-depth,
+// forward offset]: u runs 0 to 1 down the first bone and 1 to 2 down the second, and past either
+// end it carries on straight. The width lies along `side` squared to the limb, the depth on
+// `fwd`'s side of it; `k` swells it (a band of colour is the same limb a little proud of it).
+function limbRings(P, side, fwd, prof, k = 1) {
+  const at = (u) => { const i = clamp(Math.floor(u), 0, P.length - 2); return V.lerp(P[i], P[i + 1], u - i); };
+  const out = [];
+  for (const [u, rs, rf, off] of prof) {
+    const T = V.norm(V.sub(at(u + 0.06), at(u - 0.06)));
+    let S = V.sub(side, V.mul(T, V.dot(side, T)));
+    S = V.len(S) < 0.15 ? perp(T)[0] : V.norm(S);
+    let Fr = V.cross(S, T);
+    if (V.dot(Fr, fwd) < 0) { S = V.mul(S, -1); Fr = V.mul(Fr, -1); }
+    out.push({ c: V.add(at(u), V.mul(Fr, off)), S, F: Fr, rs: rs * k, rf: rf * k });
+  }
+  return out;
+}
+// a profile read between its stations, and the stretch of it from u0 to u1
+function profAt(prof, u) {
+  let i = 0;
+  while (i < prof.length - 2 && prof[i + 1][0] < u) i++;
+  const a = prof[i], b = prof[i + 1], f = clamp((u - a[0]) / ((b[0] - a[0]) || 1), 0, 1);
+  return [u, lerp(a[1], b[1], f), lerp(a[2], b[2], f), lerp(a[3], b[3], f)];
+}
+const profSpan = (prof, u0, u1) => [profAt(prof, u0), profAt(prof, (u0 + u1) / 2), profAt(prof, u1)];
+// Hockey pants: wide over the hip pads and the thigh, to a hem just above the knee.
+const PANTS = [[-0.06, 0.48, 0.47, 0.02], [0.12, 0.53, 0.52, 0.03], [0.45, 0.53, 0.52, 0.04], [0.72, 0.51, 0.5, 0.04], [0.88, 0.5, 0.48, 0.04]];
+// The sock over the shin guard: up under the hem, out over the knee cup, down into the boot.
+const SOCK = [[0.8, 0.42, 0.42, 0.02], [0.96, 0.35, 0.39, 0.08], [1.06, 0.33, 0.37, 0.07], [1.25, 0.31, 0.33, 0.04], [1.55, 0.29, 0.3, 0.02], [1.82, 0.27, 0.28, 0.01], [1.97, 0.25, 0.26, 0]];
+// An official's, a medic's or the ice crew's trousers, hip to skate.
+const TROUSERS = [[-0.06, 0.46, 0.44, 0.02], [0.15, 0.5, 0.47, 0.03], [0.6, 0.45, 0.42, 0.03], [1.0, 0.36, 0.36, 0.03], [1.5, 0.3, 0.31, 0.02], [1.95, 0.27, 0.27, 0]];
+// A sleeve over the shoulder and elbow pads, loose at the cuff over the glove.
+const SLEEVE = [[-0.05, 0.33, 0.32, 0], [0.35, 0.3, 0.29, 0], [0.85, 0.27, 0.27, 0], [1.0, 0.28, 0.28, 0], [1.3, 0.27, 0.26, 0], [1.8, 0.26, 0.25, 0], [2.0, 0.29, 0.28, 0]];
 
 // The frame of a glove closed round the stick, or null when the hand isn't on it: p1 runs
 // along the knuckles (the shaft, squared to the forearm), p2 out of the back of the hand.
@@ -538,13 +577,14 @@ export function buildBody(b, bt, J, o) {
   const F = V.cross(Ss, U);
   const tl = V.len(V.sub(J[2], J[0]));
   const stump = (C, n, r) => { disc(b, C, n, r, RAW, 10, 0.06); if (det) disc(b, V.add(C, V.mul(n, 0.035)), n, r * 0.35, BONE, 8, 0.02); };
+  const lseg = det ? 10 : 6, plain = K === OFFICIAL_KIT || K === MEDIC_KIT || K === CREW_KIT;
 
   // legs
   for (const [hip, kn, an, toe, side] of [[10, 11, 12, 16, 1], [13, 14, 15, 17, -1]]) {
     const A = J[an], T = J[toe];
     if (missing[side > 0 ? 'legL' : 'legR'] && !gk) {
       const thighEnd = V.lerp(J[hip], J[kn], 0.9);
-      tube(b, J[hip], thighEnd, 0.46, 0.41, pants, seg); tube(b, thighEnd, J[kn], 0.3, 0.28, sock, seg);
+      tube(b, J[hip], thighEnd, 0.5, 0.44, pants, seg); tube(b, thighEnd, J[kn], 0.3, 0.28, sock, seg);
       stump(J[kn], V.norm(V.sub(J[kn], J[hip])), 0.24);
       continue;
     }
@@ -562,24 +602,38 @@ export function buildBody(b, bt, J, o) {
       box(b, at(-0.28, 0, -0.23), at(-0.31, 0, 0.07), 0.06, 0.025, mix(BOOT, 0.15), fr.X);
     }
     if (gk) {
-      const top = V.add(J[kn], [0, 0, 0.35]), bot = V.add(A, [0, 0, -0.15]);
-      tube(b, top, bot, 0.5, 0.46, PAD, seg);
-      band(b, top, bot, 0.5, 0.46, 0.14, 0.16, jersey, seg); band(b, top, bot, 0.5, 0.46, 0.27, 0.1, jersey, seg); band(b, top, bot, 0.5, 0.46, 0.62, 0.06, trim, seg);
+      // THE PADS ARE BOARDS, NOT TUBES: flat-faced, about eleven inches wide, from the skate to
+      // above the knee, with the knee stack on top and the club's colour in bars across the face.
+      const top = V.add(J[kn], [0, 0, 0.42]), bot = V.add(A, [0, 0, -0.22]);
+      const ay = V.norm(V.sub(top, bot)), hl = V.len(V.sub(top, bot)) / 2;
+      let ax = V.sub(Sh, V.mul(ay, V.dot(Sh, ay)));
+      ax = V.len(ax) < 0.15 ? perp(ay)[0] : V.norm(ax);
+      let az = V.cross(ax, ay);
+      if (V.dot(az, F) < 0) az = V.mul(az, -1);
+      const C = V.add(V.lerp(top, bot, 0.5), V.mul(az, 0.1));
+      boxAxes(b, C, ax, ay, az, 0.47, hl, 0.24, PAD);
+      boxAxes(b, V.add(V.add(C, V.mul(ay, hl - 0.28)), V.mul(az, 0.2)), ax, ay, az, 0.38, 0.2, 0.12, mix(PAD, -0.05));
+      for (const [f, w, col] of [[0.16, 0.13, jersey], [0.3, 0.08, jersey], [0.62, 0.05, trim]]) boxAxes(b, V.add(V.add(C, V.mul(ay, hl - 2 * hl * f)), V.mul(az, 0.245)), ax, ay, az, 0.475, w, 0.012, col);
       tube(b, J[hip], J[kn], 0.48, 0.44, rgb('#e3e6e9'), seg);
+    } else if (plain) {
+      loft(b, limbRings([J[hip], J[kn], A], Sh, F, TROUSERS), pants, null, lseg);
     } else {
-      tube3(b, J[kn], A, 0.3, 0.26, 0.2, sock, 0.4, seg);
-      if (K.socks) for (const sb of K.socks) band(b, J[kn], A, 0.3, 0.2, sb.at, sb.w, rgb(sb.col), seg);
-      else { band(b, J[kn], A, 0.3, 0.2, 0.3, 0.11, trim, seg); band(b, J[kn], A, 0.3, 0.2, 0.45, 0.11, trim, seg); }
-      const thighEnd = V.lerp(J[hip], J[kn], 0.9);
-      tube(b, J[hip], thighEnd, 0.46, 0.41, pants, seg);
-      band(b, J[hip], thighEnd, 0.46, 0.41, 0.95, 0.08, mix(pants, -0.45), seg);
-      // the stripe down the outside of the thigh
-      if (det) { const out = V.mul(ortho(V.sub(J[hip], V.lerp(J[10], J[13], 0.5))), 0.44); box(b, V.add(J[hip], out), V.add(thighEnd, V.mul(out, 0.92)), 0.06, 0.02, trim, out); }
-      if (det) tube(b, V.add(J[kn], V.add(V.mul(F, 0.17), [0, 0, 0.12])), V.add(J[kn], V.add(V.mul(F, 0.18), [0, 0, -0.2])), 0.14, 0.12, sock, 6);
+      const P = [J[hip], J[kn], A], shin = V.len(V.sub(A, J[kn])) || 1;
+      loft(b, limbRings(P, Sh, F, SOCK), sock, null, lseg);
+      const stripe = (at, w, col) => loft(b, limbRings(P, Sh, F, profSpan(SOCK, 1 + at - w / shin / 2, 1 + at + w / shin / 2), 1.035), col, null, lseg);
+      if (K.socks) for (const sb of K.socks) stripe(sb.at, sb.w, rgb(sb.col));
+      else { stripe(0.3, 0.11, trim); stripe(0.45, 0.11, trim); }
+      loft(b, limbRings(P, Sh, F, PANTS), pants, null, lseg);
+      // the hem, dark where it rolls, and the stripe down the outside of the thigh
+      loft(b, limbRings(P, Sh, F, profSpan(PANTS, 0.82, 0.88), 1.03), mix(pants, -0.45), null, lseg);
+      if (det) {
+        const out = V.mul(ortho(V.sub(J[hip], V.lerp(J[10], J[13], 0.5))), 0.55), thighEnd = V.lerp(J[hip], J[kn], 0.84);
+        box(b, V.add(V.lerp(J[hip], J[kn], 0.1), out), V.add(thighEnd, V.mul(out, 0.94)), 0.06, 0.02, trim, out);
+      }
     }
   }
-  tube(b, J[10], J[13], gk ? 0.6 : 0.5, gk ? 0.6 : 0.5, pants, seg);
-  if (!gk) tube(b, V.add(V.lerp(J[10], J[13], 0.5), V.add(V.mul(F, -0.2), [0, 0, 0.02])), V.add(V.lerp(J[10], J[13], 0.5), V.add(V.mul(F, -0.17), [0, 0, -0.38])), 0.33, 0.3, pants, seg);
+  tube(b, J[10], J[13], gk ? 0.6 : plain ? 0.5 : 0.56, gk ? 0.6 : plain ? 0.5 : 0.56, pants, seg);
+  if (!gk) tube(b, V.add(V.lerp(J[10], J[13], 0.5), V.add(V.mul(F, -0.2), [0, 0, 0.02])), V.add(V.lerp(J[10], J[13], 0.5), V.add(V.mul(F, -0.17), [0, 0, -0.38])), plain ? 0.33 : 0.4, plain ? 0.3 : 0.36, pants, seg);
 
   // torso
   const ju = o.jerseyUp || 0;
@@ -589,7 +643,8 @@ export function buildBody(b, bt, J, o) {
   });
   if (ju > 0.3) {
     const k = clamp((ju - 0.3) / 0.7, 0, 1);
-    rings[5] = { ...rings[5], rs: lerp(0.5, 0.62, k), rf: lerp(0.34, 0.5, k) };
+    const ci = rings.length - 1;
+    rings[ci] = { ...rings[ci], rs: lerp(0.5, 0.62, k), rf: lerp(0.34, 0.5, k) };
     rings.push({ c: V.add(J[3], [0, 0, 0.25 * k]), S: Ss, F, rs: 0.55 * k + 0.1, rf: 0.5 * k + 0.1, f: 1.25 });
   }
   loft(bt, rings, [1, 1, 1, 1], o.slot || null, det ? 16 : 12);
@@ -600,15 +655,15 @@ export function buildBody(b, bt, J, o) {
     const S = J[sh], E = J[el], H = J[hd];
     const dir = V.norm(V.sub(H, E));
     const wrist = V.sub(H, V.mul(dir, gk ? 0.15 : 0.2));
-    tube(b, V.add(S, V.mul(U, 0.04)), E, 0.28 * ar, 0.23 * ar, jersey, seg);
-    // the shoulder pad under the sweater: a cap that sits up and out over the joint
-    ellipsoid(b, V.add(V.add(S, V.mul(U, 0.06)), V.mul(Ss, side * 0.05)), Ss, F, U, [0.36 * ar, 0.34 * ar, 0.3 * ar], jersey, det ? 10 : 8, det ? 6 : 5);
-    if (missing[side > 0 ? 'armL' : 'armR'] && !gk) { stump(V.add(E, V.mul(dir, 0.15)), dir, 0.2); continue; }
-    tube3(b, E, wrist, 0.23 * ar, 0.2 * ar, 0.23 * ar, jersey, 0.25, seg);
-    // the elbow pad under the sleeve
-    if (det && !gk) ellipsoid(b, V.sub(E, V.mul(dir, 0.02)), dir, Ss, F, [0.22, 0.25, 0.25], jersey, 8, 5);
-    if (K.sleeve) { for (const sb of K.sleeve) band(b, E, wrist, 0.23 * ar, 0.23 * ar, sb.at, sb.w, rgb(sb.col), seg); }
-    else if (!K.stripes) { band(b, E, wrist, 0.23 * ar, 0.23 * ar, 0.3, 0.1, trim, seg); band(b, E, wrist, 0.23 * ar, 0.23 * ar, 0.48, 0.06, trim, seg); }
+    // the shoulder pad under the sweater: a cap over the joint, tucked in under the sweater's
+    // own shoulder so it rounds it off rather than standing out of it as a ball
+    ellipsoid(b, V.add(V.add(S, V.mul(U, 0.02)), V.mul(Ss, -side * 0.04)), Ss, F, U, [0.37 * ar, 0.36 * ar, 0.3 * ar], jersey, det ? 10 : 8, det ? 6 : 5);
+    const AP = [V.add(S, V.mul(U, 0.04)), E, wrist], slv = SLEEVE.map(([u, rs, rf, off]) => [u, rs * ar, rf * ar, off]);
+    if (missing[side > 0 ? 'armL' : 'armR'] && !gk) { loft(b, limbRings(AP, Ss, F, slv.filter((q) => q[0] <= 1)), jersey, null, lseg); stump(V.add(E, V.mul(dir, 0.15)), dir, 0.2); continue; }
+    loft(b, limbRings(AP, Ss, F, slv), jersey, null, lseg);
+    const fore = V.len(V.sub(wrist, E)) || 1, cuffBand = (at, w, col) => loft(b, limbRings(AP, Ss, F, profSpan(slv, 1 + at - w / fore / 2, 1 + at + w / fore / 2), 1.04), col, null, lseg);
+    if (K.sleeve) { for (const sb of K.sleeve) cuffBand(sb.at, sb.w, rgb(sb.col)); }
+    else if (!K.stripes) { cuffBand(0.3, 0.1, trim); cuffBand(0.48, 0.06, trim); }
     if (gk && side > 0) {
       // the trapper: the cuff, the round pocket, the deep mitt
       const tc = V.add(H, V.mul(dir, 0.15));
@@ -621,13 +676,13 @@ export function buildBody(b, bt, J, o) {
     } else if (o.gloves !== false) {
       // a hockey glove: the gauntlet flaring open toward the elbow, a trim band round it,
       // the padded back of the hand with its finger rolls, and the thumb
-      const cuff0 = V.sub(wrist, V.mul(dir, 0.3)), palm = V.add(H, V.mul(dir, 0.14));
-      tube(b, cuff0, wrist, 0.3, 0.24, glove, seg);
-      band(b, cuff0, wrist, 0.3, 0.24, 0.3, 0.07, trim, seg);
+      const cuff0 = V.sub(wrist, V.mul(dir, 0.36)), palm = V.add(H, V.mul(dir, 0.15));
+      tube(b, cuff0, wrist, 0.34, 0.26, glove, seg);
+      band(b, cuff0, wrist, 0.34, 0.26, 0.3, 0.07, trim, seg);
       // a glove gripping the stick: the knuckles run along the shaft and the back of the hand
       // faces out of the plane of forearm and shaft, so the fist closes round the stick
       const grip = gripFrame(J, H, dir);
-      box(b, wrist, palm, 0.21, 0.17, mix(glove, 0.05), grip ? grip[1] : undefined);
+      box(b, wrist, palm, 0.23, 0.18, mix(glove, 0.05), grip ? grip[1] : undefined);
       if (det) {
         const [p1, p2] = grip || perp(dir);
         for (let f = 0; f < 3; f++) { const at2 = V.add(V.lerp(wrist, palm, 0.35 + f * 0.25), V.mul(p2, 0.17)); box(b, V.sub(at2, V.mul(p1, 0.19)), V.add(at2, V.mul(p1, 0.19)), 0.045, 0.035, mix(glove, -0.18)); }
@@ -714,6 +769,30 @@ export function buildBody(b, bt, J, o) {
     if (det) { box(b, V.add(V.lerp(J[19], J[20], 0.15), o13), V.add(mid, o13), 0.034, 0.12, TAPE, bu); box(b, V.add(mid, o13), V.add(V.lerp(mid, toe, 0.7), o125), 0.034, 0.115, TAPE, bu); }
   }
   if (J.meta && J.meta.bottle) tube(b, J.meta.bottle, V.add(J.meta.bottle, [0, 0, -0.75]), 0.12, 0.13, rgb('#468cdc'), 8);
+}
+
+// THE GATES: the pair of doors in each end wall where the Zamboni and the ice crew come and go
+// (rink/zamboni.js GATE_Y, GATE_HALF), boards below with the kick plate and the cap, glass above,
+// as the wall they're cut from, hung on posts at the doorway's ends and swinging out away from
+// the ice to about a hundred degrees as `open` ([left, right], 0 to 1) goes to 1. The glass goes
+// in `bt`, the see-through batch.
+export function buildDoors(b, bt, open, gy, half, rl, boardH, glassH) {
+  const white = rgb('#e8ecf0'), kick = rgb('#d9b032'), cap = rgb('#c3c9cf'), post = rgb('#8d969f');
+  const glass = [190 / 255, 222 / 255, 242 / 255, 0.09], rail = [220 / 255, 235 / 255, 245 / 255, 0.45];
+  for (const [i, gx, out] of [[0, 0, -1], [1, rl, 1]]) {
+    const th = clamp((open && open[i]) || 0, 0, 1) * 1.75;
+    for (const s of [-1, 1]) {
+      const hy = gy + s * half, dx = out * Math.sin(th), dy = -s * Math.cos(th);
+      const H = (z) => [gx, hy, z], E = (z) => [gx + dx * half, hy + dy * half, z], n = [-dy, dx, 0];
+      box(b, H(boardH / 2), E(boardH / 2), 0.14, boardH / 2, white, [0, 0, 1]);
+      box(b, H(0.28), E(0.28), 0.15, 0.28, kick, [0, 0, 1]);
+      box(b, H(boardH), E(boardH), 0.16, 0.05, cap, [0, 0, 1]);
+      quad(bt, H(boardH), E(boardH), E(glassH), H(glassH), glass, null, n);
+      quad(bt, H(glassH - 0.12), E(glassH - 0.12), E(glassH), H(glassH), rail, null, null);
+      // the post it hangs on
+      box(b, [gx, hy, 0], [gx, hy, glassH], 0.09, 0.09, post, [1, 0, 0]);
+    }
+  }
 }
 
 // A visor is see-through, so it goes in the transparent batch after the body is built, and so

@@ -355,6 +355,8 @@ function standRig(s, T, feet) {
   if (act === 'brace') { crouch += 0.3 * envU; lean -= 0.1 * envU; }
   if (act === 'cover') { crouch += 1.1; lean += 0.8; }
   if (act === 'slumped') { lean += 0.5; crouch += 0.3; pitch = -0.7; }
+  // denied: he straightens up, head back, a glove to the side of his helmet
+  if (act === 'rue') { lean -= 0.3 * envU; crouch -= 0.15 * envU; pitch = lerp(pitch, 0.5, envU); }
   if (carrying && !shot && !deke) {
     const up = Math.sin(T * 0.9 + s.seed) > 0.25;
     pitch = up ? -0.1 : -0.55; yaw = up ? 0.35 * Math.sin(T * 0.7 + s.seed) : 0.2;
@@ -367,6 +369,11 @@ function standRig(s, T, feet) {
     const fl = toLocal(s.tussle.x, s.tussle.y, 0), sd2 = fl[1] >= 0 ? 1 : -1;
     crouch += 0.22; lean += 0.16; tilt -= 0.14 * sd2; twist -= 0.22 * sd2;
   }
+  // AT A WHISTLE HE TAKES A BREATHER: once he's coasted down, bent over with his gloves on his
+  // knees and the stick across them, and up again as play goes on. (`idle` is the sim's, set
+  // while play is stopped; its `t` is when he pulled up.)
+  const rest = s.idle && !act && !official && s.stick && !carrying && !s.guard ? smooth(T - s.idle.t, 1.6, 2.6) * (1 - smooth(sp, 5, 8)) : 0;
+  if (rest) { crouch += 0.32 * rest; lean += 0.6 * rest; pitch = lerp(pitch, 0.2, rest); bob *= 1 - rest; }
   if (s.guard) { crouch = Math.max(s.crouch, 0.18); lean = 0.12 + 0.2 * crouch; tilt = 0; pitch = 0; shiftV = 0; bob = 0; twist = 0; }
   let pk = 0;
   if (act === 'punchR' || act === 'punchL' || act === 'jab' || act === 'uppercut') {
@@ -387,6 +394,7 @@ function standRig(s, T, feet) {
     yaw = clamp(Math.atan2(l[1], l[0]) - twist, -1.4, 1.4);
     pitch = clamp(Math.atan2(l[2] - 5.6, hyp(l[0], l[1])), -0.8, 0.3);
   }
+  if (!feet) [yaw, pitch] = easeLook(s, T, yaw, pitch, shot || deke ? 18 : 7);
 
   // ── upper body, upright ──────────────────────────────────────────────────
   const zp = 3.45 - 0.64 * crouch - bob;
@@ -474,6 +482,9 @@ function standRig(s, T, feet) {
       aR = V.lerp(bR, [0.3, -0.62, zp + 2.75 + pump], k); aL = V.lerp(bR, [0.3, 0.62, zp + 2.75 + pump], k); aBlade = V.lerp(bBlade, [0.35, -2.9, zp + 3.4 + pump], k);
     }
     else if (act === 'slumped') { aBlade = [1.6, 0.4, 0.06]; aR = [0.6, -0.4, zp + 0.3]; }
+    // calling for it: two quick taps of the blade on the ice
+    else if (act === 'tap') { aBlade = [bBlade[0], bBlade[1], 0.06 + 0.5 * Math.abs(Math.sin(at * TAU))]; aR = V.add(bR, [0, 0, 0.25 * Math.abs(Math.sin(at * TAU))]); }
+    else if (act === 'rue') { aBlade = [2.5, -0.5, 0.06]; aR = [0.75, -0.45, zp + 0.55]; aL = [0.2, 0.62, zp + 2.45]; }
     else if (act === 'brace') { aL = [0.9, 0.7, zp + 1.6]; aR = [0.9, -0.5, zp + 1.5]; }
     const ka = (aBlade || aR || aL) ? envU : 0;
     blade = aBlade ? V.lerp(bBlade, aBlade, ka) : bBlade;
@@ -491,6 +502,7 @@ function standRig(s, T, feet) {
     // behind him; braced for a hit, it's held across his chest in both hands.
     if (act === 'hug' && s.target) { const t = s.target; L = toLocal(t.x, t.y, 4.6); L[1] += 0.9; R = toLocal(t.x, t.y, 4.4); R[1] -= 0.9; held = 'up'; stickFit = null; }
     if (act === 'brace' && ka > 0.5) { held = 'across'; stickFit = null; }
+    if (rest > 0.5) { const k = (rest - 0.5) * 2; L = V.lerp(L, [1.05, 0.62, zp - 0.95], k); R = V.lerp(R, [1.05, -0.62, zp - 0.95], k); held = 'across'; stickFit = null; }
   } else if (s.guard || (act && !official) || s.jerseyUp > 0.5) {
     const gb = Math.sin(T * 6.5 + s.seed) * 0.07;
     L = [1.0, 0.36, zp + 1.78 + gb]; R = [0.78, -0.4, zp + 1.58 - gb];
@@ -519,6 +531,10 @@ function standRig(s, T, feet) {
   if (act === 'shove' && s.target && s.stick) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; held = 'across'; stickFit = null; }
   if (s.grab || act === 'pull' || act === 'hug' || act === 'shove' || act === 'break' || (s.tussle && !carrying)) { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
   else if (s.guard) { L = reach(shL, L, 0.8); R = reach(shR, R, pk > 0.6 ? 0.98 : 0.8); }
+  // (a quarter of a second to get anywhere, unless it's an action, quicker; a shot, a deke or a
+  // punch is its own path and only smoothed at the joins)
+  const handRate = shot || deke || pk ? 45 : act ? 22 : 11;
+  if (!feet && L && R && !stickFit) [L, R] = easeHands(s, T, L, R, handRate, m);
 
   // lean into the turn first: the body and the hands' targets roll together about the ice;
   // a blade on the ice stays on it
@@ -539,6 +555,7 @@ function standRig(s, T, feet) {
         if (fit.L) L = fit.L; else { L = roll([0.55 + 0.35 * stridePush, 0.95, zp + 0.35], tilt); oneHanded = true; }
       } else if (stickFit.aL && stickFit.ka < 1) L = fit.L ? V.lerp(fit.L, L, stickFit.ka) : L;
       if (stickFit.oneHand) oneHanded = true;
+      [R, L] = easeStick(s, T, R, L, blade, handRate, m);
     }
     [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll([-0.3, 1, -0.8], tilt));
     [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll([-0.3, -1, -0.8], tilt));
@@ -625,6 +642,54 @@ function standRig(s, T, feet) {
   if (m < 0) out = SWAP.map((i) => out[i]);                 // back out of the mirror: his left is his left
   out.meta = { look: dirWorld(s, roll(lookDir(yaw + twist * 0.8, pitch), tilt), m), bend: bend ? toWorld(s, [bend], m)[0] : null, oneHanded };
   return out;
+}
+
+// A goalie throwing himself across (the stack, the dive) is down in about a third of a second
+// whatever the action's length, stays down, and gets back up over the last 0.6 s of it, so the
+// end of the action doesn't stand him up in one frame. `at` runs 0 to 1 over `dur` seconds.
+const layOut = (at, dur = 1) => { const d = Math.max(0.5, dur), t = at * d; return easeOut(clamp(t / 0.35, 0, 1)) * (1 - easeIO(clamp((t - d + 0.6) / 0.6, 0, 1))); };
+
+// ⚠ THE HANDS EASE, THEY NEVER JUMP. A pose that changes its mind (one-handed at speed and
+// back, shielding the puck, reaching to defend, a pass ending) used to move both hands to the
+// new place in one frame, stick and all. Each hand is eased toward where the pose wants it at
+// `rate` per second, against the time it was worked out for (the blade's way): asked twice for
+// the same instant, it eases once, and a gap of a quarter second or more starts it afresh.
+// Kept on the body as [L, R] in his own frame, `mirror` the side he's drawn on.
+function easeHands(s, T, L, R, rate, mirror) {
+  if (s.handM !== mirror) { s.handE = null; s.handM = mirror; }
+  if (s.handE && !s.handE.stick && s.handT != null && T > s.handT && T - s.handT < 0.25) {
+    const k = 1 - Math.exp(-(T - s.handT) * rate);
+    L = V.lerp(s.handE[0], L, k); R = V.lerp(s.handE[1], R, k);
+  } else if (s.handE && !s.handE.stick && s.handT === T) { L = s.handE[0].slice(); R = s.handE[1].slice(); }
+  if (s.handT !== T) { s.handE = [L.slice(), R.slice()]; s.handT = T; }
+  return [L, R];
+}
+// With a stick in his hands the stick decides them (fitStick), and its blade is where a puck
+// he carries rides, so the blade is never eased. What eases is the stick about its blade: the
+// top hand's direction from the blade, at the stick's length exactly, and the bottom hand with
+// it, kept relative to the blade. The shaft swings smoothly round a blade that stays put.
+function easeStick(s, T, R, L, blade, rate, mirror) {
+  const v = V.sub(R, blade), len = V.len(v) || 1, lv = L ? V.sub(L, blade) : null;
+  if (s.handM !== mirror) { s.handE = null; s.handM = mirror; }
+  if (s.handE && s.handE.stick && s.handT != null && T > s.handT && T - s.handT < 0.25) {
+    const k = 1 - Math.exp(-(T - s.handT) * rate);
+    const pv = V.lerp(s.handE[0], v, k), pl = V.len(pv) || 1;
+    R = V.add(blade, V.mul(pv, len / pl));
+    if (lv && s.handE[1]) L = V.add(blade, V.lerp(s.handE[1], lv, k));
+  } else if (s.handE && s.handE.stick && s.handT === T) {
+    R = V.add(blade, s.handE[0]); if (lv && s.handE[1]) L = V.add(blade, s.handE[1]);
+  }
+  if (s.handT !== T) { const e = [V.sub(R, blade), L ? V.sub(L, blade) : null]; e.stick = true; s.handE = e; s.handT = T; }
+  return [R, L];
+}
+// The head's turn and tilt the same way, slower: a man looks round, he doesn't snap round.
+function easeLook(s, T, yaw, pitch, rate) {
+  if (s.lookE && s.lookT != null && T > s.lookT && T - s.lookT < 0.25) {
+    const k = 1 - Math.exp(-(T - s.lookT) * rate);
+    yaw = s.lookE[0] + (yaw - s.lookE[0]) * k; pitch = s.lookE[1] + (pitch - s.lookE[1]) * k;
+  } else if (s.lookE && s.lookT === T) { yaw = s.lookE[0]; pitch = s.lookE[1]; }
+  if (s.lookT !== T) { s.lookE = [yaw, pitch]; s.lookT = T; }
+  return [yaw, pitch];
 }
 
 const angWrapL = (d) => { d = (d + Math.PI) % TAU; if (d < 0) d += TAU; return d - Math.PI; };
@@ -723,6 +788,8 @@ export function goalieRig(g, T) {
       blade = [R[0] + hd[0] * horiz, R[1] + hd[1] * horiz, 0.06];
     }
   }
+  // (his hands ease too, quickly: a save is a fast thing, but not a teleport)
+  [L, R] = easeHands(g, T, L, R, 24, 1);
   const [elL, hL] = ik(shL, L, 1.1, 1.05, [-0.4, 1, -0.6]);
   const [elR, hR] = ik(shR, R, 1.1, 1.05, [-0.4, -1, -0.6]);
   let upper = [pelvis, chest, neck, head, shL, elL, hL, shR, elR, hR, hipL, hipR].map((p) => roll(p, tilt));
@@ -758,7 +825,7 @@ export function goalieRig(g, T) {
   }
   if (act === 'stack') {
     // the whole man laid on his side, pads stacked toward the shooter's side
-    const k = easeOut(clamp(at * 2.5, 0, 1)), ang = side * 1.45 * k;
+    const k = layOut(at, g.actDur), ang = side * 1.45 * k;
     const all = [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, legs[0][0], legs[0][1], rHipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2]];
     const c = Math.cos(ang), s2 = Math.sin(ang);
     for (const p of all) { const y = p[1], z = p[2]; p[1] = y * c - (z - 0.4) * s2; p[2] = y * s2 + (z - 0.4) * c + 0.4; }
@@ -768,13 +835,18 @@ export function goalieRig(g, T) {
   const toe = V.add(blade, toeOff);
   let loc = [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, legs[0][0], legs[0][1], rHipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], butt, blade, toe];
   if (act === 'dive') {
-    // laid out across the crease toward `side`, then dropped onto the ice
-    const k = easeOut(clamp(at * 2.2, 0, 1)), ang = side * 1.25 * k;
+    // laid out across the crease toward `side`, head and glove first, the pads trailing
+    // (rolled the other way, as it was before anything used it, he went head away from the
+    // save and feet in the air)
+    const k = layOut(at, g.actDur), ang = -side * 1.0 * k;
     const c = Math.cos(ang), s2 = Math.sin(ang);
     loc = loc.map((p) => [p[0], p[1] * c - (p[2] - 0.4) * s2 + side * 1.2 * k, p[1] * s2 + (p[2] - 0.4) * c + 0.4]);
   }
+  // (stood up, he's lifted clear of the ice as one piece; laid out in a dive, whatever reaches
+  // the ice rests on it, or the arm down on the ice held the rest of him up in the air)
   const lo = Math.min(...loc.map((p) => p[2]));
-  if (lo < 0.22) loc = loc.map((p) => [p[0], p[1], p[2] + 0.22 - lo]);
+  if (act === 'dive') loc = loc.map((p) => [p[0], p[1], Math.max(0.22, p[2])]);
+  else if (lo < 0.22) loc = loc.map((p) => [p[0], p[1], p[2] + 0.22 - lo]);
   const out = toWorld(g, loc);
   out.meta = {
     look: dirWorld(g, roll(lookDir(yaw, pitch), tilt)),

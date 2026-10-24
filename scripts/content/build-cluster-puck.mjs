@@ -40,12 +40,9 @@ if (compiled._debug.unknownDirectives.length) {
 const BROADCAST_ID = 'bc_cluster_puck';
 const CHANNEL_ID = 'ch_7_1782953079593';        // KSAB-TV, the only channel
 const GRAPHIC_ID = 'cphl_title';
-// 18:00, Tuesday and Thursday (day mask bit 0 = Mon). Deadball owns the other five
-// nights of that window and The Open Signal owns Saturday, so hockey is the mid-week
-// game — which is also why the show's own copy calls it a fixed cycle nobody chose.
-const START_TIME = 18 * 3600;
-const DAYS_MASK = (1 << 1) | (1 << 3);          // Tue + Thu = 10
-const PLAYLIST_ID = 'ksab-16b-1800-10';
+// No playlist row is written here. Every game airs on KSAB5 through its sports slate row
+// (content/media_channel_playlist/ksab5-slate.json), and KSAB-TV relays the 18:00 one
+// (docs/proposals/daily-slate.md).
 const STAMP = '1785000000';                     // fixed: these rows are content, not events
 
 const write = (rel, obj) => {
@@ -102,20 +99,6 @@ write(`content/media_graphics/${GRAPHIC_ID}.json`, {
   updated_at: STAMP,
 });
 
-write(`content/media_channel_playlist/${PLAYLIST_ID}.json`, {
-  broadcast_id: BROADCAST_ID,
-  channel_id: CHANNEL_ID,
-  conditions: [],
-  days: DAYS_MASK,
-  duration_override: 10800,        // the full 3-hour evening block, same as Deadball's
-  id: PLAYLIST_ID,
-  priority: 0,
-  slot_type: 'broadcast',
-  start_time: START_TIME,
-});
-
 console.log(`\n✓ Cluster Puck built from hockey.bsm`);
 console.log(`  ${sportsScript.teams.length} clubs · ${sportsScript.players.length} skaters · ${Object.keys(sportsScript.pools).length} line pools · airSlots ${JSON.stringify(sportsScript.airSlots)}`);
-console.log(`  Airs 18:00 Tue + Thu on KSAB-TV (day mask ${DAYS_MASK}).`);
-console.log(`\n  NOT done here: Deadball's playlist row (ksab-16-1800-95) must not claim those`);
-console.log(`  two nights. Its days mask is in content/media_channel_playlist/ksab-16-1800-95.json.`);
+console.log('  Airs on KSAB5 by the daily slate; KSAB-TV relays the 18:00 game.');

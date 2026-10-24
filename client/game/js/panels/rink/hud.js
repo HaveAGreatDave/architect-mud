@@ -110,7 +110,8 @@ function drawLapse(ctx, W, w, h, u) {
   ctx.restore();
 }
 
-// THE WIPE: the league's band swept across the picture, in and out of a replay. It covers
+// THE WIPE: the league's band swept across the picture, in and out of a replay, with REPLAY
+// on it (it said the league's name, which read as anything but a replay). It covers
 // the whole frame at its midpoint, which is when the director switches the picture.
 function drawWipe(ctx, live, w, h, u) {
   const Wp = live.wipe; if (!Wp) return;
@@ -125,7 +126,7 @@ function drawWipe(ctx, live, w, h, u) {
   const cx = tail + span / 2 + slant / 2;
   ctx.font = `800 ${Math.min(120, h * 0.28)}px ${FACE}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.transform(1, 0, -0.18, 1, h * 0.5 * 0.18, 0);
-  ctx.fillStyle = '#f4efe2'; ctx.fillText('CPhL', cx, h * 0.5);
+  ctx.fillStyle = '#f4efe2'; ctx.fillText('REPLAY', cx, h * 0.5, span * 0.5);
   ctx.restore();
 }
 

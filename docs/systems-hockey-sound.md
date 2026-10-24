@@ -105,14 +105,20 @@ down. Both priority 9, centroid 2.96 kHz, nothing below 150 Hz.
 modulator, an 11 kHz hold at 8 bits for the coarseness, 183 ms. `hk-signal-two`: two notes a fourth
 apart, 273 ms. Both priority 6, well under the whistle.
 
-**H. Goal horn.** 208 Hz with its 2nd, 3rd and 4th partials on their own gains and envelopes; a 2:1
-modulator on the fundamental and the 2nd (index 1.6 and 0.9, opened at the onset and settling), a
-slow beat from the partials a hair apart, light drive, a 2.4 kHz lowpass. 20–34 ms attacks, 180–220 ms
-releases, no reverb tail and no crowd in it. `hk-goal-horn-short` 1.1 s, `hk-goal-horn` 2.0 s; one
-sustained blast, never repeats. Priority 10, 0.57 peak, 400 Hz centroid.
+**H. Goal horn.** A fog horn, the air horn off a ship that an arena bolts under its roof. Two sawtooth
+reeds at 116 Hz 0.9 Hz apart, so the blast wobbles slowly as two horns do, each scooping up 8% into
+its pitch over 0.16–0.2 s as the air arrives, through 1.5–1.9 kHz lowpasses, with a 6 Hz flutter.
+Over them a brassy 2:1 FM partial at 232 Hz (index 1.4 settling to 0.6), the 3rd and the 4th, which
+is what a phone speaker plays of it, and a band of breath at 560 Hz. On the release it groans down
+most of a fifth (668 cents) as it dies: each reed is pitched a fifth low and an envelope mod
+(`GRUNT`) holds it up to the note, so the release takes the pitch down with the level. A late
+layer for the grunt held its voice a second past the sound. 16 ms to half its peak, 420 ms releases
+on the reeds, no reverb tail and no crowd in it. `hk-goal-horn-short` 1.1 s, `hk-goal-horn` 2.0 s;
+one blast, never repeats. Priority 10, 0.57 peak, the loudest sustained sound in the bank (RMS 0.16),
+centroid about 230 Hz with 42% of it under 150 Hz.
 
 **I. Period end** (`hk-period-horn`). A buzzer: 330 Hz square, with 1.5×, 2× and 3× partials (the fifth
-in it), a faint 7.5 Hz electric flutter. 1.6 s, priority 10, centroid 880 Hz against the horn's 400, so
+in it), a faint 7.5 Hz electric flutter. 1.6 s, priority 10, centroid 880 Hz against the horn's 230, so
 the two are plainly different played back to back. The rink plays it when a period ends (the
 intermission) and on the final card; a whistle before it is the game's sequencing.
 
@@ -227,7 +233,7 @@ What the controls do:
   2.76 are inharmonic (a collision, metal). Avoid 1 and 0.5 on anything that lasts: SIREN modulates the
   frequency, so those put a sideband at 0 Hz, a DC offset (the horn had 39% before it moved to 2).
 - **Drive** normalises at full scale, so on a quiet layer it's mostly a boost (up to 25 times at drive 1).
-  Only the horn uses it, lightly.
+  Nothing in the bank uses it now: driven, the fog horn's reeds came out at three times their peak.
 - **Retro**: 16 kHz at 10 bits on impacts (a little), 12.5 kHz at 9 bits on scrapes, 11 kHz on the
   signals and the coarse crowd parts, none on the whistle.
 

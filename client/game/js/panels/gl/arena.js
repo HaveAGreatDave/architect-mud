@@ -32,6 +32,9 @@ import { createRinkCamera, matrices } from '../rink/camera.js';
 import { bodyOpts, drawHud, hudActive, maskColours, drawnJoints, drawnAt, drawnPuck, glowTail, GLOW } from '../rink/hud.js';
 import { TAU, clamp, hash, rng } from '../rink/util.js';
 import * as M from './arena-mesh.js';
+import { crowdMorph, CROWD_MORPH } from './ballpark-mesh.js';
+import { GATE_Y, GATE_HALF } from '../rink/zamboni.js';
+import { RINK_CROWD_VS, RINK_CROWD_FS, INST as CROWD_INST, ROWS as BOWL_ROWS, ROW_D, rowD, rowZ, buildBowl, crowdInstances, hideFor, roarOf } from './arena-crowd.js';
 import { paintCrest, paintLayers, settCanvas } from '../club-crest.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
@@ -90,6 +93,39 @@ void main() {
   rgb = mix(rgb, vec3(g), uMourn * 0.75) * (1.0 - 0.22 * uMourn);
   outColor = vec4(rgb * c.a, c.a);
 }`;
+
+// THE INK: a thick dark outline round the players, as a cel-shaded game draws them. Each body is
+// drawn a second time in the ink colour before itself, every vertex pushed out along its normal
+// by the width of the line on the screen (a world width, `uInk.x` ft, held between `uInk.y` and
+// `uInk.z` pixels so a man far off keeps a line and a man close up doesn't get a slab) and set a
+// little behind itself, so the body covers the inside and the line shows round its edge, and
+// round an arm or a stick held in front of him. An unlit vertex (a zero normal) gets none.
+const INK_VS = `#version 300 es
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aNor;
+uniform mat4 uVP;
+uniform vec2 uShake;
+uniform vec2 uRes;
+uniform vec4 uInk;
+void main() {
+  float nl = dot(aNor, aNor);
+  vec4 c = uVP * vec4(aPos, 1.0);
+  if (nl < 0.01 || c.w <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  vec3 n = aNor * inversesqrt(nl);
+  vec4 cn = uVP * vec4(aPos + n * uInk.x, 1.0);
+  vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uRes * 0.5;
+  float L = length(d);
+  vec2 dir = L > 1e-4 ? d / L : vec2(0.0);
+  c.xy += dir * clamp(L, uInk.y, uInk.z) / (uRes * 0.5) * c.w;
+  c.z += uInk.w * c.w;
+  c.xy += uShake * c.w;
+  gl_Position = c;
+}`;
+const INK_FS = `#version 300 es
+precision highp float;
+uniform vec3 uCol;
+out vec4 outColor;
+void main() { outColor = vec4(uCol, 1.0); }`;
 
 const ICE_VS = `#version 300 es
 layout(location = 0) in vec2 aPos;
@@ -214,17 +250,21 @@ void main() {
 }`;
 
 declareProgram(LIT_VS, LIT_FS);
+declareProgram(INK_VS, INK_FS);
+declareProgram(RINK_CROWD_VS, RINK_CROWD_FS);
 declareProgram(ICE_VS, ICE_FS);
 declareProgram(PT_VS, PT_FS);
 declareProgram(POST_VS, POST_FS);
 declareProgram(HEAD_VS, HEAD_FS);
 
 // The quality rungs the view's frame-time governor steps through (gameday-rink.js).
+// (`crowd` is the share of the night's fans drawn: a device that can't keep up loses the upper
+// rows and the far corners first, since the fans are in the order their seats sell)
 const ARENA_RUNGS = [
-  { dpr: 1.5, mirror: MIRROR_SCALE, reflBodies: true },
-  { dpr: 1.25, mirror: MIRROR_SCALE, reflBodies: true },
-  { dpr: 1, mirror: 0.35, reflBodies: true },
-  { dpr: 1, mirror: 0.35, reflBodies: false },
+  { dpr: 1.5, mirror: MIRROR_SCALE, reflBodies: true, crowd: 1 },
+  { dpr: 1.25, mirror: MIRROR_SCALE, reflBodies: true, crowd: 1 },
+  { dpr: 1, mirror: 0.35, reflBodies: true, crowd: 0.7 },
+  { dpr: 1, mirror: 0.35, reflBodies: false, crowd: 0.45 },
 ];
 
 const LIT_ATTRS = [[0, 3, 0], [1, 3, 12], [2, 4, 24], [3, 2, 40], [4, 1, 48]];
@@ -263,6 +303,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       return { p, u: (n) => (u[n] ??= gl.getUniformLocation(p, n)) };
     };
     const LIT = prog(LIT_VS, LIT_FS), ICE = prog(ICE_VS, ICE_FS), PT = prog(PT_VS, PT_FS), POST = prog(POST_VS, POST_FS);
+    const INK = prog(INK_VS, INK_FS), FANS = prog(RINK_CROWD_VS, RINK_CROWD_FS);
     // The heads: the street figures' generator, drawn per body from a record arena-mesh.js leaves
     // in `headList` (gl/arena-heads.js). If its program won't build, the bodies keep the old
     // heads arena-mesh.js makes itself, rather than the whole arena going to 2-D.
@@ -333,6 +374,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       stat: layer(), ads: layer(), stands: layer(), glass: layer(),
       rows: layer(), dyn: layer(), jers: layer(), masks: layer(), label: layer(), tr: layer(), netm: layer(), gdec: layer(), shad: layer(),
       ice: layer(2, [[0, 2, 0]]), pts: layer(PT_STRIDE, [[0, 3, 0], [2, 4, 12], [4, 1, 28]]),
+      bowl: [layer(), layer(), layer(), layer()],
     };
     const postVao = gl.createVertexArray();
     {
@@ -355,7 +397,13 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     function buildStatic() {
       const b = B.stat, white3 = M.rgb('#e8ecf0'), dark = M.rgb('#1e242c'), cap = M.rgb('#c3c9cf'), kick = M.rgb('#d9b032');
       const gl0 = [190 / 255, 222 / 255, 242 / 255, 0.09], seam = [1, 1, 1, 0.2], top = [220 / 255, 235 / 255, 245 / 255, 0.45];
-      for (const sg of SEGS) {
+      // (each end wall with its gate cut out of it: the doors are drawn each frame, buildDoors)
+      const doorway = (sg) => {
+        if (sg.kind !== 'end') return [sg];
+        const lo = GATE_Y - GATE_HALF, hi = GATE_Y + GATE_HALF, up = sg.y1 > sg.y0, a = Math.min(sg.y0, sg.y1), b2 = Math.max(sg.y0, sg.y1);
+        return [[a, Math.min(b2, lo)], [Math.max(a, hi), b2]].filter(([p, q]) => q - p > 0.01).map(([p, q]) => ({ ...sg, y0: up ? p : q, y1: up ? q : p }));
+      };
+      for (const sg of SEGS.flatMap(doorway)) {
         const n = [sg.nx, sg.ny, 0], o = [-sg.nx * 0.28, -sg.ny * 0.28, 0];
         const A = (z, off = [0, 0, 0]) => [sg.x0 + off[0], sg.y0 + off[1], z], Bp = (z, off = [0, 0, 0]) => [sg.x1 + off[0], sg.y1 + off[1], z];
         const lift = [sg.nx * 0.01, sg.ny * 0.01, 0];
@@ -378,21 +426,17 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       }
       // the concourse floor round the sheet, under everything
       M.quad(b, [-150, -120, -0.06], [350, -120, -0.06], [350, 160, -0.06], [-150, 160, -0.06], M.rgb('#0b0f14'), null, null);
-      // the stands: a dark tread between each row of the crowd, and the risers they sit on.
-      // These go with the crowd, which the reflection leaves out: treads alone in the ice
-      // read as stripes.
-      const tread = M.rgb('#0c1015');
-      for (let i = 0; i < CROWS; i++) {
-        const y = 89 + i * 3, z0 = 4.2 + i * 2.2;
-        M.quad(B.stands, [CX0, y, z0 + 2.2], [CX1, y, z0 + 2.2], [CX1, y + 3, z0 + 2.2], [CX0, y + 3, z0 + 2.2], tread, null, null);
-      }
-      M.quad(B.stands, [CX0, RW + 0.3, 0], [CX1, RW + 0.3, 0], [CX1, 89, 4.2], [CX0, 89, 4.2], tread, null, null);
-      // the end stands, the bowl's back wall and its sides: more crowd, in the dark
-      const dim = [0.3, 0.3, 0.32, 1], far = [0.17, 0.17, 0.19, 1];
-      for (const [x0, x1] of [[0, -45], [RL, RL + 45]]) M.quad(B.stands, [x0, -10, BOARD_H], [x0, 95, BOARD_H], [x1, 95, 40], [x1, -10, 40], dim, [0, 0, 0.4, 1], null);
+      // THE BOWL: every row of seats round the sheet, a seat a place, in four layers by which
+      // views draw them (gl/arena-crowd.js); its fans are drawn instanced in render(). They go
+      // with the crowd, which the reflection leaves out.
+      const BB = [0, 1, 2, 3].map(() => M.createBatch(1 << 15));
+      buildBowl(M, BB);
+      BB.forEach((bb, i) => put(L.bowl[i], bb));
+      // beyond it, the upper deck in the dark: its back wall and ends, and the slope up to it
+      const far = [0.17, 0.17, 0.19, 1], deckY = RW + rowD(BOWL_ROWS - 1) + ROW_D, deckZ = rowZ(BOWL_ROWS - 1) + 12;
       M.quad(B.stands, [-220, 150, 0], [420, 150, 0], [420, 150, 140], [-220, 150, 140], far, [0, 0, 2.4, 2.2], null);
       for (const x of [-120, RL + 120]) M.quad(B.stands, [x, -140, 0], [x, 150, 0], [x, 150, 140], [x, -140, 140], far, [0, 0, 1.1, 2.2], null);
-      M.quad(B.stands, [CX0 - 60, 89 + CROWS * 3, 4.2 + CROWS * 2.2], [CX1 + 60, 89 + CROWS * 3, 4.2 + CROWS * 2.2], [CX1 + 60, 150, 70], [CX0 - 60, 150, 70], far, [0, 0, 1.2, 0.6], null);
+      M.quad(B.stands, [CX0 - 60, deckY, deckZ], [CX1 + 60, deckY, deckZ], [CX1 + 60, 150, 70], [CX0 - 60, 150, 70], far, [0, 0, 1.2, 0.6], null);
       for (const k of ['stat', 'ads', 'stands', 'glass']) put(L[k], B[k]);
     }
 
@@ -687,13 +731,6 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       for (const k of ['rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad']) M.reset(B[k]);
       headList.length = 0;
       const d = B.dyn;
-      // the crowd rows, standing when the building is up
-      const up = W.crowd > 0.45, H = CROWS * ROWH;
-      for (let i = CROWS - 1; i >= 0; i--) {
-        const y = 89 + i * 3, z0 = 4.2 + i * 2.2;
-        const bob = up ? W.crowd * 0.35 * Math.max(0, Math.sin(W.t * 13 + i * 1.7)) : 0;
-        M.quad(B.rows, [CX0, y, z0 + bob], [CX1, y, z0 + bob], [CX1, y, z0 + 2.2 + bob], [CX0, y, z0 + 2.2 + bob], [1, 1, 1, 1], [0, (i * ROWH) / H, 1, ((i + 1) * ROWH - 0.5) / H], null);
-      }
       // the props the ice reflects whatever the quality: nets, the Zamboni
       for (const [gx, dir, side] of [[GOAL_X[0], -1, 'a'], [GOAL_X[1], 1, 'h']]) {
         // (a net the ice crew have off its pegs is drawn where they have it, and not once it's out the gate)
@@ -701,6 +738,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         if (!(o && o.out)) M.buildNet(d, B.netm, gx + (o ? o.dx : 0), dir, MID_Y + (o ? o.dy : 0), NET_HALF, NET_DEPTH, NET_H, (W.netBulge[side] || 0) * 0.7);
       }
       if (W.zamboni) M.buildZamboni(d, B.label, W.zamboni, W.t);
+      M.buildDoors(d, B.tr, W.doors, GATE_Y, GATE_HALF, RL, BOARD_H, GLASS_H);
       propsN = d.n;
       // the men
       for (const b of W.bodies()) {
@@ -813,6 +851,56 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.uniform1i(LIT.u('uTex'), 0);
       gl.activeTexture(gl.TEXTURE0);
     }
+    // ── the fans (gl/arena-crowd.js) ──────────────────────────────────────────
+    // One figure in three poses, instanced a seat; the seats' instance data rebuilt only when the
+    // clubs' colours change. As many are drawn as the night's gate and the quality rung allow.
+    const fanMorph = crowdMorph({ far: true, towels: false }), FAN_V = fanMorph.length / CROWD_MORPH;
+    const fanVao = gl.createVertexArray(), fanMb = gl.createBuffer(), fanIb = gl.createBuffer();
+    gl.bindVertexArray(fanVao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, fanMb); gl.bufferData(gl.ARRAY_BUFFER, fanMorph, gl.STATIC_DRAW);
+    for (const [loc, size, off] of [[0, 3, 0], [1, 3, 12], [2, 3, 24], [6, 3, 36], [7, 3, 48], [8, 3, 60], [9, 1, 72]]) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, CROWD_MORPH * 4, off); }
+    gl.bindBuffer(gl.ARRAY_BUFFER, fanIb);
+    for (const [loc, size, off] of [[3, 4, 0], [4, 4, 16], [5, 3, 32]]) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, CROWD_INST * 4, off); gl.vertexAttribDivisor(loc, 1); }
+    gl.bindVertexArray(null);
+    let fanKey = null, fanGroups = null;
+    function drawFans(vp, shake, view) {
+      const K = W0.kits || {}, key = [K.a?.jersey, K.a?.trim, K.h?.jersey, K.h?.trim].join('|');
+      if (key !== fanKey) { fanKey = key; const fi = crowdInstances(K); fanGroups = fi; gl.bindBuffer(gl.ARRAY_BUFFER, fanIb); gl.bufferData(gl.ARRAY_BUFFER, fi.data, gl.STATIC_DRAW); }
+      const share = clamp(W0.gate ?? 0.7, 0, 1) * clamp(api.quality.crowd ?? 1, 0, 1);
+      if (share <= 0) return;
+      const roar = roarOf(W);
+      gl.useProgram(FANS.p);
+      gl.uniformMatrix4fv(FANS.u('uVP'), false, vp); gl.uniform2fv(FANS.u('uShake'), shake);
+      gl.uniform2f(FANS.u('uRoar'), roar[0], roar[1]); gl.uniform1f(FANS.u('uT'), W.t || 0); gl.uniform1f(FANS.u('uMove'), 1);
+      gl.uniform4fv(FANS.u('uHide'), hideFor(view));
+      gl.uniform1f(FANS.u('uDim'), 0.62); gl.uniform1f(FANS.u('uMourn'), W.mourning || 0);
+      // (each group the view shows, from its first seat, its own instance attributes moved on to it)
+      const vert = view === 'vertical';
+      gl.bindVertexArray(fanVao); gl.bindBuffer(gl.ARRAY_BUFFER, fanIb);
+      for (let i = 0; i < 4; i++) {
+        if (((i & 1) && !vert) || ((i & 2) && vert)) continue;
+        const n = Math.round(fanGroups.count[i] * share), base = fanGroups.start[i] * CROWD_INST * 4;
+        if (n <= 0) continue;
+        for (const [loc, size, off] of [[3, 4, 0], [4, 4, 16], [5, 3, 32]]) gl.vertexAttribPointer(loc, size, gl.FLOAT, false, CROWD_INST * 4, base + off);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, FAN_V, n);
+        st.draws++; st.tris += FAN_V / 3 * n;
+      }
+    }
+    // ── the ink round the players ─────────────────────────────────────────────
+    const INK_COL = [0.035, 0.04, 0.05];
+    function drawInk(vp, shake, w, h, u) {
+      gl.useProgram(INK.p);
+      gl.uniformMatrix4fv(INK.u('uVP'), false, vp); gl.uniform2fv(INK.u('uShake'), shake);
+      gl.uniform2f(INK.u('uRes'), w, h);
+      // 0.09 ft of the man, between 1.2 and 3.6 px of a 900-wide picture
+      gl.uniform4f(INK.u('uInk'), 0.09, 1.2 * u, 3.6 * u, 0.0006);
+      gl.uniform3fv(INK.u('uCol'), INK_COL);
+      for (const [Ly, first] of [[L.dyn, propsN], [L.jers, 0], [L.masks, 0]]) {
+        if (Ly.n - first <= 0) continue;
+        gl.bindVertexArray(Ly.vao); gl.drawArrays(gl.TRIANGLES, first, Ly.n - first);
+        st.draws++; st.tris += (Ly.n - first) / 3;
+      }
+    }
     function draw(Ly, tex, first = 0, count = Ly.n - first) {
       if (count <= 0) return;
       gl.bindVertexArray(Ly.vao);
@@ -870,7 +958,14 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       useLit(vp, eye, shake, -1e9);
-      draw(L.stands, crowdTex); draw(L.rows, crowdTex); draw(L.stat); draw(L.ads, texAds);
+      draw(L.stands, crowdTex);
+      // the bowl, less the stands this view's camera stands in, and the fans in it
+      const vert = api.view === 'vertical';
+      for (let i = 0; i < 4; i++) if (!((i & 1) && !vert) && !((i & 2) && vert)) draw(L.bowl[i]);
+      drawFans(vp, shake, api.view);
+      if (api.ink) { drawInk(vp, shake, w, h, u); }
+      useLit(vp, eye, shake, -1e9);
+      draw(L.stat); draw(L.ads, texAds);
       draw(L.dyn); draw(L.jers, atlas); draw(L.masks, maskTex); draw(L.label, texLabel);
       if (heads) heads.draw(headList, vp, eye, shake, -1e9, W.mourning, st);
 
@@ -941,7 +1036,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       }
     }
 
-    const api = { render, stats: st, cam: camera.cam, view: 'broadcast', glow: false, kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] },
+    const api = { render, stats: st, cam: camera.cam, view: 'broadcast', glow: false, ink: true, kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] },
       // the reflection buffer, for a bench that wants to know it isn't empty
       mirrorPeak: () => mirror.peak() };
     return api;

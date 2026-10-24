@@ -48,6 +48,8 @@ export const CHANCE_TABLE = [
   { kind: 'goal',      w: 42,  shot: true },
 ];
 const CHANCE_TOTAL = CHANCE_TABLE.reduce((s, o) => s + o.w, 0);
+// The chances that are shots on goal: the goalie had to stop them (a goal is one too).
+export const ON_GOAL = new Set(['save', 'glove', 'pad', 'breakaway']);
 
 // Situational tunables — the knobs, all in one place.
 const PERIODS = 3, PERIOD_SECS = 20 * 60;
@@ -962,13 +964,39 @@ export const SEASON = {
       acc.scorers.set(s.name, r);
     }
     for (const c of game.casualties || []) acc.casualties.push({ ...c, teams: [game.away.name, game.home.name] });
+    // EVERY MAN'S SEASON, for the rink's stat lines on a goal's replay and after a big save: a
+    // skater's games, goals, assists and shots on goal; a goalie's games, shots and goals
+    // against, and wins. A shot on goal is a goal or a shot the goalie stopped (not one blocked,
+    // wide or off the post).
+    acc.players = acc.players || new Map(); acc.goalies = acc.goalies || new Map();
+    const winner = game.awayScore > game.homeScore ? game.away : game.home;
+    for (const t of [game.away, game.home]) {
+      for (const s of t.skaters || []) {
+        if (s.out) continue;
+        const r = acc.players.get(s.name) || { gp: 0, g: 0, a: 0, sog: 0 };
+        r.gp += 1; r.g += s.goals || 0; r.a += s.assists || 0;
+        acc.players.set(s.name, r);
+      }
+      if (t.goalie) {
+        const r = acc.goalies.get(t.goalie) || { gp: 0, sa: 0, ga: 0, w: 0 };
+        r.gp += 1; if (t === winner) r.w += 1;
+        acc.goalies.set(t.goalie, r);
+      }
+    }
+    for (const b of game.beats || []) {
+      if (!(b.type === 'goal' || (b.type === 'chance' && ON_GOAL.has(b.kind)))) continue;
+      const p = acc.players.get(b.shooter); if (p) p.sog += 1;
+      const g = b.goalie ? acc.goalies.get(b.goalie) : null;
+      if (g) { g.sa += 1; if (b.type === 'goal') g.ga += 1; }
+    }
   },
   summariseExtras(acc) {
     const scorers = [...(acc.scorers || new Map()).values()]
       .sort((a, b) => b.points - a.points || b.goals - a.goals || a.name.localeCompare(b.name))
       .slice(0, 10);
     const cas = acc.casualties || [];
-    return { scorers, injuries: cas.length, deaths: cas.filter(c => c.dead).length };
+    return { scorers, injuries: cas.length, deaths: cas.filter(c => c.dead).length,
+      players: Object.fromEntries(acc.players || []), goalies: Object.fromEntries(acc.goalies || []) };
   },
 };
 
@@ -994,6 +1022,8 @@ export const HOCKEY = {
   narrate,
   // Holds by line length, and the cue times the rink syncs to.
   paceCalls,
+  // which chances were shots on goal (the narrator's stat lines count them)
+  onGoal: ON_GOAL,
   // The stamp a client checks its club identities against.
   clubsRevOf,
 };
