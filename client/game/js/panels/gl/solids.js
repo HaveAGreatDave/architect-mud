@@ -298,6 +298,18 @@ float texHeight(int kind, vec2 uv, float px) {
          - seam * 0.5 * fade(40.0, px);
   } else if (kind == 9) { // carpet: a dense loop pile
     return 0.5 + (vnoise(uv * 700.0) - 0.5) * fade(700.0, px) + (vnoise(uv * 90.0) - 0.5) * 0.5 * fade(90.0, px);
+  } else if (kind == 13) { // carbon: a 2x2 twill of 6 mm tows under lacquer, each tow rounded across
+    vec2 q = uv * 170.0;
+    float tw = mod(floor(q.x) + floor(q.y), 4.0) < 2.0 ? 1.0 : 0.0;
+    vec2 c = fract(q);
+    float across = tw > 0.5 ? c.y : c.x;
+    float tow = sin(across * 3.14159);
+    float h = 0.3 + 0.45 * tow + tw * 0.18 + (vnoise(uv * 900.0) - 0.5) * 0.08;
+    return mix(0.5, h, fade(170.0, px));
+  } else if (kind == 14) { // metal flake: a candy coat over flakes that catch the light one by one
+    float fl = smoothstep(0.8, 0.97, vnoise(uv * 1500.0)) * fade(1500.0, px);
+    float peel = (vnoise(uv * 230.0) - 0.5) * 0.4 * fade(230.0, px);
+    return 0.45 + fl * 0.9 + peel;
   }
   return 0.5;
 }
@@ -313,6 +325,8 @@ vec2 texAmount(int kind) {
   if (kind == 8) return vec2(0.34, 0.0);    // wood: painted grain, value only, no relief
   if (kind == 9) return vec2(0.16, 0.45);   // carpet
   if (kind == 11) return vec2(0.24, 0.35);  // gelcoat
+  if (kind == 13) return vec2(0.30, 0.25);  // carbon
+  if (kind == 14) return vec2(0.22, 0.05);  // metal flake: value, a breath of relief
   return vec2(0.0);
 }
 // Returns a multiplier and an additive lift. ⚠ THE LIFT IS WHY A DARK SURFACE SHOWS ANYTHING: a

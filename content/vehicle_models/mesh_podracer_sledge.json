@@ -36,7 +36,7 @@
         ],
         "livery": "base",
         "mat": "candy",
-        "tex": "paint"
+        "tex": "flake"
       },
       "trim": {
         "rgb": [
@@ -166,7 +166,8 @@
           24
         ],
         "livery": "fixed",
-        "mat": "satin"
+        "mat": "satin",
+        "tex": "leather"
       },
       "intake": {
         "rgb": [
@@ -185,7 +186,18 @@
           62
         ],
         "livery": "fixed",
-        "mat": "polished"
+        "mat": "polished",
+        "tex": "brushed"
+      },
+      "carbon": {
+        "rgb": [
+          34,
+          36,
+          42
+        ],
+        "livery": "fixed",
+        "mat": "satin",
+        "tex": "carbon"
       }
     },
     "parts": [
@@ -201,7 +213,7 @@
             "kind": "loft",
             "name": "pod",
             "note": "The cockpit tub, sized for the seat: about 3.2 m long and 1.3 m across at 7.2 m to the unit, the ground seats' metre. Its nose tip is the ring both cables meet at.",
-            "sides": 16,
+            "sides": 24,
             "section": "super",
             "role": "body",
             "exp": [
@@ -223,10 +235,24 @@
                 "cz": 0.075
               },
               {
+                "f": 0.185,
+                "rg": 0.0409,
+                "rvT": 0.0296,
+                "rvB": 0.0272,
+                "cz": 0.075
+              },
+              {
                 "f": 0.16,
                 "rg": 0.065,
                 "rvT": 0.042,
                 "rvB": 0.04,
+                "cz": 0.075
+              },
+              {
+                "f": 0.115,
+                "rg": 0.0803,
+                "rvT": 0.0466,
+                "rvB": 0.0441,
                 "cz": 0.075
               },
               {
@@ -237,6 +263,13 @@
                 "cz": 0.075
               },
               {
+                "f": -0.01,
+                "rg": 0.0934,
+                "rvT": 0.0481,
+                "rvB": 0.0461,
+                "cz": 0.0749
+              },
+              {
                 "f": -0.09,
                 "rg": 0.09,
                 "rvT": 0.046,
@@ -244,11 +277,25 @@
                 "cz": 0.075
               },
               {
+                "f": -0.14,
+                "rg": 0.077,
+                "rvT": 0.0409,
+                "rvB": 0.0396,
+                "cz": 0.0759
+              },
+              {
                 "f": -0.19,
                 "rg": 0.06,
                 "rvT": 0.034,
                 "rvB": 0.032,
                 "cz": 0.077
+              },
+              {
+                "f": -0.2075,
+                "rg": 0.0421,
+                "rvT": 0.0253,
+                "rvB": 0.0227,
+                "cz": 0.0781
               },
               {
                 "f": -0.225,
@@ -271,6 +318,9 @@
               "kind": "flat",
               "sh": 0.4,
               "paint": "dark"
+            },
+            "lod0": {
+              "sides": 16
             }
           },
           {
@@ -419,7 +469,7 @@
               ]
             ],
             "r": 0.007,
-            "sides": 6,
+            "sides": 8,
             "role": "body",
             "sh": 0.6,
             "paint": "leather"
@@ -466,7 +516,7 @@
               0.118,
               0.165
             ],
-            "n": 10,
+            "n": 16,
             "role": "body",
             "sh": {
               "base": 0.6,
@@ -493,7 +543,7 @@
               ]
             ],
             "r": 0.007,
-            "sides": 6,
+            "sides": 8,
             "role": "strut",
             "sh": 0.7,
             "paint": "chrome"
@@ -1106,7 +1156,7 @@
                   ]
                 ],
                 "r": 0.005,
-                "sides": 6,
+                "sides": 7,
                 "role": "strut",
                 "sh": 0.9,
                 "paint": "heat"
@@ -1145,7 +1195,7 @@
               ]
             ],
             "r": 0.005,
-            "sides": 6,
+            "sides": 8,
             "role": "strut",
             "sh": 0.85,
             "paint": "chrome"
@@ -1154,7 +1204,7 @@
             "kind": "loft",
             "name": "spine fairing",
             "note": "The headrest fairing, tapering down the spine to the tail.",
-            "sides": 12,
+            "sides": 18,
             "role": "body",
             "paint": "hull",
             "shade": {
@@ -1169,10 +1219,22 @@
                 "cz": 0.122
               },
               {
+                "f": -0.095,
+                "rg": 0.0319,
+                "rv": 0.0289,
+                "cz": 0.1216
+              },
+              {
                 "f": -0.12,
                 "rg": 0.03,
                 "rv": 0.026,
                 "cz": 0.12
+              },
+              {
+                "f": -0.155,
+                "rg": 0.0229,
+                "rv": 0.0188,
+                "cz": 0.1149
               },
               {
                 "f": -0.19,
@@ -1216,7 +1278,7 @@
               ]
             ],
             "r": 0.004,
-            "sides": 5,
+            "sides": 8,
             "role": "strut",
             "sh": 0.85,
             "paint": "trim"
@@ -1312,7 +1374,7 @@
               ]
             ],
             "r": 0.0035,
-            "sides": 5,
+            "sides": 8,
             "role": "strut",
             "sh": 0.85,
             "paint": "chrome"
@@ -1338,7 +1400,7 @@
               ]
             ],
             "r": 0.004,
-            "sides": 6,
+            "sides": 8,
             "role": "strut",
             "sh": 0.7,
             "paint": "metal"
@@ -1359,7 +1421,7 @@
               ]
             ],
             "r": 0.003,
-            "sides": 5,
+            "sides": 8,
             "role": "strut",
             "sh": 0.7,
             "paint": "metal"
@@ -1380,10 +1442,406 @@
               ]
             ],
             "r": 0.003,
-            "sides": 5,
+            "sides": 8,
             "role": "strut",
             "sh": 0.7,
             "paint": "metal"
+          },
+          {
+            "kind": "mirror",
+            "name": "kit:canards",
+            "note": "Pod wings (podracer kit wings=canard): a carbon canard each side of the nose, trim-tipped.",
+            "when": "kit_canard",
+            "parts": [
+              {
+                "kind": "panel",
+                "name": "kit:canard",
+                "c": [
+                  [
+                    0.145,
+                    0.06,
+                    0.072
+                  ],
+                  [
+                    0.115,
+                    0.17,
+                    0.068
+                  ],
+                  [
+                    0.075,
+                    0.17,
+                    0.068
+                  ],
+                  [
+                    0.06,
+                    0.085,
+                    0.072
+                  ]
+                ],
+                "th": 0.006,
+                "role": "wing",
+                "sh": 0.82,
+                "paint": "carbon"
+              },
+              {
+                "kind": "group",
+                "name": "kit:canard tip",
+                "xf": {
+                  "t": [
+                    0,
+                    0.172,
+                    0
+                  ]
+                },
+                "parts": [
+                  {
+                    "kind": "blade",
+                    "name": "kit:canard endplate",
+                    "outline": [
+                      [
+                        0.12,
+                        0.05
+                      ],
+                      [
+                        0.07,
+                        0.05
+                      ],
+                      [
+                        0.065,
+                        0.09
+                      ],
+                      [
+                        0.1,
+                        0.088
+                      ]
+                    ],
+                    "t": 0.004,
+                    "role": "fin",
+                    "sh": [
+                      0.72,
+                      0.62
+                    ],
+                    "paint": "trim"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "mirror",
+            "name": "latch:fins",
+            "note": "The docking latch: a blade each side that slides out of the pod (podStow 0) into the socket on the docked turbine's inner face, and back in (podStow 1, how it rests) when the turbines launch.",
+            "parts": [
+              {
+                "kind": "group",
+                "name": "latch:fin",
+                "anim": {
+                  "ch": "podStow",
+                  "slide": [
+                    0,
+                    -0.1427,
+                    0
+                  ],
+                  "def": 1
+                },
+                "parts": [
+                  {
+                    "kind": "panel",
+                    "name": "latch:blade",
+                    "c": [
+                      [
+                        0.15730000000000002,
+                        0.0439,
+                        0.1012
+                      ],
+                      [
+                        0.1453,
+                        0.1826,
+                        0.1012
+                      ],
+                      [
+                        -0.045,
+                        0.1826,
+                        0.1012
+                      ],
+                      [
+                        -0.051,
+                        0.0439,
+                        0.1012
+                      ]
+                    ],
+                    "th": 0.0065,
+                    "role": "wing",
+                    "sh": 0.8,
+                    "paint": "carbon"
+                  },
+                  {
+                    "kind": "tube",
+                    "name": "latch:leading edge",
+                    "pts": [
+                      [
+                        0.15730000000000002,
+                        0.0439,
+                        0.1012
+                      ],
+                      [
+                        0.1453,
+                        0.1826,
+                        0.1012
+                      ]
+                    ],
+                    "r": 0.00585,
+                    "sides": 6,
+                    "role": "wing",
+                    "sh": 0.7,
+                    "paint": "trim"
+                  },
+                  {
+                    "kind": "tube",
+                    "name": "latch:tip shoe",
+                    "pts": [
+                      [
+                        0.1413,
+                        0.1786,
+                        0.1012
+                      ],
+                      [
+                        -0.040999999999999995,
+                        0.1786,
+                        0.1012
+                      ]
+                    ],
+                    "r": 0.007474999999999999,
+                    "sides": 6,
+                    "role": "wing",
+                    "sh": 0.7,
+                    "paint": "chrome"
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "latch:housing",
+                "faces": [
+                  {
+                    "role": "body",
+                    "sh": 0.25,
+                    "paint": "dark",
+                    "two": 1,
+                    "p": [
+                      [
+                        -0.053,
+                        0.0789,
+                        0.0902
+                      ],
+                      [
+                        -0.0105,
+                        0.0812,
+                        0.0902
+                      ],
+                      [
+                        -0.0105,
+                        0.0812,
+                        0.1122
+                      ],
+                      [
+                        -0.053,
+                        0.0789,
+                        0.1122
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "body",
+                    "sh": 0.25,
+                    "paint": "dark",
+                    "two": 1,
+                    "p": [
+                      [
+                        -0.0105,
+                        0.0812,
+                        0.0902
+                      ],
+                      [
+                        0.0319,
+                        0.0797,
+                        0.0902
+                      ],
+                      [
+                        0.0319,
+                        0.0797,
+                        0.1122
+                      ],
+                      [
+                        -0.0105,
+                        0.0812,
+                        0.1122
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "body",
+                    "sh": 0.25,
+                    "paint": "dark",
+                    "two": 1,
+                    "p": [
+                      [
+                        0.0319,
+                        0.0797,
+                        0.0902
+                      ],
+                      [
+                        0.0744,
+                        0.0775,
+                        0.0902
+                      ],
+                      [
+                        0.0744,
+                        0.0775,
+                        0.1122
+                      ],
+                      [
+                        0.0319,
+                        0.0797,
+                        0.1122
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "body",
+                    "sh": 0.25,
+                    "paint": "dark",
+                    "two": 1,
+                    "p": [
+                      [
+                        0.0744,
+                        0.0775,
+                        0.0902
+                      ],
+                      [
+                        0.1168,
+                        0.0688,
+                        0.0902
+                      ],
+                      [
+                        0.1168,
+                        0.0688,
+                        0.1122
+                      ],
+                      [
+                        0.0744,
+                        0.0775,
+                        0.1122
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "body",
+                    "sh": 0.25,
+                    "paint": "dark",
+                    "two": 1,
+                    "p": [
+                      [
+                        0.1168,
+                        0.0688,
+                        0.0902
+                      ],
+                      [
+                        0.1593,
+                        0.054,
+                        0.0902
+                      ],
+                      [
+                        0.1593,
+                        0.054,
+                        0.1122
+                      ],
+                      [
+                        0.1168,
+                        0.0688,
+                        0.1122
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "tube",
+                "name": "latch:housing lip",
+                "pts": [
+                  [
+                    -0.053,
+                    0.0794,
+                    0.0892
+                  ],
+                  [
+                    -0.0105,
+                    0.0817,
+                    0.0892
+                  ],
+                  [
+                    0.0319,
+                    0.0802,
+                    0.0892
+                  ],
+                  [
+                    0.0744,
+                    0.078,
+                    0.0892
+                  ],
+                  [
+                    0.1168,
+                    0.0693,
+                    0.0892
+                  ],
+                  [
+                    0.1593,
+                    0.0545,
+                    0.0892
+                  ],
+                  [
+                    0.1593,
+                    0.0545,
+                    0.1132
+                  ],
+                  [
+                    0.1168,
+                    0.0693,
+                    0.1132
+                  ],
+                  [
+                    0.0744,
+                    0.078,
+                    0.1132
+                  ],
+                  [
+                    0.0319,
+                    0.0802,
+                    0.1132
+                  ],
+                  [
+                    -0.0105,
+                    0.0817,
+                    0.1132
+                  ],
+                  [
+                    -0.053,
+                    0.0794,
+                    0.1132
+                  ],
+                  [
+                    -0.053,
+                    0.0794,
+                    0.0892
+                  ]
+                ],
+                "r": 0.0022,
+                "sides": 5,
+                "role": "body",
+                "sh": 0.6,
+                "paint": "chrome"
+              }
+            ]
           }
         ]
       },
@@ -1415,7 +1873,7 @@
               {
                 "kind": "loft",
                 "name": "casing",
-                "sides": 28,
+                "sides": 32,
                 "section": "super",
                 "role": "nacelle",
                 "exp": [
@@ -1444,10 +1902,24 @@
                     "cz": 0.09
                   },
                   {
+                    "f": 0.17,
+                    "rg": 0.0745,
+                    "rvT": 0.0745,
+                    "rvB": 0.0745,
+                    "cz": 0.09
+                  },
+                  {
                     "f": 0.1,
                     "rg": 0.075,
                     "rvT": 0.075,
                     "rvB": 0.075,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.01,
+                    "rg": 0.0726,
+                    "rvT": 0.0726,
+                    "rvB": 0.0726,
                     "cz": 0.09
                   },
                   {
@@ -1468,13 +1940,16 @@
                   "sh": 0.4,
                   "paint": "burnt"
                 },
-                "note": "Bare aluminium, the intake dark inside a chrome lip; the hot end is its own section."
+                "note": "Bare aluminium, the intake dark inside a chrome lip; the hot end is its own section.",
+                "lod0": {
+                  "sides": 18
+                }
               },
               {
                 "kind": "loft",
                 "name": "hot section",
                 "note": "Heat-tinted steel from the turbine stages back to the nozzle: straw where it leaves the casing, through bronze and purple to blue, and soot at the lip (the burnt slot ramp).",
-                "sides": 28,
+                "sides": 32,
                 "section": "super",
                 "role": "nacelle",
                 "exp": [
@@ -1549,6 +2024,9 @@
                   "kind": "flat",
                   "sh": 0.3,
                   "paint": "intake"
+                },
+                "lod0": {
+                  "sides": 18
                 }
               },
               {
@@ -1559,14 +2037,17 @@
                 "g": 0,
                 "h": 0.09,
                 "r": 0.024,
-                "n": 12,
+                "n": 16,
                 "apex": [
                   -0.305,
                   0,
                   0.09
                 ],
                 "role": "nacelle",
-                "paint": "metal"
+                "paint": "metal",
+                "lod0": {
+                  "n": 10
+                }
               },
               {
                 "kind": "tube",
@@ -1756,7 +2237,7 @@
                   ]
                 ],
                 "r": 0.012,
-                "sides": 6,
+                "sides": 8,
                 "role": "nacelle",
                 "sh": 0.8,
                 "paint": "chrome"
@@ -1852,7 +2333,7 @@
                   ]
                 ],
                 "r": 0.012,
-                "sides": 6,
+                "sides": 8,
                 "role": "nacelle",
                 "sh": 0.8,
                 "paint": "chrome"
@@ -2469,14 +2950,18 @@
                 "g": 0,
                 "h": 0.09,
                 "r": 0.028,
-                "n": 10,
+                "n": 16,
                 "apex": [
                   0.31,
                   0,
                   0.09
                 ],
                 "role": "nacelle",
-                "paint": "chrome"
+                "paint": "chrome",
+                "whenNot": "kit_spinner",
+                "lod0": {
+                  "n": 10
+                }
               },
               {
                 "kind": "loft",
@@ -2509,7 +2994,10 @@
                     "rvB": 0.078,
                     "cz": 0.09
                   }
-                ]
+                ],
+                "lod0": {
+                  "sides": 18
+                }
               },
               {
                 "kind": "blade",
@@ -2538,7 +3026,8 @@
                   0.72,
                   0.62
                 ],
-                "paint": "trim"
+                "paint": "trim",
+                "whenNot": "kit_fin"
               },
               {
                 "kind": "panel",
@@ -2586,7 +3075,7 @@
                   ]
                 ],
                 "r": 0.012,
-                "sides": 6,
+                "sides": 8,
                 "role": "strut",
                 "sh": 0.65,
                 "paint": "metal"
@@ -5044,7 +5533,10 @@
                     "rv": 0.0795,
                     "cz": 0.09
                   }
-                ]
+                ],
+                "lod0": {
+                  "sides": 18
+                }
               },
               {
                 "kind": "loft",
@@ -5070,7 +5562,1569 @@
                     "rv": 0.0795,
                     "cz": 0.09
                   }
+                ],
+                "lod0": {
+                  "sides": 18
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    0.0633,
+                    0.107
+                  ],
+                  [
+                    0.2595,
+                    0.0633,
+                    0.107
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    0.0463,
+                    0.1363
+                  ],
+                  [
+                    0.2595,
+                    0.0463,
+                    0.1363
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    0.017,
+                    0.1533
+                  ],
+                  [
+                    0.2595,
+                    0.017,
+                    0.1533
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    -0.017,
+                    0.1533
+                  ],
+                  [
+                    0.2595,
+                    -0.017,
+                    0.1533
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    -0.0463,
+                    0.1363
+                  ],
+                  [
+                    0.2595,
+                    -0.0463,
+                    0.1363
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    -0.0633,
+                    0.107
+                  ],
+                  [
+                    0.2595,
+                    -0.0633,
+                    0.107
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    -0.0633,
+                    0.073
+                  ],
+                  [
+                    0.2595,
+                    -0.0633,
+                    0.073
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    -0.0463,
+                    0.0437
+                  ],
+                  [
+                    0.2595,
+                    -0.0463,
+                    0.0437
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    -0.017,
+                    0.0267
+                  ],
+                  [
+                    0.2595,
+                    -0.017,
+                    0.0267
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    0.017,
+                    0.0267
+                  ],
+                  [
+                    0.2595,
+                    0.017,
+                    0.0267
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    0.0463,
+                    0.0437
+                  ],
+                  [
+                    0.2595,
+                    0.0463,
+                    0.0437
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:flange bolt",
+                "pts": [
+                  [
+                    0.2655,
+                    0.0633,
+                    0.073
+                  ],
+                  [
+                    0.2595,
+                    0.0633,
+                    0.073
+                  ]
+                ],
+                "r": 0.0034,
+                "sides": 6,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome",
+                "minDetail": 1,
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:trim band",
+                "note": "A painted band round the casing behind the intake: the trim colour on the turbines.",
+                "pts": [
+                  [
+                    0.212,
+                    0.0749,
+                    0.09
+                  ],
+                  [
+                    0.212,
+                    0.073,
+                    0.1067
+                  ],
+                  [
+                    0.212,
+                    0.0675,
+                    0.1225
+                  ],
+                  [
+                    0.212,
+                    0.0586,
+                    0.1367
+                  ],
+                  [
+                    0.212,
+                    0.0467,
+                    0.1486
+                  ],
+                  [
+                    0.212,
+                    0.0325,
+                    0.1575
+                  ],
+                  [
+                    0.212,
+                    0.0167,
+                    0.163
+                  ],
+                  [
+                    0.212,
+                    0,
+                    0.1649
+                  ],
+                  [
+                    0.212,
+                    -0.0167,
+                    0.163
+                  ],
+                  [
+                    0.212,
+                    -0.0325,
+                    0.1575
+                  ],
+                  [
+                    0.212,
+                    -0.0467,
+                    0.1486
+                  ],
+                  [
+                    0.212,
+                    -0.0586,
+                    0.1367
+                  ],
+                  [
+                    0.212,
+                    -0.0675,
+                    0.1225
+                  ],
+                  [
+                    0.212,
+                    -0.073,
+                    0.1067
+                  ],
+                  [
+                    0.212,
+                    -0.0749,
+                    0.09
+                  ],
+                  [
+                    0.212,
+                    -0.073,
+                    0.0733
+                  ],
+                  [
+                    0.212,
+                    -0.0675,
+                    0.0575
+                  ],
+                  [
+                    0.212,
+                    -0.0586,
+                    0.0433
+                  ],
+                  [
+                    0.212,
+                    -0.0467,
+                    0.0314
+                  ],
+                  [
+                    0.212,
+                    -0.0325,
+                    0.0225
+                  ],
+                  [
+                    0.212,
+                    -0.0167,
+                    0.017
+                  ],
+                  [
+                    0.212,
+                    0,
+                    0.0151
+                  ],
+                  [
+                    0.212,
+                    0.0167,
+                    0.017
+                  ],
+                  [
+                    0.212,
+                    0.0325,
+                    0.0225
+                  ],
+                  [
+                    0.212,
+                    0.0467,
+                    0.0314
+                  ],
+                  [
+                    0.212,
+                    0.0586,
+                    0.0433
+                  ],
+                  [
+                    0.212,
+                    0.0675,
+                    0.0575
+                  ],
+                  [
+                    0.212,
+                    0.073,
+                    0.0733
+                  ],
+                  [
+                    0.212,
+                    0.0749,
+                    0.09
+                  ]
+                ],
+                "r": 0.0042,
+                "sides": 6,
+                "role": "nacelle",
+                "sh": 0.6,
+                "paint": "trim",
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "hifi:trim band",
+                "pts": [
+                  [
+                    0.196,
+                    0.0748,
+                    0.09
+                  ],
+                  [
+                    0.196,
+                    0.0729,
+                    0.1066
+                  ],
+                  [
+                    0.196,
+                    0.0674,
+                    0.1225
+                  ],
+                  [
+                    0.196,
+                    0.0585,
+                    0.1366
+                  ],
+                  [
+                    0.196,
+                    0.0466,
+                    0.1485
+                  ],
+                  [
+                    0.196,
+                    0.0325,
+                    0.1574
+                  ],
+                  [
+                    0.196,
+                    0.0166,
+                    0.1629
+                  ],
+                  [
+                    0.196,
+                    0,
+                    0.1648
+                  ],
+                  [
+                    0.196,
+                    -0.0166,
+                    0.1629
+                  ],
+                  [
+                    0.196,
+                    -0.0325,
+                    0.1574
+                  ],
+                  [
+                    0.196,
+                    -0.0466,
+                    0.1485
+                  ],
+                  [
+                    0.196,
+                    -0.0585,
+                    0.1366
+                  ],
+                  [
+                    0.196,
+                    -0.0674,
+                    0.1225
+                  ],
+                  [
+                    0.196,
+                    -0.0729,
+                    0.1066
+                  ],
+                  [
+                    0.196,
+                    -0.0748,
+                    0.09
+                  ],
+                  [
+                    0.196,
+                    -0.0729,
+                    0.0734
+                  ],
+                  [
+                    0.196,
+                    -0.0674,
+                    0.0575
+                  ],
+                  [
+                    0.196,
+                    -0.0585,
+                    0.0434
+                  ],
+                  [
+                    0.196,
+                    -0.0466,
+                    0.0315
+                  ],
+                  [
+                    0.196,
+                    -0.0325,
+                    0.0226
+                  ],
+                  [
+                    0.196,
+                    -0.0166,
+                    0.0171
+                  ],
+                  [
+                    0.196,
+                    0,
+                    0.0152
+                  ],
+                  [
+                    0.196,
+                    0.0166,
+                    0.0171
+                  ],
+                  [
+                    0.196,
+                    0.0325,
+                    0.0226
+                  ],
+                  [
+                    0.196,
+                    0.0466,
+                    0.0315
+                  ],
+                  [
+                    0.196,
+                    0.0585,
+                    0.0434
+                  ],
+                  [
+                    0.196,
+                    0.0674,
+                    0.0575
+                  ],
+                  [
+                    0.196,
+                    0.0729,
+                    0.0734
+                  ],
+                  [
+                    0.196,
+                    0.0748,
+                    0.09
+                  ]
+                ],
+                "r": 0.0018,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.6,
+                "paint": "trim",
+                "minDetail": 1
+              },
+              {
+                "kind": "cone",
+                "name": "kit:spike spinner",
+                "f": 0.268,
+                "g": 0,
+                "h": 0.09,
+                "r": 0.03,
+                "n": 16,
+                "apex": [
+                  0.43,
+                  0,
+                  0.09
+                ],
+                "role": "nacelle",
+                "paint": "chrome",
+                "when": "kit_spike",
+                "lod0": {
+                  "n": 10
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "kit:spike collar",
+                "pts": [
+                  [
+                    0.27,
+                    0.031,
+                    0.09
+                  ],
+                  [
+                    0.27,
+                    0.0286,
+                    0.1019
+                  ],
+                  [
+                    0.27,
+                    0.0219,
+                    0.1119
+                  ],
+                  [
+                    0.27,
+                    0.0119,
+                    0.1186
+                  ],
+                  [
+                    0.27,
+                    0,
+                    0.121
+                  ],
+                  [
+                    0.27,
+                    -0.0119,
+                    0.1186
+                  ],
+                  [
+                    0.27,
+                    -0.0219,
+                    0.1119
+                  ],
+                  [
+                    0.27,
+                    -0.0286,
+                    0.1019
+                  ],
+                  [
+                    0.27,
+                    -0.031,
+                    0.09
+                  ],
+                  [
+                    0.27,
+                    -0.0286,
+                    0.0781
+                  ],
+                  [
+                    0.27,
+                    -0.0219,
+                    0.0681
+                  ],
+                  [
+                    0.27,
+                    -0.0119,
+                    0.0614
+                  ],
+                  [
+                    0.27,
+                    0,
+                    0.059
+                  ],
+                  [
+                    0.27,
+                    0.0119,
+                    0.0614
+                  ],
+                  [
+                    0.27,
+                    0.0219,
+                    0.0681
+                  ],
+                  [
+                    0.27,
+                    0.0286,
+                    0.0781
+                  ],
+                  [
+                    0.27,
+                    0.031,
+                    0.09
+                  ]
+                ],
+                "r": 0.0035,
+                "sides": 6,
+                "role": "nacelle",
+                "sh": 0.6,
+                "paint": "trim",
+                "when": "kit_spike",
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "cone",
+                "name": "kit:contra hub",
+                "f": 0.268,
+                "g": 0,
+                "h": 0.09,
+                "r": 0.034,
+                "n": 16,
+                "apex": [
+                  0.335,
+                  0,
+                  0.09
+                ],
+                "role": "nacelle",
+                "paint": "trim",
+                "when": "kit_twin",
+                "lod0": {
+                  "n": 10
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "kit:contra gap",
+                "pts": [
+                  [
+                    0.312,
+                    0.0125,
+                    0.09
+                  ],
+                  [
+                    0.312,
+                    0.0115,
+                    0.0948
+                  ],
+                  [
+                    0.312,
+                    0.0088,
+                    0.0988
+                  ],
+                  [
+                    0.312,
+                    0.0048,
+                    0.1015
+                  ],
+                  [
+                    0.312,
+                    0,
+                    0.1025
+                  ],
+                  [
+                    0.312,
+                    -0.0048,
+                    0.1015
+                  ],
+                  [
+                    0.312,
+                    -0.0088,
+                    0.0988
+                  ],
+                  [
+                    0.312,
+                    -0.0115,
+                    0.0948
+                  ],
+                  [
+                    0.312,
+                    -0.0125,
+                    0.09
+                  ],
+                  [
+                    0.312,
+                    -0.0115,
+                    0.0852
+                  ],
+                  [
+                    0.312,
+                    -0.0088,
+                    0.0812
+                  ],
+                  [
+                    0.312,
+                    -0.0048,
+                    0.0785
+                  ],
+                  [
+                    0.312,
+                    0,
+                    0.0775
+                  ],
+                  [
+                    0.312,
+                    0.0048,
+                    0.0785
+                  ],
+                  [
+                    0.312,
+                    0.0088,
+                    0.0812
+                  ],
+                  [
+                    0.312,
+                    0.0115,
+                    0.0852
+                  ],
+                  [
+                    0.312,
+                    0.0125,
+                    0.09
+                  ]
+                ],
+                "r": 0.003,
+                "sides": 6,
+                "role": "nacelle",
+                "sh": 0.4,
+                "paint": "dark",
+                "when": "kit_twin",
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "cone",
+                "name": "kit:contra nose",
+                "f": 0.314,
+                "g": 0,
+                "h": 0.09,
+                "r": 0.019,
+                "n": 16,
+                "apex": [
+                  0.375,
+                  0,
+                  0.09
+                ],
+                "role": "nacelle",
+                "paint": "chrome",
+                "when": "kit_twin",
+                "lod0": {
+                  "n": 10
+                }
+              },
+              {
+                "kind": "blade",
+                "name": "kit:tall fin",
+                "outline": [
+                  [
+                    0.06,
+                    0.158
+                  ],
+                  [
+                    -0.2,
+                    0.158
+                  ],
+                  [
+                    -0.325,
+                    0.335
+                  ],
+                  [
+                    -0.135,
+                    0.318
+                  ]
+                ],
+                "t": 0.007,
+                "role": "fin",
+                "sh": [
+                  0.72,
+                  0.62
+                ],
+                "paint": "trim",
+                "when": "kit_fins_tall"
+              },
+              {
+                "kind": "tube",
+                "name": "kit:tall fin cap",
+                "pts": [
+                  [
+                    -0.135,
+                    0,
+                    0.318
+                  ],
+                  [
+                    -0.325,
+                    0,
+                    0.335
+                  ]
+                ],
+                "r": 0.0055,
+                "sides": 6,
+                "role": "fin",
+                "sh": 0.6,
+                "paint": "chrome",
+                "when": "kit_fins_tall",
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "group",
+                "name": "kit:ram scoop",
+                "when": "kit_scoop",
+                "xf": {
+                  "t": [
+                    0,
+                    0.052,
+                    0
+                  ]
+                },
+                "parts": [
+                  {
+                    "kind": "loft",
+                    "name": "kit:scoop body",
+                    "sides": 16,
+                    "section": "super",
+                    "role": "nacelle",
+                    "exp": [
+                      0.9,
+                      0.9,
+                      1.2
+                    ],
+                    "shade": {
+                      "base": 0.58,
+                      "amp": 0.4
+                    },
+                    "paint": "carbon",
+                    "stations": [
+                      {
+                        "f": 0.205,
+                        "rg": 0.021,
+                        "rvT": 0.017,
+                        "rvB": 0.008,
+                        "cz": 0.152
+                      },
+                      {
+                        "f": 0.14,
+                        "rg": 0.023,
+                        "rvT": 0.02,
+                        "rvB": 0.009,
+                        "cz": 0.154
+                      },
+                      {
+                        "f": 0.03,
+                        "rg": 0.02,
+                        "rvT": 0.016,
+                        "rvB": 0.008,
+                        "cz": 0.152
+                      },
+                      {
+                        "f": -0.07,
+                        "rg": 0.01,
+                        "rvT": 0.007,
+                        "rvB": 0.005,
+                        "cz": 0.146
+                      }
+                    ],
+                    "capFore": {
+                      "kind": "flat",
+                      "sh": 0.3,
+                      "paint": "dark"
+                    },
+                    "capAft": {
+                      "kind": "apex",
+                      "at": [
+                        -0.09,
+                        0,
+                        0.144
+                      ]
+                    },
+                    "lod0": {
+                      "sides": 10
+                    }
+                  },
+                  {
+                    "kind": "tube",
+                    "name": "kit:scoop lip",
+                    "pts": [
+                      [
+                        0.206,
+                        0.021,
+                        0.152
+                      ],
+                      [
+                        0.206,
+                        0.0189,
+                        0.1594
+                      ],
+                      [
+                        0.206,
+                        0.0131,
+                        0.1653
+                      ],
+                      [
+                        0.206,
+                        0.0047,
+                        0.1686
+                      ],
+                      [
+                        0.206,
+                        -0.0047,
+                        0.1686
+                      ],
+                      [
+                        0.206,
+                        -0.0131,
+                        0.1653
+                      ],
+                      [
+                        0.206,
+                        -0.0189,
+                        0.1594
+                      ],
+                      [
+                        0.206,
+                        -0.021,
+                        0.152
+                      ],
+                      [
+                        0.206,
+                        -0.0189,
+                        0.1485
+                      ],
+                      [
+                        0.206,
+                        -0.0131,
+                        0.1457
+                      ],
+                      [
+                        0.206,
+                        -0.0047,
+                        0.1442
+                      ],
+                      [
+                        0.206,
+                        0.0047,
+                        0.1442
+                      ],
+                      [
+                        0.206,
+                        0.0131,
+                        0.1457
+                      ],
+                      [
+                        0.206,
+                        0.0189,
+                        0.1485
+                      ],
+                      [
+                        0.206,
+                        0.021,
+                        0.152
+                      ]
+                    ],
+                    "r": 0.0028,
+                    "sides": 6,
+                    "role": "nacelle",
+                    "sh": 0.6,
+                    "paint": "chrome",
+                    "lod0": {
+                      "sides": 4
+                    }
+                  }
                 ]
+              },
+              {
+                "kind": "loft",
+                "name": "kit:afterburner can",
+                "note": "Jet pipes (podracer kit pipes=long): the can carries the nozzle a turbine-radius further aft; the plume starts at its lip.",
+                "when": "kit_pipes",
+                "sides": 28,
+                "section": "super",
+                "role": "nacelle",
+                "exp": [
+                  1,
+                  1,
+                  1
+                ],
+                "shade": {
+                  "base": 0.5,
+                  "amp": 0.4
+                },
+                "paint": "burnt",
+                "stations": [
+                  {
+                    "f": -0.262,
+                    "rg": 0.047,
+                    "rvT": 0.047,
+                    "rvB": 0.047,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.3,
+                    "rg": 0.051,
+                    "rvT": 0.051,
+                    "rvB": 0.051,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.36,
+                    "rg": 0.053,
+                    "rvT": 0.053,
+                    "rvB": 0.053,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.385,
+                    "rg": 0.05,
+                    "rvT": 0.05,
+                    "rvB": 0.05,
+                    "cz": 0.09
+                  }
+                ],
+                "capAft": {
+                  "kind": "flat",
+                  "sh": 0.5,
+                  "paint": "heat"
+                },
+                "lod0": {
+                  "sides": 18
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "kit:afterburner lip",
+                "pts": [
+                  [
+                    -0.386,
+                    0.05,
+                    0.09
+                  ],
+                  [
+                    -0.386,
+                    0.0476,
+                    0.1055
+                  ],
+                  [
+                    -0.386,
+                    0.0405,
+                    0.1194
+                  ],
+                  [
+                    -0.386,
+                    0.0294,
+                    0.1305
+                  ],
+                  [
+                    -0.386,
+                    0.0155,
+                    0.1376
+                  ],
+                  [
+                    -0.386,
+                    0,
+                    0.14
+                  ],
+                  [
+                    -0.386,
+                    -0.0155,
+                    0.1376
+                  ],
+                  [
+                    -0.386,
+                    -0.0294,
+                    0.1305
+                  ],
+                  [
+                    -0.386,
+                    -0.0405,
+                    0.1194
+                  ],
+                  [
+                    -0.386,
+                    -0.0476,
+                    0.1055
+                  ],
+                  [
+                    -0.386,
+                    -0.05,
+                    0.09
+                  ],
+                  [
+                    -0.386,
+                    -0.0476,
+                    0.0745
+                  ],
+                  [
+                    -0.386,
+                    -0.0405,
+                    0.0606
+                  ],
+                  [
+                    -0.386,
+                    -0.0294,
+                    0.0495
+                  ],
+                  [
+                    -0.386,
+                    -0.0155,
+                    0.0424
+                  ],
+                  [
+                    -0.386,
+                    0,
+                    0.04
+                  ],
+                  [
+                    -0.386,
+                    0.0155,
+                    0.0424
+                  ],
+                  [
+                    -0.386,
+                    0.0294,
+                    0.0495
+                  ],
+                  [
+                    -0.386,
+                    0.0405,
+                    0.0606
+                  ],
+                  [
+                    -0.386,
+                    0.0476,
+                    0.0745
+                  ],
+                  [
+                    -0.386,
+                    0.05,
+                    0.09
+                  ]
+                ],
+                "r": 0.005,
+                "sides": 6,
+                "role": "nacelle",
+                "sh": 0.6,
+                "paint": "chrome",
+                "when": "kit_pipes",
+                "lod0": {
+                  "sides": 4
+                }
+              },
+              {
+                "kind": "tube",
+                "name": "kit:afterburner band",
+                "pts": [
+                  [
+                    -0.33,
+                    0.0532,
+                    0.09
+                  ],
+                  [
+                    -0.33,
+                    0.0506,
+                    0.1064
+                  ],
+                  [
+                    -0.33,
+                    0.043,
+                    0.1213
+                  ],
+                  [
+                    -0.33,
+                    0.0313,
+                    0.133
+                  ],
+                  [
+                    -0.33,
+                    0.0164,
+                    0.1406
+                  ],
+                  [
+                    -0.33,
+                    0,
+                    0.1432
+                  ],
+                  [
+                    -0.33,
+                    -0.0164,
+                    0.1406
+                  ],
+                  [
+                    -0.33,
+                    -0.0313,
+                    0.133
+                  ],
+                  [
+                    -0.33,
+                    -0.043,
+                    0.1213
+                  ],
+                  [
+                    -0.33,
+                    -0.0506,
+                    0.1064
+                  ],
+                  [
+                    -0.33,
+                    -0.0532,
+                    0.09
+                  ],
+                  [
+                    -0.33,
+                    -0.0506,
+                    0.0736
+                  ],
+                  [
+                    -0.33,
+                    -0.043,
+                    0.0587
+                  ],
+                  [
+                    -0.33,
+                    -0.0313,
+                    0.047
+                  ],
+                  [
+                    -0.33,
+                    -0.0164,
+                    0.0394
+                  ],
+                  [
+                    -0.33,
+                    0,
+                    0.0368
+                  ],
+                  [
+                    -0.33,
+                    0.0164,
+                    0.0394
+                  ],
+                  [
+                    -0.33,
+                    0.0313,
+                    0.047
+                  ],
+                  [
+                    -0.33,
+                    0.043,
+                    0.0587
+                  ],
+                  [
+                    -0.33,
+                    0.0506,
+                    0.0736
+                  ],
+                  [
+                    -0.33,
+                    0.0532,
+                    0.09
+                  ]
+                ],
+                "r": 0.003,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.6,
+                "paint": "metal",
+                "when": "kit_pipes"
+              },
+              {
+                "kind": "poly",
+                "name": "latch:socket",
+                "note": "Where the pod's latch blade goes in when the turbine docks beside it.",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.2,
+                    "paint": "dark",
+                    "two": 1,
+                    "p": [
+                      [
+                        -0.14,
+                        -0.068,
+                        0.076
+                      ],
+                      [
+                        -0.0895,
+                        -0.0693,
+                        0.076
+                      ],
+                      [
+                        -0.0895,
+                        -0.0693,
+                        0.104
+                      ],
+                      [
+                        -0.14,
+                        -0.068,
+                        0.104
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.2,
+                    "paint": "dark",
+                    "two": 1,
+                    "p": [
+                      [
+                        -0.0895,
+                        -0.0693,
+                        0.076
+                      ],
+                      [
+                        -0.039,
+                        -0.0715,
+                        0.076
+                      ],
+                      [
+                        -0.039,
+                        -0.0715,
+                        0.104
+                      ],
+                      [
+                        -0.0895,
+                        -0.0693,
+                        0.104
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.2,
+                    "paint": "dark",
+                    "two": 1,
+                    "p": [
+                      [
+                        -0.039,
+                        -0.0715,
+                        0.076
+                      ],
+                      [
+                        0.0115,
+                        -0.0732,
+                        0.076
+                      ],
+                      [
+                        0.0115,
+                        -0.0732,
+                        0.104
+                      ],
+                      [
+                        -0.039,
+                        -0.0715,
+                        0.104
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.2,
+                    "paint": "dark",
+                    "two": 1,
+                    "p": [
+                      [
+                        0.0115,
+                        -0.0732,
+                        0.076
+                      ],
+                      [
+                        0.062,
+                        -0.0743,
+                        0.076
+                      ],
+                      [
+                        0.062,
+                        -0.0743,
+                        0.104
+                      ],
+                      [
+                        0.0115,
+                        -0.0732,
+                        0.104
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "tube",
+                "name": "latch:socket lip",
+                "pts": [
+                  [
+                    -0.14,
+                    -0.0685,
+                    0.076
+                  ],
+                  [
+                    0.062,
+                    -0.0748,
+                    0.076
+                  ],
+                  [
+                    0.062,
+                    -0.0748,
+                    0.104
+                  ],
+                  [
+                    -0.14,
+                    -0.0685,
+                    0.104
+                  ],
+                  [
+                    -0.14,
+                    -0.0685,
+                    0.076
+                  ]
+                ],
+                "r": 0.0026,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.6,
+                "paint": "chrome"
               }
             ]
           }

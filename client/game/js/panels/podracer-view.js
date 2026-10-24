@@ -20,7 +20,7 @@
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, interiorHotspots, ROAD_RIG_MUL } from './windshield.js';
 import { EYE_M } from '../../../shared/interior-shell.js';
 import { updateEngineAudio, stopEngineAudio, spoolUp, spoolDown, hitFx, groundFx } from './engine-audio.js';
-import { PODRACER_TYPES, CRANK_S, createPodracerState, stepPodracer, placePodracer, shiftPodracerOrigin, podracerPose, podracerParts, podracerBurn, tornBinder, mendBinder } from './podracer-model.js';
+import { PODRACER_TYPES, CRANK_S, createPodracerState, stepPodracer, placePodracer, shiftPodracerOrigin, podracerPose, podracerParts, podracerBurn, tornBinder, mendBinder, podracerLook, podracerLivery } from './podracer-model.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { ensureDepotStyles, jobsHtml, meterHtml, money } from './depot-shell.js';
 import { makeContactTrack } from './world-feed.js';
@@ -144,6 +144,10 @@ export function openPodracer(ctx = {}) {
     typeId: ctx.typeId || 'podracer',
     // The paint: the racer's own, and a scheme the booth is showing on it before it is bought.
     livery: ctx.livery || null, preview: null,
+    // The fitted kit, and how it looks (the mesh channels for its bolt-ons, the arc and plume colours);
+    // a kit the fitting shop is showing on it before it is bought (podracer-depot.js) wins.
+    kit: ctx.kit || {}, kitPreview: null, look: podracerLook(ctx.kit || {}),
+    gLat: 0, gLong: 0, pv: null,
     cx: ctx.gx ?? 0, cy: ctx.gy ?? 0,
     ox: (ctx.gx ?? 0) - RAD, oy: (ctx.gy ?? 0) - RAD,
     tiles: ctx.map || [],
@@ -389,8 +393,12 @@ function frame(now) {
     if (st.fuel <= 0) { st.lever = [0, 0]; input.left = input.right = 0; }
     else st.fuel = Math.max(0, st.fuel - podracerBurn(st.sim, st.p, dt));
     stepPodracer(st.sim, input, st.p, dt);
+    gMeter(dt);
     // The petals open in a quarter of a second and fold away a little slower.
     st.brakeAnim = clamp((st.brakeAnim || 0) + (input.brake || input.reverse ? dt / 0.25 : -dt / 0.4), 0, 1);
+    // The latch blades: out of the pod into the turbines' sockets once both are home (a fifth of a
+    // second, with the thunk), and back in faster than the turbines leave on a launch.
+    st.podStow = clamp((st.podStow ?? (st.sim.mode === 'docked' ? 0 : 1)) + (st.sim.mode === 'docked' ? -dt / 0.2 : dt / 0.12), 0, 1);
     for (const ev of st.sim.events) onEvent(ev);
     if (st.clickCrank) { st.clickCrank -= dt; if (st.sim.running || st.clickCrank <= 0) { st.clickCrank = 0; st.starter = false; } }
 
@@ -439,11 +447,12 @@ function frame(now) {
       acX: st.cx + st.sim.x, acY: st.cy + st.sim.y,
       contacts: st.contacts.size ? st.contacts.frame(st.cx + st.sim.x, st.cy + st.sim.y, { roadRig: ROAD_RIG_MUL }) : null,
       skyline: st.skyline, roads: st.roads, regions: st.regions,
-      podracer: podracerPose(st.sim, st.p),
+      podracer: { ...podracerPose(st.sim, st.p), arc: st.look.arc, flame: st.look.flame, pipes: !!st.look.anim.kit_pipes },
       variant: st.typeId,
-      ...((st.preview || st.livery) ? { livery: st.preview || st.livery } : {}),
-      // The air brake petals on the turbines (mesh channel airbrake), easing out and back.
-      anim: { airbrake: st.brakeAnim },
+      ...((st.preview || st.livery || st.look.casing) ? { livery: podracerLivery(st.preview || st.livery, st.kitPreview || st.kit) } : {}),
+      // The air brake petals on the turbines (mesh channel airbrake), easing out and back, and the
+      // kit's bolt-on parts on theirs.
+      anim: { airbrake: st.brakeAnim, podStow: st.podStow, ...st.look.anim },
     });
     drawRead();
 
@@ -476,9 +485,24 @@ function seatLive() {
     speed: s.speed, fuel: st.fuel, hull: s.hull, brake: st.keys.has('b') || st.keys.has('s') || st.keys.has('arrowdown'),
     whip: s.whip || 0, whipping: (s.whipT || 0) > 0, reversing: !!st.reversing, mode: s.mode, binderPower: s.binderPower || 0,
     heat: s.heat, boosting: s.boosting, sliding: s.sliding, steer: st.split, t: performance.now(),
-    inside: (st.preview || st.livery)?.inside || null, typeName: st.p.name,
+    inside: (st.preview || st.livery)?.inside || null, typeName: st.p.name, typeId: st.typeId,
+    heading: s.heading, gLat: st.gLat, gLong: st.gLong, kit: st.kitPreview || st.kit, arcRgb: st.look.arc || undefined,
     hover: st.hover, press: st.press,
   };
+}
+
+// The pod's acceleration in g, along its nose and across it (right positive), smoothed over a fifth
+// of a second: the cockpit's G-meter. The model's own rule for g (mph/s over 22).
+function gMeter(dt) {
+  const P = st.sim.pod, v = [P.vx, P.vy];
+  if (st.pv && dt > 0) {
+    const ax = (v[0] - st.pv[0]) / dt, ay = (v[1] - st.pv[1]) / dt, k = st.p.tileMph / 22;
+    const fx = Math.sin(P.a), fy = -Math.cos(P.a);
+    const lon = (ax * fx + ay * fy) * k, lat = (ax * -fy + ay * fx) * k;
+    const e = 1 - Math.exp(-dt / 0.2);
+    st.gLong += (clamp(lon, -6, 6) - st.gLong) * e; st.gLat += (clamp(lat, -6, 6) - st.gLat) * e;
+  }
+  st.pv = v;
 }
 
 function onEvent(ev) {
@@ -488,7 +512,7 @@ function onEvent(ev) {
   else if (type === 'snap') { hitFx(); send('podevent snap'); }
   else if (type === 'launch') { groundFx('touchdown'); st.flash = { text: 'LAUNCHED: CABLES OUT, BINDER UP', until: performance.now() + 2000 }; }
   else if (type === 'docking') { st.flash = { text: 'DOCKING: TURBINES COMING IN', until: performance.now() + 1600 }; }
-  else if (type === 'docked') { groundFx('touchdown'); st.flash = { text: 'DOCKED ALONGSIDE', until: performance.now() + 1500 }; }
+  else if (type === 'docked') { groundFx('latch'); st.flash = { text: 'DOCKED ALONGSIDE: LATCHED', until: performance.now() + 1500 }; }
   else if (type === 'whip') { groundFx('touchdown'); st.flash = { text: 'WHIP ' + Math.round(ev.k * 100) + '%', until: performance.now() + 1200 }; }
   else if (type === 'overheat') { groundFx('touchdown'); st.flash = { text: (ev.eng ? 'RIGHT' : 'LEFT') + ' TURBINE BURNING: LET THE BOOST OFF', until: performance.now() + 2500 }; }
   else if (type === 'binder') { groundFx('touchdownHard'); spoolDown('gunship'); send('podevent binder'); st.flash = { text: 'BINDER TORN OUT: TURBINES CUT', until: performance.now() + 4000 }; }
@@ -666,6 +690,8 @@ function toggleOut(show) {
 
 // The booth shows a livery on the racer before it is bought (podracer-depot.js); null takes it off.
 export function podracerPreview(livery) { if (st) st.preview = livery || null; }
+// The fitting shop shows a kit's looks on the racer before it is bought; null takes it off.
+export function podracerKitPreview(kit) { if (!st) return; st.kitPreview = kit || null; st.look = podracerLook(kit || st.kit); }
 
 // ── What the server pushes ─────────────────────────────────────────────────────
 export function podracerSetWorld(msg = {}) {
@@ -687,6 +713,9 @@ export function podracerSetWorld(msg = {}) {
   if (Array.isArray(msg.eng)) st.sim.engHp = msg.eng.slice(0, 2);
   if (Array.isArray(msg.cables)) msg.cables.forEach((ok, i) => { if (ok && st.sim.cable[i]) st.sim.cable[i].ok = true; });
   if ('livery' in msg) { st.livery = msg.livery || null; st.preview = null; }
+  // The fitting shop refitted it in the door: the seat steps the new row from the next frame.
+  if (msg.params) st.p = msg.params;
+  if (msg.kit) { st.kit = msg.kit; st.kitPreview = null; st.look = podracerLook(st.kit); }
   if (msg.binder === true && !st.sim.binder) { mendBinder(st.sim, st.p); st.brokeDismissed = false; }
   // The server refused a report: put the racer back where it last believed it was, stopped.
   if (msg.snap) placePodracer(st.sim, st.p, msg.snap.x - st.cx, msg.snap.y - st.cy, msg.snap.heading || 0);

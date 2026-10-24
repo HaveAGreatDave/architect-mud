@@ -22,9 +22,10 @@ import { query } from '../../server/models/db.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { takeFreshVehicle } from '../../server/engine/fresh-vehicle.js';
 import { buyRacer, hireRacer, returnRacer, sellRacer, serviceRow, listRacers, racerHere, isLot, stockLines,
-  racerLine, myRacers, racerPanel, sweepHires, recoverRacer, paintRow } from './lot.js';
-import { mountRacer, cmdPodSync, cmdPodEvent, dropSeat, bayLotAt, pushBay, svcState, recoverSeated, homeLot } from './seat.js';
-import { PODRACER_TYPES, podracerPoseFrom } from '../../client/game/js/panels/podracer-model.js';
+  racerLine, myRacers, racerPanel, sweepHires, recoverRacer, paintRow, parkedCards, fitRow, fitMenu, lockedRacerHere, setRacerLocked } from './lot.js';
+import { registerVehicleLock } from '../../server/engine/vehicle-access.js';
+import { mountRacer, cmdPodSync, cmdPodEvent, dropSeat, bayLotAt, pushBay, svcState, recoverSeated, homeLot, noteRacerParked } from './seat.js';
+import { PODRACER_TYPES, podracerPoseFrom, podracerLook, podracerLivery } from '../../client/game/js/panels/podracer-model.js';
 import { cmdPod, textPodCtx } from './texthelm.js';
 
 // Every racer under way, by player id: the last report the server accepted.
@@ -44,6 +45,7 @@ function racerContactsNear(x, y, range = 26) {
   const out = [];
   for (const rig of rigs.values()) {
     if (!Number.isFinite(rig.x) || Math.hypot(rig.x - x, rig.y - y) > range) continue;
+    const look = rig.look || (rig.look = podracerLook(rig.kit));
     out.push({
       id: 'pod_' + rig.playerId,
       cls: 'podracer',
@@ -54,11 +56,14 @@ function racerContactsNear(x, y, range = 26) {
       power: +(((rig.lever?.[0] || 0) + (rig.lever?.[1] || 0)) / 2).toFixed(2),
       hullPct: Math.round((rig.hull ?? 1) * 100),
       podracer: Number.isFinite(rig.ex)
-        ? podracerPoseFrom(rig.ex - rig.x, rig.ey - rig.y, rig.eh || 0, PODRACER_TYPES[rig.typeId] || PODRACER_TYPES.podracer, rig.cables || [true, true], rig.binder !== false)
+        ? { ...podracerPoseFrom(rig.ex - rig.x, rig.ey - rig.y, rig.eh || 0, PODRACER_TYPES[rig.typeId] || PODRACER_TYPES.podracer, rig.cables || [true, true], rig.binder !== false),
+          thr: +(((rig.lever?.[0] || 0) + (rig.lever?.[1] || 0)) / 2).toFixed(2), arc: look.arc, flame: look.flame, pipes: !!look.anim.kit_pipes }
         : null,
       reg: rig.name || 'racer',
-      livery: rig.livery || null,
+      livery: podracerLivery(rig.livery, rig.kit),
       variant: rig.typeId || 'podracer',
+      // The kit's bolt-on parts, as the mesh channels they draw on (podracer-model.js podracerLook).
+      anim: look.anim,
     });
   }
   return out;
@@ -66,6 +71,8 @@ function racerContactsNear(x, y, range = 26) {
 
 export const hooks = {
   'vehicle.contacts': (x, y, range) => racerContactsNear(x, y, range),
+  // A truck depot's counter deals the racers kept in its shed as cards (lot.js parkedCards).
+  'depot.parked': (player, zoneIds) => parkedCards(player, zoneIds),
 };
 
 // ── The counter ────────────────────────────────────────────────────────────────
@@ -115,6 +122,7 @@ async function cmdPodracer(args = [], raw, player, broadcast) {
   if (sub === 'sell') return andRepush(sellRacer)(player, args[1] || null);
   if (sub === 'service' || sub === 'repair' || sub === 'fuel') return serviceCmd(player, args[1] || null);
   if (sub === 'paint' || sub === 'livery') return paintCmd(player, args.slice(1));
+  if (sub === 'fit' || sub === 'tune' || sub === 'upgrade' || sub === 'kit') return fitCmd(player, args.slice(1));
   if (sub === 'recover' || sub === 'fetch' || sub === 'tow') {
     // Sitting in it: the flatbed takes you and the racer back to the bay. Standing in a bay: it fetches
     // one of yours from wherever it was left.
@@ -123,13 +131,16 @@ async function cmdPodracer(args = [], raw, player, broadcast) {
   }
   if (sub === 'list') return listRacers(player);
   if (seated.has(player.id)) return say(dim('You are already strapped in.'));
+  // Climbing in takes yours, or one somebody left unlocked on this tile (vehicle-access.js).
   if (sub === 'take' || sub === 'ride') {
-    const row = await racerHere(player, args[1] || null);
-    if (!row) return say(dim('That racer is not parked where you are standing.'));
+    const row = await racerHere(player, args[1] || null, { strangers: true });
+    if (!row) return say(dim(await lockedRacerHere(player) ? 'It is locked, and it is not yours.' : 'That racer is not parked where you are standing.'));
     return mountRacer(player, row);
   }
-  const row = await racerHere(player);
+  const row = await racerHere(player, null, { strangers: true });
   if (row) return mountRacer(player, row);
+  const shut = await lockedRacerHere(player);
+  if (shut) return say(dim(`The ${shut.name || 'racer'} parked here is locked, and it is not yours.`));
   const here = getZone(player.current_zone);
   if (isLot(here)) {
     const mine = await myRacers(player.id);
@@ -150,6 +161,7 @@ async function paintCmd(player, tokens) {
     const rig = rigs.get(player.id);
     const lot = rig && Number.isFinite(rig.x) && (rig.speed || 0) <= 3 ? bayLotAt(rig.x, rig.y) : null;
     if (!lot) return say(dim('Bring it into the shed door and stop. The booth is in there.'));
+    if (!isLot(getZone(lot))) return say(dim('This shed only keeps racers. The spray booth is in the racer bay at the Deadleg.'));
     const r = await query('SELECT * FROM podracers WHERE id = $1 AND owner_id = $2', [seated.get(player.id), player.id]);
     row = r.rows[0] || null;
   } else {
@@ -168,12 +180,43 @@ async function paintCmd(player, tokens) {
   return out;
 }
 
+// The fitting shop, in the same places as the booth: `podracer fit [id] <slot=value ...>`. Bare, the
+// menu with this racer's kit and the prices. Sitting in it on the bay door, the live racer takes the
+// new parts at once: the seat swaps its row (podracer_ctx `params`), the envelope its top speed.
+async function fitCmd(player, tokens) {
+  const id = tokens[0] && /^pod_/.test(tokens[0]) ? tokens.shift() : null;
+  let row = null;
+  if (seated.has(player.id)) {
+    const rig = rigs.get(player.id);
+    const lot = rig && Number.isFinite(rig.x) && (rig.speed || 0) <= 3 ? bayLotAt(rig.x, rig.y) : null;
+    if (!lot) return say(dim('Bring it into the shed door and stop. The fitting shop is in there.'));
+    if (!isLot(getZone(lot))) return say(dim('This shed only keeps racers. The fitting shop is in the racer bay at the Deadleg.'));
+    const r = await query('SELECT * FROM podracers WHERE id = $1 AND owner_id = $2', [seated.get(player.id), player.id]);
+    row = r.rows[0] || null;
+  } else {
+    if (!isLot(getZone(player.current_zone))) return say(dim('The fitting shop is in the racer bay at the Deadleg.'));
+    row = await racerHere(player, id);
+  }
+  if (!row) return say(dim('You have no racer in the bay to fit.'));
+  if (!tokens.length) return fitMenu(row);
+  const { ok, kit, params, out } = await fitRow(player, row, tokens);
+  if (ok && seated.get(player.id) === row.id) {
+    const rig = rigs.get(player.id);
+    if (rig) { rig.kit = kit; rig.p = params; rig.look = null; }
+    sendToPlayer(player.id, { type: 'podracer_ctx', params, kit });
+    textPodCtx(player.id, { params, kit });
+  }
+  await repush(player);
+  return out;
+}
+
 // Servicing: standing in the bay with the racer on the blocks, or sitting in it on the bay door.
 async function serviceCmd(player, id) {
   if (seated.has(player.id)) {
     const rig = rigs.get(player.id);
     const lot = rig && Number.isFinite(rig.x) && (rig.speed || 0) <= 3 ? bayLotAt(rig.x, rig.y) : null;
     if (!lot) return say(dim('Bring it into the shed door and stop. The yard services it there.'));
+    if (!isLot(getZone(lot))) return say(dim('This shed only keeps racers. Servicing is done in the racer bay at the Deadleg.'));
     const r = await query('SELECT * FROM podracers WHERE id = $1 AND owner_id = $2', [seated.get(player.id), player.id]);
     if (!r.rows[0]) return null;
     // The row lags the live racer by up to ten seconds; the quote is for the racer as it stands.
@@ -255,6 +298,13 @@ on('crossing.ended', async ({ rooms, origin }) => {
   const n = await recoverRacersFrom(rooms, origin || homeLot()).catch(() => 0);
   if (n) console.log(`[podracer] ${n} racer(s) left on a crossing that ended are back on the rim.`);
 });
+// Racers left on open tiles, into the parked index once at boot (vehicle-access.js), and the latch
+// `lock racer` / `unlock racer` reaches from outside.
+registerVehicleLock('racer', setRacerLocked);
+setTimeout(async () => {
+  const { rows } = await query(`SELECT id, type_id, name, owner_id, park_zone, custom_data FROM podracers WHERE owner_id IS NOT NULL`).catch(() => ({ rows: [] }));
+  for (const r of rows) noteRacerParked(r, r.park_zone, r.custom_data?.locked !== false);
+}, 0);
 setTimeout(async () => {
   const { rows } = await query(`SELECT DISTINCT park_zone FROM podracers WHERE park_zone LIKE 'xing\\_%'`).catch(() => ({ rows: [] }));
   if (!rows.length) return;

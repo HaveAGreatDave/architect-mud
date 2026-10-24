@@ -749,6 +749,14 @@ const GROUND_FX = {
     { waveform: 'sine', freq: 120, fm: { rate: 150, depth: 80 }, pitchBend: { to: 70, time: 0.12 }, delay: 0.03, adsr: { a: 0.002, d: 0.2, s: 0, r: 0.1 }, gain: 0.09 },                      // main-gear impact (FM thump)
     { waveform: 'sine', freq: 80, pitchBend: { to: 52, time: 0.35 }, delay: 0.06, filter: { type: 'lowpass', freq: 180, q: 1.4 }, adsr: { a: 0.01, d: 0.4, s: 0, r: 0.2 }, gain: 0.08 },      // suspension compression (settle)
     { waveform: 'triangle', freq: 430, delay: 0.05, filter: { type: 'bandpass', freq: 430, q: 9 }, adsr: { a: 0.003, d: 0.26, s: 0, r: 0.12 }, gain: 0.03 } ] } },                            // damped airframe resonance
+  // latch: a podracer's turbines docking, the pod's latch blades going home in their sockets. A
+  // short low thunk with a steel clack on top and the pawl's tick a beat after; slight, not a crash.
+  latch: { config: { duration: 0.45, layers: [
+    { waveform: 'sine', freq: 135, pitchBend: { to: 72, time: 0.08 }, adsr: { a: 0.002, d: 0.13, s: 0, r: 0.06 }, gain: 0.1 },                                                              // the thunk
+    { waveform: 'square', freq: 310, pitchBend: { to: 240, time: 0.03 }, filter: { type: 'bandpass', freq: 1100, q: 3 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.02 }, gain: 0.09 },          // steel on steel
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 3200, q: 1.8 }, adsr: { a: 0.001, d: 0.025, s: 0, r: 0.01 }, gain: 0.07 },                                           // the contact click
+    { waveform: 'triangle', freq: 620, delay: 0.005, filter: { type: 'bandpass', freq: 620, q: 12 }, adsr: { a: 0.002, d: 0.2, s: 0, r: 0.08 }, gain: 0.016 },                               // a ring in the blade
+    { waveform: 'noise', noiseMix: 1, delay: 0.075, filter: { type: 'bandpass', freq: 2400, q: 3 }, adsr: { a: 0.001, d: 0.02, s: 0, r: 0.01 }, gain: 0.03 } ] } },                          // the pawl dropping
   touchdownHard: { config: { duration: 1.0, layers: [
     { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1900, q: 2.2 }, adsr: { a: 0.003, d: 0.14, s: 0, r: 0.06 }, gain: 0.08 },                                             // harder tyre chirp/skid
     { waveform: 'sawtooth', freq: 1250, pitchBend: { to: 440, time: 0.12 }, filter: { type: 'bandpass', freq: 1400, q: 5 }, adsr: { a: 0.003, d: 0.14, s: 0, r: 0.06 }, gain: 0.06 },         // longer squeal

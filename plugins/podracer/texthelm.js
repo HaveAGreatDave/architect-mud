@@ -29,12 +29,12 @@
 // a snap, the binder) reach both at once.
 
 import { schedule } from '../../server/engine/scheduler.js';
-import { getLivePlayer } from '../../server/engine/world.js';
+import { getLivePlayer, getZone } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { surfaceAt, deriveSurfaceCell } from '../flight/state.js';
-import { PODRACER_TYPES, CRANK_S, createPodracerState, stepPodracer, placePodracer, tornBinder, mendBinder,
+import { CRANK_S, createPodracerState, stepPodracer, placePodracer, tornBinder, mendBinder,
   podracerParts, podracerBurn } from '../../client/game/js/panels/podracer-model.js';
-import { rowEng, rowCables, rowBinder, racerLiveryOf } from './lot.js';
+import { rowEng, rowCables, rowBinder, racerLiveryOf, isLot, paramsOf, rowKit } from './lot.js';
 // A cycle with index.js and seat.js, safe because everything taken from them is only read inside
 // function bodies.
 import { rigs, seated } from './index.js';
@@ -137,7 +137,8 @@ const travelHeading = (s) => (s.speed > 10 ? norm(Math.atan2(s.pod.vx, -s.pod.vy
 /** The racer as the seat would bring it out (podracer-view.js openPodracer), cold, from its row. */
 // `ground` replaces the world's solid and surface tests, for the regress suite's open flat.
 export function makeRun(row, at, { pid = null, rung = 'textgames', ground = null } = {}) {
-  const p = PODRACER_TYPES[row.type_id] || PODRACER_TYPES.podracer;
+  // The type's row with the kit fitted, as the seat steps it (lot.js paramsOf).
+  const p = paramsOf(row);
   const s = createPodracerState(p);
   s.engHp = rowEng(row);
   rowCables(row).forEach((ok, i) => { if (!ok) s.cable[i].ok = false; });
@@ -145,7 +146,7 @@ export function makeRun(row, at, { pid = null, rung = 'textgames', ground = null
   placePodracer(s, p, at.x, at.y, at.heading ?? 0);
   if (!rowBinder(row)) tornBinder(s, p);
   return {
-    pid, racerId: row.id, typeId: row.type_id || 'podracer', p, s,
+    pid, racerId: row.id, typeId: row.type_id || 'podracer', p, s, kit: rowKit(row),
     rigName: row.name || 'racer', name: row.name || p.name,
     livery: racerLiveryOf(row), rung: rung === 'log' ? 'log' : 'textgames', ground,
     // The ground provider for this run's leg, set by the tick from the live racer (seat.js groundFor).
@@ -225,7 +226,7 @@ function publish(run, now) {
   const { s, p } = run;
   const parts = podracerParts(s, p);
   const rig = Object.assign(rigs.get(run.pid) || { flushed: now }, {
-    playerId: run.pid, racerId: run.racerId, typeId: run.typeId, name: run.rigName, livery: run.livery,
+    playerId: run.pid, racerId: run.racerId, typeId: run.typeId, name: run.rigName, livery: run.livery, kit: run.kit, p: run.p,
     x: +s.x.toFixed(3), y: +s.y.toFixed(3), heading: Math.round(s.heading) % 360, speed: Math.round(s.speed),
     hull: s.hull, eng: [...s.engHp], fuel: run.fuel, lever: [...s.lever],
     cables: s.cable.map((c) => c.ok), binder: s.binder,
@@ -261,6 +262,8 @@ export function textPodCtx(pid, msg) {
   if (Array.isArray(msg.eng)) s.engHp = msg.eng.slice(0, 2);
   if (Array.isArray(msg.cables)) msg.cables.forEach((ok, i) => { if (ok && s.cable[i]) s.cable[i].ok = true; });
   if ('livery' in msg) run.livery = msg.livery || null;
+  // The fitting shop refitted it in the door: the run steps the new row from the next tick.
+  if (msg.params) { run.p = msg.params; run.kit = msg.kit || {}; const r = rigs.get(pid); if (r) r.look = null; }
   if (msg.binder === true && !s.binder) mendBinder(s, p);
   run.said = {};
 }
@@ -384,7 +387,9 @@ async function tell(live, run, events, dt) {
   const inDoor = s.speed <= BAY_STOP_MPH && bayLotAt(s.x, s.y);
   if (inDoor && !run.said.door) {
     run.said.door = 1;
-    say('<span class="text-dim">You are stopped in the shed door. <b>pod park</b> puts it back on the blocks in the bay; <b>podracer service</b> repairs and fills it here.</span>');
+    say(isLot(getZone(inDoor))
+      ? '<span class="text-dim">You are stopped in the shed door. <b>pod park</b> puts it back on the blocks in the bay; <b>podracer service</b> repairs and fills it here.</span>'
+      : '<span class="text-dim">You are stopped in a truck shed\'s door. <b>pod park</b> leaves it in the shed, and <b>podracer</b> brings it out again from inside. The racer bay at the Deadleg does the repairs.</span>');
   } else if (!inDoor && s.speed > 10) run.said.door = 0;
 
   // What is coming. The seat shows you the rock; this says how far it is.

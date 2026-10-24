@@ -30,7 +30,8 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { mapWindow, skyState, worldContactsNear, skylineNear, nearbyRegions, farRoadsNear, FAR_ROAD_R, surfaceAt } from '../flight/state.js';
 import { streetActors } from '../../server/engine/street-actors.js';
 import { PODRACER_TYPES } from '../../client/game/js/panels/podracer-model.js';
-import { typeOf, isLot, rowEng, rowCables, rowBinder, recoverFee, racerLiveryOf, hireOf, hireLeft, sweepHires, racerPanel } from './lot.js';
+import { isOpenTile, noteParked, noteGone, noteTaken } from '../../server/engine/vehicle-access.js';
+import { typeOf, isLot, isGarage, rowEng, rowCables, rowBinder, recoverFee, racerLiveryOf, hireOf, hireLeft, sweepHires, racerPanel, rowKit, paramsOf } from './lot.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 // The crossing and the road over it, read where the trucks read them. voidwalking owns the rooms;
 // trucking owns the tarmac and the leg a vehicle rides along it.
@@ -68,7 +69,10 @@ const dim = (t) => `<span class="text-dim">${t}</span>`;
  */
 export function groundFor(rig) { return rig?.leg ? providerFor(rig) : surfaceAt; }
 // The racer's flat-out in tiles a second, with the envelope's slack: the odometer clamp on the road.
-const racerTilesPerSec = (p) => (p.topSpeed / p.tileMph) * JUMP_SLACK;
+const racerTilesPerSec = (p) => (envelopeMph(p) / p.tileMph) * JUMP_SLACK;
+// The fastest a racer's row lets it go: its top speed, and more with injectors bigger than the
+// factory's, whose boost holds a higher terminal (thrust goes as the square of the speed).
+export const envelopeMph = (p) => p.topSpeed * Math.sqrt(Math.max(1, (p.boost ?? 1.5) / 1.5));
 
 
 // ── The bay ────────────────────────────────────────────────────────────────────
@@ -79,14 +83,18 @@ const racerTilesPerSec = (p) => (p.topSpeed / p.tileMph) * JUMP_SLACK;
 // onto that door and parked, it goes back up on the blocks in the lot room.
 const HEADING_OF = { north: 0, east: 90, south: 180, west: 270 };
 let _bays = null;
-// 'x,y' of each lot room's bay door, to the lot room. Content, so built once.
+// 'x,y' of each garage's bay door, to the garage room: every lot, and every truck depot's bay room
+// (lot.js isGarage), so a racer parks in any shed a truck does. Lots go in first and keep their
+// door: the Deadleg's racer bay and its truck shed share one, and a racer parked there goes to the
+// racer bay. Content, so built once.
 function bays() {
   if (_bays) return _bays;
   _bays = new Map();
-  for (const z of getAllZones()) {
-    if (!isLot(z)) continue;
+  const garages = getAllZones().filter(isGarage).sort((a, b) => isLot(b) - isLot(a));
+  for (const z of garages) {
     const door = getZone(z.flags.world_exit_zone || z.parent_zone);
-    if (door && door.map_id === 'map_world') _bays.set(door.grid_x + ',' + door.grid_y, z.id);
+    const key = door && door.map_id === 'map_world' ? door.grid_x + ',' + door.grid_y : null;
+    if (key && !_bays.has(key)) _bays.set(key, z.id);
   }
   return _bays;
 }
@@ -100,7 +108,7 @@ export function bayLotAt(x, y) { return bays().get(Math.round(x) + ',' + Math.ro
 export function startOf(row) {
   const zone = getZone(row.park_zone);
   if (!zone) return null;
-  if (isLot(zone)) {
+  if (isGarage(zone)) {
     const door = getZone(zone.flags.world_exit_zone || zone.parent_zone);
     if (!door || door.map_id !== 'map_world') return null;
     return { x: door.grid_x, y: door.grid_y, heading: HEADING_OF[door.flags?.entrance] ?? 180, bay: zone.id };
@@ -114,7 +122,9 @@ export function startOf(row) {
 async function seatedRow(player) {
   const id = seated.get(player.id);
   if (!id) return null;
-  const r = await query('SELECT * FROM podracers WHERE id = $1 AND owner_id = $2', [id, player.id]);
+  // Not guarded on the owner: somebody who took an unlocked racer is sitting in it too, and
+  // mountRacer has already decided they may (vehicle-access.js boardCheck).
+  const r = await query('SELECT * FROM podracers WHERE id = $1', [id]);
   return r.rows[0] || null;
 }
 
@@ -130,7 +140,8 @@ export function seatContext(row, at, playerId, rig = null) {
     gx: at.x, gy: at.y,
     heading: at.heading ?? (Number(row.custom_data?.heading) || 0),
     map: mapWindow({ grid_x: at.x, grid_y: at.y }, RADIUS, groundFor(rig)),
-    params: PODRACER_TYPES[row.type_id] || PODRACER_TYPES.podracer,
+    // The type's row with the kit fitted (lot.js paramsOf): the numbers the seat steps.
+    params: paramsOf(row), kit: rowKit(row),
     hull: clamp01(row.condition), fuel: clamp01(row.fuel), eng: rowEng(row), cables: rowCables(row), binder: rowBinder(row),
     recoverFee: typeOf(row.type_id) ? recoverFee(typeOf(row.type_id)) : 0,
     livery: racerLiveryOf(row),
@@ -164,6 +175,9 @@ export async function mountRacer(player, row) {
       : 'The binder is torn out and it is going nowhere. The racer bay at the Deadleg can send the flatbed: <b>podracer recover</b>.' };
   }
   seated.set(player.id, row.id);
+  // Off the tile, and if it wasn't yours, that is somebody seeing you take it.
+  noteGone('racer', row.id);
+  noteTaken(player, { kind: 'racer', id: row.id, ownerId: row.owner_id, zoneId: row.park_zone, name: row.name || t.name });
   svcState.delete(player.id);
   // The live racer, seeded now rather than on the first report, so its leg is known from the first
   // map the seat is sent: the approach road is in that window.
@@ -226,7 +240,7 @@ export function checkSync(was, n, now, p, at = groundFor(was)) {
   if (!at(Math.round(x), Math.round(y))) return { ok: false, why: 'edge' };
   if (Number.isFinite(was.x) && Number.isFinite(was.y) && was.at) {
     const dt = Math.min(JUMP_MAX_S, Math.max(0, (now - was.at) / 1000));
-    const reach = (p.topSpeed / p.tileMph) * dt * JUMP_SLACK + JUMP_TILES;
+    const reach = (envelopeMph(p) / p.tileMph) * dt * JUMP_SLACK + JUMP_TILES;
     if (Math.hypot(x - was.x, y - was.y) > reach) return { ok: false, why: 'jump' };
   }
   const keep = (a, b) => Math.max(0, Math.min(clamp01(a), clamp01(b)));
@@ -239,7 +253,7 @@ export function checkSync(was, n, now, p, at = groundFor(was)) {
     ...was,
     x: +x.toFixed(3), y: +y.toFixed(3),
     heading: ((Math.round(heading) % 360) + 360) % 360,
-    speed: Math.max(0, Math.min(p.topSpeed * 1.2, Math.round(speed))),
+    speed: Math.max(0, Math.min(envelopeMph(p) * 1.2, Math.round(speed))),
     hull: keep(was.hull, hull),
     eng: [keep(was.eng?.[0], engL), keep(was.eng?.[1], engR)],
     fuel: keep(was.fuel, fuel),
@@ -261,7 +275,7 @@ export async function cmdPodSync(args = [], raw, player, broadcast) {
   if (n.length < 15 || n.some((v) => !Number.isFinite(v))) return null;
   const was = rigs.get(player.id) || await seedRig(player, id);
   if (!was) return null;
-  const p = PODRACER_TYPES[was.typeId] || PODRACER_TYPES.podracer;
+  const p = was.p || PODRACER_TYPES[was.typeId] || PODRACER_TYPES.podracer;
   const now = Date.now();
   const res = checkSync(was, n, now, p, groundFor(was));
   if (!res.ok) {
@@ -459,6 +473,8 @@ function seedRig(player, racerId, row = null) {
       playerId: player.id, racerId: b.id, typeId: b.type_id, name: b.name || 'racer',
       hull: clamp01(b.condition), fuel: clamp01(b.fuel), eng: rowEng(b), cables: rowCables(b), binder: rowBinder(b),
       livery: racerLiveryOf(b),
+      // The kit and the row it makes: what the envelope checks this racer against.
+      kit: rowKit(b), p: paramsOf(b),
       x: null, y: null, heading: 0, speed: 0, lever: [0, 0],
       leg: 'city', zoneId: null,
       flushed: Date.now(),
@@ -524,7 +540,7 @@ function restingZone(row, rig) {
     if (rig.leg === 'corridor' && getZone(rig.zoneId)) return { bay: null, zoneId: rig.zoneId };
     return { bay: null, zoneId: standTileNear(rig.x, rig.y) || row.park_zone };
   }
-  const bay = isLot(getZone(row.park_zone)) ? row.park_zone : null;
+  const bay = isGarage(getZone(row.park_zone)) ? row.park_zone : null;
   return { bay, zoneId: bay || row.park_zone };
 }
 
@@ -539,16 +555,22 @@ export async function parkRacer(player, broadcast, forced = false) {
   // On a bay door it goes back up on the blocks in that lot. Never moved, it is still in its bay.
   const { bay, zoneId } = restingZone(row, rig);
   if (rig) await flushRig(rig);
+  // Parking locks it. Left on an open tile it goes on the parked index (vehicle-access.js).
   await query(`UPDATE podracers SET park_zone = $2,
-      custom_data = jsonb_set(COALESCE(custom_data, '{}'::jsonb), '{heading}', to_jsonb($3::int))
+      custom_data = COALESCE(custom_data, '{}'::jsonb) || jsonb_build_object('heading', $3::int, 'locked', true)
     WHERE id = $1`, [row.id, zoneId, Math.round(rig?.heading || 0)]);
+  noteRacerParked(row, zoneId, true);
   svcState.delete(player.id);
   sendToPlayer(player.id, { type: 'podracer_service_close' });
-  const out = await leaveSeat(player, rig, zoneId, bay
+  const lot = bay && isLot(getZone(bay));
+  const out = await leaveSeat(player, rig, zoneId, lot
     ? 'You run it back in under the shed roof and shut it down. The yard puts it up on the blocks in the racer bay.'
+    : bay ? 'You run it in under the shed roof, tuck it along the back wall out of the way of the rigs and shut it down.'
     : 'You shut the turbines down and climb out of the pod. The heat comes off the casings in waves.', broadcast);
-  // Back in the bay, the counter is dealt again.
-  if (bay) { const { pushDepot } = await import('./index.js'); await pushDepot(player).catch(() => {}); }
+  // Back in a shed, its counter is dealt again: the racer bay's, or the truck yard's, which shows the
+  // racer on its hand (lot.js parkedCards).
+  if (lot) { const { pushDepot } = await import('./index.js'); await pushDepot(player).catch(() => {}); }
+  else if (bay) { const { repush } = await import('../trucking/index.js'); await repush(player).catch(() => {}); }
   return out;
 }
 
@@ -571,7 +593,7 @@ export async function wreckRacer(player, why, broadcast) {
   const speed = rig?.speed ?? 0;
   await query('DELETE FROM podracers WHERE id = $1', [row.id]).catch(() => {});
   const zoneId = restingZone(row, rig).zoneId;
-  const plan = wreckPlan(speed, t.topSpeed);
+  const plan = wreckPlan(speed, (rig?.p || t).topSpeed);
   const parts = [];
   let killed = false;
   for (let i = 0; i < plan.hits && !killed; i++) {
@@ -595,12 +617,17 @@ export async function recoverSeated(player, broadcast) {
   if (!row) return null;
   const rig = rigs.get(player.id);
   if (rig && rig.speed > STOP_MPH) return { type: 'error', message: 'The flatbed will not chase you. Stop first.' };
+  if (row.owner_id !== player.id) return { type: 'error', message: "The yard only sends the flatbed for the racer's owner, and that isn't you." };
   const t = typeOf(row.type_id) || PODRACER_TYPES.podracer;
   const fee = recoverFee(t);
   if ((player.credits ?? 0) < fee) return { type: 'error', message: `The flatbed is ₵${fee.toLocaleString()}. You have ₵${Math.round(player.credits ?? 0).toLocaleString()}.` };
   if (fee && !(await adjustCredits(player, -fee, query, 'podracer recovery'))) return { type: 'error', message: 'The money does not go through.' };
-  // Home is the bay it lives in; a racer that has only ever been parked outside goes to the first bay.
-  const lot = isLot(getZone(row.park_zone)) ? row.park_zone : ([...bays().values()][0] || row.park_zone);
+  // Home is the shed it lives in (a truck depot's too); a racer that has only ever been parked
+  // outside goes to the first racer bay. A torn binder goes to a racer bay whatever shed it lives
+  // in, because only the racer bay can weld one.
+  const torn = rig ? rig.binder === false : !rowBinder(row);
+  const keep = torn ? isLot : isGarage;
+  const lot = keep(getZone(row.park_zone)) ? row.park_zone : (homeLot() || row.park_zone);
   if (rig) await flushRig(rig);
   await query(`UPDATE podracers SET park_zone = $2, custom_data = COALESCE(custom_data, '{}'::jsonb) - 'heading' WHERE id = $1`, [row.id, lot]);
   svcState.delete(player.id);
@@ -608,8 +635,8 @@ export async function recoverSeated(player, broadcast) {
   const out = await leaveSeat(player, rig, lot,
     `The yard's flatbed grinds out across the waste and winches the racer up onto its back, turbines strapped down either side. You ride back in the cab. ₵${fee.toLocaleString()}.`
     + (rig && rig.binder === false ? ' The binder is still torn out: podracer service welds it.' : ''), broadcast);
-  const { pushDepot } = await import('./index.js');
-  await pushDepot(player).catch(() => {});
+  if (isLot(getZone(lot))) { const { pushDepot } = await import('./index.js'); await pushDepot(player).catch(() => {}); }
+  else { const { repush } = await import('../trucking/index.js'); await repush(player).catch(() => {}); }
   return out;
 }
 
@@ -630,7 +657,7 @@ export async function breakdownRacer(player, broadcast) {
   const t = PODRACER_TYPES[rig.typeId] || PODRACER_TYPES.podracer;
   rig.binder = false;
   await flushRig(rig).catch(() => {});
-  const plan = breakdownPlan(rig.speed ?? 0, t.topSpeed);
+  const plan = breakdownPlan(rig.speed ?? 0, (rig.p || t).topSpeed);
   const parts = [];
   let killed = false;
   for (let i = 0; i < plan.hits && !killed; i++) {
@@ -679,7 +706,15 @@ export async function dropSeat(playerId) {
   if (rig) await flushRig(rig).catch(() => {});
 }
 
+/** Put a racer on the parked index when it stands on an open tile, off it otherwise. */
+export function noteRacerParked(row, zoneId, locked) {
+  if (isOpenTile(zoneId)) {
+    noteParked(zoneId, { kind: 'racer', id: row.id, name: row.name || typeOf(row.type_id)?.name || 'racer', ownerId: row.owner_id,
+      locked, cmd: `podracer take ${row.id}`, words: ['racer', 'pod', 'podracer'] });
+  } else noteGone('racer', row.id);
+}
+
 /** The first racer bay's lot room: where a racer with no home is sent. */
-export function homeLot() { return [...bays().values()][0] || null; }
+export function homeLot() { return [...bays().values()].find((id) => isLot(getZone(id))) || null; }
 
 export const _test = { checkSync, wreckPlan, breakdownPlan, standTileNear, startOf, bayLotAt, groundFor, trackRacer, restingZone, RETREAT_ARM };

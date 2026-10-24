@@ -5,7 +5,7 @@
 // (`checkSync`) and the verbs' refusals, which write nothing.
 
 import { PODRACER_TYPES, createPodracerState, stepPodracer, podracerParts, placePodracer, breakBinder, tornBinder, mendBinder, toggleDock } from '../../client/game/js/panels/podracer-model.js';
-import { _test as seat, mountRacer, dropSeat } from './seat.js';
+import { _test as seat, mountRacer, dropSeat, homeLot, seatContext, envelopeMph } from './seat.js';
 import { _test as idx, rigs, seated } from './index.js';
 import { _test as text, cmdPod } from './texthelm.js';
 import { displayRung, setDisplayRung, DISPLAY_MODE_FLAG } from '../../server/engine/presentation.js';
@@ -17,6 +17,11 @@ import { regionGates } from '../trucking/state.js';
 import { corridorPos, roomLenOf, nodeAt } from '../trucking/corridor.js';
 import { _test as voidTest } from '../voidwalking/index.js';
 import * as lot from './lot.js';
+import * as access from '../../server/engine/vehicle-access.js';
+import { noteRacerParked } from './seat.js';
+import { PODRACER_KIT, PART_EXCHANGE, cleanKit, podracerTuned, podracerLook, podracerLivery } from '../../client/game/js/panels/podracer-model.js';
+import { compileMesh } from '../../client/shared/vehicle-mesh.js';
+import { MESH_ROWS } from '../../client/shared/vehicle-meshes.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = PODRACER_TYPES.podracer;
@@ -568,6 +573,97 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // ── Parked in any shed ──────────────────────────────────────────────────────
+  //
+  // Every truck depot's bay room keeps racers too (lot.js isGarage): drive one into the shed door,
+  // park it, and it is there to take out again, though nothing there sells, services or paints one.
+  {
+    const SHED = 'zone_yard_dryrun';
+    const shed = getZone(SHED);
+    const door = getZone(shed?.flags?.world_exit_zone);
+    check('a truck shed is a garage for racers, and not a racer lot', lot.isGarage(shed) && !lot.isLot(shed));
+    check("a racer stopped on a truck shed's door parks in that shed", !!door && seat.bayLotAt(door.grid_x, door.grid_y) === SHED);
+    const start = seat.startOf({ park_zone: SHED, custom_data: {} });
+    check('…and comes out of the same door, facing out', !!start && start.x === door?.grid_x && start.y === door?.grid_y && start.heading === 180, JSON.stringify(start));
+    check('…and climbing out there leaves you in the shed',
+      seat.restingZone({ park_zone: 'zone_scw_1024_957' }, { x: door?.grid_x, y: door?.grid_y }).zoneId === SHED);
+    const dl = getZone('zone_yard_deadleg');
+    const dlDoor = getZone(dl?.flags?.world_exit_zone);
+    check("the Deadleg's shared door still parks a racer in the racer bay", seat.bayLotAt(dlDoor?.grid_x, dlDoor?.grid_y) === 'zone_racerbay_deadleg');
+    check('a racer with no home still goes to a racer bay', lot.isLot(getZone(homeLot())), homeLot());
+
+    const pl = getPlayer();
+    const id = 'pod_regress_shed';
+    const zone0 = pl.current_zone, cr0 = pl.credits;
+    try {
+      await query('DELETE FROM podracers WHERE id = $1', [id]);
+      await query(`INSERT INTO podracers (id, type_id, name, owner_id, park_zone, fuel, condition, custom_data)
+        VALUES ($1, 'skitter', 'Regress Shed Racer', $2, $3, 1, 1, '{}'::jsonb)`, [id, pl.id, SHED]);
+      pl.current_zone = SHED; pl.credits = 0;
+      const panel = await lot.racerPanel(pl, SHED);
+      check("the bay overlay's payload in a truck shed sells nothing", panel?.sells === false && panel.fleet.some((r) => r.id === id && r.inYard));
+      check('the racer counter is not dealt standing in a truck shed', (await idx.pushDepot(pl)) === false);
+      const cards = await lot.parkedCards(pl, [SHED, shed.flags.truck_depot.yard, door?.id]);
+      check("the truck counter's hook deals the racer as a card that seats you",
+        cards.length === 1 && cards[0].cmd === `podracer take ${id}` && cards[0].v?.cls === 'podracer', JSON.stringify(cards[0])?.slice(0, 120));
+      const yard = await run('yard text');
+      check("the truck yard's written counter lists it under the shed", /ALSO IN THE SHED/.test(yard?.message || '') && (yard?.message || '').includes('Regress Shed Racer'), yard?.message?.slice(0, 120));
+      check('podracer finds it parked in the shed', (await lot.racerHere(pl))?.id === id);
+      const buy = await run('podracer buy');
+      check('…but the truck shed sells no racers', /racer bay at the Deadleg/.test(buy?.message || ''), buy?.message?.slice(0, 80));
+    } finally {
+      await query('DELETE FROM podracers WHERE id = $1', [id]).catch(() => {});
+      pl.current_zone = zone0; pl.credits = cr0;
+    }
+  }
+
+  // ── Somebody else's, left on a tile ─────────────────────────────────────────
+  //
+  // Parked on an open tile, the owner can always climb in and anybody else only if it is unlocked
+  // (server/engine/vehicle-access.js). Parking locks it; `unlock` beside it leaves it open.
+  {
+    const pl = getPlayer();
+    const TILE = seat.standTileNear(1022.2, 960.1);
+    const OTHER = 'regress_other_owner';
+    const id = 'pod_regress_theirs', mineId = 'pod_regress_mine_tile';
+    const zone0 = pl.current_zone;
+    check('an open tile to leave a racer on', !!TILE && access.isOpenTile(TILE), TILE);
+    check('a truck shed is not an open tile', !access.isOpenTile('zone_yard_dryrun'));
+    check('the owner may board a locked vehicle', access.boardCheck(pl, { ownerId: pl.id, cd: { locked: true }, zoneId: TILE }).ok);
+    check('a stranger may not board a locked one', !access.boardCheck(pl, { ownerId: OTHER, cd: {}, zoneId: TILE }).ok);
+    check('…but may an unlocked one on an open tile', access.boardCheck(pl, { ownerId: OTHER, cd: { locked: false }, zoneId: TILE }).ok);
+    check('…and never one inside a depot', !access.boardCheck(pl, { ownerId: OTHER, cd: { locked: false }, zoneId: 'zone_yard_dryrun' }).ok);
+    try {
+      await query('DELETE FROM podracers WHERE id = ANY($1)', [[id, mineId]]);
+      await query(`INSERT INTO podracers (id, type_id, name, owner_id, park_zone, fuel, condition, custom_data)
+        VALUES ($1, 'skitter', 'Their Racer', $2, $3, 1, 1, '{"locked": true}'::jsonb)`, [id, OTHER, TILE]);
+      pl.current_zone = TILE;
+      const locked = await run('podracer');
+      check('podracer refuses somebody else\'s locked racer', /locked/i.test(locked?.message || '') && !seated.has(pl.id), locked?.message?.slice(0, 80));
+      await query(`UPDATE podracers SET custom_data = '{"locked": false}'::jsonb WHERE id = $1`, [id]);
+      check('…and finds it once it is unlocked', (await lot.racerHere(pl, null, { strangers: true }))?.id === id);
+      check('…though no verb but climbing in treats it as yours', (await lot.racerHere(pl)) === null);
+      noteRacerParked({ id, name: 'Their Racer', owner_id: OTHER, type_id: 'skitter' }, TILE, false);
+      check('the room says it is parked here, unlocked, with the way in', /Parked here:.*Their Racer.*unlocked/.test(access.parkedLine(TILE, pl)) && access.parkedLine(TILE, pl).includes(`podracer take ${id}`));
+      check('…and a locked one of somebody else\'s carries no way in', (noteRacerParked({ id, name: 'Their Racer', owner_id: OTHER }, TILE, true), !access.parkedLine(TILE, pl).includes('data-cmd')));
+      // Your own, and the latch from outside.
+      await query(`INSERT INTO podracers (id, type_id, name, owner_id, park_zone, fuel, condition, custom_data)
+        VALUES ($1, 'skitter', 'Mine On The Tile', $2, $3, 1, 1, '{}'::jsonb)`, [mineId, pl.id, TILE]);
+      noteRacerParked({ id: mineId, name: 'Mine On The Tile', owner_id: pl.id }, TILE, true);
+      const un = await run('unlock racer');
+      const cd = (await query('SELECT custom_data FROM podracers WHERE id = $1', [mineId])).rows[0]?.custom_data;
+      check('unlock beside your own racer leaves it open', /unlocked/.test(un?.message || '') && cd?.locked === false, un?.message?.slice(0, 80));
+      const lk = await run('lock racer');
+      const cd2 = (await query('SELECT custom_data FROM podracers WHERE id = $1', [mineId])).rows[0]?.custom_data;
+      check('…and lock shuts it again', cd2?.locked === true, lk?.message?.slice(0, 80));
+      check('nobody can unlock somebody else\'s', !(await lot.setRacerLocked(id, pl.id, false)));
+    } finally {
+      await query('DELETE FROM podracers WHERE id = ANY($1)', [[id, mineId]]).catch(() => {});
+      access.noteGone('racer', id); access.noteGone('racer', mineId);
+      pl.current_zone = zone0;
+    }
+  }
+
   // ── The verbs ───────────────────────────────────────────────────────────────
   {
     const pl = getPlayer();
@@ -594,5 +690,95 @@ export default async function regress({ run, check, getPlayer }) {
     } finally { pl.current_zone = zone0; pl.credits = cr0; }
     const sync = await run('podsync 1 2 3');
     check('podsync from somebody not seated is silent', sync == null || sync?.type !== 'error');
+  }
+
+  // ── The kit ─────────────────────────────────────────────────────────────────
+  {
+    const stock = podracerTuned('podracer', {});
+    check('a stock kit is the type row, its drag solved to the same top speed', stock.topSpeed === p.topSpeed && Math.abs(stock.dragE - p.dragE) < 1e-12);
+    check('a kit of nonsense is a stock kit', JSON.stringify(cleanKit({ engine: 9, shell: 'paper', bogus: 1, boost: 0, arc: 'blue' })) === '{}');
+    // Flat out on open ground for half a minute, launched: the turbine tune's top speed is reached.
+    const flatOut = (q) => { const s = createPodracerState(q, { docked: false }); s.running = true; for (let i = 0; i < 1800; i++) stepPodracer(s, { left: 1, right: 1, fuel: 1 }, q, DT); return s.speed; };
+    const pro = podracerTuned('podracer', { engine: 3 });
+    const v0 = flatOut(stock), v3 = flatOut(pro);
+    check('a pro turbine tune goes faster flat out, near its own top speed', v3 > v0 + 25 && Math.abs(v3 - pro.topSpeed) < pro.topSpeed * 0.05, `${v0.toFixed(0)} → ${v3.toFixed(0)} of ${pro.topSpeed.toFixed(0)}`);
+    check('…and it drinks for it', pro.burn > stock.burn && pro.heatUp > stock.heatUp);
+    // An armoured pod takes less from the same knock; a lightened one more. Docked, flat out, into a
+    // post only the pod's nose meets: the turbines either side of it pass clear.
+    const knock = (q) => { const s = createPodracerState(q); s.running = true; placePodracer(s, q, 0, 0, 0);
+      for (let i = 0; i < 400; i++) stepPodracer(s, { left: 1, right: 1, fuel: 1, solid: (x, y) => Math.abs(x) < 0.03 && y < -2.5 }, q, DT); return s.hull; };
+    const hS = knock(stock), hA = knock(podracerTuned('podracer', { shell: 'armour' })), hL = knock(podracerTuned('podracer', { shell: 'light' }));
+    check('an armoured shell takes less from a wall, a lightened one more', hA > hS && hL < hS, `armour ${hA.toFixed(3)} · stock ${hS.toFixed(3)} · light ${hL.toFixed(3)}`);
+    const longer = podracerTuned('podracer', { tether: 'long' }), shorter = podracerTuned('podracer', { tether: 'short' });
+    check('the tether choices change the cable length both ways', longer.cableLen > p.cableLen && shorter.cableLen < p.cableLen);
+
+    // The envelope reads the tuned row: a report at the pro tune's speed is taken, not called a jump.
+    const base = { x: 1024, y: 957, at: 1000, hull: 1, eng: [1, 1], fuel: 1, cables: [true, true], binder: true, heading: 0 };
+    // Two seconds between reports, so the tile of slack is small beside the distance.
+    const hot = podracerTuned('podracer', { engine: 3, boost: 3 });
+    const tiles = (envelopeMph(hot) / hot.tileMph) * 2 * 1.5 + 1 - 0.5, stockReach = (p.topSpeed / p.tileMph) * 2 * 1.5 + 1;
+    const pk = [1024 + tiles, 957, 90, 400, 1, 1, 1, 1, 1, 1, 3, 1, 1024 + tiles + 0.3, 957, 90];
+    check('the envelope takes a tuned racer at its own top end', seat.checkSync(base, pk, 3000, hot, () => ({ id: 'g' })).ok);
+    check('…which it refuses from a stock one', tiles > stockReach && !seat.checkSync(base, pk, 3000, p, () => ({ id: 'g' })).ok, `${tiles.toFixed(1)} vs ${stockReach.toFixed(1)}`);
+
+    // The fitting shop's sums: the difference to go up, part exchange less labour to come down.
+    const up = lot.fitQuote(p, {}, { engine: 2 }), down = lot.fitQuote(p, { engine: 2 }, {});
+    check('fitting a part costs its share and a labour charge', up.total === Math.round(PODRACER_KIT.engine.cost[2] * p.price) + up.labour && up.labour > 0, JSON.stringify(up));
+    check('…and taking it off gives part exchange back, less the labour', down.total < 0 && down.back === Math.round(PODRACER_KIT.engine.cost[2] * p.price * PART_EXCHANGE), JSON.stringify(down));
+    check('the verb reads words and numbers for a tier', JSON.stringify(lot.parseKit(['engine=race', 'boost=3', 'shell=armour'], {}).kit) === JSON.stringify({ engine: 2, boost: 3, shell: 'armour' }));
+    check('…and refuses a slot it does not know', !!lot.parseKit(['warp=9'], {}).err);
+    check('…and stock takes it all off', JSON.stringify(lot.parseKit(['stock'], { engine: 3, arc: 'red' }).kit) === '{}');
+
+    // The looks: each bolt-on opens its own channel and hides the stock part it replaces.
+    const look = podracerLook({ spinner: 'spike', fins: 'tall', pipes: 'long', arc: 'green', casing: 'gold' });
+    check('a look opens its part and hides the stock one', look.anim.kit_spike && look.anim.kit_spinner && look.anim.kit_fins_tall && look.anim.kit_fin && look.anim.kit_pipes);
+    check('…and carries the arc colour and the casing as a paint slot', look.arc?.[1] === 255 && podracerLivery(null, { casing: 'gold' })?.parts?.casing === '#c8a24a');
+    check('a stock racer opens no kit channel', Object.keys(podracerLook({}).anim).length === 0);
+    // Every channel a kit can open is drawn by at least one face in every racer's mesh.
+    const chans = new Set(Object.values(PODRACER_KIT).filter((s) => s.kind === 'look').flatMap((s) => Object.values(s.choices).flatMap((c) => [c.ch, c.hide]).filter(Boolean)));
+    for (const id of ['podracer', 'podracer_skitter', 'podracer_sledge']) {
+      const faces = compileMesh(MESH_ROWS[id] || {}, { detail: 1 }).faces;
+      const seen = new Set(faces.flatMap((f) => [f.when, f.whenNot]).filter(Boolean));
+      const missing = [...chans].filter((c) => !seen.has(c));
+      check(`${id}: every kit channel has faces`, !missing.length, missing.join(', '));
+      // Docked, the latch blades bridge the gap to the turbines; they rest stowed (cards, launched).
+      const blades = faces.filter((f) => f.anim?.ch === 'podStow');
+      check(`${id}: has latch blades on podStow, stowed at rest`, blades.length > 0 && blades.every((f) => f.anim.def === 1 && f.anim.slide?.[1] !== 0), String(blades.length));
+    }
+
+    // The verb, at the counter with no money: the menu, then a refusal with the price, nothing written.
+    const pl = getPlayer();
+    const id = 'pod_regress_kit';
+    const zone0 = pl.current_zone, cr0 = pl.credits;
+    // Credits are charged on the players row, which the harness player does not have: one is made
+    // for the paid fit and taken away again (the flight suite's setBalance).
+    const had = (await query('SELECT credits FROM players WHERE id = $1', [pl.id])).rows[0] || null;
+    try {
+      await query('DELETE FROM podracers WHERE id = $1', [id]);
+      await query(`INSERT INTO podracers (id, type_id, name, owner_id, park_zone, fuel, condition, custom_data)
+        VALUES ($1, 'podracer', 'Regress Kit Racer', $2, 'zone_racerbay_deadleg', 1, 1, '{}'::jsonb)`, [id, pl.id]);
+      pl.current_zone = 'zone_racerbay_deadleg'; pl.credits = 0;
+      const menu = await run(`podracer fit ${id}`);
+      check('podracer fit bare is the fitting shop menu', /FITTING SHOP/.test(menu?.message || '') && /engine/.test(menu?.message || ''), menu?.message?.slice(0, 80));
+      const broke = await run(`podracer fit ${id} engine=pro`);
+      check('…and a part you cannot pay for is refused with the bill', /wants/.test(broke?.message || '') && /You have/.test(broke?.message || ''), broke?.message?.slice(0, 100));
+      if (had) await query('UPDATE players SET credits = 100000 WHERE id = $1', [pl.id]);
+      else await query("INSERT INTO players (id, username, password_hash, handle, credits) VALUES ($1, $1, 'x', $1, 100000)", [pl.id]);
+      pl.credits = 100000;
+      const fit = await run(`podracer fit ${id} engine=2 arc=violet shell=armour`);
+      const row = (await query('SELECT custom_data FROM podracers WHERE id = $1', [id])).rows[0];
+      check('a fit is paid for and stored on the row', /fitting shop/i.test(fit?.message || '') && row?.custom_data?.kit?.engine === 2 && row.custom_data.kit.arc === 'violet' && pl.credits < 100000, fit?.message?.slice(0, 100));
+      const panel = await lot.racerPanel(pl, 'zone_racerbay_deadleg');
+      const card = panel?.fleet?.find((x) => x.id === id);
+      check("the counter's card carries the kit and what it is worth", card?.kit?.shell === 'armour' && card.kitWorth > 0);
+      check('…and a fitted racer sells for more than a stock one', card.resale > Math.round(p.price * lot.RESALE));
+      const ctx = seatContext({ id, type_id: 'podracer', condition: 1, fuel: 1, custom_data: row.custom_data }, { x: 1024, y: 957, heading: 0 }, pl.id);
+      check('the seat is handed the tuned row and the kit', ctx.params.topSpeed > p.topSpeed * 1.05 && ctx.kit.engine === 2, `${ctx.params.topSpeed}`);
+    } finally {
+      await query('DELETE FROM podracers WHERE id = $1', [id]).catch(() => {});
+      if (had) await query('UPDATE players SET credits = $2 WHERE id = $1', [pl.id, had.credits]).catch(() => {});
+      else await query('DELETE FROM players WHERE id = $1', [pl.id]).catch(() => {});
+      pl.current_zone = zone0; pl.credits = cr0;
+    }
   }
 }

@@ -20,26 +20,22 @@
 
 import { drawWireframe3D, themeColor } from './wireframe-plane.js';
 import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyles } from './vehicle-card.js';
-import { podracerServiceHost, podracerPreview } from './podracer-view.js';
+import { podracerServiceHost, podracerPreview, podracerKitPreview } from './podracer-view.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
   statsHtml, meterHtml, btnHtml, armHolds, shellClick, clearViewModes, noteAct, notePush,
   esc, money, clamp01, readyHtml } from './depot-shell.js';
 import { garageBed } from './garage-ambience.js';
-import { PODRACER_TYPES } from './podracer-model.js';
+import { PODRACER_TYPES, PODRACER_KIT, KIT_TIERS, cleanKit, kitValue, kitShare, kitQuote, podracerTuned, podracerStats, podracerLook, podracerLivery } from './podracer-model.js';
 
-const SCREENS = [['lot', 'Your racers', '⟰'], ['paint', 'Paint shop', '🎨'], ['dealer', 'For sale', '⊕'], ['rent', 'Hire', '⟲']];
+const SCREENS = [['lot', 'Your racers', '⟰'], ['fit', 'Fitting shop', '⚙'], ['paint', 'Paint shop', '🎨'], ['dealer', 'For sale', '⊕'], ['rent', 'Hire', '⟲']];
 
 // The dealer's bars, off the racer's own physics row (podracer-model.js), on a scale with room for
 // faster racers than this one. No second table of figures.
+// The fitting shop shows three more: how it holds its heat, how much the pod takes, the binder.
 const ROWS = [['speed', 'Speed'], ['pull', 'Pull'], ['turn', 'Turn'], ['cable', 'Cable'], ['tank', 'Range']];
-function racerStats(id) {
-  const p = PODRACER_TYPES[id];
-  if (!p) return null;
-  const n = (v, lo, hi) => clamp01((v - lo) / (hi - lo));
-  return { speed: n(p.topSpeed, 150, 420), pull: n(p.thrust, 30, 100), turn: n(p.turnRate, 30, 120),
-    cable: n(p.snapMphS, 1000, 4000), tank: n(p.tank / (p.burn ?? 1), 100, 400) };
-}
+const FIT_ROWS = [...ROWS, ['heat', 'Cooling'], ['tough', 'Pod'], ['binder', 'Binder']];
+const racerStats = (id, kit = null) => (PODRACER_TYPES[id] ? podracerStats(podracerTuned(id, kit)) : null);
 
 let st = null;   // the counter
 let sv = null;   // the bay overlay
@@ -57,7 +53,7 @@ export function openPodracerDepot(msg = {}) {
   // A push that names a racer you just bought or hired lands on the hand, where its key is.
   const tab = msg.fresh ? 'lot' : st?.tab || 'lot';
   if (!st) window.dispatchEvent(new Event('pane:claimed'));
-  st = { host, data: msg, tab, onSend: msg.onSend || st?.onSend || null, paintId: st?.paintId || null, work: null };
+  st = { host, data: msg, tab, onSend: msg.onSend || st?.onSend || null, paintId: st?.paintId || null, work: null, kitWork: null };
   draw();
   if (before != null) notePush(st.host.querySelector('.ds-counter'), before, msg.credits);
   garageBed('shed');
@@ -85,7 +81,7 @@ function draw() {
     <div class="pdd-flag" aria-hidden="true"></div>
     ${(d.exits || []).length ? `<div class="pdd-exits"><span class="ds-dim">Leave</span>${d.exits.map((x) =>
       `<button class="ds-btn ghost" type="button" data-cmd="${esc(x.dir)}">${esc(x.dir)} · ${esc(x.name)}</button>`).join('')}</div>` : ''}
-    <div class="ds-body">${st.tab === 'dealer' ? dealerBody(d) : st.tab === 'rent' ? rentBody(d) : st.tab === 'paint' ? paintShopBody(d) : lotBody(d)}</div>
+    <div class="ds-body">${st.tab === 'dealer' ? dealerBody(d) : st.tab === 'rent' ? rentBody(d) : st.tab === 'paint' ? paintShopBody(d) : st.tab === 'fit' ? fitShopBody(d) : lotBody(d)}</div>
   </div>`;
   const root = st.host.querySelector('.pdd-root');
   root.addEventListener('click', onClick);
@@ -102,7 +98,8 @@ function onClick(e) {
   const tab = e.target.closest?.('[data-tab]');
   if (tab && st) { st.tab = tab.dataset.tab; draw(); return; }
   const pick = e.target.closest?.('[data-pr]');
-  if (pick && st) { st.paintId = pick.dataset.pr; st.work = null; draw(); return; }
+  if (pick && st) { st.paintId = pick.dataset.pr; st.work = null; st.kitWork = null; draw(); return; }
+  if (fitClick(e, st, draw)) return;
   if (paintClick(e, st, draw)) return;
   const b = e.target.closest?.('[data-cmd]');
   if (b && !b.disabled && b.dataset.cmd) { noteAct(b); send(b.dataset.cmd); }
@@ -131,6 +128,7 @@ function lotBody(d) {
       : '';
     const acts = fetch || (r.inYard && !r.aboard ? [
       r.quote.total ? btnHtml(`Service · ${money(r.quote.total)}`, { cmd: `podracer service ${r.id}`, cls: 'vc-mini' }) : '',
+      r.rental ? '' : `<button class="vc-mini" type="button" data-fitgo="${esc(r.id)}" title="The fitting shop: parts and looks">⚙ Fit</button>`,
       r.rental ? '' : `<button class="vc-mini" type="button" data-paintgo="${esc(r.id)}" title="The spray booth">🎨 Paint</button>`,
       r.rental ? `<button class="vc-mini" data-hold="podracer return ${esc(r.id)}" title="Hand it back early, no refund">Hand it back</button>`
         : `<button class="vc-mini" data-hold="podracer sell ${esc(r.id)}" title="The yard buys it back">Sell · ${money(r.resale)}</button>`,
@@ -277,6 +275,83 @@ function paintShopBody(d) {
     </div>`;
 }
 
+// ── The fitting shop ─────────────────────────────────────────────────────────
+// A working kit (`ctx.kitWork`) over the racer's own: each button sets one slot of it, the figures
+// show the racer with it fitted against the racer as it stands, and the one button sends
+// `podracer fit` with the slots that changed. Nothing is spent until then. The bill is the yard's
+// own sum (podracer-model.js kitQuote), so it is the number the verb charges.
+const KIT_GROUPS = [['tiers', 'Performance', 'each part from stock to pro'], ['choice', 'Setup', 'no better or worse, only different'], ['look', 'Looks', 'the outside only']];
+const kitOf = (ctx, r) => cleanKit(ctx.kitWork != null ? ctx.kitWork : r.kit);
+const rgbCss = (c) => (Array.isArray(c) ? `rgb(${c.join(',')})` : c);
+function fitCmdOf(r, own, work) {
+  const t = Object.keys(PODRACER_KIT).filter((k) => kitValue(own, k) !== kitValue(work, k)).map((k) => `${k}=${kitValue(work, k)}`);
+  return `podracer fit ${r.id} ${t.join(' ')}`;
+}
+function fitPanelHtml(d, r, ctx, where) {
+  const price = PODRACER_TYPES[r.typeId]?.price || 0;
+  const own = cleanKit(r.kit), work = kitOf(ctx, r), q = kitQuote(price, own, work);
+  const pNow = podracerTuned(r.typeId, own), pNext = podracerTuned(r.typeId, work);
+  const row = (id, s) => {
+    const cur = kitValue(work, id), mine = kitValue(own, id);
+    const opts = s.kind === 'tiers' ? KIT_TIERS.map((w, i) => [i, w, s.cost[i], '']) : Object.entries(s.choices).map(([cid, c]) => [cid, c.label, c.cost, c.blurb || '']);
+    return `<div class="pdd-kitrow"><span class="pdd-kitlabel" title="${esc(s.blurb || '')}">${esc(s.label)}</span><div class="pdd-kitopts">${opts.map(([v, label, cost, blurb]) => {
+      const c = s.kind === 'look' ? s.choices[v].rgb : null;
+      const glow = id === 'arc' || id === 'flame';
+      const dot = c ? `<i class="pdd-kitdot" style="background:${rgbCss(c)}${glow ? ';box-shadow:0 0 7px ' + rgbCss(c) : ''}"></i>` : '';
+      const tip = [blurb || s.blurb, cost ? money(cost * price) + ' in all' : 'stock'].filter(Boolean).join(' · ');
+      return `<button class="pdd-fin${cur === v ? ' on' : ''}${mine === v ? ' mine' : ''}" type="button" data-kit="${id}:${v}" title="${esc(tip)}">${dot}${esc(label)}</button>`;
+    }).join('')}</div></div>`;
+  };
+  const groups = KIT_GROUPS.map(([kind, head, sub]) => `<div class="ds-panel"><div class="ds-panel-head"><b>${head}</b><span class="ds-dim">${sub}</span></div>
+      ${Object.entries(PODRACER_KIT).filter(([, s]) => s.kind === kind).map(([id, s]) => row(id, s)).join('')}</div>`).join('');
+  const dirty = q.slots > 0;
+  const bill = !dirty ? 'Nothing changed'
+    : `parts ${money(q.parts)} · labour ${money(q.labour)}${q.back ? ` · less ${money(q.back)} for the old parts` : ''}`;
+  const label = !dirty ? 'Fit it' : q.total >= 0 ? `Fit it · ${money(q.total)}` : `Fit it · ${money(-q.total)} back`;
+  const short = dirty && q.total > Number(d.credits || 0);
+  const top0 = Math.round(pNow.topSpeed), top1 = Math.round(pNext.topSpeed);
+  return `<div class="ds-panel"><div class="ds-panel-head"><b>The figures</b><span class="ds-dim">${where}</span></div>
+      ${statsHtml(FIT_ROWS, podracerStats(pNext), podracerStats(pNow))}
+      <div class="ds-dim ds-small">Flat out <b>${top0}${top1 !== top0 ? ' → ' + top1 : ''} mph</b> launched · boost ×${pNext.boost.toFixed(1)} · cables ${Math.round(pNext.cableLen * 42)} m</div></div>
+    ${groups}
+    <div class="ds-dim ds-small pdd-bill">${bill}</div>
+    <div class="ds-acts">${btnHtml(label, { cmd: dirty && !short ? fitCmdOf(r, own, work) : '', ico: '⚙', cls: 'primary', disabled: !dirty || short, why: !dirty ? 'Nothing changed' : short ? "You can't afford it" : '' })}
+      <button class="ds-btn ghost" type="button" data-unkit="1" ${ctx.kitWork != null ? '' : 'disabled'}>Put it back</button>
+      <button class="ds-btn ghost" type="button" data-kitstock="1" ${Object.keys(work).length ? '' : 'disabled'} title="Every part back to the factory's; the yard gives part exchange for what comes off">Strip to stock</button></div>`;
+}
+// Clicks inside a fitting panel: a slot, put back, strip. Changes `ctx.kitWork` and redraws.
+function fitClick(e, ctx, redraw) {
+  const r = paintRacerOf(ctx);
+  const kb = e.target.closest?.('[data-kit]');
+  if (kb && r) {
+    const [k, v] = kb.dataset.kit.split(':');
+    ctx.kitWork = cleanKit({ ...kitOf(ctx, r), [k]: PODRACER_KIT[k]?.kind === 'tiers' ? +v : v });
+    if (ctx === sv) podracerKitPreview(ctx.kitWork);
+    redraw(); return true;
+  }
+  if (e.target.closest?.('[data-unkit]')) { ctx.kitWork = null; if (ctx === sv) podracerKitPreview(null); redraw(); return true; }
+  if (e.target.closest?.('[data-kitstock]')) { ctx.kitWork = {}; if (ctx === sv) podracerKitPreview({}); redraw(); return true; }
+  const go = e.target.closest?.('[data-fitgo]');
+  if (go && ctx === st) { st.tab = 'fit'; st.paintId = go.dataset.fitgo; st.kitWork = null; draw(); return true; }
+  return false;
+}
+function fitShopBody(d) {
+  const mine = (d.fleet || []).filter((r) => !r.rental);
+  if (!mine.length) return '<p class="ds-hint">You own no racer to fit. The yard does not fit parts to its own hire stock.</p>';
+  const r = paintRacerOf(st);
+  const why = (x) => (x.aboard ? "you are sitting in it: the bay's Fit tab" : !x.inYard ? 'out at ' + x.where : '');
+  const pick = `<div class="pdd-picks">${mine.map((x) => {
+    const w = why(x);
+    return `<button class="pdd-fin${r && x.id === r.id ? ' on' : ''}" type="button" ${w ? 'disabled' : `data-pr="${esc(x.id)}"`} title="${esc(w || 'Fit this one')}">${esc(x.name)}${w ? ' · ' + esc(w) : ''}</button>`;
+  }).join('')}</div>`;
+  if (!r) return pick + "<p class=\"ds-hint\">None of yours is up on the blocks here. The fitting shop works on a racer in the bay: fetch one in, or bring yours into the shed door and use the bay's Fit tab.</p>";
+  return `${pick}<div class="pdd-booth">
+      <div class="vc-card ${cardStyleFor(r.id)} static pdd-boothcard"><canvas class="vc-cv" data-fitcard="${esc(r.id)}" aria-hidden="true"></canvas>
+        <span class="vc-plate"><b>${esc(r.name)}</b><span class="vc-sub">as it would come off the stands</span></span></div>
+      <div class="pdd-boothctl">${fitPanelHtml(d, r, st, 'with the parts you have picked')}</div>
+    </div>`;
+}
+
 function rentBody(d) {
   const cards = (d.rentStock || []).map((t) => {
     const why = d.hasRental ? 'You already have one out on hire' : t.afford ? '' : "You can't afford it";
@@ -306,6 +381,8 @@ function dealerBody(d) {
 }
 
 // ── The cards, painted, once per draw ────────────────────────────────────────
+// A racer on a card wears its kit: the bolt-ons on their mesh channels, the casing in its livery.
+const cardLook = (livery, kit) => { const l = podracerLivery(livery, kit); return { ...(l ? { livery: l } : {}), anim: podracerLook(kit).anim }; };
 function paintCards() {
   if (!st) return;
   const fleet = st.data?.fleet || [];
@@ -313,13 +390,19 @@ function paintCards() {
     const r = fleet.find((x) => x.id === cv.dataset.card);
     if (!r) continue;
     paintVehicleCard(cv, { style: cardStyleFor(r.id), seed: cardSeed(r.id), dim: !r.inYard,
-      v: { cls: 'podracer', variant: r.typeId, yaw: 0.7, fit: 2.1, elev: 0.3, ...(r.livery ? { livery: r.livery } : {}) } });
+      v: { cls: 'podracer', variant: r.typeId, yaw: 0.7, fit: 2.1, elev: 0.3, ...cardLook(r.livery, r.kit) } });
   }
   for (const cv of st.host.querySelectorAll('canvas[data-booth]')) {
     const r = fleet.find((x) => x.id === cv.dataset.booth);
     if (!r) continue;
     const l = st.work !== undefined && st.work !== null ? st.work : r.livery;
-    paintVehicleCard(cv, { style: cardStyleFor(r.id), seed: cardSeed(r.id), v: { cls: 'podracer', variant: r.typeId, yaw: 0.9, fit: 2.0, elev: 0.28, ...(l ? { livery: l } : {}) } });
+    paintVehicleCard(cv, { style: cardStyleFor(r.id), seed: cardSeed(r.id), v: { cls: 'podracer', variant: r.typeId, yaw: 0.9, fit: 2.0, elev: 0.28, ...cardLook(l, r.kit) } });
+  }
+  // The fitting shop's card: seen from behind, where the kit's pipes and fins are.
+  for (const cv of st.host.querySelectorAll('canvas[data-fitcard]')) {
+    const r = fleet.find((x) => x.id === cv.dataset.fitcard);
+    if (!r) continue;
+    paintVehicleCard(cv, { style: cardStyleFor(r.id), seed: cardSeed(r.id), v: { cls: 'podracer', variant: r.typeId, yaw: 2.4, fit: 2.0, elev: 0.28, ...cardLook(r.livery, kitOf(st, r)) } });
   }
   for (const cv of st.host.querySelectorAll('canvas[data-rent]')) {
     paintVehicleCard(cv, { style: cardStyleFor('hire:' + cv.dataset.rent), seed: cardSeed('hire:' + cv.dataset.rent),
@@ -362,7 +445,7 @@ export function openPodracerBay(msg) {
   const host = podracerServiceHost();
   if (!host) return;
   const was = sv;
-  sv = { data: msg, onSend: was?.onSend || msg.onSend || null, open: was ? was.open : true, tab: was?.tab || 'service', work: null };
+  sv = { data: msg, onSend: was?.onSend || msg.onSend || null, open: was ? was.open : true, tab: was?.tab || 'service', work: null, kitWork: null };
   garageBed('shed');
   drawBay();
   if (was) notePush(document.getElementById('pdd-bay'), was.data?.credits, msg.credits);
@@ -370,6 +453,7 @@ export function openPodracerBay(msg) {
 export function closePodracerBay() {
   if (!sv) return;
   podracerPreview(null);
+  podracerKitPreview(null);
   document.getElementById('pdd-bay')?.remove();
   garageBed(null);
   sv = null;
@@ -384,12 +468,29 @@ function drawBay() {
   const d = sv.data;
   const r = (d.fleet || []).find((x) => x.id === d.serviceId) || null;
   if (!sv.open) { el.innerHTML = bayChipHtml('⟰ the shed door'); return; }
-  const tab = sv.tab === 'paint' && r && !r.rental ? 'paint' : 'service';
-  const jobs = r ? jobsHtml([{ id: 'service', label: 'Service', ico: '⚙', ...jobState(r) },
-    ...(r.rental ? [] : [{ id: 'paint', label: 'Paint', ico: '🎨', sub: r.scheme === 'custom' ? 'your own' : ((d.schemes || []).find((x) => x.id === r.scheme)?.label || ''), tone: 'ok' }])], tab, 'data-svtab') : '';
-  // The booth shows its working paint on the racer you are sitting in; any other tab takes it off.
+  // A truck shed keeps racers and does nothing else to them (`sells` false): the way in, the way
+  // out, and where the work is done.
+  if (d.sells === false) {
+    podracerPreview(null);
+    el.innerHTML = bayHtml({
+      ico: '⟰', title: r?.name || 'the racer', sub: d.hereName || 'the shed door', credits: d.credits,
+      actions: btnHtml('Put it away', { cmd: 'podevent park', ico: '⟰', attrs: 'title="Leave it in the shed and climb out (Esc)"' }) + leaveHtml('Drive out'),
+      jobs: '', body: '<p class="ds-hint">This shed keeps racers. Service and paint are done at the racer bay at the Deadleg.</p>',
+      foot: 'Put it away and it stays here until you come back for it. Open the levers and it leaves the door.',
+    });
+    armHolds(el, send);
+    return;
+  }
+  const tab = (sv.tab === 'paint' || sv.tab === 'fit') && r && !r.rental ? sv.tab : 'service';
+  const fitted = r ? Object.keys(cleanKit(r.kit)).length : 0;
+  const jobs = r ? jobsHtml([{ id: 'service', label: 'Service', ico: '🔧', ...jobState(r) },
+    ...(r.rental ? [] : [{ id: 'fit', label: 'Fit', ico: '⚙', sub: fitted ? `${fitted} part${fitted > 1 ? 's' : ''} on` : 'factory spec', tone: 'ok' },
+      { id: 'paint', label: 'Paint', ico: '🎨', sub: r.scheme === 'custom' ? 'your own' : ((d.schemes || []).find((x) => x.id === r.scheme)?.label || ''), tone: 'ok' }])], tab, 'data-svtab') : '';
+  // The booth shows its working paint, and the fitting shop its working kit, on the racer you are
+  // sitting in; any other tab takes them off.
   podracerPreview(tab === 'paint' && sv.work ? sv.work : null);
-  const body = !r ? '<p class="ds-hint">It is not on the yard\'s books.</p>' : tab === 'paint' ? paintPanelHtml(d, r, sv, 'shown on it now') : `<div class="ds-panel">
+  podracerKitPreview(tab === 'fit' && sv.kitWork ? sv.kitWork : null);
+  const body = !r ? '<p class="ds-hint">It is not on the yard\'s books.</p>' : tab === 'paint' ? paintPanelHtml(d, r, sv, 'shown on it now') : tab === 'fit' ? fitPanelHtml(d, r, sv, 'shown on it now') : `<div class="ds-panel">
       <div class="ds-panel-head"><b>The racer</b><span class="ds-dim">${esc(r.typeName)}</span></div>
       ${meterHtml('pod', r.hull)}${meterHtml('left turbine', r.eng[0])}${meterHtml('right turbine', r.eng[1])}${meterHtml('tank', r.fuel)}
       <div class="ds-dim ds-small">Cables: ${r.cables.map((c, i) => `${i ? 'right' : 'left'} ${c ? 'whole' : '<b>cut</b>'}`).join(', ')} · Binder: ${r.binder === false ? '<b>torn out</b>' : 'holding'}</div>
@@ -419,7 +520,8 @@ function onBayClick(e) {
   if (!sv) return;
   if (shellClick(e, { fold: () => { sv.open = false; drawBay(); }, open: () => { sv.open = true; drawBay(); } })) return;
   const t = e.target.closest?.('[data-svtab]');
-  if (t) { sv.tab = t.dataset.svtab; sv.work = null; drawBay(); return; }
+  if (t) { sv.tab = t.dataset.svtab; sv.work = null; sv.kitWork = null; drawBay(); return; }
+  if (fitClick(e, sv, drawBay)) return;
   if (paintClick(e, sv, drawBay)) return;
   const b = e.target.closest?.('[data-cmd]');
   if (b && !b.disabled && b.dataset.cmd) { noteAct(b); send(b.dataset.cmd); }
@@ -449,6 +551,14 @@ function ensurePodDepotStyles() {
     .pdd-swatch i{ width:22px; height:22px; border-radius:4px; flex:none; border:1px solid rgba(255,255,255,.2); }
     .pdd-swatch.on, .pdd-fin.on{ border-color:var(--ds-accent); box-shadow:0 0 10px color-mix(in srgb, var(--ds-accent) 35%, transparent); }
     .pdd-swatch.mine span::after{ content:' ✓'; color:var(--ds-gain); }
+    .pdd-fin.mine::after{ content:' ✓'; color:var(--ds-gain); }
+    .pdd-kitrow{ display:grid; grid-template-columns:118px 1fr; align-items:center; gap:6px; margin-top:5px; font-size:12px; }
+    .pdd-kitlabel{ color:var(--ds-fg); cursor:help; }
+    .pdd-kitopts{ display:flex; flex-wrap:wrap; gap:5px; }
+    .pdd-kitopts .pdd-fin{ display:inline-flex; align-items:center; gap:5px; text-transform:none; }
+    .pdd-kitdot{ width:11px; height:11px; border-radius:50%; border:1px solid rgba(255,255,255,.3); flex:none; }
+    .pdd-bill{ margin:2px 2px 0; }
+    @media (max-width:520px){ .pdd-kitrow{ grid-template-columns:1fr; gap:3px; } }
     .pdd-insrow{ display:grid; grid-template-columns:64px 1fr; align-items:center; gap:6px; margin-top:4px; font-size:12px; }
     .pdd-chip.on{ border-color:var(--ds-accent); box-shadow:0 0 10px color-mix(in srgb, var(--ds-accent) 35%, transparent); }
     .pdd-chips, .pdd-fins, .pdd-picks{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }

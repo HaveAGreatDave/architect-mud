@@ -21,6 +21,11 @@ and parts.
 | `podracer` Rasp Twinspool | ₵31,000 | 146 / 306 mph | the middle of everything |
 | `sledge` Sledgehammer Twin | ₵58,000 | 135 / 337 mph | heavy, slow off the line and slow to turn, a binder good to 120 mph |
 
+The meshes share one detail pass: a smoother pod and turbine casing (more stations and facets,
+lighter at the far LOD through `lod0`), a bolted intake flange and a trim band round each casing,
+a metal-flake hull (`tex: 'flake'`) and a carbon paint slot (`tex: 'carbon'`) for the kit's parts.
+A lit turbine throws an exhaust plume, longer under the boost with shock diamonds down it.
+
 ## How it works
 
 - **The physics** is [podracer-model.js](../../client/game/js/panels/podracer-model.js), pure and
@@ -48,6 +53,11 @@ and parts.
   to full length in about a third of a second: the full 300. F again and each turbine flies itself
   back to its place beside the pod (closing no faster than about 30 mph, turning to the pod's
   heading) and the pins lock; the pod is never pulled. Docked, a knock can't tear the binder out.
+  When the pins lock, a carbon latch blade slides out of each flank of the pod into a socket cut in
+  the turbine's inner face (mesh `latch:fin` and `latch:socket`, on the `podStow` channel: 1 stowed,
+  how it rests on a card), so there is no daylight between the pod and a docked turbine, and it
+  latches with a thunk (`groundFx('latch')`). On a launch the blades go back in before the turbines
+  leave. Other players' racers take the blades from the docked pose.
 - **The binder is powered.** Launched, its stiffness follows its power: idle under 25 mph, a loose
   leash with each turbine steered by its own vane; full by 120 mph or 1.5 g of the pair's own
   acceleration, up in a fraction of a second and down over one. The arc follows it, from a stray
@@ -90,6 +100,53 @@ and parts.
   that can only go down; [seat.js](seat.js) refuses a report that moved further than the racer could
   have and puts the client back, refuses one over no ground at all (`edge`), and clamps the
   turbines' drawn offset to the cables. There is no bounding box.
+
+## The fitting shop
+
+Every racer can be built up its own way, in the racer bay: the counter's **Fitting shop** screen (and
+a ⚙ Fit button on each card), the bay overlay's **Fit** tab, or `podracer fit` typed. The kit is
+`custom_data.kit` on the row, holding only the slots changed from the factory's, and the catalog is
+`PODRACER_KIT` in [podracer-model.js](../../client/game/js/panels/podracer-model.js), shared by
+the server and the client so the price, the figures and the physics never disagree.
+
+- **Performance, stock to pro** (Stock, Street, Race, Pro). Each part scales numbers on the type's
+  row, and the strong ones cost something somewhere:
+
+  | slot | part | what it does | what it costs you |
+  |---|---|---|---|
+  | `engine` | Turbine tune | +6% thrust and +4.5% top speed a tier | burns 12% more a tier and heats faster |
+  | `boost` | Injectors | the boost +0.1 a tier (1.5 to 1.8) | heats 15% faster under it a tier |
+  | `cooling` | Heat exchangers | slower to heat, quicker to cool, slower to burn past the red | |
+  | `vanes` | Split vanes | turns harder, keeps more of the turn flat out, bites with less air | |
+  | `binder` | Binder coil | up sooner, stiffer, takes 10 mph more of a knock a tier | |
+  | `cables` | Cable rope | 15% more yank before a snap a tier, less stretch | |
+  | `brakes` | Air brakes | bigger petals, faster reversers | |
+  | `tank` | Fuel cell | 20% more range a tier | the pod is heavier |
+  | `reel` | Slingshot reel | the whip charges quicker and kicks harder | |
+
+- **Setup: no better or worse, only different.** The pod shell: `stock`, `light` (a fifth lighter
+  and quicker off the line, takes 35% more from a hit) or `armour` (takes 45% less, the turbines
+  20% less, heavier and 3% slower flat out). The tether: `short` (answers quicker, swings less,
+  whips weaker), `standard` or `long` (hangs out further, whips harder).
+- **Looks.** Bolt-on parts are mesh parts on their own channels (`when` in the mesh file, and
+  `whenNot` on the stock part they replace), opened by `podracerLook`: a spike or a
+  contra-rotating spinner, tall or shaved fins, ram-air scoops, afterburner cans, canards on the pod.
+  The turbine casing's finish (black chrome, gold, heat blued, white ceramic) paints the mesh's
+  `casing` slot by name (`podracerLivery`). The binder arc's colour and the exhaust plume's are
+  read by the renderer (`drawPodracerArc`, `drawPodracerPlume` in windshield.js). Other players
+  see all of it: the contact carries `anim`, the livery and the colours. A card at the counter wears
+  the kit too.
+- **The sums.** A tier or a choice costs its share of the type's price in all, so going up costs the
+  difference; a part taken off goes back as part exchange at 40% of what it cost; every slot changed
+  is labour, 0.4% of the price (`kitQuote`, which the counter shows and the verb charges). The
+  counter shows the bill and the figures with the parts fitted against the racer as it stands before
+  anything is spent. The yard buys a fitted racer back for a further 35% of what its kit cost. Hires
+  come stock and cannot be fitted.
+- **One row for everybody.** `podracerTuned(type, kit)` re-solves the drag so the terminal speed is
+  the new top speed. The seat steps it (`podracer_sim` `params`), the text helm steps it, and the
+  envelope checks each report against it; with injectors past the factory's it allows for the higher
+  terminal the boost holds (`envelopeMph` in [seat.js](seat.js)). Fitted in the shed door, the seat
+  swaps rows at once (`podracer_ctx` `params`).
 
 ## The highway
 
@@ -189,18 +246,33 @@ The racer bay is the fourth depot on the shell, to the standard in
   map colours and the marker RB on the Deadleg's interior map.
 - **Parking.** The seat has a **⏏ PARK & CLIMB OUT** button over the air brake, as well as Esc and
   the cockpit screen's EXIT key.
+- **Left out on a tile, it locks.** Parking locks the racer. On an open tile anybody can climb into
+  one that was left unlocked (`unlock racer` beside it), and the owner can always; see "Parked
+  vehicles" in [systems-world.md](../../docs/systems-world.md). Somebody who takes yours can race it
+  and park it, but the flatbed won't come for them, and it is still yours.
+- **Any truck shed keeps one.** Every truck depot's bay room is a garage for racers as well
+  ([lot.js](lot.js) `isGarage`). Stop in a truck shed's door and park, and the racer stays in that
+  room; `podracer` there brings it out through the same door. The truck counter shows it as a card
+  after the trucks (the `depot.parked` hook, `parkedCards`), and its log rung lists it under ALSO IN
+  THE SHED. Nothing else is done to a racer there: buying, hiring, handing back, selling, service,
+  paint and the flatbed's `podracer recover` stay in the racer bay, and the bay overlay in a truck
+  shed has only **Put it away** and **Drive out**. A racer kept in a truck shed shows faded on the
+  racer bay's counter with **Fetch it**, and the flatbed called from the seat takes it home to the
+  shed it lives in, unless the binder is torn, when it goes to the racer bay to be welded. The
+  Deadleg's racer bay shares its door with the truck shed, and a racer parked there goes to the racer bay.
 
 ## Player commands
 
 | Verb | What it does |
 |---|---|
-| `podracer` | Climb into your racer parked here. In the bay with none, lists the stock and yours |
+| `podracer` | Climb into your racer parked here, in the racer bay, a truck shed or out on the waste. In the bay with none, lists the stock and yours |
 | `podracer take <id>` | Climb into that racer, if it is parked where you stand (the counter's card) |
 | `podracer buy [type]` | Buy one (in the bay) |
 | `podracer hire [type]` | Hire one for two hours (in the bay) |
 | `podracer return [id]` | Hand a hire back (in the bay) |
 | `podracer sell [id]` | Sell one in the bay back to the yard for half its price, less repairs |
 | `podracer service [id]` | Repair the pod, both turbines and any snapped cable, and fill the tank: in the bay, or sitting in it in the shed door |
+| `podracer fit [id] [slot=value ...]` | The fitting shop: bare, the menu with this racer's kit and prices; `engine=race boost=2 arc=green`, a tier as 0-3 or its word, a choice by its id, or `stock` to take it all off. In the bay, or sitting in it in the shed door. Not on a hire |
 | `podracer paint [id] <scheme \| base=#hex trim=#hex finish=...>` | The spray booth: a scheme (factory, deadleg, icewater, hazard, nightshade, gunmetal, bone, verdigris) or your own pod and trim colours and a finish. 4% of the price, half that back to factory. In the bay, or sitting in it in the shed door, where it shows on the racer at once. Not on a hire |
 | `podracer recover [id]` | The yard's flatbed: in the seat, takes you and the racer back to its bay; in a bay, fetches one of yours from the waste. 3% of the price |
 | `podracer list`, `podracers` | Where your racers are and what shape they are in |
@@ -244,12 +316,15 @@ The type row in `PODRACER_TYPES` (podracer-model.js). Its comment block explains
 
 `podracers` (in `SCHEMA_SQL`): `id`, `type_id`, `name`, `owner_id`, `park_zone`, `fuel`, `condition`
 (the pod), `custom_data` (`eng` [left, right] turbine condition, `cables` [left, right] intact,
-`heading` when parked).
+`heading` when parked, `livery` the paint, `kit` the fitted parts: only the slots changed from the
+factory's, cleaned by `cleanKit` wherever it is read).
 
 ## Extension points
 
 - `zones.flags.podracer_lot`: a room that sells, hires, services and keeps racers. Its
   `world_exit_zone` is the bay door they come out of.
+- `zones.flags.truck_depot` (trucking's): a room that keeps racers, through the same door.
+- The `depot.parked` hook, answered with the racers parked in a truck depot.
 
 ## Not built
 

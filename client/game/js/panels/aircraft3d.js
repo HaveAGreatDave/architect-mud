@@ -5253,7 +5253,7 @@ export function drawTurntable(ctx, opts) {
 }
 
 // The paint step with no clear, for callers that already drew a backdrop.
-function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null, fit = 0, lift = 0, idleRoll = 0, budget = RASTER_BUDGET_PX }) {
+function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null, fit = 0, lift = 0, idleRoll = 0, budget = RASTER_BUDGET_PX, anim = null }) {
   // `variant` is the ground-vehicle channel.
   const faces = (wreck ? wreckFaces() : aircraftFaces(cls, 1, armed, variant)).map(poseAtRest);
   // Taildraggers sit nose-high: tilt the model (not the floor).
@@ -5324,7 +5324,9 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   const drawn = [];
   for (const face of faces) {
     if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
-    if (visorHidden(face)) continue;       // parked on the turntable she sits nose-CLOSED, so the hold isn't there to punch through her belly
+    // Parked on the turntable she sits nose-CLOSED, so the hold isn't there to punch through her belly.
+    // `anim` opens a mesh's own channels: a racer's kit parts (podracer-model.js podracerLook) on its card.
+    if (visorHidden(face, 0, anim)) continue;
     const P = face.p.map(v => { const t = modelV(v); return proj(t[0], t[1], t[2]); });
     if (P.some(q => q.z <= MODEL_NEAR_Z)) continue;
     // Newell's method for the normal, so a face with one collapsed edge (a cone tip) still has one.

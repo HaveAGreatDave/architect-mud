@@ -172,6 +172,219 @@ export const PODRACER_TYPES = {
   }),
 };
 
+// ── The kit: what the yard can fit ─────────────────────────────────────────────
+//
+// A racer's kit is `custom_data.kit` on its row: only the slots changed from the factory's, so `{}`
+// is a stock racer. Three kinds of slot:
+//
+//   tiers   the performance parts, 0 (stock) to 3. Each tier scales numbers on the type's row through
+//           `fx(p, t)`, and podracerTuned re-solves the drag so the terminal speed is the new top
+//           speed. Every part costs something somewhere: the turbine tune burns more and runs hotter,
+//           the injectors heat faster, the fuel cell weighs. `cost` is the share of the type's price
+//           each tier costs in all, so going from one tier to another costs the difference
+//   choice  a part with no better or worse, only different: the pod shell (light and fragile, or
+//           heavy and hard), the tether's length (a short one answers quicker, a long one whips harder)
+//   look    the outside only. `ch` is the mesh channel the part's faces draw on (vehicle-mesh.js
+//           `when`), `hide` the stock part's channel it replaces (`whenNot`); `rgb` is a colour the
+//           renderer reads (the binder's arc, the exhaust plume, the turbine casing's paint slot)
+//
+// Shared by the server (the envelope, the yard's prices) and the client (the seat, the counter's
+// figures), so the two never disagree about what a part does.
+export const KIT_TIERS = ['Stock', 'Street', 'Race', 'Pro'];
+const TIER_COST = [0, 0.05, 0.12, 0.22];
+export const PODRACER_KIT = {
+  engine: { kind: 'tiers', label: 'Turbine tune', cost: TIER_COST,
+    blurb: 'Reground blades, a richer fuel map and the governor wired open. More thrust and more top end; it drinks and it runs hot.',
+    fx: (p, t) => { p.thrust *= 1 + 0.06 * t; p.topSpeed *= 1 + 0.045 * t; p.burn *= 1 + 0.12 * t; p.heatUp *= 1 + 0.08 * t; } },
+  boost: { kind: 'tiers', label: 'Injectors', cost: TIER_COST,
+    blurb: 'Bigger jets in the afterburner can. The boost pulls harder and the turbines heat faster under it.',
+    fx: (p, t) => { p.boost += 0.1 * t; p.heatUp *= 1 + 0.15 * t; } },
+  cooling: { kind: 'tiers', label: 'Heat exchangers', cost: [0, 0.03, 0.07, 0.13],
+    blurb: 'Coolant jackets round the hot section. Slower to heat, quicker to cool, and slower to burn once it is past the red.',
+    fx: (p, t) => { p.heatUp *= 1 - 0.12 * t; p.heatDown *= 1 + 0.3 * t; p.burnHp *= 1 - 0.2 * t; } },
+  vanes: { kind: 'tiers', label: 'Split vanes', cost: TIER_COST,
+    blurb: 'Longer vanes on faster actuators. It turns harder low down, keeps more of the turn flat out, and bites with less air over it.',
+    fx: (p, t) => { p.turnRate *= 1 + 0.08 * t; p.turnHi = Math.min(0.85, p.turnHi + 0.05 * t); p.steerMax *= 1 + 0.1 * t; p.vaneMph -= 8 * t; } },
+  binder: { kind: 'tiers', label: 'Binder coil', cost: [0, 0.04, 0.1, 0.18],
+    blurb: 'A hotter coil in the emitters. The binder comes up sooner, flexes less and takes a harder knock before it tears out.',
+    fx: (p, t) => { p.binderMph += 10 * t; p.binderComp *= 1 - 0.12 * t; p.binderFullMph -= 15 * t; } },
+  cables: { kind: 'tiers', label: 'Cable rope', cost: [0, 0.02, 0.05, 0.09],
+    blurb: 'Heavier wire rope, swaged ends. It takes a harder yank before it snaps, and stretches less.',
+    fx: (p, t) => { p.snapMphS *= 1 + 0.15 * t; p.cableComp *= 1 - 0.15 * t; } },
+  brakes: { kind: 'tiers', label: 'Air brakes', cost: [0, 0.02, 0.05, 0.09],
+    blurb: 'Bigger petals on the turbines and the pod. It stops shorter, and the reversers back it up a little faster.',
+    fx: (p, t) => { p.airBrake *= 1 + 0.25 * t; p.revMph += 3 * t; p.revThrust += 3 * t; } },
+  tank: { kind: 'tiers', label: 'Fuel cell', cost: [0, 0.02, 0.04, 0.07],
+    blurb: 'A bladder cell in the pod. It goes further on a fill and the pod is that much heavier for it.',
+    fx: (p, t) => { p.tank *= 1 + 0.2 * t; p.burn /= 1 + 0.2 * t; p.mP *= 1 + 0.03 * t; } },
+  reel: { kind: 'tiers', label: 'Slingshot reel', cost: [0, 0.03, 0.07, 0.12],
+    blurb: 'A spring reel on each cable. A slide charges the whip quicker and it kicks harder when you let it go.',
+    fx: (p, t) => { p.whipMax += 0.08 * t; p.whipCharge *= 1 - 0.1 * t; p.whipHold *= 1 + 0.08 * t; } },
+  shell: { kind: 'choice', label: 'Pod shell', def: 'stock', choices: {
+    stock: { label: 'Stock tub', cost: 0, blurb: 'The tub it came with.' },
+    light: { label: 'Lightened', cost: 0.06, blurb: 'Drilled ribs and a thinner skin. The pod is a fifth lighter, swings less and is quicker off the line; it folds up sooner when it hits something.',
+      fx: (p) => { p.mP *= 0.82; p.hullK *= 1.35; p.topSpeed *= 1.015; } },
+    armour: { label: 'Armoured', cost: 0.08, blurb: 'Plate bolted over the tub. The pod shrugs off what would fold a stock one; it is heavier, slower off the line and a little slower flat out.',
+      fx: (p) => { p.mP *= 1.25; p.hullK *= 0.55; p.engK *= 0.8; p.topSpeed *= 0.97; } },
+  } },
+  tether: { kind: 'choice', label: 'Tether length', def: 'standard', choices: {
+    standard: { label: 'Standard', cost: 0, blurb: 'The cables it came with.' },
+    short: { label: 'Short', cost: 0.01, blurb: 'Cut a sixth shorter. The pod answers the turbines quicker and swings less, and the whip is weaker.',
+      fx: (p) => { p.cableLen *= 0.85; p.swingDamp *= 0.8; p.whipMax *= 0.8; } },
+    long: { label: 'Long', cost: 0.01, blurb: 'Spliced a sixth longer. The pod hangs out further, swings more and whips harder.',
+      fx: (p) => { p.cableLen *= 1.15; p.swingDamp *= 1.15; p.whipMax *= 1.2; p.whipCharge *= 0.9; } },
+  } },
+  spinner: { kind: 'look', label: 'Spinner', def: 'stock', choices: {
+    stock: { label: 'Dome', cost: 0 },
+    spike: { label: 'Spike', cost: 0.008, ch: 'kit_spike', hide: 'kit_spinner' },
+    twin: { label: 'Contra-rotating', cost: 0.012, ch: 'kit_twin', hide: 'kit_spinner' },
+  } },
+  fins: { kind: 'look', label: 'Fins', def: 'stock', choices: {
+    stock: { label: 'Stock', cost: 0 },
+    tall: { label: 'Tall', cost: 0.01, ch: 'kit_fins_tall', hide: 'kit_fin' },
+    none: { label: 'Shaved', cost: 0.004, hide: 'kit_fin' },
+  } },
+  scoops: { kind: 'look', label: 'Scoops', def: 'none', choices: {
+    none: { label: 'None', cost: 0 },
+    ram: { label: 'Ram air', cost: 0.01, ch: 'kit_scoop' },
+  } },
+  pipes: { kind: 'look', label: 'Jet pipes', def: 'stock', choices: {
+    stock: { label: 'Stock', cost: 0 },
+    long: { label: 'Afterburner cans', cost: 0.012, ch: 'kit_pipes' },
+  } },
+  wings: { kind: 'look', label: 'Pod wings', def: 'none', choices: {
+    none: { label: 'None', cost: 0 },
+    canard: { label: 'Canards', cost: 0.01, ch: 'kit_canard' },
+  } },
+  casing: { kind: 'look', label: 'Turbine casing', def: 'bare', choices: {
+    bare: { label: 'Bare alloy', cost: 0 },
+    black: { label: 'Black chrome', cost: 0.012, rgb: '#26282e' },
+    gold: { label: 'Gold anodised', cost: 0.015, rgb: '#c8a24a' },
+    blued: { label: 'Heat blued', cost: 0.012, rgb: '#4a5a9a' },
+    white: { label: 'White ceramic', cost: 0.012, rgb: '#e6e4de' },
+  } },
+  arc: { kind: 'look', label: 'Binder arc', def: 'blue', choices: {
+    blue: { label: 'Blue', cost: 0, rgb: [120, 200, 255] },
+    green: { label: 'Green', cost: 0.008, rgb: [110, 255, 150] },
+    red: { label: 'Red', cost: 0.008, rgb: [255, 90, 70] },
+    violet: { label: 'Violet', cost: 0.008, rgb: [190, 120, 255] },
+    gold: { label: 'Gold', cost: 0.008, rgb: [255, 200, 90] },
+    white: { label: 'White', cost: 0.008, rgb: [235, 240, 255] },
+  } },
+  flame: { kind: 'look', label: 'Exhaust', def: 'amber', choices: {
+    amber: { label: 'Amber', cost: 0, rgb: [255, 150, 60] },
+    blue: { label: 'Blue', cost: 0.008, rgb: [90, 160, 255] },
+    green: { label: 'Green', cost: 0.008, rgb: [110, 255, 130] },
+    violet: { label: 'Violet', cost: 0.008, rgb: [200, 110, 255] },
+    white: { label: 'White hot', cost: 0.008, rgb: [240, 236, 255] },
+  } },
+};
+
+/** The kit with every slot it does not know, and every value out of range, dropped. */
+export function cleanKit(kit) {
+  const out = {};
+  if (!kit || typeof kit !== 'object') return out;
+  for (const [k, v] of Object.entries(kit)) {
+    const s = PODRACER_KIT[k];
+    if (!s) continue;
+    if (s.kind === 'tiers') { const t = Math.round(Number(v)); if (t >= 1 && t <= 3) out[k] = t; }
+    else if (s.choices[v] && v !== s.def) out[k] = v;
+  }
+  return out;
+}
+/** A slot's value on a kit: a tier, or a choice's id. */
+export const kitValue = (kit, k) => { const s = PODRACER_KIT[k]; return s.kind === 'tiers' ? (kit?.[k] | 0) : (s.choices[kit?.[k]] ? kit[k] : s.def); };
+/** What a slot at value `v` costs in all, as a share of the type's price. */
+export const kitShare = (k, v) => { const s = PODRACER_KIT[k]; return s.kind === 'tiers' ? s.cost[v | 0] || 0 : s.choices[v]?.cost || 0; };
+/** What the whole kit cost, in credits, on a racer of this price: the part of it the yard will buy back. */
+export const kitWorth = (kit, price) => Math.round(Object.keys(PODRACER_KIT).reduce((a, k) => a + kitShare(k, kitValue(kit, k)), 0) * price);
+
+// What the fitting shop charges to swap a part, whatever it is, as a share of the type's price, and
+// what it gives for a part that comes off: that share of what the part cost, as part exchange.
+export const FIT_LABOUR = 0.004, PART_EXCHANGE = 0.4;
+/** The bill for going from kit `a` to kit `b` on a racer of this price: parts, labour, part exchange, net. */
+export function kitQuote(price, a, b) {
+  let parts = 0, back = 0, slots = 0;
+  for (const k of Object.keys(PODRACER_KIT)) {
+    const was = kitValue(a, k), now = kitValue(b, k);
+    if (was === now) continue;
+    slots++;
+    const d = kitShare(k, now) - kitShare(k, was);
+    if (d > 0) parts += d; else back += -d * PART_EXCHANGE;
+  }
+  const P = price || 0, pr = Math.round(parts * P), bk = Math.round(back * P), labour = Math.round(slots * FIT_LABOUR * P);
+  return { parts: pr, labour, back: bk, total: pr + labour - bk, slots };
+}
+
+const TUNED = new Map();
+/**
+ * The type's row with the kit's parts fitted: the numbers the seat steps, the server checks and the
+ * counter shows. Memoised on the type and the kit, so a caller per report costs a map lookup.
+ */
+export function podracerTuned(typeId, kit) {
+  const base = PODRACER_TYPES[typeId] || PODRACER_TYPES.podracer;
+  const k = cleanKit(kit);
+  const key = (PODRACER_TYPES[typeId] ? typeId : 'podracer') + JSON.stringify(k);
+  if (TUNED.has(key)) return TUNED.get(key);
+  const p = { ...base, hullK: 1, engK: 1 };
+  for (const [slot, v] of Object.entries(k)) {
+    const s = PODRACER_KIT[slot];
+    if (s.kind === 'tiers') s.fx(p, v);
+    else s.choices[v]?.fx?.(p);
+  }
+  p.dragE = (2 * p.mE * p.thrust / (p.topSpeed * p.topSpeed) - p.mP * p.dragP) / (2 * p.mE);
+  p.kit = k;
+  if (TUNED.size > 200) TUNED.clear();
+  TUNED.set(key, p);
+  return p;
+}
+
+/**
+ * How a kit looks: the mesh channels it opens (on for its own parts, on for each stock part it
+ * hides, the `whenNot` side) and the colours the renderer reads. Every caller that draws a racer
+ * passes `anim` and `look` from here, the seat for its own and the contact for everybody else's.
+ */
+export function podracerLook(kit) {
+  const k = cleanKit(kit), anim = {};
+  let arc = null, flame = null, casing = null;
+  for (const [slot, s] of Object.entries(PODRACER_KIT)) {
+    if (s.kind !== 'look') continue;
+    const c = s.choices[k[slot] || s.def];
+    if (c.ch) anim[c.ch] = 1;
+    if (c.hide) anim[c.hide] = 1;
+    if (slot === 'arc' && k.arc) arc = c.rgb;
+    if (slot === 'flame') flame = c.rgb;
+    if (slot === 'casing' && c.rgb) casing = c.rgb;
+  }
+  return { anim, arc, flame, casing };
+}
+
+/**
+ * The livery the renderer is handed for a racer: its paint, with the kit's turbine casing as the
+ * mesh's `casing` slot painted by name (liveryPalette `parts`). An unpainted racer with a coloured
+ * casing is still factory paint everywhere else.
+ */
+export function podracerLivery(livery, kit) {
+  const c = PODRACER_KIT.casing.choices[cleanKit(kit).casing]?.rgb;
+  if (!c) return livery || null;
+  return { ...(livery && livery.base ? livery : { ...(livery || {}), pattern: 'factory' }), parts: { ...(livery?.parts || {}), casing: c } };
+}
+
+/** The counter's bars for a tuned row, each 0..1 on a scale with room above the Sledgehammer at Pro. */
+export function podracerStats(p) {
+  const n = (v, lo, hi) => clamp((v - lo) / (hi - lo), 0, 1);
+  return {
+    speed: n(p.topSpeed, 150, 420),
+    pull: n(p.thrust * (2 * p.mE) / (2 * p.mE + p.mP), 20, 90),
+    turn: n(p.turnRate * (0.5 + p.turnHi), 30, 130),
+    cable: n(p.snapMphS, 1000, 5000),
+    tank: n(p.tank / (p.burn ?? 1), 80, 420),
+    heat: n(p.heatDown / p.heatUp, 0.2, 1.6),
+    tough: n(1 / (p.hullK ?? 1), 0.5, 2),
+    binder: n(p.binderMph, 60, 160),
+  };
+}
+
 // The ground under it. A racer hovers, so the ground costs drag and grip, never traction. Cliffs and
 // buildings are not here: the caller's `solid(x, y)` answers those.
 export const PODRACER_GROUND = {
@@ -775,7 +988,7 @@ function collide(s, p, input, start) {
     const hit = pointMph(b, u, p.engHalfLen);
     bounce(b);
     const cost = Math.max(0, hit - p.freeMph);
-    if (cost > 0) s.engHp[i] = clamp(s.engHp[i] - cost * cost * 0.00012, 0, 1);
+    if (cost > 0) s.engHp[i] = clamp(s.engHp[i] - cost * cost * 0.00012 * (p.engK ?? 1), 0, 1);
     s.events.push({ type: 'hit', part: i ? 'right' : 'left', mph: Math.round(hit) });
     s.hitThisStep = Math.max(s.hitThisStep, hit);
     if (s.engHp[i] <= 0) s.events.push({ type: 'engineout', engine: i });
@@ -788,7 +1001,7 @@ function collide(s, p, input, start) {
     const hit = pointMph(P, 0, p.podHalfLen);
     bounce(P);
     const cost = Math.max(0, hit - p.freeMph);
-    if (cost > 0) s.hull = clamp(s.hull - cost * cost * 0.00009, 0, 1);
+    if (cost > 0) s.hull = clamp(s.hull - cost * cost * 0.00009 * (p.hullK ?? 1), 0, 1);
     s.events.push({ type: 'hit', part: 'pod', mph: Math.round(hit) });
     s.hitThisStep = Math.max(s.hitThisStep, hit);
     if (s.hull <= 0 && !s.wrecked) { s.wrecked = true; s.events.push('wrecked'); }
@@ -892,6 +1105,7 @@ export function podracerPose(s, p) {
     cables: parts.cables.map((c) => c.ok), slack: parts.cables.map((c) => +c.slack.toFixed(3)),
     binder: s.binder, live: !!s.running, strain: +(s.binderStrain || 0).toFixed(3),
     docked: s.mode !== 'launched', power: +(s.binderPower || 0).toFixed(2),
+    thr: +(((s.pedal[0] || 0) + (s.pedal[1] || 0)) / 2).toFixed(2), boost: !!s.boosting,
   };
 }
 
@@ -929,8 +1143,18 @@ export function podracerModelPose(pose, podHdg, p) {
     // Each turbine's own centre, posed: a face measures which way is out from its own solid, never
     // from the pod, or a turbine docked beside the pod turned its inner side inside out (see-through).
     cen: { L: L([rest.L[0], rest.L[1], eh]), R: R([rest.R[0], rest.R[1], eh]) },
-    binder: pose.binder !== false && !pose.docked ? { a: tip('L', L), b: tip('R', R), live: pose.live !== false, strain: pose.strain || 0, power: pose.power ?? 1 } : null,
+    binder: pose.binder !== false && !pose.docked ? { a: tip('L', L), b: tip('R', R), live: pose.live !== false, strain: pose.strain || 0, power: pose.power ?? 1, rgb: pose.arc || null } : null,
     docked: !!pose.docked,
+    // The exhaust plumes (drawPodracerPlume in windshield.js): each turbine's nozzle and a point
+    // straight aft of it, posed, and how hard it is burning.
+    plume: pose.live !== false && (pose.thr || 0) > 0.02 ? {
+      thr: pose.thr || 0, boost: !!pose.boost, rgb: pose.flame || null,
+      ends: ['L', 'R'].map((k) => {
+        // Off the nozzle, or off the afterburner can's lip with the kit's jet pipes (mesh 'kit:afterburner can').
+        const mv = k === 'L' ? L : R, f0 = rest[k][0] - (pose.pipes ? 0.39 : 0.285) * ls;
+        return { a: mv([f0, rest[k][1], eh]), b: mv([f0 - 0.4 * ls, rest[k][1], eh]), r: 0.04 * rs };
+      }),
+    } : null,
     cables: [
       { a: att('L', L), b: ring, ok: pose.cables?.[0] !== false, slack: pose.slack?.[0] || 0 },
       { a: att('R', R), b: ring, ok: pose.cables?.[1] !== false, slack: pose.slack?.[1] || 0 },

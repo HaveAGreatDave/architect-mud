@@ -674,7 +674,11 @@ function emitPart(p, faces, cx, path, srcs) {
 // wants enough stations along that axis for the ramp to read as a gradient: heat tint down a nozzle,
 // a fade on a stripe.
 const RAMP_AXIS = { f: 0, g: 1, h: 2 };
-export const MESH_TEX = ['plastic', 'fabric', 'leather', 'rubber', 'brushed', 'cast', 'paint', 'wood', 'carpet'];
+export const MESH_TEX = ['plastic', 'fabric', 'leather', 'rubber', 'brushed', 'cast', 'paint', 'wood', 'carpet', 'carbon', 'flake'];
+// The shader's surface kind for each (texHeight in gl/solids.js). The first nine are their place in the
+// list; carbon and flake came after 10 to 12 were taken (cabin glass, gelcoat, copper), so they are named.
+const TEX_KIND = { carbon: 13, flake: 14 };
+export const meshTexKind = (t) => TEX_KIND[t] || MESH_TEX.indexOf(t) + 1;
 function rampPos(pts, axis) {
   const k = RAMP_AXIS[axis] ?? 0;
   let t = 0;

@@ -26,7 +26,7 @@ import {
 } from './tag-bake.js';
 export { tagHandList, tagFaceList, tagWordList, tagLayoutOf, tagPreview } from './tag-bake.js';
 // A mesh file's moving parts — wings that swing out, anything on a hinge — posed per aircraft here.
-import { animFacePoints, MESH_TEX } from '../../../shared/vehicle-mesh.js';
+import { animFacePoints, meshTexKind } from '../../../shared/vehicle-mesh.js';
 import { PODRACER_TYPES, podracerModelPose, podracerRest, podracerEngH, podracerScale } from './podracer-model.js';
 import { metalKOf } from '../../../shared/vehicle-materials.js';   // what a vehicle's exterior is made of, face by face
 import { hfCastFor, hfTint, hfSkinFor } from '../../../shared/hf-tint.js';
@@ -36411,7 +36411,7 @@ function podracerCableFaces(cab) {
 // binder would otherwise slide its own grain across itself. A boat's painted hull keeps its gelcoat.
 function faceTexRec(face, src, metal, dp, cls) {
   const t = face.paint && typeof face.paint === 'object' ? face.paint.tex : null;
-  const k = t ? MESH_TEX.indexOf(t) + 1 : 0;
+  const k = t ? meshTexKind(t) : 0;
   if (k > 0) {
     const sc = meshParams(cls)?.classFacts?.metres || 6;
     const base = src && src.p && src.p.length === dp.length ? src.p : dp;
@@ -36446,6 +36446,10 @@ function drawPodracerArc(ctx, P, bd, now, hidden = null) {
   // A cheap repeatable noise per bolt per tick, so a still frame does not shimmer between draws.
   let seed = 0;
   const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296 - 0.5; };
+  // Its colour: the kit's (podracer-model.js PODRACER_KIT.arc), blue as it left the factory. Every
+  // shade below is that one colour: the halo half of it, the core most of the way to white.
+  const AC = bd.rgb || ARC_BLUE, ac = (k, w = 0) => AC.map((v) => Math.round(Math.min(255, v * k + (255 - v * k) * w))).join(',');
+  const HALO = ac(0.5), MID = ac(1), CORE = ac(1, 0.85), AIR = ac(0.75), AIR0 = ac(0.33), EMIT = ac(1, 0.55);
   const d = [bd.b[0] - bd.a[0], bd.b[1] - bd.a[1], bd.b[2] - bd.a[2]];
   const len = Math.hypot(d[0], d[1], d[2]) || 1;
   const amp = len * (0.16 + 0.22 * strain);
@@ -36496,7 +36500,7 @@ function drawPodracerArc(ctx, P, bd, now, hidden = null) {
   if (seeA && seeB) {
     const mx = (a.sx + b.sx) / 2, my = (a.sy + b.sy) / 2, r = span * 0.75;
     const g = ctx.createRadialGradient(mx, my, 0, mx, my, r);
-    g.addColorStop(0, `rgba(90,160,255,${0.2 * power})`); g.addColorStop(1, 'rgba(40,90,255,0)');
+    g.addColorStop(0, `rgba(${AIR},${0.2 * power})`); g.addColorStop(1, `rgba(${AIR0},0)`);
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(mx, my, r, 0, 7); ctx.fill();
   }
   // The emitters' glow.
@@ -36504,7 +36508,7 @@ function drawPodracerArc(ctx, P, bd, now, hidden = null) {
     if (!q) continue;
     const r = W * 5 * (0.8 + 0.4 * power);
     const g = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, r);
-    g.addColorStop(0, `rgba(200,235,255,${0.9 * power})`); g.addColorStop(0.3, `rgba(90,170,255,${0.45 * power})`); g.addColorStop(1, 'rgba(40,90,255,0)');
+    g.addColorStop(0, `rgba(${EMIT},${0.9 * power})`); g.addColorStop(0.3, `rgba(${AIR},${0.45 * power})`); g.addColorStop(1, `rgba(${AIR0},0)`);
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.sx, q.sy, r, 0, 7); ctx.fill();
   }
   const bolts = !bd.live || pw < 0.15 ? 1 : pw < 0.5 ? 2 : 3;
@@ -36512,9 +36516,9 @@ function drawPodracerArc(ctx, P, bd, now, hidden = null) {
     const pts = bolt(k, bd.a, bd.b, 9, k ? 1 : 0.7);
     if (!pts) continue;
     const pk = power * (k ? 0.7 : 1);
-    stroke(pts, W * 4, `rgba(60,120,255,${0.16 * pk})`);
-    stroke(pts, W * 1.8, `rgba(120,200,255,${0.5 * pk})`);
-    stroke(pts, Math.max(0.7, W * 0.55), `rgba(235,248,255,${0.95 * pk})`);
+    stroke(pts, W * 4, `rgba(${HALO},${0.16 * pk})`);
+    stroke(pts, W * 1.8, `rgba(${MID},${0.5 * pk})`);
+    stroke(pts, Math.max(0.7, W * 0.55), `rgba(${CORE},${0.95 * pk})`);
     // The odd fork off a bolt, gone by the next tick.
     seed = (tick * 97 + k * 13) >>> 0;
     if (rnd() > 0.1 - 0.3 * strain) {
@@ -36522,9 +36526,54 @@ function drawPodracerArc(ctx, P, bd, now, hidden = null) {
         bd.a[0] + d[0] * i / 9, bd.a[1] + d[1] * i / 9, bd.a[2] + d[2] * i / 9];
       const end = [base[0] + rnd() * amp * 1.6, base[1] + rnd() * amp * 0.6, base[2] + rnd() * amp * 1.6];
       const fork = bolt(k + 17, base, end, 3, 0.8);
-      if (fork) { stroke(fork, W * 1.2, `rgba(120,200,255,${0.35 * pk})`); stroke(fork, Math.max(0.6, W * 0.4), `rgba(235,248,255,${0.7 * pk})`); }
+      if (fork) { stroke(fork, W * 1.2, `rgba(${MID},${0.35 * pk})`); stroke(fork, Math.max(0.6, W * 0.4), `rgba(${CORE},${0.7 * pk})`); }
     }
   }
+  } finally { ctx.restore(); }
+}
+const ARC_BLUE = [120, 200, 255], PLUME_AMBER = [255, 150, 60];
+// THE EXHAUST: a plume of light out of each turbine's nozzle, as long as the spools are turning and
+// half as long again under the boost, with shock diamonds down it while the boost is lit. Light, like
+// the arc ('lighter', no faces), in the kit's colour (PODRACER_KIT.flame). `pl` is the pose's plume
+// (podracerModelPose): each nozzle and a point straight aft of it, already posed.
+function drawPodracerPlume(ctx, P, pl, now, hidden = null) {
+  if (!ctx || !pl) return;
+  const C = pl.rgb || PLUME_AMBER, t = (now || 0) / 1000;
+  const col = (k, w = 0) => C.map((v) => Math.round(Math.min(255, v * k + (255 - v * k) * w))).join(',');
+  const HOT = col(1, 0.75), MID = col(1), EDGE = col(0.55);
+  const len = clamp(0.25 + 0.75 * pl.thr, 0, 1) * (pl.boost ? 1.5 : 1);
+  ctx.save();
+  try {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    pl.ends.forEach((e, i) => {
+      // Tested a little aft of the nozzle: the nozzle itself is inside the turbine's own capsule.
+      if (hidden && hidden([e.a[0] + (e.b[0] - e.a[0]) * 0.3, e.a[1] + (e.b[1] - e.a[1]) * 0.3, e.a[2] + (e.b[2] - e.a[2]) * 0.3])) return;
+      const flick = 0.85 + 0.15 * Math.sin(t * 37 + i * 2.1) * Math.sin(t * 23 + i);
+      const L = len * flick, tip = [e.a[0] + (e.b[0] - e.a[0]) * L, e.a[1] + (e.b[1] - e.a[1]) * L, e.a[2] + (e.b[2] - e.a[2]) * L];
+      const a = P(e.a), b = P(tip), r = P([e.a[0], e.a[1], e.a[2] + e.r]);
+      if (!(a.f > 0.08 && b.f > 0.08 && r.f > 0.08)) return;
+      const R = Math.max(1.5, Math.hypot(r.sx - a.sx, r.sy - a.sy));
+      const k = (0.35 + 0.65 * pl.thr) * (pl.boost ? 1.25 : 1);
+      // The bloom on the nozzle, then the plume in three widths, hot to cool.
+      const g = ctx.createRadialGradient(a.sx, a.sy, 0, a.sx, a.sy, R * 2.4);
+      g.addColorStop(0, `rgba(${HOT},${0.55 * k})`); g.addColorStop(0.45, `rgba(${MID},${0.22 * k})`); g.addColorStop(1, `rgba(${EDGE},0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(a.sx, a.sy, R * 2.4, 0, 7); ctx.fill();
+      const lg = ctx.createLinearGradient(a.sx, a.sy, b.sx, b.sy);
+      lg.addColorStop(0, `rgba(${MID},${0.45 * k})`); lg.addColorStop(1, `rgba(${EDGE},0)`);
+      ctx.strokeStyle = lg; ctx.lineWidth = R * 1.6;
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+      const hg = ctx.createLinearGradient(a.sx, a.sy, b.sx, b.sy);
+      hg.addColorStop(0, `rgba(${HOT},${0.8 * k})`); hg.addColorStop(0.6, `rgba(${MID},${0.25 * k})`); hg.addColorStop(1, `rgba(${MID},0)`);
+      ctx.strokeStyle = hg; ctx.lineWidth = R * 0.6;
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+      if (pl.boost) for (let j = 1; j <= 4; j++) {
+        const u = j / 5.2, q = { sx: a.sx + (b.sx - a.sx) * u, sy: a.sy + (b.sy - a.sy) * u }, rr = R * (0.55 - 0.08 * j);
+        const dg = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, rr);
+        dg.addColorStop(0, `rgba(${HOT},${0.7 * k})`); dg.addColorStop(1, `rgba(${MID},0)`);
+        ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(q.sx, q.sy, rr, 0, 7); ctx.fill();
+      }
+    });
   } finally { ctx.restore(); }
 }
 // The shortest distance between segments p0-p1 and q0-q1, in 3-D.
@@ -36997,6 +37046,9 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // bay doors that close as the legs come up. A contact's gear is stowed, so its doors are shut.
   // `noseVisor` too: the Leviathan's mesh file swings its cargo nose on that channel.
   const animCh = { ...(c.anim || null), gear: showGear ? gearDown : 0, noseVisor: c.noseVisor || 0 };
+  // A racer's latch blades (mesh 'latch:fin') are out while the turbines are docked and stowed once
+  // they launch; the seat eases its own, anybody else's follows the pose.
+  if (PRP && animCh.podStow == null) animCh.podStow = PRP.docked ? 0 : 1;
   // ⚠ THE OWN SHIP'S FACES ARE BUILT ONCE A FRAME. In the external view the GL pass collects the
   // model (`collect`) and the canvas pass then draws its details over the GPU body (`bodyOnGL`),
   // and both ran this whole loop for the same model under the same camera. The collect pass leaves
@@ -37565,7 +37617,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     drawRotorFX(ctx, c.cls, (lp) => { const q = P(lp); return q.f <= 0.08 ? null : q; }, rotorFxOpts(c, now));
   }
   ctx.globalAlpha = 1;
-  if (PRP && PRP.binder && ctx) {
+  if (PRP && (PRP.binder || PRP.plume) && ctx) {
     // Each turbine as a capsule in the world, for the arc's occlusion test against the eye.
     const rest = podracerRest(PRT), eh = podracerEngH(PRT), [ls, rs] = podracerScale(PRT);
     const caps = ['L', 'R'].map((k) => [Wp(PRP[k]([rest[k][0] + 0.27 * ls, rest[k][1], eh])), Wp(PRP[k]([rest[k][0] - 0.27 * ls, rest[k][1], eh]))]);
@@ -37573,6 +37625,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     const rad = Math.hypot(x1[0] - o[0], x1[1] - o[1], x1[2] - o[2]) * 0.07 * rs;
     const eye = [cam.ex || 0, cam.ey || 0, cam.EH || 0];
     const hidden = (mp) => { const w = Wp(mp); return caps.some(([a, b]) => segSegDist(eye, w, a, b) < rad); };
+    drawPodracerPlume(ctx, P, PRP.plume, now, hidden);
     drawPodracerArc(ctx, P, PRP.binder, now, hidden);
   }
 
