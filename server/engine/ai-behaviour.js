@@ -630,8 +630,9 @@ function enemyMayEnter(to, entity) {
 }
 
 // NPCs path along roads; enemies take the direct BFS line. Shadows the raw findPath import below.
+// An NPC's cap is past the default 60: the Yards tenement to the Under is ~70 rooms.
 function findPath(fromId, toId, entity) {
-  if (entity && !isEnemy(entity)) return findPathRaw(fromId, toId, { roads: true });
+  if (entity && !isEnemy(entity)) return findPathRaw(fromId, toId, { roads: true, maxDistance: 150 });
   // Route round tiles this mob was refused. `avoid` never excludes the target, so a forbidden waypoint
   // fails at the last step.
   const avoid = entity?._ai?._leashAvoid;
@@ -1921,10 +1922,11 @@ async function execAction(node, entity, ctx) {
 
     // VENDOR_DEPOSIT: add carried credits to vendor bank balance.
     case 'VENDOR_DEPOSIT': {
-      if (!ai || ai.vendor_carrying <= 0) break;
+      // `> 0` rather than `<= 0`: an undefined or NaN carry must not reach the INTEGER column.
+      if (!ai || !(ai.vendor_carrying > 0)) break;
       const amount = ai.vendor_carrying;
       try {
-        await updateNpc(entity.id, { vendor_bank_credits: (entity.vendor_bank_credits || 0) + amount });
+        await updateNpc(entity.id, { vendor_bank_credits: (Number(entity.vendor_bank_credits) || 0) + amount });
       } catch (e) {
         // Non-fatal
       }
