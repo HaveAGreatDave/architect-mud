@@ -66,6 +66,8 @@ import {
   cmdTextStatus, cmdTextTakeoff, cmdTextLand,
 } from './textpilot.js';
 import { registerTabletApp } from '../tablet/registry.js';
+import { boardCheck, noteTaken, registerVehicleLock } from '../../server/engine/vehicle-access.js';
+import { isPrivateCraft, indexAircraft, unindexAircraft } from './access.js';
 
 // Verb-collision routers (see plugin.json `after`): flight wins `board`/`refuel`
 // and delegates to the prior owner by context.
@@ -208,6 +210,14 @@ async function cmdBoard(args, raw, player, broadcast) {
   return boardFound(found, player, broadcast);
 }
 
+// May `player` climb into this parked craft (a parkedPool row)? Sync, no query. { ok, stranger, why }.
+function boardGate(found, player) {
+  if (found.hangar_id && found.owner_id !== player.id)
+    return { ok: false, stranger: true, hangar: true, why: 'That aircraft is locked away in someone else\'s hangar.' };
+  if (!isPrivateCraft(found) || liveAircraft.get(found.id)?.occupants?.has(found.owner_id)) return { ok: true, stranger: false };
+  return boardCheck(player, { ownerId: found.owner_id, cd: found.custom_data, zoneId: player.current_zone });
+}
+
 // The actual boarding — shared by the direct-match path above and the SIFT
 // disambiguation replay (registerAction('flight.board') below).
 async function boardFound(found, player, broadcast, opts = {}) {
@@ -224,15 +234,14 @@ async function boardFound(found, player, broadcast, opts = {}) {
     }
   }
 
-  // Parked security: a craft locked in a hangar is off-limits to non-owners; an
-  // owned craft on an open ramp CAN be stolen — but that's grand theft (heat).
-  const owned = found.owner_id && found.owner_id !== player.id && !found.rental;
-  if (found.hangar_id && found.owner_id !== player.id)
-    return { type: 'emote', message: 'That aircraft is locked away in someone else\'s hangar.' };
-  if (owned) {
-    await dispatchAction({ type: 'WANTED_RAISE', actor: player, params: { amount: 3, reason: 'stealing an aircraft' } });
-    broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} breaks into a parked aircraft that isn't theirs.` }, player.id);
-  }
+  // Parked security is the shared vehicle rule (server/engine/vehicle-access.js): the owner always
+  // gets in; anybody else only on an open world tile, and only if she was left unlocked. A craft in
+  // a hangar bay, or boarded from a hangar office, is never an open tile. Rental stock and charters
+  // keep their own rules (access.js). Climbing in beside her owner, who is already aboard, is being
+  // given a lift, not taking her.
+  const gate = boardGate(found, player);
+  if (!gate.ok) return { type: 'emote', message: gate.hangar ? gate.why : `<span class="text-dim">${gate.why}</span>` };
+  const stranger = gate.stranger;
 
   const live = await loadAircraft(found.id);
   if (!live) return { type: 'error', message: 'That aircraft is in no state to fly.' };
@@ -271,6 +280,12 @@ async function boardFound(found, player, broadcast, opts = {}) {
   player.aircraftId = found.id;
   player.seat = seat;
   if (seat === 'pilot') live.pilotId = player.id;
+  // A stranger at the controls of somebody's plane: the row keeps its owner, and surveillance
+  // charges the taking on its witness roll (vehicle.taken).
+  if (stranger) {
+    noteTaken(player, { kind: 'aircraft', id: found.id, ownerId: found.owner_id, zoneId: player.current_zone, name: found.name });
+    broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} climbs into a parked aircraft that isn't theirs.` }, player.id);
+  }
   // Re-link the in-progress checkride to this fresh live object on a loaner re-board,
   // so the cockpit resumes showing the current stage instruction.
   if (isLoaner) { live.checkridePilotId = player.id; live.checkride = getCheckrideState(player.id); }
@@ -360,6 +375,18 @@ async function boardIntoHangar(player, acId, broadcast) {
 }
 setHangarBoarder(boardIntoHangar);
 
+// The latch trucking's `lock`/`unlock` router turns (vehicle-access.js). Guarded on owner_id, so it
+// only ever turns your own key; the live row is set too, or the next persist() writes the old one back.
+registerVehicleLock('aircraft', async (id, ownerId, locked) => {
+  const r = await query(
+    `UPDATE aircraft SET custom_data = jsonb_set(COALESCE(custom_data, '{}'::jsonb), '{locked}', to_jsonb($3::boolean), true)
+     WHERE id = $1 AND owner_id = $2 AND rental = 0`, [id, ownerId, !!locked]).catch(() => null);
+  if (!(r?.rowCount > 0)) return false;
+  const live = liveAircraft.get(id);
+  if (live) live.row.custom_data = { ...(live.row.custom_data || {}), locked: !!locked };
+  return true;
+});
+
 // Boarding a boat from the water lives in the swimming plugin (it owns the waterline);
 // `embark`/`disembark` are ours, so we hand the verb over when there's no aircraft in
 // play. A null means "not applicable here" — fall through to the aircraft answer. The
@@ -392,6 +419,14 @@ async function cmdDisembark(args, raw, player, broadcast) {
   if (live.row.airborne) return { type: 'emote', message: "You can't step out: you're in the air." };
   const name = live.type.name;
   const wasWalkable = isWalkableCabin(live);
+  // Shutting down and climbing out of the pilot's seat parks her: an owned craft's latch goes on,
+  // whoever was flying her (a stranger who took her leaves her locked against the next one), and
+  // the open-tile index learns where she stands. One write, through persist().
+  if (player.seat === 'pilot' && isPrivateCraft(live.row) && !live.row.is_wreck) {
+    live.row.custom_data = { ...(live.row.custom_data || {}), locked: true };
+    await persist(live).catch(() => {});
+    indexAircraft(live.row, live.type.name);
+  }
   detach(player);   // for a walkable cabin, this also steps the player out onto the parked ramp
   // A remaining pilot's cabin readout updates as riders leave.
   if (liveAircraft.has(live.row.id) && isContinuous(live)) pushContext(live);
@@ -1080,6 +1115,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // the player actually uses (falls back to the nearest airfield if this is ever lost).
     if (zone?.flags?.airfield_id) live.homeField = zone.id;
     live.row.airborne = 1; live.row.parked_zone_id = null; live.starving = false; live.runup = false; live.rolloutField = null;
+    unindexAircraft(live.row.id);   // gone from the tile she stood on
     live.lastSync = Date.now();   // fresh unattended-recovery clock at wheels-up
     if (!live.flightStartMs) live.flightStartMs = Date.now();   // trip clock for landing-IP eligibility (persists across touch-and-goes)
     // Who is flying her, on the ROW. Everything else that says so (`occupants`, `pilotId`,
@@ -1716,6 +1752,7 @@ async function deleteAircraft(id) {
   activeCharters.delete(id);   // in case a ghost charter row still pointed at it
   wreckClock.delete(id);
   loanerOwners.delete(id);
+  unindexAircraft(id);
   const { rowCount } = await query('DELETE FROM aircraft WHERE id=$1', [id]);
   return rowCount;
 }
@@ -2313,6 +2350,7 @@ function crewDispatch(live, order) {
   if (!live.row.airborne) {   // parked → the crew spin her up and go
     live.row.airborne = 1; live.row.altitude_band = 'low'; live.row.parked_zone_id = null;
     live.row.throttle = 75; live.row.engine_on = 1;
+    unindexAircraft(live.row.id);
     live.fx = live.row.grid_x || 0; live.fy = live.row.grid_y || 0;
     delete live._contHdg; delete live._contPitch; live._contAlt = 0;   // climb from the deck
     chaseCont(live);
@@ -2549,7 +2587,7 @@ export const routeHandler = async (path, method, body, auth) => {
   return null;
 };
 
-export const _test = { describeAirfield, surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude, crewStep, crewLand, crewDivertFuel, groundStop, GROUND_STOP_SEVERITY,
+export const _test = { boardGate, describeAirfield, surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude, crewStep, crewLand, crewDivertFuel, groundStop, GROUND_STOP_SEVERITY,
   wreckClock, loanerOwners, wreckSweepDue, WRECK_TTL_MS };
 
 console.log('[flight] Plugin loaded.');

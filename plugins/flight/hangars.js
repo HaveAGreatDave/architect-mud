@@ -19,6 +19,7 @@ import { normalizeLivery, sanitizeLivery, parsePartsArg, signatureScore, describ
 import { unlockedLiveries, unlockKeysFor, liveriesFor, aircraftLiveryModel } from '../../client/shared/livery-sets.js';
 import { getFlagsIn } from '../../server/engine/flags.js';
 import { fieldStocks } from './acquisition.js';
+import { indexAircraft, unindexAircraft } from './access.js';
 import { pilotStatusForField, charterParkedAt } from './charter.js';
 import { isPilotLicensed } from './checkride.js';
 import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
@@ -585,9 +586,11 @@ async function cmdHangarAct(args, raw, player, broadcast) {
   const { rows: mine } = await query('SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2', [field.id, player.id]);
   if ((op === 'store' || op === 'pull') && !mine.length) { await pushHangarBay(player); return { type: 'emote', message: 'You need to <b>hangar rent</b> a bay here first.' }; }
   if (op === 'store' && id) {
-    await query('UPDATE aircraft SET hangar_id=$1 WHERE id=$2 AND owner_id=$3 AND parked_zone_id=$4 AND is_wreck=0 AND hangar_id IS NULL', [mine[0].id, id, player.id, field.id]);
+    const { rows: put } = await query('UPDATE aircraft SET hangar_id=$1 WHERE id=$2 AND owner_id=$3 AND parked_zone_id=$4 AND is_wreck=0 AND hangar_id IS NULL RETURNING id', [mine[0].id, id, player.id, field.id]);
+    if (put[0]) unindexAircraft(put[0].id);
   } else if (op === 'pull' && id) {
-    await query('UPDATE aircraft SET hangar_id=NULL, parked_zone_id=$1 WHERE id=$2 AND hangar_id=$3', [field.id, id, mine[0].id]);
+    const { rows: pulled } = await query('UPDATE aircraft SET hangar_id=NULL, parked_zone_id=$1 WHERE id=$2 AND hangar_id=$3 RETURNING id, name, owner_id, rental, parked_zone_id, hangar_id, is_wreck, airborne, custom_data', [field.id, id, mine[0].id]);
+    if (pulled[0]) indexAircraft(pulled[0]);
   }
   return pushHangarBay(player);
 }
@@ -663,12 +666,14 @@ async function cmdHangar(args, raw, player) {
       const pick = want ? rows.find(r => r.id.includes(want) || (r.name || '').toLowerCase().includes(want)) : rows[0];
       if (!pick) return { type: 'emote', message: 'No aircraft of yours parked out on the ramp here to store.' };
       await query('UPDATE aircraft SET hangar_id=$1 WHERE id=$2', [mine[0].id, pick.id]);
+      unindexAircraft(pick.id);
       return { type: 'emote', message: `You tow "${pick.name}" into the hangar and roll the door down. Safe.` };
     }
     const { rows } = await query('SELECT id, name FROM aircraft WHERE hangar_id=$1', [mine[0].id]);
     const pick = want ? rows.find(r => r.id.includes(want) || (r.name || '').toLowerCase().includes(want)) : rows[0];
     if (!pick) return { type: 'emote', message: 'The hangar\'s empty.' };
-    await query('UPDATE aircraft SET hangar_id=NULL, parked_zone_id=$1 WHERE id=$2', [field.id, pick.id]);
+    const { rows: rolled } = await query('UPDATE aircraft SET hangar_id=NULL, parked_zone_id=$1 WHERE id=$2 RETURNING id, name, owner_id, rental, parked_zone_id, hangar_id, is_wreck, airborne, custom_data', [field.id, pick.id]);
+    if (rolled[0]) indexAircraft(rolled[0]);
     return { type: 'emote', message: `You roll "${pick.name}" out onto the ramp, ready to fly.` };
   }
   return { type: 'emote', message: 'hangar <rent|store|pull|list>' };
@@ -1193,6 +1198,7 @@ export async function sellAircraft(player, aircraftId) {
   const value = Math.max(1, Math.round((ac.price_buy || 0) * 0.5 * (1 - (damage || 0) * 0.5)));
   if (live) liveAircraft.delete(aircraftId);
   await query('DELETE FROM aircraft WHERE id=$1', [aircraftId]);
+  unindexAircraft(aircraftId);
   await query('DELETE FROM insurance_policies WHERE aircraft_id=$1', [aircraftId]);
   await adjustCredits(player, value, undefined, 'hangar:sell');
   return { type: 'output', message: `<span class="item-grant">Sold the ${clean(ac.tname)} for ${value}₵.</span>`, player_update: { credits: player.credits } };

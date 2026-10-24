@@ -50,6 +50,7 @@ import { mobStatusLabels } from "../effects.js";
 import { sectionFurniture } from "../classify.js";
 import { loggedPanelsSync } from "../presentation.js";
 import { isVendorClosed } from "../ai-behaviour.js";
+import { parkedLine } from "../vehicle-access.js";
 
 // Emits a `data-lock` attribute the client dpad reads to colour the direction:
 // "owned" (the player controls this lock), "locked" (engaged, not theirs), or
@@ -1871,6 +1872,9 @@ export async function describeZone(zone, player, out = {}) {
 			);
 			desc += `\n<span class="furniture-label">Installed:</span> ${genLinks.join(", ")}`;
 		}
+		// Vehicles left on this tile, any kind, from the RAM index (vehicle-access.js).
+		const parked = parkedLine(zone.id, player);
+		if (parked) desc += `\n${parked}`;
 	}
 	// NO `Windows:` ROW. A window became a property of the room rather than a thing
 	// standing in it, and a labelled row listing it read as inventory — a rentable

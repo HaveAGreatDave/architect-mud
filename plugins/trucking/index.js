@@ -12,6 +12,7 @@ import { FITTINGS, FIT_IDS, SLOTS, installedFits, fitInSlot, fitSuffix, priceFor
 import { TRINKETS, TRINKET_IDS, CAB_SLOTS, installedTrinkets, trinketPrice } from '../../client/shared/cab-trinkets.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
+import { gatherHook } from '../../server/engine/plugins.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { setPosture } from '../../server/engine/posture.js';
 import { query } from '../../server/models/db.js';
@@ -24,7 +25,8 @@ import { startTextDrive, stopTextDrive, setTextTarget, isTextDriving, textDriveC
 import { COMMODITIES, quotesFor, askPrice, bidPrice, capacityFor, marketDay, DEFAULT_TRAILER_KG } from './market.js';
 import { TYPES, HITCH_MPH } from '../../client/game/js/panels/flight-model.js';
 import { fleetOf, trucksAt, getTruck, buyTruck, sellTruck, persistTruck, resaleValue, truckType, TRUCK_TYPES,
-  setCondition, saveTruckData, setFuel, recoverTruckTo } from './fleet.js';
+  setCondition, saveTruckData, setFuel, recoverTruckTo, trucksOnTile, trucksOnStreets, setTruckLocked } from './fleet.js';
+import { isOpenTile, boardCheck, noteTaken, noteParked, noteGone, registerVehicleLock, setParkedLock } from '../../server/engine/vehicle-access.js';
 import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, effTruckParams,
   repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, FINISHES, ARTS, PAINT_PRESETS, PAINT_DEFAULT, presetPaint, startTrouble, wearForImpact, burnMul,
   BREAKDOWNS, fixOdds, FIX_GRACE_TILES, isTerminal, FIX_MIN_FAB, SPARES_ITEM,
@@ -195,16 +197,28 @@ async function cmdDrive(args, raw, player) {
   const door = spot?.fromShed ? spot.zone : null;
   const here = spot ? spot.zone : stood;
   const depot = bay || depotAt(here) || bayForYard(stood?.id)?.depot;
-  if (!depot) {
+  // A rig left out on an open street tile is driven off from where it stands: yours, or anybody's
+  // that was left unlocked (server/engine/vehicle-access.js).
+  const street = !depot && isOpenTile(stood?.id) ? stood : null;
+  if (!depot && !street) {
     return say("There's nothing to drive here. Rigs run out of the freight yards: find a depot with a truck in it.");
   }
   if (here.grid_x == null) return say("There's no road out of this yard.");
 
   // Ownership is the gate. The bay and its apron both count as this depot.
-  const zonesHere = bay ? depotZonesOf(stood, bay) : depotZonesOf(here, depot);
-  const parked = await trucksAt(player.id, zonesHere);
+  const zonesHere = street ? [street.id] : bay ? depotZonesOf(stood, bay) : depotZonesOf(here, depot);
+  let parked = await trucksAt(player.id, zonesHere);
   // Takes plate, model or id; nothing when only one truck is in the yard.
   const want = (args || []).join(' ').trim();
+  // On a street with nothing of yours, somebody else's: only one left unlocked can be taken.
+  if (street && !pickParked(parked, want)) {
+    const theirs = (await trucksOnTile(street.id)).filter(t => t.owner_id !== player.id);
+    const open = theirs.filter(t => boardCheck(player, { ownerId: t.owner_id, cd: t.custom_data, zoneId: street.id }).ok);
+    if (!open.length && theirs.length && !parked.length) {
+      return say(`The ${theirs[0].name || theirs[0].type.name} is locked. Both doors, and the plate has somebody else's number on it.`);
+    }
+    if (open.length) parked = parked.length ? parked : open;
+  }
   const owned = pickParked(parked, want);
   if (!owned && parked.length) return whichTruckLine('drive', parked, want);
   // An expired hire goes back the moment you reach for the keys (rental.js's lazy clock).
@@ -247,8 +261,16 @@ async function cmdDrive(args, raw, player) {
   // ⚠ Where it stands (x/y, the door tile) and where it lives (`depot`, the yard) differ: passing the
   // door tile as depot would re-home the truck to a zone no depotZonesOf set contains.
   // ⚠ `spot?.heading`: mountSpot can answer null.
-  const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: spot?.heading ?? 180, depot: yardId || here.id });
+  // On a street it faces the way it was left.
+  const heading = street ? (Number(owned.custom_data?.heading) || 0) : (spot?.heading ?? 180);
+  const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading, depot: yardId || here.id });
   rig.zoneId = here.id;
+  // Off the street, and if it wasn't yours, that is somebody seeing you take it.
+  noteGone('truck', owned.id);
+  if (owned.owner_id && owned.owner_id !== player.id) {
+    rig.ownerId = owned.owner_id;
+    noteTaken(player, { kind: 'truck', id: owned.id, ownerId: owned.owner_id, zoneId: here.id, name: owned.name || owned.type.name });
+  }
   rig._hardStart = hardStart;      // spent by whichever rung actually turns the key
   // ⚠ Anything without a pose gets one first (see standStock). Use the bay, not `here` (the door
   // tile), and depotFrom, not yardId (null on the apron).
@@ -299,7 +321,7 @@ async function cmdDrive(args, raw, player) {
   const rollUp = fromShed
     ? ` The roller door grinds up in front of you, a bar of daylight at a time.`
     : '';
-  return say(`<span class="text-green">You haul yourself up into the cab and pull the door to. It's cold in here and nothing is running: the key is in the barrel where you left it.${rollUp} ${depot.name ? `${depot.name}'s` : 'The yard'} gate is open, and the road runs south.</span>`
+  return say(`<span class="text-green">You haul yourself up into the cab and pull the door to. It's cold in here and nothing is running: the key is in the barrel where you left it.${rollUp} ${street ? 'The street is in front of you.' : `${depot.name ? `${depot.name}'s` : 'The yard'} gate is open, and the road runs south.`}</span>`
     + `
 <span class="text-dim">Turn the key (<b>K</b>, or the barrel on the shelf) and hold it until she catches.</span>`);
 }
@@ -790,9 +812,12 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
   const mine = await fleetOf(player.id);
   const rig = rigOf(player);
   // Independent reads go out together (read tiers: Promise.all). This opens from a footstep.
-  const [fab, myTrailers] = await Promise.all([
+  // `parked` is what other plugins keep in this shed (a racer, say), each as a card that names its
+  // own verb: the `depot.parked` hook. The shed keeps any ground vehicle; this yard sells trucks.
+  const [fab, myTrailers, parked] = await Promise.all([
     effectiveSkill(player, 'fabrication'),
     trailersOf(player.id),
+    gatherHook('depot.parked', player, zonesHere),
   ]);
   const towedIds = new Set(myTrailers.filter(t => t.towedBy).map(t => t.towedBy));
   // ── What there is to load (not the same as "are you driving") ──
@@ -941,6 +966,8 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         hornPrices: Object.fromEntries(hornCatalogue().map((h) => [h.id, hornPrice(cd, h.id)])),
       };
     }),
+    // Not trucks, but yours and in this shed: cards from the `depot.parked` hook, drawn after the trucks.
+    parked,
     // The hire line. See rental.js.
     rentStock: rentStock(player.credits || 0),
     hasRental: mine.some((t) => isRental(t)),
@@ -1033,6 +1060,10 @@ function depotDialogPayload(p) {
     });
   }
   if (!(p.fleet || []).length) rows.push({ group: 'Your fleet', label: 'You own nothing with wheels on it.' });
+  for (const v of p.parked || []) {
+    rows.push({ group: 'Also in the shed', label: `${v.name} (${v.typeName})${v.hire ? ` · HIRED, ${v.hire}` : ''}`,
+      detail: v.sub, commands: v.cmd ? [{ label: v.verb, command: v.cmd }] : [] });
+  }
 
   for (const t of p.rentStock || []) {
     rows.push({
@@ -1119,7 +1150,12 @@ function textYard(p) {
         + `${t.cargo ? ` · <span class="text-dim">loaded: ${t.cargo.name}</span>` : ''}`
         + `${t.hereNow ? ' · <span class="text-dim">back under it (hitch)</span>' : ''}`).join('\n')
     : null;
+  // Anything else of yours kept in the shed, from the `depot.parked` hook.
+  const parked = (p.parked || []).length
+    ? p.parked.map(v => `  <b>${v.name}</b> (${v.typeName}) · ${v.sub}${v.cmd ? ` · <span class="text-dim">${v.verb.toLowerCase()} (${v.cmd})</span>` : ''}`).join('\n')
+    : null;
   return `<b>${p.depot}: yard</b>  <span class="text-dim">(${p.credits}₵)</span>\n\n<b>YOUR FLEET</b>\n${fleet}`
+    + (parked ? `\n\n<b>ALSO IN THE SHED</b>\n${parked}` : '')
     + (boxes ? `\n\n<b>YOUR BOXES</b>\n${boxes}` : '')
     + `\n\n<b>FOR SALE</b>\n${stock}`
     + `\n\n<b>FOR HIRE</b>${p.hasRental ? ' <span class="text-dim">(one out already)</span>' : ''}\n`
@@ -1565,6 +1601,13 @@ async function parkRig(player, forced) {
   // And you lock it, every park including a forced one. Persisted in the flush below.
   rig.locked = true;
   await persistTruck(rig);
+  // Left on an open street tile it goes on the parked index, so the room says it is here.
+  if (rig.truckId) {
+    if (rig.zoneId && isOpenTile(rig.zoneId)) {
+      noteParked(rig.zoneId, { kind: 'truck', id: rig.truckId, name: rig.type?.name || 'truck', ownerId: rig.ownerId || player.id,
+        locked: true, cmd: `drive ${rig.truckId}`, words: CAB_WORDS });
+    } else noteGone('truck', rig.truckId);
+  }
   setPosture(player, 'standing');
   sendToPlayer(player.id, { type: 'truck_sim_close' });
   // The cab owns the area pane while driving, so a room description in this reply would be dropped;
@@ -2273,6 +2316,15 @@ on('zone.entered', async ({ actor, zone: zoneId, from }) => {
   } catch (e) { console.error('[trucking] depot auto-open:', e.message); }
 });
 
+// Trucks left on street tiles, into the parked index once at boot; the latch from outside.
+registerVehicleLock('truck', setTruckLocked);
+setTimeout(async () => {
+  for (const t of await trucksOnStreets()) {
+    noteParked(t.depot_zone, { kind: 'truck', id: t.id, name: t.name || t.type.name, ownerId: t.owner_id,
+      locked: t.custom_data?.locked !== false, cmd: `drive ${t.id}`, words: CAB_WORDS });
+  }
+}, 0);
+
 // The first time you stand in one, a briefing (see onboard.js). Registered after the handler above
 // so it lands under the panel. ⚠ `depotIn` is the bay only, not the three tiles.
 registerDepotBrief({
@@ -2511,7 +2563,8 @@ const CAB_WORDS = ['cab', 'door', 'doors', 'truck', 'rig'];
 function cabLatchRouter(want) {
   return async (args, raw, player) => {
     const rig = rigOf(player);
-    if (!rig) return undefined;                                  // not driving — it is a door
+    // Not driving: a vehicle of yours parked on this tile (any kind, vehicle-access.js), else a door.
+    if (!rig) return setParkedLock(player, want, args.join(' '));
     const what = (args[0] || '').toLowerCase();
     if (what && !CAB_WORDS.includes(what)) return undefined;     // named something else — it is that
     return setLatch(player, rig, want);

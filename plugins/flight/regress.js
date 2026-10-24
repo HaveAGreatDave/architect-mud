@@ -36,6 +36,10 @@ const nowSec = () => Math.floor(Date.now() / 1000);
 import { prefersTextTravel, textTravelTick, TEXT_TRAVEL_FLAG } from './textmode.js';
 import { startTextPilot, stopTextPilot, textPilotTick, landingGrade, statusLines, panelPayload, logRungWarnings, cmdTextLand, _test as tpTest } from './textpilot.js';
 import { query } from '../../server/models/db.js';
+import { world } from '../../server/engine/world.js';
+import { isOpenTile, parkedIn } from '../../server/engine/vehicle-access.js';
+import { parkAt } from './state.js';
+import { unindexAircraft } from './access.js';
 import { TYPES as FM_TYPES, SURFACES as FM_SURFACES, createState as fmCreate, step as fmStep } from '../../client/game/js/panels/flight-model.js';
 
 // ── Flight-model harness ──────────────────────────────────────────────────────
@@ -2311,6 +2315,58 @@ async function regressBody({ run, check, getPlayer }) {
       p.aircraftId = savedAc;
       await query('DELETE FROM player_inventory WHERE item_id=$1', [FOOD]).catch(() => {});
       await query('DELETE FROM items WHERE id=$1', [FOOD]).catch(() => {});
+    }
+  }
+
+  // ── Parked-aircraft access (server/engine/vehicle-access.js) ─────────────────
+  // The owner gets in locked or not; a stranger only on an open world tile, only unlocked, and
+  // never from a hangar office. Landing (parkAt) locks an owned craft and indexes it on the tile.
+  {
+    const FAKE_OWNER = 'regress_aircraft_owner_fake';
+    const acId = 'aircraft_regress_access';
+    const zones = [...world.zones.values()];
+    const open = zones.find((z) => isOpenTile(z.id) && !z.flags?.airfield_id && !z.flags?.hangar_ramp && !z.flags?.yacht);
+    const hangarRoom = zones.find((z) => z.flags?.hangar_interior);
+    const { rows: [t] } = await query("SELECT id FROM aircraft_types WHERE class <> 'wreck' ORDER BY price_buy LIMIT 1");
+    const savedZone = p.current_zone;
+    if (open && t) {
+      try {
+        await query('DELETE FROM aircraft WHERE id=$1', [acId]);
+        await query(
+          `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,parked_zone_id,fuel,engine_temp,rental,custom_data)
+           VALUES ($1,$2,'REGR-ACC',$3,'map_world',$4,$5,'ground',$6,10,20,0,'{}'::jsonb)`,
+          [acId, t.id, FAKE_OWNER, open.grid_x, open.grid_y, open.id]);
+        const row = (cd) => ({ id: acId, owner_id: FAKE_OWNER, rental: 0, hangar_id: null, custom_data: cd });
+        const owner = { id: FAKE_OWNER, current_zone: open.id };
+        p.current_zone = open.id;
+        check('access: the owner boards a locked aircraft', _test.boardGate(row({ locked: true }), owner).ok === true);
+        check('access: a row with no key reads as locked to a stranger', _test.boardGate(row({}), p).ok === false);
+        const refused = _test.boardGate(row({ locked: true }), p);
+        check('access: a stranger is refused a locked aircraft', refused.ok === false && refused.stranger === true, JSON.stringify(refused));
+        const taken = _test.boardGate(row({ locked: false }), p);
+        check('access: a stranger may take an unlocked aircraft on an open tile', taken.ok === true && taken.stranger === true, JSON.stringify(taken));
+        if (hangarRoom) {
+          p.current_zone = hangarRoom.id;
+          check('access: a stranger is refused from a hangar office even unlocked', _test.boardGate(row({ locked: false }), p).ok === false);
+          check('access: the owner boards from a hangar office', _test.boardGate(row({ locked: false }), { id: FAKE_OWNER, current_zone: hangarRoom.id }).ok === true);
+        }
+        check('access: a hangared craft is refused to a stranger', _test.boardGate({ ...row({ locked: false }), hangar_id: 'h_x' }, p).ok === false);
+        check('access: rental stock keeps its old rule', _test.boardGate({ ...row({ locked: true }), owner_id: null }, p).ok === true);
+
+        await query("UPDATE aircraft SET custom_data='{\"locked\":false}'::jsonb WHERE id=$1", [acId]);
+        liveAircraft.delete(acId);
+        const live = await loadAircraft(acId);
+        await parkAt(live, open.id);
+        const { rows: [after] } = await query('SELECT custom_data FROM aircraft WHERE id=$1', [acId]);
+        check('access: parking locks an owned aircraft', after?.custom_data?.locked === true, JSON.stringify(after?.custom_data));
+        const listed = parkedIn(open.id).find((v) => v.kind === 'aircraft' && v.id === acId);
+        check('access: a parked aircraft is in the open-tile index, locked', listed?.locked === true && listed.ownerId === FAKE_OWNER, JSON.stringify(listed));
+      } finally {
+        p.current_zone = savedZone;
+        liveAircraft.delete(acId);
+        unindexAircraft(acId);
+        await query('DELETE FROM aircraft WHERE id=$1', [acId]).catch(() => {});
+      }
     }
   }
 }

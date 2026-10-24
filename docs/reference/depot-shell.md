@@ -46,48 +46,54 @@ four depots do it.
 2. **The vehicle comes out of the building.** A truck mounts on the shed's `vehicle_bay` facade and
    is driven out; a boat floats in the covered slot; an aircraft is in the hangar; a racer starts on
    the Deadleg's bay door. Bringing it back to that spot and stopping is how it goes back in.
-3. **The building is a real one.** A `building_type` with its GLASS model and its map icon made in the
+3. **A ground depot keeps any ground vehicle, even one it doesn't sell.** A racer parked in a truck
+   shed's door stays in that shed and comes out of it again; only the racer bay sells, services and
+   paints one. The truck counter deals what other plugins keep in its shed as cards after its own
+   (the `depot.parked` hook in [server.md](../server.md)), each card naming its own verb, so a depot
+   needn't know what the vehicle is. A new ground vehicle answers that hook and treats every depot's
+   bay room as somewhere it can park ([podracer README](../../plugins/podracer/README.md), "Any truck shed keeps one").
+4. **The building is a real one.** A `building_type` with its GLASS model and its map icon made in the
    same pass, a `marker`, and lit rooms (a `power_zones` row and a light fixture for each). A depot
    that moves into an existing building, as the racer bay did into the Deadleg, inherits all of it.
 
 ### The counter
 
-4. **Built on the shell**, in a `.ds-root.ds-counter`, with `headHtml`, `shellClick`, `armHolds`,
+5. **Built on the shell**, in a `.ds-root.ds-counter`, with `headHtml`, `shellClick`, `armHolds`,
    `noteAct` and `notePush` (see "Adding a depot" below).
-5. **Your vehicles as a hand of cards, then Buy, then Hire** ([vehicle-card.js](../../client/game/js/panels/vehicle-card.js)).
+6. **Your vehicles as a hand of cards, then Buy, then Hire** ([vehicle-card.js](../../client/game/js/panels/vehicle-card.js)).
    A vehicle somewhere else is shown faded, not hidden. **A card seats you.** One you have just bought
    or hired also gets the ready key over the hand, so the till leads straight to the seat.
-6. **The dealer shows the vehicle as a schematic** (`drawWireframe3D`) with its price on the buy key and
+7. **The dealer shows the vehicle as a schematic** (`drawWireframe3D`) with its price on the buy key and
    bars from its own physics row, never a second table of figures.
-7. **Opens on arrival, closes on leaving**, on `zone.entered`, and a login standing in the room deals
+8. **Opens on arrival, closes on leaving**, on `zone.entered`, and a login standing in the room deals
    it a moment later. The close is only sent to somebody who was in the depot, never on every step.
-8. **Dealt again after every change.** Every verb that changes the world re-pushes the counter (or the
+9. **Dealt again after every change.** Every verb that changes the world re-pushes the counter (or the
    bay overlay, if the player is sitting in the vehicle): `repush`, `repushMarina`,
    `pushHangarBay`, the racer's `repush`. Nothing that changes the world ends in a bare line.
-9. **Never drawn over a seat.** A seat opening closes the counter, and a payload with `service` set
+10. **Never drawn over a seat.** A seat opening closes the counter, and a payload with `service` set
    only ever goes onto a seat (client/game/js/dispatch.js).
 
 ### The bay
 
-10. **Service in the seat while the vehicle stands in the shed**, with the shell's `mountBay`,
+11. **Service in the seat while the vehicle stands in the shed**, with the shell's `mountBay`,
     `bayHtml` and `setBayOpen`, a way out (**Drive out**, **Cast off**, **Taxi out**) and a way back
     in (**Put it away**, **Dock her**). Pushed on a change of state, never on every sync.
-11. **A repair made while you sit in it reaches the live vehicle too**, not only the row, or the
+12. **A repair made while you sit in it reaches the live vehicle too**, not only the row, or the
     seat's next one-way report writes the old wear back.
 
 ### The business
 
-12. **Buy, hire, sell, service, fuel.** A hire is one at a time on a clock, and goes back on its own
+13. **Buy, hire, sell, service, fuel.** A hire is one at a time on a clock, and goes back on its own
     when the clock runs out and nobody is sitting in it. Selling is held (`data-hold`).
-13. **Every button is a verb a player could type**, and the counter computes no price.
+14. **Every button is a verb a player could type**, and the counter computes no price.
 
 ### The rungs, the docs, the tests
 
-14. **The log rung gets no screen and loses nothing.** `prefersLoggedPanels` true means print the
+15. **The log rung gets no screen and loses nothing.** `prefersLoggedPanels` true means print the
     same facts as text; every verb works typed.
-15. **The seat has a text rung** (`textdrive.js`, `texthelm.js`, `textpilot.js`). The racer has none
+16. **The seat has a text rung** (`textdrive.js`, `texthelm.js`, `textpilot.js`). The racer has none
     yet and refuses a text-mode player with a line saying so; that is the one open item.
-16. **Docs and tests.** The plugin's README or system doc has a depot section; a new flag gets a
+17. **Docs and tests.** The plugin's README or system doc has a depot section; a new flag gets a
     [flags-keys.md](../flags-keys.md) row and a tagCatalog entry; this doc lists the depot; and the
     plugin's `regress.js` asserts the room is a room, its way out exists, the vehicle starts there,
     and the counter is dealt there and nowhere else.

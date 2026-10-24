@@ -338,7 +338,7 @@ their heat restored is grabbed on the spot.
 - **Recording is blocked on police networks** (`cmdRecord`) — you can't turn the PD's own cams into
   your evidence farm.
 - **More crime wiring than listed above:** `item.given`→`drug_dealing`, `atm.jacked`/`atm.jackResolved`/
-  `atm.drained`, `theft.caught`, `burglary.reported`, `hololock.breached`, `bodily.publicRelief`→
+  `atm.drained`, `theft.caught`, `vehicle.taken` (as `vehicle_theft`), `burglary.reported`, `hololock.breached`, `bodily.publicRelief`→
   `indecent_exposure`, `vendor.safeHackWitnessed`; witnessed charges also emit `crime.witnessed`.
 
 ## The permanent record + the tablet Crime app (2026-07-29)

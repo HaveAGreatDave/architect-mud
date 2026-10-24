@@ -322,6 +322,18 @@ function lotScreen() {
       ${acts ? `<div class="vc-acts">${acts}</div>` : ''}
     </div>`;
   }).join('');
+  // Anything else of yours kept in this shed (a racer, say), from the server's `depot.parked` hook.
+  // Each card carries its own verb and its own picture, so this file knows nothing about racers.
+  const guests = (d.parked || []).map((v) => `<div class="vc-wrap">
+      <button class="vc-card ${cardStyleFor(v.id)}" ${v.cmd ? `data-cmd="${esc(v.cmd)}"` : 'disabled'}
+          aria-label="${esc(`${v.name}, ${v.typeName}${v.cmd ? ': ' + v.verb.toLowerCase() : ''}`)}"
+          title="${esc(v.cmd ? `${v.verb}: it comes out through the shed door` : v.sub)}">
+        <canvas class="vc-cv" data-guest="${esc(v.id)}" aria-hidden="true"></canvas>
+        ${v.hire ? `<span class="vc-badge hired">HIRED · ${esc(v.hire)}</span>` : '<span class="vc-badge owned">OWNED</span>'}
+        <span class="vc-plate"><b>${esc(v.name)}</b><span class="vc-sub">${esc(v.sub)}</span>
+          <span class="vc-bar"><i class="${barTone(v.cond)}" style="width:${Math.round(v.cond * 100)}%"></i></span></span>
+      </button>
+    </div>`).join('');
   const buyCard = `<div class="vc-wrap"><button class="vc-card slot" data-screen="buy" aria-label="Buy a truck">
       <canvas class="vc-cv" data-slot="buy" aria-hidden="true"></canvas>
       <span class="vc-plate"><b>Buy a truck</b><span class="vc-sub">${(d.stock || []).length} on the line</span></span></button></div>`;
@@ -334,8 +346,8 @@ function lotScreen() {
     sub: `In the shed, fuel ${pct(nu.fuel)}.`, label: 'Drive it', cmd: `drive ${nu.id}` }) : '';
   return `<div class="td-col td-lot-col">
       ${ready}
-      ${fleet.length ? '' : '<div class="td-hint">Nothing of yours in the shed. Buy one, or hire one for the afternoon.</div>'}
-      <div class="vc-hand">${cards}${buyCard}${hireCard}</div>
+      ${fleet.length || guests ? '' : '<div class="td-hint">Nothing of yours in the shed. Buy one, or hire one for the afternoon.</div>'}
+      <div class="vc-hand">${cards}${guests}${buyCard}${hireCard}</div>
       ${boxList()}
     </div>`;
 }
@@ -1447,6 +1459,11 @@ function paintCards() {
     if (!t) continue;
     paintVehicleCard(cv, { style: cardStyleFor(t.id), seed: cardSeed(t.id), dim: !t.hereNow,
       v: { cls: 'truck', variant: `${t.variant}~p`, livery: liveryOf(t), yaw: 0.62, fit: 1.45 } });
+  }
+  // A guest card is drawn as its own plugin described it (`v`), in the shed's light.
+  for (const cv of root.querySelectorAll('canvas[data-guest]')) {
+    const v = (B.data.parked || []).find((r) => r.id === cv.dataset.guest);
+    if (v) paintVehicleCard(cv, { style: cardStyleFor(v.id), seed: cardSeed(v.id), v: v.v });
   }
   for (const cv of root.querySelectorAll('canvas[data-rent]')) {
     const id = cv.dataset.rent;

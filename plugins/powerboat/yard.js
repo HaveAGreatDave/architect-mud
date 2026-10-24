@@ -44,6 +44,8 @@ import { boatRental, boatRentalExpired, boatRentFee, BOAT_RENT_TERM_MS, BOAT_REN
 // and this reads `boatTake` only inside a function body, after both modules have evaluated.
 import { boatTake, applyLive } from './helm.js';
 import { deskReady, deskRefusal } from './desk.js';
+import { boardCheck } from '../../server/engine/vehicle-access.js';
+import { unindexBoat } from './access.js';
 
 // ── TUNING ───────────────────────────────────────────────────────────────────
 //
@@ -354,6 +356,7 @@ export async function sweepBoatRentals(playerId) {
   for (const b of rows) {
     if (!boatRentalExpired(b) || b.id === seated) continue;
     const r = await query("DELETE FROM boats WHERE id = $1 AND owner_id = $2 AND custom_data->'rental' IS NOT NULL", [b.id, playerId]).catch(() => ({ rowCount: 0 }));
+    if (r.rowCount) unindexBoat(b.id);
     if (r.rowCount) gone.push(b.name || TYPES[b.type_id]?.name || 'the hire');
   }
   return gone;
@@ -398,6 +401,7 @@ async function boatReturn(player, arg) {
   if (aboard.get(player.id) === boat.id) return say('<span class="text-dim">Step off her first.</span>');
   if (!reach.includes(boat.berth_zone)) return say('<span class="text-dim">She is not lying at this marina. Bring her in first.</span>');
   await query("DELETE FROM boats WHERE id = $1 AND owner_id = $2 AND custom_data->'rental' IS NOT NULL", [boat.id, player.id]);
+  unindexBoat(boat.id);
   return say('<span class="text-green">The desk takes the key and a clipboard, walks down to look at her, and comes back without saying anything.</span>');
 }
 
@@ -776,7 +780,7 @@ export async function recoverAboard(player) {
   if (!player?.id) return null;
   const have = aboard.get(player.id);
   if (have) return have;
-  const r = await query('SELECT f.flag_value AS id FROM player_flags f JOIN boats b ON b.id::text = f.flag_value WHERE f.player_id = $1 AND f.flag_key = $2 AND b.owner_id = $1', [player.id, ABOARD_FLAG]).catch(() => ({ rows: [] }));
+  const r = await query('SELECT f.flag_value AS id FROM player_flags f JOIN boats b ON b.id::text = f.flag_value WHERE f.player_id = $1 AND f.flag_key = $2', [player.id, ABOARD_FLAG]).catch(() => ({ rows: [] }));
   const id = r.rows[0]?.id;
   if (!id) return null;
   Map.prototype.set.call(aboard, player.id, id);
@@ -795,9 +799,17 @@ export async function boatEmbark(player) {
     const n = r.rows[0]?.name || 'her';
     return { type: 'emote', message: `You are already aboard ${n}.` };
   }
-  const r = await query('SELECT * FROM boats WHERE owner_id = $1 AND berth_zone = $2', [player.id, here.id]);
-  if (!r.rows.length) return null;                         // none of yours here — let flight answer
-  const boat = r.rows[0];
+  // Yours first. With none of yours here, somebody else's that the shared rule lets you into: an
+  // open tile and an unlocked hull (server/engine/vehicle-access.js). One query covers both.
+  const r = await query('SELECT * FROM boats WHERE berth_zone = $2 ORDER BY (owner_id = $1) DESC, created_at', [player.id, here.id]);
+  if (!r.rows.length) return null;                         // nothing here at all: let flight answer
+  let boat = r.rows.find((b) => b.owner_id === player.id)
+    || r.rows.find((b) => boardCheck(player, { ownerId: b.owner_id, cd: b.custom_data, zoneId: here.id }).ok);
+  if (!boat) {
+    const b0 = r.rows[0];
+    const { why } = boardCheck(player, { ownerId: b0.owner_id, cd: b0.custom_data, zoneId: here.id });
+    return { type: 'error', message: `${b0.name || 'She'} isn't yours. ${why === 'It\'s locked.' ? 'She\'s locked.' : ''}`.trim() };
+  }
   aboard.set(player.id, boat.id);
   const name = boat.name || TYPES[boat.type_id]?.name || 'her';
   const kind = berthKind(here);

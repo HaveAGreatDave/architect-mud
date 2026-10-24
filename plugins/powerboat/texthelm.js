@@ -42,6 +42,7 @@ import { wildlandsAt } from '../../client/shared/wildlands.js';
 import { aboard } from './yard.js';
 import { effBoatParams } from './service.js';
 import { rigs } from './index.js';
+import { parkLocked } from './access.js';
 import { clamp } from '../../server/engine/util.js';
 
 const TICK = '1s';
@@ -244,6 +245,7 @@ async function moor(player, c) {
   const berth = f.marina_berths || f.boat_covered || f.boat_hardstanding;
   if (!berth) return { type: 'error', message: 'Nothing to tie up to here.' };
   await flush(c, zone.id);
+  await parkLocked(c.boatId);
   stopTextHelm(player.id);
   return { type: 'emote', message: `You bring her alongside and make fast. ${statusFuel(c)}` };
 }

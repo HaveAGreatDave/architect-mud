@@ -26,6 +26,7 @@ import { setDownCompanions, killCompanions } from './companions.js';
 import { isResidentOf } from '../../server/engine/apartments.js';
 import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent, getZonePowerStatus, getZoneEmergencyLighting, getZoneOnGrid, groundAccum, getWindKphAtGrid, getPrecipAtGrid } from '../../server/engine/environment.js';
 import { gatherHookSync } from '../../server/engine/plugins.js';
+import { isPrivateCraft, indexAircraft, unindexAircraft } from './access.js';
 
 export const TICK_MS = 3000;
 // Overall traversal pace — a single knob that slows the flight down without
@@ -2776,7 +2777,11 @@ export async function parkAt(live, zoneId) {
   // Anyone riding in the back (an escortee) gets out where the occupants do. This
   // is the arrival for them — see companions.js.
   setDownCompanions(live, occZone);
+  // Parked: an owned craft's latch goes on (vehicle-access.js), and the open-tile index learns where
+  // she stands. Rental stock and charters are left alone (access.js).
+  if (isPrivateCraft(live.row)) live.row.custom_data = { ...(live.row.custom_data || {}), locked: true };
   await persist(live);
+  indexAircraft(live.row, live.type?.name);
 }
 
 // Relocate every craft PARKED on a moving field (the Echelon) to the field's new tile, so a
@@ -2815,6 +2820,7 @@ export async function crash(live, reason = 'crash', byPlayer = null) {
   live.aaThreat = null;
   live.aaWarned = false;
   await persist(live);
+  unindexAircraft(live.row.id);   // a wreck isn't a parked plane anybody climbs into
   const downedBy = byPlayer ? `, ${byPlayer.handle} splashes it` : '';
   sendToZone(wreckZone, { type: 'zone_event', message: `<span class="text-red">A ${live.type.name} screams down out of the sky and craters into the ground in a fireball${downedBy}.</span>`, refresh: true });
   // Collateral: what the wreck does to the tile it hits (bystanders, damage bill, crimes).

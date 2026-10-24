@@ -2201,6 +2201,11 @@ on('atm.drained', ({ player, zoneId }) => {
 on('theft.caught', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'theft', zoneId || player.current_zone, player.handle);
 });
+// Somebody else's vehicle, left unlocked on an open tile, driven off (server/engine/vehicle-access.js).
+// The ordinary 'any' roll: a camera or a cop on the tile has to see it.
+on('vehicle.taken', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'vehicle_theft', zoneId || player.current_zone, player.handle);
+});
 // Commerce fires this when you carry unpaid shop stock out the door. Charged at
 // the SHOP's zone, not the street you stepped onto — the clerk and the shop's
 // camera are the witnesses, and the normal 'any' roll decides if they made you.

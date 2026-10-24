@@ -283,6 +283,28 @@ distance term reads coordinates off content, and content can always grow a row w
 not where the thing is. An interior sits at grid 0,0, which is not a position — it is the absence of
 one — so `towGrid` asks the building's tile instead.
 
+## Somebody else's boat
+
+The shared rule in `server/engine/vehicle-access.js` decides who gets in, and `access.js` is the
+boat's side of it. The owner can always board. Anybody else can `embark` a boat lying on an open
+world tile (open water, a pontoon on the map) if she's unlocked. In the covered dock, the Dock Hall
+or anywhere under a roof, only the owner can. `embark` picks your own boat first, then an unlocked
+one somebody else left there.
+
+Leaving her locks her: stepping off at a berth or over the side, the slings in the covered slot, and
+`conn moor` all write `custom_data.locked = true`. A row with no key reads as locked. The owner
+leaves her open with `unlock boat` standing beside her; the `lock`/`unlock` verbs are trucking's
+router, which calls the latch `access.js` registers, guarded on `owner_id`.
+
+A stranger who takes the helm doesn't come to own her. `helm` fires `vehicle.taken`, which
+surveillance charges as `vehicle_theft` on a witness roll. The row keeps its owner, so the marina's
+counters, `boats`, `refit`, `tow`, fuel, sale and hire return still only ever show the owner's hulls.
+The trip itself (telemetry flushes, the text helm, stepping off) writes by boat id, so it works for
+whoever is at the wheel.
+
+The room's "Parked here:" line comes from a RAM index, seeded at boot with one query and kept on
+this plugin's own writes. `describeAdrift` only names a hull the index doesn't already list.
+
 ## Verbs
 
 `boat` `boats` `berth` `refit` — the yard. `helm` — take the seat (a separate act from `embark`:

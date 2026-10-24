@@ -10,6 +10,9 @@
 // truck was a real purchase with a real opportunity cost. It also gives the economy somewhere to
 // go: the first 1,300₵ buys a Bolt-and-Pray, and 16,500₵ buys a market's worth of deck.
 //
+// A street tile is any open world tile; a truck left on one can be taken by anybody if it is
+// unlocked (server/engine/vehicle-access.js).
+//
 // READ TIER: cold. A player's fleet is fetched when they open the yard or mount a truck, never on a
 // tick and never on the drive — the live rig carries the type in RAM once mounted, and fuel is
 // written back on `park`, coalesced, exactly like the zone flush.
@@ -17,6 +20,7 @@
 import { query } from '../../server/models/db.js';
 import { TYPES, TRUCK_TYPES } from '../../client/game/js/panels/flight-model.js';
 import { randomUUID } from 'crypto';
+import { noteGone } from '../../server/engine/vehicle-access.js';
 
 export { TRUCK_TYPES };
 export const truckType = (id) => (TYPES[id]?.ground ? TYPES[id] : null);
@@ -77,6 +81,30 @@ export async function trucksAt(playerId, depotZone) {
   return rows.filter(r => truckType(r.type_id)).map(r => ({ ...r, type: truckType(r.type_id) }));
 }
 
+// Every truck standing on one tile, whoever owns it, for `drive` on an open street tile, where an
+// unlocked rig of somebody else's can be taken (server/engine/vehicle-access.js). Carries owner_id.
+export async function trucksOnTile(zoneId) {
+  const { rows } = await query(
+    'SELECT id, type_id, name, owner_id, depot_zone, fuel, odometer, impound_fee, condition, custom_data FROM trucks WHERE depot_zone = $1 AND owner_id IS NOT NULL ORDER BY created_at',
+    [zoneId]
+  ).catch(() => ({ rows: [] }));
+  return rows.filter(r => truckType(r.type_id)).map(r => ({ ...r, type: truckType(r.type_id) }));
+}
+// Every truck left on an open street tile, once at boot, to seed the parked index.
+export async function trucksOnStreets() {
+  const { rows } = await query(
+    "SELECT id, type_id, name, owner_id, depot_zone, custom_data FROM trucks WHERE owner_id IS NOT NULL AND depot_zone LIKE 'zone\\_%'"
+  ).catch(() => ({ rows: [] }));
+  return rows.filter(r => truckType(r.type_id)).map(r => ({ ...r, type: truckType(r.type_id) }));
+}
+// The latch from outside: `unlock truck` standing beside it. Guarded on the owner in the statement.
+export async function setTruckLocked(id, playerId, locked) {
+  const { rowCount } = await query(
+    `UPDATE trucks SET custom_data = jsonb_set(COALESCE(custom_data,'{}'::jsonb), '{locked}', to_jsonb($3::boolean), true) WHERE id = $1 AND owner_id = $2`,
+    [id, playerId, !!locked]).catch(() => ({ rowCount: 0 }));
+  return rowCount > 0;
+}
+
 export async function getTruck(id, playerId) {
   const { rows } = await query(
     'SELECT id, type_id, name, depot_zone, fuel, odometer, impound_fee, condition, custom_data FROM trucks WHERE id = $1 AND owner_id = $2', [id, playerId]
@@ -99,6 +127,7 @@ export async function buyTruck(playerId, typeId, depotZone, plate) {
 
 export async function sellTruck(id, playerId) {
   const { rowCount } = await query('DELETE FROM trucks WHERE id = $1 AND owner_id = $2', [id, playerId]);
+  if (rowCount) noteGone('truck', id);
   return rowCount > 0;
 }
 
@@ -132,11 +161,14 @@ export async function persistTruck(rig) {
               ELSE jsonb_set(COALESCE(custom_data,'{}'::jsonb), '{dmg}', $6::jsonb, true) END,
          '{locked}', to_jsonb($7::boolean), true),
          '{grime}', to_jsonb($8::numeric), true)
+       || jsonb_build_object('heading', $9::int)
      WHERE id = $5`,
     [Math.max(0, Math.min(1, rig.fuel)), Math.max(0, rig.travelled || 0), rig.zoneId || null,
       Math.max(0, Math.min(1, rig.condition ?? 1)), rig.truckId,
       dmg ? JSON.stringify(dmg) : null, !!rig.locked,
-      +Math.max(0, Math.min(1, rig.grime ?? 0)).toFixed(4)]
+      +Math.max(0, Math.min(1, rig.grime ?? 0)).toFixed(4),
+      // Where it was pointing, so a rig left on a street tile is mounted facing the way it stopped.
+      Math.round(Number(rig.heading) || 0)]
   ).catch(() => {});
   rig.travelled = 0;
 }
@@ -163,6 +195,8 @@ export async function recoverTruckTo(id, playerId, fromZone, toZone) {
     'UPDATE trucks SET depot_zone = $1, impound_fee = 0 WHERE id = $2 AND owner_id = $3 AND depot_zone IS NOT DISTINCT FROM $4',
     [toZone, id, playerId, fromZone]
   ).catch(() => ({ rowCount: 0 }));
+  // Off whatever street it was on: the low-loader has it.
+  if (rowCount) noteGone('truck', id);
   return rowCount > 0;
 }
 

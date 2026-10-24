@@ -424,6 +424,34 @@ can't drag somebody's stranded aircraft into the tick.
 Not covered: a hard refresh after a restart. The page reload closes the sim, so nothing asks, and the
 row stays airborne until the tablet's `flushairborne` tows her home.
 
+### Who gets into a parked aircraft *(as built, 2026-10-24)*
+
+The shared rule in `server/engine/vehicle-access.js`, the same one trucks, racers and boats use. The
+owner always gets in. Anybody else gets in only on an open world tile (`isOpenTile`: `map_world`,
+gridded, not an interior) and only if `aircraft.custom_data.locked === false`. A row with no key
+reads as locked. A hangar office is an interior, so a stranger is never let in from one, and a craft
+in a hangar bay (`hangar_id`) is refused as before. All of it is `boardGate` in `index.js`, called
+from `boardFound`, so `embark`/`board` and the SIFT replay all go through it.
+
+- **Only private craft.** `isPrivateCraft` (`access.js`): an owner, not a rental, not a charter.
+  Rental stock, a renter's hire and charters keep the rules they had. Climbing in while the owner is
+  already aboard is a lift, not a theft, and isn't checked.
+- **Parking locks her.** `parkAt` (every landing) and climbing out of the pilot's seat on the ground
+  (`disembark`) set `locked: true` on the live row and write it through `persist()`. A thief who
+  lands leaves her locked too. The owner opens her again with `unlock` beside her; the `lock`/
+  `unlock` verbs are trucking's router, which calls the latch flight registers with
+  `registerVehicleLock('aircraft', ...)`. That latch is guarded on `owner_id` and sets the live row
+  as well as the table, or the next `persist()` would write the old key back.
+- **Taking her.** A stranger seated as pilot fires `noteTaken` (`vehicle.taken`), which surveillance
+  charges as `vehicle_theft` on its witness roll. It replaces the old flat +3 wanted. The row keeps its
+  owner. Every flush of the live flight writes by `id` alone, so a stranger at the controls never
+  needs to be the owner for the sim to save; the owner-only verbs (`sell`, `hangar store`, `modify`,
+  `refuel <id>` parked, `loadhopper` parked) compare `owner_id` with the player and so refuse a stranger.
+- **The open-tile index** (`access.js`). RAM only, for the room description's "Parked here" line and
+  the lock verbs. Seeded once at boot with one query; `parkAt`, `disembark` and `hangar pull` add a
+  craft, and takeoff, a crew dispatch, a crash, `hangar store`, a sale and a deletion take it out.
+  Boarding always re-reads the row, so a stale entry costs a wrong line, never a wrong aircraft.
+
 ### NPC companions — somebody in the back *(as built, 2026-08-04)*
 The charter pilot proved an NPC can be an occupant: pulled out of the world (no zone),
 frozen from the AI tick by `npc._aboard` (`gameLoop`), set back down when the craft comes
@@ -1277,7 +1305,7 @@ Arrivals Hall (`dropZoneOf`, before `hangar_interior_zone`). The lounge's snack 
 machines charge through the vending plugin's `vend_price`; its coffee machine is a drinks rig.
 
 **Ownership** (`hangars.js`). `hangar rent/store/pull` (stored = theft-
-proof; an owned craft on an open ramp can be stolen — grand theft, +3 stars);
+proof; an owned craft left unlocked on an open tile can be taken, see below);
 `repair` (Fabrication + credits); `salvage` a wreck for scrap; `rebuild` a Carcass
 (Fabrication + Chemistry + 1500c → a random flyable type).
 

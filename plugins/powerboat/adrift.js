@@ -46,6 +46,8 @@ import { aboard, isOpenWater, berthKind, myBoats, pickBoat, zonesNear, coveredRo
 import { wetChange } from './service.js';
 import { conning, stopTextHelm } from './texthelm.js';
 import { rigs } from './index.js';
+import { parkLocked, unindexBoat } from './access.js';
+import { parkedIn } from '../../server/engine/vehicle-access.js';
 
 const say = (message) => ({ type: 'output', message });
 const pct = (v) => Math.max(0, Math.min(100, Math.round((v ?? 0) * 100)));
@@ -138,6 +140,8 @@ export async function overboard(player, broadcast) {
          '{heading}', to_jsonb(COALESCE($6, 0)::real), true)
      WHERE id = $1`,
     [boatId, here.id, hull ?? null, fuel ?? null, nitro ?? null, heading ?? null]);
+  // Leaving her parks her: the latch goes on, and an open tile puts her in the parked index.
+  await parkLocked(boatId);
 
   aboard.delete(player.id);
   stopTextHelm(player.id);
@@ -188,6 +192,7 @@ async function intoTheShed(player, boatId, shed, broadcast) {
   await query(
     `UPDATE boats SET berth_zone = $2, condition = COALESCE($3, condition), fuel = COALESCE($4, fuel), custom_data = $5::jsonb WHERE id = $1`,
     [boatId, shed.id, hull ?? null, fuel ?? null, JSON.stringify(dry)]);
+  await parkLocked(boatId);
   aboard.delete(player.id);
   stopTextHelm(player.id);
   rigs.delete(player.id);
@@ -224,7 +229,12 @@ export async function describeAdrift(zone, player) {
   const { rows } = await query(
     'SELECT id, name, type_id, owner_id, condition FROM boats WHERE berth_zone = $1 LIMIT 6', [zone.id],
   ).catch(() => ({ rows: [] }));
-  if (!rows.length) return undefined;
+  // A hull the parked index already lists gets its line from the engine ("Parked here:"), with the
+  // lock state and a link for whoever may take her. This line keeps only what the index missed.
+  const listed = new Set(parkedIn(zone.id).filter((v) => v.kind === 'boat').map((v) => v.id));
+  const unlisted = rows.filter((b) => !listed.has(b.id));
+  if (!unlisted.length) return undefined;
+  rows.length = 0; rows.push(...unlisted);
 
   const names = rows.map((b) => {
     const label = b.name || TYPES[b.type_id]?.name || 'a boat';
@@ -357,6 +367,7 @@ registerAction({
            to_jsonb((COALESCE((custom_data->>'recovery_fee')::int, 0) + $3)::int), true)
        WHERE id = $1`,
       [boat.id, home.id, canPay ? 0 : fee]);
+    unindexBoat(boat.id);
 
     // ⚠ THE SEAT GOES WITH HER. Towed out from under a helmsman, `aboard` would still say they are
     // sitting in a boat that is now in a shed on the other side of the bay — and `helm` would

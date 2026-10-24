@@ -6,7 +6,8 @@
 // the point — the pieces (corridor geometry, the clamp, node crossings) are individually cheap to
 // fake and individually meaningless. What has to hold is that an odometer reading turns into the
 // right void room, every time, for a whole haul.
-import { world, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
+import { world, getAllZones, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
+import { isOpenTile, noteGone } from '../../server/engine/vehicle-access.js';
 import { mapWindow, surfaceAt, isRoadCell, bounds as worldBounds } from '../flight/state.js';
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
@@ -3956,6 +3957,39 @@ async function regressBody({ run, check, getPlayer }) {
         rigOf(player)?.typeId === 'scrapper',
         `at ${zoneAfterPark} → ${backIn?.message?.slice(0, 70)}`);
       await run('park');
+
+      // ── SOMEBODY ELSE'S RIG, LEFT ON A STREET ─────────────────────────────
+      // On an open tile the owner can always climb in and anybody else only if it was left
+      // unlocked (server/engine/vehicle-access.js). Taking one doesn't change whose it is.
+      {
+        const street = getAllZones().find(z => z.map_id === 'map_world' && z.grid_x != null && !z.flags?.is_interior
+          && !z.flags?.is_building && !z.flags?.truck_depot && z.flags?.region_id === 'region_scarletwastes'
+          && Object.keys(z.exits || {}).length >= 2);
+        const theirs = 'truck_regress_theirs', OTHER = 'regress_other_owner';
+        const zone0 = player.current_zone;
+        check('a street tile to leave a rig on', !!street && isOpenTile(street.id), street?.id);
+        try {
+          await query('DELETE FROM trucks WHERE id = $1', [theirs]);
+          await query(`INSERT INTO trucks (id, type_id, name, owner_id, depot_zone, fuel, custom_data) VALUES ($1, 'scrapper', 'THEIRS 1', $2, $3, 1, '{"locked": true, "heading": 90}'::jsonb)`,
+            [theirs, OTHER, street.id]);
+          player.current_zone = street.id;
+          const shut = await run('drive');
+          check("drive refuses somebody else's locked rig on a street", !rigOf(player) && /locked/i.test(shut?.message || ''), shut?.message?.slice(0, 60));
+          await query(`UPDATE trucks SET custom_data = '{"locked": false, "heading": 90}'::jsonb WHERE id = $1`, [theirs]);
+          await run('drive');
+          check('…and takes it once it is unlocked, facing the way it was left',
+            rigOf(player)?.truckId === theirs && rigOf(player)?.ownerId === OTHER && Math.round(rigOf(player)?.heading) === 90, rigOf(player)?.truckId);
+          await run('park');
+          const { rows: [after] } = await query('SELECT owner_id, depot_zone, custom_data FROM trucks WHERE id = $1', [theirs]);
+          check('…and parked again it is still theirs, on the street, locked',
+            after?.owner_id === OTHER && after?.depot_zone === street.id && after?.custom_data?.locked === true, JSON.stringify(after)?.slice(0, 100));
+        } finally {
+          if (rigOf(player)) await run('park');
+          await query('DELETE FROM trucks WHERE id = $1', [theirs]).catch(() => {});
+          noteGone('truck', theirs);
+          player.current_zone = zone0;
+        }
+      }
 
       // ── AND EACH ONE IS PAINTED SEPARATELY ────────────────────────────────
       // Paint has always lived on the truck's own row, but nothing proved it: one bag per truck is

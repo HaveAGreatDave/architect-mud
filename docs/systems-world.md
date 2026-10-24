@@ -750,6 +750,15 @@ Any lock type whose `defaults` include `canHack: true` (currently just `hololock
 
 Registered as a `hack` specialized action in the doors plugin. Falls through (`undefined`) whenever there's no door here or its lock isn't hackable, so it composes with other plugins' `hack` targets (e.g. vendor safes, [plugins/vendor-safe/index.js](../plugins/vendor-safe/index.js)) via normal dispatch fallthrough — plain `commands` run before specialized actions, so vendor-safe also falls through when there's no safe in the zone, and a final `hack` builtin in `commands/index.js` catches the case where nothing here is hackable at all.
 
+## Parked vehicles (as built)
+
+[vehicle-access.js](../server/engine/vehicle-access.js) holds one rule for every vehicle: parked on an open world tile (a placed `map_world` tile that isn't an interior), the owner can always climb in, and anybody else can if it's unlocked. Parking locks it. The owner leaves it open with `unlock <vehicle>` standing beside it, and `lock <vehicle>` shuts it again; trucking's `lock`/`unlock` router sends those to whichever plugin registered the vehicle (`registerVehicleLock`) and falls through to doors when nothing of yours is parked here. Inside a depot, a marina or a hangar only the owner gets in.
+
+- **A row with no `locked` key is locked**, which is what parking would have done to it.
+- **Taking one doesn't change whose it is.** The row keeps its owner, and the taking fires `vehicle.taken`, which surveillance charges as `vehicle_theft` (2.5 stars) on its ordinary witness roll: a camera or a cop has to see it.
+- **The room says what's parked.** A RAM index (`noteParked`, `noteGone`), seeded by each vehicle plugin at boot with one query and kept on its own writes, gives the room description its `Parked here:` row with no query per look. A vehicle you may climb into is a link to the verb that does it. Climbing in always re-reads the row, so a stale entry costs a wrong line, never a wrong vehicle.
+- Each plugin opens its own way in: `drive` on a street tile (trucking), `podracer` (podracer), `embark` beside a boat (powerboat), and `embark` beside an aircraft (flight). A stranger in the seat can drive it anywhere and park it, but can't sell it, service it on the owner's account or call the owner's recovery.
+
 ## Tunables
 
 [tunables.js](../server/engine/tunables.js) caches the `combat_config` table at first use

@@ -39,6 +39,8 @@ import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { startTextHelm, isConning, stopTextHelm } from './texthelm.js';
 import { TYPES } from '../../client/game/js/panels/flight-model.js';
+import { boardCheck, noteTaken } from '../../server/engine/vehicle-access.js';
+import { unindexBoat } from './access.js';
 
 const RADIUS = 16;                     // must match `RAD` in client/game/js/panels/boat-view.js
 const HULL_FLOOR = 0.0;
@@ -207,7 +209,14 @@ export async function cmdHelm(args, raw, player) {
   }
   // A HIRE THAT HAS RUN OUT goes back when you reach for the key — unless she is out on the water,
   // where the desk would rather you brought her in than swam.
-  if (boatRentalExpired(boat) && !isOpenWater(getZone(boat.berth_zone))) {
+  // ⚠ SOMEBODY ELSE'S BOAT: the shared rule is asked again here, on the row, because `aboard` may be
+  // a seat taken before the owner came back and locked her, or one a restart put back.
+  const stranger = boat.owner_id && boat.owner_id !== player.id;
+  if (stranger) {
+    const may = boardCheck(player, { ownerId: boat.owner_id, cd: boat.custom_data, zoneId: boat.berth_zone });
+    if (!may.ok) { aboard.delete(player.id); return { type: 'error', message: may.why }; }
+  }
+  if (!stranger && boatRentalExpired(boat) && !isOpenWater(getZone(boat.berth_zone))) {
     await query("DELETE FROM boats WHERE id = $1 AND custom_data->'rental' IS NOT NULL", [boat.id]).catch(() => {});
     aboard.delete(player.id);
     return { type: 'error', message: 'The hire has run out. The desk has her key back on its hook.' };
@@ -236,6 +245,9 @@ export async function cmdHelm(args, raw, player) {
     return { type: 'error', message: `They have her, and they are not giving her back yet. `
       + `<span class="text-red">₵${owed.toLocaleString()}</span> outstanding on the recovery: <b>tow</b> settles it.` };
   }
+  // Under way: off the parked index, and a stranger at the wheel is a taking surveillance can see.
+  unindexBoat(boat.id);
+  if (stranger) noteTaken(player, { kind: 'boat', id: boat.id, ownerId: boat.owner_id, zoneId: boat.berth_zone, name: boat.name || TYPES[boat.type_id]?.name });
   // ── ⚠ THE RUNG IS PICKED HERE AND LATCHED, NEVER ASKED PER TICK ────────────
   //
   // A helm is a surface you ACT through — take it away and you cannot move a boat at all — so it

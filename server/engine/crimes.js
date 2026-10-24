@@ -27,6 +27,7 @@ export const CRIME_DEFAULTS = {
   hacking:             { label: 'Hacking',                      stars: 2,   witness: 'any',    description: 'Breaching a device or terminal.' },
   murder:              { label: 'Murder',                       stars: 5,   witness: 'always', description: 'Killing another player outright.' },
   theft:               { label: 'Theft',                        stars: 1.5, witness: 'any',    description: 'Pickpocketing or stealing a personal item.' },
+  vehicle_theft:       { label: 'Vehicle theft',                stars: 2.5, witness: 'any',    description: "Climbing into somebody else's truck, racer, boat or aircraft where they left it unlocked and going off in it. It stays theirs; you are only the one seen driving it." },
   shoplifting:         { label: 'Shoplifting',                   stars: 3,   witness: 'any',    description: "Walking out of a shop with goods off the shelf you never paid for. The door asks you first — you're told what you're still holding and given the chance to settle — so anyone who keeps walking has decided to steal, and it's charged as the deliberate act it is. The clerk is right there and the ceiling camera is pointed at the door, but a quiet lift on a busy floor still slips sometimes." },
   robbery:             { label: 'Robbery',                      stars: 2.5, witness: 'any',    description: 'Forcibly robbing another player at gunpoint.' },
   atm_robbery:         { label: 'ATM robbery',                  stars: 2,   witness: 'always', description: "Draining a compromised ATM's cash reserve." },

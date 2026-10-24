@@ -131,6 +131,15 @@ read. The law and the geometry are the engine's (`empReaches`); this plugin answ
 `vehicle.crewed` with its rigs and a `knockOut` each. See
 [systems-weather-extreme.md](../../docs/systems-weather-extreme.md).
 
+## A rig left on a street
+
+`park` on an open street tile leaves the truck there, locked, facing the way it stopped
+(`custom_data.heading`), and `drive` on that tile takes it out again. Anybody else can take one
+that was left unlocked (`unlock truck` beside it); it stays the owner's, and the taking can be
+charged as `vehicle_theft`. The rule is shared by every vehicle: "Parked vehicles" in
+[systems-world.md](../../docs/systems-world.md). `lock` and `unlock` out of the cab reach any
+vehicle of yours parked on your tile, a racer or a boat too, before they fall through to doors.
+
 ## The counter and the bay
 
 The depot's first screen is a **hand of cards**: every truck you have, owned or hired, on one of

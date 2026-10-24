@@ -1411,4 +1411,66 @@ export default async function regress({ run, check, getPlayer }) {
       slot ? slot.zone.id : 'no slot');
     check('covered slot: and that tile maps back to the hall', !!slot && coveredRoomAtTile(slot.zone.id)?.id === 'zone_consv_hall');
   }
+  // ── WHO MAY TAKE A BOAT (access.js, server/engine/vehicle-access.js) ─────────
+  // Owner always; a stranger only on an open tile and only unlocked; in the marina, owner only.
+  {
+    const Y = await import('./yard.js');
+    const A = await import('./access.js');
+    const V = await import('../../server/engine/vehicle-access.js');
+    const { getZone } = await import('../../server/engine/world.js');
+    const { query: q } = await import('../../server/models/db.js');
+    const basin = getZone('zone_district_894_902');
+    const hall = getZone('zone_consv_hall');
+    const p = await getPlayer();
+    const OTHER = 'regress_boat_owner_' + Date.now().toString(36);
+    const id = 'boat_regress_access_' + Date.now().toString(36);
+    const was = { zone: p.current_zone, seat: Y.aboard.get(p.id) };
+    const owner = { ...p, id: OTHER };
+    const seatOf = (who) => Y.aboard.get(who.id);
+    const off = (who) => { if (Y.aboard.get(who.id)) Y.aboard.delete(who.id); };
+    const setLock = (locked) => q("UPDATE boats SET custom_data = jsonb_set(custom_data, '{locked}', to_jsonb($2::boolean), true) WHERE id = $1", [id, locked]);
+    check('boat access: the Basin is an open tile and the Dock Hall is not', !!basin && V.isOpenTile(basin.id) && !!hall && !V.isOpenTile(hall.id));
+    if (basin && hall) {
+      try {
+        off(p);
+        await q("INSERT INTO boats (id, type_id, name, owner_id, berth_zone, custom_data) VALUES ($1, 'hydro', 'Regress Access', $2, $3, '{}'::jsonb)", [id, OTHER, basin.id]);
+        // A row with no key reads as locked.
+        p.current_zone = basin.id;
+        const r0 = await Y.boatEmbark(p);
+        check('boat access: a stranger is refused a boat with no latch key (locked)', seatOf(p) !== id && r0?.type === 'error', JSON.stringify(r0));
+        owner.current_zone = basin.id;
+        await Y.boatEmbark(owner);
+        check('boat access: the owner boards her locked', seatOf(owner) === id);
+        off(owner);
+        await setLock(false);
+        await Y.boatEmbark(p);
+        check('boat access: a stranger boards her unlocked on an open tile', seatOf(p) === id);
+        off(p);
+        // Parking locks her and lists her on the tile.
+        const parked = await A.parkLocked(id);
+        check('boat access: parking sets locked', parked?.custom_data?.locked === true, JSON.stringify(parked?.custom_data));
+        check('boat access: and she is in the parked index, locked', V.parkedIn(basin.id).some((v) => v.id === id && v.locked));
+        // Inside the marina only the owner gets in, unlocked or not.
+        await q('UPDATE boats SET berth_zone = $2 WHERE id = $1', [id, hall.id]);
+        await setLock(false);
+        await A.parkLocked(id);
+        check('boat access: a hull under a roof leaves the index', !V.parkedIn(basin.id).some((v) => v.id === id));
+        await setLock(false);
+        p.current_zone = hall.id;
+        await Y.boatEmbark(p);
+        check('boat access: a stranger is refused inside the marina even unlocked', seatOf(p) !== id);
+        off(p);
+        owner.current_zone = hall.id;
+        await Y.boatEmbark(owner);
+        check('boat access: the owner boards her in the marina', seatOf(owner) === id);
+      } finally {
+        off(p); off(owner);
+        A.unindexBoat(id);
+        await q('DELETE FROM boats WHERE id = $1', [id]).catch(() => {});
+        await q('DELETE FROM player_flags WHERE player_id = $1', [OTHER]).catch(() => {});
+        p.current_zone = was.zone;
+        if (was.seat) Y.aboard.set(p.id, was.seat);
+      }
+    }
+  }
 }

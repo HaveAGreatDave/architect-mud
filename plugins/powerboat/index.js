@@ -43,6 +43,8 @@ import { fuelPrices } from './fuel.js';
 // Stopping in the middle of the Basin: over the side into the water, the hull left floating where
 // you left her, and the launch that comes out for her when the tank runs dry.
 import { overboard, describeAdrift } from './adrift.js';
+// Who may take a boat, the parked index and the latch the lock/unlock router turns (access.js).
+import { unindexBoat } from './access.js';
 
 // Every boat currently under way, by player id. RAM only and deliberately so: a position on the
 // water is per-tick state, and the persistence tiers are explicit that per-tick state does not go
@@ -75,6 +77,7 @@ registerAction({
     // at zero is matchwood, not a repair job, so leaving the row behind at condition 0 would be a
     // wreck sitting in somebody's fleet list forever pretending to be an asset.
     if (params.boatId) {
+      unindexBoat(params.boatId);
       try { await query('DELETE FROM boats WHERE id = $1', [params.boatId]); }
       catch (err) { console.error('BOAT_BREAKUP: could not delete boat ' + params.boatId + ': ' + err.message); }
     }
