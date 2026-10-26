@@ -10,6 +10,8 @@
 // Sources read for this (panel contents, seating, the float gauge, dimensions):
 //   https://en.wikipedia.org/wiki/Piper_J-3_Cub
 //   https://www.j3-cub.com/threads/instrument-panel-clarification.18829/
+//   Photo held against (Wikimedia Commons, 2026-10-26): File:VH-IMR_Piper_J-3C-65_Cub_(9252289235).jpg
+//     (the black board, five dials, SOLO REAR SEAT ONLY over them, the booted front stick)
 //   https://aerocorner.com/aircraft/piper-j-3-cub/  (fuselage 0.7 m across, 6.8 m long)
 // What they settle: solo from the rear seat; 3 3/4" Stewart Warner tach and 3 1/8" airspeed and
 // altimeter with cream faces, a combined oil pressure/temperature gauge, a B-16 compass; a fuel
@@ -67,12 +69,12 @@ export const CUB_TRIM = {
   yellow: [236, 186, 38], yellowDk: [198, 150, 28],
   fabric: [132, 108, 66], fabricDk: [112, 90, 54],   // the lining under the doped skin, not the yellow itself
   lining: [96, 72, 48], liningDk: [76, 56, 36],
-  ply: [92, 72, 50], plyDk: [80, 62, 42],             // oiled, scuffed floorboards
+  ply: [62, 49, 35], plyDk: [54, 43, 31],             // oiled, scuffed floorboards: dark, since the floor faces up and the shell lights it hardest
   tube: [96, 106, 84],                       // zinc-chromate tube, as the frame is painted
   panel: [30, 28, 26], panelEdge: [52, 48, 44],
   cream: [226, 214, 184], ink: [22, 20, 18],
   seat: [104, 80, 54], seatDk: [80, 60, 40], webbing: [150, 132, 92],
-  chrome: [196, 200, 206], knob: [16, 16, 18], redKnob: [176, 34, 28],
+  chrome: [196, 200, 206], knob: [16, 16, 18],
   cork: [176, 136, 86], bulb: [255, 226, 160], rubber: [24, 24, 26], grip: [34, 30, 28],
 };
 const T = CUB_TRIM;
@@ -80,7 +82,7 @@ SHINY.set(T.chrome, { spec: 0.8, pow: 22, ramp: [[70, 72, 78], [236, 238, 242]],
 SHINY.set(T.tube, { spec: 0.18, pow: 10 });
 SHINY.set(T.panel, { spec: 0.22, pow: 30 });
 SHINY.set(T.knob, { spec: 0.45, pow: 40 });
-SHINY.set(T.redKnob, { spec: 0.45, pow: 40 });
+
 SHINY.set(T.yellow, { spec: 0.25, pow: 18 });
 // The crescent of window light on each dial's glass.
 const DIAL_GLINT = [255, 252, 240];
@@ -92,7 +94,7 @@ for (const k of ['lining', 'liningDk', 'seat', 'seatDk']) TEXTURE.set(T[k], 'lea
 for (const k of ['ply', 'plyDk', 'cork']) TEXTURE.set(T[k], 'wood');                     // floorboards
 for (const k of ['tube', 'panel', 'panelEdge', 'yellow', 'yellowDk']) TEXTURE.set(T[k], 'paint');
 TEXTURE.set(T.chrome, 'brushed');
-TEXTURE.set(T.knob, 'plastic'); TEXTURE.set(T.redKnob, 'plastic');
+TEXTURE.set(T.knob, 'plastic');
 TEXTURE.set(T.rubber, 'rubber'); TEXTURE.set(T.grip, 'rubber');
 
 // ── THE LOFT, AS A SURFACE ───────────────────────────────────────────────────
@@ -475,8 +477,8 @@ function controls(P, L) {
 // Panel coordinates, in metres on the panel face: `u` across, `v` up from its centre.
 const PANEL = { v0: -0.105, v1: 0.0, row: -0.052 };
 const DIALS = { asi: [-0.175, -0.052, 0.040], tach: [0, -0.050, 0.048], alt: [0.175, -0.052, 0.040],
-  oil: [-0.085, -0.128, 0.026], comp: [0, 0.035, 0.030], mag: [-0.215, -0.150], primer: [0.215, -0.150],
-  carb: [0.085, -0.140], light: [0.140, -0.150] };
+  oil: [-0.085, -0.128, 0.026], comp: [0, 0.035, 0.030], mag: [-0.215, -0.150],
+  light: [0.140, -0.150] };
 // The GPS, under the tach and over the VNE placard: the one place on the board with room for it.
 // Unlettered, because the placard is where its name would go.
 const GPS = { u: 0, v: -0.135, hw: 0.045, hh: 0.03 };
@@ -514,17 +516,19 @@ export function grasshopperFit(P, live, push) {
   const dialO = { face: T.cream, tick: T.ink, needle: T.ink, bezel: [34, 32, 30] };
   const ias = Math.max(0, num(L.ias)), vne = Math.max(40, num(L.vne, 122));
   const [ax, ay, ar] = DIALS.asi;
-  Pn.dial(ax, ay, ar, clamp(ias / (vne * 1.15), 0, 1), { ...dialO, ticks: 10, major: 2, arcs: [[0.30, 0.72, C.green], [0.72, 0.87, C.yellow]], red: 0.87, name: 'MPH' });
+  Pn.dial(ax, ay, ar, clamp(ias / (vne * 1.15), 0, 1), { ...dialO, ticks: 10, major: 2, arcs: [[0.30, 0.72, C.green], [0.72, 0.87, C.yellow]], red: 0.87, name: 'MPH', nameH: 0.015 });
   const alt = Math.max(0, num(L.alt));
   const [lx, ly, lr] = DIALS.alt;
-  Pn.dial(lx, ly, lr, (alt % 1000) / 1000, { ...dialO, a0: Math.PI / 2, sweep: TAU, ticks: 10, major: 1, frac2: (alt % 10000) / 10000, needle2: [70, 64, 58], name: 'ALT' });
+  Pn.dial(lx, ly, lr, (alt % 1000) / 1000, { ...dialO, a0: Math.PI / 2, sweep: TAU, ticks: 10, major: 1, frac2: (alt % 10000) / 10000, needle2: [70, 64, 58], name: 'ALT', nameH: 0.015 });
   const rpm = clamp(num(L.rpm), 0, 1.05);
   const [tx, ty, tr] = DIALS.tach;
-  Pn.dial(tx, ty, tr, rpm, { ...dialO, ticks: 12, major: 2, arcs: [[0.55, 0.88, C.green]], red: 0.92, name: 'RPM' });
+  Pn.dial(tx, ty, tr, rpm, { ...dialO, ticks: 12, major: 2, arcs: [[0.55, 0.88, C.green]], red: 0.92, name: 'RPM', nameH: 0.016 });
   // The oil gauge: pressure and temperature, two needles on one face (the late J-3's combination).
   const [ox, oy, orr] = DIALS.oil;
   const oilT = clamp(num(L.oilTemp, 0.5), 0, 1), oilP = powered ? clamp(0.25 + rpm * 0.55, 0, 1) : 0;
-  Pn.dial(ox, oy, orr, oilP, { ...dialO, a0: Math.PI * 0.9, sweep: Math.PI * 0.8, ticks: 4, major: 2, frac2: oilT, needle2: C.red, name: 'OIL' });
+  Pn.dial(ox, oy, orr, oilP, { ...dialO, a0: Math.PI * 0.9, sweep: Math.PI * 0.8, ticks: 4, major: 2, frac2: oilT, needle2: C.red });
+  // Its name beside it: the face is too small for 15 mm letters, and that's what reads from the back seat.
+  Pn.text('OIL', ox - 0.05, oy, 0.015, T.cream, 0.2 + lumi, 0.004);
   // The compass: a B-16 on top of the coaming, a card in a ball with a lubber line.
   const [cx0, cy0, cr] = DIALS.comp;
   Pn.stud(cx0, cy0 - 0.01, cr * 1.2, cr * 0.9, 0.03, T.knob, 0, 0.004);
@@ -544,18 +548,16 @@ export function grasshopperFit(P, live, push) {
   Pn.annulus(mx, my, 0.016, 0.024, T.chrome, 0.1, 0.002, 14);
   Pn.disc(mx, my, 0.016, T.knob, 0, 0.002, 12);
   Pn.spoke(mx, my, Math.PI / 2 - magOn * 1.2, -0.004, 0.014, 0.004, T.chrome, 0.1, 0.02);
-  Pn.text('MAG', mx, my - 0.036, 0.0085);
+  Pn.text('MAG', mx, my - 0.036, 0.015, T.cream, 0.2 + lumi, 0.004);
   for (let i = 0; i < 4; i++) Pn.disc(mx + Math.cos(Math.PI / 2 - i * 0.4) * 0.03, my + Math.sin(Math.PI / 2 - i * 0.4) * 0.03, 0.003, T.cream, lumi, 0.003, 5);
-  // The primer: a chrome plunger. The carb heat: a knob on a push-pull cable. The landing-light toggle.
-  Pn.knob(DIALS.primer[0], DIALS.primer[1], 0.009, 0.02, T.chrome, 0.1);
-  Pn.knob(DIALS.carb[0], DIALS.carb[1], 0.011, 0.018, T.redKnob, 0.05);
-  Pn.text('PRIME', DIALS.primer[0], DIALS.primer[1] - 0.022, 0.0085);
-  Pn.text('CARB', DIALS.carb[0], DIALS.carb[1] - 0.022, 0.0085);
+  // The landing-light toggle. ⚠ NO PRIMER AND NO CARB HEAT: a J-3 has both, as a chrome plunger and a
+  // knob on a cable, but the sim reads neither, so they would be controls that do nothing.
   const landOn = !!(powered && L.landingLight);
-  Pn.toggle(DIALS.light[0], DIALS.light[1], landOn, 'LAND');
+  Pn.toggle(DIALS.light[0], DIALS.light[1], landOn);
+  Pn.text('LAND', DIALS.light[0], DIALS.light[1] - 0.026, 0.015, T.cream, 0.2 + lumi, 0.004);
   // A placard: the type's single limit, painted.
-  Pn.rect(-0.05, -0.185, 0.05, -0.172, T.cream, lumi * 0.5, 0.002);
-  Pn.fitText('VNE 122 MPH', 0, -0.1785, 0.094, 0.009, T.ink, 0.1, 0.003);
+  Pn.rect(-0.078, -0.196, 0.078, -0.172, T.cream, lumi * 0.5, 0.002);
+  Pn.fitText('VNE 122 MPH', 0, -0.184, 0.15, 0.0145, T.ink, 0.1, 0.003);
   panelGps(Pn, GPS.u, GPS.v, GPS.hw, GPS.hh, L, { label: false });
 
   // ── THE FUEL GAUGE: a wire on a cork float out of the tank cap, ahead of the glass ──
