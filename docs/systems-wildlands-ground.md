@@ -20,7 +20,10 @@ Now `wildlandsAt(x, y)` in `client/shared/wildlands.js` answers for all of them.
 | `content/map/wildlands.json` | Authoring: each region's halo (`biome`, `reach`), the coast, how far each edge terrain carries on past a region's rim (`edge`), and the landforms (Mount Cinder). |
 | `content/map/routes.json` | Route numbers for the highways, keyed by the two regions a road joins. |
 | `scripts/content/bake-wildlands.mjs` | Reads those plus the placed `map_world` tiles and writes `client/shared/wildlands-field.js`: distance to land, to the bay, to each region, and the terrain of the nearest region edge, on a 4-tile grid. `npm run wildlands:bake`; `--check` fails if stale. |
-| `client/shared/wildlands.js` | The rules. `wildlandsAt`, `wildlandsColour`, `landformHeight`, `routeNumber`. |
+| `client/shared/wildlands.js` | The rules. `wildlandsAt`, `wildlandsColour`, `landformHeight`, `routeNumber`, and the relief's `reliefAt` and `groundZ`. A factory (`createWildlands(field)`), bound once to the shipped field. |
+| `client/shared/relief-rules.js` | What one tile of the relief is (`reliefTileAt`): the rules the game and the preview page share. |
+| `scripts/content/relief-core.mjs` | The relief bake: uplift, strata, erosion, terraces; road routing for the preview. Pure ESM, so the browser runs it too. |
+| `tools/worldmap/relief.html` | The relief preview: bakes `relief` in the page with sliders, layers, cross-sections and routed roads. |
 | `client/shared/ground-palette.js` | `BIOME_GROUND`, moved out of `windshield.js` so the map and the floor share one palette. Adds `scarlet` and `lava`. |
 | `client/shared/worldmap-render.js` | The map canvas, for the tablet app and anything else that wants it. |
 | `plugins/worldmap/` | The World Map tablet app and the `worldmap` verb. |
@@ -51,9 +54,32 @@ The answer carries a `blend` (biome weights, for colour) and a `terrain` (a real
 
 ⚠ **Move a region, re-bake.** The field is derived from placed tiles. `gl:wildlands` (in `pretest:regress` and `shapes:smoke`) fails if it is stale.
 
+## The relief
+
+**Built 2026-10-26 (phases 1 and 2 of [wildlands-relief.md](proposals/wildlands-relief.md)).** One carved height field for the wildlands, baked into the field and read by `reliefAt(x, y)` and `groundZ(x, y)`. The World Map draws it; nothing in play reads it yet.
+
+The bake (`relief` in `wildlands.json`, run by `relief-core.mjs` from `bake-wildlands.mjs`) works on 2-tile cells: uplift by province (each region's surroundings have their own uplift, rock and moisture), layered strata with hard caprocks, a few hundred passes of stream-power erosion and creep, then terraces pulled toward each caprock. Hard beds hold a face and soft ones slope back, so a canyon cut through two caps has two cliff bands and a bench between.
+
+- `groundZ(x, y)` is the ground's height in world z (`zScale` per tier). 0 under every region, at the shore, and with no relief.
+- `reliefAt(x, y)` is `{ z, h, tier, step, flow, wet, form, biome, terrain }`. `form` is one of `cliff`, `ramp`, `scree`, `wash`, `lakebed` or `ground`. `terrain` is always a real terrain (a wash is `gravel`, grassland is `grass`); `biome` is the preview's vocabulary, which reaches the ground palette in phase 6.
+
+⚠ **Render and prose only, like everything else here.** Ask it only about unplaced ground.
+
+⚠ **The ground is flat under every placed tile.** The ring of cells round a region is held at 0, and the bake reads every placed tile back through `groundZ` and fails if one is above 0.02.
+
+⚠ **The volcano is locked.** Mount Cinder's cone joins the height but no erosion or pit fill touches it, so its crater and its plume are as they were. `gl:wildlands` checks it still rises from its foot to its rim.
+
+⚠ **The bake carves off the field it is writing**, through `createWildlands(out)`, never the shipped module: the coast and the volcano are inputs, and the shipped module is the previous bake.
+
+⚠ **`--check` compares the relief within a rounding step.** The erosion runs the volcano's `Math.pow` and `atan2`, which may differ in the last bit between V8 versions. Everything else in the field is compared exactly.
+
+⚠ **The edge of the bake is open.** Water leaves the rect at its own height. A closed edge laid a dry lakebed along half the border.
+
+**What it costs.** The field went from 17 KB to 67 KB over the wire (brotli; 617 KB raw). The planes are stored as residuals from the gradient predictor at the precision the rules need (height to 1/1000 of a tier, drainage only above 2^6), which is what brought them down from 101 KB. The bake adds about 2 s to the 7 s it spends reading the zone files.
+
 ## The World Map
 
-Tablet app `worldmap` and verb `worldmap`. The server sends the placed tiles (one character per tile, by biome) and this week's road polylines with route numbers; the client draws the wildlands itself from the shared field, so there is no egress for it and the map cannot disagree with the ground. The tablet imports the renderer lazily, so the 172 KB field is only fetched by someone who opens the app. Everything is visible (no fog of war). The verb prints a character map and the route list, so it reaches the log at every Display Mode rung.
+Tablet app `worldmap` and verb `worldmap`. The server sends the placed tiles (one character per tile, by biome) and this week's road polylines with route numbers; the client draws the wildlands itself from the shared field, so there is no egress for it and the map cannot disagree with the ground. The tablet imports the renderer lazily, so the 172 KB field is only fetched by someone who opens the app. Everything is visible (no fog of war). Between the regions it draws the relief: a hillshade off `groundZ`, a contour every quarter of a cliff band, cliff faces in the rim's dark rock, scree, and dry washes in pale sand; hovering a cliff or a wash names it. Building the map's ground costs about 0.4 s in Node for the whole rect, once, when the app opens. The verb prints a character map and the route list, so it reaches the log at every Display Mode rung.
 
 The dev copy at `tools/worldmap/` (`node scripts/map/world-map-dump.mjs`, then open it served from the repo root) adds hover detail for every placed tile.
 

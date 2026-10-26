@@ -8,11 +8,12 @@
 //   3. the coast is continuous: a row north of the coast line is sea right across the map;
 //   4. each region's halo biome is what you find just outside it;
 //   5. every landform's cone falls away from its crater;
-//   6. it is a pure function: the same tile asked twice gives the same answer.
+//   6. it is a pure function: the same tile asked twice gives the same answer;
+//   9. the carved relief shipped, flat under every placed tile, with the volcano still a mountain.
 import { execFileSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { BIOME_GROUND } from '../../client/shared/ground-palette.js';
-import { wildlandsAt, wildlandsRect, landforms, landformHeight } from '../../client/shared/wildlands.js';
+import { wildlandsAt, wildlandsRect, landforms, landformHeight, reliefAt, groundZ } from '../../client/shared/wildlands.js';
 import { WILDLANDS_FIELD as F } from '../../client/shared/wildlands-field.js';
 
 const fails = [];
@@ -88,6 +89,29 @@ for (const [name, t] of Object.entries(F.hwTypes || {})) {
 // 6. pure
 const a1 = JSON.stringify(wildlandsAt(900, 1000)), a2 = JSON.stringify(wildlandsAt(900, 1000));
 check('wildlandsAt is a pure function', a1 === a2);
+
+// 9. the relief (docs/proposals/wildlands-relief.md): it shipped, every terrain it answers is real,
+//    the ground is flat under every placed tile (the city, the airfields and the regions don't move),
+//    and the volcano is still a mountain: it rises from its foot to its rim and has its crater.
+let reliefOk = !!F.relief;
+check('the relief is in the field', reliefOk);
+if (reliefOk) {
+  const badRelief = new Set();
+  for (let y = r.y0; y <= r.y1; y += 3) for (let x = r.x0; x <= r.x1; x += 3) {
+    const at = wildlandsAt(x, y); if (at.sea) continue;
+    const rf = reliefAt(x, y, at);
+    if (!terrains.has(rf.terrain)) badRelief.add(rf.terrain);
+  }
+  check('every relief terrain is a real terrain', !badRelief.size, [...badRelief].join(', '));
+  // Flat under every placed tile is held by the bake itself (it has the tiles), so check 1 covers it.
+  for (const l of landforms()) {
+    const rim = groundZ(l.x + l.crater + 2, l.y), mid = groundZ(l.x + (l.radius + l.crater) / 2, l.y), foot = groundZ(l.x + l.radius + 12, l.y);
+    check(`${l.name}: the ground rises from its foot to its rim`, rim > mid && mid > foot, `foot ${foot.toFixed(2)}, flank ${mid.toFixed(2)}, rim ${rim.toFixed(2)}`);
+    check(`${l.name}: the crater sits below its rim`, groundZ(l.x, l.y) < rim);
+  }
+  const p1 = JSON.stringify(reliefAt(1000, 1010)), p2 = JSON.stringify(reliefAt(1000, 1010));
+  check('reliefAt is a pure function', p1 === p2);
+}
 
 if (fails.length) { console.error('✗ wildlands:\n  ' + fails.join('\n  ')); process.exit(1); }
 console.log(`✓ wildlands: fresh field, ${Object.keys(F.halo).length} halos, ${landforms().length} landform(s), a continuous coast, and a closed vocabulary.`);

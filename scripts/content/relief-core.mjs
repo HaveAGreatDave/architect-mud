@@ -2,8 +2,9 @@
 //
 // One height field for the wildlands, carved by simulated water rather than thresholded noise, so
 // canyons branch the way drainages do and a cliff is where a hard bed outcrops. See
-// docs/proposals/wildlands-relief.md. Phase 1 reads this only from the preview page
-// (tools/worldmap/relief.html); nothing in the game does yet.
+// docs/proposals/wildlands-relief.md. scripts/content/bake-wildlands.mjs runs it into the shipped
+// field, and the preview page (tools/worldmap/relief.html) runs it live. Per-tile reading is in
+// client/shared/relief-rules.js, which both share.
 //
 // Pure ESM with no Node imports, so the bake and the browser run the same code. The numbers are
 // content (`relief` in content/map/wildlands.json); nothing here names a region or a place.
@@ -12,6 +13,7 @@
 // config turns that into world z when something renders it.
 import { hnoise2, fbm2 } from '../../client/shared/landform.js';
 import { wildlandsAt, landformHeight } from '../../client/shared/wildlands.js';
+import { cellSampler, dipAt, tierOfH, reliefTileAt, surfaceH, RELIEF_BIOMES } from '../../client/shared/relief-rules.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sstep = (e0, e1, v) => { const u = clamp((v - e0) / (e1 - e0), 0, 1); return u * u * (3 - 2 * u); };
@@ -71,7 +73,11 @@ function bedHard(strata, hb) {
 //
 // rect: { x0, y0, x1, y1 } in tiles. tiles: [{ x, y, r (region id), w (water) }], every placed
 // map_world tile. cfg: the `relief` block of wildlands.json. Returns the cell planes.
-export function bakeRelief({ rect, tiles, cfg, onProgress }) {
+//
+// `wild` is { wildlandsAt, landformHeight } for the field being baked (see createWildlands); the
+// preview leaves it out and reads the shipped field.
+export function bakeRelief({ rect, tiles, cfg, onProgress, wild = {} }) {
+  const wAt = wild.wildlandsAt || wildlandsAt, lfH = wild.landformHeight || landformHeight;
   const cell = cfg.cell || 2;
   const cw = Math.floor((rect.x1 - rect.x0) / cell) + 1, ch = Math.floor((rect.y1 - rect.y0) / cell) + 1;
   const N = cw * ch;
@@ -87,7 +93,7 @@ export function bakeRelief({ rect, tiles, cfg, onProgress }) {
     kind[i] = t.w ? (kind[i] === 2 ? 2 : 1) : 2;
     if (t.r && !t.w) regionIx[i] = regionIds.indexOf(t.r);
   }
-  for (let i = 0; i < N; i++) if (kind[i] === 0 && wildlandsAt(cx(i), cy(i)).sea) kind[i] = 1;
+  for (let i = 0; i < N; i++) if (kind[i] === 0 && wAt(cx(i), cy(i)).sea) kind[i] = 1;
 
   const distSea = chamfer(cw, ch, kind.map((k) => (k === 1 ? 1 : 0)), cell);
   const distLand = chamfer(cw, ch, kind.map((k) => (k === 2 ? 1 : 0)), cell);
@@ -138,13 +144,13 @@ export function bakeRelief({ rect, tiles, cfg, onProgress }) {
     const broad = 1 + fbm2(x * (sh.broadF ?? 0.012) + 5.3, y * (sh.broadF ?? 0.012) - 2.1, 3, 0.5) * (sh.broadAmp ?? 0.9);
     const fine = fbm2(x * (sh.fineF ?? 0.06) - 3.7, y * (sh.fineF ?? 0.06) + 8.8, 3, 0.5) * (sh.fineAmp ?? 0.25);
     h[i] = Math.max(0, (U[i] * (sh.height ?? 3.2) * broad + fine) * rim);
-    const cone = landformHeight(x, y);
+    const cone = lfH(x, y);
     if (cone > 0) { h[i] += cone * (sh.landformHeight ?? 3); if (cone > 0.05) lock[i] = 1; }
   }
 
   // The beds dip a little, so a cliff line wanders across the contours instead of following one.
   const dip = new Float32Array(N);
-  for (let i = 0; i < N; i++) dip[i] = fbm2(cx(i) * 0.008 + 9.1, cy(i) * 0.008 + 3.3, 2, 0.5) * (cfg.dip ?? 0.5);
+  for (let i = 0; i < N; i++) dip[i] = dipAt(cfg.dip ?? 0.5, cx(i), cy(i));
   const strata = cfg.strata || [];
   const hardAt = (i) => mix(1, bedHard(strata, h[i] + dip[i]), L[i]) * HC[i];
 
@@ -164,7 +170,13 @@ export function bakeRelief({ rect, tiles, cfg, onProgress }) {
   function flood(record) {
     seen.fill(0); nOrd = 0;
     const H = heap(N, key);
-    for (let i = 0; i < N; i++) if (kind[i] !== 0) { key[i] = h[i]; seen[i] = 1; rec[i] = i; H.push(i); }
+    // ⚠ THE EDGE OF THE BAKE IS OPEN. The country carries on past the rect; only the bake stops. A
+    // closed edge pooled water against it and laid a dry lakebed along half the border. So a border
+    // cell is an outlet at its own height, as the sea and the regions are.
+    for (let i = 0; i < N; i++) {
+      const x = i % cw, y = (i / cw) | 0;
+      if (kind[i] !== 0 || x === 0 || y === 0 || x === cw - 1 || y === ch - 1) { key[i] = h[i]; seen[i] = 1; rec[i] = i; H.push(i); }
+    }
     while (H.size) {
       const c = H.pop();
       if (kind[c] === 0) ord[nOrd++] = c;
@@ -234,12 +246,17 @@ export function bakeRelief({ rect, tiles, cfg, onProgress }) {
       h[i] = Math.max(0, mix(h[i], stair, tAmt * L[i]));
     }
   }
+  // ⚠ THE RING OF CELLS ROUND A REGION IS FLAT. A reader samples between cells, so a cell beside the
+  // rim carrying any height at all lifts the placed tile next to it; creep can push a little back
+  // into that ring after the uplift eased it to nothing. gl:wildlands holds every placed tile flat.
+  for (let i = 0; i < N; i++) if (kind[i] === 0 && distLand[i] <= cell * 1.5) h[i] = 0;
   flood(false);
   accumulate();
 
   const hard = new Float32Array(N);
   for (let i = 0; i < N; i++) hard[i] = hardAt(i);
-  return { rect, cell, cw, ch, kind, h, flow: A, lake, moisture: M, layered: L, hard, dip, lock, strata, cfg, regionIds, regionIx };
+  const caps = strata.filter((s) => s.cap).map((s) => s.top);
+  return { rect, cell, cw, ch, kind, h, flow: A, lake, moisture: M, layered: L, hard, dip, lock, strata, caps, cfg, regionIds, regionIx };
 }
 
 // ── READING IT PER TILE ──────────────────────────────────────────────────────
@@ -252,75 +269,28 @@ export function sampleCells(R, plane, x, y) {
 }
 const nearestCell = (R, x, y) => clamp(Math.round((y - R.rect.y0) / R.cell), 0, R.ch - 1) * R.cw + clamp(Math.round((x - R.rect.x0) / R.cell), 0, R.cw - 1);
 
-// The tier a height sits in: how many cliff bands it is above. Only layered rock has tiers; soft
-// country rolls.
-// ⚠ THE LINE IS HALFWAY UP THE FACE, NOT AT THE CAP'S TOP. The terrace riser eases flat at both
-// ends, so a line at the top sat where the ground is level again and no rim tile was ever steep.
-export function tierOf(R, hb, layered) {
-  if (layered < 0.45) return 0;
-  let t = 0, prev = 0;
-  for (const s of R.strata) if (s.cap) { if (hb >= (prev + s.top) / 2) t++; prev = s.top; }
-  return t;
+export const TERRAINS = RELIEF_BIOMES;
+
+// The planes of a bake as a relief-rules.js view, so the preview reads a tile exactly as the game
+// will once the bake is shipped.
+export function viewOf(R) {
+  const S = (p) => cellSampler(p, R.rect.x0, R.rect.y0, R.cell, R.cw, R.ch);
+  return { h: S(R.h), layered: S(R.layered), flow: S(R.flow), wet: S(R.moisture), lake: S(R.lake), caps: R.caps, dip: R.cfg.dip ?? 0.5, rules: R.cfg.rules || {}, zScale: R.cfg.zScale ?? 0.5 };
 }
 
-export const TERRAINS = ['', 'water', 'cliff', 'scree', 'ramp', 'plateau', 'wash', 'hardpan', 'alkali', 'prairie', 'redrock', 'scrub', 'badlands', 'ash', 'basalt', 'lava'];
-
-// Every tile in the rect: height, slope (tier units per tile), tier, flow, and the terrain the
-// biome rules give it. Placed tiles are left as terrain '' (the region owns them).
-export function tileGrid(R) {
+// Every tile in the rect, read through reliefTileAt: height, step, tier, flow and biome (an index
+// into TERRAINS). Placed tiles are left as biome '' (the region owns them).
+export function tileGrid(R, wild = {}) {
+  const wAt = wild.wildlandsAt || wildlandsAt, V = viewOf(R);
   const { x0, y0, x1, y1 } = R.rect, TW = x1 - x0 + 1, TH = y1 - y0 + 1, N = TW * TH;
   const H = new Float32Array(N), S = new Float32Array(N), T = new Int8Array(N), F = new Float32Array(N), TER = new Uint8Array(N);
   const placed = new Uint8Array(N), sea = new Uint8Array(N);
   for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
-    const i = y * TW + x, wx = x0 + x, wy = y0 + y, c = nearestCell(R, wx, wy);
-    // A small warp so a rim does not follow the 2-tile cell edges.
-    const jx = (hnoise2(wx * 0.31 + 2.2, wy * 0.31) - 0.5) * 1.2, jy = (hnoise2(wx * 0.31, wy * 0.31 - 7.1) - 0.5) * 1.2;
-    H[i] = sampleCells(R, R.h, wx + jx, wy + jy);
-    F[i] = sampleCells(R, R.flow, wx, wy);
-    if (R.kind[c] === 2) placed[i] = 1;
-    if (R.kind[c] === 1) sea[i] = 1;
-    const lay = sampleCells(R, R.layered, wx, wy), dp = sampleCells(R, R.dip, wx, wy);
-    T[i] = tierOf(R, H[i] + dp, lay);
-  }
-  for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
-    const i = y * TW + x;
-    const l = x > 0 ? H[i - 1] : H[i], r = x < TW - 1 ? H[i + 1] : H[i], u = y > 0 ? H[i - TW] : H[i], d = y < TH - 1 ? H[i + TW] : H[i];
-    // The steepest single step, not the central difference: a rim tile has a bench on one side and
-    // a drop on the other, and averaging the two halves the drop.
-    S[i] = Math.max(Math.abs(r - H[i]), Math.abs(l - H[i]), Math.abs(d - H[i]), Math.abs(u - H[i]));
-  }
-  const rl = R.cfg.rules || {};
-  const cliffSlope = rl.cliffSlope ?? 0.22, screeSlope = rl.screeSlope ?? 0.32, washFlow = rl.washFlow ?? 900;
-  for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
     const i = y * TW + x, wx = x0 + x, wy = y0 + y;
-    if (placed[i]) continue;
-    // The coast is wildlands.js's, per tile; the 2-tile cells would make it a staircase.
-    const at = wildlandsAt(wx, wy);
-    sea[i] = at.sea ? 1 : 0;
-    if (at.sea) { TER[i] = 1; continue; }
-    // The volcano and its plume keep the ground wildlands.js gives them: basalt high on the cone,
-    // ash on its lower slopes and everywhere the plume drops it, lava in the crater and the flows.
-    if (at.landform || at.biome === 'ash' || at.biome === 'basalt' || at.biome === 'lava') { TER[i] = TERRAINS.indexOf(at.biome === 'lava' || at.biome === 'basalt' ? at.biome : 'ash'); continue; }
-    // A step down to a lower tier on any side, at a steep enough slope, is a rim.
-    let lower = false;
-    for (const [dx, dy] of NB.slice(0, 4)) {
-      const nx = x + dx, ny = y + dy;
-      if (nx < 0 || ny < 0 || nx >= TW || ny >= TH) continue;
-      if (T[ny * TW + nx] < T[i]) { lower = true; break; }
-    }
-    const s = S[i], c = nearestCell(R, wx, wy), m = R.moisture[c], lay = R.layered[c];
-    const lakeD = sampleCells(R, R.lake, wx, wy);
-    let t;
-    if (lower && s >= cliffSlope) t = 'cliff';
-    else if (lower) t = 'ramp';
-    else if (s >= screeSlope) t = lay > 0.45 ? 'scree' : 'badlands';
-    else if (F[i] >= washFlow && s < 0.12) t = 'wash';
-    else if (lakeD > (rl.lakeDepth ?? 0.03)) t = m < 0.25 ? 'alkali' : 'hardpan';
-    else if (m >= (rl.prairieWet ?? 0.55) && s < (rl.prairieSlope ?? 0.06)) t = 'prairie';
-    else if (m < 0.35 && lay > 0.45) t = 'redrock';
-    else if (s > 0.16) t = 'badlands';
-    else t = m >= 0.4 ? 'scrub' : 'badlands';
-    TER[i] = TERRAINS.indexOf(t);
+    if (R.kind[nearestCell(R, wx, wy)] === 2) { placed[i] = 1; H[i] = surfaceH(V, wx, wy); continue; }
+    const at = wAt(wx, wy), r = reliefTileAt(V, wx, wy, at);
+    H[i] = r.h; S[i] = r.step; T[i] = r.tier; F[i] = r.flow; sea[i] = at.sea ? 1 : 0;
+    TER[i] = RELIEF_BIOMES.indexOf(r.biome);
   }
   return { x0, y0, TW, TH, H, S, T, F, TER, placed, sea };
 }
@@ -359,7 +329,7 @@ function routeOnce(R, a, b, opts, clearHard) {
   const toCell = (p) => clamp(Math.round((p[1] - R.rect.y0) / cell), 0, ch - 1) * cw + clamp(Math.round((p[0] - R.rect.x0) / cell), 0, cw - 1);
   const s = toCell(a), g = toCell(b), gx = g % cw, gy = (g / cw) | 0, sx = s % cw, sy = (s / cw) | 0;
   const N = cw * ch, G = new Float32Array(N).fill(Infinity), P = new Int32Array(N).fill(-1), fk = new Float32Array(N), done = new Uint8Array(N);
-  const tier = (i) => tierOf(R, h[i] + dip[i], layered[i]);
+  const tier = (i) => tierOfH(R.caps, h[i] + dip[i], layered[i]);
   const open = heap(N, fk);
   G[s] = 0; fk[s] = 0; open.push(s);
   const near = (i, X, Y) => Math.hypot((i % cw) - X, ((i / cw) | 0) - Y) * cell <= endR;

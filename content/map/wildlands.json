@@ -60,7 +60,7 @@
   "relief": {
     "_comment": [
       "The carved relief (docs/proposals/wildlands-relief.md). Read by scripts/content/relief-core.mjs.",
-      "Phase 1: only the preview page reads it (tools/worldmap/relief.html); the bake does not ship it yet.",
+      "Baked into client/shared/wildlands-field.js and read through reliefAt and groundZ; tune it live in tools/worldmap/relief.html.",
       "Height is in tier units, 1 being about one cliff band; zScale turns it into world z.",
       "strata run bottom up, each to its top; a cap bed is a hard caprock and stepping over its top is a new tier."
     ],

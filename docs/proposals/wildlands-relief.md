@@ -1,6 +1,6 @@
 # Wildlands relief: one carved field for the ground between regions
 
-**Status: design** (2026-10-26). Nothing here is built; the decisions are taken (see [Decisions](#decisions)). Read [systems-wildlands-ground.md](../systems-wildlands-ground.md) and the high-ground section of [systems-terrain.md](../systems-terrain.md#high-ground-cliff--plateau--ramp-2026-08-12) first.
+**Status: phases 1–2 built; phases 3–8 are design** (2026-10-26). The relief is baked and shipped, and the World Map draws it; see [the relief, as built](../systems-wildlands-ground.md#the-relief). The decisions are taken (see [Decisions](#decisions)). Read [systems-wildlands-ground.md](../systems-wildlands-ground.md) and the high-ground section of [systems-terrain.md](../systems-terrain.md#high-ground-cliff--plateau--ramp-2026-08-12) first.
 
 ## What we want
 

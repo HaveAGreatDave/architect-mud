@@ -14,8 +14,7 @@
 //   you:     { x, y } | null
 // }
 import { BIOME_GROUND } from './ground-palette.js';
-import { wildlandsAt, wildlandsColour, landformHeight, landforms, wildlandsRect } from './wildlands.js';
-import { hnoise2 } from './landform.js';
+import { wildlandsAt, wildlandsColour, landforms, wildlandsRect, reliefAt, groundZ } from './wildlands.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const SPECIAL = { road: [52, 55, 60], building: [214, 206, 190], airfield: [224, 195, 65] };
@@ -27,12 +26,18 @@ const NAMES = {
 };
 export const biomeName = (b) => NAMES[b] || b;
 
-// Relief for the map: a gentle hillshade of the same lattice noise plus any landform's cone.
+// Relief for the map: a hillshade of the carved ground itself (groundZ, the volcano's cone
+// included), lit from the north-west like every other map.
 function relief(x, y) {
-  const e = (p, q) => hnoise2(p * 0.05, q * 0.05) * 0.8 + hnoise2(p * 0.17, q * 0.17) * 0.15 + landformHeight(p, q) * 6;
-  const g = e(x + 0.5, y) - e(x, y), h = e(x, y + 0.5) - e(x, y);
-  return clamp(1 + (g + h) * 3, 0.72, 1.28);
+  const gx = groundZ(x + 1, y) - groundZ(x - 1, y), gy = groundZ(x, y + 1) - groundZ(x, y - 1);
+  return clamp(1 + (gx + gy) * 1.6, 0.62, 1.32);
 }
+// What the carved country draws on top of the ground colour: a cliff face in the rim's own dark
+// rock, scree a broken grey, a dry wash pale sand, and a contour every quarter of a cliff band.
+const CLIFF = BIOME_GROUND.cliff, SCREE = [150, 128, 110], WASH = [204, 186, 146];
+const FORM_NAME = { cliff: 'Cliff face', scree: 'Scree slope', ramp: 'A way up', wash: 'Dry wash', lakebed: 'Dry lakebed' };
+const CONTOUR = 0.125;   // world z, a quarter of a cliff band
+const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 export function mountWorldMap(host, data, opts = {}) {
   const rect = data.rect || wildlandsRect();
@@ -71,7 +76,19 @@ export function mountWorldMap(host, data, opts = {}) {
       else {
         const at = wildlandsAt(x, y);
         if (at.sea) c = BIOME_GROUND.water;
-        else { const k = wildlandsColour(x, y, BIOME_GROUND, at), s = relief(x, y); c = [k[0] * s, k[1] * s, k[2] * s]; }
+        else {
+          let k = wildlandsColour(x, y, BIOME_GROUND, at);
+          const rf = reliefAt(x, y, at);
+          if (rf?.form === 'cliff') k = mixc(k, CLIFF, 0.8);
+          else if (rf?.form === 'scree') k = mixc(k, SCREE, 0.5);
+          else if (rf?.form === 'wash') k = mixc(k, WASH, 0.55);
+          let s = relief(x, y);
+          if (rf && !at.landform) {
+            const band = Math.floor(rf.z / CONTOUR);
+            if (band !== Math.floor(groundZ(x + 1, y) / CONTOUR) || band !== Math.floor(groundZ(x, y + 1) / CONTOUR)) s *= 0.9;
+          }
+          c = [k[0] * s, k[1] * s, k[2] * s];
+        }
       }
       im.data[i * 4] = c[0]; im.data[i * 4 + 1] = c[1]; im.data[i * 4 + 2] = c[2]; im.data[i * 4 + 3] = 255;
     }
@@ -224,7 +241,10 @@ export function mountWorldMap(host, data, opts = {}) {
       if (!at) lines.push('<b>Nothing authored here</b>');
       else if (at.sea) lines.push('<b>Open sea</b>');
       else if (at.landform) lines.push(`<b>${at.landform.name}</b>`, { crater: 'The crater', lava: 'Lava flow', flank: 'Basalt flank' }[at.landform.part] || at.landform.part);
-      else lines.push(`<b>${biomeName(at.biome)}</b>`, 'The wildlands');
+      else {
+        const form = FORM_NAME[reliefAt(x, y, at)?.form];
+        lines.push(`<b>${form || biomeName(at.biome)}</b>`, form ? biomeName(at.biome) : 'The wildlands');
+      }
     }
     lines.push(`<span style="opacity:.6">${x}, ${y}</span>`);
     return lines.join('<br>');
