@@ -151,7 +151,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Should it.\"\n\nNot a question. She checks the tunnel behind you.\n\n\"I have got a rifle, a stretch, and eleven years of walking it, and in all of that I have never had cause to change my mind about either of them.\"\n\n\"Bring it up with Rennick. He'll agree with you and he'll be very good about it, and then he'll come down here on a Thursday and walk behind me.\""
+      "text": "\"Should it.\"\n\nNot a question. She checks the tunnel behind you.\n\n\"I have got a rifle and a stretch to walk, and in all the time I have walked it I have never had cause to change my mind about either of them.\"\n\n\"Bring it up with Rennick. He'll agree with you and he'll be very good about it, and then he'll come down here on a Thursday and walk behind me.\""
     },
     "earned_bother_argue": {
       "_vine": {
@@ -168,7 +168,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Maybe I do.\"\n\nShe doesn't deny it and she doesn't go soft about it either.\n\n\"Rennick has had eleven years to talk me out of it and he hasn't managed. You have had about twenty minutes.\"\n\n\"You're still standing here, mind. That's more than most of them.\""
+      "text": "\"Maybe I do.\"\n\nShe doesn't deny it and she doesn't go soft about it either.\n\n\"Rennick has been trying to talk me out of it for a long time and he hasn't managed. You have had about twenty minutes.\"\n\n\"You're still standing here, mind. That's more than most of them.\""
     },
     "earned_bought": {
       "_vine": {
@@ -443,7 +443,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I did.\"\n\n\"The second one had a wedding ring on. I have never got past that. Somebody put that on him and meant it, and he was still wearing it.\"\n\n\"And he didn't know what a word was. Both of those, at the same time, and I have had eleven years to make them into one thing and I cannot.\""
+      "text": "\"I did.\"\n\n\"The second one had a wedding ring on. I have never got past that. Somebody put that on him and meant it, and he was still wearing it.\"\n\n\"And he didn't know what a word was. Both of those, at the same time, and I have tried for years to make them into one thing and I cannot.\""
     },
     "earned_what": {
       "_vine": {
@@ -539,7 +539,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Because there are two answers down there and I have only got room for one of them.\"\n\nShe starts walking.\n\n\"If they're all right, then I have been wrong for eleven years about a thing I have been very sure about, and I can carry that. People carry that.\"\n\n\"If they aren't all right, then I walked nine families up to the edge of it and pointed.\"\n\n\"I haven't worked out how to carry the second one. So I don't go and look, and you can call that whatever it is.\""
+      "text": "\"Because there are two answers down there and I have only got room for one of them.\"\n\nShe starts walking.\n\n\"If they're all right, then I have been wrong a long time about a thing I have been very sure about, and I can carry that. People carry that.\"\n\n\"If they aren't all right, then I walked nine families up to the edge of it and pointed.\"\n\n\"I haven't worked out how to carry the second one. So I don't go and look, and you can call that whatever it is.\""
     },
     "east_taken_stop": {
       "_vine": {
@@ -587,7 +587,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It's not, no.\"\n\nShe doesn't look down at it.\n\n\"A light out here makes one of you and none of them. They see it coming a long way before you see anything at all.\"\n\n\"So it stays on the belt. It's for finding a body, or reading a number off a pipe, and I have used it four times in eleven years and I remember all four.\""
+      "text": "\"It's not, no.\"\n\nShe doesn't look down at it.\n\n\"A light out here makes one of you and none of them. They see it coming a long way before you see anything at all.\"\n\n\"So it stays on the belt. It's for finding a body, or reading a number off a pipe, and I have used it four times and I remember all four.\""
     },
     "lantern_count": {
       "_vine": {
@@ -787,7 +787,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"They do.\" She doesn't slow down. \"So did the block on Ferrier Street, and I went in there too.\"\n\nThe lantern on her belt is still unlit. She hasn't needed it once.\n\n\"You want me to say the word that makes it all right. I haven't got one. I have got a tunnel and a rifle and eleven years, and none of the three has ever asked me for a reason.\""
+      "text": "\"They do.\" She doesn't slow down. \"So did the block on Ferrier Street, and I went in there too.\"\n\nThe lantern on her belt is still unlit. She hasn't needed it once.\n\n\"You want me to say the word that makes it all right. I haven't got one. I have got a tunnel and a rifle, and neither of them has ever asked me for a reason.\""
     },
     "stance_approve": {
       "_vine": {
@@ -835,7 +835,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"It might be.\"\n\nShe doesn't argue and she doesn't get angry.\n\n\"I have got a tunnel and a rifle and eleven years. You have got a better argument than I have and it doesn't reach down here.\"\n\n\"Bring it back when you have walked this stretch a hundred times and I'll listen to it properly. That isn't me being clever. That's the actual offer.\""
+      "text": "\"It might be.\"\n\nShe doesn't argue and she doesn't get angry.\n\n\"I have got a tunnel and a rifle. You have got a better argument than I have and it doesn't reach down here.\"\n\n\"Bring it back when you have walked this stretch a hundred times and I'll listen to it properly. That isn't me being clever. That's the actual offer.\""
     },
     "stance_quiet": {
       "_vine": {
@@ -1124,7 +1124,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is. That's the part people leave out when they tell this back to me.\"\n\n\"The Exodus can take it out of somebody. It costs everything a person has and it hurts for about a year and some of them don't live through it, and afterwards they're just tired and ordinary and thirty.\"\n\n\"Come back cleansed and I'll sit down and eat with you and never mention it again. I'm not being generous. That's the rule, it's written where anybody can read it, and it hasn't moved in forty years.\""
+      "text": "\"There is. That's the part people leave out when they tell this back to me.\"\n\n\"The Exodus can take it out of somebody. It costs everything a person has and it hurts for about a year and some of them don't live through it, and afterwards they're just tired and ordinary and thirty.\"\n\n\"Come back cleansed and I'll sit down and eat with you and never mention it again. I'm not being generous. That's the rule, it's written where anybody can read it, and it doesn't move.\""
     },
     "the_flask_desecration": {
       "_vine": {
@@ -1646,7 +1646,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Some of them stop before that. There are dry stretches.\"\n\nShe doesn't add anything to it.\n\n\"I have been doing this eleven years and not one person has asked me where east goes. Not once, and I have walked a lot of people through here.\""
+      "text": "\"Some of them stop before that. There are dry stretches.\"\n\nShe doesn't add anything to it.\n\n\"I have been doing this a long time and not one person has asked me where east goes. Not once, and I have walked a lot of people through here.\""
     },
     "the_quiet_ones_harm": {
       "_vine": {
@@ -1986,7 +1986,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I'm moving them out of my stretch. Where they go after that isn't something I get a say in.\"\n\nA beat, and then she gives you the rest of it rather than let you have that one.\n\n\"And yes. I know what's down there and I point that way anyway, and I have known for six years.\"\n\n\"You're the first person who has ever said it to me. That isn't a defence. It's just true.\""
+      "text": "\"I'm moving them out of my stretch. Where they go after that isn't something I get a say in.\"\n\nA beat, and then she gives you the rest of it rather than let you have that one.\n\n\"And yes. I know what's down there and I point that way anyway.\"\n\n\"You're the first person who has ever said it to me. That isn't a defence. It's just true.\""
     },
     "where_from_east_move": {
       "_vine": {
@@ -2055,7 +2055,7 @@
           "next": "stance_quiet"
         }
       ],
-      "text": "\"I don't know.\"\n\n\"That isn't me being careful with you. Eleven years, and not one of them has ever come back to tell me either way.\"\n\nShe checks the tunnel behind you.\n\n\"I'll give you the thought I have had at four in the morning, because you have got this far. Some of those families are walking toward the only people in this city who wouldn't mind what they look like.\"\n\n\"I have never done anything with that thought. I'm not going to start tonight.\""
+      "text": "\"I don't know.\"\n\n\"That isn't me being careful with you. Not one of them has ever come back to tell me either way.\"\n\nShe checks the tunnel behind you.\n\n\"I'll give you the thought I have had at four in the morning, because you have got this far. Some of those families are walking toward the only people in this city who wouldn't mind what they look like.\"\n\n\"I have never done anything with that thought. I'm not going to start tonight.\""
     },
     "where_from_east_watch": {
       "_vine": {
@@ -2079,7 +2079,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Rennick knows. Halloran knows. It's on the map in the room, in pencil, and the pencil hasn't moved in six years.\"\n\n\"Five of us walk this system. You can't hold a mile of tunnel with five people and you certainly can't hold four.\"\n\n\"So it's on the map, and it isn't a plan, and everybody has agreed not to say the second part.\""
+      "text": "\"Rennick knows. Halloran knows. It's on the map in the room, in pencil, and nobody has rubbed it out.\"\n\n\"Five of us walk this system. You can't hold a mile of tunnel with five people and you certainly can't hold four.\"\n\n\"So it's on the map, and it isn't a plan, and everybody has agreed not to say the second part.\""
     },
     "where_from_holds": {
       "_vine": {
@@ -2103,7 +2103,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then there are forty of us and a door.\"\n\nShe checks the tunnel behind you.\n\n\"I don't know how many of them there are. That isn't me being dramatic, it's the actual answer. Eleven years and I have never seen the same face twice down here.\""
+      "text": "\"Then there are forty of us and a door.\"\n\nShe checks the tunnel behind you.\n\n\"I don't know how many of them there are. That isn't me being dramatic, it's the actual answer. I have never seen the same face twice down here.\""
     },
     "where_from_leave": {
       "_vine": {

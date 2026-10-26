@@ -126,7 +126,7 @@
     "She checks the changeover tally on the wall against a date in her head.",
     "Water goes through the overflow outside, briefly, and she is out of the door before it stops."
   ],
-  "description": "A lean, windburnt woman in a waterproof coat she wears indoors because she is about to go out in it, with a slate under one arm and a tape in her pocket. She climbs the tower every morning before it is properly light and she has done for eleven years, and she talks about the view the way somebody talks about a person they live with.",
+  "description": "A lean, windburnt woman in a waterproof coat she wears indoors because she is about to go out in it, with a slate under one arm and a tape in her pocket. She climbs the tower every morning before it is properly light.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -148,7 +148,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The pumping station down the row lifts the mains that fill me, so the old boy on the beam engine and I are the same pipe with a tower in the middle of it.\" She says it fondly. \"He will not come up and I will not go down the culvert, and we get on very well.\"\n\n\"There is a new quarter going in west of the meadow with a fire station in it. First thing the officer there did was walk the hydrants with a string. Second thing she did was come and ask me what pressure I could give her at four in the morning, which nobody has asked me in eleven years.\""
+      "text": "\"The pumping station down the row lifts the mains that fill me, so the old boy on the beam engine and I are the same pipe with a tower in the middle of it.\" She says it fondly. \"He will not come up and I will not go down the culvert, and we get on very well.\"\n\n\"There is a new quarter going in west of the meadow with a fire station in it. First thing the officer there did was walk the hydrants with a string. Second thing she did was come and ask me what pressure I could give her at four in the morning, which nobody has ever asked me.\""
     },
     "root": {
       "options": [

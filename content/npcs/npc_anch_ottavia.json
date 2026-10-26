@@ -125,7 +125,7 @@
     "Two words go through the pass in Italian. Something in the kitchen changes note.",
     "She moves a fork a quarter of an inch and the table is finished."
   ],
-  "description": "A tall woman of about sixty in a charcoal jacket with no name on it anywhere, which on this shore is a statement. She watches the room rather than the door. Her hands are a cook's hands and she has not cooked in this kitchen for eleven years, which she will tell you if the room is quiet.",
+  "description": "A tall woman of about sixty in a charcoal jacket with no name on it anywhere, which on this shore is a statement. She watches the room rather than the door. Her hands are a cook's hands, burn-scarred across the knuckles, and she keeps them in her jacket pockets.",
   "dialogue_tree": {
     "bye": {
       "options": [],

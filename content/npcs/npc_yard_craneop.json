@@ -135,7 +135,7 @@
     "\"Eleven years. Not one drop. You want to hear about the twelfth?\"",
     "\"When I shout MOVING, the correct response is moving.\""
   ],
-  "description": "The gantry operator, who spends his shift standing very still with a pendant control in both hands, walking half a tonne of steel over people's heads at the speed of a slow apology. He has dropped nothing in eleven years and mentions this exactly as often as it comes up, which is constantly.",
+  "description": "The gantry operator, who spends his shift standing very still with a pendant control in both hands, walking half a tonne of steel over people's heads at the speed of a slow apology. He has never dropped anything and mentions this whenever it comes up, which is constantly.",
   "dialogue_tree": {
     "bye": {
       "options": [],

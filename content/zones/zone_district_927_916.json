@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "The street stops. The Curtain comes down through it floor to sky, and the other half of Ropewalk stands on the far side, forty feet off: roofs, a chimney, a gable with the render off it. Nothing over there has moved in eleven years. Nothing over there has fallen down either.",
+  "description": "The street stops. The Curtain comes down through it floor to sky, and the other half of Ropewalk stands on the far side, forty feet off: roofs, a chimney, a gable with the render off it. Nothing over there moves. Nothing over there has fallen down either.",
   "exits": {
     "north": "zone_district_927_915",
     "south": "zone_district_927_917",

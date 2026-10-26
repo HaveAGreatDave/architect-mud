@@ -7,7 +7,7 @@
       },
       {
         "npc": "self",
-        "text": "\"A hundred and forty years of hands. You can't buy that and you can't print it.\""
+        "text": "\"That's hands. You can't buy that and you can't print it.\""
       }
     ],
     [
@@ -66,7 +66,7 @@
   },
   "chitchat": [
     "replaces a candle on the rail, and squares the new one to the row.",
-    "wipes the brass on a fitting nobody has needed in forty years.",
+    "wipes the brass on a fitting nobody uses.",
     "\"The building is older than the congregation and the congregation is older than me. That order matters to somebody.\"",
     "polishes the steel plate at the far end with a cloth kept for it, thoroughly, and without hurry.",
     "\"They come for the pantry, mostly. That's what a place like this is for, when it's working.\"",
@@ -125,7 +125,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Somebody reads a return, I expect,\" he says. \"Nobody has ever come. In fourteen years nobody has come up that road to see whether an old man is saying the right words in an empty room.\" He shrugs, once. \"I say them. They aren't hard to say.\""
+      "text": "\"Somebody reads a return, I expect,\" he says. \"Nobody has ever come up that road to see whether an old man is saying the right words in an empty room.\" He shrugs, once. \"I say them. They aren't hard to say.\""
     },
     "comehere": {
       "options": [

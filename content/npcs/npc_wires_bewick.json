@@ -161,7 +161,7 @@
           "next": "jumpers"
         }
       ],
-      "text": "He is quiet for a while. A selector steps somewhere off to the left.\n\n\"People say that about anything that hums.\" He picks the pen back up. \"I have been in this room every working day for nine years and I have never seen anything I could point at and call strange. Racks step. That is what racks do. There is a lot of traffic. Traffic is not a personality.\"\n\nHe writes something in the log.\n\n\"And I keep the batteries topped up on a Friday, and I have never once been late doing it, and I could not tell you who I think would mind.\""
+      "text": "He is quiet for a while. A selector steps somewhere off to the left.\n\n\"People say that about anything that hums.\" He picks the pen back up. \"I am in this room every working day and I have never seen anything I could point at and call strange. Racks step. That is what racks do. There is a lot of traffic. Traffic is not a personality.\"\n\nHe writes something in the log.\n\n\"And I keep the batteries topped up on a Friday, and I have never once been late doing it, and I could not tell you who I think would mind.\""
     },
     "root": {
       "options": [
@@ -207,7 +207,7 @@
           "next": "root"
         }
       ],
-      "text": "\"I do not know.\" He says it without any drama, which makes it worse. \"There are perhaps forty working subscriber lines on this exchange and I have traced every one of them and they are a coal merchant, two pumping stations and a lot of empty offices.\"\n\n\"The traffic on this floor is not forty lines' worth. It has not been forty lines' worth since before I started. Most of what steps in here is trunk, going through, and I cannot tell you where from or where to because the routing is in that wall and the wall is forty years of other people's jumpers.\""
+      "text": "\"I do not know.\" He says it without any drama, which makes it worse. \"There are perhaps forty working subscriber lines on this exchange and I have traced every one of them and they are a coal merchant, two pumping stations and a lot of empty offices.\"\n\n\"The traffic on this floor is not forty lines' worth. It has not been forty lines' worth since before I started. Most of what steps in here is trunk, going through, and I cannot tell you where from or where to because the routing is in that wall and the wall is other people's jumpers, layered on since before I started.\""
     },
     "who_follow": {
       "options": [

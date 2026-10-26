@@ -1,5 +1,5 @@
 {
-  "description": "A line of caged bulbs strung along the pipe run on hooks made from bent welding rod, wired back to a junction box with more care than the rest of the sewer has received in forty years.",
+  "description": "A line of caged bulbs strung along the pipe run on hooks made from bent welding rod, wired back to a junction box. The cable is clipped every foot and labelled in marker.",
   "flags": {
     "interactions": [
       "switch"

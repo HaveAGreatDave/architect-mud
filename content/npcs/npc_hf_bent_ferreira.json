@@ -126,7 +126,7 @@
     "He looks at the appointment screen, counts the afternoon, and rolls one shoulder.",
     "He moves a chair four inches so the gap by the rail is wide enough."
   ],
-  "description": "A compact, very strong man of about forty with cropped hair and a physiotherapist's particular way of looking at how you came through the door. He worked on chrome rejection cases at the Ascendant clinic for nine years and left, and he will tell you that he left but not why, and the not-why is polite rather than evasive.",
+  "description": "A compact, very strong man of about forty with cropped hair and a physiotherapist's particular way of looking at how you came through the door. He used to work chrome rejection cases at the Ascendant clinic. He will tell you he left, and politely will not tell you why.",
   "dialogue_tree": {
     "bye": {
       "options": [],

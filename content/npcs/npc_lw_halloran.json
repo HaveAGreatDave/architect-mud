@@ -98,7 +98,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I don't need the help.\" He says it while clearing a space at the bench, and then says it again, and keeps clearing.\n\n\"The Watch run on things that were made rather than bought. That isn't a philosophy. It's a supply problem. Nobody sells to us, and the ones who would want paying in a currency we don't keep. So the making gets done by whoever is standing there.\"\n\nHe pushes a stool out with his foot without turning round.\n\n\"Today that's you.\""
+      "text": "\"I don't need the help.\" He says it while clearing a space at the bench, and then says it again, and keeps clearing.\n\n\"The Watch run on things that were made rather than bought, because nobody sells to us, and the ones who would want paying in a currency we don't keep. So the making gets done by whoever is standing there.\"\n\nHe pushes a stool out with his foot without turning round.\n\n\"Today that's you.\""
     },
     "bench_report": {
       "actions": [
@@ -210,7 +210,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The Architect runs a maintenance drone through the deep east tunnels. Eleven years it has run the same loop and nobody minded it. Lately it has started logging things it didn't use to log. Our marks. Our door.\"\n\nHis voice drops, not for effect. It's just where his voice goes.\n\n\"Nobody is coming for us tomorrow. That isn't the worry. The worry is the record sitting there being patient, and somebody reading it in five years who does mean it.\"\n\n\"Go down into the deep, all the way down, and put it in the water for good. Do that and you aren't a stranger who knew the words. You're one of ours.\""
+      "text": "\"The Architect runs a maintenance drone through the deep east tunnels. Eleven years it has run the same loop and nobody minded it. Lately it has started logging things it didn't use to log. Our marks. Our door.\"\n\nHis voice drops, not for effect. It's just where his voice goes.\n\n\"Nobody is coming for us tomorrow. That isn't the worry. The worry is the record sitting there being patient, and somebody reading it later who does mean it.\"\n\n\"Go down into the deep, all the way down, and put it in the water for good. Do that and you aren't a stranger who knew the words. You're one of ours.\""
     },
     "lw_report_1": {
       "actions": [
@@ -674,7 +674,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Permits. Ration books. Transit papers. A residence card with a real number on it.\"\n\nHe sets the iron down.\n\n\"If the Architect has got no record of you, you can't buy food and you can't cross a checkpoint. There are people in this city who have been alive for nine years on paper that came out of that corridor.\"\n\n\"That's the most useful thing we do and it's the least exciting. Bear that in mind before you go asking for the interesting work.\""
+      "text": "\"Permits. Ration books. Transit papers. A residence card with a real number on it.\"\n\nHe sets the iron down.\n\n\"If the Architect has got no record of you, you can't buy food and you can't cross a checkpoint. There are people in this city who are alive on paper that came out of that corridor.\"\n\n\"That's the most useful thing we do and it's the least exciting. Bear that in mind before you go asking for the interesting work.\""
     },
     "why_vice": {
       "_vine": {

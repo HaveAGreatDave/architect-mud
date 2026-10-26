@@ -70,12 +70,11 @@
     "content/furniture": {
       "negative-parallelism": 2,
       "constructed-irony": 7,
-      "tenure-line": 11,
       "staged-reveal": 1,
       "aphoristic-closer": 2,
       "caps-run": 120,
       "em-dash": 1,
-      "over-length": 375
+      "over-length": 369
     },
     "content/incidents": {
       "constructed-irony": 1,
@@ -85,17 +84,13 @@
     "content/items": {
       "vocab": 2,
       "constructed-irony": 6,
-      "tenure-line": 6,
       "aphoristic-closer": 2,
       "caps-run": 50,
       "em-dash": 9,
-      "over-length": 103
+      "over-length": 100
     },
     "content/job_boards": {
       "em-dash": 2
-    },
-    "content/liveries": {
-      "tenure-line": 1
     },
     "content/mis_fit_lines": {
       "caps-run": 20
@@ -105,30 +100,24 @@
     },
     "content/npc_banter_threads": {
       "constructed-irony": 1,
-      "tenure-line": 3,
-      "epigram-reframe": 2,
+      "tenure-line": 1,
       "caps-run": 2
     },
     "content/npcs": {
       "object-contraction": 1,
-      "negative-parallelism": 46,
+      "negative-parallelism": 44,
       "constructed-irony": 17,
-      "tenure-line": 105,
-      "epigram-reframe": 19,
+      "tenure-line": 24,
+      "epigram-reframe": 9,
       "staged-reveal": 2,
       "aphoristic-closer": 5,
       "caps-run": 19,
       "em-dash": 1,
-      "over-length": 66
-    },
-    "content/orgs": {
-      "tenure-line": 2
+      "over-length": 65
     },
     "content/quests": {
       "negative-parallelism": 3,
       "constructed-irony": 7,
-      "tenure-line": 8,
-      "epigram-reframe": 1,
       "staged-reveal": 1,
       "caps-run": 2
     },
@@ -141,7 +130,6 @@
     "content/zones": {
       "significance-frame": 1,
       "constructed-irony": 53,
-      "tenure-line": 23,
       "aphoristic-closer": 4,
       "fiction-cliche": 34,
       "caps-run": 116,

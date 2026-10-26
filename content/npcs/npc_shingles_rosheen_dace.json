@@ -119,7 +119,7 @@
         "type": "action",
         "action_type": "EMOTE",
         "params": {
-          "message": "says, \"Same route at the same minute every day for six years, except Tuesdays. Why Tuesdays?\""
+          "message": "says, \"Same route at the same minute every day, except Tuesdays. Why Tuesdays?\""
         },
         "next": "fire_wait"
       },

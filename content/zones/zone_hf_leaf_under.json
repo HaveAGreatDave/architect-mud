@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A single round room full of green, which after four streets of chrome is a physical relief. Ferns at the edges, three young trees that are not going to fit in ten years, and a gravel path following the ring with a bench on either side of it. The glass fogs at the top on a cold morning and clears in a ring from the middle outward.",
+  "description": "A single round room full of green, which after four streets of chrome is a physical relief. Ferns at the edges, three young trees already halfway to the glass, and a gravel path following the ring with a bench on either side of it. The glass fogs at the top on a cold morning and clears in a ring from the middle outward.",
   "exits": {
     "down": "zone_util_zone_hf_leaf_under",
     "south": "zone_district_894_915"

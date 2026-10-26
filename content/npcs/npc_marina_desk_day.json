@@ -116,7 +116,7 @@
     "He watches a hull come up the fairway and does not look away until it is past.",
     "Sabbatini writes a bay number on a card, looks at it, and writes it again more clearly."
   ],
-  "description": "A narrow man in a marina fleece two sizes too generous for him, standing rather than sitting because the stool is behind him and he has decided against it. He has the look of somebody who has answered the same four questions for six years and has got the answers down to one sentence each.",
+  "description": "A narrow man in a marina fleece two sizes too generous for him, standing rather than sitting because the stool is behind him and he has decided against it. He answers the same four questions all day and has got each answer down to one sentence.",
   "dialogue_tree": {
     "root": {
       "text": "\"Morning.\" He squares the berth book. \"Buying, hiring, or looking for your own?\"",

@@ -8,7 +8,7 @@
     "Don't put that back in the wrong outline.",
     "Everything in here has been made twice."
   ],
-  "description": "A heavy-shouldered man filing a face on a piece of stock, counting the strokes under his breath. He gets to eleven, turns the work, and starts again. There's a drawing on the wall behind him that has been corrected in three hands over twenty years, and he doesn't look at it, because he knows it.",
+  "description": "A heavy-shouldered man filing a face on a piece of stock, counting the strokes under his breath. He gets to eleven, turns the work, and starts again. There's a drawing on the wall behind him, corrected in three different hands. He doesn't look at it.",
   "dialogue_tree": {
     "bye": {
       "actions": [],

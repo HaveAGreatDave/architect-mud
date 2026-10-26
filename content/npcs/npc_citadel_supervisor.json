@@ -174,7 +174,7 @@
           "next": "vault"
         }
       ],
-      "text": "\"I was, for about a year.\" She adjusts the glasses. \"Then I understood what the job actually is. Anyone can guard a box. What the Compound sells is a woman who has stood in this room for twenty-six years and can honestly say, under oath, that she has no idea.\" The pen resumes. \"That's not incuriosity, dear. That's a discipline.\""
+      "text": "\"I was, for about a year.\" She adjusts the glasses. \"Then I understood what the job actually is. Anyone can guard a box. What the Compound sells is a woman who stands in this room every day and can honestly say, under oath, that she has no idea.\" The pen resumes. \"That's not incuriosity, dear. That's a discipline.\""
     },
     "forced": {
       "options": [
@@ -200,7 +200,7 @@
           "next": "vault"
         }
       ],
-      "text": "\"Emmerich was on the floor that night,\" she says, \"and he'll tell you he's had to move four times in eleven years.\" She ticks a line. \"He counts that night as one.\""
+      "text": "\"Emmerich was on the floor that night,\" she says, \"and he'll tell you he's had to move four times.\" She ticks a line. \"He counts that night as one.\""
     },
     "root": {
       "options": [

@@ -3,7 +3,7 @@
   "behaviour_graph": {},
   "chitchat": [
     "It's running right. I would know.",
-    "One line a day. Eleven years of them.",
+    "One line a day. No gaps.",
     "Oil is the only thing we buy that I sign for myself.",
     "Don't touch the log with those hands.",
     "It'll do another eleven if I do my job."
@@ -24,7 +24,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Eleven years of one line a day.",
+          "label": "One line a day, no gaps.",
           "next": "log"
         },
         {
@@ -76,7 +76,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Eleven years of one line a day.",
+          "label": "One line a day, no gaps.",
           "next": "log"
         },
         {
@@ -94,7 +94,7 @@
           "next": "bye"
         }
       ],
-      "text": "He doesn't react at all, which takes practice.\n\n\"It runs the lamps in the sick room and the pump on the cistern and the cold in the seed vault. And the pump out on the road, and the lights in Stannard's shed, which he would tell you about at length.\"\n\nHe checks the gauge. Writes nothing.\n\n\"I keep it running and I keep the log and in eleven years nobody has come in here and had an argument with me about it. Not one person. You're the first one to bring it up and you don't live here.\"\n\nA beat.\n\n\"That isn't a complaint. Take it however you like.\""
+      "text": "He doesn't react at all, which takes practice.\n\n\"It runs the lamps in the sick room and the pump on the cistern and the cold in the seed vault. And the pump out on the road, and the lights in Stannard's shed, which he would tell you about at length.\"\n\nHe checks the gauge. Writes nothing.\n\n\"I keep it running and I keep the log and nobody has ever come in here and had an argument with me about it. Not one person. You're the first one to bring it up and you don't live here.\"\n\nA beat.\n\n\"That isn't a complaint. Take it however you like.\""
     },
     "root": {
       "actions": [],
@@ -111,7 +111,7 @@
           "actions": [],
           "conditions": [],
           "enabled": true,
-          "label": "Eleven years of one line a day.",
+          "label": "One line a day, no gaps.",
           "next": "log"
         },
         {

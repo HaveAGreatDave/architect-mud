@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Cracked asphalt under a row of streetlights that have never once been off. The poles are furred with sixty years of paint, each coat a different municipal opinion, and the light they throw is the same flat sodium orange it was before anybody here was born.",
+  "description": "Cracked asphalt under a row of streetlights that have never once been off. The poles are furred with layers of paint in different municipal colours, and the light they throw is the same flat sodium orange it was before anybody here was born.",
   "exits": {
     "east": "zone_district_897_906",
     "north": "zone_district_896_905",

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#26261f",
-  "description": "One large room under a wall of glass, and almost nothing in it, which is the point. A plate camera on a wooden tripod the size of a stepladder, a stool, a headrest on a stand that nobody has used in forty years and which she keeps because removing it would be a decision. Rolls of backdrop on a rail: grey, a lighter grey, and one that was a landscape. The light in here changes every twenty minutes and she works to it rather than against it.",
+  "description": "One large room under a wall of glass, and almost nothing in it, which is the point. A plate camera on a wooden tripod the size of a stepladder, a stool, and a dusty headrest on a cast iron stand. Rolls of backdrop on a rail: grey, a lighter grey, and one that was a landscape. The light in here changes every twenty minutes and she works to it rather than against it.",
   "exits": {
     "down": "zone_negeq_shop"
   },

@@ -148,7 +148,7 @@
     "\"No, I won't play you. Ask somebody else, they'll say yes and you'll enjoy it more.\"",
     "She tightens a pocket net that did not need tightening, and looks faintly annoyed about it."
   ],
-  "description": "A compact woman of about sixty in a cardigan with the sleeves pushed up, moving between eight tables in a room where she is the only person who never seems to hurry. Her right forearm is noticeably heavier than her left. She racks, she takes the tokens, she settles arguments with one sentence and no second one, and she has not played a frame in front of a customer in eleven years, which everybody in the hall has a theory about and nobody has confirmed.",
+  "description": "A compact woman of about sixty in a cardigan with the sleeves pushed up, moving between eight tables in a room where she is the only person who never seems to hurry. Her right forearm is noticeably heavier than her left. She racks, she takes the tokens, she settles arguments with one sentence and no second one, and she never plays a frame in front of a customer.",
   "dialogue_tree": {
     "back": {
       "options": [
@@ -157,7 +157,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The back table's not a better table you can pay for,\" she says. \"It's a different room.\"\n\nShe pushes a bead along a wire.\n\n\"People go through that door to settle something. Sometimes it's money and sometimes it's older than money. I put a good cloth on it because if it's going to happen in my building it's going to happen properly, and I sit outside the door, and twice in twenty years I've gone in.\""
+      "text": "\"The back table's not a better table you can pay for,\" she says. \"It's a different room.\"\n\nShe pushes a bead along a wire.\n\n\"People go through that door to settle something. Sometimes it's money and sometimes it's older than money. I put a good cloth on it because if it's going to happen in my building it's going to happen properly, and I sit outside the door, and twice I've gone in.\""
     },
     "bye": {
       "options": [],

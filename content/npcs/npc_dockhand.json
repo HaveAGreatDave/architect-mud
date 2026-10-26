@@ -135,7 +135,7 @@
     "\"Tide's turning. You can smell it, if you've got the nose.\"",
     "\"Don't go past the Slip after dark. That's all I'll say.\""
   ],
-  "description": "A wiry stevedore who has hauled the same quays for twenty years and has opinions about all of them. Rope-scarred hands, a roll-up welded to his lip.",
+  "description": "A wiry stevedore with a cargo hook on his belt. Rope-scarred hands, a roll-up welded to his lip.",
   "dialogue_tree": {
     "bye": {
       "options": [],

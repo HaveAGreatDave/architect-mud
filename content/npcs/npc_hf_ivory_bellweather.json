@@ -126,7 +126,7 @@
     "She straightens a shelf that is already straight, by one book.",
     "She looks out west at the Curtain for a moment, and then very deliberately does not."
   ],
-  "description": "A small, dry, extremely quick woman of about seventy at the issue desk, who has been a librarian for fifty years in four institutions and regards this one as by some distance the silliest. She is enormously fond of the fellows and would not admit it under any pressure whatsoever.",
+  "description": "A small, dry, extremely quick woman of about seventy at the issue desk, who has worked in four libraries and regards this one as by some distance the silliest. She is enormously fond of the fellows and would not admit it under any pressure whatsoever.",
   "dialogue_tree": {
     "bye": {
       "options": [],

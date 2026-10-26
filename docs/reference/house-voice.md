@@ -44,7 +44,7 @@ Fallout reads as Fallout with almost no twists because the world lives in the no
 - The authorial closer: "...which the Halcyon is only too happy to meter."
 - Negative definition: "people who are not waiting for anything".
 - Stacked adjective pairs: "filtered, climate-perfect air".
-- The tenure line: a span of years standing in for a character. "Pike has had the blast door for eleven years." "She has fed this street for nineteen years and will not discuss it." On 2026-10-26 about 160 lines did this, and 54 of them said eleven. Say what the person is doing now. If the span matters, it can be said once in their dialogue.
+- The tenure line: a span of years standing in for a character. "Pike has had the blast door for eleven years." "She has fed this street for nineteen years and will not discuss it." On 2026-10-26 about 160 lines did this, and 54 of them said eleven. Say what the person is doing now. If the span matters, it can be said once in their dialogue. The same span worn into an object is the same tic: "marble worn grey by eleven years of him", "polished by forty years of the same hand". Say what the wear looks like: "worn grey in two patches".
 - The epigram reframe: a thing renamed as a smaller or sharper thing. "That's a debt collector with a chapel." "Cluster Puck isn't a game. It's a payroll reduction with a scoreboard." It usually follows a tenure line, and the pair is the most common setup in the game.
 
 `docs:prose` ratchets the last two as `tenure-line` and `epigram-reframe`.

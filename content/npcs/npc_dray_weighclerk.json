@@ -135,7 +135,7 @@
     "\"Four thousand cans out there. I have numbers for maybe nine hundred.\"",
     "\"Some of them are welded shut. Those ones I don't chase.\""
   ],
-  "description": "The weighbridge clerk, folded into an office the size of a phone box with a flask, a tally board and a view of exactly one gate. He has been reconciling that board for six years and is, by his own estimate, gaining.",
+  "description": "The weighbridge clerk, folded into an office the size of a phone box with a flask, a tally board and a view of exactly one gate. He is reconciling the tally board and is, by his own estimate, gaining on it.",
   "dialogue_tree": {
     "bye": {
       "options": [],

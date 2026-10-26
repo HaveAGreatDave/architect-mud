@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Grass gives up here and goes over to stones the size of fists, graded by sixty years of water into a bank you can sit on. The kiln's back wall throws heat out onto it even when the kiln is cold.",
+  "description": "Grass gives up here and goes over to stones the size of fists, graded by the water into a bank you can sit on. The kiln's back wall throws heat out onto it even when the kiln is cold.",
   "exits": {
     "east": "zone_district_897_903",
     "north": "zone_district_896_902",

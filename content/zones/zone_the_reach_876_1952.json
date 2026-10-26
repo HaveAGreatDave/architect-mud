@@ -1,6 +1,6 @@
 {
   "ambient_theme": "wasteland",
-  "description": "Scrub, grit, and the occasional bright fleck of something manufactured that the ground has been chewing on for fifty years without result.",
+  "description": "Scrub, grit, and the occasional bright fleck of something manufactured, half buried.",
   "exits": {
     "east": "zone_the_reach_877_1952",
     "north": "zone_the_reach_876_1951",

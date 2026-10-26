@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "The vats are the promise. Not the Spire, not the man at the top, not the money.\n\nThe Watch has been arguing for nine years about how many tanks are actually down there and how many of them hold anything, and the argument is nine years old because nobody has ever counted them.\n\nCyrelle wants a count and a file, and she wants you back out of the building before anybody has a reason to look at you twice.",
+  "description": "The vats are the promise. Not the Spire, not the man at the top, not the money.\n\nThe Watch argues about how many tanks are actually down there and how many of them hold anything. Nobody has ever counted them.\n\nCyrelle wants a count and a file, and she wants you back out of the building before anybody has a reason to look at you twice.",
   "fail_on": [
     {
       "desc": "Somebody in the hall saw you counting.",

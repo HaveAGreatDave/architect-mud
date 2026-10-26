@@ -126,7 +126,7 @@
     "He reads something in his own handwriting, frowns at it, and does not change it.",
     "He counts the front two rows under his breath and gets the number he got last week."
   ],
-  "description": "A dry, narrow man of about sixty in a cardigan under a jacket, sitting at the end of the front bench with a notebook open on his knee even when the theatre is empty. He is the registrar, which here means he unlocks the doors, takes down every word, binds the results and has done so for nineteen years without missing one.",
+  "description": "A dry, narrow man of about sixty in a cardigan under a jacket, sitting at the end of the front bench with a notebook open on his knee even when the theatre is empty. He is the registrar: he unlocks the doors, takes down every word and binds the results.",
   "dialogue_tree": {
     "believe": {
       "options": [
@@ -135,7 +135,7 @@
           "next": "root"
         }
       ],
-      "text": "A long pause. He looks at the blackboard rather than at you.\n\n\"I have taken down every argument made in this room for nineteen years, on both sides, by people cleverer than me.\" He taps the notebook. \"And I would not get in the vat.\"\n\n\"That is not an argument. I want to be clear that I know it is not an argument. It is a thing about me and not a thing about the question, and I would not put it in a transcript.\""
+      "text": "A long pause. He looks at the blackboard rather than at you.\n\n\"I have taken down every argument made in this room for nineteen years, on both sides, by people cleverer than me.\" He taps the notebook. \"And I would not get in the vat.\"\n\n\"That is not an argument, and I know it. It is about me and not about the question, and I would not put it in a transcript.\""
     },
     "bye": {
       "options": [],
@@ -152,7 +152,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Halcyon Assurance.\" He waits to see whether that lands. \"An endowment, like the hall down the road, and terms drawn up by somebody with a sense of duty and no sense of what it would look like in forty years.\"\n\n\"They wanted a public institute considering the philosophical basis of continuity. They got one. I do not think it has ever occurred to anybody there to check what it has been concluding.\""
+      "text": "\"Halcyon Assurance.\" He waits to see whether that lands. \"An endowment, like the hall down the road, and terms drawn up by somebody with a sense of duty and no sense of how it would look once the founders were dead.\"\n\n\"They wanted a public institute considering the philosophical basis of continuity. They got one. I do not think it has ever occurred to anybody there to check what it has been concluding.\""
     },
     "funds_check": {
       "options": [
@@ -170,7 +170,7 @@
           "next": "root"
         }
       ],
-      "text": "\"We share a wall with a club that has not admitted anybody in nineteen years, which I find restful.\" He almost smiles. \"Somebody from the Spire came to a lecture in the spring. Sat at the back. Asked one question and it was a good one.\"\n\n\"He has not come again. I wrote the question down.\""
+      "text": "\"We share a wall with a club that does not admit anybody, which I find restful.\" He almost smiles. \"Somebody from the Spire came to a lecture in the spring. Sat at the back. Asked one question and it was a good one.\"\n\n\"He has not come again. I wrote the question down.\""
     },
     "root": {
       "options": [
@@ -229,7 +229,7 @@
           "next": "subject"
         }
       ],
-      "text": "\"There isn't one that can be reached from where we are standing.\" He is quite cheerful about it. \"You cannot check from the inside, because whatever came out is satisfied that it is you. And you cannot check from the outside, because everything you could measure is the same.\"\n\n\"Nineteen years of transcripts on that wall and the honest summary is on page five of every offprint we have ever printed. I do not think that is a failure. I think it is the shape of the question.\""
+      "text": "\"There isn't one that can be reached from where we are standing.\" He is quite cheerful about it. \"You cannot check from the inside, because whatever came out is satisfied that it is you. And you cannot check from the outside, because everything you could measure is the same.\"\n\n\"All those transcripts on that wall and the honest summary is on page five of every offprint we have ever printed. I do not think that is a failure. I think it is the shape of the question.\""
     }
   },
   "faction": null,

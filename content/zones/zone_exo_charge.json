@@ -6,7 +6,7 @@
     "The load comes on as the light goes, and the note dips, and holds."
   ],
   "ambient_theme": "indoors",
-  "description": "The plant. A single generator on a concrete pad, bedded on rubber, running at a speed it has clearly been running at for years, and around it a floor you could eat off. The log on the wall goes back eleven years in daily entries. Oil, hours, load, one line a day, no gaps.\n\nA second, older machine stands stripped in the corner under a sheet, kept for parts, and the sheet is clean.",
+  "description": "The plant. A single generator on a concrete pad, bedded on rubber, running at a speed it has clearly been running at for years, and around it a floor you could eat off. The log on the wall goes back years in daily entries. Oil, hours, load, one line a day, no gaps.\n\nA second, older machine stands stripped in the corner under a sheet, kept for parts, and the sheet is clean.",
   "exits": {
     "down": "zone_util_zone_exo_charge",
     "east": "zone_terminus_1227_946"

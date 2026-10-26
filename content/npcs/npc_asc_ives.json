@@ -397,7 +397,7 @@
           "next": "file_small"
         }
       ],
-      "text": "She is almost apologetic.\n\n\"Underwriting has a settled file that needs to be in the Registry by end of day. The Spire does not put settled files on a wire. It never has, never will, and if you ever find out why, they will have had to make you permanent first.\"\n\nShe holds out a docket.\n\n\"It is a walk with a wallet in it. I would like you to do a fortnight of walks with wallets in them. Then we will discuss the second fortnight.\""
+      "text": "She is almost apologetic.\n\n\"Underwriting has a settled file that needs to be in the Registry by end of day. The Spire does not put settled files on a wire. It never has, never will, and if you ever find out why, they will have had to make you permanent first.\"\n\nShe holds out a docket.\n\n\"It is a walk across town with something worth a great deal in your coat. I would like you to do a fortnight of them. Then we will discuss the second fortnight.\""
     },
     "file_small": {
       "_vine": {
@@ -1574,7 +1574,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"There is no number.\"\n\nShe turns the ledger back and does not offer it this time.\n\nShe enters his details anyway, to show you. Under the counter a terminal wakes up and begins printing, unhurried, the way a machine prints a thing it prints all day.\n\n\"To price a life I need thirty years of people dying on schedule. Nobody has that for a mutant. No two of them are alike and none of them were designed.\"\n\nShe tears the slip off and turns it round so you can read the top of it.\n\n<span class=\"term-print\">FORM 9: UNVALUED LIVING PROPERTY</span>\n\n\"I did not pick that. I typed what he is and the system printed what applies.\""
+      "text": "\"There is no number.\"\n\nShe turns the ledger back and does not offer it this time.\n\nShe enters his details anyway, to show you. Under the counter a terminal wakes up and begins printing, unhurried, the way a machine prints a thing it prints all day.\n\n\"To price a life I need decades of people dying on schedule. Nobody has that for a mutant. No two of them are alike and none of them were designed.\"\n\nShe tears the slip off and turns it round so you can read the top of it.\n\n<span class=\"term-print\">FORM 9: UNVALUED LIVING PROPERTY</span>\n\n\"I did not pick that. I typed what he is and the system printed what applies.\""
     },
     "the_mutant_written": {
       "_vine": {

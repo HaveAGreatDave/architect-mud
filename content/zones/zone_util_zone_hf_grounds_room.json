@@ -1,5 +1,5 @@
 {
-  "description": "Below the counter: the water treatment, the compressor, the sacks, and a wall of white tile somebody has stuck twelve years of postcards to. None of the postcards are from anywhere in the Basin.",
+  "description": "Below the counter: the water treatment, the compressor, the sacks, and a wall of white tile covered in postcards. None of the postcards are from anywhere in the Basin.",
   "exits": {
     "up": "zone_hf_grounds_room"
   },

@@ -5,7 +5,7 @@
     "Something is tied back with a strip of rag, gently, twice."
   ],
   "ambient_theme": "outdoors",
-  "description": "A long glazed vault on a low stone knee-wall, its ridge lights cracked open a hand's width. Inside, in rows, things are growing that nobody out here has bothered to grow in thirty years.",
+  "description": "A long glazed vault on a low stone knee-wall, its ridge lights cracked open a hand's width. Inside, green things grow in rows under the cracked lights.",
   "exits": {
     "north": "zone_terminus_1224_932",
     "south": "zone_exo_glass"

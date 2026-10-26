@@ -135,7 +135,7 @@
     "\"Wash first, then sit. I'm not cutting through that.\"",
     "Steam rolls out of the arch at the back and fogs the mirror. Nessa wipes it without looking."
   ],
-  "description": "A barber with forearms like a rower's and a straight razor she strops while she talks, which is a conversational technique as much as anything. She has cut hair on this street for twenty years, through two sieges and one very bad winter, and takes the position that a man who has had a shave will make better decisions for at least a day.",
+  "description": "A barber with forearms like a rower's and a straight razor she strops while she talks, which is a conversational technique as much as anything. She takes the position that a man who has had a shave will make better decisions for at least a day.",
   "dialogue_tree": {
     "bye": {
       "options": [],

@@ -81,7 +81,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Here is the reading nobody wants.\" She opens her eyes properly, and they're perfectly lucid. \"Maybe nothing new is happening. Maybe minds have always synchronised under a shared signal, and the old world proved it for a hundred years and called it something else.\" A small, terrible smile. \"The Exodus want out through the inside. I keep asking them the same question and they keep not answering it.\n\nIf a thought can be predicted perfectly, whose was it?\""
+      "text": "\"Here is the reading nobody wants.\" She opens her eyes properly, and they're perfectly lucid. \"Maybe nothing new is happening. Maybe minds have always synchronised under a shared signal, and the old world proved it over and over and called it something else.\" A small, terrible smile. \"The Exodus want out through the inside. I keep asking them the same question and they keep not answering it.\n\nIf a thought can be predicted perfectly, whose was it?\""
     },
     "exo_accept_1": {
       "actions": [
@@ -297,7 +297,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"I have lived under this city for eleven years and I can hear every relay in it from this chair.\" Flat, reasonable, faintly bored. \"Water in a storm line makes a noise. The noise goes somewhere. I'm the somewhere.\"\n\nA pause.\n\n\"You were hoping for a better answer. Everyone is. There isn't one, and you should be suspicious of anybody who offers you one.\""
+      "text": "\"I have lived under this city long enough to hear every relay in it from this chair.\" Flat, reasonable, faintly bored. \"Water in a storm line makes a noise. The noise goes somewhere. I'm the somewhere.\"\n\nA pause.\n\n\"You were hoping for a better answer. Everyone is. There isn't one, and you should be suspicious of anybody who offers you one.\""
     },
     "exo_ifnot": {
       "_vine": {

@@ -1,5 +1,5 @@
 {
-  "description": "Tanks, a pump, a controller with a small screen, and a printed schedule taped beside it that has been followed without exception for two years. The controller reports the health of a planting scheme that does not exist and reports it as good.",
+  "description": "Tanks, a pump, a controller with a small screen, and a printed schedule taped beside it with every line ticked. The controller reports the health of a planting scheme that does not exist and reports it as good.",
   "exits": {
     "up": "zone_hf_terms_hall"
   },

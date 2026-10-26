@@ -555,7 +555,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Then go and get her.\"\n\nShe marks the Vats on the wall, and for once it isn't a red eye. It's a circle.\n\n\"Two rules and I'm not flexible on either. You don't put a floor supervisor in the ground. Kill one of Halcyon's middle managers and by morning we didn't rescue a witness, we murdered a man in a polo shirt, and every name on that slate turns into paperwork nobody will ever read. Cosh them, lock them in a cupboard, walk around them. I don't care which.\"\n\nShe looks up.\n\n\"And you come back at her pace. Not yours. She's carrying everything she is and she can't run with it. If you get here without her, don't get here.\"\n\n\"Can you carry somebody who can't walk?\""
+      "text": "\"Then go and get her.\"\n\nShe marks the Vats on the wall with a circle instead of a red eye.\n\n\"Two rules and I'm not flexible on either. You don't put a floor supervisor in the ground. Kill one of Halcyon's middle managers and by morning we didn't rescue a witness, we murdered a man in a polo shirt, and every name on that slate turns into paperwork nobody will ever read. Cosh them, lock them in a cupboard, walk around them. I don't care which.\"\n\nShe looks up.\n\n\"And you come back at her pace. Not yours. She's carrying everything she is and she can't run with it. If you get here without her, don't get here.\"\n\n\"Can you carry somebody who can't walk?\""
     },
     "ret_after": {
       "options": [
@@ -564,7 +564,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Eleven thousand and forty.\" She says the number the way you would test a weight. \"Every one of them a policy somebody's mother is still paying into. That isn't a cult out there. That's a debt collector with a chapel.\"\n\nShe looks past you at the woman on the crate.\n\n\"She keeps the room. She keeps the name. Anybody asks, she's Watch now, and the Watch don't file people.\""
+      "text": "\"Eleven thousand and forty.\" She says the number the way you would test a weight. \"Every one of them a policy somebody's mother is still paying into.\"\n\nShe looks past you at the woman on the crate.\n\n\"She keeps the room. She keeps the name. Anybody asks, she's Watch now, and the Watch don't file people.\""
     },
     "ret_offer": {
       "options": [
@@ -632,7 +632,7 @@
           "next": "ret_after"
         }
       ],
-      "text": "Cyrelle looks at the woman sitting on a crate in her bunker, and then at the slate, and then at the woman again, and she takes the slate second.\n\n\"Nine years.\" She doesn't say it to you. \"Nine years of writing down who they were never going to bring back, and filing it, and coming in the next day.\"\n\nShe thumbs the archive open, reads for a while, and her face does something Halloran wouldn't believe if you told him.\n\n\"You understand what this is. It isn't proof they're a cult. Nobody cares about a cult. It's proof an insurer is selling a resurrection it has already decided not to perform.\""
+      "text": "Cyrelle looks at the woman sitting on a crate in her bunker, and then at the slate, and then at the woman again, and she takes the slate second.\n\n\"Nine years.\" She doesn't say it to you. \"Writing down who they were never going to bring back, and filing it, and coming in the next day.\"\n\nShe thumbs the archive open, reads for a while, and her face does something Halloran wouldn't believe if you told him.\n\n\"You understand what this is. It isn't proof they're a cult. Nobody cares about a cult. It's proof an insurer is selling a resurrection it has already decided not to perform.\""
     },
     "ret_reveal": {
       "options": [
