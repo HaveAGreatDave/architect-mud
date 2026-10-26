@@ -57,6 +57,45 @@
     "park": 0,
     "forest": 3
   },
+  "relief": {
+    "_comment": [
+      "The carved relief (docs/proposals/wildlands-relief.md). Read by scripts/content/relief-core.mjs.",
+      "Phase 1: only the preview page reads it (tools/worldmap/relief.html); the bake does not ship it yet.",
+      "Height is in tier units, 1 being about one cliff band; zScale turns it into world z.",
+      "strata run bottom up, each to its top; a cap bed is a hard caprock and stepping over its top is a new tier."
+    ],
+    "cell": 2,
+    "zScale": 0.5,
+    "coastWet": 60,
+    "dip": 0.5,
+    "shape": { "height": 3.2, "rimRise": 24, "rimWarp": 18, "rimFlat": 12, "coastRise": 40, "broadF": 0.012, "broadAmp": 0.9, "fineF": 0.06, "fineAmp": 0.25, "landformHeight": 3 },
+    "rocks": {
+      "soft": { "layered": 0, "hard": 1 },
+      "layered": { "layered": 1, "hard": 1 },
+      "hard": { "layered": 0.6, "hard": 2.5 }
+    },
+    "background": { "uplift": 0.6, "rock": "layered", "moisture": 0.3 },
+    "provinces": [
+      { "id": "coastal_plain", "near": "region_coldwater", "reach": 70, "uplift": 0.15, "rock": "soft", "moisture": 0.75 },
+      { "id": "scarlet_high", "near": "region_scarletwastes", "reach": 120, "uplift": 1.0, "rock": "layered", "moisture": 0.1 },
+      { "id": "deadwater_basin", "near": "region_deadwater", "reach": 80, "uplift": 0.25, "rock": "soft", "moisture": 0.15 },
+      { "id": "reach_breaks", "near": "region_the_reach", "reach": 70, "uplift": 0.6, "rock": "layered", "moisture": 0.4 },
+      { "id": "terminus_flats", "near": "region_terminus", "reach": 70, "uplift": 0.45, "rock": "hard", "moisture": 0.1 }
+    ],
+    "strata": [
+      { "top": 0.55, "hard": 1 },
+      { "top": 0.75, "hard": 5, "cap": true },
+      { "top": 1.35, "hard": 1 },
+      { "top": 1.55, "hard": 5, "cap": true },
+      { "top": 2.2, "hard": 1 },
+      { "top": 2.45, "hard": 6, "cap": true },
+      { "top": 99, "hard": 1.2 }
+    ],
+    "erosion": { "iterations": 200, "k": 0.05, "creep": 0.08 },
+    "terrace": { "amount": 0.85, "bench": 0.75 },
+    "rules": { "cliffSlope": 0.22, "screeSlope": 0.32, "washFlow": 900, "lakeDepth": 0.03, "prairieWet": 0.55, "prairieSlope": 0.06 },
+    "roads": { "grade": 150, "tier": 60, "wash": 6, "endRadius": 6, "maxGrade": 0.06, "smooth": 8 }
+  },
   "landforms": [
     {
       "id": "mount_cinder",

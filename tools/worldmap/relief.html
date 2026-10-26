@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Relief Preview</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#0d1014;--ink:#d8dee6;--dim:#8a94a3;--line:#2a313b;--panel:#161b22ee;--hot:#ffd34d}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:12px/1.4 system-ui,sans-serif;overflow:hidden}
+#map{position:fixed;inset:0;cursor:crosshair}
+#bar{position:fixed;top:10px;left:10px;bottom:10px;z-index:3;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:260px;overflow-y:auto}
+#bar b{display:block;margin:8px 0 4px;font-size:12px}#bar b:first-child{margin-top:0;font-size:13px}
+.dim{color:var(--dim);font-size:11px}
+.row{display:grid;grid-template-columns:1fr 46px;gap:4px;align-items:center;margin:2px 0}
+.row label{font-size:11px;color:var(--dim)}.row input[type=range]{grid-column:1/3;width:100%;margin:0}
+.row output{text-align:right;font-variant-numeric:tabular-nums;font-size:11px}
+.chk{display:flex;gap:6px;align-items:center;font-size:12px;margin:2px 0}
+button{background:#232a33;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:4px 8px;font:inherit;cursor:pointer}
+button:hover{border-color:#4a5563}button.go{background:#2f4a2a;border-color:#4a7a40}
+.road{padding:3px 4px;border-radius:3px;cursor:pointer;font-size:11px;font-variant-numeric:tabular-nums}.road:hover{background:#232a33}
+.road .n{display:inline-block;min-width:16px;color:var(--hot);font-weight:600}
+#tip{position:fixed;right:10px;top:10px;z-index:3;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-variant-numeric:tabular-nums;min-width:170px;white-space:pre}
+#sec{position:fixed;left:282px;right:10px;bottom:10px;height:170px;z-index:3;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:none}
+#sec canvas{width:100%;height:100%;display:block}
+#busy{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:5;background:#0008;font-size:15px}
+textarea{width:100%;height:120px;background:#0d1014;color:var(--ink);border:1px solid var(--line);font:11px monospace;display:none;margin-top:4px}
+</style></head><body>
+<canvas id="map"></canvas>
+<div id="bar">
+  <b>Relief preview</b>
+  <div class="dim">Phase 1 of <code>docs/proposals/wildlands-relief.md</code>. Bakes <code>relief</code> from <code>content/map/wildlands.json</code> in the page; nothing ships. Drag to pan, scroll to zoom, click twice for a cross-section, click a road for its profile.</div>
+  <div style="margin-top:8px;display:flex;gap:6px"><button class="go" id="bake">Bake</button><button id="copy">Copy config</button><span id="ms" class="dim" style="align-self:center"></span></div>
+  <textarea id="cfgOut" readonly></textarea>
+  <b>Layers</b>
+  <div id="layers"></div>
+  <b>Roads</b>
+  <div id="roads" class="dim">not baked</div>
+  <b>Shape</b><div id="p-shape"></div>
+  <b>Provinces</b><div id="p-prov"></div>
+  <b>Erosion</b><div id="p-ero"></div>
+  <b>Rules</b><div id="p-rules"></div>
+  <b>Road routing</b><div id="p-roads"></div>
+</div>
+<div id="tip">hover the map</div>
+<div id="sec"><canvas id="secC"></canvas></div>
+<div id="busy">Baking…</div>
+<script type="module">
+import { bakeRelief, tileGrid, routeRoad, roadProfile, resample, sampleCells, cliffDistance, cliffsNear, TERRAINS } from '/scripts/content/relief-core.mjs';
+import { BIOME_GROUND } from '/client/shared/ground-palette.js';
+
+const world = await (await fetch('/tools/worldmap/world.json', { cache: 'no-store' })).json();
+const content = await (await fetch('/content/map/wildlands.json', { cache: 'no-store' })).json();
+const cfg = structuredClone(content.relief); delete cfg._comment;
+
+const PAL = { ...BIOME_GROUND, prairie: [124, 146, 72], wash: [198, 180, 140], scree: [140, 100, 76], ramp: [176, 118, 76] };
+const tiles = [];
+for (const r of world.regions) r.rows.forEach((row, j) => { for (let i = 0; i < row.length; i++) { const c = row[i]; if (c === ' ') continue; tiles.push({ x: r.minX + i, y: r.minY + j, r: r.id, w: c === 'a', ch: c }); } });
+const placedCol = new Map();
+for (const t of tiles) placedCol.set(t.x * 4096 + t.y, PAL[world.key[t.ch]] || (t.ch === 'R' ? [70, 70, 74] : t.ch === 'B' ? [96, 92, 88] : [90, 90, 90]));
+
+// ── controls ──
+const get = (path) => path.split('.').reduce((o, k) => o?.[k], cfg);
+const set = (path, v) => { const ks = path.split('.'); let o = cfg; for (const k of ks.slice(0, -1)) o = o[k] ??= {}; o[ks.at(-1)] = v; };
+function slider(host, path, label, min, max, step) {
+  const d = document.createElement('div'); d.className = 'row';
+  const v = get(path) ?? min;
+  d.innerHTML = `<label>${label}</label><output>${v}</output><input type="range" min="${min}" max="${max}" step="${step}" value="${v}">`;
+  const inp = d.querySelector('input'), out = d.querySelector('output');
+  inp.oninput = () => { out.textContent = inp.value; set(path, +inp.value); };
+  host.appendChild(d);
+}
+const S = (id, rows) => rows.forEach((r) => slider(document.getElementById(id), ...r));
+S('p-shape', [['shape.height', 'height', 0.5, 6, 0.1], ['shape.broadAmp', 'broad hills', 0, 1.5, 0.05], ['shape.fineAmp', 'fine hills', 0, 0.8, 0.05], ['shape.rimRise', 'rise from a rim (tiles)', 4, 80, 1], ['shape.coastRise', 'rise from the coast', 4, 120, 1], ['shape.landformHeight', 'volcano height', 0, 6, 0.1], ['dip', 'bed dip', 0, 1.5, 0.05]]);
+cfg.provinces.forEach((p, i) => S('p-prov', [[`provinces.${i}.uplift`, `${p.id} uplift`, 0, 1.5, 0.05], [`provinces.${i}.moisture`, `${p.id} moisture`, 0, 1, 0.05], [`provinces.${i}.reach`, `${p.id} reach`, 10, 200, 5]]));
+S('p-prov', [['background.uplift', 'background uplift', 0, 1.5, 0.05], ['background.moisture', 'background moisture', 0, 1, 0.05]]);
+S('p-ero', [['erosion.iterations', 'iterations', 0, 400, 10], ['erosion.k', 'stream power k', 0, 0.12, 0.002], ['erosion.creep', 'creep', 0, 0.25, 0.01], ['terrace.amount', 'terrace', 0, 1, 0.05], ['terrace.bench', 'bench width', 0.3, 0.95, 0.05]]);
+S('p-rules', [['rules.cliffSlope', 'cliff slope', 0.05, 0.6, 0.01], ['rules.screeSlope', 'scree slope', 0.1, 0.8, 0.01], ['rules.washFlow', 'wash flow', 100, 5000, 50], ['rules.lakeDepth', 'lakebed depth', 0, 0.3, 0.01], ['rules.prairieWet', 'prairie wetness', 0.2, 0.95, 0.05], ['rules.prairieSlope', 'prairie slope', 0.01, 0.2, 0.01]]);
+S('p-roads', [['roads.grade', 'grade weight', 0, 3000, 50], ['roads.tier', 'tier step cost', 0, 400, 5], ['roads.wash', 'wash crossing cost', 0, 60, 1], ['roads.maxGrade', 'max grade (z/tile)', 0.01, 0.15, 0.005], ['roads.smooth', 'profile smoothing', 0, 30, 1]]);
+
+const LAYERS = { terrain: ['terrain colour', true], shade: ['hillshade', true], contour: ['contours (¼ tier)', false], flow: ['drainage', true], tiers: ['tier tint', false], routed: ['routed roads', true], current: ['current roads', true] };
+const L = {};
+for (const [k, [label, on]] of Object.entries(LAYERS)) {
+  const d = document.createElement('label'); d.className = 'chk';
+  d.innerHTML = `<input type="checkbox" ${on ? 'checked' : ''}> ${label}`;
+  L[k] = on; d.querySelector('input').onchange = (e) => { L[k] = e.target.checked; if (['terrain', 'shade', 'contour', 'flow', 'tiers'].includes(k)) paint(); draw(); };
+  document.getElementById('layers').appendChild(d);
+}
+
+// ── bake ──
+let R = null, G = null, roads = [], off = null, sel = null, secPts = [];
+async function bake() {
+  document.getElementById('busy').style.display = 'flex';
+  await new Promise((r) => setTimeout(r, 30));
+  const t0 = performance.now();
+  R = bakeRelief({ rect: world.rect, tiles, cfg });
+  G = tileGrid(R);
+  const cliffDist = cliffDistance(R, G);
+  roads = world.roads.map((rd) => {
+    const a = rd.pts.slice(0, 2), b = rd.pts.slice(-2);
+    const p = routeRoad(R, a, b, { cliffDist });
+    return { rd, a, b, p, prof: p ? roadProfile(R, p) : null, cliffs: p ? cliffsNear(G, p) : 0 };
+  });
+  document.getElementById('ms').textContent = `${Math.round(performance.now() - t0)} ms`;
+  document.getElementById('busy').style.display = 'none';
+  listRoads(); paint(); draw(); if (sel) section();
+}
+function listRoads() {
+  const host = document.getElementById('roads'); host.className = ''; host.innerHTML = '';
+  roads.forEach((r, i) => {
+    const d = document.createElement('div'); d.className = 'road';
+    const straight = Math.round(Math.hypot(r.b[0] - r.a[0], r.b[1] - r.a[1]));
+    d.innerHTML = r.prof
+      ? `<span class="n">${r.rd.num}</span>${r.rd.aName} → ${r.rd.bName}<br><span class="dim">${r.prof.length} tiles (gap ${straight}) · steepest ${r.prof.rawGrade.toFixed(3)} · cut ${r.prof.maxCut.toFixed(2)} fill ${r.prof.maxFill.toFixed(2)}</span>`
+        + (r.p.cutting ? `<br><span style="color:#e9a23b">needs a cutting: ${r.cliffs} cliff tiles within 3</span>` : r.cliffs ? `<br><span style="color:#e66">${r.cliffs} cliff tiles within 3</span>` : '')
+      : `<span class="n">${r.rd.num}</span>${r.rd.aName} → ${r.rd.bName}<br><span class="dim" style="color:#e66">no route at grade</span>`;
+    d.onclick = () => { sel = { road: i }; section(); draw(); };
+    host.appendChild(d);
+  });
+}
+document.getElementById('bake').onclick = bake;
+document.getElementById('copy').onclick = () => {
+  const ta = document.getElementById('cfgOut'), txt = JSON.stringify({ _comment: content.relief._comment, ...cfg }, null, 2);
+  ta.value = txt; ta.style.display = 'block'; ta.select();
+  navigator.clipboard?.writeText(txt).catch(() => {});
+};
+
+// ── paint the tile image ──
+function paint() {
+  if (!G) return;
+  const { TW, TH, H, T, F, TER } = G, zs = cfg.zScale ?? 0.5;
+  off = new OffscreenCanvas(TW, TH);
+  const g = off.getContext('2d'), img = g.createImageData(TW, TH), px = img.data;
+  const sun = [-0.6, -0.6, 0.53];
+  for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
+    const i = y * TW + x, wx = G.x0 + x, wy = G.y0 + y;
+    let c;
+    if (G.placed[i]) c = placedCol.get(wx * 4096 + wy) || [60, 60, 60];
+    else if (G.sea[i]) c = PAL.water;
+    else if (L.terrain) c = PAL[TERRAINS[TER[i]]] || PAL.badlands;
+    else { const v = Math.min(1, H[i] / 4); c = [60 + v * 190, 70 + v * 160, 60 + v * 130]; }
+    let [r, gg, b] = c;
+    if (L.shade && !G.placed[i] && !G.sea[i]) {
+      const hx = ((x < TW - 1 ? H[i + 1] : H[i]) - (x > 0 ? H[i - 1] : H[i])) * 0.5 * zs * 6;
+      const hy = ((y < TH - 1 ? H[i + TW] : H[i]) - (y > 0 ? H[i - TW] : H[i])) * 0.5 * zs * 6;
+      const n = 1 / Math.hypot(hx, hy, 1), lam = Math.max(0, (-hx * sun[0] - hy * sun[1] + sun[2]) * n);
+      const k = 0.35 + lam * 1.2; r *= k; gg *= k; b *= k;
+    }
+    if (L.tiers && !G.placed[i] && !G.sea[i]) { const tc = [[0, 0, 0], [40, 0, 60], [0, 40, 70], [70, 50, 0]][T[i]] || [70, 0, 0]; r = r * 0.7 + tc[0] * 1.5; gg = gg * 0.7 + tc[1] * 1.5; b = b * 0.7 + tc[2] * 1.5; }
+    if (L.flow && !G.placed[i] && !G.sea[i] && F[i] > 150) { const k = Math.min(0.75, Math.log(F[i] / 150) * 0.16); r = r * (1 - k) + 70 * k; gg = gg * (1 - k) + 130 * k; b = b * (1 - k) + 210 * k; }
+    if (L.contour && x < TW - 1 && y < TH - 1 && !G.placed[i]) {
+      const q = Math.floor(H[i] * 4);
+      if (q !== Math.floor(H[i + 1] * 4) || q !== Math.floor(H[i + TW] * 4)) { r *= 0.55; gg *= 0.55; b *= 0.55; }
+    }
+    px[i * 4] = r; px[i * 4 + 1] = gg; px[i * 4 + 2] = b; px[i * 4 + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+}
+
+// ── view ──
+const cv = document.getElementById('map'), ctx = cv.getContext('2d');
+const V = { s: 2, ox: 0, oy: 0 };
+function fit() {
+  const TW = world.rect.x1 - world.rect.x0 + 1, TH = world.rect.y1 - world.rect.y0 + 1;
+  V.s = Math.min((innerWidth - 300) / TW, (innerHeight - 200) / TH);
+  V.ox = 290 + (innerWidth - 300 - TW * V.s) / 2; V.oy = 10 + (innerHeight - 200 - TH * V.s) / 2;
+}
+const toScr = (x, y) => [(x - world.rect.x0 + 0.5) * V.s + V.ox, (y - world.rect.y0 + 0.5) * V.s + V.oy];
+const toWorld = (sx, sy) => [(sx - V.ox) / V.s + world.rect.x0 - 0.5, (sy - V.oy) / V.s + world.rect.y0 - 0.5];
+function resize() { const d = devicePixelRatio || 1; cv.width = innerWidth * d; cv.height = innerHeight * d; cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px'; ctx.setTransform(d, 0, 0, d, 0, 0); draw(); }
+function line(pts, col, w, dash) {
+  ctx.beginPath(); pts.forEach(([x, y], i) => { const [sx, sy] = toScr(x, y); i ? ctx.lineTo(sx, sy) : ctx.moveTo(sx, sy); });
+  ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.stroke(); ctx.setLineDash([]);
+}
+function draw() {
+  ctx.fillStyle = '#0d1014'; ctx.fillRect(0, 0, innerWidth, innerHeight);
+  if (off) { ctx.imageSmoothingEnabled = false; ctx.drawImage(off, V.ox, V.oy, off.width * V.s, off.height * V.s); }
+  const w = Math.max(1.5, V.s * 0.9);
+  if (L.current) for (const r of world.roads) { const p = []; for (let i = 0; i < r.pts.length; i += 2) p.push([r.pts[i], r.pts[i + 1]]); line(p, '#ffffffaa', 1.2, [4, 3]); }
+  if (L.routed) roads.forEach((r, i) => { if (!r.p) return; const hot = sel?.road === i; line(r.p, '#000a', w + 2); line(r.p, hot ? '#ffd34d' : '#e8c060', w); });
+  if (secPts.length) { secPts.forEach(([x, y]) => { const [sx, sy] = toScr(x, y); ctx.fillStyle = '#ffd34d'; ctx.beginPath(); ctx.arc(sx, sy, 4, 0, 7); ctx.fill(); }); if (secPts.length === 2) line(secPts, '#ffd34d', 1.5, [6, 4]); }
+  ctx.fillStyle = '#fff'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+  for (const r of world.regions) { const [sx, sy] = toScr((r.minX + r.maxX) / 2, (r.minY + r.maxY) / 2); ctx.fillText(r.name, sx, sy); }
+}
+
+// ── interaction ──
+let drag = null;
+cv.onpointerdown = (e) => { drag = { x: e.clientX, y: e.clientY, ox: V.ox, oy: V.oy, moved: false }; cv.setPointerCapture(e.pointerId); };
+cv.onpointermove = (e) => {
+  if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true; if (drag.moved) { V.ox = drag.ox + dx; V.oy = drag.oy + dy; draw(); } }
+  hover(e.clientX, e.clientY);
+};
+cv.onpointerup = (e) => {
+  if (drag && !drag.moved && G) {
+    const p = toWorld(e.clientX, e.clientY);
+    secPts = secPts.length >= 2 ? [p] : [...secPts, p];
+    if (secPts.length === 2) { sel = { line: secPts }; section(); }
+    draw();
+  }
+  drag = null;
+};
+cv.onwheel = (e) => { e.preventDefault(); const k = Math.exp(-e.deltaY * 0.0015), [wx, wy] = toWorld(e.clientX, e.clientY); V.s = Math.max(0.5, Math.min(40, V.s * k)); const [sx, sy] = toScr(wx, wy); V.ox += e.clientX - sx; V.oy += e.clientY - sy; draw(); };
+function hover(sx, sy) {
+  if (!G) return;
+  const [fx, fy] = toWorld(sx, sy), x = Math.round(fx), y = Math.round(fy), tx = x - G.x0, ty = y - G.y0;
+  if (tx < 0 || ty < 0 || tx >= G.TW || ty >= G.TH) return;
+  const i = ty * G.TW + tx, zs = cfg.zScale ?? 0.5;
+  const m = sampleCells(R, R.moisture, x, y), hd = sampleCells(R, R.hard, x, y);
+  document.getElementById('tip').textContent = G.placed[i] ? `${x},${y}\nplaced tile (a region)`
+    : `${x},${y}\nterrain   ${TERRAINS[G.TER[i]]}\nheight    ${G.H[i].toFixed(2)} tiers (z ${(G.H[i] * zs).toFixed(2)})\ntier      ${G.T[i]}\nstep      ${G.S[i].toFixed(3)} /tile\ndrainage  ${Math.round(G.F[i])}\nmoisture  ${m.toFixed(2)}\nhardness  ${hd.toFixed(2)}`;
+}
+
+// ── cross-section ──
+function section() {
+  const box = document.getElementById('sec'), sc = document.getElementById('secC');
+  box.style.display = 'block';
+  const d = devicePixelRatio || 1, W = sc.clientWidth, Hh = sc.clientHeight;
+  sc.width = W * d; sc.height = Hh * d;
+  const c = sc.getContext('2d'); c.setTransform(d, 0, 0, d, 0, 0); c.clearRect(0, 0, W, Hh);
+  let ground, road = null, title, tilesLong;
+  if (sel?.road != null) {
+    const r = roads[sel.road]; if (!r.prof) return;
+    ground = r.prof.pts.map(([x, y], k) => ({ x, y, h: r.prof.ground[k] })); road = r.prof.z; tilesLong = r.prof.length;
+    title = `Route ${r.rd.num}: ${r.rd.aName} → ${r.rd.bName}, ${r.prof.length} tiles. Ground (fill) against the road's graded profile (yellow).`;
+  } else if (sel?.line) {
+    ground = resample(sel.line, 0.5).map(([x, y]) => ({ x, y, h: sampleCells(R, R.h, x, y) }));
+    tilesLong = Math.hypot(sel.line[1][0] - sel.line[0][0], sel.line[1][1] - sel.line[0][1]);
+    title = `Cross-section, ${Math.round(tilesLong)} tiles.`;
+  } else return;
+  const n = ground.length, mx = Math.max(1, ...ground.map((g) => g.h), ...(road || [0])) * 1.1;
+  const X = (k) => 10 + (k / (n - 1)) * (W - 20), Y = (h) => Hh - 14 - (h / mx) * (Hh - 40);
+  // How much taller the section draws the ground than it is: pixels per world z over pixels per tile.
+  const exag = ((Hh - 40) / mx / (cfg.zScale ?? 0.5)) / ((W - 20) / tilesLong);
+  c.fillStyle = '#d8dee6'; c.font = '11px system-ui'; c.fillText(title + `  Height drawn ×${exag.toFixed(0)}; grey lines are the caprock tops.`, 10, 14);
+  c.strokeStyle = '#2a313b'; for (const s of cfg.strata) if (s.cap && s.top < mx) { c.beginPath(); c.moveTo(10, Y(s.top)); c.lineTo(W - 10, Y(s.top)); c.stroke(); }
+  for (let k = 0; k < n - 1; k++) {
+    const g0 = ground[k], tx = Math.round(g0.x) - G.x0, ty = Math.round(g0.y) - G.y0;
+    const i = ty * G.TW + tx, ter = G.placed[i] ? 'badlands' : TERRAINS[G.TER[i]];
+    const col = PAL[ter] || PAL.badlands;
+    c.fillStyle = `rgb(${col.join(',')})`;
+    c.beginPath(); c.moveTo(X(k), Hh - 14); c.lineTo(X(k), Y(g0.h)); c.lineTo(X(k + 1), Y(ground[k + 1].h)); c.lineTo(X(k + 1), Hh - 14); c.fill();
+  }
+  if (road) { c.beginPath(); road.forEach((z, k) => (k ? c.lineTo(X(k), Y(z)) : c.moveTo(X(k), Y(z)))); c.strokeStyle = '#ffd34d'; c.lineWidth = 2; c.stroke(); c.lineWidth = 1; }
+}
+
+addEventListener('resize', () => { resize(); if (sel) section(); });
+fit(); resize();
+window.__relief = () => ({ R, G, roads, cfg });
+// Frame a world point at a zoom (pixels per tile), for checking a spot from the console.
+window.__look = (x, y, s) => { V.s = s; V.ox = (innerWidth + 280) / 2 - (x - world.rect.x0 + 0.5) * s; V.oy = innerHeight / 2 - (y - world.rect.y0 + 0.5) * s; draw(); };
+await bake();
+</script>
+</body></html>
