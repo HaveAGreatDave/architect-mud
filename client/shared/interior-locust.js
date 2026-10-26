@@ -20,6 +20,9 @@
 //     instrument panel; exits both sides; the cable from the cockpit top to the rudder.
 //   (search summary of the PA-25 owner's manual listings) — throttle, mixture, trim and the spray
 //     controls are on the LEFT side of the cockpit.
+// Photo held against (Wikimedia Commons, 2026-10-26):
+//   File:VH-SPA_Piper_PA-25-235_Pawnee_C_Caboolture_Gliding_Club_(10617605844).jpg  (one row of round
+//     gauges on a black board, lettered toggles, the padded coaming, the hopper wall under the panel)
 //
 // ── ⚠ ONE SCALE, STATED ONCE ─────────────────────────────────────────────────
 //
@@ -64,15 +67,15 @@ const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] 
 // Yellow-primed steel for the cage (the exterior's own #ffd24a family), zinc-chromate green for
 // the bare interior skin, a scuffed black crash pad, and chemical staining on the floor.
 export const LOCUST_TRIM = {
-  cage: [128, 132, 128], cageDk: [92, 96, 94], skin: [74, 96, 70], skinDk: [52, 68, 50],
+  cage: [128, 132, 128], cageDk: [92, 96, 94], skin: [74, 96, 70], skinDk: [62, 82, 58],
   floor: [58, 60, 54], stain: [104, 116, 66], pad: [30, 30, 32], panel: [38, 40, 38],
   seat: [80, 84, 80], strap: [190, 150, 40], cloth: [46, 50, 58], steel: [150, 156, 164],
-  chem: [150, 190, 90], dump: [236, 196, 40], valve: [200, 44, 36],
+  chem: [150, 190, 90], valve: [200, 44, 36],
 };
 const T = LOCUST_TRIM;
 SHINY.set(T.cage, { spec: 0.35, pow: 18 });
 SHINY.set(T.steel, { spec: 0.8, pow: 22, ramp: [[60, 64, 70], [232, 236, 240]], glint: 0.3, albedo: [236, 238, 242], envK: 0.8 });
-SHINY.set(T.dump, { spec: 0.5, pow: 30 });
+
 SHINY.set(T.valve, { spec: 0.5, pow: 30 });
 // The hopper sight tube: glass you look through at the fluid behind it.
 const SIGHT_GLASS = [150, 200, 170];
@@ -160,6 +163,8 @@ export function locustProfile() {
     roofGlass: [Y(E.cp.f1), Y(E.cp.f0)],
     normalLit: true,
     // The panel lamps: two post lights under the crash pad's lip, and one over the spray side.
+    // After dark the floods are bright enough to read the panel by (the Drake's 2.2 is the bar).
+    floodGain: 1.8, glare: 0.4,
     floods: [{ p: [-0.14, room.dashY - 0.05, room.dashZ - 0.03], r: 0.34 }, { p: [0.14, room.dashY - 0.05, room.dashZ - 0.03], r: 0.34 },
       { p: [-0.24, 0.05, -0.32], r: 0.26 }],
     craft: 'locust',
@@ -248,7 +253,9 @@ function buildRoom(G) {
         let n = norm(cross(sub(poly[1], poly[0]), sub(poly[poly.length - 1], poly[0])));
         const mid = [0, c[1], Z(E.czAt(fOf(c[1])))];
         if (dot(n, sub(mid, c)) < 0) n = mul(n, -1);
-        const band = (i + (j >> 1)) & 1;
+        // ⚠ BANDS, NOT A CHECKER: a bay runs fore and aft between two stringers, so the tone changes
+        // round the section only. Alternating along the fuselage too made a chessboard of the tub.
+        const band = (j >> 2) & 1;
         put(poly, n, 'pil', band ? -0.05 : -0.14, band ? T.skin : T.skinDk);
       }
     }
@@ -417,9 +424,9 @@ function readLive(live) {
     powered: L.powered !== false,
     ail: clamp(num(L.stickX), -1, 1), elev: clamp(num(L.stickY), -1, 1), rud: clamp(num(L.rudder), -1, 1),
     trim: clamp(num(L.trim), -1, 1), flap: clamp(num(L.flapNotch), 0, 3),
-    // ⚠ Not yet in windshield.js's liveInstruments: the hopper as a fraction, the spray valve open,
-    // and the dump pulled. Each rests at a believable value until the lead wires it.
-    hopper: clamp(num(L.hopper, 1), 0, 1), spraying: !!L.spraying, dump: !!L.dumping,
+    // The spray valve is live (cockpit.js sends `spraying` on a spray run). The hopper as a fraction
+    // is not yet in windshield.js's liveInstruments, so it rests full until the lead wires it.
+    hopper: clamp(num(L.hopper, 1), 0, 1), spraying: !!L.spraying,
     courseErr: clamp(num(L.courseErr) / 20, -1, 1),
     land: !!L.landingLight, dome: !!L.dome, hour: num(L.hour, 12), stall: !!L.stall,
   };
@@ -447,6 +454,9 @@ export function locustHotspots(P, live) {
     { id: 'ck:flaps', p: HAND.flap(R), r: 0.03, kind: 'click' },
   ];
   SWITCHES.forEach((id, i) => out.push({ id: 'ck:' + id, p: Pn.pt(SW_U0 + i * 0.03, SW_V, 0.01), r: 0.013, kind: 'click' }));
+  out.push({ id: 'ck:master', p: Pn.pt(MAG_AT.u, SW_V, 0.012), r: 0.014, kind: 'click' });
+  // The trim crank on the left wall: dragged, it winds the trim (the pointer beside it follows).
+  out.push({ id: 'trim', p: HAND.trim, r: 0.045, kind: 'trim' });
   const g = GPS_AT(Pn);
   out.push(gpsHotspot(Pn, g.u, g.v, 0.036));
   return out;
@@ -456,6 +466,8 @@ export function locustHotspots(P, live) {
 // that took the hand cursor and did nothing. NAV is the panel lights now.
 const SWITCHES = ['master', 'land', 'panel'];
 const SW_U0 = -0.225, SW_V = -0.10;
+// The magneto key, bottom left of the panel: the engine master, beside the BAT rocker.
+const MAG_AT = { u: -0.105 };
 // The GPS: the empty hole in the lower row, under the altimeter. Its height is the panel's (r2 below).
 const GPS_AT = (Pn) => ({ u: -0.02, v: -Pn.hh * 0.18, hw: 0.042, hh: 0.03 });
 function panelOf(K, P) {
@@ -506,11 +518,11 @@ function locustFit(P, live, push) {
   const run = on ? R.rpm : 0;
   Pn.dial(0.07, r1, r, clamp(run / 1.05, 0, 1), { ticks: 14, major: 2, arcs: [[0.35, 0.86, C.green]], red: 0.9, name: 'RPM' });
   Pn.dial(0.07, r2, r * 0.85, on ? clamp(0.3 + R.thr * 0.6, 0, 1) : 0.05, { ticks: 10, major: 2, arcs: [[0.35, 0.9, C.green]], name: 'MAP' });
-  Pn.dial(0.145, r1 + 0.01, r * 0.6, on ? R.oil : 0, { ticks: 6, major: 2, arcs: [[0.3, 0.8, C.green]], red: 0.9, name: 'OIL T' });
-  Pn.dial(0.145, r2 + 0.005, r * 0.6, on ? 0.55 + R.thr * 0.2 : 0, { ticks: 6, major: 2, arcs: [[0.3, 0.8, C.green]], red: 0.9, name: 'OIL P' });
+  Pn.dial(0.145, r1 + 0.01, r * 0.6, on ? R.oil : 0, { ticks: 6, major: 2, arcs: [[0.3, 0.8, C.green]], red: 0.9, name: 'OIL T', nameH: 0.0078 });
+  Pn.dial(0.145, r2 + 0.005, r * 0.6, on ? 0.55 + R.thr * 0.2 : 0, { ticks: 6, major: 2, arcs: [[0.3, 0.8, C.green]], red: 0.9, name: 'OIL P', nameH: 0.0078 });
   Pn.bar(0.19, r2 - 0.03, r1 + 0.03, 0.008, R.fuel, R.fuel < 0.15 ? C.red : C.green, 'FUEL');
   // Boom pressure: up when the valve is open and the pump is turning.
-  Pn.dial(0.235, r1, r * 0.7, on && R.spraying ? 0.45 + R.rpm * 0.3 : 0.02, { ticks: 8, major: 2, arcs: [[0.3, 0.7, C.green]], red: 0.85, name: 'BOOM' });
+  Pn.dial(0.235, r1, r * 0.7, on && R.spraying ? 0.45 + R.rpm * 0.3 : 0.02, { ticks: 8, major: 2, arcs: [[0.3, 0.7, C.green]], red: 0.85, name: 'BOOM', nameH: 0.0078 });
   // THE HOPPER SIGHT GAUGE: a tube with the chemical standing in it, and its gallons under it.
   const hx = 0.235, hb0 = r2 - 0.045, hb1 = r2 + 0.03;
   Pn.rect(hx - 0.012, hb0 - 0.004, hx + 0.012, hb1 + 0.004, C.black, 0, 0.002);
@@ -532,16 +544,19 @@ function locustFit(P, live, push) {
     Pn.rect(u - 0.011, SW_V + 0.018, u + 0.011, SW_V + 0.024, T.cage, 0.1, 0.002);
     Pn.rocker(u, SW_V, !!st[id], id === 'master' ? C.fireRed : C.black, SW_NAME[id]);
   });
-  // The mag switch: a key at the bottom left.
-  Pn.disc(-0.105, SW_V, 0.012, C.chrome, 0.1, 0.003, 10);
-  Pn.stud(-0.105, SW_V, 0.003, 0.009, 0.012, C.black);
+  // The mag switch: a key at the bottom left, turned to BOTH while the engine runs. It's the engine
+  // master ('ck:master', MAG_AT), as the key is on the real aircraft; the BAT rocker throws with it.
+  Pn.disc(MAG_AT.u, SW_V, 0.012, C.chrome, 0.1, 0.003, 10);
+  {
+    const a = Math.PI / 2 + (on ? -0.55 : 0.72), d = [Math.cos(a), Math.sin(a)];
+    Pn.stud(MAG_AT.u, SW_V, 0.004, 0.004, 0.012, [60, 60, 64], 0, 0.004);
+    Pn.plate([[MAG_AT.u - d[0] * 0.010 - d[1] * 0.003, SW_V - d[1] * 0.010 + d[0] * 0.003], [MAG_AT.u + d[0] * 0.010 - d[1] * 0.003, SW_V + d[1] * 0.010 + d[0] * 0.003],
+      [MAG_AT.u + d[0] * 0.010 + d[1] * 0.003, SW_V + d[1] * 0.010 - d[0] * 0.003], [MAG_AT.u - d[0] * 0.010 + d[1] * 0.003, SW_V - d[1] * 0.010 - d[0] * 0.003]], C.black, 0.05, 0.016);
+  }
   Pn.text('MAG', -0.105, SW_V - 0.02, 0.0085);
 
-  // ── THE DUMP: a yellow T-handle under the right of the panel. Pull it and 150 gallons go. ──
-  const dz = D.panelBot - 0.02, dy0 = D.panelY - 0.01, dy = dy0 - (R.dump ? 0.10 : 0.015), dx = 0.18;
-  K.rod([dx, dy0, dz], [dx, dy, dz], 0.005, 'dash', 0.1, T.steel, 0, 5);
-  K.rod([dx - 0.045, dy, dz], [dx + 0.045, dy, dz], 0.011, 'dash', 0.25, T.dump, 0.1, 8);
-  K.obox([dx, dy0 - 0.003, dz], [1, 0, 0], [0, 0, 1], [0, -1, 0], 0.02, 0.02, 0.004, 'dash', 0.1, C.black);
+  // ⚠ NO DUMP HANDLE. A Pawnee has a yellow T-handle under the panel that drops the hopper load;
+  // nothing in the sim dumps, so a handle there would do nothing, and it's left off.
 
   // ── THE LIGHTBAR: swath guidance on the crash pad, the lit segment walking with your line ──
   const ly = P.dashY + 0.07, lz = P.dashZ + 0.004;
@@ -636,4 +651,4 @@ TEXTURE.set(T.skin, 'paint'); TEXTURE.set(T.skinDk, 'paint');
 TEXTURE.set(T.floor, 'cast'); TEXTURE.set(T.stain, 'cast');
 TEXTURE.set(T.pad, 'leather'); TEXTURE.set(T.panel, 'paint');
 TEXTURE.set(T.seat, 'cast'); TEXTURE.set(T.cloth, 'fabric'); TEXTURE.set(T.strap, 'fabric');
-TEXTURE.set(T.steel, 'brushed'); TEXTURE.set(T.dump, 'paint'); TEXTURE.set(T.valve, 'plastic');
+TEXTURE.set(T.steel, 'brushed'); TEXTURE.set(T.valve, 'plastic');

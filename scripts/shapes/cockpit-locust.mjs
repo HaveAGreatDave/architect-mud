@@ -47,9 +47,10 @@ ok(!!P, 'locustProfile() returned nothing');
 const B = shellBounds(P);
 
 // ── (a) THE ROOM, AT REST AND AT EVERY STOP ──────────────────────────────────
+// No `dumping`: the sim never dumps the hopper, so the cockpit has no dump handle to move.
 const STOPS = {
   stickX: [-1, 1], stickY: [-1, 1], rudder: [-1, 1], throttle: [0, 1], flapNotch: [0, 3], trim: [-1, 1],
-  spraying: [false, true], dumping: [false, true], hopper: [0, 1], courseErr: [-20, 20],
+  spraying: [false, true], hopper: [0, 1], courseErr: [-20, 20],
   ias: [0, 130], alt: [0, 950], vsi: [-2000, 2000], rpm: [0, 1], fuel: [0, 1], oilTemp: [0, 1],
   pitch: [-25, 25], bank: [-45, 45], hdg: [0, 90], powered: [false, true], landingLight: [false, true],
   dome: [false, true], stall: [false, true],
