@@ -1111,7 +1111,10 @@ export function createDirector(W, opts = {}) {
         cur.tx = sn.x - dir * 10; cur.ty = sn.y + (sn.y > MID_Y ? -8 : 8); cur.maxV = 16;
         leg = { kind: 'feed', t: 0, shooter, setup, fed: false, sx: shooter.tx, sy: shooter.ty };
       } else {
-        cur.tx = sn.x; cur.ty = sn.y; cur.maxV = 21;
+        // (a pass on its way to him he goes on to meet where it was led, and turns for the spot
+        // once it's on his stick: sent to the spot as the shot was called, he skated off the line
+        // it was played along and chased it the length of the ice)
+        if (pk.target !== cur) { cur.tx = sn.x; cur.ty = sn.y; cur.maxV = 21; }
         leg = { kind: 'approach', t: 0, shooter, sx: sn.x, sy: sn.y };
       }
       // a block needs a body in the lane before the shot
@@ -1410,7 +1413,9 @@ export function createDirector(W, opts = {}) {
             at(B, releaseAt('pass'), () => { if (pk.carrier === o) W.pass(o, c, 52); });
           } else if (pk.held && pk.held.kind === 'goalie' && pk.held.side === def) {
             const g0 = pk.held; g0.gloveW = 0; g0.gloveHold = false; g0.actHold = false; pk.held = null; W.pass(g0, c, 45);
-          } else if (pk.home !== c && pk.target !== c && !pk.held) W.collect(c);
+          // (not while ours still has it, winding up the pass he gives away: collecting it then
+          // took it off his blade mid-swing, and it slid the length of the ice into their corner)
+          } else if (pk.home !== c && pk.target !== c && !pk.held && !(pk.carrier && pk.carrier.side === att)) W.collect(c);
         } else if (pk.carrier === cur) { leg = null; nextLeg(); return; }
         else if (!pk.carrier && pk.home !== cur && pk.target !== cur && leg.t > 0.5) W.collect(cur);
         if (leg && leg.t > 8) { leg = null; nextLeg(); }
