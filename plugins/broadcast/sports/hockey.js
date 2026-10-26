@@ -1013,6 +1013,12 @@ export const SEASON = {
       if (g) { g.sa += 1; if (b.type === 'goal') g.ga += 1; }
     }
   },
+  // A league man killed in the street (broadcast's street-death record) is a death in his
+  // season's toll, booked at the slot the league loses him from.
+  foldStreetDeath(acc, d) {
+    acc.casualties = acc.casualties || [];
+    acc.casualties.push({ name: d.name, dead: true, street: true });
+  },
   summariseExtras(acc) {
     const scorers = [...(acc.scorers || new Map()).values()]
       .sort((a, b) => b.points - a.points || b.goals - a.goals || a.name.localeCompare(b.name))

@@ -3258,6 +3258,31 @@ export default async function regress({ check, run, getPlayer }) {
               check("hockey: the booth says he's back from the vat", said(played, ['vat.back', 'vat.back.again', 'vat.back.career']), `slot ${played}`);
             }
           }
+
+          // A street death: the league loses him from the slot after the one he died in, the
+          // vat has him from that slot until he heals, and nothing before it changes.
+          {
+            const savedDeaths = _test.streetDeaths.get('hockey');
+            const S = S0 + 600, man = rosterFor(teams[2], teams, players)[1];
+            const before = _test.sportsGameForSlot(script, S, null, _test.ledgerAt(script, S, S0))?.game;
+            const heal = S + 1 + 30;
+            _test.streetDeaths.set('hockey', [{ name: man, from: S + 1, heal }]);
+            _test.injuryChains.delete('hockey');
+            try {
+              const after = _test.sportsGameForSlot(script, S, null, _test.ledgerAt(script, S, S0))?.game;
+              check('street death: the slot he died in plays as it did', JSON.stringify(before?.beats) === JSON.stringify(after?.beats), 'the airing game changed');
+              check('street death: the league loses him from the next slot', !_test.ledgerAt(script, S, S0).has(man) && _test.ledgerAt(script, S + 1, S0).has(man) && _test.ledgerAt(script, heal - 1, S0).has(man), man);
+              check('street death: he plays again when the vat lets him go', !_test.ledgerAt(script, heal, S0).has(man) && _test.vatReturnsAt(script, heal, S0).has(man), `heal ${heal}`);
+              check('street death: the vat has him from the slot he died in', _test.streetVatAt('hockey', S).has(man) && _test.streetVatAt('hockey', heal - 1).has(man) && !_test.streetVatAt('hockey', heal).has(man) && !_test.streetVatAt('hockey', S - 1).has(man), 'vat window');
+            } finally {
+              if (savedDeaths) _test.streetDeaths.set('hockey', savedDeaths); else _test.streetDeaths.delete('hockey');
+              _test.injuryChains.delete('hockey');
+            }
+            const acc = {};
+            HOCKEY.season.foldStreetDeath(acc, { name: man });
+            const sx = HOCKEY.season.summariseExtras(acc);
+            check('street death: it counts in his toll', sx.toll?.[man]?.died === 1 && sx.deaths === 1, JSON.stringify(sx.toll));
+          }
         } finally {
           _test.setSimSwitch('hockey', savedSwitch);
           if (savedSeason) _test.seasonCaches.set('hockey', savedSeason); else _test.seasonCaches.delete('hockey');
@@ -3298,6 +3323,28 @@ export default async function regress({ check, run, getPlayer }) {
           const onShift = isNpcScheduledNow(fake.id);
           _test.setLeagueNpcState(st());
           check("league npc: the schedule checker follows his club's games", onShift === true && isNpcScheduledNow(fake.id) === false && _test.leagueNpcWhere('npc_nobody') === null, String(onShift));
+
+          // Killed in the street: the engine's 60-second respawn is taken away at once, he's in
+          // the vat, and the record books him off the roster from the next slot.
+          const savedDeaths = _test.streetDeaths.get('hockey');
+          const { getFlag, setFlag } = await import('../../server/engine/flags.js');
+          const savedRaw = await getFlag('world', _test.STREET_DEATHS_KEY('hockey')).catch(() => null);
+          try {
+            Object.assign(fake, { _dead: true, _respawnAt: Date.now() + 60000, _inVat: false });
+            _test.setLeagueNpcState(st());
+            const d = _test.onLeagueNpcKilled({ npc: fake });
+            check('street death: the respawn is taken away and the vat has him', fake._respawnAt === null && fake._inVat === true, String(fake._respawnAt));
+            check('street death: he is off the roster from the next slot, for the vat\'s time', !!d && d.name === man && d.heal - d.from > INJURY_MAX_SLOTS && d.heal - d.from <= REPRINT_MAX_SLOTS, JSON.stringify(d));
+            check('street death: the tick keeps him in the vat', _test.leagueNpcWhere(fake.id) === 'vat', String(_test.leagueNpcWhere(fake.id)));
+            check('street death: nobody else is recorded', _test.onLeagueNpcKilled({ npc: { id: 'x', _dead: true, flags: {} } }) === null, 'unbound man recorded');
+            await _test.streetSaved();
+            const raw = await getFlag('world', _test.STREET_DEATHS_KEY('hockey')).catch(() => null);
+            check('street death: the record is written to world_flags', typeof raw === 'string' && JSON.parse(raw).some(e => e.name === man && e.from === d.from), String(raw));
+          } finally {
+            if (savedDeaths) _test.streetDeaths.set('hockey', savedDeaths); else _test.streetDeaths.delete('hockey');
+            _test.injuryChains.delete('hockey');
+            await setFlag('world', _test.STREET_DEATHS_KEY('hockey'), savedRaw ?? '[]').catch(() => {});
+          }
         } finally {
           _test.setLeagueNpcState(saved);
           world.npcs.delete(fake.id); world.zones.get(fake.zone_id)?.npcs.delete(fake.id);

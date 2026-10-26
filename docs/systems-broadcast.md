@@ -1845,8 +1845,17 @@ everything else comes from the league, so nothing about a game is stored on him.
   club his file names (`rosterFor`), the goalie in the goalie's place, one man per club per
   role, housed in a flat with a residence row, and with the season line in his dialogue. A
   change to the club list or the player pool that redeals the rosters fails it by name.
-- **A death in the street is an ordinary NPC death.** A player who kills one gets the
-  engine's 60-second respawn, and the sim doesn't hear about it.
+- **A death in the street sends him to the vat too.** On `npc.killed`, `onLeagueNpcKilled`
+  takes away the engine's 60-second respawn synchronously, before anything awaits, and
+  records `{ name, from, heal }` in the world flag `sports_street_deaths:hockey`: `from` is
+  the slot after the one he died in and `heal` is `from + reprintSlots`. The vat has him from
+  the moment he dies (`streetVatAt`). The league loses him from `from`, so the game airing as
+  he dies and every game before it replay as they aired. Like the sim switch, the slot comes
+  from the server's clock, so the server records it once. The chain books it at the end of
+  the step before `from` (or as a chain starts at `from`), the standings fold books it at
+  `from` and counts it in his toll (`foldStreetDeath`), and a chain or graph already built
+  past `from` is dropped. Records are loaded at startup with the sim switches and kept until
+  4,000 slots after they heal. A death by another NPC's hand counts the same.
 
 ### Deadball's clubs (as built)
 

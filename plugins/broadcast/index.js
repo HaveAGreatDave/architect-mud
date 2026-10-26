@@ -29,7 +29,7 @@ import { makeBooth } from './sports/baseball-booth.js';
 import { landBy, afterLand } from '../../client/game/js/panels/diamond/timing.js';
 import { venueField } from '../../client/game/js/panels/diamond/geo.js';
 import { skylineAround } from '../../server/engine/skyline.js';
-import { HOCKEY, rivalOf, healSlot } from './sports/hockey.js';
+import { HOCKEY, rivalOf, healSlot, reprintSlots } from './sports/hockey.js';
 import { bindingOf, whereabouts, seasonLine } from './sports/league-npcs.js';
 import { finalPackage, packageText } from './sports/final-package.js';
 import {
@@ -2549,7 +2549,61 @@ function _chainStep(script, chain, slot) {
       if (c.dead && heal < Number.MAX_SAFE_INTEGER) chain.vat.set(c.name, heal);
     }
   }
+  // The chain at slot + 1 is what the next game is played against, so the street deaths
+  // that start there are booked now.
+  bookStreetDeaths(sportOf(script).id, slot + 1, chain.out, chain.vat);
   chain.at = slot + 1;
+}
+
+// ── Street deaths ────────────────────────────────────────────────────────────
+// A league man who's an NPC (sports/league-npcs.js) can be killed in the street. He goes to
+// the vat at once, and the league loses him from the NEXT slot, so the game airing now and
+// every game before it replay as they aired. Like the sim switch, the slot comes from the
+// server's clock, so the server records it once, in world_flags, and both walks (the chain
+// and the standings fold) book it at that slot. Loaded at startup with the sim switches.
+const STREET_DEATHS_KEY = (sport) => `sports_street_deaths:${sport}`;
+const STREET_DEATHS_KEEP = INJURY_CHAIN_MAX_REBUILD;   // slots a healed record is kept for
+const _streetDeaths = new Map();   // sport -> [{ name, from, heal }]
+let _streetSave = Promise.resolve();   // the last write, for regress to wait on
+const streetDeathsFrom = (sport, slot) => (_streetDeaths.get(sport) || []).filter(d => d.from === slot);
+// The men a street death has in the vat at `slot`: from the slot he died in until he heals.
+function streetVatAt(sport, slot) {
+  const vat = new Set();
+  for (const d of _streetDeaths.get(sport) || []) if (slot >= d.from - 1 && slot < d.heal) vat.add(d.name);
+  return vat;
+}
+// Book this slot's street deaths into a walk's `out` (and the chain's `vat`).
+function bookStreetDeaths(sport, slot, out, vat) {
+  const ds = streetDeathsFrom(sport, slot);
+  for (const d of ds) {
+    if (d.heal > (out.get(d.name) || 0)) out.set(d.name, d.heal);
+    if (vat) vat.set(d.name, d.heal);
+  }
+  return ds;
+}
+// The record, in RAM at once and then in world_flags. Returns the entry.
+function recordStreetDeath(sport, name, slotNow) {
+  const from = slotNow + 1;
+  const d = { name, from, heal: from + reprintSlots(name, from) };
+  const list = (_streetDeaths.get(sport) || []).filter(e => e.heal > slotNow - STREET_DEATHS_KEEP && !(e.name === name && e.from === from));
+  list.push(d);
+  _streetDeaths.set(sport, list);
+  // A chain or a graph already built past `from` was built without him missing.
+  const chain = _injuryChains.get(sport);
+  if (chain && chain.at > from) _injuryChains.delete(sport);
+  for (const k of [..._sportsGraphCache.keys()]) if (k.startsWith(`${sport}:`) && Number(k.slice(sport.length + 1).split('|')[0]) >= from) _sportsGraphCache.delete(k);
+  _streetSave = setFlag('world', STREET_DEATHS_KEY(sport), JSON.stringify(list)).catch(e => console.error('[broadcast] street death record error:', e.message));
+  return d;
+}
+async function loadStreetDeaths() {
+  for (const sport of Object.keys(SPORTS)) {
+    const raw = await getFlag('world', STREET_DEATHS_KEY(sport)).catch(() => null);
+    if (!raw) continue;
+    try {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) _streetDeaths.set(sport, list.filter(d => d && typeof d.name === 'string' && Number.isFinite(d.from) && Number.isFinite(d.heal)));
+    } catch { /* a malformed record books nobody */ }
+  }
 }
 
 // The chain folded up to (not including) `slot`, or null for a sport with no sim.
@@ -2563,6 +2617,7 @@ function chainAt(script, slot, windowStart) {
   // served by advancing.
   if (!chain || chain.from !== from || chain.at > slot) {
     chain = { from, at: from, out: new Map(), vat: new Map() };
+    bookStreetDeaths(sport, from, chain.out, chain.vat);   // no step before the window books these
     _injuryChains.set(sport, chain);
   }
   if (slot - chain.at > INJURY_CHAIN_MAX_REBUILD) { chain.at = slot - INJURY_CHAIN_MAX_REBUILD; chain.out.clear(); chain.vat.clear(); }
@@ -3446,7 +3501,8 @@ function leagueNpcState(script, slot, elapsedMin) {
   return {
     slot, playing: leagueClubsAt(script, slot), next: leagueClubsAt(script, slot + 1),
     call: elapsedMin >= SPORTS_SLOT_GAME_MIN - LEAGUE_CALL_MIN,
-    out: ledgerAt(script, slot, ws), inVat: inVatAt(script, slot, ws), back: vatReturnsAt(script, slot, ws),
+    out: ledgerAt(script, slot, ws), inVat: new Set([...inVatAt(script, slot, ws), ...streetVatAt('hockey', slot)]),
+    back: vatReturnsAt(script, slot, ws),
   };
 }
 // Bring the bound NPCs into line with `st`: into the vat or out of it, and their season line.
@@ -3461,7 +3517,8 @@ function applyLeagueNpcState(st, extras) {
       const z = npc.zone_id;
       world.zones.get(z)?.npcs.delete(npc.id);
       npc._dead = true; npc._respawnAt = null; npc._inVat = true;
-      if (z) sendToZone(z, { type: 'zone_event', message: `Two medics carry ${npc.name} out under a sheet.`, refresh: true });
+      // Said only at the barn: after a restart a man the vat has is placed at home first.
+      if (z && z === npc.studio_zone_id) sendToZone(z, { type: 'zone_event', message: `Two medics carry ${npc.name} out under a sheet.`, refresh: true });
     } else if (where !== 'vat' && npc._inVat) {
       // The engine's respawn (gameLoop npcWanderTick) puts him back at home_zone.
       npc._inVat = false; npc._respawnAt = Date.now();
@@ -3476,6 +3533,20 @@ async function leagueNpcTick() {
     : { slot: null, playing: new Set(), next: new Set(), call: false, out: new Set(), inVat: new Set(), back: new Set() };
   applyLeagueNpcState(_leagueNpcState, (_standingsCaches.get('hockey') || {}).extras || null);
 }
+// Killed in the street. The engine has already put him in its dead state with a 60-second
+// respawn; take the respawn away first, synchronously, before anything can await (the
+// engine's wander tick would bring him back in the gap), then record the death. The tick
+// lets him go when the vat does.
+function onLeagueNpcKilled({ npc } = {}) {
+  const b = bindingOf(npc);
+  if (!b || !npc._dead) return null;
+  npc._respawnAt = null; npc._inVat = true;
+  const d = recordStreetDeath('hockey', b.player, sportsSlotIndex());
+  if (_leagueNpcState) _leagueNpcState.inVat = new Set([..._leagueNpcState.inVat || [], b.player]);
+  return d;
+}
+on('npc.killed', onLeagueNpcKilled);
+
 // For the schedule checker: null for anybody who isn't a league man.
 function leagueNpcWhere(npcId) {
   const b = bindingOf(world.npcs.get(npcId));
@@ -8903,6 +8974,8 @@ registerAction({
     const results = [];
     for (let slot = from; slot < to; slot++) {
       for (const [name, heal] of out) if (heal <= slot) out.delete(name);
+      // A street death counts in his toll as well as keeping him off the ice.
+      for (const d of bookStreetDeaths(sport, slot, out, null)) season.foldStreetDeath?.(acc, d);
       const unavailable = new Set(out.keys());
       const gs = sportsGameForSlot(script, slot, null, unavailable);   // regular schedule only
       if (!gs) continue;
@@ -11181,6 +11254,9 @@ export const _test = {
   // League players who are NPCs: the slot's state, applying it, and the checker's answer.
   leagueNpcState, applyLeagueNpcState, leagueNpcWhere,
   getLeagueNpcState: () => _leagueNpcState, setLeagueNpcState: (s) => { _leagueNpcState = s; },
+  // Street deaths: the kill handler, the record in RAM, who's in the vat, and the last write.
+  onLeagueNpcKilled, streetDeaths: _streetDeaths, streetVatAt, streetSaved: () => _streetSave,
+  STREET_DEATHS_KEY,
   simVersionFor, nextSimSwitch, getSimSwitch: (sport) => _simSwitch.get(sport) || null, setSimSwitch: (sport, v) => (v ? _simSwitch.set(sport, v) : _simSwitch.delete(sport)),
   filmDayMask,
   // The call-sheet graph an actor is actually given. Exposed because the only other
@@ -12412,6 +12488,7 @@ export const routeHandler = async (path, method, body, auth) => {
 // ── Startup ──────────────────────────────────────────────────────────────────
 
 await loadSimSwitches();   // before anything simulates a game
+await loadStreetDeaths();  // likewise: the chain books them
 await loadChannelRuntimes();
 await loadZoneTunings();
 await loadGraphicsCache();
