@@ -228,6 +228,10 @@ textarea {
 	font-size: 0.75rem;
 }
 
+/* The balance counting after a change (tickCredits in purchase-moment.js). */
+#header-credits-val, #mob-credits { transition: color 0.25s ease; font-variant-numeric: tabular-nums; }
+#header-credits-val.spend, #mob-credits.spend { color: var(--red); }
+#header-credits-val.earn, #mob-credits.earn { color: var(--green); }
 #header .credits-display {
 	color: var(--cyan);
 	font-size: 0.75rem;
@@ -1040,8 +1044,8 @@ body.fl-hidepanel #look-resize-handle { display: none; }
 	display: block;
 	margin-top: 0.7em;
 }
-/* Woven-object prose (furniture + cameras) — its own paragraph beneath the room
-   description, with a blank-line gap so it reads as a second beat. */
+/* Woven-object prose (scenery, furniture, cameras): its own paragraph under the
+   lists and above the room description, since every noun in it clicks. */
 .room-furniture {
 	display: block;
 	margin-top: 0.7em;
@@ -6743,12 +6747,67 @@ html[data-density="compact"] .dialogue-opt-stakes { display: block; }
 #dialogue-box.shop-mode #dialogue-options,
 #dialogue-box.shop-mode > .dialogue-opt { display: none; }
 
-/* Reactive purchase feedback lives on the credits counter — it rolls to the new
-   balance (animateCredits in dialogue.js), tinted red while spending and green
-   while gaining, then eases back to its resting colour. */
+/* The shop's credits roll to the new balance (tickCredits in purchase-moment.js),
+   red while spending and green while gaining, then ease back to their resting
+   colour. A purchase also gets the stamp and the sweep below, over the whole box,
+   which is positioned so the stamp has something to sit on. */
+#dialogue-box.shop-mode { position: relative; }
 .shop-cred b { transition: color 0.25s ease; }
-.shop-cred.cred-up b { color: var(--green); }
-.shop-cred.cred-down b { color: var(--red); }
+.shop-cred b.earn { color: var(--green); }
+.shop-cred b.spend { color: var(--red); }
+
+/* ── The purchase moment (panels/purchase-moment.js) ──
+   A sweep of light across the panel and the price stamped over the work. The
+   vehicle depots (depot-shell.js) and the shop counter use it. Inside a depot
+   the --ds-* tokens are set and win; anywhere else it takes the theme accent. */
+.pm-sheen { --pm-accent: var(--ds-accent, var(--accent, #d8892e)); }
+.pm-sheen::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: 30;
+	pointer-events: none;
+	border-radius: inherit;
+	background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--pm-accent) 35%, rgba(255, 255, 255, 0.35)) 48%, transparent 66%);
+	background-size: 250% 100%;
+	animation: pmSheen 0.9s ease-out forwards;
+}
+@keyframes pmSheen { from { background-position: 120% 0; } to { background-position: -60% 0; } }
+.pm-stamp {
+	--pm-accent: var(--ds-accent, var(--accent, #d8892e));
+	position: absolute;
+	left: 50%;
+	top: 42%;
+	z-index: 31;
+	pointer-events: none;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: 10px 18px;
+	border-radius: 10px;
+	color: var(--ds-fg, var(--text-bright, var(--text)));
+	transform: translate(-50%, -50%) rotate(-4deg);
+	background: color-mix(in srgb, var(--pm-accent) 30%, rgba(6, 10, 14, 0.9));
+	border: 2px solid var(--pm-accent);
+	box-shadow: 0 0 28px color-mix(in srgb, var(--pm-accent) 55%, transparent), inset 0 1px 0 var(--ds-bevel-hi, rgba(255, 255, 255, 0.5));
+	animation: pmStamp 2.2s cubic-bezier(0.2, 1.4, 0.4, 1) forwards;
+}
+.pm-stamp b { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; max-width: 32ch; text-align: center; }
+.pm-stamp span { font-size: 22px; font-weight: bold; letter-spacing: 1px; color: var(--ds-warn, #e8c07a); text-shadow: 0 0 10px rgba(0, 0, 0, 0.6); }
+@keyframes pmStamp {
+	0% { opacity: 0; transform: translate(-50%, -50%) rotate(-4deg) scale(1.6); }
+	12% { opacity: 1; transform: translate(-50%, -50%) rotate(-4deg) scale(1); }
+	75% { opacity: 1; transform: translate(-50%, -62%) rotate(-4deg) scale(1); }
+	100% { opacity: 0; transform: translate(-50%, -80%) rotate(-4deg) scale(0.96); }
+}
+@keyframes pmStampFade { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+[data-motion="off"] .pm-sheen::after { display: none; }
+[data-motion="off"] .pm-stamp { animation: pmStampFade 1.6s linear forwards; transform: translate(-50%, -50%); }
+@media (prefers-reduced-motion: reduce) {
+	.pm-sheen::after { display: none; }
+	.pm-stamp { animation: pmStampFade 1.6s linear forwards; transform: translate(-50%, -50%); }
+}
 
 .shop2 {
 	height: 100%;
@@ -12458,6 +12517,23 @@ html.tv-popped #tv-header { cursor: default !important; }
 .gds-idle { position: absolute; inset: 0; z-index: 7; background: rgba(2, 4, 6, 0.45); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
 .gds-idle-title { font-family: var(--font-mono); font-size: 1.25rem; font-weight: bold; letter-spacing: 6px; color: var(--tv-header-color, #37d67a); text-shadow: 0 0 14px currentColor; }
 .gds-idle-sub { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 3px; color: rgba(220, 240, 235, 0.5); }
+/* "Live from" the park, over the fly-in before a game: both 3-D views (the Grandstand's
+   gds-arrive, Rinkside's gdr-arrive), lower left, in from the left and out the same way. */
+.gds-arrive, .gdr-arrive {
+	position: absolute; left: 4%; bottom: 9%; z-index: 6; max-width: 80%;
+	display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+	opacity: 0; transform: translateX(-18px); transition: opacity 0.5s ease-out, transform 0.5s ease-out; pointer-events: none;
+	filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.7));
+}
+.gds-arrive.in, .gdr-arrive.in { opacity: 1; transform: none; }
+.gds-arrive-tag, .gdr-arrive-tag { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; background: #c8102e; color: #fff; font: 900 0.75rem/1.4 var(--font-mono); letter-spacing: 5px; }
+.gds-arrive-tag i, .gdr-arrive-tag i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: tv-live-dot 1.2s steps(2) infinite; }
+.gds-arrive-from, .gdr-arrive-from { font: 0.6875rem var(--font-mono); letter-spacing: 5px; text-transform: uppercase; color: #e8e2d0; margin-top: 3px; }
+.gds-arrive-venue, .gdr-arrive-venue { font-family: 'K7 Bungee', 'Arial Black', Impact, var(--font-mono); font-size: clamp(16px, 4.2vw, 32px); line-height: 1.05; color: #fff; text-shadow: 0 0 12px rgba(0, 0, 0, 0.8); }
+.gds-arrive-sub, .gdr-arrive-sub { font: 700 0.75rem var(--font-mono); letter-spacing: 4px; text-transform: uppercase; color: #f2c14e; }
+[data-motion="off"] .gds-arrive, [data-motion="off"] .gdr-arrive { transition: none; transform: none; }
+[data-motion="off"] .gds-arrive-tag i, [data-motion="off"] .gdr-arrive-tag i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .gds-arrive, .gdr-arrive { transition: none; transform: none; } .gds-arrive-tag i, .gdr-arrive-tag i { animation: none; } }
 
 /* ── Gameday · Rink (CPhL) ─────────────────────────────────────────────────────
    The hockey sub-screen. Deliberately a COLD sheet against Deadball's warm green
@@ -12488,6 +12564,9 @@ html.tv-popped #tv-header { cursor: default !important; }
 }
 .gdr-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .gdr-hud { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+/* The fly-in before the drop (gl/approach.js), over the rink, dissolving into it at the end */
+.gdr-approach { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 4; pointer-events: none; opacity: 1; transition: opacity 1.3s ease-in-out; }
+.gdr-approach.out { opacity: 0; }
 /* THE STAT LINE (gameday-rink.js): a man's season in a lower third, up while his goal is run
    back and for a few seconds after a big save. It sits above the replay's letterbox bar, in
    the league's band colours, and slides in from the left. */
@@ -12897,6 +12976,55 @@ html.tv-popped #tv-header { cursor: default !important; }
 @media (max-width: 520px) { .tv-pg-body { flex-direction: column; gap: 4px; } .tv-pg-crest { display: none; } }
 [data-motion="off"] .tv-pg, [data-motion="off"] .tv-pg *, [data-motion="off"] .tv-pg-caption.in { animation: none !important; opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .tv-pg, .tv-pg *, .tv-pg-caption.in { animation: none !important; opacity: 1; transform: none; } }
+/* The final's package (tv.js _applyPackage): the tale of the tape, the road here and the men to
+   watch, a page at a time, in the final's gold, inside the pregame open's frame. */
+.tv-pk { --tv-header-color: #f2c14e; background: radial-gradient(120% 90% at 50% 0%, rgb(40, 28, 6), rgb(6, 5, 3) 70%); }
+.tv-pk.cphl { background: radial-gradient(120% 90% at 50% 0%, rgb(34, 26, 8), rgb(3, 7, 16) 70%); }
+.tv-pk .tv-pg-show { color: #ffe9a8; text-shadow: 0 0 12px rgba(242, 193, 78, 0.7); }
+.tv-pk-heads { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
+.tv-pk-club { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 8px; border-bottom: 3px solid var(--club, var(--tv-header-color)); opacity: 0; }
+.tv-pk-club.away { animation: tv-pg-slide-l 0.5s ease-out 0.15s forwards; }
+.tv-pk-club.home { flex-direction: row-reverse; text-align: right; animation: tv-pg-slide-r 0.5s ease-out 0.25s forwards; }
+.tv-pk-nm { font-weight: 900; font-size: clamp(14px, 3.2vw, 21px); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-pk-vs { font-size: 0.75rem; letter-spacing: 4px; text-transform: uppercase; color: #a8936a; }
+.tv-pk-body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; overflow: hidden; }
+.tv-pk-tape { display: flex; flex-direction: column; gap: 1px; font-variant-numeric: tabular-nums; }
+.tv-pk-row { display: grid; grid-template-columns: 1fr 9em 1fr; align-items: center; gap: 10px; padding: 1px 8px; opacity: 0; animation: tv-pg-row 0.35s ease-out forwards; }
+.tv-pk-row:nth-child(odd) { background: rgba(255, 255, 255, 0.04); }
+.tv-pk-row b { font-weight: 700; color: #fff; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-pk-row b:first-child { text-align: right; }
+.tv-pk-row b.big { font-size: 1.25rem; color: var(--tv-header-color); }
+.tv-pk-row i { font-style: normal; text-align: center; font-size: 0.625rem; letter-spacing: 2px; text-transform: uppercase; color: var(--tv-header-color); }
+.tv-pk-row.wide { grid-template-columns: 1fr 5em 1fr; }
+.tv-pk-pips { display: flex; gap: 2px; flex-wrap: nowrap; overflow: hidden; }
+.tv-pk-row > .tv-pk-pips:first-child { justify-content: flex-end; }
+.tv-pk-pip { width: 1.2em; height: 1.2em; display: inline-grid; place-items: center; font-size: 0.625rem; font-weight: 700; border-radius: 2px; color: #08130a; background: #5fd17a; }
+.tv-pk-pip.l { background: rgba(255, 255, 255, 0.14); color: #c7c2b6; }
+.tv-pk-pip.o { background: #e0a43a; color: #1a1205; }
+.tv-pk-games { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; font-size: 0.75rem; color: #b9b2a2; font-variant-numeric: tabular-nums; }
+.tv-pk-games.none { font-style: italic; }
+.tv-pk-game { display: flex; gap: 6px; }
+.tv-pk-game .win { color: #fff; font-weight: 700; }
+.tv-pk-game em { font-style: normal; color: #e0a43a; }
+.tv-pk-watch { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tv-pk-men { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tv-pk-man { display: grid; grid-template-columns: 2.6em 1fr; grid-template-rows: auto auto; column-gap: 8px; padding: 4px 6px; background: rgba(255, 255, 255, 0.05); border-left: 3px solid var(--tv-header-color); opacity: 0; animation: tv-pg-row 0.35s ease-out forwards; }
+.tv-pk-man .role { grid-row: span 2; align-self: center; text-align: center; font-size: 0.6875rem; font-weight: 700; letter-spacing: 1px; color: var(--tv-header-color); }
+.tv-pk-man .nm { font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-pk-man .st { font-size: 0.75rem; color: #c9c0aa; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-pk-out { font-size: 0.75rem; color: #e48a7a; padding: 0 6px; }
+@container (max-width: 32rem) { .tv-pk-watch { grid-template-columns: 1fr; gap: 4px; } .tv-pk-row { grid-template-columns: 1fr 6.5em 1fr; } .tv-pk-heads .tv-pg-crest { display: none; } }
+@media (max-width: 520px) { .tv-pk-watch { grid-template-columns: 1fr; gap: 4px; } .tv-pk-row { grid-template-columns: 1fr 6.5em 1fr; } }
+/* LIVE from the park, on a set without the sub-screen (tv.js, the 'live' card) */
+.tv-fx-live { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; animation: tv-pg-in 0.4s ease-out both; }
+.tv-fx-live-tag { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px; background: #c8102e; color: #fff; font-weight: 900; letter-spacing: 6px; font-size: 0.875rem; }
+.tv-fx-live-tag i { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: tv-live-dot 1.2s steps(2) infinite; }
+.tv-fx-live-from { font-size: 0.75rem; letter-spacing: 6px; text-transform: uppercase; color: var(--tv-header-color); margin-top: 6px; }
+.tv-fx-live-venue { font-family: 'K7 Bungee', 'Arial Black', Impact, var(--font-mono); font-size: clamp(20px, 5vw, 36px); color: #fff; text-shadow: 0 0 14px var(--tv-header-color); line-height: 1.05; }
+.tv-fx-live-sub { margin-top: 4px; font-size: 0.8125rem; letter-spacing: 4px; text-transform: uppercase; color: #f2c14e; }
+@keyframes tv-live-dot { 50% { opacity: 0.2; } }
+[data-motion="off"] .tv-fx-live, [data-motion="off"] .tv-fx-live * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .tv-fx-live, .tv-fx-live * { animation: none !important; } }
 
 /* Double play: a short, snappy flash — not a full takeover (it happens often). */
 .tv-fx-dp {

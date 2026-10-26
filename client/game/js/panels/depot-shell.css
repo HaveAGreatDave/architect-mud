@@ -22,7 +22,9 @@
   background-image:repeating-linear-gradient(35deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px),
     repeating-linear-gradient(-55deg,rgba(0,0,0,.03) 0 1px,transparent 1px 4px)}
 .ds-counter > *{position:relative;z-index:1}
-.ds-counter > .ds-toast,.ds-counter > .ds-stamp{position:absolute}
+.ds-counter > .ds-toast{position:absolute}
+/* The purchase moment's stamp (styles.css) over the rule above, which this sheet lands after. */
+.ds-counter > .pm-stamp{position:absolute;z-index:31}
 .ds-head{display:flex;align-items:center;gap:10px;padding:0 12px;height:46px;flex:0 0 auto;
   background:color-mix(in srgb, var(--ds-surf) 82%, transparent);
   -webkit-backdrop-filter:blur(11px) saturate(1.15);backdrop-filter:blur(11px) saturate(1.15);
@@ -306,30 +308,11 @@ body.bigscreen .ds-bay{display:none!important}
   box-shadow:0 0 18px color-mix(in srgb, var(--ds-accent) 40%, transparent);animation:dsToast 5.2s ease-out forwards}
 .ds-toast.good{border-color:var(--ds-gain);background:color-mix(in srgb, var(--ds-gain) 22%, rgba(6,12,18,.86))}
 @keyframes dsToast{0%{opacity:0;transform:translate(-50%,10px)}7%,86%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-4px)}}
-/* THE PURCHASE MOMENT: a sweep of light across the panel and the price stamped over the work. */
-.ds-sheen::after{content:'';position:absolute;inset:0;z-index:30;pointer-events:none;border-radius:inherit;
-  background:linear-gradient(105deg,transparent 30%,color-mix(in srgb, var(--ds-accent) 35%, rgba(255,255,255,.35)) 48%,transparent 66%);
-  background-size:250% 100%;animation:dsSheen .9s ease-out forwards}
-@keyframes dsSheen{from{background-position:120% 0}to{background-position:-60% 0}}
-.ds-stamp{position:absolute;left:50%;top:42%;z-index:31;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:2px;
-  padding:10px 18px;border-radius:10px;transform:translate(-50%,-50%) rotate(-4deg);
-  background:color-mix(in srgb, var(--ds-accent) 30%, rgba(6,10,14,.9));border:2px solid var(--ds-accent);
-  box-shadow:0 0 28px color-mix(in srgb, var(--ds-accent) 55%, transparent),inset 0 1px 0 var(--ds-bevel-hi);
-  animation:dsStamp 2.2s cubic-bezier(.2,1.4,.4,1) forwards}
-.ds-stamp b{font-size:12px;letter-spacing:2px;text-transform:uppercase;max-width:32ch;text-align:center}
-.ds-stamp span{font-size:22px;font-weight:bold;letter-spacing:1px;color:var(--ds-warn);text-shadow:0 0 10px rgba(0,0,0,.6)}
-@keyframes dsStamp{0%{opacity:0;transform:translate(-50%,-50%) rotate(-4deg) scale(1.6)}
-  12%{opacity:1;transform:translate(-50%,-50%) rotate(-4deg) scale(1)}
-  75%{opacity:1;transform:translate(-50%,-62%) rotate(-4deg) scale(1)}
-  100%{opacity:0;transform:translate(-50%,-80%) rotate(-4deg) scale(.96)}}
+/* THE PURCHASE MOMENT's sweep and stamp are in styles.css (purchase-moment.js); they read the
+   --ds-accent, --ds-warn and --ds-bevel-hi above when they land in a depot. */
 [data-motion="off"] .ds-bay.open,[data-motion="off"] .ds-stat-t i.gain{animation:none}
-[data-motion="off"] .ds-sheen::after{display:none}
-[data-motion="off"] .ds-stamp{animation:dsStampFade 1.6s linear forwards;transform:translate(-50%,-50%)}
-@keyframes dsStampFade{0%,85%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){
   .ds-bay.open,.ds-stat-t i.gain{animation:none}
-  .ds-sheen::after{display:none}
-  .ds-stamp{animation:dsStampFade 1.6s linear forwards;transform:translate(-50%,-50%)}
   .ds-toast{animation:dsToastFade 5.2s linear forwards}
   @keyframes dsToastFade{0%,90%{opacity:1}100%{opacity:0}}
 }

@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { appendMsg, appendHtml } from '../render.js';
 import { sendDialogue, sendCmd, buyFromNpc, buyManyFromNpc, sellToNpc, sellAllToNpc, sendRaw } from '../net.js';
+import { noteAct, takeAct, tickCredits, celebrate } from './purchase-moment.js';
 
 let shopState = null; // { msg, mode, sort, sel, qty }
 // The zone the open dialogue/shop was started in. A conversation is face-to-face
@@ -128,39 +129,16 @@ function formatWeight(g) {
   return `${(Math.round(g / 100) / 10)}kg`;
 }
 
-// Reactive purchase feedback lives on the credits counter: it rolls from the old
-// balance to the new one, tinted red while spending and green while gaining.
-// `lastShownCredits` is the value currently on screen; a null baseline (a fresh
-// shop open) paints statically. `creditTween` is the in-flight interval so a
-// rapid second transaction cancels the first.
+// The credits counter rolls from the old balance to the new one, the way a depot's
+// does (purchase-moment.js). `lastShownCredits` is the value currently on screen; a
+// null baseline (a fresh shop open) paints statically.
 let lastShownCredits = null;
-let creditTween = null;
 
 function animateCredits(target) {
-  const wrap = document.querySelector('#dialogue-text .shop-cred');
-  const el = wrap?.querySelector('b');
-  if (!el) return;
-  if (creditTween) { clearInterval(creditTween); creditTween = null; }
+  const el = document.querySelector('#dialogue-text .shop-cred b');
   const from = lastShownCredits == null ? target : lastShownCredits;
   lastShownCredits = target;
-  wrap.classList.remove('cred-up', 'cred-down');
-  if (from === target) { el.textContent = target; return; }
-  wrap.classList.add(target > from ? 'cred-up' : 'cred-down');
-  // Count by 1s for small changes; step larger so a big sale still settles in
-  // ~600ms rather than ticking through hundreds of frames.
-  const diff = target - from;
-  const step = Math.max(1, Math.ceil(Math.abs(diff) / 30)) * Math.sign(diff);
-  let cur = from;
-  el.textContent = cur;
-  creditTween = setInterval(() => {
-    cur += step;
-    if ((step > 0 && cur >= target) || (step < 0 && cur <= target)) {
-      cur = target;
-      clearInterval(creditTween); creditTween = null;
-      setTimeout(() => wrap.classList.remove('cred-up', 'cred-down'), 350);
-    }
-    el.textContent = cur;
-  }, 20);
+  tickCredits(el, from, target, (n) => String(Math.round(n)));
 }
 
 function formatOptionLabel(raw) {
@@ -351,7 +329,6 @@ export function closeDialogue() {
   }
   document.getElementById('dialogue-box').classList.remove('shop-mode');
   if (shopState) sendRaw({ type: 'shop_close' });
-  if (creditTween) { clearInterval(creditTween); creditTween = null; }
   lastShownCredits = null;
   state.currentNpcId = null;
   shopState = null;
@@ -427,7 +404,16 @@ export function openShop(msg) {
   document.getElementById('dialogue-panel').classList.remove('closing');
   document.getElementById('dialogue-panel').classList.add('active', 'shop-mode');
   document.getElementById('dialogue-box').classList.add('shop-mode');
+  const before = lastShownCredits;
   renderShop();
+  // THE PURCHASE MOMENT. A buy frame that came back with fewer credits is a
+  // purchase, even a take-listed run that was partly refused: something was bought.
+  // Over the box, not the shelf, because the shelf is re-drawn on every click and
+  // would take the stamp with it.
+  const after = msg.credits ?? 0;
+  if (msg.buyResult && before != null && after < before) {
+    celebrate(document.getElementById('dialogue-box'), { amount: before - after, label: takeAct() });
+  }
 }
 
 function renderShop() {
@@ -625,8 +611,10 @@ function wireShopEvents() {
   if (exec) exec.onclick = () => {
     const it = selected();
     if (!it) return;
-    if (mode === 'buy') buyFromNpc(msg.npcId, it.item_id, shopState.qty);
-    else sellToNpc(msg.npcId, it.inventory_id, shopState.qty);
+    if (mode === 'buy') {
+      noteAct(shopState.qty > 1 ? `${it.name} ×${shopState.qty}` : it.name);
+      buyFromNpc(msg.npcId, it.item_id, shopState.qty);
+    } else sellToNpc(msg.npcId, it.inventory_id, shopState.qty);
   };
   root.querySelectorAll('.shop-takeall').forEach(b => b.onclick = (e) => {
     e.stopPropagation();                       // the header isn't a row; don't select anything
@@ -635,6 +623,7 @@ function wireShopEvents() {
       : ((shopState.sections || [])[Number(b.dataset.sec)] || {}).buyable;
     if (!want || !want.length) return;
     b.disabled = true;                         // the refresh re-renders; this only guards a double-click
+    noteAct(want.length === 1 ? want[0].name : `${want.length} items`);
     // ONE frame, not one per item. N separate buys raced each other's panel
     // refreshes and the last one to land won, which is not the newest state —
     // see handleBuyManyFromNpc. The server buys them in order and answers once.

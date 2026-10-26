@@ -5,6 +5,7 @@ import { registerList, mountScopeToggle, hiddenKeys } from './panels/list-reorde
 import { renderSmartBar } from './panels/smartbar.js';
 import { burnBehind } from './flame.js';
 import { paintHighlights } from './highlights.js';
+import { tickCredits } from './panels/purchase-moment.js';
 
 // ── The line observer ───────────────────────────────────────────────────────
 //
@@ -624,6 +625,10 @@ export function keepTail() {
   if (out && _following) snap(out);
 }
 
+// The credits the header last counted to; null until the first push, which paints
+// without a roll so logging in doesn't count up from zero.
+let shownCredits = null;
+
 export function updateVitals(p) {
   setBar('hp', p.hp, p.hp_max || 100);
   setBar('san', p.sanity, p.sanity_max || 100);
@@ -669,11 +674,15 @@ export function updateVitals(p) {
       host.style.display = stance === 'normal' ? 'none' : '';
     }
   }
+  // The balance counts to its new value (purchase-moment.js), red down and green
+  // up. Tick only: a drop here can be a deposit, a fine or a mugging, so the till
+  // and the stamp belong to the counter that knows it sold you something.
   if (p.credits !== undefined) {
-    const el = document.getElementById('header-credits-val');
-    if (el) el.textContent = p.credits;
-    const m = document.getElementById('mob-credits');
-    if (m) m.textContent = `₵ ${p.credits}`;
+    const to = Number(p.credits) || 0;
+    const from = shownCredits ?? to;
+    shownCredits = to;
+    tickCredits(document.getElementById('header-credits-val'), from, to, (n) => String(Math.round(n)));
+    tickCredits(document.getElementById('mob-credits'), from, to, (n) => `₵ ${Math.round(n)}`);
   }
   // Horniness bar — MIS-gated AND hidden by default like the other body meters. It is a
   // feeling, not a dial: the mis plugin narrates it in bands on the way up, holds a cadence

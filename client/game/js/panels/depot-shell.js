@@ -23,23 +23,17 @@
 // a command. The log rung is the same verbs without the cardboard.
 
 import { holdToConfirm } from './hold-confirm.js';
-import { playUi } from '../ui-sound.js';
 import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
-export { esc };
+import { money, noteAct, takeAct, tickCredits, celebrate } from './purchase-moment.js';
+export { esc, money, noteAct, tickCredits, celebrate };
 
 // depot-shell.css ships beside this file and is fetched when the module loads, so ensureDepotStyles
 // still applies it synchronously on first open. See loadCss in client/shared/dom.js.
 const SHELL_CSS = await loadCss(new URL('./depot-shell.css', import.meta.url));
 
-/** The one money format: the glyph first, thousands separated. The log prints credits this way. */
-export const money = (n) => `₵${Math.round(Number(n) || 0).toLocaleString()}`;
 export const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 /** A 0..1 condition's tone, off the cut-offs every depot uses. */
 export const tone = (v) => (v < 0.3 ? 'bad' : v < 0.6 ? 'warn' : 'ok');
-
-const motionOff = () => document.documentElement.dataset.motion === 'off'
-  || document.body?.dataset?.motion === 'off'
-  || !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 // ── The counter's head ───────────────────────────────────────────────────────
 // One row: back (on a sub-screen), the place, the screens, the balance, the two view toggles and
@@ -306,16 +300,11 @@ export function shellClick(e, on = {}) {
 export function clearViewModes() { document.body.classList.remove('ds-fullscreen', 'ds-hidepanel'); }
 
 // ── The purchase moment ──────────────────────────────────────────────────────
-// A garage answers a purchase: the till, the price stamped over the work, the balance counting
-// down. Nothing here knows what was bought. The depot calls `noteAct` with the button that was
-// pressed (the click handler does it for every data-cmd), and `notePush` with each push's credits;
-// when a push arrives with fewer credits than the last and a button was pressed in the last few
-// seconds, that button's label is what was bought.
-let lastAct = null;     // { label, at }
-export function noteAct(btn) {
-  const label = (btn?.querySelector?.('.hold-label')?.textContent || btn?.textContent || '').replace(/\s+/g, ' ').trim();
-  lastAct = label ? { label, at: performance.now() } : null;
-}
+// A garage answers a purchase the way every counter does (purchase-moment.js). The depot calls
+// `noteAct` with the button that was pressed (the click handler does it for every data-cmd), and
+// `notePush` with each push's credits; when a push arrives with fewer credits than the last and a
+// button was pressed in the last few seconds, that button's label is what was bought. A depot only
+// ever loses credits to a verb its own keys sent, which is why a drop here is a purchase.
 
 /**
  * Call with the root the panel just drew and the credits before and after the push. Spends trigger
@@ -327,41 +316,8 @@ export function notePush(root, before, after) {
   if (!bal || !Number.isFinite(from) || !Number.isFinite(to) || from === to) return false;
   tickCredits(bal, from, to);
   if (to > from) return false;
-  const act = lastAct && performance.now() - lastAct.at < 8000 ? lastAct : null;
-  lastAct = null;
-  celebrate(root, { amount: from - to, label: act ? act.label.replace(/\s*·\s*₵[\d,]+.*$/, '') : '' });
+  celebrate(root, { amount: from - to, label: takeAct().replace(/\s*·\s*₵[\d,]+.*$/, '') });
   return true;
-}
-
-/** The balance counts from what it was to what it is, the way a garage menu's does. */
-export function tickCredits(el, from, to) {
-  if (motionOff()) { el.textContent = money(to); return; }
-  const t0 = performance.now(), ms = Math.min(900, 300 + Math.abs(to - from) * 0.4);
-  el.classList.add(to < from ? 'spend' : 'earn');
-  const step = (now) => {
-    if (!el.isConnected) return;
-    const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
-    el.textContent = money(from + (to - from) * e);
-    if (k < 1) requestAnimationFrame(step);
-    else setTimeout(() => el.classList.remove('spend', 'earn'), 400);
-  };
-  requestAnimationFrame(step);
-}
-
-/** The stamp over the work and the till. `label` may be empty: the price alone is still news. */
-export function celebrate(root, { amount = 0, label = '' } = {}) {
-  if (!root) return;
-  playUi('ui-purchase');
-  root.querySelector(':scope > .ds-stamp')?.remove();
-  const s = document.createElement('div');
-  s.className = 'ds-stamp';
-  s.setAttribute('aria-hidden', 'true');
-  s.innerHTML = `${label ? `<b>${esc(label)}</b>` : ''}<span>−${money(amount)}</span>`;
-  root.appendChild(s);
-  root.classList.remove('ds-sheen');
-  void root.offsetWidth;   // restart the sweep if two purchases land close together
-  root.classList.add('ds-sheen');
-  setTimeout(() => { s.remove(); root.classList.remove('ds-sheen'); }, motionOff() ? 1600 : 2200);
 }
 
 // ── The styles ───────────────────────────────────────────────────────────────
