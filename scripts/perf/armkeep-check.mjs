@@ -53,16 +53,22 @@ if (flyArg >= 0) {
   const [place, seat, hourS, keepS, moveS, recS] = process.argv.slice(flyArg + 1);
   // `move` > 0 flies straight ahead that many tiles a frame instead of turning: the travel is in
   // `mapOffset`, which a turn never moves, and a probe that ignored it never kept anything.
-  const move = Number(moveS || 0);
-  const at = (i) => (move ? { heading: 20 + i * Number(process.env.MOVETURN || 0), mapOffset: { x: 0.3, y: -((i * move) % 1) } } : { heading: 20 + i * 1.5 });
+  // `still` holds the first pose for STILL_N frames and then turns, `stillfly` then flies straight:
+  // a set kept while still (armStill) has to draw what the arms draw once the camera moves.
+  const STILL_N = 30, still = moveS === 'still' || moveS === 'stillfly';
+  const move = still ? (moveS === 'stillfly' ? 0.02 : 0) : Number(moveS || 0);
+  const at = (i) => still ? (i < STILL_N ? { heading: 20 } : move ? { heading: 20, mapOffset: { x: 0.3, y: -(((i - STILL_N) * move) % 1) } } : { heading: 20 + (i - STILL_N) * 1.5 })
+    : (move ?{ heading: 20 + i * Number(process.env.MOVETURN || 0), mapOffset: { x: 0.3, y: -((i * move) % 1) } } : { heading: 20 + i * 1.5 });
   // `rec` > 0 also has the server send a window centred on the craft every `rec` frames, as fresh
   // JSON taken through panels/map-intern.js the way the client takes it: kept sets are keyed in world
   // tiles (armWorld), so they must survive the recentre and still draw what the arms draw.
   const rec = Number(recS || 0);
   let win = null, k = 0;
   const viewAt = (i) => {
-    if (!rec) return scene.view(place, seat, { hour, ...at(i) });
-    const [X, Y] = PLACES[place], dist = i * move;
+    // `place` is a PLACES name or a world tile 'x,y' (FLY=, below).
+    const tile = /^-?\d+,-?\d+$/.test(place) ? place.split(',').map(Number) : null;
+    if (!rec) return scene.view(tile || place, seat, { hour, ...at(i) });
+    const [X, Y] = tile || PLACES[place], dist = i * move;
     if (!win || i % rec === 0) {
       const k0 = k; k = Math.round(dist);
       const fresh = scene.view([X, Y - k], seat).map.map((r) => r.map((c) => JSON.parse(JSON.stringify(c))));
@@ -70,7 +76,10 @@ if (flyArg >= 0) {
     }
     return scene.view([X, Y - k], seat, { hour, heading: 20 + i * Number(process.env.MOVETURN || 0), mapOffset: { x: 0.3, y: -(dist - k) }, map: win });
   };
-  const scene = await openScene({ record: false });
+  // ⚠ WITH THE GL CLOTH PATH ON, as the game's GL pass has it (CLOTH=0 turns it off): a flag's cloth
+  // is a FAUNA_SINK record there, which a kept building's live part (windFlag) has to push again
+  // every replay (armLiveSide). The flags never reach the layers below, so they're compared on their own.
+  const scene = await openScene({ record: false, cloth: process.env.CLOTH !== '0' });
   let hook = null;
   scene.ws.installGLWorld((cells, cam, o) => { hook = { cam, o }; return { canvas: { width: 640, height: 360 }, faces: 0 }; });
   // The light census (RAIN_LIGHTS, read by the rain and the cab's lighting), as a sorted list.
@@ -79,6 +88,8 @@ if (flyArg >= 0) {
   if (process.env.ARMLIVE != null) scene.ws.RENDER_TUNE.armLive = Number(process.env.ARMLIVE);
   // TUNE=k=v,... on the kept flight only (keep 1), to pin which switch a difference comes from.
   if (Number(keepS) && process.env.TUNE) for (const kv of process.env.TUNE.split(',')) { const [k, v] = kv.split('='); scene.ws.RENDER_TUNE[k] = Number(v); }
+  // TUNEALL=k=v,... on both flights: a switch whose kept draw has to match its own live draw (marksGPU).
+  if (process.env.TUNEALL) for (const kv of process.env.TUNEALL.split(',')) { const [k, v] = kv.split('='); scene.ws.RENDER_TUNE[k] = Number(v); }
   // STEP=33 flies at an apparent 30 fps, where the scene governor steps the tune down.
   const hour = Number(hourS), G = fakeView(), frames = [], STEP = Number(process.env.STEP || 16);
   // ⚠ AND THE CLOCK RUNS, 16 ms a frame, or a live part (armLiveCall) replayed with a stale clock
@@ -88,7 +99,8 @@ if (flyArg >= 0) {
   globalThis.performance = { ...clock, now: () => t0 };
   // Painted once first: the occlusion pass reads the last frame (see the warm paint in retain-check).
   scene.ws.paintWindshield('__perf', viewAt(0));
-  for (let i = 0; i < 60; i++) {
+  // FRAMES=n flies longer than the 60 the list is sized for (a band crossing takes a few hundred).
+  for (let i = 0, NF = Number(process.env.FRAMES || 60); i < NF; i++) {
     globalThis.performance.now = () => t0 + (i + 1) * STEP;
     scene.ws.paintWindshield('__perf', viewAt(i + 1));
     const { cam, o } = hook;
@@ -109,7 +121,9 @@ if (flyArg >= 0) {
       fs.writeFileSync(process.env.DUMPTO + '.decals', o.decals.map((d) => (d.key || '') + ' @ ' + (d.rp || d.p || []).map(W).join(' ')).sort().join('\n'));
       fs.writeFileSync(process.env.DUMPTO + '.strokes', o.strokes.map((s) => (s.tag || '') + ' ' + (s.rgb || '') + ' w' + s.w + ' @ ' + W(s.ra || s.a) + ' ' + W(s.rb || s.b)).sort().join('\n'));
     }
-    frames.push({ t: tris(G.draws).map(tri32), c: census() });
+    const cloth = (o.fauna || []).filter((r) => r.cloth).map((r) => [r.kind, r.x, r.y, r.z, r.hd, r.sx, r.sy, r.sz, r.wind, r.ph, r.seed, r.a, r.lum, r.weather]
+      .map((x) => (typeof x === 'number' ? Math.round(x * 1e5) : String(x))).join(',') + '|' + (r.tag ? r.tag.cell : '-')).sort();
+    frames.push({ t: tris(G.draws).map(tri32), c: census(), w: cloth });
   }
   globalThis.performance = clock;
   const st = scene.ws.armKeepStats;
@@ -124,7 +138,9 @@ const fly = (place, seat, hour, keep, move = 0, rec = 0) => JSON.parse(execFileS
   { maxBuffer: 1 << 30, encoding: 'utf8', env: process.env }));
 let bad = 0, n = 0, extras = 0;
 const shown = [];
-for (const [place, seat, hour, move = 0, rec = 0] of [['halcyon', 'cockpit', 22], ['nightlife', 'cab', 22], ['residential', 'cockpit', 13], ['oldcoldwater', 'cab', 22], ['halcyon', 'cockpit', 13, 0.02], ['nightlife', 'cab', 22, 0.01], ['halcyon', 'cockpit', 22, 0.05, 15]]) {
+// FLY=place;seat;hour;move;rec flies that one instead of the list (a place may be a world tile 'x,y').
+const ONE = process.env.FLY ? [process.env.FLY.split(';').map((x, i) => (i === 2 ? Number(x) : i >= 3 && /^[0-9.]+$/.test(x) ? Number(x) : x))] : null;
+for (const [place, seat, hour, move = 0, rec = 0] of ONE || [['halcyon', 'cockpit', 22], ['nightlife', 'cab', 22], ['residential', 'cockpit', 13], ['oldcoldwater', 'cab', 22], ['halcyon', 'cockpit', 13, 0.02], ['nightlife', 'cab', 22, 0.01], ['halcyon', 'cockpit', 22, 0.05, 15], ['halcyon', 'cab', 13, 'still'], ['nightlife', 'cab', 22, 'still'], ['halcyon', 'cockpit', 22, 'stillfly']]) {
   const { frames: a } = fly(place, seat, hour, 0, move, rec);
   const { frames: b, st } = fly(place, seat, hour, Number(process.env.KEEPB ?? 1), move, rec);
   for (let i = 0; i < a.length; i++) {
@@ -140,8 +156,10 @@ for (const [place, seat, hour, move = 0, rec = 0] of [['halcyon', 'cockpit', 22]
     if (miss) { bad++; if (shown.length < 4) shown.push(`${place} ${seat} ${hour}h${move ? " straight" : ""}${rec ? " recentred" : ""} frame ${i}: ${miss} live triangles missing from the kept draw`); }
     const ca = a[i].c.join(';'), cb = b[i].c.join(';');
     if (ca !== cb) { bad++; if (shown.length < 4) shown.push(`${place} ${seat} frame ${i}: light census differs (${a[i].c.length} live, ${b[i].c.length} kept)`); }
+    const wa = (a[i].w || []).join(';'), wb = (b[i].w || []).join(';');
+    if (wa !== wb) { bad++; if (shown.length < 4) shown.push(`${place} ${seat} frame ${i}: cloth differs (${(a[i].w || []).length} live, ${(b[i].w || []).length} kept)`); }
   }
-  console.log(`  ${place} ${seat} ${hour}h${move ? ' straight' : ''}${rec ? ' recentred' : ''}: faceRec ${st.faceRec}, faceDrop ${st.faceDrop}, webDrop ${st.webDrop}, kept ${st.kept}, live ${st.live}, replays ${st.replayed}, rechecks ${st.rechecked}, dropped ${st.dropped}`);
+  console.log(`  ${place} ${seat} ${hour}h${move === 'still' ? ' still, then turning' : move === 'stillfly' ? ' still, then straight' : move ? ' straight' : ''}${rec ? ' recentred' : ''}: still ${st.still} (confirmed ${st.stillConfirm}, waited ${st.stillWait}), faceRec ${st.faceRec}, faceDrop ${st.faceDrop}, webDrop ${st.webDrop}, kept ${st.kept}, live ${st.live}, replays ${st.replayed}, rechecks ${st.rechecked}, dropped ${st.dropped}`);
 }
 for (const l of shown) console.error('  ✗ ' + l);
 if (bad) { console.error(`armkeep-check: ${bad} of ${n} frames differ`); process.exit(1); }

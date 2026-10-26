@@ -19,6 +19,8 @@
 // biome swapped between park and badlands), the same cells in both runs. A recentre alone only moves
 // cells in and out at the window's edges, so a cache's test for a changed neighbour is never asked.
 //
+// `--cloth` puts flags, socks and tents on the GL cloth path, as the game's GL pass does.
+//
 // Exits 1 if any frame differs, and names the first few frames and what differed.
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -79,14 +81,17 @@ function hasher() {
 }
 const digest = (v) => { const H = hasher(); H.walk(v); return H.done(); };
 
-const scene = await openScene();
-const [k0, v0val] = child.split('=');
-scene.ws.RENDER_TUNE[k0] = Number.isFinite(+v0val) ? +v0val : v0val;
+// `--cloth`: flags, socks and tents on the GL cloth path, as in the game, so they reach the fauna list.
+const scene = await openScene({ cloth: args.includes('--cloth') });
+// `--child k=v[,k2=v2...]`: the switch under test, and any others the flight should hold.
+for (const kv of child.split(',')) { const [k0, v0val] = kv.split('='); scene.ws.RENDER_TUNE[k0] = Number.isFinite(+v0val) ? +v0val : v0val; }
 let hook = null;
 scene.ws.installGLWorld((cells, cam, o) => { hook = { cells, o }; return { canvas: { width: 640, height: 360 }, faces: 0 }; });
-const view = scene.view(place, seat, { hour: Number(opt('--hour', 13)), heading: 0 });
+// `--place` is a PLACES name or a world tile `x,y`, as perf:move takes it.
+const at = /^-?\d+,-?\d+$/.test(place) ? place.split(',').map(Number) : place;
+const view = scene.view(at, seat, { hour: Number(opt('--hour', 13)), heading: Number(opt('--heading', 0)) });
 const clone = (map) => map.map((row) => row.map((c) => JSON.parse(JSON.stringify(c))));
-const [X0, Y0] = PLACES[place];
+const [X0, Y0] = Array.isArray(at) ? at : PLACES[place];
 let map = view.map, k = 0;
 const clock = globalThis.performance, t0 = 1e6;
 for (let i = 0; i < FRAMES; i++) {
@@ -108,7 +113,7 @@ for (let i = 0; i < FRAMES; i++) {
     map = internMap(map, X0, Y0 - kOld, fresh, X0, Y0 - k);
   }
   scene.takeLog();
-  scene.ws.paintWindshield('__perf', { ...view, map, mapCenter: { x: X0, y: Y0 - k }, heading: i * TURN, mapOffset: { x: 0.3, y: -(dist - k) } });
+  scene.ws.paintWindshield('__perf', { ...view, map, mapCenter: { x: X0, y: Y0 - k }, heading: Number(opt('--heading', 0)) + i * TURN, mapOffset: { x: 0.3, y: -(dist - k) } });
   const { cells, o } = hook;
   const row = { i, rc };
   const gpu = (r) => {
@@ -119,7 +124,9 @@ for (let i = 0; i < FRAMES; i++) {
     return r;
   };
   // Every list the hook is handed (sprites, strokes, decals, scatter, ground, fauna, clouds and the rest).
-  for (const s of Object.keys(o).sort()) if (Array.isArray(o[s])) row[s] = digest(o[s].map(gpu));
+  // A replayed road tile is one block on the groundGPU path; expandGroundBlocks puts its records back as the shader draws them.
+  const listOf = (s) => (s === 'ground' && scene.ws.expandGroundBlocks ? scene.ws.expandGroundBlocks(o[s]) : o[s]);
+  for (const s of Object.keys(o).sort()) if (Array.isArray(o[s])) row[s] = digest(listOf(s).map(gpu));
   const fl = o.floor;
   row.floor = fl ? digest(Object.fromEntries(Object.entries(fl).filter(([kk]) => kk !== 'tag' && kk !== 'wild' && kk !== 'lut'))) : '-';
   row.lut = fl && fl.lut ? digest(fl.lut) : '-';

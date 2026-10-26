@@ -21,6 +21,11 @@
 // them from the frame it was recorded at, so a switch that changes which recording a view replays
 // differs there and nowhere the picture can see.
 //
+// `--without=lock,aa,statue,lot` takes those marks off the map first (see below).
+//
+// `--cloth` puts flags, socks and tents on the GL cloth path, as the game's GL pass does, and compares
+// their records as well (`cloth`). Without it windFlag and the camps never reach FAUNA_SINK.
+//
 // Not a gate: it takes a switch to test. It exits 1 if anything differs, and prints the first few.
 import { openScene, PLACES } from './scene.mjs';
 
@@ -46,9 +51,18 @@ const near = (a, b) => {
   }
   return false;
 };
-const snap = (sinks) => Object.fromEntries(Object.entries(sinks || {}).map(([k, v]) => [k, (v || []).map((q) => ({ ...q }))]));
-
-const scene = await openScene();
+const scene = await openScene({ cloth: process.argv.includes('--cloth') });
+// `--without lock,aa,...` takes those marks off the map (the cell keeps its ground; `lot` also takes the
+// media lot's walls off the buildings they stand on), so a switch meant to touch only them can be
+// shown to touch nothing else: with them gone, its 0 and 1 have to be identical.
+const withoutArg = process.argv.find((a) => a.startsWith('--without='));
+const without = new Set(withoutArg ? withoutArg.slice(10).split(',').filter(Boolean) : []);
+const strip = (c) => { const o = { ...c }; if (without.has(o.mark)) { delete o.mark; delete o.lk; delete o.aa; } if (without.has('lot')) delete o.ml; return o; };
+// A replayed road tile reaches the ground sink as one block (groundGPU), whose fade and kerb width
+// the vertex shader applies; expandGroundBlocks is the same sums on the CPU, so the ground compares
+// record for record either way.
+const expand = (k, v) => (k === 'ground' && scene.ws.expandGroundBlocks ? scene.ws.expandGroundBlocks(v) : v);
+const snap = (sinks) => Object.fromEntries(Object.entries(sinks || {}).map(([k, v]) => [k, (expand(k, v) || []).map((q) => ({ ...q }))]));
 const places = quick ? ['halcyon', 'oldcoldwater'] : Object.keys(PLACES);
 const headings = quick ? [20, 200] : [20, 140, 260];
 const hours = quick ? [13] : [13, 22];
@@ -57,6 +71,7 @@ const shown = [];
 try {
   for (const place of places) for (const seat of ['cab', 'cockpit']) for (const hour of hours) for (const heading of headings) {
     const v = scene.view(place, seat, { hour, heading });
+    if (without.size) v.map = v.map.map((row) => row.map((c) => (c && (without.has(c.mark) || (c.ml && without.has('lot'))) ? strip(c) : c)));
     const side = (val) => {
       scene.ws.RENDER_TUNE[key] = val;
       scene.paint(v); scene.paint(v); scene.takeLog();

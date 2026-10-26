@@ -139,6 +139,9 @@ export function drawMediaLot(o) {
     }
     const nl = Math.hypot(nx, ny, nz); if (!(nl > 1e-12)) return;
     nx /= nl; ny /= nl; nz /= nl; cx /= pts.length; cy /= pts.length; cz /= pts.length;
+    // On the GPU (`o.gpu`, RENDER_TUNE.marksGPU) the shader turns the normal and shades: the base,
+    // the normal as wound and the material go over. A lamp's own colour goes over as it is.
+    if (o.gpu) { if (mat === 'lit') o.face(pts, base, alpha); else o.face(pts, base, alpha, [nx, ny, nz], mat || 'paint'); return; }
     let vx = E[0] - cx, vy = E[1] - cy, vz = E[2] - cz;
     const vl = Math.hypot(vx, vy, vz) || 1; vx /= vl; vy /= vl; vz /= vl;
     // Closed solids: a back face is hidden by its own front one, so turning the normal toward the

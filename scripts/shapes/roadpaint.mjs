@@ -81,7 +81,8 @@ surface.width = W; surface.height = H;
 // ⚠ THE HOOK HAS TO RETURN A CANVAS. Anything else is the no-WebGL2 path, which puts RENDER_TUNE.gl
 // back to 0 and paints the next frame in 2-D — and a 2-D frame produces no ground quads at all,
 // which would read as a spotless road.
-ws.installGLWorld((cells, cam, o) => { ground = o.ground || []; return { faces: 1, canvas: surface }; });
+// A replayed road tile is one block (groundGPU); expanded, it's the records the shader draws.
+ws.installGLWorld((cells, cam, o) => { ground = ws.expandGroundBlocks(o.ground || []); return { faces: 1, canvas: surface }; });
 ws.paintWindshield('__rp', VIEW);        // settle every lazy cache and bake
 ws.paintWindshield('__rp', VIEW);
 // THE CONTROL FOR THE BEND. The same scene with `roadArc` off has to produce no angled paint at
@@ -90,7 +91,7 @@ ws.paintWindshield('__rp', VIEW);
 const arcWas = ws.RENDER_TUNE.roadArc;
 ws.RENDER_TUNE.roadArc = 0;
 let square = null;
-ws.installGLWorld((cells, cam, o) => { square = o.ground || []; return { faces: 1, canvas: surface }; });
+ws.installGLWorld((cells, cam, o) => { square = ws.expandGroundBlocks(o.ground || []); return { faces: 1, canvas: surface }; });
 ws.paintWindshield('__rp', VIEW);
 ws.RENDER_TUNE.roadArc = arcWas;
 ws.installGLWorld(null);

@@ -46,7 +46,9 @@ function putVertex(d, o, v, r, g, b, qa, nn, mk, L, tx, C) {
   if (nn) { d[o + 7] = nn[0]; d[o + 8] = nn[1]; d[o + 9] = nn[2]; } else { d[o + 7] = 0; d[o + 8] = 0; d[o + 9] = 0; }
   d[o + 10] = mk;
   if (L) { d[o + 11] = L[0]; d[o + 12] = L[1]; d[o + 13] = L[2]; d[o + 14] = tx; }
-  else { d[o + 11] = 0; d[o + 12] = 0; d[o + 13] = 0; d[o + 14] = 0; }
+  // A face with no local point has no texture to draw, so its code is 0, except a mark's: those codes
+  // are negative and are what the shader shades it by (marksGPU), with nothing to sample.
+  else { d[o + 11] = 0; d[o + 12] = 0; d[o + 13] = 0; d[o + 14] = tx < 0 ? tx : 0; }
   if (!C) return o + STRIDE;
   for (let i = 0; i < CAB; i++) d[o + STRIDE + i] = C[i];
   return o + STRIDE + CAB;
@@ -124,7 +126,9 @@ void main() {
   vColor = aColor;
   vAlpha = aAlpha;
   vPos = wp.xyz; vN = uNMatOn > 0.5 ? uNMat * aNormal : mat3(uModel) * aNormal * uNScale; vMetal = aMetal;
-  vLocal = aLocal; vNL = aNormal; vTex = int(aTex + 0.5);
+  // floor, not a cast: a cast rounds toward zero, and the marks' codes are negative (see the marks in
+  // the fragment shader). For every code of 0 or more the two are the same number.
+  vLocal = aLocal; vNL = aNormal; vTex = int(floor(aTex + 0.5));
 #ifdef CABIN
   vCN = aCN; vCA = aCA; vCB = aCB; vCC = aCC; vR0 = aR0; vR1 = aR1; vMA = aMA;
 #endif
@@ -161,6 +165,10 @@ uniform vec3 uLmSun;    // the own ship's sun term (setShip); off on every other
 uniform float uLmOn;
 uniform float uLmK;
 uniform vec3 uLmL;      // the ship's own light: shade-side floor, sun share, wrap (shipLightOf in windshield.js)
+// The marks' frame (RENDER_TUNE.marksGPU, 'menv' on their faces): makeShade's light and statueShade's,
+// night, wet, makeShade's sun share, whether the statue has a sun to glint; the statue's sky and ground.
+uniform vec3 uMarkL; uniform vec3 uMarkL2; uniform vec4 uMarkP;
+uniform vec3 uMarkHor; uniform vec3 uMarkTop; uniform vec3 uMarkG;
 // The city's own lights, the same list the mass shader takes (world.js pickLights), and the night
 // outside them. Off (0 lights, dim 1) on every draw that does not hand them over.
 uniform int uWLN;
@@ -513,10 +521,54 @@ void main() {
   float alpha = vAlpha;
   // Set by the copper branch only: the bump it puts on the reflected normal, and how much of the
   // metal survives the verdigris (patina is matte).
-  bool cu = vTex == 12;
+  bool cu = vTex == 12 || vTex == -7;
   vec3 cuN = vec3(0.0);
   float cuMet = 1.0;
   vec3 cuF0 = vec3(0.0);
+  // ── THE MARKS, SHADED HERE RATHER THAN ON THE CPU (RENDER_TUNE.marksGPU) ─────────────────────
+  // The AA batteries and the media lot (-2 plain, -3 metal, -4 glass) take makeShade
+  // (glass/aa-emplacement.js), the statue (-5, and -6 for a face that never gets wet) statueShade,
+  // and the statue's copper (-7) statueDiffuse before the copper branch below (windshield.js). The
+  // colour that arrives is the base, unshaded. ⚠ THE NORMAL IS TURNED TO THE EYE HERE, PER PIXEL,
+  // which is what the CPU did per face. That is what lets the faces be sent once: nothing in them
+  // depends on where the camera is. The night tint and the sun share are the CPU's numbers exactly.
+  // None of them is lit by the city's lamps or tinted by the sky below, as none was before.
+  bool mk = vTex <= -2 && vTex >= -6;
+  if (vTex <= -2 && vTex >= -7) {
+    vec3 n = dot(vN, vN) > 0.0 ? normalize(vN) : vec3(0.0, 0.0, 1.0);
+    vec3 v = normalize(uEye - vPos);
+    if (dot(n, v) < 0.0) n = -n;
+    float night = uMarkP.x, day = 1.0 - night;
+    if (vTex >= -4) {
+      float nl = max(0.0, dot(n, uMarkL)), sky = 0.5 + 0.5 * n.z;
+      float k = (0.34 + 0.20 * sky) * (0.50 + 0.50 * day) + 0.62 * nl * uMarkP.z;
+      if (vTex == -2) k *= 1.0 - 0.22 * uMarkP.y;
+      float spec = 0.0;
+      if (vTex != -2) {
+        float nh = max(0.0, dot(n, normalize(uMarkL + v)));
+        spec = pow(nh, vTex == -4 ? 40.0 : 18.0) * (vTex == -4 ? 0.9 : 0.42 + 0.4 * uMarkP.y) * uMarkP.z;
+      }
+      float nb = night * 0.32;
+      c = clamp(c * k * (1.0 - nb) + vec3(30.0, 38.0, 58.0) / 255.0 * nb + spec, 0.0, 1.0);
+    } else if (vTex >= -6) {
+      float wet = vTex == -6 ? 0.0 : uMarkP.y;
+      float nvd = dot(n, v), nv = max(0.0, nvd), nl = max(0.0, dot(n, uMarkL2));
+      float rz = 2.0 * nvd * n.z - v.z, up = clamp(rz * 1.6, 0.0, 1.0);
+      vec3 env = rz > 0.0 ? mix(uMarkHor, uMarkTop, up) : uMarkG;
+      float g5 = pow(1.0 - nv, 5.0);
+      float mMet = (0.26 + 0.55 * g5) * (0.15 + 0.85 * day);
+      float mFilm = (0.04 + 0.96 * g5) * (0.08 + 0.86 * wet) * (0.55 + 0.45 * day);
+      float sum = mMet + mFilm;
+      if (sum > 0.92) { mMet *= 0.92 / sum; mFilm *= 0.92 / sum; }
+      float mx = max(max(c.r, c.g), max(c.b, 1.0 / 255.0));
+      float k = (0.34 + 0.66 * nl) * (1.0 - 0.30 * wet) * (1.0 - mMet - mFilm);
+      float spec = 0.0;
+      if (uMarkP.w > 0.5) spec = pow(max(0.0, dot(n, normalize(uMarkL2 + v))), 10.0 + 54.0 * wet) * (0.28 + 1.07 * wet) * day * (210.0 / 255.0);
+      c = clamp(c * k + env * (mMet * c / mx + mFilm) + spec, 0.0, 1.0);
+    } else {
+      c = clamp(c * (0.34 + 0.66 * max(0.0, dot(n, uMarkL2))) * (1.0 - 0.30 * uMarkP.y), 0.0, 1.0);
+    }
+  }
   if (vTex == 10) {
     // ── COCKPIT GLASS ─────────────────────────────────────────────────────────
     // Glass you look through, so it is nearly nothing straight on: what makes a pane apparent is
@@ -640,8 +692,10 @@ void main() {
     float nl = dot(normalize(vN), uLmSun), d = max(0.0, nl), wv = (nl * 0.5 + 0.5) * (nl * 0.5 + 0.5);
     c *= mix(0.82, uLmL.x, uLmK) + uLmL.y * mix(d, wv, uLmL.z) * uLmK;
   }
-  if (dot(vN, vN) > 0.01 && vMetal <= 0.0) {
+  if (dot(vN, vN) > 0.01 && vMetal <= 0.0 && !mk) {
     vec3 na = normalize(vN);
+    // The lock's faces (-1, marksGPU) are sent facing out of the hall, not toward the eye.
+    if (vTex == -1 && dot(na, uEye - vPos) < 0.0) na = -na;
     vec3 a = envAt(na.z * 0.5);
     float al = max(dot(a, vec3(0.3333)), 0.04);
     vec3 tint = mix(vec3(1.0), a / al, 0.45);
@@ -707,7 +761,7 @@ void main() {
   // was a white blob after dark. Now the lamps decide how far the dimmed colour climbs back toward
   // the undimmed one, tinted by their colour and capped at 1, so a hull under lamps is never
   // brighter than it is without the night.
-  if (dot(vN, vN) > 0.01 && vTex != 10) {
+  if (dot(vN, vN) > 0.01 && vTex != 10 && !mk) {
     vec3 undimmed = c;
     c *= uWLDim;
     vec3 n = normalize(vN);
@@ -828,6 +882,8 @@ export function createSolidsLayer(gl, opt = {}) {
     wlC: gl.getUniformLocation(prog, 'uWLC'), wlR: gl.getUniformLocation(prog, 'uWLR'),
     wlDim: gl.getUniformLocation(prog, 'uWLDim'), wlWrap: gl.getUniformLocation(prog, 'uWLWrap'),
     wlFocus: gl.getUniformLocation(prog, 'uWLFocus'),
+    markL: gl.getUniformLocation(prog, 'uMarkL'), markL2: gl.getUniformLocation(prog, 'uMarkL2'), markP: gl.getUniformLocation(prog, 'uMarkP'),
+    markHor: gl.getUniformLocation(prog, 'uMarkHor'), markTop: gl.getUniformLocation(prog, 'uMarkTop'), markG: gl.getUniformLocation(prog, 'uMarkG'),
   };
   const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
 
@@ -860,6 +916,8 @@ export function createSolidsLayer(gl, opt = {}) {
     }
     return n;
   };
+  // The marks' frame (marksGPU), on the list rather than on each face: read once (see draw).
+  let menv = null;
 
   // ── FILM: THE TRANSLUCENT THINGS A SOLID CARRIES ─────────────────────────────
   // A quad marked `film` (a rotor blade, its blur disc) is tested against depth and writes none, and
@@ -1081,6 +1139,7 @@ export function createSolidsLayer(gl, opt = {}) {
     light = lt; shadowDirty = !!(lt && lt.lightMat);
     const kept = retain(groups);
     const metals = [];
+    menv = (quads && quads.menv) || null;
     count = quads && quads.length ? tris(quads, metals) : 0;
     filmAt = count;
     env = null;
@@ -1266,6 +1325,17 @@ export function createSolidsLayer(gl, opt = {}) {
     gl.uniform1f(loc.night, E.night || 0);
     gl.uniform3f(loc.sun, sn ? sn[0] : 0, sn ? sn[1] : 0, sn ? sn[2] : 1);
     gl.uniform1f(loc.sunK, sn ? (E.sunK || 0) : 0);
+    // The marks' frame (marksGPU), off the faces that carry it. ⚠ SET ON EVERY DRAW, for the ship's
+    // sun's reason; a layer with no mark face in it reads none of these.
+    const M = menv;
+    if (M) {
+      gl.uniform3f(loc.markL, M.L[0], M.L[1], M.L[2]); gl.uniform3f(loc.markL2, M.L2[0], M.L2[1], M.L2[2]);
+      gl.uniform4f(loc.markP, M.p[0], M.p[1], M.p[2], M.p[3]);
+      gl.uniform3f(loc.markHor, M.hor[0], M.hor[1], M.hor[2]); gl.uniform3f(loc.markTop, M.top[0], M.top[1], M.top[2]); gl.uniform3f(loc.markG, M.g1[0], M.g1[1], M.g1[2]);
+    } else {
+      gl.uniform3f(loc.markL, 0, 0, 1); gl.uniform3f(loc.markL2, 0, 0, 1); gl.uniform4f(loc.markP, 0, 0, 0, 0);
+      gl.uniform3f(loc.markHor, 0, 0, 0); gl.uniform3f(loc.markTop, 0, 0, 0); gl.uniform3f(loc.markG, 0, 0, 0);
+    }
     gl.uniform1f(loc.waterZ, opts.water != null ? opts.water : -1e9);
     gl.uniform1f(loc.waterT, (performance.now() / 1000) % 1000);
     gl.uniform1f(loc.under, opts.under || 0);

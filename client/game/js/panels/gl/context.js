@@ -2282,6 +2282,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     cloudList.length = 0;
     const clouds = [], groups = [];
     for (const l of lists) if (l && l.length) {
+      // The marks' frame (marksGPU) rides on the list, once, for the solids layer's uniforms.
+      if (l.menv) all.menv = l.menv;
       // A retained group (bayGroup) goes over whole; see splitGroups.
       const G = l.groups;
       let gi = 0;

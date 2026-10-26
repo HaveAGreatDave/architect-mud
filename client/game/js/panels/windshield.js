@@ -215,6 +215,8 @@ export const RENDER_TUNE = {
   floorSubpixel: 0,   // 1 = size the Mode-7 ground raster in BACKING pixels rather than CSS pixels, so its texels match the resolution everything else in the frame is drawn at. Off by default because it costs dpr² times the texel loop and an aircraft's ground is a distant carpet; a ground camera (the truck cab) is looking straight at it and wants it. See M7_MIN_DS.
   perfDS: 1,          // 1 = under sustained frame-load, bump the Mode-7 floor's per-pixel downscale (DS) up to +4 on top of `pixel`, quartering the ground-raster texel count. The floor is a fixed-cost software raster the canvas dynamic-res dial can't touch, so this is the one lever that sheds its load. 0 = fixed `pixel` DS always.
   pace30: 0,          // 0 = never halve (default since 2026-09-25: an uneven 40-55 beats a locked 30). 1 = once the governor is at its floor and frames still miss vsync, paint every second refresh for an even 30 fps instead of an uneven 30-60 (see paintWindshield). 0 = never halve.
+  glass1Basic: 0,     // 1 = GLASS 1 (the canvas path) draws every building as its captured boxes, with no arm run for signs, neon or glows (GLASS1_BASIC); 0 = the full canvas painter. 0 here so the Modelshop and every gate keep the full painter; the game client turns it on at boot (main.js, window.__glass1BasicPending)
+  resCpu: 1,          // 1 = the resolution dial holds native resolution while the paint's own CPU time is most of the frame interval (fewer pixels buy nothing then); 0 = it drops on the interval alone
   govern: 1,          // 1 = the scene governor pulls the draw distance and the LOD/deco/glow/shadow rings in under load to hold 60 fps instead of dropping to 30 (see governScene). 0 = fixed distances, the renderer as it shipped.
   // How finely a textured wall or roof is split so its perspective stays honest. A 2-D canvas can
   // only map a texture affinely, so a face at an angle is cut into cells small enough that affine is
@@ -909,15 +911,25 @@ export const RENDER_TUNE = {
   lockCache: 1,  // the South Lock's GL faces and lights reuse last frame's record per slot when unchanged (LCK_MEMO); 0 builds every one
   campKeep: 1,   // a camp's replayed records kept on the GPU per facing group and only facing-tested each frame (campKept); 0 replays and projects every record every frame
   armWorld: 1,   // kept arms keyed and shifted in world tiles (the window's centre added), so a server recentre keeps them; 0 keys them in the window's frame and every recentre re-probes every building
+  groundGPU: 1,  // a replayed road tile goes to the ground layer as one block it writes once, with the tile fade and kerb width worked out in the vertex shader (GROUND_MESH.gt); 0 rewrites and pushes every record every frame
+  groundKeep: 1, // with groundGPU, a replayed tile's block stays on the GPU (gl/ground.js arenas, one per draw range) and only tiles new to the view are sent; 0 sends every block every frame
   groundWorld: 1, // the ground-tile cache keeps a road tile across a new map window when its cells and neighbours didn't change (gtWindow) and moves its records by the change in centre; 0 keys it on the window and every recentre records every road again
   massKeep: 1,   // GLASS 2 keeps the mass buffer tile by tile in world tiles across a recentre and writes only the tiles that came in (uploadKept in gl/context.js); 0 packs and uploads the whole window again on every recentre
   campWorld: 1,  // a kept camp keyed and shifted in world tiles (the window's centre added), as armWorld does for buildings; 0 keys it in the window's frame and every recentre records every camp again
   flockShift: 1, // a new map window's flock search takes the last window's habitat answer for each tile whose 3x3 of cells didn't change; 0 asks every tile again
   footFast: 1,   // the footfall pass reads each tile's settledness pull and Curtain flag into typed arrays once instead of through `at` for 24 neighbours of every tile; 0 reads them per neighbour
   lutShift: 1,   // a new map window keeps the floor LUT entries whose cells and neighbours didn't change, from the old LUT at the same world tile (lutKeep); 0 rebuilds the whole LUT on every recentre
+  armStill: 1,   // a kept-arm probe that agrees with the last at the SAME pose keeps the building at that pose, and its first move confirms it with one recording (ARM_STILL_MAX a frame; unconfirmed, it runs live); 0 keeps only across a camera move, so a still seat runs every building live
   armPoseMove: 1, // a kept-arm probe counts the camera's travel through the window (`ox`/`oy`) as a move; 0 counts only the eye's offset and heading, so a straight run never keeps a building
   armLive: 1,    // a kept building's animated helpers (smoke, rings, beams, wind wheels, flags) are left out of its kept set and called again each replay (armLiveCall); 0 makes any such building live
+  flatEarly: 1,  // an arm's own flat and box primitives return before building what emitFlat and draw3DBoxAt would drop on the GL path (flatsDropped, massDropped: the ballpark, the clone facility's tubes); 0 builds, clips and colours each one first
+  marksGPU: 1,   // the South Lock, the AA batteries, the media lot and the statue send their faces unshaded with a normal and a material code, the solids shader turns the normal to the eye and shades them (gl/solids.js, the marks), and their static parts are kept as a building's are (markKept); 0 shades every face on the CPU from the eye every frame, as before. On since 2026-10-25, after David saw the before/after shots (glass-headroom.md)
+  armNearWire: 1,   // a kept building with a stroke that crosses emitWire's near plane this frame runs live for the frame (armNearWire), as the live arm cuts that stroke at the plane; 0 replays the stroke whole, which the strokes shader draws with a wrong width once an end is behind the eye
+  armFace3: 1,   // slumFaceK's eye test is recorded in a kept set (faceAway3) and asked again on replay, so a slum building's sheets change tone when the eye crosses them; 0 tests it unrecorded and a kept set keeps the tone it was probed with
+  armFade: 1,    // a building in the haze band keeps: its kept set is its recording at alpha 1, alpha leaves the key, and a fading frame replays the set scaled by the fade, proved against the live draw (armFadeCanon); 0 runs every fading building live, as before
+  armLiveSide: 1, // what a live part pushes into a side sink (a GL flag's cloth into FAUNA_SINK) is the live part's, since every replay runs it again, so it no longer makes the building live; 0 counts it against the kept set, and a building with a GL flag never keeps
   armRain: 1,    // a kept building records its glows' place in the rain-light census and replays that too; 0 marks any building with a glow live, as before
+  shadowKeep: 1, // on the GL path a building's ground-shadow hull is kept per cell and rebuilt only when its tile, footprint or the sun moves (SHADOW_KEEP); 0 rebuilds every hull every frame
   occCache: 1,   // a building's occluder geometry (hull, roof, solid boxes) kept per cell in its own frame and only moved and projected each frame (OCC_GEOM); 0 rebuilds it every frame
   glSizeGPU: 1,  // a light pushed through pushLightSized carries its size spec and the sprite shader sizes it from depth; 0 sends the CPU radius only
   glRetain: 1,   // record arrays that come back unchanged (a shed's shell, a hoodoo tile) stay on the GPU (bayGroup); 0 sends them every frame
@@ -1549,6 +1561,10 @@ export const RENDER_TUNE = {
   // ⚠ 1 SINCE 2026-10-02, WITH `moonLight` BELOW, which is the ground being lit that the note
   // above asks for. The cost note still stands: the shadow pass runs on about a third of dark hours.
   moonShadow: 1,
+  // The world's backing store is at most this many device pixels a CSS pixel (before the resolution dial),
+  // and the painted cab dash at most `dashDprMax`. A phone keeps the world at 1.5 and the dash at 2 (PHONE_TIER).
+  dprMax: 2,
+  dashDprMax: 3,
   // How much of the night's darkness a full moon overhead gives back to the land and the walls
   // (moonLift). 0 is the night as it shipped, moonless whatever the sky says.
   moonLight: 0.5,
@@ -2127,7 +2143,32 @@ export const RENDER_TUNE = {
 // linear light and the tone curve) were only ever measured on one discrete GPU, so a phone keeps the
 // picture from before them too: two of them are whole extra atlas pages, and the last two need glHdr.
 export const PHONE_TIER = Object.freeze({ glSsao: 0, glShadow: 0, glPropShadow: 0, glMsaa: 0, glHdr: 0, glCluster: 0,
-  glMatPage: 0, glSurfPage: 0, glEnvCube: 0, glGGX: 0, glLinear: 0, glTonemap: 0 });
+  glMatPage: 0, glSurfPage: 0, glEnvCube: 0, glGGX: 0, glLinear: 0, glTonemap: 0,
+  // And the CPU's share, which the GPU switches above don't touch: a phone runs JavaScript three to
+  // five times slower than the desktop these numbers were made on. The card deck instead of the cloud
+  // volume, no moon shadow pass, a smaller window under load, the near-detail ring pulled in, fewer
+  // birds, and a 1.5x world (2x dash) on a 3x screen. On a desktop with the tier applied, the card
+  // deck alone took a Halcyon aircraft frame from 35.9 to 31.3 ms (glass-headroom.md).
+  glCloudVol: 0, moonShadow: 0, govWindowGL: 1, lodNear: 14, glGlowFar: 28, glBloomFar: 16,
+  faunaMeshMax: 240, birdFacesGL: 60000, dprMax: 1.5, dashDprMax: 2,
+  // An even rate when it can't make 60: at 50-90 ms a frame an uneven cadence reads as stutter, and a
+  // skipped refresh is CPU the phone gets back.
+  pace30: 1 });
+// ── GLASS 1, THE PLAIN FALLBACK ──────────────────────────────────────────────
+// GLASS 1 draws the world only when GLASS 2 can't (no WebGL2, a lost context past its revivals, or
+// the player's own switch), and it had grown into the full city on a canvas: every arm run and its
+// faces painted, 105 ms a Halcyon cab frame and 232 ms an aircraft one on a desktop (69,000 and
+// 152,000 canvas calls), nearly all of it `world:arms` and `world:flush`. A phone stuck there after two
+// lost contexts couldn't play. So the canvas path draws every building from its captured segments
+// at every distance (drawModelLOD, lodNear past zero) and never runs an arm for its adornments
+// (lodAdorn 0): no signs, neon, glows or rooftop dressing, the outlines kept. `glass1Basic` 0 is the
+// full painter, which the shape gates and framecost measure.
+// What's left after that is how many faces are in view. lodFar just past lodNear takes every building
+// down to its single biggest mass (drawModelLOD's `detail` 0), and the draw distance stops at 16 tiles
+// (`farMax`, read by governedFar), with the skyline backdrop past it. Modelshop, 960x540, Halcyon:
+// a cab 82-90 to 46.5 ms (3,963 faces to 424), an aircraft 133-190 to 52 ms.
+// ⚠ decoFar is read `|| Infinity`, so 0 would draw the rooftop dressing at every distance.
+export const GLASS1_BASIC = Object.freeze({ lodNear: 0.001, lodFar: 0.002, lodAdorn: 0, decoFar: 0.001, glowFar: 0, farMax: 16 });
 export const GL_TIER = (() => {
   try {
     const mm = globalThis.matchMedia, sc = globalThis.screen;
@@ -3927,7 +3968,7 @@ function paintWindshieldFrame(id, view) {
   // that draws the sheds, so the picture and the collision sweep both read the same list. See
   // setBayVehicles: a door is opened by trucks, never by the eye.
   setBayVehicles(v);
-  const baseDpr = Math.min(2, window.devicePixelRatio || 1);
+  const baseDpr = Math.min(RENDER_TUNE.dprMax || 2, window.devicePixelRatio || 1);
   // Dynamic resolution scaling: under sustained frame-time load, shrink the backing store below
   // native and let CSS upscale it — the broadest fps lever, since it scales EVERY pass at once
   // (clouds, buildings, ground), not just the volumetric deck. Driven off last frame's smoothed
@@ -3977,7 +4018,12 @@ function paintWindshieldFrame(id, view) {
   // capped against the device ratio — a 2× phone screen is already supersampling by another name.
   const superTo = clamp(v.superSample != null ? v.superSample : 1, 1, 2);
   const resCeil = Math.max(1, superTo / baseDpr);
-  const resTarget = clamp(1 - ((st.frameMs || 16) - 17.5) / 44, resFloor, resCeil);   // full res at a steady 60; ramps toward the floor as soon as frames start missing vsync. ⚠ st.frameMs is the INTERVAL between paints, which vsync pins at 16.7 or 33.3 ms with nothing between, so anything above one vsync is a frame shown at 30 fps. It was 20, which kept full res through exactly that band. Never below 16.7 either, or a steady 60 reads as load and the canvas is softened for nothing. Above 1 only where a caller asked for supersampling AND the frames are cheap.
+  // ⚠ NOT WHEN THE CPU IS WHAT'S SLOW. GLASS 2 frames are CPU-bound: 9x the pixels costs under 10%,
+  // and the dial at its floor bought 6% for a visibly softer picture. So when the paint's own CPU time
+  // (PACE's `work`) is most of the interval, the dial holds native resolution and only supersampling
+  // waits for headroom (RENDER_TUNE.resCpu; 0 drops it on the interval alone, as before).
+  const paceW = PACE.get(id), cpuBound = RENDER_TUNE.resCpu !== 0 && paceW && paceW.work > 0.7 * (st.frameMs || 16);
+  const resTarget = clamp(1 - ((st.frameMs || 16) - 17.5) / 44, cpuBound ? Math.max(resFloor, Math.min(1, resCeil)) : resFloor, resCeil);   // full res at a steady 60; ramps toward the floor as soon as frames start missing vsync. ⚠ st.frameMs is the INTERVAL between paints, which vsync pins at 16.7 or 33.3 ms with nothing between, so anything above one vsync is a frame shown at 30 fps. It was 20, which kept full res through exactly that band. Never below 16.7 either, or a steady 60 reads as load and the canvas is softened for nothing. Above 1 only where a caller asked for supersampling AND the frames are cheap.
   st.resScale = st.resScale ? st.resScale + (resTarget - st.resScale) * 0.08 : resTarget;
   // ── AND THE STEP NEEDS HYSTERESIS, OR IT DITHERS ON THE EDGE ───────────────
   //
@@ -4020,6 +4066,9 @@ function paintWindshieldFrame(id, view) {
   // still come down.
   GOV_GL = !!(TUNE.gl && GL_HOOK) && !RENDER_TUNE.govWindowGL;
   if (GOV_Q < 1) { TUNE = governedTune(TUNE, GOV_Q); if (!GOV_GL) v = governedMap(v, st); }
+  // GLASS 1 IS THE PLAIN FALLBACK (RENDER_TUNE.glass1Basic): on the canvas path every building is its
+  // captured boxes and nothing else (see GLASS1_BASIC).
+  if (RENDER_TUNE.glass1Basic && !(TUNE.gl && GL_HOOK)) TUNE = { ...TUNE, ...GLASS1_BASIC };
   M7_MIN_DS = TUNE.floorSubpixel ? clamp(1 / dpr, 0.5, 1) : 1;
   // 24ms→0, 32→+1, 40→+2 … cap +4.
   // ⚠ THE SAME DEADBAND AS THE RESOLUTION DIAL, AND IT HAD BEEN MISSING HERE THE WHOLE TIME. This
@@ -6985,7 +7034,7 @@ function paintCabDash(id, v) {
   // the old `min(2, dpr)` resolved to 1 and every one of those edges was aliased; supersampling it
   // and letting the browser scale down is the whole difference between a drawn dial and a printed
   // one. (Capped at 3 so a high-DPI phone doesn't allocate a buffer nobody can see.)
-  const dpr = clamp(Math.max(2, window.devicePixelRatio || 1), 2, 3);
+  const dpr = clamp(Math.max(2, window.devicePixelRatio || 1), 2, Math.max(2, RENDER_TUNE.dashDprMax || 3));
   const wantW = Math.round(cw * dpr), wantH = Math.round(ch * dpr);
   if (c.width !== wantW || c.height !== wantH) { c.width = wantW; c.height = wantH; }
   const g = c.getContext('2d');
@@ -22949,6 +22998,32 @@ function tuneSig(T = RENDER_TUNE) {
   }
   return h;
 }
+// A ground list with its replayed tiles' blocks (RENDER_TUNE.groundGPU) put back as the records the
+// CPU path writes, using the list's `gt`. The ground vertex shader does exactly this per vertex; this
+// is the reference perf:exact compares against.
+export function expandGroundBlocks(list) {
+  const U = list && list.gt;
+  if (!U || !list.some((q) => q && q.gblk)) return list;
+  const out = [];
+  for (const q of list) {
+    if (!q || !q.gblk) { out.push(q); continue; }
+    const f = (q.gx - U.ox) * U.sinh - (q.gy - U.oy) * U.cosh;
+    const tileA = U.blend * clamp((U.far - f) / 6, 0, 1);
+    const khw = Math.max(0.004, Math.min(0.05, U.kerbK * Math.max(f, 0.2)));
+    for (let i = 0; i < q.recs.length; i++) {
+      const r = q.recs[i];
+      if (r.edge) {
+        const E = r.edge, ex = E[2] - E[0], ey = E[3] - E[1], L = Math.hypot(ex, ey) || 1, nx = -ey / L * khw, ny = ex / L * khw;
+        out.push({ p: [[E[0] + nx, E[1] + ny, ROAD_EPS], [E[2] + nx, E[3] + ny, ROAD_EPS], [E[2] - nx, E[3] - ny, ROAD_EPS], [E[0] - nx, E[1] - ny, ROAD_EPS]],
+          paint: 1, rgb: r.rgb, a: q.ratio[i] * tileA, road: r.road });
+        continue;
+      }
+      out.push({ ...r, a: q.ratio[i] * tileA });
+    }
+  }
+  out.gt = U;
+  return out;
+}
 let GT_PEND = null, GT_OPS = 0;
 const gtSinks = () => (SPRITE_SINK ? SPRITE_SINK.length : 0) + (DECAL_SINK ? DECAL_SINK.length : 0) + (STROKE_SINK ? STROKE_SINK.length : 0)
   + (SCATTER_SINK ? SCATTER_SINK.length : 0) + (BAY_SINK ? BAY_SINK.length : 0) + (CURTAIN_SINK ? CURTAIN_SINK.length : 0) + (FACE_SINK ? FACE_SINK.length : 0);
@@ -24784,7 +24859,11 @@ function governedMap(v, st) {
   return { ...v, map: out };
 }
 let GOV_GL = false;
-function governedFar(far) { return GOV_Q >= 1 || GOV_GL ? far : Math.min(far, Math.max(8, far * (0.55 + 0.45 * GOV_Q))); }
+function governedFar(far) {
+  // A frame's own cap on the draw distance (GLASS1_BASIC); past it the skyline backdrop stands in.
+  if (TUNE.farMax > 0) far = Math.min(far, TUNE.farMax);
+  return GOV_Q >= 1 || GOV_GL ? far : Math.min(far, Math.max(8, far * (0.55 + 0.45 * GOV_Q)));
+}
 function resolveTune(t) {
   if (!t) return RENDER_TUNE;
   const out = { ...RENDER_TUNE };
@@ -25112,6 +25191,8 @@ if (typeof window !== 'undefined') {
   // Settings → Cel Shading (main.js `_applyCelShade`). The setting is applied at boot, before any
   // view has loaded this module, so it leaves its answer on window and it lands here.
   if (window.__celShadePending != null) { RENDER_TUNE.glToon = RENDER_TUNE.glInk = window.__celShadePending ? 1 : 0; }
+  // GLASS 1 as the plain fallback, which only the game asks for (main.js); see GLASS1_BASIC.
+  if (window.__glass1BasicPending) RENDER_TUNE.glass1Basic = 1;
   // Settings → Renderer, the same way.
   window.__setGlass = setGlass;
   if (window.__glassPending != null) setGlass(window.__glassPending);
@@ -38255,7 +38336,9 @@ function muzzleFlash(ctx, cam, x, y, z, sz = 1) {
 // otherwise, while manned, the nearest aircraft in range, because the radar hands it whatever is up
 // there. With nothing up there the crew sweep the haze.
 const AA_TRACK_R = 10;   // tiles: how far off a manned battery's guns follow an aircraft it is not firing at
-function drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od) {
+// `part` is markKept's (RENDER_TUNE.marksGPU): the emplacement draws its pit or its guns, unshaded
+// for the GPU (markFaceGL). Absent, all of it, as before.
+function drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od, part) {
   const aa = it.c.aa || {};
   const live = aaLive(it.wx, it.wy);
   const s = live && Number.isFinite(live.s) ? live.s : Number.isFinite(aa.s) ? aa.s : 1;
@@ -38292,7 +38375,8 @@ function drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od) {
     }
   }
   const soft = [];
-  const face = (pts, rgb, a) => {
+  const face = (pts, rgb, a, n, mat) => {
+    if (n) { markFaceGL(pts, cam, rgb, a, n, mat === 'metal' ? -3 : mat === 'glass' ? -4 : -2); return; }
     if (toGL) { BAY_SINK.push({ p: pts.map(([x, y, z]) => [x + cam.ox, y + cam.oy, z]), rgb, a }); return; }
     if (soft.length >= AA_FACES) return;
     const pr = [];
@@ -38302,7 +38386,7 @@ function drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od) {
   };
   clearTilePower();   // a battery runs on its own generator, whatever the street's power is doing
   drawAAEmplacement({
-    dx: it.dx, dy: it.dy, wx: it.wx, wy: it.wy, kind: aa.k, s, open, shift,
+    dx: it.dx, dy: it.dy, wx: it.wx, wy: it.wy, kind: aa.k, s, open, shift, part, gpu: !!part && toGL,
     eye: [EX, EY, EZ], target, firing, near: eyeRange(cam, it.dx, it.dy) < 7,
     seed: it.seed, now, night, alpha, wet: clamp(wetGround(), 0, 1), sun,
     face, light: (x, y, z, rgb, s0, a) => glowPool(ctx, cam, x, y, z, rgb, s0, a * alpha),
@@ -38331,13 +38415,16 @@ const AA_FACES = 1400;   // the 2-D path's cap, as the statue has one: a sort th
 // ⚠ THE GATE'S NAME GOES ON AT EMIT TIME ON GL, AND INSIDE THE CLOSURE ON THE 2-D PATH. On GL the
 // decal layer draws after the solids, so the board is under its letters either way. On the canvas
 // the lettering is a blit, and blitted during the sweep it lands under the board painted at flush.
-function drawLotMark(ctx, cam, it, night, alpha, now, sun, od) {
+// `part` ('static' or 'dynamic') is markKept's (RENDER_TUNE.marksGPU): the lot has nothing that moves,
+// so it is all static, and its faces go over unshaded (`n`, `mat`; see markFaceGL).
+function drawLotMark(ctx, cam, it, night, alpha, now, sun, od, part) {
   const ml = it.c.ml;
-  if (!ml) return;
+  if (!ml || part === 'dynamic') return;
   const toGL = !!BAY_SINK && TUNE.glBay !== 0;
   const EX = (cam.ex || 0) - cam.ox, EY = (cam.ey || 0) - cam.oy, EZ = cam.EH == null ? 0.2 : cam.EH;
   const soft = [], words = [];
-  const face = (pts, rgb, a) => {
+  const face = (pts, rgb, a, n, mat) => {
+    if (n) { markFaceGL(pts, cam, rgb, a, n, mat === 'metal' ? -3 : mat === 'glass' ? -4 : -2); return; }
     if (toGL) { BAY_SINK.push({ p: pts.map(([x, y, z]) => [x + cam.ox, y + cam.oy, z]), rgb, a }); return; }
     if (soft.length >= LOT_FACES) return;
     const pr = [];
@@ -38357,7 +38444,7 @@ function drawLotMark(ctx, cam, it, night, alpha, now, sun, od) {
     if (toGL) put(); else words.push(put);
   };
   drawMediaLot({
-    dx: it.dx, dy: it.dy, part: ml.p, wall: ml.w || '', gate: ml.g || '',
+    dx: it.dx, dy: it.dy, part: ml.p, wall: ml.w || '', gate: ml.g || '', gpu: !!part && toGL,
     eye: [EX, EY, EZ], near: eyeRange(cam, it.dx, it.dy) < 6,
     seed: it.seed, now, night, alpha, wet: clamp(wetGround(), 0, 1), sun,
     face, text,
@@ -38716,6 +38803,14 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
     ctx[k] = function (...a) { GT_OPS++; return fn.apply(this, a); };
     gcWrapped.push([k, own, fn]);
   }
+  // A replayed tile goes to the GPU as a block (RENDER_TUNE.groundGPU), and what its records used to
+  // be rewritten with each frame goes with the list as numbers: the tile fade is
+  // `blend * clamp((far - f) / 6)` with f the tile centre's forward distance from (ox, oy) along the
+  // heading, and the kerb half-width `clamp(kerbK * max(f, 0.2), 0.004, 0.05)`. expandGroundBlocks is
+  // the same sums on the CPU, for the exactness check.
+  const gtGPU = gcOn && RENDER_TUNE.groundGPU !== 0;
+  if (gtGPU) GROUND_MESH.gt = { ox: cam.ox || 0, oy: cam.oy || 0, sinh: cam.sinh, cosh: cam.cosh, far: FAR, blend: baseAlpha == null ? 1 : baseAlpha,
+    kerbK: Math.max(0.75, 0.5 / Math.max(0.05, _frameDpr)) / cam.FL, keep: RENDER_TUNE.groundKeep !== 0 };
   // The void highway, drawn whole before the tiles; `ribbon` says which corridor cells it covers.
   const ribbon = drawHighwayRibbons(ctx, cam, v, R, wcx, wcy, baseAlpha, FAR);
   try {
@@ -38751,7 +38846,17 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
       const ge = GROUND_TILE.get(c);
       const geSame = !!(ge && ge.fk === gcFK && (gcW ? ge.wg === GT_GEN : ge.gx === gx && ge.gy === gy));
       if (tileA > 1e-6 && geSame && !ge.dyn && !ge.probe) {
-        if (gcW && (ge.cx !== wcx || ge.cy !== wcy)) { gtShift(ge, ge.cx - wcx, ge.cy - wcy); ge.cx = wcx; ge.cy = wcy; }
+        if (gcW && (ge.cx !== wcx || ge.cy !== wcy)) { gtShift(ge, ge.cx - wcx, ge.cy - wcy); ge.cx = wcx; ge.cy = wcy; ge.blk = null; }
+        if (gtGPU) {
+          // The tile as one block the ground layer writes once (gl/ground.js `blockFloats`): the fade
+          // and the kerb width are this frame's GROUND_MESH.gt, applied in the vertex shader.
+          let B = ge.blk;
+          if (!B || B.gx !== gx || B.gy !== gy) B = ge.blk = { gblk: true, recs: ge.recs, ratio: ge.ratio, gx, gy };
+          GROUND_MESH.push(B);
+          if (GULLY_ALL) for (const u of ge.gullies) GULLY_ALL.push(u);
+          if (ge.walk) RAISED_WALK.set(c, _walkGen);
+          continue;
+        }
         const rs = ge.recs, rt = ge.ratio;
         for (let i = 0; i < rs.length; i++) {
           const r = rs[i];
@@ -41145,7 +41250,7 @@ function slumFaceK(cam, w) {
   let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
   const L = Math.hypot(nx, ny, nz) || 1;
   nx /= L; ny /= L; nz /= L;
-  if (nx * ((cam.ex || 0) - a[0]) + ny * ((cam.ey || 0) - a[1]) + nz * ((cam.EH || 0) - a[2]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+  if (faceAway3(cam, a[0], a[1], a[2], nx, ny, nz)) { nx = -nx; ny = -ny; nz = -nz; }
   const LS = LIGHT_STATE;
   const up = Math.max(0, nz), down = Math.max(0, -nz);
   if (!LS) return 0.62 + 0.3 * up - 0.1 * down;
@@ -43593,6 +43698,16 @@ function applyRegionGrade(ctx, W, H, horizonY, g, w0, now, night) {
 // with a depth buffer under them, so the arm must not also paint them — and the arm still RUNS,
 // because the light it hangs on those surfaces is not geometry and stays on the 2-D canvas.
 let FLAT_OFF = false;
+// ── WHAT AN ARM NEED NOT BUILD (RENDER_TUNE.flatEarly) ───────────────────────────────────────────
+// Under FLAT_OFF emitFlat drops a plain-colour flat before it reads a point of it, and under
+// MASS_OFF draw3DBoxAt drops a box, but an arm builds, clips and colours each one first. The ballpark
+// built and threw away 148 flats a frame from a Halcyon cockpit, and its boxes besides; the clone
+// facility 129, as tube facets. An arm's own primitive can ask these first and return.
+// ⚠ ONLY FOR A PRIMITIVE THAT DOES NOTHING ELSE. The two tests are emitFlat's and draw3DBoxAt's own
+// (emitFlat's `cssRgb(fill)` holds for anything `rgb()` made, and neither has run anything before
+// it), so a primitive that also lights, bakes or records something can't use them.
+export const flatsDropped = () => FLAT_OFF && !MESH_SINK && !SHAPE_SINK && RENDER_TUNE.flatEarly !== 0;
+export const massDropped = () => MASS_OFF && !SHAPE_SINK && RENDER_TUNE.flatEarly !== 0;
 function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
   // ⚠ SHAPE FIRST, AND THIS WAS THE ONE PRIMITIVE THAT HAD IT THE OTHER WAY ROUND. Every other
   // primitive that fills a mesh tests SHAPE_SINK before MESH_SINK and returns; this tested MESH_SINK
@@ -52208,6 +52323,18 @@ export function faceAway(cam, px, py, nx, ny) {
   if (ARM_FACE && !ARM_IN_LIVE) { ARM_FACE.push([px, py, nx, ny, away]); armKeepStats.faceRec++; }
   return away;
 }
+// The same in three dimensions, for a test that reads the eye's height as well (slumFaceK: a sheet's
+// tone turns with the side the eye is on, and the tone is in its decal's key). True when the face at
+// (px, py, pz) with normal (nx, ny, nz) has its back to the eye, exactly as slumFaceK's own test
+// (n·(eye − p) < 0); recorded with the height and the z normal on the end, which armReplay asks again.
+// ⚠ BEFORE RENDER_TUNE.armFace3, slumFaceK tested this unrecorded, so a kept slum building kept the tone
+// of the side it was probed from after the eye crossed to the other (perf/recentre-exact armFade, a cab
+// at the South Lock); 0 tests it unrecorded again.
+export function faceAway3(cam, px, py, pz, nx, ny, nz) {
+  const away = nx * ((cam.ex || 0) - px) + ny * ((cam.ey || 0) - py) + nz * ((cam.EH || 0) - pz) < 0;
+  if (ARM_FACE && !ARM_IN_LIVE && RENDER_TUNE.armFace3 !== 0) { ARM_FACE.push([px, py, nx, ny, away, pz, nz]); armKeepStats.faceRec++; }
+  return away;
+}
 // How far a clock-test recording has moved the clock, for the one arm-reachable reader of the wall
 // clock (deadNeon). 0 outside those runs.
 let ARM_SHIFT = 0;
@@ -52215,6 +52342,22 @@ let ARM_SHIFT = 0;
 // that blinks for its first 14 s and then stays dark, a recheck that caught one changing frame. A
 // building that really animates pays one probe (three arm runs) every ten seconds or so.
 const ARM_RETRY = 600;
+// ── KEPT WHILE STILL (RENDER_TUNE.armStill) ──────────────────────────────────────────────────────
+//
+// The second probe has to come from a camera that moved, which a parked cab or a standing free
+// camera never is, so a still seat ran every building live and probed each one (three arm runs)
+// every ARM_GAP frames: a still Halcyon cab measured 15 ms of arms in the browser, against 8 moving.
+// At one pose a recording IS the live draw, so two probes there that agree (the clock tests passed in
+// each) are kept at that pose. The first frame the pose moves, the building is recorded once more and
+// compared, as a recheck is: the same and it's kept for good, different and it goes live with that
+// frame's draw. Until it's confirmed a moved building runs live, so nothing is ever drawn from a set
+// that wasn't proved at the current pose. A type that ever failed a pose comparison never keeps
+// while still (ARM_POSE_SUSPECT): its output moves with the eye.
+const ARM_STILL_MAX = 6;
+let ARM_STILL_N = 0;
+const ARM_POSE_SUSPECT = new Set();
+const armType = (c) => { const m = modelFor(c); return (m && m.type) || c.bt || c.mark || '?'; };
+const poseMoved = (p, q) => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) > 0.02 || Math.abs(p.h - q.h) > 0.02;
 const LIVE_AT_6 = { x: 2, y: 3, now: 6 }, LIVE_AT_7 = { x: 2, y: 3, now: 7 }, LIVE_AT_8 = { x: 2, y: 3, now: 8 }, LIVE_AT_10 = { x: 2, y: 3, now: 10 };
 const armMarks = () => [SPRITE_SINK ? SPRITE_SINK.length : 0, STROKE_SINK ? STROKE_SINK.length : 0, DECAL_SINK ? DECAL_SINK.length : 0,
   BAY_SINK ? BAY_SINK.length : 0, ARM_RAIN ? ARM_RAIN.length : 0];
@@ -52222,9 +52365,35 @@ function armLiveCall(fn, at, args) {
   const live = ARM_LIVE, a = Array.prototype.slice.call(args);
   if (a[at.now] !== ARM_NOW) ARM_LIVE_BAD = true;
   ARM_LIVE = null;   // a live part that calls another runs it as part of itself
-  const m0 = armMarks();
+  const m0 = armMarks(), s0 = RENDER_TUNE.armLiveSide !== 0 ? armSinkSide() : 0;
   ARM_IN_LIVE++;
-  try { return fn.apply(null, a); } finally { ARM_IN_LIVE--; live.push({ fn, at, a, m0, m1: armMarks() }); ARM_LIVE = live; }
+  try { return fn.apply(null, a); } finally {
+    ARM_IN_LIVE--; live.push({ fn, at, a, m0, m1: armMarks() }); ARM_LIVE = live;
+    if (RENDER_TUNE.armLiveSide !== 0) ARM_LIVE_SIDE += armSinkSide() - s0;
+  }
+}
+// ── A LIVE PART'S SIDE SINKS (RENDER_TUNE.armLiveSide) ───────────────────────────────────────────
+// A side channel marks a building live because a kept set can't hold it. A live part isn't in the
+// kept set: every replay calls it again, so whatever it pushes is pushed again, in the same order. So
+// its pushes into the side sinks don't count against the building (ARM_LIVE_SIDE, taken off in
+// armRecord). The GL cloth path is why: windFlag is a live part, but its cloth goes into FAUNA_SINK,
+// and every building with a flag on GL went live for it (the ballpark's roof tile, 1.1 ms a frame).
+// ⚠ ONLY THE SINKS A RECORDING CAN TRUNCATE. A live part's canvas call or ground-late job still marks
+// the building live: a recording that is put back (a clock test, or a recheck replayed in its place)
+// would draw it twice, and neither can be taken back. The sinks are cut back with the rest (armSideTrunc).
+let ARM_LIVE_SIDE = 0;
+const armSinkSide = () => (SCATTER_SINK ? SCATTER_SINK.length : 0) + (CURTAIN_SINK ? CURTAIN_SINK.length : 0)
+  + (FACE_SINK ? FACE_SINK.length : 0) + (OWNSHIP_SINK ? OWNSHIP_SINK.length : 0) + (FAUNA_SINK ? FAUNA_SINK.length : 0)
+  + (GROUND_MESH ? GROUND_MESH.length : 0) + (LATE_BILLBOARDS ? LATE_BILLBOARDS.length : 0);
+// The side sinks' lengths before a recording, to cut a recording's live parts back out (null with the switch off).
+const armSideMarks = () => (RENDER_TUNE.armLiveSide !== 0 ? [SCATTER_SINK ? SCATTER_SINK.length : 0, CURTAIN_SINK ? CURTAIN_SINK.length : 0,
+  FACE_SINK ? FACE_SINK.length : 0, OWNSHIP_SINK ? OWNSHIP_SINK.length : 0, FAUNA_SINK ? FAUNA_SINK.length : 0,
+  GROUND_MESH ? GROUND_MESH.length : 0, LATE_BILLBOARDS ? LATE_BILLBOARDS.length : 0] : null);
+function armSideTrunc(m) {
+  if (!m) return;
+  if (SCATTER_SINK) SCATTER_SINK.length = m[0]; if (CURTAIN_SINK) CURTAIN_SINK.length = m[1];
+  if (FACE_SINK) FACE_SINK.length = m[2]; if (OWNSHIP_SINK) OWNSHIP_SINK.length = m[3]; if (FAUNA_SINK) FAUNA_SINK.length = m[4];
+  if (GROUND_MESH) GROUND_MESH.length = m[5]; if (LATE_BILLBOARDS) LATE_BILLBOARDS.length = m[6];
 }
 // A sink's records from `from` on, without the ranges the live parts pushed (k is the sink's slot in armMarks).
 function armCut(sink, from, live, k) {
@@ -52248,7 +52417,7 @@ function armLiveCanon(L, ox, oy) {
   }
   return 'C' + parts.join('|');
 }
-export const armKeepStats = { kept: 0, live: 0, probing: 0, replayed: 0, rechecked: 0, dropped: 0, fading: 0, near: 0, gap: 0, liveRun: 0, webDrop: 0, faceDrop: 0, faceRec: 0 };
+export const armKeepStats = { nearWire: 0, kept: 0, live: 0, probing: 0, replayed: 0, rechecked: 0, dropped: 0, fading: 0, near: 0, gap: 0, liveRun: 0, webDrop: 0, faceDrop: 0, faceRec: 0, still: 0, stillConfirm: 0, stillWait: 0, fadeKept: 0, fadeLive: 0, fadeEdge: 0, fadeProbe: 0 };
 // Why a building went live, by model type, for a harness that sets `armKeepWhy.on`. Off, it costs
 // nothing; on, a clock or pose mismatch also lists the records that differed (first few lines).
 export const armKeepWhy = { on: false, by: {} };
@@ -52279,12 +52448,20 @@ const armSideParts = () => [['scatter', SCATTER_SINK], ['curtain', CURTAIN_SINK]
 // is the 2-D halo (GL reads glGlowFar); shadowFar is the shadow pass. A caller's own tune (a ground
 // camera's) still counts, which is what TUNE_BASE keeps.
 function armKeepFrame(mc) {
-  ARM_FRAME++; ARM_CHECKS = 0; ARM_TUNE = tuneSig() * 7 + (TUNE_BASE !== RENDER_TUNE ? tuneSig(TUNE_BASE) : 0);
+  ARM_FRAME++; ARM_CHECKS = 0; ARM_STILL_N = 0; ARM_TUNE = tuneSig() * 7 + (TUNE_BASE !== RENDER_TUNE ? tuneSig(TUNE_BASE) : 0);
   const on = RENDER_TUNE.armWorld !== 0 && mc;
   ARM_CX = on ? mc.x || 0 : 0; ARM_CY = on ? mc.y || 0 : 0;
 }
 const armR6 = (x) => Math.round(x * 1e6);
 const pt = (p, ox, oy) => armR6(p[0] + ox) + ',' + armR6(p[1] + oy) + ',' + armR6(p[2]);
+// ⚠ THE BAY RECORDS' POINTS GET A READER OF THEIR OWN (marksGPU). A decal's points are object-kind
+// arrays and a bay's are double-kind, and once `pt` is optimised with both maps in its feedback, V8
+// unifies them by turning every double array it reads into an object array, a boxed number per
+// coordinate. A building's kept bays go out as a retained group, so that never mattered. A mark's
+// stream (ARM_MARK in armReplay), and putVertex and smooth in gl/solids.js deopted on the new map and
+// then converted every point array they read, every frame: ~2 MB more promoted a scavenge, and the
+// 1.5 ms world:gl rise. `ptB` only ever sees bays.
+const ptB = (p, cx, cy) => armR6(p[0] + cx) + ',' + armR6(p[1] + cy) + ',' + armR6(p[2]);
 // A record set in the map window's frame, as a string two recordings can be compared by.
 // `cx`/`cy`: the window's centre, for the bay records, which are in the window's frame rather than the
 // camera's (armWorld; 0 compares them in the window's frame as before).
@@ -52296,7 +52473,8 @@ function armCanon(rec, ox, oy, cx = 0, cy = 0) {
     + '|' + armR6(s.w) + '|' + s.rgb + '|' + armR6(s.alpha) + '|' + armR6(s.glow || 0) + (s.add ? 'a' : '') + (s.tag || ''));
   for (const d of rec.de) out.push('D' + d.key + '|' + (d.pl > 0 && d.rp ? d.rp.map((p) => pt(p, ox, oy)).join(';') + '|' + d.rc.map((p) => pt(p, ox, oy)).join(';') + '|' + armR6(d.pl)
     : d.p.map((p) => pt(p, ox, oy)).join(';')) + '|' + armR6(d.alpha == null ? 1 : d.alpha) + '|' + !!d.solid + !!d.lit + !!d.cull + !!d.smooth + (d.emit || 0));
-  for (const q of rec.ba) out.push('B' + q.p.map((p) => pt(p, cx, cy)).join(';') + '|' + q.rgb + '|' + armR6(q.a));
+  if (RENDER_TUNE.marksGPU > 0) for (const q of rec.ba) out.push('B' + q.p.map((p) => ptB(p, cx, cy)).join(';') + '|' + q.rgb + '|' + armR6(q.a));
+  else for (const q of rec.ba) out.push('B' + q.p.map((p) => pt(p, cx, cy)).join(';') + '|' + q.rgb + '|' + armR6(q.a));
   if (rec.live) for (const L of rec.live) out.push(armLiveCanon(L, ox, oy));
   if (rec.rain) for (const r of rec.rain) out.push('R' + pt(r, ox, oy) + '|' + armR6(r[3]) + ',' + r[4] + '|' + r[5] + '|' + armR6(r[6]));
   return out.join('\n');
@@ -52316,6 +52494,7 @@ function armRecord(ctx, run, scratch = false, now = 0, shift = 0) {
   const signN0 = _signTexN;
   if (scratch) SIGN_ID_SCRATCH = [];
   const side0 = armSide(), ops0 = ARM_OPS, parts0 = armKeepWhy.on ? armSideParts() : null;
+  const sideM = armSideMarks(); ARM_LIVE_SIDE = 0;
   const wrapped = [];
   for (const k of ['fill', 'stroke', 'drawImage', 'fillRect', 'strokeRect', 'fillText', 'strokeText', 'putImageData']) {
     const fn = ctx[k];
@@ -52331,7 +52510,8 @@ function armRecord(ctx, run, scratch = false, now = 0, shift = 0) {
     if (SIGN_ID_SCRATCH) { for (const t of SIGN_ID_SCRATCH) _signTexIds.delete(t); _signTexN = signN0; SIGN_ID_SCRATCH = null; }
     if (rain0) { RAIN_LIGHTS.length = 0; for (const r of rain0) RAIN_LIGHTS.push(r); }
   }
-  const sideNow = armSide();
+  const sideNow = armSide() - ARM_LIVE_SIDE;
+  if (scratch) armSideTrunc(sideM);
   if (ARM_LIVE_BAD) { ARM_WHY_SIDE = 'livepart'; return null; }
   if (ARM_MOTION) { ARM_WHY_SIDE = 'motion'; return null; }
   if (ARM_OPS !== ops0 || sideNow !== side0) {
@@ -52341,7 +52521,7 @@ function armRecord(ctx, run, scratch = false, now = 0, shift = 0) {
   }
   const L = live || [];
   return { sp: armCut(SPRITE_SINK, s0, L, 0), st: armCut(STROKE_SINK, t0, L, 1), de: armCut(DECAL_SINK, d0, L, 2), ba: armCut(BAY_SINK, b0, L, 3),
-    rain: rain ? armCut(rain, 0, L, 4) : [], live: L, web, face, marks: [s0, t0, d0, b0] };
+    rain: rain ? armCut(rain, 0, L, 4) : [], live: L, web, face, marks: [s0, t0, d0, b0], side: sideM };
 }
 // Push a kept set into the sinks as retained groups, moved into this frame's camera frame first.
 // `census` false when this frame already ran the arm live (a recheck, or the frame it was kept), whose
@@ -52350,11 +52530,36 @@ function armRecord(ctx, run, scratch = false, now = 0, shift = 0) {
 // retained group is a draw call per texture, and a camp is a hundred small groups (campKept).
 // `cx`/`cy` is the window's centre when `ox`/`oy` are world offsets (drawTypeModelKept); the GL layers
 // take the camera's own offset and the window it is in, so a recentre re-sends a group once.
-function armReplay(e, ox, oy, cam, census, ctx, now, retain = true, cx = 0, cy = 0) {
+// ⚠ A KEPT STROKE THAT CROSSES THE EYE PLANE (RENDER_TUNE.armNearWire). emitWire cuts a segment at
+// NEAR_W in front of the eye and drops one wholly behind it, from where the eye is now. A kept set
+// was recorded from well back (the probe's near test), so driving up to a building it replays a
+// sign tube or light runner whole, and the strokes shader takes its width from the projected ends,
+// which mean nothing once one is behind the eye. Found as 2-4 live triangles missing on 200-frame cab
+// flights (perf:armkeep, the lock and Marrow). So a set with a stroke whose ends sit either side of
+// the plane runs live for the frame, and keeps the set. Wholly behind is left: the GPU clips it, as
+// it does every kept part behind the eye. `ox`/`oy` this frame's, so nothing is shifted to ask.
+const ARM_WIRE_NEAR = 0.13;   // emitWire's NEAR_W
+function armNearWire(e, ox, oy, cam) {
+  if (!cam.rawF) return false;
+  const dx = e.ox - ox, dy = e.oy - oy, W = ARM_WIRE_NEAR;
+  for (const s of e.rec.st) {
+    const A = s.pl > 0 && s.ra ? s.ra : s.a, B = s.pl > 0 && s.rb ? s.rb : s.b;
+    if (!A || !B) continue;
+    if ((cam.rawF(A[0] + dx, A[1] + dy, A[2]) <= W) !== (cam.rawF(B[0] + dx, B[1] + dy, B[2]) <= W)) return true;
+  }
+  return false;
+}
+function armReplay(e, ox, oy, cam, census, ctx, now, retain = true, cx = 0, cy = 0, fade = 1) {
   const dx = e.ox - ox, dy = e.oy - oy;
   for (const w of e.rec.web) if (webBaysAt(cam, w[0] + dx, w[1] + dy, w[2], w[3]) !== w[4]) return false;
   const fex = cam.ex || 0, fey = cam.ey || 0;
-  for (const q of e.rec.face) if ((q[2] * (q[0] + dx) + q[3] * (q[1] + dy) - (q[2] * fex + q[3] * fey) >= 0) !== q[4]) { armKeepStats.faceDrop++; return false; }
+  const feh = cam.EH || 0;
+  for (const q of e.rec.face) {
+    // Seven long is faceAway3's: the eye's height in it too, and its own strict test.
+    const away = q.length > 5 ? q[2] * (fex - (q[0] + dx)) + q[3] * (fey - (q[1] + dy)) + q[6] * (feh - q[5]) < 0
+      : q[2] * (q[0] + dx) + q[3] * (q[1] + dy) - (q[2] * fex + q[3] * fey) >= 0;
+    if (away !== q[4]) { armKeepStats.faceDrop++; return false; }
+  }
   if (dx || dy) {
     for (const s of e.rec.sp) { s.x += dx; s.y += dy; }
     for (const r of e.rec.rain) { r[0] += dx; r[1] += dy; }
@@ -52373,6 +52578,7 @@ function armReplay(e, ox, oy, cam, census, ctx, now, retain = true, cx = 0, cy =
     for (const q of e.rec.ba) for (const p of q.p) if (!seen.has(p)) { seen.add(p); p[0] += bx; p[1] += by; }
     e.rec.ba = e.rec.ba.slice(); e.cx = cx; e.cy = cy;
   }
+  if (fade !== 1) { armFadePut(e, fade, census, cam); armKeepStats.replayed++; return true; }
   const retainOn = TUNE.glRetain !== 0 && retain;
   const put = (sink, recs) => {
     if (!sink || !recs.length) return;
@@ -52380,7 +52586,9 @@ function armReplay(e, ox, oy, cam, census, ctx, now, retain = true, cx = 0, cy =
     for (let i = 0; i < recs.length; i++) sink.push(recs[i]);
   };
   put(SPRITE_SINK, e.rec.sp); put(STROKE_SINK, e.rec.st); put(DECAL_SINK, e.rec.de);
-  if (BAY_SINK && e.rec.ba.length) { if (retainOn) bayGroup(e.rec.ba); else for (const q of e.rec.ba) BAY_SINK.push(q); }
+  // A mark's faces are never a retained group: its metals are smoothed against their neighbours on
+  // the stream (gl/solids.js smooth), which a group never is (markKept).
+  if (BAY_SINK && e.rec.ba.length) { if (retainOn && !ARM_MARK) bayGroup(e.rec.ba); else for (const q of e.rec.ba) BAY_SINK.push(q); }
   // glowPool's census step, as it ran it: the same projection, the same near test and size.
   if (census && RAIN_LIGHTS) for (const r of e.rec.rain) {
     const g = cam.proj(r[0], r[1], r[2]); if (g.f <= 0.12) continue;
@@ -52406,8 +52614,187 @@ function armPoints(rec) {
   for (const d of rec.de) { if (d.p) d.p.forEach(add); if (d.rp) d.rp.forEach(add); if (d.rc) d.rc.forEach(add); }
   return [...seen];
 }
+// ── IN THE HAZE BAND (RENDER_TUNE.armFade) ───────────────────────────────────────────────────────
+//
+// A building dissolving at the draw limit has an alpha that moves with every frame of travel, and
+// alpha was in the key, so it ran live all the way through the band: fourteen a frame from a Marrow
+// cab, where the band is most of the window. But an arm's alpha only scales what it pushes. So a
+// fading building's kept set is its recording at alpha 1, alpha is left out of the key, and a fading
+// frame pushes the set with every record's alpha times the fade. The set is the same one the building
+// keeps once it's fully in, so a building probed in the band doesn't probe again when it arrives.
+//
+// ⚠ DETECTED, NEVER PREDICTED. A probe in the band records the frame's live draw at the fade and a
+// scratch run at alpha 1, and keeps only if the second, scaled, is the first (armFadeCanon). An arm
+// whose output isn't proportional to its alpha (a clamp at 1, a live part that is handed the alpha)
+// fails it and runs live while it fades (`noFade`, armKeepStats.fadeLive). A recheck in the band
+// compares the same way.
+// ⚠ AND THE PRIMITIVES' OWN CUT-OFFS. pushLight drops a light at alpha 0.002 and pushStroke a wire at
+// 0.004, and glowPool enters the rain census only above 0.05, so a faint record scaled down crosses a
+// line the live draw would have crossed. A frame where any record would land within rounding of one
+// of those runs live (armFadeSafe, fadeEdge); everywhere else the scaled set is what the arm draws.
+// ⚠ THROUGH THE STREAM, NOT AS RETAINED GROUPS: a group is written to the GPU once and its alpha
+// changes every frame here.
+const ARM_FADE_EPS = 1e-6;
+function armFadeSafe(rec, k) {
+  for (const s of rec.sp) if (s.a * k <= 0.002 * (1 + ARM_FADE_EPS)) return false;
+  for (const s of rec.st) if (s.alpha * k <= 0.004 * (1 + ARM_FADE_EPS)) return false;
+  for (const r of rec.rain) if (Math.abs(r[6] * k - 0.05) <= 0.05 * ARM_FADE_EPS) return false;
+  return true;
+}
+// What the set scaled by `k` would canonicalise to, to compare with a live recording at that fade.
+function armFadeCanon(rec, k, ox, oy, cx, cy) {
+  return armCanon({ sp: rec.sp.map((s) => ({ ...s, a: s.a * k })), st: rec.st.map((s) => ({ ...s, alpha: s.alpha * k })),
+    de: rec.de.map((d) => ({ ...d, alpha: (d.alpha == null ? 1 : d.alpha) * k })), ba: rec.ba.map((q) => ({ ...q, a: q.a * k })),
+    live: rec.live, rain: rec.rain.filter((r) => r[6] * k > 0.05).map((r) => [r[0], r[1], r[2], r[3], r[4], r[5], r[6] * k]) }, ox, oy, cx, cy);
+}
+// The scaled set into the sinks, and its glows into the census at the scaled alpha. `e` is a kept set
+// already moved into this frame (armReplay).
+// ⚠ FRESH COPIES EACH FRAME, NEVER ONE SET REWRITTEN. A record a layer has seen is taken to be what
+// it was (gl/solids.js skips the same record at the same slot; perf:retain hands arrays back), so
+// last frame's copy with this frame's alpha written into it drew last frame's alpha.
+function armFadePut(e, k, census, cam) {
+  const R = e.rec;
+  for (const s of R.sp) SPRITE_SINK.push({ ...s, a: s.a * k });
+  if (STROKE_SINK) for (const s of R.st) STROKE_SINK.push({ ...s, alpha: s.alpha * k });
+  if (DECAL_SINK) for (const d of R.de) DECAL_SINK.push({ ...d, alpha: (d.alpha == null ? 1 : d.alpha) * k });
+  if (BAY_SINK) for (const q of R.ba) BAY_SINK.push({ ...q, a: q.a * k });
+  if (census && RAIN_LIGHTS) for (const r of R.rain) {
+    const a = r[6] * k; if (!(a > 0.05)) continue;
+    const g = cam.proj(r[0], r[1], r[2]); if (g.f <= 0.12) continue;
+    rainCensus(g.sx, g.sy, clamp(r[3] / g.f, 3, r[4]) * 5, r[5], a);
+  }
+}
+// A scratch recording's records out of the sinks again.
+function armTrunc(rec) {
+  SPRITE_SINK.length = rec.marks[0]; if (STROKE_SINK) STROKE_SINK.length = rec.marks[1];
+  if (DECAL_SINK) DECAL_SINK.length = rec.marks[2]; if (BAY_SINK) BAY_SINK.length = rec.marks[3]; armSideTrunc(rec.side);
+}
+// A fading frame (it.alpha < 1) of a building whose entry `e` is keyed without its alpha. Replays the
+// kept set scaled, or probes it as drawTypeModelKept does, or runs it live. Returns nothing.
+function armFadeKept(ctx, cam, it, fh, now, run, e, ox, oy, pose) {
+  const c = it.c, k = it.alpha;
+  armKeepStats.fading++;
+  if (e.noFade) { armKeepStats.fadeLive++; run(); return; }
+  if (e.kept) {
+    // Kept while still, or with a live part (handed the alpha it was recorded at): live until fully in.
+    if (e.kept.still || e.kept.rec.live.length) { armKeepStats.fadeLive++; run(); return; }
+    if (!armFadeSafe(e.kept.rec, k)) { armKeepStats.fadeEdge++; run(); return; }
+    // ⚠ A SET KEPT AT ALPHA 1 IS TESTED BEFORE IT IS EVER SCALED. One probed in the band was compared
+    // with the live draw at its fade; one kept at full alpha never was, and an arm that scales a glow's
+    // colour by its alpha rather than its alpha (the South Lock's light lines) isn't proportional. So
+    // its first fading frame records the live draw and compares (`fadeOK`), and until then it runs live.
+    if (e.kept.fadeOK === undefined) {
+      if (ARM_CHECKS >= 2 || !(cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh)) { armKeepStats.fadeLive++; run(); return; }
+      ARM_CHECKS++;
+      const K = e.kept, rec = armRecord(ctx, run, false, now), want = armFadeCanon(K.rec, k, K.ox, K.oy, K.cx || 0, K.cy || 0);
+      const got = rec && armCanon(rec, ox, oy, ARM_CX, ARM_CY);
+      K.fadeOK = got === want;
+      if (!K.fadeOK) { e.noFade = true; armWhy(c, rec ? 'fade' : 'fade:side', got, want); }
+      return;   // the live draw stands
+    }
+    if (ARM_FRAME - e.checked >= ARM_RECHECK && ARM_CHECKS < 2 && cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh) {
+      // The recheck, in the band: the frame's live draw against the scaled set. The live draw stands.
+      ARM_CHECKS++; armKeepStats.rechecked++;
+      // ⚠ THE SET IN ITS OWN FRAME: its records are where the last replay moved them (`e.kept.ox`),
+      // not this frame's, and its bay faces in the window it was last sent in.
+      const K = e.kept, rec = armRecord(ctx, run, false, now), want = armFadeCanon(K.rec, k, K.ox, K.oy, K.cx || 0, K.cy || 0);
+      const got = rec && armCanon(rec, ox, oy, ARM_CX, ARM_CY);
+      if (got !== want) { armWhy(c, rec ? 'fade:recheck' : 'recheck:side', got, want); e.live = true; e.liveAt = ARM_FRAME; e.kept = null; armKeepStats.dropped++; return; }
+      e.checked = ARM_FRAME; return;
+    }
+    if (RENDER_TUNE.armNearWire !== 0 && armNearWire(e.kept, ox, oy, cam)) { armKeepStats.nearWire++; run(); return; }
+    if (armReplay(e.kept, ox, oy, cam, true, ctx, now, false, ARM_CX, ARM_CY, k)) { armKeepStats.fadeKept++; return; }
+    e.kept = null; e.probe = null; armKeepStats.webDrop++; run(); return;
+  }
+  // Probing in the band, on drawTypeModelKept's schedule. Never kept while still here: armStill's
+  // confirmation compares a live draw with the set, and in the band the two differ by the fade.
+  if ((e.probe && ARM_FRAME - e.probe.frame < ARM_GAP) || ARM_FRAME - e.tried < ARM_GAP) { armKeepStats.gap++; run(); return; }
+  if (!(cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh)) { armKeepStats.near++; run(); return; }
+  e.tried = ARM_FRAME;
+  const rec = armRecord(ctx, run, false, now);   // this frame's draw, which stands
+  if (!rec) { armWhy(c, ARM_WHY_SIDE); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
+  const one = armRecord(ctx, () => run(now, 1), true, now);
+  if (one) armTrunc(one);
+  if (!one || one.live.length) { e.noFade = true; armWhy(c, one ? 'fade:live' : 'fade:side'); armKeepStats.fadeLive++; return; }
+  if (!armFadeSafe(one, k)) { armKeepStats.fadeEdge++; return; }   // can't be told at this fade: asked again ARM_GAP frames on
+  const got = armCanon(rec, ox, oy, ARM_CX, ARM_CY), want = armFadeCanon(one, k, ox, oy, ARM_CX, ARM_CY);
+  if (got !== want) { e.noFade = true; armWhy(c, 'fade', got, want); armKeepStats.fadeLive++; return; }
+  const canon = armCanon(one, ox, oy, ARM_CX, ARM_CY);
+  for (const dt of [1234.5, 9876.5]) {
+    const shadow = armRecord(ctx, () => run(now + dt, 1), true, now + dt, dt);
+    if (shadow) armTrunc(shadow);
+    if (!shadow || armCanon(shadow, ox, oy, ARM_CX, ARM_CY) !== canon) { armWhy(c, shadow ? 'clock' : ARM_WHY_SIDE, canon, shadow && armCanon(shadow, ox, oy, ARM_CX, ARM_CY)); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
+  }
+  armKeepStats.fadeProbe++;
+  if (e.probe && poseMoved(e.probe.pose, pose)) {
+    if (canon !== e.probe.canon) { ARM_POSE_SUSPECT.add(armType(c)); armWhy(c, 'pose', e.probe.canon, canon); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
+    e.kept = { rec: one, canon, pts: armPoints(one), ox, oy, cx: ARM_CX, cy: ARM_CY, fadeOK: true };
+    e.checked = ARM_FRAME; e.probe = null; armKeepStats.kept++;
+    return;   // this frame's live draw stands: the scaled set is the same
+  }
+  e.probe = { canon, pose, frame: ARM_FRAME };
+  armKeepStats.probing++;
+}
+// ── THE MARKS, SHADED ON THE GPU AND KEPT (RENDER_TUNE.marksGPU) ─────────────────────────────────
+//
+// The South Lock, the AA batteries, the media lot and the statue were the dearest things in the
+// sweep after the buildings (1.25, 0.78, 0.47 and 0.40 ms of a moving Halcyon cockpit frame,
+// headless), and none of them could be kept: each shaded every face on the CPU from the eye and
+// turned its normal toward it, so every record moved with the camera. With the switch on they send
+// each face's base colour, a normal and a material code (`tex`, see the marks in gl/solids.js) and
+// the shader does both per pixel. MARK_ENV is the frame they're lit in: one object, rewritten once a
+// frame and carried on the bay list as `menv` (on the list, not on each face: one read a frame, where
+// a scan of every face for it cost the solids upload more than it saved), which the layer reads as
+// uniforms.
+//
+// Then a mark is two passes. `static` is everything that doesn't move, and goes through
+// drawTypeModelKept as a building does, so it's detected rather than assumed: two probes, the clock
+// tests, rechecks, and live if it does anything a replay can't. `dynamic` (the lock's end walls,
+// eye, collar and studs; the AA's guns, radar and lamps; the statue's water) runs every frame.
+// ⚠ A MARK'S FACES STREAM, they never go as a retained group: the lock's and the statue's copper
+// are metals, smoothed against their neighbours every frame (ARM_MARK in armReplay).
+// ⚠ AND ITS KEPT ENTRY IS NOT ITS CELL'S. A lot wall stands on a building's tile, which has a kept
+// entry of its own, so a mark is filed under a stand-in object per cell (MARK_CELL).
+let ARM_MARK = false;
+const MARK_IT = { c: null, dx: 0, dy: 0, alpha: 1 }, MARK_FACE = [0, 0], MARK_CELL = new WeakMap();
+const MARK_ENV = { L: [0.35, -0.5, 0.79], L2: [0, 0, 1], p: [0, 0, 0, 0], hor: [0, 0, 0], top: [0, 0, 0], g1: [0, 0, 0] };
+let MARK_ENV_AT = -1;
+// The frame's MARK_ENV, from the values each mark's own shading read: makeShade's (glass/aa-emplacement.js,
+// glass/media-lot.js) and statueShade's, which differ in their light with no sun.
+function markEnvFrame(night, sun, sky) {
+  if (BAY_SINK) BAY_SINK.menv = MARK_ENV;
+  if (MARK_ENV_AT === ARM_FRAME) return MARK_ENV;
+  MARK_ENV_AT = ARM_FRAME;
+  const E = MARK_ENV, nt = clamp(night || 0, 0, 1), wet = clamp(wetGround(), 0, 1), day = 1 - nt;
+  const se = sun ? clamp(sun.elev, 0, 1) : 0.6, fl = Math.sqrt(Math.max(0, 1 - se * se));
+  if (sun && sun.dir) { E.L[0] = sun.dir[0] * fl; E.L[1] = sun.dir[1] * fl; E.L[2] = se; } else { E.L[0] = 0.35; E.L[1] = -0.5; E.L[2] = 0.79; }
+  const s2 = sun ? clamp(sun.elev, 0, 1) : 0, f2 = Math.sqrt(Math.max(0, 1 - s2 * s2));
+  if (sun) { E.L2[0] = sun.dir[0] * f2; E.L2[1] = sun.dir[1] * f2; E.L2[2] = s2; } else { E.L2[0] = 0; E.L2[1] = 0; E.L2[2] = 1; }
+  E.p[0] = nt; E.p[1] = wet; E.p[2] = sun ? clamp(se * 4, 0, 1) * day : day; E.p[3] = sun && s2 > 0.02 ? 1 : 0;  const SK = (sky && sky.top && sky.hor && sky.g1) ? sky : STATUE_SKY;
+  for (let i = 0; i < 3; i++) { E.hor[i] = SK.hor[i] / 255; E.top[i] = SK.top[i] / 255; E.g1[i] = SK.g1[i] / 255; }
+  return E;
+}
+const STATUE_SKY = { top: [26, 108, 166], hor: [156, 196, 216], g1: [56, 72, 42] };
+// A mark face for the GPU: the base colour, the normal as wound and the material code.
+function markFaceGL(pts, cam, rgb, a, n, tex) {
+  BAY_SINK.push({ p: pts.map(([x, y, z]) => [x + cam.ox, y + cam.oy, z]), rgb, a, n, amb: true, tex });
+}
+// The two passes of a mark: the static one kept as a building's arm is, then the dynamic one.
+// `draw(t, a, part)` draws the mark at clock `t`, alpha `a`, and `part` 'static' or 'dynamic'.
+// `extra`: the camera terms the mark's static pass branches on (its near detail), for the key.
+function markKept(ctx, cam, it, night, now, draw, extra = '') {
+  let mc = MARK_CELL.get(it.c);
+  if (!mc) MARK_CELL.set(it.c, mc = { mark: it.c.mark || 'lot' });
+  MARK_IT.c = mc; MARK_IT.dx = it.dx; MARK_IT.dy = it.dy; MARK_IT.alpha = it.alpha;
+  ARM_MARK = true;
+  try { drawTypeModelKept(ctx, cam, MARK_IT, MARK_FACE, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, now, (t = now, a = it.alpha) => draw(t, a, 'static'), extra); }
+  finally { ARM_MARK = false; }
+  draw(now, it.alpha, 'dynamic');
+}
 // The arm call, kept when it can be. `run` draws it the ordinary way. Returns nothing.
-function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run) {
+// `extra` goes on the end of the key: a camera term a caller knows its draw branches on (a mark's
+// near detail, markKept). '' for every building.
+function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run, extra = '') {
   if (RENDER_TUNE.armKeep === 0 || !SPRITE_SINK || SHAPE_SINK || MESH_SINK) { run(); return; }
   const c = it.c;
   let e = ARM_KEEP.get(c);
@@ -52419,7 +52806,9 @@ function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run) {
   // every turn of the head, and alpha is in the key, so each frame was a new entry and a new probe:
   // three arm runs where running it live is one. A cab measured 0.7-1.5 ms slower for it once the
   // rain census stopped those buildings going live. It runs live until it is fully in.
-  if (it.alpha < 1) { armKeepStats.fading++; run(); return; }
+  // With armFade the band is armFadeKept's, below, and alpha is out of the key.
+  const fadeOn = RENDER_TUNE.armFade !== 0;
+  if (it.alpha < 1 && !fadeOn) { armKeepStats.fading++; run(); return; }
   // World offsets: the camera's place in the window plus the window's centre (ARM_CX; 0 with armWorld off).
   const ox = (cam.ox || 0) + ARM_CX, oy = (cam.oy || 0) + ARM_CY;
   // The front's facing, as drawTypeModelArm decides it: a sign on a turned-away front isn't drawn.
@@ -52429,7 +52818,7 @@ function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run) {
   // could see change: a kept set recorded from outside it held no signs, and flying in, the names
   // stayed off until a recheck (scripts/perf/armkeep-check.mjs, straight flights).
   const signIn = ADORN_TIER < ADORN_NEAR && (TUNE.signFar | 0) > 0 && eyeRange(cam, it.dx, it.dy) < TUNE.signFar;
-  const key = armR6(it.dx + ox) + ',' + armR6(it.dy + oy) + '|' + ADORN_TIER + '|' + front + '|' + it.alpha + '|' + night + '|' + POWER_DUTY + '|' + _frameDpr + '|' + ARM_TUNE + '|' + signIn;
+  const key = armR6(it.dx + ox) + ',' + armR6(it.dy + oy) + '|' + ADORN_TIER + '|' + front + '|' + (fadeOn ? 1 : it.alpha) + '|' + night + '|' + POWER_DUTY + '|' + _frameDpr + '|' + ARM_TUNE + '|' + signIn + extra;
   // ⚠ THE EYE IN THE WINDOW, NOT ONLY ITS OFFSET FROM THE CRAFT. `ex`/`ey` are the chase camera's
   // offset and stay put while the craft flies; the travel is in `ox`/`oy`. Without them a straight,
   // level run never counted as a move, so the second probe never came and nothing was kept: Halcyon
@@ -52441,8 +52830,23 @@ function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run) {
     // `tried` carries over: whatever changes the key, a building probes at most once every ARM_GAP frames.
     e = { key, probe: null, kept: null, tried: e ? e.tried : -ARM_GAP }; ARM_KEEP.set(c, e);
   }
+  if (it.alpha < 1) { armFadeKept(ctx, cam, it, fh, now, run, e, ox, oy, pose); return; }
+  if (e.kept && e.kept.still && poseMoved(e.kept.still, pose)) {
+    // Kept while still, and the camera has moved since: confirm it, or run it live until we can.
+    if (ARM_STILL_N >= ARM_STILL_MAX || !(cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh)) { armKeepStats.stillWait++; run(); return; }
+    ARM_STILL_N++; armKeepStats.stillConfirm++;
+    const rec = armRecord(ctx, run, false, now);
+    const ok = rec && armCanon(rec, ox, oy, ARM_CX, ARM_CY) === e.kept.canon;
+    if (!ok) { if (rec) ARM_POSE_SUSPECT.add(armType(c)); armWhy(c, rec ? 'still' : 'still:side', rec && armCanon(rec, ox, oy, ARM_CX, ARM_CY), e.kept.canon); e.live = true; e.liveAt = ARM_FRAME; e.kept = null; armKeepStats.dropped++; return; }   // what it just drew stands
+    SPRITE_SINK.length = rec.marks[0]; if (STROKE_SINK) STROKE_SINK.length = rec.marks[1];
+    if (DECAL_SINK) DECAL_SINK.length = rec.marks[2]; if (BAY_SINK) BAY_SINK.length = rec.marks[3]; armSideTrunc(rec.side);
+    e.kept.still = null; e.checked = ARM_FRAME;
+    armReplay(e.kept, ox, oy, cam, false, ctx, now, true, ARM_CX, ARM_CY);
+    return;
+  }
   if (e.kept) {
     if (ARM_FRAME - e.checked < ARM_RECHECK || ARM_CHECKS >= 2 || !(cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh)) {
+      if (RENDER_TUNE.armNearWire !== 0 && armNearWire(e.kept, ox, oy, cam)) { armKeepStats.nearWire++; run(); return; }
       if (armReplay(e.kept, ox, oy, cam, true, ctx, now, true, ARM_CX, ARM_CY)) return;
       e.kept = null; e.probe = null; armKeepStats.webDrop++; run(); return;   // the truss detail moved: probed again
     }
@@ -52452,7 +52856,7 @@ function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run) {
     const ok = rec && armCanon(rec, ox, oy, ARM_CX, ARM_CY) === e.kept.canon;
     if (!ok) { armWhy(c, rec ? 'recheck' : 'recheck:side', rec && armCanon(rec, ox, oy, ARM_CX, ARM_CY), e.kept.canon); e.live = true; e.liveAt = ARM_FRAME; e.kept = null; armKeepStats.dropped++; return; }   // what it just drew stands
     SPRITE_SINK.length = rec.marks[0]; if (STROKE_SINK) STROKE_SINK.length = rec.marks[1];
-    if (DECAL_SINK) DECAL_SINK.length = rec.marks[2]; if (BAY_SINK) BAY_SINK.length = rec.marks[3];
+    if (DECAL_SINK) DECAL_SINK.length = rec.marks[2]; if (BAY_SINK) BAY_SINK.length = rec.marks[3]; armSideTrunc(rec.side);
     e.checked = ARM_FRAME;
     armReplay(e.kept, ox, oy, cam, false, ctx, now, true, ARM_CX, ARM_CY);
     return;
@@ -52481,13 +52885,21 @@ function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run) {
   }
   if (e.probe) {
     const p = e.probe.pose, moved = Math.hypot(p.x - pose.x, p.y - pose.y, p.z - pose.z) > 0.02 || Math.abs(p.h - pose.h) > 0.02;
+    if (!moved && RENDER_TUNE.armStill !== 0 && canon === e.probe.canon && !ARM_POSE_SUSPECT.has(armType(c))) {
+      e.kept = { rec, canon, pts: armPoints(rec), ox, oy, cx: ARM_CX, cy: ARM_CY, still: pose };
+      e.checked = ARM_FRAME; e.probe = null; armKeepStats.kept++; armKeepStats.still++;
+      SPRITE_SINK.length = rec.marks[0]; if (STROKE_SINK) STROKE_SINK.length = rec.marks[1];
+      if (DECAL_SINK) DECAL_SINK.length = rec.marks[2]; if (BAY_SINK) BAY_SINK.length = rec.marks[3]; armSideTrunc(rec.side);
+      armReplay(e.kept, ox, oy, cam, false, ctx, now, true, ARM_CX, ARM_CY);
+      return;
+    }
     if (moved) {
-      if (canon !== e.probe.canon) { armWhy(c, 'pose', e.probe.canon, canon); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
+      if (canon !== e.probe.canon) { ARM_POSE_SUSPECT.add(armType(c)); armWhy(c, 'pose', e.probe.canon, canon); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
       e.kept = { rec, canon, pts: armPoints(rec), ox, oy, cx: ARM_CX, cy: ARM_CY };
       e.checked = ARM_FRAME; e.probe = null; armKeepStats.kept++;
       // What it pushed this frame is the kept set itself; register those as groups for the GPU.
       SPRITE_SINK.length = rec.marks[0]; if (STROKE_SINK) STROKE_SINK.length = rec.marks[1];
-      if (DECAL_SINK) DECAL_SINK.length = rec.marks[2]; if (BAY_SINK) BAY_SINK.length = rec.marks[3];
+      if (DECAL_SINK) DECAL_SINK.length = rec.marks[2]; if (BAY_SINK) BAY_SINK.length = rec.marks[3]; armSideTrunc(rec.side);
       armReplay(e.kept, ox, oy, cam, false, ctx, now, true, ARM_CX, ARM_CY);
       return;
     }
@@ -53025,7 +53437,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       const h = floorHeight(it.c, it.seed);
       const fh = (BUILDING_FOOT + frac(it.seed + 2) * 0.06) * RENDER_TUNE.bldgFoot;
       const sm = RENDER_TUNE.shapeShadow ? modelFor(it.c) : null;
-      drawBuildingShadow(ctx, cam, it.dx, it.dy, fh, h, sun, it.alpha, sm ? shapeForModel(sm, it.seed) : null, sm ? faceVec(it.c.ent) : null);
+      drawBuildingShadow(ctx, cam, it.dx, it.dy, fh, h, sun, it.alpha, sm ? shapeForModel(sm, it.seed) : null, sm ? faceVec(it.c.ent) : null, it.c);
     }
   }
   // ONE depth-sorted face queue for the WHOLE world pass (not per-building). Every building's
@@ -53143,7 +53555,12 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // has already read every sink — the trap the Curtain and the scatter each hit once.
     if (it.c.mark === 'statue') {
       const art = () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, sun, sky);
-      if (BAY_SINK && TUNE.glBay !== 0) art(); else emitFace(od, art);
+      // With marksGPU, shaded on the GPU and kept (markKept). Its copper's metal takes the wet, so that's in the key.
+      if (RENDER_TUNE.marksGPU > 0 && BAY_SINK && TUNE.glBay !== 0) {
+        markEnvFrame(night, sun, sky);
+        markKept(ctx, cam, it, night, now, (t, a, part) => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, a, t, sun, sky, part),
+          '|w' + Math.round(clamp(wetGround(), 0, 1) * 32));
+      } else if (BAY_SINK && TUNE.glBay !== 0) art(); else emitFace(od, art);
       continue;
     }   // town-square monument + fountain
     if (it.c.mark === 'gate') {
@@ -53189,7 +53606,11 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // reason. Painted on the canvas it had no depth and showed through every building and through
     // the aircraft in the chase view. The 2-D painter keeps the old sorted-canvas drawer.
     if (it.c.mark === 'lock') {
-      if (BAY_SINK && TUNE.glBay !== 0) drawGateLockGL(cam, it.dx, it.dy, it.c.lk, night, alpha, now, sun);
+      // With marksGPU its faces go over for the shader to turn to the eye, and its halls are kept (markKept).
+      if (BAY_SINK && TUNE.glBay !== 0 && RENDER_TUNE.marksGPU > 0) {
+        markEnvFrame(night, sun, sky);
+        markKept(ctx, cam, it, night, now, (t, a, part) => drawGateLockGL(cam, it.dx, it.dy, it.c.lk, night, a, t, sun, part));
+      } else if (BAY_SINK && TUNE.glBay !== 0) drawGateLockGL(cam, it.dx, it.dy, it.c.lk, night, alpha, now, sun);
       else {
         const art = () => drawGateLock(ctx, cam, it.dx, it.dy, it.c.lk, night, alpha, now, it.seed);
         emitMarked(art);
@@ -53213,14 +53634,22 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // canvas) had never drawn in the game at all.
     // AN AA BATTERY'S DECK (drawAAMark). Like the camp, a Curtain battery falls through to the wall.
     if (it.c.mark === 'aa') {
-      drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od);
+      // With marksGPU, shaded on the GPU and its pit kept (markKept); its near detail is in the key.
+      // ⚠ THE BATTERY'S POWER FIRST: it runs on its own generator, and the key reads POWER_DUTY.
+      if (RENDER_TUNE.marksGPU > 0 && BAY_SINK && TUNE.glBay !== 0) {
+        clearTilePower(); markEnvFrame(night, sun, sky);
+        markKept(ctx, cam, it, night, now, (t, a, part) => drawAAMark(ctx, cam, it, v, night, a, t, sun, sky, od, part), eyeRange(cam, it.dx, it.dy) < 7 ? '|n' : '|f');
+      } else drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od);
       if (!it.c.cur) continue;
     }
     // THE MEDIA LOT'S COURT AND CAR PARK (drawLotMark), drawn during the sweep for the battery's
     // reason. `continue` because the tile is still concrete underneath and the ground pass painted it.
-    if (it.c.mark === 'lot') { drawLotMark(ctx, cam, it, night, alpha, now, sun, od); continue; }
+    // With marksGPU it's shaded on the GPU and kept (markKept); its near detail is in the key.
+    const lotGL = (it.c.mark === 'lot' || it.c.ml?.p === 'x') && RENDER_TUNE.marksGPU > 0 && BAY_SINK && TUNE.glBay !== 0;
+    if (lotGL) { markEnvFrame(night, sun, sky); markKept(ctx, cam, it, night, now, (t, a, part) => drawLotMark(ctx, cam, it, night, a, t, sun, od, part), eyeRange(cam, it.dx, it.dy) < 6 ? '|n' : '|f'); }
+    if (it.c.mark === 'lot') { if (!lotGL) drawLotMark(ctx, cam, it, night, alpha, now, sun, od); continue; }
     // One of the lot's buildings: the wall along its street faces, then on to the building itself.
-    if (it.c.ml?.p === 'x') drawLotMark(ctx, cam, it, night, alpha, now, sun, od);
+    if (it.c.ml?.p === 'x' && !lotGL) drawLotMark(ctx, cam, it, night, alpha, now, sun, od);
     if (it.c.mark === 'camp') {
       ADORN_TIER = (TUNE.detailNear || 0) > 0 && eyeRange(cam, it.dx, it.dy) < TUNE.detailNear ? ADORN_NEAR : ADORN_RICH;
       try { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, it.c.cur ? (it.c.ci || campInward(map, it.rx, it.ry, it.c.cur)) : null, now); }
@@ -53582,7 +54011,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         // glow, bloom, painted signage — which is not geometry and has no place in a mesh.
         MASS_OFF = glMass; FLAT_OFF = glMass;
         try {
-          const run = (t = now) => drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, bNight, alpha, t, face, it.c.bn, it.c.brd);
+          const run = (t = now, a = alpha) => drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, bNight, a, t, face, it.c.bn, it.c.brd);
           // Kept when it can be (Stage 3 phase 5): only with the mass on the GPU, which is when all an
           // arm has left to do is collect.
           if (glMass) drawTypeModelKept(ctx, cam, it, face, fh, bNight, now, run); else run();
@@ -53864,7 +54293,11 @@ function statueDiffuse(base, n, sun, wet) {
   const k = (0.34 + 0.66 * Math.max(0, n[0] * L[0] + n[1] * L[1] + n[2] * L[2])) * (1 - 0.30 * wet);
   return [clamp(base[0] * k, 0, 255) | 0, clamp(base[1] * k, 0, 255) | 0, clamp(base[2] * k, 0, 255) | 0];
 }
-function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
+// `part` is markKept's (RENDER_TUNE.marksGPU): 'static' draws the monument, its fixed wires and its
+// uplighters, unshaded for the GPU (markFaceGL); 'dynamic' the water, which reads the clock, and every
+// ground pool, which is a side channel (GROUND_MESH) a kept set can't hold. Absent, both, as before.
+function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky, part) {
+  const S = !part || part === 'static', D = !part || part === 'dynamic';
   const R = fh * 0.96;                                    // fountain basin radius (tiles)
   const p0 = cam.proj(dx, dy, 0); if (!p0 || p0.f <= 0.10) return;
   // Fall back to a plain daylight sky rather than refusing to draw: every caller in the world pass
@@ -53897,8 +54330,9 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
   // two hundred entries with the whole city at their own depths, which is correct and is two
   // hundred entries in a shared queue for an object whose parts only ever occlude each other.
   const soft = [];
+  const gpu = !!part && toGL;
   const face = (pts, base, opts = {}) => {
-    if (pts.length < 3 || (!toGL && soft.length >= STATUE_FACES)) return;
+    if (!S || pts.length < 3 || (!toGL && soft.length >= STATUE_FACES)) return;
     // Newell's normal, so a quad that is not quite planar still gets an honest one.
     let nx = 0, ny = 0, nz = 0, cx = 0, cy = 0, cz = 0;
     for (let i = 0; i < pts.length; i++) {
@@ -53908,6 +54342,15 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
     }
     const nl = Math.hypot(nx, ny, nz) || 1; nx /= nl; ny /= nl; nz /= nl;
     cx /= pts.length; cy /= pts.length; cz /= pts.length;
+    // On the GPU the shader turns the normal and shades (statueShade, statueDiffuse for the copper):
+    // the base, the normal as wound and the face's wetness go over, with no eye in any of them.
+    if (gpu) {
+      const a = alpha * (opts.a == null ? 1 : opts.a), n = [nx, ny, nz];
+      if (CU.has(base)) BAY_SINK.push({ p: pts.map(([x, y, z]) => [x + cam.ox, y + cam.oy, z]), a, rgb: base, m: cuM, n, env: cuEnv,
+        lp: pts.map(([x, y, z]) => [(x - dx) * BIRD_M_PER_TILE, (y - dy) * BIRD_M_PER_TILE, z * BIRD_M_PER_TILE]), tex: -7 });
+      else markFaceGL(pts, cam, base, a, n, opts.dry ? -6 : -5);
+      return;
+    }
     let vx = EX - cx, vy = EY - cy, vz = EZ - cz;
     const vl = Math.hypot(vx, vy, vz) || 1; vx /= vl; vy /= vl; vz /= vl;
     // ⚠ NO CULLING; THE NORMAL IS TURNED TOWARD THE EYE INSTEAD. These are closed solids, so a
@@ -54055,7 +54498,7 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
   // ⚠ A SPLASH TAKES FEWER SIDES THAN THE BASIN DOES, so the segment count is the caller's. The
   // basin is one disc the size of the tile and wants sixteen; the ring under a jet is a few pixels
   // across and there are eight of them a frame, which is sixteen-gons nobody will ever resolve.
-  const pool = (rad, rgb, a, ox = 0, oy = 0, n = N) => groundPoly(ctx, cam, dx, dy, discPts(rad, n, ox, oy), rgb, a, WATER_Z);
+  const pool = (rad, rgb, a, ox = 0, oy = 0, n = N) => { if (D) groundPoly(ctx, cam, dx, dy, discPts(rad, n, ox, oy), rgb, a, WATER_Z); };
   const WATER = night ? [24, 48, 72] : [52, 112, 146];
   pool(R * 0.88, WATER, alpha);
   // ⚠ THE DARK RING IS THE COPING'S OWN SHADOW ON THE WATER, and it is what says the basin has a
@@ -54188,7 +54631,7 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
     // him. Slung things intersect what they are slung on.
     const cr = at(-W * 0.34, -W * 0.80, T + U * 2.30);
     box(cr[0] - dx, cr[1] - dy, W * 0.38, W * 0.30, T + U * 1.94, T + U * 2.44, rot, [92, 78, 52], {});
-    emitWire(ctx, cam, [cr[0], cr[1], T + U * 2.46], at(W * 0.10, W * 0.72, T + U * 3.56), 1.6,
+    if (S) emitWire(ctx, cam, [cr[0], cr[1], T + U * 2.46], at(W * 0.10, W * 0.72, T + U * 3.56), 1.6,
       night ? 'rgba(52,44,32,0.95)' : 'rgba(78,66,46,0.95)', alpha, { cap: 'round', pull: PARK_PULL });
   }
   // Where the catch ended up, for the night lighting to find. ⚠ HOISTED RATHER THAN RE-AUTHORED:
@@ -54311,7 +54754,7 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
     // plinth. Now it has something on the end of it, which is the other half of the same fix — a
     // line into an empty pool is a scratch with a story.
     const tip = P[P.length - 1];
-    emitWire(ctx, cam, [tip[0], tip[1], tip[2]], fMouth, 1.0,
+    if (S) emitWire(ctx, cam, [tip[0], tip[1], tip[2]], fMouth, 1.0,
       night ? 'rgba(150,166,158,0.55)' : 'rgba(198,206,196,0.6)', alpha, { cap: 'round', pull: PARK_PULL });
     // ⚠ AND IT IS STILL DRIPPING, WHICH IS THE ONLY THING THAT SAYS IT CAME OUT OF THE WATER. A
     // copper fish on a copper line is a shape hanging in the air; the run of water off its tail is
@@ -54324,7 +54767,7 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
       // plinth on the way down, so half of it reads as water running off the stonework. Two thirds
       // of the fall, fading to nothing, is a drop you lose sight of.
       const z0 = from[2] - ph * (from[2] - WATER_Z) * 0.66;
-      emitWire(ctx, cam, [from[0], from[1], z0], [from[0], from[1], z0 - U * 0.22], 1.1,
+      if (D) emitWire(ctx, cam, [from[0], from[1], z0], [from[0], from[1], z0 - U * 0.22], 1.1,
         night ? 'rgba(168,206,232,0.7)' : 'rgba(224,242,252,0.8)', alpha * (1 - ph) * 0.9, { cap: 'round', pull: PARK_PULL });
     }
     // And the ring in the pool underneath, still opening from where he pulled it out. The basin
@@ -54345,8 +54788,8 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
   }
   for (let i = 0; i < BN; i++) {
     const a = bol[i], b = bol[(i + 1) % BN], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-    emitWire(ctx, cam, a, [mx, my, a[2] - U * 0.12], 1.4, 'rgba(48,52,56,0.95)', alpha, { cap: 'round', pull: PARK_PULL });
-    emitWire(ctx, cam, [mx, my, a[2] - U * 0.12], b, 1.4, 'rgba(48,52,56,0.95)', alpha, { cap: 'round', pull: PARK_PULL });
+    if (S) emitWire(ctx, cam, a, [mx, my, a[2] - U * 0.12], 1.4, 'rgba(48,52,56,0.95)', alpha, { cap: 'round', pull: PARK_PULL });
+    if (S) emitWire(ctx, cam, [mx, my, a[2] - U * 0.12], b, 1.4, 'rgba(48,52,56,0.95)', alpha, { cap: 'round', pull: PARK_PULL });
   }
   // ── 5. THE WATER, AND THE LIGHT ON IT ──────────────────────────────────────
   //
@@ -54404,8 +54847,8 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
         prev = cur;
       }
     };
-    strand(0, 1, 1, 1, 6);
-    strand(0.05, 0.86, 0.5, 0.5, 4);
+    if (D) strand(0, 1, 1, 1, 6);
+    if (D) strand(0.05, 0.86, 0.5, 0.5, 4);
     // Where it goes in: a bright fleck of disturbance with a ring opening out of it, and a couple
     // of short flicks standing up off the surface. ⚠ SMALL AND MANY BEATS BIG AND FEW — a splash
     // the size of the one in the middle would be six more fountains rather than six spouts.
@@ -54416,12 +54859,12 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
     for (let k = 0; k < 2; k++) {
       const fh2 = U * 0.10 * (0.4 + 0.9 * Math.abs(Math.sin(now * 0.0033 + i * 2.1 + k * 1.9)));
       const off = (k ? 0.055 : -0.06);
-      emitWire(ctx, cam, [dx + Math.cos(ja + off) * land, dy + Math.sin(ja + off) * land, WATER_Z],
+      if (D) emitWire(ctx, cam, [dx + Math.cos(ja + off) * land, dy + Math.sin(ja + off) * land, WATER_Z],
         [dx + Math.cos(ja + off) * (land - R * 0.03), dy + Math.sin(ja + off) * (land - R * 0.03), WATER_Z + fh2], 1.2,
         night ? 'rgba(178,216,240,0.55)' : 'rgba(236,248,255,0.6)', alpha, { cap: 'round', pull: PARK_PULL });
     }
   }
-  if (night) {
+  if (night && S) {
     for (let i = 0; i < 4; i++) {   // uplighters let into the coping
       const a = (i / 4) * Math.PI * 2 + 0.8;
       glowPool(ctx, cam, dx + Math.cos(a) * R * 0.5, dy + Math.sin(a) * R * 0.5, WATER_Z, '255,214,150', 7, alpha * 0.35);
@@ -55814,6 +56257,8 @@ const LCK_MAST_RGB = [255, 226, 180];
 // through. Keyed on the tile's `lk`, so a lock leaving the map window takes its slots with it.
 const LCK_MEMO = new WeakMap();
 const lockMemoFor = (lk) => { let m = LCK_MEMO.get(lk); if (!m) LCK_MEMO.set(lk, m = { recs: [], env: null }); return m; };
+// A memo of its own for each of markKept's passes (drawGateLockGL `part`).
+const lockMemoPart = (lk, part) => { const m = lockMemoFor(lk); return m[part] || (m[part] = { recs: [], env: null }); };
 let LCK_X = new Float64Array(64), LCK_Y = new Float64Array(64), LCK_Z = new Float64Array(64);
 const lckScratch = (n) => {
   if (n <= LCK_X.length) return;
@@ -55902,8 +56347,18 @@ function lockWallZAt(px, py, cellAt) {
 // as drawStatue and drawVehicleBay do; the decals take the dx/dy frame as it is.
 // ⚠ NO STROBE: the red is the same smooth never-dark swell as the 2-D drawer's, the arrow's run
 // never takes a chevron below a third, and the eye blinks for a quarter of a second in eleven.
-function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
+// `part` is markKept's (RENDER_TUNE.marksGPU). 'static' draws the halls, frames, doors, gantries and
+// boards; 'dynamic' the end walls (their colour and bow depend on which side the eye is), the eye,
+// the field collar, the approach studs and the board's changing text. A lock in lockdown or with a
+// red signal swells every lamp with the clock, so it's all dynamic. With a part, a face goes over
+// facing out of the hall (from AXA) rather than toward the eye, for the shader to turn (tex -1).
+// Absent, everything, as before.
+function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun, part) {
   if (!lk || !BAY_SINK) return;
+  const gpu = !!part, anim = !!(LCK_SIG[lk.st] ? lk.st === 'red' : false) || !!lk.ld;
+  const S = !gpu || (anim ? part === 'dynamic' : part === 'static'), D = !gpu || part === 'dynamic';
+  if (!S && !D) return;
+  let AXA = 0;   // the hall's axis across `a`: the middle of a wide hall, 0 for a narrow vault
   const H = 0.5, Z = LCK_ROOF_Z;
   const ox = cam.ox || 0, oy = cam.oy || 0;
   const EX = (cam.ex || 0) - ox, EY = (cam.ey || 0) - oy, EZ = cam.EH == null ? 0.2 : cam.EH;
@@ -55955,7 +56410,8 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
   // rebuilds its own slot; a branch that shifts the sequence costs one frame of rebuilding. The
   // points go through a scratch buffer rather than arrays, so a hit allocates nothing at all.
   // `RENDER_TUNE.lockCache` 0 builds every record fresh; `perf/exact.mjs lockCache` holds the two equal.
-  const memo = TUNE.lockCache !== 0 ? lockMemoFor(lk) : null;
+  // One memo per pass: each pass is its own run of slots.
+  const memo = TUNE.lockCache !== 0 ? (part ? lockMemoPart(lk, part) : lockMemoFor(lk)) : null;
   let slot = 0;
   if (memo) {
     const e = memo.env;
@@ -55976,8 +56432,12 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     }
     const l = Math.hypot(nx, ny, nz); if (!(l > 1e-9)) return;
     nx /= l; ny /= l; nz /= l; cx /= n; cy /= n; cz /= n;
-    // Turned toward the eye, as the statue's are: a wall is seen from both sides.
-    if (nx * (EX - cx) + ny * (EY - cy) + nz * (EZ - cz) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+    // Turned toward the eye, as the statue's are: a wall is seen from both sides. ⚠ ON THE GPU
+    // (`gpu`) TURNED OUT OF THE HALL INSTEAD, away from its axis at the floor, and the shader turns it
+    // to the eye per pixel: what matters here is that neighbouring metals agree, so they smooth
+    // together (gl/solids.js smooth). A bowed end wall keeps the eye: it's in the dynamic pass.
+    const out = gpu && !bend;
+    if (out ? nx * (cx - dx - AXA) + ny * (cy - dy) + nz * cz < 0 : nx * (EX - cx) + ny * (EY - cy) + nz * (EZ - cz) < 0) { nx = -nx; ny = -ny; nz = -nz; }
     const metal = !!(mk && metalOn), m = metal ? mk * MK : 0, h = Math.hypot(nx, ny) || 1;
     const s = slot++;
     if (memo) {
@@ -55999,6 +56459,7 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     const p = new Array(n);
     for (let i = 0; i < n; i++) p[i] = [X[i] + ox, Y[i] + oy, Zs[i]];
     const q = { p, rgb, a: alpha, n: [nx, ny, nz], env };
+    if (out) q.tex = -1;
     if (metal) {
       q.m = m;
       if (bend) {
@@ -56130,10 +56591,10 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
   const portal = (b, out) => rib(NARROW(-H, H), b + out * RD * 1.6, RT * 1.4, RD * 1.6, 0.95 * lit);
   const gantry = (b, out, rgbS, k, board) => {
     const bb = b + out * RD * 3.4, rgb = rgbS.split(',').map(Number);
-    F([[-H + CH, bb, Z - 0.07], [H - CH, bb, Z - 0.07], [H - CH, bb, Z - 0.22], [-H + CH, bb, Z - 0.22]], GRAPHITE, 0.5);
+    if (S) F([[-H + CH, bb, Z - 0.07], [H - CH, bb, Z - 0.07], [H - CH, bb, Z - 0.22], [-H + CH, bb, Z - 0.22]], GRAPHITE, 0.5);
     // The board facing the rigs coming in: time, weather and temperature between the two end
     // lamps, and now and then a word from the Architect.
-    const text = board && DECAL_SINK && TUNE.glDeco ? lockBoardText(now) : null;
+    const text = D && board && DECAL_SINK && TUNE.glDeco ? lockBoardText(now) : null;
     if (text) {
       const tex = lockLettering([{ t: text, size: 0.8, ink: '#bff8d2' }], 1536, 112, night > 0.4 ? 1 : 0);
       // Lettered on the face behind the lamps, which is the one a rig sees on its way into the city.
@@ -56144,6 +56605,7 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
           p: [W(lA, bT, Z - 0.095), W(rA, bT, Z - 0.095), W(rA, bT, Z - 0.195), W(lA, bT, Z - 0.195)] });
       }
     }
+    if (!S) return;
     for (let i = 0; i < 5; i++) {
       const a = -H * 0.64 + i * H * 0.32, s2 = 0.028, b2 = bb + out * 0.004;
       G([[a - s2, b2, Z - 0.145 + s2], [a + s2, b2, Z - 0.145 + s2], [a + s2, b2, Z - 0.145 - s2], [a - s2, b2, Z - 0.145 - s2]], rgb, k);
@@ -56198,19 +56660,22 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     // halls meet over it with no sky between them.
     const bLo = -H - (gx.includes('s') ? 0.5 : 0), bHi = H + (gx.includes('n') ? 0.5 : 0);
     const P = NARROW(-H, H, wl.includes('w'), wl.includes('e'));
-    sweep(P, bLo, bHi);
-    for (const t of [0.25, 0.75]) seam(P, bLo + (bHi - bLo) * t);
-    // One frame per tile edge: the north one only at the hall's north end, so two tiles never
-    // stack a frame on the edge they share.
-    for (const b of [bLo, (bLo + bHi) * 0.5, ...(he.includes('n') ? [bHi] : [])]) rib(P, b, RT, RD, 0.75 * lit);
-    rib(P, (bLo + bHi) * 0.5, -0.022, 0.018, 0.5 * lit);   // the frame outside, as the wide hall's
+    if (S) {
+      sweep(P, bLo, bHi);
+      for (const t of [0.25, 0.75]) seam(P, bLo + (bHi - bLo) * t);
+      // One frame per tile edge: the north one only at the hall's north end, so two tiles never
+      // stack a frame on the edge they share.
+      for (const b of [bLo, (bLo + bHi) * 0.5, ...(he.includes('n') ? [bHi] : [])]) rib(P, b, RT, RD, 0.75 * lit);
+      rib(P, (bLo + bHi) * 0.5, -0.022, 0.018, 0.5 * lit);   // the frame outside, as the wide hall's
+    }
     for (const [side, b, out] of [['s', bLo, -1], ['n', bHi, 1]]) {
-      if (dn.includes(side)) { door(b, out); portal(b, out); }
-      else if (wl.includes(side)) cap(b);
-      else if (mo.includes(side)) { portal(b, out); gantry(b, out, sigS, inner ? 1.4 * flash : 1.1, inner); }
+      if (dn.includes(side)) { if (S) { door(b, out); portal(b, out); } }
+      else if (wl.includes(side)) { if (S) cap(b); }
+      else if (mo.includes(side)) { if (S) portal(b, out); gantry(b, out, sigS, inner ? 1.4 * flash : 1.1, inner); }
       // The inner lock's first tile also faces its lamps out over the gate, at the rigs coming in.
       else if (inner && lk.seg === 0 && gx.includes(side)) gantry(b, out, sigS, 1.4 * flash, true);
     }
+    if (!S) return;
     walls(-H, H, bLo, bHi, wl.includes('w'), wl.includes('e'), flash * lit);
     for (const s of [-1, 1]) strip(s * (H - CH * 0.5), (ZW + Z) * 0.5 - IN * 2, bLo, bHi, 0.008, LINE, 0.9 * lit);
     strip(0, Z - IN * 2, bLo, bHi, 0.03, sig, 1.3 * flash * lit);
@@ -56224,6 +56689,7 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
   // THE WIDE HALL: one barrel across the whole box. The crown grows with the span, so a hall five
   // tiles wide is a vault and not a lid on three tunnels.
   const A0 = lk.ha[0] - H, A1 = lk.ha[1] + H, SPAN = A1 - A0;
+  AXA = (A0 + A1) / 2;
   const ZC = Z + 0.10 * (SPAN - 1), FN = Math.round(SPAN * 4);
   const ja = (j) => A0 + SPAN * j / FN;
   const jz = (j) => ZW + (ZC - ZW) * Math.sqrt(Math.max(0, 1 - (2 * j / FN - 1) ** 2));
@@ -56244,28 +56710,32 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     if (wE) P.push([sHi, 0]);
     if (memo) { memo.wideKey = pKey; memo.wideP = P; }
   }
-  sweep(P, -H, H);
-  // Seams at the quarters and on the north edge (the row north of this one draws none on its
-  // south), and a frame across the middle of the tile.
-  for (const b of [-0.25, 0.25, ...(he.includes('n') ? [] : [H])]) seam(P, b);
-  rib(P, 0, RT, RD, 0.75 * lit);
-  // And the same frame showing outside, over the roof and down the walls: a negative inset stands
-  // it proud of the plate, so the hall is ribbed from the air and not one smooth tin.
-  rib(P, 0, -0.022, 0.018, 0.5 * lit);
-  walls(sLo, sHi, -H, H, wW, wE, lit);
-  // Light lines: one along each shoulder of the barrel, and one down the crown over every lane.
-  for (const j of [1, FN - 1]) if (j >= j0 && j <= j1) strip(ja(j) + (j === 1 ? IN : -IN) * 3, jz(j) - IN * 2, -H, H, 0.008, LINE, 0.9 * lit);
-  strip(0, zAt(0) - IN * 3, -H, H, 0.03, sig, 1.2 * lit);
-  for (const t of [-0.25, 0.25]) { const c = W(0, t, 0.02); glowPool(null, cam, c[0], c[1], 0.02, sigS, 30, lit * 0.4, { add: true, max: 64 }); }
+  if (S) {
+    sweep(P, -H, H);
+    // Seams at the quarters and on the north edge (the row north of this one draws none on its
+    // south), and a frame across the middle of the tile.
+    for (const b of [-0.25, 0.25, ...(he.includes('n') ? [] : [H])]) seam(P, b);
+    rib(P, 0, RT, RD, 0.75 * lit);
+    // And the same frame showing outside, over the roof and down the walls: a negative inset stands
+    // it proud of the plate, so the hall is ribbed from the air and not one smooth tin.
+    rib(P, 0, -0.022, 0.018, 0.5 * lit);
+    walls(sLo, sHi, -H, H, wW, wE, lit);
+    // Light lines: one along each shoulder of the barrel, and one down the crown over every lane.
+    for (const j of [1, FN - 1]) if (j >= j0 && j <= j1) strip(ja(j) + (j === 1 ? IN : -IN) * 3, jz(j) - IN * 2, -H, H, 0.008, LINE, 0.9 * lit);
+    strip(0, zAt(0) - IN * 3, -H, H, 0.03, sig, 1.2 * lit);
+    for (const t of [-0.25, 0.25]) { const c = W(0, t, 0.02); glowPool(null, cam, c[0], c[1], 0.02, sigS, 30, lit * 0.4, { add: true, max: 64 }); }
+  }
 
   // The tube over half the gate tile, from a mouth in the north end to the inner lock's.
   const tube = (b, out) => {
     const b0 = Math.min(b, b + out * H), b1 = Math.max(b, b + out * H), T = NARROW(-H, H);
-    sweep(T, b0, b1);
-    seam(T, (b0 + b1) * 0.5);
-    walls(-H, H, b0, b1, true, true, lit);
-    strip(0, Z - IN * 2, b0, b1, 0.03, sig, 1.2 * lit);
-    fieldCollar(b + out * H);
+    if (S) {
+      sweep(T, b0, b1);
+      seam(T, (b0 + b1) * 0.5);
+      walls(-H, H, b0, b1, true, true, lit);
+      strip(0, Z - IN * 2, b0, b1, 0.03, sig, 1.2 * lit);
+    }
+    if (D) fieldCollar(b + out * H);
   };
   // THE FIELD COLLAR, where the Curtain crosses the tube over the gate tile. The wall does not stop
   // at the lock and start again: it goes THROUGH a coupling. Three heavy rings stand proud of the
@@ -56324,7 +56794,7 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     for (let j = j0; j <= j1; j++) xs.push(ja(j));
     if (cut) xs.push(-H + CH, H - CH);
     xs.sort((p, q) => p - q);
-    for (let i = 0; i < xs.length - 1; i++) {
+    if (D) for (let i = 0; i < xs.length - 1; i++) {
       const p = xs[i], q = xs[i + 1];
       if (q - p < 1e-6) continue;
       const hole = cut && p >= -H - 1e-6 && q <= H + 1e-6;
@@ -56336,7 +56806,7 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     // In a lockdown the end wall's lines run red with the hall's swell, which is what says the city
     // is shut to somebody a mile out on the Glacis road.
     const TRIM = lk.ld ? sig : CYAN, trimK = lk.ld ? 1.3 * flash : 1;
-    for (let j = j0; j < j1; j++) G([[ja(j), bb, jz(j) - 0.012], [ja(j + 1), bb, jz(j + 1) - 0.012], [ja(j + 1), bb, jz(j + 1) - 0.032], [ja(j), bb, jz(j) - 0.032]], TRIM, 0.8 * trimK * lit);
+    if (S) for (let j = j0; j < j1; j++) G([[ja(j), bb, jz(j) - 0.012], [ja(j + 1), bb, jz(j + 1) - 0.012], [ja(j + 1), bb, jz(j + 1) - 0.032], [ja(j), bb, jz(j) - 0.032]], TRIM, 0.8 * trimK * lit);
     // Pilasters at the hall's corners and in the middle of each room's bay, so the blank stretch of
     // end wall either side of the mouths reads as built, each with a light line down its face.
     const pil = [];
@@ -56345,19 +56815,19 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     for (let k = 1; k <= (lk.cw || 0); k++) pil.push(-k);
     for (let k = 1; k <= (lk.ce || 0); k++) pil.push(k);
     if (!cut) pil.push(0);   // and down the middle of a lane that ends in wall
-    for (const a of pil) {
+    if (S) for (const a of pil) {
       const zt = zAt(a) - 0.01, w = 0.03, d = out * 0.035, bp = b + d + out * 0.003;
       F([[a - w, b + d, 0], [a + w, b + d, 0], [a + w, b + d, zt], [a - w, b + d, zt]], GRAPHITE, 0.55);
       for (const s of [-w, w]) F([[a + s, b, 0], [a + s, b + d, 0], [a + s, b + d, zt], [a + s, b, zt]], CHROME_DK, 0.85);
       G([[a - 0.006, bp, 0.03], [a + 0.006, bp, 0.03], [a + 0.006, bp, zt - 0.03], [a - 0.006, bp, zt - 0.03]], TRIM, 0.7 * trimK * lit);
     }
-    if (cut) portal(b, out);
-    if (down) door(b, out);
+    if (cut && S) portal(b, out);
+    if (down && S) door(b, out);
     if (mo.includes(side)) gantry(b, out, LCK_WORK, 1.1);
     if (gx.includes(side)) tube(b, out);
     if (side === 's' && (mo.includes('s') || down) && lk.sg) {
       lockWelcome(lk.sg, (A0 + A1) * 0.5, b, out);
-      if (lk.sc && !down) lockApproach(lk.sc, b, out);   // nobody is being sent to the scales
+      if (lk.sc && !down && D) lockApproach(lk.sc, b, out);   // nobody is being sent to the scales
     }
   }
 
@@ -56369,26 +56839,28 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     const half = Math.min(1.45, SPAN * 0.3), zP0 = ZC + 0.08, zP1 = zP0 + 0.26;
     const a0 = aC - half, a1 = aC + half, bFr = bS + out * 0.025, bBk = bS - out * 0.025;
     // Two masts from the roof up through the panel, box sections in chrome.
-    for (const s of [-1, 1]) {
+    if (S) for (const s of [-1, 1]) {
       const a = aC + s * (half - 0.22), z0 = zAt(a) - 0.02, w = 0.03;
       const c = [[a - w, bS - w], [a + w, bS - w], [a + w, bS + w], [a - w, bS + w]];
       for (let i = 0; i < 4; i++) { const p = c[i], q = c[(i + 1) % 4]; F([[p[0], p[1], zP1 + 0.04], [q[0], q[1], zP1 + 0.04], [q[0], q[1], z0], [p[0], p[1], z0]], CHROME, 0.9); }
     }
     // The panel: a dark slab with a chrome top, ends and soffit, a chrome lip round its face and a
     // cyan line along the foot of it.
+    const bL = bFr + out * 0.006;
+    if (S) {
     F([[a0, bFr, zP1], [a1, bFr, zP1], [a1, bFr, zP0], [a0, bFr, zP0]], [22, 25, 30], 0);
     F([[a0, bBk, zP1], [a1, bBk, zP1], [a1, bBk, zP0], [a0, bBk, zP0]], [22, 25, 30], 0);
     F([[a0, bFr, zP1], [a1, bFr, zP1], [a1, bBk, zP1], [a0, bBk, zP1]], CHROME, 0.8);
     F([[a0, bFr, zP0], [a1, bFr, zP0], [a1, bBk, zP0], [a0, bBk, zP0]], CHROME_DK, 0.6);
     for (const a of [a0, a1]) F([[a, bFr, zP1], [a, bBk, zP1], [a, bBk, zP0], [a, bFr, zP0]], CHROME, 0.8);
-    const bL = bFr + out * 0.006;
     F([[a0, bL, zP1], [a1, bL, zP1], [a1, bL, zP1 - 0.018], [a0, bL, zP1 - 0.018]], CHROME, 0.9);
     F([[a0, bL, zP0 + 0.018], [a1, bL, zP0 + 0.018], [a1, bL, zP0], [a0, bL, zP0]], CHROME, 0.9);
     G([[a0 + 0.02, bL, zP0 + 0.03], [a1 - 0.02, bL, zP0 + 0.03], [a1 - 0.02, bL, zP0 + 0.022], [a0 + 0.02, bL, zP0 + 0.022]], CYAN, lit);
+    }
     // The lettering, on whichever face the eye is in front of. From behind it is the back line,
     // and the quad's left and right swap so that one reads the right way round too.
     const bCam = dy - EY, front = (bCam - bS) * out > 0;
-    if (DECAL_SINK && TUNE.glDeco) {
+    if (D && DECAL_SINK && TUNE.glDeco) {
       // Content writes the words in ordinary case; a board is lettered in capitals.
       const lines = (Array.isArray(sg.lines) ? sg.lines : [sg.lines]).filter(Boolean).slice(0, 2).map((t) => String(t).toUpperCase());
       // The back of the roof board is blank: only a pilot ever sees it. The leaving line is over the mouth
@@ -56403,9 +56875,9 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
           p: [W(lA, bT, zP1 - 0.026), W(rA, bT, zP1 - 0.026), W(rA, bT, zP0 + 0.036), W(lA, bT, zP0 + 0.036)] });
       }
     }
-    { const c = W(aC, bFr + out * 0.25, (zP0 + zP1) * 0.5); glowPool(null, cam, c[0], c[1], c[2], '255,236,206', 34, lit * 0.45, { add: true, max: 70 }); }
-    if (sg.back) lockFarewell(String(sg.back).toUpperCase(), aC, bF, out);
-    if (!sg.eye) return;
+    if (S) { const c = W(aC, bFr + out * 0.25, (zP0 + zP1) * 0.5); glowPool(null, cam, c[0], c[1], c[2], '255,236,206', 34, lit * 0.45, { add: true, max: 70 }); }
+    if (sg.back && S) lockFarewell(String(sg.back).toUpperCase(), aC, bF, out);
+    if (!sg.eye || !D) return;
 
     // THE EYE: a vesica in a chrome lid on a stem off the panel. A pale glowing white, a cyan iris
     // and a black pupil that turn toward the camera, a glint, and a blink.
@@ -58621,7 +59093,33 @@ const ROAD_EPS = 0.002;
 // that fall across it — the same order the canvas paints them in.
 const BEAM_EPS = 0.003;
 const SHADOW_EPS = 0.004;
-function drawBuildingShadow(ctx, cam, dx, dy, fh, h, sun, alpha, segs, E) {
+// ── A BUILDING'S SHADOW HULL, KEPT (RENDER_TUNE.shadowKeep) ──────────────────────────────────────
+// On the GPU path the hull is in window tiles and depends on nothing the camera does: the footprint
+// (segments, size, entrance), the sun's direction and length, and the tile. The seats take the hour
+// from the server's sky context, so the sun holds still between pushes, and the hull (a footprint, a
+// rotation, eight points and a convex hull) was rebuilt for every building every frame: 1 MB a frame
+// from a cockpit (perf:alloc). Kept per cell and rebuilt only when one of those moves; the record is
+// reused and only its alpha, which follows the haze fade, is written.
+const SHADOW_KEEP = new WeakMap();
+function drawBuildingShadow(ctx, cam, dx, dy, fh, h, sun, alpha, segs, E, c = null) {
+  if (GROUND_MESH && c && RENDER_TUNE.shadowKeep !== 0) {
+    const sd = sun.shadowDir, wx0 = dx + (cam.ox || 0), wy0 = dy + (cam.oy || 0);
+    const kx = Math.round(wx0 * 1e6), ky = Math.round(wy0 * 1e6);
+    const e = SHADOW_KEEP.get(c);
+    if (e && e.kx === kx && e.ky === ky && e.s0 === sd[0] && e.s1 === sd[1] && e.len === sun.len && e.fh === fh && e.h === h && e.segs === segs
+        && (E ? e.e0 === E[0] && e.e1 === E[1] : e.e0 === undefined)) {
+      if (e.rec) { e.rec.a = clamp(sun.alpha * alpha, 0, 0.4); GROUND_MESH.push(e.rec); }
+      return;
+    }
+    const n0 = GROUND_MESH.length;
+    drawBuildingShadowFresh(ctx, cam, dx, dy, fh, h, sun, alpha, segs, E);
+    SHADOW_KEEP.set(c, { kx, ky, s0: sd[0], s1: sd[1], len: sun.len, fh, h, segs, e0: E ? E[0] : undefined, e1: E ? E[1] : undefined,
+      rec: GROUND_MESH.length > n0 ? GROUND_MESH[GROUND_MESH.length - 1] : null });
+    return;
+  }
+  drawBuildingShadowFresh(ctx, cam, dx, dy, fh, h, sun, alpha, segs, E);
+}
+function drawBuildingShadowFresh(ctx, cam, dx, dy, fh, h, sun, alpha, segs, E) {
   let corners = null, topZ = h;
   if (segs && segs.length) {
     const local = shapeFootprint(segs, fh, h);

@@ -176,6 +176,9 @@ window._applyCelShade = (on) => {
 // passed on, because applySettings runs on every pill press: re-sending GLASS 2 then would undo
 // the switch-off GLASS 2 does on itself when it fails.
 let glassPicked = null;
+// In the game GLASS 1 is the plain fallback: buildings as boxes, no signs or glows (GLASS1_BASIC in
+// windshield.js). The Modelshop and the gates load windshield.js without this and keep the full painter.
+window.__glass1BasicPending = true;
 window._applyGlass = (on) => {
 	on = !!on;
 	if (on === glassPicked) return;

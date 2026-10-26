@@ -129,7 +129,7 @@ function tally(glOn) {
     c.width = W; c.height = H;
     ws.installGLWorld((cells, cam, o) => {
       sinks = { strokes: (o.strokes || []).length, sprites: (o.sprites || []).length,
-                decals: (o.decals || []).length, ground: (o.ground || []).length };
+                decals: (o.decals || []).length, ground: ws.expandGroundBlocks(o.ground || []).length };   // blocks expanded (groundGPU)
       return { faces: 1, canvas: c };
     });
   } else ws.installGLWorld(null);

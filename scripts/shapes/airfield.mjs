@@ -216,7 +216,7 @@ const four = (() => {
   ws.installGLWorld((cells, cam, o) => {
     lastCam = cam;
     sinks = { strokes: (o.strokes || []).slice(), sprites: (o.sprites || []).slice(), decals: (o.decals || []).slice() };
-    groundRecs = (o.ground || []).slice();
+    groundRecs = ws.expandGroundBlocks(o.ground || []).slice();   // a replayed road tile is one block (groundGPU) until expanded
     return { faces: 1, canvas: c };
   });
   const V = view(paved());

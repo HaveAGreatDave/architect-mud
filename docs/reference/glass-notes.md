@@ -20,7 +20,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Clip plane fitting (`RENDER_TUNE.nearFit`)](#clip-plane-fitting-render_tunenearfit)
 - [Option allowlist (`npm run gl:opts`)](#option-allowlist-npm-run-glopts)
 - [Vertex streaming (gl/stream.js(../../client/game/js/panels/gl/stream.js))](#vertex-streaming-glstreamjsclientgamejspanelsglstreamjs)
-- [Ground buffer caching (not done)](#ground-buffer-caching-not-done)
+- [Ground buffer caching (`groundGPU`, `groundKeep`)](#ground-buffer-caching-groundgpu-groundkeep)
 - [Fidelity readings](#fidelity-readings)
 - [Facade glazing bands](#facade-glazing-bands)
 - [World text on the depth buffer (`RENDER_TUNE.glSign`)](#world-text-on-the-depth-buffer-render_tuneglsign)
@@ -34,6 +34,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [What's left on the canvas](#whats-left-on-the-canvas)
 - [GLASS 1 is the plain fallback (2026-10-17)](#glass-1-is-the-plain-fallback-2026-10-17)
 - [Per-pass GPU time (`__glPassMs()`)](#per-pass-gpu-time-__glpassms)
+- [Measuring in the game and on a phone (`__glassBench()`)](#measuring-in-the-game-and-on-a-phone-__glassbench)
 - [Prop shadows (`RENDER_TUNE.glPropShadow`)](#prop-shadows-render_tuneglpropshadow)
 - [Measuring the frame (`__glFrame()`)](#measuring-the-frame-__glframe)
 - [Hardware coverage](#hardware-coverage)
@@ -384,12 +385,16 @@ Measured in the Modelshop with the calls counted on the prototype, over 10- and 
 - No harness here reaches a GL draw call (each installs a hook that returns null), so a buffer-management regression is invisible to all of them. `npm run gl:stream` ([scripts/shapes/glstream.mjs](../../scripts/shapes/glstream.mjs), in the `pretest:regress` chain and `shapes:smoke`) drives the helper against a recording context, checking what the driver was asked for, and sweeps the directory, not a list of names, so a new layer written the old way fails. Mutation-tested 8 of 8. Its `bufferSubData` check uses object identity, since "a Float32Array arrived" is also true of a fresh view.
 - Uniform matrices: `mat4f` in camera.js holds one scratch `Float32Array(16)` for the eight layers that each wrote `new Float32Array(viewProjMatrix(…))` per draw. Trap: never keep what it returns; it's the same object every time. Code that needs to keep a matrix takes the plain Array from `viewProjMatrix`.
 
-## Ground buffer caching (not done)
+## Ground buffer caching (`groundGPU`, `groundKeep`)
 
-`gl/ground.js` rebuilds its whole vertex buffer every frame with no cache key, and `GROUND_MESH` is refilled each frame in map-window tiles, which looks like a candidate for the mass buffer's caching. It isn't worth it:
+Built 2026-10-24, after this section had said it wasn't worth it. That reading came from `__glPhases()`'s `ground` phase, which is the 2-D raster, not the GL ground layer. In a moving cockpit at Halcyon the layer was 4.6% of the CPU profile, and `drawGroundSurfaces`'s per-record replay and `drawGround` another 4.8%.
 
-- The quads depend on the camera. A road quad's alpha is `sq.a * ctx.globalAlpha`, where `globalAlpha` is the far fade, and a kerb's half-width is solved for the tile's distance. A window-keyed cache would need the fade moved into the shader and kerbs expanded in a vertex shader as `strokes.js` does for wires, both visible changes.
-- The phase costs nothing: `__glPhases()` on a 1280×720 aerial seat reads `ground` at 0.00 ms with the GL floor on, against 0.86 ms for the old 2-D path.
+- **`groundGPU`.** A replayed tile goes into `GROUND_MESH` as one block, which gl/ground.js turns into floats once (`blockFloats`). The far fade and the kerb half-width, the two camera terms this section named, are worked out in the ground vertex shader from the tile centre and `GROUND_MESH.gt`.
+- **`groundKeep`.** The blocks stay on the GPU in one arena per draw range.
+
+Measurements, the proof (`expandGroundBlocks`, which `perf:exact` and `recentre-exact` expand a ground list through) and the one ordering change are in [glass-headroom.md](../proposals/glass-headroom.md#built-2026-10-24-the-ground-stops-re-packing-groundgpu-groundkeep).
+
+- **Trap.** A vertex is 14 floats now. Anything that writes ground floats goes through `putGround`, which sets the tile field to `NO_TILE`; a vertex written without it would be faded as if it stood on tile (0, 0).
 
 Trap: a cold first run of that harness gives wrong numbers: `world:build` 12.2 ms (GL dearer than 2-D) and `world:fauna` 3.40 ms against 0.44, where the second and third runs give 6.0–6.9 ms against 9.5 and 0.03 ms. Take three runs. The settled CPU cost in a GL frame is `world:build` ~6.5 ms and `world:arms` ~3.8 ms (running the model arms and collecting adornments every frame for geometry that doesn't change), with `world:gl` (the submission) at 2.4 ms and `world:occlude` at 0.7 ms. Kept arms (glass-headroom Stage 3) have since cut the arms; see [docs/proposals/glass-headroom.md](../proposals/glass-headroom.md) for the current split, and [Per-pass GPU time](#per-pass-gpu-time-__glpassms) for the GPU side.
 
@@ -481,6 +486,14 @@ GLASS 1 draws the world only when GLASS 2 can't: no WebGL2, a lost context past 
 - **Flight panel.** Every aircraft class has a modelled deck on GLASS 2, so the painted panel is a gauge band: the board's colour and six `drawCabDial`s (KIAS, ALT, HDG, VS, RPM, fuel), plus gear and flaps as text. The truck's painted dash stays, because the 3-D cab is built by running the same painters into `SHELL_SINK`.
 - **What stays full.** Textured walls and roofs and the segment LOD stay: the Modelshop draws through the same painter, and LOD is the cheap path at range. The scatter, figure and prop painters can't go either, because they're GLASS 2's billboard bakers (`scatterBillboard` paints them into a texture).
 - Most of what looks like 2-D code is shared. Before cutting more, run the reachability check the 2026-10-17 pass used: list every top-level function reachable only from the code you want gone, never from an export or the rest of the frame.
+- **Buildings as boxes in the game (`glass1Basic`, 2026-10-25).** The full painter still ran every arm and painted its faces: 124-175 ms a Halcyon cab frame and 360-407 ms an aircraft one on a desktop (Modelshop, 960×540), 69,000-177,000 canvas calls, nearly all `world:arms` and `world:flush`. A phone stuck there after two lost contexts couldn't play. With `glass1Basic` on, the canvas path layers `GLASS1_BASIC` over the frame's tune:
+  - every building is drawn as its single biggest captured box at every distance (`lodNear` 0.001, `lodFar` 0.002, so `drawModelLOD`'s detail is 0);
+  - no arm runs for adornments (`lodAdorn` 0): no signs, neon, glows or rooftop dressing;
+  - the draw distance stops at 16 tiles (`farMax`, read by `governedFar`), with the skyline backdrop past it.
+
+  It's 43 ms in that cab, 66-70 ms from the air and 36-38 ms in a Marrow cab, against 95-135 for the full painter.
+- **Who gets the basic tier.** `glass1Basic` defaults to 0, so the Modelshop and every gate (shapes smoke, framecost, worldresidue) keep the full painter; framecost's 342,761-call baseline is that painter. The game turns it on at boot: main.js sets `window.__glass1BasicPending`, which windshield.js reads when it loads, as it does for cel shading. No seat passes `gl: 0` in its view tune, so in the game the tier applies only when GLASS 2 is off or has failed.
+- ⚠ **`decoFar` is read `|| Infinity`,** so 0 means no limit; the tier uses 0.001. `glowFar` 0 does mean none.
 
 ## Per-pass GPU time (`__glPassMs()`)
 
@@ -491,6 +504,16 @@ Readings at 640×360 on the reference machine (2026-10-17). Take three runs: the
 - The haze fade pass was the most expensive pass, at 1.3–2.8 ms on an aircraft over Marrow. It now draws only the tiles whose box reaches the band (`fadeRuns`) and reads about 0.
 - The sun's shadow map is kept until the mesh rebuilds or the light matrix moves by more than 2e-4 of its largest entry, so a still sun costs no shadow pass.
 - What's left is the main mass pass (2.7–3.6 ms), SSAO (1.6–2.5 ms) and the decals (0.9–1.4 ms).
+
+## Measuring in the game and on a phone (`__glassBench()`)
+
+The Modelshop benches can't run on a phone, so the game client measures itself three ways (`client/game/js/fps-meter.js`, `glass-bench.js`):
+
+- **The meter.** F3, or tablet Settings → Layout → Perf Meter, which is the only switch on a phone. It shows fps and frame ms, and while a seat paints, its paint CPU ms, `resStep`, the governor, the pacing step, the renderer and `GL_TIER`.
+- **The seat summary.** Every real paint feeds a 240-sample ring through the tap in `glass-veil.js`, with the meter off. Each ⚑ report carries it as `glass` ([systems-feedback.md](../systems-feedback.md#whats-recorded)).
+- **`await __glassBench()`** over Chrome remote DevTools. It measures the seat's own next 60 paints (`frames`), then times each GPU pass with `glPassTimer` over 30 more (`passes: false` skips that). It returns median and p90 paint ms, frame ms, fps, `gpuPassMs`, the dials at start and end, and `still`. It doesn't pose the camera, because the view object lives in the seat's panel, so park first and check `still`. The last result rides along in the next ⚑ report.
+
+Trap: a hidden Browser pane runs rAF at about 1 Hz, so the bench times out (it returns null) and the meter reads 1 fps. Test it in a visible tab.
 
 ## Prop shadows (`RENDER_TUNE.glPropShadow`)
 
@@ -544,7 +567,16 @@ A draw can also be dropped on its own, with only a console warning: "Feedback lo
 
 Three things in windshield.js exist for phones. None of them runs in the smoke suite, because every DOM stub's `matchMedia` answers false.
 
-- **Phone tier (`GL_TIER`, `PHONE_TIER`).** A coarse pointer on a screen whose short side is under 600 CSS px starts with `glSsao`, `glShadow`, `glMsaa` and `glHdr` at 0. Each is an exact off switch that gives back the picture from before it shipped. It is decided once at load, because `glMsaa` is a context creation attribute. localStorage `architect_gl_tier` = `full` opts a device back in.
+- **Phone tier (`GL_TIER`, `PHONE_TIER`).** A coarse pointer on a screen whose short side is under 600 CSS px gets the tier. Both screens of a Galaxy Z Flip 5 qualify (about 412 CSS px). It is decided once at load, because `glMsaa` is a context creation attribute. localStorage `architect_gl_tier` = `full` opts a device back in. It turns off two groups:
+  - GPU passes: `glSsao`, `glShadow`, `glPropShadow`, `glMsaa`, `glHdr`, `glCluster` and the six materials switches.
+  - Since 2026-10-24, CPU costs, because phone JavaScript runs three to five times slower and the frame is CPU-bound:
+    - the card deck for the cloud volume (`glCloudVol: 0`) and no moon shadow pass;
+    - the GL window shrinking under load (`govWindowGL: 1`);
+    - `lodNear` 14, `glGlowFar` 28 and `glBloomFar` 16;
+    - fewer birds (`faunaMeshMax` 240, `birdFacesGL` 60,000);
+    - a world backing store capped at 1.5 device pixels a CSS pixel (`dprMax`) and the painted dash at 2 (`dashDprMax`).
+
+  None of this is measured on a phone yet.
 - **Revival after a lost context.** When the pass turns GL off itself (`glAutoOff`), the next `visibilitychange` to visible sets `RENDER_TUNE.gl` back to 1, at most twice a session (`GL_REVIVE_MAX`). A backgrounded phone tab is the common way to lose a context. The player's own GLASS 2 switch is never overridden, and the world-pass throw inside `drawWorldObjects` (a code fault, not a lost context) still switches GL off for good.
 - **`glass:struggling`.** On a coarse-pointer device, a view that keeps its smoothed frame interval above 85 ms for six seconds of painting fires this window event once a session. Gaps over a second (a hidden tab) don't count. main.js answers it once per device with a log line offering `displaymode textgames`.
 

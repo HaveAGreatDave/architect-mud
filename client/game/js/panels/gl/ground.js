@@ -1,17 +1,20 @@
 // The ground layer: road, paint, headlight pool (additive), building shadows (translucent) and
 // cliff massifs, each a coloured polygon. A massif is coloured per frame, so it can't be mesh.
 // ⚠ Depth-write on, unlike the other layers: a building hides the road and the road hides the floor.
-// ⚠ Uploads every frame on purpose: the quads are camera-culled. See
-// docs/reference/glass-notes.md#ground-buffer-caching-not-done
+// A replayed road tile arrives as a block written once and, with groundKeep, kept on the GPU; the rest
+// is streamed every frame. See docs/reference/glass-notes.md#ground-buffer-caching-groundgpu-groundkeep
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
+import { createArena } from './retain.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 import { PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
 import { LIGHTGRID_TUNE, LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
 
-const STRIDE = 10;  // pos3, colour3, alpha1, road1, lat1, kerb1
+const STRIDE = 14;  // pos3, colour3, alpha1, road1, lat1, kerb1, tile2, kerbN2
+// A vertex with no tile of its own (tile.x at this) is drawn at the alpha it carries.
+const NO_TILE = 1e9;
 // One ground vertex into `d` at `o`, the `i`th corner of its quad; returns the next offset.
 function putGround(d, o, v, i, cs, r, g, b, as, qa, rdw, lats, kb) {
   const k = cs && cs[i];
@@ -19,8 +22,55 @@ function putGround(d, o, v, i, cs, r, g, b, as, qa, rdw, lats, kb) {
   d[o + 3] = k ? k[0] / 255 : r; d[o + 4] = k ? k[1] / 255 : g; d[o + 5] = k ? k[2] / 255 : b;
   d[o + 6] = as ? as[i] : qa; d[o + 7] = rdw;
   d[o + 8] = lats ? lats[i] : 0; d[o + 9] = kb;
+  d[o + 10] = NO_TILE; d[o + 11] = 0; d[o + 12] = 0; d[o + 13] = 0;
   return o + STRIDE;
 }
+// ── A REPLAYED ROAD TILE, WRITTEN ONCE (RENDER_TUNE.groundGPU) ──────────────────────────────────
+//
+// windshield.js hands a cached tile over as one block: its records, each one's alpha as a ratio to
+// the tile's, and the tile's place in the window. What the CPU used to rewrite every frame (the far
+// fade from the tile centre's distance, and each kerb line's half-width) is the vertex shader's now,
+// from the list's `gt`, so the block's floats are the same every frame and are built here once, on the
+// block object, one array per draw range. A kerb vertex sits on its line and carries the unit normal
+// times its side; the shader moves it out by the half-width. A record with per-vertex alpha (`as`)
+// was never faded by the tile on the CPU either, so it carries no tile.
+function rangeOf(q) { return q.add ? 2 : q.over ? 3 : q.paint ? 1 : 0; }
+function blockFloats(B) {
+  if (B._f) return B._f;
+  const parts = [[], [], [], []], counts = [0, 0, 0, 0];
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i = 0; i < B.recs.length; i++) {
+    const r = B.recs[i], k = r.edge ? 1 : rangeOf(r);
+    const p = r.edge ? [[r.edge[0], r.edge[1], ROAD_EPS], [r.edge[2], r.edge[3], ROAD_EPS], [r.edge[2], r.edge[3], ROAD_EPS], [r.edge[0], r.edge[1], ROAD_EPS]] : r.p;
+    parts[k].push({ r, p, i });
+    counts[k] += (p.length - 2) * 3;
+    for (const v of p) { if (v[0] < x0) x0 = v[0]; if (v[0] > x1) x1 = v[0]; if (v[1] < y0) y0 = v[1]; if (v[1] > y1) y1 = v[1]; }
+  }
+  const f = counts.map((n) => new Float32Array(n * STRIDE));
+  for (let k = 0; k < 4; k++) {
+    const d = f[k];
+    let o = 0;
+    for (const { r, p, i } of parts[k]) {
+      const c = r.rgb, cs = r.rgbs, as = r.as;
+      const cr = c ? c[0] / 255 : 0, cg = c ? c[1] / 255 : 0, cb = c ? c[2] / 255 : 0;
+      const a = B.ratio[i], rdw = r.road ? 1 : 0, lats = r.edge ? null : r.lat, kb = r.edge || r.kerb == null ? 0 : r.kerb;
+      let nx = 0, ny = 0;
+      if (r.edge) { const E = r.edge, ex = E[2] - E[0], ey = E[3] - E[1], L = Math.hypot(ex, ey) || 1; nx = -ey / L; ny = ex / L; }
+      const put = (j) => {
+        o = putGround(d, o, p[j], j, r.edge ? null : cs, cr, cg, cb, r.edge ? null : as, a, rdw, lats, kb);
+        if (!as || r.edge) { d[o - 4] = B.gx; d[o - 3] = B.gy; }
+        // Corners 0 and 1 are on the + side of the line, 2 and 3 on the − side (windshield.js's kerb quad).
+        if (r.edge) { const sg = j < 2 ? 1 : -1; d[o - 2] = nx * sg; d[o - 1] = ny * sg; }
+      };
+      for (let j = 1; j + 1 < p.length; j++) { put(0); put(j); put(j + 1); }
+    }
+  }
+  // The bounds a kerb can reach at its widest (0.05), for the light grid's extent.
+  B._f = { f, n: counts, bb: [x0 - 0.05, y0 - 0.05, x1 + 0.05, y1 + 0.05] };
+  return B._f;
+}
+// The ROAD_EPS of windshield.js: a kerb line lies on the road a hair above the floor.
+const ROAD_EPS = 0.002;
 // ⚠ These four must match the shader's MAX_WET, MAX_TRACK, MAX_LID and MAX_POOL; the GLSL
 // copies can't be read from here, and a mismatch silently drops or overruns array entries.
 const MAX_WET = 6;
@@ -61,6 +111,11 @@ in float aRoad;          // 1 on the carriageway, 0 on an apron, a forecourt or 
 // right shape for a surface with no drainage direction.
 in float aLat;
 in float aKerb;
+// A replayed road tile's centre in the window and a kerb vertex's outward normal (see blockFloats).
+in vec2 aTile;
+in vec2 aKerbN;
+uniform vec4 uGT;   // the camera's place in the window (ox, oy) and the heading (sinh, cosh)
+uniform vec3 uGF;   // the draw distance, worldBlend, and the kerb's width per tile of distance
 uniform mat4 uViewProj;
 uniform float uFogNear;
 uniform float uFogFar;
@@ -75,10 +130,19 @@ out float vLat;
 out float vKerb;
 out vec3 vWorld;   // the quad's own map-window position, for the wet reflections in the fragment shader
 void main() {
-  vec4 clip = uViewProj * vec4(aPos, 1.0);
+  // The tile fade and kerb width windshield.js used to write into a replayed tile's records each
+  // frame: f is the tile centre's forward distance, as drawGroundSurfaces measures it.
+  vec3 pos = aPos;
+  float tileA = 1.0;
+  if (aTile.x < 1e8) {
+    float f = (aTile.x - uGT.x) * uGT.z - (aTile.y - uGT.y) * uGT.w;
+    tileA = uGF.y * clamp((uGF.x - f) / 6.0, 0.0, 1.0);
+    pos.xy += aKerbN * clamp(uGF.z * max(f, 0.2), 0.004, 0.05);
+  }
+  vec4 clip = uViewProj * vec4(pos, 1.0);
   gl_Position = clip;
   vColor = aColor;
-  vWorld = aPos;
+  vWorld = pos;
   float ff = clamp((clip.w - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
   vFog = ff * ff * uFogAmt;
   // The far dissolve is the WINDOW's, exactly as the mass uses it — a truck asks for 15 tiles and
@@ -91,7 +155,7 @@ void main() {
   vRoad = aRoad;
   vLat = aLat;
   vKerb = aKerb;
-  vAlpha = aAlpha * (uHazeFar > uHazeNear ? 1.0 - smoothstep(uHazeNear, uHazeFar, clip.w) : 1.0);
+  vAlpha = aAlpha * tileA * (uHazeFar > uHazeNear ? 1.0 - smoothstep(uHazeNear, uHazeFar, clip.w) : 1.0);
 }`;
 
 const FRAG = linearOut(`#version 300 es
@@ -1413,6 +1477,10 @@ export function createGroundLayer(gl) {
 
   const loc = {
     pos: gl.getAttribLocation(prog, 'aPos'),
+    tile: gl.getAttribLocation(prog, 'aTile'),
+    kerbN: gl.getAttribLocation(prog, 'aKerbN'),
+    gt: gl.getUniformLocation(prog, 'uGT'),
+    gf: gl.getUniformLocation(prog, 'uGF'),
     color: gl.getAttribLocation(prog, 'aColor'),
     alpha: gl.getAttribLocation(prog, 'aAlpha'),
     road: gl.getAttribLocation(prog, 'aRoad'),
@@ -1474,7 +1542,16 @@ export function createGroundLayer(gl) {
 
   const vao = gl.createVertexArray();
   // One stream, set up once (see gl/stream.js).
-  const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.color, 3, 12], [loc.alpha, 1, 24], [loc.road, 1, 28], [loc.lat, 1, 32], [loc.kerb, 1, 36]], 65536);
+  const ATTRS = [[loc.pos, 3, 0], [loc.color, 3, 12], [loc.alpha, 1, 24], [loc.road, 1, 28], [loc.lat, 1, 32], [loc.kerb, 1, 36], [loc.tile, 2, 40], [loc.kerbN, 2, 48]];
+  const stream = makeVertexStream(gl, vao, STRIDE, ATTRS, 65536);
+  // ── KEPT TILES (windshield.js RENDER_TUNE.groundKeep) ─────────────────────────────────────────
+  // A block's floats never change, so with `gt.keep` they stay on the GPU, one arena per draw range,
+  // and only the tiles new to the view are sent. Each range draws its kept tiles first and then the
+  // streamed quads (dynamic tiles, shadows, the headlight pool), where the stream alone kept the list's
+  // order. Base and paint are coplanar per tile and tiles don't overlap, so the order only shows where
+  // two translucent quads of different tiles meet.
+  let arenas = null, keepOn = false;
+  const groupsK = [[], [], [], []];
   let data = new Float32Array(0);
   let count = 0, splitA = 0, splitP = 0, splitB = 0;
   // The light grid's textures and buffers. Its extent is the bounds of the uploaded quads.
@@ -1490,7 +1567,9 @@ export function createGroundLayer(gl) {
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   let gridStats = null;
 
-  const tris = (list) => list.reduce((n, q) => n + (q.p.length - 2) * 3, 0);
+  const tris = (list) => list.reduce((n, q) => n + (q.gblk ? q._f.n[q._k] : (q.p.length - 2) * 3), 0);
+  // The list's tile-fade numbers (windshield.js GROUND_MESH.gt), for draw().
+  let gtU = null;
 
   // ⚠ Filled straight into the typed array, no closure per quad: ~12,000 quads a frame.
   // ⚠ Four ranges in the 2-D pass's order: base (writes depth), paint, add (headlight pool), over
@@ -1498,16 +1577,44 @@ export function createGroundLayer(gl) {
   // ⚠ Paint writes no depth: markings are coplanar at ROAD_EPS and flicker if they do.
   function upload(quads) {
     const base = [], paint = [], add = [], over = [];
-    for (const q of quads) (q.add ? add : q.over ? over : q.paint ? paint : base).push(q);
+    const L4 = [base, paint, add, over];
+    gtU = quads.gt || null;
+    keepOn = !!(gtU && gtU.keep);
+    for (const g of groupsK) g.length = 0;
+    bx0 = Infinity; by0 = Infinity; bx1 = -Infinity; by1 = -Infinity;
+    // A block goes into every range it has floats for, at its place in the list, so the order within
+    // each range is the order its records would have had. `_k` is the range it stands for there.
+    for (const q of quads) {
+      if (q.gblk) {
+        const F = blockFloats(q);
+        if (keepOn) {
+          // One group per range, made once and kept on the block: the group is its own key.
+          const G = q._g || (q._g = F.f.map((src) => { const g = { key: null, floats: src.length, write: (d, o) => { d.set(src, o); return o + src.length; } }; g.key = g; return g; }));
+          for (let k = 0; k < 4; k++) if (F.n[k]) groupsK[k].push(G[k]);
+          if (F.bb[0] < bx0) bx0 = F.bb[0]; if (F.bb[2] > bx1) bx1 = F.bb[2];
+          if (F.bb[1] < by0) by0 = F.bb[1]; if (F.bb[3] > by1) by1 = F.bb[3];
+          continue;
+        }
+        for (let k = 0; k < 4; k++) if (F.n[k]) L4[k].push({ gblk: true, _B: q, _k: k, _f: q._f });
+        continue;
+      }
+      L4[rangeOf(q)].push(q);
+    }
     const nB = tris(base), nP = tris(paint), nA = tris(add);
     splitA = nB; splitP = nB + nP; splitB = splitP + nA;
     count = splitB + tris(over);
     if (data.length < count * STRIDE) data = new Float32Array(Math.max(count * STRIDE, 1 << 16));
     const d = data;
     let o = 0;
-    bx0 = Infinity; by0 = Infinity; bx1 = -Infinity; by1 = -Infinity;
     for (const list of [base, paint, add, over]) for (let qi = 0; qi < list.length; qi++) {
       const q = list[qi];
+      if (q.gblk) {
+        const F = q._f, src = F.f[q._k];
+        d.set(src, o); o += src.length;
+        if (F.bb[0] < bx0) bx0 = F.bb[0]; if (F.bb[2] > bx1) bx1 = F.bb[2];
+        if (F.bb[1] < by0) by0 = F.bb[1]; if (F.bb[3] > by1) by1 = F.bb[3];
+        continue;
+      }
       const p = q.p, c = q.rgb, qa = q.a == null ? 1 : q.a;
       for (let k = 0; k < p.length; k++) {
         const v = p[k];
@@ -1529,13 +1636,28 @@ export function createGroundLayer(gl) {
       }
     }
     stream.write(data, count * STRIDE);
+    if (keepOn || arenas) {
+      if (!arenas) arenas = [0, 1, 2, 3].map(() => createArena(gl, STRIDE, ATTRS));
+      for (let k = 0; k < 4; k++) arenas[k].retain(keepOn ? groupsK[k] : null);
+    }
     return base.length + paint.length + add.length + over.length;
   }
 
+  // Range k's kept tiles, from its arena (nothing with groundKeep off), then the stream's [first, first + n).
+  function drawRange(k, first, n) {
+    const A = keepOn && arenas ? arenas[k] : null;
+    if (A && A.verts) { gl.bindVertexArray(A.vao); for (const r of A.runs) gl.drawArrays(gl.TRIANGLES, r[0], r[1]); gl.bindVertexArray(vao); }
+    if (n > 0) gl.drawArrays(gl.TRIANGLES, first, n);
+  }
+  const keptVerts = () => (keepOn && arenas ? arenas[0].verts + arenas[1].verts + arenas[2].verts + arenas[3].verts : 0);
   function draw(cam, H, opts = {}) {
-    if (!count) return 0;
+    if (!count && !keptVerts()) return 0;
     gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, H)));
+    // ⚠ Written every frame: a frame with no blocks must not keep the last one's camera.
+    const U = gtU;
+    gl.uniform4f(loc.gt, U ? U.ox : 0, U ? U.oy : 0, U ? U.sinh : 0, U ? U.cosh : 1);
+    gl.uniform3f(loc.gf, U ? U.far : 0, U ? U.blend : 1, U ? U.kerbK : 0);
     const f = opts.fog || {};
     const c = f.col || [0.5, 0.5, 0.55];
     gl.uniform3f(loc.fog, c[0], c[1], c[2]);
@@ -1690,26 +1812,26 @@ export function createGroundLayer(gl) {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(vao);
     gl.uniform1f(loc.surface, 1);
-    if (splitA) { gl.depthMask(true); gl.drawArrays(gl.TRIANGLES, 0, splitA); }
+    gl.depthMask(true); drawRange(0, 0, splitA);
     gl.depthMask(false);
     // The markings, source-over on the surface they are painted on, still a surface as far as the
     // wetness and the reflections are concerned, so uSurface stays 1.
-    if (splitP > splitA) gl.drawArrays(gl.TRIANGLES, splitA, splitP - splitA);
-    if (splitB > splitP) {
+    drawRange(1, splitA, splitP - splitA);
+    if (splitB > splitP || (keepOn && arenas && arenas[2].verts)) {
       // ⚠ Additive, alpha included: the buffer is blitted source-over onto the 2-D frame, so a pool
       // over open ground needs coverage or it vanishes.
       gl.blendFunc(gl.ONE, gl.ONE);
       // The pool of light is not a surface; see the ⚠ on uSurface.
       gl.uniform1f(loc.surface, 0);
-      gl.drawArrays(gl.TRIANGLES, splitP, splitB - splitP);
+      drawRange(2, splitP, splitB - splitP);
       gl.uniform1f(loc.surface, 1);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     }
-    if (count > splitB) gl.drawArrays(gl.TRIANGLES, splitB, count - splitB);
+    drawRange(3, splitB, count - splitB);
     gl.depthMask(true);
     gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.bindVertexArray(null);
-    return count / 6;
+    return (count + keptVerts()) / 6;
   }
 
   // `grid` is the last frame's light-grid stats, or null when the grid was off or had nothing to bin.

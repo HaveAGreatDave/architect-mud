@@ -9,7 +9,7 @@ import {
   TILE_REACH, TR, TUNE, WALL_COL, _bladeBasis, awning, bakeSignText, blinkLight, clamp,
   clipToAperture, decoHidden, dish, doorReveal, draw3DBoxAt, drawArmPart, drawBarrelRoof, drawFacetDrum,
   drawGargoyle, drawRing, drawSmoke, dutyPhase, emitDecoFill, emitFace, emitFlat, emitLightRunner, faceAway,
-  emitRecessBay, emitSurfaceText, emitWire, facePals, facePt, faceYaw, frac, glowPool, helideck,
+  emitRecessBay, emitSurfaceText, emitWire, facePals, facePt, faceYaw, flatsDropped, frac, glowPool, helideck,
   hoistLine, keptOnCanvas, latticeTower, litStyle, markHidden, marqueeBand, mast, motionOn, motionPhase,
   moveSeg, movingBox, mullions, nearOrMesh, neonBlade, reserveSignBand, rgb, roofClutter, roofCross, shadeOf,
   SIGN_PICTO, slideToPlane, wallBadge, wallDisc, wallRose,
@@ -280,7 +280,7 @@ function facing(q, out) {
 // A round tube of `N` lit facets in the model's frame. `dusk` darkens the albedo: a pale lit face sits
 // above the shader's night-dim cutoff.
 export function tubeRun(ctx, cam, W3, A, B, r, N, col, fam, alpha, dusk) {
-  if (SHAPE_SINK) return;
+  if (SHAPE_SINK || flatsDropped()) return;   // every facet is a plain lit flat, which GLASS 2's mesh already has
   let dx = B[0] - A[0], dy = B[1] - A[1], dz = B[2] - A[2];
   const L = Math.hypot(dx, dy, dz);
   if (!(L > 1e-6)) return;

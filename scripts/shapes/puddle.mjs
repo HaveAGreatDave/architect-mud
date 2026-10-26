@@ -63,7 +63,8 @@ const surface = globalThis.document.createElement('canvas');
 surface.width = W; surface.height = H;
 // ⚠ THE HOOK HAS TO RETURN A CANVAS. Anything else is the no-WebGL2 path, which finishes the frame
 // in 2-D and emits no ground quads at all — and an empty tally would read as a pass.
-ws.installGLWorld((cells, cam, o) => { ground = o.ground || []; return { faces: 1, canvas: surface }; });
+// A replayed road tile is one block (groundGPU); expanded, it's the records the shader draws.
+ws.installGLWorld((cells, cam, o) => { ground = ws.expandGroundBlocks(o.ground || []); return { faces: 1, canvas: surface }; });
 ws.paintWindshield('__pud', VIEW);
 ws.paintWindshield('__pud', VIEW);
 ws.installGLWorld(null);

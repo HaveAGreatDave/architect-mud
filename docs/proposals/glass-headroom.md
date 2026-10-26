@@ -1,7 +1,655 @@
 # GLASS frame headroom
 
-**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); flat decal fills batched (2026-10-19, below); the caches keyed on the map window made to survive a recentre (2026-10-19, below); Stage 2 superseded by Stage 3.** The vertex-animated layers it follows from are built (actors,
+**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); flat decal fills batched (2026-10-19, below); the caches keyed on the map window made to survive a recentre (2026-10-19, below); Stage 2 superseded by Stage 3; a still camera keeps (2026-10-24, below); armChunk measured and not built (2026-10-24, below); the live arms and marks profiled, two exact cuts built (2026-10-24, below); buildings in the haze band keep (`armFade`, 2026-10-24, below); the lock, AA, media lot and statue shaded on the GPU and kept (`marksGPU`, built 2026-10-24, on since 2026-10-25, below); why `world:gl` rose with it found and fixed (2026-10-25, below); kept strokes that cross the eye plane run live (`armNearWire`, 2026-10-25, below); `cssRgb`'s double lookup measured and left (2026-10-25, below).** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
+
+## Fixed 2026-10-25: kept strokes that cross the eye plane (`armNearWire`)
+
+The older hole (see "Older, not fixed" under the `armFade` fixes below): on 200-frame recentring cab
+flights, `perf:armkeep` missed 4 live triangles a frame on 5 frames at Marrow (from 136) and 2 on 28
+at the lock (`911,926`, from 163), and the tree from before the 2026-10-24 work did too.
+
+**What it was.** Each missing pair was one stroke. At Marrow, frame 136, it was a `signtube` (the
+neon tube round an authored sign board, glass/authored-detail.js, drawn with `emitLightRunner`): the
+live draw had the ring's top and bottom runs ending at y 0.317 and no right-hand side, and the kept
+draw had them ending at 0.323 with the right-hand side as well. At the lock, frame 170, it was a light
+runner (blue, `w1.6`), live ending at 0.201 and kept at 0.414. `emitWire` cuts a segment at `NEAR_W`
+(0.13 tiles) in front of the eye and drops one wholly behind it, from where the eye is that frame. A
+kept set was recorded from well back (the probe's near test), and the replay pushed the stroke
+whole. That isn't only a test difference: the strokes shader takes a stroke's width from its
+projected ends, which mean nothing once one end is behind the eye, so the cab drew the tube with a
+wrong width as it drove up to the sign. It wasn't a recentre shift, a face test or a live part.
+
+**The fix** (`RENDER_TUNE.armNearWire`, 1; 0 replays the stroke whole as before): before a replay,
+`armNearWire` takes each kept stroke's raw ends (`ra`/`rb` for a stroke the GPU pulls, else `a`/`b`)
+into this frame's camera frame and asks `cam.rawF` of each, against the same 0.13. A stroke with its
+ends either side of the plane runs the building live for the frame (`armKeepStats.nearWire`), and the
+set is kept, not dropped. Wholly behind is left, as the GPU clips it, as it does every kept part behind
+the eye. Both replay paths ask it: the ordinary one and the haze band's.
+
+**Proof.**
+
+- `FRAMES=200 FLY="marrow;cab;13;0.03;20" perf:armkeep` and `FLY="911,926;cab;13;0.03;20"`: 0 frames
+  missing anything (were 5 and 28). The default list passes (600 frames).
+- Mutation: `TUNE=armNearWire=0` fails both flights (5 and 28 frames), and so does the test with its
+  plane moved to -1 (a temporary mutant, removed).
+- `perf:exact armNearWire 0 1` is identical over 60 views (still views never get near enough).
+- `recentre-exact armNearWire 0 1` (`--churn 40 --cloth`) differs on 7 of 200 frames at Halcyon
+  (cockpit), 21 at the lock cab and 17 at Marrow (cab). With the count read every frame, those are
+  exactly the frames where `nearWire` fired: none differs where it didn't, and none where it fired
+  is the same.
+- Cost, `perf:move --prof`, three alternating pairs: `world:arms` 2.93, 3.10, 3.02 against 3.05,
+  3.00, 2.96 ms at the lock cab, 8.77, 8.61, 8.68 against 8.75, 8.60, 8.74 in the Halcyon cockpit.
+
+## Measured 2026-10-25, not changed: `cssRgb`'s double lookup
+
+`cssRgb` asks its memo `has` and then `get`. One `get` (a miss is `undefined`; a colour that doesn't
+parse is memoised as `null`) is exact, but it saves nothing measurable. V8 keeps a string's hash on
+the string, so the second lookup is a probe and no hashing. Halcyon cockpit, `--gl`, three
+alternating pairs: `cssRgb`'s self time in a CPU profile 79, 84, 92 ms over 200 frames with two
+lookups against 83, 97, 89 with one, and `world:arms` 9.51, 9.94, 9.45 against 10.08, 10.07, 9.62.
+The function is about 0.4-0.5 ms a frame in all, and what it costs is the strings its callers build
+for it, not the lookup. It stays as it was.
+
+
+## Built 2026-10-25: GLASS 1 is a plain fallback in the game (`glass1Basic`, Phase 3)
+
+Phase 3 of the plan. GLASS 1 (the canvas path) ran the whole city: every arm and its faces painted,
+124-175 ms a Halcyon cab frame and 360-407 ms an aircraft one in the Modelshop at 960x540, 69,000 to
+177,000 canvas calls a frame. Almost all of it was `world:arms` and `world:flush`; the floor, ground
+and sky were 10-30 ms. Each lever, measured in the browser with the pane in view:
+
+| step | Halcyon cab | Halcyon air | Marrow cab |
+|---|---|---|---|
+| full painter | 121-175 ms | 358-407 | 95-141 |
+| boxes from captured segments, no arm adornments | 89-94 | 217 | 66-72 |
+| + draw distance capped at 16 tiles (`farMax`) | 90-102 | 135-182 | 66-76 |
+| + every building its single biggest box (`lodFar` 0.002) | **43** | **66-70** | **36-38** |
+
+Flat walls instead of the textured blit (`wallLodPx` huge) bought 5-10 ms in a cab and nothing from the
+air, so it isn't in the tier: the cost was the number of faces, 3,963 a cab frame against 424 with the
+single-box LOD. `GLASS1_BASIC` holds the values; `glass1Basic` defaults to 0 so the Modelshop and every
+gate keep the full painter, and the game turns it on at boot (main.js `window.__glass1BasicPending`).
+Gates: shapes smoke, framecost (back to its exact baseline, 342,761 calls), bigscreen, worldresidue,
+parse, imports. Pictures checked by eye side by side in the Modelshop: the same city as plain boxes
+that keep their glazing texture, streets intact, no holes. Not measured on a phone.
+
+## Fixed 2026-10-25: why `world:gl` rose 1.5 ms with `marksGPU` on
+
+`armCanon` read decal points and bay points through one helper, `pt`. A decal's points are
+object-kind arrays and a bay's are double-kind, and once V8 optimises `pt` with both maps in its
+feedback it unifies them: it turns every double array it reads into an object array, with a boxed
+number per coordinate. A building's kept bays go out as a retained group, so that never cost
+anything. A kept mark's bays stream (they smooth every frame), so about 1,800 converted point
+arrays a frame reached `putVertex` and `smooth` in gl/solids.js. Both deopted on the new map
+("wrong map", only at 1) and came back polymorphic, and from then on they converted every point
+array they read, a mark's or not. The fix is `ptB`, a reader that only ever sees bays, used at
+`marksGPU` 1. At 0 `armCanon` takes the old line.
+
+How it was found, so nobody chases the same leads:
+
+- The work is the same at 0 and 1: the same faces, metals, `smooth` calls and floats written (757k a
+  cockpit frame). `smooth` never takes its same-set path at either value, and the world solids
+  upload isn't incremental at either.
+- The difference is GC. Over 300 frames of the Halcyon cockpit `--gl` flight (`--trace-gc-nvp`), a
+  scavenge promoted about 1 MB at 0 and about 3 MB at 1, steadily (300 against 490 to 700 MB in
+  all), and scavenge pause went from 500-570 to 670-820 ms. Running the marks live instead of kept
+  put it back to 0's numbers. Per run the total is bimodal (490 or 700 at 1, and once 520 at 0), so
+  one run proves nothing; these are three or more each.
+- Ruled out: the normals' elements kind (forcing the marks' normals to double arrays changed
+  nothing over three runs; one run first said it halved the extra, and that run was noise),
+  `smooth`'s fresh `vn` arrays on kept records (reusing them in place changed nothing), and fresh
+  copies of the kept records at replay (no change, so it isn't the solids path writing onto
+  long-lived records).
+- What showed it: with `--allow-natives-syntax`, about 1,800 mark records at 1 had object-kind
+  points (none at 0), though they were double-kind when pushed and nothing wrote to them. Checking
+  the tracked arrays' kind at every push localised the change to inside `armCanon`, and
+  `--trace-elements-transitions` showed the transitions in optimised anonymous code and in `pt`.
+
+After the fix, with the same tools: no mark record has object-kind points, the "wrong map" deopts
+in `putVertex` and `smoothCell` are gone (one remains in `smooth`, the lock's record shape), and a
+scavenge promotes no more at 1 than at 0 (283-288 against 299-304 MB, pause 504-523 against
+532-571 ms, three runs each).
+
+**Headless**, `perf:move -- <place> <seat> --frames 200 --turn 0.2 --gl --prof`, medians, three
+pairs alternating 0 and 1, against the table in the section below (taken before the fix):
+
+| | Halcyon cockpit, 0 | 1 | lock cab (`911,926`), 0 | 1 |
+|---|---|---|---|---|
+| `world:gl` before the fix (ms) | 7.8-8.8 | 9.3-10.6 | 4.2-4.6 | 4.8-5.3 |
+| `world:gl` after (ms) | 8.34, 8.38, 8.48 | 8.14, 8.06, 8.57 | 4.38, 4.20, 4.28 | 4.29, 4.41, 4.45 |
+| `world:arms` after (ms) | 10.18, 10.78, 10.29 | 8.95, 9.33, 9.44 | 3.64, 3.61, 3.60 | 3.08, 3.12, 2.95 |
+| paint median after (ms) | 27.1, 27.8, 26.9 | 26.1, 27.3, 28.6 | 12.0, 11.6, 11.5 | 11.3, 11.4, 11.2 |
+| paint total after (ms, 200 frames) | 4814, 5179, 4808 | 4686, 4795, 5080 | 2181, 2139, 2182 | 2057, 2080, 2061 |
+
+CPU-time means a frame over frames 30+ (`process.cpuUsage`, three pairs, the lock cab at `911,925`
+heading 0): cockpit paint 29.7, 28.6, 30.9 against 28.2, 26.6, 27.3, `world:gl` 13.6, 14.4, 15.0
+against 14.8, 14.6, 14.7; cab paint 14.3, 14.4, 14.7 against 14.7, 13.6, 13.2, `world:gl` 8.8,
+7.9, 9.3 against 9.6, 8.1, 8.0. So `world:gl` is level and the arms saving is now the frame's.
+
+**In the browser**, the Modelshop's `__glWhere` (real WebGL2, 60 frames after 10 warm, the heading
+swept 11 degrees a frame), 0 against 1 interleaved. ⚠ These were taken with the Browser pane hidden
+for most runs (a background page, timers throttled) and another browser using about half a core,
+so the absolute numbers are inflated and noisy, about twice the first set's. Read them as pairs
+under the same conditions, not as frame times. Five pairs at each place, minimum and median (ms):
+
+| | lock (cab, 911,926), 0 | 1 | Halcyon (air), 0 | 1 |
+|---|---|---|---|---|
+| frame | 21.2 / 24.2 | 20.7 / 23.4 | 52.9 / 55.5 | 46.5 / 48.6 |
+| GPU | 15.3 / 17.4 | 14.3 / 16.4 | 37.5 / 39.1 | 30.5 / 34.3 |
+| `world:arms` | 4.83 / 5.50 | 4.53 / 4.90 | 18.3 / 21.3 | 15.6 / 16.7 |
+| `world:gl` | 9.40 / 9.65 | 9.30 / 11.67 | 18.2 / 19.3 | 16.5 / 17.3 |
+
+At Halcyon 1 is lower in every column. At the lock it is within the noise: the minimums agree and
+`world:gl`'s median is higher at 1, in runs whose spread is 9 to 13 ms. An earlier set of three
+pairs, less loaded, said the same at the lock (frame 13.2, 13.9, 13.1 against 13.8, 12.4, 13.1;
+`world:gl` 5.9, 6.3, 6.0 against 6.7, 6.0, 6.3). Worth taking again with the pane in view before
+deciding. `marksGPU` stays 0.
+
+**Taken again with the pane in view** (2026-10-25, `visibilityState` visible for every run, a fresh
+Modelshop, 960x540, five pairs at each place, 0 and 1 alternated and the order flipped each pair,
+both paths warmed first). Medians, 0 / 1:
+
+| | lock (cab, 911,926) | Halcyon (air) |
+|---|---|---|
+| frame | 11.09 / 11.18 ms | 25.65 / 24.01 ms |
+| GPU | 5.99 / 6.92 | 10.51 / 9.92 |
+| `world:arms` | 2.77 / 2.77 | 9.91 / 8.00 |
+| `world:gl` | 4.78 / 4.87 | 9.69 / 9.36 |
+| pairs where 1 was faster | 2 of 5 | 3 of 5 |
+
+From the air 1 saves about 1.6 ms a frame (6%), most of it in the arms. From the cab at the lock there's
+no difference outside the noise. David saw the shots and these numbers and turned it on (2026-10-25).
+
+## Built 2026-10-24, on since 2026-10-25: the marks shaded on the GPU and kept (`marksGPU`)
+
+The South Lock, the AA batteries, the media lot and the statue shaded every face on the CPU from the
+eye and turned its normal toward it, so every record moved with the camera, nothing about them could
+be kept, and they rebuilt every frame (1.25, 0.78, 0.47 and 0.40 ms of a moving Halcyon cockpit
+frame, headless). `marksGPU` (0 shipped; 1 is the new path) does two things.
+
+- **The shading goes to the solids shader** (gl/solids.js, "the marks"). A face goes over unshaded,
+  with its normal as wound and a code in `tex`: −2 to −4 are `makeShade` (glass/aa-emplacement.js,
+  glass/media-lot.js: plain, metal, glass), −5 and −6 `statueShade` (wet and never wet), −7 the
+  statue's copper (`statueDiffuse`, then the copper branch). The shader turns the normal to the eye
+  per pixel and runs the CPU's own arithmetic; the frame they're lit in (`MARK_ENV`: makeShade's and
+  statueShade's light, night, wet, the sun share, the statue's sky) rides on the faces as `menv` and
+  becomes uniforms, as a metal's `env` does. The lock already lit in the shader, so it only needed the
+  turn: its faces go over facing out of the hall (from its axis, `AXA`) so neighbouring metals still
+  smooth together, and the shader turns them (code −1). No mark face is lit by the city's lamps or
+  tinted by the sky below, as none was. ⚠ `putVertex` wrote a face's code only with local points, so
+  a first version sent every mark face as code 0 and the shader never ran on them; a negative code
+  now goes without. ⚠ The vertex shader rounds the code with `floor`, not a cast, for the negative codes.
+- **Each mark is two passes, and the static one is kept as a building's arm is** (`markKept`): the
+  same detection (two probes, the clock tests, rechecks, live on anything a replay can't do). Static:
+  the lock's halls, frames, doors, gantries and boards; the AA's pit, bags, hatch and radar mast; all
+  of the media lot; the statue, its fixed wires and its uplighters. Dynamic, every frame: the lock's
+  end walls (their colour and bow are chosen by the side the eye is on), eye, field collar, approach
+  studs and board text, and the whole lock in lockdown or on a red; the AA's mount, guns, radar array,
+  lamps and the aim's memory; the statue's water and every ground pool (a side channel). A mark is
+  filed under a stand-in per cell, because a lot wall stands on a building's tile, and its faces
+  stream rather than going as a retained group (the metals smooth every frame). `drawTypeModelKept`
+  took an `extra` key term for a mark's near detail and the statue's wetness.
+
+**What it changes on screen.** The marks shaded from `cam.ex − cam.ox`, which isn't the eye: the eye
+is at `(ex, ey)` in the frame they draw in (makeCam; faceAway and the kept arms read it that way), so
+they lit each face as seen from a point off by the camera's place in the map window. The shader
+uses the real eye. Where that offset is 0 the two agree, and the shots below are taken there, so
+they show the shading port and not the eye. In the game, the marks will light from the right place.
+
+**The shots for David**, in the Modelshop (real WebGL2, 960x540, a camera with no ship, pinned clock,
+date and random, 30 settle frames each; for each, a warm-up at 0, then 0, 0 again for the control,
+then 1), in `.claude/shots/marks-gpu/` (not tracked: the folder ignores itself): `<item>-<noon|night>-<0|1>.png`,
+one `<item>-sheet.png` per mark with the four side by side and their numbers, and `diffs.txt`.
+
+| shot | 0 against 0 | 1 against 0 |
+|---|---|---|
+| lock noon / night | 0% (worst 1) / 0% (1) | 0.04% (105) / 0.02% (10) |
+| AA noon / night | 0% (1) / 0% (2) | 0.07% (9) / 0% (3) |
+| lot noon / night | 0% (1) / 0% (1) | 0% (2) / 0% (1) |
+| statue noon / night | 0% (1) / 0% (2) | 0.02% (13) / 0.02% (24) |
+
+**Proof that 0 is today's path.** `perf:exact marksGPU 0 0` is identical over 60 views. Against the
+tree as it was before this work (a copy taken first), `recentre-exact`'s child flown in both with
+`marksGPU=0` and the same arguments matches every list on every frame: 200 frames each at Halcyon
+(cockpit, 13h and 22h), Marrow (cab) and a cab at the lock (911,926), all with `--churn 40 --cloth`,
+and again after the last change with `armFace3` (below, newer than the copy) also at 0. With
+`armFace3` at 1 the lock cab differs from the copy on 12 frames: kept slum sheets taking the tone the
+live arm gives them, which is that switch's fix.
+The same flight with the new tree at 1 differs on 200 of 200 frames, in the bay, decal, sprite and
+stroke lists only. **And that it touches only the marks:** `perf:exact marksGPU 0 1
+--without=lock,aa,statue,lot` (the four taken off the map) is identical over 60 views; with them on
+it differs in every view. **And that a kept mark draws what a live one does:** `TUNEALL=marksGPU=1
+perf:armkeep` (the switch on in both flights) passes, 600 frames.
+
+**Speed**, headless, `perf:move -- <place> <seat> --frames 200 --turn 0.2 --gl`, 0 against 1, pairs
+run alternately (the lock cab is `911,926 cab`, driving north into the lock):
+
+| | Halcyon cockpit, 0 | 1 | lock cab, 0 | 1 |
+|---|---|---|---|---|
+| paint median (ms) | 27.2, 31.9, 28.6, 26.8, 27.0 (mean 28.3) | 30.3, 28.3, 28.7, 30.6, 28.5 (29.3) | 11.1, 11.2, 11.3, 11.8, 11.1 (11.3) | 12.6, 11.9, 11.5, 12.0, 11.3 (11.9) |
+| paint p99 (ms) | 54.5, 58.4, 45.5, 41.4, 39.2 | 45.5, 52.0, 43.2, 51.3, 40.8 | 19.8, 18.0, 18.9, 26.3, 21.4 | 32.8, 19.3, 22.0, 20.4, 21.8 |
+| `world:arms` (`--prof`, ms) | 9.73, 9.89, 9.86, 9.68, 9.53, 9.83 | 8.88, 9.07, 8.90, 9.26, 9.14, 8.99 | 3.70, 3.74, 3.68 | 3.06, 3.04, 2.98 |
+| `world:gl` (`--prof`, ms) | 8.76, 8.72, 8.22, 8.01, 7.87, 7.82 | 10.35, 9.55, 10.60, 9.45, 9.34, 9.78 | 4.23, 4.63, 4.46 | 5.31, 4.83, 4.94 |
+| `perf:alloc` (MB a frame, two runs) | cockpit 23.10, 22.81 | 20.61, 20.73 | Halcyon cab 11.99, 12.20 | 11.11, 10.86 |
+
+Per item (arms profiler, ms a frame): from the lock cab the lock went 1.29 → 0.73; from the
+cockpit the lot 0.47 → 0.04, the statue 0.40 → 0.21, the AA 0.78 → 0.48. From the cockpit's heading
+the lock is beside and behind the craft the whole flight, so it is never probed (a kept-arm probe
+needs the building well in front) and its static pass runs live as well as its dynamic one: 1.25 →
+1.40. Once kept, a set replays from any side. Residential cockpit allocates 18.66, 18.60 → 16.62,
+16.57 MB.
+
+⚠ **So at 1 it is not faster headless yet.** (Found and fixed 2026-10-25, in the section above: V8
+converting the kept marks' point arrays. The guess below about type feedback was close; the rest of
+this paragraph is what was known before.) `world:arms` falls by 0.7 to 1 ms in both seats and
+allocation by 1 to 2.5 MB a frame, but `world:gl` rises by about as much. The extra is all in the
+solids upload (`putVertex` and `smoothCell` about doubled in a CPU profile, `writeQuad` and `smooth`
+up), for the same number of faces, metals and floats written (757k a cockpit frame either way), and
+with the lock left on the old path the rise is the same, so it comes from the AA, lot and statue
+faces carrying normals. Uploading one captured frame's faces in a loop shows no difference between
+the two (5.6-7.8 against 6.8-7.5 ms), and both runs deoptimise `writeQuad` and `putVertex` on "wrong
+map", so the likeliest cause is V8 losing type feedback in that shared path, not more work; it isn't
+proved. The `menv` scan was one cost and is gone (the frame rides on the bay list now), without
+changing the totals. Not measured in the browser: there the upload runs at about half the headless
+cost, and the arms saving is the same work, so the balance may differ.
+
+New in the scripts: `perf:move` and `recentre-exact` take a world tile `x,y` for a place and a
+`--heading`; `perf:exact` takes `--without=`; `perf:armkeep` takes `TUNEALL=` (both flights),
+`FLY=place;seat;hour;move;rec` (one flight) and `FRAMES=`.
+
+## Fixed 2026-10-24: two holes in `armFade`'s detection, and one older one it showed up
+
+The marks work flew `armFade` somewhere new (a cab at the South Lock) and two things failed:
+
+- **A set kept at alpha 1 was scaled without ever being tested.** One probed in the band is compared
+  with the live draw at its fade; one kept at full alpha that drifted into the band was scaled
+  straight away, and an arm that scales a glow's colour rather than its alpha (the lock's light lines)
+  isn't proportional. Now its first fading frame records the live draw and compares (`fadeOK`), and
+  until then it runs live.
+- **`slumFaceK` turned a sheet to the eye with a test of its own**, and the tone it picks is in the
+  sheet's decal key, so a kept slum building kept the tone of the side it was probed from after the
+  eye crossed to the other. That's older than `armFade`; `armFade` keeps more of them. `faceAway3`
+  records the test (three dimensions, it reads the eye's height) and `armReplay` asks it again
+  (`armFace3`, 1; 0 tests it unrecorded).
+
+With both, `recentre-exact armFade` at the lock cab has nothing missing on the frames checked, only
+extras (a dish and a blade sign the live arm drops behind a nearer building or edge-on, which a kept
+set leaves to the depth buffer, as every kept set does). `recentre-exact armFade` still matches at
+Halcyon (cockpit), Marrow (cab, 13h and 22h), `perf:armkeep` passes, and so do its 60-frame flights
+at the lock cab (`FLY=911,926;cab;13;0.01`, at 22h, and recentred every 20 frames).
+
+⚠ **Older, fixed 2026-10-25 (`armNearWire`, at the top): long recentring cab flights lose a few triangles from kept sets.**
+`FRAMES=200 FLY="911,926;cab;13;0.03;20" perf:armkeep` misses 2 live triangles a frame on 28 frames
+from frame 163, and `FLY="marrow;cab;13;0.03;20"` 4 on 5 frames from 136. The same with `armFade`,
+`armFace3` and `armLiveSide` all at 0 (28 and 5), and the tree from before this work (37 and 5), so it
+predates them. `perf:armkeep`'s own flights are 60 frames and never got that far.
+
+## Built 2026-10-24: buildings in the haze band keep (`armFade`, step 2.1)
+
+A building dissolving at the draw limit ran live every frame: alpha was in its kept key and moved with
+every frame of travel (`drawTypeModelKept`'s `it.alpha < 1` return). From a Marrow cab that's 7.6
+buildings a frame, most of them authored. A temporary probe that made them draw nothing (removed) put
+the ceiling at 0.6 ms of `world:arms` from the cab (5.72 → 5.11, three pairs) and nothing from the
+cockpit: there, a building that far out is past the distance ladder's last ring and draws mass only,
+so no fading building reaches an arm at all.
+
+**What it does** (`armFade`, 1; 0 runs them live as before). The model arms never test their alpha;
+it only scales what they push. So alpha leaves the key, and a fading building's kept set is its
+recording at alpha 1, the same set it keeps once fully in. A fading frame pushes the set with every
+record's alpha times the fade (`armFadeKept`, `armFadePut`).
+
+- **Detected, not predicted.** A probe in the band records the frame's live draw and a scratch run at
+  alpha 1 (`run` takes an alpha now), and keeps only if the scaled set is the live one
+  (`armFadeCanon`), after the usual two clock tests and a second probe from a moved pose. A recheck in
+  the band compares the same way. A set with a live part (handed the alpha it was recorded at) or one
+  that fails the comparison runs live while it fades (`noFade`, `fadeLive`).
+- **The primitives' cut-offs.** `pushLight` drops a light at alpha 0.002, `pushStroke` a wire at
+  0.004, and `glowPool` enters the rain census only above 0.05. A frame where any scaled record would
+  land within rounding of one of those runs live (`armFadeSafe`, `fadeEdge`). The census replay
+  applies glowPool's own 0.05 test at the scaled alpha.
+- **Through the stream, as fresh copies.** A retained group is written to the GPU once, and here the
+  alpha changes every frame. ⚠ The copies are new objects each frame. A first version rewrote one set
+  of copies in place, and `perf:retain` caught it drawing last frame's alpha: a record a layer has
+  seen is taken to be what it was (gl/solids.js skips the same record at the same slot).
+- **Not the shader version the plan named.** That would also save uploading the faint records, but
+  needs a building centre on the sprite, stroke, decal and solids vertices, plus the mirror and an
+  expansion for the checks, for what's left of a 0.6 ms ceiling once the arm runs are gone. With the
+  fade on the CPU the sinks hold the real records, so `perf:exact` and `recentre-exact` compare them as
+  they are.
+
+A first version of the band's recheck canonicalised the kept set at this frame's offset instead of
+its own (`e.kept.ox`), and every recheck failed by exactly one frame of travel. ⚠ A kept set's records
+are where the last replay moved them; compare them in their own frame.
+
+**Counts**, Marrow cab, 170 frames: fading buildings 7.6 a frame, of which 4.6 replay, 1.2 run live
+(`noFade`: the pier and the boatshed carry live parts) and none were at a cut-off. `perf:armkeep`'s
+Nightlife cab flight keeps 60 buildings where it kept 22, with 985 replays against 322.
+
+**Speed**, headless, Marrow cab, switch off against on, pairs run alternately:
+
+| | off | on |
+|---|---|---|
+| paint median (ms) | 14.0, 14.3, 16.7, 14.4, 14.6 (mean 14.8) | 14.3, 13.8, 14.0, 14.8, 14.0 (14.2) |
+| paint p99 (ms) | 20.4, 29.8, 33.5, 29.6, 26.2 | 24.8, 27.2, 24.9, 21.9, 26.6 |
+| `world:arms` (`--prof`, ms) | 5.16, 5.64, 5.73 | 5.85, 4.83, 5.50 |
+| every building item, `@model` (arms profiler, ms) | 3.51, 2.94 | 2.43, 2.25 |
+| authored arm runs a frame (ms) | 7.5 (0.98, 0.88) | 4.6 (0.57, 0.60) |
+
+The arms profiler, which times each item, shows 0.7 to 0.9 ms off the building items. The phase
+timings and the paint medians are noisier than that on this machine: the mean paint median is 0.6 ms
+lower, but one pair carries most of it. Halcyon cockpit paint medians: 51.3, 28.3, 29.6 off against
+36.2, 28.6, 29.7 on (the first pair was a slow moment for both). `perf:alloc` (two pairs): Halcyon
+cab 12.65, 12.57 → 12.30, 11.93 MB a frame; the cockpit cases inside their noise.
+
+**Proof:**
+
+- `recentre-exact armFade --cloth --churn 40` matches over 200 frames at Halcyon (cockpit) and at
+  Marrow (cab) at 13h and at 22h. That's the flight that crosses the band with the real records
+  compared. A fade 0.1% wrong on the sprites (`× 1.001`) fails 132 of the cab's 200 frames; the
+  cockpit route has no fading arms to catch it with.
+- `perf:armkeep` passes (600 frames); its Halcyon cockpit 22h flight replays 71 fading sets. The same
+  mutant fails 184 of 600 frames. (A first mutant run also showed cloth differences that a rerun
+  didn't repeat; every flight re-reads the source, and peers edit this checkout.)
+- `perf:exact armFade --cloth` is identical over 60 views, which proves only that the scratch run at
+  alpha 1 leaves nothing behind: three paints never keep a building.
+- `perf:retain` passes. The Modelshop shots, one per call, 0 saved, 0 again, then 1: Marrow cab noon
+  0 / 0.01%, Halcyon cab dusk 0 / 0, Marrow cab night 0 / 0, Halcyon air noon 3.12 / 3.14%. ⚠ A
+  refshot paints a still pose and a fading set only keeps across a move, so these prove nothing
+  regresses at a still camera, not the replay; the flights above prove that.
+
+## Skipped 2026-10-24: `flatEarly` for the other arms
+
+The arms that still build flats `emitFlat` drops (a temporary tally by caller, removed): from a
+Marrow cab the fuel yard's ground paint 12.7 a frame, the ATC tower 12.1, the Meridian 23 through its
+`Pq` helper, Second Helpings 16 and the clone facility 12 through `flatOut`, Watts 5 through `tcFlat`,
+Arrivals 13 through `observationCrown`; from a Halcyon cockpit the box office 12.2 and the sports bar
+15.8 through `flatOut`, the church 17.6 through `wallRose` and 5 through `emblemSlab`, the cinema 13
+through `arch`. In the CPU profile `flatOut` outside the ballpark is about 21 ms over 200 profiled
+frames (about 0.06 ms a frame), and `wallRose`, `emblemSlab`, `tcFlat` and `observationCrown` under
+0.05 ms each. Every one is inside the noise, so none was done. What the ballpark had that these
+don't is clipping each flat to the tile.
+
+Noticed on the way: `cssRgb` is 139 ms of the same profile, 83 of it from `emitFlat`'s drop test, and
+it looks its memo up twice (`has`, then `get`) with a freshly built colour string. One `get` would
+halve that, about 0.1 ms a frame. Not done.
+
+## Built 2026-10-24: the live arms and marks, profiled and cut where it was exact (`flatEarly`, `armLiveSide`)
+
+With armChunk dropped (below), the next thing to cut was what `world:arms` is made of. Per item, the
+arms profiler (`setWindshieldProfiler(true, { arms: true })`), headless `perf:move --gl --turn 0.2`,
+ms a frame (calls a frame):
+
+| item | Halcyon cockpit | Marrow cab | why it runs every frame |
+|---|---|---|---|
+| the South Lock (`@mark:lock`) | 1.25 (11) | 1.11 (11) | a mark with no kept path; every face's normal is turned to the eye |
+| the ballpark (one tile's arm) | 0.87 (0.7) | | too near to probe, or between probes; and the arm itself was dear |
+| AA batteries (`@mark:aa`) | 0.78 (3.9) | 0.38 (1) | a mark; every face shaded on the CPU from the view direction |
+| the media lot (`@mark:lot`) | 0.47 (3) | | the same, through the same `makeShade` |
+| the statue (`@mark:statue`) | 0.40 (1) | | the same, through `statueShade` |
+| camps (`@mark:camp`) | 0.36 (13) | 0.05 | already kept (campKept); this is its replay and facing tests |
+| authored buildings | 0.31 (6) | 0.65 (7.5) | in the cab, inside the probe radius (`near`) or in the haze band (`fading`) |
+| the clone facility | 0.27 (0.6) | 0.33 (1) | live for `pose`: its vats turn to the eye |
+| quay cranes | 0.20 (2) | 0.10 (1) | live for `clock`: the trolley moves |
+
+Two things turned up that weren't on the list. A temporary tally of which branch of
+`drawTypeModelKept` ran each arm (removed) showed that the ballpark wasn't live: it was mostly too
+near to probe. And the arms profiler counts the flats `emitFlat` throws away under `FLAT_OFF`
+(`%drop:`): the ballpark built 148 a frame and the clone facility 129 (199 from the Marrow cab), each
+one clipped, coloured and then dropped, because GLASS 2's mesh already has it.
+
+**`flatEarly`** (1; 0 builds them all as before). `flatsDropped()` and `massDropped()` (windshield.js)
+are `emitFlat`'s and `draw3DBoxAt`'s own drop tests, asked first. The ballpark's `box`, `seg`,
+`segCut`, `arc`, `flat`, `face`, `litFace`, `vface`, `fan` and `ring` and downtown.js's `tubeRun`
+return at once when the answer is yes. Neither drop has run anything by then (`emitFlat`'s
+`faceAway` comes after it; `hfSkin` is a lookup), so it's exact. Ballpark 0.87 → 0.34 ms a frame, clone
+facility 0.27 → 0.11, and their drops 148 and 129 → 0 and 15.
+
+**`armLiveSide`** (1; 0 counts as before). `windFlag` is a live part (`armLiveCall`), but on the GL
+cloth path its cloth goes into `FAUNA_SINK`, and `armRecord` counted every side-sink push in the run
+against the kept set. So every building with a flag on GL went live (`side:fauna`: the ballpark's
+roof tile, the pier, four in the Marrow cab). A live part's pushes into the side sinks a recording can
+cut back (scatter, curtain, face, ownship, fauna, ground, late billboards) now count as the live
+part's, since every replay calls it again. A live part's canvas call or ground-late job still makes
+the building live, because neither can be taken back. A recording put back in its place (a clock
+test, a recheck, the frame a set is kept) now cuts those sinks back too (`armSideTrunc`), or its
+flag would be drawn twice. With the switch on, liveRun over a 170-frame Halcyon cockpit flight went
+from 1,933 to 1,166 and kept from 122 to 132.
+
+**Speed**, headless, `perf:move -- <place> <seat> --frames 200 --turn 0.2 --gl`, both switches off
+against both on, pairs run alternately (five pairs for paint, three with `--prof` for the phases):
+
+| | Halcyon cockpit, off | on | Marrow cab, off | on |
+|---|---|---|---|---|
+| paint median (ms) | 27.5, 30.2, 32.1, 30.1, 29.8 (mean 29.9) | 27.8, 31.7, 27.9, 29.0, 30.8 (29.4) | 15.8, 14.7, 15.9, 15.0, 14.3 (15.1) | 14.7, 14.6, 14.8, 14.2, 14.8 (14.6) |
+| paint p99 (ms) | 46.9, 47.2, 69.8, 46.1, 77.6 | 53.3, 90.9, 41.6, 44.0, 49.2 | 29.0, 22.7, 39.7, 29.4, 23.6 | 22.4, 22.6, 26.7, 23.1, 25.9 |
+| `world:arms` (ms) | 10.89, 11.46, 10.81 (11.05) | 10.86, 10.93, 10.35 (10.71) | 5.26, 5.50, 5.56 (5.44) | 5.25, 5.31, 4.91 (5.16) |
+| `world:gl` (ms) | 8.37, 8.75, 8.57 | 8.51, 8.46, 8.06 | 5.75, 5.25, 5.16 | 5.14, 5.13, 5.22 |
+| liveRun over 170 frames | 1,933 | 1,166 | 697 | 500 |
+
+So about 0.3 ms of `world:arms` in each seat. The cockpit's paint median moves inside its noise (the
+pairs differ by −4.2 to +1.5 ms); the cab's is about 0.5 ms lower, and its p99 tighter, in four pairs
+of five. The machine was shared, so read the ratios, not the absolute numbers.
+
+**Proof:**
+
+- `perf:exact flatEarly` is identical over 60 views, with and without `--cloth`. `recentre-exact
+  flatEarly --churn 40` matches over 200 frames at Halcyon (cockpit) and at Marrow (cab), at 13h and
+  at 22h. A guard in the wrong primitive (the ballpark's glow `pool`, which isn't dropped) fails
+  `perf:exact` on 10 of 60 views and `recentre-exact` at 22h from frame 10.
+- `armLiveSide` changes which buildings keep, so the check that counts is `perf:armkeep`, which now
+  flies with the GL cloth path on (`CLOTH=0` for the old flights) and compares each frame's cloth
+  records as well as the triangles and the light census. It passes: 600 frames, none missing, and
+it passes with `TUNE=armLiveSide=0` too (kept 156 against 152 on the recentred flight).
+  `recentre-exact armLiveSide --cloth --churn 40` matches over 200 frames at both places, and
+  `perf:exact armLiveSide --cloth` over 60 views (which only proves the clock tests don't leave a flag
+  behind: three paints never keep a building). A mutant that doesn't cut `FAUNA_SINK` back fails
+  `perf:armkeep` on 14 of 600 frames and `recentre-exact` from frame 151.
+- `perf:retain` passes. `perf:alloc` moved inside its noise, two alternating runs each: cab 12.72,
+  12.73 → 12.58, 12.44 MB a frame; cockpit 24.03, 22.99 → 23.41, 22.95; residential 18.88, 18.68 →
+  18.16, 18.64. ⚠ That's a spread of up to 1 MB on one case, not the 2% the tool's header says.
+- The picture, in the Modelshop, one shot per `__glRefShots` call, both switches at 0 saved, 0 again
+  and then 1 against it (share of pixels moved): Halcyon air night 0.01 / 0.01%, Halcyon air noon
+  0.02 / 0.01%, Halcyon cab night 4.58 / 4.60%, Marrow cab noon 0.03 / 0.05%, Marrow air dusk 0.78 /
+  0.80%. Every shot is inside its own 0-against-0 floor.
+- The scene helper (scripts/perf/scene.mjs) takes `cloth: true` now, and `perf:exact` and
+  `recentre-exact` take `--cloth`: without it neither ever saw a flag's cloth.
+
+**Skipped, and why:**
+
+- **The lock, AA, the media lot and the statue.** Each rebuilds CPU-shaded solids every frame, with
+  every normal turned to the eye, and the AA, lot and statue shade from the view direction as well
+  (specular, `statueShade`'s reflected ray). So their records move with the camera and can't be
+  kept, and a sideways cull isn't exact either: `pickLights` takes lights from beside the view, and
+  off-screen solids still cast into the shadow map. What would cut them is the shading and the flip
+  done in the solids shader (two-sided from the eye), after which they'd keep as groups. That's a
+  shader change with a picture to judge, so it wasn't done here. The lock already reuses each slot's
+  record (`lockCache`); what's left is the generator and the normal per face.
+- **Authored buildings in the cab.** They run live inside the probe radius (`ARM_NEAR + 2·fh`) and in
+  the haze band, both rules of the kept path. The haze fade in the shader (the plan's `armFadeGPU`,
+  2.1) is what would keep them.
+- **Quay cranes**, 0.1 to 0.2 ms: inside the noise. The trolley is inline in the arm, so making it a
+  live part means moving about 80 lines into a helper.
+- **Camps**, 0.36 ms: they're already kept. What's left is the replay itself.
+- **Not on the list but the same fix:** other arms drop flats too (church 30 a frame, sports bar 21,
+  box office 19, cinema 18 from a Halcyon cockpit; Second Helpings 76 and the Meridian 33 from a
+  Marrow cab). They build them through shared helpers (`flatOut`, `drawFacetDrum`) that also take
+  `paint` and gradients, so each needs its own look.
+
+## Measured 2026-10-24: armChunk's ceiling (Phase 2.2, not built)
+
+Phase 2.2 of the plan (`armChunk`) would stop kept buildings pushing their records into the sinks
+every frame: slot tokens, pinned arena slots, per-chunk multi-draw, light candidate tables. It was
+estimated at −3 to −5 ms in the browser. Before building it, the most it could save was measured: a
+temporary line at the top of `armReplay` returned at once, so a kept building pushed nothing and drew
+nothing. That removes every cost a kept building has after its key (the shifts, the sink pushes,
+`splitGroups`, the layers' group handling and arenas, `pickLights` over its sprites, the garbage), which
+is more than any slot path can save. The line was taken out again.
+
+Headless, `perf:move -- <place> <seat> --frames 200 --turn 0.2 --gl`, pairs run alternately:
+
+| | today | kept buildings free |
+|---|---|---|
+| Halcyon cockpit, paint median (ms), five pairs | 29.0, 29.7, 28.8, 28.4, 29.9 (mean 29.2) | 25.1, 29.7, 27.8, 27.4, 28.8 (mean 27.8) |
+| Halcyon cockpit, total over 170 frames (ms) | 5240, 5204, 4984, 4940, 5256 | 4390, 5201, 4905, 4852, 5060 |
+| Halcyon cockpit, `world:arms` (`--prof`, three pairs) | 11.1 | 10.0 |
+| Marrow cab, paint median (ms), three pairs | 15.8, 15.4, 15.5 | 15.8, 14.9, 15.3 |
+
+So the ceiling is about 1.0 to 1.4 ms of a 29 ms headless cockpit frame (4 to 5%), about half that in
+the browser, and nothing measurable from a cab, which replays about 19 buildings a frame against the
+cockpit's 210. A CPU profile of the same cockpit flight agrees: `armReplay` is about 0.47 ms a frame
+(profiled, so slow), `splitGroups`, the arenas' `retain` and `pickLights` 0.1 to 0.15 each.
+
+What `world:arms` is instead, by the arms profiler (`setWindshieldProfiler(true, { arms: true })`, ms a
+frame over the same flight): every building item (`@model`, 199 calls) 5.85, most of it live arms (the
+ballpark 1.13, authored 0.28, the clone facility 0.24, quay cranes 0.23, the church 0.21, the pier 0.17);
+marks (the lock 1.17, `aa` 0.72, `lot` 0.54, the statue 0.46, camps 0.43, the yacht 0.36); and the tile
+loops (road 0.68, badlands 0.59, redrock 0.47, parkland 0.29, park 0.28). Kept replays are already cheap;
+the time is in what runs live.
+
+## Measured 2026-10-24: the occlusion pre-pass still pays on GL (`occAuto`, tried and removed)
+
+Phase 2's first step was to skip the pre-pass on the GL path where it does nothing: the depth buffer
+hides what it hid, so it seemed worth its 1.4-1.7 ms of a cockpit frame (headless, Halcyon) only for
+its culls. From a cockpit it culls no building (a cab culls 10-20, and `occlude: 0` made the cab
+0.7 ms dearer), and skipping it saved about 1.5 ms of a moving cockpit frame. It was taken out again,
+because the field does more than cull buildings:
+
+- **It keeps 2-D things behind towers.** `emitDeco` queues a canvas face, so `decoHidden` is the only
+  thing hiding a canvas glow (`glowPool`), a statue, a gate or a pylon (`markHidden`) behind a nearer
+  building on GL. Tallied by caller over a 120-frame Halcyon cockpit flight, it said yes to
+  `glowPool` 23 times; from a Halcyon cab, 1,046.
+- **It culls ground objects** (`groundHidden`, 2,737 yeses over the same flight), and some of those draw
+  on the canvas too. `shapes:smoke` fails when they reach the GPU from behind a wall.
+- **Its near solids mask CPU-drawn contacts** (`occluderWindow`); the own ship returns before its raster.
+
+A rule that skipped only after a pass frame in which the field hid nothing never fired at Halcyon,
+moving or still, so it was complexity for nothing. ⚠ The field comes off the GL path only after the
+canvas glows, landmarks and ground objects are on the depth buffer; until then it hides things nothing else does.
+A first version of the tally broke `decoHidden` for a few minutes (a newline lost in an edit
+commented out its `return`); every check before its removal was run again after.
+
+## Built and measured 2026-10-24: shadow hulls kept, the interior and the canvas copies
+
+- **`shadowKeep`** (1; 0 rebuilds every hull every frame). On the GL path a building's ground-shadow
+  hull is in window tiles and depends only on its tile, footprint and the sun, and the seats take the
+  hour from the server's sky context, so the sun holds still between pushes. The hull is kept per
+  cell (`SHADOW_KEEP`) and its record reused, with only the alpha (the haze fade) written. Headless
+  Halcyon cockpit, moving: `world:shadow` 0.81-0.84 to 0.16 ms, paint 29.7-30.6 to 27.9-29.0 ms;
+  `perf:alloc` 1.1-1.8 MB a frame less (cockpit 23.75 to 21.92 MB). `perf:exact shadowKeep` is
+  identical over 60 views, but its views never move the sun with shadows up (13h, or 22h with the
+  sun down), so a scratch check painted 10h, 14h, 10h and 8.5h at three offsets in four seats: equal
+  hull for hull, and a key without the sun's terms fails 24 of 48 frames. `recentre-exact shadowKeep`
+  matches over 200 frames at Marrow (cab, `--churn 40`). At Halcyon (cockpit) it flags 8 of 200 frames;
+  the one hull that differs in frame 21 has one extra vertex on the old path, (26.718, 2.345), which
+  lies on the line between its neighbours. ⚠ Compare hulls canonically: a hull recomputed at a camera
+  offset an ulp away can keep or drop a collinear point, so the old path does this to itself.
+- **The cockpit interior** wasn't changed. It's already slot-cached (`CAB_SLOT`: an unchanged face
+  pushes last frame's record after one compare, and gl/solids.js uploads incrementally). What's left
+  is `sweep:interior`, about 1.8 ms headless in a cockpit, spread over 5,000 trivial iterations.
+- **GL-to-2-D copies**, measured in the Modelshop at 1280x720 by wrapping `drawImage`: four full-frame
+  copies a frame, about 2 ms of CPU. Three (sky, world, cloud deck) cost 0.03-0.07 ms each. The fourth,
+  the cabin interior (`GL_INTERIOR_HOOK`, after the 2-D glass), costs 1.6 ms, and skipping it took a
+  Halcyon cab frame from 16.8-18.9 to 15.5-16.4 ms. It comes after the windscreen rain on purpose, so
+  removing it means compositing the glass in GL (the one-canvas step), not a quick fix.
+- **Not done:** pooling the occluder quads (`boxQuads`, 1.3 MB a cockpit frame). It means reworking the
+  depth raster's point format for about 1-2% of a frame, and the occluder raster is meant to come off
+  the GL path altogether.
+
+## Built 2026-10-24: the ground stops re-packing (`groundGPU`, `groundKeep`)
+
+"Still to do" item 3. A replayed road tile (`GROUND_TILE`) still cost every frame: each record's
+alpha rewritten with the tile's far fade, each kerb line rebuilt at a width solved from distance,
+every record pushed into `GROUND_MESH`, and gl/ground.js splitting, triangulating and writing all of
+them, about 6,500 records from a cockpit at Halcyon.
+
+- **`groundGPU`** (1; 0 is the old path): a replayed tile goes into `GROUND_MESH` as one block object,
+  kept on its cache entry, at the place its records went. gl/ground.js writes a block's floats once
+  (`blockFloats`, one array per draw range, cached on the block) and copies them. The two camera terms
+  go with the list as numbers (`GROUND_MESH.gt`): the vertex shader works out the fade,
+  `blend · clamp((far − f) / 6)` with f the tile centre's forward distance, and moves a kerb vertex out
+  along its line's normal by `clamp(kerbK · max(f, 0.2), 0.004, 0.05)`. The CPU still makes every cull
+  and the `tileA > 1e-6` test, so the same tiles reach the GPU. A vertex is 14 floats now (tile centre
+  and kerb normal); a vertex with no tile carries `NO_TILE` and draws at its own alpha.
+- **`groundKeep`** (1): a block's floats stay on the GPU, one `createArena` per draw range, and only
+  tiles new to the view are sent. Each range draws its kept tiles and then the streamed quads (dynamic
+  tiles, shadows, the headlight pool), where the stream kept the list's order; tiles don't overlap, so
+  it shows only where two translucent quads of different tiles meet. A recentre builds every block
+  again (they're in the window's frame).
+
+Headless, `perf:move -- halcyon <seat> --frames 200 --prof --turn 0.2 --gl`, two runs each:
+
+| | cockpit paint | cockpit world:gl | cab paint | floats written (cockpit) |
+|---|---|---|---|---|
+| both 0 | 32.1, 34.2 ms | 11.2, 11.7 | 22.5, 24.1 | 1.15M |
+| groundGPU | 29.5, 30.9 | 8.5, 8.9 | 21.5, 20.2 | 1.15M |
+| + groundKeep | 28.0 | 8.0 | | 743k |
+
+The wider vertex costs the streamed half; kept tiles more than pay it back (about 975k floats a
+cockpit frame before either switch, at 10 floats a vertex).
+
+**Proved:** `expandGroundBlocks` (windshield.js) is the shader's sums on the CPU, and `perf:exact` and
+`recentre-exact` now expand a ground list through it before comparing. `perf:exact groundGPU` is
+identical over 60 views; a fade off by 6 → 6.01 fails 5 of 8 views and a kerb 1% wide fails 8 of 8.
+`recentre-exact groundGPU` matches over 600 frames (Halcyon cockpit, Marrow cab, Marrow cab with
+`--churn 40`, 19 recentres).
+
+**The picture,** in the Modelshop (real WebGL2), one shot per `__glRefShots` call, the switch's 0 run
+twice for a control and then the switches on, pixels moved by more than 3 levels:
+
+| shot | 0 vs 0 | `groundGPU` alone | both on |
+|---|---|---|---|
+| Marrow air noon | 0.06% | 0.06% (139 px) | 0.23% |
+| Marrow air night | 0.05% | | 0.14% |
+
+So the shader draws what the CPU did, and kept tiles' new order within a range moves about 0.1-0.2%
+of an aircraft frame. ⚠ A full sixteen-shot `__glRefShots` run is no control for this: each shot
+follows the last one's history, and two runs at 0 put Marrow air noon 13.7% apart at that threshold.
+Compare single shots run back to back.
+
+## Built 2026-10-24: the phone tier's CPU half, and a dial that knows it's CPU-bound
+
+`PHONE_TIER` only turned off GPU passes, and the frame is CPU-bound, so a phone (three to five times
+slower JavaScript) kept the whole CPU bill. It now also takes the card deck for the cloud volume, no
+moon shadow pass, `govWindowGL`, `lodNear` 14, nearer glow and bloom rings, fewer birds, a world
+backing store capped at 1.5 device pixels a CSS pixel (`dprMax`, new), the painted dash at 2
+(`dashDprMax`, new) and `pace30`. With the tier on a desktop, a Halcyon aircraft frame went from 44.8
+to 35.9 ms, and the card deck took it to 31.3 (Modelshop `__glWhere`, 960x540, a loaded machine, so
+ratios only). Nothing here is measured on a phone yet.
+
+The resolution dial read only the frame interval, so at 30 fps it pulled the backing store toward its
+floor, which costs sharpness and buys about 6% on a CPU-bound frame. With `resCpu` (1; 0 is the old
+dial), when the paint's own CPU time (PACE's `work`) is over 70% of the interval, the dial holds
+native resolution; supersampling still waits for headroom, and a frame whose time is spent elsewhere
+(the GPU, the sim) drops as before. Headless, a still cockpit painted back to back on the real clock
+with `resFloor` 0.6: 384 to 512 px wide with 0, 640 with 1.
+
+## Built 2026-10-24: a still camera keeps (`armStill`)
+
+A kept set needed a second probe at a camera pose that had moved (`ARM_GAP` frames on), and a parked
+cab or a standing free camera never moves. So a still seat ran every building live and probed each
+one (three arm runs) every 12 frames: still seats were the dearest seats there were. Headless
+Halcyon, `perf:move -- halcyon <seat> --frames 200 --prof --speed 0 --turn 0 --gl`:
+
+| seat | armStill | paint median | world:arms | kept |
+|---|---|---|---|---|
+| cab | 0 | 31.4 ms | 15.4 ms | 0 |
+| cab | 1 | 25.3 ms | 7.4 ms | 10 |
+| cockpit | 0 | 48.4 ms | 25.6 ms | 0 |
+| cockpit | 1 | 44.1 ms | 15.2 ms | 43 |
+
+At one pose a recording is the live draw, so two probes there that agree (each with its clock tests
+passed) keep the building at that pose (`e.kept.still`). The first frame the pose moves past the
+usual 0.02, it's recorded once more and compared, as a recheck is: the same and it's kept for good,
+different and it goes live with that frame's draw, and its type joins `ARM_POSE_SUSPECT`, which never
+keeps while still. At most `ARM_STILL_MAX` (6) confirm a frame; until it's confirmed, or while it's too
+near to record, a moved building runs live, so nothing draws from a set that wasn't proved at the
+current pose. `armKeepStats.still`, `stillConfirm` and `stillWait` count them.
+
+What's left in a still seat's arms is the buildings within `ARM_NEAR + 2·fh` (about 11 a frame at
+Halcyon), which never probe, and the live ones. `perf:armkeep` flies three still-then-moving flights
+now (`still`, then turning; `stillfly`, then straight) and all ten flights match the live draw;
+`perf:exact armStill --layers` and `perf:retain` pass.
 
 ## Built 2026-10-19: what a recentre still paid
 

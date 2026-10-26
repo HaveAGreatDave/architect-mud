@@ -124,12 +124,21 @@ export function drawAAEmplacement(o) {
   const rnd = (i) => frac(Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453);
   const E = o.eye || [0, 0, 0.2];
   let faces = 0;
+  // ── TWO PASSES (o.part, RENDER_TUNE.marksGPU in windshield.js) ──
+  // 'static' draws what stands still (the pit, the bags, the hatch, the radar's mast, a dead truck),
+  // 'dynamic' what moves (the mount and the guns, which traverse and elevate; the radar's array; the
+  // lamps and the muzzle flash) and the aim's memory. Absent, both, as before. `dyn` says which the
+  // face being built is: gbox and gtube are always the guns, and the faces hung off a gun frame or
+  // the spinning array set it around themselves.
+  const S = !o.part || o.part === 'static', D = !o.part || o.part === 'dynamic';
+  let dyn = false;
 
   // ── THE FACE ──
   // Newell's normal, turned toward the eye (these are closed solids; the back face is hidden by
-  // its own front one), shaded, handed over.
+  // its own front one), shaded, handed over. With `o.gpu` the shader does the turning and the
+  // shading: the base, the normal as wound and the material go over.
   const face = (pts, base, mat) => {
-    if (pts.length < 3) return;
+    if (pts.length < 3 || !(dyn ? D : S)) return;
     let nx = 0, ny = 0, nz = 0, cx = 0, cy = 0, cz = 0;
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i], b = pts[(i + 1) % pts.length];
@@ -138,6 +147,7 @@ export function drawAAEmplacement(o) {
     }
     const nl = Math.hypot(nx, ny, nz); if (!(nl > 1e-12)) return;
     nx /= nl; ny /= nl; nz /= nl; cx /= pts.length; cy /= pts.length; cz /= pts.length;
+    if (o.gpu) { o.face(pts, base, alpha, [nx, ny, nz], mat || 'paint'); faces++; return; }
     let vx = E[0] - cx, vy = E[1] - cy, vz = E[2] - cz;
     const vl = Math.hypot(vx, vy, vz) || 1; vx /= vl; vy /= vl; vz /= vl;
     if (nx * vx + ny * vy + nz * vz < 0) { nx = -nx; ny = -ny; nz = -nz; }
@@ -238,7 +248,9 @@ export function drawAAEmplacement(o) {
   const gu = kind === 'truck' ? -0.02 : 0, gw = 0;
   const gp = T(gu, gw, 0);
   const st = AIM.get(AIMK) || { az: tAng + Math.PI + (rnd(5) - 0.5) * 1.2, el: 0.35, t: o.now || 0 };
-  {
+  // ⚠ ONLY THE PASS THAT DRAWS THE GUNS MOVES THEM: the slew steps the memory by the time since the
+  // last call, so a static pass that stepped it too would slew the guns twice a frame.
+  if (D) {
     const now = o.now || 0, dt = clamp((now - st.t) / 1000, 0, 0.25);
     st.t = now;
     let wantAz, wantEl;
@@ -273,18 +285,22 @@ export function drawAAEmplacement(o) {
   };
   // A box in a gun frame (six faces: an elevated part is seen from below).
   const gbox = (G, a0, a1, l0, l1, z0, z1, base, mat, top = base) => {
-    const A = G(a0, l0, z0), B = G(a1, l0, z0), C = G(a1, l1, z0), D = G(a0, l1, z0);
+    const w = dyn; dyn = true;
+    const A = G(a0, l0, z0), B = G(a1, l0, z0), C = G(a1, l1, z0), D4 = G(a0, l1, z0);
     const Ea = G(a0, l0, z1), F = G(a1, l0, z1), Gg = G(a1, l1, z1), H = G(a0, l1, z1);
-    face([Ea, F, Gg, H], top, mat); face([A, B, C, D], base, mat);
+    face([Ea, F, Gg, H], top, mat); face([A, B, C, D4], base, mat);
     face([A, B, F, Ea], base, mat); face([B, C, Gg, F], base, mat);
-    face([C, D, H, Gg], base, mat); face([D, A, Ea, H], base, mat);
+    face([C, D4, H, Gg], base, mat); face([D4, A, Ea, H], base, mat);
+    dyn = w;
   };
   // A tube along the gun's `a` axis, from a0 to a1, at (l, z), tapering r0 → r1, with an end cap.
   const gtube = (G, a0, a1, l, z, r0, r1, n, base, mat, cap = base) => {
     const ring = (a, r) => { const out = []; for (let i = 0; i < n; i++) { const t = i / n * TAU + Math.PI / n; out.push(G(a, l + Math.cos(t) * r, z + Math.sin(t) * r)); } return out; };
+    const w = dyn; dyn = true;
     const p = ring(a0, r0), q = ring(a1, r1);
     for (let i = 0; i < n; i++) { const j = (i + 1) % n; face([p[i], p[j], q[j], q[i]], base, mat); }
     face(q, cap, mat);
+    dyn = w;
   };
 
   const muzzles = [];   // [x, y, z] of each bore, for the flash
@@ -330,6 +346,7 @@ export function drawAAEmplacement(o) {
     }
     const Gf = frame(M(0.35), 0, false);
     // Turntable and the armoured housing, traversing with the guns.
+    dyn = true;
     {
       const ring = []; const n = 14;
       for (let i = 0; i < n; i++) { const a = i / n * TAU; ring.push([Math.cos(a) * M(1.45), Math.sin(a) * M(1.45)]); }
@@ -351,6 +368,7 @@ export function drawAAEmplacement(o) {
         gbox(Gf, M(0.0), M(0.25), sd * (L - M(0.05)), sd * (L + M(0.05)), zH + M(0.85), zH + M(1.05), [40, 44, 48], 'metal');
       }
     }
+    dyn = false;
     // The cradle and the twin barrels, elevating about trunnions at the housing's shoulder.
     const zt = zH + hH * 0.62;
     const Ge = frame(M(0.35), zt, true);
@@ -391,10 +409,12 @@ export function drawAAEmplacement(o) {
       // The array: a tilted flat panel, its face the bright side.
       const W = M(1.15), Hh = M(0.75), tilt = 0.28;
       const Q = (b, h) => R(Math.sin(tilt) * h, b, zr + Math.cos(tilt) * h);
+      dyn = true;
       face([Q(-W, 0), Q(W, 0), Q(W, Hh), Q(-W, Hh)], pal.radar, 'metal');
       const Qb = (b, h) => R(Math.sin(tilt) * h - M(0.18), b, zr + Math.cos(tilt) * h);
       face([Qb(-W, 0), Qb(W, 0), Qb(W, Hh), Qb(-W, Hh)], [70, 74, 76], 'metal');
       face([Q(-W, Hh), Q(W, Hh), Qb(W, Hh), Qb(-W, Hh)], [90, 94, 96], 'metal');
+      dyn = false;
       if (!ruin) lamps.push([...T(mu, mw, zr + M(1.15)), '255,46,36', 6, 0.35 + 0.65 * (Math.sin((o.now || 0) / 260) > 0.2 ? 1 : 0.15), 'beacon']);
     }
     // The turret's status lamp, on the housing's crown.
@@ -447,10 +467,12 @@ export function drawAAEmplacement(o) {
       gtube(Ge, -M(1.55), M(1.25), l, zz, M(0.2), M(0.2), 8, pal.missile, 'paint');
       gtube(Ge, M(0.15), M(0.5), l, zz, M(0.205), M(0.205), 8, pal.stripe, 'paint');
       gtube(Ge, M(1.25), M(2.05), l, zz, M(0.2), M(0.02), 8, pal.missile, 'paint', pal.missile);
+      dyn = true;
       for (const [fl, fz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const p = (a, r) => Ge(a, l + fl * r, zz + fz * r);
         face([p(-M(1.55), M(0.2)), p(-M(1.0), M(0.2)), p(-M(1.25), M(0.55)), p(-M(1.55), M(0.55))], pal.stripe, 'paint');
       }
+      dyn = false;
       muzzles.push(Ge(-M(1.7), l, zz));
     }
     if (ruin) {
@@ -463,7 +485,7 @@ export function drawAAEmplacement(o) {
       const ma = Math.PI - 0.5, mr = R_IN - 0.07, mu = Math.cos(ma) * mr, mw = Math.sin(ma) * mr, mh = M(3.2);
       drum(mu, mw, M(0.1), 0, mh, 6, pal.mast, 'metal');
       const spin = down ? 0.7 : ((o.now || 0) / 1000) * 1.1;
-      tbox(mu, mw, M(0.75), M(0.1), mh, mh + M(0.55), spin - tAng, pal.radar, 'metal');   // `r` is off the opening, so this turns it in the world
+      dyn = true; tbox(mu, mw, M(0.75), M(0.1), mh, mh + M(0.55), spin - tAng, pal.radar, 'metal'); dyn = false;   // `r` is off the opening, so this turns it in the world
       if (!ruin) lamps.push([...T(mu, mw, mh + M(0.8)), '255,52,40', 5, 0.35 + 0.65 * (Math.sin((o.now || 0) / 340) > 0.3 ? 1 : 0.2), 'beacon']);
     }
     if (s === 2) lamps.push([...T(0.08, -0.12, M(2.0)), '255,206,140', 40, 0.5, 'work']);
@@ -512,6 +534,7 @@ export function drawAAEmplacement(o) {
     const zc = M(0.9);
     gbox(Gf, -M(0.9), M(0.8), -M(0.7), M(0.7), zc, zc + M(0.55), pal.gun, 'metal', pal.gunDk);
     // The gun shield: a bent plate, two leaves angled back.
+    dyn = true;
     for (const sd of [-1, 1]) {
       face([Gf(M(0.85), 0, zc + M(0.2)), Gf(M(0.65), sd * M(1.3), zc + M(0.2)), Gf(M(0.65), sd * M(1.3), zc + M(1.9)), Gf(M(0.85), 0, zc + M(1.9))], pal.gun, 'metal');
     }
@@ -521,6 +544,7 @@ export function drawAAEmplacement(o) {
       for (let i = 0; i < n; i++) { const t = i / n * TAU; ring.push(Gf(a + Math.cos(t) * r, -M(0.9), z + Math.sin(t) * r)); }
       face(ring, [60, 56, 50], 'metal');
     }
+    dyn = false;
     // The long barrel and its recuperator, elevating about the trunnions.
     const zt = zc + M(0.95);
     const Ge = frame(0, zt, true);
@@ -595,11 +619,13 @@ export function drawAAEmplacement(o) {
     const zb = zf + M(0.18), mu = -M(1.2);
     const gpos = P(mu, 0, 0);
     const G0 = (a, l, z) => [gpos[0] + (a * fx + l * lx) * sc, gpos[1] + (a * fy + l * ly) * sc, z * sc];
-    // Pintle post.
+    // Pintle post (it turns with the gun).
     {
       const n = 6, r = M(0.14), ring = (z) => { const out = []; for (let i = 0; i < n; i++) { const t = i / n * TAU; out.push(G0(Math.cos(t) * r, Math.sin(t) * r, z)); } return out; };
       const b = ring(zb), t = ring(zb + M(0.95));
+      dyn = true;
       for (let i = 0; i < n; i++) { const j = (i + 1) % n; face([b[i], b[j], t[j], t[i]], pal.gunDk, 'metal'); }
+      dyn = false;
     }
     const zt = zb + M(1.15);
     const Ge = (a, l, z) => {
@@ -642,6 +668,7 @@ export function drawAAEmplacement(o) {
   // ── LIGHT ──
   // After dark the lamps; and whenever it fires, the muzzles, one bore after the other at the rate
   // a twin autocannon cycles. A SAM's flash is the backblast, once, at the start of the burst.
+  if (!D) return faces;
   const lit = night > 0.25 ? 1 : 0.35;
   for (const [x, y, z, rgb, sz, a, what] of lamps) {
     if (what !== 'beacon' && what !== 'status' && night < 0.2) continue;

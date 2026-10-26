@@ -22,8 +22,11 @@ export const SEATS = {
 
 const r6 = (x) => (typeof x === 'number' ? Math.round(x * 1e6) / 1e6 : typeof x === 'string' ? x : typeof x);
 
-export async function openScene({ record = true } = {}) {
+// `cloth` turns on the GL cloth path (flags, socks and tents as FAUNA_SINK records, as gl/install.js
+// does in the game) and hands the frame's cloth records back as the `cloth` sink.
+export async function openScene({ record = true, cloth = false } = {}) {
   const ws = await loadWindshield();
+  if (cloth) ws.installGLCloth(true);
   const clock = globalThis.performance, wall = Date.now;
   globalThis.performance = { ...clock, now: () => 1e6 };
   Date.now = () => 1.7e12;
@@ -68,6 +71,7 @@ export async function openScene({ record = true } = {}) {
   ws.RENDER_TUNE.gl = 1;
   ws.installGLWorld((cells, cam, o) => {
     sinks = { sprites: o.sprites, strokes: o.strokes, decals: o.decals, scatter: o.scatter, ground: o.ground, bay: o.bay, curtain: o.curtain, ship: o.ship };
+    if (cloth) sinks.cloth = (o.fauna || []).filter((r) => r.cloth);
     return { canvas: glCanvas, faces: 0 };
   });
   const bare = { kind: 'land', biome: 'badlands', flr: 0 };
@@ -80,6 +84,6 @@ export async function openScene({ record = true } = {}) {
   };
   const paint = (v) => { ws.paintWindshield('__perf', v); return sinks; };
   const takeLog = () => { const l = log; log = []; return l; };
-  const close = () => { globalThis.performance = clock; Date.now = wall; ws.installGLWorld(null); };
+  const close = () => { globalThis.performance = clock; Date.now = wall; ws.installGLWorld(null); if (cloth) ws.installGLCloth(false); };
   return { ws, view, paint, takeLog, close };
 }

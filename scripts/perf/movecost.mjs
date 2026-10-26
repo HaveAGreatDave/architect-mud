@@ -1,7 +1,9 @@
 // movecost: what a MOVING camera re-sends and re-runs, frame by frame.
 //
 //   node scripts/perf/movecost.mjs [place] [seat] [--resend N] [--recentre] [--intern] [--frames N]
-//     [--turn deg] [--speed tiles] [--prof] [--why] [--rows] [--tune k=v,...] [--gl]
+//     [--turn deg] [--speed tiles] [--prof] [--why] [--rows] [--tune k=v,...] [--gl] [--heading deg]
+//
+// `place` is a PLACES name or a world tile `x,y` (a cab at the South Lock: `911,925 cab --heading 0`).
 //
 // Every other perf tool turns the heading over a fixed tile, which never moves `mapOffset`. A real
 // flight or drive moves it every frame, and the server sends a fresh map window (fresh cell objects)
@@ -77,10 +79,12 @@ if (GLW) {
 } else scene.ws.installGLWorld((cells, cam, o) => { hook = { cam, o }; return { canvas: { width: 640, height: 360 }, faces: 0 }; });
 for (const kv of (opt('--tune', '') || '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); scene.ws.RENDER_TUNE[k] = Number(v); }
 const G = fakeView();
-const v0 = scene.view(place, seat, { hour: Number(opt('--hour', 13)), heading: 0 });
+const at = /^-?\d+,-?\d+$/.test(place) ? place.split(',').map(Number) : place;
+const H0 = Number(opt('--heading', 0));
+const v0 = scene.view(at, seat, { hour: Number(opt('--hour', 13)), heading: H0 });
 const clone = (map) => map.map((row) => row.map((c) => JSON.parse(JSON.stringify(c))));
 let map = v0.map;
-const [X0, Y0] = PLACES[place];
+const [X0, Y0] = Array.isArray(at) ? at : PLACES[place];
 let k = 0;   // whole tiles the window's centre has moved north
 const t0 = clock.now();
 let tNow = t0;
@@ -108,7 +112,7 @@ for (let i = 0; i < FRAMES; i++) {
   const y = -(dist - k);
   if (PROF) scene.ws.setWindshieldProfiler(true);
   const s0 = snap(), w0 = clock.now();
-  scene.ws.paintWindshield('__perf', { ...v0, map, mapCenter: { x: X0, y: Y0 - k }, heading: i * TURN, mapOffset: { x: 0.3, y } });
+  scene.ws.paintWindshield('__perf', { ...v0, map, mapCenter: { x: X0, y: Y0 - k }, heading: H0 + i * TURN, mapOffset: { x: 0.3, y } });
   const paintMs = clock.now() - w0;
   let glMs = 0, g, o;
   if (GLW) {
