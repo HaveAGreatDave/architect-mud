@@ -535,9 +535,10 @@ function oxfordJoin(parts) {
 // clickable. Styled `furniture-woven` — body text that reveals a dotted
 // underline on hover — so the paragraph reads as prose and the bright orange
 // `Furniture:` line keeps its meaning as "things worth your attention".
-// Appended to the room paragraph AFTER light truncation by the caller, never
-// concatenated onto zone.description beforehand: a dim room slices that string
-// by sentence, and the ferns must not survive at the real description's expense.
+// It opens the woven paragraph above the room prose (every noun in it clicks),
+// and is never concatenated onto zone.description: a dim room slices that
+// string by sentence, and the ferns must not survive at the real description's
+// expense.
 function sceneryProse(pieces, viewer, zoneId) {
 	if (!pieces.length) return "";
 	// Lights get their own clause: "(on)"/"(off)" is the one bit of furniture
@@ -1608,36 +1609,27 @@ export async function describeZone(zone, player, out = {}) {
 	// here, which is what makes a trip on a bare street corner still a trip.
 	const roomWarp = getRoomTransform(player.id, zone.id);
 	const warpLine = roomWarp ? ` <span class="msg-ambient">${roomWarp}</span>` : "";
-	// Prose paragraph wrapped so the client can collapse/expand it independently.
-	// The scenery clause closes the authored paragraph rather than trailing the
-	// whole block: static furnishings belong with the static description, which
-	// leaves the woven paragraph below as a clean "here is what's happening"
-	// beat. Appended to the already-truncated zoneDesc, never to zone.description
-	// (see sceneryProse). Sits before the weather so the room finishes describing
-	// itself before it looks up at the sky.
-	const scenerySuffix = sceneryLine ? ` ${sceneryLine}` : "";
-	// THE LISTS PRINT ABOVE THE PROSE. The header is set aside here, the prose
-	// block (description through the stains) is built into `desc` and set aside
-	// in turn, and everything after it (items, furniture, people, exits,
-	// buildings, rooms) is joined back in between the two at the return. The
-	// pane is capped at 65% of the column and scrolls, so whatever comes second
-	// is what a long room cuts off, and the rows you click are the part that
-	// changes. room-brief.js reads lines by class, so it doesn't care about order.
+	// EVERYTHING CLICKABLE PRINTS ABOVE THE PROSE. The header is set aside here,
+	// the prose block (description through the stains) is built into `desc` and
+	// set aside in turn, and the lists after it (items, furniture, people, exits,
+	// buildings, rooms) are joined back in between the two at the return, followed
+	// by `actionable`: plugin rows with a link in them (an airfield's hangar bay and
+	// charter, an elevator's floors, a shop's shutter), the flat's rent and status,
+	// and the woven furniture sentences. The pane is capped at 65% of the column
+	// and scrolls, so whatever comes second is what a long room cuts off, and the
+	// rows you click are the part that changes. On desktop the pane's auto-fit
+	// ends at the last node before .room-desc (client main.js fitAuto), so the
+	// prose sits under the bar until the player drags it down; keep .room-desc
+	// first in the prose block and a direct child of the pane. room-brief.js
+	// reads lines by class, so it doesn't care about order.
 	const header = desc;
 	desc = "";
-	desc += `\n<span class="room-desc">${zoneDesc}${scenerySuffix}${weatherLine}${skylineLine}${warpLine}${describeBuildingDiscovery(buildings)}</span>`;
-	// Woven-object prose (furniture + PD cams) lives in its own paragraph after the
-	// room description — a natural second beat rather than a tail on the authored
-	// prose. Sits outside room-desc so it stays visible when that collapses.
-	const wovenProse = `${furnitureAside}${cameraAside}`.trim();
-	// No leading "\n": room-furniture is display:block, so it starts its own line;
-	// the paragraph gap comes from its margin-top. A literal newline here would
-	// render as an extra blank line under pre-wrap and double the gap.
-	if (wovenProse) desc += `<span class="room-furniture">${wovenProse}</span>`;
-	// The plugin room-lines gathered above, in their own paragraph after the room
-	// has finished describing itself. Outside room-desc deliberately: a tag on the
-	// wall is still there when you collapse the prose.
-	if (roomLines.length) desc += `\n${roomLines.join("\n")}`;
+	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${skylineLine}${warpLine}${describeBuildingDiscovery(buildings)}</span>`;
+	// A plugin row is actionable if it carries a link; one that doesn't (a tag on
+	// the wall) is prose about the room and stays with the description.
+	const isActionable = (line) => /\bdata-(?:action|raw-cmd|cmd)=|class="[^"]*\baction-link\b/.test(line);
+	const proseLines = roomLines.filter((l) => !isActionable(l));
+	if (proseLines.length) desc += `\n${proseLines.join("\n")}`;
 	// First-visit tone-setting lore (per-player, new-account-only) — a plugin
 	// decides whether this player has earned an introduction to this zone and
 	// returns the shimmering block, or nothing. Player is passed so eligibility
@@ -1646,8 +1638,16 @@ export async function describeZone(zone, player, out = {}) {
 		const introLore = await fireHook("zone.introLore", zone, player);
 		if (introLore) desc += `\n${introLore}`;
 	}
-	desc += await describeApartmentStatus(zone);
-	desc += describeRentStatus(zone, player);
+	let actionable = roomLines.filter(isActionable).map((l) => `\n${l}`).join("");
+	actionable += await describeApartmentStatus(zone);
+	actionable += describeRentStatus(zone, player);
+	// The woven paragraph: the scenery sentence (static furnishings, each noun a
+	// link), then the woven pieces, the taken seats and the PD cams. Every noun in
+	// it clicks, so it goes above the description with the rest. Its own line
+	// (the leading "\n") so a log-rung brief can drop it without taking the row
+	// above it along.
+	const wovenProse = [sceneryLine, `${furnitureAside}${cameraAside}`.trim()].filter(Boolean).join(" ");
+	if (wovenProse) actionable += `\n<span class="room-furniture">${wovenProse}</span>`;
 
 	const outcastResponse = getCustodianOutcastResponse(zone, player);
 	if (outcastResponse) {
@@ -2061,7 +2061,7 @@ export async function describeZone(zone, player, out = {}) {
 		));
 		desc += `\n<span class="rooms-row"><span class="rooms-label">Rooms:</span> ${links.join(", ")}</span>`;
 	}
-	return header + desc + prose;
+	return header + desc + actionable + prose;
 }
 
 // Exposed for the regression harness: which pieces the room deliberately does

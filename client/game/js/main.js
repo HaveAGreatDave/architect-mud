@@ -1189,11 +1189,44 @@ for (const id of ["minimap-grid", "minimap-grid-mob", "minimap-grid-hud"]) {
 		localStorage.setItem(STORAGE_KEY, heightPx + "px");
 	}
 
-	function setAuto() {
+	// Auto-fit ends the pane at the last thing you can click. describe.js prints
+	// every list and link row above the prose, and the prose starts at .room-desc,
+	// so the cut is the bottom of the last visible node before that span, plus the
+	// pane's own bottom padding: the description sits below the bar, and dragging
+	// the bar down (or scrolling the pane) is how you read it. Not the top of
+	// .room-desc: it's a block with a top margin after a pre-wrap newline, which
+	// would leave a blank line and a half above the bar. A pane with no .room-desc
+	// (a cockpit, a minigame board, a depot counter) fits its whole content as
+	// before. Compact skips this: the bar can't be dragged there, and the prose has
+	// its own "+ more" clamp (render.js applyDescCollapse).
+	function fitAuto() {
 		pane.style.height = "";
+		if (document.documentElement.getAttribute("data-density") === "compact") return;
+		const desc = pane.querySelector("#area-content > .room-desc");
+		if (!desc) return;
+		let bottom = null;
+		for (let n = desc.previousSibling; n && bottom == null; n = n.previousSibling) {
+			let r = null;
+			if (n.nodeType === Node.ELEMENT_NODE) r = n.getBoundingClientRect();
+			else if (n.nodeType === Node.TEXT_NODE && n.textContent.trim()) {
+				const range = document.createRange();
+				range.selectNodeContents(n);
+				r = range.getBoundingClientRect();
+			}
+			if (r && r.height > 0) bottom = r.bottom;
+		}
+		if (bottom == null) return;
+		const top = pane.getBoundingClientRect().top - pane.scrollTop;
+		const padBottom = parseFloat(getComputedStyle(pane).paddingBottom) || 0;
+		const cut = Math.ceil(Math.min(bottom + padBottom, desc.getBoundingClientRect().top) - top);
+		if (cut > 0) pane.style.height = cut + "px";
+	}
+
+	function setAuto() {
 		pane.style.maxHeight = "";
 		handle.classList.remove("manual");
 		localStorage.removeItem(STORAGE_KEY);
+		fitAuto();
 	}
 
 	// Restore saved manual height, or start in auto mode
@@ -1215,7 +1248,7 @@ for (const id of ["minimap-grid", "minimap-grid-mob", "minimap-grid-hud"]) {
 			!handle.classList.contains("manual") &&
 			!handle.classList.contains("dragging")
 		) {
-			pane.style.height = "";
+			fitAuto();
 		}
 		// Re-measure the ceiling too. The ResizeObserver below is the general
 		// answer, but the bottom stack grows and shrinks for reasons no window
@@ -1284,6 +1317,10 @@ for (const id of ["minimap-grid", "minimap-grid-mob", "minimap-grid-hud"]) {
 
 	syncCap();
 	window.addEventListener("resize", syncCap);
+	// A width change rewraps the lists, so the auto cut moves with it.
+	window.addEventListener("resize", () => {
+		if (!handle.classList.contains("manual")) fitAuto();
+	});
 	if (window.ResizeObserver) {
 		const ro = new ResizeObserver(syncCap);
 		ro.observe(container);
