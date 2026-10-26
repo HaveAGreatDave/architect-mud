@@ -1,6 +1,6 @@
 # Wildlands relief: one carved field for the ground between regions
 
-**Status: phases 1, 2 and 4 built, and phase 3's corridor half; the rest is design** (2026-10-26). The relief is baked and shipped, the World Map draws it, and the anchored highways follow its valleys past massifs raised from it; see [the relief, as built](../systems-wildlands-ground.md#the-relief). Still to do from phase 3: the floor's hillshade reading the relief, and massifs in stacked layers. The decisions are taken (see [Decisions](#decisions)). Read [systems-wildlands-ground.md](../systems-wildlands-ground.md) and the high-ground section of [systems-terrain.md](../systems-terrain.md#high-ground-cliff--plateau--ramp-2026-08-12) first.
+**Status: phases 1–4 built; phases 5–8 are design** (2026-10-26). The relief is baked and shipped, the World Map draws it, the anchored highways follow its valleys past massifs raised from it and stacked by tier, and the flight floor shades from it; see [the relief, as built](../systems-wildlands-ground.md#the-relief). The decisions are taken (see [Decisions](#decisions)). Read [systems-wildlands-ground.md](../systems-wildlands-ground.md) and the high-ground section of [systems-terrain.md](../systems-terrain.md#high-ground-cliff--plateau--ramp-2026-08-12) first.
 
 ## What we want
 

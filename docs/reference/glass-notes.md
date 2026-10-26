@@ -1987,6 +1987,14 @@ Measured: strokes 1563 → 1316 at Halcyon, 953 → 837 at Marrow, 592 → 503 a
 - **A row list per column breaks the shell.** A shared corner column is computed by both tiles, so the rows are fixed global lists clamped into each column's span, never chosen per segment. `cliffLatticeSmoke` checks a real tile pair vertex by vertex. A mutant that dips the beds per segment fails it on 48 vertices.
 - **The rim line's width is solved at each end.** Solved once from one end and applied to both, neighbours disagreed on the strip's lower edge by a fraction of a pixel, which was the join test's first red.
 
+### Stacked tiers and the relief floor
+
+The carved relief ([systems-wildlands-ground.md](../systems-wildlands-ground.md#the-relief)) reaches the windshield twice. The traps:
+
+- **A tier lifts the whole massif; the shell isn't rebuilt.** `drawCliffMass` takes a `lift` (`(hi - 1) × CLIFF_TIER`) added to every corner, midpoint and centre height, and to the cache key. The upper tile's face still drops to the plain; the lower tile's cap hides the part below it by depth. GLASS 1's painter has no depth test and can show some of that. A raised base per side would be the lattice rework the face-in-relief notes warn about.
+- **The far field's relief is a texture, and the near field's is the same cells.** `gl/floor.js` reads `uRelief` (RG16F, unit 8: height, wildness), bilinear on the relief's own 2-tile cells, and `reliefShade` reads `reliefShadePlanes` the same way, unwarped. Sample either differently (the warped `surfaceH`, or a different grid) and the window edge gets a ring. `RELIEF_SHADE` is in both files.
+- **Off the baked rect the planes clamp**, and the edge cells are deep wildlands, so a scene placed at (100, 100) loses its old terraces. `__glFloor`'s scenes stand there; its `wilds` scene stands on the relief. `RENDER_TUNE.relief = 0` is the old floor exactly, which is how the ownshadow seats' 7 to 8% was shown to predate this.
+
 ## The ballpark (`gl/ballpark.js`)
 
 Deadball's 3-D park, on by default (the `deadball.grandstand` flag set to `'0'` keeps the 2-D Gameday; see [systems-broadcast.md](../systems-broadcast.md#the-park-in-3-d-the-grandstand)). It has its own WebGL2 context and lights in real HDR values, so unlike the city it takes `hdr.resolve()` rather than `composite()` and grades its own frame in [gl/broadcast.js](../../client/game/js/panels/gl/broadcast.js). `ballpark-smoke.mjs` checks the park, the shots' matrices, the shadow maps' fit, the depth read-back and the lens without a GPU, and `cityscape-smoke.mjs` the city round it; the sandbox page with `?park=3d` is for looking.

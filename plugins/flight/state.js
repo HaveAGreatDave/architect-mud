@@ -1162,6 +1162,9 @@ export function isRoadCell(c) {
 // into one mass, or the only way up is rendered as a hole in the landform.
 const HIGH_TERRAIN = new Set(['cliff', 'plateau', 'ramp']);
 function isHighCell(c) { return !!c && HIGH_TERRAIN.has(c.flags?.terrain); }
+// Which band of high ground a cell stands on: 0 for none, otherwise `flags.tier` (the carved relief
+// ships it on the void corridor) or 1, which is every painted massif.
+const highTierOf = (c) => (isHighCell(c) ? (c.flags.tier || 1) : 0);
 
 // The Curtain — the Architect's energy wall on the city's land edges (flags.curtain). The
 // windshield raises a shimmer plane on each such tile; it needs to know WHICH neighbours are
@@ -1646,14 +1649,19 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // no wall BETWEEN them, or the massif is walled through its own middle. So `isHigh`
   // asks about elevation and nothing else, and the passable/impassable split stays
   // where it belongs, in props.
+  //
+  // ⚠ `hi` IS THE TIER, and a side only continues toward a neighbour standing as high or higher.
+  // A tier-2 tile beside a tier-1 one walls that side, from its own top down, and the tier-1 tile
+  // does not: so the windshield stacks a second band on the first. At tier 1 the test is exactly
+  // `isHighCell`, so every massif painted before tiers existed derives as it always did.
   let hi, cf;
   if (isHighCell(cell)) {
-    hi = 1;
+    hi = highTierOf(cell);
     let s = '';
-    if (isHighCell(at(x, y - 1))) s += 'n';
-    if (isHighCell(at(x + 1, y))) s += 'e';
-    if (isHighCell(at(x, y + 1))) s += 's';
-    if (isHighCell(at(x - 1, y))) s += 'w';
+    if (highTierOf(at(x, y - 1)) >= hi) s += 'n';
+    if (highTierOf(at(x + 1, y)) >= hi) s += 'e';
+    if (highTierOf(at(x, y + 1)) >= hi) s += 's';
+    if (highTierOf(at(x - 1, y)) >= hi) s += 'w';
     cf = s;
   }
   // GRID POWER, and the streetlight standing on this tile.

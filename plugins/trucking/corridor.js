@@ -196,7 +196,7 @@ const TURN_IN_MARGIN = 1.15;   // a slip road's arc, as a multiple of the fold r
 // calls `milesOf` to word a sign, threw ReferenceError the first time a road was built WITH a
 // plan. Every test that passed no plan built no signs and never touched it.
 export { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
-import { wildlandsAt, highGroundAt, reliefGrid } from '../../client/shared/wildlands.js';
+import { wildlandsAt, highGroundAt, groundTierAt, reliefGrid } from '../../client/shared/wildlands.js';
 import { routeOnGrid, cumLengths, polyLength, pointAtLength, progressOn } from '../../client/shared/relief-route.js';
 import { halfWidthAt, typeAt, segmentAt } from '../../client/shared/highways.js';
 const typeNameAt = (route, s) => segmentAt(route, s)?.type || 'branch';
@@ -1417,6 +1417,9 @@ export function corridorAt(route, x, y) {
     const ht = route.anchored ? highGroundAt(x, y) : highTerrainAt(x, y);
     if (ht) {
       flags.terrain = ht;
+      // Which band of the relief this is, so the windshield can stack tier 2 on tier 1. Only past
+      // the first: a cell without it is tier 1, which is every massif that existed before.
+      if (route.anchored) { const tier = groundTierAt(x, y); if (tier > 1) flags.tier = tier; }
       return { id, name: ht === 'plateau' ? 'High Ground' : 'A Broken Rim', danger, flags };
     }
   }

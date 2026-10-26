@@ -441,6 +441,8 @@ export function runTerrain({ W = 800, H = 400 } = {}) {
 // ⚠ AND THE CANVAS GETS AN EXPLICIT CSS SIZE. Without one its layout size follows its width
 // ATTRIBUTE, which paintWindshield rewrites — so on a hidpi display every frame resizes the canvas
 // from the size the last frame gave it, and the harness spirals instead of measuring.
+// Where a scene stands, if not at the default (100, 100), which is nowhere in particular.
+const FLOOR_AT = { wilds: { x: 1150, y: 985 } };
 const FLOOR_SCENES = (R) => ({
   city: () => ({ kind: 'land', biome: 'citycore', flr: 0 }),
   park: () => ({ kind: 'land', biome: 'parkland', flr: 0 }),
@@ -451,6 +453,10 @@ const FLOOR_SCENES = (R) => ({
   sea: (x, y) => (y <= R ? { kind: 'water', biome: 'water' } : { kind: 'land', biome: 'parkland', flr: 0 }),
   // Unbuilt tiles ahead, so what gets measured is fillOffMap's wildlands extension.
   offmap: (x, y) => (y > R - 4 ? { kind: 'land', biome: 'scrub', flr: 0 } : null),
+  // Nothing placed at all, over the carved relief (FLOOR_AT puts it there): the near fill and the
+  // far field are both the relief's, from the JS planes on one side and the shader's texture on the
+  // other, so this is the scene that says the two floors agree about the cliffs.
+  wilds: () => null,
   road: (x, y) => {
     const dx = x - R;
     if (dx === 0) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1 };
@@ -506,7 +512,7 @@ export function runFloor({ W = 640, H = 360, R = 20, hours = [13, 2] } = {}) {
         const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => fn(x, y)));
         const view = {
           cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.12, hour,
-          weather: 'clear', speed: 0.4, map, heading: 0, mapCenter: { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
+          weather: 'clear', speed: 0.4, map, heading: 0, mapCenter: FLOOR_AT[scene] || { x: 100, y: 100 }, mapOffset: { x: 0.2, y: -0.3 },
           ...(seat || {}),
         };
         RENDER_TUNE.gl = 1;

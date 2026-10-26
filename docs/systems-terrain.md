@@ -189,6 +189,13 @@ own and every massif gets a second outline drawn one tile inside the first.
   sides missing from `cf`, so a painted blob raises **one merged massif**: the only vertical surfaces
   are on its outline. Five things make it read as terrain rather than as crates — see below.
   Rendering only: **CFIT reads building mass, not terrain**, so a pilot may still fly through a mesa.
+- **`hi` is a tier (2026-10-26).** On the void corridor the carved relief ships `flags.tier` on a
+  raised cell past tier 1 ([systems-wildlands-ground.md](systems-wildlands-ground.md#the-relief)),
+  and `hi` carries it. A side continues only toward a neighbour standing as high or higher, so a
+  tier-2 tile walls the side facing a tier-1 one and the tier-1 tile does not. The windshield lifts
+  the whole massif by `CLIFF_TIER` per tier; the lower cap hides the part of the upper face below
+  it by depth, so a second band stands on the first bench. Every painted massif has no tier and is
+  tier 1, which derives exactly as before.
 
 ### The corner lattice, and why a massif stopped looking extruded
 

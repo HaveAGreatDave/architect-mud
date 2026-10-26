@@ -232,10 +232,11 @@ export function createWildlands(F) {
   //
   // ⚠ ASK ONLY ABOUT UNPLACED GROUND. The planes hold 0 under a region, and a placed tile's terrain
   // is its own `flags.terrain`, never this.
-  let V = null;
+  let V = null, D = null;
   if (F.relief) {
-    const rf = F.relief, d = decodeRelief(rf), S = (p) => cellSampler(p, rf.x0, rf.y0, rf.cell, rf.cw, rf.ch);
-    V = { h: S(d.h), layered: S(d.layered), flow: S(d.flow), wet: S(d.wet), lake: S(d.lake), caps: rf.caps, dip: rf.dip, rules: rf.rules, zScale: rf.zScale };
+    const rf = F.relief, S = (p) => cellSampler(p, rf.x0, rf.y0, rf.cell, rf.cw, rf.ch);
+    D = decodeRelief(rf);
+    V = { h: S(D.h), layered: S(D.layered), flow: S(D.flow), wet: S(D.wet), lake: S(D.lake), caps: rf.caps, dip: rf.dip, rules: rf.rules, zScale: rf.zScale };
   }
   // { z (world z), h (tier units), tier, step, flow, wet, form, biome, terrain } or null with no relief.
   // A caller that already has wildlandsAt for the tile passes it, and saves asking twice.
@@ -249,13 +250,37 @@ export function createWildlands(F) {
   const groundZ = (x, y) => (V ? surfaceH(V, x, y) * V.zScale : 0);
 
   // Raised ground at a tile, as the void corridor builds it: null on the valley floor (tier 0),
-  // otherwise 'plateau' where all four neighbours are raised too and 'cliff' at the rim. One
-  // height for every tier until the massifs learn to stack (phase 3 of the proposal); the roads
-  // keep to the valley floor, so none of them needs to climb one.
-  const raised = (x, y) => tierAt(V, x, y) >= 1;
+  // otherwise 'plateau' where no neighbour sits lower and 'cliff' where one does, so the step from
+  // tier 1 up to tier 2 is a rim as much as the step up from the floor. `groundTierAt` is which band
+  // the tile stands on; the corridor ships it and the windshield stacks the massif by it.
+  const groundTierAt = (x, y) => (V ? tierAt(V, x, y) : 0);
   function highGroundAt(x, y) {
-    if (!V || !raised(x, y)) return null;
-    return raised(x + 1, y) && raised(x - 1, y) && raised(x, y + 1) && raised(x, y - 1) ? 'plateau' : 'cliff';
+    if (!V) return null;
+    const t = groundTierAt(x, y);
+    if (t < 1) return null;
+    return groundTierAt(x + 1, y) >= t && groundTierAt(x - 1, y) >= t && groundTierAt(x, y + 1) >= t && groundTierAt(x, y - 1) >= t ? 'plateau' : 'cliff';
+  }
+
+  // What the flight floor shades from, on the relief's own cells: `z` the ground height in world z
+  // (smooth, no sample warp) and `w` how far into the wildlands a cell is, 0 under a region and 1
+  // past a 6-tile band round its rim. The floor fades its old badland terraces out by `w` and adds
+  // the relief in, so a region keeps the shading it was authored with and the country between
+  // shows the cliffs the corridor builds. gl/floor.js samples the same two planes as a texture.
+  // ⚠ ONE GRID FOR BOTH FLOORS. The JS raster carries the near side and the shader the far side,
+  // and a field the two sampled differently is a ring of mismatched hillshade at the window edge.
+  // So both read these planes, bilinear, at the same cell centres.
+  let shadeP;
+  function reliefShadePlanes() {
+    if (shadeP !== undefined) return shadeP;
+    if (!V) return (shadeP = null);
+    const rf = F.relief, n = rf.cw * rf.ch, z = new Float32Array(n), w = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = rf.x0 + (i % rf.cw) * rf.cell, y = rf.y0 + ((i / rf.cw) | 0) * rf.cell;
+      z[i] = D.h[i] * rf.zScale;
+      w[i] = sstep(0, 6, distTo('land', x, y));
+    }
+    const S = (p) => cellSampler(p, rf.x0, rf.y0, rf.cell, rf.cw, rf.ch);
+    return (shadeP = { z, w, cw: rf.cw, ch: rf.ch, x0: rf.x0, y0: rf.y0, cell: rf.cell, zAt: S(z), wAt: S(w) });
   }
 
   // The relief's cells as relief-route.js reads them, built once on first use: height, tier,
@@ -264,7 +289,7 @@ export function createWildlands(F) {
   let grid = null;
   function reliefGrid() {
     if (grid || !V) return grid;
-    const rf = F.relief, n = rf.cw * rf.ch, d = decodeRelief(rf);
+    const rf = F.relief, n = rf.cw * rf.ch, d = D;
     const tier = new Int8Array(n), closed = new Uint8Array(n);
     for (let i = 0; i < n; i++) {
       const x = rf.x0 + (i % rf.cw) * rf.cell, y = rf.y0 + ((i / rf.cw) | 0) * rf.cell;
@@ -276,7 +301,7 @@ export function createWildlands(F) {
     return grid;
   }
 
-  return { wildlandsAt, wildlandsColour, landformHeight, landforms, routeNumber, routeType, wildlandsRect, inField, reliefAt, groundZ, highGroundAt, reliefGrid, reliefView: V };
+  return { wildlandsAt, wildlandsColour, landformHeight, landforms, routeNumber, routeType, wildlandsRect, inField, reliefAt, groundZ, highGroundAt, groundTierAt, reliefGrid, reliefShadePlanes, reliefView: V };
 }
 
 // Terrain → biome, for the edge band (the same mapping plugins/flight/biomes.js TERRAIN_BIOME makes
@@ -307,4 +332,6 @@ export const inField = W.inField;
 export const reliefAt = W.reliefAt;
 export const groundZ = W.groundZ;
 export const highGroundAt = W.highGroundAt;
+export const groundTierAt = W.groundTierAt;
 export const reliefGrid = W.reliefGrid;
+export const reliefShadePlanes = W.reliefShadePlanes;

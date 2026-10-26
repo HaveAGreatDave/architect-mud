@@ -94,6 +94,9 @@ uniform vec3 uFarRock;
 uniform sampler2D uWild;   // the wildlands: rgb ground colour, a = sea (client/shared/wildlands.js)
 uniform vec4  uWildRect;  // x0, y0 in world tiles, then the texture's size in world tiles
 uniform float uWildOn;
+uniform sampler2D uRelief;  // the carved relief: r = ground height (world z), g = how far into the wildlands (wildlands.js reliefShadePlanes)
+uniform vec4  uReliefRect;  // x0, y0 in world tiles, then the texture's size in world tiles
+uniform float uReliefOn;
 uniform float uFarOn;     // RENDER_TUNE.farTerrain; 0 puts the clamp back
 
 // THE VOID HIGHWAY, PAST THE WINDOW. Segment endpoints in window-relative tiles (the frame wx/wy
@@ -403,7 +406,18 @@ float wildsRelief(float x, float y) {
   float terrace = floor(fbm2(wx * 0.017 - 1.9, wy * 0.017 + 6.1, 3, 0.55) * 4.0 * 1.5 + 0.5) / 1.5;
   return terrace * 1.3 * terrAmp + ridge * ridge * 1.1 * ridgeAmp;
 }
-float aridElev(float x, float y) { return groundElev(x, y) + wildsRelief(x, y); }
+// The relief at a world point: (height in world z, wildness). Past the rect it clamps, as the JS
+// planes do. RELIEF_SHADE is windshield.js's number and has to stay it (see reliefShade there).
+const float RELIEF_SHADE = 4.0;
+vec2 reliefAt(float awx, float awy) {
+  if (uReliefOn < 0.5) return vec2(0.0);
+  vec2 q = clamp((vec2(awx, awy) - uReliefRect.xy) / uReliefRect.zw, 0.0, 1.0);
+  vec2 n = vec2(textureSize(uRelief, 0));
+  return texture(uRelief, (q * (n - 1.0) + 0.5) / n).rg;
+}
+// The old badland terraces fade out across a region's rim band and the carved relief fades in, as
+// 'reliefShade' does on the JS side; with no relief bound this is the old elevation exactly.
+float aridElev(float x, float y) { vec2 r = reliefAt(x, y); return groundElev(x, y) + wildsRelief(x, y) * (1.0 - r.y) + r.x * RELIEF_SHADE; }
 // The finite-difference hillshade 'reliefShade' runs, at arid = 1: the far field is dry land by
 // construction, and whether it is SEA out there is the boundary tile’s answer rather than this
 // function’s. See the windshield note on why that one bit stays with the clamp.
@@ -1424,6 +1438,7 @@ export function createFloorLayer(gl) {
     freq: U('uFreq'), cwarp: U('uCwarp'), wc: U('uWc'), seamEB: U('uSeamEB'),
     farDirt: U('uFarDirt'), farRock: U('uFarRock'), farOn: U('uFarOn'),
     wild: U('uWild'), wildRect: U('uWildRect'), wildOn: U('uWildOn'),
+    relief: U('uRelief'), reliefRect: U('uReliefRect'), reliefOn: U('uReliefOn'),
     nRoad: U('uNRoad'), roadSeg: U('uRoadSeg'), roadW: U('uRoadW'), roadCol: U('uRoadCol'),
     fogAmt: U('uFogAmt'), fogNear: U('uFogNear'), fogFar: U('uFogFar'), fogCol: U('uFogCol'),
     fogH: U('uFogH'), fogHScale: U('uFogHScale'),
@@ -1441,7 +1456,7 @@ export function createFloorLayer(gl) {
   };
 
   const vao = gl.createVertexArray();   // nothing bound: the triangle is synthesised from gl_VertexID
-  let t0 = null, t1 = null, t2 = null, t3 = null, lutTag = null, lutN = 0, tW = null, wildTag = null;
+  let t0 = null, t1 = null, t2 = null, t3 = null, lutTag = null, lutN = 0, tW = null, wildTag = null, tR = null, reliefTag = null;
 
   function tex(unit) {
     const t = gl.createTexture();
@@ -1517,6 +1532,25 @@ export function createFloorLayer(gl) {
     if (wd) {
       gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, tW); gl.uniform1i(loc.wild, 7);
       gl.uniform4f(loc.wildRect, wd.x0, wd.y0, (wd.w - 1) * wd.step, (wd.h - 1) * wd.step);
+      gl.activeTexture(gl.TEXTURE0);
+    }
+    // The relief, the same way on unit 8: RG16F, which WebGL2 filters LINEAR without an extension,
+    // so the shader's bilinear read is the JS planes' bilinear read and the window edge has no seam.
+    const rd = s.relief;
+    if (rd && rd !== reliefTag) {
+      reliefTag = rd;
+      if (!tR) tR = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, tR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16F, rd.w, rd.h, 0, gl.RG, gl.FLOAT, rd.data);
+    }
+    gl.uniform1f(loc.reliefOn, rd ? 1 : 0);
+    if (rd) {
+      gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, tR); gl.uniform1i(loc.relief, 8);
+      gl.uniform4f(loc.reliefRect, rd.x0, rd.y0, (rd.w - 1) * rd.step, (rd.h - 1) * rd.step);
       gl.activeTexture(gl.TEXTURE0);
     }
     // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO ROAD — the same rule the wet-reflection

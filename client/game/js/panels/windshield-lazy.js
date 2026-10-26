@@ -241,6 +241,7 @@ export function perfTick(...a) { return (_m || _cold('perfTick')).perfTick(...a)
 export function previewFit(...a) { return (_m || _cold('previewFit')).previewFit(...a); }
 export function pushLightningStrike(...a) { return (_m || _cold('pushLightningStrike')).pushLightningStrike(...a); }
 export function raptorsNow(...a) { return (_m || _cold('raptorsNow')).raptorsNow(...a); }
+export function reliefTexture(...a) { return (_m || _cold('reliefTexture')).reliefTexture(...a); }
 export function renderModelPreview(...a) { return (_m || _cold('renderModelPreview')).renderModelPreview(...a); }
 export function renderVehiclePreview(...a) { return (_m || _cold('renderVehiclePreview')).renderVehiclePreview(...a); }
 export function rollRao(...a) { return (_m || _cold('rollRao')).rollRao(...a); }
