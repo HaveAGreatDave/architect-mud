@@ -49,6 +49,7 @@
 import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, facingPanel, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { readings } from './interior-fit-craft.js';
+import { lensLamp } from './interior-cockpit-kit.js';
 import { FW_ROWS } from './vehicle-models.js';
 
 const TAU = Math.PI * 2;
@@ -182,6 +183,8 @@ export function shrikeProfile(row = FW_ROWS.divebomber) {
     roofGlass: [room.back, room.front],
     normalLit: true,
     // Two UV lamps each side of the panel hood and one on the right console, like the real set.
+    // After dark the floods are bright enough to read the panel by (the Drake's 2.2 is the bar).
+    floodGain: 1.8, glare: 0.4,
     floods: [{ p: [-0.19, 0.50, -0.27], r: 0.36 }, { p: [0.19, 0.50, -0.27], r: 0.36 }, { p: [0.36, 0.05, -0.36], r: 0.26 }],
     room: shrikeShell,
     shrike: { ...G, faces: room.faces, room },
@@ -592,7 +595,8 @@ function gunnerEnd(K, P) {
   const Rn = K.panel([xw + 0.161, gy + 0.35, -0.42], [0, -1, 0], [0, 0, 1], 'post', 0.05);
   Rn.rect(-0.18, -0.14, 0.18, 0.14, [70, 74, 66], 0, 0.001);
   for (const [a, b, nm] of [[-0.09, 0.06, 'SEND'], [0.09, 0.06, 'RECV']]) Rn.dial(a, b, 0.04, 0.4, { ticks: 8, major: 2, face: [30, 28, 24], name: nm });
-  for (let i = 0; i < 4; i++) Rn.knob(-0.12 + i * 0.08, -0.08, 0.012, 0.015, [30, 30, 32]);
+  // Its tuning knobs went: the sim tunes nothing. The set is named where they were.
+  Rn.text('FUG VII', 0, -0.08, 0.022, [214, 210, 196], 0.3);
   // The rear glasshouse's armour and his ring of spare drums on the starboard wall.
   const xs = G.wallAt(gy + 0.2, -0.40) - 0.12;
   for (let i = 0; i < 3; i++) K.rod([xs + 0.05, gy + 0.05 + i * 0.12, -0.46], [xs + 0.05, gy + 0.05 + i * 0.12, -0.36], 0.05, 'post', 0.05, [70, 72, 60], 0, 10);
@@ -666,7 +670,7 @@ export function shrikeFit(P, live, push) {
   // ── THE PANEL'S INSTRUMENTS ──
   const Pn = K.panel(PANEL_O, PANEL_R, PANEL_U, 'dash', 0.25);
   const g = Object.fromEntries(GAUGES.map((x) => [x.id, x]));
-  const dial = (id, frac, o = {}) => Pn.dial(g[id].x, g[id].z, g[id].R, frac, { tick, ...o });
+  const dial = (id, frac, o = {}) => Pn.dial(g[id].x, g[id].z, g[id].R, frac, { tick, nameH: 0.0085, ...o });
   dial('asi', clamp(R.ias / (R.vne * 1.1), 0, 1), { ticks: 16, major: 4, arcs: [[0.25, 0.8, C.green], [0.8, 0.9, C.amber]], red: 0.9, name: 'KMH' });
   dial('alt', (R.alt % 1000) / 1000, { a0: Math.PI / 2, sweep: TAU, ticks: 10, major: 1, frac2: (R.alt % 10000) / 10000, name: 'ALT' });
   Pn.attitude(g.hor.x, g.hor.z, g.hor.R, R.pitch, R.bank);
@@ -675,7 +679,7 @@ export function shrikeFit(P, live, push) {
   // The clock, off the game's own hour.
   {
     const c = g.clk, hr = ((hour % 12) + 12) % 12;
-    Pn.dial(c.x, c.z, c.R, (hr % 1), { a0: Math.PI / 2, sweep: TAU, ticks: 12, major: 3, tick, frac2: hr / 12, needle2: C.white, name: 'CLOCK' });
+    Pn.dial(c.x, c.z, c.R, (hr % 1), { a0: Math.PI / 2, sweep: TAU, ticks: 12, major: 3, tick, frac2: hr / 12, needle2: C.white, name: 'CLOCK', nameH: 0.0085 });
   }
   dial('trn', clamp(0.5 + R.bank / 60, 0, 1), { a0: Math.PI * 0.9, sweep: Math.PI * 0.8, ticks: 4, major: 2, needle: C.white, name: 'TURN' });
   dial('vsi', clamp(0.5 + R.vsi / 6000, 0, 1), { a0: Math.PI, sweep: Math.PI * 1.8, ticks: 8, major: 2, name: 'VSI' });
@@ -688,34 +692,32 @@ export function shrikeFit(P, live, push) {
   Pn.bar(-0.34, -0.17, -0.10, 0.010, R.fuel, R.fuel < 0.15 ? C.red : C.green);
   Pn.bar(-0.31, -0.17, -0.10, 0.010, R.fuel * 0.96, R.fuel < 0.15 ? C.red : C.green);
   // The foot row is too tight for a name under each part, so each group gets one line under it.
-  Pn.text('FUEL', -0.325, -0.179, 0.007, tick, 0.35, 0.004);
-  Pn.text('FLAP', -0.23, -0.179, 0.007, tick, 0.35, 0.004);
-  Pn.text('TRIM', -0.155, -0.179, 0.007, tick, 0.35, 0.004);
+  Pn.text('FUEL', -0.325, -0.181, 0.0095, tick, 0.35, 0.004);
+  Pn.text('FLAP', -0.23, -0.181, 0.0095, tick, 0.35, 0.004);
+  Pn.text('TRIM', -0.155, -0.181, 0.0095, tick, 0.35, 0.004);
   Pn.rect(-0.26, -0.17, -0.20, -0.105, C.face, 0, 0.002);
   Pn.spoke(-0.23, -0.16, Math.PI / 2 - lv.flap.v * 1.2, 0, 0.05, 0.0025, C.lampOn, 0.8, 0.005);
   Pn.rect(-0.18, -0.17, -0.13, -0.105, C.face, 0, 0.002);
   Pn.rect(-0.1575, -0.138 + clamp(num(L.trim), -1, 1) * 0.025, -0.1525, -0.132 + clamp(num(L.trim), -1, 1) * 0.025, C.amber, 0.8, 0.005);
   // The contact altimeter's lamp: lit at the release height in a steep dive.
   const release = on && R.vsi < -2500 && R.alt < 2000;
-  Pn.lamp(-0.06, -0.14, 0.014, 0.014, release, C.red, 'REL');
+  lensLamp(Pn, -0.06, -0.14, 0.036, 0.028, release, C.red, 'REL');
   // Bombs on the racks, one lamp each (live.bombs; four when nothing says otherwise).
   const bombs = clamp(Math.round(num(L.bombs, 4)), 0, 4);
   for (let i = 0; i < 4; i++) Pn.lamp(-0.02 + i * 0.026, -0.14, 0.009, 0.009, on && i < bombs, C.amber);
-  Pn.fitText('BOMBS', 0.019, -0.158, 0.04, 0.006, tick, 0.35, 0.004);
+  Pn.fitText('BOMBS', 0.019, -0.158, 0.046, 0.0095, tick, 0.35, 0.004);
   // Weapons armed (live.weaponsArmed): the Zünder-Schalter lamp beside the bomb row.
-  Pn.lamp(0.085, -0.165, 0.007, 0.007, on && !!L.weaponsArmed, C.green, 'ARM');
-  // STALL and BINGO are stacked, so their names go to the left.
-  Pn.lamp(0.10, -0.12, 0.008, 0.008, on && !!L.stall, C.red);
-  Pn.fitText('STALL', 0.078, -0.12, 0.024, 0.006, tick, 0.35, 0.004);
-  Pn.lamp(0.10, -0.15, 0.008, 0.008, on && !!L.bingo, C.amber);
-  Pn.fitText('BINGO', 0.078, -0.15, 0.024, 0.006, tick, 0.35, 0.004);
-  // The siren switch, guarded, and the switch row.
-  Pn.toggle(0.06, -0.165, !!L.siren);
-  Pn.fitText('SIREN', 0.06, -0.186, 0.024, 0.0075, tick, 0.35, 0.004);
+  // ARM, STALL and BINGO stacked down the right of the dive group, each lettered on its lens.
+  lensLamp(Pn, 0.085, -0.12, 0.05, 0.02, on && !!L.stall, C.red, 'STALL');
+  lensLamp(Pn, 0.085, -0.145, 0.05, 0.02, on && !!L.bingo, C.amber, 'BINGO');
+  lensLamp(Pn, 0.085, -0.17, 0.05, 0.018, on && !!L.weaponsArmed, C.green, 'ARM');
+  // The siren: lit while the Jericho trumpets wail (live.siren). It was a guarded toggle that took no
+  // hand; the sim sounds the siren in the dive on its own.
+  lensLamp(Pn, 0.03, -0.177, 0.055, 0.019, on && !!L.siren, C.amber, 'SIREN');
   const st = { master: on, land: !!L.landingLight, panel: uv, dome: !!(L.dome && on) };
   for (const [id, x] of SWITCHES) {
-    Pn.rect(x - 0.01, SW_Z + 0.017, x + 0.01, SW_Z + 0.023, T.placard, 0.08, 0.002);
-    Pn.fitText(id.toUpperCase(), x, SW_Z + 0.020, 0.018, 0.0045, [24, 24, 26], 0, 0.003);
+    Pn.rect(x - 0.019, SW_Z + 0.016, x + 0.019, SW_Z + 0.028, T.placard, 0.08, 0.002);
+    Pn.fitText(id === 'master' ? 'BAT' : id.toUpperCase(), x, SW_Z + 0.022, 0.038, 0.0085, [24, 24, 26], 0, 0.003);
     Pn.rect(x - 0.009, SW_Z - 0.014, x + 0.009, SW_Z + 0.014, [14, 14, 16], 0, 0.003);
     Pn.stud(x, SW_Z + (st[id] ? 0.005 : -0.005), 0.007, 0.008, st[id] ? 0.010 : 0.006, id === 'master' ? [200, 40, 34] : [226, 224, 216], 0, 0.003);
   }

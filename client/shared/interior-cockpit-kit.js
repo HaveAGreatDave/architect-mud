@@ -126,7 +126,7 @@ export function panelGps(Pn, u, v, hw, hh, live, o = {}) {
   const e = Math.min(hw, hh) * 0.16, sw = hw - e, sh = hh - e;
   Pn.rect(u - hw, v - hh, u + hw, v + hh, o.bezel || [22, 24, 28], 0, 0.002);
   Pn.rect(u - sw, v - sh, u + sw, v + sh, on ? GPS_SCREEN : GPS_DARK, on ? 0.6 : 0, 0.004);
-  if (o.label !== false) Pn.text('GPS', u, v - hh - 0.009, Math.min(0.0075, hh * 0.22));
+  if (o.label !== false) Pn.text('GPS', u, v - hh - 0.0095, Math.min(0.0085, hh * 0.25));
   if (!on) return;
   const R = Math.min(sw, sh) * 0.78;
   Pn.annulus(u, v, R - 0.0012, R + 0.0012, GPS_LINE, 0.8, 0.005, 20);
