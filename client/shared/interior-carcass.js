@@ -47,7 +47,7 @@
 // Pure, like the rest of the interior: no clock, no camera, no DOM. `live` arrives as an argument.
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
-import { hotspotHalo, contactShadow } from './interior-cockpit-kit.js';
+import { hotspotHalo, contactShadow, eased, pressPulse } from './interior-cockpit-kit.js';
 
 const TAU = Math.PI * 2;
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -236,6 +236,9 @@ export function carcassProfile(doc = MESH_ROWS.wreck) {
     normalLit: true,
     // A bicycle lamp cable-tied under the coaming, and the bulb on a wire off the roll bar.
     floods: [{ p: [0, room.panelY - 0.10, room.panelTop - 0.03], r: 0.42 }, { p: [0.06, -0.44, 0.08], r: 0.35 }],
+    // The bicycle lamp is not much of a light: the floods run a little over the default, short of the
+    // Drake's 2.2, and an open cockpit has no glass to show them in.
+    floodGain: 1.4,
     room: carcassShell,
     carcass: { ...G, faces: room.faces, panel: room.panel, panelY: room.panelY, panelTop: room.panelTop, deckAt: room.deckAt, glareZ: room.glareZ, glareY: room.glareY, skinTopAt: room.skinTopAt, wallAt: room.wallAt },
     hotspots(live) { return carcassHotspots(this, live); },
@@ -505,7 +508,7 @@ function layout(P, live) {
     trimPivot: [-0.24, -0.16, -0.62], trimTip: add([-0.24, -0.16, -0.62], [0.01, Math.sin(trim * 0.7) * 0.10, Math.cos(trim * 0.7) * 0.10]),
     flapPivot, flapTip: add(flapPivot, [0, -Math.cos(fa) * 0.24, Math.sin(fa) * 0.24]),
     // Panel switch positions, in the panel's own (a, b) coordinates.
-    sw: { master: [0.105, -0.075], land: [0.135, -0.075], dome: [0.165, -0.075], magL: [-0.205, 0.075], magR: [-0.175, 0.075] },
+    sw: { panel: [0.075, -0.075], land: [0.105, -0.075], dome: [0.135, -0.075], magL: [-0.205, 0.075], magR: [-0.175, 0.075] },
   };
 }
 // ── THE WINDSCREEN, AND WHAT'S LEFT OF ITS PERSPEX ──────────────────────────
@@ -534,7 +537,10 @@ const panelOf = (K, P) => K.panel([0, P.carcass.panelY - 0.004, P.carcass.panelT
 
 export function carcassHotspots(P, live) {
   const Y = layout(P, live), Pn = panelOf(makeKit(() => {}), P), out = [];
-  for (const id of ['master', 'land', 'dome']) out.push({ id: 'ck:' + id, p: Pn.pt(...Y.sw[id], 0.01), r: 0.014, kind: 'click' });
+  // ⚠ THE MAGS ARE THE MASTER. A Fly Baby has no electrical master; its two magneto switches are
+  // what start and stop the engine, so both are cockpit.js's engine master ('ck:master').
+  for (const id of ['magL', 'magR']) out.push({ id: 'ck:master', p: Pn.pt(...Y.sw[id], 0.01), r: 0.013, kind: 'click' });
+  for (const id of ['panel', 'land', 'dome']) out.push({ id: 'ck:' + id, p: Pn.pt(...Y.sw[id], 0.01), r: 0.014, kind: 'click' });
   out.push({ id: 'yoke', p: add(Y.stickTip, [0, 0.01, 0.06]), r: 0.07, kind: 'yoke' });
   out.push({ id: 'throttle', p: Y.thrKnob, r: 0.035, kind: 'throttle' });
   out.push({ id: 'trim', p: Y.trimTip, r: 0.04, kind: 'trim' });
@@ -554,6 +560,9 @@ export function carcassFit(P, live, push) {
   const oil = clamp(num(L.oilTemp, 0.5), 0, 1), rud = clamp(num(L.rudder), -1, 1);
   const land = !!L.landingLight && powered, dome = !!L.dome && powered;
   const gearDown = L.gearDown !== false, stall = !!L.stall;
+  // The bicycle lamp under the coaming is the panel light, on the PANEL switch (the hour when a view
+  // sends no switch state).
+  const hour = num(L.hour, 12), panelOn = powered && (L.panelLight != null ? !!L.panelLight : hour < 6.5 || hour > 19.5);
 
   // ── THE PANEL ──
   const Pn = panelOf(K, P);
@@ -574,7 +583,8 @@ export function carcassFit(P, live, push) {
   // Oil pressure: the gauge is gone, the hole isn't. A tyre-pressure gauge is cable-tied under it,
   // reading the same number it always reads.
   Pn.disc(-0.19, 0.012, 0.022, M.hole, 0, 0.0008, 16);
-  Pn.dial(-0.19, -0.018, 0.012, 0.35, { ticks: 4, major: 2, bezel: M.brass, name: 'PSI' });
+  Pn.dial(-0.19, -0.018, 0.012, 0.35, { ticks: 4, major: 2, bezel: M.brass });
+  Pn.text('PSI', -0.158, -0.018, 0.008, INK.black, 0, 0.004);
   Pn.rect(-0.205, -0.004, -0.175, -0.001, M.wireB, 0, 0.012);
   // Two mag switches, hand-labelled L and R on masking tape in two different pens.
   for (const id of ['magL', 'magR']) {
@@ -584,13 +594,14 @@ export function carcassFit(P, live, push) {
   // A hiking compass, taped on at an angle nobody has corrected for.
   Pn.rect(0.165, 0.02, 0.215, 0.08, M.tape, 0.05, 0.002);
   Pn.compass(0.19, 0.05, 0.022, hdg + 7);
-  // The switch row: master (the one red switch), landing light, dome.
-  for (const id of ['master', 'land', 'dome']) {
-    const [a, b] = Y.sw[id], on = id === 'master' ? powered : id === 'land' ? !!L.landingLight : !!L.dome;
+  // The switch row: the panel light, the landing light, the dome. Each on a strip of masking tape.
+  for (const id of ['panel', 'land', 'dome']) {
+    const [a, b] = Y.sw[id], on = id === 'panel' ? panelOn : id === 'land' ? !!L.landingLight : !!L.dome;
+    const f = eased('carcass:' + id, on ? 1 : 0, 18) - pressPulse('carcass:' + id, on) * 0.3;
     Pn.rect(a - 0.0095, b - 0.016, a + 0.0095, b + 0.016, [14, 14, 16], 0, 0.003);
-    Pn.stud(a, b + (on ? 0.0045 : -0.0045), 0.0068, 0.0078, on ? 0.010 : 0.006, id === 'master' ? [210, 44, 38] : [232, 230, 222], 0, 0.003);
-    Pn.rect(a - 0.009, b + 0.019, a + 0.009, b + 0.025, M.paper, 0.05, 0.003);
-    Pn.fitText(id.toUpperCase(), a, b + 0.022, 0.016, 0.0045, INK.black, 0, 0.004);
+    Pn.stud(a, b + (f * 2 - 1) * 0.0045, 0.0068, 0.0078, 0.006 + f * 0.004, [232, 230, 222], 0, 0.003);
+    Pn.rect(a - 0.0145, b + 0.018, a + 0.0145, b + 0.028, M.paper, 0.05, 0.003);
+    Pn.fitText(id.toUpperCase(), a, b + 0.023, 0.027, 0.0065, INK.black, 0, 0.004);
   }
   // Warning lamps: GEAR (it's fixed, the lamp came with the panel and reads green out of habit), STALL,
   // and a bar gauge labelled BITS LEFT in marker, wired to the hull.
@@ -600,8 +611,8 @@ export function carcassFit(P, live, push) {
   Pn.lamp(0.195, -0.085, 0.008, 0.006, powered && stall, C.red);
   Pn.fitText('STALL', 0.170, -0.085, 0.024, 0.0065, C.tick, 0.35, 0.004);
   Pn.bar(0.215, -0.14, -0.10, 0.007, hull, hull < 0.3 ? C.red : C.amber);
-  Pn.rect(0.20, -0.097, 0.23, -0.091, M.paper, 0.05, 0.003);
-  Pn.fitText('BITS LEFT', 0.215, -0.094, 0.028, 0.0045, INK.black, 0, 0.004);
+  Pn.rect(0.145, -0.128, 0.199, -0.112, M.paper, 0.05, 0.003);
+  Pn.fitText('BITS LEFT', 0.172, -0.120, 0.05, 0.0065, INK.black, 0, 0.004);
   // The radio hole: a plywood patch, two wires and a connector that fits nothing.
   Pn.rect(-0.04, -0.145, 0.04, -0.095, M.hole, 0, 0.0015);
   const conn = Pn.pt(0.01, -0.13, 0.01);
@@ -625,7 +636,7 @@ export function carcassFit(P, live, push) {
   // The bicycle lamp that lights all this, cable-tied under the coaming.
   const bl = [0, D.panelY - 0.04, D.panelTop - 0.02];
   K.box(bl[0] - 0.025, bl[1] - 0.02, bl[2] - 0.018, bl[0] + 0.025, bl[1] + 0.02, bl[2] + 0.004, 'dash', 0, M.gaffer);
-  K.box(bl[0] - 0.018, bl[1] - 0.021, bl[2] - 0.016, bl[0] + 0.018, bl[1] - 0.019, bl[2] - 0.004, 'dash', 0, powered ? M.lamp : C.lampOff, powered ? 1 : 0);
+  K.box(bl[0] - 0.018, bl[1] - 0.021, bl[2] - 0.016, bl[0] + 0.018, bl[1] - 0.019, bl[2] - 0.004, 'dash', 0, panelOn ? M.lamp : C.lampOff, panelOn ? 1 : 0);
 
   // ── THE DECKING, THE WINDSCREEN AND THE THINGS BOLTED TO IT ──
   // A square military windscreen on the glareshield's back edge, its top bar a hand above the eye line
@@ -640,6 +651,12 @@ export function carcassFit(P, live, push) {
   for (const [a, b] of [[[-0.182, 0.28], [-0.06, 0.36]], [[-0.06, 0.36], [0.01, 0.2]], [[-0.06, 0.36], [-0.10, 0.52]]]) {
     K.rod(onScreen(a[0], a[1]), onScreen(b[0], b[1]), 0.0015, 'pil', 0, [230, 234, 232], 0.1, 4);
   }
+  // The broken edges of the two shards that are left (CARCASS_SHARDS): cut perspex catches the light
+  // where the film itself barely shows, and without them the tape below hangs in the air.
+  for (const sh of CARCASS_SHARDS) for (let i = 0; i < sh.length; i++) {
+    const a = sh[i], b = sh[(i + 1) % sh.length];
+    K.rod(onScreen(a[0], a[1]), onScreen(b[0], b[1]), 0.0018, 'pil', 0.2, [214, 222, 216], 0.15, 4);
+  }
   for (const [x, t, h] of [[-0.10, 0.33, 0.012], [0.15, 0.94, 0.010], [0.16, 0.8, 0.012]]) {
     const c = onScreen(x, t); K.box(c[0] - 0.04, c[1] - 0.003, c[2] - h, c[0] + 0.04, c[1] + 0.002, c[2] + h, 'pil', 0.2, M.tape);
   }
@@ -650,8 +667,9 @@ export function carcassFit(P, live, push) {
   K.rod([ys * 0.025, yW - 0.10, tz - 0.004], [ys * 0.06, yW - 0.15, tz - 0.014], 0.0022, 'pil', 0, C.red, 0.2, 4);
   // The landing light is a torch, gaffer-taped to the left post, lens forward.
   const tA = [-0.215, yW - 0.03, -0.03], tB = [-0.215, yW + 0.07, -0.03];
-  K.rod(tA, tB, 0.018, 'pil', 0.1, M.gaffer, 0, 8);
-  K.rod(tB, add(tB, [0, 0.004, 0]), 0.016, 'pil', 0.1, land ? M.lamp : [60, 62, 60], land ? 1 : 0, 10);
+  K.rod(tA, tB, 0.018, 'pil', 0.1, M.orange, 0, 8);
+  K.rod(tB, add(tB, [0, 0.006, 0]), 0.0205, 'pil', 0.3, C.chrome, 0, 10);
+  K.rod(add(tB, [0, 0.006, 0]), add(tB, [0, 0.008, 0]), 0.016, 'pil', 0.1, land ? M.lamp : [150, 156, 150], land ? 1 : 0.1, 10);
   for (const dy of [0.01, 0.05]) K.box(-0.235, tA[1] + dy - 0.008, -0.05, -0.195, tA[1] + dy + 0.008, -0.01, 'pil', 0.1, M.tape);
   // A pine-tree air freshener off the top rail. It swings with the turn and the pitch, it smells
   // of nothing, and it's the plumb bob.
@@ -709,12 +727,12 @@ export function carcassFit(P, live, push) {
   K.rod(add(Y.thrKnob, [0.012, 0, 0]), add(Y.thrKnob, [0.016, 0, 0]), 0.012, 'dash', 0.3, M.brass, 0, 10);
   // The Bowden cable forward to the carb, cable-tied to the stringers.
   K.rod(add(tp, [0, 0.02, 0]), [-0.22, D.Y(CARCASS.fire) - 0.01, tp[2] + 0.05], 0.004, 'dash', 0, M.wireB, 0, 4);
-  // A choke knob from a car, labelled CARB HEAT, on the wall behind the quadrant.
-  K.rod([-0.25, 0.30, -0.56], [-0.21, 0.30, -0.56], 0.004, 'dash', 0.2, C.chrome, 0, 5);
-  K.rod([-0.21, 0.30, -0.56], [-0.20, 0.30, -0.56], 0.013, 'dash', 0.2, C.black, 0, 8);
+  // Where the carb heat knob was, on the wall behind the quadrant: the hole, and the tape over it. The
+  // sim has no carb heat, so a knob would do nothing.
   const Ch = K.panel([-0.2495, 0.30, -0.535], [0, 1, 0], [0, 0, 1], 'dash', 0.1);
-  Ch.rect(-0.03, -0.0065, 0.03, 0.0065, M.tape, 0.05, 0.002);
-  Ch.fitText('CARB HEAT', 0, 0, 0.054, 0.0075, INK.blue, 0, 0.004);
+  Ch.disc(0, -0.022, 0.007, M.hole, 0, 0.001, 10);
+  Ch.rect(-0.045, -0.0075, 0.045, 0.0075, M.tape, 0.05, 0.002);
+  Ch.fitText('NO CARB HEAT', 0, 0, 0.084, 0.0075, INK.blue, 0, 0.004);
   // The trim: a lever on a bungee, green knob, in a slot cut with a hacksaw that wandered.
   K.box(-0.265, -0.21, -0.66, -0.25, -0.11, -0.58, 'dash', 0, M.plyDk);
   K.rod(Y.trimPivot, Y.trimTip, 0.004, 'dash', 0.2, M.steel, 0, 5);
