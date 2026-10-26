@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "description": "The shoreline drops off fast. A step out and the water is cold around your legs, and the channel ahead is deep and dark.",
+  "description": "Four storeys of old timber frame leaning out over the lane. The ridge has sagged, and one top corner is gone with its share of the roof, leaving the chimney breast standing on its own under a tarp. An iron stair is bolted up the outside. Most of the windows are boarded. The front door is a tarp.",
   "exits": {
     "north": "zone_district_922_916",
     "south": "zone_bld_922_917_lobby"

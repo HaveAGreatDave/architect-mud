@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "A residential stack optimised for maximum tenants per cubic metre and the bare legal minimum of reasons to keep living. Corridors of identical doors, behind each a life the city quietly stopped counting. A cat holds the stairwell; nobody contests the claim.",
+  "description": "A one-room house with one big window, lit at all hours. A pane in it is held in with tape. A lean-to off the front, roofed in tarp, keeps the rain off a bench, and there's usually somebody on the bench holding part of themselves still. The door is beside the window.",
   "exits": {
     "north": "zone_district_924_916",
     "south": "zone_bld_924_917_lobby"

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "A riveted water tank on a timber trestle over a one-room hut. Rust weeps down the tank, and the hut's roof is a tarp tied off to the trestle legs. A queue rail is bolted across the front with a tin cup on a chain. A second tarp on two sticks keeps the rain off the queue.",
   "exits": {
     "east": "zone_bld_919_917_lobby",
     "west": "zone_district_918_917"

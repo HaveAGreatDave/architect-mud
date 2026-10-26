@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3b2a1c",
   "color": "#ffd9a0",
-  "description": "The face of Jolene's.",
+  "description": "A long, low roadhouse on a boardwalk, behind a painted false front that stands taller than its roof. A porch runs the full width. On top of the false front, a pink neon boot. The door is usually propped, and the piano and the smell of the fryer both reach the Gate Road.",
   "exits": {
     "north": "zone_district_917_915",
     "south": "zone_jolenes_bar"

@@ -3,7 +3,7 @@
   "ambient_theme": "forest",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "A tall slab of near-black precast with no windows. The name runs floor to roof up the front in blue-white neon, and a row of bulbs chases along the crown. At the foot, a squat entrance box and a rail for the queue. Blue light spills out every time the door opens.",
   "exits": {
     "east": "zone_voltage_floor",
     "west": "zone_district_894_908"

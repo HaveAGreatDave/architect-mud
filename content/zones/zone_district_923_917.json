@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "Stacked living units marketed as \"affordable modular habitation\": landlord for a concrete drawer you rent by the month, utilities extra, dignity not included. Someone's AC unit drips onto someone else's only window. The whole block breathes through one wheezing vent.",
+  "description": "A long, low hall with a tin roof and a chimney at the back, smoking from early morning. A canopy runs out over the lane from a serving hatch, so the queue can stand in the dry. Half the canopy is tarpaulin now, and so is the roof over the kitchen, with a hole cut round the flue.",
   "exits": {
     "north": "zone_district_923_916",
     "south": "zone_bld_923_917_lobby"

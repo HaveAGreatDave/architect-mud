@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "Stacked living units marketed as \"affordable modular habitation\": landlord for a concrete drawer you rent by the month, utilities extra, dignity not included. Someone's AC unit drips onto someone else's only window. The whole block breathes through one wheezing vent.",
+  "description": "A plank counter open to Ropewalk under a tarpaulin on a frame, with a torn sheet hung down one side against the wind. Behind it, a back room, and out of that room's corner a flue climbing through a patched roof. The air round the flue smells sweet and sharp. The regulars drink with their backs to the Curtain.",
   "exits": {
     "north": "zone_district_926_916",
     "south": "zone_bld_926_917_lobby"

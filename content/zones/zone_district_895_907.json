@@ -3,7 +3,7 @@
   "ambient_theme": "forest",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "A narrow shaft of graphite glass, dark all the way up to a lit cap. The ground floor is one vitrine: a chrome gown turns on a plinth under a pin-spot, and the rails behind it hold one garment each. AURELIA is lettered down a slim violet blade beside the door.",
   "exits": {
     "east": "zone_aurelia_floor",
     "west": "zone_district_894_907"

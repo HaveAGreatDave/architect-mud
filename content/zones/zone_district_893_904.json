@@ -3,7 +3,7 @@
   "ambient_theme": "forest",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "A canvas fly on four poles at the side of Halcyon Boulevard, over a trestle of crates: roots, onions, eggs in a tray, a stack of tins. Two sacks of meal lean against a trestle leg. A board propped at the roadside reads FALLOW PROVISIONS in house paint.",
   "exits": {
     "east": "zone_district_894_904",
     "west": "zone_bld_893_904_lobby"

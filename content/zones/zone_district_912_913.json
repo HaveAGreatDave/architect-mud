@@ -3,7 +3,7 @@
   "ambient_theme": "forest",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "A long, low shed with a forge at one end and a flue going straight up through the roof, smoking. The far end has no wall, only roof on posts, and the ground under it is grey with grinding dust. Blades hang in racks along the front, the good ones behind glass. GRIND HOUSE runs along the eaves in orange.",
   "exits": {
     "south": "zone_grindhouse_interior"
   },
