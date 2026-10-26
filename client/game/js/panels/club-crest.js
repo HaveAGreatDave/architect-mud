@@ -7,7 +7,10 @@
 //
 // A crest is layered vector paths in a square box:
 //   { box: 100, layers: [{ d, fill, stroke, sw, op }], small: [...] }
-// `fill` is a colour, 'none', or 'sett' (the club's tartan). `small` is an optional second
+// `fill` is a colour, 'none', 'sett' (the club's tartan) or a gradient in the box's units:
+//   { lin: [x1, y1, x2, y2], stops: [[0, colour], [1, colour]] }
+//   { rad: [cx, cy, r, fx?, fy?], stops: [...] }      (fx, fy: the focus, the centre by default)
+// `small` is an optional second
 // drawing for small sizes: the full one turns to mush below about 32px, so a club can
 // author a simpler mark for the score bug and the jersey.
 //
@@ -124,6 +127,23 @@ function layersFor(crest, px, opts) {
 }
 const esc = (s) => String(s).replace(/[<&"]/g, '');
 let _uid = 0;
+const isGrad = (f) => !!f && typeof f === 'object' && Array.isArray(f.stops) && (Array.isArray(f.lin) || Array.isArray(f.rad));
+function gradSvg(id, g) {
+  const stops = g.stops.map(([o, c]) => `<stop offset="${+o}" stop-color="${esc(c)}"/>`).join('');
+  if (g.lin) {
+    const [x1, y1, x2, y2] = g.lin.map(Number);
+    return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stops}</linearGradient>`;
+  }
+  const [cx, cy, r, fx = cx, fy = cy] = g.rad.map(Number);
+  return `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${r}" fx="${fx}" fy="${fy}">${stops}</radialGradient>`;
+}
+function gradCanvas(ctx, g) {
+  let gr;
+  if (g.lin) gr = ctx.createLinearGradient(...g.lin.map(Number));
+  else { const [cx, cy, r, fx = cx, fy = cy] = g.rad.map(Number); gr = ctx.createRadialGradient(fx, fy, 0, cx, cy, r); }
+  for (const [o, c] of g.stops) { try { gr.addColorStop(Math.min(1, Math.max(0, +o)), c); } catch { /* a bad colour drops one stop */ } }
+  return gr;
+}
 
 // The crest as inline SVG. `club` is a club identity (it carries the crest and the sett)
 // or a bare crest. `size` is a CSS length; a number is taken as px, and picks the drawing.
@@ -137,12 +157,17 @@ export function crestSvg(club, size = 24, opts = {}) {
   let defs = '', pid = '';
   if (layers.some((l) => l.fill === 'sett') && club?.sett) {
     pid = `cs${(++_uid).toString(36)}`;
-    defs = `<defs>${settPatternSvg(pid, club.sett, crest.settUnit || 0.12)}</defs>`;
+    defs = settPatternSvg(pid, club.sett, crest.settUnit || 0.12);
   }
   let body = '';
   for (const l of layers) {
     if (!l || !l.d) continue;
-    const fill = l.fill === 'sett' ? (pid ? `url(#${pid})` : '#555') : (l.fill || 'none');
+    let fill;
+    if (isGrad(l.fill)) {
+      const gid = `cg${(++_uid).toString(36)}`;
+      defs += gradSvg(gid, l.fill);
+      fill = `url(#${gid})`;
+    } else fill = l.fill === 'sett' ? (pid ? `url(#${pid})` : '#555') : (l.fill || 'none');
     body += `<path d="${esc(l.d)}" fill="${esc(fill)}"` +
       (l.stroke ? ` stroke="${esc(l.stroke)}" stroke-width="${+l.sw || 1}" stroke-linejoin="round" stroke-linecap="round"` : '') +
       (l.op != null ? ` opacity="${+l.op}"` : '') +
@@ -150,7 +175,7 @@ export function crestSvg(club, size = 24, opts = {}) {
   }
   const cls = opts.cls ? ` ${esc(opts.cls)}` : '';
   const title = opts.title ? `<title>${esc(opts.title)}</title>` : '';
-  return `<svg class="club-crest${cls}" viewBox="0 0 ${box} ${box}" width="${css}" height="${css}" aria-hidden="${opts.title ? 'false' : 'true'}" role="img">${title}${defs}${body}</svg>`;
+  return `<svg class="club-crest${cls}" viewBox="0 0 ${box} ${box}" width="${css}" height="${css}" aria-hidden="${opts.title ? 'false' : 'true'}" role="img">${title}${defs ? `<defs>${defs}</defs>` : ''}${body}</svg>`;
 }
 
 // The crest on a canvas, centred on (cx, cy), `size` px across.
@@ -185,7 +210,8 @@ export function paintLayers(ctx, layers, club, unit = 0.12) {
     ctx.globalAlpha = l.op != null ? +l.op : 1;
     if (l.fill && l.fill !== 'none') {
       let fs = l.fill;
-      if (fs === 'sett') {
+      if (isGrad(fs)) fs = gradCanvas(ctx, fs);
+      else if (fs === 'sett') {
         fs = '#555';
         if (club?.sett) {
           let pat = _settPat.get(club.sett);

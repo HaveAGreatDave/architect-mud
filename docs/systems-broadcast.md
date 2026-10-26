@@ -1655,7 +1655,9 @@ The client side is engine: [club-crest.js](../client/game/js/panels/club-crest.j
 no club. It keeps the set the server sent, draws a crest from layered paths as inline SVG
 (`crestSvg`) or onto a canvas (`paintCrest`, Path2D), and weaves a sett from its ticket.
 A crest is `{ box: 100, layers, small }`: `small` is a simpler drawing used under 34px,
-because the full one turns to mush in a score bug. A layer's fill can be `'sett'`.
+because the full one turns to mush in a score bug. A layer's fill can be `'sett'`, or a linear or
+radial gradient in the box's units (`{ lin: [x1, y1, x2, y2], stops }` or `{ rad: [cx, cy, r], stops }`),
+which both `crestSvg` and `paintCrest` draw.
 
 **How it reaches a viewer.** Payloads never carry the set. Every hockey score bug and
 gameday payload carries `clubsRev`, a short stamp of it (`clubsRevOf`). A client without
@@ -1680,9 +1682,22 @@ they differ or while the count isn't eight.
 
 | Club | Home | Colours | Crest |
 |---|---|---|---|
-| Basin Blue Birds | Old Coldwater, by the Meridian | the Blue Jays' City Connect set: night blue, royal and red | a night-blue roundel ringed in royal and red, and breaking out of it a mean blue jay's head in silhouette: crest swept back, black beak, red eye under a brow cut down at the beak, white throat under the black necklace |
-| Coldwater Crows | Coldwater | red, black and bone | a die-cut red sticker after a 1909 minor-league one: "Still Watching" round the arch, a crow with its wings up perched on a bat, the club's name in Tuscan capitals over "Baseball Club", "Est. 2022" down the left and "Deadball" down the right |
-| Rustpile Rats, Neon District Wolves, Slagworks Slaggers, Undermarket Moles, Docklands Drowners, Static Saints | | | placeholders, to be replaced; no identity, so they wear the house kits and get no crest |
+| Basin Blue Birds | Old Coldwater, by the Meridian | the Blue Jays' City Connect set: night blue, royal and red | a night-blue roundel ringed in royal and red, two ash bats crossed behind, and on it a blue jay's head in profile: the crest raised in three swept feathers, a short black beak open on a red mouth, the black bridle cut down over a red-ringed eye, the pale cheek inside the black necklace; a red BLUE BIRDS banner across its foot and three stars under it |
+| Coldwater Crows | Coldwater | red, black and bone | a die-cut red sticker after a 1909 minor-league one: "Still Watching" round the arch, a crow cawing with its wing half raised, the primaries swept back, and its talons hooked over a bat, the club's name in Tuscan capitals over "Baseball Club", "Est. 2022" down the left and "Deadball" down the right |
+| Boomtown Bombers | Boomtown, in the Rust Quarter | navy and white, pinstripes at home and a lone script B on the chest; BOOMTOWN across the road greys | a pinstriped navy roundel ringed in white, and an aerial bomb in gunmetal diving through it: a shark's mouth and an angry eye painted on the nose, the script B on its flank, yellow bands, boxed fins, speed lines |
+| Westside White Sox | the Westside, by the Glasshouse | black, silver and white, black pinstripes at home; SOX at home, WESTSIDE away | a black roundel ringed in silver, WESTSIDE round its foot, and a gloved fist in a studded cuff swinging a white sock with a padlock bursting out of its torn toe, blood flying off it |
+| Rustpile Red Sox | Rustpile, in the Rust Quarter | red, navy and white: home whites with red letters edged in navy, red stirrups; RED SOX at home, RUSTPILE away | a rusted cog round a navy disc, RUSTPILE round its foot, a red sock with a navy heel and toe hung on a chained meat hook through its cuff, dripping |
+| Marquee Mastodons | the Marquee | maroon, grey and white; MASTODONS at home, MARQUEE away | a dark disc in a maroon ring set with lamps, as the Marquee's fronts are, and a mastodon charging head-on: shaggy dome, ears flared, eyes burning under a heavy brow, mouth open, trunk curled, two ivory tusks sweeping out past the ring |
+| Docks District Dolphins | the Docks | aqua, orange and navy: aqua edged in orange on white at home, white on aqua away; DOLPHINS and DOCKS | a navy roundel ringed in aqua, a blood-orange sun going down behind black water, and a scarred dolphin bursting out of it, jaws open on its teeth, a mean eye and a nick out of its fin |
+| Yards Yellowjackets | the Yards | yellow and black: black on yellow at home, yellow on black away; JACKETS and YARDS | a black honeycomb cell ringed in yellow, and a yellowjacket head-on: black compound eyes in a scowl, mandibles open, wings spread and veined, six hooked legs, the banded abdomen down to a stinger with a drop of venom |
+
+The six took the Rats', the Wolves', the Slaggers', the Moles', the Drowners' and the Saints'
+places on 2026-10-24, matched by district, each keeping its slot in the schedule (the Red Sox
+the Rats', the Mastodons the Wolves', the Yellowjackets the Slaggers', the White Sox the
+Moles', the Dolphins the Drowners' and the Bombers the Saints'). The sim never reads a club's
+name, so every game plays as it did; a stored row (a bet, a past final) keeps the name it was
+written with. The kits are after real clubs' cuts and colours (the pinstripes, the stirrups); the
+crests and wordmarks are original.
 
 The Blue Birds are the oldest club in the league, from before the collapse, and Sir Charles's
 club: the booth says he never missed a home game and never had a kind word for the Crows.
@@ -1703,8 +1718,8 @@ seam as the CPhL's: `district`, `home`, `founded`, `colours`, `crest` and `kit.h
 writes `clubs` and nothing else, and its `--check` gate fails while the row is behind.
 `build-deadball.mjs` carries `clubs` across a rebuild. The crest's lettering is the legend
 face's strokes (`LEGEND_STROKES` in `client/shared/legend-font.js`) drawn as stroked paths with
-slab serifs and Tuscan spurs added, which keeps the Crows to about 17 KB; the Blue Birds are
-about 5 KB. Regress holds every Deadball club under 24 KB.
+slab serifs and Tuscan spurs added, which keeps the Crows and the Mastodons to about 20 KB; the rest are
+10 to 16 KB. Regress holds every Deadball club under 24 KB.
 
 **How it reaches a viewer.** Every Gameday payload carries `clubsRev` (`clubsRevOf`, now in
 `sports/clubs.js` and shared by both sports), and the client asks with `tv_clubs` as it does

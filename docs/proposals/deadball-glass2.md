@@ -15,12 +15,12 @@ resetting between at-bats and the grounds crew in the fifth (4d), the sky on Col
 the park's weather and the city at night with its lights, its streets, the birds and the crowd's
 camera flashes (4e), the tiers, the governor and the park on by default (4g), and the sound: the
 bank, the mix, the announcer's calls, the umpire, the public address and a vendor (4f,
-[systems-deadball-sound.md](../systems-deadball-sound.md)); and Phase 5 but for the clubs: the three
+[systems-deadball-sound.md](../systems-deadball-sound.md)); and Phase 5 with the clubs: the three
 postseason bugs fixed, the final named the Curtain Call, its gold graphics, the park dressed for it,
 the line-ups read under searchlights, and the champions crowned with confetti, fireworks over the park
 and the city, a pile on the mound and the trophy; and Phase 6 but for seats in person, the park on the
 map as the Charles B. Hughson Coliseum ([hughson-coliseum.md](hughson-coliseum.md)). The league is eight
-clubs, two of them (the Basin Blue Birds and the Coldwater Crows) with identities; the other six, the kits on the players, seats in person and Phase 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+clubs, every one with its identity since 2026-10-24; seats in person and Phase 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1987,7 +1987,7 @@ Phase 3, or with sim v2 if that comes later.
   confetti, fireworks and the trophy.
 - The three postseason bugs fixed, and the final renamed in the script and the cards.
 - Tested by: `--check`, `ballpark-smoke`, regress (the final airs, the #1 seed hosts).
-- **Built but the clubs (2026-10-14).** The league is eight clubs since October 2026; the Blue Birds and the Crows have identities and the six others wait.
+- **Built (2026-10-14; the clubs 2026-10-24).** The league is eight clubs since October 2026, every one with its identity ([systems-broadcast.md](../systems-broadcast.md), Deadball's clubs).
   - **The bugs.** `broadcast.nextSportsAirSlot` pins a final to the league's airtime on a day its
     channel's playlist airs it (the walk getNextOnAir makes), up to a week and a day ahead; the
     finalists go into the game top seed at home, for the airing and the crowning both, and the Cup's

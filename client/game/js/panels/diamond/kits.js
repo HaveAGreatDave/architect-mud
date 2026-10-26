@@ -38,8 +38,16 @@ function flannel(g, W, H, seed) {
 }
 // A club's own jersey: its wordmark arched across the chest (serif at home, block on the road),
 // the placket piped in its trim, its number on the back in its two number colours.
+// Pinstripes, a hairline every 7.5 texels as the house home kit has them, in the kit's `stripe`
+// (its ink if it gives none).
+function pinstripes(g, K, W, H, a = 0.85) {
+  g.save(); g.globalAlpha = a; g.fillStyle = K.stripe || K.ink;
+  for (let px = 1.5; px < W; px += 7.5) g.fillRect(px, 0, 1, H);
+  g.restore();
+}
 function paintClubJersey(g, K, num, W, H, seed) {
   if (K.fabric === 'flannel') flannel(g, W, H, seed);
+  if (K.fabric === 'pinstripe') pinstripes(g, K, W, H);
   g.fillStyle = K.ink; g.fillRect(126, 0, 4, H); g.fillStyle = K.trim; g.fillRect(130, 0, 1.5, H); g.fillRect(124.5, 0, 1.5, H);
   // the arch keeps to the front of the shirt, 63 texels either side of the placket (wider wraps
   // round the ribs), so a long word sets its letters closer and smaller
@@ -128,6 +136,7 @@ function paintPants(g, x, y, kit) {
   g.save(); g.beginPath(); g.rect(x, y, 512, 256); g.clip(); g.translate(x, y);
   g.fillStyle = K.house ? K.base : K.pants; g.fillRect(0, 0, 512, 256);
   if (!K.house && K.fabric === 'flannel') flannel(g, 512, 256, 11);
+  if (!K.house && K.fabric === 'pinstripe') { pinstripes(g, K, 512, 256, 0.8); g.restore(); return; }
   if (K === KITS.home) { g.fillStyle = 'rgba(22,38,74,0.8)'; for (let px = 2; px < 512; px += 7.5) g.fillRect(px, 0, 1, 256); }
   else { g.fillStyle = K.ink; g.fillRect(122, 0, 10, 256); g.fillRect(378, 0, 10, 256); g.fillStyle = K.trim; g.fillRect(132, 0, 4, 256); g.fillRect(388, 0, 4, 256); }
   g.restore();
