@@ -11,7 +11,7 @@ let _pending = null;
 // after `loadWindshield()` has resolved sees the real value, because an import binds rather
 // than copies. Read one before that and it is undefined, which is why the loader is awaited
 // at the door rather than at the first use.
-export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats, armKeepWhy;
+export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GLASS1_BASIC, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats, armKeepWhy;
 
 export function isLoaded() { return !!_m; }
 
@@ -42,6 +42,7 @@ export function loadWindshield() {
     FLASH_FLOOR = m.FLASH_FLOOR;
     FLAT_ONLY_KINDS = m.FLAT_ONLY_KINDS;
     FT_PER_FLOOR = m.FT_PER_FLOOR;
+    GLASS1_BASIC = m.GLASS1_BASIC;
     GL_TIER = m.GL_TIER;
     HUNT_BAND = m.HUNT_BAND;
     HUNT_MIN_LEDGE = m.HUNT_MIN_LEDGE;
@@ -146,10 +147,13 @@ export function drawShiftKnob(...a) { return (_m || _cold('drawShiftKnob')).draw
 export function drawWildScatter(...a) { return (_m || _cold('drawWildScatter')).drawWildScatter(...a); }
 export function encounterW(...a) { return (_m || _cold('encounterW')).encounterW(...a); }
 export function ensureWindshieldStyles(...a) { return (_m || _cold('ensureWindshieldStyles')).ensureWindshieldStyles(...a); }
+export function expandGroundBlocks(...a) { return (_m || _cold('expandGroundBlocks')).expandGroundBlocks(...a); }
 export function faceAway(...a) { return (_m || _cold('faceAway')).faceAway(...a); }
+export function faceAway3(...a) { return (_m || _cold('faceAway3')).faceAway3(...a); }
 export function facePalsSmoke(...a) { return (_m || _cold('facePalsSmoke')).facePalsSmoke(...a); }
 export function falconDiveState(...a) { return (_m || _cold('falconDiveState')).falconDiveState(...a); }
 export function fasciaKindOf(...a) { return (_m || _cold('fasciaKindOf')).fasciaKindOf(...a); }
+export function flatsDropped(...a) { return (_m || _cold('flatsDropped')).flatsDropped(...a); }
 export function floorLutBytes(...a) { return (_m || _cold('floorLutBytes')).floorLutBytes(...a); }
 export function foamFeed(...a) { return (_m || _cold('foamFeed')).foamFeed(...a); }
 export function foamReset(...a) { return (_m || _cold('foamReset')).foamReset(...a); }
@@ -198,6 +202,7 @@ export function limbTilt(...a) { return (_m || _cold('limbTilt')).limbTilt(...a)
 export function looseOf(...a) { return (_m || _cold('looseOf')).looseOf(...a); }
 export function makeCam(...a) { return (_m || _cold('makeCam')).makeCam(...a); }
 export function markRenderSmoke(...a) { return (_m || _cold('markRenderSmoke')).markRenderSmoke(...a); }
+export function massDropped(...a) { return (_m || _cold('massDropped')).massDropped(...a); }
 export function materialIdOf(...a) { return (_m || _cold('materialIdOf')).materialIdOf(...a); }
 export function modelSolid(...a) { return (_m || _cold('modelSolid')).modelSolid(...a); }
 export function modelTopAt(...a) { return (_m || _cold('modelTopAt')).modelTopAt(...a); }
