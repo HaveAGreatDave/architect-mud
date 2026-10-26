@@ -46,7 +46,7 @@
 //
 // Pure, like the rest of the interior: no clock, no camera, no DOM. `live` arrives as an argument.
 import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { contactShadow, eased, pressPulse, hotspotHalo, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
+import { contactShadow, eased, pressPulse, hotspotHalo, panelGps, gpsHotspot, lensLamp } from './interior-cockpit-kit.js';
 import { FW_ROWS } from './vehicle-models.js';
 
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -840,15 +840,6 @@ const MAIN = (P) => { const rk = 12 * Math.PI / 180; return makeKit(() => {}).pa
 const GEARL = (P, R) => MAIN(P).pt(0.20, R.gear ? -0.28 : -0.19, 0.09);
 // The GPS, on the bare board outboard of the captain's airspeed, high enough to clear the yoke's horn.
 const GPS = { u: -0.90, v: 0.12, hw: 0.08, hh: 0.07 };
-
-// An annunciator: a lens `w` by `h` in a black bezel with its name lettered ON it, dark on a lit lens
-// and light on a dark one, as large as the lens allows. The kit's lamp letters its name underneath
-// at 8.5 mm, which from this seat is too small to read on anything past the pilot's own board.
-function lensLamp(Pn, u, v, w, h, on, rgb, name) {
-  Pn.rect(u - w / 2 - 0.004, v - h / 2 - 0.004, u + w / 2 + 0.004, v + h / 2 + 0.004, [14, 14, 16], 0, 0.003);
-  Pn.rect(u - w / 2, v - h / 2, u + w / 2, v + h / 2, on ? rgb : rgb.map((c) => c * 0.18), on ? 1 : 0, 0.006);
-  Pn.fitText(name, u, v, w - 0.008, h * 0.55, on ? [24, 16, 10] : [200, 200, 190], on ? 0 : 0.3, 0.008);
-}
 
 function liveFit(P, live, push) {
   const K = makeKit(push), R = readLive(live), cx = P.xCentre, zF = P.lev.zF;

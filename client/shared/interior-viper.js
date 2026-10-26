@@ -23,6 +23,12 @@
 //   https://en.wikipedia.org/wiki/Boeing_AH-64_Apache
 //     (tandem crew, pilot behind and ABOVE the CPG, transparent blast shield between them;
 //      58 ft 2 in / 17.73 m long with the rotors turning)
+// Photos the station was held against (Wikimedia Commons, 2026-10-26):
+//   File:A_WAH64_Apache_attack_helicopter_pilot_holding_the_cyclic_in_the_cockpit_MOD_45148278.jpg
+//     (a lit MPD is bright green symbology edge to edge, never a dark slab)
+//   File:Army_Air_Corps_Pilot_in_the_Cockpit_of_an_Apache_Helicopter_MOD_45153321.jpg
+//   File:AH-64D_Apache_(19753255029).jpg
+//     (near-black flat panelling, white stencils, the pilot's seat high and aft of the gunner's)
 //
 // ── ⚠ THE ROOM IS THE EXTERIOR'S LOFT, NEVER A SECOND DESCRIPTION OF IT ──────
 //
@@ -49,7 +55,7 @@
 // Pure, like the rest of the interior: no clock, no camera, no DOM, apart from the eased switch
 // throw that interior-cockpit-kit.js keeps for every cockpit. `live` arrives as an argument.
 import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { eased, pressPulse, hotspotHalo, contactShadow, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
+import { eased, pressPulse, hotspotHalo, contactShadow, panelGps, gpsHotspot, lensLamp } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 
 const TAU = Math.PI * 2;
@@ -83,7 +89,10 @@ export const VIPER_CABIN = {
 // An Apache is grey-black inside and every panel is black with white lettering that's edge-lit at
 // night. Those greys aren't in any colourway, so they are stated.
 const V = {
-  wall: [58, 62, 64], wallAlt: [52, 56, 58], wallDk: [44, 47, 49], floor: [38, 40, 40], tread: [52, 54, 52],
+  wall: [58, 62, 64], wallAlt: [52, 56, 58], wallDk: [44, 47, 49], floor: [22, 24, 24], tread: [30, 32, 31],
+  // What faces up (console tops, the plates on them) is darker than what faces you: the shell lights a
+  // face by which way it points, and the sky term took the ordinary panel grey to pale stone.
+  top: [22, 24, 26], topDk: [14, 15, 17],
   panel: [46, 50, 53], panelDk: [30, 33, 35], console: [40, 43, 45], key: [96, 100, 102],
   grip: [30, 32, 36], steel: [104, 110, 120], chrome: [150, 158, 170], rim: [70, 76, 80],
   frame: [20, 21, 23], reveal: [70, 74, 76],
@@ -100,7 +109,7 @@ SHINY.set(V.chrome, { spec: 0.8, pow: 22 }); SHINY.set(V.steel, { spec: 0.45, po
 // Surface texture. An Apache's panels and lining are painted metal and moulded panel, its decks are
 // rubber matting, its seat is fabric over an armoured bucket. Lamps, screens, dials and glass are
 // deliberately left out: they're lit or read, not surfaces.
-for (const k of ['wall', 'wallAlt', 'panel', 'panelDk', 'console', 'reveal', 'mpdBezel']) TEXTURE.set(V[k], 'paint');
+for (const k of ['wall', 'wallAlt', 'panel', 'panelDk', 'console', 'reveal', 'mpdBezel', 'top', 'topDk']) TEXTURE.set(V[k], 'paint');
 for (const k of ['wallDk', 'frame', 'armour']) TEXTURE.set(V[k], 'cast');
 for (const k of ['floor', 'tread', 'grip']) TEXTURE.set(V[k], 'rubber');
 for (const k of ['seat', 'seatDk', 'belt']) TEXTURE.set(V[k], 'fabric');
@@ -217,6 +226,9 @@ export function viperProfile(doc = MESH_ROWS.heli_armed) {
       { p: [-0.30, 0.56, -0.30], r: 0.40 }, { p: [0.30, 0.56, -0.30], r: 0.40 },
       { p: [-0.72, -0.05, -0.42], r: 0.32 }, { p: [0.72, -0.05, -0.42], r: 0.32 },
     ],
+    // After dark the floods are bright enough to read the panel by (the Drake's 2.2 is the bar); the
+    // canopy is all glass, so it shows less of the cabin than a closed cabin would.
+    floodGain: 1.8, glare: 0.4,
     room: viperShell,
     viper: { ...geo, room: room.faces, rimPts: room.rimPts, deckW: room.deckW },
   };
@@ -474,10 +486,10 @@ function recordFixed(P) {
     const inner = c === LCON ? c.x1 : c.x0, outer = c === LCON ? c.x0 : c.x1;
     K.box(Math.min(inner, outer), c.y0, zP, Math.max(inner, outer), c.y1, c.top - 0.004, 'dash', -0.1, V.console);
     const Pc = K.panel([(inner + outer) / 2, (c.y0 + c.y1) / 2, c.top], [1, 0, 0], [0, 1, 0], 'dash', 0.2);
-    Pc.rect(-0.16, -0.41, 0.16, 0.41, V.panelDk, 0, 0.001);
-    // Dzus-fastened panels, each with its placard lines: the rows of black plates an Apache console is.
+    Pc.rect(-0.16, -0.41, 0.16, 0.41, V.topDk, 0, 0.001);
+    // Dzus-fastened panels: the rows of black plates an Apache console is.
     for (const [b0, b1] of [[-0.40, -0.26], [-0.25, -0.05], [-0.04, 0.12], [0.13, 0.40]]) {
-      Pc.rect(-0.155, b0, 0.155, b1, V.panel, 0, 0.002);
+      Pc.rect(-0.155, b0, 0.155, b1, V.top, 0, 0.002);
       for (const [a, b] of [[-0.145, b0 + 0.008], [0.145, b0 + 0.008], [-0.145, b1 - 0.008], [0.145, b1 - 0.008]]) Pc.disc(a, b, 0.004, V.steel, 0.1, 0.003, 6);
     }
     // The console's inboard face, and a lip along its top edge.
@@ -486,15 +498,13 @@ function recordFixed(P) {
   // Right console: the communications panel, and the IHADSS helmet display unit on its stowage hook.
   {
     const Pr = K.panel([(RCON.x0 + RCON.x1) / 2, (RCON.y0 + RCON.y1) / 2, RCON.top], [1, 0, 0], [0, 1, 0], 'dash', 0.2);
-    for (let i = 0; i < 6; i++) Pr.knob(-0.11 + (i % 3) * 0.11, 0.28 + (i >> 1 & 1) * 0, 0.011, 0.012, C.black, 0);
-    for (let i = 0; i < 3; i++) Pr.knob(-0.11 + i * 0.11, 0.20, 0.014, 0.016, C.black, 0);
-    for (let i = 0; i < 8; i++) Pr.stud(-0.12 + (i % 4) * 0.08, 0.02 + (i >> 2) * 0.05, 0.012, 0.009, 0.006, [40, 42, 44], 0);
-    // The circuit-breaker panel aft: rows of black collars with white bands, the pilot's fuse box.
-    for (let r = 0; r < 5; r++) for (let c2 = 0; c2 < 9; c2++) {
-      const a = -0.13 + c2 * 0.0325, b = -0.37 + r * 0.045;
-      Pr.knob(a, b, 0.0065, 0.009, C.black, 0);
-      Pr.rect(a - 0.009, b - 0.016, a + 0.009, b - 0.013, [200, 204, 200], 0.1, 0.003);
-    }
+    // The communications panel's lamps are live (viperFit). The circuit-breaker panel aft: rows of
+    // black collars, each row named, the pilot's fuse box.
+    ['BUS 1', 'BUS 2', 'AVION', 'WPN', 'LIGHTS'].forEach((nm, r) => {
+      const b = -0.37 + r * 0.045;
+      Pr.text(nm, -0.112, b, 0.01, V.ink, 0.35);
+      for (let c2 = 0; c2 < 7; c2++) Pr.knob(-0.07 + c2 * 0.0325, b, 0.0065, 0.009, C.black, 0);
+    });
     // The HDU: a monocle combiner on an arm, with its cable, parked on the hook aft.
     const hook = [0.72, -0.22, RCON.top + 0.02];
     K.rod([0.72, -0.22, RCON.top], hook, 0.006, 'dash', 0.1, V.steel, 0, 5);
@@ -513,21 +523,12 @@ function recordFixed(P) {
   const Pn = panelKit(K);
   Pn.rect(-0.58, -0.25, 0.58, 0.23, V.panel, 0, 0.001);
   for (const sx of [-0.27, 0.27]) {
+    // ⚠ NO BEZEL KEYS. The real MPD has thirty round its edge; the sim gives none of them anything to
+    // do, so the bezel is plain and the page legends on the glass name what they would be.
     Pn.rect(sx - 0.125, -0.125, sx + 0.125, 0.125, V.mpdBezel, 0, 0.003);
-    // Six variable action buttons along each side of the screen, T1–T6 and B1–B6 top and bottom.
-    for (let i = 0; i < 6; i++) {
-      const u = sx - 0.075 + i * 0.03;
-      Pn.stud(u, 0.112, 0.009, 0.007, 0.006, [60, 62, 64], 0, 0.003);
-      Pn.stud(u, -0.112, 0.009, 0.007, 0.006, [60, 62, 64], 0, 0.003);
-      Pn.stud(sx - 0.112, 0.075 - i * 0.03, 0.007, 0.009, 0.006, [60, 62, 64], 0, 0.003);
-      Pn.stud(sx + 0.112, 0.075 - i * 0.03, 0.007, 0.009, 0.006, [60, 62, 64], 0, 0.003);
-    }
-    // The fixed action buttons along the bottom edge, and the brightness rocker.
-    for (let i = 0; i < 6; i++) Pn.stud(sx - 0.075 + i * 0.03, -0.14, 0.010, 0.006, 0.005, [44, 46, 48], 0, 0.002);
   }
-  // The keyboard unit: forty keys under a scratchpad, low on the left.
+  // The data panel where the keyboard unit's keys would be: its scratchpad lines are live (viperFit).
   Pn.rect(-0.56, -0.25, -0.16, -0.155, V.panelDk, 0, 0.002);
-  for (let r = 0; r < 3; r++) for (let c = 0; c < 12; c++) Pn.stud(-0.545 + c * 0.031, -0.235 + r * 0.023, 0.011, 0.008, 0.005, V.key, 0, 0.003);
   // The standby cluster's bezels between the displays; the dials themselves are live.
   Pn.rect(-0.14, -0.25, 0.14, -0.155, V.panelDk, 0, 0.002);
   // Rounded bezels round the three standby instruments, so each reads as a round-bodied gauge set
@@ -659,8 +660,10 @@ export function viperFit(P, live, push) {
   const MW = 0.112;
   for (const [sx, page] of [[-0.27, 'eng'], [0.27, 'flt']]) {
     Pn.rect(sx - MW, -MW, sx + MW, MW, powered ? BG : V.mpdGlass, powered ? 0.85 : 0, 0.004);
-    Pn.rect(sx - MW, -MW, sx + MW, MW, MPD_GLINT, 0, 0.0075);
-    if (!powered) continue;
+    // ⚠ THE GLINT IS LAID LAST, over the page: laid first, the translucent pane took the depth and the
+    // page drawn under it never showed, so both screens read as blank green-black.
+    const glint = () => Pn.rect(sx - MW, -MW, sx + MW, MW, MPD_GLINT, 0, 0.0075);
+    if (!powered) { glint(); continue; }
     // The page frame and its button legends round the edge, which is what makes it read as an MPD.
     const topN = ['TSD', 'FLT', 'WPN', 'FCR', 'COM', 'VID'], botN = ['DMS', 'ENG', 'FUEL', 'UTIL', 'A/C', 'MENU'];
     for (let i = 0; i < 6; i++) {
@@ -714,6 +717,7 @@ export function viperFit(P, live, push) {
       });
       Pn.digits(sx + 0.012, -0.094, 0.018, String(weapon.startsWith('gun') ? ammo : missiles).padStart(4, ' '), armed ? C.amber : G, false);
     }
+    glint();
   }
   panelGps(Pn, GPS.a, GPS.b, GPS.hw, GPS.hh, L);
   // The EUFD above the standby cluster: fuel and rotor speed, and the master warning/caution lamps.
@@ -737,8 +741,13 @@ export function viperFit(P, live, push) {
   Pn.dial(-0.065, 0.06, 0.036, clamp(ias / (vne * 1.1), 0, 1), { ticks: 12, major: 3, arcs: [[0.1, 0.82, C.green]], red: 0.91, name: 'KTS' });
   Pn.dial(0.065, 0.06, 0.036, (alt % 1000) / 1000, { a0: Math.PI / 2, sweep: TAU, ticks: 10, major: 1, frac2: (alt % 10000) / 10000, name: 'ALT' });
   Pn.attitude(0, -0.055, 0.045, pitch, bank);
-  // The scratchpad over the keyboard unit.
-  Pn.rect(-0.54, -0.152, -0.18, -0.13, powered ? [6, 16, 10] : V.mpdGlass, powered ? 0.3 : 0, 0.003);
+  // The data panel's scratchpad: what the aircraft is carrying and burning, two lines of it.
+  Pn.rect(-0.55, -0.24, -0.17, -0.165, powered ? [6, 16, 10] : V.mpdGlass, powered ? 0.3 : 0, 0.003);
+  if (powered) {
+    const wpn = weapon.startsWith('gun') ? 'GUN ' + ammo : weapon.startsWith('roc') ? 'RKT' : 'MSL ' + missiles;
+    Pn.fitText(wpn, -0.36, -0.183, 0.34, 0.014, armed ? C.amber : C.lcd, 0.9, 0.005);
+    Pn.fitText('FUEL ' + Math.round(fuel * 100) + ' NR ' + Math.round(rpm * 101), -0.36, -0.221, 0.34, 0.014, C.lcd, 0.9, 0.005);
+  }
   // Standby magnetic compass card, turning in its bowl on the glareshield.
   {
     const Cp = K.panel([0, 0.689, -0.17], [1, 0, 0], [0, 0, 1], 'dash', 0.2);
@@ -754,8 +763,8 @@ export function viperFit(P, live, push) {
   for (let i = 0; i < 16; i++) Pn.lamp(ARM.a + 0.075 + (i % 4) * 0.022, -0.18 - (i >> 2) * 0.016, 0.006, 0.005, powered && armed && i < missiles, C.amber);
   // The placards, edge-lit: a line of lettering under each group, lit when the panel is.
   // The right MPD's line stops short of MASTER ARM, which stands in it.
-  for (const [a0, a1, b, nm] of [[-0.39, -0.15, -0.135, 'MPD L'], [0.17, 0.25, -0.135, 'MPD R'], [-0.13, 0.13, 0.185, 'EUFD'], [ARM.a - 0.09, ARM.a + 0.17, -0.245, 'ARMAMENT'], [-0.55, -0.17, -0.245, 'KEYBOARD']]) {
-    Pn.fitText(nm, (a0 + a1) / 2, b, a1 - a0, 0.007, lit ? ink : [120, 124, 120], lit, 0.004);
+  for (const [a0, a1, b, nm] of [[-0.39, -0.15, -0.135, 'MPD L'], [0.17, 0.25, -0.135, 'MPD R'], [-0.13, 0.13, 0.185, 'EUFD'], [ARM.a - 0.09, ARM.a + 0.17, -0.245, 'ARMAMENT'], [-0.55, -0.17, -0.142, 'DATA']]) {
+    Pn.fitText(nm, (a0 + a1) / 2, b, a1 - a0, 0.0085, lit ? ink : [120, 124, 120], lit, 0.004);
   }
 
   // ── THE LEFT CONSOLE: lights and start panel, the power levers, the collective ──
@@ -774,7 +783,7 @@ export function viperFit(P, live, push) {
     // once the engines are up, at IDLE while they wind, and OFF when the aircraft is dead.
     const Q = K.panel([QUAD.x, QUAD.y, QUAD.z + 0.001], [1, 0, 0], [0, 1, 0], 'dash', 0.2);
     Q.rect(-0.05, -0.10, 0.05, 0.10, C.black, 0, 0.002);
-    for (const [b, l, nm] of [[-0.07, 0.4, 'OFF'], [0, 0.6, 'IDLE'], [0.07, 0.9, 'FLY']]) Q.fitText(nm, 0.0375, b, 0.019, 0.006, lit ? ink : C.white, l * lit, 0.003);
+    for (const [b, l, nm] of [[-0.07, 0.4, 'OFF'], [0, 0.6, 'IDLE'], [0.07, 0.9, 'FLY']]) Q.fitText(nm, 0.068, b, 0.034, 0.0085, lit ? ink : C.white, l * lit, 0.003);
     const pos = powered ? clamp(rpm, 0, 1) : -1;             // -1 OFF, 0 IDLE, 1 FLY
     for (const [i, x] of [[0, -0.018], [1, 0.018]]) {
       const a = (pos * 34 - (i ? 1.5 : 0)) * Math.PI / 180;
@@ -794,6 +803,14 @@ export function viperFit(P, live, push) {
     const box = add(g, mul(dir, 0.04));
     K.obox(box, [1, 0, 0], dir, norm(cross([1, 0, 0], dir)), 0.035, 0.04, 0.03, 'dash', 0.1, [36, 38, 40], 0);
     K.obox(add(box, [0, 0, 0.032]), [1, 0, 0], dir, [0, 0, 1], 0.008, 0.008, 0.004, 'dash', 0.3, L.landingLight ? C.lampOn : C.white, L.landingLight && powered ? 0.8 : 0);
+  }
+
+  // ── THE RIGHT CONSOLE'S COMMUNICATIONS PANEL: a lamp per radio, lit with the power ──
+  {
+    const Pr = K.panel([(RCON.x0 + RCON.x1) / 2, (RCON.y0 + RCON.y1) / 2, RCON.top], [1, 0, 0], [0, 1, 0], 'dash', 0.2);
+    [['VHF', powered], ['UHF', powered], ['FM 1', powered], ['FM 2', powered], ['ICS', powered], ['XMIT', false]].forEach(([nm, on], i) => {
+      lensLamp(Pr, -0.10 + (i % 3) * 0.10, 0.26 - Math.floor(i / 3) * 0.075, 0.09, 0.045, on, i === 5 ? C.amber : C.green, nm);
+    });
   }
 
   // ── THE CYCLIC: boot, shaft and the weapons grip, leaning with your hand ──

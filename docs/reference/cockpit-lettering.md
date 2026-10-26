@@ -54,7 +54,7 @@ handles, each click has a `DK_ACT` action, and each control has a `DK_TIP` toolt
 
 A lamp is lettered on its lens when its name has to be read from further than the pilot's own board:
 the kit's `lamp` letters its name underneath at 8.5 mm, which fails rule 4 past about 1.2 m. See
-`lensLamp` in interior-leviathan.js.
+`lensLamp` in interior-cockpit-kit.js.
 
 ## How to letter something
 

@@ -140,6 +140,15 @@ export function panelGps(Pn, u, v, hw, hh, live, o = {}) {
     Pn.plate([[cu, cv + d], [cu + d, cv], [cu, cv - d], [cu - d, cv]], GPS_MAG, 1, 0.0075);
   }
 }
+// An annunciator: a lens `w` by `h` in a black bezel with its name lettered ON it, dark on a lit lens
+// and light on a dark one, as large as the lens allows. The kit's lamp letters its name underneath
+// at 8.5 mm, which fails the legibility check on anything past the pilot's own board.
+export function lensLamp(Pn, u, v, w, h, on, rgb, name) {
+  Pn.rect(u - w / 2 - 0.004, v - h / 2 - 0.004, u + w / 2 + 0.004, v + h / 2 + 0.004, [14, 14, 16], 0, 0.003);
+  Pn.rect(u - w / 2, v - h / 2, u + w / 2, v + h / 2, on ? rgb : rgb.map((c) => c * 0.18), on ? 1 : 0, 0.006);
+  Pn.fitText(name, u, v, w - 0.008, h * 0.55, on ? [24, 16, 10] : [200, 200, 190], on ? 0 : 0.3, 0.008);
+}
+
 export const gpsHotspot = (Pn, u, v, r) => ({ id: 'ck:gps', p: Pn.pt(u, v, 0.01), r, kind: 'click' });
 
 export { clamp };
