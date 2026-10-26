@@ -17,6 +17,7 @@ import { resetOrder } from './sidebar-order.js';
 import { loadQLog, saveQLog, recordQuestLog } from './quest-log.js';
 import { DISCORD_INVITE } from './links.js';
 import { loadCss } from '../../../shared/dom.js';
+import { fpsMeterOn, setFpsMeter } from '../fps-meter.js';
 
 // tablet-os.css is fetched at module load so ensureStyles can apply it synchronously.
 const TABLET_CSS = await loadCss(new URL('./tablet-os.css', import.meta.url));
@@ -2568,6 +2569,11 @@ function renderTabletSettings(d) {
       a11yRows +
       `<div class="tos-set-row"><span class="tos-set-label">All of this works as a command<span class="tos-set-val">Type <b>accessibility</b> anywhere: no tablet needed. <b>accessibility reset</b> puts everything back.</span></span></div>`,
     Layout: (layoutRows || '') +
+      // The F3 meter (fps-meter.js), reachable without a keyboard. Per device, like F3.
+      `<div class="tos-set-row"><span class="tos-set-label">Perf Meter<span class="tos-set-val">Frame rate and paint time, top left</span></span><div class="tos-opts">
+        <div class="tos-opt${fpsMeterOn() ? ' selected' : ''}" data-set-perf="on" title="Show the perf meter">On</div>
+        <div class="tos-opt${!fpsMeterOn() ? ' selected' : ''}" data-set-perf="off" title="Hide the perf meter">Off</div>
+      </div></div>` +
       `<div class="tos-set-row"><span class="tos-set-label">Home Widgets<span class="tos-set-val">Info cards under the app grid</span></span><div class="tos-opts">
         <div class="tos-opt${widgetsEnabled() ? ' selected' : ''}" data-set-widgets="on" title="Show home widgets">On</div>
         <div class="tos-opt${!widgetsEnabled() ? ' selected' : ''}" data-set-widgets="off" title="Hide home widgets">Off</div>
@@ -6696,6 +6702,13 @@ function wireTabletSettings() {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
       setWidgetsEnabled(el.getAttribute('data-set-widgets') === 'on');
+      render();
+    });
+  });
+  _overlay.querySelectorAll('[data-set-perf]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      setFpsMeter(el.getAttribute('data-set-perf') === 'on');
       render();
     });
   });

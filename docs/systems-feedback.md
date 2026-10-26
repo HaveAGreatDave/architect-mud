@@ -26,7 +26,12 @@ The verb takes the same `submit()` path with no client telemetry.
 **Client** (`client_ctx`), read at send time:
 
 - path, user agent, language, viewport and DPR, the density and pane-claimed flags, display rung, current zone;
-- the renderer (GLASS 1 or 2, cloud volume state) and the FPS meter's summary if it's on;
+- the renderer (GLASS 1 or 2, cloud volume state) and the FPS meter's own summary if it's on;
+- `glass`, the 3-D seat summary, which is sent whether or not the meter is on (`glassSummary()` in `client/game/js/fps-meter.js`):
+  - `glass` (1 or 2), `tier` (`GL_TIER`: `phone` or `full`), `resStep`, the governor `gov` and the pacing step `pace` (null unless `pace30` is on);
+  - `seat`: the last seat that painted, its last 240 paints: `fps`, `frameMs` and `paintMs` as p50, p95 and max, `samples`, and `ageS`, how long ago it last painted. Null if no seat has painted this session;
+  - `bench`: the last `__glassBench()` result, with per-pass GPU ms when that run had the timer. GPU time is never sampled for a report on its own, because the timer costs a query per pass per frame;
+- the summary is fed by a tap in `glass-veil.js` that windshield.js calls with each paint's wall time, so it costs two float writes a paint and nothing when no seat is up;
 - whether a seat holds the keyboard, and which windows and panels are open;
 - the last 30 lines of the log and the last 10 uncaught errors, from a ring installed in `main.js`.
 

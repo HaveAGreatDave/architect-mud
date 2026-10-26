@@ -222,8 +222,15 @@ export function veilHold(id) {
   return ++s.calls <= HOLD;
 }
 
+// One listener for every real paint and its cost, for the frame summary in fps-meter.js. This is
+// the only place outside windshield.js that is handed each paint's wall time, and a module the game
+// client can import without loading the renderer. Null until the client sets it.
+let _paintTap = null;
+export function setPaintTap(fn) { _paintTap = fn || null; }
+
 // Called after a real paint with its cost in ms.
 export function veilPainted(id, ms) {
+  if (_paintTap) _paintTap(id, ms);
   const s = _state.get(id);
   if (!s || s.done) return;
   const node = el(id);

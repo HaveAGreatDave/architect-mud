@@ -3,7 +3,7 @@
 // send time; nothing here runs per frame. The server adds where the player is.
 import { state } from './state.js';
 import { appendMsg } from './render.js';
-import { fpsSummary } from './fps-meter.js';
+import { fpsSummary, glassSummary } from './fps-meter.js';
 import { seatHoldsKeyboard } from './panels/seat-keys.js';
 import { sendRaw } from './net.js';
 import { showFeedbackDialog } from './panels/confirm.js';
@@ -87,6 +87,7 @@ export function collectTelemetry() {
     zone: state.currentZone || null,
     renderer: tune ? { glass: tune.gl ? 2 : 1, clouds } : null,
     fps: fpsSummary(),
+    glass: glassSummary(),
     seatHoldsKeyboard: keys,
     openWindows: openWindows(),
     online: navigator.onLine,
