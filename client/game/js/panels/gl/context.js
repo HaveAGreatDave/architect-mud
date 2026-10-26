@@ -4,6 +4,7 @@
 // caller (`WALL_COL`); two definitions of what a building looks like is the failure to avoid.
 import { viewProjMatrix, mat4f } from './camera.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
+import { TOON_GLSL } from './toon.js';
 import { createSpriteLayer } from './sprites.js';
 import { createCurtainLayer } from './curtain.js';
 import { createDecalLayer } from './decals.js';
@@ -331,21 +332,9 @@ out vec4 outColor;
 float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 
 // ── CEL STEPS ───────────────────────────────────────────────────────────────
-// x rounded to the nearest of n even steps, and a hard step at an edge. Each edge is about a pixel
-// wide, from the value's own rate of change across the pixel, so a band on a curve is antialiased
-// rather than stair-stepped. ⚠ The width has a floor: on a flat face the value doesn't change,
-// fwidth is 0, and smoothstep with equal edges is undefined. ⚠ Only call these behind a uniform
-// branch (uToon), for the derivative reason sunShadow gives.
-float toonBands(float x, float n) {
-  float y = x * n;
-  float w = max(fwidth(y), 1e-4);
-  float i = floor(y);
-  return (i + smoothstep(0.5 - w, 0.5 + w, y - i)) / n;
-}
-float toonStep(float edge, float x) {
-  float w = max(fwidth(x), 1e-4);
-  return smoothstep(edge - w, edge + w, x);
-}
+// toonBands and toonStep, from gl/toon.js. ⚠ Only call these behind a uniform branch (uToon), for
+// the derivative reason sunShadow gives.
+${TOON_GLSL}
 // Where the occlusion turns into the cel look's one step of shade, and how dark that step is.
 const float TOON_AO_CUT = 0.85;
 const float TOON_AO_DARK = 0.72;

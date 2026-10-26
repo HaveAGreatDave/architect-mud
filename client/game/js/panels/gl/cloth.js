@@ -18,6 +18,7 @@
 // and a piece of paint out of the atlas windshield.js bakes (graffiti, or the flag's device).
 import { viewProjMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
+import { TOON_GLSL } from './toon.js';
 import { clothBake, CLOTH_KINDS, CLOTH_BANDS, CLOTH_FRAMES } from '../cloth3d.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
@@ -162,13 +163,8 @@ uniform vec3 uInkCol;
 uniform vec2 uViewport;
 out vec4 outColor;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-// context.js's toonBands: n even steps, each edge about a pixel wide. Only behind the uToon branch.
-float toonBands(float x, float n) {
-  float y = x * n;
-  float w = max(fwidth(y), 1e-4);
-  float i = floor(y);
-  return (i + smoothstep(0.5 - w, 0.5 + w, y - i)) / n;
-}
+// gl/toon.js's toonBands: n even steps, each edge about a pixel wide. Only behind the uToon branch.
+${TOON_GLSL}
 const float TOON_SHADE = 0.7;
 void main() {
   if (vAlpha <= 0.002) discard;
