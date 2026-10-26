@@ -701,8 +701,9 @@ function installApi() {
     // From the pilot's seat: the class's own cockpit (interior-shell.js), in GLASS 2 over a small
     // test city, with the head turned by yaw/pitch. Saved like any shot. See seatShot below.
     seat: (opts = {}) => seatShot(curId(), opts),
-    // The same seat from the six SHEET_VIEWS in one picture. See cockpitSheet below.
-    sheet: (opts = {}) => cockpitSheet(curId(), opts),
+    // The same seat from the six SHEET_VIEWS in one picture. See cockpitSheet below. ⚠ NOT `sheet`:
+    // that is the exterior contact sheet above, and a second key of the same name replaced it.
+    seatSheet: (opts = {}) => cockpitSheet(curId(), opts),
     // For a check that a converted file still draws what its builder did.
     legacyFaces: (detail = 1) => legacyMeshFaces(curId(), detail)?.length ?? null,
   };
