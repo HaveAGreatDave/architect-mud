@@ -3,14 +3,13 @@
   "kind": "mesh",
   "params": {
     "name": "Dragonfly",
-    "note": "A light rotorcraft (Mini 500): a glass bubble cabin, a slender boom, a small fin, tubular skids and a tall exposed mast.",
-    "portedFrom": "buildHeli",
+    "note": "A Revolution Mini-500: a fibreglass egg of a cabin with a big glass bubble, a two-blade teetering rotor on a short mast, a thin tube tail boom out of the upper back of the cabin, a tall swept fin with the stabiliser across its top and a ventral fin with a hoop skid under it, the tail rotor on the left, and tubular skids.",
     "armedMesh": "heli_armed",
     "groundPitch": 0,
     "navLamps": null,
     "rotors": [
       { "at": [0.1, 0, 0.34], "plane": "h", "r": 1.02, "blades": 2, "lead": 0.85 },
-      { "at": [-1.04, 0.07, 0.12], "plane": "side", "r": 0.19, "blades": 2, "lead": 0.7, "spinMul": 4.7, "phase": 1.1 }
+      { "at": [-1.04, -0.07, 0.12], "plane": "side", "r": 0.19, "blades": 2, "lead": 0.7, "spinMul": 4.7, "phase": 1.1 }
     ],
     "finish": "gloss",
     "paints": {
@@ -84,43 +83,69 @@
       {
         "kind": "loft",
         "name": "tail boom",
-        "sides": 14,
+        "note": "A thin tube, as the real boom is: about a tenth of the cabin's height across.",
+        "sides": 10,
         "section": "ellipse",
         "role": "body",
         "shade": { "base": 0.6, "amp": 0.36, "mul": 0.92 },
         "stations": [
-          { "f": -0.24, "rg": 0.058, "rv": 0.066, "cz": 0.052 },
-          { "f": -0.5, "rg": 0.044, "rv": 0.048, "cz": 0.078 },
-          { "f": -0.76, "rg": 0.034, "rv": 0.036, "cz": 0.1 },
-          { "f": -1, "rg": 0.026, "rv": 0.028, "cz": 0.118 }
+          { "f": -0.2, "rg": 0.034, "rv": 0.036, "cz": 0.072 },
+          { "f": -0.3, "rg": 0.027, "rv": 0.028, "cz": 0.078 },
+          { "f": -0.76, "rg": 0.023, "rv": 0.024, "cz": 0.098 },
+          { "f": -1.04, "rg": 0.02, "rv": 0.021, "cz": 0.115 }
         ],
         "regions": [{ "at": [-0.76], "k": "all", "paint": "tail" }],
+        "capAft": { "kind": "flat" },
         "paint": "hull"
       },
       {
         "kind": "blade",
         "name": "fin",
-        "outline": [[-0.86, 0.13], [-0.99, 0.3], [-1.1, 0.4], [-1.1, 0.11]],
-        "t": 0.014,
+        "note": "The upper fin: tall and swept, as tall as the cabin is deep.",
+        "outline": [[-0.88, 0.12], [-1, 0.44], [-1.08, 0.44], [-1.07, 0.115]],
+        "t": 0.012,
         "role": "fin",
         "sh": [0.92, 0.72],
-        "edges": [{ "a": 1, "b": 2, "sh": 0.8 }],
+        "edges": [{ "a": 1, "b": 2, "sh": 0.8 }, { "a": 0, "b": 1, "sh": 0.86 }],
         "paint": "tail"
       },
       {
         "kind": "poly",
         "name": "stabiliser",
         "faces": [
-          { "role": "fin", "sh": 0.85, "p": [[-0.82, 0.02, 0.115], [-0.82, 0.16, 0.12], [-0.94, 0.16, 0.125], [-0.94, 0.02, 0.12]] },
-          { "role": "fin", "sh": 0.7, "p": [[-0.82, -0.02, 0.115], [-0.94, -0.02, 0.12], [-0.94, -0.16, 0.125], [-0.82, -0.16, 0.12]] }
+          { "role": "fin", "sh": 0.9, "p": [[-0.99, -0.13, 0.446], [-0.99, 0.13, 0.446], [-1.09, 0.13, 0.446], [-1.09, -0.13, 0.446]] },
+          { "role": "fin", "sh": 0.55, "p": [[-1.09, -0.13, 0.434], [-1.09, 0.13, 0.434], [-0.99, 0.13, 0.434], [-0.99, -0.13, 0.434]] },
+          { "role": "fin", "sh": 0.75, "p": [[-0.99, -0.13, 0.434], [-0.99, 0.13, 0.434], [-0.99, 0.13, 0.446], [-0.99, -0.13, 0.446]] },
+          { "role": "fin", "sh": 0.7, "p": [[-0.99, 0.13, 0.434], [-1.09, 0.13, 0.434], [-1.09, 0.13, 0.446], [-0.99, 0.13, 0.446]] },
+          { "role": "fin", "sh": 0.7, "p": [[-1.09, -0.13, 0.434], [-0.99, -0.13, 0.434], [-0.99, -0.13, 0.446], [-1.09, -0.13, 0.446]] }
         ],
         "paint": "tail"
       },
       {
+        "kind": "blade",
+        "name": "ventral fin",
+        "outline": [[-0.97, 0.11], [-1.06, 0.11], [-1.1, -0.01], [-1.06, -0.02]],
+        "t": 0.01,
+        "role": "fin",
+        "sh": [0.88, 0.68],
+        "edges": [{ "a": 2, "b": 3, "sh": 0.6 }],
+        "paint": "tail"
+      },
+      {
+        "kind": "tube",
+        "name": "tail skid",
+        "pts": [[-1, 0, 0.04], [-1.02, 0, -0.045], [-1.08, 0, -0.055], [-1.1, 0, -0.03]],
+        "r": 0.004,
+        "sides": 5,
+        "role": "gear",
+        "paint": "metal",
+        "minDetail": 1
+      },
+      {
         "kind": "tube",
         "name": "tail rotor gearbox",
-        "pts": [[-0.96, 0.02, 0.12], [-1.06, 0.07, 0.12]],
-        "r": 0.022,
+        "pts": [[-0.98, -0.015, 0.118], [-1.05, -0.065, 0.12]],
+        "r": 0.018,
         "sides": 6,
         "role": "nacelle",
         "sh": 0.75,
@@ -131,7 +156,7 @@
         "name": "tail rotor disc",
         "note": "Schematic only: painted renderers skip role rotor and draw the blades from rotors[1].",
         "faces": [
-          { "role": "rotor", "sh": 0.7, "p": [[-1, 0.07, 0.02], [-1, 0.07, 0.3], [-1.1, 0.07, 0.3], [-1.1, 0.07, 0.02]] }
+          { "role": "rotor", "sh": 0.7, "p": [[-1.1, -0.07, 0.02], [-1.1, -0.07, 0.3], [-1, -0.07, 0.3], [-1, -0.07, 0.02]] }
         ]
       },
       {
