@@ -331,6 +331,9 @@ export const NAMED_MODELS = {
   thegatepost:                    { type: 'gate_post',    pal: 'ty_hf_mirror' },
 };
 export function namedModel(name) { return NAMED_MODELS[bldgSlug(name)] || null; }
+// Whether a building type roofs a berth (`berthRoof`: the marinas' covered docks), so its arm takes
+// that roof off while a service bay is open beside it and GLASS 2 keys its mesh on that.
+export function roofsABerth(bt) { return !!(bt && TYPE_MODEL[bt] && TYPE_MODEL[bt].berthRoof); }
 
 // Per-type default model, so a building that carries only a building_type (no bespoke
 // NAMED_MODELS entry yet — a freshly-authored one) still renders a type-appropriate
@@ -478,12 +481,12 @@ export const TYPE_MODEL = {
   // FROST_WALL, the etched glass whose light comes from inside, which is the one thing that makes
   // a building lit at every hour read as intentional instead of as a missing night palette.
   pontoon:           { type: 'pontoon',           pal: 'ty_hf_ice',   neon: '#7fe4ff' },
-  boathouse:         { type: 'boathouse',         pal: 'ty_asc_chrome', neon: '#a8e6f2' },
+  boathouse:         { type: 'boathouse',         pal: 'ty_asc_chrome', neon: '#a8e6f2', berthRoof: true },
   // ── THE EASTERN MARINA, at the head of Ironside Street ───────────────────────────────────────────
   // The cheap yard at the other end of the waterfront: Keel's tarred timber shed with its water doors
   // open on a wet slot under a tin lean-to, and landing stages of planks on oil drums. Registered by
   // type, like the pontoon and the boathouse, so the yard's look is the type's and not the name's.
-  boatshed:          { type: 'boatshed',          pal: 'ty_oc_board_dk' },
+  boatshed:          { type: 'boatshed',          pal: 'ty_oc_board_dk', berthRoof: true },
   landing_stage:     { type: 'landing_stage',     pal: 'ty_pier_deck' },
   fish_quay:         { type: 'fish_quay',         pal: 'ty_dw_timber' },          // the Codfather's quay: timber on tarred piles
   fish_works:        { type: 'fishworks',         pal: 'ty_fw_tin', noKit: true },

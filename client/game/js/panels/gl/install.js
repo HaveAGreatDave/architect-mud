@@ -170,7 +170,7 @@ export function installGL(hostFor) {
       // CAUGHT THE NEXT ONE: the baked per-vertex term was added at both ends, gated, measured and
       // swept before anybody read this paragraph, and reported exactly the same 0.0% at every
       // strength. The note is the only reason that took minutes instead of an afternoon.
-      sprites: opts.sprites, glLights: opts.glLights, glAO: opts.glAO, glBakedAo: opts.glBakedAo, msaa: opts.msaa,
+      sprites: opts.sprites, glLights: opts.glLights, glAO: opts.glAO, glBakedAo: opts.glBakedAo, msaa: opts.msaa, glTransfer: opts.glTransfer,
       // FXAA — allowlisted, per the note above, or it is inert.
       glFxaa: opts.glFxaa, cssW: opts.cssW, cssH: opts.cssH,
       // The material page (RENDER_TUNE.glMatPage), allowlisted like everything else here or it is inert.

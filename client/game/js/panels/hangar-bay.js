@@ -1134,11 +1134,9 @@ function syncCockpitView(ck, tab, c) {
     const shot = inside ? 'cab' : (tab === 'paint' && B.paintTab === 'paint' ? 'side' : SHOT_FOR[tab] || 'quarter');
     if (shot !== B.shot) {
       if (inside) ck.cockpitView('cab');
-      else {
-        // In a GLASS hangar the eye stays at the standoff (the renderer clamps a smaller zoom to it).
-        const s = SHOTS[shot];
-        ck.cockpitFrame(B.data.hangar ? { ...s, zoom: 0.01 } : s, B.shot == null ? 900 : 700);
-      }
+      // The same 3/4 the other bays take. The eye used to be held at the standoff in a hangar,
+      // because the walls were in the way; with the bay open the hangar is cut down to its sill.
+      else ck.cockpitFrame(SHOTS[shot], B.shot == null ? 900 : 700);
       B.shot = shot;
     }
     // The work copy itself, not a snapshot: the colour wheel writes into it as it drags, and the

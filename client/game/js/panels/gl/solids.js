@@ -337,6 +337,10 @@ vec2 texAmount(int kind) {
   if (kind == 14) return vec2(0.22, 0.05);  // metal flake: value, a breath of relief
   return vec2(0.0);
 }
+// How glossy a clear coat is, from its strength (VEHICLE_MATS in client/shared/vehicle-materials.js):
+// nothing for rubber (-0.08) and satin (-0.1), most of the way at gloss (-0.22) and candy (-0.26), all
+// of it from metallic (-0.3) on. It drives the coat's grazing sheen and its own sun highlight.
+float coatGloss(float mtl) { return smoothstep(0.12, 0.3, -mtl); }
 // Returns a multiplier and an additive lift. ⚠ THE LIFT IS WHY A DARK SURFACE SHOWS ANYTHING: a
 // multiplier on a near-black panel moves it by a level or two, so part of the relief is added
 // rather than scaled — a textured black plastic is visibly textured in a real cockpit.
@@ -734,7 +738,16 @@ void main() {
       float raw = cu ? 0.08 + fres * 0.55 : 0.25 + fres * 0.5;
       c = mix(c, mix(t, env, raw), clamp((mtl * 1.1 + fres * 0.25) * cuMet, 0.0, 0.97));
     } else {
-      c = mix(c, env, clamp(-mtl * (0.25 + 0.75 * fres), 0.0, 0.6));
+      // A glossy coat (coatGloss) takes more of the world at a grazing angle, outside only: see the
+      // ⚠ on the highlight below for why a cabin keeps what it had.
+      float sheen = 0.0, sheenCap = 0.6;
+#ifndef CABIN
+      // On the square of the grazing term, not the metal's fifth power, which lit only the last sliver
+      // of a curve.
+      float f3 = 1.0 - clamp(abs(dn), 0.0, 1.0);
+      sheen = coatGloss(mtl) * 0.45 * f3 * f3; sheenCap = 0.7;
+#endif
+      c = mix(c, env, clamp(-mtl * (0.25 + 0.75 * fres) + sheen, 0.0, sheenCap));
     }
     // The sun in it: a tight hot core and a broad soft lobe around it, which is what makes polished
     // metal look wet. A flat plate gets the soft lobe only — the core on a plane lights the whole
@@ -746,7 +759,17 @@ void main() {
     float core = flatPlate ? 0.0 : pow(sd, 140.0);
     float lobe = cu ? pow(sd, 24.0) * 0.30 + pow(sd, 5.0) * 0.16 : pow(sd, 14.0) * 0.28;
     vec3 gc = cu ? mix(vec3(1.0, 0.76, 0.58), vec3(1.0, 0.95, 0.90), fres) : vec3(1.0, 0.98, 0.93);
-    c = mix(c, gc, clamp((core + lobe) * uSunK * max(0.3, abs(mtl)) * cuMet, 0.0, 0.95));
+    float glint = (core + lobe) * uSunK * max(0.3, abs(mtl)) * cuMet;
+    // ⚠ A CLEAR COAT IS A MIRROR FOR THE SUN, however little of the sky it shows. Scaled by the coat's
+    // strength like a metal, a gloss paint (-0.22) caught 30% of a chrome highlight and the candy on
+    // a racer read as poster paint. A glossy coat takes a highlight of its own on top: a hot one a
+    // little wider than the core, and a soft bloom round it so it runs along a curve. Not on a flat
+    // plate (it would light the whole pane at once, the same as the core), and not in a cabin, whose
+    // panes are seen from behind the glass.
+#ifndef CABIN
+    if (mtl < 0.0 && !flatPlate) glint += coatGloss(mtl) * uSunK * (pow(sd, 6.0) * 0.2 + pow(sd, 40.0) * 0.6 + core * 0.6);
+#endif
+    c = mix(c, gc, clamp(glint, 0.0, 0.95));
   }
   // ── THE CITY'S LIGHTS ON A SOLID ───────────────────────────────────────────
   // A face with a normal is a surface; one without is a light line or a lamp and keeps its colour.

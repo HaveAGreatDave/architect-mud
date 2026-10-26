@@ -15,13 +15,19 @@
 
 // The shots a bay asks for. Net yaw in degrees, pitch in radians above the horizon, zoom as the
 // seat's own multiplier (1 is the seat's resting distance).
+//
+// ⚠ ONE ELEVATION FOR EVERY SHOT. A maintenance bay is a 3/4 view from above the vehicle with the
+// shed cut away round her (drawVehicleBay's service cutaway), and a job only turns her to face the
+// part it works on. The shots used to swing from nose-on at floor level to over the top, so every
+// tab was a different picture of a different room. Now they differ in yaw (and a little zoom).
+export const BAY_PITCH = 0.36;
 export const SHOTS = {
-  quarter: { yaw: 225, pitch: 0.30, zoom: 1.0 },    // front-right 3/4: the showroom shot
-  side:    { yaw: 270, pitch: 0.16, zoom: 1.0 },    // broadside, for paint down the flank
-  rear:    { yaw: 320, pitch: 0.22, zoom: 0.95 },   // rear-right 3/4: plate, horn, the deck
-  front:   { yaw: 180, pitch: 0.10, zoom: 0.9 },    // nose on and low, for what's under the hood
-  low:     { yaw: 140, pitch: 0.05, zoom: 0.9 },    // front-left 3/4 from the floor: tuning
-  high:    { yaw: 200, pitch: 0.80, zoom: 1.1 },    // over the top, for the load
+  quarter: { yaw: 225, pitch: BAY_PITCH, zoom: 1.0 },    // front-right 3/4: the showroom shot
+  side:    { yaw: 270, pitch: BAY_PITCH, zoom: 1.0 },    // the flank, for paint down her side
+  rear:    { yaw: 315, pitch: BAY_PITCH, zoom: 1.0 },    // rear-right 3/4: plate, horn, the deck
+  front:   { yaw: 225, pitch: BAY_PITCH, zoom: 0.9 },    // the showroom 3/4 a step closer, for what's under the hood
+  low:     { yaw: 135, pitch: BAY_PITCH, zoom: 0.95 },   // front-left 3/4: tuning
+  high:    { yaw: 225, pitch: BAY_PITCH, zoom: 1.15 },   // the showroom 3/4 a step back, so the load is in frame
 };
 
 const live = new WeakMap();   // the seat state → its running move

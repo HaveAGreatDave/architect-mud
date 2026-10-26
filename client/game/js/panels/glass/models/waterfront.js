@@ -9,7 +9,7 @@
 // is in docs/reference/world-rendering.md.
 import { faceAway,
   BAY, BERTH_LATCH, BERTH_SETDOWN, DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, nearOrMesh, rgb, TR, WALL_COL, awning,
-  bakeSignText, berthBoxColour, berthBoxZ, berthOwnLift, berthPhase, berthPre, berthRow,
+  bakeSignText, berthBoxColour, berthServiceOpen, berthBoxZ, berthOwnLift, berthPhase, berthPre, berthRow,
   berthRowOut, berthSlot, blinkLight, clamp, cssRgb, draw3DBoxAt, drawBarrelRoof, drawFacetDrum,
   drawRing, drawSmoke, emitDecoFill, emitLightRunner, emitSurfaceText, emitWire, facePals, faceYaw,
   glowPool, hfChrome, lightBeam, marqueeBand, mast, moveSeg, movingBox, reserveSignBand, roofCross,
@@ -903,12 +903,20 @@ export const WATERFRONT_ARMS = {
       draw3DBoxAt(ctx, cam, px, py, (x1 - x0) / 2, z0, z1, pal, seed + sd, night, alpha, roof, faceYaw(E), PHY);
     };
     const PMID = (PX0 + PX1) / 2;
-    plate(PX0, PMID, PLATE, PLATE_T, CH, 10, true);
-    plate(PMID, PX1, PLATE, PLATE_T, CH, 11, true);
-    // The champagne fascia along the plate's outer edge, which is what stops it reading as a raw
-    // slab and is the same course the slab carries.
-    plate(PX0, PMID, PLATE_T - h * 0.018, PLATE_T, GOLD, 12, false);
-    plate(PMID, PX1, PLATE_T - h * 0.018, PLATE_T, GOLD, 13, false);
+    // ⚠ WITH A BAY OPEN IN THE SLOT, THE DOCK ROOF COMES OFF. The marina's service bay is in the
+    //   covered dock, and the 3/4 camera looks down at her through this plate, so it goes the way a
+    //   truck shed's roof does (`berthServiceOpen`, and GLASS 2 keys the mesh on it): the plate, its
+    //   fascia, the end screen, the mast and stays that hold it, the name cut into it, its edge
+    //   lines and the hoist under it. The slab, the quay edges and the rail stay.
+    const svc = berthServiceOpen();
+    if (!svc) {
+      plate(PX0, PMID, PLATE, PLATE_T, CH, 10, true);
+      plate(PMID, PX1, PLATE, PLATE_T, CH, 11, true);
+      // The champagne fascia along the plate's outer edge, which is what stops it reading as a raw
+      // slab and is the same course the slab carries.
+      plate(PX0, PMID, PLATE_T - h * 0.018, PLATE_T, GOLD, 12, false);
+      plate(PMID, PX1, PLATE_T - h * 0.018, PLATE_T, GOLD, 13, false);
+    }
 
     // ── THE SCREEN AT THE OUTER END ───────────────────────────────────────
     // ⚠ IT GOES UP AS WELL AS DOWN, AND THE DOWN HALF NOW REACHES THE WATER. A blade standing at
@@ -933,7 +941,7 @@ export const WATERFRONT_ARMS = {
     //   than the channel. If a boat ever has to pass through THIS line, the answer is a gap cut in
     //   the middle of the skirt rather than lifting the whole thing back into the air.
     const SCREEN_LO = 0, SCREEN_HI = PLATE_T + h * 0.185;
-    { const [sx, sy] = F(PX1 - 0.035, 0);
+    if (!svc) { const [sx, sy] = F(PX1 - 0.035, 0);
       draw3DBoxAt(ctx, cam, sx, sy, 0.035, SCREEN_LO, SCREEN_HI, BLUE, seed + 14, night, alpha, true, faceYaw(E), PHY);
       const [gx2, gy2] = F(PX1 - 0.035, 0);
       draw3DBoxAt(ctx, cam, gx2, gy2, 0.038, SCREEN_HI - h * 0.020, SCREEN_HI, GOLD, seed + 15, night, alpha, false, faceYaw(E), PHY * 1.02); }
@@ -946,7 +954,7 @@ export const WATERFRONT_ARMS = {
     //   and clear of the slab — an earlier cut authored it inside its own host and every stay root
     //   came out in front of the building on `glself`.
     const MAST_X = PX0 + (PX1 - PX0) * 0.16, MAST_T = PLATE_T + h * 0.52;
-    { const [mx, my] = F(MAST_X, 0);
+    if (!svc) { const [mx, my] = F(MAST_X, 0);
       drawFacetDrum(ctx, cam, mx, my, PLATE_T, MAST_T, fh * 0.052, fh * 0.028, 10, alpha, metal, metal, CH);
       for (const sy of [-1, 1]) {
         for (const t of [1.0, 0.58]) {
@@ -964,7 +972,7 @@ export const WATERFRONT_ARMS = {
     //   said the right thing all along — 'cut into the fascia over the doors' — so this is
     //   `emitSurfaceText`, the path The Meridian letters its frieze with. ⚠ THE LETTERS SIT BELOW
     //   THE GOLD FASCIA, which owns the bottom of the beam and stands proud of it.
-    if (frontVis) {
+    if (frontVis && !svc) {
       const lx0 = PX0 + (PX1 - PX0) * 0.06, lx1 = PX0 + (PX1 - PX0) * 0.76;
       const [alx, aly] = F(lx0, PHY), [arx, ary] = F(lx1, PHY);
       // ⚠ READING ORDER, FROM OUTSIDE. Standing south looking north, world +x is on your RIGHT, so
@@ -983,7 +991,7 @@ export const WATERFRONT_ARMS = {
     // One continuous cool line down each flank of the plate, inset into the fascia, and the same
     // line round the slab's own champagne course. The edge said in light rather than in steel.
     { const rim = PLATE_T - h * 0.006;
-      for (const sy of [-1, 1]) {
+      if (!svc) for (const sy of [-1, 1]) {
         emitWire(ctx, cam, W3(PX0, sy * PHY * 1.006, rim), W3(PX1, sy * PHY * 1.006, rim), 1.5,
           night ? 'rgba(186,240,250,0.98)' : 'rgba(150,196,214,0.52)', alpha, { pull: FACE_EPS });
       }
@@ -1088,7 +1096,7 @@ export const WATERFRONT_ARMS = {
       }
       // The hoist: two spreaders across the slot under the soffit, on their falls, raised.
       const SPR = PLATE - FL * 0.16, mid = (QX + END) / 2;
-      for (const sy of [-0.13, 0.13]) {
+      if (!svc) for (const sy of [-0.13, 0.13]) {
         emitWire(ctx, cam, W3(mid - 0.17, sy, SPR), W3(mid + 0.17, sy, SPR), 2.4, 'rgba(198,158,44,0.95)', alpha, { pull: DECO_PULL });
         for (const sx of [-0.13, 0.13]) {
           emitWire(ctx, cam, W3(mid + sx, sy, PLATE - h * 0.002), W3(mid + sx, sy, SPR), 1.0, 'rgba(60,64,70,0.9)', alpha, { pull: DECO_PULL });
@@ -1113,7 +1121,7 @@ export const WATERFRONT_ARMS = {
         //   vision of the one person who needs it and turns the most expensive frontage in the
         //   quarter into a car park. So this is a run of small downlights under the soffit, each
         //   a fraction of the strength of the building's own interior glow, and nothing above.
-        for (let k = 0; k < 5; k++) {
+        if (!svc) for (let k = 0; k < 5; k++) {
           const [lxp, lyp] = F(PX0 + (PX1 - PX0) * (0.1 + 0.8 * (k / 4)), 0);
           glowPool(ctx, cam, lxp, lyp, PLATE - h * 0.012, '236,226,198', 6, alpha * 0.30);
         }
@@ -1125,7 +1133,7 @@ export const WATERFRONT_ARMS = {
         //   local +X, so red stands at the screen's end of the mouth and green where the plate
         //   meets the slab. They were on the screen's two ends, which was right for a way in that
         //   is a wall.
-        { const [rx, ry] = F(PX1 - 0.05, -PHY * 0.92);
+        if (!svc) { const [rx, ry] = F(PX1 - 0.05, -PHY * 0.92);
           const [gx, gy] = F(HX + 0.06, -PHY * 0.92);
           glowPool(ctx, cam, rx, ry, PLATE + h * 0.010, '255,72,64', 4, alpha * 0.70);
           glowPool(ctx, cam, gx, gy, PLATE + h * 0.010, '64,255,132', 4, alpha * 0.70); }
@@ -1452,20 +1460,24 @@ export const WATERFRONT_ARMS = {
     //    -length to 0.44 of a tile. Its soffit is lit warm at night, which is how you find the slot.
     const CX0 = -HX, CX1 = -1.10, CZ0 = TOP - h * 0.015, CZ1 = CZ0 + h * 0.03, CY = 0.24;   // at the eaves, over the top of the doors
     const CMID = (CX0 + CX1) / 2;
-    for (const [a, b, sd] of [[CX0, CMID, 10], [CMID, CX1, 11]]) {
+    // ⚠ WITH A BAY OPEN IN THE SLOT, THE LEAN-TO COMES OFF, as the Fairweather plate does
+    //   (`berthServiceOpen`): the tin, the hoist beam and its falls go, and the four piles are cut
+    //   down to stumps a little over the water, so the 3/4 camera sees the hull being worked on.
+    const svc = berthServiceOpen();
+    if (!svc) for (const [a, b, sd] of [[CX0, CMID, 10], [CMID, CX1, 11]]) {
       const [cx, cy] = F((a + b) / 2, 0);
       draw3DBoxAt(ctx, cam, cx, cy, Math.abs(b - a) / 2, CZ0, CZ1, 'ty_reach_rust', seed + sd, night, alpha, true, YAW, CY);
     }
     const timber = (f) => { const s = (0.5 + f.nl * 0.45) * dusk; return `rgb(${(104 * s) | 0},${(84 * s) | 0},${(60 * s) | 0})`; };
     for (const px of [CX0 - 0.10, CX1 + 0.06]) for (const py of [-CY + 0.03, CY - 0.03]) {
       const [x, y] = F(px, py);
-      drawFacetDrum(ctx, cam, x, y, -h * 0.40, CZ0, fh * 0.032, fh * 0.028, 8, alpha, timber, 'rgb(72,58,42)', TIMBER);
+      drawFacetDrum(ctx, cam, x, y, -h * 0.40, svc ? h * 0.12 : CZ0, fh * 0.032, fh * 0.028, 8, alpha, timber, 'rgb(72,58,42)', TIMBER);
     }
-    { const [bx, by] = F(CMID, 0);
+    if (!svc) { const [bx, by] = F(CMID, 0);
       draw3DBoxAt(ctx, cam, bx, by, Math.abs(CX1 - CX0) / 2 - 0.04, CZ0 - h * 0.03, CZ0, 'ty_fab_steel', seed + 12, night, alpha, false, YAW, fh * 0.018); }
     if (NEAR) {
       // The chain falls and the two slings, hooked up out of the way, and tyres on the piles.
-      for (const px of [CMID - 0.18, CMID + 0.18]) {
+      if (!svc) for (const px of [CMID - 0.18, CMID + 0.18]) {
         emitWire(ctx, cam, W3(px, 0, CZ0 - h * 0.03), W3(px, 0, CZ0 - h * 0.12), 1.4, 'rgba(50,48,44,0.95)', alpha, { pull: DECO_PULL });
         emitWire(ctx, cam, W3(px - 0.06, 0, CZ0 - h * 0.12), W3(px + 0.06, 0, CZ0 - h * 0.12), 3, 'rgba(176,150,96,0.95)', alpha, { pull: DECO_PULL });
       }
@@ -1509,7 +1521,7 @@ export const WATERFRONT_ARMS = {
     //    under the canopy, and the bulkhead over the street door. Amber, because the docks are works.
     if (night) {
       { const [gx, gy] = F(WX - fh * 0.05, 0); glowPool(ctx, cam, gx, gy, (PLINTH + OZ1) / 2, '255,190,120', 18, alpha * 0.50); }
-      { const [gx, gy] = F(CMID, 0); glowPool(ctx, cam, gx, gy, CZ0 - h * 0.02, '255,200,130', 10, alpha * 0.55);
+      { const [gx, gy] = F(CMID, 0); if (!svc) glowPool(ctx, cam, gx, gy, CZ0 - h * 0.02, '255,200,130', 10, alpha * 0.55);
         glowPool(ctx, cam, gx, gy, 0.01, '255,170,90', 22, alpha * 0.26); }
       { const [gx, gy] = F(HX * 0.18, BY0 - BD * 2 - fh * 0.04); glowPool(ctx, cam, gx, gy, h * 0.27, '255,170,90', 8, alpha * 0.40); }
     }

@@ -2137,7 +2137,8 @@ export function runWet({ W = 640, H = 360, hours = [23, 13], levels = [0, 0.35, 
     return new Uint8ClampedArray(c.getImageData(0, 0, g.width, g.height).data);
   };
   const realNow = performance.now, realRandom = Math.random;
-  const wasForce = RENDER_TUNE.wetForce, wasWet = RENDER_TUNE.glWet, wasGl = RENDER_TUNE.gl;
+  const wasForce = RENDER_TUNE.wetForce, wasWet = RENDER_TUNE.glWet, wasGl = RENDER_TUNE.gl, wasXfer = RENDER_TUNE.glTransfer;
+  RENDER_TUNE.glTransfer = 0;   // reads the GL canvas back, which a handed-over frame leaves blank (gl/world.js blitOf)
   const map = scene(true);
   const rows = [];
   let rngS = 0;
@@ -2228,7 +2229,7 @@ export function runWet({ W = 640, H = 360, hours = [23, 13], levels = [0, 0.35, 
       }
     }
   } finally {
-    RENDER_TUNE.wetForce = wasForce; RENDER_TUNE.glWet = wasWet; RENDER_TUNE.gl = wasGl;
+    RENDER_TUNE.wetForce = wasForce; RENDER_TUNE.glWet = wasWet; RENDER_TUNE.gl = wasGl; RENDER_TUNE.glTransfer = wasXfer;
     performance.now = realNow; Math.random = realRandom;
     uninstall && uninstall(); holder.remove();
   }
@@ -2269,7 +2270,8 @@ export function runCluster({ W = 960, H = 540, hours = [23, 13], wet = 1, reps =
     return new Uint8ClampedArray(el.getContext('2d').getImageData(0, 0, el.width, el.height).data);
   };
   const realNow = performance.now, realRandom = Math.random;
-  const was = { force: RENDER_TUNE.wetForce, wet: RENDER_TUNE.glWet, gl: RENDER_TUNE.gl, cl: RENDER_TUNE.glCluster, lights: RENDER_TUNE.glLights };
+  const was = { force: RENDER_TUNE.wetForce, wet: RENDER_TUNE.glWet, gl: RENDER_TUNE.gl, cl: RENDER_TUNE.glCluster, lights: RENDER_TUNE.glLights, xfer: RENDER_TUNE.glTransfer };
+  RENDER_TUNE.glTransfer = 0;   // reads pixels off the GL canvas, which a handed-over frame leaves blank (gl/world.js blitOf)
   const map = scene(true);
   const rows = [], shown = [];
   let rngS = 0;
@@ -2346,7 +2348,7 @@ export function runCluster({ W = 960, H = 540, hours = [23, 13], wet = 1, reps =
       }
     }
   } finally {
-    RENDER_TUNE.wetForce = was.force; RENDER_TUNE.glWet = was.wet; RENDER_TUNE.gl = was.gl; RENDER_TUNE.glCluster = was.cl; RENDER_TUNE.glLights = was.lights;
+    RENDER_TUNE.wetForce = was.force; RENDER_TUNE.glWet = was.wet; RENDER_TUNE.gl = was.gl; RENDER_TUNE.glCluster = was.cl; RENDER_TUNE.glLights = was.lights; RENDER_TUNE.glTransfer = was.xfer;
     performance.now = realNow; Math.random = realRandom;
     uninstall && uninstall(); holder.remove();
   }
@@ -2455,7 +2457,8 @@ export function runMirror({ W = 640, H = 360, hour = 23, R = 14, density = 0.18,
 
   // A street of NAMED buildings, which is where the signage is — see the ⚠ above.
   const realNow = performance.now, realRandom = Math.random;
-  const was = { force: RENDER_TUNE.wetForce, wet: RENDER_TUNE.glWet, gl: RENDER_TUNE.gl, mir: RENDER_TUNE.glMirror };
+  const was = { force: RENDER_TUNE.wetForce, wet: RENDER_TUNE.glWet, gl: RENDER_TUNE.gl, mir: RENDER_TUNE.glMirror, xfer: RENDER_TUNE.glTransfer };
+  RENDER_TUNE.glTransfer = 0;   // reads the GL canvas back, which a handed-over frame leaves blank (gl/world.js blitOf)
   const map = mirrorStreet(R, named);
   const rows = [];
   let rngS = 0, stats = {}, probe = null;
@@ -2528,7 +2531,7 @@ export function runMirror({ W = 640, H = 360, hour = 23, R = 14, density = 0.18,
     }
   } finally {
     RENDER_TUNE.wetForce = was.force; RENDER_TUNE.glWet = was.wet;
-    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glMirror = was.mir;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glMirror = was.mir; RENDER_TUNE.glTransfer = was.xfer;
     performance.now = realNow; Math.random = realRandom;
     uninstall && uninstall(); holder.remove();
   }

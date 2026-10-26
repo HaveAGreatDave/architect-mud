@@ -11,7 +11,8 @@ import { jitterFor, reprojMatrix, TAA_TUNE } from './taa.js';
 import { createSkylineStrip } from './skyline.js';
 import { FOG_H_SCALE } from './fog.js';
 import { SHADOW_BIAS_TILES } from './shadow.js';
-import { venueState, venueEpoch } from '../world-feed.js';
+import { venueState, venueEpoch, serviceNear } from '../world-feed.js';
+import { roofsABerth } from '../glass/model-registry.js';
 
 const scenes = new Map();
 
@@ -265,30 +266,62 @@ export function fadeLights(ranked, state, dt, slots = MAX_LIGHTS) {
   return live.map(({ e, w }) => ({ ...e, rgb: [e.rgb[0] * w, e.rgb[1] * w, e.rgb[2] * w] }));
 }
 
-function sceneGL(id, w, h, msaa = 1) {
+// ⚠ THE FRAME IS HANDED OVER, NOT COPIED (RENDER_TUNE.glTransfer). The sky, the world, the cloud deck
+// and the cabin all go through this one canvas, and the 2-D canvas copies each out with drawImage.
+// A copy that hasn't been rasterised yet still holds the drawing buffer, so the next pass to write
+// into it made Chrome keep the old contents, and the copy after that paid: ~0.9 ms at 1280x720 for
+// the cabin, which is drawn after the world was copied out and the 2-D glass and rain went over it
+// (docs/proposals/glass-headroom.md, "the cabin's copy"). With the switch on the canvas is an
+// OffscreenCanvas and each pass hands back `transferToImageBitmap()`: the bitmap owns that buffer and
+// the next pass draws into a fresh one, so there is nothing to keep. The caller draws the bitmap and
+// closes it. ⚠ A FRESH BUFFER HAS A FRESH DEPTH BUFFER TOO, so the world is handed over only when its
+// depth is in the float target (HDR live), which is where the cloud deck goes back for it.
+// ⚠ AND `glLastFrame().canvas` IS BLANK AFTER A HAND-OVER: a bench that reads it back sets the switch to 0.
+const newGLCanvas = (off, w, h) => {
+  if (off) return new OffscreenCanvas(Math.max(1, w | 0), Math.max(1, h | 0));
+  const cv = document.createElement('canvas');
+  cv.className = 'ws-gl';
+  return cv;
+};
+// The bitmap a pass hands over, or null for the canvas itself (switch off, or no OffscreenCanvas).
+const blitOf = (g) => (g.off ? g.canvas.transferToImageBitmap() : null);
+// ⚠ ASKED ONCE, BY MAKING ONE: a browser can have OffscreenCanvas and no WebGL2 in it, and a view
+// that fails to build takes the whole frame back to the 2-D renderer for good.
+let OFF_GL = null;
+function offscreenGL() {
+  if (OFF_GL !== null) return OFF_GL;
+  OFF_GL = false;
+  // ⚠ A REAL WebGL2RenderingContext, NOT ANY TRUTHY ANSWER: the headless DOM stub
+  // (scripts/shapes/dom-stub.mjs) has an OffscreenCanvas that hands back a 2-D stub for every type,
+  // and taking that for WebGL2 sent every headless GL bench back to the 2-D renderer.
+  try {
+    const c = new OffscreenCanvas(1, 1), g = c.getContext('webgl2');
+    OFF_GL = typeof WebGL2RenderingContext === 'function' && g instanceof WebGL2RenderingContext
+      && typeof c.transferToImageBitmap === 'function' && typeof c.addEventListener === 'function';
+    if (OFF_GL) g.getExtension('WEBGL_lose_context')?.loseContext();
+  } catch { /* no OffscreenCanvas WebGL2: the plain canvas */ }
+  return OFF_GL;
+}
+
+function sceneGL(id, w, h, msaa = 1, transfer = false) {
   let g = scenes.get(id);
   // ⚠ Prune before inserting, so no more than MAX_SCENES contexts are ever live.
   if (!g) { pruneScenes(); g = { canvas: null, view: null, key: '', atlasKey: '', epoch: '', atlas: null, msaa: msaa !== 0 ? 1 : 0 }; scenes.set(id, g); }
   // Stamped every call: a steady seat paints constantly and rebuilds almost never.
   g.usedAt = Date.now();
+  const wantOff = transfer && typeof OffscreenCanvas === 'function' && offscreenGL() ? 1 : 0;
   // ⚠ The GL canvas never joins the page: under the 2-D canvas it's painted over, on top it covers
   // the lights. The caller blits it in at the mass's place in the frame.
-  if (!g.canvas) {
-    const cv = document.createElement('canvas');
-    cv.className = 'ws-gl';
-    g.canvas = cv;
-  }
+  if (!g.canvas) { g.canvas = newGLCanvas(wantOff, w, h); g.off = wantOff; }
   // ⚠ Never rebuild the view on resize: a resize keeps the context and its objects, while a rebuild
   // leaks them, and the resolution dial resizes often enough to get the context force-lost.
   //
   // ⚠ MSAA can't change on a live context (`antialias` is a creation attribute), so it needs a new
-  // canvas, and the old context is lost explicitly.
+  // canvas, and the old context is lost explicitly. So does switching to or from an OffscreenCanvas.
   const wantMsaa = msaa !== 0 ? 1 : 0;
-  if (g.view && g.msaa !== wantMsaa) {
+  if (g.view && (g.msaa !== wantMsaa || (g.off || 0) !== wantOff)) {
     try { g.canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* nothing to lose */ }
-    const cv = document.createElement('canvas');
-    cv.className = 'ws-gl';
-    g.canvas = cv;
+    g.canvas = newGLCanvas(wantOff, w, h); g.off = wantOff;
     g.view = null; g.key = ''; g.atlasKey = '';
   }
   g.msaa = wantMsaa;
@@ -360,7 +393,12 @@ if (typeof window !== 'undefined') {
 // ⚠ No RENDER_TUNE flag is in this key, so a flag that changes a mesh needs a reload (set it before
 // the first paint). The district is in it because the detail kit varies by district (`_place`).
 const meshParams = (it) => it.fh + ':' + it.h + ':' + it.seed + ':' + it.E[0] + ',' + it.E[1]
-  + ':' + (it.c && it.c.biome || '') + ':' + (it.wx | 0) + venueKey(it);
+  + ':' + (it.c && it.c.biome || '') + ':' + (it.wx | 0) + venueKey(it) + serviceKey(it);
+// ⚠ A building that roofs a berth is a second mesh while a service bay is open beside it: the
+// roof is off (world-feed.js `noteServiceAt`). Only those types, so opening a truck bay doesn't
+// recapture the buildings round the shed.
+const serviceOpenAt = (it) => !!(it.c && roofsABerth(it.c.bt) && serviceNear(it.wx, it.wy));
+const serviceKey = (it) => (serviceOpenAt(it) ? ':svc' : '');
 // ⚠ A venue is a different mesh per state (lit, roof shut/open/moving). Read it through
 // `venueState`, as the capture does via `placeOf`, or the key and mesh disagree after a push.
 const isVenue = (c) => !!c && (c.vl != null || c.vr != null);
@@ -577,6 +615,8 @@ const SSAO_TUNE = {
 const placeOf = (it) => {
   const p = { biome: it.c && it.c.biome, wx: it.wx, wy: it.wy, vl: it.c && it.c.vl };
   if (isVenue(it.c)) Object.assign(p, venueState(it.wx, it.wy, it.c), { mesh: 1 });
+  // The service state the key names (windshield.js `berthServiceOpen` reads it during a capture).
+  p.svc = serviceOpenAt(it) ? 1 : 0;
   return p;
 };
 
@@ -659,7 +699,7 @@ export function glSkyPass(id, s) {
   const g = scenes.get(id);
   if (!g || !g.view || !g.canvas || !g.view.gl) return null;
   if (g.view.lost && g.view.lost()) return null;
-  return drawSky(g.view.gl, g.canvas, s) ? g.canvas : null;
+  return drawSky(g.view.gl, g.canvas, s) ? (blitOf(g) || g.canvas) : null;
 }
 
 export function glCloudPass(id, cam, cards, opts = {}) {
@@ -680,7 +720,7 @@ export function glCloudPass(id, cam, cards, opts = {}) {
       exposure: opts.glExposure > 0 ? opts.glExposure : 1,
     });
   }
-  return n ? { cards: n, canvas: g.canvas } : null;
+  return n ? { cards: n, canvas: g.canvas, blit: blitOf(g) } : null;
 }
 
 // The deck as a raymarched volume, as glCloudPass. Null means it drew nothing; the caller uses cards.
@@ -700,7 +740,7 @@ export function glCloudVolPass(id, cam, vol, opts = {}) {
       exposure: opts.glExposure > 0 ? opts.glExposure : 1,
     });
   }
-  return n ? { cells: n, canvas: g.canvas } : null;
+  return n ? { cells: n, canvas: g.canvas, blit: blitOf(g) } : null;
 }
 
 // The cabin alone after the world composite (drawInteriorAlone), with the shifted camera.
@@ -712,7 +752,7 @@ export function glInteriorPass(id, cam, opts = {}) {
   const dpr = cam.W ? g.canvas.width / cam.W : 1;
   const cssH = opts.cssH || (dpr > 0 ? g.canvas.height / dpr : g.canvas.height);
   const n = g.view.drawInteriorAlone(camAt, cssH, opts.under || 0, opts.underD || 0);
-  return n ? { faces: n, canvas: g.canvas } : null;
+  return n ? { faces: n, canvas: g.canvas, blit: blitOf(g) } : null;
 }
 
 export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
@@ -752,7 +792,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   if (cam) cam.near = nearFor(cam, cssH, opts.nearFit == null ? 1 : opts.nearFit);
   setJitter(0, 0);
   if (!W || !H) return null;
-  const g = sceneGL(id, W, H, opts.msaa == null ? 1 : opts.msaa);
+  const g = sceneGL(id, W, H, opts.msaa == null ? 1 : opts.msaa, opts.glTransfer > 0);
   // No WebGL2, or the context was lost: return null (the caller already suppressed the 2-D mass).
   // ⚠ Release the scene, don't just delete it, or recovery runs the page out of contexts.
   if (!g.view) { glDisposeScene(id); return null; }
@@ -1126,6 +1166,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // `shadowSize`, `wet`, `hdr` and `mirror` are reported because each can be zero or absent for
   // several reasons that all draw a correct picture; the number says which.
   // `mass` only for a harness that sets globalThis.__massDebug (massKeep's check).
-  return { interior, faces: g.faces || 0, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, propShadow: g.view.propShadow || null, hdr: graded, canvas: g.canvas };
+  return { interior, faces: g.faces || 0, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, propShadow: g.view.propShadow || null, hdr: graded, canvas: g.canvas,
+    // Handed over only with the city's depth in the float target: the cloud deck goes back for it (blitOf).
+    blit: graded && g.view.hdrLive() ? blitOf(g) : null };
 }
 

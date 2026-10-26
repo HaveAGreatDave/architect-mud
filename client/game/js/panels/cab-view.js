@@ -7,7 +7,7 @@
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
   groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, navMarks, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabControlRects, cabDashCanvas , ROAD_RIG_MUL, interiorHotspots,
-  perfBegin, perfEnd, perfTick, lastViewState } from './windshield.js';
+  perfBegin, perfEnd, perfTick, lastViewState, windshieldContext } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
 import { createFreeCam, freeCamHint, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { internMap } from './map-intern.js';
@@ -2789,7 +2789,9 @@ function drawRigOverlay(st, r) {
   if (!(r.hitched && r.folding)) return;
   const cv = document.getElementById(st.id);
   if (!cv || !cv.getContext || !cv.clientWidth) return;
-  const g = cv.getContext('2d');
+  // The frame's own context: with RENDER_TUNE.wsHandover the page canvas has none (windshieldContext).
+  const g = windshieldContext(st.id);
+  if (!g) return;
   const k = cv.width / cv.clientWidth;
   const W = cv.clientWidth, H = cv.clientHeight;
   g.save();
@@ -2835,7 +2837,8 @@ function drawRoadFilm(st, dt) {
   const film = Math.min(FILM_MAX, grime * 0.34) * wipe;
   if (film < 0.004 && dust < 0.01) return;
 
-  const g = cv.getContext('2d');
+  const g = windshieldContext(st.id);   // the frame's own context (see drawRigOverlay)
+  if (!g) return;
   const kx = cv.width / cv.clientWidth;
   const W = cv.clientWidth, H = cv.clientHeight;
   g.save();

@@ -27,7 +27,7 @@ import {
 export { tagHandList, tagFaceList, tagWordList, tagLayoutOf, tagPreview } from './tag-bake.js';
 // A mesh file's moving parts — wings that swing out, anything on a hinge — posed per aircraft here.
 import { animFacePoints, meshTexKind } from '../../../shared/vehicle-mesh.js';
-import { PODRACER_TYPES, podracerModelPose, podracerRest, podracerEngH, podracerScale } from './podracer-model.js';
+import { PODRACER_TYPES, PODRACER_UNIT, PODRACER_RING_H, podracerModelPose, podracerRest, podracerEngH, podracerScale } from './podracer-model.js';
 import { metalKOf } from '../../../shared/vehicle-materials.js';   // what a vehicle's exterior is made of, face by face
 import { hfCastFor, hfTint, hfSkinFor } from '../../../shared/hf-tint.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
@@ -37,7 +37,7 @@ import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster, readPi
 import { playThunderSample } from './engine-audio.js';
 import { seatAudioFrame, seatSpot } from './seat-audio.js';   // contacts' engines placed in 3D, and the listener's pose
 import { FLOOR_Z, BUILDING_FOOT, floorsFor, BUILDING_TUNE, buildingScale, CURTAIN_H } from '../../../shared/skyline-scale.js';
-import { fireworksAround, aaLive, AA_FIRE_MS } from './world-feed.js';   // world events kept by tile, whatever seat is open
+import { fireworksAround, aaLive, AA_FIRE_MS, noteServiceAt, serviceNear } from './world-feed.js';   // world events kept by tile, whatever seat is open
 import { drawAAEmplacement } from './glass/aa-emplacement.js';   // the four AA batteries (drawAAMark)
 import { drawMediaLot, lotSolidAt } from './glass/media-lot.js';   // the Media Lot's court and car park (drawLotMark)
 import { skylineFar, SKYLINE_BASE_FAR } from '../../../shared/skyline-tall.js';
@@ -92,6 +92,9 @@ let _frameDpr = 1;              // this frame's device-pixel ratio — see where
 // wrong unit, so the mask was misaligned by exactly the device-pixel ratio on the machines most
 // likely to be running the game.
 let _frameW = 1280, _frameH = 720;
+// How much wider than the canvas the world's visible x range is under this frame's bank and shudder,
+// in CSS pixels: the side cull widens its margin by it (see sideCullHW).
+let _frameBankPad = 0;
 const RASTER_MIN_PX = 46;       // below this on screen a truck keeps the sort — see the ⚠ at the call
 const RASTER_BUDGET_PX = 1_400_000;   // …and above this many buffer pixels the supersample gives way
 // ── THE SUN'S OWN BUFFER ─────────────────────────────────────────────────────
@@ -296,7 +299,10 @@ export const RENDER_TUNE = {
   cabShell3d: 1,   // the cab structure as real prisms through the world camera. 0 is the drawn shell.
   cabShellD: 1,    // how deep the structure is, as a multiple of CAB_SHELL_D. 0 collapses it to today's picture exactly.
   modelLights: 1,     // strength of the model's own lamps spilling onto its own bodywork (headlamps, lifter wash, tail lamps). 0 = off; the canvas halos are unaffected either way.
+  occAir: 0,          // on GL with the eye above street level, the occlusion pass runs as a probe and is skipped while it culls nothing and hides nothing the canvas draws (occAirSkip); 0 runs it every frame
   occlude: 1,         // skip buildings entirely hidden behind a nearer one. Lossless by construction (there is no z-buffer, so a hidden building is otherwise fully built, queued, sorted and filled); the occluder/occludee boxes are biased so it can only ever be too timid. 0 = draw everything as before.
+  bakeTileFree: 1,    // a scatter card's bake never takes drawWildScatter's hoodoo-patch branch, so a card is the same whichever tile baked it first and no spires leak into the live sinks from a bake; 0 is the old order-dependent card
+  sideCull: 1,        // with `frustum`, the scatter, cliff and plateau tiles entirely off the side of the canvas are skipped too, each tested at its measured reach (sideCullHW); needs bakeTileFree, and does nothing without it; 0 culls buildings only, as before
   frustum: 1,         // skip buildings that fall entirely off the SIDE of the canvas. The tile loop has always clipped near and far and never sideways, which costs nothing at altitude and is the biggest single waste from a ground camera — see offCanvasLaterally. 0 = draw everything as before.
   // 1 = a thing drawn MOUNTED on a surface (rooftop clutter) may not sort behind it: no single depth
   // per face orders a vent against its own roof (see mountedOn). 0 = the old queue.
@@ -1487,6 +1493,18 @@ export const RENDER_TUNE = {
   // that flipped this under load would rebuild the context, the atlas and the vertex buffer twice
   // a second, which is the opposite of shedding work.
   glMsaa: 1,
+  // ⚠ THE 2-D FRAME DRAWN OFF THE PAGE AND HANDED TO IT AS A BITMAP (handoverFor): presenting a 2-D
+  // canvas cost ~0.6-0.8 ms a frame at 1280x720. Taken per element at its first paint and kept for
+  // its life, and only by one on screen then (handoverOnScreen); an element with a '2d' context
+  // already, or off the page (the Modelshop's benches), stays plain. Anything drawing on or reading
+  // the page canvas uses windshieldContext(id). 0 draws on the page canvas as before.
+  wsHandover: 1,
+  // ⚠ THE GL CANVAS AS AN OffscreenCanvas THAT HANDS EACH PASS OVER (gl/world.js, blitOf). Every pass
+  // after the first wrote into a drawing buffer the 2-D canvas still held a copy of, and the copy
+  // after the cabin paid ~0.9 ms for it at 1280x720. A creation-time choice like glMsaa: changing
+  // it rebuilds the GL view. 0 keeps the plain canvas, as does a browser with no WebGL2 in an
+  // OffscreenCanvas. The picture is the same either way (glass-headroom.md).
+  glTransfer: 1,
   // ── FXAA ON THE RESOLVED FRAME ──────────────────────────────────────────────
   //
   // A post-process edge smoother, run after the HDR composite. It catches what MSAA structurally
@@ -3936,12 +3954,84 @@ export function paintWindshield(id, view) {
   }
   if (typeof window !== 'undefined') window.__wsPace = { half: p.step > 1, step: p.step, hz: +(1000 / p.period).toFixed(0), workMs: +p.work.toFixed(1) };
 }
+// ── THE FRAME HANDED TO THE PAGE, NOT DRAWN ON IT (RENDER_TUNE.wsHandover) ──────────────────────
+// A 2-D canvas on the page costs about 0.6-0.8 ms a frame to present at 1280x720: its first read in a
+// frame (the sky strip) pays it, or with none the browser's own rendering step after the script does
+// (glass-headroom.md, "the ~1 ms at the sky strip"). With the switch on, the frame is drawn into an
+// OffscreenCanvas and handed to the page's canvas as a bitmap (`bitmaprenderer`), which costs
+// nothing to present. The hand-over is a microtask, so anything a seat draws on top in the same task
+// (cab-view's rig overlay and road film, through windshieldContext) goes with the frame.
+// ⚠ DECIDED PER ELEMENT, AT ITS FIRST PAINT, AND FOR GOOD. A canvas has one kind of context for its
+// life. One that already has a '2d' context (a bench that reads pixels back, a seat that drew on it
+// first) can't take a bitmaprenderer, so it stays on the plain path. One that took the bitmaprenderer
+// keeps it after the switch goes back to 0, because it can no longer give a '2d' context.
+// ⚠ AND ANYTHING THAT DRAWS ON OR READS THE PAGE'S CANVAS ASKS windshieldContext(id) FOR IT, never
+// getContext('2d'), which returns null on a handed-over canvas.
+const HANDOVER = new Map();   // id → { cv, br, off, ctx, queued } or { cv, off: null } on the plain path
+function handoverFor(id, cv) {
+  let h = HANDOVER.get(id);
+  if (h && h.cv === cv) return h.off ? h : null;
+  h = { cv, br: null, off: null, ctx: null, queued: false };
+  if (RENDER_TUNE.wsHandover > 0 && typeof OffscreenCanvas === 'function' && handoverOnScreen(cv)) {
+    let br = null;
+    try { br = cv.getContext('bitmaprenderer'); } catch { br = null; }
+    if (br && typeof br.transferFromImageBitmap === 'function') {
+      const off = new OffscreenCanvas(Math.max(1, cv.width), Math.max(1, cv.height));
+      const ctx = off.getContext('2d');
+      if (ctx && typeof off.transferToImageBitmap === 'function') { h.br = br; h.off = off; h.ctx = ctx; }
+    }
+  }
+  // A plain-path entry is only kept once a '2d' context exists: with the switch off nothing is
+  // decided yet, and turning it on later should still get the element its hand-over.
+  if (h.off || RENDER_TUNE.wsHandover > 0) HANDOVER.set(id, h);
+  return h.off ? h : null;
+}
+// ⚠ ONLY A CANVAS ON SCREEN AT ITS FIRST PAINT IS HANDED OVER. A canvas nobody sees isn't presented,
+// so there's nothing to save, and the off-screen canvases are the Modelshop's benches, which paint in
+// a synchronous loop and read their pixels back with getContext('2d') straight after: a handed-over
+// canvas would answer null, or show a frame that hasn't arrived yet. Kept off the page, they stay on
+// the plain path without being told. A seat's canvas is on screen when its view opens.
+// ⚠ AND SEEN, NOT JUST IN THE VIEWPORT: the cab's rear camera (`cab-rear`) is `visibility:hidden` with a
+// real box, and its picture is read back as an image (drawCabMirror) in the same task, before any
+// hand-over would have landed.
+function handoverOnScreen(cv) {
+  if (!cv.isConnected || !cv.getBoundingClientRect || typeof window === 'undefined') return false;
+  const r = cv.getBoundingClientRect();
+  if (!(r.width > 0 && r.height > 0 && r.right > 0 && r.bottom > 0
+    && r.left < (window.innerWidth || 0) && r.top < (window.innerHeight || 0))) return false;
+  if (typeof cv.checkVisibility === 'function') return cv.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+  const cs = getComputedStyle(cv);
+  return cs.visibility !== 'hidden' && cs.display !== 'none' && cs.opacity !== '0';
+}
+// The frame, onto the page: at the end of the task that drew it, after any overlay.
+function handoverQueue(h) {
+  if (h.queued) return;
+  h.queued = true;
+  queueMicrotask(() => {
+    h.queued = false;
+    if (h.off && h.off.width > 0 && h.off.height > 0) h.br.transferFromImageBitmap(h.off.transferToImageBitmap());
+  });
+}
+// The 2-D context this view's frame is drawn in: the hand-over's own when it has one, else the
+// page canvas's. For a seat drawing an overlay on the windshield after paintWindshield.
+// ⚠ NULL BEFORE THE VIEW'S FIRST PAINT WITH THE SWITCH ON: asking the page canvas for a '2d' context
+// then would take its one context and decide the plain path for it. There's nothing to draw over yet.
+export function windshieldContext(id) {
+  const h = HANDOVER.get(id);
+  if (h && h.off) return h.ctx;
+  const cv = typeof document !== 'undefined' ? document.getElementById(id) : null;
+  if (!h && RENDER_TUNE.wsHandover > 0 && cv && cv.isConnected) return null;
+  return cv && cv.getContext ? cv.getContext('2d') : null;
+}
 function paintWindshieldFrame(id, view) {
   // The Drake crossing the surface (plugins/submersible), for drawGlass, which is not handed the view.
   if (!(view.subHull > 0) && !view.freeCam) { SUB_FX.wl = 0; if (SUB_FX.under) { SUB_FX.under = false; SUB_FX.breachT = performance.now(); } }
   const cv = document.getElementById(id); if (!cv || !cv.getContext) return;
   const cw = cv.clientWidth, ch = cv.clientHeight; if (!cw || !ch) return;
-  const ctx = cv.getContext('2d');
+  // ⚠ BEFORE ANY getContext('2d'), which would take the element's one context (handoverFor).
+  const HO = handoverFor(id, cv);
+  const ctx = HO ? HO.ctx : cv.getContext('2d');
+  if (HO) handoverQueue(HO);
   // Which element this frame belongs to, for a GL pass that has to put its own canvas beside it.
   // Set here rather than threaded through drawWorldObjects because every view already calls this
   // function with its own id, and a second parameter on the world pass would have to be added to
@@ -4038,6 +4128,10 @@ function paintWindshieldFrame(id, view) {
   st.resStep = deadbandStep(st.resStep, st.resScale, TENTHS, 0.075);
   const dpr = baseDpr * st.resStep;
   if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
+  // The frame being drawn is the hand-over's canvas, and it's the page canvas's size exactly, so the
+  // bitmap lands pixel for pixel. A resize resets its state, as it does the page canvas's.
+  if (HO && (HO.off.width !== cv.width || HO.off.height !== cv.height)) { HO.off.width = cv.width; HO.off.height = cv.height; }
+  const FRAME_CV = HO ? HO.off : cv;   // what this frame reads its own pixels back from (sky strip, shimmer)
   const now = performance.now();
   pMark(null);
   const raw = st.last ? (now - st.last) : 16;
@@ -4748,6 +4842,9 @@ function paintWindshieldFrame(id, view) {
   // whole scene turns with it. Same canvas rotate the cockpit's bank already goes through, so
   // nothing downstream learns a third way to be tilted.
   const bankRad = fcam ? (fcam.roll || 0) : (ext ? 0 : (v.bank || 0) * Math.PI / 180);
+  // The world is drawn rotated about the centre, so the canvas covers x out to half its rotated width.
+  // The 4 is the shudder's 3.2 px.
+  _frameBankPad = Math.max(0, (W * Math.abs(Math.cos(bankRad)) + H * Math.abs(Math.sin(bankRad)) - W) / 2) + 4;
 
   // ── Cinematic-flourish placement + strength scalars ───────────────────────────
   // The sun's on-screen position (same placement the sky disc uses), hoisted so the
@@ -4878,7 +4975,7 @@ function paintWindshieldFrame(id, view) {
       moonFace: glMoonUp ? moonFaceSprite(moonRadiusPx(SKY_ROT.FL)) : null,
       moonFaceR: Math.max(4, Math.round(moonRadiusPx(SKY_ROT.FL))), moonCosPh: 2 * moonIllum(moonPh) - 1,
       moonSun: skyDir(90 + _sunTRaw * 180, Math.sin(_sunTRaw * Math.PI) * 62) });
-    if (c) { ctx.drawImage(c, 0, 0, W, H); glSkyDrew = true; }
+    if (c) { ctx.drawImage(c, 0, 0, W, H); if (c.close) c.close(); glSkyDrew = true; }   // a bitmap handed over (glTransfer) is closed
   }
   ctx.save();
   bankInto();
@@ -5475,7 +5572,7 @@ function paintWindshieldFrame(id, view) {
       // copied and uploaded the sky every frame for a reflection nothing drew. The floor state is
       // built earlier this frame; with no GL floor it is null and the old rule stands.
       && !(FLOOR_STATE && FLOOR_STATE.waterTiles === 0))))
-    ? captureSkyStrip(cv, Math.round(horizonY * dpr)) : null;
+    ? captureSkyStrip(FRAME_CV, Math.round(horizonY * dpr)) : null;
 
   // Atmospheric precipitation (snow/rain/ash in the air) is drawn HERE — after the sky
   // and ground but BEFORE the world objects — so buildings pass in front of it and it
@@ -5621,12 +5718,17 @@ function paintWindshieldFrame(id, view) {
     // truck's.
     // ⚠ NOR FOR A HULL IN THE WATER: a sea takes no crisp cast shadow, and a dark disc under the Drake
     // sat exactly where her reflection should be, so the reflection never read.
-    // A podracer is three bodies on cables, nothing like the aeroplane this paints; its shadow is the
-    // model's own, in the shadow map.
+    // A podracer is three bodies on cables, nothing like the aeroplane this paints, so it lays its
+    // own (drawPodracerShadows). ⚠ Not the shadow map: that casts the buildings alone, and the
+    // street-furniture map leaves the own ship out on purpose (gl/world.js propShadowFor), so it had
+    // no shadow at all and hung over the ground like a sticker.
     if (!framed && !v.hideOwnShip && v.cls !== 'truck' && v.cls !== 'podracer' && !v.drakeWater) {
       const grounded = phase === 'ground' ? 1 : clamp(1 - height / 0.06, 0, 1);
       if (grounded > 0.01) drawGroundContactShadow(ctx, cam, v.heading, v.cls, grounded);
       if (sunFx.elev > 0.02 && grounded < 0.99) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend, v.heading, v.cls);
+    }
+    if (!framed && !v.hideOwnShip && v.cls === 'podracer' && v.podracer) {
+      drawPodracerShadows(ctx, cam, v.ownHdg ?? v.heading, v.podracer, PODRACER_TYPES[v.variant] || PODRACER_TYPES.podracer, v.rideZ, sunFx);
     }
     // The Mode-7 world objects run EVEN on the deck (worldBlend 0) so the Echelon's hull stays drawn
     // while you're parked on her pad — she exists only in this pass, not the flat airport scene, and
@@ -5786,7 +5888,7 @@ function paintWindshieldFrame(id, view) {
               hdr: TUNE.glHdr, linear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure,
             });
             if (out && out.canvas) {
-              ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH);
+              glBlit(ctx, out, _frameW, _frameH);
               // The frame-time half of AUTO. After four slow seconds it PROBES rather than blaming
               // the clouds: see cloudVolProbe. Only from a settled, full-cost volume, or the "on"
               // figure it compares against is not the volume's.
@@ -5829,7 +5931,7 @@ function paintWindshieldFrame(id, view) {
               // sixteen, or loses the depth it sorts against entirely.
               hdr: TUNE.glHdr, linear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure,
             });
-            if (out && out.canvas) ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH);
+            if (out && out.canvas) glBlit(ctx, out, _frameW, _frameH);
             else {
               // One frame without a deck, then the canvas takes it back for good — the same policy
               // the world pass uses, and for the same reason: a pass that silently drew nothing must
@@ -6029,7 +6131,7 @@ function paintWindshieldFrame(id, view) {
   { const wsv = stormSeverity(wx, wxSample); if (wsv > 0.02) applyStormGrade(ctx, W, H, horizonY, wsv, sky.night, wx); }
 
   // Heat shimmer: the tarmac wavers in the hot air above the horizon (hot fields, high sun).
-  if (shimmerStr > 0.01) drawHeatShimmer(ctx, cv, W, H, horizonY, dpr, now, shimmerStr);
+  if (shimmerStr > 0.01) drawHeatShimmer(ctx, FRAME_CV, W, H, horizonY, dpr, now, shimmerStr);
 
   // G-force grey-out: a hard, sustained bank loads you up — the edges desaturate and darken
   // as blood drains, tunnelling the view. Proxy G off bank angle (steep = high load); forward
@@ -6245,7 +6347,7 @@ function paintWindshieldFrame(id, view) {
     try {
       // `under`: how far under the sea the eye is — the cabin takes the water's colour and the caustic net (gl/solids.js).
       const out = GL_INTERIOR_HOOK(CAB_CAM, { id: GL_ID, cssH: _frameH, under: SUB_FX.fog || 0, underD: Math.max(0, SUB_FX.dep || 0) * SEA_TILE_M });
-      if (out && out.canvas) ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH);
+      if (out && out.canvas) glBlit(ctx, out, _frameW, _frameH);
     } catch (e) {
       GL_LAST_ERROR = { where: 'interior pass', message: String(e && e.message || e), at: Date.now() };
       console.error('[windshield] the interior pass threw — putting the painted seat back', e);
@@ -17438,9 +17540,9 @@ const BAY_FLOORS = 2.2;
 // reader of the shed's size asks `bayDims(cell)` rather than reading BAY. Sized for the largest
 // thing the own ship draws: at 1.9x its contact size a Leviathan is 0.84 across, 0.96 long and 0.65
 // to the top of her fin, so the shed fills its tile, the door is nearly the whole front and the head
-// clears that fin. The height earns its keep twice: the maintenance view's 3/4 camera has to orbit
-// INSIDE the building (the cutaway is off, see BAY_CUTAWAY_ON), which a truck-height roof would put
-// it on top of. scripts/shapes/hangar.mjs holds every airframe against these numbers.
+// clears that fin. (The maintenance view no longer orbits inside it: with the bay open the hangar is
+// cut down to its sill like the truck shed, see BAY_SILL.) scripts/shapes/hangar.mjs holds every
+// airframe against these numbers.
 // ⚠ ITS DOOR ISN'T THE DEPOT'S POSITION CURVE. It has a motor and a memory: see airDoorOpen.
 // ⚠ LOW EAVES, AND THE DOOR GOES UP INTO THE GABLE. With the eaves at 0.72 the shed was a cube a
 // tile on a side with a lid, and it read as a tower block with a door in it. Only the fin needs the
@@ -23396,8 +23498,9 @@ function bakeBillboard(key, paint, w, h) {
   // boulder's worth of it. See SNOW_HOLD.
   _bbHold = 0;
   let hold = 0;
+  BB_BAKING++;
   try { paint(g, stub); hold = _bbHold; }
-  finally { SCATTER_SINK = savedS; FACE_SINK = savedF; _bbHold = savedH; }
+  finally { SCATTER_SINK = savedS; FACE_SINK = savedF; _bbHold = savedH; BB_BAKING--; }
   // ⚠ THE RESOLVED KEY TRAVELS WITH THE BAKE. The GL side caches a TEXTURE per key too, so a
   // caller that pushes the key it asked for rather than the one it got puts the scale back in the
   // cache it was just taken out of — one texture, two pictures, first one wins.
@@ -23405,6 +23508,7 @@ function bakeBillboard(key, paint, w, h) {
   _bbCache.set(key, e);
   return e;
 }
+let BB_BAKING = 0;   // > 0 while bakeBillboard paints a card (see drawWildScatter's spires)
 // True when the billboard was taken (or is off-camera and belongs to nobody), so the caller returns.
 // ⚠ SCATTER IS COLLECTED DURING THE SWEEP, NEVER THROUGH emitFace. emitFace DEFERS its closure
 // to flushFaces(), which runs AFTER the GL composite has already read the sink — so a drawer that
@@ -23581,6 +23685,10 @@ let DECO_OCC = false;
 // all-or-nothing turns one unowned cell into "draws". See groundHidden for the measurement.
 // Defaulted to `rPx`, so every existing caller is arithmetically unchanged.
 function decoHidden(pts, rPx = 0, padBelow = rPx) {
+  // occAir: something on the frame's canvas wants the field, field or no field. Not from a GL-only
+  // caller, and not with the frame's face queue shut: a landmark's bake (markBillboard) and a shape
+  // or mesh capture paint into canvases of their own.
+  if (!OCC_GLQ && FACE_SINK && !SHAPE_SINK && !MESH_SINK) OCC_CANVAS_ASK++;
   // Never while a building is being recorded to keep (drawTypeModelKept): what is behind a nearer
   // building from here is in plain view from the next street, and a kept set must hold it.
   if (ARM_REC || !DECO_OCC || !OCC_FIELD || !pts.length) return false;
@@ -23593,6 +23701,14 @@ function decoHidden(pts, rPx = 0, padBelow = rPx) {
   }
   return occludedByBuilding((x0 + x1) / 2, y0 - rPx, y1 + padBelow, f, (x1 - x0) / 2 + rPx);
 }
+// ⚠ WHO ASKS THE FIELD FOR THE CANVAS (RENDER_TUNE.occAir). On GL the depth buffer hides whatever
+// reaches a GL sink, so a question from a GL-only caller (OCC_GLQ: the scatter billboards in
+// groundHidden, a deco quad bound for the decal sink) is one the frame doesn't need answered. Every
+// other question (an emitDeco face, a landmark, a contact, a clip) comes from a canvas draw that only
+// the field keeps behind a building. ⚠ COUNTED AS ASKED, NOT AS HIDDEN: a lounge in plain view
+// this frame is behind a tower the next, and only a pass that's running can say so. occAirSkip reads
+// the count every frame, skipped or not, and one question puts the pass back.
+let OCC_GLQ = false, OCC_CANVAS_ASK = 0;
 // A tally, null on every real frame and an object only while lightVisibilitySmoke is running.
 // It exists because the failure it watches for is silent: a light that is culled draws nothing,
 // throws nothing and leaves no trace, so the only way to see it is to count both sides of the
@@ -24140,7 +24256,9 @@ function groundHidden(cam, dx, dy) {
   if (!GL_CELLS) return false;
   const p = cam.proj(dx, dy, 0);
   const h = trueS(TREE_S, p.f, 3, 240);
+  OCC_GLQ = true;   // a billboard on the GPU: the depth buffer settles it (occAir)
   const hid = decoHidden([p, { sx: p.sx, sy: p.sy - h, f: p.f }], h * 0.5, 0);
+  OCC_GLQ = false;
   if (GROUND_TALLY) { GROUND_TALLY.probes++; if (hid) GROUND_TALLY.hidden++; else GROUND_TALLY.drawn.push(p.f); }
   return hid;
 }
@@ -24241,6 +24359,7 @@ function markBillboard(cam, dx, dy, topZ, halfW, key, paint, nearF = 1.5) {
 
 function markHidden(cam, dx, dy, topZ, halfW) {
   if (!GL_CELLS) return false;
+  if (!SHAPE_SINK && !MESH_SINK) OCC_CANVAS_ASK++;   // occAir: a landmark wants the field, whichever way it draws
   const base = cam.proj(dx, dy, 0), crown = cam.proj(dx, dy, topZ);
   if (!(base.f > 0.12)) return false;
   // ⚠ A SCREEN BOX AT THE TILE’S OWN DEPTH, NOT THE HULL OF EIGHT PROJECTED CORNERS. The
@@ -24354,7 +24473,10 @@ function unprojQuad(cam, pts, pull) {
 // reach the one in front.
 function emitDecoQuad(ctx, cam, corners, key, tex, alpha, paint, lift = DECO_LIFT, pull = Math.min(lift, DECO_PULL)) {
   if (!DECAL_SINK || !tex || SHAPE_SINK || !cam.unproj || !TUNE.glDeco) { emitDeco(corners, paint, lift); return; }
-  if (decoHidden(corners)) return;
+  OCC_GLQ = true;   // bound for the decal sink: the depth buffer settles it (occAir)
+  const hidQ = decoHidden(corners);
+  OCC_GLQ = false;
+  if (hidQ) return;
   // Sliding a corner along its OWN view ray leaves the projection bit-for-bit where it was and
   // moves only the depth, so the artwork does not move a pixel whatever this is set to.
   const w = RENDER_TUNE.signSquare
@@ -25491,6 +25613,13 @@ let GL_INTERIOR_HOOK = null;
 export function installGLInterior(fn) { GL_INTERIOR_HOOK = fn || null; }
 // Set per frame before the world pass: this seat's room is drawn LATE, unrotated, on its own.
 let INTERIOR_LATER = false;
+// A GL pass's picture onto the 2-D canvas: the bitmap it handed over (RENDER_TUNE.glTransfer, see
+// gl/world.js), closed once drawn so its buffer goes back at once, or the GL canvas itself.
+function glBlit(ctx, out, w, h) {
+  const b = out.blit;
+  ctx.drawImage(b || out.canvas, 0, 0, w, h);
+  if (b && b.close) b.close();
+}
 export function glWorldInstalled() { return !!GL_HOOK; }
 // What the world pass decided about GLASS 2 on its last run, recorded at the point of decision.
 // `glLastFrame()` says what the PASS drew and is null when the pass never ran, which is the same
@@ -28549,7 +28678,13 @@ export function drawWildScatter(ctx, cam, dx, dy, bi, night, seed, alpha) {
     // ⚠ WORLD COORDINATES COME FROM `MARK_TILE`, which the sweep sets per tile as its identity for
     // exactly this kind of question — this function is handed CAMERA-RELATIVE offsets, and a patch
     // keyed on those would swim across the country as you drove through it.
-    if (bi === 'redrock' && DECAL_SINK) {
+    // ⚠ NEVER INSIDE A BAKE (RENDER_TUNE.bakeTileFree). A card is cached by a key with no tile in it,
+    // so what it holds can't depend on MARK_TILE: the patch test here did, and from the bake's
+    // stand-in camera the near test passed, so a card baked from a patch tile held a lone mesa (or
+    // nothing) and sent its spires into the live bay and decal sinks at the stand-in's origin, under
+    // the craft. Whichever tile baked a key first decided its card for everyone. Spires are for the
+    // near ring, which never bakes.
+    if (bi === 'redrock' && DECAL_SINK && !(BB_BAKING > 0 && RENDER_TUNE.bakeTileFree !== 0)) {
       const mt = (MARK_TILE || '').split(',');
       const twx = +mt[0], twy = +mt[1];
       if (Number.isFinite(twx) && Number.isFinite(twy)) {
@@ -35574,6 +35709,7 @@ function drawContacts(ctx, cam, v, W, H, sun, now, marks = true) {
     // buffer hides the half of it that is actually behind the shed.
     if (!c._glDrawn && !c._glSolid && (c.onGround || c.band === 'ground')) {
       const sz = (FRAME_SIZE[c.cls] || 0.11) * (c.sizeMul || 1) * cam.FL / Math.max(0.25, pc.f);
+      OCC_CANVAS_ASK++;   // occAir: a contact on the canvas wants the field
       if (occludedByBuilding(pc.sx, pc.sy - sz * vsOf(c.cls), pc.sy, pc.f, sz)) continue;
     }
     // Already on the depth buffer — as a card baked before the world pass, or as real triangles
@@ -49070,14 +49206,32 @@ const FRUSTUM_PAD_PX = 96;     // screen margin for adornment overhang — glowP
 const FRUSTUM_CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
 // Is every part of the box standing on this tile off the side of the canvas? `W` is the frame width
 // in CSS pixels — the same W `makeCam` was handed, so `sx` and it are in one space.
-export function offCanvasLaterally(cam, dx, dy, W) {
+export function offCanvasLaterally(cam, dx, dy, W, hw = FRUSTUM_HW, pad = FRUSTUM_PAD_PX) {
   let lo = Infinity, hi = -Infinity;
   for (const [a, b] of FRUSTUM_CORNERS) {
-    const sx = cam.proj(dx + a * FRUSTUM_HW, dy + b * FRUSTUM_HW, 0).sx;
+    const sx = cam.proj(dx + a * hw, dy + b * hw, 0).sx;
     if (sx < lo) lo = sx;
     if (sx > hi) hi = sx;
   }
-  return hi < -FRUSTUM_PAD_PX || lo > W + FRUSTUM_PAD_PX;
+  return hi < -pad || lo > W + pad;
+}
+
+// ── AND THE GROUND'S DRESSING, OFF THE SIDE (RENDER_TUNE.sideCull) ──────────────────────────────
+// The test above was for buildings only, and the scatter, the cliffs and the plateaus off the side of
+// the canvas still ran their drawers: 0.3-1.8 ms of a moving frame (glass-headroom.md). Which kinds,
+// and how wide, is MEASURED, not guessed: every record each kind pushed over 32 flights (cab and
+// cockpit, day and night, eight places) sits within 0.98 tiles of its tile's centre for the scatter
+// (a billboard's own width counted in world terms, as it's drawn at its depth) and within 1.41 for the
+// cliff and plateau masses, so they're tested at 1.0 and 1.5. Pixel-sized records (lights, 60 px at
+// most) are inside FRUSTUM_PAD_PX, which is widened by the bank (_frameBankPad): a 30° bank shows 47 px
+// more of the world each side than a level canvas, and would otherwise eat most of it. ⚠ NOT A MARK, A ROAD, A CURTAIN TILE OR A YARD'S KIT: the lock reaches three
+// tiles, a berth's lines further, signal masts and wires cross tiles, and the AA's aim and a bay's
+// door carry state from frame to frame that a skipped draw would freeze.
+const SIDE_SCATTER = new Set(['redrock', 'badlands', 'scrub', 'ash', 'forest', 'parkland', 'park']);
+function sideCullHW(c, wild) {
+  if (c.bt || c.mark || c.road || c.cur || c.prp) return 0;
+  if (c.hi) return 1.5;
+  return wild || SIDE_SCATTER.has(c.biome) ? FRUSTUM_HW : 0;
 }
 
 // ── Occlusion culling ────────────────────────────────────────────────────────
@@ -49186,6 +49340,37 @@ let OCC_SOLIDS = null;        // [{ f, x0, x1, y0, y1, quads }] this frame, near
 // Is this ground-anchored point hidden behind a nearer building? The box is the model's screen
 // extent — `pad` widens it laterally, `syTop`/`syBot` bound it vertically, and it is hidden only
 // when EVERY cell it covers is covered by something nearer.
+// ── THE PRE-PASS, SKIPPED FROM THE AIR ON GL (RENDER_TUNE.occAir) ───────────────────────────────
+// On GL the depth buffer hides what the GPU draws, so the field is worth its 1.5-1.7 ms of a cockpit
+// frame for what it culls (buildings, so their arms don't run; scatter and deco quads, so they never
+// reach the GPU) and for the canvas draws it keeps behind a building (OCC_CANVAS_ASK: a landmark too
+// near to bake, the hangar's lounge, a clipped mark). From 0.5 tiles of eye height it culls no
+// building. So the pass runs as a probe: after a frame it ran in culled no building, it's skipped
+// for up to OCC_AIR_EVERY frames, and any canvas question on the way (skipped frames included) puts
+// it back the next frame. ⚠ SO A CANVAS THING THAT COMES INTO VIEW IN A SKIPPED FRAME HAS ONE FRAME
+// WITH NO FIELD. Low down it culls (20 a frame at Halcyon at 0.2 tiles) and keeps running, and never
+// in a cab (OCC_AIR_EH): at street level the canvas leans on it every frame.
+// Per GL view, since a second seat or a mirror paints with its own camera. See glass-headroom.md.
+const OCC_AIR_EH = 0.25, OCC_AIR_EVERY = 10;
+const OCC_AIR = new Map();   // GL_ID → { n, ran, culled, judged, clean }
+function occAirSkip(cam) {
+  if (RENDER_TUNE.occAir === 0 || !GL_CELLS || !((cam.EH || 0) >= OCC_AIR_EH)) { OCC_AIR.delete(GL_ID); return false; }
+  let s = OCC_AIR.get(GL_ID);
+  if (!s) OCC_AIR.set(GL_ID, s = { n: 0, ran: -1, culled: 0, judged: true, clean: false });
+  s.n++;
+  // Since the last look (a whole frame, through its flush): did anything on the canvas ask? Then
+  // run, this frame and every frame it goes on asking. If not, the last pass's own culls decide.
+  if (OCC_CANVAS_ASK > 0) s.clean = false;
+  else if (!s.judged) s.clean = s.culled === 0;
+  s.judged = true;
+  OCC_CANVAS_ASK = 0;
+  return s.clean && s.n - s.ran < OCC_AIR_EVERY;
+}
+// The pass ran and culled `culled` buildings; the next occAirSkip weighs that.
+function occAirRan(cam, culled) {
+  const s = OCC_AIR.get(GL_ID);
+  if (s) { s.ran = s.n; s.culled = culled; s.judged = false; }
+}
 function occludedByBuilding(sx, syTop, syBot, f, pad = 0) {
   const F = OCC_FIELD; if (!F) return false;
   const cx0 = clamp(Math.floor((sx - pad) * F.sx), 0, F.gw - 1), cx1 = clamp(Math.ceil((sx + pad) * F.sx), 0, F.gw - 1);
@@ -49231,6 +49416,7 @@ const OCC_CLIP_PATH = typeof Path2D === 'function' && !!Path2D.prototype && type
 let _occClipField = null, _occClipW = 0, _occClipH = 0;
 const _occClipCache = new Map();
 function beginOcclusionClip(ctx, f, bias = OCC_BIAS) {
+  if (!SHAPE_SINK && !MESH_SINK) OCC_CANVAS_ASK++;   // occAir: a canvas draw wants to be cut by the field
   const F = OCC_FIELD; if (!F) return false;
   if (bias === OCC_BIAS && OCC_CLIP_PATH) {
     if (_occClipField !== F || _occClipW !== _frameW || _occClipH !== _frameH) {
@@ -53156,7 +53342,11 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // `shadowFar` (12 tiles from a cab), so leaving the row in place costs one polygon and keeps the
     // ground honest. It is the two expensive readers — the occluder pass and the face-building loop
     // — that check the flag.
-    const off = !!(TUNE.frustum && c.bt && !c.mark && offCanvasLaterally(cam, dx, dy, _frameW));
+    // Only with bakeTileFree: a skipped tile can't bake a card, and while a card's look depends on
+    // which tile baked it first, skipping one changes the far scatter on screen.
+    const sideHW = TUNE.frustum && TUNE.sideCull && TUNE.bakeTileFree ? sideCullHW(c, wild) : 0;
+    const off = !!(TUNE.frustum && ((c.bt && !c.mark && offCanvasLaterally(cam, dx, dy, _frameW))
+      || (sideHW > 0 && offCanvasLaterally(cam, dx, dy, _frameW, sideHW, FRUSTUM_PAD_PX + _frameBankPad))));
     if (off && PERF.on) PERF.n.offscreen++;
     // From the pool when this is the only call in flight (see ITEM_POOL): the same objects each frame.
     const it0 = itemPooled ? (ITEM_POOL[itemN] || (ITEM_POOL[itemN] = {})) : {}; itemN++;
@@ -53199,7 +53389,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // mark every building already hidden behind a nearer one. See the notes above screenBox — the
   // occluder/occludee boxes are deliberately biased so this can only ever be too timid.
   let occluded = null;
-  if (TUNE.occlude) {
+  const occSkip = occAirSkip(cam);
+  if (TUNE.occlude && !occSkip) {
     const W = _frameW, H = _frameH;
     const gw = clamp(Math.round(W / OCC_CELL_PX), OCC_GW_MIN, OCC_GW_MAX);
     const gscale = gw / W, gh = Math.ceil(H * gscale);
@@ -53424,7 +53615,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }
   }
   // With the pre-pass off there is no field, and every contact draws exactly as it always did.
-  if (!TUNE.occlude) { OCC_FIELD = null; OCC_SOLIDS = null; }
+  if (!TUNE.occlude || occSkip) { OCC_FIELD = null; OCC_SOLIDS = null; }
+  else occAirRan(cam, occluded ? occluded.size : 0);
   // The field is now complete and belongs to THIS camera — adornments may probe it until the
   // flush below. See decoHidden for why the window is explicit rather than "is there a field".
   DECO_OCC = !!OCC_FIELD;
@@ -54128,7 +54320,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       applyCabinStreetLight();
       if (STROKE_SINK) STROKE_SINK.deep = true;
       if (DECAL_SINK) DECAL_SINK.atlas = TUNE.glDecalAtlas;
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glPropShadow: TUNE.glPropShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, massKeep: TUNE.massKeep, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glTransfer: TUNE.glTransfer, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glPropShadow: TUNE.glPropShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, massKeep: TUNE.massKeep, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         // ⚠ THE DECK, FOR THE REFLECTION AND FOR NOTHING ELSE IN THIS PASS. It is DRAWN by the
         // second hook after the world is blitted; what the world pass wants it for is the mirror
         // prepass, which is the only chance a puddle gets to be handed a sky.
@@ -54157,7 +54349,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       // the context away both arrive here without throwing, which is why the catch below is not
       // enough on its own. One frame is wrong; the flag then puts it back on the 2-D renderer for
       // good, exactly as a throw does.
-      if (out && out.canvas) { ctx.drawImage(out.canvas, 0, 0, _frameW, _frameH); GL_DREW = true; }
+      if (out && out.canvas) { glBlit(ctx, out, _frameW, _frameH); GL_DREW = true; }
       else { GL_LAST_ERROR = { where: 'gl pass', message: 'drew nothing — no context, a lost context, or a zero-sized host', at: Date.now() }; console.error('[windshield] the GL world pass drew nothing — falling back to 2-D'); glAutoOff(); }
     }
     catch (e) { GL_LAST_ERROR = { where: 'gl pass', message: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 900), at: Date.now() }; console.error('[windshield] the GL world pass threw — falling back to 2-D', e); glAutoOff(); }
@@ -54965,6 +55157,8 @@ export function setBayVehicles(v) {
   // Where the own ship is in the world, so a hangar door is remembered by its tile (airDoorKey).
   _bayOX = (v.mapCenter ? v.mapCenter.x : NaN) + ((v.mapOffset && v.mapOffset.x) || 0);
   _bayOY = (v.mapCenter ? v.mapCenter.y : NaN) + ((v.mapOffset && v.mapOffset.y) || 0);
+  // Where the vehicle in an open service bay stands, for the buildings that roof a berth.
+  noteServiceAt(bayServiceUp() ? _bayOX : NaN, _bayOY);
   if (v.cls) _bayVehicles.push([0, 0, true, !!(v.altOn || v.engineOn)]);   // the own ship is the origin of this frame
   if (v.contacts) for (const c of v.contacts) {
     if (c.cls === 'truck' || c.onGround || c.groundZ === 0) _bayVehicles.push([c.dx, c.dy, false, (c.ias || 0) > AIR_DOOR_ROLLING_KT]);
@@ -55096,7 +55290,8 @@ const BAY_CUTAWAY_ON = false;
 // ── …EXCEPT WHILE YOU'RE BEING SERVICED ─────────────────────────────────────
 // With the depot's bay open (the shell's `.ds-bay.open` on the seat's glass) the camera is there
 // to show you the vehicle being worked on, and a hangar roof filling the frame is the whole
-// picture. So the shed she stands in opens right up: no roof, and no wall on the camera's side.
+// picture. So the shed she stands in opens right up: no roof, and every wall, the frames and the
+// door cut down to a capped sill, wherever the eye is (see BAY_SILL in drawVehicleBay).
 // It doesn't depend on the angle; it's a mode the player opened and closes again by folding the
 // bay or rolling out, which is what the angle-driven cutaway above lacked. Asked once a frame.
 let _bayServiceFrame = -1, _bayService = false;
@@ -55106,6 +55301,21 @@ function bayServiceUp() {
   try { _bayService = !!(typeof document !== 'undefined' && document.querySelector?.('.ds-bay.open')); }
   catch { _bayService = false; }
   return _bayService;
+}
+// The service cutaway's sill, as a fraction of the eaves: low enough that the 3/4 camera sees the
+// wheels over it, high enough to read as the cut top of a wall.
+const BAY_SILL = 0.12;
+// ── …AND A BERTH'S ROOF GOES WITH IT ────────────────────────────────────────
+// A boat is serviced in a covered dock, under a building's roof rather than in a shed of its own:
+// the Fairweather plate, the Eastern Marina's tin lean-to. An arm whose type roofs a berth
+// (`berthRoof` in glass/model-registry.js) asks this before drawing that roof. During a GLASS 2
+// mesh capture the place carries the state the mesh is keyed on (`svc`, gl/world.js); a live frame
+// asks whether the open bay's vehicle stands within a tile (world-feed.js `noteServiceAt`).
+export function berthServiceOpen() {
+  const p = _place;
+  if (!p) return false;
+  if (p.svc != null) return !!p.svc;
+  return Number.isFinite(p.wx) && Number.isFinite(p.wy) && serviceNear(p.wx, p.wy);
 }
 const BAY_CUT_EYE0 = 0.80;  // ×WALL: below this the eye is under the eaves and the shed is solid
 const BAY_CUT_EYE1 = 0.90;   // ×WALL: at this height it is the full cutaway — the old boolean
@@ -55239,21 +55449,20 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   const depthOf = (lx, ly) => { const [wx, wy] = F(lx, ly); return (wx - (cam.ex || 0)) * cam.sinh - (wy - (cam.ey || 0)) * cam.cosh; };
   const nearG = (p) => depthOf(p[0], p[1]) - FMIN;
   const fCentre = depthOf(0, 0);   // the tile centre's camera depth — the cutaway's near/far dividing line
-  // ── THE SERVICE CUTAWAY ON GL ──────────────────────────────────────────────
-  // The canvas fades near faces by depth (the paint loop); a depth buffer has no fade, so on GL the
-  // cut is by side: each wall the eye is outside of is a wall between you and her, and goes with
-  // the roof. `gone` is a bit per side (+x 1, −x 2, +y the door 4, −y 8). Fittings (`keep`) and
-  // ground paint stay. Only the service cutaway gets here; `cut` is otherwise 0.
-  const gone = !service ? 0
-    : (camLX > HW ? 1 : 0) | (camLX < -HW ? 2 : 0) | (camLY > HL ? 4 : 0) | (camLY < -HL ? 8 : 0);
-  const sideOf = (pts) => {
-    let cx = 0, cy = 0;
-    for (const p of pts) { cx += p[0]; cy += p[1]; }
-    cx /= pts.length; cy /= pts.length;
-    const rx = Math.abs(cx) / HW, ry = Math.abs(cy) / HL;
-    if (Math.max(rx, ry) < 0.9) return 0;
-    return rx > ry ? (cx > 0 ? 1 : 2) : (cy > 0 ? 4 : 8);
-  };
+  // ── THE SERVICE CUTAWAY: THE WHOLE SHED, DOWN TO A SILL ────────────────────
+  // With the bay open the shed is drawn the way a cutaway drawing shows a building: the roof off,
+  // and every wall, column, rafter and jamb sliced level at `SILL`, with a dark cap along the cut
+  // so the footprint still reads as a building and not as one that failed to load. It doesn't
+  // depend on where the eye is (cutting only the walls you stood outside of left the back wall and
+  // the far side up whenever the camera was inside), so the shell is the same from every angle and
+  // the cache holds. Fittings (`keep`) and ground paint (layers 0/1) are untouched, the roller
+  // door (`door`) goes whole rather than leaving a kerb across the opening, and the high-bays
+  // that hung under the roof are swapped for two work lamps on stands (`LAMPS`).
+  const SILL = WALL * BAY_SILL;
+  const sillG = (p) => SILL - p[2];
+  const kLamp = WALL / BAY.WALL;   // the stands are sized off the truck shed and scale with the building
+  const LAMP_Z = WALL * (air ? 0.55 : 0.5);
+  const LAMPS = air ? [[-(HW - 0.035 * kLamp), -HL * 0.15], [HW - 0.035 * kLamp, -HL * 0.15]] : [[-0.23, 0.1], [0.23, 0.1]];
 
   // ── THE FACE QUEUE ─────────────────────────────────────────────────────────
   // `layer` runs before depth, and only for the two flat ground layers. A painter's sort cannot
@@ -55275,8 +55484,11 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
     // So this path takes the polygon as authored, and nothing below it runs at all — no clip, no
     // projection, no mean depth, no entry in the paint list. A textured face is a decal (a baked
     // canvas on a quad) and everything else is flat colour, which is what gl/solids.js takes.
+    if (service) {
+      if (o.cut || o.door) return;
+      if (!o.keep && (o.layer ?? 2) === 2 && !o.tex) { pts = clipTo(pts, sillG); if (pts.length < 3) return; }
+    }
     if (toGL) {
-      if (service && (o.cut || (!o.keep && (o.layer ?? 2) === 2 && (sideOf(pts) & gone)))) return;
       // ── ⚠ TWO SINKS, TWO FRAMES, AND THE OFFSET BELONGS TO EXACTLY ONE OF THEM ─────
       //
       // `drawSolids` is handed `camAt` — the camera with `ox`/`oy` folded into its offsets — because
@@ -55374,7 +55586,7 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // legends, which are decals in the camera's frame, are pushed fresh. About 0.8 ms of a frame with a
   // depot in it. `RENDER_TUNE.bayCache` 0 builds the shell every frame.
   const shellKey = toGL && TUNE.bayCache !== 0
-    ? Math.round((dx + gox) * 1e6) + ',' + Math.round((dy + goy) * 1e6) + '|' + !night + '|' + interior + '|' + open + '|' + alpha + '|' + (TUNE.glSignDepth !== 0) + '|' + (service ? 's' + gone : '') : null;
+    ? Math.round((dx + gox) * 1e6) + ',' + Math.round((dy + goy) * 1e6) + '|' + !night + '|' + interior + '|' + open + '|' + alpha + '|' + (TUNE.glSignDepth !== 0) + '|' + (service ? 's' : '') : null;
   const shell = shellKey ? BAY_SHELL.get(cell) : null;
   if (shell && shell.key === shellKey) {
     bayGroup(shell.recs);
@@ -55535,10 +55747,10 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
       // The leaf fills the pentagon above `doorBottom`, clipped by the same clipper the near plane uses.
       const leaf = clipTo([[-DOOR_W, HL - 0.008, 0], [DOOR_W, HL - 0.008, 0], [DOOR_W, HL - 0.008, JAMB_H], [XB, HL - 0.008, DOOR_H],
         [-XB, HL - 0.008, DOOR_H], [-DOOR_W, HL - 0.008, JAMB_H]], (p) => p[2] - doorBottom);
-      if (leaf.length >= 3) bayFace(leaf, two(126, 134, 142, 0.82, 0.95), { stroke: 'rgba(0,0,0,0.55)', out: OUT });
+      if (leaf.length >= 3) bayFace(leaf, two(126, 134, 142, 0.82, 0.95), { stroke: 'rgba(0,0,0,0.55)', out: OUT, door: true });
     } else {
     bayFace([[-DOOR_W, HL - 0.008, doorBottom], [DOOR_W, HL - 0.008, doorBottom],
-             [DOOR_W, HL - 0.008, DOOR_H], [-DOOR_W, HL - 0.008, DOOR_H]], two(126, 134, 142, 0.82, 0.95), { stroke: 'rgba(0,0,0,0.55)', out: OUT });
+             [DOOR_W, HL - 0.008, DOOR_H], [-DOOR_W, HL - 0.008, DOOR_H]], two(126, 134, 142, 0.82, 0.95), { stroke: 'rgba(0,0,0,0.55)', out: OUT, door: true });
     }
     // Slats. A flat panel reads as a sheet of card, and a roller door is the one object in a yard
     // everybody has looked at closely.
@@ -55546,12 +55758,12 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
     for (let i = 1; i < SLATS; i++) {
       const z = doorBottom + (DOOR_H - doorBottom) * (i / SLATS), w0 = doorHalfW(z), w1 = doorHalfW(z + 0.0022);
       bayFace([[-w0, HL - 0.009, z], [w0, HL - 0.009, z], [w1, HL - 0.009, z + 0.0022], [-w1, HL - 0.009, z + 0.0022]],
-        'rgba(0,0,0,0.35)', { stroke: null });
+        'rgba(0,0,0,0.35)', { stroke: null, door: true });
     }
     // The bottom rail: the heavy rubber-shod edge, darker than the leaf.
     { const w0 = doorHalfW(doorBottom), w1 = doorHalfW(doorBottom + 0.006);
     bayFace([[-w0, HL - 0.0075, doorBottom], [w0, HL - 0.0075, doorBottom], [w1, HL - 0.0075, doorBottom + 0.006], [-w1, HL - 0.0075, doorBottom + 0.006]],
-      two(...DARK, 1.2, 0.8), { stroke: null, out: OUT }); }
+      two(...DARK, 1.2, 0.8), { stroke: null, out: OUT, door: true }); }
   }
 
   // ── THE ROOF ───────────────────────────────────────────────────────────────
@@ -55680,6 +55892,33 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // Cones either side of the doorway — the one thing every yard in the world has at its door.
   for (const cx of [-DOOR_W / 2 - 0.05, DOOR_W / 2 + 0.05]) cone(cx, HL - 0.05, 0.012, 0.03);
   }
+  if (service) {
+    // The cap along the cut: a dark strip on top of the sill and the sill's inside face, round all
+    // four walls with the doorway left open. `keep`, so the clip above leaves them be.
+    const T = 0.014 * kLamp, CAP = 'rgb(30,32,36)', oc = { stroke: null, keep: true };
+    const capRun = (ax, ay, bx, by, nx, ny) => {
+      const ix = nx * T, iy = ny * T;
+      bayFace([[ax, ay, SILL], [bx, by, SILL], [bx + ix, by + iy, SILL], [ax + ix, ay + iy, SILL]], CAP, oc);
+      bayFace([[ax + ix, ay + iy, 0], [bx + ix, by + iy, 0], [bx + ix, by + iy, SILL], [ax + ix, ay + iy, SILL]], inn(48, 52, 58, 0.9), oc);
+    };
+    capRun(-HW, -HL, HW, -HL, 0, 1);
+    capRun(-HW, -HL, -HW, HL, 1, 0);
+    capRun(HW, -HL, HW, HL, -1, 0);
+    capRun(-HW, HL, -DOOR_W, HL, 0, -1);
+    capRun(DOOR_W, HL, HW, HL, 0, -1);
+    // The work lamps: a tripod foot, a pole and a yellow head with its lens turned to the vehicle.
+    // The light itself is pushed with the other lamps below.
+    for (const [lx, ly] of LAMPS) {
+      const k = kLamp, sgn = lx > 0 ? -1 : 1;
+      boxC(lx - 0.016 * k, lx + 0.016 * k, ly - 0.016 * k, ly + 0.016 * k, 0, 0.004 * k, [40, 42, 46], 1);
+      boxC(lx - 0.003 * k, lx + 0.003 * k, ly - 0.003 * k, ly + 0.003 * k, 0.004 * k, LAMP_Z - 0.01 * k, [70, 74, 80], 1);
+      const hx0 = lx - 0.009 * k, hx1 = lx + 0.009 * k, hy0 = ly - 0.016 * k, hy1 = ly + 0.016 * k, hz0 = LAMP_Z - 0.012 * k, hz1 = LAMP_Z + 0.012 * k;
+      boxC(hx0, hx1, hy0, hy1, hz0, hz1, [214, 170, 40], 1);
+      const fx = sgn > 0 ? hx1 + 0.0008 : hx0 - 0.0008;
+      bayFace([[fx, hy0 + 0.003 * k, hz0 + 0.003 * k], [fx, hy1 - 0.003 * k, hz0 + 0.003 * k], [fx, hy1 - 0.003 * k, hz1 - 0.003 * k], [fx, hy0 + 0.003 * k, hz1 - 0.003 * k]],
+        night ? 'rgba(255,246,222,0.98)' : 'rgba(255,240,204,0.9)', { stroke: null, keep: true });
+    }
+  }
   if (shellKey) BAY_SHELL.set(cell, { key: shellKey, recs: BAY_SINK.slice(shell0), legends: legends.slice() });
   }
 
@@ -55710,7 +55949,7 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
     const nearAmt = it.cut ? 1
       : (it.layer === 2 && !it.keep) ? clamp(((fCentre - 0.03) - it.af) / 0.12, 0, 1)
       : 0;
-    const a = alpha * (1 - cut * nearAmt);
+    const a = alpha * (1 - (service ? 0 : cut) * nearAmt);
     if (a <= 0.012) continue;
     ctx.globalAlpha = a;
     ctx.beginPath();
@@ -55736,9 +55975,11 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // subtle: the glow is composited after the whole city. So they are sprites, depth-tested against
   // the shed's own roof, and the radius is handed over rather than re-derived — the same rule every
   // other light in GLASS follows, so the two renderers cannot drift apart by one being retuned.
-  for (const y of [-0.3, -0.02, 0.26]) {
-    const lampZ = RIDGE - 0.055;
-    const lamp = P(0, y, lampZ), pool = P(0, y, 0.006);
+  const FIXTURES = service
+    ? LAMPS.map(([lx, ly]) => [lx + (lx > 0 ? -0.012 : 0.012) * kLamp, ly, LAMP_Z, lx * 0.4, ly])
+    : [-0.3, -0.02, 0.26].map((y) => [0, y, RIDGE - 0.055, 0, y]);
+  for (const [lx, y, lampZ, px, py] of FIXTURES) {
+    const lamp = P(lx, y, lampZ), pool = P(px, py, 0.006);
     if (toGL) {
       // ⚠ THE SPRITE SINK IS THE CAMERA'S FRAME, NOT THE MAP WINDOW'S — same split as bayFace, and
       // this is the other half of it. `drawSprites` is handed the UNSHIFTED camera (gl/world.js says
@@ -55747,11 +55988,11 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
       // inside — which is where the RIG is in the window, so the high-bays drifted across the yard
       // with the truck. The tell was on this very line: `lamp` is projected from `F` in the camera's
       // frame to size the glow, and the position was pushed in another.
-      const [lwx, lwy] = F(0, y);
+      const [lwx, lwy] = F(lx, y), [pwx, pwy] = F(px, py);
       if (lamp.f > 0.12) pushLightSized(lwx, lwy, lampZ, 26, 3, Infinity, 0.3, lamp.f, [255, 240, 200], 0.6 * alpha, 0, true);
       // The pool on the tarmac is a wash, not a source: it is the floor being lit, which is what
       // `wash` means to pickLights and what keeps it out of the contested source slots.
-      if (pool.f > 0.12) pushLightSized(lwx, lwy, 0.006, 150, 6, Infinity, 0.3, pool.f, [255, 232, 180], (night ? 0.22 : 0.13) * alpha, 0, false, true);
+      if (pool.f > 0.12) pushLightSized(pwx, pwy, 0.006, 150, 6, Infinity, 0.3, pool.f, [255, 232, 180], (night ? 0.22 : 0.13) * alpha, 0, false, true);
       continue;
     }
     if (lamp.f > 0.12) {
@@ -59308,6 +59549,65 @@ function drawGroundContactShadow(ctx, cam, heading, cls, strength) {
   // Alpha rides on `strength` only (NOT worldBlend, which is 0 on the deck — that zeroed the
   // shadow exactly when the craft is parked and it should read most solid).
   paintShadowSilhouette(ctx, cam, 0, 0, hr, shadowScale(cls), clamp(0.36 * strength, 0, 0.36), cls, 0.14);
+}
+
+// A PODRACER'S SHADOW: one soft oval under each of its three bodies, where the sim has them. The
+// turbines move on their cables, so the one silhouette an aeroplane throws cannot follow them. Each
+// oval leans away from the sun by its body's height (the hover included), which is what makes it
+// read as riding over the ground rather than sitting on it. `pose` is the view's `podracer`
+// (podracer-model.js podracerPose): each turbine's offset from the pod in tiles, and its heading.
+const PODRACER_SHADOW_BAKE = 64;
+let _podShadowImg = null;
+function podShadowSprite() {
+  if (_podShadowImg) return _podShadowImg;
+  const c = document.createElement('canvas'); c.width = c.height = PODRACER_SHADOW_BAKE;
+  const g = c.getContext('2d'), m = PODRACER_SHADOW_BAKE / 2;
+  // A radial falloff, not a blurred disc: canvas `filter` is missing from some browsers.
+  // ⚠ THE STRENGTHS BELOW LOOK HIGH, AND ARE NOT. Through the decal layer an oval at the plane's
+  // 0.36 barely showed on the hardpan; at about twice that it reads as a soft shadow and no darker.
+  const rg = g.createRadialGradient(m, m, 0, m, m, m);
+  rg.addColorStop(0, 'rgba(6,8,12,1)'); rg.addColorStop(0.55, 'rgba(6,8,12,0.85)'); rg.addColorStop(1, 'rgba(6,8,12,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, PODRACER_SHADOW_BAKE, PODRACER_SHADOW_BAKE);
+  return (_podShadowImg = c);
+}
+function drawPodracerShadows(ctx, cam, heading, pose, p, rideZ, sun) {
+  if (!pose || !p) return;
+  const U = PODRACER_UNIT, lean = sun && sun.alpha > 0 && sun.elev > 0.05 ? Math.sqrt(1 - sun.elev * sun.elev) / sun.elev : 0;
+  const sd = (sun && sun.shadowDir) || [0, 0];
+  const bodies = [
+    { x: 0, y: 0, h: heading || 0, a: p.podHalfLen * 1.25, b: p.podHalfW * 1.9, z: PODRACER_RING_H * U, k: 0.75 },
+    ...['L', 'R'].filter((k) => pose[k]).map((k) => ({ x: pose[k].dx, y: pose[k].dy, h: pose[k].h, a: p.engHalfLen * 1.15, b: p.engR * 1.7, z: podracerEngH(p) * U, k: 0.66 })),
+  ];
+  for (const B of bodies) {
+    const reach = Math.min(0.15, (B.z + (rideZ || 0)) * lean);
+    const gx = B.x + sd[0] * reach, gy = B.y + sd[1] * reach;
+    const c0 = cam.proj(gx, gy, 0);
+    if (c0.f <= 0.12 || c0.f > VISIBLE_FAR_F) continue;
+    const hr = B.h * Math.PI / 180, cs = Math.cos(hr), sn = Math.sin(hr);
+    // Local (fwd, side) to the ground: forward is (sin, -cos), right (cos, sin).
+    const at = (f, s) => [gx + f * sn + s * cs, gy - f * cs + s * sn];
+    // The longer the reach, the softer and fainter: a shadow that has left its body has spread.
+    const alpha = B.k * (1 - reach / 0.3);
+    if (OWN_SHADOWS) {
+      const P = (f, s) => [...at(f, s), SHADOW_EPS];
+      OWN_SHADOWS.push({ key: 'ownshadow:podracer', img: podShadowSprite(), alpha, p: [P(B.a, -B.b), P(B.a, B.b), P(-B.a, B.b), P(-B.a, -B.b)] });
+      continue;
+    }
+    const pts = [];
+    for (let i = 0; i < 16; i++) {
+      const t = i / 16 * Math.PI * 2, q = cam.proj(...at(Math.cos(t) * B.a * 0.8, Math.sin(t) * B.b * 0.8), 0);
+      if (q.f <= 0.1) { pts.length = 0; break; }
+      pts.push(q);
+    }
+    if (!pts.length) continue;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = 'rgb(6,8,12)';
+    ctx.beginPath(); ctx.moveTo(pts[0].sx, pts[0].sy);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].sx, pts[i].sy);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
 }
 
 const HOLO_COLS = ['90,200,255', '255,90,160', '120,255,140', '255,200,80', '180,120,255'];

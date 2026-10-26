@@ -108,6 +108,7 @@ export function bayOccluderSmoke(...a) { return (_m || _cold('bayOccluderSmoke')
 export function berthBoxColour(...a) { return (_m || _cold('berthBoxColour')).berthBoxColour(...a); }
 export function berthPhase(...a) { return (_m || _cold('berthPhase')).berthPhase(...a); }
 export function berthRow(...a) { return (_m || _cold('berthRow')).berthRow(...a); }
+export function berthServiceOpen(...a) { return (_m || _cold('berthServiceOpen')).berthServiceOpen(...a); }
 export function boatBreakup(...a) { return (_m || _cold('boatBreakup')).boatBreakup(...a); }
 export function bowTally(...a) { return (_m || _cold('bowTally')).bowTally(...a); }
 export function buildLedges(...a) { return (_m || _cold('buildLedges')).buildLedges(...a); }
@@ -318,6 +319,7 @@ export function wallTexSmoke(...a) { return (_m || _cold('wallTexSmoke')).wallTe
 export function wildLedges(...a) { return (_m || _cold('wildLedges')).wildLedges(...a); }
 export function wildTexture(...a) { return (_m || _cold('wildTexture')).wildTexture(...a); }
 export function winModeForCell(...a) { return (_m || _cold('winModeForCell')).winModeForCell(...a); }
+export function windshieldContext(...a) { return (_m || _cold('windshieldContext')).windshieldContext(...a); }
 export function windshieldHTML(...a) { return (_m || _cold('windshieldHTML')).windshieldHTML(...a); }
 export function wireLedge(...a) { return (_m || _cold('wireLedge')).wireLedge(...a); }
 export function wireRing(...a) { return (_m || _cold('wireRing')).wireRing(...a); }

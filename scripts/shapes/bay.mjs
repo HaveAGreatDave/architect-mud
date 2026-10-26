@@ -315,18 +315,28 @@ if (!orbitA || !orbitB || !orbitA.bay.length || !orbitB.bay.length) {
 }
 
 // THE SERVICE CUTAWAY. With a depot's bay open on the glass (`.ds-bay.open`), the shed the rig
-// stands in loses its roof and the walls on the camera's side, so the chase camera shows the rig
-// and not the roof. Folded, it's solid again. The rig is parked in the shed here and the camera is
-// up over the eaves; the DOM stub answers null to every selector, so the bay is "opened" by
-// answering that one. Both halves are measured: a cut that never happens and a cut that sticks.
+// stands in loses its roof, and every wall, frame and the door are cut down to a capped sill, so the
+// 3/4 camera shows the rig and not the building. Folded, it's solid again. The rig is parked in the
+// shed here and the camera is up over the eaves; the DOM stub answers null to every selector, so the
+// bay is "opened" by answering that one. Both halves are measured: a cut that never happens and a
+// cut that sticks. Then the open shed is held to three more things, for the truck shed and the
+// hangar: nothing of the building stands above the work lamps, the cap along the cut is there,
+// and the cut is the same from every side (it used to keep whichever walls the eye was inside of).
 let nSvc = 0;
-{
-  const parked = { ...BASE, map: mapWith(R), external: true, extYaw: 30, extPitch: 0.7, extZoom: 1.4 };
+const svcLines = [];
+const SVC_CELLS = [
+  ['truck shed', {}],
+  ['hangar', { bt: 'hangar', bk: 'air', bn: 'TEST HANGAR' }],
+];
+for (const [label, over] of SVC_CELLS) {
+  const mapOf = () => mapWith(R).map((row, y) => row.map((c, x) => (x === R && y === R ? { ...c, ...over } : c)));
+  const parked = { ...BASE, map: mapOf(), external: true, extYaw: 30, extPitch: 0.7, extZoom: 1.4 };
+  const turned = { ...parked, map: mapOf(), extYaw: 210, extPitch: 0.4, extZoom: 0.6 };
   const qs = globalThis.document.querySelector;
   const before = collect(parked, 1);
   globalThis.document.querySelector = (sel) => (sel === '.ds-bay.open' ? {} : qs.call(globalThis.document, sel));
-  let svc;
-  try { svc = collect(parked, 1); } finally { globalThis.document.querySelector = qs; }
+  let svc, svc2;
+  try { svc = collect(parked, 1); svc2 = collect(turned, 1); } finally { globalThis.document.querySelector = qs; }
   const after = collect(parked, 1);
   // The roof as plan area: everything lying wholly above the eaves, projected onto the ground. The
   // portal frames' rafters climb to the ridge too and stay (they're structure, and thin), so the
@@ -338,16 +348,50 @@ let nSvc = 0;
     for (let i = 0; i < q.p.length; i++) { const u = q.p[i], v = q.p[(i + 1) % q.p.length]; a += u[0] * v[1] - v[0] * u[1]; }
     return sum + Math.abs(a) / 2;
   }, 0);
-  if (!before || !svc || !after || !before.bay.length) {
-    problems.push('the service-cutaway comparison collected nothing: it cannot see the thing it is checking');
-  } else {
-    nSvc = before.bay.length - svc.bay.length;
-    if (!(svc.bay.length < before.bay.length)) problems.push(`with the bay open the shed kept all ${before.bay.length} faces: the service cutaway took nothing off`);
-    else if (!(roof(svc) < roof(before) * 0.3)) problems.push(`with the bay open ${roof(svc).toFixed(3)} sq tiles of the shed still lie over the eaves (solid ${roof(before).toFixed(3)}): the roof is still on`);
-    if (!svc.bay.length) problems.push('with the bay open the whole shed went: only the roof and the near walls should');
-    if (after.bay.length !== before.bay.length) problems.push(`with the bay shut again the shed has ${after.bay.length} faces against ${before.bay.length}: the cutaway stuck (the shell cache key)`);
+  if (!before || !svc || !svc2 || !after || !before.bay.length) {
+    problems.push(`${label}: the service-cutaway comparison collected nothing: it cannot see the thing it is checking`);
+    continue;
   }
+  const n = before.bay.length - svc.bay.length;
+  if (label === 'truck shed') nSvc = n;
+  if (!(roof(svc) < roof(before) * 0.3)) problems.push(`${label}: with the bay open ${roof(svc).toFixed(3)} sq tiles of the shed still lie over the eaves (solid ${roof(before).toFixed(3)}): the roof is still on`);
+  if (!svc.bay.length) problems.push(`${label}: with the bay open the whole shed went, floor and fittings too: only the roof, the walls above the sill and the door should`);
+  if (after.bay.length !== before.bay.length) problems.push(`${label}: with the bay shut again the shed has ${after.bay.length} faces against ${before.bay.length}: the cutaway stuck (the shell cache key)`);
+  // Nothing of the building over the lamps. The lamp heads are the tallest thing an open bay keeps
+  // (half the eaves on the truck shed, 0.55 on the hangar), so anything above 0.65 of the eaves is
+  // a wall, a column or a rafter that the sill clip missed. The eaves are the shed's own WALL: the
+  // lowest z over 0.2 (`eaves`, above) is a door head, not the eaves.
+  const WALL = ws.bayDims(over).WALL;
+  const top = Math.max(...svc.bay.flatMap((q) => q.p.map((v) => v[2])));
+  if (!(top < WALL * 0.65)) problems.push(`${label}: with the bay open something still stands ${top.toFixed(3)} high against eaves of ${WALL.toFixed(3)}: a wall or a frame kept its full height`);
+  // The cap: flat faces all at one height, low down, along the cut. Five runs (back, two sides, and
+  // the front either side of the door), and a missing cap is a shed that reads as unloaded.
+  const flatAt = (q) => q.p.every((v) => Math.abs(v[2] - q.p[0][2]) < 1e-9);
+  const caps = svc.bay.filter((q) => flatAt(q) && q.p[0][2] > WALL * 0.05 && q.p[0][2] < WALL * 0.2).length;
+  if (caps < 5) problems.push(`${label}: with the bay open only ${caps} flat faces lie at sill height: the dark cap along the cut is missing`);
+  const d = differs(svc.bay, svc2.bay);
+  if (d) problems.push(`${label}: the open shed changes as the camera goes round it (${JSON.stringify(d)}): the cutaway should be the same from every side`);
+  svcLines.push(`${label} ${n > 0 ? '-' : '+'}${Math.abs(n)} faces, top ${top.toFixed(2)}`);
 }
+
+// THE BERTH ROOFS. A boat is serviced under a building's roof, not in a shed: the Fairweather
+// plate and the Eastern Marina's lean-to both reach out over the next tile, where the slot is. With
+// the place saying a bay is open beside them (`svc`, as gl/world.js hands a capture), nothing of
+// either may stand over that tile higher than the lean-to's pile stumps; without it the roof has to
+// be there, or the check is measuring a model that never had one.
+const berthLines = [];
+for (const r of ws.shapeModelRegistry().filter((x) => x.key === 'type:boathouse' || x.key === 'type:boatshed')) {
+  const over = (svc) => {
+    const L = ws.captureModelMesh(r.m, { fh: 0.4, h: 1, seed: 3, place: { wx: 1, wy: 1, svc } });
+    const pts = L.flatMap((q) => q.p).filter((v) => Math.abs(v[0]) > 0.52 || Math.abs(v[1]) > 0.52);
+    return pts.length ? Math.max(...pts.map((v) => v[2])) : 0;
+  };
+  const shut = over(0), open = over(1);
+  if (!(shut > 0.3)) problems.push(`${r.key}: with no bay open nothing over the berth stands above ${shut.toFixed(3)}: the roof this check expects is not there`);
+  if (!(open <= 0.15)) problems.push(`${r.key}: with a bay open beside it something over the berth still stands ${open.toFixed(3)} high: the roof is still on`);
+  berthLines.push(`${r.key.slice(5)} ${shut.toFixed(2)} → ${open.toFixed(2)}`);
+}
+if (berthLines.length !== 2) problems.push(`found ${berthLines.length} of the two berth-roofing models (type:boathouse, type:boatshed) in the shape registry`);
 
 // THE OFF SWITCH, which has to be the frame that shipped before this layer existed — and it is also
 // the CONTROL: with the shed back on the canvas, the canvas has to be painting one. An empty GL
@@ -382,4 +426,4 @@ if (problems.length) {
   console.error('  is simply not in the frame — no error, no warning, an empty tile where a building is.');
   process.exit(1);
 }
-console.log(`✓ bay: the depot reaches the GPU as ${on.bay.length} faces standing ${span(on.bay).toFixed(2)} tiles tall; neither orbiting the camera nor moving it within its tile shifts any of them; its ${nLegend} floor legends and ${on.sprites.length} lights reach the decal and sprite layers in the CAMERA's frame and hold still in the map window under the same nudge; an open bay takes ${nSvc} faces (the roof and the near walls) off the shed the rig stands in and gives them back when it shuts; glBay 0 collects none, and the canvas control still paints one.`);
+console.log(`✓ bay: the depot reaches the GPU as ${on.bay.length} faces standing ${span(on.bay).toFixed(2)} tiles tall; neither orbiting the camera nor moving it within its tile shifts any of them; its ${nLegend} floor legends and ${on.sprites.length} lights reach the decal and sprite layers in the CAMERA's frame and hold still in the map window under the same nudge; an open bay cuts the shed the rig stands in down to a capped sill, the same from every side (${svcLines.join('; ')}), and gives it back when it shuts; the marinas take the roof off their berth too (top over the slot ${berthLines.join(', ')}); glBay 0 collects none, and the canvas control still paints one.`);

@@ -169,6 +169,25 @@ export function venueEpoch(now = Date.now()) {
   for (const e of ROOF.values()) if (!e.done && now - e.t0 >= ROOF_MS) { e.done = true; _venueEpoch++; }
   return _venueEpoch;
 }
+// ── THE OPEN BAY ─────────────────────────────────────────────────────────────
+// While a depot's service bay is open on the glass, the tile its vehicle stands on. A building that
+// roofs a berth (the marinas' covered docks, `berthRoof` in glass/model-registry.js) takes that
+// roof off for the service cutaway when the bay is open beside it, and GLASS 2 keys its mesh on it
+// (gl/world.js `serviceKey`), so a change bumps the epoch the way a venue push does. windshield.js
+// sets it once a frame from the seat's own view; null is no bay open.
+let _svcK = null, _svcX = 0, _svcY = 0;
+export function noteServiceAt(x, y) {
+  const on = Number.isFinite(x) && Number.isFinite(y);
+  const k = on ? Math.round(x) + ',' + Math.round(y) : null;
+  if (k === _svcK) return;
+  _svcK = k; _svcX = on ? Math.round(x) : 0; _svcY = on ? Math.round(y) : 0;
+  _venueEpoch++;
+}
+// Whether the open bay's vehicle is within `reach` tiles of (x, y), either way.
+export function serviceNear(x, y, reach = 1) {
+  return _svcK !== null && Math.abs(x - _svcX) <= reach && Math.abs(y - _svcY) <= reach;
+}
+
 // What a venue tile's mesh is built as: `vl` its game night, `vr` its roof (1 shut, 0 open, null
 // none) and `vrm` whether that roof is moving. `cell` is the map window's cell for the tile.
 export function venueState(x, y, cell, now = Date.now()) {

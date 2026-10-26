@@ -1,7 +1,395 @@
 # GLASS frame headroom
 
-**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); flat decal fills batched (2026-10-19, below); the caches keyed on the map window made to survive a recentre (2026-10-19, below); Stage 2 superseded by Stage 3; a still camera keeps (2026-10-24, below); armChunk measured and not built (2026-10-24, below); the live arms and marks profiled, two exact cuts built (2026-10-24, below); buildings in the haze band keep (`armFade`, 2026-10-24, below); the lock, AA, media lot and statue shaded on the GPU and kept (`marksGPU`, built 2026-10-24, on since 2026-10-25, below); why `world:gl` rose with it found and fixed (2026-10-25, below); kept strokes that cross the eye plane run live (`armNearWire`, 2026-10-25, below); `cssRgb`'s double lookup measured and left (2026-10-25, below).** The vertex-animated layers it follows from are built (actors,
+**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); flat decal fills batched (2026-10-19, below); the caches keyed on the map window made to survive a recentre (2026-10-19, below); Stage 2 superseded by Stage 3; a still camera keeps (2026-10-24, below); armChunk measured and not built (2026-10-24, below); the live arms and marks profiled, two exact cuts built (2026-10-24, below); buildings in the haze band keep (`armFade`, 2026-10-24, below); the lock, AA, media lot and statue shaded on the GPU and kept (`marksGPU`, built 2026-10-24, on since 2026-10-25, below); why `world:gl` rose with it found and fixed (2026-10-25, below); kept strokes that cross the eye plane run live (`armNearWire`, 2026-10-25, below); `cssRgb`'s double lookup measured and left (2026-10-25, below); the GL canvas hands each pass over, which took the ~1 ms off the cabin's copy (`glTransfer`, 2026-10-26, below); the occlusion pass skipped from the air on GL while nothing on the canvas asks for it (`occAir`, built and off, 2026-10-26, below); the ~1 ms at the sky strip traced to the frame boundary (2026-10-26, below); the 2-D frame drawn off the page and handed to it as a bitmap (`wsHandover`, on since 2026-10-26, below); the scatter, cliffs and plateaus off the side of the canvas skipped (`sideCull`, built 2026-10-26, on since 2026-10-26, below), and the order-dependent scatter card fixed for it (`bakeTileFree`, on).** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
+
+## Built 2026-10-26, on: the ground's dressing off the side of the canvas (`sideCull`, `bakeTileFree`)
+
+David saw the `bakeTileFree` shots and turned both on (2026-10-26).
+
+The lateral cull (`offCanvasLaterally`) only ever skipped buildings. Every other tile off the side of
+the canvas still ran its drawer: the scatter, the cliffs and plateaus, the marks. With
+`RENDER_TUNE.sideCull` 1 (and `frustum`), a tile with no building, mark, road, Curtain or yard kit is
+skipped too when it's wholly off the side. 0 culls buildings only, as before.
+
+**What it cost.** The item loop's per-item timer (PERF.armv), split by whether the item was off the
+side, a moving camera, 120 frames:
+
+| route | non-building items off the side, ms a frame |
+|---|---|
+| Halcyon, cab | 1.49 |
+| residential, cab | 1.65 |
+| Old Coldwater, cab | 1.60 |
+| Marrow, cab, night | 2.67 |
+| Halcyon, cockpit | 2.53 to 2.91 |
+| nightlife, cockpit, night | 6.1 to 6.2 |
+
+Most of it is the lock (0.5 to 1.5 ms) and the camps (about 1.0), then redrock (0.8), cliffs (0.55 from the
+cockpit) and badlands (0.3 to 0.4). The cull takes the ground's share: off the side, Halcyon's cockpit went
+from 2.91 to 1.51 ms and nightlife's from 6.14 to 4.13. In `npm run perf:move -- <place> <seat> --prof`,
+`world:arms` over two interleaved pairs: Halcyon cockpit 8.79 to 7.24 and 8.10 to 6.29, Old Coldwater
+cockpit 8.26 to 8.47 and 8.34 to 7.29, nightlife cockpit 2.67 to 2.49 twice, Halcyon cab 5.20 to 4.89
+and 4.72 to 4.46. Paint medians move the same way but are noisier.
+
+**How wide each kind is tested, measured.** Every record each kind pushed, over 32 flights (cab and
+cockpit, noon and 22h, eight places), against its tile's centre. A billboard's pixel width counts at the
+depth it's drawn. The scatter (redrock, badlands, scrub, ash, forest, parkland, park, and wild tiles)
+stays within 0.98 tiles, so it's tested at the buildings' 1.0. Cliffs and plateaus reach 1.41, so 1.5.
+Pixel-sized records, the lights, are 60 px at most, inside `FRUSTUM_PAD_PX` (96). The pad is widened by
+the bank (`_frameBankPad`). The world is drawn rotated about the centre, so a 30° bank shows 47 px
+more of it each side than a level canvas, which left 49 px of pad for a 60 px light. The building cull
+still uses the plain pad.
+
+**Left out, and why.** Marks reach too far or carry state from frame to frame: the lock reaches about
+3 tiles, a berth's lines further, a camp's 7.7 (by its lights), and the AA's aim and a bay's doors are
+remembered between frames, so a skipped draw would freeze them. Roads, the Curtain and a yard's kit are
+out for the same reach reason (signal masts and wires cross tiles). The lock and the camps are most of
+what's left (see the follow-up below).
+
+**`bakeTileFree`, the older bug the proof found.** A scatter card is cached by a key with no tile in
+it (`_bbCache`), but `drawWildScatter`'s hoodoo-patch branch read `MARK_TILE`. A card baked from a patch
+tile came out as a lone mesa or nothing, and its spires went into the live bay and decal sinks at the
+bake's stand-in origin, under the craft. Whichever tile baked a key first decided the card for the rest
+of the session. With the cull on, a different tile bakes first, so the far cards changed. With
+`RENDER_TUNE.bakeTileFree` 1 a bake never takes the branch (`BB_BAKING`); spires are for the near ring,
+which never bakes. `sideCull` does nothing unless `bakeTileFree` is on, so it can't change the picture
+by itself.
+
+**Proof that it's exact.** `sideproof.mjs` (the session's scratchpad; not in the repo) flies a route
+twice, the switch at 0 and 1 in separate processes, and compares each frame's GL records as multisets
+and the canvas log draw by draw. A record only at 0 must lie wholly off the canvas in that frame's own
+projection; a canvas draw only at 0 must too, by its path's x extent. Canvas draws that differ only in
+state they don't read (a stroke's `fillStyle`, or `globalAlpha` left set by a skipped tile and never
+set by the other run, which a real canvas reads as 1) are the same draw. With `bakeTileFree` on in both:
+
+- 24 runs: Halcyon, Marrow, nightlife, residential, Old Coldwater and the South Lock (911,926), cab and
+  cockpit, noon and 22h, 24 frames moving and turning 1.5° a frame, plus nightlife's cockpit over 40.
+  Up to 75,791 records dropped a run; none touches the canvas, none is added, and no canvas draw on
+  the canvas differs.
+- Banked 30° and −45° from the cockpit over Halcyon, nightlife and Old Coldwater: the same.
+- The 0-against-0 control is identical, records and canvas.
+
+`bakeTileFree` on its own, in the Modelshop with real WebGL2 at 936,924 in the Scarletwastes (one page
+load per value, as the card cache can't be cleared from outside). Cockpit noon 0.001% of pixels against
+a 0.002% control, the cab 0.000% against 0.000%. Cockpit night is 0.248% (worst 11 levels) against
+0.004%. Those pixels aren't the redrock: they're the sparkle of the lights on the Curtain road and the
+wall's stripes. The likeliest cause is the pinned random sequence landing differently once the bake
+stops drawing spires; not traced. Headless, the far cards' records differ in where the card sits in the
+atlas, not in what's drawn. Shots and numbers are in `.claude/shots/bake-tile-free/` (not tracked).
+
+**On since 2026-10-26.** Both default to 1. `bakeTileFree` was built at 0 because it moves pixels;
+it went on after the shots above. Setting `bakeTileFree` back to 0 also turns `sideCull` off.
+
+**Follow-up: the lock and the camps off the side.** They're most of what's left off the side: 0.5 to 1.5 ms
+and about 1.0. Culling them needs each one's reach measured (the lock about 3 tiles, a camp 7.7 by its
+lights) and an audit of the state its drawer keeps between frames, so a skipped frame doesn't freeze or
+jump it.
+
+## Built 2026-10-26, on: the 2-D frame handed to the page as a bitmap (`wsHandover`)
+
+The fix the next section points at. With `RENDER_TUNE.wsHandover` 1 (the default since the same day) a
+view's frame is drawn into an `OffscreenCanvas` the page canvas's size, and handed to the page canvas
+through a `bitmaprenderer` context (`transferFromImageBitmap`) in a microtask at the end of the task
+that drew it (`handoverFor`, `handoverQueue` in windshield.js). 0 draws on the page canvas as before.
+
+**Only a canvas on screen at its first paint is handed over** (`handoverOnScreen`): its box inside
+the viewport, and seen (`checkVisibility`, with visibility and opacity). A canvas nobody sees isn't
+presented, so there's nothing to save. That rule is what keeps the rest working without being told:
+
+- The Modelshop's benches put their canvas off the page (`left:-10000px`), paint in a synchronous loop
+  and read it back with `getContext('2d')` straight after. They stay on the plain path. Checked with
+  the switch on: an off-page canvas painted three times gives a '2d' context with the whole frame in
+  it. The two benches that put their canvas on screen (`paintMirrorShot`, `runPowerShot`) only show
+  it, and show it correctly handed over.
+- The cab's rear camera (`cab-rear`) is `visibility:hidden` with a real box, and `drawCabMirror` reads
+  it back as an image in the same task, before a hand-over would land. It stays plain.
+- A page with no window (a hidden Browser pane reports a 0x0 viewport) hands nothing over.
+
+⚠ **`windshieldContext(id)` returns null before the view's first paint with the switch on.** A first
+version fell back to `getContext('2d')`, and asking that early took the canvas's one context and
+fixed it on the plain path (found when a check asked before the cab had painted).
+
+**What else touches the page canvas, checked first.**
+
+- Inside windshield.js, `paintWindshieldFrame` is the only place that takes the page canvas's context.
+  It reads its own frame back three ways (the sky strip, the heat shimmer and two `ctx.canvas`
+  self-copies), and those now read the frame being drawn (`FRAME_CV`, or `ctx.canvas` itself).
+  `GL_HOST` is still the page canvas, and the GL pass only reads its size.
+- Of the eight seat views that call `paintWindshield` (boat, cab and its mirror, cockpit and the
+  Drake, free look, hangar seat, helm, podracer), only cab-view draws on the page canvas itself: the
+  rig overlay (`drawRigOverlay`) and the road film (`drawRoadFilm`), after `paintWindshield` in the
+  same task. They now ask `windshieldContext(id)`, the frame's own context, and go over with it. The
+  other `getContext('2d')` calls in the seat files are other canvases (the GPS app, the PFD, gauges,
+  MFD, the hangar stage). The flight drug effects only set CSS on the element, which works the same.
+  The feedback telemetry only lists canvases by id.
+- The Modelshop's benches take `getContext('2d')` on their canvas and read pixels back. A canvas has
+  one kind of context for its life, so the switch is decided per element at its first paint: one
+  that already has a '2d' context stays on the plain path, and one that took the bitmaprenderer keeps
+  it even if the switch goes back to 0. The benches that read back after painting without taking a
+  '2d' context first are off the page, so the on-screen rule above keeps them plain.
+- `windshieldContext` is a new export, so `windshield-lazy.js` is re-baked (`npm run
+  client:bake-lazy`; it also picked up a peer's uncommitted `berthServiceOpen`, which the check needs).
+
+**The picture is the same.** Modelshop, real WebGL2, 1280x720, Halcyon, clock, date and random
+pinned, 16 settle frames with the clock held still, read back by drawing the page canvas itself.
+Each value needs its own canvas, so the control is a second plain canvas with its own view state:
+
+| | 0 against 0 | 1 against 0 |
+|---|---|---|
+| cab noon | 0.003% (worst 6) | 0.003% (worst 6) |
+| cab night | 0.000% (worst 6) | 0.001% (worst 6) |
+| cab rain | 0.003% (worst 4) | 0.002% (worst 4) |
+| cockpit noon | 0.025% (worst 33) | 0.002% (worst 14) |
+| cockpit night | 0.006% (worst 8) | 0.004% (worst 8) |
+| cockpit rain | 0.001% (worst 25) | 0.000% (worst 19) |
+
+The shots are in `.claude/shots/handover/` (not tracked), with `diffs.txt`. Headless, Node has no
+real bitmaprenderer, so every view takes the plain path: `perf:exact wsHandover 0 1` is identical over
+60 views, and `shapes:smoke`'s first gate, the parse smoke, `imports:smoke`, the big-screen smoke and
+the lazy-facade check pass.
+
+**Measured live** (Browser pane in view, `requestAnimationFrame` running, a visible 1280x720 canvas per
+value, Halcyon cab, 13h, rain). Phases of 20 frames, alternating three canvases (two plain, one
+handed over) six times over:
+
+| | strip read (median) | gap after the script (median) | paint (median / mean) | paint and gap (mean) |
+|---|---|---|---|---|
+| plain P | 1.90 ms | 0.50 ms | 22.3 / 26.6 ms | 27.1 ms |
+| plain Q | 1.80 ms | 0.40 ms | 25.4 / 28.9 ms | 29.5 ms |
+| handed over | 0.10 ms | 0.50 ms | 23.1 / 24.3 ms | 24.8 ms |
+
+The strip's read falls by about 1.7 ms and nothing grows to take it back: the gap after the script,
+which now includes the hand-over's own microtask, is the same. The whole-frame numbers are noisier
+than that (the two plain canvases differ by 2.4 ms on the mean). An earlier run of three alternating
+pairs of 60 frames gave the strip 1.3-1.7 ms against 0.1 and the gap 0.4 against 0.5.
+
+**The cab seat, checked with the switch on.** `openCab` in a scratch page served from `client/` (the
+seat harness in the memory notes), Halcyon, `grime` 1, with a timer standing in for
+`requestAnimationFrame` and a 1280x720 viewport, because this session's pane had no window. The cab's
+canvas took the hand-over (`windshieldContext('cab')` is the `OffscreenCanvas`) and `cab-rear` stayed
+plain. The road film's draws all went into the off-page frame (4 in three seconds of throttled frames,
+none on the page canvas). A test patch drawn through `windshieldContext('cab')` at the end of the
+frame's task, where `drawRigOverlay` draws, is on the presented canvas (pixel 255,0,255) and gone the
+frame after it stops. The rig overlay itself (`JACKKNIFING`) needs a jackknife, which the harness
+can't set up; it's the same call in the same place. The scratch page is deleted.
+
+## Measured 2026-10-26: the ~1 ms at the sky strip belongs to the frame boundary
+
+`captureSkyStrip` draws the top band of the 2-D frame into a 256x128 canvas for the puddles and the
+sea to reflect (only with wet ground or water in the window). In the `glTransfer` benches that
+`drawImage` cost 0.6-1.6 ms. It's the frame's first read of the 2-D canvas, and that's what costs.
+Modelshop, Halcyon cab, 13h, rain, 1280x720, 12 ms idle between frames:
+
+- **Moving the read moves the cost.** A 1x1 read of the 2-D canvas just before the strip costs 0.74
+  ms and the strip then 0.00. With no strip (`glMirrorSky` 0) the end-of-frame read pays it instead
+  (0.13-0.19 to 0.87 ms). All the copies plus that read come to about the same either way.
+- **It isn't the sky's drawing.** A read at the very start of the frame costs 0.005-0.015 ms. With
+  every fill, stroke and text before the strip skipped (a measuring hack), the strip still costs 0.94.
+  The same kinds of draw on a fresh canvas (full-screen gradients, 40 radial gradients, ridge polylines,
+  a 1280x720 GL bitmap) flush in 0.12-0.16. The real canvas is accelerated (default attributes,
+  `willReadFrequently` false) and does the same synthetic draws in the same time.
+- **It isn't the GL sky either.** With `glSky` 0, so no GL bitmap reaches the 2-D canvas before the
+  strip, it's 0.72-0.81. A `gl.finish()` first costs 0.005-0.01 and changes nothing.
+- **It's the previous frame being held.** Without the 1x1 read at the end of each bench frame (which
+  stands in for the browser's commit), the strip costs 0.075-0.085 ms. With it, 0.82-0.90. So the
+  first read of a frame pays about 0.8 ms to keep the last frame's snapshot whole, and a full-canvas
+  overwrite first (a `copy` fill, a full `clearRect`, `ctx.reset()`) doesn't avoid it (0.72-0.97).
+
+So there's nothing to fix in the strip: dropping it, moving it or flushing early only moves the cost
+to the next read, and the picture can't stay the same without it. The bench numbers above for
+`glTransfer` and `occAir` all include this cost in their "end flush" column.
+
+**And the game pays it (measured live the same day, Browser pane in view, `requestAnimationFrame`
+running at 30-45 a second).** A visible 1280x720 canvas painted by `paintWindshield` each animation
+frame, Halcyon cab, 13h, rain, 60 frames a phase, alternating. The gap is from the end of the frame's
+script to the next task, which is where the browser's own rendering and its commit of the canvas run:
+
+| | strip read (median) | gap after the script (median) |
+|---|---|---|
+| strip on, round 1 | 0.90 ms | 0.60 ms |
+| strip off, round 1 | none | 1.30 ms |
+| strip on, round 2 | 0.80 ms | 0.50 ms |
+| strip off, round 2 | none | 1.20 ms |
+
+With the strip off the cost moves into the browser's rendering step, about 0.7 ms more, so it's a
+cost of presenting the 2-D canvas, every frame, whatever the strip does. A standalone loop with the
+same kind of frame (full-screen gradient, 40 radial-gradient ellipses, a ground fill) shows it and
+shows the fix:
+
+| | first read | gap after the script |
+|---|---|---|
+| visible 2-D canvas, with a read | 0.70 ms | 0.20 ms |
+| `OffscreenCanvas` handed to a `bitmaprenderer` canvas, with a read | 0.00-0.10 ms | 0.20 ms |
+| visible 2-D canvas, no read | none | 0.80 ms |
+| `OffscreenCanvas` to `bitmaprenderer`, no read | none | 0.20 ms |
+
+So the candidate fix is the one `glTransfer` used for the GL canvas: draw the frame into an
+`OffscreenCanvas` and hand it to the visible canvas with `transferFromImageBitmap`, which saves about
+0.6 ms a frame at 1280x720 (more at a larger frame). Not built: it changes how the game's canvas is
+presented, so it needs a look at everything else that draws into or reads that canvas first, and its
+own switch and shots.
+
+## Built 2026-10-26, off: the occlusion pass skipped from the air on GL (`occAir`)
+
+Phase 2's other half. The pass was kept on GL (see "the occlusion pre-pass still pays on GL", below)
+because its field is the only thing keeping some canvas draws behind buildings. So the first question
+was which canvas draws those still are.
+
+**What the field still does for the canvas, measured.** Flown twice in separate processes, with
+`occlude` at 1 and 0, comparing each frame's canvas draws as multisets (120 frames each: Halcyon
+cockpit at 13h and 22h, still and moving; residential, nightlife, old Coldwater and Marrow cockpits
+moving by night; a Halcyon cab):
+
+- Nothing the field used to hide from the air draws on the canvas any more in most of it. The glows
+  (`glowPool`) go to the sprite sink, the signs, flags, dishes and blades (`emitDecoQuad`) to the
+  decal sink, the scatter (`groundHidden`) to billboards, and the depth buffer hides all of those.
+  At Halcyon by day, still and turning, the canvas is the same on all 60 frames.
+- **The wild scatter's mesa** (`drawMesaBB`) differs on a few frames, and it's invisible either way.
+  In the near ring of a hoodoo patch, `drawWildScatter` skips its billboard and draws the mesa straight
+  onto the canvas during the sweep, which is under the GL world image, so the opaque floor covers it.
+  That's an older bug of its own: those mesas don't show on GL at all. Fixing it changes the picture,
+  so it's left for its own switch.
+- **Two kinds still need the field from the air:** the hangar's passenger lounge (`downtown.js`, an
+  interior kept on the canvas because its own glass would hide it on the depth buffer, asking
+  `markHidden`), and a landmark too near to bake (`markBillboard` refuses within 1.5 tiles, so the
+  South Gate, a sign or the pylons fall back to the canvas through `markHidden` and `emitMarked`'s clip).
+  Neither moves to a GL sink exactly. The lounge would need a pull in front of its glass, which
+  changes how it sits against the glass; the near gate needs real geometry, not a card.
+
+**The switch (`RENDER_TUNE.occAir`, 0; 1 skips).** With GL drawing the city and the eye at 0.25 tiles
+or more (`OCC_AIR_EH`; a cab is 0.12), the pass runs as a probe. After a frame it ran in culled no
+building, it's skipped for up to 10 frames (`OCC_AIR_EVERY`), and it comes back the next frame if
+anything on the frame's canvas asks the field a question (`OCC_CANVAS_ASK`): a `decoHidden` from
+anything but the two GL-only callers (`OCC_GLQ`), a `markHidden`, a contact's probe, or
+`beginOcclusionClip`. Questions from a landmark's bake or a shape or mesh capture don't count: those
+paint into canvases of their own. ⚠ **Counted as asked, not as hidden**: the first version counted
+only what the field hid, and at nightlife the lounge then drew through a building on 10 skipped
+frames. ⚠ **And so a canvas thing that comes into view in a skipped frame has one frame with no
+field.** Per GL view (`GL_ID`).
+
+Building culls by eye height (moving, Halcyon): 20 a frame at 0.2 tiles, 3 at 0.3, 0.4 at 0.4, none
+at 0.5; residential 7 at 0.3, none from 0.4. Where it culls, the pass pays for itself: at Halcyon at
+0.3 and 0.4 tiles the frame was 2.3 and 0.8 ms cheaper with it than without.
+
+**Proof.** With `occAir` 1 against 0 over the same nine flights, the pass ran on 17-32 of 120 frames
+from the air and 120 of 120 in the cab, and the canvas draws are the same on every frame except the
+invisible mesa. Mutation: throwing the questions away (a temporary mutant) puts the lounge back on the
+canvas on skipped frames at nightlife. `perf:exact occAir 0 1` differs on 4 of 60 views, all in the
+decal list only (1 to 8 more records: deco quads the field culled, which the depth buffer now
+hides), and `occAir 0 0` is identical. `shapes:smoke`'s first gate, the parse smoke and
+`imports:smoke` pass.
+
+**Cost.** It saves less than the pass costs, because what the field culled for the GPU now reaches it.
+Headless (`perf:move --gl --prof`, three alternating pairs): residential cockpit, `world:occlude` 0.94-1.03
+to 0.00 ms, the 200-frame total 4046, 4016, 4678 against 4029, 3967, 4250 ms (about 0.8 ms a frame).
+At Halcyon on that route the lounge and the near gate keep the pass running on 52 of 120 frames, and
+the pairs are inside the noise. In the browser (Modelshop, cockpit, 22h, four pairs at Halcyon and
+two at residential) `world:occlude` falls from 1.2-2.1 to 0.1-0.5 ms, but `world:arms` and `world:gl`
+take some of it back and the frame times are inside the noise (the Browser pane was hidden). So it
+ships at 0: it's correct, and worth turning on only once the lounge and the near landmarks are off
+the canvas, or for a phone where the pass's CPU matters more.
+
+**Follow-up (not started; David, 2026-10-26: leave `occAir` at 0 until then):**
+
+- The hangar's passenger lounge (`downtown.js`, `keptOnCanvas('departure-lounge')`) onto a GL sink,
+  baked at the live camera and pulled in front of its own glass, behind its own switch with shots.
+- The landmarks too near to bake (`markBillboard`'s 1.5-tile limit: the South Gate, road signs,
+  pylons) onto the depth buffer as geometry rather than a card, behind its own switch with shots.
+- Then fly `occAir` 1 against 0 again at Halcyon, where those two keep the pass on 52 of 120 frames.
+- Separately, the near-ring mesa (`drawMesaBB` from `drawWildScatter`) onto the billboard path, so it
+  shows on GL at all.
+
+⚠ **Found on the way: the headless DOM stub's `OffscreenCanvas` passed for WebGL2.** It answers every
+`getContext` with a 2-D stub, so with `glTransfer` on every headless `--gl` bench fell back to the 2-D
+renderer (`canvas.addEventListener is not a function`). `offscreenGL` now requires a real
+`WebGL2RenderingContext` and `transferToImageBitmap`; the nine GL shape gates that drive the real pass
+(bay, footfall, glao, glbevel, glcluster, glfade, hftint, power, snow) pass with it.
+
+## Built 2026-10-26: the GL canvas hands each pass over (`glTransfer`), and why the cabin's copy cost ~1 ms
+
+The cabin goes into the WebGL canvas after the 2-D glass and rain (`GL_INTERIOR_HOOK`, after
+`drawGlass`), and is copied onto the 2-D canvas with one `drawImage`, the fourth GL-to-2-D copy of the
+frame. In the Modelshop (real WebGL2, 1280x720, a Halcyon cab at 13h, `drawImage` timed by caller) it
+costs 0.65-1.1 ms. The sky and world copies cost 0.02-0.07, and the sky strip (`captureSkyStrip`,
+the 2-D canvas into 256x128) 0.1-0.5. The cockpit's (`air`) is 1.02.
+
+**What it isn't**, each tested in the page:
+
+- Not the size of the copy. A 1x1 copy from the same canvas first costs 0.78-0.82 ms, and the
+  full-frame copy after it 0.01. So copying only the cabin's screen bounds would save nothing.
+- Not the 2-D context's state. Transform, filter, shadow, composite mode, alpha and smoothing are the
+  same at all four copies.
+- Not the GPU finishing the cabin. `gl.finish()` just before costs 0.01-0.03 ms, and the copy still
+  costs 0.64-0.74 after it.
+- Not a readback. Nothing calls `getImageData`, `putImageData` or `readPixels` in the frame. The only
+  canvas uploads are the sky strip and the billboard atlas, both in the world pass.
+- Not the cabin's draw. With the pass replaced by a bare clear of the default framebuffer, the copy
+  still costs 1.1. With the canvas left untouched since the world copy, it costs 0.02.
+- Not a second snapshot as such. A standalone 1280x720 WebGL2 canvas (MSAA, depth, alpha), drawn and
+  copied four times in a row with every combination of clear, depth and coverage, costs about 0.2 ms
+  a copy every time.
+
+**What it is.** It's a stall of 0.7-0.9 ms that Chrome takes at a sync point between the 2-D
+canvas and the WebGL canvas. Writing into the WebGL canvas while the 2-D canvas still holds an
+unrasterised draw of it is what puts it at the cabin's copy. Moving the sync point only moves it:
+
+- Reading one pixel of the 2-D canvas into a scratch canvas just before the cabin pass (a 2-D flush)
+  costs 0.05 ms and drops the cabin's copy to 0.01-0.04. But the next sync point picks the cost up.
+  With nothing after it, that's the next frame's sky strip (0.1 to 1.1-1.4 ms). With a 2-D flush
+  after every frame, as the browser's commit is, it's that flush (0.06 to 0.64-0.98).
+- Measured with a flush after every frame, all copies plus that flush come to: normal 1.83, 2.00 and
+  2.02 ms a frame, with 0, 12 and 30 ms idle between frames; with the early flush 1.59, 2.00 and 2.19;
+  with the cabin drawn but never copied 0.92, 1.12 and 1.04. Cockpit, 12 ms idle: 2.20 and 2.11
+  normal, 1.64 and 1.25 without the copy. The idle gap changes nothing, so it isn't the GPU behind.
+
+So the early flush was built (`cabFlush`) and taken out again: it moved the cost and saved nothing.
+Without the cabin's copy the stalls fall by about 0.9 ms a frame. But a single composite would mean
+porting everything the 2-D canvas draws between the world and the cabin to GL (the 2-D faces, the
+weather, the glass and rain, night vision, the glare), so the fix went at the stall instead.
+
+**The fix: the GL canvas hands each pass over (`RENDER_TUNE.glTransfer`, 1; 0 keeps the plain
+canvas).** The GL canvas is an `OffscreenCanvas`, and each pass (sky, world, both cloud passes,
+cabin) returns `transferToImageBitmap()` as `blit`. The bitmap owns that drawing buffer and the next
+pass draws into a fresh one, so no pass ever writes into a buffer the 2-D canvas still holds, and
+there's nothing to keep. `glBlit` in windshield.js draws the bitmap and closes it. Two limits:
+
+- **A fresh buffer has a fresh depth buffer.** The cloud deck goes back for the city's depth, so the
+  world is handed over only when that depth is in the float target (HDR live). With HDR off the world
+  copy is the plain canvas as before.
+- **`glLastFrame().canvas` is blank after a hand-over.** `__glWet`, `__glCluster` and `__glMirror`
+  read it back, so they set the switch to 0 while they run. A browser with `OffscreenCanvas` but no
+  WebGL2 in it keeps the plain canvas (`offscreenGL`, asked once). Node has neither, so headless
+  benches and gates run the old path.
+
+**Measured** (Modelshop, 1280x720, Halcyon, 12 ms idle and a 2-D flush after each frame, three
+interleaved pairs), all GL-to-2-D copies plus the end flush, a frame:
+
+| | `glTransfer` 0 | 1 |
+|---|---|---|
+| cab, 13h | 2.13, 2.20, 2.00 ms | 1.10, 1.19, 1.04 ms |
+| cockpit, 13h (cloudy, clear, clear) | 3.40, 2.90, 3.08 ms | 1.81, 1.78, 1.49 ms |
+| each world or cabin copy | 0.46-0.79 ms | 0.01-0.03 ms |
+
+The saving doesn't reappear at the end-of-frame flush (0.06-0.09 against 0.11-0.21 ms). What's left
+is the sky strip (`captureSkyStrip`, about 0.9-1.6 ms), the same at 0 and 1: that's a 2-D canvas read
+of the 2-D canvas, another stall of the same kind, not touched here. With the default at 1 in a
+fresh page, 89 copies over 30 frames arrive as bitmaps at 0.020 ms each.
+
+**The picture is the same.** Final 2-D frame, 1 against 0, clock, date and random pinned, 16 settle
+frames with the clock held still: cab noon 0.006% of pixels (worst 17), night 0.000% (1), rain
+0.001% (3); cockpit noon 0.006% (33), night 0.002% (5), rain 0.003% (19). The 0-against-0 controls
+are 0.000-0.005% (worst 3-24), and 1 against 1 0.000-0.005% (worst 2-17). In cloud with HDR on and
+off (cockpit cloudy and overcast, cab cloudy) every pair is inside its control too. With a deck built
+over Halcyon (four GL copies a frame) seen from below at 11h, 1 against 0 first read 3.3%; that was
+the switch rebuilding the context and restarting the cloud volume's history. With both sides just
+rebuilt and 48 settle frames it's 0.000% (worst 5). The shots are in `.claude/shots/interior-copy/`
+(not tracked), with `diffs.txt`. `perf:exact glTransfer 0 1` is identical over 60 views (the old
+path, as Node has no `OffscreenCanvas`; it covers the copy sites going through `glBlit`).
+
+⚠ **These are synchronous benches.** They paint 30 frames in one task, which has no real frame
+boundary, so the flush after each frame stands in for the browser's commit. A trace of the live
+`requestAnimationFrame` loop with the pane in view is the honest check, and wasn't possible here (the
+Browser pane was hidden for every run).
 
 ## Fixed 2026-10-25: kept strokes that cross the eye plane (`armNearWire`)
 
@@ -792,7 +1180,17 @@ faces and the mips. It rounds them to whole 8-bit steps, as it already did for t
    the screen still run their drawers. `items.sort` sorts every item although only the occluder pass
    needs an order.
 5. **The kept-arm key holds `night` and `_frameDpr` unquantised**, so every kept building re-keys
-   through dusk and on each step of the resolution dial.
+   through dusk and on each step of the resolution dial. *Measured 2026-10-26, and smaller than it
+   looks.* Every seat takes its hour from the server, which sends whole game minutes (`timeScale` 1
+   to 3), so `night` changes at most once every 20-60 real seconds, and only through dusk and dawn
+   (it's clamped at 0 and 1 otherwise). One change, Halcyon cockpit moving, hour stepped by 0.05 every
+   60 frames against held: paint 22.29 and 20.79 against 19.95 and 18.17 ms (CPU wall), probes 3.1
+   against 1.3 a frame. So each change costs about 150 ms spread over the next second, which is about
+   0.1-0.4 ms a frame averaged over dusk. Rounding `night` in the key isn't exact on its own (the arms
+   read it continuously, so a kept set would replay a glow from another band); exact means the arms
+   draw with the rounded value too, which steps the dusk light. A one-recording re-key for a
+   night-only change is exact only if no arm adds a camera-facing part at night. Left as it is.
+   `_frameDpr` re-keys only when the resolution dial steps, which needs the live game to count.
 6. **Smaller:** the cloud composite runs bloom a second time (GPU, and dropping it changes bright
    cloud edges); up to four GL-to-2-D canvas copies a frame; other vehicles transformed on the CPU;
    the adaptive dials read the frame interval and can't tell CPU from GPU.
