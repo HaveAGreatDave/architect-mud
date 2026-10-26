@@ -34872,7 +34872,9 @@ export const vsOf = (cls) => (AIR_CLS.has(cls) ? 1 : CONTACT_VS);
 // span, a shorter, lower airframe under it. See FRAME_SIZE for the two readers that wanted 0.385.
 // wreck 0.35 → 0.152 (2026-10-26): the Carcass is a Fly Baby now, its 8.38 m span on 3.07 units of
 // mesh. It was a stub wing 1.9 units across, drawn 12 m wide on a body 13 m long.
-const CONTACT_SIZE = { ultralight: 0.259, heli: 0.154, prop: 0.317, heavy: 0.717, gunship: 0.427, wreck: 0.152, grasshopper: 0.245, locust: 0.328, divebomber: 0.308, drake: 0.313,
+// gunship 0.427 → 0.334 (2026-10-26): the Reaper's wing went out to the A-10's own proportion, 1.726
+// → 2.206 units, so the same 13.2 m span is spread over more mesh.
+const CONTACT_SIZE = { ultralight: 0.259, heli: 0.154, prop: 0.317, heavy: 0.717, gunship: 0.334, wreck: 0.152, grasshopper: 0.245, locust: 0.328, divebomber: 0.308, drake: 0.313,
   // A road vehicle among aircraft: physically small next to anything with wings, which is why a
   // rig read from the air is a detail on the road rather than a second aeroplane. (THE LONG HAUL.)
   truck: 0.030,
@@ -37804,9 +37806,9 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       // [0.02, ±g, 0.0], which put all four plumes in the air under the nacelles.
       const jets = c.cls === 'heavy'
         ? [[-0.129, -0.60, 0.100], [0.026, -0.34, 0.117], [0.026, 0.34, 0.117], [-0.129, 0.60, 0.100]]
-        : [[-0.60, -0.30, 0.16], [-0.60, 0.30, 0.16]];
-      // A turbofan shows no flame: hers is a faint heat haze. The A-10's orange is its own pass.
-      const haze = c.cls === 'heavy';
+        : [[-0.62, -0.205, 0.14], [-0.62, 0.205, 0.14]];   // the Reaper's: mesh_gunship.json, 'exhaust plug'
+      // A turbofan shows no flame, and both of these are turbofans: a faint heat haze.
+      const haze = true;
       for (const st of jets) {
         const q = P(st); if (q.f <= 0.08) continue;
         // Occlusion cull (canvas has no depth buffer): an engine sitting BEHIND the fuselage

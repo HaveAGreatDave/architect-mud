@@ -29,7 +29,9 @@ export default async function reaper() {
     paint: 'hull',
     regions: [{ at: S.map((s) => s.f), k: [13, 14, 15, 16, 17, 18, 19, 20, 21, 22], paint: 'belly' }],
     capFore: { kind: 'apex', at: [0.985, 0, -0.028] },
-    capAft: { kind: 'apex', at: [-1.03, 0, 0.064] },
+    // ⚠ THE TAIL CONE IS THE AIRFRAME'S AFT END, at -1.08: the cockpit gate takes the scale from nose to tail
+    // (16.26 m over 2.08 units), and the old fins, which reached -1.08, were what held it there.
+    capAft: { kind: 'apex', at: [-1.08, 0, 0.064] },
   });
 
   // The bubble: a separate glass loft sat on the crown, windscreen to fairing.
@@ -45,12 +47,18 @@ export default async function reaper() {
     tube('muzzle ring', [[0.985, 0, -0.06], [0.995, 0, -0.06]], 0.02, { role: 'gun', paint: 'gun', sides: 10 }),
   ]);
 
-  // Wing: low, thick, straight, with drooped Hoerner tips.
+  // ── THE PROPORTIONS ARE THE 3-VIEW'S, measured in its own pixels against this 2.03-unit fuselage
+  // (commons.wikimedia.org, Fairchild_Republic_A-10_Thunderbolt_II_3-view.svg): half-span 1.10, root
+  // chord 0.375, nacelles on ±0.205 at radius 0.072, fins 0.36 tall on ±0.355. Until 2026-10-26 the
+  // wing was 0.86 out with a 0.53 chord (aspect ratio 3.7 against the real 6.5), the nacelles stood
+  // out at ±0.265 on long pylons, and the fins were 0.44 tall.
+  // Wing: low, thick and straight; a flat centre section to the gear pods, the outer panels up at 7°,
+  // and drooped Hoerner tips.
   const W = [
-    { g: 0, le: 0.23, te: -0.3, h: -0.034, t: 1.3 },
-    { g: 0.3, le: 0.215, te: -0.29, h: -0.034, t: 1.2 },
-    { g: 0.8, le: 0.17, te: -0.25, h: -0.004, t: 0.95 },
-    { g: 0.86, le: 0.15, te: -0.23, h: -0.022, t: 0.6 },
+    { g: 0, le: 0.142, te: -0.233, h: -0.034, t: 1.3 },
+    { g: 0.34, le: 0.14, te: -0.23, h: -0.034, t: 1.2 },
+    { g: 1.04, le: 0.09, te: -0.2, h: 0.052, t: 0.9 },
+    { g: 1.1, le: 0.075, te: -0.19, h: 0.036, t: 0.55 },
   ];
   const wing = foil('wing', W, { nx: 11, paint: 'hull', lowerSh: 0.55, bands: [{ x0: 0, x1: 0.05, paint: 'trim' }] });
   const flaps = ctrlOn('flap', W[0], W[1], 0.28, 1, 0.24);
@@ -60,25 +68,28 @@ export default async function reaper() {
 
   // Main gear pods on the leading edge, the wheels standing half out of them even when up.
   const gearPods = mirror('gear pods', [
-    pod('gear pod', 0.26, -0.085, [[0.46, 0.01], [0.42, 0.034], [0.34, 0.046], [0.16, 0.046], [0.0, 0.034], [-0.08, 0.01]], { paint: 'hull', sides: 12 }),
-    faired('main leg', [[0.34, 0.26, -0.1], [0.33, 0.26, -0.2]], 0.04, 0.012, { role: 'gear' }),
-    wheel('main wheel', [0.33, 0.26, -0.238], 0.041, 0.018, 12),
+    pod('gear pod', 0.34, -0.085, [[0.34, 0.01], [0.31, 0.034], [0.25, 0.046], [0.08, 0.046], [-0.06, 0.034], [-0.14, 0.01]], { paint: 'hull', sides: 12 }),
+    faired('main leg', [[0.25, 0.34, -0.1], [0.24, 0.34, -0.2]], 0.04, 0.012, { role: 'gear' }),
+    wheel('main wheel', [0.24, 0.34, -0.238], 0.041, 0.018, 12),
   ]);
   const noseGear = group('nose gear', [
     strut('nose leg', 0.72, 0.03, -0.11, -0.22, 0.01),
     wheel('nose wheel', [0.72, 0.03, -0.24], 0.039, 0.014, 12),
   ]);
 
-  // Two TF34s in pods high on the rear fuselage, on stub pylons.
-  const eG = 0.265, eH = 0.152, eR = 0.058;
+  // Two TF34s in big pods hugging the upper rear fuselage, each on a short thick pylon.
+  const eG = 0.205, eH = 0.14, eR = 0.072, eF = -0.19, eA = -0.62;
+  const pyF = -0.3, pyA = -0.52, pyIn = 0.06, pyOut = eG - eR * 0.75;
   const engines = mirror('engines', [
-    pod('engine pod', eG, eH, [[-0.2, eR * 0.9], [-0.215, eR], [-0.26, eR * 1.06], [-0.44, eR * 1.02], [-0.56, eR * 0.84], [-0.63, eR * 0.64]], { paint: 'hull', sides: 16 }),
-    cone('fan face', -0.212, eG, eH, eR * 0.86, [-0.226, eG, eH], { paint: 'fan', n: 14, shade: { base: 0.34, amp: 0.1 } }),
-    cone('fan spinner', -0.22, eG, eH, eR * 0.26, [-0.196, eG, eH], { paint: 'metal', n: 8 }),
-    cone('exhaust plug', -0.63, eG, eH, eR * 0.4, [-0.68, eG, eH], { paint: 'exhaust', n: 10 }),
+    pod('engine pod', eG, eH, [[eF, eR * 0.9], [eF - 0.015, eR], [eF - 0.06, eR * 1.04], [eF - 0.25, eR], [eA + 0.07, eR * 0.84], [eA, eR * 0.66]], { paint: 'hull', sides: 16 }),
+    cone('fan face', eF - 0.012, eG, eH, eR * 0.86, [eF - 0.026, eG, eH], { paint: 'fan', n: 14, shade: { base: 0.34, amp: 0.1 } }),
+    cone('fan spinner', eF - 0.02, eG, eH, eR * 0.26, [eF + 0.004, eG, eH], { paint: 'metal', n: 8 }),
+    cone('exhaust plug', eA, eG, eH, eR * 0.42, [eA - 0.05, eG, eH], { paint: 'exhaust', n: 10 }),
+    // Explicit shades: a mirror keeps the vertex order, so a derived shade would come out upside down on the port side.
     poly('engine pylon', [
-      { role: 'nacelle', paint: 'hull', sh: 0.82, p: [[-0.3, 0.06, 0.085], [-0.3, eG - eR * 0.8, eH - 0.01], [-0.52, eG - eR * 0.8, eH - 0.01], [-0.52, 0.055, 0.1]] },
-      { role: 'nacelle', paint: 'hull', sh: 0.55, p: [[-0.52, 0.055, 0.085], [-0.52, eG - eR * 0.8, eH - 0.03], [-0.3, eG - eR * 0.8, eH - 0.03], [-0.3, 0.06, 0.07]] },
+      { role: 'nacelle', paint: 'hull', sh: 0.82, p: [[pyF, pyIn, 0.105], [pyF, pyOut, eH - 0.01], [pyA, pyOut, eH - 0.01], [pyA, pyIn, 0.095]] },
+      { role: 'nacelle', paint: 'hull', sh: 0.55, p: [[pyA, pyIn, 0.07], [pyA, pyOut, eH - 0.045], [pyF, pyOut, eH - 0.045], [pyF, pyIn, 0.08]] },
+      { role: 'nacelle', paint: 'hull', sh: 0.7, p: [[pyF, pyIn, 0.08], [pyF, pyOut, eH - 0.045], [pyF, pyOut, eH - 0.01], [pyF, pyIn, 0.105]] },
     ]),
   ]);
 
@@ -89,9 +100,10 @@ export default async function reaper() {
   ];
   const tailplane = foil('tailplane', T, { role: 'stab', paint: 'hull', nx: 8 });
   const elevators = ctrlOn('elevator', T[0], T[1], 0.04, 0.9, 0.34);
+  // The fins reach a little below the tailplane, as the real ones do.
   const F = [
-    { g: -0.02, le: -0.8, te: -1.0, h: 0.345, t: 0.95 },
-    { g: 0.42, le: -0.94, te: -1.08, h: 0.345, t: 0.8 },
+    { g: -0.036, le: -0.765, te: -1.015, h: 0.355, t: 0.95 },
+    { g: 0.327, le: -0.8, te: -0.99, h: 0.355, t: 0.8 },
   ];
   const fins = mirror('fins', [foil('fin', F, { axis: 'g', role: 'fin', paint: 'hull', nx: 8 }), ctrlOn('rudder', F[0], F[1], 0.12, 0.95, 0.34, { axis: 'g', sh: 0.72 })]);
 
@@ -102,24 +114,24 @@ export default async function reaper() {
   ], { minDetail: 1 }); };
   const zAt = (g) => foilPt(onWing(g), 0.4, 0)[2];
   const stores = mirror('stores', [
-    pylon(0.68, 0.1, -0.06, 0.03),
-    { kind: 'missile', name: 'Maverick', f: [-0.08, 0.1], g: 0.68, z: R(zAt(0.68) - 0.05), minDetail: 1 },
-    pylon(0.52, 0.12, -0.08, 0.03),
-    pod('bomb', 0.52, zAt(0.52) - 0.06, [[0.16, 0.006], [0.13, 0.026], [0.04, 0.03], [-0.06, 0.026], [-0.11, 0.012]], { paint: 'store', sides: 10 }),
-    tube('bomb fins', [[-0.1, 0.52, zAt(0.52) - 0.1], [-0.1, 0.52, zAt(0.52) - 0.02]], 0.003, { role: 'gun', paint: 'store', minDetail: 1 }),
-    pylon(0.4, 0.12, -0.06, 0.028),
-    pod('ECM pod', 0.4, zAt(0.4) - 0.055, [[0.13, 0.006], [0.1, 0.02], [-0.06, 0.02], [-0.09, 0.008]], { paint: 'glare', sides: 8 }),
+    pylon(0.86, 0.05, -0.11, 0.03),
+    { kind: 'missile', name: 'Maverick', f: [-0.13, 0.05], g: 0.86, z: R(zAt(0.86) - 0.05), minDetail: 1 },
+    pylon(0.66, 0.06, -0.14, 0.03),
+    pod('bomb', 0.66, zAt(0.66) - 0.06, [[0.1, 0.006], [0.07, 0.026], [-0.02, 0.03], [-0.12, 0.026], [-0.17, 0.012]], { paint: 'store', sides: 10 }),
+    tube('bomb fins', [[-0.16, 0.66, zAt(0.66) - 0.1], [-0.16, 0.66, zAt(0.66) - 0.02]], 0.003, { role: 'gun', paint: 'store', minDetail: 1 }),
+    pylon(0.5, 0.06, -0.12, 0.028),
+    pod('ECM pod', 0.5, zAt(0.5) - 0.055, [[0.07, 0.006], [0.04, 0.02], [-0.12, 0.02], [-0.15, 0.008]], { paint: 'glare', sides: 8 }),
   ]);
 
   const tip = foilPt(W[3], 0.5, 1);
   const bits = [
     poly('anti-glare', antiGlare),
     tube('refuelling door', [[0.84, 0, 0.083], [0.8, 0, 0.087]], 0.01, { role: 'body', paint: 'glare', minDetail: 1 }),
-    tube('pitot', [[0.3, 0.8, 0.0], [0.36, 0.8, 0.0]], 0.003, { role: 'strut', paint: 'metal', minDetail: 1 }),
+    tube('pitot', [[0.2, 1.0, 0.04], [0.26, 1.0, 0.04]], 0.003, { role: 'strut', paint: 'metal', minDetail: 1 }),
     tube('UHF blade', [[-0.1, 0, 0.126], [-0.14, 0, 0.16]], 0.006, { role: 'strut', paint: 'glare', minDetail: 1 }),
     poly('beacon', [{ role: 'window', tint: [220, 40, 34], sh: 1, p: [[-0.4, -0.01, -0.052], [-0.43, -0.01, -0.052], [-0.43, 0.01, -0.052], [-0.4, 0.01, -0.052]] }]),
-    poly('starboard tip lamp', [{ role: 'window', sh: 1, tint: [46, 190, 78], p: [[tip[0] + 0.04, 0.863, tip[2] - 0.012], [tip[0] - 0.04, 0.863, tip[2] - 0.012], [tip[0] - 0.04, 0.863, tip[2] + 0.004], [tip[0] + 0.04, 0.863, tip[2] + 0.004]] }]),
-    poly('port tip lamp', [{ role: 'window', sh: 1, tint: [200, 52, 48], p: [[tip[0] + 0.04, -0.863, tip[2] + 0.004], [tip[0] - 0.04, -0.863, tip[2] + 0.004], [tip[0] - 0.04, -0.863, tip[2] - 0.012], [tip[0] + 0.04, -0.863, tip[2] - 0.012]] }]),
+    poly('starboard tip lamp', [{ role: 'window', sh: 1, tint: [46, 190, 78], p: [[tip[0] + 0.04, 1.103, tip[2] - 0.012], [tip[0] - 0.04, 1.103, tip[2] - 0.012], [tip[0] - 0.04, 1.103, tip[2] + 0.004], [tip[0] + 0.04, 1.103, tip[2] + 0.004]] }]),
+    poly('port tip lamp', [{ role: 'window', sh: 1, tint: [200, 52, 48], p: [[tip[0] + 0.04, -1.103, tip[2] + 0.004], [tip[0] - 0.04, -1.103, tip[2] + 0.004], [tip[0] - 0.04, -1.103, tip[2] - 0.012], [tip[0] + 0.04, -1.103, tip[2] - 0.012]] }]),
   ];
 
   const parts = [fus, canopy, hump, gun, wing, flaps, flapsOut, ailerons, gearPods, noseGear, engines, tailplane, elevators, fins, stores, ...bits];
@@ -130,17 +142,19 @@ export default async function reaper() {
       note: 'An A-10 Thunderbolt II: a slab-sided fuselage built round the seven-barrel gun that pokes out under the nose (the nose leg is offset right to make room for it), a bubble canopy, a thick straight low wing with drooped tips and wheels that stand half out of their pods, two TF34 pods high on the rear fuselage, twin fins on the ends of the tailplane, and stores on pylons.',
       groundPitch: 0,
       hull: 'fuselage',
-      navLamps: P3([tip[0], 0.86, tip[2]]),
+      navLamps: P3([tip[0], 1.1, tip[2]]),
+      // The paint and the finish as the materials pass left them in the file (2026-10).
+      finish: 'matte',
       paints: {
-        hull: { rgb: [118, 124, 130], livery: 'base' },
-        trim: { rgb: [88, 94, 100], livery: 'trim' },
-        belly: { rgb: [132, 138, 144], livery: 'base' },
-        glare: { rgb: [36, 38, 40], livery: 'fixed' },
-        gun: { rgb: [44, 44, 46], livery: 'fixed' },
-        frame: { rgb: [70, 74, 78], livery: 'trim' },
-        fan: { rgb: [40, 42, 46], livery: 'fixed' },
-        metal: { rgb: [150, 154, 160], livery: 'fixed' },
-        exhaust: { rgb: [70, 64, 60], livery: 'fixed' },
+        hull: { rgb: [70, 82, 60], livery: 'base' },
+        trim: { rgb: [92, 102, 80], livery: 'trim' },
+        belly: { rgb: [138, 146, 150], livery: 'base' },
+        glare: { rgb: [36, 38, 40], livery: 'fixed', mat: 'matte' },
+        gun: { rgb: [44, 44, 46], livery: 'fixed', mat: 'blued' },
+        frame: { rgb: [58, 62, 64], livery: 'trim' },
+        fan: { rgb: [40, 42, 46], livery: 'fixed', mat: 'steel' },
+        metal: { rgb: [150, 154, 160], livery: 'fixed', mat: 'bare' },
+        exhaust: { rgb: [70, 64, 60], livery: 'fixed', mat: 'exhaust' },
         store: { rgb: [74, 84, 64], livery: 'fixed' },
       },
       parts,
