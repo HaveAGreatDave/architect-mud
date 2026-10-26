@@ -196,7 +196,8 @@ const TURN_IN_MARGIN = 1.15;   // a slip road's arc, as a multiple of the fold r
 // calls `milesOf` to word a sign, threw ReferenceError the first time a road was built WITH a
 // plan. Every test that passed no plan built no signs and never touched it.
 export { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
-import { wildlandsAt } from '../../client/shared/wildlands.js';
+import { wildlandsAt, highGroundAt, reliefGrid } from '../../client/shared/wildlands.js';
+import { routeOnGrid, cumLengths, polyLength, pointAtLength, progressOn } from '../../client/shared/relief-route.js';
 import { halfWidthAt, typeAt, segmentAt } from '../../client/shared/highways.js';
 const typeNameAt = (route, s) => segmentAt(route, s)?.type || 'branch';
 import { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
@@ -446,65 +447,34 @@ export function trailPos(trail, d) {
 }
 // ── THE COUNTRY THE ROAD CROSSES ─────────────────────────────────────────────
 //
-// Until this existed the road's bends were a coin flip. They looked like a road and they meant
-// nothing: there was no reason for the tarmac to go left here rather than right, and so no reason
-// for a walker to be able to cut the corner. The gap gets a seeded set of LANDFORMS — mesas, the
-// cliff-ringed kind the hand-painted world already uses — and the road prefers to go round them.
+// An anchored road follows a line found across the carved relief before it is built
+// (client/shared/relief-route.js; docs/proposals/wildlands-relief.md): down the valley floors,
+// clear of the raised ground the corridor turns into massifs (`highGroundAt`, in corridorAt). The
+// builder still lays arcs and straights under every invariant it always had; what changes is what
+// it aims at. It used to steer round a seeded scatter of discs nobody could see while the massifs
+// beside it came from a different field, so a road swerved round empty desert and then ran through
+// a mesa with a slot cut in it.
 //
-// ⚠ THE FIELD IS THE COUNTRY, NOT THE ROAD'S PRIVATE DATA. It is a pure function of (seed, window)
-// and the straight line between the two gates, so anything else crossing the same gap can ask the
-// same question and get the same answer. That is the whole point: the road bends because there is a
-// mesa there, and the walking trail's shortcut IS that mesa. One fact, two readings.
+// ⚠ THE PATH IS THE COUNTRY'S, NOT THE WEEK'S. It depends on the two gates alone, so every week's
+// road runs down the same valley and only its wander inside the valley re-rolls.
 //
 // ⚠ AND IT ONLY EXISTS ON AN ANCHORED ROAD. An unanchored corridor is the legacy local frame with no
-// real coordinates under it, and every pinned regress case is built on one — so the field is empty
-// there and the turn falls back to the coin flip it always was, character for character.
-const LANDFORM_EVERY = 90;     // roughly one mesa per this much gap
-const LANDFORM_R = [30, 70];   // how big one is, in tiles
-const LANDFORM_SPREAD = 22;    // how far off the straight line they sit
-const LOOKAHEAD = 130;         // how far down the road the builder can see one coming
-const AVOID_MARGIN = 14;       // clearance it tries to keep off the edge
-const AVOID_NEAR = 85;         // …and how close one has to be to cut a straight short and start turning
-
-export function landformsFor(seedKey, window, anch) {
-  if (!anch) return [];
-  const dx = anch.x1 - anch.x0, dy = anch.y1 - anch.y0;
-  const L = Math.hypot(dx, dy);
-  if (!(L > LANDFORM_EVERY / 2)) return [];
-  const ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
-  const rng = mulberry32(hashSeed(`${seedKey}|${window}|landform`));
-  const n = Math.max(1, Math.round(L / LANDFORM_EVERY));
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    // Spaced along the gap with a seeded wobble, so they are neither a grid nor a clump.
-    const along = Math.max(0, Math.min(L, ((i + 0.5) / n + (rng() - 0.5) * 0.35) * L));
-    const across = (rng() * 2 - 1) * LANDFORM_SPREAD;
-    const r = LANDFORM_R[0] + rng() * (LANDFORM_R[1] - LANDFORM_R[0]);
-    out.push({ x: anch.x0 + ux * along + nx * across, y: anch.y0 + uy * along + ny * across, r, along });
-  }
+// real coordinates under it, and every pinned regress case is built on one, so it has no path and
+// builds exactly as it always did.
+const PATH_LOOK = 0.8;    // the aim point runs this many minimum radii ahead along the path
+const PATH_TOL = 4;         // degrees off the aim point before the road starts a bend for it
+const PATH_SLACK = 1.25;  // the length cap is at least this many times the path's own length
+const paths = new Map();
+export function reliefPathFor(anch) {
+  if (!anch) return null;
+  const k = `${anch.x0},${anch.y0},${anch.x1},${anch.y1}`;
+  if (paths.has(k)) return paths.get(k);
+  const G = reliefGrid();
+  const pts = G ? routeOnGrid(G, [anch.x0, anch.y0], [anch.x1, anch.y1], G.roads) : null;
+  const out = pts ? { pts, cum: cumLengths(pts), L: polyLength(pts), stepped: !!pts.stepped, squeezed: !!pts.squeezed } : null;
+  if (paths.size > 256) paths.clear();
+  paths.set(k, out);
   return out;
-}
-
-// Which way to turn to stay off the country ahead. −1 left, +1 right, 0 for "nothing in the way,
-// use the seed". Only the nearest thing actually in the path gets a vote: a road that tried to
-// average every mesa in the gap would wander in the middle of open ground.
-export function avoidTurn(field, x, y, hdg, reach = LOOKAHEAD) {
-  if (!field.length) return 0;
-  const th = hdg * D2R, ux = Math.sin(th), uy = -Math.cos(th);
-  const nx = -uy, ny = ux;
-  let best = null;
-  for (const m of field) {
-    const dx = m.x - x, dy = m.y - y;
-    const ahead = dx * ux + dy * uy;
-    if (ahead <= 0 || ahead > reach) continue;          // behind us, or too far to be steering for yet
-    const lat = dx * nx + dy * ny;                      // + is to the RIGHT of travel
-    if (Math.abs(lat) > m.r + AVOID_MARGIN) continue;   // we already clear it
-    if (!best || ahead < best.ahead) best = { ahead, lat };
-  }
-  if (!best) return 0;
-  // Away from the side it sits on. Dead ahead resolves right rather than by another coin flip: two
-  // roads meeting the same rock must agree, or the trunk two limbs share stops being one road.
-  return best.lat >= 0 ? -1 : 1;
 }
 
 export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, plan = null, anchor = null, seedKey = null) {
@@ -517,7 +487,10 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
   // Anchored, the true length is not known until the road has been built, so `L` is a CAP while
   // building and the real arc length is written back onto the route at the end.
   const straight = anch ? Math.hypot(anch.x1 - anch.x0, anch.y1 - anch.y0) : 0;
-  const L = anch ? straight * MAX_SINUOSITY : n * TILES_PER_ROOM;
+  // The valley this road follows, and the cap: a path that has to go round something is allowed
+  // to be as long as the way round, or the cap would cut it off and land it through the rock.
+  const path = reliefPathFor(anch);
+  const L = anch ? Math.max(straight * MAX_SINUOSITY, path ? path.L * PATH_SLACK : 0) : n * TILES_PER_ROOM;
   // ── THE BENDS HAVE TO SCALE WITH THE ROAD ────────────────────────────────────
   // ARC_MIN, STRAIGHT_MIN and MIN_RADIUS are absolute tile counts chosen for a 720-tile haul, where
   // a 60-tile arc is a sweeper you barely notice. Anchored to the real gap, Coldwater→Reach is 95
@@ -546,9 +519,7 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
   // character.
   const trunkRng = mulberry32(hashSeed(seedKey ? `${seedKey}|${window}|trunk` : `${voidKey}|${window}|trunk`));
   const limbRng = mulberry32(hashSeed(seedKey ? `${seedKey}|${window}|corridor` : `${voidKey}|${destKey}|${window}|corridor`));
-  // The country this road has to get across. Empty when unanchored, which is what keeps every
-  // legacy-frame route identical.
-  const field = landformsFor(seedKey || `${voidKey}|${destKey}`, window, anch);
+  let prog = 0, pathArc = false;   // how far along the path the road has got, and whether this arc is one it chose
   const legs = [];
   const bends = [];           // the s each ARC begins at — where the road changes direction (see signsFor)
   let s = 0, x = anch ? anch.x0 : 0, y = anch ? anch.y0 : 0;
@@ -586,7 +557,16 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
     // The direction the leash is measured against. Unanchored that is due south for ever, which is
     // what made the old road need a fixed length. Anchored it is the bearing to the target FROM
     // WHERE WE NOW ARE, so every segment re-aims and the same leash becomes the homing.
-    const nominal = anch ? bearingDegOf(anch.x1 - x, anch.y1 - y) : 180;
+    let nominal = anch ? bearingDegOf(anch.x1 - x, anch.y1 - y) : 180;
+    // FOLLOWING THE VALLEY: off the shared trunk and out of any turn-in, the bearing that matters is
+    // the one to a point some way ahead along the path, not to the gate. Everything below (the
+    // leash, the clamp, the bends) is measured against it unchanged.
+    const following = !!path && !onTrunk && !turning;
+    if (following) {
+      prog = progressOn(path.pts, path.cum, x, y, prog);
+      const [lx, ly] = pointAtLength(path.pts, path.cum, prog + minRadius * PATH_LOOK);
+      if (Math.hypot(lx - x, ly - y) > 1) nominal = bearingDegOf(lx - x, ly - y);
+    }
     // THE FORK IS A BEND YOU CAN SEE FROM THE CAB. Every destination out of a void shares its first
     // `trunk` rooms, so the tarmac over them must be identical whichever way you are eventually
     // going — which means the trunk is seeded WITHOUT destKey and the limb WITH it, and no piece of
@@ -601,7 +581,7 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
     if (turning) {
       // Faced round: hold the line from here. A wander bend now would leave the final leg into the
       // entrance at whatever angle the bend had reached, which is how a 47° seam got in.
-      if (Math.abs(off) <= 2) { turning = false; turnedIn = true; kappa = 0; hold = 1e9; hdg = nominal; }
+      if (Math.abs(off) <= 2) { turning = false; turnedIn = true; kappa = 0; hold = path ? SEG : 1e9; hdg = nominal; }
       // The turn-in runs nearer the real limit than a wandering bend: the fold happens at OFFROAD_R
       // (the verge band), and minRadius carries a 1.8x margin meant for bends nobody chose.
       else { kappa = -Math.sign(off) * (1 / (OFFROAD_R * TURN_IN_MARGIN)) * R2D; hold = SEG; }
@@ -640,40 +620,35 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
     // round one; the other half is not straightening out again halfway past it because the arc ran to
     // its scheduled length. Extending `hold` while the same obstruction is still ahead and the road is
     // already turning away from it is what makes the detour a detour rather than a swerve.
-    const blk = (turning || turnedIn) ? 0 : avoidTurn(field, x, y, hdg, AVOID_NEAR);
+    // The path bends: start turning now, keep turning while it still bends that way, and stop the
+    // moment the road is back on its aim (or has turned past it) rather than at the arc's
+    // scheduled length. −1 is left, +1 right.
+    const blk = following ? (Math.abs(off) > PATH_TOL ? -Math.sign(off) : 0) : 0;
     if (kappa === 0 && hold > 0 && blk) hold = 0;
     if (kappa !== 0 && blk && Math.sign(kappa) === blk) hold = Math.max(hold, SEG);
+    if (kappa !== 0 && pathArc && Math.sign(kappa) !== blk) hold = 0;
     if (hold <= 0) {
       // Straights and bends strictly alternate. Two arcs back to back is a chicane, and nobody
       // builds one of those across a waste.
-      if (kappa === 0) {
+      if (kappa === 0 && following && !blk) {
+        // On a path with nothing to turn for, the straight simply runs on: a bend nobody needed
+        // would swing the road off the valley floor toward the rock either side.
+        hold = SEG * 2;
+      } else if (kappa === 0) {
         hold = arcMin + Math.floor(rng() * arcVar);
-        // Curvature is capped at the minimum-radius invariant and then softened at random, so most
-        // bends are gentler than the tightest one the road is allowed to hold.
-        const tightness = 0.35 + rng() * 0.65;
-        // ⚠ THE COUNTRY GETS THE VOTE THE COIN USED TO. Where the leash is not already forcing the
-        // turn, the road bends AWAY from whatever is in front of it — which is what makes a bend
-        // mean something and gives a walker a corner worth cutting. The leash still wins outright,
-        // so a mesa can bias where the road goes and can never drag it off the target or stop it
-        // converging; and with no field (an unanchored road) this is the coin flip it always was.
-        // ⚠ THE ROCK OUTRANKS THE HOMING BIAS, AND THE HARD CLAMP IS UNTOUCHED. This used to read
-        // `off > HOME_BIAS ? -sign(off) : (avoid || coin)` — so past 24° off course the leash forced a
-        // turn back toward the gate even with a mesa directly in the way, and the road leaned away
-        // from the country and immediately straightened out again. It never went ROUND anything, which
-        // is why there was no corner worth a walker cutting.
-        //
-        // The `HOME_MAX` clamp below is the thing that actually guarantees arrival and it is not
-        // touched: the road still cannot exceed 46° off the bearing to its own gate, ever. What
-        // changes is that inside that budget the country decides, not a coin and not the bias.
-        // Measured: road sinuosity 1.05 → 1.17, and the walk goes from a few per cent longer than the
-        // drive to 5–10% shorter.
-        const avoid = avoidTurn(field, x, y, hdg);
-        const dir = avoid || (Math.abs(off) > HOME_BIAS ? -Math.sign(off) : (rng() < 0.5 ? -1 : 1));
+        // Curvature is capped at the minimum-radius invariant and then softened. Off a path that is
+        // at random, so most bends are gentler than the tightest the road may hold; on one it is as
+        // tight as the path's bend asks for.
+        const tightness = following ? Math.min(1, Math.max(0.35, Math.abs(off) / 40)) : 0.35 + rng() * 0.65;
+        // On a path the bend goes the way the path does. Off one, the leash decides past HOME_BIAS
+        // and a coin decides inside it; the HOME_MAX clamp below is what guarantees arrival either way.
+        const dir = following ? blk : (Math.abs(off) > HOME_BIAS ? -Math.sign(off) : (rng() < 0.5 ? -1 : 1));
         kappa = dir * (1 / minRadius) * R2D * tightness;
+        pathArc = following;
         bends.push({ s, fork: false });
       } else {
         hold = straightMin + Math.floor(rng() * straightVar);
-        kappa = 0;
+        kappa = 0; pathArc = false;
       }
     }
     // Never let a segment straddle the junction: the trunk's last segment ends exactly on trunkL.
@@ -1439,7 +1414,7 @@ export function corridorAt(route, x, y) {
   // ⚠ The odometer fields stay. A cliff tile is still corridor ground and still knows how far
   // along the road it is — stripping them here would be the sibling-branch bug pointed inward.
   if (at >= HIGH_OFF) {
-    const ht = highTerrainAt(x, y);
+    const ht = route.anchored ? highGroundAt(x, y) : highTerrainAt(x, y);
     if (ht) {
       flags.terrain = ht;
       return { id, name: ht === 'plateau' ? 'High Ground' : 'A Broken Rim', danger, flags };

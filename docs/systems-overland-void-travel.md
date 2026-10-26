@@ -121,28 +121,33 @@ become a place by accident, and every argument above is describing something els
 
 ### The four decisions *(settled 2026-08-21)*
 
-**1. The road bends around the landform field. BUILT 2026-08-21.** The gap carries a seeded field of
-landforms (`landformsFor` in [corridor.js](../plugins/trucking/corridor.js)) — mesas, the cliff-ringed
-kind the hand-painted world already uses — as a pure function of the seed, the window and the straight
-line between the two gates. **It is the COUNTRY, not the road's private data**: anything else crossing
-the same gap asks the same question and gets the same answer, which is the whole point. The road bends
-because there is a mesa there, and the walker's shortcut is that same mesa.
+**1. The road follows the valleys of the carved relief. BUILT 2026-10-26** (phase 4 of
+[wildlands-relief.md](proposals/wildlands-relief.md); it replaced the disc field of 2026-08-21). An
+anchored road is routed before it is built: A* across the relief's cells from gate to gate
+(`reliefPathFor` in [corridor.js](../plugins/trucking/corridor.js), over
+[relief-route.js](../client/shared/relief-route.js)), along the valley floor and clear of raised ground.
+The builder then aims at a point 0.8 minimum radii ahead on that path instead of at the far gate, and
+starts a bend where the path bends. The corridor raises its massifs from the same relief
+(`highGroundAt`), so the rock the road goes round is the rock you see.
 
-⚠ **THE CHANGE IS ONE LINE, AND THAT IS DELIBERATE.** The builder already chose a turn direction; it
-chose it with a coin flip. `avoidTurn` replaces the flip and nothing else — arc length, tightness, the
-minimum-radius floor, the leash and the termination rule are all untouched, which is what keeps the
-fold invariant and the convergence proof intact. The leash still wins outright wherever it is engaged,
-so a mesa can bias where the road goes and can never drag it off the target or stop it arriving.
+The old field was a scatter of seeded discs the road steered round (`landformsFor`, `avoidTurn`) while
+the massifs beside it came from a different noise (`highTerrainAt`). So a road could swerve round empty
+desert and then run through a mesa with a slot cut in it by `HIGH_OFF`. Both are gone on anchored
+roads.
 
-⚠ **AND IT IS A PREFERENCE, NOT A PROHIBITION.** Measured over six windows on the 282-tile
-Coldwater→Terminus gap, the road spends about **40% less of itself inside a landform than the straight
-line between the same two gates does** (26.9% vs 40.5% on one window, 35.7% vs 69.5% on another). A
-road that NEVER crossed high ground would be a maze rather than a highway; regress asserts the
-proportion, not an absolute, and asserts it holds in most weeks rather than on average by luck.
-
-⚠ **THE LEGACY FRAME IS UNTOUCHED.** An unanchored corridor has no real coordinates for a landform to
-sit at, so the field is empty there and the turn is the coin flip it always was — which is what keeps
-every pinned route in the suite identical, character for character.
+- **The arcs, the radius floor, the leash and the termination rule are unchanged.** What moved is
+  what the road aims at. Regress still measures the seam and the radius on every road.
+- **Every pair a highway joins has a pass carved for it** in the bake: a meandering band of lowered
+  uplift between the two regions. Without it the Reach sat in a bowl of raised ground and every road
+  out of it had to climb a cliff band.
+- **The path depends on the gates alone**, so every week's road runs down the same valley.
+- **Measured on the network of 2026-10-26: no road in any week cuts a notch in a massif** (no raised
+  tile within `HIGH_OFF`, where today's roads passed 240 to 910 of them), and the roads run 1.00 to
+  1.02 times their gaps. Gaps of about 100 tiles against a 43-tile minimum radius leave room for one
+  gentle sweep, no more. On a fixture with mesas on the straight line (1100,980 to 1260,980), the line
+  crosses 37% raised ground and the road none, at 1.15 times the gap.
+- **The legacy frame is untouched.** An unanchored corridor has no real coordinates, so it has no path
+  and builds as it always did; its verge still raises massifs off `highTerrainAt`.
 
 The original ⚠ on this decision, kept because it is still the thing to be careful about:
 
@@ -157,6 +162,14 @@ The original ⚠ on this decision, kept because it is still the thing to be care
 > change for live drivers the week it ships.
 
 > ### ✅ RESOLVED 2026-08-21: the walk is shorter than the drive
+>
+> ⚠ **LAPSED 2026-10-26, with the disc field.** The walk beat the drive because the road detoured
+> round rock nothing drew and the walker cut straight across it. The road now runs down the valley the
+> relief leaves, so it barely detours and a cut would go over a massif. Regress no longer asserts the
+> shortcut, only the trail's shape (it shadows the road, every cut leaves and rejoins the spine, camps
+> are on the route). Whether walkers get their edge back through passes and washes the trucks can't
+> take is a question for phase 8 of [wildlands-relief.md](proposals/wildlands-relief.md). The record
+> below is kept for its reasoning.
 >
 > **Decisions 2 and 3 rest on the trail being shorter than the road, and it now is.** The section below
 > records the measurement that said it could not be, and the two changes that made it wrong. Both are

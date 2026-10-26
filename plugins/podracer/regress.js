@@ -14,7 +14,7 @@ import { getZone, setLivePlayer, addPlayerToZone, removePlayerFromZone } from '.
 import { query } from '../../server/models/db.js';
 import { surfaceAt, mapWindow } from '../flight/state.js';
 import { regionGates } from '../trucking/state.js';
-import { corridorPos, roomLenOf, nodeAt } from '../trucking/corridor.js';
+import { corridorPos, corridorLocate, roomLenOf, nodeAt } from '../trucking/corridor.js';
 import { _test as voidTest } from '../voidwalking/index.js';
 import * as lot from './lot.js';
 import * as access from '../../server/engine/vehicle-access.js';
@@ -531,7 +531,16 @@ export default async function regress({ run, check, getPlayer }) {
                 ok = seated.has(pl.id);
               }
               check('the trunk is driven up to the turn-off without losing the seat', ok);
-              const q = corridorPos(other.route, tl + 1, 0);
+              // ⚠ THE FIRST POINT WHERE THE LIMB IS ITS OWN PAVEMENT, not a fixed tile past the trunk. A
+              // branch leaves tangentially (it follows the same valley out; plugins/trucking/corridor.js),
+              // so a tile past the join the two centrelines are the same to two places and the server
+              // rightly can't tell which road you are on. Half a tile apart, it can.
+              let ds = 1;
+              for (; ds < 30; ds++) {
+                const p = corridorPos(other.route, tl + ds, 0), h = corridorLocate(r0.route, p.x, p.y);
+                if (!h || Math.abs(h.t) > 0.5) break;
+              }
+              const q = corridorPos(other.route, tl + ds, 0);
               rigs.get(pl.id).at = Date.now() - 3000;
               await run(pkt(q.x.toFixed(3), q.y.toFixed(3), q.heading, 120));
               const rf = rigs.get(pl.id);

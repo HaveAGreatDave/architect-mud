@@ -42,7 +42,7 @@ textarea{width:100%;height:120px;background:#0d1014;color:var(--ink);border:1px 
 <div id="sec"><canvas id="secC"></canvas></div>
 <div id="busy">Baking…</div>
 <script type="module">
-import { bakeRelief, tileGrid, routeRoad, roadProfile, resample, sampleCells, cliffDistance, cliffsNear, TERRAINS } from '/scripts/content/relief-core.mjs';
+import { bakeRelief, tileGrid, routeRoad, roadProfile, resample, sampleCells, gridOf, raisedNear, TERRAINS } from '/scripts/content/relief-core.mjs';
 import { BIOME_GROUND } from '/client/shared/ground-palette.js';
 
 const world = await (await fetch('/tools/worldmap/world.json', { cache: 'no-store' })).json();
@@ -89,13 +89,15 @@ async function bake() {
   document.getElementById('busy').style.display = 'flex';
   await new Promise((r) => setTimeout(r, 30));
   const t0 = performance.now();
-  R = bakeRelief({ rect: world.rect, tiles, cfg });
+  // A pass for every pair a road joins, as the bake gives one to every pair in voids.json.
+  const links = [...new Set(world.roads.map((rd) => [rd.a, rd.b].sort().join('~')))].sort().map((k) => k.split('~'));
+  R = bakeRelief({ rect: world.rect, tiles, cfg, links });
   G = tileGrid(R);
-  const cliffDist = cliffDistance(R, G);
+  const RG = gridOf(R);
   roads = world.roads.map((rd) => {
     const a = rd.pts.slice(0, 2), b = rd.pts.slice(-2);
-    const p = routeRoad(R, a, b, { cliffDist });
-    return { rd, a, b, p, prof: p ? roadProfile(R, p) : null, cliffs: p ? cliffsNear(G, p) : 0 };
+    const p = routeRoad(R, a, b, RG);
+    return { rd, a, b, p, prof: p ? roadProfile(R, p) : null, raised: p ? raisedNear(G, p) : 0 };
   });
   document.getElementById('ms').textContent = `${Math.round(performance.now() - t0)} ms`;
   document.getElementById('busy').style.display = 'none';
@@ -108,7 +110,8 @@ function listRoads() {
     const straight = Math.round(Math.hypot(r.b[0] - r.a[0], r.b[1] - r.a[1]));
     d.innerHTML = r.prof
       ? `<span class="n">${r.rd.num}</span>${r.rd.aName} → ${r.rd.bName}<br><span class="dim">${r.prof.length} tiles (gap ${straight}) · steepest ${r.prof.rawGrade.toFixed(3)} · cut ${r.prof.maxCut.toFixed(2)} fill ${r.prof.maxFill.toFixed(2)}</span>`
-        + (r.p.cutting ? `<br><span style="color:#e9a23b">needs a cutting: ${r.cliffs} cliff tiles within 3</span>` : r.cliffs ? `<br><span style="color:#e66">${r.cliffs} cliff tiles within 3</span>` : '')
+        + (r.p.stepped ? '<br><span style="color:#e9a23b">climbs a cliff band: needs a cutting</span>' : '')
+        + (r.raised ? `<br><span style="color:#e66">${r.raised} raised tiles within 7 (each a notch in a massif)</span>` : '')
       : `<span class="n">${r.rd.num}</span>${r.rd.aName} → ${r.rd.bName}<br><span class="dim" style="color:#e66">no route at grade</span>`;
     d.onclick = () => { sel = { road: i }; section(); draw(); };
     host.appendChild(d);

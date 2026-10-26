@@ -14,6 +14,7 @@
 import { hnoise2, fbm2 } from '../../client/shared/landform.js';
 import { wildlandsAt, landformHeight } from '../../client/shared/wildlands.js';
 import { cellSampler, dipAt, tierOfH, reliefTileAt, surfaceH, RELIEF_BIOMES } from '../../client/shared/relief-rules.js';
+import { routeOnGrid, chamferCells } from '../../client/shared/relief-route.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sstep = (e0, e1, v) => { const u = clamp((v - e0) / (e1 - e0), 0, 1); return u * u * (3 - 2 * u); };
@@ -76,7 +77,12 @@ function bedHard(strata, hb) {
 //
 // `wild` is { wildlandsAt, landformHeight } for the field being baked (see createWildlands); the
 // preview leaves it out and reads the shipped field.
-export function bakeRelief({ rect, tiles, cfg, onProgress, wild = {} }) {
+//
+// `links` is [[regionA, regionB], …], the pairs a highway joins (voids.json). Each gets a PASS: a
+// meandering band between the two regions where the uplift is lowered, so erosion carves the
+// valley the road then takes. Without it the Reach sat in a bowl of raised country and every road
+// out of it had to climb a cliff band.
+export function bakeRelief({ rect, tiles, cfg, onProgress, wild = {}, links = [] }) {
   const wAt = wild.wildlandsAt || wildlandsAt, lfH = wild.landformHeight || landformHeight;
   const cell = cfg.cell || 2;
   const cw = Math.floor((rect.x1 - rect.x0) / cell) + 1, ch = Math.floor((rect.y1 - rect.y0) / cell) + 1;
@@ -99,6 +105,17 @@ export function bakeRelief({ rect, tiles, cfg, onProgress, wild = {} }) {
   const distLand = chamfer(cw, ch, kind.map((k) => (k === 2 ? 1 : 0)), cell);
   const distRegion = Object.fromEntries(regionIds.map((r, ri) => [r, chamfer(cw, ch, regionIx.map((v) => (v === ri ? 1 : 0)), cell)]));
 
+  // The passes, as segments between region centres.
+  const pc = cfg.passes || {}, passK = links.length ? (pc.depth ?? 0.85) : 0;
+  const centre = Object.fromEntries(regionIds.map((r) => {
+    let sx = 0, sy = 0, n = 0; for (const t of tiles) if (t.r === r && !t.w) { sx += t.x; sy += t.y; n++; }
+    return [r, n ? [sx / n, sy / n] : null];
+  }));
+  // [ax, ay, bx, by, length, seed]; the seed is from the pair's position in the sorted list, so each
+  // pass meanders its own way and the bake stays stable.
+  const passes = links.map(([a, b], k) => (centre[a] && centre[b]
+    ? [...centre[a], ...centre[b], Math.hypot(centre[b][0] - centre[a][0], centre[b][1] - centre[a][1]), 17.3 + k * 7.9] : null)).filter(Boolean);
+
   // ── provinces: what each part of the country is made of ──
   const rocks = cfg.rocks || {};
   const bg = cfg.background || { uplift: 0.5, rock: 'layered', moisture: 0.3 };
@@ -117,6 +134,27 @@ export function bakeRelief({ rect, tiles, cfg, onProgress, wild = {} }) {
     const bw = Math.max(0, 1 - sw), rb = rocks[bg.rock] || {};
     const tot = sw + bw || 1;
     U[i] = (u + bw * bg.uplift) / tot;
+    if (passK > 0) {
+      // Distance to the nearest pass's centreline. ⚠ THE CENTRELINE MEANDERS, and that is what bends
+      // the roads: a straight band between two towns made a straight valley, and the road ran down
+      // it at 1.00 times the gap. The swing is a slow noise along the pass, faded to nothing at
+      // both ends so the valley still meets each town, and its wavelength is long enough that the
+      // tightest bend stays wider than a road may turn.
+      let d = Infinity;
+      for (const [ax, ay, bx, by, len, seed] of passes) {
+        const dx = bx - ax, dy = by - ay, t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+        const lat = ((x - ax) * -dy + (y - ay) * dx) / (len || 1);
+        const swing = (hnoise2(t * len / (pc.meanderLength ?? 180) + seed, seed * 0.37) - 0.5) * 2 * (pc.meander ?? 20) * Math.sin(Math.PI * t);
+        const along = t <= 0 || t >= 1 ? Math.hypot(x - ax - dx * t, y - ay - dy * t) - Math.abs(lat) : 0;
+        d = Math.min(d, Math.abs(lat - swing) + Math.max(0, along));
+      }
+      // ⚠ A FLAT FLOOR, full depth across half the width. A pass that tapered from its centreline was
+      // narrower than its own meander, so where the wobble swung it off the line a mesa stood on the
+      // straight road and Terminus's highway went three times the gap round it.
+      d = Math.max(0, d + (hnoise2(x * 0.025 - 3.9, y * 0.025 + 6.2) - 0.5) * (pc.wander ?? 16));
+      const wd = pc.width ?? 28, k = passK * sstep(wd, wd * 0.5, d);
+      U[i] *= 1 - k; L[i] *= 1 - k;
+    }
     L[i] = (l + bw * (rb.layered ?? 1)) / tot;
     HC[i] = (hc + bw * (rb.hard ?? 1)) / tot;
     // The coast is wetter whatever the province says.
@@ -297,100 +335,30 @@ export function tileGrid(R, wild = {}) {
 
 // ── ROADS ON THE RELIEF ──────────────────────────────────────────────────────
 //
-// A* on the cell grid from one gate to another. Grade costs as its square, a step between tiers
-// costs a lot and a steep one can't be crossed at all, a wash costs a floodway, and the sea and
-// other regions are closed. The path is what the road builder will follow; here it is drawn.
-//
-// ⚠ PASS THE TILE GRID. Tiers on the 2-tile cells miss rims the per-tile pass finds, so without it a
-// road threads a ramp a tile from a cliff face. With it, a road keeps `clear` tiles off every cliff
-// tile and pays to come within `clearSoft`. If nothing gets through clear, the route is taken again
-// without the hard clearance and marked `cutting`: that road has to be cut through the rock.
-export function cliffDistance(R, G) {
-  const seed = new Uint8Array(R.cw * R.ch), ci = TERRAINS.indexOf('cliff');
-  for (let y = 0; y < G.TH; y++) for (let x = 0; x < G.TW; x++) {
-    if (G.TER[y * G.TW + x] !== ci) continue;
-    seed[nearestCell(R, G.x0 + x, G.y0 + y)] = 1;
-  }
-  return chamfer(R.cw, R.ch, seed, R.cell);
+// The router is client/shared/relief-route.js, the one the game builds its highways along. This
+// hands it a bake's cells in the shape it reads, so the preview draws the road the game will lay.
+export function gridOf(R) {
+  const n = R.cw * R.ch, tier = new Int8Array(n), closed = new Uint8Array(n);
+  for (let i = 0; i < n; i++) { tier[i] = tierOfH(R.caps, R.h[i] + R.dip[i], R.layered[i]); closed[i] = R.kind[i] !== 0 ? 1 : 0; }
+  const high = chamferCells(R.cw, R.ch, R.cell, (i) => tier[i] >= 1);
+  return { cw: R.cw, ch: R.ch, cell: R.cell, x0: R.rect.x0, y0: R.rect.y0, h: R.h, tier, flow: R.flow, closed, high };
 }
-export function routeRoad(R, a, b, opts = {}) {
-  const hardClear = opts.cliffDist ? routeOnce(R, a, b, opts, true) : null;
-  if (hardClear) return hardClear;
-  const p = routeOnce(R, a, b, opts, false);
-  if (p && opts.cliffDist) p.cutting = true;
-  return p;
+export function routeRoad(R, a, b, G = gridOf(R)) {
+  return routeOnGrid(G, a, b, R.cfg.roads || {});
 }
-function routeOnce(R, a, b, opts, clearHard) {
-  const { cw, ch, cell, kind, h, layered, dip, flow } = R;
-  const rc = R.cfg.roads || {};
-  const cd = opts.cliffDist, clear = rc.clear ?? 3, clearSoft = rc.clearSoft ?? 7, wNear = rc.near ?? 4;
-  const wGrade = rc.grade ?? 900, wTier = rc.tier ?? 60, wWash = rc.wash ?? 6, washFlow = rc.washFlow ?? (R.cfg.rules?.washFlow ?? 900);
-  const cliffSlope = R.cfg.rules?.cliffSlope ?? 0.22, endR = rc.endRadius ?? 6;
-  const toCell = (p) => clamp(Math.round((p[1] - R.rect.y0) / cell), 0, ch - 1) * cw + clamp(Math.round((p[0] - R.rect.x0) / cell), 0, cw - 1);
-  const s = toCell(a), g = toCell(b), gx = g % cw, gy = (g / cw) | 0, sx = s % cw, sy = (s / cw) | 0;
-  const N = cw * ch, G = new Float32Array(N).fill(Infinity), P = new Int32Array(N).fill(-1), fk = new Float32Array(N), done = new Uint8Array(N);
-  const tier = (i) => tierOfH(R.caps, h[i] + dip[i], layered[i]);
-  const open = heap(N, fk);
-  G[s] = 0; fk[s] = 0; open.push(s);
-  const near = (i, X, Y) => Math.hypot((i % cw) - X, ((i / cw) | 0) - Y) * cell <= endR;
-  while (open.size) {
-    const c = open.pop();
-    if (done[c]) continue;
-    done[c] = 1;
-    if (c === g) break;
-    const x = c % cw, y = (c / cw) | 0, tc = tier(c);
-    for (let k = 0; k < 8; k++) {
-      const nx = x + NB[k][0], ny = y + NB[k][1];
-      if (nx < 0 || ny < 0 || nx >= cw || ny >= ch) continue;
-      const n = ny * cw + nx;
-      if (done[n]) continue;
-      if (kind[n] === 1) continue;
-      const atEnd = near(n, sx, sy) || near(n, gx, gy);
-      if (kind[n] === 2 && !atEnd) continue;
-      if (clearHard && !atEnd && cd[n] < clear) continue;
-      const d = NB_D[k] * cell, grade = Math.abs(h[n] - h[c]) / d;
-      let cost = d * (1 + wGrade * grade * grade);
-      if (cd && cd[n] < clearSoft) cost += d * wNear * (clearSoft - cd[n]) / clearSoft;
-      const tn = tier(n);
-      if (tn !== tc) { if (grade >= cliffSlope) continue; cost += wTier; }
-      if (flow[n] >= washFlow && flow[c] < washFlow) cost += wWash;
-      const ng = G[c] + cost;
-      if (ng < G[n]) { G[n] = ng; P[n] = c; fk[n] = ng + Math.hypot(nx - gx, ny - gy) * cell; open.push(n); }
-    }
-  }
-  if (!Number.isFinite(G[g])) return null;
-  const pts = [];
-  for (let c = g; c !== -1; c = P[c]) pts.push([R.rect.x0 + (c % cw) * cell, R.rect.y0 + ((c / cw) | 0) * cell]);
-  pts.reverse();
-  pts[0] = [a[0], a[1]]; pts[pts.length - 1] = [b[0], b[1]];
-  return smooth(pts, opts.passes ?? 3);
-}
-// How many cliff tiles lie within `r` tiles of a road's centreline. The gate phase 4 adds.
-export function cliffsNear(G, pts, r = 3) {
-  const ci = TERRAINS.indexOf('cliff'), hit = new Set();
+// How many raised (tier 1 and up) tiles lie within `r` tiles of a road's centreline. A corridor
+// cell that close to the road is cleared rather than raised, so every one of these is a notch cut
+// out of a massif.
+export function raisedNear(TG, pts, r = 7) {
+  const hit = new Set();
   for (const [x, y] of resample(pts, 1)) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
     if (dx * dx + dy * dy > r * r) continue;
-    const tx = Math.round(x) + dx - G.x0, ty = Math.round(y) + dy - G.y0;
-    if (tx < 0 || ty < 0 || tx >= G.TW || ty >= G.TH) continue;
-    const i = ty * G.TW + tx;
-    if (G.TER[i] === ci) hit.add(i);
+    const tx = Math.round(x) + dx - TG.x0, ty = Math.round(y) + dy - TG.y0;
+    if (tx < 0 || ty < 0 || tx >= TG.TW || ty >= TG.TH) continue;
+    const i = ty * TG.TW + tx;
+    if (!TG.placed[i] && TG.T[i] >= 1) hit.add(i);
   }
   return hit.size;
-}
-
-// Chaikin corner-cutting, ends fixed. A stand-in for the arc builder in the preview.
-function smooth(pts, passes) {
-  let p = pts;
-  for (let k = 0; k < passes; k++) {
-    const q = [p[0]];
-    for (let i = 0; i < p.length - 1; i++) {
-      const [ax, ay] = p[i], [bx, by] = p[i + 1];
-      q.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]);
-    }
-    q.push(p[p.length - 1]);
-    p = q;
-  }
-  return p;
 }
 
 // Resample a polyline every `step` tiles.

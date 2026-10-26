@@ -56,7 +56,11 @@ The answer carries a `blend` (biome weights, for colour) and a `terrain` (a real
 
 ## The relief
 
-**Built 2026-10-26 (phases 1 and 2 of [wildlands-relief.md](proposals/wildlands-relief.md)).** One carved height field for the wildlands, baked into the field and read by `reliefAt(x, y)` and `groundZ(x, y)`. The World Map draws it; nothing in play reads it yet.
+**Built 2026-10-26 (phases 1, 2 and 4 of [wildlands-relief.md](proposals/wildlands-relief.md)).** One carved height field for the wildlands, baked into the field and read by `reliefAt(x, y)` and `groundZ(x, y)`. The World Map draws it, the anchored highways are routed along its valleys, and the void corridor raises its massifs from it; see [decision 1 in the void-travel doc](systems-overland-void-travel.md#the-four-decisions-settled-2026-08-21).
+
+- `highGroundAt(x, y)` is the corridor's massif: `null` on the valley floor (tier 0), `'plateau'` inside raised ground and `'cliff'` at its rim. One height for every tier for now.
+- `reliefGrid()` is the relief's cells as [relief-route.js](../client/shared/relief-route.js) reads them (height, tier, drainage, closed cells, distance to raised ground), built once on first use. The router, `routeOnGrid`, is shared with the preview page.
+- **Every pair of regions a highway joins gets a pass** in the bake (`passes` in `wildlands.json`): a meandering band of lowered uplift between the two, so erosion carves the valley the road takes.
 
 The bake (`relief` in `wildlands.json`, run by `relief-core.mjs` from `bake-wildlands.mjs`) works on 2-tile cells: uplift by province (each region's surroundings have their own uplift, rock and moisture), layered strata with hard caprocks, a few hundred passes of stream-power erosion and creep, then terraces pulled toward each caprock. Hard beds hold a face and soft ones slope back, so a canyon cut through two caps has two cliff bands and a bench between.
 

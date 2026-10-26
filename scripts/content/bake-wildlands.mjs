@@ -124,7 +124,9 @@ const out = {
 // zeros. Height went out as two row-deltas first and was 41 KB of the 101 KB the field cost.
 if (cfg.relief) {
   const rc = { ...cfg.relief }; delete rc._comment;
-  const R = bakeRelief({ rect: { x0: X0, y0: Y0, x1: X1, y1: Y1 }, tiles, cfg: rc, wild: createWildlands(out) });
+  // Every pair of regions a highway joins gets a pass (see bakeRelief), sorted so the bake is stable.
+  const links = [...new Set(Object.entries(voidsCfg).flatMap(([from, v]) => (v.dests || []).map((d) => [from, d.region].sort().join('~'))))].sort().map((k) => k.split('~'));
+  const R = bakeRelief({ rect: { x0: X0, y0: Y0, x1: X1, y1: Y1 }, tiles, cfg: rc, wild: createWildlands(out), links });
   // ⚠ THE PRECISION IS WHAT THE BYTES ARE. The fine hills are real noise at 2-tile spacing, so every
   // bit of height kept below what anything can see is a bit brotli can't remove: 1/1000 of a tier
   // is 1/2000 of a world unit. Drainage below 2^6 is hillside trickle that no rule reads (a wash
@@ -146,7 +148,7 @@ if (cfg.relief) {
   for (let i = 0; i < n; i++) { const r = (hv[i] - pred(hv, i)) & 0xffff; hHi[i] = r >> 8; hLo[i] = r & 255; }
   const res8 = (a) => { const r = new Uint8Array(n); for (let i = 0; i < n; i++) r[i] = (a[i] - pred(a, i)) & 255; return b64(r); };
   out.relief = {
-    x0: X0, y0: Y0, cell: R.cell, cw: R.cw, ch: R.ch, zScale: rc.zScale ?? 0.5, dip: rc.dip ?? 0.5, caps: R.caps, rules: rc.rules || {}, q,
+    x0: X0, y0: Y0, cell: R.cell, cw: R.cw, ch: R.ch, zScale: rc.zScale ?? 0.5, dip: rc.dip ?? 0.5, caps: R.caps, rules: rc.rules || {}, roads: rc.roads || {}, q,
     planes: { hHi: b64(hHi), hLo: b64(hLo), layered: res8(lay), flow: res8(flow), wet: res8(wet), lake: res8(lake) },
   };
   // ⚠ THE GROUND IS FLAT UNDER EVERY PLACED TILE, read back through the reader the game uses. The

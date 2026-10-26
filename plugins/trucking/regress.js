@@ -11,8 +11,9 @@ import { isOpenTile, noteGone } from '../../server/engine/vehicle-access.js';
 import { mapWindow, surfaceAt, isRoadCell, bounds as worldBounds } from '../flight/state.js';
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
-import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt, sOfNode, roomLenOf, landformsFor, avoidTurn, trailFor, trailPos, campsOf, trailOffsetOn, isCampOn,
+import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt, sOfNode, roomLenOf, reliefPathFor, HIGH_OFF, trailFor, trailPos, campsOf, trailOffsetOn, isCampOn,
   addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, PAVED_R, attachSigns, joinRoutes, reverseRoute, pairKey } from './corridor.js';
+import { highGroundAt } from '../../client/shared/wildlands.js';
 import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';   // pure data, no DOM — that is exactly why it is not defined in windshield.js
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
   atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor, regionGates, gatePair, networkRoute, interchangeFor, buildRoad, _clearGateCache, _previewRoute,
@@ -3283,107 +3284,81 @@ async function regressBody({ run, check, getPlayer }) {
     world.zones.delete(A); world.zones.delete(B);
   }
 
-    // ── 4j. The road bends because there is something there ────────────────────
-    // The bends used to be a coin flip: they looked like a road and meant nothing, so there was no
-    // reason for the tarmac to go left here rather than right and no corner worth a walker cutting.
-    // The gap carries a seeded field of landforms now and the road prefers to go round them.
-    //
-    // ⚠ WHAT IS ASSERTED IS A PREFERENCE, NOT A PROHIBITION, and that is the honest claim. The leash
-    // still wins outright wherever it is engaged (a mesa may bias the road and must never drag it off
-    // the target or stop it converging), and bends alternate with straights, so a road that NEVER
-    // crossed high ground would be a maze rather than a highway. What has to hold is that it crosses
-    // less of it than a straight line between the same two gates would.
+    // ── 4j. The road goes round the rock ────────────────────────────────────────
+    // An anchored road follows a line found across the carved relief (client/shared/relief-route.js,
+    // docs/proposals/wildlands-relief.md), and the corridor raises its massifs from the same relief
+    // (`highGroundAt`). So the rock the road goes round is the rock you see, and a cell within
+    // HIGH_OFF of the road that would have been rock is a notch cut out of a massif. These used to be
+    // a scatter of seeded discs the road steered round, which nothing drew.
     {
-      const anch = { x0: 918, y0: 947, x1: 1200, y1: 940 };   // Coldwater → Terminus, the long gap
-      const seed = 'region_coldwater|region_terminus';
-      const inside = (field, x, y) => field.some(m => Math.hypot(x - m.x, y - m.y) < m.r);
-
-      let wins = 0, sumStraight = 0, sumRoad = 0, windows = 0;
-      for (const w of [4242, 4243, 4244, 4245, 4246, 4247]) {
-        const field = landformsFor(seed, w, anch);
-        if (!field.length) continue;
-        windows++;
-        let sIn = 0, sN = 0;
-        for (let t = 0; t <= 1; t += 0.005) {
-          sN++;
-          if (inside(field, anch.x0 + (anch.x1 - anch.x0) * t, anch.y0 + (anch.y1 - anch.y0) * t)) sIn++;
-        }
-        const route = corridorFor('region_coldwater', 'exodus', w, 282, 20, null, anch, seed);
-        let rIn = 0, rN = 0;
-        for (let s = 0; s <= route.L; s += 2) {
+      const raised = (x, y) => !!highGroundAt(Math.round(x), Math.round(y));
+      const notches = (route) => {
+        const hit = new Set();
+        for (let s = 0; s <= route.L; s += 1) {
           const p = corridorPos(route, s, 0);
-          rN++;
-          if (inside(field, p.x, p.y)) rIn++;
+          for (let dy = -HIGH_OFF; dy <= HIGH_OFF; dy++) for (let dx = -HIGH_OFF; dx <= HIGH_OFF; dx++) {
+            if (dx * dx + dy * dy > HIGH_OFF * HIGH_OFF) continue;
+            if (raised(p.x + dx, p.y + dy)) hit.add(`${Math.round(p.x) + dx},${Math.round(p.y) + dy}`);
+          }
         }
-        const sf = sIn / Math.max(1, sN), rf = rIn / Math.max(1, rN);
-        sumStraight += sf; sumRoad += rf;
-        if (rf <= sf) wins++;
+        return hit.size;
+      };
+      // Two roads of the network, gate to gate (each pair has a pass carved for it in the bake).
+      for (const [name, anch, seed] of [
+        ['Coldwater → the Scarletwastes', { x0: 918, y0: 947, x1: 1000, y1: 957 }, 'region_coldwater|region_scarletwastes'],
+        ['Terminus → the Scarletwastes', { x0: 1200, y0: 940, x1: 1092, y1: 957 }, 'region_terminus|region_scarletwastes'],
+      ]) {
+        const path = reliefPathFor(anch);
+        check(`${name}: the relief has a way through at the valley floor`, !!path && !path.stepped, path ? 'stepped' : 'no path');
+        let worst = 0;
+        for (const w of [4242, 4243, 4244, 4245]) worst = Math.max(worst, notches(corridorFor('fx_a', 'fx_b', w, 10, 0, null, anch, seed)));
+        check(`${name}: no week's road cuts a notch in a massif`, worst === 0, `${worst} raised tiles within ${HIGH_OFF}`);
       }
-      check('the gap has a seeded landform field', windows > 0, `${windows} windows`);
-      check('the road goes round more of it than a straight line would',
-        windows > 0 && sumRoad < sumStraight * 0.85,
-        `road ${(sumRoad / Math.max(1, windows) * 100).toFixed(1)}% vs straight ${(sumStraight / Math.max(1, windows) * 100).toFixed(1)}%`);
-      check("…and it's better in most weeks rather than on average by luck",
-        wins >= Math.ceil(windows * 0.75), `${wins}/${windows}`);
 
-      // ── THE TRAIL IS A REAL PATH, AND IT IS NOT A SHORTCUT ────────────────
-      // ⚠ THIS PINS A MEASUREMENT THAT CONTRADICTS THE DESIGN, ON PURPOSE. The premise says the walk
-      // is shorter than the drive because the road goes round what a person goes over. It is not: the
-      // built road is only about 1.03 to 1.10 times the straight line between its gates, so there are
-      // no corners worth cutting and the trail comes out slightly LONGER once its swings in to each
-      // camp are counted. If this check ever starts failing because the trail got shorter, the road
-      // has learned to genuinely detour — and THAT is when the room count moves onto the trail
-      // (see `registerTrailLength` in voidwalking).
+      // ⚠ A FIXTURE WITH ROCK ON THE STRAIGHT LINE, asserted as such, so a retuned relief that
+      // flattened it fails here by name instead of passing a preference test on bare ground.
+      const anch = { x0: 1100, y0: 980, x1: 1260, y1: 980 };
+      const gap = Math.hypot(anch.x1 - anch.x0, anch.y1 - anch.y0);
+      let sIn = 0, sN = 0;
+      for (let t = 0; t <= 1; t += 0.005) { sN++; if (raised(anch.x0 + (anch.x1 - anch.x0) * t, anch.y0 + (anch.y1 - anch.y0) * t)) sIn++; }
+      check('the fixture has raised ground on its straight line', sIn / sN > 0.2, `${(100 * sIn / sN).toFixed(0)}%`);
+      let worstIn = 0, shortest = Infinity;
+      for (const w of [4242, 4243, 4244, 4245]) {
+        const r = corridorFor('fx_a', 'fx_b', w, 10, 0, null, anch, 'fx_mesas');
+        let rIn = 0, rN = 0;
+        for (let s = 0; s <= r.L; s += 2) { const p = corridorPos(r, s, 0); rN++; if (raised(p.x, p.y)) rIn++; }
+        worstIn = Math.max(worstIn, rIn / rN); shortest = Math.min(shortest, r.L);
+      }
+      check('the road crosses far less of it than a straight line would', worstIn < (sIn / sN) * 0.25,
+        `road ${(worstIn * 100).toFixed(1)}% vs straight ${(sIn / sN * 100).toFixed(1)}%`);
+      check("…because it goes round, so it's longer than the line it couldn't take", shortest > gap * 1.05, `x${(shortest / gap).toFixed(2)}`);
+      check('the path is the country\'s, not the week\'s', reliefPathFor(anch) === reliefPathFor({ ...anch }));
+
+      // ── THE TRAIL STILL SHADOWS THE ROAD ──────────────────────────────────
+      // ⚠ THE SHORTCUT PREMISE LAPSED WITH THE DISCS, ON PURPOSE. The walk used to beat the drive
+      // because the road detoured round rock nothing drew and the walker cut straight across it. The
+      // road now runs down the valley the rock leaves, so a cut would go over a massif; a walker
+      // being stopped by one is phase 8 of the relief proposal. What still holds is the trail's shape.
       {
-        const t = trailFor(corridorFor('region_coldwater', 'exodus', 4242, 282, 20, null, anch, seed), seed, 4242);
+        const lanch = { x0: 918, y0: 947, x1: 1200, y1: 940 }, seed = 'region_coldwater|region_terminus';
+        const rd = corridorFor('region_coldwater', 'exodus', 4242, 282, 20, null, lanch, seed);
+        const t = trailFor(rd, seed, 4242);
         check('the trail is its own path with real length', !!t && t.L > 0, t ? t.L.toFixed(0) : 'none');
         check('…that starts and ends on the road it shadows',
-          !!t && Math.hypot(t.pts[0].x - anch.x0, t.pts[0].y - anch.y0) < 40
-             && Math.hypot(t.pts[t.pts.length - 1].x - anch.x1, t.pts[t.pts.length - 1].y - anch.y1) < 40);
-        // ⚠ AND THE WALK IS NOW SHORTER THAN THE DRIVE, which is the premise finally being true. This
-        // check used to assert the OPPOSITE and carried a note saying that when it started failing the
-        // road had learned to detour. It did: the country outranks the homing bias (the hard clamp is
-        // untouched) and camps anchor where the road is back on course, so the chord between two of
-        // them crosses what the road went round.
-        {
-          const rd = corridorFor('region_coldwater', 'exodus', 4242, 282, 20, null, anch, seed);
-          // ⚠ THE SHORTCUT BELONGS TO A WALK THAT TAKES THE CUTS, NOT TO THE SPINE. `t.L` is the
-          // SHADOW — it follows the road, so of course it is about as long as the road. The claim is
-          // that a walker who takes every cut open to them this week gets there sooner than the truck.
-          const open = (t?.cuts || []).filter(c => c.open);
-          const best = t ? t.L - open.reduce((a, c) => a + c.saves, 0) : Infinity;
-          check('the spine is the long way round, and tracks the road', !!t && Math.abs(t.L - rd.L) < rd.L * 0.12,
-            t ? `spine ${t.L.toFixed(0)} vs road ${rd.L.toFixed(0)}` : 'none');
-          check('taking the cuts beats the drive', best < rd.L,
-            `best walk ${best.toFixed(0)} vs road ${rd.L.toFixed(0)} (${open.length} cuts open)`);
-          check("…and the road is longer than the straight line it couldn't take",
-            rd.L > Math.hypot(anch.x1 - anch.x0, anch.y1 - anch.y0) * 1.08,
-            `x${(rd.L / Math.hypot(anch.x1 - anch.x0, anch.y1 - anch.y0)).toFixed(2)}`);
-          // ⚠ AND BOTH WAYS ALWAYS EXIST. A cut that replaced the spine would make being refused on it
-          // a dead end; a cut that branches off it makes being refused a loss. That is decision 2.
-          check('every cut leaves and rejoins the spine rather than replacing it',
-            (t?.cuts || []).every(c => c.toD > c.fromD && c.len < (c.toD - c.fromD)));
-        }
-        // A cut is still a real place even when it saves nothing: off the road, no lifeline, and it
-        // rolls encounters hot. The DANGER half of the trade ships; the distance half does not.
-        check('…and every camp is on the route, never cut across',
-          !!t && t.pts.some(p => p.wayside));
+          !!t && Math.hypot(t.pts[0].x - lanch.x0, t.pts[0].y - lanch.y0) < 40
+             && Math.hypot(t.pts[t.pts.length - 1].x - lanch.x1, t.pts[t.pts.length - 1].y - lanch.y1) < 40);
+        check('the spine tracks the road', !!t && Math.abs(t.L - rd.L) < rd.L * 0.12,
+          t ? `spine ${t.L.toFixed(0)} vs road ${rd.L.toFixed(0)}` : 'none');
+        // ⚠ AND BOTH WAYS ALWAYS EXIST. A cut that replaced the spine would make being refused on it
+        // a dead end; a cut that branches off it makes being refused a loss. That is decision 2.
+        check('every cut leaves and rejoins the spine rather than replacing it',
+          (t?.cuts || []).every(c => c.toD > c.fromD && c.len < (c.toD - c.fromD)));
+        check('…and every camp is on the route, never cut across', !!t && t.pts.some(p => p.wayside));
       }
 
-      // The turn itself, unit-tested, because the statistic above cannot tell you WHY it improved.
-      check('a rock dead ahead turns the road away', avoidTurn([{ x: 0, y: -100, r: 30 }], 0, 0, 0) === -1);
-      check('…one behind you does not', avoidTurn([{ x: 0, y: -100, r: 30 }], 0, -200, 0) === 0);
-      check('…and one you already clear does not', avoidTurn([{ x: 300, y: -100, r: 30 }], 0, 0, 0) === 0);
-      // ⚠ TWO ROADS MEETING THE SAME ROCK MUST AGREE. A coin flip for the dead-ahead case would let
-      // the trunk two limbs share peel apart on a tile neither of them chose.
-      check('…and dead-centre resolves the same way twice',
-        avoidTurn([{ x: 0, y: -100, r: 30 }], 0, 0, 0) === avoidTurn([{ x: 0, y: -100, r: 30 }], 0, 0, 0));
-
-      // ⚠ AND THE LEGACY FRAME IS UNTOUCHED. Every pinned route in this suite is unanchored, which
-      // has no real coordinates for a landform to sit at — so the field is empty there and the turn
-      // is the coin flip it always was, character for character.
-      check('an unanchored road has no country and no avoidance',
-        landformsFor(seed, 4242, null).length === 0);
+      // ⚠ AND THE LEGACY FRAME IS UNTOUCHED. Every pinned route in this suite is unanchored, which has
+      // no real coordinates under it, so it has no path and builds as it always did.
+      check('an unanchored road has no path', reliefPathFor(null) === null);
     }
 
   // ── 4h. Wrecks and the CB ──────────────────────────────────────────────────

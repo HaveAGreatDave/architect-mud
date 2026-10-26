@@ -22,7 +22,8 @@
 // middle of writing. Read through the shipped module instead, the bake would depend on its own
 // previous output and `--check` would go stale one bake behind every region move.
 import { hnoise2 } from './landform.js';
-import { cellSampler, reliefTileAt, surfaceH } from './relief-rules.js';
+import { cellSampler, reliefTileAt, surfaceH, tierAt, tierOfH, dipAt } from './relief-rules.js';
+import { chamferCells } from './relief-route.js';
 import { WILDLANDS_FIELD } from './wildlands-field.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -247,7 +248,35 @@ export function createWildlands(F) {
   // The height of the ground at a tile, in world z. 0 under a region, at the shore and with no relief.
   const groundZ = (x, y) => (V ? surfaceH(V, x, y) * V.zScale : 0);
 
-  return { wildlandsAt, wildlandsColour, landformHeight, landforms, routeNumber, routeType, wildlandsRect, inField, reliefAt, groundZ, reliefView: V };
+  // Raised ground at a tile, as the void corridor builds it: null on the valley floor (tier 0),
+  // otherwise 'plateau' where all four neighbours are raised too and 'cliff' at the rim. One
+  // height for every tier until the massifs learn to stack (phase 3 of the proposal); the roads
+  // keep to the valley floor, so none of them needs to climb one.
+  const raised = (x, y) => tierAt(V, x, y) >= 1;
+  function highGroundAt(x, y) {
+    if (!V || !raised(x, y)) return null;
+    return raised(x + 1, y) && raised(x - 1, y) && raised(x, y + 1) && raised(x, y - 1) ? 'plateau' : 'cliff';
+  }
+
+  // The relief's cells as relief-route.js reads them, built once on first use: height, tier,
+  // drainage, which cells are closed (the sea, a placed region) and how far each is from raised
+  // ground. About 56,000 cells; nothing builds it until a road is routed.
+  let grid = null;
+  function reliefGrid() {
+    if (grid || !V) return grid;
+    const rf = F.relief, n = rf.cw * rf.ch, d = decodeRelief(rf);
+    const tier = new Int8Array(n), closed = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = rf.x0 + (i % rf.cw) * rf.cell, y = rf.y0 + ((i / rf.cw) | 0) * rf.cell;
+      tier[i] = tierOfH(rf.caps, d.h[i] + dipAt(rf.dip, x, y), d.layered[i]);
+      if (wildlandsAt(x, y).sea || distTo('land', x, y) < 1) closed[i] = 1;
+    }
+    const high = chamferCells(rf.cw, rf.ch, rf.cell, (i) => tier[i] >= 1);
+    grid = { cw: rf.cw, ch: rf.ch, cell: rf.cell, x0: rf.x0, y0: rf.y0, h: d.h, tier, flow: d.flow, closed, high, roads: rf.roads || {} };
+    return grid;
+  }
+
+  return { wildlandsAt, wildlandsColour, landformHeight, landforms, routeNumber, routeType, wildlandsRect, inField, reliefAt, groundZ, highGroundAt, reliefGrid, reliefView: V };
 }
 
 // Terrain → biome, for the edge band (the same mapping plugins/flight/biomes.js TERRAIN_BIOME makes
@@ -277,3 +306,5 @@ export const wildlandsRect = W.wildlandsRect;
 export const inField = W.inField;
 export const reliefAt = W.reliefAt;
 export const groundZ = W.groundZ;
+export const highGroundAt = W.highGroundAt;
+export const reliefGrid = W.reliefGrid;

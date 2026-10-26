@@ -48,7 +48,7 @@ export function surfaceH(V, x, y) {
   const jx = (hnoise2(x * 0.31 + 2.2, y * 0.31) - 0.5) * 1.2, jy = (hnoise2(x * 0.31, y * 0.31 - 7.1) - 0.5) * 1.2;
   return V.h(x + jx, y + jy);
 }
-const tierAt = (V, x, y, h) => tierOfH(V.caps, h + dipAt(V.dip, x, y), V.layered(x, y));
+export const tierAt = (V, x, y, h = surfaceH(V, x, y)) => tierOfH(V.caps, h + dipAt(V.dip, x, y), V.layered(x, y));
 
 // The reading of a tile. Biomes are the preview's vocabulary (two of them, `wash` and `prairie`,
 // are not ground-palette keys until phase 6); `terrain` is always a real content terrain.

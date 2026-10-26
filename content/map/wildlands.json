@@ -93,8 +93,9 @@
     ],
     "erosion": { "iterations": 200, "k": 0.05, "creep": 0.08 },
     "terrace": { "amount": 0.85, "bench": 0.75 },
+    "passes": { "width": 28, "depth": 0.85, "wander": 16, "meander": 20, "meanderLength": 180 },
     "rules": { "cliffSlope": 0.22, "screeSlope": 0.32, "washFlow": 900, "lakeDepth": 0.03, "prairieWet": 0.55, "prairieSlope": 0.06 },
-    "roads": { "grade": 150, "tier": 60, "wash": 6, "endRadius": 6, "maxGrade": 0.06, "smooth": 8 }
+    "roads": { "grade": 150, "tier": 400, "wash": 6, "endRadius": 8, "clear": 3, "clearSoft": 14, "near": 6, "maxGrade": 0.06, "smooth": 8 }
   },
   "landforms": [
     {
