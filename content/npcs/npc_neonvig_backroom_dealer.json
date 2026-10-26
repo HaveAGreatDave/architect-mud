@@ -172,6 +172,19 @@
       ],
       "text": "\"No screens, no flashing cabinets. I shuffle by hand and I say every card out loud: your hole cards, the flop, the turn, the river, the winner. A body can play my table with their eyes shut and never miss a beat. That's how it was done, and that's how I still do it.\""
     },
+    "name": {
+      "options": [
+        {
+          "label": "I'd like to play.",
+          "next": "play"
+        },
+        {
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The Widow Maker paid out once, years back, to a dockhand who'd only come in to use the toilet. The owner had to sign him half the house to cover it.\" She squares the deck. \"The dockhand named his half. The owner called him a few other things, but you can't put those on a sign.\""
+    },
     "people": {
       "options": [
         {
@@ -207,6 +220,10 @@
         {
           "label": "How does this work?",
           "next": "rules"
+        },
+        {
+          "label": "How did this place get its name?",
+          "next": "name"
         },
         {
           "label": "Just looking.",

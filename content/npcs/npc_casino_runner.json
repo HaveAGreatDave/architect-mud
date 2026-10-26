@@ -140,8 +140,21 @@
       "options": [],
       "text": "They look away."
     },
+    "name": {
+      "options": [
+        {
+          "label": "(nod)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It's what the staff call whoever's tipping.\" She shifts the tray to her other hip. \"Ask anyone else and you'll get a story. Tally sells his for a drink, and he's got two.\""
+    },
     "root": {
       "options": [
+        {
+          "label": "Why's it called the Lucky Bastard?",
+          "next": "name"
+        },
         {
           "label": "(nod)",
           "next": "bye"

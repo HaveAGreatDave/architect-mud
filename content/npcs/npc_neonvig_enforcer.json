@@ -49,8 +49,8 @@
     "job": {
       "options": [
         {
-          "label": "What's the vig?",
-          "next": "vig"
+          "label": "Why the Lucky Bastard?",
+          "next": "name"
         },
         {
           "label": "Let's keep it that way.",
@@ -59,6 +59,15 @@
       ],
       "text": "\"I keep the peace. The peace is: everybody pays what they owe, and nobody makes a scene about it.\" A thin, unhurried smile. \"So far, you and me, we got peace.\""
     },
+    "name": {
+      "options": [
+        {
+          "label": "Good advice.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Once a night somebody walks out of here ahead. The whole room watches him go and says it, lucky bastard, and then buys back in.\" He taps the notebook in his pocket. \"The sign's for him. The book's for everybody else. You're not in it yet. Stay that way.\""
+    },
     "root": {
       "options": [
         {
@@ -66,8 +75,8 @@
           "next": "job"
         },
         {
-          "label": "What's the vig?",
-          "next": "vig"
+          "label": "Why the Lucky Bastard?",
+          "next": "name"
         },
         {
           "label": "Nothing. My mistake.",
@@ -75,15 +84,6 @@
         }
       ],
       "text": "He looks you over the way a butcher looks at a side of beef, pricing it. \"You need something, or you just admiring the decor?\""
-    },
-    "vig": {
-      "options": [
-        {
-          "label": "Good advice.",
-          "next": "bye"
-        }
-      ],
-      "text": "\"The vig? The vig's the interest, friend. You borrow off the house to keep playing, and everybody does, sooner or later, and the vig's what it costs you to breathe till you pay it back. It only ever goes up.\" He taps the notebook in his pocket. \"House is called the Lucky Bastard. Nobody's ever had to ask which one of us that's about. You're not in the book yet. Stay that way.\""
     }
   },
   "faction": null,

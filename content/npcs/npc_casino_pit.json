@@ -141,6 +141,15 @@
       "options": [],
       "text": "They turn back to the counter."
     },
+    "name": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Marketing.\" She doesn't look up from the chips. \"Every man who comes through that door thinks the sign's about him. One a night is right, and the rest stay till close trying to be him.\""
+    },
     "play": {
       "options": [
         {
@@ -159,6 +168,10 @@
         {
           "label": "Let me see the stock.",
           "next": "shop"
+        },
+        {
+          "label": "Why the Lucky Bastard?",
+          "next": "name"
         }
       ],
       "text": "\"Evening. Buy in, buy a drink, or admire the carpet. All three pay the house.\""

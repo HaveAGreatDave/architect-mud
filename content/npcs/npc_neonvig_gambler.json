@@ -153,6 +153,15 @@
       ],
       "text": "\"Always. Grab a seat at the felt and wave me over. I'll pull up a chair and take your credits personally.\""
     },
+    "name": {
+      "options": [
+        {
+          "label": "I'll buy you one later.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Fella who built it won the whole place off the last owner in one hand. Pair of threes.\" He holds up two fingers. \"Or he lost it back the next night and the name's a joke on him. Depends who's buying. I've told it both ways and got a drink both times.\""
+    },
     "root": {
       "options": [
         {
@@ -162,6 +171,10 @@
         {
           "label": "Any tips?",
           "next": "tips"
+        },
+        {
+          "label": "Why's it called the Lucky Bastard?",
+          "next": "name"
         },
         {
           "label": "Later.",
