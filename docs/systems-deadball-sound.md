@@ -11,7 +11,7 @@ Everything is synthesised. There are no samples.
 
 | File | What |
 |---|---|
-| [client/shared/deadball-sfx.js](../client/shared/deadball-sfx.js) | The bank: 60 patches in SIREN's layer schema, the event table, the mix, the Sound Detail tiers, the voices and their words, the crowd bed and the park's air |
+| [client/shared/deadball-sfx.js](../client/shared/deadball-sfx.js) | The bank: 70 patches in SIREN's layer schema, the event table, the mix, the Sound Detail tiers, the voices and their words, the crowd bed and the park's air |
 | [client/game/js/panels/diamond/sound.js](../client/game/js/panels/diamond/sound.js) | The mixer: hears the live world each frame and plays the bank |
 | [client/game/js/panels/gameday-grandstand.js](../client/game/js/panels/gameday-grandstand.js) | Makes the mixer, hands it each frame, each payload and each landing |
 | [client/shared/audio-engine.js](../client/shared/audio-engine.js) | SIREN and ORACLE. The `scene` speech channel, `speak({ gain })`, `speechLeft()` and `engineNodes(category)` were added for this |
@@ -73,6 +73,7 @@ and the announcer's call.
 | Effects: the ball, running, stings, fireworks | -9 dB | a further -6 dB |
 | The organ | -12 dB | a further -6 dB |
 | The crowd and the park's air | -14 dB | a further -4 dB |
+| The hype: air horn, videoboard, drum, stamping | -11 dB | a further -6 dB |
 
 The levels are `MIX` in the bank, and they're the plan's starting point, not set by ear yet. Every
 patch rides `tv_fx`, the TV bus's effects side, so the player's TV slider sets all of it. The
@@ -98,19 +99,25 @@ A fielder creeping in as the pitch comes (`field_ready_*`) is never heard, even 
 
 ## The patches
 
-60, in the `deadball` group, ids `db-*`. Measured at 48 kHz (16 kHz past 1.5 s) by the gate.
+70, in the `deadball` group, ids `db-*`. Measured at 48 kHz (16 kHz past 1.5 s) by the gate.
 
-- **Contact:** `db-crack` (the barrel: a shaped noise crack, the wood's body through three
-  resonances at 380, 820 and 1,650 Hz, an FM ring at 2.41 and a low knock), `db-crack-end`,
-  `db-crack-jam`, `db-foul-tip`, `db-bunt` (soft contact), `db-bat-break`, `db-whiff`.
+- **Contact:** `db-crack` (the barrel: a click, a shaped noise crack, the wood's body through three
+  resonances at 380, 820 and 1,650 Hz, an FM ring at 2.41, a low knock and a sub thump),
+  `db-crack-screamer` (100 mph and up, not foul: the barrel with a longer ring and the outfield
+  bleachers answering 380 ms later), `db-crack-pop` (a pop-up: a hollow tock, no ring),
+  `db-crack-end`, `db-crack-jam`, `db-foul-tip`, `db-bunt` (soft contact), `db-bat-break`, `db-whiff`.
 - **Leather:** `db-mitt`, `db-glove`, `db-stretch`, `db-tag`, `db-pickoff`.
 - **The ball:** `db-hop-dirt`, `db-hop-grass`, `db-roll-grass`, `db-wall`, `db-pole` (the one that
   rings, about 0.9 s), `db-net`, `db-backstop`, `db-seats`, `db-ball-dirt`, `db-hbp`.
-- **Running:** `db-cleat-dirt`, `db-cleat-grass`, `db-slide`, `db-dive-back`, `db-dive`,
-  `db-collision`, `db-throw`.
+- **Running:** `db-cleat-dirt`, `db-cleat-grass`, `db-slide` and `db-dive-back` (both with grains
+  of dirt coming down), `db-dive` (on the grass), `db-dive-dirt` (on the infield or the track: the
+  body, the spray and the grains), `db-collision`, `db-throw`.
 - **The park:** `db-horn`, `db-foghorn`, `db-lamp`.
-- **The crowd:** `db-crowd-swell`, `-cheer`, `-roar`, `-groan`, `-boo`, `-gasp`, `-ooh`, `db-clap`,
-  `db-towels`.
+- **The crowd:** `db-crowd-swell`, `-cheer`, `-roar`, `-groan`, `-boo`, `-gasp`, `-ooh`, `-murmur`,
+  `-whistle`, `db-clap`, `db-towels`.
+- **The hype:** `db-airhorn` (three driven reeds; driven layers normalise, so its gains are tiny),
+  `db-hype-boom` (the videoboard), `db-drum-chant` (the bleachers' bass drum, two then three quick),
+  `db-stomp` (the stands stamping, quickening).
 - **The graphics:** `db-sting-homer`, `-run`, `-k`, `-out`, `-base`, `-splash` (brass is a sawtooth
   whose lowpass opens on the attack), `db-click`, `db-beep`, `db-trail`, `db-sparks`, `db-rewind`,
   `db-sweep`, `db-table`.
@@ -121,9 +128,25 @@ A fielder creeping in as the pitch comes (`field_ready_*`) is never heard, even 
   `db-organ-anthem`, the same song in D major for once, before a final's first pitch. A
   note's length is held by its decay at full sustain, so a phrase is one cue.
 
-`db-collision` and `db-crowd-swell`, `-gasp` are in the bank and the event table but nothing plays
-them yet: the sim has no collisions at the plate, and the crowd's swell and gasp wait for a moment
-to hang them on.
+`db-collision` is in the bank and the event table but nothing plays it yet: the sim has no
+collisions at the plate.
+
+## The crowd and the game
+
+`tension(p, S)` in the mixer says how much the next pitch matters, 0 to 1: the inning, the margin,
+men on (more for scoring position), two out, two strikes or three balls, and a final. A margin of
+six or more cuts it to 40%. It drives:
+
+- the crowd bed's floor, 0.1 + 0.32 × tension, under whatever the fans in the stands say
+- a murmur 0.4 s after a pitch's graphics go up, past 0.6
+- two strikes on a visitor: the three claps, or with two out at 0.45 or more, the stamping
+- a home batter coming up with men on at 0.45 or more: the bleachers' drum, if the booth's quiet
+
+Off the bat the crowd swells 90 ms after any ball put in play but a pop-up or a bunt, louder for a
+harder hit and a fly. A hit batter gets a gasp. On a landing, a home run or a walk-off by the home
+side gets the videoboard's boom, the air horn and then the drum. A home run in gets a whistle, as
+do a double or triple play by the home side and every other home strikeout. An inning-ending home
+strikeout at 0.4 or more gets the air horn.
 
 `variant(def, seed, amount, intensity)` is hockey's: one pitch factor for the whole cue, a level
 and an envelope inside the patch's `vary`, and the noise from another place. The mixer seeds a take

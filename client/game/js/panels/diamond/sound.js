@@ -88,7 +88,28 @@ function contactOf(s, seed) {
   const q = s.pitch, pl = s.p?.play;
   if (q?.result === 'foul') return { foul: true, ev: (seed % 3) ? 82 : 68 };
   const ev = +pl?.ev || 88;
-  return { ev, bunt: ev < 60, broken: ev >= 60 && ev < 80 && pl?.t === 'gb' && seed % 14 === 0 };
+  return { ev, t: pl?.t, bunt: ev < 60, broken: ev >= 60 && ev < 80 && pl?.t === 'gb' && seed % 14 === 0 };
+}
+
+// How much the next pitch matters to the crowd, 0 to 1: late, close, men on (more in scoring
+// position), two out, two strikes or three balls, and a final. The bed's floor follows it, and the
+// crowd murmurs before a pitch past 0.6.
+export function tension(p, S) {
+  if (!p || p.phase === 'half') return 0;
+  const inn = p.inning | 0, margin = Math.abs((p.homeScore | 0) - (p.awayScore | 0));
+  const bags = Array.isArray(p.basesBefore) ? p.basesBefore : [];
+  const outs = Math.max(0, Math.min(2, (p.outs | 0) - (p.out ? 1 : 0)));
+  const q = S?.pitch || {};
+  let x = 0;
+  x += inn >= 9 ? 0.25 : inn >= 7 ? 0.15 : 0.05;
+  x += margin === 0 ? 0.2 : margin === 1 ? 0.15 : margin <= 3 ? 0.07 : 0;
+  x += (bags[0] ? 0.06 : 0) + (bags[1] ? 0.1 : 0) + (bags[2] ? 0.14 : 0);
+  x += outs === 2 ? 0.1 : 0;
+  x += ((q.strikes | 0) >= 2 ? 0.08 : 0) + ((q.balls | 0) >= 3 ? 0.08 : 0);
+  if (S?.gold) x += 0.1;
+  // a blowout empties the noise out of the park whatever the count
+  if (margin >= 6) x *= 0.4;
+  return Math.max(0, Math.min(1, x));
 }
 
 // `state()` gives { p (the payload playing), S (the graphics' state: pitch, splash, tableRace,
@@ -149,7 +170,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         play('glove', { role, stretch: b.clip.id === 'field_stretch', pan }, 'event', at);
         return;
       case 'tag': play('tag', { pan }, 'event', at); return;
-      case 'hit': play('hit', { pan }, 'event', at); return;
+      case 'hit': play('hit', { pan }, 'event', at); later(60, () => play('gasp', {}, 'event', at + 0.06)); return;
       case 'release':
         if (role !== 'pitcher' || /pickoff/.test(b.clip.id)) play('release', { pan }, 'step', at);
         return;
@@ -171,7 +192,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       }
       case 'slide': play('slide', { pan }, 'event', at); return;
       case 'diveBack': play('diveBack', { pan }, 'event', at); return;
-      case 'dive': play('dive', { pan }, 'event', at); return;
+      case 'dive': play('dive', { dirt: onDirt(where[0], where[where.length - 1]), pan }, 'event', at); return;
       default: // contact is the director's crack; the clip's fires on a miss too
     }
   }
@@ -252,8 +273,8 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
     if (s.S?.gold && seen.roarH < 0.8 && h >= 0.8) play('towels', {}, 'bed', t);
     seen.roarA = a; seen.roarH = h;
     if (crowd) {
-      const p = s.p || {}, close = (p.inning | 0) >= 7 && Math.abs((p.homeScore | 0) - (p.awayScore | 0)) <= 2;
-      crowd.setLevel(Math.max(close ? 0.22 : 0.12, 0.85 * Math.max(a, h)));
+      // the floor is how much the next pitch matters: a tie in the ninth with men on hums
+      crowd.setLevel(Math.max(0.1 + 0.32 * tension(s.p, s.S), 0.85 * Math.max(a, h)));
       const left = booth();
       if (left > 0.1 && !crowd.ducked) { crowd.duck(-MIX.crowd.duck, left); crowd.ducked = true; later(left * 1000, () => { if (crowd) crowd.ducked = false; }); }
     }
@@ -268,7 +289,13 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
     if (S.pitch && S.pitch !== seen.pitch) {
       play('click', {}, 'event', t);
       if (S.pitch.velo) later(180, () => play('beep', {}, 'event', t + 0.18));
-      if ((S.pitch.strikes | 0) >= 2 && p.half === 'top' && tierAllows(tier, 'bed')) for (let k = 0; k < 3; k++) later(300 + 450 * k, () => play('clap', {}, 'bed', t + k));
+      const x = tension(p, S), twoOut = (p.outs | 0) - (p.out ? 1 : 0) >= 2;
+      if ((S.pitch.strikes | 0) >= 2 && p.half === 'top' && tierAllows(tier, 'bed')) {
+        // two strikes and two out on a visitor: the stands stamp him down; otherwise they clap
+        if (twoOut && x >= 0.45) later(250, () => play('stomp', {}, 'bed', t + 0.25));
+        else for (let k = 0; k < 3; k++) later(300 + 450 * k, () => play('clap', {}, 'bed', t + k));
+      }
+      if (x >= 0.6) later(400, () => play('murmur', { gain: Math.min(1, x + 0.1) }, 'event', t + 0.4));
     }
     seen.pitch = S.pitch || null;
     if (S.splash && S.splash !== seen.splash && !['homerun', 'grandslam'].includes(S.splash.kind)) play('splash', {}, 'event', t);
@@ -297,7 +324,10 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       if (name === 'crack') {
         lastCrackT = t;
         const q = crackPitch(s.p, ++cracks);
-        play('crack', contactOf({ p: s.p, pitch: q }, seed), 'event', t);
+        const how = contactOf({ p: s.p, pitch: q }, seed);
+        play('crack', how, 'event', t);
+        // the crowd comes up off the bat before anyone knows where it's going; not for a pop-up
+        if (q?.result === 'inplay' && how.t !== 'pu' && !how.bunt) later(90, () => play('swell', how, 'event', t + 0.09));
         // the booth's call as the ball comes off the bat (baseball.js contactCall), on the pitch
         // that's put in play: his line about how it ended waits for it (afterCall)
         const c = s.p?.contact;
@@ -344,6 +374,9 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         later(1400, () => { if (booth() < 0.5) play('dirge', {}, 'music', t + 1.4); });
       } else if (p.batter && p.batter !== seen.batter) {
         seen.batter = p.batter;
+        // the home side up with men on and the game to win: the bleachers' drum
+        const bags = Array.isArray(p.basesBefore) ? p.basesBefore : [];
+        if (p.half === 'bottom' && bags.some(Boolean) && tension(p, state()?.S) >= 0.45) later(2400, () => { if (booth() < 0.5) play('drum', {}, 'bed', t + 2.4); });
         later(700, () => {
           if (booth() > 0.1 || scene() > 0.1) return;
           const num = state()?.S?.matchup?.bNum;
@@ -371,6 +404,16 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       if (p.kind === 'error' && homeFielding) play('boo', {}, 'event', t);
       else if (p.out && ['leaping', 'rail'].includes(p.play?.g)) play('ooh', {}, 'event', t);
       if (!homeFielding && (p.runs > 0 || p.rbi > 0) && tierAllows(tier, 'music')) later(900, () => play('rally', {}, 'music', t + 0.9));
+      // the park's own hype: the air horn and the videoboard for a home run or a walk-off at home,
+      // then the bleachers' drum; a whistle for a run in, a strikeout or a double play by the home side
+      const h = hashStr(`${p.inning}|${p.half}|${p.batter}|${p.kind}`);
+      if (!homeFielding && (p.kind === 'homerun' || p.walkoff)) {
+        play('boom', {}, 'event', t);
+        later(250, () => play('airhorn', {}, 'event', t + 0.25));
+        later(2600, () => play('drum', {}, 'bed', t + 2.6));
+      } else if (!homeFielding && (p.runs > 0 || p.rbi > 0)) later(500, () => play('whistle', {}, 'event', t + 0.5));
+      else if (homeFielding && (['doubleplay', 'tripleplay'].includes(p.kind) || (p.kind === 'strikeout' && h % 2 === 0))) later(350, () => play('whistle', {}, 'event', t + 0.35));
+      if (homeFielding && p.kind === 'strikeout' && (p.outs | 0) >= 3 && tension(p, s.S) >= 0.4) later(200, () => play('airhorn', {}, 'event', t + 0.2));
       // sold, but not to the top of his range: an all-caps shout already leans on its last word, and
       // at full excitement "THREE" went up nine semitones and shrill
       say('announcer', callFor(p, s.S?.pitch), { excite: 0.4 });

@@ -41,7 +41,7 @@ installAudioGlobals();
 if (!globalThis.AudioEngine) new Function(readFileSync(join(ROOT, 'client/shared/audio-engine.js'), 'utf8'))();
 const AE = globalThis.AudioEngine;
 const B = await imp('client/shared/deadball-sfx.js');
-const { createParkSound, callFor, onDirt } = await imp('client/game/js/panels/diamond/sound.js');
+const { createParkSound, callFor, onDirt, tension } = await imp('client/game/js/panels/diamond/sound.js');
 const { createWorld, DT } = await imp('client/game/js/panels/diamond/world.js');
 const { CALLS: UMP_CALLS, CLIP_EVENTS } = await imp('client/game/js/panels/diamond/clip-schema.js');
 const byId = new Map(B.BUILTINS.map((d) => [d.id, d]));
@@ -49,6 +49,10 @@ const byId = new Map(B.BUILTINS.map((d) => [d.id, d]));
 // ── the patches ──────────────────────────────────────────────────────────────
 // [length ms lo, hi] by family; a long cue is rendered at 16 kHz, which is plenty to see its shape
 const FAMILY = [
+  [/^db-crack-screamer$/, [300, 700]],
+  [/^db-dive-dirt$/, [150, 500]],
+  [/^db-(airhorn|hype-boom)$/, [500, 1400]],
+  [/^db-(drum-chant|stomp)$/, [1200, 2600]],
   [/^db-(crack|bunt|bat-break|foul-tip)/, [30, 300]],
   [/^db-(mitt|glove|stretch|tag|pickoff|hop|ball-dirt|hbp|cleat|throw|whiff|dive|collision)/, [20, 300]],
   [/^db-(roll|wall|net|backstop|seats|slide)/, [100, 450]],
@@ -83,6 +87,17 @@ for (const d of B.BUILTINS) {
 }
 check('the barrel is the loudest contact', ['db-crack-end', 'db-crack-jam', 'db-bunt'].every((id) => M.get(id).peak < M.get('db-crack').peak));
 check('a footstep is quiet beside the ball into a glove', M.get('db-cleat-dirt').peak < M.get('db-glove').peak * 0.5);
+check('a screamer is louder than the barrel', M.get('db-crack-screamer').peak > M.get('db-crack').peak * 0.95, `${M.get('db-crack-screamer').peak.toFixed(3)}`);
+check('hit hard is a screamer, a pop-up is under the ball', B.eventFor('crack', { ev: 106 }).id === 'db-crack-screamer' && B.eventFor('crack', { ev: 90, t: 'pu' }).id === 'db-crack-pop' && B.eventFor('crack', { ev: 106, foul: true }).id !== 'db-crack-screamer');
+check('a dive on the dirt is the dirt dive', B.eventFor('dive', { dirt: true }).id === 'db-dive-dirt' && B.eventFor('dive', {}).id === 'db-dive');
+{
+  const calm = tension({ inning: 2, homeScore: 5, awayScore: 0, outs: 0 }, {});
+  const tight = tension({ inning: 9, homeScore: 3, awayScore: 3, outs: 2, basesBefore: [false, true, true] }, { pitch: { strikes: 2, balls: 3 } });
+  const rout = tension({ inning: 9, homeScore: 12, awayScore: 3, outs: 2, basesBefore: [true, true, true] }, { pitch: { strikes: 2 } });
+  check('tension: a tie in the ninth with men on matters more than the second inning', tight > 0.8 && calm < 0.2, `${calm.toFixed(2)} ${tight.toFixed(2)}`);
+  check('tension: a blowout empties the park', rout < 0.4, rout.toFixed(2));
+  check('tension: a half-inning break is nothing', tension({ phase: 'half', inning: 9 }, {}) === 0);
+}
 
 // a take
 {

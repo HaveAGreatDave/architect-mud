@@ -86,10 +86,29 @@ function def(id, name, priority, layers, o = {}) {
 // through three resonances an ash bat rings at) and a short inharmonic ring (FM at 2.41), with a
 // low knock under it. The other contacts are the same bat struck in the wrong place.
 const crack = (k = 1) => [
+  noise({ type: 'highpass', hz: 5200, q: 0.6, d: 0.0025, r: 0.002, gain: 0.06 * k }),
   noise({ type: 'highpass', hz: 2200, q: 0.7, d: 0.006, r: 0.004, gain: 0.34 * k, width: 0.3 }),
   noise({ formants: [{ freq: 380, q: 9, gain: 1 }, { freq: 820, q: 11, gain: 0.8 }, { freq: 1650, q: 12, gain: 0.6 }], d: 0.05, r: 0.02, gain: 0.5 * k }),
   tone({ hz: 1250, mod: 2.41, index: 3, indexEnd: 0.2, slide: 0.012, to: 1150, bend: 0.03, d: 0.03, r: 0.012, gain: 0.16 * k }),
   tone({ hz: 190, to: 130, bend: 0.03, a: 0.001, d: 0.03, r: 0.015, gain: 0.12 * k, filter: { type: 'highpass', freq: 70, q: 0 } }),
+  // the ball leaving: a sub thump you feel more than hear
+  tone({ hz: 82, to: 58, bend: 0.04, a: 0.001, d: 0.045, r: 0.02, gain: 0.07 * k }),
+];
+// A second, later answer off the far stands for the loudest sounds: the outfield bleachers are
+// three times as far as the seats behind the plate.
+const echo = (layers, g = 0.12, ms = 0.38, lp = 1500) => [...layers, ...layers.map((l) => ({
+  ...l, gain: +(l.gain * g).toFixed(4), delay: +((l.delay || 0) + ms).toFixed(4),
+  ...(l.formants ? {} : { filter: { type: 'lowpass', freq: lp, q: 0.5 } }),
+}))];
+// Dirt kicked up: a scatter of grains, each a tick of high noise, thinning out.
+const grit = (n, at, spread, g) => Array.from({ length: n }, (_, i) => noise({
+  hz: 2600 + (i % 4) * 600, q: 1.4, d: 0.006, r: 0.004, gain: +(g * (1 - i / (n * 1.4))).toFixed(4),
+  delay: +(at + i * spread + ((i * 7) % 3) * 0.009).toFixed(4), pan: (((i * 5) % 5) - 2) * 0.15,
+}));
+// One bass drum in the bleachers: the head's thump and the beater's click.
+const drum = (at, gain = 0.2) => [
+  tone({ hz: 64, to: 44, bend: 0.08, a: 0.002, d: 0.14, r: 0.06, gain, delay: at }),
+  noise({ type: 'lowpass', hz: 900, q: 0.5, d: 0.02, r: 0.01, gain: +(gain * 0.45).toFixed(4), delay: at }),
 ];
 
 // ═══ LEATHER ═══════════════════════════════════════════════════════════════════
@@ -177,6 +196,18 @@ export const BUILTINS = [
     tone({ hz: 1600, mod: 1.41, index: 2, indexEnd: 0.3, slide: 0.03, d: 0.07, r: 0.03, gain: 0.14 }),
     noise({ formants: [{ freq: 520, q: 10, gain: 0.7 }, { freq: 1900, q: 12, gain: 1 }], d: 0.04, r: 0.02, gain: 0.32 }),
   ])),
+  // a ball hit as hard as anyone hits one: the barrel louder and longer, and the bleachers answer
+  def('db-crack-screamer', 'Bat: a screamer off the barrel', 8, echo(slap([
+    ...crack(0.97),
+    tone({ hz: 1250, mod: 2.41, index: 3.5, indexEnd: 0.3, slide: 0.03, to: 1180, bend: 0.06, d: 0.07, r: 0.03, gain: 0.07 }),
+  ], 0.3)), { vary: { pitch: 0.03, gain: 0.06, env: 0.08 } }),
+  // under the ball: a hollow tock and no ring, the pop-up everyone sighs at
+  def('db-crack-pop', 'Bat: under the ball', 6, slap([
+    noise({ type: 'highpass', hz: 2400, q: 0.7, d: 0.004, r: 0.003, gain: 0.2 }),
+    tone({ hz: 700, mod: 2, index: 1.8, indexEnd: 0.2, slide: 0.015, to: 640, a: 0.0008, d: 0.04, r: 0.015, gain: 0.17 }),
+    noise({ formants: [{ freq: 480, q: 9, gain: 1 }, { freq: 1150, q: 10, gain: 0.7 }], d: 0.035, r: 0.015, gain: 0.34 }),
+    tone({ hz: 160, to: 120, a: 0.001, d: 0.025, r: 0.012, gain: 0.1 }),
+  ], 0.22)),
   def('db-crack-jam', 'Bat: off the handle', 6, [
     tone({ hz: 150, to: 100, bend: 0.04, a: 0.001, d: 0.05, r: 0.02, gain: 0.2, filter: { type: 'highpass', freq: 60, q: 0 } }),
     noise({ type: 'lowpass', hz: 900, q: 0.6, d: 0.03, r: 0.015, gain: 0.22 }),
@@ -250,16 +281,27 @@ export const BUILTINS = [
     tone({ hz: 120, to: 85, a: 0.002, d: 0.05, r: 0.02, gain: 0.18 }),
     noise({ hz: 1100, to: 600, sweep: 0.32, q: 0.6, a: 0.02, d: 0.34, r: 0.08, gain: 0.2, linear: true }),
     noise({ hz: 3400, q: 0.5, a: 0.04, d: 0.3, r: 0.1, gain: 0.05, linear: true, width: 0.6 }),
+    ...grit(6, 0.08, 0.04, 0.06),
+    noise({ type: 'lowpass', hz: 500, q: 0.5, a: 0.006, d: 0.06, r: 0.03, gain: 0.1, colour: 'brown', delay: 0.26 }),
   ]),
   def('db-dive-back', 'Running: diving back to the bag', 4, [
     tone({ hz: 120, to: 90, a: 0.002, d: 0.05, r: 0.02, gain: 0.18 }),
     noise({ type: 'lowpass', hz: 900, q: 0.5, d: 0.14, r: 0.04, gain: 0.14 }),
     tone({ hz: 300, a: 0.001, d: 0.02, r: 0.01, gain: 0.1, delay: 0.12 }),
+    ...grit(4, 0.03, 0.03, 0.06),
   ]),
   def('db-dive', 'Running: a dive on the grass', 4, [
     tone({ hz: 110, to: 80, a: 0.002, d: 0.06, r: 0.025, gain: 0.2, filter: { type: 'highpass', freq: 50, q: 0 } }),
     noise({ hz: 420, q: 0.5, a: 0.004, d: 0.18, r: 0.05, gain: 0.2, colour: 'pink' }),
   ]),
+  // a dive on the infield or the track: the body landing, the dirt sprayed ahead of it, and the
+  // grains coming down
+  def('db-dive-dirt', 'Running: a dive into the dirt', 5, [
+    tone({ hz: 100, to: 68, a: 0.002, d: 0.07, r: 0.03, gain: 0.22, filter: { type: 'highpass', freq: 50, q: 0 } }),
+    noise({ type: 'lowpass', hz: 700, q: 0.5, a: 0.003, d: 0.12, r: 0.04, gain: 0.2, colour: 'brown' }),
+    noise({ hz: 1900, to: 900, sweep: 0.24, q: 0.6, a: 0.01, d: 0.24, r: 0.06, gain: 0.1, linear: true, width: 0.6, delay: 0.01 }),
+    ...grit(7, 0.04, 0.035, 0.08),
+  ], { vary: STEP }),
   def('db-collision', 'Running: a collision at the plate', 8, slap([
     tone({ hz: 120, to: 80, bend: 0.05, a: 0.001, d: 0.06, r: 0.03, gain: 0.26, filter: { type: 'highpass', freq: 55, q: 0 } }),
     tone({ hz: 330, mod: 2, index: 2, indexEnd: 0.3, slide: 0.03, to: 260, a: 0.001, d: 0.06, r: 0.025, gain: 0.18 }),
@@ -304,9 +346,34 @@ export const BUILTINS = [
   def('db-clap', 'Crowd: a clap in time', 2, Array.from({ length: 10 }, (_, i) => noise({
     hz: 1300 + (i % 4) * 260, q: 0.9, d: 0.018, r: 0.01, gain: 0.15, delay: +(i * 0.0041 + (i % 3) * 0.003).toFixed(4), pan: ((i % 5) - 2) * 0.3,
   })), { vary: STEP }),
+  // before a pitch that matters: the crowd's talk rising, nobody cheering yet
+  def('db-crowd-murmur', 'Crowd: the murmur before a big pitch', 2, voices({ a: 0.7, d: 1.1, s: 0.55, r: 0.6, k: 0.65, bright: 0.9 }), { vary: STEP }),
+  // two fingers in somebody's mouth, and somebody answering from the other side
+  def('db-crowd-whistle', 'Crowd: a whistle from the stands', 2, [
+    tone({ hz: 2300, to: 3100, bend: 0.16, a: 0.03, d: 0.34, s: 0.5, r: 0.08, linear: true, gain: 0.05, vibrato: { rate: 6, depth: 20 }, pan: -0.3 }),
+    tone({ hz: 2900, to: 2500, bend: 0.2, a: 0.02, d: 0.22, s: 0.4, r: 0.06, linear: true, gain: 0.035, delay: 0.3, pan: 0.35 }),
+  ], { vary: STEP }),
   def('db-towels', 'Crowd: the towels waving in the final', 2, [
     noise({ hz: 900, q: 0.5, a: 0.4, d: 2.2, s: 0.6, r: 0.8, gain: 0.1, colour: 'pink', width: 1, tremolo: { rate: 2.6, depth: 0.6 }, linear: true }),
   ], { vary: STEP }),
+
+  // the hype: what the park's own system and the bleachers do to get a crowd up
+  // the stadium air horn, three reeds a little out of tune with each other
+  def('db-airhorn', 'Hype: the stadium air horn', 5, [233, 294, 350].map((hz, i) => tone({
+    wave: 'sawtooth', hz: hz * (1 + (i - 1) * 0.004), a: 0.02, d: 0.85, s: 0.9, r: 0.12, linear: true, gain: 0.011,
+    drive: 0.35, filter: { type: 'lowpass', freq: 2600, q: 0.9 }, vibrato: { rate: 4.5, depth: 3 }, pan: (i - 1) * 0.25,
+  })), { vary: STEADY }),
+  // the videoboard's hit: a sub drop under a crash of noise
+  def('db-hype-boom', 'Hype: the videoboard boom', 5, [
+    tone({ hz: 70, to: 32, bend: 0.6, a: 0.004, d: 0.7, r: 0.2, gain: 0.26 }),
+    noise({ type: 'lowpass', hz: 3800, q: 0.5, to: 600, sweep: 0.6, a: 0.003, d: 0.6, r: 0.2, gain: 0.1, width: 1 }),
+  ], { vary: STEADY }),
+  // the bleachers' bass drum: two, then three quick
+  def('db-drum-chant', 'Hype: the bass drum in the bleachers', 3, [0, 0.42, 0.84, 1.05, 1.26].flatMap((at) => drum(at)), { vary: STEADY }),
+  // the stands stamping on the boards, faster as the pitch comes
+  def('db-stomp', 'Hype: the stands stamping', 3, [0, 0.36, 0.66, 0.92, 1.14, 1.32, 1.47, 1.6, 1.71, 1.8].map((at, i) => noise({
+    type: 'lowpass', hz: 380, q: 0.6, a: 0.003, d: 0.06, r: 0.03, gain: +(0.16 + i * 0.012).toFixed(4), colour: 'brown', width: 0.9, delay: at,
+  })), { vary: STEP }),
 
   // the graphics
   def('db-sting-homer', 'Graphics: home run fanfare', 6, [
@@ -414,6 +481,8 @@ const contact = (o) => {
   if (o.bunt) return ['db-bunt', 0.9];
   if (o.broken) return ['db-bat-break', 1];
   const ev = +o.ev || 85;
+  if (o.t === 'pu') return ['db-crack-pop', 0.85];
+  if (ev >= 100 && !o.foul) return ['db-crack-screamer', Math.min(1, 0.85 + (ev - 100) / 40)];
   if (ev < 72) return ['db-crack-jam', 0.85];
   if (ev < 86 && o.foul) return ['db-crack-end', 0.85];
   return ['db-crack', Math.min(1, 0.7 + (ev - 80) / 40)];
@@ -429,7 +498,7 @@ export const EVENTS = {
   hit: 'db-hbp',
   release: ['db-throw', 0.8],
   step: (o) => [o.dirt ? 'db-cleat-dirt' : 'db-cleat-grass', 0.5 + 0.3 * (o.hard ? 1 : 0)],
-  slide: 'db-slide', diveBack: 'db-dive-back', dive: 'db-dive', collision: 'db-collision',
+  slide: 'db-slide', diveBack: 'db-dive-back', dive: (o) => (o.dirt ? 'db-dive-dirt' : 'db-dive'), collision: 'db-collision',
   // what the ball does
   hop: (o) => [o.dirt ? 'db-hop-dirt' : 'db-hop-grass', Math.min(1, 0.45 + (+o.speed || 30) / 120)],
   roll: ['db-roll-grass', 0.7],
@@ -437,7 +506,11 @@ export const EVENTS = {
   // the park
   horn: 'db-horn', foghorn: 'db-foghorn', lamp: 'db-lamp',
   // the crowd
-  swell: 'db-crowd-swell', cheer: 'db-crowd-cheer', roar: 'db-crowd-roar', groan: 'db-crowd-groan', boo: 'db-crowd-boo',
+  // off the bat, as loud as the ball's hit and louder for one going up
+  swell: (o) => ['db-crowd-swell', Math.min(1, 0.45 + Math.max(0, (+o.ev || 85) - 80) / 40 + (o.t === 'fb' ? 0.15 : 0))],
+  murmur: 'db-crowd-murmur', whistle: 'db-crowd-whistle',
+  airhorn: 'db-airhorn', boom: 'db-hype-boom', drum: 'db-drum-chant', stomp: 'db-stomp',
+  cheer: 'db-crowd-cheer', roar: 'db-crowd-roar', groan: 'db-crowd-groan', boo: 'db-crowd-boo',
   gasp: 'db-crowd-gasp', ooh: 'db-crowd-ooh', clap: ['db-clap', 0.8], towels: 'db-towels',
   // the graphics
   homer: 'db-sting-homer', run: 'db-sting-run', strikeout: 'db-sting-k', out: 'db-sting-out', base: 'db-sting-base',
@@ -470,9 +543,10 @@ export const MIX = Object.freeze({
   fx: { db: -9, duck: -6 },         // the ball, running, the graphics' stings
   music: { db: -12, duck: -6 },     // the organ
   crowd: { db: -14, duck: -4 },     // the crowd and the park's air
+  hype: { db: -11, duck: -6 },      // the air horn, the videoboard, the bleachers' drum and stamping
 });
 // which layer of the mix a patch sits in
-export const layerOf = (id) => (/^db-organ/.test(id) ? 'music' : /^db-crowd|^db-clap|^db-towels|^db-horn|^db-foghorn|^db-lamp/.test(id) ? 'crowd'
+export const layerOf = (id) => (/^db-organ/.test(id) ? 'music' : /^db-(airhorn|hype|drum|stomp)/.test(id) ? 'hype' : /^db-crowd|^db-clap|^db-towels|^db-horn|^db-foghorn|^db-lamp/.test(id) ? 'crowd'
   : /^db-(crack|bunt|bat-break|foul-tip|mitt|glove|stretch|pickoff)/.test(id) ? 'impact' : 'fx');
 // How much plays at each Sound Detail (client/shared/settings.js sfxDetail): off keeps the
 // calls, limited adds what happens, full adds the beds, the organ, the public address, the
