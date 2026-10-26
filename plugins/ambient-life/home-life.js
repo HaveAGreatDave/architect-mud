@@ -67,6 +67,19 @@ const MEAL = [
    `{npc} tastes it, makes a face, and adds something else.`,
    `{npc} tastes it again and nods, grudgingly satisfied.`,
    `{npc} eats {thing} slowly, and for a few minutes looks like nothing much is wrong.`],
+  [`{npc} opens the fridge, shuts it, opens it again, and takes out the same three things.`,
+   `{npc} gets the {thing} on and leans against the counter to wait.`,
+   `{npc} eats the {thing} at the table with a tablet propped against the salt.`,
+   `{npc} scrapes the pan into the bin and runs water into it.`],
+  [`{npc} finds the one clean pan, wipes it anyway, and puts it on the heat.`,
+   `The {thing} catches. {npc} turns the heat down, too late, and stirs.`,
+   `{npc} eats the {thing} anyway, burnt bits and all.`],
+  [`{npc} cooks with the radio on, singing the half of the words they know.`,
+   `{npc} burns a finger on the pan, swears, and holds it under the tap.`,
+   `{npc} sits down with the {thing}, one hand still wrapped in a damp cloth.`],
+  [`{npc} weighs two tins in their hands, puts one back, and opens the other.`,
+   `{npc} makes the {thing} in one pot and eats it out of the same pot.`,
+   `{npc} leaves the pot to soak with the spoon still in it.`],
 ];
 
 const DRINK = [
@@ -76,11 +89,30 @@ const DRINK = [
    `{npc} drinks it too hot, winces, and drinks it too hot again.`],
   [`{npc} pours {thing}, considers it, and tops it up.`,
    `{npc} drinks without hurrying. Whatever the day was, it's over now.`],
+  [`{npc} rinses a cup that was already clean enough.`,
+   `{npc} makes the {thing} and stands at the window to drink it.`],
+  [`{npc} reaches for a glass, changes their mind, and takes a mug instead.`,
+   `{npc} drinks the {thing} in small sips, reading something on a tablet.`,
+   `{npc} looks into the empty cup for a moment and decides against a second.`],
+  [`{npc} makes the {thing} and forgets it on the side.`,
+   `{npc} finds the {thing} again, cold, and drinks it anyway.`],
+  [`{npc} gets two cups down out of habit and puts one back.`,
+   `{npc} drinks the {thing} sitting on the edge of the bed.`],
 ];
 
 const TIDY = [
   [`{npc} moves around the room putting things back where they go.`,
    `{npc} stops halfway through, loses interest, and sits down.`],
+  [`{npc} picks up a sock, looks around for the other one, and gives up.`,
+   `{npc} moves everything on the chair onto the bed, and everything on the bed onto the chair.`],
+  [`{npc} wipes down the counter, then the cooker, then the counter again.`,
+   `{npc} ties off the bin bag and leaves it by the door for later.`],
+  [`{npc} sweeps the floor into a small grey pile.`,
+   `{npc} looks for the dustpan, can't find it, and pushes the pile under the cupboard.`],
+  [`{npc} folds a pile of washing on the bed, one shirt at a time.`,
+   `{npc} puts the pile in a drawer that won't quite shut, and leans on it until it does.`],
+  [`{npc} washes every cup in the place and lines them up on the drainer.`,
+   `{npc} counts the cups, frowns, and goes looking for the missing one.`],
 ];
 
 // ── The bathroom ─────────────────────────────────────────────────────────────

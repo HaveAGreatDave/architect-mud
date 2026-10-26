@@ -330,6 +330,14 @@ export const DEFAULT_CHITCHAT_LINES = [
   'sighs and checks the time.',
   'scratches at an old scar.',
   'cracks a thin, joyless smile.',
+  'yawns without covering their mouth.',
+  'checks their pockets for something and comes up empty.',
+  'rubs their eyes with the heels of both hands.',
+  'reads something on a cracked tablet screen.',
+  'shifts a bag from one shoulder to the other.',
+  'pulls their coat tighter.',
+  'counts something off on their fingers, loses count, and starts again.',
+  'blows on their hands to warm them.',
 ];
 
 // Off-shift wander radius in tiles. Not the whole world: see docs/ai-behaviour.md#a-wander-has-to-come-back
@@ -350,6 +358,12 @@ const DEFAULT_HOME_ACTIVITIES = [
   'sits on the edge of the bed and checks their terminal.',
   'mutters to themselves and shuffles to the kitchen.',
   'taps at a broken light fixture without fixing it.',
+  'washes a single plate and leaves it to drain.',
+  'sorts a pile of laundry into two smaller piles.',
+  'eats something out of a tin with a fork.',
+  'scrolls slowly through something on their tablet.',
+  'sits by the radiator with both hands held out to it.',
+  'changes a light bulb, and the new one flickers too.',
 ];
 
 // Lines for the half-hour after being woken, used instead of the NPC's home activities.
@@ -534,15 +548,25 @@ export function formatChitchat(name, line) {
   return { type: 'zone_event', message: `${name} ${t}` };
 }
 
+// Standing in their own home, and that home is a real dwelling: the same test as the passive home ticker.
+function isInOwnDwelling(entity, hereId) {
+  return !!entity.home_zone && hereId === entity.home_zone && isDwellingZone(getZone(hereId));
+}
+
+// At a workplace zone. GO_TO_WORK walks to resolveLanding, so a facade work zone puts them in its entry room.
+const isAtPost = (hereId, workZone) => hereId === workZone || hereId === resolveLanding(workZone);
+
 // On the clock at the workplace: in the work zone AND on shift (exported). Studio actors in an active
-// slot, vendors at their stall in hours, work_zone_id holders in hours; everyone else never.
+// slot, vendors at their stall in hours, work_zone_id holders in hours; everyone else never. A vendor
+// with no work zone sells wherever they are in hours, except in their own flat.
 export function isNpcAtWork(entity) {
   if (!entity || isEnemy(entity)) return false;
   const hereId = entityZone(entity);
   const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
-  if (studioZone) return hereId === studioZone && isNpcScheduledNow(entity.id);
+  if (studioZone) return isAtPost(hereId, studioZone) && isNpcScheduledNow(entity.id);
   if (entity.npc_type === 'vendor' || entity.work_zone_id) {
-    if (entity.work_zone_id && hereId !== entity.work_zone_id) return false;
+    if (entity.work_zone_id) { if (!isAtPost(hereId, entity.work_zone_id)) return false; }
+    else if (isInOwnDwelling(entity, hereId)) return false;
     return !!isVendorWorkTime(entity, getEnvironmentState()).working;
   }
   return false;
@@ -1637,8 +1661,9 @@ async function execAction(node, entity, ctx) {
           }
         }
       }
-      // Small per-tick chance to emote or say a chitchat line, independent of movement.
-      if (Date.now() - ai.lastSay > 20000 && Math.random() < 0.05) {
+      // Small per-tick chance to emote or say a chitchat line, independent of movement. Not in their own
+      // flat: life lines are written for the street, and the passive home ticker voices that room.
+      if (!isInOwnDwelling(entity, zoneId) && Date.now() - ai.lastSay > 20000 && Math.random() < 0.05) {
         ai.lastSay = Date.now();
         const line = pickChitchatLine(entity, 'life'); // HAVE_LIFE only runs off-shift
         broadcast(zoneId, line

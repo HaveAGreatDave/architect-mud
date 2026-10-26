@@ -1412,6 +1412,31 @@ section('layer 1i3: archetype tiers (chitchat / home / banter)');
   check('a dead NPC is not a target', (await npcAttackNpc(e, dead, {})) === null);
 }
 
+// ── Layer 1i5: at work vs at home ────────────────────────────────────────
+// isNpcAtWork picks work or life chitchat for the AI and for `talk`/`say`. Two ways
+// it used to answer wrong: a facade work zone (GO_TO_WORK stands them in the entry
+// room, which never matched), and a vendor with no work zone, who was "at work" in
+// their own flat for every hour of a shift.
+section('layer 1i5: at work vs at home');
+{
+  const { isNpcAtWork } = await import('../server/engine/ai-behaviour.js');
+  const { resolveLanding } = await import('../server/engine/world.js');
+  const allDay = Object.fromEntries(['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((d) => [d, [{ from: 0, to: 24 }]]));
+  const mk = (o) => ({ id: 'npc_regress_atwork', name: 'Atwork', npc_type: 'vendor', vendor_schedule: allDay, flags: {}, ...o });
+
+  const doorman = world.npcs.get('npc_ksab_doorman');
+  const facade = doorman?.work_zone_id, entry = facade && resolveLanding(facade);
+  check('KSAB doorman works a facade zone with an entry room (the case below needs one)', !!facade && entry !== facade, `${facade} -> ${entry}`);
+  check('on shift in the facade\'s entry room is at work', isNpcAtWork(mk({ work_zone_id: facade, zone_id: entry })));
+  check('on shift on the facade tile itself is still at work', isNpcAtWork(mk({ work_zone_id: facade, zone_id: facade })));
+  check('on shift anywhere else is not at work', !isNpcAtWork(mk({ work_zone_id: facade, zone_id: 'zone_district_909_913' })));
+
+  const flat = 'zone_filament_unit_2';
+  check('Filament Unit 2 is a dwelling (the case below needs one)', !!getZone(flat)?.flags?.is_apartment);
+  check('a vendor with no work zone is off duty in their own flat', !isNpcAtWork(mk({ work_zone_id: null, home_zone: flat, zone_id: flat })));
+  check('...and at work out in the city during their hours', isNpcAtWork(mk({ work_zone_id: null, home_zone: flat, zone_id: 'zone_district_909_913' })));
+}
+
 // ── Layer 1j: standing decay + relationship help ─────────────────────────
 // Two rules with teeth: standing is MAINTAINED (it slides back to a resting
 // point in both directions), and knowing someone is WORTH something at the till.

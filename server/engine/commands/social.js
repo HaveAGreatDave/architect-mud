@@ -6,8 +6,11 @@ import { renderDialogueNode, advanceDialogue, renderTalkLog, getLogTalk, setLogT
 import { loggedPanelsSync } from '../presentation.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
-import { DEFAULT_CHITCHAT_LINES, ANIMAL_CHITCHAT_LINES, formatChitchat, disturbSleeper, isVendorRole, isVendorOffHours, vendorOffHoursLine } from '../ai-behaviour.js';
+import { DEFAULT_CHITCHAT_LINES, ANIMAL_CHITCHAT_LINES, formatChitchat, disturbSleeper, isVendorRole, isVendorOffHours, vendorOffHoursLine, isNpcAtWork } from '../ai-behaviour.js';
 import { getNpcChitchat } from '../npc-personality.js';
+
+// Work lines on the clock at the workplace, life lines anywhere else: the same split the AI's own chitchat uses.
+const chitchatMode = (npc) => (isNpcAtWork(npc) ? 'work' : 'life');
 import { fireHook } from '../plugins.js';
 import { emit } from '../events.js';
 import { findNpcTransformByName } from '../phantoms.js';
@@ -85,7 +88,7 @@ async function cmdTalk(targetStr, player, broadcast) {
     // checks a wrist terminal. `isAnimal` is the same predicate `pet` uses, so a
     // creature you can pet and one that cannot hold a conversation are one set by
     // construction rather than by two lists agreeing.
-    const lines = getNpcChitchat(npc) || (isAnimal(npc) ? ANIMAL_CHITCHAT_LINES : DEFAULT_CHITCHAT_LINES);
+    const lines = getNpcChitchat(npc, chitchatMode(npc)) || (isAnimal(npc) ? ANIMAL_CHITCHAT_LINES : DEFAULT_CHITCHAT_LINES);
     const line = lines[Math.floor(Math.random() * lines.length)];
     const msg = formatChitchat(npc.name, line);
     if (broadcast) broadcast(player.current_zone, msg, player.id);
@@ -220,7 +223,7 @@ async function cmdSay(text, player, broadcast) {
   // listen here rather than re-deriving it from the say path.
   emit('player.spoke', { player, zoneId: player.current_zone, loud: false });
   for (const npc of npcsNamedInSpeech(text, player.current_zone)) {
-    const lines = getNpcChitchat(npc) || DEFAULT_CHITCHAT_LINES;
+    const lines = getNpcChitchat(npc, chitchatMode(npc)) || DEFAULT_CHITCHAT_LINES;
     broadcast(player.current_zone, formatChitchat(npc.name, lines[Math.floor(Math.random() * lines.length)]));
   }
   return null;
