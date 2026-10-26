@@ -18,6 +18,9 @@
 //     the vacu-formed panel: dual engine/rotor tacho, altimeter, magnetic compass, slip and bank,
 //     VSI, ASI, coolant temperature, hourmeter; electric clutch engagement; electric start;
 //     control friction locks; 15 gal fuel; a form-fitted upholstered seat, carpet and trim.
+//   Photo held against (Wikimedia Commons, 2026-10-26):
+//     File:Revolution_Mini500_noseon_FLAirMuse_2June07_(15323179911).jpg  (the tall narrow bubble, the pod
+//     on its post, one seat)
 //
 // ── ⚠ THE ROOM IS THE EXTERIOR'S CABIN LOFT ─────────────────────────────────
 //
@@ -238,6 +241,8 @@ export function dragonflyProfile(doc = MESH_ROWS.heli) {
     normalLit: true,
     // Panel floods: under the pod's visor, and a map light on the bulkhead over the tunnel.
     floods: [{ p: [xCentre * 0.45, 0.86, -0.28], r: 0.40 }, { p: [xCentre, -0.50, 0.05], r: 0.55 }],
+    // After dark the floods are bright enough to read the pod by (the Drake's 2.2 is the bar).
+    floodGain: 1.8, glare: 0.3,
     room: dragonflyShell,
     // The glass: every glazed facet of the exterior bubble, and the two door windows. Static, so built
     // once here. NOT part of shellFaces: the renderer lays it over the room as film.
@@ -591,6 +596,8 @@ function podPanel(K, P) {
 // ⚠ EVERY SWITCH BUT THE CLUTCH IS A CIRCUIT THE SIM HAS. NAV and STROBE were here too, and the sim has
 // neither: two switches that took the hand cursor and did nothing. NAV is the panel lights now.
 const SW = { v: -0.118, u0: 0.02, pitch: 0.036, ids: ['master', 'clutch', 'land', 'panel', 'dome'] };
+// The ignition, left of the row: MAG 1, MAG 2 and the start key.
+const IGN_U = [-0.24, -0.20, -0.14];
 // The panel lights are the PANEL switch (cockpit.js 'ck:panel'); a view that sends no switch state,
 // a seat shot, lights them after dark.
 const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : R.hour < 6.5 || R.hour > 19.5);
@@ -606,6 +613,10 @@ function switchOn(id, R) {
 export function dragonflyHotspots(P, live) {
   const R = readings(live), Pn = podPanel(makeKit(() => {}), P), out = [];
   SW.ids.forEach((id, i) => { if (id !== 'clutch') out.push({ id: 'ck:' + id, p: Pn.pt(SW.u0 + i * SW.pitch, SW.v, 0.01), r: 0.014, kind: 'click' }); });
+  // ⚠ THE IGNITION IS THE MASTER. The Rotax's two magneto switches and the start key are what stop and
+  // start the engine on a Mini-500, so each is cockpit.js's engine master ('ck:master'), as the BAT
+  // switch is. They were drawn and took no hand.
+  for (const u of IGN_U) out.push({ id: 'ck:master', p: Pn.pt(u, SW.v, 0.01), r: 0.014, kind: 'click' });
   out.push({ id: 'yoke', p: add(cyclicAt(P, R).top, [0, 0, 0.06]), r: 0.07, kind: 'yoke' });
   const c = collectiveAt(P, R);
   out.push({ id: 'throttle', p: add(c.end, mul(c.dir, 0.06)), r: 0.04, kind: 'throttle' });
@@ -712,17 +723,28 @@ export function dragonflyFit(P, live, push) {
   SW.ids.forEach((id, i) => {
     const u = SW.u0 + i * SW.pitch, on = switchOn(id, R);
     // The name goes where the placard was: under the switch is the pod's bottom edge.
+    // ⚠ THE CLUTCH IS A LAMP: the sim engages the rotor itself once the engine is up, so a switch here
+    // would take a hand and do nothing. It lights while the rotor is engaged.
+    if (id === 'clutch') {
+      Pn.lamp(u, SW.v, 0.011, 0.011, on, C.green);
+      Pn.fitText(SW_NAME[id], u, SW.v + 0.0205, 0.034, 0.007, [214, 212, 204], panel ? 0.5 : 0.1, 0.002);
+      return;
+    }
     Pn.fitText(SW_NAME[id], u, SW.v + 0.0205, 0.034, 0.007, [214, 212, 204], panel ? 0.5 : 0.1, 0.002);
     Pn.toggle(u, SW.v, on);
-    if (id === 'clutch') Pn.rect(u - 0.013, SW.v - 0.016, u + 0.013, SW.v + 0.016, [200, 40, 30], 0, 0.001);
   });
   // The ignition: two magneto-style switches for the Rotax's dual ignition, and the key.
   for (const [u, on, s] of [[-0.24, R.powered, 'MAG 1'], [-0.20, R.powered, 'MAG 2']]) { Pn.toggle(u, SW.v, on); Pn.fitText(s, u, SW.v + 0.0205, 0.036, 0.007, [214, 212, 204], 0.1, 0.002); }
-  Pn.disc(-0.14, SW.v, 0.014, C.chrome, 0.1, 0.003, 12);
-  Pn.stud(-0.14, SW.v, 0.004, 0.011, 0.012, T.buckle, 0, 0.003);
+  Pn.disc(IGN_U[2], SW.v, 0.014, C.chrome, 0.1, 0.003, 12);
+  {
+    const a = Math.PI / 2 + (R.powered ? -0.6 : 0.6), d = [Math.cos(a), Math.sin(a)];
+    Pn.plate([[IGN_U[2] - d[0] * 0.011 - d[1] * 0.003, SW.v - d[1] * 0.011 + d[0] * 0.003], [IGN_U[2] + d[0] * 0.011 - d[1] * 0.003, SW.v + d[1] * 0.011 + d[0] * 0.003],
+      [IGN_U[2] + d[0] * 0.011 + d[1] * 0.003, SW.v + d[1] * 0.011 - d[0] * 0.003], [IGN_U[2] - d[0] * 0.011 + d[1] * 0.003, SW.v - d[1] * 0.011 - d[0] * 0.003]], T.buckle, 0.05, 0.012);
+  }
   Pn.text('START', -0.14, SW.v + 0.0205, 0.007, [214, 212, 204], 0.1, 0.002);
   // The circuit breakers: a row of push-pull buttons along the right-hand edge, above the switches.
   for (let i = 0; i < 6; i++) { const u = 0.07 + i * 0.03; Pn.disc(u, -0.087, 0.007, C.black, 0, 0.002, 8); Pn.knob(u, -0.087, 0.0045, 0.010, i === 5 && R.hull < 0.3 ? C.white : [40, 42, 46], 0); }
+  Pn.fitText('BREAKERS', 0.145, -0.073, 0.12, 0.0085, [214, 212, 204], panel ? 0.5 : 0.1, 0.002);
   // ── THE RADIO: a COM and a transponder in a sub-panel hung under the pod, where the kit's "room for
   // avionics" is. The COM shows a real tower frequency; the squawk is 1200, VFR.
   const Rp = K.panel(Pn.pt(-0.07, -hh - 0.085, 0.02), Pn.r, Pn.u);
@@ -734,7 +756,9 @@ export function dragonflyFit(P, live, push) {
   Rp.rect(-0.084, 0.015, -0.080, 0.019, lit ? C.lcd : C.lampOff, lit ? 0.95 : 0, 0.006);
   Rp.digits(0.03, 0.015, 0.03, '1200', lit ? C.amber : C.lampOff);
   Rp.rect(-0.17, -0.060, 0.17, -0.004, [20, 21, 24], 0, 0.002);
-  for (const u of [-0.14, -0.10, 0.06, 0.11, 0.15]) { Rp.knob(u, -0.032, 0.012, 0.014, C.black, 0); Rp.knob(u, -0.032, 0.007, 0.022, [60, 62, 66], 0); }
+  // Named where the tuning knobs were: the sim tunes nothing, so a knob would do nothing.
+  Rp.text('COM', -0.12, -0.032, 0.014, [214, 212, 204], lit ? 0.5 : 0.1, 0.003);
+  Rp.text('XPDR', 0.12, -0.032, 0.014, [214, 212, 204], lit ? 0.5 : 0.1, 0.003);
   Rp.lamp(-0.03, -0.032, 0.008, 0.005, lit, C.green, 'PWR');
   Rp.lamp(0.02, -0.032, 0.008, 0.005, lit && R.alt > 50, C.amber, 'REPLY');
   // The whisky compass on the visor, its card turning under the lubber line.
