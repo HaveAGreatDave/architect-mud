@@ -23,8 +23,8 @@
 //
 // ── ⚠ THE ROOM IS THE EXTERIOR'S BODY TUBE, NEVER A SECOND DESCRIPTION OF IT ──
 //
-// `MESH_ROWS.wreck` has one body part: a loft of seven twelve-sided rings from the nose point to the
-// tail point. The room reads those rings straight off the faces, interpolates between them exactly
+// `MESH_ROWS.wreck` has one body part: twelve-sided rings from the nose point to the tail point, two
+// of them ahead of the firewall shaping the cowl (scripts/shapes/fw-meshes/carcass.mjs builds it). The room reads those rings straight off the faces, interpolates between them exactly
 // as the exterior's own quads do, and insets them by one wall thickness. So the walls you sit between
 // are the tube you can see from outside, facet for facet, and editing the mesh moves the room.
 //
@@ -34,12 +34,13 @@
 // inside, against the real aircraft's 0.57.
 // Nobody fitted that: the two numbers came out of different places and agreed.
 //
-// ⚠ THE EXTERIOR HAS NO GLASS AND NO HOLE. The mesh carries body, wing, stab and nacelle roles only
-// (buildWreck strips `glass`/`window` on purpose), so there is no rim to cut the cockpit along, the
-// way the Drake cuts its eyes along the eye glass. The opening here is therefore the one decision
-// the exterior can't make: an open cockpit cut through the upper arc of the tube, fore and aft
-// stations stated below in model units, the sill at a stated fraction of the section's own height.
-// What it's cut OUT of is still the exterior tube. The windscreen is a person-scale fitting.
+// ⚠ THE OPENING IS DECIDED HERE AND THE EXTERIOR FOLLOWS IT. The tube has no rim to cut the cockpit
+// along, the way the Drake cuts its eyes along the eye glass, so the opening is stated below: fore
+// and aft stations in model units, the sill at a fraction of the section's own height. The exterior
+// builder reads this file (carcassProfile, carcassGlass) and draws the hole, the cheek boards, the
+// glareshield, the windscreen frame and its shards, the roll bar and the headrest from these numbers,
+// and scripts/shapes/cockpit-carcass.mjs holds its shards and opening to them. The windscreen is a
+// person-scale fitting.
 //
 // What is NOT derived is anything about a PERSON (the boat file's split): how tall a sitting eye
 // is, how wide a seat is, how long a lever is, how big a dial is. Those are honest metres.
@@ -519,7 +520,7 @@ function screenOf(D) {
   const onScreen = (x, t) => [x, yW - 0.05 * clamp(t, 0, 1), lerp(base, tz, t)];
   return { yW, base, tz, onScreen };
 }
-// ⚠ THE EXTERIOR HAS NO GLASS, so these panes answer to the windscreen FRAME, not to the mesh. The
+// ⚠ THESE ARE THE GLASS, AND THE EXTERIOR'S SHARDS ARE COPIES: they answer to the windscreen FRAME. The
 // perspex that's left is two shards, each convex, in the frame's own (x, t) coordinates: a crazed
 // piece in the lower left, and a sliver in the top right corner held in by tape. The middle of the
 // frame is empty, which is why the forward view is open.

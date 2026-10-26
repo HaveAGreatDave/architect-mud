@@ -1,7 +1,7 @@
-// Regenerates the five fixed-wing mesh files (content/vehicle_models/mesh_{prop,heavy,gunship,
-// divebomber,locust}.json) from the builders beside this file.
+// Regenerates the six fixed-wing mesh files (content/vehicle_models/mesh_{prop,heavy,gunship,
+// divebomber,locust,wreck}.json) from the builders beside this file.
 //
-//   node scripts/shapes/fw-meshes/build.mjs                 all five
+//   node scripts/shapes/fw-meshes/build.mjs                 all six
 //   node scripts/shapes/fw-meshes/build.mjs mule leviathan  just those
 //   then: npm run vehicles:bake
 //
@@ -14,9 +14,13 @@
 // canopy bubble and the rings under it (Reaper, Shrike, Locust) are lifted from the old builder
 // (`setLegacyMeshes(true)`), and the new airframe is bridged onto them. Change the fw row and you
 // must re-run this, or the outside and the inside drift apart.
+//
+// ⚠ THE CARCASS RUNS THE OTHER WAY: its interior decides the cockpit, and carcass.mjs reads the
+// tube aft of the firewall from mesh_wreck.json itself and places the opening, the windscreen and the
+// roll bar from interior-carcass.js. Change the cockpit there, then re-run this for it.
 import { writeFileSync } from 'node:fs';
 const { formatMesh, validateMesh, compileMesh } = await import('../../../client/shared/vehicle-mesh.js');
-const ALL = ['mule', 'leviathan', 'reaper', 'shrike', 'locust'];
+const ALL = ['mule', 'leviathan', 'reaper', 'shrike', 'locust', 'carcass'];
 const which = process.argv.slice(2).length ? process.argv.slice(2) : ALL;
 let bad = 0;
 for (const name of which) {

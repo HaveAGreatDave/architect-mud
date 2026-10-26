@@ -34735,7 +34735,9 @@ export const vsOf = (cls) => (AIR_CLS.has(cls) ? 1 : CONTACT_VS);
 // prop 0.385 → 0.317 (2026-10-08): the Mule's wing was lengthened in the mesh, 2.048 → 2.484 units,
 // because her body was a Twin Otter's drawn 22% long and 45% tall against her span. Same 14.1 m
 // span, a shorter, lower airframe under it. See FRAME_SIZE for the two readers that wanted 0.385.
-const CONTACT_SIZE = { ultralight: 0.259, heli: 0.154, prop: 0.317, heavy: 0.717, gunship: 0.427, wreck: 0.35, grasshopper: 0.245, locust: 0.328, divebomber: 0.308, drake: 0.313,
+// wreck 0.35 → 0.152 (2026-10-26): the Carcass is a Fly Baby now, its 8.38 m span on 3.07 units of
+// mesh. It was a stub wing 1.9 units across, drawn 12 m wide on a body 13 m long.
+const CONTACT_SIZE = { ultralight: 0.259, heli: 0.154, prop: 0.317, heavy: 0.717, gunship: 0.427, wreck: 0.152, grasshopper: 0.245, locust: 0.328, divebomber: 0.308, drake: 0.313,
   // A road vehicle among aircraft: physically small next to anything with wings, which is why a
   // rig read from the air is a detail on the road rather than a second aeroplane. (THE LONG HAUL.)
   truck: 0.030,

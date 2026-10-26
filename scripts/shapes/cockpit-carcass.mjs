@@ -182,8 +182,8 @@ for (const k of ['stickX', 'stickY', 'rudder', 'throttle', 'flapNotch', 'trim', 
   ok(Math.abs(geo(shellFaces(P, { ...REST, [k]: a })) - geo(shellFaces(P, { ...REST, [k]: b }))) > 1e-6, 'control ' + k + ' changes no geometry');
 }
 // ── (d) THE GLASS ─────────────────────────────────────────────────────────────
-// ⚠ THE EXTERIOR HAS NO GLASS (buildWreck strips it), so the panes are matched against the
-// windscreen FRAME the fit-out draws instead: its steel posts are found in shellFaces here and the
+// ⚠ THE PANES ARE MATCHED AGAINST THE WINDSCREEN FRAME the fit-out draws, since that's what holds
+// them (the exterior's shards are copies of these, checked in (e)): its steel posts are found in shellFaces here and the
 // frame's plane and extent measured off them, not read from the profile.
 {
   const G = P.glass;
@@ -209,6 +209,30 @@ for (const k of ['stickX', 'stickY', 'rudder', 'throttle', 'flapNotch', 'trim', 
     ok(!rest.some((x) => x.p.length === pane.length && x.p.every((q, k) => q === pane[k] || (q[0] === pane[k][0] && q[1] === pane[k][1] && q[2] === pane[k][2]))), 'pane ' + i + ' is in shellFaces — glass must not be');
     // The middle of the frame is open: no pane crosses the eye's straight-ahead line.
     ok(!rayHitsPoly([0, 0, 0], [0, 1, 0], pane), 'pane ' + i + ' is across the straight-ahead view, where the perspex is gone');
+  }
+}
+// ── (e) THE OUTSIDE SHOWS THE SAME COCKPIT ────────────────────────────────────
+// scripts/shapes/fw-meshes/carcass.mjs builds the exterior's cockpit from this profile, so its two
+// shards of perspex must be these panes carried out to model units, and its hole must be the skin
+// above this sill between this opening's two stations. Read from the content file, not the bake.
+{
+  const toM = (q) => [q[1] / m + CARCASS.eyeF, q[0] / m, q[2] / m + P.carcass.hE];
+  const all = [];
+  const walk = (parts) => { for (const p of parts) { if (p.faces) all.push(...p.faces); if (p.parts) walk(p.parts); } };
+  walk(doc.parts);
+  const glass = all.filter((f) => f.role === 'glass');
+  ok(glass.length === (P.glass || []).length, 'the exterior has ' + glass.length + ' glass faces; the windscreen has ' + (P.glass || []).length + ' shards');
+  for (const [i, pane] of (P.glass || []).entries()) {
+    const want = pane.map(toM);
+    const same = (f) => f.p.length === want.length && f.p.every((q) => want.some((w) => Math.hypot(q[0] - w[0], q[1] - w[1], q[2] - w[2]) < 1e-3));
+    ok(glass.some(same), 'shard ' + i + ' is not on the exterior where the interior has it: re-run node scripts/shapes/fw-meshes/build.mjs carcass');
+  }
+  const hp = all.filter((f) => f.paint === 'hole').flatMap((f) => f.p);
+  ok(hp.length > 0, 'the exterior has no cockpit opening');
+  if (hp.length) {
+    const f0 = Math.min(...hp.map((q) => q[0])), f1 = Math.max(...hp.map((q) => q[0])), h0 = Math.min(...hp.map((q) => q[2]));
+    ok(Math.abs(f0 - CARCASS.open[0]) < 1e-3 && Math.abs(f1 - CARCASS.open[1]) < 1e-3, 'the exterior opening runs ' + f0 + '..' + f1 + ', the interior\'s ' + CARCASS.open.join('..'));
+    ok(h0 > P.carcass.hSill - 1e-3, 'the exterior opening comes down to h ' + h0.toFixed(4) + ', below the sill at ' + P.carcass.hSill.toFixed(4));
   }
 }
 // Hotspots stay inside the room.

@@ -1623,7 +1623,7 @@ export const PROP_STATIONS = {
 // Relative size (Twin Otter = 1) where craft are shown together (the hangar fleet scene). The An-124 is
 // compressed to 2.0 and the heli bumped to .42 for readability. Contacts use windshield.js CONTACT_SIZE.
 // Unlisted classes default to 1.
-export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.85, grasshopper: 0.42, locust: 0.40, divebomber: 0.72, truck: 1.15, hydro: 1.0 };
+export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.28, grasshopper: 0.42, locust: 0.40, divebomber: 0.72, truck: 1.15, hydro: 1.0 };
 // A mesh-file-only class carries its scale in `classFacts.modelScale`. `??=` so a file can't resize a listed class.
 for (const [id, row] of Object.entries(MESH_ROWS)) if (row.classFacts?.modelScale != null) MODEL_SCALE[id] ??= row.classFacts.modelScale;
 
