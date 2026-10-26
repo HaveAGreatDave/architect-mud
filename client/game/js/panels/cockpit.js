@@ -1677,6 +1677,7 @@ export function openFlightSim(opts = {}) {
   setAreaPane(html);
   const root = document.getElementById('fsim-root');
   if (!root) { _fsim = null; return; }
+  F.rootEl = root;   // the frame loop puts it back if another pane writer wipes it
   const q = (sel) => root.querySelector(sel);
   const add = (t, ty, fn, op) => { if (!t) return; t.addEventListener(ty, fn, op); F.listeners.push([t, ty, fn, op]); };
 
@@ -2515,11 +2516,13 @@ export function openFlightSim(opts = {}) {
   });
 
   // Disembark; the frame loop shows it only on the ground.
+  // ⚠ No close here. The server's detach sends cockpit_close, which closes the sim and looks.
+  // A timed close also fired when the server refused ("you're in the air"), stranding the
+  // pilot aloft with no sim.
   const disembarkBtn = q('#fsim-disembarkbtn');
   add(disembarkBtn, 'click', () => {
     sendCmdSilent('disembark');
     fsimToast('⏏ CLIMBING OUT…');
-    setTimeout(() => { closeFlightSim(); sendCmdSilent('look'); }, 400);
   });
 
   const fsBtn = q('#fsim-fsbtn');
@@ -3314,8 +3317,18 @@ function fsimFrame(now) {
 }
 function fsimFrameBody(now) {
   const F = _fsim; if (!F) return;
-  const root = document.getElementById('fsim-root');
-  if (!root) { closeFlightSim(); return; }
+  let root = document.getElementById('fsim-root');
+  if (!root) {
+    // ⚠ Something else wrote the area pane (setAreaPane has ~18 callers). Every deliberate exit
+    // goes through closeFlightSim, which nulls _fsim first, so a missing root here is always an
+    // accident. Closing used to leave the pilot airborne with no sim, the server none the wiser,
+    // and the next cockpit_update mounted the legacy HUD. The flight lives in F, so put it back.
+    // The text cockpit is the one writer that replaces it on purpose.
+    const pane = document.getElementById('area-content');
+    if (!F.rootEl || !pane || pane.querySelector('.tck')) { closeFlightSim(); return; }
+    pane.replaceChildren(F.rootEl);
+    root = F.rootEl;
+  }
   const dt = clampNum((now - F.last) / 1000, 0, 0.25); F.last = now;
   const { s, P, input } = F;
 
@@ -4879,8 +4892,7 @@ export function cockpitRolling() {
   return !!(F.reportedAirborne || F.rolling || (F.s.onGround && F.engineOn && Math.abs(F.s.airspeed || 0) > 4));
 }
 /**
- * Swing the chase camera onto a shot (camera-tween.js SHOTS). See cab-view cabFrame. Inside a GLASS
- * hangar the bench passes a zoom under the standoff, which windshield.js clamps to it.
+ * Swing the chase camera onto a shot (camera-tween.js SHOTS). See cab-view cabFrame.
  */
 export function cockpitFrame(shot, ms = 700) {
   const F = _fsim; if (!F || !shot) return;

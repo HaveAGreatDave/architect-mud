@@ -1843,6 +1843,12 @@ registerInputMatcher(/^(n|s|e|w|ne|nw|se|sw|north|south|east|west|northeast|nort
     const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
     if (!live || !live.row.airborne || player.seat !== 'pilot') return undefined;
     const d = DIR_ALIASES[raw.toLowerCase()] || raw.toLowerCase();
+    // A continuous craft's heading is an output of the sim, so writing the row only snaps it
+    // until the next sync. A text pilot gets the turn flown; the 3D pilot has the stick.
+    if (isContinuous(live)) {
+      if (live.textPilot) return cmdTextTurn([String(toDeg(d))], player);
+      return { type: 'emote', message: 'She goes where the stick points. Bank her round to face ' + d.toUpperCase() + '.' };
+    }
     setHeading(live, d); live.hover = false; pushHud(live);
     return { type: 'emote', message: `Coming around to ${d.toUpperCase()}.` };
   }, 'flight');

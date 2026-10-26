@@ -2183,6 +2183,11 @@ export function pushHud(live) {
     // Latched at board time, so this stays a sync property read on the tick path. An
     // explicitly opened `window` outranks it: asking to look out is asking for the view.
     if (p.textTravel && !p.cabinWindowOpen) continue;
+    // ⚠ Never the pilot of a continuous craft: they fly the client sim (or the text cockpit),
+    // fed by pushContext. This payload is the banded pilot HUD, and every airframe is
+    // continuous now; sent to a pilot whose sim had closed, it mounted the ancient cockpit
+    // over the flight. `seat`, not `live.pilotId`, since a charter's NPC pilot leaves that null.
+    if (p.seat === 'pilot' && isContinuous(live)) continue;
     // Walkable cabin: an occupant walking the interior rooms is in a real MUD room, not
     // on the cockpit-window HUD — don't clobber it. But once they open the WINDOW overlay
     // (cabinWindowOpen) it IS fed the live view here. Non-cabin occupants (a seated pilot)
