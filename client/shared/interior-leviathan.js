@@ -15,6 +15,13 @@
 //        loadmaster is below on the lobby deck; nav/autopilot systems the panels carry)
 //   https://aeropedia.com.au/content/antonov-an-124-ruslan/         (the visor nose lifts OVER the
 //        flight deck; relief crew compartment aft of it on the same deck)
+// Photos the room was held against (Wikimedia Commons), for what the deck looks like from the seat:
+//   File:AN-124_flight_deck_(3940749148).jpg       (from behind the seats: ram's-horn yokes on floor
+//        columns, one blue board under a black hood, the four-lever pedestal, the overhead stepping
+//        down to the windscreen header, blue cloth seats)
+//   File:Polet_Antonov_An-124_cockpit_Pashnin.jpg  (from the door: a cream ceiling, the side walls
+//        switch panels over laminate desks, curtains at the side glass)
+//   File:Polet_Antonov_An-124-100_cockpit_Petrov.jpg
 //
 // ── ⚠ THE ROOM IS THE EXTERIOR'S HULL, NEVER A SECOND DESCRIPTION OF IT ──────
 //
@@ -58,17 +65,23 @@ export const LEV_REAL_LENGTH_M = 69.1;
 // is where the real pilots sit — under the forward edge of the upper deck with the screen in front
 // of their knees. g puts him 0.55 m left of the centreline (a transport's pilot seats are ~1.1 m
 // apart). h is solved against the glass: a level ray from here has to leave through the windscreen
-// (between the crown at f 0.78 and the crown at f 0.70), which only a band 1 m tall allows.
-const EYE_U = { f: 0.735, dx: -0.55, h: 0.224 };
+// (the bay from f 0.78 back to the station at 0.745, just ahead of the eye), and the roof over the
+// captain has to clear his head: at 0.219 the lining is 0.33 m over the eye and the windscreen
+// header 0.22 m over it, 0.3 m ahead. At 0.224 the header crossed the top of the forward view.
+const EYE_U = { f: 0.735, dx: -0.55, h: 0.219 };
 const WALL_M = 0.10;          // how thick the lining is, inside the skin
 const FLOOR_BELOW_EYE = 1.20;  // a seated eye over the deck
 const ROOM_F = [0.585, 0.78];  // aft bulkhead .. the front of the windscreen bay
 
 // ── THE TRIM ─────────────────────────────────────────────────────────────────
 // Authored here for the Drake's reason: this is one aircraft's own interior, not a colourway on sale.
+// The headliner is the cream-grey moulded panelling of the real deck (the Commons photos named in
+// the header), not cloth. `enamelTop` is the same turquoise for faces that look UP: the shell lights
+// a face by which way it points, and the sky term took the ordinary enamel to near white.
 export const LEV_TRIM = {
-  lining: [138, 154, 150], liningDk: [120, 136, 133], frame: [92, 100, 102],
+  lining: [182, 182, 172], liningDk: [164, 165, 156], frame: [92, 100, 102],
   enamel: [70, 118, 116], enamelDk: [50, 86, 86], enamelLt: [96, 146, 142],    // the Antonov turquoise-grey
+  enamelTop: [30, 54, 56],
   deck: [46, 48, 50], mat: [62, 56, 50], tread: [84, 86, 86],
   seat: [64, 74, 92], seatDk: [48, 56, 72], sheep: [196, 184, 162],             // blue-grey cloth, sheepskin covers
   harness: [44, 58, 40], buckle: [172, 176, 180],
@@ -83,8 +96,9 @@ SHINY.set(T.knobW, { spec: 0.35, pow: 40 });
 // for the lining and the seats, rubber for the runners and the grips, cast for the tread plates.
 // ⚠ Lamps, dial faces and screens are never registered: they are lit, not surfaced.
 T.lever = [168, 172, 178];
-for (const k of ['enamel', 'enamelDk', 'enamelLt', 'frame']) TEXTURE.set(T[k], 'paint');
-for (const k of ['lining', 'liningDk', 'seat', 'seatDk', 'sheep', 'harness']) TEXTURE.set(T[k], 'fabric');
+for (const k of ['enamel', 'enamelDk', 'enamelLt', 'enamelTop', 'frame']) TEXTURE.set(T[k], 'paint');
+for (const k of ['lining', 'liningDk']) TEXTURE.set(T[k], 'plastic');
+for (const k of ['seat', 'seatDk', 'sheep', 'harness']) TEXTURE.set(T[k], 'fabric');
 for (const k of ['deck', 'mat', 'knobK']) TEXTURE.set(T[k], 'rubber');
 TEXTURE.set(T.tread, 'cast'); TEXTURE.set(T.wood, 'wood'); TEXTURE.set(T.lever, 'brushed'); TEXTURE.set(T.buckle, 'brushed');
 SHINY.set(T.lever, { spec: 0.7, pow: 24 });
@@ -256,22 +270,29 @@ export function leviathanProfile(p = FW_ROWS.heavy) {
     label: 'An-124 flight deck (the Leviathan)',
     xCentre, halfW,
     floor: z0 - 1e-6, roof: z1 + 1e-6, front: y1 + 1e-6, back: y0 - 1e-6,
-    // The pilot's own glass: the windscreen band wraps down both cheeks, so the side-window sight
-    // line the gate casts is aimed low and a little ahead, over the side console, at the cheek.
+    // The pilot's own glass: the side panes are the row's shoulder facets (glaze.ks), level with the
+    // eye. The gate casts its side-window sight line through the middle of this band and its "door
+    // card below the glass" line 0.2 m under it, which has to pass beneath the pane's lower edge (the
+    // left pane's lower corner is 0.55 m down, 1.3 m out).
     dashY: 0.66, dashZ: -0.30, headerZ: 0.30, pillarW: 0.06,
-    winY: [0.20, 0.60], winZ: [-0.86, -0.80],
+    winY: [-0.40, 0.50], winZ: [-0.80, 0.10],
     seatZ: -0.76, seatHalf: 0.27, seatY: [-0.48, 0.06], backZ: 0.12,
     seats: 2, centrePost: 0,
-    // The windscreen band crosses the crown over the pilots (the real aeroplane's eyebrow glass):
-    // straight up from the eye is sky, and the gate asserts it.
-    roofGlass: [Y(p.glaze.f1), Y(p.glaze.f0)],
+    // ⚠ NO GLASS OVERHEAD. The windscreen is the bay forward of the row's `wsF`, which stands just
+    // ahead of the eye, so the roof over the pilots is lining and the overhead panel hangs from it,
+    // as on the real deck. Until 2026-10-26 the windscreen bay ran back over their heads, and the
+    // flight deck was a tub open to the sky.
     fit: 'leviathan', craft: 'leviathan',
     normalLit: true,
     floods: [
       { p: [0.00, 0.60, -0.26], r: 0.55 }, { p: [xCentre, 0.60, -0.26], r: 0.55 }, { p: [2 * xCentre, 0.60, -0.26], r: 0.55 },
       { p: [xCentre, 0.10, -0.50], r: 0.45 },                                   // the pedestal
       { p: [xCentre + 1.95, -2.30, -0.10], r: 0.70 }, { p: [xCentre - 2.55, -2.30, -0.20], r: 0.60 },   // engineer, navigator
+      { p: [xCentre, 0.05, 0.08], r: 0.60 },                                    // under the front of the overhead
     ],
+    // After dark the floods are bright enough to read the board by, as the Drake's are (its 2.2 is
+    // the bar), and the lit deck shows faintly in the windscreen.
+    floodGain: 1.8, glare: 0.6,
     room: levShell,
     lev,
     hotspots(live) { return levHotspots(this, live); },
@@ -401,22 +422,14 @@ function levShell(P, live, push, rich) {
 // The frame round every pane: the lining's own rim, as a rod, cut off at the deck.
 function windowFrames(P, push) {
   const K = makeKit(push, false), L = P.lev;
-  // THE WINDSCREEN'S OWN STRUCTURE: a slim centre post up the crown seam (4 cm, the real screen's
-  // post width), and an eyebrow bar across the crown just AFT of the eye, above the eye line, which is
-  // where the real deck's eyebrow panes begin. ⚠ Nothing crosses the forward view at eye level: an
-  // arch or corner post laid over the band from the cheeks read as two grey slabs across the screen.
-  // ⚠ The exterior's canopy art draws this band undivided; these two members are the one departure.
+  // THE WINDSCREEN'S CENTRE POST up the crown seam (4 cm, the real screen's post width), from the
+  // nose to the windscreen's aft station (cuts[1]): aft of that the crown is roof, not glass.
+  // ⚠ Nothing crosses the forward view at eye level: an arch or corner post laid over the band from
+  // the cheeks read as two grey slabs across the screen. The exterior's canopy art draws this band
+  // undivided; the post is the one departure.
   {
     const onGlass = (f, k) => { const q = L.inner(f, k), a = L.axis(f), d = norm(sub(a, q)); return add(q, mul(d, 0.03)); };
-    const fBrow = L.fE - 0.25 / L.m;
-    let prev = null;
-    for (let i = 0; i <= 8; i++) {
-      const q = onGlass(fBrow, 4.5 + i * 0.375);
-      if (prev && q[2] > 0.12 && prev[2] > 0.12) K.rod(prev, q, 0.03, 'pil', 0.2, T.frame, 0, 6);
-      prev = q;
-    }
-    let a = onGlass(0.78 - 0.004, 6), b = onGlass(0.70 + 0.004, 6);
-    K.rod(a, b, 0.04, 'pil', 0.2, T.frame, 0, 6);
+    K.rod(onGlass(L.cuts[0] - 0.004, 6), onGlass(L.cuts[1] + 0.002, 6), 0.035, 'pil', 0.2, T.frame, 0, 6);
   }
   // THE FRAMES OF THE HULL: a rib round the lining at every row boundary, standing 4 cm proud, and
   // never across a pane — a rib is where the lining is, and the lining stops at the glass.
@@ -429,7 +442,7 @@ function windowFrames(P, push) {
       if (a[2] < L.zF + 0.05 && b[2] < L.zF + 0.05) continue;
       const zc = L.zF + 0.05;
       if (a[2] < zc || b[2] < zc) { const t = (zc - a[2]) / (b[2] - a[2]); const q = lerp3(a, b, t); if (a[2] < zc) a = q; else b = q; }
-      K.rod(a, b, 0.03, 'post', 0.05, T.frame, 0, 6);
+      K.rod(a, b, 0.02, 'post', 0.05, T.frame, 0, 6);
     }
   }
   const seen = new Set();
@@ -445,7 +458,7 @@ function windowFrames(P, push) {
       // ⚠ NO FRAME ACROSS THE PANE THE PILOT LOOKS THROUGH: the exterior draws this band UNDIVIDED
       // (aircraft3d.js art 'leviathan', no posts, no hairlines), so only the perimeter and the seams
       // to painted hull get a member. An interior seam between two glazed facets is not a frame.
-      K.rod(a, b, 0.03, 'pil', 0.2, T.frame, 0, 6);
+      K.rod(a, b, 0.022, 'pil', 0.2, T.frame, 0, 6);
     }
   }
 }
@@ -454,7 +467,7 @@ function windowFrames(P, push) {
 function staticFit(P, push) {
   const K = makeKit(push), L = P.lev, cx = P.xCentre, zF = L.zF;
   // SIDE CONSOLES along each cheek, from the deck up to the sill, following the lining.
-  const sill = (side, ya, yb, zTop, xIn, rgb = T.enamel) => {
+  const sill = (side, ya, yb, zTop, xIn, rgb = T.enamelTop) => {
     const N = 5;
     for (let i = 0; i < N; i++) {
       const y0 = lerp(ya, yb, i / N), y1 = lerp(ya, yb, (i + 1) / N);
@@ -480,7 +493,7 @@ function staticFit(P, push) {
   for (const side of [-1, 1]) {
     const xIn = side < 0 ? -0.62 : 2 * cx + 0.62;
     const Cp = K.panel([xIn - side * 0.25, -0.20, -0.619], [1, 0, 0], [0, 1, 0]);
-    Cp.rect(-0.20, -0.62, 0.20, 0.72, T.enamelLt, 0, 0.001);
+    Cp.rect(-0.20, -0.62, 0.20, 0.72, T.enamelTop, 0, 0.001);
     for (let i = 0; i < 4; i++) Cp.grille(-0.16, -0.55 + i * 0.30, 0.16, -0.40 + i * 0.30, 3, [30, 34, 36]);
     for (let i = 0; i < 6; i++) Cp.knob(-0.12 + (i % 3) * 0.12, 0.45 + Math.floor(i / 3) * 0.10, 0.012, 0.014, T.knobK, 0);
     // The oxygen mask stowage box on the aft end, and its orange quick-don handle.
@@ -501,7 +514,7 @@ function staticFit(P, push) {
   // Panel subdivisions: the three boards (captain, centre, F/O) are separate plates with seams.
   for (const a of [-0.28, 0.28]) Mp.rect(a - 0.006, -0.30, a + 0.006, 0.28, T.enamelDk, 0, 0.002);
   // The back of the panel and its underside, so it is a solid seen from the jump seat.
-  K.obox(Mp.pt(0, 0, -0.10), Mp.r, Mp.u, Mp.n, HW, 0.29, 0.10, 'dash', -0.2, T.enamelDk, 0);
+  K.obox(Mp.pt(0, 0, -0.10), Mp.r, Mp.u, Mp.n, HW, 0.29, 0.10, 'dash', -0.2, T.enamelTop, 0);
   // Knee-well kick panels under the board, down to the deck, either side of the pedestal.
   for (const x of [0, 2 * cx]) {
     K.box(x - 0.42, 0.78, zF, x + 0.42, 0.82, -0.88, 'dash', -0.25, T.enamelDk);
@@ -514,7 +527,7 @@ function staticFit(P, push) {
   const pw = 0.24;
   K.box(cx - pw, -0.40, zF, cx + pw, 0.76, -0.66, 'dash', -0.15, T.enamelDk);
   const Ped = pedestalPanel(K, P);
-  Ped.rect(-pw, -0.60, pw, 0.55, T.enamel, 0, 0);
+  Ped.rect(-pw, -0.60, pw, 0.55, T.enamelTop, 0, 0);
   // Lever gates, one slot per thrust lever, and the flap gate on the right.
   for (let i = 0; i < 4; i++) Ped.rect(-0.135 + i * 0.07 - 0.008, -0.05, -0.135 + i * 0.07 + 0.008, 0.40, [16, 18, 20], 0, 0.002);
   Ped.rect(0.195 - 0.008, -0.05, 0.195 + 0.008, 0.40, [16, 18, 20], 0, 0.002);
@@ -529,19 +542,23 @@ function staticFit(P, push) {
 
   // THE PILOTS' SEATS: in the round, sheepskin on the cloth, five-point harness, armrests.
   for (const x of [0, 2 * cx]) pilotSeat(K, P, x, 0);
-  // THE OVERHEAD: a long panel hung between the pilots' heads from a spine under the glass.
-  // ⚠ NEVER OVER x = 0: straight up from the captain's eye is the eyebrow glass, and the gate looks.
+  // THE OVERHEAD: one sloped board on the centreline, from just behind the windscreen header back
+  // over both seats, as on the real deck. The face is built in liveFit; this is its body: a backing
+  // the thickness of the board, and skirts from its edges up to the lining, so from the seat it is
+  // a solid hung from the roof and never a plate floating under it.
   {
-    const x0 = cx - 0.36, x1 = cx + 0.36;
-    // Hung from the lining on two hangers, each cut to the lining's own height over it.
-    for (const y of [-0.95, -0.30]) K.rod([cx, y, 0.27], [cx, y, L.liningZ(y, cx) - 0.01], 0.025, 'pil', 0.1, T.frame, 0, 6);
-    K.box(x0, -1.05, 0.20, x1, -0.10, 0.27, 'hdr', -0.1, T.enamelDk);
-    const O = K.panel([cx, -0.575, 0.199], [1, 0, 0], [0, 1, 0], 'hdr', -0.1);
-    O.rect(-0.35, -0.47, 0.35, 0.47, T.enamel, 0, 0);
-    for (const v of [-0.26, 0.0, 0.26]) O.rect(-0.35, v - 0.004, 0.35, v + 0.004, T.enamelDk, 0, 0.002);
-    // The fuel system mimic: pipe lines painted in white between the valve toggles.
-    for (let i = 0; i < 4; i++) O.rect(-0.30 + i * 0.18, -0.46, -0.30 + i * 0.18 + 0.004, -0.30, C.white, 0.1, 0.002);
-    O.rect(-0.30, -0.305, 0.244, -0.30, C.white, 0.1, 0.002);
+    const O = overheadPanel(K, cx, 'hdr', -0.1), hl = OVH.len / 2, hw = OVH.hw;
+    K.obox(O.pt(0, 0, -0.03), O.r, O.u, O.n, hw, hl, 0.03, 'hdr', -0.15, T.enamelDk, 0);
+    const up = (u, v) => { const q = O.pt(u, v, -0.06); return [q, [q[0], q[1], L.liningZ(q[1], q[0]) - 0.01]]; };
+    const N = 6;
+    for (const s of [-1, 1]) for (let i = 0; i < N; i++) {
+      const [a0, a1] = up(s * hw, -hl + (2 * hl * i) / N), [b0, b1] = up(s * hw, -hl + (2 * hl * (i + 1)) / N);
+      K.face(s < 0 ? [a0, b0, b1, a1] : [a0, a1, b1, b0], [s, 0, 0], 'hdr', -0.2, T.enamelDk, 0);
+    }
+    for (const v of [-hl, hl]) for (let i = 0; i < N; i++) {
+      const [a0, a1] = up(-hw + (2 * hw * i) / N, v), [b0, b1] = up(-hw + (2 * hw * (i + 1)) / N, v);
+      K.face(v < 0 ? [a0, a1, b1, b0] : [a0, b0, b1, a1], [0, v < 0 ? 1 : -1, 0], 'hdr', -0.2, T.enamelDk, 0);
+    }
   }
   // THE NAVIGATOR: a desk on the left wall behind the captain, a radar scope, a chart, a swivel seat.
   navStation(K, P);
@@ -587,8 +604,8 @@ function pedestalPanel(K, P) {
 // A working heavy's deck has no bare surface a crewman can reach: the console tops, the pedestal
 // flanks, the glareshield face and the kick panels all carry switches, knobs and placards. Each field
 // is a painted panel with its own rows, so nothing reads as a slab from the seat.
-function switchField(Pn, a0, b0, a1, b1, cols, rows, seed) {
-  Pn.rect(a0, b0, a1, b1, T.enamelLt, 0, 0.001);
+function switchField(Pn, a0, b0, a1, b1, cols, rows, seed, base = T.enamelLt) {
+  Pn.rect(a0, b0, a1, b1, base, 0, 0.001);
   Pn.rect(a0, b1 - 0.004, a1, b1, T.enamelDk, 0, 0.0015);
   const da = (a1 - a0) / cols, db = (b1 - b0) / rows;
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
@@ -608,8 +625,8 @@ function denseFit(K, P) {
     const w = Math.abs(L.wallX(-0.2, -0.62, side) - xIn);
     const Cp = K.panel([xIn - side * w * 0.22, -0.20, -0.617], [1, 0, 0], [0, 1, 0]);
     const hw = w * 0.17;
-    switchField(Cp, -hw, -0.10, hw, 0.35, 3, 6, side < 0 ? 1 : 4);
-    switchField(Cp, -hw, -0.62, hw, -0.45, 3, 2, side < 0 ? 2 : 5);
+    switchField(Cp, -hw, -0.10, hw, 0.35, 3, 6, side < 0 ? 1 : 4, T.enamelTop);
+    switchField(Cp, -hw, -0.62, hw, -0.45, 3, 2, side < 0 ? 2 : 5, T.enamelTop);
     // The inboard face of the console: circuit breakers down its length.
     const Fp = K.panel([xIn - side * 0.001, -0.20, -0.86], [0, 1, 0], [0, 0, 1]);
     Fp.rect(-0.55, -0.20, 0.55, 0.20, T.enamel, 0, 0);
@@ -775,6 +792,9 @@ function readLive(live) {
     flap: clamp(Math.round(num(L.flapNotch)), 0, 3), gear: L.gearDown !== false, trim: clamp(num(L.trim), -1, 1),
     land: !!L.landingLight, dome: !!L.dome, hour,
     night: hour < 6.5 || hour > 19.5,
+    // The PANEL switch (cockpit.js 'ck:panel'). A view that sends no switch state, as a seat shot
+    // does, gets the lights the hour would have them on with.
+    panel: L.panelLight != null ? !!L.panelLight : hour < 6.5 || hour > 19.5,
   };
 }
 
@@ -792,9 +812,18 @@ const GEARL = (P, R) => MAIN(P).pt(0.20, R.gear ? -0.28 : -0.19, 0.09);
 // The GPS, on the bare board outboard of the captain's airspeed, high enough to clear the yoke's horn.
 const GPS = { u: -0.90, v: 0.12, hw: 0.08, hh: 0.07 };
 
+// An annunciator: a lens `w` by `h` in a black bezel with its name lettered ON it, dark on a lit lens
+// and light on a dark one, as large as the lens allows. The kit's lamp letters its name underneath
+// at 8.5 mm, which from this seat is too small to read on anything past the pilot's own board.
+function lensLamp(Pn, u, v, w, h, on, rgb, name) {
+  Pn.rect(u - w / 2 - 0.004, v - h / 2 - 0.004, u + w / 2 + 0.004, v + h / 2 + 0.004, [14, 14, 16], 0, 0.003);
+  Pn.rect(u - w / 2, v - h / 2, u + w / 2, v + h / 2, on ? rgb : rgb.map((c) => c * 0.18), on ? 1 : 0, 0.006);
+  Pn.fitText(name, u, v, w - 0.008, h * 0.55, on ? [24, 16, 10] : [200, 200, 190], on ? 0 : 0.3, 0.008);
+}
+
 function liveFit(P, live, push) {
   const K = makeKit(push), R = readLive(live), cx = P.xCentre, zF = P.lev.zF;
-  const lit = R.powered, back = lit && R.night ? 0.55 : 0;       // panel backlighting after dark
+  const lit = R.powered, back = lit && R.panel ? 0.55 : 0;       // panel backlighting, on the PANEL switch
   const rk = 12 * Math.PI / 180, up = [0, -Math.sin(rk), Math.cos(rk)];
   const Mp = K.panel([cx, 0.78, -0.50], [1, 0, 0], up);
   const dialO = (o) => ({ face: [16, 18, 20], tick: back ? [240, 236, 220] : C.tick, ...o });
@@ -813,9 +842,9 @@ function liveFit(P, live, push) {
     if (!lit) Mp.rect(pc + 0.03, r1 - 0.05, pc + 0.07, r1 - 0.02, C.red, 0.3, 0.012);
     // A glint across each dial glass.
     for (const [a, b, rr] of [[pc, r1, r * 1.12], [pc, r2, r * 1.12]]) Mp.annulus(a, b, rr * 0.7, rr * 0.84, GLINT, 0.4, 0.011, 6, Math.PI * 0.55, Math.PI * 0.95);
-    // Master caution / warning lamps at the top of the board.
-    Mp.lamp(pc - 0.05, 0.24, 0.022, 0.014, lit && R.hull < 0.5, C.red, 'WARN');
-    Mp.lamp(pc + 0.05, 0.24, 0.022, 0.014, lit && (R.fuel < 0.15 || R.hull < 0.8), C.amber, 'CAUTION');
+    // Master warning and caution at the top of the board, lettered on the lens.
+    lensLamp(Mp, pc - 0.06, 0.24, 0.09, 0.03, lit && R.hull < 0.5, C.red, 'WARN');
+    lensLamp(Mp, pc + 0.06, 0.24, 0.09, 0.03, lit && (R.fuel < 0.15 || R.hull < 0.8), C.amber, 'CAUT');
     // The stab trim indicator: a vertical scale with a pointer.
   }
   // ── THE CENTRE BOARD: four engines in columns (N1, EGT, fuel flow), then the gear lever. ──
@@ -823,7 +852,8 @@ function liveFit(P, live, push) {
     const u = -0.195 + i * 0.13, n1 = clamp(R.rpm * (1 - i * 0.012), 0, 1.05);
     Mp.dial(u, 0.17, 0.048, n1 / 1.05, dialO({ ticks: 10, major: 2, arcs: [[0.2, 0.9, C.green]], red: 0.95, name: 'N1' }));
     Mp.dial(u, 0.03, 0.042, clamp(0.25 + n1 * 0.6, 0, 1), dialO({ ticks: 8, major: 2, arcs: [[0.3, 0.8, C.green]], red: 0.9, name: 'EGT' }));
-    Mp.bar(u, -0.13, -0.05, 0.012, R.thr * n1, lit ? C.green : C.lampOff, 'FF');
+    Mp.bar(u, -0.13, -0.05, 0.012, R.thr * n1, lit ? C.green : C.lampOff);
+    Mp.text('FF', u + 0.035, -0.09, 0.013, back ? [250, 244, 226] : C.tick, back ? 0.9 : 0.35);
     Mp.digits(u - 0.03, -0.17, 0.022, String(Math.round(n1 * 100)).padStart(3, ' '), lit ? C.green : C.lampOff);
   }
   // The gear handle: a white wheel-shaped knob on a lever, and the three greens beside it.
@@ -833,7 +863,7 @@ function liveFit(P, live, push) {
     K.rod(base, g, 0.008, 'dash', 0.1, C.chrome, 0, 6);
     K.rod(sub(g, [0, 0.02, 0]), add(g, [0, 0.015, 0]), 0.022, 'dash', 0.2, T.knobW, 0, 12);
     for (let j = 0; j < 3; j++) Mp.lamp(0.145, -0.20 - j * 0.035, 0.010, 0.010, lit, R.gear ? C.green : C.red);
-    Mp.text('GEAR', 0.145, -0.175, 0.0085);   // one name over the three; they sit too close to letter each
+    Mp.text('GEAR', 0.258, -0.235, 0.013);   // one name, beside the handle and its three lamps
   }
   // ── THE YOKES: ram's-horn wheels on floor columns, both moving together. ──
   for (const x of [0, 2 * cx]) {
@@ -883,24 +913,39 @@ function liveFit(P, live, push) {
   G.digits(0.10, -0.012, 0.024, String(Math.round(R.alt / 100)).padStart(3, '0'), lit ? C.amber : C.lampOff);
   const AP_MODE = ['AP', 'AT', 'HDG', 'ALT', 'VS', 'APP'];
   for (let i = 0; i < 6; i++) G.lamp(-0.42 + i * 0.07 + (i > 2 ? 0.63 : 0), 0, 0.014, 0.010, lit && i % 2 === 0, C.green, AP_MODE[i]);
-  // ── THE OVERHEAD: toggles that follow the aircraft's electrics, the landing and dome switches. ──
+  // ── THE OVERHEAD: the working switches up front, then the systems as lamps that read the sim. ──
+  // Every lamp is lettered on its lens, as an annunciator is; nothing here is a switch but the five
+  // in the front row (OVH_SW), so nothing takes the hand cursor and does nothing.
   {
-    const O = overheadPanel(K, cx, 'hdr', -0.1);
-    for (let r = 0; r < 7; r++) for (let c = 0; c < 9; c++) {
-      const a = -0.31 + c * 0.075, b = -0.40 + r * 0.12;
-      if (r === 6 && c >= 6) continue;                              // where the landing and dome switches sit
-      if ((r + c) % 4 === 3) O.knob(a, b, 0.012, 0.014, T.knobK, 0);
-      else O.toggle(a, b, lit && (r * 9 + c) % 5 !== 0);
-      O.rect(a - 0.025, b + 0.028, a + 0.025, b + 0.034, C.white, 0.1, 0.0015);
+    const O = overheadPanel(K, cx, 'hdr', -0.1), hl = OVH.len / 2, hw = OVH.hw;
+    O.rect(-hw, -hl, hw, hl, T.enamel, 0, 0);
+    const ink = back ? [250, 244, 226] : [226, 230, 224], inkE = back ? 0.9 : 0.35;
+    // Section seams across the board, each with the name of the section aft of it just behind it.
+    const SEC = [[-hl + 0.17, 'ELEC'], [-hl + 0.40, 'FUEL'], [-hl + 0.66, 'FIRE'], [-hl + 0.92, 'PRESS']];
+    for (const [v, nm] of SEC) {
+      O.rect(-hw, v - 0.006, hw, v + 0.006, T.enamelDk, 0, 0.002);
+      O.text(nm, 0, v + 0.055, 0.018, ink, inkE);
     }
-    const land = eased('lev:land', R.land ? 1 : 0, 18) - pressPulse('lev:land', R.land) * 0.3;
-    O.rect(0.15, 0.40, 0.30, 0.48, [22, 24, 26], 0, 0.002);
-    O.stud(0.19, 0.44 + (land * 2 - 1) * 0.008, 0.010, 0.012, 0.01, T.knobW, 0, 0.003);
-    O.stud(0.26, 0.44 + ((R.dome ? 1 : 0) * 2 - 1) * 0.008, 0.010, 0.012, 0.01, T.knobW, 0, 0.003);
-    O.lamp(0.19, 0.38, 0.01, 0.006, lit && R.land, C.amber, 'LAND');
-    O.text('DOME', 0.26, 0.3645, 0.0085);
-    for (let i = 0; i < 4; i++) O.lamp(-0.30 + i * 0.18, -0.30, 0.018, 0.010, lit && R.fuel > 0.02, C.green, 'PUMP ' + (i + 1));
-    O.lamp(-0.30, 0.45, 0.02, 0.01, lit && R.fuel < 0.15, C.red, 'LO FUEL');
+    // The working row. A bat that eases between its stops and gives when it is thrown.
+    const swOn = { 'ck:master': R.powered, 'ck:panel': R.panel, 'ck:land': R.land, 'ck:taxi': R.land, 'ck:dome': R.dome };
+    OVH_SW.forEach(([id, nm], i) => {
+      const [u, v] = ovhSwAt(i), on = !!swOn[id];
+      const f = eased('lev:' + id, on ? 1 : 0, 18) - pressPulse('lev:' + id, on) * 0.3;
+      O.rect(u - 0.016, v - 0.028, u + 0.016, v + 0.028, [22, 24, 26], 0, 0.002);
+      O.stud(u, v + (f * 2 - 1) * 0.012, 0.009, 0.012, 0.012, id === 'ck:master' ? T.leverRed : T.knobW, 0, 0.003);
+      O.text(nm, u, v + 0.045, 0.013, ink, inkE);
+    });
+    const ann = (u, v, w, on, rgb, nm) => lensLamp(O, u, v, w, 0.028, on, rgb, nm);
+    for (let i = 0; i < 4; i++) {
+      const u = -0.27 + i * 0.18, run = lit && R.rpm > 0.1;
+      ann(u, -hl + 0.31, 0.11, run, C.green, 'GEN ' + (i + 1));
+      ann(u, -hl + 0.56, 0.11, lit && R.fuel > 0.02, C.green, 'PUMP ' + (i + 1));
+      ann(u, -hl + 0.82, 0.11, lit && R.hull < 0.25, C.red, 'FIRE ' + (i + 1));
+    }
+    ann(0.27, -hl + 0.10, 0.11, lit && R.fuel < 0.15, C.red, 'LO FUEL');
+    ann(0.27, -hl + 0.62, 0.11, lit && R.fuel < 0.15, C.amber, 'XFEED');
+    // The cabin pressure dial at the aft end: the cabin climbs a fifth as fast as the aeroplane.
+    O.dial(0.0, hl - 0.11, 0.06, clamp(R.alt * 0.2 / 8000, 0, 1), dialO({ ticks: 8, major: 2, name: 'CABIN', nameH: 0.014 }));
   }
   // Dome lamps in the crown aft of the glass, lit with the dome switch.
   for (const y of [-1.8, -2.8]) {
@@ -914,18 +959,28 @@ function liveFit(P, live, push) {
     const E = engPanel(K, P);
     E.rect(-0.62, -0.34, 0.62, 0.34, T.enamel, 0, 0);
     E.rect(-0.62, -0.34, 0.62, -0.33, T.enamelDk, 0, 0.001);
+    // ⚠ READ FROM THE CAPTAIN'S SEAT, 3 m off, so the lettering is 2 cm tall: each column is named
+    // once by its engine number and each dial by what it measures, as the real engineer's board is.
+    const big = 0.021, ink = back ? [250, 244, 226] : [226, 230, 224], inkE = back ? 0.9 : 0.35;
     for (let i = 0; i < 4; i++) {
       const u = -0.50 + i * 0.15, n1 = clamp(R.rpm * (1 - i * 0.012), 0, 1.05);
-      E.dial(u, 0.22, 0.05, n1 / 1.05, dialO({ ticks: 10, major: 2, red: 0.95, name: 'N1' }));
-      E.dial(u, 0.08, 0.045, clamp(0.2 + n1 * 0.55, 0, 1), dialO({ ticks: 8, major: 2, arcs: [[0.3, 0.8, C.green]], name: 'EGT' }));
-      E.dial(u, -0.05, 0.04, clamp(0.3 + 0.5 * (lit ? 1 : 0) * R.hull, 0, 1), dialO({ ticks: 6, major: 2, name: 'OIL P' }));
+      E.text(String(i + 1), u, 0.31, big, ink, inkE);
+      E.dial(u, 0.22, 0.05, n1 / 1.05, dialO({ ticks: 10, major: 2, red: 0.95, name: 'N1', nameH: big }));
+      E.dial(u, 0.08, 0.045, clamp(0.2 + n1 * 0.55, 0, 1), dialO({ ticks: 8, major: 2, arcs: [[0.3, 0.8, C.green]], name: 'EGT', nameH: big }));
+      E.dial(u, -0.05, 0.04, clamp(0.3 + 0.5 * (lit ? 1 : 0) * R.hull, 0, 1), dialO({ ticks: 6, major: 2, name: 'OIL', nameH: big }));
+      lensLamp(E, u, -0.17, 0.12, 0.04, lit && R.rpm > 0.1, C.green, 'GEN ' + (i + 1));
     }
-    // The fuel: eight tank gauges in two rows, all reading the one quantity the sim carries.
-    for (let i = 0; i < 8; i++) E.bar(0.12 + (i % 4) * 0.12, i < 4 ? 0.06 : -0.22, i < 4 ? 0.30 : 0.02, 0.018, R.fuel * (1 - (i % 4) * 0.04), R.fuel < 0.15 ? C.amber : C.green, 'TK ' + (i + 1));
-    E.digits(0.14, -0.30, 0.03, String(Math.round(R.fuel * 212)).padStart(3, ' '), lit ? C.amber : C.lampOff);
-    for (let i = 0; i < 6; i++) E.lamp(-0.50 + i * 0.09, -0.24, 0.018, 0.012, lit && (i === 5 ? R.hull < 0.5 : R.rpm > 0.1), i === 5 ? C.red : C.green, i < 4 ? 'GEN ' + (i + 1) : i === 4 ? 'HYD' : 'FIRE');
-    // Engine-start panel along the bottom: one guarded switch per engine.
-    for (let i = 0; i < 4; i++) E.toggle(-0.50 + i * 0.15, -0.30, R.rpm > 0.05, 'START ' + (i + 1));
+    // The fuel: eight tank gauges in a row under one name, all reading the one quantity the sim carries.
+    E.text('FUEL', 0.33, 0.30, big, ink, inkE);
+    for (let i = 0; i < 8; i++) {
+      const u = 0.10 + i * 0.065;
+      E.bar(u, -0.02, 0.26, 0.018, R.fuel * (1 - (i % 4) * 0.04), R.fuel < 0.15 ? C.amber : C.green);
+      E.text(String(i + 1), u, -0.05, 0.022, ink, inkE);
+    }
+    E.digits(0.14, -0.13, 0.03, String(Math.round(R.fuel * 212)).padStart(3, ' '), lit ? C.amber : C.lampOff);
+    E.text('TOTAL', 0.30, -0.115, big, ink, inkE);
+    lensLamp(E, 0.22, -0.25, 0.16, 0.05, lit && R.hull < 0.8, C.amber, 'HYD');
+    lensLamp(E, 0.44, -0.25, 0.16, 0.05, lit && R.hull < 0.25, C.red, 'FIRE');
   }
   // ── THE NAVIGATOR'S SCOPE: a round CRT whose sweep turns with the heading. ──
   {
@@ -944,14 +999,16 @@ function liveFit(P, live, push) {
   {
     const Rp = radioPanel(K, P);
     Rp.rect(-0.42, -0.26, 0.42, 0.26, [52, 58, 60], 0, 0);
+    // 4 m from the captain's eye, so each set's name and its lamp are lettered 2.6 cm tall.
+    const ink = back ? [250, 244, 226] : [226, 230, 224], inkE = back ? 0.9 : 0.35;
     for (let i = 0; i < 4; i++) {
       const u = -0.31 + i * 0.205;
       Rp.rect(u - 0.09, -0.22, u + 0.09, 0.22, T.enamelDk, 0, 0.001);
-      Rp.digits(u - 0.07, 0.12, 0.022, ['118', '121', '4.5', '8.9'][i] + (i < 2 ? '5' : '0'), lit ? C.amber : C.lampOff);
-      Rp.dial(u, 0.0, 0.05, lit ? clamp(0.3 + 0.1 * i + R.thr * 0.2, 0, 1) : 0, dialO({ a0: Math.PI * 0.8, sweep: Math.PI * 0.6, ticks: 6, major: 2, name: 'SIG' }));
+      Rp.text(['VHF 1', 'VHF 2', 'HF 1', 'HF 2'][i], u - 0.026, 0.185, 0.026, ink, inkE);
+      lensLamp(Rp, u + 0.062, 0.185, 0.056, 0.05, lit && i === 0, C.green, 'TX');
+      Rp.digits(u - 0.07, 0.11, 0.022, ['118', '121', '4.5', '8.9'][i] + (i < 2 ? '5' : '0'), lit ? C.amber : C.lampOff);
+      Rp.dial(u, 0.0, 0.05, lit ? clamp(0.3 + 0.1 * i + R.thr * 0.2, 0, 1) : 0, dialO({ a0: Math.PI * 0.8, sweep: Math.PI * 0.6, ticks: 6, major: 2, name: 'SIG', nameH: 0.026 }));
       for (let j = 0; j < 2; j++) Rp.knob(u - 0.04 + j * 0.08, -0.14, 0.016, 0.02, T.knobK, 0);
-      Rp.lamp(u + 0.06, 0.19, 0.008, 0.006, lit && i === 0, C.green, 'TX');
-      Rp.text(['VHF 1', 'VHF 2', 'HF 1', 'HF 2'][i], u - 0.03, 0.19, 0.012);
     }
   }
   // ── THE ANNUNCIATOR STRIPS under each pilot's board, and the flap position dial on the centre. ──
@@ -959,20 +1016,29 @@ function liveFit(P, live, push) {
     const warn = [lit && !R.gear, lit && R.fuel < 0.15, lit && R.hull < 0.5, lit && R.hull < 0.8, lit && R.rpm < 0.05, lit && R.flap > 0, lit && R.land, lit && R.thr > 0.95];
     const cols = [C.red, C.amber, C.red, C.amber, C.amber, C.green, C.green, C.amber];
     const names = ['GEAR', 'FUEL', 'HULL', 'CAUT', 'ENG', 'FLAP', 'LAND', 'THR'];
-    for (const side of [-1, 1]) for (let i = 0; i < 8; i++) Mp.lamp(side * P.xCentre - 0.21 + i * 0.06, -0.272, 0.022, 0.010, warn[i], cols[i], names[i]);
-    Mp.dial(-0.02, -0.235, 0.034, R.flap / 3, dialO({ a0: Math.PI * 0.9, sweep: Math.PI * 0.9, ticks: 3, major: 1, needle: C.white, name: 'FLAP' }));
-    Mp.dial(0.08, -0.235, 0.034, clamp(0.5 + R.trim * 0.45, 0, 1), dialO({ a0: Math.PI * 1.25, sweep: Math.PI * 0.5, ticks: 4, major: 2, needle: C.amber, name: 'TRIM' }));
-    Mp.dial(-0.12, -0.235, 0.034, clamp(R.hull, 0, 1) * 0.9, dialO({ ticks: 6, major: 2, arcs: [[0.6, 1, C.green]], name: 'HYD' }));
-    Mp.dial(-0.22, -0.235, 0.034, R.fuel, dialO({ ticks: 8, major: 2, arcs: [[0, 0.15, C.red]], name: 'FUEL' }));
+    for (const side of [-1, 1]) for (let i = 0; i < 8; i++) lensLamp(Mp, side * P.xCentre - 0.21 + i * 0.06, -0.272, 0.054, 0.024, warn[i], cols[i], names[i]);
+    const small = { nameH: 0.012 };
+    Mp.dial(-0.02, -0.235, 0.034, R.flap / 3, dialO({ a0: Math.PI * 0.9, sweep: Math.PI * 0.9, ticks: 3, major: 1, needle: C.white, name: 'FLAP', ...small }));
+    Mp.dial(0.08, -0.235, 0.034, clamp(0.5 + R.trim * 0.45, 0, 1), dialO({ a0: Math.PI * 1.25, sweep: Math.PI * 0.5, ticks: 4, major: 2, needle: C.amber, name: 'TRIM', ...small }));
+    Mp.dial(-0.12, -0.235, 0.034, clamp(R.hull, 0, 1) * 0.9, dialO({ ticks: 6, major: 2, arcs: [[0.6, 1, C.green]], name: 'HYD', ...small }));
+    Mp.dial(-0.22, -0.235, 0.034, R.fuel, dialO({ ticks: 8, major: 2, arcs: [[0, 0.15, C.red]], name: 'FUEL', ...small }));
   }
   panelGps(Mp, GPS.u, GPS.v, GPS.hw, GPS.hh, live);
   hotspotHalo(K, levHotspots(P, live), live);
 }
 
-// The overhead panel, one frame for the drawing and the hotspots. It is behind your head, so you read
-// it turned round: across is −x and up is forward (docs/reference/cockpit-lettering.md rule 7). With
-// across +x every label on it read mirrored.
-const overheadPanel = (K, cx, tone, k) => K.panel([cx, -0.575, 0.199], [-1, 0, 0], [0, 1, 0], tone, k);
+// The overhead panel, one frame for the drawing and the hotspots: a board 0.8 m across on the
+// centreline, sloping up from just behind the windscreen header (y0, z0) to over the backs of the
+// seats (y1, z1). You read it by tipping your head back, facing forward, so across is +x and up runs
+// aft (docs/reference/cockpit-lettering.md rule 7); v is −len/2 at the front edge.
+const OVH = { y0: 0.16, z0: 0.15, y1: -0.95, z1: 0.60, hw: 0.40 };
+OVH.len = Math.hypot(OVH.y1 - OVH.y0, OVH.z1 - OVH.z0);
+const overheadPanel = (K, cx, tone, k) => K.panel([cx, (OVH.y0 + OVH.y1) / 2, (OVH.z0 + OVH.z1) / 2], [1, 0, 0],
+  [0, (OVH.y1 - OVH.y0) / OVH.len, (OVH.z1 - OVH.z0) / OVH.len], tone, k);
+// The working switches, front row on the captain's half, where his right hand finds them: each is a
+// circuit cockpit.js switches (DK_ACT), and nothing else on the board is a switch.
+const OVH_SW = [['ck:master', 'MASTER'], ['ck:panel', 'PANEL'], ['ck:land', 'LAND'], ['ck:taxi', 'TAXI'], ['ck:dome', 'DOME']];
+const ovhSwAt = (i) => [-0.33 + i * 0.075, -OVH.len / 2 + 0.085];
 
 // ── THE CONTROLS YOU CAN TOUCH ────────────────────────────────────────────────
 // The same `ck:*` ids cockpit.js already acts on, at the places the drawing puts them.
@@ -986,7 +1052,6 @@ export function levHotspots(P, live) {
     gpsHotspot(MAIN(P), GPS.u, GPS.v, 0.07),
   ];
   const O = overheadPanel(makeKit(() => {}), cx);
-  out.push({ id: 'ck:land', p: O.pt(0.19, 0.44, 0.01), r: 0.016, kind: 'click' });
-  out.push({ id: 'ck:dome', p: O.pt(0.26, 0.44, 0.01), r: 0.016, kind: 'click' });
+  OVH_SW.forEach(([id], i) => { const [u, v] = ovhSwAt(i); out.push({ id, p: O.pt(u, v, 0.015), r: 0.03, kind: 'click' }); });
   return out;
 }

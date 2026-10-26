@@ -16,8 +16,13 @@ craft) is real, readable lettering. This is the standard for all cockpits, set 2
    and above keep the seat's own face (the Drake's serif, the hydro's OFFSHORE badge). Below it,
    the Drake's `engraveText` / `plated_` / `hudText_` hand off to the legend face automatically.
 4. **Legible from the seat, not just in the file.** Check it rendered from the driver's eye (the
-   Modelshop, `__glSeaShot`). A label hidden behind the wheel or the yoke, or clipped by a panel
-   edge, has to move.
+   Modelshop, `__glSeaShot`, or `cockpitSheet(cls)` for the same six views of any seat). A label
+   hidden behind the wheel or the yoke, or clipped by a panel edge, has to move. A line of lettering
+   has to look at least 20 arcminutes tall from the eye, about six pixels in the seat view: that is
+   8.5 mm at 1.2 m and 2 cm at 3.4 m, so a station behind the pilot is lettered much bigger than
+   the board in front of him. `scripts/shapes/cockpit-controls.mjs` measures every line and holds
+   each seat's count of smaller ones in `cockpit-legibility.json`; the count may fall, never rise
+   (`--update` locks in a fall). The Drake's smallest label is about 29'.
 5. **Contrast.** Light ink on a dark panel, dark ink on a light face. When the seat has panel
    lighting, labels glow with it.
 6. **Keep labels short.** The legend face has A-Z, 0-9, `-` and `/`. Abbreviate the way real panels
@@ -47,6 +52,10 @@ and falls back to the hour when it's absent, as a seat shot leaves it.
 `scripts/shapes/cockpit-controls.mjs` checks every flight seat: each hotspot's kind is one cockpit.js
 handles, each click has a `DK_ACT` action, and each control has a `DK_TIP` tooltip.
 
+A lamp is lettered on its lens when its name has to be read from further than the pilot's own board:
+the kit's `lamp` letters its name underneath at 8.5 mm, which fails rule 4 past about 1.2 m. See
+`lensLamp` in interior-leviathan.js.
+
 ## How to letter something
 
 Everything goes through the kit ([interior-kit.js](../../client/shared/interior-kit.js)), so every
@@ -55,7 +64,7 @@ seat letters the same way:
 | Part | Name it with |
 |---|---|
 | free text | `Pn.text(str, a, b, h, rgb?, emis?, lift?)` or `Pn.fitText(str, a, b, maxW, h, …)` |
-| dial | `Pn.dial(a, b, R, frac, { …, name: 'OIL' })`, lettered on the face under the pivot, in `label`'s colour if given |
+| dial | `Pn.dial(a, b, R, frac, { …, name: 'OIL' })`, lettered on the face under the pivot, in `label`'s colour if given; `nameH` letters it taller than the default fifth of the radius |
 | lamp | `Pn.lamp(a, b, ha, hb, on, rgb, 'LOW FUEL')`, name under it |
 | rocker | `Pn.rocker(a, b, on, rgb, 'NAV')` |
 | toggle | `Pn.toggle(a, b, on, 'MAG')` |

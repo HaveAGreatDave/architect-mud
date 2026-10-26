@@ -10,7 +10,7 @@
 //   (c) does every control move — geometry differs between the two stops of each live input.
 // Exit 1 on any failure.
 import { shellFaces, shellBounds, freezeFaces } from '../../client/shared/interior-shell.js';
-import { leviathanProfile, levRing } from '../../client/shared/interior-leviathan.js';
+import { leviathanProfile, levRing, levStations } from '../../client/shared/interior-leviathan.js';
 import { FW_ROWS } from '../../client/shared/vehicle-models.js';
 
 let fails = 0, checks = 0;
@@ -160,7 +160,9 @@ for (const gf of glass) {
 }
 ok(seen >= 4, 'fewer than four exterior panes are above the deck: ' + seen);
 ok(blocked === 0, blocked + ' of ' + seen + ' exterior panes are hidden behind the lining from the eye');
-const st = [0.78, 0.70, 0.62, 0.56];
+// The exterior's own stations over the room's span (and the one aft of it), read off the row, so a
+// station added to the flight deck is a ring this check interpolates between.
+const st = levStations().filter((f) => f <= 0.78 + 1e-9 && f >= 0.56 - 1e-9);
 const sides = FW_ROWS.heavy.sides;
 for (let i = 0; i < st.length - 1; i++) {
   const A = levRing(st[i]).pts, Bq = levRing(st[i + 1]).pts;
@@ -186,7 +188,8 @@ ok(leaks === 0, leaks + ' of ' + walls + ' painted hull facets can be seen strai
   for (const f of faces) for (const q of f.p) {
     const fu = L.fE + q[1] / m, hu = L.hE + q[2] / m, gu = L.gE + q[0] / m;
     if (fu > 0.78 + 1e-6 || fu < 0.56) continue;
-    const i = fu >= 0.70 ? 0 : fu >= 0.62 ? 1 : 2;
+    let i = 0;
+    while (i < st.length - 2 && fu < st[i + 1]) i++;
     const t = (st[i] - fu) / (st[i] - st[i + 1]);
     const A = levRing(st[i]).pts, Bq = levRing(st[i + 1]).pts;
     const ring = A.map((a, k) => [0, 1, 2].map((j) => a[j] + (Bq[k][j] - a[j]) * t));
