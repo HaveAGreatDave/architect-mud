@@ -3016,8 +3016,9 @@ export default async function regress({ check, run, getPlayer }) {
       if (matchup.away === matchup.home) return null;
       // Forward the ledger, so a caller can narrate a depleted club and reach the
       // injury-report pool that a healthy slate never touches.
+      // And the sim version, so a v2 death reaches the vat's lines.
       const game = HOCKEY.simGame(matchup, players, sportsRng(seed),
-        opts.unavailable ? { unavailable: opts.unavailable } : undefined);
+        { ...(opts.unavailable ? { unavailable: opts.unavailable } : {}), ...(opts.version ? { version: opts.version } : {}) });
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const pick = (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); };
       const say = (l, t) => { if (l) { const x = sportsFill(l, t).trim(); if (/\{[a-zA-Z]/.test(x) || /\s[.,!?;:]|\s{2,}/.test(x)) unfilled.push(x); } };
@@ -3036,6 +3037,7 @@ export default async function regress({ check, run, getPlayer }) {
         pools, nrng, sport: HOCKEY, add: () => {}, say, pick,
         abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
         venue: { said: 'Golden Goose Gardens', name: 'Golden Goose Gardens', rev: '' }, xpick: pick, finalPackage,
+        vpick: pick, vatBack: opts.vatBack || null, season: opts.season || null, slotsPerDay: 8,
       });
       return game;
     };
@@ -3083,6 +3085,22 @@ export default async function regress({ check, run, getPlayer }) {
     }
     // The Cup: a final is the same sim with `ws`, which unlocks the cup.* pools.
     narrateSlot(11, { ws: true, matchup: { away: teams[0], home: teams[1], teams } });
+    // The vat (sim v2): a death says how long the reprint takes, and a man back from it is
+    // named before the drop, once for his first death, once for a second this season and
+    // once with deaths in an earlier season.
+    for (let slot = 0; slot < 4000; slot++) {
+      const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+      if (matchup.away === matchup.home) continue;
+      if (!HOCKEY.simGame(matchup, players, sportsRng(sportsHash(slot, 0)), { version: 2 }).dead) continue;
+      narrateSlot(slot, { version: 2 });
+      break;
+    }
+    {
+      const man = rosterFor(teams[0], teams, players)[0];
+      for (const season of [null, { toll: { [man]: { hurt: 0, died: 2 } } }, { toll: { [man]: { hurt: 0, died: 1 } }, career: { [man]: { hurt: 1, died: 1 } } }]) {
+        narrateSlot(15, { matchup: { away: teams[0], home: teams[1], teams }, vatBack: new Set([man]), season });
+      }
+    }
 
     // Now the check has no exemptions but the deliberate `faceoff` fallback, which sits
     // behind the three dot-specific pools and is expected never to fire.
@@ -3118,7 +3136,7 @@ export default async function regress({ check, run, getPlayer }) {
     // most worth asserting is that walking the same season twice produces the same
     // season, and that a man who is out really is absent.
     {
-      const { reservePool, icedRoster, INJURY_MAX_SLOTS } = await import('./sports/hockey.js');
+      const { reservePool, icedRoster, INJURY_MAX_SLOTS, REPRINT_MAX_SLOTS, healSlot } = await import('./sports/hockey.js');
       const reserve = reservePool(teams, players);
       check("hockey: there's a reserve to call up from", reserve.length > 0, `${reserve.length} spare men`);
       const rostered = new Set();
@@ -3151,7 +3169,7 @@ export default async function regress({ check, run, getPlayer }) {
           // Nobody on the ledger may appear on the ice.
           for (const s of [...g.away.skaters, ...g.home.skaters]) if (un.has(s.name)) everHurt = true;
           for (const c of g.casualties) {
-            const heal = c.dead ? Number.MAX_SAFE_INTEGER : slot + Math.max(1, c.slotsOut || 1);
+            const heal = healSlot(c, slot);
             if (heal > (out.get(c.name) || 0)) out.set(c.name, heal);
           }
         }
@@ -3172,6 +3190,146 @@ export default async function regress({ check, run, getPlayer }) {
       }
       check('hockey: an injury carries a duration', durations.length > 0 && durations.every(d => d >= 1 && d <= INJURY_MAX_SLOTS),
         `${durations.length} injuries, max ${Math.max(0, ...durations)}`);
+
+      // ── the vat (sim v2) ──
+      // v2 reprints a dead man. Its length is hashed, not drawn from the game's rand, so a
+      // v2 game is the v1 game beat for beat; only the death's duration differs.
+      {
+        let deaths = 0, sameBeats = true, v1Forever = true, v2Timed = true;
+        const strip = (g) => JSON.stringify(g.beats.map(({ reprintSlots, ...r }) => r));
+        for (let slot = 0; slot < 300 && deaths < 3; slot++) {
+          const matchup = { away: teams[slot % teams.length], home: teams[(slot * 3 + 1) % teams.length], teams };
+          if (matchup.away === matchup.home) continue;
+          const g1 = HOCKEY.simGame(matchup, players, sportsRng(sportsHash(slot, 0)), { version: 1 });
+          const g2 = HOCKEY.simGame(matchup, players, sportsRng(sportsHash(slot, 0)), { version: 2 });
+          if (strip(g1) !== strip(g2) || g1.awayScore !== g2.awayScore || g1.homeScore !== g2.homeScore) sameBeats = false;
+          const d1 = g1.casualties.find(c => c.dead), d2 = g2.casualties.find(c => c.dead);
+          if (!d1) continue;
+          deaths++;
+          if (healSlot(d1, slot) !== Number.MAX_SAFE_INTEGER) v1Forever = false;
+          const back = healSlot(d2, slot) - slot;
+          if (!(back > INJURY_MAX_SLOTS && back <= REPRINT_MAX_SLOTS) || g2.beats.find(b => b.type === 'death')?.reprintSlots !== d2.slotsOut) v2Timed = false;
+        }
+        check('hockey: the scan found deaths to test the vat on', deaths > 0, `${deaths} deaths`);
+        check('hockey: v2 plays every beat as v1 did', sameBeats, 'a v2 game diverged from v1');
+        check('hockey: under v1 a death is for the season', v1Forever, 'a v1 death healed');
+        check('hockey: under v2 the vat takes longer than any injury, and the beat says how long', v2Timed, 'a reprint out of range');
+      }
+
+      // The chain carries the vat: a man who died is out until the vat's slot, then fit,
+      // and he's back from the vat until the first game he dresses for.
+      {
+        const script = { sport: 'hockey', teams, players, pools };
+        const S0 = 120000;
+        const savedSwitch = _test.getSimSwitch('hockey');
+        const savedSeason = _test.seasonCaches.get('hockey');
+        _test.setSimSwitch('hockey', { from: S0 });
+        // The aired graph anchors its chain at the season's start; pin it to ours, with no final.
+        _test.seasonCaches.set('hockey', { at: Date.now(), phase: 'regular', finalistA: null, finalistB: null, wsSlot: null, startSlot: S0, seasonNo: null });
+        try {
+          let dead = null;
+          for (let slot = S0; slot < S0 + 400 && !dead; slot++) {
+            const gs = _test.sportsGameForSlot(script, slot, null, _test.ledgerAt(script, slot, S0));
+            const d = gs?.game.casualties.find(c => c.dead);
+            if (d) dead = { name: d.name, slot, heal: healSlot(d, slot) };
+          }
+          check('hockey: a v2 season has a death to follow', !!dead, 'no death in 400 slots');
+          if (dead) {
+            check('hockey: a reprinted man is out until the vat is done',
+              _test.ledgerAt(script, dead.heal - 1, S0).has(dead.name) && !_test.ledgerAt(script, dead.heal, S0).has(dead.name), JSON.stringify(dead));
+            check('hockey: …and back from the vat once he is fit', _test.vatReturnsAt(script, dead.heal, S0).has(dead.name), JSON.stringify(dead));
+            let played = null;
+            for (let slot = dead.heal; slot < dead.heal + 64 && played === null; slot++) {
+              const gs = _test.sportsGameForSlot(script, slot, null, _test.ledgerAt(script, slot, S0));
+              if (gs && [...gs.game.away.skaters, ...gs.game.home.skaters].some(s => s.name === dead.name)) played = slot;
+            }
+            check('hockey: a reprinted man plays again', played !== null, `${dead.name} never dressed after ${dead.heal}`);
+            if (played !== null) {
+              check('hockey: …and the vat lets go of him after his first game back',
+                _test.vatReturnsAt(script, played, S0).has(dead.name) && !_test.vatReturnsAt(script, played + 1, S0).has(dead.name), `first game ${played}`);
+              // A line from one of the pools aired: every fixed piece of it is in a node's text.
+              const said = (slot, keys) => {
+                const fixed = keys.flatMap(k => pools[k] || []).map(l => l.split(/\{[^}]+\}/).map(p => p.trim()).filter(Boolean));
+                const g = _test.assembleSportsGraph(script, 'bc_regress_vat', slot, null);
+                const texts = Object.values(g?.nodes || {}).map(n => n.data?.text || '').filter(Boolean);
+                return texts.some(t => fixed.some(parts => parts.every(p => t.includes(p))));
+              };
+              check('hockey: the booth says how long the vat will be', said(dead.slot, ['death.vat']), `slot ${dead.slot}`);
+              check("hockey: the booth says he's back from the vat", said(played, ['vat.back', 'vat.back.again', 'vat.back.career']), `slot ${played}`);
+            }
+          }
+        } finally {
+          _test.setSimSwitch('hockey', savedSwitch);
+          if (savedSeason) _test.seasonCaches.set('hockey', savedSeason); else _test.seasonCaches.delete('hockey');
+          _test.injuryChains.delete('hockey');
+        }
+      }
+
+      // ── League players who are NPCs (sports/league-npcs.js) ──
+      {
+        const { bindingOf, whereabouts, seasonLine, LEAGUE_ROLES } = await import('./sports/league-npcs.js');
+        const club = teams[0], man = rosterFor(club, teams, players)[0];
+        const b = { player: man, club, role: 'captain' };
+        const st = (o = {}) => ({ playing: new Set(), next: new Set(), call: false, out: new Set(), inVat: new Set(), back: new Set(), ...o });
+        check('league npc: on shift while his club plays', whereabouts(b, st({ playing: new Set([club]) })) === 'game', 'not at the game');
+        check('league npc: called before the next game, not earlier', whereabouts(b, st({ next: new Set([club]), call: true })) === 'game' && whereabouts(b, st({ next: new Set([club]) })) === 'off', 'call');
+        check("league npc: a hurt man doesn't go to the game", whereabouts(b, st({ playing: new Set([club]), out: new Set([man]) })) === 'off', 'hurt man at the game');
+        check('league npc: the vat outranks everything', whereabouts(b, st({ playing: new Set([club]), out: new Set([man]), inVat: new Set([man]) })) === 'vat', 'vat');
+        check('league npc: nobody else is bound', bindingOf({ flags: {} }) === null && bindingOf({ flags: { cphl: { club } } }) === null, 'bound without a player');
+        const line = seasonLine(b, { players: { [man]: { gp: 9, g: 4, a: 1, sog: 30 } }, toll: { [man]: { hurt: 1, died: 2 } }, career: { [man]: { hurt: 0, died: 1 } } }, st());
+        check('league npc: the season line says his numbers and his toll', line === 'Nine games, four goals and one assist. Carried off once and died twice. That\'s three times in the vat, all told.', line);
+        const gl = seasonLine({ ...b, role: 'goalie' }, { goalies: { [man]: { gp: 1, sa: 30, ga: 4, w: 0 } } }, st());
+        check("league npc: a goalie's line is saves and wins", gl === 'One game, no wins. I\'ve stopped 26 of 30.', gl);
+        check("league npc: a man with no season yet says so", /haven't played/.test(seasonLine(b, null, st())), 'empty season');
+
+        // Into the vat and out of it, through the engine's dead state.
+        const fake = { id: 'npc_regress_cphl', name: 'Regress Skater', zone_id: 'zone_slush_rinkside', home_zone: 'zone_slush_rinkside', hp: 40, hp_max: 40, flags: { cphl: b } };
+        world.npcs.set(fake.id, fake); world.zones.get(fake.zone_id)?.npcs.add(fake.id);
+        const saved = _test.getLeagueNpcState();
+        try {
+          _test.applyLeagueNpcState(st({ inVat: new Set([man]) }), null);
+          check('league npc: the vat takes him out of the world', fake._dead === true && fake._inVat === true && !world.zones.get(fake.zone_id)?.npcs.has(fake.id), JSON.stringify({ d: fake._dead, v: fake._inVat }));
+          check('league npc: his season line is set', typeof fake.cphl?.season === 'string' && fake.cphl.season.length > 0, String(fake.cphl?.season));
+          _test.applyLeagueNpcState(st(), null);
+          check('league npc: the vat lets him go to the engine\'s respawn', fake._inVat === false && Number.isFinite(fake._respawnAt), String(fake._respawnAt));
+          // Through the engine's bridge, as the AI asks it.
+          const { isNpcScheduledNow } = await import('../../server/engine/broadcast-bridge.js');
+          _test.setLeagueNpcState(st({ playing: new Set([club]) }));
+          const onShift = isNpcScheduledNow(fake.id);
+          _test.setLeagueNpcState(st());
+          check("league npc: the schedule checker follows his club's games", onShift === true && isNpcScheduledNow(fake.id) === false && _test.leagueNpcWhere('npc_nobody') === null, String(onShift));
+        } finally {
+          _test.setLeagueNpcState(saved);
+          world.npcs.delete(fake.id); world.zones.get(fake.zone_id)?.npcs.delete(fake.id);
+        }
+
+        // The authored men: each is on the roster of the club his file names, in his role, and
+        // housed in a flat with a residence row. Read from the files, so it holds before an import.
+        const npcDir = new URL('../../content/npcs/', import.meta.url);
+        const resDir = new URL('../../content/npc_residences/', import.meta.url);
+        const zoneDir = new URL('../../content/zones/', import.meta.url);
+        const bound = readdirSync(npcDir).filter(f => f.startsWith('npc_cphl_')).map(f => JSON.parse(readFileSync(new URL(f, npcDir), 'utf8'))).filter(n => bindingOf(n));
+        const residents = new Map(readdirSync(resDir).map(f => JSON.parse(readFileSync(new URL(f, resDir), 'utf8'))).map(r => [r.zone_id, r.npc_id]));
+        // Against the content row's league, which is what the server deals from: the .bsm
+        // parse above strips the quotes off nicknames, and a different name deals different sixes.
+        const row = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_cluster_puck.json', import.meta.url), 'utf8')).sports_pools;
+        const wrong = [];
+        for (const n of bound) {
+          const nb = bindingOf(n), six = rosterFor(nb.club, row.teams, row.players);
+          if (!row.teams.includes(nb.club)) wrong.push(`${n.id}: no club ${nb.club}`);
+          else if (!six.includes(nb.player)) wrong.push(`${n.id}: ${nb.player} isn't a ${nb.club}`);
+          else if ((nb.role === 'goalie') !== (six.indexOf(nb.player) === 5)) wrong.push(`${n.id}: ${nb.player} isn't the ${nb.club}' ${nb.role}`);
+          if (!LEAGUE_ROLES.includes(nb.role)) wrong.push(`${n.id}: role ${nb.role}`);
+          if (n.studio_zone_id !== 'zone_slush_rinkside') wrong.push(`${n.id}: studio_zone_id ${n.studio_zone_id}`);
+          let home = null; try { home = JSON.parse(readFileSync(new URL(`${n.home_zone}.json`, zoneDir), 'utf8')); } catch {}
+          if (!home?.flags?.is_apartment) wrong.push(`${n.id}: home ${n.home_zone} isn't a flat`);
+          else if (!residents.has(n.home_zone)) wrong.push(`${n.id}: ${n.home_zone} has no residence row`);
+          if (!JSON.stringify(n.dialogue_tree || {}).includes('${npc.cphl.season}')) wrong.push(`${n.id}: no season line in his dialogue`);
+        }
+        check('league npc: every bound man is his club\'s, in his role, and housed', wrong.length === 0, wrong.slice(0, 4).join('; '));
+        const seats = new Set(bound.map(n => `${n.flags.cphl.club}|${n.flags.cphl.role}`));
+        check('league npc: one man per club per role', seats.size === bound.length, `${bound.length} men in ${seats.size} seats`);
+      }
 
       // Baseball must be untouched by all of this — its sim ignores the fourth argument.
       const bb = _test.sportsGameForSlot({ teams: ['A', 'B', 'C', 'D'], players: [], pools: {} }, 102, null);

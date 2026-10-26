@@ -1,0 +1,147 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Marsh opens and shuts his left hand slowly, as if there were a catching glove on it.",
+    "He presses a yellowing bruise on his forearm and looks at it with mild interest.",
+    "He reads a library book held very close to his face, his lips moving slightly.",
+    "He stretches his legs out one at a time until his knees crack.",
+    "\"Shooters look left before they go right,\" he says. \"Every time.\"",
+    "He hums a slow dock song with most of the words missing.",
+    "He sits with his eyes shut and his hands folded on his stomach. He isn't asleep."
+  ],
+  "description": "A big, slope-shouldered man in his mid-thirties in a dockers' donkey jacket gone shiny at the cuffs, a Guillotines toque on the back of his head. Puck bruises dot his forearms, yellow and purple. He moves slowly and sits down whenever there's a chair.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Parish club. I'm not a church man, but the Father came down the Docks and asked me, and nobody else had. So I go on a Sunday and sit at the back.\"\n\n\"Kuznetsov's the captain. Takes it all very serious, which is what you want in a captain. Adebayo's quick. Halloran, Barrientos and Danilenko do the hitting. I stand in the net and they bring the Warlords to me.\""
+    },
+    "kin": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Just my dad. Wendell Marsh. Everybody calls him Windy. He flew cargo out of the Redline when I was small. One run he put down at the Reach, out past the Curtain, and stayed. He's in the bar there, last I heard.\"\n\n\"Mum raised me on the Docks. He sends a note in with a pilot now and then. It's the same story every time. Three drums, no boots.\" He looks at his hands. \"You ever been out there? Is he alright?\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You stand still and people shoot at you. Most of it hits the pads. Some of it hits me.\"\n\n\"I share a flat in Corbett Mansions with Okafor. He's in net for the Yard Birds. We hang the pads off the picture rail to dry and we don't talk shop. When it's Birds against Guillotines we take turns in the bathroom and don't say a word to each other all day. Then we come home and he makes tea.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Guillotines like?",
+          "next": "club"
+        },
+        {
+          "label": "What's it like in net?",
+          "next": "role"
+        },
+        {
+          "label": "Does dying out there bother you?",
+          "next": "vat"
+        },
+        {
+          "label": "Got any family?",
+          "next": "kin"
+        },
+        {
+          "label": "Take it easy.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Alright.\" Marsh doesn't get up.",
+        "\"Now then.\" He nods at a chair. \"That one's free.\"",
+        "Marsh lifts two fingers off his knee by way of hello."
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"Pull up a chair. I was hoping it'd be you.\""
+        ],
+        "first": "The big man looks up and takes his time about it.\n\n\"Royce Marsh. People call me Dockside, because I'm from the Docks. I'm in goal for the Guillotines.\" His hand, when he offers it, is huge and very dry.",
+        "known": "\"You.\" He nods. \"Sit down.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He thinks for a long time. \"${npc.cphl.season}\" He shrugs one shoulder. \"Every one I stop, there's another one coming. I let the scoreboard do the counting.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Doesn't bother me. It's the forwards who go in the boards. When a goalie goes it's usually a skate in the neck in a scramble. You don't feel much of it, and then you're in the vat with a towel on.\"\n\n\"I'm a slow reader, though. Three days gone and the library wants its book back, with a fine.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a red-and-navy Guillotines toque",
+      "a black donkey jacket with leather shoulders, shiny at the cuffs",
+      "a thick cable-knit fisherman's jumper",
+      "moleskin trousers and steel-toed boots",
+      "grey long johns"
+    ],
+    "cphl": {
+      "club": "St Garneau Guillotines",
+      "player": "\"Dockside\" Marsh",
+      "role": "goalie"
+    },
+    "kin": [
+      "npc_reach_regular"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_corbett_12a",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_cphl_marsh",
+  "name": "Royce \"Dockside\" Marsh",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

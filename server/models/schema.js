@@ -2743,6 +2743,10 @@ export const SCHEMA_SQL = `
   -- When a league's era moves on, its open season closes with no champion and a fresh one
   -- opens, so a new roster starts at 0-0. NULL on every season opened before eras existed.
   ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS era TEXT;
+  -- Every man's toll for the season, { name: { hurt, died } }, written once when the
+  -- season closes. A man's career is the sum over his league's closed seasons. NULL on
+  -- seasons closed before it was kept, and on Deadball's, which hurts nobody.
+  ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS toll JSONB;
 
   -- Staging for aired games so they book into the standings at END of their airing
   -- window (resolve_at), not at air-start. The game_id primary key makes booking

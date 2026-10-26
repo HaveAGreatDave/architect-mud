@@ -7,6 +7,8 @@ export function hasChannelViewers(channelId) { return _viewerChecker ? _viewerCh
 let _npcScheduleChecker = null;
 export function registerNpcScheduleChecker(fn) { _npcScheduleChecker = fn; }
 export function isNpcScheduledNow(npcId) { return _npcScheduleChecker ? _npcScheduleChecker(npcId) : false; }
+// For a test that stubs the checker and has to put the real one back.
+export function getNpcScheduleChecker() { return _npcScheduleChecker; }
 
 // How many GAME minutes until this NPC's next scheduled slot begins, or null if
 // they have no upcoming shift (or aren't staffed on anything). Returns 0 while a

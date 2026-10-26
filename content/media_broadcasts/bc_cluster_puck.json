@@ -256,6 +256,24 @@
         "{wound}. They're putting a towel over him now.",
         "{wound}. The building has gone completely quiet."
       ],
+      "death.vat": [
+        "{player} goes to the vat. Figure {days} days before he's fit to dress again.",
+        "The vat will have him back in {days} days. The {team} get him back. They don't get those games back.",
+        "That's {days} days in the vat for {player}. He'll come out remembering everything, which is the cruel part."
+      ],
+      "vat.back": [
+        "{player} is back in the {team} lineup tonight. Last time we saw him he was under a towel.",
+        "Back from the vat for the {team}: {player}. New body, same contract.",
+        "{player} dresses tonight, his first game since he died out here. He's watched the tape. He says it looked worse than it felt."
+      ],
+      "vat.back.again": [
+        "{player} is back again. He's died {times} this season, and the vat has his measurements on file.",
+        "That's {player} in the {team} sweater, and that's {times} this season he's been reprinted. He's starting to look like a regular down there."
+      ],
+      "vat.back.career": [
+        "{player} returns tonight. He's been through the vat {careerTimes} in his career, and he's never once asked what they do with the old one.",
+        "Welcome back, {player}. Reprinted {careerTimes} in his career and still in the league. There's no trophy for that, and there should be."
+      ],
       "faceoff": [
         "Puck's down at the dot.",
         "Clean draw, and away we go.",
@@ -1391,6 +1409,9 @@
         "The {club} are without {missing} tonight. The reserve dresses in their place.",
         "Not dressing for the {club}: {missing}. Still on the shelf."
       ]
+    },
+    "sim": {
+      "version": 2
     },
     "sport": "hockey",
     "teams": [

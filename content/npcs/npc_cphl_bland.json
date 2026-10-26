@@ -1,0 +1,130 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Bland sits very still with a paper cup of water in both hands.",
+    "He stretches his hamstrings, one leg and then the other, counting under his breath.",
+    "He reads the back of a cereal box all the way to the end.",
+    "\"Grubb? Did you move my mat?\"",
+    "He tapes his stick slowly, each turn laid exactly over the last.",
+    "He yawns and checks the time.",
+    "He signs a programme somebody has left out, carefully, his full name."
+  ],
+  "description": "A tall, slim man of about twenty-two in a navy Marauders tracksuit zipped to the chin and white trainers. His hair is cut short and neat. He holds a paper cup of water in both hands and doesn't drink from it.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Okay. Bye.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They're good lads. Grubb looks after everyone. He looks after me most, because I'm the youngest and I forget to eat.\"\n\n\"We share a flat in Chrome Court. It's one room. He has the bed and I have the floor, but I've got a good mat.\" He thinks. \"The building's all mirrors outside. Our window looks at a brick wall. I like that, actually. There's nothing to look at.\"\n\n\"I don't like the Yard Birds. Their rooster goes for my ankles.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"There's a poster of me on the Marquee, outside a club. It's three floors high. They made my eyes blue. My eyes are brown.\" He points at one, so you can see.\n\n\"People shout my name in the street. I don't mind. I go to bed at nine, so mostly they shout it in the morning. Grubb says I should go out more, for the fans. I went once. It was loud and the water was eight credits.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Marauders like?",
+          "next": "club"
+        },
+        {
+          "label": "Everybody says you're the one to watch.",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "Bye.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "He nods. \"Hi.\"",
+        "\"Hello.\" He waits to see if there's more.",
+        "\"Hi. Sorry, were you waiting for me?\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"Hi! I was hoping it'd be you.\""
+        ],
+        "first": "\"Hi. I'm Dequarius Bland. I play on the wing for the Marauders. People say I'm the star. I just shoot it at the net.\"",
+        "known": "\"Oh, hi. You again. That's nice.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He thinks about it properly. \"${npc.cphl.season} I think that's right. Grubb writes it down, so you could ask him.\" He looks into his cup. \"I don't really count. I go out and do the next shift, and then I come home and go to bed.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's fine. You go cold, and then you're in the vat, and it's warm.\" He shrugs. \"They give you a cup of something sweet when you come out. I like that part.\"\n\n\"The first time, I was scared I'd come back worse at hockey. I didn't. I came back a bit better, actually. I don't know why. Grubb says don't tell anyone.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a navy Marauders tracksuit top, zipped to the chin",
+      "a plain grey training shirt",
+      "a white T-shirt",
+      "navy tracksuit bottoms and white trainers",
+      "plain white briefs"
+    ],
+    "cphl": {
+      "club": "Marquee Marauders",
+      "player": "Dequarius Bland",
+      "role": "star"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_mq_chrome_101",
+  "hp": 46,
+  "hp_max": 46,
+  "id": "npc_cphl_bland",
+  "name": "Dequarius Bland",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

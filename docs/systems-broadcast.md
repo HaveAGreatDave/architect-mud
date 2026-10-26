@@ -1558,7 +1558,9 @@ the first slot of the next in-game day, which is in the future when it's written
 stops asking gets `until`, the same way. `sportsGameForSlot` reads the record (loaded at startup,
 before any game is simulated) through `simVersionFor` and plays the slot's version. A version
 that has played and ended can't be switched back on; one switched off before its first slot can.
-world_flags is runtime state, so a deploy never rewrites the record.
+world_flags is runtime state, so a deploy never rewrites the record. Hockey has a v2 of its own
+(the reprint, in [Hockey specifics](#hockey-specifics-as-built)) and its own record,
+`sports_sim_v2:hockey`; a sport module opts in with `simVersions: [1, 2]`.
 
 ### The sport registry
 
@@ -1644,9 +1646,25 @@ so a narrator cannot read the other league's records.
   pool should run comfortably past the minimum — and a club can never ice fewer than six;
   with the reserve exhausted the injured man plays hurt. Tuned to hold the league at
   **~13% unavailable** (peak 21 of 96, reserve never dry): at the first pass, 40% of the
-  league was hurt at once, which makes "their best man is out" meaningless. Deaths reset
-  with the season when the chain re-anchors — which is exactly right for a league whose
-  own lore says there are no records and no office to keep them.
+  league was hurt at once, which makes "their best man is out" meaningless. Under sim v1 a
+  death was for the rest of the season.
+- **The dead are reprinted (sim v2, `@sim 2` in hockey.bsm).** A man who dies goes to the vat
+  for 24–40 slots (`reprintSlots`, three to five game-days), longer than any injury, then plays
+  again. The length is hashed from his name and the beat, not drawn from the game's rand, so a
+  v2 game is the v1 game beat for beat and only the death's duration differs; regress checks
+  it. The chain, the standings fold and regress all book a casualty through `healSlot`. Games
+  that aired under v1 replay under v1, so a v1 death stays permanent for its season (the
+  [sim switch](#sim-v2) records the slot v2 starts from, in `sports_sim_v2:hockey`). The chain also carries the
+  **vat**: a reprinted man is back from it until the first game he dresses for
+  (`vatReturnsAt`). That night the booth says so before the drop (`vat.back`, `vat.back.again`
+  for a second death in a season, `vat.back.career` once he has died in an earlier season),
+  and after a death it says how many days the vat will take (`death.vat`). These lines draw
+  from a stream of their own, so no other line moves.
+- **The toll is remembered.** The season fold's `toll` is every man's `{ hurt, died }` for the
+  season. When a season closes, crowned or not, sportsleague writes it to `sports_season.toll`,
+  once, and a man's career is the closed seasons added up (`career` on the extras, one read
+  per league, cached until the next close). The booth reads both for `{times}` and
+  `{careerTimes}`. Deadball's fold keeps no toll, so it has no career.
 - **Live from the venue.** Both sports open on "Live from" their park, the first line after
   the title card ([Live from the venue](#live-from-the-venue-and-the-finals-package-as-built)
   below): the 3-D view flies in over the city onto it.
@@ -1792,6 +1810,43 @@ yoke, crest (the small drawing), number colours, the Warlords' gem row and the
 Highlanders' tartan body; `arena-mesh.js` takes the kit's sleeve and sock bands; GLASS 2
 paints each keeper's mask from the club's `mask`; the 2-D `figure.js` takes the bands,
 number colours, crest decal and the mask's colours. Centre ice still carries the CPhL mark.
+
+### League players who are NPCs (as built)
+
+Each CPhL club's captain, goalie and rising star is an NPC (`content/npcs/npc_cphl_*.json`),
+24 men. The NPC names the roster man he is in `flags.cphl` (`{ player, club, role }`), and
+everything else comes from the league, so nothing about a game is stored on him.
+
+- **He goes to his club's games.** His `studio_zone_id` is rinkside at the Gardens, so he has
+  the studio actor's graph. The broadcast plugin's NPC schedule checker answers for a bound
+  man first (`leagueNpcWhere`): he's on shift while his club plays and from 60 in-game minutes
+  before its slot (`LEAGUE_CALL_MIN`), the Cup final included. Off shift he walks out of the
+  barn and lives his day like any actor.
+- **The injury list keeps him away.** A man the chain has unavailable misses the game and
+  stays off shift.
+- **The vat takes him out of the world.** At the slot's turn after the game he died in,
+  `applyLeagueNpcState` takes him off his zone ("Two medics carry him out under a sheet") and
+  puts him in the engine's dead state (`_dead`, `_inVat`, no `_respawnAt`), so he can't be
+  seen or talked to and his AI is skipped. When the vat lets him go it sets `_respawnAt` to
+  now and the engine's own respawn (`npcWanderTick` in gameLoop.js) puts him back at home.
+- **He talks about his season.** `npc.cphl.season` is his line from the season fold, in the
+  first person (`seasonLine` in [sports/league-npcs.js](../plugins/broadcast/sports/league-npcs.js)):
+  games, goals and assists, or a goalie's wins and saves, then what it's cost him this season
+  and in his career, and whether he's on the injury list or due back from the vat. His
+  dialogue's `season` node says it as `${npc.cphl.season}`.
+- **One tick, all RAM.** `leagueNpcTick` runs once a minute while anyone's online, reads the
+  slot's clubs, the injury list and the vat from the chain (`ledgerAt`, `inVatAt`,
+  `vatReturnsAt`) and applies them. No query.
+- **Homes.** A club's captain and star share a flat in or near the club's district; the
+  goalies pair off across clubs in Corbett Mansions. Every flat has an `npc_residences` row.
+  Three goalies are family of NPCs elsewhere (`flags.kin`): Okafor's mother runs the
+  Coliseum box office, Kasprzak's sister is Minnow, and Marsh's relative is Windy at The Reach.
+- **Regress holds the files to the roster.** Every bound man has to be on the roster of the
+  club his file names (`rosterFor`), the goalie in the goalie's place, one man per club per
+  role, housed in a flat with a residence row, and with the season line in his dialogue. A
+  change to the club list or the player pool that redeals the rosters fails it by name.
+- **A death in the street is an ordinary NPC death.** A player who kills one gets the
+  engine's 60-second respawn, and the sim doesn't hear about it.
 
 ### Deadball's clubs (as built)
 

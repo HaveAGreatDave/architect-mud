@@ -1,0 +1,158 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Cifuentes lowers himself onto the nearest seat, one knee at a time.",
+    "He twists the ends of his moustache, left, then right.",
+    "He tapes the blade of his stick in slow, even turns.",
+    "He sits with his eyes shut and his hands on his knees.",
+    "\"Angles,\" he says to himself. \"Just angles.\"",
+    "He rubs his right knee with the heel of his hand.",
+    "He hums something old and slow under his breath."
+  ],
+  "description": "A big, slope-shouldered man of about sixty in a bone-white Goons goalie sweater stretched over his belly, a brown cardigan underneath. His grey moustache is waxed at the ends. He walks stiffly, knees first, and sits down whenever he can.",
+  "dialogue_tree": {
+    "badge": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I was a sergeant in the property room at Precinct 9. Then they took the badge off me.\" He waits to see if you'll ask the next question. \"I don't talk about it. Kozak knows, and Brine knows, and that's enough people.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Go carefully.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Kozak runs it like a shift. Out on time, back on time, everybody accounted for. They're good boys, mostly. Ganguly is quick. Brine and I were in the same intake at the academy, before the knees.\"\n\nHe looks at his hands. \"The Wharf Rats are the ones the boys care about. Szabo and Grimaldi go for my crease every night we play them, and our lads go for theirs. I let them get on with it. I've never been sent off for a fight. I'm usually lying down.\""
+    },
+    "flat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Sledge? Yes. Corbett Mansions, on Lever Lane. High ceilings, and a window over the roofs.\"\n\nHe shrugs. \"The skaters think it's strange, a Goon and a Rat in one flat. Goalies are different. We both know what it's like in there. On nights our clubs play each other we take separate trams, and we don't talk about the game until breakfast.\" He pauses. \"He leaves his pads to dry in the kitchenette. I've asked him about that.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You stand still while men fire rubber at you. You learn the angles, and you learn not to flinch.\"\n\nHe rubs a knee. \"Skaters think about the score. A goalie thinks about the next shot, and then the one after. So we don't talk much in the dressing room, and nobody minds.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Goons like?",
+          "next": "club"
+        },
+        {
+          "label": "What's it like in goal?",
+          "next": "role"
+        },
+        {
+          "label": "You live with the Rats' goalie?",
+          "next": "flat"
+        },
+        {
+          "label": "Why did you leave the police?",
+          "next": "badge"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "Goodbye.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hello.\" He doesn't get up.",
+        "\"Mm.\" He's looking at something past your shoulder. \"Yes?\"",
+        "He nods to you, slowly. \"Take a seat if you can find one.\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"Ah, you. Good.\" He shifts over to make room."
+        ],
+        "first": "\"Cifuentes. Ernesto. I keep goal for the Goons.\" He offers a big, dry hand and shakes yours once.",
+        "known": "\"Hello again. Sit, if you like.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He thinks for a while before he answers. \"${npc.cphl.season}\" He nods slowly. \"Write it down if you like. I don't. I remember the ones that went in.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I don't mind it. The knees are better for a week or two. Then they're my knees again.\"\n\nHe rubs one. \"The young ones are frightened of it. After his first time, Ganguly sat in the waiting room down there for an hour, holding the form. I went and sat with him. You don't need to say anything. You just sit there.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a bone-white District 9 Goons goalie sweater",
+      "a brown cardigan with leather buttons",
+      "a vest gone grey in the wash",
+      "brown corduroy trousers and old police boots with the laces loose",
+      "long johns"
+    ],
+    "cphl": {
+      "club": "District 9 Goons",
+      "player": "Cifuentes",
+      "role": "goalie"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_corbett_8b",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_cphl_cifuentes",
+  "name": "Ernesto Cifuentes",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

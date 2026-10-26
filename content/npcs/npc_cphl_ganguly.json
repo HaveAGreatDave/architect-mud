@@ -1,0 +1,144 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Ganguly bounces on his toes and shakes out his hands.",
+    "He tries a goal celebration, both arms up, then looks round to see if anyone saw.",
+    "He reads a crumpled match programme. His own name is underlined in biro.",
+    "\"It's GANG-uh-lee,\" he mutters. \"Not Gan-GOO-lee.\"",
+    "He picks at a scab on his knuckle, then makes himself stop.",
+    "He straightens his lanyard so the card faces out.",
+    "He throws a few quick jabs at the air."
+  ],
+  "description": "A lean young man of about twenty in a purple Goons warm-up jacket zipped to the chin, a Precinct 9 lanyard round his neck. His hair is clipped short at the sides and his knuckles are scabbed on both hands. He bounces on his toes.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"See you at the Gardens!\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's mostly Precinct 9. I'm on probation there, so I do the cells and the coffee, and on game nights I'm out on the ice with Brine and Bergqvist. Brine trained half the precinct. It's mad.\"\n\n\"The Wharf Rats are the ones we really want. Every time we play them it's a brawl. Last time Szabo pulled my sweater over my head and I couldn't see a thing for a whole shift. I still got a shot off.\""
+    },
+    "flat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's fine. It's one room above the Embassy bar, so it's a bit tight. He's got the bed and I've got the mat.\" He drops his voice. \"He snores. He makes me bolt the door every night and then gets up to check I've done it. The Bulldogs live next door, and he says they're up to something. I think they just stay up late.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He goes red. \"Tug Brennan called me the future of the club on air, and my mum taped it. That's all it is.\"\n\nHe looks at his knuckles. \"I've only been in the league a season. Ask me again when I've had a few more. Do you think he meant it?\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Goons like?",
+          "next": "club"
+        },
+        {
+          "label": "Everyone says you're the next big thing.",
+          "next": "role"
+        },
+        {
+          "label": "What's it like living with your sergeant?",
+          "next": "flat"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "See you around.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hey! Do you watch the games?\"",
+        "He's bouncing on his toes. \"All right? Sorry. I can't keep still.\"",
+        "\"Hi. Are you from the paper?\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"You came back! Sergeant Kozak says I've got a fan club now. It's you.\""
+        ],
+        "first": "He sticks his hand out. \"Rohan Ganguly. I play for the Goons.\" He grins. \"You've probably heard Tug Brennan say my name. He says it wrong. It's GANG-uh-lee. I don't mind.\"",
+        "known": "\"Hey, it's you. Did you catch the last game?\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He counts on his fingers, loses his place and starts again. \"${npc.cphl.season}\" He nods. \"I've got it written on the wall by the mat. Kozak says I'm not allowed to write on the walls.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The first time, I was scared. I'll be honest.\" He rubs his hands together. \"You wake up and your fingers don't work properly for an hour, and there's a nurse asking you to rate the service. I gave it five. I didn't know what else to put.\"\n\n\"The worst bit's missing games. Three days in there and somebody from the reserve has your spot.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a purple District 9 Goons warm-up jacket zipped to the chin",
+      "a Precinct 9 lanyard with a probationer's card on it",
+      "a white police-issue T-shirt",
+      "purple track trousers and white trainers",
+      "black briefs"
+    ],
+    "cphl": {
+      "club": "District 9 Goons",
+      "player": "Ganguly",
+      "role": "star"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_apt_6",
+  "hp": 46,
+  "hp_max": 46,
+  "id": "npc_cphl_ganguly",
+  "name": "Rohan Ganguly",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

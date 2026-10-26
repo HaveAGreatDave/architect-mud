@@ -1,0 +1,130 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Prieto cracks his knuckles one at a time, loses count, and starts again.",
+    "He eats something cold out of a tin with his fingers.",
+    "\"Bay twelve!\" he shouts, for no reason, and looks pleased with himself.",
+    "He does push-ups with his feet up on the nearest thing, counting out loud somewhere in the forties.",
+    "He crows, once, very loud, and grins at you.",
+    "He scrubs at the bay number on the back of his hand with his thumb. It doesn't come off.",
+    "\"Shut that door,\" he says. Nobody opened it."
+  ],
+  "description": "A huge man in his early thirties in a red Yard Birds sweater with the sleeves torn off, a quilted freezer suit under it. His arms are thick as fence posts and his knuckles are scarred white. A bay number is written on the back of his hand in marker.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Go on, then. Shut the door.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"We practise in a cold store down the Yards. Meat lockers. Somebody bolted seats along the wall and that's our rink. So when we get to the Gardens, the ice feels warm.\"\n\n\"Alferov and Pankratov are on the back. Vasko's on my wing. Osei scores the goals, Okafor stops them, and I hit anybody who comes near either of them. Worst lot are the Marauders. Marquee boys, with the hair. You hear our end crowing? That's for them.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Captain's easy. I go first. Through the door, over the boards, into the fight. If I'm in the vat, Vasko goes first, and he's slower.\"\n\n\"And I look after the kid. Osei lives with me, the Tenement, 1002. One room, one bed. He sleeps nights and I sleep days, because I carry sides of beef on the freezer dock at night anyway. Radiator's cold. We don't care. We practise in a freezer.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "Tell me about the Yard Birds.",
+          "next": "club"
+        },
+        {
+          "label": "What makes a captain?",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "See you, Meat.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hey! Shut the door, you're letting the warm in.\"",
+        "\"Pal! Get in here.\"",
+        "Prieto slaps you on the shoulder hard enough to move you a step."
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"There's my pal. You eaten? You look like you haven't eaten.\""
+        ],
+        "first": "The big man grabs your hand and pumps it.\n\n\"Ramon Prieto. Everybody says Meat. I'm captain of the Yard Birds, best team in the Yards.\" He laughs. \"Only team in the Yards. Still counts.\"",
+        "known": "\"Pal! Back again.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He counts on his fingers and gets there in the end. \"${npc.cphl.season}\" He slaps his stomach. \"Ask me how many I hit. Nobody ever asks how many I hit.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Love it. Three days off and they give you all your teeth back.\"\n\n\"First time, I came out and the vat lady gave me a biscuit. I asked for another one. Now every time she sees me she's got two biscuits out.\" He beams. \"You get to know people.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a red Yard Birds sweater with a C on the chest and the sleeves torn off",
+      "a quilted freezer suit cut off at the shoulders",
+      "a stained thermal vest",
+      "insulated work trousers and steel-capped boots",
+      "boxer shorts with chickens on them"
+    ],
+    "cphl": {
+      "club": "Yard Birds",
+      "player": "\"Meat\" Prieto",
+      "role": "captain"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u10_2",
+  "hp": 58,
+  "hp_max": 58,
+  "id": "npc_cphl_prieto",
+  "name": "Ramon \"Meat\" Prieto",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

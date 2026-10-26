@@ -243,13 +243,15 @@ async function crownChampion(sport, season) {
   const winner = g.winner, loser = winner === g.away ? g.home : g.away;
   const champScore = winner === g.away ? g.awayScore : g.homeScore;
   const runScore = winner === g.away ? g.homeScore : g.awayScore;
+  const toll = await seasonToll(sport);
   await query(
     `UPDATE sports_season SET phase = 'complete', champion = $1, runner_up = $2,
-       champ_score = $3, runner_score = $4, decided_at = NOW() WHERE sport = $5 AND season_no = $6`,
-    [winner, loser, champScore, runScore, sport, season.season_no],
+       champ_score = $3, runner_score = $4, decided_at = NOW(), toll = $7::jsonb WHERE sport = $5 AND season_no = $6`,
+    [winner, loser, champScore, runScore, sport, season.season_no, toll],
   ).catch((e) => console.error('[sportsleague] crown error:', e.message));
   invalidateSeason(sport);
   _standCaches.delete(sport);
+  _careers.delete(sport);
   await ensureSeason(sport);   // opens the next season with start_slot = now (past ws_slot)
   emit('sports.champion', { sport, show: L.show, final: L.finalTitle, seasonNo: season.season_no, champion: winner, runnerUp: loser, champScore, runScore, overtime: !!g.overtime });
   console.log(`[sportsleague] ${L.final} CHAMPION (${sport} season ${season.season_no}): ${winner} beat ${loser} ${champScore}-${runScore}`);
@@ -266,13 +268,15 @@ function staleEra(sport, season) {
 // and open the next. Whatever phase it was in, including a final already seeded with two
 // clubs that are no longer in the league.
 async function closeUncrowned(sport, season, why) {
+  const toll = await seasonToll(sport);
   await query(
-    `UPDATE sports_season SET phase = 'complete', decided_at = NOW()
+    `UPDATE sports_season SET phase = 'complete', decided_at = NOW(), toll = $3::jsonb
       WHERE sport = $1 AND season_no = $2 AND phase <> 'complete'`,
-    [sport, season.season_no],
+    [sport, season.season_no, toll],
   ).catch((e) => console.error('[sportsleague] season close error:', e.message));
   invalidateSeason(sport);
   _standCaches.delete(sport);
+  _careers.delete(sport);
   console.log(`[sportsleague] ${leagueOf(sport).league} season ${season.season_no} closed with no champion (${why}), a fresh one opens`);
   return ensureSeason(sport);
 }
@@ -323,7 +327,42 @@ async function queryStandings(sport) {
 }
 async function queryExtras(sport) {
   await queryStandings(sport);
-  return _standCaches.get(sport)?.extras || { scorers: [], injuries: 0, deaths: 0 };
+  const extras = _standCaches.get(sport)?.extras || { scorers: [], injuries: 0, deaths: 0 };
+  // A sport whose fold keeps a toll also gets every man's career from the closed seasons.
+  return extras.toll ? { ...extras, career: await careerToll(sport) } : extras;
+}
+
+// ── The toll: who was hurt and who died ─────────────────────────────────────────
+// The open season's toll is in the fold (hockey's summariseExtras). It's written to the
+// season's row once, as the season closes, and a man's career is the closed seasons
+// added up. One read per league, cached until the next season closes.
+async function seasonToll(sport) {
+  const t = (await queryExtras(sport).catch(() => null))?.toll;
+  return t && Object.keys(t).length ? JSON.stringify(t) : null;
+}
+const _careers = new Map();   // sport -> { toll: { name: { hurt, died } } } or { retryAt }
+const CAREER_RETRY_MS = 10 * 60_000;
+function addTolls(rows) {
+  const sum = {};
+  for (const t of rows) {
+    for (const [name, v] of Object.entries(t || {})) {
+      const s = sum[name] || (sum[name] = { hurt: 0, died: 0 });
+      s.hurt += Number(v?.hurt) || 0; s.died += Number(v?.died) || 0;
+    }
+  }
+  return sum;
+}
+async function careerToll(sport) {
+  const hit = _careers.get(sport);
+  if (hit?.toll) return hit.toll;
+  if (hit && Date.now() < hit.retryAt) return {};
+  const { rows } = await query(
+    `SELECT toll FROM sports_season WHERE sport = $1 AND phase = 'complete' AND toll IS NOT NULL`, [sport],
+  ).catch(() => ({ rows: null }));
+  if (!rows) { _careers.set(sport, { retryAt: Date.now() + CAREER_RETRY_MS }); return {}; }
+  const toll = addTolls(rows.map(r => r.toll));
+  _careers.set(sport, { toll });
+  return toll;
 }
 
 // Pure formatter — a monospace league table. Rows are pre-sorted by the sport's fold,
@@ -569,6 +608,6 @@ export const commands = {
   champions: (args) => cmdChampions(args),
 };
 
-export const _test = { formatStandings, formatChampions, formatExtras, staleEra, LEAGUES, queryExtras };
+export const _test = { formatStandings, formatChampions, formatExtras, staleEra, LEAGUES, queryExtras, addTolls };
 
 console.log('[sportsleague] Plugin loaded.');

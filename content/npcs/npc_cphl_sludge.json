@@ -1,0 +1,145 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Sludge paints a tiny net on the back of a blocker with a fine brush, his tongue between his teeth.",
+    "He holds his thumb up at arm's length and squints past it at you.",
+    "\"Too much orange. There's always too much orange.\"",
+    "He wipes a brush on his beard and leaves a new streak of blue in it.",
+    "He hums loudly and badly, and stops to swear at a drip.",
+    "He thumps his own chest twice, hard, and says \"Right,\" to nobody.",
+    "He sniffs a jar of turps and looks pleased."
+  ],
+  "description": "A huge, soft-bellied man in his thirties in an orange Bulldogs goalie jersey with the sleeves cut off at the elbow. His long beard has a streak of blue paint in it, and his hands are stained to the wrist in every colour. He's painting something small on the back of a blocker.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Off you go. Come back when the light's better.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Bulldogs are the Rust Quarter. Boomtown. My lot. We train in the old foundry, where my mum worked the sand.\n\n\"Before the drop a man in an apron hits the anvil, once, and our whole end goes quiet. I love that bit. It's the only quiet I get all night.\n\n\"Compress is our captain. He's all right. He shouts at me in a way I find restful. Everybody hates the Highlanders and I can't be bothered. A shooter's a shooter, whatever he's wearing.\""
+    },
+    "name": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Sludge is from the works. I was a big lad, so they used to lower me into the settling tank on a rope to clear the drain. You'd come up grey to the elbows. Nobody needed to call me anything else after that.\n\n\"Rembrandt is the Bulldogs. I painted the inside of the dressing room, the whole thing, a big picture of all of us lifting the Cup.\" He beams. \"We haven't won the Cup. I painted it anyway.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"In the net? You're on your own with it. Five men in front of you and you're still on your own. The puck comes at you and you get in its way, and some nights it's like being shot.\n\n\"I live with Aitkenhead, the Warlords' man, in Corbett Mansions. People think that's odd. Goalies don't really play for a club. We stand at the ends, and every so often a skater comes down the ice to try and kill one of us.\n\n\"We've got two rules. We don't talk about our clubs, and he doesn't touch the fireplace. I'm painting the boards over it.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Bulldogs like?",
+          "next": "club"
+        },
+        {
+          "label": "What's it like in the net?",
+          "next": "role"
+        },
+        {
+          "label": "Where does a name like that come from?",
+          "next": "name"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "I should go.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hello! Mind the wet bit.\" He waves his brush at nothing in particular.",
+        "He looks up with a brush in his teeth and says something you don't catch. He takes it out. \"Hello.\"",
+        "\"Ah. A visitor. Stand there, the light's good.\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"My favourite visitor.\" He moves a jar of brushes off a chair for you.",
+          "\"Sit, sit. Aitkenhead's not looking, you can have his chair.\""
+        ],
+        "first": "He wipes a hand on his smock, which makes the hand worse, and offers it anyway.\n\n\"Rembrandt Sludge. That's my name now, the other one's on a form somewhere. I keep goal for the Bulldogs, and I paint.\"",
+        "known": "\"Back again! Do you want to see what I'm working on?\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He puts the brush behind his ear so he can count. \"${npc.cphl.season}\" He takes the brush back. \"Aitkenhead keeps all the numbers. I keep the pictures. Every goal that gets past me, I paint it that night, from memory, while I can still see it.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Oh, I like the vat. You come out clean. Properly clean, pink all over, no paint on your hands at all, and for about a day you can see your own fingernails.\n\n\"Then I go back to Corbett Mansions and pick up a brush, and that's that.\n\n\"The first thing I paint every time is the last thing I saw before I went. Aitkenhead says that's morbid. Aitkenhead writes down how fast they were going.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a paint-spattered canvas smock",
+      "an orange Bulldogs goalie jersey with the sleeves cut off at the elbow",
+      "a stained grey vest",
+      "baggy black trousers held up with string, and carpet slippers",
+      "faded orange boxer shorts"
+    ],
+    "cphl": {
+      "club": "Boomtown Bulldogs",
+      "player": "Rembrandt Sludge",
+      "role": "goalie"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_corbett_4b",
+  "hp": 58,
+  "hp_max": 58,
+  "id": "npc_cphl_sludge",
+  "name": "Rembrandt Sludge",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

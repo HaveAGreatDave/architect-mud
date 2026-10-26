@@ -3,6 +3,8 @@
 @category sport
 @type sports
 @sport hockey
+# v2: a man who dies on the ice is reprinted and back in three to five game-days.
+@sim 2
 @announcer "Tug Brennan"
 # The booth's own voice, over the station's: no ring modulator and no drive. Both are
 # texture, and both cost words: measured, the clean voice is understood about 10% better.
@@ -820,6 +822,32 @@ That's {player}'s evening finished. {teamName} play the rest of this short.
 {player} IS DEAD. That's the game: sudden death, and the CPhL has never pretended it meant anything else. {winnerTeam} win it.
 He's gone. {player}, on the ice, in overtime, and that's how this league ends a tie.
 {player} doesn't get up, and he isn't going to. {winnerTeam} take it. Somebody call his people.
+::endlines
+
+# ── the vat (sim v2) ──────────────────────────────────────────────────────────
+# Said after a death: how long the reprint takes. {days} is a number.
+::lines death.vat
+{player} goes to the vat. Figure {days} days before he's fit to dress again.
+The vat will have him back in {days} days. The {team} get him back. They don't get those games back.
+That's {days} days in the vat for {player}. He'll come out remembering everything, which is the cruel part.
+::endlines
+
+# Before the drop, a man dressing for the first time since he was reprinted.
+# {times} is his deaths this season in words ("once", "twice"); {careerTimes} is his career's.
+::lines vat.back
+{player} is back in the {team} lineup tonight. Last time we saw him he was under a towel.
+Back from the vat for the {team}: {player}. New body, same contract.
+{player} dresses tonight, his first game since he died out here. He's watched the tape. He says it looked worse than it felt.
+::endlines
+
+::lines vat.back.again
+{player} is back again. He's died {times} this season, and the vat has his measurements on file.
+That's {player} in the {team} sweater, and that's {times} this season he's been reprinted. He's starting to look like a regular down there.
+::endlines
+
+::lines vat.back.career
+{player} returns tonight. He's been through the vat {careerTimes} in his career, and he's never once asked what they do with the old one.
+Welcome back, {player}. Reprinted {careerTimes} in his career and still in the league. There's no trophy for that, and there should be.
 ::endlines
 
 # ── late game ─────────────────────────────────────────────────────────────────

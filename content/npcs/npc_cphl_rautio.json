@@ -1,0 +1,130 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Rautio combs his hair back with his fingers and checks it in the nearest glass.",
+    "He practises his celebration: down on one knee, stick up over his head.",
+    "He signs his name on the back of his own hand, practising the R.",
+    "\"Has anybody seen my chips?\"",
+    "He bounces a puck on the blade of his stick, counting out loud, and loses it at nine.",
+    "He hums the Highlanders' walk-out tune and gets the end wrong.",
+    "He stretches out with his hands behind his head and yawns."
+  ],
+  "description": "A lanky, fair man of about twenty-four in a green Highlanders track jacket with RAUTIO stitched across the chest. His hair is long on top and combed back with care. Two of his front teeth are false and a shade whiter than the rest.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"See you! Come to a game!\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Best club in the league. Dawes is the captain. He's from Marrow Street, they all are except me. I came over from the Ashway, and they let me in anyway because I score.\"\n\n\"We live together at Kestrel Court. Two rooms and a balcony with one chair, and the chair's mine, because I'm the star.\" He laughs. \"He makes me do the dishes for it.\"\n\n\"You know the Bulldogs? Big, slow, they hit you after the whistle. I like scoring on them best.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They do, don't they? I like it. The chip shop on Marrow Street gives me my chips free, and the kids follow me down the street doing my celebration.\" He does it for you: one knee, stick up like a claymore.\n\n\"Dawes says don't read the hype, so I don't read it. I get people to read it to me. The trouble is the other side's heard it too. The Bulldogs put two men on me all night, and one of them bites.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Highlanders like?",
+          "next": "club"
+        },
+        {
+          "label": "Everybody says you're the one to watch.",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "See you around.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hey! Hi. Did you come to see me?\"",
+        "He grins. \"Hello, hello. You watching the next one?\"",
+        "\"Hi! Have you got a pen? People keep asking me to sign things.\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"My friend! Did you catch the game? Tell me you caught the game.\""
+        ],
+        "first": "He sticks out a hand. \"Jukka Rautio, Coldwater Highlanders. I'm the one who scores. You've probably seen me on TV.\"",
+        "known": "\"Hey, it's you! How are you doing?\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He grins and counts it off. \"${npc.cphl.season} Write that down if you like. Tug Brennan says my name with about four Rs in it, and I'm not going to ask him to stop.\" He pats his pockets. \"Do you want me to sign something?\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Honestly? Not bad. You get three days off and you come back with no bruises. My knees feel brand new.\" He bends one to show you.\n\n\"The bad part is the first night home. You can hear the stairs through our wall, and I can't sleep. Every time somebody's on them I think they're coming for me.\" He shrugs. \"Then it's just the neighbours.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a Malcolm tartan Highlanders scarf, worn loose",
+      "a green Highlanders track jacket with RAUTIO stitched across the chest",
+      "a white T-shirt",
+      "black jeans and new white trainers",
+      "green briefs"
+    ],
+    "cphl": {
+      "club": "Coldwater Highlanders",
+      "player": "Rautio",
+      "role": "star"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_kestrel_3a",
+  "hp": 46,
+  "hp_max": 46,
+  "id": "npc_cphl_rautio",
+  "name": "Jukka Rautio",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

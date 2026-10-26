@@ -1,0 +1,144 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Duguay cracks his knuckles one at a time, left hand then right.",
+    "He sews up a split seam on a Bulldogs sweater with thick black thread and bites it off.",
+    "\"Feet. Feet first. Then the hands.\" He says it to nobody in particular.",
+    "He rubs a pink burn scar on his forearm with his thumb.",
+    "He sniffs the sleeve of his sweater. It still smells of casting sand.",
+    "He counts heads under his breath and gets to six.",
+    "\"Kalinowski. Eat something.\""
+  ],
+  "description": "A short, wide man in his forties in an orange-and-black Bulldogs sweater with a C sewn on in thick black thread. His forearms are mottled pink with old burns and his nose has been broken flat. He's cracking his knuckles, one at a time.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right. Go on, then.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Bulldogs are Boomtown. Rust Quarter men, works men. We train in the old foundry and you come out smelling of casting sand, and it doesn't wash out.\n\n\"Our end brings the anvil. A fella in an apron hits it once before the drop, and everybody on our side goes quiet. Then we start.\n\n\"The Highlanders are the ones. That piper. Marrow Street lot think they're a clan. Every time we play them somebody goes in the vat, and it's usually one of theirs.\""
+    },
+    "name": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I ran a press at the works before the league. Plate, all day, every day. Then I started pinning men on the boards and holding them there till the whistle, and Pilkington said I looked like I was still on the press. Compress.\"\n\nHe shrugs. \"It's better than what they called me at the works.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I talk to the ref. I do the counting on the bench: who's in the box, who's hurt, who's in the vat. When we're short I tell the lads who's doubling up.\n\n\"I live with the kid, Kalinowski, above the Embassy bar. Fifty a month and one mattress. He gets the mattress. Stars get the mattress, that's the rule, I made it up. I've got a pile of coats and the floor, and I've slept on worse at the works.\n\n\"Petrelli wanted the C. Petrelli's had his head rung too many times. He asks me what day it is.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "Tell me about the Bulldogs.",
+          "next": "club"
+        },
+        {
+          "label": "What does a captain actually do?",
+          "next": "role"
+        },
+        {
+          "label": "Why do they call you Compress?",
+          "next": "name"
+        },
+        {
+          "label": "Doesn't dying bother you?",
+          "next": "vat"
+        },
+        {
+          "label": "I'll leave you to it.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Right. What is it?\"",
+        "He looks you up and down. \"You lost, or do you want something?\"",
+        "\"Evening.\" He cracks a knuckle."
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"Oh, it's you.\" He claps you on the shoulder hard enough to move you."
+        ],
+        "first": "He looks at you for a while before he says anything.\n\n\"Duguay. Captain of the Bulldogs. They call me Compress. My name's Gaspard, but don't.\"",
+        "known": "\"You again. Right.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He reads it off the back of his hand, where somebody's written it in biro. \"${npc.cphl.season}\" He licks his thumb and rubs it out. \"The kid writes it on me after every game. I can't keep numbers in my head. Faces I can.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's a day off with paperwork. You go in, you come out, you've got new knuckles. The vat's just up Ironside from us, so I walk home, and Lowry downstairs keeps my dinner warm.\n\n\"What I don't like is the kid going in. The first time, he came back and sat on the mattress for an hour without saying anything. I sat with him. Then we went downstairs and had a drink.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a canvas work coat with burn holes in the sleeves",
+      "an orange-and-black Bulldogs sweater with a hand-sewn C",
+      "a grey thermal undershirt",
+      "black work trousers and steel-toe boots",
+      "grey wool long johns"
+    ],
+    "cphl": {
+      "club": "Boomtown Bulldogs",
+      "player": "\"Compress\" Duguay",
+      "role": "captain"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_apt_5",
+  "hp": 54,
+  "hp_max": 54,
+  "id": "npc_cphl_duguay",
+  "name": "Gaspard \"Compress\" Duguay",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

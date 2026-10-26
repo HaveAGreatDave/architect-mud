@@ -1,0 +1,159 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Ó Briain laughs at something he's just remembered.",
+    "He rolls his right shoulder in big slow circles until it clicks.",
+    "He picks rust out of the creases of his palm with a thumbnail.",
+    "\"Angles,\" he says, in a slow, deep voice, and laughs at his own impression.",
+    "He thumps his own chest twice, hard, and breathes out.",
+    "He whistles a jig through his teeth, badly.",
+    "He scratches his beard and finds a bit of biscuit in it."
+  ],
+  "description": "A barrel-chested man in his forties in a donkey jacket over a black Rats goalie sweater, a red beard spilling over the collar. His right forearm is much thicker than his left. Rust is ground into the creases of his hands. He's laughing at something.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Go on, so. Mind yourself.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Dockers and ship-breakers. I take the old hulls apart down at the Docks, Krupp's gang work the cranes, and Villanueva guts the fish. We practise on a pond by the boathouse that floods twice a winter, so some nights we're practising in our wellies.\"\n\nHe laughs. \"And somebody throws a fish on the ice every time we score. Nobody's owned up. The Goons can't stand it, and they search our crates all week, so nobody at the Docks minds.\""
+    },
+    "flat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Ernesto? He's the best man I know, and he plays for the Goons, so keep that to yourself.\" He grins. \"Corbett Mansions, on Lever Lane. Lovely high ceilings. He irons his shirts on a Sunday and I make the tea. The skaters don't understand it. Goalies are the only ones who know what it's like in there.\"\n\n\"Nights our clubs play each other, he gets the early tram and I get the late one, and we don't say a word till breakfast. Then I make a fry and we talk about the goals we let in.\""
+    },
+    "name": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The sledgehammer.\" He mimes a big two-handed swing. \"Ship-breaking. You knock the rivets out of an old hull all day. Lovely work.\"\n\nHe holds his right arm up next to his left. The right one is bigger. \"The fellas say I stop pucks the same way.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You stand there and let big men hit you with a puck. I'd do it for nothing. Don't tell the club.\"\n\nHe slaps his chest. \"I'm not graceful. I fill the net, and when a fella comes in alone I come out to meet him, and one of us goes down. I'm heavier than most of them. Ernesto says I've no angles. He's right. I've width.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "Tell me about the Rats.",
+          "next": "club"
+        },
+        {
+          "label": "What's it like in net?",
+          "next": "role"
+        },
+        {
+          "label": "Why Sledge?",
+          "next": "name"
+        },
+        {
+          "label": "You live with the Goons' goalie?",
+          "next": "flat"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "I'll let you go.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"There's a face.\" He grins through the beard. \"How are you keeping?\"",
+        "He's laughing before you've said a word. \"Go on, what is it?\"",
+        "\"Well, hello! Come here, I don't bite.\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"There's my favourite.\" He thumps you on the shoulder, gently for him.",
+          "\"Ah, now. Sit yourself down and tell me something good.\""
+        ],
+        "first": "He takes your hand in both of his. \"Pádraig Ó Briain. They call me Sledge. I'm in goal for the Wharf Rats, God help them.\"",
+        "known": "\"Ah, it's yourself. How are you keeping?\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He sucks his teeth. \"${npc.cphl.season}\" He laughs. \"Don't ask me if that's good. I only see the ones coming at me.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Ah, the vat's grand. Warm. You have a lovely sleep and come out new.\"\n\nHe scratches his beard. \"Ernesto doesn't like me saying that. The first time I came back, he was sat in the kitchen in his coat, waiting. He'd been there all night. So I don't joke about it in the flat.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a donkey jacket with leather patches on the shoulders",
+      "a black Wharf Rats goalie sweater gone grey at the cuffs",
+      "a red flannel shirt",
+      "rust-stained work trousers and steel-toed boots",
+      "green boxer shorts"
+    ],
+    "cphl": {
+      "club": "Waterfront Wharf Rats",
+      "player": "\"Sledge\" Ó Briain",
+      "role": "goalie"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_corbett_8b",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_cphl_obriain",
+  "name": "Pádraig \"Sledge\" Ó Briain",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

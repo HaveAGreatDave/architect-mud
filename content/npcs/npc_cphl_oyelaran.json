@@ -1,0 +1,130 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Oyelaran writes something in a small black notebook, a line at a time.",
+    "He rolls his neck slowly, left, right, then left again.",
+    "He sits with his eyes shut and his hands flat on his knees.",
+    "He sharpens his pencil with a pocketknife and blows the shavings off the blade.",
+    "He snaps his left hand shut on nothing, then opens it and looks at the palm.",
+    "\"Mm. Glove side, high. Again.\"",
+    "He folds his scarf in thirds and lays it over his arm."
+  ],
+  "description": "A big, calm man in his late thirties in a long camel overcoat and a navy-and-white Marauders scarf. Grey is coming in at his temples. A small black notebook sticks out of his coat pocket with a pencil pushed through its spine.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Goodbye. Take care of yourself.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They're a good room. Grubb runs it, and he runs it well. He talks to everyone, and then he goes into the boards first, so they listen to him.\"\n\n\"Bland is the best player I've seen in this league, and the hardest to talk to. He answers exactly what you ask him, and then he stops.\"\n\nHe smiles a little. \"I don't live with them. I share a flat at Corbett Mansions with Kasprzak, who keeps goal for the Highlanders. Goalies have more in common with each other than with their own side.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Quiet, mostly. The play's at the other end and you stand there and get cold. Then five men come at you at once.\"\n\n\"You can't think about the last one. The ones I write down, I write down after the game, at the table by our window. Kasprzak and I don't talk about hockey in the flat. We watch the boats come in on the Strand. He knows all their names. I've started learning them.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Marauders like?",
+          "next": "club"
+        },
+        {
+          "label": "What's it like in the net?",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "Goodbye.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "He inclines his head. \"Good evening.\"",
+        "\"Hello. Are you here for me, or are you lost? Either is fine.\"",
+        "He marks his place in a small notebook and looks up. \"Yes?\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"There you are. Sit down, if you like. How have you been?\""
+        ],
+        "first": "He closes a small notebook on his pencil and offers you a hand. \"Femi Oyelaran. I keep goal for the Marquee Marauders. Pleased to meet you.\"",
+        "known": "\"Ah. Good to see you again.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He opens the notebook, then shuts it again without reading it. \"${npc.cphl.season} I write down every one that beats me: where it came from, who shot it, which hand. The next time that man comes down that side, I know.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I don't enjoy it.\" He says it plainly. \"For a goalie it's usually a puck in the throat. Then the vat, and some days I'm not there for, and then I'm back in the net with my pads still damp.\"\n\n\"What I mind is the game. If I die in the second period, I never see how it ended. I have to ask Grubb, and Grubb tells it his way.\" He looks at you. \"Have you been through it yet?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a navy-and-white Marauders scarf",
+      "a long camel overcoat with a notebook in the pocket",
+      "a grey wool cardigan over a white shirt",
+      "charcoal trousers and polished black shoes",
+      "white cotton boxer shorts"
+    ],
+    "cphl": {
+      "club": "Marquee Marauders",
+      "player": "Oyelaran",
+      "role": "goalie"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_corbett_8a",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_cphl_oyelaran",
+  "name": "Femi Oyelaran",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

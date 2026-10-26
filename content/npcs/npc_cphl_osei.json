@@ -1,0 +1,129 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Osei rolls tape onto his stick blade very neatly and smooths every wrinkle out.",
+    "He counts a few notes, folds them into an envelope and writes a name on the front.",
+    "\"Sorry,\" he says, to somebody who bumped into him.",
+    "He practises a toe drag with a bottle cap, slowly, and gets it right every time.",
+    "He touches the pink scar through his eyebrow, then makes himself stop.",
+    "He blows on his fingers, though it isn't cold."
+  ],
+  "description": "A slight young man of about twenty in a Yard Birds sweater a size too big, the cuffs rolled twice. A new pink scar runs through his left eyebrow. He keeps his stick with him even indoors and stands it carefully against his knee when he sits.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Goodbye. Thank you.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They're loud. Meat's the loudest. Our fans crow when we score, all of them at once, and somebody always gets a real rooster in. I asked how once and they told me not to ask.\"\n\n\"We practise in a cold store. It's very cold. You can see your breath the whole time. Okafor says it makes us tough. Vasko says it makes us numb, so you can't feel it when you get hit, and that's the same thing.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I had a good night against the Marauders and now Tug Brennan says I'm the future. A man stopped me in the street and asked me to sign his arm.\"\n\n\"I don't really like it. I send most of my money to my auntie and I'd like to keep doing that quietly. I live with Meat, in his room at the Tenement. He has the bed in the day and I have it at night. Meat says enjoy it. Meat enjoys everything.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Yard Birds like?",
+          "next": "club"
+        },
+        {
+          "label": "They say you're the next big thing.",
+          "next": "role"
+        },
+        {
+          "label": "Are you scared of dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "Goodbye.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Oh. Hello.\" He moves his stick so you can get past.",
+        "\"Sorry, were you waiting? Go on.\"",
+        "Osei gives you a small nod and looks away."
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"Oh, good, it's you.\" He looks relieved."
+        ],
+        "first": "The young man gets up, then doesn't look sure that he should have.\n\n\"Hello. I'm Kwabena Osei. I play for the Yard Birds.\" He rubs the back of his neck. \"They've started saying my name on the telly. I'm not sure why.\"",
+        "known": "\"Hello again.\" He smiles, a bit."
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He looks at the floor while he says it. \"${npc.cphl.season}\" Then he looks up. \"Is that good? Meat says it's good. I can't tell.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Yes. Sorry. I know everyone does it.\"\n\n\"The first time, I came out and couldn't sleep properly for a week. I kept waking up and checking my hands. They shook when I put my skates on.\"\n\n\"It's better now. I still don't like the smell in there. Meat says it smells like a new car. I don't think Meat has been in a new car.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a red Yard Birds sweater a size too big, the cuffs rolled twice",
+      "a grey hand-knitted scarf",
+      "a blue cotton shirt buttoned to the neck",
+      "pressed brown trousers and cracked leather shoes",
+      "white underwear"
+    ],
+    "cphl": {
+      "club": "Yard Birds",
+      "player": "Osei",
+      "role": "star"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u10_2",
+  "hp": 42,
+  "hp_max": 42,
+  "id": "npc_cphl_osei",
+  "name": "Kwabena Osei",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

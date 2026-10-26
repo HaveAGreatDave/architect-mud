@@ -38,7 +38,9 @@ function hornSeedFor(name) {
 // A club's chatter key — the first word of its name, lowercased. `chatter.ashway`
 // falls back to the general `chatter` pool, so authoring a club's colour is optional and
 // a club with nothing written for it behaves exactly as before.
-const clubKey = (name) => `chatter.${String(name || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+// How many times, in words, for the vat's lines ({times}, {careerTimes}).
+const timesWord = (n) => ['no times', 'once', 'twice', 'three times', 'four times', 'five times', 'six times'][n] || `${n} times`;
+const clubKey = (name) =>`chatter.${String(name || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
 // Chances that are always worth a line: they're the near-misses a period is
 // remembered for.
@@ -85,6 +87,7 @@ const EXCITE = {
   // the cost
   'injury': -0.25, 'injury.report': -0.3, 'injury.wound': -0.3, 'injury.sever': -0.2, 'pbp.injury': -0.35, 'intermission.casualties': -0.3,
   'death': -0.7, 'death.wound': -0.6, 'pbp.death': -0.8,
+  'death.vat': -0.4, 'vat': -0.1,
 };
 // `heat` is the night's: overtime and a Cup final lift the play, never the grief.
 export function exciteOf(key, heat = 0) {
@@ -443,6 +446,19 @@ export function narrate(ctx) {
       player: callups[0].replacing, callup: callups[0].name,
       count: callups.length,
     }, preBug); preGameLines++;
+  }
+  // Back from the vat: a man dressing tonight for the first time since he was reprinted
+  // (ctx.vatBack, from the injury chain). Two at most, named in roster order. The count
+  // is his deaths this season and, past that, in his career (sportsleague's closed seasons).
+  const vpick = (...keys) => { lastKey = String(keys[0] || ''); return ctx.vpick ? ctx.vpick(...keys) : null; };
+  const backTonight = [away, home].flatMap(t => (t.skaters || [])
+    .filter(s => ctx.vatBack?.has(s.name)).map(s => ({ name: s.name, team: t.name }))).slice(0, 2);
+  for (const m of backTonight) {
+    const died = Math.max(1, ctx.season?.toll?.[m.name]?.died || 0);
+    const career = died + (ctx.season?.career?.[m.name]?.died || 0);
+    const keys = career > died ? ['vat.back.career', 'vat.back'] : died > 1 ? ['vat.back.again', 'vat.back'] : ['vat.back'];
+    const line = vpick(...keys);
+    if (line) { say(line, { ...gameTok, player: m.name, team: m.team, times: timesWord(died), careerTimes: timesWord(career) }, preBug); preGameLines++; }
   }
 
   // ── the game ──────────────────────────────────────────────────────────────
@@ -938,6 +954,12 @@ export function narrate(ctx) {
         say(pick('death'), t, sb, deathFx(b), gameday(b, idx), playMeta(b, 'death', otherSide(b.teamName), { player: b.player || '' })); said++;
         call('pbp.death.still', t, null, sb, { cue: { ev: 'still' } });
         if (b.wound) { say(pick('death.wound'), t, sb); said++; }
+        // Sim v2 reprints him. The booth says how long the vat will be.
+        if (b.reprintSlots) {
+          const days = Math.max(1, Math.round(b.reprintSlots / (ctx.slotsPerDay || 8)));
+          const line = vpick('death.vat');
+          if (line) { say(line, { ...t, player: b.player || '', team: b.teamName || '', days: String(days) }, sb); said++; }
+        }
         call('pbp.death.helmets', t, null, sb, { cue: { ev: 'helmets' } });
         call('pbp.death.officials', t, null, sb, { opt: true });
         call('pbp.death.stretcher', t, null, sb, { opt: true });

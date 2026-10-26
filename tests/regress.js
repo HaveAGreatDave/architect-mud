@@ -1261,14 +1261,16 @@ section('layer 1i: relations substrate');
   }
 
   const { filterDialogueOptions } = await import('../server/engine/dialogue.js');
-  const { registerNpcScheduleChecker } = await import('../server/engine/broadcast-bridge.js');
+  const { registerNpcScheduleChecker, getNpcScheduleChecker } = await import('../server/engine/broadcast-bridge.js');
   const host = { id: 'npc_regress_host' };
   const opts = [
     { label: 'off', next: 'n_off', conditions: [{ on_air: false }] },
     { label: 'on', next: 'n_on', conditions: [{ on_air: true }] },
     { label: 'always', next: 'n_any' },
   ];
-  const prevChecker = null;
+  // Put broadcast's checker back after: with null here, every suite after this one ran
+  // with nobody ever on shift.
+  const prevChecker = getNpcScheduleChecker();
   registerNpcScheduleChecker(() => true);
   const live = await filterDialogueOptions(opts, {}, rp, { npc: host });
   check('on air: the off-air branch is hidden',

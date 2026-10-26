@@ -1,0 +1,131 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Tarasenko writes something in a small black diary and underlines it twice.",
+    "He checks his watch, then checks it against the clock on the wall.",
+    "\"Six o'clock, the trainer. Seven, Ibarra's dentist.\"",
+    "He tapes the blade of a stick in neat overlapping turns and trims the end with a pocketknife.",
+    "He reads a letter from a supporter, folds it in three and puts it in his inside pocket.",
+    "\"Ibarra. Your skates are on the table again.\"",
+    "He runs his tongue along his false front teeth."
+  ],
+  "description": "A tall, straight-backed man in his late thirties in a black club overcoat with a gold W on the breast pocket and a C stitched under it. His hair is cut short and grey at the sides. His two front teeth are false and a shade too white. He's writing in a pocket diary.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Good night.\" He's already opened the diary again."
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"We're the Glasshouse side. We practise under it, in a hall the club rents by the hour, and the ice down there is colder than it is here. You learn to skate on it or you don't skate.\n\n\"Our supporters are mostly lawyers. They sit by the heaters and they bring a string quartet. They don't shout. They write to the club afterwards.\n\n\"The Guillotines are the side we don't like. Father Jerome blesses the ice before every game and their men skate out believing it. They hit like it, too.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The C means I talk to the referee, and the referee doesn't listen. It also means the paperwork. When one of ours goes in the vat, I fill in the club's half of the form and I tell his landlord.\n\n\"I share a flat with Ibarra in Halcyon Towers so I can keep an eye on him. He's twenty-two and the papers say he's the future, so somebody has to make sure the future eats a vegetable.\" He sighs. \"It's nine hundred a month and it has one fold-away bed. We take turns.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "Tell me about the Warlords.",
+          "next": "club"
+        },
+        {
+          "label": "What does the C actually mean?",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "I'll let you get on.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Good evening.\" He closes the diary on one finger. \"Can I help?\"",
+        "He nods to you. \"Afternoon.\"",
+        "\"Yes?\" He looks up from the diary. \"Quickly, if you can. I've a meeting at six.\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "He puts the diary away. \"Good to see you. How have you been?\"",
+          "\"There you are. Sit down if you like, I've got ten minutes.\""
+        ],
+        "first": "He stands up properly to shake your hand.\n\n\"Anatoly Tarasenko. I captain the Westside Warlords. If you're a lawyer, I already have one.\"",
+        "known": "\"Hello again.\" He makes a small note in the diary."
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He opens the diary at a page of figures and reads it off. \"${npc.cphl.season}\" He closes it. \"I write it down after every game. The club keeps its own figures too, and they don't always match mine. If you want my view of the season, ask me after we've played the Guillotines.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's an inconvenience. You go into the boards in overtime, and then you're sitting up in a tray on Ironside Street with a form to sign. Three to five days later you're back at practice and nobody's touched your locker.\n\n\"What I mind is the timing. The vat doesn't care that we've got the Guillotines on Thursday. I've written to them about it.\" He taps the diary. \"They sent me a leaflet.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a black wool club overcoat with a gold W and C on the breast pocket",
+      "a charcoal suit jacket",
+      "a white shirt and a black-and-gold Warlords tie",
+      "charcoal suit trousers and polished black shoes",
+      "black cotton briefs"
+    ],
+    "cphl": {
+      "club": "Westside Warlords",
+      "player": "Tarasenko",
+      "role": "captain"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_halcyon_apt_a",
+  "hp": 52,
+  "hp_max": 52,
+  "id": "npc_cphl_tarasenko",
+  "name": "Anatoly Tarasenko",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

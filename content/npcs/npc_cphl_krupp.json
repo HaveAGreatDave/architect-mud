@@ -1,0 +1,158 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Krupp cracks his knuckles one at a time.",
+    "He moves a bench out of his way with one hand, then puts it back where it was.",
+    "He ducks under a doorframe he would have cleared.",
+    "He eats a cold boiled potato out of his jacket pocket.",
+    "\"Szabo,\" he says, to nobody. \"Where's my other glove?\"",
+    "He sits very still with his hands on his knees, breathing slowly.",
+    "He checks the docker's hook on his belt and sets it straight."
+  ],
+  "description": "A very big man in his thirties in an orange hi-vis vest over a black Wharf Rats jacket, a docker's hook through his belt. His shoulders are wider than most doorways. A fading bruise covers the left side of his face. He ducks under doorframes he would clear.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Bye, then.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"We're dockers. Cranes, holds, the fish market. We come off the shift and get the late tram up to the Gardens. It's four stops. Bix drives a straddle carrier. Szabo and Grimaldi are on my crane gang. Villanueva guts fish. He's quick with his hands.\"\n\nHe thinks. \"We practise on the pond by the boathouse. It floods. The Goons search our containers in the week, and then we see them on the ice. That's why it gets rough.\""
+    },
+    "flat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Up the road in the Yards. The Docks hasn't got a flat going. The Yards Tenement, tenth floor. Me and Villanueva, one room. He has the bed. I'd break it.\"\n\n\"The lift doesn't work. The Yard Birds' lot on the stairs don't like our jackets. We walk up anyway.\""
+    },
+    "name": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"A container came off a hook at the berth. Grimaldi was under it.\" He holds his hands up, a little apart. \"I held the end up till they pulled him out. Then I put it down.\"\n\nHe shrugs. \"Szabo painted it on my locker. It stuck.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I go over the boards first and come off last. If somebody's hurt, I carry him. It's quicker than waiting for the stretcher.\"\n\nHe looks at his hands. \"And I talk to Kozak, their captain, before the drop. We agree nobody goes for the goalies. Then we both forget.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "Tell me about the Rats.",
+          "next": "club"
+        },
+        {
+          "label": "What does the captain do?",
+          "next": "role"
+        },
+        {
+          "label": "Why Load-Bearing?",
+          "next": "name"
+        },
+        {
+          "label": "Where do you live?",
+          "next": "flat"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "See you.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hello.\"",
+        "He nods, and waits for you to talk.",
+        "\"All right.\" He steps aside so you can get past."
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"Good. It's you.\" He shakes your hand, carefully."
+        ],
+        "first": "\"Krupp.\" He thinks about it. \"Load-Bearing Krupp, on the team sheet. I'm captain of the Wharf Rats.\"",
+        "known": "\"Hello again.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He counts it out slowly. \"${npc.cphl.season}\" He nods. \"That's right. Szabo writes it down for me, and I keep it in my locker.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's three days off work, and they don't pay you for them.\"\n\nHe thinks about it. \"The first time, I woke up in there and asked for my dad. He's not been around since I was a boy. The nurse wrote it down on the form.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "an orange hi-vis vest stencilled with a berth number",
+      "a black Wharf Rats jacket with a silver anchor on the back",
+      "a thick grey wool jumper",
+      "canvas work trousers and steel-toed boots",
+      "grey long johns"
+    ],
+    "cphl": {
+      "club": "Waterfront Wharf Rats",
+      "player": "Load-Bearing Krupp",
+      "role": "captain"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u10_1",
+  "hp": 58,
+  "hp_max": 58,
+  "id": "npc_cphl_krupp",
+  "name": "Load-Bearing Krupp",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

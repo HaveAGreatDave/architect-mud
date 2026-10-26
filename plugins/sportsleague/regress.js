@@ -41,6 +41,13 @@ export default async function regress({ run, check }) {
   check('season: February 2035 has 28 days and its Cup day is the 28th', cal?.monthDays === 28 && cal.cupDayStartSlot === (day0 + 27) * 8 && !cal.isCupDay, JSON.stringify(cal));
   check('season: the final is played on Cup day', cal && cal.finalSlot >= cal.cupDayStartSlot && cal.finalSlot < cal.cupDayStartSlot + 8, String(cal?.finalSlot));
 
+  // A man's career is his closed seasons' tolls added up; a season with none adds nothing.
+  const career = _test.addTolls([{ 'Vic Hale': { hurt: 2, died: 1 } }, null, { 'Vic Hale': { hurt: 0, died: 2 }, 'Bo Kane': { hurt: 1, died: 0 } }]);
+  check('career: deaths and injuries add up across seasons', career['Vic Hale']?.died === 3 && career['Vic Hale']?.hurt === 2 && career['Bo Kane']?.hurt === 1, JSON.stringify(career));
+  const hkx = await _test.queryExtras('hockey');
+  check("career: hockey's extras carry the season toll and the career", !hkx.toll || (typeof hkx.toll === 'object' && typeof hkx.career === 'object'), Object.keys(hkx).join(','));
+  check("career: Deadball's extras carry no toll", !(await _test.queryExtras('baseball')).career, 'baseball career');
+
   const emptyChamps = _test.formatChampions([]);
   check('formats empty champions', /trophy case is empty/i.test(emptyChamps), emptyChamps);
   const champList = _test.formatChampions([

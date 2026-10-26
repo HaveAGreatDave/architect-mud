@@ -1,0 +1,131 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Grubb straightens his lapels in the nearest shiny surface.",
+    "He picks a thread off his sleeve and frowns at it.",
+    "He tapes the blade of his stick, tears the tape with his teeth and runs a thumb down the edge.",
+    "\"Bland. Have you eaten? Bland.\"",
+    "He hums a dance tune, flat, and taps the beat out on his knee.",
+    "He brushes down both shoulders of the suit, twice each.",
+    "\"Nobody sits on the jacket. I'm just saying it to the room.\""
+  ],
+  "description": "A broad man in his forties in a brown polyester suit with wide lapels, a cream nylon shirt and a navy-and-white Marauders tie. His nose has been broken flat to the left. There's a gold ring on every other finger, and he smells of aftershave and liniment.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go, friend.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Marauders are the Marquee's own. Our practice rink shares a wall with a nightclub, so we skate to whatever they're playing. You stop hearing the bass after a month.\"\n\nHe smooths his tie. \"Half our end comes to the Gardens from somewhere else, still in costume. Feathers, sequins, once a man dressed as a fried egg. They stay for the fights. And the Yard Birds, we can't stand. Their lot bring a rooster in. I asked a steward if I could hit it and he said no.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I talk to the officials, and they look at their shoes. I talk to the other captain before the drop, and we agree on nothing.\" He counts it off on his rings. \"I get the lads on the bus after, all of them, upright or on a board. I settle the bar tab. If Bland's not eating, I make him eat.\"\n\n\"And I go into the boards first. You can't ask a man to do it if you won't.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "Tell me about the Marauders.",
+          "next": "club"
+        },
+        {
+          "label": "What does a captain actually do?",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "See you, Grubb.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "He straightens his lapels. \"Evening, friend. What can I do for you?\"",
+        "\"Hello, hello. You a Marauders fan? Say yes, it's easier.\"",
+        "\"Friend. Good to see you. Don't touch the suit.\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"Friend! Come here. Anybody bothering you, you tell me.\"",
+          "\"My favourite face in the building. Don't tell Bland.\""
+        ],
+        "first": "He puts out a hand with a ring on every other finger. \"Polyester Grubb. I captain the Marquee Marauders. Yes, that's my name, and yes, it's a real suit.\"",
+        "known": "\"There they are. How's the night treating you?\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He takes a little notebook out of his inside pocket and doesn't open it. \"${npc.cphl.season} It's all in here, in case anybody asks. Somebody always asks at the bar.\" He puts the book away and pats the pocket. \"The suit's had a good season either way. Not a mark on it.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You come out of the vat with nothing on, damp, and a lad with a clipboard asks you to rate your experience. I give it a three. Three keeps them trying.\"\n\nHe tugs a cuff straight. \"The worst bit's the suit. It's in a bag at the Gardens with a number on it, and I walk the length of the Marquee in a vat gown to fetch it. People see.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a brown polyester suit jacket with wide lapels",
+      "a cream nylon shirt and a navy-and-white Marauders tie",
+      "a white string vest",
+      "brown polyester flares and two-tone shoes",
+      "navy satin boxer shorts"
+    ],
+    "cphl": {
+      "club": "Marquee Marauders",
+      "player": "Polyester Grubb",
+      "role": "captain"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_mq_chrome_101",
+  "hp": 52,
+  "hp_max": 52,
+  "id": "npc_cphl_grubb",
+  "name": "Polyester Grubb",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

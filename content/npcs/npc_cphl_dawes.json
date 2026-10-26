@@ -1,0 +1,130 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Dawes cracks his knuckles, all six on the left, one at a time.",
+    "He eats cold chips out of a paper and doesn't offer you any.",
+    "He re-tapes the knob of his stick and bites the tape off.",
+    "\"Rautio. Dishes.\"",
+    "He hums a pipe tune, badly, and keeps time with his boot.",
+    "He rubs at an old cut over his eye with his thumb.",
+    "He takes his tartan scarf off, folds it, then puts it back on."
+  ],
+  "description": "A short, heavy man in his forties in a black donkey jacket with a Malcolm tartan scarf knotted at the throat. His neck is as wide as his head. His left hand has six fingers, the extra one on the outside, and the knuckles on all six are split.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right. See you at the Gardens.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Highlanders are Marrow Street's club. Most of us grew up within a shout of the chip shop. The sweaters are woven upstairs from it, on a loom, in the Malcolm tartan. The woman who does them won't take money off us, so we pay her chip bill.\"\n\n\"On a game night the whole street shuts up shop and comes down to the Gardens. The piper walks us out. He's not good, and we'd sack anybody who said so.\"\n\n\"The Boomtown Bulldogs. Don't get me started.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"When one of ours goes to the vat, I go round and see his mother. I sit in her kitchen and drink her tea and tell her he'll be back by Thursday.\"\n\n\"On the ice it means I talk to the officials, for all the good it does. And when the Bulldogs start something, I finish it, so the young lads don't have to.\" He flexes the sixth finger. \"Rautio's the one people come to watch. I'm the one standing next to him.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "Tell me about the Highlanders.",
+          "next": "club"
+        },
+        {
+          "label": "What does the C mean to you?",
+          "next": "role"
+        },
+        {
+          "label": "Does dying out there bother you?",
+          "next": "vat"
+        },
+        {
+          "label": "See you, Dawes.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "He nods once. \"All right.\"",
+        "\"What can I do for you?\"",
+        "\"Evening. You're not a Bulldogs fan, are you?\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"There you are. Good. I was hoping you'd come by.\""
+        ],
+        "first": "He holds up his left hand so you can count. \"Dawes. Sixfinger Dawes. I captain the Coldwater Highlanders, Marrow Street's club.\"",
+        "known": "\"You again. All right?\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He counts it off on his left hand, all six fingers. \"${npc.cphl.season} Near enough, anyway. The piper keeps it better than I do. Ask him at the door. He'll tell you every goal since he started, and he'll get half the names wrong.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Less than the Bulldogs do.\" He holds up the left hand. \"I was born with six. Every time I've been through the vat, it's given me six back. Somebody told me it's what they've got on file. Nobody asked me.\"\n\n\"What I mind is waking up and finding out we lost without me. Rautio tells me the score and then tells me it wasn't his fault.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a Malcolm tartan Highlanders scarf",
+      "a black donkey jacket with leather shoulders",
+      "a green Highlanders training jersey",
+      "heavy work trousers and steel-toed boots",
+      "grey cotton boxer shorts"
+    ],
+    "cphl": {
+      "club": "Coldwater Highlanders",
+      "player": "Sixfinger Dawes",
+      "role": "captain"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_kestrel_3a",
+  "hp": 54,
+  "hp_max": 54,
+  "id": "npc_cphl_dawes",
+  "name": "Sixfinger Dawes",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

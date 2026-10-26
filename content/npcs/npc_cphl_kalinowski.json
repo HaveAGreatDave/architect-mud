@@ -1,0 +1,130 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Kalinowski turns a roll of tape over and over in his big hands.",
+    "He tears a heel of bread in two and holds out the bigger half to you without a word.",
+    "He practises his signature on the back of his hand in biro and frowns at it.",
+    "\"Sorry. Sorry.\" He has walked into a chair.",
+    "He opens and shuts his right hand slowly, looking at the knuckles.",
+    "He sniffs the sleeve of his hoodie and wrinkles his nose. Casting sand.",
+    "He hums the anvil count under his breath: one, and then a long gap."
+  ],
+  "description": "A very big young man, nineteen or twenty, in an orange Bulldogs hoodie that's short in the arms. He has a soft round face, a split lip that's healing and huge raw hands. He sits with his elbows on his knees, turning a roll of tape over and over.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Bye. Thank you for talking to me.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They're my dad's team. He worked the casting floor at the works till it shut, and he's the one who brought the pipe. It hangs over the rail at our end, and when somebody goes into the boards under it, it rings.\n\n\"We train in the old foundry. The ice is laid on the casting floor, and in the corners you can see the sand through it.\n\n\"I don't like the Highlanders. Mr Duguay says I'm not allowed to like them, but I wouldn't anyway. They hit you after the whistle and then the piper plays.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I don't like that. They put my picture up on Ironside Street, by the vat, and men I don't know shout my name when I go for bread.\n\n\"I just shoot hard. I always could. In the foundry I broke a window with one, and Mr Duguay made me pay for the glass out of my first wages, which was right.\n\n\"He says stars get the mattress. I said I'd take the floor and he told me to stop arguing with my captain. So I've got the mattress. It's bent in the middle.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Bulldogs like?",
+          "next": "club"
+        },
+        {
+          "label": "They say you're the best young player in the league.",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "Bye, Wojtek.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Oh. Hello.\"",
+        "He stands up when he sees you, then doesn't know what to do and sits back down. \"Hi.\"",
+        "\"Hello. Are you looking for Mr Duguay?\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "He moves up to make room for you. \"Sit. I've got bread, if you want some.\""
+        ],
+        "first": "He wipes his hand on his trousers before he shakes yours.\n\n\"I'm Wojciech Kalinowski. I play for the Bulldogs, on the wing. Everyone says Wojtek. Tug Brennan says Kalinowski. He gets that one right.\"",
+        "known": "\"Hello again. Have you eaten?\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He goes red, and says it to the floor. \"${npc.cphl.season}\" He looks up. \"Mr Duguay makes me say it out loud. He says a man should be able to say his own numbers, good or bad, without looking at his boots.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The first time was the worst. You wake up and you don't know what happened, and they don't tell you the score. When I got home I sat on the mattress for a long time. Mr Duguay sat with me.\n\n\"Now I know what it is. It's cold, then it's a form, then I'm home.\n\n\"My mum doesn't like it. She lights a candle at St Garneau's every time, even though we're not from there.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "an orange Bulldogs hooded sweatshirt, short in the arms",
+      "a hand-knitted brown wool vest",
+      "a black T-shirt",
+      "black jogging bottoms and old work boots, unlaced",
+      "white cotton briefs"
+    ],
+    "cphl": {
+      "club": "Boomtown Bulldogs",
+      "player": "Kalinowski",
+      "role": "star"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_apt_5",
+  "hp": 50,
+  "hp_max": 50,
+  "id": "npc_cphl_kalinowski",
+  "name": "Wojciech Kalinowski",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

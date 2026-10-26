@@ -1,0 +1,131 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Aitkenhead rubs beeswax into the strings of a catching glove.",
+    "He bends one knee slowly, then the other, and winces both times.",
+    "He writes a name in a small notebook, and beside it: low, glove side.",
+    "He taps the floor twice with his stick, left then right, and nods to himself.",
+    "\"Low glove side. They always go low glove side.\"",
+    "He unwinds the bandage on his left knee and winds it again, tighter.",
+    "He drinks tea from the lid of a flask and blows on every sip."
+  ],
+  "description": "A heavy, slow-moving man in his forties in a grey cardigan buttoned one hole out, over a black-and-gold Warlords practice jersey. Both knees are wrapped in elastic bandage under his corduroys, and he walks like it. He's rubbing beeswax into the strings of a catching glove.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They pay on time and they don't shout. The Glasshouse is a good place to play if you don't mind the cold. The practice ice under it is the coldest in the city, and my knees know it.\n\n\"Tarasenko runs it. Ibarra scores, when he's looking at the net and not the crowd. Guzman and Lindgren stand in front of me and take the shots I'd rather not, and I've thanked them for it. Doc Lindqvist strapped my knees this morning.\n\n\"The Guillotines are the ones the club minds about. Their shooters cross themselves before a penalty shot. It doesn't help them.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's quiet in the net. Everybody else is shouting and I'm watching one thing, the puck, and sometimes the stick behind it.\n\n\"I live with Rembrandt Sludge, who keeps for the Bulldogs. We don't talk about our clubs. We talk about shooters. He paints every goal he lets in and I write mine down, and neither of us shows the other.\n\n\"Do you skate?\" He looks at your feet. \"Don't go in goal. Nobody who can skate goes in goal.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Warlords like to play for?",
+          "next": "club"
+        },
+        {
+          "label": "What's it like in the net?",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "Goodnight, Murdo.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "He looks up at you and keeps waxing the glove. \"Evening.\"",
+        "\"Mm.\" He nods once.",
+        "\"Hello. Are you lost?\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "He moves a pad off the other chair for you. \"Go on.\"",
+          "He nods at you, and nearly smiles. \"Hello.\""
+        ],
+        "first": "He puts the glove down on his knee.\n\n\"Aitkenhead. I keep goal for the Warlords. Most people call me Aitkenhead, or the keeper. My mother called me Murdo.\"",
+        "known": "\"You again. Sit if you want.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He thinks about it for a while before he says it. \"${npc.cphl.season}\" He goes back to the glove. \"I count the ones I stop. The ones that go in, the skaters can count. They're quicker at it.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You wake up cold and a man asks you to sign for yourself. I sign. Then I go home to Corbett Mansions and Sludge has eaten my bread.\n\n\"The knees come back new. That's the one good thing about it. Three to five days and I've new knees.\" He rubs one through the bandage. \"They're old again by the second period.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey wool cardigan buttoned one hole out",
+      "a black-and-gold Warlords practice jersey",
+      "a thermal undershirt",
+      "brown corduroy trousers over elastic knee bandages, and slippers",
+      "long thermal underwear"
+    ],
+    "cphl": {
+      "club": "Westside Warlords",
+      "player": "Aitkenhead",
+      "role": "goalie"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_corbett_4b",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_cphl_aitkenhead",
+  "name": "Murdo Aitkenhead",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

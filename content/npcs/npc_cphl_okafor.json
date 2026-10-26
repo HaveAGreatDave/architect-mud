@@ -1,0 +1,147 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Okafor writes something in his notebook, crosses it out, and writes it again more neatly.",
+    "He hangs his pads up by the straps so they dry evenly, and adjusts them twice.",
+    "He checks his watch against a clock, and then against another clock.",
+    "He flexes the two taped fingers and frowns at them.",
+    "\"Glove side, high,\" he says quietly, and writes it down.",
+    "He folds his overcoat over a chair back with the seams lined up.",
+    "He hums a ballpark organ tune, notices, and stops."
+  ],
+  "description": "A tall, neat man near forty in a pressed grey overcoat with a Yard Birds pin on the lapel. His hair is cut short and very even. Two fingers of his right hand are taped together, and he carries a small notebook he writes in a lot.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Goodbye. Mind the step.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Birds are a Yards team. Dockers, stackers, freezer men. Meat Prieto is the captain, and he carries sides of beef for a living, so nobody argues with him. Osei's the one who scores. He's a good boy. He sends his money home.\"\n\n\"We practise in a cold store with seats bolted to the wall. My breath freezes on the inside of my mask. The Gardens feel tropical after that.\""
+    },
+    "kin": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"My mother, Bernadette. She sells the tickets at the Coliseum, for the Deadball. She has done it since before I was born, and she'll tell you so.\"\n\n\"She's never been to the Gardens. She says she sees enough sport at work. She watches me on the telly with the sound down and tells me afterwards which goals were my fault.\" He straightens his cuff. \"She says I picked the wrong sport. She's said it every Christmas since I was nine.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You stand in front of six feet of net and men try to put a puck through you into it. I prefer it to skating. It's orderly.\"\n\n\"I live in Corbett Mansions with Marsh, the Guillotines' keeper. People think that's odd. Who else is going to listen to me talk about angles? We hang the pads off the picture rail to dry. He drinks his tea out of a pint glass, which I have mentioned to him.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "Tell me about the Yard Birds.",
+          "next": "club"
+        },
+        {
+          "label": "What's it like in net?",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "Any family in the city?",
+          "next": "kin"
+        },
+        {
+          "label": "Goodbye.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hello.\" He checks his watch, as if you were due at a particular time.",
+        "\"Hello. You're standing on my bag.\"",
+        "Okafor finishes the line he's writing, and then looks up properly."
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"Ah. Good.\" He moves his bag off the seat for you."
+        ],
+        "first": "The tall man closes a notebook on his finger to keep the place.\n\n\"Emeka Okafor. I keep goal for the Yard Birds.\" He shakes your hand once, firmly. \"Please don't tell me about the one that went in. I was there.\"",
+        "known": "\"Hello again. I remember you.\" He makes a small note."
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He opens the notebook and checks. \"${npc.cphl.season}\" He closes it. \"I count them twice, once for the league and once for me. The league's count is sometimes wrong.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Dying is mostly paperwork, and I'm careful with paperwork.\"\n\n\"Afterwards the vat sends my next of kin a card asking her to rate the service. That's my mother. She gives them three stars every time and writes a note in the margin about the queue. I don't think anybody reads it. She says that's no reason not to write it.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a pressed grey overcoat with a Yard Birds pin on the lapel",
+      "a black roll-neck jumper",
+      "a white vest",
+      "creased charcoal trousers and polished brogues",
+      "white boxer shorts"
+    ],
+    "cphl": {
+      "club": "Yard Birds",
+      "player": "Okafor",
+      "role": "goalie"
+    },
+    "kin": [
+      "npc_hcbox_okafor"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_corbett_12a",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_cphl_okafor",
+  "name": "Emeka Okafor",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

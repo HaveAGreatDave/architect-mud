@@ -1,0 +1,159 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Villanueva sniffs his sleeve and pulls a face.",
+    "He combs his hair back with his fingers, checks it in the nearest glass, and does it again.",
+    "He flicks a fish scale off his cuff.",
+    "\"Villanueva scores!\" he says under his breath, doing Tug Brennan's voice.",
+    "He spins a coin across his knuckles and drops it.",
+    "He hums a three-note Rats chant, over and over.",
+    "He picks at the white nicks on his forearm."
+  ],
+  "description": "A wiry young man of about nineteen in a black Rats warm-up jacket with silver piping, sleeves pushed up. His forearms are covered in small white nicks, and he smells faintly of fish. His black hair is combed back with something that shines.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"See you, yeah?\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Dockers, all of us. Krupp's our captain, he runs a crane gang, and Szabo and Grimaldi are on it. Bix drives the straddle carrier. Me, I'm on the fish market, gutting, six till two.\" He holds up his forearms.\n\n\"Our lot come up on the late tram in their hard hats. The Goons are the ones everybody wants us to beat. They're coppers. They pull our crates apart all week, and on the ice we get our turn.\""
+    },
+    "fish": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No idea. Honest.\" He holds his hands up. \"I'm on the ice when it lands, aren't I? Everybody looks at me because of the market. It's always fresh, though. Last time it was a herring, still shiny.\"\n\nHe grins. \"Ken Raven scrapes it up between periods. He's always smiling when he does it. You could ask him.\""
+    },
+    "flat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Unit 1001, the Yards Tenement. Tenth floor, and the lift's dead.\" He pulls a face. \"One room. The window's painted shut, the sink drips all night, and Krupp sleeps on the floor because he says the bed won't take him. I cook on the hot plate. Fish, mostly. He eats whatever I put down and says thanks every time.\"\n\n\"The Yard Birds' fans on our stairs used to hiss at the jackets. Krupp said good evening to them every night. They stopped.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Rising star.\" He says it again, slowly. \"Somebody painted VILLANUEVA RISING on a bedsheet and hung it off the stand last month. The R was backwards.\"\n\nHe laughs. \"Krupp says I'm not to read my own bedsheets. Every time I get my name on the telly, a Goon spends the next game trying to take my head off. Was it you that painted it?\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "Tell me about the Rats.",
+          "next": "club"
+        },
+        {
+          "label": "They say you're the Rats' rising star.",
+          "next": "role"
+        },
+        {
+          "label": "Who throws the fish?",
+          "next": "fish"
+        },
+        {
+          "label": "You share a room with your captain?",
+          "next": "flat"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "See you.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hey hey. You came to see me, yeah?\"",
+        "\"All right?\" He sniffs his own sleeve. \"Sorry. Fish.\"",
+        "He gives you a quick grin. \"What's going on?\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"My favourite person! After me.\"",
+          "\"Here they are. Sit down, I'll tell you about my goal.\""
+        ],
+        "first": "\"Mateo Villanueva.\" He offers a hand, looks at it, wipes it on his jacket and offers it again. \"Wharf Rats. I score the goals. You've seen me on the telly, yeah?\"",
+        "known": "\"There you are. You coming to the next one?\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He grins and starts counting on his fingers. \"${npc.cphl.season}\" He shrugs. \"Tug Brennan says it better. I just do it.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's horrible. You wake up wet in a paper gown and your mouth tastes like a coin.\" He shudders.\n\n\"And you lose your place. Three days in there and some lad from the reserve's out there scoring my goals. Grimaldi came and got me last time. He brought my good jacket so I didn't have to walk home in the gown.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a black Wharf Rats warm-up jacket with silver piping and a red pinstripe",
+      "a grey sweatshirt with the hood cut off",
+      "a white vest",
+      "black jeans and white rubber fish-market boots",
+      "red briefs"
+    ],
+    "cphl": {
+      "club": "Waterfront Wharf Rats",
+      "player": "Villanueva",
+      "role": "star"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u10_1",
+  "hp": 44,
+  "hp_max": 44,
+  "id": "npc_cphl_villanueva",
+  "name": "Mateo Villanueva",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

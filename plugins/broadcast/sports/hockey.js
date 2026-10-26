@@ -118,6 +118,25 @@ const INJURY_SLOTS_MAX = 16;   // two game-days — a genuinely season-shaping l
 // unavailable for longer than the ledger window the chain carries.
 export const INJURY_MAX_SLOTS = INJURY_SLOTS_MAX;
 
+// A dead man is reprinted. From sim v2 (`@sim 2` in hockey.bsm) the vat has him back in
+// three to five game-days, longer than the worst injury, so a death still costs a club
+// games. Under v1 a death was for the rest of the season, and the games that aired under
+// v1 replay that way. The length is hashed from the man and the beat, not drawn from the
+// game's rand, so v2 plays every other beat exactly as v1 did.
+const REPRINT_SLOTS_MIN = 24;
+const REPRINT_SLOTS_MAX = 40;
+export const REPRINT_MAX_SLOTS = REPRINT_SLOTS_MAX;
+export function reprintSlots(name, n) {
+  const rand = sportsRng(strSeed('reprint', name, n));
+  return REPRINT_SLOTS_MIN + Math.floor(rand() * (REPRINT_SLOTS_MAX - REPRINT_SLOTS_MIN + 1));
+}
+// The first slot a casualty from the game at `slot` can play again. The injury chain, the
+// standings fold and regress all book a casualty with this, so they can't disagree.
+export function healSlot(c, slot) {
+  if (c.dead && !Number.isFinite(c.slotsOut)) return Number.MAX_SAFE_INTEGER;
+  return slot + Math.max(1, c.slotsOut || 1);
+}
+
 // ── club identity ────────────────────────────────────────────────────────────
 // Clubs that behave identically are just names. A club's character is derived from its
 // NAME, so it costs no authoring, needs no storage, is identical on every server
@@ -572,6 +591,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   // plugins/broadcast/index.js). An empty set is an ordinary healthy night, which is
   // why every existing three-argument caller keeps working unchanged.
   const unavailable = opts.unavailable instanceof Set ? opts.unavailable : new Set(opts.unavailable || []);
+  // v2 reprints the dead (REPRINT_SLOTS_MIN above); v1 keeps them dead for the season.
+  const reprint = Number(opts.version) >= 2;
   const awayName = matchup?.away || 'Away', homeName = matchup?.home || 'Home';
   // The club list, when the caller knows it (sportsGameForSlot passes it), is what
   // makes rosters a property of the LEAGUE rather than of this game. Without it each
@@ -801,9 +822,11 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
         const victim = anyone(def);
         if (victim) {
           victim.out = true; victim.dead = true; deadPlayer = victim.name;
+          if (reprint) victim.slotsOut = reprintSlots(victim.name, beats.length);
           att.score += 1;
           push({ type: 'death', player: victim.name, teamName: def.name,
             winnerTeam: att.name, section: ordinal(period),
+            ...(reprint ? { reprintSlots: victim.slotsOut } : {}),
             ...woundFor(victim.name, 0, true, beats.length) });
           gameOver = true;
           break;
@@ -903,10 +926,10 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     faceoffs: { away: foAway, home: foHome },
     // what the season fold harvests
     scorers,
-    // What the injury chain consumes: who went off, for how long, and for whom. A
-    // death is permanent and carries no duration — there is nothing to come back from.
+    // What the injury chain consumes: who went off, for how long, and for whom. Under v1
+    // a death carries no duration and is for the season; under v2 it's the vat's time.
     casualties: [...away.skaters, ...home.skaters].filter(s => s.out)
-      .map(s => ({ name: s.name, dead: !!s.dead, slotsOut: s.dead ? Infinity : (s.slotsOut || INJURY_SLOTS_MIN),
+      .map(s => ({ name: s.name, dead: !!s.dead, slotsOut: s.dead ? (s.slotsOut || Infinity) : (s.slotsOut || INJURY_SLOTS_MIN),
         team: away.skaters.includes(s) ? away.name : home.name })),
     // Who was dressed out of the reserve tonight, so the booth can name them.
     callups: [...away.dressed, ...home.dressed].filter(d => d.callup)
@@ -995,7 +1018,15 @@ export const SEASON = {
       .sort((a, b) => b.points - a.points || b.goals - a.goals || a.name.localeCompare(b.name))
       .slice(0, 10);
     const cas = acc.casualties || [];
-    return { scorers, injuries: cas.length, deaths: cas.filter(c => c.dead).length,
+    // Every man's season toll: how many times he was carried off and how many times he
+    // died. sportsleague writes it to the season's row when the season closes, and adds
+    // the closed seasons up for his career.
+    const toll = {};
+    for (const c of cas) {
+      const t = toll[c.name] || (toll[c.name] = { hurt: 0, died: 0 });
+      if (c.dead) t.died += 1; else t.hurt += 1;
+    }
+    return { scorers, injuries: cas.length, deaths: cas.filter(c => c.dead).length, toll,
       players: Object.fromEntries(acc.players || []), goalies: Object.fromEntries(acc.goalies || []) };
   },
 };
@@ -1005,6 +1036,8 @@ export const HOCKEY = {
   brand: 'CLUSTER PUCK',
   finalIcon: '🏒',
   season: SEASON,
+  // v2 reprints a dead man (reprintSlots); broadcast records the slot it plays from.
+  simVersions: [1, 2],
   section: 'period',
   sectionPlural: 'periods',
   simGame,

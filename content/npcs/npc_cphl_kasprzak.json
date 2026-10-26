@@ -1,0 +1,147 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Kasprzak stands with his back to the wall, dead straight, and watches the room.",
+    "He lets the plumb bob off his coat button hang and waits for it to settle.",
+    "He straps a pad on, unstraps it and straps it again a notch tighter.",
+    "\"Glove's gone soft. Needs a new lace.\"",
+    "He eats a sandwich in four bites, standing up.",
+    "He rubs his bad knee with the heel of his hand.",
+    "He pours tea from a thermos with KASPRZAK written on a strip of tape round it."
+  ],
+  "description": "A tall, rawboned man of about forty who stands dead straight, in a canvas work coat and a Malcolm tartan scarf. Old plaster is ground into the creases of his knuckles. A brass plumb bob on a length of string hangs from his top button.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right. Take care.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Good club. Dawes holds it together. He'll fight anybody for any of us, and he has.\"\n\n\"Rautio's young. He can score from anywhere, and he knows it. He'll get over the knowing.\" He thinks about it. \"It's the street that makes it. Marrow Street pulls its shutters down and walks to the Gardens together. You look up from the net and it's the people you buy your bread off.\"\n\n\"The Bulldogs run at a goalie. I don't like that in a club.\""
+    },
+    "kin": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"A sister. Minnow.\" He waits a moment before he goes on. \"She's younger than me. She was a clerk at a data office, good with figures. Now she's at the Pitch, the tent camp, near the drum. She uses.\"\n\n\"I go down on Sundays with soup and clean socks. She'd rather have the money. Some weeks I give it her. Most weeks I don't.\"\n\n\"She froze to death last winter. The vat had her back in four days, and she went back to the same tent.\" He looks at his hands. \"If you see her, she'll ask you for something. That's up to you.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I was a plasterer before this. You hang a plumb bob to get a wall true. They say I stand like one. Straight up, and I don't go down till the puck's past me or it's mine.\"\n\n\"Most goalies drop early, and a man lifts it over them. I wait.\" He stands a little straighter to show you. \"You get hit a lot doing it. That's all right. I'd rather be hit than beaten.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Highlanders like?",
+          "next": "club"
+        },
+        {
+          "label": "Why do they call you Plumb Bob?",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "Got any family in the city?",
+          "next": "kin"
+        },
+        {
+          "label": "Take care.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "He nods. \"Evening.\"",
+        "\"Hello.\" He waits.",
+        "He looks at you, then at the floor, then back. \"Something you need?\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"Good to see you. Sit, if you want.\""
+        ],
+        "first": "He shakes your hand once, firmly. \"Kasprzak. Plumb Bob, they call me. I'm in goal for the Coldwater Highlanders.\"",
+        "known": "\"Evening. You're back.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He thinks before he says it. \"${npc.cphl.season} I don't keep count. Oyelaran does, in his little book, for both of us. He writes mine on the back page. I've never asked him to stop.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Doesn't bother me much. You come back the same height. I checked, the first time, against the door frame at the flat. Same height, same hands, same bad knee.\"\n\n\"Oyelaran minds it more than I do. He hates missing the end of a game. I don't like missing a Sunday.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a Malcolm tartan Highlanders scarf",
+      "a canvas work coat with a brass plumb bob hung from the top button",
+      "a thick green cable-knit jumper",
+      "work trousers and heavy laced boots",
+      "white cotton long johns"
+    ],
+    "cphl": {
+      "club": "Coldwater Highlanders",
+      "player": "Plumb Bob Kasprzak",
+      "role": "goalie"
+    },
+    "kin": [
+      "npc_pitch_minnow"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_corbett_8a",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_cphl_kasprzak",
+  "name": "Plumb Bob Kasprzak",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

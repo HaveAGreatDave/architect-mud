@@ -1,0 +1,130 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Kuznetsov retapes the blade of his stick, tight, and bites the tape off.",
+    "He turns the rosary on his wrist one bead at a time, his lips moving.",
+    "\"Adebayo. Feet off the table.\" He doesn't look up to say it.",
+    "He checks the knot on each skate lace, then pulls both tighter.",
+    "He flexes his right hand and works each knuckle with his thumb, wincing.",
+    "\"Forty minutes to St Garneau's from here,\" he says, to nobody. \"Thirty-five if it's raining.\"",
+    "He stands at the window for a while with his hands behind his back."
+  ],
+  "description": "A heavy-shouldered man near forty in a navy windcheater with ST GARNEAU across the back and a C stitched on the breast by hand. His nose has been broken flat and set a little to the left. A wooden rosary is wound twice round his left wrist.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Go well.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"We're St Garneau's club. Father Jerome put us together and he picked every one of us. Halloran, Barrientos, Danilenko, the boy Adebayo, me, and Marsh in goal. Two of the parish men bring a pew from the church on a handcart for our bench. The Sisters wash the sweaters on a Monday.\"\n\n\"Nine Elms comes out for us. When we play the Warlords, half the Gardens is ours. Glasshouse men. They skate as if they're late for a meeting.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The C means I talk to the referee and I go over the boards first. If one of ours gets hit dirty, I answer it. That's the job.\"\n\n\"And I get Adebayo to Mass on a Sunday. The Father asked me to, and he's harder to say no to than the league. We share a flat in Kestrel Court, in the Marrow. Nine Elms had nothing free. I sleep on the side by the stairs. You hear everybody go up.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "Tell me about the Guillotines.",
+          "next": "club"
+        },
+        {
+          "label": "What does the C mean, then?",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "I'll leave you to it.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hello.\" Kuznetsov nods once and goes back to what he was doing.",
+        "\"You want something? Ask. I don't mind.\"",
+        "Kuznetsov looks up. \"Yes?\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"There you are. I was going to ask the Father if you'd died.\""
+        ],
+        "first": "The big man straightens up.\n\n\"Arkady Kuznetsov. I captain the St Garneau Guillotines, the parish club. You're welcome at Mass and you're welcome at the game. Sit on our side.\"",
+        "known": "\"You again. Good. Sit down if you want.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He thinks about it before he answers. \"${npc.cphl.season}\" He rubs the flat bridge of his nose. \"I give the Father the numbers on a Sunday. He writes them in the back of the parish book, under the christenings.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You go into the boards wrong, it goes dark, and then you're sitting up in the vat with a towel round you and a form to sign. Three days, four. You miss a game.\"\n\n\"The Father says you come back with the same sins you went in with, so there's no use dying to get out of confession. I go the Sunday after, either way.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a red-and-navy Guillotines scarf",
+      "a navy windcheater with ST GARNEAU across the back and a hand-stitched C on the breast",
+      "a grey wool jumper darned at both elbows",
+      "black work trousers and polished black boots",
+      "white cotton underwear"
+    ],
+    "cphl": {
+      "club": "St Garneau Guillotines",
+      "player": "Kuznetsov",
+      "role": "captain"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_kestrel_7a",
+  "hp": 56,
+  "hp_max": 56,
+  "id": "npc_cphl_kuznetsov",
+  "name": "Arkady Kuznetsov",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

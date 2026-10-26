@@ -1,0 +1,130 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Adebayo checks his reflection in the nearest shiny thing and touches up the G over his ear.",
+    "He stickhandles a balled-up sock across the floor, round a chair leg and back.",
+    "\"The Nine Elms Express,\" he says in a deep voice, trying it out. He looks pleased.",
+    "His knee bounces. He notices, stops it, and it starts again.",
+    "He winds up a slapshot at nobody and holds the follow-through.",
+    "He hums the Guillotines' goal horn, badly, then does the crowd as well.",
+    "He signs a napkin with a big looping A and leaves it out for somebody to find."
+  ],
+  "description": "A lanky young man of about twenty-two in a red Guillotines sweater over a hoodie, the sleeves shoved up. His hair is shaved at the sides, with a G razored in over his left ear. He can't keep still, and when he sits down his knee bounces.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Tell people you met me!\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's the church's team. Father Jerome's. If you play, you go to Mass, which is fine. Kuznetsov sits next to me and kicks my ankle when I nod off.\"\n\n\"The pew's the best bit. We've got a real church pew for a bench, brought over on a handcart. The Warlords have padded seats with their names stitched on. Nothing winds a Warlord up like losing to a pew. Halloran says it's blessed. Halloran also says he saw a ghost in the vat, so.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Tug said my name nine times in one period once. I counted. My mum taped it off the telly.\"\n\n\"The captain says hype is for people who aren't doing the work. He still lets me have the balcony chair, though. There's only room for one chair out there, and you can see the whole Basin from it. I sit out and think about goals. Do you want to know which ones? I've got a list.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "Tell me about the Guillotines.",
+          "next": "club"
+        },
+        {
+          "label": "Everyone says you're the next big thing.",
+          "next": "role"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "See you around.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hey! You watch the game? Don't tell me if we lost.\"",
+        "\"Alright? You want an autograph, I've got a pen somewhere.\"",
+        "Adebayo grins at you. \"You've seen me on the telly. I can tell.\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"There they are! Come here, sit down. You're my lucky one.\""
+        ],
+        "first": "The young man is on his feet before you've said anything.\n\n\"Tunde Adebayo. Guillotines. Tug Brennan calls me the Nine Elms Express, but he made that up, I walk.\" He shakes your hand hard. \"You'll have heard of me.\"",
+        "known": "\"My friend! Back for more Adebayo.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He doesn't have to think about it. \"${npc.cphl.season}\" He grins. \"Write that down. Somebody should be writing it down.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Honestly? It's not that bad. You come out new. Your skin's so new the sweater itches for a week, and your skates don't know your feet.\"\n\n\"First game back, the whole Nine Elms end stands up when you skate out. Just for coming back.\" He thinks about it. \"I'm not saying I'd do it on purpose.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a red St Garneau Guillotines sweater with ADEBAYO across the back",
+      "a navy hooded sweatshirt",
+      "a white vest",
+      "track trousers with a red stripe and very clean white trainers",
+      "red briefs"
+    ],
+    "cphl": {
+      "club": "St Garneau Guillotines",
+      "player": "Adebayo",
+      "role": "star"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_kestrel_7a",
+  "hp": 44,
+  "hp_max": 44,
+  "id": "npc_cphl_adebayo",
+  "name": "Tunde Adebayo",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

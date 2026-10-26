@@ -1,0 +1,130 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Ibarra bounces a puck on the blade of his stick and counts under his breath.",
+    "He checks his hair in a window and pushes one piece back into place.",
+    "He says to himself, in a fair Tug Brennan voice: \"Ibarra! Top shelf!\"",
+    "He does twenty press-ups, then looks round to see if anyone saw.",
+    "He tapes the knob of his stick and gets the tape stuck to his fingers.",
+    "He picks at the pink scar through his left eyebrow.",
+    "\"Has anyone got a pen? Somebody might want something signed.\""
+  ],
+  "description": "A lean young man of about twenty-two in an unzipped black Warlords warm-up jacket with gold piping, over a white vest. His black hair is combed back with a lot of product. A fresh pink scar runs through his left eyebrow. He's bouncing a puck on the blade of a stick.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"See you! Watch the next one, I'll wave.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Warlords are the Glasshouse. Everything up there is glass and chrome, even the bus shelters, and the practice rink under it is so cold your teeth hurt. Tarasenko says that's character.\n\n\"I live with him in Halcyon Towers, up on forty-one. You can see the whole city from the window, and the Gardens, and the water. One bed, though. He's the captain, so he says turns are fair and he gets Mondays.\n\n\"The fans are old money. They clap. My mother came once and shouted, and a lawyer asked her to sit down.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They put my face on a poster outside the Voltage. I've been to look at it four times. Five. Last time somebody had drawn a moustache on it, which is fine, it's a good moustache.\n\n\"Tug Brennan calls me the future. Tarasenko says the future is at practice at seven. Doc Lindqvist says the future has a cracked rib and should stop pointing at the crowd.\"\n\nHe shrugs. \"I don't know. I just like it when it goes in.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Warlords like?",
+          "next": "club"
+        },
+        {
+          "label": "People keep calling you the next big thing.",
+          "next": "role"
+        },
+        {
+          "label": "Doesn't dying out there scare you?",
+          "next": "vat"
+        },
+        {
+          "label": "See you around, Rafa.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hey! Hey. Do you watch the games?\"",
+        "He catches the puck off his blade. \"Hi.\"",
+        "\"Oh, hello.\" He checks his hair in the nearest shiny thing."
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"My friend! Come here, look at this.\" He shows you a scuffed puck. \"Game puck. I'm keeping it.\""
+        ],
+        "first": "He sticks out a hand before you've finished looking at him.\n\n\"Rafa Ibarra. Rafael, really. Westside Warlords, I score the goals. You've probably seen me on the TV. Tug Brennan says my name with about three r's in it.\"",
+        "known": "\"Hey, it's you! Did you see the last one?\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Okay, so.\" He counts it out on his fingers and runs out of fingers. \"${npc.cphl.season}\" He grins at you. \"Write that down. Tarasenko writes everything down, you should too. Then when I'm famous you'll have it from the start.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The first time, yeah. You wake up in a tray and somebody's hosing you down and you think, did it go in? Nobody at the vat knows. They don't watch hockey.\n\n\"Now it's fine, it's three days off. The worst part is my hair. It comes back flat and I have to start again from nothing.\"\n\nHe touches the scar through his eyebrow. \"This one's new. I'll lose it next time. I'm going to miss it.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a black Warlords warm-up jacket with gold piping",
+      "a white ribbed vest",
+      "black track trousers with a gold stripe down each leg",
+      "white trainers with gold laces",
+      "gold silk boxer shorts"
+    ],
+    "cphl": {
+      "club": "Westside Warlords",
+      "player": "Ibarra",
+      "role": "star"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_halcyon_apt_a",
+  "hp": 46,
+  "hp_max": 46,
+  "id": "npc_cphl_ibarra",
+  "name": "Rafael Ibarra",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

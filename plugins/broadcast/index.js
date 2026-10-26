@@ -29,7 +29,8 @@ import { makeBooth } from './sports/baseball-booth.js';
 import { landBy, afterLand } from '../../client/game/js/panels/diamond/timing.js';
 import { venueField } from '../../client/game/js/panels/diamond/geo.js';
 import { skylineAround } from '../../server/engine/skyline.js';
-import { HOCKEY, rivalOf } from './sports/hockey.js';
+import { HOCKEY, rivalOf, healSlot } from './sports/hockey.js';
+import { bindingOf, whereabouts, seasonLine } from './sports/league-npcs.js';
 import { finalPackage, packageText } from './sports/final-package.js';
 import {
   gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
@@ -2525,7 +2526,9 @@ const SPORTS_LINE_HOLD_MS = 10000;
 //
 // `_injuryChains` is keyed by sport. Only sports whose module opts in (a `simGame` that
 // reads `opts.unavailable`) ever build one — baseball has no chain and pays nothing.
-const _injuryChains = new Map();   // sport -> { from, at, out: Map<name, healSlot> }
+// `vat` holds the men reprinted after a death (sim v2), with the slot they're fit from,
+// until the first game they dress for. That's the night the booth says he's back.
+const _injuryChains = new Map();   // sport -> { from, at, out: Map<name, healSlot>, vat: Map<name, healSlot> }
 const INJURY_CHAIN_MAX_REBUILD = 4000;   // guardrail: never fold more than this at once
 
 function _chainStep(script, chain, slot) {
@@ -2535,35 +2538,61 @@ function _chainStep(script, chain, slot) {
   for (const [name, heal] of chain.out) if (heal > slot) live.add(name);
   const gs = sportsGameForSlot(script, slot, null, live);
   if (gs) {
-    for (const c of gs.game.casualties || []) {
-      // A death never heals. Everything else books a return slot.
-      const heal = c.dead ? Number.MAX_SAFE_INTEGER : slot + Math.max(1, c.slotsOut || 1);
+    const g = gs.game;
+    for (const t of [g.away, g.home]) {
+      for (const s of t?.skaters || []) if (chain.vat.has(s.name) && chain.vat.get(s.name) <= slot) chain.vat.delete(s.name);
+    }
+    for (const c of g.casualties || []) {
+      const heal = healSlot(c, slot);
       const prev = chain.out.get(c.name) || 0;
       if (heal > prev) chain.out.set(c.name, heal);
+      if (c.dead && heal < Number.MAX_SAFE_INTEGER) chain.vat.set(c.name, heal);
     }
   }
   chain.at = slot + 1;
 }
 
-// Who cannot play at `slot`. Returns a Set of names (empty for a sport with no chain).
-function ledgerAt(script, slot, windowStart) {
+// The chain folded up to (not including) `slot`, or null for a sport with no sim.
+function chainAt(script, slot, windowStart) {
   const sport = sportOf(script).id;
-  if (typeof sportsSimGame !== 'function') return new Set();
+  if (typeof sportsSimGame !== 'function') return null;
   const from = Number.isFinite(windowStart) ? windowStart : slot - 64;
   let chain = _injuryChains.get(sport);
   // Rebuild when there is no chain, when the window moved (a new season), or when the
   // caller asks about a slot the chain has already passed — a backwards jump can't be
   // served by advancing.
   if (!chain || chain.from !== from || chain.at > slot) {
-    chain = { from, at: from, out: new Map() };
+    chain = { from, at: from, out: new Map(), vat: new Map() };
     _injuryChains.set(sport, chain);
   }
-  if (slot - chain.at > INJURY_CHAIN_MAX_REBUILD) { chain.at = slot - INJURY_CHAIN_MAX_REBUILD; chain.out.clear(); }
+  if (slot - chain.at > INJURY_CHAIN_MAX_REBUILD) { chain.at = slot - INJURY_CHAIN_MAX_REBUILD; chain.out.clear(); chain.vat.clear(); }
   while (chain.at < slot) _chainStep(script, chain, chain.at);
+  return chain;
+}
+
+// Who cannot play at `slot`. Returns a Set of names (empty for a sport with no chain).
+function ledgerAt(script, slot, windowStart) {
+  const chain = chainAt(script, slot, windowStart);
   // Serve a COPY: the sim must not be able to mutate the chain it was derived from.
   const out = new Set();
-  for (const [name, heal] of chain.out) if (heal > slot) out.add(name);
+  if (chain) for (const [name, heal] of chain.out) if (heal > slot) out.add(name);
   return out;
+}
+
+// The men the vat still has at `slot`.
+function inVatAt(script, slot, windowStart) {
+  const chain = chainAt(script, slot, windowStart);
+  const vat = new Set();
+  if (chain) for (const [name, heal] of chain.vat) if (heal > slot) vat.add(name);
+  return vat;
+}
+
+// The men fit at `slot` who haven't played since the vat reprinted them.
+function vatReturnsAt(script, slot, windowStart) {
+  const chain = chainAt(script, slot, windowStart);
+  const back = new Set();
+  if (chain) for (const [name, heal] of chain.vat) if (heal <= slot) back.add(name);
+  return back;
 }
 
 // ── Sim versions by slot ─────────────────────────────────────────────────────
@@ -2681,6 +2710,7 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   // moved no line the booth already picks.
   const xrng = sportsRng(sportsHash(gs.seed, 0x11fe));
   const xpick = (...keys) => sportsPick(pools, xrng, ...keys);
+  const vrng = sportsRng(sportsHash(gs.seed, 0x7a7));
   const { away, home, awayScore, homeScore, beats } = game;
 
   const nodes = {};
@@ -2781,6 +2811,11 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
       venue: { said: venueSaid(script), name: script.venue?.name || '', rev: venueFor(script)?.rev || '', finalOpen: script.venue?.finalOpen || null },
       finalPackage: (prefix, bug, opts) => sayFinalPackage(finalPackageFor(sportMod, script, game, opts), prefix, xpick, say, bug),
       xpick,
+      // The vat: who's back tonight from a reprint, and the lines about it, drawn from a
+      // stream of their own so no line the booth already picks moves.
+      vatBack: vatReturnsAt(script, slot, injuryWindowStart(sportMod.id, slot)),
+      vpick: (...keys) => sportsPick(pools, vrng, ...keys),
+      slotsPerDay: SPORTS_GAMES_PER_DAY,
       lastId: () => prevId,
     }) || {};
     outroId = r.outroId || null;
@@ -3390,6 +3425,64 @@ async function sportsHeartbeat() {
 }
 schedule('1m', () => sportsHeartbeat().catch(e => console.error('[broadcast] sports heartbeat error:', e.message)));
 setTimeout(() => { sportsHeartbeat().catch(() => {}); }, 9000);
+
+// ── League players who are NPCs ─────────────────────────────────────────────────
+// A few CPhL men are NPCs (flags.cphl, sports/league-npcs.js). Once a minute this reads
+// the slot's state from the schedule and the injury chain, and the NPC schedule checker
+// answers from it: a man is on shift at the Gardens (his studio_zone_id) from the call
+// before his club's game to its end. While the vat has him he's an NPC in the engine's
+// dead state, out of the world with his AI skipped, and when the vat lets him go the
+// engine's respawn puts him back at home. `npc.cphl.season` is what he says about his
+// season (`${npc.cphl.season}` in his dialogue). All of it is RAM.
+const LEAGUE_CALL_MIN = 60;          // in-game minutes before his club's slot he's called
+let _leagueNpcState = null;          // { slot, playing, next, call, out, inVat, back }
+function leagueClubsAt(script, slot) {
+  const o = postseasonOverride('hockey', slot);
+  const m = o ? { away: o.teams[1], home: o.teams[0] } : sportsMatchupForSlot(slot, script.teams, 'hockey');
+  return new Set(m ? [m.away, m.home] : []);
+}
+function leagueNpcState(script, slot, elapsedMin) {
+  const ws = injuryWindowStart('hockey', slot);
+  return {
+    slot, playing: leagueClubsAt(script, slot), next: leagueClubsAt(script, slot + 1),
+    call: elapsedMin >= SPORTS_SLOT_GAME_MIN - LEAGUE_CALL_MIN,
+    out: ledgerAt(script, slot, ws), inVat: inVatAt(script, slot, ws), back: vatReturnsAt(script, slot, ws),
+  };
+}
+// Bring the bound NPCs into line with `st`: into the vat or out of it, and their season line.
+function applyLeagueNpcState(st, extras) {
+  for (const npc of world.npcs.values()) {
+    const b = bindingOf(npc);
+    if (!b) continue;
+    npc.cphl = { season: seasonLine(b, extras, st) };
+    const where = whereabouts(b, st);
+    if (where === 'vat' && !npc._dead) {
+      // Only ever at a slot's turn, when the game he died in has ended.
+      const z = npc.zone_id;
+      world.zones.get(z)?.npcs.delete(npc.id);
+      npc._dead = true; npc._respawnAt = null; npc._inVat = true;
+      if (z) sendToZone(z, { type: 'zone_event', message: `Two medics carry ${npc.name} out under a sheet.`, refresh: true });
+    } else if (where !== 'vat' && npc._inVat) {
+      // The engine's respawn (gameLoop npcWanderTick) puts him back at home_zone.
+      npc._inVat = false; npc._respawnAt = Date.now();
+    }
+  }
+}
+async function leagueNpcTick() {
+  const script = await anySportsScript('hockey');
+  // With no league on the air nobody plays, but every man still has a season line, or his
+  // dialogue would show the token.
+  _leagueNpcState = script ? leagueNpcState(script, sportsSlotIndex(), sportsSlotElapsedMin())
+    : { slot: null, playing: new Set(), next: new Set(), call: false, out: new Set(), inVat: new Set(), back: new Set() };
+  applyLeagueNpcState(_leagueNpcState, (_standingsCaches.get('hockey') || {}).extras || null);
+}
+// For the schedule checker: null for anybody who isn't a league man.
+function leagueNpcWhere(npcId) {
+  const b = bindingOf(world.npcs.get(npcId));
+  return b ? whereabouts(b, _leagueNpcState) : null;
+}
+schedule('1m', () => (hasActivePlayers() ? leagueNpcTick() : Promise.resolve()).catch(e => console.error('[broadcast] league npc tick error:', e.message)));
+setTimeout(() => { leagueNpcTick().catch(() => {}); }, 10000);
 
 // ── League standings feed (for the on-air standings bug + record mentions) ──────
 // The sportsleague plugin owns the standings; broadcast reads them through its
@@ -6591,6 +6684,9 @@ registerViewerChecker((channelId) => {
 
 // IS_BROADCAST_SCHEDULED: is this NPC in an active daily schedule slot right now?
 registerNpcScheduleChecker((npcId) => {
+  // A league man's shift is his club's game, nothing else (leagueNpcTick above).
+  const league = leagueNpcWhere(npcId);
+  if (league) return league === 'game';
   const { minutes, dayOfWeek } = getEnvironmentState();
   const gameSecs = (minutes ?? 0) * 60;
   const nowMs = Date.now();
@@ -8811,7 +8907,7 @@ registerAction({
       const gs = sportsGameForSlot(script, slot, null, unavailable);   // regular schedule only
       if (!gs) continue;
       for (const c of gs.game.casualties || []) {
-        const heal = c.dead ? Number.MAX_SAFE_INTEGER : slot + Math.max(1, c.slotsOut || 1);
+        const heal = healSlot(c, slot);
         if (heal > (out.get(c.name) || 0)) out.set(c.name, heal);
       }
       season.fold(table, gs.game);
@@ -11080,6 +11176,11 @@ export const _test = {
   morningPlug: _morningPlug, RUNTIME_TOKENS,
   channelRuntime, recordBeat: _recordBeat, sendCatchUp, gamedayOnAir,
   // The sim switch: the pure decision, the slot's version, and a seam to set the record in memory.
+  // The injury chain and the vat, folded for any script and window, and the memo to clear after.
+  ledgerAt, vatReturnsAt, inVatAt, injuryChains: _injuryChains,
+  // League players who are NPCs: the slot's state, applying it, and the checker's answer.
+  leagueNpcState, applyLeagueNpcState, leagueNpcWhere,
+  getLeagueNpcState: () => _leagueNpcState, setLeagueNpcState: (s) => { _leagueNpcState = s; },
   simVersionFor, nextSimSwitch, getSimSwitch: (sport) => _simSwitch.get(sport) || null, setSimSwitch: (sport, v) => (v ? _simSwitch.set(sport, v) : _simSwitch.delete(sport)),
   filmDayMask,
   // The call-sheet graph an actor is actually given. Exposed because the only other

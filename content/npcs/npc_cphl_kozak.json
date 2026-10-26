@@ -1,0 +1,145 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Kozak writes something in his notebook, reads it back and underlines it.",
+    "He checks the time on a scratched police-issue watch.",
+    "He tapes his left wrist tight and writes D9 on the tape in marker.",
+    "\"Ganguly, tuck your shirt in,\" he says, to nobody in particular.",
+    "He mutters something about the Bulldogs next door and the hours they keep.",
+    "He rubs the bridge of his crooked nose with a thumb.",
+    "He sharpens his pencil with a pocketknife and blows the shavings off the blade."
+  ],
+  "description": "A broad man in his late forties in a bruise-purple Goons jacket over a pressed police shirt with sergeant's stripes. His nose has been broken flat and set crooked. A notebook sits in his breast pocket and a pencil behind his ear.",
+  "dialogue_tree": {
+    "bottle": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because I've got bottle. Nerve. I went into a burning tram on Kessler Street once and came out with two people.\"\n\nHe waits. \"Brine says it's because of a fight in the Embassy bar downstairs. Brine says a lot of things.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Stay out of trouble.\""
+    },
+    "club": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"We're coppers, mostly. Precinct 9, on Kessler Street. Nyquist and Bergqvist work the night desk, Brine's retired, and Cifuentes doesn't carry a badge any more. He'll tell you why or he won't. Ganguly's still on probation, so he lives with me where I can keep an eye on him.\"\n\nHe taps the pencil on the notebook. \"People say we're the dirtiest club in the league. Every penalty we take is written up in here, and every one was the other fellow's fault. Wait till you see us play the Wharf Rats. Half that bench has been through our cells.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I talk to the referee, and he doesn't listen. I decide who goes over the boards when somebody's owed one. After a game I go round the dressing room and write down who's hurt, who's dead and who's due back from the vat, so the precinct knows who isn't coming in on Monday.\"\n\nHe shrugs. \"Same as being a sergeant. Different shirt.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "How's the season going?",
+          "next": "season"
+        },
+        {
+          "label": "What are the Goons like?",
+          "next": "club"
+        },
+        {
+          "label": "What does a captain do?",
+          "next": "role"
+        },
+        {
+          "label": "Why do they call you Bottle?",
+          "next": "bottle"
+        },
+        {
+          "label": "What's it like, dying out there?",
+          "next": "vat"
+        },
+        {
+          "label": "I'll leave you to it.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Help you?\" He has the notebook out before you've answered.",
+        "He looks at your hands first, then your face. \"Something I can do for you?\"",
+        "\"All right?\" He doesn't move out of your way."
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"There they are.\" He puts the notebook away.",
+          "\"Good to see you. Pull up a bit of wall.\""
+        ],
+        "first": "He takes the pencil from behind his ear. \"Kozak. Sergeant at Precinct 9, and captain of the District 9 Goons. People call me Bottle. And you are?\" He writes down whatever you tell him.",
+        "known": "\"You again.\" He checks something in the notebook. \"No trouble from you yet. Keep it that way.\""
+      }
+    },
+    "season": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He flips back a few pages in the notebook. \"${npc.cphl.season}\" He shuts it. \"I write it all down. Nobody else in that dressing room will.\""
+    },
+    "vat": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Dying's paperwork. You go off on a stretcher, you wake up in the vat, you sign their form and you walk home. It's just up the street from my flat, so that's handy. Three days, five at the outside.\"\n\nHe writes something down. \"What I don't like is the precinct docking my pay for the days I'm in there. I've put in a grievance. I'll put in another one.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a bruise-purple District 9 Goons jacket with a bone-white C on the chest",
+      "a pressed police uniform shirt with sergeant's stripes",
+      "a grey vest",
+      "uniform trousers and black boots with steel toecaps",
+      "white boxer shorts"
+    ],
+    "cphl": {
+      "club": "District 9 Goons",
+      "player": "\"Bottle\" Kozak",
+      "role": "captain"
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_apt_6",
+  "hp": 54,
+  "hp_max": 54,
+  "id": "npc_cphl_kozak",
+  "name": "Bohdan \"Bottle\" Kozak",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_slush_rinkside",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}
