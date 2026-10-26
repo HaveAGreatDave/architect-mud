@@ -3,14 +3,13 @@
   "kind": "mesh",
   "params": {
     "name": "Viper",
-    "note": "An attack helicopter (an Apache reimagined): a chined gunship hull whose canopy IS the hull, a chin gun, stub wings with pods and tip missiles, a slim boom and taildragger gear. Authored at unit scale and shipped double size (scale 2).",
-    "portedFrom": "buildAttackHeli",
+    "note": "An AH-64 Apache: a narrow flat-sided fuselage with the gunner ahead of and below the pilot under a stepped tandem canopy, the sensor turret on the nose and the chain gun under the chin, stub wings with rocket pods and missiles, T700 engine nacelles standing out from the upper fuselage with Black Hole exhaust suppressors, four-blade main and tail rotors with the tail rotor high on the left of the fin, a low stabilator, and trailing-arm main gear with a tailwheel.",
     "scale": 2,
     "groundPitch": 7,
     "navLamps": null,
     "rotors": [
-      { "at": [0.1, 0, 0.34], "plane": "h", "r": 1.02, "blades": 2, "lead": 0.85 },
-      { "at": [-1.04, 0.07, 0.12], "plane": "side", "r": 0.19, "blades": 2, "lead": 0.7, "spinMul": 4.7, "phase": 1.1 }
+      { "at": [0.1, 0, 0.34], "plane": "h", "r": 1.02, "blades": 4, "lead": 0.85 },
+      { "at": [-1.04, -0.07, 0.33], "plane": "side", "r": 0.19, "blades": 4, "lead": 0.7, "spinMul": 4.7, "phase": 1.1 }
     ],
     "finish": "matte",
     "paints": {
@@ -254,7 +253,7 @@
       {
         "kind": "blade",
         "name": "fin",
-        "outline": [[-0.84, 0.14], [-0.98, 0.34], [-1.1, 0.44], [-1.08, 0.13]],
+        "outline": [[-0.84, 0.14], [-0.97, 0.31], [-1.08, 0.38], [-1.08, 0.13]],
         "t": 0.013,
         "role": "fin",
         "sh": [0.92, 0.7],
@@ -278,11 +277,11 @@
       {
         "kind": "tube",
         "name": "tail rotor gearbox",
-        "pts": [[-0.98, 0.02, 0.12], [-1.06, 0.07, 0.12]],
-        "r": 0.026,
-        "sides": 7,
+        "pts": [[-1.04, -0.012, 0.33], [-1.04, -0.065, 0.33]],
+        "r": 0.024,
+        "sides": 6,
         "role": "nacelle",
-        "sh": 0.72,
+        "sh": 0.75,
         "paint": "metal"
       },
       {
@@ -290,7 +289,7 @@
         "name": "tail rotor disc",
         "note": "Schematic only: painted renderers draw the blades from rotors[1].",
         "faces": [
-          { "role": "rotor", "sh": 0.7, "p": [[-1.04, 0.07, -0.05], [-1.04, 0.07, 0.29], [-1.14, 0.07, 0.29], [-1.14, 0.07, -0.05]] }
+          { "role": "rotor", "sh": 0.7, "p": [[-0.9393, -0.07, 0.14], [-1.1407, -0.07, 0.14], [-1.1407, -0.07, 0.52], [-0.9393, -0.07, 0.52]] }
         ]
       },
       {
@@ -298,20 +297,40 @@
         "name": "engine nacelles",
         "parts": [
           {
-            "kind": "tube",
+            "kind": "group",
             "name": "nacelle",
-            "pts": [[0.16, 0.135, 0.135], [-0.14, 0.135, 0.135]],
-            "r": 0.062,
-            "sides": 8,
-            "role": "nacelle",
-            "sh": 0.72,
-            "paint": "camo"
+            "parts": [
+              {
+                "kind": "group",
+                "name": "nacelle",
+                "parts": [
+                  {
+                    "kind": "loft",
+                    "name": "nacelle",
+                    "sides": 12,
+                    "section": "ellipse",
+                    "role": "nacelle",
+                    "stations": [
+                      { "f": 0.17, "rg": 0.0504, "rv": 0.0504, "rvT": 0.0504, "rvB": 0.0504, "cz": 0.15 },
+                      { "f": 0.155, "rg": 0.0684, "rv": 0.0684, "rvT": 0.0684, "rvB": 0.0684, "cz": 0.15 },
+                      { "f": 0.12, "rg": 0.072, "rv": 0.072, "rvT": 0.072, "rvB": 0.072, "cz": 0.15 },
+                      { "f": -0.2, "rg": 0.072, "rv": 0.072, "rvT": 0.072, "rvB": 0.072, "cz": 0.15 },
+                      { "f": -0.27, "rg": 0.0619, "rv": 0.0619, "rvT": 0.0619, "rvB": 0.0619, "cz": 0.15 },
+                      { "f": -0.3, "rg": 0.0518, "rv": 0.0518, "rvT": 0.0518, "rvB": 0.0518, "cz": 0.15 }
+                    ],
+                    "paint": "camo"
+                  }
+                ],
+                "xf": { "t": [0, 0.195, 0] }
+              },
+              { "kind": "cone", "name": "intake", "f": 0.168, "g": 0.195, "h": 0.15, "r": 0.049, "n": 12, "apex": [0.14, 0.195, 0.15], "paint": "glare" }
+            ]
           },
           {
             "kind": "tube",
-            "name": "exhaust",
-            "pts": [[-0.12000000000000001, 0.135, 0.135], [-0.18000000000000002, 0.15525, 0.14500000000000002]],
-            "r": 0.05,
+            "name": "exhaust suppressor",
+            "pts": [[-0.28, 0.195, 0.15], [-0.34, 0.24, 0.166]],
+            "r": 0.046,
             "sides": 8,
             "role": "gun",
             "sh": 0.34
@@ -375,7 +394,9 @@
               [-0.09, -0.014, 0.33340000000000003],
               [0.04800000000000001, -0.014, 0.339]
             ]
-          }
+          },
+          { "role": "nacelle", "sh": 0.9, "p": [[0.086, 0.052, 0.339], [0.086, 0.19, 0.3334], [0.114, 0.19, 0.3334], [0.114, 0.052, 0.339]] },
+          { "role": "nacelle", "sh": 0.66, "p": [[0.086, -0.052, 0.339], [0.086, -0.19, 0.3334], [0.114, -0.19, 0.3334], [0.114, -0.052, 0.339]] }
         ],
         "paint": "metal"
       },
