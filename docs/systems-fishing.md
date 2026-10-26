@@ -9,6 +9,8 @@ the reel pulls that catch from a loot table gated by the new **Fishing** skill.
 Owned by `plugins/fishing/` (verbs `fish` / `fishcast` / `fishresolve`). See
 [plugins.md](plugins.md) for the ownership/precedence rule.
 
+This is fishing from the shore. Fishing from an anchored boat, where you can see the fish swimming and cast at any bearing and distance, is designed in [proposals/boat-fishing.md](proposals/boat-fishing.md) and isn't built yet. It leaves everything here as it is.
+
 ## The loop (server)
 
 `posture === 'fishing'` is the authoritative activity flag, so fishing inherits

@@ -117,6 +117,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-jail.md](docs/systems-jail.md): Holding, confiscation, the cell door, `player.respawnZone`
 - [docs/systems-scavenging.md](docs/systems-scavenging.md): posture-based search, per-zone loot tables
 - [docs/systems-fishing.md](docs/systems-fishing.md): cast-and-wait, reel overlay, Fishing skill
+- [docs/proposals/boat-fishing.md](docs/proposals/boat-fishing.md): fishing from an anchored skiff (design). Fish are worked out from the place and the server's clock in `client/shared/fish.js`, as birds are, and drawn as shadows; shore fishing doesn't change
 - [docs/systems-strays.md](docs/systems-strays.md): Cathode the stray cat and the `search` verb. Her 24h hide timer must be set before any `await` in the kill handler
 - [docs/systems-fauna.md](docs/systems-fauna.md): the birds (as built). A flock is a pure function of its anchor tile and the wall clock
 - [docs/systems-swimming.md](docs/systems-swimming.md): swimming, drowning, diving, hypothermia
