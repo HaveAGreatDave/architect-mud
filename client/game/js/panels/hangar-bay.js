@@ -1104,7 +1104,7 @@ function renderService() {
   const { jobs, body } = benchParts(c);
   const radar = B.benchTab === 'tuning' ? '<canvas id="hb-perf-radar" class="hb-svc-radar" width="220" height="200"></canvas>' : '';
   el.innerHTML = bayHtml({
-    ico: '⚙', title: d.field || 'Hangar', sub: `${c.tail} · ${c.typeName}`, credits: d.credits,
+    ico: '⚙', title: d.field || 'Hangar', sub: `${c.tail} · ${c.typeName}`, name: c.typeName || c.tail || '', credits: d.credits,
     actions: leaveHtml('Taxi out'),
     notes: c.rental ? '<div class="ds-note hire">Rental · maintenance is bundled in; she flies stock</div>' : '',
     jobs,

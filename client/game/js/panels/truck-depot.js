@@ -435,7 +435,7 @@ function renderService() {
     : B.bench.tab === 'fits' ? fitsTab(t) : B.bench.tab === 'cab' ? cabTab(t) : B.bench.tab === 'badge' ? badgeTab(t)
     : B.bench.tab === 'freight' ? freightScreen() : B.bench.tab === 'market' ? marketScreen() : serviceTab(t);
   el.innerHTML = bayHtml({
-    ico: '⚙', title: d.depot, sub: t ? t.name : 'service bay', credits: d.credits,
+    ico: '⚙', title: d.depot, sub: t ? t.name : 'service bay', name: t?.name || '', credits: d.credits,
     actions: leaveHtml('Drive out'),
     notes: (t?.rental ? `<div class="ds-note hire">Hire truck · ${esc(t.rental.leftText)} · back at any yard: <b>park</b> in a shed and <b>yard return</b></div>` : '')
       + (d.hitchState ? `<div class="ds-note">${hitchAct(d.hitchState)}</div>` : ''),

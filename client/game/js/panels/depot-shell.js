@@ -5,8 +5,9 @@
 //
 //   THE COUNTER, in the room pane: your vehicles as a hand of cards (vehicle-card.js), then a card
 //       to buy one and a card to hire one. A card seats you in the vehicle.
-//   THE BAY, an overlay on the seat's own glass while the vehicle stands in the real shed: the
-//       jobs as a row of tiles that say what each one needs, and the tile's page under them.
+//   THE BAY, a garage over the seat's whole glass while the vehicle stands in the real shed: the
+//       vehicle in the middle, the jobs as a menu down the left that says what each one needs, and
+//       the job's page in a column on the right.
 //
 // They used to draw both screens three different ways: three headers, three money formats, three
 // close glyphs, three ways to confirm a sale. This file is the one way. It holds the chrome and the
@@ -82,35 +83,27 @@ export function mountBay(host, id, handlers = {}) {
     el.id = id;
     for (const [ev, fn] of Object.entries(handlers)) el.addEventListener(ev, fn);
     host.appendChild(el);
-    fitBay(el, host);
+    bayWheel(el);
+    keepPageScroll(el);
   }
   return el;
 }
-// ── ⚠ THE BAY NEVER SCROLLS ──────────────────────────────────────────────────
-// The wheel over the glass is the chase camera's dolly, and a bay that scrolled took the wheel for
-// itself whenever the pointer crossed it: the page moved when you meant to zoom, or both moved at
-// once. So the bay is as tall as what is in it, and when that won't fit under the CSS cap
-// (`max-height` on `.ds-bay.open`) it is scaled down whole, from its top-right corner, rather than
-// clipped or scrolled. The wheel over it goes on to whatever is under it, which is the seat's view.
-function fitBay(el, host) {
-  const fit = () => {
-    el.style.scale = ''; el.style.maxHeight = '';
-    if (!el.classList.contains('open')) return;
-    const cap = el.clientHeight, need = el.scrollHeight;
-    if (!(cap > 0) || need <= cap + 1) return;
-    el.style.maxHeight = 'none';
-    el.style.transformOrigin = 'top right';
-    // `scale`, not `transform`: the bay slides in on a transform animation, which would override it.
-    el.style.scale = Math.max(0.5, cap / need).toFixed(4);
-  };
-  // A page swap or an open/fold is a mutation; a new glass size is the host resizing. The bay itself
-  // isn't observed for size, because fitting it resizes it and that is a ResizeObserver loop.
-  let queued = false;
-  const later = () => { if (queued) return; queued = true; queueMicrotask(() => { queued = false; if (el.isConnected) fit(); }); };
-  if (typeof ResizeObserver === 'function') new ResizeObserver(later).observe(host);
-  if (typeof MutationObserver === 'function') new MutationObserver(later).observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+// ── ⚠ ONLY THE PAGE SCROLLS ──────────────────────────────────────────────────
+// The wheel over the glass is the chase camera's dolly. The bay used to float over the vehicle and
+// so never scrolled at all: it scaled itself down to fit instead, and a long page (the racer's
+// sixteen fitting rows) came out at half size. Now the bay is a garage that fills the glass, with
+// the vehicle in a clear stage in the middle, and the page is its own column at the side. A wheel
+// over that column scrolls it, if it has anywhere to go; a wheel anywhere else on the bay (the
+// head, the rail, a page that fits) goes on to whatever is under it, which is the seat's view. The
+// stage takes no pointer at all, so a drag or a wheel over the vehicle reaches the glass directly.
+// Nothing in the page scales to fit any more: text in a garage is read at garage size.
+function bayWheel(el) {
   el.addEventListener('wheel', (e) => {
     if (e.ctrlKey || e.defaultPrevented) return;
+    // The page column, or on a phone the whole sheet: whichever scroller is under the pointer.
+    for (let n = e.target; n && n !== el; n = n.parentElement) {
+      if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return;
+    }
     e.preventDefault(); e.stopPropagation();
     const under = document.elementsFromPoint(e.clientX, e.clientY).find((n) => !el.contains(n));
     under?.dispatchEvent(new WheelEvent('wheel', {
@@ -120,24 +113,80 @@ function fitBay(el, host) {
     }));
   }, { passive: false });
 }
+// A depot deals the whole bay again after every click, which would put the page back at its top
+// each time a part is picked. So the page's scroll is kept across a redraw, for as long as the same
+// job tile is lit; a new tab starts at the top.
+function keepPageScroll(el) {
+  let kept = { job: null, top: 0 };
+  const jobOf = () => el.querySelector('.ds-job.on')?.textContent || '';
+  el.addEventListener('scroll', (e) => {
+    if (e.target.classList?.contains('ds-bay-body')) kept = { job: jobOf(), top: e.target.scrollTop };
+  }, true);
+  if (typeof MutationObserver !== 'function') return;
+  new MutationObserver(() => {
+    const page = el.querySelector('.ds-bay-body');
+    if (page && kept.top && jobOf() === kept.job) page.scrollTop = kept.top;
+  }).observe(el, { childList: true });
+}
 /** Open or folded. `extra` is the depot's own scope class, for the tabs' styles. */
 export function setBayOpen(el, open, extra = '') { el.className = `ds-root ds-bay ${open ? 'open' : 'folded'}${extra ? ' ' + extra : ''}`; }
 
 /**
- * The open bay. `actions` is the head's buttons (the way out first, as `leaveHtml` builds it);
- * `notes` sits under the head (a hire's clock, the pin); `jobs` is the tile row; `foot` is one line.
+ * The open bay: a garage over the whole glass, NFS-style. The vehicle stands in a clear stage in
+ * the middle; the jobs are a menu down the left; the page is a column on the right.
+ *
+ *   head     the place, the balance and `actions` (the way out last, as `leaveHtml` builds it)
+ *   stage    clear, with `name` (the vehicle's, when `title` is the place's) cut into its floor
+ *   rail     `jobs` (the tiles, drawn as a menu here), `notes` (a hire's clock, the pin) and `side`
+ *            (what the page wants beside it: the figures a part would change)
+ *   page     `body`, which scrolls if it has to, and `till` pinned under it (the bill and the key
+ *            that pays it), so the price is in view however long the list
+ *   foot     one line, with the camera's keys
+ *
+ * On a narrow glass the stage goes and the garage becomes one sheet up from the bottom (the CSS
+ * container queries on `.ds-gx`).
  */
-export function bayHtml({ ico = '⚙', title = '', sub = '', credits = 0, actions = '', notes = '', jobs = '', body = '', foot = '', toast = null } = {}) {
-  return `<header class="ds-bay-head">
+export function bayHtml({ ico = '⚙', title = '', sub = '', name = '', credits = 0, actions = '', notes = '', jobs = '', side = '', body = '', till = '', foot = '', toast = null } = {}) {
+  return `<div class="ds-gx">
+    <header class="ds-bay-head">
       <div class="ds-title"><span class="ds-title-ico" aria-hidden="true">${ico}</span><b>${esc(title)}</b>${sub ? `<span class="ds-dim"> · ${esc(sub)}</span>` : ''}</div>
       <b class="ds-bal" data-ds-bal="${Number(credits) || 0}">${money(credits)}</b>
       ${actions}
     </header>
-    ${notes}
-    ${jobs}
-    <div class="ds-bay-body">${body}</div>
-    ${toastHtml(toast)}
-    ${foot ? `<div class="ds-bay-foot ds-dim">${foot}</div>` : ''}`;
+    <aside class="ds-gx-rail">${jobs}${notes}${side ? `<div class="ds-gx-side">${side}</div>` : ''}</aside>
+    <div class="ds-gx-stage" aria-hidden="true"><i class="ds-gx-corner tl"></i><i class="ds-gx-corner tr"></i><i class="ds-gx-corner bl"></i><i class="ds-gx-corner br"></i><span class="ds-gx-name">${esc(name || title)}</span></div>
+    <section class="ds-gx-page">
+      <div class="ds-bay-body">${body}</div>
+      ${till ? `<div class="ds-gx-till">${till}</div>` : ''}
+      ${toastHtml(toast)}
+    </section>
+    <footer class="ds-bay-foot"><span class="ds-dim">${foot}</span><span class="ds-gx-keys"><kbd>drag</kbd> turn the camera</span></footer>
+  </div>`;
+}
+
+/**
+ * THE PARTS MENU, the way a tuning garage lays one out: a row of groups, the slots of the open group
+ * as a list that says what each has now, and the open slot's options as cards under it. Only one
+ * slot is open at a time, so the list stays short however many parts there are.
+ *
+ *   groups   [{ id, label }], with `group` the open one (a click is `on.group(id)` in shellClick)
+ *   slots    [{ id, label, value, changed, tip }] of the open group, with `slot` the open one
+ *            (`on.slot(id)`); `changed` marks a slot the working kit has moved off what is fitted
+ *   options  the open slot's [{ label, price, blurb, on, mine, dot, attrs }]: `on` is the working
+ *            pick, `mine` what is fitted, `dot` a CSS colour, `attrs` the depot's own click hook
+ *            (`data-kit="engine:2"`), since what a pick does is the depot's business
+ */
+export function partsHtml({ groups = [], group = '', slots = [], slot = '', options = [] } = {}) {
+  const opts = `<div class="ds-popts">${options.map((o) => `<button class="ds-popt${o.on ? ' on' : ''}${o.mine ? ' mine' : ''}" type="button" ${o.attrs || ''}${o.blurb ? ` title="${esc(o.blurb)}"` : ''}>
+      <span class="ds-popt-top">${o.dot ? `<i class="ds-popt-dot" style="background:${esc(o.dot)};box-shadow:0 0 8px ${esc(o.dot)}"></i>` : ''}<b>${esc(o.label)}</b></span>
+      <span class="ds-popt-price">${esc(o.price || '')}${o.mine ? '<span class="ds-popt-mine">✓ fitted</span>' : ''}</span>
+    </button>`).join('')}</div>`;
+  const open = slots.find((s) => s.id === slot);
+  return `${groups.length > 1 ? `<nav class="ds-pgroups">${groups.map((g) => `<button class="ds-pgroup${g.id === group ? ' on' : ''}" type="button" data-ds-group="${esc(g.id)}">${esc(g.label)}</button>`).join('')}</nav>` : ''}
+    <div class="ds-parts">${slots.map((s) => `<button class="ds-part${s.id === slot ? ' on' : ''}${s.changed ? ' changed' : ''}" type="button" data-ds-slot="${esc(s.id)}" aria-expanded="${s.id === slot}">
+        <span class="ds-part-l">${esc(s.label)}</span><span class="ds-part-v">${esc(s.value)}</span></button>
+      ${s.id === slot ? `${s.tip ? `<p class="ds-part-tip">${esc(s.tip)}</p>` : ''}${opts}` : ''}`).join('')}</div>
+    ${open ? '' : opts}`;
 }
 /** The bay's way out: folds it and hands the seat back. Always the last key in the head. */
 export function leaveHtml(label) {
@@ -230,12 +279,15 @@ export function armHolds(root, send) {
 /**
  * The shell's own keys: the two view toggles, close, back, and folding or opening the bay.
  * Returns true when it handled the click. `on` holds the depot's answers to close / back / fold /
- * open; the view toggles need nothing from the depot.
+ * open / screen / group / slot; the view toggles need nothing from the depot.
  */
 export function shellClick(e, on = {}) {
-  const t = e.target.closest?.('[data-ds],[data-ds-screen]');
+  const t = e.target.closest?.('[data-ds],[data-ds-screen],[data-ds-group],[data-ds-slot]');
   if (!t || t.disabled) return false;
   if (t.dataset.dsScreen) { on.screen?.(t.dataset.dsScreen); return true; }
+  // The parts menu's groups and slots (partsHtml).
+  if (t.dataset.dsGroup) { on.group?.(t.dataset.dsGroup); return !!on.group; }
+  if (t.dataset.dsSlot) { on.slot?.(t.dataset.dsSlot); return !!on.slot; }
   const act = t.dataset.ds;
   if (act === 'hidepanel' || act === 'fullscreen') {
     const cls = `ds-${act}`, other = act === 'fullscreen' ? 'ds-hidepanel' : 'ds-fullscreen';

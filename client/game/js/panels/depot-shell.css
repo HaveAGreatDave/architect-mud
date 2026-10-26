@@ -105,28 +105,174 @@
 .ds-job-sub{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;opacity:.85}
 .ds-job-sub.ok{color:var(--ds-gain)}.ds-job-sub.warn{color:var(--ds-warn)}.ds-job-sub.bad{color:var(--ds-bad)}
 .ds-job-sub.hot{color:var(--ds-accent)}
-/* THE BAY: docked right on the glass, under the seat's chrome, above its dash. */
-.ds-bay{position:absolute;z-index:40;right:10px;top:46px;font-size:13px}
-.ds-bay.open{max-height:calc(88% - 46px);width:min(620px,58%);display:flex;flex-direction:column;gap:6px;padding:8px;overflow:hidden;
-  background:color-mix(in srgb, var(--bg2) 86%, transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
-  border:1px solid color-mix(in srgb, var(--ds-accent) 36%, var(--border));border-radius:10px;
-  box-shadow:0 12px 30px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.08);animation:dsBayIn .22s ease-out}
-@keyframes dsBayIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
-.ds-bay.folded{right:auto;left:10px}
+/* THE BAY: a garage over the whole glass (bayHtml). The head across the top, the jobs as a menu
+   down the left, the page as a column on the right, the camera's keys along the bottom. The stage
+   in the middle is clear and takes no pointer, so the vehicle, the drag and the wheel over it are
+   the glass's own. Over the seat's chrome while it is open: the way out folds it. */
+.ds-bay{position:absolute;z-index:40;font-size:14px}
+.ds-bay.open{inset:0;pointer-events:none;container:dsbay / size;animation:dsBayIn .28s ease-out}
+/* The garage's light: the floor lit in the middle, the edges falling away to dark. */
+.ds-bay.open::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 58% 68% at 50% 54%,transparent 52%,rgba(0,0,0,.55) 100%)}
+@keyframes dsBayIn{from{opacity:0}to{opacity:1}}
+.ds-bay.folded{left:10px;top:46px}
 /* Big screen is the view and nothing else (bigscreen.js); the bay comes back with the chrome. */
 body.bigscreen .ds-bay{display:none!important}
+.ds-gx{--gx-side:clamp(250px,31%,440px);--gx-glass:color-mix(in srgb, var(--bg) 90%, transparent);
+  --gx-display:'Arial Narrow','Helvetica Neue',Arial,sans-serif;
+  position:absolute;inset:0;display:grid;grid-template-columns:var(--gx-side) minmax(0,1fr) var(--gx-side);
+  grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:'head head head' 'rail stage page' 'foot foot foot'}
+.ds-gx > *{pointer-events:auto;min-height:0}
+.ds-gx > .ds-gx-stage{pointer-events:none}
+/* The bay's parts outside a garage (the racer's binder notice borrows them): plain rows. */
 .ds-bay-head{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .ds-bay-head .ds-title{flex:1 1 auto}
 .ds-bay-head .ds-bal{margin-left:0}
-/* ⚠ NOTHING IN THE BAY SCROLLS: the wheel is the camera's (see fitBay). The bay is as tall as
-   its page, and a page too tall for the glass scales the whole bay down. A depot's own scroll
-   region inside the page is clipped open rather than scrolled. */
 .ds-bay-body{flex:0 0 auto;padding-right:2px}
-.ds-bay.open .ds-bay-body,.ds-bay.open .ds-bay-body > *{overflow:clip}
 .ds-bay-foot{flex:0 0 auto;font-size:11px;text-align:center}
-.ds-note{flex:0 0 auto;font-size:11.5px;padding:4px 8px;border-radius:6px;background:var(--ds-surf-lo);
+.ds-gx .ds-bay-head{grid-area:head;display:flex;align-items:center;gap:10px;padding:9px 16px;
+  background:linear-gradient(180deg,color-mix(in srgb, var(--bg) 97%, transparent),var(--gx-glass));
+  border-bottom:2px solid var(--ds-accent);box-shadow:0 4px 18px rgba(0,0,0,.45)}
+.ds-gx .ds-bay-head .ds-title{flex:1 1 auto;font-size:15px}
+.ds-gx .ds-bay-head .ds-title b{font:italic 900 20px/1 var(--gx-display);letter-spacing:2px}
+.ds-gx .ds-bay-head .ds-title-ico{font-size:18px}
+.ds-gx .ds-bay-head .ds-bal{margin-left:0;font-size:17px}
+.ds-gx .ds-bay-head .ds-btn{font-size:13px;padding:9px 14px}
+/* The menu: each job a slab off the left edge, the lit one pulled out and filled. */
+.ds-gx-rail{grid-area:rail;display:flex;flex-direction:column;gap:12px;padding:18px 18px 14px 0;overflow-x:hidden;overflow-y:auto;
+  scrollbar-width:none;overscroll-behavior:contain;background:linear-gradient(90deg,var(--gx-glass) 0%,var(--gx-glass) 70%,transparent)}
+.ds-gx-rail::-webkit-scrollbar{display:none}
+.ds-gx .ds-jobs{display:flex;flex-direction:column;gap:7px;overflow:visible}
+.ds-gx .ds-job{flex-direction:row;align-items:center;gap:12px;padding:12px 26px 12px 20px;border:0;border-radius:0;
+  border-left:4px solid transparent;clip-path:polygon(0 0,100% 0,calc(100% - 16px) 100%,0 100%);
+  background:linear-gradient(90deg,color-mix(in srgb, var(--bg) 70%, transparent),color-mix(in srgb, var(--ds-surf-mid) 80%, transparent));
+  box-shadow:none;transition:transform .14s ease-out,background .14s,color .14s}
+.ds-gx .ds-job:hover{transform:translateX(4px)}
+.ds-gx .ds-job.on{transform:translateX(10px);border-left-color:#fff;color:#fff;
+  background:linear-gradient(90deg,var(--ds-accent),color-mix(in srgb, var(--ds-accent) 45%, var(--bg2)));box-shadow:none}
+.ds-gx .ds-job-ico{font-size:20px;width:24px;text-align:center}
+.ds-gx .ds-job b{font:italic 900 19px/1.1 var(--gx-display);letter-spacing:1.5px}
+.ds-gx .ds-job-sub{margin-left:auto;font-size:12.5px;opacity:1}
+.ds-gx .ds-job.on .ds-job-sub{color:#fff}
+/* A long menu (the truck's nine jobs) packs tighter, so it still fits a short glass. */
+.ds-gx .ds-jobs:has(> .ds-job:nth-child(6)){gap:4px}
+.ds-gx .ds-jobs:has(> .ds-job:nth-child(6)) > .ds-job{padding-top:8px;padding-bottom:8px}
+.ds-gx .ds-jobs:has(> .ds-job:nth-child(6)) > .ds-job b{font-size:17px}
+.ds-gx-rail > .ds-note,.ds-gx-side{margin-left:16px}
+.ds-gx-side{min-height:0;overflow:hidden}
+.ds-gx-side > .ds-panel:last-child{margin-bottom:0}
+/* The stage: the vehicle's, framed by four corner marks with its name cut into the floor. */
+.ds-gx-stage{grid-area:stage;position:relative;margin:16px 14px}
+.ds-gx-corner{position:absolute;width:26px;height:26px;border:2px solid color-mix(in srgb, var(--ds-accent) 75%, transparent)}
+.ds-gx-corner.tl{left:0;top:0;border-right:0;border-bottom:0}.ds-gx-corner.tr{right:0;top:0;border-left:0;border-bottom:0}
+.ds-gx-corner.bl{left:0;bottom:0;border-right:0;border-top:0}.ds-gx-corner.br{right:0;bottom:0;border-left:0;border-top:0}
+.ds-gx-name{position:absolute;left:30px;right:30px;bottom:6px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font:italic 900 clamp(18px,3.2cqw,48px)/1.1 var(--gx-display);letter-spacing:.08em;text-transform:uppercase;
+  color:transparent;-webkit-text-stroke:1px color-mix(in srgb, var(--ds-accent) 70%, transparent);opacity:.75}
+/* The page: its own column, the only thing in the bay that scrolls (bayWheel), with the till
+   pinned under it. A depot's own scroll region inside the page is clipped open, so there is one. */
+.ds-gx-page{grid-area:page;position:relative;display:flex;flex-direction:column;
+  background:linear-gradient(270deg,var(--gx-glass) 0%,var(--gx-glass) 82%,color-mix(in srgb, var(--bg) 50%, transparent));
+  border-left:1px solid color-mix(in srgb, var(--ds-accent) 35%, transparent)}
+.ds-gx-page .ds-bay-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 16px 12px;
+  scrollbar-width:thin;scrollbar-color:color-mix(in srgb, var(--ds-accent) 60%, transparent) transparent}
+.ds-bay.open .ds-bay-body > *{overflow:clip}
+.ds-gx-till{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;padding:12px 16px 14px;
+  border-top:2px solid var(--ds-accent);background:color-mix(in srgb, var(--bg) 95%, transparent)}
+.ds-gx-till .ds-acts{gap:8px}
+.ds-gx-till .ds-btn.primary{flex:1 1 auto;font-size:15px;padding:12px 18px}
+.ds-gx .ds-bay-foot{grid-area:foot;display:flex;align-items:center;gap:16px;padding:7px 16px;font-size:12px;
+  background:color-mix(in srgb, var(--bg) 93%, transparent);border-top:1px solid color-mix(in srgb, var(--ds-accent) 30%, transparent)}
+.ds-gx .ds-bay-foot > .ds-dim{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ds-gx-keys{flex:0 0 auto;color:var(--ds-fg-dim);white-space:nowrap}
+.ds-gx kbd{font:inherit;font-size:11px;padding:1px 6px;margin-right:4px;border-radius:4px;color:var(--ds-fg);background:var(--ds-surf-lo);
+  border:1px solid color-mix(in srgb, var(--ds-accent) 50%, transparent);box-shadow:inset 0 -1px 0 var(--ds-bevel-lo)}
+/* The shell's widgets read at garage size, not overlay size. */
+.ds-gx .ds-panel{padding:12px 14px;gap:8px;margin-bottom:10px}
+.ds-gx .ds-panel-head{flex-wrap:wrap;gap:2px 10px}
+.ds-gx .ds-panel-head b{font:italic 900 15px/1.2 var(--gx-display);letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap}
+.ds-gx .ds-btn{font-size:12.5px;padding:8px 13px}
+.ds-gx .ds-small{font-size:12.5px}
+.ds-gx .ds-hint{font-size:14px}
+.ds-gx .ds-meter{grid-template-columns:104px 1fr 44px;font-size:13px}
+.ds-gx .ds-meter-l{font-size:11.5px}
+.ds-gx .ds-stat{grid-template-columns:72px 1fr 34px;font-size:11.5px}
+.ds-gx .ds-stat-t,.ds-gx .ds-meter-t,.ds-gx .ds-svc-bar{height:8px}
+.ds-gx .ds-stats{gap:6px}
+.ds-gx .ds-toast{font-size:14px}
+/* ⚠ THE VEHICLE IS ALWAYS IN THE MIDDLE OF THE GLASS: the renderer centres its subject and has no
+   lens shift. So the menu and the page stay the same width either side of it, and a narrower glass
+   narrows both rather than giving the page a wide column, which covered the vehicle. */
+@container dsbay (max-width:900px){
+  .ds-gx{--gx-side:clamp(214px,31%,300px)}
+  .ds-gx .ds-bay-head .ds-title .ds-dim{display:none}
+  .ds-gx .ds-job{padding:10px 20px 10px 14px}
+  .ds-gx .ds-job b{font-size:16px}
+  .ds-gx .ds-job-ico{font-size:17px;width:20px}
+  .ds-gx-page .ds-bay-body{padding:12px 12px 10px}
+  .ds-gx-till{padding:10px 12px 12px}
+  .ds-gx .ds-popts{grid-template-columns:repeat(auto-fill,minmax(92px,1fr))}
+  .ds-gx .ds-pgroups{flex-wrap:wrap}
+  .ds-gx .ds-pgroup{font-size:12px;letter-spacing:.3px;padding:8px 6px}
+}
+/* A phone, or a glass too small for three columns: one sheet up from the bottom that scrolls as a
+   whole, with the vehicle above it. */
+@container dsbay (max-width:680px){
+  .ds-gx{top:auto;max-height:50%;display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;
+    background:var(--gx-glass);border-top:2px solid var(--ds-accent)}
+  /* The sheet scrolls; its parts keep their height rather than squeezing to fit it. */
+  .ds-gx > *{flex-shrink:0}
+  .ds-gx-stage{display:none}
+  .ds-gx .ds-bay-head{position:sticky;top:0;z-index:2;flex-wrap:wrap;padding:8px 10px}
+  .ds-gx .ds-bay-head .ds-title{flex:1 1 140px}
+  .ds-gx .ds-bay-head .ds-title b{font-size:17px}
+  .ds-gx-rail{padding:10px 10px 0;gap:8px;background:none;overflow:visible}
+  .ds-gx .ds-jobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));grid-auto-flow:row;gap:5px}
+  .ds-gx .ds-job{flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px;clip-path:none;border-radius:6px;transform:none}
+  .ds-gx .ds-job.on{transform:none}
+  .ds-gx .ds-job-sub{margin-left:0}
+  .ds-gx .ds-job-ico{width:auto;font-size:16px}
+  .ds-gx-rail > .ds-note,.ds-gx-side{margin-left:0}
+  .ds-gx-page,.ds-gx-page .ds-bay-body{overflow:visible;flex:0 0 auto}
+  .ds-gx-page{border-left:0;background:none}
+  .ds-gx-page .ds-bay-body{padding:10px}
+  .ds-gx .ds-bay-foot .ds-gx-keys{display:none}
+}
+.ds-note{flex:0 0 auto;font-size:12.5px;padding:6px 10px;border-radius:6px;background:var(--ds-surf-lo);
   border:1px solid color-mix(in srgb, var(--ds-accent) 40%, transparent)}
 .ds-note.hire{border-color:color-mix(in srgb, #5aa58c 60%, transparent)}
+/* THE PARTS MENU (partsHtml): groups, the open group's slots, the open slot's options as cards. */
+.ds-pgroups{display:flex;gap:3px;margin:0 0 10px;padding:3px;border-radius:8px;background:var(--ds-surf-lo);box-shadow:inset 0 2px 5px var(--ds-bevel-lo)}
+.ds-pgroup{flex:1 1 auto;min-width:0;font:italic 900 13px/1 'Arial Narrow','Helvetica Neue',Arial,sans-serif;letter-spacing:.6px;text-transform:uppercase;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:10px 8px;border:0;border-radius:6px;background:transparent;color:var(--ds-fg-dim);cursor:pointer}
+.ds-pgroup:hover{color:var(--ds-fg)}
+.ds-pgroup.on{color:#fff;background:linear-gradient(165deg,var(--ds-accent),color-mix(in srgb, var(--ds-accent) 45%, var(--bg2)));
+  box-shadow:0 0 12px color-mix(in srgb, var(--ds-accent) 40%, transparent)}
+.ds-parts{display:flex;flex-direction:column;gap:4px}
+.ds-part{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font-family:inherit;font-size:14px;cursor:pointer;padding:10px 12px;
+  color:var(--ds-fg);border:1px solid transparent;border-left:3px solid color-mix(in srgb, var(--ds-accent) 30%, transparent);border-radius:3px;
+  background:linear-gradient(90deg,var(--ds-surf-mid),var(--ds-surf-lo));transition:border-color .12s,filter .12s}
+.ds-part:hover{border-left-color:var(--ds-accent);filter:brightness(1.1)}
+.ds-part.on{border-color:color-mix(in srgb, var(--ds-accent) 60%, transparent);border-left-color:var(--ds-accent);
+  background:linear-gradient(90deg,color-mix(in srgb, var(--ds-accent) 30%, var(--bg2)),var(--ds-surf-lo))}
+.ds-part-l{flex:1 1 auto;min-width:0;font-weight:bold}
+.ds-part-v{flex:0 0 auto;color:var(--ds-fg-dim);font-size:13px}
+.ds-part.changed .ds-part-v{color:var(--ds-gain)}
+.ds-part.changed .ds-part-v::before{content:'● '}
+.ds-part-tip{margin:6px 2px 2px;font-size:12.5px;line-height:1.45;color:var(--ds-fg-dim)}
+.ds-popts{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;margin:6px 0 10px}
+.ds-popt{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;text-align:left;font-family:inherit;cursor:pointer;
+  padding:10px 11px;border-radius:6px;color:var(--ds-fg);background:linear-gradient(165deg,var(--ds-surf),var(--ds-surf-lo));
+  border:1px solid color-mix(in srgb, var(--ds-accent) 25%, transparent);box-shadow:inset 0 1px 0 var(--ds-bevel-hi);transition:border-color .12s,filter .12s}
+.ds-popt:hover{filter:brightness(1.12);border-color:color-mix(in srgb, var(--ds-accent) 60%, transparent)}
+.ds-popt.on{border-color:var(--ds-accent);background:linear-gradient(165deg,color-mix(in srgb, var(--ds-accent) 34%, var(--bg2)),var(--ds-surf-lo));
+  box-shadow:inset 0 1px 0 var(--ds-bevel-hi),0 0 14px color-mix(in srgb, var(--ds-accent) 40%, transparent)}
+.ds-popt-top{display:flex;align-items:center;gap:6px;width:100%;min-width:0}
+.ds-popt-top b{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ds-popt-mine{display:block;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--ds-gain)}
+.ds-popt-price{font-size:12.5px;color:var(--ds-fg-dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ds-popt.on .ds-popt-price{color:var(--ds-fg)}
+.ds-popt-dot{width:12px;height:12px;border-radius:50%;flex:none;border:1px solid rgba(255,255,255,.3)}
 .ds-chip{font-family:inherit;font-size:12px;letter-spacing:.8px;cursor:pointer;padding:6px 11px;border-radius:7px;color:var(--ds-fg);
   background:color-mix(in srgb, var(--bg2) 80%, transparent);border:1px solid var(--ds-accent);
   box-shadow:0 0 10px color-mix(in srgb, var(--ds-accent) 30%, transparent)}
@@ -198,7 +344,6 @@ body.bigscreen .ds-bay{display:none!important}
   .ds-jobs::-webkit-scrollbar{display:none}
 }
 @media (max-width:720px){
-  .ds-bay.open{left:8px;right:8px;width:auto;max-height:calc(62% - 46px)}
   .ds-head{height:auto;min-height:44px;flex-wrap:wrap;padding:7px 10px;gap:6px 10px}
   .ds-head .ds-title{flex:1 1 110px}
   .ds-head .ds-title .ds-dim{display:none}

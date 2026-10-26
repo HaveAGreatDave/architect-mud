@@ -455,9 +455,10 @@
 /* The hint above the hand is in the flow; the old floor screen floated it over a 3-D scene. */
 .td-lot-col{overflow:auto;padding-right:2px}
 .td-lot-col .td-hint{position:static;transform:none;margin:0 0 4px;max-width:none}
-/* ── THE BAY ── docked on the glass by the shell (.ds-bay). Nothing in it scrolls: the shell
-   sizes the bay to the page and scales it down when it won't fit (depot-shell.js fitBay). */
-#td-svc .ds-bay-body{display:flex;flex-direction:column;overflow:clip}
+/* ── THE BAY ── the page column of the shell's garage (.ds-bay). The shell's page is the one
+   scroller (depot-shell.js bayWheel), so it keeps its overflow; the truck's own body inside it is
+   clipped open. */
+#td-svc .ds-bay-body{display:flex;flex-direction:column}
 #td-svc .td-side.td-svc-body{width:auto;flex:0 0 auto;overflow:clip}
 .td-plateform{display:flex;gap:6px}
 .td-plate-in{flex:1 1 auto;min-width:0;font-family:inherit;font-size:13px;padding:5px 7px;border-radius:6px;color:var(--td-fg);

@@ -17,7 +17,8 @@
 // The model's coordinates are the map window's, centred on (cx, cy), the boat's arrangement: the
 // window recentres every six tiles and the bodies are shifted with it.
 
-import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, interiorHotspots, ROAD_RIG_MUL } from './windshield.js';
+import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, interiorHotspots, ROAD_RIG_MUL, RENDER_TUNE } from './windshield.js';
+import { tweenOrbit } from './camera-tween.js';
 import { EYE_M } from '../../../shared/interior-shell.js';
 import { updateEngineAudio, stopEngineAudio, spoolUp, spoolDown, hitFx, groundFx } from './engine-audio.js';
 import { PODRACER_TYPES, CRANK_S, createPodracerState, stepPodracer, placePodracer, shiftPodracerOrigin, podracerPose, podracerParts, podracerBurn, tornBinder, mendBinder, podracerLook, podracerLivery } from './podracer-model.js';
@@ -146,7 +147,7 @@ export function openPodracer(ctx = {}) {
     livery: ctx.livery || null, preview: null,
     // The fitted kit, and how it looks (the mesh channels for its bolt-ons, the arc and plume colours);
     // a kit the fitting shop is showing on it before it is bought (podracer-depot.js) wins.
-    kit: ctx.kit || {}, kitPreview: null, look: podracerLook(ctx.kit || {}),
+    kit: ctx.kit || {}, kitPreview: null, kitLook: podracerLook(ctx.kit || {}),
     gLat: 0, gLong: 0, pv: null,
     cx: ctx.gx ?? 0, cy: ctx.gy ?? 0,
     ox: (ctx.gx ?? 0) - RAD, oy: (ctx.gy ?? 0) - RAD,
@@ -154,7 +155,7 @@ export function openPodracer(ctx = {}) {
     lever: [0, 0], set: [0, 0], split: 0, leverHeld: [false, false],
     starter: false, keys: new Set(),
     camH: ctx.heading ?? 0, cam: 0, extYaw: 0, drag: null,
-    look: { yaw: 0, pitch: 0 }, hover: null, press: null, lever3d: null,
+    look: { yaw: 0, pitch: 0 }, hover: null, press: null, lever3d: null, frame: null,
     first: !!ctx.first,
     hour: ctx.hour ?? 12, weather: (ctx.weather || 'clear').toLowerCase(),
     wxField: ctx.wxField || null, wxGround: ctx.wxGround || null,
@@ -332,8 +333,26 @@ const HOT_TIP = { ign: 'START / STOP: the turbines (K)', brake: 'BRAKE: air brak
 function cycleCam() {
   st.cam = (st.cam + 1) % CAMS.length;
   st.look.yaw = 0; st.look.pitch = 0;
+  st.frame = null;   // the driver picked a camera: the bay's shot is off
+  camLabel();
+}
+function camLabel() {
   const b = st.root?.querySelector?.('.pod-cam');
   if (b) b.textContent = '◎ ' + CAMS[st.cam].label;
+}
+/**
+ * The bay's shot (camera-tween.js SHOTS): while the yard works on it, the camera stands off the racer
+ * at a named angle, the way the other seats' bays do (cab-view.js cabFrame). It takes the near chase
+ * and keeps its own pitch and standoff in `st.frame`; `null` hands back the camera the driver had.
+ * A drag mid-move takes the yaw back, and V drops the shot.
+ */
+export function podracerFrame(shot, ms = 700) {
+  if (!st) return;
+  if (!shot) { if (st.frame) { st.cam = st.frame.cam; st.frame = null; camLabel(); } return; }
+  if (!st.frame) st.frame = { cam: st.cam, pitch: CHASE[0].pitch, zoom: CHASE[0].zoom };
+  if (CAMS[st.cam].seat) { st.cam = 1; camLabel(); }
+  tweenOrbit(st, { yaw: 'extYaw' }, { yaw: shot.yaw - (RENDER_TUNE.chaseYaw || 0) }, ms);
+  tweenOrbit(st.frame, { pitch: 'pitch', zoom: 'zoom' }, { pitch: shot.pitch, zoom: CHASE[0].zoom * shot.zoom }, ms);
 }
 
 // The controls play like the arcade racer: hold W for thrust and let go to coast, A / D steer, S or
@@ -429,8 +448,8 @@ function frame(now) {
     const view = cam.seat
       ? { external: false, seatModel: true, height: 0, eyeH: EYE_M_POD * SEAT_METRE + rideZ,
           lookYaw: st.look.yaw, lookPitch: st.look.pitch, instr: seatLive() }
-      : { external: true, extYaw: st.extYaw + wrap180(st.camH - st.sim.heading), extPitch: cam.pitch,
-          extZoom: Math.max(cam.zoom, lv && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor : 0) };
+      : { external: true, extYaw: st.extYaw + wrap180(st.camH - st.sim.heading), extPitch: st.frame ? st.frame.pitch : cam.pitch,
+          extZoom: Math.max(st.frame ? st.frame.zoom : cam.zoom, lv && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor : 0) };
     paintWindshield(ID, {
       cls: 'podracer', phase: 'cruise', worldBlend: 1,
       map: buildWindow(), mapCenter: { x: st.cx, y: st.cy },
@@ -447,12 +466,12 @@ function frame(now) {
       acX: st.cx + st.sim.x, acY: st.cy + st.sim.y,
       contacts: st.contacts.size ? st.contacts.frame(st.cx + st.sim.x, st.cy + st.sim.y, { roadRig: ROAD_RIG_MUL }) : null,
       skyline: st.skyline, roads: st.roads, regions: st.regions,
-      podracer: { ...podracerPose(st.sim, st.p), arc: st.look.arc, flame: st.look.flame, pipes: !!st.look.anim.kit_pipes },
+      podracer: { ...podracerPose(st.sim, st.p), arc: st.kitLook.arc, flame: st.kitLook.flame, pipes: !!st.kitLook.anim.kit_pipes },
       variant: st.typeId,
-      ...((st.preview || st.livery || st.look.casing) ? { livery: podracerLivery(st.preview || st.livery, st.kitPreview || st.kit) } : {}),
+      ...((st.preview || st.livery || st.kitLook.casing) ? { livery: podracerLivery(st.preview || st.livery, st.kitPreview || st.kit) } : {}),
       // The air brake petals on the turbines (mesh channel airbrake), easing out and back, and the
       // kit's bolt-on parts on theirs.
-      anim: { airbrake: st.brakeAnim, podStow: st.podStow, ...st.look.anim },
+      anim: { airbrake: st.brakeAnim, podStow: st.podStow, ...st.kitLook.anim },
     });
     drawRead();
 
@@ -486,7 +505,7 @@ function seatLive() {
     whip: s.whip || 0, whipping: (s.whipT || 0) > 0, reversing: !!st.reversing, mode: s.mode, binderPower: s.binderPower || 0,
     heat: s.heat, boosting: s.boosting, sliding: s.sliding, steer: st.split, t: performance.now(),
     inside: (st.preview || st.livery)?.inside || null, typeName: st.p.name, typeId: st.typeId,
-    heading: s.heading, gLat: st.gLat, gLong: st.gLong, kit: st.kitPreview || st.kit, arcRgb: st.look.arc || undefined,
+    heading: s.heading, gLat: st.gLat, gLong: st.gLong, kit: st.kitPreview || st.kit, arcRgb: st.kitLook.arc || undefined,
     hover: st.hover, press: st.press,
   };
 }
@@ -691,7 +710,7 @@ function toggleOut(show) {
 // The booth shows a livery on the racer before it is bought (podracer-depot.js); null takes it off.
 export function podracerPreview(livery) { if (st) st.preview = livery || null; }
 // The fitting shop shows a kit's looks on the racer before it is bought; null takes it off.
-export function podracerKitPreview(kit) { if (!st) return; st.kitPreview = kit || null; st.look = podracerLook(kit || st.kit); }
+export function podracerKitPreview(kit) { if (!st) return; st.kitPreview = kit || null; st.kitLook = podracerLook(kit || st.kit); }
 
 // ── What the server pushes ─────────────────────────────────────────────────────
 export function podracerSetWorld(msg = {}) {
@@ -715,7 +734,7 @@ export function podracerSetWorld(msg = {}) {
   if ('livery' in msg) { st.livery = msg.livery || null; st.preview = null; }
   // The fitting shop refitted it in the door: the seat steps the new row from the next frame.
   if (msg.params) st.p = msg.params;
-  if (msg.kit) { st.kit = msg.kit; st.kitPreview = null; st.look = podracerLook(st.kit); }
+  if (msg.kit) { st.kit = msg.kit; st.kitPreview = null; st.kitLook = podracerLook(st.kit); }
   if (msg.binder === true && !st.sim.binder) { mendBinder(st.sim, st.p); st.brokeDismissed = false; }
   // The server refused a report: put the racer back where it last believed it was, stopped.
   if (msg.snap) placePodracer(st.sim, st.p, msg.snap.x - st.cx, msg.snap.y - st.cy, msg.snap.heading || 0);
@@ -774,6 +793,8 @@ function ensurePodStyles() {
     .pod-out .pod-chip{ margin-right:8px; }
     @media (max-width:720px){ .pod-read{ white-space:normal; max-width:60vw; } }
     body.bigscreen .pod-root > *:not(.pod-view){ display:none !important; }
+    /* The yard's garage (depot-shell.js bayHtml) is its own screen: the seat's chrome steps out of it. */
+    .pod-root:has(> .ds-bay.open) > :is(.pod-chrome, .pod-panel, .pod-chips){ visibility:hidden; }
     body.bigscreen .pod-root .ws-label,
     body.bigscreen .pod-root .ws-frame::after{ display:none; }`;
   if (!el.parentNode) document.head.appendChild(el);
