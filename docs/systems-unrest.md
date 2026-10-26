@@ -34,9 +34,11 @@ part of town is tense and who is doing it?* If answering that needs a number, th
 feature is wrong.
 
 The **dev panel is the exact opposite** and gets the complete numeric picture, because
-an operator who cannot see the ledger cannot tune it. The line is the client boundary,
-not the data: every scalar is at `/dev` → **Unrest**, and none of it crosses into
-`client/game/`.
+an operator who cannot see the ledger cannot tune it. So does staff in the game: the
+Tablet Admin app's **Unrest** tab and `sysop unrest` ([systems-admin.md](systems-admin.md#unrest-))
+are a tracker with the same numbers and controls. The line is the **staff role**, not
+the data or the directory: every scalar is at `/dev` → **Unrest** and in the Admin app,
+both check the role on the server, and none of it reaches a player.
 
 ---
 
@@ -129,7 +131,7 @@ and *it comes back down on its own*.
 
 Everything downstream keys on the **band** — quiet / watchful / tense / flashpoint —
 and never on the raw numbers. That is rule 2 holding inside the code as well as at the
-client boundary.
+player boundary.
 
 ---
 

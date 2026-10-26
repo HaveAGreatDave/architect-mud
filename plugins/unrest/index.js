@@ -10,9 +10,9 @@
 // of which adds a scalar, a table or a verb.
 //
 // ⚠ Rule 2, in code as well as at the client boundary: every scalar in this plugin
-// is visible at /dev and none of it crosses into client/game. The moment there is
-// a player-facing readout the sim becomes a dashboard to optimise and the flavour
-// dies. The player's instrument is an NPC saying "don't go up past the water
+// is visible at /dev and in the staff-only Admin app (plugins/admin/unrest.js),
+// and none of it reaches a player. The moment there is a player-facing readout
+// the sim becomes a dashboard to optimise and the flavour dies. The player's instrument is an NPC saying "don't go up past the water
 // tonight", a wall somebody has been at, and a street that has a checkpoint on it.
 import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
@@ -28,7 +28,7 @@ import { roles, driverNames, driverNameFor, readClock, nightTarget, nightOpen } 
 import { reindex, allBlocks, blockOf } from './blocks.js';
 
 let ready = false;
-async function ensureLoaded() {
+export async function ensureLoaded() {
   if (ready) return;
   ready = true;
   await ledger.load();

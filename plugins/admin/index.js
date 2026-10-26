@@ -3,7 +3,7 @@
 // Tablet app in tablet-app.js is a skin over these verbs: every button runs a
 // sysop subcommand, so everything the app can do can also be typed.
 //
-// Built: weather, time, the ESP and the Coliseum roof. Players and the staff channel follow; see
+// Built: weather, time, the ESP, unrest and the Coliseum roof. Players and the staff channel follow; see
 // docs/systems-admin.md.
 import {
   WEATHER_TYPES, PRECIP_FORECAST_TYPES, getHUDPayload, getForecast, getWeatherEvent,
@@ -15,6 +15,7 @@ import { logActivity } from '../../server/models/db.js';
 import { heroEventTypes, bringWetCellOver } from '../weather/index.js';
 import { timeView, skipTime, setClock, setFrozen, setSpeed } from './time.js';
 import { espView, setEsp } from './esp.js';
+import * as unrest from './unrest.js';
 import { setVenueRoof, venueRoofView } from '../broadcast/index.js';
 import './tablet-app.js';
 
@@ -129,6 +130,8 @@ const USAGE = [
   'sysop time freeze  |  sysop time unfreeze  |  sysop time speed &lt;1|2|3|6&gt;',
   'sysop esp  |  sysop esp on [message]  |  sysop esp off',
   'sysop roof  |  sysop roof open  |  sysop roof shut  |  sysop roof auto',
+  'sysop unrest [block|here]  |  sysop unrest tick  |  sysop unrest calm &lt;block|here|all&gt;  |  sysop unrest stir &lt;block|here&gt;',
+  'sysop unrest set &lt;block|here&gt; &lt;grip|heat|pressure&gt; &lt;0-100&gt;  |  sysop unrest stage &lt;block|here&gt; &lt;incident&gt;  |  sysop unrest end &lt;block|here&gt;',
 ].map(l => `<span class="text-dim">${l}</span>`).join('<br>');
 
 function timeText() {
@@ -150,6 +153,24 @@ async function cmdTime(player, sub, rest) {
   return { type: 'error', message: USAGE };
 }
 
+// Unrest by block. A block is its key (7,8) or `here`; `sysop unrest` alone lists them all.
+async function cmdUnrest(player, sub, rest) {
+  if (!sub) return { type: 'output', message: await unrest.unrestText(player) };
+  if (sub === 'tick') return out(await unrest.runTick(player));
+  const cell = (arg) => unrest.resolveCell(player, arg);
+  const noCell = (arg) => ({ type: 'error', message: `No block "${arg ?? ''}". Use a key from <b>sysop unrest</b>, or <b>here</b>.` });
+  if (sub === 'calm') {
+    if (rest[0] === 'all') return out(await unrest.calm(player, 'all'));
+    return cell(rest[0]) ? out(await unrest.calm(player, cell(rest[0]))) : noCell(rest[0]);
+  }
+  if (sub === 'stir') return cell(rest[0]) ? out(await unrest.stir(player, cell(rest[0]))) : noCell(rest[0]);
+  if (sub === 'set') return cell(rest[0]) ? out(await unrest.setScalar(player, cell(rest[0]), rest[1], rest[2])) : noCell(rest[0]);
+  if (sub === 'stage') return cell(rest[0]) ? out(await unrest.stageIncident(player, cell(rest[0]), rest[1])) : noCell(rest[0]);
+  if (sub === 'end') return out(await unrest.endIncident(player, cell(rest[0]) || rest[0]));
+  const key = cell(sub);
+  return key ? { type: 'output', message: await unrest.unrestText(player, key) } : noCell(sub);
+}
+
 const out = (res) => res.ok
   ? { type: 'output', message: `<span class="msg-system">${res.message}</span>` }
   : { type: 'error', message: res.error };
@@ -165,6 +186,7 @@ async function cmdSysop(args, raw, player) {
     if (sub === 'off' || sub === 'stop') return out(await setEsp(player, false));
     return { type: 'error', message: USAGE };
   }
+  if (area === 'unrest') return cmdUnrest(player, sub, rest);
   if (area === 'roof') return sub ? out(setRoof(player, sub)) : { type: 'output', message: roofText() };
   if (area !== 'weather') return { type: 'error', message: `Unknown sysop area "${area}".<br>${USAGE}` };
 

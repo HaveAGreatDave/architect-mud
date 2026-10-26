@@ -1349,6 +1349,39 @@ html[data-density="compact"] #tablet-os-overlay .tos-book p:first-of-type::first
   border:1px solid color-mix(in srgb, var(--tos-fg-dim) 18%, transparent); }
 #tablet-os-overlay .tos-tile-stat span { font-size:0.6875rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
 #tablet-os-overlay .tos-tile-stat b { font-size:0.9375rem; color:var(--tos-fg); font-variant-numeric:tabular-nums; }
+/* Levels for the cell grid and meters: 0 calm to 3 alarming. */
+#tablet-os-overlay .lv0 { --tos-lv:#5fae86; }
+#tablet-os-overlay .lv1 { --tos-lv:#e2c044; }
+#tablet-os-overlay .lv2 { --tos-lv:#ef8a3a; }
+#tablet-os-overlay .lv3 { --tos-lv:#e5484d; }
+#tablet-os-overlay .tos-cg { display:grid; gap:5px; margin:4px 0 6px; }
+#tablet-os-overlay .tos-cg-cell { position:relative; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; gap:2px; min-height:58px; min-width:0;
+  padding:6px 7px; border-radius:7px; cursor:pointer; text-align:left; font:inherit; color:var(--tos-fg);
+  background:color-mix(in srgb, var(--tos-lv) 22%, var(--tos-surface, #10201d)); border:1px solid color-mix(in srgb, var(--tos-lv) 55%, transparent);
+  transition:filter .12s, transform .05s; }
+#tablet-os-overlay .tos-cg-cell.lv0 { background:color-mix(in srgb, var(--tos-lv) 9%, var(--tos-surface, #10201d)); border-color:color-mix(in srgb, var(--tos-lv) 30%, transparent); }
+#tablet-os-overlay .tos-cg-cell.lv2 { background:color-mix(in srgb, var(--tos-lv) 30%, var(--tos-surface, #10201d)); }
+#tablet-os-overlay .tos-cg-cell.lv3 { background:color-mix(in srgb, var(--tos-lv) 40%, var(--tos-surface, #10201d)); box-shadow:0 0 12px color-mix(in srgb, var(--tos-lv) 55%, transparent); }
+#tablet-os-overlay .tos-cg-cell.here { outline:2px solid var(--mg-accent); outline-offset:1px; }
+#tablet-os-overlay .tos-cg-cell:hover { filter:brightness(1.18); }
+#tablet-os-overlay .tos-cg-cell:active { transform:translateY(1px); }
+#tablet-os-overlay .tos-cg-cell:focus-visible { outline:2px solid var(--mg-accent); outline-offset:2px; }
+#tablet-os-overlay .tos-cg-cell b { font-size:0.75rem; line-height:1.15; }
+#tablet-os-overlay .tos-cg-sub { font-size:0.625rem; line-height:1.15; color:var(--tos-fg-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+#tablet-os-overlay .tos-cg-marks { position:absolute; top:4px; right:5px; font-size:0.75rem; letter-spacing:1px; }
+#tablet-os-overlay .tos-cg-legend { display:flex; flex-wrap:wrap; gap:4px 12px; margin:0 0 12px; font-size:0.6875rem; color:var(--tos-fg-dim); }
+#tablet-os-overlay .tos-cg-key { display:inline-flex; align-items:center; gap:5px; }
+#tablet-os-overlay .tos-cg-key i { width:10px; height:10px; border-radius:3px; background:var(--tos-lv); }
+#tablet-os-overlay .tos-meters { display:flex; flex-direction:column; gap:12px; margin:0 0 14px; }
+#tablet-os-overlay .tos-meter-hd { display:flex; justify-content:space-between; gap:8px; font-size:0.8125rem; color:var(--tos-fg-dim); margin-bottom:4px; }
+#tablet-os-overlay .tos-meter-hd b { color:var(--tos-fg); font-variant-numeric:tabular-nums; }
+#tablet-os-overlay .tos-meter-bar { position:relative; height:10px; border-radius:999px; overflow:hidden; background:var(--tos-surface-lo, rgba(255,255,255,0.06));
+  border:1px solid color-mix(in srgb, var(--tos-fg-dim) 20%, transparent); }
+#tablet-os-overlay .tos-meter-bar i { position:absolute; inset:0 auto 0 0; border-radius:999px; background:var(--tos-lv); transition:width .3s; }
+#tablet-os-overlay .tos-meter-bar u { position:absolute; top:0; bottom:0; width:1px; background:color-mix(in srgb, var(--tos-fg) 45%, transparent); }
+#tablet-os-overlay .tos-meter-scale { position:relative; height:14px; margin-top:2px; font-size:0.625rem; color:var(--tos-fg-dim); }
+#tablet-os-overlay .tos-meter-scale span { position:absolute; top:0; white-space:nowrap; transform:translateX(2px); }
+#tablet-os-overlay .tos-meter-hint { font-size:0.6875rem; color:var(--tos-fg-dim2, var(--tos-fg-dim)); margin-top:3px; }
 #tablet-os-overlay .tos-section-hd { font-size:0.6875rem; font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim); margin:14px 0 6px; }
 #tablet-os-overlay .tos-chips { display:flex; flex-wrap:wrap; gap:6px; }
 #tablet-os-overlay .tos-chip { font:inherit; font-size:0.78rem; padding:6px 11px; border-radius:999px; cursor:pointer; color:var(--tos-fg);

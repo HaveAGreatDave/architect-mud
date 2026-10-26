@@ -11,6 +11,7 @@ const TABS = [
   { id: 'weather', label: '☁ Weather' },
   { id: 'time', label: '⏱ Time' },
   { id: 'esp', label: '🚨 ESP' },
+  { id: 'unrest', label: '🔥 Unrest' },
   { id: 'roof', label: '🏟 Roof' },
   { id: 'players', label: '👥 Players' },
   { id: 'staff', label: '💬 Staff chat' },
@@ -108,6 +109,135 @@ async function espScreen(res) {
   return frame('esp', detail, actions, res);
 }
 
+// Unrest: the city as a map of blocks coloured by mood, and one block's gauges and
+// controls when you tap it. Cell actions carry the block in the action id
+// (u_grip@7,8), because a slider or a pick sends only its own value.
+async function unrestScreen(player, key, res) {
+  const u = await import('./unrest.js');
+  if (key) return unrestCellScreen(player, key, res, u);
+  const v = await u.cityView(player);
+  const B = u.BANDS;
+  const hot = v.cells.filter(c => c.band !== 'quiet');
+  const counts = ['flashpoint', 'tense', 'watchful'].map(b => [b, hot.filter(c => c.band === b).length]).filter(([, n]) => n);
+  const worstCell = [...v.cells].sort((a, b) => b.score - a.score)[0];
+  const xs = v.cells.map(c => c.bx), ys = v.cells.map(c => c.by);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const detail = {
+    hero: {
+      icon: B[v.worst].icon,
+      title: hot.length ? `${hot.length} of ${v.cells.length} blocks unsettled` : 'The city is quiet',
+      sub: hot.length
+        ? `${counts.map(([b, n]) => `${n} ${B[b].label.toLowerCase()}`).join(', ')}. Worst: ${worstCell.name}`
+        : `${v.cells.length} blocks watched. Nothing is building anywhere.`,
+      badge: B[v.worst].label,
+      badgeKind: B[v.worst].level >= 2 ? 'warn' : undefined,
+    },
+    desc: 'Each square is a block of the city, north at the top. Tap one for its gauges and controls.',
+    grid: {
+      screen: 'unrest',
+      cols: Math.max(...xs) - x0 + 1,
+      rows: Math.max(...ys) - y0 + 1,
+      cells: v.cells.map(c => ({
+        id: c.key, x: c.bx - x0, y: c.by - y0, level: B[c.band].level, here: c.here,
+        label: c.landmark || c.part, sub: c.landmark ? c.part : '',
+        marks: `${c.lit ? '🔥' : ''}${c.live.length ? '⚠' : ''}${c.here ? '📍' : ''}`,
+        title: `${c.name}: ${B[c.band].label}${c.lit ? ', burning' : ''}${c.live.length ? `, ${c.live[0].name}` : ''}${c.here ? ', you are here' : ''}`,
+      })),
+      legend: [
+        ...Object.values(B).map(b => ({ level: b.level, label: b.label })),
+        { label: '🔥 burning' }, { label: '⚠ incident' }, { label: '📍 you' },
+      ],
+    },
+    tiles: [
+      { label: 'Incidents', value: `${v.live.length} of ${v.cap}` },
+      { label: 'Burning', value: String(v.cells.filter(c => c.lit).length) },
+      { label: 'Wildblood', value: v.wildblood.open ? `Out: ${v.wildblood.place}` : 'Not tonight yet' },
+    ],
+    rows: [
+      { label: 'Live incidents', heading: true },
+      ...(v.live.length
+        ? v.live.map(i => ({ label: i.name, value: `${i.place} · ${i.minsLeft} min left` }))
+        : [{ label: 'None', value: 'Nothing is staged anywhere.' }]),
+    ],
+  };
+  const actions = [
+    { id: 'u_tick', label: 'Run a tick now', confirm: 'Run one 30-minute tick of the sim now? Moods move, the street and the news may speak, and an incident may start.' },
+    ...(v.live.length ? [{
+      id: 'u_end', label: 'End an incident', kind: 'ghost', title: 'End an incident',
+      pick: v.live.map(i => ({ value: i.instanceId, label: `${i.name}, ${i.place}` })),
+      prompt: `The incident to end: ${v.live.map(i => i.instanceId).join(', ')}`,
+    }] : []),
+    ...(hot.length ? [{ id: 'u_calm@all', label: 'Calm the whole city', kind: 'danger', confirm: 'Put every block back to its baseline? Anything burning goes out on the next tick. Live incidents keep running.' }] : []),
+  ];
+  return frame('unrest', detail, actions, res);
+}
+
+async function unrestCellScreen(player, key, res, u) {
+  const c = await u.cellView(player, key);
+  if (!c) return unrestScreen(player, null, { ok: false, error: `No block "${key}".` });
+  const B = u.BANDS;
+  const { IGNITE_HI, IGNITE_LO, BAND_AT } = await import('../unrest/ledger.js');
+  const lv = (n, warm, hot) => (n >= hot ? 2 : n >= warm ? 1 : 0);
+  const who = (w) => (c.orders[w] ? ` (${c.orders[w]})` : '');
+  const live = c.live[0];
+  const detail = {
+    hero: {
+      icon: B[c.band].icon,
+      title: B[c.band].label,
+      sub: `${c.name}${c.here ? ' · you are here' : ''}`,
+      badge: c.lit ? 'Burning' : live ? 'Incident' : undefined,
+      badgeKind: c.lit || live ? 'warn' : undefined,
+    },
+    desc: c.outlook,
+    meters: [
+      {
+        label: 'Mood', value: c.score, level: B[c.band].level, text: String(c.score),
+        scale: [{ at: 0, label: 'Quiet' }, { at: BAND_AT.watchful, label: 'Watchful' }, { at: BAND_AT.tense, label: 'Tense' }, { at: BAND_AT.flashpoint, label: 'Flashpoint' }],
+        hint: 'Trouble plus half the crackdown.',
+      },
+      { label: `Crackdown${who('grip')}`, value: c.grip, level: lv(c.grip, 25, 50), hint: `How hard the authority is squeezing. Fades over about 3 hours.` },
+      { label: `Trouble${who('heat')}`, value: c.heat, level: lv(c.heat, 20, 45), hint: 'Trouble on the street. Fades in about 20 minutes unless something feeds it.' },
+      {
+        label: 'Grievance', value: c.pressure, level: c.lit ? 3 : c.pressure > IGNITE_HI ? 2 : lv(c.pressure, IGNITE_HI * 0.6, IGNITE_HI),
+        text: `${c.pressure} of ${IGNITE_HI}`,
+        scale: [{ at: IGNITE_LO, label: 'Goes out' }, { at: IGNITE_HI, label: 'Boils over' }],
+        hint: 'Builds under the crackdown over days. When it boils over the block kicks off, and that spends it.',
+      },
+    ],
+    rows: [
+      { label: 'What players have seen', heading: true },
+      { label: 'Trouble last showed', value: u.signalAgo(c.signals.heat) },
+      { label: 'Crackdown last showed', value: u.signalAgo(c.signals.grip) },
+      { label: 'Happening here', heading: true },
+      ...(live
+        ? [{ label: live.name, value: `${Math.max(0, Math.round((live.endsAt - Date.now()) / 60000))} min left` }]
+        : [{ label: 'Nothing', value: 'No incident is staged here.' }]),
+      { label: 'Could happen here', heading: true },
+      ...c.catalogue.map(d => ({ label: `${d.name}${d.order ? ` (${d.order})` : ''}`, value: d.why ? `Not now: ${d.whyText}` : 'Ready' })),
+    ],
+  };
+  const at = `@${c.key}`;
+  const slider = (s, value) => ({
+    id: `u_${s}${at}`, label: u.SCALARS[s].label, slider: { min: 0, max: 100, step: 1, value },
+    prompt: `${u.SCALARS[s].label}, 0 to 100. It's ${value} now.`,
+  });
+  const actions = [
+    { id: 'u_city', label: '◀ Whole city', kind: 'ghost' },
+    slider('grip', c.grip), slider('heat', c.heat), slider('pressure', c.pressure),
+    ...(c.band !== 'quiet' || c.lit || c.pressure > IGNITE_LO ? [{ id: `u_calm${at}`, label: 'Calm it down' }] : []),
+    ...(!c.lit && c.pressure <= IGNITE_HI ? [{ id: `u_stir${at}`, label: 'Stir it up', kind: 'danger', confirm: 'Push grievance past boiling point? The block kicks off on the next tick.' }] : []),
+    live
+      ? { id: `u_end${at}`, label: `End ${live.name}`, kind: 'danger', confirm: `End ${live.name} now and take down everything it put up?` }
+      : {
+        id: `u_stage${at}`, label: 'Start an incident', title: 'Start an incident here',
+        pick: c.catalogue.map(d => ({ value: d.id, label: `${d.name}${d.why ? `: forced, ${d.whyText}` : ''}` })),
+        prompt: `The incident to start: ${c.catalogue.map(d => d.id.replace(/^incident_/, '')).join(', ')}`,
+      },
+    { id: `u_tick${at}`, label: 'Run a tick now', kind: 'ghost', confirm: 'Run one 30-minute tick of the whole sim now?' },
+  ];
+  return { ...frame('unrest', detail, actions, res), params: c.key };
+}
+
 // The Coliseum's retractable roof. The forecast sets it each day; a button here holds it till tomorrow.
 async function roofScreen(res) {
   const { roofView } = await import('./index.js');
@@ -148,6 +278,7 @@ async function buildScreen(player, screenId, params, res) {
   const tab = String(screenId || 'weather').toLowerCase();
   if (tab === 'time') return timeScreen(res);
   if (tab === 'esp') return espScreen(res);
+  if (tab === 'unrest') return unrestScreen(player, String(params || '').trim().toLowerCase() || null, res);
   if (tab === 'roof') return roofScreen(res);
   if (tab === 'players' || tab === 'staff') return soonScreen(tab);
   return weatherScreen(res);
@@ -170,6 +301,21 @@ async function handleAction(player, actionId, params) {
   }
 
   if (actionId.startsWith('r_')) return roofScreen(admin.setRoof(player, actionId.slice(2)));
+
+  if (actionId.startsWith('u_')) {
+    const u = await import('./unrest.js');
+    const [op, key] = actionId.slice(2).split('@');
+    let res;
+    if (op === 'city') return unrestScreen(player, null);
+    if (op === 'tick') res = await u.runTick(player);
+    else if (op === 'calm') res = await u.calm(player, key);
+    else if (op === 'stir') res = await u.stir(player, key);
+    else if (op === 'end') res = await u.endIncident(player, key || val);
+    else if (op === 'stage') res = val ? await u.stageIncident(player, key, val.toLowerCase()) : { ok: false, error: 'Choose an incident.' };
+    else if (u.SCALARS[op]) res = await u.setScalar(player, key, op, val);
+    // A block's own control comes back to the block; the city's come back to the city.
+    return unrestScreen(player, key && key !== 'all' ? key : null, res);
+  }
 
   if (actionId.startsWith('e_')) {
     const { setEsp } = await import('./esp.js');

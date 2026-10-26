@@ -5425,6 +5425,33 @@ function renderTiles(tiles) {
   return `<div class="tos-tiles">${tiles.map(t => `<div class="tos-tile-stat"><span>${esc(t.label)}</span><b>${esc(String(t.value ?? ''))}</b></div>`).join('')}</div>`;
 }
 
+// Labelled bars: [{ label, value, max = 100, text?, level 0-3, scale?: [{ at, label }], hint? }].
+// level runs calm to alarming and picks the colour; scale writes names under the bar at those values.
+function renderMeters(meters) {
+  if (!meters?.length) return '';
+  return `<div class="tos-meters">${meters.map(m => {
+    const max = m.max || 100;
+    const pct = (n) => Math.max(0, Math.min(100, (Number(n) || 0) / max * 100));
+    const scale = (m.scale || []).map(s => `<span style="left:${pct(s.at)}%">${esc(s.label)}</span>`).join('');
+    return `<div class="tos-meter lv${Number(m.level) || 0}" role="meter" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${Number(m.value) || 0}" aria-label="${esc(m.label)}">`
+      + `<div class="tos-meter-hd"><span>${esc(m.label)}</span><b>${esc(String(m.text ?? m.value ?? ''))}</b></div>`
+      + `<div class="tos-meter-bar"><i style="width:${pct(m.value)}%"></i>${(m.scale || []).filter(s => s.at > 0).map(s => `<u style="left:${pct(s.at)}%"></u>`).join('')}</div>`
+      + `${scale ? `<div class="tos-meter-scale">${scale}</div>` : ''}${m.hint ? `<div class="tos-meter-hint">${esc(m.hint)}</div>` : ''}</div>`;
+  }).join('')}</div>`;
+}
+
+// A map of tappable squares: { screen, cols, rows, cells: [{ id, x, y, label, sub?, level 0-3,
+// marks?, here?, title? }], legend?: [{ label, level? }] }. A tap opens '<screen> <id>' in this app.
+function renderCellGrid(g) {
+  if (!g?.cells?.length) return '';
+  const cells = g.cells.map(c => `<button type="button" class="tos-cg-cell lv${Number(c.level) || 0}${c.here ? ' here' : ''}"`
+    + ` style="grid-column:${c.x + 1};grid-row:${c.y + 1}" data-cg-open="${esc(c.id)}" title="${esc(c.title || c.label)}" aria-label="${esc(c.title || c.label)}">`
+    + `${c.marks ? `<span class="tos-cg-marks" aria-hidden="true">${esc(c.marks)}</span>` : ''}<b>${esc(c.label)}</b>${c.sub ? `<span class="tos-cg-sub">${esc(c.sub)}</span>` : ''}</button>`).join('');
+  const legend = (g.legend || []).map(l => `<span class="tos-cg-key">${l.level != null ? `<i class="lv${l.level}"></i>` : ''}${esc(l.label)}</span>`).join('');
+  return `<div class="tos-cg" data-cg-screen="${esc(g.screen || '')}" style="grid-template-columns:repeat(${g.cols || 1},minmax(0,1fr));grid-template-rows:repeat(${g.rows || 1},auto)">${cells}</div>`
+    + `${legend ? `<div class="tos-cg-legend">${legend}</div>` : ''}`;
+}
+
 // A 'chips' action ({ chips: { options: [{ value, label, icon? }], active } }): one
 // button per option, fires with its value.
 function renderChips(appId, a) {
@@ -5890,7 +5917,9 @@ function renderBody() {
       ${det.name ? `<div class="tos-detail-name${isBook ? ' tos-book-title' : ''}">${esc(det.name)}</div>` : ''}
       ${det.desc ? `<div class="tos-detail-desc">${esc(det.desc)}</div>` : ''}
       ${renderHero(det.hero)}
+      ${renderCellGrid(det.grid)}
       ${renderTiles(det.tiles)}
+      ${renderMeters(det.meters)}
       ${renderObjectives(d.quest?.objectives)}
       ${d.narratable ? renderNarrateBar() : ''}
       ${det.body ? `<div class="tos-detail-body${isBook ? ' tos-book' : ''}${d.comic ? ' tos-comic' : ''}">${
@@ -6285,6 +6314,9 @@ function wireBody() {
       // Replace, don't push: tabs are lateral moves.
       if (id !== _data?.activeTab) nav(_data.appId, id, null, true);
     });
+  });
+  _overlay.querySelectorAll('[data-cg-open]').forEach(el => {
+    el.addEventListener('click', () => nav(_data.appId, el.closest('[data-cg-screen]')?.getAttribute('data-cg-screen') || null, el.getAttribute('data-cg-open')));
   });
   _overlay.querySelectorAll('[data-cal-month]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, 'month', el.getAttribute('data-cal-month')));

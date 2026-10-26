@@ -38,9 +38,10 @@ not read the block at all. See `roles.js`.
 **No player-facing readout, ever.** No verb, no tablet gauge, no number. The moment
 there is a readout the sim becomes a dashboard to optimise and the flavour dies. The
 dev panel is the exact opposite and gets the complete numeric picture, because an
-operator who cannot see the ledger cannot tune it. The line is the client boundary,
-not the data: every scalar is visible at `/dev` and none of it crosses into
-`client/game/`.
+operator who cannot see the ledger cannot tune it, and so does staff in the game,
+through the Tablet Admin app's Unrest tab and `sysop unrest` (`plugins/admin/unrest.js`).
+The line is the staff role, not the data: every scalar is visible at `/dev` and in the
+Admin app, both check the role on the server, and none of it reaches a player.
 
 **Signal before effect.** An incident may not stage in a cell unless that cell carried
 a perceivable, attributable signal *from the same order* inside the preceding six

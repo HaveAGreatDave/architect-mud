@@ -8,6 +8,9 @@ import { spokenTime, parseClock, skipTime, setClock, setSpeed } from './time.js'
 import { espView, setEsp } from './esp.js';
 import { bringWetCellOver } from '../weather/index.js';
 import { getWeatherFieldSnapshot } from '../../server/engine/environment.js';
+import { allBlocks } from '../unrest/blocks.js';
+import * as ledger from '../unrest/ledger.js';
+import { ensureLoaded as ensureUnrest } from '../unrest/index.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -81,7 +84,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('Time tab has a hero, the four skips and the speed chips',
       tscr?.activeTab === 'time' && !!tscr.detail.hero && ['t_skip_4', 't_skip_8', 't_skip_12', 't_skip_24'].every(id => tscr.actions.some(a => a.id === id && a.confirm)) && tscr.actions.some(a => a.id === 't_speed' && a.chips),
       JSON.stringify(tscr?.actions?.map(a => a.id)));
-    check('Weather tab carries the six tabs', screen?.tabs?.length === 6 && screen.activeTab === 'weather');
+    check('Weather tab carries the seven tabs', screen?.tabs?.length === 7 && screen.activeTab === 'weather');
 
     // The ESP: on and off through the verb, the tab following it, and a player refused.
     // The roof tab: the button moves the roof and holds it, and auto hands it back.
@@ -113,6 +116,44 @@ export default async function regress({ run, check, getPlayer }) {
     check('sysop esp refused for a player', /unknown command/i.test(r?.message || '') && !espView().active, r?.message);
     const pe = await app.handleAction(p, 'e_on', '');
     check('the ESP tab refuses a player', pe?.view === 'error' && !espView().active, JSON.stringify(pe)?.slice(0, 120));
+
+    // Unrest. A player gets no readout of it anywhere (systems-unrest.md, rule 2), so
+    // the refusals matter as much as the tracker.
+    r = await run('sysop unrest');
+    check('sysop unrest refused for a player', /unknown command/i.test(r?.message || ''), r?.message);
+    const pu = await app.buildScreen(p, 'unrest', '');
+    check('the Unrest tab refuses a player', pu?.view === 'error', JSON.stringify(pu)?.slice(0, 120));
+    const blocks = allBlocks();
+    if (blocks.length) {
+      p.role = 'admin';
+      await ensureUnrest();
+      const key = blocks[0];
+      const saved = ledger.read(key);
+      try {
+        const city = await app.buildScreen(p, 'unrest', '');
+        const cells = city?.detail?.grid?.cells || [];
+        check('Unrest tab maps every block once', cells.length === blocks.length && new Set(cells.map(c => c.id)).size === blocks.length, `${cells.length} of ${blocks.length}`);
+        check('…each placed on the grid and given a level', cells.every(c => c.x >= 0 && c.y >= 0 && c.x < city.detail.grid.cols && c.y < city.detail.grid.rows && [0, 1, 2, 3].includes(c.level)), JSON.stringify(cells[0]));
+        let cell = await app.handleAction(p, `u_heat@${key}`, '60');
+        check('a block slider sets the ledger and stays on the block', Math.round(ledger.read(key).heat) === 60 && cell?.params === key && cell.detail?.meters?.length === 4, `${ledger.read(key).heat} ${cell?.params}`);
+        check('…and its mood is the band the ledger reads', cell.detail.hero.title.toLowerCase() === ledger.bandOf(key), cell.detail.hero.title);
+        // Every refusal the incident gate can give has a sentence, or the tracker shows a code.
+        const raw = cell.detail.rows.filter(row => /^Not now: [a-z-]+$/.test(row.value || ''));
+        check('every incident refusal is said in words', !raw.length, JSON.stringify(raw[0]));
+        ledger.force(key, { lit: true });
+        cell = await app.handleAction(p, `u_calm@${key}`, '');
+        const row = ledger.read(key);
+        check('Calm it puts the block back to its baseline', row.heat === ledger.BASELINE.heat && row.grip === ledger.BASELINE.grip && row.pressure === 0 && !row.lit, JSON.stringify(row));
+        r = await run(`sysop unrest ${key}`);
+        check('sysop unrest <block> reads the same block', /Crackdown/.test(r?.message || '') && /Grievance/.test(r?.message || ''), r?.message);
+        r = await run('sysop unrest set nowhere heat 50');
+        check('sysop unrest refuses a block that does not exist', /No block/.test(r?.message || ''), r?.message);
+      } finally {
+        ledger.force(key, saved);
+        await ledger.flush();
+        p.role = 'player';
+      }
+    }
   } finally {
     p.role = savedRole;
   }

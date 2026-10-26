@@ -243,8 +243,19 @@ function renderDetail(d) {
   const det = d.detail || {};
   let html = '';
   if (det.name) html += `<h3>${esc(det.name)}</h3>`;
+  if (det.hero) html += `<p><strong>${esc(det.hero.title || '')}</strong>${det.hero.badge ? ` (${esc(det.hero.badge)})` : ''}${det.hero.sub ? `. ${esc(det.hero.sub)}` : ''}</p>`;
   if (det.desc) html += `<p>${esc(det.desc)}</p>`;
   if (det.body) html += `<p>${esc(det.body)}</p>`;
+  // A cell grid is a map drawn for the eye; here it's the list of its squares, each opening the same screen.
+  if (det.grid?.cells?.length) {
+    html += '<ul class="ta-list">' + det.grid.cells.map(c =>
+      `<li><button type="button" class="ta-row" data-open-item="${esc(`${det.grid.screen || ''} ${c.id}`.trim())}">${esc(c.title || c.label)}</button></li>`).join('') + '</ul>';
+  }
+  const pairs = [
+    ...(det.tiles || []).map(t => [t.label, t.value]),
+    ...(det.meters || []).map(m => [m.label, `${m.text ?? m.value}${m.hint ? `. ${m.hint}` : ''}`]),
+  ];
+  if (pairs.length) html += '<dl>' + pairs.map(([k, v]) => `<dt>${esc(k ?? '')}</dt><dd>${esc(v ?? '')}</dd>`).join('') + '</dl>';
   // Detail rows are label/value pairs — a description list says exactly that, and
   // screen readers navigate one by term.
   if (det.rows?.length) {

@@ -83,18 +83,26 @@ export function force(key, patch) {
   for (const k of ['grip', 'heat', 'pressure']) {
     if (patch[k] != null) row[k] = clamp(Number(patch[k]));
   }
+  if (patch.lit != null) row.lit = !!patch.lit;
   dirty = true;
   return { ...row };
 }
 
 // The band is what everything downstream keys on — never the raw numbers, which
 // is rule 2 holding inside the code as well as at the client boundary.
-export function bandOf(key) {
+export const BAND_AT = { watchful: 25, tense: 45, flashpoint: 70 };
+
+/** The number the band is cut from: heat, plus half the grip. */
+export function scoreOf(key) {
   const { grip, heat } = rowFor(key);
-  const t = heat + grip * 0.5;
-  if (t >= 70) return 'flashpoint';
-  if (t >= 45) return 'tense';
-  if (t >= 25) return 'watchful';
+  return heat + grip * 0.5;
+}
+
+export function bandOf(key) {
+  const t = scoreOf(key);
+  if (t >= BAND_AT.flashpoint) return 'flashpoint';
+  if (t >= BAND_AT.tense) return 'tense';
+  if (t >= BAND_AT.watchful) return 'watchful';
   return 'quiet';
 }
 
