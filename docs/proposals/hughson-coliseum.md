@@ -185,11 +185,12 @@ authored with (`facing`: south for eight of them, north for the bleacher gate).
     the broadcast both read. The east and west decks run in from the wall under the rails, on
     columns.
   - Four stepped light towers at the corners: a fluted shaft, two setbacks, a bronze lamp house with
-    its floods turned to the field, a crown and a finial with a red beacon after dark.
+    its floods turned to the field, a crown and a finial with a red beacon after dark, and a flag on
+    the crown's outer corner.
   - The main gate on Sorrel Way, a stepped frontispiece between two Guardian pylons: a portal in
     three receding orders round bronze doors and a sunburst fanlight, a narrow grille gate with a
     lantern over it either side, GRANDSTAND on its plate, the gilt rising sun on the setback with a
-    baseball for its disc, and the flag. The bleacher gate is its smaller twin with BLEACHERS on its
+    baseball for its disc, and a stepped crown over it. The bleacher gate is its smaller twin with BLEACHERS on its
     plate.
   - The Guardians, after the Hope Memorial Bridge's in Cleveland: each pylon fluted below, and on a
     corbel halfway up a helmeted, square-shouldered figure in relief, robed to the feet, the west
