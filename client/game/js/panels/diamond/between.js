@@ -385,7 +385,7 @@ export function shotsBetween({ from, until, deck, rubAt, bags = [], salt = '' })
   if (out[out.length - 1].shot !== 'high') out.push({ at: t, shot: 'high' });
   // round the park
   const pool = [
-    deck && { shot: deck, len: 5.5, swing: 0.6 }, { shot: 'sky', len: 5 }, { shot: 'crowd', len: 4 },
+    deck && { shot: deck, len: 5.5, swing: 0.6 }, { shot: 'sky', len: 5 }, { shot: 'skyL', len: 5 }, { shot: 'skyR', len: 5 }, { shot: 'crowd', len: 4 },
     rubs && { shot: 'rub', len: 4.5, rub: 0.3 }, { shot: 'cf', len: 4.5 }, { shot: 'backstop', len: 4 },
     ...[1, 2, 3].filter((b) => bags[b - 1]).map((b) => ({ shot: BAG_CAMS[b], len: 4.5 })),
   ].filter(Boolean);

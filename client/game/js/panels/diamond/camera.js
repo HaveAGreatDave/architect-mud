@@ -69,8 +69,15 @@ export const SHOTS = Object.freeze({
   // fireworks over the outfield. ⚠ UNDER THE ROOF'S LINE AND IN FRONT OF THE DECK: the Coliseum's
   // shells spring from the decks behind the stands (gl/ballpark-mesh.js), and an eye up at 118 ft sat
   // on the shut roof's skin; any further back and it's inside the first-base deck. The lens is a
-  // little wider than it was, because the shells over the outfield are nearer.
-  sky: Object.freeze({ eye: [0, 100, -128], at: [-40, 128, 1200], fov: 56, shadow: [[0, 0, 140], 300] }),
+  // little wider than it was, because the shells over the outfield are nearer. It stands at the
+  // upper deck's front rail, low enough to look level across the outfield at the skyline, not
+  // down on the grass.
+  sky: Object.freeze({ eye: [0, 62, -120], at: [-30, 66, 1200], fov: 52, shadow: [[0, 0, 140], 300] }),
+  // up over foul ground off either side of the plate (in front of the stands, which start 44 ft off
+  // the line), looking out down a line into a corner: the left-field pole and the city past it from
+  // the third-base side, right field from the first. Cutaways round the park.
+  skyL: Object.freeze({ eye: [36, 48, -26], at: [420, 30, 560], fov: 50, shadow: [[180, 0, 180], 300] }),
+  skyR: Object.freeze({ eye: [-36, 48, -26], at: [-420, 30, 560], fov: 50, shadow: [[-180, 0, 180], 300] }),
   // the main gate from the crossing outside it, the crowd going in: before a game's first pitch. The
   // renderer stands it on its own venue's crossing (diamond/streets.js streetShot); this is where it
   // stands with no city round the park
