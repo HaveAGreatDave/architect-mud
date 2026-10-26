@@ -46,7 +46,7 @@
     }
   },
   "chitchat": [],
-  "description": "Tullia Vane runs the hottest water for two hundred miles and prices it accordingly, without apology and without ever once being talked down. She's rangy and pink from the steam, with her sleeves permanently rolled and her hair tied up in a rag, and she can tell how long somebody has been out in the waste by the colour of the water they leave behind. She has thrown men twice her size out into the street for less than you would think.",
+  "description": "Tullia Mercado runs the hottest water for two hundred miles and prices it accordingly, without apology and without ever once being talked down. She's rangy and pink from the steam, with her sleeves permanently rolled and her hair tied up in a rag, and she can tell how long somebody has been out in the waste by the colour of the water they leave behind. She has thrown men twice her size out into the street for less than you would think.",
   "dialogue_tree": {
     "bye": {
       "_vine": {
@@ -104,7 +104,7 @@
       ],
       "text_by_relation": {
         "first": [
-          "A rangy woman, pink from the steam, straightens up from a tap and wipes her hands down her apron. \"Vane. My water, my rules, and the first rule is that whatever you're carrying stays out on the boardwalk.\" She looks you over. \"Tub, shave, or both?\""
+          "A rangy woman, pink from the steam, straightens up from a tap and wipes her hands down her apron. \"Mercado. My water, my rules, and the first rule is that whatever you're carrying stays out on the boardwalk.\" She looks you over. \"Tub, shave, or both?\""
         ],
         "known": [
           "\"Same as last time?\" Tullia is already turning a tap."
@@ -158,7 +158,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_reach_bathkeeper",
-  "name": "Tullia Vane",
+  "name": "Tullia Mercado",
   "npc_type": "clerk",
   "sex": "female",
   "studio_zone_id": null,

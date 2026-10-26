@@ -147,6 +147,10 @@
       "soft flat shoes, backs trodden down",
       "reading glasses pushed up into her hair"
     ],
+    "kin": [
+      "npc_hf_bent_ferreira",
+      "npc_hf_ferreira"
+    ],
     "mis_never": false,
     "personality": "vendor",
     "repairman": false

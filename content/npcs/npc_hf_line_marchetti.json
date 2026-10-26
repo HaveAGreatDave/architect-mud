@@ -120,7 +120,7 @@
     }
   },
   "chitchat": [
-    "Marchetti writes a date on a docket and tears off the carbon.",
+    "Brisco writes a date on a docket and tears off the carbon.",
     "She looks down the ballast bed to where it stops, and back.",
     "She checks the tarpaulin lashings, which do not need checking.",
     "She counts the pile of glazing channel with her eyes and does not write the number down.",
@@ -189,7 +189,7 @@
       "text": "\"Sit down, it is out of the wind on that side.\" She does not stop writing. \"Do not mind the docket. I am only keeping a record.\"",
       "text_by_relation": {
         "familiar": "She moves the pad along the bench to make room and turns the flask cup upright with her thumb.\n\n\"Sit,\" she says. \"Something came off the east end last night and I want to tell somebody who will remember I said it.\"",
-        "first": "There is a roof and no walls and a woman in a site coat on a bench in the middle of it, writing on a pad, with a tarpaulin lashed across the windward opening behind her.\n\n\"Behind the sheet, if you are stopping.\" She does not look up until she has finished the line. \"Marchetti. I was foreman on this.\"\n\nShe tears off a carbon and adds it to a stack that is thicker than you would like.\n\n\"It is not abandoned, before you ask. It is suspended. There is a difference on paper and I have eighty-one of these that say so.\"",
+        "first": "There is a roof and no walls and a woman in a site coat on a bench in the middle of it, writing on a pad, with a tarpaulin lashed across the windward opening behind her.\n\n\"Behind the sheet, if you are stopping.\" She does not look up until she has finished the line. \"Brisco. I was foreman on this.\"\n\nShe tears off a carbon and adds it to a stack that is thicker than you would like.\n\n\"It is not abandoned, before you ask. It is suspended. There is a difference on paper and I have eighty-one of these that say so.\"",
         "known": "\"Behind the sheet.\" She is already writing. \"Eighty-two this week.\""
       }
     },
@@ -217,7 +217,7 @@
   "hp": 38,
   "hp_max": 38,
   "id": "npc_hf_line_marchetti",
-  "name": "Nella Marchetti",
+  "name": "Nella Brisco",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

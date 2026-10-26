@@ -25,7 +25,7 @@ Ascendant Stronghold shipped:
 | *"Halcyon Assurance does not insure against death. It insures death itself."* | — | **The First Ascended** |
 
 At the end of that, exactly one person asked for an answer: Cyrelle, through
-`halcyon_reveal`, who sends you to extract Sub-Registrar Nine (`quest_lw_4`).
+`halcyon_reveal`, who sends you to extract Sub-Registrar Seven (`quest_lw_4`).
 Meanwhile The First's own closing line already read:
 
 > *"When you're ready to stop merely dying, the clinic is downstairs, and your

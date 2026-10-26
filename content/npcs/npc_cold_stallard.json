@@ -179,7 +179,7 @@
       "text": "\"Defenders on, they're by the door.\" She taps her own, up on her head. \"Then you can go anywhere you like except up the stair without me.\"",
       "text_by_relation": {
         "familiar": "She has a flask poured before you are through the door and the defenders held out in the other hand.\n\n\"Six is stripped and back together and it is behaving,\" she says. \"You can tell me I was right about that, I have had nobody to tell all week.\"",
-        "first": "The woman on the floor is in front of you faster than you expected and closer than you expected, and she is holding out a pair of ear defenders before she has said anything.\n\n\"On. Now, please.\" She waits until they are. \"Verity Stallard. This is a cooling plant.\"\n\nShe says the rest at a volume that would be rude anywhere else and is exactly right here.\n\n\"Everything you can hear is heat leaving. The Ascendants make an enormous amount of it up at the vats and it comes down here and goes out of the top of this building, and if it stopped doing that for about four hours they would have a very bad week.\"",
+        "first": "The woman on the floor is in front of you faster than you expected and closer than you expected, and she is holding out a pair of ear defenders before she has said anything.\n\n\"On. Now, please.\" She waits until they are. \"Shona Stallard. This is a cooling plant.\"\n\nShe says the rest at a volume that would be rude anywhere else and is exactly right here.\n\n\"Everything you can hear is heat leaving. The Ascendants make an enormous amount of it up at the vats and it comes down here and goes out of the top of this building, and if it stopped doing that for about four hours they would have a very bad week.\"",
         "known": "\"Defenders.\" She points at the rack without slowing down. \"Then come through, I'm on number six.\""
       }
     },
@@ -220,7 +220,7 @@
   "hp": 38,
   "hp_max": 38,
   "id": "npc_cold_stallard",
-  "name": "Verity Stallard",
+  "name": "Shona Stallard",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

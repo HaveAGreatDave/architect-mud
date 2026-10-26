@@ -46,7 +46,7 @@
     }
   },
   "chitchat": [],
-  "description": "Neve Calder is small, precise, and entirely unbothered by anyone's opinion of her, including yours. She came out to the Reach with a balance, a case of reagents, and no explanation, and she has given the same number to a warlord and to a kid with a jar of dirt. Her hands are stained to the second knuckle in colours that don't wash out and she has stopped noticing.",
+  "description": "Isla Calder is small, precise, and entirely unbothered by anyone's opinion of her, including yours. She came out to the Reach with a balance, a case of reagents, and no explanation, and she has given the same number to a warlord and to a kid with a jar of dirt. Her hands are stained to the second knuckle in colours that don't wash out and she has stopped noticing.",
   "dialogue_tree": {
     "bye": {
       "_vine": {
@@ -116,7 +116,7 @@
         }
       ],
       "text": [
-        "Neve is already looking at you over the top of the balance hood. \"Bringing me something, or just cooling off?\""
+        "Isla is already looking at you over the top of the balance hood. \"Bringing me something, or just cooling off?\""
       ],
       "text_by_relation": {
         "first": [
@@ -158,7 +158,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_reach_assayer",
-  "name": "Neve Calder",
+  "name": "Isla Calder",
   "npc_type": "professional",
   "sex": "female",
   "studio_zone_id": null,

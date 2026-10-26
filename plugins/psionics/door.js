@@ -134,7 +134,7 @@ const ADMITTED = 'terminus_admitted';
 const GATE_TOLD = 'terminus_gate_told';
 
 /**
- * Verity Strand, saying the one plain thing she is prepared to say, once.
+ * Temperance Strand, saying the one plain thing she is prepared to say, once.
  *
  * The refusal itself is flat and unexplained, like every other door here. But a
  * player who did both errands, answered the child, and is then refused for a
@@ -147,7 +147,7 @@ const GATE_TOLD = 'terminus_gate_told';
  */
 const WARDEN_LINE =
   '<span class="ambient">The gate doesn\'t open.</span><br>' +
-  '<span class="ambient">Verity Strand doesn\'t look at it, or at you. "She said you could come in," ' +
+  '<span class="ambient">Temperance Strand doesn\'t look at it, or at you. "She said you could come in," ' +
   'she says, "and she was right, and it still will not." A pause, without any unkindness in it at ' +
   'all. "You have already given this to somebody. I don\'t need to know who and I\'m not going to ' +
   'ask. It\'s only that a person can hold one of these, and yours is full."</span>';

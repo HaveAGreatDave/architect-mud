@@ -198,7 +198,7 @@
       "text": "\"Sit down if you like.\" She moves the flask an inch. \"There are two benches and nobody has ever needed the second one.\"",
       "text_by_relation": {
         "familiar": "She has already moved the flask and turned slightly on the bench by the time you are through the door.\n\n\"Come and look at the middle one,\" she says. \"It has put on a hand's breadth since you were last here and I have nobody else to tell.\"",
-        "first": "The old woman on the left-hand bench does not look up until you are properly inside, and then looks at you the way you look at weather.\n\n\"You are the fourth today,\" she says. \"That is a good day.\"\n\nShe moves the flask along the bench to make room she did not need to make.\n\n\"Merrit Arbuckle. I am not staff. There is no staff. It is a condition of the planning permission and the condition does not run to a person.\" A pause. \"Sit. It is warmer in here than out there and that is also in the condition.\"",
+        "first": "The old woman on the left-hand bench does not look up until you are properly inside, and then looks at you the way you look at weather.\n\n\"You are the fourth today,\" she says. \"That is a good day.\"\n\nShe moves the flask along the bench to make room she did not need to make.\n\n\"Maureen Arbuckle. I am not staff. There is no staff. It is a condition of the planning permission and the condition does not run to a person.\" A pause. \"Sit. It is warmer in here than out there and that is also in the condition.\"",
         "known": "\"You again.\" She moves the flask without being asked. \"The ferns have gone over on the north side. I have done what I can.\""
       }
     },
@@ -226,7 +226,7 @@
   "hp": 26,
   "hp_max": 26,
   "id": "npc_hf_leaf_arbuckle",
-  "name": "Merrit Arbuckle",
+  "name": "Maureen Arbuckle",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

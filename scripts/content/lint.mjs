@@ -353,6 +353,76 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
       if (files.length > 1) errors.push(`npcs: duplicate NPC name "${n}" in ${files.join(', ')} — every NPC needs a unique name`);
     }
 
+    // A shared surname means a household. Two NPCs may share one only if they
+    // share a home_zone (partners, a parent and grown child, siblings), so a
+    // player who meets two Marchettis in one flat reads them as family. Flatmates
+    // keep different surnames, and so does a partner who kept their own. Kin who
+    // live apart opt out by naming each other in flags.kin (either side will do).
+    //
+    // A personal name is a given name and a surname, the first and last words
+    // once leading titles are off. Role names ("a Redline loader", "The Water
+    // Warden", "Brack the Fishmonger") and machine names with a digit in them
+    // have neither. Quoted nicknames and anything after a comma are dropped
+    // first, so "Isolde 'The Rake' Farrow" is an Isolde Farrow. A name that's one
+    // word, bare or after a title ("Marchetti", "Prefect Aldous", "Sub-Custodian
+    // Pell"), could be either, so it counts as both.
+    //
+    // Given names are unique outright: two Neves make "talk neve" a coin toss, and
+    // family doesn't excuse it.
+    //
+    // KNOWN_CROSS_HOME and KNOWN_GIVEN hold names that may stay a warning while
+    // they're being fixed. Take a name off when it's fixed; anything not listed is
+    // an error. The 13 shared surnames and 20 given-name and one-word clashes
+    // found when these rules landed (2026-10-25) were all fixed the same day.
+    {
+      const KNOWN_CROSS_HOME = new Set([]);
+      const KNOWN_GIVEN = new Set([]);
+      const TITLES = new Set([
+        'Actuary', 'Assemblyman', 'Captain', 'Celebrant', 'Consul', 'Curator', 'Custodian',
+        'Custodian-Adjunct', 'Deacon', 'Deputy', 'Detention', 'Dr', 'Dr.', 'Examiner', 'Father',
+        'Foreman', 'Ma', 'Officer', 'Old', 'Prefect', 'Registrar', 'Sergeant', 'Sister',
+        'Sub-Custodian', 'Sub-Registrar', 'Trooper', 'Unit', 'Warden',
+      ]);
+      const nameParts = (name) => {
+        const words = String(name ?? '').split(',')[0]
+          .replace(/(['"]).*?\1/g, ' ').trim().split(/\s+/).filter(Boolean);
+        if (!words.length || /\d/.test(words.join(' '))) return null;
+        if (words.some(w => /^[a-z]/.test(w)) || words[0] === 'The') return null;
+        while (words.length && TITLES.has(words[0])) words.shift();
+        if (!words.length) return null;
+        const lc = words.map(w => w.toLowerCase());
+        if (lc.length === 1) return { given: lc[0], surname: lc[0] };
+        return { given: lc[0], surname: lc[lc.length - 1] };
+      };
+      const bySurname = new Map();
+      const byGiven = new Map();
+      for (const f of npcFiles) {
+        const p = nameParts(f.data.name);
+        if (!p) continue;
+        (bySurname.get(p.surname) || bySurname.set(p.surname, []).get(p.surname)).push(f.data);
+        (byGiven.get(p.given) || byGiven.set(p.given, []).get(p.given)).push(f.data);
+      }
+      for (const [g, npcs] of byGiven) {
+        if (npcs.length < 2) continue;
+        const msg = `npcs: given name "${g}" is used by ${npcs.map(n => n.name).join(', ')}. Given names are unique: rename all but one`;
+        (KNOWN_GIVEN.has(g) ? warnings : errors).push(msg);
+      }
+      const kin = (a, b) => (a.flags?.kin || []).includes(b.id) || (b.flags?.kin || []).includes(a.id);
+      for (const [s, npcs] of bySurname) {
+        if (npcs.length < 2) continue;
+        const apart = [];
+        for (let i = 0; i < npcs.length; i++) for (let j = i + 1; j < npcs.length; j++) {
+          const [a, b] = [npcs[i], npcs[j]];
+          if (a.home_zone && a.home_zone === b.home_zone) continue;
+          if (kin(a, b)) continue;
+          apart.push(`${a.name} (${a.home_zone || 'no home'}) and ${b.name} (${b.home_zone || 'no home'})`);
+        }
+        if (!apart.length) continue;
+        const msg = `npcs: surname "${s}" is shared across homes: ${apart.join('; ')}. A shared surname is a household: give them one home_zone, rename one, or list each other in flags.kin`;
+        (KNOWN_CROSS_HOME.has(s) ? warnings : errors).push(msg);
+      }
+    }
+
     // A commuter with no shift never leaves the house.
     //
     // CHECK_VENDOR_WORK drives the whole vendor/worker graph off vendor_schedule.

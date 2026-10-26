@@ -323,7 +323,7 @@ for the first time, which for this order means induction paperwork.
 | 13 | Continuity of Service | A shift on the Weave line under Foreman Duc. | 1 |
 | 14 | Preferred Provider | Route a claimant to `zone_asc_clinic_consult`. They are grateful. | 1 |
 | 15 | Exception Handling | A claim that should be denied, denied correctly. | 1 |
-| 16 | **Confirmed in Post** | Sub-Registrar Nine enters you in the Vats registry. The building knows your name. | **1 capstone** |
+| 16 | **Confirmed in Post** | Sub-Registrar Seven enters you in the Vats registry. The building knows your name. | **1 capstone** |
 | 17 | Actuarial Review | Reprice a block of policies. The names are a column. | 2 |
 | 18 | Non-Renewal | Deliver the letters. Most addresses are empty when you get there. | 2 |
 | 19 | Salvage Value | Recover collateral from an estate that has not finished being an estate. | 2 |

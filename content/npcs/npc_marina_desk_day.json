@@ -111,17 +111,17 @@
     }
   },
   "chitchat": [
-    "Quillon turns a page of the berth book and squares it up against the edge of the desk.",
+    "Sabbatini turns a page of the berth book and squares it up against the edge of the desk.",
     "He answers the desk phone, says \"it does not lock\" twice, and puts it down.",
     "He watches a hull come up the fairway and does not look away until it is past.",
-    "Quillon writes a bay number on a card, looks at it, and writes it again more clearly."
+    "Sabbatini writes a bay number on a card, looks at it, and writes it again more clearly."
   ],
   "description": "A narrow man in a marina fleece two sizes too generous for him, standing rather than sitting because the stool is behind him and he has decided against it. He has the look of somebody who has answered the same four questions for six years and has got the answers down to one sentence each.",
   "dialogue_tree": {
     "root": {
       "text": "\"Morning.\" He squares the berth book. \"Buying, hiring, or looking for your own?\"",
       "text_by_relation": {
-        "first": "The man behind the desk straightens up as the door goes.\n\n\"Ninian Quillon. This is the desk for hulls.\" He turns the berth book round to face you. \"You buy a boat here or hire one, and I tell you where yours is lying. The dock is east, the chandlery is west, and Anchovies is through the north doors.\"",
+        "first": "The man behind the desk straightens up as the door goes.\n\n\"Ninian Sabbatini. This is the desk for hulls.\" He turns the berth book round to face you. \"You buy a boat here or hire one, and I tell you where yours is lying. The dock is east, the chandlery is west, and Anchovies is through the north doors.\"",
         "known": "\"Back again.\" He is already reaching for the berth book. \"Buying, hiring, or finding one?\"",
         "familiar": "\"There you are.\" He pushes the berth book aside. \"What does she need?\""
       },
@@ -417,7 +417,7 @@
   "hp": 30,
   "hp_max": 30,
   "id": "npc_marina_desk_day",
-  "name": "Ninian Quillon",
+  "name": "Ninian Sabbatini",
   "npc_type": "clerk",
   "sex": "male",
   "studio_zone_id": null,

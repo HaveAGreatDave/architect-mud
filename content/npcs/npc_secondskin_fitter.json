@@ -131,7 +131,7 @@
     }
   },
   "chitchat": [
-    "Odile looks at your shoulders, then your boots, and names a size without asking.",
+    "Mireille looks at your shoulders, then your boots, and names a size without asking.",
     "\"Cold doesn't negotiate. Neither do I, but I'm cheaper.\"",
     "She re-hangs a parka someone has put back on the wrong rail, slowly, so you can see her do it."
   ],
@@ -200,7 +200,7 @@
           "next": "bye"
         }
       ],
-      "text": "Odile looks at your shoulders, then your boots, and has already decided. \"You're dressed for indoors and you don't live indoors.\" The tape measure comes off her neck. \"I can fix that in about four minutes. Or you can browse and be wrong slower.\""
+      "text": "Mireille looks at your shoulders, then your boots, and has already decided. \"You're dressed for indoors and you don't live indoors.\" The tape measure comes off her neck. \"I can fix that in about four minutes. Or you can browse and be wrong slower.\""
     }
   },
   "faction": null,
@@ -217,7 +217,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_secondskin_fitter",
-  "name": "Odile Crow",
+  "name": "Mireille Crow",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

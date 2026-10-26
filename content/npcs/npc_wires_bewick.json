@@ -192,7 +192,7 @@
       "text": "\"Come in, and keep to the aisle.\" He says it quietly. \"You can look at anything. Please do not touch a rack, and I am not being precious, I will explain if you want.\"",
       "text_by_relation": {
         "familiar": "He has the second stool out before you are through the door and the kettle already on.\n\n\"Rack forty-one was busy last night,\" he says, low. \"Busier than Tuesday. I wrote it down. I do not know why I write it down.\"",
-        "first": "The door was open, which you did not expect, and there is a man at a table just inside it who looks up as though he has been expecting somebody for a long time and is not surprised it is you.\n\n\"Silas Bewick. Caretaker.\" He puts the pen down. \"I have the only key. That is not a boast, it is a complaint, and I have made it in writing.\"\n\nHe gestures at the racks going away into the dark.\n\n\"This is a telephone exchange. It is a working telephone exchange. That is not the past tense and I want to be clear about it before you ask me anything else.\"",
+        "first": "The door was open, which you did not expect, and there is a man at a table just inside it who looks up as though he has been expecting somebody for a long time and is not surprised it is you.\n\n\"Edwin Bewick. Caretaker.\" He puts the pen down. \"I have the only key. That is not a boast, it is a complaint, and I have made it in writing.\"\n\nHe gestures at the racks going away into the dark.\n\n\"This is a telephone exchange. It is a working telephone exchange. That is not the past tense and I want to be clear about it before you ask me anything else.\"",
         "known": "\"You came back.\" He moves the kettle onto the ring. \"Sit down. Mind the aisle.\""
       }
     },
@@ -233,7 +233,7 @@
   "hp": 33,
   "hp_max": 33,
   "id": "npc_wires_bewick",
-  "name": "Silas Bewick",
+  "name": "Edwin Bewick",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

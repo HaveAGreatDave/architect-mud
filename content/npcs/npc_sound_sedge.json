@@ -120,7 +120,7 @@
     }
   },
   "chitchat": [
-    "Sedge squares the ticket cards against the shelf until the edges line up, then squares them again.",
+    "Vosper squares the ticket cards against the shelf until the edges line up, then squares them again.",
     "She glances at the clock over the doors, and then at the bell, and then back at the clock.",
     "She writes the night's number in a ruled book. It is a small number. She writes it the same size as any other.",
     "Somewhere behind the auditorium doors a piano runs a figure, stops, and runs it again slower.",
@@ -218,7 +218,7 @@
       "text": "\"Good evening.\" She turns from the window to face you squarely, which almost nobody does. \"Doors at half past, bell at five minutes and again at one. One price, all seats, and you may sit wherever you like.\"",
       "text_by_relation": {
         "familiar": "She has the card written before you reach the window, and turns it round on the shelf with two fingers so it faces you.\n\n\"Row C,\" she says. \"The piano is being difficult in the bass and C is where you will not notice.\" A pause. \"Or will enjoy noticing. I have never worked out which you are.\"",
-        "first": "The woman at the box office finishes squaring a stack of cards, sets them down, and gives you her whole attention at once.\n\n\"Good evening. Perpetua Sedge, house manager.\" A short nod, as though the name settles something. \"You will want to know what it is. It is a recital, it is an hour and ten with no interval tonight, and it is very good.\"\n\nShe says the last part without any salesmanship at all, as a fact she expects to be checked.\n\n\"One price, all seats. Sit near the front. It was built for the front.\"",
+        "first": "The woman at the box office finishes squaring a stack of cards, sets them down, and gives you her whole attention at once.\n\n\"Good evening. Gwendolyn Vosper, house manager.\" A short nod, as though the name settles something. \"You will want to know what it is. It is a recital, it is an hour and ten with no interval tonight, and it is very good.\"\n\nShe says the last part without any salesmanship at all, as a fact she expects to be checked.\n\n\"One price, all seats. Sit near the front. It was built for the front.\"",
         "known": "\"You came back.\" She does not make anything of it, but the ticket card is already out of the stack. \"Same arrangement. Sit where you like.\""
       }
     },
@@ -246,7 +246,7 @@
   "hp": 34,
   "hp_max": 34,
   "id": "npc_sound_sedge",
-  "name": "Perpetua Sedge",
+  "name": "Gwendolyn Vosper",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

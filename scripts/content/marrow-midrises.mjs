@@ -483,7 +483,7 @@ const idsC = await authorBuilding(store, {
         options: [{ label: 'Back up.', next: 'root' }],
       },
       bram: {
-        text: '"Me, on four. And my uncle Bram, who had this shop before I did, and who still comes down and tells me I\'ve put everything in the wrong place." She doesn\'t sound like she minds. "He does the books. He\'s better at sums than he is at stairs."',
+        text: '"Me, on four. And my uncle Cyril, who had this shop before I did, and who still comes down and tells me I\'ve put everything in the wrong place." She doesn\'t sound like she minds. "He does the books. He\'s better at sums than he is at stairs."',
         options: [{ label: 'Back up.', next: 'root' }],
       },
       bye: {
@@ -618,7 +618,7 @@ store.patch('doors', 'door_shop_corbett_shop', {
 // Effie lives on four with her uncle, who had the shop before her.
 store.patch('npcs', 'npc_mixedbag_lark', { flags: { ...(store.get('npcs', 'npc_mixedbag_lark').flags || {}), personality: 'vendor' } });
 store.patch('npcs', 'npc_mixedbag_tolley', {
-  id: 'npc_mixedbag_tolley', name: 'Bram Tolley', sex: 'male', hp: 26, hp_max: 26,
+  id: 'npc_mixedbag_tolley', name: 'Cyril Tolley', sex: 'male', hp: 26, hp_max: 26,
   description: 'A thin old man in a three-piece suit gone shiny at the knees, with a ledger under his arm and a pencil behind his ear. He takes the stairs one at a time with a hand on the rail and a pause on every landing, and he has opinions about where everything in the shop should go.',
   npc_type: 'npc', faction: null,
   home_zone: 'zone_corbett_4a', work_zone_id: null,
@@ -627,7 +627,7 @@ store.patch('npcs', 'npc_mixedbag_tolley', {
     root: {
       text: '"Mm?" He looks up from the ledger and keeps his finger on the line.',
       text_by_relation: {
-        first: 'The old man looks up from a ledger, finger on the line he was reading.\n\n"Tolley. Bram. Fourth floor, the polished one." He taps the ledger. "Did my niece charge you right? She rounds down. Forty years I had that shop and I never once rounded down."',
+        first: 'The old man looks up from a ledger, finger on the line he was reading.\n\n"Tolley. Cyril. Fourth floor, the polished one." He taps the ledger. "Did my niece charge you right? She rounds down. Forty years I had that shop and I never once rounded down."',
         known: '"Mm. You." He goes back to the ledger. "She\'s moved the candles again, I suppose."',
         familiar: '"Sit down a minute," he says, "these stairs aren\'t getting any shorter."',
       },
@@ -643,7 +643,7 @@ store.patch('npcs', 'npc_mixedbag_tolley', {
     bye: { text: '"Mind the third step down," he says. "It\'s loose. It\'s been loose since the war."', options: [] },
   },
   chitchat: [
-    'Bram turns a page of the ledger and runs his pencil down a column, lips moving.',
+    'Cyril turns a page of the ledger and runs his pencil down a column, lips moving.',
     'He stops on the landing, puts a hand on the rail, and gets his breath back.',
     '"Rounded down again," he says to nobody, and makes a note.',
   ],

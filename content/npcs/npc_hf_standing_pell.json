@@ -120,7 +120,7 @@
     }
   },
   "chitchat": [
-    "Pell pours a cup, holds it, and does not drink it yet.",
+    "Haskett pours a cup, holds it, and does not drink it yet.",
     "He looks up at the indicator board, reads it, and looks back down.",
     "He refolds the paper along its original creases.",
     "He checks a pocket watch against nothing in particular and puts it away.",
@@ -180,7 +180,7 @@
       "text": "\"Sit on the warm side.\" He moves a flask. \"The heater is under this end and there is no reason for anybody to be cold in here.\"",
       "text_by_relation": {
         "familiar": "He has poured two before you are through the door and put one on the bench in the place you sit.\n\n\"There was a survey party on the Buried Road this morning,\" he says, without any preamble at all. \"Four of them and a level. I have been waiting all day to tell somebody.\"",
-        "first": "The waiting room is warm and dry and there is an elderly man on the bench with two flasks beside him, and he looks up as though he has been waiting for somebody, which he has not.\n\n\"Come in properly and shut it.\" He shifts along. \"Warm side is this side. Heater is under here and there is no sense in anybody being cold.\"\n\nHe pours a cup without asking and sets it on the bench between you.\n\n\"Pell. Before you ask: no, there is no service. There is no line. The board says what the board says.\" He picks up his own cup. \"Six credits for that if you want it, and nothing if you do not.\"",
+        "first": "The waiting room is warm and dry and there is an elderly man on the bench with two flasks beside him, and he looks up as though he has been waiting for somebody, which he has not.\n\n\"Come in properly and shut it.\" He shifts along. \"Warm side is this side. Heater is under here and there is no sense in anybody being cold.\"\n\nHe pours a cup without asking and sets it on the bench between you.\n\n\"Haskett. Before you ask: no, there is no service. There is no line. The board says what the board says.\" He picks up his own cup. \"Six credits for that if you want it, and nothing if you do not.\"",
         "known": "\"Warm side.\" The cup is already poured. \"Six, same as ever.\""
       }
     },
@@ -217,7 +217,7 @@
   "hp": 30,
   "hp_max": 30,
   "id": "npc_hf_standing_pell",
-  "name": "Ozias Pell",
+  "name": "Ozias Haskett",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

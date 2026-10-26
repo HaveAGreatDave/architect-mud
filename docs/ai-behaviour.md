@@ -260,7 +260,7 @@ Two things to keep if you tune this:
 
 `npcs.wanders` / `npcs.wander_zones` are a **different, effectively dead path** — the
 hardcoded fallback in `npcWanderTick` for NPCs with no behaviour graph. 214 of 215 shipped
-NPCs have a graph, so only Reg Naylor reaches it. Three dealers (Gita Halvard, Wick Sorel,
+NPCs have a graph, so only Reg Naylor reaches it. Three dealers (Gita Halvard, Lenny Sorel,
 Dov Keller) carry authored `wander_zones` that can never fire for exactly this reason.
 
 ---

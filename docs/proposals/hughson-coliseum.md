@@ -74,7 +74,7 @@ run along the tile grid.
 | Tile | Building | Interior | Keeper |
 |---|---|---|---|
 | 895,911 | 8 Halcyon Boulevard | `map_int_going` | Dorothea Crake |
-| 896,911 | The Halcyon Institute | `map_int_course` | Hollis Quainton |
+| 896,911 | The Halcyon Institute | `map_int_course` | Clement Quainton |
 | 897,911 | Halcyon Land Office | `map_int_plot` | Merrick Follet |
 | 895 to 897,912 | Vetch Green, three tiles | none | none |
 | 895,913 | 3 Sorrel Way | `map_int_hf_assets` | none |
@@ -422,7 +422,7 @@ trades a ballpark street has now, written by
   Sir Charles's story (§1).
 - **What they replaced is set aside** on row 9 of the holding map, the way §3 describes:
   6 Halcyon Boulevard, 8 Vetch Mews and the Halcyon Sales Suite on the west, 1 and 5 Kettle Lane on
-  the east, with their keepers Ambrose Fewtrell, Odile Marchetti, Adaeze Okonjo and Ottilie
+  the east, with their keepers Montague Fewtrell, Lavinia Fairlie, Adaeze Okonjo and Ottilie
   Marchbank. Rows 5 and 7 are other builds'.
 - **The models** are one tile each, in constants, with the park's language at a smaller size: the
   box office in its limestone and gilt with a brass queue rail, the frank stand white-tiled under a

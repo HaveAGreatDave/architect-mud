@@ -106,7 +106,7 @@ itself, and that is the thing worth building while it is still true.
 | 904,917 | **Halcyon Site Office** | `cascade_block` | The site office, and the quarter's builders' merchant |
 | 898,915 | **17 Kerbstone Row** | `torque_tower` | Fourteen tables at the top of a tower that has turned a quarter round |
 
-Four carry a keeper: Odile Marchetti (the sales suite), Berenike Ostrow (the concierge), Ellery
+Four carry a keeper: Lavinia Fairlie (the sales suite), Berenike Ostrow (the concierge), Ellery
 Pardoe (the estate office) and Nadia Ferreira (the café).
 
 ### The eleven with no door

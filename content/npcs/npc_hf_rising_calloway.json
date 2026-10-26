@@ -217,7 +217,7 @@
   "hp": 32,
   "hp_max": 32,
   "id": "npc_hf_rising_calloway",
-  "name": "Ines Calloway",
+  "name": "Harriet Calloway",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

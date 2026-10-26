@@ -120,7 +120,7 @@
     }
   },
   "chitchat": [
-    "Okoye wipes the counter, which is already clean, in a long slow circle.",
+    "Akande wipes the counter, which is already clean, in a long slow circle.",
     "He looks out at the Curtain for a while and then at the kettle.",
     "The lift arrives, waits, and goes away again. He does not turn round.",
     "He rearranges the two mugs so that the handles point the same way.",
@@ -189,7 +189,7 @@
       "text": "\"You found it, then.\" He reaches for the kettle without being asked. \"Sit anywhere. It is all anywhere.\"",
       "text_by_relation": {
         "familiar": "He has the mug out and the kettle on before the lift doors have finished opening.\n\n\"Sit down,\" he says. \"I want to show you something the Curtain does at this hour and you have about four minutes.\"",
-        "first": "The lift opens onto a room going all the way round the building, and a tall man at a counter looks up as if he has been expecting somebody for about a year.\n\n\"Well.\" He puts the cloth down. \"Somebody came up.\"\n\nHe straightens, and then decides not to make anything of it.\n\n\"Dapo Okoye. Eleven. This is the residents' room and you are allowed to be in it, whatever anybody downstairs implies.\" He turns a mug the right way up. \"Coffee is fourteen and it is not worth fourteen. The window is free.\"",
+        "first": "The lift opens onto a room going all the way round the building, and a tall man at a counter looks up as if he has been expecting somebody for about a year.\n\n\"Well.\" He puts the cloth down. \"Somebody came up.\"\n\nHe straightens, and then decides not to make anything of it.\n\n\"Dapo Akande. Eleven. This is the residents' room and you are allowed to be in it, whatever anybody downstairs implies.\" He turns a mug the right way up. \"Coffee is fourteen and it is not worth fourteen. The window is free.\"",
         "known": "\"There you are.\" The kettle is already going. \"Fourteen, same as before, and still not worth it.\""
       }
     },
@@ -217,7 +217,7 @@
   "hp": 34,
   "hp_max": 34,
   "id": "npc_hf_topbrass_okoye",
-  "name": "Dapo Okoye",
+  "name": "Dapo Akande",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

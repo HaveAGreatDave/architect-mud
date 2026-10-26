@@ -462,7 +462,7 @@ the Gallery, and **east** is the gangway onto the quay. The cradle yard is the H
 the open a couple of tiles west.
 
 ⚠ **THE ONLY THING IN THE BUILDING THAT SHUTS IS THE RESTAURANT.** The desk is staffed round the
-clock by two people on twelve hours each (Ninian Quillon days, Odile Sabbatini nights), and the dock
+clock by two people on twelve hours each (Ninian Sabbatini days, Odile Sabbatini nights), and the dock
 does not lock — there is no lock on it. The timetable gives the lobby somebody at every hour and never
 two at once; the handover graph in [The desk](#the-desk) is what keeps somebody standing there while
 the two of them change over.

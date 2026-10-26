@@ -44,7 +44,7 @@
     }
   },
   "chitchat": [
-    "Bram turns a page of the ledger and runs his pencil down a column, lips moving.",
+    "Cyril turns a page of the ledger and runs his pencil down a column, lips moving.",
     "He stops on the landing, puts a hand on the rail, and gets his breath back.",
     "\"Rounded down again,\" he says to nobody, and makes a note."
   ],
@@ -71,7 +71,7 @@
       "text": "\"Mm?\" He looks up from the ledger and keeps his finger on the line.",
       "text_by_relation": {
         "familiar": "\"Sit down a minute,\" he says, \"these stairs aren't getting any shorter.\"",
-        "first": "The old man looks up from a ledger, finger on the line he was reading.\n\n\"Tolley. Bram. Fourth floor, the polished one.\" He taps the ledger. \"Did my niece charge you right? She rounds down. Forty years I had that shop and I never once rounded down.\"",
+        "first": "The old man looks up from a ledger, finger on the line he was reading.\n\n\"Tolley. Cyril. Fourth floor, the polished one.\" He taps the ledger. \"Did my niece charge you right? She rounds down. Forty years I had that shop and I never once rounded down.\"",
         "known": "\"Mm. You.\" He goes back to the ledger. \"She's moved the candles again, I suppose.\""
       }
     },
@@ -99,7 +99,7 @@
   "hp": 26,
   "hp_max": 26,
   "id": "npc_mixedbag_tolley",
-  "name": "Bram Tolley",
+  "name": "Cyril Tolley",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

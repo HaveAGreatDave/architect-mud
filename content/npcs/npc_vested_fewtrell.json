@@ -260,7 +260,7 @@
   "hp": 36,
   "hp_max": 36,
   "id": "npc_vested_fewtrell",
-  "name": "Ambrose Fewtrell",
+  "name": "Montague Fewtrell",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

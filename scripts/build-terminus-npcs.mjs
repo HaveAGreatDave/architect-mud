@@ -27,7 +27,7 @@
 //
 // ── The names ────────────────────────────────────────────────────────────────
 //
-// People BORN inside carry virtue names: Verity, Thankful, Silence, Comfort, Mercy, Constant,
+// People BORN inside carry virtue names: Temperance, Thankful, Silence, Comfort, Mercy, Constant,
 // Amity, Patience, Increase, Remember, Preserved, Hopestill. People who CAME carry ordinary ones:
 // Ivo, Tace, Josiah. Nothing in the game ever says so, no NPC remarks on it, and no quest rewards
 // working it out. It is there to be noticed on a second visit or never.
@@ -211,7 +211,7 @@ const JOSIAH = npc({
 
 // THE CHILD AT THE GATE, and the whole design of the way in.
 //
-// She is the payoff for Verity Strand's own line, which was written in pass 1 and which the
+// She is the payoff for Temperance Strand's own line, which was written in pass 1 and which the
 // admission had to honour: "Go and live. Do the work you'd have done anyway. Someone will notice,
 // and it will not be me, and you'll be told." So it is not the warden who lets you in and it is
 // not a quest board. A nine year old walks out of a wall that has no way through it, knows what you
@@ -788,7 +788,7 @@ write('quests', 'quest_terminus_2', {
 //
 // Read, change the two things that moved, write back. Their prose was hand-written in pass 1 and
 // is better than anything a table in this file would produce, so nothing else about them is
-// regenerated. Verity Strand's dialogue in particular is load-bearing: the whole admission chain
+// regenerated. Temperance Strand's dialogue in particular is load-bearing: the whole admission chain
 // is built to honour a line she has been saying since the day she shipped.
 const verity = readJson('npcs', 'npc_terminus_warden');
 if (verity) {
@@ -838,4 +838,4 @@ if (ivo) {
   write('npcs', 'npc_terminus_quartermaster', ivo);
 }
 
-console.log(`terminus people: ${n} NPCs, ${f} furniture, 2 quests, 2 patched (Verity Strand, Ivo Stannard)`);
+console.log(`terminus people: ${n} NPCs, ${f} furniture, 2 quests, 2 patched (Temperance Strand, Ivo Stannard)`);

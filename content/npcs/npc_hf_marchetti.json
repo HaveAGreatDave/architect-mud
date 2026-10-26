@@ -120,7 +120,7 @@
     }
   },
   "chitchat": [
-    "Marchetti walks the long way round the model, which takes her past the window, which is where the light is.",
+    "Fairlie walks the long way round the model, which takes her past the window, which is where the light is.",
     "She turns a display board a few degrees toward the door and steps back to check it.",
     "The fibre lighting inside the model flickers on one street. She notices, and does not look at it again.",
     "She writes something in the folder without opening it more than an inch.",
@@ -217,7 +217,7 @@
       "text": "\"Welcome to Halcyon Fields.\" She says it to the room as much as to you, then arrives at your elbow. \"Take your time with the model. Everybody does.\"",
       "text_by_relation": {
         "familiar": "She does not come over. She lifts the folder an inch in greeting and carries on with what she is doing, which after the fourth or fifth visit is the warmest thing she does.\n\n\"Kettle to the row is still not made up,\" she says, without preamble. \"I know. I have said.\"",
-        "first": "The woman at the model looks up before the doors have finished closing behind you, and is beside you a moment later without seeming to have hurried.\n\n\"Odile Marchetti. Welcome to Halcyon Fields.\" She gestures at the case with the folder. \"That is the whole quarter. Take as long as you like. People always want to find where they are standing, and it is there.\"\n\nShe points to a low curved building on the model. It is this one. On the model, the meadow outside it is a boulevard with trees down the middle.",
+        "first": "The woman at the model looks up before the doors have finished closing behind you, and is beside you a moment later without seeming to have hurried.\n\n\"Lavinia Fairlie. Welcome to Halcyon Fields.\" She gestures at the case with the folder. \"That is the whole quarter. Take as long as you like. People always want to find where they are standing, and it is there.\"\n\nShe points to a low curved building on the model. It is this one. On the model, the meadow outside it is a boulevard with trees down the middle.",
         "known": "\"You came back.\" A small, real smile. \"Nobody comes back twice to look at a model. What is it you actually want to know?\""
       }
     }
@@ -238,7 +238,7 @@
   "hp": 32,
   "hp_max": 32,
   "id": "npc_hf_marchetti",
-  "name": "Odile Marchetti",
+  "name": "Lavinia Fairlie",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

@@ -136,7 +136,7 @@
     "\"Nothing moves off this dock without paper.\"",
     "checks a schedule that hasn't updated in years."
   ],
-  "description": "Wick Sorel wears a hi-vis vest bleached grey with age and carries a clipboard no one has asked to see in years. He talks pallets and pickup windows into an intercom that stopped answering long before you got here, and he'll quote you a delivery schedule for anything, anything at all, if you know how to ask for it.",
+  "description": "Lenny Sorel wears a hi-vis vest bleached grey with age and carries a clipboard no one has asked to see in years. He talks pallets and pickup windows into an intercom that stopped answering long before you got here, and he'll quote you a delivery schedule for anything, anything at all, if you know how to ask for it.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
@@ -158,7 +158,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_dealer_sorel",
-  "name": "Wick Sorel",
+  "name": "Lenny Sorel",
   "npc_type": "dealer",
   "sex": "male",
   "studio_zone_id": null,

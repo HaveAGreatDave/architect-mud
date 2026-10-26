@@ -12,7 +12,7 @@
   ],
   "behaviour_graph": {},
   "chitchat": [],
-  "description": "Orrin Peake keeps the only shop in the Reach that sells things instead of favours, and he's quietly, ferociously proud of it. He's a soft-bodied, tidy man with a pencil behind his ear and an apron that stays clean, and he knows the stock level of every shelf in the building without looking. He extends credit to people the rest of town wouldn't lend a match to, and he has never yet been wrong about which ones.",
+  "description": "Jethro Peake keeps the only shop in the Reach that sells things instead of favours, and he's quietly, ferociously proud of it. He's a soft-bodied, tidy man with a pencil behind his ear and an apron that stays clean, and he knows the stock level of every shelf in the building without looking. He extends credit to people the rest of town wouldn't lend a match to, and he has never yet been wrong about which ones.",
   "dialogue_tree": {
     "bye": {
       "_vine": {
@@ -20,7 +20,7 @@
         "y": 240
       },
       "text": [
-        "\"Mind the step,\" says Orrin, and means it."
+        "\"Mind the step,\" says Jethro, and means it."
       ]
     },
     "credit": {
@@ -66,14 +66,14 @@
         }
       ],
       "text": [
-        "Orrin straightens up behind the counter, pencil already coming off his ear. \"Right then. What are you short of?\""
+        "Jethro straightens up behind the counter, pencil already coming off his ear. \"Right then. What are you short of?\""
       ],
       "text_by_relation": {
         "first": [
-          "A tidy man in a clean apron comes down the ladder rather faster than looks safe. \"Orrin Peake. This is the Dry Goods, and it's the only place on this street where the price is written down before you ask it.\" He looks pleased about that. \"So. What are you short of?\""
+          "A tidy man in a clean apron comes down the ladder rather faster than looks safe. \"Jethro Peake. This is the Dry Goods, and it's the only place on this street where the price is written down before you ask it.\" He looks pleased about that. \"So. What are you short of?\""
         ],
         "known": [
-          "\"There he is,\" says Orrin, or something close enough to it. \"Usual, or are we being adventurous?\""
+          "\"There he is,\" says Jethro, or something close enough to it. \"Usual, or are we being adventurous?\""
         ]
       }
     },
@@ -129,7 +129,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_reach_storekeep",
-  "name": "Orrin Peake",
+  "name": "Jethro Peake",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

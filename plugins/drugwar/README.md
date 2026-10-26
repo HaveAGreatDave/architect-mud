@@ -3,7 +3,7 @@
 Ambient living-world reactions for the drug districts. A covert street dealer runs
 each of three areas — the Core / Franchise Strip, the Marquee, and the Yards (see
 `plugins/dealer` and their content/npcs files: **Dov Keller**, **Gita
-Marsh**, **Wick Sorel**). The dealers exist independently — this plugin has no ties
+Marsh**, **Lenny Sorel**). The dealers exist independently — this plugin has no ties
 to any ideology.
 
 > **No territory, no ideology ties.** The old self-running turf tick

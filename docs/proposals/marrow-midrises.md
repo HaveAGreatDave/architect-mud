@@ -90,8 +90,8 @@ Friday and Saturday, 09:00 to 18:00 Sunday), selling 23 everyday items: soap, so
 tea, bandages, batteries, a torch. Every item is an existing one. The shop door off the lobby has a
 shop lock that drops when she goes home. She sends anyone after tools next door to Watts.
 
-She lives in Corbett 4A with her uncle Bram Tolley, who had the shop for forty years and still does
-the books. `npc_residences` names Effie for 4A; Bram shares her `home_zone`.
+She lives in Corbett 4A with her uncle Cyril Tolley, who had the shop for forty years and still does
+the books. `npc_residences` names Effie for 4A; Cyril shares her `home_zone`.
 
 ## 4. Building it
 
@@ -154,7 +154,7 @@ the Modelshop README describes for parts on a long wall. GLASS 2 draws all sixte
 
 ## 6. What isn't built
 
-- **No new residents beyond Effie and Bram.** Eleven flats are empty and lettable.
+- **No new residents beyond Effie and Cyril.** Eleven flats are empty and lettable.
 - **No tenants in Marrow House.** The two names on the directory are prose.
 - **No lift in the flats.** Both lobbies have one, out of order, which is why the stairs are the
   way up. Marrow House's lifts work and go nowhere you can reach.

@@ -202,14 +202,14 @@ this dies quietly.
 else, so a player who later leans back toward the mind through ordinary play walks in, and one who
 takes Ascendant work walks out, with nothing in the plugin to keep in sync.
 
-The refusal is flat, like every door here — **except** the path refusal, which fires Verity
+The refusal is flat, like every door here — **except** the path refusal, which fires Temperance
 Strand's one-shot line (`terminus_gate_told`). A player who did both errands, answered the child and
 is then refused invisibly is looking at a bug rather than at a decision. She explains *them*, never
 the creed, and never names the order they belong to.
 
 ### The chain
 
-Verity Strand has been saying this since pass 1, and the admission had to honour it:
+Temperance Strand has been saying this since pass 1, and the admission had to honour it:
 
 > *"Go and live. Do the work you'd have done anyway. Someone will notice, and it will not be me, and
 > you'll be told."*
@@ -251,7 +251,7 @@ to do with sound.
 Stannard is the only exception**, and he has it because he touched the machine and is not going with
 them.
 
-**The names.** People born inside carry virtue names (Verity, Thankful, Silence, Comfort, Mercy,
+**The names.** People born inside carry virtue names (Temperance, Thankful, Silence, Comfort, Mercy,
 Constant, Amity, Patience, Increase, Remember, Preserved, Hopestill). People who came carry ordinary
 ones (Ivo, Tace, Josiah). **Nothing in the game says so**, no NPC remarks on it, and no quest rewards
 working it out.

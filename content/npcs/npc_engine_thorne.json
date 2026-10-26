@@ -220,7 +220,7 @@
   "hp": 46,
   "hp_max": 46,
   "id": "npc_engine_thorne",
-  "name": "Dilys Thorne",
+  "name": "Bronwen Thorne",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

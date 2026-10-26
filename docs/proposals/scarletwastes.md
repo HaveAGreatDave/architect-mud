@@ -246,7 +246,7 @@ doors is a cul-de-sac; the generator flood-fills the town and all 225 interior t
 | **The Fleshery** | Tallow Skeen | The Quickening. A table with a drain, a padded restraint, a rack of flasks, a kettle, and a chair at the head that somebody sits in for six hours |
 | **The Milkhouse** | Wick Ollam | **The mutagen stock.** 211 flasks in cut felt, the only padlock in the town, and a log whose gaps each have a name beside them |
 | **The Physic** | Gristle Thole | The hospital. Instruments made across the yard; a drawer labelled TEETH and one labelled TEETH, THE OTHER KIND |
-| **The Kept** | Marrow Kell | Long-term care for the ones the Quickening took too far. Ten beds, ten different frames |
+| **The Kept** | Marrow Lusk | Long-term care for the ones the Quickening took too far. Ten beds, ten different frames |
 | **The Whelping Room** | Cobble Enns | The children, and the numbers by the door, and the much longer list under them |
 | **The Chorus' Den** | The Chorus | Cushions, salvage, and a rota that is the entire government of the place |
 | **The Long Fire** | Pitch Halloway | Forty feet of fire trench. Nobody pays; there is an owing board instead |

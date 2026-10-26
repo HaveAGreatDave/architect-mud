@@ -265,7 +265,7 @@ const PEOPLE = [
     },
   },
   {
-    id: 'npc_thorn_marrow', name: 'Marrow Kell', sex: 'male', zone: 'zone_thorn_kept',
+    id: 'npc_thorn_marrow', name: 'Marrow Lusk', sex: 'male', zone: 'zone_thorn_kept',
     personality: 'charity', hp: 32,
     clothing: ['a soft shirt, washed to nothing, no buttons', 'trousers with the knees gone', 'no shoes indoors'],
     desc: 'A rangy man moving very quietly between ten beds. His eyes have no whites left in them, which is startling for about four seconds and then stops being anything at all.\n\nHe does not sleep. Not badly, not a little: not at all, and has not since he was twenty-two, and so the night rota in this building has one name on it and it is his. He has been awake for thirty-one years and he is the calmest person in the Scarletwastes.',

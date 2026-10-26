@@ -110,6 +110,9 @@
       "a grease-black wifebeater",
       "torn canvas work shorts"
     ],
+    "kin": [
+      "npc_thorn_ossa"
+    ],
     "personality": "lowlife"
   },
   "home_activities": [],

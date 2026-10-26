@@ -148,6 +148,7 @@ nothing, silently; wire a reader first.
 | key | owner | meaning |
 |---|---|---|
 | `set_aside` | engine (`gameLoop.js`) | this NPC's building is set aside on the holding map: the game loop skips them, so they stay in their rooms with their routines paused (their street is gone). Cleared when the building comes back |
+| `kin` | content:lint | array of NPC ids this NPC is related to but doesn't live with. A shared surname is a household: `content:lint` fails two NPCs who share one across different `home_zone`s unless one lists the other here. Keep it rare, or a surname stops meaning anything. Nothing reads it at runtime |
 | `aa_engineer` | aa-sites | bunker engineer who repairs a strafed AA battery; value = the owning `aa_sites.id` |
 | `bank_teller` | atm | a bank counter clerk — `deposit`/`withdraw <amount> from <them>` bypasses the terminal entirely (no cap, no fee, no power gate). Presence alone does NOT lift the cap; they must be addressed |
 | `audience_door` | broadcast | studio doorman — while alive, present on the tile outside a channel's `studio_zone_id`, and on shift (08:00–02:00), the way in needs a `custom_data.show_pass` stamped for the showing airing right now. Kill him, wait him out, or catch him off shift and the door is just a door (see [systems-broadcast.md](systems-broadcast.md#studio-audience-door)) |

@@ -205,7 +205,7 @@
       "text": "\"Come in, it's free.\" He does not get up. \"Thursdays at seven, and the subject is on the card by the door. You can sit anywhere. You will have a lot of choice.\"",
       "text_by_relation": {
         "familiar": "He has the offprint out of the drawer before you have said anything, and holds it out at arm's length.\n\n\"You will want to argue with page five,\" he says. \"Everybody who is paying attention argues with page five. Come on Thursday and argue with it out loud, and I will write down what you said.\"",
-        "first": "The man on the front bench looks up from a notebook, takes his time about it, and then stands after all, which seems to cost him something.\n\n\"Hollis Quainton, registrar.\" A short nod. \"Public lectures, Thursdays at seven, admission free and it says so outside because it is true.\"\n\nHe indicates the empty benches without apology.\n\n\"A hundred and forty seats and we get twelve. I record every word regardless, and it is bound at the end of term, and it goes on that wall. You may find that absurd. I have made my peace with it.\"",
+        "first": "The man on the front bench looks up from a notebook, takes his time about it, and then stands after all, which seems to cost him something.\n\n\"Clement Quainton, registrar.\" A short nod. \"Public lectures, Thursdays at seven, admission free and it says so outside because it is true.\"\n\nHe indicates the empty benches without apology.\n\n\"A hundred and forty seats and we get twelve. I record every word regardless, and it is bound at the end of term, and it goes on that wall. You may find that absurd. I have made my peace with it.\"",
         "known": "\"You came back.\" He marks his place with a finger. \"Thursday, seven. Same bench is free, they all are.\""
       }
     },
@@ -247,7 +247,7 @@
   "hp": 31,
   "hp_max": 31,
   "id": "npc_course_quainton",
-  "name": "Hollis Quainton",
+  "name": "Clement Quainton",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,
