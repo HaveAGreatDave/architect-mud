@@ -22,7 +22,9 @@ const DRAG = 26;
 // The spin's pull, feet a second each second, by pitch type: `up` lifts (backspin) or drops it
 // (topspin), `arm` moves it toward the pitcher's throwing side (negative is toward his glove side).
 // Off the movement a broadcast shows: a four-seamer rides about a foot over gravity's drop and
-// runs a little arm-side, a curve drops below it and breaks glove-side, a slider sweeps.
+// runs a little arm-side, a curve drops below it and breaks glove-side, a slider sweeps. A splitter
+// has little lift, so the bottom drops out, and runs a bit arm-side; a knuckleball has almost no
+// spin, so only gravity pulls it, and it wobbles (`wobble`, feet either way: `knuckle`).
 export const SPIN = Object.freeze({
   'four-seam fastball': { up: 15, arm: 7.5 },
   sinker: { up: 7.5, arm: 14 },
@@ -30,6 +32,8 @@ export const SPIN = Object.freeze({
   changeup: { up: 4.7, arm: 11 },
   curveball: { up: -6, arm: -5 },
   cutter: { up: 7.7, arm: -2.6 },
+  splitter: { up: 3, arm: 8 },
+  knuckleball: { up: 0, arm: 0, wobble: 0.22 },
 });
 const spinOf = (type) => SPIN[String(type || '').toLowerCase()] || { up: 0, arm: 0 };
 
@@ -90,7 +94,22 @@ export function pitchPath({ from, through, t0, mph, type, hand = 'R' }) {
   // the arm side of a pitcher facing the plate (-z) is +x for a right-hander
   const side = hand === 'L' ? -1 : 1;
   const acc = [spin.arm * side, -GRAVITY + spin.up, DRAG];
-  return fitPath(from, through, t0, T, acc);
+  const path = fitPath(from, through, t0, T, acc);
+  return spin.wobble ? knuckle(path, spin.wobble, through) : path;
+}
+// A knuckleball's wobble: a drift across and up and down laid over its path, a whole number of
+// half waves between the hand and the plate, so it still leaves the hand and crosses its spot
+// exactly. How many, and which way first, come off where it crosses, so the same pitch always
+// floats the same way. Its depth is the path's, so `cross` holds.
+function knuckle(path, A, through) {
+  const h = ((Math.round(through[0] * 1000) * 73856093) ^ (Math.round(through[1] * 1000) * 19349663)) >>> 0;
+  const nx = 2 + (h % 2), ny = 3 - (h % 2), sx = h & 4 ? 1 : -1, sy = h & 8 ? 1 : -1;
+  const at = (t) => {
+    const q = path(t), u = (t - path.t0) / path.T;
+    if (!(u > 0)) return q;
+    return [q[0] + sx * A * Math.sin(nx * Math.PI * u), Math.max(BALL_R, q[1] + sy * A * 0.6 * Math.sin(ny * Math.PI * u)), q[2]];
+  };
+  return Object.assign(at, path);
 }
 
 // A throw or a lob: from `from` to `to` arriving `T` seconds later under gravity, so it arcs as

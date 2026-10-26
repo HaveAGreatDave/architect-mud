@@ -24,7 +24,7 @@
   station's bug in the corner (KSAB by default) and ?po=1 plays the game as the Curtain Call, the final:
   the line-ups read under searchlights before the first pitch, the park dressed for it, and the
   champions crowned and piling on at the last out.
-  Each at-bat is staged pitch by pitch (diamond/director.js) within 0.45 of its line's hold;
+  Each at-bat is staged pitch by pitch (diamond/director.js) within 0.6 of its hold (13 to 34 s);
   every payload here holds ?hold= milliseconds (35000 by default, a line at the default clock),
   and ?speed= runs the park's clock slower (0.25) or stops it (0) for a look at one moment.
   ?hour= puts the first payload on air at that in-game hour (18 is Deadball's slot) and each after
@@ -82,7 +82,7 @@
       <select id="filter">
         <option value="">every payload</option>
         <option value="runs">runs scoring</option>
-        <option value="hits">hits</option>
+        <option value="hits">hits</option><option value="hr">home runs</option>
         <option value="dp">double and triple plays</option>
         <option value="walk">walks</option>
         <option value="k">strikeouts</option>
@@ -287,6 +287,7 @@
     const FILTERS = {
       runs: (p) => !p.phase && p.moves?.some(m => m.to === 4),
       hits: (p) => ['single', 'double', 'triple', 'homerun'].includes(p.kind),
+      hr: (p) => p.kind === 'homerun',
       dp: (p) => p.kind === 'doubleplay' || p.kind === 'tripleplay',
       walk: (p) => p.kind === 'walk',
       k: (p) => p.kind === 'strikeout',
@@ -312,10 +313,10 @@
     }
 
     // Auto-play paces each play the way a line holds on air: long enough for the pitches
-    // to reveal (up to 13 s in 2-D; in 3-D the director's 0.45 of the hold) and the play to land
+    // to reveal (up to 13 s in 2-D; in 3-D the director's 0.6 of the hold) and the play to land
     // and settle.
     const holdFor = (p) => p.phase ? 6000
-      : Q.get('park') === '3d' ? Math.min(26000, Math.max(13000, 0.45 * HOLD_MS)) / Math.max(0.05, view.speed ?? 1) + 4000
+      : Q.get('park') === '3d' ? Math.min(34000, Math.max(13000, 0.6 * HOLD_MS)) / Math.max(0.05, view.speed ?? 1) + 4000
       : Math.min(13000, 2600 * Math.max(0, (p.pitches?.length || 1) - 1)) + 6500;
     function auto() {
       show(idx + 1);

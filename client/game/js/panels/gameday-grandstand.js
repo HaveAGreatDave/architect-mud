@@ -26,8 +26,12 @@
 // card go up when the play lands, so the booth never calls a play the picture hasn't reached. A
 // ball in play is played out (diamond/plays.js), and so is a play on the bases (diamond/runs.js:
 // a steal, a throw over, a wild pitch), its steal card on the landing; at a changeover the new
-// side takes the field and the pitcher warms up. A big play gets a slow-motion replay once its
-// line's up (diamond/replay.js), its own world shown in place of the live one. The dead time till
+// side takes the field and the pitcher warms up. A home run's batter trots round the bags on their
+// cameras to the men waiting at the plate. A big play gets a slow-motion replay once its line's up
+// (diamond/replay.js), a home run's once he's off the plate, its own world shown in place of the
+// live one. The booth can talk over the pitches: a payload riding a plate appearance's first line
+// (`lead`) starts at once, and its call comes later as a held line with `call`, which waits for
+// that play's landing and never the next one's (`setCaption`). The dead time till
 // the next payload's due is filled (diamond/between.js): the field walks back, the pitcher rubs up
 // the ball, the on-deck hitter swings and the cameras go round the park. The infield keeps
 // the game's marks, each stride, dig and slide painted into the dirt as it's made
@@ -115,6 +119,8 @@ export function createGrandstandView(host, opts = {}) {
   let snd = null;
   // a final's last out, held still till this (the frame clock's ms)
   let frozenUntil = 0;
+  // the fly-in before a game (arrive), running on the live world's clock till this
+  let flyUntil = 0;
   // how long the camera's shutter is open on the ball, in seconds of the screen's time: half a
   // frame at 60 Hz, as a broadcast camera's is
   const BALL_SHUTTER = 1 / 120;
@@ -153,7 +159,7 @@ export function createGrandstandView(host, opts = {}) {
       import('./diamond/crew.js'), import('./diamond/quality.js'), import('./diamond/sound.js'), import('./diamond/secondary.js')])
       .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew, quality, sound, sec]) => (mods = {
         createSettle: sec.createSettle,
-        ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, handheld: cam.handheld, numberOf: cast.numberOf, pictureAfter: director.pictureAfter, opensGame: director.opensGame,
+        ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, approachShot: cam.approachShot, APPROACH: cam.APPROACH, handheld: cam.handheld, numberOf: cast.numberOf, pictureAfter: director.pictureAfter, opensGame: director.opensGame,
         createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector, splashOf: fx.splashOf,
         replayOf: rp.replayOf, stageReplay: rp.stageReplay, REPLAY: rp.REPLAY, fxEnd: fx.endOf,
         cheerOf: fx.cheerOf, createRoar: crowd.createRoar, matAt: crew.matAt, sweptAlong: crew.sweptAlong,
@@ -323,7 +329,7 @@ export function createGrandstandView(host, opts = {}) {
     if (!R.render(view()) && R.lost) { fallback('the WebGL context was lost'); return; }
     // on to the next frame while the at-bat plays or a replay's due or playing; once everyone's
     // at rest the last one stays up. A stopped clock draws only when something asks.
-    if (live && (D.busy() || replayDue || replay)) { if (speed > 0) draw(); }
+    if (live && (D.busy() || replayDue || replay || W.t < flyUntil)) { if (speed > 0) draw(); }
     else { live = false; govAt = 0; }
     // the roof rolling over the park keeps the picture going until it's there
     if (!raf && R.roof?.moving) draw();
@@ -525,13 +531,14 @@ export function createGrandstandView(host, opts = {}) {
     // the last out of a final crowns the champions, and that's all its dead time is
     if (p.end?.champion) { crown(c); return; }
     // a big play gets its replay once the line's up and any fireworks are out (it would hide
-    // them), if the hold has room for it before the next payload's due: a payload that doesn't say
-    // how long it holds gets none
+    // them), and a home run's once the batter's round the bags and off the plate (the director's
+    // trot, D.homer), if the hold has room for it before the next payload's due: a payload that
+    // doesn't say how long it holds gets none, and a home run on a short one keeps its trot
     const spec = c.cast && D.play ? mods.replayOf(p, D.play, D.log) : null;
     let replayEnd = null;
     if (spec && Number.isFinite(p.hold)) {
       const calm = prefersReducedMotion(), long = calm ? mods.REPLAY.still : (spec.to - spec.from) / mods.REPLAY.rate;
-      const at = Math.max(W.t + mods.REPLAY.after, ...(D.fx || []).filter((e) => e.kind === 'burst').map(mods.fxEnd));
+      const at = Math.max(W.t + mods.REPLAY.after, D.homer?.until ?? -Infinity, ...(D.fx || []).filter((e) => e.kind === 'burst').map(mods.fxEnd));
       if (at + long <= c.t0 + p.hold / 1000 - REPLAY_MARGIN) { replayDue = { at, spec, p, calm, cast: c.cast }; replayEnd = at + long; }
     }
     // and the dead time till the next payload's due (diamond/between.js): the field walks back, the
@@ -646,6 +653,44 @@ export function createGrandstandView(host, opts = {}) {
     roar.cheer(side === 'home' ? 0 : 1, 1, t, 8);
     if (Number.isFinite(p.hold) && c.cast) D.planPile?.({ from: t + 0.3, until: c.t0 + p.hold / 1000 });
   }
+  // "Live from" the park: the game's first line. The camera comes in high over the city and down
+  // onto the park, landing on the main gate from the street with the crowd going in (the wide shot
+  // over the outfield with no city round it), and the venue's name goes up over the picture. With
+  // reduced motion it cuts straight to the gate. Nobody's on the field yet; the season this first
+  // payload carries dresses the park for a final.
+  function arrive(p, pend) {
+    if (p.season) sides({ ...p, half: '' });
+    // before the game: no score, count or bags on the graphics yet
+    Object.assign(S, { half: '', inning: 0, awayTeam: p.away || S.awayTeam, homeTeam: p.home || S.homeTeam });
+    dropHolds();
+    calm = prefersReducedMotion();
+    const to = R?.streetCam || (R?.city ? 'street' : 'sky');
+    shot = opts.shot || (calm ? to : mods.approachShot(to, W.t));
+    flyUntil = calm ? 0 : W.t + mods.APPROACH.dur + 1;
+    live = true; acc = 0;
+    letterArrive(p);
+    say(`Live from ${p.venue || 'the park'}${p.final ? `, for the ${p.final}` : ''}.`);
+    pendingCaption = null;
+    if (pend) { showCaption(pend.text); pend.speak?.(); }
+    paint();
+  }
+  // The venue's name over the picture, the way a network opens a game: LIVE, then where from, and a
+  // final's name under it. Up a beat into the fly-in and down a while after it's landed.
+  function letterArrive(p) {
+    const park = host?.querySelector('.gds-park');
+    if (!park || !p.venue) return;
+    park.querySelector('.gds-arrive')?.remove();
+    const el = doc.createElement('div');
+    el.className = `gds-arrive${p.final ? ' final' : ''}`;
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = `<div class="gds-arrive-tag"><i></i>LIVE</div><div class="gds-arrive-from">from</div>` +
+      `<div class="gds-arrive-venue">${_esc(p.venue)}</div>${p.final ? `<div class="gds-arrive-sub">${_esc(p.final)}</div>` : ''}`;
+    park.appendChild(el);
+    // its own clocks, not `later`'s: the next payload clears those, and the name stays up its time
+    const at = (ms, fn) => (win || globalThis).setTimeout(fn, ms);
+    at(calm ? 0 : 1500, () => el.classList.add('in'));
+    at((calm ? 6 : mods.APPROACH.dur + 4) * 1000, () => { el.classList.remove('in'); at(800, () => el.remove()); });
+  }
   // The matchup goes up as a man comes up, and not again for the rest of his turn.
   function matchupFor(p) {
     if (!p.batter || p.batter === S.lastBatter) return;
@@ -665,6 +710,8 @@ export function createGrandstandView(host, opts = {}) {
     dirtGame = { game, at };
   }
   function stage(p) {
+    // the last play's call, if it's still waiting on that play, goes up now: never on this one
+    if (pendingCaption?.call) flushCaption();
     stopTimers(); stopTable(); stopWorld();
     snd?.payload(p);
     const pend = pendingCaption;
@@ -677,6 +724,7 @@ export function createGrandstandView(host, opts = {}) {
     // and the park's roof as it was when the line aired (1 shut, 0 open), which rolls over the map's
     // ninety seconds when it changes; a payload without one leaves it where it is
     if (p.roof != null) { R?.setRoof?.(p.roof); draw(); }
+    if (p.phase === 'arrive') { arrive(p, pend); return; }
     const cast = castFor(p);
     S.pitch = null; S.pitches = []; S.bats = p.bats || '';
     if (p.phase === 'half') {
@@ -761,14 +809,33 @@ export function createGrandstandView(host, opts = {}) {
     };
     if (mods) go(); else loadMods().then(go).catch((err) => fallback(err && err.message));
   }
+  // The booth's line. Not held, it goes up and is spoken at once (talk between plays, and talk over
+  // the pitches). Held, it's a play's call and waits for the play to land: either it comes just
+  // before its payload (the old shape), or, with `o.call`, after a payload that rode the plate
+  // appearance's first line (`p.lead`), when it waits for that play if it's still in the air and
+  // goes up at once if it's landed. A call never waits for the next play: one still pending when
+  // the next payload comes goes up as it's staged.
   function setCaption(text, o) {
     if (flat) { flat.setCaption(text, o); return; }
     const speak = o && o.speak;
+    if (o && o.held && o.call) {
+      if (cur && !cur.landed) {
+        if (pendingCaption) flushCaption();
+        pendingCaption = { text: String(text || ''), speak, call: true };
+      } else { showCaption(text); speak?.(); }
+      return;
+    }
     // A play's line comes just before its payload. One that comes while the last play is still
     // in the air (frames stopped in a hidden tab) lands that play first, so its line isn't lost.
     if (o && o.held && pendingCaption && cur && !cur.landed) landPlay(cur);
     if (o && o.held) pendingCaption = { text: String(text || ''), speak };
     else { showCaption(text); speak?.(); }
+  }
+  // A pending line up and spoken now.
+  function flushCaption() {
+    const p = pendingCaption;
+    pendingCaption = null;
+    if (p) { showCaption(p.text); p.speak?.(); }
   }
   function showCard(fx) {
     if (flat) { flat.showCard(fx); return; }

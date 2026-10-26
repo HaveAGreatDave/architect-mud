@@ -542,6 +542,7 @@ All the standard headers (`@broadcast`, `@channel`, `@category`, `@length`) work
 | `@type sports` | Switches the file to the sports line-library format. |
 | `@sport baseball` | Which simulation to run: `baseball` or `hockey`. This is the only sport discriminator in the pipeline. |
 | `@announcer "Chip Vega"` | The play-by-play voice — a display **name**, surrounding quotes stripped. Available in lines as `{announcer}`. Not an NPC. |
+| `@analyst "Dusty Merriman"` | Optional, baseball. The colour man beside the announcer, a name too. His lines air as `Name says, "…"`, so a TV shows who is talking and the voice is seeded off his name. Compiles to `sports_pools.analyst`. See the booth pools below. |
 | `@airtime 19` | Optional. Feature only the game(s) covering these **in-game hours** (0–23, comma/space-separated) each day — one full game, snapped to the grid, at a fixed time of day; the channel is dark otherwise. Omit for **continuous** back-to-back games all day. The league itself always plays a full slate on the in-game clock (one game every 3 in-game hours → 8/in-game-day, ~1/team/day) and the standings advance regardless of what's aired; `@airtime` only picks which of those games this channel *shows*. `19` → the 18:00–21:00 game. |
 | `@sim 2` | Optional, baseball only. Play sim v2 (errors, hit batters, steals, caught stealing, pickoffs, throws over, double steals, wild pitches, passed balls). Compiles to `sports_pools.sim.version`. Omit for v1. The server records the slot v2 starts at, the first slot of the next in-game day after it first sees this, and never moves it, so every game that has aired replays as it aired. Removing the line records an end slot the same way; a version that has played and ended can't be switched back on. See [systems-broadcast.md](systems-broadcast.md#sim-v2). |
 | `@titlecard <graphic_id>` | The card shown before the first pitch or the opening draw. Pair it with a `::asset <graphic_id>` block. |
@@ -584,6 +585,22 @@ Same `::lines <key>` … `::endlines` collector as weather. Each non-empty line 
 **Sim v2 (`@sim 2`):** `atbat.hitbypitch` (falls back to `atbat.walk`) · `atbat.error`, and `atbat.error.throwing` when the batter takes second on a throw away · on the bases, `run.steal` · `run.caughtstealing` · `run.pickoff` · `run.throwover` · `run.doublesteal`, and `run.doublesteal.out` when the lead runner is thrown out · `run.wildpitch` · `run.passedball`, each with a `.score` variant when a run comes in. A throw over is colour, called only when the half needs lines; the rest are always called.
 
 Only the keys the runner needs are voiced; a missing pool is skipped (framing) or falls back (`atbat.*` → `atbat.out`/`atbat.single`, `hr.*` → `hr`).
+
+### The booth between the plays (baseball)
+
+Between plate appearances the announcer and the `@analyst` talk ([baseball-booth.js](../plugins/broadcast/sports/baseball-booth.js)). The pool's key says whose voice opens it: `story`, `scout`, `tonight`, `duel` and `react` pools are the analyst's, the rest the announcer's. A line split by `||` is an exchange, the voices taking turns from that first one, and the pacer keeps or cuts it whole. Each topic is told once a game, and a pool whose lines have all aired goes quiet rather than repeat (the `up` pools excepted).
+
+- **Who's up:** `up.early` (his first trip, before 15 at-bats: no stats) · `up.first` (his first trip, with his season) · `up.again` (with tonight) · `up.again.season` (tonight and the season) · `up`
+- **The hitter's type** (`batterTypeOf`): `scout.power` · `scout.contact` · `scout.glove` · `scout.balanced` · `scout.speed`
+- **The pitcher** (`pitcherStyleOf`): `scout.pitch.<style>` for flamethrower, sinkerballer, slider, junkballer, splitter, curveball, cutter and knuckleballer · `scout.delivery.over` · `.threequarter` · `.sidearm` · `.submarine` · `scout.tempo.quick` · `scout.tempo.slow`, each with `.runner` when a man's on first
+- **The season against the type:** `story.leader.hr` · `.avg` · `.sb` · `.k` · `story.power.slump` · `.hot` · `.surprise` · `story.contact.hot` · `.cold` · `story.glove.hitting` · `.cold` · `story.hot` · `story.cold` · `story.speed.running` · `.idle` · `story.pitcher.ace` · `.rough` · `.winning` · `.losing` · `story.twoway` (a pitcher with a batting line)
+- **Tonight:** `tonight.hitter.hr` · `.multi` · `.hitless` · `tonight.pitcher.k` · `.zeros` · `.rocky` · `duel.k` · `duel.hit` · `duel.hr` · `duel.walk` · `duel.out` (the last time these two met)
+- **The situation:** `sit.risp` · `sit.loaded` · `sit.late` · `sit.blowout`, once an inning
+- **After the play:** `react.hr` (and `.leader`, `.slump`, `.power`, `.surprise`) · `react.k.outpitch` · `react.k.many` · `react.hit.slump` · `react.dp` · `react.dp.sinker` · `react.glove` · `react.defence` · `react.walk` (and `.flamethrower`, `.knuckleballer`)
+- **The changeover:** `break.starter` · `break.starter.new` (his first start) · `break.leaders.hr` · `.avg` · `.sb` · `.k` · `break.standings` · `break.stretch` (middle of the seventh) · `break.drag` (middle of the fifth)
+- **Passing the time:** `banter` (exchanges) and `chatter` (the announcer alone)
+
+Tokens beside the usual: `{avg}` `{hits}` `{ab}` `{hrs}` `{rbis}` `{sbs}` (counts in words, "eleven home runs") · `{tonight}` ("two for three with a home run") · `{wl}` `{era}` `{pks}` `{pAvg}` · `{nks}` `{runsWord}` · `{pitch}` (his out pitch) `{pitch2}` `{velo}` `{delivery}` · `{record}` `{fieldRecord}` `{hrLeader}` `{hrLead}` `{avgLeader}` `{avgLead}` `{sbLeader}` `{sbLead}` `{kLeader}` `{kLead}` · `{fielderName}` · `{chip}` `{dusty}` (the booth's first names). The header of the booth block in [baseball.bsm](../data/scripts/baseball.bsm) lists them too.
 
 ### Lines that agree with the play (baseball)
 

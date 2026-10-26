@@ -7,10 +7,13 @@
 //
 //   1. THE RIG. Twenty-two bones; every pose in the table solves to finite frames, each one a turn
 //      (orthonormal and right-handed) or folded to nothing; the bind frames skin to the identity.
-//   2. THE BODIES. A fielder, a catcher, an umpire and a hitter built for skinning: every vertex on
-//      up to four bones with weights summing to one; the bind pose skins every vertex to itself;
-//      in every pose the skinned body lies on the posed build's surface within 0.25 ft, and the
-//      head, which rides the neck and the skull, lands vertex for vertex.
+//   2. THE BODIES. A fielder, a catcher, an umpire and a hitter built for skinning, and the biggest
+//      and the slightest man diamond/cast.js buildOf makes: every vertex on up to four bones with
+//      weights summing to one; the bind pose skins every vertex to itself; in every pose the
+//      skinned body lies on the posed build's surface within 0.25 ft on a man of the rig's own size
+//      (more on a bigger one, in proportion: the worst of it is the crease at a hip bent deep, and
+//      a thicker thigh creases further), and the head, which rides the neck and the skull, lands
+//      vertex for vertex.
 //   3. THE HANDS ON THE BAT. In every pose with a bat, either hand's fist and the bat within
 //      0.05 ft of where the posed build puts them, and the open hands folded away.
 //   4. THE PALETTE. Three texels a bone, and the shader's chunk reading the rows the rig writes.
@@ -62,11 +65,11 @@ const check = (label, ok, detail) => {
 };
 const t0 = clock.now();
 const S = PM.SKIN_STRIDE, NB = RIG.BONES.length;
-const solved = (name, mirror = false, scale = 1) => {
+const solved = (name, mirror = false, scale = 1, build = null) => {
   const pose = mirror ? PM.mirrorPose(PM.POSES[name]()) : PM.POSES[name]();
-  return RIG.solvePose(Object.assign(pose, { at: [0, 0, 0], yaw: 0, scale }));
+  return RIG.solvePose(Object.assign(RIG.scalePose(pose, scale), { at: [0, 0, 0], yaw: 0, scale, build }));
 };
-const rowsFor = (name, mirror = false, scale = 1) => RIG.skinRows(RIG.boneFrames(solved(name, mirror, scale)), RIG.bindFrames(scale));
+const rowsFor = (name, mirror = false, scale = 1, build = null) => RIG.skinRows(RIG.boneFrames(solved(name, mirror, scale, build)), RIG.bindFrames(scale, build));
 
 // ── 1. the rig ───────────────────────────────────────────────────────────────
 check('rig: twenty-two bones, each named once', NB === 22 && new Set(RIG.BONES).size === NB && RIG.BONES.every((n, i) => RIG.BONE[n] === i));
@@ -89,8 +92,8 @@ check('rig: twenty-two bones, each named once', NB === 22 && new Set(RIG.BONES).
 }
 {
   let worst = 0;
-  for (const scale of [1, 1.03]) {
-    const b = RIG.bindFrames(scale), rows = RIG.skinRows(b, b);
+  for (const [scale, build] of [[1, null], [1.03, null], [1.08, { sh: 1.08, girth: 0.09 }], [0.93, { sh: 0.93, girth: -0.05 }]]) {
+    const b = RIG.bindFrames(scale, build), rows = RIG.skinRows(b, b);
     for (let i = 0; i < NB; i++) { const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]; for (let k = 0; k < 12; k++) worst = Math.max(worst, Math.abs(rows[i * 12 + k] - I[k])); }
   }
   check('rig: the bind frames skin to the identity', worst < 1e-5, worst.toExponential(2));
@@ -102,11 +105,14 @@ const LOOKS = {
   catcher: { id: 'Rats:C', side: 'home', role: 'catcher', slot: 1, glove: 'L' },
   umpire: { id: 'ump:plate', side: 'ump', role: 'ump', slot: 24, mask: true, girth: 0.06 },
   hitter: { id: 'Voss', side: 'away', role: 'batter', slot: 12, helmet: true, flapSide: 1, battingGloves: '#c9c4b8' },
+  // the ends of diamond/cast.js buildOf's range: the biggest man it makes and the slightest
+  big: { id: 'Rats:C', side: 'home', role: 'catcher', slot: 1, glove: 'L', scale: 1.08, shoulders: 1.08, girth: 0.09, belly: 0.03 },
+  slight: { id: 'Moth', side: 'away', role: 'fielder', slot: 14, glove: 'L', scale: 0.93, shoulders: 0.93, girth: -0.05 },
 };
 const skinnedOf = (look) => { const G = PM.createPlayerSet({ skin: true }); PM.buildBody(G, PM.lookOf(look)); return G; };
 const posedOf = (look, name, mirror = false) => {
   const G = PM.createPlayerSet(), pose = mirror ? PM.mirrorPose(PM.POSES[name]()) : PM.POSES[name]();
-  PM.buildPlayer(G, Object.assign(pose, { at: [0, 0, 0], yaw: 0 }), PM.lookOf(look));
+  PM.buildPlayer(G, Object.assign(RIG.scalePose(pose, look.scale || 1), { at: [0, 0, 0], yaw: 0, scale: look.scale || 1 }), PM.lookOf(look));
   return G;
 };
 const vert = (b, v) => {
@@ -158,10 +164,10 @@ const skinAt = (rows, R, b, v) => SK.skinPoint(rows, R.ids.subarray(v * 4, v * 4
 const BAT_POSES = Object.keys(PM.POSES).filter((n) => PM.POSES[n]().bat);
 const tb = clock.now();
 const bodies = Object.fromEntries(Object.entries(LOOKS).map(([k, look]) => [k, skinnedOf(look)]));
-const buildMs = (clock.now() - tb) / 4;
+const buildMs = (clock.now() - tb) / Object.keys(LOOKS).length;
 for (const [kind, G] of Object.entries(bodies)) {
   let n = 0, badW = 0, badI = 0, moved = 0;
-  const ident = RIG.skinRows(RIG.bindFrames(1), RIG.bindFrames(1));
+  const bind = RIG.bindFrames(LOOKS[kind].scale || 1, PM.rigBuildOf(LOOKS[kind])), ident = RIG.skinRows(bind, bind);
   for (const b of G.batches.values()) {
     check(`${kind}: every batch skinned`, b.skin === true);
     for (let v = 0; v < b.n; v++) {
@@ -181,14 +187,15 @@ for (const [kind, G] of Object.entries(bodies)) {
 const POSES_FOR = {
   fielder: Object.keys(PM.POSES).filter((n) => !BAT_POSES.includes(n)),
   catcher: ['catcher', 'stand', 'tag', 'pFollow'], umpire: ['umpire', 'stand', 'safe', 'outfield'], hitter: [...BAT_POSES, 'runner', 'slide'],
+  big: ['catcher', 'stand', 'tag', 'pFollow', 'slide'], slight: ['infield', 'stand', 'tag', 'pFollow', 'slide'],
 };
 const rigs = new Map();
 for (const G of Object.values(bodies)) for (const b of G.batches.values()) rigs.set(b, rigOf(b));
-for (const kind of ['fielder', 'catcher', 'umpire', 'hitter']) {
+for (const kind of Object.keys(LOOKS)) {
   const G = bodies[kind], look = LOOKS[kind];
   let worst = { d: 0 }, headWorst = { d: 0 };
   for (const name of POSES_FOR[kind]) {
-    const rows = rowsFor(name), posed = posedOf(look, name), gripping = BAT_POSES.includes(name);
+    const rows = rowsFor(name, false, look.scale || 1, PM.rigBuildOf(look)), posed = posedOf(look, name), gripping = BAT_POSES.includes(name);
     for (const [key, b] of G.batches) {
       const pb = posed.batches.get(key), R = rigs.get(b);
       if (!pb) continue;
@@ -207,7 +214,8 @@ for (const kind of ['fielder', 'catcher', 'umpire', 'hitter']) {
       }
     }
   }
-  check(`${kind}: every pose's skinned body on the posed build's surface`, worst.d < 0.25, `${worst.d.toFixed(3)} ft in ${worst.name} at ${worst.bone}`);
+  const tol = 0.25 * Math.max(1, (look.scale || 1) * RIG.limbThick(look.girth || 0));
+  check(`${kind}: every pose's skinned body on the posed build's surface`, worst.d < tol, `${worst.d.toFixed(3)} ft in ${worst.name} at ${worst.bone}, ${tol.toFixed(3)} allowed`);
   check(`${kind}: the head where the posed build puts it, vertex for vertex`, headWorst.d < 0.01, `${headWorst.d.toFixed(4)} ft in ${headWorst.name}`);
 }
 

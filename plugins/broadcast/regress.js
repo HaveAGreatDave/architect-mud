@@ -9,6 +9,7 @@ import { query } from '../../server/models/db.js';
 import { ensureClipBroadcast, _test, _piracyTest, startEmergency, stopEmergency, emergencyActive, emergencyStatus, getTvChannelList, getTabletTunedChannel, isDeckInputChannel } from './index.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
+import { dispatchAction } from '../../server/engine/actions.js';
 const tabletTunersClear = (id) => _test.tabletTuners.delete(id);
 import { getCrimeStars, getCrimeWitness } from '../../server/engine/crimes.js';
 import { _audienceTest } from './audience.js';
@@ -259,7 +260,8 @@ export default async function regress({ check, run, getPlayer }) {
     const gfx = (n) => n.data?.graphic || n.graphic || null;
     const open = says.map(gfx).find((x) => x?.kind === 'pregame');
     check(`pregame open: ${sport} airs one`, !!open && open.sport === sport && !!open.away?.name && !!open.home?.name && open.away.name !== open.home.name, JSON.stringify(open)?.slice(0, 200));
-    check(`pregame open: ${sport} puts it on the first spoken line`, gfx(says[0] || {})?.kind === 'pregame', JSON.stringify(gfx(says[0] || {}))?.slice(0, 120));
+    // the first spoken line is the venue's ("Live from …"), and the open goes up with the next
+    check(`pregame open: ${sport} puts it on the first line after the venue's`, gfx(says[0] || {})?.kind === 'live' && gfx(says[1] || {})?.kind === 'pregame', JSON.stringify([gfx(says[0] || {}), gfx(says[1] || {})])?.slice(0, 160));
     check(`pregame open: ${sport} holds long enough to read`, open?.duration >= 12, String(open?.duration));
   }
   {
@@ -271,6 +273,140 @@ export default async function regress({ check, run, getPlayer }) {
     check('pregame open: the log rung gets it written out', /TONIGHT/.test(log) && log.includes('Club 2 (9-1-1) at Club 10') && log.includes('<b>') && /21 pts/.test(log), log);
     check('pregame open: opening night still names the clubs', /Away A at Home B/.test(_test.pregameLines(_test.pregameFx('baseball', [], { away: 'Away A', home: 'Home B', awayRecord: '0-0', homeRecord: '0-0' }))));
     check('pregame open: any other card writes nothing to the log', _test.pregameLines({ kind: 'matchup' }) === null && _test.pregameLines(null) === null);
+  }
+
+  // ── Live from the venue, and the final's package ────────────────────────────
+  // Every game opens "Live from" its park (sports_pools.venue.said), and that line carries the
+  // fly-in (a gameday payload with `phase: 'arrive'`) and the LIVE card. Every CPhL game is played
+  // at Golden Goose Gardens, so the clubs' colour pools are about the clubs, never a barn of their
+  // own. A final reads its package (sports/final-package.js) over three cards before the first
+  // pitch or the drop: the tale of the tape, the road here, the men to watch.
+  {
+    const rowOf = (file) => JSON.parse(readFileSync(new URL(`../../content/media_broadcasts/${file}.json`, import.meta.url), 'utf8')).sports_pools;
+    const gfx = (n) => n.data?.graphic || n.graphic || null, gdOf = (n) => n.data?.gameday || n.gameday || null, txt = (n) => n.data?.text || n.text || '';
+    for (const [file, sport, seed] of [['bc_1783289744953', 'baseball', 40002], ['bc_cluster_puck', 'hockey', 42]]) {
+      const row = rowOf(file);
+      const g = _test.assembleSportsGraph(row, `bc_regress_live_${sport}`, seed, null);
+      const first = g ? Object.values(g.nodes).find((n) => n.type === 'say') : null;
+      const gd = first && gdOf(first);
+      check(`live: ${sport} opens "Live from ${row.venue?.said}"`, !!row.venue?.said && txt(first || {}).startsWith(`Live from ${row.venue.said}`), txt(first || {}));
+      check(`live: ${sport}'s line carries the fly-in and the LIVE card`, gd?.phase === 'arrive' && gd.venue === row.venue.name && gfx(first)?.kind === 'live', JSON.stringify([gd, gfx(first || {})])?.slice(0, 200));
+    }
+    const puck = rowOf('bc_cluster_puck');
+    const b = puck.venue?.site?.block;
+    check('live: the CPhL plays at Golden Goose Gardens, on its six tiles', puck.venue?.name === 'Golden Goose Gardens' && b?.x0 === 914 && b?.x1 === 916 && b?.y0 === 916 && b?.y1 === 917);
+    const clubKey = (name) => `chatter.${String(name).trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+    const barns = puck.teams.flatMap((t) => (puck.pools[clubKey(t)] || []).filter((l) => /\bbarn\b/i.test(l)));
+    check('live: every CPhL club has a colour pool, and none of it is about a barn of its own', puck.teams.every((t) => (puck.pools[clubKey(t)] || []).length >= 3) && !barns.length, barns.join(' | '));
+
+    // the package's arithmetic, pure
+    const { formOf, streakOf, seriesOf, finalPackage } = await import('./sports/final-package.js');
+    const res = [{ a: 'A', h: 'B', as: 3, hs: 1 }, { a: 'B', h: 'A', as: 2, hs: 1, ot: 1 }, { a: 'C', h: 'A', as: 0, hs: 4 }, { a: 'A', h: 'B', as: 5, hs: 2 }];
+    check('package: form is W, L and O oldest first, and an overtime loss ends a run of wins', formOf(res, 'A').join('') === 'WOWW' && formOf(res, 'B').join('') === 'LWL' && JSON.stringify(streakOf(formOf(res, 'A'))) === '{"kind":"W","n":2}', formOf(res, 'A').join(''));
+    const ser = seriesOf(res, 'A', 'B');
+    check('package: the season series counts only the two clubs\' meetings', ser.games.length === 3 && ser.wins.A === 2 && ser.wins.B === 1, JSON.stringify(ser.wins));
+    const pk = finalPackage({ sport: 'hockey', final: 'Cup', away: 'A', home: 'B', results: res,
+      rows: [{ team: 'A', wins: 3, losses: 0, otl: 1, points: 7, goals_for: 13, goals_against: 5 }, { team: 'B', wins: 1, losses: 2, otl: 0, points: 2, goals_for: 5, goals_against: 9 }],
+      seeds: { away: 1, home: 2 }, watch: { away: [{ role: 'F', name: 'Ace', stat: '9 G', said: '9 goals' }] }, out: { home: ['Hurt'] } });
+    check('package: three pages, tape then road then men', pk.pages.map((p) => p.page).join() === 'tape,road,watch' && pk.pages[0].away.diff === 8 && pk.pages[0].away.record === '3-0-1');
+    check('package: one line a club a page, the series, the men and who is out',
+      pk.lines.map((l) => l.key).join() === 'tape.club,tape.club,road.club,road.club,series,watch.club.one,watch.out', pk.lines.map((l) => l.key).join());
+    check('package: the road reads its last ten aloud, overtime losses and all', pk.lines[2].tok.last10 === '3, 0 and 1' && pk.lines[3].tok.last10 === '1 and 2', `${pk.lines[2].tok.last10} | ${pk.lines[3].tok.last10}`);
+    check('package: each page writes itself out for the log rung', pk.pages.every((p) => /THE TALE|THE ROAD|PLAYERS/.test(_test.packageLines(p) || '')) && _test.packageLines({ kind: 'pregame' }) === null);
+
+    // and a real final, over a season the suite folds itself
+    for (const [file, sport, prefix] of [['bc_cluster_puck', 'hockey', 'cup.'], ['bc_1783289744953', 'baseball', 'worldseries.']]) {
+      const row = rowOf(file), now = 60000;
+      const keepS = _test.standingsCaches.get(sport), keepW = _test.seasonCaches.get(sport);
+      try {
+        const res2 = await dispatchAction({ type: 'broadcast.computeStandings', params: { startSlot: now - 160, endSlot: now, sport } });
+        const { rows, sport: _s, ...extras } = res2 || {};
+        _test.standingsCaches.set(sport, { at: Date.now() + 1e9, rows, extras });
+        const [a, b2] = [rows[0].team, rows[1].team];
+        _test.seasonCaches.set(sport, { at: Date.now() + 1e9, phase: 'worldseries', finalistA: a, finalistB: b2, wsSlot: now, seasonNo: 1 });
+        let g = null;
+        for (let slot = now; slot < now + 40 && !g; slot++) g = _test.assembleSportsGraph(row, `bc_regress_pkg_${sport}`, slot, { teams: [a, b2], worldSeries: true });
+        const says = g ? Object.values(g.nodes).filter((n) => n.type === 'say') : [];
+        const pages = says.map(gfx).filter((x) => x?.kind === 'package');
+        check(`package: ${sport}'s final puts up the three pages in order`, pages.map((p) => p.page).join() === 'tape,road,watch', pages.map((p) => p.page).join());
+        check(`package: ${sport}'s final drops the table for them`, !says.some((n) => gfx(n)?.kind === 'pregame'));
+        const lines = says.map(txt).filter((t) => /\{|undefined|null/.test(t));
+        check(`package: ${sport}'s lines fill every token`, !lines.length && pages.length === 3, lines.join(' | '));
+        check(`package: ${sport} names each club's men from the season`, pages[2]?.away?.men?.length >= 2 && pages[2]?.home?.men?.length >= 2, JSON.stringify(pages[2])?.slice(0, 200));
+        check(`package: ${sport} has a pool for every key it reads`, ['tape.club', 'road.club', 'series', 'series.even', 'series.none', 'watch.club', 'watch.club.one', 'live'].every((k) => (row.pools[prefix + k] || []).length));
+      } finally {
+        if (keepS) _test.standingsCaches.set(sport, keepS); else _test.standingsCaches.delete(sport);
+        if (keepW) _test.seasonCaches.set(sport, keepW); else _test.seasonCaches.delete(sport);
+      }
+    }
+  }
+
+  // ── Deadball's booth between the plays ─────────────────────────────────────
+  // sports/baseball-booth.js and baseball-pacing.js. The freeze this fixed: every line held the
+  // slot's even share (22 s at 3:1, 67 s at 1:1), the park played the at-bat in the first 13 to 26
+  // and stood still for the rest, and a line of chatter stood it still for a whole hold. Played
+  // at the live clock (a 1-hour slot) and at 1:1 (3 hours), with the real script.
+  {
+    const deadball = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_1783289744953.json', import.meta.url), 'utf8')).sports_pools;
+    const { landBy, afterLand } = await import('../../client/game/js/panels/diamond/timing.js');
+    const { holdFor: bbHold } = await import('./sports/baseball-pacing.js');
+    const { pitcherStyleOf, PITCHER_STYLES } = await import('./sports/baseball.js');
+    const inAir = (g) => { const nx = new Map(g.edges.filter((e) => e.fromPort === 'next').map((e) => [e.fromNode, e.toNode])); const out = []; for (let id = g._start; id; id = nx.get(id)) out.push(g.nodes[id].data); return out; };
+    for (const [clock, slotMs] of [['3:1', 3600000], ['1:1', 10800000]]) {
+      // two slots the slate gives baseball
+      const slots = [];
+      for (let sl = 40002; slots.length < 2 && sl < 40200; sl += 7) if (_test.assembleSportsGraph(deadball, 'bc_regress_booth_probe', sl, null, { slotMs })) slots.push(sl);
+      for (const slot of slots) {
+        const g = _test.assembleSportsGraph(deadball, `bc_regress_booth_${slot}`, slot, null, { slotMs });
+        const air = inAir(g).filter((d) => d.text != null || d.gameday);
+        const total = air.reduce((a, d) => a + (d.holdMs || 0), 0);
+        // (a changeover and the fly-in to the park before the first pitch aren't plays)
+        const plays = air.map((d, i) => [d, i]).filter(([d]) => d.gameday && d.gameday.phase !== 'half' && d.gameday.phase !== 'arrive');
+        const tag = `booth ${clock} #${slot}`;
+        check(`${tag}: the game fits its slot`, total <= slotMs, `${total} > ${slotMs}`);
+        // every plate appearance in regulation is on air, so the park never jumps a man
+        const regPAs = plays.filter(([d]) => !d.gameday.phase && d.gameday.inning <= 9).length;
+        const gs = _test.sportsGameForSlot(deadball, slot, null);
+        const simPAs = gs.game.beats.filter((b) => b.type === 'atbat' && b.inning <= 9).length;
+        check(`${tag}: every plate appearance is called`, regPAs === simPAs, `${regPAs} of ${simPAs}`);
+        // a payload's hold runs to the next one, and the play and its call fit inside it
+        const bad = [];
+        for (let k = 0; k < plays.length; k++) {
+          const [d, i] = plays[k];
+          let next = i + 1;
+          while (next < air.length && !air[next].gameday) next++;
+          let span = 0, toCallEnd = 0, callAt = -1;
+          for (let j = i; j < next; j++) span += air[j].holdMs || 0;
+          if (d.gameday.lead) callAt = air.findIndex((x, j) => j > i && j < next && x.call);
+          else callAt = i;
+          for (let j = i; j <= callAt; j++) toCallEnd += air[j].holdMs || 0;
+          const land = landBy({ ...d.gameday, hold: span }) * 1000;
+          const need = land + bbHold(air[callAt]?.text || '') - 1000;
+          // and the next payload waits for what the park does after the landing (a home run's trot)
+          if (next < air.length && span + 1000 < land + afterLand(d.gameday) * 1000) bad.push(`${d.gameday.kind}@${i}: span ${span} leaves the park no time after the landing`);
+          // (the last payload's hold runs on through the final and the recap reel)
+          if ((next < air.length && span !== d.gameday.hold) || callAt < 0 || (next < air.length && toCallEnd < need)) bad.push(`${d.gameday.kind}@${i}: span ${span}/${d.gameday.hold} call ${callAt} ${toCallEnd}<${Math.round(need)}`);
+        }
+        check(`${tag}: each play's hold runs to the next payload and covers the pitches, the play and the call`, !bad.length, bad.slice(0, 4).join(' | '));
+        const says = air.filter((d) => d.text);
+        check(`${tag}: the colour man talks`, says.filter((d) => d.text.startsWith('Dusty Merriman says, "')).length >= (clock === '3:1' ? 40 : 120), String(says.filter((d) => d.text.startsWith('Dusty Merriman says')).length));
+        check(`${tag}: no booth line leaves a token unfilled`, !says.some((d) => /\{\w+\}/.test(d.text)), says.find((d) => /\{\w+\}/.test(d.text))?.text);
+        // (a short turn of an exchange, "And?", can come round again in another one)
+        const talk = says.filter((d) => !d.gameday && !d.call && d.text.length > 30 && !d.scorebug?.status?.startsWith('FINAL'));
+        const twice = talk.filter((d, k) => talk.findIndex((x) => x.text === d.text) !== k);
+        check(`${tag}: no booth line airs twice in a game`, twice.length <= 2, twice.slice(0, 3).map((d) => d.text.slice(0, 60)).join(' | '));
+      }
+    }
+    // A pitcher throws his own mix, and a strikeout ends on his out pitch more often than not.
+    const g = _test.assembleSportsGraph(deadball, 'bc_regress_booth_mix', 40002, null, { slotMs: 3600000 });
+    const abs = Object.values(g.nodes).map((n) => n.data?.gameday).filter((p) => p && Array.isArray(p.pitches));
+    const offMix = abs.filter((p) => p.pitches.some((x) => !pitcherStyleOf(p.pitcher).mix.some(([t]) => t === x.type)));
+    check('booth: every pitch is from its pitcher\'s mix', abs.length > 40 && !offMix.length, offMix.slice(0, 2).map((p) => `${p.pitcher}: ${p.pitches.map((x) => x.type).join(',')}`).join(' | '));
+    const ks = abs.filter((p) => p.kind === 'strikeout');
+    const onOut = ks.filter((p) => p.pitches[p.pitches.length - 1].type === pitcherStyleOf(p.pitcher).out).length;
+    check('booth: strike three is usually the out pitch', ks.length > 5 && onOut / ks.length > 0.5, `${onOut}/${ks.length}`);
+    const styles = new Set(Array.from({ length: 400 }, (_, i) => pitcherStyleOf(`Pitcher ${i}`).style));
+    check('booth: every pitching style turns up', Object.keys(PITCHER_STYLES).every((s) => styles.has(s)), [...styles].join(','));
   }
 
   // ── The daily slate ─────────────────────────────────────────────────────────
@@ -2583,6 +2719,7 @@ export default async function regress({ check, run, getPlayer }) {
   // quietly lost a pool.
   {
     const { HOCKEY, rosterFor } = await import('./sports/hockey.js');
+    const { finalPackage: finalPkg } = await import('./sports/final-package.js');
     const { sportsRng, sportsHash, sportsPick, sportsFill } = await import('./rng.js');
     const { __test: RINK } = await import('../../client/game/js/panels/gameday-rink.js');
     const fs = await import('fs');
@@ -2883,10 +3020,22 @@ export default async function regress({ check, run, getPlayer }) {
         opts.unavailable ? { unavailable: opts.unavailable } : undefined);
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const pick = (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); };
+      const say = (l, t) => { if (l) { const x = sportsFill(l, t).trim(); if (/\{[a-zA-Z]/.test(x) || /\s[.,!?;:]|\s{2,}/.test(x)) unfilled.push(x); } };
+      // The Cup's package, read for real (sports/final-package.js) over three made-up seasons, so
+      // the series is led, level and never played, and a club has two men to watch, one, and men out.
+      const finalPackage = (prefix) => {
+        const [a, b] = [game.away.name, game.home.name];
+        for (const results of [[{ a, h: b, as: 3, hs: 1 }], [{ a, h: b, as: 3, hs: 1 }, { a: b, h: a, as: 2, hs: 0 }], []]) {
+          const pk = finalPkg({ sport: 'hockey', final: 'Coldwater Cup', away: a, home: b, results, rows: [{ team: a, wins: 2, losses: 1, otl: 0, points: 4 }],
+            seeds: { away: 1, home: 2 }, watch: { away: [{ name: 'Ace', said: '9 goals' }, { name: 'Keeper', said: '4 wins' }], home: [{ name: 'Solo', said: '3 goals' }] }, out: { home: ['Hurt'] } });
+          for (const l of pk.lines) say(pick(prefix + l.key), l.tok);
+        }
+      };
       HOCKEY.narrate({
         script: {}, game, gs: { seed, game }, slot, ws: !!opts.ws, announcer: 'Tug Brennan',
-        pools, nrng, sport: HOCKEY, add: () => {}, say: (l, t) => { if (l) { const x = sportsFill(l, t).trim(); if (/\{[a-zA-Z]/.test(x) || /\s[.,!?;:]|\s{2,}/.test(x)) unfilled.push(x); } }, pick,
+        pools, nrng, sport: HOCKEY, add: () => {}, say, pick,
         abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
+        venue: { said: 'Golden Goose Gardens', name: 'Golden Goose Gardens', rev: '' }, xpick: pick, finalPackage,
       });
       return game;
     };
@@ -2926,8 +3075,8 @@ export default async function regress({ check, run, getPlayer }) {
       const base = rosterFor(teams[0], teams, players);
       narrateSlot(9, { matchup: { away: teams[0], home: teams[1], teams }, unavailable: new Set([base[0], base[2]]) });
     }
-    // Every club whose BARN has authored chatter is played at home once, so each
-    // chatter.<club> is exercised. The synthetic pairings above don't reach them all.
+    // Every club with authored colour is played at home once, so each chatter.<club> is
+    // exercised. The synthetic pairings above don't reach them all.
     const barnKey = (name) => `chatter.${String(name).trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`;
     for (const barn of teams.filter(t => pools[barnKey(t)])) {
       narrateSlot(13, { matchup: { away: teams.find(t => t !== barn), home: barn, teams } });

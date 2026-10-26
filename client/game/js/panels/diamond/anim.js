@@ -36,7 +36,7 @@
 // Pure: no WebGL and no DOM, so the gates run it. Times are seconds; places are feet in the pose's
 // own frame (x to the player's left, y up, z his forward), placed in the park by `at` and `yaw`.
 
-import { solvePose, solveTorso, solveHips, mirrorPose } from './rig.js';
+import { solvePose, solveTorso, solveHips, mirrorPose, scalePose } from './rig.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -309,12 +309,15 @@ function batHandoff(clip, t, P, run, s) {
   return out;
 }
 
-// The keys' curves alone, before the plants hold the feet.
+// The keys' curves alone, before the plants hold the feet. The keys are for the rig at scale 1, so
+// a man of scale `s` does them `s` times the size about the frame's origin (rig.js scalePose): the
+// pelvis, the wrists, the ankles and the bat's knob. The root's path isn't scaled, so a stride is as
+// long on anyone and every plan worked out from it (rootAt) holds at any height.
 const VEC3 = Object.freeze([...POINTS, ...ANGLES3]);
 function curve(clip, t, ground, s) {
   const keys = clip.keys;
   if (keys.length === 1) {
-    const P = copy(keys[0].pose);
+    const P = scalePose(copy(keys[0].pose), s);
     for (const S of FEET) { P['ank' + S] = ankle3(P['ank' + S], ground, s); P['plant' + S] = false; }
     return P;
   }
@@ -325,10 +328,13 @@ function curve(clip, t, ground, s) {
   // Every sample of every body runs through here, so it makes no closure or array a number.
   const at4 = (p0, p1, p2, p3) => cr(p0, p1, p2, p3, t0, t1, t2, t3, u, q1, q2, ends);
   const vec = (A, B, Z, Y) => [at4(Z ? Z[0] : null, A[0], B[0], Y ? Y[0] : null), at4(Z ? Z[1] : null, A[1], B[1], Y ? Y[1] : null), at4(Z ? Z[2] : null, A[2], B[2], Y ? Y[2] : null)];
-  const ank = (q) => (q.length === 2 ? [q[0], ground(q[0], q[1]) + ANKLE_UP * s, q[1]] : q);
+  const ank = s === 1 ? (q) => (q.length === 2 ? [q[0], ground(q[0], q[1]) + ANKLE_UP, q[1]] : q)
+    : (q) => (q.length === 2 ? [q[0] * s, ground(q[0] * s, q[1] * s) + ANKLE_UP * s, q[1] * s] : [q[0] * s, q[1] * s, q[2] * s]);
   const P = {};
   for (const k of ANGLES) P[k] = at4(z ? z[k] : null, a[k], b[k], y ? y[k] : null);
   for (const k of VEC3) P[k] = vec(a[k], b[k], z && z[k], y && y[k]);
+  // the points are linear in the keys, so scaling the curve is scaling the keys
+  if (s !== 1) for (const k of POINTS) P[k] = [P[k][0] * s, P[k][1] * s, P[k][2] * s];
   for (const k of DIRS) P[k] = norm(vec(a[k], b[k], z && z[k], y && y[k]));
   for (const S of FEET) {
     const k = 'ank' + S;
@@ -346,6 +352,7 @@ function curve(clip, t, ground, s) {
     };
   } else if (a.bat && u <= 0) P.bat = copy(a.bat);
   else if (b.bat && u >= 1) P.bat = copy(b.bat);
+  if (P.bat && s !== 1) P.bat.knob = P.bat.knob.map((x) => x * s);
   return P;
 }
 

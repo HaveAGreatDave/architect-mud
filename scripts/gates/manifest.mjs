@@ -64,6 +64,7 @@ export const GROUPS = [
       'scripts/content/lint.mjs',
       'scripts/content/build-cphl-clubs.mjs --check',   // the CPhL clubs in the row match their authoring script
       'scripts/content/build-deadball-clubs.mjs --check',   // and Deadball's
+      'scripts/content/build-final-opens.mjs --check',   // the finals' opens match their scores
     ],
   },
   {

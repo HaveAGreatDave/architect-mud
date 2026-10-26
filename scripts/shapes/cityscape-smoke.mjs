@@ -323,8 +323,57 @@ let life;
   check('the streets in under 200 ms', lifeMs < 200, `${lifeMs.toFixed(0)} ms`);
 }
 
+// ── 6. the fly-ins ───────────────────────────────────────────────────────────
+// A game's first line flies in over the city onto the park (diamond/camera.js approachShot): the
+// Grandstand's down to its street camera, Rinkside's down onto Golden Goose Gardens, whose city is
+// composed the same way round its own six tiles (gl/approach.js). Over the twelve seconds the eye
+// stays over the set (out over its bay or past its Curtain a little, never far), over the rooftops
+// it passes, and at the start the top of the frame meets the ground the set draws: the city, or the
+// rock and the water it lays out to EDGE ft past its walls (gl/cityscape.js), never the void. The
+// Gardens' city has its own tiles, drawn from their shapes, and the gilt goose above its roof.
+{
+  const { approachShot, shotAt, APPROACH, axes, fovFor } = await import(P + 'diamond/camera.js');
+  const { buildApproach, approachPath, FLY } = await import(P + 'gl/approach.js');
+  // how far past its edges the eye may go, and how far the set draws rock and water past them
+  const NEAR = 1500, EDGE = 9000;
+  const flight = (label, S, path, dur, low) => {
+    const { uW, uE, vN, vS } = S.walls, T = S.T;
+    const tops = S.placed.map(({ b, at }) => { const sh = cityShape(b); return sh ? { at, top: Math.max(...sh.segs.map((s) => s.z1)) * T } : null; }).filter(Boolean);
+    let out = 0, through = [];
+    for (let t = 0; t <= dur + 1e-9; t += 0.2) {
+      const s = shotAt(path, t), [u, v] = S.uvOf(s.eye);
+      if (u < uW - NEAR || u > uE + NEAR || v < vS - NEAR || v > vN + NEAR) out++;
+      if (s.eye[1] > low) for (const k of tops) if (Math.hypot(s.eye[0] - k.at[0], s.eye[2] - k.at[2]) < T * 0.55 && s.eye[1] < k.top + 8) through.push(`${t.toFixed(1)} s`);
+    }
+    check(`${label}: the fly-in stays over the set`, out === 0, `${out} frames more than ${NEAR} ft past its edges`);
+    check(`${label}: the fly-in clears every roof it passes over`, !through.length, through.slice(0, 4).join(', '));
+    // the top of a 4:3 frame at the start, down to the ground
+    const s0 = shotAt(path, 0), { f, u } = axes(s0), half = (fovFor(s0.fov, 4 / 3) * Math.PI) / 360;
+    const d = [0, 1, 2].map((i) => f[i] * Math.cos(half) + u[i] * Math.sin(half));
+    const k = d[1] < 0 ? -s0.eye[1] / d[1] : Infinity, g = [s0.eye[0] + d[0] * k, 0, s0.eye[2] + d[2] * k], [gu, gv] = S.uvOf(g);
+    check(`${label}: the frame's top meets ground the set draws as it starts`, Number.isFinite(k) && gu > uW - EDGE && gu < uE + EDGE && gv > vS - EDGE && gv < vN + EDGE, `${gu.toFixed(0)}, ${gv.toFixed(0)} against ${JSON.stringify(S.walls)}`);
+  };
+  const street = streetShot(set);
+  check('the Grandstand\'s fly-in lands on the street camera', !!street);
+  if (street) {
+    const path = approachShot(street, 0), end = shotAt(path, APPROACH.dur);
+    check('the Grandstand\'s fly-in ends where the street camera stands', Math.hypot(...end.eye.map((x, i) => x - street.eye[i])) < 0.01 && end.fov === street.fov);
+    flight('Grandstand', set, path, APPROACH.dur, 12);
+  }
+  const puck = JSON.parse(readFileSync(new URL('content/media_broadcasts/bc_cluster_puck.json', ROOT), 'utf8')).sports_pools?.venue;
+  check('the CPhL\'s venue has a site and a name', Number.isFinite(puck?.site?.x) && !!puck?.site?.block && !!puck?.name);
+  if (puck?.site) {
+    const A = buildApproach({ ...puck, skyline: skylineFrom(zones, puck.site, { radius: REACH, entranceOf: buildingEntranceDir }) });
+    const b = puck.site.block, own = A.set.placed.filter(({ b: x }) => x.x >= b.x0 && x.x <= b.x1 && x.y >= b.y0 && x.y <= b.y1);
+    check('the Gardens: every one of its tiles is drawn from its shape', own.length === (b.x1 - b.x0 + 1) * (b.y1 - b.y0 + 1) && own.every(({ b: x }) => !!cityShape(x)), `${own.length} tiles`);
+    check('the Gardens: the city round it builds, every building with a shape', A.city.stats.buildings > 150 && !A.city.stats.missing.length, JSON.stringify(A.city.stats.missing));
+    check('the Gardens: the goose stands above its roof', A.goose.at[1] > A.goose.top && A.goose.top > 20, `${A.goose.at[1]} over ${A.goose.top}`);
+    flight('Rinkside', A.set, approachPath(A, 0), FLY.dur, 60);
+  }
+}
+
 // ── 5. no region named ───────────────────────────────────────────────────────
-for (const file of ['client/shared/city-set.js', 'client/shared/skyline-manifest.js', 'client/game/js/panels/gl/cityscape.js', 'server/engine/skyline.js', 'client/game/js/panels/gl/streetlife.js', 'client/game/js/panels/gl/parkbirds.js']) {
+for (const file of ['client/shared/city-set.js', 'client/shared/skyline-manifest.js', 'client/game/js/panels/gl/cityscape.js', 'server/engine/skyline.js', 'client/game/js/panels/gl/streetlife.js', 'client/game/js/panels/gl/parkbirds.js', 'client/game/js/panels/gl/approach.js']) {
   const src = readFileSync(new URL(file, ROOT), 'utf8').replace(/deadball-glass2\.md/g, '');
   const hit = src.match(/coldwater|halcyon|scarlet|wildland|basin|deadball|ksab/i);
   check(`${file} names no region`, !hit, hit && hit[0]);

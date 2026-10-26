@@ -12,10 +12,16 @@
 // it reaches him. It's all worked out when the payload arrives, as times on the world's clock
 // (`timeline`), and the clock plays it.
 //
-// THE PITCHES GET THE TIME FIRST. The budget is 0.45 of the line's hold, kept between 13 and 26
-// seconds (`budgetOf`), and `planViews` spends it in the plan's order: every pitch at real speed,
-// cut in at the stride; then each one's reaction, the hitter in close-up; then the pitcher's motion
-// from its start, and the set before it; then the throw back and the walk up to the rubber. A long
+// THE PITCHES GET THE TIME FIRST. The budget is 0.6 of the payload's hold, kept between 13 and 34
+// seconds (diamond/timing.js `budgetOf`, which the server sizes its lines by), and `planViews`
+// spends it in the plan's order: every pitch at real speed, cut in at the stride; then each one's
+// reaction, the hitter in close-up; then the pitcher's motion from its start, and the set before it;
+// then one look over at a runner with men on (the pitcher holds his set and turns his head to him,
+// on the third-base camera) and one practice swing (the hitter steps aside and open after his
+// reaction and swings on his camera, back in the box under the next cut in), so a tight at-bat
+// still has its rhythm; then the throw back and the walk up to the rubber; then the rest of the
+// looks and a second practice swing. In full a four to six pitch at-bat takes 25 to 34 seconds; at
+// a 45-second hold (a 27-second budget) it's the set and the reaction on every pitch. A long
 // at-bat on a short hold leaves pitches out of the middle, and the count goes through them. A ball
 // in play is never hurried to fit: a play that needs more than the budget leaves out the first
 // pitch too, and if the last pitch and the play still don't fit, they run over (`floor`). Every
@@ -29,6 +35,13 @@
 // times, moved. On ball four or a hit batsman the batter trots to first and the men forced trot up
 // a bag (bases.js planTrot).
 //
+// A HOME RUN IS PLAYED OUT AFTER IT LANDS. The camera rides beside the ball into the seats and the
+// line goes up as it comes down; the fireworks go up over the outfield; then the cameras go round
+// the bags with the batter at his trot, each bag's a beat before he gets there, and the plate's
+// last, where the men who scored ahead of him are waiting up the line to welcome him (bases.js
+// welcome). The park is held on that until he's set off for the dugout (`D.homer`): the replay and
+// the dead time wait for it, and a hold too short for both keeps the trot.
+//
 // THE CHANGEOVER. On the third out, once the play's landed, every man on the field jogs off to his
 // side's dugout from where the world has him (`offField`) and the high camera watches them go. A
 // half payload (`D.changeover`) runs the side taking the field out to its places and has the
@@ -36,9 +49,10 @@
 // fifth the grounds crew drag the infield first (crew.js), the infielders waiting by their dugout
 // till the mats are off the dirt, and the cameras go to them once the leaders' table comes down.
 //
-// A PICTURE THAT DISAGREES WITH THE NEXT PAYLOAD IS FIXED ON A CUTAWAY. The booth doesn't call
-// every at-bat, so the bags the picture last showed and the ones the next payload starts from
-// often differ; then the at-bat opens on the wide shot over the city for a beat (`cutaway`), and
+// A PICTURE THAT DISAGREES WITH THE NEXT PAYLOAD IS FIXED ON A CUTAWAY. Every plate appearance has
+// its payload now, but a viewer who tunes in late, a payload lost on the way, or an older broadcast
+// that left at-bats out can leave the bags the picture last showed and the ones the next payload
+// starts from different; then the at-bat opens on the wide shot over the city for a beat (`cutaway`), and
 // everyone is in their new places when it cuts in. A game's first at-bat opens on the main gate from
 // the street instead, the crowd still going in (`cutaway: 'street'`).
 //
@@ -49,7 +63,8 @@
 // BETWEEN AT-BATS (diamond/between.js). The on-deck hitter swings in his circle through every
 // at-bat. Once a play's landed the view asks for the dead time till the next payload's due
 // (`between`): the field walks back to its places, the pitcher rubs up the ball behind the rubber,
-// a man who's out goes off, and the cameras go round the park; not after a third out or a walk-off.
+// a man who's out goes off, and the cameras go round the park, for as long as the booth talks; not
+// after a third out or a walk-off.
 //
 // THE DIRT KEEPS THE GAME (diamond/marks.js). Every pitch leaves the pitcher's stride where his
 // front foot lands and the batter's back foot dug in, and every slide or dive its scar, said as
@@ -72,6 +87,8 @@ import { makeBody, cloneBody, onOf, flat } from './bodies.js';
 import { strideOf, digOf, scarsOf } from './marks.js';
 import { planBetween, planPile, deckPlan, shotsBetween, BETWEEN } from './between.js';
 import { planCrew, crewShots } from './crew.js';
+import { budgetOf } from './timing.js';
+import { BAGS } from './geo.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -87,9 +104,9 @@ function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.
 // leaves room for it after the drag.
 const CREW_ROOM = 12.5;
 
-// The budget, in seconds, for a payload: 0.45 of its hold (milliseconds), between 13 and 26.
-export const BUDGET = Object.freeze({ share: 0.45, min: 13, max: 26 });
-export const budgetOf = (p) => clamp(BUDGET.share * (Number.isFinite(p?.hold) ? p.hold / 1000 : 0), BUDGET.min, BUDGET.max);
+// The budget, in seconds, for a payload (diamond/timing.js budgetOf: 0.55 of its hold, between 13
+// and 34), and the rest of the park's clock the server sizes its lines by.
+export { BUDGET, budgetOf, landBy, playRoom, afterLand, PLAY_ROOM, AFTER, LAST_PITCH } from './timing.js';
 
 // The pieces of a pitch's time, in seconds: from the payload to the first cut (`in`); a quick
 // pitch cut in this long before the release (`quick`); after a pitch with no reaction, to the next
@@ -98,7 +115,26 @@ export const budgetOf = (p) => clamp(BUDGET.share * (Number.isFinite(p?.hold) ? 
 // before it reaches the pitcher the ritual's shot comes in (`ritualIn`), the wide shot an at-bat
 // opens on when the picture disagrees with it (`cutaway`), and the street outside the main gate a
 // game opens on (`street`, no shorter than `streetMin`).
-export const PACE = Object.freeze({ in: 0.05, quick: 0.5, after: 0.55, react: 1.35, reactCut: 0.3, windupHold: 1.0, lob: 0.95, ritualIn: 0.4, cutaway: 1.4, street: 4.2, streetMin: 2.2 });
+// With men on, the pitcher holds his set this much longer while he looks over at a runner (`look`),
+// on the third-base camera until `lookCut` before he goes. A hitter who steps out for a practice
+// swing starts it `stepIn` after the pitch is decided, a step aside (`stepAside` ft, turned
+// `stepTurn` degrees open, which keeps the bat 1.8 ft clear of the catcher), and he's back in his
+// stance under the next cut in, `stepBack` after the swing's done.
+export const PACE = Object.freeze({
+  in: 0.05, quick: 0.5, after: 0.55, react: 1.5, reactCut: 0.3, windupHold: 1.6, lob: 0.95, ritualIn: 0.4, cutaway: 1.4, street: 4.2, streetMin: 2.2,
+  look: 1.9, lookCut: 0.35, stepIn: 0.9, stepAside: 0.5, stepTurn: 30, stepBack: 0.3,
+});
+// A pitch's time after it's decided when the hitter steps out (s): the practice swing and the beat
+// back into the box.
+const STEP_AFTER = PACE.stepIn + CLIPS.deck_swing.duration + PACE.stepBack;
+// The most practice swings an at-bat gets.
+const STEPS_MAX = 2;
+// How long after the last shell bursts the picture goes back from the fireworks (s); a home run's
+// trot round the bags on each bag's camera, cut to this long before he gets there ([bag, camera,
+// s]); and how long the plate's camera stays on him once he's set off for the dugout.
+const FX_BACK = 1.6;
+const TROT_SHOTS = Object.freeze([[2, 'bag', 1.6], [3, 'third', 2.4], [4, 'plate', 3.0]]);
+const TROT_OFF = 1.6;
 // How long from the bat to the play's landing for a ball in play the payload doesn't describe
 // (one from before synthPlay): about a grounder's time to an infielder and his throw to first, a
 // fly's hang time, a home run's carry. A payload's `play` is played out instead (plays.js).
@@ -130,6 +166,7 @@ function prepare(W, p, cast) {
   for (const slot of [...W.bodies.keys()]) if (![P, C, H, U].some((b) => b && b.slot === slot)) W.drop(slot);
   const hand = p.throws === 'L' ? 'L' : 'R', bats = p.bats === 'L' ? 'L' : 'R';
   const windup = !(Array.isArray(p.basesBefore) && p.basesBefore.some(Boolean));
+  const lookAt = windup ? null : lookOver(cast, hand, p.basesBefore);
   const tempo = P.traits.tempo;
   const delivery = CLIPS[`pitch_${windup ? 'windup' : 'stretch'}_${P.traits.armSlot}`];
   // where the ball leaves his hand: the clip's release, done his way where he stands
@@ -188,7 +225,9 @@ function prepare(W, p, cast) {
     };
   });
   const S = {
-    p, cast, pitches, who, P, C, H, U, hand, bats, windup, tempo, delivery, from, zBat, zMitt, shapes,
+    p, cast, pitches, who, P, C, H, U, hand, bats, windup, lookAt, tempo, delivery, from, zBat, zMitt, shapes,
+    // where the hitter stands in the box, which he's back to after a practice swing
+    H0: { at: H.at.slice(), yaw: H.yaw },
     // where his front foot lands and the hitter's back foot digs in (marks.js)
     stride: strideOf(W, P.slot, delivery, hand), dig: digOf(W, H.slot, bats),
     REL: eventTime(delivery, 'release') / tempo, MOTION: (windup ? 0 : 0.3) / tempo,
@@ -204,6 +243,19 @@ function prepare(W, p, cast) {
     if (probe) S.playSpan = probe.landAt - last.tBat;
   }
   return S;
+}
+
+// The runner a pitcher in his set looks over at, as a point at head height, or null. He can only
+// turn his head so far (anim.js LOOK_LIMIT), and he stands side on: a right-hander faces third, so
+// he looks at a man on second over his shoulder or at a man on third in front of him, and a man on
+// first is behind him; a left-hander faces first, so he has the man there, or on second.
+function lookOver(cast, hand, bags) {
+  const bag = (hand === 'L' ? [1, 2] : [2, 3]).find((b) => Array.isArray(bags) && bags[b - 1]);
+  if (!bag) return null;
+  const B = BAGS[bag], d = (c) => Math.hypot(c.at[0] - B[0], c.at[2] - B[2]);
+  const r = (cast || []).filter((c) => c.look.role === 'runner').sort((a, b) => d(a) - d(b))[0];
+  const at = r && d(r) < 25 ? r.at : B;
+  return [at[0], 5.2, at[2]];
 }
 
 // What plays.js needs to plan the ball in play off the last pitch released at `tRel` and cut in at
@@ -260,13 +312,13 @@ function timeline(S, views, t0 = 0) {
       tSet = T.retStart + S.retDur;
     }
     T.tSet = tSet;
-    T.tRel = v.lead === 'quick' ? cursor + PACE.quick : v.lead === 'core' ? cursor + S.REL - S.MOTION : tSet + S.setLen + S.REL;
+    T.tRel = v.lead === 'quick' ? cursor + PACE.quick : v.lead === 'core' ? cursor + S.REL - S.MOTION : tSet + S.setLen + (v.look ? PACE.look : 0) + S.REL;
     T.pStart = T.tRel - S.REL;
     T.decided = T.tRel + sh.decided;
     T.tCatch = T.tRel + sh.tMitt;
     T.tBat = T.tRel + sh.tBat;
     T.catcherFree = T.tCatch - sh.catchT + sh.catchClip.duration;
-    T.after = last ? terminalOf(S) : v.react ? PACE.react : PACE.after;
+    T.after = last ? terminalOf(S) : v.stepout ? STEP_AFTER : v.react ? PACE.react : PACE.after;
     cursor = T.decided + T.after;
     list.push(T);
     prev = T;
@@ -279,7 +331,7 @@ function timeline(S, views, t0 = 0) {
 // the file). Pure arithmetic over the clips' own timings and the pitches' flights.
 function planViews(S, budget, lead = 0) {
   const N = S.pitches.length;
-  const views = S.pitches.map(() => ({ show: true, lead: 'quick', react: false, ritual: false }));
+  const views = S.pitches.map(() => ({ show: true, lead: 'quick', react: false, ritual: false, look: false, stepout: false }));
   const total = () => timeline(S, views, PACE.in + lead).landAt;
   // the last pitch, the first, then the rest from the end
   const order = [N - 1, 0, ...Array.from({ length: Math.max(0, N - 2) }, (_, k) => N - 2 - k)].filter((i, k, a) => i >= 0 && a.indexOf(i) === k);
@@ -291,7 +343,27 @@ function planViews(S, budget, lead = 0) {
   for (const i of order) if (i < N - 1 && views[i].show) fuller(i, 'react', true);
   for (const i of order) if (views[i].show) fuller(i, 'lead', 'core');
   for (const i of [0, ...order.filter((x) => x !== 0)]) if (views[i].show) fuller(i, 'lead', 'set');
+  // with men on, a look over at a runner in the set (the payoff pitch's first); and now and then the
+  // hitter steps out for a practice swing after his reaction: after a foul or a miss first, then a
+  // pitch of his own choosing, never two pitches running and never after the last. One of each
+  // before the throw backs, so even a tight at-bat has its texture; the rest after them.
+  const looks = S.lookAt ? order.filter((i) => views[i].show && views[i].lead === 'set') : [];
+  const pick = (i) => (S.pitches[i].result === 'foul' ? 0 : S.pitches[i].result === 'swinging' ? 1 : hashStr(`step|${S.p.batter}|${S.p.inning}|${i}`) % 3 === 0 ? 2 : 9);
+  const steps = Array.from({ length: Math.max(0, N - 1) }, (_, i) => i).filter((i) => pick(i) < 9).sort((a, b) => pick(a) - pick(b) || b - a);
+  let stepped = 0;
+  const stepOut = (most) => {
+    for (const i of steps) {
+      if (stepped >= most) return;
+      if (views[i].stepout || !views[i].show || !views[i].react || !views[i + 1].show || views[i - 1]?.stepout || views[i + 1].stepout) continue;
+      fuller(i, 'stepout', true);
+      if (views[i].stepout) stepped++;
+    }
+  };
+  for (const i of looks) { fuller(i, 'look', true); if (views[i].look) break; }
+  stepOut(1);
   for (const i of order) if (i > 0 && views[i].show && views[i].lead === 'set' && views[i - 1].show) fuller(i, 'ritual', true);
+  for (const i of looks) if (!views[i].look) fuller(i, 'look', true);
+  stepOut(STEPS_MAX);
   return views;
 }
 
@@ -358,7 +430,7 @@ export function createDirector(W, opts = {}) {
   // `o.motion` false: the viewer has asked for less motion, so no camera rides with a home run and
   // nothing bursts or sparks.
   D.stage = (p, cast = castOf(p), o = {}) => {
-    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = []; D.marks = []; D.between = null; D.queued = new Map(); D.drags = []; D.crew = null; D.opening = null;
+    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = []; D.marks = []; D.between = null; D.queued = new Map(); D.drags = []; D.crew = null; D.opening = null; D.homer = null;
     W.clearQueue();
     const motion = o.motion !== false;
     if (p?.phase === 'run') { stageRun(p, cast, o); return; }
@@ -400,7 +472,7 @@ export function createDirector(W, opts = {}) {
     const count = (at, i) => W.at(at, () => emit('pitch', { i, pitch: S.pitches[i] }));
     const sound = (at, cue) => W.at(at, () => emit('sound', cue));
     const salt = `${p.batter}|${p.inning}|${p.half}`;
-    let skipped = [];
+    let skipped = [], stepped = false;
 
     TL.list.forEach((T) => {
       const i = T.i, q = S.pitches[i], sh = S.shapes[i], v = views[i], last = i === S.pitches.length - 1;
@@ -413,7 +485,9 @@ export function createDirector(W, opts = {}) {
       const ballOr = (end) => (t) => (t < T.tRel ? from : path(Math.min(t, end)));
 
       // ── the cut in: everyone where this pitch has them ──
-      cut(T.tIn, T.ritual ? 'mound' : pitchCam());
+      // on the pitcher for the throw back, or for his set when he looks over at a runner; the pitch
+      // camera as he takes the ball back on the rubber, or just before he goes
+      cut(T.tIn, T.ritual || v.look ? 'mound' : pitchCam());
       W.at(T.tIn, () => {
         for (const b of [P, C, H, U]) if (b) W.clearLayers(b.slot);
         // the catcher sets up across from where it's coming, while nobody's looking
@@ -421,11 +495,15 @@ export function createDirector(W, opts = {}) {
         if (!T.ritual) W.setBall(null);
       });
       // the pitcher: the walk back and the set, or straight into his motion
-      if (T.ritual) {
-        play(P, 'pitch_return', T.retStart, T.retStart, { speed: tempo });
-        cut(T.tSet, pitchCam());
-      }
+      if (T.ritual) play(P, 'pitch_return', T.retStart, T.retStart, { speed: tempo });
+      if (v.look) cut(T.pStart - PACE.lookCut, pitchCam());
+      else if (T.ritual) cut(T.tSet, pitchCam());
       if (v.lead === 'set' && !S.windup) play(P, 'pitch_set', T.tSet, T.tSet, { speed: tempo });
+      // the look over: held in his set, his head round to the runner and back before he goes
+      if (v.look) {
+        const from = T.pStart - PACE.look + 0.1, look = { target: S.lookAt.slice(), from, full: from + 0.45, hold: T.pStart - 0.75, to: T.pStart - 0.3 };
+        W.at(Math.max(T.tIn, from - 0.02), () => W.layer(P.slot, 'look', look));
+      }
       play(P, delivery.id, v.lead === 'set' ? (S.windup ? T.tSet : T.pStart) : T.tIn, T.pStart, { speed: tempo });
       // the catcher: the throw back (seen from the hitter's camera, or off it), the signs ending on
       // his target as the pitcher starts, then the receive or the block, lined up on the ball
@@ -450,9 +528,11 @@ export function createDirector(W, opts = {}) {
       W.at(T.tIn, () => W.layer(C.slot, 'look', { target: ballOr(T.decided), from: T.tRel - 0.5, full: T.tRel - 0.2, hold: T.decided + 0.1, to: T.decided + 0.5 }));
 
       // the hitter: the stance, the load, then the take, the swing or the flinch
-      const tLoad = T.tRel - 0.6;
-      if (T.tIn < tLoad) play(H, 'bat_stance', T.tIn, T.tIn);
-      play(H, 'bat_load', Math.max(T.tIn, tLoad), tLoad, { fade: T.tIn < tLoad ? 0.15 : 0 });
+      // (back in the box under the cut in, after a practice swing a step aside)
+      const tLoad = T.tRel - 0.6, home = stepped ? { at: S.H0.at.slice(), yaw: S.H0.yaw } : undefined;
+      stepped = false;
+      if (T.tIn < tLoad) play(H, 'bat_stance', T.tIn, T.tIn, { frame: home });
+      play(H, 'bat_load', Math.max(T.tIn, tLoad), tLoad, { fade: T.tIn < tLoad ? 0.15 : 0, frame: T.tIn < tLoad ? undefined : home });
       W.at(T.tIn, () => W.layer(H.slot, 'look', { target: ballOr(T.decided), from: T.tRel - 0.5, full: T.tRel - 0.15, hold: T.decided, to: T.decided + 0.45 }));
       let swing = null;
       if (sh.hbp) {
@@ -520,6 +600,15 @@ export function createDirector(W, opts = {}) {
       // ── after it: the reaction, or the at-bat's end ──
       if (!last) {
         if (v.react) cut(T.decided + PACE.reactCut, side);
+        // he steps out: a step aside and open, a practice swing on the hitter's camera, and back in
+        // the box under the next cut in
+        if (v.stepout) {
+          const s0 = T.decided + PACE.stepIn, out = Math.sign(S.H0.at[0]) || 1;
+          const frame = { at: [S.H0.at[0] + out * PACE.stepAside, S.H0.at[1], S.H0.at[2]], yaw: S.H0.yaw + (bats === 'L' ? -PACE.stepTurn : PACE.stepTurn) };
+          play(H, 'deck_swing', s0, s0, { fade: 0.6, frame });
+          rec.stepout = { t: s0, end: s0 + CLIPS.deck_swing.duration, frame };
+          stepped = true;
+        }
         return;
       }
       const kind = p.kind;
@@ -553,7 +642,9 @@ export function createDirector(W, opts = {}) {
     }
     // a walk-off without a ball out of the park still gets its fireworks
     if (!D.fx.length && p.walkoff) D.fx = planSpectacle({ p, landAt: TL.landAt, motion });
-    until = Math.max(until, fireworks(D.fx, cut));
+    const welcome = p.kind === 'homerun' ? D.play?.log?.welcome : null;
+    until = Math.max(until, fireworks(D.fx, cut, { back: !welcome }));
+    if (welcome) until = Math.max(until, trotShots(D.play.log.batter?.bags || {}, welcome, TL.landAt, cut));
     D.until = until;
 
     function stagePlay(plan, T) { D.play = plan; stagePlan(W, plan, T.tIn, { play, cut, sound, mark, salt }); }
@@ -885,7 +976,8 @@ export function createDirector(W, opts = {}) {
   D.planBetween = (o = {}) => {
     const p = D.payload, cast = D.cast || [];
     if (!p || p.phase === 'half' || D.inningOver || p.walkoff || !Number.isFinite(o.until)) return null;
-    const now = W.t, t = Math.max(now, D.landAt), from = Math.max(t + BETWEEN.settle, o.from ?? -Infinity), by = o.until - BETWEEN.margin;
+    // (a home run's waits for the batter off the plate: the trot is the director's own)
+    const now = W.t, t = Math.max(now, D.landAt), from = Math.max(t + BETWEEN.settle, o.from ?? -Infinity, D.homer?.until ?? -Infinity), by = o.until - BETWEEN.margin;
     if (by - from < 3) return null;
     const men = menNow(cast, t, from);
     const gone = planBetween({ p, cast, men, by });
@@ -893,8 +985,19 @@ export function createDirector(W, opts = {}) {
     // the cameras, and the on-deck hitter's swings with one for his shot
     const deck = cast.find((c) => c.look.role === 'ondeck');
     const rub = gone.find((g) => g.role === 'pitcher');
-    const shots = shotsBetween({ from, until: by, deck: deck ? (deck.at[0] > 0 ? 'deck3' : 'deck1') : null, rubAt: rub?.end });
+    const salt = `${p.batter}|${p.inning}|${p.half}|between`;
+    const shots = shotsBetween({ from, until: by, deck: deck ? (deck.at[0] > 0 ? 'deck3' : 'deck1') : null, rubAt: rub?.end, bags: Array.isArray(p.basesAfter) ? p.basesAfter : [], salt });
     for (const x of shots) W.at(x.at, () => emit('shot', x.shot));
+    // the pitcher rubs up the ball again when the camera comes round to him, once he's done the
+    // first time
+    if (rub) {
+      let free = rub.end + CLIPS.pitch_rub.duration + 0.5;
+      for (const x of shots) {
+        if (!(x.rub >= free)) continue;
+        W.at(x.rub, () => { W.play(rub.slot, 'pitch_rub', { at: x.rub, fade: 0.4 }); D.played.push({ t: x.rub, role: 'pitcher', slot: rub.slot, clip: 'pitch_rub', start: x.rub }); });
+        free = x.rub + CLIPS.pitch_rub.duration + 0.5;
+      }
+    }
     if (deck) onDeck(cast, t, o.until, `${p.batter}|${p.inning}|${p.half}|between`, { place: false, at: shots.filter((x) => x.swing).map((x) => x.swing) });
     W.at(from, () => W.setBall(null));
     D.until = Math.max(D.until, o.until);
@@ -963,14 +1066,38 @@ export function createDirector(W, opts = {}) {
   }
 
   // The fireworks: the wide shot over the outfield as the first shell goes up, and back to the
-  // high camera once the last has burst. Returns when the last spark's out (0 for none).
-  function fireworks(fx, cut) {
+  // high camera once the last has burst (`o.back` false leaves that to the caller: a home run's
+  // trot). Returns when the last spark's out (0 for none).
+  function fireworks(fx, cut, o = {}) {
     const bursts = (fx || []).filter((e) => e.kind === 'burst');
     if (!bursts.length) return 0;
     const first = Math.min(...bursts.map((e) => e.t)), last = Math.max(...bursts.map((e) => e.t)), K = FX_KINDS.burst;
     cut(first - K.rise + 0.15, 'sky');
-    cut(last + 1.6, 'high');
+    if (o.back !== false) cut(last + FX_BACK, 'high');
     return last + K.life * 1.22 + 0.1;
+  }
+  // A home run's trot, once the fireworks are out (or the ball's down, without them): the high
+  // camera for him rounding first, then each bag's camera a beat before he gets there (TROT_SHOTS,
+  // where there's room), the plate's last, with the men in ahead of him waiting there (bases.js
+  // welcome). The park's held on it till he's gone off toward the dugout (`D.homer`), and a replay
+  // and the dead time wait for that. Returns when.
+  function trotShots(bags, welcome, landAt, cut) {
+    const bursts = (D.fx || []).filter((e) => e.kind === 'burst');
+    const back = bursts.length ? Math.max(...bursts.map((e) => e.t)) + FX_BACK : landAt + 0.8;
+    const shots = [];
+    let prev = -Infinity;
+    for (const [b, shot, lead] of TROT_SHOTS) {
+      const t = bags[b];
+      if (!Number.isFinite(t)) continue;
+      const at = Math.max(back, prev + 1.8, t - lead);
+      if (at > t - 0.4) continue;
+      shots.push({ at, shot });
+      prev = at;
+    }
+    if (!(shots.length && shots[0].at - back < 1.2)) shots.unshift({ at: back, shot: 'high' });
+    for (const s of shots) cut(s.at, s.shot);
+    D.homer = { home: bags[4] ?? null, until: welcome.go + TROT_OFF, shots };
+    return D.homer.until;
   }
 
   D.busy = () => !D.landed || W.t < D.until;

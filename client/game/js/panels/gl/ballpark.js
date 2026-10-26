@@ -38,8 +38,8 @@ import { createDepthSSAO, ssaoConstants } from './ssao.js';
 import { createBroadcastPass } from './broadcast.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
-import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell, SKIN_STRIDE, PLAYER_LODS } from './ballplayer-mesh.js';
-import { solvePose, boneFrames, bindFrames, skinRows, BONES, FRAME_FLOATS } from '../diamond/rig.js';
+import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell, SKIN_STRIDE, PLAYER_LODS, rigBuildOf } from './ballplayer-mesh.js';
+import { solvePose, boneFrames, bindFrames, skinRows, BONES, FRAME_FLOATS, scalePose } from '../diamond/rig.js';
 import { BALL_R } from '../diamond/flight.js';
 import { SKIN_GLSL, createBonePalette } from './skin.js';
 import { bodyKey } from '../diamond/cast.js';
@@ -1244,17 +1244,25 @@ export function createBallparkRenderer(canvas, opts = {}) {
       return { vao, buf, n: b.n };
     }
     const dropBody = (body) => { for (const lv of body.levels || [body.batches]) for (const b of lv) { gl.deleteVertexArray(b.vao); gl.deleteBuffer(b.buf); } };
-    // the bind frames by build scale (a pitcher stands a little taller)
+    // the bind frames by height and build (diamond/cast.js buildOf), as each body was built in
     const binds = new Map();
-    const bindOf = (scale) => { let b = binds.get(scale); if (!b) binds.set(scale, (b = bindFrames(scale))); return b; };
+    const bindOf = (scale, build) => {
+      const k = `${scale}|${build?.sh ?? 1}|${build?.girth ?? 0}`;
+      let b = binds.get(k);
+      if (!b) binds.set(k, (b = bindFrames(scale, build)));
+      return b;
+    };
     const frames = new Float32Array(BONES.length * FRAME_FLOATS), skinBuf = new Float32Array(BONES.length * 12);
-    // A pose into a slot's row of the palette: a pose table entry with `at`, `yaw` and `scale`. Its
-    // joints are kept by slot for a drag mat's ropes (setMats).
-    const joints = new Map();
+    // A pose into a slot's row of the palette: a pose table entry with `at`, `yaw` and `scale`,
+    // solved in the build of whoever's in the slot (`builds`, from the cast), so his shoulders and
+    // the hull his arms keep off are his body's. Its joints are kept by slot for a drag mat's ropes
+    // (setMats).
+    const joints = new Map(), builds = new Map();
     function setPose(slot, pose) {
-      const sol = solvePose(pose);
+      const build = pose.build || builds.get(slot) || null;
+      const sol = solvePose(build ? { ...pose, build } : pose);
       joints.set(slot, sol.J);
-      palette.write(slot, skinRows(boneFrames(sol, frames), bindOf(pose.scale || 1), skinBuf));
+      palette.write(slot, skinRows(boneFrames(sol, frames), bindOf(pose.scale || 1, build), skinBuf));
     }
     // where the cast stands each man, by slot, for `idle`
     const rests = new Map();
@@ -1295,13 +1303,14 @@ export function createBallparkRenderer(canvas, opts = {}) {
       queue = [...want].filter(([k]) => !bodies.has(k));
       members = cast.map((c) => ({ key: keyOf(c), slot: c.look.slot }));
       roles.clear(); for (const c of cast) roles.set(c.look.slot, c.look.role);
+      builds.clear(); for (const c of cast) builds.set(c.look.slot, rigBuildOf(c.look));
       HA.fill(0); HB.fill(0); HC.fill(0); HD.fill(0);
       for (const c of cast) {
         const look = lookOf({ ...c.look });
         const f = faceFor(look), i = c.look.slot * 4;
         HA.set([...f.skin, f.layout], i); HB.set([...f.hair, f.style], i); HC.set([...f.iris, f.eyeBlack], i); HD.set([...f.lip, f.seed], i);
         // each where the cast stands him, until something moves him
-        const rest = Object.assign(c.mirror ? mirrorPose(POSES[c.pose]()) : POSES[c.pose](), { at: c.at, yaw: c.yaw, scale: c.scale });
+        const rest = Object.assign(scalePose(c.mirror ? mirrorPose(POSES[c.pose]()) : POSES[c.pose](), c.scale), { at: c.at, yaw: c.yaw, scale: c.scale });
         rests.set(c.look.slot, rest);
         setPose(c.look.slot, rest);
       }
@@ -2097,6 +2106,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
       setTime: (t) => { worldT = Number.isFinite(t) ? t : 0; weather.setTime(worldT); },
       get cityLights() { return cityLights.counts; },
       get streets() { return streets.counts; },
+      // the street camera on this venue's own crossing (diamond/streets.js streetShot), or null with
+      // no city: where the fly-in before a game comes down to (diamond/camera.js approachShot)
+      get streetCam() { return streetCam; },
       setFinal, setChampion: (on) => { champ = !!on; }, get final() { return final ? { ...final, champion: champ } : null; },
       setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; },
       pending: () => queue.length,

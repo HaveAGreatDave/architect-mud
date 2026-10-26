@@ -469,6 +469,23 @@ play in progress restarts in 2-D. The 2-D view stays maintained, and Phase 0 giv
   the same all season. Built procedurally the way [actor3d.js](../../client/game/js/panels/actor3d.js)
   builds street figures (lofted torso, limbs as continuous tubes through the joints, so elbows and
   knees bend without seams), then skinned.
+
+  *Built 2026-10-26*, as build parameters rather than blend shapes: the body is lofted from them, so
+  there's nothing to blend. `buildOf` in [diamond/cast.js](../../client/game/js/panels/diamond/cast.js)
+  gives each man, off his id, a height (66 to 79 inches, the rig being 71.5 bare-headed at scale 1),
+  a girth, a shoulder breadth and, on the heavier ones, a belly, leaned by role: pitchers about 6'2½"
+  and lean, catchers about 5'11" and thick, coaches and umpires heavier. A batter, a runner and the
+  man on deck are one man, so he keeps his body from the box to the bases. Height is the pose's
+  `scale`, which already ran through the staging. The rest is `build` on a pose
+  ([diamond/rig.js](../../client/game/js/panels/diamond/rig.js) `buildIn`): it moves the shoulders
+  out and grows the hull the arms are kept off, and the renderer solves each slot in its own man's
+  build. The mesh widens the torso, limbs, catcher's gear and arm bands to match, and the head
+  grows by the square root of the height, not the height.
+  - The trap: a clip is keyed in feet for the rig at scale 1. Scaling the bones alone stood a tall
+    man on bent knees and over-stretched a short man's walk past the ankle's limit. `sampleClip`
+    now scales a clip's points by the man's scale (`curve`, the same as rig.js `scalePose` does to a
+    raw pose), but not the root's path, so a stride is as long on anyone and every plan built from
+    `rootAt` holds. A raw `POSES` entry posed at a scale other than 1 goes through `scalePose` first.
 - **Levels of detail.** About 18,000 triangles for the close cameras (the batter from first base, the
   pitcher in a replay), 7,000 at broadcast distance, 1,500 for outfielders in the wide shot, chosen by
   projected height the way actors are.
@@ -610,11 +627,14 @@ The payload already carries everything a pitch needs: type, speed, where it cros
 
 ### Pacing an at-bat
 
-A pitch with its rituals is about 4 s. The director gets a budget of 0.45 × `hold`, kept between 13 s
-(today's figure, and the budget when a payload carries no `hold`) and 26 s, and spends it in this
-order: pitches at real speed first, then reactions, then the set, then the throw back. The play
-lands, `onLand` fires, the caption and the card go up, and the rest of the hold is replays and dead
-time.
+A pitch with its rituals is about 4 s, or 6 to 9 s with the set, a look over at a runner or a
+practice swing. The director gets a budget of 0.6 × `hold`, kept between 13 s (the budget when a
+payload carries no `hold`) and 34 s (diamond/timing.js `budgetOf`), and spends it in this order:
+pitches at real speed first, then reactions, then the set, then one look over and one practice
+swing, then the throw back, then the rest of the looks and a second practice swing. The play
+lands, `onLand` fires, the caption and the card go up, and the rest of the hold is a home run's
+trot, replays and dead time. timing.js also says the most a landing takes (`landBy`,
+`playRoom`) and what the park wants after it (`afterLand`), for the server to size its lines.
 
 The booth keeps one line per at-bat. The rail shows each pitch as it's thrown ("88 SLIDER, swinging,
 1-2"), generated from the payload the picture uses. A pitch-by-pitch booth (Chip calling each pitch,

@@ -72,7 +72,7 @@ const { spotMatrix, spotReach } = await import(P + 'gl/spotshadow.js');
 const { ssaoConstants, RECONSTRUCT } = await import(P + 'gl/ssao.js');
 const { cocOf, DOF_MAX } = await import(P + 'gl/broadcast.js');
 const PM = await import(P + 'gl/ballplayer-mesh.js');
-const { castOf, castKey, bodyKey, leadOff, crewDue, CREW_HOLD } = await import(P + 'diamond/cast.js');
+const { castOf, castKey, bodyKey, leadOff, crewDue, CREW_HOLD, buildOf } = await import(P + 'diamond/cast.js');
 const { FACE } = await import(P + 'actor-head.js');
 const { FACE_LAYOUTS } = await import(P + 'actor-faces.js');
 const { MASK_BARS, nicknameOf, paintKitAtlas, paintLogos, kitsFor } = await import(P + 'diamond/kits.js');
@@ -850,6 +850,24 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   const onFirst = castOf({ ...p, basesBefore: [true, false, false], moves: [{ from: 1, to: 2, name: 'Halvorsen' }] }).find((c) => c.id === 'Halvorsen');
   const onSecond = castOf({ ...p, basesBefore: [false, true, false], moves: [{ from: 2, to: 3, name: 'Halvorsen' }] }).find((c) => c.id === 'Halvorsen');
   check('cast: a runner keeps his body from bag to bag', onFirst && onSecond && bodyKey(onFirst) === bodyKey(onSecond) && onFirst.look.slot !== onSecond.look.slot);
+  // each man's build off his id (diamond/cast.js buildOf): the same every time, a hitter the same
+  // man in the box as on the bases, inside the range the bodies are gated at (anim-smoke's big and
+  // slight), spread as a roster is, and leaned by role: pitchers tall and lean, catchers thick
+  {
+    const ids = Array.from({ length: 600 }, (_, i) => `Club${i % 7}:Man${i}`), of = (role) => ids.map((id) => buildOf(id, role));
+    const mean = (a, k) => a.reduce((t, b) => t + b[k], 0) / a.length;
+    const players = of('fielder'), pitchers = of('pitcher'), catchers = of('catcher'), all = [...players, ...pitchers, ...catchers, ...of('ump'), ...of('coach'), ...of('crew')];
+    check('builds: the same id, the same build', JSON.stringify(buildOf('Voss', 'batter')) === JSON.stringify(buildOf('Voss', 'batter')));
+    check('builds: a batter, a runner and the man on deck are one build', ['runner', 'ondeck', 'fielder'].every((r) => JSON.stringify(buildOf('Voss', r)) === JSON.stringify(buildOf('Voss', 'batter'))));
+    check('builds: every one inside the range the bodies are gated at',
+      all.every((b) => b.scale >= 0.92 && b.scale <= 1.105 && b.girth >= -0.05 && b.girth <= 0.09 && b.shoulders >= 0.93 && b.shoulders <= 1.08 && b.belly >= 0 && b.belly <= 0.12));
+    const hs = players.map((b) => b.inches).sort((a, b) => a - b);
+    check('builds: the players spread from about 5\'8" to 6\'5"', hs[Math.floor(hs.length * 0.05)] <= 70.5 && hs[Math.floor(hs.length * 0.95)] >= 75.5, `${hs[30]} to ${hs[569]} in`);
+    check('builds: pitchers stand taller than the rest, catchers shorter', mean(pitchers, 'inches') > mean(players, 'inches') + 1 && mean(catchers, 'inches') < mean(players, 'inches') - 0.6,
+      `${mean(pitchers, 'inches').toFixed(1)} / ${mean(players, 'inches').toFixed(1)} / ${mean(catchers, 'inches').toFixed(1)} in`);
+    check('builds: catchers carry more girth than the rest, pitchers less', mean(catchers, 'girth') > mean(players, 'girth') + 0.02 && mean(pitchers, 'girth') < mean(players, 'girth'));
+    check('builds: the cast is men of different sizes', new Set(cast.map((c) => c.scale)).size >= 12 && new Set(cast.map((c) => c.look.shoulders)).size >= 12);
+  }
   check('kits: a club wears its nickname', nicknameOf('Precinct 9 Enforcers') === 'Enforcers');
   // a club with an identity wears its own kit, home at home and road away, filled from the house
   // kit; a club without one, and every club before the set arrives, wears the house kit

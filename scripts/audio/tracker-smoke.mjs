@@ -171,6 +171,29 @@ const gainOf = (osc) => osc.out.map((c) => c.dst).find((d) => d.kind === 'gain' 
     const bc = JSON.parse(readFileSync(join(ROOT, `content/media_broadcasts/${T.bc}.json`), 'utf8'));
     check(`${T.show}: the script plays the theme under its title card`, bc.sports_pools?.theme === theme.SONG_NAME && bc.sports_pools?.title === T.card);
   }
+
+  // The finals' opens (scripts/content/build-final-opens.mjs): played once from a final's first
+  // line, under the 3-D view's fly-in, so each is cut to it. Its hit is 1.5 s in, as the venue's name
+  // goes up, and its landing chord is on the fly-in's last frame: the Grandstand's (diamond/camera.js
+  // APPROACH) and Rinkside's (gl/approach.js FLY). Every step on an instrument a theme ships.
+  {
+    const fo = await import('../content/build-final-opens.mjs');
+    const { APPROACH } = await import('../../client/game/js/panels/diamond/camera.js');
+    const { FLY } = await import('../../client/game/js/panels/gl/approach.js');
+    for (const [song, bcId, dur] of [[fo.songs[0], 'bc_1783289744953', APPROACH.dur], [fo.songs[1], 'bc_cluster_puck', FLY.dur]]) {
+      const file = JSON.parse(readFileSync(join(ROOT, `content/audio_songs/${song.id}.json`), 'utf8'));
+      check(`${song.name}: the file is what build-final-opens.mjs writes`, same(file, song), 'run node scripts/content/build-final-opens.mjs');
+      const rows = Math.max(...file.channels.map((c) => c.length)), rowS = 60 / file.tempo / 4;
+      const bad = [];
+      file.channels.forEach((ch, c) => ch.forEach((s, r) => { if (s && (!shipped.has(s.instrument) || r + (s.len || 1) > rows)) bad.push(`${c}:${r} ${s.instrument}`); }));
+      check(`${song.name}: every step is on a shipped instrument and ends inside the song, in sixteen channels`, !bad.length && file.channels.length <= 16, bad.slice(0, 4).join(', '));
+      // the rows where most channels strike at once are the hit and the landing
+      const at = (sec) => file.channels.filter((ch) => ch[Math.round(sec / rowS)]).length;
+      check(`${song.name}: the hit lands at 1.5 s and the last chord at the fly-in's ${dur} s`, at(1.5) >= 6 && at(dur) >= 8, `${at(1.5)} and ${at(dur)} channels`);
+      const venue = JSON.parse(readFileSync(join(ROOT, `content/media_broadcasts/${bcId}.json`), 'utf8')).sports_pools?.venue;
+      check(`${song.name}: its venue opens its final with it, in a key the sting knows`, venue?.finalOpen?.song === song.name && /^[A-G][b#]?$/.test(venue?.finalOpen?.key || ''));
+    }
+  }
 }
 
 done();

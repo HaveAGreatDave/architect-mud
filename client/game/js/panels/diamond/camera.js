@@ -77,7 +77,37 @@ export const SHOTS = Object.freeze({
   street: Object.freeze({ eye: [198, 6, -254], at: [120, 70, -120], fov: 54, shadow: [[150, 0, -170], 140] }),
   // a home run side on, riding beside the ball: the director places it (`homer` specs, shotAt)
   homer: Object.freeze({ eye: [-60, 40, 200], at: [0, 50, 220], fov: 38, dof: 160, shadow: [[0, 0, 240], 120] }),
+  // the fly-in before a game: high over the city and down onto the park, to the street camera
+  // (`approachShot` places it); this is where it starts with no city round the park
+  approach: Object.freeze({ eye: [1500, 1100, -1900], at: [0, 40, 140], fov: 40, shadow: [[0, 0, 140], 600] }),
 });
+
+// THE FLY-IN. A game's first line ("Live from…") comes in high over the city a long way out and
+// comes down onto the park in a curve round it, the park in the middle of the frame all the way,
+// and lands on `to` (the street camera at the main gate, or any shot) at `t0 + dur`. The eye
+// swings round the park's middle at the start's distance and height, closing and dropping as it
+// comes, the height (`drop`) a little behind the distance, so it stays over the rooftops until
+// it's over the plaza. Pure in t, like every moving shot.
+const smoother = (x) => { const k = Math.min(1, Math.max(0, x)); return k * k * k * (k * (k * 6 - 15) + 10); };
+// ⚠ INSIDE THE SET. The city is composed for television about 2,300 ft round the park and stops at
+// its Curtain or its shore; a start much further out or higher looks over its edge into the dark.
+// From `far` and `height` the top of a 34° lens still meets the ground inside the set.
+// It swings in from the third-base side of the gate, where the Coliseum's set has city all round.
+export const APPROACH = Object.freeze({ dur: 12, far: 1250, height: 820, swing: -0.6, drop: 1.3, mid: [0, 40, 140], fov: 34 });
+export function approachShot(to, t0, opts = {}) {
+  const end = typeof to === 'string' ? SHOTS[to] || SHOTS.street : to || SHOTS.street;
+  const A = { ...APPROACH, ...opts }, mid = A.mid;
+  const r1 = Math.hypot(end.eye[0] - mid[0], end.eye[2] - mid[2]), th1 = Math.atan2(end.eye[0] - mid[0], end.eye[2] - mid[2]);
+  const r0 = Math.max(A.far, r1 * 2.5), th0 = th1 + A.swing;
+  const track = (t) => {
+    const k = smoother((t - t0) / A.dur);
+    const r = r0 + (r1 - r0) * k, th = th0 + (th1 - th0) * k, y = end.eye[1] + (A.height - end.eye[1]) * Math.pow(1 - k, A.drop);
+    const eye = [mid[0] + Math.sin(th) * r, y, mid[2] + Math.cos(th) * r];
+    const w = k * k, at = [mid[0] + (end.at[0] - mid[0]) * w, mid[1] + (end.at[1] - mid[1]) * w, mid[2] + (end.at[2] - mid[2]) * w];
+    return { eye, at, fov: A.fov + (end.fov - A.fov) * k };
+  };
+  return { shot: 'approach', t0, dur: A.dur, end, track };
+}
 export const FAR = 40000;
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -110,6 +140,7 @@ export function fovFor(fov, aspect, fit) {
 export function shotAt(s, t) {
   if (!s || typeof s !== 'object' || typeof s.track !== 'function') return s;
   const base = SHOTS[s.shot] || SHOTS.high, q = s.track(t);
+  if (s.shot === 'approach') return { ...q, near: 2, shadow: [[q.at[0], 0, q.at[2]], Math.max(140, Math.min(900, q.eye[1]))] };
   if (s.shot === 'homer') {
     // the track is smoothed over a third of a second and runs behind the ball, so it looks a beat
     // ahead of it

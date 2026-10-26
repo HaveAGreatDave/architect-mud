@@ -4,9 +4,8 @@
  *
  *   node scripts/content/slush-fund.mjs [--dry-run]
  *
- * Every club in the league plays at its own barn (docs/systems-broadcast.md, the clubs table, and
- * the barn pools in data/scripts/hockey.bsm). This one belongs to the league: the final is played
- * here, the scheduler's teleprinter is in the press box, and KSAB's gantry hangs over the ice. The
+ * Every CPhL game is played here (docs/systems-broadcast.md, One barn): the league owns it, the
+ * scheduler's teleprinter is in the press box, and KSAB's gantry hangs over the ice. The
  * general `chatter` pool describes "this building", and every fixture in it is here: the goal
  * judge's booth, the frank that is not legally a hot dog, the man in section nine, the records
  * door, the resurfacer with the undisclosed fuel. Change one and change the other.
@@ -202,11 +201,11 @@ const spec = {
         ],
       },
       place: {
-        text: '"The league\'s barn. Every club has its own, and this one belongs to all of them, so none of them pays for the roof." She glances up at it.\n\n"They put it up on the old gate ground when the gate moved, in a year, on money nobody can account for. Somebody\'s goose laid that egg, so that\'s the name. She\'s up on the roof in gold leaf, and they regild her every spring. The ice has been slush since the ownership changed."',
+        text: '"The league\'s barn. Every club plays here, and none of them pays for the roof." She glances up at it.\n\n"They put it up on the old gate ground when the gate moved, in a year, on money nobody can account for. Somebody\'s goose laid that egg, so that\'s the name. She\'s up on the roof in gold leaf, and they regild her every spring. The ice has been slush since the ownership changed."',
         options: [{ label: 'Back up.', next: 'root' }],
       },
       games: {
-        text: '"The final, and any game the scheduler sends here." She points up the stairs with the tongs. "The rest of the time they play in their own barns and it comes in on seven, the same as everywhere. Tuesday, Thursday and Sunday, six o\'clock. I stay open for it."',
+        text: '"All of them. The scheduler sends every game here now, and the home side gets the near bench." She points up the stairs with the tongs. "It goes out on seven as well, the same as everywhere. Six o\'clock\'s the big one. I stay open for it."',
         options: [{ label: 'Back up.', next: 'root' }],
       },
       records: {

@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', location: '', acted: false, sport: '', announcer: '', meteorologist: '', airSlots: null, sim: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, subject: '', presents: '', rating: '', director: '', airDays: [], voice: null };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', location: '', acted: false, sport: '', announcer: '', analyst: '', meteorologist: '', airSlots: null, sim: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, subject: '', presents: '', rating: '', director: '', airDays: [], voice: null };
   const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [], unterminatedBlocks: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
@@ -221,6 +221,7 @@ function compileBsm(text) {
         else if (key === 'type') meta.type = val.toLowerCase();
         else if (key === 'sport') meta.sport = val.toLowerCase();               // sports: which sim to run (baseball)
         else if (key === 'announcer') meta.announcer = unquote(val); // sports/news: voiceover/announcer — a name string, NOT an npc_ id
+        else if (key === 'analyst') meta.analyst = unquote(val);     // sports: the colour man beside the announcer, a name string too
         // news: anchor(s) and field reporter(s) — plain NAME strings, repeatable, NOT npc_ ids.
         // First @anchor is the lead anchor ({anchor}); a second is the co-anchor ({anchor2}).
         else if (key === 'anchor')   { const nm = unquote(val); if (nm) meta.anchors.push(nm); }
@@ -749,7 +750,7 @@ function compileBsm(text) {
   // server assembles a fresh simulated game each airing. The announcer is a plain name
   // string spoken as narration — deliberately NOT added to npcIds, so importing a sports
   // broadcast never spawns a studio NPC. See docs/bsm-format.md#sports-broadcasts-type-sports.
-  const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null, ...(meta.sim ? { sim: { version: meta.sim } } : {}),
+  const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, ...(meta.analyst ? { analyst: meta.analyst } : {}), teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null, ...(meta.sim ? { sim: { version: meta.sim } } : {}),
     ...(Object.keys(say).length ? { say } : {}), ...(meta.voice ? { voice: meta.voice } : {}),
     // the network's open: plays under the title card, once, and the card holds for it
     ...(meta.theme ? { theme: meta.theme } : {}) };

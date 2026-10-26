@@ -29,7 +29,7 @@
 
 import { createBatch, vtx, MAT, STRIDE } from './ballpark-mesh.js';
 import { DEG } from '../diamond/geo.js';
-import { solvePose, mirrorPose, POSES, BONE, bindPoses, SC_JOINT } from '../diamond/rig.js';
+import { solvePose, mirrorPose, POSES, BONE, bindPoses, SC_JOINT, limbThick } from '../diamond/rig.js';
 // the pose language moved to the rig; the gates and the renderer still find it here
 export { solvePose, mirrorPose, POSES };
 import { headMesh, hairMesh, skullPoint, ZC as SKULL_ZC } from '../actor-head.js';
@@ -249,7 +249,8 @@ function sampleProfile(prof, n0 = 3) {
 // A tube down a two-bone chain that bends round the middle joint. `rig` is its bones for a
 // skinned body: { a, b } the upper and lower bone, and `root` [from, to, most] how much of the top
 // rides the parent (the pelvis or the chest) so a hip or shoulder bends without a crease.
-function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf, rig = null) {
+// `thick` widens it all down its length, for his build.
+function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf, rig = null, thick = 1) {
   const rings = sampleProfile(prof);
   const L1 = len(sub(J1, J0)), T1 = norm(sub(J1, J0)), T2 = norm(sub(J2, J1));
   const w = 0.16 * s;
@@ -272,7 +273,7 @@ function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf, rig = null
     if (len(zA) < 1e-4) zA = [0, 0, 1];
     zA = norm(zA);
     const xA = norm(cross(t, zA)), a = j / cols * TAU;
-    return add(c, add(mul(xA, Math.sin(a) * rx * s), mul(zA, Math.cos(a) * rz * s)));
+    return add(c, add(mul(xA, Math.sin(a) * rx * thick * s), mul(zA, Math.cos(a) * rz * thick * s)));
   }, {
     key: (i) => keyOf(rings[i][3]), col: (ii) => colOf(rings[Math.min(ii, rows - 1)][3]), mat: (i) => matOf(rings[i][3]),
     uv: (i, j) => uvOf(rings[i][3], j / cols, rings[i][0] / prof[prof.length - 1][0]), centre: lerp(J0, J2, 0.5),
@@ -281,7 +282,7 @@ function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf, rig = null
 }
 // The deltoid under the sleeve: a cap over the shoulder joint, riding the collarbone, rounder on top
 // than under, where the arm's own tube runs on out of it.
-function deltoid(G, J, W, S, s, keyOf, colOf, matOf, uvOf) {
+function deltoid(G, J, W, S, s, keyOf, colOf, matOf, uvOf, thick = 1) {
   const C = W['clav' + S] || W.chest, sg = S === 'L' ? 1 : -1, c = add(J['sh' + S], m3v(C, [-sg * 0.015 * s, 0, 0])), rows = 7, cols = 14;
   // its poles, where a sphere's grid pinches, point down into the arm and up into the trapezius,
   // where nothing sees them; on top a pole showed as a dark dot
@@ -290,7 +291,7 @@ function deltoid(G, J, W, S, s, keyOf, colOf, matOf, uvOf) {
   const unitAt = (i, j) => { const th = i / (rows - 1) * Math.PI, ph = j / cols * TAU, ct = Math.cos(th), st = Math.sin(th); return [0, 1, 2].map((k) => Pa[k] * ct + st * (Qa[k] * Math.cos(ph) + Ra[k] * Math.sin(ph))); };
   emitGrid(G, rows, cols, (i, j) => {
     const u = unitAt(i, j);
-    return add(c, m3v(C, [u[0] * 0.19 * s, u[1] * (u[1] > 0 ? 0.135 : 0.12) * s, u[2] * 0.2 * s]));
+    return add(c, m3v(C, [u[0] * 0.19 * thick * s, u[1] * (u[1] > 0 ? 0.135 : 0.12) * thick * s, u[2] * 0.2 * thick * s]));
   },{ key: keyOf('sleeve'), col: colOf('sleeve'), mat: matOf('sleeve'), uv: (i, j) => { const u = unitAt(i, j); return uvOf('sleeve', clamp(0.5 + sg * u[0] * 0.5, 0, 1), clamp(0.3 - u[1] * 0.3, 0, 1)); }, centre: c, wts: () => [[BONE['clav' + S], 1]] });
 }
 // The torso's frames as bones, for a skinned body.
@@ -306,18 +307,27 @@ const clavShare = (yc, sinA) => CLAV_RIDE * smooth(0.28, 0.5, yc) * (1 - smooth(
 const tr3 = (M) => [[M[0][0], M[1][0], M[2][0]], [M[0][1], M[1][1], M[2][1]], [M[0][2], M[1][2], M[2][2]]];
 const m3m = (a, b) => [m3v(a, b[0]), m3v(a, b[1]), m3v(a, b[2])];
 const BIND_W = new Map();
-function bindGirdle(s) {
-  let g = BIND_W.get(s);
+function bindGirdle(s, build) {
+  const key = `${s}|${build?.sh ?? 1}|${build?.girth ?? 0}`;
+  let g = BIND_W.get(key);
   if (!g) {
-    const { W } = solvePose(bindPoses(s).body);
-    BIND_W.set(s, (g = { L: m3m(tr3(W.chest), W.clavL), R: m3m(tr3(W.chest), W.clavR) }));
+    const { W } = solvePose(bindPoses(s, build).body);
+    BIND_W.set(key, (g = { L: m3m(tr3(W.chest), W.clavL), R: m3m(tr3(W.chest), W.clavR) }));
   }
   return g;
 }
-function torso(G, J, W, s, keyOf, colOf, matOf, uvOf, extra = 0, front = 0) {
+// How much broader than the rig's a ring of the torso is for shoulders `sh` (diamond/rig.js buildIn),
+// by its height in the chest's frame: none at the waist, all of it from the top of the chest up,
+// where the shoulders have moved out with it.
+const shoulderK = (f, y, sh) => (f === 'chest' ? 1 + (sh - 1) * smooth(0.0, 0.4, y) : 1);
+// The build (`b`, diamond/rig.js buildIn) widens the rings from the chest up with the shoulders; the
+// girth, `extra`, goes round all of it, and `front` (a belly, or the plate umpire's protector) onto
+// the jersey in front, and a little behind.
+function torso(G, J, W, s, keyOf, colOf, matOf, uvOf, extra = 0, front = 0, b = null) {
+  const sh = b?.sh ?? 1;
   const R = TORSO.map(([f, y, w, df, db, part]) => {
     const M = W[f], add2 = part === 'jersey' ? front : 0;
-    return { f, y, c: add(J[f], m3v(M, [0, y * s, 0])), X: M[0], Z: M[2], w: (w + extra) * s, df: (df + extra + add2) * s, db: (db + extra + add2 * 0.6) * s, part };
+    return { f, y, c: add(J[f], m3v(M, [0, y * s, 0])), X: M[0], Z: M[2], w: (w * shoulderK(f, y, sh) + extra) * s, df: (df + extra + add2) * s, db: (db + extra + add2 * 0.6) * s, part };
   });
   const rings = [];
   // a ring's height in the chest's frame, for what rides the collarbones (the neck's ring stands
@@ -336,7 +346,7 @@ function torso(G, J, W, s, keyOf, colOf, matOf, uvOf, extra = 0, front = 0) {
   const L = R[R.length - 1];
   rings.push({ c: L.c, X: L.X, Z: L.Z, w: L.w, df: L.df, db: L.db, part: L.part, v: 1, f0: L.f, f1: L.f, t: 0, yc: yc(L) });
   // the girdle's turn since the bind pose, each side, in the chest's frame
-  const Gb = bindGirdle(s), Cw = W.chest, CwT = tr3(Cw);
+  const Gb = bindGirdle(s, b), Cw = W.chest, CwT = tr3(Cw);
   const turn = {};
   for (const S of ['L', 'R']) turn[S] = W['clav' + S] ? m3m(m3m(CwT, W['clav' + S]), tr3(Gb[S])) : null;
   const scOf = (S) => [(S === 'L' ? 1 : -1) * SC_JOINT[0] * s, SC_JOINT[1] * s, SC_JOINT[2] * s];
@@ -690,6 +700,8 @@ function footFrame(J, S, s) {
 // shoulder, and shin guards over the knees and down to flaps over the laces.
 function catcherGear(G, J, W, s, look, col) {
   const F = headFrame(W, look), cur = G.cur;
+  // fitted to his build, as the torso and limbs are (buildPlayer)
+  const b = rigBuildOf(look), g = b.girth, thickLeg = limbThick(g), thickArm = limbThick(g * 0.8) * (1 + (b.sh - 1) * 0.6);
   skullShell(G, F, (a) => 1.672 - 0.05 * (1 - Math.cos(a)) / 2, 0.02, { col, mat: MAT.GLOSS });
   mask(G, W, s, look);
   // the throat guard: a black plate hanging from the mask's chin, in front of the neck
@@ -698,7 +710,7 @@ function catcherGear(G, J, W, s, look, col) {
   const groove = mul(col, 0.45);
   for (const S of ['L', 'R']) {
     limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), SHIN_GUARD, s,
-      () => 'plain', (p) => (p === 'v' ? groove : col), () => MAT.GLOSS, () => [0, 0], LEG_RIG[S]);
+      () => 'plain', (p) => (p === 'v' ? groove : col), () => MAT.GLOSS, () => [0, 0], LEG_RIG[S], thickLeg);
     // the flap over the laces
     const f = footFrame(J, S, s);
     G.cur = [[BONE['foot' + S], 1]];
@@ -707,7 +719,7 @@ function catcherGear(G, J, W, s, look, col) {
   }
   // the chest protector, its panels standing proud between the seams
   const pad = hex('#1a2b52'), seam = mul(pad, 0.5), rows = TORSO.slice(5, 14);
-  const pts = rows.map(([f, y, w, df]) => ({ c: add(J[f], m3v(W[f], [0, y * s, 0])), X: W[f][0], Z: W[f][2], w: (w + 0.045) * s, d: (df + 0.085) * s }));
+  const pts = rows.map(([f, y, w, df]) => ({ c: add(J[f], m3v(W[f], [0, y * s, 0])), X: W[f][0], Z: W[f][2], w: (w * shoulderK(f, y, b.sh) + g + 0.045) * s, d: (df + g + (look.belly || 0) + 0.085) * s }));
   emitGrid(G, pts.length, 15, (i, j) => {
     const r = pts[i], a = (j / 14 - 0.5) * 190 * DEG, sunk = j % 3 === 0 || i % 2 === 1 ? 0.975 : 1;
     return add(r.c, add(mul(r.X, Math.sin(a) * r.w), mul(r.Z, Math.pow(Math.max(0, Math.cos(a)), 0.7) * r.d * sunk)));
@@ -716,7 +728,7 @@ function catcherGear(G, J, W, s, look, col) {
   for (const [S, sg] of [['L', 1], ['R', -1]]) {
     const C = W['clav' + S] || W.chest;
     G.cur = [[BONE['clav' + S], 1]];
-    ellipsoid(G, 'plain', add(J['sh' + S], m3v(C, [-sg * 0.01 * s, 0.05 * s, 0.01 * s])), C, [0.235 * s, 0.135 * s, 0.245 * s], 7, 14, pad, MAT.CLOTH, { vmax: 0.6 });
+    ellipsoid(G, 'plain', add(J['sh' + S], m3v(C, [-sg * 0.01 * s, 0.05 * s, 0.01 * s])), C, [0.235 * thickArm * s, 0.135 * thickArm * s, 0.245 * thickArm * s], 7, 14, pad, MAT.CLOTH, { vmax: 0.6 });
   }
   G.cur = cur;
 }
@@ -725,13 +737,13 @@ function spotOn(G, F, a0, y0, ra, ry, t, col) {
   emitGrid(G, 2, 10, (i, j) => { const ph = j / 10 * TAU; return toHead(F, skullOut(y0 + ry * Math.sin(ph) * i, a0 + ra * Math.cos(ph) * i, t)); },
     { key: 'plain', col, mat: MAT.MATTE, centre: F.c });
 }
-// The plate umpire's ball bags, one on each hip.
-function ballBags(G, J, W, s, col) {
+// The plate umpire's ball bags, one on each hip, out on his girth (`g`).
+function ballBags(G, J, W, s, col, g = 0) {
   const cur = G.cur;
   G.cur = [[BONE.pelvis, 1]];
   for (const sg of [1, -1]) {
-    ellipsoid(G, 'plain', add(J.pelvis, m3v(W.pelvis, [sg * 0.52 * s, 0.03 * s, 0.16 * s])), W.pelvis, [0.12 * s, 0.15 * s, 0.13 * s], 7, 10, col, MAT.CLOTH);
-    ellipsoid(G, 'plain', add(J.pelvis, m3v(W.pelvis, [sg * 0.53 * s, 0.15 * s, 0.17 * s])), W.pelvis, [0.125 * s, 0.035 * s, 0.135 * s], 5, 10, mul(col, 0.7), MAT.CLOTH);
+    ellipsoid(G, 'plain', add(J.pelvis, m3v(W.pelvis, [sg * (0.52 + g) * s, 0.03 * s, (0.16 + g * 0.5) * s])), W.pelvis, [0.12 * s, 0.15 * s, 0.13 * s], 7, 10, col, MAT.CLOTH);
+    ellipsoid(G, 'plain', add(J.pelvis, m3v(W.pelvis, [sg * (0.53 + g) * s, 0.15 * s, (0.17 + g * 0.5) * s])), W.pelvis, [0.125 * s, 0.035 * s, 0.135 * s], 5, 10, mul(col, 0.7), MAT.CLOTH);
   }
   G.cur = cur;
 }
@@ -748,38 +760,39 @@ function beltDress(G, J, W, s, extra, col) {
   G.cur = cur;
 }
 // The jersey's neckline piped in the trim, round the torso's top ring of jersey (chest +0.61).
-function collar(G, J, W, s, col, extra) {
-  const [, y, w0, df0, db0] = TORSO[14], cur = G.cur, pw = 2.5, sp = (x) => Math.sign(x) * Math.pow(Math.abs(x), 2 / pw), st = [];
+function collar(G, J, W, s, col, extra, sh = 1) {
+  const [f, y, w0, df0, db0] = TORSO[14], cur = G.cur, pw = 2.5, sp = (x) => Math.sign(x) * Math.pow(Math.abs(x), 2 / pw), st = [];
   G.cur = [[BONE.chest, 1]];
   for (let k = 0; k <= 18; k++) {
-    const a = k / 18 * TAU, ca = Math.cos(a), w = (w0 + extra) * s + 0.004, d = ((ca > 0 ? df0 : db0) + extra) * s + 0.004;
+    const a = k / 18 * TAU, ca = Math.cos(a), w = (w0 * shoulderK(f, y, sh) + extra) * s + 0.004, d = ((ca > 0 ? df0 : db0) + extra) * s + 0.004;
     st.push([add(J.chest, m3v(W.chest, [sp(Math.sin(a)) * w, y * s + 0.01 * s, sp(ca) * d])), 0.016 * s, 0.016 * s]);
   }
   tube(G, st, W.chest[1], 4, { key: 'plain', col, mat: MAT.CLOTH, centre: add(J.chest, m3v(W.chest, [0, y * s, 0])) });
   G.cur = cur;
 }
-// A band round the forearm at the wrist, and a hitter's guard over the elbow he leads with.
-function wristband(G, J, S, s, col) {
+// A band round the forearm at the wrist, and a hitter's guard over the elbow he leads with. Each
+// takes `t`, how much thicker his arm is than the rig's (buildPlayer), so it stays on top of it.
+function wristband(G, J, S, s, col, t = 1) {
   const cur = G.cur, el = J['el' + S], d = norm(sub(J['wr' + S], el)), L = len(sub(J['wr' + S], el)), side = norm(cross(d, J['epole' + S] || [0, 1, 0]));
   G.cur = [[BONE['forearm' + S], 1]];
-  tube(G, [0.66, 0.73, 0.8].map((u, i) => [madd(el, d, L * u), (i === 1 ? 0.122 : 0.116) * s, (i === 1 ? 0.106 : 0.1) * s]), side, 12,
+  tube(G, [0.66, 0.73, 0.8].map((u, i) => [madd(el, d, L * u), (i === 1 ? 0.122 : 0.116) * t * s, (i === 1 ? 0.106 : 0.1) * t * s]), side, 12,
     { key: 'plain', col, mat: MAT.CLOTH, centre: madd(el, d, L * 0.73) });
   G.cur = cur;
 }
 // A batting glove's cuff round the wrist, over the end of the sleeve, its strap darker, closed over
 // the wrist so that looking down the forearm shows glove and not the sleeve inside it.
-function gloveCuff(G, J, S, s, col) {
+function gloveCuff(G, J, S, s, col, t = 1) {
   const cur = G.cur, el = J['el' + S], d = norm(sub(J['wr' + S], el)), L = len(sub(J['wr' + S], el)), side = norm(cross(d, J['epole' + S] || [0, 1, 0]));
   G.cur = [[BONE['forearm' + S], 1]];
-  tube(G, [[0.85, 0.104, 0.088], [0.89, 0.112, 0.095], [0.94, 0.11, 0.094], [1.0, 0.104, 0.09], [1.05, 0.088, 0.077], [1.09, 0.055, 0.048], [1.11, 0, 0]].map(([u, a, b]) => [madd(el, d, L * u), a * s, b * s]), side, 12,
+  tube(G, [[0.85, 0.104, 0.088], [0.89, 0.112, 0.095], [0.94, 0.11, 0.094], [1.0, 0.104, 0.09], [1.05, 0.088, 0.077], [1.09, 0.055, 0.048], [1.11, 0, 0]].map(([u, a, b]) => [madd(el, d, L * u), a * t * s, b * t * s]), side, 12,
     { key: 'plain', col: (ii) => (ii === 1 || ii === 2 ? mul(col, 0.6) : col), mat: MAT.LEATHER, centre: madd(el, d, L * 0.95) });
   G.cur = cur;
 }
-function elbowGuard(G, J, S, s, col) {
+function elbowGuard(G, J, S, s, col, t = 1) {
   const cur = G.cur, el = J['el' + S], pole = J['epole' + S] || [0, -1, 0], up = norm(sub(J['sh' + S], el)), fo = norm(sub(J['wr' + S], el));
   const along = norm(sub(up, fo)), across = norm(cross(pole, along));
   G.cur = [[BONE['upperArm' + S], 0.5], [BONE['forearm' + S], 0.5]];
-  ellipsoid(G, 'plain', madd(el, pole, 0.08 * s), [across, along, pole], [0.15 * s, 0.21 * s, 0.1 * s], 8, 12, col, MAT.GLOSS);
+  ellipsoid(G, 'plain', madd(el, pole, 0.08 * t * s), [across, along, pole], [0.15 * t * s, 0.21 * s, 0.1 * t * s], 8, 12, col, MAT.GLOSS);
   G.cur = cur;
 }
 
@@ -812,9 +825,16 @@ const PLAIN = Object.freeze({
 // Builds one player into `G`'s batches. `pose` is a pose table entry with `at` and `yaw`; `look`
 // says who he is: { id, side ('home' | 'away'), role ('ump', 'crew', 'catcher', 'pitcher'...), slot
 // (his jersey's cell in the kit atlas), glove ('L' | 'R'), helmet, flapSide, mask, battingGloves,
-// kit (sideKit's; the house kit for his side when it's missing) }.
+// kit (sideKit's; the house kit for his side when it's missing), and his build past his height
+// (diamond/cast.js buildOf): girth, shoulders, belly }. A pose without a build of its own is solved
+// in his.
+export const rigBuildOf = (look) => ({ sh: look?.shoulders ?? 1, girth: look?.girth ?? 0 });
 export function buildPlayer(G, pose, look) {
-  const { J, W, s } = solvePose(pose);
+  const b = pose.build || rigBuildOf(look);
+  const { J, W, s } = solvePose(pose.build ? pose : { ...pose, build: b });
+  // his head grows with his height by less than the rest of him does
+  if (look.headScale == null) look.headScale = Math.pow(s, -0.5);
+  const thickLeg = limbThick(b.girth), thickArm = limbThick(b.girth * 0.8) * (1 + (b.sh - 1) * 0.6);
   const plain = PLAIN[look.role] || null, ump = !!plain, side = look.side === 'away' ? 'away' : 'home', kit = look.kit || KITS[side];
   const navyU = hex(plain ? plain.shirt : '#1d2740'), greyU = hex(plain ? plain.pants : '#7d8186');
   const under = ump ? navyU : hex(kit.ink), trim = ump ? navyU : hex(kit.trim), skin = hex(look.skin);
@@ -830,21 +850,21 @@ export function buildPlayer(G, pose, look) {
   // down the leg: the sock runs down the shin
   const legUv = (p, u, v) => p === 'sock' ? inCell(socks, u, (v - 0.62) / 0.38) : p === 'pants' ? inCell(pants, u, v * 1.5) : [u, v];
   for (const S of ['L', 'R']) {
-    limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), ump ? SLACKS : LEG, s, keyOf, colOf, matOf, legUv, LEG_RIG[S]);
-    limb(G, J['sh' + S], J['el' + S], J['wr' + S], m3v(W.chest, [0, 0, -1]), ARM, s, keyOf, colOf, matOf, uvOf, ARM_RIG[S]);
-    deltoid(G, J, W, S, s, keyOf, colOf, matOf, uvOf);
+    limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), ump ? SLACKS : LEG, s, keyOf, colOf, matOf, legUv, LEG_RIG[S], thickLeg);
+    limb(G, J['sh' + S], J['el' + S], J['wr' + S], m3v(W.chest, [0, 0, -1]), ARM, s, keyOf, colOf, matOf, uvOf, ARM_RIG[S], thickArm);
+    deltoid(G, J, W, S, s, keyOf, colOf, matOf, uvOf, thickArm);
     G.cur = [[BONE['foot' + S], 1]];
     shoe(G, J, S, s, ump ? hex(plain.shoe) : hex('#151515'), !ump);
   }
-  torso(G, J, W, s, keyOf, colOf, matOf, uvOf, look.girth || 0, ump ? plain.girth : 0);
+  torso(G, J, W, s, keyOf, colOf, matOf, uvOf, look.girth || 0, (ump ? plain.girth : 0) + (look.belly || 0), b);
   beltDress(G, J, W, s, look.girth || 0, ump ? hex(plain.belt) : hex(kit.belt));
-  if (!ump) collar(G, J, W, s, trim, look.girth || 0);
+  if (!ump) collar(G, J, W, s, trim, look.girth || 0, b.sh);
   // his own: a band at the wrist, a guard over the elbow he leads with
   const band = hex(kit.ink);
-  for (const S of ['L', 'R']) if (!ump && (look.wristbands === 'both' || look.wristbands === S)) wristband(G, J, S, s, band);
-  if (!ump && look.elbowGuard) elbowGuard(G, J, look.elbowGuard, s, hex(kit.helmet));
-  if (!ump && look.battingGloves) for (const S of ['L', 'R']) gloveCuff(G, J, S, s, hex(look.battingGloves));
-  if (look.role === 'ump' && look.mask) ballBags(G, J, W, s, mul(navyU, 0.9));
+  for (const S of ['L', 'R']) if (!ump && (look.wristbands === 'both' || look.wristbands === S)) wristband(G, J, S, s, band, thickArm);
+  if (!ump && look.elbowGuard) elbowGuard(G, J, look.elbowGuard, s, hex(kit.helmet), thickArm);
+  if (!ump && look.battingGloves) for (const S of ['L', 'R']) gloveCuff(G, J, S, s, hex(look.battingGloves), thickArm);
+  if (look.role === 'ump' && look.mask) ballBags(G, J, W, s, mul(navyU, 0.9), b.girth);
   head(G, J, W, s, look);
   look.s = s;
   const logo = side === 'home' ? 0 : 1;
@@ -870,7 +890,7 @@ export function buildPlayer(G, pose, look) {
 // cell (KIT_REL) and the face's slot is the draw's, so one body stands in any slot all game.
 export function buildBody(G, look) {
   if (!G.skin) throw new Error('buildBody wants a skinned set: createPlayerSet({ skin: true })');
-  const { body, grip } = bindPoses(look.scale || 1);
+  const { body, grip } = bindPoses(look.scale || 1, rigBuildOf(look));
   const res = buildPlayer(G, body, { ...look, headIndex: 0 });
   if (look.helmet) {
     const { J, s } = solvePose(grip), col = look.battingGloves ? hex(look.battingGloves) : hex(look.skin);

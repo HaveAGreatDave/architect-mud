@@ -34,6 +34,41 @@ function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.
 // A number for the back of his jersey, 1 to 99, off his id.
 export const numberOf = (id) => 1 + (hashStr('no:' + id) % 99);
 
+// A man's build, off his id, so he's the same size all season: `scale`, his height as the rig's
+// (RIG_INCHES at 1, bare-headed), and `girth`, `shoulders` and `belly` as gl/ballplayer-mesh.js and
+// diamond/rig.js buildIn take them. The role leans the draw the way the game sorts men: pitchers
+// tall and lean, catchers short and thick through the middle, coaches and umpires heavier and
+// softer in front. A batter, a runner and the man on deck are one man, so they share a lean, and
+// a hitter keeps his body from the box to the bases. A sum of three draws is near enough a bell.
+const RIG_INCHES = 71.5;
+const BUILDS = Object.freeze({
+  //        [mean height in, its spread, heft's mean, shoulders' mean, belly a unit of heft over 1]
+  player: Object.freeze([73, 2.1, 0, 1, 0.012]),
+  pitcher: Object.freeze([74.5, 2.0, -0.4, 0.99, 0.008]),
+  catcher: Object.freeze([71.8, 1.6, 1.1, 1.03, 0.014]),
+  coach: Object.freeze([71.5, 2.0, 1.3, 1, 0.03]),
+  ump: Object.freeze([71.5, 2.0, 0.9, 1, 0.02]),
+  crew: Object.freeze([70.5, 2.4, 0.4, 0.99, 0.02]),
+});
+// any role without a lean of its own (a fielder, a batter, a runner, the man on deck) is a player's
+const BUILD_OF_ROLE = (role) => (BUILDS[role] ? role : 'player');
+export function buildOf(id, role) {
+  let a = hashStr('build:' + id);
+  const r = () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const bell = () => (r() + r() + r() - 1.5) * 2;   // mean 0, spread 1, within ±3
+  const [h0, hs, f0, s0, b0] = BUILDS[BUILD_OF_ROLE(role)];
+  const inches = Math.max(66, Math.min(79, h0 + hs * bell())), heft = f0 + bell();
+  const round = (x, n = 1000) => Math.round(x * n) / n;
+  return {
+    inches: round(inches, 10),
+    scale: round(inches / RIG_INCHES),
+    girth: round(Math.max(-0.05, Math.min(0.09, 0.03 * heft))),
+    // broader on a bigger man, and a little on a taller one
+    shoulders: round(Math.max(0.93, Math.min(1.08, s0 + 0.03 * bell() + 0.008 * heft + 0.004 * (inches - 73)))),
+    belly: round(Math.max(0, b0 * (heft - 1))),
+  };
+}
+
 // Where a man on a bag stands while the pitcher is set: a few strides off it toward the next one,
 // and off third in foul ground.
 export function leadOff(bag) {
@@ -72,13 +107,17 @@ export function castOf(p) {
   const fieldTeam = p.fieldingTeam || (top ? 'Home' : 'Away'), batTeam = p.battingTeam || (top ? 'Away' : 'Home');
   const BASE = { home: 0, away: 12, ump: 24 };
   const out = [];
-  // `k` is his slot within his side; `look` is what he wears; `how` is { mirror, scale } for the pose
+  // `k` is his slot within his side; `look` is what he wears; `how` is { mirror } for the pose. His
+  // height is his pose's scale and the rest of his build is on his look (buildOf); a girth the look
+  // already has (the plate umpire's protector) goes on top of his own.
   const person = (k, id, side, role, pose, at, yaw, look = {}, how = {}) => {
-    out.push({ id, pose, at, yaw, mirror: !!how.mirror, scale: how.scale || 1, look: { id, side, role, slot: BASE[side] + k, number: numberOf(id), ...look } });
+    const b = buildOf(id, role);
+    const girth = Math.round(Math.min(0.09, b.girth + (look.girth || 0)) * 1000) / 1000;
+    out.push({ id, pose, at, yaw, mirror: !!how.mirror, scale: b.scale, look: { id, side, role, slot: BASE[side] + k, number: numberOf(id), ...look, girth, shoulders: b.shoulders, belly: b.belly } });
   };
   // the battery
   const lefty = p.throws === 'L';
-  person(0, p.pitcher || `${fieldTeam}:P`, fieldSide, 'pitcher', 'pSet', RUBBER, lefty ? -90 : 90, { glove: lefty ? 'R' : 'L' }, { mirror: lefty, scale: 1.03 });
+  person(0, p.pitcher || `${fieldTeam}:P`, fieldSide, 'pitcher', 'pSet', RUBBER, lefty ? -90 : 90, { glove: lefty ? 'R' : 'L' }, { mirror: lefty });
   person(1, `${fieldTeam}:C`, fieldSide, 'catcher', 'catcher', [0, 0, -2.75], 0, { glove: 'L' });
   // the seven others where the play's fielders start (diamond/play.js), shaded to the hitter's pull side
   const spots = fieldSpots(p.bats);
@@ -132,4 +171,4 @@ export const castKey = (c) => JSON.stringify([c.id, c.pose, c.at, Math.round(c.y
 // A key for his skinned body (buildBody), which the GPU poses: who he is and what he wears, not
 // where he stands or which slot he's in, so a man keeps his body from one payload to the next.
 export const bodyKey = (c) => JSON.stringify([c.id, c.scale, c.look.side, c.look.role === 'catcher' || c.look.role === 'ump' || c.look.role === 'crew' ? c.look.role : '',
-  c.look.glove, c.look.helmet, c.look.flapSide, c.look.mask, c.look.battingGloves, c.look.girth, c.look.mitt]);
+  c.look.glove, c.look.helmet, c.look.flapSide, c.look.mask, c.look.battingGloves, c.look.girth, c.look.mitt, c.look.shoulders, c.look.belly]);

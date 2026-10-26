@@ -127,7 +127,7 @@ import { __install } from './rink-dom-stub.mjs';
 const stub = __install();
 const P = '../../client/game/js/panels/';
 const { createWorld, DT, toPark } = await import(P + 'diamond/world.js');
-const { createDirector, pictureAfter, opensGame, PACE } = await import(P + 'diamond/director.js');
+const { createDirector, pictureAfter, opensGame, PACE, landBy, AFTER } = await import(P + 'diamond/director.js');
 const { PARK_TIERS, rungsFor } = await import(P + 'diamond/quality.js');
 const { castOf, crewDue, crewLane, CREW_ARCS, CREW_GATE, CREW_GAP, CREW_HOLD } = await import(P + 'diamond/cast.js');
 const { matAt, sweptAlong, crewShots: crewShotsOf } = await import(P + 'diamond/crew.js');
@@ -157,9 +157,9 @@ const check = (label, ok, detail) => {
   console.log(`  FAIL ${label}${detail ? ` (${detail})` : ''}`);
 };
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-// The plan's budget, worked out here rather than taken from the director: 0.45 of the line's hold,
-// kept between 13 and 26 seconds, and 13 for a payload with no hold.
-const budgetOf = (p) => Math.min(26, Math.max(13, Number.isFinite(p.hold) ? 0.45 * p.hold / 1000 : 0));
+// The plan's budget, worked out here rather than taken from the director: 0.6 of the line's hold,
+// kept between 13 and 34 seconds, and 13 for a payload with no hold.
+const budgetOf = (p) => Math.min(34, Math.max(13, Number.isFinite(p.hold) ? 0.6 * p.hold / 1000 : 0));
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
@@ -180,7 +180,7 @@ const bagAt = (b) => (b === 4 ? [0, 0, 0] : BAGS[b]);
 for (const p of order) for (const m of p.moves || []) if (m && m.name) check('a runner\'s legs in the picture are the sim\'s (play.js legsOf)', legsOf(m.name) === speedOf(m.name), m.name);
 
 // ── 1. the director ──────────────────────────────────────────────────────────
-const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0, between: 0, rub: 0, goneOff: 0, deckShot: 0, crew: 0 };
+const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0, between: 0, rub: 0, goneOff: 0, deckShot: 0, crew: 0, stepout: 0, look: 0, welcome: 0 };
 // The ball of a foot, where marks.js puts its mark: half way from the ankle to the toe.
 const footAt = (J, S) => [(J['an' + S][0] + J['toe' + S][0]) / 2, (J['an' + S][2] + J['toe' + S][2]) / 2];
 // The dirt's marks (diamond/marks.js) a staging said: each on the canvas, a foot's on the dirt,
@@ -219,6 +219,7 @@ for (const hold of [undefined, 45000]) {
     const cast = castOf(p);
     const slotOf = (role) => (role === 'ump' ? cast.find((c) => c.id === 'ump:plate') : cast.find((c) => c.look.role === role)).look.slot;
     const [sP, sC, sH, sU] = ['pitcher', 'catcher', 'batter', 'ump'].map(slotOf);
+    const H0 = cast.find((c) => c.look.role === 'batter'), swingRoom = { d: Infinity, n: 0 };
     let landed = 0, landT = null;
     const counts = [], shots = [];
     let shotNow = null, cutAt = -Infinity;
@@ -281,6 +282,23 @@ for (const hold of [undefined, 45000]) {
         const L = { ...Q, at: [0, 0, 0], yaw: 0 }, br = limitBreaks(L, solvePose(L));
         check('the hitter inside his joints at contact', !br.length, `${label} #${rec.n}: ${br.join('; ')}`);
       }]);
+      // every pitch from his box, back in it after a practice swing; and a practice swing a step
+      // aside keeps the bat clear of the catcher and the umpire
+      due.push([rec.release, () => {
+        const F = W.frame(sH, rec.release), d = F ? flatD(F.at, H0.at) : Infinity;
+        check('every pitch: the hitter in his box (0.05 ft)', d <= 0.05, `${label} #${rec.n}: ${d.toFixed(3)} ft`);
+      }]);
+      if (rec.view?.look) seen.look++;
+      if (rec.stepout) {
+        seen.stepout++;
+        for (let ts = rec.stepout.t + 0.3; ts <= rec.stepout.end; ts += 0.1) due.push([ts, () => {
+          const Q = W.pose(sH, ts);
+          if (!Q?.bat) return;
+          const near = [sC, sU].flatMap((s) => { const P2 = W.pose(s, ts); if (!P2) return []; const J = solvePose(P2).J; return ['head', 'neck', 'chest', 'shL', 'shR', 'elL', 'elR', 'wrL', 'wrR', 'pelvis', 'knL', 'knR'].map((j) => J[j]); });
+          for (let u = 0.6; u <= 2.8; u += 0.2) { const q = toPark(Q, Q.bat.knob.map((v, i) => v + Q.bat.dir[i] * u)); for (const j of near) swingRoom.d = Math.min(swingRoom.d, dist(q, j)); }
+          swingRoom.n++;
+        }]);
+      }
       if (rec.hit) due.push([rec.hit.t, () => {
         seen.hbp++;
         check('the flinch is lined up on the ball reaching him', lined(sH, 'bat_hbp', 'hit', rec.hit.t), label);
@@ -332,6 +350,22 @@ for (const hold of [undefined, 45000]) {
       if (plan.log.fielders.some((f) => f.clip === 'field_of_throw' && !f.miss)) seen.rundown++;
     }
     if (trot) { tPlay = D.log[N - 1].decided; seen.trot++; }
+    // a home run: the batter round the bags on their cameras, home within AFTER.trot of the landing
+    // and off the plate within AFTER.welcome more (diamond/timing.js, the server's numbers), and the
+    // men in ahead of him waiting on their spots by the plate as he crosses it
+    if (plan && p.kind === 'homerun') {
+      const Wc = plan.log.welcome, H2 = D.homer;
+      check('a home run: the batter\'s welcomed home and the trot is the director\'s', !!Wc && !!H2, label);
+      if (H2) {
+        check('a home run: home within AFTER.trot of the landing, off the plate within AFTER.welcome more', H2.home - D.landAt <= AFTER.trot && H2.until - D.landAt <= AFTER.trot + AFTER.welcome, `${label}: home +${(H2.home - D.landAt).toFixed(2)}, off +${(H2.until - D.landAt).toFixed(2)} s`);
+        check('a home run: the cameras go round the bags with him, the plate\'s last, in order', H2.shots.some((x) => x.shot === 'plate') && H2.shots.every((x, i) => i === 0 || x.at > H2.shots[i - 1].at), `${label}: ${H2.shots.map((x) => x.shot).join(', ')}`);
+      }
+      for (const m of Wc?.men || []) due.push([Wc.t, () => {
+        const Q = W.pose(m.slot, Wc.t), pv = Q ? toPark(Q, Q.pelvis) : null, d = pv ? flatD(pv, m.at) : Infinity;
+        check('a home run: the men in ahead of him wait by the plate as he crosses (1.5 ft)', d <= 1.5, `${label}: slot ${m.slot} ${d.toFixed(2)} ft off`);
+        seen.welcome++;
+      }]);
+    }
     if (moved) {
       // the bodies that do more than set: their pelvises are watched for jumps
       for (const B of moved.bodies) if (B.role === 'batter' || B.role === 'ump' || B.clips.filter((c) => !c.prior).length > 1) moving.push({ slot: B.slot, last: null, at: -1 });
@@ -555,9 +589,11 @@ for (const hold of [undefined, 45000]) {
       }
       if (menOn.length > 1) check('a play: no two men on the bases run into each other (2.5 ft)', closest.d >= 2.5, `${label}: ${closest.who} ${closest.d.toFixed(2)} ft apart at +${(closest.at - tPlay).toFixed(2)} s`);
     }
+    if (swingRoom.n) check('a practice swing: the bat 1 ft clear of the catcher and the umpire', swingRoom.d >= 1, `${label}: ${swingRoom.d.toFixed(2)} ft`);
+    check('it lands by landBy (diamond/timing.js), which the server sizes its lines by', D.landAt - t0 <= landBy(p) + 1e-6, `${label}: ${(D.landAt - t0).toFixed(2)} of ${landBy(p).toFixed(2)} s`);
     check('onLand fires once', landed === 1, `${label}: ${landed}`);
     check('it lands when the director said', landT != null && landT - D.landAt <= DT + 1e-9 && landT >= D.landAt - 1e-9, `${label}: ${landT} for ${D.landAt}`);
-    check('the play lands inside its budget (0.45 of the hold, 13 to 26 s), or as soon as its last pitch and the play allow', D.landAt - t0 <= Math.max(budget, D.floor) + 1e-9, `${label}: ${(D.landAt - t0).toFixed(2)} of ${budget} s`);
+    check('the play lands inside its budget (0.6 of the hold, 13 to 34 s), or as soon as its last pitch and the play allow', D.landAt - t0 <= Math.max(budget, D.floor) + 1e-9, `${label}: ${(D.landAt - t0).toFixed(2)} of ${budget} s`);
     check('the count goes through every pitch, in order, by the landing', counts.length === N && counts.every((c, j) => c.i === j) && counts[N - 1].t <= D.landAt + DT, `${label}: ${counts.map((c) => c.i)}`);
     for (const s of shots) check('every shot is a camera', isShot(s), `${label}: ${JSON.stringify(s)}`);
     if (shots.includes('sideL')) seen.sideL++;
@@ -590,6 +626,7 @@ check('the game has a trot to first after ball four or a hit batsman', seen.trot
 check('the game has a side going off after its third out', seen.off > 0);
 check('the game has a play that earns a replay', seen.replay > 0);
 check('the game has a slide or a dive that leaves its scar in the dirt', seen.scar > 0);
+check('the game has a hitter stepping out for a practice swing, and a pitcher looking over at a runner, on a long hold', seen.stepout > 0 && seen.look > 0, JSON.stringify({ stepout: seen.stepout, look: seen.look }));
 check('the game has dead time between at-bats, with a pitcher rubbing up the ball, a man going off and the on-deck camera', seen.between > 0 && seen.rub > 0 && seen.goneOff > 0 && seen.deckShot > 0, JSON.stringify({ between: seen.between, rub: seen.rub, off: seen.goneOff, deck: seen.deckShot }));
 
 // ── 1c. the changeover ───────────────────────────────────────────────────────
@@ -975,11 +1012,13 @@ for (const { p, seed } of runs) {
       check('the spectacle: the home-run camera stays above the field and inside the fence', !bad, `${label}: eye at ${bad ? bad.eye.map((v) => v.toFixed(0)).join(',') : ''}`);
       fxSeen.homer++;
     }
-    // the wide shot for the shells, and the high camera back after the last
+    // the wide shot for the shells, and the high camera back after the last (on a home run, the
+    // high camera or the first of the trot's, which follow him round the bags)
     if (bursts.length) {
       const first = Math.min(...bursts.map((b) => b.t)), last = Math.max(...bursts.map((b) => b.t));
-      const sky = shots.find((x) => x.shot === 'sky' && x.t >= first - FX.burst.rise - 1e-6), back = shots.find((x) => x.shot === 'high' && x.t > last);
-      check('the spectacle: the wide shot as the shells go up, and the high camera back after the last', !!sky && sky.t <= first + 1e-6 && !!back, `${label}: ${cutList}`);
+      const TROT = new Set(['high', 'bag', 'third', 'plate']);
+      const sky = shots.find((x) => x.shot === 'sky' && x.t >= first - FX.burst.rise - 1e-6), back = shots.find((x) => (hr ? TROT.has(x.shot) : x.shot === 'high') && x.t > last);
+      check('the spectacle: the wide shot as the shells go up, and the high camera (or the trot\'s) back after the last', !!sky && sky.t <= first + 1e-6 && !!back, `${label}: ${cutList}`);
       if (hr && path && sky) check('the spectacle: the wide shot comes once the ball\'s down', sky.t >= path.land, `${label}: ${(sky.t - path.land).toFixed(2)} s after`);
       check('the spectacle: the play runs till the last spark\'s out', D.until >= fxEnd(bursts[bursts.length - 1]) - 1e-6, label);
       fxSeen.walkoff += p.walkoff ? 1 : 0;
@@ -1133,16 +1172,16 @@ const renderer = () => ({
   // the booth might leave plays out
   if (!feed.some((p) => p.phase === 'run')) { const r = order.find((p) => p.phase === 'run'); if (r) feed.push(r); }
   check('the view is fed a play on the bases', feed.some((p) => p.phase === 'run'));
-  // and a home run with a hold that has room for its replay (the game's first, or the next games'),
-  // then the same again with reduced motion, when its replay is a still
+  // and a home run with a hold that has room for its trot and its replay after it (the game's
+  // first, or the next games'), then the same again with reduced motion, when its replay is a still
   const replayAt = new Set(), calmAt = new Set();
   {
     const isHr = (x) => !x.phase && x.kind === 'homerun' && (x.pitches || []).length;
     let hr = order.find(isHr);
     for (let s = SEED + 1; !hr && s <= SEED + 60; s++) hr = gameOf(s).find(isHr);
     if (hr) {
-      replayAt.add(feed.length); feed.push({ ...hr, hold: 35000 });
-      replayAt.add(feed.length); calmAt.add(feed.length); feed.push({ ...hr, hold: 35000 });
+      replayAt.add(feed.length); feed.push({ ...hr, hold: 75000 });
+      replayAt.add(feed.length); calmAt.add(feed.length); feed.push({ ...hr, hold: 75000 });
     }
     check('the view is fed a home run to replay', replayAt.size === 2);
   }
@@ -1224,8 +1263,10 @@ const renderer = () => ({
       // live one, or held still with reduced motion, and the live camera back after)
       // (the rate from the frames it was up: the live world's time and its own, first and last)
       let seenReplay = null, bugUp = true, onCamera = true, live0 = 0, live1 = 0, own0 = 0, own1 = 0;
-      for (let i = 0; i < 1200 && v.busy(); i++) {
-        stub.runFrames(1, 1000 / 30);
+      // (ten frames a second outside a replay: a home run's trot and the dead time after it run a
+      // minute, every body posed each frame)
+      for (let i = 0; i < 2400 && v.busy(); i++) {
+        stub.runFrames(1, v.replay || v.replayDue ? 1000 / 30 : 1000 / 10);
         const r = v.replay;
         if (!r) continue;
         if (!seenReplay) { seenReplay = r; live0 = W2.t; own0 = r.W.t; }
@@ -1249,6 +1290,7 @@ const renderer = () => ({
           check('the fans: a home run gets the batting side\'s fans up', rec.roar[fans] >= 0.9, `${label}: ${rec.roar.map((x) => x.toFixed(2))}`);
           const shellsOut = Math.max(-Infinity, ...(D.fx || []).filter((e) => e.kind === 'burst').map(fxEnd));
           check('a replay: it waits for the fireworks to be out', live0 >= shellsOut - 1e-6, `${label}: ${(shellsOut - live0).toFixed(2)} s early`);
+          check('a replay: a home run\'s waits for the batter round the bags and off the plate', !!D.homer && live0 >= D.homer.until - 1e-6, `${label}: ${D.homer ? (D.homer.until - live0).toFixed(2) : 'no trot'} s early`);
         }
       }
       const frames = rec.frames;
@@ -1280,6 +1322,30 @@ const renderer = () => ({
     check('a hidden tab: the line waits while the play is due', capText() !== 'the hidden line', capText());
     stub.runTimers(30000);
     check('a hidden tab: the line goes up once the play\'s time has passed', capText() === 'the hidden line', capText());
+  }
+  // the booth talking over the pitches: a payload riding the plate appearance's first line
+  // (`lead`) has that line up at once; its call, come while the play's in the air, waits for the
+  // landing; a call come after the landing goes up at once; and a call still waiting when the next
+  // payload comes goes up as that one's staged, never at its landing
+  {
+    const [p1, p2] = atBats.slice(1, 3), D = () => v.director;
+    v.setCaption('the lead line', { held: false });
+    v.apply({ ...p1, lead: true });
+    check('talk over the pitches: the first line up at once', capText() === 'the lead line', capText());
+    stub.runFrames(10, 1000 / 30);
+    v.setCaption('the call', { held: true, call: true });
+    check('talk over the pitches: the call waits while its play is in the air', !D().landed && capText() === 'the lead line', capText());
+    for (let i = 0; i < 1500 && !D().landed; i++) stub.runFrames(1, 1000 / 30);
+    check('talk over the pitches: the call goes up as its play lands', D().landed && capText() === 'the call', capText());
+    v.setCaption('the late call', { held: true, call: true });
+    check('talk over the pitches: a call after its play has landed goes up at once', capText() === 'the late call', capText());
+    v.setCaption('the second lead', { held: false });
+    v.apply({ ...p2, lead: true });
+    stub.runFrames(5, 1000 / 30);
+    v.setCaption('the second call', { held: true, call: true });
+    v.apply({ ...p1, lead: true });
+    check('talk over the pitches: a call still waiting goes up as the next payload comes, not at its landing', capText() === 'the second call', capText());
+    for (let i = 0; i < 1500 && v.busy(); i++) stub.runFrames(1, 1000 / 10);
   }
   // a line come before its play's landed (the sandbox's Next, or a hidden tab), on a ball in play
   // with a hold: the view lands the play with it and plans the dead time while the world's still at

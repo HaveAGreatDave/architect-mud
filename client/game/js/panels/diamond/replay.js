@@ -1,7 +1,8 @@
 // DEADBALL · REPLAYS. A big play shown again in slow motion from a second angle, the way a
 // broadcast fills the dead time after one (docs/proposals/deadball-glass2.md, Between beats and
-// replays): a home run, a walk-off, a double or triple play, a triple, a catch that needed a dive
-// or a leap, and a close play at first.
+// replays): a home run (off the bat from centre field, or from beside the fielder who leapt for it
+// at the wall), a walk-off, a double or triple play, a triple, a catch that needed a dive or a
+// leap, and a close play at first. A home run's waits until the batter's round the bags.
 //
 // Nothing is recorded. Staging a play is a pure function of its payload, so the play is staged
 // again in a world of its own (diamond-smoke checks it's the same play to the micron), stepped to
@@ -57,7 +58,13 @@ export function replayOf(p, plan, log) {
     const from = Math.max(key - before, key - REPLAY.span + after, -1.2), to = Math.min(key + after, from + REPLAY.span);
     return { kind, shot, from, key, to };
   };
-  if (p.kind === 'homerun') return span(p.walkoff ? 'walkoff' : 'homerun', 'cf', 0, 1.1, 1.3);
+  if (p.kind === 'homerun') {
+    // one that went just over a fielder's glove at the wall is seen again from beside him there;
+    // any other off the bat, from centre field
+    const leap = (L.misses || []).find((m) => m.clip === 'catch_wall' && Array.isArray(m.at));
+    if (leap) return { ...span(p.walkoff ? 'walkoff' : 'homerun', null, leap.t - tBat, 1.8, 0.9), shot: catchShot(leap.at) };
+    return span(p.walkoff ? 'walkoff' : 'homerun', 'cf', 0, 1.1, 1.3);
+  }
   if (p.walkoff) {
     // the winning run over the plate
     const home = (L.runners || []).map((r) => r.bags?.[4]).filter(Number.isFinite);

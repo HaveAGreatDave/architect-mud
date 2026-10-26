@@ -12,11 +12,13 @@ by [scripts/content/slush-fund.mjs](../../scripts/content/slush-fund.mjs) and th
 
 ## 1. What it is
 
-Every club in the league plays at its own barn ([systems-broadcast.md](../systems-broadcast.md),
-the clubs table and the `chatter.<club>` pools in `data/scripts/hockey.bsm`). Golden Goose Gardens
-belongs to the league: the final is played here, the scheduler's teleprinter is in the press box,
-and KSAB has a gantry over the ice. The scoreboard is a television tuned to channel 7, so the
-games that are played elsewhere come in here too.
+Every CPhL game is played here, the final with the rest (decided 2026-10-18 in
+[cluster-puck-glass2.md](cluster-puck-glass2.md), built 2026-10-26). Golden Goose Gardens belongs to
+the league: the scheduler's teleprinter is in the press box, KSAB has a gantry over the ice, and the
+`chatter.<club>` pools in `data/scripts/hockey.bsm` are about the clubs that come in to play, not
+barns of their own. The scoreboard is a television tuned to channel 7. Every broadcast opens "Live
+from Golden Goose Gardens" and flies in over the city onto it (the CPhL row's `sports_pools.venue`,
+[systems-broadcast.md](../systems-broadcast.md#live-from-the-venue-and-the-finals-package-as-built)).
 
 The name is the money. The building went up in a year on money nobody can account for, so
 somebody's goose laid that egg, and she stands on the roof in gold leaf. The ice has been slush

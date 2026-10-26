@@ -17,7 +17,7 @@
  * the men's lines start from, and how long each payload's line holds.
  */
 import { sportsHash } from '../rng.js';
-import { synthPitches, synthPlay, playDesc, handOf, battingSide, foldGame, quicknessOf, armOf, speedOf, LINEUP_POSITIONS } from './baseball.js';
+import { synthPitches, synthPlay, playDesc, handOf, battingSide, foldGame, quicknessOf, armOf, speedOf, pitcherStyleOf, LINEUP_POSITIONS } from './baseball.js';
 import { venueField } from '../../../client/game/js/panels/diamond/geo.js';
 
 const HIT = new Set(['single', 'double', 'triple', 'homerun']);
@@ -274,7 +274,8 @@ export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null, venu
           basesBefore: prev, basesAfter: after, moves,
           awayScore: b.awayScore, homeScore: b.homeScore,
           desc: playDesc(b),
-          pitches: synthPitches(abSeed, b.kind),
+          // drawn from the pitcher's own mix (pitcherStyleOf)
+          pitches: synthPitches(abSeed, b.kind, pitcherStyleOf(b.pitcher)),
           ...(play ? { play } : {}),
           line: line.get(b) || null,
           ...(lines?.get(b) || {}),

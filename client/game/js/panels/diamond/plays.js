@@ -285,7 +285,7 @@ export function planPlay(ctx) {
     firstOff: outAtFirst ? outAtFirst.catch.t + 1.7 : null,
     slideAt: (bag) => (bag === 4 && homeThrow ? 'slide_feet' : null),
   });
-  log.batter = bases.log.batter; log.runners = bases.log.runners;
+  log.batter = bases.log.batter; log.runners = bases.log.runners; log.welcome = bases.log.welcome || null;
   land = Math.max(land, laid.land);
   // the third out after a force at second: the pivot man steps off the bag on past it, away from
   // the man he forced there (bases.js stepOff). The director's offField takes everyone off from

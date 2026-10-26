@@ -21,6 +21,7 @@
 import { cphlMark, cphlLockup } from './cphl-brand.js';
 import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
 import { crestSvg, clubOf, onClubs } from './club-crest.js';
+import { venueOf, onVenue } from './venue.js';
 import { GEO, DOTS } from './rink/geo.js';
 import { DT } from './rink/rig.js';
 import { SAVE, createDirector } from './rink/director.js';
@@ -394,6 +395,76 @@ export function createRinkView(host, opts = {}) {
     if (pendingCard) { const c = pendingCard; pendingCard = null; renderCard(c); }
   }
 
+  // ── live from the Gardens ─────────────────────────────────────────────────
+  // The game's first line: the venue's name over the picture, and the establishing shot
+  // (gl/approach.js) in over the city and down onto the building on a canvas of its own, which
+  // dissolves into the ice, where the men are warming up. With reduced motion, the name alone. The
+  // venue comes once a revision (venue.js; the payload's venueRev asked for it), so a first visit
+  // may wait a moment for it, and goes without the shot if it doesn't come.
+  let fly = null;
+  const motionOff = () => doc?.documentElement?.dataset?.motion === 'off' || !!win?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  function arrive(p) {
+    landed = true;
+    head({ ...p, section: 'PRE-GAME', clock: '' });
+    board(null);
+    reveal();
+    letterArrive(p);
+    if (motionOff() || opts.fly === false) return;
+    const v = venueOf('hockey');
+    if (v?.skyline) { startFly(v); return; }
+    const off = onVenue((sport) => { const w = sport === 'hockey' && venueOf('hockey'); if (w?.skyline) { off(); if (last === p) startFly(w); } });
+    setTimeout(off, 4000);
+  }
+  function letterArrive(p) {
+    const pic = host?.querySelector('.gdr-rink');
+    if (!pic || !p.venue) return;
+    pic.querySelector('.gdr-arrive')?.remove();
+    const el = doc.createElement('div');
+    el.className = `gdr-arrive${p.final ? ' final' : ''}`;
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = `<div class="gdr-arrive-tag"><i></i>LIVE</div><div class="gdr-arrive-from">from</div>` +
+      `<div class="gdr-arrive-venue">${_esc(p.venue)}</div>${p.final ? `<div class="gdr-arrive-sub">${_esc(p.final)}</div>` : ''}`;
+    pic.appendChild(el);
+    const calm = motionOff();
+    setTimeout(() => el.classList.add('in'), calm ? 0 : 1500);
+    setTimeout(() => { el.classList.remove('in'); setTimeout(() => el.remove(), 800); }, calm ? 6000 : 16000);
+  }
+  function startFly(v) {
+    stopFly();
+    import('./gl/approach.js').then(({ createApproachRenderer, FLY }) => {
+      const pic = host?.querySelector('.gdr-rink');
+      if (!pic || fly || last?.type !== 'arrive') return;
+      const cv = doc.createElement('canvas');
+      cv.className = 'gdr-approach';
+      cv.setAttribute('aria-hidden', 'true');
+      pic.insertBefore(cv, pic.querySelector('.gdr-hud'));
+      const fit = () => { const k = Math.min(win?.devicePixelRatio || 1, 1.5); cv.width = Math.max(1, Math.round(pic.clientWidth * k)); cv.height = Math.max(1, Math.round(pic.clientHeight * k)); };
+      fit();
+      let R2 = null;
+      try { R2 = createApproachRenderer(cv, v); } catch (err) { console.warn('[rink] the fly-in would not build:', err && err.message); }
+      if (!R2) { cv.remove(); return; }
+      fly = { R: R2, cv, raf: 0, t0: win.performance.now(), at: null };
+      const step = (now) => {
+        if (!fly || fly.cv !== cv) return;
+        // (`at` holds it on one moment, for the sandbox and the gates)
+        const t = fly.at != null ? fly.at : (now - fly.t0) / 1000;
+        if (cv.width !== Math.round(pic.clientWidth * Math.min(win?.devicePixelRatio || 1, 1.5))) fit();
+        if (!R2.render(t)) { stopFly(); return; }
+        cv.classList.toggle('out', t > FLY.dur - FLY.fade);
+        if (fly.at == null && t > FLY.dur + 0.2) { stopFly(); return; }
+        fly.raf = win.requestAnimationFrame(step);
+      };
+      fly.raf = win.requestAnimationFrame(step);
+    }).catch((err) => console.warn('[rink] the fly-in failed to load:', err && err.message));
+  }
+  function stopFly() {
+    if (!fly) return;
+    if (fly.raf) win?.cancelAnimationFrame(fly.raf);
+    try { fly.R.dispose(); } catch { /* already gone */ }
+    fly.cv.remove();
+    fly = null;
+  }
+
   const cued = (p) => !!(p && Array.isArray(p.cues) && p.cues.length);
   function apply(p) {
     if (!host || !p) return;
@@ -402,6 +473,8 @@ export function createRinkView(host, opts = {}) {
       if (last !== p) return;
       mount();
       host.querySelector('.gdr-idle')?.remove();
+      if (p.type === 'arrive') { arrive(p); return; }
+      stopFly();
       landed = false;
       head(p);
       board(p.type === 'intermission' ? p : null);
@@ -529,7 +602,7 @@ export function createRinkView(host, opts = {}) {
   }
 
   function clear() {
-    stop(); clearCard();
+    stop(); clearCard(); stopFly();
     if (crowdBack) { clearTimeout(crowdBack); crowdBack = null; }
     if (crowd) crowd.stop();
     crowd = null;
@@ -548,6 +621,8 @@ export function createRinkView(host, opts = {}) {
     busy: () => !!(D && D.busy()),
     setSpeed(k) { speed = k; },
     setGlow, get glow() { return glow; },
+    // the fly-in, and a moment of it to hold on (seconds in; null runs it)
+    get fly() { return fly; }, holdFly(t) { if (fly) fly.at = t; },
     ready: () => loadMods(),
   };
 }

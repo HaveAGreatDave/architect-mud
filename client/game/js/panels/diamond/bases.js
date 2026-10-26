@@ -41,7 +41,7 @@ import { BAGS, DEG, RUBBER, MOUND, DUGOUT, FOUL_GROUND, offLine } from './geo.js
 import { legsOf, topSpeed } from './play.js';
 import {
   clamp, add, sub, mul, flat, faceTo, turn, ahead, wrap, HOME, hashStr, CYCLES, cycleFor, PLAYBACK, FADE, timeFor, STOP, STOP_LEN,
-  makeBody, runTo, pullUp, settle, endOf,
+  makeBody, runTo, pullUp, settle, endOf, cloneBody,
 } from './bodies.js';
 
 export const bagAt = (n) => (n === 0 || n === 4 ? HOME : BAGS[n]);
@@ -317,7 +317,8 @@ export function planBases(ctx, o) {
         if (!o.isHR && rec.done != null) land = Math.max(land, rec.done);
       }
       // everyone who scored off toward the dugout, the first man in furthest along
-      home.sort((a, b) => a.t - b.t).forEach((x, k) => offHome(x.B, x.on, k));
+      // (on a home run the men in ahead of the batter wait by the plate to welcome him first)
+      if (!(o.isHR && H && welcome(home, H, dug, log))) home.sort((a, b) => a.t - b.t).forEach((x, k) => offHome(x.B, x.on, k));
       return { land, calls };
     },
   };
@@ -488,6 +489,40 @@ export function jogOff(B, t, k, dug) {
   pts.push(spot);
   const way = wayPath(roundMound(pts)), run = runAlong(B, way, t + 0.2, way.len - STOP_LEN, { v: 11 });
   pullUp(B, run.tEnd, run.vEnd);
+}
+// A home run's welcome. Each man who scored ahead of the batter jogs from where he pulled up past
+// the plate to a spot up the first-base line on its foul side (`at`, the next man `step` on from
+// it), in front of the camera on the plate and clear of the batter's way over it, and stands easy
+// there turned toward the plate as far as a rest turns him (REST_TURN). They're up with their arms
+// over their heads as the batter comes in (`leap` jumps), and once he's pulled up he goes off to
+// the dugout first, `after` later, and they follow him `gap` apart. A man who couldn't be waiting
+// before the batter's in jogs off as he would have. `home` is lay's list of the men over the plate
+// ({ B, t: over it, on: pulled up }); returns false, and plans nothing, without the batter in it.
+export const WELCOME = Object.freeze({ at: [-13, 0, 11], step: [-3, 0, 0.6], v: 9, leap: 2, after: 0.6, gap: 0.8 });
+const REST_TURN = 55;
+function welcome(home, H, dug, log) {
+  const hb = home.find((x) => x.B === H);
+  if (!hb) return false;
+  const mates = home.filter((x) => x !== hb).sort((a, b) => a.t - b.t);
+  const leap = CLIPS.celebrate_leap.duration * WELCOME.leap, up = hb.t - 0.25;
+  const men = [], late = [];
+  for (const x of mates) {
+    const G = add(WELCOME.at, mul(WELCOME.step, men.length)), t0 = x.on + 0.2, t1 = t0 + Math.max(1.2, flat(x.B.spotAt(t0), G) / WELCOME.v);
+    if (t1 + 0.5 > up) { late.push(x); continue; }
+    runTo(x.B, { at: G, yaw: faceTo(x.B.spotAt(t0), G) }, t0, t1, { rest: true, min: 1 });
+    const was = x.B.facingAt(t1), yaw = was + clamp(wrap(faceTo(G, HOME) - was), -REST_TURN, REST_TURN), here = G;
+    const frame = { at: [G[0], 0, G[2]], yaw };
+    x.B.play('stand_idle', t1, { frame, fade: 0.45 });
+    x.B.play('celebrate_leap', up, { frame, fade: 0.25 });
+    x.B.play('stand_idle', up + leap, { frame, fade: 0.3 });
+    men.push({ x, at: here, t: t1 });
+  }
+  const go = hb.on + WELCOME.after;
+  jogOff(H, go, 0, dug);
+  men.forEach((m, k) => jogOff(m.x.B, Math.max(go + WELCOME.gap * (k + 1), up + leap + 0.2), k + 1, dug));
+  late.forEach((x, k) => jogOff(x.B, Math.max(x.on, go + WELCOME.gap * (men.length + k + 1)), men.length + k + 1, dug));
+  log.welcome = { t: hb.t, on: hb.on, go, up, leap, men: men.map((m) => ({ slot: m.x.B.slot, at: m.at, t: m.t })) };
+  return true;
 }
 // The third out at a bag: the man who took the throw there seven feet off it, on past it away from
 // the man he put out (`R`, on the ground), facing the way he goes, and held there until that man's

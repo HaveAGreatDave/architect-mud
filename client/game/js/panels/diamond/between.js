@@ -17,7 +17,12 @@
 //
 // THE CAMERAS (`shotsBetween`) go round the park meanwhile: wide over the field as it resets, the
 // on-deck circle as he swings, the pitcher rubbing up the ball, a cutaway to the crowd, and wide
-// again before the next payload's due. With too little time, the wide shot alone.
+// again before the next payload's due. The gap runs as long as the booth talks, over a minute and a
+// half at the slowest clock, so after that they go on round: the on-deck hitter swinging again, the
+// city, the crowd, the pitcher rubbing up the ball again, the plate from centre field and from the
+// first-base well, and a man on base where there is one, dealt in a seeded order so nothing comes
+// round again until everything has and nothing comes twice running, the wide shot between them held
+// a varying while. With too little time, the wide shot alone.
 //
 // Pure: no DOM and no GL.
 
@@ -36,8 +41,9 @@ export const BETWEEN = Object.freeze({
   walkFar: 55, jog: 11,
   // the room a man going keeps from anybody already going (ft), and the longest he's held back (s)
   room: 2.6, wait: 6,
-  // on a long hold, how long the wide shot holds between the cutaways that come round again (s)
-  wide: 9,
+  // on a long gap, how long the wide shot holds between the cutaways that go round the park, give
+  // or take `jitter` (s)
+  wide: 8, jitter: 2.5,
 });
 const WALK = CLIPS.run_walk;
 export const WALK_V = rootAt(WALK, WALK.duration).at[1] / WALK.duration;
@@ -352,10 +358,17 @@ export function deckPlan(t0, t1, salt, at = []) {
 // The cameras between at-bats, from `from` to `until` (the next payload's due): wide over the field;
 // then, where there's time, the on-deck circle (`deck`, a camera by name) for a swing, the pitcher
 // off the back of the mound once he's rubbing up the ball (`rubAt`), a cutaway to the crowd, and
-// wide again; and on a long hold round again, a cutaway every BETWEEN.wide seconds of the wide
-// shot (the on-deck circle, the city beyond the park, the crowd), wide at the end.
-// Returns [{ at, shot, swing }]: `swing` is when the on-deck hitter's swing is wanted for his shot.
-export function shotsBetween({ from, until, deck, rubAt }) {
+// wide again. On a long gap (the booth talking over a minute and more) the cameras go on round the
+// park, a cutaway every so often off the wide shot (BETWEEN.wide, give or take `jitter`, off
+// `salt`): the on-deck hitter swinging again, the city beyond the park, the crowd, the pitcher
+// rubbing up the ball again (`rub`, when he's wanted to), the long lens from centre field on the
+// plate, the plate from the first-base well, and a man on base where there is one (`bags`, the bags
+// taken). They come in an order dealt off the salt, every one before any comes round again, and
+// never the same one twice running. Wide at the end, three seconds before the next payload's due.
+// Returns [{ at, shot, swing, rub }]: `swing` is when the on-deck hitter's swing is wanted for his
+// shot, `rub` when the pitcher's wanted to rub up the ball again for his.
+const BAG_CAMS = Object.freeze({ 1: 'first', 2: 'bag', 3: 'third' });
+export function shotsBetween({ from, until, deck, rubAt, bags = [], salt = '' }) {
   const out = [], room = until - from;
   if (room < 2.5) return out;
   out.push({ at: from, shot: 'high' });
@@ -363,18 +376,29 @@ export function shotsBetween({ from, until, deck, rubAt }) {
   let t = from + clamp(room * 0.22, 4, 7);
   const fits = (len) => t + len <= until - 3;
   if (deck && fits(5.5)) { out.push({ at: t, shot: deck, swing: t + 0.6 }); t += 5.5; }
-  if (Number.isFinite(rubAt) && rubAt < until - 6) {
+  const rubs = Number.isFinite(rubAt);
+  if (rubs && rubAt < until - 6) {
     const at = Math.max(t, rubAt - 0.3);
     if (at + 4.5 <= until - 3) { out.push({ at, shot: 'rub' }); t = at + 4.5; }
   }
   if (fits(4)) { out.push({ at: t, shot: 'crowd' }); t += 4; }
   if (out[out.length - 1].shot !== 'high') out.push({ at: t, shot: 'high' });
-  const again = [deck && { shot: deck, len: 5.5, swing: 0.6 }, { shot: 'sky', len: 5 }, { shot: 'crowd', len: 4 }].filter(Boolean);
-  for (let k = 0; ; k++) {
-    const c = again[k % again.length], at = t + BETWEEN.wide;
+  // round the park
+  const pool = [
+    deck && { shot: deck, len: 5.5, swing: 0.6 }, { shot: 'sky', len: 5 }, { shot: 'crowd', len: 4 },
+    rubs && { shot: 'rub', len: 4.5, rub: 0.3 }, { shot: 'cf', len: 4.5 }, { shot: 'backstop', len: 4 },
+    ...[1, 2, 3].filter((b) => bags[b - 1]).map((b) => ({ shot: BAG_CAMS[b], len: 4.5 })),
+  ].filter(Boolean);
+  let deal = [], last = out.filter((x) => x.shot !== 'high').pop()?.shot, k = 0;
+  for (;;) {
+    if (!deal.length) deal = pool.map((c, i) => ({ c, r: hashStr(`${salt}|deal|${k}|${i}`) })).sort((a, b) => a.r - b.r).map((x) => x.c);
+    if (deal[0].shot === last && deal.length > 1) deal.push(deal.shift());
+    const c = deal.shift(), gap = BETWEEN.wide + BETWEEN.jitter * (((hashStr(`${salt}|gap|${k}`) % 1000) / 1000) * 2 - 1), at = t + gap;
+    k++;
     if (at + c.len > until - 3) break;
-    out.push({ at, shot: c.shot, ...(c.swing ? { swing: at + c.swing } : {}) }, { at: at + c.len, shot: 'high' });
+    out.push({ at, shot: c.shot, ...(c.swing ? { swing: at + c.swing } : {}), ...(c.rub ? { rub: at + c.rub } : {}) }, { at: at + c.len, shot: 'high' });
     t = at + c.len;
+    last = c.shot;
   }
   return out;
 }

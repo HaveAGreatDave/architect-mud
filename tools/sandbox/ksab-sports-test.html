@@ -124,6 +124,7 @@
     root.style.position = 'absolute';
     const { createTvView } = await import('../../client/game/js/panels/tv.js');
     const tv = createTvView(root, { key: 'sandbox' });
+    window.__tv = tv;   // for the console: tv.applyOverlay(…) with any card, a final's package among them
     tv.init?.();
     tv.open({ channelId: 'ch_7_1782953079593', channelNumber: 7, channelName: 'KSAB-TV', stationName: '', programName: 'DEADBALL', channelList: [{ number: 7, id: 'ch_7_1782953079593', name: 'KSAB-TV' }] });
     const say = (t) => tv.appendMessage(`Chip Vega says, "${t}"`, 'raw');

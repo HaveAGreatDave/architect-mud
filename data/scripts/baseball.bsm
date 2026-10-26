@@ -1,10 +1,13 @@
-@broadcast "Deadball: Coldwater League Baseball"
+@broadcast "Deadball"
 @channel sport1
 @category sport
 @type sports
 @sport baseball
 @sim 2
 @announcer "Chip Vega"
+# The colour man beside him: a retired pitcher, whose lines air as "Dusty Merriman says" so the
+# TV shows who is talking and the voice seeds off his name (sports/baseball-booth.js).
+@analyst "Dusty Merriman"
 @airtime 19
 @length 300
 @titlecard bb_deadball_title
@@ -424,6 +427,621 @@ Sir Charles was a Blue Birds man. Never missed a home game, never said a kind wo
 Never been a wire in a Crows uniform. Not one augment, not one graft, not since 2022. Ask them why and they just smile at you. Politely. For a long time.
 The Crows don't sign free agents. Somebody vouches for you, you sit a season in the stands, and one day there's a jersey in your locker. Nobody ever says who left it.
 You'll see crows on the light towers on game nights. Just sitting. Watching. The Crows' people say that's lucky. They don't say for who.
+::endlines
+
+# =============================================================================
+# THE BOOTH BETWEEN THE PLAYS (plugins/broadcast/sports/baseball-booth.js)
+# Chip Vega calls it and Dusty Merriman, who pitched eleven seasons in this league, answers.
+# The pools below fill the time between plate appearances: who's up and what he's hitting, what
+# the pitcher throws, how each man's season is going, tonight's storylines and two men talking.
+#
+# Whose voice opens a pool is fixed by its key: story, scout, tonight, duel and react pools are
+# Dusty's; every other pool is Chip's. "||" splits a line into an exchange, the voices taking
+# turns from that first one. Every topic is told once a game, and no line airs twice in one.
+#
+# Tokens, beside the usual {batter} {pitcher} {team} {fielding} {home} {away} {inningOrd}:
+#   the batter's season   {avg} {hits} {ab} {hrs} {rbis} {sbs} ("eleven home runs")
+#   the batter tonight    {tonight} ("two for three with a home run")
+#   the pitcher's season  {wl} ("7 and 3") {era} {pks} ("112 strikeouts") {pAvg} (his batting average)
+#   the pitcher tonight   {nks} ("six strikeouts") {runsWord}
+#   his stuff             {pitch} (his out pitch: "slider") {pitch2} {velo} (his top speed) {delivery}
+#   the table             {record} (batting side) {fieldRecord} {hrLeader} {hrLead} {avgLeader}
+#                         {avgLead} {sbLeader} {sbLead} {kLeader} {kLead}
+#   a defensive play      {fielderName}
+#   the booth             {chip} {dusty}
+# =============================================================================
+
+# --- The man coming up. Early in the season, before the numbers mean anything: no stats.
+::lines up.early
+{batter} steps in for the {team}.
+Here's {batter}. Not enough at-bats yet this season to tell you anything true about him.
+Now batting for the {team}, {batter}.
+{batter} digs in. Early days, small numbers.
+{batter} to the plate. Still getting the feel of the season, same as the rest of us.
+{batter} up for the {team}. We'll know a lot more about him in a month.
+::endlines
+
+# --- His first time up tonight, with his season.
+::lines up.first
+{batter} steps in, hitting {avg} with {hrs} and {rbis}.
+Here's {batter}, a {avg} hitter on the year, with {hrs}.
+{batter} to the plate for the {team}. He's at {avg}, {hrs}, {rbis}.
+{batter} up now. {avg} on the season.
+Now batting, {batter}. {avg}, {hrs}, {sbs}.
+{batter} digs in. {hits} hits in {ab} at-bats this season. That's {avg}.
+The {team} send up {batter}. {avg}, with {rbis}.
+{batter} takes his practice cuts and steps in. {avg} hitter, {hrs}.
+Here comes {batter}, {avg} with {rbis} on the year.
+{batter} to bat. He comes in hitting {avg}.
+::endlines
+
+# --- Back up again, with his night so far.
+::lines up.again
+{batter} again. He's {tonight} so far tonight.
+Here's {batter}, {tonight} on the night.
+{batter} back in the box. {tonight} tonight.
+{batter}, who's {tonight} this evening.
+{batter} steps in. Tonight he's {tonight}.
+Back comes {batter}. {tonight}.
+::endlines
+
+# --- Back up again, with his night and his season (only once he has a season to speak of).
+::lines up.again.season
+{batter} back up. {tonight} tonight, {avg} on the year.
+Here's {batter} again. {avg} hitter, {tonight} tonight.
+{batter} steps back in. {tonight} tonight, and {hrs} on the season.
+::endlines
+
+::lines up
+Here's {batter}.
+{batter} to the plate.
+{batter} steps in for the {team}.
+::endlines
+
+# --- The situation, once an inning when it calls for it.
+::lines sit.risp
+Runner in scoring position, and {batter} has a chance to do something about it.
+Man in scoring position for the {team}. {pitcher} needs a big pitch here.
+They've got a runner where a single scores him. {batter} knows it. So does everybody else.
+Scoring position. This is the at-bat the {team} have been waiting on. || It's the one {pitcher} has been dreading.
+A run's in reach, and {batter} has the bat in his hands.
+Somebody's in scoring position. {pitcher} looks in for the sign and takes a long breath.
+::endlines
+
+::lines sit.loaded
+Bases loaded. Nowhere to put him.
+The bags are full, and {pitcher} has to throw strikes now. || He has to. A walk's a run.
+Bases loaded for {batter}. The crowd's up. The ones who can stand, anyway.
+Bases loaded, and {batter} has a chance to clear them.
+Every bag taken. {pitcher} steps off and rubs up the ball. || Take your time, son. They're not going anywhere.
+::endlines
+
+::lines sit.late
+Late, and close. This is why you stayed.
+{inningOrd} inning, a run in it either way. Every pitch counts from here.
+Late in a tight one. || I can't sit still for these, {chip}. I never could. || You pitched in them. || That's why I can't sit still.
+Close game, late innings. The vendors have stopped walking. Even they want to see this.
+Here we go. Late, close, and nobody in the park is talking. || Except us. || Except us.
+::endlines
+
+::lines sit.blowout
+It's a lopsided one, but they play nine. They always play nine.
+Big lead, and the bleachers are thinning out. The ones who stay are the ones with nowhere warmer to be.
+Not much doubt about this one. || There's always doubt, {chip}. I saw a team blow a nine-run lead in this park. || What happened? || The lights went out for twenty minutes and they came back on cold.
+They're playing it out. Somebody's going to have a nice line in the box score out of this.
+A blowout, but it still counts the same in the standings. Ask anybody who finished a game back.
+::endlines
+
+# --- The changeover: the starters, the leaders, the table, the stretch, the drag.
+::lines break.starter
+On the mound for the {fielding}, {pitcher}. He's {wl} this season with a {era} earned run average.
+{pitcher} takes the hill for the {fielding}. {wl}, {era}, {pks}.
+Pitching for the {fielding} tonight, {pitcher}, at {wl} on the year.
+{pitcher} gets the ball for the {fielding}. His earned run average coming in is {era}.
+The {fielding} hand the ball to {pitcher}. {pks} on the season.
+::endlines
+
+::lines break.starter.new
+On the mound for the {fielding}, {pitcher}. First start of the season for him.
+{pitcher} takes the ball for the {fielding}. We haven't seen him pitch yet this year.
+{pitcher} is the {fielding} starter, making his first appearance on the mound this season.
+::endlines
+
+::lines break.leaders.hr
+Around the league, {hrLeader} leads everybody with {hrLead} home runs.
+Home run race: {hrLeader} out in front with {hrLead}. || He's not missing mistakes. Hang one to him and it's gone.
+{hrLeader} has {hrLead} home runs, most in the league. || And he hits them high. They come down with snow on them.
+::endlines
+
+::lines break.leaders.avg
+The batting race: {avgLeader} is hitting {avgLead}, best in the league.
+{avgLeader} leads the league at {avgLead}. || He just puts the bat on the ball. Every time. It's annoying to pitch to.
+Top of the batting table, {avgLeader}, at {avgLead}.
+::endlines
+
+::lines break.leaders.sb
+On the bases, {sbLeader} leads the league with {sbLead} steals.
+{sbLeader} has stolen {sbLead} bags this season. || Catchers see him get on and start sweating.
+::endlines
+
+::lines break.leaders.k
+On the mound, {kLeader} leads the league with {kLead} strikeouts.
+Strikeout leader is {kLeader}, with {kLead} of them. || And he looks bored doing it, {chip}. Watch his face sometime.
+{kLeader} has {kLead} strikeouts, tops in the league.
+::endlines
+
+::lines break.standings
+The {team} come in at {record}. The {fielding} at {fieldRecord}.
+Quick look at the table: {team} {record}, {fielding} {fieldRecord}.
+{team}, {record}. {fielding}, {fieldRecord}. || Long season. Nobody's out of it yet. || Some of them are out of it. || Nobody's out of it on the air.
+::endlines
+
+::lines break.stretch
+Seventh-inning stretch. Everybody up. The organist's playing the song. It's the one song.
+Middle of the seventh, and the crowd's on its feet. Most of them, anyway. Section eleven's seats bolt to the floor and the people in them stay down.
+Time for the stretch. || I stretch every inning now, {chip}. My back went eleven seasons ago and never came home.
+Stretch time at the Hughson. The organist's warming up. The crowd sings along, about half a beat behind him.
+::endlines
+
+::lines break.drag
+Middle of the fifth. The grounds crew are out with the drags. Best-run part of the whole operation.
+The crew are dragging the infield. Four of them, one mat each, and they've been doing it since before most of these players were born.
+Infield drag in the middle of the fifth. || That crew are the best defenders in the building. || They don't make errors? || They don't make errors where anybody can see.
+::endlines
+
+# --- Scouting the hitter, by type: power, contact, glove, neither; and his legs.
+::lines scout.power
+{batter} is a power bat. He's up there to hit it a long way, and he'll take his strikeouts to do it.
+Big swing on {batter}. You can get him to chase, but miss over the plate and he hits it into next week.
+{batter} sells out for power. Every swing's a home run swing. Some of them are even home runs.
+With {batter} you pitch carefully. He doesn't need to square it up to hit it out.
+You don't beat {batter} with a fastball in. He's been waiting for that pitch since he was eleven.
+{batter} swings hard enough to hurt himself. || Has he? || Twice. Both times he hit it out first.
+::endlines
+
+::lines scout.contact
+{batter} is a contact hitter. Short swing, puts it in play, makes the defence work.
+{batter} won't strike out much. He fouls off the tough ones and waits for one he can poke somewhere.
+Slap hitter. {batter} goes the other way better than anybody on this club.
+You can't overpower {batter}. He'll keep fouling them back till you make a mistake.
+{batter} chokes up two inches on the bat. Doesn't hit it far. Doesn't miss it either.
+{batter} sprays it all over the field. You can't shift on him. || You can't shift on anybody here, {dusty}. The outfield's a bog. || That's half the reason.
+::endlines
+
+::lines scout.glove
+{batter} is in the lineup for his glove. Anything hit near him is an out.
+They play {batter} for the defence. Whatever he hits is a bonus.
+Best glove on the {team}, {batter}. Whatever he does at the plate, he saves them a run or two most nights.
+{batter} could field a ground ball in a dust storm. People say he has. || Has he? || I was there. I couldn't see a thing. He came out with the ball.
+The bat's ordinary. {batter} earns his rations in the field.
+{batter} has soft hands. A hard grounder hits his glove and just stops, like it was tired.
+::endlines
+
+::lines scout.balanced
+{batter} does a bit of everything. Hits for some average, some pop, catches the ball.
+No one thing stands out on {batter}. Managers love a man like that.
+{batter} is a steady player. He shows up, he plays, he doesn't hurt you anywhere.
+{batter} is the kind of player you notice at the end of a season. Good numbers, every column.
+::endlines
+
+::lines scout.speed
+And {batter} can run. Put the ball on the ground and he's a problem.
+Watch {batter}'s legs. Anything in the infield, he's got a chance to beat it out.
+{batter} is one of the fastest men in the league. If he gets on, the pitcher has to think about him.
+::endlines
+
+# --- Scouting the pitcher: his style, his delivery, his tempo.
+::lines scout.pitch.flamethrower
+{pitcher} throws hard. Fastball up to {velo}, and he'll keep throwing it till you prove you can hit it.
+This is a power arm. {pitcher} lives on the fastball and puts guys away up in the zone with it.
+{pitcher} tops out around {velo}. He's got a {pitch2}, but mostly he just dares you.
+You want velocity, {pitcher} is your man. {velo} on a good night. || And on a bad night? || {velo}, and nobody knows where it's going.
+{pitcher} is all arm. Big fastball, and the catcher's hand is purple by the fifth.
+::endlines
+
+::lines scout.pitch.sinkerballer
+{pitcher} is a sinkerball pitcher. He wants the ball on the ground and the infield busy.
+Everything {pitcher} throws moves down. Expect ground balls, plenty of them.
+{pitcher} doesn't strike out many. He gets the grounder, and the double play when there's one on. || Smart pitcher. Saves his arm. || I pitched like that. || You pitched like that because you couldn't throw ninety. || That's also true.
+With {pitcher} the infielders had better be awake. The sinker gets beaten into the dirt all night.
+{pitcher} throws the sinker most of the time and the {pitch} when he needs a strikeout.
+::endlines
+
+::lines scout.pitch.slider
+{pitcher} has a wipeout slider. It starts at the hitter's belt and finishes at his shoe tops.
+Slider's the pitch with {pitcher}. He'll throw it in any count.
+{pitcher} sets up the slider with the fastball. Once he's ahead, here comes the slider.
+{pitcher} throws that slider about four times in ten. Hitters know it's coming. They swing over it anyway.
+::endlines
+
+::lines scout.pitch.junkballer
+{pitcher} doesn't throw hard. Changeup, curveball, a fastball in the mid-eighties. He gets by on nerve.
+{pitcher} is a junkballer, and I mean that kindly. He changes speeds and lets hitters get themselves out.
+His fastball wouldn't break a window. {pitcher} still wins, because nobody's ever on time against him.
+{pitcher} throws the changeup about a third of the time. Hitters swing at it and miss by a foot.
+Watch the hitters' front knees against {pitcher}. They buckle on the changeup every time.
+::endlines
+
+::lines scout.pitch.splitter
+{pitcher}'s got the splitter. Looks like a fastball, then the bottom drops out of it.
+Watch for the split-finger from {pitcher} with two strikes. It dives at the plate.
+{pitcher} throws the fastball and the splitter, and they look the same out of his hand for most of the way.
+{pitcher} holds the splitter between two fingers spread wide. He's got hands like a pair of shovels.
+::endlines
+
+::lines scout.pitch.curveball
+{pitcher} has a big curveball. Twelve to six. The kind they used to put in instruction books.
+{pitcher} gets ahead with the fastball and finishes with the curve. Batters know it's coming and can't do much about it.
+That curveball of {pitcher}'s is the best in the league. || I'd say top three. || Who's better? || Nobody, but I don't like to give out first place.
+{pitcher}'s curve comes in at the hitter's eyes and drops into the zone. Half of them are taken for strike three.
+::endlines
+
+::lines scout.pitch.cutter
+{pitcher} throws a cutter most of the time. It breaks late, a few inches, right onto the hands.
+The cut fastball is {pitcher}'s pitch. He breaks bats with it. The clubs keep a pile of them by the dugout.
+{pitcher} works off the cutter. Left-handers get it in on the fists all night.
+::endlines
+
+::lines scout.pitch.knuckleballer
+{pitcher} throws a knuckleball. Sixty-odd miles an hour, no spin, and nobody knows where it's going. Including him.
+Knuckleballer on the mound. {pitcher} could pitch till he's sixty with that thing. || Can the catcher? || The catcher's already retiring. He just doesn't know it.
+{pitcher}'s knuckler doesn't rotate. It floats in and moves at the last second. The catcher wears the big mitt for him.
+Hitting a knuckleball is like swatting a moth with a broom. {pitcher} has been throwing them for years.
+{pitcher} tops out at {velo} on the fastball, and he throws it once an inning to remind them he has one.
+::endlines
+
+::lines scout.delivery.over
+{pitcher} comes straight over the top. That's where the downward angle comes from.
+Classic over-the-top delivery on {pitcher}. Tall and straight, like a man pulling down a window.
+::endlines
+
+::lines scout.delivery.threequarter
+{pitcher} throws from three-quarters. Nothing unusual about it, and that's how he likes it.
+Three-quarters delivery on {pitcher}, clean and repeatable. He could do it asleep.
+::endlines
+
+::lines scout.delivery.sidearm
+{pitcher} drops down and comes sidearm. Right-handers hate it. The ball comes from behind them.
+Sidearm delivery on {pitcher}. Everything runs, and nothing comes from where you expect.
+::endlines
+
+::lines scout.delivery.submarine
+{pitcher} is a submariner. His knuckles nearly scrape the mound. The ball rises on the way in.
+That's a submarine delivery. {pitcher} throws from somewhere around his ankles. || How does he do it? || Bad back and a good attitude.
+::endlines
+
+::lines scout.tempo.quick
+{pitcher} works fast. Gets the ball, gets the sign, throws. The game moves when he's pitching.
+Quick tempo from {pitcher}. Hitters barely have time to dig in.
+::endlines
+
+::lines scout.tempo.quick.runner
+With a man on, watch {pitcher}'s slide step. He's as quick to the plate as anybody. Runners don't go on him.
+{pitcher} is quick to the plate. That runner at first will think twice.
+::endlines
+
+::lines scout.tempo.slow
+{pitcher} takes his time. Walks round the mound, rubs up the ball, looks in. Every pitch.
+Slow worker, {pitcher}. You could make a sandwich between pitches. || I have.
+::endlines
+
+::lines scout.tempo.slow.runner
+{pitcher} has a big leg kick, and runners love it. Watch the man on first.
+With {pitcher}, that big leg kick gives runners a head start. The catcher hates it.
+::endlines
+
+# --- Storylines: the season against what a man is supposed to be.
+::lines story.leader.hr
+{batter} has {hrs}, at or near the top of the league. Pitchers know exactly who he is.
+Not many in the league have more home runs than {batter}. {hrs}.
+{batter} is in the home run race with {hrs}. || Does he think about it? || Everybody thinks about it. The good ones don't talk about it.
+::endlines
+
+::lines story.leader.avg
+{batter} is hitting {avg}. That's up with the best in the league.
+{avg} for {batter}. He's in the hunt for the batting title.
+::endlines
+
+::lines story.leader.sb
+{batter} has {sbs} this season, up with anybody in the league.
+{sbs} for {batter}. If he gets on, he's going. Everybody knows it, and he still makes it.
+::endlines
+
+::lines story.leader.k
+{pitcher} has {pks} this season. That's up with the league's best.
+{pks} for {pitcher}. Hitters walk back to the dugout shaking their heads against him.
+::endlines
+
+::lines story.power.slump
+{batter} has {hrs} this year. For a man with his power, that's a long dry spell.
+They put {batter} in the middle of the order to hit home runs, and he's got {hrs}. You can see it in his swing. He's pressing.
+{batter}'s hitting {avg} with {hrs}. || That's not what he's paid for. || He's paid in rations, {chip}. || Then he's not earning his rations.
+The power's gone missing for {batter}. {hrs}. One good swing would change his whole month.
+{batter} has been staying late in the cage every night. {hrs} all year. || It'll come. || It had better come soon.
+::endlines
+
+::lines story.power.hot
+{batter} has {hrs} already. He's on one of those runs where every mistake leaves the park.
+{hrs} for {batter}. When he's like this you pitch around him and take your chances with the next man.
+{batter} is seeing it big right now. {hrs}, {rbis}.
+::endlines
+
+::lines story.power.surprise
+{batter} was never a home run hitter, and he's got {hrs}. Nobody saw that coming.
+{batter} never hit for power in his life, and he's sitting on {hrs}. || What changed? || He says he started eating breakfast. || That's it? || He says it was a big breakfast.
+{hrs} for {batter}. That's more than some of the big swingers in this league. Short swing, and the ball just carries.
+::endlines
+
+::lines story.contact.hot
+{batter} is hitting {avg}. Singles, doubles, a bunt now and then. He just doesn't make outs.
+{avg} for {batter}. That's what a contact hitter looks like when everything falls in.
+{batter} at {avg}. || I'd have hated pitching to him. || You hated pitching to everybody. || I hated him more.
+::endlines
+
+::lines story.contact.cold
+{batter} is a contact man hitting {avg}. He's putting the ball in play. It's been finding gloves.
+Tough year for {batter}. {avg}. He hits it hard enough. Right at people.
+{batter} at {avg}. For a hitter like him, that's hard to look at. || He'll come out of it. They always do. || Not always. || He'll come out of it.
+::endlines
+
+::lines story.glove.hitting
+{batter} is in there for the glove, and he's hitting {avg}. The {team} will take that every day.
+{avg} from {batter}. His manager put him in for defence and now can't take him out.
+::endlines
+
+::lines story.glove.cold
+{batter} is hitting {avg}, but nobody plays him for the bat. He's saved more runs than he's cost.
+{avg} for {batter}. The {team} don't care. You should see him in the field.
+::endlines
+
+::lines story.hot
+{batter} is swinging it well. {avg}, {hrs}, {rbis}.
+{avg} for {batter}. He's in a good place right now.
+::endlines
+
+::lines story.cold
+{batter} has had a hard season. {avg}. He's still out there every day.
+{batter} at {avg}. Some years go like that.
+::endlines
+
+::lines story.speed.running
+{batter} has {sbs}. Get him on and he's standing on second before the catcher's out of his crouch.
+{sbs} this year for {batter}. Pitchers throw over to first more for him than for anybody.
+::endlines
+
+::lines story.speed.idle
+{batter} is one of the quickest men in the league and he hasn't stolen a base all year. || Why not? || Nobody's asked him to.
+Funny thing about {batter}. He can fly, and he's got {sbs}. He doesn't like to run.
+::endlines
+
+::lines story.pitcher.ace
+{pitcher} has been the best arm on the {fielding}. {era} earned run average, {wl}.
+{pitcher} comes in with an earned run average of {era}. Runs are hard to come by against him.
+::endlines
+
+::lines story.pitcher.rough
+It's been a hard year for {pitcher}. His earned run average is {era}. He keeps getting the ball, though.
+{pitcher}'s earned run average is {era}. || That's a big number. || It's a long season. He'll bring it down.
+::endlines
+
+::lines story.pitcher.winning
+{pitcher} is {wl} this season. He's been winning, whatever the rest of the numbers say.
+{wl} for {pitcher}. His club scores runs for him, and he takes them.
+::endlines
+
+::lines story.pitcher.losing
+{pitcher} is {wl} this year. Some of that's on him, and some of it's the bats behind him going quiet.
+{wl} for {pitcher}. || Pitcher wins are a funny stat, {chip}. || He'd still rather have more of them. || We all would.
+::endlines
+
+# This league deals its men to clubs and positions game by game, so a man on the mound tonight
+# may have played left field on Tuesday.
+::lines story.twoway
+Here's the thing about {pitcher}. He's hitting {pAvg} this season, and tonight he's pitching. || That's this league. You get dealt a card and you play it.
+{pitcher} played the outfield last week. Tonight he's on the mound. He's hitting {pAvg}, if anyone's keeping track.
+This league doesn't do positions the way the old one did. {pitcher} pitches tonight. Some nights he hits. He's at {pAvg} with a bat.
+::endlines
+
+# --- Tonight's storylines.
+::lines tonight.hitter.hr
+{batter} already went deep tonight. {pitcher} will remember that pitch.
+{batter} homered earlier. {pitcher} won't give him the same pitch twice.
+::endlines
+
+::lines tonight.hitter.multi
+{batter} is {tonight} tonight. He's seeing it well.
+{tonight} for {batter} so far. He's hit the ball hard every time up.
+::endlines
+
+::lines tonight.hitter.hitless
+{batter} is {tonight} tonight. He's due, if you believe in that.
+Rough night for {batter}, {tonight}. || He's due. || That's not how it works. || It is tonight.
+::endlines
+
+::lines tonight.pitcher.k
+{pitcher} has {nks} already. The {team} haven't figured him out.
+That's {nks} for {pitcher} tonight. His {pitch} is working.
+{nks} for {pitcher}. When the {pitch} is like this, he's hard to beat.
+::endlines
+
+::lines tonight.pitcher.zeros
+{pitcher} hasn't allowed a run tonight. Good command, and the {fielding} are catching everything.
+Zeros on the board from {pitcher}. He's in a rhythm.
+{pitcher} hasn't given up a run. || Don't say it. || Say what? || Whatever you were going to say. Don't.
+::endlines
+
+::lines tonight.pitcher.rocky
+{pitcher} has given up {runsWord} runs. He's leaving it up, and the {team} aren't missing.
+Hard night for {pitcher}. {runsWord} runs against him. || They'll leave him in? || He pitches nine. Everybody pitches nine here. || That's a long nine.
+::endlines
+
+# --- The last time these two met tonight.
+::lines duel.k
+{pitcher} struck {batter} out last time with the {pitch}. I'd bet he sees it again.
+Last time up, {batter} went down on strikes. He'll be looking for something he can hit.
+::endlines
+
+::lines duel.hit
+{batter} got to {pitcher} last time. {pitcher} will pitch him differently now.
+Last trip, {batter} hit one hard off {pitcher}. Watch how carefully he goes after him.
+::endlines
+
+::lines duel.hr
+Last time {batter} faced {pitcher}, he hit it out. {pitcher} hasn't forgotten.
+{batter} took {pitcher} deep earlier. I'd throw him nothing near the plate.
+::endlines
+
+::lines duel.walk
+{pitcher} walked {batter} last time. He'll want to get ahead early.
+::endlines
+
+::lines duel.out
+{pitcher} got {batter} out last time. Same plan, probably.
+{batter} made an out against {pitcher} last time up. He'll make an adjustment.
+::endlines
+
+# --- What the play earned.
+::lines react.hr
+Home run number {hr} for {batter}.
+{pitcher} left it over the plate, and {batter} didn't miss it.
+He got all of that. That's {hrs} for him now.
+{batter} knew it when he hit it. He didn't even watch it go.
+::endlines
+
+::lines react.hr.leader
+{hrs} for {batter}. He's running away with the home run race.
+And that's {hrs}. Nobody in the league hits them like {batter}.
+::endlines
+
+::lines react.hr.slump
+There it is. {batter} finally gets one. That's {hrs}.
+About time. {batter} had been waiting a long while for that one. || You could see the relief on him rounding first. || He nearly smiled.
+::endlines
+
+::lines react.hr.power
+That's what {batter} does. {hrs}.
+Power hitter, power swing. {batter} got the barrel on it.
+::endlines
+
+::lines react.hr.surprise
+{batter}! He doesn't hit many of those. || {hrs}, now. || He'll be talking about that one all week.
+I didn't know {batter} had that in him. I don't think {batter} knew.
+::endlines
+
+::lines react.k.outpitch
+That's the {pitch}. That's his pitch, and {batter} never had a chance.
+{pitcher} went to the {pitch} for strike three. When he needs an out, that's what's coming.
+The {pitch} again. {nks} tonight, and most of them on that pitch.
+::endlines
+
+::lines react.k.many
+That's {nks} for {pitcher}. He's dealing.
+{nks} tonight. {pitcher} is making this look easy.
+::endlines
+
+::lines react.hit.slump
+Good to see {batter} get one to fall. He's been fighting it.
+{batter} needed that. You could see him breathe out on first.
+::endlines
+
+::lines react.dp
+Two outs on one pitch. A pitcher's best friend.
+That's how you get out of trouble. Turn two.
+::endlines
+
+::lines react.dp.sinker
+That's the sinker. {pitcher} wanted a ground ball, and he got two outs with it.
+Exactly what {pitcher} pitches for. Sinker, grounder, two.
+::endlines
+
+::lines react.glove
+That's why {fielderName} plays every day. Not many make that play.
+{fielderName} again. Best glove on the field.
+You don't hit it near {fielderName}. Everybody in the league knows that by now.
+::endlines
+
+::lines react.defence
+What a play by {fielderName}.
+{fielderName} got there. I don't know how, but he got there.
+::endlines
+
+::lines react.walk.flamethrower
+{pitcher} can throw it through a wall. He just can't always find the plate.
+::endlines
+
+::lines react.walk.knuckleballer
+That's the knuckleball. Sometimes it doesn't know where it's going either.
+::endlines
+
+::lines react.walk
+Walks come back to hurt you.
+::endlines
+
+# --- Passing the time: Chip opens, Dusty answers. Most of it is just two men at a ballgame.
+::lines banter
+How's the hot dog tonight, {dusty}? || Warm. || That's it? || That's the best thing you can say about a hot dog here.
+{dusty}, you pitched in this park. || Eleven seasons. || Any advice for the kid on the mound? || Throw strikes, and don't eat the Widowmaker before you go out.
+Crowd's in a good mood tonight. || Water ration went up a quarter-litre this week. People notice that. || They do.
+Wind's blowing out tonight. || I can feel it. That's a home run wind. || You can feel the wind? || I feel it in the finger I don't have anymore.
+You ever hit a home run, {dusty}? || One. Off a man who'd been up all night. || That counts. || I've always counted it.
+Somebody just caught a foul ball in the upper deck with a cooking pot. || Good catch. That pot's seen some things. || He's keeping the ball. || He's keeping the pot.
+What did you do on off days, back when you played? || Slept. Ate. Iced my arm in the river. || The river? || It was colder than the ice.
+How long have I been calling games here, {dusty}? || Long enough to have called my debut. || I remember it. You walked the first three men you faced. || I struck out the fourth. || You hit the fourth.
+They've got the lights all working tonight. || Every tower. I counted. || That's a good sign. || It's a good sign for about three innings.
+Who taught you to throw a sinker? || My uncle. He threw rocks at crows on the farm. || Did he hit any? || Every one. He was a frightening man.
+I see Sir Charles's seat is empty again. || It's always empty. || You ever think about sitting in it? || Never once.
+Good crowd behind the {home} dugout tonight. || They bring the drums down there. || I can hear the drums. || Everybody can hear the drums. Halcyon sent a letter about the drums.
+Anything good on the menu up here tonight? || Soup. || What kind? || The kind that's hot.
+{dusty}, the board says it's eight degrees. || Feels warmer. || Does it? || No.
+Look at that on-deck circle. He's taking about forty swings. || Nervous. || Or cold. || Nobody's warm enough to tell the difference.
+You were a lefty, weren't you? || Still am. || Retired, I mean. || The arm retired. I'm still left-handed.
+That vendor's been up and down the same aisle six times. || Same man every night. Knees like a twenty-year-old. || How old is he? || Sixty-one. Says it's the pretzels.
+Some folks up top are wrapped in the blue tarp off the bullpen. || That's the rain tarp. || Is it raining? || Not on them.
+If you could play one more season, would you? || One more inning, maybe. Then I'd sit down. || That's honest. || My knees are honest. I just repeat what they tell me.
+Long season, {dusty}. || Every season's long here. That's what makes it a season. || You've been waiting to say that. || All night.
+What do the players do after a game like this? || Eat whatever's left in the clubhouse. Go home. Come back tomorrow. || Same as us. || Same as everybody.
+You hear the Curtain from up here? || On a quiet night you hear it humming. || It's not quiet tonight. || Then we're doing our job.
+They tell me the roof here shuts for weather. || Three shells. Takes about a minute and a half. || You've timed it? || I've had a lot of time up here.
+{dusty}, I've got a note from a listener. || Read it. || Says your sinker didn't sink. || It sank. It sank slowly.
+The kid in the front row has had his glove on since the anthem. || Good. That's how you catch one. || He's been waiting all night. || I waited a whole season for my first strikeout. He's got time.
+I had the fish here once. || Why? || It was a Tuesday. || Never eat fish at a ballpark, {chip}. Not on any day.
+Is the scoreboard right? || The runs are right. The clock's been wrong for four years. || What's it say? || Six sixty-six. Same as always.
+You ever get nervous on the mound? || Every time. || Even late in your career? || Especially then. Early on I didn't know enough to be scared.
+Good night for baseball. || Every night's a good night for baseball. Some are better for staying home. || Which is tonight? || Ask me in the ninth.
+Ever think about managing? || I thought about it. Then I watched a manager for a season. || And? || He had no hair by the end of it.
+The players want heated benches. || They've wanted them since I played. || Did you get any? || We got a bucket of coals. One bucket. Fourteen men.
+Somebody in section twelve has a sign that says DUSTY LIVES. || I do live. || Nice to have it confirmed. || I like the sign. I'd like it bigger.
+Look at the moon over the left-field wall. || That's the Halcyon tower lights, {chip}. || Oh. || Easy mistake. They keep them on all night.
+What was the best team you ever played on? || The one that paid on time. || That's not an answer. || It's the best answer I've got.
+They're saying a storm might come through later. || Then we'll play faster. || Can they do that? || Watch the pitchers when the clouds come in. Everybody suddenly works quick.
+Some of these kids weren't born when you retired. || Some of their parents weren't. || That's not true. || It feels true.
+Who's the toughest out in this league, {dusty}? || A man who just wants to put it in play. You can't scare him. || Not the big swingers? || Big swingers you can get. Little swingers get you.
+It's a little warmer up here in the booth. || They put a heater in last year. || It works? || It's on. I didn't say it works.
+You hear about the foul ball that came through the press box window last week? || I was standing beside it. || Were you hurt? || My coffee was. It didn't make it.
+I love the sound of a wooden bat. || They're hard to get now. The good wood's gone. || What do they use? || Whatever's left. That last one sounded like a door.
+People ask me if baseball's the same as it was. || What do you tell them? || Ninety feet between the bases. That part hasn't moved. || That part never moves.
+{dusty}, you've got mustard on your tie. || That's from the third inning. || Do you want a napkin? || I want people to know I've been working.
+Crowd's doing the wave. || It died in section six. || It always dies in section six. || The season-ticket people sit in six. They've seen enough waves.
+When did you know you were done playing? || A kid hit one off me so far it landed in the old quarry. || And you retired? || I went and found the ball first. Then I retired.
+Big flock on the light towers tonight. || They come for the moths. The moths come for the lights. || And the people? || The people come for the hot dogs.
+How do you keep warm up here in the late innings? || Two coats and a thermos. || Coffee? || Mostly coffee.
+You still throw at all? || Every Sunday. My grandson catches. || How is he? || Better arm than I ever had. I'm not telling him.
+Is it true pitchers are superstitious? || I wore the same socks for a whole winning streak. || How long was the streak? || Nine games. The socks didn't make it.
+Bit of a lull here, {dusty}. || The lulls are the best part. || You think so? || It's when you notice the game. Anybody notices a home run.
+The organist just played that song again. || He knows the one song. || He's known it for years. || He's very good at it.
+A lot of empty seats in the upper deck. || They're closed. Water got in the concrete. || Since when? || Three summers. They keep saying next season.
+I always wanted to ask: did you ever throw a spitter? || Never. || Never? || Not on the air. Ask me after the game.
+The {away} fans made the trip tonight. || That's a long walk from some of those districts. || And they'll walk back. || Win or lose. That's a fan.
+Look at the shadows on the infield. || That's the towers. Once the sun's gone it all goes even. || Hitters hate the shadows. || Everybody hates them. The ball comes out of the dark.
+What do you miss about playing? || The bus. || The bus? || Everybody sang on the bus. Nobody sings in a booth.
+How many games have we done together now? || I stopped counting. || Over a thousand? || Close to it. You still say Achterberg wrong. || I do not. || Every time.
+The {home} have won a few in a row here. || Home dirt. They know how it bounces. || Does it bounce differently? || Out by second there's a rock. Only the home side knows where.
+Who was your catcher, back then? || Benny Quaife. Called a great game. || Still around? || He patches hulls at the boatyard on Ironside Street. Ask him about a hull and he tells you about sliders.
+Look at that sky out past centre. || Orange tonight. || Is that good? || It's not bad. Green's bad.
+Did you ever get thrown out of a game? || Once. I said something to an umpire about his eyesight. || What did you say? || I said I hoped he got it back.
+They've got a new beer up here. || I tried it. || And? || It's wet and it's cold. That's two more things than the old one.
+I like a crowd that keeps score. || There's a woman in the third row who's kept every game for thirty years. || Every game? || She's got a pencil older than the shortstop.
+You think these guys get paid enough? || Nobody does. But they get to play ball for a living. || Is that enough? || On a night like this it's close.
 ::endlines
 
 # --- Balls in play ---------------------------------------------------------------
@@ -1161,6 +1779,61 @@ That's your ballgame and your SEASON! The {leader} take the Curtain Call! {away}
 ::lines worldseries.outro
 The {leader} are champions. The rest of us go back to nothing. Chip Vega. Good night, and long live the kings, however briefly.
 Champions crowned, season buried. Chip Vega signing off on the Curtain Call. Same dirt tomorrow, but tonight belongs to the {leader}.
+::endlines
+
+# --- Live from the park -------------------------------------------------------
+# The first line after the title card, while the Grandstand flies in over the city
+# onto the park. {venue} is what the booth calls it (sports_pools.venue.said).
+::lines live
+Live from {venue}!
+Live from {venue}! The lights are on in Halcyon Fields and there's a ballgame tonight.
+Live from {venue}, where the gates are open and the organist is already warming up!
+::endlines
+
+::lines worldseries.live
+Live from {venue}, for the {final}!
+Live from {venue}! One game, the whole season on it. This is the {final}.
+::endlines
+
+# --- The Curtain Call package -------------------------------------------------
+# Read over three cards before the first pitch of the final (sports/final-package.js):
+# the tale of the tape, the road here, and the men to watch. A .club pool is read
+# once a club, away first. {district} is where the club is from, {place} its place in
+# the table, {seed} its seed, {diff} its run differential; {last10} reads "7 and 3";
+# {streak} reads "won three straight".
+::lines worldseries.tape.club
+The {club}, out of {district}: {record}, {place} in the table, and the {seed} seed.
+From {district}, the {club}. They went {record}, scored {scored} and allowed {allowed}. Run differential {diff}.
+The {club}: the {seed} seed at {record}. Home is {district}.
+::endlines
+
+::lines worldseries.road.club
+The {club} went {last10} over their last ten, and they've {streak}.
+Coming in, the {club} are {last10} in their last ten. They've {streak}.
+::endlines
+
+::lines worldseries.series
+These two met {meetings} times this season, and the {leader} took {leadWins} of them.
+Season series: the {leader} {leadWins}, the {trailer} {trailWins}. Throw it out tonight.
+::endlines
+
+::lines worldseries.series.even
+They split the season series, {leadWins} apiece. Tonight breaks the tie.
+::endlines
+
+::lines worldseries.series.none
+These two never met this season. Tonight's the first time, and the last.
+::endlines
+
+# {star} is the club's best hitter in tonight's line-up and {starSaid} his season;
+# {next} is tonight's starting pitcher and {nextSaid} his.
+::lines worldseries.watch.club
+Keep an eye on {star} for the {club}, {starSaid}. On the mound tonight, {next}, {nextSaid}.
+For the {club}, {star} is the bat to watch, {starSaid}. {next} gets the ball, {nextSaid}.
+::endlines
+
+::lines worldseries.watch.club.one
+Keep an eye on {star} for the {club}, {starSaid}.
 ::endlines
 
 # --- Final ---------------------------------------------------------------------

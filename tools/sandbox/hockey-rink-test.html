@@ -76,8 +76,11 @@
     import { sportsRng, sportsHash, sportsPick, sportsFill } from '../../plugins/broadcast/rng.js';
     import { createRinkView } from '../../client/game/js/panels/gameday-rink.js';
     import { setClubs } from '../../client/game/js/panels/club-crest.js';
+    import { setVenue } from '../../client/game/js/panels/venue.js';
+    import { skylineFrom } from '../../client/shared/skyline-manifest.js';
 
     const view = createRinkView(document.getElementById('tv-gameday'));
+    window.__view = view;
     view.showIdle();
 
     // The .bsm's line library, parsed the way the compiler parses it (the blocks this
@@ -124,11 +127,13 @@
         if (gd) out.push({ gd, text, graphic: graphic || null });
       };
       HOCKEY.narrate({
-        script: { title: 'cphl_title', clubs: script.clubs }, game, gs: { seed, game }, slot, ws: false,
+        script: { title: 'cphl_title', clubs: script.clubs }, game, gs: { seed, game }, slot, ws: q.get('po') === '1',
         announcer: 'Tug Brennan', pools: script.pools, nrng, sport: HOCKEY,
         add: () => {}, say, pick,
         abbr: (n) => String(n || '').replace(/[^A-Za-z ]/g, '').split(/\s+/).map(w => w[0] || '').join('').slice(0, 3).toUpperCase(),
         recordOf: () => '6-4', lastId: () => null,
+        // the game's first beat is the fly-in onto the Gardens (gl/approach.js), with the venue loaded below
+        venue: { said: 'Golden Goose Gardens', name: 'Golden Goose Gardens', rev: '' }, xpick: pick,
       });
       document.getElementById('head').textContent =
         `${matchup.away} ${game.awayScore} — ${game.homeScore} ${matchup.home} · ${game.beats.length} beats simulated · ` +
@@ -165,6 +170,15 @@
     };
 
     script = await loadScript();
+    // The venue as the server sends it (tv_venue): the row's venue with the skyline round its site,
+    // here from the flight sim's baked world, as deadball-park-test.html does it.
+    try {
+      const [row, world] = await Promise.all([fetch('../../content/media_broadcasts/bc_cluster_puck.json').then((r) => r.json()), fetch('../../client/game/flightsim-world.json').then((r) => r.json())]);
+      const venue = row?.sports_pools?.venue;
+      const zones = Object.entries(world.cells || {}).map(([k, c]) => { const [x, y] = k.split(',').map(Number);
+        return { map_id: 'map_world', grid_x: x, grid_y: y, grid_z: 0, flags: { terrain: c.biome, building_type: c.bt, building_name: c.bn, floors: c.flr, entrance: c.ent, curtain: c.cur ? 1 : undefined } }; });
+      if (venue?.site) setVenue('hockey', 'sandbox', { ...venue, skyline: skylineFrom(zones, venue.site, { radius: 40 }) });
+    } catch (err) { console.warn('[sandbox] no venue:', err && err.message); }
     // The clubs' identities (kits, crests) as the broadcast row carries them; on air they
     // arrive once over tv_clubs.
     try {

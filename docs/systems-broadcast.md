@@ -800,11 +800,13 @@ day (`sportsSlateForDay`, `sportsMatchupForSlot`; the order is SPORTS's). The 18
 goes to the pairing whose clubs have had the fewest 18:00 games that month. A season is the
 in-game month, and its last day is Cup day: each sport plays only its final, in its last slot.
 
-- **KSAB5 "The Cinqo"** (channel 5, `ch_5_cinqo`) airs every game, live, round the clock,
+- **KSAB5** (channel 5, `ch_5_cinqo`) airs every game, live, round the clock,
   from one playlist row of `slot_type` **`sports_slate`**
   ([ksab5-slate.json](../content/media_channel_playlist/ksab5-slate.json)). It lists its
   broadcasts in `conditions.broadcasts` and airs whichever has a game in the slot. A slate
-  item ignores the script's `airSlots`.
+  item ignores the script's `airSlots`. The guide and the TV name the channel plain "KSAB5"
+  and the shows plain "Deadball" and "Cluster Puck". "The Cinqo" is for the logo on the game
+  broadcasts only, so it never goes in a channel or broadcast name.
 - **KSAB-TV** carries the 18:00 game through a **`relay`** row, which has no programme of its
   own and airs whatever `source_channel_id` is showing (`_relayedItem`, one hop only; a relay
   of its own channel or of a relaying channel shows the off-air card, and `content:lint`
@@ -856,7 +858,34 @@ outs are routine and a hit goes where nobody could get to it. The play's tags op
 that agree with it ([bsm-format.md](bsm-format.md#lines-that-agree-with-the-play-baseball)), and
 the 2-D view draws the ball to the man it names and on through the bags the outs were made at.
 
-The broadcast adds `hold` (how long the line holds, in ms) to every payload, and the league
+**The booth and the pacing** ([sports/baseball-booth.js](../plugins/broadcast/sports/baseball-booth.js),
+[sports/baseball-pacing.js](../plugins/broadcast/sports/baseball-pacing.js)). Every plate appearance
+in regulation is called, and between them Chip Vega and the colour man, Dusty Merriman (`@analyst`),
+talk: who's up and his season, the pitcher's stuff, how a man's season sits against his type,
+tonight's storylines, the situation and two men passing the time (the pools are listed in
+[bsm-format.md](bsm-format.md#the-booth-between-the-plays-baseball)). Each plate appearance gets an
+even share of the slot. The booth's talk before the pitch goes out over the pitches: the at-bat's
+payload rides its first line with `lead: true`, so the park starts the at-bat as the talk does, and
+the call is a line of its own (`call`) that the wire sends as `hasGameday: 'call'`; the park holds it
+till the ball lands, or shows it at once if it has. With nothing to say, the payload rides the call
+as before. Each line holds about as long as it takes to say; the play is timed by the park's own
+clock ([diamond/timing.js](../client/game/js/panels/diamond/timing.js): `landBy`, `afterLand`), so the
+call ends no sooner than the play lands and the next payload waits for what the park does after it,
+a home run's trot and replay included. The booth's lines are optional: a short slot loses the least
+needed first, spread through the game, and a long one scales every hold. At the live 3:1 clock a
+plate appearance averages about 36 s; at 1:1 about 100. Before this every line held the slot's even
+share (22 s at 3:1), and the park stood still for most of it. That was the freeze between at-bats.
+
+**Styles.** Each man has a style from his name (`pitcherStyleOf`, `batterTypeOf` in
+[sports/baseball.js](../plugins/broadcast/sports/baseball.js)): a pitcher's mix of pitches and his out
+pitch, his delivery and his tempo (quickness, which the sim's steals already read); a hitter is power,
+contact, glove or balanced, and quick on his feet when `speedOf` says so. A pitcher's pitches in the
+park are drawn from his mix (`synthPitches` takes his style; the draws are the same, so only what was
+thrown changes), and strike three is his out pitch a little over half the time. The sim's outcomes
+never read a style, so games that have aired replay as they aired, and a power bat can have a lean
+season, which the booth makes a storyline of.
+
+The broadcast adds `hold` to every payload (for Deadball the time to the next payload, booth lines and all, `holdSpansGap`; for hockey how long its own line holds, in ms), and the league
 table, `leaders` and `season` (its number, `regular` or `final`, and the seeds in a final) to the
 game's first payload only; a late tuner's catch-up carries all three. `leaders` is five a race
 from the season's fold (`gamedayLeaders`): `hr`, `avg` and `sb` for the hitters, `k` for the
@@ -978,12 +1007,18 @@ Built so far (Phases 1 and 2 of the plan):
   ([diamond/flight.js](../client/game/js/panels/diamond/flight.js)), and every clip is lined up on
   it: the delivery's release, the swing's contact, the mitt's catch, the flinch of a hit batsman.
   A swing meets an inside pitch out in front and lets an outside one travel, and the hands carry
-  the bat to the outer edge with the body leaning after them. The budget is 0.45 of the line's
-  hold, kept between 13 and 26 seconds, and the director spends it in the plan's order: every
-  pitch cut in at the stride, then each one's reaction (the hitter in close-up, with the umpire's
-  call), then the pitcher's whole motion and the set before it, then the throw back and the walk
-  up to the rubber. A long at-bat on a short hold leaves pitches out of the middle and the count
-  goes through them. Every jump from one moment to the next is under a cut. Strike three, ball
+  the bat to the outer edge with the body leaning after them. The budget is 0.6 of the payload's
+  hold, kept between 13 and 34 seconds ([diamond/timing.js](../client/game/js/panels/diamond/timing.js)
+  `budgetOf`, which the server imports to size its lines), and the director spends it in the plan's
+  order: every pitch cut in at the stride, then each one's reaction (the hitter in close-up, with
+  the umpire's call), then the pitcher's whole motion and the set before it, then one look over at
+  a runner (with men on, the pitcher holds his set and turns his head to the man he can see, on the
+  third-base camera) and one practice swing (the hitter steps aside and open after a foul, a miss
+  or a pitch of his choosing and swings on his camera, back in the box under the next cut in), then
+  the throw back and the walk up to the rubber, then more looks and a second practice swing. In
+  full a four to six pitch at-bat takes 25 to 34 seconds; at a 45-second hold it's the set and the
+  reaction on every pitch, and at 30 seconds the quicker cut-ins. A long at-bat on a short hold
+  leaves pitches out of the middle and the count goes through them. Every jump from one moment to the next is under a cut. Strike three, ball
   four and a hit batsman are played in full, the hitter walking off or heading to first, and a
   strikeout and a walk get their splash words. Everything the park does is heard on its moment
   through the park's mixer ([diamond/sound.js](../client/game/js/panels/diamond/sound.js)); the
@@ -1059,7 +1094,11 @@ Built so far (Phases 1 and 2 of the plan):
   blooms, and pure in time, so a stopped clock or a replay draws the same picture. A home run gets
   its own camera: once it's clearly gone, the shot rides beside the ball on the side nearer the
   middle of the field, stops 45 ft short of the wall and watches it into the seats; then the wide
-  shot over the outfield as the first shell goes up, and the high camera back for the trot. Its
+  shot over the outfield as the first shell goes up, and the trot: the cameras go round the bags
+  with the batter, each bag's a beat before he gets there, to the plate's, where the men who scored
+  ahead of him wait up the first-base line and are up with their arms over their heads as he comes
+  in ([diamond/bases.js](../client/game/js/panels/diamond/bases.js) `welcome`). He's home about 21 s
+  after the ball comes down, and the park holds on the plate until he's set off for the dugout. Its
   distance and its speed off the bat take the pitch speed's box. The shells go up more than a
   third of a second apart, so no second has more than three bursts in it;
 - reduced motion (Phase 4a), the Motion switch or the system's setting, read as each play is
@@ -1098,7 +1137,11 @@ Built so far (Phases 1 and 2 of the plan):
   (`planBetween`, from the payload's `hold`). The field walks back to its places, the pitcher
   rubs up the ball off the back of the mound, a man who's out goes off to his dugout, and the
   cameras go round the park (wide, the on-deck circle, the pitcher, a stand of fans) once any
-  replay's done, and on a long hold round again, a cutaway every 9 s of the wide shot. The
+  replay's done. The gap runs as long as the booth talks (up to a minute and a half at the slowest
+  clock), so they go on round: a cutaway every 5.5 to 10.5 s of the wide shot, the on-deck hitter
+  swinging again, the city, the crowd, the pitcher rubbing up the ball again, the plate from centre
+  field and from the first-base well, and a man on base where there is one, dealt in a seeded
+  order so nothing comes round again until everything has and nothing comes twice running. The
   on-deck hitter takes practice swings through every at-bat. Frames run through the dead time; a
   payload with no `hold` gets none;
 - the sky on Coldwater's clock (Phase 4e, [diamond/sky.js](../client/game/js/panels/diamond/sky.js)):
@@ -1155,8 +1198,10 @@ Built so far (Phases 1 and 2 of the plan):
   before its moment and played at 0.4 of its speed from a second camera, at most 3.4 s of play,
   silent, under a REPLAY bug beside the score; the live world carries on behind it and a cut its
   director makes meanwhile waits. It starts 1.8 s after the landing, or once the fireworks are out
-  after a home run or a walk-off, and only when it ends a second before the next payload's due (a
-  payload's `hold`; one without gets none). With reduced
+  after a walk-off, or after a home run once the batter's round the bags and off the plate, and
+  only when it ends a second before the next payload's due (a payload's `hold`; one without gets
+  none), so a home run on a short hold keeps its trot and goes without. A home run that went just
+  over a fielder leaping at the wall is seen again from beside him there. With reduced
   motion it's a still of the moment for 3.2 s. The live text says "Replay" with the play;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
@@ -1225,7 +1270,12 @@ GPU idles between them. The count goes up as the director decides each pitch, an
 held line and any card go up when the play lands (`onLand`): the umpire's call on a called third
 strike, the ball in the mitt, the ball hitting the batter, or a ball put in play settled: the out
 at first called, the catch made, a hit back in from the outfield with the batter on the bag; on
-the bases, the base umpire's call, or every man on his bag after a pitch that got by. A line
+the bases, the base umpire's call, or every man on his bag after a pitch that got by. The booth
+can talk over the pitches: a payload that rides a plate appearance's first line carries `lead`,
+its line goes up at once and the at-bat starts under it, and the call comes later as a held line
+with `call`, which waits for that play's landing if it's still in the air and goes up at once if
+it's landed. A call still waiting when the next payload comes goes up as that one's staged, never
+at its landing; the 2-D view does the same. Otherwise a held line
 comes just before its payload; one that arrives while the
 last play is still in the air (a hidden tab stops the frames) lands that play first, and a
 timer lands a play whose frames have stopped. A changeover has nothing to land, so its line goes
@@ -1319,6 +1369,70 @@ trophy, confetti off the upper deck, fireworks over the outfield and the city, a
 piling on while the losers walk off. The city's own fireworks go up from the park's site as it's
 crowned. The sandbox page plays any game as the final with `?po=1`. All of it is under Phase 5 in
 [deadball-glass2.md](proposals/deadball-glass2.md#phases).
+
+### Live from the venue, and the final's package (as built)
+
+**The venue.** Each sport's row names where its games are played in `sports_pools.venue`: `name`,
+`said` (what the booth calls it: "the Charles B. Hughson Coliseum", "Golden Goose Gardens"), `site`
+(the tiles, the middle and a bearing), `city` (the art direction round it) and `finalOpen` (the
+final's music and its key). Deadball's is the Coliseum; the CPhL's is the Gardens, where every
+CPhL game is played. Both builders (`build-deadball.mjs`, `build-cluster-puck.mjs`) carry it
+across a rebuild. ⚠ A hockey payload's `clock` is the game clock, so `gamedayOnAir` gives the
+minute of the day to a ballgame's payloads only.
+
+**Live from…** The first line after the title card, from the `live` pool (`worldseries.live` or
+`cup.live` in a final), is "Live from {venue}!". It draws from a stream of its own (`xpick`), so no
+other line the booth picks moved when it arrived. It carries:
+
+- a gameday payload with `phase: 'arrive'` (the venue, the two clubs, a final's name, and on
+  hockey the venue's stamp). The Grandstand flies in on it: `approachShot` in
+  [diamond/camera.js](../client/game/js/panels/diamond/camera.js) comes in 1,250 ft out and 820 ft
+  up, swings round the park's middle as it closes and drops, and lands on the street camera at the
+  main gate after 12 s (`APPROACH`). Rinkside has no outside of its own, so
+  [gl/approach.js](../client/game/js/panels/gl/approach.js) draws one on a canvas over the rink:
+  the city composed round the Gardens' site as the Coliseum's is (`composeSet`, `buildCityscape`),
+  the Gardens from its six tiles' own shapes under its floods, the goose lit gold on the highest
+  roof, the sodium pools and the buildings' lamps; it comes down to the door's side and dissolves
+  into the ice over its last 1.3 s (`FLY`), then lets its context go. Both letter the venue over
+  the picture 1.5 s in (`.gds-arrive`, `.gdr-arrive`). With reduced motion there's no flight, only
+  the name. The 2-D Gameday shows "LIVE FROM" on its idle board. Neither pacer counts the payload
+  as a play.
+- a `live` card, which a set without the sub-screen puts up full-screen. It lasts 15 s, and both
+  pacers hold a line as long as its card, so the line after it (and its full-screen card) can't
+  cover the fly-in before it lands.
+- in a final, the final's open (`venue.finalOpen.song`), started as the line airs (`sayMusic`).
+
+**The final's open.** [scripts/content/build-final-opens.mjs](../scripts/content/build-final-opens.mjs)
+scores both, on instruments the network's themes already ship: the Curtain Call's on Deadball's
+orchestra (`ksab7_curtaincall_open`, 120 bpm, D major lifting to E, 16 s), the Cup's on the CPhL's
+FM band and its goal horn (`ksab7_cup_open`, 160 bpm, A♭, 15 s). Each is cut to the fly-in: a hit at
+1.5 s as the name goes up, the network's call (5 5 5 1) over the city, ♭VI and ♭VII as the camera
+comes down, and the landing chord at 12.0 s, the moment the shot lands. `tracker-smoke` holds the
+hit and the landing to the two fly-ins' lengths. Run the script after editing a score; its
+`--check` is a content gate.
+
+**The final's package.** On the night of the final the table gives way to three pages about the
+two clubs, built by [sports/final-package.js](../plugins/broadcast/sports/final-package.js) from
+the season's fold and read out by the booth:
+
+| Page | What it shows | What the booth reads (`cup.` / `worldseries.`) |
+|---|---|---|
+| tape | each club's home, founding year, seed, record, place, points or percentage, for and against, difference | `tape.club`, once a club |
+| road | each club's last ten (W, L, and O for an overtime loss), that record, its streak, and the season series between the two with its scores | `road.club` once a club, then `series` (or `series.even`, `series.none`) |
+| watch | the men to watch: the CPhL's top scorer, the man in net and the next scorer, with who's out injured; Deadball's best hitter in tonight's line-up, tonight's starter and the home-run man | `watch.club` (or `watch.club.one`) once a club, `watch.out` where anyone's missing |
+
+The fold keeps every game's result for it (`results` in `broadcast.computeStandings`, about 120
+a month, server-side only). The first line of each page carries its card (`kind: 'package'`);
+tv.js draws it full-screen like the pregame open, in gold, with the booth along the bottom
+(`_applyPackage`), and puts each page up on a sting in the open's key (`packageStingDef`, the
+venue's `finalOpen.key`). The first play, or the matchup line's card, takes it down. The
+`textgames` rung draws it in characters and the `log` rung gets it written out (`packageLines`).
+The package draws from the venue line's stream, so the game's own lines are the ones they were.
+
+`tools/sandbox/hockey-rink-test.html` opens on the Gardens' fly-in, and `view.holdFly(t)` holds it
+on a moment; `deadball-park-test.html?park=3d` takes an `arrive` payload through `view.apply`.
+`cityscape-smoke` flies both: the eye over the set and clear of every roof it passes, and the top
+of the first frame on ground the set draws.
 
 ### The network's package (KSAB-7 Sports)
 
@@ -1507,16 +1621,17 @@ so a narrator cannot read the other league's records.
   red `hockeyrivalry` pre-game card, and a persistent chip on both the score bug and the
   rink header, so someone joining in the second period can see why the penalty count
   looks like that.
-- **Barn colour.** Half the booth's chatter is about the building: it draws from
-  `chatter.<first word of the home club>` (falling back to the general pool when a club
-  has none), and the other half from the general `chatter` pool, so the league-wide lines
-  still get heard. Every club has a barn pool; the District 9 Goons' is `chatter.district` and
-  the St Garneau Guillotines' is `chatter.st`. The Cup final is played at the league's own
-  barn, Golden Goose Gardens, which is what the general pool describes, so on Cup night only the
-  general pool airs.
-- **Every barn's horn is its own.** The goal horn is seeded from a hash of the scoring
+- **One barn.** Every CPhL game is played at the league's own barn, Golden Goose Gardens
+  (`sports_pools.venue` on the row, [proposals/slush-fund.md](proposals/slush-fund.md)), which
+  the general `chatter` pool describes. The "home" club has the home bench and most of the
+  crowd. Half the booth's colour is about one of tonight's two clubs: its people, its end of the
+  building, where it comes in from, from `chatter.<first word of the club>` (the District 9
+  Goons' is `chatter.district` and the St Garneau Guillotines' is `chatter.st`), falling back
+  to the general pool. The other half is the general pool, so the building and the league get
+  heard. No club pool describes a barn of its own, and regress fails one that says "barn".
+- **Every club's horn is its own.** The goal horn is seeded from a hash of the scoring
   club's name (`hornSeed` on the payload) through the soundset's existing `variant()`,
-  so no per-club audio is authored and a barn sounds like itself forever.
+  so no per-club audio is authored and a club's horn sounds the same forever.
 - **Injuries persist, and that is the hard part.** A man carried off is gone for
   **2–16 slots**; a death is permanent. This makes game N depend on the games before it
   — the one thing this league's determinism forbids — so nothing is stored: the schedule
@@ -1532,12 +1647,16 @@ so a narrator cannot read the other league's records.
   league was hurt at once, which makes "their best man is out" meaningless. Deaths reset
   with the season when the chain re-anchors — which is exactly right for a league whose
   own lore says there are no records and no office to keep them.
+- **Live from the venue.** Both sports open on "Live from" their park, the first line after
+  the title card ([Live from the venue](#live-from-the-venue-and-the-finals-package-as-built)
+  below): the 3-D view flies in over the city onto it.
 - **The pregame open.** Both sports put a `pregame` card (`pregameFx` in `index.js`) on the
-  first spoken line after the title card: tonight's two clubs with their records and places,
+  line after the venue's: tonight's two clubs with their records and places,
   and the league table with them picked out (the top eight, plus either club if it sits
   lower). It holds 18 seconds, through the matchup line, and the booth's lines run along its
   bottom as a caption strip (`_applyPregame` in `tv.js`). A plain night's matchup line has
-  no card of its own; the Cup, the final and a rivalry keep theirs. The `textgames` rung
+  no card of its own; the Cup, the final and a rivalry keep theirs. A final has no table: its
+  package goes up instead. The `textgames` rung
   draws the same open in characters, and the `log` rung gets it written out (`pregameLines`).
 - **Intermissions.** Between periods the broadcast reads the period back: scoring
   summary, shot clock, penalties, casualties. Every number is counted from beats already

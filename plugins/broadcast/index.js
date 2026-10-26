@@ -25,9 +25,12 @@ import { sportsRng, sportsHash, sportsPick, sportsPickTagged, sportsFill, sports
 // into, so it exists now rather than being retrofitted around hockey later.
 import { BASEBALL } from './sports/baseball.js';
 import { gamedayPayloads, gamedayLeaders, gameMvp } from './sports/baseball-gameday.js';
+import { makeBooth } from './sports/baseball-booth.js';
+import { landBy, afterLand } from '../../client/game/js/panels/diamond/timing.js';
 import { venueField } from '../../client/game/js/panels/diamond/geo.js';
 import { skylineAround } from '../../server/engine/skyline.js';
 import { HOCKEY, rivalOf } from './sports/hockey.js';
+import { finalPackage, packageText } from './sports/final-package.js';
 import {
   gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
   gameshowTokens, gameshowForgetPlayer, makeGuessCommand, assembleGameshowGraph, gameshowPool,
@@ -207,7 +210,7 @@ function sendOverlayLines(playerId, scorebugOverlay, standingsOverlay, graphic =
   }
   const table = standingsLines(standingsOverlay);
   if (table) sendToPlayer(playerId, { type: 'output', message: table });
-  const open = pregameLines(graphic);
+  const open = pregameLines(graphic) || packageLines(graphic);
   if (open) sendToPlayer(playerId, { type: 'output', message: open });
 }
 
@@ -708,7 +711,7 @@ function _pickDailySlot(playlist, gameSecs, dayOfWeek) {
 }
 
 // What a relay item carries: the source channel's own pick at the same moment, as a copy
-// named for the relay ("Deadball · via KSAB5 The Cinqo"). Sports seek by the shared clock,
+// named for the relay ("Deadball · via KSAB5"). Sports seek by the shared clock,
 // so the relay shows the same moment of the same game as the source. One hop only: a
 // relay pointed at its own channel, or at a channel that is itself relaying, carries
 // nothing, and nor does one whose source has nothing on; the channel shows its off-air
@@ -2658,7 +2661,10 @@ function sportsGameForSlot(script, slot, override, unavailable) {
 // line choices draw from a narration rng seeded off the game seed, so the words are
 // identical on every TV (a separate stream from the result rng, so narration variety
 // never perturbs the outcome).
-function assembleSportsGraph(script, broadcastId, slot, override) {
+// `opts.slotMs` paces the game to a slot of that length instead of the clock's (regress runs the
+// live 3:1 clock and the 1:1 one without a database).
+function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
+  const slotLen = () => opts.slotMs || sportsSlotMs();
   const announcer = script.announcer || 'your announcer';
   const pools = script.pools || {};
   const ws = !!override?.worldSeries;                       // a final's takeover?
@@ -2671,6 +2677,10 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const game = gs.game;
   const nrng = sportsRng(gs.seed ^ 0x9e3779b9);
   const pick = (...keys) => sportsPick(pools, nrng, ...keys);
+  // The venue's line and the final's package draw from a stream of their own, so adding them
+  // moved no line the booth already picks.
+  const xrng = sportsRng(sportsHash(gs.seed, 0x11fe));
+  const xpick = (...keys) => sportsPick(pools, xrng, ...keys);
   const { away, home, awayScore, homeScore, beats } = game;
 
   const nodes = {};
@@ -2740,7 +2750,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // `broadcast.message`, so the people in the room can react to the play rather than
   // to the words (plugins/sports-banter).
   const booth = (node) => { const lex = sportsLexFor(node.text, script.say); return { ...node, ...(lex ? { lex } : {}), ...(script.voice ? { voice: script.voice } : {}) }; };
-  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (!text) return; add(booth({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}), ...(meta && meta.excite ? { excite: meta.excite } : {}), ...(meta && meta.play ? { play: meta.play } : {}) })); };
+  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (!text) return; add(booth({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}), ...(meta && meta.excite ? { excite: meta.excite } : {}), ...(meta && meta.play ? { play: meta.play } : {}), ...(meta && meta.call ? { call: true } : {}), ...(meta && meta.song ? { song: meta.song } : {}) })); };
 
   // ── the sport seam ──────────────────────────────────────────────────────────
   // Everything above this line is sport-agnostic: the node chain, the say/pick
@@ -2766,6 +2776,11 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
       // puts on its payloads
       season: (_standingsCaches.get(sportMod.id) || {}).extras || null,
       pregame: (opts) => pregameFx(sportMod.id, (_standingsCaches.get(sportMod.id) || {}).rows, opts),
+      // where tonight's game is (what the booth calls it, and the venue's stamp for the 3-D view's
+      // fly-in), and on the night of the final, its package read out under `prefix`
+      venue: { said: venueSaid(script), name: script.venue?.name || '', rev: venueFor(script)?.rev || '', finalOpen: script.venue?.finalOpen || null },
+      finalPackage: (prefix, bug, opts) => sayFinalPackage(finalPackageFor(sportMod, script, game, opts), prefix, xpick, say, bug),
+      xpick,
       lastId: () => prevId,
     }) || {};
     outroId = r.outroId || null;
@@ -2824,16 +2839,30 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // The pregame open goes up with the first line and holds through the matchup, so the
   // matchup line carries a card of its own only on the night of the final.
   const pregame = pregameFx('baseball', (_standingsCaches.get('baseball') || {}).rows, { away: away.name, home: home.name, awayRecord, homeRecord, show: 'DEADBALL' });
-  say(pick(...(ws ? ['worldseries.intro', 'intro'] : ['intro'])), gameTok, pregameBug, pregame);
+  // Live from the park: the first line after the title card, and the 3-D view flies in over the
+  // city onto it (`phase: 'arrive'`; a TV without the view puts up the LIVE card).
+  const venue = venueSaid(script);
+  if (venue) {
+    say(xpick(...(ws ? ['worldseries.live', 'live'] : ['live'])), { ...gameTok, venue, final: sportMod.season?.finalName || 'Final' }, pregameBug,
+      { overlayType: 'sportsfx', kind: 'live', sport: 'baseball', venue: script.venue?.name || venue, show: 'DEADBALL', ...(ws ? { final: sportMod.season?.finalName || 'Final' } : {}), duration: LIVE_HOLD_S },
+      { sport: 'baseball', phase: 'arrive', venue: script.venue?.name || venue, away: away.name, home: home.name, ...(ws ? { final: sportMod.season?.finalName || 'Final' } : {}) },
+      ws && script.venue?.finalOpen?.song ? { song: script.venue.finalOpen.song } : null);
+  }
+  // A final opens on its package instead of the table: the tape has each club's record and place.
+  say(pick(...(ws ? ['worldseries.intro', 'intro'] : ['intro'])), gameTok, pregameBug, ws ? null : pregame);
+  // The final's package: the tale of the tape, the road here and the men to watch, read out.
+  if (ws) sayFinalPackage(finalPackageFor(sportMod, script, game, { show: 'DEADBALL' }), 'worldseries.', xpick, say, pregameBug);
   const muGraphic = ws
     ? { overlayType: 'sportsfx', kind: 'worldseries', final: sportMod.season?.finalName || 'Final', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.6 }
     : null;
   say(pick(...(ws ? ['worldseries.matchup', 'matchup.records', 'matchup'] : (hasRecords ? ['matchup.records', 'matchup'] : ['matchup']))), gameTok, pregameBug, muGraphic);
 
-  // The half-innings, so each can be narrated as a full "stage": EVERY one of the three
-  // outs is called, scoring plays are always called, and booth chatter is threaded
-  // between the outs. Baseball is long and dry, so we aim for ~6–8 spoken lines per
-  // half (the half framing counts as the first).
+  // The half-innings, each narrated in full: every plate appearance is called, so the park
+  // never jumps a man the booth skipped, and between them the booth talks
+  // (sports/baseball-booth.js): who's up and his season, what the pitcher throws, tonight's
+  // storylines, the situation, and the two men in the booth passing the time. Each plate
+  // appearance gets an even share of the slot, and the booth spends what the play and its call
+  // leave of it. The pacer (sports/baseball-pacing.js) settles the exact holds.
   const halves = GD.halves;
 
   // Regulation (innings 1–9) is narrated full and dry. Extras are narrated as tight
@@ -2841,13 +2870,26 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const regHalves = halves.filter(h => h.start.inning <= 9);
   const extraHalves = halves.filter(h => h.start.inning >= 10);
 
+  const talkers = makeBooth({
+    pools, rand: sportsRng(sportsHash(gs.seed, 0xb007)), announcer, analyst: script.analyst || '', game,
+    leaders: gdLeaders, recordOf: (team) => recordOf(team), ledger: gamedayLedger('baseball'),
+  });
+  const brng = sportsRng(sportsHash(gs.seed, 0xb008));
+  // One plate appearance's share of the slot (s), a changeover counting as one and a half, and
+  // the seconds of it the pitches, the play and its call take (an estimate; the pacer is exact).
+  const paCount = regHalves.reduce((n, h) => n + h.atbats.filter((b) => b.type === 'atbat').length, 0);
+  const share = Math.max(10, (slotLen() * SPORTS_GAME_FILL / 1000 - 90) / Math.max(1, paCount + 1.5 * regHalves.length));
+  // the park's own clock (diamond/timing.js): the pitches and the play, then the call
+  const landSecs = (b) => landBy({ ...beatGameday(b), hold: share * 1000 });
+  const callSecs = (b) => landSecs(b) + 7 + ((b.runs ?? b.rbi ?? 0) > 0 ? 5 : 0);
+  const talk = (lines, sb) => { for (const l of lines) say(l.text, {}, sb, null, null, { opt: l.opt }); return lines.reduce((a, l) => a + l.secs, 0); };
+  let bank = 0;   // the booth's seconds in hand
+
   for (const h of regHalves) {
     say(pick(`half.${h.start.half}`, 'half'), beatTok(h.start), beatBug(h.start), null, halfGameday(h.start));
-
-    const target = 6 + Math.floor(nrng() * 3);   // 6, 7, or 8 lines this half
-    let spoken = 1;                                      // the framing line above
+    bank += 1.5 * share - 6;
+    bank -= talk(talkers.changeover(h.start, { ...halfGameday(h.start), pl: beatGameday(h.atbats.find((x) => x.type === 'atbat'))?.pl }, bank * 0.6), beatBug(h.start));
     let walkoffHalf = false;
-    const chatter = (b) => { const line = pick('chatter'); if (line) { say(line, beatTok(b), beatBug(b)); spoken++; } };
 
     for (const b of h.atbats) {
       const tok = beatTok(b), sb = beatBug(b);
@@ -2855,70 +2897,75 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
       if (b.type === 'run') {
         // A play on the bases while the batter is up (sim v2). A steal, an out on the
         // bases and anything that scores is always called; a throw over the runner beats
-        // back is colour, called only when the half still needs lines.
-        if (b.kind === 'throwover' && spoken >= target) continue;
+        // back is colour, called about half the time.
+        if (b.kind === 'throwover' && brng() < 0.5) continue;
         const scored = (b.runs || 0) > 0;
         const keys = b.kind === 'doublesteal' && b.out ? ['run.doublesteal.out', 'run.caughtstealing']
           : (scored ? [`run.${b.kind}.score`, `run.${b.kind}`] : [`run.${b.kind}`]);
-        say(pick(...keys), tok, sb, null, gd); spoken++;
-        if (scored) { say(scoreUpdate(b), tok, sb, null, null, runMeta(b)); spoken++; }
-        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        say(pick(...keys), tok, sb, null, gd);
+        if (scored) say(scoreUpdate(b), tok, sb, null, null, runMeta(b));
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); walkoffHalf = true; }
+        talkers.trackRun(b, gd);
         continue;
       }
+      // The batter coming up. The booth talks over the pitches: the at-bat's payload rides the first
+      // line of its talk (`lead`), so the park starts the at-bat as the talk does, and the call is a
+      // line of its own that the park holds till the ball lands (`call`). The talk is sized to end
+      // by then; the pacer makes sure of it. With nothing to say, the payload rides the call.
+      bank += share - callSecs(b);
+      const pre = talkers.before(b, gd, Math.max(0, landSecs(b) - 2));
+      const preBug = beatBug(h.atbats[h.atbats.indexOf(b) - 1] || h.start);
+      pre.forEach((l, i) => say(l.text, {}, preBug, null, i === 0 ? { ...gd, lead: true } : null, i === 0 ? null : { opt: l.opt }));
+      const G = pre.length ? null : gd;
+      const CM = (m) => (pre.length ? { ...(m || {}), call: true } : m);
       if (b.kind === 'homerun') {
         const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
-        say(pickPlay(b, key, 'hr'), tok, sb, hrGraphic(b), gd, playMeta(b, b.walkoff ? 'walkoff' : 'homerun', { homerun: true, grand: b.rbi >= 4, runs: b.rbi })); spoken++;
-        say(scoreUpdate(b), tok, sb); spoken++;
-        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        say(pickPlay(b, key, 'hr'), tok, sb, hrGraphic(b), G, CM(playMeta(b, b.walkoff ? 'walkoff' : 'homerun', { homerun: true, grand: b.rbi >= 4, runs: b.rbi })));
+        say(scoreUpdate(b), tok, sb);
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); walkoffHalf = true; }
       } else if (b.kind === 'sacfly') {
-        say(pickPlay(b, 'atbat.sacfly'), tok, sb, null, gd); spoken++;
-        say(scoreUpdate(b), tok, sb, null, null, runMeta(b)); spoken++;
-        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        say(pickPlay(b, 'atbat.sacfly'), tok, sb, null, G, CM());
+        say(scoreUpdate(b), tok, sb, null, null, runMeta(b));
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); walkoffHalf = true; }
       } else if (b.kind === 'productout') {
-        say(pickPlay(b, 'atbat.productout', 'atbat.groundout'), tok, sb, null, gd); spoken++;
-        if ((b.runs ?? b.rbi) > 0) { say(scoreUpdate(b), tok, sb, null, null, runMeta(b)); spoken++; }
-        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        say(pickPlay(b, 'atbat.productout', 'atbat.groundout'), tok, sb, null, G, CM());
+        if ((b.runs ?? b.rbi) > 0) say(scoreUpdate(b), tok, sb, null, null, runMeta(b));
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); walkoffHalf = true; }
       } else if (b.kind === 'tripleplay') {
-        // Never chattered over and never padded past — a triple play ends the half and
-        // is the only thing anyone in the park is going to talk about.
-        say(pickPlay(b, 'atbat.tripleplay', 'atbat.doubleplay'), tok, sb, tpGraphic(b), gd, playMeta(b, 'tripleplay', { for: b.fieldingName, against: b.battingName })); spoken++;
+        // A triple play ends the half and is the only thing anyone in the park is going to
+        // talk about.
+        say(pickPlay(b, 'atbat.tripleplay', 'atbat.doubleplay'), tok, sb, tpGraphic(b), G, CM(playMeta(b, 'tripleplay', { for: b.fieldingName, against: b.battingName })));
       } else if (b.kind === 'doubleplay') {
-        say(pickPlay(b, 'atbat.doubleplay'), tok, sb, dpGraphic(b), gd, playMeta(b, 'doubleplay', { for: b.fieldingName, against: b.battingName })); spoken++;
+        say(pickPlay(b, 'atbat.doubleplay'), tok, sb, dpGraphic(b), G, CM(playMeta(b, 'doubleplay', { for: b.fieldingName, against: b.battingName })));
         // A double play can drive in a run (man on third, nobody out). The scoreboard
         // has to say so — the DP line itself never mentions it. (Sim v2 credits no RBI for
         // it, so it's the run that counts here.)
-        if ((b.runs ?? b.rbi) > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
+        if ((b.runs ?? b.rbi) > 0) say(scoreUpdate(b), tok, sb);
       } else if (b.kind === 'error') {
         // Sim v2: an error is always called; it goes up on the board as an E.
-        say(pickPlay(b, `atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd, b.walkoff ? null : playMeta(b, 'error', { player: b.fielder || '' })); spoken++;
-        if (b.runs > 0) { say(scoreUpdate(b), tok, sb, null, null, b.walkoff ? runMeta(b) : null); spoken++; }
-        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        say(pickPlay(b, `atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, G, CM(b.walkoff ? null : playMeta(b, 'error', { player: b.fielder || '' })));
+        if (b.runs > 0) say(scoreUpdate(b), tok, sb, null, null, b.walkoff ? runMeta(b) : null);
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); walkoffHalf = true; }
       } else if ((b.kind === 'hitbypitch' || b.kind === 'walk') && b.runs != null) {
         // Sim v2's free passes: a hit batter has lines of its own, and a run forced in by
         // either is called with the score, not as a base hit.
-        if (b.runs > 0 || spoken < target) {
-          say(pick(`atbat.${b.kind}`, 'atbat.walk'), tok, sb, null, gd); spoken++;
-          if (b.runs > 0) { say(scoreUpdate(b), tok, sb, null, null, runMeta(b)); spoken++; }
-          if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
-        }
+        say(pick(`atbat.${b.kind}`, 'atbat.walk'), tok, sb, null, G, CM());
+        if (b.runs > 0) say(scoreUpdate(b), tok, sb, null, null, runMeta(b));
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); walkoffHalf = true; }
       } else if (b.rbi > 0) {
-        say(pickPlay(b, 'rbi'), tok, sb, null, gd); spoken++;
-        say(scoreUpdate(b), tok, sb, null, null, runMeta(b)); spoken++;
-        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        say(pickPlay(b, 'rbi'), tok, sb, null, G, CM());
+        say(scoreUpdate(b), tok, sb, null, null, runMeta(b));
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); walkoffHalf = true; }
       } else if (b.out) {
-        // Call every out. Thread a chatter line between outs (never after the 3rd).
-        say(pickPlay(b, `atbat.${b.kind}`, 'atbat.out'), tok, sb, null, gd); spoken++;
-        if (b.outs < 3 && spoken < target) chatter(b);
-      } else if (spoken < target) {
-        // Non-scoring baserunner — colour, only when the half still needs lines.
-        say(pickPlay(b, `atbat.${b.kind}`, 'atbat.single'), tok, sb, null, gd); spoken++;
+        say(pickPlay(b, `atbat.${b.kind}`, 'atbat.out'), tok, sb, null, G, CM());
+      } else {
+        say(pickPlay(b, `atbat.${b.kind}`, 'atbat.single'), tok, sb, null, G, CM());
       }
+      talkers.track(b, gd);
+      // and what the play earns, never over a walk-off or the third out's changeover
+      // (a home run's trot and replay is time the park takes anyway, so the booth talks over it)
+      if (!walkoffHalf && b.outs < 3) bank -= talk(talkers.after(b, gd, Math.max(0, bank, b.kind === 'homerun' ? afterLand(gd) - 8 : 0)), sb);
     }
-
-    // A dry half that came up short gets padded with booth chatter — but never after
-    // a walk-off, where the drama has already ended the game.
-    let guard = 0;
-    while (!walkoffHalf && spoken < target && guard++ < 8) chatter(h.end);
 
     // Sparse score checkpoints — end of every third full inning.
     if (h.start.half === 'bottom' && h.start.inning % 3 === 0) say(pick('recap.half'), beatTok(h.end), beatBug(h.end));
@@ -3066,7 +3113,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // time can't overrun the slot; the tail then pads up to the exact slot boundary. All
   // deterministic → every TV repaces, reels, and parks identically.
   const floorTick = (ms) => Math.floor(ms / BROADCAST_TICK_MS) * BROADCAST_TICK_MS;
-  const slotMs = sportsSlotMs();
+  const slotMs = slotLen();
   const allSayIds = Object.keys(nodes).filter((id) => nodes[id].type === 'say');
   const gameSayIds = allSayIds.filter((id) => !nodes[id]._recap);
   const recapSayIds = allSayIds.filter((id) => nodes[id]._recap);
@@ -3104,10 +3151,23 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const played = Object.values(nodes).reduce((sum, nd) => sum + holdOf(nd), 0);
   const tail = nodes[prevId] || nodes[outroId];
   if (tail) tail.holdMs = Math.max(lastFloor, slotMs - (played - holdOf(tail)));
-  // Each Gameday payload says how long its line holds, so a view can pace the play to it.
-  for (const id of Object.keys(nodes)) {
-    const nd = nodes[id];
-    if (nd.gameday && nd.holdMs) nd.gameday = { ...nd.gameday, hold: holdOf(nd) };
+  // Each Gameday payload says how long its line holds, so a view can pace the play to it. A
+  // sport with `holdSpansGap` (Deadball) counts on to the next payload instead, the lines with
+  // no payload between included, so the park plays on through the booth's talk rather than
+  // standing still once its own line's done.
+  if (sportMod.holdSpansGap) {
+    let gdId = null;
+    for (let id = startId; id; id = nodes[id].next) {
+      const nd = nodes[id];
+      if (nd._recap) { gdId = null; continue; }
+      if (nd.gameday && nd.holdMs) { gdId = id; nd.gameday = { ...nd.gameday, hold: 0 }; }
+      if (gdId) nodes[gdId].gameday.hold += holdOf(nd);
+    }
+  } else {
+    for (const id of Object.keys(nodes)) {
+      const nd = nodes[id];
+      if (nd.gameday && nd.holdMs) nd.gameday = { ...nd.gameday, hold: holdOf(nd) };
+    }
   }
 
   // When the chain ends the walker restarts at _start on its own. Keying _broadcastId
@@ -3401,6 +3461,82 @@ function pregameLines(fx) {
   return rows.length ? `${head}\n<span class="text-cyan">${escAttr(fx.title)}</span>\n${rows.join('\n')}` : head;
 }
 
+// A page of the final's package written out for the log rung (sports/final-package.js).
+function packageLines(fx) {
+  const lines = packageText(fx);
+  if (!lines) return null;
+  return `<span class="text-cyan">${escAttr(lines[0])}</span>\n${lines.slice(1).map((l) => `  ${escAttr(l)}`).join('\n')}`;
+}
+
+// The final's package for tonight's two clubs, from the season's fold: the table, every game's
+// result and every man's line. The sport picks each club's men: the CPhL its top scorer and the
+// man in net, Deadball its best hitter in the line-up, its home-run man and tonight's starter.
+function finalPackageFor(sportMod, script, game, { brand = null, show = null } = {}) {
+  const sport = sportMod.id, cache = _standingsCaches.get(sport) || {}, ex = cache.extras || {};
+  const s = seasonOf(sport), seed = (t) => (t === s.finalistA ? 1 : t === s.finalistB ? 2 : null);
+  const watch = {}, out = {};
+  for (const side of ['away', 'home']) {
+    const t = game[side];
+    if (sport === 'hockey') {
+      const P = ex.players || {}, G = ex.goalies || {};
+      const men = (t.skaters || []).map((m) => ({ name: m.name, ...(P[m.name] || { gp: 0, g: 0, a: 0 }) }))
+        .sort((a, b) => (b.g + b.a) - (a.g + a.a) || b.g - a.g || a.name.localeCompare(b.name));
+      const list = men.slice(0, 2).filter((m) => m.gp).map((m) => ({ role: 'F', name: m.name, stat: `${m.g} G · ${m.a} A · ${m.g + m.a} PTS`, said: `${m.g} goals and ${m.a} assists` }));
+      const g = t.goalie ? G[t.goalie] : null;
+      if (g?.gp) {
+        const sv = g.sa ? ((g.sa - g.ga) / g.sa).toFixed(3).replace(/^0/, '') : '.000', gaa = (g.ga / g.gp).toFixed(2);
+        list.splice(1, 0, { role: 'G', name: t.goalie, stat: `${g.w} W · ${sv} SV% · ${gaa} GAA`, said: `${g.w} wins, saving ${sv}` });
+      }
+      watch[side] = list;
+      out[side] = (t.dressed || []).filter((d) => d.callup && d.replacing).map((d) => d.replacing);
+    } else {
+      const L = ex.ledger || {}, bats = L.bats instanceof Map ? L.bats : new Map(), arms = L.arms instanceof Map ? L.arms : new Map();
+      const lineup = (t.lineup || []).map((n) => bats.get(n)).filter(Boolean);
+      const most = lineup.reduce((m, r) => Math.max(m, r.ab), 0), avg = (r) => (r.ab ? r.hits / r.ab : 0);
+      const fmt = (r) => avg(r).toFixed(3).replace(/^0/, '');
+      const hitter = lineup.filter((r) => r.ab >= Math.max(5, most * 0.4)).sort((a, b) => avg(b) - avg(a) || b.hits - a.hits)[0];
+      const slugger = lineup.slice().sort((a, b) => b.hr - a.hr || b.rbi - a.rbi)[0];
+      const list = [];
+      if (hitter) list.push({ role: 'AVG', name: hitter.name, stat: `${fmt(hitter)} · ${hitter.hr} HR · ${hitter.rbi} RBI`, said: `hitting ${fmt(hitter)} with ${hitter.rbi} driven in` });
+      const p = t.pitcher ? arms.get(t.pitcher) : null;
+      if (p) {
+        const era = (p.outs ? (p.er * 27) / p.outs : 0).toFixed(2);
+        list.push({ role: 'SP', name: t.pitcher, stat: `${p.w}-${p.l} · ${era} ERA · ${p.k} K`, said: `${p.w} and ${p.l} with an earned run average of ${era}` });
+      }
+      if (slugger && slugger !== hitter && slugger.hr) list.push({ role: 'HR', name: slugger.name, stat: `${slugger.hr} HR · ${slugger.rbi} RBI`, said: `${slugger.hr} home runs` });
+      watch[side] = list;
+      out[side] = [];
+    }
+  }
+  return finalPackage({
+    sport, final: sportMod.season?.finalName || 'Final', away: game.away.name, home: game.home.name,
+    rows: cache.rows || [], results: ex.results || [], clubs: script.clubs || {},
+    seeds: { away: seed(game.away.name), home: seed(game.home.name) }, watch, out, brand, show, sting: script.venue?.finalOpen?.key || null,
+  });
+}
+// The package read out: each line from the pool under the final's prefix (`cup.` or
+// `worldseries.`), the first line of each page carrying its card.
+function sayFinalPackage(pkg, prefix, pick, say, bug) {
+  let page = -1;
+  for (const l of pkg.lines) {
+    const line = pick(`${prefix}${l.key}`);
+    if (!line) continue;
+    say(line, l.tok, bug, l.page !== page ? pkg.pages[l.page] : null);
+    page = l.page;
+  }
+}
+// What the booth calls the venue ("the Charles B. Hughson Coliseum", "Golden Goose Gardens"):
+// its `said`, else its name.
+const venueSaid = (script) => script?.venue?.said || script?.venue?.name || '';
+// How long the venue's line holds (s): its LIVE card's duration, which both sports' pacers hold a
+// line for, so the 3-D view's twelve-second fly-in lands before the next card covers it.
+const LIVE_HOLD_S = 15;
+// A line that starts a song as it airs: the final's open (venue.finalOpen.song), played once.
+function sayMusic(node) {
+  const def = node.data?.song ? getSongDefByName(node.data.song) : null;
+  return def ? { song: def, songOnce: true } : {};
+}
+
 async function refreshStandings(nowMs, sport = 'baseball') {
   const cur = _standingsCaches.get(sport) || { at: 0, rows: [] };
   if (nowMs - cur.at < STANDINGS_CACHE_MS) return cur.rows;
@@ -3447,7 +3583,10 @@ function gamedayOnAir(gd, graph) {
   const wx = { word: getWeatherTypeAtGrid(site.x, site.y), precip: precipType, rate: Math.round((precipRate || 0) * 100) / 100, ...(event ? { event } : {}) };
   const minutes = getEnvironmentState()?.minutes;
   const roof = site.mid ? venueRoof(site.mid) : undefined;
-  return { ...gd, wx, ...(Number.isFinite(minutes) ? { clock: Math.round(minutes) % 1440 } : {}), ...(roof ? { roof: roof.shut } : {}) };
+  // ⚠ A hockey payload's `clock` is the game clock ("12:34"), so the minute of the day is a ballpark's
+  // alone: the Gardens has a site for its fly-in, and its payloads keep their own clock.
+  const sky = Number.isFinite(minutes) && gd.sport !== 'hockey';
+  return { ...gd, wx, ...(sky ? { clock: Math.round(minutes) % 1440 } : {}), ...(roof ? { roof: roof.shut } : {}) };
 }
 
 // A team's record from its own league's cached standings, or '0-0' if it hasn't played.
@@ -6019,7 +6158,7 @@ async function broadcastTick() {
           // SYNC BY CONTRACT — this is the broadcast tick. `loggedPanelsSync` reads
           // the latch hydrated at login and never awaits (see presentation.js).
           const toLog = loggedPanelsSync(player);
-          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
+          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(gamedayOverlay && !gamedayOverlay.lead ? { hasGameday: true } : result.call ? { hasGameday: 'call' } : {}) });
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song, owner: 'tv', ...(result.songOnce ? { once: true } : {}) });
           if (isSample) sendToPlayer(player.id, { type: 'audio_sample', def: result.sample });
           // A log-rung viewer has no panel to take an overlay, so the score and the
@@ -6282,7 +6421,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
       // The `log` rung, as the room-set tick does it: the line goes to the log and
       // the overlays are written out. Sync by contract (this is a tick).
       const toLog = loggedPanelsSync(world.players.get(pid));
-      if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
+      if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(gamedayOverlay && !gamedayOverlay.lead ? { hasGameday: true } : result.call ? { hasGameday: 'call' } : {}) });
       if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song, owner: 'tv', ...(result.songOnce ? { once: true } : {}) });
       if (isSample) sendToPlayer(pid, { type: 'audio_sample', def: result.sample });
       if (toLog) { sendOverlayLines(pid, scorebugOverlay, standingsOverlay, result.graphic); continue; }
@@ -8090,7 +8229,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : (!isVerbatim && !isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         // Verbatim lines (microreel dialogue) leak as speech without needing an anchor.
         const isSpeech = (!isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor) || isVerbatim;
-        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}), ...(node.data?.excite ? { excite: node.data.excite } : {}), ...(node.data?.lex ? { lex: node.data.lex } : {}), ...(node.data?.voice ? { voice: node.data.voice } : {}), ...(node.data?.play ? { play: node.data.play } : {}) };
+        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}), ...(node.data?.excite ? { excite: node.data.excite } : {}), ...(node.data?.lex ? { lex: node.data.lex } : {}), ...(node.data?.voice ? { voice: node.data.voice } : {}), ...(node.data?.play ? { play: node.data.play } : {}), ...(node.data?.call ? { call: true } : {}), ...sayMusic(node) };
       }
 
       case 'music': {
@@ -8663,6 +8802,9 @@ registerAction({
     // short in the standings for exactly the games it was short on air. A sport whose
     // sim ignores `unavailable` (baseball) is unaffected by any of this.
     const out = new Map();
+    // Every game's result in order, for a club's form and the season series between two clubs
+    // (the final's package, sports/final-package.js). About 120 a month, and it stays on the server.
+    const results = [];
     for (let slot = from; slot < to; slot++) {
       for (const [name, heal] of out) if (heal <= slot) out.delete(name);
       const unavailable = new Set(out.keys());
@@ -8674,8 +8816,10 @@ registerAction({
       }
       season.fold(table, gs.game);
       season.foldExtras(acc, gs.game);
+      const g = gs.game;
+      results.push({ s: slot, a: g.away.name, h: g.home.name, as: g.awayScore, hs: g.homeScore, ...(g.overtime ? { ot: 1 } : {}) });
     }
-    return { rows: season.sort([...table.values()]), sport, columns: season.columns, ...season.summariseExtras(acc) };
+    return { rows: season.sort([...table.values()]), sport, columns: season.columns, ...season.summariseExtras(acc), results };
   },
 });
 
@@ -10961,6 +11105,9 @@ export const _test = {
   // was enough to flip it and turn the suite red for a reason that had nothing to
   // do with the code. The suite now sets this and restores it.
   seasonCaches: _seasonCaches,
+  // and the standings cache, so the final's package (finalPackageFor) can be built off a season
+  // the suite folds itself, with packageLines for the log rung
+  standingsCaches: _standingsCaches, finalPackageFor, packageLines,
   zoneDeck: _zoneDeck,
   // The cassette player itself. Exposed because the only other way to see a tape
   // shadowing the schedule is to watch a channel at the right hour on the right

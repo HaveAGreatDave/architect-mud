@@ -27,18 +27,18 @@
  */
 import { cap } from '../../../server/engine/util.js';
 
-// Every barn's horn is that barn's horn. The soundset already varies a preset from a
-// seed, so a stable hash of the club name is the whole feature — no per-club audio, no
-// authoring, and the Ashway horn sounds like the Ashway horn forever.
+// Every club's goal horn is its own: the Gardens sounds the scoring side's. The soundset
+// already varies a preset from a seed, so a stable hash of the club name is the whole
+// feature — no per-club audio, no authoring, and a club's horn sounds the same forever.
 function hornSeedFor(name) {
   let x = 0x9e3779b9 >>> 0;
   for (let i = 0; i < String(name).length; i++) x = (Math.imul(x ^ String(name).charCodeAt(i), 16777619) >>> 0);
   return x >>> 0;
 }
 // A club's chatter key — the first word of its name, lowercased. `chatter.ashway`
-// falls back to the general `chatter` pool, so authoring a barn is optional and a club
-// with nothing written for it behaves exactly as before.
-const barnKey = (name) => `chatter.${String(name || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+// falls back to the general `chatter` pool, so authoring a club's colour is optional and
+// a club with nothing written for it behaves exactly as before.
+const clubKey = (name) => `chatter.${String(name || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
 // Chances that are always worth a line: they're the near-misses a period is
 // remembered for.
@@ -398,7 +398,23 @@ export function narrate(ctx) {
   // The pregame open (index.js pregameFx): the table and tonight's two clubs, up from the
   // first line to the drop. The Cup and a rivalry still get their own card on the matchup.
   const pregame = ctx.pregame ? ctx.pregame({ away: away.name, home: home.name, awayRecord, homeRecord, brand: 'cphl', show: 'CLUSTER PUCK' }) : null;
-  say(pick(...(ws ? ['cup.intro', 'intro'] : rivalry ? ['rivalry.intro', 'intro'] : ['intro'])), gameTok, preBug, pregame);
+  // Live from the Gardens: the first line after the title card, and Rinkside flies in over the
+  // city and down through the roof onto the ice (`phase: 'arrive'`; a TV without the view puts up
+  // the LIVE card). Its stream is the venue's own (ctx.xpick), so no other line moves.
+  const venue = ctx.venue?.said;
+  if (venue && ctx.xpick) {
+    const fin = ctx.sport?.season?.finalName || 'Coldwater Cup';
+    say(ctx.xpick(...(ws ? ['cup.live', 'live'] : ['live'])), { ...gameTok, venue, final: fin }, preBug,
+      { overlayType: 'sportsfx', kind: 'live', sport: 'hockey', brand: 'cphl', venue: ctx.venue.name || venue, show: 'CLUSTER PUCK', ...(ws ? { final: fin } : {}), duration: 15 },
+      { sport: 'hockey', type: 'arrive', phase: 'arrive', venue: ctx.venue.name || venue, awayTeam: away.name, homeTeam: home.name, awayAbbr, homeAbbr,
+        ...(ws ? { final: fin } : {}), ...(ctx.venue.rev ? { venueRev: ctx.venue.rev } : {}) },
+      // the Cup's open, cut to the fly-in, starts as the line airs
+      ws && ctx.venue.finalOpen?.song ? { song: ctx.venue.finalOpen.song } : null);
+  }
+  // Cup night opens on its package instead of the table: the tape has each club's record and place.
+  say(pick(...(ws ? ['cup.intro', 'intro'] : rivalry ? ['rivalry.intro', 'intro'] : ['intro'])), gameTok, preBug, ws && ctx.finalPackage ? null : pregame);
+  // Cup night: the tale of the tape, the road here and the men to watch, read out under the cards.
+  if (ws && ctx.finalPackage) ctx.finalPackage('cup.', preBug, { brand: 'cphl', show: 'CLUSTER PUCK' });
   // The Cup outranks a rivalry (it IS the bigger night); otherwise a grudge match gets
   // its own matchup line and its own card.
   say(
@@ -494,14 +510,15 @@ export function narrate(ctx) {
     }
     say(pick('intermission.outro', 'chatter'), stat, sb); said++;
   };
-  // The home barn's own colour first, the league-wide pool behind it.
-  // Half the colour is about the building they're in, half about the league. Every club
-  // has a barn pool now, so always reaching for it first would leave the general pool
-  // unheard.
-  // The Cup final is played at the league's own barn, Golden Goose Gardens, which is the building the
-  // general pool describes; no club's barn chatter airs on Cup night. (The roll is still taken, so
-  // the line stream is the same length either way.)
-  const chatter = (b) => { const l = nrng() < 0.5 && !ws ? pick(barnKey(home.name), 'chatter') : pick('chatter'); if (l) { say(l, tok(b), beatBug(b)); said++; } };
+  // Every game is played at Golden Goose Gardens, the building the general pool describes. Half
+  // the colour is about one of tonight's two clubs (its own pool, the league-wide one behind it),
+  // half about the building and the league. Every club has a pool, so always reaching for one
+  // first would leave the general pool unheard.
+  const chatter = (b) => {
+    const r = nrng();
+    const l = r < 0.5 ? pick(clubKey(r < 0.25 ? home.name : away.name), 'chatter') : pick('chatter');
+    if (l) { say(l, tok(b), beatBug(b)); said++; }
+  };
 
   // ── the call ──────────────────────────────────────────────────────────────
   // SHORT LINES THAT FOLLOW THE PLAY. The booth used to say one or two long sentences a

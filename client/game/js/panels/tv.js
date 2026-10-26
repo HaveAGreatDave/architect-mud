@@ -74,6 +74,25 @@ const TV_STATIC_DEF  = { id: 'tv_static_local',  category: 'tv', priority: 1, lo
 const TV_POWER_ON_DEF  = { id: 'tv_power_on_local',  category: 'tv', priority: 3, config: { waveform: 'triangle', freq: 80,  duration: 0.35, noiseMix: 0.3, pitchBend: { to: 600, time: 0.25 }, filter: { type: 'lowpass', freq: 3000, q: 1 }, adsr: { a: 0.005, d: 0.15, s: 0.3, r: 0.15 } } };
 const TV_POWER_OFF_DEF = { id: 'tv_power_off_local', category: 'tv', priority: 3, config: { waveform: 'triangle', freq: 900, duration: 0.3,  noiseMix: 0.2, pitchBend: { to: 40,  time: 0.25 }, filter: { type: 'lowpass', freq: 4000, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0.2, r: 0.2  } } };
 
+// The sting each page of a final's package goes up on (_applyPackage): a major chord in the key of
+// the final's open (the venue's finalOpen.key, which the package carries as `sting`), over a timpani
+// hit and a cymbal. The CPhL's brass is FM, as its band's is (scripts/content/build-final-opens.mjs);
+// its FM ratios are 2 and 3, never 1 or 0.5 (docs/systems-hockey-sound.md).
+const STING_PC = { C: 0, 'C#': 1, Db: 1, D: 2, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, Ab: 8, A: 9, Bb: 10, B: 11 };
+function packageStingDef(key, fm) {
+  const pc = STING_PC[key];
+  if (pc == null) return null;
+  const root = (440 * 2 ** ((pc - 9) / 12)) / 2;
+  const brass = (freq, gain) => (fm
+    ? { waveform: 'sine', freq, gain, adsr: { a: 0.012, d: 0.5, s: 0.3, r: 0.4 }, fm: { ratio: 2, index: 2.2, indexEnd: 1.1, time: 0.15 } }
+    : { waveform: 'sawtooth', freq, gain, adsr: { a: 0.015, d: 0.55, s: 0.28, r: 0.45 }, filter: { type: 'lowpass', freq: 2200, q: 0.7 } });
+  return { id: `tv_package_sting_${key}${fm ? '_fm' : ''}`, category: 'tv', priority: 4, config: { duration: 1.8, layers: [
+    brass(root, 0.11), brass(root * 1.4983, 0.09), brass(root * 2, 0.08), brass(root * 2.5198, 0.06),
+    { waveform: 'sine', freq: root / 2, gain: 0.4, adsr: { a: 0.002, d: 0.9, s: 0, r: 0.3 }, pitchBend: { to: (root / 2) * 0.96, time: 0.4 } },
+    { waveform: 'sine', noiseMix: 1, gain: 0.1, adsr: { a: 0.002, d: 1.3, s: 0, r: 0.4 }, filter: { type: 'highpass', freq: 5200, q: 0.7 } },
+  ] } };
+}
+
 const MAX_TV_HISTORY = 200;
 const LOCK_RANGE   = 0.25; // within this many channel-numbers = lock in
 const TV_DIAL_MAX  = 9.05; // dial wraps 0.0 → 9.0 → 0.0 (9.0 + 0.05 step = wrap)
@@ -726,7 +745,9 @@ export function createTvView(root, opts = {}) {
     // The score-bug is a persistent layer (updated in place, its own container) —
     // it must not be wiped by transient overlays, nor auto-dismiss on a timer.
     if (overlay && overlay.overlayType === 'scorebug') { _applyScorebug(overlay); return; }
-    if (overlay && overlay.overlayType === 'gameday') { _handleGameday(overlay); return; }
+    // the final's package gives way to the game: its first play, or the card on the matchup line
+    const packageUp = () => el('fx')?.classList.contains('fx-package');
+    if (overlay && overlay.overlayType === 'gameday') { if (overlay.phase !== 'arrive' && packageUp()) _clearSportsFx(); _handleGameday(overlay); return; }
     if (overlay && overlay.overlayType === 'standings') { _applyStandingsBug(overlay); return; }
     // Film layers. Letterbox is persistent — a matte the picture switches on and off,
     // never a timed card — and the fade is a one-shot transition that paints over
@@ -738,6 +759,12 @@ export function createTvView(root, opts = {}) {
     if (overlay && overlay.overlayType === 'sportsfx') {
       // The pregame open runs before there's a field to show, so it always takes the screen.
       if (overlay.kind === 'pregame') { _applyPregame(overlay); return; }
+      // ...and so does the final's package, which comes after it
+      if (overlay.kind === 'package') { _applyPackage(overlay); return; }
+      // "Live from" the park: with the sub-screen open (or opening, on the same line's payload) the
+      // view flies in and letters it itself, so the full-screen card is only for a set without it
+      if (overlay.kind === 'live' && _gamedayOpen) return;
+      if (packageUp()) _clearSportsFx();
       if (_gamedayOpen && _gamedayView) _gamedayView.showCard(overlay);
       else _applySportsFx(overlay);
       return;
@@ -1477,6 +1504,16 @@ export function createTvView(root, opts = {}) {
             `<div class="tv-fx-mu-team home">${_crest(fx.home, 72, 'tv-fx-mu-crest')}<span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
           `</div>` +
         `</div>`;
+    } else if (fx.kind === 'live') {
+      // the first line of a game, on a set without the sub-screen: LIVE from the park
+      inner =
+        `<div class="tv-fx-live${fx.brand === 'cphl' ? ' cphl' : ''}${fx.final ? ' final' : ''}">` +
+          (fx.brand === 'cphl' ? `<div class="tv-fx-brand">${cphlMark('30px')}</div>` : '') +
+          `<div class="tv-fx-live-tag"><i></i>LIVE</div>` +
+          `<div class="tv-fx-live-from">from</div>` +
+          `<div class="tv-fx-live-venue">${_esc(fx.venue || '')}</div>` +
+          (fx.final ? `<div class="tv-fx-live-sub">${_esc(fx.final)}</div>` : '') +
+        `</div>`;
     } else if (fx.kind === 'doubleplay') {
       inner =
         `<div class="tv-fx-dp">` +
@@ -1591,6 +1628,98 @@ export function createTvView(root, opts = {}) {
     if (_lastSpoken && performance.now() - _lastSpoken.at < 4000) _pregameCaption(_lastSpoken.text);
     if (_fxTimer) clearTimeout(_fxTimer);
     _fxTimer = setTimeout(_clearSportsFx, (fx.duration || 18) * 1000);
+  }
+
+  // ── the final's package ───────────────────────────────────────────────────
+  // Before the first pitch of the Curtain Call or the drop of the Coldwater Cup, three pages about
+  // the two clubs, each up while the booth reads it (plugins/broadcast/sports/final-package.js):
+  // the tale of the tape, the road here, the men to watch. Drawn like the pregame open, in gold,
+  // with the booth along the bottom; in characters on 'textgames'. The log rung gets it written out
+  // by the server (packageLines).
+  function _applyPackage(fx) {
+    const host = el('fx');
+    if (!host || !fx?.away || !fx?.home) return;
+    const rung = state.player?.displayRung;
+    const text = rung === 'textgames' || rung === 'log';
+    const hockey = fx.sport === 'hockey', cphl = fx.brand === 'cphl';
+    const ord = (n) => { const v = n % 100; return n + ((v >= 11 && v <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'); };
+    const sgn = (n) => (n > 0 ? `+${n}` : String(n | 0));
+    const A = fx.away, H = fx.home;
+    const title = { tape: 'Tale of the Tape', road: 'The Road Here', watch: 'Players to Watch' }[fx.page] || '';
+    // the tape's rows: what each club brings, the label between them
+    const tape = () => [
+      ['From', A.home || '', H.home || ''],
+      ...(A.founded || H.founded ? [['Founded', A.founded || '', H.founded || '']] : []),
+      ['Seed', A.seed ? ord(A.seed) : '', H.seed ? ord(H.seed) : ''],
+      [hockey ? 'W-L-OTL' : 'W-L', A.record || '', H.record || ''],
+      ['Place', A.rank ? ord(A.rank) : '', H.rank ? ord(H.rank) : ''],
+      hockey ? ['Points', A.points ?? '', H.points ?? ''] : ['Pct', A.pct || '', H.pct || ''],
+      [hockey ? 'Goals for' : 'Runs for', A.for ?? '', H.for ?? ''],
+      [hockey ? 'Goals against' : 'Runs against', A.against ?? '', H.against ?? ''],
+      [hockey ? 'Goal diff' : 'Run diff', sgn(A.diff), sgn(H.diff)],
+    ];
+    const streak = (s) => (s ? `${s.kind}${s.n}` : '');
+    const ser = fx.series || {};
+    let inner;
+    if (text) {
+      const pad = (v, n) => String(v).slice(0, n).padEnd(n), padL = (v, n) => String(v).slice(0, n).padStart(n);
+      const lines = [`== ${String(fx.final || '').toUpperCase()} : ${title.toUpperCase()} ==`, '', `${padL(A.name, 24)}  ${pad('', 12)}  ${H.name}`];
+      if (fx.page === 'tape') for (const [k, a, h] of tape()) lines.push(`${padL(a, 24)}  ${pad(k, 12)}  ${h}`);
+      if (fx.page === 'road') {
+        lines.push(`${padL(A.last.join(' '), 24)}  ${pad('Last 10', 12)}  ${H.last.join(' ')}`, `${padL(A.lastRec, 24)}  ${pad('Record', 12)}  ${H.lastRec}`, `${padL(streak(A.streak), 24)}  ${pad('Streak', 12)}  ${streak(H.streak)}`,
+          '', `Season series: ${A.name} ${ser.away | 0}, ${H.name} ${ser.home | 0}`, ...(ser.games || []).map((g) => `  ${g.away} ${g.awayScore}, ${g.home} ${g.homeScore}${g.ot ? ' (OT)' : ''}`));
+      }
+      if (fx.page === 'watch') for (const c of [A, H]) lines.push('', c.name, ...(c.men || []).map((m) => `  ${pad(m.role, 4)}${pad(m.name, 22)} ${m.stat}`), ...(c.out?.length ? [`  Out: ${c.out.join(', ')}`] : []));
+      inner = `<div class="tv-pg tv-pg-text"><pre class="tv-pg-pre">${_esc(lines.join('\n'))}</pre><div class="tv-pg-caption" aria-live="off"></div></div>`;
+    } else {
+      const head = (c, side) =>
+        `<div class="tv-pk-club ${side}" style="--club:${_teamColour(c.name, fx.sport)}">` +
+          (_crest(c.name, 56, 'tv-pg-crest') || '') + `<span class="tv-pk-nm">${_esc(c.name)}</span>` +
+        `</div>`;
+      let body = '';
+      if (fx.page === 'tape') {
+        body = `<div class="tv-pk-tape">` + tape().map(([k, a, h], i) =>
+          `<div class="tv-pk-row" style="animation-delay:${(0.45 + i * 0.08).toFixed(2)}s"><b>${_esc(String(a))}</b><i>${_esc(k)}</i><b>${_esc(String(h))}</b></div>`).join('') + `</div>`;
+      } else if (fx.page === 'road') {
+        const pips = (c) => `<span class="tv-pk-pips">${(c.last || []).map((r) => `<span class="tv-pk-pip ${r === 'W' ? 'w' : r === 'O' ? 'o' : 'l'}">${r}</span>`).join('')}</span>`;
+        const games = (ser.games || []).map((g) =>
+          `<div class="tv-pk-game"><span${g.winner === g.away ? ' class="win"' : ''}>${_esc(g.away)} ${g.awayScore | 0}</span><span${g.winner === g.home ? ' class="win"' : ''}>${_esc(g.home)} ${g.homeScore | 0}</span>${g.ot ? '<em>OT</em>' : ''}</div>`).join('');
+        body = `<div class="tv-pk-tape">` +
+            `<div class="tv-pk-row wide" style="animation-delay:0.45s">${pips(A)}<i>Last ${Math.max(A.last?.length || 0, H.last?.length || 0) || 10}</i>${pips(H)}</div>` +
+            `<div class="tv-pk-row" style="animation-delay:0.55s"><b>${_esc(A.lastRec || '')}</b><i>Record</i><b>${_esc(H.lastRec || '')}</b></div>` +
+            `<div class="tv-pk-row" style="animation-delay:0.65s"><b>${_esc(streak(A.streak))}</b><i>Streak</i><b>${_esc(streak(H.streak))}</b></div>` +
+            `<div class="tv-pk-row" style="animation-delay:0.75s"><b class="big">${ser.away | 0}</b><i>Season series</i><b class="big">${ser.home | 0}</b></div>` +
+          `</div>` + (games ? `<div class="tv-pk-games">${games}</div>` : `<div class="tv-pk-games none">They never met this season.</div>`);
+      } else {
+        const men = (c, side) => `<div class="tv-pk-men ${side}">` + (c.men || []).map((m, i) =>
+          `<div class="tv-pk-man" style="animation-delay:${(0.45 + i * 0.12).toFixed(2)}s"><span class="role">${_esc(m.role)}</span><span class="nm">${_esc(m.name)}</span><span class="st">${_esc(m.stat)}</span></div>`).join('') +
+          (c.out?.length ? `<div class="tv-pk-out">Out: ${_esc(c.out.join(', '))}</div>` : '') + `</div>`;
+        body = `<div class="tv-pk-watch">${men(A, 'away')}${men(H, 'home')}</div>`;
+      }
+      inner =
+        `<div class="tv-pg tv-pk${cphl ? ' cphl' : ''}">` +
+          `<div class="tv-pg-head">` +
+            (cphl ? cphlLockup(fx.final || 'Coldwater Cup', '22px') : `<div class="tv-pg-show">${_esc(String(fx.final || '').toUpperCase())}</div>`) +
+            `<div class="tv-pg-label">${_esc(title)}</div>` +
+          `</div>` +
+          `<div class="tv-pk-heads">${head(A, 'away')}<span class="tv-pk-vs">vs</span>${head(H, 'home')}</div>` +
+          `<div class="tv-pk-body">${body}</div>` +
+          `<div class="tv-pg-caption" aria-live="off"></div>` +
+        `</div>`;
+    }
+    const tag = text ? '' : _networkTag();
+    // a new page keeps the strip's line, which the booth is still reading
+    const said = el('fx')?.querySelector('.tv-pg-caption')?.textContent || '';
+    host.innerHTML = (tag ? `<div class="tv-fx-net">${tag}</div>` : '') + inner;
+    host.className = 'tv-fx-host on fx-pregame fx-package';
+    _pregameUp = true;
+    // each page goes up on the sting, in the key of the final's open
+    const sting = fx.sting ? packageStingDef(fx.sting, cphl) : null;
+    if (sting) window.AudioEngine?.playSfx(sting);
+    if (_lastSpoken && performance.now() - _lastSpoken.at < 4000) _pregameCaption(_lastSpoken.text);
+    else if (said) _pregameCaption(said);
+    if (_fxTimer) clearTimeout(_fxTimer);
+    _fxTimer = setTimeout(_clearSportsFx, (fx.duration || 30) * 1000);
   }
 
   function _pregameCaption(text) {
@@ -1947,7 +2076,9 @@ export function createTvView(root, opts = {}) {
       // seeds off the narrator.
       if (_gamedayOpen && _gamedayView) {
         const plain = String(text).replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
-        if (plain) _gamedayView.setCaption(plain, { speak: () => _speakNow(text, style, duration, dl), held: !!hasGameday });
+        // `hasGameday` is 'call' for a call whose play went out earlier on a line of the booth's
+        // talk (Deadball's `lead` payload): held till it lands, or shown at once if it has.
+        if (plain) _gamedayView.setCaption(plain, { speak: () => _speakNow(text, style, duration, dl), held: !!hasGameday, ...(hasGameday === 'call' ? { call: true } : {}) });
       }
     }
     container.appendChild(node);

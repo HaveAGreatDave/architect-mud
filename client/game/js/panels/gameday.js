@@ -364,6 +364,10 @@ export function createGamedayView(host) {
   let caption = '';          // last announcer line, retained across the shell rebuild
   let pendingCaption = null; // { text, speak } for the current at-bat, held until the hit lands
   let pendingCard = null;    // a jumbotron card (HR/DP/…) held until the play lands
+  // The booth's call for a play whose payload came earlier, riding the plate appearance's first
+  // line (`lead`): held till that play lands, or up at once if it has (setCaption's `call`).
+  let callCaption = null;
+  function _flushCall() { const c = callCaption; callCaption = null; if (c) { _showCaption(c.text); if (c.speak) c.speak(); } }
   let playAnimating = false; // an at-bat is on the field right now — hold event graphics until it lands
   let field = null;          // the persistent .gd-field element (tokens live here)
   let cardTimer = null;      // auto-dismiss for the Gameday-native jumbotron card
@@ -829,6 +833,7 @@ export function createGamedayView(host) {
       _sfx(p.out ? SFX.out : ((p.runs || 0) > 0 ? SFX.run : SFX.base));
       if (p.walkoff) _celebrate('walkoff');
       if (pend) { _showCaption(pend.text); if (pend.speak) pend.speak(); }
+      _flushCall();
       if (pendingCard) { const fx = pendingCard; pendingCard = null; _renderCard(fx); }
     });
     // Reconcile the lit bags once the runners have settled, then idle.
@@ -843,10 +848,15 @@ export function createGamedayView(host) {
 
   function apply(p) {
     if (!host || !p) return;
+    // a call still waiting on the last play never waits on this one
+    _flushCall();
     _stop();
     if (Array.isArray(p.standings) && p.standings.length) standingsRows = p.standings;   // freshest table; retained otherwise
     if (p.phase === 'half') { _applyHalf(p); return; }
     if (p.phase === 'run') { _applyRun(p); return; }
+    // "Live from" the park, before the game: no field yet, only where it's from (the 3-D view flies
+    // in), and the line up at once
+    if (p.phase === 'arrive') { _applyArrive(p); return; }
     const isTop = p.half === 'top';
     const away = isTop ? { abbr: p.battingAbbr } : { abbr: p.fieldingAbbr };
     const home = isTop ? { abbr: p.fieldingAbbr } : { abbr: p.battingAbbr };
@@ -917,6 +927,7 @@ export function createGamedayView(host) {
       playAnimating = false;
       field?.classList.remove('replaying');   // play has landed — drop the REPLAY bug
       if (pend) { _showCaption(pend.text); if (pend.speak) pend.speak(); }
+      _flushCall();
       if (pendingCard) { const fx = pendingCard; pendingCard = null; _renderCard(fx); }
     });
 
@@ -939,9 +950,14 @@ export function createGamedayView(host) {
   //     ball has finished its flight, so the call reads as a reaction to the hit. His
   //     line rides the beat just BEFORE the `gameday` overlay that starts the animation.
   //   not held (a between-play line): show + speak the moment he says it, not to an event.
+  //   held with `call` (the call for a play whose payload rode the plate appearance's first
+  //     line, `lead`): held till that play lands if it's still in the air, else up at once.
   function setCaption(text, opts) {
     const speak = opts && opts.speak;
-    if (opts && opts.held) {
+    if (opts && opts.held && opts.call) {
+      if (playAnimating) { _flushCall(); callCaption = { text: String(text || ''), speak }; }
+      else { _showCaption(text); if (speak) speak(); }
+    } else if (opts && opts.held) {
       pendingCaption = { text: String(text || ''), speak };
     } else {
       _showCaption(text);
@@ -973,6 +989,14 @@ export function createGamedayView(host) {
 
   // Idle screen — shown when Gameday is opened before an at-bat has arrived (or on a
   // non-sports channel), so the view is never just black.
+  function _applyArrive(p) {
+    showIdle();
+    const sub = host.querySelector('.gd-idle-sub'), title = host.querySelector('.gd-idle-title');
+    if (title) title.textContent = `LIVE FROM ${String(p.venue || 'the park').toUpperCase()}`;
+    if (sub) sub.textContent = p.final ? String(p.final) : 'Waiting for the first pitch…';
+    if (pendingCaption) { const c = pendingCaption; pendingCaption = null; _showCaption(c.text); if (c.speak) c.speak(); }
+  }
+
   function showIdle() {
     if (!host) return;
     _stop(); _clearCard();
@@ -992,6 +1016,7 @@ export function createGamedayView(host) {
     field = null;
     caption = '';
     pendingCaption = null;
+    callCaption = null;
   }
 
   return { apply, clear, setCaption, showIdle, showCard };

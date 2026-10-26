@@ -1,6 +1,6 @@
 # Cluster Puck in GLASS 2
 
-**Status: design. Nothing is built.** A plan for giving Rinkside what Deadball got in
+**Status: design; Phase 8 (one barn, its chatter and its docs) built 2026-10-26.** A plan for giving Rinkside what Deadball got in
 [deadball-glass2.md](deadball-glass2.md): skinned players with keyed motion, a lit barn with a crowd
 in it, a broadcast graphics package, and a sound bank to match. It comes after
 [cluster-puck-free-play.md](cluster-puck-free-play.md), which has the server play each featured game
@@ -311,6 +311,11 @@ game (free-play Phase 4), because the clips are picked from the track's action c
 - **Phase 6: sound.** The new bank and its mix, and the '96 set as a setting.
 - **Phase 7: violence.** The damage mask, pooling blood, the severed ends and the injury clips.
 - **Phase 8: the chatter and the docs.** The barn pools rewritten and the two docs updated.
+  *Built 2026-10-26, ahead of the rest:* every game is at the Gardens, the `chatter.<club>` pools
+  are about the clubs (either of tonight's two, Cup night too), Agnes Prowse says so at the
+  counter, and every broadcast opens "Live from Golden Goose Gardens" with a fly-in over the city
+  onto the building (gl/approach.js), which Phase 4's barn can land inside rather than dissolve to
+  ([systems-broadcast.md](../systems-broadcast.md#live-from-the-venue-and-the-finals-package-as-built)).
 
 ## Risks
 

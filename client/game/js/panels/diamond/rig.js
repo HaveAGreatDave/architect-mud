@@ -85,11 +85,38 @@ export function solveTorso(P) {
   W.chest = m3m(W.spine, EUL(P.chest)); J.chest = add(J.spine, m3v(W.spine, [0, 0.55 * s, -0.02 * s]));
   W.neck = m3m(W.chest, EUL(P.neck)); J.neck = add(J.chest, m3v(W.chest, [0, 0.60 * s, 0]));
   W.head = m3m(W.neck, EUL(P.head)); J.head = add(J.neck, m3v(W.neck, [0, 0.34 * s, 0.03 * s]));
+  const b = buildIn(P);
   for (const [S, sg] of [['L', 1], ['R', -1]]) {
-    J['sh' + S] = add(J.chest, m3v(W.chest, [sg * SHOULDER[0] * s, SHOULDER[1] * s, SHOULDER[2] * s]));
+    J['sh' + S] = add(J.chest, m3v(W.chest, [sg * SHOULDER[0] * b.sh * s, SHOULDER[1] * s, SHOULDER[2] * s]));
     J['hip' + S] = H['hip' + S];
   }
-  return { J, W, s, Yw, toW };
+  return { J, W, s, Yw, toW, b };
+}
+
+// ── a man's build ──────────────────────────────────────────────────────────────
+// What he is past his height (the pose's `scale`): `sh`, the breadth of his shoulders as a share of
+// the rig's, and `girth`, feet added round his torso before the scale (gl/ballplayer-mesh.js torso
+// takes the same). A pose may carry one as `build`; without it he's the rig's own. Only the
+// shoulders move out with it, and the hull the arms are kept off grows round him, so a hand still
+// goes where the pose puts it and the staging, which solves without one, agrees with the picture.
+export const buildIn = (P) => ({ sh: P?.build?.sh ?? 1, girth: P?.build?.girth ?? 0 });
+// how much thicker his limbs are for his girth, the mesh's tubes and the legs' hull alike
+export const limbThick = (girth) => 1 + 1.4 * (girth || 0);
+// A pose keyed for the rig at scale 1, done by a man of scale `s`: its points (the pelvis, the
+// wrists, the ankles and the bat's knob) moved out from the frame's origin in proportion, so a tall
+// man stands at his full height rather than on bent knees and a short one doesn't reach past his
+// legs. Directions and turns are the same at any size. diamond/anim.js sampleClip does the same to
+// a clip's keys, the root's path excepted.
+export function scalePose(P, s = 1) {
+  if (s === 1) return P;
+  const m = (v) => v.map((x) => x * s);
+  const out = { ...P, pelvis: m(P.pelvis) };
+  for (const S of ['L', 'R']) {
+    if (P['ank' + S]) out['ank' + S] = m(P['ank' + S]);
+    if (P['wr' + S]) out['wr' + S] = m(P['wr' + S]);
+  }
+  if (P.bat) out.bat = { ...P.bat, knob: m(P.bat.knob) };
+  return out;
 }
 
 // ── the shoulder girdle ────────────────────────────────────────────────────────
@@ -120,9 +147,9 @@ function turnTo(a, b) {
   };
   return [col(0), col(1), col(2)];
 }
-function girdle(J, W, S, T, s) {
+function girdle(J, W, S, T, s, sh = 1) {
   const sg = S === 'L' ? 1 : -1, C = W.chest;
-  const rest = [sg * SHOULDER[0] * s, SHOULDER[1] * s, SHOULDER[2] * s], sc = [sg * SC_JOINT[0] * s, SC_JOINT[1] * s, SC_JOINT[2] * s];
+  const rest = [sg * SHOULDER[0] * sh * s, SHOULDER[1] * s, SHOULDER[2] * s], sc = [sg * SC_JOINT[0] * s, SC_JOINT[1] * s, SC_JOINT[2] * s];
   // where the hand is asked to be from the shoulder at rest, in the chest's frame
   const d = sub(T, add(J.chest, m3v(C, rest)));
   const lx = dot(d, C[0]), ly = dot(d, C[1]), lz = dot(d, C[2]), l = Math.hypot(lx, ly, lz) || 1e-6;
@@ -175,13 +202,18 @@ const softplus = (x) => (x > 12 * SINK_SOFT ? x : SINK_SOFT * Math.log1p(Math.ex
 // ankle), a little inside the pants and socks, so a glove taking a grounder or a forearm in a
 // crouch rests against the leg rather than through it.
 export const LEG_HULL = Object.freeze([[0.3, 1, 0.25], [0, 0.88, 0.165]].map(Object.freeze));
-export function hullOf(J, W, s) {
+// A build (buildIn) grows the torso's parts by its girth, across and front to back, and the
+// chest's across by part of its shoulders' breadth, as the jersey grows round him.
+export function hullOf(J, W, s, b = buildIn(null)) {
   if (!SOLVER.hull) return [];
-  const out = HULL.map((h) => { const M = W[h.frame]; return { c: add(J[h.frame], m3v(M, mul(h.c, s))), M, r: mul(h.r, s), head: !!h.head }; });
+  const out = HULL.map((h) => {
+    const M = W[h.frame], g = h.head ? 0 : b.girth, k = h.frame === 'chest' ? 1 + (b.sh - 1) * 0.6 : 1;
+    return { c: add(J[h.frame], m3v(M, mul(h.c, s))), M, r: [(h.r[0] * k + g) * s, h.r[1] * s, (h.r[2] + g) * s], head: !!h.head };
+  });
   if (J.knL) for (const S of ['L', 'R']) {
-    const [th, sh] = LEG_HULL, hip = J['hip' + S], kn = J['kn' + S], an = J['an' + S];
-    out.push({ cap: true, a: lerp3(hip, kn, th[0]), b: lerp3(hip, kn, th[1]), r: th[2] * s, leg: true });
-    out.push({ cap: true, a: lerp3(kn, an, sh[0]), b: lerp3(kn, an, sh[1]), r: sh[2] * s, leg: true });
+    const [th, sh] = LEG_HULL, hip = J['hip' + S], kn = J['kn' + S], an = J['an' + S], t = limbThick(b.girth);
+    out.push({ cap: true, a: lerp3(hip, kn, th[0]), b: lerp3(hip, kn, th[1]), r: th[2] * t * s, leg: true });
+    out.push({ cap: true, a: lerp3(kn, an, sh[0]), b: lerp3(kn, an, sh[1]), r: sh[2] * t * s, leg: true });
   }
   return out;
 }
@@ -349,7 +381,7 @@ function armClear(A, T, l1, l2, pole, hull, s) {
 // clear of the body. `J.anT` and `J.wrT` are where each ankle and wrist was asked to be (the wrist
 // after the hull has had its say), so a gate can see a limb fall short.
 export function solvePose(P) {
-  const { J, W, s, Yw, toW } = solveTorso(P);
+  const { J, W, s, Yw, toW, b } = solveTorso(P);
   const dirW = (v) => norm(m3v(Yw, v));
   for (const S of ['L', 'R']) {
     const a = P['ank' + S];
@@ -367,7 +399,7 @@ export function solvePose(P) {
   }
   // a bat in two hands decides where the hands go: the bottom hand against the knob, the top
   // hand touching it, as a hitter holds a bat; and the bat and its hands are kept off the body
-  const hands = {}, hull = hullOf(J, W, s);
+  const hands = {}, hull = hullOf(J, W, s, b);
   if (P.bat) {
     const bd = dirW(P.bat.dir), bottom = P.bat.bottom || 'L', top = bottom === 'L' ? 'R' : 'L';
     const chestC = add(J.chest, m3v(W.chest, [0, 0.2 * s, 0.25 * s]));
@@ -396,7 +428,7 @@ export function solvePose(P) {
     hdir[S] = P['hand' + S] ? dirW(P['hand' + S]) : null;
     T[S] = pushHand(hull, J, W, s, S, toW(P['wr' + S]), hdir[S], P['clear' + S] ?? 1);
   }
-  for (const S of ['L', 'R']) girdle(J, W, S, T[S], s);
+  for (const S of ['L', 'R']) girdle(J, W, S, T[S], s, b.sh);
   for (const [S, sg] of [['L', 1], ['R', -1]]) {
     const ep = dirW(P['elb' + S] || [sg * 0.4, -0.2, -1]);
     const [el, wr, pe] = armClear(J['sh' + S], T[S], 0.98 * s, 0.90 * s, ep, hull, s);
@@ -580,10 +612,10 @@ export function boneFrames(sol, out = new Float32Array(BONES.length * FRAME_FLOA
 
 // The frames a body is built in: the bind pose for the body, and a batting stance for the fists
 // and the bat, which have nowhere to be in the bind pose. gl/ballplayer-mesh.js builds each part
-// from the same two solves.
-export const bindPoses = (scale = 1) => ({ body: { ...POSES.bind(), at: [0, 0, 0], yaw: 0, scale }, grip: { ...POSES.batStance(), at: [0, 0, 0], yaw: 0, scale } });
-export function bindFrames(scale = 1) {
-  const { body, grip } = bindPoses(scale);
+// from the same two solves, at his height and in his build (buildIn).
+export const bindPoses = (scale = 1, build = null) => ({ body: { ...scalePose(POSES.bind(), scale), at: [0, 0, 0], yaw: 0, scale, build }, grip: { ...scalePose(POSES.batStance(), scale), at: [0, 0, 0], yaw: 0, scale, build } });
+export function bindFrames(scale = 1, build = null) {
+  const { body, grip } = bindPoses(scale, build);
   const out = boneFrames(solvePose(body)), g = boneFrames(solvePose(grip));
   for (const b of [BONE.fistL, BONE.fistR, BONE.bat]) out.set(g.subarray(b * FRAME_FLOATS, (b + 1) * FRAME_FLOATS), b * FRAME_FLOATS);
   return out;

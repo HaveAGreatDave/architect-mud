@@ -202,6 +202,33 @@ let payloads = 0;
 for (const seed of seeds) payloads += play(seed);
 for (const seed of seedsV2) payloads += play(seed, 2);
 
+// ── the booth talking over the pitches ─────────────────────────────────────────
+// A payload riding the plate appearance's first line (`lead`) has that line up at once; its call,
+// come while the play's running, waits for the landing; one come after it goes up at once; and one
+// still waiting when the next payload comes goes up then, never at that one's landing.
+{
+  const { order } = gamedayPayloads(gameFor(seeds[0], 1), seeds[0], { abbr, ordinal });
+  const [p1, p2] = order.filter((q) => !q.phase && q.play).slice(0, 2);
+  const host = stub.makeHost(), view = createGamedayView(host), cap = () => host.find('.gd-cap-text')?.textContent || '';
+  const replaying = () => !!host.find('.gd-field')?.classList.contains('replaying');
+  view.setCaption('the lead line', { held: false });
+  view.apply({ ...p1, lead: true });
+  check('talk over the pitches: the first line up at once', cap() === 'the lead line', cap());
+  stub.runTimers(STEP_MS);
+  view.setCaption('the call', { held: true, call: true });
+  check('talk over the pitches: the call waits while its play runs', replaying() && cap() === 'the lead line', cap());
+  for (let t = 0; t < HOLD_MS && replaying(); t += STEP_MS) stub.runTimers(STEP_MS);
+  check('talk over the pitches: the call goes up as its play lands', !replaying() && cap() === 'the call', cap());
+  view.setCaption('the late call', { held: true, call: true });
+  check('talk over the pitches: a call after its play has landed goes up at once', cap() === 'the late call', cap());
+  view.apply({ ...p2, lead: true });
+  stub.runTimers(STEP_MS);
+  view.setCaption('the second call', { held: true, call: true });
+  view.apply({ ...p1, lead: true });
+  check('talk over the pitches: a call still waiting goes up as the next payload comes', cap() === 'the second call', cap());
+  view.clear(); stub.runTimers(60000);
+}
+
 // ── the clubs' colours ─────────────────────────────────────────────────────────
 // A club with an identity wears its kit's colours (ink when it's a colour, else trim, over the
 // darkest of ink, base and cap), home kit at home and road away; any other the house pair. The

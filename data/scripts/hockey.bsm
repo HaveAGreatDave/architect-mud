@@ -1,4 +1,4 @@
-@broadcast "Cluster Puck: CPhL Coldwater Hockey"
+@broadcast "Cluster Puck"
 @channel 7
 @category sport
 @type sports
@@ -451,10 +451,10 @@ Welcome in. The ice is down, the lights are on, and the insurance has lapsed. Le
 ::endlines
 
 ::lines matchup
-Tonight the {away} come to town to face the {home}.
-It's the {away} against the {home}, and one of these buildings empties out happy.
+Tonight the {away} take the visitors' bench against the {home}.
+It's the {away} against the {home}, and one end of this building goes home happy.
 {away} at {home}. Somebody's night gets worse in the next hour.
-The {away} in from out of district to meet the {home}. Sixty minutes, whatever's left of it.
+The {away} have the long walk from the visitors' room to meet the {home}. Sixty minutes, whatever's left of it.
 ::endlines
 
 # ── rivalry night ─────────────────────────────────────────────────────────────
@@ -470,12 +470,12 @@ Welcome in. When these two meet, the penalty minutes run about half again what t
 ::lines rivalry.matchup
 {away} at {home}, the meanest pairing on the schedule. The gloves come off nearly twice as often when these two meet.
 The {away} and the {home}. Both benches have dressed their heavyweights tonight.
-{away} into the {home}'s barn. The crowd has been on its feet since the warm-up, mostly shouting at the visitors' bench.
+{away} and {home}. Both ends of the Gardens have been on their feet since the warm-up, mostly shouting at each other.
 {away} versus {home}. The officials gave both captains a talk at the morning skate. Nobody listened last time either.
 ::endlines
 
 ::lines matchup.records
-The {away}, {awayRecord} on the season, into the barn against the {home} at {homeRecord}.
+The {away}, {awayRecord} on the season, against the {home} at {homeRecord}.
 On the marquee: {away} ({awayRecord}) versus {home} ({homeRecord}). Somebody's record gets worse tonight.
 {away} bring {awayRecord} in here. {home} sit at {homeRecord}. The scheduler doesn't care.
 ::endlines
@@ -875,67 +875,68 @@ It's fourteen below out there and colder in here, which is a choice somebody mad
 The CPhL doesn't have a commissioner. It has a scheduler, and the scheduler has never been late.
 ::endlines
 
-# ── the barns ─────────────────────────────────────────────────────────────────
-# Booth colour for a specific HOME building. The narrator looks for
-# `chatter.<first word of the home club's name>` and falls back to the general
-# `chatter` pool, so authoring a barn is entirely optional — a club with nothing
-# written for it behaves exactly as it did before. Add more as clubs earn them.
+# ── the clubs ─────────────────────────────────────────────────────────────────
+# Every game is played here at Golden Goose Gardens, so a club's colour is about
+# the club: its end of the building, its people, where it comes in from. The
+# narrator looks for `chatter.<first word of the club's name>` for either club
+# playing tonight and falls back to the general `chatter` pool, so a club with
+# nothing written for it behaves exactly as it did before.
 
 ::lines chatter.waterfront
-You can hear the cranes through the roof here. Third period, low tide, the whole building hums.
-The Waterfront barn floods twice a winter. They play through it. There's a line painted on the wall showing how high, and it's above my head.
-Half this crowd came straight off a shift, and half of them are still in their hard hats. The hats aren't for the hockey.
-The Wharf Rats count the rats under the stands as season ticket holders. On a quiet night they outnumber the crowd.
+The Rats' end came straight off a shift at the cranes, and half of them are still in their hard hats. The hats aren't for the hockey.
+The Rats practise on a pond at the Docks that floods twice a winter. There's a line on the boathouse wall showing how high, and it's above my head.
+The Wharf Rats' supporters' club counts the rats under these stands as members. On a quiet night they outnumber the crowd.
 Somebody throws a fish on the ice after every Rats goal. Nobody has ever seen who. The fish is always fresh.
+Rats fans come in off the Docks on the late tram and call it an away trip. It's four stops.
 ::endlines
 
 ::lines chatter.district
-The Goons' lobby has a gun rack. Coats and firearms, same counter, same attendant, one ticket.
-The crowd here doesn't cheer. It gets quieter, and every visiting club will tell you that's worse.
-District 9 numbers its streets and not its buildings. The away bus parks with its engine running.
+When the Goons are in, the cloakroom keeps a gun rack. Coats and firearms, same counter, same attendant, one ticket.
+The Goons' end doesn't cheer. It gets quieter, and every other club in this league will tell you that's worse.
+The Goons' bus comes down from District 9 and parks outside the front with its engine running.
 Most of the Goons carry a badge on a weekday. The rest handed theirs in, or had it taken off them.
 The Goons lift in the Precinct 9 gym after the night shift. The prisoners get the bench back in the morning.
 Nobody's ever pressed charges over a Goons hit. Nobody's sure who they'd press them with.
 ::endlines
 
 ::lines chatter.westside
-The Glasshouse barn has a climate curtain over every door and the coldest ice in the league. The seats are heated.
-Season tickets at Westside are inherited. There's a waiting list, and it's mostly lawyers.
-Westside warm up to a string quartet. Same four players for eleven years. They wear earplugs for the third period.
+The Warlords practise under the Glasshouse on the coldest ice in the city. They say this is slush, and they're right.
+Warlords season tickets are inherited. There's a waiting list, and it's mostly lawyers. They sit together, by the heaters.
+The Warlords bring their own string quartet. Same four players for eleven years. They wear earplugs for the third period.
 ::endlines
 
 ::lines chatter.boomtown
-The Boomtown barn was a foundry. Some nights you can still smell the casting sand.
-Every Bulldogs home game starts with the anvil. A man in an apron hits it once and the building goes quiet.
-The rail along the boards here is pipe from the old works, painted orange. It rings when somebody goes into it.
+The Bulldogs train in an old foundry in Boomtown. Some nights their sweaters still smell of the casting sand.
+The Bulldogs bring the anvil with them. A man in an apron hits it once before the drop and their whole end goes quiet.
+Bulldogs fans hang a length of pipe from the old works over the rail at their end. It rings when somebody goes into the boards under it.
 ::endlines
 
 ::lines chatter.marquee
-The Marquee barn shares a wall with a nightclub. Third period, you can feel the bass through the glass.
-Half the crowd at the Marquee came out in costume for something else. They stay for the fights.
-The scoreboard here used to be a cinema sign. Two of its letters have been missing for forty years.
+The Marauders practise in a rink that shares a wall with a nightclub on the Marquee. They say they don't hear the bass any more.
+Half the Marauders' end came out in costume for something else on the Marquee. They stay for the fights.
+The Marauders' banner used to be a cinema sign. Two of its letters have been missing for forty years.
 ::endlines
 
 ::lines chatter.coldwater
-The Highlanders walk out to a piper. He isn't good. He's played every home game for fourteen years.
-Marrow Street pulls its shutters down an hour before puck drop. Everybody on it is in here.
+The Highlanders walk out to a piper. He isn't good. He's played every one of their games for fourteen years.
+Marrow Street pulls its shutters down an hour before a Highlanders game. Everybody on it is in here.
 The Highlanders' sweaters are woven on a loom above a chip shop on Marrow Street. It's a real clan sett, the Malcolm.
 ::endlines
 
-# A barn's pool is keyed by the first word of the club's name, so the St Garneau
+# A club's pool is keyed by the first word of its name, so the St Garneau
 # Guillotines' is chatter.st and the Yard Birds' is chatter.yard.
 ::lines chatter.st
-The Guillotines are Father Jerome's club. He blesses the ice before the drop, and the ice crew waits until he's done.
-The home bench at St Garneau's is two pews out of the nave, bolted to the boards.
+The Guillotines are Father Jerome's club. He blesses the ice before the drop, and the ice crew here waits until he's done.
+Two of the parish men bring a pew from St Garneau's for the Guillotines' bench, on a handcart, every game.
 Every Guillotines sweater goes through the Sisters of St Garneau's laundry on a Monday. The stains mostly come out.
-Father Jerome never misses a home game. He sits by the door, and he watches it more than the ice.
+Father Jerome never misses a Guillotines game. He sits by the door, and he watches it more than the ice.
 ::endlines
 
 ::lines chatter.yard
-The Yards barn is a cold store with seats bolted in. The ice was here first.
-The tannoy here came out of a freight shed. In the second intermission it still reads out bay numbers.
+The Birds practise in a cold store in the Yards with seats bolted in. They say this ice is warm.
+Birds fans brought a tannoy out of a freight shed once. Security took it off them, and in the second intermission they still shout bay numbers.
 Birds fans crow when their side scores. All of them at once, and it goes on longer than you'd think.
-Somebody gets a live rooster into this barn every season. Security has stopped asking how, and nobody has caught the rooster.
+Somebody gets a live rooster into the Gardens whenever the Birds play. Security has stopped asking how, and nobody has caught the rooster.
 ::endlines
 
 ::lines final
@@ -955,7 +956,7 @@ Tug Brennan, saying goodnight from Coldwater. Nobody won anything permanent.
 ::lines cup.intro
 This is it. The Coldwater Cup. Nobody can produce a record of who commissioned it, and the one reporter who went looking took a job in Terminus instead.
 Cup final tonight. One game, one trophy, and a trophy nobody can explain.
-Cup final at Golden Goose Gardens, the league's own barn out by the south wall. The ice belongs to the league as well, and it shows.
+Cup final, here at Golden Goose Gardens. Same ice as every other night, and tonight somebody has swept it.
 ::endlines
 
 ::lines cup.matchup
@@ -971,6 +972,66 @@ IT'S OVER. The {leader} are your Coldwater Cup champions. Carve it into whatever
 ::lines cup.outro
 Coldwater Cup champions, the {leader}. Enjoy it. Historically, that has been the advice.
 The {leader} take the Cup. I'm Tug Brennan, and I'd let it air out before you drink from it.
+::endlines
+
+# ── live from the Gardens ─────────────────────────────────────────────────────
+# The first line after the title card, while Rinkside flies in over the city and down
+# onto the ice. {venue} is what the booth calls the building (sports_pools.venue.said).
+::lines live
+Live from {venue}!
+Live from {venue}, out by the south wall, where the CPhL plays every one of its games!
+Live from {venue}! The ice is down and the doors are open.
+::endlines
+
+::lines cup.live
+Live from {venue}, for the {final}!
+Live from {venue}! One game left in the season, and it's for the {final}.
+::endlines
+
+# ── the Cup package ───────────────────────────────────────────────────────────
+# Read over three cards before the drop on Cup night (sports/final-package.js): the
+# tale of the tape, the road here, and the men to watch. A .club pool is read once a
+# club, away first. {district} is where the club is from, {place} its place in the
+# table, {seed} its seed, {diff} its goal difference; {last10} reads "6, 3 and 1"
+# for wins, losses and overtime losses; {streak} reads "won three straight".
+::lines cup.tape.club
+The {club}, out of {district}: {record}, {place} in the table, and the {seed} seed.
+From {district}, the {club}. {record} on the season, {place}, and a goal difference of {diff}.
+The {club}: the {seed} seed, {record}, {scored} goals for and {allowed} against. Home is {district}.
+::endlines
+
+::lines cup.road.club
+The {club} went {last10} over their last ten, and they've {streak}.
+Form for the {club}: {last10} in the last ten. They've {streak} coming in.
+::endlines
+
+::lines cup.series
+These two met {meetings} times this season, and the {leader} took {leadWins} of them.
+Season series: the {leader} {leadWins}, the {trailer} {trailWins}. None of it counts tonight.
+::endlines
+
+::lines cup.series.even
+They split the season series, {leadWins} apiece. Tonight settles it.
+::endlines
+
+::lines cup.series.none
+These two never met this season. The scheduler kept them apart until tonight.
+::endlines
+
+# {star} is the club's top scorer and {starSaid} his season; {next} is the man in net
+# and {nextSaid} his.
+::lines cup.watch.club
+Watch {star} for the {club}: {starSaid}. In net, {next}, with {nextSaid}.
+For the {club} it's {star}, {starSaid}, and {next} behind him in goal, with {nextSaid}.
+::endlines
+
+::lines cup.watch.club.one
+Watch {star} for the {club}: {starSaid}.
+::endlines
+
+::lines cup.watch.out
+The {club} are without {missing} tonight. The reserve dresses in their place.
+Not dressing for the {club}: {missing}. Still on the shelf.
 ::endlines
 
 # ── the call ─────────────────────────────────────────────────────────────────

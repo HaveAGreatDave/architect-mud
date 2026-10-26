@@ -20,6 +20,7 @@
  */
 import { sportsRng, sportsShuffle, sportsHash, sportsPickTagged } from '../rng.js';
 import { clubsRevOf } from './clubs.js';
+import { paceCalls } from './baseball-pacing.js';
 import {
   fieldSpots, groundChances, airChances, carry, evFor, hangTime, gradeOf, toPark, sprayOf, fenceAt,
   toFirst, throwTime, railRoom, RANGING, TRANSFER, POSITIONS,
@@ -91,6 +92,50 @@ export function battingSide(batter, pitcher) {
   return b !== 'S' ? b : (handOf(pitcher).throws === 'L' ? 'R' : 'L');
 }
 
+// ── Styles ───────────────────────────────────────────────────────────────────
+// What kind of player a man is, from his name alone, as his handedness is: the same in every
+// game, on every TV, and in every season. A pitcher has a style (the pitches he relies on and
+// the one he puts a man away with), a delivery and a tempo; a hitter is a power bat, a
+// contact man, a glove man or neither. The booth builds its storylines on them
+// (baseball-booth.js) and a pitcher's pitches in the park are drawn from his mix.
+//
+// The sim never reads a style: a game that has aired replays as it aired, and the outcome
+// table is flat. So a power bat's season can be a lean one, and the booth says so. The tempo
+// is the one exception, and only because it already was: it's quicknessOf, which decides steals.
+//
+// A mix is [type, weight, low mph, high mph]. Each pitch type needs a SPIN entry in
+// client/game/js/panels/diamond/flight.js or the park throws it with no movement.
+export const PITCHER_STYLES = Object.freeze({
+  flamethrower: { w: 18, out: 'Four-Seam Fastball', mix: [['Four-Seam Fastball', 58, 95, 101], ['Slider', 24, 86, 91], ['Curveball', 10, 78, 84], ['Changeup', 8, 85, 90]] },
+  sinkerballer: { w: 18, out: 'Slider', mix: [['Sinker', 50, 89, 94], ['Slider', 20, 82, 87], ['Changeup', 18, 82, 87], ['Cutter', 12, 86, 90]] },
+  slider: { w: 18, out: 'Slider', mix: [['Slider', 40, 84, 90], ['Four-Seam Fastball', 40, 92, 96], ['Changeup', 10, 84, 88], ['Cutter', 10, 88, 92]] },
+  junkballer: { w: 12, out: 'Changeup', mix: [['Changeup', 30, 77, 83], ['Curveball', 28, 69, 76], ['Four-Seam Fastball', 25, 85, 89], ['Cutter', 17, 81, 86]] },
+  splitter: { w: 12, out: 'Splitter', mix: [['Four-Seam Fastball', 45, 92, 97], ['Splitter', 35, 84, 89], ['Slider', 20, 84, 88]] },
+  curveball: { w: 12, out: 'Curveball', mix: [['Four-Seam Fastball', 45, 91, 95], ['Curveball', 35, 74, 80], ['Changeup', 20, 83, 87]] },
+  cutter: { w: 8, out: 'Cutter', mix: [['Cutter', 50, 88, 93], ['Four-Seam Fastball', 30, 92, 95], ['Curveball', 20, 76, 81]] },
+  knuckleballer: { w: 4, out: 'Knuckleball', mix: [['Knuckleball', 78, 63, 72], ['Four-Seam Fastball', 22, 79, 84]] },
+});
+const DELIVERIES = [['over the top', 30], ['three-quarters', 45], ['sidearm', 18], ['submarine', 7]];
+export const BATTER_TYPES = Object.freeze({ power: 30, contact: 35, glove: 25, balanced: 10 });
+const draw = (table, u) => { let total = 0; for (const [, w] of table) total += w; let r = u * total; for (const [k, w] of table) { r -= w; if (r <= 0) return k; } return table[table.length - 1][0]; };
+// A pitcher's style, delivery and tempo. Tempo is his time to the plate: quick is a slide step
+// that holds runners, slow is a big leg kick they run on.
+export function pitcherStyleOf(name) {
+  const h = nameHash(name, 0x5054);
+  const style = draw(Object.entries(PITCHER_STYLES).map(([k, s]) => [k, s.w]), (h & 0xffff) / 65536);
+  const delivery = style === 'knuckleballer' ? 'over the top' : draw(DELIVERIES, (h >>> 16) / 65536);
+  const q = quicknessOf(name);
+  const s = PITCHER_STYLES[style];
+  const top = s.mix.reduce((m, p) => Math.max(m, p[3]), 0);
+  const second = s.mix.find((p) => p[0] !== s.out)?.[0] || s.out;
+  return { style, delivery, tempo: q > 0.7 ? 'quick' : q < 0.3 ? 'slow' : 'even', mix: s.mix, out: s.out, second, top };
+}
+// A hitter's type, and whether he can run (speedOf, which the sim's steals read).
+export function batterTypeOf(name) {
+  const type = draw(Object.entries(BATTER_TYPES), (nameHash(name, 0x4254) & 0xffff) / 65536);
+  return { type, speedy: speedOf(name) >= 0.78 };
+}
+
 // ── Gameday: synthesized pitch-by-pitch + play descriptions ───────────────────
 // The DEADBALL sim resolves at the AT-BAT level — it has no pitch data. For the
 // animated Gameday sub-screen we synthesize a plausible pitch sequence per at-bat,
@@ -131,9 +176,21 @@ export function playDesc(b) {
 // where x,y ∈ [0,1] (the strike zone is the box ~0.25–0.75) and result is one of
 // ball | called | swinging | foul | inplay, or hbp for the pitch that hits a batter (sim
 // v2). balls/strikes are the count AFTER the pitch.
-export function synthPitches(seed, kind) {
+//
+// `style` (pitcherStyleOf) draws the pitches from his mix instead of the league's, and strike
+// three is his out pitch a little over half the time. Either way each pitch takes the same
+// draws in the same order, so a style changes what was thrown and never where or what came of it.
+export function synthPitches(seed, kind, style = null) {
   const rand = sportsRng(seed);
-  const pickType = () => { let r = rand() * PITCH_TOTAL; for (const p of PITCH_TYPES) { r -= p.w; if (r <= 0) return p; } return PITCH_TYPES[0]; };
+  const table = style?.mix ? style.mix.map(([type, w, lo, hi]) => ({ type, w, lo, hi })) : PITCH_TYPES;
+  const total = style?.mix ? table.reduce((s, o) => s + o.w, 0) : PITCH_TOTAL;
+  const fromTable = (u) => { let r = u * total; for (const p of table) { r -= p.w; if (r <= 0) return p; } return table[0]; };
+  const pickType = (finisher) => {
+    const u = rand();
+    if (!finisher || !style?.out) return fromTable(u);
+    const OUT_SHARE = 0.55;
+    return u < OUT_SHARE ? (table.find((p) => p.type === style.out) || fromTable(u)) : fromTable((u - OUT_SHARE) / (1 - OUT_SHARE));
+  };
   const zone = (result) => {
     // A hit batter: well inside, at the hands or the hip.
     if (result === 'hbp') return { x: rand() < 0.5 ? 0.02 + rand() * 0.04 : 0.94 + rand() * 0.04, y: 0.35 + rand() * 0.35 };
@@ -168,7 +225,7 @@ export function synthPitches(seed, kind) {
     if (result === 'ball') balls++;
     else if (result === 'foul') { if (strikes < 2) strikes++; }
     else if (result !== 'hbp') strikes++;   // the pitch that hits him counts as neither
-    const p = pickType();
+    const p = pickType(i === results.length - 1 && terminal === 'strike');
     const z = zone(result);
     return {
       n: i + 1, type: p.type,
@@ -1285,6 +1342,12 @@ export const BASEBALL = {
   contactCall,
   playDesc,
   playTokens,
+  // Each line holds about as long as it takes to say, and a payload's hold runs to the next
+  // payload, so the park plays on through the booth's talk (baseball-pacing.js).
+  paceCalls,
+  holdSpansGap: true,
+  pitcherStyleOf,
+  batterTypeOf,
   handOf,
   battingSide,
   defaultNames: DEFAULT_NAMES,
