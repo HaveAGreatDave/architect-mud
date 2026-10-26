@@ -509,7 +509,7 @@ const handlers = {
     // passenger HUD) or an open hangar bay panel — all replace the plain-text room
     // description with their own app in the same area-pane.
     const free = paneFreeForRoom();
-    if (free) setAreaPane(msg.message);
+    if (free) setAreaPane(msg.message, undefined, !!msg.zone && msg.zone !== state.currentZone);
     // Display Mode `log` — the room goes to the scrolling log as well. The pane is
     // aria-hidden at that rung, so this duplication is inaudible to a screen
     // reader and is the ONLY way the room reaches them; a sighted player on this
@@ -557,7 +557,7 @@ const handlers = {
     // If the bay panel already won that race, don't stomp it; it owns the pane
     // until the player actually leaves (hangar_close triggers a fresh look).
     const free = paneFreeForRoom();
-    if (free) setAreaPane(msg.message, msg.direction);
+    if (free) setAreaPane(msg.message, msg.direction, true);
     if (msg.narration) appendHtml(msg.narration, 'move');
     if (msg.toLog) appendHtml(msg.logMessage || msg.message, 'look');   // see the `look` handler
     setPaneSilent(!!msg.toLog && free);

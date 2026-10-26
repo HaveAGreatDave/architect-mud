@@ -352,9 +352,13 @@ export function setPaneSilent(silent) {
   if (container) container.classList.toggle('log-rung', !!silent);
 }
 
-export function setAreaPane(html, direction) {
+// `newRoom` scrolls the pane back to the top, where the lists are (describe.js
+// prints them above the prose). Only on a room change: the silent looks that
+// repaint the same room every few hundred ms must leave a scrolled pane alone.
+export function setAreaPane(html, direction, newRoom = false) {
   const el = document.getElementById('area-content');
   el.innerHTML = html;
+  if (newRoom) document.getElementById('area-pane').scrollTop = 0;
   applyDescCollapse(el);
   applyBeacons();
   playNameMorphs(el);

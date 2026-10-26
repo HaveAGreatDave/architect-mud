@@ -1034,9 +1034,11 @@ body.fl-hidepanel #look-resize-handle { display: none; }
 }
 
 /* Collapsible room prose (compact view). Block so it can clamp; the toggle
-   sits on its own line beneath. */
+   sits on its own line beneath. It prints under the lists (describe.js), so the
+   margin gives it a paragraph gap from the last row. */
 .room-desc {
 	display: block;
+	margin-top: 0.7em;
 }
 /* Woven-object prose (furniture + cameras) — its own paragraph beneath the room
    description, with a blank-line gap so it reads as a second beat. */

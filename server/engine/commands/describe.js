@@ -1616,6 +1616,15 @@ export async function describeZone(zone, player, out = {}) {
 	// (see sceneryProse). Sits before the weather so the room finishes describing
 	// itself before it looks up at the sky.
 	const scenerySuffix = sceneryLine ? ` ${sceneryLine}` : "";
+	// THE LISTS PRINT ABOVE THE PROSE. The header is set aside here, the prose
+	// block (description through the stains) is built into `desc` and set aside
+	// in turn, and everything after it (items, furniture, people, exits,
+	// buildings, rooms) is joined back in between the two at the return. The
+	// pane is capped at 65% of the column and scrolls, so whatever comes second
+	// is what a long room cuts off, and the rows you click are the part that
+	// changes. room-brief.js reads lines by class, so it doesn't care about order.
+	const header = desc;
+	desc = "";
 	desc += `\n<span class="room-desc">${zoneDesc}${scenerySuffix}${weatherLine}${skylineLine}${warpLine}${describeBuildingDiscovery(buildings)}</span>`;
 	// Woven-object prose (furniture + PD cams) lives in its own paragraph after the
 	// room description — a natural second beat rather than a tail on the authored
@@ -1688,6 +1697,8 @@ export async function describeZone(zone, player, out = {}) {
 				desc += `\n<span style="color:var(--yellow)">${fn(count)}</span>`;
 		}
 	}
+	const prose = desc;
+	desc = "";
 
 	if (groundItems.length) {
 		if (isDim) {
@@ -2050,7 +2061,7 @@ export async function describeZone(zone, player, out = {}) {
 		));
 		desc += `\n<span class="rooms-row"><span class="rooms-label">Rooms:</span> ${links.join(", ")}</span>`;
 	}
-	return desc;
+	return header + desc + prose;
 }
 
 // Exposed for the regression harness: which pieces the room deliberately does
