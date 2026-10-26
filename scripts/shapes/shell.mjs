@@ -228,7 +228,7 @@ ok(!!shellProfileFor('prop'), 'a light twin gets no interior');
 // so what is checked is that it builds its own room, not that it carries the generic `bubble` flag.
 ok(!!shellProfileFor('heli') && typeof shellProfileFor('heli').room === 'function', 'a helicopter is not sitting in its own derived bubble');
 // And each of these has its own gate, which holds the inside against its exterior (cockpit-<id>.mjs).
-// ⚠ EVERY FLYABLE CLASS HAS ITS OWN ROOM NOW (interior-fit-craft.js), and "its own" is the check:
+// ⚠ EVERY FLYABLE CLASS HAS ITS OWN ROOM NOW (interior-<id>.js), and "its own" is the check:
 // two classes resolving to one profile is the shared tub this replaced.
 const CRAFT = { prop: 'mule', heavy: 'leviathan', gunship: 'reaper', divebomber: 'shrike', locust: 'locust',
   grasshopper: 'grasshopper', ultralight: 'mayfly', wreck: 'carcass', drake: 'drake' };

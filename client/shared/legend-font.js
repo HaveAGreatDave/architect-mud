@@ -66,10 +66,17 @@ const ADV = 5.4, HALF = 0.62;   // grid units per letter, and half a stroke
 
 export const legendWidth = (str, h) => ((String(str).length * ADV - (ADV - 4 - HALF * 2)) * h) / 6;
 
+// A gate's ear on the size of the lettering (scripts/shapes/cockpit-controls.mjs). `label(str, foot,
+// head)` hears every line drawn on a panel that can say where it is (`Pn.pt`), with the cabin points
+// of the middle of its baseline and of its cap line, so the gate can measure how big it looks from
+// the eye. Null everywhere but the gate.
+export const LEGEND_TRACE = { label: null };
+
 // One line of legend centred on (ca, cb), `h` metres tall, onto a kit panel. Returns its width.
 // `shadow` (optional) lays the same letters a hair down-right in that colour first, which is what
 // reads as the letters being cut into the panel.
 export function legend(Pn, str, ca, cb, h, rgb, emis = 0.12, lift = 0.002, shadow = null) {
+  if (LEGEND_TRACE.label && Pn.pt && String(str).trim()) LEGEND_TRACE.label(String(str), Pn.pt(ca, cb - h / 2, lift), Pn.pt(ca, cb + h / 2, lift));
   const u = h / 6, W = legendWidth(str, h);
   const bar = (x0, y0, x1, y1, ox, oy, c, l) => {
     let dx = x1 - x0, dy = y1 - y0;

@@ -2,7 +2,7 @@
 //
 // ── WHICH AEROPLANE ──────────────────────────────────────────────────────────
 //
-// The game calls her an Air Tractor analogue and the old fit-out (interior-fit-craft.js) drew a PT6
+// The game calls her an Air Tractor analogue and the old shared fit-out drew a PT6
 // turbine column on the panel. The EXTERIOR says otherwise and the exterior wins, because it is the
 // thing you can see the wings of: FW_ROWS.locust is a low-wing monoplane (so not the biplane
 // Ag-Cat), a taildragger with a round piston nose and a spinner (`prop: 'nose'`, `noseCowl` 0.34,

@@ -701,6 +701,8 @@ function installApi() {
     // From the pilot's seat: the class's own cockpit (interior-shell.js), in GLASS 2 over a small
     // test city, with the head turned by yaw/pitch. Saved like any shot. See seatShot below.
     seat: (opts = {}) => seatShot(curId(), opts),
+    // The same seat from the six SHEET_VIEWS in one picture. See cockpitSheet below.
+    sheet: (opts = {}) => cockpitSheet(curId(), opts),
     // For a check that a converted file still draws what its builder did.
     legacyFaces: (detail = 1) => legacyMeshFaces(curId(), detail)?.length ?? null,
   };
@@ -728,6 +730,44 @@ function seatMap() {
 }
 export async function seatShot(cls, o = {}) {
   if (!cls || !shellProfileFor(cls, !!o.armed)) return { error: 'no interior for ' + cls };
+  return paintSeat(cls, o, (cv) => postShot(cv, o.name || ('seat-' + cls + '-' + Math.round(o.yaw || 0) + '-' + Math.round(o.pitch || 0))));
+}
+
+// THE COCKPIT CONTACT SHEET: one seat from the same six places every time, so a cockpit is judged
+// before and after a change, and against the Drake, on the same frames. Ahead, down at the panel,
+// each side, up at the roof, and ahead at night with the panel lights on. `o` takes seatShot's
+// `armed`, `instr` and `extra`, which every tile shares. Saved like any shot; returns its path.
+export const SHEET_VIEWS = [
+  { label: 'ahead', yaw: 0, pitch: -14 },
+  { label: 'panel', yaw: 0, pitch: -34 },
+  { label: 'left', yaw: -65, pitch: -12 },
+  { label: 'right', yaw: 65, pitch: -12 },
+  { label: 'up', yaw: 0, pitch: 40 },
+  { label: 'night, panel lit', yaw: 0, pitch: -14, hour: 22, instr: { panelLight: 1 } },
+];
+export async function cockpitSheet(cls, o = {}) {
+  if (!cls || !shellProfileFor(cls, !!o.armed)) return { error: 'no interior for ' + cls };
+  const W = o.w || 960, H = o.h || 540;
+  const sheet = document.createElement('canvas');
+  sheet.width = W * 2; sheet.height = H * 3;
+  const g = sheet.getContext('2d');
+  for (const [i, v] of SHEET_VIEWS.entries()) {
+    const x = (i % 2) * W, y = Math.floor(i / 2) * H;
+    // ⚠ THE COPY IS MADE INSIDE paintSeat'S CALLBACK, in the task that drew the frame: a WebGL canvas
+    // with no preserved buffer is blank by the time anything awaited comes back to it.
+    await paintSeat(cls, { ...o, w: W, h: H, yaw: v.yaw, pitch: v.pitch, hour: v.hour ?? o.hour ?? 13,
+      instr: { ...(o.instr || {}), ...(v.instr || {}) } }, (cv) => g.drawImage(cv, x, y, W, H));
+    g.font = 'bold 20px system-ui, sans-serif';
+    g.fillStyle = 'rgba(0,0,0,0.6)';
+    g.fillRect(x, y, g.measureText(v.label).width + 20, 32);
+    g.fillStyle = '#fff';
+    g.fillText(v.label, x + 10, y + 23);
+  }
+  return postShot(sheet, o.name || ('sheet-' + cls + (o.armed ? '-armed' : '')));
+}
+
+// Paints one seat view onto a canvas of its own and hands it to `use` straight after the last frame.
+async function paintSeat(cls, o, use) {
   const W = o.w || 1100, H = o.h || 620;
   const holder = document.createElement('div');
   holder.style.cssText = 'position:fixed;left:0;top:0;z-index:9999;background:#000;width:' + W + 'px;height:' + H + 'px';
@@ -745,7 +785,7 @@ export async function seatShot(cls, o = {}) {
       instr: Object.assign({ ias: 88, alt: 640, hdg: 12, rpm: 0.97, throttle: 0.6, fuel: 0.72, pitch: 3, bank: -8, vsi: 300,
         wings: 0, rotorFold: 0, hour: 10.25 }, o.instr || {}), ...(o.extra || {}) };
     for (let i = 0; i < 3; i++) paintWindshield(cv.id, v);
-    return await postShot(cv, o.name || ('seat-' + cls + '-' + Math.round(o.yaw || 0) + '-' + Math.round(o.pitch || 0)));
+    return await use(cv);
   } finally { Object.assign(RENDER_TUNE, keep); if (typeof un === 'function') un(); holder.remove(); }
 }
 

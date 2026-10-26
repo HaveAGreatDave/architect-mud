@@ -1,6 +1,6 @@
 // THE GATE FOR EVERY SEAT'S CONTROLS AND LETTERING, across all the cockpits at once.
 //
-// Two questions, each silent when wrong:
+// Three questions, each silent when wrong:
 //   a) does every control in a flight seat do something? cockpit.js takes a click on a hotspot to
 //      DK_ACT by its id and a drag or a hold by its kind, and names it from DK_TIP. A hotspot whose id
 //      DK_ACT lacks still gets the hand cursor and the halo, and the click does nothing: the Mule's
@@ -9,11 +9,18 @@
 //   b) does every word in every seat read true from the eye? The kit reports each label drawn on a
 //      panel it had to turn round to face the eye (KIT_TRACE), and that label reads mirrored. Every
 //      overhead label in the Mule did (docs/reference/cockpit-lettering.md rule 7).
+//   c) is every word big enough to read from the eye? legend-font.js reports each line it draws
+//      (LEGEND_TRACE) with its baseline and cap line in cabin metres, and the angle between them from
+//      the eye is how tall it looks. Under LEGIBLE_ARCMIN it's a smudge in the seat view. Most seats
+//      had dozens of those when this was written, so it's a ratchet: cockpit-legibility.json holds
+//      each seat's count, a count that rises fails, and `--update` locks in a count that fell.
 // Each cockpit's own gate (cockpit-<id>.mjs) asks whether its room is right; this one asks it of all.
-// Run: node scripts/shapes/cockpit-controls.mjs   (exit 1 on any failure)
+// Run: node scripts/shapes/cockpit-controls.mjs   (exit 1 on any failure; --update rewrites the ratchet)
+import { readFileSync, writeFileSync } from 'node:fs';
 import { shellFaces, shellProfileFor, SHELL_CLASS } from '../../client/shared/interior-shell.js';
 import { drakeHotspots } from '../../client/shared/interior-drake.js';
 import { KIT_TRACE } from '../../client/shared/interior-kit.js';
+import { LEGEND_TRACE } from '../../client/shared/legend-font.js';
 import { BOAT_ROWS } from '../../client/shared/vehicle-models.js';
 import { readDkTables } from './dk-tables.mjs';
 
@@ -46,6 +53,20 @@ const STATES = [
   { powered: false, throttle: 0, rpm: 0, hour: 2, gearDown: true },
 ];
 
+// How tall a line of legend has to look from the eye to read: 20 arcminutes is about six pixels in
+// the seat view, one pixel per row of the face's 4 x 6 grid. The Drake's smallest label is about 29.
+const LEGIBLE_ARCMIN = 20;
+const arcmin = (a, b) => {
+  const c = (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (Math.hypot(...a) * Math.hypot(...b));
+  return Math.acos(Math.max(-1, Math.min(1, c))) * 10800 / Math.PI;
+};
+const BASELINE_URL = new URL('./cockpit-legibility.json', import.meta.url);
+const UPDATE = process.argv.includes('--update');
+let BASELINE = {};
+try { BASELINE = JSON.parse(readFileSync(BASELINE_URL, 'utf8')); } catch { BASELINE = {}; }
+const small = {};
+let improved = 0;
+
 const { ACT, TIP, KINDS } = readDkTables();
 ok(!!ACT && !!TIP && !!KINDS, 'could not read DK_ACT, DK_TIP or the hotspot kinds out of cockpit.js; every check below would pass on nothing');
 
@@ -56,6 +77,13 @@ for (const [name, cls, armed, trim] of SEATS) {
   seats++;
   const mirrored = new Map();
   KIT_TRACE.mirrored = (str, o) => mirrored.set(str, o);
+  // One entry per line of lettering (its words and where it is), at its smallest across the states.
+  const sizes = new Map();
+  LEGEND_TRACE.label = (str, foot, head) => {
+    const key = str + '@' + foot.map((x) => x.toFixed(2)).join(',');
+    const m = arcmin(foot, head);
+    if (!sizes.has(key) || sizes.get(key).m > m) sizes.set(key, { str, m });
+  };
   const hs = new Map();
   for (const live of STATES) {
     // Built first: the Drake records where its levers and stores landed while it draws them.
@@ -64,6 +92,7 @@ for (const [name, cls, armed, trim] of SEATS) {
     for (const h of list || []) hs.set(h.id, h.kind);
   }
   KIT_TRACE.mirrored = null;
+  LEGEND_TRACE.label = null;
 
   // a) every control does something, and says what.
   if (flight(cls) && ACT && TIP && KINDS) {
@@ -77,9 +106,21 @@ for (const [name, cls, armed, trim] of SEATS) {
   // b) every word reads true from the seat.
   ok(!mirrored.size, name + ': ' + [...mirrored].map(([s, o]) => '"' + s + '" at [' + o.map((x) => x.toFixed(2)).join(', ') + ']').join(', ')
     + ' read mirrored. Its panel faces away from the eye; give it the across and up you read it by (cockpit-lettering.md rule 7)');
+  // c) every word is big enough to read from the seat, or at least no more of them are too small.
+  const tiny = [...sizes.values()].filter((x) => x.m < LEGIBLE_ARCMIN).sort((a, b) => a.m - b.m);
+  small[name] = tiny.length;
+  const was = BASELINE[name] ?? 0;
+  if (tiny.length < was) improved++;
+  if (!UPDATE) ok(tiny.length <= was, name + ': ' + tiny.length + ' labels under ' + LEGIBLE_ARCMIN + ' arcmin from the eye (the ratchet allows ' + was
+    + '), smallest ' + tiny.slice(0, 5).map((x) => '"' + x.str + '" ' + x.m.toFixed(1) + "'").join(', ') + '. Make them bigger (cockpit-lettering.md rule 4)');
 }
 ok(seats >= 15, 'only ' + seats + ' seats found; shellProfileFor or SHELL_CLASS has changed shape');
 
-console.log('    ' + seats + ' seats · ' + controls + ' flight controls');
+console.log('    ' + seats + ' seats · ' + controls + ' flight controls · '
+  + Object.values(small).reduce((a, b) => a + b, 0) + ' labels too small to read from the seat');
+if (UPDATE) {
+  writeFileSync(BASELINE_URL, JSON.stringify(Object.fromEntries(Object.entries(small).filter(([, n]) => n > 0)), null, 2) + '\n');
+  console.log('    cockpit-legibility.json rewritten');
+} else if (improved) console.log('    ' + improved + ' seats have fewer small labels than the ratchet allows: run with --update to lock them in');
 console.log('\n' + (checks - fails) + '/' + checks + ' checks passed');
 process.exit(fails ? 1 : 0);

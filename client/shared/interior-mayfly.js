@@ -441,7 +441,9 @@ function layout(P) {
     tach: { x: 0.098, z: top - 0.265, R: 0.036 },
     clock: { x: -0.092, z: top - 0.262, R: 0.024 },
     stack: { x: xC + 0.02, w: 0.088, z0: top - 0.30, z1: top - 0.012 },
-    sw: { z: top - 0.360, x: [-0.180, -0.145, -0.110, -0.080, -0.050, -0.020, 0.010] },  // master BAT|ALT, avionics, beacon, land, taxi, nav, strobe
+    // Master BAT|ALT, avionics, landing, taxi. A 172 also has beacon, nav and strobe rockers here; the
+    // sim has no circuit for them, so they aren't drawn (docs/reference/cockpit-lettering.md).
+    sw: { z: top - 0.360, x: [-0.180, -0.140, -0.100, -0.065] },
     mags: [-0.180, top - 0.290],
     throttle: [xC - 0.045, top - 0.335], mixture: [xC + 0.045, top - 0.335],
     flap: [xC + 0.165, top - 0.290],
@@ -451,6 +453,13 @@ function layout(P) {
     trim: [xC - 0.058, 0.42, 0],       // z filled in from the floor
     fuel: [xC, 0.27, 0],
   };
+}
+
+// The GPS screen in the stack, the one control the Mayfly takes clicks on until its pass wires the
+// rest. Centred on the screen mayflyFit draws (gz0..gz1 there), on the same panel frame.
+export function mayflyGpsHotspot(P) {
+  const Y = layout(P), st = Y.stack, gz1 = st.z1 - 0.034;
+  return { id: 'ck:gps', p: [st.x, P.dashY - 0.01, gz1 - 0.0425], r: 0.045, kind: 'click' };
 }
 
 function fixedFit(P, push) {
@@ -767,10 +776,10 @@ export function mayflyFit(P, live, push) {
   void st;
 
   // ── SWITCHES: the split red master, avionics, then the light rockers ─────
-  const state = [powered, powered, powered, powered, !!L.landingLight, !!L.landingLight, powered, powered];
-  const swN = ['BAT ALT', 'AVION', 'BCN', 'LAND', 'TAXI', 'NAV', 'STROBE'];
+  const state = [powered, powered, !!L.landingLight, !!L.landingLight];
+  const swN = ['BAT ALT', 'AVION', 'LAND', 'TAXI'];
   Y.sw.x.forEach((x, i) => {
-    const on = i === 0 ? state[0] : state[i + 1], red = i === 0;
+    const on = state[i], red = i === 0;
     Pn.fitText(swN[i], x, Y.sw.z - 0.026, 0.027, 0.0065, post ? [255, 226, 190] : C.tick, 0.35, 0.004);
     if (i === 0) {
       // The master: two red paddles side by side, BAT and ALT.

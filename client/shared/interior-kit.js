@@ -281,7 +281,7 @@ export function makeKit(push, fwd = true) {
       const a0 = o2.a0 ?? Math.PI * 1.25, sweep = o2.sweep ?? Math.PI * 1.5;
       // The face does not move with the needle, so it is its own (cached) call; the needles and the
       // boss drawn over them follow, in the order they always were.
-      dialFaceC(ca, cb, R, o2.a0, o2.sweep, o2.ticks, o2.major, o2.bezel, o2.face, o2.arcs, o2.red, o2.tick, o2.label, o2.name);
+      dialFaceC(ca, cb, R, o2.a0, o2.sweep, o2.ticks, o2.major, o2.bezel, o2.face, o2.arcs, o2.red, o2.tick, o2.label, o2.name, o2.nameH);
       // The needle at rest points along the panel's `r`, and is turned to its reading.
       const needle = (fr, len, rgb, w) => {
         const t = a0 - clamp(fr, 0, 1) * sweep;
@@ -292,7 +292,7 @@ export function makeKit(push, fwd = true) {
       discC(ca, cb, R * 0.10, C.steel, 0.1, 0.009, 8);
     }
     const needleAt = (ca, cb, R, len, rgb, w) => spoke(ca, cb, 0, -R * 0.18, R * len, R * w, rgb, 0.9, 0.007, R * w * 0.3);
-    function dialFace(ca, cb, R, a0_, sweep_, ticks_, major_, bezel, faceRgb, arcs, redF, tick, label, name) {
+    function dialFace(ca, cb, R, a0_, sweep_, ticks_, major_, bezel, faceRgb, arcs, redF, tick, label, name, nameH) {
       const o2 = { bezel, face: faceRgb, arcs, red: redF, tick, label };
       const a0 = a0_ ?? Math.PI * 1.25, sweep = sweep_ ?? Math.PI * 1.5;
       const ticks = ticks_ ?? 10, major = major_ ?? 2;
@@ -309,7 +309,9 @@ export function makeKit(push, fwd = true) {
       }
       // The dial's name, lettered on its face under the pivot (in `label`'s colour if one is given).
       // A `label` with no `name` is the old blank stripe, kept only so nothing unnamed changes shape.
-      if (name) fitText(name, ca, cb - R * 0.46, R * 1.15, R * 0.2, o2.label || o2.tick || C.tick, 0.45, 0.0045);
+      // `nameH` letters it taller than a fifth of the radius, for a small dial or one far from the eye
+      // (the cockpit-controls gate counts names too small to read from the seat).
+      if (name) fitText(name, ca, cb - R * 0.46, Math.max(R * 1.15, (nameH || 0) * name.length * 0.95), nameH || R * 0.2, o2.label || o2.tick || C.tick, 0.45, 0.0045);
       else if (o2.label) rect(ca - R * 0.22, cb - R * 0.52, ca + R * 0.22, cb - R * 0.40, o2.label, 0.3, 0.004);
       // The glass is not drawn, and must not be: see "THE WINDSCREEN IS THE ABSENCE OF GEOMETRY".
     }
@@ -409,7 +411,7 @@ export function makeKit(push, fwd = true) {
     // docs/reference/cockpit-lettering.md.
     function text(str, ca, cb, h, rgb = C.tick, emis = 0.35, l = 0.0045, shadow = null) {
       if (turned && KIT_TRACE.mirrored) KIT_TRACE.mirrored(str, o, r, u);
-      return legend({ plate }, str, ca, cb, h, rgb, emis, l, shadow);
+      return legend({ plate, pt }, str, ca, cb, h, rgb, emis, l, shadow);
     }
     // The same, shrunk only as far as it must be to fit `maxW` across.
     function fitText(str, ca, cb, maxW, h, rgb, emis, l) {

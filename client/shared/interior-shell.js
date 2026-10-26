@@ -129,14 +129,6 @@ import { memoContext } from './interior-memo.js';
 // The Drake's cockpit: the inside of the duck's head, lofted off the exterior's own head part. It
 // is its own file because its room is its own shape — see interior-drake.js.
 import { drakeProfile } from './interior-drake.js';
-// One cockpit per airframe. See interior-fit-craft.js.
-import { leviathanFit, reaperFit, shrikeFit, locustFit, grasshopperFit, viperFit, carcassFit, craftHotspots } from './interior-fit-craft.js';
-// The Mayfly is a Cessna 172 now, built on the cockpit kit to the Drake's standard (interior-cessna.js).
-import { cessnaFit, cessnaHotspots, cessnaGpsHotspot } from './interior-cessna.js';
-// The Mule is a Twin Otter, on the same kit (interior-otter.js).
-import { otterFit, otterHotspots } from './interior-otter.js';
-const CRAFT_FIT = { mule: otterFit, leviathan: leviathanFit, reaper: reaperFit, shrike: shrikeFit, locust: locustFit,
-  grasshopper: grasshopperFit, viper: viperFit, carcass: carcassFit, mayfly: cessnaFit };
 let DRAKE_PROFILE = null;
 let DRAKE_NOIR_PROFILE = null, DRAKE_QH_PROFILE = null;
 // ── ONE COCKPIT PER AIRFRAME, EACH TO THE DRAKE'S STANDARD ────────────────────
@@ -148,7 +140,7 @@ import { leviathanProfile, LEV_TRIM } from './interior-leviathan.js';
 import { reaperProfile, REAPER_TRIM } from './interior-reaper.js';
 import { shrikeProfile, SHRIKE_TRIM } from './interior-shrike.js';
 import { locustProfile, LOCUST_TRIM } from './interior-locust.js';
-import { mayflyProfile, MAYFLY_TRIM } from './interior-mayfly.js';
+import { mayflyProfile, mayflyGpsHotspot, MAYFLY_TRIM } from './interior-mayfly.js';
 import { dragonflyProfile, DRAGONFLY_TRIM } from './interior-dragonfly.js';
 import { viperProfile, VIPER_TRIM } from './interior-viper.js';
 import { carcassProfile } from './interior-carcass.js';
@@ -323,7 +315,7 @@ export const SHELL_PROFILES = {
   // ── ONE PER AIRFRAME ───────────────────────────────────────────────────────
   //
   // Each of these is one aircraft's room, sized off the real type it is an analogue of (named on
-  // each); what fills it is interior-fit-craft.js. ⚠ `roofGlass` is a [y0, y1] band of the
+  // each); what fills it is that aircraft's own interior-<id>.js. ⚠ `roofGlass` is a [y0, y1] band of the
   // headlining that is GLAZING (a bubble or greenhouse canopy, a Cub's skylight), built as a hole
   // the way a side window is and never as a pane; the gate asserts you CAN see straight up through
   // it, the other direction of its roof check.
@@ -347,13 +339,12 @@ export const SHELL_PROFILES = {
   get podracer() { return craftProfile('podracer', podracerProfile); },
   // ⚠ A CESSNA 172 NOW, NOT AN OPEN ULTRALIGHT: the airframe became a closed cabin (mesh_ultralight
   // .json), so the seat did too. Side by side, the pilot on the left, a centre strip in the
-  // windscreen, a door each side with the window in it; the fit-out is interior-cessna.js.
-  // ⚠ ONLY ITS GPS TAKES CLICKS. cessnaHotspots also lists BCN, NAV and STRB switches for circuits
-  // the sim doesn't have, which the cockpit-controls gate fails; the rest wait on those.
+  // windscreen, a door each side with the window in it; the fit-out is interior-mayfly.js.
+  // ⚠ ONLY ITS GPS TAKES CLICKS so far; the rest of its controls are the Mayfly's own pass.
   get mayfly() {
     return craftProfile('mayfly', () => {
       const P = mayflyProfile();
-      P.hotspots = function () { return [cessnaGpsHotspot(this)]; };
+      P.hotspots = function () { return [mayflyGpsHotspot(this)]; };
       return P;
     });
   },
@@ -381,12 +372,6 @@ export const SHELL_PROFILES = {
   },
 };
 
-// The aircraft whose cockpits live in interior-fit-craft.js take their clickable controls from
-// there (craftHotspots), so every one of them can be clicked and grabbed like the Drake's.
-for (const k of ['bubble']) {
-  const prof = SHELL_PROFILES[k];
-  if (prof && !prof.hotspots) prof.hotspots = function (live) { return craftHotspots(k, this, live); };
-}
 // Panel floods for every aircraft that has none: small lamps under the glareshield lip, spread across
 // the panel, so a cockpit after dark is lit from its own coaming rather than from nowhere.
 for (const k of ['bubble']) {
@@ -407,7 +392,7 @@ for (const k of ['bubble']) {
 // Exported for scripts/shapes/cockpit-controls.mjs, which checks every seat a class can sit in.
 export const SHELL_CLASS = {
   truck: 'truck',
-  prop: 'mule',           // one cockpit per airframe: interior-fit-craft.js
+  prop: 'mule',           // one cockpit per airframe, each in its own interior-<id>.js
   heavy: 'leviathan',
   gunship: 'reaper',
   divebomber: 'shrike',
@@ -678,8 +663,7 @@ export function shellFaces(profile, live = null, opts = {}) {
 
   if (P.instruments) instrumentFaces(P, live, push);
   if (rich && P.fit === 'truck') truckFit(P, live, push);
-  if (rich && P.craft && CRAFT_FIT[P.craft]) CRAFT_FIT[P.craft](P, live, push);
-  else if (rich && P.fit === 'plane') planeFit(P, live, push);
+  if (rich && P.fit === 'plane') planeFit(P, live, push);
   if (rich && P.fit === 'bridge') bridgeFit(P, live, push);
 
   return out;
