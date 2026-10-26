@@ -22,6 +22,11 @@
 //     (cabin 1.50 m high, 1.75 m wide, via search summary)
 //   https://manuals.aerosoft.com/files/Manual_Aerosoft-Aircraft-Twin-Otter_MSFS_eng.pdf  (fetched; the
 //     PDF did not parse to text here, so nothing below leans on it for a number)
+// Photos held against (Wikimedia Commons, 2026-10-26):
+//   File:Cockpit-TwinOtter.jpg  (the centre column of engine pairs, the fire panel and its T-handles)
+//   File:TwinOtter_Lukla_Cockpit.jpg  (the overhead quadrant in use, the columns out of the floor)
+//   ⚠ The real panel is a light grey; this one stays dark because every label here is light ink
+//   on a dark board (docs/reference/cockpit-lettering.md rule 5). Repainting it means re-inking it.
 //
 // ── ⚠ THE ROOM IS THE EXTERIOR'S FUSELAGE, NEVER A SECOND DESCRIPTION OF IT ──
 //
@@ -218,6 +223,8 @@ export function muleProfile(row = FW_ROWS.prop) {
     seatZ: -0.76, seatHalf: 0.24, seatY: [-0.40, 0.08], backZ: 0.14, seats: 2,
     fit: 'mule', craft: 'mule', normalLit: true,
     // Panel floods under the glareshield lip and one over the quadrant.
+    // After dark the floods are bright enough to read the panel by (the Drake's 2.2 is the bar).
+    floodGain: 1.8, glare: 0.5,
     floods: [{ p: [0.0, 0.60, -0.30], r: 0.42 }, { p: [xCentre, 0.60, -0.30], r: 0.40 },
       { p: [2 * xCentre, 0.60, -0.30], r: 0.42 }, { p: [xCentre, 0.25, 0.22], r: 0.30 }],
     room: muleShell,
@@ -721,19 +728,19 @@ function muleFit(P, live, push) {
   // ── BOTH SIX-PACKS ───────────────────────────────────────────────────────
   const six = (cx) => {
     const sx = (i) => cx + (i - 1) * Y.six.dx, R = Y.six.R, [z1, z2] = Y.six.z;
-    Pn.dial(sx(0), z1, R, clamp(ias / (vne * 1.1), 0, 1), dialO({ ticks: 16, major: 4, arcs: [[0.25, 0.8, C.green], [0.8, 0.9, C.amber]], red: 0.9, name: 'KTS' }));
+    Pn.dial(sx(0), z1, R, clamp(ias / (vne * 1.1), 0, 1), dialO({ ticks: 16, major: 4, arcs: [[0.25, 0.8, C.green], [0.8, 0.9, C.amber]], red: 0.9, name: 'KTS', nameH: 0.0085 }));
     Pn.attitude(sx(1), z1, R, powered ? pitch : 8, powered ? bank : 22);
-    Pn.dial(sx(2), z1, R, (alt % 1000) / 1000, dialO({ a0: Math.PI / 2, sweep: TAU, ticks: 10, major: 1, frac2: (alt % 10000) / 10000, name: 'ALT' }));
-    Pn.dial(sx(0), z2, R, clamp(0.5 + (powered ? bank : 0) / 90, 0, 1), dialO({ a0: Math.PI * 0.9, sweep: Math.PI * 0.8, ticks: 6, major: 3, name: 'TURN' }));
+    Pn.dial(sx(2), z1, R, (alt % 1000) / 1000, dialO({ a0: Math.PI / 2, sweep: TAU, ticks: 10, major: 1, frac2: (alt % 10000) / 10000, name: 'ALT', nameH: 0.0085 }));
+    Pn.dial(sx(0), z2, R, clamp(0.5 + (powered ? bank : 0) / 90, 0, 1), dialO({ a0: Math.PI * 0.9, sweep: Math.PI * 0.8, ticks: 6, major: 3, name: 'TURN', nameH: 0.0085 }));
     Pn.compass(sx(1), z2, R, hdg);
-    Pn.dial(sx(2), z2, R, clamp(0.5 + vsi / 4000, 0, 1), dialO({ a0: Math.PI, sweep: Math.PI * 1.8, ticks: 8, major: 2, name: 'VSI' }));
+    Pn.dial(sx(2), z2, R, clamp(0.5 + vsi / 4000, 0, 1), dialO({ a0: Math.PI, sweep: Math.PI * 1.8, ticks: 8, major: 2, name: 'VSI', nameH: 0.0085 }));
     for (let i = 0; i < 3; i++) for (const z of [z1, z2]) { glint(sx(i), z, R); postLight(sx(i), z, R); }
   };
   six(0);
   six(2 * xC);
   // The clock, left of the pilot's six, with its hour and minute hands.
   Pn.dial(-0.19, Y.six.z[0], 0.026, (hour % 12) / 12, dialO({ a0: Math.PI / 2, sweep: TAU, ticks: 12, major: 3, frac2: hour % 1, name: 'CLOCK' }));
-  Pn.dial(-0.19, Y.six.z[1], 0.024, clamp(powered ? 0.55 : 0, 0, 1), dialO({ ticks: 6, major: 3, arcs: [[0.4, 0.7, C.green]], name: 'VAC' }));   // suction
+  Pn.dial(-0.19, Y.six.z[1], 0.024, clamp(powered ? 0.55 : 0, 0, 1), dialO({ ticks: 6, major: 3, arcs: [[0.4, 0.7, C.green]], name: 'VAC', nameH: 0.0078 }));   // suction
 
   // ── THE ENGINE COLUMN: left and right, side by side ──────────────────────
   const run = powered ? rpm : 0;
@@ -745,7 +752,7 @@ function muleFit(P, live, push) {
     { v: (e) => clamp(run ? 0.12 + thr * 0.7 : 0, 0, 1) + e * 0.006, o: { arcs: [[0.1, 0.9, C.green]] }, name: 'FF' },            // fuel flow
   ];
   rows.forEach((g, row) => Y.eng.x.forEach((x, e) => {
-    Pn.dial(x, Y.eng.z[row], Y.eng.R, g.v(e), dialO({ ticks: 8, major: 2, ...g.o, name: g.name }));
+    Pn.dial(x, Y.eng.z[row], Y.eng.R, g.v(e), dialO({ ticks: 8, major: 2, ...g.o, name: g.name, nameH: 0.0085 }));
     postLight(x, Y.eng.z[row], Y.eng.R);
   }));
   // Oil pressure and temperature under the column, a pair of strips per engine.
@@ -772,24 +779,28 @@ function muleFit(P, live, push) {
   // Each name is on its lens, since the strip has no room under it.
   const warnN = ['FUEL', 'BUS', 'STALL', 'HULL', 'BINGO', 'ENG', 'FLAPS', 'OIL T'];
   warn.forEach(([w, rgb], i) => {
-    An.lamp(-0.105 + i * 0.030, 0, 0.011, 0.007, !!w, rgb);
-    An.fitText(warnN[i], -0.105 + i * 0.030, 0, 0.019, 0.006, w ? [30, 10, 6] : [150, 146, 140], 0, 0.008);
+    An.lamp(-0.105 + i * 0.030, 0, 0.0135, 0.0075, !!w, rgb);
+    An.fitText(warnN[i], -0.105 + i * 0.030, 0, 0.025, 0.0072, w ? [30, 10, 6] : [150, 146, 140], 0, 0.008);
   });
   // The fire T-handles either side.
   for (const sd of [-1, 1]) {
-    An.rect(sd * 0.142 - 0.016, -0.009, sd * 0.142 + 0.016, 0.009, T.red, powered ? 0.3 : 0.05, 0.004);
+    // Lit when that engine is burning; the hull is what the game has for that. They glowed with
+    // the power before, which told you nothing.
+    const fire = powered && hull < 0.2;
+    An.rect(sd * 0.142 - 0.016, -0.009, sd * 0.142 + 0.016, 0.009, fire ? T.red : T.red.map((c) => c * 0.45), fire ? 1 : 0.05, 0.004);
     An.fitText(sd < 0 ? 'FIRE 1' : 'FIRE 2', sd * 0.142, 0, 0.028, 0.008, [240, 236, 226], 0.2, 0.006);
   }
 
   // ── THE RADIO STACK: COM, NAV, transponder, the altitude readout ──────────
   const r = Y.radio, unitZ = [r.z1 - 0.025, r.z1 - 0.07, r.z1 - 0.115];
   const strs = ['12190', '11770', String(1200 + (Math.round(hdg) % 7)).padStart(4, '0')];
+  // Each unit's name where its tuning knobs were: the sim tunes nothing, so a knob would do nothing.
+  const unitN = ['COM', 'NAV', 'XPDR'];
   unitZ.forEach((z, i) => {
     Pn.rect(r.x - r.w + 0.006, z - 0.019, r.x + r.w - 0.006, z + 0.019, [34, 36, 40], 0, 0.003);
     if (powered) Pn.digits(r.x - 0.10, z - 0.008, 0.016, strs[i], T.lcd, true);
     else Pn.rect(r.x - 0.10, z - 0.009, r.x - 0.01, z + 0.009, T.lcdBg, 0, 0.004);
-    Pn.knob(r.x + 0.11, z, 0.009, 0.012, [60, 60, 66], 0);
-    Pn.knob(r.x + 0.08, z, 0.006, 0.010, [60, 60, 66], 0);
+    Pn.fitText(unitN[i], r.x + 0.095, z, 0.045, 0.011, [200, 200, 196], 0.4 + glow, 0.004);
   });
   if (powered) Pn.digits(r.x + 0.00, unitZ[2] - 0.008, 0.016, String(Math.round(alt / 100) % 1000).padStart(3, '0'), T.amber, false);
   panelGps(Pn, Y.gps.x, Y.gps.z, Y.gps.hw, Y.gps.hh, L);
