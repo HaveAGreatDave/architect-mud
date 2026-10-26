@@ -18,6 +18,7 @@ import { loadQLog, saveQLog, recordQuestLog } from './quest-log.js';
 import { DISCORD_INVITE } from './links.js';
 import { loadCss } from '../../../shared/dom.js';
 import { fpsMeterOn, setFpsMeter } from '../fps-meter.js';
+import { makeCornerResizable } from './corner-resize.js';
 
 // tablet-os.css is fetched at module load so ensureStyles can apply it synchronously.
 const TABLET_CSS = await loadCss(new URL('./tablet-os.css', import.meta.url));
@@ -7215,6 +7216,9 @@ export function openTabletPanel(msg) {
     _close = mounted.close;
     _overlay.querySelector('.mg-close').addEventListener('click', shutdownTablet);
     makeDraggable(_overlay.querySelector('.tos-anchor'), _overlay.querySelector('.mg-head'));
+    makeCornerResizable(_overlay.querySelector('.tos-anchor'), {
+      key: 'architect_tablet_size', sizeEl: _overlay.querySelector('.tos-panel'), minW: 360, minH: 420,
+    });
     wireDragScroll(_overlay.querySelector('#tos-scroll'));
     applyTabletTheme();
     _applyWidgetChrome();

@@ -17,6 +17,7 @@ import { cphlMark, cphlLockup } from './cphl-brand.js';
 import { crestSvg, clubOf, wantClubs, onClubs } from './club-crest.js';
 import { wantVenue } from './venue.js';
 import { state } from '../state.js';
+import { makeCornerResizable } from './corner-resize.js';
 
 // The two sports sub-screens (gameday.js, gameday-rink.js) are about 209 KB, and they
 // were in the boot download for every player. They load on the first sports broadcast
@@ -2330,6 +2331,9 @@ export function createTvView(root, opts = {}) {
       win.style.top  = `${e.clientY - _dragWinY}px`;
     });
     document.addEventListener('mouseup', () => { _dragWin = false; });
+
+    // Corner grips. The set keeps the shape of its picture, so only the width is set.
+    makeCornerResizable(win, { key: 'tvSize', minW: 380, lockAspect: true });
 
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && _tvOpen) shutdown();

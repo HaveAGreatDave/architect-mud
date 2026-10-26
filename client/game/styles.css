@@ -11466,8 +11466,39 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 html[data-density="compact"] #tv-popout-btn { display: none; }
 html.tv-popped, html.tv-popped body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 html.tv-popped #tv-panel { position: fixed; inset: 0; pointer-events: auto; }
-html.tv-popped #tv-window { width: 100vw; height: 100vh; aspect-ratio: auto; max-width: none; max-height: none; position: static !important; margin: 0 !important; border: none; outline: none; }
+html.tv-popped #tv-window { width: 100vw !important; height: 100vh; aspect-ratio: auto; max-width: none; max-height: none; position: static !important; margin: 0 !important; border: none; outline: none; }
 html.tv-popped #tv-header { cursor: default !important; }
+
+/* Corner grips on the TV and the tablet (panels/corner-resize.js). Each straddles
+   its corner, half outside the window, so it stays clear of the header's buttons.
+   The mark is an L traced round the corner, shown while the pointer is over the
+   window. A phone fills the screen with both, and a popped-out set is its own
+   window, so neither gets grips. */
+.corner-grip { position: absolute; width: 18px; height: 18px; z-index: 100; touch-action: none; }
+.corner-grip[data-corner="nw"] { left: -9px;  top: -9px;    cursor: nwse-resize; }
+.corner-grip[data-corner="se"] { right: -9px; bottom: -9px; cursor: nwse-resize; }
+.corner-grip[data-corner="ne"] { right: -9px; top: -9px;    cursor: nesw-resize; }
+.corner-grip[data-corner="sw"] { left: -9px;  bottom: -9px; cursor: nesw-resize; }
+.corner-grip::after {
+	content: ''; position: absolute; width: 9px; height: 9px;
+	/* the window's own accent: the set's header colour, the tablet's --mg-accent */
+	border: 0 solid var(--tv-header-color, var(--mg-accent, var(--accent))); opacity: 0; transition: opacity 0.15s linear;
+}
+.corner-grip[data-corner="nw"]::after { left: 6px;  top: 6px;    border-top-width: 2px;    border-left-width: 2px; }
+.corner-grip[data-corner="se"]::after { right: 6px; bottom: 6px; border-bottom-width: 2px; border-right-width: 2px; }
+.corner-grip[data-corner="ne"]::after { right: 6px; top: 6px;    border-top-width: 2px;    border-right-width: 2px; }
+.corner-grip[data-corner="sw"]::after { left: 6px;  bottom: 6px; border-bottom-width: 2px; border-left-width: 2px; }
+:hover > .corner-grip::after { opacity: 0.45; }
+.corner-grip:hover::after, .corner-resizing > .corner-grip::after { opacity: 1; }
+@media (pointer: coarse) {
+	.corner-grip { width: 28px; height: 28px; }
+	.corner-grip[data-corner="nw"] { left: -14px;  top: -14px; }
+	.corner-grip[data-corner="se"] { right: -14px; bottom: -14px; }
+	.corner-grip[data-corner="ne"] { right: -14px; top: -14px; }
+	.corner-grip[data-corner="sw"] { left: -14px;  bottom: -14px; }
+	.corner-grip::after { opacity: 0.45; }
+}
+html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display: none; }
 
 /* TV-guide toggle — same chassis button as read-aloud; always available, lit while
    the schedule sub-screen is open (.on). */
