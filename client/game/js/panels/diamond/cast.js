@@ -84,7 +84,7 @@ export function castOf(p) {
   const spots = fieldSpots(p.bats);
   ['1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF'].forEach((pos, i) => {
     const at = spots[POSITIONS.indexOf(pos)];
-    person(2 + i, `${fieldTeam}:${pos}`, fieldSide, 'fielder', pos.length === 2 && /F$/.test(pos) ? 'outfield' : 'infield', at, faceHome(at), { glove: 'L' });
+    person(2 + i, `${fieldTeam}:${pos}`, fieldSide, 'fielder', pos.length === 2 && /F$/.test(pos) ? 'outfield' : 'infield', at, faceHome(at), { glove: 'L', ...(pos === '1B' ? { mitt: 'first' } : {}) });
   });
   // the batter, in the box for his side; a play on the bases has him standing in it too
   const left = p.bats === 'L';
@@ -132,4 +132,4 @@ export const castKey = (c) => JSON.stringify([c.id, c.pose, c.at, Math.round(c.y
 // A key for his skinned body (buildBody), which the GPU poses: who he is and what he wears, not
 // where he stands or which slot he's in, so a man keeps his body from one payload to the next.
 export const bodyKey = (c) => JSON.stringify([c.id, c.scale, c.look.side, c.look.role === 'catcher' || c.look.role === 'ump' || c.look.role === 'crew' ? c.look.role : '',
-  c.look.glove, c.look.helmet, c.look.flapSide, c.look.mask, c.look.battingGloves, c.look.girth]);
+  c.look.glove, c.look.helmet, c.look.flapSide, c.look.mask, c.look.battingGloves, c.look.girth, c.look.mitt]);

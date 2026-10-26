@@ -1021,8 +1021,9 @@ Built so far (Phases 1 and 2 of the plan):
   everyone takes their places;
 - the changeover (Phase 3d): on the third out, once the play's landed, every man on the field
   jogs off to his side's dugout, the fielders to theirs and the men on the bases to their own,
-  and the high camera watches them go. A dugout is a row of spots in foul ground up the line
-  (the visitors' on the third-base side), handed out by when the men get there, the first man in
+  and the high camera watches them go. A dugout is a recess let into the lower bowl's front up
+  the line (the visitors' on the third-base side), and its spots are a row inside it, handed out
+  by when the men get there, the first man in
   to the end furthest from the field, and a man holds back a beat where he'd pass too close to
   one gone before him. At the break the side taking the field runs out of its dugout, the
   catcher first and then the pitcher and the rest a third of a second apart, and the pitcher

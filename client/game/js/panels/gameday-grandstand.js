@@ -115,6 +115,11 @@ export function createGrandstandView(host, opts = {}) {
   let snd = null;
   // a final's last out, held still till this (the frame clock's ms)
   let frozenUntil = 0;
+  // how long the camera's shutter is open on the ball, in seconds of the screen's time: half a
+  // frame at 60 Hz, as a broadcast camera's is
+  const BALL_SHUTTER = 1 / 120;
+  // the bodies' own weight as they're drawn (diamond/secondary.js), the live world's and a replay's
+  let settle = null, settleR = null;
   // the camera the pitches are watched from (director.js pitchCam): the batter's, or the pitcher's
   // from centre field, as the viewer last picked it here
   let pitchCam = opts.cam === 'cf' || opts.cam === 'bat' ? opts.cam : readCam();
@@ -145,9 +150,10 @@ export function createGrandstandView(host, opts = {}) {
   function loadMods() {
     return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js'),
       import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js'), import('./diamond/replay.js'), import('./gl/crowd.js'),
-      import('./diamond/crew.js'), import('./diamond/quality.js'), import('./diamond/sound.js')])
-      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew, quality, sound]) => (mods = {
-        ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, numberOf: cast.numberOf, pictureAfter: director.pictureAfter, opensGame: director.opensGame,
+      import('./diamond/crew.js'), import('./diamond/quality.js'), import('./diamond/sound.js'), import('./diamond/secondary.js')])
+      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew, quality, sound, sec]) => (mods = {
+        createSettle: sec.createSettle,
+        ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, handheld: cam.handheld, numberOf: cast.numberOf, pictureAfter: director.pictureAfter, opensGame: director.opensGame,
         createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector, splashOf: fx.splashOf,
         replayOf: rp.replayOf, stageReplay: rp.stageReplay, REPLAY: rp.REPLAY, fxEnd: fx.endOf,
         cheerOf: fx.cheerOf, createRoar: crowd.createRoar, matAt: crew.matAt, sweptAlong: crew.sweptAlong,
@@ -287,14 +293,23 @@ export function createGrandstandView(host, opts = {}) {
         replay.acc += dt * mods.REPLAY.rate;
         while (replay.acc >= mods.DT && RW.t < replay.to) { RW.step(mods.DT); replay.acc -= mods.DT; }
       }
+      // The picture is drawn at the frame's own time, between the world's steps: the poses, the
+      // ball and the camera are all functions of time, so only what's queued waits for a step. A
+      // replay at 0.4 drawn on whole steps would hold every fifth frame at 60 fps.
+      const tR = drawT();
+      // each pose carries the body's own weight as it's drawn (diamond/secondary.js), the replay's
+      // men on their own, since they're other bodies in the same slots
+      const sec = replay ? (settleR ??= mods.createSettle()) : (settle ??= mods.createSettle());
       const posed = new Set();
-      for (const b of RW.bodies.values()) { const P = RW.pose(b.slot); if (P) { R.setPose(b.slot, P); posed.add(b.slot); } }
+      for (const b of RW.bodies.values()) { const P = RW.pose(b.slot, tR); if (P) { R.setPose(b.slot, sec.settle(b.slot, P, tR)); posed.add(b.slot); } }
       // whoever nothing's playing breathes where he stands
-      R.idle?.(RW.t, posed);
-      R.setBall(RW.ballAt());
-      R.setSpectacle?.(replay ? replay.D.fx : D.fx, RW.t);
-      R.setCrowd?.(loud, W.t, !calm);
-      R.setTime?.(RW.t);
+      R.idle?.(tR, posed);
+      // the ball, and where it was half a 60 Hz frame of the screen's time before, for its smear
+      const shutter = BALL_SHUTTER * speed * (replay ? mods.REPLAY.rate : 1);
+      R.setBall(RW.ballAt(tR), shutter > 0 ? RW.ballAt(tR - shutter) : null);
+      R.setSpectacle?.(replay ? replay.D.fx : D.fx, tR);
+      R.setCrowd?.(replay ? loud : roar.at(tR), replay ? W.t : tR, !calm);
+      R.setTime?.(tR);
       if (marks.length) { R.markDirt?.(marks); marks = []; }
       dragFrame();
       if (replay && (replay.still ? W.t >= replay.until : RW.t >= replay.to - 1e-9)) endReplay();
@@ -331,7 +346,15 @@ export function createGrandstandView(host, opts = {}) {
   // The camera this frame: the director's shot, which may follow the ball (diamond/camera.js
   // shotAt), at the world's time (the replay's, while one plays), the same for the park and the
   // graphics.
-  const view = () => (mods && shot && typeof shot === 'object' ? mods.shotAt(shot, replay ? replay.W.t : W ? W.t : 0) : shot);
+  // A long lens in a well drifts a little in its operator's hands (diamond/camera.js handheld),
+  // except with reduced motion.
+  const view = () => (mods && shot && typeof shot === 'object' ? mods.shotAt(shot, drawT()) : mods && !calm && !prefersReducedMotion() ? mods.handheld(shot, drawT()) : shot);
+  // The time the picture is drawn at: the world's last step and what's left over toward the next
+  // (the replay's, capped at its end, while one plays).
+  function drawT() {
+    if (replay) return replay.still ? replay.W.t : Math.min(replay.to, replay.W.t + Math.min(replay.acc, mods.DT));
+    return W ? W.t + (live ? Math.min(Math.max(acc, 0), mods.DT) : 0) : 0;
+  }
 
   // ── replays ───────────────────────────────────────────────────────────────
   // The play staged again in its own world and played slower from its second camera, or with
@@ -342,6 +365,7 @@ export function createGrandstandView(host, opts = {}) {
     replay = mods.stageReplay(due.p, due.spec, { cast: due.cast, motion: !due.calm });
     if (!replay) return;
     replay.acc = 0;
+    settleR?.reset();
     if (replay.still) replay.until = W.t + mods.REPLAY.still;
     S.replay = true;
     if (!opts.shot) shot = replay.shot;

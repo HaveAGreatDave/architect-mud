@@ -35,13 +35,16 @@
 //
 // ⚠ NO FACE CULLING, as in arena.js: the builders don't keep one winding.
 
-import { DEG, BAGS, MOUND, RUBBER, FOUL_GROUND, moundHeight, venueField, fenceDistance, parkOutline, insideOutline, seeded, BOWL, sf, sOf, fromBlock, ftUp } from '../diamond/geo.js';
+import { DEG, BAGS, MOUND, RUBBER, FOUL_GROUND, DUGOUT, offLine, moundHeight, venueField, fenceDistance, parkOutline, insideOutline, seeded, BOWL, sf, sOf, fromBlock, ftUp } from '../diamond/geo.js';
 import { WIN_OPEN, sunburst, headPanels } from '../glass/coliseum-window.js';
 
 export const STRIDE = 12;
 export const MAT = Object.freeze({
   GROUND: 0, CLOTH: 1, SKIN: 2, LEATHER: 3, GLOSS: 4, SATIN: 5, METAL: 6, EMISSIVE: 7,
   CONCRETE: 8, PAD: 9, BOARD: 10, PLATE: 11, MATTE: 13,
+  // the ball, its colour the point on it before its spin (gl/ballpark.js setBall), so the shader
+  // can draw its seams where they are on the ball
+  BALL: 14,
   // a player's head (gl/ballplayer-mesh.js): the face, the ears, the hair and the neck
   HEAD: 20, EAR: 21, HAIR: 22, NECK: 23,
   // the bowl (buildBowl): its wall between the fins, painted with the concourse windows; the rest
@@ -225,15 +228,26 @@ function buildField(B, outline) {
 // ── the stands ──────────────────────────────────────────────────────────────
 // The lower bowl's front edge: down the first-base line, round behind the plate, up the
 // third-base line.
+// Each point up a line inside a dugout (geo.js DUGOUT) carries `raise`, the lift of the rows over
+// it, and each end of a dugout is two points in the same place, one lifted and one not, so the
+// rows step up there in a wall rather than a slope.
 function bowlPath() {
   const pts = [];
   const d1 = norm([-1, 0, 1]), n1 = norm([-1, 0, -1]), d3 = norm([1, 0, 1]), n3 = norm([1, 0, -1]);
-  for (let s = 318; s > 62; s -= 8) pts.push(add(mul(d1, s), mul(n1, FOUL_GROUND.line)));
+  const inside = (s) => s >= DUGOUT.from - 1e-6 && s <= DUGOUT.to + 1e-6, edge = (s) => Math.abs(s - DUGOUT.from) < 1e-6 || Math.abs(s - DUGOUT.to) < 1e-6;
+  const up = (d, n, s, entering) => {
+    const p = add(mul(d, s), mul(n, FOUL_GROUND.line));
+    if (!edge(s)) { if (inside(s)) p.raise = DUGOUT.raise; pts.push(p); return; }
+    const a = p.slice(), b = p.slice();
+    (entering ? b : a).raise = DUGOUT.raise;
+    pts.push(a, b);
+  };
+  for (let s = 318; s > 62; s -= 8) up(d1, n1, s, Math.abs(s - DUGOUT.to) < 1e-6);
   for (let i = 0; i <= 40; i++) {
     const a = (-80 - 200 * i / 40) * DEG, u = i / 40, rr = 75 - 15 * Math.sin(Math.PI * u);
     pts.push([rr * Math.sin(a), 0, rr * Math.cos(a)]);
   }
-  for (let s = 62; s <= 318; s += 8) pts.push(add(mul(d3, s), mul(n3, FOUL_GROUND.line)));
+  for (let s = 62; s <= 318; s += 8) up(d3, n3, s, Math.abs(s - DUGOUT.from) < 1e-6);
   return pts;
 }
 
@@ -259,17 +273,32 @@ function stands(B, crowd, path, o) {
   }
   const start = o.start || 0;
   const at = (i, off, y) => [path[i][0] + nrm[i][0] * off, y, path[i][2] + nrm[i][2] * off];
+  // The lower bowl's rows over a dugout (bowlPath `raise`): lifted whole over the recess, the first
+  // RAISED rows, eased back to where they'd be over the next EASE, so the recess under them stands
+  // at field level and the bowl behind is as it was.
+  const RAISED = Math.ceil(DUGOUT.deep / (o.depth || 1)), EASE = 6;
+  const liftOf = (i, k) => {
+    const r = o.name === 'lower' ? path[i].raise || 0 : 0;
+    if (!r) return 0;
+    if (k < RAISED) return r;
+    const t = Math.min(1, (k - RAISED + 1) / EASE);
+    return r * (1 - t * t * (3 - 2 * t));
+  };
   const crater = (i, k) => o.crater && i > N * 0.79 && i < N * 0.86 && k > 3 && k < 17;
   const plain = B('plain');
   if (!o.fascia) {
     for (let i = 0; i < N - 1; i++) {
       const behind = Math.abs(Math.atan2(path[i][0], path[i][2])) > 140 * DEG;
       const key = behind && o.ads ? 'ads' : o.name === 'bleach' ? 'concrete' : 'pad';
-      quad(B(key), at(i, start, 0), at(i + 1, start, 0), at(i + 1, start, o.front), at(i, start, o.front), mul(nrm[i], -1), WHITE, MAT.PAD,
-        [[i / 4, 1], [(i + 1) / 4, 1], [(i + 1) / 4, 0], [i / 4, 0]]);
+      const l0 = liftOf(i, 0), l1 = liftOf(i + 1, 0);
+      // over a dugout the front is its open mouth, so no wall
+      if (!(l0 > 0 && l1 > 0)) {
+        quad(B(key), at(i, start, 0), at(i + 1, start, 0), at(i + 1, start, o.front), at(i, start, o.front), mul(nrm[i], -1), WHITE, MAT.PAD,
+          [[i / 4, 1], [(i + 1) / 4, 1], [(i + 1) / 4, 0], [i / 4, 0]]);
+      }
       // the parapet in front of the first row, so its fans don't look as if they're standing
-      quad(plain, at(i, start + 0.3, o.front), at(i + 1, start + 0.3, o.front), at(i + 1, start + 0.3, o.front + 2.5), at(i, start + 0.3, o.front + 2.5), mul(nrm[i], -1), lin('#20262e'), MAT.CONCRETE);
-      quad(plain, at(i, start, o.front + 2.5), at(i + 1, start, o.front + 2.5), at(i + 1, start + 0.6, o.front + 2.5), at(i, start + 0.6, o.front + 2.5), [0, 1, 0], lin('#3a4048'), MAT.METAL);
+      quad(plain, at(i, start + 0.3, o.front + l0), at(i + 1, start + 0.3, o.front + l1), at(i + 1, start + 0.3, o.front + 2.5 + l1), at(i, start + 0.3, o.front + 2.5 + l0), mul(nrm[i], -1), lin('#20262e'), MAT.CONCRETE);
+      quad(plain, at(i, start, o.front + 2.5 + l0), at(i + 1, start, o.front + 2.5 + l1), at(i + 1, start + 0.6, o.front + 2.5 + l1), at(i, start + 0.6, o.front + 2.5 + l0), [0, 1, 0], lin('#3a4048'), MAT.METAL);
     }
   } else {
     for (let i = 0; i < N - 1; i++) {
@@ -287,16 +316,25 @@ function stands(B, crowd, path, o) {
     for (let i = 0; i < N - 1; i++) {
       if (crater(i, k)) continue;
       const segLen = len(sub(path[i + 1], path[i]));
-      quad(B('seat'), at(i, off0, y), at(i + 1, off0, y), at(i + 1, off1, y), at(i, off1, y), [0, 1, 0], tc, MAT.CONCRETE, [[0, 0], [segLen / 7.6, 0], [segLen / 7.6, 1], [0, 1]]);
-      quad(B('concrete'), at(i, off1, y), at(i + 1, off1, y), at(i + 1, off1, y + o.rise), at(i, off1, y + o.rise), mul(nrm[i], -1), mul(tc, 0.8), MAT.CONCRETE, [[0, 0], [1, 0], [1, 0.3], [0, 0.3]]);
-      quad(plain, at(i, off0 + 2.15, y), at(i + 1, off0 + 2.15, y), at(i + 1, off0 + 2.25, y + 2.7), at(i, off0 + 2.25, y + 2.7), mul(nrm[i], -1), mul(seatBack, shade), MAT.PAD);
-      quad(plain, at(i, off0 + 1.2, y + 1.45), at(i + 1, off0 + 1.2, y + 1.45), at(i + 1, off0 + 2.15, y + 1.5), at(i, off0 + 2.15, y + 1.5), [0, 1, 0], mul(seatTop, shade), MAT.PAD);
+      // each end of the row at its own lift (liftOf): across a dugout's end, where the two points
+      // stand in one place, these are its wall
+      const ya = y + liftOf(i, k), yb = y + liftOf(i + 1, k), yn = y + o.rise + liftOf(i, k + 1), ym = y + o.rise + liftOf(i + 1, k + 1);
+      quad(B('seat'), at(i, off0, ya), at(i + 1, off0, yb), at(i + 1, off1, yb), at(i, off1, ya), [0, 1, 0], tc, MAT.CONCRETE, [[0, 0], [segLen / 7.6, 0], [segLen / 7.6, 1], [0, 1]]);
+      quad(B('concrete'), at(i, off1, ya), at(i + 1, off1, yb), at(i + 1, off1, ym), at(i, off1, yn), mul(nrm[i], -1), mul(tc, 0.8), MAT.CONCRETE, [[0, 0], [1, 0], [1, 0.3], [0, 0.3]]);
+      quad(plain, at(i, off0 + 2.15, ya), at(i + 1, off0 + 2.15, yb), at(i + 1, off0 + 2.25, yb + 2.7), at(i, off0 + 2.25, ya + 2.7), mul(nrm[i], -1), mul(seatBack, shade), MAT.PAD);
+      quad(plain, at(i, off0 + 1.2, ya + 1.45), at(i + 1, off0 + 1.2, yb + 1.45), at(i + 1, off0 + 2.15, yb + 1.5), at(i, off0 + 2.15, ya + 1.5), [0, 1, 0], mul(seatTop, shade), MAT.PAD);
+      // the side of a dugout's lifted rows where they step down at its end
+      if (Math.abs(ya - yb) > 1e-3 && segLen < 0.01) {
+        // facing away from the lifted side, along the bowl's front
+        const tg = norm(sub(path[Math.min(N - 1, i + 2)], path[Math.max(0, i - 1)])), wn = ya < yb ? mul(tg, -1) : tg;
+        quad(B('concrete'), at(i, off0, Math.min(ya, yb)), at(i, off1, Math.min(ya, yb)), at(i, off1, Math.max(ya, yb)), at(i, off0, Math.max(ya, yb)), wn, mul(tc, 0.7), MAT.CONCRETE);
+      }
       // fans, two feet apart along the row, in clumps, an aisle every sixth section
       const nSeat = Math.floor(segLen / 1.95), aisle = i % 6 === 0;
       for (let q = 0; q < nSeat; q++) {
         if (aisle && q < 2) continue;
         const t = (q + 0.5) / nSeat, pi = lerp3(path[i], path[i + 1], t), ni = norm(lerp3(nrm[i], nrm[i + 1], t));
-        const p = [pi[0] + ni[0] * (off0 + 1.55), y, pi[2] + ni[2] * (off0 + 1.55)];
+        const p = [pi[0] + ni[0] * (off0 + 1.55), ya + (yb - ya) * t, pi[2] + ni[2] * (off0 + 1.55)];
         const clump = 0.5 + 0.5 * Math.sin(p[0] * 0.031 + Math.sin(p[2] * 0.017) * 3) * Math.sin(p[2] * 0.027 + k * 0.4);
         const behindHome = Math.abs(Math.atan2(p[0], p[2])) > 135 * DEG && o.name === 'lower';
         if (rr() > (o.full ? 1.2 : (behindHome ? 0.72 : o.occ) * (0.55 + 0.9 * clump))) continue;
@@ -325,6 +363,38 @@ function stands(B, crowd, path, o) {
   const last = start + o.rows * o.depth, ytop = o.y0 + o.rows * o.rise;
   for (let i = 0; i < N - 1; i++) {
     quad(B('concrete'), at(i, last, ytop - o.rise), at(i + 1, last, ytop - o.rise), at(i + 1, last, ytop + 7), at(i, last, ytop + 7), mul(nrm[i], -1), [0.7, 0.7, 0.7], MAT.CONCRETE);
+  }
+}
+
+// The dugouts (geo.js DUGOUT): under the lifted rows of each line, a recess at field level with
+// its roof, its back and end walls, a bench along the back, a water cooler, and a strip of lamps
+// under the roof's lip. The floor is the ground, which the shader paints as concrete outside the
+// field, and the mouth is open: the men walk in and out across it (bases.js dugoutSpot). `front` is
+// the lower bowl's front wall height.
+function dugouts(B, front) {
+  const plain = B('plain'), conc = B('concrete'), D = DUGOUT, line = FOUL_GROUND.line;
+  const roof = front + D.raise - 0.05;
+  for (const side of [-1, 1]) {
+    const P = (s, off, y) => { const p = offLine(side, s, line + off); return [p[0], y, p[2]]; };
+    const along = norm(sub(offLine(side, 1, 0), offLine(side, 0, 0))), out = norm(sub(offLine(side, 0, 1), offLine(side, 0, 0)));
+    const toField = mul(out, -1), s0 = D.from, s1 = D.to, deep = D.deep;
+    // the roof, seen from below, and its lip at the mouth
+    quad(conc, P(s0, 0, roof), P(s1, 0, roof), P(s1, deep, roof), P(s0, deep, roof), [0, -1, 0], lin('#2b2f35'), MAT.CONCRETE);
+    quad(plain, P(s0, -0.2, roof - 0.6), P(s1, -0.2, roof - 0.6), P(s1, -0.2, roof + 0.05), P(s0, -0.2, roof + 0.05), toField, lin('#1d2a44'), MAT.PAD);
+    // the lamps along under the lip, warm
+    quad(plain, P(s0 + 1, 0.4, roof - 0.62), P(s1 - 1, 0.4, roof - 0.62), P(s1 - 1, 0.9, roof - 0.62), P(s0 + 1, 0.9, roof - 0.62), [0, -1, 0], [1.4, 1.1, 0.75], MAT.EMISSIVE);
+    // the back wall, padded, and the end walls
+    quad(plain, P(s0, deep, 0), P(s1, deep, 0), P(s1, deep, roof), P(s0, deep, roof), toField, lin('#1d2a44'), MAT.PAD);
+    quad(conc, P(s0, -0.3, 0), P(s0, deep, 0), P(s0, deep, roof + 0.05), P(s0, -0.3, roof + 0.05), along, lin('#34383e'), MAT.CONCRETE);
+    quad(conc, P(s1, -0.3, 0), P(s1, deep, 0), P(s1, deep, roof + 0.05), P(s1, -0.3, roof + 0.05), mul(along, -1), lin('#34383e'), MAT.CONCRETE);
+    // the bench along the back, its seat and its front
+    const bs0 = s0 + 1.5, bs1 = s1 - 4, b0 = deep - 1.7, b1 = deep - 0.2, wood = lin('#6b4a2e');
+    quad(plain, P(bs0, b0, 1.55), P(bs1, b0, 1.55), P(bs1, b1, 1.55), P(bs0, b1, 1.55), [0, 1, 0], wood, MAT.MATTE);
+    quad(plain, P(bs0, b0, 0), P(bs1, b0, 0), P(bs1, b0, 1.55), P(bs0, b0, 1.55), toField, mul(wood, 0.55), MAT.MATTE);
+    // the water cooler at the far end, on its stand
+    const cool = P(s1 - 2, deep - 1.1, 0), yaw = side > 0 ? -45 : -135;
+    box(plain, [cool[0], 1.1, cool[2]], [0.9, 1.1, 0.7], yaw, lin('#3a3f46'), MAT.METAL);
+    box(plain, [cool[0], 2.75, cool[2]], [0.62, 0.55, 0.62], yaw, lin('#e2731f'), MAT.GLOSS);
   }
 }
 
@@ -381,6 +451,17 @@ export function buildPark(venue, opts = {}) {
     quad(B('nums'), madd(madd(c, tng, -w), [0, 1, 0], -h), madd(madd(c, tng, w), [0, 1, 0], -h), madd(madd(c, tng, w), [0, 1, 0], h), madd(madd(c, tng, -w), [0, 1, 0], h),
       nn2, WHITE, MAT.PAD, [[u1, 1], [u0, 1], [u0, 0], [u1, 0]]);
   }
+  // the outfield's advertising: a panel on the padding between each pair of distance numbers,
+  // clear of the batter's eye, each one of the ad strip's four cells (the renderer's `ads`, the
+  // same atlas as the strip behind the plate), laid along the wall as the numbers are
+  [[-33.5, 0], [-12, 1], [12, 2], [33.5, 3]].forEach(([deg, cell]) => {
+    const th = deg * DEG, e = 0.25 * DEG;
+    const tng = norm(sub(wallAt(th + e), wallAt(th - e)));
+    const nn = norm(cross([0, 1, 0], tng)), toward = dot(nn, wallAt(th)) > 0 ? mul(nn, -1) : nn;
+    const c = add(add(wallAt(th), mul(toward, 0.12)), [0, fence.height * 0.5, 0]), w = 12, h = Math.min(3, fence.height * 0.36), u0 = cell / 4, u1 = (cell + 1) / 4;
+    quad(B('ads'), madd(madd(c, tng, -w), [0, 1, 0], -h), madd(madd(c, tng, w), [0, 1, 0], -h), madd(madd(c, tng, w), [0, 1, 0], h), madd(madd(c, tng, -w), [0, 1, 0], h),
+      toward, WHITE, MAT.PAD, [[u1, 1], [u0, 1], [u0, 0], [u1, 0]]);
+  });
   // the foul poles
   for (const sg of [-1, 1]) {
     const th = sg * 45 * DEG, r = fenceDistance(th, fence) + 0.6;
@@ -399,6 +480,7 @@ export function buildPark(venue, opts = {}) {
   // the lower bowl, its ads behind the plate, and the upper deck over it
   const bowl = bowlPath();
   stands(B, crowd, bowl, { rows: 24, y0: 4.5, rise: 1.3, depth: 2.7, front: 4.5, occ: 0.42, name: 'lower', crater: true, ads: true, full: opts.full });
+  dugouts(B, 4.5);
   stands(B, crowd, bowl.filter((p) => len(p) < 255), { rows: 15, y0: 54, rise: 1.95, depth: 2.6, start: 64, front: 9, occ: 0.26, name: 'upper', fascia: true, full: opts.full });
   // the backstop net, see-through
   into = translucent;
@@ -581,6 +663,8 @@ const COL = Object.freeze({
   floor: lin('#8c8272'), pane: lin('#1c262e'),
 });
 const LAMP_LIT = [26, 25, 22], LAMP_DEAD = lin('#1a1b1d');
+// how far a lamp's housing stands off its tower's lamp house, in block units (about 1.7 ft)
+const LAMP_BOX = 0.008;
 
 // A box square to the foul lines, over s3a..s3b, s1a..s1b and y0..y1 feet, each face its own normal;
 // `top` colours its top (a ledge flashed in copper).
@@ -780,15 +864,25 @@ function buildBowl(B, field, BT) {
       }
     }
     // the floods: twelve lamps on each of the lamp house's two faces turned to the field, the working
-    // ones lit (the venue's `live`), on a dark grid
+    // ones lit (the venue's `live`), on a dark grid; each in its own housing standing off the grid
+    // (LAMP_BOX deep, about 1.7 ft) with a visor over it, its lens at the housing's front
     [[-su, 0], [0, -sv]].forEach(([nu, nv], f) => {
       const u = nu ? tu + nu * (R.r2 + 0.0008) : tu, v = nv ? tv + nv * (R.r2 + 0.0008) : tv, w = 0.048;
       const at = (a, z, d = 0) => (nu ? [u + nu * d, v + a, z] : [u + a, v + nv * d, z]);
+      // a box on this face from `a0` to `a1` across it, `z0` to `z1` up it and `d0` to `d1` out from it
+      const off = (a0, a1, z0, z1, d0, d1, col, mat) => {
+        const n0 = nu ? u + nu * d0 : v + nv * d0, n1 = nu ? u + nu * d1 : v + nv * d1;
+        if (nu) bbox(plain, Math.min(n0, n1), Math.max(n0, n1), v + a0, v + a1, z0, z1, col, mat);
+        else bbox(plain, u + a0, u + a1, Math.min(n0, n1), Math.max(n0, n1), z0, z1, col, mat);
+      };
       bface(plain, [at(-w, 0.848), at(w, 0.848), at(w, 0.784), at(-w, 0.784)], [nu, nv, 0], lin('#1c1d20'), MAT.METAL);
       for (let r = 0; r < 3; r++) for (let q = 0; q < 4; q++) {
         const live = T.live[f * 12 + r * 4 + q], a0 = -w + (2 * w) * q / 4 + 0.003, a1 = -w + (2 * w) * (q + 1) / 4 - 0.003;
         const z1 = 0.848 - 0.064 * r / 3 - 0.0025, z0 = 0.848 - 0.064 * (r + 1) / 3 + 0.0025;
-        bface(live ? lamps.tower : plain, [at(a0, z1, 0.0006), at(a1, z1, 0.0006), at(a1, z0, 0.0006), at(a0, z0, 0.0006)], [nu, nv, 0], live ? LAMP_LIT : LAMP_DEAD, live ? MAT.EMISSIVE : MAT.METAL);
+        off(a0 - 0.0012, a1 + 0.0012, z0 - 0.0012, z1 + 0.0012, 0, LAMP_BOX, lin('#2a2c30'), MAT.METAL);
+        off(a0 - 0.0016, a1 + 0.0016, z1 + 0.0012, z1 + 0.0024, 0, LAMP_BOX + 0.004, lin('#232428'), MAT.METAL);
+        const d = LAMP_BOX + 0.0004;
+        bface(live ? lamps.tower : plain, [at(a0, z1, d), at(a1, z1, d), at(a1, z0, d), at(a0, z0, d)], [nu, nv, 0], live ? LAMP_LIT : LAMP_DEAD, live ? MAT.EMISSIVE : MAT.METAL);
       }
     });
     bdrum(plain, tu, tv, R.z3, R.z3 + 0.07, 0.014, 0.004, COL.bronze, MAT.GILT);

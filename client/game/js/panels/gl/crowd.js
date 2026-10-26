@@ -72,7 +72,10 @@ export function flashesAt(t, loud, n) {
 // Per vertex the three poses and the part; per fan (instanced) where he sits and faces, his shirt
 // and size, his skin. uBase is the pose he rests in (0 sit, 1 stand, 2 cheer), one draw each;
 // uRoar the home fans' and the visitors' levels; uT the clock; uMove 0 for a viewer who's asked
-// for less motion, who gets the crowd up without the bouncing.
+// for less motion, who gets the crowd up without the bouncing; uLook where the play is on the
+// field (x, z, and how much it holds them, 0 to 1), which the fans' heads turn to follow, each
+// as far as his own interest takes him. Sat quiet, each leans forward and back on his own slow
+// beat and his head wanders when nothing holds it.
 export const CROWD_VS = `#version 300 es
 layout(location = 0) in vec3 aSit;
 layout(location = 1) in vec3 aSitN;
@@ -89,10 +92,12 @@ uniform float uBase;
 uniform vec2 uRoar;
 uniform float uT;
 uniform float uMove;
+uniform vec3 uLook;
 out vec3 vPos; out vec3 vN; out vec3 vAlb;
 float hash(vec2 p, vec2 k, float m) { return fract(sin(dot(p, k)) * m); }
 void main() {
   float h = hash(iA.xz, vec2(12.99, 78.23), 43758.5), h2 = hash(iA.xz, vec2(39.35, 11.13), 24634.6);
+  float h3 = hash(iA.xz, vec2(53.71, 27.19), 31887.3);
   // whose fan he is: the visitors' are thicker up the third-base line (+x), by their dugout
   float away = step(hash(iA.xz, vec2(7.17, 91.3), 13371.3), iA.x > 0.0 ? 0.3 : 0.06);
   float roar = mix(uRoar.x, uRoar.y, away);
@@ -102,15 +107,93 @@ void main() {
   float k = max(uBase * 0.5, up);
   vec3 p = k < 0.5 ? mix(aSit, aStand, k * 2.0) : mix(aStand, aCheer, k * 2.0 - 1.0);
   vec3 n = k < 0.5 ? mix(aSitN, aStandN, k * 2.0) : mix(aStandN, aCheerN, k * 2.0 - 1.0);
-  // up and cheering, a bounce and a sway above the waist, each on his own beat
-  float joy = up * uMove;
-  p.y += joy * 0.22 * max(0.0, sin(uT * 7.0 + h * 6.283));
-  p.x += joy * max(0.0, p.y - 3.0) * 0.06 * sin(uT * 4.3 + h2 * 6.283);
-  p *= iB.w;
   float c = cos(iA.w), s = sin(iA.w);
+  // his head (the face and neck, and the hair over it), turned about his neck toward the play as
+  // far as his interest takes him, and wandering a little of its own; the neck is at the top of
+  // the shoulders sitting or standing (gl/ballpark-mesh.js CROWD_POSE)
+  bool head = aPart < 0.2 || abs(aPart - 3.0) < 0.1;
+  if (head) {
+    vec2 d = uLook.xy - iA.xz;
+    float want = atan(c * d.x - s * d.y, s * d.x + c * d.y);
+    float yaw = clamp(want, -0.9, 0.9) * uLook.z * (0.45 + 0.55 * h3) + 0.22 * sin(uT * 0.31 + h * 6.283) * (1.0 - 0.7 * uLook.z);
+    vec3 pv = vec3(0.0, mix(3.51, 4.96, min(1.0, k * 2.0)), mix(-0.1, 0.0, min(1.0, k * 2.0)));
+    vec3 q = p - pv; float cy = cos(yaw), sy = sin(yaw);
+    p = pv + vec3(cy * q.x + sy * q.z, q.y, -sy * q.x + cy * q.z);
+    n = vec3(cy * n.x + sy * n.z, n.y, -sy * n.x + cy * n.z);
+  }
+  // sat quiet, his upper body leans forward and back on his own slow beat
+  float rest = (1.0 - up) * (1.0 - min(1.0, uBase)) * uMove;
+  p.z += rest * max(0.0, p.y - 1.9) * 0.07 * sin(uT * 0.23 + h2 * 6.283);
+  // up and cheering, a bounce and a sway above the waist, each on his own beat: the bounce a
+  // smooth hop, sharpest at its top, with no kink where it lands
+  float joy = up * uMove;
+  p.y += joy * 0.22 * pow(0.5 + 0.5 * sin(uT * 7.0 + h * 6.283), 1.6);
+  p.x += joy * max(0.0, p.y - 3.0) * 0.06 * sin(uT * 4.3 + h2 * 6.283);
+  // his build: broader or slighter through the body and the limbs (the head as it is), a little
+  // taller or shorter, so a stand isn't one man in sixteen shirts
+  float h4 = hash(iA.xz, vec2(17.31, 63.77), 21357.9), h5 = hash(iA.xz, vec2(71.13, 5.29), 37771.1);
+  if (!head && aPart > 0.2) p.x *= 0.9 + 0.26 * h4 * h4;
+  p.y *= 0.95 + 0.1 * h5;
+  p *= iB.w;
   vec3 w = vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z) + iA.xyz;
   vN = normalize(vec3(c * n.x + s * n.z, n.y, -s * n.x + c * n.z));
   vec3 pants = mix(vec3(0.03, 0.04, 0.07), vec3(0.12, 0.10, 0.07), h);
-  vAlb = aPart < 0.5 ? iC : (aPart < 1.5 ? iB.rgb : (aPart < 2.5 ? pants : (aPart < 3.5 ? vec3(0.02, 0.016, 0.012) + 0.05 * h : vec3(0.82, 0.62, 0.16))));
+  // what's on his head: a cap in about a third of the stand, the rest their own hair, dark, brown,
+  // fair or grey; and about a quarter in a jacket over the shirt, its sleeves the jacket's
+  float h6 = hash(iA.xz, vec2(29.81, 47.53), 17093.7), h7 = hash(iA.xz, vec2(83.37, 13.91), 28411.3);
+  vec3 hair = h6 < 0.34 ? mix(vec3(0.03, 0.04, 0.12), vec3(0.32, 0.03, 0.03), step(0.17, h6)) * (0.8 + 0.4 * h7)
+    : h6 < 0.62 ? vec3(0.02, 0.016, 0.012) + 0.03 * h : h6 < 0.82 ? vec3(0.09, 0.05, 0.025) : h6 < 0.93 ? vec3(0.32, 0.22, 0.1) : vec3(0.3, 0.29, 0.27);
+  vec3 jacket = h7 < 0.4 ? vec3(0.025, 0.025, 0.03) : h7 < 0.7 ? vec3(0.03, 0.045, 0.09) : h7 < 0.85 ? vec3(0.09, 0.1, 0.06) : vec3(0.12, 0.14, 0.18);
+  vec3 shirt = (h2 < 0.25 && abs(aPart - 1.25) < 0.1) ? jacket : iB.rgb;
+  vec3 dark = abs(aPart - 3.0) < 0.1 ? hair : vec3(0.02, 0.016, 0.012) + 0.05 * h;
+  vAlb = aPart < 0.5 ? iC : (aPart < 1.5 ? shirt : (aPart < 2.5 ? pants : (aPart < 3.5 ? dark : vec3(0.82, 0.62, 0.16))));
   vPos = w; gl_Position = uVP * vec4(w, 1.0);
 }`;
+
+// A fan too far off to be more than a few pixels tall, as a card: a quad (aCorner, x -1 to 1 across
+// and y 0 to 1 up) on his seat, turned to the camera about the vertical, as tall as he stands and
+// with his arms' height over his head when he cheers. He gets up, bounces and wears his shirt, hair
+// or cap and jacket exactly as CROWD_VS has him (the same hashes off his seat, kept in step with
+// it), so a stand drawn part in figures and part in cards gets up together. The fragment shader
+// (gl/ballpark.js CARD_FS) draws his outline from vQ, the point on the card in feet. uEyeC is the
+// camera, for the turn.
+export const CARD_VS = `#version 300 es
+layout(location = 0) in vec2 aCorner;
+layout(location = 3) in vec4 iA;
+layout(location = 4) in vec4 iB;
+layout(location = 5) in vec3 iC;
+uniform mat4 uVP;
+uniform float uBase;
+uniform vec2 uRoar;
+uniform float uT;
+uniform float uMove;
+uniform vec3 uEyeC;
+out vec3 vPos; out vec3 vN; out vec2 vQ;
+flat out vec3 vShirt; flat out vec3 vSkin; flat out vec3 vHair; flat out float vK; flat out float vH;
+float hash(vec2 p, vec2 k, float m) { return fract(sin(dot(p, k)) * m); }
+void main() {
+  float h = hash(iA.xz, vec2(12.99, 78.23), 43758.5), h2 = hash(iA.xz, vec2(39.35, 11.13), 24634.6);
+  float away = step(hash(iA.xz, vec2(7.17, 91.3), 13371.3), iA.x > 0.0 ? 0.3 : 0.06);
+  float roar = mix(uRoar.x, uRoar.y, away);
+  float thr = 0.12 + 0.75 * h2, up = smoothstep(thr, thr + 0.18, roar);
+  float k = max(uBase * 0.5, up);
+  // the top of his head sitting and standing (gl/ballpark-mesh.js CROWD_POSE), his hands over it
+  // when he cheers
+  float h4 = hash(iA.xz, vec2(17.31, 63.77), 21357.9), h5 = hash(iA.xz, vec2(71.13, 5.29), 37771.1);
+  float H = mix(4.15, 5.6, min(1.0, k * 2.0)) * (0.95 + 0.1 * h5), top = H + max(0.0, k * 2.0 - 1.0) * 0.95;
+  float hw = 0.62 * (0.9 + 0.26 * h4 * h4);
+  float joy = up * uMove, bounce = joy * 0.22 * pow(0.5 + 0.5 * sin(uT * 7.0 + h * 6.283), 1.6);
+  vec2 d = normalize((uEyeC - iA.xyz).xz + vec2(1e-4, 0.0));
+  vec3 right = vec3(d.y, 0.0, -d.x);
+  vQ = vec2(aCorner.x * hw, aCorner.y * top);
+  vec3 w = iA.xyz + (right * vQ.x + vec3(0.0, vQ.y + bounce, 0.0)) * iB.w;
+  vN = normalize(vec3(d.x, 0.35, d.y));
+  float h6 = hash(iA.xz, vec2(29.81, 47.53), 17093.7), h7 = hash(iA.xz, vec2(83.37, 13.91), 28411.3);
+  vHair = h6 < 0.34 ? mix(vec3(0.03, 0.04, 0.12), vec3(0.32, 0.03, 0.03), step(0.17, h6)) * (0.8 + 0.4 * h7)
+    : h6 < 0.62 ? vec3(0.02, 0.016, 0.012) + 0.03 * h : h6 < 0.82 ? vec3(0.09, 0.05, 0.025) : h6 < 0.93 ? vec3(0.32, 0.22, 0.1) : vec3(0.3, 0.29, 0.27);
+  vec3 jacket = h7 < 0.4 ? vec3(0.025, 0.025, 0.03) : h7 < 0.7 ? vec3(0.03, 0.045, 0.09) : h7 < 0.85 ? vec3(0.09, 0.1, 0.06) : vec3(0.12, 0.14, 0.18);
+  vShirt = h2 < 0.25 ? jacket : iB.rgb; vSkin = iC; vK = k; vH = H;
+  vPos = w; gl_Position = uVP * vec4(w, 1.0);
+}`;
+// The card's corners: two triangles, x across and y up.
+export const CARD_QUAD = new Float32Array([-1, 0, 1, 0, 1, 1, -1, 0, 1, 1, -1, 1]);

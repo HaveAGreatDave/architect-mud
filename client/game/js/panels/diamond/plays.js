@@ -838,7 +838,11 @@ function stillShots(shots, balls, land) {
 
 // Where the play's camera looks at time t: the ball's way, smoothed over the last third of a
 // second, so the camera leads into a throw rather than snapping to it; a ball in a hand is where
-// it was caught.
+// it was caught. The smoothing weighs each moment by a raised cosine, heaviest on the newest and
+// nothing at the window's far end, so a throw or a catch comes into the camera's turn without the
+// kinks an even average puts in it as each sample passes over the moment.
+const TRACK_N = 12, TRACK_DT = 0.03;
+const TRACK_W = Array.from({ length: TRACK_N }, (_, k) => 0.5 + 0.5 * Math.cos(Math.PI * k / TRACK_N));
 export function trackOf(balls) {
   const at = (t) => {
     let s = balls[0];
@@ -848,7 +852,7 @@ export function trackOf(balls) {
   };
   return (t) => {
     let x = 0, y = 0, z = 0, n = 0;
-    for (let k = 0; k < 8; k++) { const q = at(t - k * 0.045); if (q) { x += q[0]; y += q[1]; z += q[2]; n++; } }
+    for (let k = 0; k < TRACK_N; k++) { const q = at(t - k * TRACK_DT), w = TRACK_W[k]; if (q) { x += q[0] * w; y += q[1] * w; z += q[2] * w; n += w; } }
     return n ? [x / n, y / n, z / n] : null;
   };
 }

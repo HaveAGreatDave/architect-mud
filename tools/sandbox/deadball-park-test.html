@@ -128,6 +128,29 @@
       : createGamedayView(host);
     window.__view = view;
     view.showIdle();
+    // ?bench=1: window.__gpuBench(shots, n) renders the park's last frame n times back to back from
+    // each shot and resolves the GPU time a frame (EXT_disjoint_timer_query_webgl2), the triangles
+    // and the draws. It times the GPU rather than the frame rate, because a hidden Browser pane runs
+    // requestAnimationFrame about once a second.
+    if (Q.get('bench') === '1') window.__gpuBench = async (shots = [null], n = 50) => {
+      const R = view.renderer, cv = host.querySelector('canvas'), gl = cv?.getContext('webgl2');
+      const X = gl?.getExtension('EXT_disjoint_timer_query_webgl2');
+      if (!R || !X) return { error: 'no 3-D view or no timer query' };
+      const out = {}, wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      for (const shot of shots) {
+        if (shot) view.setShot(shot);
+        let last = null; const render = R.render; R.render = function (v) { last = v; return render.call(this, v); };
+        await wait(2200); R.render = render;
+        const qs = [];
+        for (let i = 0; i < n; i++) { const q = gl.createQuery(); gl.beginQuery(X.TIME_ELAPSED_EXT, q); R.render(last); gl.endQuery(X.TIME_ELAPSED_EXT); qs.push(q); await wait(0); }
+        await wait(500);
+        // the first frames run while the GPU clocks up, so they're left out
+        const ms = qs.map((q) => (gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE) ? gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6 : NaN)).slice(Math.floor(n * 0.3)).filter(Number.isFinite).sort((a, b) => a - b);
+        out[shot || 'live'] = { med: +ms[ms.length >> 1]?.toFixed(2), p90: +ms[Math.floor(ms.length * 0.9)]?.toFixed(2), tris: R.stats?.tris, draws: R.stats?.draws };
+      }
+      out.size = [cv.width, cv.height]; out.quality = { ...R.quality };
+      return out;
+    };
 
     // The broadcast's own formatters (sportsAbbr and sportsOrdinal in plugins/broadcast/index.js),
     // which the payloads take as arguments.

@@ -57,9 +57,25 @@ function paintClubJersey(g, K, num, W, H, seed) {
   g.lineWidth = 8; g.strokeStyle = edge || K.trim; g.strokeText(num, 384, 165); g.fillStyle = fill || K.ink; g.fillText(num, 384, 165);
 }
 
+// A man's surname across his back over the number, arched a little and set smaller to fit:
+// the period's road shirts had them, and the arcade puts them on every shirt.
+export const surnameOf = (id) => (typeof id === 'string' && id && !id.includes(':') ? id.trim().split(/\s+/).pop().toUpperCase().slice(0, 12) : '');
+function paintBackName(g, name, fill, edge) {
+  if (!name) return;
+  const n = name.length, px = n > 9 ? 20 : n > 7 ? 23 : 26, span = Math.min(150, n * px * 0.62);
+  g.font = `bold ${px}px ${'"FreeSans", "Arial Narrow", Arial, sans-serif'}`; g.textAlign = 'center'; g.lineJoin = 'round';
+  for (let i = 0; i < n; i++) {
+    const t = n > 1 ? i / (n - 1) - 0.5 : 0, cx = 384 + t * span, cy = 64 - Math.cos(t * 2) * 6 + 6;
+    g.save(); g.translate(cx, cy); g.rotate(t * 0.22);
+    g.lineWidth = 3; g.strokeStyle = edge; g.strokeText(name[i], 0, 0); g.fillStyle = fill; g.fillText(name[i], 0, 0);
+    g.restore();
+  }
+}
+
 // One jersey into a 512×256 rect at (x, y): the chest a quarter of the way across, the back
-// three quarters, the collar at the top. `kit` is sideKit's, or a side for its house kit.
-export function paintJersey(g, x, y, kit, nickname, number) {
+// three quarters, the collar at the top. `kit` is sideKit's, or a side for its house kit. `name`
+// is the man's surname for his back (surnameOf), or nothing.
+export function paintJersey(g, x, y, kit, nickname, number, name = '') {
   const K = kitOf(kit), W = 512, H = 256;
   g.save();
   g.beginPath(); g.rect(x, y, W, H); g.clip();
@@ -95,6 +111,11 @@ export function paintJersey(g, x, y, kit, nickname, number) {
     }
     g.font = `bold 95px ${SANS}`; g.textAlign = 'center'; g.lineJoin = 'round';
     g.lineWidth = 8; g.strokeStyle = K.ink; g.strokeText(num, 384, 165); g.fillStyle = K.trim; g.fillText(num, 384, 165);
+  }
+  // his name over his number, in the number's colours
+  {
+    const [fill, edge] = !K.house ? [K.number[0] || K.ink, K.number[1] || K.trim] : K === KITS.home ? [K.ink, K.trim] : [K.trim, K.ink];
+    paintBackName(g, name, fill, edge);
   }
   // the collar and the hem, a touch darker
   const grd = g.createLinearGradient(0, 0, 0, H);
@@ -146,11 +167,11 @@ export function paintKitAtlas(doc, cast, teams, into = null) {
   for (const m of cast || []) {
     const side = m.look.side, slot = m.look.slot;
     if ((side !== 'home' && side !== 'away') || m.look.role === 'crew') continue;
-    const nick = nicknameOf(teams?.[side]), key = `${wear[side].sig}|${nick}|${m.look.number}`;
+    const nick = nicknameOf(teams?.[side]), name = m.look.role === 'ump' ? '' : surnameOf(m.id), key = `${wear[side].sig}|${nick}|${m.look.number}|${name}`;
     if (keys[slot] === key) continue;
     keys[slot] = key;
     const [x, y] = cellRect(kitCell(slot));
-    paintJersey(g, x, y, wear[side], nick, m.look.number);
+    paintJersey(g, x, y, wear[side], nick, m.look.number, name);
     dirty.push([x, y, 512, 256]);
   }
   c.__keys = keys;

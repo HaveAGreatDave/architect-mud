@@ -138,6 +138,22 @@ export function shotAt(s, t) {
   const far = Math.hypot(at[0] - base.eye[0], at[1] - base.eye[1], at[2] - base.eye[2]), near0 = Math.hypot(base.at[0] - base.eye[0], base.at[1] - base.eye[1], base.at[2] - base.eye[2]);
   return { eye: base.eye, at, fov: base.fov * Math.min(1, Math.max(0.55, near0 / far)), shadow: base.shadow };
 }
+// The cameras on a long lens in the wells and out in centre field, which an operator holds: drawn,
+// they drift a little round their aim, about HANDHELD of the frame's half-height, on slow sines of
+// their own. Drawing only (the view applies it, and not with reduced motion); the director, the
+// graphics' framing checks and the gates read the shots as they stand.
+export const HANDHELD = 0.008;
+const HELD = new Set(['cf', 'side', 'sideL', 'first', 'third', 'plate', 'bag', 'mound', 'rub', 'deck1', 'deck3', 'crowd']);
+export function handheld(s, t) {
+  if (typeof s !== 'string' || !HELD.has(s)) return s;
+  const shot = SHOTS[s], { r, u } = axes(shot);
+  const d = Math.hypot(shot.at[0] - shot.eye[0], shot.at[1] - shot.eye[1], shot.at[2] - shot.eye[2]);
+  const k = d * Math.tan(shot.fov * DEG / 2) * HANDHELD, ph = s.length * 1.37;
+  const a = Math.sin(t * 0.83 + ph) * 0.6 + Math.sin(t * 2.11 + ph * 2.3) * 0.3 + Math.sin(t * 3.7 + ph * 0.7) * 0.1;
+  const b = Math.sin(t * 0.67 + ph * 1.9) * 0.6 + Math.sin(t * 1.73 + ph * 0.4) * 0.3 + Math.sin(t * 4.3 + ph * 3.1) * 0.1;
+  return { ...shot, at: [0, 1, 2].map((i) => shot.at[i] + (r[i] * a + u[i] * b) * k) };
+}
+
 // Whether a shot is one the director may cut to: a camera by name, or one that moves on one.
 export const isShot = (s) => (typeof s === 'string' ? !!SHOTS[s] : !!(s && SHOTS[s.shot] && typeof s.track === 'function'));
 

@@ -19,6 +19,16 @@ export const MOUND = Object.freeze([0, 59.5]);
 // Foul ground: the lower bowl's rail stands this far off either line, and the backstop this far
 // behind the plate. The park's mesh builds them here and a foul pop comes down inside them.
 export const FOUL_GROUND = Object.freeze({ line: 44, back: 60 });
+// The dugouts: one each side, let into the lower bowl's front from `from` to `to` feet along the
+// line, `deep` feet back under the stands. The bowl's first rows are lifted `raise` feet over it,
+// eased back down over the rows behind (gl/ballpark-mesh.js stands), so the recess stands at field
+// level with its roof `FOUL_GROUND`'s front wall height and `raise` over it. A side's men stand in
+// it in a row `stand` feet in, from `first` along the line, `step` feet apart (bases.js
+// dugoutSpot). The third-base side is +x.
+export const DUGOUT = Object.freeze({ from: 70, to: 126, deep: 10.8, raise: 3.5, stand: 5.5, first: 74, step: 5 });
+// A point `s` feet along a line from home and `off` feet out from the line, on `side` (+1 the
+// third-base line, -1 the first).
+export const offLine = (side, s, off) => [side * (s + off) / Math.SQRT2, 0, (s - off) / Math.SQRT2];
 export const RUBBER = Object.freeze([0, 0.86, 60.75]);
 
 // The mound: a ten-inch rise round the rubber falling off to the infield grass.

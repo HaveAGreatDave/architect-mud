@@ -13,22 +13,29 @@
 // most; msaa; shadows, how many towers cast; ao, the occlusion's size against the frame's (2 half,
 // 4 quarter, 0 off); dof, the lens's taps; crowd, the share of the fans drawn; city, the city's own
 // lights (2 all, 1 no smoke, 0 no searchlights either); fx, the spectacle (2 all, 1 half the
-// particles, 0 only the trails); birds and flashes.
+// particles, 0 only the trails); birds and flashes; light, how the park is lit (1 the floods as
+// floods, with their falloff, their size and the field's bounce, gl/ballpark.js floodAtt; 0 the
+// park as first tuned, kept to compare against); stands, whether the park's own structure, its
+// roof and the ball cast the towers' shadows as well as the players; detail, the players' level of
+// detail (2 by how tall each stands on the screen, gl/ballpark.js lodOf; 1 a level coarser); fans,
+// the crowd's figure (2 the near one through a long lens, gl/ballpark.js CLOSE_FOV; 1 the far one
+// always); cards, whether a fan only a few pixels tall is drawn as a card (gl/ballpark.js
+// splitCrowd), two triangles to the figure's 256.
 //
 // Pure: no DOM and no GL.
 
 export const PARK_TIERS = Object.freeze({
-  full: Object.freeze({ dpr: 2, msaa: true, shadows: 4, ao: 2, dof: 28, crowd: 1, city: 2, fx: 2, birds: true, flashes: true }),
-  laptop: Object.freeze({ dpr: 1.5, msaa: true, shadows: 2, ao: 4, dof: 12, crowd: 0.6, city: 1, fx: 1, birds: true, flashes: true }),
-  phone: Object.freeze({ dpr: 1, msaa: false, shadows: 0, ao: 0, dof: 0, crowd: 0.3, city: 0, fx: 0, birds: false, flashes: false }),
+  full: Object.freeze({ dpr: 2, msaa: true, shadows: 4, ao: 2, dof: 28, crowd: 1, city: 2, fx: 2, birds: true, flashes: true, light: 1, stands: true, detail: 2, fans: 2, cards: true }),
+  laptop: Object.freeze({ dpr: 1.5, msaa: true, shadows: 2, ao: 4, dof: 12, crowd: 0.6, city: 1, fx: 1, birds: true, flashes: true, light: 1, stands: true, detail: 2, fans: 1, cards: true }),
+  phone: Object.freeze({ dpr: 1, msaa: false, shadows: 0, ao: 0, dof: 0, crowd: 0.3, city: 0, fx: 0, birds: false, flashes: false, light: 1, stands: false, detail: 1, fans: 1, cards: true }),
 });
 
 // The governor's steps down, each over the last, in the plan's order: the lens to 12 taps, the
-// occlusion to quarter size, the shadows to two towers, the crowd to three fans in five, the
-// multisampling off, the laptop's city and spectacle (no smoke, half the particles), then the
-// resolution a step at a time. (The players have no lower level yet, so their step is left out.)
+// stands' near figures off, the occlusion to quarter size, the shadows to two towers and then only the players casting them, the
+// crowd to three fans in five, the players drawn a level coarser, the multisampling off, the
+// laptop's city and spectacle (no smoke, half the particles), then the resolution a step at a time.
 export const PARK_STEPS = Object.freeze([
-  { dof: 12 }, { ao: 4 }, { shadows: 2 }, { crowd: 0.6 }, { msaa: false }, { city: 1, fx: 1 }, { dpr: 1.5 }, { dpr: 1.25 }, { dpr: 1 },
+  { dof: 12 }, { fans: 1 }, { ao: 4 }, { shadows: 2 }, { stands: false }, { crowd: 0.6 }, { detail: 1 }, { msaa: false }, { city: 1, fx: 1 }, { dpr: 1.5 }, { dpr: 1.25 }, { dpr: 1 },
 ].map(Object.freeze));
 
 // What a value costs, so a step is taken only where it's cheaper than what the rung already has.

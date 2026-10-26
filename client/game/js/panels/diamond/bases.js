@@ -27,7 +27,7 @@
 // BALL FOUR OR A HIT BATSMAN (`planTrot`): the batter trots to first and every man forced trots up
 // a bag, after the play's landed; a man not forced walks back to his bag.
 //
-// THE CHANGEOVER. Each side's dugout is a row of spots in foul ground up the line (`dugoutSpot`).
+// THE CHANGEOVER. Each side's dugout is a row of spots in its recess up the line (`dugoutSpot`).
 // The side taking the field runs out from it to its places (`planTakeField`), and on the third out
 // every man goes off to his own (`jogToDugout`, which the director plans from the world once the
 // play's landed).
@@ -37,7 +37,7 @@
 import { CLIPS } from './clips.js';
 import { rootAt, sampleClip } from './anim.js';
 import { solvePose } from './rig.js';
-import { BAGS, DEG, RUBBER, MOUND } from './geo.js';
+import { BAGS, DEG, RUBBER, MOUND, DUGOUT, FOUL_GROUND, offLine } from './geo.js';
 import { legsOf, topSpeed } from './play.js';
 import {
   clamp, add, sub, mul, flat, faceTo, turn, ahead, wrap, HOME, hashStr, CYCLES, cycleFor, PLAYBACK, FADE, timeFor, STOP, STOP_LEN,
@@ -535,10 +535,9 @@ export function planTrot(ctx, o) {
 }
 
 // ── the changeover ─────────────────────────────────────────────────────────────
-// Each side's dugout, where a side takes the field from and goes off to: in foul ground 30 ft up
-// the line, a row of spots five feet apart running out across the way the men come and go, the
-// k-th man's the k-th.
-export const dugoutSpot = (side, k) => [side * (42 + 5 * k), 0, 30];
+// Each side's dugout, where a side takes the field from and goes off to: the recess let into the
+// lower bowl's front up its line (geo.js DUGOUT), a row of spots along it, the k-th man's the k-th.
+export const dugoutSpot = (side, k) => offLine(side, DUGOUT.first + DUGOUT.step * k, FOUL_GROUND.line + DUGOUT.stand);
 // The spots for men at `from` (points), handed out so the ways to them are shortest in all, a pair
 // swapped while that shortens them: then no two straight ways cross. Returns each man's spot index.
 export function spotsFor(from, side) {

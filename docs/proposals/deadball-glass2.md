@@ -2035,6 +2035,190 @@ Phase 3, or with sim v2 if that comes later.
   block wasn't self-contained: six street tiles and the grass at 898,912 pointed into it, and those
   links were cut. And a set-aside facade's way out names the green beside it on the holding map.
 
+**The visual upgrade, motion (2026-10-24, built).** The first of three passes (motion, then
+light, then models).
+- **Drawn between steps.** The view draws the poses, the ball, the camera and the spectacle at the
+  frame's own time rather than the world's last 1/120 s step (gameday-grandstand.js `drawT`).
+  Queued events still fire on whole steps, so the staging is unchanged. A replay at 0.4 used to
+  hold every fifth frame at 60 fps; at 144 Hz every frame now moves on by exactly 1/144 s.
+- **The body's own weight** ([diamond/secondary.js](../../client/game/js/panels/diamond/secondary.js)),
+  drawing only and kept out of `W.pose`, so no gate's staging check sees it:
+  - the chest is held back a beat as a man sets off and carries on as he pulls up;
+  - he leans into the turns he runs, at most 5°;
+  - the head is steadied against the lean, and its turns ease onto the ball over about a sixth of
+    a second instead of snapping;
+  - he breathes while he's still.
+  - The pelvis, the feet, the wrists and the bat are never moved, so a glove stays on the ball;
+    over 14 staged at-bats and 154,000 drawn poses none was.
+- **Blinks** in the face shader (gl/ballpark.js `blinkAt`), on each man's own beat.
+- **Feet in a mix step instead of skating.** A foot both clips plant on spots more than 0.12 ft
+  apart is lifted across in a low arc (anim.js `mixPose`, `MIX_STEP`). Over 20 at-bats, planted
+  feet sliding faster than 1 ft/s inside a mix fell from 673 frames to 2, and the worst from 29 to
+  1.1 ft/s.
+- **The cameras:**
+  - the play camera's ball track weighs its third of a second by a raised cosine rather than
+    evenly (plays.js `trackOf`), so a throw comes into its turn without kinks;
+  - the long lenses in the wells and centre field drift a little in an operator's hands
+    (camera.js `handheld`), drawing only and never with reduced motion.
+- **The ball** is drawn smeared along its way over half a 60 Hz frame of the screen's time
+  (gl/ballpark.js `setBall`'s `back`).
+- **The crowd:**
+  - every fan's head turns toward the ball as far as his own interest takes him, eased over about
+    half a second;
+  - a quiet stand leans forward and back, each fan on his own slow beat;
+  - the cheering bounce is a smooth hop with no kink where it lands (gl/crowd.js).
+- **Not done in this pass:**
+  - cloth flutter and helmet settle from a previous bone palette;
+  - knees on the street walkers;
+  - a gate check for foot slide inside a mix (the measure is a scratch script for now).
+- **Frame times.** The sandbox's `?bench=1` adds `__gpuBench(shots, n)`, which times the GPU with
+  a timer query, since a hidden Browser pane runs requestAnimationFrame about once a second. On an
+  RTX 2070 SUPER at 965×488 on the full tier, the park takes about 2.4 to 3.6 ms of GPU a frame for
+  1.8M triangles.
+
+**The visual upgrade, light (2026-10-24, built).** The second pass. Each part is behind a quality
+key whose off value draws the park as first tuned (diamond/quality.js `light`, `stands` and `sun`),
+so the two can be compared in the sandbox.
+- **The floods as floods** (gl/ballpark.js `floodAtt`, `light`). Each light falls off with the
+  square of its distance, reckoned from where its axis meets the ground, so the field under it is
+  as bright as it was; near the lamps it's at most twice that. Before, everything inside 700 ft was
+  lit the same. The outfield and the wall now fall away from a bright infield, and the stands sit
+  darker behind it.
+  - A tower's bank of lamps is 32 ft across, and its highlights take that size (a representative
+    point, its energy kept).
+  - A deck's row, and a tower's light gone under a deck with the roof shut, is a line of lamps
+    150 ft long, lit from its nearest point.
+- **The field's bounce** (`uBounce`). The towers' light on the grass at five points, times the
+  grass's colour and 0.6, lights the undersides of what stands on it. It's gone by about 45 ft up,
+  so the players' shaded sides aren't black and the upper deck isn't green.
+- **The stands, the roof and the ball cast** (`stands`, full and laptop tiers).
+  - With them in it, each tower's map starts 0.15 of the way from its lamp to the play
+    (spotshadow.js `spotMatrix` `near`), past the lamp's own housing, so what stands between the
+    lamp and the field shades it.
+  - The disc of taps is turned by a different angle at each pixel and widened a little, so a
+    shadow's edge is soft rather than patterned.
+  - The governor drops the structure's shadows after the second tower's.
+- **The low sun** (diamond/sky.js `sunLight`, `sun`). On a curve that sets it at 18:30, as the
+  sky's keyframes do: warm and weak near the horizon, gone through cloud. It has its own map over
+  the whole bowl, so its shadow has no edge in any shot, and takes the fourth tower's map while it's
+  up.
+  - On air (18:00 to 18:30) it's below the bowl's rim, so the field is in the bowl's shadow, and
+    the sun lights the skyline and the faces that look toward it.
+  - The phone tier gets it too, its map holding the structure only.
+- **The lens** (gl/broadcast.js `uLook`):
+  - the occlusion is kept mostly to what the direct light doesn't reach, since the pass can't tell
+    ambient from direct;
+  - a wider glow round the lamps, from the coarser bloom octave;
+  - a little dither before the eight-bit target, so a night sky that's nearly black doesn't band.
+- **The phone tier**, which has no tower maps, gets a soft patch under each man and the ball
+  (`blobAt`, 16 of them).
+  - ⚠ **The lit shader is near a floor-spec phone's 224 fragment uniform vectors.** The programs
+    hold 225 rows unpacked, about 200 packed. A lamp's three new numbers share one vec3 (`uLGeo`)
+    for that reason. Add a uniform array to LIT_FS only after counting.
+- **Cost.** On an RTX 2070 SUPER at 965×488 at 18:12, about 5 ms of GPU a frame with the new light
+  and without it, within the measurement's noise.
+- **Not done in this pass:**
+  - the reflection cube and specular anti-aliasing;
+  - baked occlusion on the structure;
+  - a bilateral blur for the occlusion;
+  - lens ghosts;
+  - shafts masked to their cones;
+  - a seventh light for lightning and fireworks.
+- **Exposure.** At the park's exposure of 1, 0.7% of a close-up's pixels clipped (white jerseys and
+  faces under six floods), and 0.5% at 0.8. The new light is taken at 0.85 of it (gl/ballpark.js
+  `LIGHT_EXPOSURE`), chosen by eye, so the faces and jerseys near the lamps hold their folds.
+
+**The visual upgrade, models (2026-10-24, built so far).** The third pass.
+- **The players at three levels of detail** (gl/ballplayer-mesh.js `createPlayerSet` `lod`).
+  - `emitGrid` still works out every surface's whole grid, so the normals stay the full surface's.
+  - At level 1 it keeps every second column. At level 2 it keeps every fourth, and every second
+    row, always keeping the rows where the material changes, so a sleeve still ends at its piping.
+  - The head is actor-head.js's own level.
+  - A fielder is 14,194, 7,632 and 3,196 triangles; a batter 17,650, 9,300 and 3,964. The small
+    parts (fingers, spikes, a cap's button) don't go lower, so level 2 is a quarter, not the
+    plan's tenth.
+  - Each body is built at all three, the coarsest first. A man is drawn at the level his height
+    on screen asks for: full from 110 px, the middle level from 40 px (gl/ballpark.js `lodOf`).
+  - The towers' shadows draw the middle level.
+  - `quality.detail` 1 draws everyone a level coarser: the phone tier's, and the governor's step
+    after the crowd, which the plan had to leave out until now.
+  - `ballpark-smoke` holds every role at every level to a budget (18,000, 10,000 and 4,500), each
+    coarser than the last, every number finite and every vertex's weights summing to one.
+- **The ball has its seams** (`MAT.BALL`). Each vertex carries where on the leather it is with
+  the spin taken back out. The shader draws the figure-eight seam (a + b = 1 on the sphere) and its
+  red chevron stitches there: 48 samples along the curve, then a golden-section search near the
+  closest, since the samples alone drew a row of beads. The ball has backspin about the way across
+  its flight at 4 turns a second of the world's clock, slow enough to read as turning at 60 frames
+  a second and slower again in a replay.
+- **The crowd:**
+  - every fan's build is broader or slighter, a little taller or shorter;
+  - about a third wear a cap (navy or red), the rest their own hair, dark, brown, fair or grey;
+  - about a quarter wear a jacket over the shirt (gl/crowd.js).
+  - The near figure (456 triangles to the far one's 256) draws through any lens of 20° or
+    narrower (`quality.fans` 2, full tier only). That's a million triangles more in those shots,
+    about 0.3 ms on the RTX 2070 SUPER, and the governor's second step takes it off.
+- **The dugouts** (geo.js `DUGOUT`, gl/ballpark-mesh.js `dugouts`). One each side, 70 to 126 ft
+  up its line, let into the lower bowl's front 10.8 ft deep.
+  - The ground is one plane at y 0 and the bowl's first row stands 4.5 ft over it, so a dugout
+    can't be sunk. Instead the first four rows over it are lifted 3.5 ft, eased back to where they
+    were over the next six, and the fans in them with them. That leaves a recess 8 ft high at field
+    level under a roof, with its back padded and its ends walled.
+  - The bowl's front path (`bowlPath`) holds each dugout's ends as two points in one place, one
+    lifted and one not, so the rows step up in a wall there rather than a slope.
+  - Inside: a bench along the back, a water cooler on its stand, and a strip of warm lamps under
+    the roof's lip. The towers' shadows fall across it from the rows above.
+  - The changeover's spots (bases.js `dugoutSpot`) are now a row in the recess, 5.5 ft in from its
+    mouth and 5 ft apart from 74 ft up the line, room for eleven. A first try at 4.2 ft apart put
+    men going off 1.96 ft from each other, under `diamond-smoke`'s 2 ft.
+  - Over-the-rail catches and the grounds crew's lanes keep to foul ground, which the dugouts
+    don't enter.
+- **The first baseman's mitt** (gl/ballplayer-mesh.js `glove` 'first'): long and scooped, with no
+  finger stalls, a deep pocket, a laced edge round its top, a web of lacing to the thumb's side,
+  and the strap. The cast gives it to the first baseman (`mitt`), and his body is keyed by it.
+- **Names on the backs** (diamond/kits.js `surnameOf`): every man the payload names wears his
+  surname arched over his number, in the number's colours.
+- **Tackle twill** (gl/ballpark.js `uTwill`). The kit atlas's own brightness is taken as height, so
+  the edges of the numbers, the wordmark and the name catch the floods in a close-up. The tangent
+  frame comes from the screen's derivatives, so the vertex format didn't change, and it fades out
+  once a texel is under a pixel or so, so it never shimmers at broadcast distance.
+- **Lamp housings** (`LAMP_BOX`): each of a tower's 24 lamps stands off the lamp house in its own
+  housing, 1.7 ft deep, with a visor, its lens at the front.
+- **Outfield advertising:** four panels on the padding between the distance numbers, clear of the
+  batter's eye, each a cell of the ad strip the renderer already paints behind the plate.
+- The park comes to 55,131 triangles, inside the 90,000 `ballpark-smoke` allows. The frame is
+  about 4.4 to 5 ms of GPU at 742×335 on the RTX 2070 SUPER, the same as before the pass.
+- **Dirt on the uniforms over a game** (gl/ballpark.js `wear`, LIT_FS `uWear`).
+  - Each body keeps how dirty it is low down (knees, shins, seat) and up its front. It's keyed by
+    the body, so a runner keeps his from bag to bag, though his kit slot changes.
+  - A slide or dive (a mark's `scar`) adds a good deal of both. Each pitch's stride adds a little
+    to the catcher's knees.
+  - The amount goes to the shader per draw as one `vec2`, since the lit shader had no room for an
+    array. It's applied as infield dirt in blotches fixed to the cloth's uv, so it moves with him.
+  - A new game starts clean.
+- **The cloth's weave:** a plain weave in the kit atlas's own texels, one thread every three, laid
+  over the twill's normal. It shows only where a thread is two pixels or more.
+- **The scoreboard's bulbs:**
+  - each lamp is a bulb, hottest at its filament;
+  - an unlit one is glass catching a little light;
+  - lit neighbours spill into the black louvre between;
+  - from too far for a bulb to be a few pixels, the board is the bulbs' mean, so it doesn't shimmer.
+- **Cards for the far crowd** (gl/crowd.js `CARD_VS`, gl/ballpark.js `CARD_FS`, `splitCrowd`,
+  `quality.cards`).
+  - A fan under 9 device pixels tall is drawn as a card: two triangles turned to the camera, with
+    his outline (head with hair or cap, shoulders and body in his shirt, arms up when he cheers)
+    drawn in the fragment shader.
+  - The card's shader reads the figure's own hashes off his seat, so he gets up, bounces and
+    dresses exactly as his figure would, and a stand split between the two rises together.
+  - The split is worked out on the CPU each time the camera moves enough, at most four times a
+    second. Each kind of fan's figure buffer holds the near ones and its card buffer the far, both
+    within the tier's share. The flashes keep their own seat list.
+  - At 742×335, the batting view goes from 1.90 million triangles to 1.33 million and the high
+    camera from 1.85 to 1.59, with no difference to see. On the RTX 2070 SUPER the frame time is
+    the same within its noise; the saving is for GPUs short of vertex throughput.
+- **Not done in this pass:** the plate umpire's protector stays under his shirt, as the period
+  wore it, shown by his girth (`PLAIN.ump`), with no shell of its own. Roughness maps for the
+  cloth are left out: the weave and the twill carry its texture, and its roughness stays one value.
+
 **Phase 7: optional.** A longer postseason; a pitch-by-pitch booth; a park per club; the batter's
 season line; the throwback presets; the same lighting for Rinkside; the skyline dimming with the
 power grid.

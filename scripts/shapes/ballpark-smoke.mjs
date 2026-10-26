@@ -815,6 +815,33 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
     for (const G of [G1, G2]) for (const [, b] of G.batches) { tris += b.n / 3; for (let k = 0; k < b.n * (G === G2 ? PM.SKIN_STRIDE : M.STRIDE); k++) if (!Number.isFinite(b.data[k])) bad++; }
     check('cast: the crew\'s work clothes build, posed and skinned', bad === 0 && tris > 4000, `${tris} triangles, ${bad} bad`);
   }
+  // every man at every level of detail (createPlayerSet `lod`): each coarser than the one before
+  // and inside its budget, every number finite, and every vertex's four weights summing to one;
+  // the full level is the one the gates above build
+  {
+    const LOD_MAX = [18000, 10000, 4500], roles = [...new Map(castOf(p).map((c) => [c.look.role + (c.look.helmet ? 'H' : ''), c])).values()];
+    for (const c of roles) {
+      const look = PM.lookOf({ ...c.look, scale: c.scale }), counts = [];
+      let bad = 0;
+      for (let lod = 0; lod < PM.PLAYER_LODS; lod++) {
+        const G = PM.createPlayerSet({ skin: true, lod });
+        PM.buildBody(G, { ...look });
+        let tris = 0;
+        for (const [, b] of G.batches) {
+          tris += b.n / 3;
+          for (let v = 0; v < b.n; v++) {
+            const o = v * PM.SKIN_STRIDE;
+            for (let k = 0; k < M.STRIDE; k++) if (!Number.isFinite(b.data[o + k])) bad++;
+            const w = b.u8.subarray((o + M.STRIDE) * 4 + 4, (o + M.STRIDE) * 4 + 8);
+            if (Math.abs(w[0] + w[1] + w[2] + w[3] - 255) > 4) bad++;
+          }
+        }
+        counts.push(tris);
+      }
+      check(`players: ${c.look.role}${c.look.helmet ? ' in a helmet' : ''} at each level of detail, coarser each level and inside its budget, sound`,
+        bad === 0 && counts.every((n, i) => n > 600 && n <= LOD_MAX[i] && (i === 0 || n < counts[i - 1] * 0.7)), `${counts.join(' / ')} triangles, ${bad} bad`);
+    }
+  }
   // a skinned body is who he is and what he wears: a new batter is one new body, and a runner who
   // moves up keeps his
   const keysOf = (q) => new Set(castOf(q).map(bodyKey));

@@ -443,6 +443,9 @@ export function breathe(P, t, seed = 0, w = 1) {
   return out;
 }
 
+// A foot planted in both clips of a mix on spots further apart than MIX_STEP feet is lifted across
+// between them, up to MIX_LIFT feet at the middle of the mix (half the way it goes, if that's less).
+const MIX_STEP = 0.12, MIX_LIFT = 0.3;
 export function mixPose(a, b, w, opts = {}) {
   w = clamp(w, 0, 1);
   if (w <= 0) return a;
@@ -455,9 +458,16 @@ export function mixPose(a, b, w, opts = {}) {
   for (const S of FEET) {
     const pa = a['ank' + S], pb = b['ank' + S];
     const both = pa.length === 2 && pb.length === 2;
-    if (both) P['ank' + S] = [lerp(pa[0], pb[0], w), lerp(pa[1], pb[1], w)];
-    else { const A = ankle3(pa, ground, s), B = ankle3(pb, ground, s); P['ank' + S] = [0, 1, 2].map((i) => lerp(A[i], B[i], w)); }
-    P['plant' + S] = both;
+    // A foot each clip plants on a different spot steps across in a low arc rather than skating
+    // along the grass between them; on the same spot, near enough, it stays planted.
+    const apart = both ? Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) : 0;
+    if (both && apart <= MIX_STEP * s) P['ank' + S] = [lerp(pa[0], pb[0], w), lerp(pa[1], pb[1], w)];
+    else {
+      const A = ankle3(pa, ground, s), B = ankle3(pb, ground, s);
+      P['ank' + S] = [0, 1, 2].map((i) => lerp(A[i], B[i], w));
+      if (both) P['ank' + S][1] += Math.min(MIX_LIFT * s, apart * 0.5) * Math.sin(Math.PI * w);
+    }
+    P['plant' + S] = both && apart <= MIX_STEP * s;
   }
   for (const S of FEET) if (a['clear' + S] != null || b['clear' + S] != null) P['clear' + S] = lerp(a['clear' + S] ?? 1, b['clear' + S] ?? 1, w);
   if (a.bat && b.bat) P.bat = { knob: [0, 1, 2].map((i) => lerp(a.bat.knob[i], b.bat.knob[i], w)), dir: norm([0, 1, 2].map((i) => lerp(a.bat.dir[i], b.bat.dir[i], w))), bottom: (w < 0.5 ? a : b).bat.bottom };

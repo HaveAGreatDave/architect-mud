@@ -44,6 +44,12 @@ in vec2 vUV; out vec4 o;
 uniform sampler2D uScene; uniform sampler2D uB0; uniform sampler2D uB1; uniform sampler2D uDepth; uniform sampler2D uAO;
 uniform float uBloom; uniform float uExp; uniform int uGrade; uniform float uAOK;
 uniform float uNear; uniform float uFar; uniform float uFocus; uniform float uDof; uniform int uTaps; uniform vec2 uTx;
+// uLook 1 (the park's quality.light): the occlusion kept mostly to what the direct light doesn't
+// reach, since it's applied to the whole lit colour here and a lit face has no business going grey;
+// a wide glow round the lamps from the coarser bloom spread further; and a little dither before the
+// eight-bit target, so a night sky that's nearly black doesn't step into bands. 0 is the lens as
+// first tuned.
+uniform float uLook;
 float lin(float d) { float z = d * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); }
 float coc(vec2 t) { return clamp(abs(1.0 / uFocus - 1.0 / lin(texture(uDepth, t).r)) * uDof, 0.0, ${DOF_MAX.toFixed(1)}); }
 vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
@@ -69,8 +75,14 @@ void main() {
   // the occlusion, faded out with distance so it never greys the far stands; an aoK past 1.5 is
   // the bench's view of the term alone
   if (uAOK > 1.5) { o = vec4(vec3(texture(uAO, vUV).r), 1.0); return; }
-  c *= mix(1.0, texture(uAO, vUV).r, uAOK * (1.0 - smoothstep(900.0, 1500.0, lin(texture(uDepth, vUV).r))));
+  float lit = smoothstep(0.25, 1.6, dot(c, vec3(0.2126, 0.7152, 0.0722)));
+  c *= mix(1.0, texture(uAO, vUV).r, uAOK * (1.0 - smoothstep(900.0, 1500.0, lin(texture(uDepth, vUV).r))) * mix(1.0, 1.0 - 0.75 * lit, uLook));
   c += (texture(uB0, vUV).rgb + texture(uB1, vUV).rgb) * uBloom;
+  if (uLook > 0.5) {
+    vec3 wide = vec3(0.0);
+    for (int i = 0; i < 8; i++) { float a = float(i) * 0.785398 + 0.39; wide += texture(uB1, vUV + vec2(cos(a), sin(a)) * uTx * 22.0).rgb; }
+    c += wide * (uBloom * 0.07);
+  }
   vec3 s = oetf(aces(max(c, 0.0) * uExp));
   if (uGrade == 2) {
     // the arcade board: saturation, a contrast curve, warm highlights over cool shadows
@@ -84,6 +96,7 @@ void main() {
     float l = dot(s, vec3(0.299, 0.587, 0.114));
     s = mix(vec3(l), s, 0.93) * vec3(1.015, 1.0, 0.975);
   }
+  s += (fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) - 0.5) * (uLook / 255.0);
   o = vec4(clamp(s, 0.0, 1.0), 1.0);
 }`;
 
@@ -187,7 +200,7 @@ export function createBroadcastPass(gl) {
     return true;
   }
   // f: { scene, bloom: [t0, t1] | null, depth | null, ao | null, w, h, near, far, focus, dof, taps,
-  //      exposure, bloomK, aoK, grade: 'arcade' | 'broadcast' | 'none', tube, seed }
+  //      exposure, bloomK, aoK, grade: 'arcade' | 'broadcast' | 'none', tube, seed, look }
   function render(f) {
     if (!resize(f.w, f.h)) return false;
     gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
@@ -204,6 +217,7 @@ export function createBroadcastPass(gl) {
     gl.uniform1f(LENS.u('uNear'), f.near); gl.uniform1f(LENS.u('uFar'), f.far);
     gl.uniform1f(LENS.u('uFocus'), f.focus || 1); gl.uniform1f(LENS.u('uDof'), f.depth ? f.dof || 0 : 0);
     gl.uniform1i(LENS.u('uTaps'), f.taps | 0); gl.uniform2f(LENS.u('uTx'), 1 / W, 1 / H);
+    gl.uniform1f(LENS.u('uLook'), f.look ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     // 2. the screen
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);

@@ -139,8 +139,20 @@ function tri(b, a, c, d) {
 }
 // A parametric surface, rows i and columns j, joined round when `wrap`. `key`, `mat` and `col` may
 // be per row (a function of i); `col` may also be per point.
+//
+// A set built at a lower level of detail (`G.lod` 1 or 2, createPlayerSet) keeps only some of the
+// grid: every second column at level 1, every fourth at level 2 (at least six round), and at level 2
+// every second row, always keeping the first and last and every row where what it's made of changes,
+// so a sleeve still ends at its piping. The grid is still worked out whole, so the normals are the
+// full surface's, and every kept point has the uv, colour and bone weights it has at full detail.
+const keptOf = (n, step, wrap, must) => {
+  const out = [];
+  for (let k = 0; k < n; k++) if (k % step === 0 || must(k) || (!wrap && k === n - 1)) out.push(k);
+  return out;
+};
 function emitGrid(G, rows, cols, pos, opt) {
   const { wrap = true, uv = (i, j) => [j / cols, i / (rows - 1)], col, mat, key, centre, flip = false, wts } = opt;
+  const lod = G.lod | 0;
   const P = [];
   for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) P.push(pos(i, j));
   const at = (i, j) => P[i * cols + (wrap ? ((j % cols) + cols) % cols : clamp(j, 0, cols - 1))];
@@ -159,17 +171,27 @@ function emitGrid(G, rows, cols, pos, opt) {
   }
   let sign = flip ? -1 : 1;
   if (centre) { let sm = 0; for (let k = 0; k < P.length; k += 7) sm += dot(N[k], sub(P[k], centre)); sign = sm < 0 ? -1 : 1; }
-  const colsE = wrap ? cols : cols - 1;
-  for (let i = 0; i < rows - 1; i++) {
-    const b = G.B(typeof key === 'function' ? key(i) : key);
-    const m = typeof mat === 'function' ? mat(i) : mat;
-    for (let j = 0; j < colsE; j++) {
+  // the rows and columns kept at this level (all of them at full detail)
+  const cStep = lod <= 0 ? 1 : Math.max(1, Math.min(lod === 1 ? 2 : 4, Math.floor(cols / 6)));
+  const rStep = lod >= 2 && rows > 4 ? 2 : 1;
+  const keyAt = (i) => (typeof key === 'function' ? key(i) : key), matAt = (i) => (typeof mat === 'function' ? mat(i) : mat);
+  const R = rStep === 1 ? null : keptOf(rows, rStep, false, (i) => i > 0 && (keyAt(i) !== keyAt(i - 1) || matAt(i) !== matAt(i - 1)));
+  const C = cStep === 1 ? null : keptOf(cols, cStep, wrap, () => false);
+  const rowList = R || Array.from({ length: rows }, (_, i) => i);
+  // a wrapped grid's last column joins its first through column `cols`, so the seam's uv runs to 1
+  const colList = C ? (wrap ? [...C, cols] : C) : Array.from({ length: wrap ? cols + 1 : cols }, (_, j) => j);
+  for (let r = 0; r + 1 < rowList.length; r++) {
+    const i = rowList[r], i1 = rowList[r + 1];
+    const b = G.B(keyAt(i));
+    const m = matAt(i);
+    for (let k = 0; k + 1 < colList.length; k++) {
+      const j = colList[k], j1 = colList[k + 1];
       const q = (ii, jj) => {
         const idx = ii * cols + (wrap ? jj % cols : jj);
         const c = typeof col === 'function' ? col(ii, jj % cols, P[idx], i) : col;
         return { p: P[idx], n: mul(N[idx], sign), uv: uv(ii, jj), col: c, mat: m, w: wts ? wts(ii, jj % cols) : G.cur };
       };
-      const a = q(i, j), bq = q(i, j + 1), c = q(i + 1, j + 1), d = q(i + 1, j);
+      const a = q(i, j), bq = q(i, j1), c = q(i1, j1), d = q(i1, j);
       tri(b, a, bq, c); tri(b, a, c, d);
     }
   }
@@ -471,6 +493,22 @@ function glove(G, J, S, s, kind) {
     tube(G, [[P(0, 0.02, -0.02), 0.11 * s, 0.07 * s], [P(0, 0.07, -0.02), 0.115 * s, 0.075 * s]], sd, 12, { key: 'plain', col: lace, mat: MAT.LEATHER, centre: P(0, 0.045, -0.02) });
     return;
   }
+  if (kind === 'first') {
+    // the first baseman's mitt: long and scooped, for digging a throw out of the dirt, with no
+    // finger stalls; a deep pocket down its length, laced round its top, the thumb's side split off
+    // by a web, and the strap
+    const tan = hex('#a0713c'), tLace = mul(tan, 0.4);
+    ellipsoid(G, 'leather', P(0, 0.34, 0.02), [sd, hd, pm], [0.21 * s, 0.37 * s, 0.11 * s], 14, 22, tan, MAT.LEATHER,
+      { deform: (l) => { if (l[2] > 0) { const q = 1 - Math.min(1, (l[0] * l[0] / (0.04 * s * s) + l[1] * l[1] / (0.12 * s * s))); l[2] = l[2] * 0.45 - 0.06 * s * q; } return l; } });
+    const rim = [];
+    for (let k = 0; k <= 16; k++) { const a = (k / 16 - 0.5) * Math.PI * 1.3; rim.push([P(Math.sin(a) * 0.2, 0.34 + Math.cos(a) * 0.35, 0.05), 0.042 * s, 0.04 * s]); }
+    tube(G, rim, pm, 8, { key: 'plain', col: (ii) => (ii % 2 ? tLace : mul(tan, 0.62)), mat: MAT.LEATHER, centre: P(0, 0.34, 0.05) });
+    // the web between the thumb and the body, a lattice of lacing
+    emitGrid(G, 4, 4, (i, j) => P(0.13 + 0.06 * (j / 3), 0.42 + 0.18 * (i / 3), 0.07), { wrap: false, key: 'plain', col: (ii, jj) => ((ii + jj) % 2 ? tLace : mul(tan, 0.7)), mat: MAT.LEATHER, centre: P(0.16, 0.5, 0.0) });
+    ellipsoid(G, 'leather', P(0.19, 0.2, 0.0), [sd, hd, pm], [0.08 * s, 0.16 * s, 0.08 * s], 8, 12, tan, MAT.LEATHER);
+    tube(G, [[P(0, 0.02, -0.02), 0.11 * s, 0.07 * s], [P(0, 0.07, -0.02), 0.115 * s, 0.075 * s]], sd, 12, { key: 'plain', col: tLace, mat: MAT.LEATHER, centre: P(0, 0.045, -0.02) });
+    return;
+  }
   // the body: the palm's pad on its side, the back of the hand on the other
   ellipsoid(G, 'leather', P(0.01, 0.2, 0.0), [sd, hd, pm], [0.19 * s, 0.2 * s, 0.075 * s], 11, 18, leather, MAT.LEATHER,
     { deform: (l) => { if (l[2] > 0) l[2] *= 0.6; return l; } });
@@ -555,8 +593,9 @@ function head(G, J, W, s, look) {
     }
     for (let t = 0; t < M.I.length; t += 3) tri(b, V[M.I[t]], V[M.I[t + 1]], V[M.I[t + 2]]);
   };
-  emit(headMesh(0));
-  emit(hairMesh(face.style, 0));
+  // the head at the set's own level (actor-head.js has three: 1,840, 696 and 232 triangles)
+  emit(headMesh(G.lod | 0));
+  emit(hairMesh(face.style, G.lod | 0));
 }
 
 // Headwear fitted to the skull in the head's bind space: a shell `t` off the skull from the crown
@@ -817,7 +856,7 @@ export function buildPlayer(G, pose, look) {
   for (const S of ['L', 'R']) {
     // a hand on a bat holds the bat, glove or no glove
     G.cur = [[BONE[(J['grip' + S] ? 'fist' : 'hand') + S], 1]];
-    if (look.glove === S && !J['grip' + S]) glove(G, J, S, s, look.role === 'catcher' ? 'catcher' : 'fielder');
+    if (look.glove === S && !J['grip' + S]) glove(G, J, S, s, look.role === 'catcher' ? 'catcher' : look.mitt === 'first' ? 'first' : 'fielder');
     else hand(G, J, S, s, look.battingGloves ? hex(look.battingGloves) : skin, look.battingGloves ? MAT.LEATHER : MAT.SKIN);
   }
   G.cur = [[BONE.bat, 1]];
@@ -843,9 +882,12 @@ export function buildBody(G, look) {
 }
 
 // A set of batches to build players into, and the heads' face records in the order built. A
-// skinned set's batches carry bone weights (buildBody).
-export function createPlayerSet({ skin = false } = {}) {
+// skinned set's batches carry bone weights (buildBody). `lod` is the level of detail it's built at:
+// 0 full, for the close cameras; 1 about half, at broadcast distance; 2 about an eighth, for a man
+// far off in a wide shot and for the towers' shadows (emitGrid, and the head's own levels).
+export const PLAYER_LODS = 3;
+export function createPlayerSet({ skin = false, lod = 0 } = {}) {
   const batches = new Map(), heads = [];
   const make = () => (skin ? createSkinBatch(1 << 13) : createBatch(1 << 14));
-  return { batches, heads, skin, cur: [[BONE.pelvis, 1]], B: (key) => { let b = batches.get(key); if (!b) { b = make(); batches.set(key, b); } return b; } };
+  return { batches, heads, skin, lod: Math.max(0, Math.min(PLAYER_LODS - 1, lod | 0)), cur: [[BONE.pelvis, 1]], B: (key) => { let b = batches.get(key); if (!b) { b = make(); batches.set(key, b); } return b; } };
 }

@@ -6,9 +6,10 @@
 // game's players stand in four soft shadows that overlap at their feet, and that, more than any
 // grade, is what makes the picture read as lit by the park.
 //
-// What casts is up to the caller: the ballpark draws the players and the ball (docs/proposals/
-// deadball-glass2.md, Lighting and the frame). The field and the stands carry their own shading,
-// and a shadow pass over 50,000 triangles of seats to darken nothing would be a waste.
+// What casts is up to the caller: the ballpark draws the players and the ball, and on the tiers
+// that can afford it the stands, the decks and the roof too, so a grandstand's shadow falls across
+// the field (docs/proposals/deadball-glass2.md, Lighting and the frame), with the map's depth range
+// starting near the lamp (`near`) so what stands between the lamp and the play is in it.
 //
 // ⚠ EVERY EXIT RETURNS null, as shadow.js's do. Half-installed is a black field: either the layer
 // hands back its maps and matrices or the caller lights with no shadow at all.
@@ -28,12 +29,16 @@ const SPOT_SHADOW_MAX = 4;
 export const spotReach = (lamp, focus, radius) => Math.min(radius, 0.8 * Math.hypot(focus[0] - lamp[0], focus[1] - lamp[1], focus[2] - lamp[2]));
 
 // The light's view-projection, from its lamp toward the play: a cone just wide enough to hold the
-// sphere round `focus` (spotReach of `radius`), its depth range just deep enough to hold it. Pure,
-// so the gate can hold it to the points it must contain.
-export function spotMatrix(lamp, focus, radius) {
+// sphere round `focus` (spotReach of `radius`), its depth range just deep enough to hold it. With
+// `near` (a share of the way from the lamp to the focus) the range starts that close to the lamp
+// instead, so what stands between the lamp and the play (a grandstand, a roof) casts onto it too;
+// the lamp's own housing and the mast under it stay in front of the range. Pure, so the gate can
+// hold it to the points it must contain.
+export function spotMatrix(lamp, focus, radius, near = null) {
   const d = Math.hypot(focus[0] - lamp[0], focus[1] - lamp[1], focus[2] - lamp[2]), r = spotReach(lamp, focus, radius);
   const fov = 2 * Math.asin(Math.min(0.999, r * 1.05 / d)) * 180 / Math.PI;
-  return mul4(perspective(fov, 1, Math.max(1, d - r * 1.5), d + r * 1.5), lookAt(lamp, focus));
+  const n = near > 0 ? Math.max(1, Math.min(d - r * 1.5, d * near)) : Math.max(1, d - r * 1.5);
+  return mul4(perspective(fov, 1, n, d + r * 1.5), lookAt(lamp, focus));
 }
 
 // The lookup the lit shader includes: `spotShadow(i, p)` is 1 lit and 0 in shadow for map i at the
@@ -45,6 +50,10 @@ uniform highp sampler2DShadow uSpot2;
 uniform highp sampler2DShadow uSpot3;
 uniform mat4 uSpotM[${SPOT_SHADOW_MAX}];
 uniform float uSpotTexel;
+// uSpotRot 1 turns the disc by a different angle at every pixel (interleaved gradient noise) and
+// widens it a little, so its twelve taps soften an edge without printing their own pattern in it;
+// 0 is the fixed disc.
+uniform float uSpotRot;
 const vec2 SPOT_PD[12] = vec2[12](vec2(-0.326, -0.406), vec2(-0.840, -0.074), vec2(-0.696, 0.457), vec2(-0.203, 0.621),
   vec2(0.962, -0.195), vec2(0.473, -0.480), vec2(0.519, 0.767), vec2(0.185, -0.893), vec2(0.507, 0.064), vec2(0.896, 0.412),
   vec2(-0.322, -0.933), vec2(-0.792, -0.598));
@@ -53,8 +62,10 @@ float spotPcf(highp sampler2DShadow s, mat4 m, vec3 p) {
   if (c.w <= 0.0) return 1.0;
   vec3 q = c.xyz / c.w * 0.5 + 0.5;
   if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0 || q.z > 1.0) return 1.0;
-  float acc = 0.0;
-  for (int i = 0; i < 12; i++) acc += texture(s, vec3(q.xy + SPOT_PD[i] * uSpotTexel * 1.8, q.z - 0.00012));
+  float ang = uSpotRot * 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  mat2 rot = mat2(cos(ang), sin(ang), -sin(ang), cos(ang));
+  float w = uSpotTexel * mix(1.8, 2.6, uSpotRot), acc = 0.0;
+  for (int i = 0; i < 12; i++) acc += texture(s, vec3(q.xy + rot * SPOT_PD[i] * w, q.z - 0.00012));
   return acc / 12.0;
 }
 float spotShadow(int i, vec3 p) {
@@ -110,8 +121,8 @@ export function createSpotShadows(gl, { size = SPOT_SHADOW_SIZE, count = SPOT_SH
   }
   const M = new Float32Array(16 * SPOT_SHADOW_MAX);
 
-  // Draws each light's map: `lights` is [{ lamp, focus, radius }], `draw(viewProj, prog)` draws the
-  // casters with aPos at location 0. Returns how many maps it drew.
+  // Draws each light's map: `lights` is [{ lamp, focus, radius, near }], `draw(viewProj, prog, i)`
+  // draws the casters with aPos at location 0. Returns how many maps it drew.
   function render(lights, draw) {
     const n = Math.min(lights.length, maps.length);
     gl.useProgram(prog);
@@ -120,12 +131,12 @@ export function createSpotShadows(gl, { size = SPOT_SHADOW_SIZE, count = SPOT_SH
     gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2.0, 4.0);
     gl.viewport(0, 0, size, size);
     for (let i = 0; i < n; i++) {
-      const L = lights[i], m = spotMatrix(L.lamp, L.focus, L.radius);
+      const L = lights[i], m = spotMatrix(L.lamp, L.focus, L.radius, L.near);
       maps[i].m = m; M.set(m, i * 16);
       gl.bindFramebuffer(gl.FRAMEBUFFER, maps[i].fbo);
       gl.clear(gl.DEPTH_BUFFER_BIT);
       gl.uniformMatrix4fv(uVP, false, m);
-      draw(m, prog);
+      draw(m, prog, i);
     }
     gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -133,7 +144,8 @@ export function createSpotShadows(gl, { size = SPOT_SHADOW_SIZE, count = SPOT_SH
   }
   // Binds the maps to four texture units from `unit` and sets the lookup's uniforms on `p`, a
   // program that includes SPOT_SHADOW_GLSL and is in use.
-  function bind(u, unit) {
+  function bind(u, unit, rot = 0) {
+    gl.uniform1f(u('uSpotRot'), rot);
     for (let i = 0; i < SPOT_SHADOW_MAX; i++) {
       gl.activeTexture(gl.TEXTURE0 + unit + i);
       gl.bindTexture(gl.TEXTURE_2D, (maps[i] || maps[0]).tex);

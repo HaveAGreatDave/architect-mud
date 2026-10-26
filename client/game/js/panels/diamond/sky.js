@@ -50,6 +50,21 @@ function lift(night, c, n) {
   return night.map((v, i) => v + d[i] * f);
 }
 
+// The low sun before it sets: up over the horizon on a curve that sets it at 18:30, as the sky's
+// keyframes have it (sky-keys.js sunAt's own sine is down by 18:00), warmer and weaker the lower it
+// is, gone through cloud. `strength` is its light at full, in the park's linear units (the towers
+// are NIGHT.towers); `fade` the degrees over which it comes up off the horizon.
+export const SUN = Object.freeze({ strength: 5, fade: 2.5, low: [1, 0.42, 0.16], high: [1, 0.84, 0.64] });
+export function sunLight(hour, ground, cloud = 0) {
+  if (!Number.isFinite(hour) || !ground) return null;
+  const h = ((hour % 24) + 24) % 24, el = 62 * Math.sin(Math.PI * (h - 6.5) / 12);
+  if (!(el > 0) || h < 6.5 || h > 18.5) return null;
+  const k = smooth(0, SUN.fade, el) * (1 - Math.min(1, Math.max(0, cloud))) * SUN.strength, e = (el * Math.PI) / 180;
+  if (!(k > 0)) return null;
+  const col = mix(SUN.low, SUN.high, smooth(2, 20, el)).map((v) => v * k);
+  return { dir: [ground[0] * Math.cos(e), Math.sin(e), ground[2] * Math.cos(e)], col, el };
+}
+
 // The park's light at `hour` (in-game, 0 to 24). `o.bearing` is the venue's (the compass bearing
 // centre field lies on, cast in the city set's way: city-set.js mapAxes); `o.glow` the venue's city
 // glow; `o.wx` the payload's weather. Returns NIGHT's keys, each for the hour and the weather, and
@@ -79,5 +94,7 @@ export function skyLook(hour, o = {}) {
     stars: smooth(DUSK.stars[0], DUSK.stars[1], s.night) * we.stars, night: s.night, wet: we.wet,
     lights: smooth(DUSK.lights[0], DUSK.lights[1], s.night) * we.city,
     sun: [dir[0] / l, 0, dir[2] / l],
+    // the low sun's own light, or null once it's down (sunLight)
+    sunLight: sunLight(hour, [dir[0] / l, 0, dir[2] / l], cover),
   };
 }
