@@ -1,7 +1,7 @@
 // The Leviathan — an An-124 Ruslan, except that the flight deck is IN the nose visor: the whole
 // cockpit lifts with the nose when she opens up to load. The fw_heavy row's visor block (hinge
 // angle 1.2 rad) still drives the interior camera tilt, so the swing here uses the same angle.
-import { R, P3, loft, pod, foil, ctrlOn, tube, mirror, group, poly, cone, wheel, strut, faired, skin, skinWindow, skinBand, DEG, foilPt, lerpSt, stationAt, secPt, legacyFaces, flightDeck } from './lib.mjs';
+import { R, P3, loft, pod, foil, ctrlOn, tube, mirror, group, poly, cone, wheel, strut, faired, skin, skinWindow, skinBand, DEG, foilPt, lerpSt, stationAt, secPt, legacyFaces, flightDeck, loftShade } from './lib.mjs';
 
 export default async function leviathan() {
   const OLD = await legacyFaces('heavy', 1);
@@ -11,13 +11,19 @@ export default async function leviathan() {
   const PIV = [CUT - 0.004, 0, 0.244];     // the hinge: on the crown line, at the joint
   const SWING = -(1.2 * 180 / Math.PI);    // the fw_heavy row's maxAng, in degrees, nose up
 
+  // ── The nose ahead of the windscreen: blunt and round, as an An-124's is. The tip sits 40% of the
+  // way up the fuselage, the belly runs nearly flat until it turns up under the tip, and the crown
+  // falls from the windscreen in a quarter-ellipse. It's 0.25 units ahead of the glass, which is
+  // the 3-view's proportion; the old cone ran 0.37 to a point. Ahead of the fw row's glass, so the
+  // interior (which closes at a bulkhead under the windscreen) is untouched by it.
+  const TIP = 1.03, HT = -0.035, R0 = { top: 0.217, bot: -0.199, w: 0.117 };   // the ring at HI
+  const se = (u, k) => Math.pow(Math.max(0, 1 - Math.pow(u, k)), 1 / k);
+  const noseAt = (u) => {
+    const t = HT + (R0.top - HT) * se(u, 1.7), b = HT - (HT - R0.bot) * se(u, 2.6);
+    return { f: R(HI + (TIP - HI) * u), rg: R(R0.w * se(u, 2.3)), rvT: R((t - b) / 2), rvB: R((t - b) / 2), cz: R((t + b) / 2), boxy: 0.06 };
+  };
   const NOSE = [
-    { f: 1.15, rg: 0.012, rvT: 0.0130, rvB: 0.0130, cz: -0.0300, boxy: 0 },
-    { f: 1.14, rg: 0.038, rvT: 0.0410, rvB: 0.0410, cz: -0.0300, boxy: 0.04 },
-    { f: 1.11, rg: 0.06, rvT: 0.0665, rvB: 0.0665, cz: -0.0285, boxy: 0.06 },
-    { f: 1.06, rg: 0.079, rvT: 0.0935, rvB: 0.0935, cz: -0.0265, boxy: 0.06 },
-    { f: 0.98, rg: 0.097, rvT: 0.1255, rvB: 0.1255, cz: -0.0235, boxy: 0.06 },
-    { f: 0.88, rg: 0.11, rvT: 0.1660, rvB: 0.1660, cz: -0.0110, boxy: 0.06 },
+    ...[0.95, 0.87, 0.75, 0.6, 0.42, 0.22, 0.05].map(noseAt),
     { f: 0.78, rg: 0.117, rvT: 0.2080, rvB: 0.2080, cz: 0.0090, boxy: 0.06 },
     { f: 0.7, rg: 0.12, rvT: 0.2315, rvB: 0.2315, cz: 0.0195, boxy: 0.06 },
     { f: 0.62, rg: 0.12, rvT: 0.2375, rvB: 0.2375, cz: 0.0225, boxy: 0.06 },
@@ -36,6 +42,9 @@ export default async function leviathan() {
     { f: -1.1, rg: 0.022, rvT: 0.0420, rvB: 0.0420, cz: 0.1160, boxy: 0.08 },
   ];
   const ALL = [...NOSE, ...BODY.slice(1)];
+  // The cheatline on the visor, from near the tip back to the joint, so the nose and the body read as one.
+  // ⚠ ON EVERY STATION: a band that skips one is a flat quad cutting through the curve, and shows as a pinch.
+  const NOSE_STRIPE = [noseAt(0.75).f, noseAt(0.6).f, noseAt(0.42).f, noseAt(0.22).f, noseAt(0.05).f, 0.78, 0.745, 0.7, 0.62, CUT];
   const belly = (sts) => ({ at: sts.map((s) => s.f), k: [14, 15, 16, 17, 18, 19, 20, 21, 22], paint: 'belly' });
   const deck = { role: 'glass', tint: [58, 86, 108], art: 'leviathan', uvDiv: 12 };
 
@@ -43,29 +52,32 @@ export default async function leviathan() {
   const deckFit = flightDeck({
     name: 'visor', S: NOSE, n: N, old: OLD, lo: LO, hi: HI,
     loftExtra: { paint: 'hull' },
-    foreExtra: { capFore: { kind: 'apex', at: [1.156, 0, -0.03] }, regions: [belly(NOSE.filter((x) => x.f > HI))] },
+    foreExtra: { capFore: { kind: 'apex', at: [TIP, 0, HT] }, regions: [belly(NOSE.filter((x) => x.f > HI))] },
     paintOf: (fc) => (fc.p.reduce((a, v) => a + v[2], 0) / fc.p.length < -0.1 ? 'belly' : 'hull'),
   });
   // The visor has nothing aft of the flight deck but the joint itself, so its aft loft is empty.
   deckFit.parts[0].parts = deckFit.parts[0].parts.filter((p) => !(p.kind === 'loft' && p.stations.length < 2));
+  // The bridges take the deck's own belly rule, or a white wedge shows under the windscreen.
+  for (const pt of deckFit.parts[0].parts) if (/bridge/.test(pt.name)) for (const fc of pt.faces) if (fc.p.reduce((a, v) => a + v[2], 0) / fc.p.length < -0.1) fc.paint = 'belly';
   const noseSkin = group('visor skin', deckFit.parts);
   const ring = (f, sts, n = N) => { const o = []; const s = stationAt(sts, f); for (let k = 0; k < n; k++) o.push(secPt(s, k / n * Math.PI * 2)); return o; };
   const rc = ring(CUT - 0.001, NOSE);
   const bulk = [];
   for (let k = 0; k < N; k++) bulk.push({ role: 'interior', paint: 'bulk', sh: 0.42, p: [[CUT - 0.001, 0, 0.0], rc[(k + 1) % N], rc[k]] });
+  // The visor joint: a hairline, shaded by which way it faces. It was a band 8 mm wide at a flat 0.35
+  // all the way round, which read at any distance as a dark collar cutting the nose off.
   const seam = [];
   for (let k = 0; k < N; k++) {
     const a0 = k / N * Math.PI * 2, a1 = (k + 1) / N * Math.PI * 2;
-    seam.push({ role: 'body', paint: 'seam', sh: 0.35, p: [skin(ALL, CUT + 0.004, a0, 0.0012), skin(ALL, CUT + 0.004, a1, 0.0012), skin(ALL, CUT - 0.004, a1, 0.0012), skin(ALL, CUT - 0.004, a0, 0.0012)] });
+    const q = [skin(ALL, CUT - 0.002, a0, 0.0012), skin(ALL, CUT - 0.002, a1, 0.0012), skin(ALL, CUT + 0.002, a1, 0.0012), skin(ALL, CUT + 0.002, a0, 0.0012)];
+    seam.push({ role: 'body', paint: 'seam', sh: loftShade(q), p: q });
   }
-  const antiGlare = skinBand(ALL, [1.1, 1.04, 0.98, 0.88], 36 * DEG, 144 * DEG, { role: 'body', paint: 'glare', sh: 0.5 });
   const visor = group('cargo visor', [
     noseSkin,
     poly('visor bulkhead', bulk, { when: 'noseVisor' }),
     poly('visor seam', seam),
-    poly('anti-glare', antiGlare),
-    mirror('nose cheatline', [poly('cheatline', skinBand(ALL, [1.1, 1.04, 0.98, 0.88], -6 * DEG, 2 * DEG, { role: 'body', paint: 'stripe', sh: 0.8 })), poly('cheatline', skinBand(ALL, [1.1, 1.04, 0.98, 0.88], 4 * DEG, 7 * DEG, { role: 'body', paint: 'stripe', sh: 0.84 }))]),
-    tube('nose probe', [[1.14, 0, -0.03], [1.2, 0, -0.03]], 0.004, { role: 'strut', paint: 'metal', minDetail: 1 }),
+    mirror('nose cheatline', [poly('cheatline', skinBand(ALL, NOSE_STRIPE, -6 * DEG, 2 * DEG, { role: 'body', paint: 'stripe', sh: 0.8 })), poly('cheatline', skinBand(ALL, NOSE_STRIPE, 4 * DEG, 7 * DEG, { role: 'body', paint: 'stripe', sh: 0.84 }))]),
+    tube('nose probe', [[TIP - 0.01, 0, HT], [TIP + 0.05, 0, HT]], 0.004, { role: 'strut', paint: 'metal', minDetail: 1 }),
     mirror('wipers', [tube('wiper', [[0.795, 0.03, 0.105], [0.77, 0.045, 0.13]], 0.0025, { role: 'strut', paint: 'glare', minDetail: 1 })]),
   ], { anim: { ch: 'noseVisor', pivot: PIV, axis: [0, 1, 0], ang: [0, R(SWING, 3)], def: 0 } });
 

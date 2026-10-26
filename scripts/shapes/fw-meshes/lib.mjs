@@ -197,7 +197,11 @@ export function oldZone(faces, lo, hi, roles = ['body', 'glass']) {
   return faces.filter((fc) => roles.includes(fc.role) && fc.p.every((v) => v[0] >= lo - 1e-9 && v[0] <= hi + 1e-9));
 }
 // Skin a ring of `n = m * no` points onto a ring of `no` points (m a whole number).
+// ⚠ WOUND OUTWARD, SO THE DERIVED SHADE IS RIGHT SIDE UP. Until 2026-10-26 both bridges came out
+// inside-out: crown faces shaded 0.34 and belly faces 0.9, which drew the Leviathan's and the Mule's
+// flight-deck stretch as a grey collar. `reverse` is for the aft end, which runs the other way.
 export function bridge(mine, old, extra = {}, reverse = false) {
+  reverse = !reverse;
   const n = mine.length, no = old.length, m = n / no, out = [];
   if (m !== Math.round(m)) throw new Error('bridge: ' + n + ' onto ' + no + ' is not a whole multiple');
   for (let k = 0; k < no; k++) {
@@ -206,13 +210,24 @@ export function bridge(mine, old, extra = {}, reverse = false) {
     for (let j = k * m; j < (k + 1) * m; j++) {
       const P = mine[j % n], Q = mine[(j + 1) % n];
       const t = [(j < mid ? A : B), P, Q].map(P3);
-      out.push({ ...extra, p: reverse ? t.reverse() : t });
+      const q = reverse ? t.reverse() : t;
+      out.push({ ...extra, sh: loftShade(q), p: q });
     }
     const t = [A, mine[Math.round(mid) % n], B].map(P3);
-    out.push({ ...extra, p: reverse ? t.reverse() : t });
+    const q = reverse ? t.reverse() : t;
+    out.push({ ...extra, sh: loftShade(q), p: q });
   }
   return out;
 }
+// A transplanted face's shade on the LOFT'S curve (vehicle-mesh.js shadeK with LOFT_SHADE: 0.6 + 0.36
+// of the way from keel to crown), read off its outward normal. ⚠ NOT derivedShade, which runs 0.62 to
+// 0.96 and puts a side face at 0.62 where the loft beside it is at 0.78: that difference alone drew
+// the lifted flight deck as a darker collar between two lofts.
+export const loftShade = (p) => {
+  let x = 0, y = 0, z = 0;
+  for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; x += (a[1] - b[1]) * (a[2] + b[2]); y += (a[2] - b[2]) * (a[0] + b[0]); z += (a[0] - b[0]) * (a[1] + b[1]); }
+  return R(0.78 + 0.18 * z / (Math.hypot(x, y, z) || 1), 3);
+};
 export const loftRing = (s, n) => { const o = []; for (let k = 0; k < n; k++) o.push(secPt(s, k / n * Math.PI * 2)); return o; };
 // The whole transplant: returns parts for detail 1 (two lofts + bridges + the old stretch) and the
 // full loft for the far LOD. `S` is the new station list (fore→aft); stations inside [lo, hi] are
@@ -222,11 +237,10 @@ export function flightDeck({ name = 'fuselage', S, n, old, lo, hi, loftExtra = {
   const zone = oldZone(old, lo, hi, keepRoles).map((fc) => {
     // Full precision: the cockpit gates match these vertices to 1e-6.
     const o = { role: fc.role, p: fc.p.map((v) => v.slice()) };
-    // Glass keeps its authored shade; hull faces take theirs from their normal, as a loft's do, so
-    // the lifted stretch does not read as a collar of a different tone.
-    // The builder winds its hull the other way round to a loft, so a derived shade would read the
-    // outside as the inside and come out belly-dark: turn the hull faces round.
-    if (fc.role !== 'body') o.sh = R(fc.sh ?? 0.7, 3); else o.p.reverse();
+    // Glass keeps its authored shade; hull faces take theirs from their normal on the loft's own
+    // curve (loftShade), so the lifted stretch does not read as a collar of a different tone.
+    // The builder winds its hull the other way round to a loft: turn the hull faces round first.
+    if (fc.role !== 'body') o.sh = R(fc.sh ?? 0.7, 3); else { o.p.reverse(); o.sh = loftShade(o.p); }
     for (const k of ['tint', 'art', 'uv', 'visor', 'visorHinge']) if (fc[k] != null && k !== 'visor' && k !== 'visorHinge') o[k] = k === 'uv' ? fc.uv.map((u) => [R(u[0], 2), R(u[1], 2)]) : fc[k];
     if (fc.role === 'body') o.paint = paintOf(fc);
     return o;

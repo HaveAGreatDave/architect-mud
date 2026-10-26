@@ -37800,9 +37800,13 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       // Exhaust trails from the real nacelle exits: the A-10's twin rear pods, or the
       // An-124's four underwing turbofans out at their TRUE lateral stations (±0.34/±0.60,
       // clear of the ±0.20-wide fuselage) so a plume never sits on the belly.
+      // ⚠ THE LEVIATHAN'S ARE HER MESH'S EXHAUST EXITS (mesh_heavy.json, 'exhaust plug'). They were
+      // [0.02, ±g, 0.0], which put all four plumes in the air under the nacelles.
       const jets = c.cls === 'heavy'
-        ? [[0.02, -0.60, 0.0], [0.02, -0.34, 0.0], [0.02, 0.34, 0.0], [0.02, 0.60, 0.0]]
+        ? [[-0.129, -0.60, 0.100], [0.026, -0.34, 0.117], [0.026, 0.34, 0.117], [-0.129, 0.60, 0.100]]
         : [[-0.60, -0.30, 0.16], [-0.60, 0.30, 0.16]];
+      // A turbofan shows no flame: hers is a faint heat haze. The A-10's orange is its own pass.
+      const haze = c.cls === 'heavy';
       for (const st of jets) {
         const q = P(st); if (q.f <= 0.08) continue;
         // Occlusion cull (canvas has no depth buffer): an engine sitting BEHIND the fuselage
@@ -37811,7 +37815,8 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
         if (q.f > P([st[0], 0, st[2]]).f + 0.06) continue;
         const len = (7 + power * 20) * big / Math.max(0.35, q.f);
         const grad = ctx.createLinearGradient(q.sx, q.sy, q.sx + ex * len, q.sy + ey * len);
-        grad.addColorStop(0, `rgba(255,225,160,${0.6 * (0.3 + power)})`); grad.addColorStop(0.5, `rgba(255,140,60,${0.4 * (0.3 + power)})`); grad.addColorStop(1, 'rgba(255,70,40,0)');
+        if (haze) { grad.addColorStop(0, `rgba(196,192,186,${0.22 * (0.3 + power)})`); grad.addColorStop(1, 'rgba(196,192,186,0)'); }
+        else { grad.addColorStop(0, `rgba(255,225,160,${0.6 * (0.3 + power)})`); grad.addColorStop(0.5, `rgba(255,140,60,${0.4 * (0.3 + power)})`); grad.addColorStop(1, 'rgba(255,70,40,0)'); }
         ctx.strokeStyle = grad; ctx.lineWidth = clamp(len * 0.28, 2, 9);
         ctx.beginPath(); ctx.moveTo(q.sx, q.sy); ctx.lineTo(q.sx + ex * len, q.sy + ey * len); ctx.stroke();
       }
@@ -51763,7 +51768,10 @@ export function renderVehiclePreview(canvas, opts = {}) {
     // and refuses to go round — you could look down on a truck and never at its other flank.
     // A building is the control: its facing is fixed in the world and the camera circles it, which
     // is why the same drag has always worked there.
+    // ⚠ THE VISOR IS THE CRAFT'S, NOT A CHANNEL: drawAircraftModel overwrites anim.noseVisor with
+    // craft.noseVisor, so a posed visor has to be handed across or the Modelshop never opens the nose.
     const craft = { cls, variant, livery, armed, gearAnim, anim, dx, dy, hdg: 0, bank, pitch, sizeMul, own: true, rng: 0,
+      noseVisor: anim?.noseVisor || 0,
       ...(power != null ? { power } : {}), rich, bang, nitroOn, ...(wake != null ? { wake } : {}) };
     // ⚠ THE SUN IS A SHAPE, NOT A DIRECTION. drawAircraftModel reads `elev`, `dir` and
     // `night` off it — and `night` feeds a lamp alpha directly, so a plausible-looking
