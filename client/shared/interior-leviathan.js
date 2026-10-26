@@ -489,19 +489,17 @@ function staticFit(P, push) {
   // The captain's (left) console: from behind the seat to the panel. The F/O's mirrors it.
   sill(-1, -0.95, 0.62, -0.62, -0.62);
   sill(1, -0.95, 0.62, -0.62, 2 * cx + 0.62);
-  // Console faces: the tiller on the captain's, oxygen and intercom panels on both.
+  // Console tops: two speaker grilles aft, and the oxygen box. What reads the sim is in liveFields.
   for (const side of [-1, 1]) {
     const xIn = side < 0 ? -0.62 : 2 * cx + 0.62;
     const Cp = K.panel([xIn - side * 0.25, -0.20, -0.619], [1, 0, 0], [0, 1, 0]);
     Cp.rect(-0.20, -0.62, 0.20, 0.72, T.enamelTop, 0, 0.001);
-    for (let i = 0; i < 4; i++) Cp.grille(-0.16, -0.55 + i * 0.30, 0.16, -0.40 + i * 0.30, 3, [30, 34, 36]);
-    for (let i = 0; i < 6; i++) Cp.knob(-0.12 + (i % 3) * 0.12, 0.45 + Math.floor(i / 3) * 0.10, 0.012, 0.014, T.knobK, 0);
+    for (let i = 0; i < 2; i++) Cp.grille(-0.16, -0.55 + i * 0.30, 0.16, -0.40 + i * 0.30, 3, [30, 34, 36]);
     // The oxygen mask stowage box on the aft end, and its orange quick-don handle.
     K.box(xIn - side * 0.05, -0.92, -0.62, xIn - side * 0.34, -0.70, -0.44, 'dash', 0.05, [40, 44, 46]);
     K.box(xIn - side * 0.14, -0.86, -0.44, xIn - side * 0.24, -0.76, -0.41, 'dash', 0.2, [226, 118, 40]);
   }
-  // Nosewheel tiller on the captain's console: a small wheel on a boss.
-  K.torus([-0.87, 0.28, -0.56], [1, 0, 0], [0, 1, 0], 0.07, 0.009, 14, 'dash', 0.1, T.knobK, 0);
+  // The nosewheel tiller's boss on the captain's console; the wheel turns with the rudder (liveFit).
   K.rod([-0.87, 0.28, -0.62], [-0.87, 0.28, -0.56], 0.02, 'dash', 0, C.steel, 0, 8);
 
   // THE MAIN PANEL: one board across both pilots, raked back 12°, turquoise-grey enamel.
@@ -532,12 +530,11 @@ function staticFit(P, push) {
   for (let i = 0; i < 4; i++) Ped.rect(-0.135 + i * 0.07 - 0.008, -0.05, -0.135 + i * 0.07 + 0.008, 0.40, [16, 18, 20], 0, 0.002);
   Ped.rect(0.195 - 0.008, -0.05, 0.195 + 0.008, 0.40, [16, 18, 20], 0, 0.002);
   for (let n = 0; n < 4; n++) Ped.rect(0.21, 0.35 - n * 0.12 - 0.003, 0.23, 0.35 - n * 0.12 + 0.003, C.white, 0.2, 0.002);
-  // The radio heads aft on the pedestal: two panels of knobs and a frequency window each.
+  // The radio heads aft on the pedestal: a frequency window each; their lamps are in liveFit.
   for (let i = 0; i < 2; i++) {
     const v = -0.24 - i * 0.20;
     Ped.rect(-0.21, v - 0.08, 0.21, v + 0.08, [34, 38, 40], 0, 0.002);
-    Ped.digits(-0.14, v - 0.02, 0.035, '118.5', C.amber);
-    for (let j = 0; j < 3; j++) Ped.knob(0.08 + j * 0.05, v, 0.014, 0.016, T.knobK, 0);
+    Ped.digits(-0.17, v - 0.02, 0.035, i ? '121.5' : '118.5', C.amber);
   }
 
   // THE PILOTS' SEATS: in the round, sheepskin on the cloth, five-point harness, armrests.
@@ -600,62 +597,94 @@ function pedestalPanel(K, P) {
   return K.panel([P.xCentre, 0.18, -0.659], [1, 0, 0], [0, Math.cos(s), Math.sin(s)]);
 }
 
-// ── THE DENSITY: switch fields on every surface a hand reaches ─────────────
-// A working heavy's deck has no bare surface a crewman can reach: the console tops, the pedestal
-// flanks, the glareshield face and the kick panels all carry switches, knobs and placards. Each field
-// is a painted panel with its own rows, so nothing reads as a slab from the seat.
-function switchField(Pn, a0, b0, a1, b1, cols, rows, seed, base = T.enamelLt) {
-  Pn.rect(a0, b0, a1, b1, base, 0, 0.001);
-  Pn.rect(a0, b1 - 0.004, a1, b1, T.enamelDk, 0, 0.0015);
-  const da = (a1 - a0) / cols, db = (b1 - b0) / rows;
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const a = a0 + da * (c + 0.5), b = b0 + db * (r + 0.5), h = (c * 7 + r * 13 + seed) % 6;
-    if (h < 3) Pn.toggle(a, b, (c + r + seed) % 2 === 0);
-    else if (h < 5) Pn.knob(a, b, Math.min(da, db) * 0.28, 0.014, T.knobK, 0);
-    else Pn.rect(a - da * 0.3, b - db * 0.12, a + da * 0.3, b + db * 0.12, C.white, 0.15, 0.002);
-    Pn.rect(a - da * 0.35, b + db * 0.30, a + da * 0.35, b + db * 0.36, C.white, 0.1, 0.0015);   // the placard
-  }
-}
+// ── THE DENSITY: every surface a hand reaches carries something that reads ─────
+// A working heavy's deck has no bare surface a crewman can reach. ⚠ NONE OF IT IS A SWITCH: a
+// switch with nothing behind it is removed (docs/reference/cockpit-lettering.md), so the console
+// tops, the kick panels and the glareshield carry lamps, gauges and readouts that follow the sim
+// (liveFields), and the faces low down carry rows of circuit breakers, each row lettered. Until
+// 2026-10-26 these were fields of toggles and knobs under blank placards that did nothing.
+const INK = [226, 230, 224];
 function denseFit(K, P) {
   const L = P.lev, cx = P.xCentre;
-  // The side console tops: two fields each, kept to the inboard half so the sight line out of the
-  // cheek glass still clears the console's outboard edge.
+  // The inboard face of each console: four rows of breakers down its length, each row named. Read
+  // from across the deck, so the across axis runs the way the face is seen (rule 7): forward on the
+  // captain's, aft on the F/O's.
   for (const side of [-1, 1]) {
     const xIn = side < 0 ? -0.62 : 2 * cx + 0.62;
-    const w = Math.abs(L.wallX(-0.2, -0.62, side) - xIn);
-    const Cp = K.panel([xIn - side * w * 0.22, -0.20, -0.617], [1, 0, 0], [0, 1, 0]);
-    const hw = w * 0.17;
-    switchField(Cp, -hw, -0.10, hw, 0.35, 3, 6, side < 0 ? 1 : 4, T.enamelTop);
-    switchField(Cp, -hw, -0.62, hw, -0.45, 3, 2, side < 0 ? 2 : 5, T.enamelTop);
-    // The inboard face of the console: circuit breakers down its length.
-    const Fp = K.panel([xIn - side * 0.001, -0.20, -0.86], [0, 1, 0], [0, 0, 1]);
+    const Fp = K.panel([xIn - side * 0.001, -0.20, -0.86], [0, -side, 0], [0, 0, 1]);
     Fp.rect(-0.55, -0.20, 0.55, 0.20, T.enamel, 0, 0);
-    for (let r = 0; r < 4; r++) for (let c = 0; c < 14; c++) Fp.disc(-0.50 + c * 0.077, -0.14 + r * 0.09, 0.011, [20, 20, 22], 0, 0.004, 6);
+    for (let r = 0; r < 4; r++) {
+      Fp.text('BUS ' + (side < 0 ? r + 1 : r + 5), -0.475, -0.14 + r * 0.09, 0.014, INK, 0.35);
+      for (let c = 0; c < 12; c++) Fp.disc(-0.38 + c * 0.075, -0.14 + r * 0.09, 0.011, [20, 20, 22], 0, 0.004, 6);
+    }
   }
-  // The pedestal flanks: breakers.
+  // The pedestal flanks: three named rows of breakers each.
+  const FLANK = [['AVION', 'LIGHTS', 'ENG'], ['FUEL', 'HYD', 'ICE']];
   for (const s of [-1, 1]) {
-    const Fp = K.panel([cx + s * 0.241, 0.18, -0.93], [0, 1, 0], [0, 0, 1]);
+    const Fp = K.panel([cx + s * 0.241, 0.18, -0.93], [0, s, 0], [0, 0, 1]);
     Fp.rect(-0.50, -0.20, 0.50, 0.20, T.enamel, 0, 0);
-    for (let r = 0; r < 3; r++) for (let c = 0; c < 10; c++) Fp.disc(-0.42 + c * 0.09, -0.13 + r * 0.10, 0.012, [20, 20, 22], 0, 0.004, 6);
+    for (let r = 0; r < 3; r++) {
+      Fp.text(FLANK[s < 0 ? 0 : 1][r], -0.40, -0.13 + r * 0.10, 0.016, INK, 0.35);
+      for (let c = 0; c < 8; c++) Fp.disc(-0.26 + c * 0.09, -0.13 + r * 0.10, 0.012, [20, 20, 22], 0, 0.004, 6);
+    }
   }
-  // The kick panels under the main board: hydraulic and anti-ice fields.
+  // The kick panels under the main board and the glareshield strips: their backing plates. What is
+  // on them follows the sim, so it is drawn in liveFields.
   for (const x of [0, 2 * cx]) {
     const Kp = K.panel([x, 0.779, -0.95], [1, 0, 0], [0, 0, 1]);
-    switchField(Kp, -0.36, -0.20, 0.36, 0.06, 6, 3, x > 0 ? 3 : 0);
+    Kp.rect(-0.36, -0.20, 0.36, 0.06, T.enamelLt, 0, 0.001);
+    Kp.rect(-0.36, 0.056, 0.36, 0.06, T.enamelDk, 0, 0.0015);
   }
-  // The glareshield face, both sides of the autopilot: course/heading knobs and mode buttons.
   const GW = glareHW(P);
   const G = K.panel([cx, 0.658, -0.255], [1, 0, 0], [0, 0, 1]);
   for (const s of [-1, 1]) {
     const a0 = s < 0 ? -GW + 0.04 : 0.42, a1 = s < 0 ? -0.46 : GW - 0.04;
-    if (a1 - a0 < 0.08) continue;
-    G.rect(a0, -0.022, a1, 0.022, [40, 44, 46], 0, 0.001);
-    const n = Math.floor((a1 - a0) / 0.05);
-    for (let i = 0; i < n; i++) {
-      const a = a0 + (i + 0.5) * (a1 - a0) / n;
-      if (i % 3 === 0) G.knob(a, 0, 0.014, 0.016, T.knobK, 0);
-      else G.stud(a, 0, 0.012, 0.010, 0.006, [60, 64, 66], 0, 0.001);
+    if (a1 - a0 >= 0.08) G.rect(a0, -0.022, a1, 0.022, [40, 44, 46], 0, 0.001);
+  }
+}
+
+// What the density shows, drawn live: every lamp, gauge and readout here is a value the sim has.
+function liveFields(K, P, R, back) {
+  const cx = P.xCentre, lit = R.powered;
+  const ink = back ? [250, 244, 226] : INK, inkE = back ? 0.9 : 0.35;
+  const dialO = (o) => ({ face: [16, 18, 20], tick: back ? [240, 236, 220] : C.tick, ...o });
+  const hydP = lit && R.rpm > 0.1 ? 0.55 + 0.35 * R.hull : 0.05;
+  // THE CONSOLE TOPS, inboard of the grilles: three rows each, lettered on the lens, read looking
+  // down with the top of the letters forward.
+  const CON = [
+    [['NWS', lit && R.gear, C.green], ['BRAKE', lit && R.ias < 40, C.amber], ['HYD', lit && R.rpm > 0.1 && R.hull > 0.3, C.green], ['OXY', lit, C.green]],
+    [['BUS A', lit, C.green], ['BUS B', lit, C.green], ['PITOT', lit, C.green], ['INV', lit && R.rpm > 0.1, C.green]],
+  ];
+  for (const side of [-1, 1]) {
+    const xIn = side < 0 ? -0.62 : 2 * cx + 0.62;
+    const Cp = K.panel([xIn - side * 0.25, -0.20, -0.617], [1, 0, 0], [0, 1, 0]);
+    CON[side < 0 ? 0 : 1].forEach(([nm, on, rgb], i) => lensLamp(Cp, (i % 2 ? 0.09 : -0.09), 0.02 + Math.floor(i / 2) * 0.10, 0.16, 0.05, on, rgb, nm));
+    const g = side < 0 ? [['HYD P', hydP], ['BRK P', lit ? 0.2 + 0.6 * R.hull : 0.1]] : [['VOLTS', lit ? 0.8 : 0], ['AMPS', lit ? 0.3 + 0.5 * R.rpm : 0]];
+    g.forEach(([nm, f], i) => Cp.dial(i ? 0.09 : -0.09, 0.30, 0.045, clamp(f, 0, 1), dialO({ ticks: 8, major: 2, name: nm, nameH: 0.014 })));
+  }
+  // THE KICK PANELS: the captain's hydraulics, the F/O's oil, one lamp per engine and two gauges.
+  for (const x of [0, 2 * cx]) {
+    const Kp = K.panel([x, 0.779, -0.95], [1, 0, 0], [0, 0, 1]), cap = x === 0;
+    for (let i = 0; i < 4; i++) {
+      const run = lit && R.rpm > 0.1;
+      lensLamp(Kp, -0.27 + i * 0.18, -0.02, 0.15, 0.05, cap ? run && R.hull > 0.3 : run && R.hull < 0.4, cap ? C.green : C.amber, (cap ? 'HYD ' : 'OIL ') + (i + 1));
     }
+    const g = cap ? [['HYD P', hydP], ['BRK P', lit ? 0.2 + 0.6 * R.hull : 0.1]] : [['OIL T', lit ? 0.3 + 0.5 * R.rpm : 0.1], ['OIL P', lit && R.rpm > 0.1 ? 0.4 + 0.4 * R.hull : 0]];
+    g.forEach(([nm, f], i) => Kp.dial(i ? 0.15 : -0.15, -0.13, 0.045, clamp(f, 0, 1), dialO({ ticks: 8, major: 2, name: nm, nameH: 0.014 })));
+  }
+  // THE GLARESHIELD STRIPS either side of the autopilot: readouts of what the sim knows.
+  const GW = glareHW(P);
+  const G = K.panel([cx, 0.659, -0.255], [1, 0, 0], [0, 0, 1]);
+  const pad = (v, n) => String(Math.max(0, Math.round(v))).padStart(n, ' ').slice(-n);
+  for (const s of [-1, 1]) {
+    const a0 = s < 0 ? -GW + 0.04 : 0.42, a1 = s < 0 ? -0.46 : GW - 0.04;
+    if (a1 - a0 < 0.30) continue;
+    const pairs = s < 0 ? [['IAS', pad(R.ias, 3)], ['N1', pad(R.rpm * 100, 3)]] : [['FUEL', pad(R.fuel * 212, 3)], ['FLAP', pad(R.flap * 10, 2)]];
+    pairs.forEach(([nm, v], i) => {
+      const a = a0 + 0.03 + i * (a1 - a0) / 2;
+      G.text(nm, a + 0.035, 0, 0.016, ink, inkE);
+      G.digits(a + 0.08, -0.01, 0.02, v, lit ? C.amber : C.lampOff);
+    });
   }
 }
 
@@ -887,7 +916,7 @@ function liveFit(P, live, push) {
     pedal(K, [x - 0.13, 0.70, -0.86], 0.05, 0.22, Math.max(0, -R.rud), [30, 32, 34]);
     pedal(K, [x + 0.13, 0.70, -0.86], 0.05, 0.22, Math.max(0, R.rud), [30, 32, 34]);
   }
-  // ── THE FOUR THRUST LEVERS, the flap lever and the spoiler lever on the pedestal. ──
+  // ── THE FOUR THRUST LEVERS and the flap lever on the pedestal. (No spoiler lever: the sim has no spoilers.) ──
   for (let i = 0; i < 4; i++) {
     const { piv, tip } = LEVER(P, R, i);
     K.rod(piv, tip, 0.009, 'dash', 0.1, T.lever, 0, 6);
@@ -902,17 +931,14 @@ function liveFit(P, live, push) {
     K.rod(piv, tip, 0.008, 'dash', 0.1, T.lever, 0, 6);
     K.obox(tip, [1, 0, 0], [0, 0, 1], [0, 1, 0], 0.022, 0.012, 0.02, 'dash', 0.2, [210, 208, 200], 0);
   }
-  {
-    const piv = [cx - 0.205, 0.17, -0.70], tip = add(piv, [0, Math.sin(-0.4) * 0.18, Math.cos(-0.4) * 0.18]);
-    K.rod(piv, tip, 0.007, 'dash', 0.1, T.lever, 0, 6);
-    K.obox(tip, [1, 0, 0], [0, 0, 1], [0, 1, 0], 0.016, 0.012, 0.016, 'dash', 0.2, T.leverRed, 0);
-  }
   // ── THE GLARESHIELD: the autopilot and the lamps along its face. ──
   const G = K.panel([cx, 0.659, -0.235], [1, 0, 0], [0, 0, 1]);
   G.digits(-0.30, -0.012, 0.024, String(Math.round(R.hdg) % 360).padStart(3, '0'), lit ? C.amber : C.lampOff);
   G.digits(0.10, -0.012, 0.024, String(Math.round(R.alt / 100)).padStart(3, '0'), lit ? C.amber : C.lampOff);
   const AP_MODE = ['AP', 'AT', 'HDG', 'ALT', 'VS', 'APP'];
-  for (let i = 0; i < 6; i++) G.lamp(-0.42 + i * 0.07 + (i > 2 ? 0.63 : 0), 0, 0.014, 0.010, lit && i % 2 === 0, C.green, AP_MODE[i]);
+  // The sim has no autopilot, so its modes are dark; APP comes on configured for an approach.
+  const apOn = [false, false, false, false, false, lit && R.gear && R.flap >= 2];
+  for (let i = 0; i < 6; i++) G.lamp(-0.42 + i * 0.07 + (i > 2 ? 0.63 : 0), 0, 0.014, 0.010, apOn[i], C.green, AP_MODE[i]);
   // ── THE OVERHEAD: the working switches up front, then the systems as lamps that read the sim. ──
   // Every lamp is lettered on its lens, as an annunciator is; nothing here is a switch but the five
   // in the front row (OVH_SW), so nothing takes the hand cursor and does nothing.
@@ -1008,7 +1034,8 @@ function liveFit(P, live, push) {
       lensLamp(Rp, u + 0.062, 0.185, 0.056, 0.05, lit && i === 0, C.green, 'TX');
       Rp.digits(u - 0.07, 0.11, 0.022, ['118', '121', '4.5', '8.9'][i] + (i < 2 ? '5' : '0'), lit ? C.amber : C.lampOff);
       Rp.dial(u, 0.0, 0.05, lit ? clamp(0.3 + 0.1 * i + R.thr * 0.2, 0, 1) : 0, dialO({ a0: Math.PI * 0.8, sweep: Math.PI * 0.6, ticks: 6, major: 2, name: 'SIG', nameH: 0.026 }));
-      for (let j = 0; j < 2; j++) Rp.knob(u - 0.04 + j * 0.08, -0.14, 0.016, 0.02, T.knobK, 0);
+      lensLamp(Rp, u - 0.044, -0.15, 0.08, 0.05, lit, C.green, 'PWR');
+      lensLamp(Rp, u + 0.044, -0.15, 0.08, 0.05, lit && i === 0, C.amber, 'RX');
     }
   }
   // ── THE ANNUNCIATOR STRIPS under each pilot's board, and the flap position dial on the centre. ──
@@ -1022,6 +1049,15 @@ function liveFit(P, live, push) {
     Mp.dial(0.08, -0.235, 0.034, clamp(0.5 + R.trim * 0.45, 0, 1), dialO({ a0: Math.PI * 1.25, sweep: Math.PI * 0.5, ticks: 4, major: 2, needle: C.amber, name: 'TRIM', ...small }));
     Mp.dial(-0.12, -0.235, 0.034, clamp(R.hull, 0, 1) * 0.9, dialO({ ticks: 6, major: 2, arcs: [[0.6, 1, C.green]], name: 'HYD', ...small }));
     Mp.dial(-0.22, -0.235, 0.034, R.fuel, dialO({ ticks: 8, major: 2, arcs: [[0, 0.15, C.red]], name: 'FUEL', ...small }));
+  }
+  liveFields(K, P, R, back);
+  // The radio heads' lamps on the pedestal, and the tiller, turned with the rudder.
+  {
+    const Ped = pedestalPanel(K, P);
+    for (let i = 0; i < 2; i++) lensLamp(Ped, 0.12, -0.24 - i * 0.20, 0.13, 0.05, lit, C.green, 'COM ' + (i + 1));
+    const a = R.rud * 1.2, Rr = [Math.cos(a), Math.sin(a), 0], Ur = [-Math.sin(a), Math.cos(a), 0];
+    K.torus([-0.87, 0.28, -0.56], Rr, Ur, 0.07, 0.009, 14, 'dash', 0.1, T.knobK, 0);
+    K.rod([-0.87, 0.28, -0.555], add([-0.87, 0.28, -0.555], mul(Rr, 0.06)), 0.008, 'dash', 0.1, T.knobK, 0, 5);
   }
   panelGps(Mp, GPS.u, GPS.v, GPS.hw, GPS.hh, live);
   hotspotHalo(K, levHotspots(P, live), live);
