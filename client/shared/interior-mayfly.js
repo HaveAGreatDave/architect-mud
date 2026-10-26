@@ -45,6 +45,7 @@
 // and every control's position is a function of it, so the gate can drive each to both stops.
 import { makeKit, C, clamp, lerp, pedal, richSeat, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
+import { eased, pressPulse, hotspotHalo } from './interior-cockpit-kit.js';
 
 const TAU = Math.PI * 2;
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -69,9 +70,9 @@ const SKIN_M = 0.028;                              // the cabin skin plus its li
 // Authored here for the Drake's reason: this is the aircraft's trim, not a truck colourway.
 export const MAYFLY_TRIM = {
   panel: [66, 70, 76], panelDk: [44, 47, 52], shield: [24, 25, 28], stack: [18, 19, 22],
-  lining: [150, 144, 132], liningDk: [126, 120, 110], headliner: [192, 188, 176], carpet: [56, 56, 62],
+  lining: [150, 144, 132], liningDk: [126, 120, 110], liningTop: [92, 88, 80], headliner: [192, 188, 176], carpet: [56, 56, 62],
   firewall: [70, 70, 74], seat: [98, 90, 80], seatDk: [74, 68, 60], seatSide: [60, 56, 52],
-  frame: [132, 124, 112], yoke: [26, 26, 30], column: [196, 200, 206], placard: [226, 224, 216],
+  frame: [70, 67, 62], yoke: [26, 26, 30], column: [196, 200, 206], placard: [226, 224, 216],
   throttle: [18, 18, 20], mixture: [190, 34, 32], cutoff: [206, 40, 36], bezel: [58, 60, 66],
   face: [18, 19, 22], lcd: [110, 236, 150], lcdBg: [10, 22, 16], amber: [255, 176, 64],
   gps: [18, 40, 34], magenta: [230, 90, 220], belt: [44, 48, 60], buckle: [168, 172, 178],
@@ -87,7 +88,7 @@ SHINY.set(T.shield, { spec: 0.05, pow: 8 });
 // What each surface is made of, for the GL pass's per-pixel texture. Lit colours, dial faces, glass
 // and screens are left out on purpose: they are light, not material.
 for (const [k, tex] of [['panel', 'paint'], ['panelDk', 'paint'], ['shield', 'plastic'], ['stack', 'plastic'],
-  ['lining', 'leather'], ['liningDk', 'leather'], ['headliner', 'fabric'], ['carpet', 'carpet'], ['firewall', 'paint'],
+  ['lining', 'plastic'], ['liningDk', 'plastic'], ['liningTop', 'plastic'], ['headliner', 'fabric'], ['carpet', 'carpet'], ['firewall', 'paint'],
   ['seat', 'fabric'], ['seatDk', 'leather'], ['seatSide', 'fabric'], ['frame', 'paint'], ['yoke', 'plastic'],
   ['column', 'brushed'], ['placard', 'paint'], ['throttle', 'plastic'], ['mixture', 'plastic'], ['cutoff', 'plastic'],
   ['bezel', 'cast'], ['belt', 'fabric'], ['buckle', 'brushed'], ['visor', 'plastic']]) TEXTURE.set(T[k], tex);
@@ -235,7 +236,10 @@ export function mayflyProfile(doc = MESH_ROWS.ultralight) {
     // right panel. windshield.js colours them from the live state.
     floods: [{ p: [0, dashY - 0.06, dashZ - 0.03], r: 0.36 }, { p: [xCentre, dashY - 0.06, dashZ - 0.03], r: 0.34 },
       { p: [2 * xCentre - 0.05, dashY - 0.06, dashZ - 0.03], r: 0.32 }],
+    // After dark the floods are bright enough to read the panel by (the Drake's 2.2 is the bar).
+    floodGain: 1.8, glare: 0.5,
     room: mayflyShell,
+    hotspots(live) { return mayflyHotspots(this, live); },
     // The glass: one pane per bay the exterior glazes, its own four corners 3 mm in from the skin,
     // so it sits in the aperture outboard of the frames. Drawn by the renderer as film; never in
     // shellFaces, so every sight line still casts through an open hole.
@@ -294,6 +298,9 @@ function buildRoom({ S, P3, inner, toShell, iFront, iBack, zFloor, halfAt, X, Y,
           if (poly.length < 3) continue;
           const nn = inwardOf(poly, i, tm);
           if (crown) put(poly, nn, 'hdr', -0.2 + ((a + b) & 1) * 0.03, T.headliner);
+          // A band that faces up (the sill under the door glass) takes the darker top tone: the shell
+          // lights a face by which way it points, and the sky term took the ordinary lining to white.
+          else if (nn[2] > 0.55) put(poly, nn, 'pil', -0.06, T.liningTop);
           else if (lower) put(poly, nn, 'pil', -0.12, (a & 1) ? T.lining : T.liningDk);
           else put(poly, nn, 'pil', -0.06, T.lining);
         }
@@ -441,9 +448,10 @@ function layout(P) {
     tach: { x: 0.098, z: top - 0.265, R: 0.036 },
     clock: { x: -0.092, z: top - 0.262, R: 0.024 },
     stack: { x: xC + 0.02, w: 0.088, z0: top - 0.30, z1: top - 0.012 },
-    // Master BAT|ALT, avionics, landing, taxi. A 172 also has beacon, nav and strobe rockers here; the
-    // sim has no circuit for them, so they aren't drawn (docs/reference/cockpit-lettering.md).
-    sw: { z: top - 0.360, x: [-0.180, -0.140, -0.100, -0.065] },
+    // The rocker row: the split master, then the panel lights, landing, taxi and dome, each a circuit
+    // cockpit.js switches (MAYFLY_SW). A 172 also has avionics, beacon, nav and strobe rockers here;
+    // the sim has no circuit for them, so they aren't drawn (docs/reference/cockpit-lettering.md).
+    sw: { z: top - 0.360, x: [-0.190, -0.145, -0.100, -0.055, -0.010] },
     mags: [-0.180, top - 0.290],
     throttle: [xC - 0.045, top - 0.335], mixture: [xC + 0.045, top - 0.335],
     flap: [xC + 0.165, top - 0.290],
@@ -460,6 +468,28 @@ function layout(P) {
 export function mayflyGpsHotspot(P) {
   const Y = layout(P), st = Y.stack, gz1 = st.z1 - 0.034;
   return { id: 'ck:gps', p: [st.x, P.dashY - 0.01, gz1 - 0.0425], r: 0.045, kind: 'click' };
+}
+
+// The rocker row's circuits, in order (cockpit.js DK_ACT), and their placards.
+const MAYFLY_SW = [['ck:master', 'MASTER'], ['ck:panel', 'PANEL'], ['ck:land', 'LAND'], ['ck:taxi', 'TAXI'], ['ck:dome', 'DOME']];
+// Where a hand grabs each live control, read by both the drawing and the hotspots.
+const throttleTip = (Y, py, thr) => { const [x, z] = Y.throttle; return [x, py - 0.02 - (1 - thr) * 0.075 - 0.011, z]; };
+const flapGrip = (Y, py, flap) => { const [fx, fz] = Y.flap; return [fx, py - 0.043, fz - flap * 0.025]; };
+const trimHub = (Y, zFloor) => [Y.trim[0] - 0.008, Y.trim[1], zFloor + 0.22];
+
+// Every control the Mayfly takes a click or a drag on.
+export function mayflyHotspots(P, live) {
+  const L = live || {}, Y = layout(P), py = P.dashY;
+  const thr = clamp(num(L.throttle), 0, 1), flap = clamp(num(L.flapNotch), 0, 3), elev = clamp(num(L.stickY), -1, 1);
+  const out = [
+    { id: 'yoke', p: Y.yoke(0, elev), r: 0.09, kind: 'yoke' },
+    { id: 'throttle', p: throttleTip(Y, py, thr), r: 0.03, kind: 'throttle' },
+    { id: 'ck:flaps', p: flapGrip(Y, py, flap), r: 0.025, kind: 'click' },
+    { id: 'trim', p: trimHub(Y, P.mayfly.zFloor), r: 0.07, kind: 'trim' },
+    mayflyGpsHotspot(P),
+  ];
+  MAYFLY_SW.forEach(([id], i) => out.push({ id, p: [Y.sw.x[i], py - 0.012, Y.sw.z], r: 0.018, kind: 'click' }));
+  return out;
 }
 
 function fixedFit(P, push) {
@@ -615,7 +645,7 @@ function fixedFit(P, push) {
   for (const s of [-1, 1]) {
     const yA = -0.52, yB = 0.12, zA = -0.43;
     const xa = wallX(0, zA, s);
-    K.box(xa - s * 0.06, yA, zA - 0.03, xa - s * 0.004, yB, zA + 0.005, 'pil', 0.15, T.liningDk);
+    K.box(xa - s * 0.06, yA, zA - 0.03, xa - s * 0.004, yB, zA + 0.005, 'pil', 0.15, T.liningTop);
     K.rod([xa - s * 0.03, yB - 0.02, zA + 0.07], [xa - s * 0.03, yB + 0.10, zA + 0.07], 0.008, 'pil', 0.4, C.chrome, 0.05, 6);
     const zS = -0.36;
     const xs = wallX(-0.40, zS, s);
@@ -664,7 +694,8 @@ export function mayflyFit(P, live, push) {
   const K = makeKit(push), L = live || {}, Y = layout(P), D = P.mayfly;
   const powered = L.powered !== false;
   const hour = num(L.hour, 12), night = hour < 6.5 || hour > 19.5;
-  const post = powered && night;                         // the post lights come on after dark
+  // The post lights: on the PANEL switch, or after dark when a view sends no switch state.
+  const post = powered && (L.panelLight != null ? !!L.panelLight : night);
   const ias = num(L.ias), alt = num(L.alt), vsi = num(L.vsi), hdg = num(L.hdg);
   const pitch = num(L.pitch), bank = num(L.bank), rpm = clamp(num(L.rpm), 0, 1);
   const fuel = frac01(L.fuel), hull = frac01(L.hull), oilT = clamp(num(L.oilTemp), 0, 1);
@@ -716,7 +747,7 @@ export function mayflyFit(P, live, push) {
   // Tach, 0-3500 rpm, green 2100-2700, red line 2700.
   Pn.dial(Y.tach.x, Y.tach.z, Y.tach.R, rpm * 2700 / 3500, dialO({ ticks: 14, major: 2, arcs: [[2100 / 3500, 2700 / 3500, C.green]], red: 2700 / 3500, name: 'RPM' }));
   glint(Y.tach.x, Y.tach.z, Y.tach.R);
-  Pn.dial(Y.clock.x, Y.clock.z, Y.clock.R, (hour % 12) / 12, dialO({ a0: Math.PI / 2, sweep: TAU, ticks: 12, major: 3, frac2: (hour % 1), name: 'CLOCK' }));
+  Pn.dial(Y.clock.x, Y.clock.z, Y.clock.R, (hour % 12) / 12, dialO({ a0: Math.PI / 2, sweep: TAU, ticks: 12, major: 3, frac2: (hour % 1), name: 'CLOCK', nameH: 0.0062 }));
 
   // ── THE ENGINE GAUGES: dual needles down the left edge ───────────────────
   // Fuel L|R, oil temp|press, EGT|vac, then the ammeter. Two half-dials in one bezel each.
@@ -742,10 +773,10 @@ export function mayflyFit(P, live, push) {
   // ── THE ANNUNCIATOR STRIP: top left, above the engine gauges ─────────────
   const an = [[!!L.bingo || fuel < 0.12, T.amber], [powered && !running, C.red], [powered && !running, T.amber], [hull < 0.3, C.red]];
   // Each name is on its lens: the engine gauges are directly under the strip.
-  const anN = ['FUEL', 'OIL', 'VOLTS', 'HULL'];
+  const anN = ['FUEL', 'OIL', 'VOLT', 'HULL'];
   an.forEach(([on, rgb], i) => {
-    Pn.lamp(-0.196 + i * 0.020, P.dashZ - 0.022, 0.008, 0.0045, powered && on, rgb);
-    Pn.fitText(anN[i], -0.196 + i * 0.020, P.dashZ - 0.022, 0.014, 0.005, powered && on ? [30, 10, 6] : [150, 146, 140], 0, 0.008);
+    Pn.lamp(-0.215 + i * 0.030, P.dashZ - 0.022, 0.013, 0.006, powered && on, rgb);
+    Pn.fitText(anN[i], -0.215 + i * 0.030, P.dashZ - 0.022, 0.024, 0.0065, powered && on ? [30, 10, 6] : [150, 146, 140], 0, 0.008);
   });
 
   // ── THE STACK: audio panel, GPS, COM/NAV, transponder ────────────────────
@@ -764,33 +795,34 @@ export function mayflyFit(P, live, push) {
     Pn.plate([[st.x - 0.0012, gz0 + 0.02], [st.x + 0.0012, gz0 + 0.02], [st.x + tk + 0.0012, gz1 - 0.008], [st.x + tk - 0.0012, gz1 - 0.008]], T.magenta, 0.9, 0.0055);
     Pn.disc(st.x, gz0 + 0.02, 0.005, [255, 255, 255], 1, 0.006, 6);
   }
-  const unit = (z, str) => {
+  // Each unit's name where its tuning knob was: the sim tunes nothing, so a knob would do nothing.
+  const unit = (z, str, nm) => {
     Pn.rect(st.x - st.w + 0.006, z - 0.021, st.x + st.w - 0.006, z + 0.021, [34, 36, 40], 0, 0.003);
     if (powered) Pn.digits(st.x - 0.065, z - 0.009, 0.018, str, T.lcd, true);
     else Pn.rect(st.x - 0.065, z - 0.01, st.x + 0.03, z + 0.01, T.lcdBg, 0, 0.004);
-    Pn.knob(st.x + 0.062, z, 0.009, 0.012, [60, 60, 66], 0);
+    Pn.fitText(nm, st.x + 0.058, z, 0.036, 0.009, post ? [255, 226, 190] : [200, 200, 196], 0.4, 0.004);
   };
-  unit(gz0 - 0.028, '12280');
-  unit(gz0 - 0.076, '11340');
-  unit(gz0 - 0.124, '1200');
+  unit(gz0 - 0.028, '12280', 'COM');
+  unit(gz0 - 0.076, '11340', 'NAV');
+  unit(gz0 - 0.124, '1200', 'XPDR');
   void st;
 
   // ── SWITCHES: the split red master, avionics, then the light rockers ─────
-  const state = [powered, powered, !!L.landingLight, !!L.landingLight];
-  const swN = ['BAT ALT', 'AVION', 'LAND', 'TAXI'];
-  Y.sw.x.forEach((x, i) => {
-    const on = state[i], red = i === 0;
-    Pn.fitText(swN[i], x, Y.sw.z - 0.026, 0.027, 0.0065, post ? [255, 226, 190] : C.tick, 0.35, 0.004);
+  const swOn = { 'ck:master': powered, 'ck:panel': post, 'ck:land': !!L.landingLight, 'ck:taxi': !!L.landingLight, 'ck:dome': !!(L.dome && powered) };
+  MAYFLY_SW.forEach(([id, nm], i) => {
+    const x = Y.sw.x[i], on = !!swOn[id];
+    const f = eased('mayfly:' + id, on ? 1 : 0, 18) - pressPulse('mayfly:' + id, on) * 0.3, d = (f * 2 - 1) * 0.005;
+    Pn.fitText(nm, x, Y.sw.z - 0.027, 0.043, 0.008, post ? [255, 226, 190] : C.tick, 0.35, 0.004);
     if (i === 0) {
-      // The master: two red paddles side by side, BAT and ALT.
+      // The master: two red paddles side by side, BAT and ALT, thrown together.
       for (const dx of [-0.007, 0.007]) {
         Pn.rect(x + dx - 0.0065, Y.sw.z - 0.017, x + dx + 0.0065, Y.sw.z + 0.017, [16, 16, 18], 0, 0.003);
-        Pn.stud(x + dx, Y.sw.z + (on ? 0.005 : -0.005), 0.0055, 0.009, on ? 0.012 : 0.007, T.cutoff, 0, 0.003);
+        Pn.stud(x + dx, Y.sw.z + d, 0.0055, 0.009, 0.007 + f * 0.005, T.cutoff, 0, 0.003);
       }
       return;
     }
     Pn.rect(x - 0.011, Y.sw.z - 0.017, x + 0.011, Y.sw.z + 0.017, [16, 16, 18], 0, 0.003);
-    Pn.stud(x, Y.sw.z + (on ? 0.005 : -0.005), 0.008, 0.009, on ? 0.012 : 0.007, red ? T.cutoff : [232, 230, 222], 0, 0.003);
+    Pn.stud(x, Y.sw.z + d, 0.008, 0.009, 0.007 + f * 0.005, [232, 230, 222], 0, 0.003);
   });
   // The magneto key: turned to BOTH while the engine runs, OFF when it does not.
   {
@@ -918,6 +950,8 @@ export function mayflyFit(P, live, push) {
     K.box(-0.20, py - 0.043, z - 0.002, 0.20, py - 0.040, z, 'dash', 0, T.post, 0.9);
     K.box(Y.xC - 0.1, py - 0.043, z - 0.002, Y.xC + 0.1, py - 0.040, z, 'dash', 0, T.post, 0.9);
   }
+
+  hotspotHalo(K, mayflyHotspots(P, live), live);
 
   // ── THE HARNESS: lap belt and a shoulder strap each, from the reels in the roof ──
   for (const [cx, s] of [[0, -1], [2 * Y.xC, 1]]) {

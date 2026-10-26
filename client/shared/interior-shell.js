@@ -140,7 +140,7 @@ import { leviathanProfile, LEV_TRIM } from './interior-leviathan.js';
 import { reaperProfile, REAPER_TRIM } from './interior-reaper.js';
 import { shrikeProfile, SHRIKE_TRIM } from './interior-shrike.js';
 import { locustProfile, LOCUST_TRIM } from './interior-locust.js';
-import { mayflyProfile, mayflyGpsHotspot, MAYFLY_TRIM } from './interior-mayfly.js';
+import { mayflyProfile, MAYFLY_TRIM } from './interior-mayfly.js';
 import { dragonflyProfile, DRAGONFLY_TRIM } from './interior-dragonfly.js';
 import { viperProfile, VIPER_TRIM } from './interior-viper.js';
 import { carcassProfile } from './interior-carcass.js';
@@ -340,14 +340,7 @@ export const SHELL_PROFILES = {
   // ⚠ A CESSNA 172 NOW, NOT AN OPEN ULTRALIGHT: the airframe became a closed cabin (mesh_ultralight
   // .json), so the seat did too. Side by side, the pilot on the left, a centre strip in the
   // windscreen, a door each side with the window in it; the fit-out is interior-mayfly.js.
-  // ⚠ ONLY ITS GPS TAKES CLICKS so far; the rest of its controls are the Mayfly's own pass.
-  get mayfly() {
-    return craftProfile('mayfly', () => {
-      const P = mayflyProfile();
-      P.hotspots = function () { return [mayflyGpsHotspot(this)]; };
-      return P;
-    });
-  },
+  get mayfly() { return craftProfile('mayfly', mayflyProfile); },
   bridge: {
     label: 'wheelhouse',
     xCentre: 0,
