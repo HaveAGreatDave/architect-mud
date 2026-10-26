@@ -20,6 +20,9 @@
 //   https://www.digitalcombatsimulator.com/en/products/planes/warthog/ and the DCS A-10A manual
 //     (armament control panel on the front LEFT; fuel panel on the forward left console)
 //   https://thewarthogproject.com/the-plans  (panel/console/seat split of a builder's replica)
+// Photo held against (Wikimedia Commons, 2026-10-26), for the panel as it is from the seat:
+//   File:Fairchild_Republic_A-10A_Thunderbolt_II_cockpit_USAF.jpg  (the black bow with the HUD and the
+//        fire handles, the grey board, the engine stack right, the armament panel lower left)
 //
 // ── ⚠ THE ROOM IS THE EXTERIOR'S CANOPY AND HULL, NEVER A SECOND DESCRIPTION ──
 //
@@ -52,7 +55,7 @@
 //
 // Pure: no DOM, no camera. `live` is optional everywhere and every reader has a resting value.
 import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { eased, pressPulse, hotspotHalo, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
+import { eased, pressPulse, hotspotHalo, panelGps, gpsHotspot, lensLamp } from './interior-cockpit-kit.js';
 import { FW_ROWS } from './vehicle-models.js';
 
 const TAU = Math.PI * 2;
@@ -244,6 +247,8 @@ export function reaperProfile(row = FW_ROWS.gunship) {
     normalLit: true,
     // Panel floods under the glareshield lip and over each console.
     floods: [{ p: [0, 0.38, -0.13], r: 0.45 }, { p: [-0.40, 0.05, -0.50], r: 0.34 }, { p: [0.40, 0.05, -0.50], r: 0.34 }],
+    // After dark the floods are bright enough to read the panel by (the Drake's 2.2 is the bar).
+    floodGain: 1.8, glare: 0.4,
     room: reaperShell,
     reaper: { ...geo, faces: room.faces, bow: room.bow, ringIn: room.ringIn, frameStatic: null },
     hotspots(live) { return reaperHotspots(this, live); },
@@ -544,34 +549,35 @@ function staticFit(P, push) {
     const y = -0.40 + c * 0.03, z = CONS_Z + 0.05 + r * 0.03, x = -wallX(y, z);
     K.rod([x, y, z], [x + 0.014, y, z], 0.006, 'dash', 0.1, C.black, 0, 6);
   }
-  // Knobs on the consoles that nothing in the sim drives: the lighting rheostats, the IFF modes.
-  for (const [x, y] of [[-0.34, -0.20], [-0.30, -0.20], [-0.42, -0.20], [0.30, 0.44], [0.36, 0.44], [0.42, 0.44], [0.30, 0.52], [0.36, 0.52]]) {
-    K.rod([x, y, CONS_Z], [x, y, CONS_Z + 0.014], 0.011, 'dash', 0.1, C.black, 0, 10);
-    K.rod([x, y, CONS_Z + 0.014], [x, y, CONS_Z + 0.018], 0.004, 'dash', 0.3, T.letter, 0, 6);
-  }
   // ── THE CONSOLES, FILLED IN ── the first cut left them black slabs, which is what they read as
   // from a turned head. An A-10's consoles are wall-to-wall Dzus panels: each a raised plate with a
-  // screw at every corner, a column of toggles or knobs, and white lettering under every one.
-  const plate = (cx, cy, hw, hh, cols, rows, kind) => {
+  // screw at every corner. ⚠ NONE OF THEM IS A SWITCH: the sim drives none of the LASTE, SAS,
+  // antenna or environment panels, so each is a named panel of circuit breakers, the rows of black
+  // collars every console carries, and nothing on it takes a hand. They were toggles and knobs over
+  // blank placards until 2026-10-26.
+  const plate = (cx, cy, hw, hh, cols, rows, name) => {
     const Pp = K.panel([cx, cy, CONS_Z + 0.004], [1, 0, 0], [0, 1, 0]);
     K.box(cx - hw, cy - hh, CONS_Z, cx + hw, cy + hh, CONS_Z + 0.004, 'dash', 0.05, T.plateLt);
     for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) Pp.disc(a * (hw - 0.007), b * (hh - 0.007), 0.0035, T.metal, 0, 0.001, 6);
+    // The name along the forward edge, then the collars in the rest of the plate.
+    const nh = Math.min(0.010, hh * 0.45);
+    Pp.fitText(name, 0, hh - nh * 0.9, 2 * hw - 0.012, nh, T.letter, 0.35, 0.001);
+    const top = hh - nh * 1.9;
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      const a = -hw + (c + 0.5) * (2 * hw / cols), b = hh - (r + 0.5) * (2 * hh / rows);
-      if (kind === 'knob') { Pp.knob(a, b, 0.010, 0.012, C.black, 0); Pp.spoke(a, b, Math.PI / 2 + (r * 7 + c * 3) % 5 * 0.4, 0, 0.009, 0.0015, T.letter, 0, 0.0125); }
-      else if (kind === 'lamp') Pp.lamp(a, b, 0.008, 0.005, false, C.amber);
-      else Pp.toggle(a, b, (r + c) % 3 !== 0);
-      Pp.rect(a - 0.010, b - 0.018, a + 0.010, b - 0.0155, T.letter, 0, 0.001);
+      const a = -hw + (c + 0.5) * (2 * hw / cols), b = top - (r + 0.5) * ((top + hh) / rows);
+      const q = Pp.pt(a, b, 0);
+      K.rod(q, add(q, [0, 0, 0.010]), 0.0055, 'dash', 0.1, C.black, 0, 6);
+      K.rod(add(q, [0, 0, 0.010]), add(q, [0, 0, 0.013]), 0.003, 'dash', 0.3, T.letter, 0, 6);
     }
   };
-  // Left: the LASTE and antenna panels inboard of the throttles, the SAS and intercom panels aft.
-  plate(-0.275, 0.10, 0.022, 0.19, 1, 6, 'toggle');
-  plate(-0.33, -0.43 + 0.04, 0.07, 0.035, 4, 1, 'knob');
-  plate(-0.475, 0.28, 0.035, 0.07, 1, 3, 'toggle');
-  // Right: the environment panel under the rheostats, a caution-lamp strip, the lighting panel.
-  plate(0.37, 0.48, 0.10, 0.08, 3, 2, 'knob');
-  plate(0.37, 0.33 + 0.0, 0.10, 0.012, 5, 1, 'lamp');
-  plate(0.37, -0.215, 0.10, 0.035, 5, 1, 'toggle');
+  // Left: the LASTE and antenna panels inboard of the throttles, the SAS panel aft.
+  plate(-0.275, 0.10, 0.022, 0.19, 1, 6, 'LASTE');
+  plate(-0.33, -0.43 + 0.04, 0.07, 0.035, 4, 1, 'SAS');
+  plate(-0.475, 0.28, 0.035, 0.07, 1, 3, 'ANT');
+  // Right: the environment panel, the electrical strip, the lighting panel.
+  plate(0.37, 0.48, 0.10, 0.08, 3, 2, 'ENVIRONMENT');
+  plate(0.37, 0.33 + 0.0, 0.10, 0.012, 5, 1, 'ELEC');
+  plate(0.37, -0.215, 0.10, 0.035, 5, 1, 'LIGHTING');
 
   // ── THE CANOPY RAIL ── the elbow pad by your arm, the defog duct inboard of the rail, and the
   // canopy's lock hooks: what fills the edge of the frame when you turn your head.
@@ -670,7 +676,6 @@ export function reaperFit(P, live, push) {
     Pn.rect(u - 0.007, 0.175, u + 0.007, 0.200, C.black, 0, 0.003);
     // Stations 1-5 and 7-11 carry the bombs and missiles the sim counts; 6 is the centreline.
     const st = i < 5 ? i : i > 5 ? i - 1 : -1, stores = st < 0 ? 0 : st % 2 ? R.missiles > (st >> 1) : R.bombs > (st >> 1);
-    Pn.stud(u, 0.1875, 0.0065, 0.0105, 0.004, T.plate, 0, 0.002);
     Pn.lamp(u, 0.19, 0.0045, 0.0035, on && R.armed && !!stores, C.green);
     Pn.lamp(u, 0.1805, 0.0045, 0.002, on && !!stores, C.amber);
     placard(Pn, u - 0.004, 0.2045, u + 0.004, 0.207, String(i + 1));
@@ -678,10 +683,12 @@ export function reaperFit(P, live, push) {
   Pn.rect(-0.345, 0.07, -0.315, 0.14, C.black, 0, 0.003);
   Pn.toggle(-0.33, 0.10, R.armed, 'ARM');                                  // MASTER ARM
   Pn.stud(-0.33, 0.13, 0.012, 0.005, 0.004, R.armed && on ? C.red : [70, 20, 18], R.armed && on ? 0.9 : 0, 0.003);
-  Pn.toggle(-0.28, 0.10, R.armed && R.weapon !== 'msl', 'GUN');            // GUN ARM
-  Pn.knob(-0.215, 0.10, 0.017, 0.012, C.black, 0);                         // delivery mode
-  const dm = R.weapon === 'msl' ? 0.8 : R.weapon === 'bomb' ? 0.3 : -0.3;
-  Pn.spoke(-0.215, 0.10, Math.PI / 2 + dm, 0, 0.016, 0.002, C.white, 0.4, 0.013);
+  // GUN ARM lights with the gun armed; the delivery mode reads the weapon the sim has selected. Both
+  // were a toggle and a rotary that nothing drove. The mode is the A-10's: CCIP for the gun, CCRP
+  // for bombs, MAV for the Maverick.
+  lensLamp(Pn, -0.28, 0.10, 0.04, 0.03, on && R.armed && R.weapon !== 'msl' && R.weapon !== 'bomb', C.green, 'GUN');
+  Pn.rect(-0.245, 0.085, -0.185, 0.115, C.black, 0, 0.003);
+  Pn.fitText(on ? ({ msl: 'MAV', bomb: 'CCRP' }[R.weapon] || 'CCIP') : '', -0.215, 0.10, 0.054, 0.013, C.amber, 0.9, 0.005);
   const rounds = Number.isFinite(+R.ammo) ? String(Math.max(0, Math.round(+R.ammo)) % 10000).padStart(4, '0') : '1150';
   Pn.digits(-0.37, 0.048, 0.013, on ? rounds : '    ', C.amber);
   placard(Pn, -0.30, 0.055, -0.20, 0.058, 'DLVY MODE');
@@ -693,7 +700,7 @@ export function reaperFit(P, live, push) {
   K.rod(add(knob, [0, 0.008, 0]), add(knob, [0, -0.008, 0]), 0.019, 'dash', 0.1, [226, 226, 222], on && gear > 0.05 && gear < 0.95 ? 0.6 : 0.05, 10);
   for (let i = 0; i < 3; i++) Pn.lamp(-0.26, -0.03 - i * 0.03, 0.009, 0.009, on && R.gear, C.green);
   Pn.text('GEAR', -0.26, -0.008, 0.0075);   // one name over the three, which are too close to letter each
-  Pn.dial(-0.205, -0.11, 0.028, R.flap, { a0: Math.PI * 0.75, sweep: Math.PI * 0.5, ticks: 3, major: 1, name: 'FLAP' });
+  Pn.dial(-0.205, -0.11, 0.028, R.flap, { a0: Math.PI * 0.75, sweep: Math.PI * 0.5, ticks: 3, major: 1, name: 'FLAP', nameH: 0.0085 });
   Pn.toggle(-0.27, -0.175, !!R.L.landingLight, 'LAND');                  // LAND / TAXI lights
   placard(Pn, -0.36, -0.20, -0.30, -0.197, 'GEAR');
 
@@ -706,16 +713,16 @@ export function reaperFit(P, live, push) {
   Pn.compass(0, -0.105, 0.055, R.hdg);
   Pn.dial(-0.125, -0.02, 0.03, clamp(R.aoa / 30, 0, 1), { a0: Math.PI * 1.25, sweep: Math.PI * 1.5, ticks: 6, major: 2, arcs: [[0.55, 0.7, C.green]], red: 0.8, name: 'AOA' });
   Pn.dial(0.125, -0.02, 0.03, clamp(0.5 + R.vsi / 12000, 0, 1), { a0: Math.PI, sweep: Math.PI * 1.8, ticks: 12, major: 3, name: 'VSI' });
-  Pn.dial(-0.125, -0.14, 0.028, (R.hour % 12) / 12, { a0: Math.PI / 2, sweep: TAU, ticks: 12, major: 3, frac2: R.hour % 1, name: 'CLOCK' });
-  Pn.dial(0.125, -0.14, 0.028, clamp(0.5 + R.trim * 0.5, 0, 1), { a0: Math.PI * 1.25, sweep: Math.PI * 1.5, ticks: 4, major: 2, needle: C.white, name: 'TRIM' });
+  Pn.dial(-0.125, -0.14, 0.028, (R.hour % 12) / 12, { a0: Math.PI / 2, sweep: TAU, ticks: 12, major: 3, frac2: R.hour % 1, name: 'CLOCK', nameH: 0.0085 });
+  Pn.dial(0.125, -0.14, 0.028, clamp(0.5 + R.trim * 0.5, 0, 1), { a0: Math.PI * 1.25, sweep: Math.PI * 1.5, ticks: 4, major: 2, needle: C.white, name: 'TRIM', nameH: 0.0085 });
 
   // ── THE ENGINES (upper right): fan speed, ITT, core speed and fuel flow, left and right ──
   for (let e = 0; e < 2; e++) {
     const u = 0.235 + e * 0.09, rr = R.rpm * (e ? 0.992 : 1);
     Pn.dial(u, 0.182, 0.021, rr, { ticks: 10, major: 5, red: 0.98, name: 'FAN' });
-    Pn.dial(u, 0.128, 0.021, clamp(0.25 + rr * 0.6, 0, 1), { ticks: 8, major: 4, arcs: [[0.3, 0.8, C.green]], red: 0.9, name: 'ITT' });
-    Pn.dial(u, 0.074, 0.021, clamp(0.55 + rr * 0.4, 0, 1), { ticks: 10, major: 5, red: 0.99, name: 'CORE' });
-    Pn.dial(u, 0.020, 0.021, clamp(R.thr * rr, 0, 1), { ticks: 6, major: 3, name: 'FF' });
+    Pn.dial(u, 0.128, 0.021, clamp(0.25 + rr * 0.6, 0, 1), { ticks: 8, major: 4, arcs: [[0.3, 0.8, C.green]], red: 0.9, name: 'ITT', nameH: 0.0072 });
+    Pn.dial(u, 0.074, 0.021, clamp(0.55 + rr * 0.4, 0, 1), { ticks: 10, major: 5, red: 0.99, name: 'CORE', nameH: 0.0072 });
+    Pn.dial(u, 0.020, 0.021, clamp(R.thr * rr, 0, 1), { ticks: 6, major: 3, name: 'FF', nameH: 0.0075 });
   }
   Pn.lamp(0.28, -0.015, 0.012, 0.005, on && R.fuel < 0.15, C.amber, 'LO FUEL');
   // ── FUEL QUANTITY (lower right): the two tank needles and the total counter ──
@@ -759,14 +766,16 @@ export function reaperFit(P, live, push) {
   K.rod([FLAP_PIVOT[0], FLAP_PIVOT[1], CONS_Z + 0.02], ft, 0.006, 'dash', 0.1, T.metal, 0, 5);
   K.obox(ft, [1, 0, 0], [0, 0, 1], [0, 1, 0], 0.012, 0.016, 0.009, 'dash', 0.1, C.white);
   const Lc = K.panel([-0.39, 0.45, CONS_Z + 0.0015], [1, 0, 0], [0, 1, 0]);    // fuel panel
-  const FUEL_SW = ['BST L', 'BST R', 'WING L', 'WING R', 'XFEED', 'GATE', 'FILL L', 'FILL R'];
-  for (let i = 0; i < 8; i++) Lc.toggle(-0.09 + (i % 4) * 0.06, 0.06 - (i >> 2) * 0.07, on && i !== 3, FUEL_SW[i]);
+  // Lamps, not switches: the boost pumps run with the engines, the wing tanks feed while there's
+  // fuel in them, and the crossfeed, gate and fill valves are shut. The sim switches none of them.
+  const run = on && R.rpm > 0.05;
+  const FUEL = [['BST L', run], ['BST R', run], ['WING L', on && R.fuel > 0.5], ['WING R', on && R.fuel > 0.5], ['XFEED', false], ['GATE', false], ['FILL L', false], ['FILL R', false]];
+  FUEL.forEach(([nm, lit], i) => lensLamp(Lc, -0.09 + (i % 4) * 0.06, 0.06 - (i >> 2) * 0.07, 0.054, 0.034, lit, C.green, nm));
   placard(Lc, -0.11, -0.13, 0.11, -0.127, 'FUEL');
   const Tc = K.panel([-0.38, -0.30, CONS_Z + 0.0015], [1, 0, 0], [0, 1, 0]);   // emergency flight control
-  Tc.bar(-0.05, -0.07, 0.07, 0.008, 0.5 + R.trim * 0.5, C.white, 'TRIM');
-  Tc.toggle(0.04, 0.03, on, 'ELEV');
-  Tc.toggle(0.08, 0.03, false, 'AIL');
-  placard(Tc, -0.10, -0.10, 0.10, -0.097, 'EMER FLT CTL');
+  Tc.bar(-0.05, -0.07, 0.07, 0.008, 0.5 + R.trim * 0.5, C.white);
+  Tc.text('TRIM', -0.05, -0.085, 0.009, panelOn ? T.night : T.letter, panelOn ? 0.9 : 0.35);
+  placard(Tc, -0.10, -0.115, 0.10, -0.112, 'PITCH TRIM');
   // The utility light on the left rail, aft: it lights the seat when the dome is on.
   const ul = [-0.40, -0.30, P.reaper.sillZ(-0.30) + 0.05];
   K.rod(add(ul, [0, 0, -0.04]), ul, 0.006, 'pil', 0.1, T.frame, 0, 5);
@@ -789,13 +798,13 @@ export function reaperFit(P, live, push) {
   Rc.rect(-0.12, 0.05, 0.12, 0.17, T.plateLt, 0, 0.002);                        // UHF
   Rc.digits(-0.05, 0.09, 0.016, freq, C.amber);
   Rc.text('UHF', 0, 0.155, 0.009);
-  Rc.knob(-0.09, 0.11, 0.014, 0.01, C.black, 0); Rc.knob(0.09, 0.11, 0.014, 0.01, C.black, 0);
+  lensLamp(Rc, 0.075, 0.09, 0.05, 0.03, on, C.green, 'RX');
   Rc.rect(-0.12, 0.22, 0.12, 0.34, T.plateLt, 0, 0.002);                        // IFF
-  for (let i = 0; i < 4; i++) Rc.knob(-0.08 + i * 0.053, 0.28, 0.011, 0.008, C.black, 0);
+  ['MODE 1', 'MODE 3', 'MODE C', 'STBY'].forEach((nm, i) => lensLamp(Rc, -0.08 + i * 0.053, 0.27, 0.048, 0.03, on && i !== 3, i === 3 ? C.amber : C.green, nm));
   Rc.text('IFF', 0, 0.32, 0.009);
   Rc.rect(-0.12, -0.40, 0.12, -0.26, T.plateLt, 0, 0.002);                      // oxygen regulator
   Rc.lamp(-0.05, -0.33, 0.012, 0.012, on && (Math.floor(R.hour * 360) % 2 === 0), C.white, 'FLOW');
-  Rc.toggle(0.05, -0.33, on, 'O2');
+  lensLamp(Rc, 0.05, -0.33, 0.06, 0.03, on, C.green, 'O2 ON');
   Rc.text('OXY', 0, -0.28, 0.009);
 
   // ── THE STICK ── an A-10A grip: trigger, pickle button on top, trim hat, NWS button.
