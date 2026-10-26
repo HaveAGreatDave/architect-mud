@@ -142,6 +142,17 @@ export default async function regress({ run, check, getPlayer }) {
     const slow = fresh();
     const evs = drive(slow, { left: 0.15, right: 0.15, solid: (x, y) => y < -1.5 }, 10);
     check('a slow bump keeps the binder', slow.binder && evs.some((e) => e?.type === 'hit'));
+    // A glancing touch skims the rock: up to speed, turned 10° into a wall just to the right, the
+    // racer runs along it. Putting the whole racer back and reversing its way stopped it dead here.
+    const g = fresh();
+    drive(g, { left: 1, right: 1 }, 4);
+    const v0 = g.speed, sp = v0 / p.tileMph, a = 10 * Math.PI / 180;
+    placePodracer(g, p, 0, 0, 10);
+    for (const b of [...g.eng, g.pod]) { b.vx = Math.sin(a) * sp; b.vy = -Math.cos(a) * sp; }
+    const evg = drive(g, { left: 1, right: 1, solid: (x) => x >= 0.25 }, 1.5);
+    check('a 10° scrape along a wall keeps its speed, the binder and the turbines',
+      evg.some((e) => e?.type === 'hit') && g.speed > v0 * 0.8 && g.binder && g.engHp.every((h) => h > 0.9),
+      `${v0.toFixed(0)} → ${g.speed.toFixed(0)} mph, turbines ${g.engHp.map((h) => h.toFixed(2)).join('/')}`);
   }
   {
     const a = fresh(), b = fresh();

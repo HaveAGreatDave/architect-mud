@@ -7,7 +7,12 @@
     "classFacts": {
       "contactSize": 0.3333,
       "modelScale": 1,
-      "metres": 7.2
+      "metres": 7.2,
+      "light": [
+        0.4,
+        1.15,
+        0.3
+      ]
     },
     "navLamps": null,
     "lamps": [
@@ -35,7 +40,7 @@
           32
         ],
         "livery": "base",
-        "mat": "candy",
+        "mat": -0.6,
         "tex": "flake"
       },
       "trim": {
@@ -45,7 +50,7 @@
           32
         ],
         "livery": "trim",
-        "mat": "pearl",
+        "mat": -0.45,
         "tex": "paint"
       },
       "metal": {
@@ -222,8 +227,8 @@
               1.1
             ],
             "shade": {
-              "base": 0.62,
-              "amp": 0.34
+              "base": 0.48,
+              "amp": 0.56
             },
             "paint": "hull",
             "stations": [
@@ -1208,8 +1213,8 @@
             "role": "body",
             "paint": "hull",
             "shade": {
-              "base": 0.62,
-              "amp": 0.34
+              "base": 0.48,
+              "amp": 0.56
             },
             "stations": [
               {
@@ -2975,8 +2980,8 @@
                   1
                 ],
                 "shade": {
-                  "base": 0.56,
-                  "amp": 0.46
+                  "base": 0.4,
+                  "amp": 0.7
                 },
                 "paint": "hull",
                 "stations": [

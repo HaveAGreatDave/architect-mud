@@ -963,30 +963,60 @@ function solveContact(A, ua, va, B, min) {
 // ── The world ─────────────────────────────────────────────────────────────────
 //
 // Once a frame, not per sub-step: at top speed a frame moves about 0.05 tiles and the smallest wall
-// is a tile, so nothing tunnels. A body whose point lands in something solid goes back to where it
-// started the frame and keeps a fifth of its way, reversed. The damage is quadratic in the excess
-// over freeMph, so scraping a wall is cheap and hitting one is not.
+// is a tile, so nothing tunnels. Every wall is a tile's face, so a body that ends the frame in
+// something solid is put back along one axis, the one it crossed the face on: the frame's move is
+// tried along x alone and along y alone. Across the face its way reverses at WALL_BOUNCE; along it
+// the racer keeps going, less the scrape (WALL_GRIP of the knock), so a glancing touch skims the rock
+// and only a square hit stops it. Putting the whole body back and reversing all of its way stopped a
+// racer dead on a 15° touch at 180 mph. A body that fits neither way, into a corner or turned into
+// the rock, still goes back to where it started the frame with its way reversed.
+// The damage is quadratic in the excess of the speed into the face over freeMph, so scraping a wall
+// is cheap and hitting one is not.
+const WALL_BOUNCE = 0.2, WALL_GRIP = 0.3;
 function collide(s, p, input, start) {
   if (typeof input.solid !== 'function') return;
   const mph = p.tileMph;
   const bodies = [...s.eng, s.pod];
-  const probe = (b, u, v) => { const [rx, ry] = offset(b.a, u, v); return [b.x + rx, b.y + ry]; };
-  const pointMph = (b, u, v) => {
-    const [rx, ry] = offset(b.a, u, v);
-    return Math.hypot(b.vx - b.w * ry, b.vy + b.w * rx) * mph;
-  };
+  // Where each body is probed: a turbine's nose and centre, the pod's centre and nose.
+  const probes = (b) => [[0, b === s.pod ? p.podHalfLen : p.engHalfLen], [0, 0]];
+  const clear = (b, x, y, a) => probes(b).every(([u, v]) => { const [rx, ry] = offset(a, u, v); return !input.solid(x + rx, y + ry); });
+  const pointVel = (b, v) => { const [rx, ry] = offset(b.a, 0, v); return [b.vx - b.w * ry, b.vy + b.w * rx]; };
+  // Put b back out of the rock; returns the speed it hit with, in mph, across the face it hit.
   const bounce = (b) => {
-    const k = bodies.indexOf(b);
-    [b.x, b.y, b.a] = start[k];
-    b.vx *= -0.2; b.vy *= -0.2; b.w *= 0.3;
+    const [sx, sy, sa] = start[bodies.indexOf(b)];
+    const [pvx, pvy] = pointVel(b, probes(b)[0][1]);
+    // Which face: the axis whose move alone reaches the rock. Both alone clear is a corner taken
+    // square-on, and the smaller move is the one across the face.
+    let axis = null;
+    for (const a of [b.a, sa]) {
+      const xOk = clear(b, b.x, sy, a), yOk = clear(b, sx, b.y, a);
+      if (xOk && yOk) axis = Math.abs(b.x - sx) < Math.abs(b.y - sy) ? 'x' : 'y';
+      else if (xOk) axis = 'y';
+      else if (yOk) axis = 'x';
+      if (axis) { b.a = a; break; }
+    }
+    if (!axis) {
+      [b.x, b.y, b.a] = start[bodies.indexOf(b)];
+      b.vx *= -WALL_BOUNCE; b.vy *= -WALL_BOUNCE; b.w *= 0.3;
+      return Math.hypot(pvx, pvy) * mph;
+    }
+    const into = axis === 'x' ? Math.sign(b.x - sx) : Math.sign(b.y - sy);
+    if (axis === 'x') b.x = sx; else b.y = sy;
+    const vn = axis === 'x' ? b.vx : b.vy;
+    // Already on its way out (a cable pulled it back this frame): only the position is put right.
+    if (vn * into <= 0) return 0;
+    const knock = (1 + WALL_BOUNCE) * Math.abs(vn);
+    const vt = axis === 'x' ? b.vy : b.vx;
+    const vt2 = Math.sign(vt) * Math.max(0, Math.abs(vt) - WALL_GRIP * knock);
+    if (axis === 'x') { b.vx = -WALL_BOUNCE * vn; b.vy = vt2; } else { b.vy = -WALL_BOUNCE * vn; b.vx = vt2; }
+    b.w *= 0.5;
+    return Math.abs(axis === 'x' ? pvx : pvy) * mph;
   };
   // Each turbine: its nose and its centre.
   for (let i = 0; i < 2; i++) {
-    const { b, u } = engPoint(s, p, i);
-    const nose = probe(b, u, p.engHalfLen), mid = probe(b, u, 0);
-    if (!input.solid(nose[0], nose[1]) && !input.solid(mid[0], mid[1])) continue;
-    const hit = pointMph(b, u, p.engHalfLen);
-    bounce(b);
+    const { b } = engPoint(s, p, i);
+    if (clear(b, b.x, b.y, b.a)) continue;
+    const hit = bounce(b);
     const cost = Math.max(0, hit - p.freeMph);
     if (cost > 0) s.engHp[i] = clamp(s.engHp[i] - cost * cost * 0.00012 * (p.engK ?? 1), 0, 1);
     s.events.push({ type: 'hit', part: i ? 'right' : 'left', mph: Math.round(hit) });
@@ -996,10 +1026,8 @@ function collide(s, p, input, start) {
     if (s.binder && s.mode === 'launched' && hit > p.binderMph) breakBinder(s, p);
   }
   const P = s.pod;
-  const pn = probe(P, 0, p.podHalfLen);
-  if (input.solid(P.x, P.y) || input.solid(pn[0], pn[1])) {
-    const hit = pointMph(P, 0, p.podHalfLen);
-    bounce(P);
+  if (!clear(P, P.x, P.y, P.a)) {
+    const hit = bounce(P);
     const cost = Math.max(0, hit - p.freeMph);
     if (cost > 0) s.hull = clamp(s.hull - cost * cost * 0.00009 * (p.hullK ?? 1), 0, 1);
     s.events.push({ type: 'hit', part: 'pod', mph: Math.round(hit) });
