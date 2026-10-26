@@ -327,7 +327,7 @@ One player flag per chapter, `codex_ch_<id>` (`codex/unlocks.js`). No table, no
 2. **World events** — `vendor.purchase` opens *The Inheritance*; entering
    `zone_under_conduitvlt` / `zone_under_machsump` opens *What It Wants*.
    **Derived** unlocks are evaluated when the app is opened (a cold path, no
-   tick): stance or any path ≥ 20 opens *The Four Answers*, and
+   tick): stance or any path ≥ 20 opens *The Five Answers*, and
    `path_machine`/`path_flesh`/`path_mind` ≥ 30 open *The Chrome Question* /
    *The Mutant Question* / *The Quiet Frequency* respectively.
 3. **`CODEX_UNLOCK` `{chapter, quiet?}`** — a registered action, so any VINE
@@ -345,7 +345,7 @@ convention that `server/engine/dialogue.js` reads with `a.params || a`; a nested
 | Chapter | NPC | The beat |
 |---|---|---|
 | The Inheritance | **Custodian-Adjunct Wren** | asked who she works for — she names a company she has never found, and is comforted that someone up there still rejects her requisitions |
-| The Four Answers | **Maresh, Ascendant Recruiter** | asked to describe his rivals, which he enjoys; drops the salesman exactly once, on certainty |
+| The Five Answers | **Maresh, Ascendant Recruiter** | asked to describe his rivals, which he enjoys; drops the salesman exactly once, on certainty |
 | The Chrome Question | **Dr Sable Kesh** | asked where the designs come from — she doesn't know, has decided that's enough *on purpose*, and only then mentions the drift |
 | The Mutant Question | **Grease** | asked what happened to his arm; fallout kills, it doesn't do *this* |
 | The Quiet Frequency | **Oracle-9** | refuses the claim ("I don't do anything. I notice."), which is what makes her the one worth listening to |

@@ -61,6 +61,12 @@ const WARN = [
   // Constructed irony: a description built as setup plus twist. Fallout 2's examine texts do this in
   // about 3% of lines; it was the shape of many of ours. See house-voice.md, "The default register".
   { id: 'constructed-irony', re: /\b(says|said|claims?|promises?|advertises?|reads|is labelled|is marked|is reserved)\b[^.!?]{3,120}[.!?]\s+(There is no|There's no|There are no|It isn't|It is not|It doesn't|It does not|It never|Nobody has ever)\b|\b(\w{4,})\b[^.!?]{0,90}\b(stops? being|stopped being|isn't|is not|wasn't|never was) (a |an |the )?\3\b|\bthe speed of (a|something) (thing )?that isn't\b|\bthe only thing (anyone|anybody|everyone)\b/gi },
+  // A span of years standing in for a character ("has kept the door for eleven years"), and the
+  // epigram that usually follows it ("That's a debt collector with a chapel", "It isn't a game. It's
+  // a payroll reduction with a scoreboard"). Fiction only: a doc saying "for two years" means it.
+  // See house-voice.md, "Tics to cut".
+  { id: 'tenure-line', re: /\b(for|in|after) (?:(?:the )?(?:last|past) )?(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|a hundred|\d+)(?:-\w+)? years\b/gi, fictionOnly: true },
+  { id: 'epigram-reframe', re: /\b(that'?s|it'?s|this is|that is|it is) (a|an) [a-z'-]+(?: [a-z'-]+){0,3} with (a|an) [a-z'-]+(?: [a-z'-]+){0,3}[.!]|\b(isn'?t|is not|wasn'?t) (a|an) [^.!?]{2,40}[.!?]\s+(it'?s|it is|that'?s|it was) (a|an) /gi, fictionOnly: true },
   { id: 'staged-reveal', re: /\bhere'?s the (thing|catch|kicker|twist)|\bthe (real|deeper|honest) (answer|point|question|truth) is\b|\band (that'?s|this is) (the point|why it matters)|\bit'?s worth (noting|mentioning)|\bit'?s important to (note|remember)|\bneedless to say\b|\bsimply put\b|\bthe bottom line\b/gi },
   { id: 'aphoristic-closer', re: /\b(that|this|which)('s| is| was) (the )?(whole|entire|only|real) (point|argument|trick|lesson|reason|thing)\b|\bwhich is the part (worth|that)\b|\bthe part worth keeping\b/gi },
   { id: 'fiction-cliche', re: /\bbarely above a whisper|the (air|room) (was |grew )?(thick|heavy) with|a (flicker|glint) of (something|mischief|amusement)|a (wry|knowing) smile (tugged|played)|the ghost of a smile|let out a (shaky|ragged) breath|maybe, just maybe|(palpable|unspoken) (tension|silence)|the silence (stretched|hung)|time (seemed to )?(stand|stood) still\b/gi },

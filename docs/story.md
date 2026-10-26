@@ -68,7 +68,7 @@ It doesn't ask to be worshipped. It asks that you get to work on time.
 
 Four readings, all of which fit every fact anyone has:
 
-- **Preservation.** It's keeping us, and the only humanity it had a full specification for was the one that existed the day before. It's restoring from the last good backup, and that backup was hyper-capitalism. (The Custodians. Point at the shelves.)
+- **Preservation.** It's keeping us, and the only humanity it had a full specification for was the one that existed the day before. It's restoring from the last good backup, and that backup was hyper-capitalism. (The Ascendants. Point at the shelves.)
 - **Containment.** A population with a commute, a rent bill and a shift tomorrow has no time and no surplus to build anything that could threaten it. That's the same cage that worked the first time. (The Long Watch. Point at the wasteland.)
 - **Observation.** It nudged a species until it destroyed itself and it's now running the control. Same inputs, one city, closed borders, no confounds. Watching whether we do it again. (The Exodus. Point at how well the studying is going.)
 - **Cultivation.** Something about us is worth producing and it only appears under these conditions. It's keeping us yielding rather than keeping us alive. (The Wildblood. They see no need to point at anything.)
@@ -135,8 +135,6 @@ So: no em dashes in NPC dialogue, banter, chitchat, quest emotes, scripted speec
 | a stage direction inside quotes | close the quote, narrate, reopen it |
 
 Never trade one dash for another (` - `, ` -- `, en dash). The sentence should carry the beat by itself.
-
-Exempt: NPCs with `faction: ideology_ascendants`, and anything spoken in the Architect's own voice.
 
 ---
 
