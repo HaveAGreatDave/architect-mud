@@ -150,6 +150,8 @@ export function createDirector(W, opts = {}) {
   function dress(p) {
     // (how full the barn is tonight, for the crowd: gl/arena-crowd.js)
     if (Number.isFinite(p.gate)) W.gate = p.gate;
+    // (Cup final night: the Zamboni wears its driver's livery, rink/livery.js)
+    W.cup = !!p.cup;
     // the identities can land after the first payload: dress again when they do
     const dressed = `${clubOf(p.awayTeam, 'hockey') ? 1 : 0}${clubOf(p.homeTeam, 'hockey') ? 1 : 0}`;
     const key = `${p.awayTeam || ''}|${p.homeTeam || ''}|${dressed}`;
@@ -2054,8 +2056,10 @@ export function createDirector(W, opts = {}) {
   function stageInjury(p) {
     const prev = D.beat;
     const vs = tagSide(p.victimSide) || sideOfTeam(p.victimTeam, p) || 'h';
-    const downAlready = prev && prev.kind === 'boards' && prev.victim && prev.victim.rag;
-    const victim0 = downAlready ? prev.victim : null;
+    // (a man the fight before it put down is still lying where he fell)
+    const fightDown = prev && (prev.kind === 'fight' || prev.kind === 'brawl') && prev.lose && prev.lose.rag;
+    const downAlready = (prev && prev.kind === 'boards' && prev.victim && prev.victim.rag) || fightDown;
+    const victim0 = downAlready ? (fightDown ? prev.lose : prev.victim) : null;
     if (prev) prev.cleanup = null;     // he stays down for this
     const B = begin('injury');
     const victim = victim0 || bodyFor(vs, p.victim || p.player, W.nearestOf(W.mates(vs), pk.x, pk.y));
@@ -2221,8 +2225,11 @@ export function createDirector(W, opts = {}) {
     W.officials.forEach((o, i) => { o.scripted = true; o.tx = cx + (i ? -9 : 9); o.ty = cy + 6; o.maxV = 14; });
     B.ownsCam = true;
     const ex = Array.isArray(p.exchange) && p.exchange.length ? p.exchange : [{ n: 1, thrower: p.winner, type: 'right', landed: true }];
-    const onLoser = ex.filter((e) => e.landed && e.thrower !== p.loser).length || 1;
-    const onWinner = ex.filter((e) => e.landed && e.thrower === p.loser).length || 1;
+    const isPunch = (e) => e.type !== 'tug';
+    const onLoser = ex.filter((e) => isPunch(e) && e.landed && e.thrower !== p.loser).length || 1;
+    const onWinner = ex.filter((e) => isPunch(e) && e.landed && e.thrower === p.loser).length || 1;
+    // a linesmen's ending has no finishing punch; nor, in v3, does a draw
+    const decisive = p.ending !== 'linesmen';
     W.fight = { l: L, r: R, pip: { [L.seed]: 5, [R.seed]: 5 }, pipShow: { [L.seed]: 5, [R.seed]: 5 }, hud: false };
     const roll = r() < 0.4, helmets = p.helmets != null ? !!p.helmets : roll;
     // within a few strides of each other (or as long as they've had to get there), the
@@ -2230,12 +2237,13 @@ export function createDirector(W, opts = {}) {
     function squareUp() {
       if (B.gloves) return;
       B.gloves = true;
-      W.dropGloves(L, helmets); W.dropGloves(R, helmets); W.crowd = 0.95;
+      W.dropGloves(L, helmets); W.dropGloves(R, helmets); W.crowd = 0.95; W.sfx('fightRoar');
       L.stance = R.stance = 0.5;
       at(B, 0.45, () => { L.guard = R.guard = true; L.stance = R.stance = 0.75; W.cam.mode = 'zoom'; W.cam.focus = [cx, cy]; });
       at(B, 1.1, () => { frame('fight', [cx, cy]); W.fight.hud = true; W.banner = { text: 'FIGHT!', t0: W.t, dur: 1.2 }; });
     }
-    const ACT = { jab: 'jab', uppercut: 'uppercut', left: 'punchL', right: 'punchR' };
+    const ACT = { jab: 'jab', uppercut: 'uppercut', left: 'punchL', right: 'punchR', hook: 'hook' };
+    B.lose = lose;
     // Each punch lands as the booth calls it. A punch whose line was cut falls between its
     // neighbours; with no cues at all they come in a quick flurry as before.
     const times = ex.map((e, n) => { const c = cueOf(p, 'punch', 'n', n); return c != null ? c + 0.15 : null; });
@@ -2255,29 +2263,40 @@ export function createDirector(W, opts = {}) {
     after(grabCue != null ? Math.min(Math.max(1.9, grabCue + 0.3), (times[0] ?? 2.45) - 0.2) : Math.max(1.9, (times[0] ?? 2.45) - 0.45), () => { L.grab = R; R.grab = L; B.grab = true; });
     let t = 2.45;
     ex.forEach((e, i) => {
-      const last = i === ex.length - 1;
+      const last = decisive && i === ex.length - 1;
       const thrower = e.thrower === p.loser ? lose : win, taker = thrower === win ? lose : win;
-      const kindAct = ACT[e.type] || 'punchR';
       t = times[i];
+      if (e.type === 'tug') { after(t, () => tug(thrower, taker)); return; }
+      const kindAct = ACT[e.type] || 'punchR';
       after(t, () => punch(thrower, taker, e.landed, kindAct, last));
       if (p.ending === 'jersey' && e.n === p.pullAt) after(t + 0.32, () => { W.act(win, 'pull', 0.8); lose.grab = null; B.pull = true; W.sfx('cloth'); });
     });
     t = (times[times.length - 1] ?? 2.45) + 0.6;
+    // a yank on the sweater: his head comes down, and he's off his feet for the next one
+    function tug(th, vi) {
+      if (vi.rag || th.rag) return;
+      W.act(th, 'yank', 0.5); vi.duck = 1; W.sfx('cloth');
+      W.schedule(0.18, () => { if (D.beat === B && !vi.rag) { vi.react = Math.max(vi.react, 0.35); W.crowd = Math.max(W.crowd, 0.9); W.sfx('fightGrunt', { big: false }); } });
+    }
     function punch(th, vi, landed, kindAct, last) {
       if (vi.rag || th.rag) return;
-      const dur = kindAct === 'uppercut' ? 0.55 : 0.36;
+      const dur = kindAct === 'uppercut' || kindAct === 'hook' ? 0.55 : kindAct === 'punchR' ? 0.44 : 0.36;
       W.act(th, kindAct, dur);
-      W.schedule(dur * (kindAct === 'uppercut' ? 0.6 : 0.36), () => {
+      W.schedule(dur * (kindAct === 'uppercut' ? 0.6 : kindAct === 'hook' ? 0.62 : kindAct === 'punchR' ? 0.42 : 0.36), () => {
         if (D.beat !== B || vi.rag) return;
         const dir = Math.sign(vi.x - th.x) || 1;
-        if (!landed) { vi.duck = 1; W.sfx('punchMiss'); return; }
-        vi.react = 1; vi.blood = Math.min(1, (vi.blood || 0) + 0.22); th.blood = Math.min(1, (th.blood || 0) + 0.06);
+        if (!landed) { vi.duck = 1; W.sfx('punchMiss'); W.sfx('fightGrunt', { big: false }); return; }
+        vi.react = 1; vi.reactSide = kindAct === 'punchL' || kindAct === 'jab' ? -1 : 1;
+        vi.blood = Math.min(1, (vi.blood || 0) + 0.22); th.blood = Math.min(1, (th.blood || 0) + 0.06);
+        // a face that's taken a few starts to run
+        if (vi.blood > 0.6) vi.bleeding = Math.max(vi.bleeding || 0, 1.5);
         const dmg = vi === lose ? 5 / onLoser : Math.min(0.9, 3.4 / onWinner);
         W.fight.pip[vi.seed] = Math.max(vi === win ? 0.6 : 0, W.fight.pip[vi.seed] - dmg);
-        const big = last || kindAct === 'uppercut';
+        const big = last || kindAct === 'uppercut' || kindAct === 'hook';
         W.burst('blood', vi.x + dir * 0.2, vi.y - 0.3, 5.3, big ? 26 : 9, big ? 8 : 5, [dir * 6, -1, 4]);
         W.shake = Math.max(W.shake, big ? 1.1 : 0.45); W.hitstop = big ? 0.1 : 0.04; W.crowd = 1;
-        W.sfx('punch', { big });
+        W.sfx('punch', { big }); W.sfx('fightGrunt', { big });
+        if (big && r() < 0.3) W.burst('tooth', vi.x, vi.y, 5.2, 1, 4, [dir * 5, 0, 5]);
         if (last && vi === lose) {
           W.fight.pip[vi.seed] = 0;
           land(B);
@@ -2285,9 +2304,11 @@ export function createDirector(W, opts = {}) {
             W.knock(vi, [dir * 11, 1, 10], [dir * 1.5, 0, 0]);
             if (vi.helmet) { vi.helmet = false; W.addDebris('helmet', [vi.x, vi.y, 5.8], [dir * 9, 1.5, 12], 0, 9, vi.side); }
             vi.bleeding = 3; W.burst('tooth', vi.x, vi.y, 5.2, 2, 5, [dir * 6, 0, 6]);
-            W.banner = { text: 'K.O.', t0: W.t, dur: 1.3, col: '#ff5a3c' };
+            W.banner = { text: 'K.O.', t0: W.t, dur: 1.3, col: '#ff5a3c' }; W.sfx('knockout');
             win.grab = null; at(B, 0.5, () => W.act(win, 'celebrate', 1.4));
-            at(B, 3.0, () => { if (vi.rag) W.getUp(vi, 1.2); });
+            // the man the fight put in the room stays down for the stretcher (stageInjury)
+            if (!p.hurt) at(B, 3.0, () => { if (vi.rag) W.getUp(vi, 1.2); });
+            else { vi.bleeding = 6; vi.blood = 1; W.burst('blood', vi.x, vi.y, 1.2, 30, 6, [0, 0, 2]); }
           } else if (p.ending === 'jersey') {
             W.act(vi, 'cover', 1.6); vi.grab = null;
             W.banner = { text: 'TURTLE', t0: W.t, dur: 1.2, col: '#f0bd4c' };
@@ -2301,6 +2322,7 @@ export function createDirector(W, opts = {}) {
     const tEnd = endCue != null ? Math.max(t + 0.3, endCue) : t + (p.ending === 'knockdown' ? 1.2 : 0.4);
     after(tEnd, () => {
       B.linesmen = true;
+      if (p.draw) { W.banner = { text: 'SEPARATED', t0: W.t, dur: 1.2, col: '#9fc4e8' }; W.sfx('whistle'); }
       W.officials.forEach((o, i) => { o.maxV = 18; o.target = i ? R : L; });
     });
     after(tEnd + 1.6, () => {
@@ -2314,7 +2336,7 @@ export function createDirector(W, opts = {}) {
     after(tBox - 1.0, () => { frame('broadcast', [cx, cy]); W.fight.hud = false; });
     after(tBox, () => {
       B.toBox = true;
-      for (const [f, i] of [[L, 0], [R, 1]]) { if (f.rag) W.getUp(f, 0.8); leave(f, cx + (i ? 10 : -10)); }
+      for (const [f, i] of [[L, 0], [R, 1]]) { if (p.hurt && f === lose) continue; if (f.rag) W.getUp(f, 0.8); leave(f, cx + (i ? 10 : -10)); }
       gearUp(); W.fight = null; stopPlay(B, p.nextDot);
     });
     // what came off in the fight is picked up by the referee at the stoppage, not cleared
@@ -2362,6 +2384,208 @@ export function createDirector(W, opts = {}) {
     B.cleanup = () => {
       W.fight = null;
       for (const f of [L, R]) if (f.active && !busyBody(f) && (f.foe || !f.gloves)) leave(f);
+      gearUp();
+    };
+    return B;
+  }
+
+  // ── the line brawl ────────────────────────────────────────────────────────
+  // Every man on the ice pairs off across centre, the gloves come off together, and the
+  // pairs go at it side by side, each off its own exchange. Then the goalies come out of
+  // their nets and meet in the middle, which is the part the booth is waiting for.
+  function stageBrawl(p) {
+    const B = begin('brawl');
+    const r = rng(hash(`brawl${p.clock}${(p.pairs || []).length}`));
+    puckInPlay();
+    W.frozen = true; W.puckScripted = true; B.ownsCam = true;
+    const cx = clamp(pk.x, 70, RL - 70), cy = MID_Y;
+    { const dx = cx + 30 - pk.x, dy = cy - 18 - pk.y, d = hyp(dx, dy) || 1; W.loose(dx / d * Math.min(12, d * 0.3), dy / d * Math.min(12, d * 0.3), 0); }
+    const ACT = { jab: 'jab', uppercut: 'uppercut', left: 'punchL', right: 'punchR', hook: 'hook' };
+    // each fight: its two bodies, which of them wins, and where on the ice it happens
+    const fights = [];
+    const mkFight = (pr, x, y, goalies) => {
+      const [na, nb] = pr.fighters || [];
+      const sa = tagSide(pr.sides?.[na]) || 'a', sb = other(sa);
+      const ba = goalies ? W.goalie[sa] : bodyFor(sa, na, null), bb = goalies ? W.goalie[sb] : bodyFor(sb, nb, null);
+      if (!ba || !bb || !ba.active || !bb.active) return null;
+      if (goalies) { nameBody(ba, na); nameBody(bb, nb); }
+      const win = na === pr.winner ? ba : bb, lose = win === ba ? bb : ba;
+      const L = ba.x <= bb.x ? ba : bb, R = L === ba ? bb : ba;
+      for (const f of [L, R]) { if (f.rag) W.getUp(f, 0.6); f.act = null; f.blend = null; f.scripted = true; B.locked.add(f); }
+      L.foe = R; R.foe = L;
+      return { pr, L, R, win, lose, x, y, gloves: false, goalies: !!goalies, done: false };
+    };
+    (p.pairs || []).forEach((pr, i) => {
+      const n = (p.pairs || []).length;
+      const f = mkFight(pr, cx + (i - (n - 1) / 2) * 11, cy + (i % 2 ? 8 : -8));
+      if (f) fights.push(f);
+    });
+    if (!fights.length) { land(B); at(B, 0.5, () => finish(B)); return B; }
+    // the rest of the ice: officials wait, then wade in
+    W.officials.forEach((o, i) => { o.scripted = true; o.tx = cx + (i ? -14 : 14); o.ty = cy + 16; o.maxV = 14; });
+    const hitFx = (th, vi, kindAct, last, f) => {
+      const dir = Math.sign(vi.x - th.x) || 1;
+      vi.react = 1; vi.reactSide = kindAct === 'punchL' || kindAct === 'jab' ? -1 : 1;
+      vi.blood = Math.min(1, (vi.blood || 0) + 0.25);
+      if (vi.blood > 0.6) vi.bleeding = Math.max(vi.bleeding || 0, 1.5);
+      const big = last || kindAct === 'uppercut' || kindAct === 'hook';
+      W.burst('blood', vi.x + dir * 0.2, vi.y - 0.3, 5.3, big ? 22 : 8, big ? 7 : 5, [dir * 6, -1, 4]);
+      W.shake = Math.max(W.shake, f.goalies ? (big ? 1.4 : 0.6) : big ? 0.8 : 0.3); W.crowd = 1;
+      // a goalie's haymaker stops the clock for a moment
+      if (f.goalies) { W.hitstop = big ? 0.2 : 0.08; if (big) W.sfx('roar'); }
+      W.sfx('punch', { big }); W.sfx('fightGrunt', { big });
+      if (big && r() < 0.35) W.burst('tooth', vi.x, vi.y, 5.2, 1, 4, [dir * 5, 0, 5]);
+      if (last && vi === f.lose && f.goalies) {
+        // the big man goes down in a heap, and the winner stands over him
+        W.knock(vi, [dir * 7, 0.5, 7], [dir * 1.2, 0, 0]);
+        W.sfx('knockout'); W.sfx('fall');
+        W.burst('blood', vi.x, vi.y, 1.4, 34, 7, [0, 0, 2]); vi.bleeding = 5;
+        W.banner = { text: 'K.O.', sub: String(f.win.name || '').toUpperCase(), t0: W.t, dur: 1.8, col: '#ff5a3c' };
+        W.cam.drama = true; at(B, 2.4, () => { W.cam.drama = false; });
+        f.win.grab = null; at(B, 0.5, () => W.act(f.win, 'celebrate', 2.2));
+        at(B, 3.4, () => { if (vi.rag) W.getUp(vi, 1.6); });
+        f.done = true;
+        return;
+      }
+      if (last && vi === f.lose && f.pr.ending === 'knockdown') {
+        W.knock(vi, [dir * 10, 1, 9], [dir * 1.4, 0, 0]);
+        if (vi.helmet) { vi.helmet = false; W.addDebris('helmet', [vi.x, vi.y, 5.8], [dir * 8, 1.5, 11], 0, 9, vi.side); }
+        W.sfx('knockout');
+        if (f.pr.hurt) { vi.bleeding = 6; vi.blood = 1; B.lose = B.lose || vi; }
+        else at(B, 2.6, () => { if (vi.rag) W.getUp(vi, 1.2); });
+        f.done = true;
+      }
+    };
+    const throwOne = (f, e, last) => {
+      const th = e.thrower === f.lose.name ? f.lose : f.win, vi = th === f.win ? f.lose : f.win;
+      if (th.rag || vi.rag || f.done) return;
+      if (e.type === 'tug') { W.act(th, 'yank', 0.5); vi.duck = 1; W.sfx('cloth'); return; }
+      const kindAct = ACT[e.type] || 'punchR';
+      // (a goalie's are haymakers: slow, wound up from behind his head)
+      const dur = f.goalies ? (kindAct === 'jab' ? 0.55 : 0.8) : kindAct === 'uppercut' || kindAct === 'hook' ? 0.55 : 0.4;
+      W.act(th, kindAct, dur);
+      W.schedule(dur * (f.goalies && kindAct !== 'jab' ? 0.55 : 0.45), () => {
+        if (D.beat !== B || vi.rag) return;
+        if (!e.landed) { vi.duck = 1; W.sfx('punchMiss'); return; }
+        hitFx(th, vi, kindAct, last, f);
+      });
+    };
+    const fling = (g, kind, joint, up, spin) => {
+      const J = W.rigOf(g), p0 = J[joint] || [g.x, g.y, 4];
+      const a = g.h + (r() - 0.5) * 2.4;
+      W.addDebris(kind, p0, [Math.cos(a) * 7, Math.sin(a) * 7, up], g.h, spin, g.side);
+    };
+    const goalieShowdown = (f) => {
+      // they pull up a few strides apart and look at each other
+      f.stare = true; W.crowd = 1; W.sfx('roar');
+      for (const g of [f.L, f.R]) { g.stick = false; g.carrying = false; }
+      at(B, 0.35, () => { for (const g of [f.L, f.R]) fling(g, 'glove', 6, 6, 6); W.sfx('gloves'); });
+      at(B, 0.75, () => { for (const g of [f.L, f.R]) fling(g, 'glove', 9, 7, -7); W.sfx('gloves'); f.L.gloves = f.R.gloves = false; });
+      // the masks come off and go spinning up the ice
+      at(B, 1.25, () => { for (const g of [f.L, f.R]) { g.helmet = false; fling(g, 'helmet', 3, 13, 9); } W.sfx('fightRoar'); W.shake = Math.max(W.shake, 0.4); });
+      at(B, 1.55, () => { W.act(f.L, 'taunt', 1.0); W.act(f.R, 'taunt', 1.0); });
+      // and they go: the charge, the collision, the grab
+      at(B, 2.6, () => { f.stare = false; f.charge = W.t; f.L.maxV = f.R.maxV = 22; });
+      at(B, 3.0, () => { W.shake = Math.max(W.shake, 1.1); W.hitstop = 0.12; W.sfx('check'); f.L.react = f.R.react = 0.6; f.L.guard = f.R.guard = true; });
+    };
+    const squareUp = (f, helmets) => {
+      if (f.gloves) return;
+      f.gloves = true; f.at = W.t - B.t0;
+      // (a goalie fight's first three seconds are the showdown; everything after waits for it)
+      const o = f.goalies ? 3.0 : 0;
+      if (f.goalies) goalieShowdown(f);
+      else { W.dropGloves(f.L, helmets); W.dropGloves(f.R, helmets); }
+      f.L.stance = f.R.stance = 0.75;
+      at(B, 0.4 + o, () => { f.L.guard = f.R.guard = true; });
+      at(B, 0.9 + o, () => { f.L.grab = f.R; f.R.grab = f.L; });
+      // its punches, one every half-second or so, from a moment after the grab
+      const ex = (f.pr.exchange || []).slice();
+      const decisive = f.pr.ending !== 'linesmen';
+      // (the goalies are slower about it: big men in pads, and the whole building watching)
+      const gap = f.goalies ? 0.72 : 0.5;
+      ex.forEach((e, k) => at(B, 1.3 + o + k * (gap + r() * 0.15), () => throwOne(f, e, (decisive || f.goalies) && k === ex.length - 1)));
+      f.until = f.at + 1.3 + o + ex.length * (gap + 0.08) + (f.goalies ? 2.5 : 0);
+      // the camera comes down to the goalies
+      if (f.goalies) at(B, 0.3, () => { if (!B.linesmen) frame('fight', [(f.L.x + f.R.x) / 2, f.y]); });
+    };
+    // the gloves, all at once
+    const tDrop = cueOf(p, 'drop') ?? 0.8;
+    at(B, tDrop, () => {
+      const helmets = r() < 0.5;
+      for (const f of fights) squareUp(f, helmets);
+      W.sfx('fightRoar'); W.crowd = 1;
+      W.banner = { text: 'LINE BRAWL', t0: W.t, dur: 1.4, col: '#ff5a3c' };
+      W.cam.mode = 'zoom'; W.cam.focus = [cx, cy];
+    });
+    // the goalies come out
+    let gf = null;
+    const skaterEnd = tDrop + 1.3 + Math.max(...fights.map((f) => (f.pr.exchange || []).length)) * 0.58;
+    const tGoalies = cueOf(p, 'goalies') ?? Math.min(skaterEnd - 1, tDrop + 3.2);
+    at(B, tGoalies, () => {
+      if (!p.goalies) return;
+      // they meet in the lane in front of the pile, which the linesmen are now pulling apart,
+      // so nobody stands between the camera and them
+      gf = mkFight(p.goalies, cx, cy + 12, true);
+      if (!gf) return;
+      for (const f of fights) { f.done = true; f.L.grab = f.R.grab = null; f.apart = true; }
+      W.banner = { text: 'GOALIE FIGHT', t0: W.t, dur: 1.3, col: '#f0bd4c' };
+      W.sfx('roar');
+    });
+    // The linesmen end it when the goalies have had their fight, however long that is.
+    const tEnd0 = Math.max(cueOf(p, 'end') ?? 0, skaterEnd + 4.5);
+    const endWhenDone = () => {
+      const rel = W.t - B.t0;
+      if (gf && (!gf.gloves || rel < gf.until + 1.4) && rel < tEnd0 + 14) { at(B, 0.3, endWhenDone); return; }
+      endIt();
+    };
+    after(tEnd0, endWhenDone);
+    const endIt = () => {
+      B.linesmen = true;
+      frame('broadcast', [cx, cy]);
+      W.sfx('whistle', { long: true });
+      for (const f of [...fights, gf].filter(Boolean)) { f.L.grab = f.R.grab = null; f.L.guard = f.R.guard = false; f.apart = true; }
+      W.officials.forEach((o) => { o.maxV = 18; W.act(o, 'hug', 2.2); });
+      at(B, 2.2, toBox);
+    };
+    function after(t, fn) { at(B, t, fn); }
+    // off to the boxes, the goalies back to their nets, then the draw at centre
+    const toBox = () => {
+      B.toBox = true;
+      for (const f of fights) for (const m of [f.L, f.R]) {
+        if (f.pr.hurt && m === f.lose) continue;
+        if (m.rag) W.getUp(m, 0.8);
+        leave(m, cx + (m.side === 'a' ? -12 : 12));
+      }
+      if (gf) for (const g of [gf.L, gf.R]) { if (g.rag) W.getUp(g, 0.8); W.reequip(g); g.stick = true; g.scripted = false; }
+      gearUp(); stopPlay(B, p.nextDot);
+    };
+    const gearUp = () => { for (const d of W.debris) if (hyp(d.x - cx, d.y - cy) < 40 && !D.gear.includes(d)) D.gear.push(d); };
+    B.update = (dt, rel) => {
+      if (B.stopped) return;
+      const all = gf ? [...fights, gf] : fights;
+      for (const f of all) {
+        const { L, R } = f;
+        if (!f.gloves) {
+          // skating in to meet him; a goalie squares up when he gets there
+          const half = f.goalies ? 4.5 : 2.6;
+          L.tx = f.x - half; L.ty = f.y; R.tx = f.x + half; R.ty = f.y;
+          L.maxV = R.maxV = 20;
+          const gap = hyp(L.x - R.x, L.y - R.y);
+          L.face = gap < 14 ? 0 : null; R.face = gap < 14 ? Math.PI : null;
+          if (f.goalies && (gap < 11 || rel - tGoalies > 5)) squareUp(f, true);
+          continue;
+        }
+        if (B.toBox) continue;
+        const sep = f.apart ? 10 : f.stare ? 9 : 3.4, wob = f.stare ? 0.4 * Math.sin(rel * 2.6) : 0.8 * Math.sin(rel * 1.2 + f.x);
+        if (!L.rag) { L.tx = f.x - sep / 2 + wob; L.ty = f.y + 0.3 * Math.sin(rel * 2.1 + f.y); L.maxV = 8; L.face = 0; }
+        if (!R.rag) { R.tx = f.x + sep / 2 + wob; R.ty = f.y - 0.3 * Math.sin(rel * 2.1 + f.y); R.maxV = 8; R.face = Math.PI; }
+      }
+      if (B.linesmen && !B.toBox) W.officials.forEach((o, i) => { const f = all[i % all.length]; o.tx = (f.L.x + f.R.x) / 2; o.ty = f.y + 1.6; });
+      W.cam.focus = gf && !B.linesmen ? [(gf.L.x + gf.R.x) / 2, (gf.L.y + gf.R.y) / 2] : [cx, cy];
+    };
+    B.cleanup = () => {
+      for (const f of fights) for (const m of [f.L, f.R]) { m.foe = null; m.grab = null; if (m.active && !busyBody(m) && !m.gloves && !(f.pr.hurt && m === f.lose)) leave(m); }
+      if (gf) for (const g of [gf.L, gf.R]) { g.foe = null; g.grab = null; W.reequip(g); g.stick = true; g.scripted = false; }
       gearUp();
     };
     return B;
@@ -2549,6 +2773,7 @@ export function createDirector(W, opts = {}) {
       case 'death': return stageDeath(p);
       case 'scrum': return stageScrum(p);
       case 'fight': return stageFight(p);
+      case 'brawl': return stageBrawl(p);
       case 'pull': return stagePull(p);
       case 'penalty': return stagePenalty(p);
       case 'intermission': return stageIntermission(p);

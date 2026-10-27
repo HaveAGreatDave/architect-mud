@@ -350,6 +350,25 @@
       tone({ hz: 400, mod: 2, index: 2.5, indexEnd: 0.3, slide: 0.03, to: 280, a: 0.0008, d: 0.06, r: 0.025, gain: 0.18 }),
       tone({ hz: 1500, mod: 2.41, index: 3, indexEnd: 0.3, slide: 0.012, a: 0.0004, d: 0.03, r: 0.012, gain: 0.16, noise: 0.35 }),
     ], { vary: { pitch: 0.05, gain: 0.1, env: 0.1 } }),
+    // the man taking it: a short voiced grunt, two vowel bands falling, the big one with a
+    // breath after it
+    def('hk-fight-grunt', 'Fight — grunt', 3, [
+      noise({ hz: 340, q: 5, to: 230, sweep: 0.09, linear: true, a: 0.006, d: 0.07, s: 0.2, r: 0.05, gain: 0.3 }),
+      noise({ hz: 1150, q: 6, to: 850, sweep: 0.09, linear: true, a: 0.006, d: 0.06, s: 0.15, r: 0.04, gain: 0.16 }),
+    ], { retro: GRIT, vary: { pitch: 0.12, gain: 0.15, env: 0.2 } }),
+    def('hk-fight-grunt-big', 'Fight — grunt, hurt', 4, [
+      noise({ hz: 300, q: 5, to: 190, sweep: 0.14, linear: true, a: 0.005, d: 0.11, s: 0.3, r: 0.08, gain: 0.38 }),
+      noise({ hz: 980, q: 6, to: 700, sweep: 0.14, linear: true, a: 0.005, d: 0.1, s: 0.2, r: 0.06, gain: 0.22 }),
+      noise({ hz: 2400, q: 1.2, linear: true, a: 0.03, d: 0.12, r: 0.1, gain: 0.06, delay: 0.16 }),
+    ], { retro: GRIT, vary: { pitch: 0.1, gain: 0.12, env: 0.2 } }),
+    // the building when the gloves come off: a roar with a beat in it, which is the crowd
+    // pumping its fists
+    def('hk-crowd-fight', 'Crowd — fight', 3, [
+      noise({ hz: 700, q: 0.7, linear: true, a: 0.12, d: 0.2, s: 0.9, r: 1.0, gain: 0.2, tremolo: { rate: 2.1, depth: 0.45 } }),
+      noise({ hz: 1300, q: 1.0, linear: true, a: 0.15, d: 0.2, s: 0.8, r: 0.9, gain: 0.12, tremolo: { rate: 2.1, depth: 0.5 } }),
+      noise({ hz: 380, q: 0.7, linear: true, a: 0.1, d: 0.25, s: 0.9, r: 1.1, gain: 0.16, tremolo: { rate: 4.3, depth: 0.2 } }),
+      noise({ hz: 2300, q: 5, linear: true, a: 0.1, d: 0.3, s: 0.6, r: 0.5, gain: 0.04, tremolo: { rate: 9.7, depth: 0.5 } }),
+    ], { hold: 2.2, retro: CART, category: 'ambient', vary: { pitch: 0.04, gain: 0.08, env: 0.1 } }),
     def('hk-grapple', 'Fight — jersey grab', 3, [
       noise({ hz: 700, q: 0.6, to: 1500, sweep: 0.15, linear: true, a: 0.04, d: 0.1, s: 0.3, r: 0.08, gain: 0.06 }),
     ], { retro: GRIT }),
@@ -457,6 +476,7 @@
     fall: 'hk-fall', sever: 'hk-punch-big',
     punch: (o) => (o.big ? ['hk-punch-big', 1] : ['hk-punch', 0.9]),
     punchMiss: 'hk-punch-miss', gloves: 'hk-gloves-drop', cloth: 'hk-grapple',
+    knockout: 'hk-knockout', fightGrunt: (o) => (o.big ? ['hk-fight-grunt-big', 1] : ['hk-fight-grunt', 0.8]), fightRoar: 'hk-crowd-fight',
     roar: 'hk-crowd-roar', gasp: 'hk-crowd-gasp', groan: 'hk-crowd-groan', cheer: 'hk-crowd-cheer', boo: 'hk-crowd-boo',
   };
   // { id, intensity } for an event, or null when it has no sound
@@ -489,6 +509,8 @@
     shot:    { rumble: 0.48, air: 0.13,  voices: 0.55, pulse: 0.32, bright: 1.15 },
     goal:    { rumble: 0.7,  air: 0.2,   voices: 0.8,  pulse: 0.38, bright: 1.25 },
     penalty: { rumble: 0.38, air: 0.07,  voices: 0.6,  pulse: 0.45, bright: 0.85 },
+    // a fight: up near a goal and pulsing, the whole building on its feet
+    fight:   { rumble: 0.62, air: 0.17,  voices: 0.78, pulse: 0.5,  bright: 1.2 },
   };
   function crowdBed(opts = {}) {
     const AE = global.AudioEngine;

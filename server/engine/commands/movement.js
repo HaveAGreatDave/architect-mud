@@ -2,7 +2,7 @@ import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
 import { renderMapBriefing, renderMapChart } from '../map-text.js';
 import { loggedPanelsSync, textMinigamesSync } from '../presentation.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, interiorLockedDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone, propsOf, poiOf } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, interiorLockedDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone, propsOf, poiOf, roomDisplayName } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity, getZoneWeatherType } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -985,7 +985,7 @@ function mapTile(zone, x, y, placed, currentId, viewer = null) {
   }
   const poi = mapPoi(zone);
   return {
-    id: zone.id, x, y, name: zone.name,
+    id: zone.id, x, y, name: roomDisplayName(zone),
     danger: zoneDanger(zone), marker: zone.marker || null,
     color: zone.color || null, bg_color: zone.bg_color || null,
     spec: specOf(zone.id),  // generated presentation — what the tile is actually painted from

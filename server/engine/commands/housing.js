@@ -1,4 +1,4 @@
-import { getZone, getZoneFurniture } from '../world.js';
+import { getZone, getZoneFurniture, roomDisplayName } from '../world.js';
 import { cmpText } from '../furniture-match.js';
 import { getZonePowerStatus, getZoneVisibility, setWindowState, getWindowsForZone } from '../environment.js';
 import { cmdRent, cmdUnrent, cmdPrepay, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, cmdDoze } from '../apartments.js';
@@ -64,7 +64,7 @@ async function cmdLightView(player) {
 
   return {
     type: 'lightview',
-    zoneName: zone.name,
+    zoneName: roomDisplayName(zone),
     zoneId: zone.id,
     isInterior,
     powerStatus,

@@ -11,7 +11,7 @@ import {
 	facadeStreetTile,
 	getZoneFurniture,
 	propsOf,
-	resolveLanding, tileSurroundings } from "../world.js";
+	resolveLanding, tileSurroundings, roomDisplayName } from "../world.js";
 import { shutStatus } from "../movement-gates.js";
 import { OPPOSITE } from "../directions.js";
 import {
@@ -1302,7 +1302,7 @@ export async function describeZone(zone, player, out = {}) {
 			: "";
 		const { buildings, rooms, plain } = getConnectedDestinations(zone);
 		let darkDesc =
-			`<span class="zone-name">${zone.name}</span>\n` +
+			`<span class="zone-name">${roomDisplayName(zone)}</span>\n` +
 			`<span class="light-level light-dark">It's completely dark here. You can't make out your surroundings.${windowHint}</span>`;
 		if (plain.length) {
 			// In pitch dark you can feel for openings but can't read where they lead.
@@ -1522,8 +1522,8 @@ export async function describeZone(zone, player, out = {}) {
 	// carries the real one so the pane plays the change rather than printing it.
 	const seenRoomName = getRoomTransformName(player.id, zone.id);
 	const roomNameSpan = seenRoomName
-		? `<span class="zone-name" data-morph="${escAttr(zone.name)}">${seenRoomName.charAt(0).toUpperCase()}${seenRoomName.slice(1)}</span>`
-		: `<span class="zone-name">${zone.name}</span>`;
+		? `<span class="zone-name" data-morph="${escAttr(roomDisplayName(zone))}">${seenRoomName.charAt(0).toUpperCase()}${seenRoomName.slice(1)}</span>`
+		: `<span class="zone-name">${roomDisplayName(zone)}</span>`;
 	let desc =
 		roomNameSpan +
 		` <span class="zone-danger zone-danger-${dangerNow}">[${dangerNow.toUpperCase()}]</span>`;

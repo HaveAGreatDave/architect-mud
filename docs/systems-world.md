@@ -22,6 +22,31 @@ Zones carry live membership Sets (`players`, `enemies`, `npcs`, `corpses`) layer
 `reloadZone(id)` re-reads a single zone while preserving its live membership Sets — this is what the
 dev panel's "reload" uses so editing a zone doesn't evict the players standing in it.
 
+### Room names inside a building (as built)
+
+A room inside a building is shown to the player as **"Building - Room"**: "Embassy Hotel & Bar -
+Lobby", not "Lobby". It's a display rule, not a naming rule. `roomDisplayName(zone)` in world.js
+composes it, and the room header in `describeZone` (which is where the client takes its room title,
+the mobile name bar and the `$zone` macro token), the minimap and map tiles, ghost look and the
+light view all use it. The stored `zone.name` doesn't change, and everything that matches or keys
+on a name (`go <name>`, SIFT, the exit list, the power grid's labels) still reads the stored one.
+
+- **Which rooms.** A zone flagged `is_interior` or `is_apartment` and off `map_world`, with a
+  `flags.building_name`. A room without one borrows its facade's through `flags.world_exit_zone`.
+  Street tiles, facades and the Under show their own name.
+- **No doubling.** Stored names come in several shapes, and `composeRoomName` (text.js) takes an
+  existing prefix off before putting the building back: "The Codfather: The Landing Hall", "Unit 4,
+  Marrow Street" plus an em dash and "Utility Room", "Corbett Mansions, Unit 4A" and "Grounds for
+  Concern Roastery" all lose theirs. The prefix matches with or without the building's "The", so
+  "Echelon" plus a dash and "Bridge" in The Echelon reads "The Echelon - Bridge".
+- **A room named for its building** (a storefront shop room) shows the name once.
+- **The separator is a spaced hyphen.** An em or en dash left between words in either name is shown
+  as " - " too, so the composed name never carries one.
+
+So a new room can be named just for the room ("The Cold Store"); a building prefix in the stored
+name is harmless but adds nothing. About 270 interior rooms still carry neither a `building_name`
+nor a `world_exit_zone` (the embassy's upper floors and flats among them) and show their bare name.
+
 ## Movement
 
 `cmdMove` ([movement.js](../server/engine/commands/movement.js)) resolves the destination via the exits

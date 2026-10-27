@@ -2077,6 +2077,36 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
   check('arrival: …and drops the prose', !/room-desc/.test(arr), arr.slice(0, 400));
 }
 
+// ── Room names inside a building ─────────────────────────────────────────────
+// A room inside a building is shown as "Building - Room", composed at display time
+// from flags.building_name, whatever form the stored name took. The three forms
+// in the content: a bare room, a room already prefixed with its building, and a
+// shop room named for the building itself.
+{
+  const { composeRoomName } = await import('../server/engine/text.js');
+  const { roomDisplayName } = await import('../server/engine/world.js');
+  const eq = (label, got, want) => check(`room name: ${label}`, got === want, `got "${got}", want "${want}"`);
+  eq('a bare room gets its building', composeRoomName('Embassy Hotel & Bar', 'Lobby'), 'Embassy Hotel & Bar - Lobby');
+  eq('a "Building: Room" name is not doubled', composeRoomName('The Codfather', 'The Codfather: The Landing Hall'), 'The Codfather - The Landing Hall');
+  eq('the old em-dash form is not doubled', composeRoomName('Unit 4, Marrow Street', 'Unit 4, Marrow Street — Utility Room'), 'Unit 4, Marrow Street - Utility Room');
+  eq('a room named for its building shows the name once', composeRoomName('Unit 4, Marrow Street', 'Unit 4, Marrow Street'), 'Unit 4, Marrow Street');
+  eq('a prefix without its "The" still counts', composeRoomName('The Echelon', 'Echelon — Bridge'), 'The Echelon - Bridge');
+  eq('a word that only starts like the building is kept', composeRoomName('The Bench', 'The Benchmark Room'), 'The Bench - The Benchmark Room');
+  const lobby = { id: 'x', name: 'Lobby', map_id: 'map_int_x', flags: { is_interior: true, building_name: 'Embassy Hotel & Bar' } };
+  eq('an interior zone is composed', roomDisplayName(lobby), 'Embassy Hotel & Bar - Lobby');
+  const street = { id: 'y', name: 'Meltwater Row', map_id: 'map_world', flags: { building_name: 'Embassy Hotel & Bar', is_building: true } };
+  eq('a facade or street tile keeps its own name', roomDisplayName(street), 'Meltwater Row');
+  // And the header describeZone actually prints, against a real interior if the
+  // world has one, since the client takes the room title from that span.
+  const real = getAllZones().find((z) => z.flags?.is_interior && z.flags?.building_name && z.map_id !== 'map_world');
+  if (real) {
+    const { describeZone } = await import('../server/engine/commands/describe.js');
+    const html = await describeZone(getZone(real.id), getPlayer());
+    const shown = (/<span class="zone-name"[^>]*>([^<]*)<\/span>/.exec(html) || [])[1];
+    eq(`the room header shows the composed name (${real.id})`, shown, roomDisplayName(getZone(real.id)));
+  }
+}
+
 // ── Dialogue at the bottom Display Mode rung ─────────────────────────────────
 // The dialogue panel is a modal you CLICK, and a `log` player has no panel — so
 // until this existed they could open a conversation, not read it back, and not

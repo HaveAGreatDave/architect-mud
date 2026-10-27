@@ -3734,6 +3734,26 @@ return out;
       _speechNoise = buf;
       return buf;
     }
+    // Flutter: F0 and loudness wander at random, never as a sine (a sine is vibrato
+    // and reads as a machine). Two octaves of cosine-interpolated value noise, ~9 Hz
+    // and ~3 Hz, peak about 1. ⚠ Duplicated in oracle-worklet.js (flutterAt).
+    function flutterAt(t, salt) {
+      const knot = (i) => {
+        let h = Math.imul((i | 0) ^ salt, 0x2c1b3c6d); h ^= h >>> 15; h = Math.imul(h, 0x297a2d39); h ^= h >>> 15;
+        return (h >>> 0) / 2147483648 - 1;
+      };
+      const oct = (x) => { const i = Math.floor(x), u = (1 - Math.cos(Math.PI * (x - i))) / 2; return knot(i) * (1 - u) + knot(i + 1) * u; };
+      return 0.65 * oct(t * 9) + 0.45 * oct(t * 3.1 + 517);
+    }
+    // 20 s of it at 8 kHz, looped; a line starts it at a random offset.
+    let _flutter = null;
+    function flutterBuffer(ctx) {
+      if (_flutter) return _flutter;
+      const rate = 8000, n = rate * 20;
+      const buf = ctx.createBuffer(1, n, rate), d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = flutterAt(i / rate, 0x5eed);
+      return (_flutter = buf);
+    }
 
     // Speech channels: tv (TV, PA, welcome), scene (voices inside a broadcast,
     // routed as tv), ui (Read Aloud, dry bus). A line cancels only its own
@@ -3981,12 +4001,21 @@ return out;
       // A gentle top-end tame; the source rolls off on its own.
       const tilt = S.createBiquadFilter();
       tilt.type = 'lowpass'; tilt.frequency.value = 5200; tilt.Q.value = 0.4;
-      // Jitter: two LFOs at an irrational-ish ratio (one would be vibrato).
-      // Shimmer rides the master gain.
-      const jit = S.createOscillator(); jit.type = 'triangle'; jit.frequency.value = 9;
-      const jitG = S.createGain(); jitG.gain.value = F0 * V.jitter * D.jitter * nat; jit.connect(jitG).connect(glot.frequency);
+      // Jitter: random flutter (flutterAt) on the graph; the worklet draws its own
+      // from jitA. jit2 is the drawn vowel's 6.3 Hz waver, silent otherwise: left
+      // running under every line it was a steady vibrato. Shimmer rides the master gain.
+      // `_off` is a start offset, so no two lines wander alike.
+      const flutterSrc = (rate) => {
+        const b = c.createBufferSource(); b.buffer = flutterBuffer(c); b.loop = true;
+        b.playbackRate.value = rate; b._off = Math.random() * 19;
+        return b;
+      };
+      const JIT_K = 1.17;   // the old pair's combined depth, sqrt(1 + 0.6²)
+      const jit = wk ? S.createOscillator() : flutterSrc(0.9 + Math.random() * 0.2);
+      if (wk) { jit.type = 'triangle'; jit.frequency.value = 9; }
+      const jitG = S.createGain(); jitG.gain.value = F0 * V.jitter * JIT_K * D.jitter * nat; jit.connect(jitG).connect(glot.frequency);
       const jit2 = S.createOscillator(); jit2.type = 'sine'; jit2.frequency.value = 6.3;
-      const jit2G = S.createGain(); jit2G.gain.value = F0 * V.jitter * 0.6 * D.jitter * nat; jit2.connect(jit2G).connect(glot.frequency);
+      const jit2G = S.createGain(); jit2G.gain.value = 0; jit2.connect(jit2G).connect(glot.frequency);
       // Glottal FM on the SOURCE (before the tract, unlike `ring`/`rmod`), scaled by F0.
       //   growlRatio  0.5 sub-harmonic creak (default), 1 brighter, non-integer inharmonic
       //   growl       index · growlWave modulator wave · growl2 a second modulator
@@ -4008,7 +4037,7 @@ return out;
           growl2Osc.connect(g2).connect(glot.frequency);
         }
       }
-      const shim = S.createOscillator(); shim.type = 'sine'; shim.frequency.value = 5.1;
+      const shim = wk ? S.createOscillator() : flutterSrc(0.55 + Math.random() * 0.1);
       const shimG = S.createGain(); shimG.gain.value = 0.05 * nat; shim.connect(shimG).connect(master.gain);
       // Voicing gates the SOURCE, ahead of the tract, so the tract rings out and
       // aspiration can run through it (`aspG`).
@@ -4315,7 +4344,7 @@ return out;
               glot.frequency.setTargetAtTime(pq(fv * peak * mix(sold ? 0.96 : 0.92)), t + dur * 0.86, 0.05);
               const wob = F0 * VIBRATO * (sold ? 0.6 + 0.4 * Math.max(0, D.e) : 0.4) * nat;
               jit2G.gain.setTargetAtTime(wob, t + dur * 0.18, dur * 0.12);
-              jit2G.gain.setTargetAtTime(F0 * V.jitter * 0.6 * D.jitter * nat, t + dur * 0.9, 0.04);
+              jit2G.gain.setTargetAtTime(0, t + dur * 0.9, 0.04);
               const swell = sold ? 1.18 + 0.06 * phraseBang[phraseIx] : 1.0;
               voiced.gain.setTargetAtTime(vg * swell, t + dur * 0.1, dur * 0.18);
               voiced.gain.setTargetAtTime(vg * (sold ? 1.05 : 0.8), t + dur * 0.85, 0.06);
@@ -4446,16 +4475,15 @@ return out;
         // ⚠ Carry the trail factor through, or creak erases the terminal contour.
         // see docs/systems-procedural-audio.md#creak-was-erasing-the-terminal-contour
         glot.frequency.setTargetAtTime(pq(F0 * lastK * cf * (trail ? 0.94 : 1)), Math.max(t0, end - 0.07), 0.035);
-        // raise BOTH jitter LFOs (one alone is vibrato)
+        // roughen the flutter (the waver stays off: alone it's vibrato)
         const cj = Math.max(t0, end - 0.07);
-        jitG.gain.setTargetAtTime(F0 * V.jitter * D.jitter * (1 + 4 * creak), cj, 0.03);
-        jit2G.gain.setTargetAtTime(F0 * V.jitter * 0.6 * D.jitter * (1 + 4 * creak), cj, 0.03);
+        jitG.gain.setTargetAtTime(F0 * V.jitter * JIT_K * D.jitter * (1 + 4 * creak), cj, 0.03);
       }
       const src = [glot, nz, lfo, jit, jit2, shim];
       if (growlOsc) src.push(growlOsc);
       if (growl2Osc) src.push(growl2Osc);
       if (rmodOsc) src.push(rmodOsc);
-      src.forEach(n => n.start(t0));
+      src.forEach(n => n.start(t0, n._off || 0));
       src.forEach(n => n.stop(end+0.1));
       // Worklet handoff: sample the recorders into tracks.
       if (wk) {

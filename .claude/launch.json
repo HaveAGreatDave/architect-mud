@@ -2,6 +2,15 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "modelshop-wt-shots",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/david/AppData/Local/Temp/wt-shots/tools/modelshop/serve.mjs",
+        "5207"
+      ],
+      "port": 5207
+    },
+    {
       "name": "combat-test",
       "runtimeExecutable": "npx",
       "runtimeArgs": [

@@ -68,6 +68,7 @@ const EXCITE = {
   'pbp.forecheck': 0.35, 'pbp.takeaway': 0.5,
   'pbp.dump': 0.3, 'pbp.chase': 0.3, 'pbp.entry': 0.4, 'pbp.deke': 0.55, 'pbp.shot': 0.6, 'pbp.rebound': 0.55,
   'pbp.pass.stretch': 0.45, 'pbp.pass.saucer': 0.4, 'pbp.pass.give': 0.4, 'pbp.shot.onetimer': 0.7, 'pbp.shot.tip': 0.65,
+  'pbp.pressure': 0.7, 'pbp.pressure.relief': 0.35,
   'pbp.out': 0.5, 'pbp.out.post': 0.75, 'pbp.out.wide': 0.35, 'pbp.after': 0.35, 'pbp.after.post': 0.5, 'pbp.freeze': 0.2,
   'shot': 0.25, 'shot.post': 0.4, 'pbp.replay': 0.35,
   // the draw
@@ -76,6 +77,8 @@ const EXCITE = {
   'pbp.hit': 0.55, 'pbp.hit.shatter': 0.85, 'pbp.hit.down': 0.3, 'pbp.hit.up': 0.1, 'boards': 0.5,
   'pbp.fight': 0.6, 'pbp.fight.drop': 0.7, 'pbp.fight.box': 0.2, 'pbp.punch.land': 0.7, 'pbp.punch.big': 0.9, 'pbp.punch.miss': 0.45,
   'fight.knockdown': 0.75, 'fight.jersey': 0.6, 'fight.linesmen': 0.4, 'fight.result': 0.3, 'penalty.fight': 0.35,
+  'fight.draw': 0.4, 'fight.wound': 0.55, 'pbp.fight.tug': 0.45,
+  'brawl': 0.95, 'pbp.brawl.drop': 0.9, 'pbp.brawl.pair': 0.75, 'pbp.brawl.goalies': 1, 'brawl.goalies': 0.9, 'brawl.result': 0.4,
   'pbp.scrum': 0.45, 'pbp.scrum.whistle': 0.2, 'scrum': 0.4, 'pbp.pull': 0.5, 'pull': 0.45,
   'penalty': 0.2, 'powerplay': 0.3,
   // the frame of the night
@@ -89,7 +92,11 @@ const EXCITE = {
   'death': -0.7, 'death.wound': -0.6, 'pbp.death': -0.8,
   'death.vat': -0.4, 'vat': -0.1,
 };
-// `heat` is the night's: overtime and a Cup final lift the play, never the grief.
+// How the run of play moves `heat` (see `surge` in narrate). `lift` is what a full
+// push adds to a sold line; `tau` is game-clock seconds to cool by 1/e.
+export const MOMENTUM = { lift: 0.3, tau: 35, shot: 0.18, chance: 0.1, loud: 0.15, hit: 0.2, turn: 0.45, whistle: 0.55 };
+// `heat` is the night's and the play's: overtime, a Cup final and a run of pressure
+// lift the play, never the grief.
 export function exciteOf(key, heat = 0) {
   let k = String(key || '');
   while (k && !(k in EXCITE)) k = k.includes('.') ? k.slice(0, k.lastIndexOf('.')) : '';
@@ -300,6 +307,8 @@ export function narrate(ctx) {
     awayColours: away.profile?.colours || null,
     homeColours: home.profile?.colours || null,
     rivalry, gate,
+    // the Cup final: the Zamboni comes out in its driver's livery (rink/livery.js)
+    ...(ws ? { cup: true } : {}),
     // A seed for the club's own goal horn — every barn's horn should sound like that
     // barn's horn, and the soundset already varies a preset from a seed.
     hornSeed: hornSeedFor(b.teamName || away.name),
@@ -354,6 +363,17 @@ export function narrate(ctx) {
     sever: !!(b.sever || injuryAfter(b, idx)?.sever),
     // How the fight finishes, so the rink can stage it: 'knockdown' | 'jersey' | 'linesmen'.
     ending: b.ending || '', pullAt: b.pullAt ?? -1,
+    // v3: a draw (the linesmen, nobody on top), a man the fight sent to the room, and what
+    // it did to the two faces.
+    draw: !!b.draw, hurt: !!b.hurt, loserWound: b.loserWound || '', winnerWound: b.winnerWound || '',
+    // A brawl's pairs and its goalies, each name put at its end of the rink.
+    ...(b.type === 'brawl' ? (() => {
+      const sideOf = (p) => Object.fromEntries(Object.entries(p.sides || {}).map(([n, team]) => [n, team === away.name ? 'att' : 'def']));
+      return {
+        pairs: (b.pairs || []).map((p) => ({ ...p, sides: sideOf(p) })),
+        goalies: b.goalies ? { ...b.goalies, sides: sideOf(b.goalies) } : null,
+      };
+    })() : {}),
     // The pulled goalie, so the rink can empty the right net.
     pulledSide: b.type === 'pull' ? (b.teamName === away.name ? 'att' : 'def') : '',
     // A compact league snapshot, so the rink can carry a standings dock the way the
@@ -503,7 +523,7 @@ export function narrate(ctx) {
       goals: per.goals.slice(), casualties: per.casualties.slice(),
       shotsAway: per.shotsAway, shotsHome: per.shotsHome,
       penalties: per.pens, fights: per.fights, hits: per.hits,
-      standings: ctx.standings || [], gate,
+      standings: ctx.standings || [], gate, ...(ws ? { cup: true } : {}),
     }); said++;
     // The rink is showing the Zamboni come on while the booth reads the summary.
     call('pbp.zamboni.on', t, null, sb, { opt: true });
@@ -555,7 +575,7 @@ export function narrate(ctx) {
   // say() fills tokens itself; filling here first lets `cap` see the finished first word.
   // Unknown tokens are left for say() to report, exactly as before.
   const sportsFillSafe = (line, tok) => String(line).replace(/\{(\w+)\}/g, (m, k) => (k in tok ? String(tok[k] ?? '') : m));
-  const PUNCH = { jab: 'a jab', uppercut: 'an uppercut', left: 'a left', right: 'a right hand' };
+  const PUNCH = { jab: 'a jab', uppercut: 'an uppercut', left: 'a left', right: 'a right hand', hook: 'a hook' };
   const surnameOf = (n) => String(n || '').trim();
 
   // A BREAKAWAY IS SHAPED LIKE ONE (breakawayRush in hockey.js): gathered in his own end, a
@@ -736,6 +756,38 @@ export function narrate(ctx) {
     return true;
   }
 
+  // MOMENTUM: the booth climbs with the play, not just the line. `push` (0-1) stacks
+  // while one club keeps shooting in the other's end, jumps on a goal or a big hit,
+  // halves when the play turns the other way, and cools with the clock and at every
+  // whistle. It goes into `heat`, so it lifts the sold lines and never the grave ones.
+  // It also says when a run is worth a line: 'pressure' on the third and sixth straight shot
+  // by one club, 'relief' when the other side finally gets a look after a run of three.
+  let push = 0, pressBy = '', pressRun = 0, lastClock = null, lastSection = '', pressEv = '', reliefFrom = '';
+  const surge = (b) => {
+    pressEv = '';
+    if (b.section !== lastSection) { push = 0; pressBy = ''; pressRun = 0; lastClock = null; lastSection = b.section; }
+    if (Number.isFinite(b.clock) && Number.isFinite(lastClock)) push *= Math.exp(-Math.max(0, lastClock - b.clock) / MOMENTUM.tau);
+    if (Number.isFinite(b.clock)) lastClock = b.clock;
+    const M = MOMENTUM;
+    if (b.type === 'goal') { push = 1; pressBy = ''; pressRun = 0; }
+    else if (b.type === 'chance') {
+      if (b.teamName && b.teamName === pressBy) {
+        push += b.shot ? M.shot : M.chance;
+        pressRun++;
+        if (pressRun === 3 || pressRun === 6) pressEv = 'pressure';
+      } else {
+        if (pressRun >= 3 && pressBy) { pressEv = 'relief'; reliefFrom = pressBy; }
+        push = push * M.turn + (b.shot ? M.shot : M.chance) * 0.5; pressBy = b.teamName || ''; pressRun = 1;
+      }
+      if (LOUD_CHANCE.has(b.kind)) push += M.loud;
+    }
+    else if (b.type === 'boards' || b.type === 'fight' || b.type === 'brawl') push += M.hit;
+    // a draw in their end keeps the siege going; a penalty or the buzzer ends it
+    else if (b.type === 'faceoff') push *= M.whistle;
+    else if (b.type === 'penalty' || b.type === 'period_end' || b.type === 'final') { push *= M.whistle; pressBy = ''; pressRun = 0; }
+    push = Math.max(0, Math.min(1, push));
+  };
+
   // Who is in each net, from the shots against it, so the pulled goalie can be named.
   const goalieOf = {};
   for (const b of beats) {
@@ -747,7 +799,8 @@ export function narrate(ctx) {
       if (b.teamName === away.name) sogAway++; else sogHome++;
     }
     const t = tok(b), sb = beatBug(b);
-    heat = (/OT$/.test(b.section || '') ? 0.12 : 0) + (ws ? 0.08 : 0);
+    surge(b);
+    heat = (/OT$/.test(b.section || '') ? 0.12 : 0) + (ws ? 0.08 : 0) + MOMENTUM.lift * push;
 
     // Tally the period as it happens — every counter the intermission reads back.
     if (per) {
@@ -755,6 +808,7 @@ export function narrate(ctx) {
       else if (b.type === 'chance' && b.shot) { if (b.teamName === away.name) per.shotsAway++; else per.shotsHome++; }
       else if (b.type === 'penalty') per.pens++;
       else if (b.type === 'fight') per.fights++;
+      else if (b.type === 'brawl') per.fights += (b.pairs?.length || 0) + 1;
       else if (b.type === 'boards') per.hits++;
       else if (b.type === 'injury' || b.type === 'death') per.casualties.push(b.player);
     }
@@ -863,6 +917,8 @@ export function narrate(ctx) {
         // Every shot is called: the rush, the release, the result.
         const bb = (b.kind === 'breakaway' && breakawayBeat(b)) || b;
         const gd = gameday(bb, idx);
+        // the other end at last, after a run of theirs
+        if (pressEv === 'relief') call('pbp.pressure.relief', t, { opp: reliefFrom }, sb, { opt: true });
         const rushed = callRush(bb, t, sb, gd, loud);
         if (b.kind === 'breakaway' && !rushAlone) call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } });
         callShot(bb, t, sb, rushed ? null : gd);
@@ -874,6 +930,8 @@ export function narrate(ctx) {
         else if (pools[`pbp.after.${b.kind}`] && nrng() < (loud ? 0.9 : 0.6)) call(`pbp.after.${b.kind}`, t, null, sb, { opt: true });
         // The old sentence-length call, as colour: always on a near-miss, sometimes otherwise.
         if (loud || nrng() < 0.25) { say(pick(`shot.${b.kind}`, 'shot.save'), t, sb, null, null, loud ? null : { opt: 'colour' }); said++; }
+        // a run of shots by one club gets said as a run
+        if (pressEv === 'pressure') call('pbp.pressure', t, { opp: b.oppName || '' }, sb);
         if (!loud) routine++;
         // Booth colour rides on the quiet beats, never on top of a goal.
         if (!loud && nrng() < 0.08) { chatter(b); routine++; }
@@ -891,23 +949,55 @@ export function narrate(ctx) {
       case 'fight': {
         const gd = gameday(b, idx);
         gd.helmets = nrng() < 0.4;
+        // The gloves come off once, here, and no line after this one says so again.
         call('pbp.fight.drop', t, null, sb, null, gd);
         if (gd.helmets) call('pbp.fight.helmets', t, null, sb, { opt: true });
         say(pick('penalty.fight'), t, sb); said++;
         call('pbp.fight.grab', t, null, sb, { cue: { ev: 'grab' } });
         // Punch by punch, off the sim's own exchange. A long fight keeps every landed punch
-        // and lets the pacer cut misses if it must.
+        // and lets the pacer cut misses if it must. A linesmen's ending has no big last one.
         const ex = Array.isArray(b.exchange) ? b.exchange : [];
+        const finisher = b.ending !== 'linesmen' || !b.draw;
         ex.forEach((e, n) => {
-          const last = n === ex.length - 1, victim = e.thrower === b.winner ? b.loser : b.winner;
+          const last = finisher && n === ex.length - 1 && e.type !== 'tug', victim = e.thrower === b.winner ? b.loser : b.winner;
+          if (e.type === 'tug') { call('pbp.fight.tug', t, { thrower: surnameOf(e.thrower), victim }, sb, { cue: { ev: 'punch', n }, opt: true }); return; }
           const key = last ? 'pbp.punch.big' : e.landed ? 'pbp.punch.land' : 'pbp.punch.miss';
           call(key, t, { thrower: surnameOf(e.thrower), punch: PUNCH[e.type] || 'a right hand', victim }, sb, { cue: { ev: 'punch', n }, opt: !e.landed });
         });
         // How it finished, before who it counts for. The rink is staging the same ending.
-        if (b.ending) { const l = pick(`fight.${b.ending}`); if (l) { say(l, t, sb, null, null, { cue: { ev: 'end' } }); said++; } }
-        say(pick('fight.result'), t, sb, fightFx(b), null, playMeta(b, 'fight', b.winnerTeam, { player: b.winner || '', loser: b.loser || '' })); said++;
+        const endKey = b.draw ? 'fight.draw' : b.ending ? `fight.${b.ending}` : '';
+        if (endKey) { const l = pick(endKey); if (l) { say(l, t, sb, null, null, { cue: { ev: 'end' } }); said++; } }
+        // what it did to him, by name
+        if (b.loserWound) call('fight.wound', t, { wound: b.loserWound, victim: b.loser }, sb, { opt: 'colour' });
+        if (b.winnerWound && nrng() < 0.5) call('fight.wound.winner', t, { wound: b.winnerWound }, sb, { opt: 'colour' });
+        const resKey = b.draw ? 'fight.result.draw' : b.hurt ? 'fight.result.hurt' : 'fight.result';
+        say(pick(resKey, 'fight.result'), t, sb, fightFx(b), null, playMeta(b, 'fight', b.winnerTeam, { player: b.winner || '', loser: b.loser || '' })); said++;
         call('pbp.fight.box', t, null, sb, { cue: { ev: 'box' } });
-        boxes.push({ against: b.loserTeam, until: b.clock - 5 * 60 });
+        if (!b.hurt) boxes.push({ against: b.loserTeam, until: b.clock - 5 * 60 });
+        if (b.draw) boxes.push({ against: b.winnerTeam, until: b.clock - 5 * 60 });
+        break;
+      }
+
+      // Everybody goes. The booth calls the pile, two or three of the pairs, then the
+      // goalies, who are the reason anybody will remember it.
+      case 'brawl': {
+        const gd = gameday(b, idx);
+        const pairs = Array.isArray(b.pairs) ? b.pairs : [];
+        const fighters = pairs.map((p) => p.fighters.join(' and ')).join(', ');
+        const bt = { ...t, fighters, team: b.teams?.[0] || '', opp: b.teams?.[1] || '' };
+        say(pick('brawl'), bt, sb, null, gd, playMeta(b, 'brawl', b.teams?.[0] || '')); said++;
+        call('pbp.brawl.drop', bt, null, sb, { cue: { ev: 'drop' } });
+        pairs.slice(0, 3).forEach((p, n) => {
+          call(p.draw ? 'pbp.brawl.pair.even' : 'pbp.brawl.pair', bt, { winner: p.winner, loser: p.loser, wound: p.loserWound || 'a bad cut' }, sb, { cue: { ev: 'pair', n }, opt: n > 0 });
+        });
+        const g = b.goalies;
+        if (g) {
+          call('pbp.brawl.goalies', bt, { winner: g.winner, loser: g.loser }, sb, { cue: { ev: 'goalies' } });
+          call(g.draw ? 'brawl.goalies.even' : 'brawl.goalies', bt, { winner: g.winner, loser: g.loser, wound: g.loserWound || 'a bloody nose' }, sb, { cue: { ev: 'goaliesEnd' } });
+        }
+        call('pbp.brawl.end', bt, null, sb, { cue: { ev: 'end' } });
+        say(pick('brawl.result'), bt, sb); said++;
+        for (const p of pairs) for (const name of p.fighters) if (!(p.hurt && name === p.loser)) boxes.push({ against: p.sides?.[name] || '', until: b.clock - 5 * 60 });
         break;
       }
 

@@ -1,4 +1,4 @@
-import { getZone, getLivePlayer, getAllLivePlayers } from '../world.js';
+import { getZone, getLivePlayer, getAllLivePlayers, roomDisplayName } from '../world.js';
 import { exitTargets } from '../exits.js';
 import { describeZone } from './describe.js';
 import { drainZonePower } from '../environment.js';
@@ -97,7 +97,7 @@ export async function cmdGhostLook(session) {
   if (!zone) return { type: 'ghost_error', message: 'Zone not found.' };
   const player = getLivePlayer(session.playerId) || { id: session.playerId, handle: session.handle, current_zone: session.ghostZoneId };
   const message = await describeZone(zone, player);
-  return { type: 'ghost_look', message, zone: zone.id, zoneName: zone.name };
+  return { type: 'ghost_look', message, zone: zone.id, zoneName: roomDisplayName(zone) };
 }
 
 export async function cmdGhostMove(direction, session) {
@@ -113,7 +113,7 @@ export async function cmdGhostMove(direction, session) {
   session.ghostZoneId = targetId;
   const player = getLivePlayer(session.playerId) || { id: session.playerId, handle: session.handle, current_zone: targetId };
   const message = await describeZone(targetZone, player);
-  return { type: 'ghost_look', message, zone: targetId, zoneName: targetZone.name };
+  return { type: 'ghost_look', message, zone: targetId, zoneName: roomDisplayName(targetZone) };
 }
 
 export async function cmdGhostPowerDrain(session, broadcast) {

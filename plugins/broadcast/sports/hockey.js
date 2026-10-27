@@ -61,6 +61,8 @@ const PENALTY_CHANCE = 0.055;              // per chance-gap
 const FIGHT_CHANCE = 0.030;                // per chance-gap; suppressed during a PP
 const BOARDS_CHANCE = 0.075;               // a hit finished into the boards
 const SCRUM_CHANCE = 0.060;                // bodies converging on a dead puck
+const BRAWL_CHANCE = 0.006;                // v3, rivals in a game that matters: everybody goes
+const GOALIE_FIGHT_SHARE = 0.35;           // of those brawls, the ones where the goalies come out too
 const INJURY_ON_BOARDS = 0.085;            // that hit ended his night — see the injury band below
 const PULL_WINDOW = 90;                    // seconds left when a trailing side pulls
 const OT_SECS = 5 * 60;
@@ -324,7 +326,8 @@ export function playDesc(b) {
     return `Goal${s}: ${b.shooter}`;
   }
   if (b.type === 'penalty') return `${b.penaltyMin}:00 ${b.infraction}: ${b.player}`;
-  if (b.type === 'fight') return `Fight: ${b.winner} over ${b.loser}`;
+  if (b.type === 'fight') return b.draw ? `Fight: ${b.winner} and ${b.loser}, a draw` : `Fight: ${b.winner} over ${b.loser}`;
+  if (b.type === 'brawl') return `Line brawl: ${(b.teams || []).join(' and ')}`;
   if (b.type === 'injury') return `${b.player}, out for the game`;
   if (b.type === 'death') return `${b.player}: DEAD`;
   if (b.type === 'boards') return `Big hit: ${b.hitter} on ${b.victim}`;
@@ -545,6 +548,101 @@ export function fightEnding(seed, n) {
   return { ending, pullAt: ending === 'jersey' ? Math.max(1, Math.floor(n * (0.45 + rand() * 0.25))) : -1 };
 }
 
+// ── the v3 fight ────────────────────────────────────────────────────────────
+// What a man is like with his gloves off, from his name alone, as a club's profile is
+// from its name: no authoring, no storage, the same on every server. Each is 0 … 1.
+//   power  — what a landed punch does      chin   — what one does to him
+//   reach  — how often his land            cardio — how long before his arms go
+//   grip   — how well he works the sweater
+export function fighterOf(name) {
+  const rand = sportsRng(strSeed('fighter', name));
+  const r = () => 0.15 + rand() * 0.85;
+  return { power: r(), chin: r(), reach: r(), cardio: r(), grip: r() };
+}
+
+// The beating a fight leaves on a face. Said by the booth and drawn by the rink (blood,
+// teeth); most are worn back to the bench, and one bad enough ends his night.
+export const FIGHT_WOUNDS = {
+  face: ['a broken nose', 'a cut over the eye', 'a split lip', 'two teeth', 'a torn ear', 'a gashed scalp', 'a cheek opened to the bone', 'a nose pointing at the left boards'],
+  bad: ['a fractured eye socket', 'a broken jaw', 'a shattered cheekbone', 'a concussion', 'a broken hand'],
+};
+
+// The whole fight, punch by punch, from its seed and the two men. Who is on top shifts
+// with every punch that lands, a tired man throws less and lands less, and a man getting
+// the worse of it holds on. It ends when one goes down, when one has the other's sweater
+// over his head and is teeing off, or when neither has got anywhere and the linesmen step
+// in, which is a draw: both serve five and nobody gets the power play.
+// `edge` is A's starting advantage from the game (momentum, club violence), -1 … 1.
+export function simFightV3(seed, a, b, edge = 0) {
+  const rand = sportsRng(seed);
+  const F = { [a]: fighterOf(a), [b]: fighterOf(b) };
+  const dmg = { [a]: 0, [b]: 0 }, tire = { [a]: 0, [b]: 0 }, stag = { [a]: 0, [b]: 0 }, landedBy = { [a]: 0, [b]: 0 };
+  const other = (x) => (x === a ? b : a);
+  // who's on top right now, A positive
+  let mo = edge * 0.6 + (F[a].power + F[a].reach - F[b].power - F[b].reach) * 0.25;
+  const out = [];
+  let ending = 'linesmen', pullAt = -1, jerseyOn = null, n = 0;
+  const max = 12 + Math.floor(rand() * 11);   // 12 … 22 things happen before the linesmen
+  while (n < max) {
+    n++;
+    const lean = Math.max(-0.8, Math.min(0.8, mo));
+    const th = rand() < 0.5 + lean * 0.4 ? a : b, vi = other(th);
+    const ft = F[th], fv = F[vi];
+    const sign = th === a ? 1 : -1;
+    // the man on the back foot ties up and drags at the sweater rather than swinging
+    const losing = -sign * mo > 0.25;
+    if (jerseyOn !== th && rand() < (losing ? 0.28 : 0.1) + ft.grip * 0.08) {
+      out.push({ n, thrower: th, type: 'tug', landed: true, stagger: stag[vi] });
+      mo += sign * 0.06 * ft.grip;
+      tire[th] += 0.03;
+      continue;
+    }
+    const r = rand();
+    const blind = jerseyOn === th;
+    const type = blind ? (r < 0.6 ? 'right' : 'uppercut')
+      : r < 0.24 ? 'jab' : r < 0.4 ? 'uppercut' : r < 0.55 ? 'left' : r < 0.68 ? 'hook' : 'right';
+    const pLand = blind ? 0.85 : 0.3 + ft.reach * 0.3 - tire[th] * 0.3 + stag[vi] * 0.06 + sign * mo * 0.15;
+    const landed = rand() < Math.max(0.12, Math.min(0.92, pLand));
+    tire[th] += (type === 'jab' ? 0.03 : 0.06) * (1.3 - ft.cardio);
+    if (landed) {
+      const hit = (type === 'uppercut' || type === 'hook' ? 1.35 : type === 'jab' ? 0.55 : 1) * (0.5 + ft.power) * (1.25 - fv.chin * 0.6);
+      dmg[vi] += hit; stag[vi] += 1; landedBy[th]++;
+      mo += sign * 0.1 * hit;
+    } else mo -= sign * 0.04;
+    out.push({ n, thrower: th, type, landed, stagger: stag[vi] });
+    // a big enough beating puts him down
+    if (landed && dmg[vi] > 4.2 + fv.chin * 2.2) { ending = 'knockdown'; break; }
+    // well on top and a fist full of sweater: over his head it goes
+    if (jerseyOn == null && sign * mo > 0.55 && ft.grip > 0.45 && rand() < 0.35) { jerseyOn = th; pullAt = n; ending = 'jersey'; }
+    if (jerseyOn && n - pullAt >= 3 + Math.floor(rand() * 3)) break;
+  }
+  const gap = dmg[a] - dmg[b];
+  // nobody on top when the linesmen step in: a draw
+  const draw = ending === 'linesmen' && Math.abs(gap) < 1.3;
+  const winner = ending === 'jersey' ? jerseyOn : ending === 'knockdown' ? out[out.length - 1].thrower : (gap <= 0 ? a : b);
+  const loser = other(winner);
+  // a knockdown or a jersey ending finishes on the winner's own punch, landed
+  if (ending !== 'linesmen') {
+    const last = out[out.length - 1];
+    if (last.thrower !== winner || !last.landed || last.type === 'tug') {
+      n++; dmg[loser] += 1.2; stag[loser]++;
+      out.push({ n, thrower: winner, type: rand() < 0.55 ? 'uppercut' : 'right', landed: true, stagger: stag[loser] });
+    }
+  }
+  // what it did to their faces
+  const wound = (x) => {
+    if (dmg[x] < 1.6) return '';
+    const pool = dmg[x] > 5.4 && rand() < 0.6 ? FIGHT_WOUNDS.bad : FIGHT_WOUNDS.face;
+    return pool[Math.floor(rand() * pool.length)];
+  };
+  const loserWound = wound(loser), winnerWound = wound(winner);
+  // a knockdown on a bad wound ends his night
+  const hurt = ending === 'knockdown' && FIGHT_WOUNDS.bad.includes(loserWound) && rand() < 0.4;
+  const slotsOut = hurt ? INJURY_SLOTS_MIN + Math.floor(rand() * 8) : 0;
+  return { exchange: out, winner, loser, ending, pullAt, draw, loserWound, winnerWound, slotsOut,
+    punches: out.filter(e => e.type !== 'tug').length };
+}
+
 // ── colour derived from facts ───────────────────────────────────────────────
 // What a hit looked like and what an injury was. Both are seeded from the beat's own
 // facts (the names involved and where the beat sits in the game) and never from the
@@ -593,6 +691,11 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   const unavailable = opts.unavailable instanceof Set ? opts.unavailable : new Set(opts.unavailable || []);
   // v2 reprints the dead (REPRINT_SLOTS_MIN above); v1 keeps them dead for the season.
   const reprint = Number(opts.version) >= 2;
+  // v3 plays a fight by the men in it (simFightV3).
+  const v3 = Number(opts.version) >= 3;
+  // A final is the game that matters most; the caller says so (sportsGameForSlot).
+  const important = !!opts.important;
+  let brawled = false;
   const awayName = matchup?.away || 'Away', homeName = matchup?.home || 'Home';
   // The club list, when the caller knows it (sportsGameForSlot passes it), is what
   // makes rosters a property of the LEAGUE rather than of this game. Without it each
@@ -704,6 +807,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   function fight(att, def, at) {
     const a = anyone(att), b = anyone(def);
     if (!a || !b) return;
+    if (v3) return fightV3(att, def, at, a, b);
     const aWins = rand() < 0.5;
     const winner = aWins ? a : b, loser = aWins ? b : a;
     const loserTeam = aWins ? def : att;
@@ -714,6 +818,79 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       loserTeam: loserTeam.name, winnerTeam: (aWins ? att : def).name, exchange,
       ...fightEnding(fseed, exchange.length),
       section: ordinal(period) });
+  }
+
+  // v3 spends the same two calls on the game's rand as v1's fight, so the stream after it
+  // lines up; everything inside the fight is from its own seed. Who wins is the two men
+  // and the game's momentum: the last few minutes' goals and hits, and the score.
+  function momentumOf(t) {
+    let m = 0;
+    for (let i = beats.length - 1, k = 0; i >= 0 && k < 10; i--, k++) {
+      const x = beats[i];
+      if (x.type === 'period_start') break;
+      if (x.type === 'goal') m += x.teamName === t.name ? 1 : -1;
+      else if (x.type === 'boards') m += x.hitterTeam === t.name ? 0.35 : -0.35;
+    }
+    return m + (t.score - (t === away ? home : away).score) * 0.2;
+  }
+  function fightV3(att, def, at, a, b) {
+    rand();                                   // v1's coin, spent so the stream lines up
+    const fseed = Math.floor(rand() * 1e9);
+    const edge = Math.max(-1, Math.min(1, (momentumOf(att) - momentumOf(def)) * 0.3
+      + ((att.profile?.violence || 1) - (def.profile?.violence || 1)) * 0.4));
+    const f = simFightV3(fseed, a.name, b.name, edge);
+    const winner = f.winner === a.name ? a : b, loser = winner === a ? b : a;
+    const winnerTeam = winner === a ? att : def, loserTeam = winner === a ? def : att;
+    // a man the fight hurt goes to the room, not the box; a draw boxes both
+    if (f.slotsOut) { loser.out = true; loser.slotsOut = f.slotsOut; }
+    else loserTeam.box.push({ name: loser.name, until: at - 5 * 60 });
+    if (f.draw) winnerTeam.box.push({ name: winner.name, until: at - 5 * 60 });
+    push({ type: 'fight', fighters: [a.name, b.name], winner: winner.name, loser: loser.name,
+      loserTeam: loserTeam.name, winnerTeam: winnerTeam.name, exchange: f.exchange,
+      ending: f.ending, pullAt: f.pullAt, draw: f.draw, loserWound: f.loserWound, winnerWound: f.winnerWound,
+      punches: f.punches, hurt: !!f.slotsOut, section: ordinal(period) });
+    if (f.slotsOut) {
+      push({ type: 'injury', player: loser.name, teamName: loserTeam.name, slotsOut: f.slotsOut,
+        remaining: live(loserTeam).length, section: ordinal(period), fromFight: true,
+        wound: f.loserWound, woundPart: '', sever: false });
+    }
+  }
+
+  // Everybody pairs off with the man nearest his number, and then the goalies come the
+  // length of the ice to each other. Every fighter sits five, so nobody gets the power
+  // play; a man the fight hurt goes to the room instead.
+  function brawl(att, def, at) {
+    const bseed = Math.floor(rand() * 1e9);
+    const la = live(att), ld = live(def);
+    const pairs = [];
+    for (let k = 0; k < Math.min(la.length, ld.length); k++) {
+      const f = simFightV3((bseed + k * 7919) >>> 0, la[k].name, ld[k].name, 0);
+      pairs.push({ a: la[k], b: ld[k], f });
+    }
+    // The goalies coming out is the rare part of a rare thing: about one brawl in three, rolled
+    // off the brawl's own seed so the game's stream isn't touched.
+    const goaliesGo = sportsRng((bseed ^ 0x9a11e) >>> 0)() < GOALIE_FIGHT_SHARE;
+    const goalies = goaliesGo ? simFightV3((bseed ^ 0x60a1) >>> 0, att.goalie, def.goalie, 0) : null;
+    const hurt = [];
+    for (const { a, b, f } of pairs) {
+      for (const m of [a, b]) {
+        const team = la.includes(m) ? att : def;
+        if (f.slotsOut && m.name === f.loser) { m.out = true; m.slotsOut = f.slotsOut; hurt.push({ m, team, f }); }
+        else team.box.push({ name: m.name, until: at - 5 * 60 });
+      }
+    }
+    // (the skaters' fights are cut short, all going at once; the goalies' is the main event
+    // and keeps its whole exchange)
+    const fx = (f, n = 8) => ({ fighters: [f.winner, f.loser], winner: f.winner, loser: f.loser, ending: f.ending, draw: f.draw,
+      exchange: f.exchange.slice(0, n), loserWound: f.loserWound, hurt: !!f.slotsOut });
+    push({ type: 'brawl', teams: [att.name, def.name], section: ordinal(period),
+      pairs: pairs.map(({ a, b, f }) => ({ ...fx(f), sides: { [a.name]: att.name, [b.name]: def.name } })),
+      goalies: goalies ? { ...fx(goalies, 16), sides: { [att.goalie]: att.name, [def.goalie]: def.name } } : null });
+    for (const { m, team, f } of hurt) {
+      push({ type: 'injury', player: m.name, teamName: team.name, slotsOut: f.slotsOut,
+        remaining: live(team).length, section: ordinal(period), fromFight: true,
+        wound: f.loserWound, woundPart: '', sever: false });
+    }
   }
 
   function bigHit(att, def, at) {
@@ -816,6 +993,11 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       if (!ppLive && rand() < FIGHT_CHANCE * meanness) { fight(att, def, clock); faceoff(neutralDot(def), 'fight'); }
       if (rand() < BOARDS_CHANCE * (att.profile?.violence || 1) * rivalryVio) bigHit(att, def, clock);
       if (rand() < SCRUM_CHANCE) { scrum(att, def); faceoff(neutralDot(def), 'scrum'); }
+      // v3: the line brawl, once a game at most, only between rivals and only when it
+      // matters (a final, or one goal in it in the third). The roll is v3's own, so the
+      // older versions never spend it.
+      if (v3 && rivalry && !brawled && !ppLive && ((important && period >= 2) || (period >= PERIODS && Math.abs(away.score - home.score) <= 1))
+        && rand() < BRAWL_CHANCE) { brawled = true; brawl(att, def, clock); faceoff('C', 'brawl'); }
 
       // sudden death can end on a body rather than a goal
       if (sudden && rand() < OT_FATAL) {
@@ -1043,7 +1225,8 @@ export const HOCKEY = {
   finalIcon: '🏒',
   season: SEASON,
   // v2 reprints a dead man (reprintSlots); broadcast records the slot it plays from.
-  simVersions: [1, 2],
+  // v3 plays fights by the fighters and the game's momentum (simFightV3).
+  simVersions: [1, 2, 3],
   section: 'period',
   sectionPlural: 'periods',
   simGame,

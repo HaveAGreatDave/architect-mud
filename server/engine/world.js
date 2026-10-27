@@ -1,7 +1,7 @@
 import { query } from '../models/db.js';
 import { neighborZoneIds, primaryExits, allExits, addExit, removeExit } from './exits.js';
 import { OPPOSITE, DIR_OFFSET } from './directions.js';
-import { titleCaseName } from './text.js';
+import { titleCaseName, composeRoomName } from './text.js';
 import { districtFor, loadDistricts, registerZoneLookup } from './districts.js';
 import { isSanctuary, getZoneRadiation } from './zone-tags.js';
 import { shutStatus, lockedOnLink } from './movement-gates.js';
@@ -1449,6 +1449,27 @@ export function getOrgRackets(orgId) { return [...world.orgRackets.values()].fil
 
 export function getZone(id) { return world.zones.get(id) || null; }
 
+// The building a room is inside, or null for a street tile, a facade or anything
+// else on the open map. The room's own `flags.building_name` wins; a room without
+// one borrows its facade's, through `world_exit_zone`, which on an interior names
+// the facade (on a world tile the same key names the street, hence the map check).
+export function buildingNameOf(zone) {
+  const f = zone?.flags;
+  if (!f || !(f.is_interior || f.is_apartment)) return null;
+  if (f.building_name) return f.building_name;
+  if (zone.map_id === 'map_world') return null;
+  const facade = world.zones.get(f.world_exit_zone);
+  return (facade?.map_id === 'map_world' && facade.flags?.building_name) || null;
+}
+
+// What a player is shown as a room's name: "Building - Room" inside a building,
+// the stored name everywhere else. See composeRoomName for the prefix rules.
+export function roomDisplayName(zone) {
+  if (!zone) return '';
+  const building = buildingNameOf(zone);
+  return building ? composeRoomName(building, zone.name) : (zone.name || '');
+}
+
 // ── Transient zones (docs/systems-overland-void-travel.md) ───────────────────
 // Synthetic zones that live in the world store WITHOUT a DB row. The void-
 // crossing rooms are generated in memory and injected here so that movement,
@@ -1645,7 +1666,7 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
     }
     const node = {
       id: zone.id,
-      name: zone.name,
+      name: roomDisplayName(zone),
       buildings,
       danger: zoneDanger(zone),
       sanctuary: isSanctuary(zone),

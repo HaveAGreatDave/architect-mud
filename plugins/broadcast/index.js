@@ -25,7 +25,7 @@ import { sportsRng, sportsHash, sportsPick, sportsPickTagged, sportsFill, sports
 // into, so it exists now rather than being retrofitted around hockey later.
 import { BASEBALL } from './sports/baseball.js';
 import { gamedayPayloads, gamedayLeaders, gameMvp } from './sports/baseball-gameday.js';
-import { makeBooth } from './sports/baseball-booth.js';
+import { makeBooth, exciteFor } from './sports/baseball-booth.js';
 import { landBy, afterLand } from '../../client/game/js/panels/diamond/timing.js';
 import { venueField } from '../../client/game/js/panels/diamond/geo.js';
 import { skylineAround } from '../../server/engine/skyline.js';
@@ -2662,13 +2662,22 @@ function vatReturnsAt(script, slot, windowStart) {
 // into content; that's why the server records it. world_flags is runtime state, so a
 // deploy never rewrites the record. It's loaded at startup, before any game is
 // simulated, and read synchronously after.
-const SIM_SWITCH_KEY = (sport) => `sports_sim_v2:${sport}`;
-const _simSwitch = new Map();   // sport -> { from, until? }
+// Each version past 1 has a record of its own (v2's key predates v3, so it keeps its
+// name). A slot plays the highest version whose window it falls in, else v1.
+const SIM_SWITCH_KEY = (sport, v = 2) => `sports_sim_v${v}:${sport}`;
+const simKey = (sport, v = 2) => (v === 2 ? sport : `${sport}:v${v}`);
+const _simSwitch = new Map();   // simKey(sport, v) -> { from, until? }
 const _simSwitchWarned = new Set();
 function simVersionFor(sportId, slot) {
-  const s = _simSwitch.get(sportId);
-  if (!s || !Number.isFinite(s.from) || slot < s.from) return 1;
-  return Number.isFinite(s.until) && slot >= s.until ? 1 : 2;
+  const vs = SPORTS[sportId]?.simVersions || [1, 2];
+  for (const v of [...vs].sort((x, y) => y - x)) {
+    if (v < 2) break;
+    const s = _simSwitch.get(simKey(sportId, v));
+    if (!s || !Number.isFinite(s.from) || slot < s.from) continue;
+    if (Number.isFinite(s.until) && slot >= s.until) continue;
+    return v;
+  }
+  return 1;
 }
 // The record to write, given the one there is, whether the script asks for v2 and the
 // current slot; null when nothing changes. A version switched off after it played can't
@@ -2682,12 +2691,12 @@ function nextSimSwitch(cur, want, slotNow) {
   return null;
 }
 async function loadSimSwitches() {
-  for (const sport of Object.keys(SPORTS)) {
-    const raw = await getFlag('world', SIM_SWITCH_KEY(sport)).catch(() => null);
+  for (const [sport, mod] of Object.entries(SPORTS)) for (const ver of (mod.simVersions || []).filter((x) => x >= 2)) {
+    const raw = await getFlag('world', SIM_SWITCH_KEY(sport, ver)).catch(() => null);
     if (!raw) continue;
     try {
       const v = JSON.parse(raw);
-      if (Number.isFinite(v?.from)) _simSwitch.set(sport, { from: v.from, ...(Number.isFinite(v.until) ? { until: v.until } : {}) });
+      if (Number.isFinite(v?.from)) _simSwitch.set(simKey(sport, ver), { from: v.from, ...(Number.isFinite(v.until) ? { until: v.until } : {}) });
     } catch { /* a malformed record plays v1, as no record does */ }
   }
 }
@@ -2696,23 +2705,23 @@ async function loadSimSwitches() {
 async function recordSimSwitches() {
   const env = getEnvironmentState();
   if (!env?.date || !Number.isFinite(env?.minutes)) return;   // the clock isn't loaded yet
-  for (const [sport, mod] of Object.entries(SPORTS)) {
-    if (!mod.simVersions?.includes(2)) continue;
+  for (const [sport, mod] of Object.entries(SPORTS)) for (const ver of (mod.simVersions || []).filter((x) => x >= 2)) {
     const script = await anySportsScript(sport);
     if (!script) continue;
-    const cur = _simSwitch.get(sport) || null;
-    const want = Number(script.sim?.version) >= 2;
+    const key = simKey(sport, ver);
+    const cur = _simSwitch.get(key) || null;
+    const want = Number(script.sim?.version) >= ver;
     const next = nextSimSwitch(cur, want, sportsSlotIndex());
     if (!next) {
-      if (want && cur && Number.isFinite(cur.until) && !_simSwitchWarned.has(sport)) {
-        _simSwitchWarned.add(sport);
-        console.warn(`[broadcast] ${sport} sim v2 played slots ${cur.from}-${cur.until - 1} and was switched off; it can't be switched back on`);
+      if (want && cur && Number.isFinite(cur.until) && !_simSwitchWarned.has(key)) {
+        _simSwitchWarned.add(key);
+        console.warn(`[broadcast] ${sport} sim v${ver} played slots ${cur.from}-${cur.until - 1} and was switched off; it can't be switched back on`);
       }
       continue;
     }
-    await setFlag('world', SIM_SWITCH_KEY(sport), JSON.stringify(next));
-    _simSwitch.set(sport, next);
-    console.log(`[broadcast] ${sport} sim v2 ${Number.isFinite(next.until) ? `ends at slot ${next.until}` : `starts at slot ${next.from}`}`);
+    await setFlag('world', SIM_SWITCH_KEY(sport, ver), JSON.stringify(next));
+    _simSwitch.set(key, next);
+    console.log(`[broadcast] ${sport} sim v${ver} ${Number.isFinite(next.until) ? `ends at slot ${next.until}` : `starts at slot ${next.from}`}`);
   }
 }
 
@@ -2735,7 +2744,7 @@ function sportsGameForSlot(script, slot, override, unavailable) {
   // The sim version is the slot's (simVersionFor); v2 also needs the seed, which its new
   // plays draw from on a stream of their own.
   const version = simVersionFor(sportOf(script).id, slot);
-  const game = sportsSimGame(script, matchup, script.players, sportsRng(seed), { ...(unavailable ? { unavailable } : {}), version, seed });
+  const game = sportsSimGame(script, matchup, script.players, sportsRng(seed), { ...(unavailable ? { unavailable } : {}), version, seed, important: !!override?.worldSeries });
   return { game, seed, matchup, unavailable: unavailable || null };
 }
 
@@ -2835,7 +2844,9 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   // `broadcast.message`, so the people in the room can react to the play rather than
   // to the words (plugins/sports-banter).
   const booth = (node) => { const lex = sportsLexFor(node.text, script.say); return { ...node, ...(lex ? { lex } : {}), ...(script.voice ? { voice: script.voice } : {}) }; };
-  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (!text) return; add(booth({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}), ...(meta && meta.excite ? { excite: meta.excite } : {}), ...(meta && meta.play ? { play: meta.play } : {}), ...(meta && meta.call ? { call: true } : {}), ...(meta && meta.song ? { song: meta.song } : {}) })); };
+  // Deadball sets `curExcite` per play (exciteFor); a line that brings its own wins.
+  let curExcite = 0;
+  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (!text) return; add(booth({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}), ...((meta && meta.excite) || curExcite ? { excite: (meta && meta.excite) || curExcite } : {}), ...(meta && meta.play ? { play: meta.play } : {}), ...(meta && meta.call ? { call: true } : {}), ...(meta && meta.song ? { song: meta.song } : {}) })); };
 
   // ── the sport seam ──────────────────────────────────────────────────────────
   // Everything above this line is sport-agnostic: the node chain, the say/pick
@@ -2984,6 +2995,7 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
     for (const b of h.atbats) {
       const tok = beatTok(b), sb = beatBug(b);
       const gd = beatGameday(b);
+      curExcite = exciteFor(b, home.name, 'call', gd?.basesBefore);
       if (b.type === 'run') {
         // A play on the bases while the batter is up (sim v2). A steal, an out on the
         // bases and anything that scores is always called; a throw over the runner beats
@@ -3003,9 +3015,11 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
       // line of its own that the park holds till the ball lands (`call`). The talk is sized to end
       // by then; the pacer makes sure of it. With nothing to say, the payload rides the call.
       bank += share - callSecs(b);
+      curExcite = exciteFor(b, home.name, 'before', gd?.basesBefore);
       const pre = talkers.before(b, gd, Math.max(0, landSecs(b) - 2));
       const preBug = beatBug(h.atbats[h.atbats.indexOf(b) - 1] || h.start);
       pre.forEach((l, i) => say(l.text, {}, preBug, null, i === 0 ? { ...gd, lead: true } : null, i === 0 ? null : { opt: l.opt }));
+      curExcite = exciteFor(b, home.name, 'call', gd?.basesBefore);
       const G = pre.length ? null : gd;
       const CM = (m) => (pre.length ? { ...(m || {}), call: true } : m);
       if (b.kind === 'homerun') {
@@ -3054,9 +3068,12 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
       talkers.track(b, gd);
       // and what the play earns, never over a walk-off or the third out's changeover
       // (a home run's trot and replay is time the park takes anyway, so the booth talks over it)
+      curExcite = exciteFor(b, home.name, 'after', gd?.basesBefore);
       if (!walkoffHalf && b.outs < 3) bank -= talk(talkers.after(b, gd, Math.max(0, bank, b.kind === 'homerun' ? afterLand(gd) - 8 : 0)), sb);
+      curExcite = 0;
     }
 
+    curExcite = 0;
     // Sparse score checkpoints — end of every third full inning.
     if (h.start.half === 'bottom' && h.start.inning % 3 === 0) say(pick('recap.half'), beatTok(h.end), beatBug(h.end));
   }
@@ -3101,7 +3118,7 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
         : pick(`extras.${h.start.half}`, 'extras.cut'),
         beatTok(h.start), beatBug(h.start));
       const scorers = h.atbats.filter(b => (b.runs ?? b.rbi) > 0);
-      if (scorers.length) for (const b of scorers) narrateScore(b, h);
+      if (scorers.length) for (const b of scorers) { curExcite = exciteFor(b, home.name); narrateScore(b, h); curExcite = 0; }
       else if (!trailingHome) say(pick('extras.hold'), beatTok(h.end), beatBug(h.end));
     }
     // A go-ahead run in the top that the home side couldn't answer = a road win in extras.
@@ -11257,7 +11274,7 @@ export const _test = {
   // Street deaths: the kill handler, the record in RAM, who's in the vat, and the last write.
   onLeagueNpcKilled, streetDeaths: _streetDeaths, streetVatAt, streetSaved: () => _streetSave,
   STREET_DEATHS_KEY,
-  simVersionFor, nextSimSwitch, getSimSwitch: (sport) => _simSwitch.get(sport) || null, setSimSwitch: (sport, v) => (v ? _simSwitch.set(sport, v) : _simSwitch.delete(sport)),
+  simVersionFor, nextSimSwitch, getSimSwitch: (sport, ver = 2) => _simSwitch.get(simKey(sport, ver)) || null, setSimSwitch: (sport, v, ver = 2) => (v ? _simSwitch.set(simKey(sport, ver), v) : _simSwitch.delete(simKey(sport, ver))),
   filmDayMask,
   // The call-sheet graph an actor is actually given. Exposed because the only other
   // way to see an actor performing off-shift is to watch a channel at 08:00 and

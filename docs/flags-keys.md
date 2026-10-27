@@ -60,7 +60,7 @@ nothing, silently; wire a reader first.
 | `allow_sleep` | protection/sleep | permit `sleep` here WITHOUT the sanctuary bundle — safe-zone-rate rest, but no combat protection/forcefield/spawn suppression (e.g. the Precinct 9 holding cell) |
 | `artery` | movement/ambience | major street (traffic ambience, routing) |
 | `cell_block` | jail | room behind the Precinct 9 cell door a prisoner may walk to without it counting as a jailbreak (Wash Block, The Pit). The cell itself is the plugin's `CELL_ZONE` and needs no flag; a room that reaches the street must never carry this |
-| `building_name` | world | display name of the enclosing building |
+| `building_name` | world | display name of the enclosing building. On an interior room it also prefixes the room name the player sees ("Building - Room"; see [systems-world.md](systems-world.md#room-names-inside-a-building-as-built)) |
 | `building_type` | world | building category (shop, apartment, …) |
 | `sign_trade` | flight (`state.js` → cell `trd`) + GLASS (`tradeSub` in `windshield.js`) | **authored** trade word a pun-named building carries under its name on its sign ("TAXIDERMIST" under STUFF IT). Set it on every map_world tile of a building whose name doesn't say what it's for; unset falls back to the model's `SIGN_WORD`. See [building-styles.md](reference/building-styles.md#46-names) |
 | `checkpoint_cfg` | checkpoint | security-checkpoint config object ({ guards, checks:[wanted\|smuggle\|contraband], wantedMode, entry predicate insideFlag\|fromFlag\|fromDistrict }) driving the checkpoint move-gate law |

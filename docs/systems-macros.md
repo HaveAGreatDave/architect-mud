@@ -193,7 +193,7 @@ work inside a macro instead of erroring server-side as "unknown".
 `state.player` vitals: `$hp`, `$hp_max`, `$hp_pct`, `$stamina`/`$sta`,
 `$stamina_pct`, `$sanity`, `$sanity_pct`, `$hunger`, `$thirst`,
 `$radiation`/`$rad`, `$credits`, `$horniness`, `$body_temp`. Plus `$zone` (current
-room name) / `$zone_id`, and `$home` (a friendly label for the bound home zone) /
+room name as shown, "Building - Room" indoors) / `$zone_id`, and `$home` (a friendly label for the bound home zone) /
 `$home_id` (its raw zone id). Numeric vitals round to an integer when interpolated
 into text.
 

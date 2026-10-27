@@ -32,6 +32,24 @@
       "options": [],
       "text": "\"See you.\""
     },
+    "crows": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "team"
+        }
+      ],
+      "text": "\"Crows. With a name like mine, I didn't really get a choice.\""
+    },
+    "cup": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He grins. \"Final night they let me paint her. Purple and gold, my name down both sides. Best night of the year.\""
+    },
     "fuel": {
       "options": [
         {
@@ -82,6 +100,10 @@
           "next": "slush"
         },
         {
+          "label": "Does she get dressed up for the Cup?",
+          "next": "cup"
+        },
+        {
           "label": "Who do you support?",
           "next": "team"
         },
@@ -111,6 +133,10 @@
         {
           "label": "Who don't you like?",
           "next": "bulldogs"
+        },
+        {
+          "label": "Follow any Deadball?",
+          "next": "crows"
         },
         {
           "label": "Back up.",

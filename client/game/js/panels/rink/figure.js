@@ -419,7 +419,7 @@ export function drawBody(ctx, P, J, o) {
     limb(V.add(S, V.mul(U, 0.04)), E, 0.28 * ar, 0.23 * ar, K.jersey, sleeveLines);
     if (missing[side > 0 ? 'armL' : 'armR'] && !gk) { stump(V.add(E, V.mul(V.norm(V.sub(H, E)), 0.15)), 0.2); continue; }
     limb3(E, wrist, 0.23 * ar, 0.2 * ar, 0.23 * ar, K.jersey, K.stripes ? sleeveLines : K.sleeve ? () => { for (const sb of K.sleeve) ringAt(E, wrist, 0.23 * ar, 0.23 * ar, sb.at, sb.col, sb.w); } : () => { ringAt(E, wrist, 0.23 * ar, 0.23 * ar, 0.3, K.trim, 0.1); ringAt(E, wrist, 0.23 * ar, 0.23 * ar, 0.48, K.trim, 0.06); }, 0, 0.25);
-    if (gk && side > 0) {
+    if (gk && side > 0 && o.gloves !== false) {
       // the trapper: a disc in the plane facing the shooter, with a laced pocket
       const nrm = F, [a1, a2] = perp(nrm), c = V.add(H, V.mul(dir, 0.15));
       const pts = []; for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU; const p = W(V.frame(c, a1, Math.cos(a) * 0.62, a2, Math.sin(a) * 0.7)); if (p) pts.push(p); }
@@ -432,7 +432,7 @@ export function drawBody(ctx, P, J, o) {
           if (t1 && t2) { ctx.strokeStyle = shade(K.trim, -0.45); ctx.lineWidth = Math.max(0.8, 0.05 * cc.s); ctx.beginPath(); ctx.moveTo(t1.x, t1.y); ctx.lineTo(t2.x, t2.y); ctx.stroke(); }
         }
       });
-    } else if (gk) {
+    } else if (gk && o.gloves !== false) {
       // the blocker: a board facing the shooter
       const nrm = F, up = V.norm(V.sub(V.mul(U, 1), V.mul(nrm, V.dot(U, nrm)))), sd = V.cross(nrm, up);
       const c = V.add(H, V.mul(nrm, 0.12));

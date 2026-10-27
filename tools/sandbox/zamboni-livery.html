@@ -1,0 +1,79 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Ken Raven's Cup livery</title>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;800&display=swap" rel="stylesheet">
+<style>html,body{margin:0;background:#0d0f13;color:#eee;font-family:"Saira Condensed",sans-serif}canvas{display:block;margin:0 auto;max-width:100%}</style>
+</head><body><canvas id="c" width="1400" height="820"></canvas>
+<script type="module">
+import { paintLivery, FINAL, FLANK, LIVERY_W, LIVERY_H } from '/client/game/js/panels/rink/livery.js';
+await document.fonts.ready;
+const cv = document.getElementById('c'), x = cv.getContext('2d');
+const S = 74, GX = 980, GY = 600;           // px per ft; the machine's origin and the ice line
+const X = (u) => GX - u * S, Y = (z) => GY - z * S;  // the +v flank: the machine's front is on the left
+// the barn: boards, glass, the ice
+x.fillStyle = '#151922'; x.fillRect(0, 0, cv.width, cv.height);
+const g0 = x.createLinearGradient(0, 120, 0, GY); g0.addColorStop(0, '#1c2230'); g0.addColorStop(1, '#2a3346');
+x.fillStyle = g0; x.fillRect(0, 120, cv.width, GY - 120 - 3.4 * S);
+x.fillStyle = '#e9edf2'; x.fillRect(0, GY - 3.4 * S, cv.width, 3.4 * S - 0.5 * S);
+x.fillStyle = '#c8202c'; x.fillRect(0, GY - 0.5 * S - 10, cv.width, 10);
+x.fillStyle = '#d7dde6'; x.fillRect(0, GY - 0.5 * S, cv.width, 0.5 * S);
+const ice = x.createLinearGradient(0, GY, 0, cv.height); ice.addColorStop(0, '#dfe8f0'); ice.addColorStop(1, '#a9bccd');
+x.fillStyle = ice; x.fillRect(0, GY, cv.width, cv.height - GY);
+// the machine, box for box as render.js draws it, in its Cup night colours
+const box = (u0, u1, z0, z1, col) => { x.fillStyle = col; x.fillRect(X(u1), Y(z1), (u1 - u0) * S, (z1 - z0) * S); x.strokeStyle = 'rgba(0,0,0,0.35)'; x.lineWidth = 2; x.strokeRect(X(u1), Y(z1), (u1 - u0) * S, (z1 - z0) * S); };
+box(-6.1, -4.6, 0.12, 1.2, '#7d848c'); box(-6.1, -4.6, 0.12, 0.35, '#2a2e34');
+box(-4.7, 4.7, 0.55, 2.7, FINAL.chassis); box(-4.7, 4.7, 1.45, 1.95, FINAL.band); box(-4.7, 4.7, 0.55, 0.8, '#3a3f46');
+box(0.2, 4.75, 2.7, 5.9, FINAL.tank); box(0.2, 4.75, 5.55, 5.9, FINAL.band); box(0.2, 4.75, 2.7, 2.95, FINAL.trim);
+box(-4.05, -1.6, 2.7, 3.2, '#30343b'); box(-4.25, -3.85, 3.2, 4.9, '#30343b'); box(-1.0, -0.65, 2.7, 4.4, '#22262c');
+box(4.1, 4.45, 5.9, 6.25, '#f0a020');
+// the piece on the tank
+const lc = document.createElement('canvas'); lc.width = LIVERY_W; lc.height = LIVERY_H; paintLivery(lc.getContext('2d'));
+x.drawImage(lc, X(FLANK.u[1]), Y(FLANK.z[1]), (FLANK.u[1] - FLANK.u[0]) * S, (FLANK.z[1] - FLANK.z[0]) * S);
+for (const wu of [-3.0, 2.8]) { x.fillStyle = '#16181c'; x.beginPath(); x.arc(X(wu), Y(0.95), 0.95 * S, 0, Math.PI * 2); x.fill(); x.fillStyle = '#9aa2aa'; x.beginPath(); x.arc(X(wu), Y(0.95), 0.32 * S, 0, Math.PI * 2); x.fill(); }
+const gl = x.createRadialGradient(X(4.27), Y(6.3), 0, X(4.27), Y(6.3), 70); gl.addColorStop(0, 'rgba(255,190,60,0.8)'); gl.addColorStop(1, 'rgba(255,170,40,0)'); x.fillStyle = gl; x.beginPath(); x.arc(X(4.27), Y(6.3), 70, 0, Math.PI * 2); x.fill();
+// Ken, out of the seat, beside his machine, hands on his hips
+function ken(cx, foot) {
+  const s = S;   // he's about 5 ft 10
+  const P = (dx, dz) => [cx + dx * s, foot - dz * s];
+  const poly = (pts, col) => { x.fillStyle = col; x.beginPath(); pts.forEach(([a, b], i) => { const [px, py] = P(a, b); i ? x.lineTo(px, py) : x.moveTo(px, py); }); x.closePath(); x.fill(); };
+  x.save(); x.lineJoin = 'round';
+  // shadow
+  x.fillStyle = 'rgba(0,0,0,0.25)'; x.beginPath(); x.ellipse(cx, foot + 6, 0.9 * s, 0.14 * s, 0, 0, Math.PI * 2); x.fill();
+  // boots and trousers, feet planted apart
+  poly([[-0.62, 0], [-0.18, 0], [-0.2, 0.28], [-0.55, 0.28]], '#1a1b1e'); poly([[0.62, 0], [0.18, 0], [0.2, 0.28], [0.55, 0.28]], '#1a1b1e');
+  poly([[-0.55, 0.26], [-0.2, 0.26], [-0.02, 2.75], [-0.42, 2.75]], '#5d5a4e'); poly([[0.55, 0.26], [0.2, 0.26], [0.02, 2.75], [0.42, 2.75]], '#5d5a4e');
+  // the parka
+  poly([[-0.62, 2.45], [0.62, 2.45], [0.66, 4.85], [0.3, 5.05], [-0.3, 5.05], [-0.66, 4.85]], '#1e2a44');
+  x.strokeStyle = '#121a2c'; x.lineWidth = 3; x.beginPath(); x.moveTo(...P(0, 2.45)); x.lineTo(...P(0, 4.9)); x.stroke();
+  // arms akimbo: elbows out, fists on the hips
+  for (const sd of [-1, 1]) {
+    poly([[sd * 0.6, 4.75], [sd * 0.98, 4.55], [sd * 1.08, 3.55], [sd * 0.9, 3.45], [sd * 0.78, 4.3], [sd * 0.58, 4.4]], '#1e2a44');
+    poly([[sd * 1.08, 3.62], [sd * 0.92, 3.42], [sd * 0.58, 3.12], [sd * 0.5, 3.36], [sd * 0.88, 3.7]], '#1e2a44');
+    x.fillStyle = '#c98f6c'; x.beginPath(); x.arc(...P(sd * 0.56, 3.2), 0.13 * s, 0, Math.PI * 2); x.fill();
+  }
+  // the respirator on its strap
+  x.strokeStyle = '#2b2b2b'; x.lineWidth = 3; x.beginPath(); x.moveTo(...P(-0.25, 5.0)); x.quadraticCurveTo(...P(0, 4.2), ...P(0.25, 5.0)); x.stroke();
+  x.fillStyle = '#5c6066'; x.beginPath(); x.ellipse(...P(0, 4.3), 0.2 * s, 0.15 * s, 0, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#33363b'; x.beginPath(); x.arc(...P(0, 4.28), 0.07 * s, 0, Math.PI * 2); x.fill();
+  // the tartan scarf, Highlanders green and navy with the red line
+  poly([[-0.42, 5.12], [0.42, 5.12], [0.38, 4.88], [-0.38, 4.88]], '#00602a');
+  poly([[0.12, 4.95], [0.34, 4.95], [0.3, 4.0], [0.1, 4.05]], '#00602a');
+  x.strokeStyle = '#1c2c6a'; x.lineWidth = 4; for (const zz of [5.03, 4.7, 4.35]) { x.beginPath(); x.moveTo(...P(zz > 4.9 ? -0.4 : 0.1, zz)); x.lineTo(...P(zz > 4.9 ? 0.4 : 0.32, zz)); x.stroke(); }
+  x.strokeStyle = '#c8102e'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(...P(0.21, 4.95)); x.lineTo(...P(0.2, 4.05)); x.stroke();
+  // the head, a grin, and the Crows cap
+  x.fillStyle = '#c98f6c'; x.beginPath(); x.ellipse(...P(0, 5.48), 0.3 * s, 0.36 * s, 0, 0, Math.PI * 2); x.fill();
+  x.strokeStyle = '#3a2418'; x.lineWidth = 2.5; x.beginPath(); x.arc(...P(0, 5.38), 0.14 * s, 0.15 * Math.PI, 0.85 * Math.PI); x.stroke();
+  x.fillStyle = '#1b1310'; for (const sd of [-1, 1]) { x.beginPath(); x.arc(...P(sd * 0.11, 5.55), 3, 0, Math.PI * 2); x.fill(); }
+  x.fillStyle = '#9b9890'; x.fillRect(...P(-0.3, 5.36), 0.06 * s, 0.22 * s); x.fillRect(...P(0.24, 5.36), 0.06 * s, 0.22 * s);
+  x.fillStyle = FINAL.band; x.beginPath(); x.ellipse(...P(0, 5.72), 0.32 * s, 0.22 * s, 0, Math.PI, 0); x.fill();
+  x.fillStyle = FINAL.trim; x.beginPath(); x.ellipse(...P(-0.18, 5.7), 0.3 * s, 0.06 * s, 0, 0, Math.PI * 2); x.fill();
+  x.restore();
+}
+ken(X(7.2), GY + 20);
+// his name
+x.textAlign = 'left'; x.fillStyle = '#efe6cf'; x.font = '900 96px Impact, "Saira Condensed", sans-serif'; x.fillText('KEN RAVEN', 70, 112);
+x.fillStyle = '#e2b33a'; x.fillRect(74, 128, 420, 6);
+x.fillStyle = '#b9c2cf'; x.font = '600 32px "Arial Narrow", "Saira Condensed", sans-serif'; x.fillText('Zamboni driver, CPhL. His Coldwater Cup final livery.', 74, 176);
+// the piece by itself, large
+const big = document.createElement('canvas'); big.width = LIVERY_W * 2; big.height = LIVERY_H * 2; big.id = 'big';
+paintLivery(big.getContext('2d'), big.width, big.height); document.body.appendChild(big);
+</script></body></html>

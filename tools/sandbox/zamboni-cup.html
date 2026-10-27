@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Zamboni cup harness</title>
+<script type="importmap">{ "imports": { "/shared/": "/client/shared/" } }</script>
+<link rel="stylesheet" href="/client/game/styles.css">
+<style>html,body{margin:0;background:#000}#host{width:1200px;height:675px;position:relative}</style>
+</head><body><div id="output"></div><div id="host" class="gdr"></div>
+<script type="module">
+import { createRinkView } from '/client/game/js/panels/gameday-rink.js';
+const host = document.getElementById('host');
+const view = createRinkView(host, { fly: false });
+window.view = view;
+await view.ready();
+view.showIdle();
+const base = { sport: 'hockey', awayTeam: 'Coldwater Highlanders', homeTeam: 'Yard Birds', awayAbbr: 'COL', homeAbbr: 'YAR', gate: 1, cup: new URLSearchParams(location.search).get('cup') !== '0' };
+view.apply({ ...base, type: 'intermission', section: '1st', nextOrd: '2nd', awayScore: 1, homeScore: 0, goals: [], casualties: [], shotsAway: 9, shotsHome: 7, penalties: 0, fights: 0, hits: 4, standings: [] });
+window.done = true;
+</script></body></html>

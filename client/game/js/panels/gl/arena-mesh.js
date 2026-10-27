@@ -17,6 +17,7 @@ import { V, clamp, lerp, rotZ, footFrame } from '../rink/util.js';
 import { rinkFace } from '../rink/faces.js';
 import { headMesh, hairMesh, HEAD_FEAT } from '../actor-head.js';
 import { maskColours, OFFICIAL_KIT, MEDIC_KIT, CREW_KIT } from '../rink/hud.js';
+import { FLANK, cupColour, LIVERY_W, LIVERY_H } from '../rink/livery.js';
 
 export const STRIDE = 13;
 
@@ -664,13 +665,13 @@ export function buildBody(b, bt, J, o) {
     const fore = V.len(V.sub(wrist, E)) || 1, cuffBand = (at, w, col) => loft(b, limbRings(AP, Ss, F, profSpan(slv, 1 + at - w / fore / 2, 1 + at + w / fore / 2), 1.04), col, null, lseg);
     if (K.sleeve) { for (const sb of K.sleeve) cuffBand(sb.at, sb.w, rgb(sb.col)); }
     else if (!K.stripes) { cuffBand(0.3, 0.1, trim); cuffBand(0.48, 0.06, trim); }
-    if (gk && side > 0) {
+    if (gk && side > 0 && o.gloves !== false) {
       // the trapper: the cuff, the round pocket, the deep mitt
       const tc = V.add(H, V.mul(dir, 0.15));
       tube(b, V.sub(wrist, V.mul(dir, 0.2)), wrist, 0.32, 0.3, mix(trim, -0.05), seg);
       disc(b, tc, F, 0.62, mix(trim, -0.05), 18, 0.12);
       ellipsoid(b, V.add(tc, V.mul(F, 0.08)), V.cross(F, dir), dir, F, [0.42, 0.5, 0.16], mix(trim, 0.15), 10, 5);
-    } else if (gk) {
+    } else if (gk && o.gloves !== false) {
       const up = V.norm(V.sub(U, V.mul(F, V.dot(U, F))));
       boxAxes(b, V.add(H, V.mul(F, 0.12)), V.cross(F, up), up, F, 0.38, 0.58, 0.06, rgb('#eceef1'));
     } else if (o.gloves !== false) {
@@ -898,7 +899,10 @@ export function buildStretcher(b, s) {
   for (const sv of [-1, 1]) tube(b, V.frame([s.x, s.y, 1.6], ax, -3.9, ay, sv * 0.95), V.frame([s.x, s.y, 1.6], ax, 3.9, ay, sv * 0.95), 0.05, 0.05, rgb('#7a7466'), 5);
 }
 
-// The ice resurfacer, box for box the same machine render.js draws.
+// The ice resurfacer, box for box the same machine render.js draws. On Cup final night
+// (`cup`) it's in Ken Raven's colours with his piece on the tank (rink/livery.js).
+// The lettering texture: ICE CREW in a strip at the top, the piece under it.
+export const ZAMBONI_LABEL = { w: LIVERY_W, crew: 128, h: 128 + LIVERY_H };
 const ZB = [
   { b: [-6.1, -4.6, -3.7, 3.7, 0.12, 1.2], col: '#7d848c', bands: [[0.12, 0.35, '#2a2e34']] },
   { b: [-4.7, 4.7, -3.45, 3.45, 0.55, 2.7], col: '#eceff2', bands: [[1.45, 1.95, '#1f4fbf'], [0.55, 0.8, '#3a3f46']] },
@@ -908,23 +912,30 @@ const ZB = [
   { b: [-3.6, -2.7, 0.95, 2.05, 3.2, 5.2], col: '#2c3a4e' },
   { b: [-1.0, -0.65, 1.25, 1.55, 2.7, 4.4], col: '#22262c' },
 ];
-export function buildZamboni(b, bt, z, t) {
+export function buildZamboni(b, bt, z, t, cup = false) {
   const ch = Math.cos(z.h), sn = Math.sin(z.h), ax = [ch, sn, 0], ay = [-sn, ch, 0], az = [0, 0, 1];
   const W3 = (u, v, w) => [z.x + u * ch - v * sn, z.y + u * sn + v * ch, w];
   const bx = (u0, u1, v0, v1, z0, z1, col) => boxAxes(b, W3((u0 + u1) / 2, (v0 + v1) / 2, (z0 + z1) / 2), ax, ay, az, (u1 - u0) / 2, (v1 - v0) / 2, (z1 - z0) / 2, rgb(col));
   for (const o of ZB) {
     const [u0, u1, v0, v1, z0, z1] = o.b;
-    bx(u0, u1, v0, v1, z0, z1, o.col);
-    for (const [a0, a1, c] of o.bands || []) bx(u0 - 0.02, u1 + 0.02, v0 - 0.02, v1 + 0.02, a0, a1, c);
+    bx(u0, u1, v0, v1, z0, z1, cupColour(o.col, cup));
+    for (const [a0, a1, c] of o.bands || []) bx(u0 - 0.02, u1 + 0.02, v0 - 0.02, v1 + 0.02, a0, a1, cupColour(c, cup));
   }
   // the lettering on both flanks of the tank, from the label texture
+  const L = ZAMBONI_LABEL;
   if (bt) for (const sv of [-1, 1]) {
-    const v = sv * 3.37, u0 = sv > 0 ? 4.45 : 0.5, u1 = sv > 0 ? 0.5 : 4.45;
-    quad(bt, W3(u0, v, 3.6), W3(u1, v, 3.6), W3(u1, v, 4.6), W3(u0, v, 4.6), [1, 1, 1, 1], [0, 0, 1, 1], V.mul(ay, sv));
+    const v = sv * 3.37;
+    if (cup) {
+      const u0 = sv > 0 ? FLANK.u[1] : FLANK.u[0], u1 = sv > 0 ? FLANK.u[0] : FLANK.u[1], [z0, z1] = FLANK.z;
+      quad(bt, W3(u0, v, z0), W3(u1, v, z0), W3(u1, v, z1), W3(u0, v, z1), [1, 1, 1, 1], [0, L.crew / L.h, 1, 1], V.mul(ay, sv));
+      continue;
+    }
+    const u0 = sv > 0 ? 4.45 : 0.5, u1 = sv > 0 ? 0.5 : 4.45;
+    quad(bt, W3(u0, v, 3.6), W3(u1, v, 3.6), W3(u1, v, 4.6), W3(u0, v, 4.6), [1, 1, 1, 1], [0, 0, 1, L.crew / L.h], V.mul(ay, sv));
   }
   for (const sv of [-1, 1]) for (const wu of [-3.0, 2.8]) disc(b, W3(wu, sv * 3.5, 0.95), V.mul(ay, sv), 0.95, rgb('#16181c'), 14, 0.5);
   sphere(b, W3(-3.15, 1.5, 5.75), 0.42, rgb('#d9a27e'), 8, 6);
-  ellipsoid(b, W3(-3.15, 1.5, 5.9), ax, ay, az, [0.45, 0.45, 0.25], rgb('#1f4fbf'), 8, 4);
+  ellipsoid(b, W3(-3.15, 1.5, 5.9), ax, ay, az, [0.45, 0.45, 0.25], rgb(cupColour('#1f4fbf', cup)), 8, 4);
   // the beacon is lit from inside: an unlit vertex colour
   const on = Math.sin(t * 7) > 0, bcol = on ? [1, 0.75, 0.25, 1] : [0.55, 0.36, 0.1, 1];
   const c0 = b.n;

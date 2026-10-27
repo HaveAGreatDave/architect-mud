@@ -818,6 +818,24 @@
         "Big miss from {thrower}.",
         "{thrower} hits air."
       ],
+      "pbp.pressure": [
+        "{team} won't let them out.",
+        "{team} keep coming.",
+        "Another one! {team} are all over them.",
+        "{opp} can't get it out of their own end.",
+        "Shot after shot from {team}.",
+        "{opp} are just hanging on.",
+        "This is all {team} right now.",
+        "{team} have them pinned in there.",
+        "{opp} need a whistle. Any whistle."
+      ],
+      "pbp.pressure.relief": [
+        "{team} finally get it out.",
+        "And {team} get a look of their own at last.",
+        "{team} go the other way. About time.",
+        "There's the first breath {team} have had in a while.",
+        "{opp} let them off the hook. {team} away."
+      ],
       "pbp.rebound": [
         "Rebound!",
         "Rebound loose!",
@@ -955,9 +973,10 @@
         "{player} caught for {infraction}. The officials noticed that one, which isn't guaranteed."
       ],
       "penalty.fight": [
-        "Gloves off. {fighters} have decided the scoreboard isn't settling this. Linesmen are giving it a count of five before they pretend to care.",
         "And they go. {fighters}, right at centre ice, and nobody is in a hurry to stop it.",
-        "Here it is. {fighters}, sweaters up over the heads, and the building is on its feet."
+        "The linesmen are giving this a count of five before they pretend to care.",
+        "{fighters}. The whole building is on its feet.",
+        "Nobody in a stripe is going anywhere near that yet."
       ],
       "penalty.major": [
         "{penaltyMin} minutes for {infraction}. That's a major, and {player} is done thinking about it.",
@@ -1409,10 +1428,83 @@
       "cup.watch.out": [
         "The {club} are without {missing} tonight. The reserve dresses in their place.",
         "Not dressing for the {club}: {missing}. Still on the shelf."
+      ],
+      "pbp.fight.tug": [
+        "{thrower} hauls on the sweater.",
+        "{thrower} ties him up.",
+        "{thrower} grabs a fistful and pulls.",
+        "{thrower} holds on for dear life.",
+        "{thrower} yanks him off balance."
+      ],
+      "fight.draw": [
+        "The linesmen get in between them. Nobody won that, and both of them think they did.",
+        "Pulled apart, and that's a draw. Two tired men with sore hands.",
+        "Neither one could get on top. The stripes step in and end it."
+      ],
+      "fight.wound": [
+        "{victim} is leaving with {wound}.",
+        "That's {wound} for {victim}. The ice crew will want a shovel.",
+        "{victim} has {wound}, and he's bleeding on everybody.",
+        "Looks like {wound} for {victim}."
+      ],
+      "fight.wound.winner": [
+        "{winner} didn't get out of it clean. That's {wound}.",
+        "{winner} is wearing {wound}, and smiling through it."
+      ],
+      "fight.result.draw": [
+        "Five each, and nobody gets the man advantage. The rulebook doesn't know what to do with a draw either.",
+        "Both to the box for five. Even strength, and two very quiet benches."
+      ],
+      "fight.result.hurt": [
+        "{winner} takes it, and {loser} isn't going to the box. He's going to the room.",
+        "{loser} won't be serving his five. He'll be getting stitched. The {winnerTeam} go on the power play."
+      ],
+      "brawl": [
+        "Oh, here we go. {team} and {opp}, and this isn't one fight, it's all of them.",
+        "That's the whole lot. {team} and {opp} have stopped playing hockey.",
+        "Both benches are on their feet, and so is everyone on the ice. It's a brawl."
+      ],
+      "pbp.brawl.drop": [
+        "Everybody's going!",
+        "All ten of them. Gloves everywhere.",
+        "It's a line brawl. Every man on the ice has a partner."
+      ],
+      "pbp.brawl.pair": [
+        "{winner} is beating on {loser} by the boards.",
+        "{winner} has {loser} down. That's {wound}.",
+        "{winner} over {loser}, and it isn't close."
+      ],
+      "pbp.brawl.pair.even": [
+        "{winner} and {loser} are just holding each other up.",
+        "{winner} and {loser} trading, nobody winning."
+      ],
+      "pbp.brawl.goalies": [
+        "And here come the goalies! {winner} and {loser}, the length of the ice.",
+        "The goalies are coming! {winner} has thrown off the blocker.",
+        "Both goalies out of the crease. Oh, this is beautiful."
+      ],
+      "brawl.goalies": [
+        "{winner} with the pads still on, and {loser} is on his back. That's {wound}.",
+        "{winner} wins the goalie fight. Nobody will remember the score.",
+        "Two goalies rolling on the ice, and {winner} comes up on top."
+      ],
+      "brawl.goalies.even": [
+        "The goalies just fall over each other. Neither one can see past the mask.",
+        "{winner} and {loser} hug it out in the pads. That's a draw, and a slow one."
+      ],
+      "pbp.brawl.end": [
+        "The stripes are pulling them apart one pair at a time.",
+        "It's ending. Slowly.",
+        "Linesmen everywhere. It's over."
+      ],
+      "brawl.result": [
+        "Every man who fought sits five. Both boxes are full and the benches are thin.",
+        "Five each, all of them. Somebody count the teeth.",
+        "The penalty box looks like a bus shelter. Even strength, and a lot of empty benches."
       ]
     },
     "sim": {
-      "version": 2
+      "version": 3
     },
     "sport": "hockey",
     "teams": [

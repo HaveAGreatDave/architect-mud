@@ -48,6 +48,39 @@ export const avgText = (h, ab) => {
   const v = Math.round((1000 * h) / ab);
   return v >= 1000 ? '1.000' : `.${String(v).padStart(3, '0')}`;
 };
+// ── how hard the booth sells it ───────────────────────────────────────────────
+// Baseball is calm until it isn't: the voice stays level through a 9-2 game and climbs only
+// for a big play, or any play that matters late in a close one. `stakes` (0-1) is how much the
+// moment matters before the pitch: the innings left, the margin, men on and two out. `exciteFor`
+// is the call's `excite` (-1..1 for AudioEngine.speak), the play's size scaled by the stakes,
+// and a walk-off is always all the way up. `phase` 'before' is the lean-in while he comes up,
+// and only in a big spot; 'after' is the reaction, already coming down.
+const PLAY_SIZE = { homerun: 0.75, tripleplay: 0.85, doubleplay: 0.5, triple: 0.5, double: 0.4, sacfly: 0.35,
+  error: 0.35, single: 0.3, strikeout: 0.25, walk: 0.1, hitbypitch: 0.15, productout: 0.2, steal: 0.3, stealhome: 0.8 };
+export function stakesOf(b, home = '', bases = null) {
+  const runs = b.runs ?? b.rbi ?? 0;
+  const homeBats = b.battingName === home;
+  const hs = (b.homeScore ?? 0) - (homeBats ? runs : 0), as = (b.awayScore ?? 0) - (homeBats ? 0 : runs);
+  const margin = Math.abs(hs - as);
+  const close = margin === 0 ? 1 : margin === 1 ? 0.9 : margin === 2 ? 0.55 : margin === 3 ? 0.25 : 0;
+  const late = Math.max(0, Math.min(1, ((b.inning || 1) - 5) / 4));
+  const on = Array.isArray(bases) ? bases.filter(Boolean).length : 0;
+  return Math.max(0, Math.min(1, close * (0.25 + 0.75 * late) + 0.06 * on * close));
+}
+export function exciteFor(b, home = '', phase = 'call', bases = null) {
+  if (!b) return 0;
+  const s = stakesOf(b, home, bases);
+  if (phase === 'before') return s >= 0.6 ? Math.round(0.3 * s * 100) / 100 : 0;
+  if (b.walkoff) return phase === 'after' ? 0.7 : 1;
+  let size = PLAY_SIZE[b.kind] ?? (b.out ? 0.1 : 0.3);
+  if (b.kind === 'homerun' && (b.rbi || 0) >= 4) size = 0.9;
+  if ((b.runs ?? b.rbi ?? 0) > 0) size = Math.max(size, 0.45);
+  // the out that ends a big inning is a big out
+  if (b.out && b.outs >= 3) size += 0.35 * s;
+  const x = Math.min(1, size * (0.55 + 0.65 * s));
+  return Math.round((phase === 'after' ? x * 0.6 : x) * 100) / 100;
+}
+
 const rankIn = (list, name) => (Array.isArray(list) ? list.slice(0, 3).findIndex((r) => r.name === name) : -1);
 
 // `pools` the script's line pools, `rand` the booth's stream, `game` the sim's game, `leaders`

@@ -132,7 +132,7 @@ export function makeBody(kind, side, slot, seed) {
     tx: 100, ty: MID_Y, maxV: 20, acc: 26, face: null,
     act: null, actT: 0, actDur: 1, actData: null,
     stick: kind === 'skater', gloves: kind !== 'official' && kind !== 'medic', helmet: kind !== 'medic',
-    jerseyUp: 0, react: 0, duck: 0, rag: null, blend: null, stance: 0, guard: false, grab: null, foe: null, target: null,
+    jerseyUp: 0, react: 0, reactSide: 0, duck: 0, rag: null, blend: null, stance: 0, guard: false, grab: null, foe: null, target: null,
     bleeding: 0, blood: 0, missing: {}, active: true, scripted: false, carrying: false,
     name: '', num: 0, skin: SKINS[(r() * SKINS.length) | 0], hair: HAIRS[(r() * HAIRS.length) | 0],
     faceGear: r() < 0.35 ? 'visor' : 'cage', cutAt: 0, lastFoot: null, sprayAt: 0, dark: 0,

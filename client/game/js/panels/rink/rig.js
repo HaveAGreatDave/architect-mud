@@ -376,18 +376,29 @@ function standRig(s, T, feet) {
   if (rest) { crouch += 0.32 * rest; lean += 0.6 * rest; pitch = lerp(pitch, 0.2, rest); bob *= 1 - rest; }
   if (s.guard) { crouch = Math.max(s.crouch, 0.18); lean = 0.12 + 0.2 * crouch; tilt = 0; pitch = 0; shiftV = 0; bob = 0; twist = 0; }
   let pk = 0;
-  if (act === 'punchR' || act === 'punchL' || act === 'jab' || act === 'uppercut') {
-    pk = act !== 'uppercut'
+  if (act === 'punchR' || act === 'punchL' || act === 'jab' || act === 'uppercut' || act === 'hook') {
+    // (a right and a hook are cocked first, the shoulder turned away, then thrown through;
+    // a jab just goes)
+    pk = act === 'jab' || act === 'punchL'
       ? (at < 0.36 ? easeOut(at / 0.36) : 1 - easeIO((at - 0.36) / 0.64))
-      : (at < 0.35 ? -easeIO(at / 0.35) : at < 0.6 ? -1 + 2 * easeOut((at - 0.35) / 0.25) : 1 - easeIO((at - 0.6) / 0.4));
+      : act === 'punchR'
+        ? (at < 0.16 ? -0.45 * easeIO(at / 0.16) : at < 0.42 ? -0.45 + 1.45 * easeOut((at - 0.16) / 0.26) : 1 - easeIO((at - 0.42) / 0.58))
+        : (at < 0.35 ? -easeIO(at / 0.35) : at < 0.6 ? -1 + 2 * easeOut((at - 0.35) / 0.25) : 1 - easeIO((at - 0.6) / 0.4));
     const side = act === 'punchL' || act === 'jab' ? -1 : 1;
-    twist += side * (0.55 * Math.max(0, pk)) - 0.25 * Math.max(0, -pk);
+    const turn = act === 'hook' ? 0.9 : act === 'punchR' ? 0.7 : 0.55;
+    twist += side * (turn * Math.max(0, pk)) - (act === 'hook' ? 0.5 : 0.3) * Math.max(0, -pk);
+    // he puts his weight into it
+    lean += 0.22 * Math.max(0, pk) - 0.08 * Math.max(0, -pk);
     if (act === 'uppercut') crouch += 0.3 * Math.max(0, -pk) - 0.1 * Math.max(0, pk);
   }
+  // a yank on the sweater: he sits back and drags the other man's head down
+  if (act === 'yank') { const k = bump(at); lean -= 0.35 * k; crouch += 0.2 * k; twist += 0.35 * Math.sin(at * Math.PI * 2); }
   if (act === 'pull') lean += 0.3 * Math.sin(Math.min(1, at * 1.5) * Math.PI / 2);
   if (act === 'shove' || act === 'break') lean += 0.3 * bump(at);
   if (act === 'stagger') lean -= 0.4 * bump(at);
   lean -= 0.65 * s.react;
+  // a punch turns his head away from the side it came from
+  twist -= (s.reactSide || 0) * 0.45 * s.react;
   shiftV = lerp(shiftV, wShift, envL);
   if (s.look) {
     const l = toLocal(s.look[0], s.look[1], s.look[2] ?? 1);
@@ -506,13 +517,24 @@ function standRig(s, T, feet) {
   } else if (s.guard || (act && !official) || s.jerseyUp > 0.5) {
     const gb = Math.sin(T * 6.5 + s.seed) * 0.07;
     L = [1.0, 0.36, zp + 1.78 + gb]; R = [0.78, -0.4, zp + 1.58 - gb];
-    if (s.grab) L = toLocal(s.grab.x, s.grab.y, 4.35);
+    // The hold: a fistful of sweater at his shoulder, worked all the time, pulling him in
+    // and shoving him off so the man he's hitting can't set his feet.
+    if (s.grab) {
+      L = toLocal(s.grab.x, s.grab.y, 4.85); L[1] += 0.35;
+      const work = Math.sin(T * 7.3 + s.seed * 1.7);
+      L[0] -= 0.28 * Math.max(0, work); L[2] -= 0.18 * Math.max(0, -work);
+    }
     if (pk && s.foe) {
       const tgt = toLocal(s.foe.x, s.foe.y, act === 'uppercut' ? 5.0 : 5.35);
       const left = act === 'punchL' || act === 'jab', k = act === 'jab' ? pk * 0.8 : pk;
       if (left) L = pk >= 0 ? V.lerp(L, tgt, k) : L;
-      else R = pk >= 0 ? V.lerp(R, tgt, k) : V.lerp(R, [0.5, -0.4, zp + 0.55], -pk);
+      else if (act === 'hook') {
+        // round the outside: out wide at shoulder height, then in at the side of his head
+        const wide = [0.35, -1.55, zp + 1.95];
+        R = pk >= 0 ? (k < 0.5 ? V.lerp(wide, V.lerp(wide, tgt, 0.5), k * 2) : V.lerp(V.lerp(wide, tgt, 0.5), V.add(tgt, [0, 0.25, 0]), (k - 0.5) * 2)) : V.lerp(R, wide, -pk);
+      } else R = pk >= 0 ? V.lerp(R, tgt, k) : V.lerp(R, act === 'punchR' ? [-0.2, -0.65, zp + 1.85] : [0.5, -0.4, zp + 0.55], -pk);
     }
+    if (act === 'yank' && s.foe) { const k = bump(at); L = toLocal(s.foe.x, s.foe.y, 4.9 - 1.3 * k); L[1] += 0.45; L[0] -= 0.6 * k; R = toLocal(s.foe.x, s.foe.y, 4.8 - 1.3 * k); R[1] -= 0.45; R[0] -= 0.6 * k; }
     if (act === 'pull' && s.foe) { const k = Math.min(1, at * 1.4); L = toLocal(s.foe.x, s.foe.y, 5.0 - 2.2 * k); L[1] += 0.55; R = toLocal(s.foe.x, s.foe.y, 5.0 - 2.2 * k); R[1] -= 0.55; }
     if (act === 'celebrate') R = [0.4, -0.5, zp + 3.0 + Math.sin(T * 9) * 0.25];
     if (act === 'stagger') { const k = bump(at); L = V.lerp(L, [0.2, 1.6, zp + 1.5], k); R = V.lerp(R, [0.2, -1.6, zp + 1.5], k); }
@@ -529,7 +551,7 @@ function standRig(s, T, feet) {
   }
   // a shove with the stick is a cross-check: both hands on it, the shaft across his chest
   if (act === 'shove' && s.target && s.stick) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; held = 'across'; stickFit = null; }
-  if (s.grab || act === 'pull' || act === 'hug' || act === 'shove' || act === 'break' || (s.tussle && !carrying)) { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
+  if (s.grab || act === 'pull' || act === 'yank' || act === 'hug' || act === 'shove' || act === 'break' || (s.tussle && !carrying)) { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
   else if (s.guard) { L = reach(shL, L, 0.8); R = reach(shR, R, pk > 0.6 ? 0.98 : 0.8); }
   // (a quarter of a second to get anywhere, unless it's an action, quicker; a shot, a deke or a
   // punch is its own path and only smoothed at the joins)
@@ -716,6 +738,13 @@ export function goalieRig(g, T) {
   const tpush = Math.abs(lat) > 7 && !act;
   const shuffle = !tpush && Math.abs(lat) > 1.2 && !act;
   let bf = g.bfly;
+  // A goalie in a fight (a brawl's last pair): stood up, stick and blocker gone, fists up.
+  const fighting = !g.stick && !!g.foe;
+  if (fighting) bf = 0;
+  // (a haymaker turns his whole upper body: wound back, then through)
+  const hay = fighting && (act === 'punchR' || act === 'hook' || act === 'uppercut' || act === 'punchL')
+    ? (at < 0.4 ? -easeIO(at / 0.4) : at < 0.55 ? -1 : at < 0.68 ? -1 + 2 * easeOut((at - 0.55) / 0.13) : 1 - easeIO((at - 0.68) / 0.32)) * (act === 'punchL' ? -1 : 1) : 0;
+  const tauntK = fighting && act === 'taunt' ? bump(at) : 0;
   if (act === 'butterfly' || act === 'bslide' || act === 'pad' || act === 'cover') bf = Math.max(bf, easeOut(clamp(at * 3, 0, 1)));
   if (act === 'recover') bf = 1 - easeIO(at);
   if (act === 'dive' || act === 'rvh') bf = Math.max(bf, 0.6);
@@ -727,6 +756,7 @@ export function goalieRig(g, T) {
   if (g.bfT !== T) { g.bfE = bf; g.bfT = T; }
   let zp = lerp(2.3, 1.3, bf);
   let lean = 0.42 + 0.1 * bf, tilt = 0, twist = 0;
+  if (fighting) { lean = 0.18 + 0.3 * hay - 0.25 * tauntK - 0.4 * (g.react || 0); twist = 0.75 * hay; }
   let yaw = 0, pitch = -0.2;
   if (g.track) { const l = toLocal(g.track[0], g.track[1], g.track[2] ?? 0.2); yaw = clamp(Math.atan2(l[1], l[0]), -1.1, 1.1); pitch = clamp(Math.atan2(l[2] - 4.6, hyp(l[0], l[1])), -0.9, 0.4); }
   if (act === 'cover') { lean += 0.75 * Math.min(1, at * 2); pitch = -1.0; }
@@ -770,10 +800,35 @@ export function goalieRig(g, T) {
   if (act === 'celebrate') { L = [0.3, 1.0, zp + 3.0]; R = [0.3, -1.0, zp + 3.0]; blade = [0.6, -0.6, zp + 6]; }
   if (act === 'dive') { L = [0.6, 2.4 * side, zp + 1.2]; R = [1.0, 2.0 * side, zp + 0.4]; blade = [1.0, 3.2 * side, 0.06]; toeOff = [0.6, 0.6 * side, 0]; }
   if (act === 'stretch') { L = [0.5, 1.4, zp + 1.6]; R = [0.5, -1.4, zp + 1.6]; }
+  if (fighting && act !== 'celebrate') {
+    const gb = Math.sin(T * 5.5 + g.seed) * 0.1;
+    L = [1.0, 0.55, zp + 2.0 + gb]; R = [0.85, -0.55, zp + 1.85 - gb];
+    if (g.grab) { L = toLocal(g.grab.x, g.grab.y, 4.9); L[1] += 0.4; L[0] -= 0.3 * Math.max(0, Math.sin(T * 6.1 + g.seed)); }
+    const punch = act === 'punchR' || act === 'punchL' || act === 'jab' || act === 'uppercut' || act === 'hook';
+    if (punch) {
+      const tgt = toLocal(g.foe.x, g.foe.y, act === 'uppercut' ? 5.0 : 5.4);
+      if (act === 'jab') { const k = at < 0.4 ? easeOut(at / 0.4) : 1 - easeIO((at - 0.4) / 0.6); L = V.lerp(L, tgt, k); }
+      else {
+        // a haymaker: drawn back behind his head, held a beat, then thrown through him
+        const left = act === 'punchL', sy = left ? 1 : -1;
+        const back = [-0.55, sy * 1.0, zp + 2.75];
+        const k = at < 0.4 ? easeIO(at / 0.4) : at < 0.55 ? 1 : at < 0.68 ? 1 - easeOut((at - 0.55) / 0.13) : 0;
+        const thru = at < 0.55 ? 0 : at < 0.68 ? easeOut((at - 0.55) / 0.13) : 1 - easeIO((at - 0.68) / 0.32);
+        const rest = left ? L : R;
+        const hand = V.lerp(V.lerp(rest, back, k), V.add(tgt, [0.4, -sy * 0.3, act === 'uppercut' ? 0.3 : 0]), thru);
+        if (left) L = hand; else R = hand;
+      }
+    }
+    // "come on, then": arms out wide, chest up
+    if (act === 'taunt') { const k = bump(at), w = Math.sin(at * Math.PI * 4) * 0.15; L = V.lerp(L, [0.5, 2.1, zp + 2.0 + w], k); R = V.lerp(R, [0.5, -2.1, zp + 2.0 - w], k); }
+    if (act === 'yank') { const k = bump(at); L = toLocal(g.foe.x, g.foe.y, 4.8 - 1.2 * k); R = toLocal(g.foe.x, g.foe.y, 4.7 - 1.2 * k); L[1] += 0.45; R[1] -= 0.45; }
+    blade = [1.2, -0.6, 0.06];
+  }
 
   // ⚠ A GOALIE'S STICK IS ONE LENGTH. The blocker holds it at the top of the paddle, GSTICK
   // from the heel, and the shaft goes on above his hand. Out of reach, the blade comes in.
-  {
+  // (A goalie fighting has dropped it.)
+  if (!fighting) {
     const onIce = blade[2] < 0.3, d = V.sub(R, blade), dl = V.len(d) || 1;
     R = V.add(blade, V.mul(d, GSTICK / dl));
     const a = V.sub(R, shR), al = V.len(a);
@@ -847,6 +902,8 @@ export function goalieRig(g, T) {
   const lo = Math.min(...loc.map((p) => p[2]));
   if (act === 'dive') loc = loc.map((p) => [p[0], p[1], Math.max(0.22, p[2])]);
   else if (lo < 0.22) loc = loc.map((p) => [p[0], p[1], p[2] + 0.22 - lo]);
+  // (a goalie fighting has no stick to draw: the butt, blade and toe go)
+  if (fighting) loc = loc.slice(0, 18);
   const out = toWorld(g, loc);
   out.meta = {
     look: dirWorld(g, roll(lookDir(yaw, pitch), tilt)),

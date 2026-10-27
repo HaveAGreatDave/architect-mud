@@ -1560,7 +1560,9 @@ before any game is simulated) through `simVersionFor` and plays the slot's versi
 that has played and ended can't be switched back on; one switched off before its first slot can.
 world_flags is runtime state, so a deploy never rewrites the record. Hockey has a v2 of its own
 (the reprint, in [Hockey specifics](#hockey-specifics-as-built)) and its own record,
-`sports_sim_v2:hockey`; a sport module opts in with `simVersions: [1, 2]`.
+`sports_sim_v2:hockey`; a sport module opts in with `simVersions: [1, 2]`. Each version past 1 has
+its own record (`sports_sim_v3:hockey` for v3), and a slot plays the highest version whose window
+it falls in.
 
 ### The sport registry
 
@@ -1648,6 +1650,20 @@ so a narrator cannot read the other league's records.
   **~13% unavailable** (peak 21 of 96, reserve never dry): at the first pass, 40% of the
   league was hurt at once, which makes "their best man is out" meaningless. Under sim v1 a
   death was for the rest of the season.
+- **Fights by the fighters (sim v3, `@sim 3` in hockey.bsm).** `simFightV3` plays a fight from its
+  own seed and the two men's ratings (`fighterOf`, hashed from the name: power, chin, reach,
+  cardio, grip), with the game's momentum (recent goals and hits, the score) as the starting edge.
+  Who's on top shifts with each landed punch; a man losing it holds on (`tug`). 12 to 22 things
+  happen; it ends in a knockdown, a jersey over the head, or the linesmen, and a linesmen's ending
+  with nobody on top is a draw: both sit five, no power play. A face takes a wound (`FIGHT_WOUNDS`),
+  and a knockdown on a bad one sends the loser to the room (an `injury` beat, `fromFight`) instead
+  of the box. v3 spends the same two calls on the game's rand as v1's fight, so the stream after
+  it lines up. The gloves come off once, on `pbp.fight.drop`; no later line says so.
+- **The line brawl (sim v3).** Once a game at most, only between rivals, and only in a final
+  (`important`, from `override.worldSeries`) or a one-goal third: `BRAWL_CHANCE` a chance-gap,
+  about 2% of rival games and 8% of rival finals. Every skater pairs off (each a `simFightV3`,
+  cut to eight punches), and in about one brawl in three (`GOALIE_FIGHT_SHARE`) the goalies come out too and fight
+  with their whole exchange, under the fight camera (`stageBrawl`). Everybody who fought sits five, so nobody gets a power play.
 - **The dead are reprinted (sim v2, `@sim 2` in hockey.bsm).** A man who dies goes to the vat
   for 24–40 slots (`reprintSlots`, three to five game-days), longer than any injury, then plays
   again. The length is hashed from his name and the beat, not drawn from the game's rand, so a
@@ -2525,6 +2541,15 @@ ft and smooth lane changes; the rear axle follows it and the machine points alon
 turns as a wheeled machine does. Its speed is a driver's: 11 ft/s on the straights, slower
 through the turns by how tight they are, eased up from a stop and down to one, walking pace
 through the gate. The sheet takes about five and a half minutes of that (`zamboniTime()`).
+
+On Cup final night the machine wears Ken's livery ([livery.js](../client/game/js/panels/rink/livery.js)):
+black with purple bands and gold trim, and a graffiti piece down both flanks of the tank, a
+gold "Ken" tag over purple RAVEN with a gold crown on the R and a raven perched on a branch
+across a gold ring. Every Cup payload carries `cup: true` (the intermission's too, or the
+flag would drop as the Zamboni came on), the director keeps it on `W.cup`, and both
+renderers read it: render.js lays the piece's canvas on the flank, and GLASS 2 has it in
+the lettering texture under ICE CREW (`ZAMBONI_LABEL`). Any other night it's the white ICE
+CREW machine.
 
 The broadcast shows it as a time-lapse: the director sets `lapse` so the machine is through
 its gate seven and a half seconds before the `resume` cue (ten times over with no cue), a

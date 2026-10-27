@@ -477,9 +477,11 @@ function driveCurveOf(d) {
     if (nodes.some(n => n.kind === 'shaper')) anyDrive++;
     const v = A._voiceFor(seed);
     if (v.growl > 0) anyGrowl++;
-    // Growl is exactly one extra oscillator, and only when it was rolled.
+    // Growl is exactly one extra oscillator, and only when it was rolled. The base
+    // three are glot, the ring LFO and the drawn-vowel waver; flutter and shimmer
+    // are buffer sources.
     check(`${seed}: growl adds a source only when present`,
-      oscs.length === (v.growl > 0 ? 6 : 5), `${oscs.length} oscs, growl ${v.growl}`);
+      oscs.length === (v.growl > 0 ? 4 : 3), `${oscs.length} oscs, growl ${v.growl}`);
     check(`${seed}: drive builds a shaper only when present`,
       nodes.some(n => n.kind === 'shaper') === (v.drive > 0));
   }
@@ -534,7 +536,7 @@ function driveCurveOf(d) {
     nodes = [];
     A.speak('testing one two three', { channel: 'ui', seed: 'reader' });
     check('Read Aloud is never driven', !nodes.some(n => n.kind === 'shaper'));
-    check('…and never growls', nodes.filter(n => n.kind === 'osc').length === 5,
+    check('…and never growls', nodes.filter(n => n.kind === 'osc').length === 3,
       `${nodes.filter(n => n.kind === 'osc').length} oscillators`);
   }
 
@@ -560,31 +562,31 @@ function driveCurveOf(d) {
         .filter(Boolean);
     };
     const F0 = A._voiceFor('lab').f0;
-    // The two jitter LFOs are always there; a growl modulator is a third.
+    // The drawn-vowel waver is always there (flutter is a buffer source); a growl modulator is a second.
     const base = glottalMods({ growl: 0 });
-    check('an unmodulated voice has only its jitter LFOs', base.length === 2, `${base.length}`);
+    check('an unmodulated voice has only its waver', base.length === 1, `${base.length}`);
 
     const def = glottalMods({ growl: 0.08 });
-    check('growl adds one modulator', def.length === 3);
+    check('growl adds one modulator', def.length === 2);
     check('…at F0/2 by default, exactly as it was hardcoded',
-      near(def[2].frequency.value, F0 * 0.5, 1e-9), `${def[2].frequency.value} vs ${F0 * 0.5}`);
+      near(def[1].frequency.value, F0 * 0.5, 1e-9), `${def[1].frequency.value} vs ${F0 * 0.5}`);
 
     const inh = glottalMods({ growl: 0.08, growlRatio: 1.414 });
     check('a non-integer ratio takes the source inharmonic',
-      near(inh[2].frequency.value, F0 * 1.414, 1e-9), `${inh[2].frequency.value} vs ${F0 * 1.414}`);
+      near(inh[1].frequency.value, F0 * 1.414, 1e-9), `${inh[1].frequency.value} vs ${F0 * 1.414}`);
     check('growlWave reaches the modulator',
-      glottalMods({ growl: 0.08, growlWave: 'square' })[2].type === 'square');
+      glottalMods({ growl: 0.08, growlWave: 'square' })[1].type === 'square');
     check('…and a nonsense wave falls back rather than throwing',
-      glottalMods({ growl: 0.08, growlWave: 'bagpipe' })[2].type === 'sine');
+      glottalMods({ growl: 0.08, growlWave: 'bagpipe' })[1].type === 'sine');
 
     // ⚠ PARALLEL, not series. buildLayer's op2 modulates the modulator, which
     // compounds into one richer spectrum; here the goal is two competing
     // periodicities in the source, which is what diplophonia is. Both modulators
     // must therefore feed the CARRIER, not each other.
     const bi = glottalMods({ growl: 0.08, growl2: 0.06, growl2Ratio: 1.5 });
-    check('a second modulator is added', bi.length === 4, `${bi.length}`);
+    check('a second modulator is added', bi.length === 3, `${bi.length}`);
     check('…in parallel, both feeding the glottal source',
-      near(bi[2].frequency.value, F0 * 0.5, 1e-9) && near(bi[3].frequency.value, F0 * 1.5, 1e-9),
+      near(bi[1].frequency.value, F0 * 0.5, 1e-9) && near(bi[2].frequency.value, F0 * 1.5, 1e-9),
       bi.map(m => m.frequency.value).join(', '));
 
     // ⚠ The trap that nearly shipped with growl: a source built by hand is a
@@ -603,8 +605,8 @@ function driveCurveOf(d) {
     // every check above rather than by guessing which oscillator is the carrier.
     const forced = glottalMods({ f0: 200, growl: 0.08 });
     check('an explicit voice override beats what the seed rolled',
-      near(forced[2].frequency.value, 200 * 0.5, 1e-9),
-      `modulator at ${forced[2].frequency.value}, seed F0 is ${F0}`);
+      near(forced[1].frequency.value, 200 * 0.5, 1e-9),
+      `modulator at ${forced[1].frequency.value}, seed F0 is ${F0}`);
   }
 
   // ── the pitch contour ─────────────────────────────────────────────────────
@@ -709,7 +711,7 @@ function driveCurveOf(d) {
   {
     nodes = [];
     A.speak('a hat', { seed: 'aspiration' });
-    const nz = nodes.find(n => n.kind === 'buffersrc');
+    const nz = nodes.find(n => n.kind === 'buffersrc' && n._off == null);   // the noise, not a flutter source
     const glot = nodes.filter(n => n.kind === 'osc').find(o => o.frequency.log.length > 3);
     const viaGain = (src) => new Set(src.out.filter(o => o?.kind === 'gain').flatMap(g => g.out));
     const shared = [...viaGain(nz)].filter(x => x?.kind === 'filter' && viaGain(glot).has(x));
@@ -735,7 +737,7 @@ function driveCurveOf(d) {
     const burstQs = (word) => {
       nodes = [];
       A.speak(word, { seed: 'burst-probe' });
-      const nz = nodes.find(n => n.kind === 'buffersrc');
+      const nz = nodes.find(n => n.kind === 'buffersrc' && n._off == null);
       const nbp = nz?.out.find(o => o?.kind === 'filter');
       return (nbp?.Q.log || []).map(e => e.value);
     };

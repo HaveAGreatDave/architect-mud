@@ -157,7 +157,9 @@ export function createRinkView(host, opts = {}) {
       case 'intermission': case 'injury': case 'death': c.setState('quiet'); break;
       case 'penalty': c.setState('penalty'); crowdSettle(4); break;
       case 'pull': c.setState('chance'); break;
-      case 'fight': c.setState('shot').cheer(); crowdSettle(5); break;
+      // (a fight is long now: the crowd stays up through it and comes down at the box)
+      case 'fight': c.setState('shot').cheer(); crowdSettle(20); break;
+      case 'brawl': c.setState('fight').cheer(); crowdSettle(30); break;
       default: c.setState('active');
     }
   }
@@ -176,6 +178,9 @@ export function createRinkView(host, opts = {}) {
         break;
       case 'roar': c.setState('chance').cheer(); crowdSettle(3); break;
       case 'check': if (!o.soft) c.cheer(); break;
+      case 'gloves': c.setState('fight').cheer(); break;
+      case 'punch': if (o.big) c.cheer(); break;
+      case 'knockout': c.setState('goal').cheer(); crowdSettle(4); break;
       case 'periodHorn': c.duck(4, 0.6); break;
     }
   }

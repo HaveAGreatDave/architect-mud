@@ -21,6 +21,7 @@ import { TPX, WPX, BPX, CPX, CX0, CX1, CROWS, ROWH, sharedTextures } from './tex
 import { drawBody, drawSevered } from './figure.js';
 import { createRinkCamera } from './camera.js';
 import { bodyOpts, drawHud, drawnJoints, drawnAt, drawnPuck, glowTail, GLOW } from './hud.js';
+import { FLANK, cupColour, liveryCanvas } from './livery.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 
@@ -454,7 +455,8 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
   // The ice resurfacer: chassis, snow tank, open cab with its driver, the conditioner
   // dragging behind, four wheels and an amber beacon. Boxes are culled by facing and drawn
   // back to front, so it reads as a solid machine from any camera. `bands` are stripes
-  // painted round a box's sides; `label` is lettering on the tank's flanks.
+  // painted round a box's sides; `label` is lettering on the tank's flanks. On Cup final
+  // night (`W0.cup`) it wears Ken Raven's livery instead (livery.js).
   const ZB = [
     { b: [-6.1, -4.6, -3.7, 3.7, 0.12, 1.2], col: '#7d848c', bands: [[0.12, 0.35, '#2a2e34']] },          // conditioner
     { b: [-4.7, 4.7, -3.45, 3.45, 0.55, 2.7], col: '#eceff2', bands: [[1.45, 1.95, '#1f4fbf'], [0.55, 0.8, '#3a3f46']] }, // chassis
@@ -471,9 +473,9 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
     const pt = (u, v, zz) => P(...W3(u, v, zz));
     const boxes = ZB.map((o) => { const b = o.b, c = W3((b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2); return { o, d: Math.hypot(c[0] - camPos[0], c[1] - camPos[1], c[2] - camPos[2]) }; });
     boxes.sort((p, q) => q.d - p.d);
-    const L = V.norm([0.3, -0.5, 0.8]);
+    const L = V.norm([0.3, -0.5, 0.8]), cup = !!W0.cup;
     for (const { o } of boxes) {
-      const [u0, u1, v0, v1, z0, z1] = o.b, col = o.col;
+      const [u0, u1, v0, v1, z0, z1] = o.b, col = cupColour(o.col, cup);
       const side = (n, a0, a1) => n[0] ? [[n[0] > 0 ? u1 : u0, v0, a0], [n[0] > 0 ? u1 : u0, v1, a0], [n[0] > 0 ? u1 : u0, v1, a1], [n[0] > 0 ? u1 : u0, v0, a1]]
         : [[u0, n[1] > 0 ? v1 : v0, a0], [u1, n[1] > 0 ? v1 : v0, a0], [u1, n[1] > 0 ? v1 : v0, a1], [u0, n[1] > 0 ? v1 : v0, a1]];
       const faces = [[[0, 0, 1], [[u0, v0, z1], [u1, v0, z1], [u1, v1, z1], [u0, v1, z1]]], ...[[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]].map((n) => [n, side(n, z0, z1)])];
@@ -487,9 +489,17 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
         if (n[2] === 0) {
           for (const [a0, a1, bc] of o.bands || []) {
             const bq = side(n, a0, a1).map((p) => pt(...p)); if (bq.some((p) => !p)) continue;
-            ctx.fillStyle = shadeHex(bc, lit); quad(ctx, bq[0], bq[1], bq[2], bq[3]); ctx.fill();
+            ctx.fillStyle = shadeHex(cupColour(bc, cup), lit); quad(ctx, bq[0], bq[1], bq[2], bq[3]); ctx.fill();
           }
-          if (o.label && n[1] !== 0) {
+          if (o.label && n[1] !== 0 && cup) {
+            // the piece over the flank, read left to right from either side
+            const fu = n[1] > 0 ? [FLANK.u[1], FLANK.u[0]] : FLANK.u, fv = n[1] > 0 ? v1 : v0;
+            const a = pt(fu[0], fv, FLANK.z[1]), b = pt(fu[1], fv, FLANK.z[1]), c = pt(fu[0], fv, FLANK.z[0]), img = liveryCanvas(doc);
+            if (a && b && c && img && a.s > 3) {
+              ctx.save(); ctx.globalAlpha = Math.min(1, 0.55 + 0.45 * lit); ctx.transform(b.x - a.x, b.y - a.y, c.x - a.x, c.y - a.y, a.x, a.y);
+              ctx.drawImage(img, 0, 0, 1, 1); ctx.restore();
+            }
+          } else if (o.label && n[1] !== 0) {
             // lettering laid on the flank: an affine map from the face's corners is near
             // enough at this size
             const a = pt(n[1] > 0 ? u1 - 0.3 : u0 + 0.3, n[1] > 0 ? v1 : v0, 4.6), b = pt(n[1] > 0 ? u0 + 0.3 : u1 - 0.3, n[1] > 0 ? v1 : v0, 4.6), c = pt(n[1] > 0 ? u1 - 0.3 : u0 + 0.3, n[1] > 0 ? v1 : v0, 3.6);
@@ -508,7 +518,7 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
     const hd = pt(-3.15, 1.5, 5.75);
     if (hd) {
       ctx.fillStyle = '#d9a27e'; ctx.beginPath(); ctx.arc(hd.x, hd.y, 0.42 * hd.s, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#1f4fbf'; ctx.beginPath(); ctx.arc(hd.x, hd.y - 0.1 * hd.s, 0.45 * hd.s, Math.PI, TAU); ctx.fill();
+      ctx.fillStyle = cupColour('#1f4fbf', !!W0.cup); ctx.beginPath(); ctx.arc(hd.x, hd.y - 0.1 * hd.s, 0.45 * hd.s, Math.PI, TAU); ctx.fill();
       ctx.fillRect(hd.x - 0.05 * hd.s, hd.y - 0.14 * hd.s, 0.62 * hd.s * Math.sign(Math.cos(z.h) || 1), 0.1 * hd.s);
     }
     const sh = pt(-2.7, 1.5, 4.9), wh = pt(-0.85, 1.4, 4.45);

@@ -28,6 +28,16 @@ const TRACK = ['f0', 'jitA', 'jitB', 'av', 'ah', 'af', 'f1', 'f2', 'f3', 'f4', '
   'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure', 'rd', 'creak'];
 const NP = TRACK.length;
 const IX = Object.fromEntries(TRACK.map((k, i) => [k, i]));
+// Smooth random wander, ~9 Hz and ~3 Hz octaves, peak about 1. ⚠ Duplicated in
+// audio-engine.js (flutterAt).
+function flutterAt(t, salt) {
+  const knot = (i) => {
+    let h = Math.imul((i | 0) ^ salt, 0x2c1b3c6d); h ^= h >>> 15; h = Math.imul(h, 0x297a2d39); h ^= h >>> 15;
+    return (h >>> 0) / 2147483648 - 1;
+  };
+  const oct = (x) => { const i = Math.floor(x), u = (1 - Math.cos(Math.PI * (x - i))) / 2; return knot(i) * (1 - u) + knot(i + 1) * u; };
+  return 0.65 * oct(t * 9) + 0.45 * oct(t * 3.1 + 517);
+}
 const TAU = Math.PI * 2;
 
 // Klatt's second-order resonator: y = a*x + b*y1 + c*y2, unity gain at DC.
@@ -165,6 +175,7 @@ class OracleVoice extends AudioWorkletProcessor {
     this.cyc = 0;
     this.noise = new Pink(o.seed || 12345);
     this.rand = new Pink((o.seed || 12345) ^ 0x9e3779b9);
+    this.salt = (o.seed || 12345) | 0;
     this.R = [0, 1, 2, 3, 4].map(() => new Reson());       // cascade F1-F5
     this.np = new Reson(); this.nz = new AntiReson();      // the nasal pair
     this.fb1 = new BandPass(); this.fb2 = new BandPass();  // the frication band, twice
@@ -205,11 +216,10 @@ class OracleVoice extends AudioWorkletProcessor {
   cycle(lt) {
     const k = this.k;
     let f0 = this.at(IX.f0, lt);
-    // The graph's two jitter LFOs keep their shapes here (the slow wander is real and the
-    // drawn vowel's 6 Hz waver is a deliberate gesture), sampled once per period ...
+    // jitA is the depth of the slow random flutter, jitB the drawn vowel's 6.3 Hz waver
+    // (a deliberate gesture, zero otherwise), sampled once per period ...
     const jA = this.at(IX.jitA, lt), jB = this.at(IX.jitB, lt);
-    const tri = 1 - 4 * Math.abs(((lt * 9) % 1) - 0.5);
-    f0 += jA * tri + jB * Math.sin(TAU * 6.3 * lt);
+    f0 += jA * flutterAt(lt, this.salt) + jB * Math.sin(TAU * 6.3 * lt);
     // ... and growl as a sub-period FM on the source, as the graph wires it.
     if (k.growl > 0) f0 += k.f0 * k.growl * Math.sin(TAU * k.f0 * k.growlRatio * lt);
     if (k.growl2 > 0) f0 += k.f0 * k.growl2 * Math.sin(TAU * k.f0 * k.growl2Ratio * lt);

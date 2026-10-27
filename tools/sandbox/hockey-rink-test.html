@@ -60,6 +60,7 @@
         <option value="faceoff">faceoffs only</option>
         <option value="chance">chances only</option>
         <option value="fight">fights only</option>
+        <option value="brawl">brawls only</option>
       </select>
       <button id="reroll">⟳ new game</button>
     </div>
@@ -117,7 +118,8 @@
       const q = new URLSearchParams(location.search), find = (k) => q.get(k) && t.find((n) => n.toLowerCase().startsWith(q.get(k).toLowerCase()));
       const matchup = { away: find('away') || t[(slot * 3) % t.length], home: find('home') || t[(slot * 7 + 5) % t.length], teams: t, clubs: script.clubs };
       if (matchup.away === matchup.home) matchup.home = t[(t.indexOf(matchup.away) + 1) % t.length];
-      const game = HOCKEY.simGame(matchup, script.players, sportsRng(seed));
+      // ?sim=3 plays the v3 fights (and a brawl, ?po=1 for a final); without it, v1
+      const game = HOCKEY.simGame(matchup, script.players, sportsRng(seed), { version: +(q.get("sim") || 1), seed, important: q.get("po") === "1" });
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const out = [];
       const pick = (...keys) => sportsPick(script.pools, nrng, ...keys);

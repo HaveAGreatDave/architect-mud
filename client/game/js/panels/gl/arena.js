@@ -34,6 +34,7 @@ import { TAU, clamp, hash, rng } from '../rink/util.js';
 import * as M from './arena-mesh.js';
 import { crowdMorph, CROWD_MORPH } from './ballpark-mesh.js';
 import { GATE_Y, GATE_HALF } from '../rink/zamboni.js';
+import { paintLivery } from '../rink/livery.js';
 import { RINK_CROWD_VS, RINK_CROWD_FS, INST as CROWD_INST, ROWS as BOWL_ROWS, ROW_D, rowD, rowZ, buildBowl, crowdInstances, hideFor, roarOf } from './arena-crowd.js';
 import { paintCrest, paintLayers, settCanvas } from '../club-crest.js';
 import { makeVertexStream } from './stream.js';
@@ -314,10 +315,13 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const c = cv(32, 32), x = c.getContext('2d');
       x.strokeStyle = 'rgba(244,246,248,0.95)'; x.lineWidth = 3; x.strokeRect(0, 0, 32, 32); return c;
     })(), { repeat: true, mip: true });
+    // the Zamboni's lettering: ICE CREW over Ken Raven's Cup final piece (M.ZAMBONI_LABEL)
     const texLabel = texture((() => {
-      const c = cv(256, 64), x = c.getContext('2d');
-      x.fillStyle = '#1f4fbf'; x.font = `800 50px ${FACE}`; x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.fillText('ICE CREW', 128, 34, 240); return c;
+      const Z = M.ZAMBONI_LABEL, c = cv(Z.w, Z.h), x = c.getContext('2d');
+      x.fillStyle = '#1f4fbf'; x.font = `800 100px ${FACE}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText('ICE CREW', Z.w / 2, 68, Z.w - 32);
+      x.save(); x.translate(0, Z.crew); paintLivery(x); x.restore();
+      return c;
     })(), { mip: true });
     const atlas = texture(null, { w: ATLAS, h: ATLAS });
     const slotCv = cv(SLOT, SLOT), sctx = slotCv.getContext('2d');
@@ -707,7 +711,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         const o = W.nets && W.nets[side];
         if (!(o && o.out)) M.buildNet(d, B.netm, gx + (o ? o.dx : 0), dir, MID_Y + (o ? o.dy : 0), NET_HALF, NET_DEPTH, NET_H, (W.netBulge[side] || 0) * 0.7);
       }
-      if (W.zamboni) M.buildZamboni(d, B.label, W.zamboni, W.t);
+      if (W.zamboni) M.buildZamboni(d, B.label, W.zamboni, W.t, !!W0.cup);
       M.buildDoors(d, B.tr, W.doors, GATE_Y, GATE_HALF, RL, BOARD_H, GLASS_H);
       propsN = d.n;
       // the men
