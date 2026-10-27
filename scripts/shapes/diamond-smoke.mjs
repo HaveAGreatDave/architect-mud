@@ -982,7 +982,7 @@ for (const { p, seed } of runs) {
         low = Math.min(low, q.at[1]); far = Math.max(far, dist(q.at, b.at));
       }
       check('the spectacle: a shell\'s sparks stay above the stands and round their burst', low >= 20 && far <= 95, `${label}: as low as ${low.toFixed(0)} ft, ${far.toFixed(0)} ft out`);
-      const q = project('sky', 400, 300, b.at);
+      const q = project('shells', 400, 300, b.at);
       check('the spectacle: the wide shot frames every shell', !!q && q.x > 10 && q.x < 390 && q.y > 10 && q.y < 290, `${label}: ${q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'behind'}`);
     }
     // no flashing more than three times a second: any four shells span more than a second
@@ -1017,7 +1017,7 @@ for (const { p, seed } of runs) {
     if (bursts.length) {
       const first = Math.min(...bursts.map((b) => b.t)), last = Math.max(...bursts.map((b) => b.t));
       const TROT = new Set(['high', 'bag', 'third', 'plate']);
-      const sky = shots.find((x) => x.shot === 'sky' && x.t >= first - FX.burst.rise - 1e-6), back = shots.find((x) => (hr ? TROT.has(x.shot) : x.shot === 'high') && x.t > last);
+      const sky = shots.find((x) => x.shot === 'shells' && x.t >= first - FX.burst.rise - 1e-6), back = shots.find((x) => (hr ? TROT.has(x.shot) : x.shot === 'high') && x.t > last);
       check('the spectacle: the wide shot as the shells go up, and the high camera (or the trot\'s) back after the last', !!sky && sky.t <= first + 1e-6 && !!back, `${label}: ${cutList}`);
       if (hr && path && sky) check('the spectacle: the wide shot comes once the ball\'s down', sky.t >= path.land, `${label}: ${(sky.t - path.land).toFixed(2)} s after`);
       check('the spectacle: the play runs till the last spark\'s out', D.until >= fxEnd(bursts[bursts.length - 1]) - 1e-6, label);

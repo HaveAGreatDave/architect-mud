@@ -72,6 +72,9 @@ export const SHOTS = Object.freeze({
   // little wider than it was, because the shells over the outfield are nearer. It stands at the
   // upper deck's front rail, low enough to look level across the outfield at the skyline, not
   // down on the grass.
+  // the fireworks over the outfield: the old high framing, under the roof's line, tilted up so
+  // every shell's in the picture
+  shells: Object.freeze({ eye: [0, 100, -128], at: [-40, 128, 1200], fov: 56, shadow: [[0, 0, 140], 300] }),
   sky: Object.freeze({ eye: [0, 62, -120], at: [-30, 66, 1200], fov: 52, shadow: [[0, 0, 140], 300] }),
   // up over foul ground off either side of the plate (in front of the stands, which start 44 ft off
   // the line), looking out down a line into a corner: the left-field pole and the city past it from

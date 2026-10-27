@@ -1072,7 +1072,7 @@ export function createDirector(W, opts = {}) {
     const bursts = (fx || []).filter((e) => e.kind === 'burst');
     if (!bursts.length) return 0;
     const first = Math.min(...bursts.map((e) => e.t)), last = Math.max(...bursts.map((e) => e.t)), K = FX_KINDS.burst;
-    cut(first - K.rise + 0.15, 'sky');
+    cut(first - K.rise + 0.15, 'shells');
     if (o.back !== false) cut(last + FX_BACK, 'high');
     return last + K.life * 1.22 + 0.1;
   }
