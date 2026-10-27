@@ -146,6 +146,35 @@ ingredient is a wall of links for the player who can't collapse anything.
 Keyed on the ingredient's own profile, so a food authored next month with an
 existing profile gets its methods the day it lands with no edit here.
 
+### The Kitchen Stage
+
+At the `visual` rung, opening the kitchen opens the Stage instead of the HUD: a
+cel-shaded counter with the board, the hob and the pass, drawn in its own WebGL2
+context ([docs/proposals/kitchen-stage.md](../../docs/proposals/kitchen-stage.md)).
+The `workspace.view` hook marks the payload `stage.offered`; without WebGL2, or
+after the Stage's List button, the client opens the HUD as before.
+
+It draws the same payload and sends the same commands, found by `role`, so it
+adds no mechanics of its own except two:
+
+- **The knife.** With the Stage open, `chop` arms a cut (`knife_game`) instead of
+  cutting. The board sends back where the strokes fell (`chopresolve <row> <nonce>
+  <crush> <at:tilt> ...`), the server rebuilds the pieces with
+  `client/shared/knife.js` and stamps `cut.even` on each. In a session that's
+  `cutEven`, and `knifeWindowMult` (prep.js) scales the peak window by it:
+  `KNIFE_PAR` leaves it alone, a clean cut widens it a little, a ragged one
+  narrows it. A typed `chop` stamps nothing and cooks exactly as before.
+- **Dressing the plate.** Dragging the pan to the pass sends `dressplate`; the
+  pass lays out the pan's contents and sends a layout score
+  (`client/shared/plating.js`) with `dressresolve`, then the payload's own `plate`.
+  `dressBonus` adds up to `DRESS_MAX` above `DRESS_PAR`, on real dishware only. A
+  plate nobody dressed adds nothing.
+
+`kitchenstage on|off` is the Stage saying it opened or closed. While it's open, the
+cook's narration timers also send `kitchen_beat`, and the Stage re-asks for the
+view at once instead of waiting for the five-second refresh. None of the four is a
+player verb.
+
 ## The two tiers
 
 **Plain food** (`tags.needs_cooking`, no profile) works exactly as it always
@@ -1304,6 +1333,7 @@ discovery into data entry.
 | `shoplist-cmd.js` | the `shoplist` verb, `markShelf` (`shop.stock`) and `markContainer` (`container.view`) |
 | `recipes.js` | the `recipe` verb: save / rename / forget / write a card / teach |
 | `workspace.js` | the `kitchen` provider for the Preparation Workspace HUD |
+| `stage.js` | who has the Kitchen Stage open (RAM), `kitchenstage`, and the `kitchen_beat` nudge |
 | `knowledge.js` | the cookbook: what's known, how it's learned, `TEACH_RECIPE`, and player recipes |
 | `config.js` | every balance number in the system |
 

@@ -10,6 +10,7 @@ import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { sessionProfile } from './cook.js';
 import { HANDLING_VERB } from './profiles.js';
 import { timeline } from './quality.js';
+import { apparentNow } from './heat.js';
 import { emit } from '../../server/engine/events.js';
 
 // Semantic only — interact.js has no idea what any of this sounds like.
@@ -71,7 +72,10 @@ export async function handle(kind, args, player) {
   const tool = await resolveInventoryItem(player, { tag: spec.tag, topLevel: true, fromNearby: true });
   if (!tool) return { type: 'error', message: `You need ${spec.tool}, and a free hand to hold it.` };
 
-  const now = Date.now();
+  // On the session's clock, like every other stamp in it: `retuneSession`
+  // translates `acts[].at` with the rest, so a wall-clock stamp is graded early
+  // on a ring turned up and late on one turned down. Converted once, here.
+  const now = apparentNow(session);
   const acts = [...(session.acts || []), { at: now, kind }];
   await query(
     `UPDATE player_inventory

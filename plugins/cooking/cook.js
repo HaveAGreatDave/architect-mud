@@ -20,6 +20,7 @@ import { markNoisy, clearNoisyKey } from '../../server/engine/sounds.js';
 import { apparentNow, realTimeFor, sessionRate, setBurnerLevel, levelOfTier } from './heat.js';
 import { boiledFraction, dryAt, warnAt, waterText } from './boil.js';
 import { emit } from '../../server/engine/events.js';
+import { pokeStage } from './stage.js';
 
 const timers = new Map(); // player_inventory id -> [setTimeout handles]
 
@@ -214,6 +215,8 @@ export function prepareCook(invRow, appliance, env) {
       ...(cd.scored ? { scored: true } : {}),
       ...(cd.tenderised ? { tenderised: true } : {}),
       ...(cd.buttered ? { buttered: true } : {}),
+      // How evenly the Stage's board cut it (prep.js knifeWindowMult). Absent for a typed chop.
+      ...(cd.cut?.even != null ? { cutEven: Number(cd.cut.even) } : {}),
       // The marinade stops working the moment the pan does. Its strength is
       // frozen HERE, at the soak it had earned when the heat came on — not
       // recomputed at plating, or a three-minute soak followed by a long slow
@@ -367,6 +370,7 @@ function scheduleNarration(invId, playerId, session, foodName = 'something') {
     handles.push(setTimeout(() => {
       const player = getLivePlayer(playerId);
       if (player) sendToPlayer(playerId, { type: 'output', message: `The ${foodName} is ${b.text}.` });
+      pokeStage(playerId, invId);
     }, delay));
   }
 
@@ -405,9 +409,11 @@ function scheduleNarration(invId, playerId, session, foodName = 'something') {
     // Profiled food doesn't finish itself — it opens a window, warns you when
     // the window is closing, and burns if you never come back for it. Three
     // timers, all reconstructible from startedAt, none of them a tick.
-    handles.push(setTimeout(() => narrate(playerId, `The ${foodName} is ${lineFor(PEAK_LINES, session.profile)}.`), Math.max(0, delayTo(tl.doneAt))));
-    handles.push(setTimeout(() => narrate(playerId, `The ${foodName} is ${lineFor(FADING_LINES, session.profile)}.`), Math.max(0, delayTo(tl.peakEnd))));
-    handles.push(setTimeout(() => autoPlate(invId, playerId).catch(e => console.error('[cooking] burn error:', e.message)), Math.max(0, delayTo(tl.burnAt))));
+    // Each beat also nudges an open Kitchen Stage to redraw (stage.js): the
+    // colour change is the cue, and the five-second re-ask would land late.
+    handles.push(setTimeout(() => { narrate(playerId, `The ${foodName} is ${lineFor(PEAK_LINES, session.profile)}.`); pokeStage(playerId, invId); }, Math.max(0, delayTo(tl.doneAt))));
+    handles.push(setTimeout(() => { narrate(playerId, `The ${foodName} is ${lineFor(FADING_LINES, session.profile)}.`); pokeStage(playerId, invId); }, Math.max(0, delayTo(tl.peakEnd))));
+    handles.push(setTimeout(() => autoPlate(invId, playerId).then(() => pokeStage(playerId, invId)).catch(e => console.error('[cooking] burn error:', e.message)), Math.max(0, delayTo(tl.burnAt))));
   } else if (!profile && sessionRate(session) > 0) {
     handles.push(setTimeout(() => finishCook(invId, playerId).catch(e => console.error('[cooking] finish error:', e.message)), Math.max(0, delayTo(finishAt(session)))));
   }

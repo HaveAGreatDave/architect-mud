@@ -156,6 +156,16 @@ export const closeHangarBay = ifLoaded(hangar, 'closeHangarBay');
 export const openHangarBay = call(hangar, 'openHangarBay');
 export const openCharterScreen = call(hangar, 'openCharterScreen');
 
+// kitchen-stage.js, cooking's 3-D rung. It has its own small WebGL2 context (gl/kitchen.js) and
+// never touches windshield.js, so it stays unwired like the hangar.
+const kitchen = lazy('kitchen-stage', () => import('./kitchen-stage.js'), { glass: false });
+export const isKitchenStageActive = ifLoaded(kitchen, 'isKitchenStageActive', false);
+export const openKitchenStage = call(kitchen, 'openKitchenStage');
+export const closeKitchenStage = ifLoaded(kitchen, 'closeKitchenStage');
+export const kitchenBeat = ifLoaded(kitchen, 'kitchenBeat');   // a no-op with no Stage open
+export const kitchenKnife = ifLoaded(kitchen, 'kitchenKnife'); // the server armed a cut; only sent with the Stage open
+export const kitchenDress = ifLoaded(kitchen, 'kitchenDress'); // the pan's contents to lay out on the pass
+
 // helm-mode.js (the Echelon chase view, via helm-view.js). Every helmSet* is a
 // no-op until a helm is open, so they only run once the module is loaded.
 const helm = lazy('helm-mode', () => import('./helm-mode.js'));

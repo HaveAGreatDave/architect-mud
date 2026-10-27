@@ -33,7 +33,13 @@ import { rowIsInstanced } from '../../server/engine/inventory.js';
 import { applyEffect, tickEffects, getRegisteredStatusEffects } from '../../server/engine/effects.js';
 import { computeSellUnitPrice, COOK_QUALITY_PRICE } from '../../server/engine/vendor.js';
 import { getAlias } from '../../server/engine/commands/aliases.js';
-import { _test as cookTest2 } from './index.js';
+import { _test as cookTest2, dressBonus } from './index.js';
+import { watchStage } from './stage.js';
+import { knifeWindowMult } from './prep.js';
+import { KNIFE_PAR } from './config.js';
+import { matterFor } from '../../client/shared/kitchen-matter.js';
+import { footprint, balancedGuides } from '../../client/shared/knife.js';
+import { presentation } from '../../client/shared/plating.js';
 
 // A synthetic profiled session, positioned relative to `now` so each case can
 // ask "what would this be, evaluated at time T" without any clock manipulation.
@@ -625,6 +631,65 @@ export default async function regress({ run, check, getPlayer }) {
     check('a flip is recorded against the session', sRow.custom_data.cooking.acts?.length === 1, sRow.custom_data.cooking.acts);
     check("flipping doesn't disturb the rest of the session",
       sRow.custom_data.cooking.startedAt === live.startedAt && sRow.custom_data.cooking.doneAt === live.doneAt);
+
+    // A turn lands on the SESSION's clock. Put the cook on double speed since
+    // ten seconds ago: the pan is twenty seconds further on than the wall says,
+    // and a turn stamped on the wall clock would be graded ten seconds early.
+    const rateAt = Date.now() - 10000;
+    await query(`UPDATE player_inventory SET custom_data = jsonb_set(jsonb_set(custom_data, '{cooking,rate}', '2'), '{cooking,rateAt}', $2::jsonb) WHERE id=$1`,
+      [steakId, JSON.stringify(rateAt)]);
+    r = await run('flip test steak');
+    sRow = (await query('SELECT custom_data FROM player_inventory WHERE id=$1', [steakId])).rows[0];
+    const late = sRow.custom_data.cooking.acts?.[1]?.at;
+    check('a turn after the dial moved is stamped on the session clock, not the wall',
+      late > Date.now() + 5000, { late, wall: Date.now() });
+    await query(`UPDATE player_inventory SET custom_data = jsonb_set(custom_data, '{cooking}', (custom_data->'cooking') - 'rate' - 'rateAt') WHERE id=$1`, [steakId]);
+
+    // ── The Kitchen Stage (docs/proposals/kitchen-stage.md) ──────────────────
+    // With the Stage open, `chop` is played on its board: the server holds the
+    // food and the count, and `chopresolve` brings back where the strokes fell.
+    {
+      const boardId = randomUUID();
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,1,1.0,$4)`,
+        [boardId, player.id, STEAK, JSON.stringify({ name: 'board steak' })]);
+      r = await run('chop board steak');
+      check('a typed chop with no Stage open is the instant cut it always was', r?.type === 'output' && /into 2/.test(r.message), JSON.stringify(r));
+      let halves = (await query(`SELECT custom_data FROM player_inventory WHERE player_id=$1 AND custom_data->>'name' ILIKE '%board steak%'`, [player.id])).rows;
+      check('...and stamps no evenness', halves.length === 2 && halves.every(h => !h.custom_data.cut), halves.map(h => h.custom_data));
+      await query(`DELETE FROM player_inventory WHERE player_id=$1 AND custom_data->>'name' ILIKE '%board steak%'`, [player.id]);
+
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,1,1.0,$4)`,
+        [boardId, player.id, STEAK, JSON.stringify({ name: 'board steak' })]);
+      watchStage(player.id, true);
+      r = await run('chop board steak into 3');
+      check('with the Stage open, chop arms the board', r?.type === 'knife_game' && r.pieces === 3 && r.nonce && String(r.row) === boardId, JSON.stringify(r));
+      const armed = r;
+      r = await run(`chopresolve ${boardId} not-the-nonce 0 0.33:0 0.66:0`);
+      check('a stroke report with the wrong nonce is refused', r?.type === 'error', JSON.stringify(r));
+      r = await run('chop board steak into 3');
+      const g = balancedGuides(footprint(matterFor('dense_meat').form), 3).map(at => `${at}:0`).join(' ');
+      r = await run(`chopresolve ${boardId} ${r.nonce} 0 ${g}`);
+      check('a clean cut on the guides makes the pieces', r?.type === 'output' && /clean and even/.test(r.message), JSON.stringify(r));
+      const thirds = (await query(`SELECT custom_data FROM player_inventory WHERE player_id=$1 AND custom_data->>'name' ILIKE '%board steak%'`, [player.id])).rows;
+      check('...three of them, each stamped with the evenness', thirds.length === 3 && thirds.every(h => h.custom_data.cut?.even > 0.95), thirds.map(h => h.custom_data.cut));
+      r = await run(`chopresolve ${boardId} ${armed.nonce} 0 0.5:0`);
+      check('a board report can only be spent once', r?.type === 'error', JSON.stringify(r));
+      await query(`DELETE FROM player_inventory WHERE player_id=$1 AND custom_data->>'name' ILIKE '%board steak%'`, [player.id]);
+      watchStage(player.id, false);
+    }
+    check('an unstamped piece cooks with the window it always had', knifeWindowMult(undefined) === 1 && knifeWindowMult(null) === 1);
+    check('a cut at par leaves the window alone', Math.abs(knifeWindowMult(KNIFE_PAR) - 1) < 1e-9);
+    check('a clean cut widens the window and a ragged one narrows it', knifeWindowMult(1) > 1 && knifeWindowMult(0.3) < 1 && knifeWindowMult(0) >= 0.75);
+    {
+      const s0 = { startedAt: 0, cookMs: 10000, profile: 'dense_meat', vessel: { d: 0.7, r: 0.7 } };
+      const plain = timeline(s0, PROFILES.dense_meat).peakMs, ragged = timeline({ ...s0, cutEven: 0.2 }, PROFILES.dense_meat).peakMs;
+      check('evenness reaches the timeline: a ragged cut has a shorter peak', ragged < plain, { plain, ragged });
+    }
+    check('an undressed plate adds nothing', dressBonus(undefined) === 0 && dressBonus({ score: 1, at: 0 }) === 0);
+    check('a layout at or under par adds nothing', dressBonus({ score: 0.4, at: Date.now() }) === 0);
+    check('a perfect layout adds half a band', Math.abs(dressBonus({ score: 1, at: Date.now() }) - 0.5 * BAND_SCALE) < 1e-9);
+    check('a laid-out plate scores better than a scattered one',
+      presentation([{ x: 0, y: 0, r: 3 }, { x: 4, y: 0, r: 2 }]) > presentation([{ x: -10, y: 0, r: 3 }, { x: 10, y: 6, r: 2 }]));
 
     await query('UPDATE player_inventory SET container_id=NULL WHERE id=$1', [turnerId]);
     await query('DELETE FROM player_inventory WHERE id=$1', [turnerId]);

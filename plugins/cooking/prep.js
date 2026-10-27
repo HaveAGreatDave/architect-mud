@@ -14,6 +14,7 @@ import {
   MARINATE_MIN_MS, MARINATE_FULL_MS, MARINATE_BONUS, MARINATE_PROFILES,
   TENDERISE_RATE, TENDERISE_CEILING_DROP, TENDERISE_FORGIVENESS,
   MINCE_RATE, MINCE_CEILING_DROP,
+  KNIFE_PAR, KNIFE_SLOPE, KNIFE_WINDOW_MIN, KNIFE_WINDOW_MAX,
 } from './config.js';
 
 export const marinatedAt = row => Number(row?.custom_data?.marinated_at) || 0;
@@ -61,7 +62,14 @@ export function prepWindowMult(session = {}) {
   let mult = 1;
   if (session.scored) mult *= SCORE_WINDOW_BONUS;
   if (session.tenderised) mult *= TENDERISE_FORGIVENESS;
-  return mult;
+  return mult * knifeWindowMult(session.cutEven);
+}
+
+// How the evenness of a cut made on the Stage's board moves the peak window. No stamp is 1: a
+// typed `chop`, and every piece cut before the board existed.
+export function knifeWindowMult(even) {
+  if (even == null || !Number.isFinite(Number(even))) return 1;
+  return Math.max(KNIFE_WINDOW_MIN, Math.min(KNIFE_WINDOW_MAX, 1 + KNIFE_SLOPE * (Number(even) - KNIFE_PAR)));
 }
 
 // ...and what it does to the GRACE after the peak, which is where scoring is

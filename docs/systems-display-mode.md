@@ -1268,6 +1268,14 @@ skill, and a tab's soak is drawn with the canvas's own cues (the dosed pip at
 linked in node (net.js imports `/shared/ws.js`), so `textui:smoke` reads its
 export list from source.
 
+**The kitchen's board and pass** ([kitchen-stage.md](proposals/kitchen-stage.md))
+are the exception that has no text board, because neither blocks anything. They exist
+only inside the Kitchen Stage, which is offered at `visual` alone. Everywhere else
+`chop` and `plate` are the instant verbs they always were, with no evenness or
+presentation stamped, and the scoring treats a missing stamp as no change. So a
+player below `visual` loses nothing to the games they can't see. A character knife
+board is a possible follow-up, not a debt.
+
 **Circuit Breach is the worked example.** `circuithack.js` grew a *skin seam* rather
 than a fork: `setBreachSkin({ board, hud, status, finish })` swaps the renderer while
 the generator, the solvability proof, the difficulty scaling, movement, hazards,

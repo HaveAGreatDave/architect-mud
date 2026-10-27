@@ -156,6 +156,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-codex.md](docs/systems-codex.md): the cold open and the CODEX tablet app (as built). Sealed chapters never leave the server
 - [docs/proposals/trading-cards.md](docs/proposals/trading-cards.md): trading cards (as built). The pack rolls at `openpack`, never at the vend
 - [docs/proposals/preparation-workspace.md](docs/proposals/preparation-workspace.md): the prep HUD over cooking and synthesis. The HUD holds no logic; every action is a typeable verb
+- [docs/proposals/kitchen-stage.md](docs/proposals/kitchen-stage.md): the Kitchen Stage, cooking's cel-shaded 3D rung over the workspace payload. Food colour moves only on a server beat, never a smooth clock
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.**
 

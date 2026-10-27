@@ -132,8 +132,19 @@ function component(row, kind, actions = []) {
     // A cook in progress is the one thing on this panel that is moving, and the
     // client dims everything that isn't. Derived, never stored.
     live: !!cd.cooking,
+    // What the Kitchen Stage draws it as (client/shared/kitchen-matter.js): the
+    // class and the item's own corrections. The HUD ignores it.
+    look: lookOf(row, kind),
     actions,
   };
+}
+
+function lookOf(row, kind) {
+  if (kind === 'vessel') return { vessel: tagValue(row, 'vessel_kind', null) };
+  if (kind !== 'food') return null;
+  const cd = row.custom_data || {};
+  return { profile: cd.cooking?.profile || profileNameFor(row) || null, matter: tagValue(row, 'matter', null),
+           portion: cd.portion || null, minced: !!cd.minced };
 }
 
 const kindOf = r => (isVessel(r) ? 'vessel' : isTool(r) ? 'tool' : isFood(r) ? 'food' : null);
@@ -1130,6 +1141,7 @@ export async function buildKitchen(player) {
       // lit — which is the exact defect the selector exists to fix.
       actions: vesselActions(v, childrenOf.get(v.id) || [], ctx, where.heat),
       batch: batchFor(v, ctx),
+      look: lookOf(v, 'vessel'),
     };
   });
   // A pan on the heat first, then one you are holding, then the crockery — the

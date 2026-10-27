@@ -1,0 +1,89 @@
+/* The Kitchen Stage (kitchen-stage.js). The picture fills the room pane; the controls sit over it
+   as flat cel cards with a hard ink edge, so they read as part of the same drawing. */
+.ks-root {
+  --ks-ink: #141018;
+  --ks-paper: #f6efe0;
+  --ks-card: rgba(246, 239, 224, 0.94);
+  --ks-red: #c8323a;
+  --ks-indigo: #2b3a63;
+  --ks-dim: #6b6258;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  overflow: hidden;
+  background: #ede0c8;
+  color: var(--ks-ink);
+  font-family: "Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ks-gl, .ks-fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ks-gl { touch-action: none; cursor: grab; }
+.ks-fx { pointer-events: none; }
+
+.ks-top {
+  position: absolute; top: 8px; left: 8px; right: 8px;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+  pointer-events: none;
+}
+.ks-tabs, .ks-tools { display: flex; gap: 6px; pointer-events: auto; }
+.ks-tab, .ks-btn, .ks-chip, .ks-food {
+  font: inherit;
+  color: var(--ks-ink);
+  background: var(--ks-card);
+  border: 2px solid var(--ks-ink);
+  border-radius: 3px;
+  box-shadow: 3px 3px 0 var(--ks-ink);
+  padding: 4px 10px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+.ks-tab { display: flex; align-items: baseline; gap: 6px; text-transform: uppercase; font-weight: 700; }
+.ks-tab.on { background: var(--ks-red); color: var(--ks-paper); }
+.ks-kanji { font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", serif; font-size: 1.25em; font-weight: 900; }
+.ks-tab:hover, .ks-btn:hover, .ks-chip:hover, .ks-food:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ks-ink); }
+.ks-tab:active, .ks-btn:active, .ks-chip:active, .ks-food:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ks-ink); }
+.ks-tab:focus-visible, .ks-btn:focus-visible, .ks-chip:focus-visible, .ks-food:focus-visible { outline: 3px solid var(--ks-indigo); outline-offset: 2px; }
+
+.ks-beat {
+  position: absolute; top: 52px; left: 8px; max-width: min(60%, 420px);
+  background: var(--ks-card); border: 2px solid var(--ks-ink); box-shadow: 3px 3px 0 var(--ks-ink);
+  padding: 6px 10px; font-size: 0.95em; line-height: 1.3;
+}
+.ks-beat:empty { display: none; }
+.ks-beat[data-state="hot"], .ks-beat[data-state="over"] { border-color: var(--ks-red); box-shadow: 3px 3px 0 var(--ks-red); }
+.ks-beat div + div { color: var(--ks-dim); }
+
+.ks-tray {
+  position: absolute; left: 8px; right: 8px; bottom: 76px;
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.ks-label { font-weight: 700; text-transform: uppercase; font-size: 0.8em; background: var(--ks-ink); color: var(--ks-paper); padding: 2px 6px; }
+.ks-food.on { background: var(--ks-indigo); color: var(--ks-paper); }
+
+.ks-chips {
+  position: absolute; left: 8px; right: 8px; bottom: 30px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.ks-chip { font-size: 0.95em; padding: 3px 9px; }
+.ks-chip.on { background: var(--ks-indigo); color: var(--ks-paper); }
+.ks-serve { background: var(--ks-red); color: var(--ks-paper); font-weight: 700; text-transform: uppercase; }
+
+.ks-keys {
+  position: absolute; left: 8px; right: 8px; bottom: 6px;
+  font-size: 0.78em; color: var(--ks-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+@media (max-width: 600px) {
+  .ks-word { display: none; }
+  .ks-tab, .ks-btn { padding: 4px 8px; }
+  .ks-beat { max-width: calc(100% - 16px); }
+  .ks-keys { display: none; }
+  .ks-chips { bottom: 8px; }
+  .ks-tray { bottom: 50px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ks-tab:hover, .ks-btn:hover, .ks-chip:hover, .ks-food:hover, .ks-tab:active, .ks-btn:active, .ks-chip:active, .ks-food:active { transform: none; }
+}

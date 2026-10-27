@@ -34,7 +34,7 @@ import {
   openTvPanel, isTvOpen, shutdownTvPanel, renderTvDeck, tvViewsForChannel, tvOpenViews, applyAmpUnlocks, addAmpUnlock,
 } from './panels/lazy-views.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
-import { openWorkspacePanel, refreshWorkspacePanel, isWorkspaceOpen, workspaceClaimsContainerView } from './panels/workspace.js';
+import { openWorkspacePanel, refreshWorkspacePanel, isWorkspaceOpen, workspaceClaimsContainerView, closeWorkspacePanel } from './panels/workspace.js';
 import { updateForecast } from './panels/forecast.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openWantedPoster } from './panels/wantedposter.js';
@@ -84,6 +84,7 @@ import { openApprehendPrompt } from './panels/apprehend.js';
 import { openConcealSearch } from './panels/conceal.js';
 import { updateTrade, closeTrade } from './panels/trade.js';
 import { openHangarBay, openCharterScreen, closeHangarBay, isHangarBayActive } from './panels/lazy-views.js';
+import { openKitchenStage, closeKitchenStage, isKitchenStageActive, kitchenBeat, kitchenKnife, kitchenDress } from './panels/lazy-views.js';
 import { openAdminPanel } from './panels/admin.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
@@ -349,7 +350,14 @@ function paneFreeForRoom() {
     && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive()
     && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()
     && !isTextCalibrationActive() && !isTextNullActive() && !isTextReadActive()
-    && !isTextDemolitionActive() && !isTextAlarmActive() && !isTextSynthActive();
+    && !isTextDemolitionActive() && !isTextAlarmActive() && !isTextSynthActive() && !isKitchenStageActive();
+}
+
+// The Stage's List button sets this for the session (kitchen-stage.js LIST_KEY); the HUD's Stage
+// button clears it.
+function wantsKitchenStage(msg) {
+  if (msg.provider !== 'kitchen' || !msg.stage?.offered || typeof WebGL2RenderingContext === 'undefined') return false;
+  try { return sessionStorage.getItem('architect_kitchen_list') !== '1'; } catch { return true; }
 }
 
 function autoResolved(msg, onResult) {
@@ -558,6 +566,8 @@ const handlers = {
     // until the player actually leaves (hangar_close triggers a fresh look).
     const free = paneFreeForRoom();
     if (free) setAreaPane(msg.message, msg.direction, true);
+    // The Stage is the kitchen you were standing in. Walking out of it hands the pane back.
+    if (msg.zone && msg.zone !== state.currentZone && isKitchenStageActive()) closeKitchenStage({ quiet: true });
     if (msg.narration) appendHtml(msg.narration, 'move');
     if (msg.toLog) appendHtml(msg.logMessage || msg.message, 'look');   // see the `look` handler
     setPaneSilent(!!msg.toLog && free);
@@ -616,6 +626,7 @@ const handlers = {
     closeLootPanel();
     // Whatever the room you died in was doing, you are not in it any more.
     clearAlarmState();
+    closeKitchenStage({ quiet: true });
     setTimeout(() => { sendCmd('look'); }, 1500);
   },
 
@@ -834,9 +845,23 @@ const handlers = {
 
   loot_view: (msg) => {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
+    // The kitchen's 3-D rung, when the server offers it ('visual' only) and the player hasn't
+    // asked for the list this session. It falls back to the HUD itself if WebGL2 won't start.
+    if (wantsKitchenStage(msg)) {
+      if (isWorkspaceOpen()) closeWorkspacePanel();
+      openKitchenStage(msg);
+      return;
+    }
+    if (isKitchenStageActive()) closeKitchenStage({ quiet: true });
     openLootPanel(msg);
     // Looting a body puts its gear in your pack — the loot panel redraws itself, but
     // the Kit app behind it was left a corpse out of date.
+  // A cook reached a new beat (plugins/cooking/stage.js): the open Stage re-asks for its view.
+  kitchen_beat: () => kitchenBeat(),
+  // `chop` with the Stage open: the cut is played on its board, and the board reports with chopresolve.
+  knife_game: (msg) => kitchenKnife(msg),
+  // The pan at the pass: lay it out, then the Stage sends dressresolve and the plate command.
+  plating_game: (msg) => kitchenDress(msg),
     refreshTabletGearIfOpen();
   },
 

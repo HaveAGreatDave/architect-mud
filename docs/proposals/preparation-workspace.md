@@ -133,6 +133,10 @@ this surface: **the visual form already IS the text form.** A middle-rung varian
 monospace re-implementation of a monospace panel, which is the duplicate implementation this
 whole layer exists to avoid.
 
+The kitchen has a rung ABOVE this panel: at `visual` the
+[Kitchen Stage](kitchen-stage.md) draws the same payload in 3-D and sends the same commands.
+At `textgames`, and wherever WebGL2 won't start, this panel is the kitchen.
+
 **The panel is two columns: a working area, and a supply.** Everything with a
 clock in it — the pans, the heat, the water, what is going round in them — is on
 the left; everything you pick from is on the right, and the recipes run full

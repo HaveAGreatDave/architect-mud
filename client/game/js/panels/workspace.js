@@ -1251,6 +1251,14 @@ function render(data) {
   el('workspace-provider').innerHTML = others.length
     ? others.map(p => `<button class="wsp-act" data-cmd="workspace ${esc(p.key)}" title="workspace ${esc(p.key)}">${esc(p.key)}</button>`).join('')
     : (data.provider ? `[${esc(data.provider)}]` : '');
+  // The way back to the Kitchen Stage after its List button: forget that choice and re-ask, and
+  // dispatch.js opens the Stage in place of this panel.
+  if (data.stage?.offered) {
+    el('workspace-provider').insertAdjacentHTML('beforeend', ' <button class="wsp-act wsp-to-stage" data-cmd="workspace" title="The kitchen in 3-D">Stage</button>');
+    el('workspace-provider').querySelector('.wsp-to-stage')?.addEventListener('click', () => {
+      try { sessionStorage.removeItem('architect_kitchen_list'); } catch { /* private window */ }
+    });
+  }
 
   // TWO COLUMNS: the working area, and what you could put into it. Everything
   // with a clock in it is on the left; everything you pick from is on the right.

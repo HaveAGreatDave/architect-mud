@@ -115,6 +115,25 @@ export const PORTION_NAMES = { 0.5: 'half', 0.25: 'a quarter of', 0.125: 'an eig
 export const MIN_PORTION = 0.125;      // past this it's mince, and mince is its own item
 export const MAX_CHOP_PIECES = 4;      // one cut into halves, quarters, or eighths
 
+// THE KNIFE on the Kitchen Stage's board (docs/proposals/kitchen-stage.md). A cut made there is
+// graded for evenness, 0..1 (client/shared/knife.js), and the pieces carry it as `cut.even`. The
+// small pieces of an uneven cut finish first, so the moment when all of it is right is shorter:
+// the peak window is scaled by 1 + SLOPE * (even - PAR), held to MIN..MAX. PAR is a decent hand
+// and leaves the window as it was. A typed `chop` stamps nothing and cooks exactly as before.
+export const KNIFE_PAR = 0.85;
+export const KNIFE_SLOPE = 0.6;
+export const KNIFE_WINDOW_MIN = 0.75;
+export const KNIFE_WINDOW_MAX = 1.09;
+export const KNIFE_TTL_MS = 120000;    // how long a cut waits on the board for its strokes
+
+// DRESSING THE PLATE on the Stage's pass. The layout scores 0..1 (client/shared/plating.js) and, on
+// a plate or platter, a score above PAR adds up to DRESS_MAX to the dish. An undressed plate adds
+// nothing, as before, and a poor layout costs nothing: the price of dressing is that the food keeps
+// cooking while you do it. The stamp on the pan lasts DRESS_TTL_MS.
+export const DRESS_PAR = 0.5;
+export const DRESS_MAX = 0.5 * BAND_SCALE;
+export const DRESS_TTL_MS = 10 * 60 * 1000;
+
 // MINCING — the opposite trade to chopping.
 //
 // Chopping buys speed by making a thing smaller, so it also feeds you less.

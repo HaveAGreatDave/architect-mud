@@ -230,6 +230,8 @@
       help: 'This is in the pan to CARRY heat, not to be eaten — the water pasta boils in. It still counts as a liquid for everything that asks whether the pan is wet (fond, the sound it makes, the dry-starch gate), and counts for nothing at all when the dish is scored or named: it takes no cook session, never burns, never satisfies a recipe asking for stock, and is tipped away at `drain` or consumed silently at `plate`. Only meaningful alongside food_profile "liquid".' },
     food_noun: { label: 'Food Noun', shape: 'text', scope: 'class', group: 'Cooking',
       help: 'The word this ingredient lends to a derived dish name ("fish" → "fish and potato stew"). Optional: without it the item name is used, minus state words (raw/fresh/frozen/dried). Set it when the item name reads badly in a dish ("fresh catch" → "catch and potato stew").' },
+    matter: { label: 'Kitchen Look', shape: 'object', scope: 'class', group: 'Cooking',
+      help: 'OVERRIDE for how this food is drawn on the Kitchen Stage and how hard it is to cut: { "form": { "w": 18 }, "ramp": { "peak": "#a0602e" } }. Only the keys that differ from the food_profile class default in client/shared/kitchen-matter.js, which lists them (form, ramp, cut, cook, plate). Absent, the class default is used. content:lint fails an unknown key.' },
     vessel: { label: 'Cooking Vessel', shape: 'flag', scope: 'class', group: 'Cooking',
       help: 'Marks this container as a pan/pot: `heat <vessel>` puts it and everything in it on the stove. Requires the Container tag for its capacity. Pair with heat_distribution and heat_retention; cooking without a vessel works but cooks worse.' },
     vessel_kind: { label: 'Vessel Kind', shape: 'enum', scope: 'class', group: 'Cooking',

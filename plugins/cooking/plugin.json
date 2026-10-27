@@ -15,7 +15,8 @@
     "zone.sounds",
     "workspace.provider",
     "shop.stock",
-    "container.view"
+    "container.view",
+    "workspace.view"
   ],
   "commands": [
     "cook",
@@ -57,7 +58,11 @@
     "grill",
     "toast",
     "stack",
-    "layer"
+    "layer",
+    "kitchenstage",
+    "chopresolve",
+    "dressplate",
+    "dressresolve"
   ],
   "specializedActions": [
     {

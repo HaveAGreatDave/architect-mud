@@ -52,6 +52,10 @@ import { rewardFor, restMultiplier, restText, RESTS_WELL, REST_PEAK_MS, REST_COL
 import { tasteNotes, flavourLines } from './taste.js';
 import { canMarinate, prepText } from './prep.js';
 import { workspaceProvider } from './workspace.js';
+import { cmdKitchenStage, stageOpen, offerStage } from './stage.js';
+import { KNIFE_TTL_MS, DRESS_PAR, DRESS_MAX, DRESS_TTL_MS } from './config.js';
+import { matterFor, cutDifficulty } from '../../client/shared/kitchen-matter.js';
+import { footprint, evenness, parseCut } from '../../client/shared/knife.js';
 import { cmdWorkspace } from '../workspace/index.js';
 
 const restPhase = cd => {
@@ -724,9 +728,11 @@ async function plateVessel(vessel, player) {
   // ⚠ Plating is rewarded, never required: `plate` ends a cook, so it must
   // never need a plate.
   const plating = await platingBonus(player, inVessel.length);
+  // Laid out on the Stage's pass first (`dressresolve`): only on real dishware.
+  const dressed = plating.improvised ? 0 : dressBonus(vessel.custom_data?.dressed, now);
   const band = composeBand(bands, capped,
     (key ? knownBonus(known, key) : 0) + (mine ? KNOWN_RECIPE_BONUS : 0)
-    + seasoning + handWork + fondBonus + butterBonus + plating.bonus);
+    + seasoning + handWork + fondBonus + butterBonus + plating.bonus + dressed);
   // The player's own recipe name wins over the generated one.
   const name = mine ? mine.name : dishName(template, inVessel, profileNameFor, tagValue);
 
@@ -780,8 +786,8 @@ async function plateVessel(vessel, player) {
   if (!edibleVessel) {
     await query(
       newFond
-        ? `UPDATE player_inventory SET custom_data = (COALESCE(custom_data,'{}'::jsonb) - 'deglazed') || jsonb_build_object('fond', $2::jsonb) WHERE id=$1`
-        : `UPDATE player_inventory SET custom_data = (COALESCE(custom_data,'{}'::jsonb) - 'fond' - 'deglazed') WHERE id=$1`,
+        ? `UPDATE player_inventory SET custom_data = (COALESCE(custom_data,'{}'::jsonb) - 'deglazed' - 'dressed') || jsonb_build_object('fond', $2::jsonb) WHERE id=$1`
+        : `UPDATE player_inventory SET custom_data = (COALESCE(custom_data,'{}'::jsonb) - 'fond' - 'deglazed' - 'dressed') WHERE id=$1`,
       newFond ? [vessel.inv_id, JSON.stringify(newFond)] : [vessel.inv_id]
     );
   }
@@ -796,6 +802,7 @@ async function plateVessel(vessel, player) {
       ? `You plate it up: ${name}. It's ${label}.`
       : `You plate whatever this is. ${label}, and that's being generous.`);
   if (plating.note) lines.push(`<span class="text-dim">${plating.note}</span>`);
+  if (dressed > 0) lines.push(`<span class="text-dim">${dressed >= DRESS_MAX * 0.6 ? 'It looks like somebody meant it.' : 'Laid out with some care.'}</span>`);
 
   // Collection path 1: discovery by repetition (DISCOVERY_ATTEMPTS good plates).
   const award = cookingIpFor(band, lastIpAt, now);
@@ -926,16 +933,28 @@ async function cmdChop(args, raw, player) {
     return { type: 'error', message: `${food.name} is already about as small as it usefully goes.` };
   }
 
+  // ON THE STAGE'S BOARD the cut is played: the server holds the food and the
+  // count, the board sends back where the strokes fell (`chopresolve`). Anywhere
+  // else, and for a dish, it's the instant cut it always was.
+  if (!isDish && stageOpen(player.id)) return armKnife(player, food, pieces);
+  return splitFood(player, food, pieces, isDish);
+}
+
+// One row becomes `pieces` rows. `cut` is the board's verdict, stamped on every
+// piece; a typed chop has none.
+async function splitFood(player, food, pieces, isDish, cut = null) {
   const from = portionOf(food);
   const each = from / pieces;
   const baseName = food.custom_data?.name || food.name;
   const wholeName = baseName.replace(/^(half|a quarter of|an eighth of|1\/\d+ of)\s+(an?\s+)?/i, '');
   const pieceName = portionName({ custom_data: { portion: each } }, wholeName);
 
-  // One row becomes `pieces` rows. ⚠ Each keeps the original `quantity` (a stack
-  // of five halved is ten halves), and prep is not copied (`minced` stays).
-  const { scored, tenderised, marinated_at, tasted, ...keep } = food.custom_data || {};
-  const stamp = JSON.stringify({ ...keep, portion: each, name: pieceName });
+  // ⚠ Each keeps the original `quantity` (a stack of five halved is ten
+  // halves), and prep is not copied (`minced` stays). A second cut keeps the
+  // worse of the two evennesses: a ragged half cut cleanly is still ragged.
+  const { scored, tenderised, marinated_at, tasted, cut: before, ...keep } = food.custom_data || {};
+  const even = cut ? Math.min(cut.even, before?.even ?? 1) : before?.even;
+  const stamp = JSON.stringify({ ...keep, portion: each, name: pieceName, ...(even != null ? { cut: { even } } : {}) });
   await query(
     `WITH cut AS (DELETE FROM player_inventory WHERE id = $1 RETURNING player_id, item_id, quantity, condition, container_id)
      INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id, custom_data)
@@ -952,9 +971,57 @@ async function cmdChop(args, raw, player) {
     type: 'output',
     message: isDish
       ? `You cut ${baseName} into ${pieces}. ${pieces} × ${pieceName}: the same meal, in more hands.`
-      : `You cut ${baseName} into ${pieces}. ${pieces} × ${pieceName}, and each one will cook in a fraction of the time.`
+      : `You cut ${baseName} into ${pieces}. ${pieces} × ${pieceName}${cut ? `, ${evenText(cut.even)}` : ', and each one will cook in a fraction of the time'}.`
         + (lostPrep ? ` The work you'd already done to it doesn't survive the knife.` : ''),
   };
+}
+
+// What the board's cut looks like, in a cook's words. Never the number.
+function evenText(even) {
+  if (even >= 0.95) return 'clean and even: they will all be ready together';
+  if (even >= 0.8) return 'near enough even';
+  if (even >= 0.6) return 'uneven: the small ones will be done first';
+  return 'ragged: some of it will burn before the rest is cooked';
+}
+
+// ── The board (docs/proposals/kitchen-stage.md) ─────────────────────────────
+// One cut waits per player, in RAM. A nonce ties the strokes to the cut the
+// server set up, so a stale board can't cut whatever has that name now.
+const knifeCuts = new Map();
+
+function armKnife(player, food, pieces) {
+  const profile = profileNameFor(food);
+  const matter = matterFor(profile, tagValue(food, 'matter', null));
+  const nonce = randomUUID();
+  knifeCuts.set(String(player.id), { nonce, invId: food.inv_id, pieces, profile, at: Date.now() });
+  return {
+    type: 'knife_game',
+    row: food.inv_id, nonce, pieces, name: food.custom_data?.name || food.name,
+    look: { profile, matter: tagValue(food, 'matter', null), portion: food.custom_data?.portion || null },
+    difficulty: cutDifficulty(matter),
+  };
+}
+
+// `chopresolve <row> <nonce> <crush> <cut> ...`, or `chopresolve <row> <nonce> abort`.
+// Each cut is knife.js's `at:tilt`. Not a player verb.
+async function cmdChopResolve(args, raw, player) {
+  const [row, nonce, crushArg, ...rest] = args;
+  const key = String(player.id), pend = knifeCuts.get(key);
+  if (!pend || pend.nonce !== nonce || String(pend.invId) !== String(row)) return { type: 'error', message: `That cut has gone cold. Put it back on the board.` };
+  knifeCuts.delete(key);
+  if (crushArg === 'abort') return { type: 'output', message: `You put the knife down.` };
+  if (Date.now() - pend.at > KNIFE_TTL_MS) return { type: 'error', message: `That cut has gone cold. Put it back on the board.` };
+  const cuts = rest.map(parseCut).filter(Boolean).slice(0, pend.pieces - 1);
+  const { rows } = await query(
+    `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, pi.custom_data, i.name, i.tags, i.flags
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.id = $1 AND pi.player_id = $2`, [pend.invId, player.id]);
+  const food = rows[0];
+  if (!food) return { type: 'error', message: `It isn't on the board any more.` };
+  if (food.custom_data?.cooking) return { type: 'error', message: `Not while it's on the heat.` };
+  const matter = matterFor(pend.profile, tagValue(food, 'matter', null));
+  const even = evenness(footprint(matter.form), cuts, Number(crushArg) || 0, pend.pieces);
+  return splitFood(player, food, pend.pieces, false, { even });
 }
 
 // Shared preamble for every prep verb.
@@ -1772,6 +1839,53 @@ async function platingBonus(player, componentCount = 1) {
 
 export const _plating = { platingBonus, PLATE_BONUS, PLATTER_BONUS, PLATTER_MIN_COMPONENTS };
 
+// ── Dressing the plate on the Stage's pass (docs/proposals/kitchen-stage.md) ─
+// What a laid-out plate adds at `plate`. Nothing without a fresh stamp, and
+// nothing for a layout at or under par.
+export function dressBonus(dressed, now = Date.now()) {
+  if (!dressed || !(now - Number(dressed.at) <= DRESS_TTL_MS)) return 0;
+  const s = Math.max(0, Math.min(1, Number(dressed.score) || 0));
+  return s <= DRESS_PAR ? 0 : DRESS_MAX * (s - DRESS_PAR) / (1 - DRESS_PAR);
+}
+
+const dressings = new Map();
+
+// `dressplate <vessel id>`: the Stage asking to lay out a pan's contents. It
+// answers with what is in the pan, in the shapes the pass draws.
+async function cmdDressPlate(args, raw, player) {
+  if (!stageOpen(player.id)) return { type: 'error', message: `Dress it with your eyes, then. Or just plate it.` };
+  const vesselId = args[0];
+  const { rows } = await query(
+    `SELECT pi.id, pi.custom_data, i.tags, i.name FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = $1 AND (pi.id = $2 OR pi.container_id = $2)`, [player.id, vesselId]);
+  const vessel = rows.find(r => String(r.id) === String(vesselId));
+  const contents = rows.filter(r => String(r.id) !== String(vesselId) && profileNameFor(r) && !isMedium(r));
+  if (!vessel || !contents.length) return { type: 'error', message: `There's nothing in it to lay out.` };
+  const nonce = randomUUID();
+  dressings.set(String(player.id), { nonce, vesselId: String(vessel.id) });
+  return {
+    type: 'plating_game', vessel: vessel.id, nonce,
+    // Something in the pan that pours: the pass offers a line of sauce.
+    sauce: contents.some(r => ['liquid', 'dairy', 'fat_or_oil'].includes(profileNameFor(r))),
+    components: contents.map(r => ({ id: r.id, name: r.custom_data?.name || r.name,
+      look: { profile: r.custom_data?.cooking?.profile || profileNameFor(r), matter: tagValue(r, 'matter', null), portion: r.custom_data?.portion || null },
+      cook: r.custom_data?.cooking ? checkCooking(r) : null })),
+  };
+}
+
+// `dressresolve <vessel id> <nonce> <score>`, or `... abort`. Not a player verb.
+async function cmdDressResolve(args, raw, player) {
+  const [vesselId, nonce, scoreArg] = args;
+  const key = String(player.id), pend = dressings.get(key);
+  if (!pend || pend.nonce !== nonce || pend.vesselId !== String(vesselId)) return { type: 'error', message: `That plate has gone cold.` };
+  dressings.delete(key);
+  if (scoreArg === 'abort') return { type: 'noop' };
+  const score = Math.max(0, Math.min(1, Number(scoreArg) || 0));
+  await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('dressed', $3::jsonb)
+                WHERE id = $1 AND player_id = $2`, [vesselId, player.id, JSON.stringify({ score, at: Date.now() })]);
+  return { type: 'noop' };
+}
+
 // `drain`: takes cooking starch off the heat wherever it is in its window (drain
 // short, finish in the sauce) and tips the medium. A strainer is rewarded, not
 // required.
@@ -2039,6 +2153,12 @@ export const commands = {
   stove: cmdStove,
   flip: (args, raw, player) => handleInteraction('flip', args, player),
   stir: (args, raw, player) => handleInteraction('stir', args, player),
+  // The Kitchen Stage saying it opened or closed (stage.js), and its board
+  // reporting where the strokes fell. Not player verbs.
+  kitchenstage: cmdKitchenStage,
+  chopresolve: cmdChopResolve,
+  dressplate: cmdDressPlate,
+  dressresolve: cmdDressResolve,
 };
 
 // What `examine <vessel>` adds: each ingredient's stage, the pan's fond and the
@@ -2188,6 +2308,8 @@ export const hooks = {
   'cooking.prepText': (cd) => prepText(cd),
   // A gather-hook, not an import, so neither plugin depends on the other.
   'workspace.provider': (player) => workspaceProvider(player),
+  // The kitchen's 3-D rung (docs/proposals/kitchen-stage.md), offered at `visual` only.
+  'workspace.view': (ctx) => offerStage(ctx),
   // Mark shopping-list items on shelves and in containers.
   'shop.stock': (ctx) => markShelf(ctx),
   'container.view': (ctx) => markContainer({ view: ctx.view, playerId: ctx.player?.id }),

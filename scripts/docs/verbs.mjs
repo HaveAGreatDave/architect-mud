@@ -37,6 +37,9 @@ const NOT_PLAYER_TYPED = new Set([
   // …and mastery's Read board, which is the same handshake: the panel reports the answer and the
   // server decides. Its own handler says so ("Silent — fired by the panel, never typed").
   'readresolve',
+  // The Kitchen Stage (docs/proposals/kitchen-stage.md): its knife and plate-dressing boards
+  // report the same way, and `kitchenstage on|off` is the panel saying it opened or closed.
+  'chopresolve', 'dressplate', 'dressresolve', 'kitchenstage',
   // Client/session handshakes.
   'introdone', 'tabletdone', 'flightsync', 'flocksync', 'flightevent', 'flightresume', 'flightgps', 'tabletnav', 'tabletaction',
   // The cab's pump handle reports how long the trigger was held; the server re-derives the money.

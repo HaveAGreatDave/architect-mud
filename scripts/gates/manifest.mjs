@@ -206,6 +206,7 @@ export const GROUPS = [
       'scripts/shapes/arena-smoke.mjs',      // GLASS 2 rink: matrices match the 2-D camera, meshes and heads sound, ice tiles listed
       'scripts/shapes/gameday-smoke.mjs',    // Deadball's 2-D Gameday: real games, every play lands, the runners end where the sim left them
       'scripts/shapes/ballpark-smoke.mjs',   // Deadball's 3-D park: the park from venue data, the shots' matrices against the pinhole, the board, the 2-D fallback
+      'scripts/shapes/kitchen-smoke.mjs',    // the Kitchen Stage: the matter table whole, the knife's pieces and evenness, every food, vessel and hob mesh sound
       'scripts/shapes/cityscape-smoke.mjs',  // the city round it: the set composed from the content tree's skyline, every building placed and shaped, the streets from their arms
       'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
       // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)

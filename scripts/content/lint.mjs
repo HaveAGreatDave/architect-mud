@@ -17,6 +17,7 @@
 import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
 import { validateTags, validateZoneColumns, TAG_CATALOG as CATALOG, ZONE_COLUMN_PREFIX } from '../../server/engine/tags.js';
+import { matterProblems } from '../../client/shared/kitchen-matter.js';
 import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf, readPalette, assetRefIds } from './lib.mjs';
 import { assignBuildingMarkers, projectEdges, OPPOSITE, CARDINAL, deriveMapName, PROP_DEFAULTS } from './derive.mjs';
 import { anchorViolations } from './map-anchor.mjs';
@@ -203,6 +204,8 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
         const tv = validateTags(f.data.tags);
         for (const k of tv.unknown) errors.push(`${label}: tag "${k}" is not in the tag catalog (client/shared/tagCatalog.js)`);
         for (const s of tv.badShape) errors.push(`${label}: tag value shape — ${s}`);
+        // A misspelt Kitchen Stage key is a food that quietly keeps its class look.
+        for (const s of matterProblems(f.data.tags.matter)) errors.push(`${label}: ${s}`);
       }
       // Zone flags are the catalog-validated zone tag bag (scope 'zone') —
       // same silent-typo bug class as item tags.

@@ -401,6 +401,50 @@
     // hover — the faintest tick, felt more than heard. Pointer only, never keyboard focus, so it
     // never talks over a screen reader.
     { id: 'ui-hover', name: 'Interface — hover', group: 'interface', category: 'ui', priority: 2,
+    // ── The Kitchen Stage (client/game/js/panels/kitchen-stage.js) ───────────
+    // What the panel itself makes. The verbs' own sounds (a flip striking the
+    // pan, a stir) still come from the server's cooking.sfx, so these are only
+    // the board, the hob's knob, the plate and the change of station.
+    // The blade through the food and into the board: a wooden thump and a click.
+    { id: 'kitchen-thock', name: 'Kitchen: knife stroke', group: 'kitchen', category: 'sfx', priority: 6,
+      config: { duration: 0.18, layers: [
+        { waveform: 'triangle', freq: 210, pitchBend: { to: 110, time: 0.05 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.04 }, gain: 0.34 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2400, q: 2 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.12 } ] } },
+    // A slow blade through something soft: a wet squash, no click.
+    { id: 'kitchen-squash', name: 'Kitchen: crushed under the blade', group: 'kitchen', category: 'sfx', priority: 6,
+      config: { duration: 0.3, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 700, q: 2 }, adsr: { a: 0.02, d: 0.2, s: 0, r: 0.08 }, gain: 0.22 },
+        { waveform: 'sine', freq: 140, pitchBend: { to: 80, time: 0.2 }, adsr: { a: 0.01, d: 0.18, s: 0, r: 0.06 }, gain: 0.14 } ] } },
+    // A food set down on the board, or a piece sliding off it.
+    { id: 'kitchen-tap', name: 'Kitchen: on the board', group: 'kitchen', category: 'sfx', priority: 3,
+      config: { duration: 0.1, layers: [
+        { waveform: 'triangle', freq: 340, pitchBend: { to: 220, time: 0.03 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.2 } ] } },
+    // Fat spitting in a hot pan. Played in short bursts while a ring is lit, louder the higher it is.
+    { id: 'kitchen-sizzle', name: 'Kitchen: sizzle', group: 'kitchen', category: 'sfx', priority: 2,
+      config: { duration: 0.6, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 4200, q: 0.7 }, adsr: { a: 0.04, d: 0.3, s: 0.3, r: 0.2 }, gain: 0.07 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.12, filter: { type: 'bandpass', freq: 6500, q: 3 }, adsr: { a: 0.001, d: 0.02, s: 0, r: 0.01 }, gain: 0.06 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.31, filter: { type: 'bandpass', freq: 5200, q: 3 }, adsr: { a: 0.001, d: 0.02, s: 0, r: 0.01 }, gain: 0.05 } ] } },
+    // The pan tossed: air past the food.
+    { id: 'kitchen-whoosh', name: 'Kitchen: toss', group: 'kitchen', category: 'sfx', priority: 5,
+      config: { duration: 0.3, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 600, q: 1.5, to: 2200, time: 0.2 }, adsr: { a: 0.04, d: 0.18, s: 0, r: 0.06 }, gain: 0.16 } ] } },
+    // The knob's detent.
+    { id: 'kitchen-knob', name: 'Kitchen: knob click', group: 'kitchen', category: 'sfx', priority: 3,
+      config: { duration: 0.05, layers: [
+        { waveform: 'square', freq: 1800, filter: { type: 'bandpass', freq: 2600, q: 6 }, adsr: { a: 0.001, d: 0.02, s: 0, r: 0.01 }, gain: 0.05 } ] } },
+    // A plate set down on the slate.
+    { id: 'kitchen-clink', name: 'Kitchen: plate down', group: 'kitchen', category: 'sfx', priority: 6,
+      config: { duration: 0.5, layers: [
+        { waveform: 'sine', freq: 2210, adsr: { a: 0.001, d: 0.3, s: 0, r: 0.15 }, gain: 0.06 },
+        { waveform: 'sine', freq: 3170, adsr: { a: 0.001, d: 0.18, s: 0, r: 0.1 }, gain: 0.04 },
+        { waveform: 'triangle', freq: 160, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.03 }, gain: 0.18 } ] } },
+    // Moving between the board, the hob and the pass: one soft taiko stroke.
+    { id: 'kitchen-taiko', name: 'Kitchen: change of station', group: 'kitchen', category: 'sfx', priority: 4,
+      config: { duration: 0.45, layers: [
+        { waveform: 'sine', freq: 96, pitchBend: { to: 58, time: 0.18 }, adsr: { a: 0.002, d: 0.32, s: 0, r: 0.1 }, gain: 0.3 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 500, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.12 } ] } },
+
       config: { duration: 0.04, layers: [
         { waveform: 'sine', freq: 2400, adsr: { a: 0.001, d: 0.018, s: 0, r: 0.012 }, gain: 0.035 } ] } },
     // confirm — a dry key with a lift: up a fifth, so it reads as "yes".
