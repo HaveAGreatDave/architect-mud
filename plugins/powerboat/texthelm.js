@@ -44,6 +44,8 @@ import { effBoatParams } from './service.js';
 import { rigs } from './index.js';
 import { parkLocked } from './access.js';
 import { clamp } from '../../server/engine/util.js';
+import { boatAnchor, anchorFromRow, anchorSql, anchorParam } from './anchor.js';
+import { clampToSwing } from '../../client/shared/boat-anchor.js';
 
 const TICK = '1s';
 // The bells, as fractions of the lever. ⚠ NOT EVENLY SPACED, because a bell is not a percentage.
@@ -86,13 +88,16 @@ export async function startTextHelm(player, boat, at) {
       running: false, crank: 0,
     },
     fuel: clamp01(boat.fuel),
+    // The anchor she was left lying to, if it's still under her (anchor.js).
+    anchored: anchorFromRow(boat),
     want: { bearing: at.heading ?? (Number(boat.custom_data?.heading) || 0), bell: 'stop', bottle: false, trim: 0 },
     last: Date.now(), said: {}, sinceSay: 0,
   });
   sendToPlayer(player.id, { type: 'message',
     message: `<span class="text-green">You take the helm of ${boat.name || 'her'}. `
       + `Orders: <b>conn 270</b> for a bearing, <b>conn full</b> for a bell (${BELL_WORDS.join('/')}), `
-      + `<b>conn tabs up/down/flat</b>, <b>conn bottle</b>, <b>conn moor</b> to tie up. `
+      + `<b>conn tabs up/down/flat</b>, <b>conn bottle</b>, <b>conn moor</b> to tie up`
+      + `${Number(p.rode_m) > 0 ? ', <b>conn anchor</b> and <b>conn anchor up</b>' : ''}. `
       + `She is cold: <b>conn start</b> first.</span>` });
   return true;
 }
@@ -148,6 +153,8 @@ export async function cmdConn(args = [], raw, player) {
   if (!word) return { type: 'emote', message: statusLine(c) };
 
   if (word === 'moor' || word === 'tie') return await moor(player, c);
+  // The anchor is `boat anchor`'s (anchor.js); this is the same act from the helm.
+  if (word === 'anchor') return await boatAnchor(player, args.slice(1));
   // ── THE KEY ────────────────────────────────────────────────────────────────
   //
   // ⚠ IT IS `start` AND `kill`, AND `stop` IS NOT AVAILABLE FOR IT. `stop` is already the bottom
@@ -193,6 +200,10 @@ export async function cmdConn(args = [], raw, player) {
     // own rule about a bearing two branches down: the model cuts the lever on a dead motor, so a
     // bell accepted here would be a helm that says "you ring for full" over a boat that does not
     // move — and there would be nothing anywhere to say why.
+    // ⚠ AT ANCHOR THE BELL IS REFUSED, NOT RUNG: driving out against the rode drags the anchor.
+    if (c.anchored && word !== 'stop') {
+      return { type: 'error', message: "The anchor's down. <b>conn anchor up</b> first." };
+    }
     if (c.s.running === false && word !== 'stop') {
       return { type: 'error', message: 'Nothing happens. She is not running: <b>conn start</b>.' };
     }
@@ -208,7 +219,7 @@ export async function cmdConn(args = [], raw, player) {
     c.want.bearing = norm(deg);
     return { type: 'emote', message: `You come round onto <b>${Math.round(c.want.bearing)}°</b>.` };
   }
-  return { type: 'error', message: `No such order. A bearing (0-359), a bell (${BELL_WORDS.join('/')}), start, kill, tabs, bottle, or moor.` };
+  return { type: 'error', message: `No such order. A bearing (0-359), a bell (${BELL_WORDS.join('/')}), start, kill, tabs, bottle, anchor, or moor.` };
 }
 
 /** Which way the tabs are set, in the words a helm would use rather than as a percentage. */
@@ -223,9 +234,9 @@ function statusLine(c) {
   // ⚠ A DEAD MOTOR REPLACES THE BELL RATHER THAN SITTING BESIDE IT, the panel's own rule: "0 mph on
   // stop" is what a running boat at the pontoon says too, and the one question somebody staring at
   // a stationary hull is asking is whether she is alive.
-  const drive = s.running === false
+  const drive = (c.anchored ? '<b>at anchor</b>, ' : '') + (s.running === false
     ? (c.starting ? '<b>cranking…</b>' : '<b class="text-red">engine off</b>: conn start')
-    : `${Math.round(s.speed)} mph on <b>${c.want.bell}</b>`;
+    : `${Math.round(s.speed)} mph on <b>${c.want.bell}</b>`);
   return `<b>${c.name}</b>: heading ${Math.round(norm(s.heading))}°, ordered ${Math.round(c.want.bearing)}°, `
     + drive + '. '
     + `Tabs ${trimWord(c.want.trim).toLowerCase()}. `
@@ -252,10 +263,11 @@ async function moor(player, c) {
 const statusFuel = (c) => `Hull ${Math.round(c.s.hull * 100)}%, fuel ${Math.round(c.fuel * 100)}%.`;
 
 async function flush(c, berthZone = null) {
+  // Tied up, the anchor is in the boat; otherwise the row keeps where it went down (anchor.js).
   const sets = ['condition = $2', 'fuel = $3',
-    "custom_data = jsonb_set(jsonb_set(COALESCE(custom_data, '{}'::jsonb), '{nitro}', to_jsonb($4::real)), '{heading}', to_jsonb($5::real))"];
-  const vals = [c.boatId, c.s.hull, c.fuel, c.s.nitro, norm(c.s.heading)];
-  if (berthZone) { sets.push('berth_zone = $6'); vals.push(berthZone); }
+    `custom_data = jsonb_set(jsonb_set(${anchorSql(6)}, '{nitro}', to_jsonb($4::real)), '{heading}', to_jsonb($5::real))`];
+  const vals = [c.boatId, c.s.hull, c.fuel, c.s.nitro, norm(c.s.heading), anchorParam(berthZone ? null : c.anchored)];
+  if (berthZone) { sets.push('berth_zone = $7'); vals.push(berthZone); }
   await query(`UPDATE boats SET ${sets.join(', ')} WHERE id = $1`, vals);
 }
 
@@ -316,7 +328,13 @@ async function tick() {
     else if (c.s.running !== false) c.fuel = Math.max(0, c.fuel - (0.00042 + 0.0035 * c.s.pedal) * (c.p.burn ?? 1) * dt);
     if (c.s.nitro <= 0) c.want.bottle = false;
 
+    if (c.anchored) input.throttle = 0;
     stepBoat(c.s, input, c.p, dt);
+    // At anchor she lies to the rode: no way on her, and never outside the swing circle.
+    if (c.anchored) {
+      c.s.speed = 0; c.s.drift = 0;
+      ({ x: c.s.x, y: c.s.y } = clampToSwing(c.s.x, c.s.y, c.anchored));
+    }
     // ⚠ THE STARTER LETS GO ON AN ANSWER EITHER WAY, the panel's own click-crank rule: a dry motor
     // never catches, so a flag cleared only on success would leave the starter engaged for the
     // rest of the passage and quietly burn nothing while reporting nothing.
@@ -331,6 +349,7 @@ async function tick() {
       pedal: c.s.pedal, rich: c.s.rich || 0, bang: c.s.bang || 0,
       roll: c.s.roll || 0, pitch: c.s.pitch || 0, nitroOn: !!c.s.nitroOn,
       hull: c.s.hull, fuel: c.fuel, nitro: c.s.nitro,
+      anchored: c.anchored || null,
     }));
 
     await narrate(live, c, dt);

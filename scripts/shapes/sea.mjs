@@ -1262,7 +1262,8 @@ if (glslSrc) {
     const GAIN = +gainM[1], FULL_KT = +ktM[1];
     const { createBoatState, stepBoat, BOAT_TYPES } =
       await import('../../client/game/js/panels/flight-model.js');
-    const first = BOAT_TYPES[0];
+    // ⚠ THE HYDRO BY ID, NOT THE CHEAPEST: the Keel skiff is cheaper, and she never leaves the water.
+    const first = BOAT_TYPES.find((t) => t.id === 'hydro') || BOAT_TYPES[0];
     const type = Array.isArray(first) ? first[1] : first;
     // Full throttle, head into it, two minutes. The hull starts at 90% of its own top speed so the
     // measurement is about the sea rather than about how long it takes to get up on the plane.

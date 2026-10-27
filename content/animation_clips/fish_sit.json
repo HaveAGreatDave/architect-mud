@@ -1,0 +1,43 @@
+{
+  "id": "fish_sit",
+  "role": "any",
+  "duration": 3.2,
+  "loop": true,
+  "note": "Boat fishing: sat on the aft thwart with the rod in both hands, tip up over the water, the rod and the body breathing.",
+  "plants": [
+    { "foot": "L", "from": 0, "to": 3.2 },
+    { "foot": "R", "from": 0, "to": 3.2 }
+  ],
+  "keys": [
+    {
+      "t": 0,
+      "pose": {
+        "pelvis": [0, 1.55, -0.1], "pitch": 4, "twist": 0, "roll": 0, "spine": [10, 0, 0], "chest": [6, 0, 0], "neck": [-8, 0, 0], "head": [-6, 0, 0],
+        "ankL": [0.55, 1.55], "toeL": [0.15, 0, 1], "kneeL": [0.3, 0.5, 1], "ankR": [-0.55, 1.5], "toeR": [-0.15, 0, 1], "kneeR": [-0.3, 0.5, 1],
+        "elbL": [0.6, -1, 0.1],
+        "elbR": [-0.9, -0.8, -0.1],
+        "bat": { "knob": [0.1, 2.3, 1.05], "dir": [0.0503, 0.4224, 0.905] }
+      }
+    },
+    {
+      "t": 1.6,
+      "pose": {
+        "pelvis": [0, 1.55, -0.1], "pitch": 4, "twist": 0, "roll": 0, "spine": [11, 0, 1], "chest": [6, 2, 0], "neck": [-8, 0, 0], "head": [-5, 4, 0],
+        "ankL": [0.55, 1.55], "toeL": [0.15, 0, 1], "kneeL": [0.3, 0.5, 1], "ankR": [-0.55, 1.5], "toeR": [-0.15, 0, 1], "kneeR": [-0.3, 0.5, 1],
+        "elbL": [0.6, -1, 0.1],
+        "elbR": [-0.9, -0.8, -0.1],
+        "bat": { "knob": [0.12, 2.34, 1.04], "dir": [0.07, 0.47, 0.8799] }
+      }
+    },
+    {
+      "t": 3.2,
+      "pose": {
+        "pelvis": [0, 1.55, -0.1], "pitch": 4, "twist": 0, "roll": 0, "spine": [10, 0, 0], "chest": [6, 0, 0], "neck": [-8, 0, 0], "head": [-6, 0, 0],
+        "ankL": [0.55, 1.55], "toeL": [0.15, 0, 1], "kneeL": [0.3, 0.5, 1], "ankR": [-0.55, 1.5], "toeR": [-0.15, 0, 1], "kneeR": [-0.3, 0.5, 1],
+        "elbL": [0.6, -1, 0.1],
+        "elbR": [-0.9, -0.8, -0.1],
+        "bat": { "knob": [0.1, 2.3, 1.05], "dir": [0.0503, 0.4224, 0.905] }
+      }
+    }
+  ]
+}

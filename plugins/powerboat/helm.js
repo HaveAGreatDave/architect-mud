@@ -41,8 +41,10 @@ import { startTextHelm, isConning, stopTextHelm } from './texthelm.js';
 import { TYPES } from '../../client/game/js/panels/flight-model.js';
 import { boardCheck, noteTaken } from '../../server/engine/vehicle-access.js';
 import { unindexBoat } from './access.js';
+import { anchorFromRow, anchorSql, anchorParam } from './anchor.js';
+import { clampToSwing } from '../../client/shared/boat-anchor.js';
 
-const RADIUS = 16;                     // must match `RAD` in client/game/js/panels/boat-view.js
+const RADIUS = 16;                    // must match `RAD` in client/game/js/panels/boat-view.js
 const HULL_FLOOR = 0.0;
 // Whether this character has been shown the controls. ⚠ A PLAYER FLAG AND NOT A CLIENT ONE — see
 // the note on `learned` below.
@@ -171,6 +173,8 @@ export function helmContext(boat, at, playerId = null) {
     actors: streetActors(at.x, at.y, RADIUS, playerId),
     // The fuel berths and covered slots in this window, which the seat marks on the water.
     marks: berthMarksNear(at.x, at.y),
+    // The anchor she was left lying to, if it's still under her; the seat holds her to it.
+    anchored: anchorFromRow(boat),
   };
 }
 
@@ -389,10 +393,14 @@ export async function cmdBoatSync(args = [], raw, player) {
   if (!id) return null;                                    // silent: the pane can outlive the seat
   const n = args.map(Number);
   if (n.length < 13 || n.some((v) => !Number.isFinite(v))) return null;
-  const [x, y, heading, speed, hull, nitro, fuel, pedal, roll, pitch, rich, bang, flags] = n;
+  let [x, y] = n;
+  const [, , heading, speed, hull, nitro, fuel, pedal, roll, pitch, rich, bang, flags] = n;
 
   const was = rigs.get(player.id) || await seedRig(player, id);
   if (!was) return null;
+  // ⚠ AT ANCHOR THE POINT IS THE SERVER'S. A report from outside the swing circle goes back onto it
+  // before anything else reads the position (anchor.js; the circle is client/shared/boat-anchor.js).
+  if (was.anchored) ({ x, y } = clampToSwing(x, y, was.anchored));
   // THE DISTANCE SHE COVERS, which is what the oil wears on (service.js). Accrued in RAM and
   // flushed with the tank. ⚠ A JUMP IS NOT DISTANCE — a recentre or a first packet can move the
   // reported position a long way in one step, and three tiles in a quarter second is 130 mph.
@@ -468,13 +476,15 @@ async function seedRig(player, boatId) {
     hull: clamp01(b.condition), fuel: clamp01(b.fuel), nitro: clamp01(b.custom_data?.nitro ?? 1),
     x: null, y: null, heading: Number(b.heading) || 0, speed: 0,
     pedal: 0, rich: 0, bang: 0, roll: 0, pitch: 0, nitroOn: false,
+    // An anchor she was left lying to, if it's still under her (anchor.js `anchorFromRow`).
+    anchored: anchorFromRow(b),
     flushed: Date.now(),
   };
   rigs.set(player.id, rig);
   return rig;
 }
 
-/** Hull, tank and bottle back to the row. The bottle rides `custom_data`, having no column. */
+/** Hull, tank, bottle and anchor back to the row. The bottle and the anchor ride `custom_data`. */
 export async function flushRig(rig) {
   if (!rig || !rig.boatId) return;
   rig.flushed = Date.now();
@@ -482,10 +492,10 @@ export async function flushRig(rig) {
   rig.run = 0;
   await query(
     `UPDATE boats SET condition = $2, fuel = $3,
-       custom_data = jsonb_set(jsonb_set(COALESCE(custom_data, '{}'::jsonb), '{nitro}', to_jsonb($4::real)),
+       custom_data = jsonb_set(jsonb_set(${anchorSql(6)}, '{nitro}', to_jsonb($4::real)),
          '{run}', to_jsonb(COALESCE((custom_data->>'run')::real, 0) + $5::real), true)
      WHERE id = $1`,
-    [rig.boatId, rig.hull, rig.fuel, rig.nitro, run]);
+    [rig.boatId, rig.hull, rig.fuel, rig.nitro, run, anchorParam(rig.anchored)]);
 }
 
 // ── `boatevent` ──────────────────────────────────────────────────────────────

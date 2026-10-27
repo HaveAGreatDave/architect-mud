@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_lamp_herring",
+  "name": "lamp herring",
+  "tags": {
+    "consumable": true,
+    "description": "A finger of silver that only comes up after dark, and comes up to light. Hang a lamp over the side and they find it by the dozen. Small, oily and quick to cook. Nobody's sure what they followed before there were lamps.",
+    "food_noun": "herring",
+    "food_profile": "dense_meat",
+    "needs_cooking": true,
+    "raw_fish": true,
+    "restore_hunger": 8,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 3,
+  "weight": 250
+}

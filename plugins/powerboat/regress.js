@@ -872,27 +872,35 @@ export default async function regress({ run, check, getPlayer }) {
     const day = getNpc('npc_marina_desk_day');
     const night = getNpc('npc_marina_desk_night');
     if (day && night) {
-      // ⚠ EVERY HULL ON THE LINE HAS A LINE TO ASK FOR IT, and nothing asks for one that is gone. A new
-      // type with no option is a boat nobody can buy; a stale id is a button that fails.
-      for (const clerk of [day, night]) {
+      // ⚠ EVERY HULL HIS DESK STOCKS HAS A LINE TO ASK FOR IT, and nothing asks for one it doesn't. A
+      // new type with no option is a boat nobody can buy; a stale id is a button that fails. The
+      // stock is the desk's (desk.js `deskStock`): the line, less a hull another desk keeps to itself.
+      const keel = getNpc('npc_shipwright');
+      for (const clerk of [day, night, keel].filter(Boolean)) {
+        const stock = D.deskStock(clerk.work_zone_id);
         const acts = Object.values(clerk.dialogue_tree || {}).flatMap((n) => n.actions || []);
         for (const [action, verb] of [['BOAT_SELL', 'bought'], ['BOAT_HIRE', 'hired']]) {
           const hulls = acts.filter((a) => a.action === action).map((a) => a.hull);
-          check(`${clerk.name}: every hull on the line can be ${verb} in conversation`,
-            FMd.BOAT_TYPES.every((t) => hulls.includes(t.id)), hulls.join(','));
-          check(`…and every ${action} names a hull on the line`,
-            hulls.every((h) => FMd.BOAT_TYPES.some((t) => t.id === h)), hulls.join(','));
+          check(`${clerk.name}: every hull the desk stocks can be ${verb} in conversation`,
+            stock.every((t) => hulls.includes(t.id)), hulls.join(','));
+          check(`…and every ${action} names a hull the desk stocks`,
+            hulls.every((h) => stock.some((t) => t.id === h)), hulls.join(','));
         }
+        if (clerk === keel) continue;
         const conds = Object.values(clerk.behaviour_graph?.nodes || {}).map((n) => n.condition_type || n.data?.condition_type);
         check(`${clerk.name} holds the desk until relieved and sets off early`,
           conds.includes('DESK_RELIEVED') && conds.includes('DESK_SHIFT_DUE'), conds.join(','));
       }
+      // An exclusive hull (the Keel) is not on Fairweather's desk, and the Vaskins are.
+      const fair = D.deskStock(LOBBY).map((t) => t.id);
+      check('Fairweather\'s desk carries every hull that isn\'t another desk\'s own',
+        FMd.BOAT_TYPES.every((t) => t.exclusive ? !fair.includes(t.id) : fair.includes(t.id)), fair.join(','));
       const reg = getRegisteredAINodes().conditions;
       check('the handover conditions are registered', reg.includes('DESK_RELIEVED') && reg.includes('DESK_SHIFT_DUE'));
 
       const p = getPlayer();
       const was = { zone: p.current_zone, credits: p.credits, day: day.zone_id, night: night.zone_id };
-      const hull = FMd.BOAT_TYPES[0];
+      const hull = D.deskStock(LOBBY)[0];
       try {
         // One clerk in the room and the other at home: whoever is standing there serves.
         moveNpcToZone(night.id, night.home_zone);
@@ -910,7 +918,7 @@ export default async function regress({ run, check, getPlayer }) {
 
         const quote = await dispatchAction({ type: 'BOAT_QUOTE', actor: p, params: { what: 'sale' } });
         check('the clerk reads out the line and the price', quote?.type === 'dialogue_line'
-          && FMd.BOAT_TYPES.every((t) => quote.text.includes(t.name) && quote.text.includes(t.price.toLocaleString())),
+          && D.deskStock(LOBBY).every((t) => quote.text.includes(t.name) && quote.text.includes(t.price.toLocaleString())),
           JSON.stringify(quote));
         p.credits = 0;
         const broke = await dispatchAction({ type: 'BOAT_SELL', actor: p, params: { hull: hull.id } });
@@ -1470,6 +1478,112 @@ export default async function regress({ run, check, getPlayer }) {
         await q('DELETE FROM player_flags WHERE player_id = $1', [OTHER]).catch(() => {});
         p.current_zone = was.zone;
         if (was.seat) Y.aboard.set(p.id, was.seat);
+      }
+    }
+  }
+
+  // ── THE ANCHOR (anchor.js) ────────────────────────────────────────────────────
+  //
+  // `boat anchor` is decided on the server from the live rig: the speed, the gear, the berth, the
+  // rode and the bottom. These seat a Keel on a live rig at real points of the Basin and ask it, then
+  // send a sync from outside the swing circle and see where it lands.
+  {
+    const Y = await import('./yard.js');
+    const AN = await import('./anchor.js');
+    const BA = await import('../../client/shared/boat-anchor.js');
+    const { cmdBoatSync, svcState } = await import('./helm.js');
+    const { rigs } = await import('./index.js');
+    const { getAllZones } = await import('../../server/engine/world.js');
+    const { query: q } = await import('../../server/models/db.js');
+    const FMa = await import('../../client/game/js/panels/flight-model.js');
+    const skiff = FMa.TYPES.skiff;
+    check('the Keel carries a rode and the Vaskins carry none',
+      skiff?.rode_m > 0 && ['hydro', 'spur', 'gamecock'].every((id) => FMa.TYPES[id].rode_m == null));
+    check('the anchor\'s depth reads in words', BA.numberWords(30) === 'thirty' && BA.numberWords(42) === 'forty-two');
+
+    // Shallow: an open-water tile the rope reaches. Deep: marched out from the deepest open water
+    // until the bottom is past the rode (the Basin's own water stops short of it; the sea beyond doesn't).
+    const water = getAllZones().filter((z) => z.map_id === 'map_world' && (z.grid_x || z.grid_y) && Y.isOpenWater(z));
+    const depths = water.map((z) => ({ z, d: AN._test.depthUnder(z.grid_x, z.grid_y) }));
+    const shallow = depths.find(({ z, d }) => d > 2 && d < skiff.rode_m - 5 && !Y.coveredRoomAtTile(z.id))?.z;
+    let deep = null;
+    const from = depths.reduce((a, b) => (b.d > (a?.d ?? -1) ? b : a), null)?.z;
+    if (from) {
+      for (const [ux, uy] of [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+        for (let i = 1; i <= 60 && !deep; i++) {
+          const x = from.grid_x + ux * i, y = from.grid_y + uy * i;
+          if (AN._test.isLandTile(x, y)) break;
+          if (AN._test.depthUnder(x, y) > skiff.rode_m + 2) deep = { x, y };
+        }
+        if (deep) break;
+      }
+    }
+    const berth = getAllZones().find((z) => Y.berthKind(z) === 'berth' && z.grid_x);
+    check('anchor: the Basin has water the rode reaches, water it doesn\'t, and a berth',
+      !!shallow && !!deep && !!berth, `shallow=${shallow?.id} deep=${JSON.stringify(deep)} berth=${berth?.id}`);
+
+    const p = await getPlayer();
+    const id = 'boat_regress_anchor_' + Date.now().toString(36);
+    const was = { seat: Y.aboard.get(p.id), rig: rigs.get(p.id) };
+    const put = (x, y, more = {}) => rigs.set(p.id, { playerId: p.id, boatId: id, typeId: 'skiff', name: 'Regress Keel',
+      topSpeed: skiff.topSpeed, hull: 1, fuel: 1, nitro: 1, x, y, heading: 0, speed: 0, pedal: 0, roll: 0, pitch: 0,
+      rich: 0, bang: 0, flushed: Date.now(), mapX: Math.round(x), mapY: Math.round(y), actAt: Date.now(), conAt: Date.now(), ...more });
+    const ask = async (args = []) => (await AN.boatAnchor(p, args))?.message || '';
+    if (shallow && deep && berth) {
+      try {
+        await q("INSERT INTO boats (id, type_id, name, owner_id, berth_zone, custom_data) VALUES ($1, 'skiff', 'Regress Keel', $2, $3, '{}'::jsonb)", [id, p.id, shallow.id]);
+        Y.aboard.set(p.id, id);
+
+        put(deep.x, deep.y);
+        const tooDeep = await ask();
+        check('anchor: refused in deep water, with the rode in words',
+          tooDeep === 'The anchor goes down and keeps going. Nothing at the bottom of thirty metres of rope.', tooDeep);
+        put(shallow.grid_x, shallow.grid_y, { speed: 9 });
+        const underWay = await ask();
+        check('anchor: refused under way', /way on her/.test(underWay) && !AN.anchorOf(p.id), underWay);
+        put(berth.grid_x, berth.grid_y);
+        const onBerth = await ask();
+        check('anchor: refused on a berth', /Not on a berth/.test(onBerth) && !AN.anchorOf(p.id), onBerth);
+        put(shallow.grid_x, shallow.grid_y, { typeId: 'hydro' });
+        const noRode = await ask();
+        check('anchor: refused on a hull with no rode', /doesn't carry an anchor/.test(noRode) && !AN.anchorOf(p.id), noRode);
+
+        // Holds, through the typed verb, so the `boat` subverb is wired too.
+        put(shallow.grid_x, shallow.grid_y);
+        const held = await run('boat anchor');
+        const a = AN.anchorOf(p.id);
+        check('anchor: holds in shallow water and says how deep', /holds/.test(held?.message || '') && /metre/.test(held?.message || '')
+          && !!a && Math.abs(a.x - shallow.grid_x) < 1e-6, JSON.stringify(held));
+        const row = (await q('SELECT custom_data FROM boats WHERE id = $1', [id])).rows[0];
+        check('anchor: the point is on the row', Math.abs((row?.custom_data?.anchored?.x ?? NaN) - a?.x) < 1e-6, JSON.stringify(row?.custom_data));
+        check('anchor: a second drop is refused', /already down/.test(await ask()));
+
+        // The swing clamp: a report from a tile away lands on the circle, one inside it stands.
+        const sync = (x, y) => cmdBoatSync([x, y, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0].map(String), 'boatsync', p);
+        await sync(a.x + 1, a.y);
+        const out = rigs.get(p.id);
+        check('anchor: the swing clamp puts a report outside the circle back on it',
+          Math.abs(Math.hypot(out.x - a.x, out.y - a.y) - BA.SWING_R) < 0.01 && out.x > a.x, `${out.x},${out.y} against ${a.x},${a.y}`);
+        await sync(a.x + 0.1, a.y);
+        check('…and leaves one inside it alone', Math.abs(rigs.get(p.id).x - (a.x + 0.1)) < 0.002, String(rigs.get(p.id).x));
+        check('anchor: the seat is told where she lies, as the boarding context', Y.isOpenWater(shallow)
+          && AN.anchorFromRow({ berth_zone: shallow.id, custom_data: { anchored: a } })?.x === a.x
+          && AN.anchorFromRow({ berth_zone: berth.id, custom_data: { anchored: a } }) === null);
+
+        const upMsg = await run('boat anchor up');
+        const row2 = (await q('SELECT custom_data FROM boats WHERE id = $1', [id])).rows[0];
+        check('anchor: `anchor up` releases her', !AN.anchorOf(p.id) && !row2?.custom_data?.anchored && /drifting/.test(upMsg?.message || ''),
+          JSON.stringify(upMsg) + ' ' + JSON.stringify(row2?.custom_data));
+        await sync(a.x + 1, a.y);
+        check('…and the clamp lets her go', Math.abs(rigs.get(p.id).x - (a.x + 1)) < 0.002, String(rigs.get(p.id).x));
+        check('anchor: `anchor up` with nothing down says so', /isn't down/.test(await ask(['up'])));
+      } finally {
+        rigs.delete(p.id);
+        svcState.delete(p.id);
+        if (was.rig) rigs.set(p.id, was.rig);
+        if (Y.aboard.get(p.id) === id) Y.aboard.delete(p.id);
+        if (was.seat) Y.aboard.set(p.id, was.seat);
+        await q('DELETE FROM boats WHERE id = $1', [id]).catch(() => {});
       }
     }
   }

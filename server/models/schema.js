@@ -3029,6 +3029,23 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_boats_owner ON boats(owner_id);
   CREATE INDEX IF NOT EXISTS idx_boats_berth ON boats(berth_zone);
 
+  -- THE FISH BOX (plugins/fishing/boat.js writes it, plugins/powerboat/hold.js reads and empties
+  -- it). Its own table, because a container row keeps its player_id and would count against what
+  -- the owner carries. Capped by the hull's hold_kg against a running total on the live rig, so a
+  -- landing costs one INSERT and no read. Read on boarding and when unloading, at no other time.
+  CREATE TABLE IF NOT EXISTS boat_hold (
+    id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    boat_id    TEXT NOT NULL,
+    item_id    TEXT NOT NULL,
+    kg         REAL NOT NULL,
+    species    TEXT NOT NULL,
+    caught_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    x          REAL,
+    y          REAL,
+    depth_m    REAL
+  );
+  CREATE INDEX IF NOT EXISTS idx_boat_hold_boat ON boat_hold(boat_id);
+
   -- PODRACERS (plugins/podracer). One row per racer a player owns. Where it is between runs is
   -- park_zone, a tile in the Scarletwastes; a live run is RAM only. custom_data holds the turbines'
   -- condition (eng, [left, right]), which cables are whole (cables) and the parked heading.

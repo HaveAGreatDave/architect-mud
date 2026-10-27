@@ -375,6 +375,12 @@ let claimRetry = null;
 // the free camera. Each draws a fireworks shell as a real burst, so the flat on-foot flash is not for them.
 const inGlassView = () => isFlightSimActive() || isCabActive() || isBoatActive() || isPodracerActive() || isHelmActive() || isFreelookActive();
 
+// The boat reel (panels/boatfish.js), fetched on its first message. Every message chains on the one
+// promise, so they arrive in the order they were sent. boat-view.js imports the same module, so the
+// seat and this route share one reel.
+let boatFishMod = null;
+const loadBoatFish = () => (boatFishMod ??= import('./panels/boatfish.js').catch((e) => { boatFishMod = null; throw e; }));
+
 // The background re-look, shared by every reason to repaint the room (a hit, somebody
 // walking in, a door). Each is a full describeZone on the server, and in a group fight
 // every swing used to cost every client in the room its own look. One timer, and never
@@ -1553,6 +1559,8 @@ const handlers = {
   fishing_fight: (msg) => {
     armFishFight({ skill: msg.skill ?? 4, difficulty: msg.difficulty ?? 5 });
   },
+  // Fishing from an anchored boat: one message type with a phase (docs/proposals/boat-fishing.md §5b).
+  boatfish: (msg) => { loadBoatFish().then((m) => m.onBoatFishMessage(msg)).catch((e) => console.error('[boatfish]', e?.message)); },
 
   // ── Flight (cockpit HUD + takeoff/landing minigames) ─────────────────────
   cockpit_update: (msg) => { updateCockpit(msg.state); },

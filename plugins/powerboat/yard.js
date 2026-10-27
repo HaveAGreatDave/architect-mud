@@ -43,9 +43,11 @@ import { boatRental, boatRentalExpired, boatRentFee, BOAT_RENT_TERM_MS, BOAT_REN
 // ⚠ A CYCLE INSIDE ONE PLUGIN, AND SAFE FOR THE STATED REASON: helm.js imports `aboard` from here,
 // and this reads `boatTake` only inside a function body, after both modules have evaluated.
 import { boatTake, applyLive } from './helm.js';
-import { deskReady, deskRefusal } from './desk.js';
+import { deskReady, deskRefusal, deskStock } from './desk.js';
 import { boardCheck } from '../../server/engine/vehicle-access.js';
 import { unindexBoat } from './access.js';
+import { boatAnchor } from './anchor.js';
+import { boatHold, boatUnload } from './hold.js';
 
 // ── TUNING ───────────────────────────────────────────────────────────────────
 //
@@ -285,13 +287,21 @@ export async function cmdBoat(args, raw, player) {
   if (sub === 'take' || sub === 'launch' || sub === 'out') return await boatTake(player, args.slice(1).join(' '));
   if (sub === 'rent' || sub === 'hire') return await boatRent(player, args.slice(1).join(' '));
   if (sub === 'return' || sub === 'handback') return await boatReturn(player, args.slice(1).join(' '));
+  // The anchor (anchor.js): `boat anchor` drops it, `boat anchor up` pulls it in. Asked before the
+  // desk, because it's done at sea, and no hull on the line is called "anchor".
+  if (sub === 'anchor') return await boatAnchor(player, args.slice(1));
+  // The fish box (hold.js): `boat hold` lists it, `boat unload` at a berth takes it ashore.
+  if (sub === 'hold' || sub === 'box') return await boatHold(player);
+  if (sub === 'unload') return await boatUnload(player);
   const shed = dealerHere(player);
   if (!shed) {
     return say(`<span class="text-dim">${deskRefusal(player)}</span>`);
   }
   const arg = args.join(' ').trim().toLowerCase();
+  // What this desk carries: the line, less any hull another desk has to itself (desk.js).
+  const stock = deskStock(player.current_zone);
   if (!arg) {
-    const lines = BOAT_TYPES.map(t =>
+    const lines = stock.map(t =>
       `  <span class="text-cyan">${t.name}</span> <span class="text-dim">(${t.id})</span>: <span class="text-green">₵${t.price.toLocaleString()}</span>`
       + `\n    <span class="text-dim">${t.blurb}</span>`);
     return say(`<span class="text-cyan">HULLS, BY ARRANGEMENT</span>\n${lines.join('\n')}`
@@ -299,6 +309,7 @@ export async function cmdBoat(args, raw, player) {
   }
   const type = BOAT_TYPES.find(t => t.id === arg || t.name.toLowerCase().includes(arg));
   if (!type) return say(`<span class="text-dim">Nothing here called "${arg}".</span>`);
+  if (!stock.includes(type)) return say(`<span class="text-dim">This desk doesn't sell the ${type.name}.</span>`);
 
   // Somewhere to put her, before any money moves. A yard that sells you a boat it has nowhere to
   // keep is a yard that has taken 14,500 credits off you for a row nothing can reach.
@@ -333,7 +344,7 @@ export async function cmdBoat(args, raw, player) {
 export async function deskQuote(player, what) {
   if (!deskReady(player)) return `<span class="text-dim">${deskRefusal(player)}</span>`;
   const hire = what === 'hire';
-  const lines = BOAT_TYPES.map((t) => hire
+  const lines = deskStock(player.current_zone).map((t) => hire
     ? `<span class="text-cyan">${t.name}</span>: <span class="text-green">₵${boatRentFee(t).toLocaleString()}</span> for ${BOAT_RENT_TERM_MS / 3600000} hours, tank full`
     : `<span class="text-cyan">${t.name}</span>: <span class="text-green">₵${t.price.toLocaleString()}</span>\n<span class="text-dim">${t.blurb}</span>`);
   const home = await firstFreeBerth(berthsNear(player.current_zone));
@@ -365,12 +376,14 @@ export async function sweepBoatRentals(playerId) {
 async function boatRent(player, arg) {
   if (!dealerHere(player)) return say(`<span class="text-dim">${deskRefusal(player)}</span>`);
   const q = String(arg || '').trim().toLowerCase();
+  const stock = deskStock(player.current_zone);
   if (!q) {
-    const lines = BOAT_TYPES.map((t) => `  <span class="text-cyan">${t.name}</span> <span class="text-dim">(${t.id})</span>: <span class="text-green">₵${boatRentFee(t).toLocaleString()}</span> for ${BOAT_RENT_TERM_MS / 3600000} hours`);
+    const lines = stock.map((t) => `  <span class="text-cyan">${t.name}</span> <span class="text-dim">(${t.id})</span>: <span class="text-green">₵${boatRentFee(t).toLocaleString()}</span> for ${BOAT_RENT_TERM_MS / 3600000} hours`);
     return say(`<span class="text-cyan">FOR HIRE</span>\n${lines.join('\n')}\n<span class="text-dim">boat rent &lt;name&gt;. One at a time; she goes back on her own when the time is up and she is tied up.</span>`);
   }
   const type = BOAT_TYPES.find((t) => t.id === q || t.name.toLowerCase().includes(q));
   if (!type) return say(`<span class="text-dim">Nothing on the hire line called "${q}".</span>`);
+  if (!stock.includes(type)) return say(`<span class="text-dim">This desk doesn't hire out the ${type.name}.</span>`);
   await sweepBoatRentals(player.id);
   const have = (await myBoats(player.id)).find((b) => boatRental(b));
   if (have) return say(`<span class="text-dim">You already have ${have.name || 'a hull'} out on hire. Bring her back first: <span class="text-white">boat return</span>.</span>`);
@@ -384,7 +397,7 @@ async function boatRent(player, arg) {
   await query(
     `INSERT INTO boats (id, type_id, name, owner_id, berth_zone, fuel, condition, custom_data)
      VALUES ($1, $2, $3, $4, $5, 1, 1, $6::jsonb)`,
-    [id, type.id, `Hire ${type.name.split(' ').pop()}`, player.id, home.zone.id, JSON.stringify(cd)],
+    [id, type.id, `Hire ${type.short || type.name.split(' ').pop()}`, player.id, home.zone.id, JSON.stringify(cd)],
   );
   noteFreshVehicle(player.id, id);
   return say(`<span class="text-green">Hired.</span> A ${type.name} for ${BOAT_RENT_TERM_MS / 3600000} hours, tank full.`

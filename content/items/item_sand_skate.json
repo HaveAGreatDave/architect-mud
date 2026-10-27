@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_sand_skate",
+  "name": "sand skate",
+  "tags": {
+    "consumable": true,
+    "description": "A flat brown kite of a fish that lies on the sand and looks like sand. It doesn't fight so much as refuse to come up. The wings are the meat, sweet and ribbed.",
+    "food_noun": "skate",
+    "food_profile": "dense_meat",
+    "needs_cooking": true,
+    "raw_fish": true,
+    "restore_hunger": 20,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 22,
+  "weight": 250
+}

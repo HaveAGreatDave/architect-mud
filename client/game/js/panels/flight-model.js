@@ -310,6 +310,36 @@ export const TYPES = {
     hullKg: 1350, tank: 520, price: 52000,
     blurb: 'An offshore tunnel cat with a fighter canopy, two blown motors under the deck and a wing over the stern. Past ninety the tunnel packs air under her and she leaves the water off swell the Rooster would cut through. There is a hammer clipped inside the canopy.',
   },
+
+  // Keel Mk 1: a 16 ft riveted aluminium skiff with a 15 hp tiller outboard, built in Keel's shed.
+  // A displacement boat that just about planes: the hump sits low, the lever's whole travel is 0-18.
+  // Heavy and slow on the tiller (low turnLock, steep turnFade), beamy and slow to slide.
+  // `nitroMul: 1` is no bottle at all (stepBoat reads the bottle as absent at 1 or below).
+  // The fields below `exclusive` are read only where a hull has them; a missing one is none:
+  //   exclusive   sold and hired only at a desk whose furniture lists the id in `flags.boat_stock`
+  //   seats       how many can sit in her
+  //   hold_kg     the fish box, in kilograms
+  //   rodHolders  how many lines can be out at once
+  //   rode_m      the anchor rope, in metres; no rode, no anchor (anchor.js)
+  //   lamp        she carries a lamp for night fishing
+  skiff: {
+    name: 'Keel Mk 1', short: 'Mk 1', water: true, tier: 0,
+    mass: 0.9,
+    thrustMax: 4.0, topSpeed: 18, tileMph: 95,
+    waterFric: 0.9,
+    dragP: 0.00906, brake: 1.2,
+    hump: 12, humpDrag: 0.8,
+    turnLock: 14, turnFade: 0.9,
+    driftTau: 0.8,
+    hullLen: 0.012, hullBeam: 0.0125,
+    nitroMul: 1, nitroBurn: 0, nitroCool: 1,
+    launchVs: 0.2,
+    burn: 0.12,
+    hullKg: 160, tank: 40, price: 3900,
+    exclusive: true,
+    seats: 2, hold_kg: 40, rodHolders: 2, rode_m: 30, lamp: true,
+    blurb: "Built in the shed by the man who sells it. Sixteen feet of riveted aluminium, a tiller and a 15 hp motor. He'll fix it if it breaks. He says it won't.",
+  },
 };
 
 // Every water type, cheapest first: the boatyard's stock list.
@@ -1083,7 +1113,8 @@ export function stepBoat(s, input, p, dt) {
 
   // ── 2. THE BOTTLE ──────────────────────────────────────────────────────────
   // No new resource: overheating the bottle costs hull.
-  const want = running && !!input.nitro && s.nitro > 0 && !aground && s.pedal > 0.35;
+  // A hull with `nitroMul` of 1 or less has no bottle (the Keel); absent is the stock 1.55.
+  const want = running && (p.nitroMul ?? 1.55) > 1 && !!input.nitro && s.nitro > 0 && !aground && s.pedal > 0.35;
   s.nitroOn = want;
   if (want) {
     s.nitro = Math.max(0, s.nitro - (p.nitroBurn ?? 0.22) * dt);

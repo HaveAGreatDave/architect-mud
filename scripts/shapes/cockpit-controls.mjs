@@ -42,6 +42,13 @@ const NOT_FLIGHT = {
   bridge: 'the wheelhouse has no hotspots; helm-view.js is its panel',
 };
 const isBoat = (cls) => cls === 'hydro' || (!!BOAT_ROWS[cls] && !SHELL_CLASS[cls]);
+// A boat seat's clicks go to boat-view.js, which takes a 'click' to pressControl and a 'hold' to
+// HOLD_KEY, and nothing else. The controls each boat seat must draw, by id: the Keel's eight
+// (docs/proposals/boat-fishing.md section 1) and her starter cord, which is the seat's key.
+const BOAT_KINDS = new Set(['click', 'hold']);
+const BOAT_CONTROLS = {
+  skiff: ['fast', 'slow', 'kill', 'choke', 'prime', 'cleat', 'lamp', 'box', 'rod', 'ign'],
+};
 const flight = (cls) => !NOT_FLIGHT[cls] && !isBoat(cls);
 
 // Live states between them: power off and on, day and night, gear and flaps at both ends, armed. A
@@ -102,6 +109,11 @@ for (const [name, cls, armed, trim] of SEATS) {
       if (kind === 'click') ok(ACT.has(id), name + ': ' + id + ' has no action in cockpit.js DK_ACT, so the click does nothing');
       ok(TIP.has(id), name + ': ' + id + ' has no tooltip in cockpit.js DK_TIP');
     }
+  }
+  // a') a boat seat's controls are the ones it must have, each of a kind boat-view.js acts on.
+  if (isBoat(cls)) {
+    for (const [id, kind] of hs) ok(BOAT_KINDS.has(kind), name + ': ' + id + ' is a "' + kind + '" hotspot, a kind boat-view.js does nothing with');
+    for (const id of BOAT_CONTROLS[cls] || []) ok(hs.has(id), name + ': has no ' + id + ' control (BOAT_CONTROLS)');
   }
   // b) every word reads true from the seat.
   ok(!mirrored.size, name + ': ' + [...mirrored].map(([s, o]) => '"' + s + '" at [' + o.map((x) => x.toFixed(2)).join(', ') + ']').join(', ')

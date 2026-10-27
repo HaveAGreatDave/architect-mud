@@ -30,11 +30,12 @@
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, seaAmpsNow, hullSeaGains, interiorHotspots, ownHullScale, RENDER_TUNE, ROAD_RIG_MUL } from './windshield.js';
 import { airHornOn, airHornOff } from './engine-audio.js';
-import { seaClock, SEA_TILE_M } from '../../../shared/sea-swell.js';
+import { seaClock, seaHeight, SEA_TILE_M } from '../../../shared/sea-swell.js';
+import { CAST_MIN_M } from '../../../shared/boatfish-rules.js';
 import { navHomeHTML, drawNavHome } from './nav-home.js';
 import { stepBoat, shiftBoatOrigin, stepBoatRide, TYPES, CRANK_S } from './flight-model.js';
 import { createHelmWheel } from './helm-wheel.js';
-import { tweenOrbit } from './camera-tween.js';
+import { tweenOrbit, SHOTS } from './camera-tween.js';
 import { startBoatEngine, updateBoatEngine, stopBoatEngine, isBoatEngineRunning, updateBoatContacts, stopBoatContacts, updateBoatWater, stopBoatWater, boatLandThump } from './boat-audio.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { makeContactTrack } from './world-feed.js';
@@ -43,6 +44,7 @@ import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } 
 import { boatGeom } from '../../../shared/boat-house.js';
 import { BOAT_ROWS } from '../../../shared/vehicle-models.js';
 import { wildlandsAt } from '../../../shared/wildlands.js';
+import { SWING_R, LIE_FRAC, clampToSwing } from '../../../shared/boat-anchor.js';
 import { bindTouchGestures } from './touch-gestures.js';
 import { loadCss } from '../../../shared/dom.js';
 
@@ -100,6 +102,13 @@ function readInput(dt) {
     const dir = (k.has('a') ? 1 : 0) - (k.has('z') ? 1 : 0);
     if (dir) st.lever = Math.max(0, Math.min(1, st.lever + (dir > 0 ? LEVER_UP : -LEVER_DOWN) * dt));
   }
+  // ⚠ AT ANCHOR THE LEVER STAYS SHUT, and says why on the strip rather than dragging the anchor.
+  if (st.anchored) {
+    if (st.lever > 0 || k.has('a')) st.anchorNag = performance.now();
+    st.lever = 0;
+  }
+  // In rod mode the throttle is dead and the steering keys are the aim's (see stepRod).
+  if (rodOn()) st.lever = 0;
   // ⚠ THERE IS NO REVERSE, AND THE KEY FOR IT HAS BEEN REMOVED RATHER THAN LEFT LOOKING LIKE ONE.
   // This read S into an `astern` lever and handed it to `stepBoat`, which does not read the field
   // at all — the model clamps speed at zero and has no astern term anywhere in it. So the key did
@@ -121,6 +130,7 @@ function readInput(dt) {
   // ',' / '.' are the flight sim's other rudder pair, so every aircraft's pedals steer a boat.
   if (k.has('x') || k.has(',') || k.has('arrowleft')) want -= 1;
   if (k.has('c') || k.has('.') || k.has('arrowright')) want += 1;
+  if (rodOn()) want = 0;
   st.wheel?.setHeld?.(want);
 
   return {
@@ -247,6 +257,8 @@ export function boatView(mode, { quarter = false } = {}) {
 }
 /** Swing the chase camera onto a shot (camera-tween.js SHOTS). See cabFrame. */
 export function boatFrame(shot, ms = 700) {
+  // By name too: 'rod' is rod mode's over-the-shoulder shot, the rest are camera-tween.js's.
+  if (typeof shot === 'string') shot = shot === 'rod' ? (st ? rodShot() : null) : SHOTS[shot];
   if (!st || !shot) return;
   if (!st.external) setExternal(true);
   // A hull's pitch range is lower than a truck's (the drag clamps it to 0.85), so a shot is held to it.
@@ -325,6 +337,8 @@ export function openBoat(ctx = {}) {
     // because V is the cockpit's and F is what everybody's hands do anyway.
     // Beached: a held button for the R shove, shown only while she is on the sand.
     + '<button class="boat-chip boat-hold boat-push" data-key="r" type="button" hidden title="shove her back off the beach (R), shuts the lever">⇤ PUSH OFF</button>'
+    // The anchor, on a hull that carries one (`rode_m`): drop it, or pull it up. B, or the cleat.
+    + '<button class="boat-chip boat-anchor" type="button" hidden title="anchor: drop it or pull it up (B)">⚓ ANCHOR</button>'
     + '<button class="boat-chip boat-ext" type="button" title="external / helm view (V)">◎ EXT</button>'
     + '<button class="boat-chip boat-ride" type="button" title="helm camera motion: full / soft / steady (N), the boat still rides the full sea">RIDE FULL</button>'
     + '<button class="boat-chip boat-help-btn" type="button" title="controls (?)">?</button>'
@@ -406,6 +420,14 @@ export function openBoat(ctx = {}) {
     actors: ctx.actors || [],   // the people on the quay, in absolute tiles (street-actors.js)
     marks: ctx.marks || [],     // the fuel berths and covered slots in the window (helm.js berthMarksNear)
     berthNow: null, berthDraw: [], berthKey: '', actAt: 0,
+    // The anchor point, absolute tiles, while she's lying to it (the server's: plugins/powerboat/anchor.js).
+    anchored: ctx.anchored || null, anchorNag: 0,
+    // The skiff's open-boat controls (interior-skiff.js): the battery lamp, the fish box lid, the
+    // choke and the primer bulb's last squeeze.
+    lamp: false, boxOpen: false, choke: false, primeAt: -1e9,
+    // Rod mode, and what you look like on the thwart (angler.js anglerBody): the helm's push may
+    // carry `look: { id, skin, hair, hairStyle }`; without it the boat's name keeps you the same man.
+    rod: newRod(), rodView: null, angLook: ctx.look || { id: ctx.player || ctx.name || 'angler' },
     lastSync: 0, last: performance.now(), alive: true, raf: 0,
     onSend: ctx.onSend || null,
     onExit: ctx.onExit || (() => send('disembark')),
@@ -487,6 +509,8 @@ export function openBoat(ctx = {}) {
     if (!st.sim.running) { st.clickCrank = true; st.clickCrankLeft = CRANK_S + 0.5; }
   });
   root.querySelector?.('.boat-ext')?.addEventListener('click', () => setExternal(!st.external));
+  const anchorBtn = root.querySelector?.('.boat-anchor');
+  if (anchorBtn) { anchorBtn.hidden = !(Number(p.rode_m) > 0); anchorBtn.addEventListener('click', () => anchorAct()); }
   root.querySelector?.('.boat-help-btn')?.addEventListener('click', () => toggleHelp());
   buildHelp();
   buildOut();
@@ -499,6 +523,9 @@ export function openBoat(ctx = {}) {
   // data. A localStorage key would have got both of those the wrong way round.
   if (st.first) toggleHelp(true);
   claimSeatKeyboard(st.pane, { label: 'HELM' });
+  // A reel already open (boarded while fishing) or opened later mounts its HUD in this seat.
+  if (BF) hostReel();
+  else if (Number(p.rode_m) > 0) loadReel();
   // ⚠ AND THE MOTOR IS NOT STARTED HERE ANY MORE. It was, unconditionally, which was right while
   // she was alive the moment the pane opened; with a key in her, a V8 idling over a dead boat is
   // the one thing that would make the whole ignition read as broken. `onEvent` starts it when she
@@ -515,6 +542,7 @@ export function closeBoat() {
   window.removeEventListener('keyup', st.ku, true);
   st.wheel?.destroy?.();
   st.lever3d?.destroy?.();
+  try { BF?.detachBoatFishHost?.(); } catch { /* the reel keeps its own overlay */ }
   stopBoatEngine(true);
   stopBoatContacts();
   stopBoatWater();
@@ -541,6 +569,14 @@ function bindKeys() {
   st.kd = (e) => {
     if (!st || e.target?.closest?.('input, textarea, [contenteditable]')) return;
     const k = e.key.toLowerCase();
+    // ⚠ IN ROD MODE THE REEL HEARS EVERY KEY FIRST, and the seat acts only on what it leaves: a twitch,
+    // a knock and the fight's lean are the reel's; the aim, the cast's charge and R are the seat's.
+    if (rodOn() && reelOpen()) {
+      let took = false;
+      try { took = !!BF.boatFishKey(e, true); } catch { took = false; }
+      if (took) { e.preventDefault(); return; }
+      if (rodKey(e, k, true)) { e.preventDefault(); return; }
+    }
     // ⚠ ESC CLOSES WHATEVER IS OPEN BEFORE IT CLOSES THE SEAT, which is the cab's own ladder and
     // is the difference between a flap you can dismiss and a flap that throws you out of the boat.
     if (k === 'escape') {
@@ -563,6 +599,10 @@ function bindKeys() {
       // The marked berth's act: fill her at the pumps, or dock her under the roof. P is the cab's
       // park key, and tying up is what a boat does instead of parking.
       if (k === 'p') { e.preventDefault(); berthAct(); return; }
+      // The anchor. ⚠ B, NOT A: A is the throttle in every seat, and every other letter here is bound.
+      if (k === 'b') { e.preventDefault(); anchorAct(); return; }
+      // The rod. ⚠ ON THE SAND R IS STILL THE SHOVE, and you can't be anchored there anyway.
+      if (k === 'r' && !st.sim.beached) { e.preventDefault(); toggleRod(); return; }
       // The shoulder-checks, and they are the cab's three letters. ⚠ SNAP AND LATCH rather than
       // held: a boat is steered with two hands and there is no third one to hold a look key with.
       // Q / E / S are HELD shoulder-checks, the cab's and the cockpit's own three keys.
@@ -578,6 +618,15 @@ function bindKeys() {
   st.ku = (e) => {
     if (!st) return;
     const k = e.key.toLowerCase();
+    if (st.rod) {
+      st.rod.keys.delete(k);
+      if (rodOn() && reelOpen()) {
+        let took = false;
+        try { took = !!BF.boatFishKey(e, false); } catch { took = false; }
+        if (!took && k === ' ' && st.rod.charging) castNow(performance.now());
+        if (took || k === ' ') { st.keys.delete(k); return; }
+      }
+    }
     if (k === 'k') st.starter = false;
     if (st.look.held === k) { st.look.yaw = 0; st.look.pitch = 0; st.look.held = null; }
     st.keys.delete(k);
@@ -638,7 +687,8 @@ function bindKeys() {
     // ⚠ MIDDLE OR RIGHT BUTTON. The middle is the free camera's own orbit button everywhere else in
     // GLASS, so it looks round the pilothouse inside and swings round the hull outside; the right
     // button stays as the alias this seat shipped with.
-    if ((e.button !== 1 && e.button !== 2) || !st) return;
+    // In rod mode the left button aims too (a press on a 3-D control is taken first, above).
+    if ((e.button !== 1 && e.button !== 2 && !(e.button === 0 && rodOn())) || !st) return;
     e.preventDefault();
     st.look.on = true; st.look.px = e.clientX; st.look.py = e.clientY;
     glass.setPointerCapture?.(e.pointerId);
@@ -657,6 +707,13 @@ function bindKeys() {
     pinch: (f) => { if (st?.external) dollyTo(st.extZoom / f); },
   });
   function lookBy(dx, dy) {
+    // ⚠ IN ROD MODE THE DRAG IS THE AIM, in both views, and it is RELATIVE: the bearing moves by how
+    // far you drag and stays where you leave it. The look and the chase camera follow the aim.
+    if (rodOn()) {
+      const ph = BF?.boatFishState?.()?.phase;
+      if (ph === 'ready' && !st.rod.cast) st.rod.bearing = clamp(st.rod.bearing + dx * AIM_DRAG, -AIM_MAX, AIM_MAX);
+      return;
+    }
     // ⚠ ONE DRAG, TWO JOBS, DECIDED BY WHICH VIEW IS UP — and it is the SAME handler rather than a
     // second set of listeners on the same element, which is the arrangement the cab's own note
     // about `st.external` is a record of: two owners of one drag and the one that loses does so
@@ -737,12 +794,17 @@ function ignition() {
 // ── THE SWITCHES ─────────────────────────────────────────────────────────────
 // One place that knows what each switch on the dash does, used by the keys, the buttons and a click
 // on the dash itself.
-const HOLD_KEY = { horn: 'h', arm: 'shift', tabUp: ']', tabDown: '[' };
+const HOLD_KEY = { horn: 'h', arm: 'shift', tabUp: ']', tabDown: '[', fast: 'a', slow: 'z' };
 const CONTROL_TIP = {
   cabin: 'CABIN: dome lamp (I)', wipe: 'WIPE: wipers (W)', horn: 'HORN: hold (H)', dials: 'DIALS: gauge lights (L)',
   arm: 'ARM: nitrous bottle, hold (Shift)', tabUp: 'TABS: bow up, hold (])', tabDown: 'TABS: bow down, hold ([)',
   stab: 'STAB: gyro stabiliser (G), needs the engine running',
   ign: 'IGN: ignition key (K)', kill: 'KILL: stop the engine',
+  // The skiff's open-boat controls (client/shared/interior-skiff.js).
+  fast: 'FAST: twist the grip open, hold (A)', slow: 'SLOW: twist the grip shut, hold (Z)',
+  choke: 'CHOKE: pull it for a cold start', prime: 'PRIME: squeeze the fuel bulb',
+  cleat: 'CLEAT: the anchor, drop it or pull it up (B)', lamp: 'LAMP: the battery lamp on its pole',
+  box: 'BOX: the fish box lid', rod: 'ROD: fish from her, at anchor (R)',
 };
 function switchState(id) {
   if (!st) return false;
@@ -754,6 +816,16 @@ function flipSwitch(id) {
   else if (id === 'wipe') st.wipers = st.wipers ? 0 : 2;
   else if (id === 'dials') st.dials = !st.dials;
   else if (id === 'stab') st.stab = !st.stab;
+  else if (id === 'lamp') st.lamp = !st.lamp;
+  else if (id === 'box') st.boxOpen = !st.boxOpen;
+  else if (id === 'choke') st.choke = !st.choke;
+  // The primer bulb: a squeeze, which springs back over half a second (primeLevel).
+  else if (id === 'prime') st.primeAt = performance.now();
+}
+const PRIME_MS = 500;
+function primeLevel() {
+  const t = (performance.now() - (st?.primeAt || -1e9)) / PRIME_MS;
+  return t < 0 || t >= 1 ? 0 : t < 0.25 ? t / 0.25 : 1 - (t - 0.25) / 0.75;
 }
 function pressControl(id) {
   if (!st) return;
@@ -762,7 +834,278 @@ function pressControl(id) {
     ignition();
     if (!st.sim.running) { st.clickCrank = true; st.clickCrankLeft = CRANK_S + 0.5; }
   } else if (id === 'kill') { if (st.sim.running) ignition(); }
+  else if (id === 'cleat') anchorAct();
+  else if (id === 'rod') toggleRod();
   else flipSwitch(id);
+}
+
+// ── THE ANCHOR ───────────────────────────────────────────────────────────────
+// ⚠ THE SEAT ASKS AND THE SERVER DECIDES. `boat anchor` checks the speed, the berth, the rode and the
+// bottom (plugins/powerboat/anchor.js) and pushes the point back as `anchored`; nothing here sets it.
+function anchorAct() {
+  if (!st || !(Number(st.p.rode_m) > 0)) return;
+  send(st.anchored ? 'boat anchor up' : 'boat anchor');
+}
+
+// At anchor she lies downwind of the point on the swing circle and turns her bow to the wind. Eased,
+// so dropping the anchor or adopting one on boarding never jumps her. The window-relative frame is
+// the sim's: the point is absolute, so the window centre comes off it.
+function holdAtAnchor(dt) {
+  const a = st.anchored;
+  const ax = a.x - st.cx, ay = a.y - st.cy;
+  // The renderer's own wind (windshield.js windFromView): the field's direction, else the hour's.
+  const dir = st.wxField?.wind?.dir ?? ((((st.hour || 12) * 17 + 40) % 360 + 360) % 360);
+  const r = dir * Math.PI / 180, lie = SWING_R * LIE_FRAC;
+  const k = 1 - Math.exp(-dt / 6);
+  st.sim.x += (ax + Math.sin(r) * lie - st.sim.x) * k;
+  st.sim.y += (ay - Math.cos(r) * lie - st.sim.y) * k;
+  ({ x: st.sim.x, y: st.sim.y } = clampToSwing(st.sim.x, st.sim.y, { x: ax, y: ay }));
+  st.sim.speed = 0; st.sim.drift = 0;
+  // Bow upwind, with a slow sheer either side of it the way a boat at anchor never quite settles.
+  const want = dir + 180 + Math.sin(performance.now() / 9000) * 8;
+  const err = ((want - st.sim.heading) % 360 + 540) % 360 - 180;
+  st.sim.heading = ((st.sim.heading + err * (1 - Math.exp(-dt / 10))) % 360 + 360) % 360;
+}
+
+// ── ROD MODE (docs/proposals/boat-fishing.md §5, §5b) ────────────────────────
+//
+// R, or the rod holder, sends `fish`; the server opens the reel (boatfish.js) and while it's open
+// this seat is in rod mode: the throttle is dead, the drag and the arrows aim, Space charges the
+// range and its release casts. Every key goes to the reel first (boatFishKey) and the seat acts only
+// on what it leaves. The seat owns the aim, the landing ring and what's drawn (glass/rod-rig.js): the
+// angler's clips (angler.js), the lure's flight, the splash, the fish coming aboard.
+//
+// ⚠ BOTH MODULES ARE FETCHED, NEVER IMPORTED. boatfish.js imports net.js, which a headless gate can't
+// load, and angler.js brings the two-megabyte clip library; a seat that never fishes loads neither.
+let BF = null, bfP = null, ANG = null, angP = null;
+const loadReel = () => bfP || (bfP = import('./boatfish.js').then((m) => { BF = m; if (st) hostReel(); return m; }).catch(() => null));
+const loadAngler = () => angP || (angP = import('./angler.js').then((m) => { ANG = m; return m; }).catch(() => null));
+function hostReel() { try { BF?.attachBoatFishHost?.(st.root); } catch { /* the HUD falls back to its own overlay */ } }
+const reelOpen = () => { try { return !!(BF && BF.boatFishActive()); } catch { return false; } };
+function rodOn() { return !!(st && st.rod && st.rod.on); }
+// A cue from the reel's set (sfx-catalog.js), by name; silent with no audio engine.
+function cue(id) { try { const d = window.SFXCatalog?.get?.(id); if (d) window.AudioEngine?.playSfx?.(d); } catch { /* no audio */ } }
+
+const AIM_RATE = 70;       // degrees a second, held key or full stick
+const AIM_DRAG = 0.25;     // degrees a pixel of drag
+const AIM_MAX = 150;       // off the bow either way: past it you'd be casting over the outboard
+const CHARGE_MS = 1400;    // the range meter, short to long, as the reel's own
+const SPLASH_S = 1.6, LAND_S = 1.8;
+
+function newRod() {
+  return { on: false, want: false, wantAt: 0, nag: 0, bearing: 0, keys: new Set(), charging: false, chargeAt: 0, range: CAST_MIN_M,
+    anim: null, phase: null, castAt: 0, snapAt: 0, cast: null, fly: null, splash: null, lure: null, fish: null,
+    lastLine: 0, lastBeat: 0, camAt: 0 };
+}
+function toggleRod() {
+  if (!st) return;
+  const R = st.rod;
+  if (R.on || reelOpen()) { send('stand'); R.want = false; leaveRod(); return; }
+  if (!st.anchored) { R.nag = performance.now(); return; }
+  R.want = true; R.wantAt = performance.now();
+  loadReel(); loadAngler();
+  send('fish');
+}
+function enterRod(now) {
+  const R = st.rod;
+  R.on = true; R.want = false; R.charging = false; R.cast = null; R.fly = null; R.lure = null; R.fish = null; R.splash = null;
+  R.anim = ANG ? ANG.newAnim(now) : null;
+  hostReel();
+  if (st.external) { boatFrame('rod', 750); R.camAt = now + 800; }
+}
+function leaveRod() {
+  const R = st.rod;
+  R.on = false; R.anim = null; R.charging = false; R.keys.clear();
+  st.rodView = null;
+  st.look.yaw = 0; st.look.pitch = 0;
+}
+// The over-the-shoulder shot: from behind you along the way you're aiming, a little to your right, in
+// as close as the orbit goes (the chase view draws her at a fifth of her size, see drawnRide).
+function rodShot() { return { yaw: (st?.rod?.bearing || 0) - 10, pitch: 0.16, zoom: 0.12 }; }
+
+// A rod key, in rod mode: the aim's arrows and A/D, and Space, which charges and casts while the reel
+// is ready and is the reel's own after that. Returns true when the seat used it.
+function rodKey(e, k, down) {
+  const R = st.rod;
+  if (k === 'arrowleft' || k === 'arrowright' || k === 'a' || k === 'd') {
+    if (down) R.keys.add(k); else R.keys.delete(k);
+    return true;
+  }
+  if (k === ' ') {
+    const ph = BF?.boatFishState?.()?.phase;
+    if (down && !e.repeat && ph === 'ready' && !R.charging && !R.cast) { R.charging = true; R.chargeAt = performance.now(); cue('fishing-charge'); }
+    else if (!down && R.charging) castNow(performance.now());
+    return true;
+  }
+  return false;
+}
+
+function chargeRange(now, castM) {
+  const p = ((now - st.rod.chargeAt) / CHARGE_MS) % 2;
+  return CAST_MIN_M + (castM - CAST_MIN_M) * (p < 1 ? p : 2 - p);
+}
+function castNow(now) {
+  const R = st.rod, S = BF?.boatFishState?.();
+  R.charging = false;
+  const ok = !!(S && BF.boatFishCast(R.bearing, R.range));
+  if (R.anim && ANG) {
+    if (R.anim.id !== 'fish_cast') ANG.play(R.anim, 'fish_cast', now);
+    ANG.release(R.anim, now);
+  }
+  if (!ok) { R.cast = null; return; }
+  // The lure goes at the clip's snap; the server says where it landed while it's in the air.
+  const snap = R.anim && ANG ? R.anim.t0 + ANG.CAST_SNAP_S * 1000 : now + 120;
+  R.cast = { at: now, snapAt: Math.max(now, snap), bearing: R.bearing, range: R.range };
+  R.lure = null; R.fish = null;
+}
+
+// Where a cast of `range` metres at `bearing` off the bow lands from the anchor point (the server's
+// arithmetic, plugins/fishing/boat.js): absolute tiles in the boat's convention.
+function aimPoint(S, bearing, range) {
+  const a = st.anchored || { x: st.cx + st.sim.x, y: st.cy + st.sim.y };
+  const ax = Number.isFinite(S?.ax) && S.ax ? S.ax : a.x, ay = Number.isFinite(S?.ay) && S.ay ? S.ay : a.y;
+  const w = (st.sim.heading + bearing) * Math.PI / 180, d = range / SEA_TILE_M;
+  return { x: ax + Math.sin(w) * d, y: ay - Math.cos(w) * d, ax, ay };
+}
+// The sea's height at an absolute point: the frame the renderer draws it in is the map window's.
+function seaAt(x, y) {
+  try { return seaHeight(x - st.cx, y - st.cy, seaClock(Date.now()), st.sim.seaRoll || 0, st.sim.seaChopH || 0, st.sim.seaWind || 0); }
+  catch { return 0; }
+}
+
+function stepRod(dt, now) {
+  const R = st.rod;
+  const open = reelOpen();
+  if (open && !R.on) enterRod(now);
+  else if (!open && R.on) leaveRod();
+  if (R.want && !open && now - R.wantAt > 5000) R.want = false;   // refused: the server said why in the log
+  if (!R.on) { st.rodView = null; return; }
+  if (!R.anim && ANG) R.anim = ANG.newAnim(now);
+  const S = BF.boatFishState() || {};
+  const ph = S.phase, A = R.anim;
+  const castM = Number(S.castM) > 0 ? S.castM : 25;
+
+  // ── the aim: keys and a stick swing it at a rate; the drag (lookBy) by how far you move ──
+  if (ph === 'ready' && !R.cast) {
+    let rate = (R.keys.has('arrowright') || R.keys.has('d') ? 1 : 0) - (R.keys.has('arrowleft') || R.keys.has('a') ? 1 : 0);
+    try {
+      for (const gp of navigator.getGamepads?.() || []) {
+        const x = gp?.axes?.[0] || 0;
+        if (Math.abs(x) > 0.15) { rate += Math.sign(x) * (Math.abs(x) - 0.15) / 0.85; break; }
+      }
+    } catch { /* no gamepads */ }
+    R.bearing = clamp(R.bearing + rate * AIM_RATE * dt, -AIM_MAX, AIM_MAX);
+  }
+  if (R.charging) R.range = chargeRange(now, castM);
+
+  // ── the clips ─────────────────────────────────────────────────────────────────────────────
+  const facing = Math.cos(R.bearing * Math.PI / 180) >= 0 ? 1 : -1;   // port is his left facing forward
+  if (A && ANG) {
+    const t = ANG.clipTime(A, now), ended = !ANG.clipLoops(A.id) && t >= ANG.clipDuration(A.id);
+    if (R.charging) {
+      if (A.id !== 'fish_cast') ANG.play(A, 'fish_cast', now);
+      else if (A.hold == null && t >= ANG.CAST_LOAD_S) ANG.holdAt(A, ANG.CAST_LOAD_S, now);
+    } else if (ph === 'fight') {
+      if (A.id !== 'fight' && (A.id !== 'fish_strike' || ended)) ANG.play(A, 'fight', now, { mixMs: 300 });
+      A.lean = (S.lean || 0) * facing;
+    } else if (ph === 'reeling') {
+      if (A.id !== 'fish_reel') ANG.play(A, 'fish_reel', now, { mixMs: 300 });
+    } else if (ph === 'bite') {
+      const bi = S.beat ? S.beat.i : 0;
+      if (bi > R.lastBeat) ANG.play(A, 'fish_strike', now, { mixMs: 80 });
+      R.lastBeat = bi;
+    } else if (ph === 'wait') {
+      if (S.lineM < R.lastLine - 0.4 && A.id !== 'fish_cast') ANG.play(A, 'fish_twitch', now, { mixMs: 90 });
+      else if (ended) ANG.play(A, 'fish_sit', now, { mixMs: 300 });
+    } else if (A.id === 'fight' || A.id === 'fish_reel' || ended) {
+      if (A.id !== 'fish_sit') ANG.play(A, 'fish_sit', now, { mixMs: 350 });
+    }
+    if (ph !== 'bite') R.lastBeat = 0;
+  }
+  R.lastLine = S.lineM || 0;
+
+  // ── the cast: the lure leaves at the snap and flies to where the server says it landed ─────
+  if (R.cast && now >= R.cast.snapAt && !R.fly) {
+    const p = aimPoint(S, R.cast.bearing, R.cast.range);
+    R.fly = { t0: now, dur: 0.55 + R.cast.range / 38, px: p.x, py: p.y };
+    cue('boatfish-cast');
+  }
+  if (R.fly) {
+    const has = S.lx != null && S.ly != null;
+    const x = has ? S.lx : R.fly.px, y = has ? S.ly : R.fly.py;
+    const s = (now - R.fly.t0) / 1000 / R.fly.dur;
+    if (s >= 1) {
+      R.splash = { x, y, z: seaAt(x, y), t0: now };
+      R.lure = { x, y };
+      R.fly = null; R.cast = null;
+      cue('boatfish-plop');
+    } else R.flyView = { s, x, y, z: seaAt(x, y), apex: (R.cast?.range || 15) / SEA_TILE_M * 0.11 };
+  }
+  if (R.cast && !R.fly && ph !== 'flight' && ph !== 'ready' && now > R.cast.snapAt + 3000) R.cast = null;
+  if (R.splash && (now - R.splash.t0) / 1000 > SPLASH_S) R.splash = null;
+
+  // ── the lure in the water: along the line from the anchor, as much line as is out ─────────
+  const inWater = ph === 'wait' || ph === 'bite' || ph === 'fight' || ph === 'reeling';
+  if (!R.fly && inWater && S.lx != null) {
+    const a = aimPoint(S, 0, 0);
+    let dx = S.lx - a.ax, dy = S.ly - a.ay;
+    const d = Math.hypot(dx, dy) || 1e-6;
+    // In the fight the fish takes the line off to the side it's running.
+    const sw = ph === 'fight' ? (S.pull || 0) * 0.45 : 0;
+    const c = Math.cos(sw), s = Math.sin(sw);
+    [dx, dy] = [(dx * c - dy * s) / d, (dx * s + dy * c) / d];
+    const out = Math.min((S.lineM || 0) / SEA_TILE_M, ph === 'fight' ? Infinity : d);
+    const tx = a.ax + dx * out, ty = a.ay + dy * out;
+    if (!R.lure) R.lure = { x: tx, y: ty };
+    const k = 1 - Math.exp(-dt / 0.18);
+    R.lure.x += (tx - R.lure.x) * k; R.lure.y += (ty - R.lure.y) * k;
+  } else if (!R.fly && !inWater && ph !== 'landed') R.lure = null;
+
+  // ── landed: up out of the water on the line and over the gunwale into the box ─────────────
+  if (ph === 'landed' && !R.fish && R.lure) {
+    R.fish = { t0: now, kg: S.catch?.kg || 1, x: R.lure.x, y: R.lure.y };
+    if (A && ANG) ANG.play(A, 'fish_strike', now, { mixMs: 120 });
+  }
+  if (R.fish && (now - R.fish.t0) / 1000 > LAND_S) { R.fish = null; R.lure = null; }
+
+  // ── the float knocks on a bite ────────────────────────────────────────────────────────────
+  let dip = 0;
+  if (ph === 'bite' && S.beat && S.beat.nextAtServerMs != null) {
+    try { const d = Math.abs(BF.serverNow() - S.beat.nextAtServerMs); if (d < 160) dip = 0.005 * (1 - d / 160); } catch { /* no clock */ }
+  }
+
+  // ── the cameras ───────────────────────────────────────────────────────────────────────────
+  if (!st.external) {
+    // From the seat you look where you're aiming, down at the water over the rod tip.
+    const k = 1 - Math.exp(-dt / 0.25);
+    st.look.yaw += (clamp(R.bearing, -LOOK_YAW, LOOK_YAW) - st.look.yaw) * k;
+    st.look.pitch += (-9 - st.look.pitch) * k;
+  } else if (now > R.camAt && !st.look.on) {
+    const want = rodShot().yaw - (RENDER_TUNE.chaseYaw || 0);
+    const err = ((want - st.extYaw) % 360 + 540) % 360 - 180;
+    st.extYaw = ((st.extYaw + err * (1 - Math.exp(-dt / 0.6))) % 360 + 360) % 360;
+  }
+
+  // ── the ring: where it'll land, wobbling less the better you are ──────────────────────────
+  let ring = null;
+  if (ph === 'ready' && !R.cast) {
+    const skill = clamp((Number(S.skill) || 4) / 10, 0, 1), wob = (1 - skill) * 2.2 + 0.35;
+    const p = aimPoint(S, R.bearing, R.charging ? R.range : Math.max(R.range, CAST_MIN_M));
+    const j = wob / SEA_TILE_M;
+    ring = { x: p.x + Math.sin(now / 430) * j * 0.6 + Math.sin(now / 977) * j * 0.4, y: p.y + Math.cos(now / 610) * j * 0.6 + Math.cos(now / 1310) * j * 0.4,
+      r: (0.9 + wob * 0.4) / SEA_TILE_M, a: R.charging ? 0.95 : 0.45 };
+  }
+
+  const tension = ph === 'fight' ? (S.tension || 0) : ph === 'reeling' ? 0.6 : ph === 'bite' ? 0.35 : ph === 'wait' ? 0.12 : 0;
+  st.rodView = {
+    typeId: st.typeId, bearing: R.bearing, anim: A, look: st.angLook,
+    ring,
+    fly: R.fly ? R.flyView : null,
+    lure: !R.fly && R.lure && !R.fish ? { x: R.lure.x, y: R.lure.y, z: seaAt(R.lure.x, R.lure.y) + 0.002, dip } : null,
+    splash: R.splash ? { x: R.splash.x, y: R.splash.y, z: R.splash.z, age: (now - R.splash.t0) / 1000 } : null,
+    fish: R.fish ? { s: (now - R.fish.t0) / 1000 / LAND_S, kg: R.fish.kg, x: R.fish.x, y: R.fish.y, z: seaAt(R.fish.x, R.fish.y) } : null,
+    tension, bend: ph === 'fight' ? 0.15 + 0.85 * tension : tension * 0.5, pull: ph === 'fight' ? (S.pull || 0) * facing : 0,
+  };
 }
 
 // ── THE CHASE CAMERA ─────────────────────────────────────────────────────────
@@ -806,6 +1149,8 @@ function buildHelp() {
     + '<dt>V</dt><dd>external view. Middle-drag to swing round her, wheel to back off.</dd>'
     + '<dt>Q / E / S</dt><dd>hold to look port, starboard, astern. Middle-drag looks anywhere.</dd>'
     + '<dt>P</dt><dd>at a marked berth, stopped inside the box: fill her at the fuel pumps, or dock her under the marina roof.</dd>'
+    + (Number(st.p.rode_m) > 0 ? '<dt>B</dt><dd>the anchor. Stopped, off the berths, in water the rope reaches. It cuts the engine; B again pulls it up.</dd>'
+      + '<dt>R (at anchor)</dt><dd>the rod. Drag or the arrows aim, hold Space and let go to cast, Space twitches and strikes, the arrows lean in the fight. R again stows it.</dd>' : '')
     + '<dt>ESC</dt><dd>step off: alongside to moor her, or over the side into the water.</dd>'
     + '</dl>'
     + '<p class="boat-help-foot">Everything here is also a button. Press <b>?</b> or <b>Esc</b> to close.</p>';
@@ -1087,6 +1432,7 @@ function frame(now) {
         st.shove = st.shove > 0.02 ? st.shove * Math.exp(-dt / SHOVE_TAU) : 0;
       } else st.shove = 0;
     }
+    if (st.anchored) holdAtAnchor(dt);
     fendOff(px, py);
     for (const ev of st.sim.events || []) onEvent(ev);
     if (st.clickCrank) st.clickCrankLeft -= dt;
@@ -1117,6 +1463,7 @@ function frame(now) {
     updateBoatWater({ spd01, airborne: st.sim.airborne, aground: st.aground });
     updateBoatContacts({ x: st.cx + st.sim.x, y: st.cy + st.sim.y, heading: st.sim.heading, speed: st.sim.speed }, st.contacts.raw);
     updateBerth();
+    stepRod(dt, performance.now());
     // How she sits on the water the picture draws, at the size this view draws her (see `drawnRide`).
     const ride = drawnRide(dt, spd01);
 
@@ -1157,7 +1504,9 @@ function frame(now) {
         : { height: 0, metreTiles: METRE_TILES, eyeH: Math.max(0.02, eyeTilesOf(st.typeId) + ride.heave) }),
       speed: st.sim.speed,
       // The cabin lights (the profile's floods) and the dome lift come on with the engine.
-      powered: !!st.sim.running, dome: !!st.sim.running && st.cabin,
+      // ⚠ THE SKIFF'S LAMP IS A BATTERY LAMP: it lights the seat with the engine off, so it powers
+      // the cabin pass on its own (the dome stays the engine's).
+      powered: !!st.sim.running || !!st.lamp, dome: (!!st.sim.running && st.cabin) || !!st.lamp,
       wipers: st.sim.running && st.wipers ? st.wipers : 0,
       // Her paint, or the shipwright's preview of it (see boatPreview). Absent is the factory colours.
       ...((st.preview || st.livery) ? { livery: st.preview || st.livery } : {}),
@@ -1193,7 +1542,12 @@ function frame(now) {
         stab: !!st.stab,
         dialSwitch: !!st.dials, dials: !!st.dials && !!st.sim.running,   // the gauge lights, and whether they have power
         cabin: st.cabin, wipers: st.wipers, horn: st.hornOn, hover: st.hover, press: st.press,
+        // The skiff's (interior-skiff.js): the cleat, the battery lamp, the box lid, the choke, the
+        // primer bulb's squeeze and the rod holder.
+        anchored: !!st.anchored, lamp: !!st.lamp, boxOpen: !!st.boxOpen, choke: !!st.choke, prime: primeLevel(), rod: rodOn(),
       },
+      // Rod mode's angler, rod, line, lure and ring (glass/rod-rig.js).
+      ...(st.rodView ? { rod: st.rodView } : {}),
     });
     drawRead();
 
@@ -1282,9 +1636,13 @@ function drawRead() {
   // answer to the only question a stationary player is asking. Printed after the mph it reads as a
   // footnote on a boat that is plainly not moving, which is exactly the state the whole ignition
   // exists to make legible.
-  const head = st.sim.running ? (mph + ' MPH')
-    : (st.sim.crank > 0 ? 'CRANKING…' : st.fuel <= 0 ? 'DRY: NO START' : (st.starter && st.lever >= 0.05) ? 'LEVER TO IDLE TO START' : 'ENGINE OFF · K');
-  el.textContent = head + '   HULL ' + Math.round(st.sim.hull * 100) + '%   FUEL '
+  const head = (st.anchored ? 'AT ANCHOR   ' : '') + (st.sim.running ? (mph + ' MPH')
+    : (st.sim.crank > 0 ? 'CRANKING…' : st.fuel <= 0 ? 'DRY: NO START' : (st.starter && st.lever >= 0.05) ? 'LEVER TO IDLE TO START' : 'ENGINE OFF · K'));
+  // In rod mode the strip leads with the aim: the bearing off the bow and, while charging, the range.
+  const rb0 = rodOn() ? Math.round(st.rod.bearing) : null;
+  const rodHead = rb0 == null ? '' : 'ROD ' + (rb0 === 0 ? 'DEAD AHEAD' : Math.abs(rb0) + '° ' + (rb0 < 0 ? 'PORT' : 'STBD'))
+    + (st.rod.charging ? '  ' + Math.round(st.rod.range) + ' M' : '') + '   ';
+  el.textContent = rodHead + head + '   HULL ' + Math.round(st.sim.hull * 100) + '%   FUEL '
     + Math.round(st.fuel * 100) + '%   BOTTLE ' + Math.round(st.sim.nitro * 100) + '%   ' + tab;
   el.classList.toggle('boat-dead', !st.sim.running);
   drawNavHome(st.root?.querySelector?.('.nav-home'), { x: st.cx + st.sim.x, y: st.cy + st.sim.y, heading: st.sim.heading, homeX: st.homeX, homeY: st.homeY });
@@ -1295,7 +1653,17 @@ function drawRead() {
   // that do nothing out there.
   if (keys) {
     // Beached, the one control that does anything is the shove, whichever view you are in.
-    keys.textContent = st.sim.beached
+    // A throttle taken at anchor says so for three seconds, rather than dragging the anchor.
+    const rodPh = rodOn() ? BF?.boatFishState?.()?.phase : null;
+    keys.textContent = rodOn()
+      ? (rodPh === 'ready'
+        ? (st.rod.charging ? 'CASTING: let go of SPACE at the range you want' : 'ROD: drag or ◀ ▶ to aim · hold SPACE to cast · R stow the rod · V ' + (st.external ? 'seat' : 'external'))
+        : 'ROD: SPACE twitches and strikes · ◀ ▶ lean in the fight · R stow the rod · V ' + (st.external ? 'seat' : 'external'))
+      : performance.now() - (st.rod?.nag || -1e9) < 3000
+      ? 'DROP THE ANCHOR FIRST (B), THEN R FOR THE ROD.'
+      : st.anchored && performance.now() - st.anchorNag < 3000
+      ? "THE ANCHOR'S DOWN. B PULLS IT UP."
+      : st.sim.beached
       ? 'BEACHED: R push off · V ' + (st.external ? 'helm view' : 'external') + ' · ? controls'
       : st.external
       ? 'drag swing · wheel back off · V helm view · ? controls · ESC step off'
@@ -1310,6 +1678,8 @@ function drawRead() {
   if (rb) rb.textContent = RIDE[rideIdx].label;
   const pb = st.root?.querySelector?.('.boat-push');
   if (pb) pb.hidden = !st.sim.beached;
+  const ab = st.root?.querySelector?.('.boat-anchor');
+  if (ab) { ab.hidden = !(Number(st.p.rode_m) > 0); ab.classList.toggle('on', !!st.anchored); ab.textContent = st.anchored ? '⚓ WEIGH' : '⚓ ANCHOR'; }
   if (kb) kb.dataset.pos = (st.sim.crank > 0 || st.starter) && !st.sim.running ? 'start' : st.sim.running ? 'run' : 'off';
 }
 
@@ -1337,6 +1707,11 @@ export function boatSetWorld(msg = {}) {
   if (msg.nitro != null) st.sim.nitro = msg.nitro;
   // What the yard changed about her while you sat in her: wear (the handling), paint, name.
   if (msg.params) st.p = msg.params;
+  // The anchor, which only the server sets. Dropping it cuts the engine (anchor.js).
+  if ('anchored' in msg) {
+    st.anchored = msg.anchored || null;
+    if (msg.cut && st.sim.running) { st.sim.running = false; st.starter = false; st.lever = 0; stopBoatEngine(); }
+  }
   if ('livery' in msg) st.livery = msg.livery || null;
   if (msg.name) st.name = msg.name;
 }

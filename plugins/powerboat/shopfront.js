@@ -29,13 +29,13 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { takeFreshVehicle } from '../../server/engine/fresh-vehicle.js';
-import { BOAT_TYPES, TYPES } from '../../client/game/js/panels/flight-model.js';
+import { TYPES } from '../../client/game/js/panels/flight-model.js';
 import { berthKind, berthCapacity, berthsNear, zonesNear, hullBand, REFIT_CAP, aboard, sweepBoatRentals, isOpenWater, MOVE_IN, rateAt } from './yard.js';
 import { boatRental, boatRentalLeft, fmtLeft, boatRentFee, BOAT_RENT_TERM_MS, boatServiceSheet, boatLiveryOf, schemeOf,
   BOAT_SCHEMES, BOAT_DECALS, BOAT_PAINT_PRICE, BOAT_DECAL_PRICE } from './service.js';
 import { tankPrice } from './fuel.js';
 import { rigs } from './index.js';
-import { deskReady } from './desk.js';
+import { deskReady, deskStock } from './desk.js';
 // The hour and the weather out the open end of the dock. The same `skyState` the helm's own payload
 // asks for, at the BUILDING'S tile rather than the room's — an interior zone sits at grid 0,0 by
 // construction, so asking it where it is answers the middle of the map.
@@ -197,9 +197,9 @@ export async function marinaPanel(player, zoneId, tab = 'fleet') {
       }),
     sky: skyOver(here),
     aboardId: seated,
-    stock: desk ? BOAT_TYPES.map((t) => ({ id: t.id, name: t.name, price: t.price, blurb: t.blurb })) : [],
+    stock: desk ? deskStock(zoneId).map((t) => ({ id: t.id, name: t.name, price: t.price, blurb: t.blurb })) : [],
     // The hire line (service.js) and whether the desk will let you have another.
-    rentStock: desk ? BOAT_TYPES.map((t) => ({ id: t.id, name: t.name, fee: boatRentFee(t), hours: BOAT_RENT_TERM_MS / 3600000,
+    rentStock: desk ? deskStock(zoneId).map((t) => ({ id: t.id, name: t.name, fee: boatRentFee(t), hours: BOAT_RENT_TERM_MS / 3600000,
       afford: Number(player.credits || 0) >= boatRentFee(t) })) : [],
     hasRental: mine.rows.some((b) => boatRental(b)),
     // What `boat take` charges to crane a hull off a cradle into the covered dock (yard.js MOVE_IN).

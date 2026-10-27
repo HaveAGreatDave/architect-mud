@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_wreck_grouper",
+  "name": "wreck grouper",
+  "tags": {
+    "consumable": true,
+    "description": "A heavy, sulking fish with a mouth like a bin lid. It lives inside the wrecks on the shelf. Get it off the bottom fast, or it goes back in and takes your line with it.",
+    "food_noun": "grouper",
+    "food_profile": "dense_meat",
+    "needs_cooking": true,
+    "raw_fish": true,
+    "restore_hunger": 28,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 60,
+  "weight": 250
+}

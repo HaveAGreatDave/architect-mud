@@ -137,6 +137,10 @@
       ],
       "options": [
         {
+          "label": "I'll take the Mk 1.",
+          "next": "sell_skiff"
+        },
+        {
           "label": "I'll take the Rooster.",
           "next": "sell_hydro"
         },
@@ -153,7 +157,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Vaskin hulls, off the same list the glass place sells from.\" He drops a catalogue on the bench, open. \"Same price, too. I don't build them, I just sell them. She comes with a full tank and the first free berth in this yard.\""
+      "text": "\"Vaskin hulls, off the same list the glass place sells from, at the same price. I don't build those, I just sell them.\" He drops a catalogue on the bench, open. \"The Mk 1 I do build. Sixteen foot of riveted aluminium, made in this shed. Whatever you take comes with a full tank and the first free berth in this yard.\""
     },
     "bye": {
       "options": [],
@@ -185,6 +189,10 @@
         }
       ],
       "options": [
+        {
+          "label": "Hire the Mk 1.",
+          "next": "hire_skiff"
+        },
         {
           "label": "Hire the Rooster.",
           "next": "hire_hydro"
@@ -245,6 +253,25 @@
         }
       ],
       "text": "He takes a key off a nail."
+    },
+    "hire_skiff": {
+      "actions": [
+        {
+          "action": "BOAT_HIRE",
+          "hull": "skiff"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He takes a key off a nail. It has a cork float on the ring."
     },
     "hire_spur": {
       "actions": [
@@ -367,7 +394,7 @@
           "next": "root"
         }
       ],
-      "text": "He looks at you for a moment longer than he did for the other two, then writes her into the book."
+      "text": "He looks at you for a moment longer than he did for the others, then writes her into the book."
     },
     "sell_hydro": {
       "actions": [
@@ -387,6 +414,25 @@
         }
       ],
       "text": "He licks a pencil and writes her into the book."
+    },
+    "sell_skiff": {
+      "actions": [
+        {
+          "action": "BOAT_SELL",
+          "hull": "skiff"
+        }
+      ],
+      "options": [
+        {
+          "label": "How do I take her out?",
+          "next": "drive"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He writes her into the book, then underlines it."
     },
     "sell_spur": {
       "actions": [

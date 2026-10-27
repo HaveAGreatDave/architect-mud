@@ -234,10 +234,16 @@ function build(S) {
 
   // ── WHERE THE DRIVER'S EYE IS ──────────────────────────────────────────────
   const H = { eyeM: S.helmEyeM ?? HELM.eyeM, fFrac: S.helmF ?? HELM.fFrac, gFrac: S.helmG ?? HELM.gFrac, upFrac: S.helmUp ?? HELM.upFrac };
-  const helmF = hF1 - H.fFrac * (hF1 - hF0);
-  const roofUnder = rz(helmF);
-  const helmZ = soleZ + H.upFrac * (roofUnder - soleZ);
-  const helmG = H.gFrac * hw(helmF, (helmZ - hz(helmF, 0)) / (hH || 1));
+  // ⚠ AN OPEN BOAT (`open: 1`) HAS NO HOUSE TO SEAT YOU IN, so the eye is placed off the hull: on
+  // the aft thwart (`thwarts[0]`, a fraction of LEN), `helmG` of the half-beam to port of the
+  // tiller, a seated eye (`seatEyeM`, metres) over the thwart top. The house numbers above are still
+  // computed and nothing draws them.
+  const OPEN = !!S.open;
+  const thwartTop = (f) => atF(f).sz - (S.thwartDrop ?? 0.018);
+  const helmF = OPEN ? (S.thwarts?.[0] ?? -0.62) * LEN : hF1 - H.fFrac * (hF1 - hF0);
+  const helmZ = OPEN ? thwartTop(helmF) + (S.seatEyeM ?? 0.78) / (S.mPerUnit ?? 7.4)
+    : soleZ + H.upFrac * (rz(helmF) - soleZ);
+  const helmG = OPEN ? -H.gFrac * atF(helmF).sw : H.gFrac * hw(helmF, (helmZ - hz(helmF, 0)) / (hH || 1));
   // ⚠ A SECOND HULL STATES THE FLEET'S METRE, NOT ITS OWN EYE. Written as an eye height, a cat whose
   // driver sits low would be handed the hydro's 1.35 m and come out a third bigger than her, in
   // metres, than she is in the water beside her. `mPerUnit` on the row is the hydro's own figure
@@ -251,8 +257,8 @@ function build(S) {
   };
 
   return {
-    S, LEN, BEAM, DECK, BOW, KEEL, CH, CAT,
-    STATIONS, atF,
+    S, LEN, BEAM, DECK, BOW, KEEL, CH, CAT, OPEN,
+    STATIONS, atF, thwartTop,
     hF0, hF1, hH, rake, TUM, WRAP, NOSE, fw, fwT, rF, sideF1,
     hw, hz, cen,
     sillF, headF, tPt, gAft, uOf, eHalf, kick, halfAt, sillAt, headAt,

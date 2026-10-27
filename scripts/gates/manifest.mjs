@@ -40,6 +40,7 @@ export const GROUPS = [
       'scripts/client/bigscreen-smoke.mjs',
       'scripts/client/seatkeys-smoke.mjs',
       'scripts/client/boatseat-smoke.mjs',
+      'scripts/client/boatfish-smoke.mjs',   // the boat reel: cast, twitch, the knocks, the fight and the landing, against boatfish-rules.js
       'scripts/client/console-escape-smoke.mjs',   // player text in the pirate/emergency consoles renders inert
     ],
   },
@@ -155,6 +156,7 @@ export const GROUPS = [
       'scripts/shapes/faunabake.mjs',
       'scripts/shapes/murmurgpu.mjs',
       'scripts/shapes/birdseason.mjs',
+      'scripts/fish/smoke.mjs',          // fish.js is pure, every catch is raw_fish, schools swim true and every marina has fish
       'scripts/shapes/perch.mjs',
       'scripts/shapes/skyline.mjs',
       'scripts/shapes/falcondive.mjs',

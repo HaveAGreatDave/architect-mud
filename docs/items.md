@@ -121,6 +121,10 @@ tag model and the rationale behind it.
 | `laced_drug` | text (drug id) | Consumable applies this drug on use (systemic effects only — meter/phases/OD, not its instant restores). The "drugged drink/food" path; alcohol uses `"drug_alcohol"`. See [systems-survival.md](systems-survival.md). |
 | `laced_potency` | int | Strength multiplier for `laced_drug` (default 1). Alcohol: scales `intox_per_dose` per drink. |
 | `container` | int | Marks the item as a container; value is the max total weight it can hold. See **Containers** below. |
+| `cast_m` | number | On a `fishing_rod`: its reach from a boat, in metres (default 25). See [proposals/boat-fishing.md](proposals/boat-fishing.md). |
+| `sink_mps` | number | On a lure carried while boat fishing: how fast it sinks, in metres a second (default 0.6). |
+
+A fish caught from a boat carries its own weight as `custom_data.kg` (with `species` and `caught_at`). `kg` is an instance key, so two fish never merge into one stack.
 
 A description is 300 characters or fewer. It's read in a room list, on a shop shelf and in
 `examine`, so it has to earn its length in the smallest of those. `node scripts/prose/trim-descriptions.mjs`

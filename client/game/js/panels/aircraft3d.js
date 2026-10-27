@@ -2549,7 +2549,8 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
     face([[cpF0, -wb * 0.78, G.soleZ], [cpF0, wb * 0.78, G.soleZ], [cpF0, wb * 0.80, zb - 0.030], [cpF0, -wb * 0.80, zb - 0.030]],
       0.62, [cpF0 - 0.05, 0, G.soleZ], 'body', HOUSE_TONE_WELL);
-    const dW = G.door.halfW;
+    // An open boat has no house behind this bulkhead, so it is solid all the way across.
+    const dW = G.OPEN ? 0 : G.door.halfW;
     for (const s of [-1, 1]) {
       face([[cpF1, s * dW, G.soleZ], [cpF1, s * wa * 0.78, G.soleZ], [cpF1, s * wa * 0.80, za - 0.030], [cpF1, s * dW, za]],
         0.44, [cpF1 + 0.05, s * wa * 0.5, G.soleZ], 'body', HOUSE_TONE_WELL);
@@ -2560,7 +2561,8 @@ function buildBoat(id = 'hydro', detail = 1) {
   // see docs/reference/glass-notes.md#boat-pilothouse
   const GLASS = [58, 78, 98];
   const HOUSE = [26, 28, 33];
-  {
+  // An open boat (`open: 1`, the Keel) has no pilothouse at all; her fittings are further down.
+  if (!G.OPEN) {
     // ⚠ Every number comes from boat-house.js (shared with the interior). Destructure here, before any read (TDZ).
     const { hF1, hF0, hH, rake, TUM, WRAP, NOSE, fw, fwT, rF, hw, hz, cen } = G;
 
@@ -2788,21 +2790,29 @@ function buildBoat(id = 'hydro', detail = 1) {
   if (mot > 0) {
     const t = TS;
     // ⚠ Sized against the hull (low and tight to the transom). With a platform they sit on a bracket aft of it.
-    const off = PLAT > 0 ? PLAT + 0.014 : 0;
+    // `motorScale` shrinks the whole motor about its transom bracket (the Keel's 15 hp is 0.7).
+    const off = PLAT > 0 ? PLAT + 0.014 : 0, M = S.motorScale ?? 1;
     const span = t.sw * 1.44, step = mot > 1 ? span / (mot - 1) : 0;
     if (off) box(t.f - off - 0.004, t.f + 0.002, span / 2 + 0.026, t.cz - 0.006, t.cz + 0.018, 'body', DARK);
     for (let i = 0; i < mot; i++) {
       const g = mot > 1 ? -span / 2 + i * step : 0;
-      const f0 = t.f - 0.088 - off, f1 = t.f + 0.006 - off;
-      box(f0, f1, 0.021, t.cz + 0.004, t.cz + 0.050, 'body', DARK, g);                  // the lower cowl
-      box(f0 + 0.004, f1 - 0.003, 0.019, t.cz + 0.050, t.cz + 0.074, 'body', [50, 54, 62], g);
-      box(f0 + 0.022, f1 - 0.014, 0.010, t.cz - 0.034, t.cz + 0.008, 'body', null, g);  // the leg
+      const f0 = t.f - 0.088 * M - off, f1 = t.f + 0.006 * M - off;
+      const z = (h) => t.cz + h * M;
+      box(f0, f1, 0.021 * M, z(0.004), z(0.050), 'body', DARK, g);                  // the lower cowl
+      box(f0 + 0.004 * M, f1 - 0.003 * M, 0.019 * M, z(0.050), z(0.074), 'body', [50, 54, 62], g);
+      box(f0 + 0.022 * M, f1 - 0.014 * M, 0.010 * M, z(-0.034), z(0.008), 'body', null, g);  // the leg
       if (fine) {
-        box(f0 + 0.012, f1 - 0.006, 0.017, t.cz - 0.019, t.cz - 0.016, 'body', DARK, g);   // anti-ventilation plate
-        box(f0 + 0.014, f0 + 0.038, 0.004, t.cz - 0.050, t.cz - 0.030, 'body', null, g);   // the skeg
-        prop(f0 + 0.010, g, t.cz - 0.031, 0.020);
+        box(f0 + 0.012 * M, f1 - 0.006 * M, 0.017 * M, z(-0.019), z(-0.016), 'body', DARK, g);   // anti-ventilation plate
+        box(f0 + 0.014 * M, f0 + 0.038 * M, 0.004 * M, z(-0.050), z(-0.030), 'body', null, g);   // the skeg
+        prop(f0 + 0.010 * M, g, z(-0.031), 0.020 * M);
       }
-      if (rich(0.5)) box(f0 + 0.003, f0 + 0.011, 0.019, t.cz + 0.054, t.cz + 0.068, 'body', ACCENT, g);
+      if (rich(0.5)) box(f0 + 0.003 * M, f0 + 0.011 * M, 0.019 * M, z(0.054), z(0.068), 'body', ACCENT, g);
+      // A tiller arm off the front of the cowl, running forward and up to a twist grip.
+      if ((S.tiller ?? 0) > 0) {
+        const from = [f1 - 0.004 * M, g, z(0.040)], to = [f1 + 0.13 * M, g + 0.006, z(0.058)];
+        tube(from, to, 0.0045 * M, 'body', DARK, 6);
+        tube([to[0] - 0.03 * M, to[1], to[2] - 0.0015 * M], [to[0] + 0.004 * M, to[1], to[2] + 0.0005 * M], 0.0062 * M, 'body', RUBBER, 6);
+      }
     }
   }
   if (PLAT > 0) {
@@ -2903,6 +2913,38 @@ function buildBoat(id = 'hydro', detail = 1) {
     box(cpF0 + 0.004, cpF0 + 0.080, w, z0, z0 + 0.032, 'body', VINYL);
     box(cpF0 + 0.002, cpF0 + 0.020, w, z0 + 0.032, Math.min(a.sz - 0.004, z0 + 0.072), 'body', VINYL);
     if (fine) box(cpF0 + 0.020, cpF0 + 0.078, w * 0.98, z0 + 0.032, z0 + 0.034, 'body', [196, 190, 174]);   // the welt
+  }
+
+  // ── The open boat's fittings ── Thwarts across the well, the fish box on the sole, the anchor and
+  // its cleat on the foredeck, and an all-round lamp on a pole at the stern. `thwarts` and `fishBox`
+  // are fractions of LEN; the aft thwart is the helm seat (boat-house.js).
+  if (G.OPEN) {
+    const ALLOY = [150, 158, 164], ROPE = [176, 150, 104];
+    const dz = (f) => atF(f).sz + crown * 0.6;
+    for (const u of (Array.isArray(S.thwarts) ? S.thwarts : [])) {
+      const f = u * LEN, top = G.thwartTop(f);
+      box(f - 0.024, f + 0.024, atF(f).sw * 0.80, top - 0.006, top, 'body', ALLOY);
+    }
+    if (Array.isArray(S.fishBox)) {
+      const f0 = S.fishBox[0] * LEN, f1 = S.fishBox[1] * LEN;
+      const w = atF((f0 + f1) / 2).sw * 0.40, zt = G.soleZ + (S.fishBoxH ?? 0.032);
+      box(f0, f1, w, G.soleZ, zt - 0.004, 'body', [222, 226, 220]);
+      box(f0 - 0.002, f1 + 0.002, w * 1.05, zt - 0.004, zt, 'body', [204, 210, 204]);   // the lid
+    }
+    if ((S.anchor ?? 0) > 0) {
+      const fa = LEN * 0.74, fc = LEN * 0.84;
+      box(fa - 0.014, fa + 0.010, 0.012, dz(fa), dz(fa) + 0.004, 'body', DARK);          // the flukes
+      box(fa - 0.003, fa + 0.003, 0.016, dz(fa) + 0.004, dz(fa) + 0.007, 'body', DARK);  // the stock
+      box(fa - 0.040, fa - 0.016, 0.010, dz(fa - 0.028), dz(fa - 0.028) + 0.004, 'body', ROPE);   // the coil
+      box(fc - 0.008, fc + 0.008, 0.003, dz(fc), dz(fc) + 0.006, 'body', ALLOY);          // the cleat
+      box(fc - 0.014, fc + 0.014, 0.0025, dz(fc) + 0.005, dz(fc) + 0.008, 'body', ALLOY);
+    }
+    if ((S.lampPole ?? 0) > 0) {
+      const fl = TS.f + 0.03, gl = TS.sw * 0.7, zb = TS.sz, zt = zb + S.lampPole;
+      tube([fl, gl, zb], [fl, gl, zt], 0.0025, 'body', ALLOY, 5);
+      box(fl - 0.004, fl + 0.004, 0.004, zt, zt + 0.007, 'body', WHITE_LENS, gl);
+      META.lamps.push({ at: [fl, gl, zt + 0.004], n: [-1, 0, 0.3], rgb: '255,244,214' });
+    }
   }
 
   // ── The rub rail ── With a chrome insert on rich trims.

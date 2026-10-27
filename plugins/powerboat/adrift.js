@@ -82,7 +82,7 @@ export function zoneUnder(x, y) {
 // rather than a thing that happens to them. Not zero: the model reports a float and a hull lying
 // stopped in a seaway still reports a whisper of it, so an exact test refuses a boat that has
 // visibly stopped. The same number, and the same reasoning, as trucking's PARK_STOPPED_MPH.
-const STEP_OFF_MPH = 2;
+export const STEP_OFF_MPH = 2;
 
 // ── GOING OVER THE SIDE ──────────────────────────────────────────────────────
 

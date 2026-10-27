@@ -146,6 +146,10 @@ import { viperProfile, VIPER_TRIM } from './interior-viper.js';
 import { carcassProfile } from './interior-carcass.js';
 // The podracer's open tub (interior-podracer.js). Its turbines are the craft's own mesh, drawn from the seat.
 import { podracerProfile } from './interior-podracer.js';
+// An open boat's seat (interior-skiff.js): no room, the inside of the hull. One per hull, kept.
+import { skiffProfile } from './interior-skiff.js';
+const OPEN_BOAT_PROFILES = {};
+export const openBoatProfileFor = (id) => (OPEN_BOAT_PROFILES[id] ||= skiffProfile(BOAT_ROWS[id], id));
 import { grasshopperProfile, CUB_TRIM } from './interior-grasshopper.js';
 import { defaultLivery, aircraftLiveryModel } from './livery-sets.js';
 const CRAFT_PROFILE = {};
@@ -405,7 +409,9 @@ export const SHELL_CLASS = {
 export function shellProfileFor(cls, armed = false, trim = null) {
   if (cls === 'heli' && armed) return SHELL_PROFILES.viper;
   // Every other hull: its own room off its own row, the hydro's way. See `boatProfileFor`.
-  if (cls && cls !== 'hydro' && BOAT_ROWS[cls]) return boatProfileFor(cls);
+  // ⚠ An open boat (`open: 1`, the Keel) has no house, and a pilothouse lofted off her row would be
+  // a closed room round an open skiff. She sits in the open-boat seat (interior-skiff.js).
+  if (cls && cls !== 'hydro' && BOAT_ROWS[cls]) return BOAT_ROWS[cls].open ? openBoatProfileFor(cls) : boatProfileFor(cls);
   if (cls === 'drake' && trim === 'noir') return SHELL_PROFILES.drakeNoir;
   if (cls === 'drake' && trim === 'quackhawk') return SHELL_PROFILES.drakeQuackhawk;
   const key = cls && SHELL_CLASS[cls];

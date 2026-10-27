@@ -226,7 +226,8 @@ const rowHasFluid = row => (row?.custom_data?.fluid_amount || 0) > 0;
 // 'show_pass' joins it because a ticket is a dated document: two passes to two
 // different tapings are not two of the same thing, and merging them would hand
 // the holder one pass carrying the wrong night's showing.
-const INSTANCE_KEYS = ['fluid_amount', 'potency', 'effects', 'spliced', 'charges', 'ownerId', 'loose', 'freshness', 'cooking', 'cook_quality', 'unpaid', 'dish', 'food_noun', 'crafted_quality', 'portion', 'minced', 'tasted', 'scored', 'tenderised', 'marinated_at', 'show_pass'];
+// `kg` is a boat catch's own weight (plugins/powerboat/hold.js): two fish never merge into one stack.
+const INSTANCE_KEYS = ['fluid_amount', 'potency', 'effects', 'spliced', 'charges', 'ownerId', 'loose', 'freshness', 'cooking', 'cook_quality', 'unpaid', 'dish', 'food_noun', 'crafted_quality', 'portion', 'minced', 'tasted', 'scored', 'tenderised', 'marinated_at', 'show_pass', 'kg'];
 export const rowIsInstanced = row => {
   const cd = typeof row?.custom_data === 'string' ? (() => { try { return JSON.parse(row.custom_data); } catch { return {}; } })() : (row?.custom_data || {});
   return INSTANCE_KEYS.some(k => { const v = cd[k]; return v != null && v !== false && v !== 0; });

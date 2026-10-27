@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_slate_cod",
+  "name": "slate cod",
+  "tags": {
+    "consumable": true,
+    "description": "Grey as a roof and about as cold. It comes up the shelf on winter nights, when nothing else is biting. Firm white meat the Codfather would rather you sold to him than ate.",
+    "food_noun": "cod",
+    "food_profile": "dense_meat",
+    "needs_cooking": true,
+    "raw_fish": true,
+    "restore_hunger": 22,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 28,
+  "weight": 250
+}

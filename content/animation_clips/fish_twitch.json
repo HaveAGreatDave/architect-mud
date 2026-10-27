@@ -1,0 +1,42 @@
+{
+  "id": "fish_twitch",
+  "role": "any",
+  "duration": 0.55,
+  "note": "Boat fishing: a twitch, a short lift of the wrists that draws the lure in a metre, and the rod let back down.",
+  "plants": [
+    { "foot": "L", "from": 0, "to": 0.55 },
+    { "foot": "R", "from": 0, "to": 0.55 }
+  ],
+  "keys": [
+    {
+      "t": 0,
+      "pose": {
+        "pelvis": [0, 1.55, -0.1], "pitch": 4, "twist": 0, "roll": 0, "spine": [10, 0, 0], "chest": [6, 0, 0], "neck": [-8, 0, 0], "head": [-6, 0, 0],
+        "ankL": [0.55, 1.55], "toeL": [0.15, 0, 1], "kneeL": [0.3, 0.5, 1], "ankR": [-0.55, 1.5], "toeR": [-0.15, 0, 1], "kneeR": [-0.3, 0.5, 1],
+        "elbL": [0.6, -1, 0.1],
+        "elbR": [-0.9, -0.8, -0.1],
+        "bat": { "knob": [0.1, 2.3, 1.05], "dir": [0.0503, 0.4224, 0.905] }
+      }
+    },
+    {
+      "t": 0.11,
+      "pose": {
+        "pelvis": [0, 1.55, -0.1], "pitch": 4, "twist": 0, "roll": 0, "spine": [10, 0, 0], "chest": [5, 0, 0], "neck": [-8, 0, 0], "head": [-6, 0, 0],
+        "ankL": [0.55, 1.55], "toeL": [0.15, 0, 1], "kneeL": [0.3, 0.5, 1], "ankR": [-0.55, 1.5], "toeR": [-0.15, 0, 1], "kneeR": [-0.3, 0.5, 1],
+        "elbL": [0.6, -1, 0.1],
+        "elbR": [-0.9, -0.8, -0.1],
+        "bat": { "knob": [0.1, 2.4, 1], "dir": [0.0501, 0.7012, 0.7112] }
+      }
+    },
+    {
+      "t": 0.55,
+      "pose": {
+        "pelvis": [0, 1.55, -0.1], "pitch": 4, "twist": 0, "roll": 0, "spine": [10, 0, 0], "chest": [6, 0, 0], "neck": [-8, 0, 0], "head": [-6, 0, 0],
+        "ankL": [0.55, 1.55], "toeL": [0.15, 0, 1], "kneeL": [0.3, 0.5, 1], "ankR": [-0.55, 1.5], "toeR": [-0.15, 0, 1], "kneeR": [-0.3, 0.5, 1],
+        "elbL": [0.6, -1, 0.1],
+        "elbR": [-0.9, -0.8, -0.1],
+        "bat": { "knob": [0.1, 2.3, 1.05], "dir": [0.0503, 0.4224, 0.905] }
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_chrome_mackerel",
+  "name": "chrome mackerel",
+  "tags": {
+    "consumable": true,
+    "description": "Striped blue over a belly that throws the light back like a hubcap. It runs high in daylight, in schools that turn all at once. Oily and strong. Eat it the day you catch it or don't bother.",
+    "food_noun": "mackerel",
+    "food_profile": "dense_meat",
+    "needs_cooking": true,
+    "raw_fish": true,
+    "restore_hunger": 16,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 12,
+  "weight": 250
+}

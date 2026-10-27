@@ -1,12 +1,18 @@
 # Boat fishing
 
-**Status: design; nothing is built.** It's a cozy fishing sim on top of the boat system. You buy a basic two-seat skiff with a small fish box, drive her in first or third person to a spot, anchor, and cast at any bearing and distance into fish that are simulated swimming. Each water has its own species and difficulty. It works only from a boat. Shore fishing ([systems-fishing.md](../systems-fishing.md)) stays exactly as it is.
+**Status: phases 1 to 3 are built (2026-10-27): the Keel Mk 1 with her first-person seat, `boat anchor`, the fish sim (`client/shared/fish.js`), the reel (`boatfish.js`, `boatfish-rules.js`), rod mode and the cast in both views, the server loop (`plugins/fishing/boat.js`) and the fish box (`boat_hold`). The shadows, the logbook, the forecast broadcast and the passenger are design.** It's a cozy fishing sim on top of the boat system. You buy a basic two-seat skiff with a small fish box, drive her in first or third person to a spot, anchor, and cast at any bearing and distance into fish that are simulated swimming. Each water has its own species and difficulty. It works only from a boat. Shore fishing ([systems-fishing.md](../systems-fishing.md)) stays exactly as it is.
 
 Decided with David on 2026-10-26:
 
 - fish are visible shadows under the surface;
 - catches go into the boat's fish box, which is capped by weight;
 - the second seat is a later phase.
+
+And on 2026-10-27:
+
+- the hull is the **Keel Mk 1**, built in the Shed by the man who sells it;
+- a bite is struck on the dip: the float dips and you have about a second;
+- there's a daily fishing forecast on the radio, worked out from fish.js and read by ORACLE (§7).
 
 ## What it reuses
 
@@ -39,11 +45,11 @@ Decided with David on 2026-10-26:
 
 ## 1. The boat (powerboat plugin)
 
-**The hull** is a fourth `TYPES` row: a 16 ft riveted aluminium open skiff with a 15 hp tiller outboard.
+**The hull** is a fourth `TYPES` row, the **Keel Mk 1**: a 16 ft riveted aluminium open skiff with a 15 hp tiller outboard. Keel builds her in the Shed and sells her across his own desk.
 
 - She's slow, about 18 mph flat out, but steady in a swell, with a wide `hullBeam` and a low `driftTau`.
-- She costs about ₵4,000. Keel sells and hires her at the Eastern Marina, the cheap yard. Both marinas service her.
-- She isn't a Vaskin, which is a speedboat brand. Her maker gets a plain working name in the content pass.
+- She costs ₵3,900. Keel sells and hires her at the Eastern Marina, the cheap yard. Both marinas service her.
+- "He'll fix it if it breaks. He says it won't."
 
 **New hull fields.** A missing field means none, so the three speedboats don't change.
 
@@ -157,6 +163,8 @@ A school is worked out, never stored.
   - A school that's been fished has fewer fish (`schoolFish` gets `n − taken`) and spooks more easily.
   - The anchor and cast replies carry `thinned: { id: n }` for schools in range, so the shadows agree.
   - Nothing is saved, so a restart refills the sea.
+- **Residents.** Every wreck on the shelf is somebody's home. A cell school only finds a wreck when its anchor happens to fall within 2.5 tiles of one, which on the real coast was about one wreck in three, so the wreck grouper (which lives nowhere else) never turned up at all. `wreckResident` anchors a school on the wreck itself, drawn from the species that love wrecks, and gives it the wreck's id. A wreck is a place you can go back to.
+  - Round Coldwater there are three wrecks on the shelf: a pike on the container stack at 878,887 after dusk, bass on the skiff at 930,888, and the only grouper in the bay on the container stack at 944,884.
 - **Cost.** The server reads no tables. It runs hashes and `seabedDepth` over at most (2R/4)² cells, about 25 at R = 10. It only does that on anchoring, on a cast, and on the once-a-second bite check for players with a line in the water.
 
 ## 4. Shadows (GLASS)
@@ -280,6 +288,52 @@ The style is passed in, so `textfishing.js` gets it with no extra work.
 - The server picks the fish that bites.
 - A strike or a resolve without a live token does nothing.
 
+## 5b. The reel and its wire (the contract, 2026-10-27)
+
+This replaces "The wait", "The fight" and "Landing" above. David chose it on 2026-10-27: twitch to a rhythm, strike on pulses, lean against the fish. The rules live in one pure module, `client/shared/boatfish-rules.js`, which the server and the seat both import, so the beat the client draws is the beat the server judges.
+
+**The loop:**
+
+1. **Cast.** Bearing and range from the anchor point. The lure lands and sinks at `SINK_MPS`.
+2. **Twitch.** Each tap draws the lure `TWITCH_M` (1 m) closer and lifts it a little. Taps closer than `TWITCH_MIN_MS` count as one. Fish within `NOTICE_M` (7 m, in 3D) of the lure gain interest, more when the gaps between taps keep their species' tempo (`tempoOf`: about 380 ms for a runner, 1.5 s for a sulker). Interest fades between taps. At `REEL_IN_M` (4 m) of line the reel winds in by itself and you cast again.
+3. **Strike.** A fish whose interest reaches `BITE_AT` takes the lure. The float knocks in pulses: `beatCount(kg, difficulty)` beats, one for a carp up to four for a sturgeon, at `beatTimes(n)`, each gap shorter than the last. Hit each inside `BEAT_WINDOW_MS`. Miss one and it spits the hook.
+4. **Fight.** The fish runs left or right and changes side every `switchMs`. Lean the other way (A/D, the arrows, a relative mouse drag, or two thumb buttons on a phone). Leaning right drains its stamina, eases the tension and wins line. Leaning wrong, or not at all, loses line and builds tension. Tension at 1 snaps the line. Stamina gone and line inside `LAND_M` (6 m), and the reel winds it in by itself, into the fish box. The client plays the fight; the server refuses a win faster than `minFightMs`.
+
+**Server to client:** one message type, `boatfish`, with a `phase`. Coordinates on the wire are in the boat's convention (a tile's centre on the integer); a caller adds half a tile before asking fish.js or seabed.js.
+
+| phase | when | fields |
+|---|---|---|
+| `open` | `fish` aboard an anchored boat | `token, ax, ay, serverNow, env {hour, doy, weather, rough}, castM, skill, holdKg, holdCap, thinned` |
+| `lure` | the cast is accepted | `token, lx, ly, lineM, depthM` |
+| `twitch` | each accepted tap | `token, lx, ly, lineM, depthM, follow: [{ school, i }]` (the fish now following, for the shadows) |
+| `reeled` | line reaches `REEL_IN_M` with no bite | `token` |
+| `bite` | a fish takes it | `token, school, i, species, beats, biteAt` (server ms) |
+| `fight` | every beat hit | `token, species, name, kg, difficulty, fight, lineM, skill` |
+| `spat` | a beat missed or late | `token, reason` |
+| `landed` | a won fight | `token, species, name, kg, holdKg, holdCap` |
+| `full` | a won fight with no room | `token, species, name, kg` |
+| `lost` | a lost fight | `token, snapped` |
+| `close` | fishing ends | none |
+
+**Client to server**, every one a verb a player could type:
+
+| verb | does |
+|---|---|
+| `fish` | aboard an anchored boat with a rod, opens the reel (`open`) |
+| `fishcast boat <bearingDeg> <rangeM> <token>` | casts; the server clamps both to the rod's reach from the anchor point |
+| `fishtwitch <token>` | one tap |
+| `fishstrike <beat> <hitServerMs> <token>` | one beat hit, in server time (the client's clock plus the skew from `open`) |
+| `fishresolve boat <1|0> <token>` | the fight's result |
+
+Typed, `fish <bearing> <metres>` casts, `fish twitch` taps, and `fish strike` hits the next beat. The log rung settles the strike and the fight with one fishing check, as `settleLogBite` does. A text-rung board for the boat reel is a follow-up; until it exists, textgames gets the log rung's settle.
+
+**The seams between the four parts:**
+
+- `client/game/js/panels/boatfish.js` is the reel: its HUD over the seat, its state machine, and the routing of `boatfish` messages. It exports `boatFishState()`, read every frame by the seat for the rod's bend, the line and the lure.
+- `boat-view.js` owns rod mode: the aim, the landing ring, the cast, and drawing the rod, line, lure and splash in both views.
+- The first-person shell is the skiff's open-boat interior in `client/shared/interior-*.js`.
+- `plugins/fishing/boat.js` is the server, and the fish box is the `boat_hold` table (§6).
+
 ## 6. The fish box, selling and records
 
 **The box is its own table.** Containers ([items.md](../items.md)) are `player_inventory` rows with a `container_id`, and a row inside a container keeps its `player_id`. A box row would sit in the owner's inventory and count against what they can carry, so a boat can't own one.
@@ -330,13 +384,27 @@ The line has its own cues: the swish of the cast, the reel's click, the plop of 
 
 **Prose** follows [house-voice.md](../reference/house-voice.md): short, practical and dry, with the water a little wrong.
 
+**The fishing forecast.** KSAB Marine reads a short bulletin at 0600, in ORACLE's voice, on the marine channel. `forecastLines(area, env, habitat)` in fish.js writes it from the same schools the water holds, so it's true by construction: it can't promise a fish the sim doesn't have.
+
+- Each area gets up to three lines, one a watch (dawn, noon, dusk, after dark). Each names the species most worth going out for (schools weighted by difficulty, so a few pike beat a lot of carp), where it holds and how many: thick, plenty, moderate or thin.
+- Tomorrow's weather goes in through `env`, so fog brings the herring up in the forecast as it does in the water.
+- What the real coast gives today, for a clear spring day:
+
+> KSAB MARINE, 0600.
+> Fairweather: Sand skate on the sand at dawn, moderate. Carp in the shallows by noon, moderate. Lamp herring mid-water at dusk, moderate.
+> The Eastern Marina: Sludge carp in the shallows at dawn, plenty. Irontooth bass on the rock by noon, moderate. Sand skate on the sand at dusk, moderate.
+
+- Wiring it to a broadcast (a `.bsm` script or a scheduled host line) and the radio channel is phase 4.
+
+**Tuning.** `node scripts/fish/map.mjs` paints the real coast from content/zones, one panel a watch, with every school drawn over the seabed's depth and the forecast underneath. `--doy`, `--weather` and `--rough` change the day, and `--x0 --y0 --w --h` the window.
+
 ## Phases
 
 1. **The skiff and the anchor.**
    - The `TYPES` row; `content/vehicle_models/boat_skiff.json` and `npm run vehicles:bake`; `VEHICLE_IDS` and `LIVERY_MODELS`; Keel's dialogue nodes; the open-boat shell in `client/shared/interior-*.js`; the legend lettering.
    - `boat anchor` in `yard.js` and `helm.js`, the swing clamp in `cmdBoatSync`, and the anchor key in `boat-view.js` and `texthelm.js` (`conn anchor`).
    - Regress checks that the anchor is refused in deep water, under way and on a berth, and that the swing clamp holds. Shapes and seat smoke run as usual.
-2. **The fish and their shadows.**
+2. **The fish and their shadows.** The sim, its gate, the tuning map and the five boat-only catch items are built; the shadows and the anchor push aren't.
    - `client/shared/fish.js`, `gl/fish-shadows.js` wired into windshield.js, `serverNow` on the anchor push, and the `look water` prose.
    - A dev view (a Modelshop tab, or the dev panel map) that paints schools by hour, depth and species, for tuning.
    - A gate, `scripts/fish/smoke.mjs` in the `shapes:smoke` group, checks that:
@@ -373,8 +441,8 @@ The line has its own cues: the swish of the cast, the reel's click, the plop of 
 
 These were settled while the design was written: the fishing state shares the shore registration (§5), and the fish box is a `boat_hold` table (§6). Still open:
 
-1. **The anchor clamp and the recentre.** `cmdBoatSync` streams a new map window when she's 8 tiles from the last one. An anchored boat never gets that far, so this should need nothing, but check it once the clamp exists.
-2. **Where the weight price gets its number.** `vendor.js` is an engine file and mustn't import `client/shared/fish.js` for one figure. Either the item row stores the species' usual weight as `price_kg_ref`, or the price multiplier is worked out when the fish is landed and kept on `boat_hold`.
-3. **Whether a shadow can be seen in the chase view.** The chase view draws the boat at 0.2 tiles a unit, so a 1 m fish is a sixth of the skiff. Check that it can be seen at chase zoom, and scale the sprite with the camera if not.
-4. **The maker's name and the hull's name.** Plain working names, chosen in the content pass.
+1. **Two tile conventions meet at the lure.** A boat's x/y puts a tile's centre on the integer (`zoneUnder` rounds it), and seabed.js and fish.js have tile i spanning [i, i+1). `plugins/powerboat/anchor.js` `depthUnder` adds half a tile before it asks the seabed; phase 3's lure point and `fishNear` call must do the same, or every cast lands half a tile off the shadows.
+2. **The anchor clamp and the recentre.** `cmdBoatSync` streams a new map window when she's 8 tiles from the last one. An anchored boat never gets that far, so this should need nothing, but check it once the clamp exists.
+3. **Where the weight price gets its number.** `vendor.js` is an engine file and mustn't import `client/shared/fish.js` for one figure. Either the item row stores the species' usual weight as `price_kg_ref`, or the price multiplier is worked out when the fish is landed and kept on `boat_hold`.
+4. **Whether a shadow can be seen in the chase view.** The chase view draws the boat at 0.2 tiles a unit, so a 1 m fish is a sixth of the skiff. Check that it can be seen at chase zoom, and scale the sprite with the camera if not.
 5. **Shore fishing.** Should fish.js ever drive shore fishing? Not in this design: shore fishing stays on its stock tables.

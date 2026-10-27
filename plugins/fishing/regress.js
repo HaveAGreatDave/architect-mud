@@ -6,6 +6,16 @@ import { _test } from './index.js';
 import { world } from '../../server/engine/world.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { computeSellUnitPrice } from '../../server/engine/vendor.js';
+import { randomUUID } from 'crypto';
+import { query } from '../../server/models/db.js';
+import { emit } from '../../server/engine/events.js';
+import { _test as boatT, boatTick, settleBoatBite } from './boat.js';
+import { rigs } from '../powerboat/index.js';
+import { aboard } from '../powerboat/yard.js';
+import { _test as holdT } from '../powerboat/hold.js';
+import * as R from '../../client/shared/boatfish-rules.js';
+import { SPECIES, fishNear, keenness } from '../../client/shared/fish.js';
+import { SEA_TILE_M } from '../../client/shared/sea-swell.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -159,4 +169,229 @@ export default async function regress({ run, check, getPlayer }) {
   const untagged = ['item_fresh_catch', 'item_sludge_carp', 'item_razorgill', 'item_irontooth_bass',
     'item_ashen_pike', 'item_coldwater_sturgeon', 'item_glass_eel'].filter((id) => !getItem(id)?.tags?.raw_fish);
   check('every catch is tagged raw_fish', !untagged.length, untagged.join(', '));
+  // ── The boat reel (boat.js) ────────────────────────────────────────────────
+  await boatSuite({ run, check, p });
+}
+
+// A fake anchored rig: a Keel Mk 1 (`skiff`, a 40 kg box) lying to an anchor at a far-off point.
+// The clock, the water and the messages are boat.js's seams, so the run is the same every time:
+// the water is either fishless or uniform rock at twelve metres, and the clock is fixed.
+async function boatSuite({ run, check, p }) {
+  const pid = p.id, BOAT = `boat_regress_fish_${process.pid}`;
+  const A = { x: 6000, y: 6000, at: Date.now() };
+  const ROCK = { depth: 12, shore: 6, floor: 'rock', wreck: 0 };
+  const EMPTY = { depth: 12, shore: 6, floor: 'none', wreck: 0 };
+  let water = EMPTY;
+  let clock = 1_900_000_000_000;
+  const sent = [];
+  const last = (phase) => [...sent].reverse().find((m) => m.phase === phase);
+  const env = { hour: 12, doy: 100, weather: 'clear', rough: 0 };
+  boatT.seam.now = () => clock;
+  boatT.seam.habitat = () => water;
+  boatT.seam.floor = () => 12;
+  boatT.seam.tap = (id, m) => { if (id === pid) sent.push(m); };
+  const rodRow = () => query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1, $2, $3, 1, 1.0)', [randomUUID(), pid, 'item_fishing_rod']);
+  const holdRows = async () => (await query('SELECT count(*)::int AS n FROM boat_hold WHERE boat_id = $1', [BOAT])).rows[0].n;
+  const saved = { posture: p.posture, zone: p.current_zone };
+  const realRandom = Math.random;
+  const rig = { playerId: pid, boatId: BOAT, typeId: 'skiff', name: 'Regress', heading: 0, x: A.x, y: A.y, speed: 0, pedal: 0, anchored: null };
+  // A fish on the line without going through the water, for the strike and fight checks.
+  const st = () => p.fishState;
+  const craftBite = (beats) => {
+    const s = st();
+    s.phase = 'bite';
+    s.lure = { x: A.x + 2, y: A.y, depth: 5, floor: 12, lineM: 14, at: clock };
+    s.bite = { schoolId: 'regress_school', i: 0, sp: 'irontooth_bass', kg: 3, difficulty: 6, beats, biteAt: clock, hit: 0, x: A.x + 2, y: A.y, depth: 5 };
+  };
+  const craftFight = ({ kg = 3, ago = 600_000 } = {}) => {
+    const s = st();
+    s.phase = 'fight';
+    s.fight = { schoolId: 'regress_school', i: 0, sp: 'irontooth_bass', kg, difficulty: 6, beats: 1, lineM: 20, startAt: clock - ago, settled: false, x: A.x + 2, y: A.y, depth: 5 };
+  };
+  try {
+    Map.prototype.set.call(aboard, pid, BOAT);   // straight onto the map: the seat's flag write is not under test
+    rigs.set(pid, rig);
+    p.posture = 'standing';
+    p.combatTargetId = p.pvpTargetId = p.npcCombatTargetId = null;
+
+    let r = await run('fish');
+    check('boat: fish aboard with the anchor up is refused', /Drop the anchor first/.test(r?.message || '') && p.posture !== 'fishing', r?.message);
+
+    rig.anchored = A;
+    r = await run('fish');
+    check('boat: fish aboard with no rod is refused', /need a fishing rod/i.test(r?.message || '') && p.posture !== 'fishing', r?.message);
+
+    await rodRow();
+    emit('inventory.changed', { actor: p });
+    r = await run('fish');
+    const open = last('open');
+    check('boat: fish at anchor with a rod opens the reel', p.posture === 'fishing' && st()?.mode === 'boat' && !!open, `${p.posture} ${JSON.stringify(st()?.mode)} ${r?.message}`);
+    check('boat: open carries the anchor point, reach and box', open?.ax === A.x && open?.ay === A.y && open?.castM === boatT.CAST_DEFAULT_M && open?.holdCap === 40 && open?.holdKg === 0 && !!open?.env && Number.isFinite(open?.serverNow),
+      JSON.stringify(open));
+    const tok = open?.token;
+    st().env = env;
+
+    // ── The cast: from the anchor, clamped to the rod's reach ────────────────
+    let n0 = sent.length;
+    await run(`fishcast boat 90 500 bogus-token`);
+    check('boat: a cast with a dead token does nothing', sent.length === n0);
+    // A reported position far off is ignored: the cast is from the anchor.
+    rig.x = A.x + 50;
+    await run(`fishcast boat 90 500 ${tok}`);
+    let lure = last('lure');
+    check('boat: the cast is clamped to the rod\'s reach', lure?.lineM === boatT.CAST_DEFAULT_M, JSON.stringify(lure));
+    check('boat: the lure lands off the anchor point, not the reported position, along the bearing',
+      Math.abs(lure?.lx - (A.x + boatT.CAST_DEFAULT_M / SEA_TILE_M)) < 0.01 && Math.abs(lure?.ly - A.y) < 0.01, JSON.stringify(lure));
+    rig.x = A.x;
+    await run(`fishcast boat 0 1 ${tok}`);
+    lure = last('lure');
+    check('boat: a short cast is lengthened to CAST_MIN_M', lure?.lineM === R.CAST_MIN_M && Math.abs(lure?.ly - (A.y - R.CAST_MIN_M / SEA_TILE_M)) < 0.01, JSON.stringify(lure));
+    r = await run('fish 90 20');
+    check('boat: `fish <bearing> <metres>` casts', /twenty metres off the starboard beam/.test(r?.message || '') && last('lure')?.lineM === 20, r?.message);
+
+    // ── Twitches: in towards the boat, rate-limited, sinking between ─────────
+    clock += 5000;
+    await run(`fishtwitch ${tok}`);
+    let tw = last('twitch');
+    check('boat: a twitch draws the lure TWITCH_M in', tw?.lineM === 20 - R.TWITCH_M && Math.abs(tw?.lx - (A.x + (20 - R.TWITCH_M) / SEA_TILE_M)) < 0.01, JSON.stringify(tw));
+    check('boat: the lure sank while it sat, less the lift', Math.abs(tw?.depthM - (5 * R.SINK_MPS - R.TWITCH_LIFT_M)) < 0.02, JSON.stringify(tw));
+    n0 = sent.length;
+    clock += R.TWITCH_MIN_MS - 40;
+    await run(`fishtwitch ${tok}`);
+    check('boat: a tap inside TWITCH_MIN_MS counts as the same tap', sent.length === n0 && st()?.lure?.lineM === 20 - R.TWITCH_M, `${sent.length - n0} sent, line ${st()?.lure?.lineM}`);
+    boatT.settle(st(), clock + 100_000);
+    check('boat: the lure sinks no deeper than the floor', Math.abs(st().lure.depth - (12 - 0.2)) < 1e-6, String(st().lure.depth));
+
+    // ── Reeled at REEL_IN_M ───────────────────────────────────────────────────
+    await run(`fishcast boat 0 7 ${tok}`);
+    for (let k = 0; k < 3; k++) { clock += 400; await run(`fishtwitch ${tok}`); }
+    check('boat: the line reels itself in at REEL_IN_M', !!last('reeled') && st()?.phase === 'aim' && !st()?.lure, `${st()?.phase}`);
+
+    // ── A bite after on-tempo twitches near a fish ────────────────────────────
+    // Slow fish first, cast a metre and a half past one so the lure is drawn in over it. A few
+    // candidates in turn, because a fish can turn away; the clock is fixed, so the run is the same.
+    water = ROCK;
+    const toward = (f, past) => {
+      const dx = f.x - 0.5 - A.x, dy = f.y - 0.5 - A.y, m = Math.hypot(dx, dy) * SEA_TILE_M;
+      return { bear: Math.atan2(dx, -dy) * 180 / Math.PI, m: m + past };
+    };
+    const targets = [];
+    for (let dt = 4000; dt <= 19000 && targets.length < 6; dt += 500) {
+      const sink = Math.min(12 - 0.2, R.SINK_MPS * dt / 1000);
+      for (const f of fishNear(A.x + 0.5, A.y + 0.5, 22 / SEA_TILE_M, clock + dt, env, boatT.seam.habitat)) {
+        const sp = SPECIES[f.school.sp], c = toward(f, 1.5);
+        if (sp.bait || sp.speed > 0.6 || keenness(sp, env) < 0.6 || c.m < 10 || c.m > 24 || Math.abs(f.depth - sink) > 0.6) continue;
+        if (targets.some((t) => t.f.school.id === f.school.id)) continue;
+        targets.push({ f, dt, ...c });
+        break;
+      }
+    }
+    check('boat: the rock water holds a fish within reach to cast at', targets.length > 0);
+    for (const target of targets) {
+      await run(`fishcast boat ${target.bear.toFixed(3)} ${target.m.toFixed(3)} ${tok}`);
+      clock += target.dt;
+      const tempo = R.tempoOf(target.f.school.sp);
+      for (let k = 0; k < 8 && st()?.phase === 'line'; k++) { await run(`fishtwitch ${tok}`); clock += tempo; }
+      if (st()?.phase === 'bite') break;
+      clock += 60_000;
+    }
+    const b = last('bite');
+    check('boat: on-tempo twitches near a fish bring a bite', st()?.phase === 'bite' && !!b && b.beats === R.beatCount(st().bite.kg, st().bite.difficulty) && b.biteAt === st().bite.biteAt,
+      `${st()?.phase} ${JSON.stringify(b)}`);
+    check('boat: twitches report the fish following the lure', sent.some((m) => m.phase === 'twitch' && m.follow?.length));
+
+    // ── The beats: judged in and out of the window ────────────────────────────
+    craftBite(3);
+    let times = R.beatTimes(3);
+    for (let i = 0; i < 3; i++) {
+      clock = st().bite.biteAt + times[i] + 60;
+      await run(`fishstrike ${i} ${clock} ${tok}`);
+    }
+    let fight = last('fight');
+    check('boat: every beat hit in its window starts the fight', st()?.phase === 'fight' && fight?.kg === 3 && fight?.species === 'irontooth_bass' && fight?.fight === SPECIES.irontooth_bass.fight,
+      `${st()?.phase} ${JSON.stringify(fight)}`);
+
+    craftBite(2);
+    times = R.beatTimes(2);
+    clock = st().bite.biteAt + times[0] + R.BEAT_WINDOW_MS + R.LATENCY_SLACK_MS + 60;
+    await run(`fishstrike 0 ${clock} ${tok}`);
+    check('boat: a strike outside the window spits the hook', last('spat')?.reason === 'miss' && st()?.phase === 'aim', JSON.stringify(last('spat')));
+    check('boat: a missed strike scares the school off the lure', (st()?.spooked?.regress_school || 0) > clock);
+
+    craftBite(2);
+    clock = st().bite.biteAt + times[1];
+    await run(`fishstrike 1 ${clock} ${tok}`);
+    check('boat: a beat struck out of order spits the hook', st()?.phase === 'aim');
+
+    craftBite(1);
+    clock = st().bite.biteAt + R.beatTimes(1)[0] + R.BEAT_WINDOW_MS + R.LATENCY_SLACK_MS * 2 + 10;
+    const sp0 = sent.filter((m) => m.phase === 'spat').length;
+    boatTick(p, st());
+    check('boat: a beat never struck is spat on the tick', sent.filter((m) => m.phase === 'spat').length === sp0 + 1 && st()?.phase === 'aim');
+
+    // ── Landing ───────────────────────────────────────────────────────────────
+    craftFight({ ago: 10 });
+    await run(`fishresolve boat 1 ${tok}`);
+    check('boat: a win faster than minFightMs is refused', last('lost')?.snapped === false && (await holdRows()) === 0 && st()?.phase === 'aim', JSON.stringify(last('lost')));
+
+    craftFight({ kg: 3 });
+    await run(`fishresolve boat 1 ${tok}`);
+    const landed = last('landed');
+    check('boat: a won fight lands a row in the box', (await holdRows()) === 1 && landed?.kg === 3 && landed?.holdKg === 3 && landed?.holdCap === 40 && landed?.thinned?.regress_school === 1,
+      JSON.stringify(landed));
+    const row = (await query('SELECT * FROM boat_hold WHERE boat_id = $1', [BOAT])).rows[0];
+    check('boat: the row carries the item, species, weight and depth', row?.item_id === SPECIES.irontooth_bass.item && row?.species === 'irontooth_bass' && Number(row?.kg) === 3 && Number(row?.depth_m) === 5 && !!row?.caught_at,
+      JSON.stringify(row));
+
+    holdT.mirror(BOAT, 39);
+    craftFight({ kg: 3 });
+    await run(`fishresolve boat 1 ${tok}`);
+    check('boat: a win with no room in the box is let go', !!last('full') && (await holdRows()) === 1, JSON.stringify(last('full')));
+    holdT.mirror(BOAT, 3);
+
+    // ── The log rung settles strike and fight with one check ──────────────────
+    craftBite(2);
+    const before = sent.length;
+    await settleBoatBite(p, st());
+    const settled = sent.slice(before);
+    check('boat: the log rung settles the bite without a fight board', !settled.some((m) => m.phase === 'fight') && settled.some((m) => ['landed', 'lost', 'full'].includes(m.phase)),
+      settled.map((m) => m.phase).join(','));
+    if (p.posture !== 'fishing') { await rodRow(); emit('inventory.changed', { actor: p }); await run('fish'); st().env = env; }
+
+    // ── A lost fight can snap the rod ─────────────────────────────────────────
+    // At condition 0: maybeSnapRod's damage goes through repairItem, which clamps a negative
+    // fraction to 0, so a rod above Broken is never worn down by a snap (a shore bug as well).
+    await query('UPDATE player_inventory SET condition = 0 WHERE player_id = $1 AND item_id = $2', [pid, 'item_fishing_rod']);
+    craftFight();
+    Math.random = () => 0;
+    try { await run(`fishresolve boat 0 ${st().token}`); } finally { Math.random = realRandom; }
+    check('boat: a lost fight can snap a spent rod, and the reel closes', last('lost')?.snapped === true && p.posture !== 'fishing' && sent[sent.length - 1]?.phase === 'close',
+      `${JSON.stringify(last('lost'))} ${p.posture}`);
+
+    // ── Weighing anchor closes the reel ───────────────────────────────────────
+    await rodRow();
+    emit('inventory.changed', { actor: p });
+    await run('fish');
+    check('boat: the reel opens again with a new rod', p.posture === 'fishing');
+    rig.anchored = null;
+    boatTick(p, st());
+    check('boat: weighing anchor closes the reel', p.posture !== 'fishing' && !p.fishState && sent[sent.length - 1]?.phase === 'close');
+  } finally {
+    Math.random = realRandom;
+    for (const k of ['now', 'habitat', 'floor', 'tap']) boatT.seam[k] = null;
+    boatT.taken.delete('regress_school');
+    holdT.holdKg.delete(BOAT);
+    rigs.delete(pid);
+    Map.prototype.delete.call(aboard, pid);
+    delete p.fishState;
+    p.posture = saved.posture === 'fishing' ? 'standing' : (saved.posture || 'standing');
+    p.current_zone = saved.zone;
+    await query('DELETE FROM boat_hold WHERE boat_id = $1', [BOAT]).catch(() => {});
+    await query('DELETE FROM player_inventory WHERE player_id = $1 AND item_id = $2', [pid, 'item_fishing_rod']).catch(() => {});
+    emit('inventory.changed', { actor: p });
+  }
+
+  // ── Shore `fish` is untouched once you're out of the boat ───────────────────
+  const r = await run('fish');
+  check('boat: off the boat, `fish` is the shore verb again', !/anchor/i.test(r?.message || '') && p.posture !== 'fishing', r?.message);
 }

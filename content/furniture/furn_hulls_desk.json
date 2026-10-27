@@ -8,6 +8,9 @@
       "catalogue",
       "tin"
     ],
+    "boat_stock": [
+      "skiff"
+    ],
     "interactions": [
       "use"
     ],

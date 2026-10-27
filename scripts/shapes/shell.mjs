@@ -21,6 +21,8 @@ import { shellFaces, shellProfileFor, shellBounds, SHELL_PROFILES, EYE_M } from 
 // through the profile would be asking the answer to check itself.
 import { boatGeom } from '../../client/shared/boat-house.js';
 import { BOAT_ROWS } from '../../client/shared/vehicle-models.js';
+import { skiffProfile } from '../../client/shared/interior-skiff.js';
+import { LEGEND_TRACE } from '../../client/shared/legend-font.js';
 import { readFileSync } from 'node:fs';
 // ⚠ THE SOURCE IS BLANKED BEFORE IT IS SCANNED, and that is a fix rather than a nicety: the first
 // cut of this asserted the call site with a plain `includes`, and commenting the call out left the
@@ -426,6 +428,9 @@ for (const hullId of Object.keys(BOAT_ROWS)) {
   console.log('  ' + hullId);
   const okH = (c, msg) => ok(c, hullId + ': ' + msg);
   const row = BOAT_ROWS[hullId];
+  // ⚠ AN OPEN BOAT HAS NO HOUSE, SO NOTHING BELOW APPLIES TO HER. She sits in the open-boat seat
+  // (interior-skiff.js), and `openBoat` holds it to its own rays: see the function.
+  if (row.open) { openBoat(hullId, row, okH); continue; }
   const G = boatGeom(row);
   const P = hullId === 'hydro' ? SHELL_PROFILES.boat : shellProfileFor(hullId);
   okH(!!P && P.hull === hullId, 'the seat does not sit in its own hull\'s room (' + (P && P.hull) + ')');
@@ -669,6 +674,119 @@ for (const hullId of Object.keys(BOAT_ROWS)) {
   console.log('    a ' + (2 * G.LEN * m).toFixed(1) + ' m hull: ' + ((G.hF1 - G.hF0) * m).toFixed(2)
     + ' m of pilothouse, ' + ((G.roof.rz(E.f) - G.soleZ) * m).toFixed(2) + ' m sole to headlining, eye '
     + ((E.z - G.soleZ) * m).toFixed(2) + ' m up with ' + ((roofAtHelm - E.z) * m).toFixed(2) + ' m over it');
+}
+
+// ── AN OPEN BOAT ─────────────────────────────────────────────────────────────
+//
+// The Keel has no room, so the closed-room rays above are the wrong questions: there is no roof, no
+// side window and no bulkhead behind your head, and there must not be. These are hers, asked both
+// ways like the rest: the sky, the water ahead and abeam and the rod's arc MUST be clear, and the
+// thwart under you, the sole, both topsides and the outboard behind you MUST be there. Then the seat
+// is held to the hull it is in, and every control to being seen from the thwart and lettered.
+function openBoat(hullId, row, okH) {
+  const G = boatGeom(row), E = G.helm, m = E.mPerUnit;
+  const P = shellProfileFor(hullId);
+  okH(!!P && P.open === true && P.hull === hullId && !P.loft, 'an open boat is not in her own open-boat seat (a pilothouse round an open skiff is a closed room)');
+  okH(Math.abs(G.helm.mPerUnit / FLEET_M - 1) < 1e-3, 'her metre is not the fleet\'s');
+  if (!P) return;
+  okH(Math.abs(P.eyeM - E.eyeM) < 1e-9, 'the seat\'s eye (' + P.eyeM + ' m) is not the hull\'s helm eye (' + E.eyeM + ' m): the seat and the sea disagree about a metre');
+  const B = shellBounds(P);
+  okH(B[0] < -0.05 && B[1] < -0.05 && B[2] < -0.05 && B[3] > 0.05 && B[4] > 0.05 && B[5] > 0.05, 'the eye is not inside her bounds');
+  // Every state the seat can show: as she comes, and with everything switched, opened, dropped and
+  // swung to both locks.
+  const LIVES = [{}, { anchored: true, boxOpen: true, choke: true, lamp: true, prime: 1, throttle: 1, steer: 1, fuel: 0.2 },
+    { steer: -1, throttle: 0.5, running: true }];
+  const TS = G.STATIONS[G.STATIONS.length - 1], Ms = row.motorScale ?? 1;
+  for (const [li, live] of LIVES.entries()) {
+    const tag = li ? ' (state ' + li + ')' : '';
+    const faces = shellFaces(P, live);
+    okH(faces.length > 200, 'builds only ' + faces.length + ' faces' + tag);
+    // 1. LOW AND OPEN. Nothing at eye height anywhere, so the rod's arc over your head is clear.
+    let top = -Infinity;
+    for (const f of faces) for (const q of f.p) top = Math.max(top, q[2]);
+    okH(top < -0.05, 'something stands ' + top.toFixed(2) + ' m from eye height: the rod\'s arc is not clear' + tag);
+    // 2. THE SKY AND THE WATER. Every ray above 5 degrees under the horizon, ahead and abeam (the
+    //    water you cast into), and every ray above the horizon all the way round, leaves the boat.
+    let blocked = [];
+    for (let pi = -5; pi <= 85; pi += 5) for (let ya = -180; ya < 180; ya += 5) {
+      if (pi < 0 && Math.abs(ya) > 100) continue;
+      const a = ya * Math.PI / 180, e = pi * Math.PI / 180;
+      if (cast(faces, [Math.sin(a) * Math.cos(e), Math.cos(a) * Math.cos(e), Math.sin(e)])) blocked.push(ya + '/' + pi);
+    }
+    okH(!blocked.length, blocked.length + ' rays into the sky or the water ahead are blocked (yaw/pitch ' + blocked.slice(0, 6).join(' ') + ')' + tag);
+    // 3. THE THWART UNDER YOU, nearer than the sole; and the sole under the well forward of it.
+    const down = cast(faces, [0, 0, -1]), soleD = (E.z - G.soleZ) * m;
+    okH(down > 0 && down < soleD - 0.05, 'the first thing under the eye is not the thwart (' + down.toFixed(2) + ' m, sole at ' + soleD.toFixed(2) + ')' + tag);
+    const well = castFrom(faces, [P.xCentre, 1.0, 0], [0, 0, -1]);
+    okH(well > 0 && Math.abs(well - soleD) < 0.05, 'no sole under the well: a ray down it ' + (well ? 'stops at ' + well.toFixed(2) + ' m' : 'leaves the boat') + tag);
+    // 4. THE TOPSIDES ARE THERE AND THE GUNWALE IS THE TOP OF THEM. Aimed a hand under the sheer the
+    //    ray hits the hull; aimed a hand over it, it leaves.
+    let under = 0, over = 0, n = 0;
+    for (const u of [-0.5, -0.2, 0.1, 0.4]) {
+      const ff = u * G.LEN, a = G.atF(ff);
+      for (const s of [-1, 1]) {
+        n++;
+        const at = (dz) => [(s * a.sw * 0.97 - E.g) * m, (ff - E.f) * m, (a.sz + dz - E.z) * m];
+        if (castFrom(faces, [0, 0, 0], at(-0.012))) under++;
+        if (!castFrom(faces, [0, 0, 0], at(0.010))) over++;
+      }
+    }
+    okH(under === n, (n - under) + ' of ' + n + ' rays under the sheer leave the boat: there is no topside there' + tag);
+    okH(over === n, (n - over) + ' of ' + n + ' rays over the gunwale are blocked: she is not open' + tag);
+    // 5. THE OUTBOARD BEHIND YOU.
+    okH(castFrom(faces, [0, 0, 0], [P.xCentre, (TS.f - 0.03 - E.f) * m, (TS.sz + 0.03 - E.z) * m]), 'nothing aft at the transom: there is no outboard behind you' + tag);
+    // 6. EVERY FACE STATES WHICH WAY IT FACES, and every point is a number.
+    let bad = 0;
+    for (const f of faces) {
+      if (!f.n || Math.abs(Math.hypot(f.n[0], f.n[1], f.n[2]) - 1) > 1e-6) bad++;
+      for (const q of f.p) if (!Number.isFinite(q[0] + q[1] + q[2])) bad++;
+    }
+    okH(bad === 0, bad + ' bad normals or points' + tag);
+    // 7. THE SEAT IS INSIDE THE HULL IT IS IN, in model units against the exterior's own curves:
+    //    below the sheer nothing is outboard of the topside or under the sole; over it, a fitting may
+    //    stand up but not hang out past the rub rail; nothing is past the stem; and aft of the transom
+    //    there is only the outboard.
+    let out = 0, why = '';
+    for (const f of faces) for (const q of f.p) {
+      const ff = q[1] / m + E.f, gg = q[0] / m + E.g, zz = q[2] / m + E.z;
+      let w = '';
+      if (ff > G.LEN + 1e-6) w = 'past the stem';
+      else if (ff < TS.f - 1e-6) {
+        if (ff < TS.f - 0.088 * Ms - 0.004 || Math.abs(gg) > 0.021 * Ms + 0.004 || zz > TS.sz + 0.06) w = 'aft of the transom and not the outboard';
+      } else {
+        const a = G.atF(ff);
+        if (zz < a.sz - 1e-6) {
+          if (Math.abs(gg) > a.sw + 1e-6) w = 'through the topside';
+          else if (zz < G.soleZ - 1e-6) w = 'through the sole';
+        } else if (Math.abs(gg) > a.sw + 0.012) w = 'hanging out over the side';
+      }
+      if (w) { out++; why = w; }
+    }
+    okH(out === 0, out + ' seat vertices are outside the hull, the last ' + why + tag);
+    // 8. EVERY CONTROL CAN BE SEEN FROM THE THWART. A ray from the eye to each hotspot meets nothing
+    //    on the way: a control behind a thwart or under the tiller is a control you cannot click.
+    //    A control with two hotspots (the cleat and the ANCHOR under it) needs only one in sight: the
+    //    fish box lid, standing open, hides the bulkhead and not the cleat.
+    const hs = P.hotspots(live);
+    const seen = new Set(hs.filter((h) => { const t = castFrom(faces, [0, 0, 0], h.p); return !t || t >= 1 - 0.02 / Math.hypot(...h.p); }).map((h) => h.id));
+    const hidden = [...new Set(hs.map((h) => h.id))].filter((id) => !seen.has(id));
+    okH(!hidden.length, 'these controls are hidden from the thwart: ' + hidden.join(', ') + tag);
+    if (!li) {
+      const ids = new Set(hs.map((h) => h.id));
+      const want = ['fast', 'slow', 'kill', 'choke', 'prime', 'cleat', 'lamp', 'box', 'rod'];
+      const missing = want.filter((id) => !ids.has(id));
+      okH(!missing.length, 'these controls have no hotspot: ' + missing.join(', '));
+    }
+  }
+  // 9. AND EVERY CONTROL IS LETTERED. Heard on a fresh build, since a memoised part is not re-lettered.
+  const words = new Set();
+  LEGEND_TRACE.label = (str) => { for (const w of String(str).split(/\s+/)) words.add(w); };
+  shellFaces(skiffProfile(row, hullId), {});
+  LEGEND_TRACE.label = null;
+  const unlettered = ['KILL', 'CHOKE', 'PRIME', 'FUEL', 'ANCHOR', 'LAMP', 'FISH', 'ROD', 'SLOW', 'FAST'].filter((w) => !words.has(w));
+  okH(!unlettered.length, 'these words are not lettered anywhere in the seat: ' + unlettered.join(', '));
+  console.log('    open boat: eye ' + E.eyeM.toFixed(2) + ' m over the water, ' + shellFaces(P).length + ' faces, '
+    + P.hotspots({}).length + ' hotspots, the thwart ' + cast(shellFaces(P), [0, 0, -1]).toFixed(2) + ' m under the eye');
 }
 
 console.log('\n' + (checks - fails) + '/' + checks + ' passed');

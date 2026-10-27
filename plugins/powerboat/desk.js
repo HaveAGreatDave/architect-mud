@@ -23,11 +23,22 @@ import { isVendorClosed, isVendorWorkTime, hoursUntilOpen, registerAICondition, 
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { getTimeScale } from '../../server/engine/gametime.js';
+import { BOAT_TYPES } from '../../client/game/js/panels/flight-model.js';
 
 /** The desk furniture in this room, or null. */
 export function deskIn(zoneId) {
   if (!zoneId) return null;
   return getZoneFurniture(zoneId).find((f) => f?.flags?.marina_desk) || null;
+}
+
+/**
+ * The hulls this room's desk sells and hires, cheapest first. Every hull on the line, except an
+ * `exclusive` one (flight-model.js), which only a desk listing its id in `flags.boat_stock` carries.
+ */
+export function deskStock(zoneId) {
+  const list = deskIn(zoneId)?.flags?.boat_stock;
+  const extra = Array.isArray(list) ? list : [];
+  return BOAT_TYPES.filter((t) => !t.exclusive || extra.includes(t.id));
 }
 
 /**

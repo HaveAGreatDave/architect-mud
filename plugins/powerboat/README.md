@@ -24,6 +24,40 @@ derive from the boat rows, so a fourth hull is a `TYPES` row, a mesh file, `VEHI
 `LIVERY_MODELS.boat`, and a sell and a hire node in both clerks' trees. `npm run vehicles:bake` after
 the mesh file.
 
+### The Keel Mk 1 (`skiff`)
+
+₵3,900, sold and hired only at Keel's bench in the Eastern Marina. A 16 ft riveted aluminium open
+skiff with a 15 hp tiller outboard: 18 mph flat out, slow and heavy on the tiller, no bottle
+(`nitroMul: 1`). Her row is `open: 1` in `boat_skiff.json`, so `buildBoat` draws thwarts, a fish box,
+the anchor and cleat, a tiller and a lamp pole instead of a pilothouse, and `boat-house.js` seats the
+eye on the aft thwart. She has no first-person room yet: `shellProfileFor` returns null for an open
+row, so the helm view draws the hull with no interior shell.
+
+Fields only she sets, each read as none when missing: `exclusive` (only a desk whose furniture
+lists her id in `flags.boat_stock` sells or hires her; `deskStock` in desk.js), `seats`, `hold_kg`,
+`rodHolders`, `rode_m` and `lamp`. An exclusive hull needs sell and hire nodes only in the trees of
+the desks that stock her, and regress checks each clerk against their own desk's stock.
+
+### The anchor ([anchor.js](anchor.js))
+
+`boat anchor` drops it and `boat anchor up` pulls it in; `conn anchor` on the text helm, B and the
+⚓ chip in the seat send the same thing. She has to carry a rode (`rode_m`), be under `STEP_OFF_MPH`
+with the throttle at idle, be off any berth or covered slot, and have the seabed under her
+(`seabedDepth`) within the rode. The point goes on the rig, the text helm's record and
+`custom_data.anchored`, and dropping it cuts the engine. `cmdBoatSync` clamps any report outside the
+0.3-tile swing circle (`client/shared/boat-anchor.js`) back onto it; the seat holds her inside it,
+bow to the wind, and won't open the throttle. Left at anchor, the next helm adopts the point while
+it's within a tile and a half of the tile she's lying on.
+
+### The fish box ([hold.js](hold.js))
+
+A hull's `hold_kg` is her fish box, and the box is the `boat_hold` table, one row per fish, written
+by the fishing plugin's boat reel (`plugins/fishing/boat.js`). Its weight is a running total in RAM
+per boat id (`holdKg`, mirrored as `rig.holdKg`), read once the first time the reel opens and kept by
+`addHoldKg` on every landing, so a landing checks for room with no query. `boat hold` lists the box;
+`boat unload` at a berth moves every fish into your inventory in one statement, each row carrying
+`custom_data` `{ kg, species, caught_at }`.
+
 ⚠ **Every hull is in the hydro's units and the hydro's metre.** A bigger boat is a bigger `len`, never a
 bigger `CONTACT_SIZE`; and a second row states `mPerUnit` (the hydro's figure) so its eye height falls
 out of where its seat is (`client/shared/boat-house.js`). `scripts/shapes/shell.mjs` holds every hull's

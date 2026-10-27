@@ -42,6 +42,12 @@ import { repairItem, conditionBand, destroyItem } from '../../server/engine/dura
 import { escAttr } from '../../server/engine/text.js';
 import { loadZoneStock } from '../../server/engine/zone-stock.js';
 import { pickWeighted } from '../../server/engine/util.js';
+// The boat reel (boat.js): the same posture and state key, with fishState.mode = 'boat'.
+// ⚠ THE BOAT PLUGIN'S OWN ENTRY FIRST. Entered through yard.js, its index.js would evaluate while
+// yard.js was still waiting on its imports, and its command map reads yard's exports at load.
+import '../powerboat/index.js';
+import { aboard } from '../powerboat/yard.js';
+import { openBoatReel, boatCast, boatTwitch, boatStrike, boatResolve, boatTick, boatTyped, endBoatFishing, abandonBoatFishing } from './boat.js';
 
 const ATTEMPT_MS = 4200;    // per-cast cadence — a touch slower than scavenging; fishing is patient
 const MAX_SWING = 14;       // best possible 2d8-2d8 roll — reachability ceiling
@@ -107,7 +113,7 @@ async function hasRod(playerId) {
 }
 
 // A botched reel can snap the rod: shed condition, and retire it at zero.
-async function maybeSnapRod(playerId) {
+export async function maybeSnapRod(playerId) {
   if (Math.random() >= ROD_SNAP_CHANCE) return '';
   const rod = await resolveInventoryItem(playerId, { tag: 'fishing_rod' });
   if (!rod) return '';
@@ -131,7 +137,7 @@ async function baitState(playerId) {
 }
 
 // Consume one bait item (decrement a stack, delete at zero). Called on a catch.
-async function consumeBait(playerId) {
+export async function consumeBait(playerId) {
   const b = await resolveInventoryItem(playerId, { tag: 'bait', orderBy: 'pi.quantity ASC' });
   if (!b) return;
   if ((b.quantity ?? 1) > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [b.inv_id]);
@@ -145,7 +151,7 @@ async function consumeBait(playerId) {
 const GEAR_TTL_MS = 60_000;
 const gearCache = new Map();   // playerId → { rod, bait, at }
 on('inventory.changed', ({ actor }) => { if (actor?.id) gearCache.delete(actor.id); });
-async function castGear(playerId) {
+export async function castGear(playerId) {
   const hit = gearCache.get(playerId);
   if (hit && Date.now() - hit.at < GEAR_TTL_MS) return hit;
   const [rod, bait] = await Promise.all([hasRod(playerId), baitState(playerId)]);
@@ -343,6 +349,7 @@ registerActivity({
   posture: 'fishing',
   stateKey: 'fishState',
   onTick: async (player, st, nowMs) => {
+    if (st.mode === 'boat') { boatTick(player, st); return; }
     // A bite is armed and waiting on the overlay — hold the loop. If the
     // player abandoned the overlay, time it out (the fish gets away).
     if (st.pending) {
@@ -355,7 +362,8 @@ registerActivity({
     if (nowMs - st.lastAttempt < ATTEMPT_MS) return;
     await runAttempt(player, st, nowMs);
   },
-  onAbandon: (player) => {
+  onAbandon: (player, st) => {
+    if (st?.mode === 'boat') { abandonBoatFishing(player); return; }
     const cur = getLivePlayer(player.id);
     if (cur) delete cur.fishState;
     out(player.id, 'You stop fishing.');
@@ -365,6 +373,7 @@ registerActivity({
 
 on('player.stop', ({ player, stopped }) => {
   if (player.posture !== 'fishing') return;
+  if (player.fishState?.mode === 'boat') { endBoatFishing(player); stopped.push('fishing'); return; }
   stopFishing(player.id, player.current_zone, player.handle);
   stopped.push('fishing');
 });
@@ -382,6 +391,7 @@ on('player.stop', ({ player, stopped }) => {
 // the pool is the server's, so the client can only influence the draw, never
 // summon an out-of-pool catch.
 async function cmdFishCast(args, raw, player) {
+  if (args[0] === 'boat') return boatCast(player, args[1], args[2], args[3]);
   const zoneId = args[0];
   const power = clamp01(Number(args[1]));
   const angle = clamp01(Number.isFinite(Number(args[2])) ? Number(args[2]) : 0.5);
@@ -427,6 +437,7 @@ async function settleLogBite(player, zoneId, token) {
 }
 
 async function cmdFishResolve(args, raw, player, broadcast) {
+  if (args[0] === 'boat') return boatResolve(player, args[1], args[2]);
   const zoneId = args[0];
   const won = args[1] === '1';
   const token = args[2];
@@ -500,10 +511,18 @@ async function cmdFishResolve(args, raw, player, broadcast) {
 // ── Command ───────────────────────────────────────────────────────────────────
 
 async function cmdFish(args, raw, player, broadcast) {
+  // Typed boat forms: `fish <bearing> <metres>`, `fish twitch`, `fish strike`.
+  if (player.posture === 'fishing' && player.fishState?.mode === 'boat') {
+    const r = await boatTyped(args, player);
+    if (r) return r;
+  }
   if (player.posture === 'fishing')
     return { type: 'emote', message: 'You\'re already fishing.' };
   if (player.combatTargetId || player.pvpTargetId || player.npcCombatTargetId)
     return { type: 'emote', message: 'You\'re a little busy to be fishing right now.' };
+  // Aboard a boat: the boat reel, asked before the shore table (boat.js).
+  const boatId = aboard.get(player.id);
+  if (boatId) return openBoatReel(player, boatId);
   if ((player.posture || 'standing') !== 'standing')
     return { type: 'emote', message: 'You need to be on your feet to fish.' };
 
@@ -529,6 +548,9 @@ export const commands = {
   fish: cmdFish,
   fishcast: cmdFishCast,
   fishresolve: cmdFishResolve,
+  // The boat reel's taps and strikes (boat.js). Typed as `fish twitch` and `fish strike`.
+  fishtwitch: (args, raw, player) => boatTwitch(player, args[0]),
+  fishstrike: (args, raw, player) => boatStrike(player, args[0], args[1], args[2]),
 };
 
 // Pure helpers exposed for the regression suite (never used in production).

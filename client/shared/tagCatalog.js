@@ -392,6 +392,10 @@
       help: 'Marks this item as a fishing rod. Carrying one (in hand, not in a container) is the tool gate for FISH at a water-adjacent zone. Pair with the Unique tag so each rod keeps its own condition — a botched reel can snap it.' },
     bait: { label: 'Bait', shape: 'flag', scope: 'class', group: 'Gear',
       help: 'Marks this item as fishing bait. Optional while FISHing: one is consumed per catch, shifting the odds toward better catches and unlocking bait-gated fish. A more specific sub-tag (e.g. bait_bloodworm) can gate particular catches.' },
+    cast_m: { label: 'Cast Reach (m)', shape: 'number', scope: 'class', group: 'Gear',
+      help: 'On a fishing rod: how far it casts from a boat, in metres (plugins/fishing/boat.js). A rod without it reaches 25 m. Skill tightens the scatter, not the reach.' },
+    sink_mps: { label: 'Sink Rate (m/s)', shape: 'number', scope: 'class', group: 'Gear',
+      help: 'On a lure carried while boat fishing: how fast it sinks after the cast, in metres a second. A heavier lure gets down to the floor fish sooner. Without one the line sinks at 0.6 m/s.' },
     mining_tool: { label: 'Mining Tool', shape: 'flag', scope: 'class', group: 'Gear',
       help: 'Marks this item as a mining tool (pick, drill, breaker bar). Carrying one (in hand, not in a container) is the tool gate for MINE at a zone with an ore deposit. Pair with the Unique tag so each tool keeps its own condition.' },
 

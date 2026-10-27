@@ -42,6 +42,8 @@ import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell
 import { solvePose, boneFrames, bindFrames, skinRows, BONES, FRAME_FLOATS, scalePose } from '../diamond/rig.js';
 import { BALL_R } from '../diamond/flight.js';
 import { SKIN_GLSL, createBonePalette } from './skin.js';
+import { CEL, CEL_TUNE, CEL_GLSL } from './cel-figure.js';
+import { INK_FS } from './ink.js';
 import { bodyKey } from '../diamond/cast.js';
 // the view loads this module lazily and takes the cast from it, so the 2-D path never fetches it
 export { castOf } from '../diamond/cast.js';
@@ -97,6 +99,32 @@ layout(location = 0) in vec3 aPos;
 ${SKIN_GLSL}
 uniform mat4 uVP;
 void main() { gl_Position = uVP * vec4(skinPos(aPos), 1.0); }`;
+// The players' ink (gl/ink.js, the rink's line, at gl/cel-figure.js's numbers): each man skinned as
+// SKIN_VS skins him, pushed out along his skinned normal by uInk.x ft, held between uInk.y and
+// uInk.z px, and set uInk.w behind himself, so his lit body covers the inside and the line shows
+// round his edge. It's ink.js's INK_VS with the skinning in front. A folded bone's vertex has no
+// normal and gets no ink.
+const SKIN_INK_VS = `#version 300 es
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aNrm;
+${SKIN_GLSL}
+uniform mat4 uVP;
+uniform vec2 uRes;
+uniform vec4 uInk;
+void main() {
+  vec3 p = skinPos(aPos), sn = skinDir(aNrm);
+  float nl = dot(sn, sn);
+  vec4 c = uVP * vec4(p, 1.0);
+  if (nl < 0.01 || c.w <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  vec3 n = sn * inversesqrt(nl);
+  vec4 cn = uVP * vec4(p + n * uInk.x, 1.0);
+  vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uRes * 0.5;
+  float L = length(d);
+  vec2 dir = L > 1e-4 ? d / L : vec2(0.0);
+  c.xy += dir * clamp(L, uInk.y, uInk.z) / (uRes * 0.5) * c.w;
+  c.z += uInk.w * c.w;
+  gl_Position = c;
+}`;
 const DEPTH_FS = `#version 300 es
 precision mediump float;
 void main() { }`;
@@ -338,6 +366,8 @@ uniform float uBlinkT; uniform float uTwill;
 uniform vec2 uWear;
 // the low sun: the way to it, its light (0 once it's down) and its shadow map's index (-1 none)
 uniform vec3 uSunDir; uniform vec3 uSunCol; uniform int uSunSh;
+// the players' cel look (gl/cel-figure.js): CEL_TUNE.on on their draws, 0 on everything else
+uniform float uCel;
 // With no tower casting (the phone tier), a soft dark patch on the ground under each man and the
 // ball instead: (x, z, radius, how dark) each, uBlobN of them.
 uniform vec4 uBlob[16]; uniform int uBlobN;
@@ -360,8 +390,24 @@ ${HEAD_GLSL}
 ${FACADE_GLSL}
 ${STREET_GLSL}
 ${EXTERIOR_GLSL}
+${CEL_GLSL}
 float ggxD(float NoH, float a) { float a2 = a * a; float d = NoH * NoH * (a2 - 1.0) + 1.0; return a2 / (PI * d * d); }
 float visSG(float NoV, float NoL, float a) { float a2 = a * a; float gv = NoL * sqrt(NoV * NoV * (1.0 - a2) + a2); float gl = NoV * sqrt(NoL * NoL * (1.0 - a2) + a2); return 0.5 / max(gv + gl, 1e-4); }
+// The cel look's share of one light (uCel, in main): the brightest light so far into key,
+// unshadowed; its diffuse in CEL.bands steps, shadowed (sh, already hard-stepped), into lit; and
+// its highlight into hi, flat at half the GGX lobe's peak out to where the lobe falls below half,
+// a hard-edged spot of the same size and about the same energy. Ls and aS are the lamp bank's
+// highlight direction and widened roughness. Only behind the uniform branch.
+float celLum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+void celAdd(vec3 N, vec3 V, vec3 L, vec3 Ls, float a, float aS, float NoV, vec3 f0, vec3 rad, float sh, inout vec3 key, inout vec3 lit, inout vec3 hi) {
+  if (celLum(rad) > celLum(key)) key = rad;
+  float b = celLight(max(dot(N, L), 0.0), ${CEL.bands.toFixed(1)});
+  lit += rad * sh * b;
+  vec3 H = normalize(Ls + V); float NoH = max(dot(N, H), 0.0), VoH = max(dot(V, H), 0.0);
+  vec3 F = f0 + (1.0 - f0) * pow(1.0 - VoH, 5.0);
+  float pk = ggxD(1.0, aS);
+  hi += 0.5 * pk * toonStep(0.5, ggxD(NoH, aS) / pk) * visSG(NoV, max(dot(N, Ls), 0.0), aS) * F * (a * a) / (aS * aS) * min(b * ${CEL.bands.toFixed(1)}, 1.0) * rad * sh;
+}
 // the fence's distance at a bearing from straight-away centre: the venue's line, centre and curve
 float fenceAt(float th) { return uFence.y - (uFence.y - uFence.x) * pow(clamp(abs(th) / 0.7853982, 0.0, 1.0), uFence.z); }
 void main() {
@@ -553,11 +599,37 @@ void main() {
   float a = max(rough * rough, 0.003);
   float NoV = max(dot(N, V), 1e-3);
   vec3 below = belowAt(vPos);
-  vec3 col = dif * mix(below, uSkyUp, N.y * 0.5 + 0.5) * ao;
+  vec3 amb = dif * mix(below, uSkyUp, N.y * 0.5 + 0.5) * ao, col = amb;
   vec3 R = reflect(-V, N);
   vec3 env = mix(below * 1.4, uSkyUp * 2.2, clamp(R.y * 0.6 + 0.5, 0.0, 1.0));
   vec3 Fv = f0 + (max(vec3(1.0 - rough), f0) - f0) * pow(1.0 - NoV, 5.0);
   col += env * Fv * ao * (1.0 - rough * 0.6);
+  // THE PLAYERS' CEL LOOK (uCel, gl/cel-figure.js), behind a uniform branch for toon.js's fwidth:
+  // each light's diffuse in hard bands, its shadow hard-edged, a hard highlight (celAdd), no light
+  // through the skin, the hemisphere's ambient in the shade tone where no light falls, and a rim
+  // on the lit edge. There's no one key light here, so the dark side is the shade tone of the
+  // brightest light reaching the point, shadowed or not, and the banded light lifts it from there.
+  // Under one light alone that's exactly celTone(the lit colour, the banded light).
+  if (uCel > 0.5) {
+    vec3 key = vec3(0.0), lit = vec3(0.0), hi = vec3(0.0);
+    for (int i = 0; i < 6; i++) {
+      vec3 Lv = lampVec(i, vPos); float d = length(Lv); vec3 L = Lv / d;
+      vec3 Ls = L; float aS = a;
+      if (uFlood > 0.5 && uLGeo[i].y > 0.0) {
+        vec3 c2r = dot(Lv, R) * R - Lv;
+        Ls = normalize(Lv + c2r * clamp(uLGeo[i].y / max(length(c2r), 1e-4), 0.0, 1.0));
+        aS = clamp(a + uLGeo[i].y / (2.0 * d), 0.003, 1.0);
+      }
+      float sh = (uLSh[i] >= 0 && uLSh[i] < uSpotN) ? toonStep(0.5, spotShadow(uLSh[i], vPos + N * 0.04)) : 1.0;
+      celAdd(N, V, L, Ls, a, aS, NoV, f0, uLCol[i] * spotOf(i, L, 0.05) * floodAtt(i, d), mix(sh, 1.0, 0.08), key, lit, hi);
+    }
+    if (uSunCol.r + uSunCol.g + uSunCol.b > 0.0)
+      celAdd(N, V, uSunDir, uSunDir, a, a, NoV, f0, uSunCol, uSunSh >= 0 ? toonStep(0.5, spotShadow(uSunSh, vPos + N * 0.3)) : 1.0, key, lit, hi);
+    float litK = clamp(celLum(lit) / max(celLum(key), 1e-6), 0.0, 1.0);
+    vec3 tone = celTone(vec3(1.0), 0.0);
+    col += celTone(amb, litK) - amb + dif / PI * (key * tone + lit * (1.0 - tone)) + hi;
+    col *= 1.0 + celRim(N, V, litK);
+  } else {
   for (int i = 0; i < 6; i++) {
     vec3 Lv = far ? uLPos[i] - vPos : lampVec(i, vPos); float d = length(Lv); vec3 L = Lv / d;
     float NoL = dot(N, L);
@@ -595,6 +667,7 @@ void main() {
     vec3 rad = uSunCol * sh;
     col += (dif / PI * wd + ggxD(NoH, a) * visSG(NoV, nl, a) * F * nl) * rad;
     if (vMat == ${MAT.SKIN} || vMat == ${MAT.HEAD} || vMat == ${MAT.EAR} || vMat == ${MAT.NECK}) col += alb * vec3(0.10, 0.025, 0.01) * max(wd - nl, 0.0) * rad;
+  }
   }
   // cloth has a sheen at grazing angles
   if (vMat == ${MAT.CLOTH}) col += dif * pow(1.0 - NoV, 4.0) * 0.05 * uSkyUp;
@@ -701,7 +774,7 @@ uniform mat4 uVP;
 out vec2 vUV; out float vAlpha; out float vRed;
 void main() { vUV = aUV; vAlpha = aAlpha; vRed = aRed; gl_Position = uVP * vec4(aPos, 1.0); }`;
 
-for (const [vs, fs] of [[LIT_VS, LIT_FS], [SKIN_VS, LIT_FS], [SKIN_DEPTH_VS, DEPTH_FS], [STATIC_DEPTH_VS, DEPTH_FS], [CROWD_VS, CROWD_FS], [CARD_VS, CARD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS], [CURTAIN_VS, CURTAIN_FRAG]]) declareProgram(vs, fs);
+for (const [vs, fs] of [[LIT_VS, LIT_FS], [SKIN_VS, LIT_FS], [SKIN_DEPTH_VS, DEPTH_FS], [STATIC_DEPTH_VS, DEPTH_FS], [CROWD_VS, CROWD_FS], [CARD_VS, CARD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS], [CURTAIN_VS, CURTAIN_FRAG], [SKIN_INK_VS, INK_FS]]) declareProgram(vs, fs);
 
 // The textures whose clear texels are holes: the wall's distances, the monograms, the masks' bars.
 const ALPHA_TEST = new Set(['nums', 'logo', 'mask', 'finalLogo']);
@@ -968,6 +1041,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const LIT = prog(LIT_VS, LIT_FS), CROWD = prog(CROWD_VS, CROWD_FS), CARD = prog(CARD_VS, CARD_FS), SKY = prog(FULL_VS, SKY_FS), FINAL = prog(FULL_VS, FINAL_FS);
     const CURT = prog(CURTAIN_VS, CURTAIN_FRAG);
     const SKLIT = prog(SKIN_VS, LIT_FS), SKD = prog(SKIN_DEPTH_VS, DEPTH_FS), STD = prog(STATIC_DEPTH_VS, DEPTH_FS);
+    // the players' ink (SKIN_INK_VS): if it won't build, the players go without the line rather
+    // than the park going to 2-D
+    let SKINK = null;
+    try { SKINK = prog(SKIN_INK_VS, INK_FS); } catch (e) { console.warn('ballpark: no ink on the players', e); }
     const spectacle = createSpectacle(gl, prog);
     const weather = createWeather(gl, prog);
     const cityLights = createCityLights(gl, prog);
@@ -1860,6 +1937,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniform1iv(P.u('uLSh'), LShF); gl.uniform1i(P.u('uSpotN'), spotN);
         gl.uniform4fv(P.u('uBlob'), blobs); gl.uniform1i(P.u('uBlobN'), blobN);
         gl.uniform1i(P.u('uHeadSlot'), 0); gl.uniform4f(P.u('uKitCell'), 0, 0, 0, 0);
+        gl.uniform1f(P.u('uCel'), P === SKLIT && CEL_TUNE.on ? 1 : 0);
       };
       const drawSet = (list, alpha, P = LIT) => {
         for (const d of list) {
@@ -1896,13 +1974,35 @@ export function createBallparkRenderer(canvas, opts = {}) {
       }
       // the gulls wheeling over the outfield
       { const gb = birds.drawGulls(M, h, worldT, birdLook(q)); tris += gb.tris; draws += gb.draws; }
+      const detail = q.detail ?? 2;
+      // the ink round the players (gl/cel-figure.js), first, so each man's lit body covers its
+      // inside: at the level of detail he's lit at, and not the alpha-tested pieces (the catcher's
+      // mask), whose holes the line would fill. Not on a tier without it (diamond/quality.js ink).
+      if (SKINK && CEL_TUNE.on && CEL_TUNE.ink && q.ink !== false) {
+        const u = w / 900;
+        gl.useProgram(SKINK.p);
+        gl.uniformMatrix4fv(SKINK.u('uVP'), false, M.viewProj);
+        gl.uniform1i(SKINK.u('uBones'), 9);
+        gl.uniform2f(SKINK.u('uRes'), w, h);
+        gl.uniform4f(SKINK.u('uInk'), CEL.inkFt, CEL.inkPx[0] * u, CEL.inkPx[1] * u, CEL.inkBias);
+        gl.uniform3fv(SKINK.u('uCol'), CEL.ink);
+        for (const m of members) {
+          const body = bodies.get(m.key);
+          if (!body) continue;
+          gl.uniform1i(SKINK.u('uBoneRow'), m.slot);
+          for (const d of body.levels?.[lodOf(m.slot, M.viewProj, h, detail)] || body.batches) {
+            if (ALPHA_TEST.has(d.key)) continue;
+            gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n);
+            tris += d.n / 3; draws++;
+          }
+        }
+      }
       // the players: each one's bones from his row of the palette (unit 9), his face from the atlas
       // (unit 8) and the head arrays, his jersey from his slot's cell
       litSetup(SKLIT);
       gl.uniform1i(SKLIT.u('uFaceAtlas'), 8); gl.uniform1i(SKLIT.u('uBones'), 9); gl.uniform1f(SKLIT.u('uBlinkT'), worldT);
       gl.uniform1f(SKLIT.u('uTwill'), q.light !== 0 && q.light !== false ? 1 : 0);
       gl.uniform4fv(SKLIT.u('uHeadA'), HA); gl.uniform4fv(SKLIT.u('uHeadB'), HB); gl.uniform4fv(SKLIT.u('uHeadC'), HC); gl.uniform4fv(SKLIT.u('uHeadD'), HD);
-      const detail = q.detail ?? 2;
       for (const m of members) {
         const body = bodies.get(m.key);
         if (!body) continue;
