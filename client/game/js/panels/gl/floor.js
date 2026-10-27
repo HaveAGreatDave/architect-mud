@@ -1348,10 +1348,10 @@ void main() {
     for (int i = 0; i < NEON_MAX; i++) {
       if (i >= uNeonN) break;
       vec4 L = uNeonP[i];
-      float g = seaGlitter(vec2(wx, wy), uA, max(0.02, uEH), L.xyz, uSeaWindDir, uSig2.x, uSig2.y);
       float dl = length(L.xy - vec2(wx, wy)) / max(0.001, L.w);
       // Capped per light at the lamp's own colour, the mesh's rule (water.js), so the two agree.
-      neon += uNeonC[i] * min(uNeonGain * g / (1.0 + dl * dl), 1.0);
+      // A soft surface glow, as water.js draws it; no glitter streak.
+      neon += uNeonC[i] * (0.18 * exp(-dl * dl * 4.0));
     }
     // ⚠ WEIGHED ON 'wdeep' AND NOT ON 'waterW', the same term the mesh uses. waterW rises across the
     // shore seam and doubles as a shoreline coordinate, so weighing on it lays neon along the wet

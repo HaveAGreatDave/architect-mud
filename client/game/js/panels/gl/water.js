@@ -497,7 +497,6 @@ void main() {
       // so a crest bends round to face a beach; where this fragment actually IS on the water is
       // 'vWorld'. A reflection is pure geometry — where the eye is, where the light is, where the
       // surface is — so asking it at a warped position slides every streak along the shore.
-      float g = seaGlitter(vWorld, uEye.xy, max(0.02, uEye.z), L.xyz, uWindDir, uSig2.x, uSig2.y);
       // ⚠ AND IT FALLS OFF AS AN INVERSE SQUARE, NOT ON THE WALL WASH'S REACH. That reach is how far
       // a lamp LIGHTS something, and it hard-cuts: the tarmac smear uses it and is right to, because
       // a wet-road streak is short and the cut almost never binds. A glitter streak is the opposite
@@ -515,7 +514,8 @@ void main() {
       // (a fuel float's pumps, a pontoon's pedestals) has that term near 1 and came out a hundred
       // times over, a blown white ellipse on the water a boat lying alongside could not see past.
       // Capped per light at the lamp's own colour, so the far field is exactly as swept.
-      neon += uNeonC[i] * min(uNeonGain * g / (1.0 + dl * dl), 1.0);
+      // A soft glow on the surface round the light in place of the glitter streak, which stood up
+      // the screen as a column under every lamp near the water.      neon += uNeonC[i] * (0.18 * exp(-dl * dl * 4.0));
     }
     // ⚠ GATED ON THE WATER AND ON THE NIGHT. Signage is drawn by day too, and a pink streak across
     // a bay at noon is not a reflection, it is a decal — the same sentence floor.js writes over the
