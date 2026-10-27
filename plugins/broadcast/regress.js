@@ -3018,7 +3018,7 @@ export default async function regress({ check, run, getPlayer }) {
       // injury-report pool that a healthy slate never touches.
       // And the sim version, so a v2 death reaches the vat's lines.
       const game = HOCKEY.simGame(matchup, players, sportsRng(seed),
-        { ...(opts.unavailable ? { unavailable: opts.unavailable } : {}), ...(opts.version ? { version: opts.version } : {}) });
+        { ...(opts.unavailable ? { unavailable: opts.unavailable } : {}), ...(opts.version ? { version: opts.version } : {}), ...(opts.important ? { important: true } : {}) });
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const pick = (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); };
       const say = (l, t) => { if (l) { const x = sportsFill(l, t).trim(); if (/\{[a-zA-Z]/.test(x) || /\s[.,!?;:]|\s{2,}/.test(x)) unfilled.push(x); } };
@@ -3102,6 +3102,16 @@ export default async function regress({ check, run, getPlayer }) {
       }
     }
 
+    // Fights and brawls (sim v3): a brawl only happens between rivals in a game that
+    // matters, so play rival finals under v3 until every fight and brawl pool has fired.
+    {
+      const { rivalOf } = await import('./sports/hockey.js');
+      const v3Pools = Object.keys(pools).filter(k => /(^|.)(fight|brawl)(.|$)/.test(k));
+      for (let slot = 0; slot < 6000 && v3Pools.some(k => !usedPools.has(k)); slot++) {
+        const away = teams[slot % teams.length];
+        narrateSlot(slot, { version: 3, important: true, matchup: { away, home: rivalOf(away, teams), teams } });
+      }
+    }
     // Now the check has no exemptions but the deliberate `faceoff` fallback, which sits
     // behind the three dot-specific pools and is expected never to fire.
     const unreachable = Object.keys(pools).filter(k => !usedPools.has(k) && k !== 'faceoff');
