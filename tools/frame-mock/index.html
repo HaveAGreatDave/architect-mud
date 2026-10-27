@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frame Mockup</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="mock-bar">
+  <div class="mock-title">Frame <span>phase 0 mockup, real payloads</span></div>
+  <nav class="mock-tabs" id="scene-tabs" aria-label="Scene"></nav>
+  <div class="mock-opts">
+    <label><input type="checkbox" id="opt-phone"> Phone width</label>
+    <label><input type="checkbox" id="opt-model"> Room model</label>
+  </div>
+</header>
+
+<main class="stage" id="stage">
+  <div class="frame-wrap" id="frame-wrap">
+    <div class="frame" id="frame">
+      <section class="scene" id="scene" aria-label="Where you are">
+        <div class="scene-art" id="scene-art" aria-hidden="true"></div>
+        <div class="scene-caption">
+          <div class="scene-district" id="scene-district"></div>
+          <h1 class="scene-name" id="scene-name"></h1>
+          <div class="scene-meta" id="scene-meta"></div>
+        </div>
+        <div class="scene-note">placeholder art: a GLASS still or hand art goes here in phase 3</div>
+      </section>
+
+      <aside class="focus" id="focus" aria-label="Focus"></aside>
+
+      <section class="log" aria-label="Story">
+        <div class="log-scroll" id="log" role="log"></div>
+      </section>
+
+      <footer class="dock">
+        <div class="vitals" id="vitals"></div>
+        <div class="hotbar" id="hotbar"></div>
+        <form class="cmd" id="cmd-form" autocomplete="off">
+          <span class="cmd-prompt" aria-hidden="true">&gt;</span>
+          <input id="cmd-input" aria-label="Command" placeholder="Type a command, or use the buttons">
+        </form>
+      </footer>
+
+      <div class="toast" id="toast" role="status"></div>
+    </div>
+  </div>
+  <pre class="model" id="model" hidden></pre>
+</main>
+
+<script src="payloads.js"></script>
+<script src="frame.js"></script>
+</body>
+</html>
