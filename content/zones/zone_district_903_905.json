@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#1b2226",
   "color": "#8fa4ac",
-  "description": "A long tin-clad shed with a refrigeration plant humming on the roof and no name on it anywhere. Its front is built onto the back of Batter Days. The only door this side is a steel staff door onto the car park, propped open on a fish box.",
+  "description": "A three-storey works with no name on it anywhere: brick below, tin above with frosted strip windows, and a glazed lantern along the roof by the refrigeration plant. Its front is built onto the back of Batter Days. The only door this side is a steel staff door onto the car park, propped open on a fish box.",
   "exits": {
     "east": "zone_district_904_905",
     "west": "zone_codfather_slab"
@@ -14,7 +14,7 @@
     "district": "filaments",
     "entrance": "east",
     "facade": true,
-    "floors": 1,
+    "floors": 3,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_904_905"

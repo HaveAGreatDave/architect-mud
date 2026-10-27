@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#13243a",
   "color": "#f08a2a",
-  "description": "A bright chip shop painted harbour blue, with orange awnings over a wide lit window and BATTER DAYS in orange across the front. Picnic tables stand under the awnings. A steel flue up the back breathes steam, and behind it the tin shed of the fish works carries straight on.",
+  "description": "A chip shop painted harbour blue, with orange awnings over a wide lit window and BATTER DAYS in orange across the front. Two floors of flats sit above it, with a bay window over the door. Picnic tables stand under the awnings. A steel flue up the back breathes steam, and behind it the fish works carries straight on.",
   "exits": {
     "north": "zone_batter_shop",
     "south": "zone_district_903_907"
@@ -14,7 +14,7 @@
     "district": "filaments",
     "entrance": "south",
     "facade": true,
-    "floors": 1,
+    "floors": 3,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_903_907"

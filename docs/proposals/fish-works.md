@@ -78,19 +78,36 @@ rooms with it.
 | `chippy` (rewritten) | `glass/models/twin-pass.js` | named `batterdaysfishchips` |
 | `ironsideunit` (the old `chippy` shell) | `glass/models/twin-pass.js` | named `unit5ironsidestreet`, `noKit` |
 
-- **The works** is galvanised corrugated sheet (`ty_fw_tin`) under a stepped roof, with two
-  condensers and the icemaker's vent on the roof. The quay face has a roller door, up, with a hoist
-  beam over it. The car park face has the steel staff door with a bulkhead lamp, a hose reel, fish
-  boxes and the one frosted strip window. There is no lettering anywhere: `noKit` keeps the kit's
-  boards and trade words off it.
-- **Batter Days** is harbour-blue render (`ty_bd_blue`) with a navy plinth, coping and fascia, the
-  name in orange on the fascia, orange awnings on the front and down the Filament Yard side with a
-  cream valance, four picnic tables, the orange tin fish on a bracket, an A-board and a bin.
+- **Both are three storeys** (`flags.floors: 3`, raised from one on 2026-10-26). Each arm draws its
+  ground floor in `S = h / 3`, so the doors, awnings, tables and boxes stay at a person's height,
+  and only the upper floors and the roof are fractions of `h`.
+- **The works** is a brick landing floor (`ty_unit_brick`) on a concrete plinth, then a concrete
+  band and two storeys of galvanised corrugated sheet (`ty_fw_tin`). Each upper floor has a strip
+  of frosted glazing with mullions, a sill and a drip, running behind steel stanchions on the car
+  park and west faces and either side of the loading doors on the quay end. A glazed lantern runs
+  down the ridge, with two condensers and the icemaker's vent beside it. The quay end has the
+  roller door, up, on the landing floor, a loading door on each floor above it, and a hoist beam
+  under a hood at the top. The car park face has the steel staff door with a bulkhead lamp, a hose
+  reel, fish boxes and one frosted window in the brick. There is no lettering anywhere: `noKit`
+  keeps the kit's boards and trade words off it.
+- **Batter Days** is harbour-blue render (`ty_bd_blue`) with a navy plinth and fascia, the name in
+  orange on the fascia, orange awnings on the front and down the Filament Yard side with a cream
+  valance, four picnic tables, the orange tin fish on a bracket, an A-board and a bin. Over the shop
+  are two floors of flats: cream sash windows with sills and hoods on all three open faces, a
+  two-storey bay over the door, cream pilasters up the front corners, a sill course, and a cornice
+  and parapet under a low slate hip with two chimney stacks.
+- ⚠ **The frosted strips are darker than the tin by day.** At the tin's own value they read as an
+  office curtain wall.
+- ⚠ **`chip_shop` declines the kit's `riser` and `trade` sections** (`KIT_DECLINE` in
+  [derived-kit.js](../../client/game/js/panels/glass/derived-kit.js)). Once the flats were there,
+  the kit ran its pipes and cables across their windows and hung the 炸魚 blade over them, and the
+  blade's lettering dropped out at 2.9 tiles (`signfloor`). `trade` is the section for the Chinese
+  trade blade and the roundel together; it was added for this.
 - ⚠ **The two buildings meet on the plot line in tile units.** The works' south wall and the
   shop's back wall are both placed at `TILE_REACH`, never in `fh`, because each tile rolls its own
   `fh` and two walls at `0.9 fh` leave a seeded gap. The capture reports these as absolute terms.
-  The works is a taller type (`fish_works` h 0.15 against `chip_shop` 0.11), so from Greenside Row
-  the shop reads as the front of the shed.
+  The works' lantern stands over the shop's roof, so from Greenside Row the shop reads as the
+  front of the works.
 - ⚠ **The shop's name is painted on its fascia, not drawn with `marqueeBand`.** That helper stands
   its band off the frontmost face of the model, which here is the awning lip, so the band floated
   in front of the awnings and hid the shopfront.

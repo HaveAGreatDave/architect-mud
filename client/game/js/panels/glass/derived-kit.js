@@ -280,8 +280,10 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   ruin: SLUM_DECLINE,
   // Second Helpings is one storey with its name on the fascia; the clone facility draws its own front.
   helpings: ['signRoof', 'wall', 'stair'], clone: ['stair', 'wall', 'riser'],
-  // Batter Days draws one fogged window and paints its own name.
-  chip_shop: ['ground', 'wall', 'signRoof', 'sign'],
+  // Batter Days draws its own shopfront, sash windows, cornice and roof, and paints its own name,
+  // which already says FISH & CHIPS, so no trade blade hangs over the flats' windows either. Its
+  // pipes and cables crossed those windows too, as on Kestrel Court and Marrow House.
+  chip_shop: ['ground', 'wall', 'signRoof', 'sign', 'stair', 'roof', 'cope', 'trade', 'riser'],
   // These draw their own shopfront, windows or blank front.
   coffee_shop: ['ground', 'wall', 'signRoof', 'stair'],
   taxidermist: ['ground'],
@@ -554,11 +556,12 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   const nameBladeOK = signable && wants('sign') && wallH > 0.26 && fitsBeside(nameBw) && R(309) > gateFor(0.45);
   // ── ⚠ ONE TRADE FITTING PER FRONTAGE, NEVER TWO ────────────────────────────────────────────
   // The Chinese trade blade and the mark roundel say the same thing. The blade wins where eligible.
-  const hanziOK = signable && !!hz && !!place && HANZI_BIOMES.has(place.biome)
+  // A building that says its trade in its own name declines both as the `trade` section.
+  const hanziOK = signable && wants('trade') && !!hz && !!place && HANZI_BIOMES.has(place.biome)
     && wallH > 0.2 && fitsBeside(hzBw) && R(315) > gateFor(0.42);
   // ⚠ The roundel is also the blade's fallback (the blade can still be refused by `clearsFace`), so
   // it isn't gated on `!hanziOK`; section 4 reads `tradeHung`. It has its own roll.
-  const roundelOK = signable && !!tradePicto && wallH > 0.2 && fitsBeside(rdR) && R(317) > gateFor(0.34);
+  const roundelOK = signable && wants('trade') && !!tradePicto && wallH > 0.2 && fitsBeside(rdR) && R(317) > gateFor(0.34);
   if (nameBladeOK) takeCorner(bladeSgn, nameBw);
   // One corner, whichever of the two ends up on it, so the reserve has to clear the wider of them.
   if (hanziOK || roundelOK) takeCorner(-bladeSgn, Math.max(hanziOK ? hzBw : 0, roundelOK ? rdR : 0));

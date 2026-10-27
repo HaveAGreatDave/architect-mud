@@ -225,39 +225,96 @@ export const TWIN_PASS_ARMS = {
   },
   chippy(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // BATTER DAYS FISH & CHIPS: the chip shop on the front
     // of the Codfather's fish works, on Greenside Row. The prose (zone_district_903_906) is the brief:
-    // harbour-blue render, orange awnings over a wide lit window, BATTER DAYS in orange across the
-    // front, picnic tables under the awnings, a steel flue up the back breathing steam, and the tin
-    // shed of the works carrying straight on behind it.
+    // three storeys of harbour-blue render, orange awnings over a wide lit window, BATTER DAYS in
+    // orange across the front, picnic tables under the awnings, two floors of flats with a bay over
+    // the door, a slate roof, a steel flue up the back breathing steam, and the works behind it.
     //
     // Local frame: +y is Greenside Row, -y is the fish works, +x is Filament Yard, where the side
     // awning and two of the tables are.
     //
     // ⚠ THE BACK WALL IS ON THE PLOT LINE, IN TILE UNITS (`TILE_REACH`), for the `fishworks` arm's
     // reason: two arms each rolled their own `fh`, and only a wall placed on the line meets the
-    // other one. The works is a type a head taller, so the shed reads as carrying on behind.
+    // other one. The works' roof lantern stands over this roof, so the shed reads as carrying on behind.
     // ⚠ THE STEAM IS DRAWN AT EVERY HOUR. The arm has no opening hours to read, and a chippy with a
     // dead flue reads as shut.
+    // ⚠ THREE STOREYS (`flags.floors: 3`): the shop, and two floors of flats over it. The shop is
+    // drawn in `S`, one storey, so its window, awnings and tables stay at a person's height; only
+    // the flats, the cornice and the roof are fractions of `h`.
     const YAW = faceYaw(E), dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh();
-    const R = TILE_REACH;
-    const plinth = h * 0.05, wallTop = h * 0.92, capTop = h * 0.97;
+    const R = TILE_REACH, S = h / 3;
+    const CREAM = 'ty_bd_cream', NAVY = 'ty_bd_blue_dk', SLATE = 'ty_dw_slate';
+    const plinth = S * 0.05, wallTop = h * 0.93, capTop = h * 0.97;
     const SIDE = fh * 0.84, FRONT = fh * 0.78;
     const by = (FRONT - R) * 0.5, bd = (FRONT + R) * 0.5;
-    // 1) THE SHOP: painted render on a navy plinth, under a flat roof with a navy coping.
-    { const [bx, byy] = F(0, by);
-      draw3DBoxAt(ctx, cam, bx, byy, SIDE + fh * 0.02, 0, plinth, 'ty_bd_blue_dk', seed + 1, night, alpha, false, YAW, bd + fh * 0.01);
-      draw3DBoxAt(ctx, cam, bx, byy, SIDE, plinth, wallTop, pal, seed, night, alpha, false, YAW, bd);
-      draw3DBoxAt(ctx, cam, bx, byy, SIDE + fh * 0.03, wallTop, capTop, 'ty_bd_blue_dk', seed + 2, night, alpha, true, YAW, bd + fh * 0.02); }
-    // 2) THE FLUE: a square galvanised duct up the back corner from the fryer hood, with a rain cap,
-    //    standing clear of the works' eaves, and steam rather than smoke.
-    { const [kx, ky] = F(-fh * 0.50, -R + fh * 0.14), stack = h * 1.62;
+    const B = (x, y, hx, hy, z0, z1, p, roof, s) => { const [bx, byy] = F(x, y); draw3DBoxAt(ctx, cam, bx, byy, hx, z0, z1, p, seed + s, night, alpha, roof, YAW, hy); };
+    // 1) THE BUILDING: painted render on a navy plinth. A cream cornice caps the shop, a sill course
+    //    runs round at the second floor, and a deep cornice under a parapet with a navy coping.
+    B(0, by, SIDE + fh * 0.02, bd + fh * 0.01, 0, plinth, NAVY, false, 1);
+    B(0, by, SIDE, bd, plinth, wallTop, pal, false, 0);
+    B(0, by, SIDE + fh * 0.03, bd + fh * 0.015, S * 0.96, S * 1.04, CREAM, true, 70);
+    B(0, by, SIDE + fh * 0.012, bd + fh * 0.006, S * 1.98, S * 2.03, CREAM, true, 71);
+    B(0, by, SIDE + fh * 0.035, bd + fh * 0.02, wallTop - S * 0.07, wallTop, CREAM, true, 72);
+    B(0, by, SIDE + fh * 0.005, bd, wallTop, capTop, pal, false, 73);
+    B(0, by, SIDE + fh * 0.02, bd + fh * 0.01, capTop, capTop + S * 0.025, NAVY, true, 2);
+    // Cream pilasters up the two front corners, over the shop.
+    for (const s of [-1, 1]) B(s * (SIDE - fh * 0.02), FRONT - fh * 0.02, fh * 0.045, fh * 0.03, S * 1.04, wallTop - S * 0.07, CREAM, false, 74 + s);
+    // 2) THE ROOF: slate, hipped low behind the parapet, and two chimney stacks on the west wall.
+    B(0, by - fh * 0.04, SIDE * 0.86, bd * 0.84, capTop - S * 0.02, capTop + S * 0.18, SLATE, true, 76);
+    B(0, by - fh * 0.04, SIDE * 0.56, bd * 0.46, capTop + S * 0.18, capTop + S * 0.32, SLATE, true, 77);
+    for (const [i, cy] of [[0, by + bd * 0.40], [1, by - bd * 0.40]]) {
+      const cx = -SIDE + fh * 0.10, top = capTop + S * 0.56;
+      B(cx, cy, fh * 0.07, fh * 0.11, wallTop, top, pal, false, 78 + i * 3);
+      B(cx, cy, fh * 0.085, fh * 0.125, top, top + S * 0.04, NAVY, true, 79 + i * 3);
+      for (const t of [-1, 1]) {
+        const [px, py] = F(cx, cy + t * fh * 0.05);
+        drawFacetDrum(ctx, cam, px, py, top + S * 0.04, top + S * 0.13, fh * 0.028, fh * 0.022, 8, alpha,
+          (f) => 'rgb(' + (150 + f.nl * 50 | 0) + ',' + (78 + f.nl * 30 | 0) + ',' + (54 + f.nl * 20 | 0) + ')', 'rgb(40,30,26)', 'ty_cont_r');
+      }
+    }
+    // 3) THE FLUE: a square galvanised duct up the back corner from the fryer hood, with a rain cap,
+    //    standing clear of the roof and the works' eaves, and steam rather than smoke.
+    { const [kx, ky] = F(-fh * 0.50, -R + fh * 0.14), stack = h * 1.16;
       draw3DBoxAt(ctx, cam, kx, ky, fh * 0.08, plinth, stack, 'ty_wh_metal', seed + 4, night, alpha, false);
-      draw3DBoxAt(ctx, cam, kx, ky, fh * 0.13, stack, stack + h * 0.04, 'ty_wh_metal', seed + 5, night, alpha, true);
-      drawSmoke(ctx, cam, kx, ky, stack + h * 0.04, '236,234,230', alpha * 0.46, now, seed + 6); }
-    // 3) THE SHOPFRONT: one wide lit window with the door in the middle, cream frames on a navy
+      draw3DBoxAt(ctx, cam, kx, ky, fh * 0.13, stack, stack + S * 0.04, 'ty_wh_metal', seed + 5, night, alpha, true);
+      drawSmoke(ctx, cam, kx, ky, stack + S * 0.04, '236,234,230', alpha * 0.46, now, seed + 6); }
+    // 4) THE FLATS: two floors of sash windows, cream frames with a meeting rail, a sill and a hood
+    //    over each, and a two-storey bay over the door. Each window is lit or dark after dark by its
+    //    own roll, so the block reads as homes rather than as a lit box.
+    //    `wall` is 'y' for a face on the plane y = at, or 'x' for one on x = at; `s` is its outward sign.
+    const GLASS = [40, 50, 58], LAMP = [255, 206, 140], DARK = [30, 34, 40], FRAME = [236, 228, 208];
+    const sash = (wall, s, at, u, z0, z1, hw, k, trim) => {
+      const out = wall === 'y' ? [0, s, 0] : [s, 0, 0];
+      const Q = (o, u0, u1, za, zb) => { const a = at + s * o; return wall === 'y'
+        ? [[u0, a, zb], [u1, a, zb], [u1, a, za], [u0, a, za]] : [[a, u0, zb], [a, u1, zb], [a, u1, za], [a, u0, za]]; };
+      const fw = fh * 0.014, lit = frac(seed * 13.1 + k * 7.3) < 0.5, zm = (z0 + z1) * 0.5;
+      tcFlat(ctx, cam, W3, Q(fh * 0.004, u - hw - fw, u + hw + fw, z0 - fw, z1 + fw), out, FRAME, 'plain', alpha, dn);
+      tcGlow(ctx, cam, W3, Q(fh * 0.008, u - hw, u + hw, z0, z1), out, GLASS, lit ? LAMP : DARK, dn, alpha);
+      tcFlat(ctx, cam, W3, Q(fh * 0.012, u - hw, u + hw, zm - fw * 0.4, zm + fw * 0.4), out, FRAME, 'plain', alpha, dn);
+      if (trim) {   // the sill under it and the hood over it, both proud of the render
+        const box = (z0b, z1b, half, dep) => { const c = at + s * dep, [x, y] = wall === 'y' ? [u, c] : [c, u];
+          const [hx, hy] = wall === 'y' ? [half, dep] : [dep, half]; B(x, y, hx, hy, z0b, z1b, CREAM, true, 90 + k); };
+        box(z0 - fw - S * 0.03, z0 - fw, hw + fw * 1.8, fh * 0.018);
+        box(z1 + fw, z1 + fw + S * 0.045, hw + fw * 1.5, fh * 0.012);
+      }
+      if (night && lit) { const [gx, gy] = wall === 'y' ? F(u, at + s * fh * 0.04) : F(at + s * fh * 0.04, u); glowPool(ctx, cam, gx, gy, zm, '255,206,140', 5, alpha * 0.30); }
+    };
+    const BW = fh * 0.30, BP = fh * 0.10, YB = FRONT + BP;
+    B(0, FRONT + BP * 0.5, BW + fh * 0.02, BP * 0.5 + fh * 0.01, S * 1.04, S * 1.12, CREAM, true, 84);
+    B(0, FRONT + BP * 0.5, BW, BP * 0.5, S * 1.12, S * 2.90, pal, false, 85);
+    B(0, FRONT + BP * 0.5, BW + fh * 0.02, BP * 0.5 + fh * 0.01, S * 2.90, S * 2.96, NAVY, true, 86);
+    for (const f of [1, 2]) {
+      const z0 = f * S + S * 0.26, z1 = f * S + S * 0.80, k = f * 20;
+      for (const [i, u] of [[0, -fh * 0.58], [1, fh * 0.58]]) sash('y', 1, FRONT, u, z0, z1, fh * 0.085, k + i, true);
+      for (const [i, u] of [[0, -fh * 0.18], [1, 0], [2, fh * 0.18]]) sash('y', 1, YB, u, z0 + S * 0.04, z1, fh * 0.062, k + 2 + i, false);
+      for (const s of [-1, 1]) sash('x', s, s * BW, FRONT + BP * 0.5, z0 + S * 0.04, z1, BP * 0.30, k + 5 + s, false);
+      for (const [i, y] of [[0, fh * 0.46], [1, -fh * 0.02], [2, -fh * 0.50]]) sash('x', 1, SIDE, y, z0, z1, fh * 0.085, k + 8 + i, true);
+      for (const [i, y] of [[0, fh * 0.30], [1, -fh * 0.30]]) sash('x', -1, -SIDE, y, z0, z1, fh * 0.085, k + 12 + i, true);
+    }
+    // 5) THE SHOPFRONT: one wide lit window with the door in the middle, cream frames on a navy
     //    stallriser. ⚠ THE GLASS IS A LAMP PALETTE, NOT A GLAZING ONE (the light seen through one
     //    sheet), it carries its own `yaw` and `fd` (or it is a cube in the road), and it stands
     //    proud of the render (flush is a coin toss the wall wins).
-    const sill = plinth + h * 0.06, glassTop = h * 0.50;
+    const sill = plinth + S * 0.06, glassTop = S * 0.50;
     { const [gx, gy] = F(0, FRONT + fh * 0.015);
       draw3DBoxAt(ctx, cam, gx, gy, fh * 0.64, sill, glassTop, 'ty_dw_lamp', seed + 8, night, alpha, false, YAW, fh * 0.03);
       glowPool(ctx, cam, gx, gy, (sill + glassTop) * 0.5, '255,214,150', 10, alpha * (night ? 0.60 : 0.20)); }
@@ -265,77 +322,77 @@ export const TWIN_PASS_ARMS = {
       draw3DBoxAt(ctx, cam, sx, sy, fh * 0.66, plinth, sill, 'ty_bd_blue_dk', seed + 9, night, alpha, false, YAW, fh * 0.04); }
     for (const s of [-1, 1]) {   // the fog on the lower two-thirds of each pane
       const x0 = s * fh * 0.10, x1 = s * fh * 0.62, y = FRONT + fh * 0.047, top = sill + (glassTop - sill) * 0.66;
-      tcGlow(ctx, cam, W3, [[x0, y, top], [x1, y, top], [x1, y, sill + h * 0.006], [x0, y, sill + h * 0.006]], [0, 1, 0],
+      tcGlow(ctx, cam, W3, [[x0, y, top], [x1, y, top], [x1, y, sill + S * 0.006], [x0, y, sill + S * 0.006]], [0, 1, 0],
         [214, 206, 188], [255, 232, 196], dn, alpha);
     }
     for (const mx of [-0.64, -0.36, -0.10, 0.10, 0.36, 0.64]) {   // ⚠ none on the centre line: the door is there
       const [px, py] = F(mx * fh, FRONT + fh * 0.04);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.016, sill, glassTop + h * 0.012, 'ty_bd_cream', seed + 12, night, alpha, false, YAW, fh * 0.025);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.016, sill, glassTop + S * 0.012, 'ty_bd_cream', seed + 12, night, alpha, false, YAW, fh * 0.025);
     }
     { const [tx, ty] = F(0, FRONT + fh * 0.04);
-      draw3DBoxAt(ctx, cam, tx, ty, fh * 0.65, glassTop, glassTop + h * 0.02, 'ty_bd_cream', seed + 13, night, alpha, false, YAW, fh * 0.025); }
+      draw3DBoxAt(ctx, cam, tx, ty, fh * 0.65, glassTop, glassTop + S * 0.02, 'ty_bd_cream', seed + 13, night, alpha, false, YAW, fh * 0.025); }
     drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
-      y: FRONT + fh * 0.02, w: fh * 0.075, z0: plinth, top: glassTop - h * 0.01, leaves: 1, frameW: fh * 0.014, depth: 0.006,
+      y: FRONT + fh * 0.02, w: fh * 0.075, z0: plinth, top: glassTop - S * 0.01, leaves: 1, frameW: fh * 0.014, depth: 0.006,
       frame: [226, 218, 196], lobby: { day: [176, 144, 100], night: [255, 214, 150] }, mat: false, frontVis });
-    // 4) THE NAME, painted in orange straight onto a navy fascia between the awning and the coping,
+    // 6) THE NAME, painted in orange straight onto a navy fascia between the awning and the cornice,
     //    lettered from the tile's own name (`sign`), so this file carries no Coldwater words.
     //    ⚠ NOT `marqueeBand`. It stands its band off the FRONTMOST face the model has, and here that
     //    is the awning lip a third of a tile out, so the band floated in front of the awnings and
     //    hid the whole shopfront. Paint on the fascia stays on the fascia.
-    const fasciaZ0 = h * 0.64, fasciaZ1 = h * 0.88, fy = FRONT + fh * 0.024;
+    const fasciaZ0 = S * 0.64, fasciaZ1 = S * 0.88, fy = FRONT + fh * 0.024;
     { const [fx, fyy] = F(0, FRONT + fh * 0.012);
       draw3DBoxAt(ctx, cam, fx, fyy, SIDE, fasciaZ0, fasciaZ1, 'ty_bd_blue_dk', seed + 14, night, alpha, false, YAW, fh * 0.012); }
-    reserveSignBand(SIDE * 0.92, (fasciaZ0 + fasciaZ1) * 0.5, { floor: fasciaZ0, wallTop, wall: SIDE });
+    reserveSignBand(SIDE * 0.92, (fasciaZ0 + fasciaZ1) * 0.5, { floor: fasciaZ0, wallTop: S * 0.96, wall: SIDE });
     if (frontVis && sign) {
       const P = (u, z) => { const [wx, wy] = F(u, fy + FACE_EPS); return cam.proj(wx, wy, z); };
-      const x0 = -SIDE * 0.90, x1 = SIDE * 0.90, z0 = fasciaZ0 + h * 0.03, z1 = fasciaZ1 - h * 0.03;
+      const x0 = -SIDE * 0.90, x1 = SIDE * 0.90, z0 = fasciaZ0 + S * 0.03, z1 = fasciaZ1 - S * 0.03;
       const q = [P(x0, z1), P(x1, z1), P(x1, z0), P(x0, z0)];
       const tex = bakeSignText(sign, m.neon || '#f08a2a', 0, false, true, true, { font: 'block' });
       if (tex && q.every((pp) => pp.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
     }
-    // 5) THE AWNINGS: orange canvas on steel arms along the front and down the Filament Yard side,
+    // 7) THE AWNINGS: orange canvas on steel arms along the front and down the Filament Yard side,
     //    each with a cream valance under its lip, on four posts at the outer corners.
     //    ⚠ THE SIDE ONE IS SIZED TO THE PLOT, not to fh: what is left between the wall and the tile
     //    edge, so a wide roll cannot push it over the kerb into Filament Yard.
-    const awZ0 = h * 0.56, awZ1 = h * 0.60, OUT = fh * 0.36, LIP = FRONT + OUT;
+    const awZ0 = S * 0.56, awZ1 = S * 0.60, OUT = fh * 0.36, LIP = FRONT + OUT;
     const OUTS = Math.max(fh * 0.10, R - SIDE - fh * 0.03), SX = SIDE + OUTS, SY0 = -fh * 0.34;
     awning(ctx, cam, dx, dy, E, SIDE + OUTS, LIP, awZ0, awZ1, 'ty_bd_orange', seed + 16, night, alpha, OUT);
     { const [vx, vy] = F(0, LIP - fh * 0.008);
-      draw3DBoxAt(ctx, cam, vx, vy, SIDE + OUTS, awZ0 - h * 0.035, awZ0, 'ty_bd_cream', seed + 17, night, alpha, false, YAW, fh * 0.008); }
+      draw3DBoxAt(ctx, cam, vx, vy, SIDE + OUTS, awZ0 - S * 0.035, awZ0, 'ty_bd_cream', seed + 17, night, alpha, false, YAW, fh * 0.008); }
     { const [ax, ay] = F(SIDE + OUTS * 0.5, (SY0 + FRONT) * 0.5);
       draw3DBoxAt(ctx, cam, ax, ay, OUTS * 0.5, awZ0, awZ1, 'ty_bd_orange', seed + 18, night, alpha, true, YAW, (FRONT - SY0) * 0.5);
       const [ux, uy] = F(SX - fh * 0.008, (SY0 + FRONT) * 0.5);
-      draw3DBoxAt(ctx, cam, ux, uy, fh * 0.008, awZ0 - h * 0.035, awZ0, 'ty_bd_cream', seed + 19, night, alpha, false, YAW, (FRONT - SY0) * 0.5); }
+      draw3DBoxAt(ctx, cam, ux, uy, fh * 0.008, awZ0 - S * 0.035, awZ0, 'ty_bd_cream', seed + 19, night, alpha, false, YAW, (FRONT - SY0) * 0.5); }
     for (const [px, py] of [[-(SIDE + OUTS) + fh * 0.02, LIP - fh * 0.02], [SX - fh * 0.02, LIP - fh * 0.02], [SX - fh * 0.02, SY0 + fh * 0.02]]) {
       const [qx, qy] = F(px, py);
       draw3DBoxAt(ctx, cam, qx, qy, fh * 0.012, 0, awZ0, 'ty_bd_blue_dk', seed + 20, night, alpha, false, YAW, fh * 0.012);
     }
-    // 6) THE PICNIC TABLES: two in front either side of the door, two down the side, timber with
-    //    the benches built on. Top at 0.21h is a table, 0.12h is something you sit on.
+    // 8) THE PICNIC TABLES: two in front either side of the door, two down the side, timber with
+    //    the benches built on. Top at 0.21 of a storey is a table, 0.12 is something you sit on.
     const table = (lx, ly, alongX, k) => {
-      const L = fh * 0.15, D = fh * 0.055, B = fh * 0.10;
+      const L = fh * 0.15, D = fh * 0.055, BN = fh * 0.10;
       const at = (u, v) => alongX ? F(lx + u, ly + v) : F(lx + v, ly + u);
       const w = (a, b) => alongX ? [a, b] : [b, a];
       { const [tx, ty] = at(0, 0), [a, b] = w(L, D);
-        draw3DBoxAt(ctx, cam, tx, ty, a, h * 0.195, h * 0.215, 'ty_dw_timber', seed + 30 + k, night, alpha, true, YAW, b); }
+        draw3DBoxAt(ctx, cam, tx, ty, a, S * 0.195, S * 0.215, 'ty_dw_timber', seed + 30 + k, night, alpha, true, YAW, b); }
       for (const s of [-1, 1]) {
-        const [ex, ey] = at(0, s * B), [a, b] = w(L, fh * 0.025);
-        draw3DBoxAt(ctx, cam, ex, ey, a, h * 0.11, h * 0.125, 'ty_dw_timber', seed + 32 + k, night, alpha, true, YAW, b);
-        const [lx2, ly2] = at(s * L * 0.80, 0), [c, d] = w(fh * 0.012, B + fh * 0.02);
-        draw3DBoxAt(ctx, cam, lx2, ly2, c, 0, h * 0.195, 'ty_dw_timber', seed + 34 + k, night, alpha, false, YAW, d);
+        const [ex, ey] = at(0, s * BN), [a, b] = w(L, fh * 0.025);
+        draw3DBoxAt(ctx, cam, ex, ey, a, S * 0.11, S * 0.125, 'ty_dw_timber', seed + 32 + k, night, alpha, true, YAW, b);
+        const [lx2, ly2] = at(s * L * 0.80, 0), [c, d] = w(fh * 0.012, BN + fh * 0.02);
+        draw3DBoxAt(ctx, cam, lx2, ly2, c, 0, S * 0.195, 'ty_dw_timber', seed + 34 + k, night, alpha, false, YAW, d);
       }
     };
     const TY = FRONT + OUT * 0.52;
     table(-fh * 0.50, TY, true, 0);
     table(fh * 0.50, TY, true, 1);
     if (OUTS > fh * 0.24) { table(SIDE + OUTS * 0.5, fh * 0.30, false, 2); table(SIDE + OUTS * 0.5, -fh * 0.06, false, 3); }
-    // 7) THE TIN FISH on its bracket off the corner, painted orange, above the awning so it reads
+    // 9) THE TIN FISH on its bracket off the corner, painted orange, above the awning so it reads
     //    from up and down Greenside Row. Two convex flats (body, tail) per side, because a fan over a
     //    concave outline draws a wedge across the notch.
-    { const fx = SIDE - fh * 0.06, y0 = FRONT + fh * 0.04, y1 = FRONT + fh * 0.36, armZ = h * 0.90;
+    { const fx = SIDE - fh * 0.06, y0 = FRONT + fh * 0.04, y1 = FRONT + fh * 0.36, armZ = S * 0.90;
       const [bx, by2] = F(fx, (FRONT + y1) * 0.5);
-      draw3DBoxAt(ctx, cam, bx, by2, fh * 0.008, armZ, armZ + h * 0.01, 'ty_bd_blue_dk', seed + 50, night, alpha, false, YAW, (y1 - FRONT) * 0.5);
-      const zc = armZ - h * 0.10, hz = h * 0.055, L = y1 - y0;
+      draw3DBoxAt(ctx, cam, bx, by2, fh * 0.008, armZ, armZ + S * 0.01, 'ty_bd_blue_dk', seed + 50, night, alpha, false, YAW, (y1 - FRONT) * 0.5);
+      const zc = armZ - S * 0.10, hz = S * 0.055, L = y1 - y0;
       const P = (u, v, s) => [fx + s * 0.002, y0 + u * L, zc + v * hz];
       const TINC = [236, 128, 40];
       for (const s of [-1, 1]) {
@@ -347,20 +404,20 @@ export const TWIN_PASS_ARMS = {
         emitWire(ctx, cam, W3(fx, y0 + u * L, armZ), W3(fx, y0 + u * L, zc + hz * 0.9), 1, 'rgba(40,46,60,0.9)', alpha, { pull: 0.01 });
       }
     }
-    // 8) THE A-BOARD by the door, and the bin chained to the side post.
+    // 10) THE A-BOARD by the door, and the bin chained to the side post.
     { const [ax, ay] = F(fh * 0.24, FRONT + OUT * 0.88);
-      draw3DBoxAt(ctx, cam, ax, ay, fh * 0.05, 0, h * 0.15, 'ty_bd_orange', seed + 60, night, alpha, true, YAW, fh * 0.02); }
+      draw3DBoxAt(ctx, cam, ax, ay, fh * 0.05, 0, S * 0.15, 'ty_bd_orange', seed + 60, night, alpha, true, YAW, fh * 0.02); }
     { const [cx, cy] = F(SX - fh * 0.06, SY0 + fh * 0.08);
-      drawFacetDrum(ctx, cam, cx, cy, 0, h * 0.16, fh * 0.045, fh * 0.045, 10, alpha,
+      drawFacetDrum(ctx, cam, cx, cy, 0, S * 0.16, fh * 0.045, fh * 0.045, 10, alpha,
         (f) => 'rgb(' + (110 + f.nl * 60 | 0) + ',' + (114 + f.nl * 60 | 0) + ',' + (118 + f.nl * 60 | 0) + ')', 'rgb(70,72,74)', 'ty_wh_metal'); }
-    // 9) AFTER DARK: the festoon of bulbs under the side awning, and the light the window throws
+    // 11) AFTER DARK: the festoon of bulbs under the side awning, and the light the window throws
     //    onto the tables in front.
     if (night) {
       for (let i = 0; i <= 4; i++) {
         const [lx, ly] = F(SX - fh * 0.03, SY0 + (FRONT - SY0) * i / 4);
-        glowPool(ctx, cam, lx, ly, awZ0 - h * 0.05, '255,206,140', 4, alpha * 0.8);
+        glowPool(ctx, cam, lx, ly, awZ0 - S * 0.05, '255,206,140', 4, alpha * 0.8);
       }
-      const [tx, ty] = F(0, TY); glowPool(ctx, cam, tx, ty, h * 0.02, '255,206,140', 16, alpha * 0.30);
+      const [tx, ty] = F(0, TY); glowPool(ctx, cam, tx, ty, S * 0.02, '255,206,140', 16, alpha * 0.30);
     }
   },
   twocell(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // TWO-CELL SUPPLY — a corrugated shed with a lean-to front room on posts,

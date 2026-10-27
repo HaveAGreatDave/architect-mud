@@ -49,8 +49,9 @@ export const TYPE_FLOORS = {
   // The beacon is authored tall on purpose: it is the only built thing north of the shoreline and
   // it has to be the thing you steer by from the water, the road and the air.
   pier: 1, harbour_yard: 1, lighthouse: 12,
-  // The Codfather's fish works: one tall storey of tin shed.
-  fish_works: 1,
+  // The Codfather's fish works, brick under two storeys of tin, and Batter Days on its front, a
+  // chip shop with two floors of flats over it. Both tiles also author their own `flags.floors`.
+  fish_works: 3, chip_shop: 3,
   // Grounds for Concern and its car park: one storey, and one storey of nothing. So is a plot to let.
   coffee_shop: 1, car_park: 1, staff_lot: 1, vacant_plot: 1,
   // A compact harbour crane stands about seven storeys to the slew house, which is what every

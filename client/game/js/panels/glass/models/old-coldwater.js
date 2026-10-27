@@ -635,71 +635,126 @@ export const OLD_COLDWATER_ARMS = {
       const [gx, gy] = F(0, fh * 0.92); glowPool(ctx, cam, gx, gy, h * 0.34, '178,226,255', 7, alpha * 0.22);
     }
   },
-  fishworks(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // The Codfather as a fish works: a tin shed, brief in zone_district_903_905.
+  fishworks(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // The Codfather as a fish works, brief in zone_district_903_905.
+    // Three storeys: a brick landing floor on a concrete plinth, two storeys of corrugated tin over a
+    // concrete band, a strip of frosted glazing round each upper floor behind steel stanchions, and a
+    // glazed lantern down the ridge. The quay end stacks a loading door on each upper floor under a
+    // hooded hoist, over the roller door.
     // Local frame: +y car park (east, the staff door), +x quay (north), -x Batter Days, -y Slag & Wares.
     // ⚠ The Batter Days side is at TILE_REACH, never fh: each tile rolls its own fh, and the
     // `chippy` back wall meets it on the plot line.
     // ⚠ No sign; the registry row sets `noKit` so the kit adds none.
-    const YAW = faceYaw(E), NEAR = nearOrMesh();
-    const R = TILE_REACH;
-    const plinth = h * 0.04, wallTop = h * 0.92, eaves = h * 0.98, ridge = h * 1.10, cap = h * 1.15;
+    // ⚠ The ground-floor parts (the doors, the lamp, the hose, the boxes) are in `S`, one storey, so
+    // they stay at a person's height on a three-storey tile. The shell and the roof are in `h`.
+    const YAW = faceYaw(E), NEAR = nearOrMesh(), dn = night ? clamp(night, 0, 1) : 0;
+    const R = TILE_REACH, S = h / 3;
+    const TIN_DK = 'ty_fw_tin_dk', CONC = 'ty_quay_deck', STEEL = 'ty_wh_metal';
+    const plinth = S * 0.04, band = S * 1.06, wallTop = h * 0.92, eaves = h * 0.95, ridge = h * 1.00, lantern = h * 1.05, cap = h * 1.075;
     const XN = fh * 0.82, YE = fh * 0.80, YW = -fh * 0.84;       // the quay, car park and west faces
     const cx = (XN - R) * 0.5, hw = (XN + R) * 0.5, cy = (YE + YW) * 0.5, fd = (YE - YW) * 0.5;
-    const [sx, sy] = F(cx, cy);
-    draw3DBoxAt(ctx, cam, sx, sy, hw + fh * 0.03, 0, plinth, 'ty_quay_deck', seed + 1, night, alpha, true, YAW, fd + fh * 0.04);
-    draw3DBoxAt(ctx, cam, sx, sy, hw, plinth, wallTop, pal, seed, night, alpha, false, YAW, fd);
-    draw3DBoxAt(ctx, cam, sx, sy, hw + fh * 0.02, wallTop, eaves, 'ty_fw_tin_dk', seed + 2, night, alpha, true, YAW, fd + fh * 0.05);
-    draw3DBoxAt(ctx, cam, sx, sy, hw, eaves, ridge, 'ty_fw_tin_dk', seed + 3, night, alpha, true, YAW, fd * 0.58);
-    draw3DBoxAt(ctx, cam, sx, sy, hw, ridge, cap, 'ty_fw_tin_dk', seed + 4, night, alpha, true, YAW, fd * 0.20);
-    // Refrigeration plant on the west slope, the cold main and the icemaker's vent.
+    const B = (x, y, hx, hy, z0, z1, p, roof, s) => { const [bx, by] = F(x, y); draw3DBoxAt(ctx, cam, bx, by, hx, z0, z1, p, seed + s, night, alpha, roof, YAW, hy); };
+    // A face on the plane y = at (`wall` 'y') or x = at ('x'), facing `s`, across u0..u1 and z0..z1.
+    const quad = (wall, s, at, u0, u1, z0, z1) => wall === 'y'
+      ? [[u0, at, z1], [u1, at, z1], [u1, at, z0], [u0, at, z0]] : [[at, u0, z1], [at, u1, z1], [at, u1, z0], [at, u0, z0]];
+    // ⚠ The frost is darker than the tin by day. At the tin's own value it read as a curtain wall.
+    const FROST = [104, 120, 128], LIT = [214, 232, 240], MULL = [44, 50, 54];
+    // 1) THE SHELL: brick on the plinth, the band, tin to the eaves, a shallow roof and the lantern.
+    B(cx, cy, hw + fh * 0.03, fd + fh * 0.04, 0, plinth, CONC, true, 1);
+    B(cx, cy, hw, fd, plinth, S, 'ty_unit_brick', false, 5);
+    B(cx, cy, hw + fh * 0.015, fd + fh * 0.015, S, band, CONC, true, 6);
+    B(cx, cy, hw, fd, band, wallTop, pal, false, 0);
+    B(cx, cy, hw + fh * 0.02, fd + fh * 0.05, wallTop, eaves, TIN_DK, true, 2);
+    B(cx, cy, hw, fd * 0.62, eaves, ridge, TIN_DK, true, 3);
+    B(cx - fh * 0.04, cy, hw * 0.86, fd * 0.20, ridge, lantern, 'ty_fw_frost', false, 4);
+    B(cx - fh * 0.04, cy, hw * 0.88, fd * 0.27, lantern, cap, TIN_DK, true, 7);
+    // 2) THE STANCHIONS: steel columns up the tin at the quay corners and between the bays, standing
+    //    proud so the glazing runs behind them. The Batter Days end is hidden by the shop.
+    for (const [i, y] of [[0, YE], [1, YW]]) {
+      B(XN, y, fh * 0.03, fh * 0.03, band, wallTop, TIN_DK, false, 10 + i);
+      for (const [j, t] of [[0, 1 / 3], [1, 2 / 3]]) B(-R + 2 * hw * t, y, fh * 0.025, fh * 0.025, band, wallTop, TIN_DK, false, 12 + i * 2 + j);
+    }
+    // 3) THE STRIP WINDOWS round both upper floors: frosted glass with a mullion every bay's width,
+    //    a sill under it and a drip over it, on the car park and west faces and either side of the
+    //    loading doors on the quay end. Frost by day, lit after dark.
+    const strip = (wall, s, at, u0, u1, z0, z1, k) => {
+      const out = wall === 'y' ? [0, s, 0] : [s, 0, 0];
+      ashGlow(ctx, cam, W3, quad(wall, s, at + s * fh * 0.006, u0, u1, z0, z1), out, FROST, LIT, dn, alpha);
+      const n = Math.max(1, Math.round((u1 - u0) / (fh * 0.22)));
+      for (let i = 1; i < n; i++) {
+        const u = u0 + (u1 - u0) * i / n;
+        ashFlat(ctx, cam, W3, quad(wall, s, at + s * fh * 0.010, u - fh * 0.008, u + fh * 0.008, z0, z1), out, MULL, 'metal', alpha, dn);
+      }
+      const mid = (u0 + u1) * 0.5, half = (u1 - u0) * 0.5 + fh * 0.01;
+      const ledge = (z0b, z1b, dep) => { const c = at + s * dep, [x, y] = wall === 'y' ? [mid, c] : [c, mid];
+        const [hx, hy] = wall === 'y' ? [half, dep] : [dep, half]; B(x, y, hx, hy, z0b, z1b, TIN_DK, true, 100 + k); };
+      ledge(z0 - S * 0.035, z0, fh * 0.016);
+      ledge(z1, z1 + S * 0.03, fh * 0.012);
+      if (night) for (const t of [0.25, 0.75]) {
+        const u = u0 + (u1 - u0) * t, [gx, gy] = wall === 'y' ? F(u, at + s * fh * 0.05) : F(at + s * fh * 0.05, u);
+        glowPool(ctx, cam, gx, gy, (z0 + z1) * 0.5, '226,240,248', 7, alpha * 0.30);
+      }
+    };
+    for (const f of [1, 2]) {
+      const z0 = f * S + S * 0.40, z1 = f * S + S * 0.66, k = f * 10;
+      strip('y', 1, YE, -R + fh * 0.05, XN - fh * 0.05, z0, z1, k);
+      strip('y', -1, YW, -R + fh * 0.05, XN - fh * 0.05, z0, z1, k + 1);
+      strip('x', 1, XN, YW + fh * 0.08, -fh * 0.22, z0, z1, k + 2);
+      strip('x', 1, XN, fh * 0.22, YE - fh * 0.08, z0, z1, k + 3);
+    }
+    // 4) THE ROOF PLANT: two condensers on the ridge beside the lantern, the cold main down the west
+    //    wall, and the icemaker's vent.
     for (const [i, lx] of [[0, -fh * 0.10], [1, fh * 0.38]]) {
-      const [px, py] = F(lx, -fh * 0.46);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.15, eaves, eaves + h * 0.16, 'ty_fw_plant', seed + 10 + i, night, alpha, true, YAW, fh * 0.13);
-      drawFacetDrum(ctx, cam, px, py, eaves + h * 0.16, eaves + h * 0.18, fh * 0.10, fh * 0.10, 12, alpha,
+      const [px, py] = F(lx, -fh * 0.39);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.15, ridge, ridge + S * 0.20, 'ty_fw_plant', seed + 60 + i, night, alpha, true, YAW, fh * 0.12);
+      drawFacetDrum(ctx, cam, px, py, ridge + S * 0.20, ridge + S * 0.23, fh * 0.10, fh * 0.10, 12, alpha,
         (f) => 'rgb(' + (40 + f.nl * 30 | 0) + ',' + (44 + f.nl * 30 | 0) + ',' + (48 + f.nl * 30 | 0) + ')', 'rgb(30,32,34)', 'ty_stack_dk');
     }
-    { const [mx, my] = F(fh * 0.38, YW - fh * 0.03);
-      draw3DBoxAt(ctx, cam, mx, my, fh * 0.03, plinth, eaves + h * 0.06, 'ty_stack_dk', seed + 14, night, alpha, false, YAW, fh * 0.03);
-      const [vx, vy] = F(-fh * 0.10, -fh * 0.46);
-      drawSmoke(ctx, cam, vx, vy, eaves + h * 0.20, '226,236,240', alpha * 0.22, now, seed + 15); }
-    // The roller door onto the quay, open, with a hoist beam over the deck.
-    const doorTop = h * 0.62, doorW = fh * 0.34;
+    { B(fh * 0.38, YW - fh * 0.03, fh * 0.03, fh * 0.03, plinth, ridge + S * 0.06, 'ty_stack_dk', false, 64);
+      const [vx, vy] = F(-fh * 0.10, -fh * 0.39);
+      drawSmoke(ctx, cam, vx, vy, ridge + S * 0.28, '226,236,240', alpha * 0.22, now, seed + 65); }
+    // 5) THE QUAY END: the roller door, open, on the landing floor; a loading door on each floor over
+    //    it, each with a guard bar and a steel lip to land a box on; and the hoist under its hood.
+    const doorTop = S * 0.80, doorW = fh * 0.34;
     { const [ox, oy] = F(XN + fh * 0.012, 0);
       draw3DBoxAt(ctx, cam, ox, oy, fh * 0.012, plinth, doorTop, night ? 'ty_dw_lamp' : 'ty_stack_dk', seed + 20, night, alpha, false, YAW, doorW);
-      const [rx, ry] = F(XN + fh * 0.04, 0);
-      draw3DBoxAt(ctx, cam, rx, ry, fh * 0.04, doorTop, doorTop + h * 0.08, 'ty_fw_tin_dk', seed + 21, night, alpha, true, YAW, doorW + fh * 0.03);
-      for (const s of [-1, 1]) { const [jx, jy] = F(XN + fh * 0.02, s * (doorW + fh * 0.02));
-        draw3DBoxAt(ctx, cam, jx, jy, fh * 0.02, plinth, doorTop, 'ty_wh_metal', seed + 22 + s, night, alpha, false, YAW, fh * 0.02); }
-      const [bx, by] = F(XN + fh * 0.20, 0), beamZ = doorTop + h * 0.14;
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.20, beamZ, beamZ + h * 0.04, 'ty_wh_metal', seed + 24, night, alpha, true, YAW, fh * 0.025);
-      if (NEAR) emitWire(ctx, cam, W3(XN + fh * 0.36, 0, beamZ), W3(XN + fh * 0.36, 0, doorTop - h * 0.10), 1.2, 'rgba(40,40,42,0.95)', alpha, { pull: DECO_PULL });
+      B(XN + fh * 0.04, 0, fh * 0.04, doorW + fh * 0.03, doorTop, doorTop + S * 0.10, TIN_DK, true, 21);
+      for (const s of [-1, 1]) B(XN + fh * 0.02, s * (doorW + fh * 0.02), fh * 0.02, fh * 0.02, plinth, doorTop, STEEL, false, 22 + s);
       const [gx, gy] = F(XN + fh * 0.16, 0);
-      glowPool(ctx, cam, gx, gy, h * 0.30, '226,240,248', 11, alpha * (night ? 0.55 : 0.08));
-      if (night) glowPool(ctx, cam, gx, gy, h * 0.01, '220,236,246', 16, alpha * 0.26); }
-    // The staff door onto the car park, with lamp, hose reel and fish boxes.
+      glowPool(ctx, cam, gx, gy, S * 0.30, '226,240,248', 11, alpha * (night ? 0.55 : 0.08));
+      if (night) glowPool(ctx, cam, gx, gy, S * 0.01, '220,236,246', 16, alpha * 0.26); }
+    for (const f of [1, 2]) {
+      const z0 = f * S + S * 0.10, z1 = f * S + S * 0.82;
+      B(XN + fh * 0.008, 0, fh * 0.008, fh * 0.15, z0 - S * 0.02, z1 + S * 0.03, TIN_DK, false, 40 + f * 3);
+      B(XN + fh * 0.016, 0, fh * 0.008, fh * 0.13, z0, z1, 'ty_stack_dk', false, 41 + f * 3);
+      B(XN + fh * 0.03, 0, fh * 0.006, fh * 0.13, z0 + S * 0.40, z0 + S * 0.44, STEEL, true, 42 + f * 3);
+      B(XN + fh * 0.04, 0, fh * 0.04, fh * 0.15, z0 - S * 0.05, z0, STEEL, true, 49 + f);
+    }
+    { const beamZ = wallTop - S * 0.12;
+      B(XN + fh * 0.20, 0, fh * 0.20, fh * 0.025, beamZ, beamZ + S * 0.06, STEEL, true, 24);
+      B(XN + fh * 0.13, 0, fh * 0.13, fh * 0.16, beamZ + S * 0.08, wallTop + S * 0.02, TIN_DK, true, 25);
+      if (NEAR) emitWire(ctx, cam, W3(XN + fh * 0.36, 0, beamZ), W3(XN + fh * 0.36, 0, 2 * S + S * 0.30), 1.2, 'rgba(40,40,42,0.95)', alpha, { pull: DECO_PULL }); }
+    // 6) THE STAFF DOOR onto the car park, with its lamp, the hose reel and the fish boxes, and the
+    //    one frosted window in the brick.
     drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
-      x: fh * 0.36, y: YE, w: fh * 0.07, z0: plinth, top: h * 0.40, leaves: 1,
+      x: fh * 0.36, y: YE, w: fh * 0.07, z0: plinth, top: S * 0.44, leaves: 1,
       frame: [88, 96, 100], lobby: { day: [58, 66, 70], night: [214, 232, 240] }, mat: false, frontVis });
     { const [lx, ly] = F(fh * 0.36, YE + fh * 0.03);
-      draw3DBoxAt(ctx, cam, lx, ly, fh * 0.035, h * 0.46, h * 0.50, 'ty_fw_frost', seed + 30, night, alpha, true, YAW, fh * 0.03);
-      if (night) { glowPool(ctx, cam, lx, ly, h * 0.46, '236,244,248', 6, alpha * 0.6); glowPool(ctx, cam, lx, ly, h * 0.01, '230,240,246', 12, alpha * 0.22); } }
+      draw3DBoxAt(ctx, cam, lx, ly, fh * 0.035, S * 0.50, S * 0.54, 'ty_fw_frost', seed + 26, night, alpha, true, YAW, fh * 0.03);
+      if (night) { glowPool(ctx, cam, lx, ly, S * 0.50, '236,244,248', 6, alpha * 0.6); glowPool(ctx, cam, lx, ly, S * 0.01, '230,240,246', 12, alpha * 0.22); } }
     { const [hx, hy] = F(fh * 0.58, YE + fh * 0.03);
-      drawFacetDrum(ctx, cam, hx, hy, h * 0.30, h * 0.36, fh * 0.05, fh * 0.05, 10, alpha,
+      drawFacetDrum(ctx, cam, hx, hy, S * 0.30, S * 0.36, fh * 0.05, fh * 0.05, 10, alpha,
         (f) => 'rgb(' + (150 + f.nl * 60 | 0) + ',' + (40 + f.nl * 20 | 0) + ',' + (36 + f.nl * 20 | 0) + ')', 'rgb(90,30,28)', 'ty_cont_r'); }
-    for (const [k, z0] of [[0, plinth], [1, plinth + h * 0.07]]) {
-      const [kx, ky] = F(fh * 0.12, YE + fh * 0.08);
-      draw3DBoxAt(ctx, cam, kx, ky, fh * 0.09, z0, z0 + h * 0.065, 'ty_cont_b', seed + 32 + k, night, alpha, true, YAW, fh * 0.06);
-    }
-    // The one window: a frosted strip.
+    for (const [k, z0] of [[0, plinth], [1, plinth + S * 0.07]]) B(fh * 0.12, YE + fh * 0.08, fh * 0.09, fh * 0.06, z0, z0 + S * 0.065, 'ty_cont_b', true, 27 + k);
     { const [wx, wy] = F(-fh * 0.30, YE + fh * 0.01);
-      draw3DBoxAt(ctx, cam, wx, wy, fh * 0.30, h * 0.54, h * 0.66, night ? 'ty_dw_lamp' : 'ty_fw_frost', seed + 40, night, alpha, false, YAW, fh * 0.012);
-      if (night) glowPool(ctx, cam, wx, wy, h * 0.60, '230,240,246', 7, alpha * 0.34); }
-    // West wall: louvres and downpipes.
-    { const [lx, ly] = F(-fh * 0.22, YW - fh * 0.01);
-      draw3DBoxAt(ctx, cam, lx, ly, fh * 0.20, h * 0.60, h * 0.74, 'ty_fw_tin_dk', seed + 50, night, alpha, false, YAW, fh * 0.012); }
-    for (const lx of [XN - fh * 0.04, -R + fh * 0.06]) {
-      const [px, py] = F(lx, YW - fh * 0.02);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.018, plinth, wallTop, 'ty_fw_tin_dk', seed + 52, night, alpha, false, YAW, fh * 0.018);
+      draw3DBoxAt(ctx, cam, wx, wy, fh * 0.30, S * 0.54, S * 0.70, night ? 'ty_dw_lamp' : 'ty_fw_frost', seed + 29, night, alpha, false, YAW, fh * 0.012);
+      if (night) glowPool(ctx, cam, wx, wy, S * 0.62, '230,240,246', 7, alpha * 0.34); }
+    // 7) THE WEST WALL: louvres in the brick and the downpipes from the eaves.
+    B(-fh * 0.22, YW - fh * 0.01, fh * 0.20, fh * 0.012, S * 0.52, S * 0.74, TIN_DK, false, 66);
+    for (const lx of [XN - fh * 0.10, -R + fh * 0.06]) B(lx, YW - fh * 0.02, fh * 0.018, fh * 0.018, plinth, wallTop, TIN_DK, false, 67);
+    // 8) AFTER DARK the lantern shows along the ridge.
+    if (night) for (const t of [-0.5, 0, 0.5]) {
+      const [lx, ly] = F(cx - fh * 0.04 + t * hw, cy);
+      glowPool(ctx, cam, lx, ly, (ridge + lantern) * 0.5, '226,240,248', 9, alpha * 0.28 * dn);
     }
   },
   fish_quay(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // The fish quay behind the Codfather. Local frame: +y the works,

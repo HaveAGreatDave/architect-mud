@@ -171,12 +171,12 @@ store.patch('zones', WORKS, { exits: {} });
 
 const works = await authorBuilding(store, {
   slug: 'codfather', name: COD, type: 'fish_works',
-  x: 903, y: 905, entrance: 'east', floors: 1, marker: 'FM', district: 'filaments',
+  x: 903, y: 905, entrance: 'east', floors: 3, marker: 'FM', district: 'filaments',
   utilityAnchor: 'slab',
 
   facade: {
     bgColor: '#1b2226', color: '#8fa4ac',
-    description: 'A long tin-clad shed with a refrigeration plant humming on the roof and no name on it anywhere. Its front is built onto the back of Batter Days. The only door this side is a steel staff door onto the car park, propped open on a fish box.',
+    description: 'A three-storey works with no name on it anywhere: brick below, tin above with frosted strip windows, and a glazed lantern along the roof by the refrigeration plant. Its front is built onto the back of Batter Days. The only door this side is a steel staff door onto the car park, propped open on a fish box.',
   },
 
   rooms: [
@@ -343,11 +343,11 @@ store.patch('zones', SHOP, { exits: {} });
 
 const shop = await authorBuilding(store, {
   slug: 'batter', name: BATTER, type: 'chip_shop',
-  x: 903, y: 906, entrance: 'south', floors: 1, marker: 'BT', district: 'filaments',
+  x: 903, y: 906, entrance: 'south', floors: 3, marker: 'BT', district: 'filaments',
 
   facade: {
     bgColor: '#13243a', color: '#f08a2a',
-    description: 'A bright chip shop painted harbour blue, with orange awnings over a wide lit window and BATTER DAYS in orange across the front. Picnic tables stand under the awnings. A steel flue up the back breathes steam, and behind it the tin shed of the fish works carries straight on.',
+    description: 'A chip shop painted harbour blue, with orange awnings over a wide lit window and BATTER DAYS in orange across the front. Two floors of flats sit above it, with a bay window over the door. Picnic tables stand under the awnings. A steel flue up the back breathes steam, and behind it the fish works carries straight on.',
   },
 
   rooms: [

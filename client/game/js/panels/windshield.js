@@ -17487,9 +17487,10 @@ const BLDG_TYPE_3D = {
   car_park:         { a: 'citycore',    h: 0.02 }, // a lot: paint, kerbs and parked cars (glass/models/greenside.js)
   staff_lot:        { a: 'citycore',    h: 0.02 }, // the Codfather's staff car park, drawn by the same arm
   vacant_plot:      { a: 'citycore',    h: 0.02 }, // a slab to let behind mesh fencing (glass/models/greenside.js)
-  chip_shop:        { a: 'citycore',    h: 0.11 }, // Batter Days, one storey of painted render under its awnings
-  // The Codfather's fish works: a tall single-storey shed, a head higher than the chip shop built
-  // onto its front, so from Greenside Row the shop reads as the front of something bigger.
+  chip_shop:        { a: 'citycore',    h: 0.11 }, // Batter Days, three storeys of painted render, the shop under its awnings
+  // The Codfather's fish works: three storeys of brick and tin with a lantern along the ridge that
+  // stands over the chip shop built onto its front, so from Greenside Row the shop reads as the
+  // front of something bigger.
   fish_works:       { a: 'docks',       h: 0.15 },
   outfitter:        { a: 'citycore',    h: 0.13 }, // Layers
   bodega:           { a: 'oldcoldwater', h: 0.11 }, // Bodega Vu, on the Ironside corner
