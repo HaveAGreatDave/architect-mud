@@ -560,14 +560,14 @@ const handlers = {
   // guarded on truthiness.
   mmroad(msg) { setRoadWindow(msg.road || null); },
   move: (msg) => {
+    // The Stage is the kitchen you were standing in. Walking out of it hands the pane back.
+    if (msg.zone && msg.zone !== state.currentZone && isKitchenStageActive()) closeKitchenStage({ quiet: true });
     // Walking into a walk-in hangar races the server's `hangar_bay_open` push
     // against this plain-text room description — whichever lands second wins.
     // If the bay panel already won that race, don't stomp it; it owns the pane
     // until the player actually leaves (hangar_close triggers a fresh look).
     const free = paneFreeForRoom();
     if (free) setAreaPane(msg.message, msg.direction, true);
-    // The Stage is the kitchen you were standing in. Walking out of it hands the pane back.
-    if (msg.zone && msg.zone !== state.currentZone && isKitchenStageActive()) closeKitchenStage({ quiet: true });
     if (msg.narration) appendHtml(msg.narration, 'move');
     if (msg.toLog) appendHtml(msg.logMessage || msg.message, 'look');   // see the `look` handler
     setPaneSilent(!!msg.toLog && free);
@@ -620,13 +620,13 @@ const handlers = {
     closeCockpit();
     closeCab();
     closeHangarBay();
+    closeKitchenStage({ quiet: true });
     closeDialogue();
     closeTrade();
     closeAtmPanel();
     closeLootPanel();
     // Whatever the room you died in was doing, you are not in it any more.
     clearAlarmState();
-    closeKitchenStage({ quiet: true });
     setTimeout(() => { sendCmd('look'); }, 1500);
   },
 
@@ -839,12 +839,6 @@ const handlers = {
   // up, so the panel doesn't flicker on every self-issued `workspace`.
   workspace_view: (msg) => {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
-    if (isWorkspaceOpen()) refreshWorkspacePanel(msg);
-    else openWorkspacePanel(msg);
-  },
-
-  loot_view: (msg) => {
-    if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
     // The kitchen's 3-D rung, when the server offers it ('visual' only) and the player hasn't
     // asked for the list this session. It falls back to the HUD itself if WebGL2 won't start.
     if (wantsKitchenStage(msg)) {
@@ -853,15 +847,21 @@ const handlers = {
       return;
     }
     if (isKitchenStageActive()) closeKitchenStage({ quiet: true });
-    openLootPanel(msg);
-    // Looting a body puts its gear in your pack — the loot panel redraws itself, but
-    // the Kit app behind it was left a corpse out of date.
+    if (isWorkspaceOpen()) refreshWorkspacePanel(msg);
+    else openWorkspacePanel(msg);
+  },
   // A cook reached a new beat (plugins/cooking/stage.js): the open Stage re-asks for its view.
   kitchen_beat: () => kitchenBeat(),
   // `chop` with the Stage open: the cut is played on its board, and the board reports with chopresolve.
   knife_game: (msg) => kitchenKnife(msg),
   // The pan at the pass: lay it out, then the Stage sends dressresolve and the plate command.
   plating_game: (msg) => kitchenDress(msg),
+
+  loot_view: (msg) => {
+    if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
+    openLootPanel(msg);
+    // Looting a body puts its gear in your pack — the loot panel redraws itself, but
+    // the Kit app behind it was left a corpse out of date.
     refreshTabletGearIfOpen();
   },
 
