@@ -53,6 +53,14 @@ export default async function regress({ run, check, getPlayer }) {
     let dupName, group, stand, expected;
     for (const n of Object.keys(byName)) {
       if (!n || byName[n].length <= 3) continue;
+      // ⚠ Not a building's name. A building's door tile forwards you inside, and GPS routes to the
+      // interior it lands on (plotRoute's resolveLanding), so a route to "Charles B. Hughson
+      // Coliseum" rightly ends in the bleachers at 0,0 on another map whenever a door is the nearest
+      // of its nine tiles. Which name this scan meets first depends on the row order, so a world
+      // built from the files (CI) picked the Coliseum and failed both checks below, while the dev
+      // database reached a street first. A name with any door in it is skipped whole; streets and
+      // terrain have none.
+      if (byName[n].some(z => resolveLanding(z.id) !== z.id)) continue;
       const g = byName[n], gIds = new Set(g.map(z => z.id)), gMap = g[0].map_id;
       const stands = getAllZones().filter(z =>
         z.map_id === gMap && !gIds.has(z.id) && propsOf(z.id).routable && z.grid_x != null &&
