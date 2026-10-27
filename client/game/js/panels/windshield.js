@@ -34980,7 +34980,6 @@ export function ownHullScale(cls) {
   const plan = (CONTACT_SIZE[cls] || 0.11) * ownExtMul(cls);
   return { plan, vert: plan * vsOf(cls) };
 }
-// ── WHICH MESHES ARE A PILE OF BOLTED-ON BOXES ───────────────────────────────
 // The own hull's model-to-world map as drawAircraftModel's `Wp` builds it (camera-relative tiles),
 // for a seat that stands something in her: glass/rod-rig.js sits the angler on her thwart with it.
 // The same opts and base height the hull is collected with, so he heaves and rolls with her.
@@ -34989,6 +34988,7 @@ function ownHullFrame(cam, v) {
   const o = ownShipModelOpts(v);
   return { SIZE: (CONTACT_SIZE[v.cls] || 0.11) * (o.sizeMul || 1), VS: vsOf(v.cls), hdg: o.hdg || 0, pitch: o.pitch || 0, bank: o.bank || 0, baseWz: ownShipBaseWz(cam, v) };
 }
+// ── WHICH MESHES ARE A PILE OF BOLTED-ON BOXES ───────────────────────────────
 // Not a style note — it decides two different things downstream, and both of them were spelled
 // `cls === 'truck'` in four places before there was a second box-built vehicle.
 //
@@ -53267,10 +53267,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   drawRainColumns(cam, WORLD_BLEND);
   // A boat seat's berth boxes (glass/berth-marks.js). Strokes and a decal, so here with the sinks open.
   if (v.berthMarks) drawBerthMarks(ctx, cam, v, now);
-  // The interior, collected with the sinks armed and before the tile loop. ⚠ ITS PLACE IN THE
   // A boat seat's rod mode (glass/rod-rig.js): strokes on the water, and the angler as solids, so
   // here with the sinks open and before the interior (his forearms are cabin records from the seat).
   if (v.rod) { try { drawRodRig(ctx, cam, v, now, { sink: OWNSHIP_SINK, hull: v.external ? ownHullFrame(cam, v) : null }); } catch (e) { if (!_rodErr) { _rodErr = true; console.error('[windshield] rod rig:', e); } } }
+  // The interior, collected with the sinks armed and before the tile loop. ⚠ ITS PLACE IN THE
   // BUFFER DOES NOT MATTER and that is the point of the depth buffer — it is sorted against the
   // city per pixel, so the A-pillar hides the building behind it and the building in front of the
   // truck hides nothing of the cab, with no queue position to get right.
