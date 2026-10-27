@@ -28,7 +28,7 @@ export const LIVERY_KINDS = ['aircraft', 'boat', 'truck'];
 // (aircraftLiveryModel in livery-sets.js). A truck keys on its type id, a boat on its hull.
 export const LIVERY_MODELS = {
   aircraft: ['prop', 'gunship', 'heavy', 'locust', 'divebomber', 'heli', 'viper', 'ultralight', 'grasshopper', 'drake'],
-  boat: ['hydro', 'spur', 'gamecock'],
+  boat: ['hydro', 'spur', 'gamecock', 'skiff'],
   truck: ['scrapper', 'hauler', 'drayman', 'continental'],
 };
 export const ANY_MODEL = 'any';
