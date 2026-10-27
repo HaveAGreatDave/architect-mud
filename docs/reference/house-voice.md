@@ -64,6 +64,16 @@ Fallout reads as Fallout with almost no twists because the world lives in the no
 
 Each keeps at most one tilt, and it sits in a concrete noun or a flat second fact: the blank board, the coats still on, the meter.
 
+### How people talk
+
+NPCs say what a normal person would say in that spot, and usually that's short: one or two sentences. Write the obvious reply first and stop there. They answer the question they were asked in plain words, with contractions. They don't speak in riddles, hint instead of answering, end on a quip, or pile on backstory nobody asked for. A cagey character says plainly that they won't tell you.
+
+| Before | After |
+|---|---|
+| "League fuel." He nods at a drum. "It comes in that. I wear the mask and I don't ask." | "No idea, honestly. It comes in that drum. I just wear the mask." |
+| "Mind the edge of the pad," he says. "I've just done it." | "Hey. Mind the ice, it's still wet." |
+| "The league says I don't support anybody. The league didn't buy the scarf." | "Highlanders! Best team in the league, don't let anyone tell you different." |
+
 ### Feelings and the body
 
 Lines about what the player feels (withdrawal, drugs, hunger, injury, sleep, fear) follow the same rule, and they're where it's broken most. Say what the body is doing in the words a person would use to tell a friend. One or two symptoms, then stop.
