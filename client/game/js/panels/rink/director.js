@@ -1615,8 +1615,9 @@ export function createDirector(W, opts = {}) {
           const left = shotCue - rel, inFront = (netX - sh.x) * dir > 5;
           // (nor from a long way out: an overdue shot waits until he's within 75 ft, or at the
           // spot it was to be taken from, flat out till then, or it's a man shooting the
-          // length of the ice)
-          const inRange = hyp(netX - sh.x, MID_Y - sh.y) < 75 || d < 14;
+          // length of the ice. A save or a miss the booth has already got to goes from over
+          // the red line: a puck fetched out of his own corner got there too late for 75.)
+          const inRange = hyp(netX - sh.x, MID_Y - sh.y) < 75 || d < 14 || (kind !== 'goal' && left < 0 && (sh.x - RL / 2) * dir > 0);
           if (has) sh.maxV = left <= 0 && !inRange ? 26 : clamp(d / Math.max(0.3, left), 6, 24);
           // in alone he's skating, not drifting: early, he holds his speed in, and close to the
           // net with time still to kill he cuts across the slot to wait the goalie out
