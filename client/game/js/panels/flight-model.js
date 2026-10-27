@@ -260,9 +260,9 @@ export const TYPES = {
   hydro: {
     name: 'Vaskin Rooster', water: true, tier: 1,
     mass: 0.55,                        // relative inertia
-    thrustMax: 22, topSpeed: 138, tileMph: 95,
+    thrustMax: 17.6, topSpeed: 117, tileMph: 95,
     waterFric: 2.2,                    // hull friction with the throttle shut
-    dragP: 0.001100, brake: 3.4,       // no brakes; this is what shutting the throttle buys
+    dragP: 0.001218, brake: 3.4,       // no brakes; the hull's drag with the lever shut (stepBoat SHUT_DRAG)
     hump: 48, humpDrag: 5.4,
     turnLock: 34, turnFade: 0.72,
     driftTau: 1.35,
@@ -281,9 +281,9 @@ export const TYPES = {
   spur: {
     name: 'Vaskin Spur', water: true, tier: 2,
     mass: 0.74,
-    thrustMax: 26.5, topSpeed: 152, tileMph: 95,
+    thrustMax: 21.2, topSpeed: 129, tileMph: 95,
     waterFric: 2.0,
-    dragP: 0.001135, brake: 3.0,
+    dragP: 0.001257, brake: 3.0,
     hump: 44, humpDrag: 4.9,
     turnLock: 40, turnFade: 0.70,
     driftTau: 1.6,
@@ -297,9 +297,9 @@ export const TYPES = {
   gamecock: {
     name: 'Vaskin Gamecock', water: true, tier: 3,
     mass: 0.62,
-    thrustMax: 34, topSpeed: 176, tileMph: 95,
+    thrustMax: 27.2, topSpeed: 150, tileMph: 95,
     waterFric: 1.7,
-    dragP: 0.001085, brake: 2.8,
+    dragP: 0.001201, brake: 2.8,
     hump: 38, humpDrag: 3.8,
     turnLock: 28, turnFade: 0.80,
     driftTau: 1.05,
@@ -1179,7 +1179,13 @@ export function stepBoat(s, input, p, dt) {
   const moving = Math.sign(s.speed) || (drive > 0 ? 1 : 0);
   // Aground: a very large drag.
   const scrub = aground ? 26 : 0;
-  s.speed += ((drive - (fric + hump * wet + scrub) * moving) / Math.max(0.2, p.mass) - aero * moving / Math.max(0.2, p.mass)) * dt;
+  // ⚠ SHUTTING THE LEVER STOPS HER. With only hull friction a boat at speed took half a minute to
+  // come off the plane, which made every berth a guess. The bow digs in as the blower dumps: `brake`
+  // times SHUT_DRAG over the last tenth of the pedal, in the water only. Any wider and a crawl off
+  // the dock at a quarter lever never beats it.
+  const SHUT_DRAG = 1.6;
+  const shut = (p.brake ?? 0) * SHUT_DRAG * (1 - clamp(s.pedal / 0.1, 0, 1)) * wet;
+  s.speed += ((drive - (fric + hump * wet + scrub + shut) * moving) / Math.max(0.2, p.mass) - aero * moving / Math.max(0.2, p.mass)) * dt;
   if (drive === 0 && Math.abs(s.speed) < 0.05) s.speed = 0;
   // Boosted cap sits just above nitro terminal, sqrt(thrustMax × nitroMul / dragP), so it stays a backstop.
   s.speed = clamp(s.speed, 0, p.topSpeed * surf.cap * (want ? 1.19 : 1));

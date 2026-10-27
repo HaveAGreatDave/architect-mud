@@ -287,6 +287,7 @@ export async function cmdBoat(args, raw, player) {
   if (sub === 'take' || sub === 'launch' || sub === 'out') return await boatTake(player, args.slice(1).join(' '));
   if (sub === 'rent' || sub === 'hire') return await boatRent(player, args.slice(1).join(' '));
   if (sub === 'return' || sub === 'handback') return await boatReturn(player, args.slice(1).join(' '));
+  if (sub === 'sell') return await boatSell(player, args.slice(1).join(' '));
   // The anchor (anchor.js): `boat anchor` drops it, `boat anchor up` pulls it in. Asked before the
   // desk, because it's done at sea, and no hull on the line is called "anchor".
   if (sub === 'anchor') return await boatAnchor(player, args.slice(1));
@@ -416,6 +417,36 @@ async function boatReturn(player, arg) {
   await query("DELETE FROM boats WHERE id = $1 AND owner_id = $2 AND custom_data->'rental' IS NOT NULL", [boat.id, player.id]);
   unindexBoat(boat.id);
   return say('<span class="text-green">The desk takes the key and a clipboard, walks down to look at her, and comes back without saying anything.</span>');
+}
+
+// ── SELLING ONE BACK ─────────────────────────────────────────────────────────
+// The yard pays half the list price for a sound hull, less as the hull wears, and the card's Sell key
+// shows the same number (shopfront.js). A hire isn't yours to sell; she goes back with `boat return`.
+export function boatResale(row) {
+  const t = TYPES[row.type_id];
+  if (!t?.price || boatRental(row)) return 0;
+  const c = Math.max(0, Math.min(1, Number(row.condition) || 0));
+  return Math.round(t.price * 0.5 * (0.4 + 0.6 * c));
+}
+
+async function boatSell(player, arg) {
+  const reach = berthsNear(player.current_zone).map((z) => z.id);
+  if (!reach.length) return say('<span class="text-dim">Sell a hull at a marina.</span>');
+  const owned = (await myBoats(player.id)).filter((b) => !boatRental(b));
+  const pick = pickBoat(owned, arg);
+  if (pick.none) return say('<span class="text-dim">You own no hull to sell.</span>');
+  if (pick.miss) return say(`<span class="text-dim">You own nothing called "${arg}".</span>`);
+  if (pick.ambiguous) return say(`<span class="text-dim">Which one? ${pick.ambiguous.map((b) => b.name || b.type_id).join(', ')}.</span>`);
+  const boat = pick.boat;
+  if (aboard.get(player.id) === boat.id) return say('<span class="text-dim">Step off her first.</span>');
+  if (!reach.includes(boat.berth_zone)) return say('<span class="text-dim">She is not lying at this marina. Bring her in first.</span>');
+  const price = boatResale(boat);
+  // The row goes before the money moves, so a double click can't sell her twice.
+  const gone = await query("DELETE FROM boats WHERE id = $1 AND owner_id = $2 AND custom_data->'rental' IS NULL RETURNING id", [boat.id, player.id]);
+  if (!gone.rows.length) return say('<span class="text-dim">The desk has no record of her.</span>');
+  unindexBoat(boat.id);
+  if (price > 0) await adjustCredits(player, price, query, 'boat sale');
+  return say(`<span class="text-green">Sold.</span> The desk takes ${boat.name || 'her'} off your hands for ₵${price.toLocaleString()}.`);
 }
 
 // ── THE COVERED SLOT ─────────────────────────────────────────────────────────

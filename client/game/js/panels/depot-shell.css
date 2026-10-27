@@ -340,3 +340,15 @@ body.bigscreen .ds-bay{display:none!important}
   .ds-foot::-webkit-scrollbar{display:none}
   .ds-jobs{grid-template-columns:repeat(auto-fill,minmax(72px,1fr))}
 }
+
+/* A picked card: the hand's one lit card, with Maintenance / Deploy / Sell under it (choiceHtml). */
+.vc-wrap.sel .vc-card{outline:2px solid var(--accent,#d8892e);outline-offset:2px;transform:translateY(-3px)}
+.vc-choice{display:none;flex-direction:column;gap:4px}
+.vc-wrap.sel .vc-choice{display:flex}
+.vc-choice .ds-btn{width:100%;justify-content:center}
+
+/* A picked card: the hand's one lit card, with Deploy / Maintenance / Sell under it (choiceHtml). */
+.vc-wrap.sel .vc-card{outline:2px solid var(--accent,#d8892e);outline-offset:2px;transform:translateY(-3px)}
+.vc-choice{display:none;flex-direction:column;gap:4px}
+.vc-wrap.sel .vc-choice{display:flex}
+.vc-choice .ds-btn{width:100%;justify-content:center}

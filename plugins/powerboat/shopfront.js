@@ -30,7 +30,7 @@ import { query } from '../../server/models/db.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { takeFreshVehicle } from '../../server/engine/fresh-vehicle.js';
 import { TYPES } from '../../client/game/js/panels/flight-model.js';
-import { berthKind, berthCapacity, berthsNear, zonesNear, hullBand, REFIT_CAP, aboard, sweepBoatRentals, isOpenWater, MOVE_IN, rateAt } from './yard.js';
+import { berthKind, berthCapacity, berthsNear, zonesNear, hullBand, REFIT_CAP, aboard, sweepBoatRentals, isOpenWater, MOVE_IN, rateAt, boatResale } from './yard.js';
 import { boatRental, boatRentalLeft, fmtLeft, boatRentFee, BOAT_RENT_TERM_MS, boatServiceSheet, boatLiveryOf, schemeOf,
   BOAT_SCHEMES, BOAT_DECALS, BOAT_PAINT_PRICE, BOAT_DECAL_PRICE } from './service.js';
 import { tankPrice } from './fuel.js';
@@ -140,6 +140,7 @@ export async function marinaPanel(player, zoneId, tab = 'fleet') {
       typeName: t ? t.name : b.type_id,
       hull: pct(b.condition), band: hullBand(b.condition), fuel: pct(b.fuel),
       nitro: pct(b.custom_data?.nitro ?? 1),
+      resale: boatResale(b),
       livery: boatLiveryOf(b.custom_data),
       // Standing on the deck she is tied to — the one place `embark` will have you.
       hereNow: !!b.berth_zone && b.berth_zone === zoneId,

@@ -25,7 +25,7 @@ import { SHOTS } from './camera-tween.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
   statsHtml, partsHtml, meterHtml, btnHtml, armHolds, shellClick, clearViewModes, noteAct, notePush,
-  esc, money, clamp01, readyHtml } from './depot-shell.js';
+  esc, money, clamp01, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
 import { garageBed } from './garage-ambience.js';
 import { PODRACER_TYPES, PODRACER_KIT, KIT_TIERS, cleanKit, kitValue, kitShare, kitQuote, podracerTuned, podracerStats, podracerLook, podracerLivery } from './podracer-model.js';
 
@@ -131,19 +131,25 @@ function lotBody(d) {
       r.quote.total ? btnHtml(`Service · ${money(r.quote.total)}`, { cmd: `podracer service ${r.id}`, cls: 'vc-mini' }) : '',
       r.rental ? '' : `<button class="vc-mini" type="button" data-fitgo="${esc(r.id)}" title="The fitting shop: parts and looks">⚙ Fit</button>`,
       r.rental ? '' : `<button class="vc-mini" type="button" data-paintgo="${esc(r.id)}" title="The spray booth">🎨 Paint</button>`,
-      r.rental ? `<button class="vc-mini" data-hold="podracer return ${esc(r.id)}" title="Hand it back early, no refund">Hand it back</button>`
-        : `<button class="vc-mini" data-hold="podracer sell ${esc(r.id)}" title="The yard buys it back">Sell · ${money(r.resale)}</button>`,
     ].filter(Boolean).join('') : '');
-    return `<div class="vc-wrap${r.inYard ? '' : ' away'}${r.id === d.fresh ? ' fresh' : ''}">
-      <button class="vc-card ${cardStyleFor(r.id)}" ${ready ? `data-cmd="${esc(cmd)}"` : 'disabled'}
-          aria-label="${esc(`${r.name}, ${r.rental ? 'hired' : 'owned'}${ready ? ': climb in' : ''}`)}"
-          title="${ready ? 'Climb in: it comes out through the shed door' : esc(sub)}">
+    const inHand = r.inYard && !r.aboard;
+    const why = ready ? '' : sub;
+    const choice = inHand ? choiceHtml({
+      deploy: ready ? { cmd, title: 'Climb in and drive straight out' } : { why },
+      maint: ready ? { cmd, title: 'Climb in with the shed opened up around it' } : { why },
+      sell: r.rental ? { hold: `podracer return ${r.id}`, title: 'Hand it back early, no refund' } : { hold: `podracer sell ${r.id}`, title: 'The yard buys it back' },
+      sellLabel: r.rental ? 'Hand it back' : `Sell · ${money(r.resale)}`,
+    }) : '';
+    return `<div class="vc-wrap${r.inYard ? '' : ' away'}${r.id === d.fresh ? ' fresh' : ''}${pickClass(r.id)}">
+      <button class="vc-card ${cardStyleFor(r.id)}" ${inHand ? pickAttr(r.id) : 'disabled'}
+          aria-label="${esc(`${r.name}, ${r.rental ? 'hired' : 'owned'}${inHand ? ': pick' : ''}`)}"
+          title="${inHand ? 'Pick it: deploy, maintenance or sell' : esc(sub)}">
         <canvas class="vc-cv" data-card="${esc(r.id)}" aria-hidden="true"></canvas>
         ${badge}
         <span class="vc-plate"><b>${esc(r.name)}</b><span class="vc-sub">${sub}</span>
           <span class="vc-bar" title="pod ${pct(r.hull)}%"><i class="${r.hull < 0.3 ? 'bad' : r.hull < 0.6 ? 'warn' : 'ok'}" style="width:${pct(r.hull)}%"></i></span></span>
       </button>
-      ${acts ? `<div class="vc-acts">${acts}</div>` : ''}
+      ${choice}${acts ? `<div class="vc-acts">${acts}</div>` : ''}
     </div>`;
   }).join('');
   const slot = (tab, label, sub) => `<div class="vc-wrap"><button class="vc-card slot" data-tab="${tab}" aria-label="${label}">
@@ -475,7 +481,7 @@ export function openPodracerBay(msg) {
   const host = podracerServiceHost();
   if (!host) return;
   const was = sv;
-  sv = { data: msg, onSend: was?.onSend || msg.onSend || null, open: was ? was.open : true, tab: was?.tab || 'service', work: null, kitWork: null,
+  sv = { data: msg, onSend: was?.onSend || msg.onSend || null, open: was ? was.open : !takeDeploy(), tab: was?.tab || 'service', work: null, kitWork: null,
     kitGroup: was?.kitGroup || null, kitSlot: was?.kitSlot || null, shot: was?.shot || null };
   garageBed('shed');
   drawBay();

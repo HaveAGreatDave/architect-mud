@@ -52,7 +52,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // ── 3. GREAT ACCELERATION, AND IT PLANES ──────────────────────────────────
   const quick = drive(createBoatState(p), { throttle: 1 }, 5);
-  check('0-5s puts the hydro on the plane', quick.planing && quick.speed > 80,
+  check('0-5s puts the hydro on the plane', quick.planing && quick.speed > 0.6 * p.topSpeed,
     '5s reached ' + quick.speed.toFixed(1) + ' planing=' + quick.planing);
 
   // ⚠ AND IT CAN STILL CREEP. The hump used to be a FLOOR rather than a bump, so below about a

@@ -215,12 +215,41 @@ function structureAt(dx, dy) {
   // A pontoon runs the length of its tile along the entrance axis; the walkway is solid across it.
   return (RUN_AXIS_NS[c.ent] || !c.ent) ? Math.abs(ox) < 0.35 : Math.abs(oy) < 0.35;
 }
+// ── BUMPERS ALONG THE LAND SIDE OF A DOCK ────────────────────────────────────
+// Coming in to a berth, a touch too much way used to run her up the bank behind it, which is a
+// grounding the server prices. Land within BUMPER_R tiles of a pontoon, a fuel deck or a marked
+// berth is a fender instead: she stops against it, takes no hull, and never beaches there. Open
+// shore away from the docks is still a beach. Cached per tile; the window's tiles don't change
+// under a key, and a recentre clears it.
+const BUMPER_R = 2;
+let bumperCache = new Map(), bumperFor = null;
+function dockNear(gx, gy) {
+  if (bumperFor !== st.tiles) { bumperCache = new Map(); bumperFor = st.tiles; }
+  const k = gx + ',' + gy;
+  let v = bumperCache.get(k);
+  if (v !== undefined) return v;
+  v = (st.marks || []).some((m) => Math.abs(m.x - gx) <= BUMPER_R && Math.abs(m.y - gy) <= BUMPER_R);
+  for (let j = -BUMPER_R; !v && j <= BUMPER_R; j++) for (let i = -BUMPER_R; !v && i <= BUMPER_R; i++) {
+    const c = cellAt(gx + i - st.cx, gy + j - st.cy);
+    if (c.bt === 'pontoon' || c.bt === 'fuel_dock') v = true;
+  }
+  bumperCache.set(k, v);
+  return v;
+}
+function bumperAt(dx, dy) {
+  if (isWet(cellAt(dx, dy))) return false;
+  return dockNear(Math.round(st.cx + dx), Math.round(st.cy + dy));
+}
+const solidAt = (dx, dy) => structureAt(dx, dy) || bumperAt(dx, dy);
+
 function fendOff(px, py) {
-  if (!structureAt(st.sim.x, st.sim.y)) return;
-  const v = Math.abs(st.sim.speed);
+  if (!solidAt(st.sim.x, st.sim.y)) return;
+  // A bumper is soft: the way comes off and nothing is holed.
+  const soft = !structureAt(st.sim.x, st.sim.y);
+  const v = soft ? 0 : Math.abs(st.sim.speed);
   // Slide along the face where one axis is still free, rather than sticking dead on contact.
-  if (!structureAt(st.sim.x, py)) st.sim.y = py;
-  else if (!structureAt(px, st.sim.y)) st.sim.x = px;
+  if (!solidAt(st.sim.x, py)) st.sim.y = py;
+  else if (!solidAt(px, st.sim.y)) st.sim.x = px;
   else { st.sim.x = px; st.sim.y = py; }
   st.sim.speed *= 0.25; st.sim.drift = 0;
   if (v > 18) {
@@ -1385,8 +1414,10 @@ function frame(now) {
     // unambiguously for is leaving her somewhere without that happening.
     // `burn` is the hull's thirst against the Rooster's (flight-model.js); absent is 1. The text
     // rung multiplies by the same field, or one boat would have two ranges.
-    if (st.fuel <= 0) { st.lever = 0; input.throttle = 0; }
-    else if (st.sim.running) st.fuel = Math.max(0, st.fuel - (0.00042 + 0.0035 * st.sim.pedal) * (st.p.burn ?? 1) * dt);
+    // ⚠ A STOPPED MOTOR LOCKS THE LEVER AT ZERO, so W, A or a drag with the key off does nothing
+    // instead of leaving it open for the neutral switch to refuse the next start on.
+    if (st.fuel <= 0 || st.sim.running === false) { st.lever = 0; input.throttle = 0; }
+    if (st.fuel > 0 && st.sim.running) st.fuel = Math.max(0, st.fuel - (0.00042 + 0.0035 * st.sim.pedal) * (st.p.burn ?? 1) * dt);
 
     // ⚠ THE SEA SHE RIDES IS THE SEA THE RENDERER DRAWS: its amplitudes, its clock and its frame.
     // None of the three was ever handed over, so `boatSeaPose` returned zero on every frame — no

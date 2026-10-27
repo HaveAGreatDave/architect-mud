@@ -27,7 +27,7 @@ import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyl
 import { boatServiceHost, boatPreview, boatView, boatFrame, boatRev } from './boat-view.js';
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
   statsHtml, meterHtml, serviceListHtml, btnHtml, armHolds, shellClick, clearViewModes, noteAct, notePush,
-  esc, money, clamp01, readyHtml } from './depot-shell.js';
+  esc, money, clamp01, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
 import { SHOTS } from './camera-tween.js';
 import { garageBed } from './garage-ambience.js';
 import { TYPES } from './flight-model.js';
@@ -154,20 +154,25 @@ function lotBody(d) {
     const cmd = `boat take ${b.id}`;
     const acts = [
       ready && hard ? `<button class="vc-mini" data-hold="${esc(cmd)}" title="The crane puts her in the water, then you take the helm">Crane her in · ${money(d.craneFee)}</button>` : '',
-      b.rental && b.inYard && !b.aboard ? `<button class="vc-mini" data-hold="boat return ${esc(b.id)}" title="Hand her back early, no refund">Hand her back</button>` : '',
-      !b.inYard ? '<button class="vc-mini" data-hold="tow" title="Somebody goes out for her, for a price">Tow her in</button>' : '',
+      !b.inYard ? `<button class="vc-mini" data-hold="tow ${esc(b.id)}" title="Somebody goes out for her and brings her here, for a price">Tow her in</button>` : '',
     ].filter(Boolean).join('');
     const live = ready && !hard;
-    return `<div class="vc-wrap${ready ? '' : ' away'}${b.id === d.fresh ? ' fresh' : ''}">
-      <button class="vc-card ${cardStyleFor(b.id)}" ${live ? `data-cmd="${esc(cmd)}"` : ready ? '' : 'disabled'}
-          aria-label="${esc(`${b.name}, ${b.rental ? 'hired' : 'owned'}${live ? ': take the helm' : ''}`)}"
-          title="${live ? 'Take the helm: she starts in the covered slot' : hard && ready ? 'On a cradle: crane her in first' : esc(b.where || '')}">
+    const choice = ready ? choiceHtml({
+      deploy: live ? { cmd, title: 'Take the helm and cast straight off' } : { why: 'On a cradle: crane her in first' },
+      maint: live ? { cmd, title: 'Take the helm in the covered slot, with the roof off for work' } : { why: 'On a cradle: crane her in first' },
+      sell: b.rental ? { hold: `boat return ${b.id}`, title: 'Hand her back early, no refund' } : b.resale != null ? { hold: `boat sell ${b.id}` } : null,
+      sellLabel: b.rental ? 'Hand her back' : `Sell · ${money(b.resale)}`, deployLabel: 'Cast off',
+    }) : '';
+    return `<div class="vc-wrap${ready ? '' : ' away'}${b.id === d.fresh ? ' fresh' : ''}${pickClass(b.id)}">
+      <button class="vc-card ${cardStyleFor(b.id)}" ${ready ? pickAttr(b.id) : 'disabled'}
+          aria-label="${esc(`${b.name}, ${b.rental ? 'hired' : 'owned'}${ready ? ': pick' : ''}`)}"
+          title="${live ? 'Pick her: cast off, maintenance or sell' : hard && ready ? 'On a cradle: crane her in first' : esc(b.where || '')}">
         <canvas class="vc-cv" data-card="${esc(b.id)}" aria-hidden="true"></canvas>
         ${badge}
         <span class="vc-plate"><b>${esc(b.name)}</b><span class="vc-sub">${sub}</span>
           <span class="vc-bar" title="hull ${pct(b.hull)}%"><i class="${b.hull < 0.3 ? 'bad' : b.hull < 0.6 ? 'warn' : 'ok'}" style="width:${pct(b.hull)}%"></i></span></span>
       </button>
-      ${acts ? `<div class="vc-acts">${acts}</div>` : ''}
+      ${choice}${acts ? `<div class="vc-acts">${acts}</div>` : ''}
     </div>`;
   }).join('');
   const slot = (tab, label, sub) => `<div class="vc-wrap"><button class="vc-card slot" data-tab="${tab}" aria-label="${label}">
@@ -306,7 +311,7 @@ export function openMarinaService(msg) {
     data: msg, mode: msg.service, onSend: was?.onSend || msg.onSend || null,
     tab: same ? was.tab : 'service',
     // Open when she arrives; after that, folded or open is the helmsman's.
-    open: same ? was.open : true,
+    open: same ? was.open : !takeDeploy(),
     pick: was?.pick || null, view: was?.view ?? null, shot: same ? was.shot : undefined,
   };
   const b = boat();

@@ -50,7 +50,7 @@ import { airHorn } from './engine-audio.js';
 import { cabServiceHost, cabPreview, cabView, cabFrame, cabRev } from './cab-view.js';
 // The chrome every depot shares: the head, the job tiles, the bay, holds and the purchase moment.
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml, toastHtml,
-  statsHtml, serviceListHtml, armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml } from './depot-shell.js';
+  statsHtml, serviceListHtml, armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
 import { SHOTS } from './camera-tween.js';
 import { garageBed } from './garage-ambience.js';
 import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
@@ -150,7 +150,7 @@ export function openBayService(msg) {
     toast: was?.toast || null,
     // Open on arrival, and after that it is the player's: a push that re-opened a panel somebody
     // had just folded away would make "drive out" a button that does not stay pressed.
-    open: was ? was.open : true,
+    open: was ? was.open : !takeDeploy(),
     view: was?.view ?? null,
     shot: was?.shot,
   };
@@ -307,19 +307,23 @@ function lotScreen() {
       : here ? `${esc(t.type)} · fuel ${pct(t.fuel)}` : `at ${esc(t.whereName || 'another yard')}`;
     const acts = [
       !t.hereNow ? `<button class="vc-mini" data-hold="yard recall ${esc(t.id)}" title="Bring it here on a low-loader">Tow home · ${money(t.recall)}</button>` : '',
-      t.hereNow && !t.rental ? `<button class="vc-mini" data-hold="yard sell ${esc(t.id)}" title="Sell ${esc(t.name)}">Sell · ${money(t.resale)}</button>` : '',
-      t.hereNow && t.rental ? `<button class="vc-mini" data-hold="yard return ${esc(t.id)}" title="Hand it back early, no refund">Hand it back</button>` : '',
     ].filter(Boolean).join('');
-    return `<div class="vc-wrap${here ? '' : ' away'}${t.id === d.fresh ? ' fresh' : ''}">
-      <button class="vc-card ${style}" data-cmd="${here ? `drive ${esc(t.id)}` : ''}" ${here ? '' : 'disabled'}
-          aria-label="${esc(`${t.name}, ${t.type}, ${t.rental ? 'hired' : 'owned'}${here ? ': climb in' : ''}`)}"
-          title="${here ? 'Climb in: you start in the shed' : esc(t.impound ? 'Impounded' : `At ${t.whereName || 'another yard'}`)}">
+    const choice = here ? choiceHtml({
+      deploy: { cmd: `drive ${t.id}`, title: 'Climb in and drive straight out' },
+      maint: { cmd: `drive ${t.id}`, title: 'Climb in with the shed opened up around it' },
+      sell: t.rental ? { hold: `yard return ${t.id}`, title: 'Hand it back early, no refund' } : { hold: `yard sell ${t.id}`, title: `Sell ${t.name}` },
+      sellLabel: t.rental ? 'Hand it back' : `Sell · ${money(t.resale)}`,
+    }) : '';
+    return `<div class="vc-wrap${here ? '' : ' away'}${t.id === d.fresh ? ' fresh' : ''}${pickClass(t.id)}">
+      <button class="vc-card ${style}" ${here ? pickAttr(t.id) : 'disabled'}
+          aria-label="${esc(`${t.name}, ${t.type}, ${t.rental ? 'hired' : 'owned'}${here ? ': pick' : ''}`)}"
+          title="${here ? 'Pick it: deploy, maintenance or sell' : esc(t.impound ? 'Impounded' : `At ${t.whereName || 'another yard'}`)}">
         <canvas class="vc-cv" data-card="${esc(t.id)}" aria-hidden="true"></canvas>
         ${badge}
         <span class="vc-plate"><b>${esc(t.name)}</b><span class="vc-sub">${sub}</span>
           <span class="vc-bar" title="condition ${pct(t.condition)}"><i class="${barTone(t.condition)}" style="width:${Math.round(t.condition * 100)}%"></i></span></span>
       </button>
-      ${acts ? `<div class="vc-acts">${acts}</div>` : ''}
+      ${choice}${acts ? `<div class="vc-acts">${acts}</div>` : ''}
     </div>`;
   }).join('');
   // Anything else of yours kept in this shed (a racer, say), from the server's `depot.parked` hook.

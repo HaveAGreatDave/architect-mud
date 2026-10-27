@@ -42,7 +42,7 @@ import { describeZone } from '../../server/engine/commands/describe.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { surfaceAt } from '../flight/state.js';
 import { TYPES } from '../../client/game/js/panels/flight-model.js';
-import { aboard, isOpenWater, berthKind, myBoats, pickBoat, zonesNear, coveredRoomAtTile } from './yard.js';
+import { aboard, isOpenWater, berthKind, myBoats, pickBoat, zonesNear, coveredRoomAtTile, berthsNear, firstFreeBerth } from './yard.js';
 import { wetChange } from './service.js';
 import { conning, stopTextHelm } from './texthelm.js';
 import { rigs } from './index.js';
@@ -331,6 +331,15 @@ registerAction({
         return say(`<span class="text-dim">Which one? ${stranded.map((b) => b.name || TYPES[b.type_id]?.name).join(', ')}.</span>`);
       }
     }
+    // Standing in a marina, the one hull tied up at another yard is the one to bring round here.
+    const here = berthsNear(player.current_zone);
+    if (!boat && !seatedId && here.length) {
+      const away = rows.filter((b) => b.berth_zone && !isOpenWater(getZone(b.berth_zone)) && !here.some((z) => z.id === b.berth_zone));
+      if (away.length === 1) boat = away[0];
+      else if (away.length > 1) {
+        return say(`<span class="text-dim">Which one? ${away.map((b) => b.name || TYPES[b.type_id]?.name).join(', ')}.</span>`);
+      }
+    }
     if (!boat) return null;
     const name = boat.name || TYPES[boat.type_id]?.name || 'she';
 
@@ -348,6 +357,26 @@ registerAction({
 
     const at = seatedId === boat.id ? livePosition(player.id) : null;
     const fromZone = at ? zoneUnder(at.x, at.y) : getZone(boat.berth_zone);
+    // ⚠ TIED UP AT ANOTHER YARD IS A DELIVERY, NOT A RESCUE. You needn't be in anything: the yard
+    // sends a launch for her and she becomes this marina's, paid up front, since nothing was lost.
+    if (fromZone && !isOpenWater(fromZone) && !seatedId && here.length && !here.some((z) => z.id === fromZone.id)) {
+      const slot = await firstFreeBerth(here);
+      if (!slot) return say('<span class="text-dim">Every berth here is full. There is nowhere to bring her round to.</span>');
+      const fee = towFee(boat.type_id, fromZone.id, slot.zone.id);
+      if ((player.credits ?? 0) < fee) {
+        return say(`<span class="text-red">₵${fee.toLocaleString()}</span> <span class="text-dim">to bring ${name} round from ${fromZone.name}. You have ₵${(player.credits ?? 0).toLocaleString()}.</span>`);
+      }
+      await query(
+        `UPDATE boats SET berth_zone = $2,
+           custom_data = jsonb_set(COALESCE(custom_data, '{}'::jsonb), '{home_berth}', to_jsonb($2::text), true)
+         WHERE id = $1 AND owner_id = $3`,
+        [boat.id, slot.zone.id, player.id]);
+      unindexBoat(boat.id);
+      await adjustCredits(player, -fee, query, 'boat delivery');
+      // `tow` is trucking's verb, so the marina's re-push has to be asked for here.
+      import('./shopfront.js').then((m) => m.repushMarina(player, 'fleet')).catch(() => {});
+      return say(`<span class="text-green">A launch goes round for her.</span> <span class="text-dim">${name} is at ${slot.zone.name} now. <span class="item-loss">₵${fee.toLocaleString()}</span>.</span>`);
+    }
     if (!fromZone || !isOpenWater(fromZone)) {
       return say(`<span class="text-dim">${name} is not adrift anywhere. Nobody is going to come out and put a rope on a boat that is tied up.</span>`);
     }

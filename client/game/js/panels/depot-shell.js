@@ -276,7 +276,8 @@ export function armHolds(root, send) {
  * open / screen / group / slot; the view toggles need nothing from the depot.
  */
 export function shellClick(e, on = {}) {
-  const t = e.target.closest?.('[data-ds],[data-ds-screen],[data-ds-group],[data-ds-slot]');
+  if (choiceClick(e)) return true;
+  const t =e.target.closest?.('[data-ds],[data-ds-screen],[data-ds-group],[data-ds-slot]');
   if (!t || t.disabled) return false;
   if (t.dataset.dsScreen) { on.screen?.(t.dataset.dsScreen); return true; }
   // The parts menu's groups and slots (partsHtml).
@@ -296,6 +297,54 @@ export function shellClick(e, on = {}) {
   if (fn) { fn(); return true; }
   return false;
 }
+// ── Picking a card ───────────────────────────────────────────────────────────
+// A card on the hand doesn't seat you on the first click: it picks the vehicle, and three keys come
+// up under it. MAINTENANCE seats you with the bay open (the cut-away shed), DEPLOY seats you with the
+// bay already folded so you go straight to the controls, and SELL is held. Both seat keys send the
+// verb the card used to; Deploy only arms `takeDeploy`, which the depot's bay asks once when its
+// first push lands. The pick is the client's alone and survives a re-push.
+let picked = null;
+let deployAt = 0;
+/** ' sel' when this vehicle is the picked card, for the `.vc-wrap` class. */
+export function pickClass(id) { return id != null && String(id) === picked ? ' sel' : ''; }
+/** The card's own attribute, in place of its seating verb. */
+export function pickAttr(id) { return `data-vc-pick="${esc(id)}" aria-pressed="${String(id) === picked}"`; }
+/**
+ * The three keys under a picked card. Each is `{ cmd }`, `{ hold }` (sell is always held) or
+ * `{ attrs }` for a depot that sends from its own handler (the hangar's data-act). One given `why`
+ * is drawn disabled with that reason; one left out isn't drawn.
+ */
+export function choiceHtml({ maint = null, deploy = null, sell = null, sellLabel = 'Sell', deployLabel = 'Deploy' } = {}) {
+  const key = (k, label, ico, cls, flag) => {
+    if (!k) return '';
+    const off = !!k.why || (!k.cmd && !k.hold && !k.attrs);
+    return btnHtml(label, { cmd: k.cmd || '', hold: k.hold || '', ico, cls, attrs: `${flag} ${k.attrs || ''}`, disabled: off, why: k.why || k.title || '' });
+  };
+  return `<div class="vc-choice" role="group" aria-label="What to do with it">
+    ${key(deploy, deployLabel, '⏵', 'primary', 'data-ds-deploy')}
+    ${key(maint, 'Maintenance', '🔧', '', 'data-ds-maint')}
+    ${key(sell, sellLabel, '₵', 'ghost', '')}
+  </div>`;
+}
+/** True once, within a few seconds of a Deploy key: the bay that opens next starts folded. */
+export function takeDeploy() { const on = Date.now() - deployAt < 8000; deployAt = 0; return on; }
+function choiceClick(e) {
+  const t = e.target.closest?.('[data-vc-pick],[data-ds-deploy],[data-ds-maint]');
+  if (!t || t.disabled) return false;
+  if (t.hasAttribute('data-ds-deploy')) { deployAt = Date.now(); return false; }
+  if (t.hasAttribute('data-ds-maint')) { deployAt = 0; return false; }
+  const id = t.dataset.vcPick;
+  picked = picked === id ? null : id;
+  const hand = t.closest('.vc-hand') || t.closest('.ds-root') || document;
+  for (const w of hand.querySelectorAll('.vc-wrap')) {
+    const c = w.querySelector('[data-vc-pick]');
+    const on = !!c && c.dataset.vcPick === picked;
+    w.classList.toggle('sel', on);
+    c?.setAttribute('aria-pressed', String(on));
+  }
+  return true;
+}
+
 /** Leaving a counter drops the immersive layout, or the room look that follows has no log. */
 export function clearViewModes() { document.body.classList.remove('ds-fullscreen', 'ds-hidepanel'); }
 

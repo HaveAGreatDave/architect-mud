@@ -24,7 +24,7 @@ import { liveriesFor } from '../../../shared/livery-sets.js';
 import { shellProfileFor } from '../../../shared/interior-shell.js';
 import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, disposeWindshield, glWorldInstalled, RENDER_TUNE } from './windshield-lazy.js';
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
-  armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml } from './depot-shell.js';
+  armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
 import { SHOTS } from './camera-tween.js';
 import { garageBed } from './garage-ambience.js';
 import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
@@ -230,23 +230,28 @@ function floorScreen() {
       : `<span class="vc-badge owned">${c.location === 'hangar' ? 'IN BAY' : 'ON RAMP'}</span>`;
     const hull = Math.max(0, Math.min(100, c.hullPct));
     const acts = [
-      tbtnMini('Fly', `data-act="embark" data-id="${esc(c.id)}" data-tail="${esc(c.tail)}"`, 'vc-go'),
       pumps.includes(c.fuelType) && c.fuelPct < 100 ? tbtnMini(`Refuel · ${c.fuelPct}%`, `data-act="refuel" data-id="${esc(c.id)}"`) : '',
       d.hasBay && c.location === 'ramp' ? tbtnMini('Store', `data-act="store" data-id="${esc(c.id)}"`) : '',
       d.hasBay && c.location === 'hangar' ? tbtnMini('Roll out', `data-act="pull" data-id="${esc(c.id)}"`) : '',
-      c.rental ? tbtnMini('Return', `data-hold="cancelrental ${esc(c.id)}" title="Hand her back: the rental ends here"`)
-        : tbtnMini('Sell', `data-hold="sell ${esc(c.id)}" title="Sell her outright: this can't be undone"`),
     ].filter(Boolean).join('');
-    return `<div class="vc-wrap${c.id === d.fresh ? ' fresh' : ''}">
-      <button class="vc-card ${style}" data-act="${seated ? 'service' : 'bench'}" data-id="${esc(c.id)}"
-          aria-label="${esc(`${c.tail}, ${c.typeName}: ${seated ? 'climb in and work on her' : 'open maintenance'}`)}"
-          title="${seated ? (d.hangar ? 'Climb in on the hangar floor: the bench comes with you' : 'Climb in where she stands: the bench comes with you') : 'Maintenance, paint and tuning'}">
+    // Deploy is Fly: into the seat, nose to the door, no bench. Maintenance is the bench, in the
+    // cockpit with the hangar opened up when you can fly her, in the pane when you can't.
+    const choice = choiceHtml({
+      deploy: { attrs: `data-act="embark" data-id="${esc(c.id)}" data-tail="${esc(c.tail)}"`, title: 'Into the seat and out of the door' },
+      maint: { attrs: `data-act="${seated ? 'service' : 'bench'}" data-id="${esc(c.id)}"`, title: seated ? 'Climb in with the bench and the hangar opened up' : 'Maintenance, paint and tuning' },
+      sell: c.rental ? { hold: `cancelrental ${c.id}`, title: 'Hand her back: the rental ends here' } : { hold: `sell ${c.id}`, title: "Sell her outright: this can't be undone" },
+      sellLabel: c.rental ? 'Return' : 'Sell', deployLabel: 'Fly',
+    });
+    return `<div class="vc-wrap${c.id === d.fresh ? ' fresh' : ''}${pickClass(c.id)}">
+      <button class="vc-card ${style}" ${pickAttr(c.id)}
+          aria-label="${esc(`${c.tail}, ${c.typeName}: pick`)}"
+          title="Pick her: fly, maintenance or sell">
         <canvas class="vc-cv" data-card="${esc(c.id)}" aria-hidden="true"></canvas>
         ${badge}
         <span class="vc-plate"><b>${esc(c.tail)}</b><span class="vc-sub">${esc(c.typeName)} · fuel ${c.fuelPct}%</span>
           <span class="vc-bar" title="hull ${hull}%"><i class="${barTone(hull / 100)}" style="width:${hull}%"></i></span></span>
       </button>
-      <div class="vc-acts">${acts}</div>
+      ${choice}${acts ? `<div class="vc-acts">${acts}</div>` : ''}
     </div>`;
   }).join('');
 
