@@ -553,7 +553,17 @@ export const SCHEMA_SQL = `
   -- is the same P1 fix the connection ids exist for, and it's what lets
   -- getDoorForEdge() answer "which door, and which side am I on" in one lookup.
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS connection_id TEXT REFERENCES connections(id) ON DELETE CASCADE;
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_doors_connection ON doors(connection_id);
+  -- One door per connection, as a DEFERRABLE constraint rather than a unique
+  -- index: the content import runs SET CONSTRAINTS ALL DEFERRED, so a commit that
+  -- hands a connection from one door to another (door_shop_batter_shop to
+  -- door_sf_ironside5) checks at COMMIT, after both rows are written. As a plain
+  -- index it failed on whichever file sorted first.
+  DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'doors_connection_unique') THEN
+      DROP INDEX IF EXISTS idx_doors_connection;
+      ALTER TABLE doors ADD CONSTRAINT doors_connection_unique UNIQUE (connection_id) DEFERRABLE INITIALLY IMMEDIATE;
+    END IF;
+  END $$;
 
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS wander_zones JSONB DEFAULT '[]';
 
