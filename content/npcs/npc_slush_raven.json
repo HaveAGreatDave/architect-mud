@@ -4,11 +4,11 @@
   "chitchat": [
     "Raven walks once round the resurfacer, kicking each tyre.",
     "He fills the wash-water tank from a hose and watches the gauge.",
-    "He pulls the respirator up, takes two breaths through it, and pulls it down again.",
     "He scrapes a ridge of snow off the conditioner into a bucket.",
-    "\"Blade wants a sharpen,\" he says, to the blade."
+    "He wipes down the blade with a rag.",
+    "He hums a Highlanders chant under his breath."
   ],
-  "description": "A lean man in his fifties in a navy ice-crew parka, RAVEN stencilled across the back. A respirator hangs round his neck on a cracked strap and a ring of keys hangs off his belt. He's wiping down the resurfacer's blade with a rag, one edge at a time.",
+  "description": "A lean man in his fifties in a navy ice-crew parka, RAVEN stencilled across the back and a green-and-navy tartan scarf tucked in at the collar. A respirator hangs round his neck on a cracked strap. He's wiping down the resurfacer's blade with a rag.",
   "dialogue_tree": {
     "broadcast": {
       "options": [
@@ -17,11 +17,20 @@
           "next": "root"
         }
       ],
-      "text": "\"Sped up. They put me through in half a minute while Tug reads out the goals.\" He folds the rag. \"I watched it once. I looked like I was late for something.\""
+      "text": "\"Yeah, they show me sped up between periods. I look ridiculous.\""
+    },
+    "bulldogs": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "team"
+        }
+      ],
+      "text": "\"The Bulldogs. Can't stand them.\""
     },
     "bye": {
       "options": [],
-      "text": "\"Stay off the pad till it's set,\" he says, and goes back to the blade."
+      "text": "\"See you.\""
     },
     "fuel": {
       "options": [
@@ -30,7 +39,7 @@
           "next": "root"
         }
       ],
-      "text": "\"League fuel.\" He nods at a drum by the gate with no label on it. \"It comes in that. I wear the mask and I don't ask.\""
+      "text": "\"No idea, honestly. It comes in that drum. I just wear the mask.\""
     },
     "machine": {
       "options": [
@@ -39,7 +48,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The league's got the one.\" He pats the flank. \"Every barn in the CPhL, she goes on a flatbed and I go in the cab. Twenty-six years.\"\n\n\"Mind, she's older than me in places. The conditioner's off a machine they scrapped in Ashway.\""
+      "text": "\"Yep. The league's only got the one, so I take her to every game.\""
     },
     "pattern": {
       "options": [
@@ -48,7 +57,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Crew pull the nets first. You can't do a crease round a net.\" He draws it on the boards with a finger. \"In by the gate, the middle in four ovals, each one a strip nearer the bench. Then a lap on the inside of the boards and a lap on the boards. Out the way you came.\"\n\n\"Overlap every pass by a few inches or you leave a line. Five and a half minutes, if nobody's left a glove out.\""
+      "text": "\"Big loops, and you overlap each pass a bit so you don't leave lines. Takes about five minutes.\""
     },
     "root": {
       "options": [
@@ -67,19 +76,54 @@
         {
           "label": "Do they show you on the broadcast?",
           "next": "broadcast"
+        },
+        {
+          "label": "People say the ice is slush.",
+          "next": "slush"
+        },
+        {
+          "label": "Who do you support?",
+          "next": "team"
+        },
+        {
+          "label": "See you.",
+          "next": "bye"
         }
       ],
-      "text": "\"Mind the edge of the pad,\" he says. \"I've just done it.\"",
+      "text": "\"Hey. Mind the ice, it's still wet.\"",
       "text_by_relation": {
-        "familiar": "\"Pull up a bucket.\" He hooks one over with his boot and goes on with the blade.",
-        "first": "The man by the resurfacer pulls his respirator down to his chin.\n\n\"Ken Raven. I drive the Zamboni.\" He taps the machine with the rag. \"The league's one, the one on the broadcast. Don't touch the blade.\"",
-        "known": "\"You again.\" He nods and keeps wiping."
+        "familiar": "\"Hey! Good to see you.\"",
+        "first": "The man by the resurfacer looks up.\n\n\"Hi. I'm Ken, I drive the Zamboni.\"",
+        "known": "\"Hey, how's it going?\""
       }
+    },
+    "slush": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Yeah, well, they can try doing it with the stuff I get.\" He shrugs. \"It's good ice. I'm proud of it.\""
+    },
+    "team": {
+      "options": [
+        {
+          "label": "Who don't you like?",
+          "next": "bulldogs"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Highlanders!\" He pulls a tartan scarf out of his collar. \"Best team in the league, don't let anyone tell you different.\""
     }
   },
   "faction": null,
   "flags": {
     "clothing_layers": [
+      "a green-and-navy tartan Highlanders scarf",
       "a navy ice-crew parka with RAVEN stencilled across the back",
       "a grey hooded sweatshirt",
       "canvas work trousers and cleated rubber boots",
