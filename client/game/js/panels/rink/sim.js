@@ -1434,7 +1434,10 @@ export function createWorld(ice, seedKey) {
         // poorer passer, who can't thread it)
         const lm = laneMargin(carrier, m, 70, opp).margin;
         let sc = open * 1.2 + rand() * 4 - (lm < 0 ? 22 : lm < 0.3 ? (0.3 - lm) * 45 : 0) * (1.2 - 0.4 * (carrier.rt || RT0).pass);
-        if (zone) sc += (isDef(m) && !isDef(carrier) ? 9 : 0) + (isDef(m) && isDef(carrier) ? 11 : 0) + (!isDef(m) && isDef(carrier) && Math.abs(m.x - offGoal(side)) < 30 ? 6 : 0);
+        if (zone) sc += (isDef(m) && !isDef(carrier) ? 9 : 0) + (isDef(m) && isDef(carrier) ? 11 : 0) + (!isDef(m) && isDef(carrier) && Math.abs(m.x - offGoal(side)) < 30 ? 6 : 0)
+          // (setting up the shot: a forward open in the slot with a clean lane to him is the
+          // pass the play's been working for)
+          + (!isDef(m) && lm > 0.3 && open > 8 && hyp(m.x - offGoal(side), m.y - MID_Y) < 30 ? 12 : 0);
         else sc += clamp(fwd, -20, 25) * 0.4 + (m.slot === 0 || m.slot === 2 ? 4 : 0);
         if (sc > bs) { bs = sc; best = m; }
       }
@@ -1461,10 +1464,12 @@ export function createWorld(ice, seedKey) {
         carrier.look = [to.x, to.y, 1];
         W.schedule(releaseAt(kind), () => {
           if (W.puck.carrier !== carrier) return;
-          const spd = kind === 'drop' ? clamp(pd * 1.8, 16, 28) : 62 + rand() * 18;
+          const spd = kind === 'drop' ? clamp(pd * 1.8, 16, 28) : 66 + rand() * 10;
           W.pass(carrier, to, spd);
-          // (only as true as his passing: a poorer passer's is off line by a few degrees)
-          { const p0 = W.puck, err = (1 - (carrier.rt || RT0).pass) * 0.09 * (rand() - 0.5) * 2, c0 = Math.cos(err), s0 = Math.sin(err), vx = p0.vx; p0.vx = vx * c0 - p0.vy * s0; p0.vy = vx * s0 + p0.vy * c0; }
+          // (only as true as his passing: a poorer passer's is off line by a degree or two, and
+          // more when they're on him; tape to tape otherwise)
+          const hurried = opp.some((o) => !o.rag && hyp(o.x - carrier.x, o.y - carrier.y) < 4.5) ? 1.8 : 1;
+          { const p0 = W.puck, err = (1 - (carrier.rt || RT0).pass) * 0.035 * hurried * (rand() - 0.5) * 2, c0 = Math.cos(err), s0 = Math.sin(err), vx = p0.vx; p0.vx = vx * c0 - p0.vy * s0; p0.vy = vx * s0 + p0.vy * c0; }
           if (kind === 'saucer') W.puck.vz = 7;
           const tt = hyp(to.x - carrier.x, to.y - carrier.y) / spd;
           if (!to.scripted) W.act(to, 'receive', tt + 0.25, [carrier.x, carrier.y]);
@@ -1489,8 +1494,8 @@ export function createWorld(ice, seedKey) {
   // his shoulder into him and his free hand on him (`tussle`, rig.js), and goes at it with
   // his stick: a lift, a poke, a sweep, a cross-check, one every half second or so; the man
   // with it shields it. A cross-check against the boards pins him there and the boards take
-  // it. Pose, gesture and sound only: where they skate is the play's business, and none of
-  // it rolls the world's dice. (The man with it and the man on him stood a stick apart,
+  // it. Pose, gesture and sound, and in the between-plays game a chance of jarring it loose:
+  // where they skate is the play's business. (The man with it and the man on him stood a stick apart,
   // upright, until it came loose.)
   const BATTLE = ['lift', 'poke', 'shove', 'sweep', 'lift', 'poke', 'lift', 'shove'];
   let bat = null;
@@ -1529,6 +1534,19 @@ export function createWorld(ice, seedKey) {
         if (foe.y < 7 || foe.y > RW - 7 || foe.x < 14 || foe.x > RL - 14) { W.boardShake = Math.max(W.boardShake, 0.25); W.sfx('boards', { x: foe.x, speed: 8 }); }
       } else W.sfx(k === 'sweep' ? 'sweep' : 'stick', { x: m.x });
       W.act(m, k, k === 'shove' ? 0.5 : 0.4);
+      // IN THE BETWEEN-PLAYS GAME IT CAN WORK. A man leaning on the carrier and going at the
+      // puck sometimes jars it loose, more off a shaky man and less off one shielding it from
+      // him, and it's anybody's: the loose-puck race decides who comes out with it. (A play
+      // the director is staging keeps its result; it's the booth's.)
+      if (foe === pk.carrier && !m.scripted && !foe.scripted && !W.puckScripted && !W.frozen && W.t - W.amb.lastTurn > 0.8) {
+        const sh = foe.protect && Math.sign(-(m.x - foe.x) * Math.sin(foe.h) + (m.y - foe.y) * Math.cos(foe.h)) === foe.protect;
+        const p = (k === 'shove' ? 0.1 : 0.16) * (1.25 - (foe.ctl ?? 0.7)) * (sh ? 0.5 : 1) * (0.7 + 0.6 * (m.rt || RT0).check);
+        if (rand() < p) {
+          const a0 = Math.atan2(pk.y - m.y, pk.x - m.x) + (rand() - 0.5) * 1.6;
+          W.loose(Math.cos(a0) * 9 + (foe.vx || 0) * 0.4, Math.sin(a0) * 9 + (foe.vy || 0) * 0.4, 0);
+          foe.shaky = Math.max(foe.shaky || 0, 0.25); W.amb.lastTurn = W.t;
+        }
+      }
     };
     after(a, b);
     if (b === pk.carrier) {

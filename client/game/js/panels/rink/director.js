@@ -1176,7 +1176,9 @@ export function createDirector(W, opts = {}) {
       gl.scripted = true;
       gl.tx = netX + out * 3.2; gl.ty = lerp(MID_Y, sh.y, 0.45); gl.face = Math.atan2(sh.y - gl.y, sh.x - gl.x);
       W.act(sh, 'deke', 0.6);
-      sh.tx = netX + out * 5; sh.ty = MID_Y - sd * 3.5; sh.maxV = 15; sh.through = W.t + 0.1;
+      // (across the crease at the speed he came in at, near enough: braking to 15 for the deke
+      // was a stop at the top of the crease)
+      sh.tx = netX + out * 5; sh.ty = MID_Y - sd * 3.5; sh.maxV = Math.max(15, hyp(sh.vx, sh.vy) * 0.85); sh.through = W.t + 0.1;
       at(B, 0.12, () => W.act(gl, 'butterfly', 0.6, glSide(sh.x, sh.y)));
       at(B, 0.42, () => {
         if (D.beat !== B) return;
@@ -1623,16 +1625,21 @@ export function createDirector(W, opts = {}) {
           if (has) sh.maxV = left <= 0 && !inRange ? 26 : clamp(d / Math.max(0.3, left), 6, 24);
           // in alone he's skating, not drifting: early, he holds his speed in, and close to the
           // net with time still to kill he cuts across the slot to wait the goalie out
-          if (has && ba) {
-            sh.maxV = clamp(d / Math.max(0.3, left), 16, 24);
-            if (d < 16 && left > 0.7) { leg.cut ??= sh.seed % 2 ? 1 : -1; sh.tx = leg.sx; sh.ty = clamp(leg.sy + leg.cut * 7, MID_Y - 12, MID_Y + 12); sh.maxV = 11; if (Math.abs(sh.y - sh.ty) < 1.5) leg.cut = -leg.cut; }
-          }
-          if (has && !(left <= 0 && !inRange) && !leg.breakaway && kind !== 'breakaway' && !p.breakaway) runUp(sh, leg, left, type);
+          // IN ALONE IS ONE MOTION. He comes in on a single line at one even pace, timed so he
+          // gets to the spot as the shot's called, and lets it go as he gets there: the men
+          // chasing him are kept a stride or two behind at whatever pace he goes (above). (Held
+          // to 16 ft/s or more, he got there early, pulled up at the top of the crease and cut
+          // back and forth across the slot until the line aired.)
+          const alone = !!ba || leg.breakaway || kind === 'breakaway' || p.breakaway;
           // (in alone, a breakaway stopped is stopped close in, where the goalie can get to him)
           // (in alone he starts his deke a little before the shot's time, so the save it ends in
           // lands as it's called)
           const lead = kind === 'breakaway' && g && g.active ? 0.45 : 0;
-          if (has && left <= lead && inRange && (kind !== 'goal' || (d < 14 && inFront) || -left > 2.0) && (kind !== 'breakaway' || d < 12 || -left > 2.5)) { leg.kind = 'shooting'; shoot(sh); }
+          if (has && alone) sh.maxV = clamp(d / Math.max(0.3, left - lead), 11, 24);
+          if (has && !(left <= 0 && !inRange) && !alone) runUp(sh, leg, left, type);
+          // (and if he's there anyway, he doesn't stop to wait for it)
+          const there = alone && d < 5 && (kind !== 'goal' || inFront);
+          if (has && (there || (left <= lead && inRange && (kind !== 'goal' || (d < 14 && inFront) || -left > 2.0) && (kind !== 'breakaway' || d < 12 || -left > 2.5)))) { leg.kind = 'shooting'; shoot(sh); }
         } else if (has && (d < 5 || leg.t > 1.7)) { leg.kind = 'shooting'; shoot(sh); }
       } else if (leg.kind === 'wrapIn') {
         // late on its line, he cuts the corner and comes straight round the post
