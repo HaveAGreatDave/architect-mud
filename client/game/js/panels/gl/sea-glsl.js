@@ -377,6 +377,7 @@ vec2 seaSlope(vec2 p, float t, float ph, float amp, float rollA, float windA, fl
 // conservation is the reason the streak dims as it lengthens and that behaviour is wanted; what is
 // not wanted is a gain whose meaning changes every time the sea state does. At SEA_SIG_REF the peak
 // is 1, calmer is brighter and tighter, rougher is broader and dimmer.
+const float SEA_GLITTER_RUN = 2.5;
 float seaGlitter(vec2 here, vec2 eyeA, float eyeH, vec3 lp, vec2 windDir, float sig2u, float sig2c) {
   // The direction a facet here would have to face to put that light in your eye: the half-vector of
   // the two unit directions, and the slope it implies. ⚠ THE LIGHT'S HEIGHT IS THE WHOLE STREAK —
@@ -387,6 +388,17 @@ float seaGlitter(vec2 here, vec2 eyeA, float eyeH, vec3 lp, vec2 windDir, float 
   vec3 hv = v + l;
   float hz = max(hv.z, 1e-3);
   vec2 sl = -hv.xy / hz;
+  // ⚠ SHORTENED TOWARD THE EYE. The full Cox & Munk variance ran a lamp's streak from the far quay
+  // right to the camera, a column standing up the screen; reported as lights going "far too
+  // vertically" through the water. Scaling the slope along the line to the eye by SEA_GLITTER_RUN
+  // cuts the streak's length by that factor and leaves its width and its peak alone.
+  vec2 toEyeH = eyeA - here;
+  float te = length(toEyeH);
+  if (te > 1e-4) {
+    vec2 rd = toEyeH / te;
+    float sr = dot(sl, rd);
+    sl += rd * (sr * (SEA_GLITTER_RUN - 1.0));
+  }
   // Into the wind frame, where the two variances differ.
   float su = dot(sl, windDir);
   float sc = dot(sl, vec2(-windDir.y, windDir.x));
