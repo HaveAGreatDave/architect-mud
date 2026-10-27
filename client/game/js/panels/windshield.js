@@ -32,7 +32,7 @@ import { metalKOf } from '../../../shared/vehicle-materials.js';   // what a veh
 import { hfCastFor, hfTint, hfSkinFor } from '../../../shared/hf-tint.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { veilHTML, VEIL_CSS, veilHold, veilPainted, veilReset } from './glass-veil.js';
-import { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds, aircraftFaces, wingtipStation, meshLamps, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, drawBoatHullArt, boatExhaustPorts, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit , truckMeta, rotorsFor, hasMainRotor, meshParams, meshIds } from './aircraft3d.js';
+import { isBoatClass, setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds, aircraftFaces, wingtipStation, meshLamps, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, drawBoatHullArt, boatExhaustPorts, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit , truckMeta, rotorsFor, hasMainRotor, meshParams, meshIds } from './aircraft3d.js';
 import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster, readPixels, depthWinAt } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { seatAudioFrame, seatSpot } from './seat-audio.js';   // contacts' engines placed in 3D, and the listener's pose
@@ -5737,11 +5737,15 @@ function paintWindshieldFrame(id, view) {
     // own (drawPodracerShadows). ⚠ Not the shadow map: that casts the buildings alone, and the
     // street-furniture map leaves the own ship out on purpose (gl/world.js propShadowFor), so it had
     // no shadow at all and hung over the ground like a sticker.
-    if (!framed && !v.hideOwnShip && v.cls !== 'truck' && v.cls !== 'podracer' && !v.drakeWater) {
+    // ⚠ A BOAT FOLLOWS THE DRAKE'S RULE ON THE WATER, and on the sand throws her own hull: the
+    // silhouette is the model's (shadowPlan), so a beached skiff no longer casts a Twin Otter.
+    const hullAfloat = isBoatClass(v.cls) && hullSurfGain(cam.ox || 0, cam.oy || 0, 1, 1) > 0.05;
+    if (!framed && !v.hideOwnShip && v.cls !== 'truck' && v.cls !== 'podracer' && !v.drakeWater && !hullAfloat) {
       const grounded = phase === 'ground' ? 1 : clamp(1 - height / 0.06, 0, 1);
       if (grounded > 0.01) drawGroundContactShadow(ctx, cam, v.heading, v.cls, grounded);
       if (sunFx.elev > 0.02 && grounded < 0.99) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend, v.heading, v.cls);
     }
+    if (!framed && v.contacts && v.contacts.length) drawContactShadows(ctx, cam, v.contacts, sunFx, worldBlend);
     if (!framed && !v.hideOwnShip && v.cls === 'podracer' && v.podracer) {
       drawPodracerShadows(ctx, cam, v.ownHdg ?? v.heading, v.podracer, PODRACER_TYPES[v.variant] || PODRACER_TYPES.podracer, v.rideZ, sunFx);
     }
@@ -35618,7 +35622,39 @@ function inferContactCtrl(c, now) {
 // ⚠ ONE COPY, BECAUSE THERE ARE NOW THREE READERS. The bake, the draw and the solids collection all
 // have to put the same model in the same place; two of them held this verbatim already, and a third
 // transcription is how a rig ends up hovering a few feet above its own shadow.
+// A hull on the water, fitted to the sea the mesh draws: the bow and the two quarters, as the Echelon
+// is (yachtRideAt). `wx, wy` is the sea's frame, the map window's; `vr` is the drawn height over the
+// drawn plan, which turns a water slope into the angle an exaggerated hull has to take to stay on it.
+function hullSeaRide(wx, wy, hr, halfLen, halfBeam, vr) {
+  const fX = Math.sin(hr), fY = -Math.cos(hr), rX = Math.cos(hr), rY = Math.sin(hr);
+  const a = seaPoseAt(wx + fX * halfLen, wy + fY * halfLen, null);
+  if (!a) return null;
+  const qx = wx - fX * halfLen, qy = wy - fY * halfLen;
+  const b = seaPoseAt(qx - rX * halfBeam, qy - rY * halfBeam, null), c = seaPoseAt(qx + rX * halfBeam, qy + rY * halfBeam, null);
+  return { heave: (a.h + b.h + c.h) / 3,
+    roll: Math.atan2(c.h - b.h, 2 * halfBeam * vr) * RIDE_K,              // starboard up
+    pitch: Math.atan2(a.h - (b.h + c.h) / 2, 2 * halfLen * vr) * RIDE_K }; // bow up
+}
+// ⚠ ANOTHER BOAT RIDES THE SAME SEA AS YOURS. The feed sends a hull as a ground contact
+// (`groundZ: 0`), which stood every other boat level on the mean sea while the crests went over
+// her. Posed once per frame, here, because all three readers (the bake, the draw, the solids) start
+// from contactBaseWz and then draw `c.pitch`/`c.bank`. A frame's contacts are fresh objects
+// (world-feed.js `frame`), so the mark never outlives the frame.
+function poseSeaContact(cam, c) {
+  c._seaPosed = true;
+  if (c.groundZ !== 0 || !isBoatClass(c.cls)) return;
+  const wx = c.dx + (cam.ox || 0), wy = c.dy + (cam.oy || 0);
+  if (!(hullSurfGain(wx, wy, 1, 1) > 0.05)) return;                        // beached: she sits on the sand
+  const k = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1), P = shadowPlan(c.cls);
+  const r = hullSeaRide(wx, wy, (c.hdg || 0) * Math.PI / 180, P.hl * k * 0.8, P.hb * k * 0.8, vsOf(c.cls));
+  if (!r) return;
+  const D = 180 / Math.PI;
+  c.groundZ = r.heave;
+  c.pitch = (c.pitch || 0) + r.pitch * D;
+  c.bank = (c.bank || 0) - r.roll * D;                                     // bank is starboard DOWN
+}
 function contactBaseWz(cam, c) {
+  if (!c._seaPosed) poseSeaContact(cam, c);
   if (c.groundZ == null) return cam.EH + (c.altDiff || 0) * CONTACT_ALT_K;
   const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1);
   const drop = SIZE * vsOf(c.cls) * (-modelLowestH(c.cls, c.pitch, c.bank, 1, !!c.armed));
@@ -59476,8 +59512,36 @@ const SHADOW_PLANE = [
 // the drawn model (× OWN_EXT_MUL in draw), normalised so the reference 'prop' keeps its tuned 0.42.
 // Before this the shadow was a flat 0.42 for every craft, so once the airframes were scaled a tiny
 // heli cast a heavy's shadow (and vice-versa); now the footprint tracks the silhouette it belongs to.
-const SHADOW_REF = FRAME_SIZE.prop || 0.11;
-function shadowScale(cls) { return 0.42 * (FRAME_SIZE[cls] || SHADOW_REF) / SHADOW_REF; }
+// ⚠ EVERY VEHICLE THROWS ITS OWN OUTLINE. Every class used to paint SHADOW_PLANE, so a boat or a
+// rig on a pad cast an aeroplane, wings and all. The outline is now the model's own faces seen from
+// straight above, normalised to its widest reach `R` (model units), and the scale is the size the
+// model is drawn at times R, so the shadow is as long as the thing casting it.
+// `k` is the drawn plan size in tiles per model unit: the own ship's CONTACT_SIZE x ownExtMul, or a
+// contact's CONTACT_SIZE x sizeMul.
+const _shadowPlans = new Map();
+function shadowPlan(cls) {
+  let P = _shadowPlans.get(cls);
+  if (P) return P;
+  const polys = [];
+  let R = 0;
+  let faces = [];
+  try { faces = aircraftFaces(cls, 1) || []; } catch { faces = []; }
+  for (const face of faces) {
+    if (face.role === 'rotor' || !face.p || face.p.length < 3) continue;   // a rotor throws its disc below, not its blades
+    const pts = face.p.map((p) => [p[0], p[1]]);
+    let a = 0;
+    for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; }
+    if (Math.abs(a) < 1e-6) continue;                                      // edge-on from above: a side panel throws nothing
+    for (const [x, y] of pts) R = Math.max(R, Math.abs(x), Math.abs(y));
+    polys.push(pts);
+  }
+  let hl = 0, hb = 0;
+  for (const pts of polys) for (const [x, y] of pts) { hl = Math.max(hl, Math.abs(x)); hb = Math.max(hb, Math.abs(y)); }
+  P = R > 0 ? { polys: polys.map((pts) => pts.map(([x, y]) => [x / R, y / R])), R, hl, hb } : { polys: SHADOW_PLANE, R: 1, hl: 1, hb: 0.3 };
+  _shadowPlans.set(cls, P);
+  return P;
+}
+function shadowScale(cls, k = (CONTACT_SIZE[cls] || 0.11) * ownExtMul(cls)) { return k * shadowPlan(cls).R; }
 
 // Paint the shadow silhouette on the ground plane, centred at world ground point (gx,gy),
 // nose along heading `hr` (radians), scaled by `L` tiles. Each vertex is projected through
@@ -59531,8 +59595,9 @@ function shadowSprite(cls, softQ) {
   if (hasMainRotor(cls)) {   // anything under a horizontal rotor throws a disc and a body, whatever its class is called
     const disc = [];
     for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; disc.push([Math.cos(a) * 0.95, Math.sin(a) * 0.95]); }
-    poly(disc); poly([[0.62, 0], [0.1, 0.16], [-0.7, 0.12], [-0.7, -0.12], [0.1, -0.16]]);
-  } else for (const p of SHADOW_PLANE) poly(p);
+    poly(disc);
+    for (const p of shadowPlan(cls).polys) poly(p);
+  } else for (const p of shadowPlan(cls).polys) poly(p);
   _shadowBakes.set(key, c);
   return { key, img: c };
 }
@@ -59541,13 +59606,6 @@ function paintShadowSilhouette(ctx, cam, gx, gy, hr, L, alpha, cls, soft = 0) {
   const cs = Math.cos(hr), sn = Math.sin(hr);
   // craft-local (fwd,side) → world ground (z=0) → screen. forward = (sin,-cos), right = (cos,sin).
   const S = (fwd, side) => cam.proj(gx + fwd * sn + side * cs, gy - fwd * cs + side * sn, 0);
-  const fillPoly = (localPts) => {
-    const pts = [];
-    for (const [f, s] of localPts) { const q = S(f * L, s * L); if (q.f <= 0.1) return; pts.push(q); }   // any vertex behind the lens → skip this poly
-    ctx.beginPath(); ctx.moveTo(pts[0].sx, pts[0].sy);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].sx, pts[i].sy);
-    ctx.closePath(); ctx.fill();
-  };
   const cc = cam.proj(gx, gy, 0);
   const pxPerTile = cc.f > 0.1 ? cam.FL / cc.f : 40;   // screen px per world tile at the shadow's distance
   // The clamp resolved back into a softness, so the bake below can key on it — see shadowSprite.
@@ -59560,17 +59618,20 @@ function paintShadowSilhouette(ctx, cam, gx, gy, hr, L, alpha, cls, soft = 0) {
       p: [P(E, -E), P(E, E), P(-E, E), P(-E, -E)] });
     return;
   }
+  // ⚠ THE 2-D PATH DRAWS THE SAME BAKE, not the outline face by face. The outline is the model's own
+  // faces (up to ~4,800 for the Drake), so projecting each one per frame was the whole budget. The
+  // sprite is laid on the ground through an affine fit of three projected corners: a shadow is small
+  // enough that the perspective lost across it is a fraction of a pixel, and the bake already holds
+  // the penumbra, so no canvas blur runs either.
+  const sp = shadowSprite(cls, Math.max(0, Math.min(16, Math.round(softEff * 16))));
+  const E = SHADOW_EXT * L;
+  const A = S(E, -E), B = S(E, E), C = S(-E, -E), Dq = S(-E, E);
+  if (!(A.f > 0.1 && B.f > 0.1 && C.f > 0.1 && Dq.f > 0.1)) return;
+  const n = SHADOW_BAKE;
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.fillStyle = 'rgb(6,8,12)';
-  if (soft > 0.01) ctx.filter = `blur(${clamp(pxPerTile * L * soft * 0.55, 0.6, 30).toFixed(1)}px)`;
-  if (hasMainRotor(cls)) {   // rotor disc + a stubby body
-    const disc = [], body = [[0.62, 0], [0.1, 0.16], [-0.7, 0.12], [-0.7, -0.12], [0.1, -0.16]];
-    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; disc.push([Math.cos(a) * 0.95, Math.sin(a) * 0.95]); }
-    fillPoly(disc); fillPoly(body);
-  } else {
-    for (const poly of SHADOW_PLANE) fillPoly(poly);
-  }
+  ctx.transform((B.sx - A.sx) / n, (B.sy - A.sy) / n, (C.sx - A.sx) / n, (C.sy - A.sy) / n, A.sx, A.sy);
+  ctx.drawImage(sp.img, 0, 0);
   ctx.restore();
 }
 
@@ -59595,6 +59656,35 @@ function drawAircraftShadow(ctx, cam, height, sun, worldBlend, heading, cls) {
   const soft = clamp(0.15 + alt * 0.85, 0, 1);   // crisp near the deck → diffuse smear up high
   paintShadowSilhouette(ctx, cam, cxw, cyw, hr, shadowScale(cls) * (1 - alt * 0.4),
     clamp(sun.alpha * 1.5 * worldBlend * (1 - alt * 0.5) * farFade, 0, 0.4), cls, soft);
+}
+
+// EVERY OTHER VEHICLE'S SHADOW. Contacts threw none, so traffic on the apron and aircraft overhead
+// hung over the ground like stickers. Same two shadows as the own ship, in its outline and size: a
+// planted contact shadow on the ground, the sun-cast one in the air. A hull afloat throws none (the
+// Drake's rule), and a podracer's three bodies are the own ship's business.
+function drawContactShadows(ctx, cam, contacts, sun, worldBlend) {
+  for (const c of contacts) {
+    if (!c || c.cls === 'podracer' || !(c.dx * c.dx + c.dy * c.dy < VISIBLE_FAR_F * VISIBLE_FAR_F)) continue;
+    const baseWz = contactBaseWz(cam, c);   // poses a hull on the sea, so ask before the afloat test
+    if (isBoatClass(c.cls) && hullSurfGain(c.dx + (cam.ox || 0), c.dy + (cam.oy || 0), 1, 1) > 0.05) continue;
+    const k = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1);
+    const hr = (c.hdg || 0) * Math.PI / 180, L = shadowScale(c.cls, k);
+    const fade = contactFade(Math.hypot(c.dx, c.dy));
+    if (c.groundZ != null && !((c.altDiff || 0) > 0)) {
+      paintShadowSilhouette(ctx, cam, c.dx, c.dy, hr, L, 0.36 * fade, c.cls, 0.14);
+      continue;
+    }
+    if (!(sun.elev > 0.02)) continue;
+    const alt = clamp(baseWz / 10, 0, 1);
+    const reach = alt * 10 / Math.max(0.35, sun.elev);
+    const gx = c.dx + sun.shadowDir[0] * reach, gy = c.dy + sun.shadowDir[1] * reach;
+    const p = cam.proj(gx, gy, 0);
+    if (!(p.f > 0.12)) continue;
+    const farFade = clamp((VISIBLE_FAR_F - p.f) / 8, 0, 1);
+    if (farFade <= 0.01) continue;
+    paintShadowSilhouette(ctx, cam, gx, gy, hr, L * (1 - alt * 0.4),
+      clamp(sun.alpha * 1.5 * Math.max(worldBlend, 0.5) * (1 - alt * 0.5) * farFade * fade, 0, 0.4), c.cls, clamp(0.15 + alt * 0.85, 0, 1));
+  }
 }
 
 // A soft contact shadow directly beneath the craft, present whenever it's on the ground

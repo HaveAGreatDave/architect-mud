@@ -1901,6 +1901,8 @@ function baseRow(kind, id) { return (KIND_TABLE()[kind] || {})[id] || null; }
 function fwParams(cls) { return _vehOverride.fw.get(cls) || FW_PARAMS[cls] || null; }
 function truckShape(id) { return _vehOverride.truck.get(id) || TRUCK_SHAPES[id] || null; }
 function boatShape(id) { return _vehOverride.boat.get(id) || BOAT_SHAPES[id] || null; }
+// A hull that floats: the renderer fits it to the drawn sea and keeps a cast shadow off the water.
+export function isBoatClass(cls) { return !!boatShape(cls); }
 // A copy, so an editor can't edit the table it overrides.
 export function vehicleParamBase(kind, id) {
   const row = baseRow(kind, id);
