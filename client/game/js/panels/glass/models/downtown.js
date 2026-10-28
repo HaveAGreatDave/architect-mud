@@ -1946,7 +1946,7 @@ export const DOWNTOWN_ARMS = {
     if (night) { glowPool(ctx, cam, dx, dy, h * 0.6, '96,206,240', 16, alpha * 0.22);
       const [kx, ky] = F(-fh * 0.05, sfw * 0.6); glowPool(ctx, cam, kx, ky, h * 0.3, '190,200,255', 12, alpha * 0.16); }
   },
-  studiogate(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // KSAB Writers' Wing: a glazed annex. ⚠ Keep everything inside its own tile (anything past it reaches the road).
+  studiogate(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // KSAB5 (the old Writers' Wing): a glazed annex. ⚠ Keep everything inside its own tile (anything past it reaches the road).
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.06, pal, seed + 5, night, alpha, false);
     // ⚠ No roof cap on the lobby: it would z-fight the parapet's roof.
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, h * 0.06, h * 0.9, 'ty_ksab_glass', seed, night, alpha, false);

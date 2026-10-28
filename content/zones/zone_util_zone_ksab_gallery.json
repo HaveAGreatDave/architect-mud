@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_ksab_gallery",
   "map_id": "map_int_ksab",
-  "name": "KSAB Script Vault — Utility Room",
+  "name": "KSAB5 Utility Room",
   "parent_zone": "zone_district_913_910"
 }

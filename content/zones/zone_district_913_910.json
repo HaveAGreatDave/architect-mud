@@ -3,14 +3,14 @@
   "ambient_theme": "urban",
   "bg_color": "#241f2e",
   "color": "#8ba36a",
-  "description": "KSAB's Writers' Wing, its marquee reading WRITERS' WING · SCRIPT LOCKED 04:00. Through the glass, whiteboards stand in rows, and one desk lamp is burning at an hour when nothing should be. Its door faces into the lot.",
+  "description": "KSAB5, the station's sports channel, in the old writers' building. The marquee reads ALL GAMES LIVE, and through the glass a wall of monitors shows two grounds at once. Its door faces into the lot.",
   "exits": {
     "north": "zone_ksab_lobby",
     "south": "zone_medialot_913_911",
     "west": "zone_medialot_912_910"
   },
   "flags": {
-    "building_name": "KSAB Writers' Wing",
+    "building_name": "KSAB5",
     "building_type": "studio",
     "district": "nightlife",
     "entrance": "south",
@@ -30,6 +30,6 @@
   "id": "zone_district_913_910",
   "map_id": "map_world",
   "marker": "KW",
-  "name": "KSAB Writers' Wing",
+  "name": "KSAB5",
   "parent_zone": null
 }

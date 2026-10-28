@@ -6,6 +6,8 @@
   "exits": {
     "down": "zone_util_1782953094650",
     "east": "zone_district_912_911",
+    "north": "zone_ksab7_writers",
+    "south": "zone_ksab7_green",
     "up": "zone_prod_1782953094650"
   },
   "flags": {

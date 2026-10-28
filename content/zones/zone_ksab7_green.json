@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221e2c",
+  "description": "The green room, which is beige. A sofa, a mirror ringed with bulbs, a fruit bowl nobody touches, and a monitor showing the stage floor. The guests wait here before they go on. The stage is through the north door.",
+  "exits": {
+    "north": "zone_studio_1782953094650"
+  },
+  "flags": {
+    "building_name": "KSAB-TV Studio Stage",
+    "building_type": "studio",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_912_911"
+  },
+  "grid_x": 0,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_ksab7_green",
+  "map_id": "map_int_1782953094650",
+  "name": "KSAB-TV Green Room",
+  "parent_zone": "zone_district_912_911"
+}

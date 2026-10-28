@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221e2c",
+  "description": "KSAB-TV's writers' room: a long table with eight chairs and one of them broken, a corkboard of index cards for the week's shows, and a whiteboard that says FUNNY BY FOUR OR IT AIRS SAD. The bin is full of coffee cups. The stage is through the south door.",
+  "exits": {
+    "south": "zone_studio_1782953094650"
+  },
+  "flags": {
+    "building_name": "KSAB-TV Studio Stage",
+    "building_type": "studio",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_912_911"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_ksab7_writers",
+  "map_id": "map_int_1782953094650",
+  "name": "KSAB-TV Writers' Room",
+  "parent_zone": "zone_district_912_911"
+}

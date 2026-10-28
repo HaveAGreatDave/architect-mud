@@ -1,0 +1,9 @@
+{
+  "a": "zone_ksab5_prod",
+  "b": "zone_ksab5_stage",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_ksab5_prod_down_inxo",
+  "lockable": false,
+  "one_way": false
+}

@@ -29,6 +29,9 @@
 const M = (m) => m / 17.857;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const TAU = Math.PI * 2;
+// A repeatable 0..1 from a tile's seed and a position, so a panel keeps its shade from frame to frame.
+const hash = (seed, k) => { const x = Math.sin((seed || 0) * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };
+const tint = (rgb, f) => rgb.map((c) => clamp(c * (1 + f), 0, 255));
 
 // ── THE LOT, IN CONSTANTS ──
 // The wall stands just inside its own tile, so a neighbour's mass and this never share a plane.
@@ -38,6 +41,7 @@ export const LOT = Object.freeze({
   WALL_H: M(3.6),         // about a storey
   PLINTH_H: M(0.55),      // the darker base course
   COPE_H: M(0.22), COPE_O: M(0.12),
+  BAY: M(3.2), PIL_W: M(0.28), PIL_D: M(0.15),   // a pilaster every bay, standing proud of the render
   BAND_Z0: M(0.62), BAND_Z1: M(0.86),   // the cyan band, just over the plinth
   GATE_HALF: M(4.3),      // half the opening, pier face to pier face
   PIER_R: M(0.8), PIER_H: M(5.4),
@@ -197,13 +201,45 @@ export function drawMediaLot(o) {
   };
 
   // ── THE WALL ──
-  // From `a` to `b` along a side (u in that side's frame), plinth, render, coping, and the band on
-  // both faces. The band is paint by day and a lit strip after dark.
+  // From `a` to `b` along a side (u in that side's frame): a plinth, the render in panels between
+  // pilasters, a two-step coping, and the band on both faces. The band is paint by day and a lit
+  // strip after dark. Each panel takes its own shade of render and the top of it is darker where
+  // the rain comes off the coping; near to, the plinth shows its joints and the panels their
+  // streaks, so the wall doesn't read as one flat sheet.
   const wallRun = (F, a, b) => {
     const hu = (b - a) / 2, u = (a + b) / 2, hv = LOT.WALL_T / 2, v = LOT.WALL_C;
     box(F, u, v, hu, hv + M(0.05), 0, LOT.PLINTH_H, PAL.plinth, 'paint');
     box(F, u, v, hu, hv, LOT.PLINTH_H, LOT.WALL_H, PAL.render, 'paint');
     box(F, u, v, hu + 0.002, hv + LOT.COPE_O, LOT.WALL_H, LOT.WALL_H + LOT.COPE_H, PAL.coping, 'paint');
+    box(F, u, v, hu + 0.001, hv + LOT.COPE_O * 0.45, LOT.WALL_H - M(0.16), LOT.WALL_H, PAL.coping, 'paint');   // the bed mould under it
+    const bays = Math.max(1, Math.round((b - a) / LOT.BAY));
+    const step = (b - a) / bays, zTop = LOT.WALL_H - M(0.16);
+    for (let i = 0; i < bays; i++) {
+      const u0 = a + step * i, u1 = u0 + step, r = hash(o.seed, u0 * 977 + v * 131);
+      const tone = tint(PAL.render, (r - 0.5) * 0.10), stain = tint(PAL.render, -0.13 - r * 0.05);
+      for (const s of [-1, 1]) {
+        const vv = v + s * (hv + 0.0008), p0 = u0 + LOT.PIL_W, p1 = u1 - LOT.PIL_W;
+        face([F(p0, vv, LOT.BAND_Z1), F(p1, vv, LOT.BAND_Z1), F(p1, vv, zTop - M(0.55)), F(p0, vv, zTop - M(0.55))], tone, 'paint');
+        face([F(p0, vv, zTop - M(0.55)), F(p1, vv, zTop - M(0.55)), F(p1, vv, zTop), F(p0, vv, zTop)], stain, 'paint');
+        if (o.near) {
+          // Two or three streaks down from the coping, and the joints in the plinth.
+          const vs = v + s * (hv + 0.0012), n = 2 + Math.floor(r * 2);
+          for (let k = 0; k < n; k++) {
+            const t = hash(o.seed, u0 * 313 + k * 71 + s), us = p0 + (p1 - p0) * (0.1 + 0.8 * t), w = M(0.10 + 0.12 * t);
+            const zl = zTop - M(0.55) - M(0.6 + 1.4 * hash(o.seed, k * 19 + u0 * 53));
+            face([F(us - w, vs, zl), F(us + w, vs, zl), F(us + w, vs, zTop - M(0.55)), F(us - w, vs, zTop - M(0.55))], stain, 'paint');
+          }
+          const vp = v + s * (hv + M(0.05) + 0.0008);
+          for (let k = 1; k < 3; k++) {
+            const uj = u0 + step * k / 3;
+            face([F(uj - M(0.025), vp, 0), F(uj + M(0.025), vp, 0), F(uj + M(0.025), vp, LOT.PLINTH_H), F(uj - M(0.025), vp, LOT.PLINTH_H)], tint(PAL.plinth, -0.25), 'paint');
+          }
+        }
+      }
+      // A pilaster at the start of every bay, standing proud of both faces and up into the coping.
+      box(F, u0 + (i === 0 ? LOT.PIL_W * 0.5 : 0), v, LOT.PIL_W * (i === 0 ? 0.5 : 1), hv + LOT.PIL_D, LOT.PLINTH_H, LOT.WALL_H - M(0.02), tint(PAL.render, 0.04), 'paint', PAL.coping);
+    }
+    box(F, b - LOT.PIL_W * 0.5, v, LOT.PIL_W * 0.5, hv + LOT.PIL_D, LOT.PLINTH_H, LOT.WALL_H - M(0.02), tint(PAL.render, 0.04), 'paint', PAL.coping);
     const bandC = lit ? PAL.cyanLit : PAL.cyan, bandM = lit ? 'lit' : 'paint';
     for (const s of [-1, 1]) {
       const vv = v + s * (hv + 0.0015);
@@ -422,20 +458,72 @@ export function drawMediaLot(o) {
         }
       }
     }
-    drum(x, y, R + M(0.45), z0 - M(0.12), z0, 12, PAL.steelDk, 'metal');
-    drum(x, y, R, z0, z1, 12, PAL.tank, 'metal');
-    for (const k of [0.33, 0.66]) drum(x, y, R + 0.0012, z0 + (z1 - z0) * k, z0 + (z1 - z0) * k + M(0.08), 12, PAL.steelDk, 'metal');
+    // The riser: the pipe up the middle from the ground to the tank's floor.
+    strut(T(x, y, 0), T(x, y, z0 - M(0.12)), M(0.32), PAL.steelDk, 'metal');
+    // The catwalk: a deck round the tank's foot on the legs' heads, and a railing round it.
+    const CW = R + M(0.9);
+    drum(x, y, CW, z0 - M(0.22), z0 - M(0.08), 16, PAL.steelDk, 'metal');
+    drum(x, y, R + M(0.45), z0 - M(0.12), z0, 16, PAL.steelDk, 'metal');
+    if (o.near) {
+      for (let i = 0; i < 16; i++) {
+        const a = (i + 0.5) / 16 * TAU, px = x + Math.cos(a) * (CW - M(0.06)), py = y + Math.sin(a) * (CW - M(0.06));
+        strut(T(px, py, z0 - M(0.08)), T(px, py, z0 + M(1.0)), M(0.03), PAL.steelDk, 'metal');
+      }
+      const rail = (zz) => { for (let i = 0; i < 16; i++) {
+        const a0 = (i + 0.5) / 16 * TAU, a1 = (i + 1.5) / 16 * TAU, r = CW - M(0.06);
+        strut(T(x + Math.cos(a0) * r, y + Math.sin(a0) * r, zz), T(x + Math.cos(a1) * r, y + Math.sin(a1) * r, zz), M(0.03), PAL.steel, 'metal');
+      } };
+      rail(z0 + M(1.0)); rail(z0 + M(0.5));
+    }
+    // The tank in sixteen staves, every other one a shade darker, so it reads as plate and not a tube.
     {
-      const n = 12, rim = [], apex = T(x, y, z1 + M(1.7));
+      const n = 16, ring = (zz, r) => { const out = []; for (let i = 0; i < n; i++) { const a = (i + 0.5) / n * TAU; out.push(T(x + Math.cos(a) * r, y + Math.sin(a) * r, zz)); } return out; };
+      const b = ring(z0, R), t = ring(z1, R);
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n, tone = tint(PAL.tank, (i % 2 ? -0.06 : 0.02) + (hash(o.seed, i * 7) - 0.5) * 0.06);
+        face([b[i], b[j], t[j], t[i]], tone, 'metal');
+      }
+      face(t, PAL.tank, 'metal');
+      // A rust run under two of the seams, near to.
+      if (o.near) for (const i of [3, 10]) {
+        const a = (i + 1) / n * TAU, w = 0.012, r = R + 0.0009;
+        const p = (da, zz) => T(x + Math.cos(a + da) * r, y + Math.sin(a + da) * r, zz);
+        face([p(-w, z0 + (z1 - z0) * 0.30), p(w, z0 + (z1 - z0) * 0.30), p(w, z1 - M(0.2)), p(-w, z1 - M(0.2))], [138, 104, 82], 'paint');
+      }
+    }
+    for (const k of [0.06, 0.28, 0.5, 0.72, 0.94]) drum(x, y, R + 0.0012, z0 + (z1 - z0) * k, z0 + (z1 - z0) * k + M(0.08), 16, PAL.steelDk, 'metal');
+    {
+      const n = 16, rim = [], apex = T(x, y, z1 + M(1.7));
       for (let i = 0; i < n; i++) { const a = (i + 0.5) / n * TAU; rim.push(T(x + Math.cos(a) * (R + M(0.1)), y + Math.sin(a) * (R + M(0.1)), z1)); }
-      for (let i = 0; i < n; i++) face([rim[i], rim[(i + 1) % n], apex], PAL.cone, 'metal');
+      for (let i = 0; i < n; i++) face([rim[i], rim[(i + 1) % n], apex], tint(PAL.cone, i % 2 ? -0.05 : 0.03), 'metal');
+      // The roof hatch and the vent by it.
+      const hx = x + R * 0.45, hy = y - R * 0.1, hz = z1 + M(1.7) * 0.55;
+      box(T, hx, hy, M(0.35), M(0.35), hz - M(0.15), hz + M(0.12), PAL.steelDk, 'metal');
+      drum(x - R * 0.4, y + R * 0.2, M(0.18), z1 + M(1.7) * 0.6 - M(0.2), z1 + M(1.7) * 0.6 + M(0.5), 6, PAL.steel, 'metal');
+    }
+    // The ladder up the north-west leg to the catwalk, and on up the tank to the roof.
+    if (o.near) {
+      const [lx, ly] = at(legs[0], 0), [mx, my] = at(legs[0], 1), off = M(0.25);
+      for (const s of [-1, 1]) {
+        strut(T(x + lx + s * off, y + ly, 0), T(x + mx + s * off, y + my, z0 - M(0.2)), M(0.03), PAL.steel, 'metal');
+      }
+      for (let k = 1; k < 18; k++) {
+        const t = k / 18, px = x + lx + (mx - lx) * t, py = y + ly + (my - ly) * t;
+        strut(T(px - off, py, (z0 - M(0.2)) * t), T(px + off, py, (z0 - M(0.2)) * t), M(0.02), PAL.steel, 'metal');
+      }
+      const a = 1.25 * Math.PI, rx = x + Math.cos(a) * (R + M(0.2)), ry = y + Math.sin(a) * (R + M(0.2)), tx = -Math.sin(a) * off, ty = Math.cos(a) * off;
+      for (const s of [-1, 1]) strut(T(rx + s * tx, ry + s * ty, z0), T(rx + s * tx, ry + s * ty, z1 + M(0.6)), M(0.03), PAL.steel, 'metal');
+      for (let k = 1; k < 9; k++) {
+        const zz = z0 + (z1 + M(0.6) - z0) * k / 9;
+        strut(T(rx - tx, ry - ty, zz), T(rx + tx, ry + ty, zz), M(0.02), PAL.steel, 'metal');
+      }
     }
     // The disc and its 7, on the street side (south) and the court side (west).
     // ⚠ `t` IS THE VIEWER'S RIGHT, looking at the face from outside: east on the south face, south on
     // the west face. The other way round, the 7 comes out mirrored.
     for (const [ux, uy] of [[0, 1], [-1, 0]]) {
       const nx = ux, ny = uy, tx = uy, ty = -ux;
-      const cz = (z0 + z1) / 2, r = (z1 - z0) * 0.38, off = R * Math.cos(Math.PI / 12) + 0.0018;
+      const cz = (z0 + z1) / 2, r = (z1 - z0) * 0.38, off = R * Math.cos(Math.PI / 16) + 0.0018;
       const P = (s, t, zz) => T(x + nx * off + tx * s, y + ny * off + ty * s, zz + t);
       const ring = [];
       for (let i = 0; i < 14; i++) { const a = i / 14 * TAU; ring.push(P(Math.cos(a) * r, Math.sin(a) * r, cz)); }

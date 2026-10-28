@@ -1,0 +1,14 @@
+{
+  "description": "A strip light over the production desk.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_ksab5_prod",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "overhead light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_ksab5_prod"
+}

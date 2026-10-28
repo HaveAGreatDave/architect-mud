@@ -118,6 +118,19 @@ Just My Type and Wrap Party are set aside, not deleted, the way the Coliseum's b
 | Room | Where | What's in it |
 |---|---|---|
 | Press Hall (`zone_sentinel_press`) | south of the Sentinel's bullpen | the paper's rotary press, Ludd's two flatbeds, the drying line, the type cases, the jobbing board; Pavel Ludd |
+| KSAB5 Writers' Lounge (`zone_ksab_lobby`) | the old Writers' Wing, inside its door | the sports writers' sofas, urn and whiteboard of tonight's games |
+| KSAB5 Studio (`zone_ksab5_stage`) | east of the lounge | the live stage: a sports desk, three cameras, a low grid |
+| KSAB5 Production (`zone_ksab5_prod`) | over the studio | the vision mixer, the outside-broadcast feeds, KSAB5's deck |
+| KSAB-TV Writers' Room (`zone_ksab7_writers`) | north of the stage floor | the long table and the index cards |
+| KSAB-TV Green Room (`zone_ksab7_green`) | south of the stage floor | where the guests wait |
+
+**The Writers' Wing is KSAB5's building** (2026-10-28), written by
+[scripts/content/ksab-rooms.mjs](../../scripts/content/ksab-rooms.mjs). The facade, the story floor
+and the script vault kept their ids; only the names changed, and the authored model's bind and signs
+went with them (`KSAB5`, `ALL GAMES LIVE`). KSAB5's `studio_zone_id` is still null, so the broadcast
+plugin treats its studio as scenery: its games come from the grounds, not the desk. Each new room has
+a `power_zones` row off its building's generator and an overhead light; authored lights import off,
+so they need the lights one-shot after the deploy.
 
 ⚠ **The press hall is a room of its own because a counter shuts.** A room a vendor works in is a
 shop and locks outside his hours (plugins/commerce/shopdoor.js), and the bullpen is the only way to

@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221e2c",
+  "description": "The production room over the stage: a long desk, a vision mixer, and a bank of monitors carrying the outside-broadcast feeds from both grounds. The transmitter deck is racked at the end with its tape strip. A clock on the wall shows three time zones, and two of them are wrong.",
+  "exits": {
+    "down": "zone_ksab5_stage"
+  },
+  "flags": {
+    "building_name": "KSAB5",
+    "building_type": "studio",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_913_910"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_ksab5_prod",
+  "map_id": "map_int_ksab",
+  "name": "KSAB5 Production",
+  "parent_zone": "zone_district_913_910"
+}

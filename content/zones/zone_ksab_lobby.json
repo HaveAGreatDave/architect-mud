@@ -2,13 +2,14 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2a2436",
-  "description": "The story floor: a bullpen of mismatched desks shoved into a horseshoe around a whiteboard nobody has erased in months, three drafts deep in different hands. Index cards march across a corkboard wall in acts, half of them pinned crooked, one just reading FIX THE ENDING. A wall of muted monitors carries the feed the room is writing for, and the carpet is worn to grey tramlines between the coffee urn and the door. A sign over the board reads FUNNY BY FOUR OR IT AIRS SAD.",
+  "description": "The writers' lounge: two sofas that don't match, a coffee urn, and a whiteboard of tonight's games with the scores rubbed out and written in again. The stat sheets are pinned up by club, and somebody has circled every Golden Goose fixture in red. The studio is through the east door.",
   "exits": {
+    "east": "zone_ksab5_stage",
     "north": "zone_ksab_gallery",
     "south": "zone_district_913_910"
   },
   "flags": {
-    "building_name": "KSAB Writers' Wing",
+    "building_name": "KSAB5",
     "building_type": "studio",
     "floor": "boards",
     "is_building": true,
@@ -26,6 +27,6 @@
   "grid_z": 0,
   "id": "zone_ksab_lobby",
   "map_id": "map_int_ksab",
-  "name": "KSAB Story Floor",
+  "name": "KSAB5 Writers' Lounge",
   "parent_zone": "zone_district_913_910"
 }

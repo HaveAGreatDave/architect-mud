@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221e2c",
+  "description": "KSAB5's live stage: a curved sports desk in front of a screen the width of the room, three cameras on pedestals and a lighting grid hung low. The floor is green vinyl painted with a centre line. Two chairs behind the desk, and a third the guest gets, which is shorter. Stairs go up to production.",
+  "exits": {
+    "up": "zone_ksab5_prod",
+    "west": "zone_ksab_lobby"
+  },
+  "flags": {
+    "building_name": "KSAB5",
+    "building_type": "studio",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_913_910"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_ksab5_stage",
+  "map_id": "map_int_ksab",
+  "name": "KSAB5 Studio",
+  "parent_zone": "zone_district_913_910"
+}

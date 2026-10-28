@@ -24,7 +24,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "KSAB Writers' Wing"
+      "key": "KSAB5"
     }
   ],
   "detail": [
@@ -75,7 +75,7 @@
       "half": 0.05,
       "ink": "#7fdcf5",
       "kind": "bladePanel",
-      "label": "KSAB",
+      "label": "KSAB5",
       "out": 0.035,
       "pal": "ty_ksab",
       "z0": 0.29,
@@ -90,7 +90,7 @@
       "hh": 0.05,
       "ink": "#7fdcf5",
       "kind": "signGantry",
-      "label": "NEWS AT NINE",
+      "label": "ALL GAMES LIVE",
       "neon": true,
       "pal": "ty_ksab",
       "rise": 0.048,

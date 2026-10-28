@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 300,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_ksab_gallery",
+  "id": "zone_ksab5_stage",
+  "max_capacity_kw": 300,
+  "name": "KSAB5 Studio",
+  "source_type": "junction_box"
+}

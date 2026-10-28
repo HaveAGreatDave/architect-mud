@@ -7,7 +7,7 @@
     "south": "zone_ksab_lobby"
   },
   "flags": {
-    "building_name": "KSAB Writers' Wing",
+    "building_name": "KSAB5",
     "building_type": "studio",
     "floor": "concrete",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_ksab_gallery",
   "map_id": "map_int_ksab",
-  "name": "KSAB Script Vault",
+  "name": "KSAB5 Script Vault",
   "parent_zone": "zone_district_913_910"
 }
