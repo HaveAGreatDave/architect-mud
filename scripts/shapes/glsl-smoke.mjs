@@ -65,6 +65,17 @@ for (const f of files) {
   for (const s of src.matchAll(/\bconst\s+([A-Za-z_]\w*)\s*=\s*`([^`]*)`/g)) {
     if (!/^#version/.test(s[2])) snippets.set(s[1], s[2]);
   }
+  // A snippet imported from a sibling module (gl/sea-detail.js's SEA_DETAIL_GLSL) is spliced the
+  // same way, so read its const from that file too.
+  for (const im of src.matchAll(/\bimport\s*\{([^}]*)\}\s*from\s*['"](\.{1,2}\/[^'"]+)['"]/g)) {
+    const p = path.join(path.dirname(path.join(ROOT, f)), im[2]);
+    if (!fs.existsSync(p)) continue;
+    const dep = fs.readFileSync(p, 'utf8');
+    for (const n of im[1].split(',').map((x) => x.trim().split(/\s+as\s+/).pop()).filter(Boolean)) {
+      const s = dep.match(new RegExp(`\\bexport\\s+const\\s+${n}\\s*=\\s*\`([^\`]*)\``));
+      if (s && !/^#version/.test(s[1])) snippets.set(n, s[1]);
+    }
+  }
   const expand = (s) => s.replace(/\$\{\s*([A-Za-z_]\w*)\s*\}/g, (all, n) => (snippets.has(n) ? snippets.get(n) : all));
   const re = /`#version 300 es([\s\S]*?)`/g;
   let m;
