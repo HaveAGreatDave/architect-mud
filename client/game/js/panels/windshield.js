@@ -925,6 +925,7 @@ export const RENDER_TUNE = {
   campWorld: 1,  // a kept camp keyed and shifted in world tiles (the window's centre added), as armWorld does for buildings; 0 keys it in the window's frame and every recentre records every camp again
   flockShift: 1, // a new map window's flock search takes the last window's habitat answer for each tile whose 3x3 of cells didn't change; 0 asks every tile again
   footFast: 1,   // the footfall pass reads each tile's settledness pull and Curtain flag into typed arrays once instead of through `at` for 24 neighbours of every tile; 0 reads them per neighbour
+  lutSpread: 1,  // a recentre shows a provisional floor LUT and builds the exact one over the next frames (groundLUT); 0 builds it in the frame it arrives
   lutShift: 1,   // a new map window keeps the floor LUT entries whose cells and neighbours didn't change, from the old LUT at the same world tile (lutKeep); 0 rebuilds the whole LUT on every recentre
   armStill: 1,   // a kept-arm probe that agrees with the last at the SAME pose keeps the building at that pose, and its first move confirms it with one recording (ARM_STILL_MAX a frame; unconfirmed, it runs live); 0 keeps only across a camera move, so a still seat runs every building live
   armPoseMove: 1, // a kept-arm probe counts the camera's travel through the window (`ox`/`oy`) as a move; 0 counts only the eye's offset and heading, so a straight run never keeps a building
@@ -15507,6 +15508,9 @@ function footScratch(n) {
   const nn = n * n, N1 = n + 1;
   return (_foot = { n, S: new Float32Array(nn), lane: new Float32Array(nn), wear: new Float32Array(nn), sand: new Uint8Array(nn), sat: new Float32Array(N1 * N1 * 2) });
 }
+// A spread job's own scratch (see footfallSteps), fresh per job: two views can each have one running.
+const footScratchOwn = (n) => { const nn = n * n, N1 = n + 1; return { n, S: new Float32Array(nn), lane: new Float32Array(nn), wear: new Float32Array(nn), sand: new Uint8Array(nn), sat: new Float32Array(N1 * N1 * 2) }; };
+const footFlagsOwn = (n) => ({ n, pull: new Float64Array(n * n), cur: new Uint8Array(n * n) });
 let _footF = null;
 function footFlags(n) {
   if (!_footF || _footF.n !== n) _footF = { n, pull: new Float64Array(n * n), cur: new Uint8Array(n * n) };
@@ -15522,18 +15526,25 @@ const FOOT_REACH = FOOT_GREEN_R + 3;
 // hold their answer. Passes 1 and 2 then run only as far out as those tiles read (lanes 7 tiles,
 // wear 6), and the last pass only on them.
 export function footfallFill(map, LUT, wcx = 0, wcy = 0, need = null) {
-  const n = map.length, R = (n - 1) / 2;
+  const n = map.length;
   if (!n) return;
+  for (const _ of footfallSteps(map, LUT, wcx, wcy, need, footScratch(n), footFlags(n)));   // eslint-disable-line no-unused-vars
+}
+// footfallFill's passes, pausing between them, for groundLUT's spread rebuild (lutSpread). `sc` and
+// `ff` are the scratch it works in: footfallFill hands it the shared pair, and a spread job its own,
+// because another view's floor can run footfallFill between two of the job's frames.
+function* footfallSteps(map, LUT, wcx, wcy, need, sc, ff) {
+  const n = map.length, R = (n - 1) / 2;
   const at = (x, y) => (y >= 0 && y < n && x >= 0 && x < map[y].length) ? map[y][x] : null;
   const ground = (x, y) => { const c = at(x, y); return !!c && !!(LUT[y] && LUT[y][x]) && !footWater(c) && !footRoad(c); };
-  const { S, lane, wear, sand, sat } = footScratch(n);
+  const { S, lane, wear, sand, sat } = sc;
   const near7 = need ? dilateMask(need, n, FOOT_GREEN_R + 1) : null, near6 = need ? dilateMask(need, n, FOOT_GREEN_R) : null;
   // What each tile adds to its neighbours' settledness (1 a building, 1.3 a camp) and whether it's the
   // Curtain, read once (footFast): pass 1 asks it of 24 neighbours of every tile, and through `at`
   // that was most of the LUT's build. The sum runs in the same order, so S comes out the same.
   const fast = RENDER_TUNE.footFast !== 0;
   if (fast) {
-    const { pull, cur } = footFlags(n);
+    const { pull, cur } = ff;
     for (let y = 0; y < n; y++) {
       const row = map[y];
       for (let x = 0; x < n; x++) {
@@ -15542,6 +15553,7 @@ export function footfallFill(map, LUT, wcx = 0, wcy = 0, need = null) {
       }
     }
   }
+  yield;
   // Pass 1: how settled the ground round each tile is, and which bare tiles are lanes or camps.
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     if (near7 && !near7[y * n + x]) continue;
@@ -15549,7 +15561,7 @@ export function footfallFill(map, LUT, wcx = 0, wcy = 0, need = null) {
     const c = map[y][x];
     let s = 0;
     if (fast) {
-      const { pull, cur } = _footF;
+      const { pull, cur } = ff;
       for (let dy = -2; dy <= 2; dy++) {
         const yy = y + dy; if (yy < 0 || yy >= n) continue;
         for (let dx = -2; dx <= 2; dx++) {
@@ -15585,6 +15597,7 @@ export function footfallFill(map, LUT, wcx = 0, wcy = 0, need = null) {
     if (shore) sand[y * n + x] = 1;
     else if (beside) lane[y * n + x] = Math.min(0.95, 0.6 + s * 0.12);
   }
+  yield;
   // Pass 2: wear. A lane or camp next door spreads onto turf and into a building's yard.
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     if (near6 && !near6[y * n + x]) continue;
@@ -15621,6 +15634,7 @@ export function footfallFill(map, LUT, wcx = 0, wcy = 0, need = null) {
     const A = (y0 * N1 + x0) * 2, B = (y0 * N1 + x1 + 1) * 2, C = ((y1 + 1) * N1 + x0) * 2, D = ((y1 + 1) * N1 + x1 + 1) * 2;
     return sat[D + k] - sat[B + k] - sat[C + k] + sat[A + k];
   };
+  yield;
   // Pass 3: paths and litter, onto the LUT entries.
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     if (need && !need[y * n + x]) continue;
@@ -15714,23 +15728,76 @@ function lutKeep(old, map, n, wcx, wcy) {
   }
   return { k, dx, dy, old };
 }
+// ── A RECENTRE'S REBUILD, SPREAD OVER FRAMES (RENDER_TUNE.lutSpread) ─────────────────────────────
+// A recentre rebuilt about 1,500 tiles' entries and their footfall in one frame: 12-20 ms, the largest
+// part of the recentre hitch (scripts/perf/movecost.mjs --rows). With a kept window to build from, the
+// frame it arrives takes a provisional table instead: every tile's old entry at the same world tile,
+// and fillOffMap over the few that are new at the edge. The exact build then runs as a job, LUT_SPREAD
+// steps a frame (a band of rows, or one footfall pass), and replaces it when it finishes. ⚠ THE EXACT
+// TABLE IS UNCHANGED, only later: the job is the same build, paused, over inputs nothing writes. What
+// shows meanwhile is the old footfall near the edge and wildland colour on the new edge tiles, 30-odd
+// tiles out in the haze, for a handful of frames.
+const LUT_SPREAD = 1, LUT_ROWS = 12;
 function groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st) {
   const store = st || (_lutSlot = _lutSlot || {});
-  const c = store._lut;
   // offLand only reaches the build through fillOffMap's deep-off-map branch, and only as a threshold
   // — so the BUCKET is the key, not the eased value, or the cache would miss on every frame's ease.
   const offBucket = (st && (st.offLand ?? 0) > 0.5) ? 1 : 0;
   const g0 = gTop && gTop[0], g1 = gTop && gTop[1], g2 = gTop && gTop[2];   // sky fallback colour; only read for a biome with no ground entry
-  if (c && c.map === map && c.wcx === wcx && c.wcy === wcy && c.litX === litX && c.litY === litY
-      && c.g0 === g0 && c.g1 === g1 && c.g2 === g2 && c.off === offBucket) return c;
-
-  const LUT = new Array(mh);
-  const wildFill = map.map((row) => new Array(row.length).fill(null));   // parallel grid; fillOffMap tags each empty tile sea|scrub|redrock
+  const same = (k) => k.map === map && k.wcx === wcx && k.wcy === wcy && k.litX === litX && k.litY === litY
+    && k.g0 === g0 && k.g1 === g1 && k.g2 === g2 && k.off === offBucket;
+  const job = store._lutJob;
+  if (job) {
+    if (same(job)) {
+      for (let k = 0; k < LUT_SPREAD; k++) {
+        const r = job.it.next();
+        if (r.done) { store._lutJob = null; return (store._lut = r.value); }
+      }
+      return job.prov;
+    }
+    store._lutJob = null;   // the window moved on again: build from the last exact table, below
+  }
+  const c = store._lut;
+  if (c && same(c)) return c;
   // A new window that only moved (or changed a few cells) keeps every entry whose inputs didn't
   // change, from the old LUT at the same world tile; see lutKeep. Off-map entries it keeps go in
   // after the footfall pass, which must see them as unbuilt.
   const keep = (RENDER_TUNE.lutShift !== 0 && c && c.litX === litX && c.litY === litY && c.g0 === g0 && c.g1 === g1
     && c.g2 === g2 && c.off === offBucket) ? lutKeep(c, map, mh, wcx, wcy) : null;
+  const spread = !!keep && RENDER_TUNE.lutSpread !== 0;
+  const it = groundLUTBuild(map, mh, R, wcx, wcy, litX, litY, gTop, st, keep, offBucket, g0, g1, g2, spread);
+  if (spread) {
+    const prov = lutProvisional(map, mh, R, wcx, wcy, litX, litY, keep, offBucket, g0, g1, g2);
+    store._lutJob = { it, prov, map, wcx, wcy, litX, litY, g0, g1, g2, off: offBucket };
+    return prov;
+  }
+  let r = it.next();
+  while (!r.done) r = it.next();
+  return (store._lut = r.value);
+}
+// The frame-one table for a spread rebuild: the old entry at the same world tile for every tile the
+// old window had, fillOffMap for the rest. Never kept as `_lut`, so no later build reads it.
+function lutProvisional(map, mh, R, wcx, wcy, litX, litY, keep, offBucket, g0, g1, g2) {
+  const old = keep.old, LUT = new Array(mh);
+  const wildFill = map.map((row) => new Array(row.length).fill(null));
+  for (let ry = 0; ry < mh; ry++) {
+    const row = map[ry], out = new Array(row.length), oy = ry + keep.dy;
+    const orow = oy >= 0 && oy < mh ? old.LUT[oy] : null, owild = orow ? old.wildFill[oy] : null;
+    for (let rx = 0; rx < row.length; rx++) {
+      const ox = rx + keep.dx, cell = row[rx];
+      if (orow && ox >= 0 && ox < orow.length && cell && cell.biome) { out[rx] = orow[ox]; wildFill[ry][rx] = owild[ox]; }
+      else out[rx] = null;
+    }
+    LUT[ry] = out;
+  }
+  const filled = fillOffMap(LUT, mh ? map[0].length : 0, mh, R, wcx, wcy, litX, litY, wildFill, null);
+  return { LUT: filled.LUT, wildFill, anyBuilt: filled.anyBuilt, map, wcx, wcy, litX, litY, g0, g1, g2, off: offBucket };
+}
+// groundLUT's build, as steps: it pauses every LUT_ROWS rows and between footfall passes when
+// `spread`, and runs straight through otherwise. Returns the table groundLUT keeps.
+function* groundLUTBuild(map, mh, R, wcx, wcy, litX, litY, gTop, st, keep, offBucket, g0, g1, g2, spread) {
+  const LUT = new Array(mh);
+  const wildFill = map.map((row) => new Array(row.length).fill(null));   // parallel grid; fillOffMap tags each empty tile sea|scrub|redrock
   const need = keep ? new Uint8Array(mh * mh) : null, offKept = keep ? [] : null;
   let built = false;
   for (let ry = 0; ry < mh; ry++) {
@@ -15764,8 +15831,11 @@ function groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st) {
       out[rx] = [col[0], col[1], col[2], (bi === 'water' || bi === 'hotspring') ? 1 : 0, grassy ? 1 : 0, shade, paved];
     }
     LUT[ry] = out;
+    if (spread && ry % LUT_ROWS === LUT_ROWS - 1) yield;
   }
-  footfallFill(map, LUT, wcx, wcy, need);   // before fillOffMap: only built tiles are walked on
+  // before fillOffMap: only built tiles are walked on
+  if (spread) yield* footfallSteps(map, LUT, wcx, wcy, need, footScratchOwn(mh), footFlagsOwn(mh));
+  else footfallFill(map, LUT, wcx, wcy, need);
   if (offKept) for (let i = 0; i < offKept.length; i += 2) {
     const ry = offKept[i], rx = offKept[i + 1], oy = ry + keep.dy, ox = rx + keep.dx;
     LUT[ry][rx] = keep.old.LUT[oy][ox]; wildFill[ry][rx] = keep.old.wildFill[oy][ox];
@@ -15775,10 +15845,10 @@ function groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st) {
   // Everything downstream (the per-pixel sampler, drawWorldObjects' wild-scatter read) treats both
   // grids as read-only, which is what makes handing the same objects back next frame safe, and
   // what lets lutKeep take entries from the old grid.
-  return (store._lut = {
+  return {
     LUT: filled.LUT, wildFill, anyBuilt: keep ? built : filled.anyBuilt,
     map, wcx, wcy, litX, litY, g0, g1, g2, off: offBucket,
-  });
+  };
 }
 
 // `xExt` — half-width, in local px either side of screen centre, that the caller needs covered.
