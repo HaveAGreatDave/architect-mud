@@ -22101,6 +22101,42 @@ export function hullSeaGains(wx, wy, cx, cy, roll, wind) {
   }
   return { swell: gate * shel, chop: gate };
 }
+// ⚠ AND WHERE THE MESH SAMPLES THE SWELL, which inshore is not where the water is. gl/water.js warps
+// the swell's sample point along the shore (seaShoal, then seaRefract: up to 1.5 tiles in water under
+// 12 m), so in a harbour the drawn crest is half a wave or more off the one a hull sampled at her own
+// position: she sat under the drawn water for half of every period by the dock. This is that warp, as
+// an offset to add to her sample point (`ssx`/`ssy`). Zero in open water and with no GL floor.
+export function hullSeaWarp(wx, wy, cx, cy) {
+  const c = _floorTexCache;
+  if (!c || !c.lut0 || c.cx == null) return [0, 0];
+  const px = wx + cx - c.cx, py = wy + cy - c.cy, n = c.n;
+  const W = (x, y) => lutPlaneAt(c.lut0, n, 3, x, y);
+  let qx = px, qy = py;
+  const shoal = RENDER_TUNE.glSeaShoal || 0;
+  if (shoal > 0) {
+    const gx = W(px + 1, py) - W(px - 1, py), gy = W(px, py + 1) - W(px, py - 1), L = Math.hypot(gx, gy);
+    if (L >= 1e-5) {
+      const shal = clamp(1 - W(px, py), 0, 1), m = shoal * shal * shal;
+      qx += (-gy / L) * m; qy += (gx / L) * m;
+    }
+  }
+  const refr = RENDER_TUNE.glSeaRefract || 0;
+  if (refr > 0 && c.lut2) {
+    const D = (x, y) => lutPlaneAt(c.lut2, n, 0, x, y) * 255 / SURF_DEPTH_Q;
+    const hM = D(px, py);
+    if (hM < 12) {
+      const gx = D(px + 1, py) - D(px - 1, py), gy = D(px, py + 1) - D(px, py - 1), L = Math.hypot(gx, gy);
+      if (L >= 1e-4) {
+        // kdir: the authored swell wavevector carried out of the sea's frame (seaUnframe).
+        const [rc, rs] = seaRotPair(), kx = rc * 0.8529 - rs * 0.5224, ky = rs * 0.8529 + rc * 0.5224;
+        const nx = gx / L, ny = gy / L, kn = kx * nx + ky * ny;
+        const x = clamp(1 - hM / 12, 0, 1), G = refr * 1.5 * x * x;
+        qx -= (kx - kn * nx) * G; qy -= (ky - kn * ny) * G;
+      }
+    }
+  }
+  return [qx - px, qy - py];
+}
 // THE OWN SHIP SHADOW CANNOT REACH DECAL_SINK DIRECTLY, and the reason is ordering rather than
 // taste: it is painted outside the worldBlend block (a parked craft reads as planted the instant
 // you embark) and therefore BEFORE drawWorldObjects opens the sinks. Filling a sink that is still

@@ -173,6 +173,7 @@ export function groundObstructionAt(...a) { return (_m || _cold('groundObstructi
 export function groundVisibilitySmoke(...a) { return (_m || _cold('groundVisibilitySmoke')).groundVisibilitySmoke(...a); }
 export function hangarFit(...a) { return (_m || _cold('hangarFit')).hangarFit(...a); }
 export function hullSeaGains(...a) { return (_m || _cold('hullSeaGains')).hullSeaGains(...a); }
+export function hullSeaWarp(...a) { return (_m || _cold('hullSeaWarp')).hullSeaWarp(...a); }
 export function hullSurfGain(...a) { return (_m || _cold('hullSurfGain')).hullSurfGain(...a); }
 export function hunterSpot(...a) { return (_m || _cold('hunterSpot')).hunterSpot(...a); }
 export function installGLActorMesh(...a) { return (_m || _cold('installGLActorMesh')).installGLActorMesh(...a); }

@@ -28,7 +28,7 @@
 // against its own water. That is the trucking rule quoted, and it holds harder here: there is no
 // corridor on the Basin, so a self-reported distance would be a number nobody could check at all.
 
-import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, seaAmpsNow, hullSeaGains, interiorHotspots, ownHullScale, RENDER_TUNE, ROAD_RIG_MUL } from './windshield.js';
+import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, seaAmpsNow, hullSeaGains, hullSeaWarp, interiorHotspots, ownHullScale, RENDER_TUNE, ROAD_RIG_MUL } from './windshield.js';
 import { airHornOn, airHornOff } from './engine-audio.js';
 import { seaClock, seaHeight, SEA_TILE_M } from '../../../shared/sea-swell.js';
 import { CAST_MIN_M } from '../../../shared/boatfish-rules.js';
@@ -1428,8 +1428,12 @@ function frame(now) {
     // heave, no pitch, no roll, and no face to be thrown off, which is why she never caught air.
     // ⚠ AND THE FRAME IS THE MAP WINDOW'S, NOT THE WORLD'S. The floor and the mesh sample the sea at
     // window-relative positions (gl/water.js `uA + aOff`, no window centre added), so `ssx`/`ssy`
-    // stay 0. She used to add the window centre, which put her on a stretch of sea nobody draws: in
-    // phase with the picture by luck, and under a crest about half the time.
+    // never carry it. She used to add the window centre, which put her on a stretch of sea nobody
+    // draws: in phase with the picture by luck, and under a crest about half the time.
+    // ⚠ THEY CARRY THE MESH'S INSHORE WARP INSTEAD (`hullSeaWarp`): by a quay the drawn swell is
+    // sampled up to 1.5 tiles along the shore, and without it the Keel sat under the drawn crests
+    // for half of every wave beside the dock.
+    [st.sim.ssx, st.sim.ssy] = hullSeaWarp(st.sim.x, st.sim.y, st.cx, st.cy);
     const amps = seaAmpsNow();
     // ⚠ AND THE REST OF WHAT THE MESH DOES TO THE SEA: it grows and breaks in shallow water, it is
     // smaller in the lee of land, and round the eye it carries the chop as geometry. Given only the
