@@ -1501,10 +1501,54 @@
         "Every man who fought sits five. Both boxes are full and the benches are thin.",
         "Five each, all of them. Somebody count the teeth.",
         "The penalty box looks like a bus shelter. Even strength, and a lot of empty benches."
+      ],
+      "boards.crosscheck": [
+        "{hitter} gets both hands on the shaft and cross-checks {victim} flat in the neutral zone.",
+        "CROSS-CHECK. {hitter} puts his stick into {victim}'s numbers in open ice and down he goes.",
+        "{victim} looks back for the pass and {hitter} cross-checks him in the chest. Nowhere to go out there."
+      ],
+      "pbp.hit.carry.open": [
+        "{victim} with it through the middle.",
+        "{victim} carries it into open ice.",
+        "{victim} looking back for it."
+      ],
+      "pbp.slash": [
+        "{hitter} has his stick up.",
+        "{hitter} closes on {victim}.",
+        "{hitter} on him."
+      ],
+      "slash.hands": [
+        "{hitter} chops {victim} across the hands.",
+        "Two hands, right on the gloves. {hitter} on {victim}.",
+        "{hitter} slashes {victim} on the hands. {victim} shakes the fingers out."
+      ],
+      "slash.wrists": [
+        "{hitter} slashes {victim} on the wrists and the stick nearly goes.",
+        "Right on the wrists, {hitter} on {victim}. That's a bone bruise at best."
+      ],
+      "slash.legs": [
+        "{hitter} hacks {victim} on the back of the legs.",
+        "{hitter} slashes {victim} behind the knee. {victim} goes down to one knee and gets back up."
+      ],
+      "slash.stick": [
+        "{hitter} slashes the stick right out of {victim}'s hands.",
+        "{hitter} chops down on {victim}'s stick and it's gone."
+      ],
+      "pbp.slash.missed": [
+        "No call.",
+        "Nothing from the referee.",
+        "No whistle. Play on.",
+        "The referee was looking somewhere else.",
+        "{victim} looks at the referee. The referee looks at the clock."
+      ],
+      "pbp.slash.recall": [
+        "Look at {hitter} on {victim} there. Nothing called.",
+        "That's a slash from {hitter}, and the referee never saw it.",
+        "{hitter} gets away with one on {victim}."
       ]
     },
     "sim": {
-      "version": 4
+      "version": 5
     },
     "sport": "hockey",
     "teams": [

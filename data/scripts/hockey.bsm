@@ -5,7 +5,8 @@
 @sport hockey
 # v2: a man who dies on the ice is reprinted and back in three to five game-days.
 # v4: fights are harder: more damage a punch, more knockdowns, more of them hurt.
-@sim 4
+# v5: open-ice cross-checks, and slashes the referee sees some of.
+@sim 5
 @announcer "Tug Brennan"
 # The booth's own voice, over the station's: no ring modulator and no drive. Both are
 # texture, and both cost words: measured, the clean voice is understood about 10% better.
@@ -878,6 +879,33 @@ Elbow up, and {hitter} leaves it in {victim}'s face on the way past.
 That's an elbow, high, {hitter} on {victim}, and the helmet's going one way and {victim} the other.
 ::endlines
 
+::lines boards.crosscheck
+{hitter} gets both hands on the shaft and cross-checks {victim} flat in the neutral zone.
+CROSS-CHECK. {hitter} puts his stick into {victim}'s numbers in open ice and down he goes.
+{victim} looks back for the pass and {hitter} cross-checks him in the chest. Nowhere to go out there.
+::endlines
+
+::lines slash.hands
+{hitter} chops {victim} across the hands.
+Two hands, right on the gloves. {hitter} on {victim}.
+{hitter} slashes {victim} on the hands. {victim} shakes the fingers out.
+::endlines
+
+::lines slash.wrists
+{hitter} slashes {victim} on the wrists and the stick nearly goes.
+Right on the wrists, {hitter} on {victim}. That's a bone bruise at best.
+::endlines
+
+::lines slash.legs
+{hitter} hacks {victim} on the back of the legs.
+{hitter} slashes {victim} behind the knee. {victim} goes down to one knee and gets back up.
+::endlines
+
+::lines slash.stick
+{hitter} slashes the stick right out of {victim}'s hands.
+{hitter} chops down on {victim}'s stick and it's gone.
+::endlines
+
 ::lines scrum
 Bodies in front now, sticks up, everybody shoving and nobody swinging.
 It's a scrum in the corner. Four men, one puck, no dignity.
@@ -1566,6 +1594,12 @@ Big miss from {thrower}.
 {victim} skates it up the wall.
 ::endlines
 
+::lines pbp.hit.carry.open
+{victim} with it through the middle.
+{victim} carries it into open ice.
+{victim} looking back for it.
+::endlines
+
 ::lines pbp.hit.line
 {hitter} lines him up.
 {hitter} coming hard.
@@ -1733,6 +1767,25 @@ Stick skitters away.
 He stays down.
 He's not getting up.
 Whistle. He's down.
+::endlines
+
+::lines pbp.slash
+{hitter} has his stick up.
+{hitter} closes on {victim}.
+{hitter} on him.
+::endlines
+
+::lines pbp.slash.missed
+No call.
+Nothing from the referee.
+No whistle. Play on.
+The referee was looking somewhere else.
+{victim} looks at the referee. The referee looks at the clock.
+::endlines
+::lines pbp.slash.recall
+Look at {hitter} on {victim} there. Nothing called.
+That's a slash from {hitter}, and the referee never saw it.
+{hitter} gets away with one on {victim}.
 ::endlines
 
 # A big hit, talked about at the next stoppage: the next draw (`pbp.hit.recall`), or the

@@ -205,7 +205,7 @@ export const GROUPS = [
       'scripts/shapes/chess3d-smoke.mjs',
       // one game each, side by side (see the file)
       { run: 'scripts/shapes/rink-smoke.mjs 37', budget: 90, why: '18 s of profiled CPU alone, 61 to 65 s on the CI runner beside three other gates (2026-10-25 and -26, four runs over 60 s). 70% is rink/sim.js stepping the whole game, which is what the gate tests; the stub renders are 14%' },
-      { run: 'scripts/shapes/rink-smoke.mjs 914', budget: 90, why: 'The same game sim as seed 37: 61 to 62 s on the CI runner beside three other gates (2026-10-25 and -26), about 47 s locally beside seven' },
+      { run: 'scripts/shapes/rink-smoke.mjs 289', budget: 90, why: 'The same game sim as seed 37, played at sim v5 (it was slot 914 at v1 until 2026-10-28): 61 to 62 s on the CI runner beside three other gates (2026-10-25 and -26), about 47 s locally beside seven' },
       'scripts/shapes/arena-smoke.mjs',      // GLASS 2 rink: matrices match the 2-D camera, meshes and heads sound, ice tiles listed
       'scripts/shapes/kitchen-smoke.mjs',    // the Kitchen Stage: the matter table whole, the knife's pieces and evenness, every food, vessel and hob mesh sound
       'scripts/shapes/gameday-smoke.mjs',    // Deadball's 2-D Gameday: real games, every play lands, the runners end where the sim left them

@@ -2908,6 +2908,38 @@ export default async function regress({ check, run, getPlayer }) {
       });
     }
 
+    // v5: open-ice cross-checks and slashes, some called and some not. Each reaches the ice
+    // with a victim on a side, a called one is followed by its penalty, and the booth has a
+    // line for every one.
+    {
+      const seen = { crosscheck: 0, called: 0, caught: 0, missed: 0 }, bad = [];
+      for (let slot = 0; slot < 40; slot++) {
+        const seed = sportsHash(slot, 5);
+        const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+        if (matchup.away === matchup.home) continue;
+        const game = HOCKEY.simGame(matchup, players, sportsRng(seed), { version: 5 });
+        game.beats.forEach((b, i) => {
+          if (b.type === 'boards' && b.hitStyle === 'crosscheck') { seen.crosscheck++; if (b.called) seen.called++; }
+          if (b.type === 'slash') seen[b.caught ? 'caught' : 'missed']++;
+          const called = (b.type === 'slash' && b.caught) || (b.type === 'boards' && b.called);
+          if (called && !game.beats.slice(i + 1, i + 4).some((n) => n.type === 'penalty' && n.player === b.hitter)) bad.push(`${b.type} ${b.hitter} called, no penalty`);
+        });
+        const nrng = sportsRng(seed ^ 0x51a5);
+        HOCKEY.narrate({
+          script: {}, game, gs: { seed, game }, slot, ws: false, announcer: 'Tug Brennan', pools, nrng, sport: HOCKEY, add: () => {},
+          pick: (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); },
+          say: (line, tok, sb, graphic, gd) => {
+            if (line && /\{\w+\}/.test(sportsFill(line, tok))) bad.push(`unfilled: ${line}`);
+            if (gd && gd.type === 'slash' && (!gd.victim || !gd.hitter || (gd.victimSide !== 'att' && gd.victimSide !== 'def'))) bad.push('slash payload names nobody');
+          },
+          abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '0-0-0', lastId: () => null,
+        });
+      }
+      check('hockey v5: cross-checks and slashes happen, called and not', seen.crosscheck > 0 && seen.called > 0 && seen.caught > 0 && seen.missed > 0, JSON.stringify(seen));
+      check('hockey v5: a called one goes to the box, and every line fills', bad.length === 0, bad.slice(0, 3).join(' | '));
+      check('hockey v5: the booth has the lines', ['boards.crosscheck', 'pbp.hit.carry.open', 'pbp.slash', 'pbp.slash.missed'].every((k) => pools[k]?.length), '');
+    }
+
     check('hockey: goals cross the goal line', notCrossed.length === 0, `${notCrossed.length} short: ${notCrossed.slice(0, 3).join(',')}`);
     check('hockey: no unfilled tokens reach the air', unfilled.length === 0, unfilled.slice(0, 3).join(' | '));
     // How hard each line is sold rides on it, off the pool it came from (exciteOf in

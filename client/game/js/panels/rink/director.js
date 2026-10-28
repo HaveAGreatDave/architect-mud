@@ -1854,6 +1854,8 @@ export function createDirector(W, opts = {}) {
     const r = rng(hash(`${p.clock}|${p.victim}|${p.hitter}|hit`));
     const style = fatal ? (fatal === 'head' || fatal === 'neck' ? 'glass' : 'behind') : (p.hitStyle || 'shoulder');
     const vdir = attackDir(vs);
+    // (a cross-check is in open ice: the spot is on his line through the middle, not the wall)
+    const open = style === 'crosscheck';
     // Finished on the far wall, where the glass and the advertising are in shot. He's the man
     // the booth names if that sweater is already on somebody, else his side's man nearest
     // the puck, and he takes it up the wall from wherever he is: it's passed or slid to him.
@@ -1863,7 +1865,7 @@ export function createDirector(W, opts = {}) {
     if (!victim || !hitter) { land(B); at(B, 0.5, () => finish(B)); return B; }
     // Where on the far wall: where the two of them can both be soonest (he carries it there
     // at about 20 ft/s, the hitter comes at about 25), a stride or two ahead of him.
-    const y0 = RW - 3.6, ahead = victim.x + vdir * (18 + r() * 14);
+    const y0 = open ? clamp(victim.y, 24, RW - 24) : RW - 3.6, ahead = victim.x + vdir * (18 + r() * 14);
     let x0 = RL / 2, best = Infinity;
     for (let x = 52; x <= RL - 52; x += 4) {
       const t = Math.max(hyp(x - victim.x, y0 - victim.y) / 20, hyp(x - hitter.x, y0 - 2 - hitter.y) / 25) + Math.abs(x - ahead) * 0.01;
@@ -1917,7 +1919,7 @@ export function createDirector(W, opts = {}) {
           hitter.maxV = 27;
           const lead = Math.min(0.9, hyp(hitter.x - victim.x, hitter.y - victim.y) / 32);
           // into the boards where he'll be, or from behind, at his back...
-          const ax = style === 'behind' ? victim.x - 0.5 : victim.x + victim.vx * lead, ay = style === 'behind' ? victim.y : RW;
+          const ax = style === 'behind' ? victim.x - 0.5 : victim.x + victim.vx * lead, ay = style === 'behind' ? victim.y : open ? victim.y + victim.vy * lead : RW;
           // ...and on through: a man skating at a point eases up as he gets there, and a
           // check isn't eased into. Aimed short, the hit came as much as a second late.
           const ex = ax - hitter.x, ey = ay - hitter.y, el = hyp(ex, ey) || 1;
@@ -1946,8 +1948,10 @@ export function createDirector(W, opts = {}) {
     };
     function impact() {
       const hv = [hitter.vx, hitter.vy];
-      const act = style === 'hip' ? 'checkHip' : style === 'elbow' ? 'checkElbow' : 'check';
+      const act = style === 'hip' ? 'checkHip' : style === 'elbow' ? 'checkElbow' : open ? 'crosscheck' : 'check';
       W.act(hitter, act, 0.55); hitter.actT = 0.45;
+      // (both hands on the shaft, into him: the rig puts them on the man it's aimed at)
+      if (open) hitter.target = victim;
       let impU, impL;
       switch (style) {
         case 'glass': {
@@ -1975,6 +1979,13 @@ export function createDirector(W, opts = {}) {
         case 'behind': impU = [hv[0] * 0.3 + vdir * 2, 27, 2]; impL = [hv[0] * 0.2, 6, 0.5]; break;
         case 'hip': impU = [hv[0] * 0.4, 7, 3]; impL = [hv[0] * 0.4, 17, 11]; break;
         case 'elbow': impU = [hv[0] * 0.4, 18, 9]; impL = [hv[0] * 0.2, 6, 1]; break;
+        case 'crosscheck': {
+          // the way the hitter was going, chest high: he goes over backwards, skates first
+          const hl = hyp(hv[0], hv[1]) || 1, ux = hv[0] / hl, uy = hv[1] / hl;
+          impU = [ux * 24, uy * 24, 7]; impL = [-ux * 4, -uy * 4, 4];
+          W.sfx('stick', { x: victim.x });
+          break;
+        }
         default: impU = [hv[0] * 0.6 - 2, 26, 8]; impL = [hv[0] * 0.3, 9, 1.5];
       }
       if (fatal === 'post') { impU = [vdir * 18, -6, 4]; impL = [vdir * 6, -2, 1]; }
@@ -1982,6 +1993,7 @@ export function createDirector(W, opts = {}) {
       hitter.vx *= 0.3; hitter.vy *= 0.15; hitter.charging = null;
       // and he pulls up rather than drive on into the boards after him
       hitter.tx = hitter.x; hitter.ty = Math.min(hitter.y, RW - 4);
+      if (open) at(B, 0.55, () => { hitter.target = null; });
       W.shake = Math.max(W.shake, style === 'glass' ? 1.2 : 0.9); W.crowd = 1; W.hitstop = style === 'glass' ? 0.1 : 0.07;
       W.sfx('check', { style });
       W.burst('spray', victim.x, victim.y, 0.3, 14, 7, [0, 4, 3]);
@@ -2036,6 +2048,69 @@ export function createDirector(W, opts = {}) {
       if (!p.injured && !fatal && victim.rag) { W.getUp(victim, 0.6); pickUpStick(victim); }
     };
     B.victim = victim;
+    return B;
+  }
+
+  // ── a slash ───────────────────────────────────────────────────────────────
+  // A man without the puck comes up beside the man with it and chops at him, two hands, as
+  // the line airs: the hands, the wrists, the backs of the legs or the stick. Play goes on.
+  // If the referee saw it the penalty beat after this one blows it dead; if he didn't, the
+  // man it was done to has a word with him (the `missed` cue) and nobody listens.
+  function stageSlash(p) {
+    const B = begin('slash');
+    const vs = tagSide(p.victimSide) || sideOfTeam(p.victimTeam, p) || 'a', hs = other(vs);
+    puckInPlay();
+    W.puckScripted = false; W.frozen = false;
+    const victim = bodyFor(vs, p.victim, pk.carrier && pk.carrier.side === vs ? pk.carrier : W.nearestOf(W.mates(vs).filter((m) => m.stick), pk.x, pk.y));
+    const slasher = victim && bodyFor(hs, p.hitter, W.nearestOf(W.mates(hs).filter((m) => m.stick), victim.x, victim.y));
+    if (!victim || !slasher) { land(B); at(B, 0.5, () => finish(B)); return B; }
+    slasher.scripted = true; B.locked.add(slasher);
+    slasher.maxV = 26; slasher.acc = 40;
+    const where = p.slashAt || 'hands';
+    // how high the blade comes down: the backs of the legs are low, the stick lower still
+    const low = where === 'legs' ? 1.3 : where === 'stick' ? 0.9 : 2.6;
+    const impT = cueOf(p, 'impact'), missT = cueOf(p, 'missed');
+    const SWING = 0.7, CHOP = 0.42;   // the act's length, and how far into it the blade lands
+    let swung = false;
+    B.update = (dt, rel) => {
+      if (swung) return;
+      // beside him and a little behind, on his stick side
+      const vh = Math.hypot(victim.vx || 0, victim.vy || 0) > 2 ? Math.atan2(victim.vy, victim.vx) : victim.h;
+      const bx = victim.x - Math.cos(vh) * 2.2 + Math.sin(vh) * 2.6, by = victim.y - Math.sin(vh) * 2.2 - Math.cos(vh) * 2.6;
+      slasher.tx = bx + (victim.vx || 0) * 0.3; slasher.ty = by + (victim.vy || 0) * 0.3;
+      const d = hyp(victim.x - slasher.x, victim.y - slasher.y);
+      // he swings so it lands as the line airs, or as soon as he's close without one
+      const due = impT == null ? d < 4.5 : rel >= impT - SWING * CHOP && d < 7;
+      if (due || rel > (impT ?? 2.5) + 1.5) { swung = true; swing(); }
+    };
+    function swing() {
+      slasher.face = Math.atan2(victim.y - slasher.y, victim.x - slasher.x);
+      W.act(slasher, 'slash', SWING, { low });
+      at(B, SWING * CHOP, () => {
+        W.sfx('stick', { x: victim.x }); W.crowd = Math.max(W.crowd || 0, 0.6);
+        victim.react = 0.7; victim.reactSide = 1;
+        if (where === 'legs') W.act(victim, 'stagger', 0.6);
+        if (where === 'stick' && victim.stick) {
+          // knocked out of his hands: it lies where it fell till he picks it up
+          W.addDebris('stick', [victim.x + Math.cos(victim.h) * 2, victim.y + Math.sin(victim.h) * 2, 1.2], [Math.cos(victim.h) * 5, Math.sin(victim.h) * 5, 2], victim.h + 1, 6, victim.side);
+          victim.stick = false;
+          at(B, 1.4, () => pickUpStick(victim));
+        }
+        if (where !== 'legs' && pk.carrier === victim) W.loose((victim.vx || 0) * 0.6, (victim.vy || 0) * 0.6);
+        const seen = inPicture(victim.x, victim.y, 3);
+        // a slash the referee missed and the picture did too is run back with the booth's
+        // word on it, as a hit is (`hitReplays`)
+        if (!p.caught) D.lastHit = { t: W.t, seen, fatal: false };
+        D.recordUntil = W.t + 1.3;
+        D.hitClip = null;
+        D.hitPending = !seen && !p.caught ? { t: W.t, saveAt: W.t + 1.25, follow: { seed: victim.seed, side: victim.side }, label: `${String(slasher.name || '').toUpperCase()} ON ${String(victim.name || '').toUpperCase()}` } : null;
+        land(B);
+        at(B, 0.6, () => { slasher.scripted = false; slasher.face = null; });
+      });
+      if (!p.caught) at(B, Math.max(SWING, (missT ?? 0) - (W.t - B.t0)), () => W.act(victim, 'rue', 1.2));
+      at(B, Math.max(2.2, (missT ?? 0) - (W.t - B.t0) + 1.3), () => finish(B));
+    }
+    B.cleanup = () => { if (!victim.stick) pickUpStick(victim); };
     return B;
   }
 
@@ -2844,10 +2919,10 @@ export function createDirector(W, opts = {}) {
     D.recall = cueOf(p, 'recall');
     // only a goal and a hit are ever replayed, so only theirs is recorded: keeping every
     // man's joints thirty times a second all game would be work nobody watches
-    D.recording = p.type === 'goal' || p.type === 'boards' || p.type === 'death'; D.recordUntil = null;
+    D.recording = p.type === 'goal' || p.type === 'boards' || p.type === 'slash' || p.type === 'death'; D.recordUntil = null;
     // (a hit's clip starts 3.2 s before it lands, and it lands within a second of its line: the
     // skate along the wall before that is never shown, and was most of the recording)
-    D.recordFrom = p.type === 'boards' || p.type === 'death' ? (D.arrived ?? W.t) + Math.max(0, (cueOf(p, 'impact') ?? 0) - 4.4) : 0;
+    D.recordFrom = p.type === 'boards' || p.type === 'slash' || p.type === 'death' ? (D.arrived ?? W.t) + Math.max(0, (cueOf(p, 'impact') ?? 0) - 4.4) : 0;
     dress(p);
     if (D.intermission && p.type !== 'intermission') { if (D.beat) D.beat.cleanup = null; endIntermission(); }
     switch (p.type) {
@@ -2856,6 +2931,7 @@ export function createDirector(W, opts = {}) {
         break;
       case 'faceoff': return stageFaceoff(p);
       case 'boards': return stageHit(p, null);
+      case 'slash': return stageSlash(p);
       case 'injury': return stageInjury(p);
       case 'death': return stageDeath(p);
       case 'scrum': return stageScrum(p);

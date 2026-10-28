@@ -1664,6 +1664,21 @@ so a narrator cannot read the other league's records.
   of fights end in a knockdown (v3: about 56%) in about 8 punches instead of 11. About one fight in
   six sends the loser to the room, and about one in 35 for eight slots or more, which Rinkside
   X-rays (below). v4's other fight injuries stop at seven slots.
+- **Cross-checks and slashes (sim v5, `@sim 5` in hockey.bsm).** A boards hit can now be a
+  `crosscheck` (`HIT_STYLES_V5`): in open ice, both hands on the shaft, and the referee calls
+  `CROSSCHECK_CALLED` of them (`called` on the beat, then a two-minute `cross-checking` penalty on
+  the hitter). Each chance-gap can also bring a `slash` beat (`SLASH_CHANCE`, scaled by the two
+  clubs' violence): a man without the puck chops at the hands, wrists, legs or stick of the man
+  with it. `SLASH_CALLED` of them are `caught` and go to the box for slashing; the rest play on,
+  the booth says nobody called it (`pbp.slash.missed`) and brings it up at the next draw
+  (`pbp.slash.recall`), run back if the picture missed it. On the ice a cross-check lands on the
+  man's own line through the middle (`open` in `stageHit`), the hitter's hands on the shaft into
+  his chest (the `crosscheck` act), and knocks him over backwards. A slash is `stageSlash`: the
+  slasher comes up beside him and chops (the `slash` act) as the line airs, and a man nobody
+  called it for complains to the referee (`rue`) on the `missed` cue. Both are rolled from the beat's own
+  facts, never the game's rand, so a v5 night spends the same rand as v4's until a penalty
+  comes of one: v1 to v4 replay unchanged. About one cross-check and three slashes a game, a
+  third of the slashes called.
 - **The line brawl (sim v3).** Once a game at most, only between rivals, and only in a final
   (`important`, from `override.worldSeries`) or a one-goal third: `BRAWL_CHANCE` a chance-gap,
   about 2% of rival games and 8% of rival finals. Every skater pairs off (each a `simFightV3`,
@@ -2706,7 +2721,7 @@ by the score bug, the full-screen graphics, the rink header, the idle screen and
 Gameday toggle itself, which wears a puck on a hockey night and a baseball otherwise
 (`_brandGamedayBtn` in tv.js).
 
-[scripts/shapes/rink-smoke.mjs](../scripts/shapes/rink-smoke.mjs) runs in `pretest:regress`, as two gates, one game each (`rink-smoke.mjs 37` and `rink-smoke.mjs 914`), side by side; run bare, it plays both.
+[scripts/shapes/rink-smoke.mjs](../scripts/shapes/rink-smoke.mjs) runs in `pretest:regress`, as two gates, one game each (`rink-smoke.mjs 37`, at sim v1, and `rink-smoke.mjs 289`, at v5), side by side; run bare, it plays both.
 It plays two real games (the sim and the narrator, slots 37 and 914, which between them
 emit every beat type) through the view over a hand-cranked DOM, clock and canvas
 ([rink-dom-stub.mjs](../scripts/shapes/rink-dom-stub.mjs)). It checks that every beat

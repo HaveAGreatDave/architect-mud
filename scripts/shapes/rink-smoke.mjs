@@ -15,7 +15,7 @@
 // It proves the view RUNS and that its outcomes match the sim's. It does not look at
 // pixels and is not meant to.
 //
-// Run:  node scripts/shapes/rink-smoke.mjs [37|914]
+// Run:  node scripts/shapes/rink-smoke.mjs [37|289]
 
 import fs from 'fs';
 import { __install } from './rink-dom-stub.mjs';
@@ -53,10 +53,12 @@ if (clubs) setClubs('hockey', 'smoke', clubs);
 { const missed = zamboniCoverage(4); check('the Zamboni pattern covers every foot of the sheet', missed === 0, `${missed} sq ft missed`); }
 check('every club in the league has an identity', teams.every((t) => !!clubOf(t)), teams.filter((t) => !clubOf(t)).join(', '));
 
+// Slot 289 plays sim v5 (open-ice cross-checks, and slashes called and not); 37 plays v1.
+const SIM_VERSION = { 289: 5 };
 function gameLines(slot) {
   const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams, clubs };
   const seed = sportsHash(slot, 0);
-  const game = HOCKEY.simGame(matchup, players, sportsRng(seed));
+  const game = HOCKEY.simGame(matchup, players, sportsRng(seed), { version: SIM_VERSION[slot] || 1 });
   const nrng = sportsRng(seed ^ 0x9e3779b9);
   const lines = [];
   HOCKEY.narrate({
@@ -71,7 +73,7 @@ function gameLines(slot) {
 }
 
 // ── one game through the view ──────────────────────────────────────────────────
-// Slot 914 (the Marquee Marauders at the Coldwater Highlanders, in the tartan) and slot
+// Slot 289 (at sim v5, so cross-checks and slashes are in it) and slot
 // 37 (the Waterfront Wharf Rats at the Westside Warlords, in the gem-set stripe) each stage
 // every beat type the sim emits, a pulled goalie and a death among them.
 const seen = new Set();
@@ -504,7 +506,9 @@ async function play(slot) {
       const F = lastFight; lastFight = null;
       const loser = F && [F.l, F.r].find((b) => b.name === String(g.loser).split(' ').pop());
       const winner = F && [F.l, F.r].find((b) => b.name === String(g.winner).split(' ').pop());
-      check(`${label}: the loser has nothing left`, !!loser && F.pip[loser.seed] === 0);
+      // (the linesmen pull them apart before it's finished: he's behind, not empty)
+      if (g.ending === 'linesmen') check(`${label}: the linesmen part them with the loser behind`, !!loser && !!winner && F.pip[loser.seed] <= F.pip[winner.seed], loser && winner ? `${F.pip[loser.seed]} to ${F.pip[winner.seed]}` : 'no fighters');
+      else check(`${label}: the loser has nothing left`, !!loser && F.pip[loser.seed] === 0);
       check(`${label}: the winner is still standing`, !!winner && F.pip[winner.seed] > 0);
       if (g.helmets) check(`${label}: the helmets the booth called come off`, !!F && !F.l.helmet && !F.r.helmet);
     }
@@ -578,10 +582,10 @@ async function play(slot) {
 // beat type on its own.
 // (slot 37 has breakaways in it too, which the breakaway checks need)
 const ALL = ['faceoff', 'chance', 'goal', 'boards', 'fight', 'scrum', 'injury', 'death', 'pull', 'intermission'];
-const EXPECT = { 37: [...ALL, 'breakaway'], 914: ALL };
+const EXPECT = { 37: [...ALL, 'breakaway'], 289: [...ALL, 'slash'] };
 const slots = process.argv.slice(2).map(Number).filter((n) => EXPECT[n]);
-for (const slot of slots.length ? slots : [37, 914]) await play(slot);
-for (const t of [...new Set((slots.length ? slots : [37, 914]).flatMap((n) => EXPECT[n]))]) {
+for (const slot of slots.length ? slots : [37, 289]) await play(slot);
+for (const t of [...new Set((slots.length ? slots : [37, 289]).flatMap((n) => EXPECT[n]))]) {
   check(`a "${t}" was staged`, seen.has(t), [...seen].join(','));
 }
 for (const k of ['save', 'glove', 'pad', 'blocked', 'wide', 'post', 'breakaway', 'goal']) check(`SAVE has "${k}"`, !!__test.SAVE[k]);

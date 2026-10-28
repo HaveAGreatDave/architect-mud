@@ -75,6 +75,7 @@ const EXCITE = {
   'pbp.faceoff': 0.2, 'pbp.faceoff.drop': 0.25, 'faceoff': 0.15,
   // contact
   'pbp.hit': 0.55, 'pbp.hit.shatter': 0.85, 'pbp.hit.down': 0.3, 'pbp.hit.up': 0.1, 'boards': 0.5,
+  'pbp.slash': 0.45, 'slash.hands': 0.4, 'slash.wrists': 0.4, 'slash.legs': 0.4, 'slash.stick': 0.4, 'pbp.slash.missed': 0.3,
   'pbp.fight': 0.6, 'pbp.fight.drop': 0.7, 'pbp.fight.box': 0.2, 'pbp.punch.land': 0.7, 'pbp.punch.big': 0.9, 'pbp.punch.miss': 0.45,
   'fight.knockdown': 0.75, 'fight.jersey': 0.6, 'fight.linesmen': 0.4, 'fight.result': 0.3, 'penalty.fight': 0.35,
   'fight.draw': 0.4, 'fight.wound': 0.55, 'pbp.fight.tug': 0.45,
@@ -363,6 +364,8 @@ export function narrate(ctx) {
     // How the hit landed, and on an injury or a death what it did. `injured` on a hit
     // means he stays down; the wound fields then belong to the injury that follows.
     hitStyle: b.hitStyle || '',
+    // a slash: where it landed, and whether the referee saw it (the rink raises his arm)
+    slashAt: b.slashAt || '', caught: !!b.caught,
     injured: b.type === 'injury' || b.type === 'death' || !!injuryAfter(b, idx),
     wound: b.wound || injuryAfter(b, idx)?.wound || '',
     woundPart: b.woundPart || injuryAfter(b, idx)?.woundPart || '',
@@ -607,7 +610,7 @@ export function narrate(ctx) {
   // since a hit the picture caught isn't run back. Only the latest hit; a goal or the end of
   // the period first, and it's forgotten.
   let pendingHit = null;
-  const recallHit = (key, t, sb) => { if (pendingHit) call(key, t, { hitter: surnameOf(pendingHit.hitter), victim: surnameOf(pendingHit.victim) }, sb, { cue: { ev: 'recall' } }); pendingHit = null; };
+  const recallHit = (key, t, sb) => { if (pendingHit) call(pendingHit.slash ? 'pbp.slash.recall' : key, t, { hitter: surnameOf(pendingHit.hitter), victim: surnameOf(pendingHit.victim) }, sb, { cue: { ev: 'recall' } }); pendingHit = null; };
   function callRush(b, t, sb, gd, loud) {
     const nodes = Array.isArray(b.possession) ? b.possession : [];
     const names = Array.isArray(b.rushNames) && b.rushNames.length ? b.rushNames : null;
@@ -787,7 +790,7 @@ export function narrate(ctx) {
       }
       if (LOUD_CHANCE.has(b.kind)) push += M.loud;
     }
-    else if (b.type === 'boards' || b.type === 'fight' || b.type === 'brawl') push += M.hit;
+    else if (b.type === 'boards' || b.type === 'slash' || b.type === 'fight' || b.type === 'brawl') push += M.hit;
     // a draw in their end keeps the siege going; a penalty or the buzzer ends it
     else if (b.type === 'faceoff') push *= M.whistle;
     else if (b.type === 'penalty' || b.type === 'period_end' || b.type === 'final') { push *= M.whistle; pressBy = ''; pressRun = 0; }
@@ -1020,7 +1023,8 @@ export function narrate(ctx) {
         const style = b.hitStyle || 'shoulder';
         gd.shatter = style === 'glass' && nrng() < 0.5;
         gd.helmetOff = (style === 'elbow' || style === 'behind' || hurt) && nrng() < (hurt ? 0.8 : 0.5);
-        call('pbp.hit.carry', t, null, sb, null, gd);
+        // (an open-ice cross-check isn't along the wall)
+        call(style === 'crosscheck' ? 'pbp.hit.carry.open' : 'pbp.hit.carry', t, null, sb, null, gd);
         call('pbp.hit.line', t, null, sb, { cue: { ev: 'line' } });
         say(pick(`boards.${style}`, 'boards'), t, sb, null, null, { cue: { ev: 'impact' } }); said++;
         if (gd.shatter) call('pbp.hit.shatter', t, null, sb);
@@ -1030,6 +1034,17 @@ export function narrate(ctx) {
         if (hurt) call('pbp.hit.down', t, null, sb);
         else if (nrng() < 0.5) call('pbp.hit.up', t, null, sb, { cue: { ev: 'up' }, opt: true });
         pendingHit = { hitter: b.hitter, victim: b.victim, hurt };
+        break;
+      }
+
+      // A slash. Play goes on unless the arm went up; the penalty beat after it says the rest.
+      case 'slash': {
+        const gd = gameday(b, idx);
+        call('pbp.slash', t, null, sb, null, gd);
+        say(pick(`slash.${b.slashAt || 'hands'}`, 'slash.hands'), t, sb, null, null, { cue: { ev: 'impact' } }); said++;
+        // (one the referee missed is brought up at the next stoppage, and run back if the
+        // picture missed it too)
+        if (!b.caught) { call('pbp.slash.missed', t, null, sb, { cue: { ev: 'missed' } }); pendingHit = { hitter: b.hitter, victim: b.victim, hurt: false, slash: true }; }
         break;
       }
 

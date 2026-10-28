@@ -333,8 +333,10 @@ function standRig(s, T, feet) {
     wShift = -0.28 * weight * sg2;
     pitch = lerp(pitch, -0.05, envU);
   }
+  // a slash: up over the shoulder, then down hard; he leans into it as it comes down
+  if (act === 'slash') { const k = at < 0.42 ? easeIO(at / 0.42) : 1 - clamp((at - 0.42) / 0.5, 0, 1); twist += (at < 0.42 ? 0.5 * k : -0.35 * k) * envU; lean += (at < 0.42 ? -0.1 : 0.3) * k * envU; }
   if (deke) { twist += 0.3 * Math.sin(at * TAU) * envU; crouch += 0.2 * envU; pitch = -0.35; }
-  if (act === 'check' || act === 'checkElbow' || act === 'checkHip') {
+  if (act === 'check' || act === 'checkElbow' || act === 'checkHip' || act === 'crosscheck') {
     if (at < 0.35) crouch += 0.45 * easeIO(at / 0.35);
     else {
       const m = clamp((at - 0.35) / 0.2, 0, 1), f = 1 - clamp((at - 0.7) / 0.3, 0, 1);
@@ -497,6 +499,13 @@ function standRig(s, T, feet) {
     else if (act === 'tap') { aBlade = [bBlade[0], bBlade[1], 0.06 + 0.5 * Math.abs(Math.sin(at * TAU))]; aR = V.add(bR, [0, 0, 0.25 * Math.abs(Math.sin(at * TAU))]); }
     else if (act === 'rue') { aBlade = [2.5, -0.5, 0.06]; aR = [0.75, -0.45, zp + 0.55]; aL = [0.2, 0.62, zp + 2.45]; }
     else if (act === 'brace') { aL = [0.9, 0.7, zp + 1.6]; aR = [0.9, -0.5, zp + 1.5]; }
+    else if (act === 'slash') {
+      // two hands, raised behind the top shoulder, then chopped down to 'low' in front of him
+      const up = at < 0.3 ? easeIO(at / 0.3) : at < 0.42 ? 1 - easeIO((at - 0.3) / 0.12) : 0;
+      const low = (s.actData && s.actData.low) || 2.4;
+      aR = [0.45 + 0.4 * (1 - up), -0.4, zp + 0.95 + 1.3 * up];
+      aBlade = [1.2 + 2.4 * (1 - up), 0.6 - 1.4 * up, low + (5.2 - low) * up];
+    }
     const ka = (aBlade || aR || aL) ? envU : 0;
     blade = aBlade ? V.lerp(bBlade, aBlade, ka) : bBlade;
     R = aR ? V.lerp(bR, aR, ka) : bR;
@@ -544,14 +553,14 @@ function standRig(s, T, feet) {
     L = [0.3 + 0.3 * stridePush, 0.85 - 0.35 * Math.max(0, stridePush), zp - 0.05];
     R = [0.3 - 0.3 * stridePush, -0.85 + 0.35 * Math.max(0, -stridePush), zp - 0.05];
     if (act === 'drop') { const k = at < 0.6 ? easeIO(at / 0.6) : 1; R = V.lerp([0.9, -0.3, zp + 1.2], [1.1, -0.25, zp + 0.35], k); }
-    if ((act === 'break' || act === 'shove') && s.target) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; }
+    if ((act === 'break' || act === 'shove' || act === 'crosscheck') && s.target) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; }
     if (act === 'carry') { L = [1.25, 0.65, zp - 0.5]; R = [1.25, -0.65, zp - 0.5]; }
     if (act === 'point') R = [0.6, -0.5, zp + 2.9];
     if (act === 'washout') { const k = bump(Math.min(1, at * 1.3)); L = V.lerp(L, [0.6, 2.0, zp + 1.2], k); R = V.lerp(R, [0.6, -2.0, zp + 1.2], k); }
   }
   // a shove with the stick is a cross-check: both hands on it, the shaft across his chest
-  if (act === 'shove' && s.target && s.stick) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; held = 'across'; stickFit = null; }
-  if (s.grab || act === 'pull' || act === 'yank' || act === 'hug' || act === 'shove' || act === 'break' || (s.tussle && !carrying)) { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
+  if ((act === 'shove' || act === 'crosscheck') && s.target && s.stick) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; held = 'across'; stickFit = null; }
+  if (s.grab || act === 'pull' || act === 'yank' || act === 'hug' || act === 'shove' || act === 'crosscheck' || act === 'break' || (s.tussle && !carrying)) { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
   else if (s.guard) { L = reach(shL, L, 0.8); R = reach(shR, R, pk > 0.6 ? 0.98 : 0.8); }
   // (a quarter of a second to get anywhere, unless it's an action, quicker; a shot, a deke or a
   // punch is its own path and only smoothed at the joins)

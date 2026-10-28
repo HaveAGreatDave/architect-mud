@@ -63,6 +63,9 @@ const BOARDS_CHANCE = 0.075;               // a hit finished into the boards
 const SCRUM_CHANCE = 0.060;                // bodies converging on a dead puck
 const BRAWL_CHANCE = 0.006;                // v3, rivals in a game that matters: everybody goes
 const GOALIE_FIGHT_SHARE = 0.35;           // of those brawls, the ones where the goalies come out too
+const SLASH_CHANCE = 0.03;                 // v5, per chance-gap: a two-hander on the man with it
+const SLASH_CALLED = 0.4;                  // ...and the referee saw it
+const CROSSCHECK_CALLED = 0.35;            // v5: an open-ice cross-check the referee calls
 const INJURY_ON_BOARDS = 0.085;            // that hit ended his night — see the injury band below
 const PULL_WINDOW = 90;                    // seconds left when a trailing side pulls
 const OT_SECS = 5 * 60;
@@ -330,7 +333,8 @@ export function playDesc(b) {
   if (b.type === 'brawl') return `Line brawl: ${(b.teams || []).join(' and ')}`;
   if (b.type === 'injury') return `${b.player}, out for the game`;
   if (b.type === 'death') return `${b.player}: DEAD`;
-  if (b.type === 'boards') return `Big hit: ${b.hitter} on ${b.victim}`;
+  if (b.type === 'boards') return b.hitStyle === 'crosscheck' ? `Cross-check: ${b.hitter} on ${b.victim}` : `Big hit: ${b.hitter} on ${b.victim}`;
+  if (b.type === 'slash') return `Slash: ${b.hitter} on ${b.victim}${b.caught ? '' : ', not called'}`;
   return DESC[b.kind] || 'Chance';
 }
 
@@ -665,10 +669,16 @@ const strSeed = (...parts) => {
 // shoulder: finished into the dasher · glass: high into the panes · behind: from behind,
 // face first · hip: hip check, upended · elbow: an elbow up high
 export const HIT_STYLES = [['shoulder', 34], ['glass', 26], ['behind', 16], ['hip', 12], ['elbow', 12]];
-export function hitStyleFor(hitter, victim, n) {
-  const r = sportsRng(strSeed('hit', hitter, victim, n))() * 100;
+// v5 adds the cross-check: in open ice, both hands on the shaft, into his numbers or his
+// chest. It isn't on the boards at all; the beat keeps its type so everything that counts
+// hits counts it.
+export const HIT_STYLES_V5 = [...HIT_STYLES, ['crosscheck', 22]];
+export function hitStyleFor(hitter, victim, n, v5 = false) {
+  const table = v5 ? HIT_STYLES_V5 : HIT_STYLES;
+  const sum = table.reduce((a, [, w]) => a + w, 0);
+  const r = sportsRng(strSeed('hit', hitter, victim, n))() * sum;
   let acc = 0;
-  for (const [id, w] of HIT_STYLES) { acc += w; if (r < acc) return id; }
+  for (const [id, w] of table) { acc += w; if (r < acc) return id; }
   return 'shoulder';
 }
 // A wound is a phrase for the booth plus what the picture should do about it. `part` is
@@ -703,6 +713,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   const v3 = Number(opts.version) >= 3;
   // v4 fights harder (FIGHT_V4).
   const v4 = Number(opts.version) >= 4;
+  // v5 has open-ice cross-checks and slashes, called or not (bigHit, slash).
+  const v5 = Number(opts.version) >= 5;
   // A final is the game that matters most; the caller says so (sportsGameForSlot).
   const important = !!opts.important;
   let brawled = false;
@@ -803,8 +815,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     return table[0];
   }
 
-  function penalise(team, at, forced) {
-    const s = anyone(team); if (!s) return null;
+  function penalise(team, at, forced, who) {
+    const s = who || anyone(team); if (!s) return null;
     const [infraction, mins] = forced || pick(INFRACTIONS, rand);
     team.box.push({ name: s.name, until: at - mins * 60 });
     push({ type: 'penalty', teamName: team.name, player: s.name, infraction, penaltyMin: mins,
@@ -906,9 +918,15 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   function bigHit(att, def, at) {
     const hitter = anyone(att), victim = anyone(def);
     if (!hitter || !victim) return;
+    const n = beats.length;
+    const hitStyle = hitStyleFor(hitter.name, victim.name, n, v5);
+    // Whether the arm goes up is from the hit's own facts, so a v5 night spends no more of
+    // the game's rand than v4 unless a penalty actually comes of it.
+    const called = hitStyle === 'crosscheck' && sportsRng(strSeed('xcall', hitter.name, victim.name, n))() < CROSSCHECK_CALLED;
     push({ type: 'boards', hitter: hitter.name, victim: victim.name,
       hitterTeam: att.name, victimTeam: def.name, section: ordinal(period),
-      hitStyle: hitStyleFor(hitter.name, victim.name, beats.length) });
+      hitStyle, ...(hitStyle === 'crosscheck' ? { openIce: true, called } : {}) });
+    const callIt = () => { if (called && penalise(att, at, ['cross-checking', 2], hitter)) faceoff(endDot(att), 'penalty'); };
     if (rand() < INJURY_ON_BOARDS) {
       victim.out = true;
       // How long he is gone for is decided HERE, by the game's own rand, so the
@@ -919,8 +937,28 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       push({ type: 'injury', player: victim.name, teamName: def.name, slotsOut,
         remaining: live(def).length, section: ordinal(period),
         ...woundFor(victim.name, slotsOut, false, beats.length) });
-      faceoff(endDot(def), 'injury');   // play stops while they get him off the ice
-    }
+      // play stops while they get him off the ice; a called hit goes to the box first, and
+      // the draw is in the hitter's end
+      if (called) callIt(); else faceoff(endDot(def), 'injury');
+    } else callIt();
+  }
+
+  // v5: a slash. A man on the side without it chops at the hands or the legs of the man
+  // with it. The referee sees some of them; the rest the booth sees and he doesn't. All of
+  // it is from the beat's facts, never the game's rand, so a gap with no slash in it plays
+  // exactly as v4's did.
+  const SLASH_AT = ['hands', 'hands', 'wrists', 'legs', 'stick'];
+  function slash(att, def, at, meanness) {
+    const r = sportsRng(strSeed('slash', att.name, def.name, period, Math.round(at), beats.length));
+    if (r() >= SLASH_CHANCE * meanness) return;
+    const ls = live(def), lv = live(att);
+    if (!ls.length || !lv.length) return;
+    const slasher = ls[Math.floor(r() * ls.length)], victim = lv[Math.floor(r() * lv.length)];
+    const caught = r() < SLASH_CALLED;
+    const slashAt = SLASH_AT[Math.floor(r() * SLASH_AT.length)];
+    push({ type: 'slash', hitter: slasher.name, victim: victim.name, hitterTeam: def.name, victimTeam: att.name,
+      caught, slashAt, section: ordinal(period) });
+    if (caught && penalise(def, at, ['slashing', 2], slasher)) faceoff(endDot(def), 'penalty');
   }
 
   function scrum(att, def) {
@@ -1003,6 +1041,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       if (!ppLive && rand() < FIGHT_CHANCE * meanness) { fight(att, def, clock); faceoff(neutralDot(def), 'fight'); }
       if (rand() < BOARDS_CHANCE * (att.profile?.violence || 1) * rivalryVio) bigHit(att, def, clock);
       if (rand() < SCRUM_CHANCE) { scrum(att, def); faceoff(neutralDot(def), 'scrum'); }
+      if (v5) slash(att, def, clock, meanness);
       // v3: the line brawl, once a game at most, only between rivals and only when it
       // matters (a final, or one goal in it in the third). The roll is v3's own, so the
       // older versions never spend it.
@@ -1235,8 +1274,9 @@ export const HOCKEY = {
   finalIcon: '🏒',
   season: SEASON,
   // v2 reprints a dead man (reprintSlots); broadcast records the slot it plays from.
-  // v3 plays fights by the fighters and the game's momentum (simFightV3); v4 fights harder.
-  simVersions: [1, 2, 3, 4],
+  // v3 plays fights by the fighters and the game's momentum (simFightV3); v4 fights harder;
+  // v5 has open-ice cross-checks and slashes.
+  simVersions: [1, 2, 3, 4, 5],
   section: 'period',
   sectionPlural: 'periods',
   simGame,
