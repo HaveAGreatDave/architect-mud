@@ -49782,17 +49782,30 @@ function boxFace(cam, out, keepWorld, p0, p1, p2, p3, P, ax, ay, bx, by, z0, z1)
       }
     }
     if (cut.length < 3) return;
-    const pts = new Array(cut.length);
-    for (let i = 0; i < cut.length; i++) { const p = cam.proj(cut[i][0], cut[i][1], cut[i][2]); pts[i] = { x: p.sx, y: p.sy, z: p.f }; }
-    rec = { pts };
-    if (keepWorld) rec.w = cut;
+    rec = boxRec(cut.length);
+    for (let i = 0; i < cut.length; i++) { const p = cam.proj(cut[i][0], cut[i][1], cut[i][2]), q = rec.pts[i]; q.x = p.sx; q.y = p.sy; q.z = p.f; }
+    rec.w = keepWorld ? cut : undefined;
   } else {
-    const pts = new Array(m);
-    for (let i = 0; i < m; i++) { const p = P ? P[i] : i === 0 ? p0 : i === 1 ? p1 : i === 2 ? p2 : p3; pts[i] = { x: p.sx, y: p.sy, z: p.f }; }
-    rec = { pts };
-    if (keepWorld) rec.w = w;
+    rec = boxRec(m);
+    for (let i = 0; i < m; i++) { const p = P ? P[i] : i === 0 ? p0 : i === 1 ? p1 : i === 2 ? p2 : p3, q = rec.pts[i]; q.x = p.sx; q.y = p.sy; q.z = p.f; }
+    rec.w = keepWorld ? w : undefined;
   }
   out.push(rec);
+}
+// ⚠ boxQuads' records come from a pool reset at the start of each occlusion pass (BOX_REC_N = 0, see
+// drawWorldObjects), the point where OCC_SOLIDS, the only thing that keeps one, is replaced. Every
+// reader (the depth raster, the own ship's mask, the sun's shadow of the near solids) is done with
+// them inside the frame. Built fresh, they were the cockpit's largest single source of garbage.
+const BOX_RECS = [];
+let BOX_REC_N = 0;
+function boxRec(m) {
+  let r = BOX_RECS[BOX_REC_N];
+  if (!r) BOX_RECS[BOX_REC_N] = r = { pts: [], w: undefined };
+  BOX_REC_N++;
+  const pts = r.pts;
+  while (pts.length < m) pts.push({ x: 0, y: 0, z: 0 });
+  pts.length = m;
+  return r;
 }
 
 // Screen-space AABB of a ground-anchored box, or null if any corner is too close/behind the eye.
@@ -53631,6 +53644,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     const D = _occTarget.d, DW = _occTarget.w;
     OCC_FIELD = { d: D, gw, gh, sx: gscale, sy: gscale, stride: DW };
     OCC_SOLIDS = [];
+    BOX_REC_N = 0;   // last frame's records are free again: see boxRec
     const quads = [];
     // Does everything already in the field cover this screen rectangle, nearer than `f`? The
     // early-out on the first open cell is what makes this cheap for the buildings that DRAW —
