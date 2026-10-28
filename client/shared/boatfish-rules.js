@@ -22,7 +22,7 @@ import { SPECIES } from './fish.js';
 export const TWITCH_M = 1.0;          // how far one tap draws the lure in
 export const TWITCH_LIFT_M = 0.35;    // how far one tap lifts it
 export const TWITCH_MIN_MS = 140;     // taps closer than this are one tap: no machine-gunning
-export const REEL_IN_M = 4;           // at this much line out it auto-reels, and you cast again
+export const REEL_IN_M = 0.5;         // at this much line out it auto-reels, and you cast again
 export const SINK_MPS = 0.6;          // a plain lure's sink rate, until a lure item says otherwise
 export const CAST_MIN_M = 6;          // the shortest cast that counts as a cast
 

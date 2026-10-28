@@ -429,6 +429,8 @@ export const RENDER_TUNE = {
   // hard as Fresnel says it should. The mirror pass itself has existed since the puddles shipped
   // and was wired only to tarmac; world.js kept its uniforms, in its own words, 'for the day
   // somebody wants reflections on unpaved ground'.
+  // The fine surface under the chop (gl/sea-detail.js): its slope against the chop's. 0 = the sea as it was.
+  glSeaDetail: 20,
   glSeaRefl: 17,
   // How far the wave normal drags the lookup, in PIXELS. This is what makes a reflection ripple
   // rather than sit there like a photograph — and it is the wave's OWN normal, not a second pair of
@@ -16280,6 +16282,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
       wakeAmp: RENDER_TUNE.glWakeAmp, wakes: collectWakes(v, off ? off.x : ax, off ? off.y : ay, R),
       ownHull: ownHullWash(v, off ? off.x : ax, off ? off.y : ay),
       seaRefl: RENDER_TUNE.glSeaRefl, seaReflBend: RENDER_TUNE.glSeaReflBend,
+      seaDetail: RENDER_TUNE.glSeaDetail,
       seaNeon: RENDER_TUNE.glSeaNeon,
       skyTop: sky.top ? [sky.top[0]/255, sky.top[1]/255, sky.top[2]/255] : null,
       skyHorCol: [hor[0]/255, hor[1]/255, hor[2]/255],

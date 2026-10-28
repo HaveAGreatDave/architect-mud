@@ -276,6 +276,12 @@ function depthNow(t) {
   return Math.min(S.floorM, S.depthBase + SINK_MPS * Math.max(0, t - S.depthAt) / 1000);
 }
 
+// Wind the whole line in now, rather than twitching it the rest of the way.
+function reelNow() {
+  if (!S || S.phase !== 'wait') return;
+  send(`fishtwitch ${S.token} reel`);
+}
+
 function twitch(t) {
   if (S.lastTapAt != null && t - S.lastTapAt < TWITCH_MIN_MS) return false;   // one tap, not two
   S.gap = S.lastTapAt == null ? null : t - S.lastTapAt;
@@ -441,7 +447,7 @@ function statusLine(t) {
   switch (S.phase) {
     case 'ready': return _host ? 'Cast when you\'re ready.' : 'Aim with A and D. Hold Cast or Space, then let go.';
     case 'flight': return 'The line\'s out.';
-    case 'wait': return 'Tap to twitch it in. Keep a rhythm.';
+    case 'wait': return 'Tap to twitch it in. Keep a rhythm. Reel in to cast again.';
     case 'bite': return 'Bite. Hit each knock.';
     case 'fight':
       if (S.stamina <= 0) return 'It\'s tired. Bring it in.';
@@ -564,6 +570,7 @@ function wire() {
   });
   // The strike pad is a tap target too, the size of a thumb.
   on(E.strike, 'pointerdown', (e) => { e.preventDefault?.(); actDown(now()); render(now()); });
+  on(E.reel, 'click', () => reelNow());
   on(E.stow, 'click', () => send('stand'));
   if (!_host) {
     on(window, 'keyup', (e) => { if (boatFishKey(e, false)) e.preventDefault?.(); });
@@ -599,6 +606,7 @@ function hudHtml() {
     <div class="bf-controls">
       <button class="bf-btn bf-thumb bf-left" data-r="left" aria-label="Lean to port">&#9664; Port</button>
       <button class="bf-btn bf-act" data-r="act">Twitch</button>
+      <button class="bf-btn bf-reel" data-r="reel" title="fish reel">Reel in</button>
       <button class="bf-btn bf-thumb bf-right" data-r="right" aria-label="Lean to starboard">Stbd &#9654;</button>
     </div>
     <button class="bf-btn bf-stow" data-r="stow" title="stand">Stow</button>`;
@@ -608,7 +616,7 @@ function findParts(root) {
   const q = (r) => root.querySelector(`[data-r="${r}"]`);
   const E = {};
   for (const r of ['phase', 'lure', 'out', 'depth', 'follow', 'lamp', 'tempo', 'strike', 'fight', 'tension', 'stamina',
-    'leanpad', 'pull', 'lean', 'status', 'card', 'ctitle', 'cbody', 'left', 'act', 'right', 'stow']) E[r] = q(r);
+    'leanpad', 'pull', 'lean', 'status', 'card', 'ctitle', 'cbody', 'left', 'act', 'reel', 'right', 'stow']) E[r] = q(r);
   E.rings = Array.from(root.querySelectorAll('.bf-ring') || []);
   E.last = {};
   return E;

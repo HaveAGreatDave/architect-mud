@@ -213,7 +213,27 @@ function clearAutoWalkWatchdog() {
 // re-run the step from our real position (which either retries, reroutes, or stops).
 function armAutoWalkWatchdog(ms = AUTO_WATCHDOG_MS) {
   clearAutoWalkWatchdog();
-  autoWalkWatchdog = setTimeout(() => { autoWalkWatchdog = null; autoElevatorRide = null; autoWalkStep(); }, ms);
+  autoHopSentAt = Date.now();
+  autoWalkWatchdog = setTimeout(onAutoWalkWatchdog, ms);
+}
+// A slow reply isn't a lost one. The server queues a step it isn't ready for, so
+// while we're still standing where we sent the hop from, keep waiting rather than
+// re-sending (a re-send under lag double-steps us off the route) or counting it as
+// no progress (two laggy hops used to stop the walk as "ambiguous"). Only once the
+// hop has gone unanswered for AUTO_LAG_PATIENCE_MS do we re-evaluate and resend.
+const AUTO_LAG_PATIENCE_MS = 15000;
+let autoHopSentAt = 0;
+let autoHopFrom = null;
+function onAutoWalkWatchdog() {
+  autoWalkWatchdog = null;
+  const here = (_lastMinimapNodes || []).find(n => n.is_current)?.id;
+  if (!autoElevatorRide && autoPendingTarget != null && here === autoHopFrom
+      && Date.now() - autoHopSentAt < AUTO_LAG_PATIENCE_MS) {
+    autoWalkWatchdog = setTimeout(onAutoWalkWatchdog, AUTO_WATCHDOG_MS);
+    return;
+  }
+  autoElevatorRide = null;
+  autoWalkStep();
 }
 
 // Ask the server to re-plot to `destId` from wherever we are now, routing around any
@@ -341,6 +361,7 @@ function autoWalkStep() {
   if (!dir) dir = Object.entries(current.exits || {}).find(([, id]) => id === nextId)?.[0];
   if (!dir || !DIR_CMDS.includes(dir)) { stopAutoWalk("Auto-walk stopped: can't step off the route from here."); return; }
   autoPendingTarget = nextId; // so an exit picker can be answered toward this zone
+  autoHopFrom = current.id;
   sendCmd(dir);
   // Confirmation-driven: wait for the server to report we've reached nextId
   // (notifyAutoWalkArrival) before pacing the next hop — don't blind-fire a timer that
@@ -355,7 +376,13 @@ function autoWalkStep() {
 // never equal the pending NEXT tile, so they never false-advance the walk.
 export function notifyAutoWalkArrival(currentId) {
   if (!autoWalkArmed || autoPendingTarget == null) return;
-  if (currentId !== autoPendingTarget) return;   // not the hop we're waiting on
+  if (currentId !== autoPendingTarget) {
+    // A late reply plus a queued step can land us past the hop we were waiting on.
+    // Anywhere further along the route counts; anything else isn't our hop.
+    const path = mapState.tracePath || [];
+    const at = path.indexOf(currentId);
+    if (at < 0 || at <= path.indexOf(autoPendingTarget)) return;
+  }
   autoPendingTarget = null;
   autoElevatorRide = null;
   clearAutoWalkWatchdog();

@@ -9,7 +9,7 @@ import { computeSellUnitPrice } from '../../server/engine/vendor.js';
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { emit } from '../../server/engine/events.js';
-import { _test as boatT, boatTick, settleBoatBite } from './boat.js';
+import { _test as boatT, boatTick, settleBoatBite, endBoatFishing } from './boat.js';
 import { rigs } from '../powerboat/index.js';
 import { aboard } from '../powerboat/yard.js';
 import { _test as holdT } from '../powerboat/hold.js';
@@ -218,8 +218,13 @@ async function boatSuite({ run, check, p }) {
     check('boat: fish aboard with the anchor up is refused', /Drop the anchor first/.test(r?.message || '') && p.posture !== 'fishing', r?.message);
 
     rig.anchored = A;
+    rig.typeId = 'hydro';   // no rod holders
     r = await run('fish');
-    check('boat: fish aboard with no rod is refused', /need a fishing rod/i.test(r?.message || '') && p.posture !== 'fishing', r?.message);
+    check('boat: fish with no rod, on a hull with no rod holders, is refused', /need a fishing rod/i.test(r?.message || '') && p.posture !== 'fishing', r?.message);
+    rig.typeId = 'skiff';
+    r = await run('fish');
+    check('boat: fish with no rod on the skiff uses the boat\'s own rod', p.posture === 'fishing' && st()?.boatRod === true && /out of the holder/.test(r?.message || ''), `${p.posture} ${r?.message}`);
+    endBoatFishing(p, null);
 
     await rodRow();
     emit('inventory.changed', { actor: p });
@@ -264,8 +269,11 @@ async function boatSuite({ run, check, p }) {
 
     // ── Reeled at REEL_IN_M ───────────────────────────────────────────────────
     await run(`fishcast boat 0 7 ${tok}`);
-    for (let k = 0; k < 3; k++) { clock += 400; await run(`fishtwitch ${tok}`); }
+    for (let k = 0; k < 7; k++) { clock += 400; await run(`fishtwitch ${tok}`); }
     check('boat: the line reels itself in at REEL_IN_M', !!last('reeled') && st()?.phase === 'aim' && !st()?.lure, `${st()?.phase}`);
+    await run(`fishcast boat 0 20 ${tok}`);
+    await run(`fishtwitch ${tok} reel`);
+    check('boat: `reel` winds the line in on demand', st()?.phase === 'aim' && !st()?.lure, `${st()?.phase}`);
 
     // ── A bite after on-tempo twitches near a fish ────────────────────────────
     // Slow fish first, cast a metre and a half past one so the lure is drawn in over it. A few

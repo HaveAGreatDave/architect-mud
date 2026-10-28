@@ -511,7 +511,7 @@ async function cmdFishResolve(args, raw, player, broadcast) {
 // ── Command ───────────────────────────────────────────────────────────────────
 
 async function cmdFish(args, raw, player, broadcast) {
-  // Typed boat forms: `fish <bearing> <metres>`, `fish twitch`, `fish strike`.
+  // Typed boat forms: `fish <bearing> <metres>`, `fish twitch`, `fish reel`, `fish strike`.
   if (player.posture === 'fishing' && player.fishState?.mode === 'boat') {
     const r = await boatTyped(args, player);
     if (r) return r;
@@ -549,7 +549,7 @@ export const commands = {
   fishcast: cmdFishCast,
   fishresolve: cmdFishResolve,
   // The boat reel's taps and strikes (boat.js). Typed as `fish twitch` and `fish strike`.
-  fishtwitch: (args, raw, player) => boatTwitch(player, args[0]),
+  fishtwitch: (args, raw, player) => boatTwitch(player, args[0], { reel: args[1] === 'reel' }),
   fishstrike: (args, raw, player) => boatStrike(player, args[0], args[1], args[2]),
 };
 

@@ -523,6 +523,7 @@ export function openBoat(ctx = {}) {
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
   });
   root.querySelectorAll?.('.boat-sw')?.forEach?.((b) => b.addEventListener('click', () => flipSwitch(b.dataset.sw)));
+  if (BOAT_ROWS[st.typeId]?.open) root.querySelector?.('.boat-sw[data-sw="wipe"]')?.setAttribute('hidden', '');
   root.querySelector?.('.boat-ride')?.addEventListener('click', () => cycleRide());
   root.querySelector?.('.boat-ign')?.addEventListener('click', () => {
     // ⚠ A CLICK CANNOT HOLD A STARTER, so it arms one and the frame lets go of it once she fires.
@@ -842,7 +843,8 @@ function switchState(id) {
 function flipSwitch(id) {
   if (!st) return;
   if (id === 'cabin') st.cabin = !st.cabin;
-  else if (id === 'wipe') st.wipers = st.wipers ? 0 : 2;
+  // An open hull (the skiff) has no windscreen, so no wipers.
+  else if (id === 'wipe') st.wipers = st.wipers || BOAT_ROWS[st.typeId]?.open ? 0 : 2;
   else if (id === 'dials') st.dials = !st.dials;
   else if (id === 'stab') st.stab = !st.stab;
   else if (id === 'lamp') st.lamp = !st.lamp;
@@ -1171,7 +1173,9 @@ function buildHelp() {
     + '<dt>X / C</dt><dd>steer (or the arrows). She has no rudder at rest: you point her by moving her.</dd>'
     + '<dt>R (beached)</dt><dd>shut the lever and shove her back off the sand.</dd>'
     + '<dt>L</dt><dd>gauge lights. They need power, so they only come up with the engine running.</dd>'
-    + '<dt>I / W / H</dt><dd>cabin lamp, wipers, horn (held). Every switch on the dash is clickable too.</dd>'
+    + (BOAT_ROWS[st.typeId]?.open
+      ? '<dt>I / H</dt><dd>cabin lamp, horn (held). Every switch on the dash is clickable too.</dd>'
+      : '<dt>I / W / H</dt><dd>cabin lamp, wipers, horn (held). Every switch on the dash is clickable too.</dd>')
     + '<dt>G</dt><dd>gyro stabiliser. Takes most of the roll and pitch out of the swell while the engine runs.</dd>'
     + '<dt>[ / ]</dt><dd>trim tabs. Bow down holds on; bow up is speed on a boat barely in the water.</dd>'
     + '<dt>SHIFT</dt><dd>the bottle. It costs hull, not fuel.</dd>'
@@ -1699,7 +1703,8 @@ function drawRead() {
       : st.external
       ? 'drag swing · wheel back off · V helm view · ? controls · ESC step off'
       : (st.sim.running
-        ? 'A/Z throttle · X/C steer · [ ] tabs · SHIFT bottle · H horn · I/W/L cabin wipe dials · K stop · V external · ? controls'
+        ? 'A/Z throttle · X/C steer · [ ] tabs · SHIFT bottle · H horn · '
+          + (BOAT_ROWS[st.typeId]?.open ? 'I/L cabin dials' : 'I/W/L cabin wipe dials') + ' · K stop · V external · ? controls'
         : 'ENGINE OFF: click the ENGINE key or hold K to start · V external · N ride · ? controls · ESC step off');
   }
   st.lever3d?.draw?.();

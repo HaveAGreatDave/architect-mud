@@ -798,4 +798,6 @@ export function showDevPanelButton() {
   if (btn) btn.style.display = '';
   const dbg = document.getElementById('debug-whisper-btn');
   if (dbg) dbg.style.display = '';
+  // Free look is staff-only on the server too; the same roster sees the dev panel.
+  for (const b of document.querySelectorAll('.dpad-freelook-btn')) b.style.display = '';
 }

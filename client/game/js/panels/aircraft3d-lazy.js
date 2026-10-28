@@ -72,6 +72,7 @@ export function groundPitchFor(...a) { return (_m || _cold('groundPitchFor')).gr
 export function hasMainRotor(...a) { return (_m || _cold('hasMainRotor')).hasMainRotor(...a); }
 export function hex2rgb(...a) { return (_m || _cold('hex2rgb')).hex2rgb(...a); }
 export function hingeVisorFace(...a) { return (_m || _cold('hingeVisorFace')).hingeVisorFace(...a); }
+export function isBoatClass(...a) { return (_m || _cold('isBoatClass')).isBoatClass(...a); }
 export function jazzTex(...a) { return (_m || _cold('jazzTex')).jazzTex(...a); }
 export function jazzUV(...a) { return (_m || _cold('jazzUV')).jazzUV(...a); }
 export function legacyMeshFaces(...a) { return (_m || _cold('legacyMeshFaces')).legacyMeshFaces(...a); }

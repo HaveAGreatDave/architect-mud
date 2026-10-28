@@ -5,7 +5,9 @@ const COLLAPSED_KEY = 'architect_sidebar_collapsed';
 // carry a saved size. (Bumped after the min-height:0 change exposed old
 // clamped-tiny sizes, which made every panel come up minimized.)
 const SIZE_KEY = 'architect_sidebar_sizes_v2';
-const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 'env-section', 'enemy-section', 'players-section', 'chat-section'];
+const DEFAULT_ORDER = ['vitals-section', 'env-section', 'location-section', 'minimap-section', 'enemy-section', 'players-section', 'chat-section'];
+// Hidden until a player restores them from the unlocked sidebar's panels list.
+const DEFAULT_HIDDEN = ['players-section', 'chat-section'];
 
 let locked = true;
 let mode = 'move'; // 'move' (drag to reorder) | 'resize' (drag edge to size) — only meaningful while unlocked
@@ -87,7 +89,7 @@ function onGameDrop(e) {
 // --- hidden panels ---
 
 function loadHidden() {
-  try { return JSON.parse(localStorage.getItem(HIDDEN_KEY)) || []; } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(HIDDEN_KEY)) || [...DEFAULT_HIDDEN]; } catch { return [...DEFAULT_HIDDEN]; }
 }
 
 function saveHidden(ids) {
@@ -390,7 +392,7 @@ function applyLayout(items) {
 export function resetOrder() {
   document.querySelectorAll('#sidebar .sidebar-spacer').forEach(s => s.remove());
   localStorage.removeItem(ORDER_KEY);
-  saveHidden([]); // restore any hidden panels
+  saveHidden([...DEFAULT_HIDDEN]); // back to the default hidden set
   saveCollapsed([]); // expand any collapsed panels
   resetSizes(); // clear custom panel heights
   document.querySelectorAll('#sidebar .sidebar-collapse-btn').forEach(btn => {

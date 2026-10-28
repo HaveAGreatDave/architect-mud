@@ -1066,7 +1066,12 @@ const handlers = {
     // A whisper we already echoed optimistically was rejected — pull it back out.
     if (msg.whisperFailed) rollbackSelfEcho(msg.whisperFailed);
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
-    if (msg.html) appendHtml(msg.message, 'error'); else appendMsg(msg.message, 'error');
+    // Many server errors carry a dim hint span or an escaped &lt;placeholder&gt;
+    // without setting html, and showed the raw markup. Real tags or entities
+    // mean HTML; a bare "<item>" in a usage line doesn't match and stays text.
+    const markup = typeof msg.message === 'string'
+      && /<\/?(?:span|b|i|em|strong|br|div|code)\b[^>]*>|&(?:lt|gt|amp|quot|#\d+);/.test(msg.message);
+    if (msg.html || markup) appendHtml(msg.message, 'error'); else appendMsg(msg.message, 'error');
     // A blocked auto-walk step (locked door, encumbrance, water — anything the
     // move gates veto) comes back as an error. Route AROUND the blocked tile and
     // resume rather than hammer the wall; only dead-stop when there's no way past.

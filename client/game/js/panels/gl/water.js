@@ -18,6 +18,7 @@
 // glitter, whitecaps, surf band and sheen.
 import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
 import { SEA_GLSL } from './sea-glsl.js';
+import { SEA_DETAIL_GLSL, SEA_DETAIL_AMT, bindSeaDetail } from './sea-detail.js';
 import { seaSlopeVariance, SEA_FOAM_LEAD, SEA_FOAM_RAMP, SEA_FOAM_A, SURF_DEPTH_Q } from '../../../../shared/sea-swell.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
@@ -349,6 +350,7 @@ uniform vec4  uHullP;
 uniform vec4  uHullS;
 
 ${SEA_GLSL}
+${SEA_DETAIL_GLSL}
 
 void main() {
   // ⚠ THE FRAGMENT MUST USE THE WARP THE VERTEX SHADER APPLIED, carried across rather than
@@ -377,6 +379,7 @@ void main() {
   vec2 dd = seaSlope(spR, uT, ph, uAmp, uRoll * gate * vShelter, uWind * gate * vShelter, uSpread);
   // ⚠ THE LEAN IS IN THE SLOPE TOO, or the lighting describes a symmetric wave the mesh is not.
   if (zone > 0.0) dd += seaSurfLeanD(spR, uT, uRoll * gate * vShelter) * zone;
+  dd += seaDetail(spR, uT, uAmp) * smoothstep(0.0, 0.5, deep);   // gl/sea-detail.js: the fine surface
   dd = seaUnframe(dd, uSeaRot);   // the slope back out into world axes, where N is built
   vec3 N = normalize(vec3(-dd.x, -dd.y, 1.0));
 
@@ -812,6 +815,7 @@ export function createWaterLayer(gl) {
     reflBend: U('uReflBend'), skyOn: U('uSkyOn'), reflVP: U('uReflVP'), skyTop: U('uSkyTop'), skyHor: U('uSkyHor'),
     nWake: U('uNWake'), wakeP: U('uWakeP'), wakeS: U('uWakeS'), hullP: U('uHullP'), hullS: U('uHullS'),
     lut0: U('uLut0'), mh: U('uMh'), r: U('uR'),
+    seaDetail: U('uSeaDetail'), seaDetailAmt: U('uSeaDetailAmt'),
     amp: U('uAmp'), seaLit: U('uSeaLit'), sss: U('uSss'), spread: U('uSpread'),
     lut1: U('uLut1'), shelter: U('uShelter'), shoal: U('uShoal'), refract: U('uRefract'), seaRot: U('uSeaRot'), surf: U('uSurf'), depthT: U('uDepthT'), chopR: U('uChopR'),
     foamN: U('uFoamN'), foamP: U('uFoamP'), foamBox: U('uFoamBox'),
@@ -998,6 +1002,7 @@ export function createWaterLayer(gl) {
     gl.activeTexture(gl.TEXTURE4);
     gl.bindTexture(gl.TEXTURE_2D, R.sky || lut.tex);
     gl.uniform1i(loc.sky, 4);
+    bindSeaDetail(gl, loc.seaDetail, loc.seaDetailAmt, s.seaDetail == null ? SEA_DETAIL_AMT : s.seaDetail);
     gl.uniform1f(loc.reflOn, on);
     gl.uniform1f(loc.skyOn, R.sky ? 1 : 0);
     gl.uniform1f(loc.reflGain, s.seaRefl || 0);

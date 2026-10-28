@@ -44,6 +44,7 @@ import { rigs } from '../powerboat/index.js';
 import { conning } from '../powerboat/texthelm.js';
 import { anchorOf, isLandTile, depthUnder } from '../powerboat/anchor.js';
 import { holdCapOf, holdKgOf, loadHold, addHoldKg } from '../powerboat/hold.js';
+import { TYPES } from '../../client/game/js/panels/flight-model.js';
 import { maybeSnapRod, consumeBait, castGear } from './index.js';
 
 const CAST_DEFAULT_M = 25;     // a rod without `cast_m` on its tags reaches this far
@@ -51,6 +52,12 @@ const SPOOK_MS = 20000;        // a missed strike scares the school off the lure
 const FOLLOW_AT = 0.15;        // interest at which a fish shows as following the lure
 const FLOOR_GAP_M = 0.2;       // the lure stops this far above the bottom
 const STOW = 'You reel in and stow the rod.';
+
+// A hull with rod holders (`rodHolders` in flight-model.js) comes with rods in them. They aren't
+// items: they never go in your pack, never leave the boat and never snap. Your own rod, if you carry
+// one, is used first, and it can still snap.
+const BOAT_ROD = { tags: { fishing_rod: true }, boat: true };
+const boatRodFor = (typeId) => (Number(TYPES[typeId]?.rodHolders) > 0 ? BOAT_ROD : null);
 
 const D2R = Math.PI / 180;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -164,7 +171,7 @@ export function abandonBoatFishing(player) {
 export async function openBoatReel(player, boatId) {
   const a = anchorOf(player.id);
   if (!a) return { type: 'emote', message: "You'd drift off your own line. Drop the anchor first." };
-  const [rod, lure, gear, skill, holdKg, textRung] = await Promise.all([
+  let [rod, lure, gear, skill, holdKg, textRung] = await Promise.all([
     resolveInventoryItem(player.id, { tag: 'fishing_rod' }),
     resolveInventoryItem(player.id, { tag: 'sink_mps' }),
     castGear(player.id),
@@ -172,15 +179,16 @@ export async function openBoatReel(player, boatId) {
     loadHold(boatId),
     prefersTextMinigamesOrDefault(player),
   ]);
-  if (!rod) return { type: 'emote', message: 'You need a fishing rod to fish.' };
   const typeId = rigs.get(player.id)?.typeId || conning.get(player.id)?.typeId || null;
+  rod = rod || boatRodFor(typeId);
+  if (!rod) return { type: 'emote', message: 'You need a fishing rod to fish.' };
   const castM = Number(rod.tags?.cast_m) > 0 ? Number(rod.tags.cast_m) : CAST_DEFAULT_M;
   const sinkMps = Number(lure?.tags?.sink_mps) > 0 ? Number(lure.tags.sink_mps) : SINK_MPS;
   const env = seaEnv();
   const t = now();
   const st = {
     mode: 'boat', boatId, zoneId: player.current_zone, token: randomUUID(),
-    anchor: { x: a.x, y: a.y }, env, castM, sinkMps, skill, textRung,
+    anchor: { x: a.x, y: a.y }, env, castM, boatRod: !!rod.boat, typeId, sinkMps, skill, textRung,
     bait: gear.bait, holdCap: holdCapOf(typeId),
     phase: 'aim', lure: null, lastTapAt: null, interest: {}, spooked: {}, thinned: thinnedNow(t),
     bite: null, fight: null, lastAttempt: t,
@@ -191,7 +199,8 @@ export async function openBoatReel(player, boatId) {
     token: st.token, ax: a.x, ay: a.y, serverNow: t, env, castM, skill,
     holdKg, holdCap: st.holdCap, thinned: st.thinned,
   });
-  return { type: 'emote', message: 'You bait up, settle on the thwart and lay the rod across your knees.'
+  return { type: 'emote', message: (rod.boat ? 'You take a rod out of the holder, bait up and settle on the thwart.'
+    : 'You bait up, settle on the thwart and lay the rod across your knees.')
     + (textRung ? ' <span class="text-dim">Cast with <b>fish &lt;bearing&gt; &lt;metres&gt;</b>, such as <b>fish 40 20</b>; port is negative.</span>' : '') };
 }
 
@@ -262,10 +271,17 @@ export function boatTick(player, st) {
   }
 }
 
-/** `fishtwitch <token>`: one tap. */
-export async function boatTwitch(player, token, { typed = false } = {}) {
+function reelIn(player, st, typed) {
+  st.phase = 'aim'; st.lure = null; st.interest = {};
+  send(player.id, 'reeled', { token: st.token });
+  return typed ? { type: 'emote', message: "The lure comes up under the boat. Cast again when you're ready." } : noop;
+}
+
+/** `fishtwitch <token> [reel]`: one tap, or with `reel`, wind the line all the way in. */
+export async function boatTwitch(player, token, { typed = false, reel = false } = {}) {
   const st = boatState(player);
   if (!st || st.token !== token || st.phase !== 'line' || !st.lure) return typed ? { type: 'emote', message: 'Cast first.' } : noop;
+  if (reel) return reelIn(player, st, typed);
   const t = now();
   if (st.lastTapAt != null && t - st.lastTapAt < TWITCH_MIN_MS) return noop;   // one tap, not two
   settle(st, t);
@@ -280,11 +296,7 @@ export async function boatTwitch(player, token, { typed = false } = {}) {
   L.depth = Math.max(0, L.depth - TWITCH_LIFT_M);
   const f = floorAt(L.x, L.y);
   if (f > 0) { L.floor = f; L.depth = Math.min(L.depth, Math.max(0, f - FLOOR_GAP_M)); }
-  if (L.lineM <= REEL_IN_M) {
-    st.phase = 'aim'; st.lure = null; st.interest = {};
-    send(player.id, 'reeled', { token });
-    return typed ? { type: 'emote', message: "The lure comes up under the boat. Cast again when you're ready." } : noop;
-  }
+  if (L.lineM <= REEL_IN_M) return reelIn(player, st, typed);
 
   // Interest: every fish near enough to notice, in 3D. A fish that loses the rhythm cools off.
   const follow = [];
@@ -407,7 +419,7 @@ export async function boatResolve(player, wonArg, token) {
   }
 
   if (!won) {
-    const snapMsg = await maybeSnapRod(player.id);
+    const snapMsg = st.boatRod ? '' : await maybeSnapRod(player.id);
     const snapped = snapMsg.includes('snaps clean');
     send(player.id, 'lost', { token, snapped });
     out(player.id, `<span class="text-red">The line goes slack: it's gone.</span>${snapMsg}`);
@@ -419,7 +431,7 @@ export async function boatResolve(player, wonArg, token) {
     resolveInventoryItem(player.id, { tag: 'fishing_rod' }),
     effectiveSkill(player, 'fishing'),
   ]);
-  if (!rod) { endBoatFishing(player, "Your rod's gone: nothing to land it with."); return noop; }
+  if (!rod && !(st.boatRod && boatRodFor(st.typeId))) { endBoatFishing(player, "Your rod's gone: nothing to land it with."); return noop; }
   // The margin is skill against the fish: a hard fish pays more often (a bigger margin pays LESS).
   const margin = Math.max(0, skill - f.difficulty);
 
@@ -460,6 +472,7 @@ export async function boatTyped(args, player) {
   if (!st) return null;
   const w = String(args[0] || '').toLowerCase();
   if (w === 'twitch' || w === 'tap') return boatTwitch(player, st.token, { typed: true });
+  if (w === 'reel') return boatTwitch(player, st.token, { typed: true, reel: true });
   if (w === 'strike') return boatStrike(player, st.bite?.hit ?? 0, now(), st.token, { typed: true });
   if (args.length >= 2 && Number.isFinite(Number(args[0])) && Number.isFinite(Number(args[1]))) {
     return boatCast(player, args[0], args[1], st.token, { typed: true });

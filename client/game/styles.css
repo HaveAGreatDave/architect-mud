@@ -2951,6 +2951,28 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	border-color: var(--accent);
 	color: var(--accent);
 }
+/* Free look (staff only, shown by showDevPanelButton): the bottom-left corner,
+   absolute for the same reason as go home. Sends `freelook`. */
+.dpad-freelook-btn {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	line-height: 1;
+	font-size: 0.75rem;
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	border-radius: 2px;
+	cursor: pointer;
+	z-index: 1;
+}
+.dpad-freelook-btn:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
 #mob-dpad { position: relative; }
 .dpad-resize-btn:hover {
 	border-color: var(--accent);

@@ -2947,6 +2947,57 @@ function buildBoat(id = 'hydro', detail = 1) {
       box(fl - 0.004, fl + 0.004, 0.004, zt, zt + 0.007, 'body', WHITE_LENS, gl);
       META.lamps.push({ at: [fl, gl, zt + 0.004], n: [-1, 0, 0.3], rgb: '255,244,214' });
     }
+    // Oarlocks on the gunwale abreast the middle thwart, and two rod holders raked aft off the quarters.
+    if (fine) {
+      const tw = Array.isArray(S.thwarts) && S.thwarts.length ? S.thwarts[Math.floor(S.thwarts.length / 2)] * LEN : 0;
+      const fo = tw - 0.04, ao = atF(fo);
+      for (const s of [-1, 1]) {
+        tube([fo, s * ao.sw, ao.sz], [fo, s * ao.sw, ao.sz + 0.010], 0.0018, 'body', ALLOY, 5);
+        box(fo - 0.006, fo + 0.006, 0.0015, ao.sz + 0.010, ao.sz + 0.013, 'body', ALLOY, s * ao.sw);
+      }
+      const fr = TS.f + LEN * 0.10, ar = atF(fr);
+      for (const s of [-1, 1]) {
+        tube([fr, s * ar.sw * 0.92, ar.sz - 0.006], [fr - 0.012, s * ar.sw * 0.98, ar.sz + 0.016], 0.0022, 'body', ALLOY, 5);
+      }
+    }
+  }
+
+  // ── The open boat's plating and paint ── Riveted alloy plates, a painted topside with a sheer stripe,
+  // a waterline stain and paint rubbed back to bare metal where the gunwale takes the knocks. All of it
+  // sits a hair proud of the topside it's drawn on.
+  if (G.OPEN && fine) {
+    const SEAM = [62, 70, 66], RIVET = [128, 136, 138], STRIPE = [214, 206, 182];
+    const STAIN = [58, 62, 44], BARE = [168, 176, 180];
+    const PROUD = 0.0012;
+    const onTop = (st, s, u, o = PROUD) => [st.f, s * (st.cw + (st.sw - st.cw) * u + o), st.cz + (st.sz - st.cz) * u];
+    // A band along the topside between two heights, over a run of the length.
+    const band = (u0, u1, fA, fB, tint) => {
+      const fs = [fA, ...STATIONS.map((x) => x.f).filter((f) => f < fA && f > fB), fB];
+      for (const s of [-1, 1]) {
+        const quads = [];
+        for (let i = 0; i < fs.length - 1; i++) {
+          const a = atF(fs[i]), b = atF(fs[i + 1]);
+          a.f = fs[i]; b.f = fs[i + 1];
+          quads.push([onTop(a, s, u1), onTop(b, s, u1), onTop(b, s, u0), onTop(a, s, u0)]);
+        }
+        strip(quads, s < 0 ? 0.80 : 0.68, [(fA + fB) / 2, 0, 0.03], 'body', tint);
+      }
+    };
+    const fBow = LEN * 0.90, fAft = TS.f;
+    band(0.00, 0.16, fBow, fAft, STAIN);              // the waterline stain
+    band(0.64, 0.74, fBow, fAft, STRIPE);             // the stripe, just under the rub rail
+    band(0.47, 0.50, fBow, fAft, SEAM);               // the lap seam between the two plates
+    band(0.51, 0.525, fBow, fAft, RIVET);             // and its rivet line
+    // Butt seams where plates meet end to end, each with a rivet row beside it.
+    for (const t of [0.22, 0.46, 0.70]) {
+      const f = fAft + (fBow - fAft) * t;
+      band(0.02, 0.63, f + 0.0012, f - 0.0012, SEAM);
+      band(0.04, 0.62, f - 0.0030, f - 0.0042, RIVET);
+    }
+    // Scuffs: paint worn back to bare alloy along the gunwale, where it rubs on the quay and the oars.
+    for (const [a, b] of [[0.30, 0.38], [0.52, 0.56], [0.64, 0.71]]) {
+      band(0.75, 0.81, fAft + (fBow - fAft) * b, fAft + (fBow - fAft) * a, BARE);
+    }
   }
 
   // ── The rub rail ── With a chrome insert on rich trims.

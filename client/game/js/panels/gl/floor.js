@@ -23,7 +23,8 @@ import { NEAR, zRow } from './camera.js';
 import { HEIGHT_FOG_GLSL } from './fog.js';
 import { seaSlopeVariance } from '../../../../shared/sea-swell.js';
 import { declareProgram, layerProgram } from './programs.js';
-import { SEA_GLSL } from './sea-glsl.js';   // the ONE GLSL copy of the swell — water.js includes the same string, and client/shared/sea-swell.js is the JS original
+import { SEA_GLSL } from './sea-glsl.js';
+import { SEA_DETAIL_GLSL, SEA_DETAIL_AMT, bindSeaDetail } from './sea-detail.js';   // the ONE GLSL copy of the swell — water.js includes the same string, and client/shared/sea-swell.js is the JS original
 import { linearOut, applyLinOut } from './colour.js';
 import { PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
 
@@ -488,6 +489,7 @@ float roadCoverage(vec2 gp, float fp) {
 
 ${HEIGHT_FOG_GLSL}
 ${SEA_GLSL}
+${SEA_DETAIL_GLSL}
 void main() {
   // CSS pixel coordinates, which is the frame drawMode7Floor works in.
   float sx = gl_FragCoord.x / uDpr;
@@ -996,7 +998,8 @@ void main() {
     if (uSeaLit > 0.001 && detail > 0.3) {
       // The slope comes from gl/sea-glsl.js, which water.js includes too — so the surface this
       // shades and the mesh that displaces it cannot disagree about where a crest is.
-      vec2 dd = seaUnframe(seaSlope(vec2(swx, swy), uT, ph, uSeaAmp, rollA, uSeaWind * waterW, uSpread), uSeaRot);
+      vec2 dd = seaUnframe(seaSlope(vec2(swx, swy), uT, ph, uSeaAmp, rollA, uSeaWind * waterW, uSpread)
+        + seaDetail(vec2(swx, swy), uT, uSeaAmp), uSeaRot);   // gl/sea-detail.js: the fine surface
       float du = dd.x, dv = dd.y;
       vec3 N = normalize(vec3(-du, -dv, 1.0));
       // The eye, in world tiles. 'l' is the lateral offset the projection already recovered above,
@@ -1449,6 +1452,7 @@ export function createFloorLayer(gl) {
     zA: U('uZA'), zB: U('uZB'), debug: U('uDebug'),
     nWet: U('uNWet'), wetP: U('uWetP'), wetC: U('uWetC'), wetR: U('uWetR'), wet: U('uWet'),
     neonN: U('uNeonN'), neonP: U('uNeonP'), neonC: U('uNeonC'), neonGain: U('uNeonGain'),
+    seaDetail: U('uSeaDetail'), seaDetailAmt: U('uSeaDetailAmt'),
     sig2: U('uSig2'), seaWindDir: U('uSeaWindDir'),
     snow: U('uSnow'),
     nTrack: U('uNTrack'), track: U('uTrack'), trackHalf: U('uTrackHalf'),
@@ -1558,6 +1562,7 @@ export function createFloorLayer(gl) {
     // a road would leave the last highway painted across the desert after you flew off the end of it.
     const rs = s.roadSegs, nr = rs ? Math.min(MAX_ROAD, rs.length / 4) : 0;
     gl.uniform1i(loc.nRoad, nr);
+    bindSeaDetail(gl, loc.seaDetail, loc.seaDetailAmt, s.seaDetail == null ? SEA_DETAIL_AMT : s.seaDetail);
     gl.uniform1f(loc.roadW, nr ? (s.roadW || 0) : 0);
     if (nr) {
       ROAD_SEG.set(rs.subarray ? rs.subarray(0, nr * 4) : rs.slice(0, nr * 4));

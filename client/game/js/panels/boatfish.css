@@ -80,7 +80,8 @@
 
 /* ── The controls: the big button and the two thumb buttons ── */
 .bf-controls { display:flex; align-items:center; justify-content:center; gap:10px; }
-.bf-hosted .bf-controls { position:absolute; left:12px; right:12px; bottom:var(--bf-bottom, 64px); }
+/* Hosted, the buttons stand on the right edge, clear of the seat's key line and the status along the bottom. */
+.bf-hosted .bf-controls { position:absolute; right:12px; top:50%; transform:translateY(-50%); flex-direction:column; align-items:stretch; }
 .bf-standalone .bf-controls { margin-top:8px; }
 .bf-btn { font-family:inherit; font-size:0.875rem; font-weight:bold; letter-spacing:1px; color:var(--bf-ink); cursor:pointer;
   border:1px solid #2b4c58; border-radius:8px; background:linear-gradient(180deg, #14323c, #0a1c22);
@@ -92,12 +93,15 @@
 .bf-standalone .bf-stow { position:static; display:block; margin:10px auto 0; }
 
 /* The big button has a verb in wait and bite, and in ready only when we're aiming it ourselves. */
-.bf-act, .bf-thumb { display:none; }
+.bf-reel { min-height:36px; padding:6px 10px; font-size:0.75rem; font-weight:normal; }
+.bf-act, .bf-thumb, .bf-reel { display:none; }
+.bf-hud[data-phase="wait"] .bf-reel { display:inline-block; }
 .bf-hud[data-phase="wait"] .bf-act, .bf-hud[data-phase="bite"] .bf-act,
 .bf-standalone[data-phase="ready"] .bf-act { display:inline-block; }
 .bf-hud[data-phase="fight"] .bf-thumb, .bf-standalone[data-phase="ready"] .bf-thumb { display:inline-block; }
 /* In the fight the thumbs go to the two edges, where thumbs are. */
-.bf-hosted[data-phase="fight"] .bf-controls { justify-content:space-between; }
+.bf-hosted[data-phase="fight"] .bf-controls { left:12px; top:auto; bottom:var(--bf-bottom, 64px); transform:none;
+  flex-direction:row; align-items:center; justify-content:space-between; }
 
 /* ── The overlay, with no seat ── */
 #boatfish-overlay { --mg-accent:#7fd6e8; position:fixed; inset:0; z-index:9200; display:flex; align-items:center; justify-content:center;
