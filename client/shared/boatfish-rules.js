@@ -21,7 +21,9 @@ import { SPECIES } from './fish.js';
 // ── THE LINE ───────────────────────────────────────────────────────────────────────────────────
 export const TWITCH_M = 1.0;          // how far one tap draws the lure in
 export const TWITCH_LIFT_M = 0.35;    // how far one tap lifts it
-export const TWITCH_MIN_MS = 140;     // taps closer than this are one tap: no machine-gunning
+export const TWITCH_MIN_MS = 250;     // taps closer than this are one tap. Four a second at most, so the
+// taps and an anchored boat's 1 s sync stay inside the server's 5 commands a second (server/index.js
+// CMD_REFILL_PER_SEC). The quickest tempo a fish wants is 300 ms, so nothing is lost.
 export const REEL_IN_M = 0.5;         // at this much line out it auto-reels, and you cast again
 export const SINK_MPS = 0.6;          // a plain lure's sink rate, until a lure item says otherwise
 export const CAST_MIN_M = 6;          // the shortest cast that counts as a cast

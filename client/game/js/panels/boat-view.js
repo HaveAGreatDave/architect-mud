@@ -55,6 +55,7 @@ const BOAT_CSS = await loadCss(new URL('./boat-view.css', import.meta.url));
 const ID = 'boat-sim';
 const RAD = 16;                     // map window half-width, in tiles
 const SYNC_MS = 250;                // four a second, the cab's own cadence
+const SYNC_ANCHORED_MS = 1000;      // at anchor, where the rod needs the rest of the budget
 // ⚠ THE SAME TWO LIMITS THE CAB USES, and they are shared for a reason rather than copied: a
 // player who has learned how far they can turn their head in a truck has learned it for every
 // seat, and a seat that allows more is one where the painted world runs out.
@@ -1590,7 +1591,10 @@ function frame(now) {
     });
     drawRead();
 
-    if (now - st.lastSync >= SYNC_MS) {
+    // ⚠ AT ANCHOR, ONCE A SECOND. Four a second is four of the five commands the server allows
+    // (server/index.js CMD_REFILL_PER_SEC), which left the rod one a second for its casts, twitches
+    // and strikes, and they were dropped with "sending commands too fast". She isn't moving at anchor.
+    if (now - st.lastSync >= (st.anchored ? SYNC_ANCHORED_MS : SYNC_MS)) {
       st.lastSync = now;
       // Packed, in cmdBoatSync's unpack order:
       //   x y heading speed hull nitro fuel pedal roll pitch rich bang flags
