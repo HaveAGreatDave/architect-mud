@@ -266,6 +266,7 @@ export const RENDER_TUNE = {
   // and frame shadows). 0: the per-face CPU shading below, as before. `cabSun` 0 drops the direct sun
   // and its shadows and keeps the rest on the GPU.
   cabGPU: 1,
+  cabRun: 1,    // a cockpit's static run of faces (muleShell's statics) replays last frame's records whole once it has settled (pushInteriorShell); 0 tests every face's slot
   cabSlot: 1,   // a face at the same slot as last frame pushes last frame's record (CAB_SLOT); 0 asks CAB_GPU every face
   cabGetter: 1, // every cab record shares one world-points getter (CAB_P); 0 gives each its own, as before
   cabSun: 1,
@@ -22548,11 +22549,31 @@ function pushInteriorShell(cam, v) {
   const slot = CAB_SLOT, slotOn = gpu && RENDER_TUNE.cabSlot !== 0;
   if (slot.P !== P || slot.key !== trimKey || slot.painted !== CAB_PAINTED || !slotOn) {
     slot.P = P; slot.key = trimKey; slot.painted = CAB_PAINTED; slot.f.length = 0; slot.r.length = 0;
+    slot.run = null; slot.runRecs = null;
   }
   const sf = slot.f, sr = slot.r;
+  // ⚠ A STATIC RUN IS REPLAYED WHOLE (RENDER_TUNE.cabRun). A room that pushes a cached run of faces
+  // (muleShell's statics, `staticRun` at `staticAt`) hands back the same objects every frame, and none
+  // of them is posed, so every one would hit its slot below and push the record it pushed last frame.
+  // Once a frame has seen the run land in its slots, the records it pushed and their box are kept, and
+  // later frames push those straight through: about 5,900 slot tests a cockpit frame. Same records,
+  // same order, so the sink and the upload see exactly what they saw before.
+  const run = slotOn && RENDER_TUNE.cabRun !== 0 ? faces.staticRun : null, runAt = run ? faces.staticAt : -1;
+  if (slot.run !== run || slot.runAt !== runAt) { slot.run = run; slot.runAt = runAt; slot.runRecs = null; }
   let fi = -1;
-  for (const f of faces) {
+  for (let ix = 0; ix < faces.length; ix++) {
+    const f = faces[ix];
     fi++;
+    if (fi === runAt && slot.runRecs) {
+      const R = slot.runRecs, B = slot.runBB;
+      for (let i = 0; i < R.length; i++) OWNSHIP_SINK.push(R[i]);
+      n += R.length;
+      if (B[0] < bx0) bx0 = B[0]; if (B[3] > bx1) bx1 = B[3];
+      if (B[1] < by0) by0 = B[1]; if (B[4] > by1) by1 = B[4];
+      if (B[2] < bz0) bz0 = B[2]; if (B[5] > bz1) bz1 = B[5];
+      ix = fi = runAt + run.length - 1;
+      continue;
+    }
     if (slotOn && sf[fi] === f) {
       const rec = sr[fi];
       if (rec) {
@@ -22808,6 +22829,23 @@ function pushInteriorShell(cam, v) {
     n++;
   }
   if (slotOn && sf.length > faces.length) { sf.length = faces.length; sr.length = faces.length; }
+  // The run's records, once a frame has put every face of it in its own slot unmoved: what the slot
+  // tests above would push, in order, and their box. A slot holding no record pushed nothing (the
+  // painted aperture), so it is left out here too.
+  if (run && !slot.runRecs) {
+    const recs = [], B = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+    let ok = true;
+    for (let i = 0; i < run.length && ok; i++) {
+      const j = runAt + i, r = sr[j];
+      if (sf[j] !== run[i]) { ok = false; break; }
+      if (!r) continue;
+      if (r.mv !== run[i].mv) { ok = false; break; }
+      const b = r._bb;
+      for (let k = 0; k < 3; k++) { if (b[k] < B[k]) B[k] = b[k]; if (b[k + 3] > B[k + 3]) B[k + 3] = b[k + 3]; }
+      recs.push(r);
+    }
+    if (ok) { slot.runRecs = recs; slot.runBB = B; }
+  }
   // ── THE GLASS ─────────────────────────────────────────────────────────────
   // A profile's `glass` is its panes, in the same metres, kept OUT of shellFaces so every sight-line
   // gate still casts through open apertures. Drawn as film after the room (gl/context.js) with the

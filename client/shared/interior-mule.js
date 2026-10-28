@@ -436,15 +436,29 @@ function buildRoom({ Hl, m, X, Y, Z, toS, WALL, zF, p }) {
 }
 
 // ── THE SHELL, AS interior-shell.js CALLS IT ─────────────────────────────────
+// ⚠ THE HULL AND THE STATICS GO OUT AS ONE RUN AFTER THE FIRST FRAME. Every face in them is pushed
+// with the same arguments every frame, so the collector hands back the same wrapper for each (the
+// `stable` cache in shellFaces) and the run is the same objects in the same order, always. So the
+// wrappers are kept as an array and pushed in one pass, and the output says where the run sits
+// (`staticRun`, `staticAt`), which lets pushInteriorShell replay its records without a per-face test.
+// About 5,900 of a cockpit's 6,000 faces. A push without `out` (any other collector) takes the old path.
 function muleShell(P, live, push, rich) {
-  const D = P.mule;
-  for (const f of D.faces) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, false, f.rgb, f.emis || 0);
-  if (!D.statics) {
-    const S = [];
-    muleStatic(P, (fs, tone, k, fwd, rgb, emis) => { for (const f of fs) S.push({ p: f.p, n: f.n, tone, k, fwd, rgb, emis }); });
-    D.statics = S;
+  const D = P.mule, out = push.out;
+  if (out && D.run) {
+    const at = out.length, R = D.run;
+    for (let i = 0; i < R.length; i++) out.push(R[i]);
+    out.staticRun = R; out.staticAt = at;
+  } else {
+    const at = out ? out.length : 0;
+    for (const f of D.faces) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, false, f.rgb, f.emis || 0);
+    if (!D.statics) {
+      const S = [];
+      muleStatic(P, (fs, tone, k, fwd, rgb, emis) => { for (const f of fs) S.push({ p: f.p, n: f.n, tone, k, fwd, rgb, emis }); });
+      D.statics = S;
+    }
+    for (const f of D.statics) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, f.fwd, f.rgb, f.emis || 0);
+    if (out) D.run = out.slice(at);
   }
-  for (const f of D.statics) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, f.fwd, f.rgb, f.emis || 0);
   if (rich) muleFit(P, live, push);
 }
 

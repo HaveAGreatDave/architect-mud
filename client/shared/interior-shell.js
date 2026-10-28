@@ -530,7 +530,9 @@ export function shellFaces(profile, live = null, opts = {}) {
   // is the whole of what makes a dial readable at midnight without a second lighting model.
   // `mat` is optional too: { lv, spec, pow } — a value multiplier on the colourway key and a sheen.
   // It scales the key rather than replacing it, so a retrim still reaches every surface.
-  const collect = (arr) => (fs, tone, k, fwd, rgb, emis, mat) => {
+  // `push.out` is the array a push writes to, for a room that pushes a whole cached run at once
+  // (muleShell's statics).
+  const collect = (arr) => Object.assign((fs, tone, k, fwd, rgb, emis, mat) => {
     // ⚠ THE SAME FACE OBJECT FOR THE SAME INPUTS, for a list its caller marks `stable` (muleShell's
     // statics). Pushed afresh every frame, a new wrapper each time made the renderer treat 2,000
     // unchanged faces as new: its per-face GPU entry rebuilt and the interior upload rewrote them.
@@ -546,7 +548,7 @@ export function shellFaces(profile, live = null, opts = {}) {
       if (stable) f[WRAP_K] = o;
       arr.push(o);
     }
-  };
+  }, { out: arr });
   const push = collect(out);
   // The part memo (interior-memo.js): a fit-out part that reads nothing live is built once per seat.
   push.memo = memoContext(P, out, collect, rich ? 'r:' : 'p:');
