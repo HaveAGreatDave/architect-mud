@@ -276,17 +276,26 @@ function swirl() {
 const liquidish = (m) => m.form.kind === 'liquid';
 const meltsOf = (m) => m.form.kind !== 'liquid' && (m.cook.browning === 'melt' || m.plate.stack === 'pool');
 
+// How far each beat has taken a liquid towards a reduced sauce, and starch water towards cloudy.
+const THICK_AT = { raw: 0, cook: 0.3, peak: 0.6, over: 0.85, burnt: 1 };
+const CLOUD_AT = { raw: 0, cook: 0.25, peak: 0.45, over: 0.55, burnt: 0.55 };
+const STARCH = M.rgb('#ece6d6');
+
 function syncLiquid() {
   const pan = panOf(S.data), spec = pan && KS.vesselSpec(pan.look.vessel);
   if (!pan || !spec || spec.wall <= 0) { S.liq = null; return; }
   if (S.liq?.panId !== pan.id) S.liq = { panId: pan.id, L: Lq.createLiquid(spec.r * (spec.taper || 0.85) * 0.98), col: new Map() };
   const { L, col } = S.liq, here = new Set();
+  let thick = 0, cloud = 0;
   for (const c of pan.contents || []) {
     if (!c.look) continue;
-    const m = matterFor(c.look.profile, c.look.matter);
+    const m = matterFor(c.look.profile, c.look.matter), beat = beatOf(c.cook, c.state === 'cooked');
+    // starch in the water clouds it as it cooks
+    if (m.form.kind === 'grain') cloud = Math.max(cloud, CLOUD_AT[beat] || 0);
     if (!liquidish(m)) continue;
     here.add(c.id);
-    const rgb = M.rgb(m.ramp[beatOf(c.cook, c.state === 'cooked')] || m.ramp.raw);
+    thick = Math.max(thick, THICK_AT[beat] || 0);
+    const rgb = M.rgb(m.ramp[beat] || m.ramp.raw);
     if (Lq.pour(L, c.id, rgb)) { col.set(c.id, rgb); continue; }
     const was = col.get(c.id);
     if (was && was !== rgb) {
@@ -295,6 +304,8 @@ function syncLiquid() {
       col.set(c.id, rgb);
     }
   }
+  L.thick = thick;
+  L.cloud = cloud > 0 ? { rgb: STARCH, k: cloud } : null;
   for (const id of [...L.sources.keys()]) {
     const melted = id.startsWith('melt:') && S.bodies.has(id.slice(5));
     if (!here.has(id) && !melted) { Lq.drain(L, id); col.delete(id); }
@@ -306,7 +317,8 @@ function liquidDepth(pan) {
   if (!L?.filled) return 0;
   let n = 0;
   for (const id of L.sources.keys()) n += id.startsWith('melt:') ? 0.35 * (S.bodies.get(id.slice(5))?.melt || 0) : 1;
-  return Math.min(spec.wall * 0.7, 0.6 + n * 1.4);
+  // a reducing sauce sinks down the pan as it thickens
+  return Math.min(spec.wall * 0.7, (0.6 + n * 1.4) * (1 - 0.45 * L.thick));
 }
 
 // ── the frame ────────────────────────────────────────────────────────────────────────────────────
@@ -390,9 +402,11 @@ function build(dt) {
       if (L && liquidish(m)) continue;
       const k = 1 - 0.85 * (body.melt || 0);
       if (k < 0.18) continue;
-      KS.foodPiece(b, m, pieceOf(m, c), KS.piecesOf(m, []).whole, beat, KS.pose(p, body.yaw, body.roll, k), body.seed);
+      // an egg in a dry pan is cracked into it; in water it boils in its shell
+      if (c.look.profile === 'egg' && m.form.kind === 'sphere' && !L?.filled) KS.eggCracked(b, m, beat, KS.pose(p, body.yaw), body.seed);
+      else KS.foodPiece(b, m, pieceOf(m, c), KS.piecesOf(m, []).whole, beat, KS.pose(p, body.yaw, body.roll, k), body.seed);
     }
-    if (L?.filled) Lq.drawLiquid(M, b, L, KS.pose([at[0], at[1], at[2] + 0.6]), depth, oily ? 0.9 : 0.35);
+    if (L?.filled) Lq.drawLiquid(M, b, L, KS.pose([at[0], at[1], at[2] + 0.6]), depth, oily ? 0.9 : 0.35 + 0.5 * L.thick);
     if (L?.filled && onHeat && level >= 4 && Math.random() < dt * level) {
       const a = Math.random() * Math.PI * 2, r = Math.random() * L.R * 0.8;
       S.bubbles.push({ p: [at[0] + Math.cos(a) * r, at[1] + Math.sin(a) * r, at[2] + 0.6 + depth + 0.3], age: 0 });

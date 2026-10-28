@@ -161,5 +161,29 @@ for (const kind of ['pan', 'pot', 'tray', 'bowl', 'bread']) {
   check('liquid: drained of everything, it is empty', !L.filled && L.sources.size === 0);
 }
 
+// A thick sauce moves less for the same push, and an egg cracked into a pan draws at every beat.
+{
+  const Lq = await import(R + 'game/js/panels/gl/kitchen-liquid.js');
+  const spin = (thick) => {
+    const L = Lq.createLiquid(10);
+    Lq.pour(L, 'sauce', [0.6, 0.2, 0.1]);
+    L.thick = thick;
+    for (let i = 0; i < 60; i++) { const a = i * 0.15; Lq.stirAt(L, Math.cos(a) * 5, Math.sin(a) * 5, -Math.sin(a) * 60, Math.cos(a) * 60); Lq.step(L, 1 / 60); }
+    return L.spin;
+  };
+  const thin = spin(0), thick = spin(0.85);
+  check('liquid: a reduced sauce spins far less for the same stir', thick < thin * 0.5, `${thin} vs ${thick}`);
+  const L = Lq.createLiquid(10);
+  Lq.pour(L, 'water', [0.8, 0.86, 0.9]);
+  L.cloud = { rgb: [0.93, 0.9, 0.84], k: 0.45 };
+  const b = M.createBatch(1 << 12);
+  Lq.drawLiquid(M, b, L, KS.pose(), 2);
+  check('liquid: starch-clouded water draws and is sound', b.n > 0 && sound(b), b.n);
+  const egg = KM.matterFor('egg');
+  const e = M.createBatch(1 << 10);
+  for (const beat of KM.BEATS) KS.eggCracked(e, egg, beat, KS.pose([0, 0, 4]), 3);
+  check('mesh: a cracked egg draws at every beat and is sound', e.n > 0 && sound(e), e.n);
+}
+
 console.log(`kitchen-smoke: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

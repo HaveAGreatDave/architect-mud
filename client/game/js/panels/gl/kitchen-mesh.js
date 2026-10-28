@@ -457,3 +457,23 @@ export function bubble(b, at, age, r = 0.6) {
   if (age >= 1) return;
   M.sphere(b, [at[0], at[1], at[2] + r * 0.3], r * (0.5 + age), C.bubble, 6, 4);
 }
+
+// An egg cracked into a dry pan: a spread white with the yolk on it. Raw, the white is glassy and
+// grey; it goes white as it sets, and lacy brown at the edge past its peak. The yolk dulls and
+// pales from runny to hard. A whole egg in water stays in its shell (foodPiece). Colours move on
+// the beat, as everything else does.
+const EGG = {
+  white: { raw: '#cfcabd', cook: '#ece8de', peak: '#fbf8f0', over: '#f1e2c2', burnt: '#6a4a28' },
+  yolk: { raw: '#f7a51c', cook: '#f5a522', peak: '#f2ab34', over: '#e9bd62', burnt: '#6a4a20' },
+};
+export function eggCracked(b, m, beat, P = IDENT, seed = 1) {
+  const R = Math.max(3, (m.form.w || 5.6) * 0.85), n = 14, poly = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2, r = R * (0.9 + 0.12 * hash01(seed, i + 70));
+    poly.push([Math.cos(a) * r, Math.sin(a) * r * 0.85]);
+  }
+  const white = M.rgb(EGG.white[beat] || EGG.white.raw), yolk = M.rgb(EGG.yolk[beat] || EGG.yolk.raw);
+  prism(b, poly, 0.45, 0.2, [white[0], white[1], white[2], beat === 'raw' ? 0.55 : 0.85], P);
+  const yr = R * 0.36, runny = beat === 'raw' || beat === 'cook';
+  M.ellipsoid(b, P.p([R * 0.12, -R * 0.05, 0.45]), P.n([1, 0, 0]), P.n([0, 1, 0]), P.n([0, 0, 1]), [yr, yr, runny ? yr * 0.62 : yr * 0.45], [yolk[0], yolk[1], yolk[2], runny ? 0.55 : 0.9], 14, 8);
+}

@@ -30,6 +30,10 @@ export function createLiquid(R) {
     t0: new Float32Array(n), t1: new Float32Array(n), p: new Float32Array(n), div: new Float32Array(n),
     sources: new Map(),   // id → colour already poured, so a refresh doesn't pour it twice
     filled: false, spin: 0,
+    // set by the Stage from the cook beat: `thick` 0..1 as a sauce reduces (slower to move, slower
+    // to blend, harder to push), and `cloud` a colour and weight laid over the whole surface, which
+    // is what starch does to the water pasta boils in
+    thick: 0, cloud: null,
   };
 }
 
@@ -66,7 +70,8 @@ export function drain(L, id) { L.sources.delete(id); if (!L.sources.size) L.fill
 
 // Drag a spoon through it: a push along (dx, dy) cm/s, falling off over `rad` cm round (x, y).
 export function stirAt(L, x, y, dx, dy, rad = 3.5) {
-  const ci = toCell(L, x), cj = toCell(L, y), r = rad / L.h;
+  const ci = toCell(L, x), cj = toCell(L, y), r = rad / L.h, give = 1 / (1 + 2 * L.thick);
+  dx *= give; dy *= give;
   for (let j = Math.max(0, Math.floor(cj - r)); j <= Math.min(N - 1, Math.ceil(cj + r)); j++) {
     for (let i = Math.max(0, Math.floor(ci - r)); i <= Math.min(N - 1, Math.ceil(ci + r)); i++) {
       const k = idx(i, j);
@@ -86,7 +91,7 @@ export function step(L, dt) {
     const x = i - u[k] * cells, y = j - v[k] * cells;
     t0[k] = sample(u, x, y); t1[k] = sample(v, x, y);
   }
-  const damp = Math.exp(-VISC * dt);
+  const damp = Math.exp(-VISC * (1 + 4 * L.thick) * dt);
   for (let k = 0; k < n; k++) { u[k] = mask[k] ? t0[k] * damp : 0; v[k] = mask[k] ? t1[k] * damp : 0; }
   // take out the divergence, so what's pushed one way comes round the other
   for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) {
@@ -113,7 +118,7 @@ export function step(L, dt) {
   }
   // carry the colour along, and let it bleed into its neighbours
   if (L.filled) {
-    const bleed = Math.min(0.24, BLEED * dt);
+    const bleed = Math.min(0.24, BLEED * (1 - 0.7 * L.thick) * dt);
     for (const f of L.c) {
       for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
         const k = idx(i, j);
@@ -189,6 +194,7 @@ export function drawLiquid(M, b, L, P, depth, gloss = 0.2) {
       (L.c[1][k] + L.c[1][k + 1] + L.c[1][k + N] + L.c[1][k + N + 1]) / 4,
       (L.c[2][k] + L.c[2][k + 1] + L.c[2][k + N] + L.c[2][k + N + 1]) / 4, a,
     ];
+    if (L.cloud) for (let ch = 0; ch < 3; ch++) col[ch] += (L.cloud.rgb[ch] - col[ch]) * L.cloud.k;
     M.tri(b, P.p(p00), P.p(p10), P.p(p11), nrm, nrm, nrm, col);
     M.tri(b, P.p(p00), P.p(p11), P.p(p01), nrm, nrm, nrm, col);
   }
