@@ -446,6 +446,8 @@ export function createDirector(W, opts = {}) {
       views = planViews(S, budget, lead);
     }
     const t0 = W.t + PACE.in + lead;
+    // the last at-bat's bat lies where he dropped it till this one cuts in
+    W.at(t0, () => W.clearBats());
     D.views = views;
     const TL = timeline(S, views, t0);
     // the shortest this at-bat can be: its last pitch and what comes of it, from the cut in
@@ -684,7 +686,7 @@ export function createDirector(W, opts = {}) {
     cut(t0, pitchCam());
     onDeck(cast, W.t, tMitt + 1, `${p.batter}|${p.inning}|${p.half}|${p.kind}`);
     const setup = [CATCHER_AT[0] + sh.setupX, CATCHER_AT[1], CATCHER_AT[2]];
-    W.at(t0, () => { for (const b of [P, C, H, U]) if (b) W.clearLayers(b.slot); C.at = setup.slice(); W.setBall(null); });
+    W.at(t0, () => { for (const b of [P, C, H, U]) if (b) W.clearLayers(b.slot); C.at = setup.slice(); W.setBall(null); W.clearBats(); });
     play(P, 'pitch_set', t0, t0 - 1.0);
     play(P, delivery.id, pStart, pStart, { speed: tempo });
     // the catcher's signs, done as the pitcher comes set; the plan has him from there
@@ -747,7 +749,7 @@ export function createDirector(W, opts = {}) {
     const sound = (at, cue) => W.at(at, () => emit('sound', cue));
     if (lead) W.at(W.t, () => emit('shot', 'sky'));
     cut(t0, 'high');
-    W.at(t0, () => { for (const b of [P, C, H, U]) if (b) W.clearLayers(b.slot); C.at = CATCHER_AT.slice(); W.setBall(null); });
+    W.at(t0, () => { for (const b of [P, C, H, U]) if (b) W.clearLayers(b.slot); C.at = CATCHER_AT.slice(); W.setBall(null); W.clearBats(); });
     play(P, 'pitch_set', t0, t0 - 1.0);
     play(C, 'catch_sign', t0, t0 - 0.4);
     play(H, 'bat_stance', t0, t0);

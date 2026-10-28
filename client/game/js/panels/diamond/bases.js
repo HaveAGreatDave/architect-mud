@@ -37,6 +37,7 @@
 import { CLIPS } from './clips.js';
 import { rootAt, sampleClip } from './anim.js';
 import { solvePose } from './rig.js';
+import { toPark } from './world.js';
 import { BAGS, DEG, RUBBER, MOUND, DUGOUT, FOUL_GROUND, offLine } from './geo.js';
 import { legsOf, topSpeed } from './play.js';
 import {
@@ -50,6 +51,9 @@ const CYCLE_IDS = new Set(CYCLES.map((c) => c.id));
 export const routeOf = (from, to) => { const r = []; for (let b = from + 1; b <= to; b++) r.push(b); return r; };
 // A home run's trot, feet a second.
 const TROT = 15.5;
+// A man who flipped his bat trots a little quicker, so he's home as soon as one who didn't
+// (timing.js AFTER.trot is the server's).
+const TROT_FLIP = 17;
 // Over the plate and on: bent off the line to his left, so he goes by the catcher squatting
 // behind the plate instead of through him.
 const OVER_THE_PLATE = Object.freeze({ past: 16, pastTurn: 40 });
@@ -265,7 +269,10 @@ export function planBases(ctx, o) {
   // the batter, out of the box: where the run out leaves him is where the rest of his way starts
   const bm = moves.find((m) => m && m.from === 0) || { from: 0, out: o.isOut ? 1 : 0 };
   const H = ctx.batter ? makeBody({ ...ctx.batter, n: 0, role: 'batter' }) : null;
-  const outId = p.bats === 'L' ? 'bat_run_out_lefty' : 'bat_run_out', tOut = tBat + 0.15;
+  // a home run he knows is gone, he flips the bat first and watches it go (two hitters in three, the
+  // same ones all season), then sets off on his trot from where he stood
+  const flips = o.isHR && !!ctx.batter && hashStr('flip:' + ctx.batter.id) % 3 !== 0;
+  const outId = flips ? 'bat_flip' : p.bats === 'L' ? 'bat_run_out_lefty' : 'bat_run_out', tOut = tBat + 0.15;
   let tCyc = tOut, here = null;
   if (H) {
     H.play(outId, tOut, { fade: 0.1 });
@@ -280,8 +287,9 @@ export function planBases(ctx, o) {
   const hSlide = rounds && hTo >= 2 && hTo <= 3 && pl.sl ? (['slide_feet', 'slide_feet', 'slide_head', 'slide_hook'][hashStr(o.seed + ':slide') % 4]) : null;
   // out of the box at the run out's pace, so a trot eases down from it
   const RUN_OUT_V = 24;
-  const hNeed = rounds ? (o.isHR ? TROT : hPath.bags[1] / Math.max(0.6, o.tLegs - tCyc)) : 0;
-  const hTop = o.isHR ? TROT : Math.max(hNeed, topSpeed(Number.isFinite(pl.sp) ? pl.sp : 0.5));
+  const hNeed = rounds ? (o.isHR ? (flips ? TROT_FLIP : TROT) : hPath.bags[1] / Math.max(0.6, o.tLegs - tCyc)) : 0;
+  const pumps = [];
+  const hTop = o.isHR ? (flips ? TROT_FLIP : TROT) : Math.max(hNeed, topSpeed(Number.isFinite(pl.sp) ? pl.sp : 0.5));
 
   // when the first man safe at each bag gets there, as the profile has it, a throw there to wait on
   const safe = {};
@@ -300,7 +308,7 @@ export function planBases(ctx, o) {
   }
 
   return {
-    bodies: H ? [H, ...bodies] : bodies, batter: H, log,
+    bodies: H ? [H, ...bodies] : bodies, batter: H, log, pumps,
     safeAt: (bag) => (safe[bag] != null && Number.isFinite(safe[bag]) ? safe[bag] : null),
     lay(F) {
       let land = -Infinity;
@@ -428,7 +436,7 @@ export function planBases(ctx, o) {
     }
     // to first at the pace his legs get him there, then on at his best
     const s1 = hPath.bags[1];
-    const first = runAlong(H, hPath, tCyc, s1, { v0: o.isHR ? RUN_OUT_V : hNeed, v: hNeed, fade: 0.12 });
+    const first = runAlong(H, hPath, tCyc, s1, { v0: flips ? undefined : o.isHR ? RUN_OUT_V : hNeed, v: hNeed, fade: flips ? 0.3 : 0.12 });
     rec.tFirst = rec.bags[1] = first.tEnd;
     const on = { s0: s1, v0: first.vEnd, v: hTop };
     if (hTo === 1) {
@@ -441,6 +449,8 @@ export function planBases(ctx, o) {
       for (const b of [2, 3, 4]) rec.bags[b] = r.run.timeAt(hPath.bags[b]);
       rec.done = o.isHR ? null : rec.bags[4] + 0.3;
       home.push({ B: H, t: rec.bags[4], on: r.on });
+      // on a home run, a fist pumped over his head rounding first (PUMP)
+      if (o.isHR) pumps.push(pumpOf(H, rec.bags[1] + PUMP.after, Math.min(rec.bags[2] ?? Infinity, rec.bags[1] + PUMP.after + PUMP.long)));
     } else if (hSlide) {
       const r = slideIn(H, hPath, first.tEnd, hPath.bags[hTo], hSlide, on);
       for (const b of hRoute) if (b > 1 && b < hTo) rec.bags[b] = r.run.timeAt(hPath.bags[b]);
@@ -459,6 +469,15 @@ export function planBases(ctx, o) {
     if (th && ump && rec.bags[hTo] != null && th.catch.t - rec.bags[hTo] < 0.8) calls.push({ ump, out: false, t: Math.max(th.catch.t, rec.bags[hTo]) + 0.2 });
     return rec;
   }
+}
+
+// A fist pumped over his head as he trots (a reach over whatever clip he's running in, his right
+// hand to a point above and ahead of his head that bobs `beats` times a second), from t0 to t1,
+// eased in and out over `ease`. `after` is how long past first he starts, `long` the most it lasts.
+export const PUMP = Object.freeze({ after: 0.4, long: 2.2, ease: 0.25, beats: 2.2, at: [-0.55, 6.25, 0.55], bob: 0.35 });
+function pumpOf(B, t0, t1) {
+  const target = (t) => { const F = B.frameAt(t), up = Math.abs(Math.sin((t - t0) * Math.PI * PUMP.beats)) * PUMP.bob; return toPark(F, [PUMP.at[0], PUMP.at[1] + up, PUMP.at[2]]); };
+  return { slot: B.slot, hand: 'R', kind: 'bare', target, follow: 0, from: t0, full: t0 + PUMP.ease, hold: Math.max(t0 + PUMP.ease, t1 - PUMP.ease), to: t1 };
 }
 
 // ── the shared pieces ──────────────────────────────────────────────────────────
@@ -491,37 +510,48 @@ export function jogOff(B, t, k, dug) {
   pullUp(B, run.tEnd, run.vEnd);
 }
 // A home run's welcome. Each man who scored ahead of the batter jogs from where he pulled up past
-// the plate to a spot up the first-base line on its foul side (`at`, the next man `step` on from
-// it), in front of the camera on the plate and clear of the batter's way over it, and stands easy
-// there turned toward the plate as far as a rest turns him (REST_TURN). They're up with their arms
-// over their heads as the batter comes in (`leap` jumps), and once he's pulled up he goes off to
-// the dugout first, `after` later, and they follow him `gap` apart. A man who couldn't be waiting
-// before the batter's in jogs off as he would have. `home` is lay's list of the men over the plate
-// ({ B, t: over it, on: pulled up }); returns false, and plans nothing, without the batter in it.
-export const WELCOME = Object.freeze({ at: [-13, 0, 11], step: [-3, 0, 0.6], v: 9, leap: 2, after: 0.6, gap: 0.8 });
+// the plate to a spot beside where the batter will pull up (`side` feet off his line, toward the
+// field, the next man `step` back toward the plate from it), clear of the batter's way over the
+// plate and through to there, and stands easy there turned toward that spot as far as a rest turns
+// him (REST_TURN). They're up with their arms over their heads as the batter comes in (`leap`
+// jumps), and as he pulls up beside them each puts a hand up and they slap hands (high_five, the
+// slap `slap` into it). Once he's pulled up he goes off to the dugout first, `after` later, and
+// they follow him `gap` apart. A man who couldn't be waiting before the batter's in jogs off as he
+// would have. `home` is lay's list of the men over the plate ({ B, t: over it, on: pulled up });
+// returns false, and plans nothing, without the batter in it.
+export const WELCOME = Object.freeze({ side: 4.5, step: 3.4, v: 9, leap: 1, after: 0.6, gap: 0.8, slap: 0.5 });
 const REST_TURN = 55;
 function welcome(home, H, dug, log) {
   const hb = home.find((x) => x.B === H);
   if (!hb) return false;
   const mates = home.filter((x) => x !== hb).sort((a, b) => a.t - b.t);
   const leap = CLIPS.celebrate_leap.duration * WELCOME.leap, up = hb.t - 0.25;
+  // where he pulls up, the way he came from the plate, and the side of it toward the field
+  const S = H.spotAt(hb.on), u = unit(sub(S, HOME)), q = [-u[2], 0, u[0]], side = q[2] >= 0 ? q : mul(q, -1);
+  const t5 = hb.on + 0.1 - WELCOME.slap, five = CLIPS.high_five.duration;
   const men = [], late = [];
   for (const x of mates) {
-    const G = add(WELCOME.at, mul(WELCOME.step, men.length)), t0 = x.on + 0.2, t1 = t0 + Math.max(1.2, flat(x.B.spotAt(t0), G) / WELCOME.v);
+    const G = add(add(S, mul(side, WELCOME.side)), mul(u, -WELCOME.step * men.length)), t0 = x.on + 0.2, t1 = t0 + Math.max(1.2, flat(x.B.spotAt(t0), G) / WELCOME.v);
     if (t1 + 0.5 > up) { late.push(x); continue; }
     runTo(x.B, { at: G, yaw: faceTo(x.B.spotAt(t0), G) }, t0, t1, { rest: true, min: 1 });
-    const was = x.B.facingAt(t1), yaw = was + clamp(wrap(faceTo(G, HOME) - was), -REST_TURN, REST_TURN), here = G;
+    const was = x.B.facingAt(t1), yaw = was + clamp(wrap(faceTo(G, S) - was), -REST_TURN, REST_TURN);
     const frame = { at: [G[0], 0, G[2]], yaw };
     x.B.play('stand_idle', t1, { frame, fade: 0.45 });
-    x.B.play('celebrate_leap', up, { frame, fade: 0.25 });
-    x.B.play('stand_idle', up + leap, { frame, fade: 0.3 });
-    men.push({ x, at: here, t: t1 });
+    // up as he comes in, and a hand up to slap as he pulls up by them, where there's time for both
+    const leapAt = Math.max(up, t1 + 0.3), slaps = t5 >= t1 + 0.3;
+    if (!slaps || leapAt + leap <= t5 - 0.1) x.B.play('celebrate_leap', leapAt, { frame, fade: 0.25 });
+    if (slaps) {
+      x.B.play('high_five', t5, { frame, fade: 0.25 });
+      x.B.play('stand_idle', t5 + five - 0.2, { frame, fade: 0.3 });
+    } else x.B.play('stand_idle', leapAt + leap, { frame, fade: 0.3 });
+    men.push({ x, at: G, t: t1, five: slaps ? t5 + WELCOME.slap : null });
   }
   const go = hb.on + WELCOME.after;
   jogOff(H, go, 0, dug);
-  men.forEach((m, k) => jogOff(m.x.B, Math.max(go + WELCOME.gap * (k + 1), up + leap + 0.2), k + 1, dug));
+  const leave = Math.max(up + leap + 0.2, ...men.map((m) => (m.five != null ? t5 + five + 0.1 : 0)));
+  men.forEach((m, k) => jogOff(m.x.B, Math.max(go + WELCOME.gap * (k + 1), leave), k + 1, dug));
   late.forEach((x, k) => jogOff(x.B, Math.max(x.on, go + WELCOME.gap * (men.length + k + 1)), men.length + k + 1, dug));
-  log.welcome = { t: hb.t, on: hb.on, go, up, leap, men: men.map((m) => ({ slot: m.x.B.slot, at: m.at, t: m.t })) };
+  log.welcome = { t: hb.t, on: hb.on, go, up, leap, men: men.map((m) => ({ slot: m.x.B.slot, at: m.at, t: m.t, five: m.five })) };
   return true;
 }
 // The third out at a bag: the man who took the throw there seven feet off it, on past it away from

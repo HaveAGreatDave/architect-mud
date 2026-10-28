@@ -1564,6 +1564,31 @@ export function createBallparkRenderer(canvas, opts = {}) {
       ballDraw.n = ballBatch.n;
     }
 
+    // ── the loose bats ───────────────────────────────────────────────────────────
+    // A bat let go of (diamond/loose-bat.js): flying end over end, then lying in the dirt. The
+    // player's own bat's turned profile (gl/ballplayer-mesh.js bat), in the wood, rewritten into one
+    // stream each frame there's one.
+    const BAT_PR = [[0, 0.0], [0.005, 0.06], [0.03, 0.078], [0.06, 0.05], [0.12, 0.043], [0.9, 0.046], [1.5, 0.075], [2.0, 0.1], [2.45, 0.108], [2.74, 0.106], [2.78, 0.09], [2.8, 0.0]];
+    const batBatch = createBatch(BAT_PR.length * 12 * 6 * 3), batDraw = { key: 'wood', ...upload(createBatch(1)) };
+    function setBats(list) {
+      batDraw.n = 0;
+      if (!list?.length) return;
+      batBatch.n = 0;
+      const N = 12;
+      for (const { knob: k, dir: d } of list) {
+        const ref = Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+        const xa = [d[1] * ref[2] - d[2] * ref[1], d[2] * ref[0] - d[0] * ref[2], d[0] * ref[1] - d[1] * ref[0]], xl = Math.hypot(xa[0], xa[1], xa[2]);
+        const x = xa.map((v) => v / xl), z = [x[1] * d[2] - x[2] * d[1], x[2] * d[0] - x[0] * d[2], x[0] * d[1] - x[1] * d[0]];
+        const ring = (i, j) => { const [s, r] = BAT_PR[i], a = j / N * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a), n = [0, 1, 2].map((q) => x[q] * sn + z[q] * c); return { p: [0, 1, 2].map((q) => k[q] + d[q] * s + n[q] * r), n }; };
+        for (let i = 0; i < BAT_PR.length - 1; i++) for (let j = 0; j < N; j++) {
+          const q = [ring(i, j), ring(i, j + 1), ring(i + 1, j + 1), ring(i + 1, j)], uv = [[i, j], [i, j + 1], [i + 1, j + 1], [i + 1, j]].map(([a, b]) => [BAT_PR[a][0] / 2.8, b / N]);
+          for (const t of [[0, 1, 2], [0, 2, 3]]) for (const m of t) vtx(batBatch, q[m].p, q[m].n, uv[m], [1, 1, 1], MAT.SATIN);
+        }
+      }
+      batDraw.st.write(batBatch.data, batBatch.n * STRIDE);
+      batDraw.n = batBatch.n;
+    }
+
     // ── the infield's marks ───────────────────────────────────────────────────
     // The dirt keeps the game (diamond/marks.js, painted by dirt.js paintMark): this park's own
     // copy of the infield canvas, made at the first mark, and only the rects the marks touch go up
@@ -1880,6 +1905,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
             gl.uniform3f(STD.u('uShift'), 0, 0, 0);
             for (const d of opaque) { gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n); }
             if (ballAt) { gl.bindVertexArray(ballDraw.vao); gl.drawArrays(gl.TRIANGLES, 0, ballDraw.n); }
+            if (batDraw.n) { gl.bindVertexArray(batDraw.vao); gl.drawArrays(gl.TRIANGLES, 0, batDraw.n); }
             for (const d of shells) {
               const s = shellShift(d.i, roofNow);
               gl.uniform3f(STD.u('uShift'), s[0], s[1], s[2]);
@@ -1965,6 +1991,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (final && champ && dress) drawSet([dress.trophy], 1);
       if (TEX.sign) drawSet([signDraw], 1);
       if (ballAt) drawSet([ballDraw], 1);
+      if (batDraw.n) drawSet([batDraw], 1);
       if (matDraw.n) drawSet([matDraw], 1);
       if (city) {
         drawSet(city.opaque, 1);
@@ -2190,7 +2217,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // what casts the towers' shadows: the players, [{ slot, batches }], skinned from the palette
       casters: [],
       // setPose(slot, pose): a player into a pose from the rig's pose language, with at, yaw, scale;
-      // setBall(point or null): the ball, in the park's feet; setSpectacle(effects, t): the
+      // setBall(point or null): the ball, in the park's feet; setBats([{ knob, dir }]): the bats
+      // let go of (diamond/loose-bat.js); setSpectacle(effects, t): the
       // payload's spectacle (diamond/spectacle.js) and the world's time to draw it at;
       // markDirt(marks): the game's marks into the infield (diamond/marks.js), resetDirt() a fresh one;
       // setHour(h): the park's light at an in-game hour (diamond/sky.js), null for the night;
@@ -2201,7 +2229,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // keeps it), the first one heard taken as where it is; `roof` is { p, to, moving } now, and the
       // view keeps drawing while it moves
       setRoof, get roof() { const now = clock(); return { p: roofT.at(now), to: roofT.to, moving: roofT.moving(now) }; },
-      render, setBoard, setCast, setPose, idle, setBall, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
+      render, setBoard, setCast, setPose, idle, setBall, setBats, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
       markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setWeather, get look() { return look; },
       setTime: (t) => { worldT = Number.isFinite(t) ? t : 0; weather.setTime(worldT); },
       get cityLights() { return cityLights.counts; },

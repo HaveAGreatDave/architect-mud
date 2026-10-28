@@ -18,6 +18,8 @@
 import { sampleClip, mixPose, reach, lookAt, aimBat, traitsOf, rootAt, rebase, breathe, movingEnds } from './anim.js';
 import { groundHeight, DEG } from './geo.js';
 import { CLIPS } from './clips.js';
+import { solvePose } from './rig.js';
+import { batRelease, launch, batAt } from './loose-bat.js';
 
 export const DT = 1 / 120;
 const smooth = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
@@ -43,7 +45,7 @@ export function carried(base, clip, start, speed, t, mirror) {
 }
 
 export function createWorld() {
-  const W = { t: 0, bodies: new Map(), ball: null, queue: [], seq: 0 };
+  const W = { t: 0, bodies: new Map(), ball: null, queue: [], seq: 0, bats: [] };
 
   // A body: who he is and where he stands. `slot` is his kit slot (diamond/cast.js), which the
   // renderer knows him by. Placing him again puts him there as a still until something plays
@@ -80,6 +82,18 @@ export function createWorld() {
     if (b.prev && o.carry) b.prev.rel = relOf(carried(base, b.clip, b.start, b.speed, from, b.mirror), carried(here, clip, start, o.speed || 1, from, b.mirror));
     b.at = here.at.slice(); b.yaw = here.yaw;
     b.clip = clip; b.start = start; b.speed = o.speed || 1;
+    // a clip that lets go of the bat: when it does, the bat carries on as the hands had it going
+    // (diamond/loose-bat.js), so long as he's still in this clip then
+    const rel = batRelease(clip);
+    if (rel != null) {
+      const tr = start + rel / b.speed, mine = { clip, start };
+      W.at(tr, () => {
+        if (b.clip !== mine.clip || b.start !== mine.start) return;
+        const at = (t) => { const P = W.pose(slot, t, { look: false }); if (!P?.bat) return null; const J = solvePose(P).J; return J.batKnob ? { knob: J.batKnob, dir: J.batDir } : null; };
+        const dt = 1 / 60, q0 = at(tr - 1e-3 - dt), q1 = at(tr - 1e-3);
+        if (q0 && q1) { W.bats.push({ t0: tr, T: launch(q0, q1, dt) }); if (W.bats.length > 3) W.bats.shift(); }
+      });
+    }
     return clip;
   };
   // Where his frame is at world time t: where he was placed, carried on by his clip.
@@ -168,6 +182,10 @@ export function createWorld() {
   // throwing it (it's in a hand or out of the picture).
   W.setBall = (path) => { W.ball = path; };
   W.ballAt = (t = W.t) => (W.ball ? W.ball(t) : null);
+  // The bats let go of and lying about (diamond/loose-bat.js), each { knob, dir } at t; cleared when
+  // the next at-bat comes in.
+  W.batsAt = (t = W.t) => W.bats.filter((x) => t >= x.t0).map((x) => batAt(x.T, t - x.t0));
+  W.clearBats = () => { W.bats.length = 0; };
 
   W.step = (dt = DT) => {
     W.t += dt;

@@ -287,8 +287,39 @@ export function planBetween({ p, cast, men, by }) {
     gone.push({ B: j.B, need: 0 });
     standing.push(j.stay || flat(j.here, j.spot) < 1.5 ? j.here : j.spot);
     out.push({ slot: j.slot, role: j.role, to: j.spot, rest: j.rest || 'stand_idle', end, off: !!j.off, stay: !!j.stay });
+    if (!j.off && !j.rest && (j.role === 'fielder' || j.role === 'catcher' || j.stay)) fidget(j.B, end, by, j.role, flat(j.here, j.spot) > FIDGET.blown || (j.stay && j.role === 'runner'));
   }
   return out;
+}
+
+// THE FIDGETS. A man stood easy at his spot doesn't stand still for a minute and a half: now and
+// then he pounds his glove, tugs his cap, or after a long run bends over with his hands on his knees,
+// and goes back to standing easy. Which and when are dealt from his name and when he got there, so
+// a replay or a stopped clock draws the same. Each is done and he's standing easy again `FIDGET.clear`
+// before `by`, so the next payload's cut never lands in one.
+export const FIDGET = Object.freeze({ first: [1.2, 3.5], gap: [3.5, 8], clear: 0.6, blown: 60 });
+const GLOVED = ['idle_glove_pound', 'idle_cap_tug', 'idle_glove_pound'], BARE = ['idle_cap_tug'];
+function fidget(B, end, by, role, blown) {
+  const r = hashStr(`${B.id}:${end.toFixed(2)}`), rnd = (k, [a, b]) => a + (b - a) * (((r >>> k) & 255) / 255);
+  const pool = role === 'fielder' || role === 'catcher' ? GLOVED : BARE;
+  let t = end + REST_FADE + rnd(0, FIDGET.first), k = 0;
+  if (blown) {
+    const d = CLIPS.idle_hands_knees.duration;
+    if (t + d + FIDGET.clear > by) return;
+    playOnSpot(B, 'idle_hands_knees', t, d);
+    t += d + rnd(8, FIDGET.gap);
+  }
+  for (; k < 6; k++) {
+    const id = pool[((r >>> (k * 3)) + k) % pool.length], d = CLIPS[id].duration;
+    if (t + d + FIDGET.clear > by) return;
+    playOnSpot(B, id, t, d);
+    t += d + rnd((k * 5 + 16) % 24, FIDGET.gap);
+  }
+}
+function playOnSpot(B, id, t, d) {
+  const at = B.spotAt(t), frame = { at: [at[0], groundHeight(at[0], at[2]), at[2]], yaw: B.facingAt(t) };
+  B.play(id, t, { frame, fade: 0.35 });
+  B.play('stand_idle', t + d - 0.3, { frame, fade: 0.35 });
 }
 
 // THE PILE (`planPile`). The last out of a final: the champions on the field go to the mound (to the

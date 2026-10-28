@@ -313,6 +313,7 @@ export function createGrandstandView(host, opts = {}) {
       // the ball, and where it was half a 60 Hz frame of the screen's time before, for its smear
       const shutter = BALL_SHUTTER * speed * (replay ? mods.REPLAY.rate : 1);
       R.setBall(RW.ballAt(tR), shutter > 0 ? RW.ballAt(tR - shutter) : null);
+      R.setBats?.(RW.batsAt(tR));
       R.setSpectacle?.(replay ? replay.D.fx : D.fx, tR);
       R.setCrowd?.(replay ? loud : roar.at(tR), replay ? W.t : tR, !calm);
       R.setTime?.(tR);
