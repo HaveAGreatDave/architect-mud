@@ -776,7 +776,8 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
     basesBefore: [true, false, true], moves: [{ from: 3, to: 4, name: 'Halvorsen' }, { from: 1, to: 2 }, { from: 0, to: 1 }] };
   const cast = castOf(p);
   const by = (id) => cast.find((c) => c.id === id);
-  check('cast: nine fielders, the batter, two runners, on deck, two coaches, four umpires', cast.length === 19, `${cast.length}`);
+  check('cast: nine fielders, the batter, two runners, on deck, two coaches, four umpires and three on each bench', cast.length === 25, `${cast.length}`);
+  check('cast: each bench in its own side\'s dugout, the visitors\' up the third-base line', cast.filter((c) => c.look.role === 'bench').every((c) => (c.look.side === 'away') === (c.at[0] > 0) && Math.abs(c.at[0]) > 60));
   check('cast: every slot its own', new Set(cast.map((c) => c.look.slot)).size === cast.length);
   check('cast: the batting side wears home, the fielding side away, in the bottom half', by('Voss').look.side === 'home' && by('Quist').look.side === 'away');
   check('cast: a left-handed batter stands in the first-base box, mirrored', by('Voss').at[0] < 0 && by('Voss').mirror);

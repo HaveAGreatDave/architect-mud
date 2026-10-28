@@ -22,12 +22,15 @@
  * Pure: the gate runs it.
  */
 
-import { BAGS, DEG } from './geo.js';
+import { BAGS, DEG, DUGOUT, FOUL_GROUND, offLine } from './geo.js';
 import { fieldSpots, POSITIONS } from './play.js';
 
 const RUBBER = [0, 0.833, 60.5];
 // Facing home from a spot, in degrees about the vertical (0 faces +z).
 export const faceHome = (p) => Math.atan2(-p[0], -p[2]) / DEG;
+// The k-th man on a side's bench stands half a step past a dugout spot and 3 ft further back.
+const BENCH = Object.freeze([1, 3, 5]);
+export const benchSpot = (side, i) => offLine(side, DUGOUT.first + DUGOUT.step * (BENCH[i] + 0.5), FOUL_GROUND.line + DUGOUT.stand + 3);
 const faceAt = (p, q) => Math.atan2(q[0] - p[0], q[2] - p[2]) / DEG;
 
 function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -149,6 +152,13 @@ export function castOf(p) {
   // the base coaches, in their boxes
   person(5, `${batTeam}:coach1`, batSide, 'coach', 'coach', [-78, 0, 47], faceHome([-78, 0, 47]) - 10, {});
   person(6, `${batTeam}:coach3`, batSide, 'coach', 'coach', [77, 0, 45], faceHome([77, 0, 45]) + 10, {});
+  // the bench: three men from each side at the back of their dugout's recess, arms folded, in
+  // between the spots the men coming off take (bases.js dugoutSpot), so nobody walks into them;
+  // the visitors' dugout is on the third-base side
+  for (const [side, team, k0] of [[batSide, batTeam, 7], [fieldSide, fieldTeam, 9]]) {
+    const s = side === 'away' ? 1 : -1;
+    BENCH.forEach((_, i) => { const at = benchSpot(s, i); person(k0 + i, `${team}:bench${i}`, side, 'bench', 'coach', at, faceAt(at, [0, 0, 60]), {}); });
+  }
   // the umpires: behind the plate in his mask, and at the bases (off the skirt for the drag)
   const crew = crewDue(p), u1 = crew ? UMP_BREAK(-1) : [-74, 0, 76], u3 = crew ? UMP_BREAK(1) : [74, 0, 78];
   person(0, 'ump:plate', 'ump', 'ump', 'umpire', [1.2, 0, -5.4], -6, { mask: true, girth: 0.06 });

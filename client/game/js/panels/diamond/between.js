@@ -10,7 +10,9 @@
 // his side's dugout. Each sets off once his play's done
 // with him, held back a beat at a time while his way would take him within reach of somebody
 // already going. A man who couldn't be at rest before the next payload's due stays where he is: its
-// cut puts everyone in his place anyway.
+// cut puts everyone in his place anyway. Now and then the catcher goes out for a word with the
+// pitcher (`visit`), and after a man's thrown out at first the first-base coach has it out with the
+// umpire (`argue`).
 //
 // THE ON-DECK HITTER (`deckPlan`) takes practice swings in his circle through the at-bat and after
 // it, a waggle in his stance between them.
@@ -287,9 +289,50 @@ export function planBetween({ p, cast, men, by }) {
     gone.push({ B: j.B, need: 0 });
     standing.push(j.stay || flat(j.here, j.spot) < 1.5 ? j.here : j.spot);
     out.push({ slot: j.slot, role: j.role, to: j.spot, rest: j.rest || 'stand_idle', end, off: !!j.off, stay: !!j.stay });
+    if (j.role === 'catcher' && visitDue(p, end, by) && visit(j.B, end, by, out)) continue;
     if (!j.off && !j.rest && (j.role === 'fielder' || j.role === 'catcher' || j.stay)) fidget(j.B, end, by, j.role, flat(j.here, j.spot) > FIDGET.blown || (j.stay && j.role === 'runner'));
   }
+  // a batter thrown out at first: now and then the first-base coach has it out with the umpire
+  const bat = jobs.find((j) => j.role === 'batter' && j.off && flat(j.here, BAGS[1]) < 15);
+  const coach = men.find((m) => m.role === 'coach' && /:coach1$/.test(m.B.id)), ump = out.find((g) => g.role === 'ump' && cast.find((c) => c.look.slot === g.slot)?.id === 'ump:1B');
+  const uB = ump && men.find((m) => m.slot === ump.slot)?.B;
+  if (bat && coach && uB && hashStr(`argue:${p.batter}|${p.inning}`) % 3 === 0) argue(coach, uB, ump.end, by, out);
   return out;
+}
+
+// THE MOUND VISIT. Now and then, with the time for it, the catcher goes out from behind the plate
+// once he's there, stands by the pitcher with his glove over his mouth, and goes back. Which at-bats
+// are dealt from the batter and the inning.
+export const VISIT = Object.freeze({ spot: [2.6, 0, 72.2], every: 4, need: 22 });
+const visitDue = (p, end, by) => by - end > VISIT.need && hashStr(`visit:${p.batter}|${p.inning}|${p.half}`) % VISIT.every === 0;
+function visit(B, end, by, out) {
+  const T = cloneBody(B), face = faceTo(VISIT.spot, RUB_SPOT);
+  const there = goTo(T, VISIT.spot, face, end + 1, { by, walk: true });
+  if (there == null) return false;
+  const d = CLIPS.talk_mound.duration, back = goTo(T, CATCHER_SPOT, 0, there + REST_FADE + d, { by, walk: true });
+  if (back == null) return false;
+  goTo(B, VISIT.spot, face, end + 1, { by, walk: true });
+  playOnSpot(B, 'talk_mound', there + REST_FADE, d);
+  const home = goTo(B, CATCHER_SPOT, 0, there + REST_FADE + d, { by, walk: true });
+  const g = out.find((o) => o.role === 'catcher');
+  if (g) { g.end = home; g.visit = { at: there, until: there + REST_FADE + d }; }
+  return true;
+}
+
+// THE ARGUMENT. The first-base coach walks over to the base umpire once he's back at his spot, has
+// it out with him to his face (arms out, a finger, hands on hips), and walks back to his box. The
+// umpire stands and takes it.
+function argue(coach, uB, end, by, out) {
+  const home = coach.B.spotAt(coach.go), boxFace = coach.B.facingAt(coach.go), at = uB.spotAt(end), uFace = uB.facingAt(end);
+  const spot = add(at, ahead(uFace, 3.2)), face = faceTo(spot, at), t0 = Math.max(coach.go, end - 3);
+  const T = cloneBody(coach.B), there = goTo(T, spot, face, t0, { by, walk: true });
+  if (there == null) return;
+  const d = CLIPS.argue.duration;
+  if (goTo(T, home, boxFace, there + REST_FADE + d, { by, walk: true }) == null) return;
+  goTo(coach.B, spot, face, t0, { by, walk: true });
+  playOnSpot(coach.B, 'argue', there + REST_FADE, d);
+  const back = goTo(coach.B, home, boxFace, there + REST_FADE + d, { by, walk: true });
+  out.push({ slot: coach.slot, role: 'coach', to: home, rest: 'stand_idle', end: back, argue: { at: there, until: there + REST_FADE + d } });
 }
 
 // THE FIDGETS. A man stood easy at his spot doesn't stand still for a minute and a half: now and

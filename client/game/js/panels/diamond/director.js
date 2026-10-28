@@ -989,7 +989,15 @@ export function createDirector(W, opts = {}) {
     const rub = gone.find((g) => g.role === 'pitcher');
     const salt = `${p.batter}|${p.inning}|${p.half}|between`;
     const shots = shotsBetween({ from, until: by, deck: deck ? (deck.at[0] > 0 ? 'deck3' : 'deck1') : null, rubAt: rub?.end, bags: Array.isArray(p.basesAfter) ? p.basesAfter : [], salt });
-    for (const x of shots) W.at(x.at, () => emit('shot', x.shot));
+    const held = gone.map((g) => g.visit || g.argue).filter(Boolean);
+    for (const x of shots) if (!held.some((h) => x.at >= h.at - 0.5 && x.at <= h.until + 0.4)) W.at(x.at, () => emit('shot', x.shot));
+    // a mound visit or an argument at first gets its own shot while it lasts, then the field wide
+    for (const g of gone) {
+      const on = g.visit ? ['mound', g.visit] : g.argue ? ['first', g.argue] : null;
+      if (!on) continue;
+      W.at(on[1].at, () => emit('shot', on[0]));
+      W.at(on[1].until + 0.4, () => emit('shot', 'high'));
+    }
     // the pitcher rubs up the ball again when the camera comes round to him, once he's done the
     // first time
     if (rub) {
@@ -1036,7 +1044,7 @@ export function createDirector(W, opts = {}) {
     const men = [];
     for (const c of cast) {
       const role = c.look.role;
-      if (!['pitcher', 'catcher', 'fielder', 'batter', 'runner', 'ump'].includes(role)) continue;
+      if (!['pitcher', 'catcher', 'fielder', 'batter', 'runner', 'ump', 'coach'].includes(role)) continue;
       const slot = c.look.slot, b = W.bodies.get(slot), P = planned.get(slot), last = P?.clips[P.clips.length - 1];
       // what the world has him doing, or what the director's queued for him after it
       const q = D.queued.get(slot), cur = b && b.clip && !(q && q.at > now) ? { clip: b.clip.id, start: b.start, speed: b.speed, frame: null } : q;
