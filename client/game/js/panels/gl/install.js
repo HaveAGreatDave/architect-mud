@@ -176,7 +176,7 @@ export function installGL(hostFor) {
       // The material page (RENDER_TUNE.glMatPage), allowlisted like everything else here or it is inert.
       glMatPage: opts.glMatPage,
       // The mass buffer kept tile by tile across a recentre (RENDER_TUNE.massKeep; world.js, context.js uploadKept).
-      massKeep: opts.massKeep,
+      massKeep: opts.massKeep, atlasGrow: opts.atlasGrow,
       // Stage 3: the reflection cube and the GGX highlight, and the sky the cube renders.
       glEnvCube: opts.glEnvCube, glGGX: opts.glGGX, envSky: opts.envSky,
       // Stage 4: the surface page and its gain.

@@ -4,7 +4,7 @@ import { drawSky } from './sky.js';
 // ⚠ The mesh is cached on the map window's contents and rebuilt only when that changes. A per-frame
 // rebuild draws the same picture, so check `glLastFrame().builds` (1 over a turning camera).
 import { createGLView, MAX_LIGHTS } from './context.js';
-import { buildAtlas, faceUVs } from './atlas.js';
+import { buildAtlas, growAtlas, faceUVs } from './atlas.js';
 import { lightMatrix, eyePos, nearFor, viewProjMatrix, setJitter } from './camera.js';
 import { strokeRuns } from './propshadow.js';
 import { jitterFor, reprojMatrix, TAA_TUNE } from './taa.js';
@@ -851,12 +851,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     }
     // The atlas is keyed on the set of surfaces, which changes far less often than the buildings.
     const akey = [...need].sort().join('|') + '@' + epoch + (matOn ? '#m' : '') + (surfOn ? '#s' : '');
-    // A repacked atlas moves every rect, so the kept mass is packed again whole.
-    if (akey !== g.atlasKey) full = true;
-    if (akey !== g.atlasKey) {
-      const { wallTexMixed, roofTex, wallMatMixed, wallSurf, roofSurf } = deps;
+    const { wallTexMixed, roofTex, wallMatMixed, wallSurf, roofSurf } = deps;
+    // One surface key's bake: its colour tile, material and surface pages.
+    const bakeTiles = (keys) => {
       const tiles = [];
-      for (const tk of need) {
+      for (const tk of keys) {
         const roof = tk[0] === 'r';
         const bar = tk.indexOf(TEX_WIN_SEP);
         const pk = bar === -1 ? tk.slice(2) : tk.slice(2, bar);
@@ -869,7 +868,33 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
         const surf = !surfOn ? null : roof ? (roofSurf ? roofSurf(pal) : null) : wallSurf(pal, bare);
         if (canvas && canvas.width) tiles.push({ key: tk, canvas, mat, surf });
       }
+      return tiles;
+    };
+    // ⚠ A NEW SURFACE GROWS THE PAGE IN PLACE (opts.atlasGrow, see growAtlas): same dusk epoch and
+    // pages, every surface it has already placed kept, the new ones on shelves under them. The rects
+    // don't move, so the kept mass needn't be packed again. A surface no longer needed stays on the
+    // page until a full rebuild. Anything else is the full rebuild, which moves every rect.
+    const ekey = epoch + (matOn ? '#m' : '') + (surfOn ? '#s' : '');
+    let grown = false;
+    if (akey !== g.atlasKey && opts.atlasGrow !== 0 && keepM && !full && g.atlas && g.atlasEKey === ekey) {
+      const fresh = [];
+      for (const tk of need) if (!g.atlas.rect.has(tk)) fresh.push(tk);
+      if (!fresh.length || growAtlas(g.atlas, bakeTiles(fresh))) {
+        grown = true;
+        if (fresh.length) {
+          if (g.view.setMatPage && g.atlas.matCanvas) g.view.setMatPage(g.atlas.matCanvas);
+          if (g.view.setSurfPage && g.atlas.surfCanvas) g.view.setSurfPage(g.atlas.surfCanvas);
+          g.view.setAtlas(g.atlas.canvas);
+        }
+        g.atlasKey = akey;
+      }
+    }
+    // A repacked atlas moves every rect, so the kept mass is packed again whole.
+    if (akey !== g.atlasKey) full = true;
+    if (akey !== g.atlasKey && !grown) {
+      const tiles = bakeTiles(need);
       g.atlas = buildAtlas(tiles, g.view.maxTexture || 2048);
+      g.atlasEKey = ekey;
       if (g.view.setMatPage) g.view.setMatPage(g.atlas ? g.atlas.matCanvas : null);
       if (g.view.setSurfPage) g.view.setSurfPage(g.atlas ? g.atlas.surfCanvas : null);
       // A page the device can't hold is refused; the shader falls back to flat colours. Warned once.

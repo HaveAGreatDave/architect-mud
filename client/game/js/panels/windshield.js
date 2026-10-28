@@ -921,6 +921,8 @@ export const RENDER_TUNE = {
   groundGPU: 1,  // a replayed road tile goes to the ground layer as one block it writes once, with the tile fade and kerb width worked out in the vertex shader (GROUND_MESH.gt); 0 rewrites and pushes every record every frame
   groundKeep: 1, // with groundGPU, a replayed tile's block stays on the GPU (gl/ground.js arenas, one per draw range) and only tiles new to the view are sent; 0 sends every block every frame
   groundWorld: 1, // the ground-tile cache keeps a road tile across a new map window when its cells and neighbours didn't change (gtWindow) and moves its records by the change in centre; 0 keys it on the window and every recentre records every road again
+  murmurShift: 1, // a starling cloud's obstacle field survives a recentre, asking again only the texels whose cell changed (murmurObstacles); 0 rebuilds it per window
+  atlasGrow: 1,  // a surface new to the window goes onto the GLASS 2 atlas page in place, so the rects already handed out don't move and the kept mass isn't packed again (growAtlas); 0 repacks the page and the mass
   massKeep: 1,   // GLASS 2 keeps the mass buffer tile by tile in world tiles across a recentre and writes only the tiles that came in (uploadKept in gl/context.js); 0 packs and uploads the whole window again on every recentre
   campWorld: 1,  // a kept camp keyed and shifted in world tiles (the window's centre added), as armWorld does for buildings; 0 keys it in the window's frame and every recentre records every camp again
   flockShift: 1, // a new map window's flock search takes the last window's habitat answer for each tile whose 3x3 of cells didn't change; 0 asks every tile again
@@ -32314,22 +32316,30 @@ function skylineUnder(o, x, y) {
   }
   return top;
 }
+// ⚠ KEYED ON THE ANCHOR, AND A NEW WINDOW UPDATES IT TEXEL BY TEXEL (RENDER_TUNE.murmurShift). The
+// field is in world tiles round its anchor and a texel reads one cell, so across a recentre a texel
+// whose cell is the same object in both windows (map-intern.js keeps an unchanged one) keeps its
+// height, and only the rest are asked again. It was keyed on the window's centre too, so every
+// recentre rebuilt every field from scratch: 30-40 ms of a cab's recentre frame, the field being 64
+// tiles a side and the cab's window 29. The answer is the same field either way.
 const murmurObsCache = new Map();
 function murmurObstacles(map, R, wcx, wcy, ax, ay) {
-  const key = ax + ',' + ay + ':' + wcx + ',' + wcy + ':' + R;
+  const shift = RENDER_TUNE.murmurShift !== 0;
+  const key = shift ? ax + ',' + ay + ':' + R : ax + ',' + ay + ':' + wcx + ',' + wcy + ':' + R;
   let o = murmurObsCache.get(key);
-  if (o) return o;
+  if (o && o.map === map && o.wcx === wcx && o.wcy === wcy) return o;
   const n = MURMUR_OBS_N, per = MURMUR_OBS_PER, ox = ax - n / per / 2, oy = ay - n / per / 2;   // tiles are centred on their coordinates
-  const data = new Float32Array(n * n);
+  const prev = o || null;
+  const data = prev ? prev.data : new Float32Array(n * n);
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const px = ox + (i + 0.5) / per, py = oy + (j + 0.5) / per;
     const wx = Math.floor(px + 0.5), wy = Math.floor(py + 0.5);
     const c = map[wy - wcy + R]?.[wx - wcx + R];
-    if (!c) continue;
-    data[j * n + i] = Math.max(modelTopZAt(wx, wy, c, px, py) || 0, curtainTopZAt(wx, wy, c, px, py) || 0);
+    if (prev && (prev.map[wy - prev.wcy + R]?.[wx - prev.wcx + R] ?? undefined) === (c ?? undefined)) continue;
+    data[j * n + i] = c ? Math.max(modelTopZAt(wx, wy, c, px, py) || 0, curtainTopZAt(wx, wy, c, px, py) || 0) : 0;
   }
-  o = { data, ox, oy, per, n };
-  if (murmurObsCache.size > 16) murmurObsCache.clear();
+  o = { data, ox, oy, per, n, map, wcx, wcy };
+  if (!prev && murmurObsCache.size > 16) murmurObsCache.clear();
   murmurObsCache.set(key, o);
   return o;
 }
@@ -54541,7 +54551,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       applyCabinStreetLight();
       if (STROKE_SINK) STROKE_SINK.deep = true;
       if (DECAL_SINK) DECAL_SINK.atlas = TUNE.glDecalAtlas;
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glTransfer: TUNE.glTransfer, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glPropShadow: TUNE.glPropShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, massKeep: TUNE.massKeep, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glTransfer: TUNE.glTransfer, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glPropShadow: TUNE.glPropShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, massKeep: TUNE.massKeep, atlasGrow: TUNE.atlasGrow, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         // ⚠ THE DECK, FOR THE REFLECTION AND FOR NOTHING ELSE IN THIS PASS. It is DRAWN by the
         // second hook after the world is blitted; what the world pass wants it for is the mirror
         // prepass, which is the only chance a puddle gets to be handed a sky.

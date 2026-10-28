@@ -1578,7 +1578,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       K.slots.delete(key);
     }
     keptMerge(K);
-    const capV = K.data.length / STRIDE;
+    let capV = K.data.length / STRIDE, regrown = false;
     for (const g of groups) {
       if (K.slots.has(g.key)) continue;
       const n = vertsOf(g);
@@ -1591,7 +1591,15 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
         break;
       }
       if (at < 0) {
-        if (K.end + n > capV) return keptFresh(groups, rectOf, NB);
+        // ⚠ A FULL BUFFER IS COPIED INTO A BIGGER ONE, NOT PACKED AGAIN. A cab's window is small and a
+        // recentre brings in more new tiles than KEPT_ROOM's headroom; repacking every group for it was
+        // 30-50 ms of the frame. The copy keeps every slot where it is, and the whole buffer goes up once.
+        if (K.end + n > capV) {
+          const cap2 = Math.ceil(Math.max(capV * 2, (K.end + n) * KEPT_ROOM));
+          const d2 = new Float32Array(cap2 * STRIDE);
+          d2.set(K.data);
+          K.data = d2; capV = cap2; regrown = true;
+        }
         at = K.end; K.end += n;
       }
       packGroup(K.data, at * STRIDE, g, rectOf, NB);
@@ -1602,6 +1610,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     let holes = 0;
     for (const fb of K.free) holes += fb[1];
     if (holes > FRAG_MAX * K.end) return keptFresh(groups, rectOf, NB);
+    if (regrown) { massLayout(K.data, gl.DYNAMIC_DRAW); keptFinish(K); return count; }
     if (!dirty.length) return count;
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     for (let i = 0; i < dirty.length; i += 2) {

@@ -83,7 +83,7 @@ export function buildAtlas(tiles, maxSize = Infinity) {
       }
     }
     const H = pow2(y + shelf);
-    return H > maxSize ? null : { W, H, at };
+    return H > maxSize ? null : { W, H, at, used: y + shelf };
   };
   // ⚠ THE PAGE IS CHOSEN ON ITS LONGEST AXIS, NOT ITS AREA, and picking area first is a bug that
   // looks like it works. Halving the width doubles the band count and therefore the height, so every
@@ -123,7 +123,12 @@ export function buildAtlas(tiles, maxSize = Infinity) {
   }
 
   const rect = new Map();
-  for (const [t, x, y] of best.at) {
+  for (const [t, x, y] of best.at) paintTile(ctx, mctx, sctx, rect, W, H, t, x, y);
+  const c0 = bands[0][0].canvas;
+  return { canvas, matCanvas, surfCanvas, rect, size: [W, H], cell: [c0.width + PAD * 2, c0.height + PAD * 2], count: tiles.length, bands: bands.length, used: best.used };
+}
+// One tile into its cell on every page, and its rect into `rect`. Shared by buildAtlas and growAtlas.
+function paintTile(ctx, mctx, sctx, rect, W, H, t, x, y) {
     {
       const cx = x + PAD, cy = y + PAD;
       const tw = t.canvas.width, th = t.canvas.height;
@@ -150,9 +155,42 @@ export function buildAtlas(tiles, maxSize = Infinity) {
       }
       rect.set(t.key, [cx / W, cy / H, (cx + tw) / W, (cy + th) / H]);
     }
+}
+
+// ── NEW SURFACES ONTO A PAGE THAT ALREADY EXISTS (RENDER_TUNE.atlasGrow) ──────────────────────────
+// A recentre that brings in one building with a surface the page hasn't got used to repack the whole
+// page, and a repacked page moves every rect, so the kept mass was packed and uploaded again whole:
+// 30-70 ms of a cab's recentre frame (scripts/perf/movecost.mjs). The page is a power of two over its
+// last shelf, so there is usually room under it; the new tiles go on fresh shelves there, by the same
+// rule, and every rect already handed out stays where it is. Returns false when they don't fit, or
+// when they bring a page the atlas was built without (a material or surface page), and the caller
+// builds the page again from scratch as it always did.
+// ⚠ A GROWN PAGE DEPENDS ON THE ORDER SURFACES ARRIVED IN, unlike buildAtlas's. Nothing reads its
+// layout but the rects it hands back, and a full rebuild (a new dusk epoch, or a page that fills)
+// returns it to buildAtlas's packing.
+export function growAtlas(A, tiles) {
+  if (!A || !tiles.length) return !!A;
+  if ((tiles.some((t) => t.mat) && !A.matCanvas) || (tiles.some((t) => t.surf) && !A.surfCanvas)) return false;
+  const [W, H] = A.size;
+  const sorted = tiles.slice().sort((p, q) => (q.canvas.height - p.canvas.height) || (q.canvas.width - p.canvas.width)
+    || (p.key < q.key ? -1 : p.key > q.key ? 1 : 0));
+  const at = [];
+  let x = 0, y = A.used, shelf = 0;
+  for (const t of sorted) {
+    const cw = t.canvas.width + PAD * 2, ch = t.canvas.height + PAD * 2;
+    if (cw > W) return false;
+    if (x + cw > W) { y += shelf; x = 0; shelf = 0; }
+    if (ch > shelf) shelf = ch;
+    at.push([t, x, y]);
+    x += cw;
   }
-  const c0 = bands[0][0].canvas;
-  return { canvas, matCanvas, surfCanvas, rect, size: [W, H], cell: [c0.width + PAD * 2, c0.height + PAD * 2], count: tiles.length, bands: bands.length };
+  if (y + shelf > H) return false;
+  const ctx = A.canvas.getContext('2d');
+  const mctx = A.matCanvas ? A.matCanvas.getContext('2d') : null, sctx = A.surfCanvas ? A.surfCanvas.getContext('2d') : null;
+  for (const [t, tx, ty] of at) paintTile(ctx, mctx, sctx, A.rect, W, H, t, tx, ty);
+  A.used = y + shelf;
+  A.count += tiles.length;
+  return true;
 }
 
 function pow2(n) { let p = 1; while (p < n) p *= 2; return p; }
