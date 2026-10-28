@@ -1655,7 +1655,7 @@ function onEvent(ev) {
   // ⚠ THE MOTOR IS STARTED AND STOPPED BY THE MODEL'S OWN EVENTS, never beside the keypress. The
   // key ARMS a starter and the model decides whether she catches — dry, she never does — so audio
   // hung off the press would have a boat roaring into life on an empty tank.
-  if (ev === 'started') { startBoatEngine(); send('boatevent started'); }
+  if (ev === 'started') { startBoatEngine({ outboard: !!BOAT_ROWS[st.typeId]?.open }); send('boatevent started'); }
 }
 
 function drawRead() {

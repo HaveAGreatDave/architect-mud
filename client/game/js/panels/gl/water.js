@@ -785,6 +785,14 @@ void main() {
     float al = dot(hr, uHullP.zw), ac = dot(hr, vec2(-uHullP.w, uHullP.z));
     float inside = (1.0 - smoothstep(0.75, 1.0, abs(al) / uHullS.x)) * (1.0 - smoothstep(0.6, 1.0, abs(ac) / uHullS.y));
     float over = smoothstep(uHullS.z - 0.004, uHullS.z + 0.01, vH);
+    // ⚠ THE SEA IS NOT DRAWN INSIDE HER. The mesh runs straight through the hull, and an open boat
+    // has no deck over it: her sole sits a hair over the keel, so any swell stood in the well and
+    // the skiff looked swamped from the chase while the helm, riding the same sea, was dry. Inside
+    // her plan and under her deck, nothing. The cut is drawn in from the plan and narrows to the
+    // bow, so it never opens a hole in the sea beside her.
+    float alN = al / uHullS.x;
+    float cutB = uHullS.y * 0.78 * (alN > 0.0 ? 1.0 - 0.9 * alN * alN : 1.0);
+    if (abs(alN) < 0.86 && abs(ac) < cutB && vH < uHullS.z) discard;
     float wash = inside * over * uHullS.w;
     if (wash > 0.001) {
       float thick = clamp((vH - uHullS.z) / 0.05, 0.0, 1.0);

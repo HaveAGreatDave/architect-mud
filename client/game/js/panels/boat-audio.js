@@ -313,10 +313,15 @@ function nodes() {
   return eng;
 }
 
-export function startBoatEngine() {
+// ⚠ AN OPEN HULL CARRIES A SMALL OUTBOARD, NOT THE BLOWN V8. The skiff had the race boat's motor:
+// barks at idle, a blower whine and a crackling pipe on a tiller-steered tinny, at a pitch that
+// sat in the ear for a whole fishing trip. `outboard` keeps the graph and plays it as a two-stroke
+// twin: half the firing rate, no barks, no blower, the crackle and air well down, and a softer top.
+export function startBoatEngine({ outboard = false } = {}) {
   if (_own) return true;
   const eng = nodes(); if (!eng) return false;
   _own = makeV8(eng.ctx, eng.bus, eng.noise, { pan: false });
+  _own.outboard = !!outboard;
   const now = eng.ctx.currentTime;
   // Swell in under whatever one-shot the panel fired for the start, rather than arriving at full
   // chat — the same ramp `createFlightEngine` opens with.
@@ -330,8 +335,27 @@ export function startBoatEngine() {
 export function updateBoatEngine(s = {}) {
   if (!_own) return false;
   rampV8(_own, s);
-  scheduleBarks(_own, s, 1);
+  if (_own.outboard) outboardVoice(_own, s);
+  else scheduleBarks(_own, s, 1);
   return true;
+}
+
+// Re-aims what rampV8 just set, on the same params, so the two never fight over a ramp.
+function outboardVoice(N, s) {
+  const now = N.ctx.currentTime;
+  const set = (p, v, tau) => { try { p.setTargetAtTime(v, now, tau); } catch { /* dead context */ } };
+  const rpm = c01(s.rpm), pedal = c01(s.pedal);
+  const f = firingHz(rpm) * 0.5;
+  set(N.core.frequency, f, 0.08);
+  set(N.bankB.frequency, f * 1.006, 0.08);
+  set(N.sub.frequency, f * 0.5, 0.12);
+  set(N.coreLP.frequency, clamp(220 + rpm * 1100 + pedal * 300, 120, 3000), 0.12);
+  set(N.coreG.gain, 0.045 + rpm * 0.040, 0.12);
+  set(N.subG.gain, 0.020 + rpm * 0.020, 0.15);
+  set(N.blow.g.gain, 0, 0.08);
+  set(N.air.g.gain, 0.003 + pedal * 0.010, 0.12);
+  set(N.crackle.g.gain, 0.003 + rpm * 0.006, 0.12);
+  set(N.tone.frequency, 2400, 0.20);
 }
 
 export function stopBoatEngine(fast = false) { const n = _own; _own = null; stopV8(n, fast); }

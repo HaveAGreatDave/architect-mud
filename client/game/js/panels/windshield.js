@@ -22884,7 +22884,7 @@ function pushInteriorShell(cam, v) {
     if (floodRgb && P.floods) for (const L of P.floods.slice(0, 8)) floods.push(L.p[0], L.p[1], L.p[2], L.r);
     const ce = P.cabinEnv, c01 = (a) => [a[0] / 255, a[1] / 255, a[2] / 255];
     OWNSHIP_SINK.interiorLight = CAB_LIGHT_LAST = {
-      key: c01(KEY), up: UP, outK, amb, box: [P.back, P.front, P.floor, P.roof], normalLit: !!P.normalLit,
+      key: c01(KEY), up: UP, outK, amb, box: [P.back, P.front, P.floor, P.roof], normalLit: P.open ? 2 : !!P.normalLit,
       floodRgb, floodK, floods,
       sunC: sunOn ? sunC : null, sunK: sunOn ? clamp(sEl * 1.8, 0, 1) * (1 - murk * 0.9) * (1 - E.cover) * 0.85 * (RENDER_TUNE.cabSunGain ?? 1) : 0,
       cabEnv: ce ? { back: c01(ce.back), low: c01(ce.low), high: c01(ce.high) } : null,
@@ -36502,6 +36502,32 @@ function drawBoatSprayGL(cam, c, Wp, SIZE, sun, now) {
     SPRITE_SINK.push({ x: w[0], y: w[1], z: w[2], r: r * _frameDpr, rgb, a, hard: 0, add: 0, wash: false, air: true });
   };
   const hsh = (i, k) => { const n = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return n - Math.floor(n); };
+
+  // ⚠ AN OPEN HULL IS A TINNY WITH AN OUTBOARD, NOT A DRAG BOAT. The rooster tail and the sponson
+  // sheets below are a surface drive and a tunnel hull's prows; on the skiff they stood a plume
+  // twice her height off a tiller motor. She throws what a displacement hull throws: a low bow wave
+  // peeling off each side of the forefoot, and the prop's wash churning white at the transom.
+  if ((vehicleParamBase('boat', c.cls) || {}).open) {
+    const way = clamp(spd / 0.6, 0, 1);
+    for (const side of [-1, 1]) {
+      const root = Wp([0.86, side * 0.10, 0.0]);
+      for (let i = 0; i < 18; i++) {
+        const h1 = hsh(i, side > 0 ? 31 : 33), h2 = hsh(i, side > 0 ? 32 : 34);
+        const k = (t / 0.9 + h1) % 1;
+        const w = off(root, k * (0.45 + way * 0.7), side * (0.06 + k * (0.22 + way * 0.30)) * (0.85 + 0.3 * h2),
+          4 * k * (1 - k) * (0.015 + way * 0.05));
+        put(w, (0.05 + 0.10 * k) * (0.8 + 0.4 * h2), way * 0.42 * Math.min(1, k * 6) * (1 - k));
+      }
+    }
+    const root = Wp([-1.0, 0, 0.0]);
+    for (let i = 0; i < 14; i++) {
+      const h1 = hsh(i, 41), h2 = hsh(i, 42);
+      const k = (t / 1.1 + h1) % 1;
+      put(off(root, k * (0.6 + way * 0.9), (h2 - 0.5) * (0.18 + k * 0.45), 0.01 + 0.025 * k),
+        (0.10 + 0.18 * k) * (0.8 + 0.4 * h2), (0.2 + way * 0.3) * (1 - k) * Math.min(1, k * 6));
+    }
+    return;
+  }
 
   // 0) THE BOIL at the transom: white water churned up where the drive bites, the base the tail
   //    grows out of. On the water, so the sea hides the half of it a crest is in front of.

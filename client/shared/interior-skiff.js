@@ -373,7 +373,7 @@ function fixedParts(K, F) {
   // PULL on the cowl top, near its front, read turned round to face aft.
   const cowlTop = K.panel(H(mot.f1 - 0.012, 0, mot.z1 + 0.0004), [-1, 0, 0], [0, -1, 0]);
   cowlTop.rect(-0.07, -0.03, 0.07, 0.03, SK.plate, 0, 0.001);
-  cowlTop.text('PULL', 0, 0, 0.034, SK.ink, 0.05, 0.002);
+  cowlTop.text('PULL', 0, 0, 0.040, SK.ink, 0.05, 0.0034);
   // The lamp pole on the starboard quarter, its foot on the transom deck.
   const fl = TS.f + 0.03, gl = TS.sw * 0.7, zb = deckZ(fl, gl), zt = TS.sz + (S.lampPole ?? 0.07);
   K.rod(H(fl, gl, zb), H(fl, gl, zt), 0.0025 * m, 'dash', 0.2, SK.alu, 0, 6);
@@ -391,11 +391,12 @@ function fixedParts(K, F) {
   K.box(R.tag[0] + 0.0005, R.tag[1] - 0.052, R.base[2] + 0.012, R.tag[0] + 0.006, R.tag[1] + 0.052, R.tag[2] + 0.030, 'dash', 0.2, SK.alu);
   const Rp = rodPanel(K, R);
   Rp.rect(-0.05, -0.028, 0.05, 0.028, SK.plate, 0, 0.001);
-  Rp.text('ROD', 0, 0, 0.030, SK.ink, 0.05, 0.002);
+  Rp.text('ROD', 0, 0, 0.036, SK.ink, 0.05, 0.0034);
   for (const a of [-0.042, 0.042]) Rp.disc(a, 0.019, 0.004, SK.rivet, 0, 0.002, 6);
   // ANCHOR, painted on the forward bulkhead under the cleat.
   const Bp = bulkheadPanel(K, F);
-  Bp.text('ANCHOR', 0, 0, 0.046, SK.ink, 0.05, 0.002);
+  Bp.rect(-0.17, -0.036, 0.17, 0.036, SK.plate, 0, 0.001);
+  Bp.text('ANCHOR', 0, 0, 0.050, SK.ink, 0.05, 0.0034);
   // The cleat on the foredeck, lying fore and aft as the exterior's does.
   const fc = LEN * 0.84, dzc = deckZ(fc, 0);
   K.box(...H(fc - 0.008, -0.003, dzc), ...H(fc + 0.008, 0.003, dzc + 0.005), 'dash', 0.2, SK.alu);
@@ -404,8 +405,8 @@ function fixedParts(K, F) {
   const Tz0 = F.floor + 0.012;
   K.box(TANK.x0, TANK.y0, Tz0, TANK.x1, TANK.y1, TANK.zt, 'dash', 0.2, SK.tank);
   const Tp = tankPanel(K, F);
-  Tp.text('FUEL', 0, 0.13, 0.052, SK.white, 0.1, 0.002);
-  Tp.text('PRIME', 0.062, -0.11, 0.028, SK.white, 0.1, 0.002);
+  Tp.text('FUEL', 0, 0.13, 0.052, SK.white, 0.1, 0.0034);
+  Tp.text('PRIME', 0.062, -0.11, 0.028, SK.white, 0.1, 0.0034);
   // An arrow from PRIME to the bulb.
   Tp.rect(-0.030, -0.112, -0.006, -0.108, SK.white, 0.1, 0.002);
   Tp.plate([[-0.040, -0.110], [-0.028, -0.100], [-0.028, -0.120]], SK.white, 0.1, 0.002);
@@ -455,7 +456,7 @@ export function skiffRoom(P, live, push) {
     Lp.rect(-0.046, -0.036, 0.046, 0.036, SK.plate, 0, 0.0015);
     Lp.disc(0, 0.012, 0.009, C.chrome, 0.1, 0.003, 8);
     K.rod(Lp.pt(0, 0.012, 0.004), Lp.pt(0, 0.012 + (lampOn ? 0.016 : -0.016), 0.026), 0.0035, 'dash', 0.2, C.chrome, 0.1, 5);
-    Lp.text('LAMP', 0, -0.022, 0.018, SK.ink, 0.05, 0.002);
+    Lp.text('LAMP', 0, -0.022, 0.022, SK.ink, 0.05, 0.0034);
     for (const a of [-0.040, 0.040]) for (const b of [-0.030, 0.030]) Lp.disc(a, b, 0.0035, SK.rivet, 0, 0.002, 6);
   }
   // The anchor on the foredeck with its rode coiled beside it, or, at anchor, the rode from the cleat
@@ -495,7 +496,7 @@ export function skiffRoom(P, live, push) {
       faceToward(K, [bot[i], bot[j], top[j], top[i]], sub(mid, cen), SK.boxLid, 0.15);
     }
     const Dp = lidPanel(K, D);
-    Dp.text('FISH', 0, 0, 0.078, SK.ink, 0.05, 0.002);
+    Dp.text('FISH', 0, 0, 0.078, SK.ink, 0.05, 0.0034);
     // The handle across the forward edge, and the two hinges aft.
     const h0 = D.P(-0.012, D.Ls - 0.006, 0.004), h1 = D.P(0.012, D.Ls - 0.006, 0.004);
     line(K, [h0, D.P(-0.012, D.Ls - 0.006, 0.009), D.P(0.012, D.Ls - 0.006, 0.009), h1], 0.007, SK.cowlDk, 4);
@@ -509,8 +510,8 @@ export function skiffRoom(P, live, push) {
     for (const [b0, b1] of [[BULB.b0 - 0.014, BULB.b0], [BULB.b1, BULB.b1 + 0.014]]) K.rod(Tp.pt(BULB.a, b0, 0.006 + r), Tp.pt(BULB.a, b1, 0.006 + r), r * 0.6, 'dash', 0.2, SK.rubber, 0, 6);
     // The tank's gauge, in its cap: the needle reads the fuel left.
     capPanel(K, Tp).dial(0, 0, 0.030, clamp(L.fuel ?? 1, 0, 1), { a0: Math.PI * 0.83, sweep: Math.PI * 0.66, ticks: 4, major: 2, face: C.white, tick: C.black, needle: C.red, bezel: SK.cowlDk });
-    Tp.text('E', 0.040, -0.075, 0.016, SK.white, 0.1, 0.002);
-    Tp.text('F', 0.110, -0.075, 0.016, SK.white, 0.1, 0.002);
+    Tp.text('E', 0.040, -0.075, 0.016, SK.white, 0.1, 0.0034);
+    Tp.text('F', 0.110, -0.075, 0.016, SK.white, 0.1, 0.0034);
   }
   // The tiller: the swivel, the arm, the housing with the kill switch and the choke, the twist grip.
   {
@@ -536,15 +537,15 @@ export function skiffRoom(P, live, push) {
       }
       line(K, pts, 0.0035, SK.red, 4);
     }
-    Hp.text('KILL', ku, -0.034, 0.012, SK.ink, 0.05, 0.002);
+    Hp.text('KILL', ku, -0.034, 0.012, SK.ink, 0.05, 0.0034);
     // The choke: a black knob, out while it is on.
     const [cu, cv] = HOUSING.choke;
     Hp.disc(cu, cv, 0.013, SK.cowlDk, 0, 0.002, 10);
     Hp.knob(cu, cv, 0.0095, L.choke ? 0.030 : 0.013, SK.rubber, 0);
-    Hp.text('CHOKE', cu, -0.034, 0.012, SK.ink, 0.05, 0.002);
+    Hp.text('CHOKE', cu, -0.034, 0.012, SK.ink, 0.05, 0.0034);
     // SLOW, the arrow, FAST: which way the grip turns.
-    Hp.text('SLOW', HOUSING.slow[0], HOUSING.slow[1], 0.012, SK.ink, 0.05, 0.002);
-    Hp.text('FAST', HOUSING.fast[0], HOUSING.fast[1], 0.012, SK.ink, 0.05, 0.002);
+    Hp.text('SLOW', HOUSING.slow[0], HOUSING.slow[1], 0.012, SK.ink, 0.05, 0.0034);
+    Hp.text('FAST', HOUSING.fast[0], HOUSING.fast[1], 0.012, SK.ink, 0.05, 0.0034);
     Hp.rect(-0.013, 0.0295, 0.008, 0.0325, SK.ink, 0.05, 0.002);
     Hp.plate([[0.016, 0.031], [0.006, 0.037], [0.006, 0.025]], SK.ink, 0.05, 0.002);
     // The grip: rubber, a collar where it meets the arm, an end cap, and a white index line that

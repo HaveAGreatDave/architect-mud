@@ -426,7 +426,27 @@ vec3 cabinShade(vec3 base) {
   if (hasN && dot(n, vv) < 0.0 && vCB.x > 0.5) n = -n;
   float k = vCA.x, day = clamp(uOutK, 0.0, 1.0);
   vec3 shaded;
-  if (uNormalLit > 0.5 && hasN) {
+  if (uNormalLit > 1.5 && hasN) {
+    // ⚠ AN OPEN BOAT IS NOT A ROOM. The branch below is light through a windscreen, and an upward
+    // face there runs past 1.2 and goes to the sky's colour: under an open sky every thwart and
+    // gunwale read as one flat white. Here the sky is a dome (n against up), the sea gives a little
+    // back from below, the hull shades its own low faces, and the sun comes in at the sun pass
+    // below with its shadow map, so the colour itself is never pushed to white.
+    float up = dot(n, uUp);
+    float dome = 0.5 + 0.5 * up;
+    float zf0 = clamp((P.z - uBox.z) / (uBox.w - uBox.z), 0.0, 1.0);
+    float occ = 0.62 + 0.38 * smoothstep(0.0, 0.85, zf0);
+    float fac = (0.36 + 0.42 * dome * dome + 0.10 * max(0.0, -up)) * occ * (1.0 + 0.10 * k);
+    fac *= 0.55 + 0.45 * uOutK;
+    // The direct sun below adds up to base × 0.85 on a face that meets it; take the sky down by as
+    // much so a lit thwart top lands under 1 and keeps its colour.
+    fac *= 1.0 - 0.42 * uSunCK * uSunCOn;
+    shaded = base * fac;
+    if (vCA.z > 0.0) {
+      vec3 hv = normalize(vv + uUp);
+      shaded += uKey * vCA.z * 0.5 * pow(max(0.0, dot(n, hv)), max(vCA.w, 1.0)) * uOutK;
+    }
+  } else if (uNormalLit > 0.5 && hasN) {
     float lam = max(0.0, n.x * 0.10 + n.y * -0.62 + 0.78 * dot(n, uUp));
     float back = max(0.0, n.y * 0.9 + n.z * 0.3);
     float side = 0.5 * abs(n.x);
@@ -461,7 +481,7 @@ vec3 cabinShade(vec3 base) {
   if (uSunCOn > 0.5 && hasN) {
     float nd = dot(n, uSunC);
     sunVis = cabShadow(P, n, max(nd, 0.0)) * worldSunVis(vPos, n);
-    if (nd > 0.0 && emis < 1.0) lit += base * vec3(1.0, 0.93, 0.80) * nd * uSunCK * sunVis * (1.0 - emis);
+    if (nd > 0.0 && emis < 1.0) lit += base * vec3(1.0, 0.93, 0.80) * nd * uSunCK * sunVis * (1.0 - emis) * (uNormalLit > 1.5 ? 0.7 : 1.0);
   }
   float kind = vCB.x;
   if (kind > 0.5 && kind < 1.5 && hasN) {
@@ -1273,7 +1293,7 @@ export function createSolidsLayer(gl, opt = {}) {
     v3('uKey', L.key, [0.5, 0.5, 0.5]); v3('uUp', L.up, [0, 0, 1]);
     gl.uniform1f(cl.uOutK, L.outK ?? 1); gl.uniform1f(cl.uAmb, L.amb ?? 1);
     const B = L.box || [-1, 1, -1, 1]; gl.uniform4f(cl.uBox, B[0], B[1], B[2], B[3]);
-    gl.uniform1f(cl.uNormalLit, L.normalLit ? 1 : 0);
+    gl.uniform1f(cl.uNormalLit, L.normalLit === 2 ? 2 : L.normalLit ? 1 : 0);
     v3('uFloodRgb', L.floodRgb, [0, 0, 0]); gl.uniform1f(cl.uFloodK, L.floodRgb ? (L.floodK || 0) : 0);
     const fl = L.floods || [];
     if (fl.length) gl.uniform4fv(cl.uFloods, fl);
