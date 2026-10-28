@@ -298,6 +298,10 @@ export function synthPlay(seed, kind, o = {}) {
   const U = (a, b) => a + (b - a) * rand();
   const tri = (a, b) => a + ((b - a) * (rand() + rand())) / 2;
   const coin = (p) => rand() < p;
+  // A runner who took an extra bag (first to third, or home from second or first) needs a ball
+  // that took time to get back in: one that dropped well away from the man who ran it down, or
+  // got to the wall. A liner played straight back to the cutoff holds them.
+  const stretch = Array.isArray(o.moves) && o.moves.some((m) => m.from > 0 && m.to - m.from >= 2);
   const weighted = (list) => {
     let r = rand() * list.reduce((s, [, w]) => s + w, 0);
     for (const [k, w] of list) if ((r -= w) <= 0) return k;
@@ -424,7 +428,7 @@ export function synthPlay(seed, kind, o = {}) {
   // The outfielder who picks up a ball that's come down at `at` `T` seconds after it was hit.
   const pickUp = (at, T, who = [7, 8, 9]) => airChances(spots, at, T, who)[0].n;
   const single = () => {
-    const how = weighted([['hole', 44], ['liner', 30], ['bloop', 13], ['infield', 10], ['wide', 3]]);
+    const how = weighted(stretch ? [['hole', 50], ['liner', 32], ['bloop', 18]] : [['hole', 44], ['liner', 30], ['bloop', 13], ['infield', 10], ['wide', 3]]);
     if (how === 'infield' || how === 'wide') {
       const n = weighted(how === 'wide' ? [[6, 34], [5, 30], [4, 26], [1, 10]] : [[6, 32], [5, 28], [4, 22], [2, 8], [1, 5], [3, 5]]);
       if (n === 2) return { ...dribbler(), th: 'late' };
@@ -451,6 +455,7 @@ export function synthPlay(seed, kind, o = {}) {
       const past = gotPast(airChances(spots, at, T, liner ? [3, 4, 5, 6, 7, 8, 9] : [1, 3, 4, 5, 6, 7, 8, 9])[0], true);
       if (!past) continue;
       const n = pickUp(at, T + 1.5, liner ? [7, 8, 9] : [3, 4, 5, 6, 7, 8, 9]);
+      if (stretch && (n < 7 || airChances(spots, at, T, [n])[0].ratio < 1.5) && k < 100) continue;
       return { t: liner ? 'ld' : 'fb', dir, ev, la, d, f: n >= 7 ? [n, cutoff(dir)] : [n], ...past };
     }
     return { t: 'ld', dir: 0, ev: 92, la: 12, d: Math.round(carry(92, 12)), f: [8, 6] };
@@ -503,6 +508,7 @@ export function synthPlay(seed, kind, o = {}) {
         if (!past) continue;
         x = d >= wall - 2 ? 'wall' : d >= wall - 60 && (bases === 3 || coin(0.7)) ? 'roll' : undefined;
         n = pickUp(x ? toPark(dir, wall - 6) : at, T + 2);
+        if (stretch && !x && k < 140) continue;
       }
       const f = bases === 3 ? [n, cutoff(dir), 5] : [n, cutoff(dir)];
       return { t, dir, ev, la, d, f, ...past, ...(x ? { x } : {}), ...(coin(bases === 3 ? 0.7 : 0.45) ? { sl: 1 } : {}) };

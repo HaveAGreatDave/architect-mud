@@ -21,12 +21,12 @@ export const CEL_TUNE = { on: 1, ink: 1 };
 export const CEL = {
   bands: 3,                       // hard steps of light, as the kitchen and the city have
   shade: [0.6, 0.62, 0.8],        // what the unlit side is multiplied by: a cool blue-grey (kitchen.js SHADE)
-  rimEdge: 0.68,                  // how far round to the silhouette the rim starts, in 1 - n.v
+  rimEdge: 0.84,                  // how far round to the silhouette the rim starts, in 1 - n.v
   rimMin: 0.2,                    // the rim only shows where at least this much light falls
   rimLift: 0.16,                  // how much brighter the rim is, as a share of the colour
   ink: [0.045, 0.045, 0.055],     // the line's colour (between arena.js's and kitchen.js's)
-  inkFt: 0.09,                    // the line's world width round a man (arena.js uInk.x)
-  inkPx: [1.2, 3.6],              // held between these many pixels of a 900-wide picture
+  inkFt: 0.035,                   // the line's world width round a man: a hairline, not a marker
+  inkPx: [0.8, 1.5],              // held between these many pixels of a 900-wide picture
   inkBias: 0.0006,                // how far behind the body the ink sits, in clip depth
 };
 

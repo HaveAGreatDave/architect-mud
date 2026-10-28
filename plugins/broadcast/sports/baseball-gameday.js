@@ -252,7 +252,7 @@ export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null, venu
       // The at-bat's seed: its pitches, and the ball he put in play, each salted its own way.
       const abSeed = b.type === 'run' ? 0 : sportsHash(seed, b.inning * 2 + (b.half === 'bottom' ? 1 : 0), abIdx++ >>> 0);
       const play = b.type === 'run' ? null
-        : synthPlay(abSeed, b.kind, { bats, before: prev, fielder: b.fielder, errorType: b.errorType, speed: speedOf(b.batter), fence });
+        : synthPlay(abSeed, b.kind, { bats, before: prev, fielder: b.fielder, errorType: b.errorType, speed: speedOf(b.batter), fence, moves });
       const p = b.type === 'run'
         // A play on the bases while the batter is up (sim v2): `phase: 'run'`, with the man
         // running and the bag in play, and no pitches of its own.

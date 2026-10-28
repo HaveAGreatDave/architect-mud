@@ -2999,6 +2999,13 @@ return out;
         .replace(/(\d+)(?:st|nd|rd|th)\b/gi, (m,d)=>' '+ordinalToWords(parseInt(d,10))+' ')
         // Years 1000-2099 as pairs; the '.' guards leave decimals to the decimal pass.
         .replace(/\b\d{4}\b/g, (m,off,s)=>{ const n=+m; return (n>=1000 && n<=2099 && s[off-1]!=='.' && s[off+4]!=='.') ? ' '+yearToWords(n)+' ' : m; })
+        // A bare three-place decimal is a batting average, said the way a booth says it:
+        // .245 "two forty five", .305 "three oh five", .300 "three hundred".
+        .replace(/(?<![\d.])\.(\d)(\d\d)\b/g, (m, a, bc) => {
+          if (+a === 0) return ' ' + (+bc === 0 ? 'zero' : intToWords(+bc)) + ' ';
+          if (bc === '00') return ' ' + intToWords(+a) + ' hundred ';
+          return ' ' + intToWords(+a) + ' ' + (bc[0] === '0' ? 'oh ' + intToWords(+bc[1]) : intToWords(+bc)) + ' ';
+        })
         .replace(/(\d),(?=\d)/g, '$1')                    // strip thousands separators
         .replace(/\d+(?:\.\d+)?/g, m => ' '+numToWords(m)+' ');
     }
