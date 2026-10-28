@@ -17855,6 +17855,32 @@ function segContains(s, lx, ly, V) {
   return Math.abs(dx) <= V(s.hx) && Math.abs(dy) <= V(s.hy);
 }
 
+// `segContains` with the segment resolved once: the same sums in the same order, so it answers
+// identically, but the affine solves and the box fit are done here and not on every point. The
+// occlusion bake asks tens of thousands of points per model, and re-solving them was most of a
+// moving frame's map-rebuild cost (scripts/perf/movecost.mjs --prof).
+function segContainsAt(s, V) {
+  const cx = V(s.cx), cy = V(s.cy);
+  if (s.kind === 'box') {
+    const f = segFit(s, V), fx = f.cx, fy = f.cy, hw = f.hw, fd = f.fd;
+    if (s.yaw) {
+      const c = Math.cos(-s.yaw), n = Math.sin(-s.yaw);
+      return (lx, ly) => { const dx = lx - fx, dy = ly - fy; const rx = dx * c - dy * n, ry = dx * n + dy * c; return Math.abs(rx) <= hw && Math.abs(ry) <= fd; };
+    }
+    return (lx, ly) => Math.abs(lx - fx) <= hw && Math.abs(ly - fy) <= fd;
+  }
+  if (s.kind === 'drum') {
+    const r = Math.max(V(s.rb), V(s.rt)), r2 = r * r;
+    return (lx, ly) => { const dx = lx - cx, dy = ly - cy; return dx * dx + dy * dy <= r2; };
+  }
+  if (s.kind === 'barrel') {
+    const xl = V(s.cxL), hl = V(s.hl), hw = V(s.hw);
+    return (lx, ly) => Math.abs((lx - cx) - xl) <= hl && Math.abs(ly - cy) <= hw;
+  }
+  const hx = V(s.hx), hy = V(s.hy);
+  return (lx, ly) => Math.abs(lx - cx) <= hx && Math.abs(ly - cy) <= hy;
+}
+
 // THE MODEL'S SOLID VOLUME, AS A PREDICATE.
 //
 // ⚠ THE SOLID THE OCCLUSION BAKE SAMPLES IS THE SOLID YOU CRASH INTO, deliberately — this hands
@@ -17868,7 +17894,7 @@ export function modelSolid(m, seed, fh, h) {
   const segs = shapeForModel(m, seed);
   if (!segs || !segs.length) return null;
   const V = (q) => q[0] * fh + q[1] * h + q[2];
-  const res = segs.map((sg) => ({ sg, z0: V(sg.z0), z1: V(sg.z1) }));
+  const res = segs.map((sg) => ({ sg, z0: V(sg.z0), z1: V(sg.z1), in: segContainsAt(sg, V) }));
   // ⚠ `only` NARROWS, IT NEVER WIDENS. An occlusion bake asks this tens of thousands of times per
   // model against the same handful of segments, so it passes the indices its own range test already
   // found; every other caller omits it and tests the whole model, exactly as before.
@@ -17877,7 +17903,7 @@ export function modelSolid(m, seed, fh, h) {
     for (let i = 0; i < n; i++) {
       const r = res[only ? only[i] : i];
       if (z < r.z0 || z > r.z1) continue;
-      if (segContains(r.sg, x, y, V)) return true;
+      if (r.in(x, y)) return true;
     }
     return false;
   };
@@ -35480,6 +35506,10 @@ function deckLift(cam, v) {
 // your rig and the corner cull dropped a whole row looking down from above: a hole in the roof.
 const OFF_TILE_MARKS = new Set(['yacht', 'berth', 'lock']);
 const offTileMark = (c) => OFF_TILE_MARKS.has(c.mark);
+// How far past its own footprint a lock tile can draw, in tiles. Measured at the South Lock: its
+// faces reach 3.1 tiles from the tile centre (the hall runs further than the roof slice), so 3 on
+// top of the 0.62 half-width. The near cull grows the lock's footprint by this instead of exempting it.
+const LOCK_REACH = 3;
 // ── THE HOVER ────────────────────────────────────────────────────────────────
 //
 // The fleet has been hover hardware since it was modelled — lifter pods with shrouds, a cyan
@@ -39040,78 +39070,11 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
   // The void highway, drawn whole before the tiles; `ribbon` says which corridor cells it covers.
   const ribbon = drawHighwayRibbons(ctx, cam, v, R, wcx, wcy, baseAlpha, FAR);
   try {
-  for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
-    // …and a ROOFTOP pad (a field tile carrying a building) keeps its street: the pad is up on the roof, not painted on the block.
-    const c = map[ry][rx], surf = kindOf(c); if (!surf || c.mark === 'yacht' || (surf === 'field' && c.bt)) continue;   // the yacht's own deck is drawn as a 3D model over open water — no runway concrete
-    // A corridor cell under a ribbon is the ribbon's. That includes a plaza's apron, which the
-    // server ships as a ribbon of its own; the plaza's structures are marks and still draw.
-    if (ribbon && c.rdeg != null && ribbon(rx, ry)) continue;
-    const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
-    // Near-clip per CORNER against the CAMERA. proj() clamps its returned f to 0.06, so a test on
-    // proj's f is dead (never trips) — and clipping the tile CENTRE (f+back) dropped the whole tile
-    // the instant its centre crossed the near plane, popping runway/road sections out from under you
-    // in the 3rd-person chase. Use the true (unclamped) camera-space forward distance of each corner
-    // and keep the tile while ANY corner is still ahead of the camera: a section straddling the near
-    // plane just clamps its near edge off the bottom of the screen instead of vanishing. `back` folds
-    // in the chase camera (which sits `back` tiles behind the craft).
-    // The four corners' depths against the near plane, without an array or a closure per tile: this
-    // runs for every road tile in the window, cached or not.
-    const f0 = (dx - (cam.ex || 0)) * cam.sinh - (dy - (cam.ey || 0)) * cam.cosh, hs = 0.5 * cam.sinh, hc = 0.5 * cam.cosh;
-    if ((f0 - hs + hc <= 0.06 && f0 + hs + hc <= 0.06 && f0 + hs - hc <= 0.06 && f0 - hs - hc <= 0.06) || f > FAR) continue;
-    // Match the buildings' long draw distance + far fade so pavement ghosts up out of the
-    // haze at the horizon instead of a hard line snapping in. The fade reaches zero AT the limit,
-    // whatever the limit turns out to be, so no window size can leave an edge behind.
-    ctx.globalAlpha = baseAlpha * clamp((FAR - f) / 6, 0, 1);
-    if (gcOn) {
-      gtFinish();
-      const tileA = ctx.globalAlpha == null ? 1 : ctx.globalAlpha;
-      const khw = Math.max(0.004, Math.min(0.05, Math.max(0.75, 0.5 / Math.max(0.05, _frameDpr)) * Math.max(f, 0.2) / cam.FL));
-      // The key without a string per tile: the frame-wide part (gcFK) is built once per call, and a
-      // tile compares that and its own place in the window.
-      const gx = rx - R, gy = ry - R;
-      const ge = GROUND_TILE.get(c);
-      const geSame = !!(ge && ge.fk === gcFK && (gcW ? ge.wg === GT_GEN : ge.gx === gx && ge.gy === gy));
-      if (tileA > 1e-6 && geSame && !ge.dyn && !ge.probe) {
-        if (gcW && (ge.cx !== wcx || ge.cy !== wcy)) { gtShift(ge, ge.cx - wcx, ge.cy - wcy); ge.cx = wcx; ge.cy = wcy; ge.blk = null; }
-        if (gtGPU) {
-          // The tile as one block the ground layer writes once (gl/ground.js `blockFloats`): the fade
-          // and the kerb width are this frame's GROUND_MESH.gt, applied in the vertex shader.
-          let B = ge.blk;
-          if (!B || B.gx !== gx || B.gy !== gy) B = ge.blk = { gblk: true, recs: ge.recs, ratio: ge.ratio, gx, gy };
-          GROUND_MESH.push(B);
-          if (GULLY_ALL) for (const u of ge.gullies) GULLY_ALL.push(u);
-          if (ge.walk) RAISED_WALK.set(c, _walkGen);
-          continue;
-        }
-        const rs = ge.recs, rt = ge.ratio;
-        for (let i = 0; i < rs.length; i++) {
-          const r = rs[i];
-          if (r.edge) {
-            // The kerb line, at this frame's width (see `edge` in the loop body, which this repeats),
-            // in one record kept with the slot and rewritten in place.
-            const E = r.edge, ex = E[2] - E[0], ey = E[3] - E[1], L = Math.hypot(ex, ey) || 1, nx = -ey / L * khw, ny = ex / L * khw;
-            const o = r.obj || (r.obj = { p: [[0, 0, ROAD_EPS], [0, 0, ROAD_EPS], [0, 0, ROAD_EPS], [0, 0, ROAD_EPS]], paint: 1, rgb: r.rgb, a: 0, road: r.road, _e: E });
-            const p = o.p;
-            p[0][0] = E[0] + nx; p[0][1] = E[1] + ny; p[1][0] = E[2] + nx; p[1][1] = E[3] + ny;
-            p[2][0] = E[2] - nx; p[2][1] = E[3] - ny; p[3][0] = E[0] - nx; p[3][1] = E[1] - ny;
-            o.a = rt[i] * tileA;
-            GROUND_MESH.push(o);
-            continue;
-          }
-          r.a = rt[i] * tileA; GROUND_MESH.push(r);
-        }
-        if (GULLY_ALL) for (const u of ge.gullies) GULLY_ALL.push(u);
-        if (ge.walk) RAISED_WALK.set(c, _walkGen);
-        continue;
-      }
-      if (tileA > 1e-6 && !(geSame && ge.dyn)) {
-        // A first recording, or the second one on a LATER frame that settles whether it is stable.
-        const prev = geSame && ge.probe && ge.frame !== _walkGen ? ge : null;
-        if (!(geSame && ge.probe && ge.frame === _walkGen)) {
-          GT_PEND = { c, fk: gcFK, gx, gy, tileA, g0: GROUND_MESH.length, u0: GULLY_ALL ? GULLY_ALL.length : 0, ops: GT_OPS, late: GROUND_LATE_N, sinks: gtSinks(), prev, frame: _walkGen, w: gcW, cx: wcx, cy: wcy };
-        }
-      }
-    }
+  // ⚠ AN UNCACHED TILE IS DRAWN IN ITS OWN FUNCTION, NOT IN THE LOOP BODY. The body below declares
+  // a dozen closures over the tile's own variables, and V8 gives every iteration of a loop like that
+  // a heap context the moment it enters, so a cache HIT, which uses none of them, still paid for
+  // them: about 6 KB a tile and 1.2 MB a cockpit frame (scripts/perf/alloc.mjs).
+  const liveTile = (c, surf, rx, ry, dx, dy, f) => {
     // The world point rides along with the projected one: a kerb is a stroke between two corners,
     // and on the GPU it is a quad between the same two corners.
     const corner = (sx, sy) => { const p = cam.proj(dx + sx * 0.5, dy + sy * 0.5, 0); p.wx = (rx - R) + sx * 0.5; p.wy = (ry - R) + sy * 0.5; return p; };
@@ -39839,6 +39802,80 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
         }
       }
     }
+  };
+  for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
+    // …and a ROOFTOP pad (a field tile carrying a building) keeps its street: the pad is up on the roof, not painted on the block.
+    const c = map[ry][rx], surf = kindOf(c); if (!surf || c.mark === 'yacht' || (surf === 'field' && c.bt)) continue;   // the yacht's own deck is drawn as a 3D model over open water — no runway concrete
+    // A corridor cell under a ribbon is the ribbon's. That includes a plaza's apron, which the
+    // server ships as a ribbon of its own; the plaza's structures are marks and still draw.
+    if (ribbon && c.rdeg != null && ribbon(rx, ry)) continue;
+    const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
+    // Near-clip per CORNER against the CAMERA. proj() clamps its returned f to 0.06, so a test on
+    // proj's f is dead (never trips) — and clipping the tile CENTRE (f+back) dropped the whole tile
+    // the instant its centre crossed the near plane, popping runway/road sections out from under you
+    // in the 3rd-person chase. Use the true (unclamped) camera-space forward distance of each corner
+    // and keep the tile while ANY corner is still ahead of the camera: a section straddling the near
+    // plane just clamps its near edge off the bottom of the screen instead of vanishing. `back` folds
+    // in the chase camera (which sits `back` tiles behind the craft).
+    // The four corners' depths against the near plane, without an array or a closure per tile: this
+    // runs for every road tile in the window, cached or not.
+    const f0 = (dx - (cam.ex || 0)) * cam.sinh - (dy - (cam.ey || 0)) * cam.cosh, hs = 0.5 * cam.sinh, hc = 0.5 * cam.cosh;
+    if ((f0 - hs + hc <= 0.06 && f0 + hs + hc <= 0.06 && f0 + hs - hc <= 0.06 && f0 - hs - hc <= 0.06) || f > FAR) continue;
+    // Match the buildings' long draw distance + far fade so pavement ghosts up out of the
+    // haze at the horizon instead of a hard line snapping in. The fade reaches zero AT the limit,
+    // whatever the limit turns out to be, so no window size can leave an edge behind.
+    ctx.globalAlpha = baseAlpha * clamp((FAR - f) / 6, 0, 1);
+    if (gcOn) {
+      gtFinish();
+      const tileA = ctx.globalAlpha == null ? 1 : ctx.globalAlpha;
+      const khw = Math.max(0.004, Math.min(0.05, Math.max(0.75, 0.5 / Math.max(0.05, _frameDpr)) * Math.max(f, 0.2) / cam.FL));
+      // The key without a string per tile: the frame-wide part (gcFK) is built once per call, and a
+      // tile compares that and its own place in the window.
+      const gx = rx - R, gy = ry - R;
+      const ge = GROUND_TILE.get(c);
+      const geSame = !!(ge && ge.fk === gcFK && (gcW ? ge.wg === GT_GEN : ge.gx === gx && ge.gy === gy));
+      if (tileA > 1e-6 && geSame && !ge.dyn && !ge.probe) {
+        if (gcW && (ge.cx !== wcx || ge.cy !== wcy)) { gtShift(ge, ge.cx - wcx, ge.cy - wcy); ge.cx = wcx; ge.cy = wcy; ge.blk = null; }
+        if (gtGPU) {
+          // The tile as one block the ground layer writes once (gl/ground.js `blockFloats`): the fade
+          // and the kerb width are this frame's GROUND_MESH.gt, applied in the vertex shader.
+          let B = ge.blk;
+          if (!B || B.gx !== gx || B.gy !== gy) B = ge.blk = { gblk: true, recs: ge.recs, ratio: ge.ratio, gx, gy };
+          GROUND_MESH.push(B);
+          if (GULLY_ALL) for (const u of ge.gullies) GULLY_ALL.push(u);
+          if (ge.walk) RAISED_WALK.set(c, _walkGen);
+          continue;
+        }
+        const rs = ge.recs, rt = ge.ratio;
+        for (let i = 0; i < rs.length; i++) {
+          const r = rs[i];
+          if (r.edge) {
+            // The kerb line, at this frame's width (see `edge` in the loop body, which this repeats),
+            // in one record kept with the slot and rewritten in place.
+            const E = r.edge, ex = E[2] - E[0], ey = E[3] - E[1], L = Math.hypot(ex, ey) || 1, nx = -ey / L * khw, ny = ex / L * khw;
+            const o = r.obj || (r.obj = { p: [[0, 0, ROAD_EPS], [0, 0, ROAD_EPS], [0, 0, ROAD_EPS], [0, 0, ROAD_EPS]], paint: 1, rgb: r.rgb, a: 0, road: r.road, _e: E });
+            const p = o.p;
+            p[0][0] = E[0] + nx; p[0][1] = E[1] + ny; p[1][0] = E[2] + nx; p[1][1] = E[3] + ny;
+            p[2][0] = E[2] - nx; p[2][1] = E[3] - ny; p[3][0] = E[0] - nx; p[3][1] = E[1] - ny;
+            o.a = rt[i] * tileA;
+            GROUND_MESH.push(o);
+            continue;
+          }
+          r.a = rt[i] * tileA; GROUND_MESH.push(r);
+        }
+        if (GULLY_ALL) for (const u of ge.gullies) GULLY_ALL.push(u);
+        if (ge.walk) RAISED_WALK.set(c, _walkGen);
+        continue;
+      }
+      if (tileA > 1e-6 && !(geSame && ge.dyn)) {
+        // A first recording, or the second one on a LATER frame that settles whether it is stable.
+        const prev = geSame && ge.probe && ge.frame !== _walkGen ? ge : null;
+        if (!(geSame && ge.probe && ge.frame === _walkGen)) {
+          GT_PEND = { c, fk: gcFK, gx, gy, tileA, g0: GROUND_MESH.length, u0: GULLY_ALL ? GULLY_ALL.length : 0, ops: GT_OPS, late: GROUND_LATE_N, sinks: gtSinks(), prev, frame: _walkGen, w: gcW, cx: wcx, cy: wcy };
+        }
+      }
+    }
+    liveTile(c, surf, rx, ry, dx, dy, f);
   }
   } finally {
     if (gcOn) { gtFinish(); for (const [k, own, fn] of gcWrapped) { if (own) ctx[k] = fn; else delete ctx[k]; } }
@@ -49608,67 +49645,83 @@ function occluderWindow(x0, y0, w, h, scale, f) {
 // `keepWorld` also emits each quad's WORLD corners for the sun's shadow map. Off by default; on only
 // for the near solids already kept (OCC_KEEP_TILES), since it's four arrays per quad.
 function boxQuads(cam, corners, z0, z1, out, keepWorld = false) {
+  // ⚠ NO ARRAY, ITERATOR OR CLOSURE PER EDGE: this runs for every near solid every frame and was the
+  // largest single source of garbage in the cockpit (scripts/perf/alloc.mjs). Only the records it
+  // emits, and the world polygon of a face that straddles the near plane, are allocated.
   const n = corners.length;
   let ccx = 0, ccy = 0;
-  for (const [x, y] of corners) { ccx += x; ccy += y; }
+  for (let i = 0; i < n; i++) { ccx += corners[i][0]; ccy += corners[i][1]; }
   ccx /= n; ccy /= n;
   const ex = (cam.ex || 0), ey = (cam.ey || 0);   // the eye, in the frame proj() reads
-  const lo = corners.map(([x, y]) => cam.proj(x, y, z0));
-  const hi = corners.map(([x, y]) => cam.proj(x, y, z1));
-  // `mk` builds the face's WORLD polygon and is called only when the face straddles the plane, so
-  // the common case still allocates nothing beyond the record itself. `w` is that same polygon when
-  // the caller already wanted it kept.
-  const q = (P, w, mk) => {
-    let anyIn = false, anyOut = false;
-    for (const p of P) { if (p.f > FNEAR) anyIn = true; else anyOut = true; }
-    if (!anyIn) return;                                   // wholly behind the lens: nothing to draw
-    let pts = P, wp = w;
-    if (anyOut) {
-      // Sutherland–Hodgman against f > FNEAR, in WORLD space — `f` is affine in a world point, so
-      // the crossing is exact and the re-projected vertex lands where the wall really meets the
-      // plane. Interpolating the projected points instead would interpolate a divide.
-      const src = w || mk();
-      const cut = [];
-      for (let i = 0; i < src.length; i++) {
-        const j = (i + 1) % src.length;
-        const fi = P[i].f, fj = P[j].f;
-        if (fi > FNEAR) cut.push(src[i]);
-        if ((fi > FNEAR) !== (fj > FNEAR)) {
-          const t = (FNEAR - fi) / (fj - fi);
-          cut.push([src[i][0] + (src[j][0] - src[i][0]) * t,
-                    src[i][1] + (src[j][1] - src[i][1]) * t,
-                    src[i][2] + (src[j][2] - src[i][2]) * t]);
-        }
-      }
-      if (cut.length < 3) return;
-      wp = cut;
-      pts = cut.map(([x, y, z]) => cam.proj(x, y, z));
-    }
-    const rec = { pts: pts.map((p) => ({ x: p.sx, y: p.sy, z: p.f })) };
-    if (keepWorld) rec.w = wp;
-    out.push(rec);
-  };
+  const lo = new Array(n), hi = new Array(n);
+  for (let i = 0; i < n; i++) { const c = corners[i]; lo[i] = cam.proj(c[0], c[1], z0); hi[i] = cam.proj(c[0], c[1], z1); }
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    const [ax, ay] = corners[i], [bx, by] = corners[j];
+    const ax = corners[i][0], ay = corners[i][1], bx = corners[j][0], by = corners[j][1];
     const mx = (ax + bx) / 2, my = (ay + by) / 2;             // the edge's midpoint…
     if ((mx - ccx) * (ex - mx) + (my - ccy) * (ey - my) <= 0) continue;   // …and is the eye outside it?
-    const mkWall = () => [[ax, ay, z0], [bx, by, z0], [bx, by, z1], [ax, ay, z1]];
-    q([lo[i], lo[j], hi[j], hi[i]], keepWorld ? mkWall() : null, mkWall);
+    boxFace(cam, out, keepWorld, lo[i], lo[j], hi[j], hi[i], null, ax, ay, bx, by, z0, z1);
   }
   // the roof, only from above it. ⚠ ALL of `hi`, not `hi[0..3]` — the projected list and the world
   // polygon have to be the same length or the clip pairs a vertex with somebody else's depth, and a
   // footprint here is not always four-sided.
-  const mkRoof = () => corners.map(([x, y]) => [x, y, z1]);
-  if (cam.EH > z1) q(hi, keepWorld ? mkRoof() : null, mkRoof);
+  if (cam.EH > z1) boxFace(cam, out, keepWorld, null, null, null, null, hi, corners, 0, 0, 0, z1, 0);
+}
+// One face of boxQuads: a wall (four projected corners and its two world edge ends) or, when `P` is
+// given, the roof (`ax` is then the footprint and `z0` the roof height). The world polygon is built
+// only when the face straddles the near plane or the caller keeps it.
+function boxFaceWorld(P, ax, ay, bx, by, z0, z1) {
+  return P ? ax.map((c) => [c[0], c[1], z0]) : [[ax, ay, z0], [bx, by, z0], [bx, by, z1], [ax, ay, z1]];
+}
+function boxFace(cam, out, keepWorld, p0, p1, p2, p3, P, ax, ay, bx, by, z0, z1) {
+  const m = P ? P.length : 4;
+  let anyIn = false, anyOut = false;
+  for (let i = 0; i < m; i++) {
+    const p = P ? P[i] : i === 0 ? p0 : i === 1 ? p1 : i === 2 ? p2 : p3;
+    if (p.f > FNEAR) anyIn = true; else anyOut = true;
+  }
+  if (!anyIn) return;                                   // wholly behind the lens: nothing to draw
+  const w = keepWorld ? boxFaceWorld(P, ax, ay, bx, by, z0, z1) : null;
+  let rec;
+  if (anyOut) {
+    // Sutherland–Hodgman against f > FNEAR, in WORLD space — `f` is affine in a world point, so
+    // the crossing is exact and the re-projected vertex lands where the wall really meets the
+    // plane. Interpolating the projected points instead would interpolate a divide.
+    const src = w || boxFaceWorld(P, ax, ay, bx, by, z0, z1);
+    const cut = [];
+    for (let i = 0; i < m; i++) {
+      const j = (i + 1) % m;
+      const fi = (P ? P[i] : i === 0 ? p0 : i === 1 ? p1 : i === 2 ? p2 : p3).f;
+      const fj = (P ? P[j] : j === 0 ? p0 : j === 1 ? p1 : j === 2 ? p2 : p3).f;
+      if (fi > FNEAR) cut.push(src[i]);
+      if ((fi > FNEAR) !== (fj > FNEAR)) {
+        const t = (FNEAR - fi) / (fj - fi);
+        cut.push([src[i][0] + (src[j][0] - src[i][0]) * t,
+                  src[i][1] + (src[j][1] - src[i][1]) * t,
+                  src[i][2] + (src[j][2] - src[i][2]) * t]);
+      }
+    }
+    if (cut.length < 3) return;
+    const pts = new Array(cut.length);
+    for (let i = 0; i < cut.length; i++) { const p = cam.proj(cut[i][0], cut[i][1], cut[i][2]); pts[i] = { x: p.sx, y: p.sy, z: p.f }; }
+    rec = { pts };
+    if (keepWorld) rec.w = cut;
+  } else {
+    const pts = new Array(m);
+    for (let i = 0; i < m; i++) { const p = P ? P[i] : i === 0 ? p0 : i === 1 ? p1 : i === 2 ? p2 : p3; pts[i] = { x: p.sx, y: p.sy, z: p.f }; }
+    rec = { pts };
+    if (keepWorld) rec.w = w;
+  }
+  out.push(rec);
 }
 
 // Screen-space AABB of a ground-anchored box, or null if any corner is too close/behind the eye.
 function screenBox(cam, corners, z0, z1) {
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const [wx, wy] of corners) {
-    for (const z of [z0, z1]) {
-      const p = cam.proj(wx, wy, z);
+  for (let i = 0; i < corners.length; i++) {
+    const wx = corners[i][0], wy = corners[i][1];
+    for (let k = 0; k < 2; k++) {
+      const p = cam.proj(wx, wy, k ? z1 : z0);
       if (p.f <= 0.25) return null;   // near the eye the projection stretches; don't reason about it
       if (p.sx < x0) x0 = p.sx; if (p.sx > x1) x1 = p.sx;
       if (p.sy < y0) y0 = p.sy; if (p.sy > y1) y1 = p.sy;
@@ -53389,8 +53442,12 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // The four corners, without four fresh arrays and a closure per tile per frame. The forward
     // distance is linear in the corner offset, so the furthest-forward corner is the centre plus
     // HW·(|sinh| + |cosh|) — any corner ahead ⇔ that one is.
-    const cornerAhead = offTileMark(c)
-      || f + HW * (Math.abs(cam.sinh) + Math.abs(cam.cosh)) + (cam.fwdOff || 0) > VISIBLE_NEAR_F;
+    // ⚠ THE LOCK'S EXEMPTION HAS A REACH; A HULL'S DOESN'T. A lock tile's roof reaches a tile past its
+    // own (see the ⚠ on OFF_TILE_MARKS), so it takes the same corner test grown by LOCK_REACH rather
+    // than none: exempt outright, every lock tile up to six behind the eye ran its arm every frame,
+    // 2,200 of 3,045 live near-runs over a Halcyon flight (scripts/perf/movecost.mjs).
+    const cornerAhead = (offTileMark(c) && c.mark !== 'lock')
+      || f + (c.mark === 'lock' ? HW + LOCK_REACH : HW) * (Math.abs(cam.sinh) + Math.abs(cam.cosh)) + (cam.fwdOff || 0) > VISIBLE_NEAR_F;
     // A skyline tower is drawn to its own reach, and the governor's shortened FAR doesn't apply to it:
     // it's the thing you can see from furthest away, so it's the last thing that should go.
     const reachC = skyReach(c);
@@ -58563,8 +58620,6 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
   // buffer a far-side rail is hidden per pixel for nothing, and on the canvas there is no depth test at
   // all and this is the whole of what stands in for one. Kept because the fallback is a renderer.
   const beamDot = chr * (camPos[0] - ctr[0]) + shr * (camPos[1] - ctr[1]);
-  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
   // ── Project, backface-cull, NEAR-PLANE CLIP, depth-sort (far→near), shade, fill ──
   // Faces crossing the camera near plane are CLIPPED to it, not dropped — otherwise, with the deck-cam
@@ -58633,31 +58688,38 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
   // culling, clipping, projecting and sorting it a second time would cost the frame twice for a
   // picture nobody sees.
   for (const fc of (opts.fittings ? [] : faces)) {
-    const wp = fc.p.map((p) => wv(p[0], p[1], p[2]));
+    // ⚠ SCALARS, NOT VECTORS, as in drawFreighter: per face per frame, and the edge, normal,
+    // centre and half-vector arrays were a sizeable share of a cockpit frame's garbage.
+    const fp = fc.p, wp = new Array(fp.length);
+    for (let i = 0; i < fp.length; i++) wp[i] = wv(fp[i][0], fp[i][1], fp[i][2]);
     const w0 = wp[0], w1 = wp[1], w2 = wp[2];
-    const e1 = sub(w1, w0), e2 = sub(w2, w0);
-    let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
-    const nm = Math.hypot(n[0], n[1], n[2]) || 1; n = [n[0] / nm, n[1] / nm, n[2] / nm];
-    const cen = [(w0[0] + w1[0] + w2[0]) / 3, (w0[1] + w1[1] + w2[1]) / 3, (w0[2] + w1[2] + w2[2]) / 3];
-    if (dot(n, sub(cen, ctr)) < 0) n = [-n[0], -n[1], -n[2]];   // orient outward from the hull centre
+    const e1x = w1[0] - w0[0], e1y = w1[1] - w0[1], e1z = w1[2] - w0[2];
+    const e2x = w2[0] - w0[0], e2y = w2[1] - w0[1], e2z = w2[2] - w0[2];
+    let nx = e1y * e2z - e1z * e2y, ny = e1z * e2x - e1x * e2z, nz = e1x * e2y - e1y * e2x;
+    const nm = Math.hypot(nx, ny, nz) || 1; nx /= nm; ny /= nm; nz /= nm;
+    const cenx = (w0[0] + w1[0] + w2[0]) / 3, ceny = (w0[1] + w1[1] + w2[1]) / 3, cenz = (w0[2] + w1[2] + w2[2]) / 3;
+    if (nx * (cenx - ctr[0]) + ny * (ceny - ctr[1]) + nz * (cenz - ctr[2]) < 0) { nx = -nx; ny = -ny; nz = -nz; }   // orient outward from the hull centre
     // Mirror-black shading: a LOW dark diffuse (so the body stays near-black) + a tight sun SPECULAR
     // (Blinn half-vector, high exponent → a small bright glossy flash) + a cool sky RIM at grazing
     // angles (fresnel). The last two are added, not multiplied, so they light black facets up.
     // ⚠ COMPUTED BEFORE THE CULL NOW, because the solids pass needs it for faces the canvas drops.
     // It reads the normal and the eye and nothing that has been clipped, so moving it up changes no
     // value the fill below receives.
-    const lm = toSun ? clamp(0.30 + 0.5 * Math.max(0, dot(n, toSun)) + 0.06 * Math.max(0, n[2]), 0.14, 1.05)
-                     : clamp(0.22 + 0.34 * Math.max(0, n[2]), 0.14, 0.85);
-    const cd = sub(camPos, cen), cdm = Math.hypot(cd[0], cd[1], cd[2]) || 1, camDir = [cd[0] / cdm, cd[1] / cdm, cd[2] / cdm];
+    const lm = toSun ? clamp(0.30 + 0.5 * Math.max(0, nx * toSun[0] + ny * toSun[1] + nz * toSun[2]) + 0.06 * Math.max(0, nz), 0.14, 1.05)
+                     : clamp(0.22 + 0.34 * Math.max(0, nz), 0.14, 0.85);
+    const cdx = camPos[0] - cenx, cdy = camPos[1] - ceny, cdz = camPos[2] - cenz, cdm = Math.hypot(cdx, cdy, cdz) || 1;
+    const vx = cdx / cdm, vy = cdy / cdm, vz = cdz / cdm;
     let spec = 0;
-    if (toSun) { const h = [toSun[0] + camDir[0], toSun[1] + camDir[1], toSun[2] + camDir[2]], hm = Math.hypot(h[0], h[1], h[2]) || 1; spec = Math.pow(Math.max(0, (n[0] * h[0] + n[1] * h[1] + n[2] * h[2]) / hm), 26); }
-    const rim = Math.pow(1 - Math.max(0, dot(n, camDir)), 3);
+    if (toSun) { const hx = toSun[0] + vx, hy = toSun[1] + vy, hz = toSun[2] + vz, hm = Math.hypot(hx, hy, hz) || 1; spec = Math.pow(Math.max(0, (nx * hx + ny * hy + nz * hz) / hm), 26); }
+    const rim = Math.pow(1 - Math.max(0, nx * vx + ny * vy + nz * vz), 3);
     if (opts.collect) {
-      // The whole polygon, unculled and unclipped — see the ⚠ at the top of this function.
-      OWNSHIP_SINK.push({ p: wp.map((w) => [w[0] + gox, w[1] + goy, w[2]]), rgb: hullRgb(fc, lm, spec, rim), a: alpha });
+      // The whole polygon, unculled and unclipped — see the ⚠ at the top of this function. `wp`
+      // is this face's own, so it moves into the window frame in place.
+      for (const w of wp) { w[0] += gox; w[1] += goy; }
+      OWNSHIP_SINK.push({ p: wp, rgb: hullRgb(fc, lm, spec, rim), a: alpha });
       continue;
     }
-    if (dot(n, sub(camPos, cen)) <= 0) continue;                // backface → skip
+    if (nx * cdx + ny * cdy + nz * cdz <= 0) continue;                // backface → skip
     const cw = clipNearF(wp); if (cw.length < 3) continue;      // fully behind the near plane → gone
     const sp = cw.map((w) => cam.proj(w[0], w[1], w[2]));
     let af = 0; for (const q of sp) af += q.f; af /= sp.length;
@@ -59290,8 +59352,6 @@ function drawFreighter(ctx, cam, dx, dy, fwd, quay, B, night, alpha, now, sun, o
   }
   const camPos = [cam.ex || 0, cam.ey || 0, cam.EH];
   const ctr = [cx, cy, DK * 0.5];
-  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-  const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   const dim = 1 - clamp(night, 0, 1) * 0.55;
   const NEARF = 0.12;
   const camFwd = (w) => (w[0] - (cam.ex || 0)) * cam.sinh - (w[1] - (cam.ey || 0)) * cam.cosh;
@@ -59307,19 +59367,25 @@ function drawFreighter(ctx, cam, dx, dy, fwd, quay, B, night, alpha, now, sun, o
   const gox = cam.ox || 0, goy = cam.oy || 0;
   const draw = [];
   for (const fc of (opts.fittings ? [] : faces)) {
-    const wp = fc.p.map((p) => wv(p[0], p[1], p[2]));
-    const e1 = sub3(wp[1], wp[0]), e2 = sub3(wp[2], wp[0]);
-    let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
-    const nm = Math.hypot(n[0], n[1], n[2]) || 1; n = [n[0] / nm, n[1] / nm, n[2] / nm];
-    const cen = [(wp[0][0] + wp[1][0] + wp[2][0]) / 3, (wp[0][1] + wp[1][1] + wp[2][1]) / 3, (wp[0][2] + wp[1][2] + wp[2][2]) / 3];
-    if (dot3(n, sub3(cen, ctr)) < 0) n = [-n[0], -n[1], -n[2]];
+    // ⚠ SCALARS, NOT VECTORS: this runs for every face of every ship in view each frame, and the
+    // edge, normal and centre arrays it used to build were a sizeable share of a cockpit frame's
+    // garbage (scripts/perf/alloc.mjs). `collect` emits the world polygon directly.
+    const fp = fc.p, wp = new Array(fp.length);
+    for (let i = 0; i < fp.length; i++) wp[i] = wv(fp[i][0], fp[i][1], fp[i][2]);
+    const p0 = wp[0], p1 = wp[1], p2 = wp[2];
+    const e1x = p1[0] - p0[0], e1y = p1[1] - p0[1], e1z = p1[2] - p0[2];
+    const e2x = p2[0] - p0[0], e2y = p2[1] - p0[1], e2z = p2[2] - p0[2];
+    let nx = e1y * e2z - e1z * e2y, ny = e1z * e2x - e1x * e2z, nz = e1x * e2y - e1y * e2x;
+    const nm = Math.hypot(nx, ny, nz) || 1; nx /= nm; ny /= nm; nz /= nm;
+    const cenx = (p0[0] + p1[0] + p2[0]) / 3, ceny = (p0[1] + p1[1] + p2[1]) / 3, cenz = (p0[2] + p1[2] + p2[2]) / 3;
+    if (nx * (cenx - ctr[0]) + ny * (ceny - ctr[1]) + nz * (cenz - ctr[2]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
     // Matte, unlike the Echelon: a working hull is painted steel with no gloss in it at all, so
     // there is no specular term here and nothing that wants one.
-    const lm = (toSun ? clamp(0.34 + 0.58 * Math.max(0, dot3(n, toSun)) + 0.10 * Math.max(0, n[2]), 0.20, 1.10)
-                      : clamp(0.26 + 0.40 * Math.max(0, n[2]), 0.16, 0.86)) * dim;
+    const lm = (toSun ? clamp(0.34 + 0.58 * Math.max(0, nx * toSun[0] + ny * toSun[1] + nz * toSun[2]) + 0.10 * Math.max(0, nz), 0.20, 1.10)
+                      : clamp(0.26 + 0.40 * Math.max(0, nz), 0.16, 0.86)) * dim;
     const rgb = [clamp(fc.col[0] * lm, 0, 255) | 0, clamp(fc.col[1] * lm, 0, 255) | 0, clamp(fc.col[2] * lm, 0, 255) | 0];
-    if (opts.collect) { OWNSHIP_SINK.push({ p: wp.map((w) => [w[0] + gox, w[1] + goy, w[2]]), rgb, a: A }); continue; }
-    if (dot3(n, sub3(camPos, cen)) <= 0) continue;
+    if (opts.collect) { for (const w of wp) { w[0] += gox; w[1] += goy; } OWNSHIP_SINK.push({ p: wp, rgb, a: A }); continue; }
+    if (nx * (camPos[0] - cenx) + ny * (camPos[1] - ceny) + nz * (camPos[2] - cenz) <= 0) continue;
     const cw = clipNear(wp); if (cw.length < 3) continue;
     const sp = cw.map((w) => cam.proj(w[0], w[1], w[2]));
     let af = 0; for (const q of sp) af += q.f; af /= sp.length;
