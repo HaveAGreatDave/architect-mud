@@ -69,6 +69,13 @@ function glowSave(win, on) { try { win?.localStorage?.setItem(GLOW_KEY, on ? '1'
 const INK_KEY = 'rinkInk';
 function inkSaved(win) { try { return win?.localStorage?.getItem(INK_KEY) !== '0'; } catch { return true; } }
 function inkSave(win, on) { try { win?.localStorage?.setItem(INK_KEY, on ? '1' : '0'); } catch { /* storage blocked */ } }
+// THE X-RAY GORE: how much a grave hit's X-ray replay shows (gl/arena-xray.js): 'full' (his
+// insides and the blood), 'bones' (the skeleton and the break) or 'off' (no X-ray, the hit
+// replayed as any other). Full unless a viewer dials it back with the button on the picture.
+const GORE_KEY = 'rinkXrayGore', GORES = ['full', 'bones', 'off'];
+const GORE_TITLE = { full: 'X-ray replays: full gore', bones: 'X-ray replays: bones only', off: 'X-ray replays: off' };
+function goreSaved(win) { try { const v = win?.localStorage?.getItem(GORE_KEY); return GORES.includes(v) ? v : 'full'; } catch { return 'full'; } }
+function goreSave(win, v) { try { win?.localStorage?.setItem(GORE_KEY, v); } catch { /* storage blocked */ } }
 // The camera: the broadcast view across the ice, or the NHL 96 view up and down it.
 const CAM_KEY = 'rinkCamView';
 function camSaved(win) { try { return win?.localStorage?.getItem(CAM_KEY) === 'vertical' ? 'vertical' : null; } catch { return null; } }
@@ -80,6 +87,7 @@ export function createRinkView(host, opts = {}) {
   let glow = opts.glow != null ? !!opts.glow : glowSaved(win);
   let ink = opts.ink != null ? !!opts.ink : inkSaved(win);
   let camView = opts.camera || camSaved(win);
+  let gore = GORES.includes(opts.gore) ? opts.gore : goreSaved(win);
   let caption = '', pendingCaption = null, pendingCard = null, cardTimer = null, holdTimer = null;
   let last = null, landed = true, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1;
   let W = null, D = null, R = null, ice = null, canvas = null, modsP = null, mods = null;
@@ -179,9 +187,20 @@ export function createRinkView(host, opts = {}) {
       case 'roar': c.setState('chance').cheer(); crowdSettle(3); break;
       case 'check': if (!o.soft) c.cheer(); break;
       case 'gloves': c.setState('fight').cheer(); break;
-      case 'punch': if (o.big) c.cheer(); break;
-      case 'knockout': c.setState('goal').cheer(); crowdSettle(4); break;
+      // a fight: every big one lands with a roar and some of the rest with a shout; the
+      // building goes up for a knockdown and the sweater over a head, and gasps if he
+      // doesn't get up; a fight nobody won is booed
+      case 'punch': if (o.big || Math.random() < 0.35) c.cheer(); break;
+      case 'knockout':
+        c.setState('goal').cheer(); crowdSettle(4);
+        if (o.hurt) W && W.schedule(1.4, () => { if (crowd) { crowd.gasp(); crowd.setState('quiet'); } });
+        break;
+      case 'fightTurtle': c.setState('fight').cheer(); crowdSettle(3); break;
+      case 'fightDraw': _sfx('boo'); crowdSettle(2); break;
       case 'periodHorn': c.duck(4, 0.6); break;
+      // the X-ray: the building goes quiet under it, and gasps as the bone goes
+      case 'xrayIn': c.duck(3, 0.4); break;
+      case 'boneCrack': c.gasp(); break;
     }
   }
 
@@ -194,6 +213,9 @@ export function createRinkView(host, opts = {}) {
         `</button>` +
         `<button type="button" class="gdr-ink" aria-pressed="${ink}" title="Outlines" aria-label="Outlines">` +
           `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="7" r="3.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M6.5 21v-4.5a5.5 5.5 0 0 1 11 0V21" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>` +
+        `</button>` +
+        `<button type="button" class="gdr-gore" data-gore="${gore}" title="${GORE_TITLE[gore]}" aria-label="${GORE_TITLE[gore]}">` +
+          `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 4.5a2.3 2.3 0 0 1 3.6 1.9h2.8A2.3 2.3 0 1 1 17 9.5l-7.5 7.5A2.3 2.3 0 1 1 6.5 13.5l7.5-7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle class="gdr-gore-drop" cx="18" cy="18" r="3" fill="#c2182b"/></svg>` +
         `</button>` +
         `<button type="button" class="gdr-cam" aria-pressed="${camView === 'vertical'}" title="Vertical camera" aria-label="Vertical camera">` +
           `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 12h8" stroke="currentColor" stroke-width="1.4"/><path d="M12 5.2l-2 2.2h4zM12 18.8l-2-2.2h4z" fill="currentColor"/></svg>` +
@@ -328,7 +350,14 @@ export function createRinkView(host, opts = {}) {
     R = gl || mods.createRenderer(canvas, W, ice);
     rung = 0; slow = quick = 0;
     if (camView) R.view = camView;
-    R.glow = glow; R.ink = ink;
+    R.glow = glow; R.ink = ink; R.xrayGore = gore;
+  }
+  function setGore(v) {
+    gore = v;
+    if (R) R.xrayGore = v;
+    if (W) W.xrayGore = v;
+    const b = host?.querySelector('.gdr-gore');
+    if (b) { b.dataset.gore = v; b.title = GORE_TITLE[v]; b.setAttribute('aria-label', GORE_TITLE[v]); }
   }
   function setInk(on) {
     ink = !!on;
@@ -368,10 +397,12 @@ export function createRinkView(host, opts = {}) {
     canvas = host.querySelector('.gdr-canvas');
     host.querySelector('.gdr-glow')?.addEventListener('click', () => { setGlow(!glow); glowSave(win, glow); });
     host.querySelector('.gdr-ink')?.addEventListener('click', () => { setInk(!ink); inkSave(win, ink); });
+    host.querySelector('.gdr-gore')?.addEventListener('click', () => { setGore(GORES[(GORES.indexOf(gore) + 1) % GORES.length]); goreSave(win, gore); });
     host.querySelector('.gdr-cam')?.addEventListener('click', () => { setCam(camView === 'vertical' ? 'broadcast' : 'vertical'); camSave(win, camView); });
     const { createIce, createWorld } = mods;
     ice = createIce(doc);
     W = createWorld(ice, 'rinkside');
+    W.xrayGore = gore;
     D = createDirector(W, {
       onLand: () => {
         if (!landed) { landed = true; if (last) head(last); }

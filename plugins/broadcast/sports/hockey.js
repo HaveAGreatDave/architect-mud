@@ -573,7 +573,10 @@ export const FIGHT_WOUNDS = {
 // over his head and is teeing off, or when neither has got anywhere and the linesmen step
 // in, which is a draw: both serve five and nobody gets the power play.
 // `edge` is A's starting advantage from the game (momentum, club violence), -1 … 1.
-export function simFightV3(seed, a, b, edge = 0) {
+// `hard` is v4's fight (FIGHT_V4): the punches do more, a man goes down sooner and is more
+// often hurt, and now and then badly enough that the rink runs it back in X-ray.
+export const FIGHT_V4 = { hit: 1.45, down: 0.78, hurt: 0.35, grave: 0.18 };
+export function simFightV3(seed, a, b, edge = 0, hard = false) {
   const rand = sportsRng(seed);
   const F = { [a]: fighterOf(a), [b]: fighterOf(b) };
   const dmg = { [a]: 0, [b]: 0 }, tire = { [a]: 0, [b]: 0 }, stag = { [a]: 0, [b]: 0 }, landedBy = { [a]: 0, [b]: 0 };
@@ -605,13 +608,13 @@ export function simFightV3(seed, a, b, edge = 0) {
     const landed = rand() < Math.max(0.12, Math.min(0.92, pLand));
     tire[th] += (type === 'jab' ? 0.03 : 0.06) * (1.3 - ft.cardio);
     if (landed) {
-      const hit = (type === 'uppercut' || type === 'hook' ? 1.35 : type === 'jab' ? 0.55 : 1) * (0.5 + ft.power) * (1.25 - fv.chin * 0.6);
+      const hit = (type === 'uppercut' || type === 'hook' ? 1.35 : type === 'jab' ? 0.55 : 1) * (0.5 + ft.power) * (1.25 - fv.chin * 0.6) * (hard ? FIGHT_V4.hit : 1);
       dmg[vi] += hit; stag[vi] += 1; landedBy[th]++;
       mo += sign * 0.1 * hit;
     } else mo -= sign * 0.04;
     out.push({ n, thrower: th, type, landed, stagger: stag[vi] });
     // a big enough beating puts him down
-    if (landed && dmg[vi] > 4.2 + fv.chin * 2.2) { ending = 'knockdown'; break; }
+    if (landed && dmg[vi] > (4.2 + fv.chin * 2.2) * (hard ? FIGHT_V4.down : 1)) { ending = 'knockdown'; break; }
     // well on top and a fist full of sweater: over his head it goes
     if (jerseyOn == null && sign * mo > 0.55 && ft.grip > 0.45 && rand() < 0.35) { jerseyOn = th; pullAt = n; ending = 'jersey'; }
     if (jerseyOn && n - pullAt >= 3 + Math.floor(rand() * 3)) break;
@@ -631,14 +634,19 @@ export function simFightV3(seed, a, b, edge = 0) {
   }
   // what it did to their faces
   const wound = (x) => {
-    if (dmg[x] < 1.6) return '';
-    const pool = dmg[x] > 5.4 && rand() < 0.6 ? FIGHT_WOUNDS.bad : FIGHT_WOUNDS.face;
+    // (v4's fights are shorter, so what counts as a beating comes down with the knockdown)
+    const k = hard ? FIGHT_V4.down : 1;
+    if (dmg[x] < 1.6 * k) return '';
+    const pool = dmg[x] > 5.4 * k && rand() < 0.6 ? FIGHT_WOUNDS.bad : FIGHT_WOUNDS.face;
     return pool[Math.floor(rand() * pool.length)];
   };
   const loserWound = wound(loser), winnerWound = wound(winner);
   // a knockdown on a bad wound ends his night
-  const hurt = ending === 'knockdown' && FIGHT_WOUNDS.bad.includes(loserWound) && rand() < 0.4;
-  const slotsOut = hurt ? INJURY_SLOTS_MIN + Math.floor(rand() * 8) : 0;
+  const hurt = ending === 'knockdown' && FIGHT_WOUNDS.bad.includes(loserWound) && rand() < (hard ? FIGHT_V4.hurt : 0.4);
+  // (v4: one hurt in a few is a long one, eight slots or more, which the rink X-rays)
+  const grave = hurt && hard && rand() < FIGHT_V4.grave;
+  // (and only that one: v4's others stop short of it, where v3's could reach nine)
+  const slotsOut = !hurt ? 0 : grave ? 8 + Math.floor(rand() * 6) : INJURY_SLOTS_MIN + Math.floor(rand() * (hard ? 6 : 8));
   return { exchange: out, winner, loser, ending, pullAt, draw, loserWound, winnerWound, slotsOut,
     punches: out.filter(e => e.type !== 'tug').length };
 }
@@ -693,6 +701,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   const reprint = Number(opts.version) >= 2;
   // v3 plays a fight by the men in it (simFightV3).
   const v3 = Number(opts.version) >= 3;
+  // v4 fights harder (FIGHT_V4).
+  const v4 = Number(opts.version) >= 4;
   // A final is the game that matters most; the caller says so (sportsGameForSlot).
   const important = !!opts.important;
   let brawled = false;
@@ -838,7 +848,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     const fseed = Math.floor(rand() * 1e9);
     const edge = Math.max(-1, Math.min(1, (momentumOf(att) - momentumOf(def)) * 0.3
       + ((att.profile?.violence || 1) - (def.profile?.violence || 1)) * 0.4));
-    const f = simFightV3(fseed, a.name, b.name, edge);
+    const f = simFightV3(fseed, a.name, b.name, edge, v4);
     const winner = f.winner === a.name ? a : b, loser = winner === a ? b : a;
     const winnerTeam = winner === a ? att : def, loserTeam = winner === a ? def : att;
     // a man the fight hurt goes to the room, not the box; a draw boxes both
@@ -864,13 +874,13 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     const la = live(att), ld = live(def);
     const pairs = [];
     for (let k = 0; k < Math.min(la.length, ld.length); k++) {
-      const f = simFightV3((bseed + k * 7919) >>> 0, la[k].name, ld[k].name, 0);
+      const f = simFightV3((bseed + k * 7919) >>> 0, la[k].name, ld[k].name, 0, v4);
       pairs.push({ a: la[k], b: ld[k], f });
     }
     // The goalies coming out is the rare part of a rare thing: about one brawl in three, rolled
     // off the brawl's own seed so the game's stream isn't touched.
     const goaliesGo = sportsRng((bseed ^ 0x9a11e) >>> 0)() < GOALIE_FIGHT_SHARE;
-    const goalies = goaliesGo ? simFightV3((bseed ^ 0x60a1) >>> 0, att.goalie, def.goalie, 0) : null;
+    const goalies = goaliesGo ? simFightV3((bseed ^ 0x60a1) >>> 0, att.goalie, def.goalie, 0, v4) : null;
     const hurt = [];
     for (const { a, b, f } of pairs) {
       for (const m of [a, b]) {
@@ -1225,8 +1235,8 @@ export const HOCKEY = {
   finalIcon: '🏒',
   season: SEASON,
   // v2 reprints a dead man (reprintSlots); broadcast records the slot it plays from.
-  // v3 plays fights by the fighters and the game's momentum (simFightV3).
-  simVersions: [1, 2, 3],
+  // v3 plays fights by the fighters and the game's momentum (simFightV3); v4 fights harder.
+  simVersions: [1, 2, 3, 4],
   section: 'period',
   sectionPlural: 'periods',
   simGame,

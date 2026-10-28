@@ -115,6 +115,9 @@ async function play(slot) {
   // play stopped, on the man who was hit, the hit in it, and the live picture back before
   // the puck drops. Every one the booth brings up while the rink has it kept is run back.
   const hitRp = { missed: 0, owed: 0, shown: 0, bad: [], lastT: null, missedT: null, on: false, dropB: null };
+  // a grave hit's X-ray replay (rink/replay.js `xray`) isn't brought up by the booth: it
+  // comes on its own once he's down, and has to have the impact in it and get to X-ray
+  const xrRp = { shown: 0, bad: [], on: false, maxK: 0, peaks: [] };
   // TWO MEN AFTER ONE PUCK FIGHT FOR IT: the man after it is in on him (`tussle`) going at
   // it with his stick or his shoulder. Sampled with the pairs below: men after it, and how
   // many of them were at it.
@@ -275,7 +278,18 @@ async function play(slot) {
       }
       const lh = D.state.lastHit;
       if (lh && lh.t !== hitRp.lastT) { hitRp.lastT = lh.t; if (!lh.seen && !lh.fatal) { hitRp.missed++; hitRp.missedT = lh.t; } }
-      const hon = W.replay.active && W.replay.kind === 'hit';
+      const xon = W.replay.active && W.replay.kind === 'hit' && !!W.replay.xray;
+      if (xon && !xrRp.on) {
+        const R = W.replay, at = `${(W.t - tApply).toFixed(2)}s into ${curG ? curG.type : '?'}`;
+        xrRp.shown++; xrRp.maxK = 0;
+        const why = [!W.frozen && 'play going on', !R.follow && 'on the puck, not the man', !(R.xray.t > R.from && R.xray.t < R.to) && 'the impact not in it'].filter(Boolean);
+        if (why.length) xrRp.bad.push(`${why.join(', ')} at ${at}`);
+      }
+      // (the strength is worked out as a frame is drawn, and nothing draws most of these)
+      if (xon) { const F = W.replay.frame(); xrRp.maxK = Math.max(xrRp.maxK, (F.xray && F.xray.k) || 0); }
+      if (!xon && xrRp.on) xrRp.peaks.push(xrRp.maxK);
+      xrRp.on = xon;
+      const hon = W.replay.active && W.replay.kind === 'hit' && !W.replay.xray;
       if (hon && !hitRp.on) {
         const R = W.replay, at = `${(W.t - tApply).toFixed(2)}s into ${curG ? curG.type : '?'}`;
         hitRp.shown++;
@@ -535,6 +549,7 @@ async function play(slot) {
   check(`${slot}: the camera never jumps`, camJumps.length === 0, `${camJumps.length}: ${camJumps.slice(0, 4).join(', ')}`);
   check(`${slot}: the camera stays on the puck through a hit until it lands`, camOff.length === 0, `${camOff.length}: ${camOff.slice(0, 4).join(', ')}`);
   check(`${slot}: a hit the picture missed is run back as the booth brings it up`, hitRp.shown > 0 && hitRp.bad.length === 0, `${hitRp.shown} run back, ${hitRp.owed} brought up, ${hitRp.missed} missed: ${hitRp.bad.slice(0, 4).join('; ')}`);
+  check(`${slot}: a grave hit is run back in X-ray, the impact in it`, xrRp.bad.length === 0 && xrRp.peaks.every((k) => k > 0.9), `${xrRp.shown} shown, peaks ${xrRp.peaks.map((k) => k.toFixed(2)).join(',')}: ${xrRp.bad.slice(0, 4).join('; ')}`);
   check(`${slot}: two men after one puck fight for it`, battle.n > 200 && battle.at >= battle.n * 0.3, `${battle.at} of ${battle.n} samples of a man after it at it with his stick or shoulder`);
   check(`${slot}: every shot is taken with its net in frame`, unseen.length === 0, `${unseen.length}: ${unseen.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody gains the puck from beyond his reach`, snaps.length === 0, `${snaps.length}: ${snaps.slice(0, 4).join(', ')}`);

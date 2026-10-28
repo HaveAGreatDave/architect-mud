@@ -4,7 +4,8 @@
 @type sports
 @sport hockey
 # v2: a man who dies on the ice is reprinted and back in three to five game-days.
-@sim 3
+# v4: fights are harder: more damage a punch, more knockdowns, more of them hurt.
+@sim 4
 @announcer "Tug Brennan"
 # The booth's own voice, over the station's: no ring modulator and no drive. Both are
 # texture, and both cost words: measured, the clean voice is understood about 10% better.

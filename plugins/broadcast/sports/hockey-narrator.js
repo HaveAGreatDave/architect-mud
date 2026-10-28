@@ -249,6 +249,12 @@ export function narrate(ctx) {
     const n = beats[idx];
     return b.type === 'boards' && n && n.type === 'injury' && n.player === b.victim ? n : null;
   };
+  // and a fight that sends a man to the room, so the rink knows how long for (a long one is
+  // run back in X-ray when he goes down)
+  const fightInjury = (b, idx) => {
+    const n = beats[idx];
+    return b.type === 'fight' && n && n.type === 'injury' && n.fromFight && n.player === b.loser ? n : null;
+  };
   // The draw that follows a beat, when one does: a goal, a frozen puck, a fight, a scrum, a
   // man carried off and a penalty each stop play, and the sim's next beat is the faceoff on
   // the dot the rule sends it to. The rink sends everybody there while the booth is still
@@ -353,7 +359,7 @@ export function narrate(ctx) {
     // In the view's own att/def frame, so the client never has to know club names.
     victimSide: (b.victimTeam || b.teamName) ? ((b.victimTeam || b.teamName) === away.name ? 'att' : 'def') : '',
     hitterSide: b.hitterTeam ? (b.hitterTeam === away.name ? 'att' : 'def') : '',
-    slotsOut: b.slotsOut || injuryAfter(b, idx)?.slotsOut || 0,
+    slotsOut: b.slotsOut || injuryAfter(b, idx)?.slotsOut || fightInjury(b, idx)?.slotsOut || 0,
     // How the hit landed, and on an injury or a death what it did. `injured` on a hit
     // means he stays down; the wound fields then belong to the injury that follows.
     hitStyle: b.hitStyle || '',

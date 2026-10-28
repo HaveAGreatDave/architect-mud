@@ -28,6 +28,32 @@
 import { clamp, lerp, angWrap, rng, hash, hyp } from './util.js';
 import { RL, RW, MID_Y, GOAL_X, NET_HALF, NET_H, DOT_FT, BOARD_H, GLASS_H, attackDir, insideRink, panelAt, PANEL_W, PANEL_X0, PANELS } from './geo.js';
 import { SHOTS, releaseAt, bladeWorld, skaterRig } from './rig.js';
+
+// A HIT THAT PUTS A MAN OUT THIS LONG (in schedule slots; INJURY_SLOTS_MAX is 16), or kills
+// him, is run back in X-ray: see `xrayBone` and the X-ray half of `hitReplays`.
+const XRAY_SLOTS = 8;
+// The bone a grave hit breaks: a severed limb's own, a death's neck or skull, otherwise one
+// that goes with how he was hit. Seeded from the play, so every TV breaks the same one.
+function xrayBone(p, style, fatal, victim) {
+  if (fatal) return fatal === 'post' ? 'skull' : 'neck';
+  const part = p.woundPart || '';
+  if (/^arm[LR]$/.test(part)) return 'humerus' + part.slice(3);
+  if (/^leg[LR]$/.test(part)) return 'femur' + part.slice(3);
+  const r = rng(hash(`xray${p.clock}${victim.name || victim.seed}`)), lr = r() < 0.5 ? 'L' : 'R';
+  const pick = {
+    shoulder: ['ribs', 'clavicle' + lr, 'humerus' + lr], glass: ['skull', 'ribs', 'clavicle' + lr],
+    behind: ['spine', 'neck', 'ribs'], hip: ['pelvis', 'femur' + lr, 'tibia' + lr], elbow: ['jaw', 'skull'],
+  }[style] || ['ribs', 'tibia' + lr];
+  return pick[Math.floor(r() * pick.length)];
+}
+// and the one a fight breaks, from what the booth says it did to him
+function fightBone(wound) {
+  const w = String(wound || '');
+  return /jaw/.test(w) ? 'jaw' : /hand/.test(w) ? 'humerusR' : 'skull';
+}
+// A punch's share of what a fight takes out of a man (the pips over the fight): a jab less,
+// an uppercut or a hook more. By the rig's action for it.
+const PIP_W = { jab: 0.6, punchL: 1, punchR: 1, uppercut: 1.5, hook: 1.5 };
 import { makeBody, ratingsFor } from './sim.js';
 import { createReplay } from './replay.js';
 import { createRinkCamera } from './camera.js';
@@ -229,7 +255,23 @@ export function createDirector(W, opts = {}) {
   // and the hit; one with none left gets no replay. The booth only talks about the latest
   // hit, so a later one (in the picture or not), a goal, a death or a new period drops it.
   // (Started on the whistle instead, a quick draw cut it off before the hit.)
+  // A GRAVE HIT (XRAY_SLOTS) is kept the same way, and shown once he's down and the whistle
+  // has gone: a little later for a death, which holds on him first. Its replay slows right
+  // down round the impact and goes to X-ray (replay.js, gl/arena-xray.js), with its own two
+  // sounds as the X-ray comes in and the bone goes. With the viewer's gore off it's never
+  // queued (stageHit), and the hit is replayed as any other would be.
   function hitReplays() {
+    const X = D.xrayPending;
+    if (X && !D.hitShow && !replay.active && W.t >= X.startAt) {
+      D.xrayPending = null;
+      const clip = replay.save(X.t - 1.4, X.t + 1.1);
+      if (clip) { D.hitClip = null; D.hitShow = { phase: 'in', at: W.t + WIPE / 2, clip, follow: X.follow, label: X.label, speed: 0.6, xray: X.xray }; wipe(); }
+    }
+    if (D.hitShow && D.hitShow.xray && D.hitShow.phase === 'on' && replay.active) {
+      const S = D.hitShow, d = replay.rt - S.xray.t, gore = W.xrayGore || 'full';
+      if (!S.heard && d > -0.55) { S.heard = true; W.sfx('xrayIn', { gore }); }
+      if (!S.broke && d >= 0) { S.broke = true; W.sfx('boneCrack', { gore, dead: S.xray.dead }); if (gore === 'full') W.sfx('boneWet'); }
+    }
     if (D.hitPending && W.t >= D.hitPending.saveAt) {
       const h = D.hitPending; D.hitPending = null;
       const clip = replay.save(h.t - 3.2, h.t + 1.2);
@@ -240,7 +282,7 @@ export function createDirector(W, opts = {}) {
     const late = !!B && B.kind === 'faceoff' && (B.down || rel > B.dropAt - 1.2);
     if (S) {
       if (S.phase === 'in' && W.t >= S.at) {
-        if (late || !replay.play(S.clip, S.speed, S.follow, S.label)) { D.hitShow = null; return; }
+        if (late || !replay.play(S.clip, S.speed, S.follow, S.label, S.xray || null)) { D.hitShow = null; return; }
         S.phase = 'on';
       } else if (S.phase === 'on' && (!replay.active || replay.left() <= WIPE / 2 || late || !W.frozen)) { wipe(); S.phase = 'out'; S.at = W.t + WIPE / 2; }
       else if (S.phase === 'out' && W.t >= S.at) { if (replay.kind === 'hit') replay.stop(); D.hitShow = null; }
@@ -1963,6 +2005,14 @@ export function createDirector(W, opts = {}) {
       D.recordUntil = W.t + 1.3;
       D.hitClip = null;
       D.hitPending = !seen && !fatal ? { t: W.t, saveAt: W.t + 1.25, follow: { seed: victim.seed, side: victim.side }, label: `${String(hitter.name || '').toUpperCase()} ON ${String(victim.name || '').toUpperCase()}` } : null;
+      // a hit that ends his season or his life goes to X-ray, seen or not (see hitReplays)
+      D.xrayPending = null;
+      if (hurt && (fatal || (p.slotsOut || 0) >= XRAY_SLOTS) && (W.xrayGore || 'full') !== 'off') {
+        D.hitPending = null;
+        D.xrayPending = { t: W.t, startAt: W.t + (fatal ? 4.5 : 2.4), follow: { seed: victim.seed, side: victim.side },
+          label: `${String(hitter.name || '').toUpperCase()} ON ${String(victim.name || '').toUpperCase()}`,
+          xray: { t: W.t, bone: xrayBone(p, style, fatal, victim), seed: victim.seed, side: victim.side, dead: !!fatal } };
+      }
       if (fatal) { B.ownsCam = true; W.cam.mode = 'zoom'; }
       land(B);
       // (the hitter skates off it: kept where he hit, he stood at the boards by the man he'd
@@ -2230,6 +2280,15 @@ export function createDirector(W, opts = {}) {
     ring.forEach((m, k) => { const a = 0.15 * Math.PI + (k / Math.max(1, ring.length - 1)) * 0.7 * Math.PI; m.ring = { a, rad: 20 + (k % 3) * 3 }; m.scripted = true; m.maxV = 9; });
     // the officials wait behind it, on the far side, where they don't block the camera
     W.officials.forEach((o, i) => { o.scripted = true; o.tx = cx + (i ? -9 : 9); o.ty = cy + 6; o.maxV = 14; });
+    // NOBODY CROSSES THE PICTURE. The fight is shot from the near side (camera.js swings a
+    // vertical camera round to it), so a man on that side of it making for his place behind
+    // goes round the end of it first, wide, rather than skating between it and the lens.
+    const roundTheFront = (m) => {
+      if (m.y > cy - 1.5 || Math.abs(m.x - cx) > 15) return;
+      m.tx = cx + (m.x >= cx ? 17 : -17); m.ty = Math.min(m.y, cy - 2); m.face = null;
+    };
+    // (the officials wait behind it until the linesmen go in, by way of the end of it)
+    const officialsWait = () => W.officials.forEach((o, i) => { if (B.linesmen) return; o.tx = cx + (i ? -9 : 9); o.ty = cy + 6; roundTheFront(o); });
     B.ownsCam = true;
     const ex = Array.isArray(p.exchange) && p.exchange.length ? p.exchange : [{ n: 1, thrower: p.winner, type: 'right', landed: true }];
     const isPunch = (e) => e.type !== 'tug';
@@ -2250,10 +2309,18 @@ export function createDirector(W, opts = {}) {
       at(B, 1.1, () => { frame('fight', [cx, cy]); W.fight.hud = true; W.banner = { text: 'FIGHT!', t0: W.t, dur: 1.2 }; });
     }
     const ACT = { jab: 'jab', uppercut: 'uppercut', left: 'punchL', right: 'punchR', hook: 'hook' };
+    // what each man's pips go down by, a punch's weight over the weight of all that land on him
+    const wOf = (e) => PIP_W[ACT[e.type]] || 1;
+    const loseW = ex.filter((e) => isPunch(e) && e.landed && e.thrower !== p.loser).reduce((a, e) => a + wOf(e), 0) || 1;
+    const winW = ex.filter((e) => isPunch(e) && e.landed && e.thrower === p.loser).reduce((a, e) => a + wOf(e), 0) || 1;
+    // A FIGHT THAT PUTS HIM OUT LONG is X-rayed as he goes down (see hitReplays), so this one
+    // is recorded: from a few seconds before the last punch to just after he lands.
+    const grave = p.ending === 'knockdown' && !!p.hurt && (p.slotsOut || 0) >= XRAY_SLOTS && (W.xrayGore || 'full') !== 'off';
     B.lose = lose;
     // Each punch lands as the booth calls it. A punch whose line was cut falls between its
     // neighbours; with no cues at all they come in a quick flurry as before.
     const times = ex.map((e, n) => { const c = cueOf(p, 'punch', 'n', n); return c != null ? c + 0.15 : null; });
+    if (grave) { D.recording = true; D.recordFrom = W.t + Math.max(0, Math.max(0, ...times.filter((x) => x != null)) - 3.5); }
     {
       let last = 2.45 - 0.5;
       for (let n = 0; n < times.length; n++) {
@@ -2297,8 +2364,8 @@ export function createDirector(W, opts = {}) {
         vi.blood = Math.min(1, (vi.blood || 0) + 0.22); th.blood = Math.min(1, (th.blood || 0) + 0.06);
         // a face that's taken a few starts to run
         if (vi.blood > 0.6) vi.bleeding = Math.max(vi.bleeding || 0, 1.5);
-        const dmg = vi === lose ? 5 / onLoser : Math.min(0.9, 3.4 / onWinner);
-        W.fight.pip[vi.seed] = Math.max(vi === win ? 0.6 : 0, W.fight.pip[vi.seed] - dmg);
+        const w = PIP_W[kindAct] || 1, dmg = vi === lose ? 5 * w / loseW : Math.min(1.5, 4.2 * w / winW);
+        W.fight.pip[vi.seed] = Math.max(vi === win ? 0.4 : 0, W.fight.pip[vi.seed] - dmg);
         const big = last || kindAct === 'uppercut' || kindAct === 'hook';
         W.burst('blood', vi.x + dir * 0.2, vi.y - 0.3, 5.3, big ? 26 : 9, big ? 8 : 5, [dir * 6, -1, 4]);
         W.shake = Math.max(W.shake, big ? 1.1 : 0.45); W.hitstop = big ? 0.1 : 0.04; W.crowd = 1;
@@ -2311,14 +2378,20 @@ export function createDirector(W, opts = {}) {
             W.knock(vi, [dir * 11, 1, 10], [dir * 1.5, 0, 0]);
             if (vi.helmet) { vi.helmet = false; W.addDebris('helmet', [vi.x, vi.y, 5.8], [dir * 9, 1.5, 12], 0, 9, vi.side); }
             vi.bleeding = 3; W.burst('tooth', vi.x, vi.y, 5.2, 2, 5, [dir * 6, 0, 6]);
-            W.banner = { text: 'K.O.', t0: W.t, dur: 1.3, col: '#ff5a3c' }; W.sfx('knockout');
+            W.banner = { text: 'K.O.', t0: W.t, dur: 1.3, col: '#ff5a3c' }; W.sfx('knockout', { hurt: !!p.hurt, side: vi.side });
+            if (grave) {
+              D.recordUntil = W.t + 1.3;
+              D.xrayPending = { t: W.t, startAt: W.t + 2.4, follow: { seed: vi.seed, side: vi.side },
+                label: `${String(win.name || '').toUpperCase()} ON ${String(vi.name || '').toUpperCase()}`,
+                xray: { t: W.t, bone: fightBone(p.loserWound), seed: vi.seed, side: vi.side, dead: false } };
+            }
             win.grab = null; at(B, 0.5, () => W.act(win, 'celebrate', 1.4));
             // the man the fight put in the room stays down for the stretcher (stageInjury)
             if (!p.hurt) at(B, 3.0, () => { if (vi.rag) W.getUp(vi, 1.2); });
             else { vi.bleeding = 6; vi.blood = 1; W.burst('blood', vi.x, vi.y, 1.2, 30, 6, [0, 0, 2]); }
           } else if (p.ending === 'jersey') {
             W.act(vi, 'cover', 1.6); vi.grab = null;
-            W.banner = { text: 'TURTLE', t0: W.t, dur: 1.2, col: '#f0bd4c' };
+            W.banner = { text: 'TURTLE', t0: W.t, dur: 1.2, col: '#f0bd4c' }; W.sfx('fightTurtle');
           }
           B.overAt = W.t;
         }
@@ -2329,7 +2402,7 @@ export function createDirector(W, opts = {}) {
     const tEnd = endCue != null ? Math.max(t + 0.3, endCue) : t + (p.ending === 'knockdown' ? 1.2 : 0.4);
     after(tEnd, () => {
       B.linesmen = true;
-      if (p.draw) { W.banner = { text: 'SEPARATED', t0: W.t, dur: 1.2, col: '#9fc4e8' }; W.sfx('whistle'); }
+      if (p.draw) { W.banner = { text: 'SEPARATED', t0: W.t, dur: 1.2, col: '#9fc4e8' }; W.sfx('whistle'); W.sfx('fightDraw'); }
       W.officials.forEach((o, i) => { o.maxV = 18; o.target = i ? R : L; });
     });
     after(tEnd + 1.6, () => {
@@ -2356,7 +2429,8 @@ export function createDirector(W, opts = {}) {
         L.tx = cx - 2.6; L.ty = cy; R.tx = cx + 2.6; R.ty = cy; L.maxV = R.maxV = gap > 12 ? 22 : 9;
         L.face = gap < 14 ? 0 : null; R.face = gap < 14 ? Math.PI : null;
         if (gap < 9 || rel > 6) { squareUp(); B.glovesAt = W.t; }
-        for (const m of ring) { if (!m.ring || !m.active) continue; const a = m.ring.a; m.tx = cx + Math.cos(a) * m.ring.rad; m.ty = cy + Math.sin(a) * m.ring.rad * 0.8; m.maxV = 14; }
+        for (const m of ring) { if (!m.ring || !m.active) continue; const a = m.ring.a; m.tx = cx + Math.cos(a) * m.ring.rad; m.ty = cy + Math.sin(a) * m.ring.rad * 0.8; m.maxV = 14; roundTheFront(m); }
+        officialsWait();
         W.cam.focus = [(L.x + R.x) / 2, (L.y + R.y) / 2];
         return;
       }
@@ -2376,7 +2450,9 @@ export function createDirector(W, opts = {}) {
         const a = m.ring.a + rel * 0.07 * (m.side === 'a' ? 1 : -1) + 0.1 * Math.sin(rel * 0.8 + m.seed);
         const rad = (ko ? 10 + (m.seed % 3) * 1.5 : m.ring.rad) + 1.6 * Math.sin(rel * 0.9 + m.seed * 1.3);
         m.tx = cx + Math.cos(a) * rad; m.ty = cy + Math.sin(a) * rad * 0.8; m.maxV = ko ? 8 : 5; m.face = Math.atan2(cy - m.y, cx - m.x);
+        roundTheFront(m);
       }
+      officialsWait();
       W.officials.forEach((o, i) => {
         if (!B.linesmen) return;
         // once they're apart the second goes and gets the puck for the draw
@@ -2757,17 +2833,21 @@ export function createDirector(W, opts = {}) {
     // (a hit's replay carries on into the stoppage's own beats; anything else ends it)
     const keep = replay.active && replay.kind === 'hit' && ['faceoff', 'injury', 'penalty'].includes(p.type);
     if (replay.active && !keep) { replay.stop(); wipe(0.5); }
-    if (!keep) D.hitShow = null;
+    // (and so does an X-ray of the hit, queued or showing, into the injury and the draw after it)
+    const xrayOn = (D.hitShow && D.hitShow.xray) || D.xrayPending;
+    if (!keep && !(xrayOn && ['faceoff', 'injury', 'penalty'].includes(p.type))) D.hitShow = null;
+    if (!keep && !xrayOn) D.xrayPending = null;
+    if (p.type === 'goal' || p.type === 'intermission') D.xrayPending = null;
     // (after a goal, a death or a period's end the booth has moved on from a hit it missed;
     // a play the booth brings one up over carries a `recall` cue, see `hitReplays`)
     if (['goal', 'death', 'intermission'].includes(p.type) || (p.type === 'faceoff' && p.reason === 'period')) { D.hitClip = null; D.hitPending = null; }
     D.recall = cueOf(p, 'recall');
     // only a goal and a hit are ever replayed, so only theirs is recorded: keeping every
     // man's joints thirty times a second all game would be work nobody watches
-    D.recording = p.type === 'goal' || p.type === 'boards'; D.recordUntil = null;
+    D.recording = p.type === 'goal' || p.type === 'boards' || p.type === 'death'; D.recordUntil = null;
     // (a hit's clip starts 3.2 s before it lands, and it lands within a second of its line: the
     // skate along the wall before that is never shown, and was most of the recording)
-    D.recordFrom = p.type === 'boards' ? (D.arrived ?? W.t) + Math.max(0, (cueOf(p, 'impact') ?? 0) - 4.4) : 0;
+    D.recordFrom = p.type === 'boards' || p.type === 'death' ? (D.arrived ?? W.t) + Math.max(0, (cueOf(p, 'impact') ?? 0) - 4.4) : 0;
     dress(p);
     if (D.intermission && p.type !== 'intermission') { if (D.beat) D.beat.cleanup = null; endIntermission(); }
     switch (p.type) {

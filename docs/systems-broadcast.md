@@ -1659,6 +1659,11 @@ so a narrator cannot read the other league's records.
   and a knockdown on a bad one sends the loser to the room (an `injury` beat, `fromFight`) instead
   of the box. v3 spends the same two calls on the game's rand as v1's fight, so the stream after
   it lines up. The gloves come off once, on `pbp.fight.drop`; no later line says so.
+- **Harder fights (sim v4, `@sim 4` in hockey.bsm).** `simFightV3` with `hard` (`FIGHT_V4`): a
+  landed punch does 1.45 times the damage and a man goes down at 0.78 of the beating, so about 87%
+  of fights end in a knockdown (v3: about 56%) in about 8 punches instead of 11. About one fight in
+  six sends the loser to the room, and about one in 35 for eight slots or more, which Rinkside
+  X-rays (below). v4's other fight injuries stop at seven slots.
 - **The line brawl (sim v3).** Once a game at most, only between rivals, and only in a final
   (`important`, from `override.worldSeries`) or a one-goal third: `BRAWL_CHANCE` a chance-gap,
   about 2% of rival games and 8% of rival finals. Every skater pairs off (each a `simFightV3`,
@@ -1968,6 +1973,17 @@ the first tick after the deploy. Change the era only when the roster changes. De
 way.
 
 ### The rink sub-screen (Rinkside, as built)
+
+**The X-ray replay.** A hit, a fight or a death that puts a man out for `XRAY_SLOTS` (8) or more, or
+kills him, is run back once he's down (`D.xrayPending` in rink/director.js), seen or not. The
+replay slows to 0.16 round the impact and GLASS 2 sees through him: the picture darkened and blued,
+his flesh a faint shell, his skeleton lit, and the bone the hit picked (`xrayBone`, `fightBone`)
+breaking, with chips thrown off it ([gl/arena-xray.js](../client/game/js/panels/gl/arena-xray.js)).
+The viewer's gore button (`rinkXrayGore` in this browser) sets how much: `full` adds his organs
+and the blood, `bones` is the skeleton alone, `off` replays it as an ordinary hit. The 2-D
+renderer shows the slowed replay without the X-ray. A fight in the vertical view swings the camera
+round to the broadcast side (camera.js `want`) and back after, and the men standing round go
+round the end of it rather than skate across the lens.
 
 [client/game/js/panels/gameday-rink.js](../client/game/js/panels/gameday-rink.js) is the
 CPhL sub-screen. It keeps the Deadball view's interface (`apply`, `clear`, `setCaption`,

@@ -19,13 +19,20 @@
 
 import { lerp } from './util.js';
 import { PANELS } from './geo.js';
+import { XRAY_FOCUS } from '../gl/arena-xray.js';
 
 const HZ = 30, KEEP = 10;
+
+// THE X-RAY CUT (gl/arena-xray.js draws it). A clip played with `xray` slows from its own
+// speed to SLOW over EASE replay seconds either side of the window round the impact, and
+// the X-ray fades in as it gets there and out after the break.
+const XR = { slow: 0.16, before: 0.25, after: 0.5, ease: 0.2, kIn: [-0.55, -0.3], kOut: [0.55, 0.8] };
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export function createReplay(W) {
   const frames = [];
   let lastRec = -1;
-  const R = { active: false, from: 0, to: 0, rt: 0, speed: 0.5, count: 0, kind: null, clip: null, follow: null };
+  const R = { active: false, from: 0, to: 0, rt: 0, speed: 0.5, count: 0, kind: null, clip: null, follow: null, xray: null };
 
   // the world as the renderers see it, while a replay is on
   const src = {
@@ -35,7 +42,7 @@ export function createReplay(W) {
     debris: [], limbs: [], parts: [], glassBlood: [], cracks: [],
     flex: new Array(PANELS).fill(0), broken: new Set(), netBulge: { a: 0, h: 0 },
     lamp: 0, lampSide: null, crowd: 0.5, mourning: 0, shake: 0, boardShake: 0,
-    zamboni: null, stretcher: null, fight: null, banner: null, label: null, _bodies: [], live: W,
+    zamboni: null, stretcher: null, fight: null, banner: null, label: null, xray: null, _bodies: [], live: W,
     bodies() { return this._bodies; },
     rigOf(b) { return b._J; },
   };
@@ -79,7 +86,7 @@ export function createReplay(W) {
     R.from = Math.max(from, frames[0].t); R.to = Math.min(to, frames[frames.length - 1].t);
     if (R.to - R.from < 1) return false;
     R.rt = R.from; R.speed = speed; R.active = true; R.count++;
-    R.kind = 'goal'; R.clip = null; R.follow = null; src.label = null;
+    R.kind = 'goal'; R.clip = null; R.follow = null; R.xray = null; src.label = null; src.xray = null;
     // the replay's camera starts on its framing (the switch is behind the director's wipe)
     src.cam.cut++; src.cam.since = 0;
     return true;
@@ -91,21 +98,35 @@ export function createReplay(W) {
     return f.length >= HZ ? { frames: f, from: f[0].t, to: f[f.length - 1].t } : null;
   };
   // Play a kept clip at `speed`, the camera on `follow` (a man's seed and side) instead of
-  // the puck, with `label` under the REPLAY bug.
-  R.play = (clip, speed, follow = null, label = null) => {
+  // the puck, with `label` under the REPLAY bug. With `xray` ({ t, bone, seed, side }) it
+  // slows right down round `t` and the renderer sees through the man (see XR).
+  R.play = (clip, speed, follow = null, label = null, xray = null) => {
     if (!clip || clip.to - clip.from < 1) return false;
     R.clip = clip.frames; R.from = clip.from; R.to = clip.to; R.rt = R.from; R.speed = speed;
     R.active = true; R.count++; R.kind = 'hit'; R.follow = follow; src.label = label;
+    R.xray = xray; src.xray = xray ? { ...xray, k: 0, d: R.from - xray.t } : null;
     src.cam.cut++; src.cam.since = 0;
     return true;
   };
   R.stop = () => { R.active = false; };
+  // the speed at replay time `rt`: its own, or slowed round an X-ray's impact
+  const rate = (rt) => {
+    if (!R.xray) return R.speed;
+    const d = rt - R.xray.t, w = smooth(-XR.before - XR.ease, -XR.before, d) * (1 - smooth(XR.after, XR.after + XR.ease, d));
+    return R.speed + (XR.slow - R.speed) * w;
+  };
   // world seconds until it ends by itself
-  R.left = () => (R.active ? Math.max(0, (R.to - R.rt) / R.speed) : 0);
+  R.left = () => {
+    if (!R.active) return 0;
+    if (!R.xray) return Math.max(0, (R.to - R.rt) / R.speed);
+    let s = 0;
+    for (let rt = R.rt; rt < R.to; rt += 1 / HZ) s += Math.min(1 / HZ, R.to - rt) / rate(rt);
+    return s;
+  };
   // advance with the world's clock; true while it's still playing
   R.tick = (dt) => {
     if (!R.active) return false;
-    R.rt += dt * R.speed;
+    R.rt += dt * rate(R.rt);
     if (R.rt >= R.to) R.active = false;
     return R.active;
   };
@@ -154,6 +175,14 @@ export function createReplay(W) {
     src.t = R.rt;
     const fb = R.follow && bodies.find((q) => q.seed === R.follow.seed && q.side === R.follow.side && q.kind === 'skater');
     src.cam.focus = fb ? [fb.rag ? fb.rag.pts[0].x : fb.x, fb.rag ? fb.rag.pts[0].y : fb.y] : [src.puck.x, src.puck.y];
+    // the X-ray: how strong, how far past the impact, and the camera in close on the bone
+    if (src.xray) {
+      const X = src.xray, d = R.rt - X.t;
+      X.d = d; X.k = smooth(XR.kIn[0], XR.kIn[1], d) * (1 - smooth(XR.kOut[0], XR.kOut[1], d));
+      const xb = bodies.find((q) => q.seed === X.seed && q.side === X.side), j = xb && xb._J[XRAY_FOCUS[X.bone] ?? 1];
+      if (j) src.cam.focus = [lerp(src.cam.focus[0], j[0], X.k), lerp(src.cam.focus[1], j[1], X.k)];
+      src.cam.mode = 'xray'; src.cam.xk = X.k; src.cam.xz = j ? j[2] : 2;
+    } else src.cam.mode = 'replay';
     return src;
   };
   R.frames = frames;

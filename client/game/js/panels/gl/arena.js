@@ -42,6 +42,7 @@ import { INK_VS, INK_FS } from './ink.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
 import { createMirrorLayer, MIRROR_SCALE } from './mirror.js';
 import { createRinkHeads, HEAD_VS, HEAD_FS } from './arena-heads.js';
+import { buildXray } from './arena-xray.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 
@@ -349,6 +350,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       rows: layer(), dyn: layer(), jers: layer(), masks: layer(), label: layer(), tr: layer(), netm: layer(), gdec: layer(), shad: layer(),
       ice: layer(2, [[0, 2, 0]]), pts: layer(PT_STRIDE, [[0, 3, 0], [2, 4, 12], [4, 1, 28]]),
       bowl: [layer(), layer(), layer(), layer()],
+      xglow: layer(), xsolid: layer(),
     };
     const postVao = gl.createVertexArray();
     {
@@ -357,6 +359,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     }
     const B = Object.fromEntries(['stat', 'ads', 'stands', 'glass', 'rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad'].map((k) => [k, M.createBatch(k === 'dyn' ? 1 << 16 : 1 << 12)]));
     let ptData = new Float32Array(PT_STRIDE * 1024);
+    // the X-ray's two batches, filled only while one is on (gl/arena-xray.js)
+    const XB = { glow: M.createBatch(1 << 13), solid: M.createBatch(1 << 15) };
     buildStatic();
     const mirror = createMirrorLayer(gl);
 
@@ -882,6 +886,34 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.drawArrays(gl.TRIANGLES, first, count);
       st.draws++; st.tris += count / 3;
     }
+    // ── the X-ray ─────────────────────────────────────────────────────────────
+    // Over the finished picture: the building darkened and blued by the X-ray's strength, the
+    // depth cleared, then his bones (and, at full gore, his insides) lit and depth-tested, and
+    // last his flesh and the flash at the break added on top as light.
+    function drawXray(xr, vp, eye, shake, w, h) {
+      M.reset(XB.glow); M.reset(XB.solid);
+      if (!buildXray(XB, W, xr, api.xrayGore)) return;
+      put(L.xglow, XB.glow); put(L.xsolid, XB.solid);
+      const k = xr.k, a = 0.86 * k;
+      gl.disable(gl.DEPTH_TEST);
+      gl.useProgram(POST.p);
+      gl.uniform2f(POST.u('uRes'), w, h);
+      gl.uniform4f(POST.u('uWash'), 0.012 * a, 0.05 * a, 0.075 * a, a);
+      gl.uniform3fv(POST.u('uLamp'), [0, 0, 0]);
+      gl.uniform1f(POST.u('uVig'), 0.6 * k);
+      gl.uniform1f(POST.u('uDark'), 0);
+      gl.bindVertexArray(postVao); gl.drawArrays(gl.TRIANGLES, 0, 3); st.draws++;
+      gl.depthMask(true); gl.clear(gl.DEPTH_BUFFER_BIT);
+      gl.enable(gl.DEPTH_TEST);
+      useLit(vp, eye, shake, -1e9);
+      gl.uniform1f(LIT.u('uMourn'), 0);
+      draw(L.xsolid);
+      gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      draw(L.xglow);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthMask(true); gl.enable(gl.DEPTH_TEST);
+    }
     const reflStrength = () => clamp(0.3 - 0.2 * ice.wear + 0.14 * ice.wetness, 0.08, 0.42) * (1 - 0.35 * (W.mourning || 0));
 
     function render(now) {
@@ -934,9 +966,10 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       useLit(vp, eye, shake, -1e9);
       draw(L.stands, crowdTex);
       // the bowl, less the stands this view's camera stands in, and the fans in it
-      const vert = api.view === 'vertical';
+      // (by the view the camera is in, which a fight swings to broadcast: camera.js `shown`)
+      const shown = rp ? 'broadcast' : camera.shown || api.view, vert = shown === 'vertical';
       for (let i = 0; i < 4; i++) if (!((i & 1) && !vert) && !((i & 2) && vert)) draw(L.bowl[i]);
-      drawFans(vp, shake, api.view);
+      drawFans(vp, shake, shown);
       if (api.ink) { drawInk(vp, shake, w, h, u); }
       useLit(vp, eye, shake, -1e9);
       draw(L.stat); draw(L.ads, texAds);
@@ -978,6 +1011,10 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         if (nHalo) { gl.disable(gl.DEPTH_TEST); gl.drawArrays(gl.POINTS, nPts - nHalo, nHalo); gl.enable(gl.DEPTH_TEST); st.draws++; }
       }
 
+      // a grave hit's replay, seen through the man (gl/arena-xray.js)
+      const xr = W.xray && W.xray.k > 0.002 && api.xrayGore !== 'off' ? W.xray : null;
+      if (xr) drawXray(xr, vp, eye, shake, w, h);
+
       // the light over the top of it all
       gl.disable(gl.DEPTH_TEST);
       gl.useProgram(POST.p);
@@ -1010,7 +1047,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       }
     }
 
-    const api = { render, stats: st, cam: camera.cam, view: 'broadcast', glow: false, ink: true, kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] },
+    const api = { render, stats: st, cam: camera.cam, view: 'broadcast', glow: false, ink: true, xrayGore: 'full', kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] },
       // the reflection buffer, for a bench that wants to know it isn't empty
       mirrorPeak: () => mirror.peak() };
     return api;

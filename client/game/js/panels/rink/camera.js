@@ -29,7 +29,7 @@
 // screen and its length running up it, panning end to end with the puck. The Zamboni's
 // time-lapse is the one locked-off shot, the whole sheet from high up, in every view.
 
-import { clamp } from './util.js';
+import { clamp, lerp } from './util.js';
 import { RL, RW, GOAL_X, MID_Y, BOARD_H } from './geo.js';
 
 export const NEAR = 0.6, FAR = 600;
@@ -51,7 +51,16 @@ function smooth(x, target, st, time, dt, maxV = Infinity) {
 // The camera's ground axes: forward (where it looks) and right (across the picture).
 // Broadcast looks across the sheet (+Y) with the length left to right; vertical looks down
 // it (+X) with the width across, the near boards (Y = 0) on the left.
-export function camAxes(yaw) { return yaw ? { fx: 1, fy: 0, rx: 0, ry: -1 } : { fx: 0, fy: 1, rx: 1, ry: 0 }; }
+// A yaw between the two (a fight swinging the vertical camera round to the broadcast side)
+// turns the axes through the quarter turn between them.
+export function camAxes(yaw) {
+  if (yaw <= 0) return { fx: 0, fy: 1, rx: 1, ry: 0 };
+  if (yaw >= 1) return { fx: 1, fy: 0, rx: 0, ry: -1 };
+  const a = yaw * Math.PI / 2, c = Math.cos(a), s = Math.sin(a);
+  return { fx: s, fy: c, rx: c, ry: -s };
+}
+// how long the swing round to a fight takes, and back
+const SWING = 1.1;
 
 const KEYS = ['lx', 'ly', 'lz', 'dist', 'pitch', 'fm'];
 // the steepest a vertical framing tilts to keep its eye out of the end stands
@@ -65,7 +74,12 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
   const cam = { lx: 100, ly: 40, lz: 0, dist: 56, pitch: 0.52, fm: 1, ...(from || {}) };
   const vel = Object.fromEntries(KEYS.map((k) => [k, { v: 0 }]));
   const api = { view: 'broadcast', cam };
-  let lastCut = -1, lastNow = null, first = !from, lastYaw = 0;
+  let lastCut = -1, lastNow = null, first = !from, lastView = null, yawS = 0, yawV = { v: 0 };
+  // THE VIEW THE PICTURE IS FRAMED FOR. A fight is shot from the broadcast side whatever the
+  // viewer's camera: from the end of the rink the two men are one behind the other. The
+  // vertical camera swings round to it (`yawS`, on springs) and back after.
+  const want = () => (api.view === 'vertical' && !W.fight ? 'vertical' : api.view === 'vertical' ? 'broadcast' : api.view);
+  api.shown = 'broadcast';
   // where the action is heading: the focus's velocity, low-passed, for the look-ahead
   let pf = null, fv = [0, 0];
 
@@ -77,7 +91,7 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
     // looks at, so a close framing at the low end (a scrum on that net: 21 ft past the boards
     // and 16 up) put it inside the stands, looking through them. The usual high framing
     // clears them; a low one is tilted steeper, then brought in, until it does.
-    if (api.view !== 'vertical') return tg;
+    if (want() !== 'vertical') return tg;
     let { pitch, dist } = tg;
     const inStands = () => {
       const x = tg.lx - dist * Math.cos(pitch), z = tg.lz + dist * Math.sin(pitch);
@@ -102,11 +116,13 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
       // the replay: down at ice level and close, following the puck a beat behind; never
       // backed up behind the near boards
       case 'replay': return { lx: f[0] + clamp(fv[0] * 0.3, -10, 10), ly: clamp(f[1] + 3, 24, RW - 4), lz: 1.4, dist: 24, pitch: 0.2, fm: 1 };
+      // the X-ray cut (replay.js): the replay's framing, closing in on the bone as it breaks
+      case 'xray': { const k = c.xk || 0; return { lx: f[0] + clamp(fv[0] * 0.3, -10, 10) * (1 - k), ly: clamp(f[1] + 3 - 1.5 * k, 20, RW - 4), lz: lerp(1.4, clamp(c.xz ?? 2, 0.6, 5.5), k), dist: lerp(24, 11, k), pitch: lerp(0.2, 0.12, k), fm: 1 }; }
       // the Zamboni is a time-lapse, and a time-lapse is shot locked off: high and wide, the
       // whole sheet in the picture, in either view
-      case 'zam': return api.view === 'vertical' ? wholeSheetV(aspect) : wholeSheet(aspect);
+      case 'zam': return want() === 'vertical' ? wholeSheetV(aspect) : wholeSheet(aspect);
       case 'death': return { lx: clamp(f[0], 44, RL - 44), ly: clamp(f[1], 14, RW - 6), lz: 0.8, dist: 28 - Math.min(8, (W.t - (c.since || W.t)) * 0.6), pitch: 0.42, fm: 1 };
-      default: return api.view === 'vertical' ? vertical(f, c, aspect) : broadcast(f, c, aspect);
+      default: return want() === 'vertical' ? vertical(f, c, aspect) : broadcast(f, c, aspect);
     }
   }
   // NHL 96: high and steep, set back down the length behind the play, the width of the ice
@@ -229,9 +245,12 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
       const shot = W.cam.net != null;
       for (const k of KEYS) cam[k] = smooth(cam[k], tg[k], vel[k], k === 'lx' && shot ? 0.38 : TIME[k], dt, k === 'lx' ? 140 : k === 'dist' ? 60 : Infinity);
     }
-    const yaw = api.view === 'vertical' ? 1 : 0, { fx, fy, rx, ry } = camAxes(yaw);
-    // a change of view is a cut: the eye can't swing a quarter turn on springs
-    if (yaw !== lastYaw) { lastYaw = yaw; Object.assign(cam, tg); for (const k of KEYS) vel[k].v = 0; }
+    // the viewer changing the view is a cut; a fight's swing round (`want`) is eased
+    const yawT = want() === 'vertical' ? 1 : 0;
+    if (api.view !== lastView) { lastView = api.view; yawS = yawT; yawV.v = 0; Object.assign(cam, tg); for (const k of KEYS) vel[k].v = 0; }
+    else if (yawS !== yawT) yawS = dt > 0 ? smooth(yawS, yawT, yawV, SWING * 0.45, dt, Infinity) : yawS;
+    const yaw = yawS, { fx, fy, rx, ry } = camAxes(yaw);
+    api.shown = yaw > 0.5 ? 'vertical' : 'broadcast';
     const back = cam.dist * Math.cos(cam.pitch);
     const C = { x: cam.lx - back * fx, y: cam.ly - back * fy, z: cam.lz + cam.dist * Math.sin(cam.pitch), pitch: cam.pitch, yaw, f: w * cam.fm, cx: w / 2, cy: h * 0.56, w, h };
     const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch);

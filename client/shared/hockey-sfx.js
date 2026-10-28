@@ -379,6 +379,27 @@
       tone({ hz: 170, mod: 2, index: 1, indexEnd: 0, slide: 0.03, to: 120, a: 0.001, d: 0.05, r: 0.02, gain: 0.12, delay: 0.32, filter: { type: 'highpass', freq: 70, q: 0 } }),
       ...gasp().map((l) => ({ ...l, gain: l.gain * 0.8, delay: (l.delay || 0) + 0.12 })),
     ], { vary: { pitch: 0.03, gain: 0.08, env: 0.08 } }),
+    // the X-ray replay (gl/arena-xray.js): the room going under as it comes in, a low air
+    // sweep with a heartbeat in it, and the bone going, a dry crack with a splinter after it
+    def('hk-xray-in', 'X-ray replay — in', 8, [
+      noise({ type: 'lowpass', hz: 2400, q: 0.7, to: 260, sweep: 0.5, linear: true, a: 0.04, d: 0.5, s: 0.2, r: 0.4, gain: 0.12 }),
+      tone({ hz: 62, mod: 1.41, index: 0.6, indexEnd: 0, slide: 0.05, to: 44, bend: 0.08, a: 0.004, d: 0.12, r: 0.06, gain: 0.32, delay: 0.18 }),
+      tone({ hz: 58, mod: 1.41, index: 0.5, indexEnd: 0, slide: 0.05, to: 42, bend: 0.08, a: 0.004, d: 0.1, r: 0.05, gain: 0.24, delay: 0.42 }),
+      tone({ hz: 62, mod: 1.41, index: 0.6, indexEnd: 0, slide: 0.05, to: 44, bend: 0.08, a: 0.004, d: 0.12, r: 0.06, gain: 0.26, delay: 1.05 }),
+      tone({ hz: 58, mod: 1.41, index: 0.5, indexEnd: 0, slide: 0.05, to: 42, bend: 0.08, a: 0.004, d: 0.1, r: 0.05, gain: 0.2, delay: 1.29 }),
+    ], { retro: false, vary: { pitch: 0.02, gain: 0.05, env: 0.05 } }),
+    def('hk-bone-crack', 'X-ray replay — bone breaks', 10, [
+      noise({ type: 'highpass', hz: 2600, q: 0.6, a: 0.0004, d: 0.018, r: 0.01, gain: 0.3 }),
+      tone({ hz: 1900, mod: 2.41, index: 4, indexEnd: 0.2, slide: 0.008, a: 0.0003, d: 0.016, r: 0.008, gain: 0.2, noise: 0.5 }),
+      tone({ hz: 210, mod: 2, index: 1.6, indexEnd: 0.1, slide: 0.03, to: 120, bend: 0.06, a: 0.0006, d: 0.08, r: 0.04, gain: 0.22, filter: { type: 'highpass', freq: 60, q: 0 } }),
+      noise({ hz: 3400, q: 2.2, to: 1800, sweep: 0.12, a: 0.001, d: 0.05, r: 0.03, gain: 0.12, delay: 0.035 }),
+      noise({ hz: 4200, q: 3, a: 0.0005, d: 0.012, r: 0.008, gain: 0.14, delay: 0.09 }),
+    ], { retro: false, vary: { pitch: 0.05, gain: 0.08, env: 0.08 } }),
+    // and at full gore, the wet half of it
+    def('hk-bone-wet', 'X-ray replay — the wet half', 7, [
+      noise({ type: 'lowpass', hz: 900, q: 1.2, to: 300, sweep: 0.15, linear: true, a: 0.006, d: 0.16, s: 0.1, r: 0.12, gain: 0.2, delay: 0.04 }),
+      noise({ hz: 520, q: 6, to: 260, sweep: 0.2, linear: true, a: 0.01, d: 0.2, r: 0.1, gain: 0.12, delay: 0.1 }),
+    ], { retro: false }),
     // the penalty box: a stick rapped on the boards, short and hollow
     def('hk-box-knock', 'Penalty box — stick knock', 4, [
       tone({ hz: 820, mod: 2, index: 1.6, indexEnd: 0.2, slide: 0.02, to: 760, a: 0.0006, d: 0.04, r: 0.015, gain: 0.13 }),
@@ -477,6 +498,9 @@
     punch: (o) => (o.big ? ['hk-punch-big', 1] : ['hk-punch', 0.9]),
     punchMiss: 'hk-punch-miss', gloves: 'hk-gloves-drop', cloth: 'hk-grapple',
     knockout: 'hk-knockout', fightGrunt: (o) => (o.big ? ['hk-fight-grunt-big', 1] : ['hk-fight-grunt', 0.8]), fightRoar: 'hk-crowd-fight',
+    xrayIn: 'hk-xray-in', boneCrack: 'hk-bone-crack', boneWet: 'hk-bone-wet',
+    // (the crowd's own: gameday-rink.js turns these into a cheer and a boo)
+    fightTurtle: null, fightDraw: null,
     roar: 'hk-crowd-roar', gasp: 'hk-crowd-gasp', groan: 'hk-crowd-groan', cheer: 'hk-crowd-cheer', boo: 'hk-crowd-boo',
   };
   // { id, intensity } for an event, or null when it has no sound

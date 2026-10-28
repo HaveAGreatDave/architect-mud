@@ -175,6 +175,8 @@ The rink names what happened and `HockeySfx.eventFor(key, data)` says which patc
 | `whistle` | `hk-whistle` when long (a penalty, a man down), otherwise `hk-whistle-short` |
 | `horn`, `periodHorn` | `hk-goal-horn`, `hk-period-horn` |
 | `wide` | nothing: a wide shot is heard when it hits the boards |
+| `xrayIn`, `boneCrack`, `boneWet` | the X-ray replay: `hk-xray-in` (an air sweep and a heartbeat), `hk-bone-crack`, and at full gore `hk-bone-wet`; the crowd ducks under the first and gasps at the second |
+| `fightTurtle`, `fightDraw` | nothing of their own: the crowd cheers the sweater over a head and boos a fight nobody won |
 
 The crowd follows the plays and comes back to the run of play (`active`) after each moment: a rush on
 its own doesn't move it, a shot lifts it to `shot` for 1.6 s, a breakaway to `chance` with a cheer for

@@ -12664,6 +12664,16 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 /* the outline toggle (the players' ink) sits beside the camera */
 .gdr-ink { right: 76px; }
 .gdr-rink:has(.view-fs) .gdr-ink { right: 110px; }
+/* the X-ray gore setting beside the outlines: full (the drop of blood), bones, off (dim) */
+.gdr-gore { position: absolute; right: 110px; bottom: 8px; z-index: 8; width: 28px; height: 28px; padding: 0;
+	display: flex; align-items: center; justify-content: center; cursor: pointer;
+	border-radius: 50%; border: 1px solid rgba(160,190,220,0.35); background: rgba(6,10,16,0.62); color: #cfe6ff; }
+.gdr-gore:hover, .gdr-gore:focus-visible { border-color: rgba(159,228,255,0.8); }
+.gdr-gore[data-gore="full"] { border-color: rgba(194,24,43,0.8); box-shadow: 0 0 8px rgba(194,24,43,0.45); }
+.gdr-gore[data-gore="bones"] .gdr-gore-drop { display: none; }
+.gdr-gore[data-gore="off"] { color: #4a5663; }
+.gdr-gore[data-gore="off"] .gdr-gore-drop { display: none; }
+.gdr-rink:has(.view-fs) .gdr-gore { right: 144px; }
 /* Fullscreen for a sports view (view-fullscreen.js): the bottom corner of Deadball's park and the
    rink, faint until the picture's hovered, since the park's graphics use that corner too. */
 .view-fs {
@@ -12802,6 +12812,8 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 	.gdr-wrap:has(.gdri.over) .gdr-cam { visibility: hidden; }
 	.gdr-ink { top: 10px; left: 78px; right: auto; bottom: auto; }
 	.gdr-wrap:has(.gdri.over) .gdr-ink { visibility: hidden; }
+	.gdr-gore { top: 10px; left: 112px; right: auto; bottom: auto; }
+	.gdr-wrap:has(.gdri.over) .gdr-gore { visibility: hidden; }
 }
 
 /* ── Sports graphics (full-screen FX) ──────────────────────────────────────────
