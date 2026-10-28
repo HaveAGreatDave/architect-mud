@@ -24176,7 +24176,10 @@ function pushLightSized(x, y, z, k, lo, hi, fmin, f, rgb, a, hard, add, wash, ai
 // the geometry can tell those apart.
 function pushStroke(A, B, wPx, rgb, a, glow, tag) {
   if (!(a > 0.004) || !(wPx > 0)) return;
-  STROKE_SINK.push({ a: A, b: B, w: wPx * _frameDpr, rgb: typeof rgb === 'string' ? rgbTriple(rgb) : rgb, alpha: a, glow: (glow || 0) * _frameDpr, ...(tag ? { tag } : {}) });
+  // ⚠ `tag` SET AFTER, NOT SPREAD IN: the spread built a throwaway object for every stroke, tagged or not.
+  const st = { a: A, b: B, w: wPx * _frameDpr, rgb: typeof rgb === 'string' ? rgbTriple(rgb) : rgb, alpha: a, glow: (glow || 0) * _frameDpr };
+  if (tag) st.tag = tag;
+  STROKE_SINK.push(st);
   // ⚠ THE CALLER, WHEN A HARNESS IS ASKING. `gl:neighbour` names a MODEL and a painter CLASS, and
   // neither is actionable: an arm draws dozens of wires and only some cross the building next
   // door. Attributed, its 246 leaking points turned out to be five callers — and the 187 from
@@ -24350,7 +24353,7 @@ function emitWire(ctx, cam, A, B, wPx, css, alpha, opts = {}) {
       const A2 = pull && cam.unproj ? (cam.unproj(a, pull) || A) : A;
       const B2 = pull && cam.unproj ? (cam.unproj(b, pull) || B) : B;
       const n0 = STROKE_SINK.length;
-      pushStroke(A2, B2, wPx, [c[0], c[1], c[2]], c[3] * (alpha == null ? 1 : alpha), opts.glow, opts.tag);
+      pushStroke(A2, B2, wPx, cssTriple(c), c[3] * (alpha == null ? 1 : alpha), opts.glow, opts.tag);
       // The raw ends and the pull, for the strokes shader to pull itself (glSizeGPU, see
       // pushLightSized). Only when both ends were pulled: an end unproj refused is left as is.
       if (pull && A2 !== A && B2 !== B && STROKE_SINK.length > n0 && RENDER_TUNE.glSizeGPU !== 0) {
@@ -25145,6 +25148,14 @@ const hexRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 
 // continuous `night`, so the key space grows slowly over a day cycle rather than being fixed. The
 // cap turns that from a leak into a reset — it is a memo, and losing it costs one parse.
 const _cssRgb = new Map();
+// cssRgb's colour without its alpha, one array per colour rather than one per stroke. ⚠ SHARED, so
+// nothing may write into a stroke's `rgb`; nothing does (the GL layer reads it, the kept arms keep it).
+const _cssTri = new WeakMap();
+function cssTriple(c) {
+  let t = _cssTri.get(c);
+  if (!t) { t = [c[0], c[1], c[2]]; _cssTri.set(c, t); }
+  return t;
+}
 function cssRgb(c) {
   if (!c || typeof c !== 'string') return null;
   if (_cssRgb.has(c)) return _cssRgb.get(c);
