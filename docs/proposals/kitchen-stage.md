@@ -142,6 +142,12 @@ The Stage fills the screen and is played with the mouse. Clicking any object ope
 - **Stocking up.** `kitchenstock` sends the catalogue (`kitchen_stock`); `kitchenorder <item> [qty]` buys and delivers to you ([stock.js](../../plugins/cooking/stock.js)). It sells only what some vendor deals in (`vendor_inventory`), at half as much again as the item's value, and only beside a stove.
 - **Stoves start off.** An untouched ring reads 0. `cook` still lights a ring at zero at the stove's resting tier.
 
+## Liquids (as built)
+
+A liquid in the pan is a small 2-D fluid ([kitchen-liquid.js](../../client/game/js/panels/gl/kitchen-liquid.js)): a 28-square grid masked to the pan, carrying velocity and colour, advected each step with a pressure pass so a stir becomes a swirl. The first liquid fills the pan; each later one lands as a blob of its own colour that has to be stirred in, and a readout says how mixed it is. Dragging round the pan moves a spoon through it, and every full turn sends the food's `stir` command, no faster than one a second. Pieces float half under the surface and drift with the flow, and the surface dips in the middle as it spins.
+
+Butter, fats and anything that browns by `melt` (cheese) shrink on the heat and pour into the liquid as they go, at a rate set by the dial. It is all picture: the server still decides the cook, and a liquid's colour still moves only on its beat (a beat change shifts the whole pan by that liquid's share).
+
 ## Kitchen Battle (design only)
 
 The full show is kept for an in-world event, not ordinary cooking:

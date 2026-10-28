@@ -28,6 +28,7 @@ import * as M from './gl/arena-mesh.js';
 import * as KS from './gl/kitchen-mesh.js';
 import { createKitchenRenderer, pickPlane, toScreen } from './gl/kitchen.js';
 import { matterFor, beatOf } from '../../../shared/kitchen-matter.js';
+import * as Lq from './gl/kitchen-liquid.js';
 import { footprint, cutPieces, balancedGuides, bounds, cutToken, MAX_TILT } from '../../../shared/knife.js';
 import { presentation } from '../../../shared/plating.js';
 
@@ -73,6 +74,7 @@ export function openKitchenStage(data) {
       </div>
     </div>
     <div class="ks-beat" aria-live="polite"></div>
+    <div class="ks-mix" hidden></div>
     <div class="ks-tray"></div>
     <div class="ks-chips"></div>
     <div class="ks-keys"></div>
@@ -95,7 +97,7 @@ export function openKitchenStage(data) {
     bodies: new Map(), board: null, boardBody: null, dish: null,
     stat: M.createBatch(1 << 14), dyn: M.createBatch(1 << 15), hobKind: null,
     flash: 0, impact: 0, shake: 0, lines: 0, puffs: [], bubbles: [], last: performance.now(), acc: 0, t: 0,
-    lastSizzle: 0, tick: null, raf: 0, drag: null, M: null, sent: 0, orbit: { yaw: 0, pitch: 0 }, menu: null, sheet: null,
+    lastSizzle: 0, tick: null, raf: 0, drag: null, M: null, sent: 0, orbit: { yaw: 0, pitch: 0 }, menu: null, sheet: null, liq: null, spoon: null, lastStir: 0,
   };
   root.addEventListener('click', onClick);
   gl.addEventListener('pointerdown', onDown);
@@ -122,6 +124,7 @@ export function refreshKitchenStage(data) {
     S.renderer.setStatic(S.stat);
   }
   syncBodies();
+  syncLiquid();
   if (S.board && !foods().some((c) => c.id === S.board)) { S.board = null; S.boardBody = null; }
   paintDom();
   if (S.tick) clearTimeout(S.tick);
@@ -190,7 +193,7 @@ function syncBodies() {
     keep.add(c.id);
     if (!S.bodies.has(c.id)) {
       const a = hash(c.id) * Math.PI * 2, r = Math.sqrt(hash(c.id + 'r')) * R * 0.7;
-      S.bodies.set(c.id, { p: [Math.cos(a) * r, Math.sin(a) * r, 30], v: [0, 0, 0], yaw: a * 2, roll: 0, vr: 0, seed: (hash(c.id) * 1e6) | 0 });
+      S.bodies.set(c.id, { p: [Math.cos(a) * r, Math.sin(a) * r, 30], v: [0, 0, 0], yaw: a * 2, roll: 0, vr: 0, seed: (hash(c.id) * 1e6) | 0, melt: 0 });
     }
   }
   for (const id of [...S.bodies.keys()]) if (!keep.has(id)) S.bodies.delete(id);
@@ -201,14 +204,31 @@ function step(dt) {
   if (!pan) return;
   const R = KS.vesselSpec(pan.look.vessel).r - 2.5;
   const bodies = [...S.bodies.values()];
+  const L = S.liq?.L, wet = !!L?.filled, level = pan.hot ? dialOf(S.data)?.level || 0 : 0;
+  if (L) Lq.step(L, dt);
+  // In liquid a piece sits half under the surface and goes where the liquid goes.
+  const floor = wet ? liquidDepth(pan) * 0.45 : 0;
+  for (const [id, b] of S.bodies) {
+    const c = (pan.contents || []).find((x) => x.id === id);
+    const m = c?.look && matterFor(c.look.profile, c.look.matter);
+    if (m && meltsOf(m) && level > 0 && b.melt < 1) {
+      b.melt = Math.min(1, b.melt + dt * level * 0.012);
+      // the first of it to go becomes a pool of its own colour, where the piece is
+      if (b.melt > 0.12 && L) Lq.pour(L, `melt:${id}`, M.rgb(m.ramp.peak || m.ramp.raw), [b.p[0], b.p[1]]);
+    }
+  }
   for (const b of bodies) {
     b.v[2] += G * dt;
+    if (wet && b.p[2] <= floor + 0.5) {
+      const [fx, fy] = Lq.flowAt(L, b.p[0], b.p[1]), k = Math.min(1, dt * 4);
+      b.v[0] += (fx - b.v[0]) * k; b.v[1] += (fy - b.v[1]) * k;
+    }
     for (let i = 0; i < 3; i++) b.p[i] += b.v[i] * dt;
     b.roll += b.vr * dt;
-    if (b.p[2] <= 0) {
-      b.p[2] = 0;
-      if (b.v[2] < -40) b.v[2] *= -0.2; else b.v[2] = 0;
-      b.v[0] *= 0.86; b.v[1] *= 0.86;
+    if (b.p[2] <= floor) {
+      b.p[2] = floor;
+      if (b.v[2] < -40) b.v[2] *= wet ? 0 : -0.2; else b.v[2] = 0;
+      if (!wet) { b.v[0] *= 0.86; b.v[1] *= 0.86; }
       // land flat: the nearest half-turn wins
       const flat = Math.round(b.roll / Math.PI) * Math.PI;
       b.roll += (flat - b.roll) * 0.25; b.vr *= 0.5;
@@ -237,10 +257,56 @@ function toss() {
   ksfx('kitchen-whoosh');
 }
 function swirl() {
+  const L = S.liq?.L;
+  if (L) for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2, r = L.R * 0.55;
+    Lq.stirAt(L, Math.cos(a) * r, Math.sin(a) * r, -Math.sin(a) * 45, Math.cos(a) * 45, 4);
+  }
   for (const b of S.bodies.values()) {
     const r = Math.hypot(b.p[0], b.p[1]) || 1;
     b.v[0] += (-b.p[1] / r) * 40; b.v[1] += (b.p[0] / r) * 40; b.v[2] += 20;
   }
+}
+
+// ── the liquid in the pan ───────────────────────────────────────────────────────────────────────
+// gl/kitchen-liquid.js runs it; this keeps it in step with the payload. Each liquid in the pan
+// pours in once, in its beat's colour; a beat that changes a liquid's colour shifts the whole pan by
+// its share, so the colour still moves only on the server's beat. Butter and cheese pour in as they
+// melt (step). The depth is how much liquid there is, held under the pan's rim.
+const liquidish = (m) => m.form.kind === 'liquid';
+const meltsOf = (m) => m.form.kind !== 'liquid' && (m.cook.browning === 'melt' || m.plate.stack === 'pool');
+
+function syncLiquid() {
+  const pan = panOf(S.data), spec = pan && KS.vesselSpec(pan.look.vessel);
+  if (!pan || !spec || spec.wall <= 0) { S.liq = null; return; }
+  if (S.liq?.panId !== pan.id) S.liq = { panId: pan.id, L: Lq.createLiquid(spec.r * (spec.taper || 0.85) * 0.98), col: new Map() };
+  const { L, col } = S.liq, here = new Set();
+  for (const c of pan.contents || []) {
+    if (!c.look) continue;
+    const m = matterFor(c.look.profile, c.look.matter);
+    if (!liquidish(m)) continue;
+    here.add(c.id);
+    const rgb = M.rgb(m.ramp[beatOf(c.cook, c.state === 'cooked')] || m.ramp.raw);
+    if (Lq.pour(L, c.id, rgb)) { col.set(c.id, rgb); continue; }
+    const was = col.get(c.id);
+    if (was && was !== rgb) {
+      const share = 1 / Math.max(1, L.sources.size);
+      for (let ch = 0; ch < 3; ch++) { const d = (rgb[ch] - was[ch]) * share; for (let k = 0; k < L.c[ch].length; k++) L.c[ch][k] += d; }
+      col.set(c.id, rgb);
+    }
+  }
+  for (const id of [...L.sources.keys()]) {
+    const melted = id.startsWith('melt:') && S.bodies.has(id.slice(5));
+    if (!here.has(id) && !melted) { Lq.drain(L, id); col.delete(id); }
+  }
+}
+
+function liquidDepth(pan) {
+  const spec = KS.vesselSpec(pan.look.vessel), L = S.liq?.L;
+  if (!L?.filled) return 0;
+  let n = 0;
+  for (const id of L.sources.keys()) n += id.startsWith('melt:') ? 0.35 * (S.bodies.get(id.slice(5))?.melt || 0) : 1;
+  return Math.min(spec.wall * 0.7, 0.6 + n * 1.4);
 }
 
 // ── the frame ────────────────────────────────────────────────────────────────────────────────────
@@ -261,8 +327,20 @@ function frame(now) {
   S.M = S.renderer.render(S.cam, S.dyn, fx);
   if (S.renderer.lost) { const d = S.data; closeKitchenStage({ quiet: true }); openWorkspacePanel(d); return; }
   paintFx();
+  paintMix();
   sizzle(now);
   S.raf = requestAnimationFrame(frame);
+}
+
+// How mixed the pan is, once there are two liquids in it to mix.
+function paintMix() {
+  const el = S.root.querySelector('.ks-mix'), L = S.liq?.L;
+  if (!L || L.sources.size < 2) { el.hidden = true; return; }
+  if ((S.mixTick = (S.mixTick || 0) + 1) % 8) return;
+  const e = Lq.evenness(L);
+  el.hidden = false;
+  el.textContent = e > 0.92 ? 'Mixed through' : `Mixed ${Math.round(e * 100)}%`;
+  el.dataset.done = e > 0.92 ? '1' : '';
 }
 
 function moveCamera(now) {
@@ -299,20 +377,33 @@ function build(dt) {
     const at = onHeat ? [KS.STATIONS.hob, 0, KS.PAN_Z] : [KS.STATIONS.hob + 22, -4, 0];
     const P = KS.pose(at, 0);
     KS.vessel(b, pan.look.vessel, P);
-    const base = KS.vesselSpec(pan.look.vessel).base;
+    const L = S.liq?.L, depth = liquidDepth(pan);
+    let oily = false;
     for (const c of pan.contents || []) {
       const body = S.bodies.get(c.id);
       if (!body || !c.look) continue;
       const m = matterFor(c.look.profile, c.look.matter), beat = beatOf(c.cook, c.state === 'cooked');
-      const piece = pieceOf(m, c);
       const p = [at[0] + body.p[0], at[1] + body.p[1], at[2] + 1 + body.p[2]];
-      KS.foodPiece(b, m, piece, KS.piecesOf(m, []).whole, beat, KS.pose(p, body.yaw, body.roll), body.seed);
       if (onHeat && level > 0) emit(m, c, p, dt);
+      if (m.plate.stack === 'pool' && (m.cook.gloss || 0) > 0.8) oily = true;
+      // a liquid is the surface below, not a piece; a melting one shrinks into it
+      if (L && liquidish(m)) continue;
+      const k = 1 - 0.85 * (body.melt || 0);
+      if (k < 0.18) continue;
+      KS.foodPiece(b, m, pieceOf(m, c), KS.piecesOf(m, []).whole, beat, KS.pose(p, body.yaw, body.roll, k), body.seed);
     }
-    if ((pan.contents || []).some((c) => c.look?.profile === 'liquid') && onHeat && level >= 4 && Math.random() < dt * level) {
-      const a = Math.random() * Math.PI * 2, r = Math.random() * 8;
-      S.bubbles.push({ p: [at[0] + Math.cos(a) * r, at[1] + Math.sin(a) * r, at[2] + base + 3], age: 0 });
+    if (L?.filled) Lq.drawLiquid(M, b, L, KS.pose([at[0], at[1], at[2] + 0.6]), depth, oily ? 0.9 : 0.35);
+    if (L?.filled && onHeat && level >= 4 && Math.random() < dt * level) {
+      const a = Math.random() * Math.PI * 2, r = Math.random() * L.R * 0.8;
+      S.bubbles.push({ p: [at[0] + Math.cos(a) * r, at[1] + Math.sin(a) * r, at[2] + 0.6 + depth + 0.3], age: 0 });
     }
+    // the spoon, while you stir
+    if (S.drag?.kind === 'pan' && S.spoon && L?.filled) {
+      const sp = [at[0] + S.spoon[0], at[1] + S.spoon[1], at[2] + 0.6 + depth * 0.5];
+      M.ellipsoid(b, sp, [1, 0, 0], [0, 1, 0], [0, 0, 1], [1.6, 1.1, 0.5], KS.COLOURS.handle, 8, 5);
+      M.tube(b, sp, [sp[0] + 3, sp[1] - 7, sp[2] + 18], 0.45, 0.55, KS.COLOURS.handle, 6);
+    }
+
   }
   // the board: a cut in progress, or the food you picked
   const food = S.knife ? null : S.board ? foods().find((c) => c.id === S.board) : null;
@@ -487,7 +578,7 @@ const KEYS = {
   dress: 'Drag each piece onto the plate · Sauce, then drag across the plate for a line of it · Enter: serve · Esc: just plate it',
   knife: 'Drag down through the food to cut, or Space when the blue marker is on a red guide · Esc: put the knife down',
   board: 'Click anything to use it · drag food to the hob for the pan · hold the middle button to look round',
-  hob: 'Click anything to use it · drag the knob: heat · flick the pan up: flip · circle it: stir · middle button: look',
+  hob: 'Click anything to use it · drag the knob: heat · flick the pan up: flip · drag round the pan to stir · middle button: look',
   pass: 'Click the plate to serve · hold the middle button to look round',
 };
 
@@ -689,11 +780,33 @@ function onMove(e) {
     const lv = Math.max(0, Math.min(max, Math.round(g.l0 + (g.y0 - e.clientY) / 18)));
     if (lv !== g.level) { g.level = lv; ksfx('kitchen-knob'); }
   } else if (g.kind === 'pan') {
-    const r = S.gl.getBoundingClientRect(), c = screenOf([KS.STATIONS.hob, 0, KS.PAN_Z]);
+    const pan = panOf(S.data), at = PAN_AT(pan);
+    const r = S.gl.getBoundingClientRect(), c = screenOf(at);
     if (c) {
       const a = Math.atan2(e.clientY - (r.top + c[1] * r.height), e.clientX - (r.left + c[0] * r.width));
       if (g.last != null) { let da = a - g.last; if (da > Math.PI) da -= Math.PI * 2; if (da < -Math.PI) da += Math.PI * 2; g.ang += da; }
       g.last = a;
+    }
+    // The spoon is where the pointer meets the liquid, and it pushes the liquid the way it moves.
+    const L = S.liq?.L;
+    if (L?.filled && pan) {
+      const h = planeHit(e, at[2] + 0.6 + liquidDepth(pan)), now = performance.now();
+      if (h) {
+        const x = h[0] - at[0], y = h[1] - at[1], rr = Math.hypot(x, y), lim = L.R * 0.92;
+        const sp = rr > lim ? [x / rr * lim, y / rr * lim] : [x, y];
+        if (S.spoon && g.tMove) {
+          const dts = Math.max(0.008, (now - g.tMove) / 1000), cap = 120;
+          const vx = Math.max(-cap, Math.min(cap, (sp[0] - S.spoon[0]) / dts)), vy = Math.max(-cap, Math.min(cap, (sp[1] - S.spoon[1]) / dts));
+          Lq.stirAt(L, sp[0], sp[1], vx * 0.5, vy * 0.5);
+        }
+        S.spoon = sp; g.tMove = now;
+      }
+      // every full turn of the spoon is a stir the server hears, no faster than one a second
+      g.turns ||= 0;
+      if (Math.abs(g.ang) >= (g.turns + 1) * Math.PI * 2) {
+        g.turns++;
+        if (now - S.lastStir > 1000) { S.lastStir = now; stirCommand(); }
+      }
     }
   } else if (g.kind === 'food') {
     const r = S.gl.getBoundingClientRect();
@@ -728,7 +841,9 @@ function onUp(e) {
     if (dial && g.level !== dial.level) run(dial.levels[g.level]);
   } else if (g.kind === 'pan') {
     const dx = e.clientX - g.x0, dy = e.clientY - g.y0, dt = performance.now() - g.t0;
+    S.spoon = null;
     if (still) return openMenu(menuFor({ kind: 'pan' }), e);
+    if (g.turns) return;                       // stirred as it went round
     if (Math.abs(g.ang) > Math.PI * 1.5) return stir();
     if (dy < -50 && dt < 450 && Math.abs(dx) < Math.abs(dy)) return flip();
     if (dx > 140 && Math.abs(dy) < dx) { const fin = actOf(panOf(d), 'finish'); if (fin) plateIt(fin); }
@@ -943,6 +1058,13 @@ function flip() {
   const live = (pan?.contents || []).find((c) => actOf(c, 'handle', (a) => a.command.startsWith('flip ')));
   const h = live && actOf(live, 'handle');
   toss();
+  if (h) run(h);
+}
+// The `stir` command alone, for a spoon already moving the liquid by hand.
+function stirCommand() {
+  const pan = panOf(S.data);
+  const live = (pan?.contents || []).find((c) => actOf(c, 'handle', (a) => a.command.startsWith('stir ')));
+  const h = live && actOf(live, 'handle');
   if (h) run(h);
 }
 function stir() {

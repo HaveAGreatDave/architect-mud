@@ -139,5 +139,27 @@ for (const kind of ['pan', 'pot', 'tray', 'bowl', 'bread']) {
   }
 }
 
+// The pan's liquid (gl/kitchen-liquid.js): a second liquid starts as a blob, sitting still barely
+// mixes it, stirring does, and the surface it draws is sound.
+{
+  const Lq = await import(R + 'game/js/panels/gl/kitchen-liquid.js');
+  const L = Lq.createLiquid(10);
+  Lq.pour(L, 'stock', [0.8, 0.7, 0.5]);
+  Lq.pour(L, 'tomato', [0.77, 0.23, 0.16], [3, 0]);
+  const before = Lq.evenness(L);
+  for (let i = 0; i < 60; i++) Lq.step(L, 1 / 60);
+  const still = Lq.evenness(L);
+  for (let i = 0; i < 240; i++) { const a = i * 0.15; Lq.stirAt(L, Math.cos(a) * 5, Math.sin(a) * 5, -Math.sin(a) * 60, Math.cos(a) * 60); Lq.step(L, 1 / 60); }
+  const stirred = Lq.evenness(L);
+  check('liquid: a second pour starts unmixed', before < 0.6, before);
+  check('liquid: stirring mixes it far more than waiting', stirred > 0.85 && stirred > still + 0.3, `${still} -> ${stirred}`);
+  check('liquid: a stirred pan spins', L.spin > 5, L.spin);
+  const b = M.createBatch(1 << 12);
+  Lq.drawLiquid(M, b, L, KS.pose([0, 0, 4]), 2);
+  check('liquid: the surface draws and is sound', b.n > 0 && sound(b), b.n);
+  Lq.drain(L, 'stock'); Lq.drain(L, 'tomato');
+  check('liquid: drained of everything, it is empty', !L.filled && L.sources.size === 0);
+}
+
 console.log(`kitchen-smoke: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

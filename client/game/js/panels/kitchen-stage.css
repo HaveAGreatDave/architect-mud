@@ -180,3 +180,12 @@
   .ks-cold-door { border-left: 0; border-top: 4px solid var(--cold-shelf); padding: 8px 0 0; max-height: 30vh; }
   .ks-cold-item { width: calc(50% - 4px); }
 }
+
+/* How mixed the pan is (kitchen-stage.js paintMix), under the beat card. */
+.ks-mix {
+  position: absolute; top: 52px; right: 8px;
+  background: var(--ks-card); border: 2px solid var(--ks-ink); box-shadow: 3px 3px 0 var(--ks-ink);
+  padding: 4px 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.85em;
+}
+.ks-mix[hidden] { display: none; }
+.ks-mix[data-done="1"] { background: var(--ks-indigo); color: var(--ks-paper); }
