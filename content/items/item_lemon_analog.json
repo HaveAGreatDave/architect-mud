@@ -8,6 +8,23 @@
     "description": "Bright yellow, slightly too symmetrical, and sour enough to make your jaw ache. It does everything a lemon is asked to do.",
     "food_noun": "lemon",
     "food_profile": "fruit",
+    "matter": {
+      "form": {
+        "kind": "sphere",
+        "w": 8,
+        "d": 6,
+        "h": 6,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#f4ec9a"
+      },
+      "look": {
+        "skin": "#f2dc2a",
+        "stem": "#6a7a2a",
+        "flesh": "#f4ec9a"
+      }
+    },
     "perishable": true,
     "restore_hunger": 4,
     "spoil_rate": "normal",

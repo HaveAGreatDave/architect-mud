@@ -8,6 +8,28 @@
     "description": "Striped blue over a belly that throws the light back like a hubcap. It runs high in daylight, in schools that turn all at once. Oily and strong. Eat it the day you catch it or don't bother.",
     "food_noun": "mackerel",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 28,
+        "d": 5,
+        "h": 5.5,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#c9a29a",
+        "cook": "#eee2d4",
+        "peak": "#e2c49a",
+        "over": "#b8864e",
+        "burnt": "#3a2618"
+      },
+      "look": {
+        "skin": "#3a5a78",
+        "fins": "#2e3e4e",
+        "flesh": "#c9a29a",
+        "stripes": "#1e2c3a"
+      }
+    },
     "needs_cooking": true,
     "raw_fish": true,
     "restore_hunger": 16,

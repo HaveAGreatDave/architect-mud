@@ -8,6 +8,23 @@
     "description": "A slack grey sphere under a film of oil, proofed and ready. Warm to the touch from whatever is going on inside it. Wants a hot surface and about four minutes of attention.",
     "food_noun": "dough",
     "food_profile": "batter",
+    "matter": {
+      "form": {
+        "kind": "sphere",
+        "w": 9,
+        "d": 9,
+        "h": 7,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#d8d2c4",
+        "cook": "#e4c690",
+        "peak": "#c8954c"
+      },
+      "look": {
+        "skin": "#d3cdbf"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 15,

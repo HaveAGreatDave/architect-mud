@@ -156,16 +156,10 @@ export const ceilingLevel = tier => (TIER_BANDS.find(b => b.tier === tier) || TI
 // restart comes back paused.
 const burners = new Map(); // applianceId -> level
 
-// The dial's resting position: the centre of the stove's own ceiling tier. A
-// `high` range sits at 9, a `low` hotplate at 2 — which is the tier and the
-// speed `cook` used before this file existed, for every stove in the game.
-export function defaultLevel(stoveTier) {
-  return levelOfTier(stoveTier || 'low');
-}
-
 export function burnerLevel(applianceId, stoveTier) {
   const v = burners.get(String(applianceId));
-  return v === undefined ? defaultLevel(stoveTier) : v;
+  // An untouched ring is off; `cook` lights it at the resting tier (relight in index.js).
+  return v === undefined ? 0 : v;
 }
 
 export function setBurnerLevel(applianceId, level) {

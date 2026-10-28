@@ -8,6 +8,28 @@
     "description": "A heavy, sulking fish with a mouth like a bin lid. It lives inside the wrecks on the shelf. Get it off the bottom fast, or it goes back in and takes your line with it.",
     "food_noun": "grouper",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 30,
+        "d": 9,
+        "h": 10,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#f0e6de",
+        "cook": "#eee2d4",
+        "peak": "#e2c49a",
+        "over": "#b8864e",
+        "burnt": "#3a2618"
+      },
+      "look": {
+        "skin": "#6a5440",
+        "fins": "#54402e",
+        "flesh": "#f0e6de",
+        "spots": "#4a3a2c"
+      }
+    },
     "needs_cooking": true,
     "raw_fish": true,
     "restore_hunger": 28,

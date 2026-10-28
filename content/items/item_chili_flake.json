@@ -8,6 +8,24 @@
     "description": "A twist of paper holding a spoonful of red flake, seeds and all. Grown on a balcony somewhere by someone who cared. Burns clean, and burns black if you look away.",
     "food_noun": "spiced",
     "food_profile": "aromatic",
+    "matter": {
+      "form": {
+        "kind": "grain",
+        "w": 3,
+        "d": 3,
+        "h": 1
+      },
+      "ramp": {
+        "raw": "#b8321e",
+        "cook": "#a02a18",
+        "peak": "#8a2414"
+      },
+      "look": {
+        "pack": "pouch",
+        "label": "#e9e2cf",
+        "size": 0.5
+      }
+    },
     "restore_hunger": 0,
     "stackable": true,
     "status_chance": {

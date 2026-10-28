@@ -1201,9 +1201,8 @@ export async function buildKitchen(player) {
   // the fridge's contents would also be listed as things in your hands.
   const onYou = r => !boxIds.has(r.container_id);
 
-  const components = carried
-    .filter(r => isFood(r) && onYou(r) && !vesselIds.has(r.container_id))
-    .map(r => component(r, 'food', foodActions(r, ctx)));
+  const loose = carried.filter(r => isFood(r) && onYou(r) && !vesselIds.has(r.container_id));
+  const components = loose.map(r => component(r, 'food', foodActions(r, ctx)));
 
   const tools = carried.filter(r => isTool(r) && onYou(r)).map(r => component(r, 'tool'));
 
@@ -1234,8 +1233,13 @@ export async function buildKitchen(player) {
       // ambiguous when three boxes in the room hold one.
       items: shown.map(r => component(r, kindOf(r), [act('take', `pullid ${r.id}`, null, { role: 'take' })])),
       other: inside.length - shown.length,
+      // What on you could go in: the Stage's fridge door (kitchen-stage.js). A cold box takes what
+      // spoils, as it only lists what spoils.
+      puts: loose.filter(r => !cold || hasTag(r, 'perishable'))
+        .map(r => ({ id: r.id, name: shownName(r), qty: r.quantity > 1 ? r.quantity : null, command: `stowid ${r.id} ${f.id}`, role: 'put' })),
     };
-  }).filter(s => s.items.length || s.other);
+  // An empty fridge still shows, so there's somewhere to put the shopping.
+  }).filter(s => s.items.length || s.other || s.preserves);
 
   // ── Status — the room, as the kitchen experiences it ──────────────────────
   const powered = getZonePowerStatus(zoneId) === 'powered';
@@ -1276,7 +1280,10 @@ export async function buildKitchen(player) {
   const dials = hobFor(stoves, vessels);
   const stages = stagesFor({ area, components, dials });
 
-  return { storage, area, components, tools, status, assistant, dials, stages };
+  // The kit you have in reach, so the Stage draws a knife or a plate only if there is one.
+  const kit = { blade: ctx.blade, flip: ctx.handling.flip, stir: ctx.handling.stir, plate: has('dishware') };
+
+  return { storage, area, components, tools, status, assistant, dials, stages, kit };
 }
 
 // ── Prepare Recipe: a PLAN, never a claim ────────────────────────────────────

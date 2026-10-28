@@ -76,6 +76,8 @@ export async function buildWorkspaceView(player, providerKey = null) {
     // which beat of a job you are on, which every workspace has.
     dials: built.dials || [],
     stages: built.stages || null,
+    // What kit is in reach (a knife, a plate), so a picture draws only what the player has.
+    kit: built.kit || null,
   };
   // An `idle` area row is a piece of the room standing empty — a free burner, a
   // clear bench. It must not count towards "there is something here", or a

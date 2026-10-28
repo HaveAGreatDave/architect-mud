@@ -78,9 +78,10 @@ Shared by client and server. One entry per `food_profile` class:
 | `cut` | `firmness` 0-1, `grain` (`none fibre layers`), allowed `styles`, `juice` |
 | `cook` | `browning` kind, `shrink`, emitters (`sizzle steam bubble spatter`), `gloss`, `toss` |
 | `plate` | `stack` (`flat lean pile pool`) and whether it takes a `sauce` |
+| `look` | Per item only, all optional: `skin` (the outside while raw), `flesh` (a cut face), `spots`, `stripes`, `stem`, `fins` (a tail and back fin), and `pack` (`jar bottle tin sack pouch carton tub shaker box tube wrap`) with its `label` colour and `size`, which is how it stands on the counter |
 
 `matterFor(item)` merges the class default with `tags.matter`. `content:lint`
-fails an unknown key under `tags.matter`.
+fails an unknown key under `tags.matter`. All 107 foods carry one, sized and coloured from life; `kitchen-smoke` draws each, whole and cut, in the pan and on the counter.
 
 ## The knife game
 
@@ -131,6 +132,15 @@ pushes `kitchen_beat { row, phase, stage, water }` from the session it already
 holds. `kitchenstage on|off` sets a RAM flag that says the Stage is open
 (plugins/cooking/stage.js). No query, tick or timer is added. The beat carries
 only the row; the Stage answers it by re-asking for the view.
+
+## Mouse, kit and storage (as built)
+
+The Stage fills the screen and is played with the mouse. Clicking any object opens a menu of what it does: food on the back of the counter, the board, the knife, the knob, the pan, the plate, a fridge or freezer. Each item runs the payload's own command, as the chips did. Holding the middle button swings the camera round the shot, and the swing holds where it's left.
+
+- **Only what you own.** The payload carries `kit` (`blade`, `flip`, `stir`, `plate`), read from what's in reach. No blade, no knife on the board; no dishware, no plate on the pass. The pan is whatever vessel the payload lists.
+- **Fridge and freezer.** Each cold `storage` box gets a button in the top bar and a model left of the counter. Its sheet draws the inside on shelves (click to take, `pullid`) and a door rack of what on you could go in. The `puts` list on each box is built by the server (`stowid <row> <box>`), and a cold box takes only `perishable` food, as it only lists it. An empty cold box still shows.
+- **Stocking up.** `kitchenstock` sends the catalogue (`kitchen_stock`); `kitchenorder <item> [qty]` buys and delivers to you ([stock.js](../../plugins/cooking/stock.js)). It sells only what some vendor deals in (`vendor_inventory`), at half as much again as the item's value, and only beside a stove.
+- **Stoves start off.** An untouched ring reads 0. `cook` still lights a ring at zero at the stove's resting tier.
 
 ## Kitchen Battle (design only)
 

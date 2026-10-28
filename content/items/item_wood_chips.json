@@ -8,6 +8,22 @@
     "description": "A sack of pale chips cut from something that grew before the towers did. They smoulder rather than burn.",
     "food_noun": "smoked",
     "food_profile": "aromatic",
+    "matter": {
+      "form": {
+        "kind": "grain",
+        "w": 8,
+        "d": 8,
+        "h": 3
+      },
+      "ramp": {
+        "raw": "#d8c08e",
+        "cook": "#c49a5e",
+        "peak": "#8a5a2e"
+      },
+      "look": {
+        "pack": "sack"
+      }
+    },
     "perishable": false,
     "restore_hunger": 0,
     "stackable": true

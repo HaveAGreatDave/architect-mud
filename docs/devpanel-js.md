@@ -142,6 +142,9 @@ A dev-panel port of the client chat markup parser (`client/game/js/markup.js`). 
 ### `dashboard.js`
 `renderDashboard(data)` — the landing panel. Renders server stats, online players, recent activity, and quick-action buttons.
 
+### `foodlab.js`
+`renderFoodLabPanel(items)`: every `food_profile` item drawn by the Kitchen Stage's own renderer and meshes, loaded by dynamic `import()` from `/js/panels/gl/` and `/shared/`. Views: in the pan, on the counter (its `look.pack`), cut, and all five cook beats. Sliders and colour pickers edit `tags.matter`; Save sends only what differs from the class default through `PUT /items/:id`, so content still needs an export. See [kitchen-stage.md](proposals/kitchen-stage.md).
+
 ### `zones.js`
 Everything for the Zones list panel and the full zone editor form. The largest file.
 

@@ -8,6 +8,15 @@
     "description": "A dented tin with a key soldered to the lid and a date nobody can read. Comes out in one piece, holding the shape of the tin, wearing a coat of jelly.",
     "food_noun": "tinned meat",
     "food_profile": "preserved",
+    "matter": {
+      "ramp": {
+        "raw": "#c87a6a"
+      },
+      "look": {
+        "pack": "tin",
+        "label": "#8a3a2a"
+      }
+    },
     "restore_hunger": 22,
     "stackable": true,
     "status_chance": {

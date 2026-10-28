@@ -236,6 +236,13 @@ const PANELS = {
     noEdit: true,
     render: renderAliasesPanel,
   },
+  foodlab: {
+    title: 'Food Lab',
+    description: 'Every food as the Kitchen Stage draws it. Shape, colour by cook beat, skin, fins and packaging, saved to tags.matter.',
+    fetch: () => API('/items'),
+    noEdit: true,
+    render: renderFoodLabPanel,
+  },
   voicelab: {
     title: 'Voice Lab',
     description: "Hear and tune the formant voice. Character is hashed from a NAME, so the NPC list is the actual set of voices the game speaks in.",

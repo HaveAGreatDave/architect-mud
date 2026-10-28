@@ -137,9 +137,15 @@ export function foodPiece(b, m, piece, whole, beat, P = IDENT, seed = 1) {
     case 'cluster': return cluster(b, f, c, P, seed);
     default: break;
   }
-  const isWhole = piece === whole;
+  // piecesOf builds a fresh footprint each call, so a whole food is matched by its points, not identity.
+  const isWhole = piece === whole || (piece.length === whole.length && piece.every((q, i) => q[0] === whole[i][0] && q[1] === whole[i][1]));
+  // Raw, the outside is the skin and a cut face the flesh; once it cooks the ramp has it.
+  const L = m.look || {}, raw = beat === 'raw';
+  const tone = (hex) => { const t = M.rgb(hex); return [t[0], t[1], t[2], c[3]]; };
+  const outside = raw && L.skin ? tone(L.skin) : c;
   if (isWhole && (f.kind === 'sphere' || f.kind === 'log')) {
-    M.ellipsoid(b, P.p([0, 0, H / 2]), P.n([1, 0, 0]), P.n([0, 1, 0]), P.n([0, 0, 1]), [f.w / 2 * k, f.d / 2 * k, H / 2], c, 14, 9);
+    M.ellipsoid(b, P.p([0, 0, H / 2]), P.n([1, 0, 0]), P.n([0, 1, 0]), P.n([0, 0, 1]), [f.w / 2 * k, f.d / 2 * k, H / 2], outside, 22, 14);
+    trim(b, f, L, k, H, P, seed, raw);
     return;
   }
   // A dome stands tallest in the middle: a slice off the end of a potato is shorter than one from
@@ -152,7 +158,117 @@ export function foodPiece(b, m, piece, whole, beat, P = IDENT, seed = 1) {
   if (f.kind === 'leaf') h = Math.max(0.3, H * 0.25);
   const bevel = Math.max(0.15, (f.round ?? 0.5) * h * 0.45);
   const scaled = k === 1 ? piece : piece.map(([x, y]) => [x * k, y * k]);
-  prism(b, scaled, h, bevel, c, P);
+  prism(b, scaled, h, bevel, isWhole ? outside : raw && L.flesh ? tone(L.flesh) : c, P);
+  if (isWhole) trim(b, f, L, k, H, P, seed, raw);
+}
+
+// What makes a whole food that food and not its class: a stalk, speckles, stripes, a fish's fins.
+// Drawn on the whole piece only; a cut piece is just its flesh.
+function trim(b, f, L, k, H, P, seed, raw) {
+  const rx = f.w / 2 * k, ry = f.d / 2 * k, rz = H / 2, round = f.kind === 'sphere' || f.kind === 'log';
+  // a point on the surface, from an angle round z and a height fraction up the side
+  const onSkin = (a, u) => {
+    const z = u * 2 - 1, r = round ? Math.sqrt(Math.max(0, 1 - z * z)) : 1;
+    return [Math.cos(a) * rx * r, Math.sin(a) * ry * r, rz + z * rz];
+  };
+  if (L.stripes) {
+    const c = M.rgb(L.stripes);
+    for (let i = 1; i <= 5; i++) {
+      const x = -rx + (i / 6) * rx * 2, t = round ? Math.sqrt(Math.max(0, 1 - (x / rx) ** 2)) : 1;
+      M.ellipsoid(b, P.p([x, 0, rz]), P.n([1, 0, 0]), P.n([0, 1, 0]), P.n([0, 0, 1]), [Math.max(0.25, rx * 0.05), ry * t * 1.03, rz * t * 1.03], c, 10, 6);
+    }
+  }
+  if (L.spots) {
+    // small and half sunk, so each reads as a mark on the skin rather than a bead stuck to it
+    const c = M.rgb(L.spots), n = 16, sz = Math.max(0.12, Math.min(rx, ry, rz) * 0.07);
+    for (let i = 0; i < n; i++) {
+      const p = onSkin(hash01(seed, i * 3 + 40) * Math.PI * 2, 0.35 + hash01(seed, i * 3 + 41) * 0.62);
+      M.ellipsoid(b, P.p([p[0] * 0.995, p[1] * 0.995, p[2]]), P.n([1, 0, 0]), P.n([0, 1, 0]), P.n([0, 0, 1]), [sz, sz, sz * 0.6], c, 6, 4);
+    }
+  }
+  if (L.stem && raw) {
+    const c = M.rgb(L.stem);
+    // a long food carries its stalk at one end, a round one on top
+    if (f.kind === 'log' && rx > ry * 1.6) M.tube(b, P.p([rx * 0.95, 0, rz]), P.p([rx * 1.18, 0, rz * 1.25]), 0.4, 0.25, c, 6);
+    else M.tube(b, P.p([0, 0, H - 0.2]), P.p([0.25, 0.1, H + Math.max(0.6, H * 0.14)]), Math.max(0.2, rx * 0.06), 0.15, c, 6);
+  }
+  if (L.fins) {
+    // a forked tail off the -x end and a fin along the back, both flat, so they draw both faces
+    const c = M.rgb(L.fins), side = P.n([0, 1, 0]), dn = P.n([0, -1, 0]);
+    const t0 = P.p([-rx * 0.92, 0, rz]), tA = P.p([-rx * 1.32, 0, rz + rz * 1.1]), tB = P.p([-rx * 1.32, 0, rz - rz * 0.9]), tM = P.p([-rx * 1.18, 0, rz]);
+    M.tri(b, t0, tA, tM, side, side, side, c); M.tri(b, t0, tM, tA, dn, dn, dn, c);
+    M.tri(b, t0, tM, tB, side, side, side, c); M.tri(b, t0, tB, tM, dn, dn, dn, c);
+    const d0 = P.p([-rx * 0.35, 0, H * 0.92]), d1 = P.p([rx * 0.25, 0, H * 0.92]), dT = P.p([-rx * 0.15, 0, H + rz * 0.55]);
+    M.tri(b, d0, d1, dT, side, side, side, c); M.tri(b, d0, dT, d1, dn, dn, dn, c);
+  }
+}
+
+// ── packaging: a food on the counter in what it came in ──────────────────────────────────────────
+// `look.pack` names it, `look.label` colours the lid or label, `look.size` scales it. The body is
+// the food's raw colour where you'd see it (a jar, a bottle) and card or tin where you wouldn't.
+const PACK_COL = { glass: [0.86, 0.9, 0.9, 0.55], tin: M.rgb('#a9b1b8'), paper: M.rgb('#c9ad7e'), card: M.rgb('#e8e0cf') };
+export function shelfPiece(b, m, piece, whole, beat, P = IDENT, seed = 1) {
+  const L = m.look || {};
+  if (!L.pack) return foodPiece(b, m, piece, whole, beat, P, seed);
+  const k = L.size || 1, food = M.rgb(m.ramp.raw), label = L.label ? M.rgb(L.label) : M.rgb('#d8d0c0');
+  const up = P.n([0, 0, 1]), dn = P.n([0, 0, -1]);
+  const can = (r, h, body, z0 = 0) => {
+    M.tube(b, P.p([0, 0, z0]), P.p([0, 0, z0 + h]), r, r, body, 14);
+    M.disc(b, P.p([0, 0, z0 + h]), up, r, body, 14, 0.05);
+    M.disc(b, P.p([0, 0, z0]), dn, r, body, 14, 0.05);
+  };
+  const box = (w, d, h, col) => M.box(b, P.p([0, 0, 0]), P.p([0, 0, h]), w / 2, d / 2, col, P.n([0, 1, 0]));
+  switch (L.pack) {
+    case 'jar':
+      can(3.4 * k, 7.5 * k, food);
+      M.band(b, P.p([0, 0, 0]), P.p([0, 0, 7.5 * k]), 3.4 * k, 3.4 * k, 0.45, 3.2 * k, label, 14);
+      can(3.6 * k, 1.4 * k, label, 7.5 * k);
+      break;
+    case 'bottle':
+      can(3.4 * k, 15 * k, food);
+      M.tube(b, P.p([0, 0, 15 * k]), P.p([0, 0, 19 * k]), 3.4 * k, 1.2 * k, food, 12);
+      can(1.2 * k, 4 * k, food, 19 * k);
+      can(1.35 * k, 1.4 * k, label, 23 * k);
+      M.band(b, P.p([0, 0, 0]), P.p([0, 0, 15 * k]), 3.4 * k, 3.4 * k, 0.45, 6 * k, label, 14);
+      break;
+    case 'tin':
+      can(3.8 * k, 10 * k, PACK_COL.tin);
+      M.band(b, P.p([0, 0, 0]), P.p([0, 0, 10 * k]), 3.8 * k, 3.8 * k, 0.5, 8 * k, label, 16);
+      break;
+    case 'tub':
+      can(5.5 * k, 6 * k, food);
+      can(5.8 * k, 1 * k, label, 6 * k);
+      break;
+    case 'shaker':
+      can(2.6 * k, 8.5 * k, food);
+      M.ellipsoid(b, P.p([0, 0, 8.5 * k]), P.n([1, 0, 0]), P.n([0, 1, 0]), up, [2.7 * k, 2.7 * k, 1.6 * k], label, 12, 6);
+      break;
+    case 'sack':
+      M.ellipsoid(b, P.p([0, 0, 5.5 * k]), P.n([1, 0, 0]), P.n([0, 1, 0]), up, [4.6 * k, 3.6 * k, 5.5 * k], L.label ? label : PACK_COL.paper, 12, 8);
+      M.tube(b, P.p([0, 0, 10.5 * k]), P.p([0, 0, 12.5 * k]), 1.4 * k, 2.2 * k, L.label ? label : PACK_COL.paper, 8);
+      break;
+    case 'pouch':
+      M.ellipsoid(b, P.p([0, 0, 1.4 * k]), P.n([1, 0, 0]), P.n([0, 1, 0]), up, [6 * k, 4.5 * k, 1.4 * k], label, 12, 6);
+      break;
+    case 'carton':
+      box(7 * k, 7 * k, 17 * k, PACK_COL.card);
+      M.band(b, P.p([0, 0, 0]), P.p([0, 0, 17 * k]), 3.6 * k, 3.6 * k, 0.5, 7 * k, label, 4);
+      M.box(b, P.p([-3.5 * k, 0, 17 * k]), P.p([3.5 * k, 0, 17 * k]), 0.4 * k, 1.6 * k, PACK_COL.card, up);
+      break;
+    case 'box':
+      box(12 * k, 4.5 * k, 16 * k, label);
+      break;
+    case 'tube':
+      M.tube(b, P.p([-7 * k, 0, 1.6 * k]), P.p([6 * k, 0, 1.6 * k]), 0.5 * k, 1.6 * k, label, 10);
+      M.tube(b, P.p([6 * k, 0, 1.6 * k]), P.p([7.6 * k, 0, 1.6 * k]), 0.9 * k, 0.9 * k, M.rgb('#f2f2f2'), 10);
+      break;
+    case 'wrap':
+      // paper round a block: the food's shape in the label's colour
+      foodPiece(b, { ...m, ramp: { ...m.ramp, raw: L.label || '#e9e4d6' }, look: {} }, piece, whole, 'raw', P, seed);
+      break;
+    default:
+      foodPiece(b, m, piece, whole, beat, P, seed);
+  }
 }
 
 // Grains: a low pile of small beads, laid out by a hash of the seed so it's the same pile every frame.

@@ -9,6 +9,15 @@
     "food_also": "soft_vegetable",
     "food_noun": "tomato",
     "food_profile": "liquid",
+    "matter": {
+      "ramp": {
+        "raw": "#c43a28"
+      },
+      "look": {
+        "pack": "tin",
+        "label": "#c8281e"
+      }
+    },
     "restore_hunger": 9,
     "stackable": true,
     "status_chance": {

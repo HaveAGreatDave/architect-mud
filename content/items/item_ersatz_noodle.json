@@ -9,6 +9,16 @@
     "food_also": "starchy_vegetable",
     "food_noun": "noodle",
     "food_profile": "dry_starch",
+    "matter": {
+      "ramp": {
+        "raw": "#d8cc9a"
+      },
+      "look": {
+        "pack": "box",
+        "label": "#9aa08a",
+        "size": 0.6
+      }
+    },
     "needs_cooking": true,
     "restore_hunger": 16,
     "stackable": true,

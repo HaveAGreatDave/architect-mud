@@ -8,6 +8,15 @@
     "description": "A jar of something chopped and drowned in vinegar until it lost the argument. Sharp, squeaky, and the only green thing some people see all month.",
     "food_noun": "pickle",
     "food_profile": "preserved",
+    "matter": {
+      "ramp": {
+        "raw": "#a8b04a"
+      },
+      "look": {
+        "pack": "jar",
+        "label": "#6a8a3a"
+      }
+    },
     "restore_hunger": 8,
     "stackable": true,
     "status_chance": {

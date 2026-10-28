@@ -45,7 +45,7 @@ const SHOTS = {
   pass: { eye: [55, -70, 60], at: [55, 0, 0], fov: 0.6, roll: 0.04 },
 };
 const ORDER = ['board', 'hob', 'pass'];
-const LABEL = { board: ['切', 'Board'], hob: ['焼', 'Hob'], pass: ['盛', 'Pass'] };
+const LABEL = { board: 'Board', hob: 'Hob', pass: 'Pass' };
 const HOB_FOR_TIER = { low: 'camp', mid: 'domestic', high: 'range' };
 
 let S = null;
@@ -66,6 +66,8 @@ export function openKitchenStage(data) {
     <div class="ks-top">
       <div class="ks-tabs" role="tablist"></div>
       <div class="ks-tools">
+        <span class="ks-boxes"></span>
+        <button class="ks-btn" data-ks="stock" title="Have food and kit delivered">Stock up</button>
         <button class="ks-btn" data-ks="list" title="The workspace list (L)">List</button>
         <button class="ks-btn" data-ks="close" aria-label="Close" title="Close (Esc)">✕</button>
       </div>
@@ -74,6 +76,8 @@ export function openKitchenStage(data) {
     <div class="ks-tray"></div>
     <div class="ks-chips"></div>
     <div class="ks-keys"></div>
+    <div class="ks-menu" role="menu" hidden></div>
+    <div class="ks-sheet" hidden></div>
   </div>`);
   const root = document.getElementById('ks-root');
   const gl = root.querySelector('.ks-gl'), fx = root.querySelector('.ks-fx');
@@ -91,10 +95,12 @@ export function openKitchenStage(data) {
     bodies: new Map(), board: null, boardBody: null, dish: null,
     stat: M.createBatch(1 << 14), dyn: M.createBatch(1 << 15), hobKind: null,
     flash: 0, impact: 0, shake: 0, lines: 0, puffs: [], bubbles: [], last: performance.now(), acc: 0, t: 0,
-    lastSizzle: 0, tick: null, raf: 0, drag: null, M: null, sent: 0,
+    lastSizzle: 0, tick: null, raf: 0, drag: null, M: null, sent: 0, orbit: { yaw: 0, pitch: 0 }, menu: null, sheet: null,
   };
   root.addEventListener('click', onClick);
   gl.addEventListener('pointerdown', onDown);
+  gl.addEventListener('auxclick', (e) => e.preventDefault());
+  gl.addEventListener('contextmenu', (e) => e.preventDefault());
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
   window.addEventListener('keydown', onKey);
@@ -268,8 +274,18 @@ function moveCamera(now) {
   // A tall screen (a phone held upright) keeps the shot's width by opening the lens.
   const aspect = (S.gl.clientWidth || 1) / (S.gl.clientHeight || 1), fov = L(S.from.fov, S.to.fov);
   const wide = aspect < 1.3 ? Math.min(1.5, 2 * Math.atan(Math.tan(fov / 2) * 1.3 / aspect)) : fov;
-  S.cam = { eye: V3(S.from.eye, S.to.eye), at: V3(S.from.at, S.to.at), fov: wide, roll: L(S.from.roll, S.to.roll) };
+  const eye = V3(S.from.eye, S.to.eye), at = V3(S.from.at, S.to.at);
+  S.cam = { eye: orbitEye(eye, at), at, fov: wide, roll: L(S.from.roll, S.to.roll) };
   if (k < 1 && want !== 'push') S.lines = Math.max(S.lines, 0.6);
+}
+
+// Middle-drag looks round: the shot's eye swung round its target by the look offset, which holds
+// where it was left (it's a delta, not a position).
+function orbitEye(eye, at) {
+  const v = [eye[0] - at[0], eye[1] - at[1], eye[2] - at[2]], r = Math.hypot(...v);
+  const az = Math.atan2(v[1], v[0]) + S.orbit.yaw;
+  const el = Math.max(0.12, Math.min(1.45, Math.asin(v[2] / r) + S.orbit.pitch));
+  return [at[0] + r * Math.cos(el) * Math.cos(az), at[1] + r * Math.cos(el) * Math.sin(az), at[2] + r * Math.sin(el)];
 }
 
 function build(dt) {
@@ -307,9 +323,16 @@ function build(dt) {
     const at = dr || [KS.STATIONS.board, 0, KS.BOARD.h];
     KS.foodPiece(b, m, pieceOf(m, food), KS.piecesOf(m, []).whole, beatOf(food.cook), KS.pose(at, 0.1), 7);
   }
-  if (!S.knife) KS.knife(b, KS.pose([KS.STATIONS.board + 4, 10.5, KS.BOARD.h + 0.1], -0.2, Math.PI / 2));
+  // what's on you, laid out along the back of the counter
+  for (const [i, c] of shelf().entries()) {
+    const m = matterFor(c.look.profile, c.look.matter);
+    KS.shelfPiece(b, m, pieceOf(m, c), KS.piecesOf(m, []).whole, beatOf(c.cook), KS.pose(shelfSpot(i), 0.3 * i), 11 + i);
+  }
+  if (!S.knife && kit().blade) KS.knife(b, KS.pose([KS.STATIONS.board + 4, 10.5, KS.BOARD.h + 0.1], -0.2, Math.PI / 2));
   // the pass: a plate, with what is being laid out on it or the last dish served
-  KS.plate(b, KS.pose([KS.STATIONS.pass, 0, 1.2]));
+  if (kit().plate) KS.plate(b, KS.pose([KS.STATIONS.pass, 0, 1.2]));
+  // the fridge and freezer, standing at the left end of the counter
+  for (const [i, box] of coldBoxes().entries()) buildBox(b, box, i);
   const shown = S.dress ? S.dress.items : S.dish || [];
   for (const [i, it] of shown.entries()) {
     const at = it.placed ? [KS.STATIONS.pass + it.x, it.y, PLATE_TOP] : [KS.STATIONS.pass - 16 + i * 8, 13, 1.3];
@@ -434,7 +457,7 @@ function paintFx() {
 // ── the DOM round the picture ────────────────────────────────────────────────────────────────────
 function paintDom() {
   const d = S.data, pan = panOf(d), dial = dialOf(d), r = S.root;
-  r.querySelector('.ks-tabs').innerHTML = ORDER.map((k) => `<button class="ks-tab${S.station === k ? ' on' : ''}" role="tab" aria-label="${LABEL[k][1]}" aria-selected="${S.station === k}" data-station="${k}"><span class="ks-kanji" aria-hidden="true">${LABEL[k][0]}</span><span class="ks-word">${LABEL[k][1]}</span></button>`).join('');
+  r.querySelector('.ks-tabs').innerHTML = ORDER.map((k) => `<button class="ks-tab${S.station === k ? ' on' : ''}" role="tab" aria-selected="${S.station === k}" data-station="${k}">${LABEL[k]}</button>`).join('');
   // The beat line: what the pan is doing and what the ring is doing, in the server's words. On the
   // board mid-cut, the cut.
   const live = (pan?.contents || []).find((c) => c.live);
@@ -447,7 +470,7 @@ function paintDom() {
   r.querySelector('.ks-beat').innerHTML = beat.map((s) => `<div>${esc(s)}</div>`).join('');
   r.querySelector('.ks-beat').dataset.state = dial?.verdict?.state || '';
   // The tray: what's on you, at the board.
-  const tray = S.station === 'board' && !cutting ? foods() : [];
+  const tray = [];
   r.querySelector('.ks-tray').innerHTML = tray.length
     ? `<span class="ks-label">On you</span>` + tray.map((c) => `<button class="ks-food${S.board === c.id ? ' on' : ''}" data-food="${esc(String(c.id))}">${esc(c.name)}${c.qty ? ` ×${c.qty}` : ''}</button>`).join('')
     : '';
@@ -455,15 +478,17 @@ function paintDom() {
     ? `<button class="ks-chip ks-serve" data-dress="serve">Serve</button>`
       + (S.dress.wantsSauce ? `<button class="ks-chip${S.dress.sauce ? ' on' : ''}" data-dress="sauce" aria-pressed="${S.dress.sauce}">Sauce</button>` : '')
       + `<button class="ks-chip" data-dress="skip">Just plate it</button>`
-    : (cutting ? [] : chipsFor(S.station)).map((a, i) => `<button class="ks-chip" data-chip="${i}" title="${esc(a.command)}${a.hint ? ` · ${esc(a.hint)}` : ''}">${esc(a.label)}</button>`).join('');
+    : [].map((a, i) => `<button class="ks-chip" data-chip="${i}" title="${esc(a.command)}${a.hint ? ` · ${esc(a.hint)}` : ''}">${esc(a.label)}</button>`).join('');
   r.querySelector('.ks-keys').textContent = cutting ? KEYS.knife : dressing ? KEYS.dress : KEYS[S.station];
+  r.querySelector('.ks-boxes').innerHTML = (d?.storage || []).map((x) => `<button class="ks-btn" data-box="${esc(String(x.id))}">${esc(boxLabel(x))}</button>`).join('');
+  paintSheet();
 }
 const KEYS = {
   dress: 'Drag each piece onto the plate · Sauce, then drag across the plate for a line of it · Enter: serve · Esc: just plate it',
   knife: 'Drag down through the food to cut, or Space when the blue marker is on a red guide · Esc: put the knife down',
-  board: 'Drag the food to the hob to put it in the pan · tap it for its prep · Tab: next station',
-  hob: '0-9 or drag the knob: heat · F or flick the pan up: flip · S or circle: stir · T: taste · P or drag right: plate',
-  pass: 'Tab: next station · Esc: close',
+  board: 'Click anything to use it · drag food to the hob for the pan · hold the middle button to look round',
+  hob: 'Click anything to use it · drag the knob: heat · flick the pan up: flip · circle it: stir · middle button: look',
+  pass: 'Click the plate to serve · hold the middle button to look round',
 };
 
 // The payload's own actions for this station, in the order a cook wants them.
@@ -487,8 +512,16 @@ function chipsFor(station) {
 function onClick(e) {
   const t = e.target.closest('button');
   if (!t || !S) return;
+  if (t.dataset.menu != null) { const it = S.menu?.[Number(t.dataset.menu)]; closeMenu(); it?.fn?.(); return; }
   if (t.dataset.ks === 'close') return closeKitchenStage();
   if (t.dataset.ks === 'list') return toList();
+  if (t.dataset.ks === 'stock') { sendCmdSilent('kitchenstock'); return; }
+  if (t.dataset.box) return openSheet({ kind: 'box', id: t.dataset.box });
+  if (t.dataset.sheet === 'close') return closeSheet();
+  if (t.dataset.shelf && S.sheet?.kind === 'stock') { S.sheet.shelf = t.dataset.shelf; return paintSheet(); }
+  if (t.dataset.take != null) { const it = sheetBox()?.items?.[Number(t.dataset.take)]; run(actOf(it, 'take')); ksfx('kitchen-tap'); return; }
+  if (t.dataset.put != null) { const p = sheetBox()?.puts?.[Number(t.dataset.put)]; if (p) { run(p); ksfx('kitchen-tap'); } return; }
+  if (t.dataset.buy) { sendCmd(`kitchenorder ${t.dataset.buy} 1`); sendCmdSilent('workspace'); sendCmdSilent('kitchenstock'); ksfx('kitchen-clink'); return; }
   if (t.dataset.station) return go(t.dataset.station);
   if (t.dataset.food) { S.board = S.board === t.dataset.food ? null : t.dataset.food; ksfx('kitchen-tap'); return paintDom(); }
   if (t.dataset.dress && S.dress) {
@@ -591,7 +624,15 @@ const boardHit = (e) => planeHit(e, KS.BOARD.h);
 
 function onDown(e) {
   // Not while the camera is still cutting to a station: the board would be picked through a moving lens.
-  if (!S || performance.now() - S.tAt < 280) return;
+  if (!S) return;
+  if (e.button === 1) {
+    e.preventDefault();
+    S.drag = { kind: 'look', x: e.clientX, y: e.clientY };
+    try { S.gl.setPointerCapture(e.pointerId); } catch { /* fine */ }
+    return;
+  }
+  if (e.button !== 0 || performance.now() - S.tAt < 280) return;
+  closeMenu();
   const pan = panOf(S.data), dial = dialOf(S.data);
   if (S.knife && S.station === 'board') {
     const h = boardHit(e);
@@ -605,12 +646,16 @@ function onDown(e) {
       S.drag = { kind: 'dish', it };
     }
   } else if (S.station === 'hob' && dial && near(e, KS.KNOB, 60)) {
-    S.drag = { kind: 'knob', y0: e.clientY, l0: dial.level, level: dial.level };
+    S.drag = { kind: 'knob', x0: e.clientX, y0: e.clientY, l0: dial.level, level: dial.level };
   } else if (S.station === 'hob' && pan && near(e, [KS.STATIONS.hob, 0, KS.PAN_Z], 120)) {
     S.drag = { kind: 'pan', x0: e.clientX, y0: e.clientY, t0: performance.now(), ang: 0, last: null };
   } else if (S.station === 'board' && S.board && near(e, [KS.STATIONS.board, 0, KS.BOARD.h], 90)) {
     S.drag = { kind: 'food', x0: e.clientX, y0: e.clientY, at: [KS.STATIONS.board, 0, KS.BOARD.h + 3], moved: false };
-  } else return;
+  } else {
+    const hit = hitObject(e);
+    if (!hit) return;
+    S.drag = { kind: 'tap', hit, x0: e.clientX, y0: e.clientY };
+  }
   e.preventDefault();
   try { S.gl.setPointerCapture(e.pointerId); } catch { /* fine */ }
 }
@@ -618,7 +663,11 @@ function onDown(e) {
 function onMove(e) {
   if (!S?.drag) return;
   const g = S.drag;
-  if (g.kind === 'knife') {
+  if (g.kind === 'look') {
+    S.orbit.yaw -= (e.clientX - g.x) * 0.006;
+    S.orbit.pitch = Math.max(-0.9, Math.min(0.9, S.orbit.pitch + (e.clientY - g.y) * 0.004));
+    g.x = e.clientX; g.y = e.clientY;
+  } else if (g.kind === 'knife') {
     const h = boardHit(e);
     if (h) { g.b = h; if (S.knife) S.knife.blade = [h[0]]; }
   } else if (g.kind === 'dish' || g.kind === 'sauce') {
@@ -657,6 +706,8 @@ function onUp(e) {
   if (!S?.drag) return;
   const g = S.drag, d = S.data;
   S.drag = null;
+  const still = g.x0 != null && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 6;
+  if (g.kind === 'tap') { if (still) openMenu(menuFor(g.hit), e); return; }
   if (g.kind === 'dish') {
     // off the plate is back on the slate
     if (Math.hypot(g.it.x, g.it.y) > KS.PLATE_R) g.it.placed = false; else ksfx('kitchen-tap');
@@ -673,20 +724,218 @@ function onUp(e) {
     cutAt(alongFood(xAtAxis), Math.atan2(dx, -dyb), slow);
   } else if (g.kind === 'knob') {
     const dial = dialOf(d);
+    if (still) return openMenu(menuFor({ kind: 'knob' }), e);
     if (dial && g.level !== dial.level) run(dial.levels[g.level]);
   } else if (g.kind === 'pan') {
     const dx = e.clientX - g.x0, dy = e.clientY - g.y0, dt = performance.now() - g.t0;
+    if (still) return openMenu(menuFor({ kind: 'pan' }), e);
     if (Math.abs(g.ang) > Math.PI * 1.5) return stir();
     if (dy < -50 && dt < 450 && Math.abs(dx) < Math.abs(dy)) return flip();
     if (dx > 140 && Math.abs(dy) < dx) { const fin = actOf(panOf(d), 'finish'); if (fin) plateIt(fin); }
   } else if (g.kind === 'food') {
     const food = foods().find((c) => c.id === S.board), pan = panOf(d);
-    if (!g.moved) { const prep = actOf(food, 'prep', (a) => /^(chop|cut) /.test(a.command)); if (prep) { ksfx('kitchen-thock'); S.flash = 0.2; run(prep); } return; }
+    if (!g.moved) return openMenu(menuFor({ kind: 'board' }), e);
     if (g.at[0] > KS.STATIONS.board + KS.BOARD.w / 2 && pan) {
       const stow = actOf(food, 'stow', (a) => String(a.target) === String(pan.id));
       if (stow) { run(stow); ksfx('kitchen-tap'); S.board = null; go('hob'); }
     }
   }
+}
+
+// ── things you can click ─────────────────────────────────────────────────────────────────────────
+// Every food on you that isn't on the board, along the back of the counter behind it.
+const shelf = () => foods().filter((c) => c.id !== S.board || S.knife);
+const shelfSpot = (i) => [KS.STATIONS.board - 30 + (i % 8) * 9, 22 + Math.floor(i / 8) * 9, 0];
+const KNIFE_AT = () => [KS.STATIONS.board + 4, 10.5, KS.BOARD.h];
+const PLATE_AT = () => [KS.STATIONS.pass, 0, 1.2];
+const PAN_AT = (pan) => (pan?.hot ? [KS.STATIONS.hob, 0, KS.PAN_Z] : [KS.STATIONS.hob + 22, -4, 0]);
+
+function hitObject(e) {
+  const pan = panOf(S.data), items = shelf();
+  for (let i = 0; i < items.length; i++) if (near(e, shelfSpot(i), 26)) return { kind: 'shelf', id: items[i].id };
+  if (!S.knife && kit().blade && near(e, KNIFE_AT(), 40)) return { kind: 'knife' };
+  for (const [i, box] of coldBoxes().entries()) if (near(e, boxAt(i), 110)) return { kind: 'box', id: box.id };
+  if (dialOf(S.data) && near(e, KS.KNOB, 50)) return { kind: 'knob' };
+  if (pan && near(e, PAN_AT(pan), 100)) return { kind: 'pan' };
+  if (near(e, PLATE_AT(), 70)) return { kind: 'plate' };
+  if (S.board && near(e, BOARD_AT(), 90)) return { kind: 'board' };
+  return null;
+}
+
+// A food's own actions as menu items. 'stow' only into the pan on the stove; a cut goes through
+// the knife, so it's offered as picking the knife up.
+function foodItems(c) {
+  const pan = panOf(S.data), out = [];
+  for (const a of c?.actions || []) {
+    if (!['prep', 'stow', 'method', 'pour'].includes(a.role)) continue;
+    if (a.role === 'stow' && !(pan && String(a.target) === String(pan.id))) continue;
+    if (a.role === 'prep' && /^(chop|cut) /.test(a.command)) continue;
+    out.push({ label: a.role === 'stow' ? 'Put it in the pan' : cap(a.label), fn: () => { run(a); if (a.role === 'stow') { S.board = null; go('hob'); } } });
+  }
+  return out;
+}
+const chopOf = (c) => actOf(c, 'prep', (a) => /^(chop|cut) /.test(a.command));
+const cap = (t) => String(t || '').replace(/^./, (m) => m.toUpperCase());
+
+function menuFor(hit) {
+  const d = S.data, pan = panOf(d), dial = dialOf(d), out = [];
+  const onBoard = S.board ? foods().find((c) => c.id === S.board) : null;
+  if (hit.kind === 'box') {
+    const box = (d?.storage || []).find((x) => String(x.id) === String(hit.id));
+    out.push({ title: box?.name || 'Storage' });
+    out.push({ label: 'Open it', fn: () => openSheet({ kind: 'box', id: hit.id }) });
+  } else if (hit.kind === 'shelf') {
+    const c = foods().find((x) => x.id === hit.id);
+    if (!c) return out;
+    out.push({ title: c.name });
+    out.push({ label: 'Put it on the board', fn: () => { S.board = c.id; ksfx('kitchen-tap'); go('board'); paintDom(); } });
+    out.push(...foodItems(c));
+  } else if (hit.kind === 'board') {
+    out.push({ title: onBoard?.name || 'The board' });
+    const chop = chopOf(onBoard);
+    if (chop && kit().blade) out.push({ label: 'Pick up the knife and cut it', fn: () => pickKnife(chop) });
+    out.push(...foodItems(onBoard));
+    if (onBoard) out.push({ label: 'Take it off the board', fn: () => { S.board = null; paintDom(); } });
+  } else if (hit.kind === 'knife') {
+    out.push({ title: 'The knife' });
+    const chop = chopOf(onBoard);
+    if (chop) out.push({ label: `Pick it up and cut the ${onBoard.name}`, fn: () => pickKnife(chop) });
+    else out.push({ label: onBoard ? "That doesn't want cutting" : 'Nothing on the board to cut', off: true });
+  } else if (hit.kind === 'knob') {
+    out.push({ title: dial?.label ? `The knob: ${dial.label}` : 'The knob' });
+    if (dial) {
+      const max = dial.ceiling ?? 10;
+      const set = (n, label) => { const a = dial.levels?.[n]; if (a && n !== dial.level) out.push({ label, fn: () => { ksfx('kitchen-knob'); run(a); } }); };
+      set(0, 'Turn it off');
+      set(Math.max(1, Math.round(max * 0.3)), 'Low');
+      set(Math.max(1, Math.round(max * 0.6)), 'Medium');
+      set(max, 'High');
+      if (dial.level > 0) set(dial.level - 1, 'A bit lower');
+      if (dial.level < max) set(dial.level + 1, 'A bit higher');
+    }
+    // any other ring or oven in the room
+    for (const o of d?.dials || []) {
+      if (o === dial || !o.levels) continue;
+      const name = cap(o.subject || o.label || 'The other ring'), om = o.ceiling ?? 10;
+      out.push(o.level > 0 ? { label: `${name}: off`, fn: () => run(o.levels[0]) }
+        : { label: `${name}: on`, fn: () => run(o.levels[Math.max(1, Math.round(om * 0.6))]) });
+    }
+  } else if (hit.kind === 'pan') {
+    out.push({ title: pan?.name || 'The pan' });
+    for (const a of chipsFor('hob')) {
+      if (a.role === 'finish') out.push({ label: 'Plate it', fn: () => plateIt(a) });
+      else if (a.role === 'handle' && a.command.startsWith('flip ')) out.push({ label: cap(a.label), fn: flip });
+      else if (a.role === 'handle' && a.command.startsWith('stir ')) out.push({ label: cap(a.label), fn: stir });
+      else out.push({ label: cap(a.label), fn: () => run(a) });
+    }
+  } else if (hit.kind === 'plate') {
+    out.push({ title: 'The plate' });
+    const fin = actOf(pan, 'finish');
+    out.push(fin ? { label: 'Plate up', fn: () => plateIt(fin) } : { label: 'Nothing ready to plate', off: true });
+  }
+  return out;
+}
+
+// ── the fridge, the freezer and the stock-up screen ──────────────────────────────────────────────
+const kit = () => S.data?.kit || {};
+const coldBoxes = () => (S.data?.storage || []).filter((x) => x.preserves);
+const boxLabel = (x) => (x.preserves === 'frozen' ? 'Freezer' : x.preserves ? 'Fridge' : cap(x.name));
+// Each cold box stands left of the counter, the second further left again.
+const boxAt = (i) => [-110 - i * 26, 12, 45];
+
+function buildBox(b, box, i) {
+  const x = -110 - i * 26, frozen = box.preserves === 'frozen';
+  const body = M.rgb(frozen ? '#dfe8ef' : '#efeee9'), trim = M.rgb('#9aa3aa');
+  KS.slab(b, [x - 12, -6, -14], [x + 12, 32, 92], body, 1.2);
+  // the door seam, and a handle down the right side
+  KS.slab(b, [x - 12.2, -6.3, frozen ? 60 : 40], [x + 12.2, -6.0, frozen ? 61 : 41], trim, 0.1);
+  KS.slab(b, [x + 8, -8, 12], [x + 9.5, -6, 34], trim, 0.4);
+  if (!frozen) KS.slab(b, [x + 8, -8, 48], [x + 9.5, -6, 70], trim, 0.4);
+}
+
+const sheetBox = () => (S.sheet?.kind === 'box' ? (S.data?.storage || []).find((x) => String(x.id) === String(S.sheet.id)) : null);
+
+function openSheet(sheet) {
+  closeMenu();
+  S.sheet = sheet;
+  ksfx(sheet.kind === 'box' ? 'kitchen-whoosh' : 'kitchen-tap');
+  paintSheet();
+}
+function closeSheet() {
+  S.sheet = null;
+  paintSheet();
+}
+
+// The server's catalogue arrived (plugins/cooking/stock.js).
+export function kitchenStock(msg) {
+  if (!S) return;
+  const shelf = S.sheet?.kind === 'stock' ? S.sheet.shelf : 'food';
+  S.sheet = { kind: 'stock', items: msg.items || [], credits: msg.credits ?? 0, shelf };
+  paintSheet();
+}
+
+function paintSheet() {
+  const el = S.root.querySelector('.ks-sheet'), sh = S.sheet;
+  if (!sh) { el.hidden = true; el.innerHTML = ''; el.className = 'ks-sheet'; return; }
+  el.hidden = false;
+  if (sh.kind === 'box') {
+    const box = sheetBox();
+    if (!box) { S.sheet = null; el.hidden = true; return; }
+    const frozen = box.preserves === 'frozen';
+    el.className = `ks-sheet ks-cold${frozen ? ' ks-frozen' : ''}`;
+    // the inside: four to a shelf, and always at least three shelves so an empty one looks empty
+    const items = box.items || [], rows = Math.max(3, Math.ceil(items.length / 4));
+    const shelves = Array.from({ length: rows }, (_, r) => `<div class="ks-shelf">${items.slice(r * 4, r * 4 + 4).map((it, j) => {
+      const i = r * 4 + j;
+      return `<button class="ks-cold-item" data-take="${i}" title="Take it out"><span class="ks-cold-name">${esc(it.name)}</span>${it.qty > 1 ? `<span class="ks-cold-qty">×${it.qty}</span>` : ''}${it.notes?.length ? `<span class="ks-cold-note">${esc(it.notes.join(', '))}</span>` : ''}</button>`;
+    }).join('')}</div>`).join('');
+    const puts = box.puts || [];
+    el.innerHTML = `<div class="ks-cold-box">
+      <div class="ks-sheet-head"><span>${esc(box.name)}</span><button class="ks-btn" data-sheet="close" aria-label="Close">Shut it</button></div>
+      <div class="ks-cold-inside">${shelves}${box.other ? `<div class="ks-cold-other">and ${box.other} other thing${box.other === 1 ? '' : 's'} at the back</div>` : ''}</div>
+      <div class="ks-cold-door"><div class="ks-label">Put in</div>${puts.length
+        ? puts.map((p, i) => `<button class="ks-food" data-put="${i}">${esc(p.name)}${p.qty ? ` ×${p.qty}` : ''}</button>`).join('')
+        : `<div class="ks-cold-empty">Nothing on you that wants ${frozen ? 'freezing' : 'keeping cold'}.</div>`}</div>
+    </div>`;
+  } else {
+    el.className = 'ks-sheet ks-stock';
+    const list = sh.items.filter((it) => it.shelf === sh.shelf);
+    el.innerHTML = `<div class="ks-stock-box">
+      <div class="ks-sheet-head"><span>Stock the kitchen</span><span class="ks-stock-cash">₵${sh.credits}</span><button class="ks-btn" data-sheet="close" aria-label="Close">Done</button></div>
+      <div class="ks-stock-tabs">${[['food', 'Food'], ['kit', 'Pans and kit']].map(([k, l]) => `<button class="ks-tab${sh.shelf === k ? ' on' : ''}" data-shelf="${k}">${l}</button>`).join('')}</div>
+      <div class="ks-stock-note">Delivered to you here. It costs more than walking to the shop.</div>
+      <div class="ks-stock-grid">${list.length ? list.map((it) => `<div class="ks-stock-card">
+        <div class="ks-stock-name">${esc(it.name)}</div>
+        ${it.note ? `<div class="ks-stock-desc">${esc(it.note)}</div>` : ''}
+        <button class="ks-chip ks-serve" data-buy="${esc(it.id)}"${it.price > sh.credits ? ' disabled' : ''}>Buy · ₵${it.price}</button>
+      </div>`).join('') : '<div class="ks-cold-empty">Nobody in town delivers any.</div>'}</div>
+    </div>`;
+  }
+}
+
+function pickKnife(chop) {
+  ksfx('kitchen-thock');
+  go('board');
+  run(chop);
+}
+
+function openMenu(items, e) {
+  const box = S.root.querySelector('.ks-menu');
+  if (!items.some((it) => !it.title)) return closeMenu();
+  S.menu = items;
+  box.innerHTML = items.map((it, i) => it.title ? `<div class="ks-menu-title">${esc(it.title)}</div>`
+    : `<button class="ks-menu-item" role="menuitem" data-menu="${i}"${it.off ? ' disabled' : ''}>${esc(it.label)}</button>`).join('');
+  box.hidden = false;
+  const r = S.root.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
+  box.style.left = `${Math.max(8, Math.min(r.width - w - 8, e.clientX - r.left + 6))}px`;
+  box.style.top = `${Math.max(8, Math.min(r.height - h - 8, e.clientY - r.top + 6))}px`;
+  ksfx('kitchen-tap');
+}
+function closeMenu() {
+  if (!S) return;
+  S.menu = null;
+  const box = S.root.querySelector('.ks-menu');
+  if (box) { box.hidden = true; box.innerHTML = ''; }
 }
 
 function flip() {
@@ -708,7 +957,9 @@ function onKey(e) {
   if (!S || !seatHoldsKeyboard() || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key, d = S.data, dial = dialOf(d), pan = panOf(d);
   let done = true;
-  if (S.dress && k === 'Enter') serve(scoreDress());
+  if (S.menu && k === 'Escape') closeMenu();
+  else if (S.sheet && k === 'Escape') closeSheet();
+  else if (S.dress && k === 'Enter') serve(scoreDress());
   else if (S.dress && k === 'Escape') serve(null);
   else if (S.knife && k === ' ') cutAt(S.knife.sweep, 0, false);
   else if (S.knife && k === 'Escape') finishKnife(true);

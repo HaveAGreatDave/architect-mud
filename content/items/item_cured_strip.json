@@ -8,6 +8,21 @@
     "description": "A dark strip of muscle, salt-crusted and hard as a belt. Hung somewhere dry for a season. Chew it long enough and it gives up something like flavour.",
     "food_noun": "cured meat",
     "food_profile": "preserved",
+    "matter": {
+      "form": {
+        "kind": "slab",
+        "w": 16,
+        "d": 3,
+        "h": 0.6,
+        "round": 0.2
+      },
+      "ramp": {
+        "raw": "#5a2018"
+      },
+      "look": {
+        "spots": "#e8e4dc"
+      }
+    },
     "restore_hunger": 16,
     "stackable": true,
     "status_chance": {

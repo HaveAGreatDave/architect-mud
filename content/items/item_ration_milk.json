@@ -9,6 +9,15 @@
     "food_also": "dairy",
     "food_noun": "milk",
     "food_profile": "liquid",
+    "matter": {
+      "ramp": {
+        "raw": "#f4f2ea"
+      },
+      "look": {
+        "pack": "carton",
+        "label": "#2a5aa8"
+      }
+    },
     "perishable": true,
     "restore_hunger": 6,
     "restore_thirst": 10,

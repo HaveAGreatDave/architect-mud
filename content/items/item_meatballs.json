@@ -8,6 +8,20 @@
     "description": "A tray of them, rolled about an inch and a half across and packed tight enough to hold together. Raw, and going nowhere until they meet a hot pan.",
     "food_noun": "meatball",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "sphere",
+        "w": 3.8,
+        "d": 3.8,
+        "h": 3.6,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#b8545a",
+        "cook": "#8a5a40",
+        "peak": "#6e4026"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 22,

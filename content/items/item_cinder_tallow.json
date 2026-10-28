@@ -8,6 +8,15 @@
     "description": "Rendered fat off something that lived in the burn. It sets grey, smells of struck matches, and fries anything you put in it beautifully.",
     "food_noun": "tallow",
     "food_profile": "fat_or_oil",
+    "matter": {
+      "ramp": {
+        "raw": "#9a968e"
+      },
+      "look": {
+        "pack": "tub",
+        "label": "#4a4a4a"
+      }
+    },
     "restore_hunger": 8,
     "spreadable": true,
     "stackable": true

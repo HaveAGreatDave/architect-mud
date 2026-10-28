@@ -8,6 +8,20 @@
     "description": "A clamshell of pale, leggy greens grown under grow-lamps in a back room that's never seen the sun. Still faintly warm from the rack. Tastes mostly of chlorophyll and effort.",
     "food_noun": "greens",
     "food_profile": "soft_vegetable",
+    "matter": {
+      "form": {
+        "kind": "leaf",
+        "w": 12,
+        "d": 8,
+        "h": 1.2,
+        "round": 0.8
+      },
+      "ramp": {
+        "raw": "#a8c870",
+        "cook": "#8ab05a",
+        "peak": "#6a9a48"
+      }
+    },
     "perishable": true,
     "restore_hunger": 8,
     "spoil_rate": "fast",

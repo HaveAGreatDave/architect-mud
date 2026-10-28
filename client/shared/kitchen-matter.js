@@ -25,6 +25,9 @@ export const BROWNING = ['maillard', 'caramel', 'set', 'wilt', 'melt', 'none'];
 export const EMITTERS = ['sizzle', 'steam', 'bubble', 'spatter', 'smoke'];
 export const TOSSES = ['flip', 'stir'];
 export const STACKS = ['flat', 'lean', 'pile', 'pool'];
+// What a food comes in when it stands on the counter (`look.pack`). In a pan it's the food again.
+export const PACKS = ['jar', 'bottle', 'tin', 'sack', 'pouch', 'carton', 'tub', 'shaker', 'box', 'tube', 'wrap'];
+const LOOK_COLOURS = ['skin', 'spots', 'stem', 'fins', 'stripes', 'label', 'flesh'];
 
 // The keys a `tags.matter` may carry, each with its own keys. content:lint fails any other.
 export const MATTER_KEYS = {
@@ -33,6 +36,10 @@ export const MATTER_KEYS = {
   cut: ['firmness', 'grain', 'styles', 'juice'],
   cook: ['browning', 'shrink', 'emit', 'gloss', 'toss'],
   plate: ['stack', 'sauce'],
+  // How a whole food differs from its class blob, all optional: `skin` the outside while raw,
+  // `spots` speckles, `stem` a stalk, `fins` a fish's tail and back fin, `stripes` bands across,
+  // `flesh` the cut face, `pack` and `label` its packaging on the counter, `size` that pack's scale.
+  look: [...LOOK_COLOURS, 'pack', 'size'],
 };
 
 const ramp = (raw, cook, peak, over, burnt) => ({ raw, cook, peak, over, burnt });
@@ -74,7 +81,7 @@ export const MATTER = {
     plate: { stack: 'pool', sauce: false },
   },
   fruit: {
-    form: { kind: 'sphere', w: 8, d: 8, h: 7, round: 1 },
+    form: { kind: 'sphere', w: 8, d: 8, h: 8, round: 1 },
     ramp: ramp('#e0b040', '#dca03a', '#c9822e', '#9a5a22', '#341c10'),
     cut: { firmness: 0.45, grain: 'none', styles: ['slice'], juice: 0.7 },
     cook: { browning: 'caramel', shrink: 0.2, emit: ['sizzle'], gloss: 0.7, toss: 'flip' },
@@ -168,6 +175,9 @@ export function matterProblems(m) {
   if (m.cook?.browning != null && !BROWNING.includes(m.cook.browning)) out.push(`tags.matter.cook.browning "${m.cook.browning}" is not one of ${BROWNING.join(', ')}`);
   if (m.plate?.stack != null && !STACKS.includes(m.plate.stack)) out.push(`tags.matter.plate.stack "${m.plate.stack}" is not one of ${STACKS.join(', ')}`);
   for (const e of m.cook?.emit || []) if (!EMITTERS.includes(e)) out.push(`tags.matter.cook.emit "${e}" is not one of ${EMITTERS.join(', ')}`);
+  for (const k of LOOK_COLOURS) if (m.look?.[k] != null && !/^#[0-9a-f]{6}$/i.test(m.look[k])) out.push(`tags.matter.look.${k} must be a #rrggbb colour`);
+  if (m.look?.pack != null && !PACKS.includes(m.look.pack)) out.push(`tags.matter.look.pack "${m.look.pack}" is not one of ${PACKS.join(', ')}`);
+  if (m.look?.size != null && !(m.look.size > 0 && m.look.size <= 4)) out.push('tags.matter.look.size must be a number above 0 and at most 4');
   for (const b of Object.keys(m.ramp || {})) if (!/^#[0-9a-f]{6}$/i.test(m.ramp[b])) out.push(`tags.matter.ramp.${b} must be a #rrggbb colour`);
   return out;
 }

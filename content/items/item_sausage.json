@@ -8,6 +8,23 @@
     "description": "A coil of coarse-ground pork in a casing, flecked white with fat and green with fennel. Made by someone who still calls it a craft and charges accordingly.",
     "food_noun": "sausage",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 14,
+        "d": 2.8,
+        "h": 2.8,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#d89a90",
+        "cook": "#b8784e",
+        "peak": "#8a4e28"
+      },
+      "look": {
+        "spots": "#f4ece4"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 19,

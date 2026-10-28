@@ -8,6 +8,17 @@
     "description": "A shaker of coarse red-brown dust: salt, sugar, paprika and a long tail of things the label calls spices. Dust it on heavy enough that it stops looking like meat.",
     "food_noun": "rubbed",
     "food_profile": "aromatic",
+    "matter": {
+      "ramp": {
+        "raw": "#8a3b22",
+        "cook": "#7a3018",
+        "peak": "#6a2a14"
+      },
+      "look": {
+        "pack": "shaker",
+        "label": "#7a2e1a"
+      }
+    },
     "restore_hunger": 1,
     "stackable": true,
     "status_chance": {

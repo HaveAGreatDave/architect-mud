@@ -10,6 +10,15 @@
     "food_profile": "liquid",
     "laced_drug": "drug_alcohol",
     "laced_potency": 1.6,
+    "matter": {
+      "ramp": {
+        "raw": "#e8eeea"
+      },
+      "look": {
+        "pack": "bottle",
+        "label": "#3a6a5a"
+      }
+    },
     "restore_sanity": 12,
     "restore_thirst": 6,
     "stackable": true

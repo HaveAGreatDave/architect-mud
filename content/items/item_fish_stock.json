@@ -8,6 +8,15 @@
     "description": "Cloudy, grey-green, and pungent enough through the seal to announce itself. Made from the parts of the catch nobody sells. Transforms in a pot; punishing anywhere else.",
     "food_noun": "fish",
     "food_profile": "liquid",
+    "matter": {
+      "ramp": {
+        "raw": "#9a9e7e"
+      },
+      "look": {
+        "pack": "pouch",
+        "label": "#8a9a8a"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 10,

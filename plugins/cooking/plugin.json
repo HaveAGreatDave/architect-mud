@@ -62,7 +62,9 @@
     "kitchenstage",
     "chopresolve",
     "dressplate",
-    "dressresolve"
+    "dressresolve",
+    "kitchenstock",
+    "kitchenorder"
   ],
   "specializedActions": [
     {

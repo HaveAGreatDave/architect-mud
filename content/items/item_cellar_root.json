@@ -8,6 +8,23 @@
     "description": "A fist of pale root with the dirt still on it, hairy at one end. Whoever grew this did it underground and didn't ask permission. Sweet once heat gets into it.",
     "food_noun": "root",
     "food_profile": "starchy_vegetable",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 14,
+        "d": 5,
+        "h": 5,
+        "round": 0.8
+      },
+      "ramp": {
+        "raw": "#f2ecdc"
+      },
+      "look": {
+        "skin": "#c8b898",
+        "spots": "#6a5a40",
+        "flesh": "#f2ecdc"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 20,

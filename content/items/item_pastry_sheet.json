@@ -8,6 +8,24 @@
     "description": "A cold folded slab of laminated dough, greasy to the touch through its wrap. Handle it warm and it dies. Handle it right and it comes out in leaves.",
     "food_noun": "pastry",
     "food_profile": "batter",
+    "matter": {
+      "form": {
+        "kind": "slab",
+        "w": 20,
+        "d": 14,
+        "h": 1,
+        "round": 0.15
+      },
+      "ramp": {
+        "raw": "#f0e2b8",
+        "cook": "#ecd08a",
+        "peak": "#d9a650"
+      },
+      "look": {
+        "pack": "wrap",
+        "label": "#d9d2c2"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 14,

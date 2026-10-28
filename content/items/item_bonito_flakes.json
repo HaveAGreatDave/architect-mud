@@ -8,6 +8,22 @@
     "description": "A paper bag of shavings so thin they're translucent, cut from a block of fish dried harder than wood. Thrown onto anything hot they lift and curl and move, which is either charming or unsettling depending on the day.",
     "food_noun": "bonito",
     "food_profile": "aromatic",
+    "matter": {
+      "form": {
+        "kind": "grain",
+        "w": 6,
+        "d": 6,
+        "h": 1.5
+      },
+      "ramp": {
+        "raw": "#d9a58a"
+      },
+      "look": {
+        "pack": "sack",
+        "label": "#e8dcc0",
+        "size": 0.7
+      }
+    },
     "perishable": true,
     "restore_hunger": 3,
     "spoil_rate": "slow",

@@ -11,6 +11,15 @@
     "hydrating": true,
     "laced_drug": "drug_alcohol",
     "laced_potency": 1.8,
+    "matter": {
+      "ramp": {
+        "raw": "#a8601e"
+      },
+      "look": {
+        "pack": "bottle",
+        "label": "#d8c08a"
+      }
+    },
     "restore_hp": 4,
     "restore_sanity": 26,
     "restore_thirst": 28,

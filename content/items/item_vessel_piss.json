@@ -9,6 +9,13 @@
     "description": "Warm, faintly clouded, and exactly the colour of a bad decision. It sloshes when you move, which somehow makes it worse.",
     "food_noun": "piss",
     "food_profile": "liquid",
+    "matter": {
+      "ramp": {
+        "raw": "#e8d040",
+        "cook": "#dcc23a",
+        "peak": "#c8ae30"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 0,

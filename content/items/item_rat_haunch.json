@@ -8,6 +8,20 @@
     "description": "A hind leg off something big enough to argue with a dog. Dark, lean meat with a gamey edge. Everyone says they would never. Everyone has.",
     "food_noun": "rat",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 14,
+        "d": 5,
+        "h": 4,
+        "round": 0.8
+      },
+      "ramp": {
+        "raw": "#7a2a2a",
+        "cook": "#6a3a2a",
+        "peak": "#4e2a1c"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 14,

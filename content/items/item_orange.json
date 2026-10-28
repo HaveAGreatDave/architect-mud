@@ -8,6 +8,25 @@
     "description": "A real orange, pebbled and heavy, with a scar of green at the stem. Grown somewhere with actual weather and shipped a very long way. The peel oil catches you before the first segment does.",
     "food_noun": "orange",
     "food_profile": "fruit",
+    "matter": {
+      "form": {
+        "kind": "sphere",
+        "w": 7.5,
+        "d": 7.5,
+        "h": 7.5,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#f4a03a",
+        "cook": "#e8902e",
+        "peak": "#d07824"
+      },
+      "look": {
+        "skin": "#f08a1c",
+        "stem": "#4a6a2a",
+        "flesh": "#f4a03a"
+      }
+    },
     "perishable": true,
     "restore_hunger": 12,
     "spoil_rate": "normal",

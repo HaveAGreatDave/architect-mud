@@ -8,6 +8,20 @@
     "description": "A rubbery green-black ribbon, still wet, smelling of low tide. Grows faster than anyone can harvest it. Cooks down to almost nothing and tastes of the sea doing it.",
     "food_noun": "kelp",
     "food_profile": "soft_vegetable",
+    "matter": {
+      "form": {
+        "kind": "leaf",
+        "w": 26,
+        "d": 6,
+        "h": 0.6,
+        "round": 0.8
+      },
+      "ramp": {
+        "raw": "#2a3a1e",
+        "cook": "#3a5a24",
+        "peak": "#3e6a2a"
+      }
+    },
     "perishable": true,
     "restore_hunger": 7,
     "spoil_rate": "fast",

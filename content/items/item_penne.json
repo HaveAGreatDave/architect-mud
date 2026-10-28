@@ -9,6 +9,17 @@
     "food_also": "starchy_vegetable",
     "food_noun": "penne",
     "food_profile": "dry_starch",
+    "matter": {
+      "look": {
+        "pack": "box",
+        "label": "#b02a2a"
+      },
+      "ramp": {
+        "raw": "#edd27e",
+        "cook": "#f0dc96",
+        "peak": "#f2e2a8"
+      }
+    },
     "needs_cooking": true,
     "restore_hunger": 20,
     "stackable": true

@@ -8,6 +8,15 @@
     "description": "A sealed pouch of something amber and faintly gelid, rendered off bones that were probably cattle. Cold it looks like a mistake. Hot it's the base of anything worth eating.",
     "food_noun": "broth",
     "food_profile": "liquid",
+    "matter": {
+      "ramp": {
+        "raw": "#c8964a"
+      },
+      "look": {
+        "pack": "pouch",
+        "label": "#c89a4a"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 12,

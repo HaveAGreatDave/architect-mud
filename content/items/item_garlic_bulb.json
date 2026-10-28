@@ -8,6 +8,22 @@
     "description": "A papery head of it, cloves tight as a fist. Sweetens completely when it's cooked slow and turns acrid the second it catches. No middle ground.",
     "food_noun": "garlic",
     "food_profile": "aromatic",
+    "matter": {
+      "form": {
+        "kind": "cluster",
+        "w": 6,
+        "d": 6,
+        "h": 5
+      },
+      "ramp": {
+        "raw": "#f6f1e2"
+      },
+      "look": {
+        "skin": "#efe7d6",
+        "stem": "#cbbd9a",
+        "flesh": "#f6f1e2"
+      }
+    },
     "perishable": true,
     "restore_hunger": 2,
     "spoil_rate": "slow",

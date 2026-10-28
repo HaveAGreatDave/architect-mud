@@ -8,6 +8,18 @@
     "description": "Pale, thin-shelled, and printed with a cage number. The yolk is the colour of a fire door. It'll do what an egg does, without any of the romance.",
     "food_noun": "egg",
     "food_profile": "egg",
+    "matter": {
+      "form": {
+        "kind": "sphere",
+        "w": 5.6,
+        "d": 4.3,
+        "h": 4.3,
+        "round": 1
+      },
+      "look": {
+        "skin": "#f4ece0"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 9,

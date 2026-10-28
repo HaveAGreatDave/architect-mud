@@ -9,6 +9,13 @@
     "description": "A cloudy measure of it, going tacky at the edges where it met the air. It is, technically, protein. Almost nobody makes it past that sentence.",
     "food_noun": "seed",
     "food_profile": "liquid",
+    "matter": {
+      "ramp": {
+        "raw": "#ece8dc",
+        "cook": "#e4dccc",
+        "peak": "#d8ccb4"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 2,

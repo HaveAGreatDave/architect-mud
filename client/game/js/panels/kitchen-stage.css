@@ -1,4 +1,4 @@
-/* The Kitchen Stage (kitchen-stage.js). The picture fills the room pane; the controls sit over it
+/* The Kitchen Stage (kitchen-stage.js). The picture fills the screen; the controls sit over it
    as flat cel cards with a hard ink edge, so they read as part of the same drawing. */
 .ks-root {
   --ks-ink: #141018;
@@ -7,10 +7,9 @@
   --ks-red: #c8323a;
   --ks-indigo: #2b3a63;
   --ks-dim: #6b6258;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 320px;
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
   overflow: hidden;
   background: #ede0c8;
   color: var(--ks-ink);
@@ -42,7 +41,6 @@
 }
 .ks-tab { display: flex; align-items: baseline; gap: 6px; text-transform: uppercase; font-weight: 700; }
 .ks-tab.on { background: var(--ks-red); color: var(--ks-paper); }
-.ks-kanji { font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", serif; font-size: 1.25em; font-weight: 900; }
 .ks-tab:hover, .ks-btn:hover, .ks-chip:hover, .ks-food:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ks-ink); }
 .ks-tab:active, .ks-btn:active, .ks-chip:active, .ks-food:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ks-ink); }
 .ks-tab:focus-visible, .ks-btn:focus-visible, .ks-chip:focus-visible, .ks-food:focus-visible { outline: 3px solid var(--ks-indigo); outline-offset: 2px; }
@@ -77,7 +75,6 @@
 }
 
 @media (max-width: 600px) {
-  .ks-word { display: none; }
   .ks-tab, .ks-btn { padding: 4px 8px; }
   .ks-beat { max-width: calc(100% - 16px); }
   .ks-keys { display: none; }
@@ -86,4 +83,100 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .ks-tab:hover, .ks-btn:hover, .ks-chip:hover, .ks-food:hover, .ks-tab:active, .ks-btn:active, .ks-chip:active, .ks-food:active { transform: none; }
+}
+
+/* What you can do with the thing you clicked, beside the pointer. */
+.ks-menu {
+  position: absolute; z-index: 2; min-width: 180px; max-width: 280px;
+  background: var(--ks-card); border: 2px solid var(--ks-ink); box-shadow: 4px 4px 0 var(--ks-ink);
+  display: flex; flex-direction: column; padding: 4px;
+}
+.ks-menu[hidden] { display: none; }
+.ks-menu-title {
+  font-weight: 700; text-transform: uppercase; font-size: 0.8em;
+  background: var(--ks-ink); color: var(--ks-paper); padding: 2px 6px; margin-bottom: 3px;
+}
+.ks-menu-item {
+  font: inherit; color: var(--ks-ink); background: none; border: 0; text-align: left;
+  padding: 5px 8px; cursor: pointer;
+}
+.ks-menu-item:hover, .ks-menu-item:focus-visible { background: var(--ks-red); color: var(--ks-paper); outline: none; }
+.ks-menu-item:disabled { color: var(--ks-dim); cursor: default; background: none; }
+
+/* A sheet over the kitchen: the inside of a fridge or freezer, or the stock-up screen. */
+.ks-sheet {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(20, 16, 24, 0.45);
+}
+.ks-sheet[hidden] { display: none; }
+.ks-sheet-head {
+  display: flex; align-items: center; gap: 10px; justify-content: space-between;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;
+}
+.ks-boxes { display: contents; }
+
+/* The fridge: a white box lit from inside, wire shelves, and the door's racks for what you carry. */
+.ks-cold-box {
+  --cold-wall: #f4f6f4; --cold-glow: rgba(255, 250, 225, 0.75); --cold-shelf: #b9c2c8;
+  width: min(720px, calc(100% - 32px)); max-height: calc(100% - 32px);
+  display: grid; grid-template-columns: 1fr 200px; grid-template-rows: auto 1fr; gap: 0 12px;
+  background: var(--cold-wall); border: 3px solid var(--ks-ink); box-shadow: 6px 6px 0 var(--ks-ink);
+  border-radius: 10px; padding: 12px;
+}
+.ks-frozen .ks-cold-box { --cold-wall: #e6eef5; --cold-glow: rgba(200, 228, 255, 0.8); --cold-shelf: #a9bccb; }
+.ks-cold-box .ks-sheet-head { grid-column: 1 / -1; }
+.ks-cold-inside {
+  overflow: auto; border-radius: 6px; padding: 8px;
+  background: radial-gradient(ellipse at 50% 0%, var(--cold-glow), transparent 70%), #fbfcfb;
+  box-shadow: inset 0 0 0 2px var(--cold-shelf);
+}
+.ks-frozen .ks-cold-inside {
+  background: radial-gradient(ellipse at 50% 0%, var(--cold-glow), transparent 70%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0 2px, transparent 2px 9px), #eef5fb;
+}
+.ks-shelf {
+  min-height: 68px; display: flex; gap: 6px; align-items: flex-end; padding: 6px 4px;
+  border-bottom: 4px solid var(--cold-shelf);
+}
+.ks-cold-item {
+  font: inherit; color: var(--ks-ink); cursor: pointer; text-align: left;
+  width: calc(25% - 5px); min-height: 52px; display: flex; flex-direction: column; justify-content: flex-end;
+  background: var(--ks-paper); border: 2px solid var(--ks-ink); border-radius: 4px; box-shadow: 2px 2px 0 var(--ks-ink);
+  padding: 4px 6px;
+}
+.ks-cold-item:hover { background: var(--ks-red); color: var(--ks-paper); }
+.ks-cold-name { font-weight: 700; line-height: 1.1; }
+.ks-cold-qty { font-size: 0.85em; }
+.ks-cold-note { font-size: 0.75em; opacity: 0.75; }
+.ks-cold-other, .ks-cold-empty { color: var(--ks-dim); font-size: 0.9em; padding: 6px 4px; }
+.ks-cold-door {
+  overflow: auto; display: flex; flex-direction: column; gap: 6px; align-items: stretch;
+  border-left: 4px solid var(--cold-shelf); padding-left: 10px;
+}
+
+/* Stocking the kitchen: a catalogue of cards. */
+.ks-stock-box {
+  width: min(820px, calc(100% - 32px)); max-height: calc(100% - 32px);
+  display: flex; flex-direction: column;
+  background: var(--ks-paper); border: 3px solid var(--ks-ink); box-shadow: 6px 6px 0 var(--ks-ink); padding: 12px;
+}
+.ks-stock-cash { margin-left: auto; font-size: 1.1em; }
+.ks-stock-tabs { display: flex; gap: 6px; margin-bottom: 6px; }
+.ks-stock-note { color: var(--ks-dim); font-size: 0.85em; margin-bottom: 8px; }
+.ks-stock-grid {
+  overflow: auto; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+}
+.ks-stock-card {
+  display: flex; flex-direction: column; gap: 4px; justify-content: space-between;
+  border: 2px solid var(--ks-ink); background: #fffaf0; padding: 6px 8px;
+}
+.ks-stock-name { font-weight: 700; text-transform: capitalize; }
+.ks-stock-desc { font-size: 0.8em; color: var(--ks-dim); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ks-chip:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+@media (max-width: 600px) {
+  .ks-cold-box { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+  .ks-cold-door { border-left: 0; border-top: 4px solid var(--cold-shelf); padding: 8px 0 0; max-height: 30vh; }
+  .ks-cold-item { width: calc(50% - 4px); }
 }

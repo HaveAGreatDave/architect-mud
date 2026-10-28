@@ -9,6 +9,15 @@
     "food_also": "soft_vegetable",
     "food_noun": "tomato",
     "food_profile": "liquid",
+    "matter": {
+      "ramp": {
+        "raw": "#8e1e14"
+      },
+      "look": {
+        "pack": "tube",
+        "label": "#c8281e"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 6,

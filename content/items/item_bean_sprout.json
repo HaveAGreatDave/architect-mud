@@ -8,6 +8,23 @@
     "description": "A tangle of pale shoots grown in a jar on somebody's windowsill in four days flat. Crunch, water, and the faint smell of a cupboard.",
     "food_noun": "sprout",
     "food_profile": "soft_vegetable",
+    "matter": {
+      "form": {
+        "kind": "cluster",
+        "w": 6,
+        "d": 6,
+        "h": 2,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#f2eedc",
+        "cook": "#e8e2c8",
+        "peak": "#d8d0a8"
+      },
+      "look": {
+        "spots": "#d8d070"
+      }
+    },
     "perishable": true,
     "restore_hunger": 5,
     "spoil_rate": "fast",

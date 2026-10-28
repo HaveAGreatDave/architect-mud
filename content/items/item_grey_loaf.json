@@ -10,6 +10,23 @@
     "edible_vessel": true,
     "food_noun": "bread",
     "food_profile": "bread",
+    "matter": {
+      "form": {
+        "kind": "block",
+        "w": 18,
+        "d": 10,
+        "h": 9,
+        "round": 0.5
+      },
+      "ramp": {
+        "raw": "#8c8a84",
+        "cook": "#7e786c",
+        "peak": "#6a6052"
+      },
+      "look": {
+        "flesh": "#a8a59c"
+      }
+    },
     "perishable": true,
     "restore_hunger": 22,
     "spoil_rate": "slow",

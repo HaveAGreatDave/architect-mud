@@ -8,6 +8,15 @@
     "description": "A tub of pale solid fat with a skin on it, saved off somebody else's roast. Smells like the best part of a meal you weren't invited to. Cheaper than oil and better.",
     "food_noun": "dripping",
     "food_profile": "fat_or_oil",
+    "matter": {
+      "ramp": {
+        "raw": "#f2eedc"
+      },
+      "look": {
+        "pack": "tub",
+        "label": "#d8d0c0"
+      }
+    },
     "perishable": true,
     "restore_hunger": 8,
     "spoil_rate": "slow",

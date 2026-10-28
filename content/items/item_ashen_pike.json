@@ -8,6 +8,28 @@
     "description": "A long ambush predator hauled up out of the cold deep, ash-grey and stitched with old scars. All muscle and spite. Feeds a family, and nearly took the hand that landed it.",
     "food_noun": "pike",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 34,
+        "d": 5,
+        "h": 5,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#ece4da",
+        "cook": "#eee2d4",
+        "peak": "#e2c49a",
+        "over": "#b8864e",
+        "burnt": "#3a2618"
+      },
+      "look": {
+        "skin": "#6e6e6a",
+        "fins": "#4a4a46",
+        "flesh": "#ece4da",
+        "spots": "#c9c6b0"
+      }
+    },
     "needs_cooking": true,
     "raw_fish": true,
     "restore_hunger": 26,

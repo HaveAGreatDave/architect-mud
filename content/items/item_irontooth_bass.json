@@ -8,6 +8,28 @@
     "description": "A heavy, slab-sided bass with a jaw of blunt iron-grey teeth it grew to crack shellfish, and knuckles. Good eating out of the mid water, if you can land the weight.",
     "food_noun": "bass",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 28,
+        "d": 7,
+        "h": 9,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#f0e4dc",
+        "cook": "#eee2d4",
+        "peak": "#e2c49a",
+        "over": "#b8864e",
+        "burnt": "#3a2618"
+      },
+      "look": {
+        "skin": "#4e5a44",
+        "fins": "#3e4636",
+        "flesh": "#f0e4dc",
+        "stripes": "#33392e"
+      }
+    },
     "needs_cooking": true,
     "raw_fish": true,
     "restore_hunger": 22,

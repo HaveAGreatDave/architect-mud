@@ -8,6 +8,24 @@
     "description": "A damp brick of dark sugar in a paper sack, pressed hard enough to hold a thumbprint. Smells faintly of molasses and strongly of the sack.",
     "food_noun": "sweet",
     "food_profile": "aromatic",
+    "matter": {
+      "form": {
+        "kind": "block",
+        "w": 8,
+        "d": 5,
+        "h": 4,
+        "round": 0.3
+      },
+      "ramp": {
+        "raw": "#6b4428",
+        "cook": "#5a3820",
+        "peak": "#4a2c18"
+      },
+      "look": {
+        "pack": "sack",
+        "size": 0.8
+      }
+    },
     "restore_hunger": 3,
     "stackable": true
   },

@@ -8,6 +8,20 @@
     "description": "A wedge of pale orange flesh, cold and dripping, cut from something that took up a whole crate. Mostly water and entirely worth it.",
     "food_noun": "melon",
     "food_profile": "fruit",
+    "matter": {
+      "form": {
+        "kind": "slab",
+        "w": 12,
+        "d": 5,
+        "h": 6,
+        "round": 0.3
+      },
+      "ramp": {
+        "raw": "#f0a050",
+        "cook": "#e8903e",
+        "peak": "#d07a30"
+      }
+    },
     "perishable": true,
     "restore_hunger": 14,
     "spoil_rate": "fast",

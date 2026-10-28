@@ -8,6 +8,24 @@
     "description": "A dense head of leaves so light green they look bleached. Keeps for weeks and feeds a table.",
     "food_noun": "cabbage",
     "food_profile": "soft_vegetable",
+    "matter": {
+      "form": {
+        "kind": "sphere",
+        "w": 15,
+        "d": 15,
+        "h": 13,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#e8f0d8",
+        "cook": "#d8e4b8",
+        "peak": "#c8d49a"
+      },
+      "look": {
+        "skin": "#cfe0b0",
+        "flesh": "#e8f0d8"
+      }
+    },
     "perishable": true,
     "restore_hunger": 12,
     "spoil_rate": "slow",

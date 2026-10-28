@@ -11,6 +11,23 @@
     "food_also": "fat_or_oil",
     "food_noun": "bread",
     "food_profile": "bread",
+    "matter": {
+      "form": {
+        "kind": "slab",
+        "w": 18,
+        "d": 18,
+        "h": 1.2,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#d9b070",
+        "cook": "#cc9a50",
+        "peak": "#b7803a"
+      },
+      "look": {
+        "spots": "#6a4a28"
+      }
+    },
     "perishable": true,
     "restore_hunger": 19,
     "spoil_rate": "normal",

@@ -9,6 +9,17 @@
     "food_also": "starchy_vegetable",
     "food_noun": "macaroni",
     "food_profile": "dry_starch",
+    "matter": {
+      "look": {
+        "pack": "box",
+        "label": "#2a5aa8"
+      },
+      "ramp": {
+        "raw": "#f0d88a",
+        "cook": "#f2e0a0",
+        "peak": "#f4e4ae"
+      }
+    },
     "needs_cooking": true,
     "restore_hunger": 20,
     "stackable": true

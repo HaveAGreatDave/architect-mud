@@ -8,6 +8,23 @@
     "description": "An inch and a half thick, pale as a scar, with a fat cap on one side you could set your watch by. The wrapper says PORKY PORK PORK in three colours, which is two more assurances than an honest cut of pork has ever needed. Nobody at the counter will tell you what it came off.",
     "food_noun": "pork",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "slab",
+        "w": 18,
+        "d": 12,
+        "h": 3.8,
+        "round": 0.3
+      },
+      "ramp": {
+        "raw": "#f0c0b4",
+        "cook": "#e6c8a8",
+        "peak": "#c89060"
+      },
+      "look": {
+        "stripes": "#f8eee6"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 26,

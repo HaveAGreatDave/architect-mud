@@ -8,6 +8,23 @@
     "description": "Uniform, waxed, and stamped near the stem with a lot code. Engineered to survive a supply chain rather than to be eaten, and it shows. But it's sweet, and it's fruit.",
     "food_noun": "apple",
     "food_profile": "fruit",
+    "matter": {
+      "form": {
+        "kind": "sphere",
+        "w": 7.5,
+        "d": 7.5,
+        "h": 7,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#f2e8c4"
+      },
+      "look": {
+        "skin": "#c8322a",
+        "stem": "#5a3a1e",
+        "flesh": "#f2e8c4"
+      }
+    },
     "perishable": true,
     "restore_hunger": 10,
     "spoil_rate": "slow",

@@ -8,6 +8,28 @@
     "description": "Grey as a roof and about as cold. It comes up the shelf on winter nights, when nothing else is biting. Firm white meat the Codfather would rather you sold to him than ate.",
     "food_noun": "cod",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 32,
+        "d": 6,
+        "h": 7,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#f2ece6",
+        "cook": "#eee2d4",
+        "peak": "#e2c49a",
+        "over": "#b8864e",
+        "burnt": "#3a2618"
+      },
+      "look": {
+        "skin": "#6a6e72",
+        "fins": "#55595d",
+        "flesh": "#f2ece6",
+        "spots": "#4a4e52"
+      }
+    },
     "needs_cooking": true,
     "raw_fish": true,
     "restore_hunger": 22,

@@ -84,7 +84,7 @@ import { openApprehendPrompt } from './panels/apprehend.js';
 import { openConcealSearch } from './panels/conceal.js';
 import { updateTrade, closeTrade } from './panels/trade.js';
 import { openHangarBay, openCharterScreen, closeHangarBay, isHangarBayActive } from './panels/lazy-views.js';
-import { openKitchenStage, closeKitchenStage, isKitchenStageActive, kitchenBeat, kitchenKnife, kitchenDress } from './panels/lazy-views.js';
+import { openKitchenStage, closeKitchenStage, isKitchenStageActive, kitchenBeat, kitchenKnife, kitchenDress, kitchenStock } from './panels/lazy-views.js';
 import { openAdminPanel } from './panels/admin.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
@@ -862,6 +862,8 @@ const handlers = {
   knife_game: (msg) => kitchenKnife(msg),
   // The pan at the pass: lay it out, then the Stage sends dressresolve and the plate command.
   plating_game: (msg) => kitchenDress(msg),
+  // What the kitchen can have delivered: the Stage's stock-up screen.
+  kitchen_stock: (msg) => kitchenStock(msg),
 
   loot_view: (msg) => {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');

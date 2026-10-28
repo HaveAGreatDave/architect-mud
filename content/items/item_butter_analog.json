@@ -8,6 +8,24 @@
     "description": "A foil-wrapped block, yellow, engineered to melt at exactly blood temperature so it feels like the real thing on the tongue. It isn't the real thing. It's very close.",
     "food_noun": "buttered",
     "food_profile": "fat_or_oil",
+    "matter": {
+      "form": {
+        "kind": "block",
+        "w": 9,
+        "d": 5,
+        "h": 4,
+        "round": 0.15
+      },
+      "ramp": {
+        "raw": "#f2d460",
+        "cook": "#e8c050",
+        "peak": "#d8a840"
+      },
+      "look": {
+        "pack": "wrap",
+        "label": "#d6d8da"
+      }
+    },
     "perishable": true,
     "restore_hunger": 6,
     "spoil_rate": "normal",

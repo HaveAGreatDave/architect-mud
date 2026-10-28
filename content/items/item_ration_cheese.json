@@ -8,6 +8,22 @@
     "description": "Six identical squares in a paper sleeve, in a colour no dairy makes. Ration issue. The sleeve says PROCESSED CHEESE FOOD PRODUCT. It melts faster than the real thing.",
     "food_noun": "ration cheese",
     "food_profile": "dairy",
+    "matter": {
+      "form": {
+        "kind": "slab",
+        "w": 8,
+        "d": 8,
+        "h": 0.4,
+        "round": 0.05
+      },
+      "ramp": {
+        "raw": "#f2a21e"
+      },
+      "look": {
+        "pack": "wrap",
+        "label": "#e6e1d4"
+      }
+    },
     "perishable": true,
     "restore_hunger": 9,
     "spoil_rate": "slow",

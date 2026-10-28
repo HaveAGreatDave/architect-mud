@@ -8,6 +8,16 @@
     "description": "A squat jug of pressed something, pale gold, with a scorch rating printed on the side in six languages. The workhorse. No kitchen functions without one.",
     "food_noun": "fried",
     "food_profile": "fat_or_oil",
+    "matter": {
+      "ramp": {
+        "raw": "#e0c050"
+      },
+      "look": {
+        "pack": "bottle",
+        "label": "#e8c84a",
+        "size": 1.1
+      }
+    },
     "restore_hunger": 4,
     "stackable": true,
     "status_chance": {

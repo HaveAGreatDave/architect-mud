@@ -9,6 +9,17 @@
     "food_also": "liquid",
     "food_noun": "mustard",
     "food_profile": "aromatic",
+    "matter": {
+      "ramp": {
+        "raw": "#e0b21c",
+        "cook": "#d8a818",
+        "peak": "#c99414"
+      },
+      "look": {
+        "pack": "jar",
+        "label": "#f2f0ea"
+      }
+    },
     "perishable": true,
     "restore_hunger": 2,
     "spoil_rate": "slow",

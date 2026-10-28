@@ -8,6 +8,23 @@
     "description": "Glossy, unnaturally symmetrical, red as a warning light. Nutrient-fed in a rack under sodium glare. It snaps when you bite it and the taste arrives a second late.",
     "food_noun": "pepper",
     "food_profile": "soft_vegetable",
+    "matter": {
+      "form": {
+        "kind": "sphere",
+        "w": 8,
+        "d": 8,
+        "h": 9,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#e0402e"
+      },
+      "look": {
+        "skin": "#d8201a",
+        "stem": "#3e6a26",
+        "flesh": "#e0402e"
+      }
+    },
     "perishable": true,
     "restore_hunger": 9,
     "spoil_rate": "normal",

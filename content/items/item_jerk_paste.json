@@ -8,6 +8,15 @@
     "description": "A screw-top jar of rust-black paste, thick as tar, that smells of allspice and scorched chilli and something green underneath. Two fingers of it will season a bird. Three will season the room.",
     "food_noun": "jerk",
     "food_profile": "aromatic",
+    "matter": {
+      "ramp": {
+        "raw": "#3a2216"
+      },
+      "look": {
+        "pack": "jar",
+        "label": "#2a1a10"
+      }
+    },
     "perishable": true,
     "restore_hunger": 2,
     "spoil_rate": "slow",

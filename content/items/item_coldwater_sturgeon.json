@@ -8,6 +8,28 @@
     "description": "An armoured relic ridged in bone plates, older than the singularity that ruined this bay. The deep water keeps only a few. The meat is good, but it's the roe the right buyer pays stupid money for.",
     "food_noun": "sturgeon",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 40,
+        "d": 6,
+        "h": 6,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#f0d8c8",
+        "cook": "#eee2d4",
+        "peak": "#e2c49a",
+        "over": "#b8864e",
+        "burnt": "#3a2618"
+      },
+      "look": {
+        "skin": "#5a5850",
+        "fins": "#46443e",
+        "flesh": "#f0d8c8",
+        "spots": "#d8d2c0"
+      }
+    },
     "needs_cooking": true,
     "raw_fish": true,
     "restore_hunger": 30,

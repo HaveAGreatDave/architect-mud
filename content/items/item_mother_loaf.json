@@ -10,6 +10,24 @@
     "edible_vessel": true,
     "food_noun": "bread",
     "food_profile": "bread",
+    "matter": {
+      "form": {
+        "kind": "sphere",
+        "w": 20,
+        "d": 20,
+        "h": 11,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#b47838",
+        "cook": "#a06a30",
+        "peak": "#8a5826"
+      },
+      "look": {
+        "flesh": "#eee0c0",
+        "stripes": "#e8d4a8"
+      }
+    },
     "perishable": true,
     "restore_hunger": 30,
     "spoil_rate": "slow",

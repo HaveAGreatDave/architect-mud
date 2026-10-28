@@ -8,6 +8,25 @@
     "description": "A real onion, papery and unbothered, one of the few crops that came through the singularity without being redesigned. Still makes you cry. Some things hold.",
     "food_noun": "onion",
     "food_profile": "soft_vegetable",
+    "matter": {
+      "form": {
+        "kind": "sphere",
+        "w": 7.5,
+        "d": 7.5,
+        "h": 7,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#f2ece0",
+        "cook": "#e8d4a0",
+        "peak": "#c89a50"
+      },
+      "look": {
+        "skin": "#c88a3e",
+        "stem": "#8a6a3a",
+        "flesh": "#f2ece0"
+      }
+    },
     "perishable": true,
     "restore_hunger": 8,
     "spoil_rate": "slow",

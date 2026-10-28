@@ -8,6 +8,24 @@
     "description": "A whole shoulder, bone in, marbled through with fat like bad wiring. Too big for one meal, and too big for one day.",
     "food_noun": "pork",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "block",
+        "w": 22,
+        "d": 16,
+        "h": 12,
+        "round": 0.8
+      },
+      "ramp": {
+        "raw": "#e8aaa0",
+        "cook": "#c88a5a",
+        "peak": "#9a5a2e"
+      },
+      "look": {
+        "skin": "#f2d8c8",
+        "spots": "#f8ece4"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 40,

@@ -8,6 +8,27 @@
     "description": "A finger of silver that only comes up after dark, and comes up to light. Hang a lamp over the side and they find it by the dozen. Small, oily and quick to cook. Nobody's sure what they followed before there were lamps.",
     "food_noun": "herring",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 18,
+        "d": 3,
+        "h": 4,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#d8b8b0",
+        "cook": "#eee2d4",
+        "peak": "#e2c49a",
+        "over": "#b8864e",
+        "burnt": "#3a2618"
+      },
+      "look": {
+        "skin": "#c8d0d8",
+        "fins": "#8a98a4",
+        "flesh": "#d8b8b0"
+      }
+    },
     "needs_cooking": true,
     "raw_fish": true,
     "restore_hunger": 8,

@@ -9,6 +9,15 @@
     "food_noun": "water",
     "food_profile": "liquid",
     "hydrating": true,
+    "matter": {
+      "ramp": {
+        "raw": "#c8dce4",
+        "cook": "#cfe0e8",
+        "peak": "#d8e8ee",
+        "over": "#d0dce0",
+        "burnt": "#8a8a84"
+      }
+    },
     "restore_thirst": 10
   },
   "type": "consumable",

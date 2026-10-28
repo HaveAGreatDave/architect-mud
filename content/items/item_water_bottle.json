@@ -9,6 +9,15 @@
     "food_noun": "water",
     "food_profile": "liquid",
     "hydrating": true,
+    "matter": {
+      "ramp": {
+        "raw": "#d8eaf0"
+      },
+      "look": {
+        "pack": "bottle",
+        "label": "#4a9ad8"
+      }
+    },
     "restore_thirst": 40,
     "stackable": true
   },

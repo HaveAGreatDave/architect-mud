@@ -8,6 +8,21 @@
     "description": "A pale grey slab scored into four, hard enough to chip a tooth,. The best-before date on the sleeve is a decade away.",
     "food_noun": "bread",
     "food_profile": "bread",
+    "matter": {
+      "form": {
+        "kind": "slab",
+        "w": 9,
+        "d": 9,
+        "h": 1.2,
+        "round": 0.1
+      },
+      "ramp": {
+        "raw": "#c9c4b4"
+      },
+      "look": {
+        "spots": "#a29c8a"
+      }
+    },
     "restore_hunger": 11,
     "stackable": true
   },

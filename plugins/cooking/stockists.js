@@ -121,3 +121,10 @@ export async function whereToBuyAll(player, wants) {
   await index();
   return Promise.all(wants.map(w => whereToBuy(player, w)));
 }
+
+// Every item some vendor deals in. The kitchen's stock-up screen (stock.js) sells only these, so
+// delivery never brings anything the town doesn't sell.
+export async function stockedItemIds() {
+  const { byItem } = await index();
+  return [...byItem.keys()];
+}

@@ -6,6 +6,7 @@
 // `cook` is shared with synthesis (drug cooking); see cmdCook for the routing.
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { cmdKitchenStock, cmdKitchenOrder } from './stock.js';
 import { emit } from '../../server/engine/events.js';
 import { getZoneFurniture, getZone, updateFurniture } from '../../server/engine/world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -2159,6 +2160,8 @@ export const commands = {
   chopresolve: cmdChopResolve,
   dressplate: cmdDressPlate,
   dressresolve: cmdDressResolve,
+  kitchenstock: cmdKitchenStock,
+  kitchenorder: cmdKitchenOrder,
 };
 
 // What `examine <vessel>` adds: each ingredient's stage, the pan's fond and the

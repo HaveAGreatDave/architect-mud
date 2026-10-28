@@ -9,6 +9,16 @@
     "food_also": "liquid",
     "food_noun": "okonomi",
     "food_profile": "aromatic",
+    "matter": {
+      "ramp": {
+        "raw": "#3a1e12"
+      },
+      "look": {
+        "pack": "bottle",
+        "label": "#e94a2a",
+        "size": 0.8
+      }
+    },
     "perishable": true,
     "restore_hunger": 4,
     "spoil_rate": "slow",

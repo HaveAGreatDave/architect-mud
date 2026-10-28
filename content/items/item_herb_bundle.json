@@ -8,6 +8,24 @@
     "description": "Green stalks tied with wire, still smelling of the roof they were cut from. Fragile, perishable, and worth more than the meat it goes on if you get the timing right.",
     "food_noun": "herbed",
     "food_profile": "aromatic",
+    "matter": {
+      "form": {
+        "kind": "leaf",
+        "w": 14,
+        "d": 4,
+        "h": 2,
+        "round": 0.6
+      },
+      "ramp": {
+        "raw": "#3f7a34",
+        "cook": "#3a6e2e",
+        "peak": "#2f5a26",
+        "over": "#3a4a24"
+      },
+      "look": {
+        "stem": "#6b8a3a"
+      }
+    },
     "perishable": true,
     "restore_hunger": 1,
     "spoil_rate": "fast",

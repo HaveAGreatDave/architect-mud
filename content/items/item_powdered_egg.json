@@ -8,6 +8,23 @@
     "description": "A foil sachet of fine yellow dust with a shelf life measured in decades. Reconstitutes into something egg-shaped and egg-adjacent. It'll keep you upright until lunch.",
     "food_noun": "egg",
     "food_profile": "egg",
+    "matter": {
+      "form": {
+        "kind": "grain",
+        "w": 6,
+        "d": 6,
+        "h": 1.5
+      },
+      "ramp": {
+        "raw": "#f2d870",
+        "cook": "#f4e4a0",
+        "peak": "#f6eab8"
+      },
+      "look": {
+        "pack": "pouch",
+        "label": "#b8bcc0"
+      }
+    },
     "needs_cooking": true,
     "restore_hunger": 7,
     "stackable": true,

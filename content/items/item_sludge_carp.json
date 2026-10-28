@@ -8,6 +8,27 @@
     "description": "A swollen bottom-feeder the colour of wet cement, gulping filth in the shallows. Chewy, and it tastes of the bay it came from, but it's food, and it's cheap.",
     "food_noun": "carp",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 30,
+        "d": 9,
+        "h": 9,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#d8c0b0",
+        "cook": "#eee2d4",
+        "peak": "#e2c49a",
+        "over": "#b8864e",
+        "burnt": "#3a2618"
+      },
+      "look": {
+        "skin": "#8e8a7e",
+        "fins": "#6e6a5e",
+        "flesh": "#d8c0b0"
+      }
+    },
     "needs_cooking": true,
     "raw_fish": true,
     "restore_hunger": 10,

@@ -8,6 +8,19 @@
     "description": "A double handful of grey-green eggs in a slick of their own jelly. Better than it looks, which isn't a high bar.",
     "food_noun": "roe",
     "food_profile": "egg",
+    "matter": {
+      "form": {
+        "kind": "grain",
+        "w": 6,
+        "d": 6,
+        "h": 2
+      },
+      "ramp": {
+        "raw": "#7a8a6a",
+        "cook": "#9aa088",
+        "peak": "#a8a890"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 10,

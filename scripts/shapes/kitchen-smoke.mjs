@@ -38,7 +38,7 @@ for (const cls of Object.keys(PROFILES)) {
   if (!m) continue;
   for (const [k, keys] of Object.entries(KM.MATTER_KEYS)) {
     for (const kk of keys) {
-      if (k === 'ramp' || (k === 'form' && kk === 'round')) continue;
+      if (k === 'ramp' || k === 'look' || (k === 'form' && kk === 'round')) continue;   // look is all optional
       check(`matter: ${cls}.${k}.${kk} is set`, m[k]?.[kk] !== undefined);
     }
   }
@@ -117,6 +117,26 @@ for (const kind of ['pan', 'pot', 'tray', 'bowl', 'bread']) {
   for (let l = 0; l <= 10; l++) KS.flames(b, l, l * 0.37);
   for (let a = 0; a <= 1; a += 0.25) { KS.puff(b, [0, 0, 10], a); KS.bubble(b, [0, 0, 5], a); }
   check('mesh: plate, knife, knob, flames, steam and bubbles are sound', sound(b), b.n);
+}
+
+// Every food's own look (tags.matter): its whole self in the pan and on the counter, raw and done,
+// and a cut piece of it. A pack, a fin or a stalk that throws or writes NaN fails here.
+{
+  const fs = await import('node:fs');
+  const dir = new URL('../../content/items/', import.meta.url);
+  for (const file of fs.readdirSync(dir)) {
+    const item = JSON.parse(fs.readFileSync(new URL(file, dir), 'utf8'));
+    if (!item.tags?.matter) continue;
+    check(`matter: ${item.id} lints clean`, KM.matterProblems(item.tags.matter).length === 0, KM.matterProblems(item.tags.matter).join('; '));
+    const m = KM.matterFor(item.tags.food_profile, item.tags.matter), whole = K.footprint(m.form);
+    const b = M.createBatch(1 << 12);
+    for (const beat of ['raw', 'peak']) {
+      KS.foodPiece(b, m, whole, whole, beat, KS.pose([0, 0, 0], 0.3), 3);
+      KS.shelfPiece(b, m, whole, whole, beat, KS.pose([20, 0, 0], 0.3), 3);
+    }
+    if (m.cut.styles.length) KS.foodPiece(b, m, K.cutPieces(whole, [{ at: 0.5, tilt: 0 }])[0], whole, 'raw', KS.pose(), 4);
+    check(`mesh: ${item.id} draws and is sound`, b.n > 0 && sound(b), b.n);
+  }
 }
 
 console.log(`kitchen-smoke: ${pass}/${pass + fail} passed`);

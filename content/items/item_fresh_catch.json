@@ -8,6 +8,27 @@
     "description": "A dull-scaled bottom feeder, thick through the shoulder and still cold. Carp will live in water nothing else will, which is exactly why there's still carp. Best not to ask what it fed on.",
     "food_noun": "fish",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 30,
+        "d": 8,
+        "h": 9,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#e8c8b8",
+        "cook": "#eee2d4",
+        "peak": "#e2c49a",
+        "over": "#b8864e",
+        "burnt": "#3a2618"
+      },
+      "look": {
+        "skin": "#8a7a48",
+        "fins": "#6a5a30",
+        "flesh": "#e8c8b8"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "raw_fish": true,

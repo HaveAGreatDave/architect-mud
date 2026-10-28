@@ -8,6 +8,20 @@
     "description": "A sack of coarse pale crumb, ground from whatever crackers went stale. Binds, thickens, coats.",
     "food_noun": "cracker",
     "food_profile": "batter",
+    "matter": {
+      "form": {
+        "kind": "grain",
+        "w": 8,
+        "d": 8,
+        "h": 2
+      },
+      "ramp": {
+        "raw": "#e3cf9a"
+      },
+      "look": {
+        "pack": "sack"
+      }
+    },
     "needs_cooking": true,
     "restore_hunger": 9,
     "stackable": true,

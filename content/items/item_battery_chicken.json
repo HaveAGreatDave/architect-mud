@@ -8,6 +8,25 @@
     "description": "A leg and thigh still joined, skin on, pale as candle wax. Grown in a rack under lamps and never stood up. The skin crisps like it remembers being an animal.",
     "food_noun": "chicken",
     "food_profile": "dense_meat",
+    "matter": {
+      "form": {
+        "kind": "slab",
+        "w": 16,
+        "d": 10,
+        "h": 5,
+        "round": 0.7
+      },
+      "ramp": {
+        "raw": "#f0c8b8",
+        "cook": "#e8c08a",
+        "peak": "#c8883e",
+        "over": "#8a5224"
+      },
+      "look": {
+        "skin": "#f3e6d8",
+        "flesh": "#f0c8b8"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 20,

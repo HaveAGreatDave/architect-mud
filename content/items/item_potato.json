@@ -7,6 +7,23 @@
     "consumable": true,
     "description": "A knuckly grey tuber with a couple of eyes going. Vat-grown, three generations off anything that ever saw soil. Raw it's a chalky insult; cooked it's most of a meal.",
     "food_profile": "starchy_vegetable",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 9,
+        "d": 6.5,
+        "h": 5.5,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#f0e2b0"
+      },
+      "look": {
+        "skin": "#9a8e78",
+        "spots": "#5e5444",
+        "flesh": "#f0e2b0"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 18,

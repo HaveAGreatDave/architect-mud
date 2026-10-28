@@ -10,6 +10,13 @@
     "disease_risk": true,
     "food_noun": "filth",
     "food_profile": "liquid",
+    "matter": {
+      "ramp": {
+        "raw": "#4a3a24",
+        "cook": "#3e3020",
+        "peak": "#34281a"
+      }
+    },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 1,

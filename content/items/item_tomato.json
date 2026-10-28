@@ -7,6 +7,23 @@
     "consumable": true,
     "description": "Round, red, and startlingly convincing. Somebody's hydroponic pride. Good in your hand, good in a pan.",
     "food_profile": "soft_vegetable",
+    "matter": {
+      "form": {
+        "kind": "sphere",
+        "w": 7,
+        "d": 7,
+        "h": 6,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#e04a30"
+      },
+      "look": {
+        "skin": "#d8281e",
+        "stem": "#3e6a26",
+        "flesh": "#e04a30"
+      }
+    },
     "perishable": true,
     "restore_hunger": 8,
     "restore_thirst": 6,

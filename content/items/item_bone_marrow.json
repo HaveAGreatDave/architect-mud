@@ -8,6 +8,24 @@
     "description": "A split length of bone with the soft grey-pink centre exposed. Roast it and it goes to liquid gold. The richest thing you can get out of an animal.",
     "food_noun": "marrow",
     "food_profile": "fat_or_oil",
+    "matter": {
+      "form": {
+        "kind": "log",
+        "w": 12,
+        "d": 4,
+        "h": 4,
+        "round": 0.9
+      },
+      "ramp": {
+        "raw": "#d89a8a",
+        "cook": "#c8885a",
+        "peak": "#a86a3a"
+      },
+      "look": {
+        "skin": "#e8dcc8",
+        "flesh": "#d89a8a"
+      }
+    },
     "perishable": true,
     "restore_hunger": 12,
     "spoil_rate": "fast",

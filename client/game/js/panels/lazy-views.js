@@ -165,6 +165,7 @@ export const closeKitchenStage = ifLoaded(kitchen, 'closeKitchenStage');
 export const kitchenBeat = ifLoaded(kitchen, 'kitchenBeat');   // a no-op with no Stage open
 export const kitchenKnife = ifLoaded(kitchen, 'kitchenKnife'); // the server armed a cut; only sent with the Stage open
 export const kitchenDress = ifLoaded(kitchen, 'kitchenDress'); // the pan's contents to lay out on the pass
+export const kitchenStock = ifLoaded(kitchen, 'kitchenStock'); // the stock-up catalogue the Stage asked for
 
 // helm-mode.js (the Echelon chase view, via helm-view.js). Every helmSet* is a
 // no-op until a helm is open, so they only run once the module is loaded.

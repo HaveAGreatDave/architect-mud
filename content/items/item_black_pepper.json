@@ -8,6 +8,24 @@
     "description": "A twist of hard black corns that were worth more than gold once and are worth a day's wage now. Crack them fresh or don't bother.",
     "food_noun": "peppered",
     "food_profile": "aromatic",
+    "matter": {
+      "form": {
+        "kind": "grain",
+        "w": 3,
+        "d": 3,
+        "h": 1
+      },
+      "ramp": {
+        "raw": "#2a2420",
+        "cook": "#262020",
+        "peak": "#221c1c"
+      },
+      "look": {
+        "pack": "pouch",
+        "label": "#e9e2cf",
+        "size": 0.5
+      }
+    },
     "restore_hunger": 0,
     "stackable": true
   },

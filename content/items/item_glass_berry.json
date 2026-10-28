@@ -8,6 +8,23 @@
     "description": "A handful of translucent berries you can see the seeds through, grown on a wire frame under UV. Sharp, then sweet, then sharp again. They stain everything they touch.",
     "food_noun": "berry",
     "food_profile": "fruit",
+    "matter": {
+      "form": {
+        "kind": "cluster",
+        "w": 5,
+        "d": 5,
+        "h": 2,
+        "round": 1
+      },
+      "ramp": {
+        "raw": "#d8e8e4",
+        "cook": "#c8d8c8",
+        "peak": "#b8c4a8"
+      },
+      "look": {
+        "spots": "#6a5a4a"
+      }
+    },
     "perishable": true,
     "restore_hunger": 6,
     "spoil_rate": "fast",

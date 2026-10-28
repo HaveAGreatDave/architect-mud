@@ -517,6 +517,14 @@ export default async function regress({ run, check, getPlayer }) {
     let r = await run('cook nonexistent food');
     check('heating with nothing by that name errors cleanly', r?.type === 'error', JSON.stringify(r));
 
+    // Delivery (stock.js): beside this stove the catalogue is food and kit only, and an item nobody
+    // in town sells can't be ordered.
+    r = await run('kitchenstock');
+    check('kitchenstock sends the delivery catalogue', r?.type === 'kitchen_stock' && Array.isArray(r.items), JSON.stringify(r).slice(0, 300));
+    check('...and every line is food or kit at a price', (r?.items || []).every(i => (i.shelf === 'food' || i.shelf === 'kit') && i.price > 0));
+    r = await run('kitchenorder item_not_sold_anywhere 1');
+    check('kitchenorder refuses what nobody delivers', r?.type === 'error', JSON.stringify(r));
+
     await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, RAW]);
     const invId = randomUUID();
     await query(`INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)`, [invId, player.id, RAW]);
@@ -582,6 +590,8 @@ export default async function regress({ run, check, getPlayer }) {
       id: STOVE, name: 'test cooktop', description: 'a test cooktop', object_type: 'fixture',
       zone_id: Z, flags: JSON.stringify({ stove_tier: 'mid' }),
     }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id, power_draw_kw=NULL');
+    // Same id as the low stove above, whose ring `cook` lit at 2. A new stove starts off.
+    (await import('./heat.js'))._resetBurners();
 
     for (const [id, name, tags, weight] of [
       [STEAK, 'test steak', { consumable: true, needs_cooking: true, food_profile: 'dense_meat', restore_hunger: 20, stackable: true }, 400],

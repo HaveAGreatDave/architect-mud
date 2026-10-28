@@ -8,6 +8,16 @@
     "description": "A tin of ground red powder, sweet and smoky rather than hot. Stains everything it touches.",
     "food_noun": "smoky",
     "food_profile": "aromatic",
+    "matter": {
+      "ramp": {
+        "raw": "#b8381e"
+      },
+      "look": {
+        "pack": "tin",
+        "label": "#b0281a",
+        "size": 0.7
+      }
+    },
     "restore_hunger": 1,
     "stackable": true,
     "status_chance": {
