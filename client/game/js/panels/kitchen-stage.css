@@ -217,3 +217,9 @@
 @media (prefers-reduced-motion: reduce) {
   .ks-say div, .ks-rack-card.pop, .ks-rack-tool.pop, .ks-rack-tool.pop svg, .ks-cold-bar:not([hidden]), .ks-tip:not([hidden]) { animation: none; }
 }
+
+/* The utensil the pan wants right now pulses until you pick it up. */
+@keyframes ks-wants { 0%, 100% { box-shadow: 3px 3px 0 var(--ks-ink), 0 0 0 0 rgba(200, 50, 58, 0.7); } 50% { box-shadow: 3px 3px 0 var(--ks-ink), 0 0 0 6px rgba(200, 50, 58, 0); } }
+.ks-rack-tool.wants { border-color: var(--ks-red); animation: ks-wants 0.9s ease-out infinite; }
+.ks-rack-tool.wants:not(.on) svg { color: var(--ks-red); }
+@media (prefers-reduced-motion: reduce) { .ks-rack-tool.wants { animation: none; box-shadow: 3px 3px 0 var(--ks-red); } }

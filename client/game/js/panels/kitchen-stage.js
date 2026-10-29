@@ -1532,6 +1532,15 @@ function paintPolish(x, w, h, dt) {
       }
     }
   }
+  if (S.wanted && S.tool === S.wanted && S.hover && !c) {
+    const g = screenOf([S.hover[0] + 2, S.hover[1] - 3, S.hover[2] + 4]);
+    if (g) {
+      const tw = 0.5 + 0.5 * Math.sin(S.t * 8), px = g[0] * w, py = g[1] * h, rr = 6 + 8 * tw;
+      x.strokeStyle = `rgba(255,250,220,${0.5 + 0.5 * tw})`; x.lineWidth = 2; x.lineCap = 'round';
+      x.beginPath(); x.moveTo(px - rr, py); x.lineTo(px + rr, py); x.moveTo(px, py - rr); x.lineTo(px, py + rr);
+      x.moveTo(px - rr * 0.5, py - rr * 0.5); x.lineTo(px + rr * 0.5, py + rr * 0.5); x.moveTo(px + rr * 0.5, py - rr * 0.5); x.lineTo(px - rr * 0.5, py + rr * 0.5); x.stroke();
+    }
+  }
   S.pops = (S.pops || []).filter((p) => (p.t += dt * 2.8) < 1);
   for (const p of S.pops) {
     const px = p.x * w, py = p.y * h, e = 1 - (1 - p.t) * (1 - p.t);
@@ -1567,6 +1576,18 @@ const ICON = {
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ICON.pan}</svg>`;
 
+// The utensil the pan wants now: a food in its window (the server's phase) whose handle action is
+// a flip wants the spatula, a stir the spoon. Read from the payload only.
+function wantedTool() {
+  for (const c of panOf(S.data)?.contents || []) {
+    if (c.cook?.phase !== 'window') continue;
+    const h = actOf(c, 'handle');
+    if (h?.command.startsWith('flip ')) return 'spatula';
+    if (h?.command.startsWith('stir ')) return 'spoon';
+  }
+  return null;
+}
+
 function toolOk(t) { return !t.need || !!kit()[t.need]; }
 
 function paintRack() {
@@ -1579,9 +1600,12 @@ function paintRack() {
       ${icon(v.look.vessel)}<span class="ks-rack-name">${esc(v.name)}</span>
       <span class="ks-rack-sub">${v.hot ? 'on the heat' : n ? `${n} in it` : 'empty'}</span></button>`;
   }).join('') : '<div class="ks-rack-none">No pan out</div>';
+  const want = wantedTool();
+  if (want && want !== S.wanted) ksfx('kitchen-tap');
+  S.wanted = want;
   const toolsHtml = TOOLS.map((t) => {
     const ok = toolOk(t);
-    return `<button class="ks-rack-tool${S.tool === t.key ? ' on' : ''}${S.popped === 'tool:' + t.key ? ' pop' : ''}" data-tool="${t.key}" aria-pressed="${S.tool === t.key}"${ok ? '' : ' disabled'} title="${esc(ok ? t.hint : `You've no ${t.label.toLowerCase()} to hand`)}">${icon(t.key)}<span>${t.label}</span></button>`;
+    return `<button class="ks-rack-tool${S.tool === t.key ? ' on' : ''}${S.popped === 'tool:' + t.key ? ' pop' : ''}${want === t.key && ok ? ' wants' : ''}" data-tool="${t.key}" aria-pressed="${S.tool === t.key}"${ok ? '' : ' disabled'} title="${esc(!ok ? `You've no ${t.label.toLowerCase()} to hand` : want === t.key ? `It wants the ${t.label.toLowerCase()} now` : t.hint)}">${icon(t.key)}<span>${t.label}</span></button>`;
   }).join('');
   S.popped = null;
   el.innerHTML = `<div class="ks-label">Pans <kbd>[ ]</kbd></div>${pansHtml}<div class="ks-label">In hand <kbd>Q E</kbd></div><div class="ks-rack-tools">${toolsHtml}</div>`;
