@@ -115,7 +115,9 @@ void main() {
   vec3 p = skinPos(aPos), sn = skinDir(aNrm);
   float nl = dot(sn, sn);
   vec4 c = uVP * vec4(p, 1.0);
-  if (nl < 0.01 || c.w <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  // a vertex with no normal, or behind the eye, stays where it is unpushed: thrown off screen
+  // alone, it dragged its triangle across the picture with it
+  if (nl < 0.01 || c.w <= 0.0) { c.z += uInk.w * max(c.w, 0.0); gl_Position = c; return; }
   vec3 n = sn * inversesqrt(nl);
   vec4 cn = uVP * vec4(p + n * uInk.x, 1.0);
   vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uRes * 0.5;

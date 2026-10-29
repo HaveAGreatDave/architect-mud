@@ -5,7 +5,7 @@
 // on the screen (a world width, `uInk.x`, held between `uInk.y` and `uInk.z` pixels so a far body
 // keeps a line and a near one doesn't get a slab) and sets it a little behind itself (`uInk.w`), so
 // the body covers the inside and the line shows round its edge, and round anything held in front of
-// it. An unlit vertex (a zero normal) gets none.
+// it. An unlit vertex (a zero normal) gets none: it stays on the body, unpushed.
 //
 // Vertex layout: arena-mesh.js's, position at location 0 and normal at 1.
 export const INK_VS = `#version 300 es
@@ -18,7 +18,9 @@ uniform vec4 uInk;
 void main() {
   float nl = dot(aNor, aNor);
   vec4 c = uVP * vec4(aPos, 1.0);
-  if (nl < 0.01 || c.w <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  // a vertex with no normal, or behind the eye, stays where it is unpushed: thrown off screen
+  // alone, it dragged its triangle across the picture with it
+  if (nl < 0.01 || c.w <= 0.0) { c.z += uInk.w * max(c.w, 0.0); gl_Position = c; return; }
   vec3 n = aNor * inversesqrt(nl);
   vec4 cn = uVP * vec4(aPos + n * uInk.x, 1.0);
   vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uRes * 0.5;
