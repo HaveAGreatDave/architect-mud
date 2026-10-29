@@ -204,3 +204,16 @@
 }
 .ks-say div.gone { opacity: 0; }
 .ks-in-cold .ks-say { bottom: 80px; }
+
+/* Motion: captions slide up, a picked pan or utensil pops, the fridge bar rises in. */
+@keyframes ks-rise { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ks-pop { 0% { transform: scale(1); } 40% { transform: scale(1.08) rotate(-2deg); } 100% { transform: none; } }
+@keyframes ks-bar { from { transform: translate(-50%, 24px); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
+.ks-say div { animation: ks-rise 0.22s ease-out; }
+.ks-rack-card.pop, .ks-rack-tool.pop { animation: ks-pop 0.28s ease-out; }
+.ks-rack-tool.pop svg { animation: ks-pop 0.28s ease-out; }
+.ks-cold-bar:not([hidden]) { animation: ks-bar 0.3s ease-out; }
+.ks-tip:not([hidden]) { animation: ks-rise 0.12s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .ks-say div, .ks-rack-card.pop, .ks-rack-tool.pop, .ks-rack-tool.pop svg, .ks-cold-bar:not([hidden]), .ks-tip:not([hidden]) { animation: none; }
+}

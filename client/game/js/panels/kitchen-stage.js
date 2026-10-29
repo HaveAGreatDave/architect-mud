@@ -345,10 +345,11 @@ function liquidDepth(pan) {
 function frame(now) {
   if (!S) return;
   const dt = Math.min(0.1, (now - S.last) / 1000);
-  S.last = now; S.t += dt; S.acc += dt;
+  S.last = now; S.lastDt = dt; S.t += dt; S.acc += dt;
   while (S.acc >= STEP) { step(STEP); S.acc -= STEP; }
   moveCamera(now);
   stepCold(dt);
+  stepFog(dt);
   S.flash =Math.max(0, S.flash - dt * 4);
   S.shake = Math.max(0, S.shake - dt * 3);
   S.lines = Math.max(0, S.lines - dt * 3);
@@ -405,11 +406,14 @@ function build(dt) {
   const onHeat = !!pan?.hot, ringBusy = vesselsOf(d).some((v) => v.hot);
   KS.knob(b, level, KS.KNOB, KS.knobBase(S.hobKind));
   buildElement(b, level, dial?.ceiling ?? 10);
+  embers(b, level, dial?.ceiling ?? 10, dt);
+  buildFog(b);
   if (ringBusy || level > 0) KS.flames(b, ringBusy ? level : 0, S.t, KS.BURNER, KS.PAN_Z - 0.2);
   buildOtherPans(b);
   // the pan you're working with: on the ring, or on the rack beside it
   if (pan) {
     const at = PAN_AT(pan);
+    at[2] += hopZ(pan.id);
     const P = KS.pose(at, 0);
     KS.vessel(b, pan.look.vessel, P);
     if (vesselsOf(d).length > 1) KS.ring(b, [0, 0, 0.4], KS.vesselSpec(pan.look.vessel).r + 2.4, 0.55 + 0.15 * Math.sin(S.t * 5), PICKED, 28, P);
@@ -581,6 +585,7 @@ function paintFx() {
       x.beginPath(); x.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); x.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); x.stroke();
     }
   }
+  paintPolish(x, w, h, S.lastDt || 0.016);
   if (S.flash > 0.05) { x.fillStyle = `rgba(255,252,240,${S.flash * 0.6})`; x.fillRect(0, 0, w, h); }
 }
 
@@ -1053,6 +1058,7 @@ const PER_SHELF = 5;
 const DOOR_BINS = [14, 46, 78];                  // the door racks' floors, up from the box's foot
 const PER_BIN = 4;
 const DOOR_OPEN = 1.95;                          // radians, a touch past square
+const SHADOW = M.mix(M.rgb('#b9a888'), -0.25);
 const PICKED = M.rgb('#c8323a');
 const boxX = (i) => -132 - i * 72;
 const boxFront = (i) => [boxX(i), BOX.y0, 50];
@@ -1242,6 +1248,8 @@ function coldUse(hit, toBoard = false) {
     c.fly.push({ m, piece: pieceOf(m, it), whole: KS.piecesOf(m, []).whole, beat: beatOf(it.cook), from: insideSpot(c.i, hit.k), to: camera, arc: 10, t: 0, life: 0.45, scale: fitScale(m), shrink: true });
     c.gone.add(String(it.id));
     if (toBoard) S.pendingBoard = { id: String(it.id), name: it.name };
+    const sp = insideSpot(c.i, hit.k);
+    pop([sp[0], sp[1], sp[2] + 5]);
     run(take);
     ksfx('kitchen-tap');
   } else {
@@ -1251,6 +1259,7 @@ function coldUse(hit, toBoard = false) {
     const to = insideSpot(c.i, Math.min(coldInside(box).length, SHELVES.length * PER_SHELF - 1));
     c.fly.push({ m, piece: pieceOf(m, x.comp), whole: KS.piecesOf(m, []).whole, beat: beatOf(x.comp.cook), from: doorSpot(c.i, doorAngle(c.open), hit.k), to, arc: 14, t: 0, life: 0.5, scale: fitScale(m), shrink: false });
     c.gone.add(String(x.put.id));
+    pop(doorSpot(c.i, doorAngle(c.open), hit.k), '#2b3a63');
     run(x.put);
     ksfx('kitchen-clink');
   }
@@ -1363,6 +1372,108 @@ function buildElement(b, level, max) {
   if (!vesselsOf(S.data).some((v) => v.hot) && Math.random() < k * 0.15) S.puffs.push({ p: [x + (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, 4], age: 0, life: 0.9, c: KS.COLOURS.steam, size: 0.5 });
 }
 
+// ── polish: fog, light, pops, hops, shimmer ──────────────────────────────────────────────────────
+// All picture: nothing here reads or sends anything the server decides.
+
+// Cold air spills out of an open box and sinks to the floor; a freezer spills more of it.
+function stepFog(dt) {
+  S.fog ||= [];
+  const c = S.cold, box = coldBox();
+  if (c && box && c.open > 0.3) {
+    const frozen = box.preserves === 'frozen', rate = (frozen ? 7 : 3) * Math.min(1, c.open);
+    if (Math.random() < dt * rate) {
+      const x = boxX(c.i) + (Math.random() - 0.5) * (BOX.w - 8), z = SHELVES[Math.floor(Math.random() * 2)] + 1;   // from the bottom shelves, so it never hides the food
+      S.fog.push({ p: [x, BOX.y0 - 3, z], v: [(Math.random() - 0.5) * 6, -18 - Math.random() * 10, -8 - Math.random() * 6], age: 0, life: 1.1 + Math.random() * 0.6, r: 1.2 + Math.random() * 1.2 });
+    }
+  }
+  S.fog = S.fog.filter((f) => (f.age += dt / f.life) < 1);
+  for (const f of S.fog) { for (let i = 0; i < 3; i++) f.p[i] += f.v[i] * dt; f.v[2] -= 4 * dt; f.v[1] *= 0.98; }
+}
+const FOG = M.rgb('#eef6fb');
+function buildFog(b) {
+  for (const f of S.fog || []) {
+    const k = 1 - f.age, s = f.r * (0.6 + f.age * 1.8);
+    if (k > 0.05) M.sphere(b, f.p, s * (0.5 + 0.5 * k), FOG, 7, 4);
+  }
+}
+
+// A burst of ink lines and dots where something was picked, the manga "pop".
+function pop(p3, col = '#c8323a') {
+  const s = screenOf(p3);
+  if (!s) return;
+  (S.pops ||= []).push({ x: s[0], y: s[1], t: 0, col });
+}
+function hop(id) { (S.hops ||= new Map()).set(String(id), S.t); }
+const hopZ = (id) => {
+  const t0 = S.hops?.get(String(id));
+  if (t0 == null) return 0;
+  const k = (S.t - t0) / 0.45;
+  if (k >= 1) { S.hops.delete(String(id)); return 0; }
+  return Math.sin(k * Math.PI) * 5 * (1 - k * 0.5);
+};
+
+// Embers off a ring at the top of the dial.
+function embers(b, level, max, dt) {
+  S.embers ||= [];
+  const k = level / Math.max(1, max);
+  if (k > 0.7 && Math.random() < dt * 30 * (k - 0.6)) {
+    const a = Math.random() * Math.PI * 2, r = 5 + Math.random() * 6;
+    S.embers.push({ p: [KS.STATIONS.hob + Math.cos(a) * r, Math.sin(a) * r, 3.5], v: [(Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, 18 + Math.random() * 20], age: 0 });
+  }
+  S.embers = S.embers.filter((e) => (e.age += dt * 1.3) < 1);
+  for (const e of S.embers) {
+    for (let i = 0; i < 3; i++) e.p[i] += e.v[i] * dt;
+    M.sphere(b, e.p, 0.35 * (1 - e.age), e.age < 0.5 ? ELEMENT[3] : ELEMENT[2], 5, 3);
+  }
+}
+
+// The 2-D layer: the light inside an open box, frost glints in a freezer, heat shimmer over a
+// hot ring, and the pops.
+function paintPolish(x, w, h, dt) {
+  const c = S.cold, box = coldBox();
+  if (c && box && c.open > 0.05) {
+    const s = screenOf([boxX(c.i), BOX.y0 + BOX.d * 0.6, 60]);
+    if (s) {
+      const frozen = box.preserves === 'frozen', k = Math.min(1, c.open) * (0.92 + 0.08 * Math.sin(S.t * 2));
+      const g = x.createRadialGradient(s[0] * w, s[1] * h, 0, s[0] * w, s[1] * h, h * 0.55);
+      g.addColorStop(0, frozen ? `rgba(200,230,255,${0.35 * k})` : `rgba(255,248,220,${0.38 * k})`);
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.fillRect(0, 0, w, h);
+      if (frozen) for (let i = 0; i < 14; i++) {
+        const tw = Math.max(0, Math.sin(S.t * 3 + i * 2.7));
+        if (tw < 0.85) continue;
+        const px = (s[0] + (hash('f' + i) - 0.5) * 0.3) * w, py = (s[1] + (hash('g' + i) - 0.5) * 0.6) * h, r = 2 + 5 * (tw - 0.85) / 0.15;
+        x.strokeStyle = `rgba(255,255,255,${tw})`; x.lineWidth = 1.5;
+        x.beginPath(); x.moveTo(px - r, py); x.lineTo(px + r, py); x.moveTo(px, py - r); x.lineTo(px, py + r); x.stroke();
+      }
+    }
+  }
+  const dial = dialOf(S.data), level = S.wheel ? S.wheel.level : dial?.level || 0, max = dial?.ceiling ?? 10;
+  if (!c && level > 0 && S.station === 'hob') {
+    const s = screenOf([KS.STATIONS.hob, 0, KS.PAN_Z + 14]), k = level / max;
+    if (s) {
+      x.strokeStyle = `rgba(255,240,220,${0.12 + 0.25 * k})`; x.lineWidth = 2;
+      for (let i = 0; i < 3 + Math.round(k * 4); i++) {
+        const ox = s[0] * w + (i - 3) * 14, oy = s[1] * h;
+        x.beginPath();
+        for (let j = 0; j <= 10; j++) { const y = oy - j * 7, xx = ox + Math.sin(j * 0.9 + S.t * 6 + i) * 3 * k; j ? x.lineTo(xx, y) : x.moveTo(xx, y); }
+        x.stroke();
+      }
+    }
+  }
+  S.pops = (S.pops || []).filter((p) => (p.t += dt * 2.8) < 1);
+  for (const p of S.pops) {
+    const px = p.x * w, py = p.y * h, e = 1 - (1 - p.t) * (1 - p.t);
+    x.strokeStyle = p.col; x.fillStyle = p.col; x.globalAlpha = 1 - p.t; x.lineWidth = 3; x.lineCap = 'round';
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4 + 0.2, r0 = 10 + 22 * e, r1 = r0 + 10 * (1 - p.t);
+      x.beginPath(); x.moveTo(px + Math.cos(a) * r0, py + Math.sin(a) * r0); x.lineTo(px + Math.cos(a) * r1, py + Math.sin(a) * r1); x.stroke();
+    }
+    x.beginPath(); x.arc(px, py, 26 * e, 0, Math.PI * 2); x.lineWidth = 2; x.stroke();
+    x.globalAlpha = 1;
+  }
+}
+
 // ── the pans and the utensils ────────────────────────────────────────────────────────────────────
 // The rack down the right: every pan out in the kitchen, and the utensil in your hand. Picking a
 // pan makes it the one food goes into and the one the hob gestures work on; picking a utensil
@@ -1393,14 +1504,15 @@ function paintRack() {
   el.hidden = false;
   const pansHtml = pans.length ? pans.map((v, i) => {
     const n = (v.contents || []).length;
-    return `<button class="ks-rack-card${v === pan ? ' on' : ''}" data-pan="${esc(String(v.id))}" aria-pressed="${v === pan}" title="${esc(v.name)}, ${esc(v.place || '')}${i < 9 ? '' : ''}">
+    return `<button class="ks-rack-card${v === pan ? ' on' : ''}${S.popped === 'pan:' + v.id ? ' pop' : ''}" data-pan="${esc(String(v.id))}" aria-pressed="${v === pan}" title="${esc(v.name)}, ${esc(v.place || '')}">
       ${icon(v.look.vessel)}<span class="ks-rack-name">${esc(v.name)}</span>
       <span class="ks-rack-sub">${v.hot ? 'on the heat' : n ? `${n} in it` : 'empty'}</span></button>`;
   }).join('') : '<div class="ks-rack-none">No pan out</div>';
   const toolsHtml = TOOLS.map((t) => {
     const ok = toolOk(t);
-    return `<button class="ks-rack-tool${S.tool === t.key ? ' on' : ''}" data-tool="${t.key}" aria-pressed="${S.tool === t.key}"${ok ? '' : ' disabled'} title="${esc(ok ? t.hint : `You've no ${t.label.toLowerCase()} to hand`)}">${icon(t.key)}<span>${t.label}</span></button>`;
+    return `<button class="ks-rack-tool${S.tool === t.key ? ' on' : ''}${S.popped === 'tool:' + t.key ? ' pop' : ''}" data-tool="${t.key}" aria-pressed="${S.tool === t.key}"${ok ? '' : ' disabled'} title="${esc(ok ? t.hint : `You've no ${t.label.toLowerCase()} to hand`)}">${icon(t.key)}<span>${t.label}</span></button>`;
   }).join('');
+  S.popped = null;
   el.innerHTML = `<div class="ks-label">Pans <kbd>[ ]</kbd></div>${pansHtml}<div class="ks-label">In hand <kbd>Q E</kbd></div><div class="ks-rack-tools">${toolsHtml}</div>`;
 }
 
@@ -1414,6 +1526,8 @@ function pickPan(id, e = null) {
     return openMenu(menuFor({ kind: 'pan' }), r ? { clientX: r.left - 190, clientY: r.top } : e);
   }
   S.vesselId = v.id;
+  hop(v.id);
+  S.popped = 'pan:' + v.id;
   syncBodies(); syncLiquid();
   if (S.station !== 'hob') go('hob');
   ksfx('kitchen-clink');
@@ -1429,6 +1543,7 @@ function setTool(key) {
   const t = TOOLS.find((x) => x.key === key);
   if (!t || !toolOk(t)) return;
   S.tool = key;
+  S.popped = 'tool:' + key;
   ksfx(key === 'knife' ? 'kitchen-thock' : 'kitchen-tap');
   paintRack();
 }
@@ -1442,7 +1557,9 @@ function buildOtherPans(b) {
   const pan = panOf(S.data);
   for (const v of vesselsOf(S.data)) {
     if (v === pan) continue;
-    const at = PAN_AT(v), P = KS.pose(at, 0), spec = KS.vesselSpec(v.look.vessel);
+    const at = PAN_AT(v);
+    at[2] += hopZ(v.id);
+    const P = KS.pose(at, 0), spec = KS.vesselSpec(v.look.vessel);
     KS.vessel(b, v.look.vessel, P);
     let k = 0;
     for (const c of v.contents || []) {
@@ -1476,6 +1593,8 @@ function buildTool(b) {
   const h = S.hover;
   if (!h || S.cold || S.drag?.kind === 'pan' && S.spoon || S.tool === 'hand') return;
   const at = [h[0], h[1], h[2]], col = KS.COLOURS.handle, steel = KS.COLOURS.blade;
+  // a soft shadow on the counter under the utensil, so you can tell how high it is
+  M.disc(b, [at[0], at[1], 0.3], [0, 0, 1], 3.2, SHADOW, 14, 0.05);
   if (S.tool === 'spoon') {
     M.ellipsoid(b, at, [1, 0, 0], [0, 1, 0], [0, 0, 1], [2, 1.4, 0.6], steel, 10, 5);
     M.tube(b, [at[0] + 1.5, at[1] - 1, at[2] + 0.3], [at[0] + 6, at[1] - 9, at[2] + 16], 0.45, 0.55, col, 6);
