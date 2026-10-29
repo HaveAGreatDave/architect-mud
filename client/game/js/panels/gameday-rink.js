@@ -48,9 +48,9 @@ const CONTACT = new Set(['receive', 'pass', 'tick', 'stick', 'poke', 'boards', '
 // Jumbotron cards: the same sportsfx graphics tv.js would take the whole screen with,
 // rendered compact over the rink so the ice stays visible. A goal has none: the lamp, the
 // horn and the wipe into the replay announce it, and a card sat over the scorer's
-// celebration (the full-screen TV card still shows it).
+// celebration (the full-screen TV card still shows it). A fight has none either: the rink's
+// own WINNER banner names both men.
 const CARD = {
-  hockeyfight: (fx) => ({ title: 'GLOVES OFF', sub: `${fx.winner} def. ${fx.loser}`, cls: 'out', club: fx.team }),
   hockeydeath: (fx) => ({ title: 'SUDDEN DEATH', sub: fx.player || '', cls: 'dead' }),
   hockeycup: (fx) => ({ title: 'COLDWATER CUP', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
   matchup: (fx) => ({ title: 'CLUSTER PUCK', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: '' }),

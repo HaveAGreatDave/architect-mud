@@ -442,10 +442,10 @@ body(skaters[8], 'skater missing his head', null, BUD);
   for (const v of fi.data) if (!Number.isFinite(v)) fin = false;
   check('each fan is in his seat\'s group, and every number is finite', inGroup && fin);
   check('some of them are the visitors\' fans', (() => { let n = 0; for (let k = 0; k < total; k++) if (fi.data[k * C.INST + 7] < 0) n++; return n > total * 0.03 && n < total * 0.2; })());
-  // the near stands are hidden from the broadcast cameras, the left end from the vertical one
+  // the near stands are hidden from the broadcast cameras; the vertical one sees the whole ring
   const hid = (view, x, y, z) => { const h = C.hideFor(view); return h[0] * x + h[1] * y + h[2] * z + h[3] > 0; };
   check('the broadcast view hides the near stands and not the far', hid('broadcast', 100, -20, 10) && !hid('broadcast', 100, 120, 10) && !hid('broadcast', -20, 40, 10));
-  check('the vertical view hides the stand behind it and not the far end', hid('vertical', -20, 40, 10) && !hid('vertical', 220, 40, 10) && !hid('vertical', 100, -20, 10));
+  check('the vertical view draws the stands all the way round', !hid('vertical', -20, 40, 10) && !hid('vertical', 220, 40, 10) && !hid('vertical', 100, -20, 10));
   const BB = [0, 1, 2, 3].map(() => M.createBatch(1 << 15));
   C.buildBowl(M, BB);
   check('the bowl builds in all four layers, finite', BB.every((b) => b.n > 0 && finite(b)), BB.map((b) => b.n).join(','));

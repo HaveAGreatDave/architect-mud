@@ -15,9 +15,11 @@
 //     fans wear theirs, a few scattered and the rest in one corner. Each side stands up for its
 //     own goals.
 //   · WHAT EACH VIEW SHOWS. The broadcast cameras sit in the near stands, so the near side isn't
-//     drawn for them (it would stand between the lens and the ice); the vertical camera looks
-//     down the sheet from the left end, so that end isn't drawn for it. `HIDE` is the plane each
-//     view drops, and the bowl's static seats are built in four layers by the same two tests.
+//     drawn for them (it would stand between the lens and the ice). The vertical camera looks
+//     down the sheet from above the left end (rink/camera.js keeps its eye clear of the bowl),
+//     so it draws the whole ring and drops only the fans within `NEAR_R` of its eye. `HIDE` is
+//     the plane each view drops, and the bowl's static seats are built in four layers by
+//     `layerOf`.
 //
 // Pure apart from the shaders' source: no DOM, no GL. arena.js owns the buffers and the draw.
 
@@ -28,7 +30,9 @@ export const ROWS = 16, ROW_D = 3, ROW_Z = 2.2, D0 = 4, Z0 = 4.2, SEAT_W = 2.2;
 export const rowD = (i) => D0 + ROW_D * i, rowZ = (i) => Z0 + ROW_Z * i;
 // The plane a view drops: [a, b, c, d], a point with a·x + b·y + c·z + d > 0 isn't drawn.
 export const HIDE = { near: [0, -1, 0, -1], left: [-1, 0, 0, -1], none: [0, 0, 0, -1] };
-export const hideFor = (view) => (view === 'vertical' ? HIDE.left : HIDE.near);
+export const hideFor = (view) => (view === 'vertical' ? HIDE.none : HIDE.near);
+// how close to the eye a fan may sit before he's dropped, ft
+export const NEAR_R = 14;
 // which of the bowl's four layers a point is in: 1 on the near side, 2 at the left end
 export const layerOf = (x, y) => (y < -1 ? 1 : 0) + (x < -1 ? 2 : 0);
 
@@ -147,7 +151,7 @@ export function buildBowl(M, batches) {
 
 // The fans' vertex shader: gl/crowd.js's, on the rink's axes. The figure is built facing +z with
 // y up (ballpark-mesh.js); here it faces `yaw` across the rink with z up. A fan past the view's
-// `uHide` plane is put outside the picture.
+// `uHide` plane, or within uNear.w of the eye (uNear.xyz), is put outside the picture.
 export const RINK_CROWD_VS = `#version 300 es
 layout(location = 0) in vec3 aSit;
 layout(location = 1) in vec3 aSitN;
@@ -165,10 +169,11 @@ uniform vec2 uRoar;
 uniform float uT;
 uniform float uMove;
 uniform vec4 uHide;
+uniform vec4 uNear;
 out vec3 vPos; out vec3 vN; out vec3 vAlb;
 float hash(vec2 p, vec2 k, float m) { return fract(sin(dot(p, k)) * m); }
 void main() {
-  if (dot(uHide.xyz, iA.xyz) + uHide.w > 0.0) { vPos = vec3(0.0); vN = vec3(0.0, 0.0, 1.0); vAlb = vec3(0.0); gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  if (dot(uHide.xyz, iA.xyz) + uHide.w > 0.0 || distance(iA.xyz, uNear.xyz) < uNear.w) { vPos = vec3(0.0); vN = vec3(0.0, 0.0, 1.0); vAlb = vec3(0.0); gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   float h = hash(iA.xy, vec2(12.99, 78.23), 43758.5), h2 = hash(iA.xy, vec2(39.35, 11.13), 24634.6);
   float roar = iB.w < 0.0 ? uRoar.y : uRoar.x;
   float thr = 0.12 + 0.75 * h2, up = smoothstep(thr, thr + 0.18, roar);

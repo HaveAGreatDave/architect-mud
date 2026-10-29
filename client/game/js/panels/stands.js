@@ -14,7 +14,7 @@ import { sendCmd, sendRaw } from '../net.js';
 import { loadCss } from '../../../shared/dom.js';
 import { addTvView } from './tv.js';
 import { wantClubs } from './club-crest.js';
-import { wantVenue } from './venue.js';
+import { wantVenue, venueOf } from './venue.js';
 
 const CSS = await loadCss(new URL('./stands.css', import.meta.url));
 function ensureStyles() {
@@ -114,6 +114,9 @@ export async function openStands(msg) {
   const seat = { eye: msg.section.eye, mode: 'follow', fov: msg.sport === 'hockey' ? 64 : 50, yaw: null, pitch: null };
   const ui = { root, seat, view: null, unview: null, channelId: msg.channelId, sport: msg.sport, got: false };
   seatUi = ui;
+  // The city round the park comes with the venue, and only a game's first payload carries its
+  // venueRev, so a seat taken mid-game would never ask and sit in a park with no skyline.
+  if (!venueOf(msg.sport)) sendRaw({ type: 'tv_venue', sport: msg.sport });
 
   let view;
   try {

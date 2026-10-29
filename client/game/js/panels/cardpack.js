@@ -182,7 +182,8 @@ export function openCardMachinePanel(msg) {
     if (!btn) return;
     if (btn.disabled) { sfx('cards-deny'); return; }
     sfx('cards-ui');
-    if (btn.id === 'vm-open') { machine.justVended = false; mounted.close(); sendCmdSilent(machine.data.openCmd || 'openpack'); return; }
+    // Read the verb before closing: onClose nulls `machine`.
+    if (btn.id === 'vm-open') { const cmd = machine.data.openCmd || 'openpack'; mounted.close(); sendCmdSilent(cmd); return; }
     // The coil travels with the verb. A typed `buypack confirm` with no code is
     // still valid — the server falls back to the fullest coil — so the panel and
     // the keyboard reach the same machine.

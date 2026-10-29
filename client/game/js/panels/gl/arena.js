@@ -35,7 +35,7 @@ import * as M from './arena-mesh.js';
 import { crowdMorph, CROWD_MORPH } from './ballpark-mesh.js';
 import { GATE_Y, GATE_HALF } from '../rink/zamboni.js';
 import { paintLivery } from '../rink/livery.js';
-import { RINK_CROWD_VS, RINK_CROWD_FS, INST as CROWD_INST, ROWS as BOWL_ROWS, ROW_D, rowD, rowZ, buildBowl, crowdInstances, hideFor, roarOf } from './arena-crowd.js';
+import { RINK_CROWD_VS, RINK_CROWD_FS, INST as CROWD_INST, ROWS as BOWL_ROWS, ROW_D, rowD, rowZ, buildBowl, crowdInstances, hideFor, NEAR_R, roarOf } from './arena-crowd.js';
 import { paintCrest, paintLayers, settCanvas } from '../club-crest.js';
 import { makeVertexStream } from './stream.js';
 import { INK_VS, INK_FS } from './ink.js';
@@ -841,7 +841,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     for (const [loc, size, off] of [[3, 4, 0], [4, 4, 16], [5, 3, 32]]) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, CROWD_INST * 4, off); gl.vertexAttribDivisor(loc, 1); }
     gl.bindVertexArray(null);
     let fanKey = null, fanGroups = null;
-    function drawFans(vp, shake, view) {
+    function drawFans(vp, shake, view, eye) {
       const K = W0.kits || {}, key = [K.a?.jersey, K.a?.trim, K.h?.jersey, K.h?.trim].join('|');
       if (key !== fanKey) { fanKey = key; const fi = crowdInstances(K); fanGroups = fi; gl.bindBuffer(gl.ARRAY_BUFFER, fanIb); gl.bufferData(gl.ARRAY_BUFFER, fi.data, gl.STATIC_DRAW); }
       const share = clamp(W0.gate ?? 0.7, 0, 1) * clamp(api.quality.crowd ?? 1, 0, 1);
@@ -851,12 +851,13 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.uniformMatrix4fv(FANS.u('uVP'), false, vp); gl.uniform2fv(FANS.u('uShake'), shake);
       gl.uniform2f(FANS.u('uRoar'), roar[0], roar[1]); gl.uniform1f(FANS.u('uT'), W.t || 0); gl.uniform1f(FANS.u('uMove'), 1);
       gl.uniform4fv(FANS.u('uHide'), hideFor(view));
+      gl.uniform4f(FANS.u('uNear'), eye[0], eye[1], eye[2], view === 'vertical' ? NEAR_R : 0);
       gl.uniform1f(FANS.u('uDim'), 0.62); gl.uniform1f(FANS.u('uMourn'), W.mourning || 0);
       // (each group the view shows, from its first seat, its own instance attributes moved on to it)
       const vert = view === 'vertical';
       gl.bindVertexArray(fanVao); gl.bindBuffer(gl.ARRAY_BUFFER, fanIb);
       for (let i = 0; i < 4; i++) {
-        if (((i & 1) && !vert) || ((i & 2) && vert)) continue;
+        if ((i & 1) && !vert) continue;
         const n = Math.round(fanGroups.count[i] * share), base = fanGroups.start[i] * CROWD_INST * 4;
         if (n <= 0) continue;
         for (const [loc, size, off] of [[3, 4, 0], [4, 4, 16], [5, 3, 32]]) gl.vertexAttribPointer(loc, size, gl.FLOAT, false, CROWD_INST * 4, base + off);
@@ -968,8 +969,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       // the bowl, less the stands this view's camera stands in, and the fans in it
       // (by the view the camera is in, which a fight swings to broadcast: camera.js `shown`)
       const shown = rp ? 'broadcast' : camera.shown || api.view, vert = shown === 'vertical';
-      for (let i = 0; i < 4; i++) if (!((i & 1) && !vert) && !((i & 2) && vert)) draw(L.bowl[i]);
-      drawFans(vp, shake, shown);
+      for (let i = 0; i < 4; i++) if (!((i & 1) && !vert)) draw(L.bowl[i]);
+      drawFans(vp, shake, shown, eye);
       if (api.ink) { drawInk(vp, shake, w, h, u); }
       useLit(vp, eye, shake, -1e9);
       draw(L.stat); draw(L.ads, texAds);
