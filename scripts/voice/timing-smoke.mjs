@@ -61,7 +61,7 @@ const ms = (s) => `${(s * 1000).toFixed(0)} ms`;
 // One line's trace, each phoneme with its scheduled length.
 function speak(text, voice = {}) {
   const trace = [];
-  A.speak(text, { seed: 'Dex Rime', backend: 'graph', trace, voice });
+  A.speak(text, { seed: 'Dex Rime', backend: 'graph', trace, voice, fresh: true });
   A.cancelSpeech();
   const segs = trace.slice(0, -1).map((e, i) => ({ ...e, len: trace[i + 1].at - e.at }));
   return { segs, end: trace[trace.length - 1] };
@@ -89,6 +89,36 @@ const vowel = (r, code, n = 0) => { const v = r.segs.filter(s => s.p === code); 
   check('...and its coda too', finD > midD, `final /d/ ${ms(finD)}, mid ${ms(midD)}`);
   const comma = vowel(speak('We took the road, and left.'), 'OW', -1);
   check('a comma lengthens less than a full stop', comma < fin && comma > mid, `stop ${ms(fin)}, comma ${ms(comma)}, mid ${ms(mid)}`);
+}
+
+// ── Clipping through a sonorant, and stress-timed feet ─────────────────────────
+{
+  const d = vowel(speak('bend'), 'EH'), t = vowel(speak('bent'), 'EH');
+  check('"bend" holds its vowel longer than "bent"', d > t * 1.08, `bend ${ms(d)}, bent ${ms(t)}`);
+  const nd = speak('bend').segs.find(s => s.p === 'N').len, nt = speak('bent').segs.find(s => s.p === 'N').len;
+  check('...and its nasal too', nd > nt * 1.1, `bend /n/ ${ms(nd)}, bent ${ms(nt)}`);
+  // "the" shares the foot from "Ask" with one unstressed vowel, then with three
+  const short = speak('Ask the man.'), long = speak('Ask him of the man.');
+  const th = (r) => vowel(r, 'AX', -1), ask = (r) => vowel(r, 'AE');
+  check('an unstressed vowel is shorter in a longer foot', th(long) < th(short) * 0.95, `long foot ${ms(th(long))}, short ${ms(th(short))}`);
+  check('...and so is the foot\'s stressed head', ask(long) < ask(short), `long foot ${ms(ask(long))}, short ${ms(ask(short))}`);
+}
+
+// ── Tempo arch, asides, given across lines ─────────────────────────────────────
+{
+  // the same "the" near the start of a long phrase and in its middle
+  const r = speak('The dog ran over the long wet sand to the boats and back.');
+  const ths = r.segs.filter(s => s.p === 'DH');
+  check('a phrase runs quicker through its middle', ths[1].len < ths[0].len, `start ${ms(ths[0].len)}, middle ${ms(ths[1].len)}`);
+  const er = (t) => vowel(speak(t), 'ER');
+  const aside = er('The man (a sailor) was here.'), plain = er('The man, a sailor, was here.');
+  check('an aside in parentheses reads quicker', aside < plain * 0.95, `aside ${ms(aside)}, commas ${ms(plain)}`);
+  const accents = (text, opt) => { const tr = []; A.speak(text, { seed: 'Dex Rime', backend: 'graph', trace: tr, ...opt }); return tr.filter(e => e.acc).length; };
+  A.cancelSpeech();
+  accents('Rourke has the puck.');
+  const given = accents('Rourke shoots it.', { queue: true }); A.cancelSpeech();
+  const fresh = accents('Rourke shoots it.', { fresh: true }); A.cancelSpeech();
+  check('a name said on the channel a line ago loses its accent', given < fresh, `after ${given} accents, fresh ${fresh}`);
 }
 
 // ── Stress ──────────────────────────────────────────────────────────────────────

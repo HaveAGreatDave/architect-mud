@@ -85,7 +85,7 @@ check('the worklet module loads', await A.loadVoiceWorklet() === true);
 function speak(text, voice = {}) {
   made.length = 0;
   const trace = [];
-  A.speak(text, { seed: 'Dex Rime', backend: 'worklet', trace, voice });
+  A.speak(text, { seed: 'Dex Rime', backend: 'worklet', trace, voice, fresh: true });
   A.cancelSpeech();
   const line = made.filter(m => m.name === 'oracle-voice').pop()?.posted.find(m => m.type === 'line');
   if (!line) return null;

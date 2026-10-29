@@ -2599,7 +2599,9 @@
       _M:{t:'P',d:80,minor:1},     // a minor break nobody wrote (placeAccents); lighter than a comma
       _C:{t:'P',d:150},            // comma: the lightest written break
       _S:{t:'P',d:260},            // semicolon / colon
-      _D:{t:'P',d:190},            // dash, parenthesis
+      _D:{t:'P',d:190},            // dash
+      _PO:{t:'P',d:190},           // open parenthesis: an aside starts (lower, quicker)
+      _PC:{t:'P',d:190},           // close parenthesis: it ends
       _E:{t:'P',d:430,term:1},     // ellipsis
       __:{t:'P',d:250,term:1},     // full stop
       _X:{t:'P',d:200,term:1},     // exclamation
@@ -2672,6 +2674,9 @@
     // Per-utterance lexicon (speak(..., { lex }), e.g. books.pronunciation), checked
     // first. Module-scoped is safe only because text-to-phoneme is synchronous.
     let _lex = null;
+    // Content words said on the channel recently (speak sets it around textToPhonemes);
+    // placeAccents leaves the line's words in _said for speak to keep.
+    let _given = null, _said = null;
     function lexLook(w){
       if (!_lex) return null;
       const v = _lex[w];
@@ -3341,7 +3346,8 @@ return out;
 
       // 2. Given/new: a content word already said in this line loses its accent,
       // unless it is in caps or follows a contrast word.
-      const said = new Set(); let p1 = null, p2 = null;
+      // `_given` carries the words a channel said in its last few lines.
+      const said = new Set(_given || []); let p1 = null, p2 = null;
       for (const e of seq) {
         if (!isWord(e)) continue;
         if (!e.func) {
@@ -3352,6 +3358,7 @@ return out;
         }
         p2 = p1; p1 = e;
       }
+      _said = said;
 
       // 3. Minor breaks in a long unpunctuated stretch, replacing the juncture before a
       // conjunction or preposition that follows a content word.
@@ -3455,7 +3462,8 @@ return out;
         if (/^\.{2,}$|^…$/.test(tok)) { pushBreak('_E'); continue; }
         if (/^,$/.test(tok))          { pushBreak('_C'); continue; }
         if (/^[;:]$/.test(tok))       { pushBreak('_S'); continue; }
-        if (/^(—|–|-{2,}|[()])$/.test(tok)) { pushBreak('_D'); continue; }
+        if (/^(—|–|-{2,})$/.test(tok)) { pushBreak('_D'); continue; }
+        if (tok === '(' || tok === ')') { pushBreak(tok === '(' ? '_PO' : '_PC'); continue; }
         if (/^\.$/.test(tok)) {
           // Not a sentence end after an abbreviation or a single letter ("J. Vale").
           const prev = (i ? toks[i-1] : '').replace(/[^A-Za-z]/g, '');
@@ -3647,6 +3655,60 @@ return out;
       }
       return n;
     }
+    // Per index: how many unstressed vowels share its foot (a stressed vowel up
+    // to the next one; a break starts a new foot). Stress-timed rhythm squeezes
+    // a long foot, so "the CAT" and "the CATalogue" reach the next beat together.
+    function footSizes(phon) {
+      const out = new Array(phon.length).fill(0), start = [];
+      let foot = 0, n = 0, stressed = false;
+      const close = to => { for (let j = foot; j < to; j++) out[j] = n; };
+      for (let i = 0; i < phon.length; i++) {
+        const c = phon[i];
+        if (c === '*' || c === '!') { stressed = true; continue; }
+        if (isMark(c)) continue;
+        if (isBreak(c)) { close(i); foot = i; n = 0; continue; }
+        if (!VOWELS.has(c)) continue;
+        if (stressed) { close(i); foot = i; n = 0; } else n++;
+        stressed = false;
+      }
+      close(phon.length);
+      return out;
+    }
+    // Per index: how far through its phrase (by vowels, 0..1; -1 in a phrase under
+    // four syllables), and whether it sits inside parentheses.
+    function phraseShape(phon) {
+      const pos = new Array(phon.length).fill(-1), aside = new Array(phon.length).fill(false);
+      let from = 0, inAside = false;
+      const close = to => {
+        let n = 0; for (let j = from; j < to; j++) if (VOWELS.has(phon[j])) n++;
+        if (n >= 4) { let k = 0; for (let j = from; j < to; j++) { pos[j] = k / n; if (VOWELS.has(phon[j])) k++; } }
+      };
+      for (let i = 0; i < phon.length; i++) {
+        const c = phon[i];
+        if (c === '_PO') inAside = true;
+        else if (c === '_PC' || isTerm(c)) inAside = false;
+        else aside[i] = inAside;
+        if (isBreak(c)) { close(i); from = i + 1; }
+      }
+      close(phon.length);
+      return { pos, aside };
+    }
+    const footScale = (n, stressed) => n < 1 ? 1
+      : stressed ? 1 / (1 + 0.04 * n) : 1 / (1 + 0.07 * (n - 1));
+    // Per index: a vowel whose syllable closes on a sonorant then a voiceless
+    // obstruent ("bent", "belt", "camp"). Both are clipped, vowel and sonorant.
+    const SON_CLIP = new Set(['M', 'N', 'NG', 'L', 'R']);
+    function sonorantClips(phon) {
+      const out = new Array(phon.length).fill(false);
+      const at = i => { while (isMark(phon[i])) i++; return i; };
+      for (let i = 0; i < phon.length; i++) {
+        if (!VOWELS.has(phon[i])) continue;
+        const a = at(i + 1); if (!SON_CLIP.has(phon[a])) continue;
+        const b = PH[phon[at(a + 1)]];
+        if (b && (b.t === 'F' || b.t === 'S') && !b.vd) out[i] = true;
+      }
+      return out;
+    }
     // Polysyllabic shortening, flattening out.
     const sylScale = n => 1 / (1 + 0.062 * Math.max(0, n - 1));
 
@@ -3664,6 +3726,8 @@ return out;
       // Post-vocalic /r/ and dark /l/ need time, or they aren't heard ("goal" as "go").
       if (code === 'R' && VOWELS.has(ctx.prevCode) && !(ctx.nxt && ctx.nxt.t === 'V')) dur *= 1.35;
       if (code === 'L' && VOWELS.has(ctx.prevCode) && !(ctx.nxt && ctx.nxt.t === 'V')) dur *= 1.3;
+      // ... and the sonorant itself is clipped before a voiceless obstruent.
+      if (SON_CLIP.has(code) && VOWELS.has(ctx.prevCode) && ctx.nxt && (ctx.nxt.t === 'F' || ctx.nxt.t === 'S') && !ctx.nxt.vd) dur *= 0.8;
       if (p.t === 'V') {
         dur *= ev(ctx.wordScale);
         // AX is already reduced: don't shorten it again.
@@ -3679,6 +3743,11 @@ return out;
           const w = 0.75 + ((ctx.stress || ctx.fin != null ? 1 : 0.5) - 0.75) * nat;
           dur *= 1 + (k - 1) * w;
         }
+        if (ctx.sonClip) {
+          // Pre-fortis clipping reaches through a sonorant: "bent" shorter than "bend".
+          dur *= 1 + (0.88 - 1) * (0.75 + ((ctx.stress || ctx.fin != null ? 1 : 0.5) - 0.75) * nat);
+        }
+        if (ctx.foot) dur *= ev(footScale(ctx.foot, !!ctx.stress));
         if (ctx.held && ctx.hold) dur *= ev(ctx.hold);
       }
       // A drawn-out sound: the letter count sets the length.
@@ -3686,6 +3755,11 @@ return out;
         const n = ctx.long, v = p.t === 'V';
         const held = (v ? LONG_V0 + LONG_V * (n - 1) : LONG_C0 + LONG_C * (n - 1)) * (ctx.longK || 1);
         dur = Math.max(dur, Math.min(v ? LONG_V_MAX : LONG_C_MAX, held));
+      }
+      if (p.t !== 'P') {
+        // Quicker through the middle of a phrase; the ends keep their pace.
+        if (ctx.pos >= 0) dur *= ev(1 - 0.07 * Math.sin(Math.PI * ctx.pos));
+        if (ctx.aside) dur *= ev(0.9);
       }
       if (p.t === 'P' && code !== '_' && ctx.pause) dur *= ctx.pause;
       return dur;
@@ -3706,7 +3780,7 @@ return out;
     function estimateDuration(phon, speed, shout, dl) {
       let t = 0.08, stress = 0, prevCode = null, held = false, long = 0;
       let wordScale = sylScale(sylFrom(phon, 0));
-      const fins = rhymeBreaks(phon);
+      const fins = rhymeBreaks(phon), feet = footSizes(phon), clips = sonorantClips(phon), shape = phraseShape(phon);
       for (let i = 0; i < phon.length; i++) {
         const code = phon[i];
         if (code === '^') { held = true; continue; }
@@ -3716,7 +3790,7 @@ return out;
         let j = i + 1; while (isMark(phon[j])) j++;
         const nxtCode = phon[j], nxt = PH[nxtCode];
         if (p.t === 'P') wordScale = sylScale(sylFrom(phon, i + 1));
-        const ctx = { nxtCode, nxt, prevCode, stress, shout, wordScale, speed, held, hold: dl && dl.hold, pause: dl && dl.pause, long, longK: dl && dl.longK, nat: dl && dl.nat, fin: fins[i] };
+        const ctx = { nxtCode, nxt, prevCode, stress, shout, wordScale, speed, held, hold: dl && dl.hold, pause: dl && dl.pause, long, longK: dl && dl.longK, nat: dl && dl.nat, fin: fins[i], foot: feet[i], sonClip: clips[i], pos: shape.pos[i], aside: shape.aside[i] };
         const dur = segmentDuration(p, code, ctx);
         long = 0;
         if (p.t === 'V') { stress = 0; held = false; }
@@ -3849,6 +3923,7 @@ return out;
     // see docs/systems-accessibility.md#speech-channels-what-a-typed-command-stops
     const CHANNELS = { tv: { lines: [] }, scene: { lines: [] }, ui: { lines: [] } };
     const QUEUE_MAX = 3;          // lines that may wait behind the one speaking
+    const GIVEN_S = 20;           // how long a word said on a channel stays given
     const READER_DUCK_DB = -12;
     const stopAll = (nodes) => nodes.forEach(n => { try { n.stop(); } catch { /* already stopped */ } });
     function cancel(channel){
@@ -3985,13 +4060,18 @@ return out;
       const pq = V.steps ? (f => F0 * 2 ** (Math.round(12 * Math.log2(f / F0)) / 12)) : (f => f);
       // Set → convert → clear, all synchronously (see lexLook).
       _lex = opt.lex || null;
+      // Words said on this channel in the last GIVEN_S seconds count as given.
+      const nowS = c.currentTime;
+      chan.said = (chan.said || []).filter(x => nowS - x.at < GIVEN_S);
+      _given = opt.fresh ? null : chan.said.map(x => x.w);
       let phon;
       try {
         phon = applyAccent(textToPhonemes(text), opt.accent);
+        if (_said) for (const w of _said) chan.said.push({ w, at: nowS });
         phon = applyAssimilation(phon);
         if (opt.accent !== 'rp') phon = applyFlap(phon);
       }
-      finally { _lex = null; }
+      finally { _lex = null; _given = null; _said = null; }
       if (!phon.length) return;
       if (D.e >= 0.35) phon = soldNucleus(phon);
       // Every line reads at the narrator's own pace; opt.budget is deliberately
@@ -4264,7 +4344,7 @@ return out;
         const end = ph[ph.length-1];
         if (end === '_XX') return 2 ** (1.5 * Math.max(D.e, 0.4) * nat / 12);
         return D.e > 0 && end !== '_X' ? 2 ** (-2 * D.e * nat / 12) : 1;
-      });
+      }).map((k, i) => (i > 0 && phrases[i - 1].at(-1) === '_P') ? k * 2 ** (1.5 * nat / 12) : k);   // a new paragraph starts 1.5 semitones up
       const phraseBang = phrases.map(ph => (ph[ph.length-1] === '_XX' ? 2 : ph[ph.length-1] === '_X' ? 1 : 0));
       const lilt = V.lilt * D.range * nat;
       let phraseIx = 0, phraseT0 = t;
@@ -4276,7 +4356,9 @@ return out;
       let micro = 1;
 
       // Boundary tone into each mark: most of how the ear tells which was written.
-      const BOUNDARY = { _C: 1.07, _S: 1.05, _D: 1.04, _E: 0.955, _Q: 1.13, _X: 1.02, _XX: 1.03, _M: 1.035 };
+      // An aside sits two semitones down.
+      const ASIDE_K = 2 ** (-2 * nat / 12);
+      const BOUNDARY = { _C: 1.07, _S: 1.05, _D: 1.04, _PO: 0.98, _PC: 1.04, _E: 0.955, _Q: 1.13, _X: 1.02, _XX: 1.03, _M: 1.035 };
       // Accent shapes in units of lilt: the nucleus falls (H* L), half-falls before
       // a non-terminal break, is low (L*) in a question. Prenuclear peaks downstep.
       // '!' sits above all; '^' keeps its own climb.
@@ -4298,9 +4380,10 @@ return out;
         else if (nuc === 'cont') fallTo = 1 - lilt * ACC.half;
         if (nuc) afterNuc = nuc;
         const hold = mix(BOUNDARY[nextCode] || 1);
-        const f = pq(F0 * (phraseK[phraseIx] ?? 1) * fall * lift * hold * intrinsicF0(f1) * mix(micro));
+        const pk = (phraseK[phraseIx] ?? 1) * (curAside ? ASIDE_K : 1);
+        const f = pq(F0 * pk * fall * lift * hold * intrinsicF0(f1) * mix(micro));
         glot.frequency.setTargetAtTime(f, when, V.steps ? 0.012 : 0.05);
-        if (fallTo && dur) glot.frequency.setTargetAtTime(pq(F0 * (phraseK[phraseIx] ?? 1) * fall * fallTo * hold * intrinsicF0(f1)), when + dur * 0.35, Math.max(0.03, dur * 0.3));
+        if (fallTo && dur) glot.frequency.setTargetAtTime(pq(F0 * pk * fall * fallTo * hold * intrinsicF0(f1)), when + dur * 0.35, Math.max(0.03, dur * 0.3));
         micro = 1;
         // Tilt tracks effort. On the worklet `tense` does it, so the tilt stays plain.
         const tf = wk ? TUNING.tiltPlain : stressed === 2 ? TUNING.tiltEmph : stressed ? TUNING.tiltStress : TUNING.tiltPlain;
@@ -4312,7 +4395,8 @@ return out;
       const phAt = (i) => { while (isMark(phon[i])) i++; return PH[phon[i]]; };
 
       let wordScale = sylScale(sylFrom(phon, 0));
-      const fins = rhymeBreaks(phon);
+      const fins = rhymeBreaks(phon), feet = footSizes(phon), clips = sonorantClips(phon), shape = phraseShape(phon);
+      let curAside = false;
       let pendingStress = 0, pendingHeld = false, pendingLong = 0, prevNasal = false, prevP = null, prevCode = null;
       let pendingNuc = null;
       const holdK = shoutLine ? Math.min(D.hold, 1.4) : D.hold;
@@ -4331,7 +4415,8 @@ return out;
         const nxt = phAt(i+1);
         let nj = i + 1; while (isMark(phon[nj])) nj++;
         const nxtCode = phon[nj];
-        const segCtx = { nxtCode, nxt, prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed, held: pendingHeld, hold: holdK, pause: D.pause, long, longK: D.longK, nat, fin: fins[i] };
+        const segCtx = { nxtCode, nxt, prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed, held: pendingHeld, hold: holdK, pause: D.pause, long, longK: D.longK, nat, fin: fins[i], foot: feet[i], sonClip: clips[i], pos: shape.pos[i], aside: shape.aside[i] };
+        curAside = shape.aside[i];
         let dur = segmentDuration(p, code, segCtx);
 
         if (p.t==='V' || p.t==='N' || p.t==='L') {

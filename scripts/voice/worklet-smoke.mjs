@@ -105,7 +105,7 @@ A.cancelSpeech();
 function render(text, extra = {}) {
   made.length = 0;
   const trace = [];
-  const res = A.speak(text, { seed: 'Dex Rime', backend: 'worklet', trace, ...extra });
+  const res = A.speak(text, { seed: 'Dex Rime', backend: 'worklet', trace, fresh: true, ...extra });
   const wn = made.filter(m => m.name === 'oracle-voice').pop();
   const line = wn?.posted.find(m => m.type === 'line');
   if (!line) return { res, wn };
