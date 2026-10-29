@@ -158,6 +158,7 @@ export function narrate(ctx) {
     if (!key) return false;
     const fresh = pools[key].filter((l) => !colourSaid.has(l)), line = fresh[Math.floor(crand() * fresh.length)];
     colourSaid.add(line);
+    ctx.heard?.(key);   // which pool he spoke from, for a caller counting them (regress)
     lastKey = 'colour';
     const turns = String(line).split('||').map((s) => { const k = { ...t, ...boothTok, ...(extra || {}) }; return cap(s.trim().replace(/\{(\w+)\}/g, (m, w) => (w in k ? String(k[w] ?? '') : m))); }).filter(Boolean);
     turns.forEach((s, i) => { say(i % 2 === 0 ? `${analyst} says, "${s.replace(/"/g, "'")}"` : s, {}, sb, null, null, { opt: 'colour' }); colourLines++; });

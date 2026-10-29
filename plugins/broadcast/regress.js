@@ -3073,7 +3073,8 @@ export default async function regress({ check, run, getPlayer }) {
         }
       };
       HOCKEY.narrate({
-        script: {}, game, gs: { seed, game }, slot, ws: !!opts.ws, announcer: 'Tug Brennan',
+        script: {}, game, gs: { seed, game }, slot, ws: !!opts.ws, announcer: 'Tug Brennan', analyst: 'Rennie Gault',
+        heard: (k) => usedPools.add(k),
         pools, nrng, sport: HOCKEY, add: () => {}, say, pick,
         abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
         venue: { said: 'Golden Goose Gardens', name: 'Golden Goose Gardens', rev: '' }, xpick: pick, finalPackage,
