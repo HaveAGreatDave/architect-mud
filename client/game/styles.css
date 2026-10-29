@@ -12825,6 +12825,7 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .tv-fx-host {
 	position: absolute;
 	top: 44px; bottom: 72px; left: 0; right: 0;
+	container-type: size;
 	z-index: 55;
 	pointer-events: none;
 	overflow: hidden;
@@ -12901,6 +12902,14 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 	color: rgba(220, 240, 235, 0.75);
 }
 .tv-fx-final-row .sc { font-weight: 900; font-variant-numeric: tabular-nums; }
+.tv-fx-final-row .nm { display: flex; align-items: center; gap: 10px; }
+.tv-fx-row-crest { display: inline-flex; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6)); }
+.tv-fx-champ-crest { display: inline-flex; }
+/* the big logos size to the card area's height (cqh, from .tv-fx-host), so on a phone's set they come down
+   and the scores still fit; the score card never gives up its height to them */
+.tv-fx-final .tv-fx-club svg { width: min(96px, 24cqh); height: min(96px, 24cqh); }
+.tv-fx-champ-crest svg { width: min(128px, 32cqh); height: min(128px, 32cqh); }
+.tv-fx-final-card { flex-shrink: 0; }
 .tv-fx-final-row.win { color: #fff; background: linear-gradient(90deg, color-mix(in srgb, var(--tv-header-color) 22%, transparent), transparent); }
 .tv-fx-final-row.win .sc { color: var(--tv-header-color); }
 .tv-fx-final-tag {

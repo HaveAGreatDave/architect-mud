@@ -1399,16 +1399,18 @@ export function createTvView(root, opts = {}) {
             `<circle class="tv-fx-hr-ball" r="6"><animateMotion dur="1.25s" fill="freeze" rotate="auto"><mpath href="#${pathId}"/></animateMotion></circle>` +
             `<circle class="tv-fx-hr-burst" cx="374" cy="116" r="4"/>` +
           `</svg>` +
+          (_crest(fx.team, 56, 'tv-fx-club') ? `<div class="tv-fx-brand">${_crest(fx.team, 56, 'tv-fx-club')}</div>` : '') +
           `<div class="tv-fx-hr-title${fx.grand ? ' grand' : ''}">${fx.grand ? 'GRAND SLAM' : 'HOME RUN'}</div>` +
           (sub ? `<div class="tv-fx-hr-sub">${_esc(sub)}</div>` : '') +
         `</div>`;
     } else if (fx.kind === 'gamewin') {
       inner =
         `<div class="tv-fx-final">` +
+          (_crest(fx.winner, 96, 'tv-fx-club') ? `<div class="tv-fx-brand big">${_crest(fx.winner, 96, 'tv-fx-club')}</div>` : '') +
           `<div class="tv-fx-final-label">${fx.extras ? `FINAL · ${_esc(fx.inningOrd || '')}` : 'FINAL'}</div>` +
           `<div class="tv-fx-final-card">` +
-            `<div class="tv-fx-final-row win"><span class="nm">${_esc(fx.winner)}</span><span class="sc">${fx.winScore}</span></div>` +
-            `<div class="tv-fx-final-row"><span class="nm">${_esc(fx.loser)}</span><span class="sc">${fx.loseScore}</span></div>` +
+            `<div class="tv-fx-final-row win"><span class="nm">${_crest(fx.winner, 26, 'tv-fx-row-crest')}${_esc(fx.winner)}</span><span class="sc">${fx.winScore}</span></div>` +
+            `<div class="tv-fx-final-row"><span class="nm">${_crest(fx.loser, 26, 'tv-fx-row-crest')}${_esc(fx.loser)}</span><span class="sc">${fx.loseScore}</span></div>` +
           `</div>` +
           `<div class="tv-fx-final-tag">${_esc(fx.winner)} WIN</div>` +
         `</div>`;
@@ -1424,6 +1426,7 @@ export function createTvView(root, opts = {}) {
       inner =
         `<div class="tv-fx-walkoff">` +
           `<div class="tv-fx-wo-rays"></div>` +
+          (_crest(fx.team, 64, 'tv-fx-club') ? `<div class="tv-fx-brand">${_crest(fx.team, 64, 'tv-fx-club')}</div>` : '') +
           `<div class="tv-fx-wo-title">WALK-OFF!</div>` +
           (sub ? `<div class="tv-fx-wo-sub">${_esc(sub)}</div>` : '') +
           (score ? `<div class="tv-fx-wo-score">${score}</div>` : '') +
@@ -1537,7 +1540,8 @@ export function createTvView(root, opts = {}) {
       inner =
         `<div class="tv-fx-champ">` +
           `<div class="tv-fx-champ-rays"></div>` +
-          `<div class="tv-fx-champ-trophy">🏆</div>` +
+          // the champions' own logo where the club has one, the trophy where it hasn't
+          `<div class="tv-fx-champ-trophy">${_crest(fx.winner, 128, 'tv-fx-champ-crest') || '🏆'}</div>` +
           `<div class="tv-fx-champ-team">${_esc(fx.winner)}</div>` +
           `<div class="tv-fx-champ-label">${_esc(fx.label || 'Champions')}</div>` +
           `<div class="tv-fx-champ-score">${_esc(fx.winner)} ${fx.winScore}: ${fx.loseScore} ${_esc(fx.loser)}</div>` +
@@ -2418,6 +2422,10 @@ export function tvViewsForChannel(channelId) {
   }
   return out;
 }
+
+// A surface that isn't a set but takes a channel's lines and overlays the same way: a seat in
+// the stands (stands.js). It carries the same methods dispatch.js calls on a view.
+export function addTvView(view) { _views.add(view); return () => _views.delete(view); }
 
 export function tvOpenViews() {
   const out = [];
