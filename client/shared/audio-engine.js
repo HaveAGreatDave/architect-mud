@@ -3504,8 +3504,26 @@ return out;
         lilt: 0.085, decl: 0.11,
         // ⚠ A named voice is fully authored, including traits it lacks: anything
         // absent falls to the dice. Add a new trait to every named voice.
-        drive: 0, growl: 0,
+        drive: 0, growl: 0, growl2: 0,
         natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        vs: false,
+      },
+      // Deadball's play-by-play man: a baritone in a booth, talking all night to
+      // people who can't see the game. Low and warm (a male pitch on male
+      // formants, a touch long in the tract), brisk but never gabbling, pressed
+      // a little to carry over the crowd. A real voice wobbles and breathes, so
+      // human variation stays full and there's a little jitter and air in it;
+      // the wide lilt and gentle fall are a broadcaster's sing-song. Only a
+      // shade of booth mic: a faint ring and the least grit, no growl and none
+      // of the synthetic characters. He reads "Rats – Kings" as "versus".
+      'chip vega': {
+        f0: 108, fshift: 0.96, speed: 1.30, ring: 0.04,
+        oq: 0.60,
+        jitter: 0.007, breath: 0.009,
+        lilt: 0.095, decl: 0.125,
+        drive: 0.05, growl: 0, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        vs: true,
       },
     };
 
