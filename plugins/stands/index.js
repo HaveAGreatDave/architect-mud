@@ -17,7 +17,7 @@
 // ⚠ THE TICKET IS PAID ONCE PER SEAT. Taking a seat charges its price; moving to another
 // section is a new ticket. Leaving the room leaves the seat.
 
-import { getZone } from '../../server/engine/world.js';
+import { getZone, getZoneFurniture } from '../../server/engine/world.js';
 import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -111,5 +111,22 @@ on('zone.entered', ({ actor, zone }) => {
 on('player.logout', ({ id }) => { if (id) seated.delete(id); });
 
 export const commands = { stands: cmdStands };
+
+// A ticket machine (`flags.ticket_machine` on furniture in a stands room) is the
+// same chart behind a thing you can walk up to: `use ticket machine` is `stands`.
+// Tag-gated so examining it advertises `use`; undefined falls through to the
+// inventory `use` builtin when the target isn't a machine here.
+export const specializedActions = [{
+  verb: 'use',
+  requiredTag: 'ticket_machine',
+  handler: async (args, raw, player) => {
+    const word = args.join(' ').toLowerCase().trim();
+    if (!word) return undefined;
+    const machine = getZoneFurniture(player.current_zone).find(f => f.flags?.ticket_machine
+      && [f.name, ...(f.flags.aliases || [])].some(n => String(n).toLowerCase().includes(word)));
+    if (!machine) return undefined;
+    return cmdStands([], raw, player);
+  },
+}];
 
 export const _test = { seated, leave, chartPayload };

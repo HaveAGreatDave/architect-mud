@@ -1,0 +1,20 @@
+{
+  "description": "A green enamel kiosk in the aisle behind home plate, the Coliseum crest on its hood. Its screen shows the park from above with every section priced. A handwritten card taped beside it says the box office is for show.",
+  "flags": {
+    "aliases": [
+      "ticket machine",
+      "machine",
+      "tickets",
+      "ticket",
+      "kiosk"
+    ],
+    "interactions": [
+      "use"
+    ],
+    "ticket_machine": true
+  },
+  "id": "furn_hughson_ticket_machine",
+  "name": "the ticket machine",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_stands"
+}

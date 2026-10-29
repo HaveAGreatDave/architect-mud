@@ -3,7 +3,7 @@
 // The view can't be checked headless. What can be is the chart's data (every section the two
 // venues sell has a seat to put the eye on), the verb's refusals, and that getting up leaves no
 // row behind in the seated map.
-import { getZone } from '../../server/engine/world.js';
+import { getZone, getZoneFurniture } from '../../server/engine/world.js';
 import { standsOf, findSection, _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -24,6 +24,16 @@ export default async function regress({ run, check, getPlayer }) {
   check('stands: refused outside the stands', r?.type === 'error' && /no seats/i.test(r.message || ''), r?.message);
   r = await run('stands leave');
   check('stands: getting up when not sat refuses', r?.type === 'error', r?.message);
+
+  // Each venue's ticket machine is the chart: `use` on it answers as `stands` does.
+  const home = me.current_zone;
+  for (const id of ['zone_slush_stands', 'zone_hughson_stands']) {
+    check(`stands: ${id} has a ticket machine`, getZoneFurniture(id).some((f) => f.flags?.ticket_machine));
+    me.current_zone = id;
+    r = await run('use ticket machine');
+    check(`stands: using ${id}'s machine shows the chart`, r?.type === 'output' && /the seats/.test(r.message || ''), r?.message);
+  }
+  me.current_zone = home;
 
   _test.seated.set(me.id, { zoneId: 'zone_slush_stands', section: 'glass', channelId: 'x' });
   _test.leave(me, true);

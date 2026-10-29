@@ -9,6 +9,7 @@ A seat at the game, in the park it's played in. Golden Goose Gardens (`zone_slus
 - `stands`: the seat chart. The client draws the venue from above with every section where its seat is, priced; the log gets the same list.
 - `stands <section>`: buys a seat (by id or a word of its name) and opens the 3-D rink or park in first person from it. Refused when no game of that sport is on.
 - `stands leave`: gets up. Walking out of the room does the same.
+- `use <ticket machine>`: the same chart as `stands`, from a piece of furniture carrying `flags.ticket_machine` in the stands room. Examining the machine offers `use`.
 
 ## Content
 

@@ -465,6 +465,8 @@
       help: 'Players can READ this furniture to see the server leaderboard — the top 5 survivors ranked by total XP (ties broken by older account first).' },
     toilet: { label: 'Toilet', shape: 'flag', scope: 'furniture', group: 'Capabilities',
       help: 'Players can sit and relieve themselves here (pee / poop / flush) with privacy. The verbs are blind to what the furniture is — stall, latrine, bucket — they only ask for this capability.' },
+    ticket_machine: { label: 'Ticket Machine', shape: 'flag', scope: 'furniture', group: 'Capabilities',
+      help: 'Sells seats for the room it stands in: `use <machine>` opens the same chart as `stands`. Put it in a room carrying flags.stands (stands plugin).' },
     cosmetic_machine: { label: 'Cosmetic Machine', shape: 'flag', scope: 'furniture', group: 'Capabilities',
       help: 'Players can change their appearance here (the morphex/biosculpt verbs). The verb only asks for this capability, not a specific object_type.' },
 

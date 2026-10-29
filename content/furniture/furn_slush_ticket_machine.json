@@ -1,0 +1,20 @@
+{
+  "description": "A steel box bolted to the rail at the top of the steps, its screen showing the rink from above with every section lit and priced. It takes credit chits and gives no change. Somebody has scratched GO HOME into the coin slot.",
+  "flags": {
+    "aliases": [
+      "ticket machine",
+      "machine",
+      "tickets",
+      "ticket",
+      "kiosk"
+    ],
+    "interactions": [
+      "use"
+    ],
+    "ticket_machine": true
+  },
+  "id": "furn_slush_ticket_machine",
+  "name": "the ticket machine",
+  "object_type": "furniture",
+  "zone_id": "zone_slush_stands"
+}
