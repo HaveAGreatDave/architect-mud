@@ -8,6 +8,7 @@
 //
 // RAM only. A restart forgets who had the Stage open; the client says so again on its next open.
 import { sendToPlayer } from '../../server/engine/messaging.js';
+import { query } from '../../server/models/db.js';
 import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
 
 const watching = new Set();
@@ -26,6 +27,23 @@ export function pokeStage(playerId, invId) {
 export async function offerStage({ view, player }) {
   if (view?.provider !== 'kitchen' || !player) return;
   view.stage = { offered: !(await prefersTextMinigamesOrDefault(player)) };
+}
+
+// `kitchenstow <row> <box>`: put a thing you carry into one of the room's boxes, from the Stage's
+// door rack. `stowid` only takes what's loose in your hands, so a row in your own bag comes out
+// first, as itself (no merge, so the id still names it), and then it's the ordinary `stowid`.
+export async function cmdKitchenStow(args, raw, player, broadcast) {
+  const [rowId, boxId] = args || [];
+  if (!rowId || !boxId) return { type: 'error', message: 'Put what where?' };
+  await query(
+    `UPDATE player_inventory pi SET container_id = NULL
+       FROM player_inventory bag
+      WHERE pi.id = $1 AND pi.player_id = $2 AND bag.id = pi.container_id
+        AND bag.player_id = $2 AND bag.container_id IS NULL`,
+    [rowId, player.id]
+  );
+  const { handleCommand } = await import('../../server/engine/commands/index.js');
+  return handleCommand(`stowid ${rowId} ${boxId}`, player, broadcast);
 }
 
 // `kitchenstage on|off`: the Stage saying it has opened or closed. Not a player verb.

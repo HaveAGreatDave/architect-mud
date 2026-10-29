@@ -53,7 +53,7 @@ import { rewardFor, restMultiplier, restText, RESTS_WELL, REST_PEAK_MS, REST_COL
 import { tasteNotes, tasteMood, flavourLines } from './taste.js';
 import { canMarinate, prepText } from './prep.js';
 import { workspaceProvider } from './workspace.js';
-import { cmdKitchenStage, stageOpen, offerStage } from './stage.js';
+import { cmdKitchenStage, cmdKitchenStow, stageOpen, offerStage } from './stage.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { KNIFE_TTL_MS, DRESS_PAR, DRESS_MAX, DRESS_TTL_MS } from './config.js';
 import { matterFor, cutDifficulty } from '../../client/shared/kitchen-matter.js';
@@ -2167,6 +2167,7 @@ export const commands = {
   // The Kitchen Stage saying it opened or closed (stage.js), and its board
   // reporting where the strokes fell. Not player verbs.
   kitchenstage: cmdKitchenStage,
+  kitchenstow: cmdKitchenStow,
   chopresolve: cmdChopResolve,
   dressplate: cmdDressPlate,
   dressresolve: cmdDressResolve,

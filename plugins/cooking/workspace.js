@@ -995,7 +995,7 @@ async function collect(player) {
 
   // ── Query 1: everything the player carries ────────────────────────────────
   const { rows: carried } = await query(
-    `SELECT pi.id, pi.item_id, pi.quantity, pi.custom_data, pi.container_id,
+    `SELECT pi.id, pi.item_id, pi.quantity, pi.custom_data, pi.container_id, pi.is_equipped,
             i.name, i.weight, i.tags
        FROM player_inventory pi JOIN items i ON i.id = pi.item_id
       WHERE pi.player_id = $1`,
@@ -1211,6 +1211,13 @@ export async function buildKitchen(player) {
   // Only what a kitchen cares about is listed, with a bare count of the rest. A
   // fridge full of beer is not a preparation component, and a HUD that listed it
   // would be an inventory screen wearing a workspace's clothes.
+  // What could go in a box: on you or in a bag you carry, not worn, not a quest item, not food
+  // sitting in a pan, and not a pan with something in it (a box takes an empty one).
+  const topIds = new Set(carried.filter(r => !r.container_id).map(r => r.id));
+  const pocket = carried.filter(r => (!r.container_id || topIds.has(r.container_id))
+    && !Number(r.is_equipped) && !hasTag(r, 'quest_item') && !vesselIds.has(r.container_id)
+    && !(isVessel(r) && (childrenOf.get(r.id) || []).length)
+    && !(hasTag(r, 'container') && !isVessel(r)));
   const storage = boxes.map(f => {
     const inside = childrenOf.get(f.id) || [];
     // A COLD box lists only what belongs in one. A fridge is not a cupboard: the
@@ -1233,13 +1240,16 @@ export async function buildKitchen(player) {
       // ambiguous when three boxes in the room hold one.
       items: shown.map(r => component(r, kindOf(r), [act('take', `pullid ${r.id}`, null, { role: 'take' })])),
       other: inside.length - shown.length,
-      // What on you could go in: the Stage's fridge door (kitchen-stage.js). A cold box takes what
-      // spoils, as it only lists what spoils.
-      puts: loose.filter(r => !cold || hasTag(r, 'perishable'))
-        .map(r => ({ id: r.id, name: shownName(r), qty: r.quantity > 1 ? r.quantity : null, command: `stowid ${r.id} ${f.id}`, role: 'put' })),
+      // What on you could go in: the Stage's door rack (kitchen-stage.js). A cold box takes what
+      // spoils, as it only lists what spoils; a cupboard takes food, pans and kitchen tools.
+      // `kitchenstow` takes it out of your bag first when it's in one (stage.js).
+      puts: (cold ? pocket.filter(r => isFood(r) && hasTag(r, 'perishable')) : pocket.filter(r => isFood(r) || isTool(r) || isVessel(r)))
+        .map(r => ({ id: r.id, name: shownName(r), qty: r.quantity > 1 ? r.quantity : null, kind: kindOf(r), look: lookOf(r, kindOf(r)), command: `kitchenstow ${r.id} ${f.id}`, role: 'put' })),
+      trash: !!f.flags?.trash_bin,
     };
   // An empty fridge still shows, so there's somewhere to put the shopping.
-  }).filter(s => s.items.length || s.other || s.preserves);
+  // A cupboard with nothing in it shows too, while there's something on you to put in it.
+  }).filter(s => s.items.length || s.other || s.preserves || (s.puts.length && !s.trash));
 
   // ── Status — the room, as the kitchen experiences it ──────────────────────
   const powered = getZonePowerStatus(zoneId) === 'powered';

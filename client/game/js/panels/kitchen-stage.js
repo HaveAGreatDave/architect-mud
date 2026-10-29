@@ -1097,8 +1097,9 @@ function menuFor(hit) {
 // drawn as itself, and what on you could go in waits in the door's racks. Click a thing to take it
 // out (`pullid`), or a thing in the door to put it in (`stowid`): the same commands the HUD sends.
 const kit = () => S.data?.kit || {};
-const coldBoxes = () => (S.data?.storage || []).filter((x) => x.preserves);
+const coldBoxes = () => (S.data?.storage || []).filter((x) => !x.trash);
 const boxLabel = (x) => (x.preserves === 'frozen' ? 'Freezer' : x.preserves ? 'Fridge' : cap(x.name));
+const isCupboard = (x) => !x.preserves;
 const BOX = { w: 56, d: 40, y0: -12, z0: -40, top: 118 };
 const SHELVES = [-4, 26, 56, 86];               // the top of each shelf inside, the floor first
 const PER_SHELF = 5;
@@ -1181,13 +1182,26 @@ function doorSpot(i, ang, k) {
 // What's on show: inside, the box's items; on the door, what on you could go in.
 function coldInside(box) {
   const gone = S.cold?.gone || new Set();
-  return (box?.items || []).filter((it) => it.look && !gone.has(String(it.id))).slice(0, SHELVES.length * PER_SHELF);
+  return (box?.items || []).filter((it) => !gone.has(String(it.id))).slice(0, SHELVES.length * PER_SHELF);
 }
+// What on you could go in, each with something to draw: the food's own component when there is
+// one (it carries the cook beat), else the put's look (a pan, a tool).
 function coldDoor(box) {
   const gone = S.cold?.gone || new Set();
   const byId = new Map((S.data?.components || []).map((c) => [String(c.id), c]));
-  return (box?.puts || []).filter((p) => !gone.has(String(p.id))).map((p) => ({ put: p, comp: byId.get(String(p.id)) }))
-    .filter((x) => x.comp?.look).slice(0, DOOR_BINS.length * PER_BIN);
+  return (box?.puts || []).filter((p) => !gone.has(String(p.id)))
+    .map((p) => ({ put: p, comp: byId.get(String(p.id)) || { id: p.id, name: p.name, kind: p.kind, look: p.look } }))
+    .slice(0, DOOR_BINS.length * PER_BIN);
+}
+
+// One stored thing at a pose: food as itself, a pan as a small pan, a tool as a utensil.
+function drawThing(b, it, at, yaw, scale, seed) {
+  if (it?.look?.profile) {
+    const m = matterFor(it.look.profile, it.look.matter);
+    return KS.shelfPiece(b, m, pieceOf(m, it), KS.piecesOf(m, []).whole, beatOf(it.cook), KS.pose(at, yaw, 0, scale * fitScale(m)), seed);
+  }
+  if (it?.look?.vessel) return KS.vessel(b, it.look.vessel, KS.pose(at, yaw, 0, 0.4 * scale));
+  KS.knife(b, KS.pose([at[0] - 4 * scale, at[1], at[2] + 0.3], yaw, Math.PI / 2, 0.5 * scale));
 }
 
 function buildBoxes(b) {
@@ -1199,9 +1213,9 @@ function buildBoxes(b) {
 }
 
 function buildBox(b, box, i) {
-  const x = boxX(i), frozen = box.preserves === 'frozen', c = S.cold && S.cold.i === i ? S.cold : null;
-  const body = M.rgb(frozen ? '#dfe8ef' : '#efeee9'), trim = M.rgb('#9aa3aa');
-  const liner = M.rgb(frozen ? '#d3e6f6' : '#fbf6e6'), glass = M.rgb(frozen ? '#b8d4ea' : '#cfe3e6');
+  const x = boxX(i), frozen = box.preserves === 'frozen', cup = isCupboard(box), c = S.cold && S.cold.i === i ? S.cold : null;
+  const body = M.rgb(cup ? '#9b6a3f' : frozen ? '#dfe8ef' : '#efeee9'), trim = M.rgb(cup ? '#3a2a1c' : '#9aa3aa');
+  const liner = M.rgb(cup ? '#d9bf94' : frozen ? '#d3e6f6' : '#fbf6e6'), glass = M.rgb(cup ? '#b88a58' : frozen ? '#b8d4ea' : '#cfe3e6');
   const x0 = x - BOX.w / 2, x1 = x + BOX.w / 2, y0 = BOX.y0, y1 = BOX.y0 + BOX.d, z0 = BOX.z0, z1 = BOX.top;
   // the carcass, hollow so the shelves can be seen into
   KS.slab(b, [x0, y0, z0], [x0 + 2, y1, z1], body, 0.6);
@@ -1216,15 +1230,15 @@ function buildBox(b, box, i) {
     else KS.slab(b, [x0 + 2.2, y0 + 2, z - 0.8], [x1 - 2.2, y1 - 3, z], glass, 0.2);
   }
   // what's inside: standing on the shelves, the one under the pointer lifted
-  const inside = c ? coldInside(box) : (box.items || []).filter((it) => it.look).slice(0, SHELVES.length * PER_SHELF);
+  const inside = c ? coldInside(box) : (box.items || []).slice(0, SHELVES.length * PER_SHELF);
   for (const [k, it] of inside.entries()) {
-    const m = matterFor(it.look.profile, it.look.matter), carried = carriedFrom(c, 'in', k), at = carried || insideSpot(i, k);
+    const carried = carriedFrom(c, 'in', k), at = carried || insideSpot(i, k);
     const hot = c?.hover?.where === 'in' && c.hover.k === k;
     if (hot) {
       at[2] += 1.6 + Math.sin(S.t * 6) * 0.6;
       M.disc(b, [at[0], at[1], SHELVES[Math.floor(k / PER_SHELF)] + 0.15], [0, 0, 1], 5.2, PICKED, 18, 0.1);
     }
-    KS.shelfPiece(b, m, pieceOf(m, it), KS.piecesOf(m, []).whole, beatOf(it.cook), KS.pose(at, 0.35 + hash(it.id) * 0.6 + (hot ? Math.sin(S.t * 3) * 0.2 : 0), 0, fitScale(m)), 31 + k);
+    drawThing(b, it, at, 0.35 + hash(it.id) * 0.6 + (hot ? Math.sin(S.t * 3) * 0.2 : 0), 1, 31 + k);
   }
   // the door: closed it sits across the front; open it swings out on the left hinge
   const ang = c ? doorAngle(c.open) : 0, P = doorPose(i, ang);
@@ -1232,9 +1246,12 @@ function buildBox(b, box, i) {
   KS.prism(b, [[2, 0], [BOX.w - 2, 0], [BOX.w - 2, 0.5], [2, 0.5]], z1 - z0 - 4, 0.1, liner, doorPose(i, ang, 2));
   // the freezer's door has a seam across it; the fridge's a long handle, the freezer's a short one
   if (frozen) KS.prism(b, [[0, -4.3], [BOX.w, -4.3], [BOX.w, -4], [0, -4]], 1, 0.05, trim, doorPose(i, ang, 100));
-  const hz = frozen ? [60, 84] : [56, 104];
-  M.tube(b, P.p([BOX.w - 6, -7, hz[0] - z0]), P.p([BOX.w - 6, -7, hz[1] - z0]), 0.9, 0.9, trim, 8);
-  for (const z of hz) M.tube(b, P.p([BOX.w - 6, -4, z - z0]), P.p([BOX.w - 6, -7, z - z0]), 0.6, 0.6, trim, 6);
+  if (cup) M.sphere(b, P.p([BOX.w - 6, -5.5, 60 - z0]), 1.6, trim, 10, 6);
+  else {
+    const hz = frozen ? [60, 84] : [56, 104];
+    M.tube(b, P.p([BOX.w - 6, -7, hz[0] - z0]), P.p([BOX.w - 6, -7, hz[1] - z0]), 0.9, 0.9, trim, 8);
+    for (const z of hz) M.tube(b, P.p([BOX.w - 6, -4, z - z0]), P.p([BOX.w - 6, -7, z - z0]), 0.6, 0.6, trim, 6);
+  }
   if (!c || c.open < 0.05) return;
   // the door's racks, and what on you could go in standing in them
   for (const z of DOOR_BINS) {
@@ -1242,17 +1259,17 @@ function buildBox(b, box, i) {
     KS.prism(b, [[3, 7.4], [BOX.w - 3, 7.4], [BOX.w - 3, 8], [3, 8]], 2.2, 0.1, glass, doorPose(i, ang, z - z0));
   }
   for (const [k, { comp }] of coldDoor(box).entries()) {
-    const m = matterFor(comp.look.profile, comp.look.matter), carried = carriedFrom(c, 'door', k), at = carried || doorSpot(i, ang, k);
+    const carried = carriedFrom(c, 'door', k), at = carried || doorSpot(i, ang, k);
     const hot = c.hover?.where === 'door' && c.hover.k === k;
     if (hot) at[2] += 1.6 + Math.sin(S.t * 6) * 0.6;
-    KS.shelfPiece(b, m, pieceOf(m, comp), KS.piecesOf(m, []).whole, beatOf(comp.cook), KS.pose(at, -ang + 0.3, 0, fitScale(m, 22) * 0.9), 61 + k);
+    drawThing(b, comp, at, -ang + 0.3, 0.9, 61 + k);
     if (hot) M.disc(b, [at[0], at[1], at[2] - 1.5], [0, 0, 1], 4.6, PICKED, 16, 0.1);
   }
   // things on their way: out to you, or into the box
   for (const f of c.fly) {
     const e = f.t * f.t * (3 - 2 * f.t), lift = Math.sin(f.t * Math.PI) * f.arc;
     const at = [f.from[0] + (f.to[0] - f.from[0]) * e, f.from[1] + (f.to[1] - f.from[1]) * e, f.from[2] + (f.to[2] - f.from[2]) * e + lift];
-    KS.shelfPiece(b, f.m, f.piece, f.whole, f.beat, KS.pose(at, f.t * 5, f.t * 2, f.scale * (f.shrink ? 1 - 0.7 * e : 1)), 91);
+    drawThing(b, f.it, at, f.t * 5, f.shrink ? 1 - 0.7 * e : 1, 91);
   }
 }
 
@@ -1317,8 +1334,7 @@ function coldUse(hit, toBoard = false) {
   if (hit.where === 'in') {
     const it = coldInside(box)[hit.k], take = actOf(it, 'take');
     if (!it || !take) return;
-    const m = matterFor(it.look.profile, it.look.matter);
-    c.fly.push({ m, piece: pieceOf(m, it), whole: KS.piecesOf(m, []).whole, beat: beatOf(it.cook), from: insideSpot(c.i, hit.k), to: camera, arc: 10, t: 0, life: 0.45, scale: fitScale(m), shrink: true });
+    c.fly.push({ it, from: insideSpot(c.i, hit.k), to: camera, arc: 10, t: 0, life: 0.45, shrink: true });
     c.gone.add(String(it.id));
     if (toBoard) S.pendingBoard = { id: String(it.id), name: it.name };
     const sp = insideSpot(c.i, hit.k);
@@ -1328,9 +1344,8 @@ function coldUse(hit, toBoard = false) {
   } else {
     const x = coldDoor(box)[hit.k];
     if (!x) return;
-    const m = matterFor(x.comp.look.profile, x.comp.look.matter);
     const to = insideSpot(c.i, Math.min(coldInside(box).length, SHELVES.length * PER_SHELF - 1));
-    c.fly.push({ m, piece: pieceOf(m, x.comp), whole: KS.piecesOf(m, []).whole, beat: beatOf(x.comp.cook), from: doorSpot(c.i, doorAngle(c.open), hit.k), to, arc: 14, t: 0, life: 0.5, scale: fitScale(m), shrink: false });
+    c.fly.push({ it: x.comp, from: doorSpot(c.i, doorAngle(c.open), hit.k), to, arc: 14, t: 0, life: 0.5, shrink: false });
     c.gone.add(String(x.put.id));
     pop(doorSpot(c.i, doorAngle(c.open), hit.k), '#2b3a63');
     run(x.put);
@@ -1533,7 +1548,7 @@ function paintFace(x, w, h) {
 function stepFog(dt) {
   S.fog ||= [];
   const c = S.cold, box = coldBox();
-  if (c && box && c.open > 0.3) {
+  if (c && box && c.open > 0.3 && !isCupboard(box)) {
     const frozen = box.preserves === 'frozen', rate = (frozen ? 7 : 3) * Math.min(1, c.open);
     if (Math.random() < dt * rate) {
       const x = boxX(c.i) + (Math.random() - 0.5) * (BOX.w - 8), z = SHELVES[Math.floor(Math.random() * 2)] + 1;   // from the bottom shelves, so it never hides the food
@@ -1585,7 +1600,7 @@ function embers(b, level, max, dt) {
 // hot ring, and the pops.
 function paintPolish(x, w, h, dt) {
   const c = S.cold, box = coldBox();
-  if (c && box && c.open > 0.05) {
+  if (c && box && c.open > 0.05 && !isCupboard(box)) {
     const s = screenOf([boxX(c.i), BOX.y0 + BOX.d * 0.6, 60]);
     if (s) {
       const frozen = box.preserves === 'frozen', k = Math.min(1, c.open) * (0.92 + 0.08 * Math.sin(S.t * 2));

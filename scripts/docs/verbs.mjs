@@ -39,8 +39,9 @@ const NOT_PLAYER_TYPED = new Set([
   'readresolve',
   // The Kitchen Stage (docs/proposals/kitchen-stage.md): its knife and plate-dressing boards
   // report the same way, and `kitchenstage on|off` is the panel saying it opened or closed.
-  // `kitchenstock` asks for the Stage's stock-up catalogue; `kitchenorder` is its Buy button.
-  'chopresolve', 'dressplate', 'dressresolve', 'kitchenstage', 'kitchenstock', 'kitchenorder',
+  // `kitchenstock` asks for the Stage's stock-up catalogue; `kitchenorder` is its Buy button;
+  // `kitchenstow` is its door rack putting a thing into a fridge or cupboard.
+  'chopresolve', 'dressplate', 'dressresolve', 'kitchenstage', 'kitchenstow', 'kitchenstock', 'kitchenorder',
   // Client/session handshakes.
   'introdone', 'tabletdone', 'flightsync', 'flocksync', 'flightevent', 'flightresume', 'flightgps', 'tabletnav', 'tabletaction',
   // The cab's pump handle reports how long the trigger was held; the server re-derives the money.

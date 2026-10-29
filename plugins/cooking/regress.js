@@ -524,6 +524,10 @@ export default async function regress({ run, check, getPlayer }) {
     check('...and every line is food or kit at a price', (r?.items || []).every(i => (i.shelf === 'food' || i.shelf === 'kit') && i.price > 0));
     r = await run('kitchenorder item_not_sold_anywhere 1');
     check('kitchenorder refuses what nobody delivers', r?.type === 'error', JSON.stringify(r));
+    r = await run('kitchenstow');
+    check('kitchenstow with nothing named asks what', r?.type === 'error', JSON.stringify(r));
+    r = await run('kitchenstow no_such_row no_such_box');
+    check('kitchenstow refuses a row and box that are not there', /not found/i.test(r?.message || ''), JSON.stringify(r));
 
     await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, RAW]);
     const invId = randomUUID();
