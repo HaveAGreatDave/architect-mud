@@ -103,6 +103,8 @@ export function openKitchenStage(data) {
     flash: 0, impact: 0, shake: 0, lines: 0, puffs: [], bubbles: [], last: performance.now(), acc: 0, t: 0,
     lastSizzle: 0, tick: null, raf: 0, drag: null, M: null, sent: 0, orbit: { yaw: 0, pitch: 0 }, menu: null, sheet: null, liq: null, spoon: null, lastStir: 0,
     cold: null, coldShots: [], vesselId: null, tool: 'hand', hover: null, liqByPan: new Map(),
+    // the counter starts bare: only what you take out of a box, or lay on the board, stands on it
+    out: new Set(), pendingOut: [],
   };
   root.addEventListener('click', onClick);
   gl.addEventListener('pointerdown', onDown);
@@ -138,6 +140,13 @@ export function refreshKitchenStage(data) {
     const p = S.pendingBoard, got = foods().find((c) => String(c.id) === p.id) || foods().find((c) => c.name === p.name);
     if (got) { S.board = got.id; S.pendingBoard = null; }
   }
+  // taken out of a box: onto the counter once it's on you
+  S.pendingOut = S.pendingOut.filter((p) => {
+    const got = foods().find((c) => String(c.id) === p.id && !S.out.has(c.id)) || foods().find((c) => c.name === p.name && !S.out.has(c.id));
+    if (got) S.out.add(got.id);
+    return !got;
+  });
+  if (S.board) S.out.add(S.board);
   if (S.vesselId != null && !vesselsOf(data).some((v) => String(v.id) === String(S.vesselId))) S.vesselId = null;
   paintDom();
   if (S.tick) clearTimeout(S.tick);
@@ -644,8 +653,8 @@ function paintDom() {
       dial ? `${dial.label}${dial.verdict?.text ? ` · ${dial.verdict.text}` : ''}` : ''].filter(Boolean);
   r.querySelector('.ks-beat').innerHTML = beat.map((s) => `<div>${esc(s)}</div>`).join('');
   r.querySelector('.ks-beat').dataset.state = dial?.verdict?.state || '';
-  // The tray: what's on you, at the board.
-  const tray = [];
+  // The tray: what's still in your bag. Click one to set it out on the counter.
+  const tray = foods().filter((c) => !S.out.has(c.id));
   r.querySelector('.ks-tray').innerHTML = tray.length
     ? `<span class="ks-label">On you</span>` + tray.map((c) => `<button class="ks-food${S.board === c.id ? ' on' : ''}" data-food="${esc(String(c.id))}">${esc(c.name)}${c.qty ? ` ×${c.qty}` : ''}</button>`).join('')
     : '';
@@ -697,6 +706,7 @@ function onClick(e) {
   if (t.dataset.ks === 'stock') { sendCmdSilent('kitchenstock'); return; }
   if (t.dataset.box) return S.cold && String(S.cold.id) === t.dataset.box ? shutCold() : openCold(t.dataset.box);
   if (t.dataset.cold === 'shut') return shutCold();
+  if (t.dataset.cold === 'offload') return coldOffload();
   if (t.dataset.cold === 'board') { if (S.cold) S.cold.toBoard = !S.cold.toBoard; return paintColdBar(); }
   if (t.dataset.pan) return pickPan(t.dataset.pan, e);
   if (t.dataset.tool) return setTool(t.dataset.tool);
@@ -704,7 +714,7 @@ function onClick(e) {
   if (t.dataset.shelf && S.sheet?.kind === 'stock') { S.sheet.shelf = t.dataset.shelf; return paintSheet(); }
   if (t.dataset.buy) { sendCmdQuiet(`kitchenorder ${t.dataset.buy} 1`); sendCmdSilent('workspace'); sendCmdSilent('kitchenstock'); ksfx('kitchen-clink'); return; }
   if (t.dataset.station) return go(t.dataset.station);
-  if (t.dataset.food) { S.board = S.board === t.dataset.food ? null : t.dataset.food; ksfx('kitchen-tap'); return paintDom(); }
+  if (t.dataset.food) { const c = foods().find((f) => String(f.id) === t.dataset.food); if (c) S.out.add(c.id); ksfx('kitchen-tap'); return paintDom(); }
   if (t.dataset.dress && S.dress) {
     if (t.dataset.dress === 'serve') return serve(scoreDress());
     if (t.dataset.dress === 'skip') return serve(null);
@@ -972,8 +982,9 @@ function onUp(e) {
 }
 
 // ── things you can click ─────────────────────────────────────────────────────────────────────────
-// Every food on you that isn't on the board, along the back of the counter behind it.
-const shelf = () => foods().filter((c) => c.id !== S.board || S.knife);
+// Food you've set out (taken from a box, or laid on the board once) that isn't on the board, along
+// the back of the counter behind it. What you walked in carrying stays in your bag until you do.
+const shelf = () => foods().filter((c) => S.out.has(c.id) && (c.id !== S.board || S.knife));
 const shelfSpot = (i) => [KS.STATIONS.board - 30 + (i % 8) * 9, 22 + Math.floor(i / 8) * 9, 0];
 const KNIFE_AT = () => [KS.STATIONS.board + 4, 10.5, KS.BOARD.h];
 const PLATE_AT = () => [KS.STATIONS.pass, 0, 1.2];
@@ -1105,6 +1116,7 @@ const SHELVES = [-4, 26, 56, 86];               // the top of each shelf inside,
 const PER_SHELF = 5;
 const DOOR_BINS = [14, 46, 78];                  // the door racks' floors, up from the box's foot
 const PER_BIN = 4;
+const SHOW_DOOR_RACK = false;                    // what on you could go in, drawn in the door
 const DOOR_OPEN = 1.95;                          // radians, a touch past square
 const SHADOW = M.mix(M.rgb('#b9a888'), -0.25);
 const PICKED = M.rgb('#c8323a');
@@ -1186,7 +1198,10 @@ function coldInside(box) {
 }
 // What on you could go in, each with something to draw: the food's own component when there is
 // one (it carries the cook beat), else the put's look (a pan, a tool).
+// The door rack is off: a box shows only what's in it, and the bar's Put it all away sends what
+// you carry in at once (coldOffload). Kept so the rack can come back by dropping this line.
 function coldDoor(box) {
+  if (!SHOW_DOOR_RACK) return [];
   const gone = S.cold?.gone || new Set();
   const byId = new Map((S.data?.components || []).map((c) => [String(c.id), c]));
   return (box?.puts || []).filter((p) => !gone.has(String(p.id)))
@@ -1337,6 +1352,7 @@ function coldUse(hit, toBoard = false) {
     c.fly.push({ it, from: insideSpot(c.i, hit.k), to: camera, arc: 10, t: 0, life: 0.45, shrink: true });
     c.gone.add(String(it.id));
     if (toBoard) S.pendingBoard = { id: String(it.id), name: it.name };
+    S.pendingOut.push({ id: String(it.id), name: it.name });
     const sp = insideSpot(c.i, hit.k);
     pop([sp[0], sp[1], sp[2] + 5]);
     run(take);
@@ -1353,6 +1369,26 @@ function coldUse(hit, toBoard = false) {
   }
   c.hover = null;
   hideTip();
+  paintColdBar();
+}
+
+// Everything on you that this box takes, in at once: each one flies from the camera to a shelf.
+function coldOffload() {
+  const c = S.cold, box = coldBox();
+  if (!c || !box) return;
+  const puts = (box.puts || []).filter((p) => !c.gone.has(String(p.id)));
+  if (!puts.length) return;
+  const byId = new Map((S.data?.components || []).map((x) => [String(x.id), x]));
+  const camera = [S.cam.eye[0] * 0.6 + S.cam.at[0] * 0.4, S.cam.eye[1] * 0.6 + S.cam.at[1] * 0.4, S.cam.eye[2] * 0.6 + S.cam.at[2] * 0.4];
+  let slot = coldInside(box).length;
+  for (const p of puts) {
+    const to = insideSpot(c.i, Math.min(slot++, SHELVES.length * PER_SHELF - 1));
+    c.fly.push({ it: byId.get(String(p.id)) || { id: p.id, name: p.name, kind: p.kind, look: p.look }, from: camera, to, arc: 14, t: 0, life: 0.5, shrink: false });
+    c.gone.add(String(p.id));
+    S.out.delete(p.id);
+    run(p);
+  }
+  ksfx('kitchen-clink');
   paintColdBar();
 }
 
@@ -1401,10 +1437,12 @@ function paintColdBar() {
   if (!S.cold || !box) { el.hidden = true; el.innerHTML = ''; return; }
   const n = (box.items || []).length, shown = coldInside(box).length;
   const more = (n - shown - S.cold.gone.size > 0 ? n - shown : 0) + (box.other || 0);
+  const puts = (box.puts || []).filter((p) => !S.cold.gone.has(String(p.id))).length;
   el.hidden = false;
   el.dataset.frozen = box.preserves === 'frozen' ? '1' : '';
   el.innerHTML = `<span class="ks-cold-name">${esc(box.name)}</span>
     <span class="ks-cold-count">${n ? `${n} thing${n === 1 ? '' : 's'}` : 'Empty'}${more ? ` · ${more} more at the back` : ''}</span>
+    ${puts ? `<button class="ks-chip" data-cold="offload" title="Everything you're carrying that goes in here">Put it all away (${puts})</button>` : ''}
     <button class="ks-chip${S.cold.toBoard ? ' on' : ''}" data-cold="board" aria-pressed="${S.cold.toBoard}" title="Whatever you take goes straight onto the board">To the board</button>
     <button class="ks-chip ks-serve" data-cold="shut">Shut it</button>`;
 }

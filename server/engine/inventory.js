@@ -290,7 +290,24 @@ export async function pickUp(row, player) {
   const { rowCount } = from
     ? await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2 AND player_id=$3', [player.id, row.id, from])
     : await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [player.id, row.id]);
-  return rowCount ? row.id : null;
+  if (!rowCount) return null;
+  await carryContents(row.id, player.id);
+  return row.id;
+}
+
+// A row's contents (and theirs, down any nesting) carry its player_id, so when
+// the container changes hands they have to follow it. Otherwise a dropped bag's
+// contents stay on the dropper's weight and out of the next holder's reach.
+async function carryContents(rowId, ownerId) {
+  await query(
+    `WITH RECURSIVE inside AS (
+       SELECT id FROM player_inventory WHERE container_id=$1
+       UNION SELECT pi.id FROM player_inventory pi JOIN inside ON pi.container_id=inside.id
+     )
+     UPDATE player_inventory SET player_id=$2, is_equipped=0, slot=NULL
+      WHERE id IN (SELECT id FROM inside) AND player_id<>$2`,
+    [rowId, ownerId]
+  );
 }
 
 // Delete a row and return the quantity it held, or 0 when it was already gone
@@ -317,6 +334,7 @@ export async function dropToGround(row, zoneId, qty) {
     await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,$4,0)', [randomUUID(), groundOwner(zoneId), row.item_id, dropQty]);
   } else {
     await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL WHERE id=$2', [groundOwner(zoneId), row.id]);
+    await carryContents(row.id, groundOwner(zoneId));
   }
   return dropQty;
 }
@@ -438,6 +456,7 @@ export async function giveToPlayer(row, toPlayer, fromId = row.player_id || null
   const { rowCount } = fromId
     ? await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL WHERE id=$2 AND player_id=$3', [toPlayer.id, row.id, fromId])
     : await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL WHERE id=$2', [toPlayer.id, row.id]);
+  if (rowCount) await carryContents(row.id, toPlayer.id);
   return rowCount > 0;
 }
 

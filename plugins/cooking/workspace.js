@@ -1218,7 +1218,10 @@ export async function buildKitchen(player) {
     && !Number(r.is_equipped) && !hasTag(r, 'quest_item') && !vesselIds.has(r.container_id)
     && !(isVessel(r) && (childrenOf.get(r.id) || []).length)
     && !(hasTag(r, 'container') && !isVessel(r)));
-  const storage = boxes.map(f => {
+  // Kitchen storage only: a fridge or freezer, a `dish_cabinet` cupboard or shelf, a bin. A
+  // wardrobe or a shop's shelving is a container too, but nobody cooks out of it.
+  const kitchenBox = f => f.flags?.preserves || f.flags?.dish_cabinet || f.flags?.trash_bin;
+  const storage = boxes.filter(kitchenBox).map(f => {
     const inside = childrenOf.get(f.id) || [];
     // A COLD box lists only what belongs in one. A fridge is not a cupboard: the
     // reason to open it is the food that would otherwise spoil, and everything

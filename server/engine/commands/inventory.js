@@ -407,8 +407,12 @@ export async function computeCarriedWeight(player) {
   const { rows } = await query(
     `SELECT
        COALESCE(SUM(i.weight*pi.quantity) FILTER (WHERE pi.container_id IS NULL),0) AS top,
-       COALESCE(SUM(i.weight*pi.quantity) FILTER (WHERE pi.container_id IS NOT NULL),0) AS contained
-     FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1`,
+       COALESCE(SUM(i.weight*pi.quantity) FILTER (WHERE pi.container_id IS NOT NULL AND c.id IS NOT NULL),0) AS contained
+     FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+     -- Contents keep the owner's player_id when their container is dropped or
+     -- handed over, so count them only while the container is still carried.
+     LEFT JOIN player_inventory c ON c.id=pi.container_id AND c.player_id=pi.player_id
+     WHERE pi.player_id=$1`,
     [player.id]
   );
   const value = (Number(rows[0].top) || 0) + (Number(rows[0].contained) || 0) * 0.75;

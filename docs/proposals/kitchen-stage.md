@@ -143,6 +143,8 @@ The Stage fills the screen and is played with the mouse. Clicking any object ope
 - **Heat.** The wheel turns the knob; the picture moves at once and the setting is sent when you stop. The ring glows dull red to yellow-white with the dial.
 - **No log.** While the Stage is open, `output` lines show as a caption over the kitchen (`kitchenSays`) instead of in the log, and the Stage's own commands aren't echoed.
 - **Stocking up.** `kitchenstock` sends the catalogue (`kitchen_stock`); `kitchenorder <item> [qty]` buys and delivers to you ([stock.js](../../plugins/cooking/stock.js)). It sells only what some vendor deals in (`vendor_inventory`), at half as much again as the item's value, and only beside a stove.
+- **Kitchen boxes only, contents only.** The Stage lists a box only when it's a fridge or freezer (`preserves`), a `dish_cabinet` cupboard or shelf, or a bin; a wardrobe or a shop's shelving doesn't show. An open box shows only what's in it: the door rack is off (`SHOW_DOOR_RACK`), and the bar's **Put it all away** button sends `kitchenstow` for everything on you that box takes (perishables for a cold box; food, pans and tools for a cupboard).
+- **The counter starts bare.** Opening the Stage shows nothing on the counter. Food stands along its back only once you set it out: taken from a box, laid on the board, or picked from the On you tray, which lists what's still in your bag. It's client state only and resets each time the Stage opens.
 - **Stoves start off.** An untouched ring reads 0. `cook` still lights a ring at zero at the stove's resting tier.
 
 ## Liquids (as built)
