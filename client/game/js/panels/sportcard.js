@@ -23,10 +23,25 @@ export function ensureSportCards() {
     btn.closest('.spc')?.classList.toggle('flipped');
   }, true);
   // every card that arrives, however it was put on the page (the reveal, the Binder)
-  const scan = (root) => { for (const el of root.querySelectorAll?.('.spc-photo[data-photo]:not([data-shot])') || []) shoot(el); };
+  const scan = (root) => {
+    for (const el of root.querySelectorAll?.('.spc-photo[data-photo]:not([data-shot])') || []) shoot(el);
+    for (const el of root.querySelectorAll?.('.spc:not([data-fit])') || []) { el.dataset.fit = '1'; fitter.observe(el); }
+  };
   new MutationObserver((muts) => { for (const m of muts) for (const n of m.addedNodes) if (n.nodeType === 1) scan(n.matches?.('.spc-photo') ? n.parentNode : n); })
     .observe(document.body, { childList: true, subtree: true });
   scan(document);
+}
+
+// THE NAME FITS. A long name shrinks to its plate's width rather than being cut; the card is
+// sized off its own width, so it's measured again whenever the card is resized (a zoom, the
+// Binder's grid). A card not yet laid out measures zero and waits for its first size.
+const fitter = new ResizeObserver((entries) => { for (const e of entries) fitNames(e.target); });
+function fitNames(card) {
+  for (const el of card.querySelectorAll('.spc-name, .spc-bname')) {
+    el.style.fontSize = '';
+    const room = el.clientWidth, want = el.scrollWidth;
+    if (room && want > room) el.style.fontSize = (parseFloat(getComputedStyle(el).fontSize) * room / want * 0.98) + 'px';
+  }
 }
 
 let photoMod = null;

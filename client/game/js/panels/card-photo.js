@@ -66,7 +66,7 @@ async function parkRenderer() {
   return park;
 }
 
-export const CAM = { dist: 6, headY: 5.45, rise: 0.25, fov: 22, three: 0.38, actDist: 16, actY: 3.1, actFov: 30, dof: 0, debug: false, last: null };
+export const CAM = { dist: 6, headY: 5.45, rise: 0.25, fov: 22, three: 0.38, actPad: 1.22, actFov: 30, dof: 0, debug: false, last: null };
 const ACTION_POSE = { swing: 'batLoad', pitch: 'pRelease', catch: 'catcher', field: 'infield', leap: 'outfield' };
 
 async function parkShot(spec) {
@@ -94,15 +94,32 @@ async function parkShot(spec) {
   R.setPose(man.look.slot, solved);
   while (R.pending() && R.pump(200));
   R.setPose(man.look.slot, solved);
-  // the camera: between his chest and where he's looking (a batter down the line at the
-  // pitcher, a pitcher in the set in at the plate), at his head for a portrait and his middle
-  // for an action shot. 'front' is the Pose Lab's: the eye along (sin yaw, cos yaw).
+  // the camera. A portrait: at his head, a little off square. An action shot: the whole man,
+  // framed on the box round his solved joints (a pose can put him metres off his mark, a pitcher
+  // in his stride most of all), from between his chest and where he's looking.
   const s = man.scale || 1, yaw = man.yaw * DEG;
   const gaze = pitcher ? Math.PI : 0;                  // the plate is down -z, the mound up +z
   const turn = ((gaze - yaw + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
   const az = action ? yaw + turn * 0.35 : yaw + CAM.three;
-  const dist = (action ? CAM.actDist : CAM.dist) * s, hy = (action ? CAM.actY : CAM.headY) * s;
-  const focus = [man.at[0], man.at[1] + hy, man.at[2]];
+  let focus, dist;
+  if (action) {
+    const { solvePose } = await import('./diamond/rig.js');
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const [k, v] of Object.entries(solvePose(solved).J)) {
+      if (!Array.isArray(v) || /pole|dir|palm/.test(k)) continue;
+      for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], v[i]); hi[i] = Math.max(hi[i], v[i]); }
+    }
+    hi[1] += 0.55 * s;                                 // the crown of his cap over the head joint
+    lo[1] = Math.min(lo[1], man.at[1]);                // and his boots on the ground
+    focus = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
+    // across the frame: the box's width seen from this side, at the photo's aspect
+    const across = Math.abs((hi[0] - lo[0]) * Math.cos(az)) + Math.abs((hi[2] - lo[2]) * Math.sin(az));
+    const need = Math.max(hi[1] - lo[1], across * PHOTO_H / PHOTO_W) * CAM.actPad;
+    dist = need / 2 / Math.tan(CAM.actFov * Math.PI / 360);
+  } else {
+    focus = [man.at[0], man.at[1] + CAM.headY * s, man.at[2]];
+    dist = CAM.dist * s;
+  }
   const eye = [focus[0] + Math.sin(az) * dist, focus[1] + (action ? 0.8 : CAM.rise), focus[2] + Math.cos(az) * dist];
   R.render({ eye, at: focus, fov: action ? CAM.actFov : CAM.fov, near: 0.4, dof: CAM.dof, shadow: [focus, 9] });
   if (CAM.debug) CAM.last = copyOf(canvas);
@@ -111,6 +128,7 @@ async function parkShot(spec) {
 
 // ── Cluster Puck: the rink ─────────────────────────────────────────────────────
 export const RINK = { face: 0, three: 0.35, dist: 6, headY: 5.75, goalieY: 4.2, rise: 0.15, fov: 26, actDist: 15, actY: 3, actFov: 30 };
+const RINK_ACT = { shot: ['slap', 0.5], check: ['check', 0.55], save: ['butterfly', 0.6] };
 let rink = null;
 async function rinkRenderer() {
   if (rink) return rink;
@@ -154,6 +172,10 @@ async function rinkShot(spec) {
   };
   for (let i = 0; i < 4; i++) { hold(); W.step(1 / 60); }
   hold();
+  // an action shot catches him mid-move: a slapper at the top of the wind-up, a check as it
+  // lands, a goalie down in the butterfly. The act is held there for the render.
+  const act = spec.art === 'action' && RINK_ACT[spec.pose];
+  if (act) { W.act(man, act[0], 60); man.actT = act[1]; W.step(1 / 60); hold(); man.actT = act[1]; }
   // the camera: a seat (camera.js seatFrame), which is a free eye; yaw is from +y toward +x
   const action = spec.art === 'action';
   const dist = action ? RINK.actDist : RINK.dist, hy = action ? RINK.actY : goalie ? RINK.goalieY : RINK.headY;
@@ -187,14 +209,15 @@ const PLATES = [
   { ink: [0.11, 0.1, 0.1], angle: 45, dx: 0, dy: 0 },     // black
 ];
 const PAPER = [0.95, 0.92, 0.85];
-export const PRINT_TUNE = { cell: 2.4, gain: 1.1, sat: 1.12, grain: 0.03, under: 0.18, screen: 0.5 };
+export const PRINT_TUNE = { cell: 2.4, gain: 1.1, sat: 1.12, grain: 0.03, under: 0.18, screen: 0.5, rink: 1.45 };
 
 export function printPhoto(src, spec = {}) {
   const W = PHOTO_W, H = PHOTO_H, T = PRINT_TUNE;
   // the source at print size, boosted
   const s = document.createElement('canvas'); s.width = W; s.height = H;
   const sx = s.getContext('2d', { willReadFrequently: true });
-  sx.filter = `contrast(${T.gain}) saturate(${T.sat})`;
+  // the rink is lit for broadcast, not for print; it goes up a stop so the ice reads white
+  sx.filter = `brightness(${spec.league === 'hockey' ? T.rink : 1}) contrast(${T.gain}) saturate(${T.sat})`;
   sx.drawImage(src, 0, 0, W, H);
   const S = sx.getImageData(0, 0, W, H).data;
   // the separation: CMY from the colour, black taken out of the three as grey-component replacement

@@ -15,7 +15,24 @@
 .spc.flipped .spc-back { display: flex; }
 
 /* ── the front ── */
-.spc-photo { position: relative; flex: 1 1 auto; border: 1.2cqw solid #f4efe2; border-radius: 2cqw; overflow: hidden; background: #333; }
+.spc-photo { position: relative; flex: 1 1 auto; border: 1.2cqw solid #f4efe2; border-radius: 2cqw; overflow: hidden; background: #333;
+  box-shadow: 0 0 0 0.5cqw var(--k2), 0 0.8cqw 1.6cqw rgba(0,0,0,0.35); }
+/* the finish: a gold hairline inside the photo's border, corner brackets, and a gloss across
+   the print, so the face reads as a coated card and not a screenshot */
+.spc-photo::before {
+  content: ''; position: absolute; inset: 1.4cqw; z-index: 1; pointer-events: none; border-radius: 1cqw;
+  border: 0.35cqw solid rgba(232, 200, 120, 0.85);
+  -webkit-mask: linear-gradient(#000 0 0) top left / 9cqw 9cqw no-repeat, linear-gradient(#000 0 0) top right / 9cqw 9cqw no-repeat,
+    linear-gradient(#000 0 0) bottom left / 9cqw 9cqw no-repeat, linear-gradient(#000 0 0) bottom right / 9cqw 9cqw no-repeat;
+          mask: linear-gradient(#000 0 0) top left / 9cqw 9cqw no-repeat, linear-gradient(#000 0 0) top right / 9cqw 9cqw no-repeat,
+    linear-gradient(#000 0 0) bottom left / 9cqw 9cqw no-repeat, linear-gradient(#000 0 0) bottom right / 9cqw 9cqw no-repeat;
+}
+.spc-photo::after {
+  content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(118deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.16) 42%, rgba(255,255,255,0) 52%),
+    radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(0,0,0,0.28));
+  box-shadow: inset 0 0 0 0.3cqw rgba(0,0,0,0.25);
+}
 .spc-portrait { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .spc-shot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; animation: spc-shot-in 0.35s ease-out; }
 @keyframes spc-shot-in { from { opacity: 0; } to { opacity: 1; } }
@@ -31,11 +48,17 @@
 }
 .spc-crest svg, .spc-bcrest svg { width: 100%; height: 100%; display: block; }
 .spc-plate {
-  margin-top: 2.5cqw; padding: 2.4cqw 3cqw; background: #f4efe2; border-radius: 2cqw;
-  border-left: 3cqw solid var(--k2);
+  position: relative; margin-top: 2.5cqw; padding: 2.4cqw 3cqw; border-radius: 2cqw;
+  background: linear-gradient(180deg, #fbf7ec, #ece4d0); border-left: 3cqw solid var(--k2);
+  box-shadow: inset 0 0.4cqw 0 #fff, inset 0 -0.5cqw 0 rgba(0,0,0,0.08), 0 0.6cqw 1.2cqw rgba(0,0,0,0.3);
 }
+/* a club-colour pinstripe along the plate's top, and a gold rule under the name */
+.spc-plate::before { content: ''; position: absolute; left: 0; right: 2cqw; top: 0; height: 0.9cqw;
+  background: linear-gradient(90deg, var(--k1) 0 60%, var(--k3) 60% 66%, var(--k1) 66%); border-radius: 0 2cqw 0 0; opacity: 0.9; }
+.spc-plate::after { content: ''; display: block; height: 0.35cqw; margin-top: 1cqw;
+  background: linear-gradient(90deg, #8a6418, #f0d68a 40%, #8a6418 70%, transparent); }
 .spc-name { font: 900 8.4cqw/1.05 'Arial Black', Impact, sans-serif; text-transform: uppercase; letter-spacing: -0.02em;
-  white-space: nowrap; overflow: hidden; text-overflow: clip; }
+  white-space: nowrap; overflow: hidden; text-overflow: clip; text-shadow: 0 0.25cqw 0 rgba(255,255,255,0.9), 0 -0.15cqw 0 rgba(0,0,0,0.15); }
 .spc-pos { font-size: 5cqw; margin-top: 0.8cqw; color: #333; white-space: nowrap; overflow: hidden; }
 .spc-pos b { color: var(--k1); filter: brightness(0.8); }
 .spc-brand { margin-top: 1.6cqw; padding: 0.4cqw 26cqw 0.4cqw 2.6cqw; font-size: 3.6cqw; letter-spacing: 0.14em; color: #f4efe2;
