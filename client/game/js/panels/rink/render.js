@@ -455,8 +455,8 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
   // The ice resurfacer: chassis, snow tank, open cab with its driver, the conditioner
   // dragging behind, four wheels and an amber beacon. Boxes are culled by facing and drawn
   // back to front, so it reads as a solid machine from any camera. `bands` are stripes
-  // painted round a box's sides; `label` is lettering on the tank's flanks. On Cup final
-  // night (`W0.cup`) it wears Ken Raven's livery instead (livery.js).
+  // painted round a box's sides; `label` is lettering on the tank's flanks. With `W0.cup`
+  // (every night now) it wears Ken Raven's livery instead (livery.js).
   const ZB = [
     { b: [-6.1, -4.6, -3.7, 3.7, 0.12, 1.2], col: '#7d848c', bands: [[0.12, 0.35, '#2a2e34']] },          // conditioner
     { b: [-4.7, 4.7, -3.45, 3.45, 0.55, 2.7], col: '#eceff2', bands: [[1.45, 1.95, '#1f4fbf'], [0.55, 0.8, '#3a3f46']] }, // chassis

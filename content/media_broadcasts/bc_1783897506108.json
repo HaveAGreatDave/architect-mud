@@ -39,25 +39,25 @@
     "guestNpc": "npc_guest",
     "guests": [
       {
-        "name": "Lenny \"Lucky\" Malone",
+        "name": "Frank Corcoran",
         "tag": "lucky",
         "theme": "",
         "title": "professional lottery winner, eight-time and counting"
       },
       {
-        "name": "Dr. Priya Sundaram",
+        "name": "Dr. Priya Anand",
         "tag": "surgeon",
         "theme": "",
-        "title": "the surgeon who transplants organs she prints at home"
+        "title": "the doctor at the clinic, who has seen everything walk in"
       },
       {
-        "name": "Mackenzie \"Mack\" Doyle",
+        "name": "Mack Dunleavy",
         "tag": "nation",
         "theme": "",
         "title": "the man who legally declared his apartment a sovereign nation"
       },
       {
-        "name": "Ophelia Crane",
+        "name": "Ophelia Hartley",
         "tag": "vending",
         "theme": "",
         "title": "spokeswoman for a vending machine that has killed forty people"
@@ -69,19 +69,19 @@
         "title": "founder of the Church of the Reasonable Refund"
       },
       {
-        "name": "Tabitha Voss",
+        "name": "Tabitha Quinlan",
         "tag": "chef",
         "theme": "",
         "title": "the street chef whose mutant-squid tacos are \"probably fine\""
       },
       {
-        "name": "Griff \"The Wall\" Nakamura",
+        "name": "Deacon Ruhl",
         "tag": "bouncer",
         "theme": "",
-        "title": "a bouncer who has ejected the same man nine years running"
+        "title": "on the door at the Cherry"
       },
       {
-        "name": "Marisol Etcheverry",
+        "name": "Lucia Etcheverry",
         "tag": "exorcist",
         "theme": "",
         "title": "the only licensed exorcist in the Undermarket"
@@ -93,7 +93,7 @@
         "title": "a scavenger who found a working toaster and became a millionaire"
       },
       {
-        "name": "Yuki Tanaka-Reyes",
+        "name": "Yuki Tanaka",
         "tag": "lawsuit",
         "theme": "",
         "title": "the woman suing the sun for emotional distress"
@@ -105,25 +105,25 @@
         "title": "retired, allegedly, from a war nobody will confirm happened"
       },
       {
-        "name": "Sable Okonkwo",
+        "name": "Simone Bakker",
         "tag": "influencer",
         "theme": "",
         "title": "an influencer with nine million followers, all of them bots she pays"
       },
       {
-        "name": "\"Sparky\" Reyes",
+        "name": "Eddie \"Sparky\" Moreno",
         "tag": "sparky",
         "theme": "",
         "title": "an ex-grid saboteur now working as a safety consultant"
       },
       {
-        "name": "Delphine Rook",
+        "name": "Corbin Estes",
         "tag": "forecaster",
         "theme": "",
-        "title": "a corporate futures forecaster who has never been right"
+        "title": "of Estes Maritime, a freight futures trader who is very rich on paper"
       },
       {
-        "name": "Brother Ansel",
+        "name": "Brother Tobias",
         "tag": "monk",
         "theme": "",
         "title": "a monk who took a vow of aggressive silence"
@@ -135,16 +135,76 @@
         "title": "three-time champion of competitive hoarding"
       },
       {
-        "name": "Gus \"Two-Livers\" Malkin",
+        "name": "Arnie \"Two-Livers\" Malkin",
         "tag": "taster",
         "theme": "",
         "title": "a professional poison taster, mostly retired, involuntarily"
       },
       {
-        "name": "Nadia Sokol",
+        "name": "Doreen Fairweather",
         "tag": "florist",
         "theme": "",
-        "title": "a retired assassin who now arranges flowers"
+        "title": "the florist, cold hands and twenty years of wet stock"
+      },
+      {
+        "name": "Bruno \"Six Stitches\" Lacasse",
+        "tag": "enforcer",
+        "theme": "",
+        "title": "a retired Cluster Puck enforcer who has been through the vat eleven times"
+      },
+      {
+        "name": "Ken Raven",
+        "tag": "icedriver",
+        "theme": "",
+        "title": "who drives the Zamboni at Golden Goose Gardens"
+      },
+      {
+        "name": "Walter Ambrose",
+        "tag": "organist",
+        "theme": "",
+        "title": "the organist at the Hughson Coliseum, who knows one song"
+      },
+      {
+        "name": "Moe Kettering",
+        "tag": "umpire",
+        "theme": "",
+        "title": "a Deadball umpire with a perfect record, depending on how you count"
+      },
+      {
+        "name": "Sully Holt",
+        "tag": "barkeep",
+        "theme": "",
+        "title": "who runs the Dead Pigeon"
+      },
+      {
+        "name": "Auberon Vale",
+        "tag": "insurer",
+        "theme": "",
+        "title": "Vice-President of Everything Regrettable at Halcyon Assurance"
+      },
+      {
+        "name": "Father Jerome",
+        "tag": "priest",
+        "theme": "",
+        "title": "of St Garneau's"
+      },
+      {
+        "name": "Gil Hesketh",
+        "tag": "chippy",
+        "theme": "",
+        "title": "who works the fryers at Batter Days Fish & Chips"
+      },
+      {
+        "name": "Assemblyman Croll",
+        "tag": "assemblyman",
+        "theme": "",
+        "title": "the one member of the Assembly who thinks it should govern something"
+      },
+      {
+        "name": "Isolde 'The Rake' Farrow",
+        "tag": "pitboss",
+        "theme": "",
+        "title": "pit boss at the Lucky Bastard"
       }
     ],
     "host": "npc_john_akerson",
@@ -207,25 +267,25 @@
         "( The audience murmurs, unsure if that was allowed. )",
         "( A wave of laughter, cut short by a flicker of the lights. )",
         "( The room laughs, then goes quiet fast, the way people do here. )",
-        "( A big laugh. Somebody in the third row is crying and it isn't clear why. )",
+        "( A big laugh. Somebody in the third row is crying and it is not clear why. )",
         "( One long, low groan from four hundred people at once. )",
         "( Laughter, then applause, then more laughter, in that order. )",
         "( The crowd whoops. The band hits a sting. )",
-        "( Somebody shouts a name. It isn't anybody's name. )",
+        "( Somebody shouts a name. It is not anybody's name. )",
         "( Applause from one side of the studio only. )",
         "( The audience laughs; a light fixture sways in agreement. )",
         "( A hard laugh, cut off by a cough that goes on too long. )",
         "( Delighted, appalled laughter. )",
         "( The crowd thinks about it, then laughs late. )",
         "( Two people laugh. Then everybody laughs at those two. )",
-        "( A whoop, a whistle, and a chant that's abandoned immediately. )",
+        "( A whoop, a whistle, and a chant that is abandoned immediately. )",
         "( The audience claps in that slow sarcastic way, then normally. )",
         "( Somebody boos. Somebody else deals with it. Order restored. )",
         "( Laughter with an edge on it. )",
         "( The crowd howls. )",
-        "( A murmur of recognition, and it lands harder than a laugh. )",
+        "( A murmur of recognition, which is worse than a laugh and lands harder. )",
         "( Silence, and then, from the balcony, one word: \"Yeah.\" )",
-        "( The audience applauds a joke that hasn't finished landing. )",
+        "( The audience applauds a joke that has not finished landing. )",
         "( Groans, and then applause for the groan. )",
         "( The audience laughs. Somewhere behind them, a door closes. )",
         "( One person laughs alone for a long time and nobody stops them. )",
@@ -242,7 +302,7 @@
         "( Applause that starts before the punchline and has to commit. )",
         "( The audience winces, then laughs at the wince. )",
         "( A laugh, and then the sound of four hundred people deciding not to think about it. )",
-        "( Warm laughter. It's nice in here. It won't last. )",
+        "( Warm laughter. It is nice in here. It will not last. )",
         "( The crowd goes very still, and then breaks. )",
         "( Laughter, a whistle, and a small crash offstage that nobody acknowledges. )",
         "( The audience laughs at the wrong part, which is somehow better. )"
@@ -286,12 +346,12 @@
         "Speaking of terrible decisions, let me tell you about my week. Actually, let me not. Legal's here.",
         "Here's something. We got a letter from a viewer tonight. It was a threat, but it was very neatly written, so: progress.",
         "You know what I love about this city? Nothing. But I love saying it, and that's the same thing after a while.",
-        "Quick programming note: if the screen goes dark for a moment, that's not us, that's the grid, and there's nothing anyone can do.",
+        "Quick programming note: if the screen goes dark for a moment, that's not us, that's the grid, and there is nothing anyone can do.",
         "We tried a new thing this week where we told the truth for a full minute. We got fined. We're not doing that again.",
         "I want to thank our sponsors, all of whom are currently under investigation, which is how you know they can afford us.",
         "So the network gave me \"notes\" this week. The main note was \"fewer notes.\" I'm choosing to honor that spiritually.",
         "Somebody in the front row is eating during my monologue. Sir. This is a comedy program. Show some fear.",
-        "Little behind-the-scenes for you: the desk isn't real. None of it is real. The desk is the most real thing here and it's cardboard.",
+        "Little behind-the-scenes for you: the desk isn't real. None of it's real. The desk is the most real thing here and it's cardboard.",
         "Little housekeeping: if you hear an alarm during the show, finish watching first. It's rude to leave during the good part.",
         "I got recognized on the street today. By a bounty drone. We had a lovely chat and then I ran.",
         "We got a new intern this week. Brave kid. Started Monday, filed a missing-persons report on himself Wednesday, just to be safe.",
@@ -303,7 +363,7 @@
         "{sidekick_first}. You look well. >> I look EMBALMED, {host_first}. But thank you for saying it in front of witnesses.",
         "How are we doing tonight, {sidekick_first}? >> Alive, employed, and only one of those by choice.",
         "{sidekick_first}, good crowd tonight. >> It's a crowd, {host_first}. \"Good\" is a scheduling matter.",
-        "Nineteen years, {sidekick_first}. Nineteen years we've done this. >> And every one of them, {host_first}, you've asked me that like it is a surprise.",
+        "Nineteen years, {sidekick_first}. Nineteen years we've done this. >> And every one of them, {host_first}, you've asked me that like it's a surprise.",
         "{sidekick_first}, did you do anything nice this week? >> I slept, {host_first}. Through a fire alarm. Best night I've had in months.",
         "Talk to me, {sidekick_first}. How's the building? >> Standing. Ask me again after the second commercial.",
         "{sidekick_first}, were you here for rehearsal? >> I was here for rehearsal, {host_first}. I'd like that considered at my sentencing.",
@@ -319,8 +379,8 @@
         "I'm told my next guest is {title}. That's either impressive or a felony. Welcome, {guest}!",
         "Give it up for {guest}, {title}, and a very brave choice of outfit!",
         "Please welcome someone the producers swore was cleared by legal: {guest}, {title}!",
-        "My next guest is {title}. I didn't know that was a job. Ladies and gentlemen, {guest}!",
-        "Straight from a life I wouldn't wish on my worst enemy: {guest}, {title}!",
+        "My next guest is {title}. I did not know that was a job. Ladies and gentlemen, {guest}!",
+        "Straight from a life I would not wish on my worst enemy: {guest}, {title}!",
         "Here to explain themselves, at long last: {guest}, {title}!",
         "My next guest does something I genuinely didn't know was legal: {guest}, {title}!",
         "Please welcome, fresh from a life sentence's worth of anecdotes, {guest}, {title}!",
@@ -329,29 +389,36 @@
         "You've feared them, you've read about them, now meet them: {guest}, {title}!",
         "Here's someone the Machine flagged, the corporates blacklisted, and we booked anyway: {guest}, {title}!"
       ],
+      "guest_leaving": [
+        "Sorry, everybody, I'm closing up early. I'm on {show} tonight.",
+        "Right, that's me done for the night, sorry. I'm on {show}. Watch it if you've got a set.",
+        "Out you go, sorry. I've got to be at KSAB. I'm on {show} tonight, if you can believe it.",
+        "Sorry, folks, we're closing. I'm on {show} tonight and they don't wait.",
+        "I'm shutting up early, sorry about that. I'm on {show} tonight. Don't laugh."
+      ],
       "guest_noshow": [
         "{sidekick_first}. There's no one in the chair. >> I see the chair, {host_first}. I've been looking at the chair for some time now.",
         "Where is our guest, {sidekick_first}? >> In transit, {host_first}. That's the word the booth used. It's a generous word. It covers a great deal of ground and several outcomes.",
-        "{sidekick_first}, did we book a guest tonight? >> We booked one. We're between the booking and the guest. It's a wide space and people do get lost in it.",
+        "{sidekick_first}, did we book a guest tonight? >> We booked one. We are between the booking and the guest. It's a wide space and people do get lost in it.",
         "So what do we do now, {sidekick_first}? >> What we always do, {host_first}. We talk until something happens. It's worked before. Twice.",
         "Is anyone looking for them? >> Two interns and a drone, {host_first}. The drone is the one I'd bet on.",
         "{sidekick_first}, I've interviewed empty chairs before. >> You have. And I'd like the record to show the chair came off better both times.",
         "Should I be worried, {sidekick_first}? >> About the guest? No. About the twelve minutes of airtime we've just inherited? Yes, {host_first}, and immediately.",
-        "{sidekick_first}, what do we know? >> That they left. That they were coming here. Everything after that's theology.",
+        "{sidekick_first}, what do we know? >> That they left. That they were coming here. Everything after that is theology.",
         "This has happened before, hasn't it? >> Four times this year, {host_first}. Three came back. We don't discuss the fourth on air.",
         "Can we just go to the commercial? >> The commercial is ninety seconds, {host_first}. You'd still be sitting here afterwards, and so would the chair.",
         "{sidekick_first}, say something reassuring. >> The building is insured. >> That's not reassuring. >> It's what I've got, {host_first}. The rest is aspiration.",
-        "All right. {sidekick_first}, YOU sit in the chair. >> I'll not. >> Why not? >> Because then there'd be nobody to announce you, {host_first}, and you'd be entirely alone up here. Think about that carefully before you ask again."
+        "All right. {sidekick_first}, YOU sit in the chair. >> I will not. >> Why not? >> Because then there'd be nobody to announce you, {host_first}, and you'd be entirely alone up here. Think about that carefully before you ask again."
       ],
       "host_absent": [
         "Ladies and gentlemen... he isn't here. I've announced that man for nineteen years and tonight I've announced him to a chair.",
         "The booth is telling me to stall. I've been stalling since \"ladies and gentlemen.\" I'm out of ladies and I'm out of gentlemen.",
         "I want to be straight with you, because you stayed up: there's no host tonight, and I'm not going to stand here and do his half badly.",
-        "I could tell you a joke. I've heard nineteen years of them. That isn't the same as being able to tell one.",
+        "I could tell you a joke. I've heard nineteen years of them. That is not the same as being able to tell one.",
         "Somebody will ask why I didn't just carry it. Because it's his show. My job is to say his name and mean it, and I can't do that to an empty desk.",
         "The chair's warm. Not from him. From the lights. I checked. I'd checked before I said it, which tells you how the night's gone.",
         "Nineteen years I've needled that man for being late. I'd like the record to show I would take it all back for one entrance.",
-        "We're going to go to a break, and then we're going to go home. There's no version of this where I sit in that chair.",
+        "We're going to go to a break, and then we're going to go home. There is no version of this where I sit in that chair.",
         "He's not answering. The booth isn't answering. The generator's answering, so at least you can watch me not know things in good light.",
         "Whatever's happened to him, he'd want me to fill. He'd be wrong about that, and it would be the second thing tonight he was wrong about.",
         "To whoever's still watching at this hour: thank you. That's not a bit. You came for him and you got me, and you stayed anyway."
@@ -381,7 +448,7 @@
         "[career] What would you be doing if not this? >> The same thing, {host_first}, but without the title and the dental. Mostly I'm here for the dental.",
         "[career] Ever think about quitting? >> Every morning. Then the alarm goes off, and by \"alarm\" I mean the neighbors, and by \"morning\" I mean it's still dark.",
         "[money] And the money. As good as they say? >> It's incredible. It's also on fire, and so are my hands. But it's incredible.",
-        "[money] Do you ever worry about money? >> I've stopped, {host_first}. Worrying was the last thing I owned outright and I sold it.",
+        "[money] Do you ever worry about money? >> I've stopped, {host_first}. Not because it improved. Because worrying was the last thing I owned outright and I sold it.",
         "[mentor] Who taught you all this? >> A mentor. Then he vanished. I like to think he retired. The evidence suggests otherwise.",
         "[reputation] People either love you or fear you. Which do you prefer? >> Fear's more reliable, {host_first}. Love expects things back.",
         "[reputation] Do people recognize you on the street? >> They recognize the liability, {host_first}. The face comes second.",
@@ -396,11 +463,11 @@
         "[machine] If you could tell the Machine one thing, what would it be? >> Nothing. It's listening right now. Hi. We're all very productive. Please don't.",
         "[city] What would you change about this city? >> Nothing, {host_first}. Every single thing here is load-bearing. Pull one out and we all learn something we can't unlearn.",
         "[city] Would you ever leave the Basin? >> And go where? I've read the map. It's the same map, {host_first}. They just print it in different colours.",
-        "[future] Where do you see yourself in five years? >> That's a beautiful question and I'd like you to hear how funny it's out loud. Five years.",
+        "[future] Where do you see yourself in five years? >> That's a beautiful question and I'd like you to hear how funny it is out loud. Five years.",
         "[fear] What actually frightens you? >> Paperwork that arrives without being requested. Everything else in this city announces itself first.",
         "[trust] Who do you trust? >> One person, {host_first}. I won't say who, and I'd appreciate it if the camera stopped doing that.",
-        "[lucky] Do you consider yourself lucky? >> I consider myself OVERDUE. Those look identical from the outside and they aren't the same thing.",
-        "[first] Tell me about your first day. >> I've been told not to. Not by lawyers. By a friend, and a friend has no reason to lie about it.",
+        "[lucky] Do you consider yourself lucky? >> I consider myself OVERDUE. Those look identical from the outside and they are not the same thing.",
+        "[first] Tell me about your first day. >> I've been told not to. Not by lawyers. By a friend, which is worse, because a friend has no reason to lie about it.",
         "[worstday] What's the worst day you've had on this job? >> Tuesday. >> Which Tuesday? >> That's the trouble, {host_first}. That's exactly the trouble.",
         "[health] How's your health, if you don't mind me asking? >> The clinic says I'm in the top percentile. They wouldn't say of what, or of whom, and the room got quiet.",
         "[secret] Is there anything you've never told anyone? >> Several things, {host_first}, and I've kept them alive this long by not doing what you're currently inviting me to do.",
@@ -409,12 +476,26 @@
         "[food] What's the last decent meal you had? >> Define decent. >> Something that didn't move. >> Then I'd have to check my notes, and I'd rather we both didn't.",
         "[love] Anyone special in your life? >> There was. She read the job description. That was the end of a very promising evening."
       ],
+      "interview.assemblyman": [
+        "You think the Assembly should govern something. That's an unusual position. >> It's lonely, {host_first}. They seat me near the door so I can't block the exits.",
+        "What are you working on? >> A bill to fix the potholes on Foundry Way. It's been in committee four years. The potholes have done better.",
+        "Do your colleagues like you? >> They like me the way you like a smoke alarm, {host_first}. In principle.",
+        "Would you ever run for something bigger? >> I'd need somebody to vote for me. I've got my mother and a man who thinks I'm somebody else.",
+        "What would you change first, if you could? >> I'd make the Assembly meet. Just meet. In the same room, once. Then we'd see."
+      ],
+      "interview.barkeep": [
+        "The Dead Pigeon. Why a pigeon? >> It was there when I bought the place, {host_first}. Still is, in a manner of speaking.",
+        "Your bar's a door on two oil drums. Ever think about a proper one? >> A proper bar gets taken in a raid. Nobody confiscates a door.",
+        "You must hear a lot of sob stories. >> All of them, twice. I can tell you how most of them end. I don't, because they tip better before.",
+        "What's the most popular drink at the Pigeon? >> Whatever's cheapest. Then whatever's second cheapest, when they find out why.",
+        "Do you ever drink at your own bar? >> Once. I paid. It was the most honest night that place has ever had."
+      ],
       "interview.bouncer": [
-        "Nine years ejecting the same man? >> Same guy, same door. At this point it's less a job and more a marriage.",
-        "Does he ever just stay out? >> He always comes back. I always throw him out. We've never spoken. It's the purest thing I have.",
-        "What's the secret to bouncing? >> It isn't strength, {host_first}, it's sadness. You have to look like you have got nothing left to lose. I don't.",
-        "Does the man you eject ever fight back? >> Never, {host_first}. We have an understanding. He falls, I nod, the sun rises, we begin again.",
-        "Nine years. Do you know his name? >> No. Names ruin it. He's \"sir,\" I'm \"the wall,\" and that's the healthiest relationship either of us has."
+        "You're on the door at the Cherry. What's the job, really? >> Watching, {host_first}. Most nights you never move. You just make sure people see you not moving.",
+        "Is there anyone you always turn away? >> Same man every Friday. Nine years. He's never got in and he's never stopped trying. I respect him.",
+        "What's the secret to bouncing? >> Stand still and look bored. People can't stand being looked at by somebody bored.",
+        "Have you ever lost a fight? >> Once. I was off duty. It doesn't count, and I'd thank you not to bring it up.",
+        "What's the earpiece for? >> Mostly the bar telling me what they want for lunch."
       ],
       "interview.chef": [
         "These squid tacos. Are they safe? >> Probably fine, {host_first}. \"Probably\" is doing a lot of work in that sentence, and I respect it.",
@@ -423,12 +504,46 @@
         "What's on the menu tonight? >> The special, {host_first}. I don't know what's in it either. That's why it's special.",
         "Any Michelin interest? >> A man came, ate, left, and filed a report. Not a review. A report. I framed it."
       ],
+      "interview.chippy": [
+        "Batter Days. Who came up with the name? >> Not me. I just fry. I've been told it's a joke and I believe them.",
+        "What's the secret to good chips? >> Twice in the fat, and don't look at the fat.",
+        "Those are burn marks on your arms. >> Every one's a fish that fought back. I don't hold it against them.",
+        "Do you talk to the fryers? >> They listen better than the customers. They don't want it with a different sauce.",
+        "What's the best thing on the menu? >> The cod, when there's cod. When there isn't, it's called \"today's fish\", and it's still the best thing on the menu."
+      ],
       "interview.colonel": [
         "Colonel, tell us about the war. >> I can neither confirm nor deny it, {host_first}. Officially, it didn't happen. I have a medal that says so.",
         "And the pension? >> For a conflict in no record. I cash it monthly. The check is real. The war is \"complicated.\"",
         "What won it, in the end? >> Discipline. That's what won us the... well. Whatever it was we may or may not have won.",
         "Colonel, did you have a rank? >> I had SEVERAL, {host_first}, all of them classified, some of them contradictory. I outranked myself twice.",
         "Do you miss the service? >> I miss the certainty, {host_first}. Out here nobody tells you who to shoot. You have to guess. It's exhausting."
+      ],
+      "interview.cphl": [
+        "[season] So how's your season going? >> {season}",
+        "[table] The {club} are {club_rank}, {club_record}. Fair? >> It's what the ice says, {host_first}. The ice doesn't lie. It just doesn't help.",
+        "[role] What's it actually like being {role_said} for the {club}? >> Mostly it's being the one they look at when it goes wrong. Which, out here, is most nights.",
+        "[vat] Be honest with me. Does the vat hurt? >> Only coming out. Going in, you're dead, so nobody asks your opinion.",
+        "[room] What's the dressing room like? >> Loud. Somebody's always just back from the vat, asking what they missed and who owes them money.",
+        "[ken] Do you ever talk to Ken Raven? >> Everybody talks to Ken. Ken waves. That's as far as it goes with Ken.",
+        "[fans] What do the fans shout at you? >> My name, mostly. Then what they'd like to do to me. It's nice to be thought of.",
+        "[rival] Who's the man you least want to see on the ice? >> The one I put in the vat last time. They come back remembering, {host_first}. The vat doesn't take that out."
+      ],
+      "interview.deadball": [
+        "[season] How's the season been for you? >> {season}",
+        "[table] The {club} are {club_rank}, {club_record}. What's going on out there? >> Baseball, {host_first}. With the rules they took out put back in. It's going about how you'd expect.",
+        "[role] Being {role_said} for the {club}, is there pressure? >> There's a man in the stands with a sign that has my address on it. So yes.",
+        "[organ] Does the organ get to you? >> One song, nine innings, every night. I hum it in my sleep. My wife hums it back.",
+        "[name] Is the \"dead\" in Deadball literal? >> Some nights, {host_first}. The umpire has a page on it. Mostly it's a figure of speech that keeps happening.",
+        "[slide] What's the hardest thing about the game? >> Sliding. Into second there's a man with spikes, and into home there's a man with worse.",
+        "[fans] Do people recognise you on the street? >> They recognise the uniform. Then they tell me what I did wrong in the seventh, and they're usually right."
+      ],
+      "interview.enforcer": [
+        "Eleven times through the vat. Does it get easier? >> The dying's the same, {host_first}. The paperwork's got a lot better.",
+        "What do you remember about the first fight? >> Nothing. That's the vat. I've seen the tape, though. I'd have hit me too.",
+        "Do you miss playing? >> I miss the crowd. I don't miss waking up in a tank asking what year it is.",
+        "Who was the toughest man you ever fought? >> Myself, {host_first}. The fourth one. The vat got the teeth wrong and he was furious about it.",
+        "Any advice for the young enforcers coming up? >> Keep your elbows in and your contract signed. Clubs don't pay for the vat if you're between deals.",
+        "Is it true you've got more teeth in a jar than in your head? >> Forty-one in the jar. Six in the head. Two of those are on loan."
       ],
       "interview.exorcist": [
         "An Undermarket exorcist. Is any of it real? >> Most \"hauntings\" are bad wiring, {host_first}. But the other ten percent? That's why I carry two staplers.",
@@ -438,18 +553,18 @@
         "Do the spirits ever win? >> One did, {host_first}. It owns a laundromat now. Pays taxes. Honestly, it assimilated better than most of us."
       ],
       "interview.florist": [
-        "From assassin to florist. Quite a pivot. >> After the career I had, {host_first}, it's nice to work with things that are ALREADY dead.",
-        "People find your bouquets oddly menacing. >> The lilies are just lilies. Probably.",
-        "Enjoying retirement? >> Nobody's tried anything. They know exactly what the peace lilies mean, and they behave.",
-        "Do old clients ever visit the shop? >> They send flowers, {host_first}. To ME. It's a warning, and honestly, it's beautiful work. I taught some of them.",
-        "What's your bestseller? >> The \"We Know\" bouquet, {host_first}. It's lilies. It's always lilies. People know what it means and they pay promptly."
+        "Flowers, out here. Where do you even get them? >> Greenhouses, mostly. Some come in on trucks. Some I don't ask about.",
+        "What sells best? >> Lilies for funerals. Roses for apologies. Carnations for people who don't mean either.",
+        "Your hands look cold. >> They've been cold for twenty years, {host_first}. Wet stock, cold room. You stop noticing.",
+        "Do you like your customers? >> I like the flowers. The customers are fine if they know what they want before they come in.",
+        "What's the worst order you've had? >> A wreath shaped like a man's ex-wife. He wanted it for her birthday. She's alive. I did it anyway."
       ],
       "interview.forecaster": [
-        "Eleven years forecasting the market? >> And never right, {host_first}. That's a KIND of consistency.",
-        "Then why do the corporates keep you on? >> A broken forecaster is a fixed point. You can navigate by being exactly wrong.",
-        "What's your call for tomorrow? >> Stability and growth. I've predicted that every day. You've watched the results.",
-        "What did you predict for LAST quarter? >> Boom times, {host_first}. It was the crash. But directionally, there was movement, and I called the movement.",
-        "How do you stay confident? >> Being wrong every day, {host_first}, takes the pressure off being right. I'm the most relaxed man in finance."
+        "Estes Maritime. How big is the company? >> It's me, {host_first}. It's a very lean operation.",
+        "You own a dozen ships. Have you seen them? >> Not personally. I've seen paperwork about them, and the paperwork is beautiful.",
+        "What's your call on freight this quarter? >> Up. I always say up. You'd be amazed how often something goes up.",
+        "On paper you're very rich. And off paper? >> I'm sitting in your chair because the coffee's free, {host_first}.",
+        "Any tips for the folks at home? >> Buy whatever I'm selling. Tomorrow it'll be worth more, or there'll be a reason it isn't."
       ],
       "interview.hoarder": [
         "Three-time hoarding champion. The secret? >> You never, ever, EVER let go. Of anything. Ever.",
@@ -458,12 +573,28 @@
         "What can't you throw away? >> Nothing, {host_first}. That's the sport. Last year I kept a sneeze. I have it in a jar. It's loyal.",
         "Do you ever run out of room? >> Room is a myth the un-committed tell themselves, {host_first}. There's always room. You just have to love harder."
       ],
+      "interview.icedriver": [
+        "What's it like driving the Zamboni? >> It's quiet, {host_first}. Twenty thousand people screaming, and it's the quietest job in the city.",
+        "That Zamboni's had a paint job. >> That's mine, {host_first}. Black, purple, gold, my name down both sides. I did it for one Cup final and nobody's had the nerve to ask me to take it off.",
+        "They say you've never stopped for a fight. >> I'm on a schedule. If two grown men want to fight in front of four tonnes of machine, that's between them and the machine.",
+        "You're a Marrow Street boy, and a Marauders man. Is it hard to stay neutral? >> I do both ends the same, {host_first}. I just do the Marauders' end with a bit more love.",
+        "What's the secret to good ice? >> Patience, hot water, and not looking at what's frozen into it from last season.",
+        "Do the players talk to you? >> They wave. I wave back. It's the most honest relationship in the building.",
+        "What do you do between periods? >> I sit on the machine with the engine off and eat a sandwich. People think I'm guarding it. I'm eating a sandwich."
+      ],
       "interview.influencer": [
         "Nine million followers. That's remarkable. >> Every one a bot I personally pay, {host_first}. Do you know how expensive authenticity is?",
         "Isn't that just fake engagement? >> My bots have never let me down. Can you say that about a person?",
         "Doesn't it ever feel hollow? >> I post my breakfast, the bots love it, I feel seen. The illusion holds one more day. It's the modern condition.",
         "What's your engagement rate? >> One hundred percent, {host_first}. The bots never miss. That's more than I can say for my own family.",
         "Ever meet a real follower? >> Once, {host_first}. It was terrifying. He had OPINIONS. My bots would never. I blocked reality that day."
+      ],
+      "interview.insurer": [
+        "Vice-President of Everything Regrettable. What does that involve? >> Everything regrettable, {host_first}. You'd be amazed how much of the city that covers. Ninety floors of it, at least.",
+        "Is that a tan? There's no sun here. >> There is if you pay for the right floor.",
+        "What does Halcyon actually insure? >> Everything except what happens. That's in the small print, which is most of the print.",
+        "Has anyone ever made a successful claim? >> Twice. We've framed them both. They're in the lobby as a warning to the staff.",
+        "Can I get a quote, while you're here? >> You already have one, {host_first}. You got it when you walked out. It went up when you sat down."
       ],
       "interview.lawsuit": [
         "You're suing the sun? >> Emotional distress, {host_first}. It's been up there this whole time, judging me, and I've had enough.",
@@ -480,10 +611,10 @@
         "Any tips for the folks at home? >> Yeah, win eight times so they can't pin any single one on you. Amateurs get caught at four."
       ],
       "interview.monk": [
-        "Brother Ansel, welcome. What brings you here tonight? >> ...",
+        "Brother Tobias, welcome. What brings you here tonight? >> ...",
         "Can you tell us a little about the vow? >> ......",
         "Anything at all you'd like to say to the folks at home? >> (a stare of profound, radiant, aggressive silence)",
-        "Brother Ansel. A nod for yes? >> (holds an aggressive, unbroken stare)",
+        "Brother Tobias. A nod for yes? >> (holds an aggressive, unbroken stare)",
         "Anything for the young monks watching? >> (very slowly, and with menace, raises a single finger to his lips)"
       ],
       "interview.nation": [
@@ -492,6 +623,28 @@
         "Do the corporates recognize your statehood? >> They don't, {host_first}. But they DO recognize my rent. So we're at an impasse.",
         "Does your nation have a flag? >> A gray towel, {host_first}. It's what I had. It's also the ceiling situation, so some days it flies itself.",
         "Any tourism? >> One visitor. The landlord. It became a hostage situation. We've since normalized relations."
+      ],
+      "interview.organist": [
+        "You only know one song. Is that true? >> It's true, {host_first}. I know it very well, though. Nobody can say I don't.",
+        "What's the song about? >> Drowning. In D minor. The network made a theme out of it, and I've still not seen a cheque.",
+        "Have you ever tried to learn another one? >> Once. The crowd booed. They know where they are with the one.",
+        "Why not learn something cheerful? >> They're watching Deadball at the Hughson, {host_first}. Cheerful would upset them.",
+        "How do you know when to play it? >> When something happens. When nothing happens. Seventh inning. I'm flexible about everything except the song.",
+        "Do you play it at home? >> My wife asked me not to. So I play it in the car, with the windows down, so the whole street gets to share."
+      ],
+      "interview.pitboss": [
+        "Why do they call you The Rake? >> I rake in the chips, {host_first}. It's a casino. People expected it to be more sinister. I let them.",
+        "What do you look for, watching the floor? >> Hands. The face lies, the hands don't. Yours have been in your pockets since you sat down.",
+        "Has anybody ever beaten the house at the Lucky Bastard? >> For a night. The house is very patient. It sends a car.",
+        "Do you gamble yourself? >> Never. I've seen how it ends from the good side of the table.",
+        "What's the best tell you've ever seen? >> A man who started crying before he looked at his cards. He was right to."
+      ],
+      "interview.priest": [
+        "Father, how's the congregation at St Garneau's these days? >> Smaller, {host_first}. Steadier. The ones who come now mean it, or they've nowhere else warm.",
+        "Do you get many confessions? >> More than you'd think. Nobody in this city does anything once.",
+        "What's the hardest part of the job? >> Burying people I've already buried. The vat's made a mess of the calendar.",
+        "Do you ever lose your faith? >> Most Tuesdays. It comes back about the time somebody needs it more than I do.",
+        "You watch the door a lot, Father. >> Old habit. I knew this city when the door was the most important thing in the room."
       ],
       "interview.reverend": [
         "Tell us about the Church of the Reasonable Refund. >> We teach that suffering is real, {host_first}, and you're entitled to store credit for it.",
@@ -515,18 +668,26 @@
         "Any advice for homeowners? >> Don't touch the box, {host_first}. That's my box now. Everything's my box now. That's the consulting."
       ],
       "interview.surgeon": [
-        "You print the organs at home now? >> I do, {host_first}. The printer's louder than you'd think, and it does NOT do refunds.",
-        "Forty transplants and no license. How do you sleep? >> \"Unlicensed\" is such a cold word for someone who's given forty people a working spleen. Give or take.",
-        "Any pride in the work? >> The kidneys are my best. I sign them. Small signature, inside. You'll never know unless we meet again.",
-        "What's the strangest thing you've printed? >> A spleen, a kidney, and once, by accident, a very small piano. I don't discuss the piano.",
-        "Do you offer a warranty? >> Ninety days or until it makes a noise, {host_first}, whichever comes first. Usually the noise."
+        "You run the clinic. What comes through the door on a bad night? >> Everything, {host_first}. Knives, chemicals, people who tried to fix their own wiring. Mostly the wiring.",
+        "Do people pay? >> When they can. When they can't, they bring something. I've got a shelf of things people brought.",
+        "What's the strangest thing you've taken out of somebody? >> A tracking chip, from a man who swore he'd never had one fitted. He hadn't. Somebody else had.",
+        "How do you stay calm? >> I've seen worse walk in, {host_first}. I've seen worse walk out, too, and that's the part that keeps me going.",
+        "Any advice for the viewers? >> Don't buy organs from a van. And if you do, come and see me before you plug anything in."
       ],
       "interview.taster": [
         "A professional poison taster. How are you still alive? >> Spite, mostly, {host_first}. And a truly world-class stomach lining.",
         "Two livers, is that right? >> One and a half now. It's been a week.",
         "Is it a rough gig? >> Ninety percent fine, ten percent the worst afternoon of your life. I've had a lot of afternoons.",
-        "What's the worst thing you've tasted? >> Tuesday, {host_first}. All of it. I tasted the whole day and I don't recommend it.",
+        "What's the worst thing you've tasted? >> Tuesday, {host_first}. All of it. I tasted the whole day and I do not recommend it.",
         "How do you know when something's poisoned? >> I don't, {host_first}. That's the JOB. I find out the way everyone does: dramatically, and on the floor."
+      ],
+      "interview.umpire": [
+        "A perfect record. Is that true? >> Depends how you count, {host_first}. I count the calls nobody argued with, and nobody argues with me.",
+        "Why does nobody argue with you? >> They used to. Then the league gave me the mask with the speaker in it. It's very loud.",
+        "Have you ever got one wrong? >> Professionally, no. Personally, I married a Crows fan.",
+        "What's the hardest call in Deadball? >> Whether a man's dead or just resting. The rulebook's got a whole page on it and the page is mostly blood.",
+        "Do you have favourite teams? >> No. I hate them all the same, {host_first}. That's what makes me fair.",
+        "What do you do in the off-season? >> Same thing. I just stand in the kitchen and point at things. My family calls it out on the third strike."
       ],
       "interview.vending": [
         "Your machine has killed forty people. Care to comment? >> Forty lives, yes, but thousands of beverages dispensed. It's a NET positive.",
@@ -534,6 +695,16 @@
         "What do you call this business model? >> \"Aggressive vending.\" \"Killing spree\" tested poorly with the beverage demographic.",
         "What flavor does the machine dispense? >> \"Original,\" {host_first}. Same as the funerals. We keep the branding consistent.",
         "Is there a recall? >> There's a MEMORIAL, {host_first}. A recall implies the machine did something wrong, and legally, the machine is grieving."
+      ],
+      "list_bit": [
+        "Tonight's top four signs your landlord is a cult. || Four: the rent is due on the solstice. || Three: the lease is in Latin, and so is the lawn. || Two: the super wears a robe and he has never once fixed anything. || And number one: you keep getting invited to the basement, and nobody comes back up with their deposit.",
+        "Three things you should never say to Corporate Security. || Three: \"Do you have a warrant?\" || Two: \"I know my rights.\" || And number one: \"Funny, you look just like the guy from last week.\"",
+        "Tonight's top three excuses for missing work in the Basin. || Three: the stairs were gone. || Two: the bus was on fire, and I was on the bus. || And number one: the Machine told me I didn't work there, and I didn't want to argue with it.",
+        "Four ways to tell the tap water's gone bad again. || Four: it's warm from the cold tap. || Three: it's got a taste, and the taste has a name. || Two: the glass is sweating, and it's nervous. || And number one: it comes out in one piece.",
+        "Tonight's top three things you'll hear at a Cluster Puck game. || Three: \"Get him in the vat!\" || Two: \"He's fine, he's fine, he's not fine.\" || And number one: \"Same man, different teeth.\"",
+        "Three signs you've been at Deadball too long. || Three: you know the organist's song and you hum it at funerals. || Two: you can tell a slide from a seizure. || And number one: the umpire knows your name and he's never once said it kindly.",
+        "Tonight's top three rejected slogans for the city. || Three: \"Coldwater: We Have Walls.\" || Two: \"Coldwater: Somewhere To Be From.\" || And number one: \"Coldwater: Ask About Our Exits.\"",
+        "Four things you never want to hear from a surgeon in the Undermarket. || Four: \"Hold this.\" || Three: \"That's a new one.\" || Two: \"Who's got the manual?\" || And number one: \"Nobody move. It's looking at us.\""
       ],
       "monologue": [
         "[welcome] Thank you, thank you! Sit down, we've got a fantastic show, assuming the power holds.",
@@ -550,7 +721,7 @@
         "[transit] The transit authority added a new express line. It's the same line, but now it doesn't stop for the people who fall in.",
         "[hospital] Great news from the hospital: they've reduced wait times by simply removing the chairs.",
         "[surface] A man tried to sell me a map to the surface today. I said, \"Buddy, I've seen the surface.\" He said, \"Then you know why I'm selling the map.\"",
-        "[machine] The Machine wished everyone a happy productivity quarter today. It doesn't know what happiness is. It's very confident about it anyway.",
+        "[machine] The Machine wished everyone a happy productivity quarter today. It does not know what happiness is. It's very confident about it anyway.",
         "[rent] Rent went up again. My landlord calls it \"market rate.\" The market is a hole in the ground and the rate is everything you have.",
         "[soylent] I tried the new soylent flavor. It's called \"Original.\" I asked original what. They stopped returning my calls.",
         "[dmv] Somebody firebombed the DMV today and honestly the lines moved faster.",
@@ -593,10 +764,10 @@
         "[foreclosure] The bank foreclosed on a building, then the building foreclosed on the bank. Nobody knows who owns the block now. The block seems happy about it.",
         "[worse] Somebody asked me if things could get worse. I said absolutely, and then, out of professional courtesy, I didn't elaborate.",
         "[insurance] My insurer wrote to say my policy now excludes acts of God, acts of Corporate, and acts that are \"frankly indistinguishable.\" That last clause took a lawyer three years and it's the truest thing anybody wrote this decade.",
-        "[funeral] A funeral home downtown is offering a payment plan. Twelve months. They don't check whether you make it to month twelve. That's the plan. That IS the plan.",
+        "[funeral] A funeral home downtown is offering a payment plan. Twelve months. They do not check whether you make it to month twelve. That's the plan. That IS the plan.",
         "[chrome] Fella at the bar showed me his new arm. Financed. Eighteen percent. Every time he waves at somebody it costs him money, so he's very selective about who he's pleased to see now.",
         "[optics] My neighbor got the discount optics. They work beautifully. Every third thing he looks at has a coupon on it. He proposed to his wife and a burger appeared.",
-        "[dentist] Went to a dentist in the Basin last week. He isn't a dentist. He's very good, though. That's the part that keeps me up.",
+        "[dentist] Went to a dentist in the Basin last week. He is not a dentist. He is very good, though. That's the part that keeps me up.",
         "[barber] The barbershop on my block does haircuts and minor surgery now. Same chair, same man, same question: \"How short?\"",
         "[laundry] The laundromat put up a sign. \"Not responsible for garments, contents, or outcomes.\" Outcomes. I have been thinking about outcomes all week.",
         "[plumbing] My building's plumbing finally got fixed. Turns out it was never broken, it was rerouted. Somebody upstairs has been showering in my water pressure for six years, and honestly, good for him.",
@@ -604,7 +775,7 @@
         "[grid] The power went out on my floor for nine hours. The grid called it a load-balancing event. I was the load. I was balanced.",
         "[pirateradio] There's a pirate station broadcasting on the emergency band. All they play is weather from thirty years ago. It's the most soothing thing in this city and they'll shut it down by spring.",
         "[tourism] The district launched a tourism campaign this week. The slogan is \"Coldwater: You're Already Here.\"",
-        "[selfcheckout] The corner store went full self-checkout. They took the staff out and left you alone with the machine and the machine's opinion of you.",
+        "[selfcheckout] The corner store went full self-checkout. No staff, no cashier, just you, the machine, and the machine's opinion of you.",
         "[vendingmachine] A vending machine downtown has started accepting apologies. Not credits. Apologies. Fairest transaction I've had all year.",
         "[escalator] They put an escalator in the transit hub. It's been broken since the day it opened, which makes it stairs, which makes it the only thing in this city doing its job.",
         "[rats] The rats in my building have organized. Not unionized. Organized. There's a difference and I learned it the hard way and I'd rather not go into it.",
@@ -623,12 +794,12 @@
         "[atm] The ATM on my corner charges a fee to tell you your balance, and a bigger fee if the balance is bad. It calls that \"context.\"",
         "[bankapp] The bank's app congratulates you when you save money. It has never congratulated me. Last week it sent a wellness check.",
         "[casino] The casino's put in a machine that pays out in job offers. People still play it. That's the part that keeps me awake.",
-        "[deadball] Went to a Deadball game Saturday. Nine innings, four ambulances, and the crowd cheered exactly once, and it wasn't for anything that happened on the field.",
+        "[deadball] Went to a Deadball game Saturday. Nine innings, four ambulances, and the crowd cheered exactly once, and it was not for anything that happened on the field.",
         "[clusterpuck] I watched a Cluster Puck match. I don't understand the rules. Neither do they. They've replaced the referee twice, once mid-period and once mid-sentence.",
         "[supplement] There's a supplement going round the gym called Yield. Makes you stronger. Also makes you agreeable. Nobody's asking about the second part, and I think that's the supplement talking.",
         "[diet] New diet in the district: eat whatever you want, then worry about it. They're calling it a lifestyle. I've been on it thirty years.",
         "[restaurant] A place opened downtown where the menu changes based on what the kitchen found that day. There's a rating system. Tonight it's a four.",
-        "[coffee] Real coffee's up again. The kind grown in dirt, by hands. It's now cheaper to buy the MEMORY of coffee, which they sell, which is legal, and which we have all apparently decided is fine.",
+        "[coffee] Real coffee's up again. The kind grown in dirt, by hands. It is now cheaper to buy the MEMORY of coffee, which they sell, which is legal, and which we have all apparently decided is fine.",
         "[noodles] The noodle place on Fifth has a sign that says \"All Meat Is Meat.\" I've read it forty times. It gets worse every time and I keep eating there.",
         "[waterbill] My water bill came with a note thanking me for my conservation. I haven't had water since spring. Apparently that's what winning looks like.",
         "[recycling] The city started a recycling program. You sort your waste into six bins, then a truck comes and puts all six in the same hole. But you sorted it. That's the civic part. That's your contribution.",
@@ -636,16 +807,16 @@
         "[realestate] A realtor showed me a studio with a window. An actual window, with an outside behind it. I cried. She raised the price. Honestly, fair.",
         "[holding] Holding's overcrowded again, so they've started releasing people alphabetically. My last name starts with an A. I've never felt luckier or more nervous.",
         "[bodycam] Corporate Security got new body cameras. They record everything. The footage goes to Corporate Security. Airtight system. No notes.",
-        "[lawyer] My lawyer says I have a very strong case. My lawyer also says he isn't a lawyer. I'm choosing to focus on the first part.",
+        "[lawyer] My lawyer says I have a very strong case. My lawyer also says he is not a lawyer. I'm choosing to focus on the first part.",
         "[jury] I got called for jury duty. The verdict was already printed. They just needed twelve people to hold it.",
         "[camera] There's a camera on my street pointed at another camera. I've watched them for a week. Neither has blinked. Something is happening there and I don't believe it involves us.",
         "[assistant] My apartment has an assistant now. It listens for emergencies. Last night I sneezed and it asked whether I'd like to speak to a representative about my life.",
         "[terms] I read a terms-of-service agreement all the way through this week. Page forty says I have agreed to be \"reasonably surprised.\" That's the entire clause. That's all it says.",
-        "[passwords] Corporate made everyone change their passwords. New rules: twelve characters, one symbol, and it can't be anything you actually believe.",
+        "[passwords] Corporate made everyone change their passwords. New rules: twelve characters, one symbol, and it cannot be anything you actually believe.",
         "[maintenance] The Machine went down for maintenance for six minutes yesterday. Six minutes. Crime dropped, the trains ran, and a man in the Yards reported feeling briefly optimistic.",
         "[photograph] Somebody found a photograph of the old skyline. We all stood round looking at it. Then someone pointed out the sky was a different color, and we all went home.",
         "[cleanrain] It rained clean water in the north district for eleven minutes on Tuesday. Nobody knows why. Two hundred people stood outside with their mouths open like idiots. I was one of them. I'd do it again tomorrow.",
-        "[radiation] My doctor says my rad count is \"within range.\" I asked whose range. He said it's a big range. It's a very big range, folks.",
+        "[radiation] My doctor says my rad count is \"within range.\" I asked whose range. He said it's a big range. It is a very big range, folks.",
         "[mutation] A man on my block grew a third arm this spring. Everyone has been extremely polite about it, which is the most Coldwater thing I have ever seen. Three arms, and not one question.",
         "[cloning] The clone clinic's got a special on this month. Two for one. Sit with that. Think about who walks in wanting that.",
         "[memories] They sell memory implants now. Real ones, off real people. I tried a demo. It was somebody's Tuesday. Nothing happened in it. Best day I've had in years.",
@@ -653,23 +824,23 @@
         "[insomnia] I haven't slept properly in eleven years. My doctor calls it insomnia. I call it paying attention.",
         "[therapy] Therapy's covered by corporate now. Six sessions, and the therapist is an employee of the thing you're upset about. It's efficient. It isn't therapy, but it's efficient.",
         "[church] The Church of the Reasonable Refund opened a second location. Same god, better parking.",
-        "[gala] There was a charity gala downtown for the district's poor. Tickets were nine hundred credits. The poor weren't invited, on the grounds that they couldn't afford it, and everyone agreed that was ironic, and nobody agreed to do anything about it.",
+        "[gala] There was a charity gala downtown for the district's poor. Tickets were nine hundred credits. The poor were not invited, on the grounds that they couldn't afford it, and everyone agreed that was ironic, and nobody agreed to do anything about it.",
         "[awards] Corporate held an awards ceremony for itself last night. Nineteen categories. It swept.",
         "[survey] The hospital sent me a satisfaction survey. Question one: how likely are you to recommend this experience. Well. I'm still here, so: cautiously.",
         "[warrantycard] I found the warranty card in my new heater. The warranty is void if the unit is used. Not misused. Used.",
         "[heater] My heater has two settings. Off, and a sound.",
         "[mirrorglass] The tower across from mine put in mirrored glass so nobody can see in. Now I just watch myself watching them. Six months of that. We've grown close.",
         "[smog] The smog was so thick this morning I walked into a wall, and the wall apologized. Somebody is already charging for that. I guarantee it.",
-        "[roadsign] There's a sign out on the Deadleg road that says HELP IS 40 MILES. It doesn't say in which direction. I have thought about that sign more than I have thought about my own family.",
+        "[roadsign] There's a sign out on the Deadleg road that says HELP IS 40 MILES. It does not say in which direction. I have thought about that sign more than I have thought about my own family.",
         "[hauler] I met a hauler who runs the void road. Twelve hours out, twelve hours back, no radio. I asked what he thinks about out there. He said \"the road.\" I gave him nine more minutes to add something to that. It's the road.",
         "[flying] A man at the airfield offered me a flight over the Basin for two hundred credits. I said what's the catch. He said there's no catch, there's no landing gear. We both laughed. Then only one of us was laughing.",
-        "[forecast] The forecast has said \"clear\" for six days running. Last night the forecaster stood outside and said \"clear\" while visibly in weather. That isn't incompetence, folks. That's commitment.",
+        "[forecast] The forecast has said \"clear\" for six days running. Last night the forecaster stood outside and said \"clear\" while visibly in weather. That is not incompetence, folks. That's commitment.",
         "[acidrain] It rained out in the Scarletwastes last week and three people's coats are still fizzing. The coat shop is calling it a finish.",
-        "[fishing] They reopened the fishing pier. The fish are back. They aren't exactly fish anymore, but they're back, the pier's open, people are happy, and I'm not going to be the one who ruins it.",
+        "[fishing] They reopened the fishing pier. The fish are back. They are not exactly fish anymore, but they're back, the pier's open, people are happy, and I am not going to be the one who ruins it.",
         "[bird] I saw a bird this morning. A real one. It looked at me with what I can only describe as disappointment, and then it left, and I have been thinking about it all day."
       ],
       "newsjoke": [
-        "And now for the news. Tonight's top story: \"{headline}.\" I'd unpack that, but the last man who unpacked it's still in Holding.",
+        "And now for the news. Tonight's top story: \"{headline}.\" I'd unpack that, but the last man who unpacked it is still in Holding.",
         "You see the headline tonight? \"{headline}.\" I read it twice. It got worse the second time.",
         "Here's one for you: \"{headline}.\" Somewhere, an executive is calling that a growth opportunity.",
         "Big news tonight, folks: \"{headline}.\" And they say nothing ever happens in this city.",
@@ -681,7 +852,7 @@
         "Here's the story everyone's talking about: \"{headline}.\" Well. Everyone still able to talk.",
         "News just in: \"{headline}.\" I'd say you couldn't script it, but somebody clearly did, and they're getting paid more than me.",
         "The big headline tonight: \"{headline}.\" I'm told the mayor has no comment, which, for once, is the smartest thing he's said all year.",
-        "Straight from the feed: \"{headline}.\" I showed it to the band. The band asked to go home. The band can't go home.",
+        "Straight from the feed: \"{headline}.\" I showed it to the band. The band asked to go home. The band cannot go home.",
         "Tonight's headline: \"{headline}.\" Frame that one, folks. In this city, that's what passes for a historical document."
       ],
       "open": [
@@ -700,10 +871,19 @@
         "Powered by one generator and a great deal of denial. It's The Tonight Show!",
         "Still standing where the map says there's a crater. It's The Tonight Show!"
       ],
+      "settle": [
+        "Okay. Okay! Sit down, you'll hurt yourselves. Some of you already have.",
+        "Thank you. Please. Save some of that for the end, you'll want it then.",
+        "All right, that's plenty. The applause sign's broken, you're doing this on your own and I'm touched.",
+        "Please, sit, sit. The fire marshal's in tonight and he's already counting.",
+        "Thank you! You're very kind. You're very loud. Pick one, we've got a show to do.",
+        "Easy, easy. That's a lot of noise for people who know what's coming.",
+        "Settle down, I know, I know. I'd clap too if I'd made it here."
+      ],
       "sidekick_aside": [
         "That's the one you told at rehearsal, {host_first}. It didn't work then either.",
         "I laughed. I want that on the record. Somebody had to.",
-        "The band would like it noted that they're contractually forbidden from reacting to that.",
+        "The band would like it noted that they are contractually forbidden from reacting to that.",
         "Legally I have to remind the audience that laughter is voluntary.",
         "{host_first}, the sponsors just turned the applause sign off manually. That's a first.",
         "I've heard that joke in three districts now and it's wanted in two of them.",
@@ -713,13 +893,13 @@
         "That joke is now evidence, {host_first}. I'm just the announcer, but I know evidence.",
         "The band wants hazard pay after that, and honestly, so do I.",
         "For the folks at home, that silence is the sound of {host_first} realizing what he said.",
-        "We're contractually one more of those away from a warning label, {host_first}.",
+        "We are contractually one more of those away from a warning label, {host_first}.",
         "I'm laughing. It's a survival response, but I'm laughing.",
         "Nineteen years I've announced this man. That was in the bottom four.",
         "I'm required to say the views expressed are his. Loudly. Twice, tonight.",
         "The teleprompter skipped that one on purpose, {host_first}. It's been right before.",
         "Somewhere a lawyer just woke up and doesn't know why.",
-        "I've started keeping a list. That one goes near the top, and the list isn't a good list.",
+        "I've started keeping a list. That one goes near the top, and the list is not a good list.",
         "The crew has voted. It was close. You lost, {host_first}."
       ],
       "signoff": [
@@ -747,7 +927,7 @@
         "Tonight: the weather, the news, and a surprising amount of blood, all before the second commercial.",
         "Tonight: one lucky audience member goes home with a prize, and the other four hundred go home with radiation sickness.",
         "Tonight: science, culture, and a segment our insurer specifically told us not to air.",
-        "Tonight: we answer the question on everyone's mind: is it a leak, or is it a feature? The answer won't comfort you.",
+        "Tonight: we answer the question on everyone's mind: is it a leak, or is it a feature? The answer will not comfort you.",
         "Tonight: a very special guest, a very ordinary catastrophe, and the band, if they've sobered up.",
         "Tonight: celebrity gossip, from the two celebrities we have left.",
         "Tonight: we test whether the studio audience can be replaced with cardboard. Results are inconclusive and litigious.",
@@ -759,12 +939,12 @@
         "Tonight: the Machine has an announcement, the grid has an opinion, and neither of them asked you.",
         "Tonight: free samples, in the sense that nobody agreed to pay for what's about to happen.",
         "Tonight: one guest tells the truth, and we find out live whether the building can survive it.",
-        "Tonight: we reunite a man with the toaster that made him rich. There won't be a dry eye or a working outlet.",
+        "Tonight: we reunite a man with the toaster that made him rich. There will not be a dry eye or a working outlet.",
         "Tonight: everything's fine, nothing's fine, and somewhere in between there's a musical number."
       ]
     },
     "sidekick": "npc_graham_mercer",
-    "theme": "Theme Jingle 2",
+    "theme": "tonight_theme_late",
     "title": "tonight_show_logo"
   },
   "updated_at": "1783897506",

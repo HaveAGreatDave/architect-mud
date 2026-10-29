@@ -4233,6 +4233,11 @@ async function refreshTalkshowNewsStory() {
 }
 schedule('5m', () => refreshTalkshowNewsStory().catch(() => {}));   // NEWS_REFRESH_MS
 setTimeout(() => { refreshTalkshowNewsStory().catch(() => {}); }, 8000);
+// Both leagues' tables, for the nights the guest is a player (talkshowAthleteFor). The sports
+// broadcasts keep these warm while a game's on; this keeps them warm at 22:00 when none is.
+const refreshTalkshowLeagues = () => Promise.all(['hockey', 'baseball'].map(s => refreshStandings(Date.now(), s).catch(() => null)));
+schedule('5m', () => (hasActivePlayers() ? refreshTalkshowLeagues() : Promise.resolve()).catch(() => {}));
+setTimeout(() => { refreshTalkshowLeagues().catch(() => {}); }, 9000);
 
 // ── Talk-show broadcasts ────────────────────────────────────────────────────
 // A talk show (playback_mode 'talkshow') is the live-ACTED procedural sibling of news/
@@ -4307,11 +4312,90 @@ function talkshowDayBucket() {
 }
 // Deterministically pick the night's guest persona from the ::guests pool by the day bucket,
 // so the choice is stable across restarts and identical on every TV.
+//
+// About one night in three the guest is a real league player instead (talkshowAthleteFor),
+// when the league has the numbers to talk about. The choice is memoised per bucket: it reads
+// live standings, and the walk-in rename and the episode must agree on who's coming even if
+// the table refreshes between the two calls.
+const _talkshowAthleteMemo = new Map();   // bucket -> athlete persona, or null
 function talkshowPersonaFor(script, bucket) {
   const guests = Array.isArray(script?.guests) ? script.guests.filter(g => g && g.name) : [];
-  if (!guests.length) return { name: "Tonight's Guest", title: '', theme: '' };
   const seed = sportsHash(...[...bucket].map(c => c.charCodeAt(0)));
+  // Only a show that has written the questions gets the players.
+  if (seed % 3 === 0 && script?.pools?.['interview.cphl'] && script?.pools?.['interview.deadball']) {
+    if (!_talkshowAthleteMemo.has(bucket)) {
+      if (_talkshowAthleteMemo.size > 8) _talkshowAthleteMemo.clear();
+      _talkshowAthleteMemo.set(bucket, talkshowAthleteFor(seed));
+    }
+    const athlete = _talkshowAthleteMemo.get(bucket);
+    if (athlete) return athlete;
+  }
+  if (!guests.length) return { name: "Tonight's Guest", title: '', theme: '' };
   return guests[seed % guests.length];
+}
+
+// A league player as the night's guest, with his club's table and his own season as tokens
+// for the `interview.cphl` / `interview.deadball` pools:
+//   {club} {club_record} {club_rank} ("third", "top of the table") {role_said} and {season},
+//   his season in his own words.
+// The CPhL man is one of the captains and goalies who live in the city (flags.cphl, see
+// sports/league-npcs.js), so the guest is somebody you can meet. Deadball has no such men, so
+// its guest is a club's best arm or best bat from the season's ledger. Null when the league has
+// nothing to say yet (no table, no games), and the night falls back to the ::guests personas.
+const RANK_WORDS = ['', 'top of the table', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'];
+function talkshowAthleteFor(seed) {
+  const sport = (seed >> 3) % 2 ? 'baseball' : 'hockey';
+  const cache = _standingsCaches.get(sport);
+  const rows = cache?.rows || [], ex = cache?.extras || {};
+  if (!rows.length) return null;
+  const clubTok = (club) => {
+    const i = rows.findIndex(r => r.team === club);
+    if (i < 0) return null;
+    const r = rows[i];
+    const rank = i > 0 && i === rows.length - 1 ? 'bottom of the table' : (RANK_WORDS[i + 1] || `${i + 1}th`);
+    const record = sport === 'hockey' ? `${r.wins} and ${r.losses}, ${r.points || 0} points` : `${r.wins} and ${r.losses}`;
+    return { club, club_rank: rank, club_record: record };
+  };
+  if (sport === 'hockey') {
+    const men = [...world.npcs.values()]
+      .map(n => ({ n, b: bindingOf(n) }))
+      .filter(({ b }) => b && (b.role === 'captain' || b.role === 'goalie') && rows.some(r => r.team === b.club))
+      .sort((a, b) => a.n.id.localeCompare(b.n.id));
+    if (!men.length) return null;
+    const { n, b } = men[seed % men.length];
+    const ct = clubTok(b.club);
+    if (!ct) return null;
+    const season = seasonLine(b, ex, null);
+    return {
+      name: n.name, theme: '', tag: 'cphl',
+      title: b.role === 'goalie' ? `in net for the ${b.club}` : `captain of the ${b.club}`,
+      athlete: { sport, player: b.player, club: b.club, role: b.role, npcId: n.id },
+      tok: { ...ct, role_said: b.role === 'goalie' ? 'the man in net' : 'captain', season },
+    };
+  }
+  const L = ex.ledger || {};
+  const bats = L.bats instanceof Map ? [...L.bats.values()] : [], arms = L.arms instanceof Map ? [...L.arms.values()] : [];
+  const club = rows[seed % rows.length]?.team;
+  const ct = club && clubTok(club);
+  if (!ct) return null;
+  const arm = arms.filter(a => a.team === club && a.outs).sort((a, b) => b.w - a.w || a.er / a.outs - b.er / b.outs)[0];
+  const bat = bats.filter(r => r.team === club && r.ab >= 10).sort((a, b) => b.hits / b.ab - a.hits / a.ab)[0];
+  const usePitcher = arm && (!bat || (seed >> 5) % 2);
+  if (usePitcher) {
+    const era = ((arm.er * 27) / arm.outs).toFixed(2);
+    return {
+      name: arm.name, theme: '', tag: 'deadball', title: `starting pitcher for the ${club}`,
+      athlete: { sport, player: arm.name, club, role: 'pitcher' },
+      tok: { ...ct, role_said: 'the starter', season: `I'm ${arm.w} and ${arm.l}, with an earned run average of ${era} and ${arm.k} strikeouts.` },
+    };
+  }
+  if (!bat) return null;
+  const avg = (bat.hits / bat.ab).toFixed(3).replace(/^0/, '');
+  return {
+    name: bat.name, theme: '', tag: 'deadball', title: `the best bat on the ${club}`,
+    athlete: { sport, player: bat.name, club, role: 'hitter' },
+    tok: { ...ct, role_said: 'the best bat in the line-up', season: `I'm hitting ${avg}, with ${bat.hr} home ${bat.hr === 1 ? 'run' : 'runs'} and ${bat.rbi} driven in.` },
+  };
 }
 
 // Tokens an assembled show must NOT resolve, because their answer is only true at the moment
@@ -4381,7 +4465,8 @@ function splitTurns(line) {
 function talkshowExchangeDeck(pools, persona, n, rand) {
   const sigPool = persona?.tag && Array.isArray(pools[`interview.${persona.tag}`]) ? pools[`interview.${persona.tag}`] : [];
   const genPool = Array.isArray(pools['interview']) ? pools['interview'] : [];
-  const sig = sportsShuffle(sigPool, rand).slice(0, Math.min(2, sigPool.length));
+  // A league player gets three: his season, his club and the game are the whole interview.
+  const sig = topicPick(sigPool, Math.min(persona?.athlete ? 3 : 2, sigPool.length), rand);
   const gen = topicPick(genPool, Math.max(0, n - sig.length), rand);
   return sportsShuffle([...sig, ...gen], rand);
 }
@@ -4399,7 +4484,8 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   const rand = sportsRng(sportsHash(...[...`${broadcastId}:${bucket}`].map(c => c.charCodeAt(0))));
   const host = script.host || 'npc_host';
   const sidekick = script.sidekick || host;
-  const guestNpc = script.guestNpc || 'npc_guest';
+  // A guest who lives in the city plays themselves (talkshowRealGuest); otherwise the reusable one.
+  const guestNpc = talkshowRealGuest(persona, script.guestNpc)?.id || script.guestNpc || 'npc_guest';
   const guestName = persona?.name || "Tonight's Guest";
   const hostName = (world.npcs.get(host)?.name) || 'the host';
   const sidekickName = (world.npcs.get(sidekick)?.name) || 'the announcer';
@@ -4415,6 +4501,7 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     title: persona?.title || 'our special guest',
     host: hostName, host_first: firstOf(hostName),
     sidekick: sidekickName, sidekick_first: firstOf(sidekickName),
+    ...(persona?.tok || null),   // a league player's club, table and season (talkshowAthleteFor)
   };
 
   const nodes = {};
@@ -4504,8 +4591,11 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   // Cold open — the sidekick/announcer does the "It's the show!" intro + tonight's tease, and
   // then the traditional introduction: the marquee {host} name, in full, said properly. That
   // introduction is the ONE place the full name belongs, and it is not optional — it's the
-  // thing an announcer is for. Line counts wobble night to night so the open never feels rote.
-  lines(sidekick, talkshowDraw(pools, 'open', 1 + Math.floor(rand() * 2), tok, rand));   // 1–2
+  // thing an announcer is for. The tease count wobbles night to night so the open never feels rote.
+  // ONE open line, always: every one of them ends "It's The Tonight Show!", so two in a row
+  // aired as Graham saying the name of the show twice.
+  lines(sidekick, talkshowDraw(pools, 'open', 1, tok, rand));
+
   lines(sidekick, talkshowDraw(pools, 'tease', 1 + Math.floor(rand() * 2), tok, rand));  // 1–2
   line(sidekick, talkshowFill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen, {host}!", tok));
   applause('host');   // the host walks out to applause
@@ -4541,6 +4631,12 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     // The first thing John does is talk to Graham. A late-night show opens on the two of them,
     // not on a monologue — the greeting is the moment the audience learns these two have known
     // each other a long time. Authored host-first, so it reads as John arriving at the desk.
+    // Some nights (~40%) the room won't settle first, and John has to talk it down: a second
+    // swell and one line of his before he can get to Graham.
+    if (rand() < 0.40) {
+      const settle = talkshowDraw(pools, 'settle', 1, tok, rand);
+      if (settle.length) { applause(); lines(host, settle); }
+    }
     if (duet(host, sidekick, greetDeck[0])) react();
 
     // ── SEGMENT 2: the monologue. John's — 4–5 jokes, each one landing on an audience beat so
@@ -4587,8 +4683,16 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
       const newsBit = talkshowDraw(pools, 'newsjoke', 1, newsTok, rand);
       if (newsBit.length) { lines(host, newsBit); react(); }
     }
-    // Sometimes the host does a desk bit before the guest (~50%). His alone — no reply.
-    if (rand() < 0.50) { lines(host, talkshowDraw(pools, 'desk_bit', 1, tok, rand)); react(); }
+    // Before the guest, most nights (~70%) the host does a bit, his alone, no reply: either a
+    // desk riff or a list. A list is one authored line, `title || entry || entry …`, read entry
+    // by entry with the crowd answering each one, so it's the longest bit and the rarer one.
+    const bitRoll = rand();
+    const list = bitRoll < 0.30 ? talkshowDraw(pools, 'list_bit', 1, tok, rand)[0] : null;
+    if (list) {
+      const [title, ...entries] = list.split('||').map(s => s.trim()).filter(Boolean);
+      line(host, title);
+      entries.forEach(e => { line(host, e); react(); });
+    } else if (bitRoll < 0.70) { lines(host, talkshowDraw(pools, 'desk_bit', 1, tok, rand)); react(); }
 
     // ── The guest. John introduces, John interviews; Graham is not in this segment at all.
     line(host, talkshowFill(sportsPick(pools, rand, 'guest_intro') || "My next guest is {title}. Please welcome {guest}!", tok));
@@ -4816,7 +4920,17 @@ async function talkshowHeartbeat() {
       // the one DB-side consumer, the card striker, has no business cutting a card
       // of a shell that is a different person every day (hence card_exclude).
       const live = world.npcs.get(guestNpc);
-      if (live) { live.name = persona.name; live.description = desc; }
+      // SOMEBODY WHO LIVES HERE. When tonight's guest is an NPC in the city (a townsperson, a
+      // CPhL man), THEY do the show and the reusable guest stays backstage, unnamed for the
+      // night: see talkshowGuestCall below. Otherwise the reusable guest becomes the persona.
+      const real = talkshowRealGuest(persona, guestNpc);
+      if (_talkshowCall.get(guestNpc)?.npcId !== real?.id) endTalkshowCall(guestNpc);
+      if (real) {
+        const rand = sportsRng(sportsHash(...[...`leave:${bucket}`].map(c => c.charCodeAt(0))));
+        const leave = talkshowDraw(script.pools || {}, 'guest_leaving', 1, { show: item.broadcastName || 'the show' }, rand)[0]
+          || "Sorry, everybody, I'm closing up early. I'm on the Tonight Show tonight.";
+        _talkshowCall.set(guestNpc, { npcId: real.id, script, studio: item.locationZoneId || state.studioZoneId, leave, active: false });
+      } else if (live) { live.name = persona.name; live.description = desc; }
       _talkshowRenamed.set(guestNpc, bucket);
     }
   }
@@ -4830,7 +4944,72 @@ async function talkshowHeartbeat() {
 // again, putting the guest on air still wearing yesterday's name. The timeout is the
 // boot attempt; the heartbeat is the retry and the day-rollover watch. `schedule`
 // idle-gates by default, so neither runs on an empty server.
-schedule('1m', () => talkshowHeartbeat().catch(e => console.error('[broadcast] talkshow heartbeat error:', e.message)));
+// ── A real person as the guest ─────────────────────────────────────────────────
+// No stand-in. The NPC named for tonight's persona is called to the studio themselves: for the
+// show's window (the cast's call time to its tail, the same window as everyone in it) they run
+// a short graph instead of their own. If they're at work when the call comes they apologise to
+// whoever's in and leave, which shuts the shop (a shop is open while its keeper is in it), then
+// they walk to the studio, do the interview, and get their own graph back when it's over.
+// All in memory: their stored graph is never touched, so a restart just puts them back.
+const _talkshowCall = new Map();   // reusable guest id -> { npcId, script, studio, leave, active, said }
+// The NPC tonight's persona names, if there is one (never the reusable guest itself).
+function talkshowRealGuest(persona, guestNpc) {
+  if (!persona?.name) return null;
+  if (persona.athlete?.npcId) return world.npcs.get(persona.athlete.npcId) || null;
+  for (const n of world.npcs.values()) if (n.id !== guestNpc && n.name === persona.name) return n;
+  return null;
+}
+function makeRealGuestGraph(studioZoneId) {
+  return {
+    _start: 'r_start',
+    nodes: {
+      r_start: { type: 'start', next: 'r_sched' },
+      r_sched: { type: 'condition', condition_type: 'IS_BROADCAST_SCHEDULED', ifTrue: 'r_leave', ifFalse: 'r_done' },
+      r_leave: { type: 'action', action_type: 'TALKSHOW_GUEST_LEAVE', next: 'r_work' },
+      r_work:  { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { zone_id: studioZoneId } : {}, next: 'r_atwork' },
+      r_atwork: { type: 'action', action_type: 'AT_WORK', next: 'r_wait' },
+      r_wait:  { type: 'wait', seconds: 12, next: 'r_loop' },
+      r_done:  { type: 'action', action_type: 'TALKSHOW_GUEST_DONE', next: 'r_wait' },
+      r_loop:  { type: 'loop', next: 'r_start' },
+    },
+  };
+}
+const callOf = (npcId) => { for (const c of _talkshowCall.values()) if (c.npcId === npcId) return c; return null; };
+const callAiring = (c) => talkshowAiring(c.script, TALKSHOW_GUEST_CALL_LEAD, talkshowCastTailMin());
+// Their own graph back, whenever the call ends (the show's over, or a new night named somebody else).
+function endTalkshowCall(guestNpc) {
+  const c = _talkshowCall.get(guestNpc);
+  _talkshowCall.delete(guestNpc);
+  const npc = c?.active ? world.npcs.get(c.npcId) : null;
+  if (npc && npc._ownGraph !== undefined) { npc.behaviour_graph = npc._ownGraph; delete npc._ownGraph; npc._ai = null; }
+}
+// The minute poll: start the call when the window opens. The graph ends it (TALKSHOW_GUEST_DONE).
+function talkshowGuestCall() {
+  for (const c of _talkshowCall.values()) {
+    if (c.active || c.done || !callAiring(c)) continue;
+    const npc = world.npcs.get(c.npcId);
+    if (!npc || npc._dead) continue;   // dead or in the vat: the chair gate covers for them
+    npc._ownGraph = npc.behaviour_graph ?? null;
+    npc.behaviour_graph = makeRealGuestGraph(c.studio);
+    npc._ai = null;
+    c.active = true;
+  }
+}
+registerAIAction('TALKSHOW_GUEST_LEAVE', (entity) => {
+  const c = callOf(entity.id);
+  if (!c || c.said) return;
+  c.said = true;
+  // Only at work: a guest called from their own front room has nobody to apologise to.
+  const z = entity.zone_id;
+  if (z && (z === entity.work_zone_id || getZone(z)?.flags?.shop_npc === entity.id || z === entity.vendor_zone_id)) {
+    sendToZone(z, { type: 'output', message: `<span class="speech-line">${entity.name} says, "${c.leave}"</span>` });
+    sendToZone(z, { type: 'zone_event', message: `${entity.name} shuts up shop for the night.`, refresh: true });
+  }
+});
+registerAIAction('TALKSHOW_GUEST_DONE', (entity) => {
+  for (const [g, c] of _talkshowCall) if (c.npcId === entity.id) { endTalkshowCall(g); _talkshowCall.set(g, { ...c, active: false, done: true }); }
+});
+schedule('1m', () => talkshowHeartbeat().then(talkshowGuestCall).catch(e => console.error('[broadcast] talkshow heartbeat error:', e.message)));
 setTimeout(() => { talkshowHeartbeat().catch(() => {}); }, 10000);
 
 // ── Morning shows ────────────────────────────────────────────────────────────
@@ -6776,6 +6955,11 @@ registerViewerChecker((channelId) => {
 
 // IS_BROADCAST_SCHEDULED: is this NPC in an active daily schedule slot right now?
 registerNpcScheduleChecker((npcId) => {
+  // Tonight's guest, when it's somebody who lives here: on shift for the show while called
+  // (talkshowGuestCall). The reusable guest isn't on at all that night; it stays backstage.
+  const called = callOf(npcId);
+  if (called?.active) return callAiring(called);
+  if (_talkshowCall.has(npcId)) return false;
   // A league man's shift is his club's game, nothing else (leagueNpcTick above).
   const league = leagueNpcWhere(npcId);
   if (league) return league === 'game';
@@ -8100,6 +8284,7 @@ function _scriptedTokens(channelId, state, bb) {
   const env = getEnvironmentState();
   return {
     clock:      env.time || '02:00',
+    year:       /^\d{4}/.test(env.date || '') ? env.date.slice(0, 4) : '',   // the Tonight Show card's sign
     weekday:    _DOW_NAMES[env.dayOfWeek] || 'a night with no name',
     season:     String(env.season || '').replace(/_/g, ' '),
     weather:    String(env.currentWeatherType || env.weatherType || 'still').replace(/_/g, ' '),
@@ -11236,7 +11421,7 @@ export const _test = {
   // 2am airing greeting you with "Afternoon, survivors" both shipped: the only thing that
   // ever ran an assembly was a player standing in front of a television.
   assembleWeatherGraph, wxJoinLead, wxTimeOfDayKey,
-  assembleTalkshowGraph, talkshowAiring, talkshowPersonaFor, talkshowFill, makeTalkshowGuestGraph, ensureTalkshowSlot,
+  assembleTalkshowGraph, talkshowAiring, talkshowPersonaFor, talkshowAthleteFor, _standingsCaches, talkshowRealGuest, makeRealGuestGraph, talkshowFill, makeTalkshowGuestGraph, ensureTalkshowSlot,
   talkshowHeartbeat,   // regress drives the nightly rename by hand to prove it stays out of the DB
   talkshowDraw, splitTurns, topicPick, TALKSHOW_GUEST_CALL_LEAD,
   assembleMorningGraph, morningRunInKey,

@@ -899,8 +899,8 @@ export function buildStretcher(b, s) {
   for (const sv of [-1, 1]) tube(b, V.frame([s.x, s.y, 1.6], ax, -3.9, ay, sv * 0.95), V.frame([s.x, s.y, 1.6], ax, 3.9, ay, sv * 0.95), 0.05, 0.05, rgb('#7a7466'), 5);
 }
 
-// The ice resurfacer, box for box the same machine render.js draws. On Cup final night
-// (`cup`) it's in Ken Raven's colours with his piece on the tank (rink/livery.js).
+// The ice resurfacer, box for box the same machine render.js draws. With `cup` (every
+// night now) it's in Ken Raven's colours with his piece on the tank (rink/livery.js).
 // The lettering texture: ICE CREW in a strip at the top, the piece under it.
 export const ZAMBONI_LABEL = { w: LIVERY_W, crew: 128, h: 128 + LIVERY_H };
 const ZB = [

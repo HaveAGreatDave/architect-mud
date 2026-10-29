@@ -1069,7 +1069,7 @@ The Marauders' banner used to be a cinema sign. Two of its letters have been mis
 The Highlanders walk out to a piper. He isn't good. He's played every one of their games for fourteen years.
 Marrow Street pulls its shutters down an hour before a Highlanders game. Everybody on it is in here.
 The Highlanders' sweaters are woven on a loom above a chip shop on Marrow Street. It's a real clan sett, the Malcolm.
-That's Ken Raven on the Zamboni. Marrow Street boy, big Highlanders fan.
+That's Ken Raven on the Zamboni. Marrow Street boy, big Marauders fan.
 ::endlines
 
 # A club's pool is keyed by the first word of its name, so the St Garneau
@@ -1879,7 +1879,7 @@ Sorted. For now.
 {goalie} is coming out.
 ::endlines
 
-# Ken Raven drives the league's one Zamboni, at every barn (content/npcs/npc_slush_raven.json).
+# Ken Raven drives the Zamboni at Golden Goose Gardens, in his own livery (content/npcs/npc_slush_raven.json).
 ::lines pbp.zamboni.on
 Zamboni's out. Ken Raven at the wheel.
 Here's Ken Raven with the Zamboni.

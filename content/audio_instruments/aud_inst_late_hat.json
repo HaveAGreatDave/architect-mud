@@ -1,0 +1,53 @@
+{
+  "category": "band",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.045,
+          "r": 0.03,
+          "s": 0
+        },
+        "filter": {
+          "freq": 6500,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "gain": 1.2,
+        "noiseMix": 1,
+        "noiseSeed": 37,
+        "waveform": "square",
+        "width": 0.5
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.03,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 6000,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "fm": {
+          "index": 4,
+          "indexEnd": 2,
+          "ratio": 1.47,
+          "time": 0.05
+        },
+        "gain": 0.12,
+        "waveform": "square"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_late_hat",
+  "name": "Late Night: Hi-hat",
+  "sample_id": null,
+  "waveform": "square"
+}

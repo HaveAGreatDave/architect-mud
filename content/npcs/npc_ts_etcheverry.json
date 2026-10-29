@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "sniffs the air, frowns, and lets it go.",
+    "\"It's only damp. This time.\""
+  ],
+  "description": "A tall woman of about sixty in a black coat with a stole folded in the pocket. She carries a bottle of water and a cheap torch, and sniffs the air when she comes into a room.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a long black coat",
+      "a grey roll-neck and skirt",
+      "a slip and thick tights"
+    ],
+    "personality": "calm",
+    "tonight_guest": "exorcist"
+  },
+  "home_activities": [],
+  "home_zone": "zone_mq_chrome_201",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ts_etcheverry",
+  "name": "Lucia Etcheverry",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

@@ -6,9 +6,9 @@
     "He fills the wash-water tank from a hose and watches the gauge.",
     "He scrapes a ridge of snow off the conditioner into a bucket.",
     "He wipes down the blade with a rag.",
-    "He hums a Highlanders chant under his breath."
+    "He hums a Marauders chant under his breath."
   ],
-  "description": "A lean man in his fifties in a navy ice-crew parka, RAVEN stencilled across the back and a green-and-navy tartan scarf tucked in at the collar. A respirator hangs round his neck on a cracked strap. He's wiping down the resurfacer's blade with a rag.",
+  "description": "A lean man in his fifties in a navy ice-crew parka, RAVEN stencilled across the back and a navy-and-silver Marauders scarf tucked in at the collar. A respirator hangs round his neck on a cracked strap. He's wiping down the resurfacer's blade with a rag.",
   "dialogue_tree": {
     "broadcast": {
       "options": [
@@ -143,13 +143,13 @@
           "next": "root"
         }
       ],
-      "text": "\"Highlanders!\" He pulls a tartan scarf out of his collar. \"Best team in the league, don't let anyone tell you different.\""
+      "text": "\"Marauders!\" He pulls a navy-and-silver scarf out of his collar. \"Best team in the league, don't let anyone tell you different.\""
     }
   },
   "faction": null,
   "flags": {
     "clothing_layers": [
-      "a green-and-navy tartan Highlanders scarf",
+      "a navy-and-silver Marauders scarf",
       "a navy ice-crew parka with RAVEN stencilled across the back",
       "a grey hooded sweatshirt",
       "canvas work trousers and cleated rubber boots",

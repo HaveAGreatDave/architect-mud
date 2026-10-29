@@ -1,0 +1,130 @@
+{
+  "category": "band",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.035,
+          "d": 0.18,
+          "r": 0.12,
+          "s": 0.82
+        },
+        "detune": -4,
+        "drive": 0.3,
+        "driveType": "tube",
+        "echo": {
+          "delay": 0.21,
+          "feedback": 0.28,
+          "mix": 0.16
+        },
+        "eq": {
+          "high": 1,
+          "low": -4,
+          "mid": 2
+        },
+        "formants": [
+          {
+            "freq": 520,
+            "gain": 1,
+            "q": 3.5
+          },
+          {
+            "freq": 1180,
+            "gain": 0.75,
+            "q": 5
+          },
+          {
+            "freq": 2550,
+            "gain": 0.35,
+            "q": 6
+          }
+        ],
+        "gain": 0.2,
+        "mods": [
+          {
+            "a": 0.001,
+            "d": 0.07,
+            "id": "sc",
+            "r": 0.05,
+            "s": 0,
+            "to": [
+              {
+                "amount": -70,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          },
+          {
+            "fade": 0.35,
+            "id": "vb",
+            "rate": 5.4,
+            "to": [
+              {
+                "amount": 16,
+                "param": "pitch"
+              }
+            ],
+            "type": "lfo",
+            "wave": "sine"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.04,
+          "d": 0.2,
+          "r": 0.12,
+          "s": 0.7
+        },
+        "detune": 5,
+        "filter": {
+          "freq": 1700,
+          "q": 1.2,
+          "type": "lowpass"
+        },
+        "gain": 0.045,
+        "mods": [
+          {
+            "fade": 0.4,
+            "id": "vb",
+            "rate": 5.1,
+            "to": [
+              {
+                "amount": 14,
+                "param": "pitch"
+              }
+            ],
+            "type": "lfo",
+            "wave": "sine"
+          }
+        ],
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.02,
+          "d": 0.12,
+          "r": 0.08,
+          "s": 0.25
+        },
+        "filter": {
+          "freq": 2300,
+          "q": 1.1,
+          "type": "bandpass"
+        },
+        "gain": 0.04,
+        "noise": "pink",
+        "noiseMix": 1,
+        "noiseSeed": 7,
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_late_tenor",
+  "name": "Late Night: Tenor sax",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

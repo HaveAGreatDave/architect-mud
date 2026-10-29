@@ -66,6 +66,9 @@ export const GROUPS = [
       'scripts/content/build-cphl-clubs.mjs --check',   // the CPhL clubs in the row match their authoring script
       'scripts/content/build-deadball-clubs.mjs --check',   // and Deadball's
       'scripts/content/build-final-opens.mjs --check',   // the finals' opens match their scores
+      'scripts/content/build-tonight-theme.mjs --check',   // the Tonight Show's theme matches its score
+      'scripts/content/build-tonight-theme-2.mjs --check',   // and its second take, the late-night band
+      'scripts/content/build-tonight-card.mjs --check',   // and its title card is timed to it
     ],
   },
   {

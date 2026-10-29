@@ -1,0 +1,57 @@
+{
+  "category": "band",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.38,
+          "r": 0.1,
+          "s": 0
+        },
+        "gain": 0.55,
+        "mods": [
+          {
+            "a": 0.001,
+            "d": 0.05,
+            "id": "bt",
+            "r": 0.05,
+            "s": 0,
+            "to": [
+              {
+                "amount": 1500,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.012,
+          "r": 0.01,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2500,
+          "q": 0.8,
+          "type": "bandpass"
+        },
+        "gain": 0.08,
+        "noiseMix": 1,
+        "noiseSeed": 23,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_late_kick",
+  "name": "Late Night: Kick",
+  "sample_id": null,
+  "waveform": "sine"
+}

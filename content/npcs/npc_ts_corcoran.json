@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "checks the door chain, then checks it again.",
+    "\"Don't tell anyone the number. Any number.\""
+  ],
+  "description": "A soft, nervous man in his fifties in a very new suit he keeps tugging straight. Eight lottery tickets are framed on the wall behind him. He checks the door chain twice while you watch.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a new grey suit with the shop creases still in it",
+      "a shirt buttoned to the neck",
+      "boxer shorts with four-leaf clovers on them"
+    ],
+    "personality": "chatty",
+    "tonight_guest": "lucky"
+  },
+  "home_activities": [],
+  "home_zone": "zone_kestrel_11a",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ts_corcoran",
+  "name": "Frank Corcoran",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

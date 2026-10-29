@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "taps the receipt book in his pocket.",
+    "\"Keep your receipt. That's the first commandment.\""
+  ],
+  "description": "A tall, loose-limbed man in his sixties in a black suit and a dog collar. He keeps a book of receipts in his breast pocket and taps it when he talks.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a black suit gone shiny at the knees",
+      "a clerical shirt and collar",
+      "grey underpants"
+    ],
+    "personality": "chatty",
+    "tonight_guest": "reverend"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u8_2",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ts_boone",
+  "name": "Reverend Cy Boone",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

@@ -717,7 +717,7 @@ export default async function regress({ check, run, getPlayer }) {
 
   const tsScript = {
     host: 'npc_john_akerson', sidekick: 'npc_graham_mercer', guestNpc: 'npc_guest',
-    guests: [{ name: 'Lucky Malone', title: 'a lottery winner', theme: '' }, { name: 'Dr. Vane', title: 'a mad surgeon', theme: '' }],
+    guests: [{ name: 'Testa Fixture', title: 'a lottery winner', theme: '' }, { name: 'Dr. Placeholder Quill', title: 'a mad surgeon', theme: '' }],
     title: 'tonight_show_logo', theme: 'tonight_theme',
     pools: {
       open: ["It's the show!"], tease: ['Tonight, chaos.'], announce_host: ['Here is {host}!'],
@@ -753,6 +753,46 @@ export default async function regress({ check, run, getPlayer }) {
     .filter(n => n.type === 'say').map(n => n.data?.text || '');
   check('talkshow says goodnight exactly once',
     soSays.filter(t => /^GOODBYE-[ABC]$/.test(t)).length === 1, soSays.filter(t => /^GOODBYE-/.test(t)).join(','));
+
+  // The cold open is ONE line (each ends "It's the show!", so two aired the name twice), and a
+  // list bit is read entry by entry, so its `||` separator never reaches the air.
+  const olScript = { ...soScript, pools: { ...soScript.pools, open: ['OPEN-A', 'OPEN-B', 'OPEN-C'], list_bit: ['LIST || ONE || TWO'] } };
+  const olEps = Array.from({ length: 24 }, (_, i) => Object.values(_test.assembleTalkshowGraph(olScript, 'bc_ol', `d${i}`, persona).nodes)
+    .filter(n => n.type === 'say').map(n => n.data?.text || ''));
+  check('talkshow cold open is one line, every night', olEps.every(s => s.filter(t => /^OPEN-/.test(t)).length === 1),
+    olEps.map(s => s.filter(t => /^OPEN-/.test(t)).length).join(','));
+  // A league player as the guest: his club's place and his own season come out of the tables.
+  {
+    const C = _test._standingsCaches, saved = new Map(C);
+    C.set('hockey', { at: Date.now(), rows: [{ team: 'Coldwater Highlanders', wins: 9, losses: 4, otl: 1, points: 19 }, { team: 'Yard Birds', wins: 2, losses: 11, otl: 0, points: 4 }],
+      extras: { players: { 'Sixfinger Dawes': { gp: 14, g: 7, a: 5 } }, goalies: { 'Plumb Bob Kasprzak': { gp: 13, w: 9, sa: 300, ga: 30 } }, toll: {}, career: {} } });
+    C.set('baseball', { at: Date.now(), rows: [{ team: 'Coldwater Crows', wins: 20, losses: 10 }],
+      extras: { ledger: { bats: new Map([['Okafor', { name: 'Okafor', team: 'Coldwater Crows', ab: 100, hits: 31, hr: 6, rbi: 22 }]]), arms: new Map([['Sato', { name: 'Sato', team: 'Coldwater Crows', w: 7, l: 3, outs: 270, er: 30, k: 80 }]]) } } });
+    const picks = Array.from({ length: 64 }, (_, i) => _test.talkshowAthleteFor(i * 8)).filter(Boolean);
+    const hockeyMen = picks.filter(p => p.athlete.sport === 'hockey'), ballMen = picks.filter(p => p.athlete.sport === 'baseball');
+    check('talkshow books CPhL captains and goalies who live in the city', hockeyMen.length > 0 && hockeyMen.every(p => ['captain', 'goalie'].includes(p.athlete.role) && world.npcs.has(p.athlete.npcId)),
+      hockeyMen.map(p => p.name).slice(0, 4).join(','));
+    check('talkshow books a Deadball arm or bat with his numbers', ballMen.length > 0 && ballMen.every(p => /Sato|Okafor/.test(p.name) && /\d/.test(p.tok.season) && p.tok.club_rank === 'top of the table'),
+      ballMen.map(p => `${p.name}: ${p.tok.season}`).slice(0, 2).join(' | '));
+    C.clear(); for (const [k, v] of saved) C.set(k, v);
+  }
+  // A guest who lives in the city does the show themselves: no stand-in. Their name finds them,
+  // the interview's answers are theirs, and their graph sends them to the studio.
+  {
+    const r = world.npcs.get('npc_barkeep');
+    if (r) {
+      const p = { name: r.name, title: 'who runs the Dead Pigeon', tag: 'barkeep' };
+      check('talkshow finds the NPC a guest is named for', _test.talkshowRealGuest(p, 'npc_guest')?.id === r.id, String(_test.talkshowRealGuest(p, 'npc_guest')?.id));
+      check('talkshow invents nobody for a made-up guest', _test.talkshowRealGuest({ name: 'Nobody Q. Nowhere' }, 'npc_guest') === null, 'null');
+      const rs = { ...soScript, guests: [p] };
+      const g = _test.assembleTalkshowGraph(rs, 'bc_real', 'd1', p);
+      const anchors = Object.values(g.nodes).filter(n => n.type === 'npc_anchor').map(n => n.data?.npc_id);
+      check('talkshow gives a real guest their own lines, not the stand-in', anchors.includes(r.id) && !anchors.includes('npc_guest'), anchors.join(','));
+      const types = Object.values(_test.makeRealGuestGraph('zone_x').nodes).map(n => n.action_type).filter(Boolean);
+      check('a called guest closes up, walks in, works the show and goes back', ['TALKSHOW_GUEST_LEAVE', 'GO_TO_WORK', 'AT_WORK', 'TALKSHOW_GUEST_DONE'].every(t => types.includes(t)), types.join(','));
+    }
+  }
+  check('talkshow list bit airs entry by entry, no separator', olEps.some(s => s.includes('LIST') && s.includes('TWO')) && !olEps.flat().some(t => t.includes('||')), 'list');
 
   // Variety: different in-game days assemble materially different episodes (different jokes,
   // lengths, and structure — so it doesn't go stale). Use pools big enough to make a same-day

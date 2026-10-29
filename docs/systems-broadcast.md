@@ -2573,14 +2573,13 @@ turns as a wheeled machine does. Its speed is a driver's: 11 ft/s on the straigh
 through the turns by how tight they are, eased up from a stop and down to one, walking pace
 through the gate. The sheet takes about five and a half minutes of that (`zamboniTime()`).
 
-On Cup final night the machine wears Ken's livery ([livery.js](../client/game/js/panels/rink/livery.js)):
+Every night the machine wears Ken's livery ([livery.js](../client/game/js/panels/rink/livery.js)):
 black with purple bands and gold trim, and a graffiti piece down both flanks of the tank, a
 gold "Ken" tag over purple RAVEN with a gold crown on the R and a raven perched on a branch
-across a gold ring. Every Cup payload carries `cup: true` (the intermission's too, or the
-flag would drop as the Zamboni came on), the director keeps it on `W.cup`, and both
+across a gold ring. It began as his Cup final piece and stayed: Cup payloads still carry `cup: true`, but the
+director now sets `W.cup` on every game, and both
 renderers read it: render.js lays the piece's canvas on the flank, and GLASS 2 has it in
-the lettering texture under ICE CREW (`ZAMBONI_LABEL`). Any other night it's the white ICE
-CREW machine.
+the lettering texture under ICE CREW (`ZAMBONI_LABEL`).
 
 The broadcast shows it as a time-lapse: the director sets `lapse` so the machine is through
 its gate seven and a half seconds before the `resume` cue (ten times over with no cue), a

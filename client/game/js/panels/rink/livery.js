@@ -1,4 +1,5 @@
-// Rinkside · the Zamboni's Cup final livery. On the night of the Coldwater Cup final the
+// Rinkside · Ken Raven's Zamboni livery. He drives it every night (it began as his Cup
+// final piece and stayed): the
 // tank goes black and Ken Raven's name is sprayed down both flanks like a wall piece: a
 // gold "Ken" tag over fat purple RAVEN letters with a gold edge, a 3-D drop, drips and a
 // gold crown on the R, and a raven perched on a branch across a gold ring beside them.
@@ -9,7 +10,7 @@
 // Pure canvas: no world. The spray is from a fixed seed, so every viewer's tank is the
 // same tank.
 
-// the machine's colours on Cup night, over the boxes' everyday ones (render.js ZB)
+// the machine's colours in the livery, over the boxes' everyday ones (render.js ZB)
 export const FINAL = { tank: '#141217', chassis: '#1b1820', band: '#6a2bb8', trim: '#e2b33a' };
 // the everyday colour each one replaces (the blue bands and the driver's cap go purple)
 const RECOLOUR = { '#eceff2': FINAL.chassis, '#f4f6f8': FINAL.tank, '#1f4fbf': FINAL.band, '#c9ced3': FINAL.trim };

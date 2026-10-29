@@ -1,0 +1,78 @@
+{
+  "category": "band",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.3,
+          "r": 0.07,
+          "s": 0.55
+        },
+        "drive": 0.18,
+        "driveType": "tube",
+        "filter": {
+          "freq": 520,
+          "q": 1.1,
+          "type": "lowpass"
+        },
+        "gain": 0.065,
+        "mods": [
+          {
+            "a": 0.004,
+            "d": 0.12,
+            "id": "bl",
+            "r": 0.15,
+            "s": 0.2,
+            "to": [
+              {
+                "amount": 1500,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.4,
+          "r": 0.07,
+          "s": 0.7
+        },
+        "gain": 0.1,
+        "sub": {
+          "level": 0.3,
+          "octave": 1,
+          "wave": "sine"
+        },
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.02,
+          "r": 0.01,
+          "s": 0
+        },
+        "filter": {
+          "freq": 1400,
+          "q": 1,
+          "type": "bandpass"
+        },
+        "gain": 0.02,
+        "noiseMix": 1,
+        "noiseSeed": 13,
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_late_bass",
+  "name": "Late Night: Electric bass",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

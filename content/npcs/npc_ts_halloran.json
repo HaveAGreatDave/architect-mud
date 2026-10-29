@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "straightens the towel over the door.",
+    "\"You're on sovereign soil. Wipe your feet.\""
+  ],
+  "description": "A big man in his thirties with a baseball bat leaning on the wall beside him. A grey towel is nailed over the door as a flag. He has a passport he made himself.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a dressing gown worn as a uniform",
+      "a vest with a hand-drawn crest",
+      "baggy boxers"
+    ],
+    "personality": "gruff",
+    "tonight_guest": "nation"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u8_1",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ts_halloran",
+  "name": "Mack Dunleavy",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

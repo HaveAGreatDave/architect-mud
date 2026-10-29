@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "lifts the lid on the bucket, looks in, and puts it back.",
+    "\"It's probably fine.\""
+  ],
+  "description": "A wiry woman in her thirties in a stained white jacket, with a burn on one wrist and a cleaver through her belt. A bucket on the floor has something in it that moves.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a stained chef's jacket",
+      "cargo trousers and rubber boots",
+      "a sports bra and shorts"
+    ],
+    "personality": "chatty",
+    "tonight_guest": "chef"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u8_3",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ts_quinlan",
+  "name": "Tabitha Quinlan",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

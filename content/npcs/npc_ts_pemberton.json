@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "straightens a ribbon that was already straight.",
+    "\"I'm not at liberty to say.\""
+  ],
+  "description": "An upright old man with a white moustache in a uniform no army issues, covered in ribbons. He stands with his hands behind his back and won't say which war.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a dress uniform with a lot of ribbons",
+      "a starched shirt and braces",
+      "long johns"
+    ],
+    "personality": "polished",
+    "tonight_guest": "colonel"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_601",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ts_pemberton",
+  "name": "Colonel Otis Pemberton",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

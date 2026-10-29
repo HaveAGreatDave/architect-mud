@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "tapes another sheet of foil over the window.",
+    "\"It knows what it did.\""
+  ],
+  "description": "A small woman in her twenties in big dark glasses and a sun hat, indoors. Boxes of legal papers are stacked by the window, which is covered with foil.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a wide sun hat and dark glasses",
+      "a long linen coat",
+      "a camisole and briefs"
+    ],
+    "personality": "curt",
+    "tonight_guest": "lawsuit"
+  },
+  "home_activities": [],
+  "home_zone": "zone_halcyon_apt_c",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ts_tanaka",
+  "name": "Yuki Tanaka",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

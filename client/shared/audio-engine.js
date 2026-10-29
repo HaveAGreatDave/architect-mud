@@ -2633,6 +2633,7 @@
       bijou:'B IY ZH * UW',
       merrin:'M * EH R IH N',
       solenne:'S OW L * EH N',
+      akerson:'* EY K ER S AX N',       // "Ay-ker-son", not "Ack-er-son"
       auggie:'* AO G IY',               // "AW-ghee"
       vigo:'V * IY G OW',               // "VEE-go"
     };
@@ -3560,6 +3561,32 @@ return out;
         drive: 0, growl: 0.05, growl2: 0,
         natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
         vs: true,
+      },
+      // The Tonight Show's host: a talker, not a reader. A warm light baritone at
+      // conversational pace (slower than a rolled voice, which rushes), the widest
+      // lilt on the desk because he sells every line, and a real fall at the end of
+      // one so the joke lands. Full human variation, some jitter and a little air:
+      // a man at a desk late at night, not a booth. No mic colour at all.
+      'john akerson': {
+        f0: 114, fshift: 0.98, speed: 1.24, ring: 0,
+        oq: 0.64,
+        jitter: 0.008, breath: 0.009,
+        lilt: 0.105, decl: 0.135,
+        drive: 0, growl: 0, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        vs: false,
+      },
+      // His announcer: lower and rounder than John (a longer tract), pressed so it
+      // carries, unhurried. Less lilt than John (he announces, he doesn't sell) but a
+      // long, sure fall. The faintest ring of a studio mic and nothing synthetic.
+      'graham mercer': {
+        f0: 97, fshift: 0.93, speed: 1.2, ring: 0.02,
+        oq: 0.58,
+        jitter: 0.006, breath: 0.007,
+        lilt: 0.085, decl: 0.14,
+        drive: 0, growl: 0, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        vs: false,
       },
     };
 

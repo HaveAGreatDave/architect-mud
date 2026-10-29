@@ -1,0 +1,64 @@
+{
+  "category": "band",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.06,
+          "r": 0.03,
+          "s": 0
+        },
+        "drive": 0.35,
+        "filter": {
+          "freq": 1500,
+          "q": 1.6,
+          "type": "bandpass"
+        },
+        "gain": 0.16,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.05,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2100,
+          "q": 1.4,
+          "type": "bandpass"
+        },
+        "gain": 0.07,
+        "tune": 7,
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.03,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 3200,
+          "q": 1,
+          "type": "bandpass"
+        },
+        "gain": 0.08,
+        "noiseMix": 1,
+        "noiseSeed": 19,
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_late_guitar",
+  "name": "Late Night: Muted funk guitar",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

@@ -1,0 +1,85 @@
+{
+  "category": "band",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.006,
+          "d": 0.05,
+          "r": 0.07,
+          "s": 1
+        },
+        "chorus": {
+          "depth": 0.35,
+          "mix": 0.45,
+          "rate": 5.8
+        },
+        "gain": 0.12,
+        "tune": -12,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.006,
+          "d": 0.05,
+          "r": 0.07,
+          "s": 1
+        },
+        "gain": 0.14,
+        "tremolo": {
+          "depth": 0.12,
+          "rate": 5.8
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.006,
+          "d": 0.05,
+          "r": 0.07,
+          "s": 1
+        },
+        "gain": 0.09,
+        "tremolo": {
+          "depth": 0.15,
+          "rate": 6.3
+        },
+        "tune": 12,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.006,
+          "d": 0.05,
+          "r": 0.07,
+          "s": 1
+        },
+        "gain": 0.05,
+        "tune": 19,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "d": 0.006,
+          "r": 0.004,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2600,
+          "q": 0.9,
+          "type": "bandpass"
+        },
+        "gain": 0.05,
+        "noiseMix": 1,
+        "noiseSeed": 17,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_late_organ",
+  "name": "Late Night: Hammond organ",
+  "sample_id": null,
+  "waveform": "sine"
+}

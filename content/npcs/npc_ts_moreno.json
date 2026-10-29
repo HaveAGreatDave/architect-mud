@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "tests a socket with the back of his hand.",
+    "\"That one's live. They're all live.\""
+  ],
+  "description": "A thin man in his fifties with no eyebrows and a hi-vis vest that says SAFETY on the back. The fingertips on his left hand are shiny with old burns.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a hi-vis vest that says SAFETY",
+      "a scorched work shirt",
+      "cotton boxers"
+    ],
+    "personality": "chatty",
+    "tonight_guest": "sparky"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u8_4",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ts_moreno",
+  "name": "Eddie \"Sparky\" Moreno",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

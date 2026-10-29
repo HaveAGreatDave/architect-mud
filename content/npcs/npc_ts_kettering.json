@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "points at the kettle. It's a strike.",
+    "\"That's out. Don't argue.\""
+  ],
+  "description": "A short, wide man in his fifties in a black umpire's jacket, with a mask hooked on his belt that has a loudspeaker bolted to it. He points at things when he talks about them.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a black umpire's jacket",
+      "a chest protector over a polo shirt",
+      "grey briefs"
+    ],
+    "personality": "curt",
+    "tonight_guest": "umpire"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_602",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ts_kettering",
+  "name": "Moe Kettering",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

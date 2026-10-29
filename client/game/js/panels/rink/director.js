@@ -176,8 +176,9 @@ export function createDirector(W, opts = {}) {
   function dress(p) {
     // (how full the barn is tonight, for the crowd: gl/arena-crowd.js)
     if (Number.isFinite(p.gate)) W.gate = p.gate;
-    // (Cup final night: the Zamboni wears its driver's livery, rink/livery.js)
-    W.cup = !!p.cup;
+    // Ken Raven's Zamboni wears his livery every night, not just on Cup final night
+    // (rink/livery.js). `cup` is the livery's switch and nothing else reads it.
+    W.cup = true;
     // the identities can land after the first payload: dress again when they do
     const dressed = `${clubOf(p.awayTeam, 'hockey') ? 1 : 0}${clubOf(p.homeTeam, 'hockey') ? 1 : 0}`;
     const key = `${p.awayTeam || ''}|${p.homeTeam || ''}|${dressed}`;

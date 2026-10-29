@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "polishes the toaster with his sleeve.",
+    "\"Still works. Every slot.\""
+  ],
+  "description": "A wiry scavenger in his forties, sunburnt and gap-toothed, in an expensive coat he wears over his old work gear. A dented chrome toaster sits on a cushion beside him.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a camel coat worth more than the flat",
+      "a salvage vest full of pockets",
+      "patched long johns"
+    ],
+    "personality": "gruff",
+    "tonight_guest": "scavenger"
+  },
+  "home_activities": [],
+  "home_zone": "zone_kestrel_11a",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ts_flynt",
+  "name": "Dexter Flynt",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

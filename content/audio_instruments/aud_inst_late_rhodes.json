@@ -1,0 +1,50 @@
+{
+  "category": "band",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 1.6,
+          "r": 0.4,
+          "s": 0.25
+        },
+        "chorus": {
+          "depth": 0.25,
+          "mix": 0.3,
+          "rate": 0.6
+        },
+        "fm": {
+          "index": 1.8,
+          "indexEnd": 0.15,
+          "ratio": 1,
+          "time": 0.5
+        },
+        "gain": 0.24,
+        "tremolo": {
+          "depth": 0.18,
+          "rate": 4.6
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.25,
+          "r": 0.1,
+          "s": 0
+        },
+        "gain": 0.04,
+        "tune": 24,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_late_rhodes",
+  "name": "Late Night: Rhodes",
+  "sample_id": null,
+  "waveform": "sine"
+}

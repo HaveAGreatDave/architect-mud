@@ -1,0 +1,66 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "wait",
+        "ifTrue": "home_life",
+        "type": "condition"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "reads a statement under her breath, practising.",
+    "\"The machine has no comment at this time.\""
+  ],
+  "description": "A neat woman in her thirties in a navy suit with a vending company's pin on the lapel. She has a folder of statements and smiles at everyone the same amount.",
+  "dialogue_tree": null,
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a navy skirt suit with a company pin",
+      "a white blouse",
+      "a lace bra and briefs"
+    ],
+    "personality": "polished",
+    "tonight_guest": "vending"
+  },
+  "home_activities": [],
+  "home_zone": "zone_halcyon_apt_c",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ts_crane",
+  "name": "Ophelia Hartley",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": null,
+  "vendor_shop_name": null,
+  "vendor_stock_size": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}
