@@ -11,7 +11,7 @@ import { THAW_STAGES, COOK_STAGES, STOVE_SPEED, COOK_SECONDS_PER_KG, MIN_COOK_MS
 import { PROFILES, LEGACY_BAND_INDEX, profileNameFor, profileNeedsPrep, needsPrep, validateProfiles, QUALITY_BANDS, bandIndex, donenessLevels, donenessLevel, donenessAt, achievedDoneness } from './profiles.js';
 import { leavesFond, makeFond, fondState, fondModifier, fondText, fondBelongs } from './fond.js';
 import { prepWindowMult, prepBurnMult, prepCeilingDrop, prepBonus, marinadeStrength, canMarinate, prepText } from './prep.js';
-import { tasteNotes, tasteTier, flavourLines } from './taste.js';
+import { tasteNotes, tasteMood, tasteTier, flavourLines } from './taste.js';
 import { portionOf, isWhole, canChop, portionName, yieldOf } from './portions.js';
 import { FOND_BONUS, FOND_RESIDUE_PENALTY, FOND_NEGLECT_PENALTY, FOND_LIFE_MS, MODIFIER_BONUS_CAP, MIN_PORTION, MINCE_RATE, MARINATE_MIN_MS, MARINATE_FULL_MS, MARINATE_PROFILES, TASTE_TIERS, MINCE_CEILING_DROP, BAND_SCALE, BASE_OFFSET, FOND_MIN_BAND, DISCOVERY_MIN_BAND, SLOP_CEILING, BAND_REWARDS, rewardFor, restMultiplier, restText, RESTS_WELL, REST_MIN_MS, REST_PEAK_MS, REST_COLD_MS, REST_COLD_PENALTY } from './config.js';
 import { DISCOVERY_ATTEMPTS, cookingIpFor, ROUTINE_IP, MASTERFUL_IP, ROUTINE_IP_COOLDOWN_MS, DISCOVERY_IP, RECIPE_MASTERY_IP, STARTER_RECIPES } from './config.js';
@@ -1398,6 +1398,12 @@ export default async function regress({ run, check, getPlayer }) {
     check("seasoning is only commented on when there's a dish to judge",
       tasteNotes({ template: DISHES.roast, modifierCount: 0, skill: 9 }).length > 0 &&
       tasteNotes({ skill: 9 }).length === 0);
+
+    check('the taste face is as vague as the novice: raw, right or too long',
+      ['raw', 'good', 'over'].includes(tasteMood({ session: tSess, profile: PROFILES.dense_meat, skill: 0, now: 1 })));
+    check('the taste face reads seasoning when there is no cook',
+      ['good', 'flat', 'strong'].includes(tasteMood({ template: DISHES.roast, modifierCount: 0, skill: 9 }))
+      && tasteMood({ skill: 9 }) === null);
 
     // ── Eating: nine bands you can actually feel ─────────────────────────────
     check('every band has its own line in the mouth',

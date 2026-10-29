@@ -194,6 +194,7 @@ function run(a) {
     if (input) { input.value = a.command; input.focus(); }
     return;
   }
+  if (a.role === 'taste') startTaste();
   sendCmdQuiet(a.command);
   sendCmdSilent('workspace');
 }
@@ -492,6 +493,7 @@ function build(dt) {
   // the pass: a plate, with what is being laid out on it or the last dish served
   if (kit().plate) KS.plate(b, KS.pose([KS.STATIONS.pass, 0, 1.2]));
   // the fridge and freezer, standing at the left end of the counter
+  buildTaste(b);
   buildBoxes(b, dt);
   buildTool(b);
   const shown = S.dress ? S.dress.items : S.dish || [];
@@ -1443,6 +1445,87 @@ function buildElement(b, level, max) {
   if (!vesselsOf(S.data).some((v) => v.hot) && Math.random() < k * 0.15) S.puffs.push({ p: [x + (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, 4], age: 0, life: 0.9, c: KS.COLOURS.steam, size: 0.5 });
 }
 
+// ── tasting ──────────────────────────────────────────────────────────────────────────────────────
+// A taste lifts a spoonful out of the pan to the camera and holds it there until the server's
+// answer comes; its 'kitchen_taste' carries a mood (plugins/cooking/taste.js tasteMood), drawn as a
+// face beside the spoon, and the words follow as a caption. The face says no more than the words.
+function startTaste() {
+  const pan = panOf(S.data), c = (pan?.contents || []).find((x) => x.look);
+  const m = c && matterFor(c.look.profile, c.look.matter);
+  S.tasting = { t0: S.t, mood: null, tm: 0, col: m ? M.rgb(m.ramp[beatOf(c.cook, c.state === 'cooked')] || m.ramp.raw) : KS.COLOURS.steam, from: PAN_AT(pan) };
+  ksfx('kitchen-tap');
+}
+export function kitchenTaste(msg) {
+  if (!S) return;
+  if (!S.tasting) startTaste();
+  S.tasting.mood = msg.mood || 'plain';
+  S.tasting.tm = S.t;
+  ksfx(msg.mood === 'good' ? 'kitchen-clink' : 'kitchen-thock');
+}
+function tasteEnd() {
+  const g = S.tasting;
+  if (!g) return true;
+  if ((g.mood && S.t - g.tm > 2.4) || (!g.mood && S.t - g.t0 > 4)) { S.tasting = null; return true; }
+  return false;
+}
+// Where the spoon is: up from the pan to just under the camera, then down again as it ends.
+function spoonAt() {
+  const g = S.tasting, e = S.cam.eye, a = S.cam.at;
+  const near = [e[0] + (a[0] - e[0]) * 0.22, e[1] + (a[1] - e[1]) * 0.22, e[2] + (a[2] - e[2]) * 0.22 - 7];
+  const up = Math.min(1, (S.t - g.t0) / 0.5), down = g.mood ? Math.max(0, (S.t - g.tm - 1.9) / 0.5) : 0;
+  const k = Math.max(0, up - down), q = k * k * (3 - 2 * k);
+  const from = [g.from[0], g.from[1], g.from[2] + 4];
+  return [from[0] + (near[0] - from[0]) * q, from[1] + (near[1] - from[1]) * q, from[2] + (near[2] - from[2]) * q + Math.sin(q * Math.PI) * 10];
+}
+function buildTaste(b) {
+  if (tasteEnd() || S.cold) return;
+  const p = spoonAt(), steel = KS.COLOURS.blade;
+  M.ellipsoid(b, p, [1, 0, 0], [0, 1, 0], [0, 0, 1], [2.1, 1.5, 0.6], steel, 10, 5);
+  M.ellipsoid(b, [p[0], p[1], p[2] + 0.35], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1.6, 1.1, 0.25], S.tasting.col, 10, 4);
+  M.tube(b, [p[0] + 1.8, p[1] - 0.5, p[2] + 0.2], [p[0] + 12, p[1] - 4, p[2] - 3], 0.45, 0.55, KS.COLOURS.handle, 6);
+}
+// The face: an inked circle with eyes and a mouth for the mood, in a bubble by the spoon.
+function paintFace(x, w, h) {
+  const g = S.tasting;
+  if (!g?.mood || S.cold) return;
+  const s = screenOf(spoonAt());
+  if (!s) return;
+  const age = S.t - g.tm, k = Math.min(1, age / 0.18) * Math.min(1, Math.max(0, (2.3 - age) / 0.3));
+  if (k <= 0) return;
+  const R = 26 * (0.6 + 0.4 * k), cx = Math.min(w - R - 12, s[0] * w + 70), cy = Math.max(R + 12, s[1] * h - 60);
+  x.save();
+  x.globalAlpha = k;
+  x.fillStyle = '#f6efe0'; x.strokeStyle = '#141018'; x.lineWidth = 3; x.lineCap = 'round'; x.lineJoin = 'round';
+  x.beginPath(); x.arc(cx, cy, R, 0, Math.PI * 2); x.fill(); x.stroke();
+  x.beginPath(); x.moveTo(cx - R * 0.55, cy + R * 0.8); x.lineTo(cx - R * 0.9, cy + R * 1.3); x.lineTo(cx - R * 0.15, cy + R * 0.95); x.fill(); x.stroke();
+  const eye = (ex, kind) => {
+    x.beginPath();
+    if (kind === 'x') { x.moveTo(ex - 4, cy - 9); x.lineTo(ex + 4, cy - 1); x.moveTo(ex + 4, cy - 9); x.lineTo(ex - 4, cy - 1); }
+    else if (kind === 'happy') { x.arc(ex, cy - 3, 4, Math.PI * 1.1, Math.PI * 1.9); }
+    else if (kind === 'wide') { x.arc(ex, cy - 5, 4.5, 0, Math.PI * 2); }
+    else if (kind === 'squint') { x.moveTo(ex - 5, cy - 7); x.lineTo(ex + 5, cy - 3); }
+    else { x.arc(ex, cy - 5, 2, 0, Math.PI * 2); x.fillStyle = '#141018'; x.fill(); }
+    x.stroke();
+  };
+  const L = cx - R * 0.35, Rr = cx + R * 0.35, my = cy + R * 0.35;
+  const mood = g.mood;
+  const eyes = { good: 'happy', raw: 'wide', over: 'squint', burnt: 'x', flat: 'dot', strong: 'squint', plain: 'dot' }[mood] || 'dot';
+  eye(L, eyes); eye(Rr, mood === 'strong' ? 'wide' : eyes);
+  x.beginPath();
+  if (mood === 'good') x.arc(cx, my - 5, R * 0.42, Math.PI * 0.15, Math.PI * 0.85);
+  else if (mood === 'raw') x.ellipse(cx, my, 4, 6, 0, 0, Math.PI * 2);
+  else if (mood === 'over' || mood === 'burnt') x.arc(cx, my + 9, R * 0.38, Math.PI * 1.2, Math.PI * 1.8);
+  else if (mood === 'strong') { for (let i = 0; i <= 6; i++) { const xx = cx - 10 + i * 3.4, yy = my + (i % 2 ? -3 : 3); i ? x.lineTo(xx, yy) : x.moveTo(xx, yy); } }
+  else { x.moveTo(cx - 9, my); x.lineTo(cx + 9, my); }
+  x.stroke();
+  // a mark for the mood: a sparkle when it's right, a drop of sweat when it's strong, smoke when it's gone
+  x.lineWidth = 2;
+  if (mood === 'good') { const sx = cx + R + 6, sy = cy - R; x.beginPath(); x.moveTo(sx - 6, sy); x.lineTo(sx + 6, sy); x.moveTo(sx, sy - 6); x.lineTo(sx, sy + 6); x.stroke(); }
+  if (mood === 'strong') { x.fillStyle = '#7fb6e0'; x.beginPath(); x.ellipse(cx + R * 0.75, cy - R * 0.45, 3, 5, 0, 0, Math.PI * 2); x.fill(); x.stroke(); }
+  if (mood === 'burnt') { x.strokeStyle = 'rgba(60,55,50,0.8)'; for (let i = 0; i < 3; i++) { x.beginPath(); x.arc(cx - 8 + i * 8, cy - R - 6 - Math.sin(S.t * 4 + i) * 3, 3 + i, 0, Math.PI * 2); x.stroke(); } }
+  x.restore();
+}
+
 // ── polish: fog, light, pops, hops, shimmer ──────────────────────────────────────────────────────
 // All picture: nothing here reads or sends anything the server decides.
 
@@ -1541,6 +1624,7 @@ function paintPolish(x, w, h, dt) {
       x.moveTo(px - rr * 0.5, py - rr * 0.5); x.lineTo(px + rr * 0.5, py + rr * 0.5); x.moveTo(px + rr * 0.5, py - rr * 0.5); x.lineTo(px - rr * 0.5, py + rr * 0.5); x.stroke();
     }
   }
+  paintFace(x, w, h);
   S.pops = (S.pops || []).filter((p) => (p.t += dt * 2.8) < 1);
   for (const p of S.pops) {
     const px = p.x * w, py = p.y * h, e = 1 - (1 - p.t) * (1 - p.t);

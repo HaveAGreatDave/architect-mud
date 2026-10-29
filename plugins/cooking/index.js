@@ -50,10 +50,11 @@ import { gatherHazards } from './hazards.js';
 import { cmdRecipe, learnFromWrittenCard } from './recipes.js';
 import { cmdShoplist, markShelf, markContainer } from './shoplist-cmd.js';
 import { rewardFor, restMultiplier, restText, RESTS_WELL, REST_PEAK_MS, REST_COLD_MS, REST_MIN_MS, TASTE_TIERS, TASTE_BITE } from './config.js';
-import { tasteNotes, flavourLines } from './taste.js';
+import { tasteNotes, tasteMood, flavourLines } from './taste.js';
 import { canMarinate, prepText } from './prep.js';
 import { workspaceProvider } from './workspace.js';
 import { cmdKitchenStage, stageOpen, offerStage } from './stage.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
 import { KNIFE_TTL_MS, DRESS_PAR, DRESS_MAX, DRESS_TTL_MS } from './config.js';
 import { matterFor, cutDifficulty } from '../../client/shared/kitchen-matter.js';
 import { footprint, evenness, parseCut } from '../../client/shared/knife.js';
@@ -1252,13 +1253,15 @@ async function cmdTaste(args, raw, player) {
       { isBread: hasTag(vessel, 'edible_vessel') },
     );
     const cooking = contents.find(r => r.custom_data?.cooking);
-    const notes = tasteNotes({
+    const parts = {
       session: cooking?.custom_data?.cooking,
       profile: cooking ? sessionProfile(cooking.custom_data.cooking) : null,
       template: dish.slop ? null : dish.template,
       modifierCount: dish.slop ? null : modifiers.reduce((a, r) => a + portionOf(r), 0),
       skill,
-    });
+    };
+    const notes = tasteNotes(parts);
+    tasteFace(player, tasteMood(parts));
     // ⚠ One row only: plating sums `tasted` across the vessel.
     await noteTaste([cooking || real[0]]);
     return { type: 'output', message: `You taste from the ${vessel.name}.\n${notes.map(n => `  ${n}`).join('\n')}` };
@@ -1271,11 +1274,18 @@ async function cmdTaste(args, raw, player) {
     const lines = flavourLines(food.custom_data || {}, restPhase(food.custom_data));
     if (!lines.length) return { type: 'error', message: `${food.name} isn't cooking, and there's nothing to learn from it.` };
     await noteTaste([food]);
+    tasteFace(player, null);
     return { type: 'output', message: `You take a little of ${food.custom_data?.name || food.name}.\n  ${lines[0]}` };
   }
   const notes = tasteNotes({ session, profile: sessionProfile(session), skill });
+  tasteFace(player, tasteMood({ session, profile: sessionProfile(session), skill }));
   await noteTaste([food]);
   return { type: 'output', message: `You taste ${food.name}.\n${notes.map(n => `  ${n}`).join('\n')}` };
+}
+
+// The Stage's face for a taste, sent ahead of the reply so it lands first. Only with the Stage open.
+function tasteFace(player, mood) {
+  if (stageOpen(player.id)) sendToPlayer(player.id, { type: 'kitchen_taste', mood: mood || 'plain' });
 }
 
 // Each taste is recorded on the row and costs TASTE_BITE of the yield at plating.

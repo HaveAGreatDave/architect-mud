@@ -63,6 +63,24 @@ function heatNote(profile, session, tier) {
   return `It has been cooking ${HEAT_ORDER_TEXT[got] || got} when it wanted ${HEAT_ORDER_TEXT[want] || want}.`;
 }
 
+// The face for the Kitchen Stage's taste (kitchen-stage.js kitchenTaste): the first thing the notes
+// say, as one word. It reads only what that cook's notes would tell them, so a novice's face is as
+// vague as their sentence: they can tell raw from right from too long, and flat from too strong.
+export function tasteMood({ session, profile, template, modifierCount, skill = 0, now = Date.now() }) {
+  const tier = tasteTier(skill);
+  if (session && profile) {
+    const state = endStateAt(session, profile, now);
+    if (state === 'peak') return 'good';
+    if (state === 'raw') return 'raw';
+    return tier === 'novice' || state === 'over' ? 'over' : 'burnt';
+  }
+  if (template && modifierCount != null) {
+    const count = Math.round(modifierCount), ideal = seasoningIdeal(template);
+    return count === ideal ? 'good' : count < ideal ? 'flat' : 'strong';
+  }
+  return null;
+}
+
 // ── The whole mouthful ──────────────────────────────────────────────────────
 
 // `parts` is whatever the caller could work out: the session being tasted, the
