@@ -668,8 +668,8 @@ const handlers = {
         // its read-aloud is part-way through airing to everyone else. It's passed
         // through so the panel knows never to hold it back for the voice either.
         // How the line is to be said, when the broadcast says: excite, lex, voice.
-        const dl = (msg.excite || msg.lex || msg.voice)
-          ? { ...(msg.excite ? { excite: msg.excite } : {}), ...(msg.lex ? { lex: msg.lex } : {}), ...(msg.voice ? { voice: msg.voice } : {}) }
+        const dl = (msg.excite || msg.lex || msg.voice || msg.speaker)
+          ? { ...(msg.excite ? { excite: msg.excite } : {}), ...(msg.lex ? { lex: msg.lex } : {}), ...(msg.voice ? { voice: msg.voice } : {}), ...(msg.speaker ? { speaker: msg.speaker } : {}) }
           : undefined;
         v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday, msg.catchUp, dl);
         if (!msg.catchUp) v.speak(msg.message, msg.style, msg.duration, dl);

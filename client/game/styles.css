@@ -12731,8 +12731,10 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 /* Two lines at most, and room kept for two, so the picture doesn't move as one- and
    two-line calls alternate (Deadball's caption does the same). The odd longer line ends
    in an ellipsis; the set's own message list has it whole. */
-.gdr-cap { flex: 0 0 auto; padding: 4px 10px; background: rgba(0,0,0,0.5); border-left: 2px solid #4fd2ff; border-radius: 2px; }
+.gdr-cap { flex: 0 0 auto; display: flex; align-items: center; gap: 9px; padding: 4px 10px 4px 6px; background: rgba(0,0,0,0.5); border-left: 2px solid #4fd2ff; border-radius: 2px; }
+.gdr-cap-tag { flex: 0 0 auto; font-size: 0.5625rem; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; color: #04121a; background: #4fd2ff; padding: 3px 8px; border-radius: 2px; }
 .gdr-cap-text {
+	flex: 1 1 auto;
 	font-size: 0.7813rem; line-height: 1.45; color: var(--tv-text, #dceaf4); min-height: calc(2 * 1.45em);
 	display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
 }

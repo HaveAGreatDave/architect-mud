@@ -89,6 +89,10 @@ export function createRinkView(host, opts = {}) {
   let camView = opts.camera || camSaved(win);
   let gore = GORES.includes(opts.gore) ? opts.gore : goreSaved(win);
   let caption = '', pendingCaption = null, pendingCard = null, cardTimer = null, holdTimer = null;
+  // Who the caption's tag names: a "Name says, ..." line is the colour man's, his name on the
+  // tag and his words in the bar; anything else is the play-by-play man's, whom the broadcast
+  // names with each line (tv.js passes it as 'who').
+  let capWho = 'Booth', anchorWho = '';
   let last = null, landed = true, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1;
   let W = null, D = null, R = null, ice = null, canvas = null, modsP = null, mods = null;
   const sfxAt = {};
@@ -222,7 +226,7 @@ export function createRinkView(host, opts = {}) {
         `</button></div>` +
       `<div class="gdr-strip"></div>` +
       `<div class="gdr-rush" hidden></div>` +
-      `<div class="gdr-cap"><span class="gdr-cap-text">${_esc(caption)}</span></div>` +
+      `<div class="gdr-cap"><span class="gdr-cap-tag">◆ ${_esc(capWho)}</span><span class="gdr-cap-text">${_esc(caption)}</span></div>` +
     `</div>`;
   }
   // THE CLOCK RUNS BETWEEN PLAYS. The booth sends the clock once a play, 18 to 54 seconds
@@ -528,11 +532,16 @@ export function createRinkView(host, opts = {}) {
   }
 
   function showCaption(text) {
-    caption = String(text || '');
+    const said = /^(.+?) says, "([\s\S]*)"$/.exec(String(text || ''));
+    capWho = said ? said[1] : anchorWho || capWho;
+    caption = said ? said[2] : String(text || '');
+    const tag = host && host.querySelector('.gdr-cap-tag');
+    if (tag) tag.textContent = '◆ ' + capWho;
     const el = host && host.querySelector('.gdr-cap-text');
     if (el) { el.textContent = caption; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
   }
   function setCaption(text, o) {
+    if (o && o.who) anchorWho = o.who;
     const speak = o && o.speak;
     if (o && o.held && !(cued(last) && D && D.busy())) {
       if (pendingCaption) { showCaption(pendingCaption.text); pendingCaption.speak?.(); }

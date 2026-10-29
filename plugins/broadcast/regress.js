@@ -2802,13 +2802,16 @@ export default async function regress({ check, run, getPlayer }) {
       // vs=1: "{away}–{home}" is said "away versus home", not "away, home" (readMatchups)
       check('hockey: the booth reads a matchup as versus', voiceBsm.vs === 1, voiceLine);
       const script = row.sports_pools, wrong = [];
-      let withLex = 0, sayNodes = 0, voiced = 0;
+      let withLex = 0, sayNodes = 0, voiced = 0, spoken = 0;
+      const colourLines = [];
       for (const slot of [3, 42, 206]) {   // hockey's slots on the slate
         const graph = _test.assembleSportsGraph(script, 'bc_regress_cphl', slot, null);
         for (const n of Object.values(graph.nodes || {})) {
           if (n.type !== 'say' || !n.data?.text) continue;
           sayNodes++;
           if (JSON.stringify(n.data.voice) === JSON.stringify(script.voice)) voiced++;
+          if (n.data.speaker === script.announcer) spoken++;
+          if (script.analyst && n.data.text.startsWith(script.analyst + ' says, "')) colourLines.push(n.data.text);
           const words = new Set((n.data.text.toLowerCase().match(/[a-z][a-z'-]*/g) || []).map(w => w.replace(/'s$/, '')));
           const want = [...words].filter(w => script.say[w]);
           const got = Object.keys(n.data.lex || {});
@@ -2817,6 +2820,11 @@ export default async function regress({ check, run, getPlayer }) {
         }
       }
       check('hockey: every line carries the booth voice', sayNodes > 100 && voiced === sayNodes, `${voiced} of ${sayNodes}`);
+      // the play-by-play man is named on every line, so the TV voices him and tags his caption
+      check('hockey: every line names who is on the mic', spoken === sayNodes, `${spoken} of ${sayNodes}`);
+      // the colour man (@analyst) talks, tagged by name, and never says the same line twice a game
+      check('hockey: the colour man has his say, by name', !!script.analyst && colourLines.length >= 3, `${colourLines.length}: ${colourLines.slice(0, 2).join(' | ')}`);
+      check('hockey: the colour man fills every token', colourLines.every(l => !/\{\w+\}/.test(l)), colourLines.filter(l => /\{\w+\}/.test(l)).slice(0, 2).join(' | '));
       check('hockey: a line naming a ::say word carries its pronunciation, and only what it uses', withLex > 0 && wrong.length === 0, `${withLex} with lex; wrong: ${wrong.slice(0, 2).join(' | ')}`);
       const { holdFor } = await import('./sports/hockey-pacing.js');
       check('hockey: a drawn-out call holds longer on air', holdFor('He SCOOOOOOORES!!!') >= holdFor('He SCORES!') + 500, `${holdFor('He SCOOOOOOORES!!!')} vs ${holdFor('He SCORES!')}`);

@@ -8,6 +8,8 @@
 # v5: open-ice cross-checks, and slashes the referee sees some of.
 @sim 5
 @announcer "Tug Brennan"
+# the colour man beside him: his lines are the colour.* pools at the bottom
+@analyst "Rennie Gault"
 # The booth's own voice, over the station's: no ring modulator and no drive. Both are
 # texture, and both cost words: measured, the clean voice is understood about 10% better.
 @voice ring=0 drive=0 vs=1
@@ -2156,6 +2158,121 @@ Down a man, and they still get behind them.
 Nobody home. It just slides in.
 Watch it go all the way in. Empty net.
 Not a soul in the crease.
+::endlines
+
+# =============================================================================
+# THE COLOUR MAN. Rennie Gault (@analyst) sits beside Tug. He played defence in this
+# league, died on the ice four times and came back from the vat every time, and he
+# talks about it the way a plumber talks about pipes. Warm, plain, a working man.
+# Tug calls the play; Rennie says what it meant, after a goal, a fight, a man carried
+# off or killed, a big save, a penalty, the intermission, the matchup and the final
+# (hockey-narrator.js `colour`). His lines air as "Rennie Gault says, ..." and the
+# pacer cuts them before it cuts the call. Each line is said once a game at most.
+# A line split by "||" is an exchange: Rennie first, then Tug, taking turns.
+# Tokens: the usual, and {pbpFirst} / {colourFirst} for the booth's first names.
+# =============================================================================
+
+::lines colour.matchup
+I played against both these clubs. Lost teeth to one of them. I couldn't tell you which.
+{away} like to hit. {home} like to hit back. That's the whole scouting report.
+First ten minutes tell you who wants it. After that it's who's still standing.
+{pbpFirst}, how many of these have you called? || I stopped counting. || Smart. I stopped counting at four deaths.
+Good night for it. Ice looks hard. That's good for skating and bad for falling.
+Both benches looked fresh in the warm-up. That won't last.
+::endlines
+
+::lines colour.rivalry
+These two don't like each other, and I don't think anyone's tried to fix that.
+Rivalry night. The medics know. They've been taping up since four.
+I've seen this one end in a brawl, and I've seen it end in a brawl in overtime.
+::endlines
+
+::lines colour.cup
+Last game of the season. Everybody plays hurt tonight, and everybody plays.
+I played in one of these. We lost. I still think about the third period.
+Winners drink from the Cup. I did once, in practice. Don't.
+::endlines
+
+::lines colour.goal
+Look at the goalie there. He knew. He knew before the shot.
+That's a shooter's goal. {shooter} picked his spot and put it there.
+Nobody picked him up. You can't leave a man alone in front like that. || Somebody's hearing about it on the bench. || Loudly.
+{team} have been knocking on that door all period. Somebody finally answered.
+That's what happens when you go for the hit and miss. Your man's gone.
+Clean as you like. Didn't even need the post.
+I'd have taken a penalty to stop that one. Gladly.
+{shooter} has a quick release. Goalies hate a quick release.
+That one goes on the highlight reel. If we had one. || We have one. || Since when? || Since that.
+You can hear the {team} bench from up here. They needed that.
+::endlines
+
+::lines colour.save
+What a save. He didn't see that until it was in his glove.
+That's a goalie earning his money. Whatever they pay him, it's not enough.
+He's been standing on his head all night.
+Big stop. That one changes the period if it goes in.
+Ask the shooter how that stayed out. He doesn't know either.
+::endlines
+
+::lines colour.penalty
+He'll be angry about that, but he did it. Everybody saw it.
+Two minutes to think about what he's done. He won't.
+That's a lazy penalty. Legs stop, stick comes up. Every time.
+I did that once and the ref gave me five. Different refs back then.
+::endlines
+
+::lines colour.fight
+Good fight. Both of them kept their feet a long time.
+{winner} got the first one in. In a fight that's usually the whole thing.
+I wouldn't want to go with {winner}. I would have, back then, but I wouldn't want to.
+{loser} will be sore tomorrow. Proud, but sore.
+That's why you keep your chin down. I'm saying it for the kids, {pbpFirst}. || There are kids watching? || There's always kids watching.
+The linesmen let that one go. Good. It needed to go.
+That changes the bench. You can see {winnerTeam} sit up.
+I lost more of those than I won. You learn more from losing them, and you lose more teeth.
+::endlines
+
+::lines colour.fight.draw
+Nobody won that. Both of them will tell you they did.
+Even. They'll go again. Not tonight, but they'll go again.
+That's two tired men holding each other up. That's hockey.
+::endlines
+
+::lines colour.injury
+That's a bad one. Look at the bench. They know.
+He'll want to come back out. They won't let him. That's the right call.
+I've been carried off like that. You remember the lights on the ceiling. That's all.
+Hope he's alright. Hope he's alright and he's back next week.
+::endlines
+
+::lines colour.death
+Oh no. Oh, that's not good.
+Somebody get him off the ice. Gently. Please.
+I've been where he is. Four times. It's quiet, then it's the vat, and the vat is loud.
+We'll keep him in our thoughts, and we'll keep an eye on the vat lists.
+There's nothing to say about that, {pbpFirst}. || No. || Let's just give it a minute.
+::endlines
+
+::lines colour.intermission
+Good period. Fast. Most of them are still in one piece.
+If I'm in that room, I'm telling the defence to stand up at the blue line. That's it. That's the speech.
+The coaches are in there shouting. The players are in there not listening.
+{pbpFirst}, you eaten yet? || Not since the anthem. || Get the soup. The soup's alright.
+Shots tell you who had the puck. The scoreboard tells you who did something with it.
+::endlines
+
+::lines colour.intermission.scoreless
+No goals, but nobody's coasting. That was a hard twenty.
+Both goalies are on tonight. Somebody's going to have to get ugly in front.
+Scoreless. The crowd want something to hit the glass, and it doesn't have to be the puck.
+::endlines
+
+::lines colour.final
+Good game. {leader} wanted it more in the third. That's all it was.
+{leader} take it. Their goalie gets my first star, and I'll fight anyone who says different.
+Hard game. Everybody go home and put some ice on it.
+Same time tomorrow, {pbpFirst}? || Same time tomorrow. || The scheduler says so. || The scheduler says so.
+That's the win. Two points, a lot of bruises, and they'll do it again tomorrow.
 ::endlines
 
 END

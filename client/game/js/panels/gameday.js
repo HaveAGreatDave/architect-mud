@@ -362,6 +362,10 @@ export const GAMEDAY_CARDS = {
 export function createGamedayView(host) {
   let timers = [];
   let caption = '';          // last announcer line, retained across the shell rebuild
+  // Who the caption's tag names: a "Name says, ..." line is the colour man's, his name on the
+  // tag and his words in the bar; anything else is the play-by-play man's, whom the broadcast
+  // names with each line (tv.js passes it as 'who').
+  let capWho = 'Booth', anchorWho = '';
   let pendingCaption = null; // { text, speak } for the current at-bat, held until the hit lands
   let pendingCard = null;    // a jumbotron card (HR/DP/…) held until the play lands
   // The booth's call for a play whose payload came earlier, riding the plate appearance's first
@@ -496,7 +500,7 @@ export function createGamedayView(host) {
         `<div class="gd-rail"></div>` +
       `</div>` +
       `<div class="gd-winprob"></div>` +
-      `<div class="gd-caption"><span class="gd-cap-tag">◆ Chip Vega</span><span class="gd-cap-text">${_esc(caption)}</span></div>`;
+      `<div class="gd-caption"><span class="gd-cap-tag">◆ ${_esc(capWho)}</span><span class="gd-cap-text">${_esc(caption)}</span></div>`;
     field = host.querySelector('.gd-field');
     // the fielders in the fielding side's colours, the batter edged in the batting side's
     if (field && p) {
@@ -938,7 +942,11 @@ export function createGamedayView(host) {
 
   // Paint a line into the caption bar with the slide-in animation.
   function _showCaption(text) {
-    caption = String(text || '');
+    const said = /^(.+?) says, "([\s\S]*)"$/.exec(String(text || ''));
+    capWho = said ? said[1] : anchorWho || capWho;
+    caption = said ? said[2] : String(text || '');
+    const tag = host && host.querySelector('.gd-cap-tag');
+    if (tag) tag.textContent = '◆ ' + capWho;
     const el = host && host.querySelector('.gd-cap-text');
     if (el) { el.textContent = caption; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
     _say(caption);
@@ -953,6 +961,7 @@ export function createGamedayView(host) {
   //   held with `call` (the call for a play whose payload rode the plate appearance's first
   //     line, `lead`): held till that play lands if it's still in the air, else up at once.
   function setCaption(text, opts) {
+    if (opts && opts.who) anchorWho = opts.who;
     const speak = opts && opts.speak;
     if (opts && opts.held && opts.call) {
       if (playAnimating) { _flushCall(); callCaption = { text: String(text || ''), speak }; }

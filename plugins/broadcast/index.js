@@ -2843,7 +2843,7 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   // good for and who it hurt. It never goes to a client. The tick ships it on
   // `broadcast.message`, so the people in the room can react to the play rather than
   // to the words (plugins/sports-banter).
-  const booth = (node) => { const lex = sportsLexFor(node.text, script.say); return { ...node, ...(lex ? { lex } : {}), ...(script.voice ? { voice: script.voice } : {}) }; };
+  const booth = (node) => { const lex = sportsLexFor(node.text, script.say); return { ...node, ...(lex ? { lex } : {}), ...(script.voice ? { voice: script.voice } : {}), ...(script.announcer ? { speaker: script.announcer } : {}) }; };
   // Deadball sets `curExcite` per play (exciteFor); a line that brings its own wins.
   let curExcite = 0;
   const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (!text) return; add(booth({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}), ...((meta && meta.excite) || curExcite ? { excite: (meta && meta.excite) || curExcite } : {}), ...(meta && meta.play ? { play: meta.play } : {}), ...(meta && meta.call ? { call: true } : {}), ...(meta && meta.song ? { song: meta.song } : {}) })); };
@@ -2862,7 +2862,7 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   let outroId = null;
   if (typeof sportMod.narrate === 'function') {
     const r = sportMod.narrate({
-      script, game, gs, slot, ws, announcer, pools, nrng,
+      script, game, gs, slot, ws, announcer, analyst: script.analyst || '', pools, nrng,
       sport: sportMod, add, say, pick, abbr: sportsAbbr,
       // Bound to THIS sport's table — a narrator asking for a record must not be able
       // to accidentally read the other league's.
@@ -6339,7 +6339,7 @@ async function broadcastTick() {
           // SYNC BY CONTRACT — this is the broadcast tick. `loggedPanelsSync` reads
           // the latch hydrated at login and never awaits (see presentation.js).
           const toLog = loggedPanelsSync(player);
-          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(gamedayOverlay && !gamedayOverlay.lead ? { hasGameday: true } : result.call ? { hasGameday: 'call' } : {}) });
+          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(result.speaker ? { speaker: result.speaker } : {}), ...(gamedayOverlay && !gamedayOverlay.lead ? { hasGameday: true } : result.call ? { hasGameday: 'call' } : {}) });
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song, owner: 'tv', ...(result.songOnce ? { once: true } : {}) });
           if (isSample) sendToPlayer(player.id, { type: 'audio_sample', def: result.sample });
           // A log-rung viewer has no panel to take an overlay, so the score and the
@@ -6602,7 +6602,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
       // The `log` rung, as the room-set tick does it: the line goes to the log and
       // the overlays are written out. Sync by contract (this is a tick).
       const toLog = loggedPanelsSync(world.players.get(pid));
-      if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(gamedayOverlay && !gamedayOverlay.lead ? { hasGameday: true } : result.call ? { hasGameday: 'call' } : {}) });
+      if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(result.speaker ? { speaker: result.speaker } : {}), ...(gamedayOverlay && !gamedayOverlay.lead ? { hasGameday: true } : result.call ? { hasGameday: 'call' } : {}) });
       if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song, owner: 'tv', ...(result.songOnce ? { once: true } : {}) });
       if (isSample) sendToPlayer(pid, { type: 'audio_sample', def: result.sample });
       if (toLog) { sendOverlayLines(pid, scorebugOverlay, standingsOverlay, result.graphic); continue; }
@@ -8413,7 +8413,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : (!isVerbatim && !isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         // Verbatim lines (microreel dialogue) leak as speech without needing an anchor.
         const isSpeech = (!isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor) || isVerbatim;
-        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}), ...(node.data?.excite ? { excite: node.data.excite } : {}), ...(node.data?.lex ? { lex: node.data.lex } : {}), ...(node.data?.voice ? { voice: node.data.voice } : {}), ...(node.data?.play ? { play: node.data.play } : {}), ...(node.data?.call ? { call: true } : {}), ...sayMusic(node) };
+        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}), ...(node.data?.excite ? { excite: node.data.excite } : {}), ...(node.data?.lex ? { lex: node.data.lex } : {}), ...(node.data?.voice ? { voice: node.data.voice } : {}), ...(node.data?.speaker ? { speaker: node.data.speaker } : {}), ...(node.data?.play ? { play: node.data.play } : {}), ...(node.data?.call ? { call: true } : {}), ...sayMusic(node) };
       }
 
       case 'music': {

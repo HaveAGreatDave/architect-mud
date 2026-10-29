@@ -391,7 +391,7 @@ export function createTvView(root, opts = {}) {
     let seed, speech;
     const m = /^(.+?) says, "([\s\S]*)"$/.exec(rawText);
     if (m) { seed = strip(m[1]); speech = strip(m[2]); }
-    else { seed = (el('station-name')?.textContent || 'broadcast').trim(); speech = strip(rawText); }
+    else { seed = (dl?.speaker || el('station-name')?.textContent || 'broadcast').trim(); speech = strip(rawText); }
     if (!speech) return;
     // Track inter-line gaps as a fallback window (for broadcasts that don't send one).
     const now = performance.now();
@@ -2079,7 +2079,9 @@ export function createTvView(root, opts = {}) {
         const plain = String(text).replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
         // `hasGameday` is 'call' for a call whose play went out earlier on a line of the booth's
         // talk (Deadball's `lead` payload): held till it lands, or shown at once if it has.
-        if (plain) _gamedayView.setCaption(plain, { speak: () => _speakNow(text, style, duration, dl), held: !!hasGameday, ...(hasGameday === 'call' ? { call: true } : {}) });
+        // the caption's tag names whoever's talking: a "Name says" line by that name (the view
+        // splits it), anything else by the play-by-play man the broadcast says is on the mic
+        if (plain) _gamedayView.setCaption(plain, { who: dl?.speaker, speak: () => _speakNow(text, style, duration, dl), held: !!hasGameday, ...(hasGameday === 'call' ? { call: true } : {}) });
       }
     }
     container.appendChild(node);

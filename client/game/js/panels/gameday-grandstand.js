@@ -103,6 +103,10 @@ export function createGrandstandView(host, opts = {}) {
   // time between frames while they run (`govAt`, the last one's)
   let gov = null, govAt = 0;
   let last = null, caption = '', pendingCaption = null, pendingCard = null, playing = false;
+  // Who the caption's tag names: a "Name says, ..." line is the colour man's, his name on the
+  // tag and his words in the bar; anything else is the play-by-play man's, whom the broadcast
+  // names with each line (tv.js passes it as 'who').
+  let capWho = 'Booth', anchorWho = '';
   let timers = [], tableTimer = null, shot = opts.shot || 'high';
   // the world the at-bats are staged in, and its director; `live` while the world has the battery,
   // `cur` the at-bat it's playing; `speed` is the world's clock against the wall's (1 live, a
@@ -198,7 +202,7 @@ export function createGrandstandView(host, opts = {}) {
       `<div class="gds-park"><canvas class="gds-canvas" role="img" aria-label="The ballpark"></canvas>` +
       `<canvas class="gds-hud" aria-hidden="true"></canvas><div class="gds-sr sr-only"></div>` +
       `<div class="gds-live sr-only" role="log" aria-live="polite"></div></div>` +
-      `<div class="gds-cap"><span class="gds-cap-tag">◆ Chip Vega</span><span class="gds-cap-text">${_esc(caption)}</span></div>` +
+      `<div class="gds-cap"><span class="gds-cap-tag">◆ ${_esc(capWho)}</span><span class="gds-cap-text">${_esc(caption)}</span></div>` +
     `</div>`;
   }
   // The graphics' theme for this broadcast: the station's bug, and tonight's two clubs in their
@@ -500,7 +504,11 @@ export function createGrandstandView(host, opts = {}) {
 
   // ── the booth's line and the cards ─────────────────────────────────────────
   function showCaption(text) {
-    caption = String(text || '');
+    const said = /^(.+?) says, "([\s\S]*)"$/.exec(String(text || ''));
+    capWho = said ? said[1] : anchorWho || capWho;
+    caption = said ? said[2] : String(text || '');
+    const tag = host && host.querySelector('.gds-cap-tag');
+    if (tag) tag.textContent = '◆ ' + capWho;
     const el = host?.querySelector('.gds-cap-text');
     if (el) { el.textContent = caption; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
     say(caption);
@@ -817,6 +825,7 @@ export function createGrandstandView(host, opts = {}) {
   // goes up at once if it's landed. A call never waits for the next play: one still pending when
   // the next payload comes goes up as it's staged.
   function setCaption(text, o) {
+    if (o && o.who) anchorWho = o.who;
     if (flat) { flat.setCaption(text, o); return; }
     const speak = o && o.speak;
     if (o && o.held && o.call) {

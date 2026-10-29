@@ -42,6 +42,9 @@ function hornSeedFor(name) {
 const timesWord = (n) => ['no times', 'once', 'twice', 'three times', 'four times', 'five times', 'six times'][n] || `${n} times`;
 const clubKey = (name) =>`chatter.${String(name || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
+// A stable hash of a string, for the colour man's own stream.
+const sportsHashStr = (str) => { let h = 2166136261; for (const ch of String(str)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+
 // Chances that are always worth a line: they're the near-misses a period is
 // remembered for.
 const LOUD_CHANCE = new Set(['post', 'breakaway']);
@@ -133,6 +136,33 @@ export function narrate(ctx) {
   };
   const pools = ctx.pools || {};
   const { away, home, awayScore, homeScore, beats } = game;
+
+  // ── the colour man ────────────────────────────────────────────────────────
+  // The play-by-play man calls the game; the colour man (`@analyst`) says what it meant,
+  // after the moments worth a word: a goal, a fight, a man carried off or killed, a big
+  // save, a penalty, the intermission, the matchup and the final. His lines go out as
+  // "Name says, ..." so a TV tags him and the voice seeds off his name. A line split by "||"
+  // is an exchange, his turn first and the play-by-play man's after, alternating. Every one
+  // is `opt: 'colour'`, so a short slot loses him before it loses the call. He draws from
+  // his own stream, so adding or editing his lines moves no line of the call.
+  const analyst = String(ctx.analyst || '').trim();
+  const firstOf = (n) => String(n || '').trim().split(/\s+/)[0];
+  const boothTok = { pbpFirst: firstOf(announcer), colourFirst: firstOf(analyst) };
+  let cr = (sportsHashStr(`${gs?.seed ?? ''}|colour`) || 1) >>> 0;
+  const crand = () => { cr = (cr + 0x6D2B79F5) | 0; let x = Math.imul(cr ^ (cr >>> 15), 1 | cr); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
+  const colourSaid = new Set();
+  let colourLines = 0;
+  const colour = (keys, t, extra, sb, chance = 1) => {
+    if (!analyst || crand() >= chance) return false;
+    const key = (Array.isArray(keys) ? keys : [keys]).find((k) => (pools[k] || []).some((l) => !colourSaid.has(l)));
+    if (!key) return false;
+    const fresh = pools[key].filter((l) => !colourSaid.has(l)), line = fresh[Math.floor(crand() * fresh.length)];
+    colourSaid.add(line);
+    lastKey = 'colour';
+    const turns = String(line).split('||').map((s) => { const k = { ...t, ...boothTok, ...(extra || {}) }; return cap(s.trim().replace(/\{(\w+)\}/g, (m, w) => (w in k ? String(k[w] ?? '') : m))); }).filter(Boolean);
+    turns.forEach((s, i) => { say(i % 2 === 0 ? `${analyst} says, "${s.replace(/"/g, "'")}"` : s, {}, sb, null, null, { opt: 'colour' }); colourLines++; });
+    return true;
+  };
   const awayAbbr = abbr(away.name), homeAbbr = abbr(home.name);
   const leader = () => (homeScore === awayScore ? '' : (homeScore > awayScore ? home.name : away.name));
 
@@ -463,6 +493,7 @@ export function narrate(ctx) {
       away: away.name, home: home.name, awayRecord, homeRecord, duration: ws ? 4.6 : 4.0,
     },
   );
+  colour(ws ? ['colour.cup', 'colour.matchup'] : rivalry ? ['colour.rivalry', 'colour.matchup'] : 'colour.matchup', gameTok, null, preBug);
 
   // The injury report, read between the matchup and the opening face-off. Counted
   // separately because it is spoken BEFORE the beat loop declares its line tally.
@@ -549,6 +580,7 @@ export function narrate(ctx) {
       say(pick('intermission.scoreless'), stat, sb); said++;
     }
     say(pick('intermission.stats'), stat, sb); said++;
+    colour(per.goals.length ? 'colour.intermission' : ['colour.intermission.scoreless', 'colour.intermission'], stat, null, sb);
     call('pbp.zamboni.lap', t, null, sb, { opt: true });
     if (per.casualties.length) {
       say(pick('intermission.casualties'), { ...stat, player: per.casualties[0], casualties: per.casualties.join(', '), count: per.casualties.length }, sb); said++;
@@ -886,6 +918,7 @@ export function narrate(ctx) {
         // lines, so a solo goal takes its own.)
         say(pick(...(b.assist || key !== 'goal' ? [key, 'goal'] : ['goal.solo', 'goal'])), t, sb, null, null, { ...(replayed ? { cue: { ev: 'live' } } : {}), ...(goalCalled ? {} : goalPlay) }); said++;
         say(pick('score.update'), t, sb); said++;
+        colour('colour.goal', t, { shooter: b.shooter || '', team: b.teamName || '' }, sb, 0.55);
         break;
       }
 
@@ -939,6 +972,7 @@ export function narrate(ctx) {
         else if (pools[`pbp.after.${b.kind}`] && nrng() < (loud ? 0.9 : 0.6)) call(`pbp.after.${b.kind}`, t, null, sb, { opt: true });
         // The old sentence-length call, as colour: always on a near-miss, sometimes otherwise.
         if (loud || nrng() < 0.25) { say(pick(`shot.${b.kind}`, 'shot.save'), t, sb, null, null, loud ? null : { opt: 'colour' }); said++; }
+        if (loud) colour('colour.save', t, null, sb, 0.4);
         // a run of shots by one club gets said as a run
         if (pressEv === 'pressure') call('pbp.pressure', t, { opp: b.oppName || '' }, sb);
         if (!loud) routine++;
@@ -953,6 +987,7 @@ export function narrate(ctx) {
         // The team that DIDN'T take it goes on the power play.
         boxes.push({ against: b.teamName, until: b.clock - b.penaltyMin * 60 });
         say(pick('powerplay.start'), { ...t, team: b.teamName === away.name ? home.name : away.name }, sb); said++;
+        colour('colour.penalty', t, { player: b.player || '' }, sb, 0.3);
         break;
 
       case 'fight': {
@@ -982,6 +1017,7 @@ export function narrate(ctx) {
         const resKey = b.draw ? 'fight.result.draw' : b.hurt ? 'fight.result.hurt' : 'fight.result';
         say(pick(resKey, 'fight.result'), t, sb, fightFx(b), null, playMeta(b, 'fight', b.winnerTeam, { player: b.winner || '', loser: b.loser || '' })); said++;
         call('pbp.fight.box', t, null, sb, { cue: { ev: 'box' } });
+        colour(b.draw ? ['colour.fight.draw', 'colour.fight'] : 'colour.fight', t, { winner: b.winner || '', loser: b.loser || '' }, sb, 0.7);
         if (!b.hurt) boxes.push({ against: b.loserTeam, until: b.clock - 5 * 60 });
         if (b.draw) boxes.push({ against: b.winnerTeam, until: b.clock - 5 * 60 });
         break;
@@ -1058,12 +1094,14 @@ export function narrate(ctx) {
         if (b.wound) { say(pick(b.sever ? 'injury.sever' : 'injury.wound'), t, sb); said++; }
         call('pbp.injury.load', t, null, sb, { opt: true });
         call('pbp.injury.off', t, null, sb, { cue: { ev: 'off' } });
+        colour('colour.injury', t, { player: b.player || '' }, sb, 0.5);
         break;
 
       case 'death':
         pendingHit = null;
         say(pick('death'), t, sb, deathFx(b), gameday(b, idx), playMeta(b, 'death', otherSide(b.teamName), { player: b.player || '' })); said++;
         call('pbp.death.still', t, null, sb, { cue: { ev: 'still' } });
+        colour('colour.death', t, { player: b.player || '' }, sb, 0.8);
         if (b.wound) { say(pick('death.wound'), t, sb); said++; }
         // Sim v2 reprints him. The booth says how long the vat will be.
         if (b.reprintSlots) {
@@ -1128,9 +1166,10 @@ export function narrate(ctx) {
     label: ws ? 'Coldwater Cup Champions' : '',
     duration: ws ? 5.4 : 4.4,
   }, null, winName ? playMeta({ awayScore, homeScore }, 'final', winName, { champion: !!ws }) : null);
+  colour('colour.final', finalTok, null, finalBug);
   const outroId = ctx.lastId();
   say(pick(...(ws ? ['cup.outro', 'outro'] : ['outro'])), finalTok, finalBug);
-  return { outroId, lines: said };
+  return { outroId, lines: said + colourLines };
 }
 
 export default narrate;

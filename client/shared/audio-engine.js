@@ -3525,6 +3525,42 @@ return out;
         natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
         vs: true,
       },
+      // Chip's colour man, an old pitcher: lower and slower than Chip, a soft,
+      // open, breathy voice with a smoker's wobble, a narrow lilt (he drawls,
+      // he doesn't sing) and a long fall at the end of a thought.
+      'dusty merriman': {
+        f0: 96, fshift: 0.93, speed: 1.16, ring: 0.03,
+        oq: 0.72,
+        jitter: 0.012, breath: 0.016,
+        lilt: 0.06, decl: 0.15,
+        drive: 0.04, growl: 0.025, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        vs: true,
+      },
+      // Cluster Puck's play-by-play man: a tenor that rides up on a rush, quick
+      // and pressed, the most lilt in the booth because hockey never stops; a
+      // tight voice with a little edge and no breath to spare.
+      'tug brennan': {
+        f0: 128, fshift: 1.0, speed: 1.42, ring: 0,
+        oq: 0.54,
+        jitter: 0.006, breath: 0.004,
+        lilt: 0.11, decl: 0.11,
+        drive: 0, growl: 0, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        vs: true,
+      },
+      // Tug's colour man, a big ex-defenceman who's been through the vat four
+      // times: the deepest voice in either booth, a broad chest (long tract),
+      // unhurried, flat in pitch, with a little gravel from the sub-harmonic.
+      'rennie gault': {
+        f0: 88, fshift: 0.9, speed: 1.2, ring: 0,
+        oq: 0.62,
+        jitter: 0.009, breath: 0.01,
+        lilt: 0.05, decl: 0.12,
+        drive: 0, growl: 0.05, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        vs: true,
+      },
     };
 
     function voiceFromName(name){
