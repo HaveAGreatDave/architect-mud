@@ -836,6 +836,21 @@
         "There's the first breath {team} have had in a while.",
         "{opp} let them off the hook. {team} away."
       ],
+      "pbp.rebound.live": [
+        "Rebound!",
+        "Loose in front!",
+        "It's sitting there!",
+        "Rebound, and it's still there!",
+        "He can't find it!"
+      ],
+      "pbp.putback": [
+        "{shooter} whacks at it!",
+        "{shooter} jams at it!",
+        "{shooter} gets a stick on it!",
+        "{shooter} pokes at the loose puck!",
+        "{shooter} swats at it from the crease!",
+        "{shooter} chips at it!"
+      ],
       "pbp.rebound": [
         "Rebound!",
         "Rebound loose!",
@@ -1638,7 +1653,7 @@
       ]
     },
     "sim": {
-      "version": 5
+      "version": 6
     },
     "sport": "hockey",
     "teams": [

@@ -1,0 +1,13 @@
+{
+  "name": "stands",
+  "version": "1.0.0",
+  "description": "A seat at the game, in the park it's played in. A room carrying flags.stands sells seats by section, each with a price and an eye in the 3-D view's frame; `stands` shows the chart, `stands <section>` buys a seat and opens the rink or the park in first person from it, following the play or free-looking, and `stands leave` (or walking out) gets you up. A seat is a receiver: it tunes the player to the channel carrying that sport's game through the Tablet TV's per-player path, so nothing here simulates anything.",
+  "commands": ["stands"],
+  "hooks": [],
+  "actions": [],
+  "events": {
+    "emits": ["tablet_tv.watch", "tablet_tv.unwatch"],
+    "consumes": ["zone.entered", "player.logout"]
+  },
+  "dependencies": ["broadcast"]
+}

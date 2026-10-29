@@ -170,7 +170,7 @@ export function assembleGameshowGraph(script, broadcastId, bucket, normalizeGrap
   const ambientBeat = (text, holdMs) => {
     if (!text) return;
     if (curAnchor !== '') { add({ type: 'npc_anchor', npc_id: '' }); curAnchor = ''; }
-    add({ type: 'say', text, style: 'ambient', holdMs });
+    add({ type: 'say', text, style: 'ambient', holdMs, crowd: true });
   };
   const react = () => { if (audienceDeck.length) ambientBeat(audienceDeck[rIdx++ % audienceDeck.length], 3500); };
   const applause = () => {

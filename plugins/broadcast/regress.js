@@ -3494,6 +3494,35 @@ export default async function regress({ check, run, getPlayer }) {
   // are mostly about SCORING RULES, because an average computed the naive way is
   // wrong in a way people notice: a walk and a sacrifice fly are plate appearances
   // but NOT at-bats, and counting them drags every average in the league down.
+  // Deadball's season squads (sim v3): thirteen a club, nobody on two clubs, a realistic
+  // turnover between seasons, and the same squads every time they're asked for.
+  {
+    const B = await import('./sports/baseball.js');
+    const { sportsRng } = await import('./rng.js');
+    const teams = Array.from({ length: 8 }, (_, i) => `Club ${i}`);
+    const pool = Array.from({ length: 112 }, (_, i) => `Man ${i}`);
+    const s = B.seasonOfDay(Math.floor(Date.UTC(2035, 4, 10) / 86400000));
+    const squad = (R, t) => [...R.clubs[t].lineup, ...R.clubs[t].rotation, ...R.clubs[t].bench].map(e => e.name);
+    const R = B.clubRosters(teams, pool, s);
+    const all = teams.flatMap(t => squad(R, t));
+    check('deadball squads: thirteen a club, nobody on two clubs', all.length === 104 && new Set(all).size === 104 && R.unsigned.length === 8);
+    let moved = 0;
+    for (let k = 1; k <= 12; k++) {
+      const a = B.clubRosters(teams, pool, s + k - 1), b = B.clubRosters(teams, pool, s + k);
+      for (const t of teams) { const was = new Set(squad(a, t)); moved += squad(b, t).filter(n => !was.has(n)).length; }
+    }
+    const per = moved / 12 / 8;
+    check('deadball squads: about two men a club change each season', per >= 1 && per <= 3, `${per.toFixed(2)} a club`);
+    check('deadball squads: a season deals the same squads every time', JSON.stringify(B.clubRosters(teams, pool, s)) === JSON.stringify(R));
+    check('deadball squads: a pool too small for squads deals none', B.clubRosters(teams, pool.slice(0, 50), s) === null);
+    const day = Math.floor(Date.UTC(2035, 4, 10) / 86400000);
+    const g = B.BASEBALL.simGame({ away: 'Club 0', home: 'Club 1', teams }, pool, sportsRng(9), { version: 3, seed: 9, day });
+    const want = B.lineupForDay(R.clubs['Club 0'], day);
+    check('deadball v3: a club plays its own nine and the starter whose turn it is',
+      JSON.stringify(g.away.lineup) === JSON.stringify(want.lineup) && g.away.pitcher === want.pitcher);
+    check('deadball v3: the rotation turns over each day',
+      new Set([0, 1, 2].map(k => B.lineupForDay(R.clubs['Club 0'], day + k).pitcher)).size === 3);
+  }
   {
     const { SEASON: BB } = await import('./sports/baseball.js');
     const ab = (batter, kind, rbi = 0) => ({ type: 'atbat', batter, battingName: 'Rats', kind, rbi });

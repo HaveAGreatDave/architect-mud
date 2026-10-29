@@ -122,8 +122,8 @@ Cards struck before marks existed were given them once, in 2026-08.
 | Verb | Where | What |
 |---|---|---|
 | `mint` | `flags.card_mint` furniture | previews free, `mint confirm` charges and strikes |
-| `buypack` / `sleeve` | `flags.vends_packs` furniture | opens the machine; `buypack confirm [coil]` buys (e.g. `buypack confirm B2`) |
-| `openpack` / `tear` | anywhere you're carrying a sleeve | consumes one sleeve, **rolls**, reveals |
+| `buypack` / `sleeve` | `flags.vends_packs` furniture | opens the machine; `buypack confirm [coil]` buys (e.g. `buypack confirm B2`); `buypack deadball` / `buypack puck` picks a league machine |
+| `openpack` / `tear` | anywhere you're carrying a sleeve | consumes one sleeve, **rolls**, reveals; `openpack deadball` / `openpack puck` tears a league sleeve |
 | `cards` | anywhere | your shelf; `cards <name>` reads one in full |
 | `scrap` | `flags.card_mint` furniture | eats duplicates at ₵25 each |
 
@@ -259,6 +259,48 @@ Two contracts worth not undoing, both regress-tested:
   a name on it is a shopping list, and it would leak the roster of everyone who has minted.
 
 Cold path: two reads, only when the app is opened. No tick, no cache.
+
+## Sports cards: the Deadball and Cluster Puck season sets
+
+`sports.js` (the card) and `sports-verbs.js` (machines, tear, Binder pages). A separate set from the
+Draft, with its own table (`sports_cards`, one row per card pulled), its own sleeves
+(`deadball_card_pack`, `cphl_card_pack`), its own machines and its own Binder tabs.
+
+- **The front** is the man in his club's home kit: a drawn head-and-shoulders portrait (cap or
+  helmet, a goalie in his mask, a face built off his name), his number, his position and club, and
+  the club's shield from `club-crest.js`, the same drawing the broadcasts use.
+- **The back** is his season: Deadball hitters G/AB/H/HR/RBI/SB/AVG, pitchers G/W/L/IP/K/ERA; CPhL
+  skaters GP/G/A/PTS/SOG, goalies GP/W/SA/GA/SV%, plus how often he was carried off or died. His
+  club's record goes under it.
+- **The back is frozen at the counter.** `buypack` rolls the sleeve and writes all five cards, stats
+  included, onto the sleeve's inventory row; `openpack` only reveals them. A sleeve kept sealed for a
+  month opens onto the season as it stood when it was bought, and two copies of one man can differ.
+  The Binder lists every copy so they can be compared.
+- **Special editions** are the last card in about two sleeves in five: **Captain** (a CPhL club's
+  bound NPC captain, else its centre; in Deadball the man who has been with his club longest),
+  **Goalie** (every CPhL net-minder) and **Rising Star** (the CPhL's bound stars; Deadball's top three
+  in the batting race and its strikeout leader). Deadball has no goalies, so no goalie edition. An
+  edition reveals at a rank: star rare, goalie epic, captain legendary.
+- **Action shots** (`sports-action.js`): about one card in four, base or special, shows the man
+  full length doing his job instead of posing. The pose comes from his position: Deadball pitchers
+  pitch, catchers crouch behind the plate, infielders field a grounder, outfielders leap at the
+  wall, and the DH and bench man swing; CPhL forwards shoot, defensemen finish a check, goalies drop
+  into the butterfly. A fielder, catcher or defenseman is caught at the plate or shooting about half
+  the time instead, fixed off his name. A base action shot reveals at uncommon; a special keeps its
+  edition's rank. It gets an IN ACTION badge and a striped frame, and the Binder marks a man you
+  have in action.
+- **Nothing is authored per man.** Club and position come from each league's rosters: hockey's
+  `rosterFor`, Deadball's season squads (`clubRosters` in `broadcast/sports/baseball.js`, sim v3).
+  Numbers are the hashes the rink and the Grandstand put on his back, so the card never disagrees
+  with the broadcast.
+- **League pages name their gaps.** The Draft page hides who is missing because its pool holds
+  minted players; a league's roster is on the air every night, and a season set comes with a
+  checklist.
+
+Machines: `flags.vends_packs` plus `flags.card_league` (`baseball` or `hockey`) and
+`click_cmd: buypack deadball` / `buypack puck`. Kimble's Souvenirs & Cards (Deadball, beside its
+Draft machine) and the Gardens' concourse and stands (Cluster Puck). ₵150 a sleeve, five cards. The
+cabinet and the reveal take the league's brand, verbs and Binder page from the payload.
 
 ## Admin
 

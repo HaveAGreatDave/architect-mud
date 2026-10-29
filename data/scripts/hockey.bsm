@@ -6,7 +6,7 @@
 # v2: a man who dies on the ice is reprinted and back in three to five game-days.
 # v4: fights are harder: more damage a punch, more knockdowns, more of them hurt.
 # v5: open-ice cross-checks, and slashes the referee sees some of.
-@sim 5
+@sim 6
 @announcer "Tug Brennan"
 # the colour man beside him: his lines are the colour.* pools at the bottom
 @analyst "Rennie Gault"
@@ -1890,6 +1890,26 @@ Nets are off, and Ken Raven brings the Zamboni on.
 Fresh ice going down.
 Ken Raven, working the middle.
 The Zamboni goes round again.
+::endlines
+
+# A rebound that stays in front for a second shot (sim v6). Said before the putback, so
+# never "cleared" or "nobody home".
+::lines pbp.rebound.live
+Rebound!
+Loose in front!
+It's sitting there!
+Rebound, and it's still there!
+He can't find it!
+::endlines
+
+# The putback itself: {shooter} is the second man, and there's no rush before it.
+::lines pbp.putback
+{shooter} whacks at it!
+{shooter} jams at it!
+{shooter} gets a stick on it!
+{shooter} pokes at the loose puck!
+{shooter} swats at it from the crease!
+{shooter} chips at it!
 ::endlines
 
 ::lines pbp.retrieve

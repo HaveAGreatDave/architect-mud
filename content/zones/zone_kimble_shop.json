@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A narrow shop lined with pennants, caps on a tree by the door, foam fingers in a bin, and a glass counter of signed balls on stands. A card machine hums in the corner, and the walls are papered with old game posters.",
+  "description": "A narrow shop lined with pennants, caps on a tree by the door, foam fingers in a bin, and a glass counter of signed balls on stands. Two card machines hum in the corner, and the walls are papered with old game posters.",
   "exits": {
     "down": "zone_util_zone_kimble_shop",
     "north": "zone_kimble_stock",

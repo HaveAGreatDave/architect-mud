@@ -1,0 +1,85 @@
+/* Sports cards (plugins/cards/sports.js renders the markup; sportcard.js loads this and
+   turns them over). Sized off the card's own width, so the reveal and the Binder draw one
+   face at any size. --k1..--k3 are the club's colours. */
+.spc {
+  position: relative; width: 100%; height: 100%; aspect-ratio: 5 / 7;
+  container-type: inline-size; box-sizing: border-box;
+  font-family: 'Arial Narrow', 'Roboto Condensed', Arial, sans-serif; color: #1a1a1a;
+  border-radius: 4.5cqw; overflow: hidden; user-select: none;
+  background: var(--k1); box-shadow: inset 0 0 0 1.6cqw #f4efe2, inset 0 0 0 2.2cqw var(--k2);
+}
+.spc *, .spc *::before { box-sizing: border-box; }
+.spc-side { position: absolute; inset: 0; padding: 4cqw; display: flex; flex-direction: column; }
+.spc-back { display: none; background: #efe7d2; padding-bottom: 12cqw; }
+.spc.flipped .spc-front { display: none; }
+.spc.flipped .spc-back { display: flex; }
+
+/* ── the front ── */
+.spc-photo { position: relative; flex: 1 1 auto; border: 1.2cqw solid #f4efe2; border-radius: 2cqw; overflow: hidden; background: #333; }
+.spc-portrait { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.spc-num {
+  position: absolute; top: 6.5cqw; left: 6.5cqw; min-width: 15cqw; padding: 1cqw 2cqw; text-align: center;
+  font: 900 10cqw/1 Impact, 'Arial Black', sans-serif; color: var(--k3); background: var(--k2);
+  border: 0.8cqw solid #f4efe2; border-radius: 2cqw; letter-spacing: -0.04em;
+}
+.spc-crest {
+  position: absolute; top: 5cqw; right: 5cqw; width: 22cqw; height: 22cqw; padding: 1.4cqw;
+  background: radial-gradient(circle, #f4efe2 62%, transparent 64%); border-radius: 50%;
+}
+.spc-crest svg, .spc-bcrest svg { width: 100%; height: 100%; display: block; }
+.spc-plate {
+  margin-top: 2.5cqw; padding: 2.4cqw 3cqw; background: #f4efe2; border-radius: 2cqw;
+  border-left: 3cqw solid var(--k2);
+}
+.spc-name { font: 900 8.4cqw/1.05 'Arial Black', Impact, sans-serif; text-transform: uppercase; letter-spacing: -0.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.spc-pos { font-size: 5cqw; margin-top: 0.8cqw; color: #333; white-space: nowrap; overflow: hidden; }
+.spc-pos b { color: var(--k1); filter: brightness(0.8); }
+.spc-brand { margin-top: 1.6cqw; padding: 0.4cqw 26cqw 0.4cqw 2.6cqw; font-size: 3.6cqw; letter-spacing: 0.14em; color: #f4efe2;
+  opacity: 0.9; white-space: nowrap; overflow: hidden; text-shadow: 0 0 1cqw rgba(0,0,0,0.6); }
+
+/* the special editions: a ribbon across the photo's corner, and a foil edge */
+.spc-ribbon {
+  position: absolute; top: 86cqw; left: -9cqw; transform: rotate(-12deg); padding: 1.4cqw 12cqw;
+  font: 900 5.4cqw/1 'Arial Black', sans-serif; letter-spacing: 0.12em; color: #1a1408;
+  box-shadow: 0 0.6cqw 1.6cqw rgba(0,0,0,0.45);
+}
+.spc-r-captain { background: linear-gradient(90deg, #b8862a, #ffe39a 45%, #c9952f 70%, #fff1c2); }
+.spc-r-goalie  { background: linear-gradient(90deg, #6b3fb8, #d8c1ff 45%, #7d4fd0 70%, #efe4ff); }
+.spc-r-star    { background: linear-gradient(90deg, #2c6fc0, #bfe1ff 45%, #3a85d8 70%, #e4f3ff); }
+.spc-ed-captain { box-shadow: inset 0 0 0 1.6cqw #f4d77e, inset 0 0 0 2.2cqw #8a6418; }
+.spc-ed-goalie  { box-shadow: inset 0 0 0 1.6cqw #cdb6f7, inset 0 0 0 2.2cqw #4b2a86; }
+.spc-ed-star    { box-shadow: inset 0 0 0 1.6cqw #b7dbff, inset 0 0 0 2.2cqw #1f4f8c; }
+
+/* an action shot: a badge on the photo and a striped frame, so it reads at a glance in a binder */
+.spc-act {
+  position: absolute; bottom: 33cqw; right: 5cqw; padding: 1.2cqw 2.6cqw; border-radius: 1.4cqw;
+  font: 900 4.2cqw/1 'Arial Black', sans-serif; letter-spacing: 0.1em; color: #fff;
+  background: linear-gradient(90deg, #d1372b, #f0703a); box-shadow: 0 0.6cqw 1.4cqw rgba(0,0,0,0.4); transform: rotate(-4deg);
+}
+.spc-art-action { background: repeating-linear-gradient(135deg, var(--k1) 0 4cqw, var(--k2) 4cqw 5cqw); }
+.spc-actline { color: #b8452b; }
+
+/* ── the back ── */
+.spc-bhead { display: flex; align-items: center; gap: 3cqw; padding-bottom: 2.4cqw; border-bottom: 0.8cqw solid var(--k2); }
+.spc-bnum { font: 900 12cqw/1 Impact, 'Arial Black', sans-serif; color: var(--k1); filter: brightness(0.85); min-width: 15cqw; text-align: center; }
+.spc-bwho { flex: 1; min-width: 0; }
+.spc-bname { font: 900 6.4cqw/1.05 'Arial Black', sans-serif; text-transform: uppercase; overflow: hidden; white-space: nowrap; }
+.spc-bpos { font-size: 4.4cqw; color: #444; white-space: nowrap; overflow: hidden; }
+.spc-bcrest { width: 15cqw; height: 15cqw; flex: none; }
+.spc-asof { margin: 2.4cqw 0 1.6cqw; font-size: 4cqw; letter-spacing: 0.08em; text-transform: uppercase; color: #6a5a3a; }
+.spc-stats { width: 100%; border-collapse: collapse; font-size: 4.6cqw; table-layout: fixed; }
+.spc-stats th { background: var(--k2); color: #f4efe2; font-weight: 700; padding: 1.2cqw 0; }
+.spc-stats td { background: #fffaf0; text-align: center; padding: 1.8cqw 0; font: 700 5.4cqw/1 'Courier New', monospace; border: 0.3cqw solid #d6cdb4; }
+.spc-rec { margin-top: 2.6cqw; font-size: 4.2cqw; color: #333; }
+.spc-note { margin-top: 1.4cqw; font-size: 4.2cqw; color: #7a2018; }
+.spc-edline { margin-top: 2cqw; font: 700 4.2cqw/1.2 'Arial Black', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #8a6418; }
+.spc-foot { margin-top: auto; display: flex; justify-content: space-between; font-size: 3.6cqw; color: #6a5a3a; border-top: 0.4cqw solid #c9bd9c; padding-top: 1.6cqw; }
+
+.spc-flip {
+  position: absolute; right: 4.5cqw; bottom: 4.5cqw; z-index: 3; cursor: pointer;
+  font: 700 3.4cqw/1 Arial, sans-serif; letter-spacing: 0.08em; padding: 1.4cqw 2.4cqw;
+  border: 0; border-radius: 99px; background: rgba(0,0,0,0.6); color: #fff;
+}
+.spc.flipped .spc-flip { background: rgba(60,40,10,0.75); }
+.spc-flip:focus-visible { outline: 0.6cqw solid #fff; }

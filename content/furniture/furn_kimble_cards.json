@@ -1,5 +1,5 @@
 {
-  "description": "A card machine wedged between the cap tree and the window, foil sleeves in three columns behind the glass. A hand-written card taped to it says the players are at the front.",
+  "description": "A card machine wedged between the cap tree and the window, foil sleeves in three columns behind the glass. A hand-written card taped to it says the ballplayers are in the green one.",
   "flags": {
     "click_cmd": "buypack",
     "interactions": [],

@@ -129,8 +129,12 @@
   // ═══ D. BODY CHECK ═══════════════════════════════════════════════════════════
   // The low impact starts at once; the sharper, slightly noisy crack within a few
   // milliseconds; a short rough mid tail dies quickly. The low part is driven a little for
-  // the crunch. The transient leads: it reads as contact before it reads as weight.
+  // the crunch. The transient leads: it reads as contact before it reads as weight. Under it
+  // the crunch itself: slowed noise chopped by a fast tremolo into grains, so the hit
+  // has pads and gear grinding in it rather than one clean knock.
   const check = (k, heavy) => [
+    noise({ hz: 1250 * k, q: 0.7, a: 0.001, d: 0.06 + heavy * 0.03, r: 0.025, gain: 0.07 + heavy * 0.03, rate: 0.35, tremolo: { rate: 73, depth: 0.7 }, delay: 0.002 }),
+    noise({ type: 'lowpass', hz: 700 * k, q: 0.6, a: 0.001, d: 0.045 + heavy * 0.02, r: 0.02, gain: 0.05 + heavy * 0.02, rate: 0.25, tremolo: { rate: 41, depth: 0.5 }, delay: 0.005 }),
     tone({ hz: 130 * k, to: 88 * k, bend: 0.04, a: 0.001, d: 0.035 + heavy * 0.02, r: 0.02, gain: 0.11 + heavy * 0.05, filter: { type: 'highpass', freq: 60, q: 0 } }),
     tone({ hz: 340 * k, mod: 2, index: 2, indexEnd: 0.3, slide: 0.03, to: 270 * k, bend: 0.05, a: 0.001, d: 0.055 + heavy * 0.025, r: 0.022, gain: 0.17 + heavy * 0.05 }),
     tone({ hz: 1650 * k, mod: 2.41, index: 3 + heavy, indexEnd: 0.35, slide: 0.014, a: 0.0005, d: 0.035 + heavy * 0.015, r: 0.014, gain: 0.15 + heavy * 0.05, noise: 0.35, delay: 0.003 }),
@@ -279,17 +283,23 @@
     // a shot: a sharp crack off the blade with a small fall in pitch; a slapper has the
     // wind-up's weight under it
     def('hk-puck-slap', 'Shot — slapshot', 6, [
-      tone({ hz: 2100, mod: 1.41, index: 2.8, indexEnd: 0.2, slide: 0.012, to: 1500, bend: 0.04, a: 0.0005, d: 0.034, r: 0.012, gain: 0.26 }),
-      tone({ hz: 380, mod: 2, index: 1.6, indexEnd: 0.2, slide: 0.03, to: 260, bend: 0.05, a: 0.0008, d: 0.045, r: 0.02, gain: 0.11 }),
-      noise({ hz: 2800, q: 0.9, to: 1600, sweep: 0.03, d: 0.024, r: 0.012, gain: 0.1 }),
+      tone({ hz: 1350, mod: 1.41, index: 2.4, indexEnd: 0.2, slide: 0.012, to: 1000, bend: 0.04, a: 0.0005, d: 0.034, r: 0.012, gain: 0.2 }),
+      tone({ hz: 300, mod: 2, index: 1.6, indexEnd: 0.2, slide: 0.03, to: 200, bend: 0.05, a: 0.0008, d: 0.06, r: 0.025, gain: 0.2 }),
+      tone({ hz: 150, to: 105, bend: 0.04, a: 0.0008, d: 0.04, r: 0.02, gain: 0.09, filter: { type: 'highpass', freq: 60, q: 0 } }),
+      noise({ hz: 1700, q: 0.9, to: 900, sweep: 0.03, d: 0.024, r: 0.012, gain: 0.08 }),
     ]),
     def('hk-shot-wrist', 'Shot — wrist', 5, [
-      tone({ hz: 2500, mod: 1.41, index: 2, indexEnd: 0.15, slide: 0.01, to: 1950, bend: 0.035, a: 0.0005, d: 0.026, r: 0.01, gain: 0.2 }),
-      tone({ hz: 470, mod: 2, index: 0.8, indexEnd: 0, slide: 0.02, to: 360, bend: 0.04, a: 0.0008, d: 0.03, r: 0.015, gain: 0.08 }),
-      noise({ hz: 3300, q: 0.9, to: 2000, sweep: 0.025, d: 0.014, r: 0.01, gain: 0.06 }),
+      tone({ hz: 1550, mod: 1.41, index: 1.8, indexEnd: 0.15, slide: 0.01, to: 1200, bend: 0.035, a: 0.0005, d: 0.026, r: 0.01, gain: 0.16 }),
+      tone({ hz: 360, mod: 2, index: 0.9, indexEnd: 0, slide: 0.02, to: 260, bend: 0.04, a: 0.0008, d: 0.045, r: 0.02, gain: 0.15 }),
+      noise({ hz: 2000, q: 0.9, to: 1200, sweep: 0.025, d: 0.014, r: 0.01, gain: 0.05 }),
     ]),
-    // a pass: lighter and quicker than any shot
-    def('hk-pass', 'Pass', 3, stick(1.05, 0).map((l) => ({ ...l, gain: l.gain * 0.75 }))),
+    // a pass: lighter and quicker than any shot, and woodier than the stick's click: the
+    // blade's knock carries it and the click on top is small
+    def('hk-pass', 'Pass', 3, [
+      tone({ hz: 1300, mod: 1.41, index: 1.2, indexEnd: 0.1, slide: 0.008, to: 1180, bend: 0.02, d: 0.016, r: 0.008, gain: 0.1 }),
+      tone({ hz: 420, mod: 2, index: 0.8, indexEnd: 0, slide: 0.02, to: 330, bend: 0.03, a: 0.001, d: 0.035, r: 0.015, gain: 0.14 }),
+      noise({ hz: 1600, q: 0.9, d: 0.006, r: 0.004, gain: 0.04 }),
+    ]),
     // the dribble, puck tapped stick to stick: barely there
     def('hk-puck-tick', 'Puck — dribble tick', 2, stick(1.2, 0).map((l) => ({ ...l, gain: l.gain * 0.45 }))),
     // the goalie: pads are a firm hollow thump, the glove a snappy leather pop, a shot off

@@ -29,7 +29,7 @@ import { makeBooth, exciteFor } from './sports/baseball-booth.js';
 import { landBy, afterLand } from '../../client/game/js/panels/diamond/timing.js';
 import { venueField } from '../../client/game/js/panels/diamond/geo.js';
 import { skylineAround } from '../../server/engine/skyline.js';
-import { HOCKEY, rivalOf, healSlot, reprintSlots } from './sports/hockey.js';
+import { HOCKEY, rivalOf, healSlot, reprintSlots, rosterFor } from './sports/hockey.js';
 import { bindingOf, whereabouts, seasonLine } from './sports/league-npcs.js';
 import { finalPackage, packageText } from './sports/final-package.js';
 import {
@@ -2744,7 +2744,8 @@ function sportsGameForSlot(script, slot, override, unavailable) {
   // The sim version is the slot's (simVersionFor); v2 also needs the seed, which its new
   // plays draw from on a stream of their own.
   const version = simVersionFor(sportOf(script).id, slot);
-  const game = sportsSimGame(script, matchup, script.players, sportsRng(seed), { ...(unavailable ? { unavailable } : {}), version, seed, important: !!override?.worldSeries });
+  // `day` picks a fixed-roster sport's squads for the season (Deadball v3, clubRosters).
+  const game = sportsSimGame(script, matchup, script.players, sportsRng(seed), { ...(unavailable ? { unavailable } : {}), version, seed, day: slotDay(slot), important: !!override?.worldSeries });
   return { game, seed, matchup, unavailable: unavailable || null };
 }
 
@@ -3317,6 +3318,12 @@ let _sportsHeartbeatSlot = null;
 // was fine while Deadball was the only sport and silently wrong the moment a
 // second one shares KSAB-TV — the evening game would never be seen by the
 // heartbeat, the standings, or the betting plugin.
+// The channel carrying `sport`'s game right now, or null between games: a seat in the stands
+// (plugins/stands) is a receiver tuned to the game being played in front of it.
+export function liveSportsChannel(sport) {
+  for (const c of sportsChannels()) if (sportOf(c.script).id === sport) return c.channelId;
+  return null;
+}
 function sportsChannels() {
   const out = [];
   // `state.playlist` is the channel's WHOLE grid, every day of the week — so a slot
@@ -4564,7 +4571,7 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   const ambientBeat = (text, holdMs) => {
     if (!text) return;
     if (curAnchor !== '') { add({ type: 'npc_anchor', npc_id: '' }); curAnchor = ''; }
-    add({ type: 'say', text, style: 'ambient', holdMs });
+    add({ type: 'say', text, style: 'ambient', holdMs, crowd: true });
   };
   const react = () => { if (reactionDeck.length) ambientBeat(reactionDeck[rIdx++ % reactionDeck.length], 3500); };
   // `who` is 'host' | 'guest' | undefined (a swell addressed to nobody in particular).
@@ -6522,7 +6529,7 @@ async function broadcastTick() {
           // SYNC BY CONTRACT — this is the broadcast tick. `loggedPanelsSync` reads
           // the latch hydrated at login and never awaits (see presentation.js).
           const toLog = loggedPanelsSync(player);
-          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(result.speaker ? { speaker: result.speaker } : {}), ...(gamedayOverlay && !gamedayOverlay.lead ? { hasGameday: true } : result.call ? { hasGameday: 'call' } : {}) });
+          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.crowd ? { crowd: true } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(result.speaker ? { speaker: result.speaker } : {}), ...(gamedayOverlay && !gamedayOverlay.lead ? { hasGameday: true } : result.call ? { hasGameday: 'call' } : {}) });
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song, owner: 'tv', ...(result.songOnce ? { once: true } : {}) });
           if (isSample) sendToPlayer(player.id, { type: 'audio_sample', def: result.sample });
           // A log-rung viewer has no panel to take an overlay, so the score and the
@@ -6785,7 +6792,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
       // The `log` rung, as the room-set tick does it: the line goes to the log and
       // the overlays are written out. Sync by contract (this is a tick).
       const toLog = loggedPanelsSync(world.players.get(pid));
-      if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(result.speaker ? { speaker: result.speaker } : {}), ...(gamedayOverlay && !gamedayOverlay.lead ? { hasGameday: true } : result.call ? { hasGameday: 'call' } : {}) });
+      if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.crowd ? { crowd: true } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(result.speaker ? { speaker: result.speaker } : {}), ...(gamedayOverlay && !gamedayOverlay.lead ? { hasGameday: true } : result.call ? { hasGameday: 'call' } : {}) });
       if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song, owner: 'tv', ...(result.songOnce ? { once: true } : {}) });
       if (isSample) sendToPlayer(pid, { type: 'audio_sample', def: result.sample });
       if (toLog) { sendOverlayLines(pid, scorebugOverlay, standingsOverlay, result.graphic); continue; }
@@ -8602,7 +8609,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : (!isVerbatim && !isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         // Verbatim lines (microreel dialogue) leak as speech without needing an anchor.
         const isSpeech = (!isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor) || isVerbatim;
-        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}), ...(node.data?.excite ? { excite: node.data.excite } : {}), ...(node.data?.lex ? { lex: node.data.lex } : {}), ...(node.data?.voice ? { voice: node.data.voice } : {}), ...(node.data?.speaker ? { speaker: node.data.speaker } : {}), ...(node.data?.play ? { play: node.data.play } : {}), ...(node.data?.call ? { call: true } : {}), ...sayMusic(node) };
+        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}), ...(node.data?.excite ? { excite: node.data.excite } : {}), ...(node.data?.crowd ? { crowd: true } : {}), ...(node.data?.lex ? { lex: node.data.lex } : {}), ...(node.data?.voice ? { voice: node.data.voice } : {}), ...(node.data?.speaker ? { speaker: node.data.speaker } : {}), ...(node.data?.play ? { play: node.data.play } : {}), ...(node.data?.call ? { call: true } : {}), ...sayMusic(node) };
       }
 
       case 'music': {
@@ -9096,6 +9103,29 @@ async function anySportsScript(sport) {
   }
   return null;
 }
+
+// One league as the trading cards need it (plugins/cards/sports.js): its clubs, its men,
+// every club's look, and for a league with fixed rosters (hockey) who each club dresses.
+// Read off the library, which is held in RAM, so a pack costs no round trip.
+registerAction({
+  type: 'broadcast.getSportsLeague',
+  handler: async ({ params = {} } = {}) => {
+    const sport = params.sport || 'baseball';
+    const sp = await anySportsScript(sport);
+    if (!sp) return null;
+    const teams = (Array.isArray(sp.teams) ? sp.teams : []).map(t => (typeof t === 'string' ? t : t?.name)).filter(Boolean);
+    const players = Array.isArray(sp.players) ? sp.players : [];
+    let rosters = null;
+    if (sport === 'hockey') rosters = Object.fromEntries(teams.map(t => [t, rosterFor(t, teams, players)]));
+    else if (SPORTS[sport]?.clubRosters) {
+      // this season's thirteen a club, each as { name, pos, since } (since: the season he joined)
+      const mod = SPORTS[sport];
+      const R = mod.clubRosters(teams, players, mod.seasonOfDay(slotDay(sportsSlotIndex())));
+      if (R) rosters = Object.fromEntries(teams.map(t => [t, [...R.clubs[t].lineup, ...R.clubs[t].rotation, ...R.clubs[t].bench]]));
+    }
+    return { sport, teams, players, clubs: sp.clubs || {}, rosters };
+  },
+});
 
 // The global clock — the sportsleague plugin reads this to know "which slot are we in"
 // so it can bound the standings window and time seasons/World-Series to the schedule.

@@ -766,7 +766,7 @@ export function narrate(ctx) {
     // where he let it go from, off the shot's own keyframe
     const shotNode = Array.isArray(b.possession) ? b.possession.find((n) => n.ev === 'shot') : null;
     const from = (shotNode && mod && mod.rinkSpot ? mod.rinkSpot(shotNode.p, b.teamName === away.name).from : '') || 'from in close';
-    const keys = generic ? 'pbp.shot' : fed ? [`${typeKey}.fed`, typeKey, 'pbp.shot'] : [typeKey, 'pbp.shot'];
+    const keys = b.rebound ? ['pbp.putback', 'pbp.shot'] : generic ? 'pbp.shot' : fed ?[`${typeKey}.fed`, typeKey, 'pbp.shot'] : [typeKey, 'pbp.shot'];
     call(keys, t, { shooter: b.shooter, shotLabel: b.shotLabel || 'shot', from, feeder }, sb, { cue: { ev: 'shot', ...(fed ? { feeder } : {}) } }, gd);
     return fed ? feeder : '';
   }
@@ -897,12 +897,13 @@ export function narrate(ctx) {
         pendingHit = null;
         const key = b.strength === 'pp' ? 'goal.pp' : b.strength === 'sh' ? 'goal.sh' : b.strength === 'en' ? 'goal.en' : 'goal';
         // some goals are a man in alone: the rink stages them that way and the booth says so
-        const alone = !b.strength || b.strength === 'even' ? ['wrist', 'backhand', 'snap'].includes(b.shotType) && nrng() < 0.22 : false;
+        const alone = !b.rebound && (!b.strength || b.strength === 'even') ? ['wrist', 'backhand', 'snap'].includes(b.shotType) && nrng() < 0.22 : false;
         const bb = (alone && breakawayBeat(b)) || b;
         const gd = gameday(bb, idx);
         gd.breakaway = alone;
         const before = scoreBefore(b), pre = beatBug({ ...b, awayScore: before.away, homeScore: before.home });
-        const rushed = callRush(bb, t, pre, gd, true);
+        // (a putback has no rush: the last shot's call left it loose in front)
+        const rushed = !b.rebound && callRush(bb, t, pre, gd, true);
         if (gd.breakaway && !rushAlone) call('pbp.breakaway', t, null, pre, { cue: { ev: 'alone' } });
         const feeder = callShot(bb, t, pre, rushed ? null : gd);
         const goalPlay = playMeta(b, 'goal', b.teamName, { player: b.shooter || '', strength: b.strength || 'even', sudden: /OT$/.test(b.section || '') });
@@ -962,13 +963,15 @@ export function narrate(ctx) {
         const gd = gameday(bb, idx);
         // the other end at last, after a run of theirs
         if (pressEv === 'relief') call('pbp.pressure.relief', t, { opp: reliefFrom }, sb, { opt: true });
-        const rushed = callRush(bb, t, sb, gd, loud);
+        const rushed = !b.rebound && callRush(bb, t, sb, gd, loud);
         if (b.kind === 'breakaway' && !rushAlone) call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } });
         callShot(bb, t, sb, rushed ? null : gd);
         call(`pbp.out.${b.kind}`, t, null, sb, { cue: { ev: 'out' } });
         // Then where the puck went, which the rink plays out: held, kicked to the corner,
         // loose in the slot, rattled away off the iron.
         if (b.frozen) call('pbp.freeze', t, null, sb, { cue: { ev: 'whistle' }, opt: true });
+        // (when the next play is the putback, the rebound is always called, and called live)
+        else if (beats[idx]?.rebound) call(['pbp.rebound.live', 'pbp.rebound'], t, null, sb);
         else if (b.kind === 'save') { if (nrng() < 0.5) call('pbp.rebound', t, null, sb, { opt: true }); }
         else if (pools[`pbp.after.${b.kind}`] && nrng() < (loud ? 0.9 : 0.6)) call(`pbp.after.${b.kind}`, t, null, sb, { opt: true });
         // The old sentence-length call, as colour: always on a near-miss, sometimes otherwise.

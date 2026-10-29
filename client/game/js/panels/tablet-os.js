@@ -17,6 +17,7 @@ import { resetOrder } from './sidebar-order.js';
 import { loadQLog, saveQLog, recordQuestLog } from './quest-log.js';
 import { DISCORD_INVITE } from './links.js';
 import { loadCss } from '../../../shared/dom.js';
+import { ensureSportCards } from './sportcard.js';
 import { fpsMeterOn, setFpsMeter } from '../fps-meter.js';
 import { makeCornerResizable } from './corner-resize.js';
 
@@ -3616,6 +3617,60 @@ function renderBinderCard(d) {
     </div>`;
 }
 
+// ── Binder: the league pages ─────────────────────────────────────────────────
+// A checklist by club, names and all (plugins/cards/sports-verbs.js says why a league page
+// names its gaps and the Draft page doesn't), then the special editions on their own shelf.
+const TOS_ED_COLORS = { captain: '#ffc23d', goalie: '#b374ff', star: '#4aa8ff' };
+
+function renderSportsBinder(d) {
+  const slot = (m, extra = '') => m.id
+    ? `<button type="button" class="tos-bsp-man held" data-bsp-card="${esc(String(m.id))}" title="Read ${esc(m.name)}">
+        <span class="tos-bsp-no">${esc(String(m.num ?? ''))}</span><span class="tos-bsp-nm">${esc(m.name)}</span>
+        <span class="tos-bsp-ps">${esc(m.pos || '')}${extra}</span>${m.n > 1 ? `<span class="tos-bsp-qty">×${m.n}</span>` : ''}${m.actionId ? '<span class="tos-bsp-act" title="You have him in action too">ACTION</span>' : ''}</button>`
+    : `<div class="tos-bsp-man"><span class="tos-bsp-no">${esc(String(m.num ?? ''))}</span><span class="tos-bsp-nm">${esc(m.name)}</span>
+        <span class="tos-bsp-ps">${esc(m.pos || '')}${extra}</span></div>`;
+  const clubs = (d.clubs || []).map(c => {
+    const got = c.men.filter(m => m.id).length;
+    return `<div class="tos-bsp-club" style="--c:${esc(c.colour)}">
+      <div class="tos-bsp-head"><span class="tos-bsp-crest">${c.crest || ''}</span><span class="tos-bsp-team">${esc(c.team)}</span>
+        <span class="tos-bsp-ratio">${got} / ${c.men.length}</span></div>
+      <div class="tos-bsp-grid">${c.men.map(m => slot(m)).join('')}</div>
+    </div>`;
+  }).join('');
+  const sp = d.specials || [];
+  const specials = sp.length ? `<div class="tos-bsp-club tos-bsp-specials">
+      <div class="tos-bsp-head"><span class="tos-bsp-team">Special editions</span><span class="tos-bsp-ratio">${sp.filter(s => s.id).length} / ${sp.filter(s => !s.retired).length}</span></div>
+      <div class="tos-bsp-grid">${sp.map(s => `<div class="tos-bsp-ed" style="--e:${TOS_ED_COLORS[s.edition] || '#8b98a8'}">
+        <span class="tos-bsp-edl">${esc(s.label)}${s.retired ? ' · past' : ''}</span>${slot(s, s.team ? ` · ${esc(s.team)}` : '')}</div>`).join('')}</div>
+    </div>` : '';
+  return `
+    <div class="tos-bnd-head">
+      <div>
+        <div class="tos-bnd-app">${esc(d.leagueName || 'League')}</div>
+        <div class="tos-bnd-sub">${esc(d.setName || '')}${d.seasonNo ? ` &middot; Season ${esc(String(d.seasonNo))}` : ''}</div>
+      </div>
+      <div class="tos-bnd-count"><b>${d.baseOwned || 0}</b>of ${d.baseTotal || 0} men</div>
+    </div>
+    <div class="tos-bnd-meter">
+      <div class="tos-bnd-meter-lbl"><span>Set completion</span><span class="v">${d.pct || 0}%${d.actionOwned ? ` &middot; ${d.actionOwned} in action` : ''}${d.pulls ? ` &middot; ${d.pulls} card${d.pulls === 1 ? '' : 's'} pulled` : ''}</span></div>
+      <div class="tos-bnd-meter-bar"><i style="width:${Math.min(100, d.pct || 0)}%"></i></div>
+    </div>
+    ${d.pulls ? '' : `<div class="tos-bnd-empty">No ${esc(d.leagueName || '')} cards yet.<br><span>Sleeves are ₵150 from the ${esc(d.leagueName || '')} machines.</span></div>`}
+    ${specials}${clubs}`;
+}
+
+function renderSportsBinderCard(d) {
+  const c = d.card || {};
+  const copies = (d.copies || []);
+  return `
+    <div class="tos-bsp-detail">
+      <div class="tos-bsp-face">${c.face || ''}</div>
+      ${copies.length > 1 ? `<div class="tos-bsp-copies"><div class="tos-bsp-copyh">${copies.length} copies${c.editionLabel ? ` · ${esc(c.editionLabel)}` : ''}</div>
+        ${copies.map(k => `<button type="button" class="tos-bsp-copy${k.current ? ' on' : ''}" data-bsp-card="${esc(String(k.id))}" data-bsp-copy>
+          <span>${esc(k.label)}</span><span class="text-dim">${esc(k.line)}</span></button>`).join('')}</div>` : ''}
+    </div>`;
+}
+
 function renderAccolades(d) {
   const rows = (d.entries || []).map((e, i) => `
     <div class="tos-acc-row${i === (d.entries.length - 1) ? ' first' : ''}">
@@ -5844,9 +5899,14 @@ function renderBody() {
       ${renderAccolades(d)}
     </div>`;
   }
-  if (d.view === 'binder' || d.view === 'binder_card') {
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
-      ${d.view === 'binder_card' ? renderBinderCard(d) : renderBinder(d)}
+  if (d.view === 'binder' || d.view === 'binder_card' || d.view === 'binder_sports' || d.view === 'binder_sports_card') {
+    if (d.view.startsWith('binder_sports')) ensureSportCards();
+    const body = d.view === 'binder_card' ? renderBinderCard(d)
+               : d.view === 'binder_sports' ? renderSportsBinder(d)
+               : d.view === 'binder_sports_card' ? renderSportsBinderCard(d)
+               : renderBinder(d);
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}${renderTosTabs(d)}
+      ${body}
     </div>`;
   }
   if (d.view === 'bliss_listings' || d.view === 'bliss_detail' || d.view === 'bliss_arrangement') {
@@ -6305,6 +6365,10 @@ function wireBody() {
   // nav's third argument is a separate token, so the id survives as 'binder card 12'.
   _overlay.querySelectorAll('[data-binder-card]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, 'card', el.getAttribute('data-binder-card')));
+  });
+  // a league card ('binder sc 12'); a copy in the list under one replaces it, a lateral move
+  _overlay.querySelectorAll('[data-bsp-card]').forEach(el => {
+    el.addEventListener('click', () => nav(_data.appId, 'sc', el.getAttribute('data-bsp-card'), el.hasAttribute('data-bsp-copy')));
   });
   _overlay.querySelectorAll('[data-open-cat]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, el.getAttribute('data-open-cat'), null));
@@ -7317,9 +7381,10 @@ export function openTabletToSpecter() {
 
 // Open on the Binder (the pack reveal's "SEE THE SHELF"). Not 'cards': that's the
 // typed reading and prints the whole shelf into the log.
-export function openTabletToBinder() {
+// `screen` opens a league's page ('deadball', 'puck') rather than the Draft.
+export function openTabletToBinder(screen = null) {
   _skipBoot = true;
-  sendCmdSilent('tabletnav binder');
+  sendCmdSilent(screen ? `tabletnav binder ${screen}` : 'tabletnav binder');
 }
 
 // Play a datachip clip in the reel viewer straight from the payload. The server

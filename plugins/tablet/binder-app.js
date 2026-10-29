@@ -26,6 +26,8 @@ import { query } from '../../server/models/db.js';
 // Cached module rather than a static import, so the tablet stays load-order
 // agnostic with respect to the cards plugin (matches accolades-app/surveillance-app).
 const cards = () => import('../cards/index.js');
+// The league pages (Deadball, Cluster Puck): their own sets, kept apart from the Draft.
+const sports = () => import('../cards/sports-verbs.js');
 
 const RANK_ORDER = ['architect', 'legendary', 'epic', 'rare', 'uncommon', 'common'];
 const RANK_LABEL = {
@@ -33,8 +35,25 @@ const RANK_LABEL = {
   rare: 'Rare', uncommon: 'Uncommon', common: 'Common',
 };
 
+// Every page carries the tabs: the Draft, then one per league.
 async function buildScreen(player, screenId, params) {
+  const S = await sports();
+  const out = await buildPage(player, screenId, params, S);
+  return { ...out, tabs: S.sportsTabs(), activeTab: out.league ? S.screenOfLeague(out.league) : 'binder' };
+}
+
+async function buildPage(player, screenId, params, S) {
   const norm = normScreen(screenId);
+
+  // ── a league page, or one sports card ───────────────────────────────────────
+  const league = S.leagueOfScreen(norm);
+  if (league) return S.sportsBinderScreen(player, league);
+  const sc = norm.match(/^sc (\d+)$/) || (norm === 'sc' ? String(params || '').trim().match(/^(\d+)$/) : null);
+  if (sc) {
+    const page = await S.sportsCardScreen(player, sc[1]);
+    if (page) return page;
+    return buildPage(player, null, null, S);
+  }
 
   // ── one card, read in full ──────────────────────────────────────────────────
   // Reachable two ways because the tablet has two shapes of navigation: the

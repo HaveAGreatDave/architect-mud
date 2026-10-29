@@ -163,7 +163,7 @@ export function createGrandstandView(host, opts = {}) {
       import('./diamond/crew.js'), import('./diamond/quality.js'), import('./diamond/sound.js'), import('./diamond/secondary.js')])
       .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew, quality, sound, sec]) => (mods = {
         createSettle: sec.createSettle,
-        ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, approachShot: cam.approachShot, APPROACH: cam.APPROACH, handheld: cam.handheld, numberOf: cast.numberOf, pictureAfter: director.pictureAfter, opensGame: director.opensGame,
+        ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, SHOTS: cam.SHOTS, approachShot: cam.approachShot, APPROACH: cam.APPROACH, handheld: cam.handheld, numberOf: cast.numberOf, pictureAfter: director.pictureAfter, opensGame: director.opensGame,
         createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector, splashOf: fx.splashOf,
         replayOf: rp.replayOf, stageReplay: rp.stageReplay, REPLAY: rp.REPLAY, fxEnd: fx.endOf,
         cheerOf: fx.cheerOf, createRoar: crowd.createRoar, matAt: crew.matAt, sweptAlong: crew.sweptAlong,
@@ -359,7 +359,26 @@ export function createGrandstandView(host, opts = {}) {
   // graphics.
   // A long lens in a well drifts a little in its operator's hands (diamond/camera.js handheld),
   // except with reduced motion.
-  const view = () => (mods && shot && typeof shot === 'object' ? mods.shotAt(shot, drawT()) : mods && !calm && !prefersReducedMotion() ? mods.handheld(shot, drawT()) : shot);
+  const directed = () => (mods && shot && typeof shot === 'object' ? mods.shotAt(shot, drawT()) : mods && !calm && !prefersReducedMotion() ? mods.handheld(shot, drawT()) : shot);
+  const view = () => (opts.seat && mods ? seatShot(opts.seat, directed()) : directed());
+  // A SEAT IN THE STANDS (stands.js): the eye bolted to `seat.eye`, in the field's feet. Following,
+  // it turns to what the director's shot looks at, eased so a cut is a turn of the head; free, it
+  // looks where the viewer turned it (`seat.yaw`, radians from +z toward +x, `seat.pitch` up
+  // positive). Following writes its heading back, so free look starts where you were looking.
+  let seatAt = null, seatClock = 0;
+  function seatShot(s, d) {
+    const base = typeof d === 'string' ? mods.SHOTS[d] || mods.SHOTS.high : d || mods.SHOTS.high, eye = s.eye;
+    const now = win?.performance?.now?.() ?? Date.now(), dt = seatClock ? Math.min(0.1, (now - seatClock) / 1000) : 0;
+    seatClock = now;
+    if (s.mode !== 'free') {
+      const k = !seatAt || !(dt > 0) ? 1 : 1 - Math.exp(-dt * 4);
+      seatAt = seatAt ? seatAt.map((v, i) => v + (base.at[i] - v) * k) : [...base.at];
+      const q = [seatAt[0] - eye[0], seatAt[1] - eye[1], seatAt[2] - eye[2]];
+      s.yaw = Math.atan2(q[0], q[2]); s.pitch = Math.atan2(q[1], Math.hypot(q[0], q[2]));
+    } else seatAt = null;
+    const cp = Math.cos(s.pitch || 0), at = [eye[0] + Math.sin(s.yaw || 0) * cp * 100, eye[1] + Math.sin(s.pitch || 0) * 100, eye[2] + Math.cos(s.yaw || 0) * cp * 100];
+    return { eye, at, fov: Math.max(12, Math.min(90, s.fov || 50)), shadow: base.shadow };
+  }
   // The time the picture is drawn at: the world's last step and what's left over toward the next
   // (the replay's, capped at its end, while one plays).
   function drawT() {
@@ -674,8 +693,9 @@ export function createGrandstandView(host, opts = {}) {
     dropHolds();
     calm = prefersReducedMotion();
     const to = R?.streetCam || (R?.city ? 'street' : 'sky');
-    shot = opts.shot || (calm ? to : mods.approachShot(to, W.t));
-    flyUntil = calm ? 0 : W.t + mods.APPROACH.dur + 1;
+    // from a seat you're already in the park: no flight in over the city
+    shot = opts.shot || (opts.seat ? 'high' : calm ? to : mods.approachShot(to, W.t));
+    flyUntil = calm || opts.seat ? 0 : W.t + mods.APPROACH.dur + 1;
     live = true; acc = 0;
     letterArrive(p);
     say(`Live from ${p.venue || 'the park'}${p.final ? `, for the ${p.final}` : ''}.`);

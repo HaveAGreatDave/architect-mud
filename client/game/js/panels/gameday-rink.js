@@ -355,6 +355,8 @@ export function createRinkView(host, opts = {}) {
     rung = 0; slow = quick = 0;
     if (camView) R.view = camView;
     R.glow = glow; R.ink = ink; R.xrayGore = gore;
+    // a seat in the stands (stands.js) holds the eye; only GLASS 2 turns to it
+    R.seat = opts.seat || null;
   }
   function setGore(v) {
     gore = v;

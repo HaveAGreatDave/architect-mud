@@ -3308,6 +3308,19 @@ export const SCHEMA_SQL = `
     first_got  BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
     PRIMARY KEY (player_id, card_id)
   );
+  -- Sports cards (plugins/cards/sports.js): one row per card pulled from a Deadball or
+  -- Cluster Puck sleeve. card is the whole card as printed, his season frozen at the
+  -- moment the pack was bought, so two copies of one man can differ.
+  CREATE TABLE IF NOT EXISTS sports_cards (
+    id         SERIAL PRIMARY KEY,
+    player_id  TEXT NOT NULL,
+    league     TEXT NOT NULL,
+    subject    TEXT NOT NULL,
+    edition    TEXT NOT NULL DEFAULT 'base',
+    card       JSONB NOT NULL,
+    pulled_at  BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  CREATE INDEX IF NOT EXISTS idx_sports_cards_owner ON sports_cards(player_id, league);
   CREATE INDEX IF NOT EXISTS idx_cards_pool ON cards(series, pool_weight);
   CREATE INDEX IF NOT EXISTS idx_cards_subject ON cards(subject_type, subject_ref);
 

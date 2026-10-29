@@ -54,7 +54,9 @@ const LEAGUES = {
     // clubs), October 2026. The sixteen before had no era.
     // 'deadball-8-slate' from the daily slate (docs/proposals/daily-slate.md), which changed
     // every matchup, so the season open at the cutover closes uncrowned.
-    era: 'deadball-8-slate',
+    // 'deadball-rosters' from sim v3 (October 2026): clubs keep thirteen men a season, so
+    // the season the squads arrived in closes uncrowned too and they start at 0-0.
+    era: 'deadball-rosters',
     // the final is the Curtain Call (the season's last act, under the city's wall); its phase
     // in sports_season is still 'worldseries', a value, not a name anyone reads
     final: 'CURTAIN CALL', finalTitle: 'Curtain Call', finalCmd: 'curtaincall', start: 'First Pitch',

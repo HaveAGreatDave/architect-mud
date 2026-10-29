@@ -554,6 +554,86 @@ export default async function regress({ run, check, getPlayer }) {
 
     r = await run('scrap');
     check('scrap with no dupes answers cleanly', r?.type === 'output', JSON.stringify(r)?.slice(0, 120));
+
+    // ── sports cards: a league, its editions, a sleeve ───────────────────────
+    // A fake league through the real leagueNow, so the rules are tested without a season.
+    const SP = await import('./sports.js');
+    const teams = ['Reds', 'Blues'];
+    const men = ['Abe', 'Bo', 'Cy', 'Dee', 'Eli', 'Fen', 'Gus', 'Hal', 'Ike', 'Jo', 'Kip', 'Lou'];
+    const rosters = { Reds: men.slice(0, 6), Blues: men.slice(6, 12) };
+    const fake = (extra) => async ({ type }) => (type === 'broadcast.getSportsLeague'
+      ? { sport: extra.sport, teams, players: men, clubs: {}, rosters: extra.sport === 'hockey' ? rosters : null }
+      : type === 'sportsleague.getStandings' ? { rows: [{ team: 'Reds', wins: 3, losses: 1, otl: 0, points: 6 }], ...extra.x }
+      : { seasonNo: 2 });
+    const H = await SP.leagueNow('hockey', {
+      dispatch: fake({ sport: 'hockey', x: { players: { Bo: { gp: 4, g: 3, a: 1, sog: 20 } }, goalies: {}, toll: { Bo: { hurt: 1, died: 0 } } } }),
+      npcs: [{ flags: { cphl: { player: 'Cy', club: 'Reds', role: 'captain' } } }, { flags: { cphl: { player: 'Abe', club: 'Reds', role: 'star' } } }],
+      date: '2087-03-12',
+    });
+    const ed = (name, e) => H.specials.some(s => s.name === name && s.edition === e);
+    check('a bound NPC captain is his club\'s captain', ed('Cy', 'captain') && !ed('Bo', 'captain'));
+    check('a club with no bound captain gives it to its centre', ed('Hal', 'captain'));
+    check('every club\'s net-minder gets a goalie edition', ed('Fen', 'goalie') && ed('Lou', 'goalie'));
+    check('a bound star is a rising star', ed('Abe', 'star'));
+    check('the card number is the rink\'s', H.men.get('Bo').num === SP.sweaterNumber('hockey', 'Bo') && H.men.get('Bo').num >= 2 && H.men.get('Bo').num <= 98);
+    const bo = SP.snapshotCard(H, H.men.get('Bo'));
+    check('a skater\'s back carries his season', JSON.stringify(bo.stats).includes('["PTS",4]') && bo.record === '3-1-0, 6 pts', JSON.stringify(bo));
+    check('a carried-off man says so on the back', bo.notes.some(n => /Carried off once/.test(n)), JSON.stringify(bo.notes));
+    let allFive = true, noTwice = true, specialLast = true, sawSpecial = false;
+    for (let s = 1; s <= 60; s++) {
+      const sl = SP.rollSportsSleeve(H, mulberry32(s));
+      if (sl.length !== SP.SPORTS_PACK_SIZE) allFive = false;
+      if (new Set(sl.map(c => c.name + c.edition)).size !== sl.length || new Set(sl.slice(0, 4).map(c => c.name)).size !== 4) noTwice = false;
+      if (sl.slice(0, -1).some(c => c.edition !== 'base')) specialLast = false;
+      if (sl.at(-1).edition !== 'base') sawSpecial = true;
+    }
+    check('a sports sleeve is five cards', allFive);
+    check('no man twice among a sleeve\'s base cards', noTwice);
+    check('only the last card can be a special edition', specialLast);
+    check('special editions turn up', sawSpecial);
+    // action shots: some cards in a sleeve, a rung up for a base card, drawn in the man's role
+    let actions = 0, cardsSeen = 0;
+    for (let s = 1; s <= 60; s++) for (const c of SP.rollSportsSleeve(H, mulberry32(s * 7))) { cardsSeen++; if (c.art === 'action') actions++; }
+    check('about a quarter of sports cards are action shots', actions / cardsSeen > 0.15 && actions / cardsSeen < 0.35, `${actions}/${cardsSeen}`);
+    const act = SP.snapshotCard(H, H.men.get('Fen'), 'base', 'action');
+    check('a base action shot reveals at uncommon, a special keeps its rank',
+      SP.rarityOf(act) === 'uncommon' && SP.rarityOf({ ...act, edition: 'captain' }) === 'legendary' && SP.rarityOf(bo) === 'common');
+    check('a goalie\'s action shot is a save', act.pose === 'save');
+    const actFace = SP.renderSportsCard(act, {});
+    check('an action shot draws the man in action and says so', actFace.includes('spc-action') && actFace.includes('IN ACTION') && actFace.includes('In the butterfly'));
+    const face = SP.renderSportsCard(bo, {});
+    check('a sports face has a front, a back and a way to turn it', face.includes('spc-front') && face.includes('spc-back') && face.includes('data-spc-flip'));
+    check('a stamped back says the day it was printed', face.includes('12 Mar 2087'));
+    check('league words name the league', SP.leagueOfWord('puck') === 'hockey' && SP.leagueOfWord('Deadball') === 'baseball' && SP.leagueOfWord('confirm') === null);
+
+    // Deadball: no fixed rosters, so a man's club and position come off the season fold.
+    const pos = (n) => ({ C: n });
+    const D = await SP.leagueNow('baseball', {
+      dispatch: fake({ sport: 'baseball', x: {
+        ledger: {
+          bats: new Map([['Abe', { name: 'Abe', team: 'Blues', g: 9, pos: { SS: 6, LF: 3 }, clubs: { Reds: 6, Blues: 3 }, ab: 30, hits: 9, hr: 1, rbi: 4, sb: 0 }],
+            ['Bo', { name: 'Bo', team: 'Reds', g: 4, pos: pos(4), clubs: { Reds: 4 }, ab: 12, hits: 2, hr: 0, rbi: 1, sb: 1 }],
+            ['Dee', { name: 'Dee', team: 'Blues', g: 8, pos: { CF: 8 }, clubs: { Blues: 8 }, ab: 28, hits: 7, hr: 2, rbi: 5, sb: 2 }]]),
+          arms: new Map([['Cy', { name: 'Cy', team: 'Blues', g: 3, pos: { P: 3 }, clubs: { Blues: 3 }, w: 2, l: 1, outs: 50, er: 6, k: 20 }]]),
+        },
+        batters: [{ name: 'Bo' }], strikeouts: [{ name: 'Cy' }],
+      } }),
+    });
+    check('a Deadball man plays for the club he turned out for most', D.men.get('Abe').team === 'Reds' && D.men.get('Abe').pos === 'SS');
+    check('the club\'s captain is the man with the most games for it', D.specials.some(s => s.name === 'Abe' && s.edition === 'captain'));
+    check('the batting and strikeout leaders are rising stars', D.specials.some(s => s.name === 'Cy' && s.edition === 'star'));
+    check('Deadball has no goalie edition', !D.specials.some(s => s.edition === 'goalie'));
+    // With season squads, a man's club and position are his squad's, and the captain has been there longest.
+    const sq = (team, list) => list.map(([name, pos, since]) => ({ name, pos, since }));
+    const DS = await SP.leagueNow('baseball', {
+      dispatch: async (q) => (q.type === 'broadcast.getSportsLeague'
+        ? { sport: 'baseball', teams, players: men, clubs: {}, rosters: { Reds: sq('Reds', [['Abe', 'CF', 5], ['Bo', 'P', 2], ['Cy', 'UT', 4]]), Blues: sq('Blues', [['Dee', 'SS', 3]]) } }
+        : q.type === 'sportsleague.getStandings' ? { rows: [], batters: [], strikeouts: [] } : { seasonNo: 1 }),
+    });
+    check('a squad man carries his squad\'s club and position', DS.men.get('Cy').team === 'Reds' && DS.men.get('Cy').pos === 'UT' && DS.men.get('Bo').pos === 'P');
+    check('the longest-serving man is his club\'s captain', DS.specials.some(s => s.name === 'Bo' && s.edition === 'captain') && !DS.specials.some(s => s.name === 'Abe' && s.edition === 'captain'));
+    const cy = SP.snapshotCard(D, D.men.get('Cy'));
+    check('a pitcher\'s back is a pitching line', JSON.stringify(cy.stats).includes('["IP","16.2"]') && JSON.stringify(cy.stats).includes('["ERA","3.24"]'), JSON.stringify(cy.stats));
   } finally {
     player.current_zone = saved;
     await query('DELETE FROM furniture WHERE id = ANY($1)', [[FURN_MINT, FURN_MACH]]).catch(() => {});

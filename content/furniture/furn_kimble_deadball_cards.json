@@ -1,0 +1,20 @@
+{
+  "description": "A second card machine beside the first, painted ballpark green, Deadball Season Set on a lit strip across the top. The sleeves behind the glass are printed with the Coliseum at night.",
+  "flags": {
+    "aliases": [
+      "deadball machine",
+      "deadball card machine",
+      "green machine"
+    ],
+    "card_league": "baseball",
+    "click_cmd": "buypack deadball",
+    "interactions": [],
+    "notable": true,
+    "vends_packs": 1
+  },
+  "id": "furn_kimble_deadball_cards",
+  "name": "Deadball card machine",
+  "object_type": "fixture",
+  "power_draw_kw": 0.4,
+  "zone_id": "zone_kimble_shop"
+}

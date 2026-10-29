@@ -608,6 +608,8 @@
       help: 'Where a set-aside tile stood on map_world, as "x,y". Only a record: nothing reads it but a person putting the building back.' },
     venue_lights: { label: 'Venue Lights', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
       help: 'A tile of a sports venue whose light towers come on for its game nights (the Hughson Coliseum). The broadcast plugin answers `venue.lit` from memory while the show that plays there is on air, the map derive puts it on the cell as `vl`, and a `venue_lit` push tells views that are already open. Put it on every tile of the venue.' },
+    stands: { label: 'Stands', shape: 'object', scope: 'zone', group: 'Zone: Flight',
+      help: 'A room that sells seats at the game (plugins/stands): { sport: hockey|baseball, sections: [{ id, name, price, eye: [x, y, z], note }] }. `eye` is the seat in the 3-D view\'s own feet (the sheet for hockey, the field for baseball), and the seat chart is drawn from it. Check a new eye in the sandbox with ?seat=x,y,z.' },
     venue_roof: { label: 'Venue Roof', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
       help: 'A tile of a sports venue with a retractable roof (the Hughson Coliseum), which is shut on days the forecast is wet and open on dry ones (staff can override it for the day). The broadcast plugin answers `venue.roof` from memory, the map derive puts it on the cell as `vr`, and a `venue_roof` push tells views that are already open, which animate it. Tiles group by building name; put it on every tile of the venue.' },
     aa_site: { label: 'AA Emplacement', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',

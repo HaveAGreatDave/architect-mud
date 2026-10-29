@@ -24,6 +24,8 @@ import {
   slotsFor, slotLeft, totalLeft, fullestSlot, takeFromSlot, normaliseSlot, SLOT_CODES,
 } from './machine.js';
 import { escapeHtml as esc } from '../../server/engine/html.js';
+import { SPORTS, SPORTS_PACK_PRICE, leagueOfWord } from './sports.js';
+import { buySportsPack, openSportsPack, heldSportsLeague } from './sports-verbs.js';
 
 const MINT_FEE = 2500;
 // THESE TWO NUMBERS ARE COUPLED — never move one without the other.
@@ -175,7 +177,14 @@ async function cmdMintQuote(args, raw, player, broadcast) {
 const argStr = a => (Array.isArray(a) ? a.join(' ') : String(a || '')).trim();
 
 const mintHere = z => getZoneFurniture(z).find(f => f.flags?.card_mint);
-const machineHere = z => getZoneFurniture(z).find(f => f.flags?.vends_packs);
+// A room can hold a Draft machine and a league's machine side by side (Kimble's does), so
+// a league word picks the league's (`buypack deadball`) and no word picks the Draft one,
+// falling back to whichever machine is there.
+const machineHere = (z, league = null) => {
+  const all = getZoneFurniture(z).filter(f => f.flags?.vends_packs);
+  if (league) return all.find(f => f.flags.card_league === league) || null;
+  return all.find(f => !f.flags.card_league) || all[0] || null;
+};
 
 // ── striking a card ────────────────────────────────────────────────────────────
 async function nextSerial(series) {
@@ -550,8 +559,11 @@ function poolBreakdown(catalogue) {
 // with, nothing more — which is exactly what a real machine offers and is worth
 // stating plainly rather than dressing up as an odds lever.
 async function cmdBuyPack(args, raw, player, broadcast) {
-  const machine = machineHere(player.current_zone);
-  if (!machine) return { type: 'error', message: "There's no card machine here." };
+  const all = argStr(args).split(/\s+/).filter(Boolean);
+  const league = all.map(leagueOfWord).find(Boolean) || null;
+  const machine = machineHere(player.current_zone, league);
+  if (!machine) return { type: 'error', message: league ? `There's no ${SPORTS[league].short} card machine here.` : "There's no card machine here." };
+  if (machine.flags.card_league) return buySportsPack(machine, all.filter(w => !leagueOfWord(w)), player, broadcast);
   if (!isPluggedIn(machine)) return { type: 'error', message: `The ${machine.name}'s window is dark. The glass just shows you the room.` };
 
   const catalogue = await getPool();
@@ -633,6 +645,14 @@ async function cmdBuyPack(args, raw, player, broadcast) {
 // sleeve still can't be read, and it still can't be traded with known contents —
 // nobody, including its owner, knows what is in it until it is torn.
 async function cmdOpenPack(args, raw, player, broadcast) {
+  // `openpack deadball` / `openpack puck` tears a league sleeve. Bare `openpack` tears a
+  // Draft sleeve if there is one, else whichever league sleeve you're carrying.
+  const league = argStr(args).split(/\s+/).map(leagueOfWord).find(Boolean) || null;
+  if (league) return openSportsPack(league, player, broadcast);
+  if (!(await packsHeld(player.id))) {
+    const held = await heldSportsLeague(player.id);
+    if (held) return openSportsPack(held, player, broadcast);
+  }
   const catalogue = await getPool();
   if (!catalogue.length) return { type: 'error', message: "The pool is empty. There's nothing in the sleeve to be." };
   const sleeve = await consumeSleeve(player.id);
@@ -848,9 +868,10 @@ function cardFurnitureDescribe(f) {
   // from the room list), so examine leaves one line and the way in. Two drawings
   // of the same cabinet, one of them scrollable, was one too many.
   if (isMachine) {
+    const lg = SPORTS[f.flags.card_league];
     return `<span class="cardmach">`
       + `<span class="cardmach-top"><span class="cardmach-pwr">● PWR</span></span>`
-      + `<span class="action-link cardmach-buy" data-action="cmd" data-cmd="buypack" title="Step up to the machine">PICK A COIL · ₵${PACK_PRICE} A SLEEVE</span>`
+      + `<span class="action-link cardmach-buy" data-action="cmd" data-cmd="${lg ? `buypack ${lg.screen}` : 'buypack'}" title="Step up to the machine">PICK A COIL · ₵${lg ? SPORTS_PACK_PRICE : PACK_PRICE} A SLEEVE</span>`
       + `</span>`;
   }
   return `<span class="cardmach cardmach-mint">`

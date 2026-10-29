@@ -12,6 +12,66 @@
     "floor": "concrete",
     "is_building": true,
     "is_interior": true,
+    "stands": {
+      "sport": "baseball",
+      "sections": [
+        {
+          "id": "plate",
+          "name": "Behind the Plate",
+          "price": 40,
+          "eye": [
+            0,
+            12,
+            -64
+          ],
+          "note": "the pitch coming at you"
+        },
+        {
+          "id": "first",
+          "name": "First-Base Box",
+          "price": 30,
+          "eye": [
+            -92,
+            14,
+            24
+          ],
+          "note": "down the first-base line"
+        },
+        {
+          "id": "third",
+          "name": "Third-Base Box",
+          "price": 30,
+          "eye": [
+            92,
+            14,
+            24
+          ],
+          "note": "down the third-base line"
+        },
+        {
+          "id": "upper",
+          "name": "Upper Deck",
+          "price": 12,
+          "eye": [
+            0,
+            78,
+            -120
+          ],
+          "note": "the whole field below you"
+        },
+        {
+          "id": "bleachers",
+          "name": "The Bleachers",
+          "price": 6,
+          "eye": [
+            169,
+            27,
+            361
+          ],
+          "note": "left-centre, past the wall"
+        }
+      ]
+    },
     "window": {
       "description": "The diamond, the infield dirt raked in arcs, and the outfield running out to a padded wall with numbers painted on it. The scoreboard stands on legs past centre field, under the roof.",
       "light": 0.9,

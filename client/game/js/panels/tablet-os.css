@@ -3046,6 +3046,40 @@ html[data-density="compact"] #tablet-os-overlay .tos-mf:disabled { opacity:.35; 
   margin-top:10px; font-size:0.5938rem; letter-spacing:1.2px; color:var(--tos-fg-dim); }
 #tablet-os-overlay .tos-bnd-dupe { color:#c07b3a; }
 
+/* The league pages: a checklist by club, the special editions above it (sportcard.css draws the faces). */
+#tablet-os-overlay .tos-bsp-club { margin:14px 0; padding:10px; border-radius:8px; background:rgba(0,0,0,0.22);
+  border-left:4px solid var(--c,#8b98a8); }
+#tablet-os-overlay .tos-bsp-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+#tablet-os-overlay .tos-bsp-crest { width:28px; height:28px; flex:none; }
+#tablet-os-overlay .tos-bsp-crest svg { width:28px; height:28px; display:block; }
+#tablet-os-overlay .tos-bsp-team { flex:1; font-size:0.8125rem; font-weight:700; letter-spacing:0.5px; }
+#tablet-os-overlay .tos-bsp-ratio { font-size:0.6875rem; color:var(--tos-fg-dim); }
+#tablet-os-overlay .tos-bsp-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:6px; }
+#tablet-os-overlay .tos-bsp-man { position:relative; display:flex; align-items:center; gap:6px; width:100%; min-height:34px;
+  padding:5px 8px; border-radius:6px; border:1px dashed rgba(255,255,255,0.14); background:transparent;
+  color:var(--tos-fg-dim); font:inherit; font-size:0.6875rem; text-align:left; opacity:0.55; }
+#tablet-os-overlay .tos-bsp-man.held { opacity:1; cursor:pointer; color:var(--tos-fg); border:1px solid color-mix(in srgb, var(--c,#8b98a8) 70%, transparent);
+  background:color-mix(in srgb, var(--c,#8b98a8) 16%, rgba(0,0,0,0.3)); }
+#tablet-os-overlay .tos-bsp-man.held:hover { background:color-mix(in srgb, var(--c,#8b98a8) 30%, rgba(0,0,0,0.3)); }
+#tablet-os-overlay .tos-bsp-no { min-width:22px; font-weight:800; font-size:0.8125rem; text-align:right; }
+#tablet-os-overlay .tos-bsp-nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#tablet-os-overlay .tos-bsp-ps { font-size:0.5938rem; letter-spacing:0.8px; opacity:0.8; white-space:nowrap; }
+#tablet-os-overlay .tos-bsp-qty { position:absolute; top:-6px; right:-4px; padding:0 5px; border-radius:8px; font-size:0.5625rem;
+  background:#c07b3a; color:#111; font-weight:800; }
+#tablet-os-overlay .tos-bsp-act { position:absolute; bottom:-6px; right:-4px; padding:0 4px; border-radius:6px; font-size:0.5rem;
+  font-weight:800; letter-spacing:0.6px; background:#e0532f; color:#fff; }
+#tablet-os-overlay .tos-bsp-specials { border-left-color:#ffc23d; }
+#tablet-os-overlay .tos-bsp-ed { display:flex; flex-direction:column; gap:2px; }
+#tablet-os-overlay .tos-bsp-ed .tos-bsp-man { --c:var(--e); }
+#tablet-os-overlay .tos-bsp-edl { font-size:0.5625rem; letter-spacing:1.4px; text-transform:uppercase; color:var(--e); }
+#tablet-os-overlay .tos-bsp-detail { display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start; padding:6px 0 12px; }
+#tablet-os-overlay .tos-bsp-face { width:min(300px, 100%); flex:none; }
+#tablet-os-overlay .tos-bsp-copies { flex:1; min-width:180px; display:flex; flex-direction:column; gap:6px; }
+#tablet-os-overlay .tos-bsp-copyh { font-size:0.6875rem; letter-spacing:1.2px; text-transform:uppercase; color:var(--tos-fg-dim); }
+#tablet-os-overlay .tos-bsp-copy { display:flex; flex-direction:column; gap:2px; padding:7px 9px; border-radius:6px; text-align:left;
+  font:inherit; font-size:0.6875rem; color:var(--tos-fg); background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.12); cursor:pointer; }
+#tablet-os-overlay .tos-bsp-copy.on { border-color:#ffc23d; }
+
 #tablet-os-overlay .tos-acc-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
   padding-bottom:11px; border-bottom:1px solid var(--border); }
 #tablet-os-overlay .tos-acc-app { font-size:1rem; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }

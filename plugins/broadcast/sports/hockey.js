@@ -312,6 +312,34 @@ export const FACEOFF_DOTS = ['C', 'aZL', 'aZR', 'aNL', 'aNR', 'hNL', 'hNR', 'hZL
 // Odds the goalie simply holds a save rather than leaving a rebound. A frozen puck is
 // the most common whistle in hockey, and it's what puts a faceoff in the defending end.
 const FREEZE_ON_SAVE = 0.42;
+// v6: a save, a pad save or a shot off the post that stays live can sit in front for the
+// same side to shoot again, about thirteen a game. The goal weight is held low so the
+// putbacks add about one goal a game (7.0 to 8.2 over 300 games), and the goalie holds the
+// second one more often than the first.
+const REBOUND_AFTER = new Set(['save', 'pad', 'post']);
+const REBOUND_CHANCE = 0.38;
+const REBOUND_TABLE = [
+  { kind: 'goal', w: 7, shot: 'putback' },
+  { kind: 'save', w: 54, shot: 'putback' },
+  { kind: 'pad', w: 21, shot: 'putback' },
+  { kind: 'wide', w: 12, shot: 'putback' },
+  { kind: 'post', w: 6, shot: 'putback' },
+];
+const FREEZE_ON_REBOUND = 0.6;
+
+// A putback's keyframes: the puck loose in front, the shot from on top of the crease, and
+// where it ended. Three nodes, so the rink stages it from the scramble, not a breakout.
+export function synthRebound(seed, kind, side) {
+  const rand = sportsRng(seed);
+  const dir = side === 0 ? 1 : -1, netX = side === 0 ? 0.955 : 0.045;
+  const y0 = 0.36 + rand() * 0.28;
+  const endY = kind === 'wide' ? (rand() < 0.5 ? 0.3 : 0.7) : 0.44 + rand() * 0.12;
+  return [
+    { t: 0, p: [netX - dir * (0.06 + rand() * 0.04), y0], ev: 'battle', carrier: -1 },
+    { t: 0.6, p: [netX - dir * (0.04 + rand() * 0.03), 0.4 + rand() * 0.2], ev: 'shot', carrier: -1 },
+    { t: 1, p: [netX, endY], ev: kind, carrier: -1 },
+  ];
+}
 
 const pick = (arr, rand) => arr[Math.min(arr.length - 1, Math.floor(rand() * arr.length))];
 const clockStr = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -715,6 +743,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   const v4 = Number(opts.version) >= 4;
   // v5 has open-ice cross-checks and slashes, called or not (bigHit, slash).
   const v5 = Number(opts.version) >= 5;
+  // v6 leaves rebounds for a second shot (REBOUND_CHANCE).
+  const v6 = Number(opts.version) >= 6;
   // A final is the game that matters most; the caller says so (sportsGameForSlot).
   const important = !!opts.important;
   let brawled = false;
@@ -1105,6 +1135,40 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
           shotType: chanceShot.id, shotLabel: chanceShot.label,
           possession: chanceNodes });
         if (frozen) faceoff(endDot(def), 'freeze');
+        else if (v6 && REBOUND_AFTER.has(out.kind) && rand() < REBOUND_CHANCE) {
+          // The second whack: somebody else on the same side, if there's anybody, and the
+          // first shooter gets the assist when it goes in.
+          const others = live(att).filter(s => s !== shooter);
+          const second = others.length ? others[Math.floor(rand() * others.length)] : shooter;
+          const mult = ((att.profile?.shooting ?? 1) / (def.profile?.goaltending ?? 1))
+            * (strength === 'pp' ? PP_GOAL_MULT : strength === 'sh' ? SH_GOAL_MULT : strength === 'en' ? EN_GOAL_MULT : 1);
+          let total = 0;
+          const ws = REBOUND_TABLE.map(o => { const w = o.kind === 'goal' ? o.w * mult : o.w; total += w; return w; });
+          let roll = rand() * total, rb = REBOUND_TABLE[0];
+          for (let i = 0; i < REBOUND_TABLE.length; i++) { roll -= ws[i]; if (roll <= 0) { rb = REBOUND_TABLE[i]; break; } }
+          const rbNodes = synthRebound(Math.floor(rand() * 1e9), rb.kind, attackAway ? 0 : 1);
+          const rbShot = rand() < 0.6 ? { id: 'backhand', label: 'backhand' } : { id: 'wrist', label: 'wrist shot' };
+          const rbNames = live(att).map(s => s.name);
+          if (rb.kind === 'goal') {
+            att.score += 1; second.goals += 1;
+            const assist = second !== shooter ? shooter : null;
+            if (assist) assist.assists += 1;
+            const hat = second.goals === 3;
+            push({ type: 'goal', rebound: true, shooter: second.name, assist: assist ? assist.name : '', goalie,
+              teamName: att.name, oppName: def.name, strength, hattrick: hat,
+              shooterGoals: second.goals, section: ordinal(period),
+              rush: '', rushNames: rbNames, shotType: rbShot.id, shotLabel: rbShot.label, possession: rbNodes });
+            if (hat) push({ type: 'hattrick', player: second.name, teamName: att.name, section: ordinal(period) });
+            if (sudden) { gameOver = true; break; }
+            faceoff('C', 'goal');
+          } else {
+            const rbFrozen = (rb.kind === 'save' || rb.kind === 'pad') && rand() < FREEZE_ON_REBOUND;
+            push({ type: 'chance', rebound: true, kind: rb.kind, shot: rb.shot, shooter: second.name, goalie,
+              teamName: att.name, oppName: def.name, strength, frozen: rbFrozen, section: ordinal(period),
+              rush: '', rushNames: rbNames, shotType: rbShot.id, shotLabel: rbShot.label, possession: rbNodes });
+            if (rbFrozen) faceoff(endDot(def), 'freeze');
+          }
+        }
       }
     }
 
@@ -1276,7 +1340,7 @@ export const HOCKEY = {
   // v2 reprints a dead man (reprintSlots); broadcast records the slot it plays from.
   // v3 plays fights by the fighters and the game's momentum (simFightV3); v4 fights harder;
   // v5 has open-ice cross-checks and slashes.
-  simVersions: [1, 2, 3, 4, 5],
+  simVersions: [1, 2, 3, 4, 5, 6],
   section: 'period',
   sectionPlural: 'periods',
   simGame,

@@ -3,7 +3,7 @@
 @category sport
 @type sports
 @sport baseball
-@sim 2
+@sim 3
 @announcer "Chip Vega"
 # The colour man beside him: a retired pitcher, whose lines air as "Dusty Merriman says" so the
 # TV shows who is talking and the voice seeds off his name (sports/baseball-booth.js).
@@ -321,7 +321,7 @@ Docks District Dolphins
 Boomtown Bombers
 ::endteams
 
-# --- Player-name pool: the runner deals nine to each lineup + a pitcher --------
+# --- Player-name pool: thirteen to a club for the season, the rest unsigned (sim v3) ---
 ::players
 Rodriguez
 Okafor
@@ -355,6 +355,86 @@ Sokolov
 "Wheels" McGraw
 Grimaldi
 Achterberg
+Alvarado
+Brannigan
+"Hook" Mendez
+Whitaker
+Tanaka
+Brodsky
+Ochoa
+Pruitt
+Galloway
+Nakashima
+Fairbanks
+"Shoeless" Pike
+Ibsen
+Moreau
+Kowalski
+Adeyemi
+Thorne
+Castro
+Briggs
+Lund
+"Cannon" Ruelas
+Duquesne
+Hatfield
+Sorensen
+Mbatha
+Coyle
+Varga
+Leclerc
+Pittman
+Ashby
+Quintero
+"Dutch" Vandermeer
+Okoro
+Tilley
+Rasmussen
+Haddad
+Bellamy
+Cardenas
+Wexler
+Strickland
+"Pops" Garvey
+Ishikawa
+Moncada
+Ferris
+Nyberg
+Calloway
+Szymanski
+Beaumont
+Iwu
+Rourke
+"Lefty" Shaw
+Batista
+Kinsella
+Mortensen
+Hale
+Obi
+Fontaine
+Rook
+Brandt
+"Moose" Kerrigan
+Valdez
+Tran
+Gallagher
+Pedersen
+Mwangi
+Laurent
+Hollis
+Escobar
+Dempsey
+Oyama
+Crane
+Bergstrom
+"Sparky" Lowe
+Kaminski
+Montoya
+Sandberg
+Weller
+Achebe
+Holt
+Teague
 ::endplayers
 
 # --- Sign-on ------------------------------------------------------------------

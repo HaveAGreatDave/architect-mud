@@ -1327,6 +1327,16 @@
       "band": "ALERT",
       "bootPayloadBytes": 14217624,
       "loadsPerDay": 2.3583483285601483
+    },
+    {
+      "at": "2026-10-29T05:14:58.380Z",
+      "cycleStart": null,
+      "elapsed": null,
+      "used": {},
+      "ratios": {},
+      "band": "OK",
+      "bootPayloadBytes": 14221946,
+      "loadsPerDay": 3.1552669011726735
     }
   ],
   "lastAlert": {

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shell Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: 'K7 Shoulders'; src: url('../../client/shared/fonts/big-shoulders-display.woff2') format('woff2'); font-weight: 800; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+
+/* Mood tokens: the zone/weather/time would set these at runtime. */
+.mood-coldwater-night { --tint: #6fa8d8; --tint-deep: #0b1622; --warm: #e0a85a; }
+.mood-scarlet        { --tint: #d8744f; --tint-deep: #1e0d08; --warm: #f0c070; }
+.mood-acid           { --tint: #a6c84a; --tint-deep: #10160a; --warm: #e8d060; }
+
+/* ===== CURRENT (approximation of client/game/styles.css) ===== */
+body.current { background: #05050a; color: #e8e8f5; font: 16px "Courier New", monospace; }
+.current .shell { display: grid; grid-template: 40px 1fr 44px / 1fr 280px; height: 100vh; gap: 0; }
+.current header { grid-column: 1 / -1; border-bottom: 1px solid #2a2a40; display: flex; gap: 20px; align-items: center; padding: 0 12px; }
+.current header .brand { color: #ff2ec4; font-weight: bold; }
+.current .cred { color: #f5e642; }
+.current .log { padding: 12px; overflow: auto; border-right: 1px solid #2a2a40; }
+.current .room-name { color: #ff2ec4; font-weight: bold; }
+.current .exits { color: #39ff8f; }
+.current .npc { color: #28e5ff; }
+.current .item { color: #ff9a3c; }
+.current .say { color: #28e5ff; }
+.current .emote { color: #b86bff; }
+.current .dim { color: #8888a8; }
+.current aside { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.current .panel { border: 1px solid #2a2a40; padding: 8px; }
+.current .panel h3 { margin: 0 0 6px; font-size: 13px; color: #8888a8; text-transform: uppercase; }
+.current .stat { display: flex; justify-content: space-between; font-size: 14px; }
+.current .gauge, .current .ticks { display: none; }
+.current .btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.current button { background: #11111c; color: #e8e8f5; border: 1px solid #2a2a40; font: inherit; font-size: 13px; padding: 6px; }
+.current .input { grid-column: 1 / -1; border-top: 1px solid #2a2a40; display: flex; align-items: center; padding: 0 12px; }
+.current .input span { color: #ff2ec4; margin-right: 8px; }
+.current .old { opacity: 1; }
+.current .glyph { display: none; }
+
+/* ===== PROPOSED ===== */
+body.proposed {
+	--ink: #d9dde3; --ink-dim: #7d8794; --ink-faint: #4a525c;
+	--metal: #1a1d21; --metal-hi: #2c3036; --metal-lo: #0c0d0f;
+	--screen: color-mix(in srgb, var(--tint-deep) 85%, #000);
+	background:
+		radial-gradient(120% 80% at 30% 0%, color-mix(in srgb, var(--tint) 10%, transparent), transparent 60%),
+		#0a0b0d;
+	color: var(--ink); font: 15px/1.55 'IBM Plex Mono', monospace;
+}
+.proposed .shell { display: grid; grid-template: 48px 1fr 52px / 1fr 300px; height: 100vh; gap: 10px; padding: 10px; }
+
+/* Bezel: hardware around an inset screen. */
+.proposed .bezel {
+	background: linear-gradient(var(--metal-hi), var(--metal) 8%, var(--metal) 92%, var(--metal-lo));
+	border-radius: 6px; padding: 6px;
+	box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 -1px 0 rgba(0,0,0,.6) inset, 0 6px 18px rgba(0,0,0,.5);
+}
+.proposed .screen {
+	background: var(--screen); border-radius: 3px; height: 100%; position: relative; overflow: hidden;
+	box-shadow: 0 0 0 1px #000, 0 2px 8px rgba(0,0,0,.8) inset;
+}
+.proposed .screen::after { /* scanlines, text pane only */
+	content: ''; position: absolute; inset: 0; pointer-events: none;
+	background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.18) 2px 3px);
+}
+
+.proposed header { grid-column: 1 / -1; display: flex; align-items: center; gap: 22px; padding: 0 16px; }
+.proposed header .brand { font: 800 22px 'K7 Shoulders', sans-serif; letter-spacing: .08em; color: var(--ink); }
+.proposed header .where { color: var(--ink-dim); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
+.proposed header .cred { margin-left: auto; font: 800 20px 'K7 Shoulders', sans-serif; color: var(--warm); letter-spacing: .04em; }
+.proposed header .cred small { font: 500 11px 'IBM Plex Mono'; color: var(--ink-dim); margin-right: 6px; letter-spacing: .12em; }
+
+.proposed .log { padding: 22px 28px; overflow: auto; height: 100%; }
+.proposed .log > * { max-width: 70ch; }
+.proposed .old { opacity: .38; }
+.proposed .room-name { font: 800 30px/1 'K7 Shoulders', sans-serif; letter-spacing: .05em; color: var(--ink); text-transform: uppercase; margin: 18px 0 2px; }
+.proposed .room-sub { font-size: 11px; letter-spacing: .2em; color: var(--tint); text-transform: uppercase; margin-bottom: 12px; }
+.proposed .desc { color: var(--ink); }
+.proposed .npc { color: var(--ink); font-weight: 600; }
+.proposed .item { color: var(--warm); }
+.proposed .glyph { color: var(--ink-faint); margin-right: 8px; }
+.proposed .exits { margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+.proposed .exits b { font-weight: 500; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; border: 1px solid color-mix(in srgb, var(--tint) 45%, transparent); color: var(--tint); padding: 1px 8px; border-radius: 2px; }
+.proposed .exits .lbl { display: none; }
+.proposed .say { color: var(--ink); } .proposed .say q { color: #fff; quotes: '"' '"'; }
+.proposed .emote { color: var(--ink-dim); font-style: italic; }
+.proposed .dim { color: var(--ink-faint); font-size: 13px; }
+
+.proposed aside { display: flex; flex-direction: column; gap: 10px; }
+.proposed .panel { padding: 12px 14px; }
+.proposed .panel h3 { margin: 0 0 10px; font: 800 13px 'K7 Shoulders', sans-serif; letter-spacing: .22em; color: var(--ink-dim); }
+.proposed .stat { display: grid; grid-template-columns: 70px 1fr 38px; align-items: center; gap: 8px; font-size: 11px; letter-spacing: .12em; color: var(--ink-dim); text-transform: uppercase; margin-bottom: 7px; }
+.proposed .stat .v { text-align: right; color: var(--ink); font-size: 13px; letter-spacing: 0; }
+.proposed .stat .plain { display: none; }
+.proposed .gauge { height: 8px; display: grid; grid-template-columns: repeat(20, 1fr); gap: 2px; }
+.proposed .gauge i { background: var(--ink-faint); opacity: .35; border-radius: 1px; }
+.proposed .gauge i.on { background: var(--c, var(--tint)); opacity: 1; box-shadow: 0 0 4px color-mix(in srgb, var(--c, var(--tint)) 50%, transparent); }
+.proposed .btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.proposed button {
+	font: 800 13px 'K7 Shoulders', sans-serif; letter-spacing: .14em; color: var(--ink);
+	background: linear-gradient(#33373d, #22252a); border: 0; border-radius: 3px; padding: 9px 4px;
+	box-shadow: 0 1px 0 rgba(255,255,255,.12) inset, 0 2px 0 #000, 0 3px 4px rgba(0,0,0,.5);
+	cursor: pointer;
+}
+.proposed button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(255,255,255,.08) inset; }
+.proposed .input { grid-column: 1 / -1; }
+.proposed .input .screen { display: flex; align-items: center; padding: 0 16px; }
+.proposed .input span { color: var(--tint); margin-right: 10px; }
+.proposed .caret { display: inline-block; width: 9px; height: 17px; background: var(--tint); animation: blink 1s steps(1) infinite; vertical-align: -3px; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+
+.proposed .bezel.flat { background: none; box-shadow: none; padding: 0; }
+
+/* Toolbar for the mockup itself */
+.tool { position: fixed; right: 12px; bottom: 70px; z-index: 9; display: flex; gap: 6px; font: 12px system-ui; }
+.tool button, .tool select { font: 12px system-ui !important; letter-spacing: 0 !important; padding: 6px 10px !important; background: #fff !important; color: #111 !important; border: 1px solid #999 !important; border-radius: 4px !important; box-shadow: none !important; }
+
+@media (max-width: 760px) {
+	.current .shell, .proposed .shell { grid-template: 48px 1fr auto 52px / 1fr; }
+	.proposed .log { padding: 16px; }
+}
+</style>
+</head>
+<body class="proposed mood-coldwater-night">
+<div class="shell">
+	<header class="bezel flat">
+		<span class="brand">ARCHITECT</span>
+		<span class="where">Coldwater · Ironside St · 23:40 · Sleet</span>
+		<span class="cred"><small>CREDITS</small>₵ 1,284</span>
+	</header>
+
+	<div class="bezel"><div class="screen log">
+		<div class="old">
+			<div class="dim">You buy a portion of cod and chips for ₵12.</div>
+			<div class="say">Marla says, <q>Vinegar's on the side. Don't drown it.</q></div>
+		</div>
+		<div class="room-name">Ironside Street</div>
+		<div class="room-sub">Coldwater · Harbour Quarter</div>
+		<div class="desc">Sleet comes off the water sideways and finds the gap in every coat. The chippy's window is fogged from the inside, which is the only warm thing on the street. A tram rail runs down the middle, rusted to the colour of the bricks.</div>
+		<div style="margin-top:10px">
+			<div><span class="glyph">◆</span><span class="npc">Dock Warden Pell</span> is leaning on a bollard, watching you.</div>
+			<div><span class="glyph">▪</span>A <span class="item">crushed can of Kelp Cola</span> lies in the gutter.</div>
+		</div>
+		<div class="exits"><span class="lbl">Exits: </span><b>North</b><b>South</b><b>East</b><b>In · Batter Days</b></div>
+		<div style="margin-top:14px" class="emote">Pell spits into the gutter and looks back at the water.</div>
+	</div></div>
+
+	<aside>
+		<div class="bezel panel">
+			<h3>VITALS</h3>
+			<div class="stat">Health <div class="gauge" data-n="16" style="--c:#7fd08a"></div><span class="v">82</span></div>
+			<div class="stat">Hunger <div class="gauge" data-n="11" style="--c:var(--warm)"></div><span class="v">54</span></div>
+			<div class="stat">Rads <div class="gauge" data-n="3" style="--c:#c7d04a"></div><span class="v">14</span></div>
+			<div class="stat">Warmth <div class="gauge" data-n="7" style="--c:var(--tint)"></div><span class="v">35</span></div>
+		</div>
+		<div class="bezel panel">
+			<h3>ACTIONS</h3>
+			<div class="btns">
+				<button>LOOK</button><button>INV</button><button>MAP</button>
+				<button>SEARCH</button><button>SIT</button><button>TABLET</button>
+			</div>
+		</div>
+	</aside>
+
+	<div class="bezel input"><div class="screen"><span>&gt;</span>say evening, warden<span class="caret"></span></div></div>
+</div>
+
+<div class="tool">
+	<select id="mood">
+		<option value="mood-coldwater-night">Coldwater, night</option>
+		<option value="mood-scarlet">Scarletwastes</option>
+		<option value="mood-acid">Acid rain</option>
+	</select>
+	<button id="swap">Show current</button>
+</div>
+
+<script>
+document.querySelectorAll('.gauge').forEach(g => {
+	const n = +g.dataset.n;
+	for (let i = 0; i < 20; i++) { const s = document.createElement('i'); if (i < n) s.className = 'on'; g.appendChild(s); }
+});
+const body = document.body, swap = document.getElementById('swap'), mood = document.getElementById('mood');
+swap.onclick = () => {
+	const cur = body.classList.toggle('current');
+	body.classList.toggle('proposed', !cur);
+	swap.textContent = cur ? 'Show proposed' : 'Show current';
+};
+mood.onchange = () => {
+	body.className = body.className.replace(/mood-\S+/, mood.value);
+};
+</script>
+</body>
+</html>

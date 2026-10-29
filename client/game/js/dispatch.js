@@ -381,6 +381,10 @@ const inGlassView = () => isFlightSimActive() || isCabActive() || isBoatActive()
 let boatFishMod = null;
 const loadBoatFish = () => (boatFishMod ??= import('./panels/boatfish.js').catch((e) => { boatFishMod = null; throw e; }));
 
+// The stands (panels/stands.js): the seat chart and the view from a seat, fetched on first use.
+let standsMod = null;
+const loadStands = () => (standsMod ??= import('./panels/stands.js').catch((e) => { standsMod = null; throw e; }));
+
 // The background re-look, shared by every reason to repaint the room (a hit, somebody
 // walking in, a door). Each is a full describeZone on the server, and in a group fight
 // every swing used to cost every client in the room its own look. One timer, and never
@@ -668,8 +672,11 @@ const handlers = {
         // its read-aloud is part-way through airing to everyone else. It's passed
         // through so the panel knows never to hold it back for the voice either.
         // How the line is to be said, when the broadcast says: excite, lex, voice.
-        const dl = (msg.excite || msg.lex || msg.voice || msg.speaker)
-          ? { ...(msg.excite ? { excite: msg.excite } : {}), ...(msg.lex ? { lex: msg.lex } : {}), ...(msg.voice ? { voice: msg.voice } : {}), ...(msg.speaker ? { speaker: msg.speaker } : {}) }
+        // `crowd`: a studio-audience beat, which the set plays as a laugh or applause.
+        // Not on catch-up: that reaction already happened.
+        const crowd = msg.crowd && !msg.catchUp;
+        const dl = (msg.excite || msg.lex || msg.voice || msg.speaker || crowd)
+          ? { ...(crowd ? { crowd: true } : {}), ...(msg.excite ? { excite: msg.excite } : {}), ...(msg.lex ? { lex: msg.lex } : {}), ...(msg.voice ? { voice: msg.voice } : {}), ...(msg.speaker ? { speaker: msg.speaker } : {}) }
           : undefined;
         v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday, msg.catchUp, dl);
         if (!msg.catchUp) v.speak(msg.message, msg.style, msg.duration, dl);
@@ -1341,6 +1348,9 @@ const handlers = {
   // The reveal is the show; `message` is the record and always prints. At the
   // bottom Display Mode rung the cinematic is suppressed and the record is all
   // you get — which this file's own note says loses nothing.
+  stands_chart: (msg) => { loadStands().then((m) => m.openStandsChart(msg)).catch((e) => console.error('[stands]', e)); },
+  stands_open: (msg) => { loadStands().then((m) => m.openStands(msg)).catch((e) => console.error('[stands]', e)); },
+  stands_close: () => { standsMod?.then((m) => m.closeStands()).catch(() => {}); },
   cardpack_open: (msg) => { if (msg.render !== 'log') openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
   // Same contract again: the cabinet is the show, the character box is the
   // record and always prints, so the bottom rung losing the panel loses nothing.

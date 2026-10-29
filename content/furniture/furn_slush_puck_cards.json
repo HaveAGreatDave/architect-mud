@@ -1,0 +1,20 @@
+{
+  "description": "A card machine bolted to the concourse wall by the turnstiles, its glass scratched white by rings and keys. Cluster Puck Season Set runs across the top in light-up letters, two of them out.",
+  "flags": {
+    "aliases": [
+      "card machine",
+      "puck machine",
+      "cluster puck machine"
+    ],
+    "card_league": "hockey",
+    "click_cmd": "buypack puck",
+    "interactions": [],
+    "notable": true,
+    "vends_packs": 1
+  },
+  "id": "furn_slush_puck_cards",
+  "name": "Cluster Puck card machine",
+  "object_type": "fixture",
+  "power_draw_kw": 0.4,
+  "zone_id": "zone_slush_concourse"
+}

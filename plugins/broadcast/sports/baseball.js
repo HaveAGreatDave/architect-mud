@@ -880,11 +880,108 @@ const ERROR_FIELDERS_TOTAL = ERROR_FIELDERS.reduce((s, [, w]) => s + w, 0);
 // A batter thrown out after running it out, rather than retired where he stood.
 const RAN_IT_OUT = new Set(['groundout', 'productout', 'doubleplay', 'tripleplay']);
 
-export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rates = SIM_V2_RATES } = {}) {
+// ── club rosters (sim v3) ────────────────────────────────────────────────────
+// From v3 a club has its own thirteen for a whole season: nine who play where they always
+// play, three starting pitchers who take turns, and a bench man who spells a regular now and
+// then. Between seasons each club changes a realistic amount, about two men in thirteen: a
+// release replaced off the unsigned list, and a few trades of like for like between clubs.
+//
+// LIKE THE GAMES, THE ROSTERS ARE A PURE FUNCTION. A season is the in-game month, and its
+// rosters are the first deal walked forward a season at a time from ROSTER_ANCHOR, each
+// season's moves drawn off its own number. Nothing is stored, every server deals the same
+// men, and a season replays with the squads it was played by.
+export const ROSTER_SIZE = 13;                 // nine, three starters, the bench man
+const ROSTER_ROTATION = 3;
+// The first season the rosters were dealt for: any month before it is the first deal.
+const ROSTER_ANCHOR = 2030 * 12;
+// The in-game day's season, as a month count (the season is the calendar month).
+export const seasonOfDay = (day) => { const d = new Date(day * 86400000); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
+
+// The first deal: the pool shuffled once, thirteen to a club in name order, and whoever is
+// left over unsigned. Seeded off the league's and the pool's size only, so adding a club or
+// a name re-deals the league (an expansion draft) and nothing else ever does.
+function firstDeal(league, pool) {
+  const dealt = sportsShuffle(pool, sportsRng(sportsHash(league.length * 1000 + pool.length, 0xdb13)));
+  const clubs = {};
+  league.forEach((team, i) => {
+    const m = dealt.slice(i * ROSTER_SIZE, (i + 1) * ROSTER_SIZE);
+    clubs[team] = {
+      lineup: LINEUP_POSITIONS.map((pos, k) => ({ name: m[k], pos, since: ROSTER_ANCHOR })),
+      rotation: m.slice(9, 9 + ROSTER_ROTATION).map(name => ({ name, pos: 'P', since: ROSTER_ANCHOR })),
+      bench: m.slice(12, 13).map(name => ({ name, pos: 'UT', since: ROSTER_ANCHOR })),
+    };
+  });
+  return { clubs, unsigned: dealt.slice(league.length * ROSTER_SIZE) };
+}
+
+// One off-season: the rosters of `season` from the one before it.
+const RELEASE_CHANCE = 0.75;   // a club lets one man go most seasons
+const TRADES = 5;              // like-for-like swaps across the league
+function offSeason(prev, league, season) {
+  const rand = sportsRng(sportsHash(season >>> 0, 0x7a4d));
+  const clubs = {};
+  for (const t of league) {
+    const c = prev.clubs[t];
+    clubs[t] = { lineup: c.lineup.map(e => ({ ...e })), rotation: c.rotation.map(e => ({ ...e })), bench: c.bench.map(e => ({ ...e })) };
+  }
+  const unsigned = [...prev.unsigned];
+  const slots = (c) => [...c.lineup, ...c.rotation, ...c.bench];
+  for (const t of league) {
+    if (!unsigned.length || rand() >= RELEASE_CHANCE) continue;
+    const all = slots(clubs[t]);
+    const out = all[Math.floor(rand() * all.length)];
+    const signed = unsigned.splice(Math.floor(rand() * unsigned.length), 1)[0];
+    unsigned.push(out.name);
+    out.name = signed; out.since = season;
+  }
+  for (let k = 0; k < TRADES && league.length > 1; k++) {
+    const a = league[Math.floor(rand() * league.length)];
+    let b = league[Math.floor(rand() * (league.length - 1))];
+    if (b === a) b = league[league.length - 1];
+    // a fielder for a fielder at his position, or an arm for an arm
+    const arm = rand() < 0.35;
+    const i = Math.floor(rand() * (arm ? ROSTER_ROTATION : 9));
+    const ea = arm ? clubs[a].rotation[i] : clubs[a].lineup[i];
+    const eb = arm ? clubs[b].rotation[i] : clubs[b].lineup[i];
+    [ea.name, eb.name] = [eb.name, ea.name];
+    ea.since = season; eb.since = season;
+  }
+  return { clubs, unsigned };
+}
+
+// The league's rosters for `season`. Walked forward from the newest season already worked
+// out, so a season costs one off-season the first time it's asked for and nothing after.
+const _rosterCache = new Map();   // league|pool signature -> Map(season -> rosters)
+export function clubRosters(teams, players, season) {
+  const pool = (Array.isArray(players) && players.length) ? players : DEFAULT_NAMES;
+  const league = (Array.isArray(teams) && teams.length) ? [...teams].sort() : [];
+  if (!league.length || pool.length < league.length * ROSTER_SIZE) return null;
+  const key = `${league.join('|')}#${pool.length}#${pool[0]}#${pool[pool.length - 1]}`;
+  let seasons = _rosterCache.get(key);
+  if (!seasons) { seasons = new Map([[ROSTER_ANCHOR, firstDeal(league, pool)]]); _rosterCache.set(key, seasons); }
+  const want = Math.max(ROSTER_ANCHOR, season | 0);
+  let at = want;
+  while (!seasons.has(at)) at--;
+  for (let s = at + 1; s <= want; s++) seasons.set(s, offSeason(seasons.get(s - 1), league, s));
+  return seasons.get(want);
+}
+
+// Who plays on `day`: the club's nine in their places, the bench man in for one of them
+// every fourth day, and the starter whose turn it is.
+export function lineupForDay(club, day) {
+  const lineup = club.lineup.map(e => e.name);
+  if (club.bench.length && ((day % 4) + 4) % 4 === 0) lineup[Math.floor(day / 4) % 9] = club.bench[0].name;
+  return { lineup, pitcher: club.rotation[((day % ROSTER_ROTATION) + ROSTER_ROTATION) % ROSTER_ROTATION].name };
+}
+
+// `lineups` (sim v3) names each side's nine and pitcher; without it the pool is shuffled and
+// dealt for the night, as v2 always did.
+export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rates = SIM_V2_RATES, lineups = null } = {}) {
   const side = sportsRng(sportsHash(seed >>> 0, 0x5132));
   const awayName = matchup?.away || 'Away', homeName = matchup?.home || 'Home';
-  const names = sportsShuffle((Array.isArray(players) && players.length) ? players : DEFAULT_NAMES, rand);
-  const mk = (name, off) => ({
+  // v3 draws nothing to deal, so its play stream starts one shuffle earlier than v2's.
+  const names = lineups ? [] : sportsShuffle((Array.isArray(players) && players.length) ? players : DEFAULT_NAMES, rand);
+  const mk = (name, off) => (lineups?.[name] ? { name, score: 0, idx: 0, lineup: [...lineups[name].lineup], pitcher: lineups[name].pitcher } : {
     name, score: 0, idx: 0,
     lineup: Array.from({ length: 9 }, (_, k) => names[(off + k) % names.length]),
     pitcher: names[(off + 9) % names.length],
@@ -1129,7 +1226,16 @@ export function playTokens(b, play) {
 
 // The descriptor's sim: v2 when sportsGameForSlot says the slot plays it, else v1.
 function simGameFor(matchup, players, rand, opts) {
-  return opts?.version === 2 ? simGameV2(matchup, players, rand, opts) : simGame(matchup, players, rand);
+  if (opts?.version >= 3 && Number.isFinite(opts.day)) {
+    const R = clubRosters(matchup?.teams, players, seasonOfDay(opts.day));
+    const a = R?.clubs[matchup?.away], h = R?.clubs[matchup?.home];
+    if (a && h) {
+      const lineups = { [matchup.away]: lineupForDay(a, opts.day), [matchup.home]: lineupForDay(h, opts.day) };
+      // v3 is v2's game played by fixed squads, so it keeps v2's mark (baseball-gameday.js reads it)
+      return simGameV2(matchup, players, rand, { ...opts, lineups });
+    }
+  }
+  return opts?.version >= 2 ? simGameV2(matchup, players, rand, opts) : simGame(matchup, players, rand);
 }
 
 // ── Sport descriptor ─────────────────────────────────────────────────────────
@@ -1187,6 +1293,21 @@ export function foldGame(acc, game, { before, after } = {}) {
     r.team = team || r.team;
     return r;
   };
+  // Who turned out, where and for whom: a man's games, the positions he played and the
+  // clubs he played them for. The pool is shuffled per game, so these are the only way to
+  // say what a man IS over a season (the trading cards read them, plugins/cards/sports.js).
+  // Copied, never bumped in place: nightLines (baseball-gameday.js) folds tonight onto
+  // shallow copies of the season's rows, and an in-place bump would write into the season.
+  const tally = (r, pos, club) => {
+    r.g = (r.g || 0) + 1;
+    r.pos = { ...r.pos, [pos]: (r.pos?.[pos] || 0) + 1 };
+    r.clubs = { ...r.clubs, [club]: (r.clubs?.[club] || 0) + 1 };
+  };
+  for (const t of [game.away, game.home]) {
+    if (!t?.name || !Array.isArray(t.lineup)) continue;
+    t.lineup.forEach((name, k) => { if (name) tally(bat(name, t.name), LINEUP_POSITIONS[k] || 'DH', t.name); });
+    if (t.pitcher) tally(arm(t.pitcher, t.name), 'P', t.name);
+  }
   // the half so far: its outs, the errors that should have been outs, who reached on one
   let outs = 0, errOuts = 0;
   const onError = new Set();
@@ -1339,8 +1460,9 @@ export const BASEBALL = {
   sectionPlural: 'innings',
   simGame: simGameFor,
   // The sim versions this sport has. sportsGameForSlot picks one by slot; see the switch
-  // in broadcast/index.js.
-  simVersions: [1, 2],
+  // in broadcast/index.js. v3 is v2 played by the season's fixed club rosters (clubRosters).
+  simVersions: [1, 2, 3],
+  clubRosters, seasonOfDay, lineupForDay,
   synthDetail: synthPitches,
   synthPlay,
   playTags,

@@ -24,6 +24,7 @@ import { sfx, esc, mountOverlay } from './minigame-common.js';
 import { prefersReducedMotion } from '/shared/settings.js';
 import { openTabletToBinder } from './lazy-views.js';
 import { loadCss } from '../../../shared/dom.js';
+import { ensureSportCards } from './sportcard.js';
 
 // cardpack.css ships beside this file and is fetched when the module loads, so ensurePackStyles
 // still applies it synchronously on first open. See loadCss in client/shared/dom.js.
@@ -97,9 +98,9 @@ const VM_TAGLINE = 'COLLECTED WORKS · SERIES 1';
 // must not say it twice — "ARCHITECT DRAFT · ARCHITECT DRAFT CARD MACHINE" reads
 // like a bug, because it is one. Strip the brand off the front and keep whatever
 // the fixture actually calls itself.
-function vmModel(name) {
+function vmModel(name, brand = VM_BRAND) {
   const s = String(name || 'card dispenser').trim();
-  const bare = s.replace(new RegExp(`^${VM_BRAND}\\s*`, 'i'), '').trim();
+  const bare = s.replace(new RegExp(`^${brand}\\s*`, 'i'), '').trim();
   return bare || s;
 }
 
@@ -112,8 +113,11 @@ const slotOf = (d, code) => (d.slots || []).find(s => s.code === code) || { code
 const stockedCodes = (d) => (d.slots || []).filter(s => s.left > 0).map(s => s.code);
 const reduceMotion = () => prefersReducedMotion();
 
+// A league's machine (plugins/cards/sports-verbs.js) sends its own brand, tagline, hint and
+// verbs; a Draft machine sends none and gets the Draft's.
 export function openCardMachinePanel(msg) {
   ensurePackStyles();
+  const brand = msg.brand || VM_BRAND;
   if (machine) machine.close();
 
   const mounted = mountOverlay({
@@ -122,8 +126,8 @@ export function openCardMachinePanel(msg) {
       <div class="vm-marquee">
         <span class="vm-logo">◈</span>
         <div class="vm-names">
-          <div class="vm-brand">${VM_BRAND}</div>
-          <div class="vm-model">${esc(vmModel(msg.machine)).toUpperCase()} · ${VM_TAGLINE}</div>
+          <div class="vm-brand">${esc(brand)}</div>
+          <div class="vm-model">${esc(vmModel(msg.machine, brand)).toUpperCase()} · ${esc(msg.tagline || VM_TAGLINE)}</div>
         </div>
         <button class="vm-x" aria-label="Close">&#10005;</button>
       </div>
@@ -146,8 +150,8 @@ export function openCardMachinePanel(msg) {
       </div>
       <div class="vm-hatch"><div class="vm-flap" id="vm-flap">PUSH</div></div>
       <div class="vm-tray" id="vm-tray">EMPTY TRAY</div>
-      <div class="vm-hint">Every sleeve on these coils is already what it is. About one in twelve runs HOT, triple
-        weight on epic and legendary, and nothing on the outside of a sleeve will ever tell you which.</div>
+      <div class="vm-hint">${msg.hint ? esc(msg.hint) : `Every sleeve on these coils is already what it is. About one in twelve runs HOT, triple
+        weight on epic and legendary, and nothing on the outside of a sleeve will ever tell you which.`}</div>
     </div>`,
     onClose: () => { machine = null; },
   });
@@ -178,11 +182,11 @@ export function openCardMachinePanel(msg) {
     if (!btn) return;
     if (btn.disabled) { sfx('cards-deny'); return; }
     sfx('cards-ui');
-    if (btn.id === 'vm-open') { machine.justVended = false; mounted.close(); sendCmdSilent('openpack'); return; }
+    if (btn.id === 'vm-open') { machine.justVended = false; mounted.close(); sendCmdSilent(machine.data.openCmd || 'openpack'); return; }
     // The coil travels with the verb. A typed `buypack confirm` with no code is
     // still valid — the server falls back to the fullest coil — so the panel and
     // the keyboard reach the same machine.
-    sendCmdSilent(`buypack confirm${machine.pick ? ' ' + machine.pick : ''}`);
+    sendCmdSilent(`${machine.data.buyCmd || 'buypack'} confirm${machine.pick ? ' ' + machine.pick : ''}`);
   });
   sfx('cards-slide');
 }
@@ -262,7 +266,7 @@ function renderMachine() {
         `<div class="vm-odd-bar"><i style="height:${h}px"></i></div>` +
         `<div class="vm-odd-lbl">${rarity(r).label.slice(0, 4)}</div></div>`;
     }).join('') + `</div>` +
-    `<div class="vm-note">BUY-BACK ₵${d.scrapValue} A DUPE</div>` +
+    (d.scrapValue ? `<div class="vm-note">BUY-BACK ₵${d.scrapValue} A DUPE</div>` : '') +
     // A sleeve just hit the tray, so TEAR takes the primary button and BUY steps
     // down to it. The offer has to be made at the moment the machine finishes
     // delivering — that is when a player wants it — and it stays an OFFER: the
@@ -416,6 +420,7 @@ let show = null;
 
 export function openPackReveal(msg) {
   ensurePackStyles();
+  if (msg.league) ensureSportCards();
   if (show) show.close();
   const cards = Array.isArray(msg.cards) ? msg.cards : [];
   if (!cards.length) return;
@@ -454,6 +459,8 @@ export function openPackReveal(msg) {
     ...mounted, cards, idx: -1, phase: 'sealed', timers: [],
     scrapped: msg.scrapped || 0, scrapValue: msg.scrapValue || 0, packs: msg.packs || 0,
     coil: msg.coil || null, machine: msg.machine || null, hot: !!msg.hot,
+    // a league sleeve's own print, the verb that tears another and its Binder page
+    brand: msg.brand || VM_BRAND, sub: msg.sub || 'SERIES 1', againCmd: msg.againCmd || 'openpack', shelfScreen: msg.shelfScreen || null,
   };
 
   mounted.overlay.querySelector('#cp-skip').addEventListener('click', (e) => { e.stopPropagation(); sfx('cards-ui'); toSummary(); });
@@ -581,8 +588,8 @@ function renderSealed() {
       <div class="cp-pack-seam"></div>
       <div class="cp-pack-print">
         <div class="cp-pack-mark">◈</div>
-        <div class="cp-pack-brand">${VM_BRAND}</div>
-        <div class="cp-pack-sub">SERIES 1 · SEALED</div>
+        <div class="cp-pack-brand">${esc(show.brand)}</div>
+        <div class="cp-pack-sub">${esc(show.sub)} · SEALED</div>
         <div class="cp-pack-count">${show.coil ? `COIL ${esc(show.coil)}` : 'FOIL SLEEVE'}</div>
       </div>
       ${show.machine ? `<div class="cp-pack-from">${esc(show.machine)}</div>` : ''}
@@ -873,8 +880,8 @@ function toSummary() {
   // SEE THE SHELF opens the BINDER, not the log. See openTabletToBinder: the
   // reveal has just shown these as objects and the follow-through has to be the
   // surface where they stay objects.
-  wire('#cp-shelf', () => { show.close(); openTabletToBinder(); });
-  wire('#cp-again', () => { show.close(); sendCmdSilent('openpack'); });
+  wire('#cp-shelf', () => { const page = show.shelfScreen; show.close(); openTabletToBinder(page); });
+  wire('#cp-again', () => { const cmd = show.againCmd; show.close(); sendCmdSilent(cmd); });
 
   // Every card in the wall is a way back into that card. The reveal moves at its
   // own pace and a player will always miss one — the summary is where they get to

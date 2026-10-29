@@ -1984,8 +1984,18 @@ it was in, so the new clubs start at 0-0 on the deploy that ships them and a Cup
 seeded with clubs that no longer exist never airs. The CPhL is on `cphl-8`, the eight
 neighbourhood clubs above; every hockey season opened before that has no era and closes on
 the first tick after the deploy. Change the era only when the roster changes. Deadball is on
-`deadball-8`, the eight clubs above; its sixteen-club seasons had no era and close the same
-way.
+`deadball-rosters`, the eight clubs above playing their season squads (below); its
+sixteen-club seasons had no era and close the same way.
+
+**Deadball's season squads (sim v3).** From `@sim 3` a club keeps thirteen men a season: nine
+who play where they always play, three starters who take turns by the day, and a bench man who
+spells a regular every fourth day. Between seasons (the in-game month) each club changes about
+two men: one release most seasons, replaced off the unsigned list, and five like-for-like trades
+across the league. The squads are a pure function of the season (`clubRosters` in
+`sports/baseball.js`), walked forward from the first deal at `ROSTER_ANCHOR`, so nothing is
+stored and every server deals the same men. The pool must hold at least clubs × 13 names; the
+slack is the unsigned list. Before v3 the pool was shuffled and dealt fresh every game, and the
+games that aired under v2 still replay that way.
 
 ### The rink sub-screen (Rinkside, as built)
 

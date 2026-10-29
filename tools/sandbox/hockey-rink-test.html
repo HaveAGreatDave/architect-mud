@@ -80,7 +80,10 @@
     import { setVenue } from '../../client/game/js/panels/venue.js';
     import { skylineFrom } from '../../client/shared/skyline-manifest.js';
 
-    const view = createRinkView(document.getElementById('tv-gameday'));
+    // ?seat=x,y,z puts the camera on a seat in the stands (stands.js); window.__seat turns it
+    const SEAT = new URLSearchParams(location.search).get('seat');
+    window.__seat = SEAT ? { eye: SEAT.split(',').map(Number), mode: 'follow', fov: 64 } : null;
+    const view = createRinkView(document.getElementById('tv-gameday'), window.__seat ? { seat: window.__seat } : {});
     window.__view = view;
     view.showIdle();
 

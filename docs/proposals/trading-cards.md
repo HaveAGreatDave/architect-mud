@@ -17,6 +17,10 @@
 > one is the same argument finished. Sections below that describe two faces are superseded and kept
 > only as the record of why there was nearly a second.
 >
+> **Sports cards (2026-10-28):** the Deadball and Cluster Puck season sets are a separate set with
+> fronts and backs, stats frozen at purchase and special editions; see the "Sports cards" section of
+> the [plugin README](../../plugins/cards/README.md).
+>
 > **Still open:** there is no tablet app (the shelf reads through the `cards` verb); trading a card
 > between players goes through no bespoke path yet.
 

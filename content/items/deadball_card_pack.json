@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "deadball_card_pack",
+  "name": "Deadball card sleeve",
+  "tags": {
+    "description": "A wax-paper sleeve printed with a ballpark at night and Deadball Season Set across the top in red script. Five cards inside, the backs printed the day it came off the coil. It smells of bad gum."
+  },
+  "type": "misc",
+  "value": 150,
+  "weight": 15
+}

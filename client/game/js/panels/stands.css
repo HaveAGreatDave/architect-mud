@@ -1,0 +1,72 @@
+/* Stands (stands.js): the seat chart and the view from a seat. */
+
+#stands-chart {
+	position: fixed; inset: 0; z-index: 9000;
+	display: flex; align-items: center; justify-content: center;
+	background: rgba(4, 6, 10, 0.72); padding: 16px;
+}
+#stands-chart .st-card {
+	width: min(640px, 100%); max-height: 100%; overflow: auto;
+	background: #10151c; color: #dfe6ee; border: 1px solid #2b3a4a; border-radius: 8px;
+	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); padding: 12px 14px 14px;
+	font: 14px/1.35 var(--font-ui, system-ui, sans-serif);
+}
+#stands-chart .st-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+#stands-chart .st-head b { font-size: 16px; }
+#stands-chart .st-head span { opacity: 0.7; flex: 1; }
+#stands-chart .st-x { background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 2px 6px; }
+#stands-chart .st-plan { width: 100%; height: auto; max-height: 46vh; display: block; margin: 0 auto 10px; }
+#stands-chart .st-ice { fill: #dfeaf2; stroke: #8aa0b4; stroke-width: 1.5; }
+#stands-chart .st-red { stroke: #c0392b; stroke-width: 1.2; }
+#stands-chart .st-blue { stroke: #2d5fb8; stroke-width: 1.6; }
+#stands-chart .st-ring { fill: none; stroke: #2d5fb8; stroke-width: 0.8; }
+#stands-chart .st-grass { fill: #2f6b34; stroke: #e8e8e8; stroke-width: 3; }
+#stands-chart .st-dirt { fill: #a8774a; }
+#stands-chart .st-sec { cursor: pointer; }
+#stands-chart .st-sec circle { fill: #e3a72f; stroke: #10151c; stroke-width: 2; }
+#stands-chart .st-sec text { fill: #10151c; text-anchor: middle; font-weight: 700; font-family: system-ui, sans-serif; pointer-events: none; }
+#stands-chart .st-sec:hover circle, #stands-chart .st-sec:focus circle { fill: #ffd25e; }
+#stands-chart .st-sec.mine circle { fill: #5ecf86; }
+#stands-chart .st-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+#stands-chart .st-list li {
+	display: grid; grid-template-columns: 1fr auto; grid-template-areas: "name buy" "note buy";
+	align-items: center; padding: 6px 8px; border-radius: 5px; background: #161e28;
+}
+#stands-chart .st-list li.hot { background: #22303f; }
+#stands-chart .st-name { grid-area: name; font-weight: 600; }
+#stands-chart .st-note { grid-area: note; opacity: 0.65; font-size: 12.5px; }
+#stands-chart .st-list button {
+	grid-area: buy; min-width: 76px; padding: 6px 10px; border-radius: 4px; cursor: pointer;
+	background: #e3a72f; color: #10151c; border: 0; font-weight: 700;
+}
+#stands-chart .st-list button:disabled { background: #2b3542; color: #8794a3; cursor: default; }
+
+#stands-view {
+	position: fixed; inset: 0; z-index: 8900;
+	display: flex; flex-direction: column; background: #05070a;
+}
+#stands-view .st-bar {
+	display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+	padding: 8px 12px; background: #0d1218; color: #dfe6ee; border-bottom: 1px solid #22303f;
+	font: 14px/1.3 var(--font-ui, system-ui, sans-serif);
+}
+#stands-view .st-where { flex: 1 1 200px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#stands-view .st-bar button {
+	padding: 6px 10px; border-radius: 4px; cursor: pointer;
+	background: #1d2733; color: #dfe6ee; border: 1px solid #33465a;
+}
+#stands-view .st-bar .st-mode[aria-pressed="true"] { background: #e3a72f; color: #10151c; border-color: #e3a72f; }
+#stands-view .st-bar .st-leave { background: #3a1d1d; border-color: #6b3030; }
+#stands-view .st-host {
+	position: relative; flex: 1 1 auto; min-height: 0;
+	display: flex; flex-direction: column; cursor: grab; touch-action: none;
+}
+#stands-view .st-host:active { cursor: grabbing; }
+/* the TV sub-screen's own camera buttons mean nothing from a seat */
+#stands-view .gdr-cam, #stands-view .gds-cam { display: none !important; }
+#stands-view .st-tip {
+	position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+	padding: 3px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.5); color: #c8d2dc;
+	font: 12px system-ui, sans-serif; pointer-events: none;
+}
+#stands-chart .st-bowl { fill: #1b2430; stroke: #2b3a4a; stroke-width: 1; }

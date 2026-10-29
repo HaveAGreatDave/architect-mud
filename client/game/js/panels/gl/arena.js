@@ -922,7 +922,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const { w, h, u } = fit();
       const rp = W0.replay && W0.replay.active ? W0.replay : null;
       W = rp ? rp.frame() : W0;
-      camera.view = api.view;
+      camera.view = api.view; camera.seat = api.seat || null;
       // the live camera keeps following the play under a replay, so it's on it when it ends
       const live = camera.update(w, h, now);
       // (what the live picture shows, for the director: a hit it misses is replayed later)

@@ -2457,7 +2457,8 @@ export function createDirector(W, opts = {}) {
             W.banner = { text: 'K.O.', t0: W.t, dur: 1.3, col: '#ff5a3c' }; W.sfx('knockout', { hurt: !!p.hurt, side: vi.side });
             if (grave) {
               D.recordUntil = W.t + 1.3;
-              D.xrayPending = { t: W.t, startAt: W.t + 2.4, follow: { seed: vi.seed, side: vi.side },
+              // (held until the winner's close-up has been and the camera's pulled back out)
+              D.xrayPending = B.xray = { t: W.t, startAt: W.t + 8, follow: { seed: vi.seed, side: vi.side },
                 label: `${String(win.name || '').toUpperCase()} ON ${String(vi.name || '').toUpperCase()}`,
                 xray: { t: W.t, bone: fightBone(p.loserWound), seed: vi.seed, side: vi.side, dead: false } };
             }
@@ -2470,6 +2471,12 @@ export function createDirector(W, opts = {}) {
             W.banner = { text: 'TURTLE', t0: W.t, dur: 1.2, col: '#f0bd4c' }; W.sfx('fightTurtle');
           }
           B.overAt = W.t;
+          // the winner, close, named over the man he beat, until the camera pulls back out
+          if (!p.draw) at(B, 1.4, () => {
+            if (B.toBox) return;
+            B.winnerCam = true; frame('winner', [win.x, win.y]);
+            W.banner = { text: 'WINNER', sub: `${String(win.name || '').toUpperCase()} DEFEATS ${String(lose.name || '').toUpperCase()}`, t0: W.t, dur: 2.6, col: '#f0bd4c' };
+          });
         }
       });
     }
@@ -2489,7 +2496,11 @@ export function createDirector(W, opts = {}) {
     // Then the draw: the referee picks up what they left on the ice, the linesman gets the
     // puck (see stopPlay).
     const boxCue = cueOf(p, 'box'), tBox = boxCue != null ? Math.max(tEnd + 2.6, boxCue + 0.3) : tEnd + 3.6;
-    after(tBox - 1.0, () => { frame('broadcast', [cx, cy]); W.fight.hud = false; });
+    after(tBox - 1.0, () => {
+      B.winnerCam = false; frame('broadcast', [cx, cy]); W.fight.hud = false;
+      // (no later than 8 s on: the recorder keeps ten, and the clip starts 1.4 s before the punch)
+      if (B.xray) B.xray.startAt = Math.min(W.t + 1.0, B.xray.t + 8);
+    });
     after(tBox, () => {
       B.toBox = true;
       for (const [f, i] of [[L, 0], [R, 1]]) { if (p.hurt && f === lose) continue; if (f.rag) W.getUp(f, 0.8); leave(f, cx + (i ? 10 : -10)); }
@@ -2499,6 +2510,7 @@ export function createDirector(W, opts = {}) {
     const gearUp = () => { for (const d of W.debris) if (hyp(d.x - cx, d.y - cy) < 18 && !D.gear.includes(d)) D.gear.push(d); };
     B.update = (dt, rel) => {
       if (B.stopped) return;
+      if (B.winnerCam) W.cam.focus = [win.x, win.y];
       if (!B.gloves) {
         // skating in to meet him
         const gap = hyp(L.x - R.x, L.y - R.y);

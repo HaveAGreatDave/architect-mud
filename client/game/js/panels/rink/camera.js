@@ -111,6 +111,8 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
     pf = [f[0], f[1]];
     switch (c.mode) {
       case 'fight': return { lx: f[0], ly: f[1], lz: 3.0, dist: 17.5, pitch: 0.1, fm: 0.95 };
+      // the winner of a fight, close on his head and shoulders before the pan back out
+      case 'winner': return { lx: f[0], ly: f[1], lz: 5.0, dist: 9, pitch: 0.08, fm: 0.9 };
       case 'zoom': return { lx: f[0], ly: f[1] - 2, lz: 1.5, dist: 40, pitch: 0.4, fm: 1 };
       case 'push': return { lx: f[0], ly: f[1], lz: 2.0, dist: 30, pitch: 0.32, fm: 1 };
       // the replay: down at ice level and close, following the puck a beat behind; never
@@ -249,6 +251,7 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
     const yawT = want() === 'vertical' ? 1 : 0;
     if (api.view !== lastView) { lastView = api.view; yawS = yawT; yawV.v = 0; Object.assign(cam, tg); for (const k of KEYS) vel[k].v = 0; }
     else if (yawS !== yawT) yawS = dt > 0 ? smooth(yawS, yawT, yawV, SWING * 0.45, dt, Infinity) : yawS;
+    if (api.seat) { api.shown = 'broadcast'; return seatFrame(api.seat, w, h, dt); }
     const yaw = yawS, { fx, fy, rx, ry } = camAxes(yaw);
     api.shown = yaw > 0.5 ? 'vertical' : 'broadcast';
     const back = cam.dist * Math.cos(cam.pitch);
@@ -257,6 +260,30 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
     const P = (X, Y, Z) => { const ex = X - C.x, ey = Y - C.y, dz = Z - C.z, dx = ex * rx + ey * ry, dy = ex * fx + ey * fy, d = dy * cp - dz * sp; if (d < NEAR) return null; const up = dy * sp + dz * cp; return { x: C.cx + C.f * dx / d, y: C.cy - C.f * up / d, s: C.f / d, d }; };
     return { C, P, camPos: [C.x, C.y, C.z] };
   };
+  // A SEAT IN THE STANDS (stands.js): the eye is bolted to the seat, `seat.eye` in the sheet's
+  // feet, and it turns to any heading, which is the one place the camera yaws past its quarter
+  // turn (`C.ax` carries the axes, which `matrices` takes over `C.yaw`). Following, it looks where
+  // the broadcast framing above is looking, which the springs have already smoothed; free, it
+  // looks where the viewer turned it (`seat.yaw`, radians from +Y toward +X, and `seat.pitch`,
+  // down positive). Following writes its heading back, so free look starts where you were looking.
+  function seatFrame(s, w, h, dt) {
+    const [ex, ey, ez] = s.eye;
+    if (s.mode !== 'free') {
+      const tx = cam.lx - ex, ty = cam.ly - ey, tz = cam.lz - ez;
+      const yaw = Math.atan2(tx, ty), pitch = Math.atan2(-tz, Math.hypot(tx, ty));
+      // eased, so a cut in the broadcast framing is a turn of the head rather than a jump
+      const k = s.yaw == null || !(dt > 0) ? 1 : 1 - Math.exp(-dt * 5);
+      s.yaw = s.yaw == null ? yaw : s.yaw + Math.atan2(Math.sin(yaw - s.yaw), Math.cos(yaw - s.yaw)) * k;
+      s.pitch = s.pitch == null ? pitch : s.pitch + (pitch - s.pitch) * k;
+    }
+    const a = s.yaw || 0, fx = Math.sin(a), fy = Math.cos(a), rx = fy, ry = -fx;
+    const fov = clamp(s.fov || 64, 15, 100) * Math.PI / 180;
+    const C = { x: ex, y: ey, z: ez, pitch: s.pitch || 0, yaw: 0, ax: { fx, fy, rx, ry }, f: (w / 2) / Math.tan(fov / 2), cx: w / 2, cy: h / 2, w, h };
+    const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch);
+    const P = (X, Y, Z) => { const qx = X - ex, qy = Y - ey, dz = Z - ez, dx = qx * rx + qy * ry, dy = qx * fx + qy * fy, d = dy * cp - dz * sp; if (d < NEAR) return null; const up = dy * sp + dz * cp; return { x: C.cx + C.f * dx / d, y: C.cy - C.f * up / d, s: C.f / d, d }; };
+    return { C, P, camPos: [ex, ey, ez] };
+  }
+  api.seat = null;
   return api;
 }
 
@@ -266,7 +293,7 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
 // below the middle of the frame (cy = 0.56 h), which is a shift of y by a multiple of depth.
 // `mirror` flips the world about the ice (z → −z) for the reflection pass.
 export function matrices(C, mirror = false, near = NEAR, far = FAR) {
-  const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch), mz = mirror ? -1 : 1, { fx, fy, rx, ry } = camAxes(C.yaw);
+  const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch), mz = mirror ? -1 : 1, { fx, fy, rx, ry } = C.ax || camAxes(C.yaw);
   // view: rows are right, up, depth (world → camera), written column-major. A mirror only
   // negates the z column: the eye stays put and the world flips under it.
   // (along the ground, forward is the axis the camera looks down and right the one across)

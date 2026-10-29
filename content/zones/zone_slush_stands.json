@@ -12,6 +12,77 @@
     "floor": "concrete",
     "is_building": true,
     "is_interior": true,
+    "stands": {
+      "sport": "hockey",
+      "sections": [
+        {
+          "id": "glass",
+          "name": "On the Glass",
+          "price": 60,
+          "eye": [
+            100,
+            -4,
+            5.5
+          ],
+          "note": "front row, centre ice"
+        },
+        {
+          "id": "lower",
+          "name": "Centre Lower",
+          "price": 35,
+          "eye": [
+            100,
+            -20,
+            15
+          ],
+          "note": "the best view of the play"
+        },
+        {
+          "id": "corner",
+          "name": "The Corner",
+          "price": 20,
+          "eye": [
+            14,
+            -16,
+            16
+          ],
+          "note": "low end, where the fights end up"
+        },
+        {
+          "id": "net",
+          "name": "Behind the Net",
+          "price": 15,
+          "eye": [
+            -24,
+            42.5,
+            21
+          ],
+          "note": "the away goal in front of you"
+        },
+        {
+          "id": "far",
+          "name": "Far Side",
+          "price": 25,
+          "eye": [
+            100,
+            101,
+            20
+          ],
+          "note": "across from the benches"
+        },
+        {
+          "id": "gods",
+          "name": "The Gods",
+          "price": 5,
+          "eye": [
+            100,
+            -44,
+            38
+          ],
+          "note": "top row, under the arches"
+        }
+      ]
+    },
     "window": {
       "description": "A great arched window in the north end wall, glazed in a steel grid, three panes of it patched with board. Glacier Street shows through it as a grey band.",
       "light": 0.4,

@@ -94,6 +94,67 @@ function packageStingDef(key, fm) {
   ] } };
 }
 
+// ── Studio audience ──────────────────────────────────────────────────────────
+// A talk or game show's crowd beat ("( The audience laughs. )") arrives flagged
+// `crowd`, and the set plays what the line describes. The words pick the sound in
+// the order they're written, so "Laughter, then applause" is a laugh and then a
+// hand. A beat that names no reaction (a light fixture sways) stays silent.
+// All noise through bandpasses: a laugh is pulsed vowel formants, applause is
+// bright noise flickered fast enough to read as many hands, a groan falls.
+const CROWD_WORDS = [
+  [/applau|clap|cheer|ovation|erupt|whoop|goes up|breaks|\brises\b|\bstands\b/i, 'applause'],
+  [/laugh|chuckl|giggl|loses it|howl|\bHA!/i, 'laugh'],
+  [/groan|\bboos?\b|jeer|a+ww+/i, 'groan'],
+  [/gasp|o{3,}h|wince/i, 'gasp'],
+  [/murmur|mutter|whisper|\byells\b|\bshouts\b/i, 'murmur'],
+];
+// `sweep` slides the band ({ to, time }), since noise has no pitch to bend.
+const crowdNoise = (hz, q, gain, adsr, { sweep, ...extra } = {}) => ({ waveform: 'noise', noiseMix: 1, gain, adsr, filter: { type: 'bandpass', freq: hz, q, ...sweep }, ...extra });
+const CROWD_DEFS = {
+  // Vowels pulsed at different rates so it never locks into one man's laugh.
+  laugh: (big) => ({ duration: big ? 2.6 : 1.6, layers: [
+    crowdNoise(720, 3.5, 0.5, { a: 0.08, d: 0.3, s: 0.8, r: big ? 1.1 : 0.7 }, { tremolo: { rate: 5.2, depth: 0.75 } }),
+    crowdNoise(1150, 4, 0.35, { a: 0.1, d: 0.3, s: 0.75, r: big ? 1.0 : 0.6 }, { tremolo: { rate: 6.7, depth: 0.7 } }),
+    crowdNoise(480, 2.5, 0.3, { a: 0.15, d: 0.4, s: 0.7, r: big ? 1.2 : 0.7 }, { tremolo: { rate: 4.1, depth: 0.6 } }),
+    crowdNoise(2600, 3, 0.12, { a: 0.1, d: 0.3, s: 0.6, r: 0.6 }, { tremolo: { rate: 8.3, depth: 0.8 } }),
+  ] }),
+  applause: (big) => ({ duration: big ? 3.2 : 2.2, layers: [
+    crowdNoise(2400, 0.9, 0.45, { a: 0.12, d: 0.4, s: 0.85, r: big ? 1.4 : 0.9 }, { tremolo: { rate: 17, depth: 0.55 } }),
+    crowdNoise(1300, 1.1, 0.35, { a: 0.15, d: 0.4, s: 0.8, r: big ? 1.3 : 0.8 }, { tremolo: { rate: 13.3, depth: 0.5 } }),
+    crowdNoise(4200, 1.2, 0.2, { a: 0.1, d: 0.3, s: 0.75, r: big ? 1.2 : 0.8 }, { tremolo: { rate: 23, depth: 0.6 } }),
+  ] }),
+  groan: () => ({ duration: 1.3, layers: [
+    crowdNoise(560, 5, 0.55, { a: 0.12, d: 0.4, s: 0.6, r: 0.6 }, { sweep: { to: 380, time: 1.1 } }),
+    crowdNoise(900, 5, 0.3, { a: 0.15, d: 0.4, s: 0.5, r: 0.5 }, { sweep: { to: 620, time: 1.1 } }),
+  ] }),
+  gasp: () => ({ duration: 0.7, layers: [
+    crowdNoise(1100, 1.2, 0.4, { a: 0.04, d: 0.15, s: 0.4, r: 0.3 }, { sweep: { to: 1700, time: 0.15 } }),
+    crowdNoise(650, 4, 0.3, { a: 0.06, d: 0.15, s: 0.35, r: 0.3 }, { sweep: { to: 880, time: 0.2 } }),
+  ] }),
+  murmur: () => ({ duration: 1.8, layers: [
+    crowdNoise(520, 3, 0.3, { a: 0.3, d: 0.4, s: 0.7, r: 0.7 }, { tremolo: { rate: 3.3, depth: 0.5 } }),
+    crowdNoise(1000, 3.5, 0.18, { a: 0.35, d: 0.4, s: 0.6, r: 0.6 }, { tremolo: { rate: 4.7, depth: 0.5 } }),
+  ] }),
+};
+const CROWD_BIG = /big|roar|loses it|erupt|harder|absolutely|ovation|wave/i;
+function playCrowd(text) {
+  const ae = window.AudioEngine;
+  if (!ae?.playSfx) return;
+  const plain = String(text);
+  const hits = [];
+  for (const [re, kind] of CROWD_WORDS) {
+    const m = plain.match(re);
+    if (m) hits.push({ kind, at: m.index });
+  }
+  hits.sort((a, b) => a.at - b.at);
+  const big = CROWD_BIG.test(plain);
+  hits.slice(0, 2).forEach((h, i) => {
+    const config = CROWD_DEFS[h.kind](big);
+    const fire = () => { try { ae.playSfx({ id: `tv_crowd_${h.kind}`, category: 'tv', priority: 3, config }); } catch { /* no audio */ } };
+    if (i) setTimeout(fire, 1100); else fire();
+  });
+}
+
 const MAX_TV_HISTORY = 200;
 const LOCK_RANGE   = 0.25; // within this many channel-numbers = lock in
 const TV_DIAL_MAX  = 9.05; // dial wraps 0.0 → 9.0 → 0.0 (9.0 + 0.05 step = wrap)
@@ -1949,6 +2010,7 @@ export function createTvView(root, opts = {}) {
     // only place the speech queue is allowed to resync. See _sceneBeat().
     const spoken = !style || style === 'raw' || style === 'emote' || style === 'narrate' || style === 'system';
     if (!spoken) _sceneBeat();
+    if (dl?.crowd) playCrowd(text);
     // The pregame open shows the booth's line along its bottom edge.
     if (spoken) {
       _lastSpoken = { text: new DOMParser().parseFromString(String(text), 'text/html').body.textContent, at: performance.now() };

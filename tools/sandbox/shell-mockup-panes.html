@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shell Mockup Panes</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: 'K7 Shoulders'; src: url('../../client/shared/fonts/big-shoulders-display.woff2') format('woff2'); font-weight: 800; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+
+/* Same layout for both: header, output+input left, stacked sidebar right (as in client/game/index.html). */
+#app { display: flex; flex-direction: column; height: 100vh; }
+#header { display: flex; align-items: center; gap: 16px; padding: 0 12px; height: 40px; flex: none; }
+#main { flex: 1; display: flex; min-height: 0; }
+#output-container { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#output { flex: 1; overflow: auto; padding: 12px; }
+#input-area { flex: none; height: 44px; display: flex; align-items: center; padding: 0 12px; }
+#sidebar { width: 300px; flex: none; display: flex; flex-direction: column; overflow: hidden; }
+.sidebar-section { padding: 10px 12px; }
+.mm { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.mm i { aspect-ratio: 1; display: block; }
+.row { display: flex; justify-content: space-between; font-size: 13px; }
+.chat div { font-size: 13px; }
+.dim2 { font-size: 13px; }
+
+/* ===== CURRENT ===== */
+body.current { background: #05050a; color: #e8e8f5; font: 16px "Courier New", monospace; }
+.current #header { border-bottom: 1px solid #2a2a40; }
+.current .logo { color: #ff2ec4; font-weight: bold; }
+.current .cred { color: #f5e642; margin-left: auto; }
+.current #output-container { border-right: 1px solid #2a2a40; }
+.current #input-area { border-top: 1px solid #2a2a40; }
+.current #input-area span { color: #ff2ec4; margin-right: 8px; }
+.current .sidebar-section { border: 1px solid #2a2a40; margin-bottom: -1px; }
+.current h3 { margin: 0 0 6px; font-size: 13px; color: #8888a8; text-transform: uppercase; font-weight: normal; }
+.current .room-name { color: #ff2ec4; font-weight: bold; }
+.current .exits { color: #39ff8f; } .current .npc { color: #28e5ff; } .current .item { color: #ff9a3c; }
+.current .say { color: #28e5ff; } .current .emote { color: #b86bff; } .current .dim, .current .dim2 { color: #8888a8; }
+.current .mm i { background: #14142a; border: 1px solid #2a2a40; } .current .mm i.here { background: #ff2ec4; }
+.current .mm i.b { background: #1f1f38; }
+
+/* ===== PROPOSED: 1 (type with jobs) + 2 (physical panels) ===== */
+body.proposed {
+	--ink: #e6e8ec; --dim: #8a929c; --metal: #1b1e22; --metal-hi: #2e3238; --metal-lo: #0b0c0e; --screen: #07080b;
+	background: #0b0c0e; color: var(--ink); font: 15px/1.5 'IBM Plex Mono', monospace;
+}
+.proposed #app { gap: 8px; padding: 8px; }
+.proposed #main { gap: 8px; }
+.proposed #sidebar { gap: 8px; }
+.proposed #output-container { gap: 8px; }
+/* the frame */
+.proposed .frame {
+	background: linear-gradient(var(--metal-hi), var(--metal) 10px, var(--metal) calc(100% - 6px), var(--metal-lo));
+	border-radius: 6px; padding: 5px;
+	box-shadow: 0 1px 0 rgba(255,255,255,.07) inset, 0 -1px 0 rgba(0,0,0,.6) inset, 0 4px 14px rgba(0,0,0,.55);
+}
+/* the inset screen */
+.proposed .glass {
+	background: var(--screen); border-radius: 3px; position: relative;
+	box-shadow: 0 0 0 1px #000, 0 2px 8px rgba(0,0,0,.9) inset;
+}
+.proposed #output.glass::after {
+	content: ''; position: absolute; inset: 0; pointer-events: none;
+	background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.2) 2px 3px);
+}
+.proposed #header { height: 44px; padding: 0 14px; }
+.proposed .logo { font: 800 22px 'K7 Shoulders', sans-serif; letter-spacing: .1em; }
+.proposed .handle { font-size: 13px; color: var(--dim); letter-spacing: .08em; }
+.proposed .cred { margin-left: auto; font: 800 20px 'K7 Shoulders', sans-serif; color: #f5e642; letter-spacing: .04em; }
+.proposed #output-wrap { flex: 1; display: flex; min-height: 0; }
+.proposed #output { padding: 16px 20px; }
+.proposed #input-area { height: 46px; }
+.proposed #input-area .glass { width: 100%; height: 100%; display: flex; align-items: center; padding: 0 14px; }
+.proposed #input-area span { color: #ff2ec4; margin-right: 10px; }
+.proposed .sidebar-section { padding: 4px; }
+.proposed .sidebar-section h3 {
+	margin: 2px 6px 5px; font: 800 13px 'K7 Shoulders', sans-serif; letter-spacing: .22em; color: var(--dim);
+	display: flex; align-items: center; gap: 8px;
+}
+.proposed .sidebar-section h3::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #39ff8f; box-shadow: 0 0 5px #39ff8f; }
+.proposed .sidebar-section .glass { padding: 9px 11px; }
+.proposed .row span:first-child { font-size: 11px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; }
+/* game colours kept as they are */
+.proposed .room-name { font: 800 26px/1.1 'K7 Shoulders', sans-serif; letter-spacing: .05em; color: #ff2ec4; text-transform: uppercase; }
+.proposed .exits { color: #39ff8f; } .proposed .npc { color: #28e5ff; } .proposed .item { color: #ff9a3c; }
+.proposed .say { color: #28e5ff; } .proposed .emote { color: #b86bff; } .proposed .dim, .proposed .dim2 { color: var(--dim); }
+.proposed .mm i { background: #111522; border-radius: 2px; box-shadow: 0 1px 0 rgba(255,255,255,.05) inset; }
+.proposed .mm i.b { background: #1d2234; } .proposed .mm i.here { background: #ff2ec4; box-shadow: 0 0 6px #ff2ec4; }
+
+.tool { position: fixed; right: 320px; bottom: 64px; z-index: 9; display: flex; gap: 6px; }
+.tool button { font: 12px system-ui; padding: 6px 10px; background: #fff; color: #111; border: 1px solid #999; border-radius: 4px; cursor: pointer; }
+</style>
+</head>
+<body class="proposed">
+<div id="app">
+	<div id="header" class="frame">
+		<span class="logo">ARCHITECT</span>
+		<span class="handle">Wren · connected</span>
+		<span class="cred">₵ 1,284</span>
+	</div>
+	<div id="main">
+		<div id="output-container">
+			<div id="output-wrap" class="frame"><div id="output" class="glass" style="flex:1">
+				<div class="dim">You buy a portion of cod and chips for ₵12.</div>
+				<div class="say">Marla says, "Vinegar's on the side. Don't drown it."</div>
+				<br>
+				<div class="room-name">Ironside Street</div>
+				<div>Sleet comes off the water sideways and finds the gap in every coat. The chippy's window is fogged from the inside, which is the only warm thing on the street. A tram rail runs down the middle, rusted to the colour of the bricks.</div>
+				<div><span class="npc">Dock Warden Pell</span> is leaning on a bollard, watching you.</div>
+				<div>A <span class="item">crushed can of Kelp Cola</span> lies in the gutter.</div>
+				<div class="exits">Exits: north, south, east, in (Batter Days)</div>
+				<br>
+				<div class="emote">Pell spits into the gutter and looks back at the water.</div>
+			</div></div>
+			<div id="input-area" class="frame"><div class="glass"><span>&gt;</span>say evening, warden</div></div>
+		</div>
+		<div id="sidebar">
+			<div class="sidebar-section frame"><h3>MAP</h3><div class="glass"><div class="mm" id="mm"></div></div></div>
+			<div class="sidebar-section frame"><h3>VITALS</h3><div class="glass">
+				<div class="row"><span>HP</span><span>82 / 100</span></div>
+				<div class="row"><span>Hunger</span><span>54</span></div>
+				<div class="row"><span>Rads</span><span>14</span></div>
+			</div></div>
+			<div class="sidebar-section frame"><h3>LOCATION</h3><div class="glass">
+				<div class="row"><span>Area</span><span>Coldwater</span></div>
+				<div class="row"><span>Street</span><span>Ironside St</span></div>
+			</div></div>
+			<div class="sidebar-section frame"><h3>ENVIRONMENT</h3><div class="glass">
+				<div class="row"><span>Time</span><span>23:40</span></div>
+				<div class="row"><span>Weather</span><span>Sleet, -2°</span></div>
+			</div></div>
+			<div class="sidebar-section frame"><h3>PLAYERS</h3><div class="glass dim2">3 online: Akerson, Tove, Wren</div></div>
+			<div class="sidebar-section frame" style="flex:1;min-height:0"><h3>CHAT</h3><div class="glass chat" style="height:calc(100% - 26px)">
+				<div><span class="say">Tove:</span> anyone selling a crowbar</div>
+				<div><span class="say">Akerson:</span> boatyard has two</div>
+			</div></div>
+		</div>
+	</div>
+</div>
+<div class="tool"><button id="swap">Show current</button></div>
+<script>
+const mm = document.getElementById('mm');
+for (let i = 0; i < 35; i++) { const t = document.createElement('i'); if (i === 17) t.className = 'here'; else if ([3,9,10,24,26,31].includes(i)) t.className = 'b'; mm.appendChild(t); }
+const swap = document.getElementById('swap');
+swap.onclick = () => {
+	const cur = document.body.classList.toggle('current');
+	document.body.classList.toggle('proposed', !cur);
+	swap.textContent = cur ? 'Show proposed' : 'Show current';
+};
+</script>
+</body>
+</html>

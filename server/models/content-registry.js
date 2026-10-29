@@ -421,6 +421,7 @@ export const REGISTRY = [
   { table: 'cards', class: 'runtime', readTier: 'cold',
     runtimeInserts: 'cards plugin — `mint` (player) and strikeSeries() (NPC/enemy, on series open)' },
   { table: 'card_holdings', class: 'player' },   // somebody's shelf; never leaves the DB
+  { table: 'sports_cards', class: 'player' },    // league cards pulled from a sleeve; somebody's binder
   { table: 'script_waits', class: 'runtime' }, // parked long `wait` continuations; deleted on resume
   { table: 'world_events', class: 'runtime' },
   { table: 'void_traces', class: 'runtime' },      // voidwalking — scrawls/corpses left in the void, purged as windows rotate
