@@ -332,7 +332,7 @@ export default async function regress({ check, run, getPlayer }) {
         check(`package: ${sport}'s final drops the table for them`, !says.some((n) => gfx(n)?.kind === 'pregame'));
         const lines = says.map(txt).filter((t) => /\{|undefined|null/.test(t));
         check(`package: ${sport}'s lines fill every token`, !lines.length && pages.length === 3, lines.join(' | '));
-        check(`package: ${sport} names each club's men from the season`, pages[2]?.away?.men?.length >= 2 && pages[2]?.home?.men?.length >= 2, JSON.stringify(pages[2])?.slice(0, 200));
+        check(`package: ${sport} names each club's men from the season`, pages[2]?.away?.men?.length >= 2 && pages[2]?.home?.men?.length >= 2, JSON.stringify(pages[2])?.slice(0, 1200));
         check(`package: ${sport} has a pool for every key it reads`, ['tape.club', 'road.club', 'series', 'series.even', 'series.none', 'watch.club', 'watch.club.one', 'live'].every((k) => (row.pools[prefix + k] || []).length));
       } finally {
         if (keepS) _test.standingsCaches.set(sport, keepS); else _test.standingsCaches.delete(sport);
@@ -3192,6 +3192,12 @@ export default async function regress({ check, run, getPlayer }) {
         const away = teams[slot % teams.length];
         narrateSlot(slot, { version: 3, important: true, matchup: { away, home: rivalOf(away, teams), teams } });
       }
+    }
+    // Rebounds and putbacks (sim v6): only v6 leaves a rebound in front for a second shot, so
+    // play v6 games until the live-rebound and putback pools have both fired.
+    {
+      const v6Pools = ['pbp.rebound.live', 'pbp.putback'].filter(k => pools[k]);
+      for (let slot = 0; slot < 400 && v6Pools.some(k => !usedPools.has(k)); slot++) narrateSlot(slot, { version: 6 });
     }
     // Now the check has no exemptions but the deliberate `faceoff` fallback, which sits
     // behind the three dot-specific pools and is expected never to fire.

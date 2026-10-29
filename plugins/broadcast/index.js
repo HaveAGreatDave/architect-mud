@@ -3687,7 +3687,8 @@ function finalPackageFor(sportMod, script, game, { brand = null, show = null } =
       const most = lineup.reduce((m, r) => Math.max(m, r.ab), 0), avg = (r) => (r.ab ? r.hits / r.ab : 0);
       const fmt = (r) => avg(r).toFixed(3).replace(/^0/, '');
       const hitter = lineup.filter((r) => r.ab >= Math.max(5, most * 0.4)).sort((a, b) => avg(b) - avg(a) || b.hits - a.hits)[0];
-      const slugger = lineup.slice().sort((a, b) => b.hr - a.hr || b.rbi - a.rbi)[0];
+      // the home-run man: the leader, or the next one down when the leader's already up as the best bat
+      const slugger = lineup.filter((r) => r !== hitter).sort((a, b) => b.hr - a.hr || b.rbi - a.rbi)[0];
       const list = [];
       if (hitter) list.push({ role: 'AVG', name: hitter.name, stat: `${fmt(hitter)} · ${hitter.hr} HR · ${hitter.rbi} RBI`, said: `hitting ${fmt(hitter)} with ${hitter.rbi} driven in` });
       const p = t.pitcher ? arms.get(t.pitcher) : null;
