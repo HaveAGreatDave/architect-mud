@@ -103,6 +103,8 @@ export async function openStands(msg) {
   root.innerHTML = `<div class="st-bar">
       <span class="st-where"><b>${esc(msg.venue)}</b> · ${esc(msg.section?.name)}</span>
       <button type="button" class="st-mode" aria-pressed="true" title="Follow the play (F)">Follow the play</button>
+      <button type="button" class="st-tablet" title="Open your tablet">Tablet</button>
+      <button type="button" class="st-settings" title="Settings" aria-label="Settings">⚙</button>
       <button type="button" class="st-seats">Change seat</button>
       <button type="button" class="st-leave">Leave the stands</button>
     </div>
@@ -142,6 +144,9 @@ export async function openStands(msg) {
   };
   modeBtn.addEventListener('click', () => setMode(seat.mode === 'follow' ? 'free' : 'follow'));
   root.querySelector('.st-seats').addEventListener('click', () => sendCmd('stands'));
+  // The tablet draws above the seat (9200 over 8900); settings is one of its apps.
+  root.querySelector('.st-tablet').addEventListener('click', () => sendCmd('tablet'));
+  root.querySelector('.st-settings').addEventListener('click', () => sendCmd('tabletnav settings'));
   root.querySelector('.st-leave').addEventListener('click', () => sendCmd('stands leave'));
 
   // Free look: the mouse moves the head the way it moves (relative, held where you leave it).
@@ -174,6 +179,7 @@ export async function openStands(msg) {
   }, { passive: false });
   ui.onKey = (e) => {
     if (e.target.closest?.('input, textarea, [contenteditable]')) return;
+    if (document.getElementById('tablet-os-overlay')) return;   // the tablet has the keys
     const k = e.key;
     if (k === 'f' || k === 'F') { setMode(seat.mode === 'follow' ? 'free' : 'follow'); e.preventDefault(); }
     else if (k === 'ArrowLeft') { turn(-24, 0); e.preventDefault(); }
