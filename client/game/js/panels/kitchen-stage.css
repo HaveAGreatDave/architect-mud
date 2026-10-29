@@ -116,45 +116,6 @@
 }
 .ks-boxes { display: contents; }
 
-/* The fridge: a white box lit from inside, wire shelves, and the door's racks for what you carry. */
-.ks-cold-box {
-  --cold-wall: #f4f6f4; --cold-glow: rgba(255, 250, 225, 0.75); --cold-shelf: #b9c2c8;
-  width: min(720px, calc(100% - 32px)); max-height: calc(100% - 32px);
-  display: grid; grid-template-columns: 1fr 200px; grid-template-rows: auto 1fr; gap: 0 12px;
-  background: var(--cold-wall); border: 3px solid var(--ks-ink); box-shadow: 6px 6px 0 var(--ks-ink);
-  border-radius: 10px; padding: 12px;
-}
-.ks-frozen .ks-cold-box { --cold-wall: #e6eef5; --cold-glow: rgba(200, 228, 255, 0.8); --cold-shelf: #a9bccb; }
-.ks-cold-box .ks-sheet-head { grid-column: 1 / -1; }
-.ks-cold-inside {
-  overflow: auto; border-radius: 6px; padding: 8px;
-  background: radial-gradient(ellipse at 50% 0%, var(--cold-glow), transparent 70%), #fbfcfb;
-  box-shadow: inset 0 0 0 2px var(--cold-shelf);
-}
-.ks-frozen .ks-cold-inside {
-  background: radial-gradient(ellipse at 50% 0%, var(--cold-glow), transparent 70%),
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0 2px, transparent 2px 9px), #eef5fb;
-}
-.ks-shelf {
-  min-height: 68px; display: flex; gap: 6px; align-items: flex-end; padding: 6px 4px;
-  border-bottom: 4px solid var(--cold-shelf);
-}
-.ks-cold-item {
-  font: inherit; color: var(--ks-ink); cursor: pointer; text-align: left;
-  width: calc(25% - 5px); min-height: 52px; display: flex; flex-direction: column; justify-content: flex-end;
-  background: var(--ks-paper); border: 2px solid var(--ks-ink); border-radius: 4px; box-shadow: 2px 2px 0 var(--ks-ink);
-  padding: 4px 6px;
-}
-.ks-cold-item:hover { background: var(--ks-red); color: var(--ks-paper); }
-.ks-cold-name { font-weight: 700; line-height: 1.1; }
-.ks-cold-qty { font-size: 0.85em; }
-.ks-cold-note { font-size: 0.75em; opacity: 0.75; }
-.ks-cold-other, .ks-cold-empty { color: var(--ks-dim); font-size: 0.9em; padding: 6px 4px; }
-.ks-cold-door {
-  overflow: auto; display: flex; flex-direction: column; gap: 6px; align-items: stretch;
-  border-left: 4px solid var(--cold-shelf); padding-left: 10px;
-}
-
 /* Stocking the kitchen: a catalogue of cards. */
 .ks-stock-box {
   width: min(820px, calc(100% - 32px)); max-height: calc(100% - 32px);
@@ -175,11 +136,6 @@
 .ks-stock-desc { font-size: 0.8em; color: var(--ks-dim); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .ks-chip:disabled { opacity: 0.45; cursor: default; transform: none; }
 
-@media (max-width: 600px) {
-  .ks-cold-box { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
-  .ks-cold-door { border-left: 0; border-top: 4px solid var(--cold-shelf); padding: 8px 0 0; max-height: 30vh; }
-  .ks-cold-item { width: calc(50% - 4px); }
-}
 
 /* How mixed the pan is (kitchen-stage.js paintMix), under the beat card. */
 .ks-mix {
@@ -189,3 +145,62 @@
 }
 .ks-mix[hidden] { display: none; }
 .ks-mix[data-done="1"] { background: var(--ks-indigo); color: var(--ks-paper); }
+
+/* The rack down the right: the pans out in the kitchen and the utensil in your hand. */
+.ks-rack {
+  position: absolute; top: 52px; right: 8px; width: 150px; z-index: 1;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.ks-rack[hidden], .ks-in-cold .ks-rack, .ks-in-cold .ks-tray, .ks-in-cold .ks-chips, .ks-in-cold .ks-beat, .ks-in-cold .ks-mix { display: none; }
+.ks-rack kbd { font: inherit; opacity: 0.7; margin-left: 4px; }
+.ks-rack-card, .ks-rack-tool {
+  font: inherit; color: var(--ks-ink); cursor: pointer; text-align: left;
+  background: var(--ks-card); border: 2px solid var(--ks-ink); border-radius: 3px; box-shadow: 3px 3px 0 var(--ks-ink);
+}
+.ks-rack-card { display: grid; grid-template-columns: 22px 1fr; column-gap: 6px; align-items: center; padding: 4px 6px; }
+.ks-rack-card svg { grid-row: span 2; }
+.ks-rack-name { font-weight: 700; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ks-rack-sub { font-size: 0.78em; color: var(--ks-dim); }
+.ks-rack-card.on, .ks-rack-tool.on { background: var(--ks-red); color: var(--ks-paper); }
+.ks-rack-card.on .ks-rack-sub { color: inherit; opacity: 0.85; }
+.ks-rack-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.ks-rack-tool { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 2px; font-size: 0.8em; text-transform: uppercase; }
+.ks-rack-tool:disabled { opacity: 0.35; cursor: default; }
+.ks-rack-card:hover, .ks-rack-tool:not(:disabled):hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ks-ink); }
+.ks-rack-none { color: var(--ks-dim); font-size: 0.85em; }
+.ks-btn.on { background: var(--ks-indigo); color: var(--ks-paper); }
+
+/* The fridge, open: its name and a shut button along the bottom, a label beside the pointer. */
+.ks-cold-bar {
+  position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; white-space: nowrap;
+  background: #fbfcfb; border: 2px solid var(--ks-ink); box-shadow: 4px 4px 0 var(--ks-ink); padding: 6px 10px;
+}
+.ks-cold-bar[hidden] { display: none; }
+.ks-cold-bar[data-frozen="1"] { background: #e6f0f8; }
+.ks-cold-name { font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.ks-cold-count { color: var(--ks-dim); font-size: 0.9em; }
+.ks-tip {
+  position: absolute; z-index: 2; pointer-events: none; max-width: 240px;
+  background: var(--ks-card); border: 2px solid var(--ks-ink); box-shadow: 3px 3px 0 var(--ks-ink);
+  padding: 4px 8px; display: flex; flex-direction: column; line-height: 1.2;
+}
+.ks-tip[hidden] { display: none; }
+.ks-tip span { font-size: 0.8em; color: var(--ks-dim); }
+.ks-tip i { font-size: 0.75em; font-style: normal; color: var(--ks-red); margin-top: 2px; }
+@media (max-width: 600px) {
+  .ks-rack { top: auto; bottom: 90px; width: 120px; }
+  .ks-cold-bar { bottom: 8px; }
+}
+
+/* What the server says, while the Stage keeps the log quiet: a caption over the kitchen. */
+.ks-say {
+  position: absolute; left: 50%; bottom: 112px; transform: translateX(-50%); width: min(560px, calc(100% - 32px));
+  display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; z-index: 1;
+}
+.ks-say div {
+  background: var(--ks-ink); color: var(--ks-paper); padding: 4px 10px; text-align: center; line-height: 1.25;
+  box-shadow: 3px 3px 0 var(--ks-red); transition: opacity 0.6s;
+}
+.ks-say div.gone { opacity: 0; }
+.ks-in-cold .ks-say { bottom: 80px; }

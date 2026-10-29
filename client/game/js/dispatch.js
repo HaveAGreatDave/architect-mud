@@ -84,7 +84,7 @@ import { openApprehendPrompt } from './panels/apprehend.js';
 import { openConcealSearch } from './panels/conceal.js';
 import { updateTrade, closeTrade } from './panels/trade.js';
 import { openHangarBay, openCharterScreen, closeHangarBay, isHangarBayActive } from './panels/lazy-views.js';
-import { openKitchenStage, closeKitchenStage, isKitchenStageActive, kitchenBeat, kitchenKnife, kitchenDress, kitchenStock } from './panels/lazy-views.js';
+import { openKitchenStage, closeKitchenStage, isKitchenStageActive, kitchenBeat, kitchenKnife, kitchenDress, kitchenStock, kitchenSays } from './panels/lazy-views.js';
 import { openAdminPanel } from './panels/admin.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
@@ -1171,6 +1171,8 @@ const handlers = {
     // paneFallback: a log copy of something the room pane already shows. Only
     // worth printing when the pane isn't on screen (collapsed mobile).
     if (msg.paneFallback && isAreaPaneVisible()) return;
+    // The Kitchen Stage shows what the server says in its own caption, not the log.
+    if (isKitchenStageActive() && kitchenSays(msg.message)) return;
     appendHtml(msg.message, 'help');
   },
   // The lift has come to rest with its doors open on a floor. Nothing to show — the

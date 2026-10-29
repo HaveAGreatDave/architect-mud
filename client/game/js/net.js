@@ -136,6 +136,13 @@ export function sendCmd(cmd, displayText) {
   _connection.send({ type: 'command', command: cmd });
 }
 
+// A typed command with no echo in the log, for a view that shows its own feedback (the Kitchen
+// Stage). Unlike sendCmdSilent it still counts as activity.
+export function sendCmdQuiet(cmd) {
+  if (!_connection?.isOpen()) { noticeDropped(); return; }
+  _connection.send({ type: 'command', command: cmd });
+}
+
 export function sendCmdSilent(cmd) {
   if (!_connection?.isOpen()) { noticeDropped(); return; }
   // silent: client automation (post-move look refresh, tablet re-nav polls) —

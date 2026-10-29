@@ -19,7 +19,7 @@
 //
 // ⚠ NO WEBGL2, NO STAGE. `createKitchenRenderer` returns null and this opens the HUD instead.
 
-import { sendCmd, sendCmdSilent } from '../net.js';
+import { sendCmdQuiet, sendCmdSilent } from '../net.js';
 import { setAreaPane } from '../render.js';
 import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
 import { claimSeatKeyboard, endSeatKeyboard, seatHoldsKeyboard } from './seat-keys.js';
@@ -74,10 +74,14 @@ export function openKitchenStage(data) {
       </div>
     </div>
     <div class="ks-beat" aria-live="polite"></div>
+    <div class="ks-say" aria-live="polite"></div>
     <div class="ks-mix" hidden></div>
     <div class="ks-tray"></div>
     <div class="ks-chips"></div>
     <div class="ks-keys"></div>
+    <div class="ks-rack"></div>
+    <div class="ks-cold-bar" hidden></div>
+    <div class="ks-tip" hidden></div>
     <div class="ks-menu" role="menu" hidden></div>
     <div class="ks-sheet" hidden></div>
   </div>`);
@@ -98,11 +102,14 @@ export function openKitchenStage(data) {
     stat: M.createBatch(1 << 14), dyn: M.createBatch(1 << 15), hobKind: null,
     flash: 0, impact: 0, shake: 0, lines: 0, puffs: [], bubbles: [], last: performance.now(), acc: 0, t: 0,
     lastSizzle: 0, tick: null, raf: 0, drag: null, M: null, sent: 0, orbit: { yaw: 0, pitch: 0 }, menu: null, sheet: null, liq: null, spoon: null, lastStir: 0,
+    cold: null, coldShots: [], vesselId: null, tool: 'hand', hover: null, liqByPan: new Map(),
   };
   root.addEventListener('click', onClick);
   gl.addEventListener('pointerdown', onDown);
   gl.addEventListener('auxclick', (e) => e.preventDefault());
   gl.addEventListener('contextmenu', (e) => e.preventDefault());
+  gl.addEventListener('wheel', onWheel, { passive: false });
+  gl.addEventListener('pointerleave', () => { if (S) { S.hover = null; hideTip(); } });
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
   window.addEventListener('keydown', onKey);
@@ -126,6 +133,12 @@ export function refreshKitchenStage(data) {
   syncBodies();
   syncLiquid();
   if (S.board && !foods().some((c) => c.id === S.board)) { S.board = null; S.boardBody = null; }
+  // taken out of the fridge with Shift: onto the board once it's on you
+  if (S.pendingBoard && !S.knife) {
+    const p = S.pendingBoard, got = foods().find((c) => String(c.id) === p.id) || foods().find((c) => c.name === p.name);
+    if (got) { S.board = got.id; S.pendingBoard = null; }
+  }
+  if (S.vesselId != null && !vesselsOf(data).some((v) => String(v.id) === String(S.vesselId))) S.vesselId = null;
   paintDom();
   if (S.tick) clearTimeout(S.tick);
   if (cooking()) S.tick = setTimeout(() => { if (S) sendCmdSilent('workspace'); }, TICK_MS);
@@ -154,12 +167,15 @@ export function closeKitchenStage({ quiet = false } = {}) {
 // ── reading the payload ──────────────────────────────────────────────────────────────────────────
 const allComps = (d) => [...(d?.components || []), ...(d?.area || []).flatMap((v) => v.contents || [])];
 const foods = () => (S.data?.components || []).filter((c) => c.kind === 'food' && c.look);
+// Every pan out in the kitchen (not one shut in a cupboard), the hot one first.
+const vesselsOf = (d) => (d?.area || []).filter((v) => v.look?.vessel && v.look.vessel !== 'bread' && !v.idle && !/^in the /.test(v.place || ''));
+// The pan you're working with: the one you picked, else the one on the heat, else the first.
 function panOf(d) {
-  const vs = (d?.area || []).filter((v) => v.look?.vessel && v.look.vessel !== 'bread');
-  return vs.find((v) => v.hot) || vs[0] || null;
+  const vs = vesselsOf(d);
+  return vs.find((v) => S && String(v.id) === String(S.vesselId)) || vs.find((v) => v.hot) || vs[0] || null;
 }
 function dialOf(d) {
-  const ds = d?.dials || [], pan = panOf(d);
+  const ds = d?.dials || [], pan = vesselsOf(d).find((v) => v.hot) || panOf(d);
   return ds.find((x) => pan && String(x.subjectId) === String(pan.id)) || ds[0] || null;
 }
 const cooking = () => allComps(S.data).some((c) => c.live);
@@ -178,7 +194,7 @@ function run(a) {
     if (input) { input.value = a.command; input.focus(); }
     return;
   }
-  sendCmd(a.command);
+  sendCmdQuiet(a.command);
   sendCmdSilent('workspace');
 }
 
@@ -284,7 +300,11 @@ const STARCH = M.rgb('#ece6d6');
 function syncLiquid() {
   const pan = panOf(S.data), spec = pan && KS.vesselSpec(pan.look.vessel);
   if (!pan || !spec || spec.wall <= 0) { S.liq = null; return; }
-  if (S.liq?.panId !== pan.id) S.liq = { panId: pan.id, L: Lq.createLiquid(spec.r * (spec.taper || 0.85) * 0.98), col: new Map() };
+  // each pan keeps its own liquid, so switching pans and back doesn't unmix the sauce
+  if (S.liq?.panId !== pan.id) {
+    S.liq = S.liqByPan.get(pan.id) || { panId: pan.id, L: Lq.createLiquid(spec.r * (spec.taper || 0.85) * 0.98), col: new Map() };
+    S.liqByPan.set(pan.id, S.liq);
+  }
   const { L, col } = S.liq, here = new Set();
   let thick = 0, cloud = 0;
   for (const c of pan.contents || []) {
@@ -328,7 +348,8 @@ function frame(now) {
   S.last = now; S.t += dt; S.acc += dt;
   while (S.acc >= STEP) { step(STEP); S.acc -= STEP; }
   moveCamera(now);
-  S.flash = Math.max(0, S.flash - dt * 4);
+  stepCold(dt);
+  S.flash =Math.max(0, S.flash - dt * 4);
   S.shake = Math.max(0, S.shake - dt * 3);
   S.lines = Math.max(0, S.lines - dt * 3);
   build(dt);
@@ -356,8 +377,8 @@ function paintMix() {
 }
 
 function moveCamera(now) {
-  const want = S.station === 'hob' && windowOpen() ? 'push' : S.station;
-  const target = SHOTS[want];
+  const want = S.cold ? 'cold' : S.station === 'hob' && windowOpen() ? 'push' : S.station;
+  const target = S.cold ? coldShot(S.cold.i) : SHOTS[want];
   if (S.to !== target) { S.from = { ...S.cam }; S.to = target; S.tAt = now; }
   const k = Math.min(1, (now - S.tAt) / 260), e = k * k * (3 - 2 * k);
   const L = (a, b) => a + (b - a) * e, V3 = (a, b) => [L(a[0], b[0]), L(a[1], b[1]), L(a[2], b[2])];
@@ -380,15 +401,18 @@ function orbitEye(eye, at) {
 
 function build(dt) {
   const b = M.reset(S.dyn), d = S.data, pan = panOf(d), dial = dialOf(d);
-  const level = dial?.level || 0;
-  const onHeat = !!pan?.hot;
+  const level = S.wheel ? S.wheel.level : dial?.level || 0;
+  const onHeat = !!pan?.hot, ringBusy = vesselsOf(d).some((v) => v.hot);
   KS.knob(b, level, KS.KNOB, KS.knobBase(S.hobKind));
-  if (onHeat || level > 0) KS.flames(b, onHeat ? level : 0, S.t, KS.BURNER, KS.PAN_Z - 0.2);
-  // the pan: on the ring, or resting beside the hob
+  buildElement(b, level, dial?.ceiling ?? 10);
+  if (ringBusy || level > 0) KS.flames(b, ringBusy ? level : 0, S.t, KS.BURNER, KS.PAN_Z - 0.2);
+  buildOtherPans(b);
+  // the pan you're working with: on the ring, or on the rack beside it
   if (pan) {
-    const at = onHeat ? [KS.STATIONS.hob, 0, KS.PAN_Z] : [KS.STATIONS.hob + 22, -4, 0];
+    const at = PAN_AT(pan);
     const P = KS.pose(at, 0);
     KS.vessel(b, pan.look.vessel, P);
+    if (vesselsOf(d).length > 1) KS.ring(b, [0, 0, 0.4], KS.vesselSpec(pan.look.vessel).r + 2.4, 0.55 + 0.15 * Math.sin(S.t * 5), PICKED, 28, P);
     const L = S.liq?.L, depth = liquidDepth(pan);
     let oily = false;
     for (const c of pan.contents || []) {
@@ -437,7 +461,8 @@ function build(dt) {
   // the pass: a plate, with what is being laid out on it or the last dish served
   if (kit().plate) KS.plate(b, KS.pose([KS.STATIONS.pass, 0, 1.2]));
   // the fridge and freezer, standing at the left end of the counter
-  for (const [i, box] of coldBoxes().entries()) buildBox(b, box, i);
+  buildBoxes(b, dt);
+  buildTool(b);
   const shown = S.dress ? S.dress.items : S.dish || [];
   for (const [i, it] of shown.entries()) {
     const at = it.placed ? [KS.STATIONS.pass + it.x, it.y, PLATE_TOP] : [KS.STATIONS.pass - 16 + i * 8, 13, 1.3];
@@ -584,15 +609,19 @@ function paintDom() {
       + (S.dress.wantsSauce ? `<button class="ks-chip${S.dress.sauce ? ' on' : ''}" data-dress="sauce" aria-pressed="${S.dress.sauce}">Sauce</button>` : '')
       + `<button class="ks-chip" data-dress="skip">Just plate it</button>`
     : [].map((a, i) => `<button class="ks-chip" data-chip="${i}" title="${esc(a.command)}${a.hint ? ` · ${esc(a.hint)}` : ''}">${esc(a.label)}</button>`).join('');
-  r.querySelector('.ks-keys').textContent = cutting ? KEYS.knife : dressing ? KEYS.dress : KEYS[S.station];
-  r.querySelector('.ks-boxes').innerHTML = (d?.storage || []).map((x) => `<button class="ks-btn" data-box="${esc(String(x.id))}">${esc(boxLabel(x))}</button>`).join('');
+  r.querySelector('.ks-keys').textContent = S.cold ? KEYS.cold : cutting ? KEYS.knife : dressing ? KEYS.dress : KEYS[S.station];
+  r.querySelector('.ks-boxes').innerHTML = coldBoxes().map((x) => `<button class="ks-btn${S.cold && String(S.cold.id) === String(x.id) ? ' on' : ''}" data-box="${esc(String(x.id))}" title="${esc(boxLabel(x))} (O)">${esc(boxLabel(x))}</button>`).join('');
+  r.classList.toggle('ks-in-cold', !!S.cold);
+  paintRack();
+  paintColdBar();
   paintSheet();
 }
 const KEYS = {
   dress: 'Drag each piece onto the plate · Sauce, then drag across the plate for a line of it · Enter: serve · Esc: just plate it',
   knife: 'Drag down through the food to cut, or Space when the blue marker is on a red guide · Esc: put the knife down',
-  board: 'Click anything to use it · drag food to the hob for the pan · hold the middle button to look round',
-  hob: 'Click anything to use it · drag the knob: heat · flick the pan up: flip · drag round the pan to stir · middle button: look',
+  cold: 'Click something to take it out · Shift-click: straight onto the board · click the door rack to put things in · arrows and Enter · Esc: shut it',
+  board: 'Click anything to use it · drag food onto a pan · Q/E: utensil · O: fridge · middle button: look',
+  hob: 'Drag the knob: heat · spoon: drag round the pan · turner: click or flick the pan · [ ]: change pan · Q/E: utensil · O: fridge',
   pass: 'Click the plate to serve · hold the middle button to look round',
 };
 
@@ -621,12 +650,14 @@ function onClick(e) {
   if (t.dataset.ks === 'close') return closeKitchenStage();
   if (t.dataset.ks === 'list') return toList();
   if (t.dataset.ks === 'stock') { sendCmdSilent('kitchenstock'); return; }
-  if (t.dataset.box) return openSheet({ kind: 'box', id: t.dataset.box });
+  if (t.dataset.box) return S.cold && String(S.cold.id) === t.dataset.box ? shutCold() : openCold(t.dataset.box);
+  if (t.dataset.cold === 'shut') return shutCold();
+  if (t.dataset.cold === 'board') { if (S.cold) S.cold.toBoard = !S.cold.toBoard; return paintColdBar(); }
+  if (t.dataset.pan) return pickPan(t.dataset.pan, e);
+  if (t.dataset.tool) return setTool(t.dataset.tool);
   if (t.dataset.sheet === 'close') return closeSheet();
   if (t.dataset.shelf && S.sheet?.kind === 'stock') { S.sheet.shelf = t.dataset.shelf; return paintSheet(); }
-  if (t.dataset.take != null) { const it = sheetBox()?.items?.[Number(t.dataset.take)]; run(actOf(it, 'take')); ksfx('kitchen-tap'); return; }
-  if (t.dataset.put != null) { const p = sheetBox()?.puts?.[Number(t.dataset.put)]; if (p) { run(p); ksfx('kitchen-tap'); } return; }
-  if (t.dataset.buy) { sendCmd(`kitchenorder ${t.dataset.buy} 1`); sendCmdSilent('workspace'); sendCmdSilent('kitchenstock'); ksfx('kitchen-clink'); return; }
+  if (t.dataset.buy) { sendCmdQuiet(`kitchenorder ${t.dataset.buy} 1`); sendCmdSilent('workspace'); sendCmdSilent('kitchenstock'); ksfx('kitchen-clink'); return; }
   if (t.dataset.station) return go(t.dataset.station);
   if (t.dataset.food) { S.board = S.board === t.dataset.food ? null : t.dataset.food; ksfx('kitchen-tap'); return paintDom(); }
   if (t.dataset.dress && S.dress) {
@@ -738,6 +769,7 @@ function onDown(e) {
   }
   if (e.button !== 0 || performance.now() - S.tAt < 280) return;
   closeMenu();
+  if (S.cold) { e.preventDefault(); return coldClick(e); }
   const pan = panOf(S.data), dial = dialOf(S.data);
   if (S.knife && S.station === 'board') {
     const h = boardHit(e);
@@ -752,7 +784,7 @@ function onDown(e) {
     }
   } else if (S.station === 'hob' && dial && near(e, KS.KNOB, 60)) {
     S.drag = { kind: 'knob', x0: e.clientX, y0: e.clientY, l0: dial.level, level: dial.level };
-  } else if (S.station === 'hob' && pan && near(e, [KS.STATIONS.hob, 0, KS.PAN_Z], 120)) {
+  } else if (S.station === 'hob' && pan && near(e, PAN_AT(pan), 120) && otherPanAt(e) == null) {
     S.drag = { kind: 'pan', x0: e.clientX, y0: e.clientY, t0: performance.now(), ang: 0, last: null };
   } else if (S.station === 'board' && S.board && near(e, [KS.STATIONS.board, 0, KS.BOARD.h], 90)) {
     S.drag = { kind: 'food', x0: e.clientX, y0: e.clientY, at: [KS.STATIONS.board, 0, KS.BOARD.h + 3], moved: false };
@@ -766,7 +798,8 @@ function onDown(e) {
 }
 
 function onMove(e) {
-  if (!S?.drag) return;
+  if (!S) return;
+  if (!S.drag) return hoverAt(e);
   const g = S.drag;
   if (g.kind === 'look') {
     S.orbit.yaw -= (e.clientX - g.x) * 0.006;
@@ -834,7 +867,13 @@ function onUp(e) {
   const g = S.drag, d = S.data;
   S.drag = null;
   const still = g.x0 != null && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 6;
-  if (g.kind === 'tap') { if (still) openMenu(menuFor(g.hit), e); return; }
+  if (g.kind === 'tap') {
+    if (!still) return;
+    if (g.hit.kind === 'pan' && g.hit.id) return pickPan(g.hit.id);
+    if (g.hit.kind === 'box') return openCold(g.hit.id);
+    openMenu(menuFor(g.hit), e);
+    return;
+  }
   if (g.kind === 'dish') {
     // off the plate is back on the slate
     if (Math.hypot(g.it.x, g.it.y) > KS.PLATE_R) g.it.placed = false; else ksfx('kitchen-tap');
@@ -856,17 +895,26 @@ function onUp(e) {
   } else if (g.kind === 'pan') {
     const dx = e.clientX - g.x0, dy = e.clientY - g.y0, dt = performance.now() - g.t0;
     S.spoon = null;
-    if (still) return openMenu(menuFor({ kind: 'pan' }), e);
+    if (still) return S.tool === 'turner' ? flip() : openMenu(menuFor({ kind: 'pan' }), e);
     if (g.turns) return;                       // stirred as it went round
+    // a utensil in hand means one thing: the spoon stirs, the turner flips
+    if (S.tool === 'spoon') { if (Math.abs(g.ang) > Math.PI) stir(); return; }
+    if (S.tool === 'turner') { if (dy < -30) flip(); return; }
     if (Math.abs(g.ang) > Math.PI * 1.5) return stir();
     if (dy < -50 && dt < 450 && Math.abs(dx) < Math.abs(dy)) return flip();
     if (dx > 140 && Math.abs(dy) < dx) { const fin = actOf(panOf(d), 'finish'); if (fin) plateIt(fin); }
   } else if (g.kind === 'food') {
     const food = foods().find((c) => c.id === S.board), pan = panOf(d);
-    if (!g.moved) return openMenu(menuFor({ kind: 'board' }), e);
-    if (g.at[0] > KS.STATIONS.board + KS.BOARD.w / 2 && pan) {
-      const stow = actOf(food, 'stow', (a) => String(a.target) === String(pan.id));
-      if (stow) { run(stow); ksfx('kitchen-tap'); S.board = null; go('hob'); }
+    if (!g.moved) {
+      const chop = chopOf(food);
+      if (S.tool === 'knife' && chop && kit().blade) return pickKnife(chop);
+      return openMenu(menuFor({ kind: 'board' }), e);
+    }
+    // dropped on a pan goes in that pan; anywhere else off the board goes in the one you're using
+    const into = panNear(g.at) || (g.at[0] > KS.STATIONS.board + KS.BOARD.w / 2 ? pan : null);
+    if (into) {
+      const stow = actOf(food, 'stow', (a) => String(a.target) === String(into.id));
+      if (stow) { S.vesselId = into.id; run(stow); ksfx('kitchen-tap'); S.board = null; go('hob'); }
     }
   }
 }
@@ -877,13 +925,39 @@ const shelf = () => foods().filter((c) => c.id !== S.board || S.knife);
 const shelfSpot = (i) => [KS.STATIONS.board - 30 + (i % 8) * 9, 22 + Math.floor(i / 8) * 9, 0];
 const KNIFE_AT = () => [KS.STATIONS.board + 4, 10.5, KS.BOARD.h];
 const PLATE_AT = () => [KS.STATIONS.pass, 0, 1.2];
-const PAN_AT = (pan) => (pan?.hot ? [KS.STATIONS.hob, 0, KS.PAN_Z] : [KS.STATIONS.hob + 22, -4, 0]);
+// The pan on the heat sits on the ring; the rest wait on the rack: the spare rings behind, then
+// the counter to the right of the hob.
+const RACK = [[17, 21, 3.6], [-17, 21, 3.6], [24, -4, 0], [-26, -6, 0]];
+function PAN_AT(pan) {
+  if (!pan) return [KS.STATIONS.hob, 0, KS.PAN_Z];
+  if (pan.hot) return [KS.STATIONS.hob, 0, KS.PAN_Z];
+  const cold = vesselsOf(S.data).filter((v) => !v.hot), i = Math.max(0, cold.findIndex((v) => String(v.id) === String(pan.id)));
+  const r = RACK[i % RACK.length], camp = S.hobKind === 'camp';
+  return [KS.STATIONS.hob + r[0], r[1], camp ? 0 : r[2]];
+}
+// A pan that isn't the one you're using, under the pointer.
+function otherPanAt(e) {
+  const pan = panOf(S.data);
+  for (const v of vesselsOf(S.data)) if (v !== pan && near(e, PAN_AT(v), 55)) return v;
+  return null;
+}
+// The pan a dragged food was let go over, in the counter's plane.
+function panNear(at) {
+  let best = null, bd = Infinity;
+  for (const v of vesselsOf(S.data)) {
+    const p = PAN_AT(v), d = Math.hypot(at[0] - p[0], at[1] - p[1]);
+    if (d < KS.vesselSpec(v.look.vessel).r + 6 && d < bd) { best = v; bd = d; }
+  }
+  return best;
+}
 
 function hitObject(e) {
   const pan = panOf(S.data), items = shelf();
   for (let i = 0; i < items.length; i++) if (near(e, shelfSpot(i), 26)) return { kind: 'shelf', id: items[i].id };
   if (!S.knife && kit().blade && near(e, KNIFE_AT(), 40)) return { kind: 'knife' };
-  for (const [i, box] of coldBoxes().entries()) if (near(e, boxAt(i), 110)) return { kind: 'box', id: box.id };
+  for (const [i, box] of coldBoxes().entries()) if (near(e, boxFront(i), 110)) return { kind: 'box', id: box.id };
+  const other = otherPanAt(e);
+  if (other) return { kind: 'pan', id: other.id };
   if (dialOf(S.data) && near(e, KS.KNOB, 50)) return { kind: 'knob' };
   if (pan && near(e, PAN_AT(pan), 100)) return { kind: 'pan' };
   if (near(e, PLATE_AT(), 70)) return { kind: 'plate' };
@@ -912,7 +986,7 @@ function menuFor(hit) {
   if (hit.kind === 'box') {
     const box = (d?.storage || []).find((x) => String(x.id) === String(hit.id));
     out.push({ title: box?.name || 'Storage' });
-    out.push({ label: 'Open it', fn: () => openSheet({ kind: 'box', id: hit.id }) });
+    out.push({ label: 'Open it', fn: () => openCold(hit.id) });
   } else if (hit.kind === 'shelf') {
     const c = foods().find((x) => x.id === hit.id);
     if (!c) return out;
@@ -965,32 +1039,457 @@ function menuFor(hit) {
   return out;
 }
 
-// ── the fridge, the freezer and the stock-up screen ──────────────────────────────────────────────
+// ── the fridge and the freezer ───────────────────────────────────────────────────────────────────
+// Each cold `storage` box stands left of the counter, the second further left again. Opening one
+// cuts the camera to it and swings its door open on the hinge; what's inside stands on its shelves,
+// drawn as itself, and what on you could go in waits in the door's racks. Click a thing to take it
+// out (`pullid`), or a thing in the door to put it in (`stowid`): the same commands the HUD sends.
 const kit = () => S.data?.kit || {};
 const coldBoxes = () => (S.data?.storage || []).filter((x) => x.preserves);
 const boxLabel = (x) => (x.preserves === 'frozen' ? 'Freezer' : x.preserves ? 'Fridge' : cap(x.name));
-// Each cold box stands left of the counter, the second further left again.
-const boxAt = (i) => [-110 - i * 26, 12, 45];
+const BOX = { w: 56, d: 40, y0: -12, z0: -40, top: 118 };
+const SHELVES = [-4, 26, 56, 86];               // the top of each shelf inside, the floor first
+const PER_SHELF = 5;
+const DOOR_BINS = [14, 46, 78];                  // the door racks' floors, up from the box's foot
+const PER_BIN = 4;
+const DOOR_OPEN = 1.95;                          // radians, a touch past square
+const PICKED = M.rgb('#c8323a');
+const boxX = (i) => -132 - i * 72;
+const boxFront = (i) => [boxX(i), BOX.y0, 50];
+const coldBox = () => (S.cold ? coldBoxes().find((x) => String(x.id) === String(S.cold.id)) : null);
+
+// The shot for a box: square on, far enough back to see every shelf and the open door.
+function coldShot(i) {
+  const x = boxX(i);
+  return (S.coldShots[i] ||= { eye: [x + 30, -265, 78], at: [x - 6, 0, 44], fov: 0.62, roll: 0 });
+}
+
+function openCold(id) {
+  const i = coldBoxes().findIndex((x) => String(x.id) === String(id));
+  if (i < 0) return;
+  closeMenu(); closeSheet(); hideTip();
+  const was = S.cold && S.cold.i === i ? S.cold : null;
+  S.cold = was || { id: String(id), i, open: 0, want: 1, hover: null, gone: new Set(), fly: [], toBoard: false };
+  S.cold.want = 1;
+  ksfx('kitchen-whoosh');
+  paintDom();
+}
+function shutCold() {
+  if (!S.cold) return;
+  S.cold.want = 0;
+  S.cold.hover = null;
+  hideTip();
+  ksfx('kitchen-thock');
+}
+// Cycle: shut → the first box → the next → shut.
+function cycleCold() {
+  const boxes = coldBoxes();
+  if (!boxes.length) return;
+  if (!S.cold || S.cold.want === 0) return openCold(boxes[0].id);
+  const next = boxes[S.cold.i + 1];
+  if (next) { S.cold = null; openCold(next.id); } else shutCold();
+}
+
+function stepCold(dt) {
+  const c = S.cold;
+  if (!c) return;
+  c.open += Math.sign(c.want - c.open) * Math.min(Math.abs(c.want - c.open), dt * 3.2);
+  c.fly = c.fly.filter((f) => (f.t += dt / f.life) < 1);
+  if (c.want === 0 && c.open <= 0 && !c.fly.length) { S.cold = null; paintDom(); }
+}
+// The door's angle: eased out with a little overshoot, so it swings rather than slides.
+function doorAngle(open) {
+  const k = Math.max(0, Math.min(1, open)), s = 1.6;
+  const e = 1 + (s + 1) * Math.pow(k - 1, 3) + s * Math.pow(k - 1, 2);
+  return DOOR_OPEN * e;
+}
+
+// Where the k-th thing inside stands, and how small it has to be to fit the shelf.
+function insideSpot(i, k) {
+  const x = boxX(i), shelf = Math.floor(k / PER_SHELF), col = k % PER_SHELF;
+  return [x - BOX.w / 2 + 7 + col * ((BOX.w - 14) / (PER_SHELF - 1)), BOX.y0 + 15 + (col % 2) * 5, SHELVES[shelf] + 0.2];
+}
+const PACK_H = { bottle: 24.5, jar: 9, tin: 10, carton: 20, box: 18, sack: 18, tub: 8, shaker: 11, tube: 4, pouch: 14, wrap: 4 };
+function fitScale(m, roomH = 26) {
+  const L = m.look || {}, k = L.size || 1;
+  const w = L.pack ? 7.6 * k : Math.max(m.form.w || 8, m.form.d || 6);
+  const h = L.pack ? (PACK_H[L.pack] || 12) * k : (m.form.h || 5);
+  return Math.min(1.5, 9.5 / w, roomH / h);   // a touch larger than life, so a tin reads from the door
+}
+// The door's frame: the hinge at the box's front left, swung open by the door's angle.
+function doorPose(i, ang, lift = 0) {
+  return KS.pose([boxX(i) - BOX.w / 2, BOX.y0, BOX.z0 + lift], -ang);
+}
+function doorSpot(i, ang, k) {
+  const bin = Math.floor(k / PER_BIN), col = k % PER_BIN;
+  return doorPose(i, ang).p([9 + col * 12.5, 4, DOOR_BINS[bin] - BOX.z0 + 1.6]);
+}
+
+// What's on show: inside, the box's items; on the door, what on you could go in.
+function coldInside(box) {
+  const gone = S.cold?.gone || new Set();
+  return (box?.items || []).filter((it) => it.look && !gone.has(String(it.id))).slice(0, SHELVES.length * PER_SHELF);
+}
+function coldDoor(box) {
+  const gone = S.cold?.gone || new Set();
+  const byId = new Map((S.data?.components || []).map((c) => [String(c.id), c]));
+  return (box?.puts || []).filter((p) => !gone.has(String(p.id))).map((p) => ({ put: p, comp: byId.get(String(p.id)) }))
+    .filter((x) => x.comp?.look).slice(0, DOOR_BINS.length * PER_BIN);
+}
+
+function buildBoxes(b) {
+  const boxes = coldBoxes();
+  if (!boxes.length) return;
+  // a wall behind them, so the counter's wall carries on
+  KS.slab(b, [boxX(boxes.length - 1) - 50, 30, BOX.z0], [-118, 34, 150], KS.COLOURS.wall, 0.2);
+  for (const [i, box] of boxes.entries()) buildBox(b, box, i);
+}
 
 function buildBox(b, box, i) {
-  const x = -110 - i * 26, frozen = box.preserves === 'frozen';
+  const x = boxX(i), frozen = box.preserves === 'frozen', c = S.cold && S.cold.i === i ? S.cold : null;
   const body = M.rgb(frozen ? '#dfe8ef' : '#efeee9'), trim = M.rgb('#9aa3aa');
-  KS.slab(b, [x - 12, -6, -14], [x + 12, 32, 92], body, 1.2);
-  // the door seam, and a handle down the right side
-  KS.slab(b, [x - 12.2, -6.3, frozen ? 60 : 40], [x + 12.2, -6.0, frozen ? 61 : 41], trim, 0.1);
-  KS.slab(b, [x + 8, -8, 12], [x + 9.5, -6, 34], trim, 0.4);
-  if (!frozen) KS.slab(b, [x + 8, -8, 48], [x + 9.5, -6, 70], trim, 0.4);
+  const liner = M.rgb(frozen ? '#d3e6f6' : '#fbf6e6'), glass = M.rgb(frozen ? '#b8d4ea' : '#cfe3e6');
+  const x0 = x - BOX.w / 2, x1 = x + BOX.w / 2, y0 = BOX.y0, y1 = BOX.y0 + BOX.d, z0 = BOX.z0, z1 = BOX.top;
+  // the carcass, hollow so the shelves can be seen into
+  KS.slab(b, [x0, y0, z0], [x0 + 2, y1, z1], body, 0.6);
+  KS.slab(b, [x1 - 2, y0, z0], [x1, y1, z1], body, 0.6);
+  KS.slab(b, [x0, y0, z1 - 3], [x1, y1, z1], body, 0.6);
+  KS.slab(b, [x0, y0, z0], [x1, y1, SHELVES[0] - 0.4], body, 0.6);
+  KS.slab(b, [x0, y1 - 2, z0], [x1, y1, z1], body, 0.3);
+  // the lit inside, and the shelves: glass in a fridge, frosted wire in a freezer
+  KS.slab(b, [x0 + 2, y1 - 2.4, SHELVES[0]], [x1 - 2, y1 - 2, z1 - 3], liner, 0.1);
+  for (const [s, z] of SHELVES.entries()) {
+    if (s === 0) KS.slab(b, [x0 + 2, y0 + 1, z - 0.4], [x1 - 2, y1 - 2.4, z], liner, 0.1);
+    else KS.slab(b, [x0 + 2.2, y0 + 2, z - 0.8], [x1 - 2.2, y1 - 3, z], glass, 0.2);
+  }
+  // what's inside: standing on the shelves, the one under the pointer lifted
+  const inside = c ? coldInside(box) : (box.items || []).filter((it) => it.look).slice(0, SHELVES.length * PER_SHELF);
+  for (const [k, it] of inside.entries()) {
+    const m = matterFor(it.look.profile, it.look.matter), at = insideSpot(i, k);
+    const hot = c?.hover?.where === 'in' && c.hover.k === k;
+    if (hot) {
+      at[2] += 1.6 + Math.sin(S.t * 6) * 0.6;
+      M.disc(b, [at[0], at[1], SHELVES[Math.floor(k / PER_SHELF)] + 0.15], [0, 0, 1], 5.2, PICKED, 18, 0.1);
+    }
+    KS.shelfPiece(b, m, pieceOf(m, it), KS.piecesOf(m, []).whole, beatOf(it.cook), KS.pose(at, 0.35 + hash(it.id) * 0.6 + (hot ? Math.sin(S.t * 3) * 0.2 : 0), 0, fitScale(m)), 31 + k);
+  }
+  // the door: closed it sits across the front; open it swings out on the left hinge
+  const ang = c ? doorAngle(c.open) : 0, P = doorPose(i, ang);
+  KS.prism(b, [[0, -4], [BOX.w, -4], [BOX.w, 0], [0, 0]], z1 - z0, 0.8, body, P);
+  KS.prism(b, [[2, 0], [BOX.w - 2, 0], [BOX.w - 2, 0.5], [2, 0.5]], z1 - z0 - 4, 0.1, liner, doorPose(i, ang, 2));
+  // the freezer's door has a seam across it; the fridge's a long handle, the freezer's a short one
+  if (frozen) KS.prism(b, [[0, -4.3], [BOX.w, -4.3], [BOX.w, -4], [0, -4]], 1, 0.05, trim, doorPose(i, ang, 100));
+  const hz = frozen ? [60, 84] : [56, 104];
+  M.tube(b, P.p([BOX.w - 6, -7, hz[0] - z0]), P.p([BOX.w - 6, -7, hz[1] - z0]), 0.9, 0.9, trim, 8);
+  for (const z of hz) M.tube(b, P.p([BOX.w - 6, -4, z - z0]), P.p([BOX.w - 6, -7, z - z0]), 0.6, 0.6, trim, 6);
+  if (!c || c.open < 0.05) return;
+  // the door's racks, and what on you could go in standing in them
+  for (const z of DOOR_BINS) {
+    KS.prism(b, [[3, 0], [BOX.w - 3, 0], [BOX.w - 3, 8], [3, 8]], 1.2, 0.2, glass, doorPose(i, ang, z - z0));
+    KS.prism(b, [[3, 7.4], [BOX.w - 3, 7.4], [BOX.w - 3, 8], [3, 8]], 2.2, 0.1, glass, doorPose(i, ang, z - z0));
+  }
+  for (const [k, { comp }] of coldDoor(box).entries()) {
+    const m = matterFor(comp.look.profile, comp.look.matter), at = doorSpot(i, ang, k);
+    const hot = c.hover?.where === 'door' && c.hover.k === k;
+    if (hot) at[2] += 1.6 + Math.sin(S.t * 6) * 0.6;
+    KS.shelfPiece(b, m, pieceOf(m, comp), KS.piecesOf(m, []).whole, beatOf(comp.cook), KS.pose(at, -ang + 0.3, 0, fitScale(m, 22) * 0.9), 61 + k);
+    if (hot) M.disc(b, [at[0], at[1], at[2] - 1.5], [0, 0, 1], 4.6, PICKED, 16, 0.1);
+  }
+  // things on their way: out to you, or into the box
+  for (const f of c.fly) {
+    const e = f.t * f.t * (3 - 2 * f.t), lift = Math.sin(f.t * Math.PI) * f.arc;
+    const at = [f.from[0] + (f.to[0] - f.from[0]) * e, f.from[1] + (f.to[1] - f.from[1]) * e, f.from[2] + (f.to[2] - f.from[2]) * e + lift];
+    KS.shelfPiece(b, f.m, f.piece, f.whole, f.beat, KS.pose(at, f.t * 5, f.t * 2, f.scale * (f.shrink ? 1 - 0.7 * e : 1)), 91);
+  }
 }
 
-const sheetBox = () => (S.sheet?.kind === 'box' ? (S.data?.storage || []).find((x) => String(x.id) === String(S.sheet.id)) : null);
-
-function openSheet(sheet) {
-  closeMenu();
-  S.sheet = sheet;
-  ksfx(sheet.kind === 'box' ? 'kitchen-whoosh' : 'kitchen-tap');
-  paintSheet();
+// What's under the pointer in an open box.
+function coldHit(e) {
+  const c = S.cold, box = coldBox();
+  if (!c || !box || c.open < 0.6) return null;
+  let best = null, bd = 34;
+  const look = (where, k, p) => {
+    const s = screenOf(p), r = S.gl.getBoundingClientRect();
+    if (!s) return;
+    const d = Math.hypot(e.clientX - (r.left + s[0] * r.width), e.clientY - (r.top + s[1] * r.height));
+    if (d < bd) { bd = d; best = { where, k }; }
+  };
+  coldInside(box).forEach((it, k) => { const p = insideSpot(c.i, k); look('in', k, [p[0], p[1], p[2] + 5]); });
+  const ang = doorAngle(c.open);
+  coldDoor(box).forEach((x, k) => { const p = doorSpot(c.i, ang, k); look('door', k, [p[0], p[1], p[2] + 4]); });
+  return best;
 }
+
+function coldClick(e) {
+  const hit = coldHit(e);
+  if (!hit) {
+    // a click well away from the box shuts it, as you'd let go of the door
+    if (!near(e, boxFront(S.cold.i), 260)) shutCold();
+    return;
+  }
+  coldUse(hit, e.shiftKey || S.cold.toBoard);
+}
+
+// Take a thing out, or put a thing in, and send it flying the way it goes.
+function coldUse(hit, toBoard = false) {
+  const c = S.cold, box = coldBox();
+  if (!c || !box) return;
+  const camera = [S.cam.eye[0] * 0.6 + S.cam.at[0] * 0.4, S.cam.eye[1] * 0.6 + S.cam.at[1] * 0.4, S.cam.eye[2] * 0.6 + S.cam.at[2] * 0.4];
+  if (hit.where === 'in') {
+    const it = coldInside(box)[hit.k], take = actOf(it, 'take');
+    if (!it || !take) return;
+    const m = matterFor(it.look.profile, it.look.matter);
+    c.fly.push({ m, piece: pieceOf(m, it), whole: KS.piecesOf(m, []).whole, beat: beatOf(it.cook), from: insideSpot(c.i, hit.k), to: camera, arc: 10, t: 0, life: 0.45, scale: fitScale(m), shrink: true });
+    c.gone.add(String(it.id));
+    if (toBoard) S.pendingBoard = { id: String(it.id), name: it.name };
+    run(take);
+    ksfx('kitchen-tap');
+  } else {
+    const x = coldDoor(box)[hit.k];
+    if (!x) return;
+    const m = matterFor(x.comp.look.profile, x.comp.look.matter);
+    const to = insideSpot(c.i, Math.min(coldInside(box).length, SHELVES.length * PER_SHELF - 1));
+    c.fly.push({ m, piece: pieceOf(m, x.comp), whole: KS.piecesOf(m, []).whole, beat: beatOf(x.comp.cook), from: doorSpot(c.i, doorAngle(c.open), hit.k), to, arc: 14, t: 0, life: 0.5, scale: fitScale(m), shrink: false });
+    c.gone.add(String(x.put.id));
+    run(x.put);
+    ksfx('kitchen-clink');
+  }
+  c.hover = null;
+  hideTip();
+  paintColdBar();
+}
+
+// Arrow keys walk the shelves and the door; Enter uses what's picked.
+function coldKey(k, shift) {
+  const c = S.cold, box = coldBox();
+  if (!c || !box) return false;
+  const nIn = coldInside(box).length, nDoor = coldDoor(box).length;
+  if (k === 'Enter') { if (c.hover) coldUse(c.hover, shift || c.toBoard); return true; }
+  const all = [...Array.from({ length: nIn }, (_, i) => ({ where: 'in', k: i })), ...Array.from({ length: nDoor }, (_, i) => ({ where: 'door', k: i }))];
+  if (!all.length) return false;
+  let at = c.hover ? all.findIndex((h) => h.where === c.hover.where && h.k === c.hover.k) : -1;
+  const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: PER_SHELF, ArrowUp: -PER_SHELF }[k];
+  if (step == null) return false;
+  at = at < 0 ? 0 : Math.max(0, Math.min(all.length - 1, at + step));
+  c.hover = all[at];
+  ksfx('kitchen-tap');
+  showColdTip(c.hover);
+  return true;
+}
+
+// The name, count and notes of what's under the pointer, beside it.
+function showColdTip(hit, e = null) {
+  const box = coldBox(), tip = S.root.querySelector('.ks-tip');
+  if (!hit || !box) return hideTip();
+  const it = hit.where === 'in' ? coldInside(box)[hit.k] : coldDoor(box)[hit.k]?.comp;
+  if (!it) return hideTip();
+  const qty = hit.where === 'in' ? it.qty : coldDoor(box)[hit.k]?.put.qty;
+  const verb = hit.where === 'in' ? (S.cold.toBoard ? 'Click: onto the board' : 'Click: take it out · Shift: onto the board') : `Click: put it in the ${boxLabel(box).toLowerCase()}`;
+  tip.innerHTML = `<b>${esc(it.name)}${qty > 1 ? ` ×${qty}` : ''}</b>${it.notes?.length ? `<span>${esc(it.notes.join(', '))}</span>` : ''}<i>${esc(verb)}</i>`;
+  tip.hidden = false;
+  const r = S.root.getBoundingClientRect(), gr = S.gl.getBoundingClientRect();
+  let x, y;
+  if (e) { x = e.clientX - r.left + 16; y = e.clientY - r.top + 12; } else {
+    const p = hit.where === 'in' ? insideSpot(S.cold.i, hit.k) : doorSpot(S.cold.i, doorAngle(S.cold.open), hit.k), s = screenOf([p[0], p[1], p[2] + 8]);
+    if (!s) return;
+    x = gr.left - r.left + s[0] * gr.width + 12; y = gr.top - r.top + s[1] * gr.height - 10;
+  }
+  tip.style.left = `${Math.max(8, Math.min(r.width - tip.offsetWidth - 8, x))}px`;
+  tip.style.top = `${Math.max(8, Math.min(r.height - tip.offsetHeight - 8, y))}px`;
+}
+function hideTip() { const t = S?.root.querySelector('.ks-tip'); if (t) t.hidden = true; }
+
+function paintColdBar() {
+  const el = S.root.querySelector('.ks-cold-bar'), box = coldBox();
+  if (!S.cold || !box) { el.hidden = true; el.innerHTML = ''; return; }
+  const n = (box.items || []).length, shown = coldInside(box).length;
+  const more = (n - shown - S.cold.gone.size > 0 ? n - shown : 0) + (box.other || 0);
+  el.hidden = false;
+  el.dataset.frozen = box.preserves === 'frozen' ? '1' : '';
+  el.innerHTML = `<span class="ks-cold-name">${esc(box.name)}</span>
+    <span class="ks-cold-count">${n ? `${n} thing${n === 1 ? '' : 's'}` : 'Empty'}${more ? ` · ${more} more at the back` : ''}</span>
+    <button class="ks-chip${S.cold.toBoard ? ' on' : ''}" data-cold="board" aria-pressed="${S.cold.toBoard}" title="Whatever you take goes straight onto the board">To the board</button>
+    <button class="ks-chip ks-serve" data-cold="shut">Shut it</button>`;
+}
+
+// ── what the server says ─────────────────────────────────────────────────────────────────────────
+// With the Stage open the log stays quiet: every line the server prints comes here instead, as a
+// caption over the kitchen that fades after a few seconds (dispatch.js output).
+export function kitchenSays(html) {
+  if (!S) return false;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = String(html || '');
+  const text = tmp.textContent.replace(/\s+/g, ' ').trim();
+  if (!text) return true;
+  const box = S.root.querySelector('.ks-say'), line = document.createElement('div');
+  line.textContent = text;
+  box.appendChild(line);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => line.classList.add('gone'), 6000);
+  setTimeout(() => line.remove(), 6600);
+  return true;
+}
+
+// ── the heat ─────────────────────────────────────────────────────────────────────────────────────
+// The wheel turns the knob: the picture moves at once, and the setting is sent once you stop.
+function onWheel(e) {
+  const dial = dialOf(S?.data);
+  if (!dial?.levels || S.cold || S.dress || S.knife) return;
+  e.preventDefault();
+  const max = dial.ceiling ?? 10, from = S.wheel ? S.wheel.level : dial.level;
+  const lv = Math.max(0, Math.min(max, from + (e.deltaY < 0 ? 1 : -1)));
+  if (S.wheel?.timer) clearTimeout(S.wheel.timer);
+  if (lv !== from) ksfx('kitchen-knob');
+  S.wheel = { level: lv, timer: setTimeout(() => {
+    if (!S?.wheel) return;
+    const want = S.wheel.level, d = dialOf(S.data);
+    S.wheel = null;
+    if (d && want !== d.level) run(d.levels[want]);
+  }, 280) };
+  if (S.station !== 'hob') go('hob');
+}
+
+// The ring itself: dark when it's off, a dull red as it warms, orange and then yellow-white at
+// the top of the dial, with a little shimmer so it reads as live.
+const ELEMENT = [M.rgb('#3a3434'), M.rgb('#8a1d10'), M.rgb('#ff5a1f'), M.rgb('#ffd27a')];
+function buildElement(b, level, max) {
+  if (level <= 0) return;
+  const k = Math.min(1, level / Math.max(1, max)) * (0.96 + 0.04 * Math.sin(S.t * 9)), seg = k * 3;
+  const i = Math.min(2, Math.floor(seg)), f = seg - i, A = ELEMENT[i], B = ELEMENT[i + 1];
+  const col = [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f, A[2] + (B[2] - A[2]) * f, 1];
+  const x = KS.STATIONS.hob, z = S.hobKind === 'camp' ? 3.05 : 2.95;
+  for (const r of [2.2, 4.5, 6.8]) KS.ring(b, [x, 0, z], r, 0.55 + 0.25 * k, col, 20);
+  // heat haze over a bare ring: a faint puff now and then, more as it climbs
+  if (!vesselsOf(S.data).some((v) => v.hot) && Math.random() < k * 0.15) S.puffs.push({ p: [x + (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, 4], age: 0, life: 0.9, c: KS.COLOURS.steam, size: 0.5 });
+}
+
+// ── the pans and the utensils ────────────────────────────────────────────────────────────────────
+// The rack down the right: every pan out in the kitchen, and the utensil in your hand. Picking a
+// pan makes it the one food goes into and the one the hob gestures work on; picking a utensil
+// makes a drag on the pan mean one thing.
+const TOOLS = [
+  { key: 'hand', label: 'Hand', need: null, hint: 'Pick things up and move them' },
+  { key: 'spoon', label: 'Spoon', need: 'stir', hint: 'Drag round the pan to stir' },
+  { key: 'turner', label: 'Turner', need: 'flip', hint: 'Click or flick the pan to flip' },
+  { key: 'knife', label: 'Knife', need: 'blade', hint: 'Click food on the board to cut it' },
+];
+const ICON = {
+  pan: '<circle cx="10" cy="13" r="7"/><path d="M17 13h6"/>',
+  pot: '<path d="M4 8h14v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M2 10h2M18 10h2"/>',
+  tray: '<rect x="2" y="9" width="20" height="8" rx="1"/>',
+  bowl: '<path d="M3 10h18a9 7 0 0 1-18 0z"/>',
+  hand: '<path d="M8 13V5a1.5 1.5 0 0 1 3 0v6V4a1.5 1.5 0 0 1 3 0v7V6a1.5 1.5 0 0 1 3 0v8c0 4-3 7-6 7s-5-2-7-5l-2-3a1.5 1.5 0 0 1 2.5-1.5z"/>',
+  spoon: '<ellipse cx="7" cy="7" rx="4" ry="5" transform="rotate(-45 7 7)"/><path d="M10 10l10 10"/>',
+  turner: '<rect x="3" y="3" width="8" height="9" rx="1" transform="rotate(-45 7 7.5)"/><path d="M11 11l10 10"/>',
+  knife: '<path d="M3 21L17 7l3 1-11 11z"/><path d="M17 7l3-3"/>',
+};
+const icon = (k) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ICON.pan}</svg>`;
+
+function toolOk(t) { return !t.need || !!kit()[t.need]; }
+
+function paintRack() {
+  const el = S.root.querySelector('.ks-rack'), pans = vesselsOf(S.data), pan = panOf(S.data);
+  if (S.cold || S.dress) { el.hidden = true; return; }
+  el.hidden = false;
+  const pansHtml = pans.length ? pans.map((v, i) => {
+    const n = (v.contents || []).length;
+    return `<button class="ks-rack-card${v === pan ? ' on' : ''}" data-pan="${esc(String(v.id))}" aria-pressed="${v === pan}" title="${esc(v.name)}, ${esc(v.place || '')}${i < 9 ? '' : ''}">
+      ${icon(v.look.vessel)}<span class="ks-rack-name">${esc(v.name)}</span>
+      <span class="ks-rack-sub">${v.hot ? 'on the heat' : n ? `${n} in it` : 'empty'}</span></button>`;
+  }).join('') : '<div class="ks-rack-none">No pan out</div>';
+  const toolsHtml = TOOLS.map((t) => {
+    const ok = toolOk(t);
+    return `<button class="ks-rack-tool${S.tool === t.key ? ' on' : ''}" data-tool="${t.key}" aria-pressed="${S.tool === t.key}"${ok ? '' : ' disabled'} title="${esc(ok ? t.hint : `You've no ${t.label.toLowerCase()} to hand`)}">${icon(t.key)}<span>${t.label}</span></button>`;
+  }).join('');
+  el.innerHTML = `<div class="ks-label">Pans <kbd>[ ]</kbd></div>${pansHtml}<div class="ks-label">In hand <kbd>Q E</kbd></div><div class="ks-rack-tools">${toolsHtml}</div>`;
+}
+
+// Click a pan once to work with it, again for what it does.
+function pickPan(id, e = null) {
+  const v = vesselsOf(S.data).find((x) => String(x.id) === String(id));
+  if (!v) return;
+  if (v === panOf(S.data) && e) {
+    const card = e.target?.closest?.('button');
+    const r = card?.getBoundingClientRect();
+    return openMenu(menuFor({ kind: 'pan' }), r ? { clientX: r.left - 190, clientY: r.top } : e);
+  }
+  S.vesselId = v.id;
+  syncBodies(); syncLiquid();
+  if (S.station !== 'hob') go('hob');
+  ksfx('kitchen-clink');
+  paintDom();
+}
+function cyclePan(dir) {
+  const vs = vesselsOf(S.data);
+  if (vs.length < 2) return;
+  const i = vs.indexOf(panOf(S.data));
+  pickPan(vs[(i + dir + vs.length) % vs.length].id);
+}
+function setTool(key) {
+  const t = TOOLS.find((x) => x.key === key);
+  if (!t || !toolOk(t)) return;
+  S.tool = key;
+  ksfx(key === 'knife' ? 'kitchen-thock' : 'kitchen-tap');
+  paintRack();
+}
+function cycleTool(dir) {
+  const ok = TOOLS.filter(toolOk), i = Math.max(0, ok.findIndex((t) => t.key === S.tool));
+  setTool(ok[(i + dir + ok.length) % ok.length].key);
+}
+
+// The other pans on the rack, with what's in them sitting still: only the one you're using moves.
+function buildOtherPans(b) {
+  const pan = panOf(S.data);
+  for (const v of vesselsOf(S.data)) {
+    if (v === pan) continue;
+    const at = PAN_AT(v), P = KS.pose(at, 0), spec = KS.vesselSpec(v.look.vessel);
+    KS.vessel(b, v.look.vessel, P);
+    let k = 0;
+    for (const c of v.contents || []) {
+      if (!c.look) continue;
+      const m = matterFor(c.look.profile, c.look.matter), beat = beatOf(c.cook, c.state === 'cooked');
+      if (liquidish(m)) {
+        M.disc(b, P.p([0, 0, Math.min(spec.wall * 0.6, 2)]), [0, 0, 1], spec.r * (spec.taper || 0.85) * 0.95, M.rgb(m.ramp[beat] || m.ramp.raw), 20, 0.2);
+        continue;
+      }
+      const a = hash(c.id) * Math.PI * 2, r = Math.sqrt(hash(c.id + 'r')) * (spec.r - 4) * 0.7;
+      KS.foodPiece(b, m, pieceOf(m, c), KS.piecesOf(m, []).whole, beat, KS.pose([at[0] + Math.cos(a) * r, at[1] + Math.sin(a) * r, at[2] + 1], a * 2), 41 + k++);
+    }
+  }
+}
+
+// The utensil in your hand, drawn where the pointer meets the counter, so you can see what a
+// click will do before you do it.
+function hoverAt(e) {
+  if (S.cold) {
+    const hit = coldHit(e), was = S.cold.hover;
+    if (hit?.where !== was?.where || hit?.k !== was?.k) { S.cold.hover = hit; if (hit) ksfx('kitchen-tap'); }
+    S.gl.style.cursor = hit ? 'pointer' : '';
+    if (hit) showColdTip(hit, e); else hideTip();
+    return;
+  }
+  if (S.tool === 'hand' || S.menu || S.knife || S.dress || e.target !== S.gl) { S.hover = null; S.gl.style.cursor = ''; return; }
+  S.hover = planeHit(e, KS.PAN_Z + 7);
+  S.gl.style.cursor = S.hover ? 'none' : '';
+}
+function buildTool(b) {
+  const h = S.hover;
+  if (!h || S.cold || S.drag?.kind === 'pan' && S.spoon || S.tool === 'hand') return;
+  const at = [h[0], h[1], h[2]], col = KS.COLOURS.handle, steel = KS.COLOURS.blade;
+  if (S.tool === 'spoon') {
+    M.ellipsoid(b, at, [1, 0, 0], [0, 1, 0], [0, 0, 1], [2, 1.4, 0.6], steel, 10, 5);
+    M.tube(b, [at[0] + 1.5, at[1] - 1, at[2] + 0.3], [at[0] + 6, at[1] - 9, at[2] + 16], 0.45, 0.55, col, 6);
+  } else if (S.tool === 'turner') {
+    KS.prism(b, [[-3.5, -3], [3.5, -3], [3, 3], [-3, 3]], 0.3, 0.05, steel, KS.pose(at, 0.5));
+    M.tube(b, [at[0] + 1.2, at[1] - 3, at[2] + 0.2], [at[0] + 5, at[1] - 14, at[2] + 12], 0.5, 0.7, col, 6);
+  } else if (S.tool === 'knife') {
+    KS.knife(b, KS.pose([at[0] - 6, at[1] - 2, at[2] + 2], -0.6, Math.PI / 2));
+  }
+}
+
+// ── the stock-up screen ─────────────────────────────────────────────────────────────────────────
 function closeSheet() {
+  if (!S.sheet) return;
   S.sheet = null;
   paintSheet();
 }
@@ -1007,39 +1506,18 @@ function paintSheet() {
   const el = S.root.querySelector('.ks-sheet'), sh = S.sheet;
   if (!sh) { el.hidden = true; el.innerHTML = ''; el.className = 'ks-sheet'; return; }
   el.hidden = false;
-  if (sh.kind === 'box') {
-    const box = sheetBox();
-    if (!box) { S.sheet = null; el.hidden = true; return; }
-    const frozen = box.preserves === 'frozen';
-    el.className = `ks-sheet ks-cold${frozen ? ' ks-frozen' : ''}`;
-    // the inside: four to a shelf, and always at least three shelves so an empty one looks empty
-    const items = box.items || [], rows = Math.max(3, Math.ceil(items.length / 4));
-    const shelves = Array.from({ length: rows }, (_, r) => `<div class="ks-shelf">${items.slice(r * 4, r * 4 + 4).map((it, j) => {
-      const i = r * 4 + j;
-      return `<button class="ks-cold-item" data-take="${i}" title="Take it out"><span class="ks-cold-name">${esc(it.name)}</span>${it.qty > 1 ? `<span class="ks-cold-qty">×${it.qty}</span>` : ''}${it.notes?.length ? `<span class="ks-cold-note">${esc(it.notes.join(', '))}</span>` : ''}</button>`;
-    }).join('')}</div>`).join('');
-    const puts = box.puts || [];
-    el.innerHTML = `<div class="ks-cold-box">
-      <div class="ks-sheet-head"><span>${esc(box.name)}</span><button class="ks-btn" data-sheet="close" aria-label="Close">Shut it</button></div>
-      <div class="ks-cold-inside">${shelves}${box.other ? `<div class="ks-cold-other">and ${box.other} other thing${box.other === 1 ? '' : 's'} at the back</div>` : ''}</div>
-      <div class="ks-cold-door"><div class="ks-label">Put in</div>${puts.length
-        ? puts.map((p, i) => `<button class="ks-food" data-put="${i}">${esc(p.name)}${p.qty ? ` ×${p.qty}` : ''}</button>`).join('')
-        : `<div class="ks-cold-empty">Nothing on you that wants ${frozen ? 'freezing' : 'keeping cold'}.</div>`}</div>
-    </div>`;
-  } else {
-    el.className = 'ks-sheet ks-stock';
-    const list = sh.items.filter((it) => it.shelf === sh.shelf);
-    el.innerHTML = `<div class="ks-stock-box">
-      <div class="ks-sheet-head"><span>Stock the kitchen</span><span class="ks-stock-cash">₵${sh.credits}</span><button class="ks-btn" data-sheet="close" aria-label="Close">Done</button></div>
-      <div class="ks-stock-tabs">${[['food', 'Food'], ['kit', 'Pans and kit']].map(([k, l]) => `<button class="ks-tab${sh.shelf === k ? ' on' : ''}" data-shelf="${k}">${l}</button>`).join('')}</div>
-      <div class="ks-stock-note">Delivered to you here. It costs more than walking to the shop.</div>
-      <div class="ks-stock-grid">${list.length ? list.map((it) => `<div class="ks-stock-card">
-        <div class="ks-stock-name">${esc(it.name)}</div>
-        ${it.note ? `<div class="ks-stock-desc">${esc(it.note)}</div>` : ''}
-        <button class="ks-chip ks-serve" data-buy="${esc(it.id)}"${it.price > sh.credits ? ' disabled' : ''}>Buy · ₵${it.price}</button>
-      </div>`).join('') : '<div class="ks-cold-empty">Nobody in town delivers any.</div>'}</div>
-    </div>`;
-  }
+  el.className = 'ks-sheet ks-stock';
+  const list = sh.items.filter((it) => it.shelf === sh.shelf);
+  el.innerHTML = `<div class="ks-stock-box">
+    <div class="ks-sheet-head"><span>Stock the kitchen</span><span class="ks-stock-cash">₵${sh.credits}</span><button class="ks-btn" data-sheet="close" aria-label="Close">Done</button></div>
+    <div class="ks-stock-tabs">${[['food', 'Food'], ['kit', 'Pans and kit']].map(([k, l]) => `<button class="ks-tab${sh.shelf === k ? ' on' : ''}" data-shelf="${k}">${l}</button>`).join('')}</div>
+    <div class="ks-stock-note">Delivered to you here. It costs more than walking to the shop.</div>
+    <div class="ks-stock-grid">${list.length ? list.map((it) => `<div class="ks-stock-card">
+      <div class="ks-stock-name">${esc(it.name)}</div>
+      ${it.note ? `<div class="ks-stock-desc">${esc(it.note)}</div>` : ''}
+      <button class="ks-chip ks-serve" data-buy="${esc(it.id)}"${it.price > sh.credits ? ' disabled' : ''}>Buy · ₵${it.price}</button>
+    </div>`).join('') : '<div class="ks-cold-empty">Nobody in town delivers any.</div>'}</div>
+  </div>`;
 }
 
 function pickKnife(chop) {
@@ -1095,6 +1573,14 @@ function onKey(e) {
   let done = true;
   if (S.menu && k === 'Escape') closeMenu();
   else if (S.sheet && k === 'Escape') closeSheet();
+  else if (S.cold && (k === 'Escape' || (S.cold.want === 0 && k === 'o'))) shutCold();
+  else if (S.cold && coldKey(k, e.shiftKey)) { /* walked the shelves */ }
+  else if (k === 'o' || k === 'O') cycleCold();
+  else if (S.cold) done = false;
+  else if (k === '[') cyclePan(-1);
+  else if (k === ']') cyclePan(1);
+  else if (k === 'q' || k === 'Q') cycleTool(-1);
+  else if (k === 'e' || k === 'E') cycleTool(1);
   else if (S.dress && k === 'Enter') serve(scoreDress());
   else if (S.dress && k === 'Escape') serve(null);
   else if (S.knife && k === ' ') cutAt(S.knife.sweep, 0, false);
