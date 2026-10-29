@@ -272,131 +272,18 @@ const pairLine = (pts) => {
 // points along a quadratic, a to b about c, without the first point
 const qp = (a, c, b, n = 6) => Array.from({ length: n }, (_, i) => qAt(a, c, b, (i + 1) / n));
 function bulldogs() {
-  // the cog: twelve teeth
-  const cog = [];
-  for (let i = 0; i < 12; i++) {
-    const a0 = (i / 12) * TAU - Math.PI / 2 + Math.PI / 12;
-    for (const [da, r] of [[-0.2, 41.5], [-0.13, 49], [0.13, 49], [0.2, 41.5]]) cog.push([50 + r * Math.cos(a0 + da), 50 + r * Math.sin(a0 + da)]);
-  }
-  // the neck and the collar round it, under the jaw
-  const neck = sym([[50, 60], [70, 60], [80, 66], ...qp([80, 66], [82, 86], [64, 95]), [50, 97]]);
-  const ca = [13, 72], cc = [50, 108], cb = [87, 72];
-  const collar = shape([['M', ...ca], ['Q', ...cc, ...cb]]);
-  let studs = '', spikes = '';
-  for (let i = 0; i < 9; i++) {
-    const t = 0.1 + (i * 0.8) / 8, [x, y] = qAt(ca, cc, cb, t), g = qTan(ca, cc, cb, t), nx = -Math.sin(g), ny = Math.cos(g), tx = Math.cos(g), ty = Math.sin(g);
-    spikes += poly([[x - tx * 2.6, y - ty * 2.6], [x + nx * 7.6, y + ny * 7.6], [x + tx * 2.6, y + ty * 2.6]]);
-    studs += circle(x, y, 1.6);
-  }
-  // the head: flat skull, the brow's shelf, cheeks widening into jowls slung past the jaw
-  const head = sym([[50, 16.4], [67, 16.4], [79.4, 18.4], [87.4, 23.4], [91, 31], [94, 41], [96.4, 53], [96.6, 62], [93.4, 71], [86.4, 79], [77.6, 82.6], [70, 81], [64, 86.6], [56.4, 90], [50, 90.6]]);
-  // shade: the lower jowls and the side planes away from the light
-  const jowlShade = pair([[96.4, 53], [96.6, 62], [93.4, 71], [86.4, 79], [77.6, 82.6], [80.4, 74], [84.4, 63], [86, 54]]);
-  const temple = pair([[79.4, 18.4], [87.4, 23.4], [91, 31], [94, 41], [87.4, 37.6], [83, 30], [78.6, 23.6]]);
-  // ears: roses, folded over and pinned back flat at the corners of the skull, the left one
-  // torn
-  const earR = [[76.6, 19.6], [86.6, 13.4], [95.6, 14.4], [97.8, 19.6], [93.6, 26.4], [88.4, 27.8], [86.6, 23.2]];
-  const earL = [[23.4, 19.6], [13.4, 13.4], [8.8, 13.8], [9.6, 16.8], [6.6, 16.6], [2.2, 19.6], [6.4, 26.4], [11.6, 27.8], [13.4, 23.2]];
-  const earFold = pair([[84.4, 18.6], [92.4, 16.6], [95.4, 19.4], [91.4, 24]]);
-  // a scar down the left cheek, stitched
-  const scar = shape([['M', 28, 24.6], ['L', 26, 30.4], ['L', 27, 32.6], ['L', 24.6, 39.4], ['L', 25.4, 41.6], ['L', 22.8, 48]]);
-  const stitches = shape([['M', 24.4, 28.6], ['L', 28.8, 30], ['M', 23.4, 35.4], ['L', 27.8, 36.6], ['M', 22.2, 42.8], ['L', 26.6, 44]]);
-  // the forehead's furrows, a chevron of creases pulled down to the brow
-  const furrows = shape([['M', 42, 22.6], ['L', 50, 26], ['L', 58, 22.6], ['M', 37.4, 18.8], ['L', 44, 21], ['M', 62.6, 18.8], ['L', 56, 21],
-    ['M', 47.2, 34.4], ['L', 45.6, 28.6], ['M', 52.8, 34.4], ['L', 54.4, 28.6]]);
-  // the brow, a shelf of bone pulled down hard into a V on the bridge of the nose
-  const brow = pair([[50.4, 39.4], [51.8, 34.4], [61, 27.2], [72, 25.6], [81.4, 28.4], [83.2, 32.2], [76.4, 31.6], [65.6, 33.6], [56.6, 39.6], [52.4, 42.4]]);
-  // the eyes under it: narrow, slanted down to the nose, a dark socket round each
-  const socket = pair([[53.6, 42.2], [62.4, 35.2], [74.4, 32], [79.8, 33.4], [74.6, 40.4], [63.4, 45]]);
-  const eyeR = [[56.2, 41.4], [64.2, 36.6], [74.6, 34.2], [72.6, 38.6], [64, 42.4]];
-  const eyes = pair(eyeR);
-  const pupils = poly(ellipsePts(66.4, 38.8, 1.7, 2.3, 0.35, 16)) + poly(ellipsePts(33.6, 38.8, 1.7, 2.3, -0.35, 16));
-  const glints = circle(65.4, 37.6, 0.6) + circle(32.6, 37.6, 0.6);
-  // the muzzle: the pale lower face, the snout drawn up into rolls
-  const muzzle = sym([[50, 41.2], [55, 43], [62.4, 45.2], [70.4, 47.6], [77.4, 53], [80.4, 61], [78.4, 69.4], [71.6, 74], [62, 76.4], [50, 77]]);
-  const muzzleShade = pair([[77.4, 53], [80.4, 61], [78.4, 69.4], [71.6, 74], [72.4, 66], [73, 58]]);
-  const rolls = shape([['M', 39.4, 44.6], ['L', 44.6, 43.2], ['L', 50, 44.2], ['L', 55.4, 43.2], ['L', 60.6, 44.6], ['M', 34.6, 47.6], ['L', 38.4, 46.6], ['M', 65.4, 47.6], ['L', 61.6, 46.6]]);
-  const nose = sym([[50, 45.4], [57.4, 45], [62.8, 47.2], [62.6, 51.4], [58.2, 55], [53.2, 56], [50, 57.6]]);
-  const nostrils = pair([[52.6, 51.6], [57.8, 50], [59.8, 51.6], [55.6, 53.6]]);
-  const noseShine = poly([[45.4, 46.6], [52.4, 46.2], [50.6, 47.8], [44.6, 48.2]]);
-  // the mouth, open in a snarl: the flews drawn back off the upper teeth
-  const mouth = sym([[50, 59.6], [57, 59.4], [66.4, 62], [71.4, 67.4], [69, 73], [60, 75.4], [50, 76]]);
-  const flews = pair([[50, 57.6], [53.2, 56], [58.2, 55], [66.6, 56.8], [74.6, 61.6], [77.6, 68.6], [72.6, 67.6], [66.4, 62.6], [58.4, 60], [50, 60.4]]);
-  const flewLines = pairLine([[77.4, 53], [80, 58.6], [79.6, 66.4]]) + pairLine([[87.2, 52], [88.6, 62], [85.6, 72.4]]);
-  // upper teeth hung from the gum, the fangs at the corners long
-  let upper = '';
-  for (let i = 0; i < 4; i++) { const x = 42 + i * 4; upper += poly([[x, 60.2], [x + 4, 60.2], [x + 2, 64.6]]); }
-  const fangsUp = pair([[60.4, 60.6], [64.4, 61.8], [62, 70.4]]);
-  // the underbite: a wide lower jaw thrust out in front, its fangs jutting up past the lip
-  const jaw = sym([[50, 71.8], [58, 71.4], [66.2, 69.4], [70.4, 70.4], [69, 77.4], [61.6, 83.4], [50, 85.6]]);
-  const jawShade = pair([[66.2, 69.4], [70.4, 70.4], [69, 77.4], [61.6, 83.4], [50, 85.6], [50, 82.6], [59.4, 80.6], [65.4, 75.6]]);
-  let lower = '';
-  for (let i = 0; i < 4; i++) { const x = 42 + i * 4; lower += poly([[x, 72.2], [x + 2, 67.8], [x + 4, 72.2]]); }
-  const fangsLow = pair([[62.6, 71], [68.4, 69.8], [67.2, 57.6]]);
-  const chin = shape([['M', 45, 80.4], ['L', 50, 81.6], ['L', 55, 80.4]]);
-  const ink = BD.black;
-  // the dog is drawn full size and set down at k, small enough that the ears stay inside the
-  // cog's teeth (and inside the disc of the small drawing)
-  const fitAt = (k) => (l) => ({ ...l, d: xfD(l.d, k, 50, 46), ...(l.sw ? { sw: +(l.sw * k).toFixed(2) } : {}) });
-  const fit = fitAt(0.86);
+  // Traced from the club's own art (crests/bulldogs.json): the head front-on and glaring,
+  // a spiked collar under the jowls, on a dark-orange cog.
+  // Flat colours over a black base that is the whole crest grown into an outline.
+  const tr = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts/content/crests/bulldogs.json'), 'utf8'));
   const layers = [
-    L(poly(cog), BD.rust, { stroke: ink, sw: 2.2 }),
-    L(circle(50, 50, 36.5), ink),
-    L(ring(50, 50, 32, 33.6), BD.rustDeep),
-    ...[L(neck, BD.orangeDark, { stroke: ink, sw: 3 }),
-    L(collar, 'none', { stroke: ink, sw: 10.4 }),
-    L(collar, 'none', { stroke: '#2a2a2a', sw: 7.2 }),
-    L(spikes, BD.steel, { stroke: ink, sw: 1.4 }),
-    L(studs, BD.steelDark),
-    L(head, BD.orange, { stroke: ink, sw: 3.6 }),
-    L(temple + jowlShade, BD.orangeDeep),
-    L(poly(earR) + poly(earL), BD.orangeDark, { stroke: ink, sw: 2.6 }),
-    L(earFold, BD.rustDeep),
-    L(scar, 'none', { stroke: ink, sw: 3.4 }),
-    L(scar, 'none', { stroke: BD.scar, sw: 1.6 }),
-    L(stitches, 'none', { stroke: ink, sw: 1 }),
-    L(furrows, 'none', { stroke: ink, sw: 1.8 }),
-    L(muzzle, BD.bone),
-    L(muzzleShade, BD.boneShade),
-    L(flewLines, 'none', { stroke: ink, sw: 1.6 }),
-    L(socket, BD.orangeDark),
-    L(eyes, BD.eye, { stroke: ink, sw: 1.1 }),
-    L(pupils, ink),
-    L(glints, BD.white),
-    L(brow, ink),
-    L(rolls, 'none', { stroke: ink, sw: 1.5 }),
-    L(mouth, BD.mouth, { stroke: ink, sw: 1.4 }),
-    L(upper, BD.white, { stroke: ink, sw: 0.6 }),
-    L(fangsUp, BD.white, { stroke: ink, sw: 1.1 }),
-    L(jaw, BD.bone, { stroke: ink, sw: 1.8 }),
-    L(jawShade, BD.boneShade),
-    L(chin, 'none', { stroke: ink, sw: 1.2 }),
-    L(lower, BD.white, { stroke: ink, sw: 0.6 }),
-    L(flews, BD.bone, { stroke: ink, sw: 1.8 }),
-    L(fangsLow, BD.white, { stroke: ink, sw: 1.3 }),
-    L(nose, BD.nose, { stroke: ink, sw: 1 }),
-    L(nostrils, '#000000'),
-    L(noseShine, '#5d5d5d'),
-  ].map(fit)];
-  // small: the cog as a disc, the head, the brow and eyes, the snarl, the collar as a band
-  const small = [
-    L(circle(50, 50, 47), BD.rust),
-    ...[L(collar, 'none', { stroke: ink, sw: 11 }),
-    L(spikes, BD.steel, { stroke: ink, sw: 2 }),
-    L(head, BD.orange, { stroke: ink, sw: 5 }),
-    L(poly(earR) + poly(earL), BD.orangeDark, { stroke: ink, sw: 3.6 }),
-    L(jowlShade, BD.orangeDeep),
-    L(muzzle, BD.bone),
-    L(eyes, BD.eye),
-    L(brow, ink),
-    L(mouth, BD.mouth),
-    L(fangsUp, BD.white),
-    L(jaw, BD.bone, { stroke: ink, sw: 2.4 }),
-    L(flews, BD.bone, { stroke: ink, sw: 2.4 }),
-    L(fangsLow, BD.white, { stroke: ink, sw: 1.6 }),
-    L(nose, BD.nose),
-  ].map(fitAt(0.8))];
-  return { box: 100, layers, small };
+    L(tr.ink, BD.black),
+    L(tr.dark, '#b04a10'),
+    L(tr.orange, BD.orange),
+    L(tr.cream, BD.bone),
+    L(tr.eye, BD.eye),
+  ];
+  return { box: 100, layers };
 }
 
 // MARQUEE MARAUDERS. A great helm, front on, on a heater shield, with a plume that
@@ -886,121 +773,23 @@ function clipToDisc(d, cx, cy, R) {
 }
 function wharfRats() {
   const C = 50, ink = WRAT.ink;
-  // ── the ring: a mooring line, silver piping inside it ──
-  let twists = '';
-  for (let i = 0; i < 72; i++) {
-    const a = (i / 72) * TAU;
-    twists += `M${P(C + 42.6 * Math.cos(a), C + 42.6 * Math.sin(a))}L${P(C + 47.6 * Math.cos(a + 0.07), C + 47.6 * Math.sin(a + 0.07))}`;
-  }
-  const waves = shape([['M', 18, 80], ['Q', 22, 78, 26, 80], ['Q', 30, 82, 34, 80], ['M', 64, 82], ['Q', 68, 80, 72, 82], ['Q', 76, 84, 80, 82], ['M', 30, 86], ['Q', 34, 84, 38, 86], ['M', 58, 87], ['Q', 62, 85, 66, 87]]);
-  // ── the anchor ──
-  const shank = poly([[47.6, 36.6], [52.4, 36.6], [52.9, 82], [47.1, 82]]);
-  const shankLight = poly([[48.2, 46], [49.2, 46], [49.2, 80], [48, 80]]);
-  const stock = poly([[28.4, 41], [50, 40], [71.6, 41], [71.6, 44.6], [50, 45.6], [28.4, 44.6]]) + circle(27.2, 42.8, 2.8) + circle(72.8, 42.8, 2.8);
-  const arms = shape([['M', 23.8, 62.6], ['C', 25.4, 76, 37.6, 87.6, 50, 87.6], ['C', 62.4, 87.6, 74.6, 76, 76.2, 62.6], ['L', 71.4, 63.4], ['C', 70.2, 73.6, 60.6, 82.4, 50, 82.4],
-    ['C', 39.4, 82.4, 29.8, 73.6, 28.6, 63.4], ['Z']]);
-  const fluke = (m) => shape([['M', 19.4, 66.6], ['L', 21.2, 53], ['L', 26.4, 58.8], ['L', 32.2, 62.4], ['C', 28.4, 63, 24.6, 64.6, 19.4, 66.6], ['Z']], T({ fn: (x, y) => m([x, y]) }));
-  const flukes = fluke((p) => p) + fluke(([x, y]) => [100 - x, y]);
-  const crown = poly([[50, 84.4], [53, 87.4], [50, 90.4], [47, 87.4]]);
-  // ── the rat, crouched on the stock facing right: haunch high, back up and bristling,
-  // head down and forward ──
-  const back = [[[26.6, 36.4], [21, 28], [26, 15], [38, 11.6]], [[38, 11.6], [47, 9.4], [55, 12], [60.4, 16.8]]];
-  const bristle = chainPts(back, 16).map(({ p, d, n }, i, arr) => (i % 2 && i > 1 && i < arr.length - 2 ? add(add(p, mul(n, 3)), mul(d, -1.6)) : p));
-  const head = [[[60.4, 16.8], [64.6, 15.2], [69.4, 15.2], [73.4, 17]], [[73.4, 17], [78.6, 20], [85.4, 24.4], [90.4, 27.4]]];
-  const headPts = chainPts(head, 10).map(({ p }) => p);
-  const sil = poly([...bristle, ...headPts.slice(1),
-    [92.4, 28.8], [92, 30.6], [90, 31.4], [88, 32], [80.8, 33.2], [86.6, 35.6], [86.2, 37], [83, 38], [78, 37.6], [74.8, 36.2],
-    [73, 37.6], [72.6, 41.2], [66.2, 41.2], [67, 38.6], [65.2, 36.6], [60, 37.6], [52, 38.4], [45, 37.6], [41.6, 36.8], [42.6, 41.2], [31.4, 41.2], [30, 39.4]]);
-  // the ear, torn, behind the head; rim lit
-  const ear = poly(Array.from({ length: 40 }, (_, i) => {
-    const a = (i / 40) * TAU, notch = Math.abs(a - 4.1) < 0.2 ? 2.8 * (1 - Math.abs(a - 4.1) / 0.2) : 0;
-    return [62.8 + (5.8 - notch) * Math.cos(a - 0.3), 11.2 + (6.8 - notch) * Math.sin(a - 0.3)];
-  }));
-  const earIn = poly(ellipsePts(63.6, 12.2, 3.2, 4.4, -0.3, 20));
-  const earRim = shape([['M', 57.8, 8.4], ['C', 59, 4.6, 64.8, 3.4, 68, 7]]);
-  // the haunch and the foreleg, picked out by the same light
-  const limbRim = shape([['M', 31.2, 38.6], ['C', 30.6, 30.6, 35.6, 25.8, 41.6, 27.4], ['C', 45, 28.8, 45.8, 33, 43.6, 36.4], ['M', 73.4, 36.4], ['L', 72.8, 40.4]]);
-  // silver rim light down the back and the snout, just inside the edge
-  const rimPts = chainPts([...back, ...head], 12).filter((_, i, arr) => i > 3 && i < arr.length - 1).map(({ p, n }) => add(p, mul(n, -1.1)));
-  const rim = 'M' + rimPts.map((q) => P(...q)).join('L');
-  const gums = poly([[90.4, 31.2], [80, 33.4], [86.8, 36.4], [89.2, 34.4]]);
-  const teeth = shape([['M', 87, 31.8], ['L', 89.8, 31.4], ['C', 89.8, 34, 89.4, 36.4, 88.4, 38], ['C', 87.6, 36.6, 87.2, 34.4, 87, 31.8], ['Z']]) +
-    shape([['M', 84.4, 37.6], ['L', 86.6, 37], ['C', 86.4, 35.2, 86, 33.8, 85.2, 32.8], ['C', 84.6, 34.2, 84.4, 35.8, 84.4, 37.6], ['Z']]);
-  const whiskers = shape([['M', 87, 30], ['Q', 91, 26.8, 94.6, 25.6], ['M', 87.4, 31], ['Q', 91.6, 30.2, 95.2, 30.8], ['M', 86.6, 32], ['Q', 90.4, 34, 93.8, 35.8]]);
-  const nose = poly(ellipsePts(91.2, 30.4, 1.3, 1, 0.4, 12));
-  // the eye: lit red, slanted, a hard brow over it
-  const eyeGlow = circle(78.2, 22.6, 4.6), eye = poly(ellipsePts(78.2, 22.8, 2.6, 1.3, 0.38, 20)), eyeCore = poly(ellipsePts(78.8, 23, 0.9, 0.5, 0.38, 12));
-  const brow = poly([[73.6, 19.2], [82.6, 22.6], [82, 20.4], [74.4, 17.6]]);
-  const snarl = shape([['M', 82.6, 26.6], ['Q', 84, 25.6, 85.2, 27], ['M', 84.6, 28.2], ['Q', 86, 27.2, 87.2, 28.6]]);
-  // claws hooked over the stock, front and back
-  const claws = [63.4, 65.2, 67, 68.8, 31.6, 33.4, 35.2].map((x) => shape([['M', x - 0.5, 40.6], ['C', x + 0.6, 40.2, x + 1.4, 41.6, x + 0.9, 44], ['C', x + 0.6, 42.4, x, 41.6, x - 0.7, 41.4], ['Z']])).join('');
-  // the tail: down behind the stock, round the back of the shank and across the front of it
-  const tailBack = taper([[[27.6, 37], [18, 44], [19.6, 58.4], [34, 62]], [[34, 62], [42, 64.4], [48, 62.2], [54, 60.2]], [[54, 60.2], [59.4, 58.4], [59.4, 52.4], [54, 52]]], 4.4, 2, 10);
-  const tailFront = taper([[[54, 52], [48.6, 51.6], [43.6, 53.2], [41.8, 56.8]], [[41.8, 56.8], [40, 60.6], [41.2, 66.6], [45.6, 70]]], 2, 0.6, 10);
-  // the scene (rat, anchor, the fog round the rat's head) set down at sk about the middle and
-  // nudged by (tx, ty): the most of it that stays inside the piping at radius 40
-  const sk = 0.83, so = (d) => xfD(d, sk, C + -2 / (1 - sk), C + 4.5 / (1 - sk)), ws = (sw) => +(sw * sk).toFixed(2);
-  const at = ([x, y]) => [C + (x - C) * sk - 2, C + (y - C) * sk + 4.5];
-  const scene = [
-    // behind the anchor: the tail's far loop, the ear and the rat itself
-    L(tailBack.d, WRAT.rat, { stroke: ink, sw: 0.6 }),
-    L(tailBack.ticks, 'none', { stroke: WRAT.rimDeep, sw: 0.4 }),
-    L(gums, WRAT.gums),
-    L(ear, WRAT.rat),
-    L(earIn, WRAT.rimDeep, { op: 0.55 }),
-    L(earRim, 'none', { stroke: WRAT.rim, sw: 1 }),
-    L(sil, WRAT.rat),
-    L(rim, 'none', { stroke: WRAT.rim, sw: 1.1 }),
-    L(limbRim, 'none', { stroke: WRAT.rim, sw: 0.8, op: 0.85 }),
-    L(snarl, 'none', { stroke: WRAT.rimDeep, sw: 0.6 }),
-    L(eyeGlow, WRAT.eye, { op: 0.28 }),
-    L(eye, WRAT.eye),
-    L(eyeCore, WRAT.eyeCore),
-    L(brow, WRAT.rat),
-    L(teeth, WRAT.tooth, { stroke: ink, sw: 0.4 }),
-    L(nose, WRAT.rimDeep),
-    L(whiskers, 'none', { stroke: WRAT.rimDeep, sw: 0.45 }),
-    // the anchor, then the claws over it and the tail across it
-    L(arms + flukes + crown, WRAT.steel, { stroke: ink, sw: 1.4 }),
-    L(shank, WRAT.steel, { stroke: ink, sw: 1.4 }),
-    L(shankLight, WRAT.steelLight),
-    L(stock, WRAT.steel, { stroke: ink, sw: 1.4 }),
-    L(poly([[30, 41.8], [70, 41.8], [70, 42.6], [30, 42.6]]), WRAT.steelLight),
-    L(claws, WRAT.claw, { stroke: ink, sw: 0.4 }),
-    L(tailFront.d, WRAT.rat, { stroke: ink, sw: 0.6 }),
-    L(tailFront.ticks, 'none', { stroke: WRAT.rimDeep, sw: 0.4 }),
-  ].map((l) => ({ ...l, d: so(l.d), ...(l.sw ? { sw: ws(l.sw) } : {}) }));
-  const fogAt = at([74, 26]), fogCore = at([76, 25]);
+  // A headshot traced from the club's own art (crests/wharf-rats.json): a black
+  // rat over the anchor's stock, drawn only by its grey rim light and fur, between two
+  // pilings, on black in a silver ring. Traced as three greys by brightness, plus the eye
+  // and the teeth, so the fur stays and the shapes stay the art's.
+  const tr = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts/content/crests/wharf-rats.json'), 'utf8'));
   const layers = [
-    L(circle(C, C, 49.2), ink),
-    L(circle(C, C, 48), WRAT.field),
-    L(inDisc(ellipsePts(...fogAt, 18 * sk, 18 * sk, 0, 48), C, C, 40.2), WRAT.fog),
-    L(inDisc(ellipsePts(...fogCore, 11 * sk, 11 * sk, 0, 36), C, C, 40.2), WRAT.fogLight),
-    L(inDisc([...Array.from({ length: 25 }, (_, i) => [2 + i * 4, 78 + Math.sin(i * 0.9) * 1.2]), [98, 99], [2, 99]], C, C, 47.6), WRAT.water),
-    L(waves, 'none', { stroke: WRAT.wave, sw: 1 }),
-    L(ring(C, C, 42.2, 48), WRAT.rope),
-    L(twists, 'none', { stroke: WRAT.ropeDark, sw: 0.8 }),
-    L(ring(C, C, 47.6, 48.4) + ring(C, C, 42.2, 42.8), ink),
-    L(ring(C, C, 41, 42.2), WRAT.rim),
-    L(ring(C, C, 40.2, 41), ink),
-    ...scene,
+    L(circle(C, C, 49.4), ink),
+    L(circle(C, C, 47.6), WRAT.rim),
+    L(circle(C, C, 43.4), ink),
+    L(circle(C, C, 42.2), '#0e0f11'),
+    { ...L(tr.dim, '#3a3f45'), rule: 'evenodd' },
+    { ...L(tr.steel, WRAT.steel), rule: 'evenodd' },
+    { ...L(tr.hi, WRAT.rim), rule: 'evenodd' },
+    L(tr.red, '#ff2e22'),
+    L(tr.gold, WRAT.tooth),
   ];
-  // small: the head in silhouette, big, lit eye and teeth, in a silver ring. The body runs
-  // off the left of the drawing, so it is cut at the ring's inner edge.
-  const zk = 1.85, fx = (50 - 76 * zk) / (1 - zk), fy = (50 - 26 * zk) / (1 - zk), z = (d) => xfD(d, zk, fx, fy), cut = (d) => clipToDisc(z(d), C, C, 43.4);
-  const small = [
-    L(circle(C, C, 49.4), WRAT.rim),
-    L(circle(C, C, 43.4), WRAT.field),
-    L(circle(C, C, 30), WRAT.fogLight),
-    L(cut(gums), WRAT.gums),
-    L(cut(ear), WRAT.rat),
-    L(cut(sil), WRAT.rat),
-    L(z(eye), WRAT.eye),
-    L(z(brow), WRAT.rat),
-    L(z(teeth), WRAT.tooth),
-    L(ring(C, C, 43.4, 44.6), ink),
-  ];
-  return { box: 100, layers, small };
+  return { box: 100, layers };
 }
 
 // YARD BIRDS. A red pyle fighting cock squared up and furious: white, with his hackle and
@@ -1212,10 +1001,15 @@ function yardBirds() {
   // ruff is scaled about the one point that st leaves where it is
   const sk = 1.9, st = T({ sx: sk, sy: sk, tx: 50 - 57 * sk, ty: 50 - 30.4 * sk }), fx = (50 - 57 * sk) / (1 - sk), fy = (50 - 30.4 * sk) / (1 - sk);
   const small = [
-    L(circle(C, C, 49.4), YB.red),
-    L(circle(C, C, 43), YB.field),
-    L(xfD(ruffBack, sk, fx, fy), YB.redDeep),
-    L(xfD(ruffFront, sk, fx, fy), YB.hackle),
+    L(circle(C, C, 49.4), ink),
+    L(circle(C, C, 48), YB.red),
+    L(circle(C, C, 43.6), ink),
+    L(circle(C, C, 42.4), YB.field),
+    L(clipToDisc(xfD(wire, sk, fx, fy), C, C, 42.4), 'none', { stroke: YB.wire, sw: 1 }),
+    L(clipToDisc(shape(body, st), C, C, 42.4), YB.white, { stroke: ink, sw: 2.4 }),
+    L(clipToDisc(xfD(ruffBack, sk, fx, fy), C, C, 42.4), YB.redDeep, { stroke: ink, sw: 1.8 }),
+    L(clipToDisc(xfD(ruffFront, sk, fx, fy), C, C, 42.4), YB.hackle, { stroke: ink, sw: 1.4 }),
+    L(clipToDisc(xfD(ruffLines, sk, fx, fy), C, C, 42.4), 'none', { stroke: YB.redDeep, sw: 1 }),
     ...headParts(st),
   ];
   return { box: 100, layers, small };
