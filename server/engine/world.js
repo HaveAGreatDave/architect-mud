@@ -1878,8 +1878,11 @@ export function reconcileNpcMembership({ quiet = false } = {}) {
     if (!zone.npcs.size) continue;
     for (const id of zone.npcs) {
       const npc = world.npcs.get(id);
-      if (npc && npc.zone_id === zone.id) continue;
+      if (npc && npc.zone_id === zone.id && !npc._dead) continue;
       zone.npcs.delete(id);
+      // a dead man keeps his zone_id till his respawn and is out of the room meanwhile (every
+      // kill path takes him out), so one still listed is a leftover, not drift worth a line
+      if (npc?._dead) continue;
       repaired++;
       if (!quiet) {
         console.warn(`[world] npc membership drift repaired: ${npc?.name || id} was listed in ${zone.id} but is ${npc ? `in ${npc.zone_id}` : 'gone from the world'} — some path moved it without moveNpcToZone()`);
@@ -1890,7 +1893,8 @@ export function reconcileNpcMembership({ quiet = false } = {}) {
   //    set, so an NPC in one is not drift — same exemption the player sweep makes.
   for (const [id, npc] of world.npcs) {
     const zid = npc?.zone_id;
-    if (!zid) continue;
+    // a dead NPC (killed, or a CPhL man in the vat) is out of the room on purpose until he respawns
+    if (!zid || npc._dead) continue;
     const zone = world.zones.get(zid);
     if (!zone || zone.npcs.has(id)) continue;
     zone.npcs.add(id);

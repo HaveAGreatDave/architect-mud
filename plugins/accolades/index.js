@@ -29,6 +29,7 @@ import { getFlagsByPrefix, setFlags } from '../../server/engine/flags.js';
 import { on, emit } from '../../server/engine/events.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { grantXp } from '../../server/engine/ip.js';
+import { getLivePlayer } from '../../server/engine/world.js';
 import { ENTRIES, BY_KEY, LISTENED_EVENTS } from './catalog.js';
 
 // playerId -> { unlocked:Set<key>, counters:Map<string,number>, dirty:boolean }
@@ -98,6 +99,11 @@ async function flushCounters(playerId) {
  * can only ever grant XP once.
  */
 async function logEntry(playerId, entry) {
+  // Only a character can hold an accolade. Enemies, corpses, transient combat actors and the
+  // regress harness's fake player come through these events too, with ids that have no players
+  // row; the FK used to turn those away, but query() logs every failed write first, so they
+  // stop here instead. A character is a live player whenever an event can be about him.
+  if (!getLivePlayer(playerId)) return false;
   const s = state.get(playerId) || blank();
   if (!state.has(playerId)) state.set(playerId, s);
   if (s.unlocked.has(entry.key)) return false;
