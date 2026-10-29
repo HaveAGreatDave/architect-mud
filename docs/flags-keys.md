@@ -21,6 +21,7 @@ nothing, silently; wire a reader first.
 
 | key | owner | meaning |
 |---|---|---|
+| `open_all_hours` | commerce | interior room with no closing time: its vendors keep their shifts, but the door never locks for them (the Coliseum and Golden Goose Gardens, where a game is always on) |
 | `residents_only` | residency | interior tile only enterable by a player holding a unit in the named building — walked in OR ridden to by lift (the lift runs the gate chain too) |
 | `residents_only_deny` | residency | optional refusal line for `residents_only`, in the building's voice |
 | `private_billet_owner` | consort | handle of the player who **holds** this zone as a private space. Makes a bespoke room (a yacht boudoir, a safehouse) a legal B.L.I.S.S. delivery address without the consort plugin having to know what a yacht is — apartments you control and premises you own already qualify without this |

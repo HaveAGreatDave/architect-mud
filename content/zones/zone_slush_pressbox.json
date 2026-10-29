@@ -10,7 +10,8 @@
     "floor": "metal",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_915_916"
+    "world_exit_zone": "zone_district_915_916",
+    "open_all_hours": true
   },
   "grid_x": 0,
   "grid_y": 0,

@@ -18,7 +18,8 @@
       "name": "the gates",
       "visibility": 0.6
     },
-    "world_exit_zone": "zone_ballpark_897_913"
+    "world_exit_zone": "zone_ballpark_897_913",
+    "open_all_hours": true
   },
   "grid_x": 0,
   "grid_y": 0,

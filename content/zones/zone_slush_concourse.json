@@ -18,7 +18,8 @@
       "name": "the front doors",
       "visibility": 0.6
     },
-    "world_exit_zone": "zone_district_915_916"
+    "world_exit_zone": "zone_district_915_916",
+    "open_all_hours": true
   },
   "grid_x": 0,
   "grid_y": 0,

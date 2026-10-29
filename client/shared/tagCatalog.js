@@ -570,6 +570,8 @@
       help: 'The home every guest is given (guest.js guestHomeZoneId) and where gohome sends a guest with no lease. Put it on ONE sleeping room, and make that room a sanctuary.' },
     allow_sleep: { label: 'Allow Sleep', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Permit `sleep` in this zone WITHOUT the full sanctuary bundle — grants safe-zone-rate rest but no combat protection / forcefield / spawn suppression. For places like the holding cell where you can doze but stay exposed.' },
+    open_all_hours: { label: 'Open All Hours', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
+      help: 'This room never shuts for its vendors\' hours (commerce `shop.neverShuts`). The vendors keep their shifts; the door just stays open. For venues where a game is always on: the Coliseum, Golden Goose Gardens.' },
     residents_only: { label: 'Residents Only', shape: 'text', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Set to a building name (e.g. "Solenne Residences"): only a player holding a unit in that building may enter — walked in OR ridden to by elevator (residency plugin). For private amenity floors: the Solenne sky pad, a residents\' spa.' },
     residents_only_deny: { label: 'Residents Only: Refusal', shape: 'text', requires: 'residents_only', scope: 'zone', group: 'Zone: Law & Hazard',

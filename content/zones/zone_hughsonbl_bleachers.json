@@ -18,7 +18,8 @@
       "name": "the outfield",
       "visibility": 1
     },
-    "world_exit_zone": "zone_ballpark_895_911"
+    "world_exit_zone": "zone_ballpark_895_911",
+    "open_all_hours": true
   },
   "grid_x": 0,
   "grid_y": 0,

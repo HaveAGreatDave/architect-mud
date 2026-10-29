@@ -10,7 +10,8 @@
     "floor": "concrete",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_ballpark_897_913"
+    "world_exit_zone": "zone_ballpark_897_913",
+    "open_all_hours": true
   },
   "grid_x": 0,
   "grid_y": 0,

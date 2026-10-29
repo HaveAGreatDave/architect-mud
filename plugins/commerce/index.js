@@ -625,6 +625,9 @@ export const specializedActions = [
 // only a shop can answer.
 export const hooks = {
   'door.describe': describeDoorHook,
+  // A room authored `open_all_hours` keeps no closing time whoever trades in it: a ballpark or a
+  // rink has a game on whenever the concession stand is shut.
+  'shop.neverShuts': (zone) => !!zone?.flags?.open_all_hours,
 };
 
 // Set every shop's front door to whatever the clock says it should be. A reboot
