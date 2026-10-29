@@ -29,6 +29,7 @@ import { CLIPS } from './clips.js';
 import { catchPoint, handAt, rootAt, sampleClip } from './anim.js';
 import { solvePose } from './rig.js';
 import { BAGS, DEG, MOUND as MOUND_AT } from './geo.js';
+import { SHOTS } from './camera.js';
 import { toPark as onLine, rollAlong, rollTime, hangTime, toFirst, fenceAt, onField, throwTime, firstStep, POSITIONS } from './play.js';
 import { groundPath, flyPath, throwPath, fitPath, BALL_R, GRAVITY } from './flight.js';
 import { carried, toPark } from './world.js';
@@ -203,6 +204,11 @@ export function planPlay(ctx) {
   const balls = [], reaches = [], looks = [], sounds = [];
   // the high camera from home takes every ball in play, following it
   const cuts = [{ at: tBat + 0.25, shot: 'high' }];
+  // The field camera on one man (camera.js shotAt 'field'), from the well on the side of the field
+  // `at` is on: the third-base one for a man left of second, the first-base one for the right. Not
+  // for a viewer who's asked for less motion, whose cameras hold still on the ball.
+  const fieldShot = (B, at, frame) => ({ shot: 'field', eye: SHOTS[at[0] >= 0 ? 'third' : 'first'].eye.slice(), frame, track: (t) => B.spotAt(t) });
+  const live = ctx.motion !== false;
   const log = { kind, t: pl.t, f: pl.f.slice(), fielders: [], throws: [], batter: null, ump: null, misses: [] };
   let land = tBat + 1.5;
   const fly = (from, path, extra = {}) => { balls.push({ from, path, ...extra }); return path; };
@@ -333,7 +339,22 @@ export function planPlay(ctx) {
     const [to, t] = going[0] || [];
     if (to) { cuts.push({ at: Math.max(done + 0.5, t - 1.8), shot: BAG_SHOT[to] }); log.runnerCut = { to, at: Math.max(done + 0.5, t - 1.8), after: done }; }
   }
+  // A hitter going for two or more gets a look from across the diamond as he rounds first, while
+  // the ball's still out there, if it fits between the cuts either side with a second of each.
+  const b1 = log.batter && log.batter.to >= 2 ? log.batter.bags?.[1] : null;
+  if (live && !isHR && H && b1 != null) {
+    const at = b1 - 1.1, before = cuts.filter((c) => c.at <= at), after = cuts.filter((c) => c.at > at);
+    if (before.length && at >= tBat + 1.2 && before.every((c) => at - c.at >= 1) && after.every((c) => c.at - at >= 1.3)) {
+      cuts.push({ at, shot: fieldShot(H, [1, 0, 0], 11) });
+      log.roundCut = { at };
+    }
+  }
 
+  // the field camera stays on its man until he has the ball: a cut that would come before waits
+  if (log.fieldCut) {
+    const fc = log.fieldCut;
+    for (const c of cuts) if (c.at > fc.at && c.at < fc.t + 0.4) c.at = fc.t + 0.4;
+  }
   // every head on the field follows the ball from the crack to the landing
   for (const B of [...bodies.values(), ...bases.bodies.filter((b) => b !== H), ...umps]) looks.push({ slot: B.slot, from: tBat - 0.05, full: tBat + 0.35, hold: land + 0.6, to: land + 1.2 });
   // the ball's segments run end to end, and the cameras that follow it follow them
@@ -341,7 +362,7 @@ export function planPlay(ctx) {
   balls.forEach((s, i) => { s.to = i + 1 < balls.length ? balls[i + 1].from : Infinity; });
   const track = trackOf(balls);
   let shots = cuts.filter((c) => c.at < land).sort((a, b) => a.at - b.at)
-    .map((c) => ({ at: c.at, shot: c.shot === 'high' ? { shot: 'high', track } : typeof c.shot === 'object' ? { ...c.shot, track } : c.shot }));
+    .map((c) => ({ at: c.at, shot: c.shot === 'high' ? { shot: 'high', track } : typeof c.shot === 'object' ? { track, ...c.shot } : c.shot }));
   // for a viewer who's asked for less motion, the cameras that would follow it hold still
   if (ctx.motion === false) shots = stillShots(shots, balls, land);
   log.throws = throwChain;
@@ -421,6 +442,8 @@ export function planPlay(ctx) {
     // through his legs: the glove comes down to just over it
     caught(B, e, pl.e === 'legs' ? add(ball, [0, 0.6, 0]) : ball, tM, { miss: err });
     land = tM + 0.5;
+    // a hard play to get to: the field camera on him as he goes for it
+    if (live && (pl.g === 'diving' || pl.g === 'ranging') && tM - tBat >= 1.3) { cuts.push({ at: Math.max(tBat + 0.7, tM - 0.9), shot: fieldShot(B, best.q, 12) }); log.fieldCut = { n: n0, at: Math.max(tBat + 0.7, tM - 0.9), t: tM }; }
     // a man who dove for it on the way and missed
     if (pl.mi && pl.mi !== n0) diveMiss(pl.mi, true);
     if (pl.e === 'legs') {
@@ -665,6 +688,8 @@ export function planPlay(ctx) {
     const e = B.play(id, tP - fr.t, { frame: fr, fade: FADE });
     caught(B, e, ball, tP);
     land = Math.max(land, tP + 0.5);
+    // a hit that takes a while to run down: the field camera on him as he gets there
+    if (live && !isOut && tP - tBat >= 2.6) { cuts.push({ at: Math.max(tBat + 1.3, tP - 1.5), shot: fieldShot(B, fr.at, 22) }); log.fieldCut = { n, at: Math.max(tBat + 1.3, tP - 1.5), t: tP }; }
     if (then != null) throwOn(B, e, id, then, { last: true });
     return e;
   }

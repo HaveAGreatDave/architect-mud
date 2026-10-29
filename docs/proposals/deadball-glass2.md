@@ -752,6 +752,7 @@ home plate.
 | Batting view | Every pitch, as the period's arcade games framed it: behind and above the plate, the pitcher and the city beyond. |
 | Centre field, long lens | Replays and close plays, and every pitch when the batting view is off. About 445 ft out and 62 ft up, offset to left-centre. |
 | High home | Balls in play: follows the ball, then frames the fielder and the base. |
+| Field camera | Balls in play: a long lens in the first- or third-base well that turns with one man. The fielder running down a hit, or a diving or ranging play in the infield, until he has the ball; the hitter rounding first on a double or more, if there's a clear second for it. |
 | Fly-ball follow | Long flies, from behind the fielder as the ball comes down. |
 | First- and third-base cameras | Close-ups of the batter and the pitcher; plays at first and double plays. |
 | Low home | Walk-ups, plays at the plate, the walk-off mob. |

@@ -85,6 +85,10 @@ export const SHOTS = Object.freeze({
   // renderer stands it on its own venue's crossing (diamond/streets.js streetShot); this is where it
   // stands with no city round the park
   street: Object.freeze({ eye: [198, 6, -254], at: [120, 70, -120], fov: 54, shadow: [[150, 0, -170], 140] }),
+  // one man in a ball in play from a camera well, on a long lens that turns with him: the fielder
+  // running down a ball in the gap, the hitter rounding first. The director places it (`field`
+  // specs, plays.js fieldShot); this is the third-base well on the left fielder
+  field: Object.freeze({ eye: [72, 8, 18], at: [110, 3.2, 250], fov: 5, dof: 700, shadow: [[110, 0, 250], 30] }),
   // a home run side on, riding beside the ball: the director places it (`homer` specs, shotAt)
   homer: Object.freeze({ eye: [-60, 40, 200], at: [0, 50, 220], fov: 38, dof: 160, shadow: [[0, 0, 240], 120] }),
   // the fly-in before a game: high over the city and down onto the park, to the street camera
@@ -144,7 +148,8 @@ export function fovFor(fov, aspect, fit) {
 // stop }`) rides `dist` feet out to `side` of the ball's way, rising with it, until `stop`, short
 // of the wall, and from there watches it into the seats with its lens closing. The crew camera
 // (`{ shot: 'crew', eye, frame, track }`) stays at `eye` and turns to follow the grounds crew,
-// its lens taking in `frame` feet top to bottom where they are. Anything else is a camera by name
+// its lens taking in `frame` feet top to bottom where they are; the field camera (`{ shot:
+// 'field', eye, frame, track }`) does the same on one man in a play. Anything else is a camera by name
 // or a shot as given, and comes back as it was. Pure in t, so the renderer and the graphics
 // resolve the same picture.
 export function shotAt(s, t) {
@@ -158,6 +163,12 @@ export function shotAt(s, t) {
     const eye = [r[0] + side[0] * d, 7 + 0.55 * r[1], r[2] + side[2] * d];
     const far = Math.hypot(at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]);
     return { eye, at, fov: base.fov * Math.min(1, Math.max(0.5, Math.hypot(d, 0.45 * r[1]) / far)), dof: base.dof, shadow: [[r[0], 0, r[2]], 120] };
+  }
+  if (s.shot === 'field') {
+    // the man is where `track` has him, his middle 3.2 ft up, and the lens takes in `frame` feet
+    // top to bottom there, so he's the same size in it wherever he runs
+    const eye = s.eye || base.eye, at = q ? [q[0], 3.2, q[2]] : base.at, far = Math.hypot(at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]);
+    return { eye, at, fov: (2 * Math.atan((s.frame || 18) / 2 / far)) / DEG, dof: base.dof, shadow: [[at[0], 0, at[2]], 30] };
   }
   if (s.shot === 'crew') {
     const eye = s.eye || base.eye, at = q || base.at, far = Math.hypot(at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]);

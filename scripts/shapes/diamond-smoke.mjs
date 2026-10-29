@@ -180,7 +180,7 @@ const bagAt = (b) => (b === 4 ? [0, 0, 0] : BAGS[b]);
 for (const p of order) for (const m of p.moves || []) if (m && m.name) check('a runner\'s legs in the picture are the sim\'s (play.js legsOf)', legsOf(m.name) === speedOf(m.name), m.name);
 
 // ── 1. the director ──────────────────────────────────────────────────────────
-const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0, between: 0, rub: 0, goneOff: 0, deckShot: 0, crew: 0, stepout: 0, look: 0, welcome: 0 };
+const seen = { fieldCut: 0, roundCut: 0, skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0, between: 0, rub: 0, goneOff: 0, deckShot: 0, crew: 0, stepout: 0, look: 0, welcome: 0 };
 // The ball of a foot, where marks.js puts its mark: half way from the ankle to the toe.
 const footAt = (J, S) => [(J['an' + S][0] + J['toe' + S][0]) / 2, (J['an' + S][2] + J['toe' + S][2]) / 2];
 // The dirt's marks (diamond/marks.js) a staging said: each on the canvas, a foot's on the dirt,
@@ -346,6 +346,20 @@ for (const hold of [undefined, 45000]) {
         check('a play: the call at first agrees with the ball and the batter', ok, `${label}: ${plan.log.ump.clip}, ball ${(atFirst.catch.t - tPlay).toFixed(2)} batter ${(lb.tFirst - tPlay).toFixed(2)}`);
         if (out && plan.cuts.some((c) => c.shot === 'first')) seen.toFirst++;
       }
+      // the field camera: on for a second at least, and on the man who gets to the ball, who has it
+      // before the next cut
+      plan.cuts.forEach((c, j) => {
+        if (c.shot?.shot !== 'field') return;
+        const end = j + 1 < plan.cuts.length ? plan.cuts[j + 1].at : plan.landAt;
+        check('a play: the field camera holds a second', end - c.at >= 1 - 1e-9, `${label}: ${(end - c.at).toFixed(2)} s`);
+      });
+      if (plan.log.fieldCut) {
+        const fc = plan.log.fieldCut, cut = plan.cuts.find((c) => Math.abs(c.at - fc.at) < 1e-9 && c.shot?.shot === 'field');
+        const end = cut ? plan.cuts[plan.cuts.indexOf(cut) + 1]?.at ?? plan.landAt : -Infinity;
+        check('a play: the field camera has the fielder get to the ball on it', !!cut && fc.t > cut.at && fc.t <= end + 1e-9 && plan.log.fielders.some((f) => f.n === fc.n && Math.abs(f.t - fc.t) < 1e-6), `${label}: cut ${(fc.at - tPlay).toFixed(2)}, ball ${(fc.t - tPlay).toFixed(2)}, next ${(end - tPlay).toFixed(2)}`);
+        seen.fieldCut++;
+      }
+      if (plan.log.roundCut) seen.roundCut++;
       if (plan.log.airCatch != null) seen.air++;
       if (plan.log.fielders.some((f) => f.clip === 'field_of_throw' && !f.miss)) seen.rundown++;
     }
@@ -618,6 +632,8 @@ check('the game has a called third strike rung up', seen.punchout > 0);
 check('the game has a hit batsman', seen.hbp > 0);
 check('a left-handed hitter gets the third-base camera', seen.lefty === 0 || seen.sideL > 0);
 check('the game has a ground ball thrown out at first on the first-base camera', seen.toFirst > 0);
+check('the game has a ball in play on the field camera', seen.fieldCut > 0, `${seen.fieldCut}`);
+console.log(`  field camera ${seen.fieldCut}, round first ${seen.roundCut}`);
 check('the game has a ball caught in the air', seen.air > 0);
 check('the game has a ball run down in the outfield', seen.rundown > 0);
 check('the game has a run scored on a ball in the park', seen.scored > 0);
