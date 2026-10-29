@@ -17,6 +17,9 @@
 /* ── the front ── */
 .spc-photo { position: relative; flex: 1 1 auto; border: 1.2cqw solid #f4efe2; border-radius: 2cqw; overflow: hidden; background: #333; }
 .spc-portrait { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.spc-shot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; animation: spc-shot-in 0.35s ease-out; }
+@keyframes spc-shot-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .spc-shot { animation: none; } }
 .spc-num {
   position: absolute; top: 6.5cqw; left: 6.5cqw; min-width: 15cqw; padding: 1cqw 2cqw; text-align: center;
   font: 900 10cqw/1 Impact, 'Arial Black', sans-serif; color: var(--k3); background: var(--k2);

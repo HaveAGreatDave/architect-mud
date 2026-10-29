@@ -604,6 +604,10 @@ export default async function regress({ run, check, getPlayer }) {
     const face = SP.renderSportsCard(bo, {});
     check('a sports face has a front, a back and a way to turn it', face.includes('spc-front') && face.includes('spc-back') && face.includes('data-spc-flip'));
     check('a stamped back says the day it was printed', face.includes('12 Mar 2087'));
+    // the photo slot carries what the client needs to shoot him (card-photo.js)
+    const spec = JSON.parse(SP.photoSpec(act, { colours: ['#111', '#222', '#333'] }));
+    check('a card\'s photo names the man, his trade and his club for the 3-D shot',
+      actFace.includes('data-photo=') && spec.name === act.name && spec.pos === act.pos && spec.art === 'action' && spec.pose === 'save' && spec.club?.colours?.length === 3);
     check('league words name the league', SP.leagueOfWord('puck') === 'hockey' && SP.leagueOfWord('Deadball') === 'baseball' && SP.leagueOfWord('confirm') === null);
 
     // Deadball: no fixed rosters, so a man's club and position come off the season fold.

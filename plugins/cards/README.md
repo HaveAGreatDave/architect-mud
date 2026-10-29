@@ -269,6 +269,14 @@ Draft, with its own table (`sports_cards`, one row per card pulled), its own sle
 - **The front** is the man in his club's home kit: a drawn head-and-shoulders portrait (cap or
   helmet, a goalie in his mask, a face built off his name), his number, his position and club, and
   the club's shield from `club-crest.js`, the same drawing the broadcasts use.
+- **The photo is a 3-D shot, printed.** The drawn portrait is what the server sends; the photo
+  slot carries `data-photo` (`photoSpec`: name, position, club, pose), and the client
+  (`client/game/js/panels/card-photo.js`) shoots that man in GLASS 2, Deadball in the Grandstand's
+  park and the CPhL on the rink, so the card has the face and sweater he has on the air. The frame
+  is then printed: separated into CMYK and laid down as rotated dot screens on card stock, a plate
+  slightly off register, blended back over the colour so the dots don't wash it out
+  (`PRINT_TUNE`). One renderer per league, built on the first card and kept; shots queue and are
+  cached per man and pose. With no WebGL2 the drawing stays.
 - **The back** is his season: Deadball hitters G/AB/H/HR/RBI/SB/AVG, pitchers G/W/L/IP/K/ERA; CPhL
   skaters GP/G/A/PTS/SOG, goalies GP/W/SA/GA/SV%, plus how often he was carried off or died. His
   club's record goes under it.

@@ -34,6 +34,14 @@ export function clubOf(name, sport = 'hockey') {
   if (!name) return null;
   return _store.get(sport)?.clubs?.[name] || null;
 }
+// One club added beside whatever's held, keeping the held revision, so the next payload's stamp
+// still fetches the whole set. For a surface that has a club before any broadcast sent the set
+// (a sports card's photo, card-photo.js).
+export function holdClub(sport, club) {
+  if (!sport || !club?.name || clubOf(club.name, sport)) return;
+  const had = _store.get(sport);
+  _store.set(sport, { rev: had?.rev || '', clubs: { ...(had?.clubs || {}), [club.name]: club } });
+}
 export function onClubs(fn) { _listeners.add(fn); return () => _listeners.delete(fn); }
 
 // Called with every payload's stamp. Answers true when the caller should ask the server

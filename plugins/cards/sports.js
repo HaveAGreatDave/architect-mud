@@ -318,6 +318,15 @@ export function portraitSvg(card, club) {
 // Both sides go out as one block, and the client flips it (client/game/js/panels/sportcard.js).
 // `crest` is the club's shield, already drawn (club-crest.js's crestSvg, one source with the
 // broadcasts); the caller passes it so this file stays free of client imports.
+// What the client needs to shoot the man for the photo (client/game/js/panels/card-photo.js):
+// who he is, what he plays, the pose an action shot catches him in, and his club's kit, so a
+// tablet that has seen no broadcast still dresses him right. The SVG under it stays the photo
+// wherever there's no 3-D.
+export function photoSpec(card, club) {
+  const c = club ? { name: card.team, colours: club.colours, kit: club.kit, crest: club.crest } : null;
+  return JSON.stringify({ league: card.league, name: card.name, team: card.team || '', pos: card.pos, num: card.num, art: card.art || 'portrait', pose: card.pose || '', club: c });
+}
+
 export function renderSportsCard(card, { club = null, crest = '', miniCrest = '' } = {}) {
   const L = SPORTS[card.league] || SPORTS.baseball;
   const ed = EDITIONS[card.edition] || EDITIONS.base;
@@ -329,7 +338,7 @@ export function renderSportsCard(card, { club = null, crest = '', miniCrest = ''
   const season = card.season ? `Season ${card.season}` : 'Preseason';
   return `<div class="spc spc-${esc(card.league)} spc-ed-${esc(card.edition)}${card.art === 'action' ? ' spc-art-action' : ''}" style="--k1:${esc(col[0])};--k2:${esc(col[1] || col[0])};--k3:${esc(col[2] || '#eee')}">
   <div class="spc-side spc-front">
-    <div class="spc-photo">${card.art === 'action' ? actionSvg(card, club) : portraitSvg(card, club)}</div>
+    <div class="spc-photo" data-photo="${esc(photoSpec(card, club))}">${card.art === 'action' ? actionSvg(card, club) : portraitSvg(card, club)}</div>
     ${card.art === 'action' ? `<div class="spc-act">IN ACTION</div>` : ''}
     <div class="spc-num">${esc(String(card.num))}</div>
     <div class="spc-crest">${crest}</div>
