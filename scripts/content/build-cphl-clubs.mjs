@@ -283,7 +283,8 @@ function bulldogs() {
     L(tr.cream, BD.bone),
     L(tr.eye, BD.eye),
   ];
-  return { box: 100, layers };
+  // small: the traced head already reads at badge size, so it's its own small crest
+  return { box: 100, layers, small: layers };
 }
 
 // MARQUEE MARAUDERS. A great helm, front on, on a heater shield, with a plume that
@@ -789,7 +790,8 @@ function wharfRats() {
     L(tr.red, '#ff2e22'),
     L(tr.gold, WRAT.tooth),
   ];
-  return { box: 100, layers };
+  // small: the traced head already reads at badge size, so it's its own small crest
+  return { box: 100, layers, small: layers };
 }
 
 // YARD BIRDS. A red pyle fighting cock squared up and furious: white, with his hackle and
