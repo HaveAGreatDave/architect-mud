@@ -181,7 +181,7 @@ export async function openSportsPack(sport, player, broadcast) {
     const ed = EDITIONS[c.edition] || EDITIONS.base;
     out.push({
       id: ins.rows[i]?.id, name: c.name,
-      subject_type: `${ed.label ? ed.label + ' · ' : ''}${c.art === 'action' ? 'In action · ' : ''}${c.pos} · ${c.team || 'Unsigned'}`,
+      subject_type: `${ed.label ? ed.label + ' · ' : ''}${c.pos} · ${c.team || 'Unsigned'}`,
       rarity: rarityOf(c), hit: i === cards.length - 1, dupe: had.has(`${c.name}|${c.edition}|${c.art || 'portrait'}`),
       face: await sportsFace(c, clubs),
     });
@@ -302,7 +302,7 @@ export async function sportsCardScreen(player, id) {
     },
     copies: copies.map(c => ({
       id: c.id, current: c.id === r.id,
-      label: `${c.card?.art === 'action' ? 'Action shot · ' : ''}${c.card?.season ? `Season ${c.card.season}` : 'Preseason'}${c.card?.asOf ? `, ${dateLabel(c.card.asOf)}` : ''}`,
+      label: `${c.card?.season ? `Season ${c.card.season}` : 'Preseason'}${c.card?.asOf ? `, ${dateLabel(c.card.asOf)}` : ''}`,
       line: (c.card?.stats || []).slice(0, 4).map(([k, v]) => `${v} ${k}`).join(' · '),
     })),
   };

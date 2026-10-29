@@ -152,7 +152,7 @@ async function rinkShot(spec) {
   if (!P) return null;
   const { R, W, canvas } = P;
   await holdClub('hockey', spec.club);
-  const { kitFor } = await import('./rink/director.js');
+  const [{ kitFor }, { GOAL_X, MID_Y }] = await Promise.all([import('./rink/director.js'), import('./rink/geo.js')]);
   const colours = spec.club?.colours || null;
   W.kits.h = kitFor(colours, 'h', spec.team);
   W.kits.a = kitFor(null, 'a');
@@ -162,12 +162,14 @@ async function rinkShot(spec) {
   man.name = surname; man.num = spec.num;
   man.faceKey = spec.name;
   // settle the sheet so every body has joints, then stand him at centre ice, turned to the
-  // camera, with everybody else down the far end
+  // camera, with everybody else down the far end. A goalie's save is made in his crease: he's
+  // shot from the slot with his own net behind him, and everybody else goes the other way.
   for (let i = 0; i < 30; i++) W.step(1 / 60);
-  const x = 100, y = 30, h = RINK.face;
+  const inNet = goalie && spec.art === 'action';
+  const x = inNet ? GOAL_X[1] - 3 : 100, y = inNet ? MID_Y : 30, h = inNet ? Math.PI : RINK.face;
   const hold = () => {
     const others = [...W.team.a, ...W.team.h, W.goalie.a, W.goalie.h, ...W.officials, ...W.extras];
-    others.forEach((b, i) => { if (b && b !== man) { b.x = 175 + (i % 4) * 3; b.y = 15 + (i % 9) * 6; } });
+    others.forEach((b, i) => { if (b && b !== man) { b.x = (inNet ? 15 : 175) + (i % 4) * 3; b.y = 15 + (i % 9) * 6; } });
     man.x = x; man.y = y; man.vx = 0; man.vy = 0; man.h = h;
   };
   for (let i = 0; i < 4; i++) { hold(); W.step(1 / 60); }

@@ -591,16 +591,17 @@ export default async function regress({ run, check, getPlayer }) {
     check('no man twice among a sleeve\'s base cards', noTwice);
     check('only the last card can be a special edition', specialLast);
     check('special editions turn up', sawSpecial);
-    // action shots: some cards in a sleeve, a rung up for a base card, drawn in the man's role
+    // action shots: every card in a sleeve, at its edition's rank, drawn in the man's role
     let actions = 0, cardsSeen = 0;
     for (let s = 1; s <= 60; s++) for (const c of SP.rollSportsSleeve(H, mulberry32(s * 7))) { cardsSeen++; if (c.art === 'action') actions++; }
-    check('about a quarter of sports cards are action shots', actions / cardsSeen > 0.15 && actions / cardsSeen < 0.35, `${actions}/${cardsSeen}`);
+    check('every sports card is an action shot', actions === cardsSeen, `${actions}/${cardsSeen}`);
     const act = SP.snapshotCard(H, H.men.get('Fen'), 'base', 'action');
-    check('a base action shot reveals at uncommon, a special keeps its rank',
-      SP.rarityOf(act) === 'uncommon' && SP.rarityOf({ ...act, edition: 'captain' }) === 'legendary' && SP.rarityOf(bo) === 'common');
+    check('an action shot reveals at its edition rank',
+      SP.rarityOf(act) === 'common' && SP.rarityOf({ ...act, edition: 'captain' }) === 'legendary' && SP.rarityOf(bo) === 'common');
     check('a goalie\'s action shot is a save', act.pose === 'save');
     const actFace = SP.renderSportsCard(act, {});
-    check('an action shot draws the man in action and says so', actFace.includes('spc-action') && actFace.includes('IN ACTION') && actFace.includes('In the butterfly'));
+    check('an action shot draws the man in action, without saying so', actFace.includes('spc-action') && !actFace.includes('IN ACTION') && !/action shot/i.test(actFace));
+    check('an action shot has his face small on the back', actFace.includes('spc-bface') && actFace.includes('&quot;art&quot;:&quot;portrait&quot;'));
     const face = SP.renderSportsCard(bo, {});
     check('a sports face has a front, a back and a way to turn it', face.includes('spc-front') && face.includes('spc-back') && face.includes('data-spc-flip'));
     check('a stamped back says the day it was printed', face.includes('12 Mar 2087'));

@@ -30,7 +30,7 @@
 // Cold path throughout: a pack is one action read (RAM), one standings read (cached) and one
 // write. No tick.
 import { escapeHtml as esc } from '../../server/engine/html.js';
-import { actionSvg, poseOf, ACTION_LABEL } from './sports-action.js';
+import { actionSvg, poseOf } from './sports-action.js';
 
 export const SPORTS = {
   baseball: {
@@ -48,9 +48,6 @@ export const SPORTS_PACK_PRICE = 150;
 export const SPORTS_PACK_SIZE = 5;
 // The last card in a sleeve is a special edition this often. The rest are base cards.
 const SPECIAL_CHANCE = 0.4;
-// Any card, base or special, is an ACTION SHOT this often: the man full length doing his job
-// (sports-action.js) instead of posing. A base action shot reveals a rung up, at uncommon.
-const ACTION_CHANCE = 0.25;
 
 // An edition is a rank on the reveal's ladder, so a captain lands like a legendary does.
 export const EDITIONS = {
@@ -60,8 +57,8 @@ export const EDITIONS = {
   captain: { label: 'Captain',     rarity: 'legendary', weight: 20 },
 };
 export const EDITION_ORDER = ['captain', 'goalie', 'star', 'base'];
-// The rank a card reveals at: its edition's, except a base action shot, which is uncommon.
-export const rarityOf = (card) => (card.edition === 'base' && card.art === 'action' ? 'uncommon' : (EDITIONS[card.edition] || EDITIONS.base).rarity);
+// The rank a card reveals at: its edition's.
+export const rarityOf = (card) => (EDITIONS[card.edition] || EDITIONS.base).rarity;
 
 export function leagueOfWord(word) {
   const w = String(word || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -223,7 +220,9 @@ export function rollSportsSleeve(L, rand = Math.random) {
     const i = Math.floor(rand() * pool.length);
     return pool.splice(i, 1)[0];
   };
-  const art = () => (rand() < ACTION_CHANCE ? 'action' : 'portrait');
+  // every card is an action shot: the man full length doing his job (sports-action.js), with his
+  // posed face small on the back. Cards printed as portraits before this keep theirs.
+  const art = () => 'action';
   for (let k = 0; k < SPORTS_PACK_SIZE - 1; k++) { const m = takeBase(); if (m) out.push(snapshotCard(L, m, 'base', art())); }
   const specials = L.specials.filter(s => L.men.has(s.name));
   let hit = null;
@@ -339,7 +338,6 @@ export function renderSportsCard(card, { club = null, crest = '', miniCrest = ''
   return `<div class="spc spc-${esc(card.league)} spc-ed-${esc(card.edition)}${card.art === 'action' ? ' spc-art-action' : ''}" style="--k1:${esc(col[0])};--k2:${esc(col[1] || col[0])};--k3:${esc(col[2] || '#eee')}">
   <div class="spc-side spc-front">
     <div class="spc-photo" data-photo="${esc(photoSpec(card, club))}">${card.art === 'action' ? actionSvg(card, club) : portraitSvg(card, club)}</div>
-    ${card.art === 'action' ? `<div class="spc-act">IN ACTION</div>` : ''}
     <div class="spc-num">${esc(String(card.num))}</div>
     <div class="spc-crest">${crest}</div>
     ${ribbon}
@@ -351,6 +349,7 @@ export function renderSportsCard(card, { club = null, crest = '', miniCrest = ''
   </div>
   <div class="spc-side spc-back">
     <div class="spc-bhead">
+      ${card.art === 'action' ? `<div class="spc-photo spc-bface" data-photo="${esc(photoSpec({ ...card, art: 'portrait', pose: '' }, club))}">${portraitSvg(card, club)}</div>` : ''}
       <div class="spc-bnum">${esc(String(card.num))}</div>
       <div class="spc-bwho"><div class="spc-bname">${esc(card.name)}</div><div class="spc-bpos">${esc(card.pos)} · ${esc(team)}</div></div>
       <div class="spc-bcrest">${miniCrest}</div>
@@ -360,7 +359,6 @@ export function renderSportsCard(card, { club = null, crest = '', miniCrest = ''
     ${card.record ? `<div class="spc-rec">${esc(team)}: ${esc(card.record)}</div>` : ''}
     ${(card.notes || []).map(n => `<div class="spc-note">${esc(n)}</div>`).join('')}
     ${ed.label ? `<div class="spc-edline">${esc(ed.label)} edition</div>` : ''}
-    ${card.art === 'action' ? `<div class="spc-edline spc-actline">Action shot: ${esc(ACTION_LABEL[card.pose] || 'in play')}</div>` : ''}
     <div class="spc-foot"><span>${esc(L.set)}</span><span>№ ${String(card.serial || 0).padStart(2, '0')}/${card.setSize || 0}</span></div>
   </div>
   <button type="button" class="spc-flip" data-spc-flip title="Turn the card over">⟲ TURN OVER</button>

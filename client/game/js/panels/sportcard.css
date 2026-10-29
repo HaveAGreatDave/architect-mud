@@ -77,17 +77,10 @@
 .spc-ed-goalie  { box-shadow: inset 0 0 0 1.6cqw #cdb6f7, inset 0 0 0 2.2cqw #4b2a86; }
 .spc-ed-star    { box-shadow: inset 0 0 0 1.6cqw #b7dbff, inset 0 0 0 2.2cqw #1f4f8c; }
 
-/* an action shot: a badge on the photo and a striped frame, so it reads at a glance in a binder */
-.spc-act {
-  position: absolute; bottom: 33cqw; right: 5cqw; padding: 1.2cqw 2.6cqw; border-radius: 1.4cqw;
-  font: 900 4.2cqw/1 'Arial Black', sans-serif; letter-spacing: 0.1em; color: #fff;
-  background: linear-gradient(90deg, #d1372b, #f0703a); box-shadow: 0 0.6cqw 1.4cqw rgba(0,0,0,0.4); transform: rotate(-4deg);
-}
-.spc-art-action { background: repeating-linear-gradient(135deg, var(--k1) 0 4cqw, var(--k2) 4cqw 5cqw); }
-.spc-actline { color: #b8452b; }
-
 /* ── the back ── */
 .spc-bhead { display: flex; align-items: center; gap: 3cqw; padding-bottom: 2.4cqw; border-bottom: 0.8cqw solid var(--k2); }
+.spc-bface { flex: none; width: 15cqw; height: 18cqw; border-width: 0.6cqw; border-radius: 1.2cqw; }
+.spc-bface::before, .spc-bface::after { display: none; }
 .spc-bnum { font: 900 12cqw/1 Impact, 'Arial Black', sans-serif; color: var(--k1); filter: brightness(0.85); min-width: 15cqw; text-align: center; }
 .spc-bwho { flex: 1; min-width: 0; }
 .spc-bname { font: 900 6.4cqw/1.05 'Arial Black', sans-serif; text-transform: uppercase; overflow: hidden; white-space: nowrap; }

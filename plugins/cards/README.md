@@ -289,14 +289,12 @@ Draft, with its own table (`sports_cards`, one row per card pulled), its own sle
   **Goalie** (every CPhL net-minder) and **Rising Star** (the CPhL's bound stars; Deadball's top three
   in the batting race and its strikeout leader). Deadball has no goalies, so no goalie edition. An
   edition reveals at a rank: star rare, goalie epic, captain legendary.
-- **Action shots** (`sports-action.js`): about one card in four, base or special, shows the man
-  full length doing his job instead of posing. The pose comes from his position: Deadball pitchers
+- **Action shots** (`sports-action.js`): every card shows the man full length doing his job,
+  with his posed face small on the back. Cards printed as portraits before that keep theirs. The pose comes from his position: Deadball pitchers
   pitch, catchers crouch behind the plate, infielders field a grounder, outfielders leap at the
   wall, and the DH and bench man swing; CPhL forwards shoot, defensemen finish a check, goalies drop
-  into the butterfly. A fielder, catcher or defenseman is caught at the plate or shooting about half
-  the time instead, fixed off his name. A base action shot reveals at uncommon; a special keeps its
-  edition's rank. It gets an IN ACTION badge and a striped frame, and the Binder marks a man you
-  have in action.
+  into the butterfly in front of their own net. A fielder, catcher or defenseman is caught at the plate or shooting about half
+  the time instead, fixed off his name. A card reveals at its edition's rank, and nothing on it says it's an action shot.
 - **Nothing is authored per man.** Club and position come from each league's rosters: hockey's
   `rosterFor`, Deadball's season squads (`clubRosters` in `broadcast/sports/baseball.js`, sim v3).
   Numbers are the hashes the rink and the Grandstand put on his back, so the card never disagrees
