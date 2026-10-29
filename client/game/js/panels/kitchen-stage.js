@@ -621,7 +621,7 @@ const KEYS = {
   knife: 'Drag down through the food to cut, or Space when the blue marker is on a red guide · Esc: put the knife down',
   cold: 'Click something to take it out · Shift-click: straight onto the board · click the door rack to put things in · arrows and Enter · Esc: shut it',
   board: 'Click anything to use it · drag food onto a pan · Q/E: utensil · O: fridge · middle button: look',
-  hob: 'Drag the knob: heat · spoon: drag round the pan · turner: click or flick the pan · [ ]: change pan · Q/E: utensil · O: fridge',
+  hob: 'Drag the knob: heat · spoon: drag round the pan · spatula: click or flick the pan · [ ]: change pan · Q/E: utensil · O: fridge',
   pass: 'Click the plate to serve · hold the middle button to look round',
 };
 
@@ -895,11 +895,11 @@ function onUp(e) {
   } else if (g.kind === 'pan') {
     const dx = e.clientX - g.x0, dy = e.clientY - g.y0, dt = performance.now() - g.t0;
     S.spoon = null;
-    if (still) return S.tool === 'turner' ? flip() : openMenu(menuFor({ kind: 'pan' }), e);
+    if (still) return S.tool === 'spatula' ? flip() : openMenu(menuFor({ kind: 'pan' }), e);
     if (g.turns) return;                       // stirred as it went round
-    // a utensil in hand means one thing: the spoon stirs, the turner flips
+    // a utensil in hand means one thing: the spoon stirs, the spatula flips
     if (S.tool === 'spoon') { if (Math.abs(g.ang) > Math.PI) stir(); return; }
-    if (S.tool === 'turner') { if (dy < -30) flip(); return; }
+    if (S.tool === 'spatula') { if (dy < -30) flip(); return; }
     if (Math.abs(g.ang) > Math.PI * 1.5) return stir();
     if (dy < -50 && dt < 450 && Math.abs(dx) < Math.abs(dy)) return flip();
     if (dx > 140 && Math.abs(dy) < dx) { const fin = actOf(panOf(d), 'finish'); if (fin) plateIt(fin); }
@@ -1370,7 +1370,7 @@ function buildElement(b, level, max) {
 const TOOLS = [
   { key: 'hand', label: 'Hand', need: null, hint: 'Pick things up and move them' },
   { key: 'spoon', label: 'Spoon', need: 'stir', hint: 'Drag round the pan to stir' },
-  { key: 'turner', label: 'Turner', need: 'flip', hint: 'Click or flick the pan to flip' },
+  { key: 'spatula', label: 'Spatula', need: 'flip', hint: 'Click or flick the pan to flip' },
   { key: 'knife', label: 'Knife', need: 'blade', hint: 'Click food on the board to cut it' },
 ];
 const ICON = {
@@ -1380,7 +1380,7 @@ const ICON = {
   bowl: '<path d="M3 10h18a9 7 0 0 1-18 0z"/>',
   hand: '<path d="M8 13V5a1.5 1.5 0 0 1 3 0v6V4a1.5 1.5 0 0 1 3 0v7V6a1.5 1.5 0 0 1 3 0v8c0 4-3 7-6 7s-5-2-7-5l-2-3a1.5 1.5 0 0 1 2.5-1.5z"/>',
   spoon: '<ellipse cx="7" cy="7" rx="4" ry="5" transform="rotate(-45 7 7)"/><path d="M10 10l10 10"/>',
-  turner: '<rect x="3" y="3" width="8" height="9" rx="1" transform="rotate(-45 7 7.5)"/><path d="M11 11l10 10"/>',
+  spatula: '<rect x="3" y="3" width="8" height="9" rx="1" transform="rotate(-45 7 7.5)"/><path d="M11 11l10 10"/>',
   knife: '<path d="M3 21L17 7l3 1-11 11z"/><path d="M17 7l3-3"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ICON.pan}</svg>`;
@@ -1479,7 +1479,7 @@ function buildTool(b) {
   if (S.tool === 'spoon') {
     M.ellipsoid(b, at, [1, 0, 0], [0, 1, 0], [0, 0, 1], [2, 1.4, 0.6], steel, 10, 5);
     M.tube(b, [at[0] + 1.5, at[1] - 1, at[2] + 0.3], [at[0] + 6, at[1] - 9, at[2] + 16], 0.45, 0.55, col, 6);
-  } else if (S.tool === 'turner') {
+  } else if (S.tool === 'spatula') {
     KS.prism(b, [[-3.5, -3], [3.5, -3], [3, 3], [-3, 3]], 0.3, 0.05, steel, KS.pose(at, 0.5));
     M.tube(b, [at[0] + 1.2, at[1] - 3, at[2] + 0.2], [at[0] + 5, at[1] - 14, at[2] + 12], 0.5, 0.7, col, 6);
   } else if (S.tool === 'knife') {
