@@ -47,7 +47,7 @@ holds and catch-up), [systems-deadball-sound.md](../systems-deadball-sound.md),
 - **The rooms.** The Stands (rows behind home plate, Sir Charles's seat, the organ, the video board)
   and the Bleachers (plank benches, the scoreboard) are interior rooms; Section Nine is roped off at
   the crater. One `the seats` furniture piece in the Stands and `the benches` in the Bleachers take
-  `sit`. The video board (`furn_hughson_scoreboard`) is an ordinary television on channel 7.
+  `sit`. There is no TV in the stands.
 - **The Grandstand** ([gameday-grandstand.js](../../client/game/js/panels/gameday-grandstand.js)):
   the 3-D park, staged at-bat by at-bat by the director
   ([diamond/director.js](../../client/game/js/panels/diamond/director.js)), with the dead time

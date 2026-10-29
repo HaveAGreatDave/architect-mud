@@ -1,6 +1,6 @@
 # The daily slate
 
-**Status:** Phases 1 and 2 built (2026-10-24): the slate, month seasons, KSAB5 and the relay. Phase 3's rename to Golden Goose Gardens was already in; its scoreboard TVs and Phases 4 and 5 are design. As built, Saturday's one-day 18:00 show still beats the every-day relay on ch 7 (narrower day mask), the `.bsm` files keep `@airtime` (a slate item ignores it), and the Deadball fallback in `sportOf` stays.
+**Status:** Phases 1 and 2 built (2026-10-24): the slate, month seasons, KSAB5 and the relay. Phase 3's rename to Golden Goose Gardens was already in; Phases 4 and 5 are design, and the scoreboard TVs were dropped (2026-10-29): the stands have no TV. As built, Saturday's one-day 18:00 show still beats the every-day relay on ch 7 (narrower day mask), the `.bsm` files keep `@airtime` (a slate item ignores it), and the Deadball fallback in `sportOf` stays.
 
 Every Deadball and Cluster Puck club plays every in-game day. Each sport has eight clubs, so it plays four games a day. Two sports at four games each fill all eight three-hour slots, one game per slot. Every game is played at its sport's ground. KSAB5 "The Cinqo" Sports Network airs all of them around the clock. KSAB-TV ch 7 airs one featured game a day.
 
@@ -28,7 +28,7 @@ Every Deadball and Cluster Puck club plays every in-game day. Each sport has eig
   - The name changes everywhere: zone names, prose, `bc_cluster_puck.json`, the hockey script, the map and the scoreboard.
   - The `slush` ids stay, as they do now.
 - Lights and the roof follow the game being played there, every slot rather than just the aired one.
-- Both scoreboard TVs tune to KSAB5, so a ground always shows its own game.
+- ~~Both scoreboard TVs tune to KSAB5.~~ Dropped: the stands have no TV.
 
 ## Channels
 
@@ -138,7 +138,7 @@ Two rooms off the Writers' Wing Story Floor (`zone_ksab_lobby`), on `map_int_ksa
 - **Recording:**
   - Each covered game writes a tape to the camera's `recording_buffer`. The tape is the reference `{ broadcast_id, slot }`, not the play-by-play, because a game is a pure function of its slot. A replay rebuilds the same graph, and the database cost stays near zero.
   - `recorded` playback learns to expand that reference. This makes overnight replays on KSAB5, or a tape ejected from the deck, possible later.
-- **Scoreboard TVs:** each ground's scoreboard is tuned to ch 5 and shows its own game.
+- **Scoreboard TVs:** dropped; the stands have no TV.
 
 ### When the picture is lost
 
@@ -225,7 +225,7 @@ Gate:
 
 - Rename every player-visible "Slush Fund" to "Golden Goose Gardens": the 17 files `grep -ril "slush fund" content` finds (district zones, power zones, `map_int_slush`, `bc_cluster_puck`) plus `data/scripts/hockey.bsm`.
 - Ids stay `slush`. Update `docs/proposals/slush-fund.md` and the CLAUDE.md line that names it.
-- Point both scoreboard TVs (`furn_hughson_scoreboard`, `furn_slush_scoreboard`) at ch 5.
+- (Dropped: the scoreboard TVs were removed.)
 - The map icon and the GLASS sign, if either carries the old name. Check `client/game/js/panels/glass/` for "slush" strings.
 
 ### Phase 4: studio, OB decks and cameras (content + one engine seam)
