@@ -3080,6 +3080,8 @@ return out;
       tiltEmph:    8200,   // … and emphatic (shouting is BRIGHT — the folds slam)
       emphasis:    1.0,    // scales how far emphasis moves pitch/length/gain over plain stress
       creak:       1.0,    // phrase-final vocal fry; 0 disables
+      relax:       1.0,    // graph only: darker, breathier, softer toward each phrase end; 0 disables
+      inhale:      1.0,    // the quiet breath in at a sentence or paragraph break mid-passage; 0 disables
       finalTaper:  0.6,    // level and release of word-final noise (else a sigh after every word); 1 is off
       undershoot:  0.2,    // EXPLICIT coarticulation only — see the note in the loop
       lineGapMs:   180,    // breath between chained lines (tv.js reads this)
@@ -3191,6 +3193,22 @@ return out;
     const VELAR = new Set(['K','G']), LABIAL = new Set(['P','B','M']);
     const VOICELESS_OBS = new Set(['P','T','K','F','TH','S','SH','CH','HH']);
 
+    // Per index: the consonants of a word ahead of a rounded vowel or /w/ ("soup",
+    // "stew", "swim"). An unrounded vowel or a word gap stops it.
+    const ROUNDED = new Set(['UW', 'UH', 'OW', 'AO', 'OY', 'OWR', 'W']);
+    function roundAhead(phon) {
+      const out = new Array(phon.length).fill(false);
+      let carry = false;
+      for (let i = phon.length - 1; i >= 0; i--) {
+        const c = phon[i];
+        if (isMark(c)) continue;
+        if (ROUNDED.has(c)) { carry = true; if (c === 'W') out[i] = true; continue; }
+        if (VOWELS.has(c) || isGap(c)) { carry = false; continue; }
+        out[i] = carry;
+      }
+      return out;
+    }
+
     // Nasal place assimilation, across junctures but not breaks ("in case" /ŋ/).
     function applyAssimilation(phon){
       const out = phon.slice();
@@ -3199,6 +3217,47 @@ return out;
         let j = i + 1; while (out[j] === '_' || isMark(out[j])) j++;
         if (VELAR.has(out[j])) out[i] = 'NG';
         else if (LABIAL.has(out[j])) out[i] = 'M';
+      }
+      return elideTD(coalesceYou(out));
+    }
+
+    // Across a word gap, never a break. Skips stress marks both ways.
+    const skipAfter = (ph, i) => { let j = i + 1; while (isMark(ph[j])) j++; return j; };
+    const skipBefore = (ph, i) => { let j = i - 1; while (j >= 0 && isMark(ph[j])) j--; return j; };
+    const nextWordStart = (ph, i) => { const g = skipAfter(ph, i); return ph[g] === '_' ? skipAfter(ph, g) : -1; };
+
+    // Yod coalescence before "you/your": "did you" /dʒ/, "got you" /tʃ/, "miss you" /ʃ/.
+    const COALESCE = { T: 'CH', D: 'JH', S: 'SH', Z: 'ZH' };
+    const YOU_VOWEL = new Set(['UW', 'UH', 'AO', 'ER', 'AX']);
+    function coalesceYou(ph) {
+      const out = ph.slice();
+      for (let i = 0; i < out.length; i++) {
+        if (!COALESCE[out[i]]) continue;
+        const y = nextWordStart(out, i); if (y < 0 || out[y] !== 'Y') continue;
+        if (!YOU_VOWEL.has(out[skipAfter(out, y)])) continue;
+        // the word after must be short: you, your, you're, yourself
+        let n = 0; for (let k = y; k < out.length && out[k] !== '_' && !isBreak(out[k]); k++) if (VOWELS.has(out[k])) n++;
+        if (n > 2) continue;
+        // one word now: the gap goes with the /j/
+        out[i] = COALESCE[out[i]]; const g = skipAfter(out, i); out.splice(g, y - g + 1);
+      }
+      return out;
+    }
+
+    // /t d/ dropped between consonants across a word gap: "last night", "next day",
+    // "old man". Only after a consonant of the same voicing, and never before /h/ or a vowel.
+    const T_AFTER = new Set(['S', 'F', 'K', 'P', 'SH', 'CH']), D_AFTER = new Set(['N', 'L', 'Z', 'V', 'G', 'B']);
+    function elideTD(ph) {
+      const out = [];
+      for (let i = 0; i < ph.length; i++) {
+        const c = ph[i];
+        if (c === 'T' || c === 'D') {
+          const a = skipBefore(ph, i), b = nextWordStart(ph, i), nb = b >= 0 ? PH[ph[b]] : null;
+          // unstressed "and" (AX N D) keeps its /d/: it's the word people listen for
+          const isAnd = c === 'D' && ph[a] === 'N' && ph[skipBefore(ph, a)] === 'AX';
+          if (a >= 0 && !isAnd && (c === 'T' ? T_AFTER : D_AFTER).has(ph[a]) && nb && !VOWELS.has(ph[b]) && ph[b] !== 'HH' && ph[b] !== 'Y' && nb.t !== 'P') continue;
+        }
+        out.push(c);
       }
       return out;
     }
@@ -4268,6 +4327,7 @@ return out;
       const nlp = S.createBiquadFilter(); nlp.type = 'lowpass'; nlp.frequency.value = 9000; nlp.Q.value = 0.7;
       // ⚠ Always set both bandpasses together.
       const setNoiseBand = (f, q, when, tc) => {
+        if (curRound) f *= ROUND_NOISE;
         for (const n of [nbp, nbp2]) {
           if (tc) n.frequency.setTargetAtTime(f, when, tc); else n.frequency.setValueAtTime(f, when);
           n.Q.setValueAtTime(q, when);
@@ -4283,17 +4343,23 @@ return out;
       // A queued line starts after the last one on its channel, one line gap on.
       const after = queued ? chan.lines[chan.lines.length - 1].end + (TUNING.lineGapMs || 0) / 1000 : 0;
       const t0 = Math.max(c.currentTime + 0.05, after); let t = t0;
-      // F4's frequency is fixed; set once.
+      // F4's starting frequency; setF moves it with F3.
       forms[3].frequency.setValueAtTime(3600 * fshift, t0);
       // Formants glide (22 ms default, per-phoneme `tc`: slow transitions ARE
       // /w y r/). `wide` broadens the bands for nasality.
+      // Lip rounding read ahead (roundAhead): a consonant before /u w o/ is said with
+      // the lips already rounded, which pulls F2 and F3 down and darkens a sibilant.
+      let curRound = false;
+      const ROUND_F2 = 0.88, ROUND_F3 = 0.94, ROUND_NOISE = 0.85;
       const setF = (when, arr, wide, tc) => {
         const k0 = tc || 0.022;
-        const F = [arr[0]*fshift*D.f1, arr[1]*fshift, arr[2]*fshift, 3600*fshift];
+        const r2 = curRound ? ROUND_F2 : 1, r3 = curRound ? ROUND_F3 : 1;
+        // F4 follows F3 at half the distance, kept 500 Hz clear: up for /i/, down for /r/.
+        const f3 = arr[2] * r3, f4 = Math.max(f3 + 500, 3600 + 0.5 * (f3 - 2500));
+        const F = [arr[0]*fshift*D.f1, arr[1]*r2*fshift, f3*fshift, f4*fshift];
         const A = cascadeGains(F, wide);
         for (let k = 0; k < 4; k++) {
-          // F4's bandwidth still takes nasal damping
-          if (k < 3) forms[k].frequency.setTargetAtTime(F[k], when, k0);
+          forms[k].frequency.setTargetAtTime(F[k], when, k0);
           forms[k].Q.setTargetAtTime(qFor(F[k], k) / (wide ? 1.8 : 1), when, k0);
           // amplitudes glide too (stepping clicks)
           fgain[k].gain.setTargetAtTime(A[k], when, k0);
@@ -4306,8 +4372,8 @@ return out;
         const L = lf || [350, 1500, 2500];
         forms[0].frequency.setTargetAtTime(220 * fshift, when, 0.008);
         forms[0].Q.setTargetAtTime(3, when, 0.008);
-        forms[1].frequency.setTargetAtTime(L[1] * fshift, when, 0.012);
-        forms[2].frequency.setTargetAtTime(L[2] * fshift, when, 0.012);
+        forms[1].frequency.setTargetAtTime(L[1] * (curRound ? ROUND_F2 : 1) * fshift, when, 0.012);
+        forms[2].frequency.setTargetAtTime(L[2] * (curRound ? ROUND_F3 : 1) * fshift, when, 0.012);
         fgain[0].gain.setTargetAtTime(MURMUR_F1, when, 0.006);
         for (let k = 1; k < 4; k++) fgain[k].gain.setTargetAtTime(keep, when, 0.006);
         if (closure) closure.setTargetAtTime(1, when, 0.006);
@@ -4365,6 +4431,9 @@ return out;
       const ACC = { nuc: 1.6, pre: 1.15, down: 0.6, fall: 1.0, half: 0.3, low: 0.6, postFall: 0.9, postStress: 0.75 };
       const nucKind = end => (end === '_Q' ? 'low' : !end || isTerm(end) ? 'fall' : 'cont');
       let afterNuc = null, downN = 0, declOff = 0;
+      // Graph only (the worklet's `tense` does this): 0 at a phrase's start, 1 at its end,
+      // weighted to the back. Voice quality relaxes with it: darker, breathier, softer.
+      const relaxAt = frac => (wk || shoutLine) ? 0 : TUNING.relax * nat * Math.max(0, Math.min(1, frac - declOff)) ** 2;
       const pitchAt = (when, frac, stressed, f1, nextCode, nuc, dur) => {
         const fall = 1 - (phraseDecl[phraseIx] ?? V.decl) * Math.max(0, frac - declOff);   // declination
         let lift, fallTo = 0;
@@ -4387,7 +4456,7 @@ return out;
         micro = 1;
         // Tilt tracks effort. On the worklet `tense` does it, so the tilt stays plain.
         const tf = wk ? TUNING.tiltPlain : stressed === 2 ? TUNING.tiltEmph : stressed ? TUNING.tiltStress : TUNING.tiltPlain;
-        tilt.frequency.setTargetAtTime((nat === 1 ? tf : TUNING.tiltPlain + (tf - TUNING.tiltPlain) * nat) * mix(D.bright), when, 0.04);
+        tilt.frequency.setTargetAtTime((nat === 1 ? tf : TUNING.tiltPlain + (tf - TUNING.tiltPlain) * nat) * mix(D.bright) * (1 - 0.25 * relaxAt(frac)), when, 0.04);
         return f;
       };
 
@@ -4396,7 +4465,8 @@ return out;
 
       let wordScale = sylScale(sylFrom(phon, 0));
       const fins = rhymeBreaks(phon), feet = footSizes(phon), clips = sonorantClips(phon), shape = phraseShape(phon);
-      let curAside = false;
+      let curAside = false, inhales = 0;
+      const rounds = roundAhead(phon);
       let pendingStress = 0, pendingHeld = false, pendingLong = 0, prevNasal = false, prevP = null, prevCode = null;
       let pendingNuc = null;
       const holdK = shoutLine ? Math.min(D.hold, 1.4) : D.hold;
@@ -4417,6 +4487,7 @@ return out;
         const nxtCode = phon[nj];
         const segCtx = { nxtCode, nxt, prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed, held: pendingHeld, hold: holdK, pause: D.pause, long, longK: D.longK, nat, fin: fins[i], foot: feet[i], sonClip: clips[i], pos: shape.pos[i], aside: shape.aside[i] };
         curAside = shape.aside[i];
+        curRound = rounds[i] && p.t !== 'V';
         let dur = segmentDuration(p, code, segCtx);
 
         if (p.t==='V' || p.t==='N' || p.t==='L') {
@@ -4474,13 +4545,15 @@ return out;
           const voicelessAfter  = nxt   && (nxt.t==='F'  ||nxt.t==='S'  ||nxt.t==='H')   && !nxt.vd;
           const devoiced = p.t==='V' && !stressed && voicelessBefore && voicelessAfter;
           if (devoiced) vg *= 0.35;
+          const rx = relaxAt((t - phraseT0) / (phraseDur[phraseIx] || totalDur));
+          vg *= 1 - 0.12 * rx;
           voiced.gain.setTargetAtTime(vg, t, 0.012);
           // Syllable envelope: decay through the back half (a held nucleus barely sags).
           const drawn = long && p.t === 'V';
           if (p.t === 'V' && !drawn) voiced.gain.setTargetAtTime(vg * (held ? 0.95 : 0.86), t + dur * (held ? 0.8 : 0.55), held ? 0.08 : 0.05);
           // Frication shut during a sonorant; breath runs through the tract instead.
           noiseG.gain.setTargetAtTime(0, t, 0.010);
-          aspG.gain.setTargetAtTime(devoiced ? ASP_H * 0.8 : (V.breath * TUNING.breath + D.breath) * BREATH_K * nat, t, 0.01);
+          aspG.gain.setTargetAtTime(devoiced ? ASP_H * 0.8 : ((V.breath * TUNING.breath + D.breath) * (1 + 1.5 * rx) + 0.004 * rx) * BREATH_K * nat, t, 0.01);
           if (p.t === 'V') {
             const nuc = pendingNuc; pendingNuc = null;
             const frac = (t - phraseT0) / (phraseDur[phraseIx] || totalDur);
@@ -4622,6 +4695,15 @@ return out;
           noiseG.gain.setTargetAtTime(0, t, 0.02 * TUNING.finalTaper ** 2);
           aspG.gain.setTargetAtTime(0, t, 0.02 * TUNING.finalTaper ** 2);
           nzero.gain.setTargetAtTime(0, t, 0.02);
+          // A quiet breath in over the back of a long break, if six or more syllables follow.
+          // It sits inside the pause, so timing and the broadcast hold don't move.
+          if (TUNING.inhale > 0 && p.d >= 250 && dur > 0.15 && phon.slice(i + 1).filter(c => VOWELS.has(c)).length >= 6) {
+            const at = t + dur * 0.4, len = Math.min(0.25, dur * 0.45);
+            setF(at, [600, 1200, 2400], false, 0.01);
+            aspG.gain.setTargetAtTime(ASP_BREATH_IN * 0.45 * TUNING.inhale * nat, at, 0.04);
+            aspG.gain.setTargetAtTime(0, at + len, 0.03);
+            inhales++;
+          }
           // ⚠ `dur` is already speed-adjusted: don't divide again.
           t += dur;
         }
@@ -4698,7 +4780,7 @@ return out;
       }
       chan.lines.push({ src, end: end + 0.1, duck: ducks.length ? { release: () => ducks.forEach(h => h.release()) } : null });
       // The real scheduled length; `delay` is a queued line's wait.
-      return { duration: end - t0, delay: t0 - c.currentTime, channel: chName, backend: wk ? 'worklet' : 'graph' };
+      return { duration: end - t0, delay: t0 - c.currentTime, channel: chName, backend: wk ? 'worklet' : 'graph', inhales };
     }
 
     // Voice Lab debug: the phoneme run a line produces. Side-effect free.

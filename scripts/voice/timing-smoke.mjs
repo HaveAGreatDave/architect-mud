@@ -121,6 +121,29 @@ const vowel = (r, code, n = 0) => { const v = r.segs.filter(s => s.p === code); 
   check('a name said on the channel a line ago loses its accent', given < fresh, `after ${given} accents, fresh ${fresh}`);
 }
 
+// ── Connected speech across word gaps ──────────────────────────────────────────
+{
+  const ph = (t) => A._phonemesFor(t).filter(p => p !== '*' && p !== '!').join(' ');
+  check('"did you" coalesces to /dʒ/, one word', ph('did you').startsWith('D IH JH U'), ph('did you'));
+  check('"miss you" coalesces to /ʃ/', ph('miss you').includes('SH UW'), ph('miss you'));
+  check('"last night" drops its /t/', ph('last night') === 'L AE S _ N AY T', ph('last night'));
+  check('...but "left home" keeps it before /h/', ph('left home').includes('F T _'), ph('left home'));
+  check('...and "hand over" keeps it before a vowel', ph('hand over').includes('N D _'), ph('hand over'));
+  check('"ten boys" still goes to /m/', ph('ten boys').includes('EH M _ B'), ph('ten boys'));
+}
+
+// ── Breath in at a long break ──────────────────────────────────────────────────
+{
+  const say = (t) => { const r = A.speak(t, { seed: 'Dex Rime', backend: 'graph', fresh: true }); A.cancelSpeech(); return r; };
+  const long = 'The tide came in. We waited by the harbour wall for hours.';
+  const on = say(long);
+  check('a sentence break mid-passage takes a breath in', on.inhales === 1, `inhales ${on.inhales}`);
+  check('...but not with too little left to say', say('Go home. Now.').inhales === 0);
+  const k = A.voiceTuning.inhale; A.voiceTuning.inhale = 0;
+  const off = say(long); A.voiceTuning.inhale = k;
+  check('inhale 0 turns it off without moving the timing', off.inhales === 0 && Math.abs(off.duration - on.duration) < 1e-6, `${off.inhales}, ${ms(off.duration)} vs ${ms(on.duration)}`);
+}
+
 // ── Stress ──────────────────────────────────────────────────────────────────────
 {
   // the same run with and without the stress mark on its middle vowel, through the
