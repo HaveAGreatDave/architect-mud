@@ -89,7 +89,7 @@ export function completePose(P) {
     // and a plant on it agree
     if (out['plant' + S] && out['ank' + S].length === 2) out['toe' + S] = flatToe(out['toe' + S]);
   }
-  if (out.bat) out.bat = { knob: out.bat.knob.slice(), dir: norm(out.bat.dir).map(r4), bottom: out.bat.bottom || 'L' };
+  if (out.bat) out.bat = { knob: out.bat.knob.slice(), dir: norm(out.bat.dir).map(r4), bottom: out.bat.bottom || 'L', ...(out.bat.one ? { one: true } : {}) };
   if (out.bat || FEET.some((S) => !out['hand' + S] || !out['palm' + S])) {
     const { J } = solvePose({ ...out, at: [0, 0, 0], yaw: 0 });
     for (const S of FEET) {
@@ -349,6 +349,7 @@ function curve(clip, t, ground, s) {
       knob: [0, 1, 2].map((i) => cr(k0 ? (k0.pose.bat || a.bat).knob[i] : null, a.bat.knob[i], b.bat.knob[i], k3 ? (k3.pose.bat || b.bat).knob[i] : null, t0, k1.t, k2.t, t3, u, q1, q2, ends)),
       dir: norm([0, 1, 2].map((i) => cr(k0 ? (k0.pose.bat || a.bat).dir[i] : null, a.bat.dir[i], b.bat.dir[i], k3 ? (k3.pose.bat || b.bat).dir[i] : null, t0, k1.t, k2.t, t3, u, q1, q2, ends))),
       bottom: a.bat.bottom || 'L',
+      ...(a.bat.one ? { one: true } : {}),
     };
   } else if (a.bat && u <= 0) P.bat = copy(a.bat);
   else if (b.bat && u >= 1) P.bat = copy(b.bat);
@@ -477,7 +478,7 @@ export function mixPose(a, b, w, opts = {}) {
     P['plant' + S] = both && apart <= MIX_STEP * s;
   }
   for (const S of FEET) if (a['clear' + S] != null || b['clear' + S] != null) P['clear' + S] = lerp(a['clear' + S] ?? 1, b['clear' + S] ?? 1, w);
-  if (a.bat && b.bat) P.bat = { knob: [0, 1, 2].map((i) => lerp(a.bat.knob[i], b.bat.knob[i], w)), dir: norm([0, 1, 2].map((i) => lerp(a.bat.dir[i], b.bat.dir[i], w))), bottom: (w < 0.5 ? a : b).bat.bottom };
+  if (a.bat && b.bat) P.bat = { knob: [0, 1, 2].map((i) => lerp(a.bat.knob[i], b.bat.knob[i], w)), dir: norm([0, 1, 2].map((i) => lerp(a.bat.dir[i], b.bat.dir[i], w))), bottom: (w < 0.5 ? a : b).bat.bottom, ...((w < 0.5 ? a : b).bat.one ? { one: true } : {}) };
   else if ((w < 0.5 ? a : b).bat) P.bat = (w < 0.5 ? a : b).bat;
   return guardMix(P);
 }

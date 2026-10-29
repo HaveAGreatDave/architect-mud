@@ -127,6 +127,14 @@ export const PACE = Object.freeze({
 // A pitch's time after it's decided when the hitter steps out (s): the practice swing and the beat
 // back into the box.
 const STEP_AFTER = PACE.stepIn + CLIPS.deck_swing.duration + PACE.stepBack;
+// A hitter's own habit at the plate, the same every time he steps in, so a regular viewer comes to
+// know him by it: two taps on the plate, the bat pointed at the pitcher, a touch of the helmet, the
+// back foot dug in, or nothing at all. Dealt from his name. It goes before a pitch when there's
+// time for it and a beat of the stance after (HABIT_ROOM). A step out is a practice swing, or one
+// time in three he fixes his batting gloves instead (bat_gloves, no longer than the swing).
+const HABITS = Object.freeze(['bat_plate_tap', 'bat_point', 'bat_helmet_tap', 'bat_dig', null]);
+export const habitOf = (name) => HABITS[hashStr('habit:' + (name || '')) % HABITS.length];
+const HABIT_ROOM = 0.9;
 // The most practice swings an at-bat gets.
 const STEPS_MAX = 2;
 // How long after the last shell bursts the picture goes back from the fireworks (s); a home run's
@@ -533,7 +541,11 @@ export function createDirector(W, opts = {}) {
       // (back in the box under the cut in, after a practice swing a step aside)
       const tLoad = T.tRel - 0.6, home = stepped ? { at: S.H0.at.slice(), yaw: S.H0.yaw } : undefined;
       stepped = false;
-      if (T.tIn < tLoad) play(H, 'bat_stance', T.tIn, T.tIn, { frame: home });
+      const habit = habitOf(p.batter), hd = habit ? CLIPS[habit].duration : 0;
+      if (habit && tLoad - T.tIn >= hd + HABIT_ROOM) {
+        play(H, habit, T.tIn, T.tIn, { frame: home });
+        play(H, 'bat_stance', T.tIn + hd - 0.25, T.tIn + hd - 0.25, { fade: 0.3 });
+      } else if (T.tIn < tLoad) play(H, 'bat_stance', T.tIn, T.tIn, { frame: home });
       play(H, 'bat_load', Math.max(T.tIn, tLoad), tLoad, { fade: T.tIn < tLoad ? 0.15 : 0, frame: T.tIn < tLoad ? undefined : home });
       W.at(T.tIn, () => W.layer(H.slot, 'look', { target: ballOr(T.decided), from: T.tRel - 0.5, full: T.tRel - 0.15, hold: T.decided, to: T.decided + 0.45 }));
       let swing = null;
@@ -607,8 +619,9 @@ export function createDirector(W, opts = {}) {
         if (v.stepout) {
           const s0 = T.decided + PACE.stepIn, out = Math.sign(S.H0.at[0]) || 1;
           const frame = { at: [S.H0.at[0] + out * PACE.stepAside, S.H0.at[1], S.H0.at[2]], yaw: S.H0.yaw + (bats === 'L' ? -PACE.stepTurn : PACE.stepTurn) };
-          play(H, 'deck_swing', s0, s0, { fade: 0.6, frame });
-          rec.stepout = { t: s0, end: s0 + CLIPS.deck_swing.duration, frame };
+          const routine = hashStr('gloves' + i + p.batter) % 3 === 0 ? 'bat_gloves' : 'deck_swing';
+          play(H, routine, s0, s0, { fade: 0.6, frame });
+          rec.stepout = { t: s0, end: s0 + CLIPS[routine].duration, frame, clip: routine };
           stepped = true;
         }
         return;
@@ -989,11 +1002,11 @@ export function createDirector(W, opts = {}) {
     const rub = gone.find((g) => g.role === 'pitcher');
     const salt = `${p.batter}|${p.inning}|${p.half}|between`;
     const shots = shotsBetween({ from, until: by, deck: deck ? (deck.at[0] > 0 ? 'deck3' : 'deck1') : null, rubAt: rub?.end, bags: Array.isArray(p.basesAfter) ? p.basesAfter : [], salt });
-    const held = gone.map((g) => g.visit || g.argue).filter(Boolean);
+    const held = gone.map((g) => g.visit || g.argue || g.scrum).filter(Boolean);
     for (const x of shots) if (!held.some((h) => x.at >= h.at - 0.5 && x.at <= h.until + 0.4)) W.at(x.at, () => emit('shot', x.shot));
     // a mound visit or an argument at first gets its own shot while it lasts, then the field wide
     for (const g of gone) {
-      const on = g.visit ? ['mound', g.visit] : g.argue ? ['first', g.argue] : null;
+      const on = g.visit ? ['mound', g.visit] : g.argue ? ['first', g.argue] : g.scrum ? ['high', g.scrum] : null;
       if (!on) continue;
       W.at(on[1].at, () => emit('shot', on[0]));
       W.at(on[1].until + 0.4, () => emit('shot', 'high'));
@@ -1044,7 +1057,7 @@ export function createDirector(W, opts = {}) {
     const men = [];
     for (const c of cast) {
       const role = c.look.role;
-      if (!['pitcher', 'catcher', 'fielder', 'batter', 'runner', 'ump', 'coach'].includes(role)) continue;
+      if (!['pitcher', 'catcher', 'fielder', 'batter', 'runner', 'ump', 'coach', 'bench'].includes(role)) continue;
       const slot = c.look.slot, b = W.bodies.get(slot), P = planned.get(slot), last = P?.clips[P.clips.length - 1];
       // what the world has him doing, or what the director's queued for him after it
       const q = D.queued.get(slot), cur = b && b.clip && !(q && q.at > now) ? { clip: b.clip.id, start: b.start, speed: b.speed, frame: null } : q;

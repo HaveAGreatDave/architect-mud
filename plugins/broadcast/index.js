@@ -2901,6 +2901,10 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   // stream of its own so the lines the booth already picks don't move
   const crng = sportsRng(sportsHash(gs.seed, 0xc0ac));
   for (const p of GD.order) if (p.play && !p.phase) { const c = BASEBALL.contactCall(p, pools, crng, sportsFill); if (c) p.contact = { text: c, by: announcer }; }
+  // a game between rivals (rivalOf over this league, the pairing the hockey side uses too) says
+  // so on every payload, so the 3-D park knows a hit batter can empty the benches
+  const bbLeague = (Array.isArray(script.teams) ? script.teams : []).map((t) => (typeof t === 'string' ? t : t?.name)).filter(Boolean);
+  if (rivalOf(away.name, bbLeague) === home.name) for (const p of GD.order) p.rivals = true;
   const beatGameday = (b) => GD.atbat.get(b);
   playOf = (b) => GD.atbat.get(b)?.play || null;
   // A ball in play's line agrees with its picture: the play's tags (where it went, how it was

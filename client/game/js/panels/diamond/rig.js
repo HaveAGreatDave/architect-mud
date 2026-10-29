@@ -398,10 +398,11 @@ export function solvePose(P) {
     J['toe' + S] = toe;
   }
   // a bat in two hands decides where the hands go: the bottom hand against the knob, the top
-  // hand touching it, as a hitter holds a bat; and the bat and its hands are kept off the body
+  // hand touching it, as a hitter holds a bat; and the bat and its hands are kept off the body.
+  // `bat.one`: the bottom hand alone holds it, and the top hand is free (a man fixing his glove)
   const hands = {}, hull = hullOf(J, W, s, b);
   if (P.bat) {
-    const bd = dirW(P.bat.dir), bottom = P.bat.bottom || 'L', top = bottom === 'L' ? 'R' : 'L';
+    const bd = dirW(P.bat.dir), bottom = P.bat.bottom || 'L', top = bottom === 'L' ? 'R' : 'L', holding = P.bat.one ? [bottom] : ['L', 'R'];
     const chestC = add(J.chest, m3v(W.chest, [0, 0.2 * s, 0.25 * s]));
     const grip = (knob) => {
       const g = {};
@@ -415,11 +416,11 @@ export function solvePose(P) {
     const knob0 = toW(P.bat.knob), g0 = grip(knob0);
     const knob = clearOf(hull.filter((h) => !h.leg), (off) => {
       const k = add(knob0, off), g = grip(k);
-      return [...BAT_BALLS.map(([at, r]) => [add(k, mul(bd, at * s)), r]), [g.L.wr, 0.1], [g.R.wr, 0.1]];
-    }, s, (off) => add(knob0, off), ['L', 'R'].map((S) => [g0[S].wr, J['sh' + S], ARM_REACH * s]));
+      return [...BAT_BALLS.map(([at, r]) => [add(k, mul(bd, at * s)), r]), ...holding.map((S) => [g[S].wr, 0.1])];
+    }, s, (off) => add(knob0, off), holding.map((S) => [g0[S].wr, J['sh' + S], ARM_REACH * s]));
     J.batKnob = knob; J.batDir = bd; J.batBottom = bottom;
     const g = grip(knob);
-    for (const S of ['L', 'R']) { J['hand' + S] = g[S].hc; J['grip' + S] = true; hands[S] = g[S].wr; }
+    for (const S of holding) { J['hand' + S] = g[S].hc; J['grip' + S] = true; hands[S] = g[S].wr; }
   }
   // a free hand's target, kept off the body along with the hand on the end of it
   const T = {}, hdir = {};

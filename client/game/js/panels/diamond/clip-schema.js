@@ -103,12 +103,13 @@ function poseErrors(P, where) {
   for (const k of DIRS) if (k in P && !(isVec(P[k], 3) && nonZero(P[k]))) out.push(`${where}: ${k} is a direction, three numbers not all 0`);
   if ('bat' in P) {
     const b = P.bat;
-    if (!b || typeof b !== 'object') out.push(`${where}: bat is { knob, dir, bottom }`);
+    if (!b || typeof b !== 'object') out.push(`${where}: bat is { knob, dir, bottom, one }`);
     else {
       if (!isVec(b.knob, 3)) out.push(`${where}: bat.knob is three numbers`);
       if (!(isVec(b.dir, 3) && nonZero(b.dir))) out.push(`${where}: bat.dir is a direction`);
       if ('bottom' in b && b.bottom !== 'L' && b.bottom !== 'R') out.push(`${where}: bat.bottom is 'L' or 'R'`);
-      for (const k of Object.keys(b)) if (!['knob', 'dir', 'bottom'].includes(k)) out.push(`${where}: bat.${k} isn't part of a bat`);
+      if ('one' in b && b.one !== true) out.push(`${where}: bat.one is true or left out`);
+      for (const k of Object.keys(b)) if (!['knob', 'dir', 'bottom', 'one'].includes(k)) out.push(`${where}: bat.${k} isn't part of a bat`);
     }
   }
   return out;
@@ -229,6 +230,7 @@ export function validateClip(doc, file = '<clip>') {
       const A = done[i - 1].bat, B = P.bat;
       if (A && B) {
         if (A.bottom !== B.bottom) err(`key ${i} at ${keys[i].t} s: the bottom hand on the bat changes from the key before`);
+        if (!!A.one !== !!B.one) err(`key ${i} at ${keys[i].t} s: the bat goes between one hand and two from the key before (a clip holds it one way)`);
         const a = turn(A.dir, B.dir);
         if (a > MAX_TURN) err(`key ${i} at ${keys[i].t} s: the bat turns ${a.toFixed(0)}° from the key before (most ${MAX_TURN})`);
       }
@@ -251,7 +253,7 @@ function lit(v) {
 function poseText(P, pad) {
   const lines = [];
   for (const group of POSE_LINES) {
-    const items = group.filter((k) => k in P).map((k) => JSON.stringify(k) + ': ' + lit(k === 'bat' ? { knob: P.bat.knob, dir: P.bat.dir, ...(P.bat.bottom ? { bottom: P.bat.bottom } : {}) } : P[k]));
+    const items = group.filter((k) => k in P).map((k) => JSON.stringify(k) + ': ' + lit(k === 'bat' ? { knob: P.bat.knob, dir: P.bat.dir, ...(P.bat.bottom ? { bottom: P.bat.bottom } : {}), ...(P.bat.one ? { one: true } : {}) } : P[k]));
     if (items.length) lines.push(items.join(', '));
   }
   const rest = Object.keys(P).filter((k) => !POSE_FIELDS.includes(k)).sort();

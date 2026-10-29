@@ -192,7 +192,7 @@ function roundMen(pts, avoid) {
 }
 
 // He goes from where he is at t0 to `spot` and rests there facing `face` (`o.rest`, stand_idle by
-// default): a walk, or for a long way a jog and a pull-up; off the mound's slope downhill and round
+// default): a walk, or for a long way (or with `o.jog`, at that speed in ft/s) a jog and a pull-up; off the mound's slope downhill and round
 // it, round behind the plate where his way would take him through the catcher or the umpire, as a
 // jog off does (bases.js), round anybody standing (`o.avoid`), by way of `o.via` if it says, and the
 // last few feet toward the way he's to face, so the rest needn't turn him far. A man near enough
@@ -209,7 +209,7 @@ export function goTo(B, spot, face, t0, o = {}) {
   if (lead) pts.push(sub(spot, ahead(face, LEAD_IN)));
   pts.push(spot);
   const way = wayPath(easeCorners(roundMen(roundMound(pts), o.avoid)));
-  if (way.len <= BETWEEN.walkFar || o.walk) {
+  if ((way.len <= BETWEEN.walkFar && !o.jog) || o.walk) {
     const v = clamp(way.len / Math.max(1, by - t0 - 2), WALK_V, WALK_V * 1.3);
     const T = cloneBody(B), arrive = walkAlong(T, way, t0, { v });
     if (arrive - REST_FADE / 2 + REST_FADE <= by) {
@@ -220,7 +220,7 @@ export function goTo(B, spot, face, t0, o = {}) {
   // a long way, or too far to walk in the time: a jog, pulled up at the spot, and the last few feet
   // walked where the pull-up leaves him short of it or past it (a jog cuts a corner near its end)
   const jog = (X) => {
-    const on = stopAt(X, way, t0, way.len, { v: BETWEEN.jog }).on + 0.3, here = X.spotAt(on);
+    const on = stopAt(X, way, t0, way.len, { v: o.jog || BETWEEN.jog }).on + 0.3, here = X.spotAt(on);
     if (flat(here, spot) <= 2) return { t: restAt(X, here, face, on, rest), at: here };
     const arrive = walkAlong(X, wayPath([here, spot]), on);
     return { t: restAt(X, spot, face, arrive - REST_FADE / 2, rest), at: spot };
@@ -297,7 +297,44 @@ export function planBetween({ p, cast, men, by }) {
   const coach = men.find((m) => m.role === 'coach' && /:coach1$/.test(m.B.id)), ump = out.find((g) => g.role === 'ump' && cast.find((c) => c.look.slot === g.slot)?.id === 'ump:1B');
   const uB = ump && men.find((m) => m.slot === ump.slot)?.B;
   if (bat && coach && uB && hashStr(`argue:${p.batter}|${p.inning}`) % 3 === 0) argue(coach, uB, ump.end, by, out);
+  if (scrumDue(p)) scrum(p, men, by, out);
   return out;
+}
+
+// THE BENCHES EMPTY. A hit batter between rivals, late or with a run or less in it (and not
+// every time): both benches come out, the batting side's men in a line in front of the plate
+// and the fielding side's facing them a few feet off, and stand there jawing; the first of
+// each side has it out, arms going. Nobody throws a punch, and after a while they walk back.
+// A man who couldn't be back on his bench by `by` keeps the whole thing in the dugouts.
+export const SCRUM = Object.freeze({ z: 15, gap: 3.4, step: 3.2, hold: 4.7, wait: 0.5, stagger: 0.3, out: 17, back: 16 });
+const scrumDue = (p) => p.kind === 'hitbypitch' && !!p.rivals && ((p.inning | 0) >= 7 || Math.abs((p.awayScore | 0) - (p.homeScore | 0)) <= 1)
+  && hashStr(`scrum:${p.batter}|${p.inning}|${p.half}`) % 3 !== 0;
+function scrum(p, men, by, out) {
+  const bench = men.filter((m) => m.role === 'bench' && m.c);
+  if (bench.length < 2) return;
+  // the batting side's dugout is on dugoutOf's side (+1 third base, where x > 0)
+  const sB = dugoutOf(p), sides = [sB, -sB];
+  const plan = [];
+  for (const s of sides) {
+    bench.filter((m) => Math.sign(m.c.at[0]) === s).forEach((m, k) => {
+      const spot = [s * SCRUM.gap, 0, SCRUM.z + k * SCRUM.step], home = m.B.spotAt(m.go);
+      plan.push({ m, spot, face: s > 0 ? -90 : 90, home, homeFace: m.B.facingAt(m.go), via: [home[0], 0, home[2] + 10], t0: m.go + SCRUM.wait + SCRUM.stagger * k, k });
+    });
+  }
+  // everyone out and back on clones first: one who can't make it keeps them all in
+  const dry = plan.map((q) => {
+    const T = cloneBody(q.m.B), there = goTo(T, q.spot, q.face, q.t0, { by, via: q.via, jog: SCRUM.out });
+    return there == null ? null : { T, there };
+  });
+  if (dry.some((d) => d == null)) return;
+  const met = Math.max(...dry.map((d) => d.there)) + REST_FADE, part = met + SCRUM.hold;
+  for (const [i, d] of dry.entries()) if (goTo(d.T, plan[i].home, plan[i].homeFace, part + SCRUM.stagger * plan[i].k, { by, via: plan[i].via, jog: SCRUM.back }) == null) return;
+  plan.forEach((q, i) => {
+    goTo(q.m.B, q.spot, q.face, q.t0, { by, via: q.via, jog: SCRUM.out });
+    if (q.k === 0) playOnSpot(q.m.B, 'argue', met + 0.1 + 0.15 * (i % 2), CLIPS.argue.duration);
+    const back = goTo(q.m.B, q.home, q.homeFace, part + SCRUM.stagger * q.k, { by, via: q.via, jog: SCRUM.back });
+    out.push({ slot: q.m.slot, role: 'bench', to: q.home, rest: 'stand_idle', end: back, ...(i === 0 ? { scrum: { at: met - 1.5, until: part + 2 } } : {}) });
+  });
 }
 
 // THE MOUND VISIT. Now and then, with the time for it, the catcher goes out from behind the plate
