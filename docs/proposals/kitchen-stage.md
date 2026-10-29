@@ -151,6 +151,21 @@ A liquid in the pan is a small 2-D fluid ([kitchen-liquid.js](../../client/game/
 
 Butter, fats and anything that browns by `melt` (cheese) shrink on the heat and pour into the liquid as they go, at a rate set by the dial. A liquid thickens as its beat goes on (cook, peak, over): it moves less for the same stir, blends more slowly, sits lower in the pan as it reduces and turns glossier. Pasta, rice and anything else drawn as grain clouds the water it cooks in, by beat. An egg in a dry pan is drawn cracked, white and yolk, the white going from glassy grey to white as it sets and brown past its peak; in water it boils in its shell. It is all picture: the server still decides the cook, and a liquid's colour still moves only on its beat (a beat change shifts the whole pan by that liquid's share).
 
+## Next (design, except where marked built)
+
+Ten improvements, in the order they're worth doing. Each keeps the Rules: the Stage sends only commands the payload carries, and colour moves only on a beat.
+
+1. **Drag from the fridge (built).** Press on a thing in an open box and drag it out past the door: let go and it's taken (`pullid`), the box shuts and it lands on the board. Let go over the shelf and nothing happens. A click still takes it.
+2. **Food that cooks between beats (built).** Motion, never colour: on a lit ring a dry pan makes what's in it tremble and skip by the dial, fat spits specks, and a liquid at a rolling boil tumbles its pieces. In its window (the server's `cook.phase`) the sizzle steps up. Nothing moves faster as a beat approaches, so it's no countdown.
+3. **The pan says what it wants.** When a food in the pan has a `handle` action and is in its window, its utensil's rack card pulses and the held utensil glints. Read from the payload only; no new server field.
+4. **Tasting.** `taste` raises a spoon to the camera and holds for the reply; the server's taste line shows as a caption with a face (good, flat, salty, raw) picked from the verdict's state. Needs `taste` to send a state with its text, which is one field on the existing reply.
+5. **Cupboards.** The non-cold `storage` boxes get the fridge's treatment: a cupboard under the counter whose doors open on the pans and dry goods in it. Pans in a cupboard show there, and taking one puts it on the rack. Reuses the cold box code with a different carcass.
+6. **Sound that follows the heat.** The sizzle's level and brightness follow the dial and what's in the pan (dry fat, wet, boiling); a boil builds as a bed; the fridge hums and its seal pops; the knife thock follows the food's firmness. SIREN cues in the Audio tab, one per state, mixed on the existing buses.
+7. **Labels on packs.** `look.pack` items carry a short printed word on their label band, drawn in the legend face as a texture strip. Item names, cut to fit.
+8. **Mess.** Cutting leaves juice and offcuts on the board, high heat leaves spatter on the hob, and both stay until `wipe`. It reads the cleaning system's stains for the room so the Stage and the room agree; no new state.
+9. **Phone controls.** Pinch zooms the shot, two fingers swing it, a long press opens the menu, and the rack's To the board toggle stands in for Shift. The wheel's heat becomes a vertical drag on the knob, which already works.
+10. **A dish card.** Plating ends on a card with the plated dish drawn from the Stage, its name and the quality band, kept in the CODEX's cooking page. The server already grades the dish; the card is a picture of that, plus a stored thumbnail.
+
 ## Kitchen Battle (design only)
 
 The full show is kept for an in-world event, not ordinary cooking:

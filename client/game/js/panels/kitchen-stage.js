@@ -257,10 +257,36 @@ function step(dt) {
       if (vn > 0) { b.v[0] -= 1.5 * vn * nx; b.v[1] -= 1.5 * vn * ny; }
     }
   }
+  if (level > 0) agitate(pan, bodies, wet, floor, level, dt);
   // pieces push each other apart on the floor
   for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
     const a = bodies[i], b = bodies[j], dx = b.p[0] - a.p[0], dy = b.p[1] - a.p[1], d = Math.hypot(dx, dy) || 1e-3;
     if (d < 5) { const k = (5 - d) * 0.25; a.p[0] -= dx / d * k; a.p[1] -= dy / d * k; b.p[0] += dx / d * k; b.p[1] += dy / d * k; }
+  }
+}
+
+// Food on a lit ring moves the way it would: in a dry pan it trembles and skips as it sizzles, and
+// in its window (the server's phase) it sizzles harder; in liquid at a rolling boil it tumbles.
+// It's set by the dial and the phase only, so it never speeds up as a beat comes: no countdown.
+const SPECK = M.rgb('#f1e2b4');
+function agitate(pan, bodies, wet, floor, level, dt) {
+  const k = level / 10;
+  for (const [id, b] of S.bodies) {
+    if (b.p[2] > floor + 0.05) continue;
+    const c = (pan.contents || []).find((x) => x.id === id);
+    const m = c?.look && matterFor(c.look.profile, c.look.matter);
+    if (!m || liquidish(m)) continue;
+    const hot = c.cook?.phase === 'window' ? 1.7 : 1;
+    if (wet) {
+      if (level >= 6 && Math.random() < dt * (level - 4) * 0.9) {
+        b.v[2] += 22 + Math.random() * 30 * k;
+        b.v[0] += (Math.random() - 0.5) * 18; b.v[1] += (Math.random() - 0.5) * 18;
+        b.vr += (Math.random() - 0.5) * 9;
+      }
+    } else if (Math.random() < dt * 4 * k * hot) {
+      b.v[2] += 5 + Math.random() * 9 * k * hot;
+      b.v[0] += (Math.random() - 0.5) * 7 * k; b.v[1] += (Math.random() - 0.5) * 7 * k;
+    }
   }
 }
 
@@ -424,6 +450,7 @@ function build(dt) {
       if (!body || !c.look) continue;
       const m = matterFor(c.look.profile, c.look.matter), beat = beatOf(c.cook, c.state === 'cooked');
       const p = [at[0] + body.p[0], at[1] + body.p[1], at[2] + 1 + body.p[2]];
+      if (onHeat && level > 0 && !S.liq?.L?.filled) p[2] += Math.sin(S.t * 47 + body.seed) * 0.07 * (level / 10) * (c.cook?.phase === 'window' ? 1.8 : 1);
       if (onHeat && level > 0) emit(m, c, p, dt);
       if (m.plate.stack === 'pool' && (m.cook.gloss || 0) > 0.8) oily = true;
       // a liquid is the surface below, not a piece; a melting one shrinks into it
@@ -477,6 +504,12 @@ function build(dt) {
   // steam and bubbles
   S.puffs = S.puffs.filter((p) => (p.age += dt / p.life) < 1);
   for (const p of S.puffs) KS.puff(b, p.p, p.age, p.c, p.size);
+  S.specks = (S.specks || []).filter((q) => (q.age += dt * 2.2) < 1 && q.p[2] > -1);
+  for (const q of S.specks) {
+    q.v[2] += G * 0.25 * dt;
+    for (let i = 0; i < 3; i++) q.p[i] += q.v[i] * dt;
+    M.sphere(b, q.p, 0.28, q.col, 5, 3);
+  }
   S.bubbles = S.bubbles.filter((p) => (p.age += dt * 2.5) < 1);
   for (const p of S.bubbles) KS.bubble(b, p.p, p.age);
 }
@@ -549,6 +582,11 @@ function pieceOf(m, c) {
 }
 
 function emit(m, c, p, dt) {
+  const spits = (m.cook.emit || []).some((x) => x === 'spatter' || x === 'sizzle'), level = dialOf(S.data)?.level || 0;
+  if (spits && !S.liq?.L?.filled && Math.random() < dt * level * (c.cook?.phase === 'window' ? 0.9 : 0.45)) {
+    const a = Math.random() * Math.PI * 2, sp = 25 + Math.random() * 30;
+    (S.specks ||= []).push({ p: [p[0], p[1], p[2] + 1.5], v: [Math.cos(a) * sp, Math.sin(a) * sp, 30 + Math.random() * 40], age: 0, col: SPECK });
+  }
   const smoke = c.cook?.phase === 'burnt' || c.cook?.phase === 'over';
   const rate = smoke ? 3 : m.cook.emit.includes('steam') ? 1.4 : 0.5;
   if (Math.random() < dt * rate) {
@@ -806,6 +844,12 @@ function onMove(e) {
   if (!S) return;
   if (!S.drag) return hoverAt(e);
   const g = S.drag;
+  if (g.kind === 'cold') {
+    const h = planeHit(e, g.z);
+    if (h) g.at = [h[0], h[1], g.z + 3];
+    g.moved = g.moved || Math.hypot(e.clientX - g.x0, e.clientY - g.y0) > 8;
+    return;
+  }
   if (g.kind === 'look') {
     S.orbit.yaw -= (e.clientX - g.x) * 0.006;
     S.orbit.pitch = Math.max(-0.9, Math.min(0.9, S.orbit.pitch + (e.clientY - g.y) * 0.004));
@@ -872,6 +916,7 @@ function onUp(e) {
   const g = S.drag, d = S.data;
   S.drag = null;
   const still = g.x0 != null && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 6;
+  if (g.kind === 'cold') return dropCold(g);
   if (g.kind === 'tap') {
     if (!still) return;
     if (g.hit.kind === 'pan' && g.hit.id) return pickPan(g.hit.id);
@@ -1171,7 +1216,7 @@ function buildBox(b, box, i) {
   // what's inside: standing on the shelves, the one under the pointer lifted
   const inside = c ? coldInside(box) : (box.items || []).filter((it) => it.look).slice(0, SHELVES.length * PER_SHELF);
   for (const [k, it] of inside.entries()) {
-    const m = matterFor(it.look.profile, it.look.matter), at = insideSpot(i, k);
+    const m = matterFor(it.look.profile, it.look.matter), carried = carriedFrom(c, 'in', k), at = carried || insideSpot(i, k);
     const hot = c?.hover?.where === 'in' && c.hover.k === k;
     if (hot) {
       at[2] += 1.6 + Math.sin(S.t * 6) * 0.6;
@@ -1195,7 +1240,7 @@ function buildBox(b, box, i) {
     KS.prism(b, [[3, 7.4], [BOX.w - 3, 7.4], [BOX.w - 3, 8], [3, 8]], 2.2, 0.1, glass, doorPose(i, ang, z - z0));
   }
   for (const [k, { comp }] of coldDoor(box).entries()) {
-    const m = matterFor(comp.look.profile, comp.look.matter), at = doorSpot(i, ang, k);
+    const m = matterFor(comp.look.profile, comp.look.matter), carried = carriedFrom(c, 'door', k), at = carried || doorSpot(i, ang, k);
     const hot = c.hover?.where === 'door' && c.hover.k === k;
     if (hot) at[2] += 1.6 + Math.sin(S.t * 6) * 0.6;
     KS.shelfPiece(b, m, pieceOf(m, comp), KS.piecesOf(m, []).whole, beatOf(comp.cook), KS.pose(at, -ang + 0.3, 0, fitScale(m, 22) * 0.9), 61 + k);
@@ -1207,6 +1252,12 @@ function buildBox(b, box, i) {
     const at = [f.from[0] + (f.to[0] - f.from[0]) * e, f.from[1] + (f.to[1] - f.from[1]) * e, f.from[2] + (f.to[2] - f.from[2]) * e + lift];
     KS.shelfPiece(b, f.m, f.piece, f.whole, f.beat, KS.pose(at, f.t * 5, f.t * 2, f.scale * (f.shrink ? 1 - 0.7 * e : 1)), 91);
   }
+}
+
+// The carried thing's place, if it's this one.
+function carriedFrom(c, where, k) {
+  const g = S.drag;
+  return c && g?.kind === 'cold' && g.moved && g.hit.where === where && g.hit.k === k ? [...g.at] : null;
 }
 
 // What's under the pointer in an open box.
@@ -1233,7 +1284,27 @@ function coldClick(e) {
     if (!near(e, boxFront(S.cold.i), 260)) shutCold();
     return;
   }
-  coldUse(hit, e.shiftKey || S.cold.toBoard);
+  // a press picks it up: a click takes it as before, a drag carries it (onMove, onUp)
+  const p = hit.where === 'in' ? insideSpot(S.cold.i, hit.k) : doorSpot(S.cold.i, doorAngle(S.cold.open), hit.k);
+  S.drag = { kind: 'cold', hit, x0: e.clientX, y0: e.clientY, z: p[2], at: [...p], moved: false, shift: e.shiftKey };
+  try { S.gl.setPointerCapture(e.pointerId); } catch { /* fine */ }
+}
+
+// Where a carried thing is let go. Out past the door: taken, the box shuts and it goes on the
+// board. From the door rack into the box: put in. Anywhere else it goes back where it was.
+function dropCold(g) {
+  const c = S.cold;
+  if (!c) return;
+  hideTip();
+  if (!g.moved) return coldUse(g.hit, g.shift || c.toBoard);
+  const out = g.at[1] < BOX.y0 - 6, inside = g.at[1] > BOX.y0 + 2 && Math.abs(g.at[0] - boxX(c.i)) < BOX.w / 2;
+  if (g.hit.where === 'in' && out) {
+    coldUse(g.hit, true);
+    c.fly = [];
+    shutCold();
+    go('board');
+  } else if (g.hit.where === 'door' && inside) coldUse(g.hit);
+  else ksfx('kitchen-tap');
 }
 
 // Take a thing out, or put a thing in, and send it flying the way it goes.
