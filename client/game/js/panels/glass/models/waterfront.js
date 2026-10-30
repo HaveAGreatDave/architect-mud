@@ -1601,7 +1601,7 @@ export const WATERFRONT_ARMS = {
     // 2) The armour: three rows of cast blocks down each flank, every one a different size and set
     //    at its own angle, so the flank is a tumble rather than a row of crates.
     const J = (i, k) => { const v = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
-    const ROWS = [[0.445, -0.03, 0.012, 7], [0.37, 0.0, 0.028, 6], [0.295, 0.016, 0.04, 5]];
+    const ROWS = [[0.445, -0.03, 0.012, 5], [0.37, 0.0, 0.028, 4], [0.295, 0.016, 0.04, 3]];
     let i = 0;
     for (const [rx, z0, z1, n] of ROWS) for (let k = 0; k < n; k++, i++) {
       const lx = rx + (J(i, 1) - 0.5) * 0.03, ly = -0.5 + (k + 0.5) / n + (J(i, 2) - 0.5) * 0.05;
@@ -1615,6 +1615,8 @@ export const WATERFRONT_ARMS = {
     for (const sx of [-1, 1]) box(sx * 0.195, 0, 0.018, CAP, WALL, 'ty_quay_deck', 41 + sx, 0.5);
     // 4) A bollard each side, at opposite ends so the pair stays half-turn symmetric.
     for (const sx of [-1, 1]) box(sx * 0.15, sx * 0.25, 0.012, CAP, CAP + 0.016, 'ty_pier_steel', 44 + sx, 0.012);
+    // 5) A low path light in the parapet at the end of each section, so the cap is lit to walk at night.
+    { const [gx, gy] = F(0.17, 0.5); glowPool(ctx, cam, gx, gy, WALL, '255,214,150', 4, alpha * 0.45); }
   },
   // A BREAKWATER'S HEAD, or the knuckle where a run turns: the same mound squared off, and on a
   // head a stubby light tower blinking `m.neon` (red to port entering harbour, green to starboard).
@@ -1629,7 +1631,7 @@ export const WATERFRONT_ARMS = {
     box(0, 0, 0.26, 0.032, BERM, 'ty_dam', 3, 0.26);
     const J = (i, k) => { const v = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
     let i = 0;
-    for (const [r, z0, z1, n] of [[0.43, -0.03, 0.012, 14], [0.35, 0.0, 0.028, 11], [0.28, 0.016, 0.04, 8]]) for (let k = 0; k < n; k++, i++) {
+    for (const [r, z0, z1, n] of [[0.43, -0.03, 0.012, 10], [0.35, 0.0, 0.028, 8], [0.28, 0.016, 0.04, 6]]) for (let k = 0; k < n; k++, i++) {
       const a = (k / n) * Math.PI * 2 + i * 0.37, rr = r + (J(i, 1) - 0.5) * 0.03, hw = 0.028 + J(i, 3) * 0.022;
       box(Math.cos(a) * rr, Math.sin(a) * rr, hw, z0, z1 + J(i, 4) * 0.012, J(i, 6) < 0.3 ? 'ty_dam_dk' : 'ty_dam', 10 + i, hw * (0.8 + J(i, 7) * 0.4), (J(i, 5) - 0.5) * 1.2);
     }
