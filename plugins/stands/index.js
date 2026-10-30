@@ -37,6 +37,7 @@ import { emit, on } from '../../server/engine/events.js';
 import { liveSportsChannel } from '../broadcast/index.js';
 import { getWeatherFieldSnapshot } from '../../server/engine/environment.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
+import { cmdMove } from '../../server/engine/commands/movement.js';
 
 // playerId -> { zoneId, section, seat, channelId }
 const seated = new Map();
@@ -173,12 +174,13 @@ function leave(player, quiet = false) {
   return true;
 }
 
-async function cmdStands(args, raw, player) {
+async function cmdStands(args, raw, player, broadcast) {
   const zone = getZone(player.current_zone), stands = forSale(zone);
   const a0 = String(args[0] || '').toLowerCase();
   if (a0 === 'leave' || a0 === 'up' || a0 === 'off') {
     return leave(player) ? { type: 'noop' } : { type: 'error', message: "You aren't sitting anywhere." };
   }
+  if (a0 === 'fetch') return fetchInSuite(player, args.slice(1).join(' '), broadcast);
   if (!stands) return { type: 'error', message: 'There are no seats to buy here.' };
   if (!a0) {
     // the log rung has no panels: the list in the log is the chart
@@ -193,6 +195,26 @@ async function cmdStands(args, raw, player) {
   const was = seated.get(player.id);
   if (was && was.section === section.id && was.zoneId === zone.id) return { type: 'error', message: `You're already in ${esc(section.name)}.` };
   return takeSeat(player, zone, standsOf(zone), section, channelId);
+}
+
+// `stands fetch <thing>`: the suite's 3-D view clicking its bar or buffet. The suite is one
+// room on screen but two in the world (the box at the glass and the lounge behind it, one
+// `flags.ticketed` box), so a thing in the other room is walked to first, which keeps the seat
+// (zone.entered below), and then opened as `open <thing>` would.
+const sameBox = (a, b) => !!a?.flags?.ticketed && a.flags.ticketed === b?.flags?.ticketed;
+const furnitureCalled = (zoneId, want) => getZoneFurniture(zoneId).find((f) => String(f.name || '').toLowerCase().includes(want) || (f.flags?.aliases || []).some((a) => String(a).toLowerCase() === want));
+async function fetchInSuite(player, what, broadcast) {
+  const want = String(what || '').trim().toLowerCase();
+  if (!want || !seated.get(player.id)?.suite) return { type: 'error', message: "You aren't in a box." };
+  const zone = getZone(player.current_zone);
+  if (!furnitureCalled(zone.id, want)) {
+    const exit = Object.entries(zone.exits || {}).find(([, to]) => { const id = typeof to === 'string' ? to : to?.zone || to?.to; return sameBox(zone, getZone(id)) && furnitureCalled(id, want); });
+    if (!exit) return { type: 'error', message: `There's no ${esc(want)} in here.` };
+    const r = await cmdMove(exit[0], player, broadcast);
+    if (player.current_zone === zone.id) return r || { type: 'error', message: "You can't get over there." };
+  }
+  const { handleCommand } = await import('../../server/engine/commands/index.js');
+  return handleCommand(`open ${want}`, player, broadcast);
 }
 
 // A pass into the ticketed box `boxId`, sold at its section's price.
@@ -228,7 +250,7 @@ async function takeSeat(player, zone, stands, section, channelId, { chair = fals
   if (price > 0 && !(await adjustCredits(player, -price, undefined, 'stands'))) {
     return { type: 'error', message: `A seat in ${esc(section.name)} is ₵${price}. You have ₵${player.credits | 0}.` };
   }
-  seated.set(player.id, { zoneId: zone.id, section: section.id, seat, channelId, chair });
+  seated.set(player.id, { zoneId: zone.id, section: section.id, seat, channelId, chair, suite: !!section.room });
   emit('tablet_tv.watch', { playerId: player.id, channelId });
   // the log rung gets the game as log lines through the same receiver, and no picture
   if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: stands.sport, channelId, field: skyField(stands.sport), venue: zone.flags?.building_name || zone.name,
@@ -251,7 +273,7 @@ function watchScreen(player, screen) {
     const channelId = liveSportsChannel('baseball');
     if (!channelId) return { type: 'output', message: `<span class="msg-system">${esc(screen.name)} shows the park empty under the lights. No game on right now.</span>` };
     leave(player, true);
-    seated.set(player.id, { zoneId: zone.id, section: null, seat: -1, channelId, screen: true });
+    seated.set(player.id, { zoneId: zone.id, section: null, seat: -1, channelId, screen: true, suite: true });
     emit('tablet_tv.watch', { playerId: player.id, channelId });
     if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: 'baseball', channelId, field: skyField('baseball'), venue: zone.flags?.building_name || zone.name,
       section: { id: suite.id, name: suite.name || suite.id, room: suite.room, spot: 'sofa' } });
@@ -303,8 +325,10 @@ async function enterSuite(player, zone) {
 // Walking out of the room is getting up.
 on('zone.entered', ({ actor, zone }) => {
   const s = actor && seated.get(actor.id);
-  if (s && s.zoneId !== zone) leave(actor, true);
   const z = actor && getZone(zone);
+  // the suite's two rooms are one room on screen: crossing between them keeps the seat
+  if (s && s.zoneId !== zone && s.suite && sameBox(getZone(s.zoneId), z)) { s.zoneId = zone; return; }
+  if (s && s.zoneId !== zone) leave(actor, true);
   if (z) enterSuite(actor, z).catch((e) => console.error('[stands] suite:', e.message));
 });
 on('player.logout', ({ id }) => { if (id) seated.delete(id); });

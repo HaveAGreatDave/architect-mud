@@ -325,7 +325,7 @@ function walkSuite(ui, L, msg, setMode, redraw) {
   const sitBtn = root.querySelector('.st-sit'), tvBtn = root.querySelector('.st-tv');
   sitBtn.hidden = false; tvBtn.hidden = false;
   root.querySelector('.st-leave').textContent = 'Leave the box';
-  root.querySelector('.st-tip').textContent = 'WASD to walk · click a chair or E to sit · E to get up · T for the big screen · drag to look';
+  root.querySelector('.st-tip').textContent = 'WASD to walk · click a chair or E to sit · click the bar or buffet, or E beside it, to help yourself · T for the big screen · drag to look';
   seat.near = 0.3;
   // the command line keeps the keys while it has focus, so WASD would type; let it go now
   // and whenever you click into the room
@@ -358,9 +358,13 @@ function walkSuite(ui, L, msg, setMode, redraw) {
     place();
     sitBtn.textContent = 'Sit down';
   };
+  // the bar or the buffet: help yourself (plugins/stands `stands fetch`, which opens it)
+  const fetch = (st) => sendCmd(`stands fetch ${st.target}`);
+  const stationNear = () => (L.stations || []).find((st) => Math.hypot(st.u - at[0], st.v - at[1]) < st.reach);
   const toggleSit = () => {
     if (sat) { standUp(); return; }
-    const s = boothSeatNear(L, at[0], at[1]);
+    const s = boothSeatNear(L, at[0], at[1]), st = stationNear();
+    if (st && (!s || Math.hypot(st.u - at[0], st.v - at[1]) < Math.hypot(s.u - at[0], s.v - at[1]) + 2)) { fetch(st); return; }
     if (s) sit(s);
   };
   const toggleTv = () => setMode(seat.mode === 'tv' ? (sat?.kind === 'chair' ? 'follow' : 'free') : 'tv');
@@ -402,16 +406,23 @@ function walkSuite(ui, L, msg, setMode, redraw) {
       if (k === 't') { toggleTv(); return true; }
       return false;
     },
-    // the seat nearest a click on the picture, within a hand's width of it on screen
+    // the seat, or the bar or buffet, nearest a click on the picture, within a hand's width of it
+    // on screen (the bar and buffet are long, so theirs is wider)
     click(x, y, w, h) {
-      let best = null, bd = 80;
+      let best = null, bd = 80, pick = null, pd = 140;
       for (const s of L.seats) {
         if (s === sat) continue;
         const q = ui.view?.project?.(L.world(s.u, s.v, 2.2), w, h);
         const dd = q ? Math.hypot(q.x - x, q.y - y) : Infinity;
         if (dd < bd) { bd = dd; best = s; }
       }
-      if (best) sit(best);
+      for (const st of L.stations || []) {
+        const q = ui.view?.project?.(L.world(st.u, st.v, st.y), w, h);
+        const dd = q ? Math.hypot(q.x - x, q.y - y) : Infinity;
+        if (dd < pd && dd < bd) { pd = dd; pick = st; }
+      }
+      if (pick) fetch(pick);
+      else if (best) sit(best);
     },
     stop() { if (raf) cancelAnimationFrame(raf); raf = 0; held.clear(); },
   };

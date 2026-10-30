@@ -71,3 +71,25 @@
 }
 #stands-chart .st-bowl { fill: #1b2430; stroke: #2b3a4a; stroke-width: 1; }
 #stands-view [hidden] { display: none !important; }
+
+/* Over the seat: the bar or buffet it opens (container.js, z 150 under the game) comes up over
+   the 3-D view instead of behind it. */
+body:has(#stands-view) #container-panel { z-index: 8950; }
+
+/* What you've taken reaches the view as it reaches #main (styles.css, the drug_fx block): the
+   resolved colour always, and the sway, breathing and blur on the picture, never on the bar. */
+body.dfx-on #stands-view .st-host {
+	filter: saturate(var(--dfx-sat)) contrast(var(--dfx-con));
+}
+body.dfx-on.dfx-sway #stands-view .st-host,
+body.dfx-on.dfx-breathe #stands-view .st-host,
+body.dfx-on.dfx-blur #stands-view .st-host {
+	animation: dfx-warp calc(13s - 5s * var(--dfx-i)) ease-in-out infinite;
+}
+body.dfx-on.dfx-melt #stands-view .st-host {
+	filter: saturate(var(--dfx-sat)) contrast(var(--dfx-con)) hue-rotate(calc(34deg * var(--dfx-i)));
+}
+@media (prefers-reduced-motion: reduce) {
+	body.dfx-on #stands-view .st-host { animation: none; transform: none; }
+}
+:root[data-motion="off"] body.dfx-on #stands-view .st-host { animation: none; transform: none; }

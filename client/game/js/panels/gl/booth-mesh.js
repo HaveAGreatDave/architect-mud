@@ -18,7 +18,7 @@ const DEG = Math.PI / 180;
 
 // Where a body can stand and sit, and what's in the way, for a room spec.
 export function boothLayout(spec) {
-  const w = spec.w || 30, d = spec.d || 25, h = spec.h || 8.5, floor = spec.floor || 0;
+  const w = spec.w || 30, d = spec.d || 32, h = spec.h || 8.5, floor = spec.floor || 0;
   const yaw = (spec.face || 0) * DEG, f = [Math.sin(yaw), 0, Math.cos(yaw)], r = [-Math.cos(yaw), 0, Math.sin(yaw)];
   const at = [spec.at[0], floor, spec.at[1]];
   const world = (u, v, y) => [at[0] + r[0] * u - f[0] * v, floor + y, at[2] + r[2] * u - f[2] * v];
@@ -30,6 +30,15 @@ export function boothLayout(spec) {
   const chairs = [...[-6, 0, 6].map((u) => ({ u, v: 5.5, y: 0, row: 0 })), { u: -6.2, v: 18.6, y: 0, turn: true }];
   const stools = [-10, -7.4, -4.8].map((u) => ({ u, v: d - 3.3 }));
   const plants = [[-hu + 1.3, 1.6], [hu - 1.3, 1.6], [hu - 1.3, d - 1.3]];
+  // the buffet along the right-hand wall, its back end clear of the corner palm, a tray every 2 ft
+  const buffet = { u: [hu - 2.4, hu], v: [d - 14, d - 4.5] };
+  buffet.trays = [];
+  for (let v = buffet.v[0] + 1.2; v < buffet.v[1] - 0.8; v += 2.05) buffet.trays.push(v);
+  // what a click or E helps you to: `stands fetch <target>` (plugins/stands), the furniture's alias
+  const stations = [
+    { target: 'bar', u: -7.5, v: d - 2.4, y: 3.6, reach: 5 },
+    { target: 'buffet', u: hu - 2.4, v: (buffet.v[0] + buffet.v[1]) / 2, y: 3.2, reach: 5.5 },
+  ];
   const sofa = { u: [-7.6, -4.8], v: [8.4, 15.6] };
   // on the left-hand wall, clear of the bar and its fridge at the back
   const tv = { u: -hu + 0.15, v: 12, y: 5.1, w: 8.4, h: 4.7 };
@@ -37,7 +46,7 @@ export function boothLayout(spec) {
   const solid = [
     ...plants.map(([u, v]) => [u - 0.8, u + 0.8, v - 0.8, v + 0.8]),
     [-hu, -3, d - 2.4, d],
-    [hu - 2.4, hu, 12.5, 18.1],
+    [buffet.u[0], buffet.u[1], buffet.v[0], buffet.v[1]],
   ];
   // [u0, u1, v0, v1, y]: what a walker climbs over rather than getting stuck on, y its top
   const climb = [
@@ -63,7 +72,7 @@ export function boothLayout(spec) {
     for (const [a, b, c, e, t] of climb) if (u > a - 0.3 && u < b + 0.3 && v > c - 0.3 && v < e + 0.3) y = Math.max(y, t);
     return y;
   };
-  return { spec, w, d, h, floor, f, r, at, yaw, world, local, step, chairs, stools, plants, sofa, tv, solid, climb, seats,
+  return { spec, w, d, h, floor, f, r, at, yaw, world, local, step, chairs, stools, plants, sofa, tv, buffet, stations, solid, climb, seats,
     bounds: [-hu + 0.9, hu - 0.9, 0.9, d - 0.9], radius: 0.6, groundAt };
 }
 
@@ -360,13 +369,66 @@ export function buildBooth(L) {
   }
   box(-hu, -hu + 2.4, D - 2.4, D, 0, 6.6, LOOK.frame, 0.8);
   quad(solid, [[-hu + 0.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 6.2], [-hu + 0.2, D - 2.42, 6.2]], nrmOf(0, 0, -1), C(LOOK.fridge, 0.95), E, null, true);
-  // the buffet on the right-hand wall: its cloth, its trays and the heat lamps over them
-  box(hu - 2.4, hu, 12.5, 18.1, 0, 3.0, LOOK.cloth, 0.9);
-  for (const v of [13.5, 15.1, 16.7]) {
-    box(hu - 2.0, hu - 0.4, v - 0.6, v + 0.6, 3.0, 3.3, LOOK.silver, 1.0);
-    quad(solid, [[hu - 1.9, v + 0.5, 6.2], [hu - 0.5, v + 0.5, 6.2], [hu - 0.5, v - 0.5, 6.2], [hu - 1.9, v - 0.5, 6.2]], [0, -1, 0], C(LOOK.heat, 1.4), E, null, true);
-    box(hu - 1.25, hu - 1.15, v - 0.05, v + 0.05, 6.2, H, LOOK.frame);
-  }
+  // THE BUFFET on the right-hand wall: a long table under a white cloth with a gilt-fringed skirt,
+  // heat lamps on brass stems over silver chafing trays, and the food on them in turn: shrimp on
+  // crushed ice, sliders in rows, franks on china. Plates, napkins and a carving board at the ends.
+  const bf = L.buffet, bu0 = bf.u[0], bu1 = bf.u[1], BT = 3.0;
+  box(bu0, bu1, bf.v[0], bf.v[1], 0, BT, LOOK.cloth, 0.9);
+  box(bu0 - 0.04, bu0, bf.v[0], bf.v[1], 0.35, 0.45, LOOK.gilt, 1.0);
+  box(bu0 - 0.02, bu1, bf.v[0], bf.v[1], BT - 0.05, BT, LOOK.cloth, 1.0);
+  const FOOD = { shrimp: '#f08a6a', shrimpTail: '#e0583e', ice: '#e6f4fa', bun: '#c98a45', bunTop: '#b5722f', patty: '#4a2a1a', cheese: '#f0b830',
+    lettuce: '#6aa84a', frank: '#a8452e', mustard: '#e0b020', china: '#f4f4f0', napkin: '#efe8da', lemon: '#f2dc50' };
+  bf.trays.forEach((v, i) => {
+    const kind = i % 3, tu = bu0 + 1.2;
+    // the chafing dish: a silver pan on a stand, its lid tilted open behind
+    box(tu - 0.75, tu + 0.75, v - 0.85, v + 0.85, BT, BT + 0.08, LOOK.silver, 0.8);
+    box(tu - 0.7, tu + 0.7, v - 0.8, v + 0.8, BT + 0.08, BT + 0.3, LOOK.silver, 1.05);
+    box(tu + 0.55, tu + 0.75, v - 0.8, v + 0.8, BT + 0.3, BT + 1.1, LOOK.silver, 1.1);
+    const top = BT + 0.3;
+    if (kind === 0) {
+      // shrimp on ice: a mound of crushed ice, the shrimp ringed round it, lemon wedges
+      box(tu - 0.62, tu + 0.62, v - 0.72, v + 0.72, top - 0.05, top + 0.08, FOOD.ice, 1.15);
+      box(tu - 0.35, tu + 0.35, v - 0.4, v + 0.4, top + 0.08, top + 0.18, FOOD.ice, 1.2);
+      for (let k = 0; k < 14; k++) {
+        const a = k / 14 * Math.PI * 2, su = tu + Math.cos(a) * 0.48, sv = v + Math.sin(a) * 0.58;
+        box(su - 0.07, su + 0.07, sv - 0.07, sv + 0.07, top + 0.08, top + 0.16, FOOD.shrimp, 1.0);
+        const tu2 = tu + Math.cos(a) * 0.6, tv2 = v + Math.sin(a) * 0.7;
+        box(tu2 - 0.035, tu2 + 0.035, tv2 - 0.035, tv2 + 0.035, top + 0.08, top + 0.13, FOOD.shrimpTail, 1.0);
+      }
+      for (const dv of [-0.15, 0.15]) box(tu - 0.06, tu + 0.06, v + dv - 0.1, v + dv + 0.1, top + 0.18, top + 0.24, FOOD.lemon, 1.1);
+    } else if (kind === 1) {
+      // sliders: three rows of little burgers, a bun, a patty, a slice of cheese, the top bun
+      for (let a = -1; a <= 1; a++) for (let b = -2; b <= 2; b++) {
+        const su = tu + a * 0.38, sv = v + b * 0.3;
+        box(su - 0.13, su + 0.13, sv - 0.12, sv + 0.12, top, top + 0.06, FOOD.bun, 0.95);
+        box(su - 0.14, su + 0.14, sv - 0.13, sv + 0.13, top + 0.06, top + 0.11, FOOD.patty, 1.0);
+        box(su - 0.15, su + 0.15, sv - 0.1, sv + 0.1, top + 0.11, top + 0.125, FOOD.cheese, 1.1);
+        box(su - 0.13, su + 0.13, sv - 0.12, sv + 0.12, top + 0.125, top + 0.2, FOOD.bunTop, 1.0);
+        box(su - 0.09, su + 0.09, sv - 0.08, sv + 0.08, top + 0.2, top + 0.24, FOOD.bunTop, 1.05);
+      }
+    } else {
+      // franks in buns on a white china platter, a line of mustard down each
+      box(tu - 0.6, tu + 0.6, v - 0.72, v + 0.72, top, top + 0.03, FOOD.china, 1.1);
+      for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b += 2) {
+        const su = tu + a * 0.36, sv = v + b * 0.3;
+        box(su - 0.09, su + 0.09, sv - 0.26, sv + 0.26, top + 0.03, top + 0.12, FOOD.bun, 1.0);
+        box(su - 0.045, su + 0.045, sv - 0.3, sv + 0.3, top + 0.08, top + 0.15, FOOD.frank, 1.0);
+        box(su - 0.012, su + 0.012, sv - 0.24, sv + 0.24, top + 0.15, top + 0.165, FOOD.mustard, 1.1);
+      }
+    }
+    // the heat lamp: a brass stem from the ceiling, a hood, the glow under it
+    box(tu - 0.05, tu + 0.05, v - 0.05, v + 0.05, 6.4, H, LOOK.gilt, 0.9);
+    box(tu - 0.55, tu + 0.55, v - 0.45, v + 0.45, 6.2, 6.4, LOOK.gilt, 0.95);
+    quad(solid, [[tu - 0.5, v + 0.4, 6.19], [tu + 0.5, v + 0.4, 6.19], [tu + 0.5, v - 0.4, 6.19], [tu - 0.5, v - 0.4, 6.19]], [0, -1, 0], C(LOOK.heat, 1.4), E, null, true);
+  });
+  // a stack of plates and the napkins at the near end, a carving board at the far end
+  const pv = bf.v[0] + 0.45, nu = bu0 + 0.6;
+  for (let k = 0; k < 8; k++) box(nu - 0.3, nu + 0.3, pv - 0.3, pv + 0.3, BT + k * 0.035, BT + k * 0.035 + 0.03, FOOD.china, 1.1 - (k % 2) * 0.05);
+  for (let k = 0; k < 5; k++) box(nu + 0.8 - 0.22, nu + 0.8 + 0.22, pv - 0.22 + k * 0.01, pv + 0.22 + k * 0.01, BT + k * 0.02, BT + k * 0.02 + 0.02, FOOD.napkin, 1.05);
+  const cv = bf.v[1] - 0.6;
+  box(bu0 + 0.5, bu0 + 1.9, cv - 0.4, cv + 0.4, BT, BT + 0.12, LOOK.wood, 1.0, 'boothWood');
+  box(bu0 + 0.8, bu0 + 1.6, cv - 0.25, cv + 0.25, BT + 0.12, BT + 0.42, FOOD.patty, 1.15);
+  box(bu0 + 1.7, bu0 + 1.75, cv - 0.3, cv + 0.3, BT + 0.12, BT + 0.16, LOOK.silver, 1.2);
   // the door at the back, shut
   box(5, 8.6, D - 0.05, D, 0, 7, LOOK.wood, 0.75, 'boothWood');
   return { solid, screen, glass, textured };
@@ -385,7 +447,7 @@ function bakeLight(L) {
     [1.5, 12, H - 2.4, 0.75, 9, WARM],
     ...[L.tv.v - L.tv.w / 2 - 1.2, L.tv.v + L.tv.w / 2 + 1.2].map((v) => [-hu + 0.8, v, 5.6, 0.32, 4.5, WARM]),
     ...[-9.6, -7.1, -4.6].map((u) => [u, D - 1.65, 5.4, 0.3, 4, WARM]),
-    ...[13.5, 15.1, 16.7].map((v) => [hu - 1.2, v, 6.0, 0.25, 3.5, [1, 0.7, 0.42]]),
+    ...L.buffet.trays.map((v) => [hu - 1.2, v, 6.0, 0.22, 3.5, [1, 0.7, 0.42]]),
     ...[-hu * 0.6, 0, hu * 0.6].flatMap((u) => [[u, 0.8, H - 0.5, 0.22, 5, WARM], [u, D - 0.8, H - 0.5, 0.22, 5, WARM]]),
     ...[D * 0.3, D * 0.7].flatMap((v) => [[-hu + 0.8, v, H - 0.5, 0.22, 5, WARM], [hu - 0.8, v, H - 0.5, 0.22, 5, WARM]]),
   ];
@@ -448,22 +510,22 @@ export function paintBoothTexture(doc, key) {
     g.fillStyle = 'rgba(214,190,120,0.75)';
     for (const [x, y] of [[N / 2, 0], [0, N / 2], [N, N / 2], [N / 2, N], [N / 4, N / 4], [3 * N / 4, N / 4], [N / 4, 3 * N / 4], [3 * N / 4, 3 * N / 4]]) { g.beginPath(); g.arc(x, y, 10, 0, Math.PI * 2); g.fill(); }
   } else if (key === 'boothLeather') {
-    // black aniline hide: a fine pebbled grain, a soft sheen that wanders, and faint creases. The
-    // buttons are geometry (buildBooth button), so the tile has none and repeats unseen
-    g.fillStyle = '#26262b'; g.fillRect(0, 0, N, N);
-    specks(40000, 2, ['#1a1a1e', '#303036', '#2a292e'], 0.7);
-    specks(9000, 4, ['rgba(70,70,78,0.5)', 'rgba(0,0,0,0.6)'], 0.25);
+    // white nappa: a fine pebbled grain, a soft sheen that wanders, and faint creases. The buttons
+    // are geometry (buildBooth button), so the tile has none and repeats unseen
+    g.fillStyle = '#ece7dc'; g.fillRect(0, 0, N, N);
+    specks(40000, 2, ['#e2dccf', '#f6f2ea', '#dcd5c6'], 0.6);
+    specks(9000, 4, ['rgba(255,255,255,0.6)', 'rgba(170,158,136,0.45)'], 0.22);
     for (const [cx, cy, rad] of [[N * 0.3, N * 0.35, N * 0.35], [N * 0.75, N * 0.7, N * 0.3], [N * 0.8, N * 0.15, N * 0.2]]) {
       for (const [ox, oy] of [[0, 0], [-N, 0], [0, -N], [-N, -N], [N, 0], [0, N]]) {
         const grd = g.createRadialGradient(cx + ox, cy + oy, 0, cx + ox, cy + oy, rad);
-        grd.addColorStop(0, 'rgba(150,148,158,0.28)'); grd.addColorStop(1, 'rgba(150,148,158,0)');
+        grd.addColorStop(0, 'rgba(255,253,248,0.45)'); grd.addColorStop(1, 'rgba(255,253,248,0)');
         g.fillStyle = grd; g.fillRect(cx + ox - rad, cy + oy - rad, rad * 2, rad * 2);
       }
     }
-    g.lineWidth = 1;
+    g.lineWidth = 1.2;
     for (let i = 0; i < 40; i++) {
       const x = r() * N, y = r() * N, a = r() * 6.28, l = 20 + r() * 50;
-      g.strokeStyle = r() < 0.5 ? 'rgba(0,0,0,0.5)' : 'rgba(90,90,100,0.25)';
+      g.strokeStyle = r() < 0.6 ? 'rgba(150,136,112,0.35)' : 'rgba(255,255,255,0.6)';
       g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a + 0.4) * l / 2, y + Math.sin(a + 0.4) * l / 2, x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
     }
   } else if (key === 'boothWood') {
