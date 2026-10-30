@@ -377,13 +377,13 @@ export const YARDS_ARMS = {
     const YAW = faceYaw(E), dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh(), S = h / 2;
     const B = (x, y, hx, hy, z0, z1, p, roof, s, yaw = YAW) => { const [bx, by] = F(x, y); draw3DBoxAt(ctx, cam, bx, by, hx, z0, z1, p, seed + s, night, alpha, roof, yaw, hy); };
     const hsh = (a) => { a = (a ^ 61) ^ (a >> 16); a += a << 3; a ^= a >> 4; a = Math.imul(a, 0x27d4eb2d); return (a ^ (a >> 15)) >>> 0; };
-    const X = fh * 0.96, YF = fh * 0.94, YB = -fh * 0.96, POST = 'ty_sr_post';
+    const X = fh * 0.96, YF = fh * 0.94, YB = -fh * 0.96, POST = 'ty_church';
     // 1) THE GROUND: packed grey hardcore over the whole plot, an oil-black lane from the gate to
     //    the weighbridge, and the weighbridge itself, a steel deck in a concrete surround.
     groundPaint(ctx, cam, [F(-X, YB), F(X, YB), F(X, YF), F(-X, YF)], 0.0012, dn > 0.4 ? 'rgba(58,56,54,0.85)' : 'rgba(104,100,94,0.82)', alpha);
     groundPaint(ctx, cam, [F(-fh * 0.82, YF), F(-fh * 0.30, YF), F(-fh * 0.26, -fh * 0.20), F(-fh * 0.70, -fh * 0.20)], 0.0016, 'rgba(34,32,30,0.55)', alpha);
     B(-fh * 0.56, fh * 0.30, fh * 0.22, fh * 0.36, 0, S * 0.03, 'ty_gate_dk', true, 1);
-    B(-fh * 0.56, fh * 0.30, fh * 0.19, fh * 0.33, S * 0.03, S * 0.035, 'ty_sr_post', true, 2);
+    B(-fh * 0.56, fh * 0.30, fh * 0.19, fh * 0.33, S * 0.03, S * 0.035, 'ty_church', true, 2);
     // 2) THE BALES, in rows across the back half and down the right, each row its own height and
     //    every bale a car's colour under the rust. Stacked one to three high and never squared off.
     const BALE = ['ty_junk_bale', 'ty_junk_bale_dk', 'ty_sr_bale_r', 'ty_sr_bale_b'];
@@ -481,7 +481,7 @@ export const YARDS_ARMS = {
     const mix = (a, b) => rgb([0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * dn | 0));
     const SX = fh * 0.90, YF = fh * 0.82, YB = -fh * 0.92, ROOM = fh * 0.46, YR = YF - ROOM;   // YR is the room's back wall
     const sill = S * 0.06, head = S * 0.86, top = h * 0.94;
-    const TILE = 'ty_wash_tile', BRICK = 'ty_wash_brick', FRAME = 'ty_wash_frame';
+    const TILE = 'ty_wind', BRICK = 'ty_foundry', FRAME = 'ty_hf_deck';
     // 1) THE BUILDING: tile on the shop, brick above, a frame-coloured band between them and a
     //    parapet. The shop's walls are the box behind the room and the two returns either side of it.
     B(0, (YB + YF) / 2, SX + fh * 0.02, (YF - YB) / 2 + fh * 0.01, 0, sill, FRAME, true, 1);
@@ -506,11 +506,11 @@ export const YARDS_ARMS = {
     };
     const wy = YR + fh * 0.12, mw = fh * 0.075, mz = sill + S * 0.40;
     for (let i = 0; i < 4; i++) { const x = -IX + fh * 0.10 + i * mw * 2.1;
-      B(x, wy, mw, fh * 0.07, sill, mz, 'ty_wash_machine', true, 10 + i);
+      B(x, wy, mw, fh * 0.07, sill, mz, 'ty_fuel_white', true, 10 + i);
       drum(x, wy + fh * 0.07 + 0.001, sill + (mz - sill) * 0.52, mw * 0.62, (i + seed) & 1);
       flatOut(ctx, cam, W3, [[x - mw * 0.8, wy + fh * 0.0705, mz - S * 0.03], [x + mw * 0.8, wy + fh * 0.0705, mz - S * 0.03], [x + mw * 0.8, wy + fh * 0.0705, mz - S * 0.07], [x - mw * 0.8, wy + fh * 0.0705, mz - S * 0.07]], [0, 1, 0], 'rgb(70,76,80)', alpha); }
     for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { const x = IX - fh * 0.10 - i * mw * 2.1, z0 = sill + j * S * 0.40;
-      B(x, wy, mw, fh * 0.07, z0, z0 + S * 0.39, 'ty_wash_machine', true, 20 + i * 2 + j);
+      B(x, wy, mw, fh * 0.07, z0, z0 + S * 0.39, 'ty_fuel_white', true, 20 + i * 2 + j);
       drum(x, wy + fh * 0.07 + 0.001, z0 + S * 0.20, mw * 0.66, 0); }
     B(0, YR + fh * 0.08, fh * 0.14, fh * 0.035, sill + S * 0.16, sill + S * 0.19, 'ty_dw_iron', true, 30);   // the bench
     B(0, YR + fh * 0.04, fh * 0.14, fh * 0.01, sill + S * 0.19, sill + S * 0.36, 'ty_dw_iron', true, 31);
@@ -565,7 +565,7 @@ export const YARDS_ARMS = {
     const YAW = faceYaw(E), dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh(), S = h / 2;
     const B = (x, y, hx, hy, z0, z1, p, roof, s) => { const [bx, by] = F(x, y); draw3DBoxAt(ctx, cam, bx, by, hx, z0, z1, p, seed + s, night, alpha, roof, YAW, hy); };
     const mix = (a, b) => rgb([0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * dn | 0));
-    const BRICK = pal, NAVY = 'ty_ae_navy', CREAM = 'ty_ae_cream', STONE = 'ty_ae_stone', SLATE = 'ty_dw_slate';
+    const BRICK = pal, NAVY = 'ty_ae_navy', CREAM = 'ty_ae_cream', STONE = 'ty_trm_marker', SLATE = 'ty_dw_slate';
     const SX = fh * 0.80, YF = fh * 0.78, YB = -fh * 0.90, cy0 = (YF + YB) / 2, hd = (YF - YB) / 2;
     const plinth = S * 0.08, top = h * 0.90, ridge = h * 1.08, yW = YF + 0.002;
     // 1) THE BRICK on a stone plinth, a stone band at the first floor, a cornice, and a slate roof

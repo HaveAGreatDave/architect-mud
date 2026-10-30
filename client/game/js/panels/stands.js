@@ -18,6 +18,7 @@ import { addTvView } from './tv.js';
 import { wantClubs } from './club-crest.js';
 import { wantVenue, venueOf } from './venue.js';
 import { boothStep, boothSeatNear } from './gl/booth-mesh.js';
+import { rinkSeats, SEAT_EYE } from './gl/arena-crowd.js';
 import { standsBoothOn } from '../../../shared/settings.js';
 
 const CSS = await loadCss(new URL('./stands.css', import.meta.url));
@@ -93,6 +94,18 @@ const CSS_ESC = (s) => (window.CSS?.escape ? window.CSS.escape(s) : String(s).re
 export function closeStandsChart() { chartEl?.remove(); chartEl = null; }
 
 // ── the seat ──────────────────────────────────────────────────────────────────
+// A rink ticket's eye moved onto the nearest seat in the bowl, SEAT_EYE over its tread, where a
+// seated fan's eyes are; the bowl leaves the fan in that seat out (gl/arena-crowd.js nearR), so
+// the men either side are at your shoulder. (The ballpark does the same in its renderer.)
+function rinkSeatEye(e) {
+  if (!Array.isArray(e)) return e;
+  let best = null, bd = Infinity;
+  for (const s of rinkSeats()) {
+    const d = Math.hypot(s.x - e[0], s.y - e[1], s.z + SEAT_EYE - e[2]);
+    if (d < bd) { bd = d; best = s; }
+  }
+  return best ? [best.x, best.y, best.z + SEAT_EYE] : e;
+}
 let seatUi = null;   // { root, view, seat, unview, channelId }
 
 // how far a pixel of drag turns the head, radians
@@ -119,7 +132,7 @@ export async function openStands(msg) {
   document.body.appendChild(root);
   const host = root.querySelector('.st-host');
   // the eye the view reads every frame; the controls below turn it
-  const seat = { eye: msg.section.eye, mode: 'follow', fov: msg.sport === 'hockey' ? 64 : 50, yaw: null, pitch: null };
+  const seat = { eye: msg.sport === 'hockey' && !msg.screen ? rinkSeatEye(msg.section.eye) : msg.section.eye, mode: 'follow', fov: msg.sport === 'hockey' ? 64 : 50, yaw: null, pitch: null };
   const ui = { root, seat, view: null, unview: null, channelId: msg.channelId, sport: msg.sport, got: false };
   seatUi = ui;
   // A big screen (msg.screen) is the broadcast's own cameras: no seat, nothing to turn.

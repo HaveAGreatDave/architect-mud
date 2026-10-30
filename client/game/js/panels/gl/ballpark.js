@@ -1289,6 +1289,36 @@ export function createBallparkRenderer(canvas, opts = {}) {
       return -1;
     };
     const FACE_Y = [3.8, 5.4];
+    // A SEAT IN THE STANDS (stands.js): the viewer takes a fan's place. seatFor(eye) finds the fan
+    // nearest the eye the ticket gave who has a fan either side of him in his row (the rows are
+    // patchy), empties his seat, and hands back the eye where a seated man's face is (FACE_Y[0]
+    // over the seat, a touch toward the field), so the two either side are at your shoulder;
+    // seatFor(null) gives the seat back.
+    let seatDrop = [0, -1e5, 0, 0];
+    const seatFor = (eye) => {
+      seatDrop = [0, -1e5, 0, 0];
+      if (!eye) return null;
+      const near = [];
+      for (let o = 0; o < seats.length; o += 5) {
+        const d = Math.hypot(seats[o] - eye[0], seats[o + 1] + FACE_Y[0] - eye[1], seats[o + 2] - eye[2]);
+        if (d < 40) near.push([d, o]);
+      }
+      near.sort((p, q) => p[0] - q[0]);
+      // a fan beside o in his row, on side sd of him (+1 or -1 across his facing)
+      const beside = (o, sd) => {
+        const rx = Math.cos(seats[o + 3]), rz = -Math.sin(seats[o + 3]);
+        return near.some(([, p]) => {
+          if (p === o || Math.abs(seats[p + 1] - seats[o + 1]) > 0.5) return false;
+          const dx = seats[p] - seats[o], dz = seats[p + 2] - seats[o + 2], along = (dx * rx + dz * rz) * sd;
+          return along > 1 && along < 3 && Math.abs(dx * rz - dz * rx) < 0.8;
+        });
+      };
+      const pick = near.find(([, o]) => beside(o, 1) && beside(o, -1)) || near[0];
+      if (!pick) return eye;
+      const o = pick[1], x = seats[o], y = seats[o + 1], z = seats[o + 2], face = seats[o + 3];
+      seatDrop = [x, y, z, 0.5];
+      return [x + Math.sin(face) * 0.25, y + FACE_Y[0], z + Math.cos(face) * 0.25];
+    };
     const flashBuf = new Float32Array(LIGHT_STRIDE.pts * 4);
     function flashPoints() {
       if (!roar.move || !(look.lights > 0.3) || api.quality.flashes === false) return 0;
@@ -2208,7 +2238,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniformMatrix4fv(CROWD.u('uVP'), false, M.viewProj);
         gl.uniform2f(CROWD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CROWD.u('uT'), roar.t); gl.uniform1f(CROWD.u('uMove'), roar.move); fanUniforms(CROWD);
         lookAtPlay(roar.t);
-        gl.uniform3f(CROWD.u('uLook'), crowdLook.x, crowdLook.z, crowdLook.w);
+        gl.uniform3f(CROWD.u('uLook'), crowdLook.x, crowdLook.z, crowdLook.w); gl.uniform4fv(CROWD.u('uNear'), seatDrop);
         const share = crowdShare(), close = (q.fans ?? 1) >= 2 && M.fov > 0 && M.fov <= CLOSE_FOV;
         const cards = q.cards !== false && q.cards !== 0;
         if (cards) splitCrowd(crowd, M, h, share); else unsplitCrowd(crowd);
@@ -2224,7 +2254,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
           lights(CARD, M.eye);
           gl.uniformMatrix4fv(CARD.u('uVP'), false, M.viewProj);
           gl.uniform2f(CARD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CARD.u('uT'), roar.t); gl.uniform1f(CARD.u('uMove'), roar.move); fanUniforms(CARD);
-          gl.uniform3fv(CARD.u('uEyeC'), M.eye);
+          gl.uniform3fv(CARD.u('uEyeC'), M.eye); gl.uniform4fv(CARD.u('uNear'), seatDrop);
           for (const d of crowd) {
             if (!d.cards) continue;
             gl.uniform1f(CARD.u('uBase'), d.base); gl.bindVertexArray(d.cardVao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, d.cards); tris += 2 * d.cards; draws++;
@@ -2412,7 +2442,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     }
 
     const api = {
-      kind: 'gl', lost: false,
+      kind: 'gl', lost: false, seatFor,
       // grade: 'arcade', 'broadcast' or 'none'; tube: the tube glass; and the full tier's keys
       // (diamond/quality.js): dpr, msaa, shadows (how many towers cast), ao (the occlusion's size
       // against the frame's), dof (the lens's taps), crowd (the share of the fans drawn), city (the

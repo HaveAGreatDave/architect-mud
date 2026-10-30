@@ -804,7 +804,7 @@ export const TWIN_PASS_ARMS = {
       if (t2 && q2.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q2, t2, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
     }
     if (dn > 0) for (const u of [-0.45, 0.45]) {   // two gooseneck lamps off the wall over the board
-      if (near) emitWire(ctx, cam, W3(fh * u, yF, z1 + h * 0.03), W3(fh * u, yS + fh * 0.08, z1 + h * 0.04), 1.6, 'rgba(48,50,52,0.95)', alpha, { pull: 0.02 });
+      if (near) emitWire(ctx, cam, W3(fh * u, yF + fh * 0.006, z1 + h * 0.03), W3(fh * u, yS + fh * 0.08, z1 + h * 0.04), 1.6, 'rgba(48,50,52,0.95)', alpha, { pull: 0.02 });
       const [gx, gy] = F(fh * u, yS + fh * 0.08); glowPool(ctx, cam, gx, gy, z1, '255,226,170', 8, alpha * 0.45 * dn);
     }
     { const [lx, ly] = F((rx0 + rx1) / 2, yF + fh * 0.10);   // the bay light spilling out

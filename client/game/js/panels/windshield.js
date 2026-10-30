@@ -17061,15 +17061,15 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // orange of its awnings and lettering, and the cream it picks its window frames out in.
   ty_bd_blue: [46, 96, 156], ty_bd_blue_dk: [24, 48, 84], ty_bd_orange: [236, 128, 40],
   ty_bd_cream: [236, 228, 208],
-  // Alter Ego, the tailor in the old Unit 5: the same brick cleaned back, a navy shopfront and
-  // fascia, cream for the lettering and the window frames, and the stone of the plinth and sills.
-  ty_ae_brick: [118, 74, 60], ty_ae_navy: [36, 46, 74], ty_ae_cream: [232, 222, 196], ty_ae_stone: [150, 144, 132],
-  // The Wash: white glazed tile on the shop, the sooted brick of the flat over it, the grey-green
-  // of its window frames, and the enamel of the machines seen through the glass.
-  ty_wash_tile: [206, 218, 222], ty_wash_brick: [92, 76, 68], ty_wash_frame: [66, 82, 90], ty_wash_machine: [226, 230, 232],
-  // Salvage Rites: two more colours of crushed car for the bales, galvanised fence post, and the
-  // yellow of the site cabins.
-  ty_sr_bale_r: [132, 62, 48], ty_sr_bale_b: [70, 84, 104], ty_sr_post: [118, 122, 124], ty_sr_cabin: [196, 156, 62],
+  // Alter Ego, the tailor in the old Unit 5: a navy shopfront and fascia, and cream for the
+  // lettering and the window frames. Its brick is `ty_ash` and its stone `ty_trm_marker`, and The
+  // Wash borrows `ty_wind`, `ty_foundry`, `ty_hf_deck` and `ty_fuel_white`: each is within a few
+  // points of the colour it would have had, and every new key is two more surfaces on the atlas
+  // page, which at texRes 3 is full (scripts/shapes/atlasfit.mjs).
+  ty_ae_navy: [36, 46, 74], ty_ae_cream: [232, 222, 196],
+  // Salvage Rites: two more colours of crushed car for the bales and the yellow of the site
+  // cabins. The fence posts are `ty_church`.
+  ty_sr_bale_r: [132, 62, 48], ty_sr_bale_b: [70, 84, 104], ty_sr_cabin: [196, 156, 62],
   // Sole Survivor — the terrace's own brick, because it is built out of the gap in one, plus the
   // black of a painted iron roof and an iron sign, and one small warm window.
   ty_sole: [92, 66, 56], ty_sole_dk: [34, 32, 30], ty_sole_glass: [122, 96, 62],
@@ -18192,7 +18192,7 @@ const PUMP_WALL = new Set(['ty_pump']);
 // Flat painted surfaces that are emphatically not facades: the canopy soffit, a painted kerb, the
 // kiosk's panel wall. Same reason as STRUCT_WALL — the default branch's job is windows, and none of
 // these has any.
-const PLAIN_WALL = new Set(['ty_wash_machine', 'ty_ae_navy', 'ty_ae_cream', 'ty_sr_post', 'ty_bd_blue_dk', 'ty_bd_orange', 'ty_bd_cream', 'ty_gfc_green',  // Grounds for Concern's painted shopfront
+const PLAIN_WALL = new Set([ 'ty_ae_navy', 'ty_ae_cream', 'ty_bd_blue_dk', 'ty_bd_orange', 'ty_bd_cream', 'ty_gfc_green',  // Grounds for Concern's painted shopfront
   // The Cherry Pit: block painted over in arterial red, with no window in the street face. It was
   // in BRICK_WALL and read as a tidy brick hall; STUCCO's GPU relief reads as brick from the
   // street too. Flat paint, and the model's grime parts do the weathering.
@@ -18354,7 +18354,7 @@ const BRICK_WALL = new Set(['ty_gfc_brick',   // Grounds for Concern
   // window and door on Ash Management is one its arm draws. `ty_ash` is the hall and the stack.
   'ty_ash',
   'ty_forge', 'ty_kitchen', 'ty_butcher', 'ty_junk_shack', 'ty_embassy_brick', 'ty_corbett',
-  'ty_sw_kiln', 'ty_sw_kiln_dk', 'ty_adequate_dk', 'ty_unit_brick', 'ty_ae_brick', 'ty_wash_brick',
+  'ty_sw_kiln', 'ty_sw_kiln_dk', 'ty_adequate_dk', 'ty_unit_brick',
   // ⚠ AND THE NUMBERED UNITS' OWN WALL, WHICH IS THE THIRD FAMILY IT HAS BEEN IN AND THE RIGHT
   // ONE. It sat in PLAIN_WALL while the arm drew a one-storey lock-up, which genuinely has no
   // openings; moved to the default branch so the flats over the shop would read, it got the
@@ -18484,7 +18484,7 @@ const BRASS_WALL = new Set(['ty_hf_gold', 'ty_meridian_bronze', 'ty_marble_bronz
 // GLAZED TILE. What you face a thing in when it has to be hosed down: a clinic's flank, a
 // bathhouse, a butcher's slab wall, a vat room. The only material here whose main event is a
 // HIGHLIGHT rather than a shadow, which is what keeps it from reading as very small brick.
-const TILE_WALL = new Set(['ty_wash_tile', 'ty_gfc_cup',   // the cup on Grounds for Concern's roof is glazed ceramic
+const TILE_WALL = new Set([ 'ty_gfc_cup',   // the cup on Grounds for Concern's roof is glazed ceramic
 
   // Kettle Lane Pumping Station's terracotta dressings. Moulded, glazed and proud of itself, which is
   // exactly what this family draws.

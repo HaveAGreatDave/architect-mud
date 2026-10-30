@@ -517,14 +517,15 @@ function palaisLights(ctx, cam, F, E, k, out, off, dX, night, alpha) {
   for (const lx of [-0.32, -0.16, 0, 0.16, 0.32]) {
     const half = lx ? 0.034 : 0.046;
     bay(lx, half, yb);
-    k.paint([[lx + half, yb - 0.004, sz1], [lx - half, yb - 0.004, sz1], [lx - half, yb - 0.004, sz0], [lx + half, yb - 0.004, sz0]], back, [104, 76, 46]);
+    const X = off + lx;
+    k.paint([[X + half, yb - 0.004, sz1], [X - half, yb - 0.004, sz1], [X - half, yb - 0.004, sz0], [X + half, yb - 0.004, sz0]], back, [104, 76, 46]);
   }
   for (const lx of [-0.40, -0.24, -0.08, 0.08, 0.24, 0.40]) {
     k.B(off + lx, yb - 0.012, 0.014, 0.012, PAL.course, PAL.cornice + 0.02, PAL_TRIM, 60 + Math.round(lx * 50));
     k.B(off + lx, yb - 0.012, 0.008, 0.008, PAL.cornice + 0.02, PAL.cornice + 0.04, PAL_TRIM, 70 + Math.round(lx * 50));
   }
   // A bronze plaque over the middle light.
-  k.paint([[0.07, yb - 0.004, 0.548], [-0.07, yb - 0.004, 0.548], [-0.07, yb - 0.004, 0.538], [0.07, yb - 0.004, 0.538]], back, [96, 70, 42]);
+  k.paint([[off + 0.07, yb - 0.004, 0.548], [off - 0.07, yb - 0.004, 0.548], [off - 0.07, yb - 0.004, 0.538], [off + 0.07, yb - 0.004, 0.538]], back, [96, 70, 42]);
 }
 // One foyer. `off` is the tile's centre on X and which way is out: +1 box office, −1 bar.
 function palaisFoyer(ctx, cam, F, W3, E, m, seed, night, alpha, now, frontVis, off) {

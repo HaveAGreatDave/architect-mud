@@ -149,10 +149,10 @@ export const NAMED_MODELS = {
   batterdaysfishchips:            { type: 'chippy',      pal: 'ty_bd_blue', neon: '#f08a2a', trade: 'chip_shop' },
   // Unit 5 became Alter Ego, a tailor, on 2026-10-29 (glass/models/yards.js). ⚠ `noKit`: the arm
   // letters its own fascia and draws its own windows, and the kit's would be a second set.
-  alterego:                       { type: 'alterego',     pal: 'ty_ae_brick', neon: '#e8dcb8', trade: 'tailor', noKit: true },
+  alterego:                       { type: 'alterego',     pal: 'ty_ash', neon: '#e8dcb8', trade: 'tailor', noKit: true },
   // The Wash and Salvage Rites came off their type arms on 2026-10-29; Load Bearing keeps
   // `laundromat` and nothing else is a `junkyard` now. Both arms draw their own signs.
-  thewash:                        { type: 'thewash',      pal: 'ty_wash_tile', neon: '#7fe3ff', trade: 'laundromat', noKit: true },
+  thewash:                        { type: 'thewash',      pal: 'ty_wind', neon: '#7fe3ff', trade: 'laundromat', noKit: true },
   salvagerites:                   { type: 'salvagerites', pal: 'ty_sr_cabin', neon: '#ffb43a', trade: 'junkyard', noKit: true },
   // ⚠ `noKit`: the works carries no sign anywhere, and every kit section that letters a wall or
   // stands a hoarding would be one. Its arm draws all of its openings itself.

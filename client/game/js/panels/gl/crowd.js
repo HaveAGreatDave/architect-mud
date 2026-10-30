@@ -95,10 +95,13 @@ uniform vec2 uRoar;
 uniform float uT;
 uniform float uMove;
 uniform vec3 uLook;
+uniform vec4 uNear;
 uniform vec3 uFanHome; uniform vec3 uFanAway; uniform float uFanKit;
 out vec3 vPos; out vec3 vN; out vec3 vAlb;
 float hash(vec2 p, vec2 k, float m) { return fract(sin(dot(p, k)) * m); }
 void main() {
+  // the seat a viewer sits in (ballpark.js seatFor) has nobody in it
+  if (distance(iA.xyz, uNear.xyz) < uNear.w) { vPos = vec3(0.0); vN = vec3(0.0, 1.0, 0.0); vAlb = vec3(0.0); gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   float h = hash(iA.xz, vec2(12.99, 78.23), 43758.5), h2 = hash(iA.xz, vec2(39.35, 11.13), 24634.6);
   float h3 = hash(iA.xz, vec2(53.71, 27.19), 31887.3);
   // whose fan he is: a tenth of the park the visitors', thicker up the third-base line (+x) by
@@ -175,11 +178,13 @@ uniform vec2 uRoar;
 uniform float uT;
 uniform float uMove;
 uniform vec3 uEyeC;
+uniform vec4 uNear;
 uniform vec3 uFanHome; uniform vec3 uFanAway; uniform float uFanKit;
 out vec3 vPos; out vec3 vN; out vec2 vQ;
 flat out vec3 vShirt; flat out vec3 vSkin; flat out vec3 vHair; flat out float vK; flat out float vH;
 float hash(vec2 p, vec2 k, float m) { return fract(sin(dot(p, k)) * m); }
 void main() {
+  if (distance(iA.xyz, uNear.xyz) < uNear.w) { vPos = vec3(0.0); vN = vec3(0.0, 1.0, 0.0); vQ = vec2(0.0); vShirt = vec3(0.0); vSkin = vec3(0.0); vHair = vec3(0.0); vK = 0.0; vH = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   float h = hash(iA.xz, vec2(12.99, 78.23), 43758.5), h2 = hash(iA.xz, vec2(39.35, 11.13), 24634.6);
   float away = step(hash(iA.xz, vec2(7.17, 91.3), 13371.3), iA.x > 0.0 ? 0.16 : 0.04);
   float roar = mix(uRoar.x, uRoar.y, away);

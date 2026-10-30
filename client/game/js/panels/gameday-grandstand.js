@@ -223,6 +223,7 @@ export function createGrandstandView(host, opts = {}) {
     size();
     // `opts.renderer` stands in for the GL park (the gates' recording renderer)
     R = (opts.renderer || mods.createBallparkRenderer)(canvas, { ads: opts.ads || ADS, preserve: !!opts.preserve, crowd: opts.crowd, grade: opts.grade, tube: opts.tube, onAsset: () => draw() });
+    seatFrom = null;   // a new renderer has nobody moved out of a seat yet
     if (!R) { fallback('no WebGL2 or float target'); return false; }
     R.setSkyField?.(skyField);
     mounted = true;
@@ -378,11 +379,14 @@ export function createGrandstandView(host, opts = {}) {
   // it turns to what the director's shot looks at, eased so a cut is a turn of the head; free, it
   // looks where the viewer turned it (`seat.yaw`, radians from +z toward +x, `seat.pitch` up
   // positive). Following writes its heading back, so free look starts where you were looking.
-  let seatAt = null, seatClock = 0, seatLift = 0;
+  // The seat's eye is the ticket's, moved onto the nearest seated fan's place, whose seat the
+  // renderer then leaves empty (gl/ballpark.js seatFor); a box's suite walks its own eye.
+  let seatAt = null, seatClock = 0, seatLift = 0, seatFrom = null, seatEye = null;
   // how far up (radians) a following seat looks while the roof is moving
   const ROOF_LOOK = 0.7;
   function seatShot(s, d) {
-    const base = typeof d === 'string' ? mods.SHOTS[d] || mods.SHOTS.high : d || mods.SHOTS.high, eye = s.eye;
+    if (s.eye !== seatFrom) { seatFrom = s.eye; seatEye = !opts.room && R?.seatFor ? R.seatFor(s.eye) || s.eye : (R?.seatFor?.(null), s.eye); }
+    const base = typeof d === 'string' ? mods.SHOTS[d] || mods.SHOTS.high : d || mods.SHOTS.high, eye = seatEye;
     const now = win?.performance?.now?.() ?? Date.now(), dt = seatClock ? Math.min(0.1, (now - seatClock) / 1000) : 0;
     seatClock = now;
     if (s.mode !== 'free') {
