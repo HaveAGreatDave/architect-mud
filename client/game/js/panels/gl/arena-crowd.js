@@ -14,25 +14,40 @@
 //   · WHOSE. Most wear the home club's colour or its trim, or their own clothes; the visitors'
 //     fans wear theirs, a few scattered and the rest in one corner. Each side stands up for its
 //     own goals.
+//   · TWO TIERS. `LOWER` rows, a walkway and a fascia, then the upper tier to the back wall,
+//     which runs up to a roof over the stands (none over the ice, so a high camera sees down).
 //   · WHAT EACH VIEW SHOWS. The broadcast cameras sit in the near stands, so the near side isn't
 //     drawn for them (it would stand between the lens and the ice). The vertical camera looks
 //     down the sheet from above the left end (rink/camera.js keeps its eye clear of the bowl),
-//     so it draws the whole ring and drops only the fans within `NEAR_R` of its eye. `HIDE` is
-//     the plane each view drops, and the bowl's static seats are built in four layers by
-//     `layerOf`.
+//     and a seat in the stands (stands.js) is in the bowl, so both draw the whole ring and drop
+//     only the fans within `nearR` of the eye. `HIDE` is the plane each view drops, and the
+//     bowl's static seats are built in four layers by `layerOf`.
 //
 // Pure apart from the shaders' source: no DOM, no GL. arena.js owns the buffers and the draw.
 
 import { RL, RW, RC } from '../rink/geo.js';
 
-export const ROWS = 16, ROW_D = 3, ROW_Z = 2.2, D0 = 4, Z0 = 4.2, SEAT_W = 2.2;
+export const LOWER = 16, ROWS = 30, ROW_D = 3, ROW_Z = 2.2, D0 = 4, Z0 = 4.2, SEAT_W = 2.2;
+// the walkway between the tiers, out and up
+export const GAP_D = 7, GAP_Z = 9;
+// how high the roof over the stands is
+export const ROOF_Z = 190;
+// the vault over it all, as on the outside (glass/models/ashway.js rinkHall): its rise over the
+// wall's top, the truss every VAULT_BAY ft down the length, and the great window's end (+x)
+export const VAULT_RISE = 85, VAULT_BAY = 25;
 // a row's distance out from the boards and its tread's height
-export const rowD = (i) => D0 + ROW_D * i, rowZ = (i) => Z0 + ROW_Z * i;
+export const rowD = (i) => D0 + ROW_D * i + (i >= LOWER ? GAP_D : 0), rowZ = (i) => Z0 + ROW_Z * i + (i >= LOWER ? GAP_Z : 0);
 // The plane a view drops: [a, b, c, d], a point with a·x + b·y + c·z + d > 0 isn't drawn.
-export const HIDE = { near: [0, -1, 0, -1], left: [-1, 0, 0, -1], none: [0, 0, 0, -1] };
-export const hideFor = (view) => (view === 'vertical' ? HIDE.none : HIDE.near);
-// how close to the eye a fan may sit before he's dropped, ft
-export const NEAR_R = 14;
+export const HIDE = { near: [0, -1, 0, -1], none: [0, 0, 0, -1] };
+// the views whose camera is inside the ring, which draw all of it
+export const seesRing = (view) => view === 'vertical' || view === 'seat';
+export const hideFor = (view) => (seesRing(view) ? HIDE.none : HIDE.near);
+// how close to the eye a fan may sit before he's dropped, ft: the man beside you stays
+export const nearR = (view) => (view === 'vertical' ? 14 : view === 'seat' ? 1.6 : 0);
+// how far a seated fan's eye is above his tread, ft: a seat's eye sits this high in its row, and
+// the fan dropped is the one on that tread, so the men either side are at your shoulder
+export const SEAT_EYE = 3.8;
+export const nearDrop = (view) => (view === 'seat' ? SEAT_EYE : 0);
 // which of the bowl's four layers a point is in: 1 on the near side, 2 at the left end
 export const layerOf = (x, y) => (y < -1 ? 1 : 0) + (x < -1 ? 2 : 0);
 
@@ -118,25 +133,37 @@ export function crowdInstances(kits) {
 
 // THE BOWL ITSELF, into four batches by `layerOf` (arena.js's `M`, and a batch maker): for each
 // row the riser up from the row below, the tread, and a seat a place (its back and its pan), so
-// an empty seat shows as one. Behind the last row a wall up to the upper deck.
+// an empty seat shows as one. Between the tiers a walkway, its fascia a red band; behind the last
+// row the back wall up to the roof, and the roof back in to the boards' line.
 export function buildBowl(M, batches) {
   const tread = M.rgb('#0d1116'), riser = M.rgb('#161c24'), back = M.rgb('#4a161b'), pan = M.rgb('#3a1115'), wall = M.rgb('#0a0d11');
+  const walk = M.rgb('#14181e'), fascia = M.rgb('#5a1a20'), roof = M.rgb('#07090c');
   const up = [0, 0, 1];
-  for (let i = 0; i < ROWS; i++) {
-    const d = rowD(i), z = rowZ(i), zb = i ? rowZ(i - 1) : 0;
-    const P = bowlPath(d, 6);
+  // a ring of quads between two outlines, (d0, z0) to (d1, z1)
+  const ring = (d0, z0, d1, z1, col, n) => {
+    const P = bowlPath(d0, 6);
     for (let k = 0; k < P.length; k++) {
       const a = P[k], b = P[(k + 1) % P.length], bl = batches[layerOf((a.x + b.x) / 2, (a.y + b.y) / 2)];
       const o = (p, dd, zz) => [p.x + p.nx * dd, p.y + p.ny * dd, zz];
-      M.quad(bl, o(a, 0, zb), o(b, 0, zb), o(b, 0, z), o(a, 0, z), riser, null, [-(a.nx + b.nx) / 2, -(a.ny + b.ny) / 2, 0]);
-      M.quad(bl, o(a, 0, z), o(b, 0, z), o(b, ROW_D, z), o(a, ROW_D, z), tread, null, up);
+      M.quad(bl, o(a, 0, z0), o(b, 0, z0), o(b, d1 - d0, z1), o(a, d1 - d0, z1), col, null, n || [-(a.nx + b.nx) / 2, -(a.ny + b.ny) / 2, 0]);
     }
+  };
+  for (let i = 0; i < ROWS; i++) {
+    const d = rowD(i), z = rowZ(i), zb = i ? rowZ(i - 1) : 0;
+    if (i === LOWER) {
+      // the walkway out from the last lower row, then the fascia up to the upper tier
+      const dw = rowD(i - 1) + ROW_D;
+      ring(dw, zb, d, zb, walk, up);
+      ring(d, zb, d, zb + 1.2, riser);
+      ring(d, zb + 1.2, d, z - 1.2, fascia);
+      ring(d, z - 1.2, d, z, riser);
+    } else ring(d, zb, d, z, riser);
+    ring(d, z, d + ROW_D, z, tread, up);
     if (i === ROWS - 1) {
-      const P2 = bowlPath(d + ROW_D, 6);
-      for (let k = 0; k < P2.length; k++) {
-        const a = P2[k], b = P2[(k + 1) % P2.length], bl = batches[layerOf((a.x + b.x) / 2, (a.y + b.y) / 2)];
-        M.quad(bl, [a.x, a.y, z], [b.x, b.y, z], [b.x, b.y, z + 12], [a.x, a.y, z + 12], wall, null, [-(a.nx + b.nx) / 2, -(a.ny + b.ny) / 2, 0]);
-      }
+      ring(d + ROW_D, z, d + ROW_D, ROOF_Z, wall);
+      // a ledge out from the wall's top to the vault's feet, under the corners the vault squares off
+      ring(d + ROW_D, ROOF_Z, d + ROW_D + 60, ROOF_Z, roof, [0, 0, -1]);
+      buildVault(M, batches, d + ROW_D);
     }
   }
   // the seats: a back and a pan a place, facing the ice
@@ -220,4 +247,75 @@ export function roarOf(W) {
   const k = Math.min(1, Math.max(0, ((W.crowd || 0) - 0.25) / 0.75)) * (1 - (W.mourning || 0));
   if (W.lamp > 0 && W.lampSide) { const homeScored = W.lampSide === 'a'; return homeScored ? [k, 0.05] : [0.05, k]; }
   return [k, k * 0.8];
+}
+
+// THE VAULT, as the outside has it (glass/models/ashway.js): one barrel the length of the hall,
+// springing from the top of the stands' back wall either side, over the ice too. Steel trusses
+// every VAULT_BAY ft with purlins between and a lamp under each, a glazed lantern along the crown,
+// clerestory lights low down either side, a brick gable at the left end and the great window in
+// the right one, an arched head in a steel grid. `D` is how far out the back wall stands.
+// ⚠ ABOVE ROOF_Z ONLY: every camera sits below it, so the vault never stands between a lens and the ice.
+function buildVault(M, batches, D) {
+  const skin = M.rgb('#10151b'), steel = M.rgb('#4a5560'), purlin = M.rgb('#2a323b'), brick = M.rgb('#2e1517');
+  const pane = [0.42, 0.55, 0.64, 1], lamp = [1, 0.95, 0.82, 1], bar = M.rgb('#161b21');
+  const x0 = -D, x1 = RL + D, y0 = -D, y1 = RW + D, cy = (y0 + y1) / 2, hw = (y1 - y0) / 2, N = 24;
+  // the arch across, node i: where it is and which way is in
+  const A = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N * Math.PI, c = Math.cos(t), s = Math.sin(t), nl = Math.hypot(c / hw, s / VAULT_RISE);
+    A.push({ y: cy - hw * c, z: ROOF_Z + VAULT_RISE * s, ny: c / hw / nl, nz: -s / VAULT_RISE / nl });
+  }
+  // a point on the arch at node i, `x` along and `inn` ft in from the skin
+  const at = (i, x, inn = 0) => [x, A[i].y + A[i].ny * inn, A[i].z + A[i].nz * inn];
+  const put = (p0, p1, p2, p3, c, n) => M.quad(batches[layerOf((p0[0] + p2[0]) / 2, (p0[1] + p2[1]) / 2)], p0, p1, p2, p3, c, null, n);
+  const bays = Math.ceil((x1 - x0) / VAULT_BAY), bx = (k) => x0 + (x1 - x0) * k / bays;
+  for (let k = 0; k < bays; k++) {
+    const xa = bx(k), xb = bx(k + 1), m0 = xa + 3, m1 = xb - 3;
+    for (let i = 0; i < N; i++) {
+      const n = [0, (A[i].ny + A[i + 1].ny) / 2, (A[i].nz + A[i + 1].nz) / 2];
+      put(at(i, xa), at(i, xb), at(i + 1, xb), at(i + 1, xa), skin, n);
+      // the lantern along the crown and the clerestory low down either side, glass between the trusses
+      if (i === N / 2 - 1 || i === N / 2 || i === 1 || i === N - 2) put(at(i, m0, 0.4), at(i, m1, 0.4), at(i + 1, m1, 0.4), at(i + 1, m0, 0.4), pane, null);
+      // a purlin along every third node
+      if (i % 3 === 0 && i) put(at(i, xa, 0.6), at(i, xb, 0.6), at(i, xb, 1.6), at(i, xa, 1.6), purlin, null);
+    }
+  }
+  // the trusses: an outer chord on the skin, an inner one 7 ft in, and a web zigzag between, a
+  // lamp hung under the inner chord either side of the crown
+  for (let k = 0; k <= bays; k++) {
+    const x = Math.min(x1 - 0.8, Math.max(x0 + 0.8, bx(k))), w = 0.7, T = 7;
+    for (let i = 0; i < N; i++) {
+      const n = [0, (A[i].ny + A[i + 1].ny) / 2, (A[i].nz + A[i + 1].nz) / 2];
+      put(at(i, x - w, 0.5), at(i, x + w, 0.5), at(i + 1, x + w, 0.5), at(i + 1, x - w, 0.5), steel, n);
+      put(at(i, x - w, T), at(i, x + w, T), at(i + 1, x + w, T), at(i + 1, x - w, T), steel, n);
+      const [a, b] = i % 2 ? [at(i, x, 0.5), at(i + 1, x, T)] : [at(i, x, T), at(i + 1, x, 0.5)];
+      put([x - 0.3, a[1], a[2]], [x + 0.3, a[1], a[2]], [x + 0.3, b[1], b[2]], [x - 0.3, b[1], b[2]], steel, null);
+    }
+    if (k > 0 && k < bays) for (const i of [N / 2 - 4, N / 2 + 4]) {
+      const p = at(i, x, T + 2.5);
+      put([x - 2, p[1] - 2, p[2]], [x + 2, p[1] - 2, p[2]], [x + 2, p[1] + 2, p[2]], [x - 2, p[1] + 2, p[2]], lamp, null);
+    }
+  }
+  // the gables, the left one brick and the right one brick round the great window
+  const GW = hw * 0.62, head = (dy) => ROOF_Z + 4 + (VAULT_RISE - 14) * Math.sqrt(Math.max(0, 1 - (dy / GW) ** 2));
+  for (const [x, glazed] of [[x0, false], [x1, true]]) {
+    for (let i = 0; i < N; i++) put([x, A[i].y, ROOF_Z], [x, A[i + 1].y, ROOF_Z], [x, A[i + 1].y, A[i + 1].z], [x, A[i].y, A[i].z], brick, [x === x0 ? 1 : -1, 0, 0]);
+    if (!glazed) continue;
+    const gx = x - 0.4, bx2 = x - 0.8, C = 16;
+    for (let c = 0; c < C; c++) {
+      const ya = cy - GW + 2 * GW * c / C, yb = cy - GW + 2 * GW * (c + 1) / C;
+      put([gx, ya, ROOF_Z + 4], [gx, yb, ROOF_Z + 4], [gx, yb, head(yb - cy)], [gx, ya, head(ya - cy)], pane, null);
+      // the grid: a mullion at every column's edge, and transoms where the head allows
+      put([bx2, ya - 0.5, ROOF_Z + 4], [bx2, ya + 0.5, ROOF_Z + 4], [bx2, ya + 0.5, head(ya - cy)], [bx2, ya - 0.5, head(ya - cy)], bar, null);
+      for (const zt of [ROOF_Z + 22, ROOF_Z + 42, ROOF_Z + 60]) {
+        const top = Math.min(head(ya - cy), head(yb - cy));
+        if (zt < top) put([bx2, ya, zt - 0.5], [bx2, yb, zt - 0.5], [bx2, yb, zt + 0.5], [bx2, ya, zt + 0.5], bar, null);
+      }
+    }
+    // the arched head's own frame
+    for (let c = 0; c < C; c++) {
+      const ya = cy - GW + 2 * GW * c / C, yb = cy - GW + 2 * GW * (c + 1) / C;
+      put([bx2, ya, head(ya - cy) - 1], [bx2, yb, head(yb - cy) - 1], [bx2, yb, head(yb - cy) + 1], [bx2, ya, head(ya - cy) + 1], bar, null);
+    }
+  }
 }

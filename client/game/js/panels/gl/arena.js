@@ -35,7 +35,7 @@ import * as M from './arena-mesh.js';
 import { crowdMorph, CROWD_MORPH } from './ballpark-mesh.js';
 import { GATE_Y, GATE_HALF } from '../rink/zamboni.js';
 import { paintLivery } from '../rink/livery.js';
-import { RINK_CROWD_VS, RINK_CROWD_FS, INST as CROWD_INST, ROWS as BOWL_ROWS, ROW_D, rowD, rowZ, buildBowl, crowdInstances, hideFor, NEAR_R, roarOf } from './arena-crowd.js';
+import { RINK_CROWD_VS, RINK_CROWD_FS, INST as CROWD_INST, buildBowl, crowdInstances, hideFor, nearR, nearDrop, seesRing, roarOf } from './arena-crowd.js';
 import { paintCrest, paintLayers, settCanvas } from '../club-crest.js';
 import { makeVertexStream } from './stream.js';
 import { INK_VS, INK_FS } from './ink.js';
@@ -302,7 +302,6 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     const shared = sharedTextures(doc);
     const aniso = gl.getExtension('EXT_texture_filter_anisotropic');
     const texAds = texture(shared.boards, { mip: true });
-    const texSit = texture(shared.crowdSit, { repeat: true, mip: true }), texUp = texture(shared.crowdUp, { repeat: true, mip: true });
     const texIce = texture(ice.canvas, { mip: true });
     if (aniso) { gl.bindTexture(T2, texIce); gl.texParameterf(T2, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT))); }
     ice.dirtyAll = false; ice.dirty.fill(0);
@@ -346,7 +345,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     const layer = (stride = M.STRIDE, attrs = LIT_ATTRS) => { const vao = gl.createVertexArray(); return { vao, st: makeVertexStream(gl, vao, stride, attrs), n: 0 }; };
     const put = (L, b) => { L.st.write(b.data, b.n * M.STRIDE); L.n = b.n; };
     const L = {
-      stat: layer(), ads: layer(), stands: layer(), glass: layer(),
+      stat: layer(), ads: layer(), glass: layer(),
       rows: layer(), dyn: layer(), jers: layer(), masks: layer(), label: layer(), tr: layer(), netm: layer(), gdec: layer(), shad: layer(),
       ice: layer(2, [[0, 2, 0]]), pts: layer(PT_STRIDE, [[0, 3, 0], [2, 4, 12], [4, 1, 28]]),
       bowl: [layer(), layer(), layer(), layer()],
@@ -357,7 +356,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const q = new Float32Array([0, 0, RL, 0, RL, RW, 0, 0, RL, RW, 0, RW]);
       L.ice.st.write(q, q.length); L.ice.n = 6;
     }
-    const B = Object.fromEntries(['stat', 'ads', 'stands', 'glass', 'rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad'].map((k) => [k, M.createBatch(k === 'dyn' ? 1 << 16 : 1 << 12)]));
+    const B = Object.fromEntries(['stat', 'ads', 'glass', 'rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad'].map((k) => [k, M.createBatch(k === 'dyn' ? 1 << 16 : 1 << 12)]));
     let ptData = new Float32Array(PT_STRIDE * 1024);
     // the X-ray's two batches, filled only while one is on (gl/arena-xray.js)
     const XB = { glow: M.createBatch(1 << 13), solid: M.createBatch(1 << 15) };
@@ -410,12 +409,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const BB = [0, 1, 2, 3].map(() => M.createBatch(1 << 15));
       buildBowl(M, BB);
       BB.forEach((bb, i) => put(L.bowl[i], bb));
-      // beyond it, the upper deck in the dark: its back wall and ends, and the slope up to it
-      const far = [0.17, 0.17, 0.19, 1], deckY = RW + rowD(BOWL_ROWS - 1) + ROW_D, deckZ = rowZ(BOWL_ROWS - 1) + 12;
-      M.quad(B.stands, [-220, 150, 0], [420, 150, 0], [420, 150, 140], [-220, 150, 140], far, [0, 0, 2.4, 2.2], null);
-      for (const x of [-120, RL + 120]) M.quad(B.stands, [x, -140, 0], [x, 150, 0], [x, 150, 140], [x, -140, 140], far, [0, 0, 1.1, 2.2], null);
-      M.quad(B.stands, [CX0 - 60, deckY, deckZ], [CX1 + 60, deckY, deckZ], [CX1 + 60, 150, 70], [CX0 - 60, 150, 70], far, [0, 0, 1.2, 0.6], null);
-      for (const k of ['stat', 'ads', 'stands', 'glass']) put(L[k], B[k]);
+      for (const k of ['stat', 'ads', 'glass']) put(L[k], B[k]);
     }
 
     // ── the jerseys, a slot each in one atlas, and the keepers' masks ─────────
@@ -851,13 +845,13 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.uniformMatrix4fv(FANS.u('uVP'), false, vp); gl.uniform2fv(FANS.u('uShake'), shake);
       gl.uniform2f(FANS.u('uRoar'), roar[0], roar[1]); gl.uniform1f(FANS.u('uT'), W.t || 0); gl.uniform1f(FANS.u('uMove'), 1);
       gl.uniform4fv(FANS.u('uHide'), hideFor(view));
-      gl.uniform4f(FANS.u('uNear'), eye[0], eye[1], eye[2], view === 'vertical' ? NEAR_R : 0);
+      gl.uniform4f(FANS.u('uNear'), eye[0], eye[1], eye[2] - nearDrop(view), nearR(view));
       gl.uniform1f(FANS.u('uDim'), 0.62); gl.uniform1f(FANS.u('uMourn'), W.mourning || 0);
       // (each group the view shows, from its first seat, its own instance attributes moved on to it)
-      const vert = view === 'vertical';
+      const ring = seesRing(view);
       gl.bindVertexArray(fanVao); gl.bindBuffer(gl.ARRAY_BUFFER, fanIb);
       for (let i = 0; i < 4; i++) {
-        if ((i & 1) && !vert) continue;
+        if ((i & 1) && !ring) continue;
         const n = Math.round(fanGroups.count[i] * share), base = fanGroups.start[i] * CROWD_INST * 4;
         if (n <= 0) continue;
         for (const [loc, size, off] of [[3, 4, 0], [4, 4, 16], [5, 3, 32]]) gl.vertexAttribPointer(loc, size, gl.FLOAT, false, CROWD_INST * 4, base + off);
@@ -930,7 +924,6 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       W0.view = { P: live.P, w, h, t: W0.t };
       const { C, P } = rp ? (rcam ??= createRinkCamera(rp.source, { snap: true })).update(w, h, now) : live;
       api.lastP = P;
-      const crowdTex = W.crowd > 0.45 ? texUp : texSit;
       const sh = W.shake * 5 * u, sx = sh * (Math.sin(W.t * 47) + 0.5 * Math.sin(W.t * 83 + 1)) / 1.5, sy = sh * (Math.sin(W.t * 59 + 2) + 0.5 * Math.sin(W.t * 97)) / 1.5;
       const shake = [2 * sx / w, -2 * sy / h];
       st.draws = 0; st.tris = 0;
@@ -965,11 +958,11 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       useLit(vp, eye, shake, -1e9);
-      draw(L.stands, crowdTex);
       // the bowl, less the stands this view's camera stands in, and the fans in it
-      // (by the view the camera is in, which a fight swings to broadcast: camera.js `shown`)
-      const shown = rp ? 'broadcast' : camera.shown || api.view, vert = shown === 'vertical';
-      for (let i = 0; i < 4; i++) if (!((i & 1) && !vert)) draw(L.bowl[i]);
+      // (by the view the camera is in, which a fight swings to broadcast: camera.js `shown`; a
+      // seat in the stands is in the bowl, and sees all of it)
+      const shown = rp ? 'broadcast' : api.seat ? 'seat' : camera.shown || api.view, ring = seesRing(shown);
+      for (let i = 0; i < 4; i++) if (!((i & 1) && !ring)) draw(L.bowl[i]);
       drawFans(vp, shake, shown, eye);
       if (api.ink) { drawInk(vp, shake, w, h, u); }
       useLit(vp, eye, shake, -1e9);
