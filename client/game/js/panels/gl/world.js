@@ -1182,6 +1182,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     threshold: HDR_TUNE.threshold, knee: HDR_TUNE.knee,
     tonemap: opts.glTonemap > 0 ? opts.glTonemap : 0,
     exposure: opts.glExposure > 0 ? opts.glExposure : 1,
+    nightSat: (opts.glNightSat || 0) * Math.min(1, Math.max(0, opts.night || 0)),
     // FXAA on the world composite only; the cloud deck is soft already.
     fxaa: opts.glFxaa > 0 ? 1 : 0,
   });

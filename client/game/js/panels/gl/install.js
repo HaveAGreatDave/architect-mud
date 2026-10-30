@@ -270,7 +270,7 @@ export function installGL(hostFor) {
       // bit canvas exactly as before, and the bloom and the tone curve are computed against a
       // picture that has already clipped. Which is to say the feature reports numbers, moves pixels,
       // and is not the feature.
-      hdr: opts.glHdr, glLinear: opts.glLinear, glBloom: opts.glBloom, glTonemap: opts.glTonemap, glExposure: opts.glExposure,
+      hdr: opts.glHdr, glLinear: opts.glLinear, glBloom: opts.glBloom, glTonemap: opts.glTonemap, glExposure: opts.glExposure, glNightSat: opts.glNightSat,
       // And the map window's centre, for the same reason — the ground shader phases its puddles on
       // absolute world tiles off it, and dropped here they would silently crawl along the road.
       wc: opts.wc,

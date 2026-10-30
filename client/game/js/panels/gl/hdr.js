@@ -102,6 +102,8 @@ uniform sampler2D uBloom1;
 uniform float uBloom;
 uniform float uTonemap;
 uniform float uExposure;
+// How much colour the darks lose at night (RENDER_TUNE.glNightSat times night). 0 is a no-op.
+uniform float uNightSat;
 // 1 when the scene is linear light (RENDER_TUNE.glLinear), which goes back to display values here.
 uniform float uLinear;
 out vec4 outColor;
@@ -153,6 +155,12 @@ void main() {
   // against a linear output; this is what lets the headroom and the bloom ship without also
   // shipping a re-grade nobody asked for.
   vec3 graded = mix(keepHue(c), aces(c), clamp(uTonemap, 0.0, 1.0));
+  // Night desaturation on the darks only, weighted off by brightness, so a lit window or a neon tube
+  // keeps its colour while the unlit street around it goes toward grey.
+  if (uNightSat > 0.0) {
+    float y = dot(graded, vec3(0.2126, 0.7152, 0.0722));
+    graded = mix(graded, vec3(y), uNightSat * (1.0 - smoothstep(0.25, 0.8, y)));
+  }
   outColor = vec4(graded * a, a);
 }`;
 
@@ -261,6 +269,7 @@ export function createHDRLayer(gl) {
     compTone: gl.getUniformLocation(comp, 'uTonemap'),
     compExp: gl.getUniformLocation(comp, 'uExposure'),
     compLin: gl.getUniformLocation(comp, 'uLinear'),
+    compNightSat: gl.getUniformLocation(comp, 'uNightSat'),
     fxaaSrc: fxaa ? gl.getUniformLocation(fxaa, 'uSrc') : null,
     fxaaTexel: fxaa ? gl.getUniformLocation(fxaa, 'uTexel') : null,
   };
@@ -479,6 +488,7 @@ export function createHDRLayer(gl) {
     gl.uniform1f(u.compTone, opts.tonemap > 0 ? opts.tonemap : 0);
     gl.uniform1f(u.compExp, opts.exposure > 0 ? opts.exposure : 1);
     gl.uniform1f(u.compLin, opts.linear > 0 ? 1 : 0);
+    gl.uniform1f(u.compNightSat, opts.nightSat > 0 ? opts.nightSat : 0);
     fullscreen();
     if (aa) {
       // 5. FXAA onto the canvas. ⚠ The source is NEAREST-agnostic: the taps sit on texel centres or
