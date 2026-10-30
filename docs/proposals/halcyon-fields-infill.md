@@ -430,7 +430,7 @@ deliberately last in the run.
 
 ### The hero — ★ Halcyon Point (904,911)
 
-Twenty floors, the tallest plot in Halcyon Fields, at the east end of the boulevard frontage.
+Twenty floors, the tallest plot at the east end of the boulevard frontage.
 **Two shafts of unequal height carrying one enormous glazed plate across the top of both**,
 oversailing them on every side, lit from underneath. The brochure's photograph is taken from below
 it, and it is the one building the developer put its own name on.
@@ -617,3 +617,19 @@ On the client, the 42 `NAMED_MODELS` keys moved with their buildings (`glassceil
 | 892,912 | 7 Vetch Mews | Rising Damp | `M7` |
 | 894,913 | Halcyon Sales Suite | Artist's Impression | `HS` |
 | 894,912 | 8 Vetch Mews | Terms Agreed | `V8` |
+
+## Over the left-field wall (2026-10-29)
+
+Three plots on column 892 stand behind left field of the Hughson Coliseum. From a seat they were
+under the stands' roofline, so they now have their own models, bound by name, and real floor
+counts that step down from the twin towers (Halcyon Towers and The Spire stay the peak):
+
+| Plot | Building | Model | Floors | Height in the park's set |
+|---|---|---|---|---|
+| 892,909 | 1 Halcyon Boulevard | `hf_beacon`: three drums stepping in, a chrome halo on a stem | 56 | about 650 ft |
+| 892,911 | 2 Halcyon Boulevard | `hf_skylink`: two unequal shafts, two glazed links | 45 | about 520 ft |
+| 892,912 | 7 Vetch Mews | `hf_highsite`: clad to halfway, bare plates, a climbing crane | 36 | about 420 ft |
+
+The park's set draws only mass, so each silhouette is in its drums and boxes. 7 Vetch Mews stays
+dark like every shell. The other plots carrying `chrome_tower`, `sky_court` and `shell_tower` don't
+change.

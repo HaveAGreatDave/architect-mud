@@ -12,7 +12,8 @@
     "is_interior": true,
     "world_exit_zone": "zone_ballpark_897_913",
     "open_all_hours": true,
-    "floor": "carpet"
+    "floor": "carpet",
+    "ticketed": "zone_hughson_platinum_box"
   },
   "grid_x": 0,
   "grid_y": 0,

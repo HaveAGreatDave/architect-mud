@@ -14,7 +14,7 @@
     "district": "halcyon_fields",
     "entrance": "east",
     "facade": true,
-    "floors": 15,
+    "floors": 22,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_893_914"

@@ -35,7 +35,7 @@ export const NIGHT = Object.freeze({
 // toward the zenith; how strongly a venue's own city glow (`city.glow`, an sRGB colour) shows at
 // full night; when the city's windows, its lamps and its buildings' own lights (signs, beacons,
 // searchlights) come on and the stars come out (the sky's `night`, 0 by day to 1).
-export const DUSK = Object.freeze({ cap: 60, away: 0.6, glow: 0.015, windows: [0.35, 0.95], lamps: [0.3, 0.7], lights: [0.15, 0.6], stars: [0.9, 1] });
+export const DUSK = Object.freeze({ cap: 60, away: 0.6, glow: 0.015, windows: [0.35, 0.95], lamps: [0.3, 0.7], lights: [0.15, 0.6], stars: [0.6, 0.95], moon: [0.3, 0.7] });
 
 const lin1 = (c) => { const x = Math.max(0, c) / 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
 const lin = (c) => c.map(lin1);
@@ -70,7 +70,8 @@ export function sunLight(hour, ground, cloud = 0) {
 // glow; `o.wx` the payload's weather. Returns NIGHT's keys, each for the hour and the weather, and
 // `horAway` (the horizon away from the sun), `sun` (the way to where the sun went down, in the
 // park's frame, a unit vector on the ground), `stars`, `night`, `wet` (0 dry to 1 soaked) and
-// `lights` (how lit the buildings' own lights are, 0 to 1, gl/citylights.js).
+// `lights` (how lit the buildings' own lights are, 0 to 1, gl/citylights.js); `o.moon` tonight's
+// phase, and `moon` where it is (moonAt).
 export function skyLook(hour, o = {}) {
   const s = skyAt(Number.isFinite(hour) ? hour : 0), sun = sunAt(Number.isFinite(hour) ? hour : 0), n = AT_NIGHT;
   // away from the sun the horizon is nearer the zenith's colour
@@ -98,5 +99,32 @@ export function skyLook(hour, o = {}) {
     sun: [dir[0] / l, 0, dir[2] / l],
     // the low sun's own light, or null once it's down (sunLight)
     sunLight: sunLight(hour, [dir[0] / l, 0, dir[2] / l], cover),
+    // the sun's disc while it's up: [x, y, z] toward it in the park's frame, and how much shows
+    sunDisc: sun.up ? { dir: [Math.cos((sun.el * Math.PI) / 180) * dir[0] / l, Math.sin((sun.el * Math.PI) / 180), Math.cos((sun.el * Math.PI) / 180) * dir[2] / l], a: we.stars } : null,
+    // the moon (moonAt), out once the stars are and gone behind cloud as they are
+    moon: moonAt(hour, o.moon, EX, EN, smooth(DUSK.moon[0], DUSK.moon[1], s.night) * we.stars),
+  };
+}
+
+// The moon at `hour` for a `phase` (0 new, 0.5 full; shared/moon.js), on the arc windshield.js
+// moonArc gives it: it lags the sun by `phase` of a day, rises in the east and sets in the west 12
+// hours later, MOON_PEAK degrees up at transit. Returns { dir (unit, toward it, in the park's frame),
+// sun (toward the sun, for which side is lit), cosPh (cos of the phase angle), a (how much of it shows,
+// 0 to 1) }, or null while it's down or there's nothing to see.
+const MOON_PEAK = 55;
+function moonAt(hour, phase, EX, EN, show) {
+  if (!Number.isFinite(phase)) phase = 0.5;
+  const h = Number.isFinite(hour) ? ((hour % 24) + 24) % 24 : 0;
+  const t = ((((h - 6 - (((phase % 1) + 1) % 1) * 24) % 24) + 24) % 24) / 12;
+  const lit = (1 - Math.cos(2 * Math.PI * phase)) / 2;
+  if (t > 1 || !(show * lit > 0.01)) return null;
+  const at = (azDeg, elDeg) => {
+    const az = (azDeg * Math.PI) / 180, el = (elDeg * Math.PI) / 180, c = Math.cos(el);
+    return [(EN[0] * Math.cos(az) + EX[0] * Math.sin(az)) * c, Math.sin(el), (EN[2] * Math.cos(az) + EX[2] * Math.sin(az)) * c];
+  };
+  const st = (h - 6) / 12;
+  return {
+    dir: at(90 + t * 180, Math.sin(t * Math.PI) * MOON_PEAK), sun: at(90 + st * 180, Math.sin(st * Math.PI) * 62),
+    cosPh: Math.cos(2 * Math.PI * phase), a: show * Math.min(1, Math.sin(t * Math.PI) * 6),
   };
 }

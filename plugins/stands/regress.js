@@ -4,6 +4,8 @@
 // venues sell has a seat to put the eye on), the verb's refusals, and that getting up leaves no
 // row behind in the seated map.
 import { getZone, getZoneFurniture } from '../../server/engine/world.js';
+import { runMoveGates } from '../../server/engine/movement-gates.js';
+import { liveSportsChannel } from '../broadcast/index.js';
 import { standsOf, findSection, seatsOf, freeSeat, _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -68,6 +70,25 @@ export default async function regress({ run, check, getPlayer }) {
   check('stands: watching the box screen answers from the screen', r?.type === 'output' && /big screen/.test(r.message || ''), r?.message);
   _test.leave(me, true);
   me.current_zone = home;
+  // The box is ticketed at twice the dearest seat in the stands, and shut without a pass.
+  const top = Math.max(...standsOf(getZone('zone_hughson_stands')).sections.map((c) => c.price | 0));
+  check('stands: a box ticket is twice the dearest seat', box?.sections[0].price === top * 2, String(box?.sections[0].price));
+  const gate = (to) => runMoveGates({ player: me, from: getZone('zone_hughson_club'), to: getZone(to), direction: 'east', door: null, opts: {} });
+  _test.passes.delete(me.id);
+  check('stands: no ticket, no box', (await gate('zone_hughson_platinum'))?.block === true);
+  check('stands: the lounge leads into the box freely', !(await runMoveGates({ player: me, from: getZone('zone_hughson_platinum'), to: getZone('zone_hughson_platinum_box'), direction: 'north', door: null, opts: {} }))?.block);
+  const ch = liveSportsChannel('baseball');
+  if (ch) {
+    _test.passes.set(me.id, { box: 'zone_hughson_platinum_box', channelId: ch, until: Date.now() + 60e3 });
+    check('stands: a pass opens the box', !(await gate('zone_hughson_platinum'))?.block);
+  }
+  _test.passes.set(me.id, { box: 'zone_hughson_platinum_box', channelId: 'gone', until: Date.now() + 60e3 });
+  check('stands: a pass for another game is no pass', (await gate('zone_hughson_platinum'))?.block === true);
+  me.current_zone = 'zone_hughson_stands';
+  r = await run('use ticket machine');
+  check('stands: the ticket machine sells the box', /Platinum Box/.test(r?.message || ''), r?.message);
+  me.current_zone = home;
+  _test.passes.delete(me.id);
   _test.seated.set(me.id, { zoneId: 'zone_hughson_platinum_box', section: 'platinum', seat: 0, channelId: 'x', chair: true });
   await _test.onPosture({ player: me, to: 'standing' });
   check('stands: standing up out of a box chair leaves it', !_test.seated.has(me.id));

@@ -785,6 +785,7 @@ export function createGrandstandView(host, opts = {}) {
     // weather over the park as it aired (diamond/weather.js), its lightning not flashing for a
     // viewer who's asked for less motion
     R?.setHour?.(Number.isFinite(p.clock) ? p.clock / 60 : null);
+    R?.setMoon?.(Number.isFinite(p.moon) ? p.moon : null);
     R?.setWeather?.(p.wx || null, { flash: !prefersReducedMotion() });
     // and the park's roof as it was when the line aired (1 shut, 0 open), which rolls over the map's
     // ninety seconds when it changes; a payload without one leaves it where it is

@@ -1,14 +1,14 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "description": "Eighteen storeys of it, clad to about the tenth and bare floor plates above that, with the crane still standing off the north-west corner and tied in at three levels. The hoarding round the base is printed with the finished building, at dusk, from an angle that would put you in mid-air over the mews. Somebody has written a word in marker across the bottom of the hoarding and it has been scrubbed at rather than removed.",
+  "description": "Thirty-six storeys, clad to about halfway and bare floor plates above that, with a crane growing out of the top and a hoist bolted up one side. The hoarding round the base shows the finished building lit up at night. Somebody wrote a word on it in marker, scrubbed at but still there.",
   "exits": {},
   "flags": {
     "building_name": "7 Vetch Mews",
     "building_type": "shell_tower",
     "district": "halcyon_fields",
     "entrance": "east",
-    "floors": 18,
+    "floors": 36,
     "is_building": true,
     "region_id": "region_coldwater"
   },

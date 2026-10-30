@@ -19,7 +19,8 @@
       "visibility": 0.8
     },
     "world_exit_zone": "zone_ballpark_897_913",
-    "open_all_hours": true
+    "open_all_hours": true,
+    "box_office": "zone_hughson_platinum_box"
   },
   "grid_x": 0,
   "grid_y": 0,

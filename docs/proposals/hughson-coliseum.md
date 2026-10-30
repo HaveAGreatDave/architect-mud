@@ -128,9 +128,9 @@ one is under 30 characters, so `docs:prose` doesn't count the dash in it.
 | Concessions | west of the concourse | the concession stand and its cash drawer, Ray Dombrowski |
 | The Stands | north of the concourse | the seats, Sir Charles's seat, the organ, the video board on channel 7 |
 | Section Nine | west of the stands | the crater from Chip Vega's chatter, roped off |
-| Club Level | up from the concourse | the bar, the windows over the field |
-| Platinum Box | east of the club level | the big screen (`watch tv`, the game in 3-D), the sofa, the bar and the buffet, both bottomless (`restock_items`, every item worth ₵0) |
-| Box Seats | north of the Platinum Box | the white armchairs behind the glass; `sit` in one and the park opens from it, free. In GLASS 2 the box is a 3-D suite you walk round, hung over the back rows of the lower bowl level with first base, in front of the upper deck (the zone's `stands` section `room`). Nearer home the bowl curves into it |
+| Club Level | up from the concourse | the bar, the windows over the field; `stands` here buys a Platinum Box ticket, ₵150, twice the Diamond Club |
+| Platinum Box | east of the club level | the big screen (`watch tv`, the game in 3-D), the sofa, the bar and the buffet, both bottomless (`restock_items`, every item worth ₵0). Ticket holders only |
+| Box Seats | north of the Platinum Box | the white armchairs behind the glass; `sit` in one and the park opens from it; the ticket covers it. In GLASS 2 the box is a 3-D suite you walk round, hung over the back rows of the lower bowl level with first base, in front of the upper deck (the zone's `stands` section `room`). Nearer home the bowl curves into it |
 | Press Box | up from the club level | Chip Vega's desk and his chair |
 | Plant Room | down from the concourse | the floods' breakers, two taped off; the roof's drive; the junction box |
 | Bleachers | the bleacher gate (`map_int_hughsonbl`) | the benches, the scoreboard; south to the stands |

@@ -751,11 +751,13 @@ const FULL_VS = `#version 300 es
 out vec2 vUV;
 void main() { vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); vUV = p; gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
 // The sky: horizon to zenith, warmer toward where the sun went down, the city's glow low down, and
-// a few stars once it's dark.
+// the sun while it's up, stars once it's dark, and the moon where it is, lit on the side toward the sun.
 const SKY_FS = `#version 300 es
 precision highp float;
 in vec2 vUV; out vec4 o;
 uniform mat4 uInvVP; uniform vec3 uZen; uniform vec3 uHor; uniform vec3 uHorAway; uniform vec3 uSunDir; uniform vec3 uGlow; uniform float uStars;
+uniform vec3 uMoonDir; uniform vec3 uMoonSun; uniform float uMoonA; uniform float uMoonCos;
+uniform vec3 uSunDisc; uniform float uSunA;
 ${LIGHTS_GLSL}
 void main() {
   vec4 p = uInvVP * vec4(vUV * 2.0 - 1.0, 1.0, 1.0); vec3 rd = normalize(p.xyz / p.w - uEye);
@@ -763,10 +765,37 @@ void main() {
   // the horizon toward where the sun went down, and away from it (the same at night)
   float f = fl > 1e-4 ? dot(rd.xz / fl, uSunDir.xz) * 0.5 + 0.5 : 0.5;
   vec3 col = mix(mix(uHorAway, uHor, f * f), uZen, smoothstep(-0.02, 0.55, el)) + uGlow * exp(-max(el, 0.0) * 12.0);
-  vec3 q = floor(rd * 520.0); float h = fract(sin(dot(q, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-  col += vec3(step(0.9982, h)) * 0.06 * smoothstep(0.05, 0.35, el) * uStars;
   // the sky is a long way off through the same air: the haze at the horizon, the towers' glow
-  o = vec4(airOf(col, uEye + rd * 4000.0), 1.0);
+  col = airOf(col, uEye + rd * 4000.0);
+  // the stars and the moon over it, dimmed only where the haze is thick near the horizon
+  float clear = smoothstep(0.02, 0.3, el);
+  vec3 q = floor(rd * 520.0); float h = fract(sin(dot(q, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+  col += vec3(0.85, 0.9, 1.0) * step(0.9975, h) * (0.04 + 0.5 * pow((h - 0.9975) / 0.0025, 3.0)) * clear * uStars;
+  if (uSunA > 0.0) {
+    // the sun while it's up: a hot disc, redder the lower it is, and its glare round it
+    float sc = dot(rd, uSunDisc), low = 1.0 - smoothstep(0.0, 0.5, uSunDisc.y);
+    vec3 sunCol = mix(vec3(1.0, 0.92, 0.78), vec3(1.0, 0.5, 0.2), low) * smoothstep(-0.02, 0.02, el);
+    col += sunCol * uSunA * (smoothstep(0.99985, 0.99992, sc) * 6.0 + pow(max(sc, 0.0), 400.0) * 0.25 + pow(max(sc, 0.0), 24.0) * 0.03);
+  }
+  if (uMoonA > 0.0) {
+    // the disc: a little bigger than life so it reads, its terminator from the phase, and a halo
+    const float R = 0.017;
+    vec3 E = normalize(cross(uMoonDir, vec3(0.0, 1.0, 0.0))), U = cross(E, uMoonDir);
+    vec3 st = uMoonSun - uMoonDir * dot(uMoonSun, uMoonDir); float sl = length(st);
+    vec3 X = sl > 1e-4 ? st / sl : U, Y = cross(uMoonDir, X);
+    vec2 d = vec2(dot(rd, X), dot(rd, Y)) / R; float r2 = dot(d, d);
+    float mc = smoothstep(0.0, 0.25, el + 0.03);
+    if (r2 < 1.0 && dot(rd, uMoonDir) > 0.0) {
+      float xs = sqrt(1.0 - d.y * d.y);
+      float lit = smoothstep(-0.06, 0.06, d.x - uMoonCos * xs);
+      float spot = fract(sin(dot(floor(d * 5.0), vec2(41.3, 17.9))) * 9134.7);
+      vec3 face = vec3(0.95, 0.93, 0.86) * (0.8 + 0.2 * spot);
+      col = mix(col, face * 0.9 * lit + col * 0.6 * (1.0 - lit), uMoonA * mc * smoothstep(1.0, 0.92, r2));
+    }
+    float far = acos(clamp(dot(rd, uMoonDir), -1.0, 1.0)) / R;
+    col += vec3(0.5, 0.55, 0.65) * 0.004 * exp(-far * 0.25) * uMoonA * mc * (1.0 - uMoonCos) * 0.5;
+  }
+  o = vec4(col, 1.0);
 }`;
 // The last pass: the bloom added in linear light, the filmic curve, and the encode.
 const FINAL_FS = `#version 300 es
@@ -1887,8 +1916,15 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     // The park's light at the hour the payload aired (setHour, diamond/sky.js), against the venue's
     // bearing and its city's glow; night until a payload says otherwise.
-    let hourNow = null, wxNow = null, look = skyLook(null), worldT = 0;
-    const relook = () => { look = skyLook(hourNow, { bearing: cityVenue?.site?.bearing, glow: cityVenue?.city?.glow, wx: wxNow }); };
+    let hourNow = null, wxNow = null, moonNow = null, look = skyLook(null), worldT = 0;
+    const relook = () => { look = skyLook(hourNow, { bearing: cityVenue?.site?.bearing, glow: cityVenue?.city?.glow, wx: wxNow, moon: moonNow }); };
+    // tonight's moon (a payload's `moon`, the phase; shared/moon.js), full until one says otherwise
+    function setMoon(ph) {
+      const next = Number.isFinite(ph) ? ph : null;
+      if (next === moonNow) return look;
+      moonNow = next; relook();
+      return look;
+    }
     // The weather over the park (a payload's `wx`, diamond/weather.js): the look, what falls and the
     // lightning; and the world's time, which what falls and the bolts are drawn at.
     function setWeather(wx, o = {}) {
@@ -1962,14 +1998,15 @@ export function createBallparkRenderer(canvas, opts = {}) {
     });
     // the birds (gl/parkbirds.js): the gulls lit from below by the share of the towers' light the
     // field throws back up, and the starlings out toward the sunset in the evening; both down out
-    // of the rain, the snow and the lightning, and nowhere under a shut roof
-    const BIRD_FLOOD = 0.12;
+    // of the rain, the snow and the lightning, and nowhere under a shut roof; the gulls are gone
+    // once it's properly dark
+    const BIRD_FLOOD = 0.12, BIRD_DARK = 0.6;
     const birdFlood = [0, 1, 2].map((c) => { let s = 0; for (let i = 0; i < 6; i++) s += LCol[i * 3 + c]; return (s / 6) * BIRD_FLOOD; });
     const birdLook = (q) => {
       const aloft = q.birds !== false && !weather.look.fall && !weather.look.bolts && roofNow < 0.5;
       return {
         up: frameUp, dn: look.dn, flood: birdFlood, night: look.night, sun: look.sun, evening: hourNow == null || hourNow >= 12,
-        fogDens: q.fog ? look.fogDens : 0, fogH: NIGHT.fogH, fogCol: look.fog, gulls: aloft, starlings: aloft,
+        fogDens: q.fog ? look.fogDens : 0, fogH: NIGHT.fogH, fogCol: look.fog, gulls: aloft && look.night < BIRD_DARK, starlings: aloft,
       };
     };
 
@@ -2091,6 +2128,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.uniformMatrix4fv(SKY.u('uInvVP'), false, inv4(M.viewProj));
       gl.uniform3fv(SKY.u('uZen'), frameZen); gl.uniform3fv(SKY.u('uHor'), frameHor); gl.uniform3fv(SKY.u('uHorAway'), frameAway);
       gl.uniform3fv(SKY.u('uSunDir'), look.sun); gl.uniform3fv(SKY.u('uGlow'), look.glow); gl.uniform1f(SKY.u('uStars'), look.stars);
+      const sunD = look.sunDisc;
+      gl.uniform1f(SKY.u('uSunA'), sunD ? sunD.a : 0);
+      if (sunD) gl.uniform3fv(SKY.u('uSunDisc'), sunD.dir);
+      const moon = look.moon;
+      gl.uniform1f(SKY.u('uMoonA'), moon ? moon.a : 0);
+      if (moon) { gl.uniform3fv(SKY.u('uMoonDir'), moon.dir); gl.uniform3fv(SKY.u('uMoonSun'), moon.sun); gl.uniform1f(SKY.u('uMoonCos'), moon.cosPh); }
       gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3); draws++;
 
       // the park, and then the players: the same lit shader, the players' skinned
@@ -2464,7 +2507,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // view keeps drawing while it moves
       setRoof, get roof() { const now = clock(); return { p: roofT.at(now), to: roofT.to, moving: roofT.moving(now) }; },
       render, setBoard, setCast, setPose, idle, setBall, setBats, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
-      markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setWeather, setSkyField, get look() { return look; },
+      markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setMoon, setWeather, setSkyField, get look() { return look; },
       setTime: (t) => { worldT = Number.isFinite(t) ? t : 0; weather.setTime(worldT); },
       get cityLights() { return cityLights.counts; },
       get streets() { return streets.counts; },

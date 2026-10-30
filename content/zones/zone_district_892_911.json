@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#101c26",
   "color": "#bfe8ff",
-  "description": "Two glass shafts off one chrome podium, unequal, with a glazed link slung between them nine storeys up. You go in underneath it, across a forecourt with nothing on it, and the shadow of the bridge lies across the paving in a hard bar that moves all day. The letting board by the door lists sixty-two apartments and has a plastic sleeve for a photograph that has never had a photograph in it.",
+  "description": "Two glass towers off one chrome podium, one a good way taller, with two glazed bridges slung between them. You go in underneath, across a forecourt with nothing on it. The letting board lists a hundred and forty apartments and has a plastic sleeve for a photograph that has never had one in it.",
   "exits": {
     "north": "zone_district_892_910",
     "south": "zone_hf_common_lobby"
@@ -14,7 +14,7 @@
     "district": "halcyon_fields",
     "entrance": "north",
     "facade": true,
-    "floors": 16,
+    "floors": 45,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_892_910"

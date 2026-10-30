@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#10161f",
   "color": "#b6dcf7",
-  "description": "A chrome spine threaded with six glazed bulges, each pinched to a collar. The doors are at the foot under a shallow chrome hood. A board beside them lists fourteen floors, a concierge and an out-of-hours number, half-covered by a printed notice about the lift.",
+  "description": "A chrome spine threaded with six glazed bulges, each pinched to a collar. The doors are at the foot under a shallow chrome hood. A board beside them lists twenty-eight floors, a concierge and an out-of-hours number, half-covered by a printed notice about the lift.",
   "exits": {
     "east": "zone_district_893_913",
     "west": "zone_hf_quiet_desk"
@@ -14,7 +14,7 @@
     "district": "halcyon_fields",
     "entrance": "east",
     "facade": true,
-    "floors": 14,
+    "floors": 28,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_893_913"

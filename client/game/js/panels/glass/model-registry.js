@@ -315,6 +315,10 @@ export const NAMED_MODELS = {
   '10cinderlane':                 { type: 'hf_lozenge',   pal: 'ty_hft_glass', neon: '#9fe0ff' },
   // The bent ones — the crescent's construction spent on four other plans.
   '11halcyonboulevard':           { type: 'hf_scurve',    pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  // Over the Coliseum's left-field wall, stepping down from the twin towers.
+  '1halcyonboulevard':            { type: 'hf_beacon',    pal: 'ty_hft_glass', neon: '#7fd8ff' },
+  '2halcyonboulevard':            { type: 'hf_skylink',   pal: 'ty_hft_glass', neon: '#bfe8ff' },
+  '7vetchmews':                   { type: 'hf_highsite',  pal: 'ty_hft_glass', neon: '#6fa8c8' },
   '10kettlelane':                 { type: 'hf_notch',     pal: 'ty_hft_glass', neon: '#9fe0ff' },
   '25kerbstonerow':               { type: 'hf_fan',       pal: 'ty_hft_glass', neon: '#9fe0ff' },
   '12kerbstonerow':               { type: 'hf_converted', pal: 'ty_hft_glass', neon: '#9fe0ff' },
@@ -322,7 +326,7 @@ export const NAMED_MODELS = {
   '1cinderlane':                  { type: 'hf_vault',      pal: 'ty_hft_glass', neon: '#7fd8ff' },
   '4cinderlane':                  { type: 'hf_prow',       pal: 'ty_hft_glass', neon: '#7fd8ff' },
   '17kerbstonerow':               { type: 'hf_hammerhead', pal: 'ty_hft_glass', neon: '#7fd8ff' },
-  // The cut ones. ★ `halcyonpoint` is the quarter's hero — the tallest plot in Halcyon Fields and
+  // The cut ones. ★ `halcyonpoint` is the quarter's hero — the tallest plot on the east end of the boulevard and
   // the only one of the forty-two that letters its own name.
   '3cinderlane':                  { type: 'hf_shard',   pal: 'ty_hft_glass', neon: '#bfe8ff' },
   halcyonpoint:                   { type: 'hf_ceiling', pal: 'ty_hft_glass', neon: '#bfe8ff' },

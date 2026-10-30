@@ -1,6 +1,6 @@
-// GLASS 2 · THE PARK'S BIRDS. Gulls over the outfield, wheeling round in the floods' light the way
-// they come in over a ballpark at night, and a murmuration of starlings over the skyline at dusk,
-// gone to roost once it's dark.
+// GLASS 2 · THE PARK'S BIRDS. Gulls over the outfield, wheeling round in the floods' light through
+// the evening, and a murmuration of starlings over the skyline at dusk; both gone to roost once
+// it's dark (ballpark.js birdLook).
 //
 //   · gulls: a few, each on its own circuit over the outfield, banking into it, flapping a while and
 //     gliding a while, white underneath where the floods catch them;

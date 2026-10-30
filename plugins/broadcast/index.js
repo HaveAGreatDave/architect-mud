@@ -14,7 +14,7 @@ import { registerCommand, fireHook } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcNextShiftLookup, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
 import { registerAICondition, registerAIAction } from '../../server/engine/ai-behaviour.js';
-import { getEnvironmentState, getZonePowerStatus, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty, getWeatherTypeAtGrid, getPrecipAtGrid, getWeatherEvent, getForecast } from '../../server/engine/environment.js';
+import { getEnvironmentState, getZonePowerStatus, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty, getWeatherTypeAtGrid, getPrecipAtGrid, getWeatherEvent, getForecast, getMoonPhase } from '../../server/engine/environment.js';
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName, getSampleDefByName } from '../audio/index.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
@@ -3783,7 +3783,8 @@ function gamedayLedger(sport) {
 // drift across the city during a game, and the sky darkens through it. A park with a roof
 // (`venue.roof` answers for its block's middle tile) gets where the roof is too (`roof`, 1 shut,
 // 0 open), so the 3-D park's shells stand where the map's do; a change airs with the next line and
-// the client rolls them over the map's ninety seconds.
+// the client rolls them over the map's ninety seconds. A ballpark's also carries tonight's moon
+// (`moon`, the phase), so the park's sky hangs it where it is.
 // Sync and query-free (the cells, the clock and the roofs are in memory), once per aired line.
 function gamedayOnAir(gd, graph) {
   const site = graph && graph._venueSite;
@@ -3796,7 +3797,7 @@ function gamedayOnAir(gd, graph) {
   // ⚠ A hockey payload's `clock` is the game clock ("12:34"), so the minute of the day is a ballpark's
   // alone: the Gardens has a site for its fly-in, and its payloads keep their own clock.
   const sky = Number.isFinite(minutes) && gd.sport !== 'hockey';
-  return { ...gd, wx, ...(sky ? { clock: Math.round(minutes) % 1440 } : {}), ...(roof ? { roof: roof.shut } : {}) };
+  return { ...gd, wx, ...(sky ? { clock: Math.round(minutes) % 1440, moon: getMoonPhase() } : {}), ...(roof ? { roof: roof.shut } : {}) };
 }
 
 // A team's record from its own league's cached standings, or '0-0' if it hasn't played.

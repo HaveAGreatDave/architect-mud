@@ -22,6 +22,12 @@
 //
 // ⚠ THE TICKET IS PAID ONCE PER SEAT. Taking a seat charges its price; moving to another
 // section is a new ticket. Leaving the room leaves the seat.
+//
+// ⚠ A BOX IS A TICKETED ROOM. A room with `flags.ticketed` (the box's stands zone) is shut to
+// anybody without a pass for that box; a room with `flags.box_office` sells the pass with
+// `stands`, at the box section's price. The pass is for today's game: it lapses when no game is
+// on or after PASS_MS, and it lives in RAM, so a restart loses it. With a pass the box's chairs
+// and screen cost nothing more.
 
 import { getZone, getZoneFurniture } from '../../server/engine/world.js';
 import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
@@ -30,9 +36,21 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { emit, on } from '../../server/engine/events.js';
 import { liveSportsChannel } from '../broadcast/index.js';
 import { getWeatherFieldSnapshot } from '../../server/engine/environment.js';
+import { registerMoveGate } from '../../server/engine/movement-gates.js';
 
 // playerId -> { zoneId, section, seat, channelId }
 const seated = new Map();
+// playerId -> { box, channelId, until }: a pass into a ticketed box
+const passes = new Map();
+const PASS_MS = 4 * 3600e3;
+
+export function hasPass(player, box) {
+  const p = passes.get(player.id);
+  if (!p || p.box !== box) return false;
+  const stands = standsOf(getZone(box));
+  if (Date.now() > p.until || !stands || liveSportsChannel(stands.sport) !== p.channelId) { passes.delete(player.id); return false; }
+  return true;
+}
 
 // The day's weather cells for an open-air park to draw overhead (gl/ballpark.js). Sent once when
 // the seat opens and again only when the field itself changes (weather.field, weather.event): the
@@ -115,18 +133,31 @@ export function freeSeat(zoneId, sport, section, exceptId) {
 }
 const ROW = (r) => String.fromCharCode(65 + r);
 
+// What a room sells: its own sections, then the sections of the box its `flags.box_office` names,
+// each marked with `boxId` (a ticket into that box, not a seat here). Null when it sells nothing.
+function forSale(zone) {
+  const own = standsOf(zone), boxId = zone?.flags?.box_office, box = boxId && standsOf(getZone(boxId));
+  const sport = own?.sport || box?.sport;
+  if (!sport) return null;
+  return { sport, sections: [...(own?.sections || []), ...(box && box.sport === sport ? box.sections.map((c) => ({ ...c, boxId })) : [])] };
+}
+// Tickets into a box not held by `exceptId`.
+const passesFor = (box, exceptId) => [...passes].filter(([pid, p]) => pid !== exceptId && p.box === box && Date.now() <= p.until).length;
+
 function chartPayload(zone, stands, player) {
+  const mineId = seated.get(player.id)?.section || null;
   return {
     type: 'stands_chart', sport: stands.sport, venue: zone.flags?.building_name || zone.name,
     live: !!liveSportsChannel(stands.sport), credits: player.credits | 0,
-    seated: seated.get(player.id)?.section || null,
+    seated: mineId,
     sections: stands.sections.map((c) => ({ id: c.id, name: c.name || c.id, price: c.price | 0, eye: c.eye, note: c.note || '',
-      free: seatsOf(stands.sport, c).length - takenIn(zone.id, c.id, player.id).size })),
+      ...(c.boxId ? { box: true, held: hasPass(player, c.boxId) } : {}),
+      free: seatsOf(stands.sport, c).length - (c.boxId ? passesFor(c.boxId, player.id) : takenIn(zone.id, c.id, player.id).size) })),
   };
 }
 
 function chartText(zone, stands, player) {
-  const rows = stands.sections.map((c) => `  <b>${esc(c.name || c.id)}</b> · ₵${c.price | 0}${c.note ? ` · ${esc(c.note)}` : ''}`);
+  const rows = stands.sections.map((c) => `  <b>${esc(c.name || c.id)}</b> · ₵${c.price | 0}${c.boxId ? ' · a ticket into the box' : ''}${c.note ? ` · ${esc(c.note)}` : ''}`);
   const live = liveSportsChannel(stands.sport);
   return `<span class="msg-system">${esc(zone.flags?.building_name || zone.name)}: the seats.<br>${rows.join('<br>')}<br>`
     + `${live ? `${teachVerb('stands')} &lt;section&gt; buys one.` : 'No game on right now.'} You have ₵${player.credits | 0}.</span>`;
@@ -143,7 +174,7 @@ function leave(player, quiet = false) {
 }
 
 async function cmdStands(args, raw, player) {
-  const zone = getZone(player.current_zone), stands = standsOf(zone);
+  const zone = getZone(player.current_zone), stands = forSale(zone);
   const a0 = String(args[0] || '').toLowerCase();
   if (a0 === 'leave' || a0 === 'up' || a0 === 'off') {
     return leave(player) ? { type: 'noop' } : { type: 'error', message: "You aren't sitting anywhere." };
@@ -156,12 +187,36 @@ async function cmdStands(args, raw, player) {
   }
   const section = findSection(stands, args.join(' '));
   if (!section) return { type: 'error', message: `There's no section called "${esc(args.join(' '))}". ${teachVerb('stands')} shows the chart.` };
+  if (section.boxId) return buyPass(player, section.boxId);
   const channelId = liveSportsChannel(stands.sport);
   if (!channelId) return { type: 'error', message: 'No game on right now. The seats are empty.' };
   const was = seated.get(player.id);
   if (was && was.section === section.id && was.zoneId === zone.id) return { type: 'error', message: `You're already in ${esc(section.name)}.` };
-  return takeSeat(player, zone, stands, section, channelId);
+  return takeSeat(player, zone, standsOf(zone), section, channelId);
 }
+
+// A pass into the ticketed box `boxId`, sold at its section's price.
+async function buyPass(player, boxId) {
+  const box = getZone(boxId), stands = standsOf(box), section = stands?.sections[0];
+  if (!section) return { type: 'error', message: 'There are no seats to buy here.' };
+  const name = esc(section.name || box.name), price = section.price | 0;
+  if (hasPass(player, boxId)) return { type: 'error', message: `You already have a ticket for ${name}.` };
+  const channelId = liveSportsChannel(stands.sport);
+  if (!channelId) return { type: 'error', message: `No game on right now. ${name} is shut.` };
+  if (price > 0 && !(await adjustCredits(player, -price, undefined, 'stands'))) {
+    return { type: 'error', message: `A ticket for ${name} is ₵${price}. You have ₵${player.credits | 0}.` };
+  }
+  passes.set(player.id, { box: boxId, channelId, until: Date.now() + PASS_MS });
+  return { type: 'output', message: `<span class="msg-system">₵${price} for a ticket to <b>${name}</b>, good for today's game. The usher lets you through.</span>` };
+}
+
+// Nobody walks into a ticketed room without a pass; moving between two rooms of the same box is free.
+registerMoveGate(({ player, from, to }) => {
+  const box = to?.flags?.ticketed;
+  if (!box || from?.flags?.ticketed === box || hasPass(player, box)) return;
+  const section = standsOf(getZone(box))?.sections[0];
+  return { block: true, message: `An usher stops you. ${esc(section?.name || 'The box')} is ticket holders only: ₵${section?.price | 0}, and the ticket machine sells them.` };
+}, 'stands:box');
 
 // Sits the player in a free seat of `section` and opens the view from it. `chair` is a chair in
 // the room (flags.stands_section) rather than a ticket: no charge, and standing up leaves it.
@@ -169,7 +224,7 @@ async function takeSeat(player, zone, stands, section, channelId, { chair = fals
   const seat = freeSeat(zone.id, stands.sport, section, player.id);
   if (seat < 0) return { type: 'error', message: `${esc(section.name)} is sold out. ${teachVerb('stands')} shows what's left.` };
   const where = seatsOf(stands.sport, section)[seat];
-  const price = chair ? 0 : section.price | 0;
+  const price = chair || hasPass(player, zone.id) ? 0 : section.price | 0;
   if (price > 0 && !(await adjustCredits(player, -price, undefined, 'stands'))) {
     return { type: 'error', message: `A seat in ${esc(section.name)} is ₵${price}. You have ₵${player.credits | 0}.` };
   }
@@ -282,4 +337,4 @@ function screenNamed(player, args) {
 }
 export const hooks = { 'watch.furniture': ({ player, args }) => screenNamed(player, args || []) };
 
-export const _test = { seated, leave, chartPayload, cmdStands, watchScreen, onPosture };
+export const _test = { seated, passes, buyPass, leave, chartPayload, cmdStands, watchScreen, onPosture };

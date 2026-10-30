@@ -1744,7 +1744,7 @@ export const HALCYON_ARMS = {
   },
   hf_ceiling(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ★ HALCYON POINT — THE QUARTER'S HERO. Two shafts of unequal height
     // carrying one enormous glazed plate across the top of both, oversailing them on every
-    // side. It stands on the tallest plot in Halcyon Fields, at the east end of the boulevard
+    // side. It stands on the tallest plot at the east end of the boulevard
     // frontage, and it is the thing the estate is sold on: the brochure's photograph is taken
     // from underneath.
     //
@@ -1931,6 +1931,129 @@ export const HALCYON_ARMS = {
     { const [wx, wy] = F(fh * 0.24, 0);
       draw3DBoxAt(ctx, cam, wx, wy, fh * 0.20, deckTop, deckTop + h * 0.16, 'ty_hft_glass', seed + 3, night, alpha, true, faceYaw(E), fh * 0.14); }
     if (night) glowPool(ctx, cam, dx, dy, deckTop + h * 0.02, '150,214,255', 9, alpha * 0.20);
+  },
+  // ══ OVER THE LEFT-FIELD WALL ═══════════════════════════════════════════════════════════
+  // Three plots on column 892 stand behind left field of the Hughson Coliseum, and from a seat
+  // they were under the stands' roofline: 160 to 215 ft at about 15 degrees up. These are their
+  // own buildings now, taller, stepping down from the twin towers: 1 Halcyon Boulevard nearest
+  // centre field at about 650 ft, 2 Halcyon Boulevard at about 520, 7 Vetch Mews at about 420.
+  // Halcyon Towers (864 ft in the park's set) and The Spire stay the peak.
+  // ⚠ The heights come from `flags.floors` (56, 45, 36) and every fraction is a share of `h`, so
+  // anything near the ground is a small fraction here: a storey is about 0.02 of `h`.
+  // ⚠ The park's set draws only mass (`SHAPE_SINK`). A runner or a jib doesn't reach the
+  // skyline, so the silhouette has to be in the drums and boxes.
+  hf_beacon(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // 1 HALCYON BOULEVARD: three glass drums stepping in, a chrome
+    // halo on a stem over the top and a mast through it. The estate's cylinder grown up, and the
+    // halo is what reads from the stands: a disc on a stick is a shape nothing else here has.
+    const podium = h * 0.035, t1 = h * 0.40, t2 = h * 0.68, t3 = h * 0.88, crown = h * 0.915;
+    const halo0 = h * 0.952, halo1 = h * 0.966, tip = h * 1.08;
+    const CHROME = hfChrome([104, 120, 136], [242, 248, 252], 1.8), CHROME_TOP = hfChrome([112, 128, 144], [206, 220, 230], 1.3);
+    drawFacetDrum(ctx, cam, dx, dy, 0, podium, fh * 0.98, fh * 0.94, 18, alpha, hfChrome([118, 134, 148], [232, 242, 248], 1.8), hfChrome([126, 142, 156], [204, 218, 228], 1.4), 'ty_hf_deck');
+    // The three tiers, each a little tapered, with a chrome ledge at each setback.
+    const tiers = [[podium, t1, 0.80, 0.74], [t1, t2, 0.63, 0.58], [t2, t3, 0.48, 0.44]];
+    for (const [z0, z1, rb, rt] of tiers) {
+      drawFacetDrum(ctx, cam, dx, dy, z0, z1, fh * rb, fh * rt, 18, alpha, hfGlass(night), null, pal);
+      drawFacetDrum(ctx, cam, dx, dy, z1, z1 + h * 0.010, fh * (rt + 0.03), fh * (rt + 0.03), 18, alpha, CHROME, CHROME_TOP, 'ty_hf_chrome');
+      // a plant floor halfway up each tier, so the storeys have something to count against
+      const zm = (z0 + z1) / 2, rm = (rb + rt) / 2 + 0.025;
+      drawFacetDrum(ctx, cam, dx, dy, zm, zm + h * 0.006, fh * rm, fh * rm, 18, alpha, CHROME, null, 'ty_hf_chrome');
+    }
+    // The crown, the stem and the halo. The halo oversails the tier under it.
+    drawFacetDrum(ctx, cam, dx, dy, t3, crown, fh * 0.44, fh * 0.30, 16, alpha, CHROME, CHROME_TOP, 'ty_hf_chrome');
+    drawFacetDrum(ctx, cam, dx, dy, crown, halo0, fh * 0.12, fh * 0.10, 10, alpha, hfChrome([84, 100, 116], [222, 234, 242], 2.4), null, 'ty_hf_chrome_dk');
+    drawFacetDrum(ctx, cam, dx, dy, halo0, halo1, fh * 0.58, fh * 0.60, 24, alpha, CHROME, CHROME_TOP, 'ty_hf_ice');
+    drawFacetDrum(ctx, cam, dx, dy, halo1, tip, fh * 0.05, fh * 0.022, 8, alpha, hfChrome([84, 100, 116], [222, 234, 242], 2.4), null, 'ty_hf_chrome_dk');
+    // The entrance canopy, a storey up off the front of the podium.
+    { const [cx1, cy1] = F(0, fh * 0.92);
+      drawFacetDrum(ctx, cam, cx1, cy1, h * 0.030, h * 0.037, fh * 0.34, fh * 0.34, 12, alpha, hfChrome([122, 138, 152], [242, 248, 252], 1.7), hfChrome([132, 148, 162], [214, 228, 236], 1.3), 'ty_hf_ice'); }
+    if (night) {
+      // The halo's rim is lit, and so is every setback: three rings and a disc, stacked.
+      helixRunner(ctx, cam, dx, dy, halo0, halo1, fh * 0.61, fh * 0.61, 1, 0, 32, '150,226,255', night, alpha);
+      for (const [, z1, , rt] of tiers) helixRunner(ctx, cam, dx, dy, z1, z1 + h * 0.008, fh * (rt + 0.04), fh * (rt + 0.04), 1, 0, 26, '74,168,255', night, alpha);
+      glowPool(ctx, cam, dx, dy, halo1, '170,232,255', 16, alpha * 0.30);
+      blinkLight(ctx, cam, dx, dy, tip, '255,90,120', now, seed + 3, alpha, 1.6);
+      blinkLight(ctx, cam, dx, dy, halo1, '255,90,120', now, seed + 4, alpha, 1.2);
+      const [gx, gy] = F(0, fh * 0.92); glowPool(ctx, cam, gx, gy, h * 0.02, '206,238,255', 11, alpha * 0.28);
+    }
+  },
+  hf_skylink(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // 2 HALCYON BOULEVARD: two unequal glass shafts off one
+    // podium with two glazed links slung between them. The pair-and-a-bridge again, tall enough
+    // now for two bridges, and both are real gaps: an aircraft goes under either.
+    const podium = h * 0.04, tall = h * 0.94, short = h * 0.74;
+    const links = [[h * 0.30, h * 0.355], [h * 0.60, h * 0.655]];
+    const CHROME = hfChrome([102, 118, 134], [242, 248, 252], 1.8), CHROME_TOP = hfChrome([112, 128, 144], [206, 220, 230], 1.3);
+    drawFacetDrum(ctx, cam, dx, dy, 0, podium, fh * 1.00, fh * 0.96, 18, alpha, hfChrome([116, 132, 148], [230, 240, 248], 1.8), hfChrome([124, 140, 156], [202, 216, 226], 1.4), 'ty_hf_deck');
+    for (const [i, [u, top]] of [[-0.52, tall], [0.52, short]].entries()) {
+      const [tx, ty2] = F(u * fh, 0);
+      drawFacetDrum(ctx, cam, tx, ty2, podium, top, fh * 0.44, fh * 0.38, 16, alpha, hfGlass(night), null, pal);
+      drawFacetDrum(ctx, cam, tx, ty2, top, top + h * 0.025, fh * 0.42, fh * 0.30, 16, alpha, CHROME, CHROME_TOP, 'ty_hf_chrome');
+      if (night) helixRunner(ctx, cam, tx, ty2, podium, top - h * 0.02, fh * 0.45, fh * 0.39, 1.6, 0.7854 + i * 3.14, 24, '74,168,255', night, alpha);
+    }
+    // The tall shaft's spike, which puts it a step clear of the short one from any side.
+    { const [tx, ty2] = F(-0.52 * fh, 0);
+      drawFacetDrum(ctx, cam, tx, ty2, tall + h * 0.025, tall + h * 0.10, fh * 0.14, fh * 0.02, 10, alpha, CHROME, null, 'ty_hf_chrome_dk');
+      if (night) blinkLight(ctx, cam, tx, ty2, tall + h * 0.10, '255,90,120', now, seed + 4, alpha, 1.5); }
+    { const [tx, ty2] = F(0.52 * fh, 0);
+      if (night) blinkLight(ctx, cam, tx, ty2, short + h * 0.025, '255,90,120', now, seed + 5, alpha, 1.3); }
+    // The links: a glazed box with a chrome band over and under.
+    for (const [j, [z0, z1]] of links.entries()) {
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.54, z0, z1, pal, seed + 8 + j, night, alpha, false, faceYaw(E), fh * 0.22);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.56, z1, z1 + h * 0.012, 'ty_hf_chrome', seed + 12 + j, night, alpha, true, faceYaw(E), fh * 0.24);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.56, z0 - h * 0.012, z0, 'ty_hf_chrome', seed + 16 + j, night, alpha, true, faceYaw(E), fh * 0.24);
+      if (night) glowPool(ctx, cam, dx, dy, (z0 + z1) / 2, '176,232,255', 12, alpha * 0.28);
+    }
+    // The entrance, between the towers at ground level.
+    { const [cx1, cy1] = F(0, fh * 0.76);
+      drawFacetDrum(ctx, cam, cx1, cy1, h * 0.032, h * 0.040, fh * 0.40, fh * 0.40, 14, alpha, hfChrome([122, 138, 152], [242, 248, 252], 1.7), hfChrome([132, 148, 162], [214, 228, 236], 1.3), 'ty_hf_ice');
+      if (night) glowPool(ctx, cam, cx1, cy1, h * 0.02, '206,238,255', 13, alpha * 0.28); }
+  },
+  hf_highsite(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // 7 VETCH MEWS: the estate's tallest building site. Clad to
+    // halfway, bare floor plates above that, a climbing crane out of the core and a hoist up the
+    // side. ⚠ IT STAYS DARK, as `shell_tower` says every shell must: work lamps and aviation
+    // lights only. From the stands it's a black lattice against the lit towers either side.
+    const podium = h * 0.035, clad = h * 0.50, top = h * 0.90, mastTop = h * 1.10;
+    drawFacetDrum(ctx, cam, dx, dy, 0, podium, fh * 0.96, fh * 0.92, 16, alpha, hfChrome([104, 118, 132], [214, 226, 236], 1.8), hfChrome([112, 126, 140], [190, 204, 214], 1.4), 'ty_hf_deck');
+    drawFacetDrum(ctx, cam, dx, dy, podium, clad, fh * 0.74, fh * 0.70, 16, alpha, hfGlass(night), null, pal);
+    drawFacetDrum(ctx, cam, dx, dy, clad, top, fh * 0.30, fh * 0.27, 12, alpha, hfChrome([74, 88, 102], [196, 210, 222], 2.1), hfChrome([80, 94, 108], [178, 190, 202], 1.4), 'ty_hf_chrome_dk');
+    const PLATES = 14;
+    for (let i = 0; i <= PLATES; i++) {
+      const z = clad + (top - clad) * (i / PLATES);
+      drawFacetDrum(ctx, cam, dx, dy, z, z + h * 0.007, fh * 0.70, fh * 0.70, 16, alpha, hfChrome([92, 102, 112], [178, 190, 200], 1.5), hfChrome([98, 108, 118], [162, 174, 184], 1.2), 'ty_hf_slab');
+    }
+    // The hoarding round the foot, and the hoist tower up the side to the top plate.
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, 0, h * 0.03, 'ty_hf_ice', seed + 2, night, alpha, true, faceYaw(E), fh * 0.98);
+    const [hx1, hy1] = F(fh * 0.82, -fh * 0.10);
+    draw3DBoxAt(ctx, cam, hx1, hy1, fh * 0.07, 0, top + h * 0.02, 'ty_junk_crane', seed + 30, night, alpha, true, faceYaw(E), fh * 0.07);
+    // The climbing crane, out of the core. Only the mast and its collar are mass; what turns is
+    // strokes, for the reason on `hf_climber`.
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.07, top, mastTop, 'ty_junk_crane', seed + 41, night, alpha, true, faceYaw(E));
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.13, top, top + h * 0.02, 'ty_hf_slab', seed + 42, night, alpha, true, faceYaw(E));
+    { const ph = motionPhase(now, seed + 25, 52000, 0.34), u = ph < 0 ? 0 : ph;
+      let slew = moveSeg(u, 0.00, 0.20, 0, 0.80);
+      slew = moveSeg(u, 0.62, 0.82, slew, -0.40);
+      slew = moveSeg(u, 0.92, 1.00, slew, 0);
+      let hk = moveSeg(u, 0.20, 0.36, 0.86, 0.10);
+      hk = moveSeg(u, 0.44, 0.60, hk, 0.86);
+      const REACH = Math.min(Math.max(fh * 1.30, h * 0.22), 2.0);
+      const th = Math.PI / 2 + slew, ct = Math.cos(th), st = Math.sin(th);
+      const at = (r) => F(ct * r, st * r);
+      const thW = th + faceYaw(E);
+      const jibZ0 = mastTop - h * 0.015, jibZ1 = jibZ0 - REACH * 0.14, RISE = REACH * 0.08;
+      const tip = at(REACH), heel = at(REACH * 0.10), tail = at(-fh * 0.55);
+      movingBox(ctx, cam, dx, dy, mastTop, mastTop + fh * 0.24, fh * 0.24, fh * 0.16, [176, 150, 62], alpha, night, thW);
+      latticeBoom(ctx, cam, [heel[0], heel[1], jibZ0], [tip[0], tip[1], jibZ1], RISE,
+        Math.round(clamp(REACH / 0.22, 5, 12)), 2.2, 'rgba(126,134,146,0.95)', alpha, night);
+      emitWire(ctx, cam, [tail[0], tail[1], mastTop + fh * 0.22], [tip[0], tip[1], jibZ1 + RISE], 1.1, 'rgba(70,76,84,0.9)', alpha, { pull: 0 });
+      const car = at(REACH * 0.72), carZ = jibZ0 + (jibZ1 - jibZ0) * 0.72;
+      const hookZ = top + (carZ - fh * 0.24 - top) * hk;
+      hoistLine(ctx, cam, car[0], car[1], carZ - fh * 0.08, hookZ, fh, alpha, night,
+        u > 0.30 && u < 0.72 ? { h: fh * 0.22, hx: fh * 0.11, hy: fh * 0.10, rgb: [150, 156, 166] } : null, thW);
+      blinkLight(ctx, cam, tip[0], tip[1], jibZ1 + RISE, '255,90,70', now, seed + 26, alpha, 1.5); }
+    blinkLight(ctx, cam, dx, dy, mastTop + fh * 0.24, '255,80,80', now, seed, alpha, 1.8);
+    if (night) {
+      glowPool(ctx, cam, dx, dy, top + h * 0.01, '255,226,176', 9, alpha * 0.22);
+      glowPool(ctx, cam, hx1, hy1, clad, '255,226,176', 6, alpha * 0.18);
+    }
   },
   sentinel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Coldwater Sentinel — a narrow storefront newsroom under a guyed press mast, its window a wall of feed-screens
     const body = h * 1.02;

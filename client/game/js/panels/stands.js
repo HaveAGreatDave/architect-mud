@@ -53,20 +53,40 @@ function plan(sport) {
   };
 }
 
+// The marks pushed apart until none overlaps: two sections whose eyes are a few feet apart (the
+// Diamond Club in front of Behind the Plate) would otherwise draw one circle on top of the other.
+// Only the drawing moves; the seats stay where their eyes are.
+function spread(pts, gap) {
+  const out = pts.map(([x, y]) => [x, y]);
+  for (let pass = 0; pass < 60; pass++) {
+    let moved = false;
+    for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) {
+      const dx = out[j][0] - out[i][0], dy = out[j][1] - out[i][1], d = Math.hypot(dx, dy);
+      if (d >= gap) continue;
+      const ux = d > 1e-6 ? dx / d : 1, uy = d > 1e-6 ? dy / d : 0, push = (gap - d) / 2 + 0.01;
+      out[i][0] -= ux * push; out[i][1] -= uy * push; out[j][0] += ux * push; out[j][1] += uy * push;
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  return out.map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10]);
+}
+
 let chartEl = null;
 export function openStandsChart(msg) {
   ensureStyles();
   closeStandsChart();
-  const P = plan(msg.sport), [bx, by, bw, bh] = P.box;
-  const marks = (msg.sections || []).map((c) => {
-    const [x, y] = P.at(c.eye), r = msg.sport === 'hockey' ? 11 : 20, mine = c.id === msg.seated;
+  const P = plan(msg.sport), [bx, by, bw, bh] = P.box, r = msg.sport === 'hockey' ? 11 : 20;
+  const at = spread((msg.sections || []).map((c) => P.at(c.eye)), r * 2 + 3);
+  const marks = (msg.sections || []).map((c, i) => {
+    const [x, y] = at[i], mine = c.id === msg.seated || c.held;
     return `<g class="st-sec${mine ? ' mine' : ''}" data-id="${esc(c.id)}" tabindex="0" role="button" aria-label="${esc(c.name)}, ₵${c.price}">`
       + `<circle cx="${x}" cy="${y}" r="${r}"/><text x="${x}" y="${y + r * 0.35}" font-size="${r}">₵${c.price}</text></g>`;
   }).join('');
   const rows = (msg.sections || []).map((c) => {
-    const poor = (msg.credits | 0) < (c.price | 0), mine = c.id === msg.seated, full = c.free === 0;
+    const poor = (msg.credits | 0) < (c.price | 0), mine = c.id === msg.seated || c.held, full = c.free === 0;
     return `<li data-id="${esc(c.id)}"><span class="st-name">${esc(c.name)}</span><span class="st-note">${esc(c.note)}</span>`
-      + `<button type="button" data-id="${esc(c.id)}" ${!msg.live || poor || mine || full ? 'disabled' : ''}>${mine ? 'Your seat' : full ? 'Sold out' : `₵${c.price}`}</button></li>`;
+      + `<button type="button" data-id="${esc(c.id)}" ${!msg.live || poor || mine || full ? 'disabled' : ''}>${mine ? (c.box ? 'Your ticket' : 'Your seat') : full ? 'Sold out' : `₵${c.price}`}</button></li>`;
   }).join('');
   chartEl = document.createElement('div');
   chartEl.id = 'stands-chart';
@@ -77,7 +97,7 @@ export function openStandsChart(msg) {
     <svg viewBox="${bx} ${by} ${bw} ${bh}" class="st-plan" aria-hidden="true">${P.ice}${marks}</svg>
     <ul class="st-list">${rows}</ul></div>`;
   document.body.appendChild(chartEl);
-  const buy = (id) => { const c = msg.sections.find((s) => s.id === id); if (!c || !msg.live || c.id === msg.seated || c.free === 0 || (msg.credits | 0) < (c.price | 0)) return; closeStandsChart(); sendCmd(`stands ${id}`); };
+  const buy = (id) => { const c = msg.sections.find((s) => s.id === id); if (!c || !msg.live || c.id === msg.seated || c.held || c.free === 0 || (msg.credits | 0) < (c.price | 0)) return; closeStandsChart(); sendCmd(`stands ${id}`); };
   chartEl.querySelector('.st-x').addEventListener('click', closeStandsChart);
   chartEl.addEventListener('click', (e) => { if (e.target === chartEl) closeStandsChart(); });
   chartEl.querySelectorAll('button[data-id]').forEach((b) => b.addEventListener('click', () => buy(b.dataset.id)));

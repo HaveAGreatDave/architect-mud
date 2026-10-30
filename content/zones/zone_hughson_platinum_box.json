@@ -24,7 +24,7 @@
         {
           "id": "platinum",
           "name": "The Platinum Box",
-          "price": 0,
+          "price": 150,
           "eye": [
             -139.76,
             42.35,
@@ -51,7 +51,8 @@
           }
         }
       ]
-    }
+    },
+    "ticketed": "zone_hughson_platinum_box"
   },
   "grid_x": 0,
   "grid_y": 0,

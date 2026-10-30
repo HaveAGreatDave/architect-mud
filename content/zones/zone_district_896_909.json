@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#15222d",
   "color": "#9fe0ff",
-  "description": "The crescent's twin, one storey shorter and curved the other way, so that where it meets its neighbour the two arcs make a shallow bowl of paving between them that the estate calls a square and nobody else calls anything. The whole ground floor is a physiotherapy practice, with a skeleton in the window wearing a back brace.",
+  "description": "The crescent's twin, two storeys shorter and curved the other way, so that where it meets its neighbour the two arcs make a shallow bowl of paving between them that the estate calls a square and nobody else calls anything. The whole ground floor is a physiotherapy practice, with a skeleton in the window wearing a back brace.",
   "exits": {
     "north": "zone_hf_bent_front",
     "south": "zone_district_896_910"
@@ -14,7 +14,7 @@
     "district": "halcyon_fields",
     "entrance": "south",
     "facade": true,
-    "floors": 8,
+    "floors": 18,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_896_910"
