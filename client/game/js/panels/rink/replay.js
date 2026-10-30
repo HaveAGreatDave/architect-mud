@@ -25,8 +25,19 @@ const HZ = 30, KEEP = 10;
 
 // THE X-RAY CUT (gl/arena-xray.js draws it). A clip played with `xray` slows from its own
 // speed to SLOW over EASE replay seconds either side of the window round the impact, and
-// the X-ray fades in as it gets there and out after the break.
+// the X-ray fades in as it gets there and out after the break. Both hold until he's on the
+// ice: his chest and pelvis under DOWN_Z, found in the clip itself (`landAt`), or `after`
+// past the impact when the clip ends with him still up.
 const XR = { slow: 0.16, before: 0.25, after: 0.5, ease: 0.2, kIn: [-0.55, -0.3], kOut: [0.55, 0.8] };
+const DOWN_Z = 1.2;
+function landAt(F, X) {
+  for (const f of F) {
+    if (f.t < X.t) continue;
+    const b = f.bodies.find((q) => q.seed === X.seed && q.side === X.side);
+    if (b && b.J[0] && b.J[1] && b.J[0][2] < DOWN_Z && b.J[1][2] < DOWN_Z) return f.t - X.t;
+  }
+  return 0;
+}
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export function createReplay(W) {
@@ -104,7 +115,9 @@ export function createReplay(W) {
     if (!clip || clip.to - clip.from < 1) return false;
     R.clip = clip.frames; R.from = clip.from; R.to = clip.to; R.rt = R.from; R.speed = speed;
     R.active = true; R.count++; R.kind = 'hit'; R.follow = follow; src.label = label;
-    R.xray = xray; src.xray = xray ? { ...xray, k: 0, d: R.from - xray.t } : null;
+    // (`hold`: how much later than `after` he lands, which pushes the slow-motion and the fade out back)
+    R.xray = xray ? { ...xray, hold: Math.max(0, landAt(clip.frames, xray) + 0.1 - XR.after) } : null;
+    src.xray = R.xray ? { ...R.xray, k: 0, d: R.from - xray.t } : null;
     src.cam.cut++; src.cam.since = 0;
     return true;
   };
@@ -112,7 +125,8 @@ export function createReplay(W) {
   // the speed at replay time `rt`: its own, or slowed round an X-ray's impact
   const rate = (rt) => {
     if (!R.xray) return R.speed;
-    const d = rt - R.xray.t, w = smooth(-XR.before - XR.ease, -XR.before, d) * (1 - smooth(XR.after, XR.after + XR.ease, d));
+    const d = rt - R.xray.t, a = XR.after + R.xray.hold;
+    const w = smooth(-XR.before - XR.ease, -XR.before, d) * (1 - smooth(a, a + XR.ease, d));
     return R.speed + (XR.slow - R.speed) * w;
   };
   // world seconds until it ends by itself
@@ -178,7 +192,7 @@ export function createReplay(W) {
     // the X-ray: how strong, how far past the impact, and the camera in close on the bone
     if (src.xray) {
       const X = src.xray, d = R.rt - X.t;
-      X.d = d; X.k = smooth(XR.kIn[0], XR.kIn[1], d) * (1 - smooth(XR.kOut[0], XR.kOut[1], d));
+      X.d = d; X.k = smooth(XR.kIn[0], XR.kIn[1], d) * (1 - smooth(XR.kOut[0] + X.hold, XR.kOut[1] + X.hold, d));
       const xb = bodies.find((q) => q.seed === X.seed && q.side === X.side), j = xb && xb._J[XRAY_FOCUS[X.bone] ?? 1];
       if (j) src.cam.focus = [lerp(src.cam.focus[0], j[0], X.k), lerp(src.cam.focus[1], j[1], X.k)];
       src.cam.mode = 'xray'; src.cam.xk = X.k; src.cam.xz = j ? j[2] : 2;

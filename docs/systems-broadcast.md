@@ -2001,7 +2001,8 @@ games that aired under v2 still replay that way.
 
 **The X-ray replay.** A hit, a fight or a death that puts a man out for `XRAY_SLOTS` (8) or more, or
 kills him, is run back once he's down (`D.xrayPending` in rink/director.js), seen or not. The
-replay slows to 0.16 round the impact and GLASS 2 sees through him: the picture darkened and blued,
+replay slows to 0.16 round the impact and holds the slow-motion and the X-ray until he's on the
+ice (`landAt` in rink/replay.js), and GLASS 2 sees through him: the picture darkened and blued,
 his flesh a faint shell, his skeleton lit, and the bone the hit picked (`xrayBone`, `fightBone`)
 breaking, with chips thrown off it ([gl/arena-xray.js](../client/game/js/panels/gl/arena-xray.js)).
 The viewer's gore button (`rinkXrayGore` in this browser) sets how much: `full` adds his organs

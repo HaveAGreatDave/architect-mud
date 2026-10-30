@@ -265,7 +265,7 @@ export function createDirector(W, opts = {}) {
     const X = D.xrayPending;
     if (X && !D.hitShow && !replay.active && W.t >= X.startAt) {
       D.xrayPending = null;
-      const clip = replay.save(X.t - 1.4, X.t + 1.1);
+      const clip = replay.save(X.t - 1.4, X.t + 3.0);
       if (clip) { D.hitClip = null; D.hitShow = { phase: 'in', at: W.t + WIPE / 2, clip, follow: X.follow, label: X.label, speed: 0.6, xray: X.xray }; wipe(); }
     }
     if (D.hitShow && D.hitShow.xray && D.hitShow.phase === 'on' && replay.active) {
@@ -2022,7 +2022,7 @@ export function createDirector(W, opts = {}) {
       D.xrayPending = null;
       if (hurt && (fatal || (p.slotsOut || 0) >= XRAY_SLOTS) && (W.xrayGore || 'full') !== 'off') {
         D.hitPending = null;
-        D.xrayPending = { t: W.t, startAt: W.t + (fatal ? 4.5 : 2.4), follow: { seed: victim.seed, side: victim.side },
+        D.xrayPending = { t: W.t, startAt: W.t + (fatal ? 4.5 : 3.2), follow: { seed: victim.seed, side: victim.side },
           label: `${String(hitter.name || '').toUpperCase()} ON ${String(victim.name || '').toUpperCase()}`,
           xray: { t: W.t, bone: xrayBone(p, style, fatal, victim), seed: victim.seed, side: victim.side, dead: !!fatal } };
       }
