@@ -104,7 +104,8 @@ export function drawRodRig(ctx, cam, v, now, env = {}) {
     else sol = AN.solveAngler(P);
     // The line pulls the rod toward the water out in front of him, and to the side the fish runs.
     const pull = [-(R.pull || 0) * 0.7, -0.45, 1];
-    const rod = sol.J && AN.rodPoints(sol.J, pull, R.bend || 0, 10);
+    // The skiff's pilot (boat-view.js pilotView) is the man without the rod.
+    const rod = !R.pilot && sol.J && AN.rodPoints(sol.J, pull, R.bend || 0, 10);
     if (rod) {
       butt = toWorld(rod[0]); tip = toWorld(rod[rod.length - 1]);
       if (chase) drawRodStrokes(ctx, cam, rod.map((p) => toWorld(p)), v);
@@ -114,6 +115,7 @@ export function drawRodRig(ctx, cam, v, now, env = {}) {
   }
   // Without the angler (still loading, or GLASS 1 from the seat): the line leaves from where his
   // rod tip would be, out in front of the seat.
+  if (R.pilot) return;
   if (!tip) tip = chase ? toWorld([0, 6.2, 5.5]) : toWorld([0, 4.6, 6.4]);
 
   // ── the landing ring ─────────────────────────────────────────────────────────────────────────

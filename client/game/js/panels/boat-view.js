@@ -945,6 +945,14 @@ function enterRod(now) {
   hostReel();
   if (st.external) { boatFrame('rod', 750); R.camAt = now + 800; }
 }
+// The skiff's pilot in the chase view: rod mode's angler sat facing the bow. Only the open skiff
+// shows one; a pilothouse hides whoever's at the wheel.
+function pilotView(now) {
+  if (!st.external || st.typeId !== 'skiff') return {};
+  if (!ANG) { loadAngler(); return {}; }
+  if (!st.pilotAnim) st.pilotAnim = ANG.newAnim(now);
+  return { rod: { typeId: st.typeId, bearing: 0, anim: st.pilotAnim, look: st.angLook, pilot: true } };
+}
 function leaveRod() {
   const R = st.rod;
   R.on = false; R.anim = null; R.charging = false; R.keys.clear();
@@ -1587,7 +1595,9 @@ function frame(now) {
         anchored: !!st.anchored, lamp: !!st.lamp, boxOpen: !!st.boxOpen, choke: !!st.choke, prime: primeLevel(), rod: rodOn(),
       },
       // Rod mode's angler, rod, line, lure and ring (glass/rod-rig.js).
-      ...(st.rodView ? { rod: st.rodView } : {}),
+      // Out of rod mode, the Keel's chase view still has somebody in her: the same man on the same
+      // thwart in the sitting clip, with no rod (rod-rig.js `pilot`).
+      ...(st.rodView ? { rod: st.rodView } : pilotView(now)),
     });
     drawRead();
 
