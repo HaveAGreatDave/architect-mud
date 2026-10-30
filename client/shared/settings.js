@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'off', glass: '2', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'off', glass: '2', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', standsBooth: 'off', audio: DEFAULT_AUDIO_SETTINGS };
 
 // ── The accessibility surface, declared once ─────────────────────────────────
 //
@@ -77,6 +77,11 @@ export const A11Y_OPTIONS = [
     key: 'playByPlay', label: 'Play by Play', verb: 'plays',
     why: "While you watch Deadball on a TV, each pitch is written out for your screen reader as it's thrown, with the commentator's line as each play lands and the words and cards that go up over the picture. Off leaves the commentator's line and the score where you can read them, and stops them being announced. Nothing on screen changes either way.",
     opts: [{ v: 'on', t: 'On' }, { v: 'off', t: 'Off' }],
+  },
+  {
+    key: 'standsBooth', label: 'Booth in the Stands', verb: 'booth',
+    why: "When you have a seat at a game, the broadcast booth's calls are read aloud in the voice the TV uses, as if you'd brought a radio. Off leaves them as captions under the picture. The TV volume slider sets how loud it is.",
+    opts: [{ v: 'off', t: 'Off' }, { v: 'on', t: 'On' }],
   },
   {
     key: 'uiSound', label: 'Interface Sounds', verb: 'clicks',
@@ -192,6 +197,12 @@ export function prefersReducedMotion() {
 // off. Like prefersReducedMotion, read when asked and never cached.
 export function playByPlayOn() {
   try { return document.documentElement.getAttribute('data-play-by-play') !== 'off'; } catch { return true; }
+}
+
+// Booth in the Stands: whether a seat at a game reads the booth's calls aloud. Off unless switched
+// on; read per line, never cached.
+export function standsBoothOn() {
+  try { return document.documentElement.getAttribute('data-stands-booth') === 'on'; } catch { return false; }
 }
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
@@ -462,6 +473,8 @@ export function applySettings(settings) {
   window._applyUiSound?.(settings.uiSound || 'on');
   // Play by Play: whether a sports broadcast's live picture announces each pitch (playByPlayOn).
   document.documentElement.setAttribute('data-play-by-play', settings.playByPlay || 'on');
+  // Booth in the Stands: the seat reads the booth's calls aloud (standsBoothOn).
+  document.documentElement.setAttribute('data-stands-booth', settings.standsBooth || 'off');
   // Read Aloud. Rate first, so a mode change never speaks its first line at the
   // old speed.
   window._applyLogVoiceRate?.(settings.logVoiceRate || '1');

@@ -8,13 +8,16 @@
 //
 // The seat takes the channel's lines and overlays as one more TV view (tv.js addTvView), so the
 // game is the broadcast's game and nothing here can change a score. The booth's words run under
-// the picture as captions; nobody reads them aloud, because you're in the crowd, not the booth.
+// the picture as captions, read aloud only with Booth in the Stands on (standsBoothOn), as if
+// you'd brought a radio. The voice goes through AudioEngine.speak on the tv channel, queued so a
+// call never cuts the last one off; it never touches the room's sound.
 
 import { sendCmd, sendRaw } from '../net.js';
 import { loadCss } from '../../../shared/dom.js';
 import { addTvView } from './tv.js';
 import { wantClubs } from './club-crest.js';
 import { wantVenue, venueOf } from './venue.js';
+import { standsBoothOn } from '../../../shared/settings.js';
 
 const CSS = await loadCss(new URL('./stands.css', import.meta.url));
 function ensureStyles() {
@@ -200,14 +203,28 @@ export async function openStands(msg) {
       if (ov.overlayType === 'gameday') { ui.got = true; view.apply(ov); }
       else if (ov.overlayType === 'sportsfx' && ov.kind !== 'pregame' && ov.kind !== 'package') view.showCard(ov);
     },
-    appendMessage(text, style, duration, hasGameday) {
+    appendMessage(text, style, duration, hasGameday, catchUp, dl) {
       if (style === 'svg' || style === 'ticker') return;
       const plain = String(text || '').replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
-      if (plain) view.setCaption(plain, { held: !!hasGameday, ...(hasGameday === 'call' ? { call: true } : {}) });
+      // the line's voice starts when the view shows it (a call waits for its play to land); a
+      // catch-up line is already part-way through airing, so it's shown and never said
+      const speak = !catchUp && plain && standsBoothOn() ? () => sayBooth(plain, duration, dl) : null;
+      if (plain) view.setCaption(plain, { who: dl?.speaker, held: !!hasGameday, ...(speak ? { speak } : {}), ...(hasGameday === 'call' ? { call: true } : {}) });
     },
     showOffAir() { if (ui.got) view.setCaption('That’s the game. The crowd heads for the doors.', {}); },
     showOnAir() {}, updateTicker() {}, speak() {}, setProgramName() {}, renderSchedule() {}, renderStandings() {},
   });
+}
+
+// The booth's line in the TV's voice: a "Name says" line seeds off that name, as tv.js does, and
+// anything else off whoever the broadcast says is on the mic.
+function sayBooth(plain, duration, dl) {
+  if (!standsBoothOn()) return;
+  const said = /^(.+?) says, "([\s\S]*)"$/.exec(plain);
+  const speech = said ? said[2] : plain;
+  if (!speech) return;
+  const { speaker, crowd, ...how } = dl || {};
+  window.AudioEngine?.speak(speech, { seed: said ? said[1] : (speaker || 'broadcast'), queue: true, ...(duration > 0.5 ? { budget: duration } : {}), ...how });
 }
 
 export function closeStands() {

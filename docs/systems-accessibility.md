@@ -50,6 +50,13 @@ announcing; the score and the booth's line are still there to read, and nothing 
 changes. The full rules for the broadcast are in
 [systems-broadcast.md](systems-broadcast.md#the-park-in-3-d-the-grandstand).
 
+**Booth in the Stands** (`accessibility booth on|off`, off by default) reads the broadcast booth's
+calls aloud while you sit in a seat at a game, hockey or Deadball, in the same voice and seed the TV
+uses. It sets `data-stands-booth`; [stands.js](../client/game/js/panels/stands.js) checks
+`standsBoothOn()` per line and hands the view a `speak` thunk, so a call starts when its play lands.
+The line goes to `AudioEngine.speak` with `queue: true` on the tv channel, under the TV switch and
+slider. Catch-up lines are shown, never said.
+
 **Hold to confirm** (`holdToConfirm` in [confirm.js](../client/game/js/panels/confirm.js)) guards the
 choices that can't be undone: selling or handing back an aircraft, `drop all` (the server's confirm
 carries `hold: true`) and the sign-out danger dialog. The button fills as it's held and fires when
