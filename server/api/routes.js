@@ -3019,6 +3019,32 @@ async function apiDeleteScriptTrigger(id) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 
+// --- Storylines (Story Map lanes; panels/story-map.js) ---
+// Pure framing for the dev panel: nothing in the game reads the table. PUT
+// upserts, so the panel needs no separate create.
+async function apiGetStorylines() {
+  const {rows}=await query('SELECT * FROM storylines ORDER BY sort_order, name');
+  return {status:200,body:rows};
+}
+async function apiPutStoryline(id,body) {
+  if(!/^[a-z0-9_]+$/.test(id||'')) return {status:400,body:{error:'id must be lowercase letters, digits and _'}};
+  const nodes=(Array.isArray(body.nodes)?body.nodes:[])
+    .filter(n=>n&&typeof n.ref==='string').map(n=>({ref:n.ref,x:Number(n.x)||0}));
+  try {
+    await query(`INSERT INTO storylines (id,name,color,sort_order,collapsed,nodes,notes)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7)
+                 ON CONFLICT (id) DO UPDATE SET name=$2,color=$3,sort_order=$4,collapsed=$5,nodes=$6,notes=$7`,
+      [id,String(body.name||id),String(body.color||'#c9a227'),Number(body.sort_order)||0,!!body.collapsed,JSON.stringify(nodes),String(body.notes||'')]);
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiDeleteStoryline(id) {
+  try {
+    await query('DELETE FROM storylines WHERE id=$1',[id]);
+    return {status:200,body:{message:'Deleted'}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
 // --- Unrest incidents (authored catalogue for plugins/unrest) ---
 // Ordinary staged content CRUD, exactly like script_triggers. ⚠ The engine cannot
 // import a plugin, so nothing here reloads the plugin's in-memory catalogue — the

@@ -84,7 +84,7 @@ const URLSEG_TABLE = {
   drugs: 'drugs', mutations: 'mutations', recipes: 'recipes', scripts: 'scripts',
   doors: 'doors', sounds: 'sounds', spawns: 'zone_spawns',
   'scavenging-tables': 'scavenging_tables', 'ambient-events': 'global_ambient_events',
-  maps: 'maps',
+  maps: 'maps', storylines: 'storylines',
 };
 // Dialogue/behaviour graph PATCHes (/<seg>/:id/graph) mutate a content column.
 const GRAPH_TABLE = { enemies: 'enemies', npcs: 'npcs', broadcasts: 'media_broadcasts' };

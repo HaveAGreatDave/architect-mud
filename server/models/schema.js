@@ -1555,6 +1555,20 @@ export const SCHEMA_SQL = `
   -- references quests (CONTEXT.md). 'objectives' is a JSONB array of
   --   { type: 'kill'|'give'|'visit', target?, item_id?, zone?, count?, desc }
   -- and 'rewards' is { credits?, items?:[{item_id,quantity}], flags?:[{scope,flag,value}] }.
+  -- Story Map lanes (dev panel, panels/story-map.js). A lane frames quests and
+  -- NPCs in the order a player meets them; it carries no game logic, and
+  -- nothing in the game reads it. nodes is [{ ref, x }]: ref a quest or NPC id,
+  -- x its column. An NPC may appear in several lanes.
+  CREATE TABLE IF NOT EXISTS storylines (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    color TEXT NOT NULL DEFAULT '#c9a227',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    collapsed BOOLEAN NOT NULL DEFAULT false,
+    nodes JSONB NOT NULL DEFAULT '[]',
+    notes TEXT NOT NULL DEFAULT ''
+  );
+
   CREATE TABLE IF NOT EXISTS quests (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,

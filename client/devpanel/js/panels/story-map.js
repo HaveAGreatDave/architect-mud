@@ -1,25 +1,26 @@
-// Story Map: every quest on one canvas, laid out by what unlocks what.
+// Story Map: every quest on one canvas, laid out by what unlocks what, in
+// lanes you can name and order (storylines table, content/storylines/).
 //
-// Read-only. The graph comes from buildStoryGraph (client/shared/story-graph.js,
-// the same builder scripts/content/story-report.mjs prints) over the rows the
-// VINE Suite reads, so there's nothing here to keep in sync. Lanes are
-// horizontal bands (quest-id prefix, else the giver); left to right is how many
-// 'precedes' steps deep a quest sits.
+// The map never edits story; the only thing it writes is storyline rows. The
+// graph comes from buildStoryGraph (client/shared/story-graph.js, the same
+// builder scripts/content/story-report.mjs prints) over the rows the VINE Suite
+// reads, so there's nothing here to keep in sync. Your lanes come first, in your
+// order; unplaced quests fall into derived lanes (quest-id prefix, else the
+// giver), left to right by how many 'precedes' steps deep they sit.
 //
 //   drag            pan            wheel         zoom
 //   click a quest   focus: dim all but what unlocks it and what it unlocks
-//   double-click    open the quest's objective graph in VINE
+//   double-click    open the quest (or an NPC card's dialogue) in VINE
 //   alt-click       what-if cut: mark it removed and show what breaks in red
-//
-// Clicking a giver or turn-in NPC in the side panel opens their dialogue tree.
+//   click a lane's name (one you made)   edit it in the side panel
 
-let _sm = null; // { graph, hidden:Set, focus, cut:Set, view:{x,y,k}, layout }
+let _sm = null; // { data, graph, hidden:Set, focus, laneSel, cut:Set, view:{x,y,k}, layout }
 
 const SM_CARD_W = 180, SM_CARD_H = 38, SM_COL = 230, SM_ROW = 50, SM_LANE_PAD = 18, SM_LABEL_W = 170;
 
 async function fetchStoryMap() {
-  const [npcs, scripts, quests, triggers, jobBoards] = await Promise.all([
-    directAPI('/npcs'), API('/scripts'), API('/quests'), API('/script-triggers'), API('/job-boards'),
+  const [npcs, scripts, quests, triggers, jobBoards, storylines] = await Promise.all([
+    directAPI('/npcs'), API('/scripts'), API('/quests'), API('/script-triggers'), API('/job-boards'), API('/storylines'),
   ]);
   const arr = (v) => (Array.isArray(v) ? v : []);
   const parse = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v); } catch { return null; } };
@@ -29,6 +30,7 @@ async function fetchStoryMap() {
     quests: arr(quests).map((q) => ({ ...q, rewards: parse(q.rewards) })),
     triggers: arr(triggers).map((t) => ({ ...t, params: parse(t.params) })),
     jobBoards: arr(jobBoards).map((b) => ({ ...b, quest_pool: parse(b.quest_pool) })),
+    storylines: arr(storylines).map((s) => ({ ...s, nodes: parse(s.nodes) || [] })),
   };
 }
 
@@ -149,17 +151,52 @@ function _smWhatIf(g, cutIds) {
   return { broken, stranded };
 }
 
+// ── Authored lanes ──
+// A storyline row is a lane you name and order yourself: { id, name, color,
+// sort_order, notes, nodes: [{ ref, x }] }, ref a quest or NPC id and x its
+// column. A quest lives in one authored lane at most and leaves its derived
+// lane when placed; an NPC can sit in any number of lanes, each a separate
+// card. Everything not placed stays in the derived lanes below.
+function _smApplyStorylines(g, rows) {
+  const authored = [];
+  for (const row of rows.slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.name.localeCompare(b.name))) {
+    const key = 'sl:' + row.id;
+    const placed = (row.nodes || []).filter((p) => p && p.ref).sort((a, b) => a.x - b.x);
+    for (const p of placed) {
+      const q = g.nodes.get(p.ref);
+      if (q?.type !== 'quest' || q.lane?.startsWith('sl:')) continue;
+      const old = g.lanes.get(q.lane);
+      if (old) { old.nodes = old.nodes.filter((id) => id !== q.id); if (!old.nodes.length) g.lanes.delete(q.lane); }
+      q.lane = key;
+    }
+    authored.push({ id: key, row, name: row.name, color: row.color, authored: true, placed,
+      nodes: placed.filter((p) => g.nodes.get(p.ref)?.lane === key).map((p) => p.ref) });
+  }
+  const derived = [...g.lanes.values()].sort((a, b) =>
+    (a.id === 'unsorted') - (b.id === 'unsorted') || b.nodes.length - a.nodes.length || a.name.localeCompare(b.name));
+  derived.forEach((l, i) => { l.color = _smLaneColor(i); });
+  g.laneOrder = [...authored, ...derived];
+  g.lanes = new Map(g.laneOrder.map((l) => [l.id, l]));
+}
+
+function _smRebuild() {
+  const d = _sm.data;
+  _sm.graph = _smModel(StoryGraph.buildStoryGraph(d));
+  _smApplyStorylines(_sm.graph, d.storylines);
+}
+
 function renderStoryMap(data) {
-  const graph = _smModel(StoryGraph.buildStoryGraph(data));
   const prev = _sm;
   _sm = {
-    graph,
+    data,
     hidden: prev ? prev.hidden : new Set(),
     focus: null,
+    laneSel: null,
     cut: prev ? prev.cut : new Set(),
     view: prev ? prev.view : { x: 0, y: 0, k: 0.8 },
     showFindings: false,
   };
+  _smRebuild();
   const el = document.getElementById('list-panel');
   el.innerHTML = `
     <div class="sm-root">
@@ -168,7 +205,11 @@ function renderStoryMap(data) {
         <svg class="sm-svg" id="sm-svg"><g id="sm-world"></g></svg>
         <div class="sm-side" id="sm-side"></div>
       </div>
-    </div>`;
+    </div>
+    <datalist id="sm-refs"></datalist>`;
+  document.getElementById('sm-refs').innerHTML =
+    [...data.quests.map((q) => [q.id, q.name]), ...data.npcs.map((n) => [n.id, n.name])]
+      .map(([id, name]) => `<option value="${_smEsc(id)}">${_smEsc(name)}</option>`).join('');
   _smBindCanvas();
   _smRenderAll();
 }
@@ -182,34 +223,46 @@ function _smLaneColor(i) {
   return `hsl(${hues[i % hues.length]} 70% 60%)`;
 }
 
-// Lanes sorted by size, Unsorted last; inside a lane, cards stack per column.
+function _smNpcName(id) {
+  return _sm.graph.nodes.get(id)?.name || _sm.data.npcs.find((n) => n.id === id)?.name || id;
+}
+
+// Authored lanes first, in your order, one card per placement. Derived lanes
+// follow, cards stacked per depth column. pos is keyed by quest id, or
+// 'npc:<laneId>:<index>' for an NPC placement.
 function _smLayout() {
   const g = _sm.graph;
-  const lanes = [...g.lanes.values()].sort((a, b) =>
-    (a.id === 'unsorted') - (b.id === 'unsorted') || b.nodes.length - a.nodes.length || a.name.localeCompare(b.name));
   const pos = new Map();
   const bands = [];
   let y = 0;
-  lanes.forEach((lane, i) => {
-    const color = _smLaneColor(i);
-    if (_sm.hidden.has(lane.id)) { bands.push({ lane, color, hidden: true }); return; }
-    const perCol = new Map();
-    const ids = lane.nodes.slice().sort((a, b) => g.nodes.get(a).depth - g.nodes.get(b).depth || a.localeCompare(b));
+  for (const lane of g.laneOrder) {
+    const color = lane.color;
+    if (_sm.hidden.has(lane.id)) { bands.push({ lane, color, hidden: true }); continue; }
     let rows = 1;
-    // A lane with no chain inside it (job boards, flight contracts) is a grid,
-    // not one tall column.
-    const flat = ids.every((id) => g.nodes.get(id).depth === 0);
-    for (const [i, id] of ids.entries()) {
-      const d = flat ? i % 6 : g.nodes.get(id).depth;
-      const r = perCol.get(d) || 0;
-      perCol.set(d, r + 1);
-      rows = Math.max(rows, r + 1);
-      pos.set(id, { x: SM_LABEL_W + d * SM_COL, y: y + SM_LANE_PAD + r * SM_ROW, color });
+    if (lane.authored) {
+      lane.placed.forEach((p, i) => {
+        const at = { x: SM_LABEL_W + i * SM_COL, y: y + SM_LANE_PAD, color, col: i };
+        if (g.nodes.get(p.ref)?.type === 'quest') { if (g.nodes.get(p.ref).lane === lane.id) pos.set(p.ref, at); }
+        else pos.set(`npc:${lane.id}:${i}`, { ...at, npc: p.ref });
+      });
+    } else {
+      const perCol = new Map();
+      const ids = lane.nodes.slice().sort((a, b) => g.nodes.get(a).depth - g.nodes.get(b).depth || a.localeCompare(b));
+      // A lane with no chain inside it (job boards, flight contracts) is a grid,
+      // not one tall column.
+      const flat = ids.every((id) => g.nodes.get(id).depth === 0);
+      for (const [i, id] of ids.entries()) {
+        const d = flat ? i % 6 : g.nodes.get(id).depth;
+        const r = perCol.get(d) || 0;
+        perCol.set(d, r + 1);
+        rows = Math.max(rows, r + 1);
+        pos.set(id, { x: SM_LABEL_W + d * SM_COL, y: y + SM_LANE_PAD + r * SM_ROW, color });
+      }
     }
     const h = SM_LANE_PAD * 2 + rows * SM_ROW - (SM_ROW - SM_CARD_H);
     bands.push({ lane, color, y, h });
     y += h + 6;
-  });
+  }
   return { pos, bands };
 }
 
@@ -241,17 +294,15 @@ function _smRenderAll() {
 
 function _smRenderBar() {
   const g = _sm.graph;
-  const lanes = [...g.lanes.values()].sort((a, b) =>
-    (a.id === 'unsorted') - (b.id === 'unsorted') || b.nodes.length - a.nodes.length || a.name.localeCompare(b.name));
-  const chips = lanes.map((l, i) => `
-    <label class="sm-chip${_sm.hidden.has(l.id) ? ' off' : ''}" style="--lane:${_smLaneColor(i)}">
+  const chips = g.laneOrder.map((l) => `
+    <label class="sm-chip${_sm.hidden.has(l.id) ? ' off' : ''}${l.authored ? ' authored' : ''}" style="--lane:${l.color}">
       <input type="checkbox" ${_sm.hidden.has(l.id) ? '' : 'checked'} onchange="smToggleLane('${_smEsc(l.id)}')">
-      ${_smEsc(l.name)} <span class="sm-n">${l.nodes.length}</span></label>`).join('');
-  const nFind = g.findings.length;
+      ${_smEsc(l.name)} <span class="sm-n">${l.authored ? l.placed.length : l.nodes.length}</span></label>`).join('');
   document.getElementById('sm-bar').innerHTML = `
+    <button class="action-btn primary" onclick="smNewLane()">+ Lane</button>
     <button class="action-btn" onclick="smAllLanes(true)">All</button>
     <button class="action-btn" onclick="smAllLanes(false)">None</button>
-    <button class="action-btn${_sm.showFindings ? ' active' : ''}" onclick="smToggleFindings()">Findings (${nFind})</button>
+    <button class="action-btn${_sm.showFindings ? ' active' : ''}" onclick="smToggleFindings()">Findings (${g.findings.length})</button>
     ${_sm.cut.size ? `<button class="action-btn sm-cutbtn" onclick="smClearCut()">Clear cut (${_sm.cut.size})</button>` : ''}
     <button class="action-btn" onclick="smFit()">Fit</button>
     <span class="sm-chips">${chips}</span>`;
@@ -269,11 +320,14 @@ function _smRenderWorld() {
   const maxX = Math.max(SM_LABEL_W + SM_COL, ...[...pos.values()].map((p) => p.x + SM_CARD_W + 40));
   for (const b of bands) {
     if (b.hidden) continue;
-    svg += `<rect class="sm-band" x="0" y="${b.y}" width="${maxX}" height="${b.h}" style="--lane:${b.color}"/>
-      <text class="sm-band-label" x="10" y="${b.y + 22}" style="fill:${b.color}">${_smEsc(b.lane.name.length > 19 ? b.lane.name.slice(0, 18) + "…" : b.lane.name)}<title>${_smEsc(b.lane.name)}</title></text>`;
+    const nm = b.lane.name.length > 19 ? b.lane.name.slice(0, 18) + '…' : b.lane.name;
+    svg += `<rect class="sm-band${b.lane.authored ? ' authored' : ''}${_sm.laneSel === b.lane.id ? ' sel' : ''}" x="0" y="${b.y}" width="${maxX}" height="${b.h}" style="--lane:${b.color}"/>
+      <text class="sm-band-label${b.lane.authored ? ' authored' : ''}" data-lane="${_smEsc(b.lane.id)}" x="10" y="${b.y + 22}" style="fill:${b.color}">${_smEsc(nm)}<title>${_smEsc(b.lane.name)}${b.lane.authored ? ' (click to edit)' : ' (derived)'}</title></text>`;
   }
 
-  // Unlock edges between visible quests. One edge per pair; its title lists the flags.
+  // Unlock edges between visible quests. One edge per pair; its title lists the
+  // flags. In an authored lane, an edge that runs right to left means the game
+  // lets the player reach a step before one you placed ahead of it: amber.
   const pairs = new Map();
   for (const e of g.edges) {
     if (e.kind !== 'unlocks' || !pos.has(e.from) || !pos.has(e.to)) continue;
@@ -286,26 +340,47 @@ function _smRenderWorld() {
     const x1 = a.x + SM_CARD_W, y1 = a.y + SM_CARD_H / 2, x2 = b.x, y2 = b.y + SM_CARD_H / 2;
     const dx = Math.max(40, Math.abs(x2 - x1) / 2);
     const cross = laneOf(p.from) !== laneOf(p.to);
+    const order = !cross && laneOf(p.from)?.startsWith('sl:') && b.col <= a.col;
     const dim = focusSet && !(focusSet.has(p.from) && focusSet.has(p.to));
     const dead = cut && cut.broken.has(p.from);
-    const cls = `sm-edge${cross ? ' cross' : ''}${dim ? ' dim' : ''}${dead ? ' dead' : ''}${x2 <= x1 ? ' back' : ''}`;
-    svg += `<path class="${cls}" d="M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}"><title>${_smEsc([...p.flags].join(', '))}</title></path>`;
+    const cls = `sm-edge${cross ? ' cross' : ''}${order ? ' order' : ''}${dim ? ' dim' : ''}${dead ? ' dead' : ''}${x2 <= x1 ? ' back' : ''}`;
+    const title = [...p.flags].join(', ') + (order ? ' (placed out of the order the game allows)' : '');
+    svg += `<path class="${cls}" d="M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}"><title>${_smEsc(title)}</title></path>`;
   }
 
-  for (const [id, p] of pos) {
-    const n = g.nodes.get(id);
-    const giver = n.starts[0] ? (g.nodes.get(n.starts[0].npc)?.name || n.starts[0].npc) : 'no giver';
-    const dim = focusSet && !focusSet.has(id);
-    const broken = cut && cut.broken.has(id);
-    const isCut = _sm.cut.has(id);
-    const cls = `sm-card${dim ? ' dim' : ''}${broken ? ' broken' : ''}${isCut ? ' cut' : ''}${_sm.focus === id ? ' focus' : ''}${n.starts.length ? '' : ' orphan'}`;
+  // A thin rail joins consecutive cards in an authored lane, so the order you
+  // set reads even where no unlock edge runs.
+  for (const lane of g.laneOrder) {
+    if (!lane.authored || _sm.hidden.has(lane.id)) continue;
+    const keys = lane.placed.map((p, i) => (g.nodes.get(p.ref)?.type === 'quest' ? p.ref : `npc:${lane.id}:${i}`)).filter((k) => pos.has(k));
+    for (let i = 1; i < keys.length; i++) {
+      const a = pos.get(keys[i - 1]), b = pos.get(keys[i]);
+      svg += `<line class="sm-rail" x1="${a.x + SM_CARD_W}" y1="${a.y + SM_CARD_H / 2}" x2="${b.x}" y2="${b.y + SM_CARD_H / 2}" style="--lane:${lane.color}"/>`;
+    }
+  }
+
+  for (const [key, p] of pos) {
+    if (p.npc) {
+      const nm = _smNpcName(p.npc);
+      svg += `<g class="sm-card npc" data-npc="${_smEsc(p.npc)}" transform="translate(${p.x},${p.y})" style="--lane:${p.color}">
+        <rect width="${SM_CARD_W}" height="${SM_CARD_H}" rx="19"/>
+        <text class="t" x="14" y="23">${_smEsc(nm.length > 24 ? nm.slice(0, 23) + '…' : nm)}</text>
+        <title>${_smEsc(p.npc)}: double-click for dialogue</title></g>`;
+      continue;
+    }
+    const n = g.nodes.get(key);
+    const giver = n.starts[0] ? _smNpcName(n.starts[0].npc) : 'no giver';
+    const dim = focusSet && !focusSet.has(key);
+    const broken = cut && cut.broken.has(key);
+    const isCut = _sm.cut.has(key);
+    const cls = `sm-card${dim ? ' dim' : ''}${broken ? ' broken' : ''}${isCut ? ' cut' : ''}${_sm.focus === key ? ' focus' : ''}${n.starts.length ? '' : ' orphan'}`;
     const label = n.name.length > 26 ? n.name.slice(0, 25) + '…' : n.name;
     const sub = giver.length > 30 ? giver.slice(0, 29) + '…' : giver;
-    svg += `<g class="${cls}" data-id="${_smEsc(id)}" transform="translate(${p.x},${p.y})" style="--lane:${p.color}">
+    svg += `<g class="${cls}" data-id="${_smEsc(key)}" transform="translate(${p.x},${p.y})" style="--lane:${p.color}">
       <rect width="${SM_CARD_W}" height="${SM_CARD_H}" rx="4"/>
       <text class="t" x="8" y="15">${_smEsc(label)}${n.repeatable ? ' ↻' : ''}</text>
       <text class="s" x="8" y="30">${_smEsc(sub)}</text>
-      <title>${_smEsc(id)}</title></g>`;
+      <title>${_smEsc(key)}</title></g>`;
   }
   document.getElementById('sm-world').innerHTML = svg;
   _smApplyView();
@@ -314,7 +389,7 @@ function _smRenderWorld() {
 function _smRenderSide() {
   const side = document.getElementById('sm-side');
   const g = _sm.graph;
-  const name = (id) => _smEsc(g.nodes.get(id)?.name || id);
+  const name = (id) => _smEsc(g.nodes.get(id)?.name || _smNpcName(id));
   const npcLink = (id) => `<a href="#" onclick="smOpen('dialogue','${_smEsc(id)}');return false">${name(id)}</a>`;
   const questLink = (id) => g.nodes.get(id)?.type === 'quest'
     ? `<a href="#" onclick="smFocus('${_smEsc(id)}');return false">${name(id)}</a>`
@@ -339,11 +414,39 @@ function _smRenderSide() {
     return;
   }
 
+  const lane = _sm.laneSel && g.lanes.get(_sm.laneSel);
+  if (lane && lane.authored) {
+    const r = lane.row;
+    const items = lane.placed.map((p, i) => `<li class="sm-place"><div class="sm-place-row">
+      <span>${g.nodes.get(p.ref)?.type === 'quest' ? questLink(p.ref) : npcLink(p.ref) + ' <span class="sm-gate">NPC</span>'}</span>
+      <span class="sm-place-btns">
+        <button class="action-btn" title="Earlier" onclick="smMovePlacement(${i},-1)">←</button>
+        <button class="action-btn" title="Later" onclick="smMovePlacement(${i},1)">→</button>
+        <button class="action-btn danger" title="Take out of this lane" onclick="smRemovePlacement(${i})">✕</button></span></div></li>`).join('');
+    side.innerHTML = `
+      <h3>Lane</h3>
+      <div class="field"><label>Name</label><input id="sm-ln-name" value="${_smEsc(r.name)}"></div>
+      <div class="field"><label>Colour</label><input id="sm-ln-color" type="color" value="${_smEsc(/^#[0-9a-f]{6}$/i.test(r.color) ? r.color : '#c9a227')}"></div>
+      <div class="field"><label>Notes</label><textarea id="sm-ln-notes" rows="3">${_smEsc(r.notes || '')}</textarea></div>
+      <p><button class="action-btn primary" onclick="smSaveLaneFields()">Save</button>
+         <button class="action-btn" onclick="smMoveLane(-1)">Move up</button>
+         <button class="action-btn" onclick="smMoveLane(1)">Move down</button>
+         <button class="action-btn danger" onclick="smDeleteLane()">Delete</button></p>
+      <h4>In order (${lane.placed.length})</h4>
+      ${items ? `<ol class="sm-places">${items}</ol>` : '<p class="sm-help">Empty. Add quests and NPCs below, or use "Add to lane" on a focused quest.</p>'}
+      <div class="sm-add"><input id="sm-ln-add" list="sm-refs" placeholder="quest or NPC id">
+        <button class="action-btn" onclick="smAddPlacement()">Add</button></div>
+      <p><button class="action-btn" onclick="smAutoArrange()" title="Order the quests by what unlocks what; each NPC stays just before the quest after it">Auto-arrange</button></p>
+      <p class="sm-help">Saves to content/storylines/${_smEsc(r.id)}.json. A lane is framing only: the game never reads it.</p>`;
+    return;
+  }
+
   if (!_sm.focus) {
     const cut = _sm.cut.size ? _smWhatIf(g, _sm.cut) : null;
     side.innerHTML = `<h3>Story Map</h3>
       <p class="sm-help">Click a quest to focus it. Double-click opens it in VINE. Alt-click cuts it to see what breaks.</p>
-      <p class="sm-help">Left to right is how many quests deep it sits. Bold edges cross between lanes; dashed ones run backwards.</p>
+      <p class="sm-help">Click a lane's name to edit it; "+ Lane" makes one. Lanes you make come first, in the order you set; the rest are derived from quest ids and givers.</p>
+      <p class="sm-help">Bold yellow edges cross between lanes; amber ones run against the order you set; dashed ones run backwards.</p>
       ${cut ? `<h4>Cut breaks ${[...cut.broken].filter((id) => g.nodes.get(id)?.type === 'quest').length} quests</h4>
         <ul>${[...cut.broken].filter((id) => g.nodes.get(id)?.type === 'quest').map((id) => `<li>${questLink(id)}</li>`).join('')}</ul>
         <h4>Flags left unset</h4><p>${[...cut.stranded].map((f) => `<code>${_smEsc(f)}</code>`).join(' ') || 'none'}</p>` : ''}`;
@@ -356,12 +459,18 @@ function _smRenderSide() {
   const downs = g.edges.filter((e) => e.kind === 'unlocks' && e.from === id);
   const sets = [...g.flags.values()].filter((f) => f.setters.some((s) => s.by === id) && f.flag !== id).map((f) => f.flag);
   const gateText = (c) => `<code>${_smEsc(c.flag)}</code> ${_smEsc(c.op || 'set')}${c.value != null ? ' ' + _smEsc(c.value) : ''}`;
+  const authored = g.laneOrder.filter((l) => l.authored);
+  const laneSelect = authored.length ? `<h4>Lane</h4><select onchange="smSetQuestLane('${_smEsc(id)}', this.value)">
+      <option value="">(derived)</option>
+      ${authored.map((l) => `<option value="${_smEsc(l.row.id)}"${n.lane === l.id ? ' selected' : ''}>${_smEsc(l.name)}</option>`).join('')}
+    </select>` : '';
   side.innerHTML = `
     <h3>${_smEsc(n.name)}</h3>
-    <div class="sm-id">${_smEsc(id)}${n.category ? ` · ${_smEsc(n.category)}` : ''}${n.repeatable ? ' · repeatable' : ''}</div>
+    <div class="sm-id">${_smEsc(id)}${n.repeatable ? ' · repeatable' : ''}</div>
     <p><button class="action-btn" onclick="smOpen('quest','${_smEsc(id)}')">Open in VINE</button>
        <button class="action-btn" onclick="smToggleCut('${_smEsc(id)}')">${_sm.cut.has(id) ? 'Uncut' : 'What if cut?'}</button>
        <button class="action-btn" onclick="smFocus(null)">Clear focus</button></p>
+    ${laneSelect}
     <h4>Given by</h4>
     ${n.starts.length ? '<ul>' + n.starts.map((s) => `<li>${questLink(s.npc)}${s.viaQuest ? ' (on its ending)' : ''}</li>`).join('') + '</ul>' : '<p class="sm-help">Nothing in content starts this quest.</p>'}
     ${n.gates.length ? `<h4>Offered when</h4><p class="sm-gate">${n.gates.map(gateText).join('<br>')}</p>` : ''}
@@ -408,14 +517,20 @@ function _smBindCanvas() {
     const moved = drag && drag.moved;
     drag = null;
     if (moved) return;
-    const card = document.elementFromPoint(e.clientX, e.clientY)?.closest('.sm-card');
-    if (!card) { smFocus(null); return; }
+    const hit = document.elementFromPoint(e.clientX, e.clientY);
+    const label = hit?.closest('.sm-band-label');
+    if (label) { smSelectLane(label.dataset.lane); return; }
+    const card = hit?.closest('.sm-card');
+    if (!card) { _sm.laneSel = null; smFocus(null); return; }
+    if (card.dataset.npc) return;
     if (e.altKey) smToggleCut(card.dataset.id);
     else smFocus(card.dataset.id);
   });
   svg.addEventListener('dblclick', (e) => {
     const card = e.target.closest('.sm-card');
-    if (card) smOpen('quest', card.dataset.id);
+    if (!card) return;
+    if (card.dataset.npc) smOpen('dialogue', card.dataset.npc);
+    else smOpen('quest', card.dataset.id);
   });
 }
 
@@ -431,9 +546,14 @@ function smAllLanes(on) {
 function smToggleFindings() { _sm.showFindings = !_sm.showFindings; _smRenderBar(); _smRenderSide(); }
 function smFocus(id) {
   _sm.focus = id || null;
-  if (id) _sm.showFindings = false;
+  if (id) { _sm.showFindings = false; _sm.laneSel = null; }
   const lane = id && _sm.graph.nodes.get(id)?.lane;
   if (lane && _sm.hidden.has(lane)) _sm.hidden.delete(lane);
+  _smRenderAll();
+}
+function smSelectLane(id) {
+  if (!_sm.graph.lanes.get(id)?.authored) return;
+  _sm.laneSel = id; _sm.focus = null; _sm.showFindings = false;
   _smRenderAll();
 }
 function smToggleCut(id) {
@@ -450,4 +570,102 @@ function smFit() {
   const k = Math.min(2, Math.max(0.15, Math.min(r.width / (box.width + 40), r.height / (box.height + 40))));
   _sm.view = { k, x: 20 - box.x * k, y: 20 - box.y * k };
   _smApplyView();
+}
+
+// ── Lane edits: each one PUTs the whole row, then redraws from local state ──
+async function _smSaveRow(row) {
+  row.nodes = (row.nodes || []).map((p, i) => ({ ref: p.ref, x: i }));
+  const res = await API(`/storylines/${row.id}`, 'PUT', row);
+  if (res && res.error) { toast(res.error, true); return false; }
+  const list = _sm.data.storylines;
+  const i = list.findIndex((r) => r.id === row.id);
+  if (i >= 0) list[i] = row; else list.push(row);
+  _smRebuild();
+  _smRenderAll();
+  return true;
+}
+const _smRow = () => _sm.graph.lanes.get(_sm.laneSel)?.row;
+const _smCopy = (row) => ({ ...row, nodes: (row.nodes || []).slice().sort((a, b) => a.x - b.x) });
+
+async function smNewLane() {
+  const name = await dpPrompt('Name for the new lane', '', { title: 'New lane' });
+  if (!name) return;
+  const base = 'sl_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  let id = base, n = 2;
+  while (_sm.data.storylines.some((r) => r.id === id)) id = `${base}_${n++}`;
+  const order = Math.max(-1, ..._sm.data.storylines.map((r) => r.sort_order || 0)) + 1;
+  if (await _smSaveRow({ id, name, color: '#c9a227', sort_order: order, collapsed: false, nodes: [], notes: '' })) smSelectLane('sl:' + id);
+}
+function smSaveLaneFields() {
+  const row = _smCopy(_smRow());
+  row.name = document.getElementById('sm-ln-name').value.trim() || row.name;
+  row.color = document.getElementById('sm-ln-color').value;
+  row.notes = document.getElementById('sm-ln-notes').value;
+  return _smSaveRow(row);
+}
+async function smMoveLane(dir) {
+  const rows = _sm.graph.laneOrder.filter((l) => l.authored).map((l) => l.row);
+  const i = rows.findIndex((r) => r.id === _smRow().id);
+  const j = i + dir;
+  if (j < 0 || j >= rows.length) return;
+  [rows[i], rows[j]] = [rows[j], rows[i]];
+  for (const [k, r] of rows.entries()) if ((r.sort_order || 0) !== k) await _smSaveRow({ ..._smCopy(r), sort_order: k });
+}
+async function smDeleteLane() {
+  const row = _smRow();
+  if (!(await dpConfirm(`Delete the lane "${row.name}"? Its quests go back to the derived lanes.`, { danger: true }))) return;
+  const res = await API(`/storylines/${row.id}`, 'DELETE');
+  if (res && res.error) return toast(res.error, true);
+  _sm.data.storylines = _sm.data.storylines.filter((r) => r.id !== row.id);
+  _sm.laneSel = null;
+  _smRebuild();
+  _smRenderAll();
+}
+function smMovePlacement(i, dir) {
+  const row = _smCopy(_smRow());
+  const j = i + dir;
+  if (j < 0 || j >= row.nodes.length) return;
+  [row.nodes[i], row.nodes[j]] = [row.nodes[j], row.nodes[i]];
+  return _smSaveRow(row);
+}
+function smRemovePlacement(i) {
+  const row = _smCopy(_smRow());
+  row.nodes.splice(i, 1);
+  return _smSaveRow(row);
+}
+async function smAddPlacement() {
+  const ref = document.getElementById('sm-ln-add').value.trim();
+  const isQuest = _sm.data.quests.some((q) => q.id === ref);
+  if (!isQuest && !_sm.data.npcs.some((n) => n.id === ref)) return toast(`No quest or NPC "${ref}".`, true);
+  if (isQuest) await _smTakeQuestOut(ref, _smRow().id);
+  const row = _smCopy(_smRow());
+  row.nodes.push({ ref, x: row.nodes.length });
+  return _smSaveRow(row);
+}
+// A quest sits in one authored lane; take it out of any other first.
+async function _smTakeQuestOut(questId, exceptId) {
+  for (const r of _sm.data.storylines) {
+    if (r.id === exceptId || !(r.nodes || []).some((p) => p.ref === questId)) continue;
+    await _smSaveRow({ ..._smCopy(r), nodes: _smCopy(r).nodes.filter((p) => p.ref !== questId) });
+  }
+}
+async function smSetQuestLane(questId, rowId) {
+  await _smTakeQuestOut(questId, rowId);
+  if (rowId) {
+    const r = _sm.data.storylines.find((x) => x.id === rowId);
+    if (!(r.nodes || []).some((p) => p.ref === questId)) await _smSaveRow({ ..._smCopy(r), nodes: [..._smCopy(r).nodes, { ref: questId, x: 1e9 }] });
+  }
+  smFocus(questId);
+}
+// Order quests by unlock depth (stable); an NPC rides with the quest after it.
+function smAutoArrange() {
+  const row = _smCopy(_smRow());
+  const g = _sm.graph;
+  const keyed = row.nodes.map((p, i) => ({ p, i, d: g.nodes.get(p.ref)?.type === 'quest' ? g.nodes.get(p.ref).depth : null }));
+  for (let i = keyed.length - 1, next = Infinity; i >= 0; i--) {
+    if (keyed[i].d == null) keyed[i].d = next - 0.5; else next = keyed[i].d;
+  }
+  keyed.sort((a, b) => a.d - b.d || a.i - b.i);
+  row.nodes = keyed.map((k) => k.p);
+  return _smSaveRow(row);
 }

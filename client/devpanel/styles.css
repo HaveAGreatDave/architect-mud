@@ -1496,3 +1496,19 @@ body.ops-mode #new-btn { display: none !important; }
 .sm-edge.back { stroke-dasharray: 5 4; }
 .sm-edge.dead { stroke: var(--red); stroke-opacity: 0.9; }
 .sm-edge.dim { stroke-opacity: 0.06; }
+.sm-chip.authored { font-weight: bold; }
+.sm-band.authored { fill-opacity: 0.1; stroke-opacity: 0.5; }
+.sm-band.sel { stroke: var(--accent); stroke-opacity: 1; stroke-width: 2; }
+.sm-band-label.authored { cursor: pointer; text-decoration: underline; }
+.sm-card.npc rect { fill: color-mix(in srgb, var(--lane) 14%, var(--bg2)); }
+.sm-rail { stroke: var(--lane); stroke-opacity: 0.35; stroke-width: 3; stroke-dasharray: 2 4; }
+.sm-edge.order { stroke: var(--orange); stroke-width: 2.4; stroke-opacity: 0.95; }
+.sm-places { padding-left: 18px; }
+.sm-place { margin: 3px 0; }
+.sm-place-row { display: flex; align-items: center; gap: 4px; }
+.sm-place-row > span:first-child { flex: 1; min-width: 0; }
+.sm-place-btns { display: flex; gap: 2px; flex: none; }
+.sm-place-btns .action-btn { padding: 0 5px; }
+.sm-add { display: flex; gap: 4px; margin-top: 6px; }
+.sm-add input { flex: 1; min-width: 0; }
+.sm-side .field input, .sm-side .field textarea { width: 100%; box-sizing: border-box; }

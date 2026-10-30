@@ -270,6 +270,7 @@ export const REGISTRY = [
   // ── content: scripting / quests / factions ──
   { table: 'scripts', class: 'content', pk: ['id'], readTier: 'cold' },              // one row per graph run
   { table: 'script_triggers', class: 'content', pk: ['id'], readTier: 'boot' },      // loadScriptTriggers
+  { table: 'storylines', class: 'content', pk: ['id'], readTier: 'dead' },           // Story Map lanes; dev panel only
   // Unrest incident definitions. 'boot' because the selector consults the whole
   // catalogue on a 30m tick and there are a couple of dozen rows — a query per
   // tick to read a table that only a dev-panel write ever changes is the read
