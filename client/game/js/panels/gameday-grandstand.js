@@ -33,7 +33,9 @@
 // (`lead`) starts at once, and its call comes later as a held line with `call`, which waits for
 // that play's landing and never the next one's (`setCaption`). The dead time till
 // the next payload's due is filled (diamond/between.js): the field walks back, the pitcher rubs up
-// the ball, the on-deck hitter swings and the cameras go round the park. The infield keeps
+// the ball, the on-deck hitter swings and the cameras go round the park. A seat in the stands
+// (stands.js) gets no replays and no cuts: each payload waits till the last play's field is at
+// rest, so the game runs longer in person than on TV (`inLine`). The infield keeps
 // the game's marks, each stride, dig and slide painted into the dirt as it's made
 // (diamond/marks.js, gl/ballpark.js markDirt), till the grounds crew drag it in the middle of the
 // fifth (diamond/crew.js), the leaders' table down while they do. The sky follows the minute each
@@ -76,6 +78,12 @@ const CAM_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="t
 
 // How long a replay leaves before the next payload's due (s), at the least.
 const REPLAY_MARGIN = 1;
+// In person (a seat in the stands, not its suite's TV) there are no replays and no cuts: the next
+// payload waits till the field's at rest. How long the field gets to come back after a play (s), a
+// beat after the last man's at rest before the next pitch (s), how often the queue's looked at
+// (ms), and how many payloads can wait before the seat stops waiting (it'd fall ever further
+// behind the broadcast).
+const PARK_ROOM = 45, PARK_BEAT = 1.5, PARK_POLL_MS = 250, PARK_BACKLOG = 4;
 // How long each graphic stays up: the matchup as a man comes up, a steal's card once it lands,
 // and each of the leaders' races between innings.
 const MATCHUP_MS = 4200, STEAL_MS = 4800, DIST_MS = 6000, TABLE_CYCLE_MS = 8000;
@@ -117,6 +125,10 @@ export function createGrandstandView(host, opts = {}) {
   // room ({ at: the live world's time to start, spec, p, calm }), `replay` while it plays, its own
   // world in place of the live one; `liveShot` the live director's camera meanwhile
   let replayDue = null, replay = null, liveShot = null;
+  // in person, the world's time the field's at rest by (Infinity while a play's in the air), the
+  // broadcast's calls held till then, and the timer that looks at them
+  let parkHold = 0, parkQueue = [], parkTimer = null;
+  const inPerson = () => !!opts.seat && opts.seat.mode !== 'tv';
   // the fans (gl/crowd.js createRoar): how loud each side is, on the live world's clock; `calm`
   // while the viewer has asked for less motion, when they get up without bouncing
   let roar = null, calm = false;
@@ -598,7 +610,7 @@ export function createGrandstandView(host, opts = {}) {
     // them), and a home run's once the batter's round the bags and off the plate (the director's
     // trot, D.homer), if the hold has room for it before the next payload's due: a payload that
     // doesn't say how long it holds gets none, and a home run on a short one keeps its trot
-    const spec = c.cast && D.play ? mods.replayOf(p, D.play, D.log) : null;
+    const spec = c.cast && D.play && !inPerson() ? mods.replayOf(p, D.play, D.log) : null;
     let replayEnd = null;
     if (spec && Number.isFinite(p.hold)) {
       const calm = prefersReducedMotion(), long = calm ? mods.REPLAY.still : (spec.to - spec.from) / mods.REPLAY.rate;
@@ -607,7 +619,11 @@ export function createGrandstandView(host, opts = {}) {
     }
     // and the dead time till the next payload's due (diamond/between.js): the field walks back, the
     // pitcher rubs up the ball and the cameras go round the park, once any replay's done
-    if (Number.isFinite(p.hold) && c.cast) D.planBetween?.({ until: c.t0 + p.hold / 1000, from: replayEnd != null ? replayEnd + 0.3 : undefined });
+    // In person the field gets all the time it needs, and the next payload waits for it.
+    const near = inPerson(), was = D.until || W.t;
+    const until = Number.isFinite(p.hold) ? c.t0 + p.hold / 1000 : null;
+    const B = until != null && c.cast ? D.planBetween?.({ until: near ? Math.max(until, W.t + PARK_ROOM) : until, from: replayEnd != null ? replayEnd + 0.3 : undefined }) : null;
+    if (near) parkHold = PARK_BEAT + (B ? Math.max(B.from, ...B.gone.map((g) => Math.max(g.end, g.visit?.until ?? 0, g.argue?.until ?? 0, g.scrum?.until ?? 0))) : was);
   }
   // What the director says as it stages: a cut to another camera, a sound on its moment, and each
   // pitch as it's decided, for the count, the speed and the zone (the count never shows a fourth
@@ -714,6 +730,7 @@ export function createGrandstandView(host, opts = {}) {
     const fx = mods.planChampion({ t, colour: linear(sideColours(side, side === 'home' ? S.homeTeam : S.awayTeam)[0]), motion: !calm, seed: (p.inning | 0) * 977 + (S.hScore | 0) * 31 + (S.aScore | 0) });
     D.fx = [...(D.fx || []), ...fx];
     D.until = Math.max(D.until || 0, ...fx.map(mods.fxEnd));
+    parkHold = D.until + PARK_BEAT;
     roar.cheer(side === 'home' ? 0 : 1, 1, t, 8);
     if (Number.isFinite(p.hold) && c.cast) D.planPile?.({ from: t + 0.3, until: c.t0 + p.hold / 1000 });
   }
@@ -805,6 +822,7 @@ export function createGrandstandView(host, opts = {}) {
       live = true; acc = 0;
       calm = prefersReducedMotion();
       D.changeover(p, cast, { motion: !calm });
+      parkHold = (D.until || W.t) + PARK_BEAT;
       paint();
       if (!introduce(p) && !startTable(p)) renderCard({ kind: 'half', inningOrd: p.inningOrd, half: p.half, batting: p.battingTeam, duration: 3.4 });
       // a changeover has no ball to land, so its line goes up a beat in
@@ -838,6 +856,7 @@ export function createGrandstandView(host, opts = {}) {
     // the director stages it pitch by pitch, and the count goes up as each one's decided; the
     // play lands when the director says, or if the frames have stopped, a beat after
     cur = { p, settle, landed: false, t0: W.t, cast };
+    parkHold = Infinity;
     const mine = cur;
     live = true; acc = 0;
     // a game's first at-bat opens on the main gate from the street, the crowd still going in, when
@@ -927,6 +946,7 @@ export function createGrandstandView(host, opts = {}) {
   }
   function clear() {
     if (flat) { flat.clear(); flat = null; }
+    parkQueue = []; clearInterval(parkTimer); parkTimer = null; parkHold = 0;
     stopTimers(); stopLoop(); stopTable(); dropHolds(); stopWorld();
     unVenue?.(); unVenue = null; unClubs?.(); unClubs = null; dressed = null;
     ro?.disconnect(); ro = null;
@@ -943,8 +963,32 @@ export function createGrandstandView(host, opts = {}) {
   // renderer that mounts after it arrives (skyField, declared with R)
   function setSkyField(f) { skyField = f || null; R?.setSkyField?.(skyField); }
 
+  // ── in person ─────────────────────────────────────────────────────────────
+  // The broadcast's calls, in the order they came, held while the field's still coming back. A
+  // play's line comes before its payload, so it waits with it; the frames stopping (a hidden tab)
+  // or too long a queue lets them through as they'd have gone.
+  const parkWaits = () => {
+    if (!inPerson() || !W || flat) return false;
+    if ((win?.performance || performance).now() - lastNow > LAND_SLACK_MS) return false;
+    return W.t < parkHold || (cur && !cur.landed);
+  };
+  function parkDrain() {
+    const over = parkQueue.filter((q) => q[0] === apply).length > PARK_BACKLOG;
+    while (parkQueue.length && (over || !parkWaits())) {
+      const [fn, args] = parkQueue.shift();
+      fn(...args);
+      if (fn === apply && !over) break;   // its play goes on before anything after it
+    }
+    if (!parkQueue.length) { clearInterval(parkTimer); parkTimer = null; }
+  }
+  const inLine = (fn) => (...args) => {
+    if (!parkQueue.length && !parkWaits()) return fn(...args);
+    parkQueue.push([fn, args]);
+    parkTimer ??= setInterval(parkDrain, PARK_POLL_MS);
+  };
+
   return {
-    apply, clear, setCaption, showIdle, showCard, setSkyField,
+    apply: inLine(apply), clear, setCaption: inLine(setCaption), showIdle, showCard: inLine(showCard), setSkyField,
     // for the sandbox and the gates
     setShot, ready: () => loadMods(),
     get renderer() { return R; }, get hud() { return hud; }, get flat() { return flat; }, get state() { return S; },
