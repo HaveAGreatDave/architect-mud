@@ -269,7 +269,9 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
   function seatFrame(s, w, h, dt) {
     const [ex, ey, ez] = s.eye;
     if (s.mode !== 'free') {
-      const tx = cam.lx - ex, ty = cam.ly - ey, tz = cam.lz - ez;
+      // the broadcast holds the whole sheet for the Zamboni; a seat watches the machine itself
+      const z = W.cam.mode === 'zam' && W.zamboni;
+      const tx = (z ? z.x : cam.lx) - ex, ty = (z ? z.y : cam.ly) - ey, tz = (z ? 2 : cam.lz) - ez;
       const yaw = Math.atan2(tx, ty), pitch = Math.atan2(-tz, Math.hypot(tx, ty));
       // eased, so a cut in the broadcast framing is a turn of the head rather than a jump
       const k = s.yaw == null || !(dt > 0) ? 1 : 1 - Math.exp(-dt * 5);

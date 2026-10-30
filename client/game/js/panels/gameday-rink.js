@@ -280,7 +280,8 @@ export function createRinkView(host, opts = {}) {
   function board(p) {
     const rink = host?.querySelector('.gdr-rink'); if (!rink) return;
     rink.querySelector('.gdri')?.remove();
-    if (!p) return;
+    // a seat in the stands sees the ice, not the broadcast's graphics
+    if (!p || opts.seat) return;
     const goals = Array.isArray(p.goals) ? p.goals : [];
     const rows = goals.length
       ? goals.map((g) => `<div class="gdri-goal"><span class="t">${_esc(g.clockStr || '')}</span><span class="n">${_esc(g.shooter || '')}</span>` +
