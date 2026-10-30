@@ -23,8 +23,11 @@ const COVER_N = 64;          // coverage texels a side
 const COVER_RANGE = 56;   // tiles either side of the camera the coverage map spans
 const GLOW_R = 4;                 // tiles a lit tile's glow spreads across the base
 const GLOW_GAIN = 0.12;           // how many summed sources it takes to saturate (1 - e^-gain·sum)
-const GLOW_STR = 0.55;            // the glow's full-night strength on the base
-const GLOW_COL = [1.0, 0.62, 0.32];   // sodium orange
+// ⚠ The base it lands on is near black at night, so whatever this adds IS the colour: at 0.55 of
+// pure sodium the deck's underside read as a red glow. A dim, mostly-grey warmth is what a lit
+// city puts on an overcast.
+const GLOW_STR = 0.14;            // the glow's full-night strength on the base
+const GLOW_COL = [0.8, 0.7, 0.58];    // sodium, washed out by the vapour
 
 const FULL_VS = `#version 300 es
 void main() {

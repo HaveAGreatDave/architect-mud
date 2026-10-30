@@ -1155,7 +1155,7 @@ export const RENDER_TUNE = {
   cloudVolRes: 0.25,   // fraction of the frame's resolution the march runs at
   cloudVolSteps: 48,   // march steps a ray
   cloudVolTemporal: 0.85,   // how much of last frame each pixel keeps (gl/cloudvol.js); 0 is the raw jittered march
-  cloudVolGlow: 1,     // city underglow on the volume's base at night (cityGlowPts); 0 is off
+  cloudVolGlow: 0,     // city underglow on the volume's base at night (cityGlowPts); off: the deck sits too high for street light to reach it
   cloudFloor: 1,      // 1: from under the deck, the part of a cloud card below the base never covers a bird (gl/clouds.js uFloorZ); 0 is the deck as it shipped
   // What FLIES lays its silhouette into the depth buffer, so the deck above can sort against it.
   // 0 puts both back to writing no depth, which is the renderer that shipped.
@@ -5240,8 +5240,9 @@ function paintWindshieldFrame(id, view) {
   // deck's, and one term reaches every pass that draws one.
   if (sky.night > 0.01) {
     const nightDeck = sky.night * (0.9 - 0.22 * _moonLit);
-    baseTint = mix(baseTint, [9, 11, 17], nightDeck);
-    litTint = mix(litTint, [26, 30, 42], nightDeck);
+    // Near-neutral: a cloud at night is grey on a dark sky, not blue.
+    baseTint = mix(baseTint, [10, 11, 13], nightDeck);
+    litTint = mix(litTint, [28, 30, 34], nightDeck);
   }
   // Overcast CEILING — a thin, cheap full-sky layer for grey weather: one gradient wash (thicker
   // toward the horizon, where the line of sight cuts through more of the deck) veils the stars/sun,
