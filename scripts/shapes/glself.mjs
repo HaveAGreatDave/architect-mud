@@ -208,7 +208,11 @@ const KNOWN = new Map([
   // 654 → 604: 612 at HEAD on 2026-10-02 and the kit's lit pier ranks took 8 more. The ironside
   // branch separately took the Halcyon Fields tower cranes' `latticeTower` masts and the Salvage
   // Rites and Second Amendment wire coils off, which lowers it again.
-  ['stroke', { budget: 604, why:
+  // 604 → 648 is the three towers over the Coliseum's left-field wall (2026-10-29, see
+  // docs/proposals/halcyon-fields-infill.md): `hf_beacon`'s halo stem, `hf_skylink`'s link rails and
+  // `hf_highsite`'s climbing crane are masts and lattice standing inside their own drums, the case
+  // the reason below already names. Three models, 373 → 376; nothing else moved.
+  ['stroke', { budget: 648, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '
    + 'mast at its tile centre is 0.44 tiles behind its own front wall — so `emitWire` still spends '
    + 'the full DECO_LIFT and they are pulled clear on purpose. The Dynamo lost its entire external '
