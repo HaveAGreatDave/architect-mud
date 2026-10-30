@@ -726,6 +726,23 @@ async function cmdUse(targetStr, player, broadcast, route = 'use') {
     return { type:'error', message:`You don't ${route} that. Try <span class="text-dim">${takenBy}</span>.` };
   }
 
+  // SPOILED: LOOK BEFORE YOU SWALLOW. The first try puts the food under your
+  // nose instead — the same line `examine` gives — and stops. Trying the same
+  // row again within SPOIL_CONFIRM_MS eats it. Raw food skips this: undercooked
+  // wins in applyItemUse and has its own line.
+  if (t.perishable && !(t.needs_cooking && !(item.custom_data || {}).cooked)) {
+    const fresh = await fireHook('item.checkFreshness', item, player);
+    if (fresh?.state === 'spoiled') {
+      const w = player._spoilWarned;
+      if (!w || w.id !== item.id || Date.now() - w.at > SPOIL_CONFIRM_MS) {
+        player._spoilWarned = { id: item.id, at: Date.now() };
+        return { type: 'output', message:
+          `You stop with ${item.name} halfway to your mouth and look at it properly.\n${freshnessLine('spoiled')}\n` +
+          `<span class="text-dim">Try again to ${takenBy} it anyway.</span>` };
+      }
+      player._spoilWarned = null;
+    }
+  }
   // A laced *alcoholic* drink (the cocktails: martini, whiskey, …) drinks like a
   // beer — hand it to the timed consume plugin so its thirst pours out sip-by-sip
   // and the drug lands on the last swallow, same as the drug-item drinks. Only
@@ -752,6 +769,27 @@ async function cmdUse(targetStr, player, broadcast, route = 'use') {
     }
   }
   return applyItemUse(player, item, broadcast);
+}
+
+// Chance that food on the turn ('spoiling', not yet 'spoiled') makes you ill.
+const SPOILING_RISK = 0.25;
+
+// How long a spoiled-food warning stands before you have to look again.
+const SPOIL_CONFIRM_MS = 2 * 60 * 1000;
+
+// What a perishable looks and smells like at each freshness state. Shared by
+// `examine` and the spoiled-food warning, so the warning IS the examination.
+const FRESHNESS_LINES = {
+  fresh:    'It looks fresh.',
+  aging:    'It looks a day or two past its best. Still fine.',
+  spoiling: "It's starting to turn. The edges have gone soft and it smells a little sour.",
+  spoiled:  "It's spoiled. There's fur on it, the colour is wrong, and the smell makes your throat close.",
+};
+export function freshnessLine(state) {
+  const line = FRESHNESS_LINES[state] || `It looks ${state}.`;
+  return state === 'spoiled' || state === 'spoiling'
+    ? `<span style="color:var(--red)">${line}</span>`
+    : `<span class="text-dim">${line}</span>`;
 }
 
 // A consumable that should be *drunk over time* rather than downed instantly:
@@ -785,17 +823,21 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   // restore/buff below in favor of a food-poisoning debuff; the item is still
   // consumed, it just gives you nothing good.
   const undercooked = t.needs_cooking && !(item.custom_data || {}).cooked;
-  let spoiled = false;
+  let spoiled = false, turning = false;
   if (!undercooked && t.perishable) {
     const fresh = await fireHook('item.checkFreshness', item, player);
     spoiled = fresh?.state === 'spoiled';
+    turning = fresh?.state === 'spoiling';
   }
   const sick = undercooked || spoiled;
 
   if (sick) {
     messages[0] = undercooked
       ? `${item.name} is still raw in the middle. You eat it anyway and immediately regret it.`
-      : `${item.name} is spoiled. You eat it anyway and immediately regret it.`;
+      : `You hold your breath and get ${item.name} down. It tastes exactly as bad as it smelled.`;
+    // Something went down, so the stomach is fuller even if none of it does you
+    // any good. It's also what `vomit` brings back up.
+    if (spoiled) player.digestive_load = Math.min(120, (player.digestive_load || 0) + foodLoad(t.restore_hunger || 10));
   } else {
   // How well it was cooked scales what it gives back. Absent (every item that
   // isn't a plated profiled meal) is 1.0, so nothing that existed before this
@@ -884,9 +926,17 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   }
 
   let madeIll = false;
+  // Only a fresh bout halves stamina (effects.js), so only a fresh bout says so.
+  const halved = (player.statuses || []).some(s => s.name === 'food_poisoning') ? '' : ' <span class="text-dim">(stamina halved)</span>';
   if (sick) {
     applyEffect(player, 'food_poisoning', 90);
-    messages.push('Your stomach churns immediately.');
+    messages.push('Your stomach churns immediately. Your legs go weak.' + halved);
+    if (spoiled) messages.push(`<span class="text-dim">Bringing it back up now would spare you the worst of it. Try <span class="text-bright">vomit</span>.</span>`);
+    madeIll = true;
+  } else if (turning && Math.random() < SPOILING_RISK) {
+    // On the turn but not gone: it fed you, and it might still get you.
+    applyEffect(player, 'food_poisoning', 45);
+    messages.push('There was a sour edge to that. A few minutes later your stomach agrees.' + halved);
     madeIll = true;
   } else if (cd?.doneness) {
     // Doneness has a consequence, or it's just a label. Food deliberately pulled

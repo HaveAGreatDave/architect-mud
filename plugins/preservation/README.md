@@ -26,7 +26,7 @@ It is deliberately **optimistic** (it assumes the case has had power for the who
 - `stock.spoilCheck` — the pure, query-free gate the vendor delivery pass asks
 
 ## Registers
-- the `food_poisoning` status effect, for when you eat it anyway.
+- the `food_poisoning` status effect, for when you eat it anyway. Eating something spoiled is a two-step: the first try shows you what it looks and smells like (`freshnessLine`, the same text `examine` gives) and stops; a second try on the same item within two minutes eats it. A bout halves stamina once when it lands, each episode costs water, and `vomit` (bodily plugin) halves what is left. Food that is only `spoiling` feeds you but carries a 25% chance of a shorter bout.
 
 ## Commands
 - `preserve <food>` — spend a vial of BHT (`item_stabilizer`, tagged `preservative`) to slow one item's decay wherever it sits.

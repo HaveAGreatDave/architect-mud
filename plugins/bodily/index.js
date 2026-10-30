@@ -1484,7 +1484,62 @@ async function cmdFart(args, player, broadcast) {
   return { type: 'output', message: self };
 }
 
+// `vomit` — bring it back up on purpose.
+//
+// The cure food poisoning never had. Purging takes the rest of the stomach with
+// it (hunger, water, digestive load) and cuts what's left of a bout in half, so
+// it's the right call straight after a spoiled mouthful and a poor one on a
+// full belly of good food. Over a toilet it goes in the bowl; anywhere else it
+// goes on you and the floor, and the room sees it, same as an episode.
+const VOMIT_COOLDOWN_MS = 60 * 1000;
+const lastVomit = new Map();
+
+export async function cmdVomit(player) {
+  const now = Date.now();
+  const left = VOMIT_COOLDOWN_MS - (now - (lastVomit.get(player.id) || 0));
+  if (left > 0) return { type: 'error', message: `Your throat is raw. Give it ${Math.ceil(left / 1000)} seconds.` };
+  lastVomit.set(player.id, now);
+
+  const bout = (player.statuses || []).find(s => s.name === 'food_poisoning');
+  const staMax = player.stamina_max ?? 100;
+  player.stamina = Math.max(0, (player.stamina ?? staMax) - 5);
+
+  // Nothing in there to bring up.
+  if (!bout && (player.digestive_load || 0) < 3) {
+    sendToZone(player.current_zone, { type: 'zone_event', message: `${player.handle} retches, and nothing comes up.` }, player.id);
+    return { type: 'output', message: 'You heave until your eyes water. Nothing comes up but a thread of bile.' };
+  }
+
+  player.hunger = Math.max(0, (player.hunger || 0) - 20);
+  player.thirst = Math.max(0, (player.thirst || 0) - 6);
+  player.digestive_load = (player.digestive_load || 0) * 0.3;
+  let relief = 'You feel emptied out, and a little lighter.';
+  if (bout) {
+    bout.duration = Math.ceil(bout.duration / 2);
+    player._foodPoisonTick = 0;   // the next episode is a while off now
+    relief = 'The cramps ease off. The worst of it is out of you.';
+  }
+
+  const toilet = getZoneFurniture(player.current_zone).find(isToilet);
+  let self;
+  if (toilet) {
+    self = `You get to the ${toilet.name} in time and bring everything up into it. ${relief}`;
+    sendToZone(player.current_zone, { type: 'zone_event', message: `${player.handle} is noisily sick into the ${toilet.name}.` }, player.id);
+  } else {
+    await stainClothing(player, ['torso', 'hands'], 'vomit').catch(() => {});
+    stainZone(player.current_zone, 'vomit');
+    self = `You double over and bring it all up, most of it on the floor and some of it on you. ${relief}`;
+    sendToZone(player.current_zone, { type: 'zone_event', message: `${player.handle} doubles over and is sick on the floor.` }, player.id);
+  }
+  await query('UPDATE players SET hunger=$1, thirst=$2, digestive_load=$3 WHERE id=$4',
+    [player.hunger, player.thirst, player.digestive_load, player.id]);
+  return { type: 'output', message: `${self}\n<span class="text-dim">Your stomach is empty and you're thirsty.</span>` };
+}
+
 export const commands = {
+  vomit:    (args, raw, player) => cmdVomit(player),
+  puke:     (args, raw, player) => cmdVomit(player),
+  throwup:  (args, raw, player) => cmdVomit(player),
   fart:     (args, raw, player, broadcast) => cmdFart(args, player, broadcast),
   pee:      (args, raw, player, broadcast) => cmdPee(args, player, broadcast),
   urinate:  (args, raw, player, broadcast) => cmdPee(args, player, broadcast),

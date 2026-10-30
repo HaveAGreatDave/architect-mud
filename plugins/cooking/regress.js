@@ -1148,15 +1148,19 @@ export default async function regress({ run, check, getPlayer }) {
     const runTicks = (p, n) => { const out = []; for (let i = 0; i < n; i++) out.push(...tickEffects(p)); return out; };
 
     const p1 = sick();
+    check('it halves your stamina once, on the way in', p1.stamina === 50, p1.stamina);
     runTicks(p1, 8);
-    check("it guts your stamina fast — you're going nowhere", p1.stamina <= 10, p1.stamina);
+    check('...and does not keep draining it', p1.stamina === 50, p1.stamina);
     check('...but barely touches your HP', 100 - p1.hp <= 10, 100 - p1.hp);
 
     const p2 = sick();
     runTicks(p2, 200);
     check('HP loss is capped across the whole illness', 100 - p2.hp <= 30, 100 - p2.hp);
     check('it can never be the thing that kills you', p2.hp >= 1, p2.hp);
-    check('stamina stays on the floor throughout', p2.stamina === 0);
+    const pTwice = sick();
+    applyEffect(pTwice, 'food_poisoning', 60);
+    check('a second mouthful mid-bout does not halve it again', pTwice.stamina === 50, pTwice.stamina);
+    check('episodes dehydrate you', (() => { const p = sick(); p.thirst = 80; runTicks(p, 16); return p.thirst < 80; })());
 
     const msgs = runTicks(sick(), 40);
     check('there are episodes, not just a status line',

@@ -1114,4 +1114,14 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('attune hearing');
   check("...but changing it's a clinic job", /clinic/i.test(r?.message || ''), r?.message);
   p.stat_senses = savedStat; p._senseDominant = savedDom; p._senseSecond = savedSec;
+  // ── vomit: an empty stomach only retches, and the throat needs a minute ─────
+  {
+    const savedLoad = p.digestive_load, savedStatuses = p.statuses;
+    p.digestive_load = 0; p.statuses = [];
+    let v = await run('vomit');
+    check('vomit on an empty stomach is a dry heave', /Nothing comes up/i.test(v?.message || ''), v?.message);
+    v = await run('puke');
+    check('...and the alias shares the cooldown', /throat is raw/i.test(v?.message || ''), v?.message);
+    p.digestive_load = savedLoad; p.statuses = savedStatuses;
+  }
 }

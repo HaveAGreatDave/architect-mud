@@ -184,14 +184,16 @@ registerStatusEffect({
 //
 // What it does now is deliberately not "damage". It barely touches your HP,
 // capped at FOOD_POISON_HP_CAP of your maximum across the whole illness — it
-// will make you wish you were dead, it won't kill you. What it takes is
-// STAMINA, continuously and hard, so you can't run, can't fight, and can't get
-// anywhere. And every so often it takes your dignity: you are sick, or you don't
-// make it to a toilet, and it goes on your clothes and on the floor of whatever
-// room you happened to be standing in. Publicly.
+// will make you wish you were dead, it won't kill you. It halves your stamina
+// ONCE, when it lands (see applyEffect); it used to drain it every tick, which
+// pinned you at zero for the whole illness and was just a lockout. Every so
+// often it takes your dignity: you are sick, or you don't make it to a toilet,
+// and it goes on your clothes and on the floor of whatever room you happened to
+// be standing in. Publicly. Each episode costs water too: that's how food
+// poisoning actually hurts people. `vomit` (plugins/bodily) gets it over sooner.
 const FOOD_POISON_HP_CAP = 0.30;      // total HP it can ever take, as a fraction of max
 const FOOD_POISON_HP_TICK = 1;
-const FOOD_POISON_STAMINA_TICK = 12;  // the real cost: you are going nowhere
+const FOOD_POISON_EPISODE_THIRST = 6; // water lost per episode, either end
 const EPISODE_EVERY = 8;              // ticks between one indignity and the next
 
 const VOMIT_LINES = [
@@ -209,10 +211,6 @@ registerStatusEffect({
   name: 'food_poisoning',
   label: 'Food poisoning',
   onTick(player) {
-    // Stamina first, and hard — this is what actually stops you doing anything.
-    const staMax = player.stamina_max ?? 100;
-    player.stamina = Math.max(0, (player.stamina ?? staMax) - FOOD_POISON_STAMINA_TICK);
-
     // HP, barely, and only up to a hard cap for the whole illness.
     const cap = Math.floor((player.hp_max || 100) * FOOD_POISON_HP_CAP);
     player._foodPoisonHp = player._foodPoisonHp || 0;
@@ -225,9 +223,10 @@ registerStatusEffect({
     // ...and every so often, an episode. Half of them come up, half go down.
     player._foodPoisonTick = (player._foodPoisonTick || 0) + 1;
     if (player._foodPoisonTick % EPISODE_EVERY !== 0) {
-      return 'Your guts churn. You can barely stand. (-STA)';
+      return 'Your guts churn.';
     }
     const up = player._foodPoisonTick % (EPISODE_EVERY * 2) === 0;
+    if (typeof player.thirst === 'number') player.thirst = Math.max(0, player.thirst - FOOD_POISON_EPISODE_THIRST);
     const lines = up ? VOMIT_LINES : VOID_LINES;
     const line = lines[Math.floor(Math.random() * lines.length)];
     // The room and your clothes both remember it.
@@ -278,7 +277,12 @@ export function applyEffect(player, name, duration, { source = null } = {}) {
   } else {
     // A fresh bout starts its own budget — the HP cap is per illness, not per
     // lifetime, and the episode clock restarts so the first one isn't instant.
-    if (name === 'food_poisoning') { player._foodPoisonHp = 0; player._foodPoisonTick = 0; }
+    // It also halves your stamina, once, here. A second bad mouthful mid-bout
+    // only lengthens the illness (the branch above), so it can't halve again.
+    if (name === 'food_poisoning') {
+      player._foodPoisonHp = 0; player._foodPoisonTick = 0;
+      if (typeof player.stamina === 'number') player.stamina = Math.floor(player.stamina / 2);
+    }
     player.statuses.push({ name, duration, source, elapsed: 0 });
   }
 }

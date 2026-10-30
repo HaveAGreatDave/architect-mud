@@ -29,7 +29,7 @@ import { genericFurnitureLinks, furnitureVerbs, verbTarget } from '../furnitureA
 import { escAttr } from '../text.js';
 import { statusLabels, applyEffect } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
-import { carryCapacity, formatWeight } from './inventory.js';
+import { carryCapacity, formatWeight, freshnessLine } from './inventory.js';
 import { fireHook, gatherHook } from '../plugins.js';
 import { emit } from '../events.js';
 import { zoneAir } from '../bodily.js';
@@ -594,7 +594,7 @@ async function cmdExamine(targetStr, player, broadcast) {
     }
     if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'perishable')) {
       const fresh = await fireHook('item.checkFreshness', { ...it, id: it.inv_id }, player);
-      if (fresh) msg += `\n<span class="text-dim">It looks ${fresh.state}.</span>`;
+      if (fresh) msg += `\n${freshnessLine(fresh.state)}`;
     }
     // How worn it is, and what's been done to it before. Derived, no query, and
     // deliberately SILENT for a pristine never-mended thing — the overwhelming
