@@ -285,10 +285,27 @@ async function onPosture({ player, to }) {
 }
 on('posture.changed', (p) => { onPosture(p).catch((e) => console.error('[stands] posture:', e.message)); });
 
+// Walking into a box's suite (a section with a `room`) puts you in one of its chairs and opens the
+// suite in 3-D, so nobody has to find a chair first. The suite's lounge (a screen carrying
+// `flags.stands_room`) opens it on the sofa, as watching the screen does.
+async function enterSuite(player, zone) {
+  if (seated.get(player.id)?.zoneId === zone.id) return;
+  const screen = getZoneFurniture(zone.id).find((f) => f.flags?.stands_room);
+  if (screen) { sendToPlayer(player.id, { type: 'output', message: watchScreen(player, screen).message }); return; }
+  const stands = standsOf(zone), section = stands?.sections.find((c) => c.room);
+  if (!section) return;
+  const channelId = liveSportsChannel(stands.sport);
+  if (!channelId) { sendToPlayer(player.id, { type: 'output', message: '<span class="msg-system">No game on right now. The field is empty under the lights.</span>' }); return; }
+  const r = await takeSeat(player, zone, stands, section, channelId, { chair: true });
+  sendToPlayer(player.id, { type: 'output', message: r.message });
+}
+
 // Walking out of the room is getting up.
 on('zone.entered', ({ actor, zone }) => {
   const s = actor && seated.get(actor.id);
   if (s && s.zoneId !== zone) leave(actor, true);
+  const z = actor && getZone(zone);
+  if (z) enterSuite(actor, z).catch((e) => console.error('[stands] suite:', e.message));
 });
 on('player.logout', ({ id }) => { if (id) seated.delete(id); });
 
