@@ -16,16 +16,36 @@
 // How a cheer comes and goes (s): up over `rise`, held, and gone over `fall`.
 export const ROAR = Object.freeze({ rise: 0.35, fall: 2.2 });
 
+// How a cheer moves the fans, apart from how it sounds (s). The noise goes first and they follow
+// `late` after it; however long the noise holds they're up for `hold` at most and back down over
+// `fall`, so a big moment is a punch that settles. A cheer that lands while the last one still has
+// them up builds on it by `build` of what's left, so a rally keeps them up and climbing.
+export const STIR = Object.freeze({ late: 0.25, hold: 2.5, fall: 3, build: 0.5 });
+
 // The two sides' roars: `cheer(side, amp, at, hold)` (side 0 the home fans, 1 the visitors';
 // amp 0 to 1; at and hold in seconds of the game's clock), and `at(t)` the two levels then.
 export function createRoar() {
   let cheers = [];
-  const endOf = (c) => c.at + ROAR.rise + c.hold + ROAR.fall;
+  const endOf = (c) => c.at + Math.max(ROAR.rise + c.hold + ROAR.fall, STIR.late + ROAR.rise + STIR.hold + STIR.fall);
+  const stirOf = (t) => {
+    const out = [0, 0];
+    for (const c of cheers) {
+      const x = t - c.at - STIR.late, hold = Math.min(c.hold, STIR.hold);
+      if (x < 0) continue;
+      const k = x < ROAR.rise ? x / ROAR.rise : x < ROAR.rise + hold ? 1 : Math.max(0, 1 - (x - ROAR.rise - hold) / STIR.fall);
+      out[c.side] = Math.max(out[c.side], (c.stir ?? c.amp) * k);
+    }
+    return out;
+  };
   return {
     cheer(side, amp, at, hold = 1.5) {
       if (!(amp > 0) || !Number.isFinite(at)) return;
-      cheers.push({ side: side ? 1 : 0, amp: Math.min(1, amp), at, hold: Math.max(0, hold) });
+      side = side ? 1 : 0;
+      const stir = Math.min(1, amp + STIR.build * stirOf(at)[side]);
+      cheers.push({ side, amp: Math.min(1, amp), stir, at, hold: Math.max(0, hold) });
     },
+    // how stirred each side's fans are at t: what the renderer moves them by (STIR)
+    stir: (t) => stirOf(t),
     at(t) {
       const out = [0, 0];
       for (const c of cheers) {
@@ -40,6 +60,34 @@ export function createRoar() {
     prune(t) { cheers = cheers.filter((c) => endOf(c) > t); },
     clear() { cheers = []; },
     get size() { return cheers.length; },
+  };
+}
+
+// How late each fan hears the roar (s): a fan takes one of these, by a hash of his seat, and gets
+// up on the roar as it was that long ago, so a cheer runs through the stand over a second instead
+// of bringing whole sections up on the same frame. `createRoarLag()` keeps the levels the renderer
+// is handed and gives them back at each lag: `push(t, home, away)`, then `home` and `away` are
+// four levels each, LAG[0] to LAG[3] ago. A clock that runs backwards (a replay) starts it afresh.
+export const LAG = Object.freeze([0, 0.3, 0.65, 1.1]);
+export function createRoarLag() {
+  let hist = [];
+  const home = [0, 0, 0, 0], away = [0, 0, 0, 0];
+  const at = (t, side) => {
+    for (let i = hist.length - 1; i > 0; i--) {
+      const a = hist[i - 1], z = hist[i];
+      if (a.t <= t) return z.t > a.t ? a[side] + (z[side] - a[side]) * Math.min(1, (t - a.t) / (z.t - a.t)) : z[side];
+    }
+    return hist.length ? hist[0][side] : 0;
+  };
+  return {
+    push(t, h, a) {
+      if (!Number.isFinite(t)) return;
+      if (hist.length && t < hist[hist.length - 1].t) hist = [];
+      hist.push({ t, h: +h || 0, a: +a || 0 });
+      while (hist.length > 2 && hist[1].t < t - LAG[3]) hist.shift();
+      for (let i = 0; i < 4; i++) { home[i] = at(t - LAG[i], 'h'); away[i] = at(t - LAG[i], 'a'); }
+    },
+    home, away,
   };
 }
 
@@ -91,7 +139,7 @@ layout(location = 4) in vec4 iB;
 layout(location = 5) in vec3 iC;
 uniform mat4 uVP;
 uniform float uBase;
-uniform vec2 uRoar;
+uniform vec2 uRoar; uniform vec4 uLagH; uniform vec4 uLagA;
 uniform float uT;
 uniform float uMove;
 uniform vec3 uLook;
@@ -101,6 +149,9 @@ out vec3 vPos; out vec3 vN; out vec3 vAlb;
 // a number from his seat, no sin() in it: sin of a position in feet loses its low bits on a GPU, so
 // neighbours drew the same number and a whole section moved in step
 float hash(vec2 p, vec2 k, float m) { vec3 q = fract(vec3(p.xyx) * 0.1031 + vec3(k, m) * 0.00731); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+// the roar as he hears it, late by his own lag (crowd.js LAG): uLagH and uLagA are each side's
+// levels at the four lags, and he sits somewhere between two of them
+float heard(vec2 seat, float away) { float l = 3.0 * hash(seat, vec2(31.7, 66.1), 22717.3); vec4 r = mix(uLagH, uLagA, away); float a = l < 1.0 ? r.x : l < 2.0 ? r.y : r.z, b = l < 1.0 ? r.y : l < 2.0 ? r.z : r.w; return mix(a, b, fract(l)); }
 void main() {
   // the seat a viewer sits in (ballpark.js seatFor) has nobody in it
   if (distance(iA.xyz, uNear.xyz) < uNear.w) { vPos = vec3(0.0); vN = vec3(0.0, 1.0, 0.0); vAlb = vec3(0.0); gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
@@ -111,9 +162,12 @@ void main() {
   // whose fan he is: a tenth of the park the visitors', thicker up the third-base line (+x) by
   // their dugout
   float away = step(hash(iA.xz, vec2(7.17, 91.3), 13371.3), iA.x > 0.0 ? 0.16 : 0.04);
-  float roar = mix(uRoar.x, uRoar.y, away);
-  // he's up once the roar passes his own threshold, the keenest at the least
-  float thr = 0.12 + 0.75 * h2, up = smoothstep(thr, thr + 0.18, roar);
+  float roar = heard(iA.xz, away);
+  // he's up once the roar passes his own threshold, the keenest at the least; most thresholds are
+  // high, so a single brings a handful up, a big hit half the park and a home run all of it
+  float thr = 0.2 + 0.72 * sqrt(h2), up = smoothstep(thr, thr + 0.12, roar);
+  // and only one in eight fidgets sat quiet; the rest sit still and watch
+  float fidget = step(hash(iA.xz, vec2(44.9, 3.71), 29399.1), 0.125);
   // his pose, from where he rests up through standing to cheering; he rests standing at most, so
   // arms go up only when the roar takes him there
   float k = max(min(uBase, 1.0) * 0.5, up);
@@ -127,14 +181,14 @@ void main() {
   if (head) {
     vec2 d = uLook.xy - iA.xz;
     float want = atan(c * d.x - s * d.y, s * d.x + c * d.y);
-    float yaw = clamp(want, -0.9, 0.9) * uLook.z * (0.45 + 0.55 * h3) + 0.22 * sin(uT * 0.31 * (0.6 + 0.8 * h9) + h * 6.283) * (1.0 - 0.7 * uLook.z);
+    float yaw = clamp(want, -0.9, 0.9) * uLook.z * (0.45 + 0.55 * h3) + 0.22 * fidget * uMove * sin(uT * 0.31 * (0.6 + 0.8 * h9) + h * 6.283) * (1.0 - 0.7 * uLook.z);
     vec3 pv = vec3(0.0, mix(3.51, 4.96, min(1.0, k * 2.0)), mix(-0.1, 0.0, min(1.0, k * 2.0)));
     vec3 q = p - pv; float cy = cos(yaw), sy = sin(yaw);
     p = pv + vec3(cy * q.x + sy * q.z, q.y, -sy * q.x + cy * q.z);
     n = vec3(cy * n.x + sy * n.z, n.y, -sy * n.x + cy * n.z);
   }
   // sat quiet, his upper body leans forward and back on his own slow beat
-  float rest = (1.0 - up) * (1.0 - min(1.0, uBase)) * uMove;
+  float rest = (1.0 - up) * (1.0 - min(1.0, uBase)) * uMove * fidget;
   p.z += rest * max(0.0, p.y - 1.9) * 0.07 * sin(uT * 0.23 * (0.6 + 0.8 * h8) + h2 * 6.283);
   // up and cheering, a bounce and a sway above the waist, each on his own beat: the bounce a
   // smooth hop, sharpest at its top, with no kink where it lands
@@ -178,7 +232,7 @@ layout(location = 4) in vec4 iB;
 layout(location = 5) in vec3 iC;
 uniform mat4 uVP;
 uniform float uBase;
-uniform vec2 uRoar;
+uniform vec2 uRoar; uniform vec4 uLagH; uniform vec4 uLagA;
 uniform float uT;
 uniform float uMove;
 uniform vec3 uEyeC;
@@ -189,12 +243,15 @@ flat out vec3 vShirt; flat out vec3 vSkin; flat out vec3 vHair; flat out float v
 // a number from his seat, no sin() in it: sin of a position in feet loses its low bits on a GPU, so
 // neighbours drew the same number and a whole section moved in step
 float hash(vec2 p, vec2 k, float m) { vec3 q = fract(vec3(p.xyx) * 0.1031 + vec3(k, m) * 0.00731); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+// the roar as he hears it, late by his own lag (crowd.js LAG): uLagH and uLagA are each side's
+// levels at the four lags, and he sits somewhere between two of them
+float heard(vec2 seat, float away) { float l = 3.0 * hash(seat, vec2(31.7, 66.1), 22717.3); vec4 r = mix(uLagH, uLagA, away); float a = l < 1.0 ? r.x : l < 2.0 ? r.y : r.z, b = l < 1.0 ? r.y : l < 2.0 ? r.z : r.w; return mix(a, b, fract(l)); }
 void main() {
   if (distance(iA.xyz, uNear.xyz) < uNear.w) { vPos = vec3(0.0); vN = vec3(0.0, 1.0, 0.0); vQ = vec2(0.0); vShirt = vec3(0.0); vSkin = vec3(0.0); vHair = vec3(0.0); vK = 0.0; vH = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   float h = hash(iA.xz, vec2(12.99, 78.23), 43758.5), h2 = hash(iA.xz, vec2(39.35, 11.13), 24634.6);
   float away = step(hash(iA.xz, vec2(7.17, 91.3), 13371.3), iA.x > 0.0 ? 0.16 : 0.04);
-  float roar = mix(uRoar.x, uRoar.y, away);
-  float thr = 0.12 + 0.75 * h2, up = smoothstep(thr, thr + 0.18, roar);
+  float roar = heard(iA.xz, away);
+  float thr = 0.2 + 0.72 * sqrt(h2), up = smoothstep(thr, thr + 0.12, roar);
   float k = max(min(uBase, 1.0) * 0.5, up);
   // the top of his head sitting and standing (gl/ballpark-mesh.js CROWD_POSE), his hands over it
   // when he cheers

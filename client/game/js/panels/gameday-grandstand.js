@@ -221,10 +221,12 @@ export function createGrandstandView(host, opts = {}) {
     `</div>`;
   }
   // The graphics' theme for this broadcast: the station's bug, and tonight's two clubs in their
-  // kits' colours.
-  function theme() {
+  // kits' colours. Over your own eyes in a seat ('live') there's no bug: you're at the game, not
+  // watching it, so the station's mark only shows on a screen (the box's TV, or T for the broadcast)
+  function theme(live = false) {
+    const bug = String(opts.station || '').toUpperCase().slice(0, 10);
     return {
-      bug: String(opts.station || '').toUpperCase().slice(0, 10),
+      get bug() { return live && inPerson() ? '' : bug; },
       colourOf: (team) => (team && team === S.homeTeam ? sideColours('home', team) : team && team === S.awayTeam ? sideColours('away', team) : null),
     };
   }
@@ -252,7 +254,7 @@ export function createGrandstandView(host, opts = {}) {
     roar = mods.createRoar();
     snd = mods.createParkSound({ win, state: () => ({ p: cur?.p || last, S }), seat: opts.seat || null });
     hud = mods.hud.createHud(host.querySelector('.gds-hud'), {
-      theme: theme(),
+      theme: theme(true),
       project: (p, w, h) => mods.project(view(), w, h, p),
       safe: () => !!R?.quality?.tube,
       motion: () => !prefersReducedMotion(),
@@ -348,7 +350,8 @@ export function createGrandstandView(host, opts = {}) {
       R.setBall(RW.ballAt(tR), shutter > 0 ? RW.ballAt(tR - shutter) : null);
       R.setBats?.(RW.batsAt(tR));
       R.setSpectacle?.(replay ? replay.D.fx : D.fx, tR);
-      R.setCrowd?.(replay ? loud : roar.at(tR), replay ? W.t : tR, !calm);
+      // the fans move by how stirred they are, which follows the noise and settles before it does
+      R.setCrowd?.(roar.stir(replay ? W.t : tR), replay ? W.t : tR, !calm);
       R.setTime?.(tR);
       if (marks.length) { R.markDirt?.(marks); marks = []; }
       dragFrame();
@@ -908,6 +911,7 @@ export function createGrandstandView(host, opts = {}) {
       if (last !== p || flat) return;
       if (!mount()) return;
       host.querySelector('.gds-idle')?.remove();
+      R?.setEmpty?.(false);
       stage(p);
     };
     if (mods) go(); else loadMods().then(go).catch((err) => fallback(err && err.message));
@@ -953,7 +957,7 @@ export function createGrandstandView(host, opts = {}) {
     clearCard();
     const go = () => {
       if (flat || !mount()) return;
-      if (!last) { shot = opts.shot || 'high'; paint(); }
+      if (!last) { R?.setEmpty?.(true); shot = opts.shot || 'high'; paint(); }
       // in a box's suite nobody needs telling: the room is the thing to look at till the game starts
       if (opts.room || host.querySelector('.gds-idle')) return;
       const veil = doc.createElement('div');

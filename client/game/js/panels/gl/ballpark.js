@@ -27,7 +27,7 @@ import { insideOutline, ftUp } from '../diamond/geo.js';
 import { WIN, WIN_OPEN, RAYS, SUN, rayReach } from '../glass/coliseum-window.js';
 import { breathe } from '../diamond/anim.js';
 import { ROOF_MS } from '../world-feed.js';
-import { CROWD_VS, CARD_VS, CARD_QUAD, flashesAt } from './crowd.js';
+import { CROWD_VS, CARD_VS, CARD_QUAD, flashesAt, createRoarLag } from './crowd.js';
 import { paintInfield, paintMark, smoothPoly, DIRT_RECT } from '../diamond/dirt.js';
 import { boardLamps, BOARD_W, BOARD_H } from '../diamond/board.js';
 import { shotMatrices, shotOf, inv4 } from '../diamond/camera.js';
@@ -1303,7 +1303,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     let crowd = homeCrowd, fullCrowd = null;
     // how loud each side's fans are (gl/crowd.js createRoar), the clock their bouncing keeps, and
     // whether they may bounce at all
-    const roar = { home: 0, away: 0, t: 0, move: 1 };
+    const roar = { home: 0, away: 0, t: 0, move: 1 }, roarLag = createRoarLag();
     // the two clubs' colours the fans wear (crowd.js), linear; none until setFanColours
     const fanKit = { home: [0, 0, 0], away: [0, 0, 0], on: 0 };
     // the room's cut (LIGHTS_GLSL inCut), on while a frame draws the room
@@ -1375,7 +1375,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     };
     const flashBuf = new Float32Array(LIGHT_STRIDE.pts * 4);
     function flashPoints() {
-      if (!roar.move || !(look.lights > 0.3) || api.quality.flashes === false) return 0;
+      if (empty || !roar.move || !(look.lights > 0.3) || api.quality.flashes === false) return 0;
       const loud = Math.max(roar.home, roar.away), up = Math.min(1, Math.max(0, (loud - 0.4) / 0.4)), share = crowdShare();
       const drawn = crowd.reduce((n, d) => n + Math.round(d.count * share), 0);
       let k = 0;
@@ -1402,6 +1402,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     if (!palette) return null;
     const bodies = new Map();        // bodyKey → { batches: [{ key, vao, buf, n }] }
     let members = [];                // the cast now: [{ key, slot }]
+    let empty = false;               // setEmpty(true): no game on, the park drawn without players or fans
     const roles = new Map();         // and each slot's role (cast.js), for whose knees a pitch dirties
     let queue = [];
     const HA = new Float32Array(28 * 4), HB = new Float32Array(28 * 4), HC = new Float32Array(28 * 4), HD = new Float32Array(28 * 4);
@@ -2056,6 +2057,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     // ── a frame ───────────────────────────────────────────────────────────────
     function render(shot, ro = {}) {
+      // an empty park (setEmpty): no game on, so nobody on the field and nobody in the seats
+      const shown = empty ? [] : members;
       if (lost) return false;
       const inRoom = !!room && ro.room !== false;
       cutOn = inRoom ? 1 : 0;
@@ -2083,7 +2086,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // the ball, so a grandstand's shadow lies across the field and a fly ball's on the grass
       let spotN = 0;
       spotsNow = 0;
-      const casters = api.casters, stands = q.stands !== false && q.stands !== 0;
+      const casters = empty ? [] : api.casters, stands = q.stands !== false && q.stands !== 0;
       // as many of the casting towers as the tier has shadows for, the two by the infield first
       const nCast = q.shadows === true ? casting.length : Math.max(0, Math.min(casting.length, q.shadows | 0));
       // the low sun before it sets (diamond/sky.js sunLight): its own map over the whole park, the
@@ -2134,7 +2137,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // no tower casting (the phone tier): each man and the ball get a soft patch on the ground
       blobN = 0;
       if (!spotN && q.light !== 0 && q.light !== false) {
-        for (const m of members) {
+        for (const m of shown) {
           const J = joints.get(m.slot);
           if (!J || !J.pelvis || blobN >= 15) continue;
           blobs.set([J.pelvis[0], J.pelvis[2], 1.7, 0.55 * Math.max(0, 1 - J.pelvis[1] / 9)], blobN++ * 4);
@@ -2274,7 +2277,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniform2f(SKINK.u('uRes'), w, h);
         gl.uniform4f(SKINK.u('uInk'), CEL.inkFt, CEL.inkPx[0] * u, CEL.inkPx[1] * u, CEL.inkBias);
         gl.uniform3fv(SKINK.u('uCol'), CEL.ink);
-        for (const m of members) {
+        for (const m of shown) {
           const body = bodies.get(m.key);
           if (!body) continue;
           gl.uniform1i(SKINK.u('uBoneRow'), m.slot);
@@ -2291,7 +2294,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.uniform1i(SKLIT.u('uFaceAtlas'), 8); gl.uniform1i(SKLIT.u('uBones'), 9); gl.uniform1f(SKLIT.u('uBlinkT'), worldT);
       gl.uniform1f(SKLIT.u('uTwill'), q.light !== 0 && q.light !== false ? 1 : 0);
       gl.uniform4fv(SKLIT.u('uHeadA'), HA); gl.uniform4fv(SKLIT.u('uHeadB'), HB); gl.uniform4fv(SKLIT.u('uHeadC'), HC); gl.uniform4fv(SKLIT.u('uHeadD'), HD);
-      for (const m of members) {
+      for (const m of shown) {
         const body = bodies.get(m.key);
         if (!body) continue;
         const cell = kitCell(m.slot);
@@ -2303,12 +2306,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
       }
 
       // the crowd
-      if (crowd.length) {
+      if (crowd.length && !empty) {
         gl.useProgram(CROWD.p);
         lights(CROWD, M.eye);
         shadows.bind(CROWD.u, 4, q.light !== 0 && q.light !== false ? 1 : 0);
         gl.uniformMatrix4fv(CROWD.u('uVP'), false, M.viewProj); cutUniforms(CROWD);
-        gl.uniform2f(CROWD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CROWD.u('uT'), roar.t); gl.uniform1f(CROWD.u('uMove'), roar.move); fanUniforms(CROWD);
+        gl.uniform2f(CROWD.u('uRoar'), roar.home, roar.away); gl.uniform4fv(CROWD.u('uLagH'), roarLag.home); gl.uniform4fv(CROWD.u('uLagA'), roarLag.away); gl.uniform1f(CROWD.u('uT'), roar.t); gl.uniform1f(CROWD.u('uMove'), roar.move); fanUniforms(CROWD);
         lookAtPlay(roar.t);
         gl.uniform3f(CROWD.u('uLook'), crowdLook.x, crowdLook.z, crowdLook.w); gl.uniform4fv(CROWD.u('uNear'), seatDrop);
         const share = crowdShare(), close = (q.fans ?? 1) >= 2 && M.fov > 0 && M.fov <= CLOSE_FOV;
@@ -2325,7 +2328,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
           gl.useProgram(CARD.p);
           lights(CARD, M.eye);
           gl.uniformMatrix4fv(CARD.u('uVP'), false, M.viewProj); cutUniforms(CARD);
-          gl.uniform2f(CARD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CARD.u('uT'), roar.t); gl.uniform1f(CARD.u('uMove'), roar.move); fanUniforms(CARD);
+          gl.uniform2f(CARD.u('uRoar'), roar.home, roar.away); gl.uniform4fv(CARD.u('uLagH'), roarLag.home); gl.uniform4fv(CARD.u('uLagA'), roarLag.away); gl.uniform1f(CARD.u('uT'), roar.t); gl.uniform1f(CARD.u('uMove'), roar.move); fanUniforms(CARD);
           gl.uniform3fv(CARD.u('uEyeC'), M.eye); gl.uniform4fv(CARD.u('uNear'), seatDrop);
           for (const d of crowd) {
             if (!d.cards) continue;
@@ -2566,11 +2569,13 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // no city: where the fly-in before a game comes down to (diamond/camera.js approachShot)
       get streetCam() { return streetCam; },
       setRoom, renderTv, get room() { return room ? room.L : null; },
-      setFinal, setChampion: (on) => { champ = !!on; }, get final() { return final ? { ...final, champion: champ } : null; },
+      setFinal, setChampion: (on) => { champ = !!on; },
+      // setEmpty(on): no game on, so the park draws without its players or its crowd
+      setEmpty: (on) => { empty = !!on; }, get empty() { return empty; }, get final() { return final ? { ...final, champion: champ } : null; },
       // setFanColours(home, away): the two clubs' colours as linear [r, g, b], which 30% and 10%
       // of the fans wear (gl/crowd.js); null takes them off
       setFanColours: (home, away) => { fanKit.on = home && away ? 1 : 0; if (fanKit.on) { fanKit.home = [...home]; fanKit.away = [...away]; } },
-      setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; },
+      setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; roarLag.push(roar.t, roar.home, roar.away); },
       pending: () => queue.length,
       get park() { return park; },
       // what the city came to: { buildings, filler, lamps, tris, placed, bearing, … }, or null

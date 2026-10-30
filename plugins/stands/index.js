@@ -204,6 +204,17 @@ async function cmdStands(args, raw, player, broadcast) {
 // keeps the seat (zone.entered below). Bare, it answers with what the thing keeps in stock
 // (`flags.restock_items`) as a menu (`stands_menu`); with an item id, it takes one, as
 // `take <item> from <thing>` would. Everything in a box is on the house.
+// How the suite's hands hold a thing off the menu (client stands-hands.js): a glass you keep, a drug
+// you smoke, a mixer or spirit you pour into the glass, a drink, something to eat. Null is no ritual.
+function heldAs(it) {
+  const t = it.tags || {};
+  if (t.drinkware) return 'glass';
+  if (t.drug) return 'smoke';
+  if (t.drink_profile) return 'pour';
+  if (t.food_profile === 'liquid' || t.hydrating) return 'drink';
+  if (t.restore_hunger) return 'eat';
+  return null;
+}
 const sameBox = (a, b) => !!a?.flags?.ticketed && a.flags.ticketed === b?.flags?.ticketed;
 const furnitureCalled = (zoneId, want) => getZoneFurniture(zoneId).find((f) => String(f.name || '').toLowerCase().includes(want) || (f.flags?.aliases || []).some((a) => String(a).toLowerCase() === want));
 async function fetchInSuite(player, what, broadcast) {
@@ -226,7 +237,7 @@ async function fetchInSuite(player, what, broadcast) {
       return handleCommand(`open ${want}`, player, broadcast);
     }
     sendToPlayer(player.id, { type: 'stands_menu', target: want, name: thing.name, description: thing.description || '',
-      items: stock.map(([id, it]) => ({ id, name: it.name, description: it.tags?.description || it.description || '' })) });
+      items: stock.map(([id, it]) => ({ id, name: it.name, description: it.tags?.description || it.description || '', kind: heldAs(it), drinkable: !!it.tags?.consumable })) });
     return { type: 'noop' };
   }
   const it = stock.find(([id]) => id === itemId)?.[1];

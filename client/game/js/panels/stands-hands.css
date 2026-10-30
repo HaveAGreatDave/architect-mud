@@ -1,0 +1,14 @@
+/* stands-hands.js: what's in your hands in a box's suite, over the 3-D view */
+#stands-view .sh-canvas {
+	position: absolute; left: 0; z-index: 2; pointer-events: none;
+}
+#stands-view .sh-prompt {
+	position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 3;
+	padding: 4px 12px; border-radius: 10px; background: rgba(0, 0, 0, 0.6); color: #f1e6cf;
+	font: 13px system-ui, sans-serif; pointer-events: none; white-space: nowrap;
+}
+#stands-view .sh-glass {
+	position: absolute; left: 36px; bottom: 6px; z-index: 3; width: 70px; height: 110px;
+	background: transparent; border: 0; border-radius: 8px; cursor: pointer;
+}
+#stands-view .sh-glass:hover, #stands-view .sh-glass:focus-visible { background: rgba(255, 230, 160, 0.08); outline: 1px solid rgba(255, 230, 160, 0.4); }

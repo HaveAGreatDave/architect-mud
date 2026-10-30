@@ -20,6 +20,7 @@ import { wantVenue, venueOf } from './venue.js';
 import { boothStep, boothSeatNear, boothFree } from './gl/booth-mesh.js';
 import { rinkSeats, SEAT_EYE } from './gl/arena-crowd.js';
 import { standsBoothOn } from '../../../shared/settings.js';
+import { createHands } from './stands-hands.js';
 
 const CSS = await loadCss(new URL('./stands.css', import.meta.url));
 function ensureStyles() {
@@ -201,7 +202,9 @@ export async function openStands(msg) {
   startSuite = () => {
     if (suite || !layout || seatUi !== ui) return;
     suite = walkSuite(ui, layout, msg, setMode, redraw);
-    ui.onKeyUp = (e) => suite.key(e, false); document.addEventListener('keyup', ui.onKeyUp); ui.stopSuite = suite.stop;
+    // what you take from the bar, the buffet or the smokes goes in your hands (stands-hands.js)
+    ui.hands = createHands(root, host, { send: sendCmd });
+    ui.onKeyUp = (e) => { if (!ui.hands?.key(e, false)) suite.key(e, false); }; document.addEventListener('keyup', ui.onKeyUp); ui.stopSuite = suite.stop;
   };
   modeBtn.addEventListener('click', () => setMode(seat.mode === 'follow' ? 'free' : 'follow'));
   root.querySelector('.st-seats').addEventListener('click', () => sendCmd('stands'));
@@ -253,7 +256,7 @@ export async function openStands(msg) {
     if (document.getElementById('tablet-os-overlay')) return;   // the tablet has the keys
     if (field) field.blur();
     const k = e.key;
-    if (suite?.key(e, true)) { e.preventDefault(); return; }
+    if (ui.hands?.key(e, true) || suite?.key(e, true)) { e.preventDefault(); return; }
     if (k === 'f' || k === 'F') { setMode(seat.mode === 'follow' ? 'free' : 'follow'); e.preventDefault(); }
     else if (k === 'ArrowLeft') { turn(-24, 0); e.preventDefault(); }
     else if (k === 'ArrowRight') { turn(24, 0); e.preventDefault(); }
@@ -325,7 +328,12 @@ export function openStandsMenu(msg) {
   card.addEventListener('pointerdown', (e) => e.stopPropagation());
   card.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-id]');
-    if (b) sendCmd(`stands fetch ${msg.target} ${b.dataset.id}`);
+    if (!b) return;
+    // a hand already full keeps the card up; otherwise the card goes and what you took is in your hand
+    const it = (msg.items || []).find((x) => x.id === b.dataset.id);
+    if (seatUi?.hands?.busy()) return;
+    sendCmd(`stands fetch ${msg.target} ${b.dataset.id}`);
+    if (it?.kind && seatUi?.hands?.take(it)) close();
   });
   root.appendChild(card);
   card.querySelector('button[data-id]')?.focus();
@@ -339,6 +347,7 @@ export function closeStands() {
   if (ui.onKey) document.removeEventListener('keydown', ui.onKey);
   if (ui.onKeyUp) document.removeEventListener('keyup', ui.onKeyUp);
   ui.stopSuite?.();
+  ui.hands?.stop();
   try { ui.view?.clear(); } catch { /* already torn down */ }
   ui.root.remove();
 }
@@ -357,7 +366,7 @@ function walkSuite(ui, L, msg, setMode, redraw) {
   const sitBtn = root.querySelector('.st-sit'), tvBtn = root.querySelector('.st-tv');
   sitBtn.hidden = false; tvBtn.hidden = false;
   root.querySelector('.st-leave').textContent = 'Leave the box';
-  root.querySelector('.st-tip').textContent = 'WASD to walk · click a chair or E to sit · click the bar, the buffet or the smokes, or E beside them, to help yourself · T for the big screen · drag to look';
+  root.querySelector('.st-tip').textContent = 'WASD to walk · click a chair or E to sit · click the buffet or the smokes, or go behind the bar to the fridge, to help yourself · Space and clicks for what you hold · T for the big screen · drag to look';
   seat.near = 0.3;
   // the command line keeps the keys while it has focus, so WASD would type; let it go now
   // and whenever you click into the room
@@ -449,6 +458,8 @@ function walkSuite(ui, L, msg, setMode, redraw) {
         if (dd < bd) { bd = dd; best = s; }
       }
       for (const st of L.stations || []) {
+        // the fridge behind the bar is only clicked open from behind the bar
+        if (st.behind && Math.hypot(st.u - at[0], st.v - at[1]) > st.reach) continue;
         const q = ui.view?.project?.(L.world(st.u, st.v, st.y), w, h);
         const dd = q ? Math.hypot(q.x - x, q.y - y) : Infinity;
         if (dd < pd && dd < bd) { pd = dd; pick = st; }

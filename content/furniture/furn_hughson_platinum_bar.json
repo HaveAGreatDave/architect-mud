@@ -14,7 +14,14 @@
     "restock_items": [
       "item_platinum_champagne",
       "item_platinum_lager",
-      "item_platinum_soda"
+      "item_platinum_soda",
+      "item_highball_glass",
+      "item_rum_dark",
+      "item_spirit_bottle",
+      "item_arcline_cola",
+      "item_ginger_soda",
+      "item_soda_water",
+      "item_lime_juice"
     ]
   },
   "hp": null,

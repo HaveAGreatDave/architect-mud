@@ -493,9 +493,10 @@ export const YARDS_ARMS = {
     // 2) THE ROOM. Floor, ceiling and back wall lit cold, four washers facing the window on the
     //    left and the stacked dryers on the right, each with its round door, and the bench between.
     const IX = SX - fh * 0.10, LIT = [190, 214, 222], NITE = [210, 236, 255];
-    flatOut(ctx, cam, W3, [[-IX, YR, sill], [IX, YR, sill], [IX, YF, sill], [-IX, YF, sill]], [0, 0, 1], mix([150, 156, 152], [176, 196, 204]), alpha);
-    flatOut(ctx, cam, W3, [[-IX, YR + 0.001, S * 0.98], [IX, YR + 0.001, S * 0.98], [IX, YR + 0.001, sill], [-IX, YR + 0.001, sill]], [0, 1, 0], mix(LIT, NITE), alpha);
-    flatOut(ctx, cam, W3, [[-IX, YF, S * 0.98], [IX, YF, S * 0.98], [IX, YR, S * 0.98], [-IX, YR, S * 0.98]], [0, 0, -1], mix([170, 180, 182], [226, 242, 250]), alpha);
+    const fl = sill + S * 0.012, rw = YR + FACE_EPS, cz = S * 0.965;   // off the plinth top, the back box and the band under, or they fight
+    flatOut(ctx, cam, W3, [[-IX, YR, fl], [IX, YR, fl], [IX, YF, fl], [-IX, YF, fl]], [0, 0, 1], mix([150, 156, 152], [176, 196, 204]), alpha);
+    flatOut(ctx, cam, W3, [[-IX, rw, cz], [IX, rw, cz], [IX, rw, fl], [-IX, rw, fl]], [0, 1, 0], mix(LIT, NITE), alpha);
+    flatOut(ctx, cam, W3, [[-IX, YF, cz], [IX, YF, cz], [IX, YR, cz], [-IX, YR, cz]], [0, 0, -1], mix([170, 180, 182], [226, 242, 250]), alpha);
     const drum = (x, y, z, r, s) => {   // a machine's door: a chrome ring, dark glass, suds by night
       const ring = [], glass = [];
       for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2;
@@ -590,11 +591,13 @@ export const YARDS_ARMS = {
     for (const u of [-1, 0.40, 1]) B(u * (SX - fh * 0.03), YF + fh * 0.012, fh * 0.035, fh * 0.02, 0, S * 0.98, NAVY, true, 10 + Math.round(u * 2));
     B((wx0 + wx1) / 2, YF + fh * 0.008, (wx1 - wx0) / 2, fh * 0.015, plinth, sill, NAVY, true, 13);
     B((wx0 + wx1) / 2, YF + fh * 0.02, (wx1 - wx0) / 2 + fh * 0.01, fh * 0.02, sill - S * 0.02, sill, CREAM, true, 14);
-    flatOut(ctx, cam, W3, [[wx0, YR, wTop], [wx1, YR, wTop], [wx1, YR, sill], [wx0, YR, sill]], [0, 1, 0], mix([96, 84, 70], [255, 222, 170]), alpha);
-    flatOut(ctx, cam, W3, [[wx0, YR, sill], [wx1, YR, sill], [wx1, YF, sill], [wx0, YF, sill]], [0, 0, 1], mix([110, 92, 70], [196, 160, 112]), alpha);
-    flatOut(ctx, cam, W3, [[wx0, YF, wTop], [wx1, YF, wTop], [wx1, YR, wTop], [wx0, YR, wTop]], [0, 0, -1], 'rgb(62,56,50)', alpha);
-    for (const s of [wx0, wx1]) { const x = s, o = s === wx0 ? [1, 0, 0] : [-1, 0, 0];
-      flatOut(ctx, cam, W3, [[x, YR, wTop], [x, YF, wTop], [x, YF, sill], [x, YR, sill]], o, mix([84, 74, 62], [214, 180, 130]), alpha); }
+    // The room is lined a hair inside the hole: on the box faces themselves it flickers as you move.
+    { const rx0 = wx0 + FACE_EPS, rx1 = wx1 - FACE_EPS, ry = YR + FACE_EPS, fl = sill + S * 0.012, cl = wTop - S * 0.012;
+    flatOut(ctx, cam, W3, [[rx0, ry, cl], [rx1, ry, cl], [rx1, ry, fl], [rx0, ry, fl]], [0, 1, 0], mix([96, 84, 70], [255, 222, 170]), alpha);
+    flatOut(ctx, cam, W3, [[rx0, ry, fl], [rx1, ry, fl], [rx1, YF, fl], [rx0, YF, fl]], [0, 0, 1], mix([110, 92, 70], [196, 160, 112]), alpha);
+    flatOut(ctx, cam, W3, [[rx0, YF, cl], [rx1, YF, cl], [rx1, ry, cl], [rx0, ry, cl]], [0, 0, -1], 'rgb(62,56,50)', alpha);
+    for (const s of [rx0, rx1]) { const x = s, o = s === rx0 ? [1, 0, 0] : [-1, 0, 0];
+      flatOut(ctx, cam, W3, [[x, ry, cl], [x, YF, cl], [x, YF, fl], [x, ry, fl]], o, mix([84, 74, 62], [214, 180, 130]), alpha); } }
     // The dummy: a stand, a torso in a half-made jacket chalked for the fitting, and a neck cap.
     { const ux = wx0 + (wx1 - wx0) * 0.36, uy = YF - fh * 0.10, [tx, ty] = F(ux, uy);
       B(ux, uy, fh * 0.04, fh * 0.04, sill, sill + S * 0.02, 'ty_dw_iron', true, 20);
