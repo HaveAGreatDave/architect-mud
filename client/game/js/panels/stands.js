@@ -174,7 +174,7 @@ export async function openStands(msg) {
   try {
     view = msg.sport === 'hockey'
       ? (await import('./gameday-rink.js')).createRinkView(host, { seat: vs, fly: false })
-      : (await import('./gameday-grandstand.js')).createGrandstandView(host, { seat: vs, force: true, room, onRoom: (L) => { layout = L; startSuite?.(); } });
+      : (await import('./gameday-grandstand.js')).createGrandstandView(host, { seat: vs, force: true, room, station: msg.station || '', onRoom: (L) => { layout = L; startSuite?.(); } });
   } catch (err) {
     console.error('[stands] the view failed to load:', err);
     host.textContent = 'The view would not load.';
@@ -246,8 +246,12 @@ export async function openStands(msg) {
     redraw();
   }, { passive: false });
   ui.onKey = (e) => {
-    if (e.target.closest?.('input, textarea, [contenteditable]')) return;
+    // a field on top of the seat (a container's count) keeps its keys; the command line under the
+    // seat is out of sight but takes focus back on its own, so it lets go and the room walks
+    const field = e.target.closest?.('input, textarea, [contenteditable]');
+    if (field && (field.closest('#stands-view, #container-panel') || !suite)) return;
     if (document.getElementById('tablet-os-overlay')) return;   // the tablet has the keys
+    if (field) field.blur();
     const k = e.key;
     if (suite?.key(e, true)) { e.preventDefault(); return; }
     if (k === 'f' || k === 'F') { setMode(seat.mode === 'follow' ? 'free' : 'follow'); e.preventDefault(); }

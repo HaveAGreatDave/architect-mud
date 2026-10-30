@@ -765,6 +765,13 @@ void main() {
 const FULL_VS = `#version 300 es
 out vec2 vUV;
 void main() { vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); vUV = p; gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+// The suite's screen's graphics (renderTv's overlay): a 2-D canvas laid over the picture, its
+// colours already multiplied by its alpha (UNPACK_PREMULTIPLY_ALPHA) and blended ONE over.
+const OVERLAY_FS = `#version 300 es
+precision mediump float;
+in vec2 vUV; out vec4 o;
+uniform sampler2D uOver;
+void main() { o = texture(uOver, vUV); }`;
 // The sky: horizon to zenith, warmer toward where the sun went down, the city's glow low down, and
 // the sun while it's up, stars once it's dark, and the moon where it is, lit on the side toward the sun.
 const SKY_FS = `#version 300 es
@@ -833,7 +840,7 @@ uniform mat4 uVP;
 out vec2 vUV; out float vAlpha; out float vRed;
 void main() { vUV = aUV; vAlpha = aAlpha; vRed = aRed; gl_Position = uVP * vec4(aPos, 1.0); }`;
 
-for (const [vs, fs] of [[LIT_VS, LIT_FS], [SKIN_VS, LIT_FS], [SKIN_DEPTH_VS, DEPTH_FS], [STATIC_DEPTH_VS, DEPTH_FS], [CROWD_VS, CROWD_FS], [CARD_VS, CARD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS], [CURTAIN_VS, CURTAIN_FRAG], [SKIN_INK_VS, INK_FS]]) declareProgram(vs, fs);
+for (const [vs, fs] of [[LIT_VS, LIT_FS], [SKIN_VS, LIT_FS], [SKIN_DEPTH_VS, DEPTH_FS], [STATIC_DEPTH_VS, DEPTH_FS], [CROWD_VS, CROWD_FS], [CARD_VS, CARD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS], [FULL_VS, OVERLAY_FS], [CURTAIN_VS, CURTAIN_FRAG], [SKIN_INK_VS, INK_FS]]) declareProgram(vs, fs);
 
 // The textures whose clear texels are holes: the wall's distances, the monograms, the masks' bars.
 const ALPHA_TEST = new Set(['nums', 'logo', 'mask', 'finalLogo']);
@@ -1093,7 +1100,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       return { p, u: (n) => (u[n] ??= gl.getUniformLocation(p, n)) };
     };
     const LIT = prog(LIT_VS, LIT_FS), CROWD = prog(CROWD_VS, CROWD_FS), CARD = prog(CARD_VS, CARD_FS), SKY = prog(FULL_VS, SKY_FS), FINAL = prog(FULL_VS, FINAL_FS);
-    const CURT = prog(CURTAIN_VS, CURTAIN_FRAG);
+    const CURT = prog(CURTAIN_VS, CURTAIN_FRAG), OVER = prog(FULL_VS, OVERLAY_FS);
     const SKLIT = prog(SKIN_VS, LIT_FS), SKD = prog(SKIN_DEPTH_VS, DEPTH_FS), STD = prog(STATIC_DEPTH_VS, DEPTH_FS);
     // the players' ink (SKIN_INK_VS): if it won't build, the players go without the line rather
     // than the park going to 2-D
@@ -2469,11 +2476,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // renderTv last drew: the whole frame drawn from another shot, then shrunk off the canvas into
     // the screen's texture before the real frame overwrites it. The canvas has no multisampling
     // (antialias: false above), which is what lets the blit scale.
-    let room = null, tvTex = null, tvFbo = null, tvShot = false;
+    let room = null, tvTex = null, tvFbo = null, tvShot = false, overTex = null;
     const TV_W = 640, TV_H = 360;
     function dropRoom() {
       if (!room) return;
       for (const d of [room.solid, room.screen, room.glass, ...room.mats]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+      if (overTex) { gl.deleteTexture(overTex); overTex = null; }
       room = null; tvShot = false;
     }
     function setRoom(spec) {
@@ -2496,12 +2504,33 @@ export function createBallparkRenderer(canvas, opts = {}) {
       }
       return L;
     }
-    function renderTv(shot) {
+    // renderTv(shot, overlay): `overlay` a canvas of the broadcast's graphics (the score bug, the
+    // intro), stretched over the picture on the screen
+    function renderTv(shot, overlay = null) {
       if (!room || lost || !render(shot, { room: false })) return false;
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, tvFbo);
       gl.blitFramebuffer(0, 0, canvas.width, canvas.height, 0, 0, TV_W, TV_H, gl.COLOR_BUFFER_BIT, gl.LINEAR);
-      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+      if (overlay && overlay.width > 1) {
+        if (!overTex) {
+          overTex = gl.createTexture();
+          gl.bindTexture(T2, overTex);
+          for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(T2, k, v);
+        }
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(T2, overTex);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.texImage2D(T2, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, overlay);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, tvFbo);
+        gl.viewport(0, 0, TV_W, TV_H);
+        gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
+        gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        gl.useProgram(OVER.p); gl.uniform1i(OVER.u('uOver'), 0);
+        gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.disable(gl.BLEND); gl.depthMask(true);
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       tvShot = true;
       return true;
     }

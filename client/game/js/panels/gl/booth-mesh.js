@@ -429,6 +429,14 @@ export function buildBooth(L) {
   box(bu0 + 0.5, bu0 + 1.9, cv - 0.4, cv + 0.4, BT, BT + 0.12, LOOK.wood, 1.0, 'boothWood');
   box(bu0 + 0.8, bu0 + 1.6, cv - 0.25, cv + 0.25, BT + 0.12, BT + 0.42, FOOD.patty, 1.15);
   box(bu0 + 1.7, bu0 + 1.75, cv - 0.3, cv + 0.3, BT + 0.12, BT + 0.16, LOOK.silver, 1.2);
+  // a scoreboard on the back wall between the bar and the door: the park's own board in little
+  // (diamond/board.js), the line score by inning, R H E, the count and the outs, lit lamp by lamp
+  {
+    const bu0 = -2.4, bu1 = 4.4, by0 = 4.9, by1 = by0 + (bu1 - bu0) * 84 / 240;
+    box(bu0 - 0.25, bu1 + 0.25, D - 0.3, D, by0 - 0.25, by1 + 0.25, LOOK.wood, 0.85, 'boothWood');
+    box(bu0 - 0.1, bu1 + 0.1, D - 0.34, D - 0.3, by0 - 0.1, by1 + 0.1, LOOK.gilt, 1.0);
+    quad(solid, [[bu1, D - 0.35, by0], [bu0, D - 0.35, by0], [bu0, D - 0.35, by1], [bu1, D - 0.35, by1]], nrmOf(0, 0, -1), [1, 1, 1], MAT.BOARD, [[0, 1], [1, 1], [1, 0], [0, 0]], true);
+  }
   // the door at the back, shut
   box(5, 8.6, D - 0.05, D, 0, 7, LOOK.wood, 0.75, 'boothWood');
   return { solid, screen, glass, textured };

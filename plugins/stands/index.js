@@ -34,7 +34,7 @@ import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { emit, on } from '../../server/engine/events.js';
-import { liveSportsChannel } from '../broadcast/index.js';
+import { liveSportsChannel, channelLabel } from '../broadcast/index.js';
 import { getWeatherFieldSnapshot } from '../../server/engine/environment.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
@@ -253,7 +253,7 @@ async function takeSeat(player, zone, stands, section, channelId, { chair = fals
   seated.set(player.id, { zoneId: zone.id, section: section.id, seat, channelId, chair, suite: !!section.room });
   emit('tablet_tv.watch', { playerId: player.id, channelId });
   // the log rung gets the game as log lines through the same receiver, and no picture
-  if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: stands.sport, channelId, field: skyField(stands.sport), venue: zone.flags?.building_name || zone.name,
+  if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: stands.sport, channelId, station: channelLabel(channelId), field: skyField(stands.sport), venue: zone.flags?.building_name || zone.name,
     section: { id: section.id, name: section.name || section.id, eye: where.eye, seat: `Row ${ROW(where.row)}, seat ${where.number}`, ...(section.room ? { room: section.room } : {}) } });
   if (chair) return { type: 'output', message: `<span class="msg-system">You take chair ${where.number} in row ${ROW(where.row)}, and the game is in front of you. ${teachVerb('stand')} gets you up.</span>` };
   const moved = seat > 0 ? ' The best seat in it is taken, so the usher puts you in the nearest one free.' : '';
@@ -275,7 +275,7 @@ function watchScreen(player, screen) {
     leave(player, true);
     seated.set(player.id, { zoneId: zone.id, section: null, seat: -1, channelId, screen: true, suite: true });
     emit('tablet_tv.watch', { playerId: player.id, channelId });
-    if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: 'baseball', channelId, field: skyField('baseball'), venue: zone.flags?.building_name || zone.name,
+    if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: 'baseball', channelId, station: channelLabel(channelId), field: skyField('baseball'), venue: zone.flags?.building_name || zone.name,
       section: { id: suite.id, name: suite.name || suite.id, room: suite.room, spot: 'sofa' } });
     return { type: 'output', message: `<span class="msg-system">You sit down on the sofa in front of ${esc(screen.name)}. The game's on it, and through the glass. ${teachVerb('stands leave')} gets you up.</span>` };
   }

@@ -3326,6 +3326,13 @@ let _sportsHeartbeatSlot = null;
 // heartbeat, the standings, or the betting plugin.
 // The channel carrying `sport`'s game right now, or null between games: a seat in the stands
 // (plugins/stands) is a receiver tuned to the game being played in front of it.
+// A channel's on-air name, as the TV's network tag sets it (tv.js _networkLabel): the station's
+// calls without a trailing TV, and its number. A seat's view puts it on the big screen's bug.
+export function channelLabel(channelId) {
+  const st = channelRuntime.get(channelId);
+  const calls = String(st?.stationName || '').replace(/[-\s]*(TV|television)$/i, '').trim();
+  return calls ? `${calls}${st.number > 0 ? ` ${st.number}` : ''}` : '';
+}
 export function liveSportsChannel(sport) {
   for (const c of sportsChannels()) if (sportOf(c.script).id === sport) return c.channelId;
   return null;

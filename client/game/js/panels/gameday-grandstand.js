@@ -106,6 +106,8 @@ export function createGrandstandView(host, opts = {}) {
 
   let flat = null;              // the 2-D view, once the 3-D one has given way to it
   let skyField = null;
+  // the box's screen's own graphics (opts.room) and the canvas they're painted on
+  let tvHud = null, tvCanvas = null, tvWas = null;
   let R = null, hud = null, canvas = null, mounted = false, modsP = null, mods = null, ro = null, raf = 0, unVenue = null, unClubs = null, dressed = null;
   // the picture's quality (diamond/quality.js): the tier the screen starts on, and the governor that
   // steps it down a rung when frames come slow and back up when they've been quick a while, fed the
@@ -192,7 +194,7 @@ export function createGrandstandView(host, opts = {}) {
     stopTimers(); stopLoop(); stopTable(); dropHolds(); stopWorld();
     unVenue?.(); unVenue = null; unClubs?.(); unClubs = null; dressed = null;
     try { R?.dispose(); } catch { /* already gone */ }
-    hud?.dispose();
+    hud?.dispose(); tvHud?.dispose(); tvHud = null; tvCanvas = null; tvWas = null;
     snd?.dispose(); snd = null;
     R = null; hud = null; canvas = null; mounted = false;
     ro?.disconnect(); ro = null;
@@ -255,6 +257,16 @@ export function createGrandstandView(host, opts = {}) {
       safe: () => !!R?.quality?.tube,
       motion: () => !prefersReducedMotion(),
     });
+    // a box's own screen carries the broadcast's graphics, the whole set, painted on a canvas the
+    // size of its picture kept out of sight, and laid over the picture each time it's drawn (renderTv)
+    if (opts.room) {
+      const box = doc.createElement('div');
+      box.style.cssText = 'position:absolute;left:-10000px;top:0;width:640px;height:360px;visibility:hidden;pointer-events:none';
+      box.innerHTML = '<canvas aria-hidden="true"></canvas>';
+      host.appendChild(box);
+      tvCanvas = box.firstChild;
+      tvHud = mods.hud.createHud(tvCanvas, { theme: theme(), dpr: 1, project: (p, w, h) => mods.project(directed(), w, h, p), motion: () => !prefersReducedMotion() });
+    }
     const box = host.querySelector('.gds-park');
     if (win?.ResizeObserver && box) { ro = new win.ResizeObserver(() => { if (size()) draw(); hud?.paint(); }); ro.observe(box); }
     // the city round the park: the venue this browser holds, then any newer one the server sends
@@ -350,7 +362,9 @@ export function createGrandstandView(host, opts = {}) {
     size();
     // the suite's big screen: the director's shot drawn on its own every few frames (renderTv)
     const tvMode = opts.seat?.mode === 'tv';
-    if (R.room && !tvMode && (tvFrame++ % TV_EVERY) === 0) R.renderTv(directed());
+    // the graphics move between your eyes and the box's screen as you put it up full size
+    if (opts.room && tvMode !== tvWas) { tvWas = tvMode; paintHud(); }
+    if (R.room && !tvMode && (tvFrame++ % TV_EVERY) === 0) R.renderTv(directed(), tvCanvas);
     if (!R.render(view(), { room: !tvMode }) && R.lost) { fallback('the WebGL context was lost'); return; }
     // on to the next frame while the at-bat plays or a replay's due or playing; once everyone's
     // at rest the last one stays up. A stopped clock draws only when something asks. A seat in the
@@ -510,6 +524,10 @@ export function createGrandstandView(host, opts = {}) {
   // cards, pitch zone or replays go up over the picture, only the score and the count.
   function paintHud() {
     const h = hudState();
+    // the box's screen gets the lot; in person in the box the graphics are on that screen, not
+    // over your eyes, and on the screen full size (T) they're the broadcast's again
+    tvHud?.set(h && { ...h });
+    if (opts.room) { hud?.set(inPerson() ? null : h); return; }
     if (h && opts.seat) Object.assign(h, { splash: null, matchup: null, steal: null, dist: null, replay: false, intro: null, champ: null, final: null, leaders: null, zone: false });
     hud?.set(h);
   }
@@ -936,7 +954,8 @@ export function createGrandstandView(host, opts = {}) {
     const go = () => {
       if (flat || !mount()) return;
       if (!last) { shot = opts.shot || 'high'; paint(); }
-      if (host.querySelector('.gds-idle')) return;
+      // in a box's suite nobody needs telling: the room is the thing to look at till the game starts
+      if (opts.room || host.querySelector('.gds-idle')) return;
       const veil = doc.createElement('div');
       veil.className = 'gds-idle';
       veil.innerHTML = `<div class="gds-idle-title">DEADBALL</div><div class="gds-idle-sub">Waiting for the first pitch…</div>`;
@@ -951,7 +970,7 @@ export function createGrandstandView(host, opts = {}) {
     unVenue?.(); unVenue = null; unClubs?.(); unClubs = null; dressed = null;
     ro?.disconnect(); ro = null;
     try { R?.dispose(); } catch { /* already gone */ }
-    hud?.dispose();
+    hud?.dispose(); tvHud?.dispose(); tvHud = null; tvCanvas = null; tvWas = null;
     snd?.dispose(); snd = null;
     leaveFullscreen(host);
     if (host) host.innerHTML = '';
