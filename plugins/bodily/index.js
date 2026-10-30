@@ -19,7 +19,7 @@ import { getZonePlayers, getZoneEnemies, getZoneNpcs, getAllLivePlayers, getZone
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
-import { registerStatusEffect, applyEffect } from '../../server/engine/effects.js';
+import { registerStatusEffect, applyEffect, preemptEpisode } from '../../server/engine/effects.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { setPosture } from '../../server/engine/posture.js';
 import { emit, on } from '../../server/engine/events.js';
@@ -389,7 +389,7 @@ async function relieveBladder(player, hasFacility, broadcast, target = null) {
 }
 
 async function relieveBowels(player, hasFacility, broadcast, target = null) {
-  if ((player.hunger || 0) === 0) {
+  if ((player.hunger || 0) === 0 && !(player.statuses || []).some(s => s.name === 'food_poisoning')) {
     return { ok: false, message: `You haven't eaten enough to produce anything.` };
   }
 
@@ -550,8 +550,9 @@ function poopFartChance(player) {
 async function startRelief(player, mode, target, broadcast) {
   const isPoop = mode === 'poop';
 
-  // 1. Anything to release?
-  if (isPoop && (player.hunger || 0) === 0)
+  // 1. Anything to release? Food poisoning always has something.
+  const sickRun = isPoop && (player.statuses || []).some(s => s.name === 'food_poisoning');
+  if (isPoop && !sickRun && (player.hunger || 0) === 0)
     return { type: 'error', message: `You haven't eaten enough to produce anything.` };
   if (!isPoop && (player.thirst || 0) === 0)
     return { type: 'error', message: `You're too dehydrated. There's nothing to release.` };
@@ -573,6 +574,7 @@ async function startRelief(player, mode, target, broadcast) {
     const ok = await depositIntoVessel(player, target.vessel, isPoop ? 'feces' : 'urine');
     if (!ok) return { type: 'error', message: `You can't do that into the ${target.vessel.name}.` };
     if (isPoop) player.digestive_load = 0; else player.hydration_load = 0;
+    if (sickRun) preemptEpisode(player, 'feces');
     await query('UPDATE players SET digestive_load=$1, hydration_load=$2 WHERE id=$3',
       [player.digestive_load || 0, player.hydration_load || 0, player.id]).catch(() => {});
     sendToZone(player.current_zone, { type: 'zone_event',
@@ -613,6 +615,8 @@ async function startRelief(player, mode, target, broadcast) {
   const pressure = pressureOf(mode === 'poop' ? player.digestive_load : player.hydration_load);
   const session = { mode, target, zoneId: player.current_zone, seated, sitOn, droppedLegs, streamSurface, pressure, timers: [], broadcast };
   toiletSessions.set(player.id, session);
+  // Squatting before a food-poisoning episode lands spends it on your terms.
+  if (sickRun) preemptEpisode(player, 'feces');
 
   if (isPoop) {
     // Duration scales with how full the bowel is: a full one (load ≥100) takes the
@@ -1516,19 +1520,20 @@ export async function cmdVomit(player) {
   let relief = 'You feel emptied out, and a little lighter.';
   if (bout) {
     bout.duration = Math.ceil(bout.duration / 2);
-    player._foodPoisonTick = 0;   // the next episode is a while off now
+    preemptEpisode(player, 'vomit');   // the one that was coming, on your terms
     relief = 'The cramps ease off. The worst of it is out of you.';
   }
 
+  // Chosen, so aimed: it goes on the floor, not on you. Only an episode you
+  // didn't get ahead of (effects.js) lands on your clothes.
   const toilet = getZoneFurniture(player.current_zone).find(isToilet);
   let self;
   if (toilet) {
     self = `You get to the ${toilet.name} in time and bring everything up into it. ${relief}`;
     sendToZone(player.current_zone, { type: 'zone_event', message: `${player.handle} is noisily sick into the ${toilet.name}.` }, player.id);
   } else {
-    await stainClothing(player, ['torso', 'hands'], 'vomit').catch(() => {});
     stainZone(player.current_zone, 'vomit');
-    self = `You double over and bring it all up, most of it on the floor and some of it on you. ${relief}`;
+    self = `You lean well forward and bring it all up on the floor, clear of your shoes. ${relief}`;
     sendToZone(player.current_zone, { type: 'zone_event', message: `${player.handle} doubles over and is sick on the floor.` }, player.id);
   }
   await query('UPDATE players SET hunger=$1, thirst=$2, digestive_load=$3 WHERE id=$4',

@@ -2146,8 +2146,14 @@ so the two can be compared in the sandbox.
   - shafts masked to their cones;
   - a seventh light for lightning and fireworks.
 - **Exposure.** At the park's exposure of 1, 0.7% of a close-up's pixels clipped (white jerseys and
-  faces under six floods), and 0.5% at 0.8. The new light is taken at 0.85 of it (gl/ballpark.js
-  `LIGHT_EXPOSURE`), chosen by eye, so the faces and jerseys near the lamps hold their folds.
+  faces under six floods), and 0.5% at 0.8. The new light was taken at 0.85 of it (gl/ballpark.js
+  `LIGHT_EXPOSURE`), chosen by eye, so the faces and jerseys near the lamps hold their folds. On
+  2026-10-30 the park read washed out at night (a third of the field near white from behind the
+  batter), so it's 0.7 now, with the towers at 2.8 (`NIGHT.towers`, was 3.6), the haze's scatter
+  at 0.4 (`NIGHT.shaft`, was 1), the near-lamp cap `FLOOD_HOT` at 1.3 (was 2) and the grass
+  rougher (0.95, f0 0.008) so it stops catching a sheen off the far towers. Near-white pixels went
+  from 22% to 2% of the frame. The city's model (glass/models/coliseum.js) took the same cut: a
+  darker lit field and dimmer floods and wash.
 
 **The visual upgrade, models (2026-10-24, built so far).** The third pass.
 - **The players at three levels of detail** (gl/ballplayer-mesh.js `createPlayerSet` `lod`).

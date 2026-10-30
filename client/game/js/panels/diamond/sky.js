@@ -26,8 +26,8 @@ import { weatherOf } from './weather.js';
 // so the field stays the brightest thing in the picture), the park's sign.
 export const NIGHT = Object.freeze({
   up: [0.006, 0.008, 0.016], dn: [0.024, 0.032, 0.017], zen: [0.0018, 0.0024, 0.0065], hor: [0.005, 0.006, 0.009],
-  glow: [0.010, 0.008, 0.006], towers: 3.6,
-  fog: [0.004, 0.0045, 0.0055], fogDens: 0.00022, fogH: 160, shaft: 1.0, shaftReach: 260,
+  glow: [0.010, 0.008, 0.006], towers: 2.8,
+  fog: [0.004, 0.0045, 0.0055], fogDens: 0.00022, fogH: 160, shaft: 0.4, shaftReach: 260,
   cityLit: 1.5, pool: 0.032, curtain: 0.32, sign: 9,
 });
 // The dusk: how much brighter than the night's the park's light may get (a cap on its luminance, so

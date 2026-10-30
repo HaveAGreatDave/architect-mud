@@ -1170,6 +1170,18 @@ export default async function regress({ run, check, getPlayer }) {
       return /toilet|guts give out|holding it/i.test(all) && /comes up|double over|inside out/i.test(all);
     })());
 
+    // It warns, naming the verb, before an episode lands — and getting there
+    // first spends that episode and restarts the clock.
+    {
+      const pw = sick();
+      const warn = runTicks(pw, 6).join(' ');
+      check('an episode is warned of, naming the verb', /vomit/.test(warn), warn);
+      const { preemptEpisode } = await import('../../server/engine/effects.js');
+      check('typing it first pre-empts the episode', preemptEpisode(pw, 'vomit') && pw._foodPoisonTick === 0);
+      check('...and the next one is the other end', pw._foodPoisonNext === 'feces');
+      check("...which `vomit` can't pre-empt", preemptEpisode(pw, 'vomit') === false);
+    }
+
     // A fresh bout gets its own budget, or a second poisoning would be free.
     const p3 = sick();
     runTicks(p3, 200);

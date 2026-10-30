@@ -134,8 +134,8 @@ for (const S of SHELLS) {
 // Meridian's bronze and copper, and marble-pale fins so the verticals carry in daylight.
 const STONE = 'ty_palais_stone', TRIM = 'ty_archive_col', FINC = 'ty_marble_col', BRONZE = 'ty_meridian_bronze';
 const COPPER = 'ty_verdigris', GRANITE = 'ty_precast_dk', CONC = 'ty_precast', STEEL = 'ty_fab_steel';
-const GRASS_DAY = [62, 112, 58], GRASS_LIT = [112, 186, 92], GRASS_DARK = [24, 40, 26];
-const DIRT_DAY = [150, 104, 70], DIRT_LIT = [206, 150, 104], DIRT_DARK = [52, 38, 30];
+const GRASS_DAY = [62, 112, 58], GRASS_LIT = [88, 154, 76], GRASS_DARK = [24, 40, 26];
+const DIRT_DAY = [150, 104, 70], DIRT_LIT = [184, 132, 92], DIRT_DARK = [52, 38, 30];
 const TRACK_DAY = [122, 92, 68], SEAT = [44, 92, 62];
 const LAMP_OFF = [70, 74, 78], LAMP_ON = [255, 246, 224];
 const SHELL = [184, 188, 186], RIB = [96, 74, 50], GILT = [222, 178, 96], BRONZE_RGB = [92, 66, 40];
@@ -649,10 +649,10 @@ export const COLISEUM_ARMS = {
       if (st.towerK > 0.01) {
         // the floods burning, and the pool each tower throws on the field
         const ex = tu - su * 0.07, ey = tv - sv * 0.07;
-        pool(ctx, cam, ...P(ex, ey), 0.815, '255,246,224', 26, alpha * (0.25 + 0.55 * st.towerK) * (0.4 + 0.6 * dn), { max: 90 });
+        pool(ctx, cam, ...P(ex, ey), 0.815, '255,246,224', 26, alpha * (0.2 + 0.4 * st.towerK) * (0.4 + 0.6 * dn), { max: 90 });
         if (dn > 0.05) {
           const toward = Math.atan2(MOUND[1] - tv, MOUND[0] - tu);
-          pool(ctx, cam, ...P(tu + Math.cos(toward) * 0.95, tv + Math.sin(toward) * 0.95), 0.02, '236,248,224', 70, alpha * 0.22 * dn * st.towerK, { max: 140 });
+          pool(ctx, cam, ...P(tu + Math.cos(toward) * 0.95, tv + Math.sin(toward) * 0.95), 0.02, '236,248,224', 70, alpha * 0.12 * dn * st.towerK, { max: 140 });
         }
       }
     }
@@ -975,14 +975,14 @@ export const COLISEUM_ARMS = {
     if (dn > 0.05 && st.domeK > 0.01) {
       for (const [u, v] of [[0, 1.5], [0, -1.5], [1.5, 0], [-1.5, 0], [-0.9, 1.5], [0.9, -1.5], [1.5, -0.9], [-1.5, 0.9]]) {
         if (!inTile(clamp(u, -1.49, 1.49), clamp(v, -1.49, 1.49))) continue;
-        pool(ctx, cam, ...P(u, v), (Z.frieze + Z.cler) / 2, '255,232,194', 22, alpha * 0.35 * dn * st.domeK, { air: true });
+        pool(ctx, cam, ...P(u, v), (Z.frieze + Z.cler) / 2, '255,232,194', 22, alpha * 0.26 * dn * st.domeK, { air: true });
       }
-      if (inTile(0, 0)) pool(ctx, cam, ...P(0, 0), 0.86, '255,236,206', 60, alpha * 0.16 * dn * st.domeK, { air: true, max: 150 });
+      if (inTile(0, 0)) pool(ctx, cam, ...P(0, 0), 0.86, '255,236,206', 60, alpha * 0.1 * dn * st.domeK, { air: true, max: 150 });
     }
     if (st.towerK > 0.01 && dn > 0.05) for (const su of [1, -1]) for (let j = 0; j < 7; j++) {
       const v = -1.26 + j * 0.42, u = su * (DECK - 0.01);
       if (!inTile(u, v)) continue;
-      pool(ctx, cam, ...P(u, v), 0.415, '255,246,224', 8, alpha * 0.5 * st.towerK);
+      pool(ctx, cam, ...P(u, v), 0.415, '255,246,224', 8, alpha * 0.38 * st.towerK);
     }
     if (dn > 0.05) for (const [u, v] of [[0, 1.55], [-0.9, 1.55], [1.55, 0], [1.55, -0.9], [-1.55, 0.3], [0.3, -1.55]]) {
       if (!inTile(clamp(u, -1.49, 1.49), clamp(v, -1.49, 1.49))) continue;

@@ -160,7 +160,7 @@ float spotOf(int i, vec3 L, float spill) { return mix(spill, 1.0, smoothstep(0.4
 // numbers a lamp share one vec3 because the lit shader sits near a phone's uniform limit.
 uniform vec3 uLGeo[6]; uniform vec3 uLAx[6];
 uniform float uFlood; uniform vec3 uBounce;
-const float FLOOD_HOT = 2.0;
+const float FLOOD_HOT = 1.3;
 float floodAtt(int i, float d) {
   return uFlood > 0.5 ? min(FLOOD_HOT, uLGeo[i].x * uLGeo[i].x / (d * d)) * exp(-max(d - 900.0, 0.0) / 300.0) : exp(-max(d - 700.0, 0.0) / 240.0);
 }
@@ -551,7 +551,7 @@ void main() {
     }
     // the canvas is premultiplied: where it's clear, the grass shows
     alb = alb * (1.0 - dirt.a) + dirt.rgb * (0.82 + 0.36 * g3.r) * (0.92 + 0.16 * g1.b);
-    rough = mix(0.86, 0.96, max(dirt.a, trk)); f0s = 0.012;
+    rough = mix(0.95, 0.96, max(dirt.a, trk)); f0s = 0.008;
     // wet: the dirt and the track darker with a dull sheen, and puddles lying flat in their low
     // spots that catch the floods; the grass a little darker. Under the roof it stays dry.
     float wetIn = uWet * (1.0 - uRoof);
@@ -1886,7 +1886,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // The exposure the frame is taken at. Under the floods as floods (quality.light) the white
     // jerseys and the faces near the lamps clipped at the park's first exposure, so it's taken
     // LIGHT_EXPOSURE of the way; the first lighting keeps its own.
-    const LIGHT_EXPOSURE = 0.85;
+    const LIGHT_EXPOSURE = 0.7;
     const exposureOf = (q) => q.exposure * (q.light !== 0 && q.light !== false ? LIGHT_EXPOSURE : 1);
     // the phone tier's contact patches under the men and the ball (LIT_FS blobAt)
     const blobs = new Float32Array(16 * 4);

@@ -195,6 +195,7 @@ const FOOD_POISON_HP_CAP = 0.30;      // total HP it can ever take, as a fractio
 const FOOD_POISON_HP_TICK = 1;
 const FOOD_POISON_EPISODE_THIRST = 6; // water lost per episode, either end
 const EPISODE_EVERY = 8;              // ticks between one indignity and the next
+const EPISODE_WARN = 3;               // ticks of warning before it arrives
 
 const VOMIT_LINES = [
   'It comes up without warning. You get most of it on yourself.',
@@ -220,20 +221,42 @@ registerStatusEffect({
       player._foodPoisonHp += bite;
     }
 
-    // ...and every so often, an episode. Half of them come up, half go down.
+    // ...and every so often, an episode, alternating ends. It WARNS first,
+    // naming the verb: `vomit` or `poop` before it arrives gets it out on your
+    // own terms (preemptEpisode) and resets the clock. Ignore it and it happens
+    // where you stand, on your clothes as well as the floor.
     player._foodPoisonTick = (player._foodPoisonTick || 0) + 1;
-    if (player._foodPoisonTick % EPISODE_EVERY !== 0) {
+    const next = player._foodPoisonNext || 'vomit';
+    if (player._foodPoisonTick < EPISODE_EVERY) {
+      if (player._foodPoisonTick >= EPISODE_EVERY - EPISODE_WARN) {
+        return next === 'vomit'
+          ? `<span style="color:var(--red)">Your mouth floods with spit. You're going to be sick. <span class="text-bright">vomit</span> while you can choose where.</span>`
+          : `<span style="color:var(--red)">Your guts cramp hard and you won't hold it long. <span class="text-bright">poop</span>, now.</span>`;
+      }
       return 'Your guts churn.';
     }
-    const up = player._foodPoisonTick % (EPISODE_EVERY * 2) === 0;
+    player._foodPoisonTick = 0;
+    player._foodPoisonNext = next === 'vomit' ? 'feces' : 'vomit';
     if (typeof player.thirst === 'number') player.thirst = Math.max(0, player.thirst - FOOD_POISON_EPISODE_THIRST);
-    const lines = up ? VOMIT_LINES : VOID_LINES;
+    const lines = next === 'vomit' ? VOMIT_LINES : VOID_LINES;
     const line = lines[Math.floor(Math.random() * lines.length)];
     // The room and your clothes both remember it.
-    onEpisode?.(player, up ? 'vomit' : 'feces');
+    onEpisode?.(player, next);
     return line;
   },
 });
+
+// The player got there first: they typed `vomit` or `poop` during a bout.
+// If that's the end the illness was about to use, the episode is spent and
+// the clock restarts on the other end. Returns whether it pre-empted one.
+export function preemptEpisode(player, type) {
+  if (!player?.statuses?.some(s => s.name === 'food_poisoning')) return false;
+  if ((player._foodPoisonNext || 'vomit') !== type) return false;
+  player._foodPoisonTick = 0;
+  player._foodPoisonNext = type === 'vomit' ? 'feces' : 'vomit';
+  if (typeof player.thirst === 'number') player.thirst = Math.max(0, player.thirst - FOOD_POISON_EPISODE_THIRST);
+  return true;
+}
 
 // ── Stunned ──────────────────────────────────────────────────────────────────
 //
@@ -280,7 +303,7 @@ export function applyEffect(player, name, duration, { source = null } = {}) {
     // It also halves your stamina, once, here. A second bad mouthful mid-bout
     // only lengthens the illness (the branch above), so it can't halve again.
     if (name === 'food_poisoning') {
-      player._foodPoisonHp = 0; player._foodPoisonTick = 0;
+      player._foodPoisonHp = 0; player._foodPoisonTick = 0; player._foodPoisonNext = 'vomit';
       if (typeof player.stamina === 'number') player.stamina = Math.floor(player.stamina / 2);
     }
     player.statuses.push({ name, duration, source, elapsed: 0 });
