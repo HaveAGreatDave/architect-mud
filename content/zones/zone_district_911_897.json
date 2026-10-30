@@ -1,13 +1,8 @@
 {
-  "ambient_events": [
-    "A wave hits the armour on the sea side and comes over the wall as spray.",
-    "The light on the head comes round to its blink and goes out again.",
-    "A gull stands on a block out of the wind and watches the water.",
-    "Inside the mole the water barely moves."
-  ],
+  "ambient_events": [],
   "ambient_theme": "coast",
-  "color": "#8a8c88",
-  "description": "A rubble mole with a concrete cap and a low wall either side. Armour blocks lie in a heap down both sides. The open sea breaks on the north face, and the Basin is calm behind it.",
+  "color": "#7fd3ff",
+  "description": "The water at the shoreline is cold and the bottom drops away fast into dark. Beyond this the channel is too deep to wade without a boat.",
   "exits": {
     "east": "zone_district_912_897",
     "north": "zone_district_911_896",
@@ -15,22 +10,15 @@
     "west": "zone_district_910_897"
   },
   "flags": {
-    "building_type": "breakwater",
-    "district": "docks",
-    "entrance": "east",
-    "fishing_table_id": "fish_coldwater_bay",
-    "floors": 1,
-    "liquid": false,
+    "district": "water",
     "region_id": "region_coldwater",
-    "routable": true,
-    "swimmable": false,
-    "terrain": "concrete"
+    "terrain": "water"
   },
   "grid_x": 911,
   "grid_y": 897,
   "grid_z": 0,
   "id": "zone_district_911_897",
   "map_id": "map_world",
-  "name": "The East Mole",
+  "name": "Coldwater Basin",
   "parent_zone": null
 }

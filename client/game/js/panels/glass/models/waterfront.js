@@ -1583,45 +1583,55 @@ export const WATERFRONT_ARMS = {
   },
   // A BREAKWATER: a rubble mound with a concrete cap you can walk along, and armour blocks tipped
   // down both flanks. It is land, so the sea's shelter (shelterFill) calms the water behind it.
-  // ⚠ A SECTION IS SYMMETRIC AND UNSEEDED, for the landing stage's reason: the same tile repeats down
-  //    a run, and its mass is what the collision bake keeps, so nothing in the shape reads `seed`.
+  // ⚠ A SECTION IS UNSEEDED AND HALF-TURN SYMMETRIC, for the landing stage's reason: the same tile
+  //    repeats down a run with either entrance, and its mass is what the collision bake keeps. Every
+  //    armour block on one flank has its twin at (-x, -y) on the other, and the jitter comes from the
+  //    block's index, never `seed`.
   // ⚠ THE RUN IS IN TILE UNITS (±0.5) along local y, the way `entrance` points; across is fixed
   //    tile units too, so two sections meet whatever fh or h each one rolled.
   breakwater(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
     const YAW = faceYaw(E);
-    const box = (lx, ly, hw, z0, z1, p, s, hd) => { const [x, y] = F(lx, ly); draw3DBoxAt(ctx, cam, x, y, hw, z0, z1, p, seed + s, night, alpha, true, YAW, hd); };
-    const TOE = -0.05, BERM = 0.035, CAP = 0.05, WALL = 0.075;
-    // 1) The mound: a wide toe at the waterline and a narrower core over it.
-    box(0, 0, 0.46, TOE, 0.012, 'ty_dam_dk', 0, 0.5);
-    box(0, 0, 0.34, 0.012, BERM, 'ty_dam_dk', 1, 0.5);
-    // 2) The armour: cast blocks along both flanks, staggered so the seam between sections hides.
-    for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) {
-      const ly = -0.375 + k * 0.25 + (sx > 0 ? 0.06 : -0.06);
-      box(sx * 0.40, ly, 0.05, 0.0, 0.03, 'ty_dam', 10 + k + (sx > 0 ? 4 : 0), 0.05);
-      box(sx * 0.31, ly + 0.12 * sx, 0.045, BERM - 0.01, BERM + 0.02, 'ty_dam', 20 + k + (sx > 0 ? 4 : 0), 0.045);
+    const box = (lx, ly, hw, z0, z1, p, s, hd, yw = 0) => { const [x, y] = F(lx, ly); draw3DBoxAt(ctx, cam, x, y, hw, z0, z1, p, seed + s, night, alpha, true, YAW + yw, hd); };
+    const CAP = 0.05, WALL = 0.068;
+    // 1) The mound, stepped so its flanks read as a slope: wet dark toe, then three courses in.
+    box(0, 0, 0.48, -0.05, 0.0, 'ty_dam_stain', 0, 0.5);
+    box(0, 0, 0.40, 0.0, 0.016, 'ty_dam_dk', 1, 0.5);
+    box(0, 0, 0.32, 0.016, 0.032, 'ty_dam_dk', 2, 0.5);
+    box(0, 0, 0.25, 0.032, 0.042, 'ty_dam', 3, 0.5);
+    // 2) The armour: three rows of cast blocks down each flank, every one a different size and set
+    //    at its own angle, so the flank is a tumble rather than a row of crates.
+    const J = (i, k) => { const v = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
+    const ROWS = [[0.445, -0.03, 0.012, 7], [0.37, 0.0, 0.028, 6], [0.295, 0.016, 0.04, 5]];
+    let i = 0;
+    for (const [rx, z0, z1, n] of ROWS) for (let k = 0; k < n; k++, i++) {
+      const lx = rx + (J(i, 1) - 0.5) * 0.03, ly = -0.5 + (k + 0.5) / n + (J(i, 2) - 0.5) * 0.05;
+      const hw = 0.028 + J(i, 3) * 0.022, top = z1 + J(i, 4) * 0.012, yw = (J(i, 5) - 0.5) * 1.2;
+      const pal = J(i, 6) < 0.3 ? 'ty_dam_dk' : 'ty_dam';
+      box(lx, ly, hw, z0, top, pal, 10 + i, hw * (0.8 + J(i, 7) * 0.4), yw);
+      box(-lx, -ly, hw, z0, top, pal, 10 + i, hw * (0.8 + J(i, 7) * 0.4), yw);
     }
-    // 3) The cap you walk on, and a low wave wall along each edge of it.
-    box(0, 0, 0.22, BERM, CAP, 'ty_quay_deck', 30, 0.5);
-    for (const sx of [-1, 1]) box(sx * 0.205, 0, 0.015, CAP, WALL, 'ty_quay_deck', 31 + sx, 0.5);
-    // 4) A bollard each side at mid-run: somewhere to tie a line, and something to sit on to fish.
-    for (const sx of [-1, 1]) box(sx * 0.15, 0, 0.012, CAP, CAP + 0.018, 'ty_pier_steel', 34 + sx, 0.012);
-    // 5) A lamp on a post at the end of each section, so the run is a line of lights at night.
-    const LAMP = CAP + 0.12;
-    box(0.19, 0.5, 0.006, CAP, LAMP, 'ty_pier_steel', 40, 0.006);
-    { const [gx, gy] = F(0.19, 0.5); glowPool(ctx, cam, gx, gy, LAMP, '255,214,150', 6, alpha * 0.55); }
+    // 3) The cap you walk on, and a parapet along each edge of it.
+    box(0, 0, 0.21, 0.042, CAP, 'ty_quay_deck', 40, 0.5);
+    for (const sx of [-1, 1]) box(sx * 0.195, 0, 0.018, CAP, WALL, 'ty_quay_deck', 41 + sx, 0.5);
+    // 4) A bollard each side, at opposite ends so the pair stays half-turn symmetric.
+    for (const sx of [-1, 1]) box(sx * 0.15, sx * 0.25, 0.012, CAP, CAP + 0.016, 'ty_pier_steel', 44 + sx, 0.012);
   },
   // A BREAKWATER'S HEAD, or the knuckle where a run turns: the same mound squared off, and on a
   // head a stubby light tower blinking `m.neon` (red to port entering harbour, green to starboard).
   // A head with no neon is a knuckle and carries no light.
   breakwater_head(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
     const YAW = faceYaw(E);
-    const box = (lx, ly, hw, z0, z1, p, s, hd) => { const [x, y] = F(lx, ly); draw3DBoxAt(ctx, cam, x, y, hw, z0, z1, p, seed + s, night, alpha, true, YAW, hd); };
-    const TOE = -0.05, BERM = 0.035, CAP = 0.05;
-    box(0, 0, 0.47, TOE, 0.012, 'ty_dam_dk', 0, 0.47);
-    box(0, 0, 0.36, 0.012, BERM, 'ty_dam_dk', 1, 0.36);
-    for (let k = 0; k < 8; k++) {
-      const a = (k / 8) * Math.PI * 2 + 0.3, r = 0.39;
-      box(Math.cos(a) * r, Math.sin(a) * r, 0.05, 0.0, 0.03, 'ty_dam', 10 + k, 0.05);
+    const box = (lx, ly, hw, z0, z1, p, s, hd, yw = 0) => { const [x, y] = F(lx, ly); draw3DBoxAt(ctx, cam, x, y, hw, z0, z1, p, seed + s, night, alpha, true, YAW + yw, hd); };
+    const BERM = 0.042, CAP = 0.05;
+    box(0, 0, 0.48, -0.05, 0.0, 'ty_dam_stain', 0, 0.48);
+    box(0, 0, 0.40, 0.0, 0.016, 'ty_dam_dk', 1, 0.40);
+    box(0, 0, 0.32, 0.016, 0.032, 'ty_dam_dk', 2, 0.32);
+    box(0, 0, 0.26, 0.032, BERM, 'ty_dam', 3, 0.26);
+    const J = (i, k) => { const v = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
+    let i = 0;
+    for (const [r, z0, z1, n] of [[0.43, -0.03, 0.012, 14], [0.35, 0.0, 0.028, 11], [0.28, 0.016, 0.04, 8]]) for (let k = 0; k < n; k++, i++) {
+      const a = (k / n) * Math.PI * 2 + i * 0.37, rr = r + (J(i, 1) - 0.5) * 0.03, hw = 0.028 + J(i, 3) * 0.022;
+      box(Math.cos(a) * rr, Math.sin(a) * rr, hw, z0, z1 + J(i, 4) * 0.012, J(i, 6) < 0.3 ? 'ty_dam_dk' : 'ty_dam', 10 + i, hw * (0.8 + J(i, 7) * 0.4), (J(i, 5) - 0.5) * 1.2);
     }
     box(0, 0, 0.24, BERM, CAP, 'ty_quay_deck', 30, 0.24);
     if (!m.neon) return;

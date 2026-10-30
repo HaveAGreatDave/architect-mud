@@ -9,9 +9,11 @@ the Eastern Marina, and the river mouth west of it, lies calm. The tiles are wri
 | Mole | Tiles | Ends |
 |---|---|---|
 | West Mole | 878,898..900, the knuckle at 878,897, then 879..895 on row 897 | Ashore at 878,901; green light at 895,897 |
-| East Mole | 900..925 on row 897 | Red light at 900,897; ashore on the runway's end at 925,898 |
+| East Mole | 900..909 and 913..925 on row 897 | Red light at 900,897; green at 909 and red at 913 either side of the ship gap; ashore on the runway's end at 925,898 |
 
 The mouth, 896..899 on row 897, is open water. The Echelon moors at 897,898 and goes out through it.
+The ship gap, 910..912 on row 897, is open water too: the freighter berthed at 911,902 comes and goes
+straight up column 911 (`berth.fair: north`, `SHIP_FAIR` tiles), so a mole there had her sail through it.
 
 ## How it makes the water calm
 

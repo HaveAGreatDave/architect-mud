@@ -7,7 +7,7 @@
   ],
   "ambient_theme": "coast",
   "color": "#8a8c88",
-  "description": "A rubble mole with a concrete cap and a low wall either side. Armour blocks lie in a heap down both sides. The open sea breaks on the north face, and the Basin is calm behind it.",
+  "description": "The mole stops at a green light. East of it a gap three tiles wide lets the container ships in to the gantries. A rusty ladder goes down the end into the water.",
   "exits": {
     "east": "zone_district_910_897",
     "north": "zone_district_909_896",
@@ -15,7 +15,7 @@
     "west": "zone_district_908_897"
   },
   "flags": {
-    "building_type": "breakwater",
+    "building_type": "breakwater_head_green",
     "district": "docks",
     "entrance": "east",
     "fishing_table_id": "fish_coldwater_bay",
@@ -31,6 +31,6 @@
   "grid_z": 0,
   "id": "zone_district_909_897",
   "map_id": "map_world",
-  "name": "The East Mole",
+  "name": "The East Mole: Ship Gap",
   "parent_zone": null
 }
