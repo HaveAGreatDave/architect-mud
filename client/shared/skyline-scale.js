@@ -71,6 +71,8 @@ export const TYPE_FLOORS = {
   // a hull, and the barrel, the old door glass and the eaves are all measured against that. A
   // landing stage is the pontoon's one storey of nothing.
   gym: 2, boatshed: 2, landing_stage: 1,
+  // A breakwater is a mound with a cap on it: one storey of nothing, like the pier deck.
+  breakwater: 1, breakwater_knuckle: 1, breakwater_head_red: 1, breakwater_head_green: 1,
   // Golden Goose Gardens. The hall is five storeys to the crown of its vault and the stands either side of
   // it two; the arms draw to fixed heights so the six tiles meet, and these are what the collision
   // sweep and the skyline read. Every tile also authors its own `flags.floors`.

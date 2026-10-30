@@ -1,9 +1,14 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_events": [
+    "A wave hits the armour on the sea side and comes over the wall as spray.",
+    "The light on the head comes round to its blink and goes out again.",
+    "A gull stands on a block out of the wind and watches the water.",
+    "Inside the mole the water barely moves."
+  ],
+  "ambient_theme": "coast",
   "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "At the shoreline the water is shallow and clear. Further out the bottom slopes off into nothing.",
+  "color": "#8a8c88",
+  "description": "A rubble mole runs out from the beach, rock under a concrete cap wide enough for two to pass. Armour blocks are piled down both sides. The sea is on the left and flat water on the right.",
   "exits": {
     "east": "zone_district_879_899",
     "north": "zone_district_878_898",
@@ -11,14 +16,22 @@
     "west": "zone_district_877_899"
   },
   "flags": {
+    "building_type": "breakwater",
+    "district": "docks",
+    "entrance": "south",
+    "fishing_table_id": "fish_coldwater_bay",
+    "floors": 1,
+    "liquid": false,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "routable": true,
+    "swimmable": false,
+    "terrain": "concrete"
   },
   "grid_x": 878,
   "grid_y": 899,
   "grid_z": 0,
   "id": "zone_district_878_899",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "The West Mole",
   "parent_zone": null
 }

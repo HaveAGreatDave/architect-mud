@@ -109,7 +109,7 @@ export const SPECIES = {
   },
   ashen_pike: {
     name: 'ashen pike', item: 'item_ashen_pike',
-    depth: [10, 30], shore: [3, 22], floor: { rock: 0.6, silt: 0.4, debris: 0.8 }, wreck: 3,
+    depth: [10, 30], shore: [3, 22], floor: { rock: 0.6, silt: 0.4, debris: 0.8, sand: 0.2 }, wreck: 3,
     active: 'dusk', share: 0.45, rare: 0.5, school: [1, 1], speed: 0.5, swim: 'floor', rise: 0.35,
     kg: [3, 5, 9], len: 1.25, shape: 'long', difficulty: 8, fight: 'runner', wary: 10,
   },

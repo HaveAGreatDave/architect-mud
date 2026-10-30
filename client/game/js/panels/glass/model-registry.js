@@ -498,6 +498,12 @@ export const TYPE_MODEL = {
   // type, like the pontoon and the boathouse, so the yard's look is the type's and not the name's.
   boatshed:          { type: 'boatshed',          pal: 'ty_oc_board_dk', berthRoof: true },
   landing_stage:     { type: 'landing_stage',     pal: 'ty_pier_deck' },
+  // The moles that calm the Basin: a rubble run, its knuckle, and a head with a harbour light each
+  // side of the mouth, red to port and green to starboard coming in.
+  breakwater:        { type: 'breakwater',        pal: 'ty_quay_deck' },
+  breakwater_knuckle: { type: 'breakwater_head',  pal: 'ty_quay_deck' },
+  breakwater_head_red: { type: 'breakwater_head', pal: 'ty_quay_deck', neon: '#ff4a3e' },
+  breakwater_head_green: { type: 'breakwater_head', pal: 'ty_quay_deck', neon: '#3eff7a' },
   fish_quay:         { type: 'fish_quay',         pal: 'ty_dw_timber' },          // the Codfather's quay: timber on tarred piles
   fish_works:        { type: 'fishworks',         pal: 'ty_fw_tin', noKit: true },
   // The fuel berth moored to its north face: the pontoon's float in the slab's own materials.

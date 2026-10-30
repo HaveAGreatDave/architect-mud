@@ -17525,6 +17525,10 @@ const BLDG_TYPE_3D = {
   coffee_shop:      { a: 'citycore',    h: 0.11 }, // Grounds for Concern, one storey on the Greenside corner
   car_park:         { a: 'citycore',    h: 0.02 }, // a lot: paint, kerbs and parked cars (glass/models/greenside.js)
   staff_lot:        { a: 'citycore',    h: 0.02 }, // the Codfather's staff car park, drawn by the same arm
+  breakwater:       { a: 'citycore',    h: 0.02 }, // a rubble mole with a walkway cap (glass/models/waterfront.js)
+  breakwater_knuckle: { a: 'citycore',  h: 0.02 },
+  breakwater_head_red: { a: 'citycore', h: 0.02 },
+  breakwater_head_green: { a: 'citycore', h: 0.02 },
   vacant_plot:      { a: 'citycore',    h: 0.02 }, // a slab to let behind mesh fencing (glass/models/greenside.js)
   chip_shop:        { a: 'citycore',    h: 0.11 }, // Batter Days, three storeys of painted render, the shop under its awnings
   // The Codfather's fish works: three storeys of brick and tin with a lantern along the ridge that

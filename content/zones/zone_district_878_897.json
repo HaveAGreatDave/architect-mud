@@ -1,8 +1,13 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
-  "color": "#3f7fb0",
-  "description": "Heavy, cold, deep water under a slow swell. Something surfaces in the distance and vanishes.",
+  "ambient_events": [
+    "A wave hits the armour on the sea side and comes over the wall as spray.",
+    "The light on the head comes round to its blink and goes out again.",
+    "A gull stands on a block out of the wind and watches the water.",
+    "Inside the mole the water barely moves."
+  ],
+  "ambient_theme": "coast",
+  "color": "#8a8c88",
+  "description": "The mole turns east here. The cap is wider on the corner and the blocks are stacked higher where the weather comes in. Someone has left a bucket wedged between two of them.",
   "exits": {
     "east": "zone_district_879_897",
     "north": "zone_district_878_896",
@@ -10,14 +15,22 @@
     "west": "zone_district_877_897"
   },
   "flags": {
+    "building_type": "breakwater_knuckle",
+    "district": "docks",
+    "entrance": "south",
+    "fishing_table_id": "fish_coldwater_bay",
+    "floors": 1,
+    "liquid": false,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "routable": true,
+    "swimmable": false,
+    "terrain": "concrete"
   },
   "grid_x": 878,
   "grid_y": 897,
   "grid_z": 0,
   "id": "zone_district_878_897",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "The West Mole: The Knuckle",
   "parent_zone": null
 }

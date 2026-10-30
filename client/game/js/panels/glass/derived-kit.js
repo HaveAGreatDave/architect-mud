@@ -234,6 +234,8 @@ const COL_PITCH_RICH = 0.085;
 const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yard', 'lighthouse', 'quay_crane', 'pontoon', 'fuel_dock', 'car_park', 'staff_lot', 'vacant_plot',
   // Each draws all four of its own sides (building-styles.md §4.3).
   'gym', 'boatshed', 'landing_stage',
+  // A mole is a wall in the sea, and repeats like one.
+  'breakwater', 'breakwater_knuckle', 'breakwater_head_red', 'breakwater_head_green',
   // The Coliseum draws all nine tiles itself; a bare-type tile would get a hoarding over the field.
   'ballpark',
   // The land office's board is its only box, so the kit read it as a wall.
@@ -341,6 +343,7 @@ const UNSIGNED_TRADE = new Set([
   // The jetty and marina: no wall to letter, or the arm letters itself.
   'pier', 'harbour_yard', 'lighthouse', 'quay_crane',
   'pontoon', 'boathouse', 'fuel_dock',
+  'breakwater', 'breakwater_knuckle', 'breakwater_head_red', 'breakwater_head_green',
   // St Garneau's identifies itself by the building; its only lit thing is the plate over the door.
   'church',
   // A ruin's `building_name` isn't a trading name.
