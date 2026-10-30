@@ -221,7 +221,7 @@ export async function openStands(msg) {
   let drag = null;
   host.addEventListener('pointerdown', (e) => {
     if (e.target.closest('button')) return;
-    drag = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    drag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, id: e.pointerId };
     try { host.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
   });
   host.addEventListener('pointermove', (e) => {
@@ -231,7 +231,14 @@ export async function openStands(msg) {
     if (dx || dy) turn(dx, dy);
   });
   const endDrag = () => { drag = null; };
-  host.addEventListener('pointerup', endDrag);
+  // a click that didn't turn the head: a seat in the suite under it is sat in
+  host.addEventListener('pointerup', (e) => {
+    const d = drag;
+    endDrag();
+    if (!d || !suite || Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 6) return;
+    const b = host.getBoundingClientRect();
+    suite.click(e.clientX - b.left, e.clientY - b.top, b.width, b.height);
+  });
   host.addEventListener('pointercancel', endDrag);
   host.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -318,7 +325,7 @@ function walkSuite(ui, L, msg, setMode, redraw) {
   const sitBtn = root.querySelector('.st-sit'), tvBtn = root.querySelector('.st-tv');
   sitBtn.hidden = false; tvBtn.hidden = false;
   root.querySelector('.st-leave').textContent = 'Leave the box';
-  root.querySelector('.st-tip').textContent = 'WASD to walk · E to sit or get up · T for the big screen · drag to look';
+  root.querySelector('.st-tip').textContent = 'WASD to walk · click a chair or E to sit · E to get up · T for the big screen · drag to look';
   seat.near = 0.3;
   // the command line keeps the keys while it has focus, so WASD would type; let it go now
   // and whenever you click into the room
@@ -394,6 +401,17 @@ function walkSuite(ui, L, msg, setMode, redraw) {
       if (k === 'e') { toggleSit(); return true; }
       if (k === 't') { toggleTv(); return true; }
       return false;
+    },
+    // the seat nearest a click on the picture, within a hand's width of it on screen
+    click(x, y, w, h) {
+      let best = null, bd = 80;
+      for (const s of L.seats) {
+        if (s === sat) continue;
+        const q = ui.view?.project?.(L.world(s.u, s.v, 2.2), w, h);
+        const dd = q ? Math.hypot(q.x - x, q.y - y) : Infinity;
+        if (dd < bd) { bd = dd; best = s; }
+      }
+      if (best) sit(best);
     },
     stop() { if (raf) cancelAnimationFrame(raf); raf = 0; held.clear(); },
   };

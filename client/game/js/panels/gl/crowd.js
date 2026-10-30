@@ -98,12 +98,16 @@ uniform vec3 uLook;
 uniform vec4 uNear;
 uniform vec3 uFanHome; uniform vec3 uFanAway; uniform float uFanKit;
 out vec3 vPos; out vec3 vN; out vec3 vAlb;
-float hash(vec2 p, vec2 k, float m) { return fract(sin(dot(p, k)) * m); }
+// a number from his seat, no sin() in it: sin of a position in feet loses its low bits on a GPU, so
+// neighbours drew the same number and a whole section moved in step
+float hash(vec2 p, vec2 k, float m) { vec3 q = fract(vec3(p.xyx) * 0.1031 + vec3(k, m) * 0.00731); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 void main() {
   // the seat a viewer sits in (ballpark.js seatFor) has nobody in it
   if (distance(iA.xyz, uNear.xyz) < uNear.w) { vPos = vec3(0.0); vN = vec3(0.0, 1.0, 0.0); vAlb = vec3(0.0); gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   float h = hash(iA.xz, vec2(12.99, 78.23), 43758.5), h2 = hash(iA.xz, vec2(39.35, 11.13), 24634.6);
   float h3 = hash(iA.xz, vec2(53.71, 27.19), 31887.3);
+  // his own pace for each of his idle beats, so no two keep time
+  float h8 = hash(iA.xz, vec2(5.53, 41.9), 19391.7), h9 = hash(iA.xz, vec2(88.1, 23.7), 27109.3);
   // whose fan he is: a tenth of the park the visitors', thicker up the third-base line (+x) by
   // their dugout
   float away = step(hash(iA.xz, vec2(7.17, 91.3), 13371.3), iA.x > 0.0 ? 0.16 : 0.04);
@@ -123,7 +127,7 @@ void main() {
   if (head) {
     vec2 d = uLook.xy - iA.xz;
     float want = atan(c * d.x - s * d.y, s * d.x + c * d.y);
-    float yaw = clamp(want, -0.9, 0.9) * uLook.z * (0.45 + 0.55 * h3) + 0.22 * sin(uT * 0.31 + h * 6.283) * (1.0 - 0.7 * uLook.z);
+    float yaw = clamp(want, -0.9, 0.9) * uLook.z * (0.45 + 0.55 * h3) + 0.22 * sin(uT * 0.31 * (0.6 + 0.8 * h9) + h * 6.283) * (1.0 - 0.7 * uLook.z);
     vec3 pv = vec3(0.0, mix(3.51, 4.96, min(1.0, k * 2.0)), mix(-0.1, 0.0, min(1.0, k * 2.0)));
     vec3 q = p - pv; float cy = cos(yaw), sy = sin(yaw);
     p = pv + vec3(cy * q.x + sy * q.z, q.y, -sy * q.x + cy * q.z);
@@ -131,12 +135,12 @@ void main() {
   }
   // sat quiet, his upper body leans forward and back on his own slow beat
   float rest = (1.0 - up) * (1.0 - min(1.0, uBase)) * uMove;
-  p.z += rest * max(0.0, p.y - 1.9) * 0.07 * sin(uT * 0.23 + h2 * 6.283);
+  p.z += rest * max(0.0, p.y - 1.9) * 0.07 * sin(uT * 0.23 * (0.6 + 0.8 * h8) + h2 * 6.283);
   // up and cheering, a bounce and a sway above the waist, each on his own beat: the bounce a
   // smooth hop, sharpest at its top, with no kink where it lands
   float joy = up * uMove;
-  p.y += joy * 0.22 * pow(0.5 + 0.5 * sin(uT * 7.0 + h * 6.283), 1.6);
-  p.x += joy * max(0.0, p.y - 3.0) * 0.06 * sin(uT * 4.3 + h2 * 6.283);
+  p.y += joy * 0.22 * pow(0.5 + 0.5 * sin(uT * 7.0 * (0.85 + 0.3 * h8) + h * 6.283), 1.6);
+  p.x += joy * max(0.0, p.y - 3.0) * 0.06 * sin(uT * 4.3 * (0.75 + 0.5 * h9) + h2 * 6.283);
   // his build: broader or slighter through the body and the limbs (the head as it is), a little
   // taller or shorter, so a stand isn't one man in sixteen shirts
   float h4 = hash(iA.xz, vec2(17.31, 63.77), 21357.9), h5 = hash(iA.xz, vec2(71.13, 5.29), 37771.1);
@@ -182,7 +186,9 @@ uniform vec4 uNear;
 uniform vec3 uFanHome; uniform vec3 uFanAway; uniform float uFanKit;
 out vec3 vPos; out vec3 vN; out vec2 vQ;
 flat out vec3 vShirt; flat out vec3 vSkin; flat out vec3 vHair; flat out float vK; flat out float vH;
-float hash(vec2 p, vec2 k, float m) { return fract(sin(dot(p, k)) * m); }
+// a number from his seat, no sin() in it: sin of a position in feet loses its low bits on a GPU, so
+// neighbours drew the same number and a whole section moved in step
+float hash(vec2 p, vec2 k, float m) { vec3 q = fract(vec3(p.xyx) * 0.1031 + vec3(k, m) * 0.00731); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 void main() {
   if (distance(iA.xyz, uNear.xyz) < uNear.w) { vPos = vec3(0.0); vN = vec3(0.0, 1.0, 0.0); vQ = vec2(0.0); vShirt = vec3(0.0); vSkin = vec3(0.0); vHair = vec3(0.0); vK = 0.0; vH = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   float h = hash(iA.xz, vec2(12.99, 78.23), 43758.5), h2 = hash(iA.xz, vec2(39.35, 11.13), 24634.6);
@@ -195,7 +201,8 @@ void main() {
   float h4 = hash(iA.xz, vec2(17.31, 63.77), 21357.9), h5 = hash(iA.xz, vec2(71.13, 5.29), 37771.1);
   float H = mix(4.15, 5.6, min(1.0, k * 2.0)) * (0.95 + 0.1 * h5), top = H + max(0.0, k * 2.0 - 1.0) * 0.95;
   float hw = 0.62 * (0.9 + 0.26 * h4 * h4);
-  float joy = up * uMove, bounce = joy * 0.22 * pow(0.5 + 0.5 * sin(uT * 7.0 + h * 6.283), 1.6);
+  float h8 = hash(iA.xz, vec2(5.53, 41.9), 19391.7);
+  float joy = up * uMove, bounce = joy * 0.22 * pow(0.5 + 0.5 * sin(uT * 7.0 * (0.85 + 0.3 * h8) + h * 6.283), 1.6);
   vec2 d = normalize((uEyeC - iA.xyz).xz + vec2(1e-4, 0.0));
   vec3 right = vec3(d.y, 0.0, -d.x);
   vQ = vec2(aCorner.x * hw, aCorner.y * top);

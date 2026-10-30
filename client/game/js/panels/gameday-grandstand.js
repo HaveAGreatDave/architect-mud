@@ -997,6 +997,8 @@ export function createGrandstandView(host, opts = {}) {
     // the governor's rung (0 the tier as it started) and how many there are
     get rung() { return gov ? gov.rung : 0; }, get rungs() { return gov ? gov.rungs : 0; },
     redraw: () => draw(),
+    // a point in the field's feet to the view's pixels ({ x, y, d } or null behind the eye)
+    project: (pt, w, h) => (mods ? mods.project(view(), w, h, pt) : null),
     busy: () => playing || live || !!replayDue || !!replay,
   };
 }

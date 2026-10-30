@@ -18,36 +18,42 @@ const DEG = Math.PI / 180;
 
 // Where a body can stand and sit, and what's in the way, for a room spec.
 export function boothLayout(spec) {
-  const w = spec.w || 24, d = spec.d || 19, h = spec.h || 8.5, floor = spec.floor || 0;
+  const w = spec.w || 30, d = spec.d || 25, h = spec.h || 8.5, floor = spec.floor || 0;
   const yaw = (spec.face || 0) * DEG, f = [Math.sin(yaw), 0, Math.cos(yaw)], r = [-Math.cos(yaw), 0, Math.sin(yaw)];
   const at = [spec.at[0], floor, spec.at[1]];
   const world = (u, v, y) => [at[0] + r[0] * u - f[0] * v, floor + y, at[2] + r[2] * u - f[2] * v];
   const local = (p) => { const q = [p[0] - at[0], p[2] - at[2]]; return [q[0] * r[0] + q[1] * r[2], -(q[0] * f[0] + q[1] * f[2]), p[1] - floor]; };
   const hu = w / 2;
-  // no step: three club chairs at the glass and the floor open behind them
+  // no step: three club chairs back from the glass and the floor open behind them, and one more
+  // by the sofa turned to the big screen ('turn': it faces -u, the screen's wall)
   const step = { u: [0, -1], v: [0, -1], y: 0 };
-  const chairs = [-6, 0, 6].map((u) => ({ u, v: 3.6, y: 0, row: 0 }));
+  const chairs = [...[-6, 0, 6].map((u) => ({ u, v: 5.5, y: 0, row: 0 })), { u: -6.2, v: 18.6, y: 0, turn: true }];
   const stools = [-10, -7.4, -4.8].map((u) => ({ u, v: d - 3.3 }));
   const plants = [[-hu + 1.3, 1.6], [hu - 1.3, 1.6], [hu - 1.3, d - 1.3]];
-  const sofa = { u: [-5.9, -3.1], v: [10.4, 17.6] };
-  const tv = { u: -hu + 0.15, v: 14, y: 5.1, w: 8.4, h: 4.7 };
+  const sofa = { u: [-7.6, -4.8], v: [8.4, 15.6] };
+  // on the left-hand wall, clear of the bar and its fridge at the back
+  const tv = { u: -hu + 0.15, v: 12, y: 5.1, w: 8.4, h: 4.7 };
   // [u0, u1, v0, v1]: what a walker can't stand in
   const solid = [
-    ...chairs.map((c) => [c.u - 1.4, c.u + 1.4, c.v - 1.2, c.v + 1.6]),
-    ...[-3, 3].map((u) => [u - 0.5, u + 0.5, 3.1, 4.1]),
+    ...chairs.map((c) => (c.turn ? [c.u - 1.2, c.u + 1.6, c.v - 1.4, c.v + 1.4] : [c.u - 1.4, c.u + 1.4, c.v - 1.2, c.v + 1.6])),
+    ...[-3, 3].map((u) => [u - 0.5, u + 0.5, 5.0, 6.0]),
     ...stools.map((t) => [t.u - 0.4, t.u + 0.4, t.v - 0.4, t.v + 0.4]),
     ...plants.map(([u, v]) => [u - 0.8, u + 0.8, v - 0.8, v + 0.8]),
     [sofa.u[0], sofa.u[1], sofa.v[0], sofa.v[1]],
-    [-9.6, -7.4, 12, 16],
+    [-11.8, -9.6, 10, 14],
     [-hu, -3, d - 2.4, d],
-    [hu - 2.4, hu, 10, 15.6],
+    [hu - 2.4, hu, 12.5, 18.1],
   ];
   const yawTo = (dir) => Math.atan2(dir[0], dir[2]);
   const seats = [
-    ...chairs.map((c, i) => ({ kind: 'chair', i, u: c.u, v: c.v + 0.25, y: c.y + 3.85, yaw: yawTo(f), pitch: -0.12 })),
-    ...[11.8, 14, 16.2].map((v, i) => ({ kind: 'sofa', i, u: -4.9, v, y: 3.6, yaw: yawTo(r.map((x) => -x)), pitch: 0 })),
+    ...chairs.map((c, i) => (c.turn
+      ? { kind: 'armchair', i, u: c.u + 0.25, v: c.v, y: c.y + 3.85, pitch: -0.05 }
+      : { kind: 'chair', i, u: c.u, v: c.v + 0.25, y: c.y + 3.85, yaw: yawTo(f), pitch: -0.12 })),
+    ...[9.8, 12, 14.2].map((v, i) => ({ kind: 'sofa', i, u: -6.6, v, y: 3.6, yaw: yawTo(r.map((x) => -x)), pitch: 0 })),
   ];
   for (const s of seats) s.eye = world(s.u, s.v, s.y);
+  // the turned chair looks at the middle of the screen
+  for (const s of seats) if (s.kind === 'armchair') { const t = world(tv.u, tv.v, s.y); s.yaw = Math.atan2(t[0] - s.eye[0], t[2] - s.eye[2]); }
   return { spec, w, d, h, floor, f, r, at, yaw, world, local, step, chairs, stools, plants, sofa, tv, solid, seats,
     bounds: [-hu + 0.9, hu - 0.9, 0.9, d - 0.9], radius: 0.6,
     groundAt: (u, v) => (u >= step.u[0] && u <= step.u[1] && v >= step.v[0] && v <= step.v[1] ? step.y : 0) };
@@ -116,6 +122,7 @@ export function buildBooth(L) {
     face([[u0, v1, y0], [u0, v0, y0], [u0, v0, y1], [u0, v1, y1]], nrmOf(-1, 0, 0), c(SHADE.side * 0.92), 1, 2);
     face([[u1, v0, y0], [u1, v1, y0], [u1, v1, y1], [u1, v0, y1]], nrmOf(1, 0, 0), c(SHADE.side * 0.92), 1, 2);
   };
+  const boxAt = box;
   const hu = L.w / 2, D = L.d, H = L.h, T = 0.35;
   // the shell: a slab under it, the ceiling's slab over it, the walls with their outsides
   box(-hu - T, hu + T, -0.2, D + T, -0.9, 0, LOOK.under);
@@ -147,7 +154,7 @@ export function buildBooth(L) {
     box(-hu + k, hu - k, k + 0.3, k + 0.8, H - 0.35, H, LOOK.ceiling, 0.7);
     box(-hu + k, hu - k, D - k - 0.5, D - k, H - 0.35, H, LOOK.ceiling, 0.7);
   }
-  const ch = { u: 1.5, v: 10.5 };
+  const ch = { u: 1.5, v: 12 };
   box(ch.u - 1.4, ch.u + 1.4, ch.v - 1.4, ch.v + 1.4, H - 0.12, H - 0.02, LOOK.gilt, 0.95);
   box(ch.u - 0.05, ch.u + 0.05, ch.v - 0.05, ch.v + 0.05, H - 2.0, H - 0.12, LOOK.gilt, 0.9);
   for (const [rad, y, n] of [[1.6, H - 2.1, 12], [0.95, H - 1.4, 8]]) {
@@ -166,6 +173,10 @@ export function buildBooth(L) {
   // the three club chairs at the glass, on brass feet, a marble drum table between each pair
   for (const c of L.chairs) {
     const y = c.y + 0.35;
+    // drawn facing the glass (-v); a turned chair has its frame swung a quarter round to face -u
+    const box = c.turn
+      ? (u0, u1, v0, v1, y0, y1, ...rest) => boxAt(c.u + (v0 - c.v), c.u + (v1 - c.v), c.v - (u1 - c.u), c.v - (u0 - c.u), y0, y1, ...rest)
+      : boxAt;
     for (const [du, dv] of [[-1.1, -0.9], [1.1, -0.9], [-1.1, 1.3], [1.1, 1.3]]) box(c.u + du - 0.08, c.u + du + 0.08, c.v + dv - 0.08, c.v + dv + 0.08, 0, y, LOOK.gilt, 0.9);
     box(c.u - 1.3, c.u + 1.3, c.v - 1.1, c.v + 1.5, y, y + 1.0, LOOK.leather, 0.9, 'boothLeather');
     box(c.u - 0.95, c.u + 0.95, c.v - 1.05, c.v + 1.0, y + 1.0, y + 1.35, LOOK.leather, 0.95, 'boothLeather');
@@ -174,12 +185,12 @@ export function buildBooth(L) {
     box(c.u - 0.2, c.u + 0.2, c.v + 1.56, c.v + 1.59, y + 2.7, y + 3.0, LOOK.gilt, 1.1);  // the brass number
   }
   for (const u of [-3, 3]) {
-    box(u - 0.12, u + 0.12, 3.48, 3.72, 0, 1.9, LOOK.gilt, 0.9);
-    box(u - 0.45, u + 0.45, 3.15, 4.05, 1.9, 2.05, LOOK.marble, 1, 'boothMarble');
+    box(u - 0.12, u + 0.12, 5.38, 5.62, 0, 1.9, LOOK.gilt, 0.9);
+    box(u - 0.45, u + 0.45, 5.05, 5.95, 1.9, 2.05, LOOK.marble, 1, 'boothMarble');
   }
   // the rug under the sofa's corner, one design end to end
   {
-    const ps = [[-11, 9.6, 0.02], [-2.2, 9.6, 0.02], [-2.2, 16.3, 0.02], [-11, 16.3, 0.02]];
+    const ps = [[-13, 7.6, 0.02], [-3.8, 7.6, 0.02], [-3.8, 16.4, 0.02], [-13, 16.4, 0.02]];
     quad(TB('boothRug'), ps, [0, 1, 0], C('#ffffff', 0.9), E, [[0, 0], [1, 0], [1, 1], [0, 1]]);
   }
   // potted palms in the corners: a glazed pot, a gilt lip and a crown of fronds
@@ -199,8 +210,8 @@ export function buildBooth(L) {
   box(so.u[0], so.u[1], so.v[0], so.v[1], 0, 1.45, LOOK.leather, 0.88, 'boothLeather');
   box(so.u[1] - 0.7, so.u[1], so.v[0], so.v[1], 1.45, 3.0, LOOK.leather, 0.82, 'boothLeather');
   for (const v of [so.v[0], so.v[1] - 0.6]) box(so.u[0], so.u[1], v, v + 0.6, 1.45, 2.2, LOOK.leather, 0.8, 'boothLeather');
-  box(-9.6, -7.4, 12, 16, 1.2, 1.4, LOOK.wood, 0.9, 'boothWood');
-  for (const [u, v] of [[-7.6, 12.2], [-9.4, 12.2], [-7.6, 15.8], [-9.4, 15.8]]) box(u - 0.1, u + 0.1, v - 0.1, v + 0.1, 0, 1.2, LOOK.frame);
+  box(-11.8, -9.6, 10, 14, 1.2, 1.4, LOOK.wood, 0.9, 'boothWood');
+  for (const [u, v] of [[-9.8, 10.2], [-11.6, 10.2], [-9.8, 13.8], [-11.6, 13.8]]) box(u - 0.1, u + 0.1, v - 0.1, v + 0.1, 0, 1.2, LOOK.frame);
   // the big screen on the left-hand wall: its bezel, and the picture on its own batch
   const tv = L.tv, tu = tv.u;
   box(tu, tu + 0.25, tv.v - tv.w / 2 - 0.25, tv.v + tv.w / 2 + 0.25, tv.y - tv.h / 2 - 0.25, tv.y + tv.h / 2 + 0.25, LOOK.frame, 0.7);
@@ -239,8 +250,8 @@ export function buildBooth(L) {
   box(-hu, -hu + 2.4, D - 2.4, D, 0, 6.6, LOOK.frame, 0.8);
   quad(solid, [[-hu + 0.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 6.2], [-hu + 0.2, D - 2.42, 6.2]], nrmOf(0, 0, -1), C(LOOK.fridge, 0.95));
   // the buffet on the right-hand wall: its cloth, its trays and the heat lamps over them
-  box(hu - 2.4, hu, 10, 15.6, 0, 3.0, LOOK.cloth, 0.9);
-  for (const v of [11, 12.6, 14.2]) {
+  box(hu - 2.4, hu, 12.5, 18.1, 0, 3.0, LOOK.cloth, 0.9);
+  for (const v of [13.5, 15.1, 16.7]) {
     box(hu - 2.0, hu - 0.4, v - 0.6, v + 0.6, 3.0, 3.3, LOOK.silver, 1.0);
     quad(solid, [[hu - 1.9, v + 0.5, 6.2], [hu - 0.5, v + 0.5, 6.2], [hu - 0.5, v - 0.5, 6.2], [hu - 1.9, v - 0.5, 6.2]], [0, -1, 0], C(LOOK.heat, 1.4));
     box(hu - 1.25, hu - 1.15, v - 0.05, v + 0.05, 6.2, H, LOOK.frame);

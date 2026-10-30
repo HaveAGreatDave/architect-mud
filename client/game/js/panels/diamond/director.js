@@ -991,8 +991,9 @@ export function createDirector(W, opts = {}) {
   D.planBetween = (o = {}) => {
     const p = D.payload, cast = D.cast || [];
     if (!p || p.phase === 'half' || D.inningOver || p.walkoff || !Number.isFinite(o.until)) return null;
-    // (a home run's waits for the batter off the plate: the trot is the director's own)
-    const now = W.t, t = Math.max(now, D.landAt), from = Math.max(t + BETWEEN.settle, o.from ?? -Infinity, D.homer?.until ?? -Infinity), by = o.until - BETWEEN.margin;
+    // (a home run's waits for the batter off the plate, and ball four's or a hit batsman's for him
+    // on first and every man forced on his bag: the trots are the director's own)
+    const now = W.t, t = Math.max(now, D.landAt), from = Math.max(t + BETWEEN.settle, o.from ?? -Infinity, D.homer?.until ?? -Infinity, D.trot ? D.until : -Infinity), by = o.until - BETWEEN.margin;
     if (by - from < 3) return null;
     const men = menNow(cast, t, from);
     const gone = planBetween({ p, cast, men, by });
