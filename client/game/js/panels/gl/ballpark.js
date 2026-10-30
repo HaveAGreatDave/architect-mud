@@ -145,6 +145,18 @@ void main() { gl_Position = uVP * vec4(aPos + uShift, 1.0); }`;
 
 // What every lit pass shares: the six towers, the sky's ambient, and the night air.
 const LIGHTS_GLSL = `
+
+// THE BOX'S CUT (setRoom): the park and its fans are left out of the room's own volume, or the
+// stand it was built into shows through its floor and walls (a riser, a seated fan up to his chest).
+// uCutA is the room's [at.x, at.z, floor, yaw], uCutB its [w/2, d, h, on]; the room itself is drawn
+// with it off.
+uniform vec4 uCutA; uniform vec4 uCutB;
+bool inCut(vec3 p) {
+  if (uCutB.w < 0.5) return false;
+  vec2 q = p.xz - uCutA.xy; float s = sin(uCutA.w), c = cos(uCutA.w);
+  float u = -q.x * c + q.y * s, v = -(q.x * s + q.y * c), y = p.y - uCutA.z;
+  return abs(u) < uCutB.x + 0.3 && v > 0.05 && v < uCutB.y + 0.3 && y > -2.0 && y < uCutB.z + 0.3;
+}
 const float PI = 3.14159265;
 uniform vec3 uLPos[6]; uniform vec3 uLCol[6]; uniform vec3 uLDir[6];
 uniform vec3 uEye; uniform vec3 uSkyUp; uniform vec3 uSkyDn; uniform float uWet;
@@ -420,6 +432,7 @@ float fenceAt(float th) { return uFence.y - (uFence.y - uFence.x) * pow(clamp(ab
 void main() {
   // the roof's glass (GLAZE, uv.x 3) is see-through: left out of the solid pass (uGlass 0) and
   // drawn alone over everything after it (uGlass 1)
+  if (inCut(vPos)) discard;
   bool roofGlass = vMat == ${MAT.GLAZE} && vUv.x > 2.5;
   if (roofGlass != (uGlass > 0.5)) discard;
   vec3 N = normalize(vNrm);
@@ -702,6 +715,7 @@ ${LIGHTS_GLSL}
 ${SPOT_SHADOW_GLSL}
 uniform vec3 uSunDir; uniform vec3 uSunCol; uniform int uSunSh;
 void main() {
+  if (inCut(vPos)) discard;
   vec3 N = normalize(vN);
   vec3 col = vAlb * mix(belowAt(vPos), uSkyUp, N.y * 0.5 + 0.5) * 0.5;
   // the low sun on the stands it reaches, the rest in the bowl's shadow
@@ -727,6 +741,7 @@ flat in vec3 vShirt; flat in vec3 vSkin; flat in vec3 vHair; flat in float vK; f
 out vec4 o;
 ${LIGHTS_GLSL}
 void main() {
+  if (inCut(vPos)) discard;
   float x = abs(vQ.x), y = vQ.y, hc = vH - 0.33;
   vec3 alb;
   float dh = length(vec2(vQ.x, (y - hc) * 0.88));
@@ -1284,6 +1299,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const roar = { home: 0, away: 0, t: 0, move: 1 };
     // the two clubs' colours the fans wear (crowd.js), linear; none until setFanColours
     const fanKit = { home: [0, 0, 0], away: [0, 0, 0], on: 0 };
+    // the room's cut (LIGHTS_GLSL inCut), on while a frame draws the room
+    let cutOn = 0;
+    const cutUniforms = (Prog, on = cutOn) => { const L = room?.L; gl.uniform4f(Prog.u('uCutA'), L ? L.at[0] : 0, L ? L.at[2] : 0, L ? L.floor : 0, L ? L.yaw : 0); gl.uniform4f(Prog.u('uCutB'), L ? L.w / 2 : 0, L ? L.d : 0, L ? L.h : 0, L && on ? 1 : 0); };
     const fanUniforms = (Prog) => { gl.uniform3fv(Prog.u('uFanHome'), fanKit.home); gl.uniform3fv(Prog.u('uFanAway'), fanKit.away); gl.uniform1f(Prog.u('uFanKit'), fanKit.on); };
     // Where the fans look (gl/crowd.js uLook): the ball while there is one, eased toward it over
     // about half a second so a throw turns the stands rather than snapping them, and the mound
@@ -2033,6 +2051,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     function render(shot, ro = {}) {
       if (lost) return false;
       const inRoom = !!room && ro.room !== false;
+      cutOn = inRoom ? 1 : 0;
       const t0 = (typeof performance !== 'undefined' ? performance.now() : 0);
       const w = canvas.width, h = canvas.height;
       if (!(w > 0 && h > 0)) return false;
@@ -2157,6 +2176,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniform4fv(P.u('uBlob'), blobs); gl.uniform1i(P.u('uBlobN'), blobN);
         gl.uniform1i(P.u('uHeadSlot'), 0); gl.uniform4f(P.u('uKitCell'), 0, 0, 0, 0);
         gl.uniform1f(P.u('uCel'), P === SKLIT && CEL_TUNE.on ? 1 : 0);
+        cutUniforms(P);
       };
       const drawSet = (list, alpha, P = LIT) => {
         for (const d of list) {
@@ -2188,9 +2208,11 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (matDraw.n) drawSet([matDraw], 1);
       // the box round the seat (setRoom), and its big screen with the last picture renderTv took
       if (inRoom) {
+        cutUniforms(LIT, 0);
         drawSet([room.solid], 1);
         drawSet(room.mats, 1);
         if (tvShot) { gl.uniform1f(LIT.u('uScreen'), 1); drawSet([room.screen], 1); gl.uniform1f(LIT.u('uScreen'), 0); }
+        cutUniforms(LIT);
       }
       if (city) {
         drawSet(city.opaque, 1);
@@ -2278,7 +2300,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.useProgram(CROWD.p);
         lights(CROWD, M.eye);
         shadows.bind(CROWD.u, 4, q.light !== 0 && q.light !== false ? 1 : 0);
-        gl.uniformMatrix4fv(CROWD.u('uVP'), false, M.viewProj);
+        gl.uniformMatrix4fv(CROWD.u('uVP'), false, M.viewProj); cutUniforms(CROWD);
         gl.uniform2f(CROWD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CROWD.u('uT'), roar.t); gl.uniform1f(CROWD.u('uMove'), roar.move); fanUniforms(CROWD);
         lookAtPlay(roar.t);
         gl.uniform3f(CROWD.u('uLook'), crowdLook.x, crowdLook.z, crowdLook.w); gl.uniform4fv(CROWD.u('uNear'), seatDrop);
@@ -2295,7 +2317,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         if (cards && crowd.some((d) => d.cards)) {
           gl.useProgram(CARD.p);
           lights(CARD, M.eye);
-          gl.uniformMatrix4fv(CARD.u('uVP'), false, M.viewProj);
+          gl.uniformMatrix4fv(CARD.u('uVP'), false, M.viewProj); cutUniforms(CARD);
           gl.uniform2f(CARD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CARD.u('uT'), roar.t); gl.uniform1f(CARD.u('uMove'), roar.move); fanUniforms(CARD);
           gl.uniform3fv(CARD.u('uEyeC'), M.eye); gl.uniform4fv(CARD.u('uNear'), seatDrop);
           for (const d of crowd) {
@@ -2310,7 +2332,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.useProgram(LIT.p);
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
       drawSet(translucent, 0.32);
-      if (inRoom && ro.glass !== false) drawSet([room.glass], 0.06);
+      if (inRoom && ro.glass !== false) { cutUniforms(LIT, 0); drawSet([room.glass], 0.06); cutUniforms(LIT); }
       // light added over the frame: the lamps' pools on the streets, the Curtain, then the spectacle
       gl.blendFunc(gl.ONE, gl.ONE);
       { const bf = ballFx(M.eye, ballGlowOn()); if (bf) drawSet([bf], 1); }

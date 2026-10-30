@@ -35,14 +35,17 @@ export function boothLayout(spec) {
   const tv = { u: -hu + 0.15, v: 12, y: 5.1, w: 8.4, h: 4.7 };
   // [u0, u1, v0, v1]: what a walker can't stand in
   const solid = [
-    ...chairs.map((c) => (c.turn ? [c.u - 1.2, c.u + 1.6, c.v - 1.4, c.v + 1.4] : [c.u - 1.4, c.u + 1.4, c.v - 1.2, c.v + 1.6])),
-    ...[-3, 3].map((u) => [u - 0.5, u + 0.5, 5.0, 6.0]),
-    ...stools.map((t) => [t.u - 0.4, t.u + 0.4, t.v - 0.4, t.v + 0.4]),
     ...plants.map(([u, v]) => [u - 0.8, u + 0.8, v - 0.8, v + 0.8]),
-    [sofa.u[0], sofa.u[1], sofa.v[0], sofa.v[1]],
-    [-11.8, -9.6, 10, 14],
     [-hu, -3, d - 2.4, d],
     [hu - 2.4, hu, 12.5, 18.1],
+  ];
+  // [u0, u1, v0, v1, y]: what a walker climbs over rather than getting stuck on, y its top
+  const climb = [
+    ...chairs.map((c) => (c.turn ? [c.u - 1.2, c.u + 1.6, c.v - 1.4, c.v + 1.4, 1.7] : [c.u - 1.4, c.u + 1.4, c.v - 1.2, c.v + 1.6, 1.7])),
+    ...[-3, 3].map((u) => [u - 0.5, u + 0.5, 5.0, 6.0, 2.05]),
+    ...stools.map((t) => [t.u - 0.4, t.u + 0.4, t.v - 0.4, t.v + 0.4, 2.6]),
+    [sofa.u[0], sofa.u[1], sofa.v[0], sofa.v[1], 1.45],
+    [-11.8, -9.6, 10, 14, 1.4],
   ];
   const yawTo = (dir) => Math.atan2(dir[0], dir[2]);
   const seats = [
@@ -54,9 +57,14 @@ export function boothLayout(spec) {
   for (const s of seats) s.eye = world(s.u, s.v, s.y);
   // the turned chair looks at the middle of the screen
   for (const s of seats) if (s.kind === 'armchair') { const t = world(tv.u, tv.v, s.y); s.yaw = Math.atan2(t[0] - s.eye[0], t[2] - s.eye[2]); }
-  return { spec, w, d, h, floor, f, r, at, yaw, world, local, step, chairs, stools, plants, sofa, tv, solid, seats,
-    bounds: [-hu + 0.9, hu - 0.9, 0.9, d - 0.9], radius: 0.6,
-    groundAt: (u, v) => (u >= step.u[0] && u <= step.u[1] && v >= step.v[0] && v <= step.v[1] ? step.y : 0) };
+  // the floor under a walker: the top of whatever he's climbed onto, felt a little past its edge
+  const groundAt = (u, v) => {
+    let y = u >= step.u[0] && u <= step.u[1] && v >= step.v[0] && v <= step.v[1] ? step.y : 0;
+    for (const [a, b, c, e, t] of climb) if (u > a - 0.3 && u < b + 0.3 && v > c - 0.3 && v < e + 0.3) y = Math.max(y, t);
+    return y;
+  };
+  return { spec, w, d, h, floor, f, r, at, yaw, world, local, step, chairs, stools, plants, sofa, tv, solid, climb, seats,
+    bounds: [-hu + 0.9, hu - 0.9, 0.9, d - 0.9], radius: 0.6, groundAt };
 }
 
 // A walker's next spot: the move tried whole, then each axis on its own, so you slide along what you
@@ -88,8 +96,8 @@ const LOOK = Object.freeze({
   screen: '#111318', gilt: '#c9a24a', crystal: '#e8f2ff', onyx: '#f0b860', mirror: '#9aa6b0',
   pot: '#1f3a3a', trunk: '#6b4a2a', frond: '#3f7a3a', fridge: '#bfe4f0', lamp: '#fff2d6', heat: '#ffb060',
 });
-// how much of a face's light it gets, by the way it faces
-const SHADE = { up: 0.92, down: 0.55, side: 0.74, back: 0.66 };
+// Unused now the light is baked per vertex (bakeLight), kept 1 so a box's k is its whole tint
+const SHADE = { up: 1, down: 1, side: 1, back: 1 };
 
 // The surfaces with a material of their own (paintBoothTexture), each its own batch so its texture
 // can repeat, and how many feet one repeat covers.
@@ -103,10 +111,25 @@ export function buildBooth(L) {
   const E = MAT.EMISSIVE, UV = [0, 0];
   const C = (hex, k = 1) => lin(hex).map((c) => c * k);
   const nrmOf = (du, dy, dv) => { const x = L.r[0] * du - L.f[0] * dv, z = L.r[2] * du - L.f[2] * dv; return [x, dy, z]; };
-  const quad = (b, ps, n, col, mat = E, uvs = null) => {
-    const q = ps.map(([u, v, y]) => L.world(u, v, y)), U = uvs || [UV, UV, UV, UV];
-    vtx(b, q[0], n, U[0], col, mat); vtx(b, q[1], n, U[1], col, mat); vtx(b, q[2], n, U[2], col, mat);
-    vtx(b, q[0], n, U[0], col, mat); vtx(b, q[2], n, U[2], col, mat); vtx(b, q[3], n, U[3], col, mat);
+  // a face, lit per vertex by bakeLight unless it's a lamp (raw), cut into cells of about a foot
+  // and a half so the light has somewhere to fall off
+  const bake = bakeLight(L);
+  const quad = (b, ps, n, col, mat = E, uvs = null, raw = false) => {
+    const U = uvs || [UV, UV, UV, UV];
+    const nl = [n[0] * L.r[0] + n[2] * L.r[2], n[1], -(n[0] * L.f[0] + n[2] * L.f[2])];
+    const len = (a, c) => Math.hypot(a[0] - c[0], a[1] - c[1], a[2] - c[2]);
+    const nu = raw ? 1 : Math.max(1, Math.min(24, Math.ceil(Math.max(len(ps[0], ps[1]), len(ps[3], ps[2])) / 1.5)));
+    const nv = raw ? 1 : Math.max(1, Math.min(24, Math.ceil(Math.max(len(ps[0], ps[3]), len(ps[1], ps[2])) / 1.5)));
+    const at = (i, j) => {
+      const a = i / nu, c = j / nv, mix = (k) => (ps[0][k] * (1 - a) + ps[1][k] * a) * (1 - c) + (ps[3][k] * (1 - a) + ps[2][k] * a) * c;
+      const mixU = (k) => (U[0][k] * (1 - a) + U[1][k] * a) * (1 - c) + (U[3][k] * (1 - a) + U[2][k] * a) * c;
+      const lp = [mix(0), mix(1), mix(2)];
+      return { p: L.world(lp[0], lp[1], lp[2]), uv: [mixU(0), mixU(1)], col: raw ? col : bake(lp, nl, col) };
+    };
+    for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+      const q = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
+      for (const k of [0, 1, 2, 0, 2, 3]) vtx(b, q[k].p, n, q[k].uv, q[k].col, mat);
+    }
   };
   // a box from its corners in the room's frame, each face shaded by the way it faces
   // 'tex' puts it on a material (BOOTH_TEXTURES), mapped flat onto each face by the room's feet;
@@ -114,7 +137,7 @@ export function buildBooth(L) {
   const box = (u0, u1, v0, v1, y0, y1, hex, k = 1, tex = null) => {
     const b = tex ? TB(tex) : solid, t = tex ? BOOTH_TEXTURES[tex] : 1;
     const c = (s) => C(tex ? '#ffffff' : hex, k * s);
-    const face = (ps, n, col, i, j) => quad(b, ps, n, col, E, tex ? ps.map((q) => [q[i] / t, q[j] / t]) : null);
+    const face = (ps, n, col, i, j) => quad(b, ps, n, col, E, tex ? ps.map((q) => [q[i] / t, q[j] / t]) : null, k >= 1.25);
     face([[u0, v0, y1], [u1, v0, y1], [u1, v1, y1], [u0, v1, y1]], [0, 1, 0], c(SHADE.up), 0, 1);
     face([[u0, v0, y0], [u0, v1, y0], [u1, v1, y0], [u1, v0, y0]], [0, -1, 0], c(SHADE.down), 0, 1);
     face([[u0, v0, y0], [u1, v0, y0], [u1, v0, y1], [u0, v0, y1]], nrmOf(0, 0, -1), c(SHADE.side), 0, 2);
@@ -142,15 +165,15 @@ export function buildBooth(L) {
   // the glass's frame: a low sill and the header, the glass between them one pane wall to wall
   box(-hu, hu, -0.2, 0.3, 0, 0.9, LOOK.frame);
   box(-hu, hu, -0.2, 0.3, H - 0.5, H, LOOK.frame);
-  quad(glass, [[-hu, 0, 0.9], [hu, 0, 0.9], [hu, 0, H - 0.5], [-hu, 0, H - 0.5]], nrmOf(0, 0, -1), C('#cfe3ea', 0.8));
+  quad(glass, [[-hu, 0, 0.9], [hu, 0, 0.9], [hu, 0, H - 0.5], [-hu, 0, H - 0.5]], nrmOf(0, 0, -1), C('#cfe3ea', 0.8), E, null, true);
   // the lights, bright enough to bloom: a cove of warm light round the ceiling's edge, a gilt rose
   // with a two-tier chandelier hung from it, and sconces either side of the screen
   {
     const k = 0.6, y = H - 0.02;
-    quad(solid, [[-hu, k + 0.3, y], [hu, k + 0.3, y], [hu, 0.3, y], [-hu, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3));
-    quad(solid, [[-hu, D, y], [hu, D, y], [hu, D - k, y], [-hu, D - k, y]], [0, -1, 0], C(LOOK.lamp, 1.3));
-    quad(solid, [[-hu, D, y], [-hu + k, D, y], [-hu + k, 0.3, y], [-hu, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3));
-    quad(solid, [[hu - k, D, y], [hu, D, y], [hu, 0.3, y], [hu - k, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3));
+    quad(solid, [[-hu, k + 0.3, y], [hu, k + 0.3, y], [hu, 0.3, y], [-hu, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3), E, null, true);
+    quad(solid, [[-hu, D, y], [hu, D, y], [hu, D - k, y], [-hu, D - k, y]], [0, -1, 0], C(LOOK.lamp, 1.3), E, null, true);
+    quad(solid, [[-hu, D, y], [-hu + k, D, y], [-hu + k, 0.3, y], [-hu, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3), E, null, true);
+    quad(solid, [[hu - k, D, y], [hu, D, y], [hu, 0.3, y], [hu - k, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3), E, null, true);
     box(-hu + k, hu - k, k + 0.3, k + 0.8, H - 0.35, H, LOOK.ceiling, 0.7);
     box(-hu + k, hu - k, D - k - 0.5, D - k, H - 0.35, H, LOOK.ceiling, 0.7);
   }
@@ -218,7 +241,7 @@ export function buildBooth(L) {
   {
     const v0 = tv.v - tv.w / 2, v1 = tv.v + tv.w / 2, y0 = tv.y - tv.h / 2, y1 = tv.y + tv.h / 2, u = tu + 0.27;
     // facing the wall (-u), your right is -v, so the picture runs from the back to the glass end
-    quad(screen, [[u, v1, y0], [u, v0, y0], [u, v0, y1], [u, v1, y1]], nrmOf(1, 0, 0), [1, 1, 1], E, [[0, 0], [1, 0], [1, 1], [0, 1]]);
+    quad(screen, [[u, v1, y0], [u, v0, y0], [u, v0, y1], [u, v1, y1]], nrmOf(1, 0, 0), [1, 1, 1], E, [[0, 0], [1, 0], [1, 1], [0, 1]], true);
   }
   // the bar along the back wall: walnut panelled in brass, a marble top, a brass foot rail, and
   // behind it a back bar of lit onyx with glass shelves of bottles and a mirror over
@@ -229,7 +252,7 @@ export function buildBooth(L) {
   box(-hu + 2.4, -3, D - 2.85, D - 2.75, 0.45, 0.55, LOOK.gilt, 1.0);
   for (let u = -hu + 3; u < -3; u += 2.5) box(u - 0.05, u + 0.05, D - 2.8, D - 2.4, 0.2, 0.5, LOOK.gilt, 0.9);
   box(-hu + 2.4, -3, D - 0.6, D, 0, 2.8, LOOK.wood, 0.7, 'boothWood');
-  quad(solid, [[-hu + 2.4, D - 0.04, 2.8], [-3, D - 0.04, 2.8], [-3, D - 0.04, 6.4], [-hu + 2.4, D - 0.04, 6.4]], nrmOf(0, 0, -1), C(LOOK.onyx, 1.25));
+  quad(solid, [[-hu + 2.4, D - 0.04, 2.8], [-3, D - 0.04, 2.8], [-3, D - 0.04, 6.4], [-hu + 2.4, D - 0.04, 6.4]], nrmOf(0, 0, -1), C(LOOK.onyx, 1.25), E, null, true);
   quad(solid, [[-hu + 2.4, D - 0.05, 6.5], [-3, D - 0.05, 6.5], [-3, D - 0.05, 7.6], [-hu + 2.4, D - 0.05, 7.6]], nrmOf(0, 0, -1), C(LOOK.mirror, 0.8));
   box(-hu + 2.4, -3, D - 0.12, D - 0.04, 6.4, 6.5, LOOK.gilt, 1.0);
   const bottles = ['#2f6b3a', '#8a5a20', '#d8b84a', '#5a1f2a', '#e6e6e6', '#2a4a7a', '#b0442a'];
@@ -248,17 +271,62 @@ export function buildBooth(L) {
     box(t.u - 0.4, t.u + 0.4, t.v - 0.4, t.v + 0.4, 2.3, 2.6, LOOK.leather, 0.9, 'boothLeather');
   }
   box(-hu, -hu + 2.4, D - 2.4, D, 0, 6.6, LOOK.frame, 0.8);
-  quad(solid, [[-hu + 0.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 6.2], [-hu + 0.2, D - 2.42, 6.2]], nrmOf(0, 0, -1), C(LOOK.fridge, 0.95));
+  quad(solid, [[-hu + 0.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 6.2], [-hu + 0.2, D - 2.42, 6.2]], nrmOf(0, 0, -1), C(LOOK.fridge, 0.95), E, null, true);
   // the buffet on the right-hand wall: its cloth, its trays and the heat lamps over them
   box(hu - 2.4, hu, 12.5, 18.1, 0, 3.0, LOOK.cloth, 0.9);
   for (const v of [13.5, 15.1, 16.7]) {
     box(hu - 2.0, hu - 0.4, v - 0.6, v + 0.6, 3.0, 3.3, LOOK.silver, 1.0);
-    quad(solid, [[hu - 1.9, v + 0.5, 6.2], [hu - 0.5, v + 0.5, 6.2], [hu - 0.5, v - 0.5, 6.2], [hu - 1.9, v - 0.5, 6.2]], [0, -1, 0], C(LOOK.heat, 1.4));
+    quad(solid, [[hu - 1.9, v + 0.5, 6.2], [hu - 0.5, v + 0.5, 6.2], [hu - 0.5, v - 0.5, 6.2], [hu - 1.9, v - 0.5, 6.2]], [0, -1, 0], C(LOOK.heat, 1.4), E, null, true);
     box(hu - 1.25, hu - 1.15, v - 0.05, v + 0.05, 6.2, H, LOOK.frame);
   }
   // the door at the back, shut
   box(5, 8.6, D - 0.05, D, 0, 7, LOOK.wood, 0.75, 'boothWood');
   return { solid, screen, glass, textured };
+}
+
+// THE ROOM'S LIGHT, baked into each vertex's colour: a cool fill off the glass, the chandelier,
+// the sconces, the bar's pendants, the buffet's heat lamps and the cove round the ceiling, each
+// falling off with distance and turned by the way the face looks; then contact shadow where a wall
+// meets the floor or the ceiling and on the floor round and under the furniture. Kept under 1 so
+// the bloom leaves it alone (the room's header).
+function bakeLight(L) {
+  const hu = L.w / 2, D = L.d, H = L.h;
+  const WARM = [1, 0.84, 0.64], COOL = [0.82, 0.9, 1], AMB = [0.9, 0.9, 0.95];
+  // [u, v, y, power, reach, tint]
+  const lamps = [
+    [1.5, 12, H - 2.4, 0.75, 9, WARM],
+    ...[L.tv.v - L.tv.w / 2 - 1.2, L.tv.v + L.tv.w / 2 + 1.2].map((v) => [-hu + 0.8, v, 5.6, 0.32, 4.5, WARM]),
+    ...[-9.6, -7.1, -4.6].map((u) => [u, D - 1.65, 5.4, 0.3, 4, WARM]),
+    ...[13.5, 15.1, 16.7].map((v) => [hu - 1.2, v, 6.0, 0.25, 3.5, [1, 0.7, 0.42]]),
+    ...[-hu * 0.6, 0, hu * 0.6].flatMap((u) => [[u, 0.8, H - 0.5, 0.22, 5, WARM], [u, D - 0.8, H - 0.5, 0.22, 5, WARM]]),
+    ...[D * 0.3, D * 0.7].flatMap((v) => [[-hu + 0.8, v, H - 0.5, 0.22, 5, WARM], [hu - 0.8, v, H - 0.5, 0.22, 5, WARM]]),
+  ];
+  const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const boxes = [...L.solid, ...L.climb];
+  return ([u, v, y], [nu, ny, nv], col) => {
+    const lit = AMB.map((c) => c * (0.4 + 0.07 * ny));
+    // the park through the glass: on what faces it, and less the deeper into the room
+    const win = 0.22 * Math.max(0, -nv * 0.8 + 0.2) * Math.exp(-v / 10) + 0.06 * Math.exp(-v / 6);
+    for (let k = 0; k < 3; k++) lit[k] += COOL[k] * win;
+    for (const [lu, lv, ly, pw, reach, tint] of lamps) {
+      const du = lu - u, dv = lv - v, dy = ly - y, d = Math.hypot(du, dv, dy) || 1;
+      const cos = (du * nu + dv * nv + dy * ny) / d;
+      const e = pw * Math.max(0, cos * 0.8 + 0.2) / (1 + (d / reach) * (d / reach));
+      for (let k = 0; k < 3; k++) lit[k] += tint[k] * e;
+    }
+    // contact shadow
+    let ao = 1;
+    const dw = Math.min(u + hu, hu - u, D - v);
+    if (ny > 0.9 && y < 0.2) {
+      ao *= 0.72 + 0.28 * sstep(0, 2.2, dw);
+      for (const [a, b, c, e] of boxes) {
+        const ou = Math.max(a - u, 0, u - b), ov = Math.max(c - v, 0, v - e);
+        ao *= 0.5 + 0.5 * sstep(0, 1.4, Math.hypot(ou, ov));
+      }
+    } else if (ny < -0.9 && y > H - 0.3) ao *= 0.78 + 0.22 * sstep(0, 2.5, Math.min(dw, v));
+    else if (Math.abs(ny) < 0.5) ao *= (0.7 + 0.3 * sstep(0, 1.8, y)) * (0.85 + 0.15 * sstep(0, 1.2, H - y));
+    return col.map((c, k) => Math.min(0.97, c * lit[k] * ao * 1.12));
+  };
 }
 
 // ── the materials ─────────────────────────────────────────────────────────────
