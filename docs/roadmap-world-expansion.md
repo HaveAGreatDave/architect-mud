@@ -59,6 +59,13 @@ This is grounded in how the engine already works, so the vision is buildable, no
   encounter density, more HellMOO-claustrophobic.
 
 ### Decision 2 — Density philosophy
+
+> **Answered (2026-10-30): an archipelago, close to (C).** The city is the dense core, with a thin
+> fringe of wilds around it, set in a vast wilderness that holds the other regions. The emptiness
+> is on purpose and does two jobs. On foot it's a survival crossing, through Voidwalking
+> ([systems-overland-void-travel.md](systems-overland-void-travel.md)). For anyone who owns a
+> vehicle, it's the distance vehicles exist to cover. It also makes the dense places feel special
+> when you get there. Sparse wilderness isn't unfinished work; city tiles filed as wilderness are.
 - **(A) Dense core, sparse frontier.** *(Recommended)* Rooms packed near the centre, thinning to
   lonely landmarks in the wastes. Rewards pushing out.
 - **(B) Even density throughout.** Consistent "every tile has something" texture everywhere.
