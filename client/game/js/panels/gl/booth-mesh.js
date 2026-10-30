@@ -24,36 +24,45 @@ export function boothLayout(spec) {
   const world = (u, v, y) => [at[0] + r[0] * u - f[0] * v, floor + y, at[2] + r[2] * u - f[2] * v];
   const local = (p) => { const q = [p[0] - at[0], p[2] - at[2]]; return [q[0] * r[0] + q[1] * r[2], -(q[0] * f[0] + q[1] * f[2]), p[1] - floor]; };
   const hu = w / 2;
-  // the step under the back row, which raises whoever stands on it
-  const step = { u: [-hu + 2, hu - 2], v: [5.6, 9.6], y: 0.7 };
-  const chairs = [];
-  for (const [row, v, y] of [[0, 3.4, 0], [1, 7.4, step.y]]) for (const u of [-6, -2, 2, 6]) chairs.push({ u, v, y, row });
-  const sofa = { u: [3.1, 5.9], v: [10.4, 17.6] };
-  const tv = { u: hu - 0.15, v: 14, y: 5.1, w: 8.4, h: 4.7 };
+  // no step: three club chairs at the glass and the floor open behind them
+  const step = { u: [0, -1], v: [0, -1], y: 0 };
+  const chairs = [-6, 0, 6].map((u) => ({ u, v: 3.6, y: 0, row: 0 }));
+  const stools = [-10, -7.4, -4.8].map((u) => ({ u, v: d - 3.3 }));
+  const plants = [[-hu + 1.3, 1.6], [hu - 1.3, 1.6], [hu - 1.3, d - 1.3]];
+  const sofa = { u: [-5.9, -3.1], v: [10.4, 17.6] };
+  const tv = { u: -hu + 0.15, v: 14, y: 5.1, w: 8.4, h: 4.7 };
   // [u0, u1, v0, v1]: what a walker can't stand in
   const solid = [
-    ...chairs.map((c) => [c.u - 1.15, c.u + 1.15, c.v - 1.1, c.v + 1.4]),
+    ...chairs.map((c) => [c.u - 1.4, c.u + 1.4, c.v - 1.2, c.v + 1.6]),
+    ...[-3, 3].map((u) => [u - 0.5, u + 0.5, 3.1, 4.1]),
+    ...stools.map((t) => [t.u - 0.4, t.u + 0.4, t.v - 0.4, t.v + 0.4]),
+    ...plants.map(([u, v]) => [u - 0.8, u + 0.8, v - 0.8, v + 0.8]),
     [sofa.u[0], sofa.u[1], sofa.v[0], sofa.v[1]],
-    [7.4, 9.6, 12, 16],
+    [-9.6, -7.4, 12, 16],
     [-hu, -3, d - 2.4, d],
-    [-hu, -hu + 2.4, 10, 15.6],
+    [hu - 2.4, hu, 10, 15.6],
   ];
   const yawTo = (dir) => Math.atan2(dir[0], dir[2]);
   const seats = [
     ...chairs.map((c, i) => ({ kind: 'chair', i, u: c.u, v: c.v + 0.25, y: c.y + 3.85, yaw: yawTo(f), pitch: -0.12 })),
-    ...[11.8, 14, 16.2].map((v, i) => ({ kind: 'sofa', i, u: 4.9, v, y: 3.6, yaw: yawTo(r), pitch: 0 })),
+    ...[11.8, 14, 16.2].map((v, i) => ({ kind: 'sofa', i, u: -4.9, v, y: 3.6, yaw: yawTo(r.map((x) => -x)), pitch: 0 })),
   ];
   for (const s of seats) s.eye = world(s.u, s.v, s.y);
-  return { spec, w, d, h, floor, f, r, at, yaw, world, local, step, chairs, sofa, tv, solid, seats,
-    bounds: [-hu + 0.9, hu - 0.9, 0.9, d - 0.9], radius: 0.9,
+  return { spec, w, d, h, floor, f, r, at, yaw, world, local, step, chairs, stools, plants, sofa, tv, solid, seats,
+    bounds: [-hu + 0.9, hu - 0.9, 0.9, d - 0.9], radius: 0.6,
     groundAt: (u, v) => (u >= step.u[0] && u <= step.u[1] && v >= step.v[0] && v <= step.v[1] ? step.y : 0) };
 }
 
 // A walker's next spot: the move tried whole, then each axis on its own, so you slide along what you
 // meet. `p` and the answer are [u, v].
-export function boothStep(L, p, du, dv) {
-  const ok = (u, v) => u >= L.bounds[0] && u <= L.bounds[1] && v >= L.bounds[2] && v <= L.bounds[3]
+export function boothFree(L, u, v) {
+  return u >= L.bounds[0] && u <= L.bounds[1] && v >= L.bounds[2] && v <= L.bounds[3]
     && !L.solid.some(([a, b, c, e]) => u > a - L.radius && u < b + L.radius && v > c - L.radius && v < e + L.radius);
+}
+export function boothStep(L, p, du, dv) {
+  const ok = (u, v) => boothFree(L, u, v);
+  // somewhere you shouldn't be (a seat's own spot): any move goes, so you can always walk out
+  if (!ok(p[0], p[1])) { const [a, b, c, e] = L.bounds; return [Math.max(a, Math.min(b, p[0] + du)), Math.max(c, Math.min(e, p[1] + dv))]; }
   if (ok(p[0] + du, p[1] + dv)) return [p[0] + du, p[1] + dv];
   if (ok(p[0] + du, p[1])) return [p[0] + du, p[1]];
   if (ok(p[0], p[1] + dv)) return [p[0], p[1] + dv];
@@ -70,14 +79,15 @@ export function boothSeatNear(L, u, v, reach = 3) {
 const LOOK = Object.freeze({
   carpet: '#2c3140', ceiling: '#e6e2d8', wall: '#e9e3d6', outside: '#bfbcb4', under: '#3a3d42', wood: '#8a6646',
   leather: '#efeae0', platinum: '#d8dce2', frame: '#2a2d33', marble: '#f1efe9', cloth: '#f4f2ec', silver: '#b9bec6',
-  screen: '#111318', fridge: '#bfe4f0', lamp: '#fff2d6', heat: '#ffb060',
+  screen: '#111318', gilt: '#c9a24a', crystal: '#e8f2ff', onyx: '#f0b860', mirror: '#9aa6b0',
+  pot: '#1f3a3a', trunk: '#6b4a2a', frond: '#3f7a3a', fridge: '#bfe4f0', lamp: '#fff2d6', heat: '#ffb060',
 });
 // how much of a face's light it gets, by the way it faces
 const SHADE = { up: 0.92, down: 0.55, side: 0.74, back: 0.66 };
 
 // The surfaces with a material of their own (paintBoothTexture), each its own batch so its texture
 // can repeat, and how many feet one repeat covers.
-export const BOOTH_TEXTURES = Object.freeze({ boothCarpet: 3, boothLeather: 1.2, boothWood: 3.5, boothMarble: 2.5, boothWall: 4 });
+export const BOOTH_TEXTURES = Object.freeze({ boothRug: 1, boothCarpet: 3, boothLeather: 2.4, boothWood: 3.5, boothMarble: 2.5, boothWall: 4 });
 
 // { solid, screen, glass, textured }: batches in the field's feet; 'textured' maps a
 // BOOTH_TEXTURES key to its batch, whose colours are the light alone (the texture is the colour).
@@ -122,54 +132,118 @@ export function buildBooth(L) {
   quad(solid, [[-hu + 0.02, D, sy[0]], [-hu + 0.02, 0, sy[0]], [-hu + 0.02, 0, sy[1]], [-hu + 0.02, D, sy[1]]], nrmOf(1, 0, 0), C(LOOK.platinum, 1.05));
   quad(solid, [[hu - 0.02, 0, sy[0]], [hu - 0.02, D, sy[0]], [hu - 0.02, D, sy[1]], [hu - 0.02, 0, sy[1]]], nrmOf(-1, 0, 0), C(LOOK.platinum, 1.05));
   quad(solid, [[hu, D - 0.02, sy[0]], [-hu, D - 0.02, sy[0]], [-hu, D - 0.02, sy[1]], [hu, D - 0.02, sy[1]]], nrmOf(0, 0, -1), C(LOOK.platinum, 1.05));
-  // the glass's frame: a low sill, the header, a mullion every six feet
+  // the glass's frame: a low sill and the header, the glass between them one pane wall to wall
   box(-hu, hu, -0.2, 0.3, 0, 0.9, LOOK.frame);
   box(-hu, hu, -0.2, 0.3, H - 0.5, H, LOOK.frame);
-  for (let u = -hu; u <= hu + 1e-6; u += 6) box(u - 0.12, u + 0.12, -0.2, 0.15, 0.9, H - 0.5, LOOK.frame);
   quad(glass, [[-hu, 0, 0.9], [hu, 0, 0.9], [hu, 0, H - 0.5], [-hu, 0, H - 0.5]], nrmOf(0, 0, -1), C('#cfe3ea', 0.8));
-  // the lamps in the ceiling, bright enough to bloom
-  for (const [u, v] of [[-6, 4.5], [6, 4.5], [-6, 13], [6, 13]]) {
-    quad(solid, [[u - 1.6, v + 1.6, H - 0.03], [u + 1.6, v + 1.6, H - 0.03], [u + 1.6, v - 1.6, H - 0.03], [u - 1.6, v - 1.6, H - 0.03]], [0, -1, 0], C(LOOK.lamp, 1.6));
+  // the lights, bright enough to bloom: a cove of warm light round the ceiling's edge, a gilt rose
+  // with a two-tier chandelier hung from it, and sconces either side of the screen
+  {
+    const k = 0.6, y = H - 0.02;
+    quad(solid, [[-hu, k + 0.3, y], [hu, k + 0.3, y], [hu, 0.3, y], [-hu, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3));
+    quad(solid, [[-hu, D, y], [hu, D, y], [hu, D - k, y], [-hu, D - k, y]], [0, -1, 0], C(LOOK.lamp, 1.3));
+    quad(solid, [[-hu, D, y], [-hu + k, D, y], [-hu + k, 0.3, y], [-hu, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3));
+    quad(solid, [[hu - k, D, y], [hu, D, y], [hu, 0.3, y], [hu - k, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3));
+    box(-hu + k, hu - k, k + 0.3, k + 0.8, H - 0.35, H, LOOK.ceiling, 0.7);
+    box(-hu + k, hu - k, D - k - 0.5, D - k, H - 0.35, H, LOOK.ceiling, 0.7);
   }
-  // the step and the chairs on it and in front of it
-  const st = L.step;
-  box(st.u[0], st.u[1], st.v[0], st.v[1], 0, st.y, LOOK.carpet, 1.15, 'boothCarpet');
+  const ch = { u: 1.5, v: 10.5 };
+  box(ch.u - 1.4, ch.u + 1.4, ch.v - 1.4, ch.v + 1.4, H - 0.12, H - 0.02, LOOK.gilt, 0.95);
+  box(ch.u - 0.05, ch.u + 0.05, ch.v - 0.05, ch.v + 0.05, H - 2.0, H - 0.12, LOOK.gilt, 0.9);
+  for (const [rad, y, n] of [[1.6, H - 2.1, 12], [0.95, H - 1.4, 8]]) {
+    box(ch.u - rad, ch.u + rad, ch.v - rad, ch.v + rad, y - 0.04, y, LOOK.gilt, 0.9);
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2, u = ch.u + Math.cos(a) * rad, v = ch.v + Math.sin(a) * rad;
+      box(u - 0.07, u + 0.07, v - 0.07, v + 0.07, y - 0.55, y - 0.04, LOOK.crystal, 1.5);
+      box(u - 0.11, u + 0.11, v - 0.11, v + 0.11, y, y + 0.28, LOOK.lamp, 1.8);
+    }
+  }
+  box(ch.u - 0.35, ch.u + 0.35, ch.v - 0.35, ch.v + 0.35, H - 2.9, H - 2.1, LOOK.crystal, 1.6);
+  for (const v of [L.tv.v - L.tv.w / 2 - 1.2, L.tv.v + L.tv.w / 2 + 1.2]) {
+    box(-hu, -hu + 0.12, v - 0.3, v + 0.3, 4.6, 5.2, LOOK.gilt, 0.9);
+    box(-hu + 0.12, -hu + 0.5, v - 0.22, v + 0.22, 5.2, 5.9, LOOK.lamp, 1.7);
+  }
+  // the three club chairs at the glass, on brass feet, a marble drum table between each pair
   for (const c of L.chairs) {
-    const y = c.y;
-    box(c.u - 1.05, c.u + 1.05, c.v - 1.0, c.v + 1.0, y, y + 1.55, LOOK.leather, 0.9, 'boothLeather');
-    box(c.u - 1.05, c.u + 1.05, c.v + 0.8, c.v + 1.3, y + 1.55, y + 3.4, LOOK.leather, 0.85, 'boothLeather');
-    for (const s of [-1, 1]) box(c.u + s * 1.05 - (s > 0 ? 0.3 : 0), c.u + s * 1.05 + (s < 0 ? 0.3 : 0), c.v - 0.9, c.v + 1.0, y + 1.55, y + 2.3, LOOK.leather, 0.8, 'boothLeather');
-    box(c.u + 0.75, c.u + 1.0, c.v - 0.8, c.v - 0.5, y + 2.3, y + 2.42, LOOK.silver);   // the cup holder
-    box(c.u - 0.2, c.u + 0.2, c.v + 1.31, c.v + 1.34, y + 2.8, y + 3.1, '#c8a446', 1.1);  // the brass number
+    const y = c.y + 0.35;
+    for (const [du, dv] of [[-1.1, -0.9], [1.1, -0.9], [-1.1, 1.3], [1.1, 1.3]]) box(c.u + du - 0.08, c.u + du + 0.08, c.v + dv - 0.08, c.v + dv + 0.08, 0, y, LOOK.gilt, 0.9);
+    box(c.u - 1.3, c.u + 1.3, c.v - 1.1, c.v + 1.5, y, y + 1.0, LOOK.leather, 0.9, 'boothLeather');
+    box(c.u - 0.95, c.u + 0.95, c.v - 1.05, c.v + 1.0, y + 1.0, y + 1.35, LOOK.leather, 0.95, 'boothLeather');
+    box(c.u - 1.3, c.u + 1.3, c.v + 1.0, c.v + 1.55, y + 1.0, y + 3.3, LOOK.leather, 0.85, 'boothLeather');
+    for (const s of [-1, 1]) box(c.u + s * 1.3 - (s > 0 ? 0.38 : 0), c.u + s * 1.3 + (s < 0 ? 0.38 : 0), c.v - 1.1, c.v + 1.5, y + 1.0, y + 2.1, LOOK.leather, 0.8, 'boothLeather');
+    box(c.u - 0.2, c.u + 0.2, c.v + 1.56, c.v + 1.59, y + 2.7, y + 3.0, LOOK.gilt, 1.1);  // the brass number
+  }
+  for (const u of [-3, 3]) {
+    box(u - 0.12, u + 0.12, 3.48, 3.72, 0, 1.9, LOOK.gilt, 0.9);
+    box(u - 0.45, u + 0.45, 3.15, 4.05, 1.9, 2.05, LOOK.marble, 1, 'boothMarble');
+  }
+  // the rug under the sofa's corner, one design end to end
+  {
+    const ps = [[-11, 9.6, 0.02], [-2.2, 9.6, 0.02], [-2.2, 16.3, 0.02], [-11, 16.3, 0.02]];
+    quad(TB('boothRug'), ps, [0, 1, 0], C('#ffffff', 0.9), E, [[0, 0], [1, 0], [1, 1], [0, 1]]);
+  }
+  // potted palms in the corners: a glazed pot, a gilt lip and a crown of fronds
+  for (const [u, v] of L.plants) {
+    box(u - 0.6, u + 0.6, v - 0.6, v + 0.6, 0, 1.8, LOOK.pot, 0.9);
+    box(u - 0.65, u + 0.65, v - 0.65, v + 0.65, 1.8, 1.95, LOOK.gilt, 0.9);
+    box(u - 0.08, u + 0.08, v - 0.08, v + 0.08, 1.95, 4.6, LOOK.trunk, 0.8);
+    for (let i = 0; i < 7; i++) {
+      const a = i / 7 * Math.PI * 2, cu = Math.cos(a), cv = Math.sin(a), eu = u + cu * 1.4, ev = v + cv * 1.4, y1 = 3.9 + (i % 2) * 0.3;
+      const L1 = [eu + cv * 0.3, ev - cu * 0.3, y1], R1 = [eu - cv * 0.3, ev + cu * 0.3, y1], tip = [eu + cu * 0.3, ev + cv * 0.3, y1 - 0.5];
+      quad(solid, [[u, v, 4.65], L1, tip, R1], [0, 1, 0], C(LOOK.frond, 0.85 + (i % 3) * 0.06));
+      quad(solid, [[u, v, 4.65], R1, tip, L1], [0, -1, 0], C(LOOK.frond, 0.6));
+    }
   }
   // the sofa facing the big screen, and the low table between them
   const so = L.sofa;
   box(so.u[0], so.u[1], so.v[0], so.v[1], 0, 1.45, LOOK.leather, 0.88, 'boothLeather');
-  box(so.u[0], so.u[0] + 0.7, so.v[0], so.v[1], 1.45, 3.0, LOOK.leather, 0.82, 'boothLeather');
+  box(so.u[1] - 0.7, so.u[1], so.v[0], so.v[1], 1.45, 3.0, LOOK.leather, 0.82, 'boothLeather');
   for (const v of [so.v[0], so.v[1] - 0.6]) box(so.u[0], so.u[1], v, v + 0.6, 1.45, 2.2, LOOK.leather, 0.8, 'boothLeather');
-  box(7.4, 9.6, 12, 16, 1.2, 1.4, LOOK.wood, 0.9, 'boothWood');
-  for (const [u, v] of [[7.6, 12.2], [9.4, 12.2], [7.6, 15.8], [9.4, 15.8]]) box(u - 0.1, u + 0.1, v - 0.1, v + 0.1, 0, 1.2, LOOK.frame);
-  // the big screen on the right-hand wall: its bezel, and the picture on its own batch
+  box(-9.6, -7.4, 12, 16, 1.2, 1.4, LOOK.wood, 0.9, 'boothWood');
+  for (const [u, v] of [[-7.6, 12.2], [-9.4, 12.2], [-7.6, 15.8], [-9.4, 15.8]]) box(u - 0.1, u + 0.1, v - 0.1, v + 0.1, 0, 1.2, LOOK.frame);
+  // the big screen on the left-hand wall: its bezel, and the picture on its own batch
   const tv = L.tv, tu = tv.u;
-  box(tu - 0.25, tu, tv.v - tv.w / 2 - 0.25, tv.v + tv.w / 2 + 0.25, tv.y - tv.h / 2 - 0.25, tv.y + tv.h / 2 + 0.25, LOOK.frame, 0.7);
+  box(tu, tu + 0.25, tv.v - tv.w / 2 - 0.25, tv.v + tv.w / 2 + 0.25, tv.y - tv.h / 2 - 0.25, tv.y + tv.h / 2 + 0.25, LOOK.frame, 0.7);
   {
-    const v0 = tv.v - tv.w / 2, v1 = tv.v + tv.w / 2, y0 = tv.y - tv.h / 2, y1 = tv.y + tv.h / 2, u = tu - 0.27;
-    // facing the wall (+u), your right is +v, so the picture runs from the glass end to the back
-    quad(screen, [[u, v0, y0], [u, v1, y0], [u, v1, y1], [u, v0, y1]], nrmOf(-1, 0, 0), [1, 1, 1], E, [[0, 0], [1, 0], [1, 1], [0, 1]]);
+    const v0 = tv.v - tv.w / 2, v1 = tv.v + tv.w / 2, y0 = tv.y - tv.h / 2, y1 = tv.y + tv.h / 2, u = tu + 0.27;
+    // facing the wall (-u), your right is -v, so the picture runs from the back to the glass end
+    quad(screen, [[u, v1, y0], [u, v0, y0], [u, v0, y1], [u, v1, y1]], nrmOf(1, 0, 0), [1, 1, 1], E, [[0, 0], [1, 0], [1, 1], [0, 1]]);
   }
-  // the bar along the back wall, its bottles, and the fridge lit behind glass
-  box(-hu, -3, D - 2.4, D, 0, 3.4, LOOK.wood, 0.8, 'boothWood');
-  box(-hu, -2.8, D - 2.6, D, 3.4, 3.6, LOOK.marble, 1, 'boothMarble');
-  const bottles = ['#2f6b3a', '#8a5a20', '#d8b84a', '#5a1f2a', '#e6e6e6', '#2a4a7a'];
-  for (let i = 0; i < 9; i++) { const u = -10.6 + i * 0.85; box(u - 0.14, u + 0.14, D - 0.9, D - 0.62, 3.6, 4.5 + (i % 3) * 0.2, bottles[i % bottles.length], 0.9); }
+  // the bar along the back wall: walnut panelled in brass, a marble top, a brass foot rail, and
+  // behind it a back bar of lit onyx with glass shelves of bottles and a mirror over
+  box(-hu, -3, D - 2.4, D - 0.9, 0, 3.4, LOOK.wood, 0.8, 'boothWood');
+  for (let u = -hu + 2.9; u < -3.2; u += 1.6) box(u - 0.04, u + 0.04, D - 2.43, D - 2.4, 0.4, 3.1, LOOK.gilt, 0.95);
+  box(-hu, -3, D - 2.43, D - 2.4, 3.1, 3.18, LOOK.gilt, 0.95);
+  box(-hu, -2.8, D - 2.7, D - 0.9, 3.4, 3.62, LOOK.marble, 1, 'boothMarble');
+  box(-hu + 2.4, -3, D - 2.85, D - 2.75, 0.45, 0.55, LOOK.gilt, 1.0);
+  for (let u = -hu + 3; u < -3; u += 2.5) box(u - 0.05, u + 0.05, D - 2.8, D - 2.4, 0.2, 0.5, LOOK.gilt, 0.9);
+  box(-hu + 2.4, -3, D - 0.6, D, 0, 2.8, LOOK.wood, 0.7, 'boothWood');
+  quad(solid, [[-hu + 2.4, D - 0.04, 2.8], [-3, D - 0.04, 2.8], [-3, D - 0.04, 6.4], [-hu + 2.4, D - 0.04, 6.4]], nrmOf(0, 0, -1), C(LOOK.onyx, 1.25));
+  quad(solid, [[-hu + 2.4, D - 0.05, 6.5], [-3, D - 0.05, 6.5], [-3, D - 0.05, 7.6], [-hu + 2.4, D - 0.05, 7.6]], nrmOf(0, 0, -1), C(LOOK.mirror, 0.8));
+  box(-hu + 2.4, -3, D - 0.12, D - 0.04, 6.4, 6.5, LOOK.gilt, 1.0);
+  const bottles = ['#2f6b3a', '#8a5a20', '#d8b84a', '#5a1f2a', '#e6e6e6', '#2a4a7a', '#b0442a'];
+  for (const [y, n] of [[2.8, 12], [4.05, 11], [5.3, 10]]) {
+    box(-hu + 2.4, -3, D - 0.55, D - 0.05, y, y + 0.05, LOOK.crystal, 0.95);
+    for (let i = 0; i < n; i++) { const u = -hu + 2.8 + i * (6.3 / n); box(u - 0.12, u + 0.12, D - 0.4, D - 0.16, y + 0.05, y + 0.75 + (i % 3) * 0.15, bottles[(i * 3 + n) % bottles.length], 1.05); }
+  }
+  // three pendant globes over the bar top, and the stools at it
+  for (let u = -9.6; u <= -4.6; u += 2.5) {
+    box(u - 0.02, u + 0.02, D - 1.67, D - 1.63, 5.8, H, LOOK.gilt, 0.9);
+    box(u - 0.3, u + 0.3, D - 1.95, D - 1.35, 5.2, 5.8, LOOK.lamp, 1.9);
+  }
+  for (const t of L.stools) {
+    box(t.u - 0.07, t.u + 0.07, t.v - 0.07, t.v + 0.07, 0, 2.3, LOOK.gilt, 0.9);
+    box(t.u - 0.35, t.u + 0.35, t.v - 0.35, t.v + 0.35, 0, 0.06, LOOK.gilt, 0.9);
+    box(t.u - 0.4, t.u + 0.4, t.v - 0.4, t.v + 0.4, 2.3, 2.6, LOOK.leather, 0.9, 'boothLeather');
+  }
   box(-hu, -hu + 2.4, D - 2.4, D, 0, 6.6, LOOK.frame, 0.8);
   quad(solid, [[-hu + 0.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 6.2], [-hu + 0.2, D - 2.42, 6.2]], nrmOf(0, 0, -1), C(LOOK.fridge, 0.95));
-  // the buffet on the left-hand wall: its cloth, its trays and the heat lamps over them
-  box(-hu, -hu + 2.4, 10, 15.6, 0, 3.0, LOOK.cloth, 0.9);
+  // the buffet on the right-hand wall: its cloth, its trays and the heat lamps over them
+  box(hu - 2.4, hu, 10, 15.6, 0, 3.0, LOOK.cloth, 0.9);
   for (const v of [11, 12.6, 14.2]) {
-    box(-hu + 0.4, -hu + 2.0, v - 0.6, v + 0.6, 3.0, 3.3, LOOK.silver, 1.0);
-    quad(solid, [[-hu + 0.5, v + 0.5, 6.2], [-hu + 1.9, v + 0.5, 6.2], [-hu + 1.9, v - 0.5, 6.2], [-hu + 0.5, v - 0.5, 6.2]], [0, -1, 0], C(LOOK.heat, 1.4));
-    box(-hu + 1.15, -hu + 1.25, v - 0.05, v + 0.05, 6.2, H, LOOK.frame);
+    box(hu - 2.0, hu - 0.4, v - 0.6, v + 0.6, 3.0, 3.3, LOOK.silver, 1.0);
+    quad(solid, [[hu - 1.9, v + 0.5, 6.2], [hu - 0.5, v + 0.5, 6.2], [hu - 0.5, v - 0.5, 6.2], [hu - 1.9, v - 0.5, 6.2]], [0, -1, 0], C(LOOK.heat, 1.4));
+    box(hu - 1.25, hu - 1.15, v - 0.05, v + 0.05, 6.2, H, LOOK.frame);
   }
   // the door at the back, shut
   box(5, 8.6, D - 0.05, D, 0, 7, LOOK.wood, 0.75, 'boothWood');
@@ -207,12 +281,12 @@ export function paintBoothTexture(doc, key) {
     g.fillStyle = 'rgba(214,190,120,0.75)';
     for (const [x, y] of [[N / 2, 0], [0, N / 2], [N, N / 2], [N / 2, N], [N / 4, N / 4], [3 * N / 4, N / 4], [N / 4, 3 * N / 4], [3 * N / 4, 3 * N / 4]]) { g.beginPath(); g.arc(x, y, 10, 0, Math.PI * 2); g.fill(); }
   } else if (key === 'boothLeather') {
-    // cream hide buttoned in diamonds, the pleats running out from each button
+    // cream hide with a pebbled grain and a soft sheen, a button now and then, pleats out from each
     g.fillStyle = '#ece5d6'; g.fillRect(0, 0, N, N);
-    specks(9000, 3, ['#e4dccb', '#f4eee2', '#ddd4c2'], 0.5);
-    const S = N / 2;
-    for (let y = -1; y <= 3; y++) for (let x = -1; x <= 3; x++) {
-      const cx = x * S + (y & 1 ? S / 2 : 0), cy = y * S / 2;
+    specks(22000, 3, ['#e2d9c6', '#f6f1e6', '#d9cfbb'], 0.45);
+    specks(5000, 7, ['rgba(255,252,244,0.6)', 'rgba(200,188,166,0.5)'], 0.18);
+    const S = N;
+    for (const [cx, cy] of [[N / 2, N / 2], [0, 0], [N, 0], [0, N], [N, N]]) {
       const grd = g.createRadialGradient(cx, cy, 2, cx, cy, S * 0.45);
       grd.addColorStop(0, 'rgba(110,90,62,0.5)'); grd.addColorStop(0.3, 'rgba(160,140,110,0.14)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
       g.fillStyle = grd; g.fillRect(cx - S, cy - S, S * 2, S * 2);
@@ -235,6 +309,10 @@ export function paintBoothTexture(doc, key) {
       }
     }
     specks(3000, 6, ['rgba(180,130,80,0.5)', 'rgba(30,16,8,0.5)'], 0.25);
+    // the French polish: a soft highlight that tiles top to bottom
+    const sh = g.createLinearGradient(0, 0, 0, N);
+    for (const [t, a] of [[0, 0], [0.3, 0.12], [0.5, 0.02], [0.8, 0.1], [1, 0]]) sh.addColorStop(t, 'rgba(255,220,170,' + a + ')');
+    g.fillStyle = sh; g.fillRect(0, 0, N, N);
   } else if (key === 'boothMarble') {
     // white Carrara: soft clouds and grey veins that fork as they go
     g.fillStyle = '#f2f0eb'; g.fillRect(0, 0, N, N);
@@ -251,14 +329,34 @@ export function paintBoothTexture(doc, key) {
       }
     };
     for (let i = 0; i < 5; i++) vein(r() * N, r() * N, r() * 6.28, 90, 1.6 + r() * 1.2);
+  } else if (key === 'boothRug') {
+    // a hand-knotted rug, the whole of it in one tile: a deep red field, a medallion, gold borders
+    g.fillStyle = '#5a1620'; g.fillRect(0, 0, N, N);
+    specks(30000, 2, ['#4a1018', '#6a1e28', '#561520'], 0.7);
+    const frame = (m, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.strokeRect(m, m, N - 2 * m, N - 2 * m); };
+    g.fillStyle = '#1c2236'; g.fillRect(14, 14, N - 28, 44); g.fillRect(14, N - 58, N - 28, 44); g.fillRect(14, 14, 44, N - 28); g.fillRect(N - 58, 14, 44, N - 28);
+    frame(10, '#c9a24a', 5); frame(60, '#c9a24a', 4); frame(36, 'rgba(201,162,74,0.6)', 2);
+    g.fillStyle = '#c9a24a';
+    for (let i = 80; i < N - 60; i += 28) for (const [x, y] of [[i, 36], [i, N - 36], [36, i], [N - 36, i]]) { g.beginPath(); g.moveTo(x, y - 7); g.lineTo(x + 7, y); g.lineTo(x, y + 7); g.lineTo(x - 7, y); g.fill(); }
+    const cx = N / 2, cy = N / 2;
+    for (const [rx, ry, col] of [[150, 110, '#c9a24a'], [138, 98, '#1c2236'], [100, 70, '#8a2a30'], [60, 42, '#e8d8b0'], [30, 20, '#1c2236']]) { g.fillStyle = col; g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); g.fill(); }
+    g.strokeStyle = 'rgba(232,216,176,0.7)'; g.lineWidth = 2;
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * 64, cy + Math.sin(a) * 45); g.lineTo(cx + Math.cos(a) * 134, cy + Math.sin(a) * 94); g.stroke(); }
+    g.fillStyle = '#c9a24a';
+    for (const [x, y] of [[96, 96], [N - 96, 96], [96, N - 96], [N - 96, N - 96]]) { g.beginPath(); g.moveTo(x, y - 22); g.lineTo(x + 22, y); g.lineTo(x, y + 22); g.lineTo(x - 22, y); g.fill(); }
   } else {
-    // a linen wall covering: a fine weave, and a panel seam each repeat
+    // a silk wall covering: a fine weave, a tone-on-tone damask, and a panel seam each repeat
     g.fillStyle = '#e8e1d2'; g.fillRect(0, 0, N, N);
     for (let i = 0; i < N; i += 3) {
       g.fillStyle = `rgba(150,140,120,${0.05 + r() * 0.07})`; g.fillRect(i, 0, 1, N);
       g.fillStyle = `rgba(255,255,255,${0.05 + r() * 0.08})`; g.fillRect(0, i, N, 1);
     }
     specks(5000, 2, ['#d8cfbe', '#f2ece0'], 0.4);
+    g.fillStyle = 'rgba(176,150,100,0.16)';
+    for (const [x, y] of [[N / 2, N / 2], [0, 0], [N, 0], [0, N], [N, N]]) {
+      for (const k of [1, -1]) { g.beginPath(); g.moveTo(x, y - 110); g.bezierCurveTo(x + k * 90, y - 70, x + k * 60, y + 20, x, y + 110); g.bezierCurveTo(x + k * 25, y + 20, x + k * 40, y - 50, x, y - 110); g.fill(); }
+      g.beginPath(); g.arc(x, y, 14, 0, Math.PI * 2); g.fill();
+    }
     g.fillStyle = 'rgba(120,108,90,0.45)'; g.fillRect(0, 0, 3, N);
     g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(3, 0, 2, N);
   }

@@ -17,7 +17,7 @@ import { loadCss } from '../../../shared/dom.js';
 import { addTvView } from './tv.js';
 import { wantClubs } from './club-crest.js';
 import { wantVenue, venueOf } from './venue.js';
-import { boothStep, boothSeatNear } from './gl/booth-mesh.js';
+import { boothStep, boothSeatNear, boothFree } from './gl/booth-mesh.js';
 import { rinkSeats, SEAT_EYE } from './gl/arena-crowd.js';
 import { standsBoothOn } from '../../../shared/settings.js';
 
@@ -320,6 +320,11 @@ function walkSuite(ui, L, msg, setMode, redraw) {
   root.querySelector('.st-leave').textContent = 'Leave the box';
   root.querySelector('.st-tip').textContent = 'WASD to walk · E to sit or get up · T for the big screen · drag to look';
   seat.near = 0.3;
+  // the command line keeps the keys while it has focus, so WASD would type; let it go now
+  // and whenever you click into the room
+  const letGo = () => { const el = document.activeElement; if (el?.matches?.('input, textarea, [contenteditable]')) el.blur(); };
+  letGo();
+  root.addEventListener('pointerdown', letGo);
   let at = null, sat = null, raf = 0, last = 0;
   const held = new Set();
   const place = () => { seat.eye = L.world(at[0], at[1], L.groundAt(at[0], at[1]) + STAND); redraw(); };
@@ -334,8 +339,13 @@ function walkSuite(ui, L, msg, setMode, redraw) {
     // a step out from the seat the way it faces, wherever there's room
     const y = seat.yaw || 0, wx = Math.sin(y), wz = Math.cos(y);
     const fu = wx * L.r[0] + wz * L.r[2], fv = -(wx * L.f[0] + wz * L.f[2]);
+    // the nearest free spot round the seat, the way it faces first
     at = [sat.u, sat.v];
-    for (const k of [1.6, 2.2, -1.6, 2.8]) { const n = boothStep(L, at, fu * k, fv * k); if (n !== at) { at = n; break; } }
+    const a0 = Math.atan2(fv, fu);
+    find: for (let k = 1; k <= 5; k += 0.5) for (let i = 0; i < 16; i++) {
+      const a = a0 + (i & 1 ? -1 : 1) * Math.ceil(i / 2) * Math.PI / 8, u = sat.u + Math.cos(a) * k, v = sat.v + Math.sin(a) * k;
+      if (boothFree(L, u, v)) { at = [u, v]; break find; }
+    }
     sat = null;
     if (seat.mode !== 'free') setMode('free');
     place();
