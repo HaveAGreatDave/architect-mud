@@ -1,0 +1,27 @@
+{
+  "description": "Silver trays on a long table under heat lamps: shrimp on ice, sliders, franks on china. Nobody seems to bring them out, but the trays are always full.",
+  "flags": {
+    "aliases": [
+      "buffet",
+      "trays",
+      "food",
+      "table"
+    ],
+    "container": 60000,
+    "restock_items": [
+      "item_platinum_shrimp",
+      "item_platinum_slider",
+      "item_platinum_frank"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hughson_platinum_buffet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the buffet",
+  "object_type": "container",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_hughson_platinum"
+}

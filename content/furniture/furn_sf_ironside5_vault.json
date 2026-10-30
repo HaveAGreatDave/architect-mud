@@ -1,5 +1,5 @@
 {
-  "description": "A small safe set into the back wall, its door standing open on an empty shelf. Whoever cleared the shop out didn't try to take it.",
+  "description": "A small safe set into the back wall behind a calendar from a cloth merchant. The tailor keeps the takings in it, and the good scissors.",
   "flags": {
     "hack_difficulty": 6,
     "shop_vault": true

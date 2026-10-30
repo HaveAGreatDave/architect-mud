@@ -97,6 +97,7 @@ export function createGrandstandView(host, opts = {}) {
   if (!opts.force && !grandstandOn(win)) return createGamedayView(host);
 
   let flat = null;              // the 2-D view, once the 3-D one has given way to it
+  let skyField = null;
   let R = null, hud = null, canvas = null, mounted = false, modsP = null, mods = null, ro = null, raf = 0, unVenue = null, unClubs = null, dressed = null;
   // the picture's quality (diamond/quality.js): the tier the screen starts on, and the governor that
   // steps it down a rung when frames come slow and back up when they've been quick a while, fed the
@@ -223,7 +224,10 @@ export function createGrandstandView(host, opts = {}) {
     // `opts.renderer` stands in for the GL park (the gates' recording renderer)
     R = (opts.renderer || mods.createBallparkRenderer)(canvas, { ads: opts.ads || ADS, preserve: !!opts.preserve, crowd: opts.crowd, grade: opts.grade, tube: opts.tube, onAsset: () => draw() });
     if (!R) { fallback('no WebGL2 or float target'); return false; }
+    R.setSkyField?.(skyField);
     mounted = true;
+    // a box's suite round the seat (gl/booth-mesh.js); its layout goes back to whoever walks in it
+    if (opts.room) opts.onRoom?.(R.setRoom?.(opts.room) || null);
     gov = mods.createGovernor(mods.rungsFor(opts.tier || screenTier()));
     if (R.quality) Object.assign(R.quality, gov.quality);
     govAt = 0;
@@ -231,7 +235,7 @@ export function createGrandstandView(host, opts = {}) {
     W = mods.createWorld();
     D = mods.createDirector(W, { onLand: () => landPlay(cur), emit: fromDirector, pitchShot: () => pitchCam });
     roar = mods.createRoar();
-    snd = mods.createParkSound({ win, state: () => ({ p: cur?.p || last, S }) });
+    snd = mods.createParkSound({ win, state: () => ({ p: cur?.p || last, S }), seat: opts.seat || null });
     hud = mods.hud.createHud(host.querySelector('.gds-hud'), {
       theme: theme(),
       project: (p, w, h) => mods.project(view(), w, h, p),
@@ -331,13 +335,19 @@ export function createGrandstandView(host, opts = {}) {
     if (live && govAt && gov) { const q = gov.frame((now - govAt) / 1000); if (q && R.quality) Object.assign(R.quality, q); }
     govAt = live ? now : 0;
     size();
-    if (!R.render(view()) && R.lost) { fallback('the WebGL context was lost'); return; }
+    // the suite's big screen: the director's shot drawn on its own every few frames (renderTv)
+    const tvMode = opts.seat?.mode === 'tv';
+    if (R.room && !tvMode && (tvFrame++ % TV_EVERY) === 0) R.renderTv(directed());
+    if (!R.render(view(), { room: !tvMode }) && R.lost) { fallback('the WebGL context was lost'); return; }
     // on to the next frame while the at-bat plays or a replay's due or playing; once everyone's
-    // at rest the last one stays up. A stopped clock draws only when something asks.
-    if (live && (D.busy() || replayDue || replay || W.t < flyUntil)) { if (speed > 0) draw(); }
+    // at rest the last one stays up. A stopped clock draws only when something asks. A seat in the
+    // stands never rests: you're sitting in the park, so the clock runs on between plays and the
+    // birds, the crowd, the players breathing and the city's lights keep moving.
+    if (live && (opts.seat || D.busy() || replayDue || replay || W.t < flyUntil)) { if (speed > 0) draw(); }
     else { live = false; govAt = 0; }
     // the roof rolling over the park keeps the picture going until it's there
-    if (!raf && R.roof?.moving) draw();
+    // (and a seat looking up at it keeps going until it's looked back down)
+    if (!raf && (R.roof?.moving || seatLift > 0.01)) draw();
   }
   function stopWorld() { D?.stop(); live = false; cur = null; stopReplay(); }
   // The grounds crew's mats this frame (diamond/crew.js), and the dirt they've gone over since the
@@ -360,12 +370,17 @@ export function createGrandstandView(host, opts = {}) {
   // A long lens in a well drifts a little in its operator's hands (diamond/camera.js handheld),
   // except with reduced motion.
   const directed = () => (mods && shot && typeof shot === 'object' ? mods.shotAt(shot, drawT()) : mods && !calm && !prefersReducedMotion() ? mods.handheld(shot, drawT()) : shot);
-  const view = () => (opts.seat && mods ? seatShot(opts.seat, directed()) : directed());
+  // a seat on 'tv' is a suite's big screen at full size: the director's picture, no seat under it
+  const view = () => (opts.seat && mods && opts.seat.mode !== 'tv' ? seatShot(opts.seat, directed()) : directed());
+  let tvFrame = 0;
+  const TV_EVERY = 3;
   // A SEAT IN THE STANDS (stands.js): the eye bolted to `seat.eye`, in the field's feet. Following,
   // it turns to what the director's shot looks at, eased so a cut is a turn of the head; free, it
   // looks where the viewer turned it (`seat.yaw`, radians from +z toward +x, `seat.pitch` up
   // positive). Following writes its heading back, so free look starts where you were looking.
-  let seatAt = null, seatClock = 0;
+  let seatAt = null, seatClock = 0, seatLift = 0;
+  // how far up (radians) a following seat looks while the roof is moving
+  const ROOF_LOOK = 0.7;
   function seatShot(s, d) {
     const base = typeof d === 'string' ? mods.SHOTS[d] || mods.SHOTS.high : d || mods.SHOTS.high, eye = s.eye;
     const now = win?.performance?.now?.() ?? Date.now(), dt = seatClock ? Math.min(0.1, (now - seatClock) / 1000) : 0;
@@ -375,9 +390,14 @@ export function createGrandstandView(host, opts = {}) {
       seatAt = seatAt ? seatAt.map((v, i) => v + (base.at[i] - v) * k) : [...base.at];
       const q = [seatAt[0] - eye[0], seatAt[1] - eye[1], seatAt[2] - eye[2]];
       s.yaw = Math.atan2(q[0], q[2]); s.pitch = Math.atan2(q[1], Math.hypot(q[0], q[2]));
-    } else seatAt = null;
+      // while the roof rolls, the whole park looks up at it, and so does the seat: the head comes
+      // up to ROOF_LOOK and back down to the play once it's there
+      const goal = R?.roof?.moving ? 1 : 0;
+      seatLift += (goal - seatLift) * (!(dt > 0) ? 1 : 1 - Math.exp(-dt * 1.5));
+      s.pitch += Math.max(0, ROOF_LOOK - s.pitch) * seatLift;
+    } else { seatAt = null; seatLift = 0; }
     const cp = Math.cos(s.pitch || 0), at = [eye[0] + Math.sin(s.yaw || 0) * cp * 100, eye[1] + Math.sin(s.pitch || 0) * 100, eye[2] + Math.cos(s.yaw || 0) * cp * 100];
-    return { eye, at, fov: Math.max(12, Math.min(90, s.fov || 50)), shadow: base.shadow };
+    return { eye, at, fov: Math.max(12, Math.min(90, s.fov || 50)), shadow: base.shadow, ...(s.near ? { near: s.near } : {}) };
   }
   // The time the picture is drawn at: the world's last step and what's left over toward the next
   // (the replay's, capped at its end, while one plays).
@@ -417,12 +437,18 @@ export function createGrandstandView(host, opts = {}) {
     const top = p.half === 'top', cast = mods.castOf(p);
     dressed = { cast, teams: { home: top ? p.fieldingTeam : p.battingTeam, away: top ? p.battingTeam : p.fieldingTeam } };
     R?.setCast(dressed.cast, dressed.teams);
+    dressFans();
     return cast;
+  }
+  // the fans in the two clubs' colours (gl/crowd.js): the colour each side wears on the graphics
+  function dressFans() {
+    const t = dressed?.teams;
+    if (t) R?.setFanColours?.(linear(sideColours('home', t.home)[0]), linear(sideColours('away', t.away)[0]));
   }
   // A club's kit arriving (club-crest.js) dresses the side on now in it, and its colours
   // go on the graphics.
   function redress() {
-    if (dressed && R) R.setCast(dressed.cast, dressed.teams);
+    if (dressed && R) { R.setCast(dressed.cast, dressed.teams); dressFans(); }
     paintHud(); draw();
   }
   // The camera button, beside the full-screen one: the pitches from behind the batter or from behind
@@ -464,7 +490,13 @@ export function createGrandstandView(host, opts = {}) {
       leaders: S.tableRace ? { race: S.tableRace, rows: S.leaders?.[S.tableRace] || [], season: S.seasonN, foot: S.tableFoot } : null,
     };
   }
-  function paintHud() { hud?.set(hudState()); }
+  // A seat in the stands is in the park, not watching the broadcast: none of its splash words,
+  // cards, pitch zone or replays go up over the picture, only the score and the count.
+  function paintHud() {
+    const h = hudState();
+    if (h && opts.seat) Object.assign(h, { splash: null, matchup: null, steal: null, dist: null, replay: false, intro: null, champ: null, final: null, leaders: null, zone: false });
+    hud?.set(h);
+  }
   // The board and the graphics both follow the game.
   function paint() {
     board();
@@ -902,8 +934,12 @@ export function createGrandstandView(host, opts = {}) {
     last = null; caption = ''; pendingCaption = null; pendingCard = null; playing = false; shown = null; marks = []; dirtGame = null;
   }
 
+  // the day's weather cells (a seat's `field`), which the 3-D park draws overhead; kept for a
+  // renderer that mounts after it arrives (skyField, declared with R)
+  function setSkyField(f) { skyField = f || null; R?.setSkyField?.(skyField); }
+
   return {
-    apply, clear, setCaption, showIdle, showCard,
+    apply, clear, setCaption, showIdle, showCard, setSkyField,
     // for the sandbox and the gates
     setShot, ready: () => loadMods(),
     get renderer() { return R; }, get hud() { return hud; }, get flat() { return flat; }, get state() { return S; },

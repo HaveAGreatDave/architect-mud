@@ -122,9 +122,11 @@ function auditPark(label, park) {
     const a = park.crowd[k];
     for (let i = 0; i < a.length; i += M.CROWD_STRIDE) {
       for (let j = 0; j < M.CROWD_STRIDE; j++) if (!Number.isFinite(a[i + j])) fanBad++;
-      // nobody sits on the field: every fan is up in the stands or out past the wall
+      // nobody sits on the field: every fan is up in the stands, out past the wall, or in the
+      // Diamond Club, at field level behind the backstop
       const r = Math.hypot(a[i], a[i + 2]), th = Math.atan2(a[i], a[i + 2]);
-      const onField = a[i + 1] < 4 || (Math.abs(th) < Math.PI / 4 && r < G.fenceDistance(th, park.field.fence));
+      const club = Math.abs(th) > Math.PI * 5 / 6 && r >= G.FOUL_GROUND.back;
+      const onField = (a[i + 1] < 4 && !club) || (Math.abs(th) < Math.PI / 4 && r < G.fenceDistance(th, park.field.fence));
       if (onField) fanBad++;
     }
   }

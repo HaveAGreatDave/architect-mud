@@ -1,0 +1,63 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Two rows of white leather armchairs on a carpeted step behind a sheet of glass, level with first base. Each chair has a cup holder in its arm and a brass number on its back. The field is right there, and you can hear the crowd through the glass. The lounge is south.",
+  "exits": {
+    "south": "zone_hughson_platinum"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_ballpark_897_913",
+    "open_all_hours": true,
+    "floor": "carpet",
+    "window": {
+      "description": "One sheet of glass from the floor to the ceiling, over first base. The infield is close enough to read the bags.",
+      "light": 0.7,
+      "name": "the box glass",
+      "visibility": 1
+    },
+    "stands": {
+      "sport": "baseball",
+      "sections": [
+        {
+          "id": "platinum",
+          "name": "The Platinum Box",
+          "price": 0,
+          "eye": [
+            -139.76,
+            42.35,
+            12.98
+          ],
+          "note": "your own chair behind the glass",
+          "across": 4,
+          "rows": 2,
+          "pitch": 4,
+          "row": [
+            4,
+            0.7
+          ],
+          "room": {
+            "at": [
+              -138.59,
+              16.97
+            ],
+            "face": 45,
+            "floor": 38.5,
+            "w": 24,
+            "d": 19,
+            "h": 8.5
+          }
+        }
+      ]
+    }
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hughson_platinum_box",
+  "map_id": "map_int_hughson",
+  "name": "The Coliseum — Box Seats",
+  "parent_zone": "zone_ballpark_897_913"
+}

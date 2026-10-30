@@ -21,22 +21,23 @@
 // the crowd's figure (2 the near one through a long lens, gl/ballpark.js CLOSE_FOV; 1 the far one
 // always); cards, whether a fan only a few pixels tall is drawn as a card (gl/ballpark.js
 // splitCrowd), two triangles to the figure's 256; ink, the cel outline round the players
-// (gl/cel-figure.js), a second draw of every body, which the phone goes without.
+// (gl/cel-figure.js), a second draw of every body, which the phone goes without; clouds, the
+// weather cells marched overhead (gl/cloudvol.js), which the phone also goes without.
 //
 // Pure: no DOM and no GL.
 
 export const PARK_TIERS = Object.freeze({
-  full: Object.freeze({ dpr: 2, msaa: true, shadows: 4, ao: 2, dof: 28, crowd: 1, city: 2, fx: 2, birds: true, flashes: true, light: 1, stands: true, detail: 2, fans: 2, cards: true, ink: true }),
-  laptop: Object.freeze({ dpr: 1.5, msaa: true, shadows: 2, ao: 4, dof: 12, crowd: 0.6, city: 1, fx: 1, birds: true, flashes: true, light: 1, stands: true, detail: 2, fans: 1, cards: true, ink: true }),
-  phone: Object.freeze({ dpr: 1, msaa: false, shadows: 0, ao: 0, dof: 0, crowd: 0.3, city: 0, fx: 0, birds: false, flashes: false, light: 1, stands: false, detail: 1, fans: 1, cards: true, ink: false }),
+  full: Object.freeze({ dpr: 2, msaa: true, shadows: 4, ao: 2, dof: 28, crowd: 1, city: 2, fx: 2, birds: true, flashes: true, light: 1, stands: true, detail: 2, fans: 2, cards: true, ink: true, clouds: true }),
+  laptop: Object.freeze({ dpr: 1.5, msaa: true, shadows: 2, ao: 4, dof: 12, crowd: 0.6, city: 1, fx: 1, birds: true, flashes: true, light: 1, stands: true, detail: 2, fans: 1, cards: true, ink: true, clouds: true }),
+  phone: Object.freeze({ dpr: 1, msaa: false, shadows: 0, ao: 0, dof: 0, crowd: 0.3, city: 0, fx: 0, birds: false, flashes: false, light: 1, stands: false, detail: 1, fans: 1, cards: true, ink: false, clouds: false }),
 });
 
 // The governor's steps down, each over the last, in the plan's order: the lens to 12 taps, the
-// stands' near figures off, the occlusion to quarter size, the shadows to two towers and then only the players casting them, the
+// clouds off, the stands' near figures off, the occlusion to quarter size, the shadows to two towers and then only the players casting them, the
 // crowd to three fans in five, the players drawn a level coarser, the multisampling off, the
 // laptop's city and spectacle (no smoke, half the particles), then the resolution a step at a time.
 export const PARK_STEPS = Object.freeze([
-  { dof: 12 }, { fans: 1 }, { ao: 4 }, { shadows: 2 }, { stands: false }, { crowd: 0.6 }, { detail: 1 }, { msaa: false }, { city: 1, fx: 1 }, { dpr: 1.5 }, { dpr: 1.25 }, { dpr: 1 },
+  { dof: 12 }, { clouds: false }, { fans: 1 }, { ao: 4 }, { shadows: 2 }, { stands: false }, { crowd: 0.6 }, { detail: 1 }, { msaa: false }, { city: 1, fx: 1 }, { dpr: 1.5 }, { dpr: 1.25 }, { dpr: 1 },
 ].map(Object.freeze));
 
 // What a value costs, so a step is taken only where it's cheaper than what the rung already has.

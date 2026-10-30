@@ -1,0 +1,14 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="/game/styles.css">
+<style>html,body{margin:0;background:#000;height:100%}#area-content{position:absolute;inset:0}</style></head>
+<body><div id="area-content"></div>
+<script type="module">
+import * as bv from '/game/js/panels/boat-view.js';
+import { TYPES } from '/game/js/panels/flight-model.js';
+const R = 16, map = [];
+for (let y = -R; y <= R; y++) { const row = []; for (let x = -R; x <= R; x++) row.push(y < (+(new URLSearchParams(location.search).get('q')||-12)) ? { kind: 'land', biome: 'urban', road: 0 } : { kind: 'land', biome: 'water', road: 0 }); map.push(row); }
+const id = new URLSearchParams(location.search).get('t') || 'skiff';
+bv.openBoat({ mount: document.getElementById('area-content'), typeId: id, params: TYPES[id], name: 'Keel', gx: 894, gy: 902, heading: 0, map,
+  hull: 1, fuel: 1, nitro: 1, hour: 13, weather: 'clear', windKt: 25, onSend: () => {}, onExit: () => {} });
+window.bv = bv;
+</script></body></html>

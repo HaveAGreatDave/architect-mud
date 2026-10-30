@@ -4,7 +4,7 @@
 // venues sell has a seat to put the eye on), the verb's refusals, and that getting up leaves no
 // row behind in the seated map.
 import { getZone, getZoneFurniture } from '../../server/engine/world.js';
-import { standsOf, findSection, _test } from './index.js';
+import { standsOf, findSection, seatsOf, freeSeat, _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
   for (const [id, sport] of [['zone_slush_stands', 'hockey'], ['zone_hughson_stands', 'baseball']]) {
@@ -35,7 +35,40 @@ export default async function regress({ run, check, getPlayer }) {
   }
   me.current_zone = home;
 
-  _test.seated.set(me.id, { zoneId: 'zone_slush_stands', section: 'glass', channelId: 'x' });
+  // A ticket is for a section: the first buyer gets its eye, the next the nearest free seat, and
+  // a full section sells nothing.
+  const sec = { id: 't', eye: [0, 10, -70], across: 3, rows: 2, pitch: 2 };
+  const seats = seatsOf('baseball', sec);
+  check('stands: a section is a block of seats', seats.length === 6, String(seats.length));
+  check('stands: its best seat is its eye', seats[0].eye.join() === sec.eye.join() && seats[0].row === 0, JSON.stringify(seats[0]));
+  check('stands: the back row is behind and above', seats.at(-1).row === 1 && seats.at(-1).eye[2] < -70 && seats.at(-1).eye[1] > 10, JSON.stringify(seats.at(-1)));
+  check('stands: an empty section gives the best seat', freeSeat('zq', 'baseball', sec, me.id) === 0);
+  _test.seated.set('ghost1', { zoneId: 'zq', section: 't', seat: 0, channelId: 'x' });
+  const next = freeSeat('zq', 'baseball', sec, me.id);
+  check('stands: a taken seat sends you to the nearest free one', next === 1 && Math.hypot(...seats[1].eye.map((v, i) => v - sec.eye[i])) <= 2.01, String(next));
+  for (let i = 1; i < 6; i++) _test.seated.set('ghost' + (i + 1), { zoneId: 'zq', section: 't', seat: i, channelId: 'x' });
+  check('stands: a full section has no seat', freeSeat('zq', 'baseball', sec, me.id) === -1);
+  check('stands: the same section in another room is empty', freeSeat('zr', 'baseball', sec, me.id) === 0);
+  for (let i = 0; i < 6; i++) _test.seated.delete('ghost' + (i + 1));
+
+  _test.seated.set(me.id, { zoneId: 'zone_slush_stands', section: 'glass', seat: 0, channelId: 'x' });
   _test.leave(me, true);
   check('stands: leaving clears the seat', !_test.seated.has(me.id));
+
+  // The Platinum Box: its chairs name a section the box sells, its screen and bar are there, and
+  // standing up out of a chair seat leaves it.
+  const box = standsOf(getZone('zone_hughson_platinum_box'));
+  const chairs = getZoneFurniture('zone_hughson_platinum_box').find((f) => f.flags?.stands_section);
+  check('stands: the box chairs name one of its sections', !!(box && chairs && findSection(box, chairs.flags.stands_section)), chairs?.flags?.stands_section);
+  const lounge = getZoneFurniture('zone_hughson_platinum');
+  check('stands: the box lounge has a big screen', lounge.some((f) => f.flags?.stands_screen));
+  check('stands: the box bar and buffet are stocked', lounge.filter((f) => f.object_type === 'container' && f.flags?.restock_items?.length).length === 2);
+  me.current_zone = 'zone_hughson_platinum';
+  r = await run('watch tv');
+  check('stands: watching the box screen answers from the screen', r?.type === 'output' && /big screen/.test(r.message || ''), r?.message);
+  _test.leave(me, true);
+  me.current_zone = home;
+  _test.seated.set(me.id, { zoneId: 'zone_hughson_platinum_box', section: 'platinum', seat: 0, channelId: 'x', chair: true });
+  await _test.onPosture({ player: me, to: 'standing' });
+  check('stands: standing up out of a box chair leaves it', !_test.seated.has(me.id));
 }

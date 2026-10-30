@@ -145,9 +145,15 @@ export const NAMED_MODELS = {
   // `coffee_shop`, which is what the kit declines and the trade sign reads.
   groundsforconcern:              { type: 'groundscafe', pal: 'ty_gfc_brick', neon: '#ffd9a0', trade: 'coffee_shop' },
   // Batter Days moved onto the front of the Codfather's fish works in 2026-10 and was repainted
-  // blue and orange. Its old brick unit on Ironside Street kept the shell as `ironsideunit`.
+  // blue and orange. Its old brick unit on Ironside Street is Alter Ego now, the tailor, below.
   batterdaysfishchips:            { type: 'chippy',      pal: 'ty_bd_blue', neon: '#f08a2a', trade: 'chip_shop' },
-  unit5ironsidestreet:            { type: 'ironsideunit', pal: 'ty_unit_brick', neon: '#c8c0aa', noKit: true },
+  // Unit 5 became Alter Ego, a tailor, on 2026-10-29 (glass/models/yards.js). ⚠ `noKit`: the arm
+  // letters its own fascia and draws its own windows, and the kit's would be a second set.
+  alterego:                       { type: 'alterego',     pal: 'ty_ae_brick', neon: '#e8dcb8', trade: 'tailor', noKit: true },
+  // The Wash and Salvage Rites came off their type arms on 2026-10-29; Load Bearing keeps
+  // `laundromat` and nothing else is a `junkyard` now. Both arms draw their own signs.
+  thewash:                        { type: 'thewash',      pal: 'ty_wash_tile', neon: '#7fe3ff', trade: 'laundromat', noKit: true },
+  salvagerites:                   { type: 'salvagerites', pal: 'ty_sr_cabin', neon: '#ffb43a', trade: 'junkyard', noKit: true },
   // ⚠ `noKit`: the works carries no sign anywhere, and every kit section that letters a wall or
   // stands a hoarding would be one. Its arm draws all of its openings itself.
   thecodfather:                   { type: 'fishworks',   pal: 'ty_fw_tin', trade: 'fish_works', noKit: true },
@@ -167,7 +173,7 @@ export const NAMED_MODELS = {
   ironsideclinic:                 { type: 'stitch',     pal: 'ty_stitch', neon: '#6affa8' },   // twin: Co-Pay & Pray keeps `clinic`
   campgiardia:                    { type: 'campgiardia', pal: 'ty_giardia' },        // twin: Grease Expectations keeps `diner`
   wattsthedamage:                 { type: 'watts',       pal: 'ty_watts' },                     // twin: Nuts to That keeps `hardware`
-  slagwares:                      { type: 'slagwares',   pal: 'ty_slagw' },          // twins: Salvage Rites keeps `junkyard`
+  slagwares:                      { type: 'slagwares',   pal: 'ty_slagw' },          // twin: Salvage Rites has its own arm
   theslip:                        { type: 'slipback',    pal: 'ty_slip' },           // twin: the Marrow Street fence (Cash & Carrion) is authored
   sentimentalvaluepawn:           { type: 'sentimental', pal: 'ty_sentimental', neon: '#ffcf3e' },
   grindhouse:                     { type: 'grindhouse',  pal: 'ty_grind', neon: '#ff8a2a' },    // twin: Second Amendment keeps `armory`

@@ -410,6 +410,9 @@ export const shutdownTvPanel = ifLoaded(tv, 'shutdownTvPanel');
 export const renderTvDeck = ifLoaded(tv, 'renderTvDeck');
 export const tvViewsForChannel = (id) => tv.get()?.tvViewsForChannel(id) ?? [];
 export const tvOpenViews = () => tv.get()?.tvOpenViews() ?? [];
+// A surface that registers itself with addTvView (a seat in the stands) imports tv.js directly,
+// which this wrapper never sees: until it loads, tvViewsForChannel answers [] and nothing reaches it.
+export const loadTv = () => tv.load();
 
 // The cassette player. Unlocks arrive at login, long before anyone opens it, so they
 // wait here and are handed over on load. mod-parser.js (window.ModParser, a classic

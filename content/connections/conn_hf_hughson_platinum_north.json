@@ -1,0 +1,9 @@
+{
+  "a": "zone_hughson_platinum",
+  "b": "zone_hughson_platinum_box",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_hughson_platinum_north",
+  "lockable": false,
+  "one_way": false
+}

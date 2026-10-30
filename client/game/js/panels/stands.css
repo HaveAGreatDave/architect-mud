@@ -70,3 +70,4 @@
 	font: 12px system-ui, sans-serif; pointer-events: none;
 }
 #stands-chart .st-bowl { fill: #1b2430; stroke: #2b3a4a; stroke-width: 1; }
+#stands-view [hidden] { display: none !important; }

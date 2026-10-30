@@ -1,0 +1,30 @@
+{
+  "description": "A glass-fronted bar fridge under a white marble top, full of cold bottles. Whatever you take out, there's another behind it.",
+  "flags": {
+    "aliases": [
+      "bar",
+      "fridge",
+      "bar fridge",
+      "drinks"
+    ],
+    "container": 60000,
+    "interactions": [
+      "lean"
+    ],
+    "restock_items": [
+      "item_platinum_champagne",
+      "item_platinum_lager",
+      "item_platinum_soda"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hughson_platinum_bar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the box bar",
+  "object_type": "container",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_hughson_platinum"
+}

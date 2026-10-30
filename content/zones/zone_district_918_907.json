@@ -1,30 +1,31 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "bg_color": "#221a14",
-  "color": "#8a7a68",
-  "description": "A low brick shop with a slate roof, empty. The wide front window is boarded over with sheets of ply and a letting notice is stapled to the board by the door. A cold steel flue runs up the back corner, and rows of empty hooks still run along the brick either side of the door.",
+  "bg_color": "#1e2230",
+  "color": "#c9b98a",
+  "description": "A narrow two-storey shop in old brick, cleaned and repointed. A tailor's dummy stands in the window in a half-made jacket chalked for a fitting. ALTER EGO is painted in cream on a navy fascia with TAILOR under it, and the long workroom window upstairs usually has a lamp on after dark. The door is on the <b>east</b> side.",
   "exits": {
     "east": "zone_district_919_907",
     "west": "zone_sf_ironside5_shop"
   },
   "flags": {
-    "building_name": "Unit 5, Ironside Street",
-    "building_type": "shop",
+    "building_name": "Alter Ego",
+    "building_type": "tailor",
     "district": "industrial",
     "entrance": "east",
     "facade": true,
-    "floors": 1,
+    "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_919_907"
+    "world_exit_zone": "zone_district_919_907",
+    "sign_trade": "TAILOR"
   },
   "grid_x": 918,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_918_907",
   "map_id": "map_world",
-  "marker": "I5",
-  "name": "Unit 5, Ironside Street",
+  "marker": "AL",
+  "name": "Alter Ego",
   "parent_zone": null
 }

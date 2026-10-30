@@ -1,0 +1,16 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_platinum_slider",
+  "name": "beef slider",
+  "tags": {
+    "consumable": true,
+    "description": "A small burger of carved roast beef with horseradish, on a soft roll with a toothpick through it.",
+    "restore_hunger": 20,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 0,
+  "weight": 180
+}

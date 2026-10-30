@@ -32,7 +32,7 @@ happened since the last frame:
   the ball's caught, a man diving back to the bag on his last step.
 - **The ball.** Sampled at the frame's times: a bounce is the vertical speed changing sign near the
   ground (dirt or grass by where), the wall is the ball coming back toward the plate past 200 ft,
-  the backstop or the net is it passing behind the plate, a home run clatters into the seats at its
+  the backstop (low) or the club seats (high, as there is no net) is it passing behind the plate, a home run clatters into the seats at its
   path's own `land` time, and one that hits the pole rings it as it crosses the fence.
 - **The spectacle.** The comet's tail, the sparks off the bat, and each shell's launch whistle,
   burst and crackle. A burst is heard late by its distance at 1,125 ft/s.

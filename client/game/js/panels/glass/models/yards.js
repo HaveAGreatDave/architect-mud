@@ -15,6 +15,43 @@ import { faceAway,
 } from '../../windshield.js';
 import { FLOOR_Z } from '../../../../../shared/skyline-scale.js';
 import { flatOut } from './downtown.js';
+import { drawEntrance } from '../entrance.js';
+
+// The scrapyard's grabber: a lattice mast, and the house, jib and grab that slew on top of it on a
+// thirty-second clock. `h` is the mast's own height unit, so a yard drawn in storeys passes its own.
+function grabberCrane(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E, F) {
+  // ── THE GRABBER, WHICH NOW GRABS ────────────────────────────────────────────────────────
+  //
+  // ⚠ THE JIB STOPS BEING MASS HERE, AND THAT IS THE PRICE OF IT MOVING — see the ⚠ over
+  // `motionOn`. It was a flat slab nearly two footprints wide bolted across the yard at one
+  // bearing, which is a thing you could fly into that was never where it looked. What you can
+  // fly into now is the MAST, which is the part that is genuinely always there.
+  draw3DBoxAt(ctx, cam, dx, dy, fh * 0.12, 0, h * 1.15, 'ty_junk_crane', seed + 21, night, alpha, true);   // the lattice mast
+  { const jp = motionPhase(now, seed + 29, 30000, 0.54), ju = jp < 0 ? 0 : jp;
+    let jsl = moveSeg(ju, 0.00, 0.16, 0, 0.90);          // swing over a pile
+    jsl = moveSeg(ju, 0.50, 0.68, jsl, -1.10);           // …and round to the baler with it
+    jsl = moveSeg(ju, 0.90, 1.00, jsl, 0);
+    let jhk = moveSeg(ju, 0.16, 0.30, 0.88, 0.14);       // down into the scrap
+    jhk = moveSeg(ju, 0.38, 0.50, jhk, 0.88);            // up with a bite
+    jhk = moveSeg(ju, 0.68, 0.78, jhk, 0.30);
+    jhk = moveSeg(ju, 0.84, 0.90, jhk, 0.88);
+    // ⚠ THE SHELLS CLOSE AT THE BOTTOM OF THE DROP AND OPEN AT THE BOTTOM OF THE NEXT ONE, which
+    // is what makes this a grab rather than a hook: the whole read is that it takes a bite and
+    // lets go of it somewhere else. Open, it is two shells a gap apart; shut, they meet.
+    const jShut = ju > 0.34 && ju < 0.74;
+    const jw = jsl + faceYaw(E), jc = Math.cos(jsl), jsn = Math.sin(jsl);
+    const [ox0, oy0] = F(0, 0), jat = (r) => { const [ax, ay] = F(jc * r, jsn * r); return [ax - ox0 + dx, ay - oy0 + dy]; };   // about the mast, wherever it stands
+    const jTip = jat(fh * 1.15), jHeel = jat(fh * 0.12), jTail = jat(-fh * 0.42);
+    movingBox(ctx, cam, dx, dy, h * 1.15, h * 1.25, fh * 0.26, fh * 0.17, [168, 140, 48], alpha, night, jw);              // the operator's house on the ring
+    movingBox(ctx, cam, jTail[0], jTail[1], h * 1.12, h * 1.22, fh * 0.12, fh * 0.11, [92, 84, 52], alpha, night, jw);    // counterweight
+    latticeBoom(ctx, cam, [jHeel[0], jHeel[1], h * 1.12], [jTip[0], jTip[1], h * 0.96], h * 0.09, 4, 1.8, 'rgba(178,150,58,0.95)', alpha, night);
+    const grabZ = h * 0.18 + h * 0.70 * jhk;
+    emitWire(ctx, cam, [jTip[0], jTip[1], h * 0.96], [jTip[0], jTip[1], grabZ + fh * 0.09], 1.3, 'rgba(38,40,44,0.92)', alpha, { pull: 0 });
+    const gap = jShut ? fh * 0.03 : fh * 0.13;
+    for (const s of [-1, 1]) movingBox(ctx, cam, jTip[0] + Math.cos(jw) * s * gap, jTip[1] + Math.sin(jw) * s * gap,
+      grabZ, grabZ + fh * 0.09, fh * 0.055, fh * 0.07, [120, 104, 48], alpha, night, jw);
+    if (jShut) movingBox(ctx, cam, jTip[0], jTip[1], grabZ - fh * 0.06, grabZ + fh * 0.02, fh * 0.08, fh * 0.07, [126, 72, 44], alpha, night, jw); }   // the bale in the jaws
+}
 
 export const YARDS_ARMS = {
   // ── The Yards — semi-industrial freight district (docs/proposals/yards.md) ──
@@ -326,6 +363,297 @@ export const YARDS_ARMS = {
       } }
     if (night) glowPool(ctx, cam, dx, dy, h * 0.03, '255,206,150', 16, alpha * 0.16);
   },
+  salvagerites(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // SALVAGE RITES: the scrapyard on Ironside
+    // Street, promoted off the `junkyard` type arm on 2026-10-29. The prose (zone_district_918_906)
+    // is the brief: a chain-link fence topped with wire, a rolling gate standing open with a
+    // hand-painted board wired to it, bales of crushed car in uneven rows and the yellow grabber
+    // over them. What the type arm lacked was the fence, the board, the office, and any sense of
+    // which way in the yard was.
+    //
+    // Local frame: +y is Ironside Street. The gate is on the left of the frontage, the office
+    // cabins and the weighbridge just inside it, and the bales fill the back and the right.
+    // ⚠ TWO FLOORS (`flags.floors: 2`) MEANS `h` IS TWO STOREYS, so a bale is h * 0.10, not 0.2:
+    // the type arm's bales were a storey each and a stack of three stood over the cabins.
+    const YAW = faceYaw(E), dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh(), S = h / 2;
+    const B = (x, y, hx, hy, z0, z1, p, roof, s, yaw = YAW) => { const [bx, by] = F(x, y); draw3DBoxAt(ctx, cam, bx, by, hx, z0, z1, p, seed + s, night, alpha, roof, yaw, hy); };
+    const hsh = (a) => { a = (a ^ 61) ^ (a >> 16); a += a << 3; a ^= a >> 4; a = Math.imul(a, 0x27d4eb2d); return (a ^ (a >> 15)) >>> 0; };
+    const X = fh * 0.96, YF = fh * 0.94, YB = -fh * 0.96, POST = 'ty_sr_post';
+    // 1) THE GROUND: packed grey hardcore over the whole plot, an oil-black lane from the gate to
+    //    the weighbridge, and the weighbridge itself, a steel deck in a concrete surround.
+    groundPaint(ctx, cam, [F(-X, YB), F(X, YB), F(X, YF), F(-X, YF)], 0.0012, dn > 0.4 ? 'rgba(58,56,54,0.85)' : 'rgba(104,100,94,0.82)', alpha);
+    groundPaint(ctx, cam, [F(-fh * 0.82, YF), F(-fh * 0.30, YF), F(-fh * 0.26, -fh * 0.20), F(-fh * 0.70, -fh * 0.20)], 0.0016, 'rgba(34,32,30,0.55)', alpha);
+    B(-fh * 0.56, fh * 0.30, fh * 0.22, fh * 0.36, 0, S * 0.03, 'ty_gate_dk', true, 1);
+    B(-fh * 0.56, fh * 0.30, fh * 0.19, fh * 0.33, S * 0.03, S * 0.035, 'ty_sr_post', true, 2);
+    // 2) THE BALES, in rows across the back half and down the right, each row its own height and
+    //    every bale a car's colour under the rust. Stacked one to three high and never squared off.
+    const BALE = ['ty_junk_bale', 'ty_junk_bale_dk', 'ty_sr_bale_r', 'ty_sr_bale_b'];
+    for (let r = 0; r < 3; r++) for (let i = 0; i < 6; i++) {
+      const x = -fh * 0.78 + i * fh * 0.31, y = -fh * 0.74 + r * fh * 0.30;
+      if (r === 2 && i < 3) continue;                         // the lane up to the office
+      const k = hsh(seed + r * 31 + i * 7), stack = 1 + k % 3, w = fh * (0.11 + (k >> 3) % 4 * 0.008);
+      for (let j = 0; j < stack; j++) B(x + ((k >> (5 + j)) & 1 ? fh * 0.012 : -fh * 0.01), y, w, w * 0.78, S * 0.26 * j, S * 0.26 * (j + 1),
+        BALE[(k >> (2 + j * 2)) & 3], true, 10 + r * 8 + i + j, YAW + (((k >> 9) & 3) - 1.5) * 0.05);
+    }
+    // Two cars that haven't been crushed yet, nose to tail by the front fence, and a tyre stack.
+    for (const [i, x] of [[0, fh * 0.20], [1, fh * 0.62]]) {
+      B(x, fh * 0.58, fh * 0.17, fh * 0.085, S * 0.03, S * 0.17, i ? 'ty_sr_bale_b' : 'ty_sr_bale_r', true, 40 + i);
+      B(x - fh * 0.02, fh * 0.58, fh * 0.09, fh * 0.075, S * 0.17, S * 0.28, i ? 'ty_sr_bale_b' : 'ty_sr_bale_r', true, 42 + i);
+    }
+    for (let i = 0; i < 4; i++) { const [tx, ty] = F(fh * 0.84, fh * 0.20 + (i & 1) * fh * 0.10);
+      drawFacetDrum(ctx, cam, tx, ty, S * 0.08 * (i >> 1), S * 0.08 * ((i >> 1) + 1), fh * 0.05, fh * 0.05, 8, alpha,
+        (f) => 'rgb(' + (28 + f.nl * 20 | 0) + ',' + (28 + f.nl * 20 | 0) + ',' + (30 + f.nl * 20 | 0) + ')', 'rgb(16,16,18)'); }
+    // 3) THE OFFICE: two site cabins stacked by the gate, a steel stair up the side of them, a lit
+    //    window in each and OFFICE stencilled on the lower door. The yard's two floors are these.
+    const cx = -fh * 0.60, cy = -fh * 0.36, chx = fh * 0.30, chy = fh * 0.14;
+    B(cx, cy, chx, chy, 0, S * 0.60, 'ty_sr_cabin', true, 50);
+    B(cx + fh * 0.03, cy - fh * 0.01, chx, chy, S * 0.63, S * 1.22, 'ty_sr_cabin', true, 51);
+    for (const z of [S * 0.60, S * 1.22]) B(cx, cy, chx + fh * 0.012, chy + fh * 0.012, z, z + S * 0.03, 'ty_dw_iron', true, 52 + (z > S));
+    const yC = cy + chy + 0.002;
+    for (const [z0, z1, xo] of [[S * 0.26, S * 0.48, fh * 0.10], [S * 0.86, S * 1.08, -fh * 0.04]]) {
+      const c = [0, 1, 2].map((i) => [70, 78, 84][i] + ([255, 214, 150][i] - [70, 78, 84][i]) * dn | 0);
+      flatOut(ctx, cam, W3, [[cx + xo - fh * 0.10, yC, z1], [cx + xo + fh * 0.10, yC, z1], [cx + xo + fh * 0.10, yC, z0], [cx + xo - fh * 0.10, yC, z0]], [0, 1, 0], rgb(c), alpha);
+      flatOut(ctx, cam, W3, [[cx + xo - fh * 0.002, yC + 0.0005, z1], [cx + xo + fh * 0.002, yC + 0.0005, z1], [cx + xo + fh * 0.002, yC + 0.0005, z0], [cx + xo - fh * 0.002, yC + 0.0005, z0]], [0, 1, 0], 'rgb(48,46,42)', alpha);
+    }
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: cx - fh * 0.16, y: yC, w: fh * 0.05, top: S * 0.50, leaves: 1, step: false,
+      frame: [92, 76, 40], solid: { fill: [150, 120, 52], crack: '255,214,150' },
+      transom: { hh: S * 0.06, day: [40, 38, 34], night: [40, 38, 34], label: 'OFFICE', ink: '#e8d9a8', font: 'stencil' }, frontVis });
+    // The stair up the right end of the cabins: a stringer as a raked plate, a landing, a rail.
+    { const x0 = cx + chx + fh * 0.04, y0 = cy + chy * 0.5;
+      for (let k = 0; k < 6; k++) B(x0, y0 - k * fh * 0.04, fh * 0.035, fh * 0.02, S * 0.10 * k, S * 0.10 * k + S * 0.03, 'ty_dw_iron', true, 60 + k);
+      B(x0, cy - chy * 0.5, fh * 0.04, fh * 0.06, S * 0.60, S * 0.63, 'ty_dw_iron', true, 67);
+      if (near) emitWire(ctx, cam, W3(x0 + fh * 0.035, y0, S * 0.20), W3(x0 + fh * 0.035, cy - chy, S * 0.80), 1.2, 'rgba(70,72,74,0.9)', alpha, { pull: 0.01 }); }
+    // 4) THE FENCE: galvanised posts all round, a top and bottom rail, chain-link between them and
+    //    barbed wire on cranked arms above, with the gap for the gate on the left of the front.
+    const FZ = S * 0.50, gate0 = -fh * 0.86, gate1 = -fh * 0.26;
+    const run = (ax, ay, bx, by, n, out) => {
+      for (let k = 0; k <= n; k++) { const t = k / n, x = ax + (bx - ax) * t, y = ay + (by - ay) * t;
+        B(x, y, fh * 0.008, fh * 0.008, 0, FZ + S * 0.08, POST, true, 70 + k); }
+      flatOut(ctx, cam, W3, [[ax, ay, FZ], [bx, by, FZ], [bx, by, 0.002], [ax, ay, 0.002]], out, 'rgba(150,156,158,0.22)', alpha, { paint: true });
+      if (near) {
+        for (const z of [FZ, S * 0.03]) emitWire(ctx, cam, W3(ax, ay, z), W3(bx, by, z), 1.3, 'rgba(120,124,126,0.95)', alpha, { pull: 0 });
+        for (const z of [FZ + S * 0.04, FZ + S * 0.08]) emitWire(ctx, cam, W3(ax + out[0] * fh * 0.02, ay + out[1] * fh * 0.02, z), W3(bx + out[0] * fh * 0.02, by + out[1] * fh * 0.02, z), 0.9, 'rgba(70,72,74,0.9)', alpha, { pull: 0.02 });
+      }
+    };
+    run(-X, YB, X, YB, 8, [0, -1, 0]); run(-X, YB, -X, YF, 8, [-1, 0, 0]); run(X, YB, X, YF, 8, [1, 0, 0]);
+    // ⚠ THE BOARD IS A PANEL OF THE FENCE, NOT HUNG ON ONE: rails run to its edges and stop, or
+    // `signfit` finds the wire drawn across the lettering.
+    const bx0 = gate1 + fh * 0.06, bx1 = gate1 + fh * 0.72, bz0 = S * 0.12, bz1 = S * 0.42, by0 = YF + 0.004;
+    run(-X, YF, gate0, YF, 1, [0, 1, 0]); run(gate1, YF, bx0, YF, 1, [0, 1, 0]); run(bx1, YF, X, YF, 4, [0, 1, 0]);
+    // 5) THE GATE, rolled open along the inside of the fence on its track, and the painted board,
+    //    which is the only sign the yard has.
+    const gy = YF - fh * 0.04;
+    B((gate1 + X) * 0.5 - fh * 0.10, gy, fh * 0.30, fh * 0.006, S * 0.02, S * 0.04, 'ty_dw_iron', true, 80);
+    B((gate1 + X) * 0.5 - fh * 0.10, gy, fh * 0.30, fh * 0.004, S * 0.44, S * 0.46, POST, true, 81);
+    for (const u of [-0.30, 0.30]) B((gate1 + X) * 0.5 - fh * 0.10 + fh * u, gy, fh * 0.006, fh * 0.006, S * 0.04, S * 0.46, POST, true, 82);
+    flatOut(ctx, cam, W3, [[bx0, by0, bz1], [bx1, by0, bz1], [bx1, by0, bz0], [bx0, by0, bz0]], [0, 1, 0], 'rgb(226,214,176)', alpha);
+    if (frontVis) {
+      const P = (u, z) => { const [wx, wy] = F(u, by0 + 0.002 + FACE_EPS); return cam.proj(wx, wy, z); };
+      const zs = bz0 + (bz1 - bz0) * 0.42, pad = fh * 0.03;
+      const t1 = bakeSignText(sign || 'SALVAGE RITES', '#9c2a1c', 0, false, true, true, { font: 'stencil', fit: (bx1 - bx0 - pad * 2) / ((bz1 - zs) * 0.9), sub: false });
+      const q1 = [P(bx0 + pad, bz1 - S * 0.02), P(bx1 - pad, bz1 - S * 0.02), P(bx1 - pad, zs), P(bx0 + pad, zs)];
+      if (t1 && q1.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q1, t1, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      const t2 = bakeSignText('WE BUY ANYTHING', '#2a2622', 0, false, true, true, { font: 'stencil', fit: (bx1 - bx0 - pad * 2) / ((zs - bz0) * 0.8), sub: false });
+      const q2 = [P(bx0 + pad, zs - S * 0.01), P(bx1 - pad, zs - S * 0.01), P(bx1 - pad, bz0 + S * 0.02), P(bx0 + pad, bz0 + S * 0.02)];
+      if (t2 && q2.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q2, t2, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+    }
+    // 6) THE GRABBER over the middle of the bales.
+    { const [gx, gy2] = F(fh * 0.22, -fh * 0.30); grabberCrane(ctx, cam, gx, gy2, fh, h * 0.62, seed, night, alpha, now, E, F); }
+    // 7) A sodium lamp on a pole by the gate, on after dark, and the light it lays on the weighbridge.
+    { const lx = gate0 + fh * 0.02, ly = YF - fh * 0.06, lz = S * 1.30;
+      B(lx, ly, fh * 0.012, fh * 0.012, 0, lz, POST, true, 90);
+      B(lx + fh * 0.06, ly, fh * 0.07, fh * 0.02, lz, lz + S * 0.04, 'ty_dw_iron', true, 91);
+      if (dn > 0) { const [px, py] = F(-fh * 0.56, fh * 0.30); glowPool(ctx, cam, px, py, 0.01, '255,178,90', 12, alpha * 0.34 * dn); } }
+  },
+  thewash(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE WASH: the laundrette on Ironside
+    // Street, promoted off the `laundromat` type arm (which Load Bearing keeps) on 2026-10-29. The
+    // prose is the brief (zone_district_918_905, zone_the_wash): a shopfront that is almost all
+    // window, blue-white light laid over the kerb, THE WASH in cold tube neon, and through the
+    // glass the machines, a bench and somebody on it. The floor above is Bex's flat.
+    //
+    // ⚠ THE WINDOW IS OPEN, NOT GLAZED. A glass fill over the front hides the room, and the room is
+    // the point of the building. The shop is drawn as a box set back from the front, its back wall
+    // lit, the machines standing in front of it, and only mullions on the front line; the floor
+    // over it runs out to the front and is the ceiling.
+    // Local frame: +y is Ironside Street.
+    const YAW = faceYaw(E), dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh(), S = h / 2;
+    const B = (x, y, hx, hy, z0, z1, p, roof, s) => { const [bx, by] = F(x, y); draw3DBoxAt(ctx, cam, bx, by, hx, z0, z1, p, seed + s, night, alpha, roof, YAW, hy); };
+    const mix = (a, b) => rgb([0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * dn | 0));
+    const SX = fh * 0.90, YF = fh * 0.82, YB = -fh * 0.92, ROOM = fh * 0.46, YR = YF - ROOM;   // YR is the room's back wall
+    const sill = S * 0.06, head = S * 0.86, top = h * 0.94;
+    const TILE = 'ty_wash_tile', BRICK = 'ty_wash_brick', FRAME = 'ty_wash_frame';
+    // 1) THE BUILDING: tile on the shop, brick above, a frame-coloured band between them and a
+    //    parapet. The shop's walls are the box behind the room and the two returns either side of it.
+    B(0, (YB + YF) / 2, SX + fh * 0.02, (YF - YB) / 2 + fh * 0.01, 0, sill, FRAME, true, 1);
+    B(0, (YB + YR) / 2, SX, (YR - YB) / 2, sill, S, TILE, false, 0);
+    for (const s of [-1, 1]) B(s * (SX - fh * 0.05), (YR + YF) / 2, fh * 0.05, ROOM / 2, sill, S, TILE, false, 2 + s);
+    B(0, (YB + YF) / 2, SX, (YF - YB) / 2, S, top, BRICK, false, 4);
+    B(0, (YB + YF) / 2, SX + fh * 0.03, (YF - YB) / 2 + fh * 0.03, S * 0.98, S * 1.06, FRAME, true, 5);
+    B(0, (YB + YF) / 2, SX + fh * 0.02, (YF - YB) / 2 + fh * 0.02, top, top + S * 0.05, FRAME, true, 6);
+    // 2) THE ROOM. Floor, ceiling and back wall lit cold, four washers facing the window on the
+    //    left and the stacked dryers on the right, each with its round door, and the bench between.
+    const IX = SX - fh * 0.10, LIT = [190, 214, 222], NITE = [210, 236, 255];
+    flatOut(ctx, cam, W3, [[-IX, YR, sill], [IX, YR, sill], [IX, YF, sill], [-IX, YF, sill]], [0, 0, 1], mix([150, 156, 152], [176, 196, 204]), alpha);
+    flatOut(ctx, cam, W3, [[-IX, YR + 0.001, S * 0.98], [IX, YR + 0.001, S * 0.98], [IX, YR + 0.001, sill], [-IX, YR + 0.001, sill]], [0, 1, 0], mix(LIT, NITE), alpha);
+    flatOut(ctx, cam, W3, [[-IX, YF, S * 0.98], [IX, YF, S * 0.98], [IX, YR, S * 0.98], [-IX, YR, S * 0.98]], [0, 0, -1], mix([170, 180, 182], [226, 242, 250]), alpha);
+    const drum = (x, y, z, r, s) => {   // a machine's door: a chrome ring, dark glass, suds by night
+      const ring = [], glass = [];
+      for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2;
+        ring.push([x + Math.cos(a) * r, y, z + Math.sin(a) * r * (S / fh) * 0.62]);
+        glass.push([x + Math.cos(a) * r * 0.72, y + 0.0005, z + Math.sin(a) * r * 0.72 * (S / fh) * 0.62]); }
+      flatOut(ctx, cam, W3, ring, [0, 1, 0], 'rgb(150,156,160)', alpha);
+      flatOut(ctx, cam, W3, glass, [0, 1, 0], mix([46, 58, 66], s ? [150, 210, 240] : [96, 130, 150]), alpha);
+    };
+    const wy = YR + fh * 0.12, mw = fh * 0.075, mz = sill + S * 0.40;
+    for (let i = 0; i < 4; i++) { const x = -IX + fh * 0.10 + i * mw * 2.1;
+      B(x, wy, mw, fh * 0.07, sill, mz, 'ty_wash_machine', true, 10 + i);
+      drum(x, wy + fh * 0.07 + 0.001, sill + (mz - sill) * 0.52, mw * 0.62, (i + seed) & 1);
+      flatOut(ctx, cam, W3, [[x - mw * 0.8, wy + fh * 0.0705, mz - S * 0.03], [x + mw * 0.8, wy + fh * 0.0705, mz - S * 0.03], [x + mw * 0.8, wy + fh * 0.0705, mz - S * 0.07], [x - mw * 0.8, wy + fh * 0.0705, mz - S * 0.07]], [0, 1, 0], 'rgb(70,76,80)', alpha); }
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { const x = IX - fh * 0.10 - i * mw * 2.1, z0 = sill + j * S * 0.40;
+      B(x, wy, mw, fh * 0.07, z0, z0 + S * 0.39, 'ty_wash_machine', true, 20 + i * 2 + j);
+      drum(x, wy + fh * 0.07 + 0.001, z0 + S * 0.20, mw * 0.66, 0); }
+    B(0, YR + fh * 0.08, fh * 0.14, fh * 0.035, sill + S * 0.16, sill + S * 0.19, 'ty_dw_iron', true, 30);   // the bench
+    B(0, YR + fh * 0.04, fh * 0.14, fh * 0.01, sill + S * 0.19, sill + S * 0.36, 'ty_dw_iron', true, 31);
+    B(-fh * 0.06, YR + fh * 0.26, fh * 0.09, fh * 0.05, sill + S * 0.30, sill + S * 0.33, 'ty_ff_white', true, 32);   // the folding table
+    for (const s of [-1, 1]) B(-fh * 0.06 + s * fh * 0.08, YR + fh * 0.26, fh * 0.008, fh * 0.008, sill, sill + S * 0.30, 'ty_dw_iron', true, 33 + s);
+    // 3) THE FRONT: a frame round the opening, three mullions and a transom bar, the door on the
+    //    right-hand bay, and the neon on the fascia over it.
+    const yW = YF + 0.002;
+    for (const u of [-1, -0.36, 0.30, 1]) B(u * (SX - fh * 0.04), YF, fh * 0.018, fh * 0.012, sill, S * 0.98, FRAME, true, 40 + Math.round(u * 3));
+    B(0, YF, SX - fh * 0.02, fh * 0.012, head, head + S * 0.025, FRAME, true, 45);
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: fh * 0.64, y: yW, w: fh * 0.085, z0: sill, top: head, leaves: 1,
+      frame: [66, 82, 90], lobby: { day: [150, 170, 176], night: [214, 238, 255] }, frontVis });
+    // The fascia between the floors, dark, and THE WASH across it in cold tube, lit from dusk.
+    // ⚠ NOT `marqueeBand`: its board is a storey deep on a building this low and hid the room.
+    const fz0 = S * 0.99, fz1 = S * 1.19, yS = YF + fh * 0.03;
+    B(0, YF + fh * 0.015, SX + fh * 0.02, fh * 0.015, fz0, fz1, FRAME, true, 46);
+    if (frontVis) {
+      const P = (u, z) => { const [wx, wy] = F(u, yS + 0.002 + FACE_EPS); return cam.proj(wx, wy, z); };
+      const n0 = -SX * 0.70, n1 = SX * 0.70;
+      const t = bakeSignText(sign || 'THE WASH', m.neon || '#7fe3ff', dn, false, false, true, { font: 'block', fit: (n1 - n0) / ((fz1 - fz0) * 0.78), sub: false });
+      const q = [P(n0, fz1 - S * 0.02), P(n1, fz1 - S * 0.02), P(n1, fz0 + S * 0.02), P(n0, fz0 + S * 0.02)];
+      if (t && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, t, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+    }
+    // 4) THE FLAT: three sash windows across the front, curtains half drawn and a lamp in one, and
+    //    a window box on the middle sill.
+    for (let i = 0; i < 3; i++) { const x = (i - 1) * fh * 0.56, z0 = S * 1.26, z1 = S * 1.78;
+      B(x, YF, fh * 0.15, fh * 0.012, z0 - S * 0.04, z0, 'ty_ff_white', true, 50 + i);
+      flatOut(ctx, cam, W3, [[x - fh * 0.12, yW, z1], [x + fh * 0.12, yW, z1], [x + fh * 0.12, yW, z0], [x - fh * 0.12, yW, z0]], [0, 1, 0], i === 1 ? mix([58, 62, 66], [255, 206, 140]) : mix([52, 58, 62], [96, 84, 70]), alpha);
+      flatOut(ctx, cam, W3, [[x - fh * 0.12, yW + 0.0005, z1], [x - fh * 0.05, yW + 0.0005, z1], [x - fh * 0.05, yW + 0.0005, z0], [x - fh * 0.12, yW + 0.0005, z0]], [0, 1, 0], 'rgb(128,92,84)', alpha);
+      B(x, YF, fh * 0.13, fh * 0.006, (z0 + z1) / 2, (z0 + z1) / 2 + S * 0.02, 'ty_ff_white', true, 53 + i);
+    }
+    B(0, YF + fh * 0.03, fh * 0.12, fh * 0.025, S * 1.18, S * 1.24, 'ty_dw_iron', true, 56);
+    // 5) THE DRYER VENTS: a duct up the left flank to the roof, two cowls, and the warm breath out
+    //    of them, which is drawn at every hour because the machines run all night.
+    { const [vx, vy] = F(-SX - fh * 0.03, -fh * 0.20);
+      draw3DBoxAt(ctx, cam, vx, vy, fh * 0.035, sill, top + S * 0.25, 'ty_wh_metal', seed + 60, night, alpha, true);
+      drawSmoke(ctx, cam, vx, vy, top + S * 0.25, '226,232,236', alpha * 0.35, now, seed + 61); }
+    for (const u of [-0.40, 0.30]) B(fh * u, -fh * 0.40, fh * 0.07, fh * 0.07, top, top + S * 0.16, 'ty_wh_metal', true, 62 + (u > 0));
+    // 6) Lit all night: the long pale rectangle on the kerb.
+    { const [gx, gy] = F(0, YF + fh * 0.18); glowPool(ctx, cam, gx, gy, 0.01, '210,235,255', 18, alpha * (0.12 + 0.30 * dn)); }
+  },
+  alterego(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // ALTER EGO: the tailor in what was Unit 5,
+    // Ironside Street, Batter Days' old brick unit, rebuilt on 2026-10-29 with a workroom over it.
+    // The prose (zone_district_918_907) is the brief: the old brick cleaned back and pointed, the
+    // window unboarded with a dummy in it in a half-made jacket, ALTER EGO in cream on a navy
+    // fascia with TAILOR under it, and a long workroom window upstairs with a lamp on after dark.
+    //
+    // ⚠ THE FASCIA LETTERS FROM THE TILE'S NAME (`sign`), because this is a storefront unit and a
+    // new owner renames it; the trade line comes from `flags.sign_trade`.
+    // Local frame: +y is Ironside Street.
+    const YAW = faceYaw(E), dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh(), S = h / 2;
+    const B = (x, y, hx, hy, z0, z1, p, roof, s) => { const [bx, by] = F(x, y); draw3DBoxAt(ctx, cam, bx, by, hx, z0, z1, p, seed + s, night, alpha, roof, YAW, hy); };
+    const mix = (a, b) => rgb([0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * dn | 0));
+    const BRICK = pal, NAVY = 'ty_ae_navy', CREAM = 'ty_ae_cream', STONE = 'ty_ae_stone', SLATE = 'ty_dw_slate';
+    const SX = fh * 0.80, YF = fh * 0.78, YB = -fh * 0.90, cy0 = (YF + YB) / 2, hd = (YF - YB) / 2;
+    const plinth = S * 0.08, top = h * 0.90, ridge = h * 1.08, yW = YF + 0.002;
+    // 1) THE BRICK on a stone plinth, a stone band at the first floor, a cornice, and a slate roof
+    //    pitched front to back with a chimney stack on the party wall.
+    B(0, cy0, SX + fh * 0.02, hd + fh * 0.01, 0, plinth, STONE, true, 1);
+    // ⚠ THE GROUND FLOOR IS FOUR BOXES, NOT ONE, because a single box to the front line put brick
+    // in front of the display: the room behind the window has to be a hole in the mass.
+    const wx0 = -SX + fh * 0.07, wx1 = fh * 0.24, sill = S * 0.24, wTop = S * 0.76, YR = YF - fh * 0.20;
+    B(0, (YB + YR) / 2, SX, (YR - YB) / 2, plinth, S, BRICK, false, 0);
+    B((wx1 + SX) / 2, (YR + YF) / 2, (SX - wx1) / 2, (YF - YR) / 2, plinth, S, BRICK, false, 15);
+    B((wx0 - SX) / 2, (YR + YF) / 2, (wx0 + SX) / 2, (YF - YR) / 2, plinth, S, BRICK, false, 16);
+    B((wx0 + wx1) / 2, (YR + YF) / 2, (wx1 - wx0) / 2, (YF - YR) / 2, wTop, S, BRICK, false, 17);
+    B(0, cy0, SX, hd, S, top, BRICK, false, 18);
+    B(0, cy0, SX + fh * 0.015, hd + fh * 0.015, S * 1.02, S * 1.07, STONE, true, 2);
+    B(0, cy0, SX + fh * 0.03, hd + fh * 0.03, top, top + S * 0.05, STONE, true, 3);
+    B(0, cy0, SX, hd * 0.55, top + S * 0.05, ridge - S * 0.10, SLATE, false, 4);
+    B(0, cy0, SX, hd * 0.25, ridge - S * 0.10, ridge, SLATE, true, 5);
+    B(-SX + fh * 0.08, cy0 - fh * 0.20, fh * 0.07, fh * 0.10, top, ridge + S * 0.18, BRICK, true, 6);
+    for (const u of [-0.03, 0.03]) B(-SX + fh * 0.08 + fh * u, cy0 - fh * 0.20, fh * 0.018, fh * 0.018, ridge + S * 0.18, ridge + S * 0.26, 'ty_ff_patch', true, 7 + (u > 0));
+    // 2) THE SHOPFRONT: navy pilasters, a stallriser, the window across the left two-thirds set
+    //    back into a lit room, and the door on the right under a fanlight.
+    for (const u of [-1, 0.40, 1]) B(u * (SX - fh * 0.03), YF + fh * 0.012, fh * 0.035, fh * 0.02, 0, S * 0.98, NAVY, true, 10 + Math.round(u * 2));
+    B((wx0 + wx1) / 2, YF + fh * 0.008, (wx1 - wx0) / 2, fh * 0.015, plinth, sill, NAVY, true, 13);
+    B((wx0 + wx1) / 2, YF + fh * 0.02, (wx1 - wx0) / 2 + fh * 0.01, fh * 0.02, sill - S * 0.02, sill, CREAM, true, 14);
+    flatOut(ctx, cam, W3, [[wx0, YR, wTop], [wx1, YR, wTop], [wx1, YR, sill], [wx0, YR, sill]], [0, 1, 0], mix([96, 84, 70], [255, 222, 170]), alpha);
+    flatOut(ctx, cam, W3, [[wx0, YR, sill], [wx1, YR, sill], [wx1, YF, sill], [wx0, YF, sill]], [0, 0, 1], mix([110, 92, 70], [196, 160, 112]), alpha);
+    flatOut(ctx, cam, W3, [[wx0, YF, wTop], [wx1, YF, wTop], [wx1, YR, wTop], [wx0, YR, wTop]], [0, 0, -1], 'rgb(62,56,50)', alpha);
+    for (const s of [wx0, wx1]) { const x = s, o = s === wx0 ? [1, 0, 0] : [-1, 0, 0];
+      flatOut(ctx, cam, W3, [[x, YR, wTop], [x, YF, wTop], [x, YF, sill], [x, YR, sill]], o, mix([84, 74, 62], [214, 180, 130]), alpha); }
+    // The dummy: a stand, a torso in a half-made jacket chalked for the fitting, and a neck cap.
+    { const ux = wx0 + (wx1 - wx0) * 0.36, uy = YF - fh * 0.10, [tx, ty] = F(ux, uy);
+      B(ux, uy, fh * 0.04, fh * 0.04, sill, sill + S * 0.02, 'ty_dw_iron', true, 20);
+      B(ux, uy, fh * 0.006, fh * 0.006, sill + S * 0.02, sill + S * 0.18, 'ty_dw_iron', true, 21);
+      drawFacetDrum(ctx, cam, tx, ty, sill + S * 0.18, sill + S * 0.44, fh * 0.045, fh * 0.065, 8, alpha,
+        (f) => 'rgb(' + (54 + f.nl * 34 | 0) + ',' + (60 + f.nl * 34 | 0) + ',' + (70 + f.nl * 34 | 0) + ')', 'rgb(48,52,60)');
+      drawFacetDrum(ctx, cam, tx, ty, sill + S * 0.44, sill + S * 0.48, fh * 0.02, fh * 0.016, 6, alpha,
+        (f) => 'rgb(' + (180 + f.nl * 40 | 0) + ',' + (164 + f.nl * 40 | 0) + ',' + (132 + f.nl * 40 | 0) + ')', 'rgb(200,186,150)'); }
+    // Bolts of cloth on a shelf at the back of the display, each its own colour, and a price card.
+    { const COL = ['ty_ae_navy', 'ty_ae_cream', 'ty_sr_bale_r', 'ty_dw_slate', 'ty_ff_patch'];
+      for (let i = 0; i < 5; i++) { const x = wx0 + (wx1 - wx0) * (0.58 + i * 0.08);
+        B(x, YR + fh * 0.03, fh * 0.024, fh * 0.03, sill + S * 0.06 + (i & 1) * S * 0.02, sill + S * 0.30, COL[i], true, 22 + i); } }
+    B((wx0 + wx1) / 2, YF, (wx1 - wx0) / 2, fh * 0.008, wTop, wTop + S * 0.02, CREAM, true, 28);
+    for (const u of [0.33, 0.66]) B(wx0 + (wx1 - wx0) * u, YF, fh * 0.008, fh * 0.008, sill, wTop, CREAM, true, 29 + (u > 0.5));
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: fh * 0.58, y: yW, w: fh * 0.075, z0: plinth, top: S * 0.66, leaves: 1,
+      frame: [36, 46, 74], solid: { fill: [36, 46, 74], planks: false, handle: [196, 170, 110], crack: '255,214,160' },
+      transom: { hh: S * 0.08, day: [60, 56, 48], night: [255, 214, 160] }, lamp: '255,214,160', frontVis });
+    // 3) THE FASCIA: a navy board the width of the front, cornice over it, ALTER EGO in cream and
+    //    the trade under it, the same face at two sizes. Paint, not tube, so the lamp lights it.
+    const fz0 = S * 0.80, fz1 = S * 0.98, fx = SX - fh * 0.02, yS = YF + fh * 0.035;
+    B(0, YF + fh * 0.02, fx, fh * 0.015, fz0, fz1, NAVY, true, 30);
+    B(0, YF + fh * 0.03, fx + fh * 0.02, fh * 0.03, fz1, fz1 + S * 0.03, CREAM, true, 31);
+    if (frontVis) {
+      const P = (u, z) => { const [wx, wy] = F(u, yS + 0.002 + FACE_EPS); return cam.proj(wx, wy, z); };
+      const n0 = -fx + fh * 0.06, n1 = fx - fh * 0.06, split = fz0 + (fz1 - fz0) * 0.36;
+      const t1 = bakeSignText(sign || 'ALTER EGO', '#ece2c4', 0, false, true, true, { font: 'couture', fit: (n1 - n0) / ((fz1 - split) * 0.88), sub: false });
+      const q1 = [P(n0, fz1 - S * 0.015), P(n1, fz1 - S * 0.015), P(n1, split), P(n0, split)];
+      if (t1 && q1.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q1, t1, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      const w2 = (n1 - n0) * 0.34, c2 = (n0 + n1) / 2;
+      const t2 = bakeSignText(m.trade === 'tailor' || !m.trade ? 'TAILOR' : String(m.trade).toUpperCase(), '#c9b98a', 0, false, true, true, { font: 'couture', fit: w2 / ((split - fz0) * 0.8), sub: false });
+      const q2 = [P(c2 - w2 / 2, split - S * 0.005), P(c2 + w2 / 2, split - S * 0.005), P(c2 + w2 / 2, fz0 + S * 0.015), P(c2 - w2 / 2, fz0 + S * 0.015)];
+      if (t2 && q2.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q2, t2, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+    }
+    if (dn > 0) for (const u of [-0.40, 0.40]) {   // two swan-neck lamps over the fascia
+      if (near) emitWire(ctx, cam, W3(fx * u, YF + fh * 0.02, fz1 + S * 0.06), W3(fx * u, yS + fh * 0.08, fz1 + S * 0.08), 1.4, 'rgba(40,42,46,0.95)', alpha, { pull: 0.02 });
+      const [gx, gy] = F(fx * u, yS + fh * 0.08); glowPool(ctx, cam, gx, gy, fz1, '255,226,170', 7, alpha * 0.4 * dn); }
+    // 4) THE WORKROOM: one long three-light window across the first floor in a stone surround,
+    //    blinds half down, and the lamp over the bench on after dark.
+    { const z0 = S * 1.22, z1 = S * 1.74, x0 = -SX + fh * 0.12, x1 = SX - fh * 0.12;
+      B(0, YF, (x1 - x0) / 2 + fh * 0.03, fh * 0.02, z0 - S * 0.05, z0, STONE, true, 40);
+      B(0, YF, (x1 - x0) / 2 + fh * 0.03, fh * 0.012, z1, z1 + S * 0.05, STONE, true, 41);
+      flatOut(ctx, cam, W3, [[x0, yW, z1], [x1, yW, z1], [x1, yW, z0], [x0, yW, z0]], [0, 1, 0], mix([58, 62, 66], [255, 214, 150]), alpha);
+      flatOut(ctx, cam, W3, [[x0, yW + 0.0005, z1], [x1, yW + 0.0005, z1], [x1, yW + 0.0005, z1 - S * 0.14], [x0, yW + 0.0005, z1 - S * 0.14]], [0, 1, 0], mix([190, 180, 156], [214, 186, 136]), alpha);
+      for (const u of [1 / 3, 2 / 3]) B(x0 + (x1 - x0) * u, YF, fh * 0.012, fh * 0.012, z0, z1, CREAM, true, 42 + (u > 0.5));
+      if (dn > 0) { const [lx, ly] = F(0, YF + fh * 0.05); glowPool(ctx, cam, lx, ly, (z0 + z1) / 2, '255,214,150', 10, alpha * 0.3 * dn); } }
+    // 5) THE HANGING SIGN off the old bracket the tin fish hung from: a navy board with a pair of
+    //    open shears in cream, which is the trade's mark and needs no word.
+    { const y1 = YF + fh * 0.36, armZ = S * 1.12, [bx, by] = F(fx * 0.90, (YF + y1) * 0.5);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.008, armZ, armZ + S * 0.02, 'ty_dw_iron', seed + 50, night, alpha, false, YAW, (y1 - YF) * 0.5);
+      const [px, py] = F(fx * 0.90, (YF + y1) * 0.5 + fh * 0.04);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.006, armZ - S * 0.22, armZ - S * 0.02, NAVY, seed + 51, night, alpha, true, YAW, fh * 0.11);
+      if (near) for (const s of [-1, 1]) {
+        const xo = fx * 0.90 + 0.0005 * s, yc = (YF + y1) * 0.5 + fh * 0.04, zc = armZ - S * 0.12;
+        for (const d of [-1, 1]) emitWire(ctx, cam, W3(xo + s * fh * 0.007, yc - fh * 0.06, zc + d * S * 0.05), W3(xo + s * fh * 0.007, yc + fh * 0.06, zc - d * S * 0.05), 2, 'rgba(232,222,196,0.95)', alpha, { pull: 0 });
+      } }
+    // 6) The room's light on the pavement after dark.
+    if (dn > 0) { const [gx, gy] = F((wx0 + wx1) / 2, YF + fh * 0.14); glowPool(ctx, cam, gx, gy, 0.01, '255,214,160', 12, alpha * 0.26 * dn); }
+  },
   junkyard(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // bales of crushed car in uneven rows, a grabber crane over them, a site shack
     const hsh = (a) => { a = (a ^ 61) ^ (a >> 16); a += a << 3; a ^= a >> 4; a = Math.imul(a, 0x27d4eb2d); return (a ^ (a >> 15)) >>> 0; };   // deterministic — no per-frame flicker
     // The stacks: squat, rust-toned, deliberately not squared off like the container yard's.
@@ -339,37 +667,7 @@ export const YARDS_ARMS = {
           (hsh(seed + gx * 5 + gy + k * 7) & 1) ? 'ty_junk_bale' : 'ty_junk_bale_dk', seed + k, night, alpha, true);
       }
     }
-    // ── THE GRABBER, WHICH NOW GRABS ────────────────────────────────────────────────────────
-    //
-    // ⚠ THE JIB STOPS BEING MASS HERE, AND THAT IS THE PRICE OF IT MOVING — see the ⚠ over
-    // `motionOn`. It was a flat slab nearly two footprints wide bolted across the yard at one
-    // bearing, which is a thing you could fly into that was never where it looked. What you can
-    // fly into now is the MAST, which is the part that is genuinely always there.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.12, 0, h * 1.15, 'ty_junk_crane', seed + 21, night, alpha, true);   // the lattice mast
-    { const jp = motionPhase(now, seed + 29, 30000, 0.54), ju = jp < 0 ? 0 : jp;
-      let jsl = moveSeg(ju, 0.00, 0.16, 0, 0.90);          // swing over a pile
-      jsl = moveSeg(ju, 0.50, 0.68, jsl, -1.10);           // …and round to the baler with it
-      jsl = moveSeg(ju, 0.90, 1.00, jsl, 0);
-      let jhk = moveSeg(ju, 0.16, 0.30, 0.88, 0.14);       // down into the scrap
-      jhk = moveSeg(ju, 0.38, 0.50, jhk, 0.88);            // up with a bite
-      jhk = moveSeg(ju, 0.68, 0.78, jhk, 0.30);
-      jhk = moveSeg(ju, 0.84, 0.90, jhk, 0.88);
-      // ⚠ THE SHELLS CLOSE AT THE BOTTOM OF THE DROP AND OPEN AT THE BOTTOM OF THE NEXT ONE, which
-      // is what makes this a grab rather than a hook: the whole read is that it takes a bite and
-      // lets go of it somewhere else. Open, it is two shells a gap apart; shut, they meet.
-      const jShut = ju > 0.34 && ju < 0.74;
-      const jw = jsl + faceYaw(E), jc = Math.cos(jsl), jsn = Math.sin(jsl);
-      const jat = (r) => F(jc * r, jsn * r);
-      const jTip = jat(fh * 1.15), jHeel = jat(fh * 0.12), jTail = jat(-fh * 0.42);
-      movingBox(ctx, cam, dx, dy, h * 1.15, h * 1.25, fh * 0.26, fh * 0.17, [168, 140, 48], alpha, night, jw);              // the operator's house on the ring
-      movingBox(ctx, cam, jTail[0], jTail[1], h * 1.12, h * 1.22, fh * 0.12, fh * 0.11, [92, 84, 52], alpha, night, jw);    // counterweight
-      latticeBoom(ctx, cam, [jHeel[0], jHeel[1], h * 1.12], [jTip[0], jTip[1], h * 0.96], h * 0.09, 4, 1.8, 'rgba(178,150,58,0.95)', alpha, night);
-      const grabZ = h * 0.18 + h * 0.70 * jhk;
-      emitWire(ctx, cam, [jTip[0], jTip[1], h * 0.96], [jTip[0], jTip[1], grabZ + fh * 0.09], 1.3, 'rgba(38,40,44,0.92)', alpha, { pull: 0 });
-      const gap = jShut ? fh * 0.03 : fh * 0.13;
-      for (const s of [-1, 1]) movingBox(ctx, cam, jTip[0] + Math.cos(jw) * s * gap, jTip[1] + Math.sin(jw) * s * gap,
-        grabZ, grabZ + fh * 0.09, fh * 0.055, fh * 0.07, [120, 104, 48], alpha, night, jw);
-      if (jShut) movingBox(ctx, cam, jTip[0], jTip[1], grabZ - fh * 0.06, grabZ + fh * 0.02, fh * 0.08, fh * 0.07, [126, 72, 44], alpha, night, jw); }   // the bale in the jaws
+    grabberCrane(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E, F);
     // Site shack at the gate — the only part of this you can actually walk into.
     { const [sx, sy] = F(-fh * 0.55, fh * 0.72); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.42, 0, h * 0.34, pal, seed + 23, night, alpha, true); }
     if (frontVis) { const [gx2, gy2] = F(-fh * 0.55, fh * 0.94); draw3DBoxAt(ctx, cam, gx2, gy2, fh * 0.18, 0, h * 0.22, 'ty_door', seed + 24, night, alpha, false); }

@@ -2,5 +2,8 @@
   "name": "weather",
   "version": "1.0.0",
   "description": "Deterministic seeded 7-day weather forecast + moving per-zone weather field. Owns the weather_forecast table.",
-  "hooks": ["environment.init", "environment.advanceWeather", "environment.recalculateForecast", "environment.weatherFieldSync", "environment.scheduleForecastDay"]
+  "hooks": ["environment.init", "environment.advanceWeather", "environment.recalculateForecast", "environment.weatherFieldSync", "environment.scheduleForecastDay"],
+  "events": {
+    "emits": ["weather.field"]
+  }
 }

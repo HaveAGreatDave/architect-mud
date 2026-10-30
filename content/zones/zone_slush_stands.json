@@ -71,15 +71,59 @@
           "note": "across from the benches"
         },
         {
+          "id": "home",
+          "name": "The Home End",
+          "price": 15,
+          "eye": [
+            224,
+            42.5,
+            21
+          ],
+          "note": "the home goal in front of you"
+        },
+        {
+          "id": "upper",
+          "name": "Upper Centre",
+          "price": 10,
+          "eye": [
+            100,
+            -61,
+            52
+          ],
+          "note": "front of the upper tier, over centre ice"
+        },
+        {
+          "id": "across",
+          "name": "Upper Far Side",
+          "price": 9,
+          "eye": [
+            100,
+            146,
+            52
+          ],
+          "note": "upper tier, looking back at the benches"
+        },
+        {
+          "id": "upperend",
+          "name": "Upper End",
+          "price": 8,
+          "eye": [
+            -61,
+            42.5,
+            52
+          ],
+          "note": "the whole length of the ice from up high"
+        },
+        {
           "id": "gods",
           "name": "The Gods",
           "price": 5,
           "eye": [
             100,
-            -44,
-            38
+            -100,
+            81
           ],
-          "note": "top row, under the arches"
+          "note": "back row of the upper tier, under the roof"
         }
       ]
     },

@@ -1,0 +1,295 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Tibor chalks a line across a sleeve, looks at it, and rubs half of it out with his thumb.",
+    "He holds a jacket up to the window and turns it so the light runs down the seam.",
+    "He bites a thread off rather than reach for the scissors.",
+    "The electric machine runs a long seam and he guides it with two fingers.",
+    "He takes the tape from round his neck, measures something he has already measured, and puts it back.",
+    "He picks a pin out of the floorboards and puts it in the tin.",
+    "He talks to the dummy in the window while he pins its hem, quietly, in Hungarian."
+  ],
+  "description": "A small, neat man in his sixties with a tape measure round his neck and pins in his lapel. He looks at your coat before he looks at your face. He mends anything you bring in, but he talks most about cloth.",
+  "dialogue_tree": {
+    "root": {
+      "text": "\"Hello. Put it on the counter.\" He has already seen the tear. \"Mending, or something new?\"",
+      "text_by_relation": {
+        "first": "A small man at the cutting table looks up over his glasses, and then at your coat.\n\n\"Szabo. Tibor.\" He taps the tape round his neck. \"I mend, I alter, I make. The Wash next door gets it clean and I fix whatever the machines did to it.\"\n\nHe nods at your sleeve. \"That one is going. Not today, but soon.\"",
+        "known": "\"You again. Let me see.\" He turns your collar over without asking. \"Hm. Better than last time.\"",
+        "familiar": "He is already holding his hand out for whatever you have brought.\n\n\"I kept a bit of that cloth back,\" he says. \"In case. It always comes back, that coat.\""
+      },
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Can you fix this?",
+          "next": "repair"
+        },
+        {
+          "label": "Why a tailor on Ironside Street?",
+          "next": "why"
+        },
+        {
+          "label": "What's the dummy wearing?",
+          "next": "dummy"
+        },
+        {
+          "label": "Thanks.",
+          "next": "bye"
+        }
+      ]
+    },
+    "repair": {
+      "text": "\"Anything you can wear, and most things you can carry. Give it here and say <b>repair</b>. I charge what it is worth to have it back, not what it cost new.\"\n\nHe holds up a sewing kit. \"Or do it yourself. It is cheaper, and if you are bad at it you will be back anyway.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "why": {
+      "text": "\"The chippy left and the rent was low.\" He shrugs. \"And look who walks past. Men from the yard, women from the clinic, people with one good coat. They need a tailor more than anyone in Halcyon does. Halcyon throws a jacket away when the button comes off.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "dummy": {
+      "text": "\"A jacket for a man who drives a crane at the scrapyard. His daughter is getting married.\" He straightens the lapel. \"He will never wear it again after. That is fine. It only has to be right once.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "bye": {
+      "text": "He nods and goes back to the seam.",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey waistcoat with pins stuck in the lapel",
+      "a white shirt with the sleeves held up by elastic bands",
+      "pressed brown trousers and polished shoes",
+      "a yellow tape measure round his neck",
+      "half-moon reading glasses"
+    ],
+    "personality": "vendor",
+    "repairman": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_sf_ironside5_shop",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_alterego_szabo",
+  "name": "Tibor Szabo",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_sewing_kit",
+      "price": 24
+    },
+    {
+      "item_id": "item_work_suit",
+      "price": 320
+    },
+    {
+      "item_id": "item_wool_overcoat",
+      "price": 260
+    },
+    {
+      "item_id": "item_basic_shirt",
+      "price": 18
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "fri": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "sun": [
+      {
+        "from": 10,
+        "to": 14
+      }
+    ]
+  },
+  "vendor_shop_name": "Alter Ego",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_sf_ironside5_shop"
+}

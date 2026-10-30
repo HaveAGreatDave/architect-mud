@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A private box off the club level, done in white leather and pale wood with a platinum stripe round the walls. A buffet runs along one side and a bar along the other, both full, and a television the width of the room hangs over a sofa. The glass to the box seats is north.",
+  "exits": {
+    "west": "zone_hughson_club",
+    "north": "zone_hughson_platinum_box"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_ballpark_897_913",
+    "open_all_hours": true,
+    "floor": "carpet"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hughson_platinum",
+  "map_id": "map_int_hughson",
+  "name": "The Coliseum — Platinum Box",
+  "parent_zone": "zone_ballpark_897_913"
+}

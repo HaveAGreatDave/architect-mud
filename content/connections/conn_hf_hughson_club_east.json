@@ -1,0 +1,9 @@
+{
+  "a": "zone_hughson_club",
+  "b": "zone_hughson_platinum",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_hughson_club_east",
+  "lockable": false,
+  "one_way": false
+}

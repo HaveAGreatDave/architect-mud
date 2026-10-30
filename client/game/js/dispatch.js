@@ -64,7 +64,7 @@ import { openPodracer, closePodracer, podracerSetWorld, isPodracerActive, isPodr
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/lazy-views.js';
 import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts } from './panels/lazy-views.js';
 import { noteFirework, noteAAState, noteAAFire, noteVenueLit, noteVenueRoof } from './panels/world-feed.js';
-import { airHorn } from './panels/lazy-views.js';
+import { airHorn, loadTv } from './panels/lazy-views.js';
 import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/lazy-views.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { applyDrugFx } from './panels/drug-screen-fx.js';
@@ -383,7 +383,9 @@ const loadBoatFish = () => (boatFishMod ??= import('./panels/boatfish.js').catch
 
 // The stands (panels/stands.js): the seat chart and the view from a seat, fetched on first use.
 let standsMod = null;
-const loadStands = () => (standsMod ??= import('./panels/stands.js').catch((e) => { standsMod = null; throw e; }));
+// The seat is a TV view, so the TV wrapper has to be in too, or no broadcast is routed to it and
+// the game in the park stops until somebody opens a set.
+const loadStands = () => (standsMod ??= Promise.all([import('./panels/stands.js'), loadTv()]).then(([m]) => m).catch((e) => { standsMod = null; throw e; }));
 
 // The background re-look, shared by every reason to repaint the room (a hit, somebody
 // walking in, a door). Each is a full describeZone on the server, and in a group fight
@@ -1350,6 +1352,7 @@ const handlers = {
   // you get — which this file's own note says loses nothing.
   stands_chart: (msg) => { loadStands().then((m) => m.openStandsChart(msg)).catch((e) => console.error('[stands]', e)); },
   stands_open: (msg) => { loadStands().then((m) => m.openStands(msg)).catch((e) => console.error('[stands]', e)); },
+  stands_sky: (msg) => { standsMod?.then((m) => m.setStandsSky(msg.field)).catch(() => {}); },
   stands_close: () => { standsMod?.then((m) => m.closeStands()).catch(() => {}); },
   cardpack_open: (msg) => { if (msg.render !== 'log') openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
   // Same contract again: the cabinet is the show, the character box is the

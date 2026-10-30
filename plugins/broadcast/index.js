@@ -10,7 +10,7 @@ import { escapeHtml } from '../../server/engine/html.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
-import { registerCommand } from '../../server/engine/plugins.js';
+import { registerCommand, fireHook } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcNextShiftLookup, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
 import { registerAICondition, registerAIAction } from '../../server/engine/ai-behaviour.js';
@@ -337,6 +337,12 @@ on('deck.unwatch', ({ playerId })            => deckWatchers.delete(playerId));
 // The Tablet TV app registering/dropping its portable tuner. No furniture, no zone —
 // the tablet streams wherever the player is.
 on('tablet_tv.watch',   ({ playerId, channelId }) => { if (channelId) { tabletTuners.set(playerId, channelId); sendCatchUp(playerId, channelId); } });
+// A receiver that mounts after it was tuned (a seat in the stands loads its view first) missed
+// the catch-up sent at the watch, so it asks again once it can draw it.
+on('tablet_tv.catchup', ({ playerId }) => {
+  const channelId = tabletTuners.get(playerId);
+  if (channelId) { catchUpSent.delete(playerId); sendCatchUp(playerId, channelId); }
+});
 on('tablet_tv.unwatch', ({ playerId })            => { tabletTuners.delete(playerId); catchUpSent.delete(playerId); });
 
 on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); tabletTuners.delete(id); catchUpSent.delete(id); _lastBugLine.delete(id); gameshowForgetPlayer(id); });
@@ -3372,19 +3378,21 @@ function refreshVenueLights(chans) {
 
 // ── THE ROOF OVER THE PARK ──────────────────────────────────────────────────────
 // A venue with `flags.venue_roof` on its tiles (the Hughson Coliseum) sets its roof for the day by
-// the forecast, not the sky over it: shut if today's forecast is a wet one (rain, sleet, snow, a
-// storm, a blizzard, ash) or gives a 40% chance or more of anything falling, open otherwise. It
-// moves when the forecast day turns over, not under every passing shower. Staff can open or shut it
+// the forecast: shut if today's forecast is a wet one (rain, sleet, snow, a storm, a blizzard, ash)
+// or colder than 10C, open otherwise, overcast included. On an open day it shuts the first time
+// anything falls on one of its tiles and stays shut until the forecast day turns over, so a run of
+// showers doesn't swing it back and forth. Staff can open or shut it
 // (`sysop roof`, the Admin app's Roof tab), and that call holds until the next forecast day.
 // The tiles of one venue are grouped by `building_name` and share one answer. The map derive asks
 // `venue.roof` for every tile with the flag (plugins/flight/state.js); ⚠ SYNC AND QUERY-FREE, like
 // `venue.lit`, so it answers from this set. A view open when the roof starts to move is told by a
 // `venue_roof` push and animates it over minutes (client/game/js/panels/world-feed.js ROOF_MS).
 const ROOF_SHUT_WORDS = new Set(['rain', 'thunderstorm', 'storm', 'sleet', 'snow', 'blizzard', 'ash', 'acid_rain']);
-const ROOF_SHUT_CHANCE = 0.4;
+const ROOF_SHUT_BELOW_C = 10;
 let _roofShut = new Set();          // "x,y" of every tile of a venue whose roof is shut now
 const _roofState = new Map();       // venue name → { shut }
 let _roofManual = null;             // { shut, date }: a staff call, held until the forecast day changes
+const _roofRained = new Map();      // venue name → forecast date it rained on: shut for the rest of that day
 let _roofVenues = null, _roofAt = 0;
 function roofVenues(nowMs) {
   // The tiles change only with content, so the scan is redone every ten minutes rather than every beat.
@@ -3408,12 +3416,20 @@ const roofToday = () => getForecast()?.[0] || null;
 // Does today's forecast call for the roof shut?
 function roofWeather() {
   const f = roofToday();
-  return !!f && (ROOF_SHUT_WORDS.has(f.weatherType) || (f.precipChance ?? 0) >= ROOF_SHUT_CHANCE);
+  return !!f && (ROOF_SHUT_WORDS.has(f.weatherType) || (Number.isFinite(f.tempC) && f.tempC < ROOF_SHUT_BELOW_C));
 }
-// Where a venue's roof should be now: today's staff call if there is one, else the forecast.
-function roofDecide(v, nowMs, wet = roofWeather()) {
+// Has anything fallen on the venue today? Read live each beat and held for the forecast day.
+function roofRainedOn(v) {
+  const date = roofToday()?.date ?? null;
+  if (_roofRained.has(v.name) && _roofRained.get(v.name) !== date) _roofRained.delete(v.name);
+  if (!_roofRained.has(v.name) && v.tiles.some(([x, y]) => getPrecipAtGrid(x, y).precipRate > 0)) _roofRained.set(v.name, date);
+  return _roofRained.has(v.name);
+}
+// Where a venue's roof should be now: today's staff call if there is one, else the forecast or
+// rain on the park. `wet` overrides both (the regress hands it in).
+function roofDecide(v, nowMs, wet) {
   if (_roofManual && _roofManual.date !== (roofToday()?.date ?? null)) _roofManual = null;
-  const shut = _roofManual ? _roofManual.shut : !!wet;
+  const shut = _roofManual ? _roofManual.shut : wet === undefined ? roofWeather() || roofRainedOn(v) : !!wet;
   _roofState.set(v.name, { shut });
   return shut;
 }
@@ -3431,7 +3447,8 @@ export function venueRoofView() {
     venue: v?.name || null,
     shut: v ? _roofShut.has(`${v.tiles[0][0]},${v.tiles[0][1]}`) : null,
     manual: _roofManual ? (_roofManual.shut ? 'shut' : 'open') : null,
-    forecast: f ? { weatherType: f.weatherType, precipPct: Math.round((f.precipChance ?? 0) * 100), shut: roofWeather() } : null,
+    forecast: f ? { weatherType: f.weatherType, precipPct: Math.round((f.precipChance ?? 0) * 100), tempC: f.tempC, shut: roofWeather() } : null,
+    rained: v ? _roofRained.has(v.name) : false,
   };
 }
 function venueRoof({ x, y } = {}) {
@@ -11019,6 +11036,9 @@ async function cmdWatch(args, raw, player) {
   // implies) a television in the room opens that set, exactly like `use` does.
   // Only when nothing here is a television do we fall back to the read-out of
   // whatever broadcast devices (a radio, say) the zone has running.
+  // A set some other plugin draws (the stands' big screen) claims the sentence first.
+  const claimed = await fireHook('watch.furniture', { player, args });
+  if (claimed !== undefined) return claimed;
   const panel = await doUseTv(args, raw, player);
   if (panel !== undefined) return panel;
   if (TV_WORDS.has((args[0] || '').toLowerCase())) return cmdTv([], raw, player);

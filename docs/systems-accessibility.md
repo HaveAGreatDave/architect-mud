@@ -50,6 +50,11 @@ announcing; the score and the booth's line are still there to read, and nothing 
 changes. The full rules for the broadcast are in
 [systems-broadcast.md](systems-broadcast.md#the-park-in-3-d-the-grandstand).
 
+**Ball Glow** (`accessibility ballglow on|off`, on by default) puts a faint light round the ball in
+the 3-D park so it can be followed against the crowd and the sky. It sets `data-ball-glow`, which
+[gl/ballpark.js](../client/game/js/panels/gl/ballpark.js) reads through `ballGlowOn()` each frame.
+The streak behind a ball in flight is drawn either way.
+
 **Booth in the Stands** (`accessibility booth on|off`, off by default) reads the broadcast booth's
 calls aloud while you sit in a seat at a game, hockey or Deadball, in the same voice and seed the TV
 uses. It sets `data-stands-booth`; [stands.js](../client/game/js/panels/stands.js) checks

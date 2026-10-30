@@ -376,7 +376,8 @@ export function createCloudVolume(gl) {
     const w = Math.max(16, Math.round(W * scale)), h = Math.max(16, Math.round(H * scale));
     sizeTarget(w, h);
     bakeCover(vol.cells);
-    const vp = viewProjMatrix(cam, cssH || H);
+    // `opts.vp` is a caller's own matrix into this frame (camera-relative tiles, z up): the ballpark's
+    const vp = opts.vp || viewProjMatrix(cam, cssH || H);
     const inv = invert4(vp);
     if (!inv) return 0;
     const far = Math.min(COVER_RANGE, vol.far || 48);
@@ -435,8 +436,10 @@ export function createCloudVolume(gl) {
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, prevFb);
     gl.viewport(0, 0, W, H);
     gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);           // ⚠ colour only: the city's depth is what we test against
-    gl.useProgram(comp); applyLinOut(gl, comp);
+    // ⚠ colour only: the city's depth is what we test against. `opts.over` draws over the caller's
+    // picture instead (the ballpark draws its sky and park on the same target first)
+    if (!opts.over) gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(comp); applyLinOut(gl, comp, opts.linOut);
     gl.uniformMatrix4fv(uc.invVP, false, new Float32Array(inv));
     gl.uniformMatrix4fv(uc.vp, false, mat4f(vp));
     gl.uniform2f(uc.res, W, H);

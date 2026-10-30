@@ -1,0 +1,11 @@
+{
+  "description": "Low lights along the step, kept dim so they don't glare on the glass.",
+  "flags": {},
+  "id": "furn_light_zone_hughson_platinum_box",
+  "light_type": "overhead",
+  "lumen_output": 2000,
+  "name": "the step lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hughson_platinum_box"
+}

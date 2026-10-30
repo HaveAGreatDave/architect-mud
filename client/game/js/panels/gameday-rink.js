@@ -44,6 +44,11 @@ const SFX_GAP = { stop: 0.9, turn: 1.4, boards: 0.12, glass: 0.12, receive: 0.2,
 // the sounds a horn or a whistle must not be buried under: while one's sounding, these play
 // a little quieter (and the crowd ducks)
 const CONTACT = new Set(['receive', 'pass', 'tick', 'stick', 'poke', 'boards', 'glass', 'stop', 'turn', 'sweep', 'block']);
+// what a seat in the stands hears from where it happened on the ice (gameday-rink.js fromSeat):
+// within SEAT_NEAR feet it's louder than the broadcast mix, further off quieter
+const SEAT_HEARD = new Set([...CONTACT, 'shot', 'glove', 'chest', 'pad', 'post', 'wide', 'net', 'check', 'fall', 'punch',
+  'knockout', 'cloth', 'gloves', 'shatter', 'drop', 'whistle', 'sever', 'scrape']);
+const SEAT_NEAR = 35, SEAT_LIFT = 1.4;
 
 // Jumbotron cards: the same sportsfx graphics tv.js would take the whole screen with,
 // rendered compact over the rink so the ice stays visible. A goal has none: the lamp, the
@@ -115,6 +120,36 @@ export function createRinkView(host, opts = {}) {
       .then(([t, s, r, a]) => (mods = { createIce: t.createIce, createWorld: s.createWorld, createRenderer: r.createRenderer, createArenaRenderer: a.createArenaRenderer })));
   }
 
+  // A SEAT IN THE STANDS (stands.js) hears the ice, not the broadcast: what happens on it is as
+  // loud as it is near the seat and late by the time sound takes to reach it, so a check into the
+  // boards below you or a slapshot from your end of the rink is the loudest thing in the building,
+  // and the far end is faint. Where it happened is the call's own x and y, or the puck's.
+  // `fromSeat` is { gain, ms }, or null for the building's own sounds (the horn, the crowd).
+  function fromSeat(key, o) {
+    const eye = opts.seat?.eye;
+    if (!eye || !SEAT_HEARD.has(key)) return null;
+    const pk = W.puck, x = Number.isFinite(o?.x) ? o.x : pk?.x, y = Number.isFinite(o?.y) ? o.y : Number.isFinite(o?.x) ? null : pk?.y;
+    if (!Number.isFinite(x)) return null;
+    // a call with only an x happened somewhere across the ice: hear it from the middle
+    const d = Math.hypot(x - eye[0], (Number.isFinite(y) ? y : 42.5) - eye[1], (pk?.z || 0) - eye[2]);
+    return { gain: SEAT_LIFT * Math.max(0.3, Math.min(2.2, SEAT_NEAR / Math.max(1, d))), ms: (d / 1125) * 1000 };
+  }
+  // Skating by: a man going hard within a few strides of the glass in front of the seat is heard
+  // carving past it, once each pass.
+  const skateAt = new Map();
+  let skateLook = 0;
+  function seatSkates() {
+    const eye = opts.seat?.eye;
+    if (!eye || !W?.skaters || W.t - skateLook < 0.1) return;
+    skateLook = W.t;
+    for (const b of W.skaters()) {
+      const sp = Math.hypot(b.vx || 0, b.vy || 0);
+      if (sp < 14 || Math.hypot(b.x - eye[0], b.y - eye[1]) > 30 || W.t - (skateAt.get(b) ?? -9) < 1.2) continue;
+      skateAt.set(b, W.t);
+      _sfx('scrape', { x: b.x, y: b.y, seed: (W.t * 1000 + b.x * 7) | 0 });
+    }
+  }
+
   function _sfx(key, o) {
     const H = win?.HockeySfx, AE = win?.AudioEngine;
     if (!W || !H?.eventFor || !AE?.playSfx) return;
@@ -132,7 +167,9 @@ export function createRinkView(host, opts = {}) {
         const under = CONTACT.has(key) && W.t < loudUntil ? 0.6 : 1;
         const x = o && Number.isFinite(o.x) ? o.x : CONTACT.has(key) && W.puck ? W.puck.x : null;
         const pan = x != null && W.cam?.focus ? Math.max(-0.5, Math.min(0.5, (x - W.cam.focus[0]) / 90)) : 0;
-        AE.playSfx(H.variant(def, seed, 1, pick.intensity), under, pan ? { pan } : {});
+        const near = opts.seat ? fromSeat(key, o) : null;
+        const go = () => AE.playSfx(H.variant(def, seed, 1, pick.intensity), under * (near ? near.gain : 1), pan ? { pan } : {});
+        if (near && near.ms > 15) setTimeout(go, near.ms); else go();
         if (key === 'horn') loudUntil = W.t + 2;
         else if (key === 'whistle') loudUntil = Math.max(loudUntil, W.t + (o && o.long ? 0.5 : 0.25));
       }
@@ -328,6 +365,7 @@ export function createRinkView(host, opts = {}) {
     W.alpha = acc / DT;
     if (R.lost) fallback();
     R.render(now);
+    if (opts.seat) seatSkates();
     l3Tick();
     clockTick(raw);
     govern(raw);
@@ -604,6 +642,7 @@ export function createRinkView(host, opts = {}) {
       (bars ? `<div class="gdr-l3-bars">${bars}</div>` : '');
   }
   function showL3(html, secs, why) {
+    if (opts.seat) return;     // the broadcast's lower third, not the arena's
     const pic = host?.querySelector('.gdr-rink');
     if (!pic) return;
     let el = pic.querySelector('.gdr-l3');
@@ -628,6 +667,8 @@ export function createRinkView(host, opts = {}) {
     if (!host || !fx || !CARD[fx.kind]) return;
     // the end of the game: the buzzer, as at the end of a period
     if (fx.kind === 'gamewin' && W) _sfx('periodHorn');
+    // a seat in the stands sees the game, not the broadcast's graphics
+    if (opts.seat) return;
     if (D && D.busy() && pendingCaption) pendingCard = fx; else renderCard(fx);
   }
   function clearCard() { if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; } host?.querySelector('.gdr-jumbo')?.remove(); }

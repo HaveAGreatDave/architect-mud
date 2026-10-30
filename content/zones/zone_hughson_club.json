@@ -1,9 +1,10 @@
 {
   "ambient_theme": "indoors",
-  "description": "A lounge above the concourse with a long bar down one side and windows over the field down the other. The carpet is patterned with baseballs and worn through to the backing in a path from the stairs to the bar.",
+  "description": "A lounge above the concourse with a long bar down one side and windows over the field down the other. The carpet is patterned with baseballs and worn through to the backing in a path from the stairs to the bar. A door east has PLATINUM on it in silver.",
   "exits": {
     "down": "zone_hughson_concourse",
-    "up": "zone_hughson_pressbox"
+    "up": "zone_hughson_pressbox",
+    "east": "zone_hughson_platinum"
   },
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",

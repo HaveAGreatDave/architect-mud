@@ -17,6 +17,7 @@ import { loadCss } from '../../../shared/dom.js';
 import { addTvView } from './tv.js';
 import { wantClubs } from './club-crest.js';
 import { wantVenue, venueOf } from './venue.js';
+import { boothStep, boothSeatNear } from './gl/booth-mesh.js';
 import { standsBoothOn } from '../../../shared/settings.js';
 
 const CSS = await loadCss(new URL('./stands.css', import.meta.url));
@@ -36,8 +37,8 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 function plan(sport) {
   if (sport === 'hockey') {
     return {
-      box: [-40, -35, 280, 180], at: ([x, y]) => [x, 85 - y],
-      ice: '<rect x="-32" y="-24" width="264" height="158" rx="50" class="st-bowl"/><rect x="0" y="0" width="200" height="85" rx="28" class="st-ice"/>'
+      box: [-112, -78, 424, 326], at: ([x, y]) => [x, 85 - y],
+      ice: '<rect x="-104" y="-70" width="408" height="310" rx="120" class="st-bowl"/><rect x="-52" y="-52" width="304" height="189" rx="80" class="st-bowl"/><rect x="0" y="0" width="200" height="85" rx="28" class="st-ice"/>'
         + '<line x1="100" y1="0" x2="100" y2="85" class="st-red"/><line x1="75" y1="0" x2="75" y2="85" class="st-blue"/><line x1="125" y1="0" x2="125" y2="85" class="st-blue"/>'
         + '<line x1="11" y1="8" x2="11" y2="77" class="st-red"/><line x1="189" y1="8" x2="189" y2="77" class="st-red"/>'
         + '<circle cx="100" cy="42.5" r="15" class="st-ring"/>',
@@ -57,14 +58,14 @@ export function openStandsChart(msg) {
   closeStandsChart();
   const P = plan(msg.sport), [bx, by, bw, bh] = P.box;
   const marks = (msg.sections || []).map((c) => {
-    const [x, y] = P.at(c.eye), r = msg.sport === 'hockey' ? 7.5 : 20, mine = c.id === msg.seated;
+    const [x, y] = P.at(c.eye), r = msg.sport === 'hockey' ? 11 : 20, mine = c.id === msg.seated;
     return `<g class="st-sec${mine ? ' mine' : ''}" data-id="${esc(c.id)}" tabindex="0" role="button" aria-label="${esc(c.name)}, ₵${c.price}">`
       + `<circle cx="${x}" cy="${y}" r="${r}"/><text x="${x}" y="${y + r * 0.35}" font-size="${r}">₵${c.price}</text></g>`;
   }).join('');
   const rows = (msg.sections || []).map((c) => {
-    const poor = (msg.credits | 0) < (c.price | 0), mine = c.id === msg.seated;
+    const poor = (msg.credits | 0) < (c.price | 0), mine = c.id === msg.seated, full = c.free === 0;
     return `<li data-id="${esc(c.id)}"><span class="st-name">${esc(c.name)}</span><span class="st-note">${esc(c.note)}</span>`
-      + `<button type="button" data-id="${esc(c.id)}" ${!msg.live || poor || mine ? 'disabled' : ''}>${mine ? 'Your seat' : `₵${c.price}`}</button></li>`;
+      + `<button type="button" data-id="${esc(c.id)}" ${!msg.live || poor || mine || full ? 'disabled' : ''}>${mine ? 'Your seat' : full ? 'Sold out' : `₵${c.price}`}</button></li>`;
   }).join('');
   chartEl = document.createElement('div');
   chartEl.id = 'stands-chart';
@@ -75,7 +76,7 @@ export function openStandsChart(msg) {
     <svg viewBox="${bx} ${by} ${bw} ${bh}" class="st-plan" aria-hidden="true">${P.ice}${marks}</svg>
     <ul class="st-list">${rows}</ul></div>`;
   document.body.appendChild(chartEl);
-  const buy = (id) => { const c = msg.sections.find((s) => s.id === id); if (!c || !msg.live || c.id === msg.seated || (msg.credits | 0) < (c.price | 0)) return; closeStandsChart(); sendCmd(`stands ${id}`); };
+  const buy = (id) => { const c = msg.sections.find((s) => s.id === id); if (!c || !msg.live || c.id === msg.seated || c.free === 0 || (msg.credits | 0) < (c.price | 0)) return; closeStandsChart(); sendCmd(`stands ${id}`); };
   chartEl.querySelector('.st-x').addEventListener('click', closeStandsChart);
   chartEl.addEventListener('click', (e) => { if (e.target === chartEl) closeStandsChart(); });
   chartEl.querySelectorAll('button[data-id]').forEach((b) => b.addEventListener('click', () => buy(b.dataset.id)));
@@ -104,10 +105,12 @@ export async function openStands(msg) {
   const root = document.createElement('div');
   root.id = 'stands-view';
   root.innerHTML = `<div class="st-bar">
-      <span class="st-where"><b>${esc(msg.venue)}</b> · ${esc(msg.section?.name)}</span>
+      <span class="st-where"><b>${esc(msg.venue)}</b> · ${esc(msg.section?.name)}${msg.section?.seat ? ` · ${esc(msg.section.seat)}` : ''}</span>
       <button type="button" class="st-mode" aria-pressed="true" title="Follow the play (F)">Follow the play</button>
       <button type="button" class="st-tablet" title="Open your tablet">Tablet</button>
       <button type="button" class="st-settings" title="Settings" aria-label="Settings">⚙</button>
+      <button type="button" class="st-sit" hidden title="Sit down or get up (E)">Get up</button>
+      <button type="button" class="st-tv" hidden aria-pressed="false" title="The big screen, full size (T)">Big screen</button>
       <button type="button" class="st-seats">Change seat</button>
       <button type="button" class="st-leave">Leave the stands</button>
     </div>
@@ -119,15 +122,26 @@ export async function openStands(msg) {
   const seat = { eye: msg.section.eye, mode: 'follow', fov: msg.sport === 'hockey' ? 64 : 50, yaw: null, pitch: null };
   const ui = { root, seat, view: null, unview: null, channelId: msg.channelId, sport: msg.sport, got: false };
   seatUi = ui;
+  // A big screen (msg.screen) is the broadcast's own cameras: no seat, nothing to turn.
+  if (msg.screen) {
+    root.classList.add('st-screen');
+    for (const c of ['.st-mode', '.st-seats', '.st-tip']) root.querySelector(c).hidden = true;
+    root.querySelector('.st-leave').textContent = 'Look away';
+  }
   // The city round the park comes with the venue, and only a game's first payload carries its
   // venueRev, so a seat taken mid-game would never ask and sit in a park with no skyline.
   if (!venueOf(msg.sport)) sendRaw({ type: 'tv_venue', sport: msg.sport });
 
   let view;
+  const vs = msg.screen ? undefined : seat;
+  // a box's suite (the section's 'room'): the Grandstand builds it round the seat and hands back its
+  // layout, which the walker below moves the eye round
+  const room = msg.sport === 'baseball' && !msg.screen ? msg.section?.room || null : null;
+  let layout = null, startSuite = null;
   try {
     view = msg.sport === 'hockey'
-      ? (await import('./gameday-rink.js')).createRinkView(host, { seat, fly: false })
-      : (await import('./gameday-grandstand.js')).createGrandstandView(host, { seat, force: true });
+      ? (await import('./gameday-rink.js')).createRinkView(host, { seat: vs, fly: false })
+      : (await import('./gameday-grandstand.js')).createGrandstandView(host, { seat: vs, force: true, room, onRoom: (L) => { layout = L; startSuite?.(); } });
   } catch (err) {
     console.error('[stands] the view failed to load:', err);
     host.textContent = 'The view would not load.';
@@ -136,14 +150,25 @@ export async function openStands(msg) {
   if (seatUi !== ui) { view.clear(); return; }   // left while it loaded
   ui.view = view;
   view.showIdle();
+  // the weather cells over an open-air park, once; stands_sky brings a fresh copy if they change
+  view.setSkyField?.(msg.field || null);
 
   const redraw = () => view.redraw?.();
-  const modeBtn = root.querySelector('.st-mode');
+  const modeBtn = root.querySelector('.st-mode'), tvBtn = root.querySelector('.st-tv');
   const setMode = (m) => {
     seat.mode = m;
     modeBtn.setAttribute('aria-pressed', String(m === 'follow'));
     modeBtn.textContent = m === 'follow' ? 'Follow the play' : 'Free look';
+    tvBtn.setAttribute('aria-pressed', String(m === 'tv'));
+    modeBtn.hidden = m === 'tv' || !!msg.screen;
     redraw();
+  };
+  // the room is built when the view mounts, which can be after this
+  let suite = null;
+  startSuite = () => {
+    if (suite || !layout || seatUi !== ui) return;
+    suite = walkSuite(ui, layout, msg, setMode, redraw);
+    ui.onKeyUp = (e) => suite.key(e, false); document.addEventListener('keyup', ui.onKeyUp); ui.stopSuite = suite.stop;
   };
   modeBtn.addEventListener('click', () => setMode(seat.mode === 'follow' ? 'free' : 'follow'));
   root.querySelector('.st-seats').addEventListener('click', () => sendCmd('stands'));
@@ -184,6 +209,7 @@ export async function openStands(msg) {
     if (e.target.closest?.('input, textarea, [contenteditable]')) return;
     if (document.getElementById('tablet-os-overlay')) return;   // the tablet has the keys
     const k = e.key;
+    if (suite?.key(e, true)) { e.preventDefault(); return; }
     if (k === 'f' || k === 'F') { setMode(seat.mode === 'follow' ? 'free' : 'follow'); e.preventDefault(); }
     else if (k === 'ArrowLeft') { turn(-24, 0); e.preventDefault(); }
     else if (k === 'ArrowRight') { turn(24, 0); e.preventDefault(); }
@@ -191,6 +217,7 @@ export async function openStands(msg) {
     else if (k === 'ArrowDown') { turn(0, 18); e.preventDefault(); }
   };
   document.addEventListener('keydown', ui.onKey);
+  startSuite();
 
   // the channel's lines and overlays, as a TV view tuned to it
   ui.unview = addTvView({
@@ -214,6 +241,8 @@ export async function openStands(msg) {
     showOffAir() { if (ui.got) view.setCaption('That’s the game. The crowd heads for the doors.', {}); },
     showOnAir() {}, updateTicker() {}, speak() {}, setProgramName() {}, renderSchedule() {}, renderStandings() {},
   });
+  // the catch-up sent when the seat was bought came before this view could take it
+  sendRaw({ type: 'tv_catchup' });
 }
 
 // The booth's line in the TV's voice: a "Name says" line seeds off that name, as tv.js does, and
@@ -227,14 +256,102 @@ function sayBooth(plain, duration, dl) {
   window.AudioEngine?.speak(speech, { seed: said ? said[1] : (speaker || 'broadcast'), queue: true, ...(duration > 0.5 ? { budget: duration } : {}), ...how });
 }
 
+// A fresh copy of the weather cells, when the day's field is reseeded or a cell moved
+export function setStandsSky(field) { seatUi?.view?.setSkyField?.(field || null); }
+
 export function closeStands() {
   const ui = seatUi;
   if (!ui) return;
   seatUi = null;
   ui.unview?.();
   if (ui.onKey) document.removeEventListener('keydown', ui.onKey);
+  if (ui.onKeyUp) document.removeEventListener('keyup', ui.onKeyUp);
+  ui.stopSuite?.();
   try { ui.view?.clear(); } catch { /* already torn down */ }
   ui.root.remove();
 }
 
 export const standsOpen = () => !!seatUi;
+
+// ── the suite ─────────────────────────────────────────────────────────────────
+// On your feet in a box (gl/booth-mesh.js): WASD walks where you're looking, sliding along what you
+// meet; E sits in the nearest chair or sofa or gets you up; T puts the big screen up full size.
+// In a chair you follow the play through the glass; on the sofa you face the screen. It's all the
+// eye in your own client: the server has you in the box, and that's all it needs.
+const WALK = 5.5;          // feet a second
+const STAND = 5.4;         // eye height on your feet
+function walkSuite(ui, L, msg, setMode, redraw) {
+  const { seat, root } = ui;
+  const sitBtn = root.querySelector('.st-sit'), tvBtn = root.querySelector('.st-tv');
+  sitBtn.hidden = false; tvBtn.hidden = false;
+  root.querySelector('.st-leave').textContent = 'Leave the box';
+  root.querySelector('.st-tip').textContent = 'WASD to walk · E to sit or get up · T for the big screen · drag to look';
+  seat.near = 0.3;
+  let at = null, sat = null, raf = 0, last = 0;
+  const held = new Set();
+  const place = () => { seat.eye = L.world(at[0], at[1], L.groundAt(at[0], at[1]) + STAND); redraw(); };
+  const sit = (s) => {
+    sat = s; at = [s.u, s.v];
+    seat.eye = s.eye.slice(); seat.yaw = s.yaw; seat.pitch = s.pitch;
+    setMode(s.kind === 'chair' ? 'follow' : 'free');
+    sitBtn.textContent = 'Get up';
+  };
+  const standUp = () => {
+    if (!sat) return;
+    // a step out from the seat the way it faces, wherever there's room
+    const y = seat.yaw || 0, wx = Math.sin(y), wz = Math.cos(y);
+    const fu = wx * L.r[0] + wz * L.r[2], fv = -(wx * L.f[0] + wz * L.f[2]);
+    at = [sat.u, sat.v];
+    for (const k of [1.6, 2.2, -1.6, 2.8]) { const n = boothStep(L, at, fu * k, fv * k); if (n !== at) { at = n; break; } }
+    sat = null;
+    if (seat.mode !== 'free') setMode('free');
+    place();
+    sitBtn.textContent = 'Sit down';
+  };
+  const toggleSit = () => {
+    if (sat) { standUp(); return; }
+    const s = boothSeatNear(L, at[0], at[1]);
+    if (s) sit(s);
+  };
+  const toggleTv = () => setMode(seat.mode === 'tv' ? (sat?.kind === 'chair' ? 'follow' : 'free') : 'tv');
+  sitBtn.addEventListener('click', toggleSit);
+  tvBtn.addEventListener('click', toggleTv);
+  // the seat you were given, or the sofa when you came in by the screen
+  const dist = (s, e) => Math.hypot(s.eye[0] - e[0], s.eye[1] - e[1], s.eye[2] - e[2]);
+  const given = msg.section.eye || L.seats[0].eye;
+  sit(msg.section.spot === 'sofa' ? L.seats.find((s) => s.kind === 'sofa' && s.i === 1) : L.seats.reduce((b, s) => (dist(s, given) < dist(b, given) ? s : b)));
+  const MOVES = { w: [0, 1], s: [0, -1], a: [-1, 0], d: [1, 0] };
+  const tick = (now) => {
+    raf = 0;
+    const dt = last ? Math.min(0.1, (now - last) / 1000) : 1 / 60;
+    last = now;
+    if (!held.size) { last = 0; return; }
+    if (sat) standUp();
+    if (seat.mode !== 'free') setMode('free');
+    let side = 0, ahead = 0;
+    for (const k of held) { side += MOVES[k][0]; ahead += MOVES[k][1]; }
+    const l = Math.hypot(side, ahead);
+    if (l) {
+      // ahead is where you're looking, flat; right is a quarter turn clockwise from it, seen from above
+      const y = seat.yaw || 0, fx = Math.sin(y), fz = Math.cos(y), rx = -fz, rz = fx;
+      const wx = (fx * ahead + rx * side) / l * WALK * dt, wz = (fz * ahead + rz * side) / l * WALK * dt;
+      at = boothStep(L, at, wx * L.r[0] + wz * L.r[2], -(wx * L.f[0] + wz * L.f[2]));
+      place();
+    }
+    raf = requestAnimationFrame(tick);
+  };
+  return {
+    key(e, down) {
+      const k = String(e.key || '').toLowerCase();
+      if (MOVES[k]) {
+        if (down) { held.add(k); if (!raf) raf = requestAnimationFrame(tick); } else held.delete(k);
+        return true;
+      }
+      if (!down) return false;
+      if (k === 'e') { toggleSit(); return true; }
+      if (k === 't') { toggleTv(); return true; }
+      return false;
+    },
+    stop() { if (raf) cancelAnimationFrame(raf); raf = 0; held.clear(); },
+  };
+}

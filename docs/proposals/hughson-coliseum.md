@@ -129,6 +129,8 @@ one is under 30 characters, so `docs:prose` doesn't count the dash in it.
 | The Stands | north of the concourse | the seats, Sir Charles's seat, the organ, the video board on channel 7 |
 | Section Nine | west of the stands | the crater from Chip Vega's chatter, roped off |
 | Club Level | up from the concourse | the bar, the windows over the field |
+| Platinum Box | east of the club level | the big screen (`watch tv`, the game in 3-D), the sofa, the bar and the buffet, both bottomless (`restock_items`, every item worth ₵0) |
+| Box Seats | north of the Platinum Box | the white armchairs behind the glass; `sit` in one and the park opens from it, free. In GLASS 2 the box is a 3-D suite you walk round, hung over the back rows of the lower bowl level with first base, in front of the upper deck (the zone's `stands` section `room`). Nearer home the bowl curves into it |
 | Press Box | up from the club level | Chip Vega's desk and his chair |
 | Plant Room | down from the concourse | the floods' breakers, two taped off; the roof's drive; the junction box |
 | Bleachers | the bleacher gate (`map_int_hughsonbl`) | the benches, the scoreboard; south to the stands |
@@ -258,10 +260,11 @@ nights, and Ray Dombrowski's hours follow them.
 **The roof** is shut on days forecast wet and open on dry ones.
 
 - The same heartbeat decides it for every venue whose tiles carry `flags.venue_roof`, grouped by
-  `building_name` so one park has one answer, from today's forecast, not the sky over the park: shut
-  if the day's forecast is wet (rain, sleet, snow, a storm, a blizzard, ash) or gives a 40% chance or
-  more of anything falling, open otherwise (`roofWeather`). So it moves when the forecast day turns
-  over, not under a passing shower.
+  `building_name` so one park has one answer. It shuts if the day's forecast is wet (rain, sleet,
+  snow, a storm, a blizzard, ash) or colder than 10C (`roofWeather`), and is open otherwise,
+  overcast included. On an open day it shuts the first time anything falls on one of the park's
+  tiles (`roofRainedOn`, read from `getPrecipAtGrid`) and stays shut until the forecast day turns
+  over, so a run of showers doesn't swing it back and forth.
 - Staff can open or shut it now with `sysop roof open|shut` or the Admin app's Roof tab. That call
   holds until the forecast day changes; `sysop roof auto` hands it back sooner.
 - `venue.roof` answers `{ shut }` from that set, synchronous and query-free; the derive puts `vr`

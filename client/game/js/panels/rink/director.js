@@ -1984,7 +1984,7 @@ export function createDirector(W, opts = {}) {
           // the way the hitter was going, chest high: he goes over backwards, skates first
           const hl = hyp(hv[0], hv[1]) || 1, ux = hv[0] / hl, uy = hv[1] / hl;
           impU = [ux * 24, uy * 24, 7]; impL = [-ux * 4, -uy * 4, 4];
-          W.sfx('stick', { x: victim.x });
+          W.sfx('stick', { x: victim.x, y: victim.y });
           break;
         }
         default: impU = [hv[0] * 0.6 - 2, 26, 8]; impL = [hv[0] * 0.3, 9, 1.5];
@@ -1996,7 +1996,7 @@ export function createDirector(W, opts = {}) {
       hitter.tx = hitter.x; hitter.ty = Math.min(hitter.y, RW - 4);
       if (open) at(B, 0.55, () => { hitter.target = null; });
       W.shake = Math.max(W.shake, style === 'glass' ? 1.2 : 0.9); W.crowd = 1; W.hitstop = style === 'glass' ? 0.1 : 0.07;
-      W.sfx('check', { style });
+      W.sfx('check', { style, x: victim.x, y: victim.y });
       W.burst('spray', victim.x, victim.y, 0.3, 14, 7, [0, 4, 3]);
       const hurt = p.injured || fatal;
       if (style === 'elbow' || style === 'behind' || hurt) {
@@ -2088,7 +2088,7 @@ export function createDirector(W, opts = {}) {
       slasher.face = Math.atan2(victim.y - slasher.y, victim.x - slasher.x);
       W.act(slasher, 'slash', SWING, { low });
       at(B, SWING * CHOP, () => {
-        W.sfx('stick', { x: victim.x }); W.crowd = Math.max(W.crowd || 0, 0.6);
+        W.sfx('stick', { x: victim.x, y: victim.y }); W.crowd = Math.max(W.crowd || 0, 0.6);
         victim.react = 0.7; victim.reactSide = 1;
         if (where === 'legs') W.act(victim, 'stagger', 0.6);
         if (where === 'stick' && victim.stick) {

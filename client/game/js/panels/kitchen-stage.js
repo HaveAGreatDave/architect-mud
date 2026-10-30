@@ -498,7 +498,6 @@ function build(dt) {
     const m = matterFor(c.look.profile, c.look.matter);
     KS.shelfPiece(b, m, pieceOf(m, c), KS.piecesOf(m, []).whole, beatOf(c.cook), KS.pose(shelfSpot(i), 0.3 * i), 11 + i);
   }
-  if (!S.knife && kit().blade) KS.knife(b, KS.pose([KS.STATIONS.board + 4, 10.5, KS.BOARD.h + 0.1], -0.2, Math.PI / 2));
   // the pass: a plate, with what is being laid out on it or the last dish served
   if (kit().plate) KS.plate(b, KS.pose([KS.STATIONS.pass, 0, 1.2]));
   // the fridge and freezer, standing at the left end of the counter
@@ -556,9 +555,17 @@ function buildKnife(b, dt) {
   const X = (f) => o[0] + k.bb.x0 + (k.bb.x1 - k.bb.x0) * f, edge = k.bb.y0 - 2.5;
   for (const g of k.guides) KS.slab(b, [X(g) - 0.25, edge - 1.2, o[2]], [X(g) + 0.25, edge, o[2] + 0.3], KS.COLOURS.guide, 0.05);
   KS.slab(b, [X(k.sweep) - 0.5, edge - 3.4, o[2]], [X(k.sweep) + 0.5, edge - 1.6, o[2] + 0.8], KS.COLOURS.marker, 0.1);
-  // the knife, held over the food: where the stroke is when one is being drawn, else over the marker
-  const bx = k.blade ? k.blade[0] : X(k.sweep), lift = k.blade ? 0.2 : 4;
-  KS.knife(b, KS.pose([bx, k.bb.y1 + 4, o[2] + lift + k.m.form.h * 0.2], -Math.PI / 2, -0.35));
+  // the knife, in the hand: at the stroke while one is drawn, else at the pointer, else over the marker
+  const h = S.hover;
+  const bx = k.blade ? k.blade[0] : h ? h[0] : X(k.sweep);
+  const by = h && !k.blade ? h[1] : (k.bb.y0 + k.bb.y1) / 2;
+  heldKnife(b, [bx, by, o[2] + (k.blade ? 0.2 : k.m.form.h + 1.5)]);
+}
+
+// A knife in the hand, upright with its edge down and square across the food, the middle of the
+// edge at `at` and the handle towards you.
+function heldKnife(b, at) {
+  KS.knife(b, KS.pose([at[0], at[1] - 11, at[2]], Math.PI / 2, 0));
 }
 
 function cutAt(at, tilt, slow) {
@@ -986,7 +993,6 @@ function onUp(e) {
 // the back of the counter behind it. What you walked in carrying stays in your bag until you do.
 const shelf = () => foods().filter((c) => S.out.has(c.id) && (c.id !== S.board || S.knife));
 const shelfSpot = (i) => [KS.STATIONS.board - 30 + (i % 8) * 9, 22 + Math.floor(i / 8) * 9, 0];
-const KNIFE_AT = () => [KS.STATIONS.board + 4, 10.5, KS.BOARD.h];
 const PLATE_AT = () => [KS.STATIONS.pass, 0, 1.2];
 // The pan on the heat sits on the ring; the rest wait on the rack: the spare rings behind, then
 // the counter to the right of the hob.
@@ -1017,7 +1023,6 @@ function panNear(at) {
 function hitObject(e) {
   const pan = panOf(S.data), items = shelf();
   for (let i = 0; i < items.length; i++) if (near(e, shelfSpot(i), 26)) return { kind: 'shelf', id: items[i].id };
-  if (!S.knife && kit().blade && near(e, KNIFE_AT(), 40)) return { kind: 'knife' };
   for (const [i, box] of coldBoxes().entries()) if (near(e, boxFront(i), 110)) return { kind: 'box', id: box.id };
   const other = otherPanAt(e);
   if (other) return { kind: 'pan', id: other.id };
@@ -1817,13 +1822,18 @@ function hoverAt(e) {
     if (hit) showColdTip(hit, e); else hideTip();
     return;
   }
+  if (S.knife && S.station === 'board' && !S.menu && e.target === S.gl) {
+    S.hover = planeHit(e, KS.BOARD.h);
+    S.gl.style.cursor = S.hover ? 'none' : '';
+    return;
+  }
   if (S.tool === 'hand' || S.menu || S.knife || S.dress || e.target !== S.gl) { S.hover = null; S.gl.style.cursor = ''; return; }
   S.hover = planeHit(e, KS.PAN_Z + 7);
   S.gl.style.cursor = S.hover ? 'none' : '';
 }
 function buildTool(b) {
   const h = S.hover;
-  if (!h || S.cold || S.drag?.kind === 'pan' && S.spoon || S.tool === 'hand') return;
+  if (!h || S.cold || S.knife || S.drag?.kind === 'pan' && S.spoon || S.tool === 'hand') return;
   const at = [h[0], h[1], h[2]], col = KS.COLOURS.handle, steel = KS.COLOURS.blade;
   // a soft shadow on the counter under the utensil, so you can tell how high it is
   M.disc(b, [at[0], at[1], 0.3], [0, 0, 1], 3.2, SHADOW, 14, 0.05);
@@ -1834,7 +1844,7 @@ function buildTool(b) {
     KS.prism(b, [[-3.5, -3], [3.5, -3], [3, 3], [-3, 3]], 0.3, 0.05, steel, KS.pose(at, 0.5));
     M.tube(b, [at[0] + 1.2, at[1] - 3, at[2] + 0.2], [at[0] + 5, at[1] - 14, at[2] + 12], 0.5, 0.7, col, 6);
   } else if (S.tool === 'knife') {
-    KS.knife(b, KS.pose([at[0] - 6, at[1] - 2, at[2] + 2], -0.6, Math.PI / 2));
+    heldKnife(b, at);
   }
 }
 

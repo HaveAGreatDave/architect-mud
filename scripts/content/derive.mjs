@@ -654,7 +654,7 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   cinema: 'bldg_cinema', bookmaker: 'bldg_bookmaker', taxidermist: 'bldg_taxidermist',
   lending_library: 'bldg_lending_library',
   pool_hall: 'bldg_pool_hall', amusements: 'bldg_amusements',
-  fishmonger: 'bldg_fishmonger', cobbler: 'bldg_cobbler',
+  fishmonger: 'bldg_fishmonger', cobbler: 'bldg_cobbler', tailor: 'bldg_tailor',
   // The Codfather as a works: a fish over a stack of boxes. (`fish_quay` and `staff_lot` need no
   // row: neither is a facade, and the icon lookup is gated on one.)
   fish_works: 'bldg_fishworks',

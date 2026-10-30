@@ -75,7 +75,9 @@ export function flashesAt(t, loud, n) {
 // for less motion, who gets the crowd up without the bouncing; uLook where the play is on the
 // field (x, z, and how much it holds them, 0 to 1), which the fans' heads turn to follow, each
 // as far as his own interest takes him. Sat quiet, each leans forward and back on his own slow
-// beat and his head wanders when nothing holds it.
+// beat and his head wanders when nothing holds it. uFanHome and uFanAway are the two clubs'
+// colours (linear), worn while uFanKit is 1: 30% of the park in the home side's, 10% in the
+// visitors'.
 export const CROWD_VS = `#version 300 es
 layout(location = 0) in vec3 aSit;
 layout(location = 1) in vec3 aSitN;
@@ -93,18 +95,21 @@ uniform vec2 uRoar;
 uniform float uT;
 uniform float uMove;
 uniform vec3 uLook;
+uniform vec3 uFanHome; uniform vec3 uFanAway; uniform float uFanKit;
 out vec3 vPos; out vec3 vN; out vec3 vAlb;
 float hash(vec2 p, vec2 k, float m) { return fract(sin(dot(p, k)) * m); }
 void main() {
   float h = hash(iA.xz, vec2(12.99, 78.23), 43758.5), h2 = hash(iA.xz, vec2(39.35, 11.13), 24634.6);
   float h3 = hash(iA.xz, vec2(53.71, 27.19), 31887.3);
-  // whose fan he is: the visitors' are thicker up the third-base line (+x), by their dugout
-  float away = step(hash(iA.xz, vec2(7.17, 91.3), 13371.3), iA.x > 0.0 ? 0.3 : 0.06);
+  // whose fan he is: a tenth of the park the visitors', thicker up the third-base line (+x) by
+  // their dugout
+  float away = step(hash(iA.xz, vec2(7.17, 91.3), 13371.3), iA.x > 0.0 ? 0.16 : 0.04);
   float roar = mix(uRoar.x, uRoar.y, away);
   // he's up once the roar passes his own threshold, the keenest at the least
   float thr = 0.12 + 0.75 * h2, up = smoothstep(thr, thr + 0.18, roar);
-  // his pose, from where he rests up through standing to cheering
-  float k = max(uBase * 0.5, up);
+  // his pose, from where he rests up through standing to cheering; he rests standing at most, so
+  // arms go up only when the roar takes him there
+  float k = max(min(uBase, 1.0) * 0.5, up);
   vec3 p = k < 0.5 ? mix(aSit, aStand, k * 2.0) : mix(aStand, aCheer, k * 2.0 - 1.0);
   vec3 n = k < 0.5 ? mix(aSitN, aStandN, k * 2.0) : mix(aStandN, aCheerN, k * 2.0 - 1.0);
   float c = cos(iA.w), s = sin(iA.w);
@@ -144,7 +149,9 @@ void main() {
   vec3 hair = h6 < 0.34 ? mix(vec3(0.03, 0.04, 0.12), vec3(0.32, 0.03, 0.03), step(0.17, h6)) * (0.8 + 0.4 * h7)
     : h6 < 0.62 ? vec3(0.02, 0.016, 0.012) + 0.03 * h : h6 < 0.82 ? vec3(0.09, 0.05, 0.025) : h6 < 0.93 ? vec3(0.32, 0.22, 0.1) : vec3(0.3, 0.29, 0.27);
   vec3 jacket = h7 < 0.4 ? vec3(0.025, 0.025, 0.03) : h7 < 0.7 ? vec3(0.03, 0.045, 0.09) : h7 < 0.85 ? vec3(0.09, 0.1, 0.06) : vec3(0.12, 0.14, 0.18);
-  vec3 shirt = (h2 < 0.25 && abs(aPart - 1.25) < 0.1) ? jacket : iB.rgb;
+  // in his club's colour: every visitors' fan and a third of the rest, with no jacket over it
+  float club = uFanKit * max(away, step(hash(iA.xz, vec2(61.7, 19.3), 15731.9), 1.0 / 3.0));
+  vec3 shirt = club > 0.5 ? mix(uFanHome, uFanAway, away) : (h2 < 0.25 && abs(aPart - 1.25) < 0.1) ? jacket : iB.rgb;
   vec3 dark = abs(aPart - 3.0) < 0.1 ? hair : vec3(0.02, 0.016, 0.012) + 0.05 * h;
   vAlb = aPart < 0.5 ? iC : (aPart < 1.5 ? shirt : (aPart < 2.5 ? pants : (aPart < 3.5 ? dark : vec3(0.82, 0.62, 0.16))));
   vPos = w; gl_Position = uVP * vec4(w, 1.0);
@@ -168,15 +175,16 @@ uniform vec2 uRoar;
 uniform float uT;
 uniform float uMove;
 uniform vec3 uEyeC;
+uniform vec3 uFanHome; uniform vec3 uFanAway; uniform float uFanKit;
 out vec3 vPos; out vec3 vN; out vec2 vQ;
 flat out vec3 vShirt; flat out vec3 vSkin; flat out vec3 vHair; flat out float vK; flat out float vH;
 float hash(vec2 p, vec2 k, float m) { return fract(sin(dot(p, k)) * m); }
 void main() {
   float h = hash(iA.xz, vec2(12.99, 78.23), 43758.5), h2 = hash(iA.xz, vec2(39.35, 11.13), 24634.6);
-  float away = step(hash(iA.xz, vec2(7.17, 91.3), 13371.3), iA.x > 0.0 ? 0.3 : 0.06);
+  float away = step(hash(iA.xz, vec2(7.17, 91.3), 13371.3), iA.x > 0.0 ? 0.16 : 0.04);
   float roar = mix(uRoar.x, uRoar.y, away);
   float thr = 0.12 + 0.75 * h2, up = smoothstep(thr, thr + 0.18, roar);
-  float k = max(uBase * 0.5, up);
+  float k = max(min(uBase, 1.0) * 0.5, up);
   // the top of his head sitting and standing (gl/ballpark-mesh.js CROWD_POSE), his hands over it
   // when he cheers
   float h4 = hash(iA.xz, vec2(17.31, 63.77), 21357.9), h5 = hash(iA.xz, vec2(71.13, 5.29), 37771.1);
@@ -192,7 +200,8 @@ void main() {
   vHair = h6 < 0.34 ? mix(vec3(0.03, 0.04, 0.12), vec3(0.32, 0.03, 0.03), step(0.17, h6)) * (0.8 + 0.4 * h7)
     : h6 < 0.62 ? vec3(0.02, 0.016, 0.012) + 0.03 * h : h6 < 0.82 ? vec3(0.09, 0.05, 0.025) : h6 < 0.93 ? vec3(0.32, 0.22, 0.1) : vec3(0.3, 0.29, 0.27);
   vec3 jacket = h7 < 0.4 ? vec3(0.025, 0.025, 0.03) : h7 < 0.7 ? vec3(0.03, 0.045, 0.09) : h7 < 0.85 ? vec3(0.09, 0.1, 0.06) : vec3(0.12, 0.14, 0.18);
-  vShirt = h2 < 0.25 ? jacket : iB.rgb; vSkin = iC; vK = k; vH = H;
+  float club = uFanKit * max(away, step(hash(iA.xz, vec2(61.7, 19.3), 15731.9), 1.0 / 3.0));
+  vShirt = club > 0.5 ? mix(uFanHome, uFanAway, away) : h2 < 0.25 ? jacket : iB.rgb; vSkin = iC; vK = k; vH = H;
   vPos = w; gl_Position = uVP * vec4(w, 1.0);
 }`;
 // The card's corners: two triangles, x across and y up.

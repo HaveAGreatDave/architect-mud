@@ -1,25 +1,21 @@
 {
   "ambient_theme": "indoors",
-  "description": "An empty shop with the fryers gone and four bright squares on the tiles where they stood. The counter is still bolted to the floor. Daylight comes in round the edges of the boards over the window. A safe is set into the back wall with its door open.",
+  "description": "A long narrow shop with a cutting table down the middle, bolts of cloth along one wall and a curtained fitting cubicle at the back. Two sewing machines sit under the window. The old chip counter has a cloth over it now, and finished jackets hang on a rail by the door. The street is <b>east</b>.",
   "exits": {
     "down": "zone_util_zone_sf_ironside5_shop",
     "east": "zone_district_918_907"
   },
   "flags": {
-    "building_name": "Unit 5, Ironside Street",
-    "building_type": "shop",
-    "floor": "tile",
+    "building_name": "Alter Ego",
+    "building_type": "tailor",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
-    "is_storefront": true,
-    "shop_price": 6500,
-    "shop_term": 10,
-    "shop_upkeep": 45,
     "window": {
-      "description": "Sheets of ply screwed over the shop window from outside. Light gets in round the edges, and so does the noise of Ironside Street.",
-      "light": 0.35,
-      "name": "the boarded window",
-      "visibility": 0.1
+      "description": "The shop window, clean now, with the back of the dummy in it. Past its shoulder is Ironside Street and whoever is walking past, mostly looking at the jacket.",
+      "light": 0.8,
+      "name": "the shop window",
+      "visibility": 0.8
     },
     "world_exit_zone": "zone_district_918_907"
   },
@@ -28,6 +24,14 @@
   "grid_z": 0,
   "id": "zone_sf_ironside5_shop",
   "map_id": "map_int_sf_ironside5",
-  "name": "Unit 5, Ironside Street",
-  "parent_zone": "zone_district_918_907"
+  "name": "Alter Ego",
+  "parent_zone": "zone_district_918_907",
+  "bg_color": "#1e2230",
+  "color": "#c9b98a",
+  "ambient_events": [
+    "The electric machine runs a seam in one long burst and stops.",
+    "Shears go through cloth on the cutting table in three clean bites.",
+    "The steam iron hisses on its rest.",
+    "Somebody behind the fitting curtain says it is fine, it is fine, it is a bit tight."
+  ]
 }

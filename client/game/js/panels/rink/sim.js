@@ -536,7 +536,7 @@ export function createWorld(ice, seedKey) {
       pk.x = c.x; pk.y = c.y;
       if (vn < 0) {
         pk.vx -= 1.55 * vn * c.nx; pk.vy -= 1.55 * vn * c.ny;
-        if (-vn > 18) { W.sfx(pk.z > BOARD_H ? 'glass' : 'boards', { puck: true, speed: -vn, x: pk.x }); W.boardShake = Math.max(W.boardShake, Math.min(0.5, -vn / 120)); }
+        if (-vn > 18) { W.sfx(pk.z > BOARD_H ? 'glass' : 'boards', { puck: true, speed: -vn, x: pk.x, y: pk.y }); W.boardShake = Math.max(W.boardShake, Math.min(0.5, -vn / 120)); }
         if (-vn > 30 && pk.z < 0.5) W.ice.puckMark(pk.x, pk.y, -c.nx, -c.ny);
       }
     }
@@ -852,12 +852,12 @@ export function createWorld(ice, seedKey) {
           W.act(b, 'stop', 0.5, side);
         } W.burst('spray', b.x + b.vx * 0.05, b.y + b.vy * 0.05, 0.2, 7, 5, [b.vx * 0.4, b.vy * 0.4, 2.5]);
         W.ice.scrape(b.x - Math.sin(b.h) * 0.4, b.y + Math.cos(b.h) * 0.4, b.vx, b.vy, clamp(sp * 0.22, 1.6, 4.5), (W.t * 977) | 0);
-        if (sp > 14 && rand() < 0.4) W.sfx('stop', { x: b.x });
+        if (sp > 14 && rand() < 0.4) W.sfx('stop', { x: b.x, y: b.y });
       }
       // a hard turn at speed scrapes: now and then, not every man every step (three seconds
       // between one man's, and the rink spaces them all out; no dice, so the play's own rolls
       // aren't moved)
-      if (sp > 12 && Math.abs(b.turnRate) > 2.6 && W.t - (b.turnSfxAt || -9) > 3 && b.kind === 'skater') { b.turnSfxAt = W.t; W.sfx('turn', { x: b.x }); }
+      if (sp > 12 && Math.abs(b.turnRate) > 2.6 && W.t - (b.turnSfxAt || -9) > 3 && b.kind === 'skater') { b.turnSfxAt = W.t; W.sfx('turn', { x: b.x, y: b.y }); }
       // THE BLADES SCORE THE ICE, from where the blades actually are. Each skate's runner is
       // traced while it is down, so the marks are the real push arcs and crossovers the
       // stride makes, and a lifted skate leaves a gap. A man missing a leg drags the stump.
@@ -1206,7 +1206,7 @@ export function createWorld(ice, seedKey) {
       if (rand() < p) {
         W.act(c, 'stagger', 0.6); c.react = 0.5; c.shaky = 0.4;
         W.loose((c.vx || 0) * 0.5 + (rand() - 0.5) * 14, (c.vy || 0) * 0.5 + (wall ? (MID_Y - c.y) * 0.3 : (rand() - 0.5) * 14), 0);
-        W.sfx('check', { soft: !wall }); if (wall) W.boardShake = Math.max(W.boardShake, 0.3);
+        W.sfx('check', { soft: !wall, x: c.x, y: c.y }); if (wall) W.boardShake = Math.max(W.boardShake, 0.3);
         return true;
       }
       // missed him: carried on past where he was, and a while turning back
@@ -1531,7 +1531,7 @@ export function createWorld(ice, seedKey) {
       m.chkAt = W.t + 0.45 + ((m.seed + n * 7) % 5) * 0.08;
       if (k === 'shove') {
         m.target = foe; foe.react = Math.max(foe.react || 0, 0.35);
-        if (foe.y < 7 || foe.y > RW - 7 || foe.x < 14 || foe.x > RL - 14) { W.boardShake = Math.max(W.boardShake, 0.25); W.sfx('boards', { x: foe.x, speed: 8 }); }
+        if (foe.y < 7 || foe.y > RW - 7 || foe.x < 14 || foe.x > RL - 14) { W.boardShake = Math.max(W.boardShake, 0.25); W.sfx('boards', { x: foe.x, y: foe.y, speed: 8 }); }
       } else W.sfx(k === 'sweep' ? 'sweep' : 'stick', { x: m.x });
       W.act(m, k, k === 'shove' ? 0.5 : 0.4);
       // IN THE BETWEEN-PLAYS GAME IT CAN WORK. A man leaning on the carrier and going at the

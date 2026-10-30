@@ -16,13 +16,31 @@
       "sport": "baseball",
       "sections": [
         {
+          "id": "diamond",
+          "name": "The Diamond Club",
+          "price": 75,
+          "eye": [
+            0,
+            4.6,
+            -61.5
+          ],
+          "note": "field level behind the plate, no net",
+          "across": 9,
+          "rows": 4,
+          "pitch": 3.1,
+          "row": [
+            2.7,
+            0.8
+          ]
+        },
+        {
           "id": "plate",
           "name": "Behind the Plate",
           "price": 40,
           "eye": [
             0,
-            12,
-            -64
+            14.3,
+            -72.4
           ],
           "note": "the pitch coming at you"
         },
@@ -60,8 +78,52 @@
           "note": "the whole field below you"
         },
         {
+          "id": "upperfirst",
+          "name": "Upper Deck First",
+          "price": 12,
+          "eye": [
+            -144,
+            78,
+            -3
+          ],
+          "note": "high over the first-base side"
+        },
+        {
+          "id": "upperthird",
+          "name": "Upper Deck Third",
+          "price": 12,
+          "eye": [
+            144,
+            78,
+            -3
+          ],
+          "note": "high over the third-base side"
+        },
+        {
+          "id": "leftline",
+          "name": "Left-Field Line",
+          "price": 18,
+          "eye": [
+            215,
+            11,
+            139
+          ],
+          "note": "out by the left-field pole"
+        },
+        {
+          "id": "rightline",
+          "name": "Right-Field Line",
+          "price": 18,
+          "eye": [
+            -215,
+            11,
+            139
+          ],
+          "note": "out by the right-field pole"
+        },
+        {
           "id": "bleachers",
-          "name": "The Bleachers",
+          "name": "Left-Field Bleachers",
           "price": 6,
           "eye": [
             169,
@@ -69,6 +131,17 @@
             361
           ],
           "note": "left-centre, past the wall"
+        },
+        {
+          "id": "rightbleachers",
+          "name": "Right-Field Bleachers",
+          "price": 6,
+          "eye": [
+            -169,
+            27,
+            361
+          ],
+          "note": "right-centre, past the wall"
         }
       ]
     },

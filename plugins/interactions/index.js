@@ -44,6 +44,7 @@ import { registerAction, dispatchAction } from "../../server/engine/actions.js";
 import { setPosture } from "../../server/engine/posture.js";
 import { findTransformByName, isTransformed } from "../../server/engine/phantoms.js";
 import { query } from "../../server/models/db.js";
+import { fireHook } from "../../server/engine/plugins.js";
 
 // ---------------------------------------------------------------------------
 // Context helpers
@@ -551,6 +552,9 @@ async function cmdLean(args, raw, player, broadcast) {
 // ---------------------------------------------------------------------------
 
 async function cmdWatch(args, raw, player, broadcast) {
+	// A set another plugin draws (the stands' big screen) claims the sentence first.
+	const claimed = await fireHook("watch.furniture", { player, args });
+	if (claimed !== undefined) return claimed;
 	const { env, vis, zone } = getCtx(player);
 	const mod = envMod(env, vis, zone);
 	const target = stripPrep(args, ["on", "at"]);

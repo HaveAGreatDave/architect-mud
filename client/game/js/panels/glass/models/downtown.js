@@ -511,6 +511,20 @@ function palaisLights(ctx, cam, F, E, k, out, off, dX, night, alpha) {
   for (const u of [0.195, -0.43]) bay(u * out, 0.024);
   // Two on the outer flank. A flank part's `cx` runs along −y and `cy` is the flank's plane.
   for (const ly of [-0.24, -0.08]) bay(-ly, 0.034, out * PAL.wHW, 'x');
+  // The back, over the park: five lights with spandrels, piers between, the middle one wider.
+  // A part's outward normal is the sign of `cy`, so the bays face the park with no `face`.
+  const yb = PAL.wBack, back = [0, -1, 0];
+  for (const lx of [-0.32, -0.16, 0, 0.16, 0.32]) {
+    const half = lx ? 0.034 : 0.046;
+    bay(lx, half, yb);
+    k.paint([[lx + half, yb - 0.004, sz1], [lx - half, yb - 0.004, sz1], [lx - half, yb - 0.004, sz0], [lx + half, yb - 0.004, sz0]], back, [104, 76, 46]);
+  }
+  for (const lx of [-0.40, -0.24, -0.08, 0.08, 0.24, 0.40]) {
+    k.B(off + lx, yb - 0.012, 0.014, 0.012, PAL.course, PAL.cornice + 0.02, PAL_TRIM, 60 + Math.round(lx * 50));
+    k.B(off + lx, yb - 0.012, 0.008, 0.008, PAL.cornice + 0.02, PAL.cornice + 0.04, PAL_TRIM, 70 + Math.round(lx * 50));
+  }
+  // A bronze plaque over the middle light.
+  k.paint([[0.07, yb - 0.004, 0.548], [-0.07, yb - 0.004, 0.548], [-0.07, yb - 0.004, 0.538], [0.07, yb - 0.004, 0.538]], back, [96, 70, 42]);
 }
 // One foyer. `off` is the tile's centre on X and which way is out: +1 box office, −1 bar.
 function palaisFoyer(ctx, cam, F, W3, E, m, seed, night, alpha, now, frontVis, off) {
@@ -2223,7 +2237,24 @@ export const DOWNTOWN_ARMS = {
       { const y = PAL.tBack - 0.003, out = [0, -1, 0];
         k.paint([[0.09, y, 0.25], [-0.09, y, 0.25], [-0.09, y, 0.004], [0.09, y, 0.004]], out, [74, 72, 66]);
         for (let i = 1; i < 6; i++) { const z = 0.004 + 0.246 * i / 6; k.paint([[0.085, y - 0.001, z + 0.003], [-0.085, y - 0.001, z + 0.003], [-0.085, y - 0.001, z - 0.003], [0.085, y - 0.001, z - 0.003]], out, [52, 50, 46]); }
-        if (dn > 0) { const [lx, ly] = k.at(0, y - 0.04); glowPool(ctx, cam, lx, ly, 0.27, '255,214,160', 9, alpha * 0.4 * dn); } } }
+        if (dn > 0) { const [lx, ly] = k.at(0, y - 0.04); glowPool(ctx, cam, lx, ly, 0.27, '255,214,160', 9, alpha * 0.4 * dn); }
+        // Tall slot lights between the pilasters, in bronze frames, and a stepped one over the dock.
+        const slot = (a, b, z0, z1) => {
+          k.paint([[b + 0.008, y, z1 + 0.008], [a - 0.008, y, z1 + 0.008], [a - 0.008, y, z0 - 0.008], [b + 0.008, y, z0 - 0.008]], out, [96, 70, 42]);
+          k.glow([[b, y - 0.001, z1], [a, y - 0.001, z1], [a, y - 0.001, z0], [b, y - 0.001, z0]], out, [70, 86, 96], [255, 228, 176]);
+        };
+        for (const s of [-1, 1]) { slot(s > 0 ? 0.145 : -0.195, s > 0 ? 0.195 : -0.145, 0.42, 0.92); slot(s > 0 ? 0.272 : -0.298, s > 0 ? 0.298 : -0.272, 0.48, 0.86); }
+        slot(-0.03, 0.03, 0.36, 0.96);
+        slot(-0.065, -0.045, 0.40, 0.90); slot(0.045, 0.065, 0.40, 0.90);
+        // Chevrons over the dock door and a band of speed lines across the house.
+        for (const z of [0.29, 0.31]) B(0, y - 0.004, 0.10, 0.004, z, z + 0.008, PAL_TRIM, 35 + (z > 0.3));
+        for (const z of [0.97, 0.99]) B(0, y - 0.004, PAL.tHW - 0.01, 0.004, z, z + 0.008, PAL_TRIM, 37 + (z > 0.98));
+        // The scene docks' backs: a high light and two lines each.
+        for (const s of [-1, 1]) {
+          const X = s * 0.41, yd = cy + 0.01 - (fd - 0.01) - 0.002;
+          k.glow([[X + 0.05, yd, 0.29], [X - 0.05, yd, 0.29], [X - 0.05, yd, 0.24], [X + 0.05, yd, 0.24]], out, [70, 86, 96], [255, 228, 176]);
+          for (const z of [0.18, 0.20]) B(X, yd - 0.002, 0.09, 0.003, z, z + 0.006, PAL_TRIM, 80 + s + (z > 0.19 ? 4 : 0));
+        } } }
     // The stepped frontispiece and its fins.
     { const cy = (PAL.fFront + PAL.fBack) / 2, fd = (PAL.fFront - PAL.fBack) / 2;
       B(0, cy, PAL.fHW, fd, 0, PAL.fTop, roofed(PAL_STONE), 40);

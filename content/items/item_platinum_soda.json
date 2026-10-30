@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_platinum_soda",
+  "name": "glass bottle of cola",
+  "tags": {
+    "consumable": true,
+    "description": "Cola in a glass bottle, so cold it hurts your teeth.",
+    "food_profile": "liquid",
+    "hydrating": true,
+    "restore_thirst": 35,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 0,
+  "weight": 330
+}

@@ -448,6 +448,47 @@ export function breathe(P, t, seed = 0, w = 1) {
   add3('neck', [0, 3 * look, 0]);
   add3('head', [0.8 * breath, 7 * look, 0]);
   if (!P.bat) for (const k of ['wrL', 'wrR']) if (P[k]) out[k] = [P[k][0], P[k][1] + 0.03 * breath, P[k][2]];
+  return fidget(out, t, seed, w);
+}
+
+// Every so often a man stood about does something: looks round the park, stretches his back,
+// rolls his shoulders, shakes his arms out or shifts onto one leg. One gesture of FIDGET_LEN
+// seconds every FIDGET_EVERY or so, which one and when off his slot and the episode, so two men
+// never do the same thing together and the same moment always draws the same.
+const FIDGET_EVERY = 11, FIDGET_LEN = 2.8;
+const FIDGETS = ['look', 'stretch', 'shrug', 'shake', 'shift', 'look'];
+function fidget(P, t, seed, w) {
+  const h = hashStr('fidget:' + seed), period = FIDGET_EVERY * (0.8 + ((h & 255) / 255) * 0.9);
+  const sh = t + ((h >>> 8) & 1023) / 1023 * period, n = Math.floor(sh / period);
+  const e = hashStr(`fidget:${seed}:${n}`);
+  // where in the period it starts, so the gaps between gestures aren't even
+  const start = ((e & 255) / 255) * (period - FIDGET_LEN), u = (sh - n * period - start) / FIDGET_LEN;
+  if (u <= 0 || u >= 1) return P;
+  const env = Math.sin(Math.PI * u) ** 2 * w, side = (e >>> 8) & 1 ? 1 : -1, kind = FIDGETS[((e >>> 9) & 255) % FIDGETS.length];
+  const out = { ...P };
+  const add3 = (k, d) => { const v = P[k] || [0, 0, 0]; out[k] = [(v[0] || 0) + d[0] * env, (v[1] || 0) + d[1] * env, (v[2] || 0) + d[2] * env]; };
+  const wrists = (f) => { if (!P.bat) for (const [k, s] of [['wrL', -1], ['wrR', 1]]) if (P[k]) { const d = f(s); out[k] = [P[k][0] + d[0] * env, P[k][1] + d[1] * env, P[k][2] + d[2] * env]; } };
+  if (kind === 'look') {
+    // round to one side and back past the middle: the stands, the board, the sky
+    const sweep = Math.sin(Math.PI * 2 * u) * 0.4 + side;
+    add3('neck', [0, 14 * sweep, 0]); add3('head', [-6, 26 * sweep, 0]); add3('chest', [0, 6 * sweep, 0]);
+  } else if (kind === 'stretch') {
+    // leans back and twists, hands coming up
+    add3('spine', [-8, 12 * side, 0]); add3('chest', [-6, 10 * side, 0]); add3('head', [-10, 0, 0]);
+    wrists((s) => [0.05 * s, 0.25, 0]);
+  } else if (kind === 'shrug') {
+    const roll = Math.sin(Math.PI * 4 * u);
+    add3('chest', [3 * roll, 0, 2 * roll]); add3('head', [-3 * roll, 0, 0]);
+    wrists(() => [0, 0.07 * roll, 0]);
+  } else if (kind === 'shake') {
+    const jig = Math.sin(t * Math.PI * 2 * 3.2);
+    wrists((s) => [0.04 * jig * s, 0.05 * jig, 0.03 * jig]);
+    add3('chest', [0, 0, 1.5 * jig]);
+  } else if (P.pelvis) {
+    // onto one leg and back: the hip drops toward it and the shoulders level against it
+    out.pelvis = [P.pelvis[0] + 0.14 * side * env, P.pelvis[1] - 0.03 * env, P.pelvis[2]];
+    add3('spine', [0, 0, -4 * side]); add3('chest', [0, 0, 3 * side]);
+  }
   return out;
 }
 

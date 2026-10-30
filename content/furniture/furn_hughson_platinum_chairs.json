@@ -1,0 +1,21 @@
+{
+  "description": "White leather armchairs in two rows behind the glass, numbered in brass. Sit in one and the game is in front of you.",
+  "flags": {
+    "aliases": [
+      "chair",
+      "chairs",
+      "armchair",
+      "armchairs",
+      "seat",
+      "seats"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "stands_section": "platinum"
+  },
+  "id": "furn_hughson_platinum_chairs",
+  "name": "the armchairs",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_platinum_box"
+}

@@ -106,7 +106,7 @@ function roofText() {
   const r = venueRoofView();
   if (!r.venue) return '<b>Roof</b>: no venue';
   const f = r.forecast;
-  return `<b>Roof</b> (${r.venue}): ${r.shut ? 'shut' : 'open'} · ${r.manual ? `held ${r.manual} by staff today` : 'on the forecast'}${f ? ` · forecast ${f.weatherType}, ${f.precipPct}% (says ${f.shut ? 'shut' : 'open'})` : ''}`;
+  return `<b>Roof</b> (${r.venue}): ${r.shut ? 'shut' : 'open'} · ${r.manual ? `held ${r.manual} by staff today` : 'on the forecast'}${f ? ` · forecast ${f.weatherType}, ${f.tempC}C, ${f.precipPct}% (says ${f.shut ? 'shut' : 'open'})` : ''}${r.rained ? ' · rained on today' : ''}`;
 }
 
 export function weatherEventOptions() { return heroEventTypes(); }

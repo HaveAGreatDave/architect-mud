@@ -84,10 +84,12 @@ export function skyLook(hour, o = {}) {
   const we = weatherOf(o.wx), cover = 1 - we.stars;
   const hor = lift(NIGHT.hor, lin(s.hor), lin(n.hor)), horAway = lift(NIGHT.hor, away, nAway);
   const fog = lift(NIGHT.fog, away, nAway).map((v, i) => v + glow[i] * (we.glow - 1) * 0.5);
+  // and a clouded sky is grey: the blue goes out of it, and a little of its light, by how covered it is
+  const grey = (c) => (cover ? mix(c, c.map(() => lum(c) * 0.8), cover * 0.85) : c);
   return {
     ...NIGHT,
-    zen: lift(NIGHT.zen, lin(s.top), lin(n.top)), hor: cover ? mix(hor, horAway, cover * 0.75) : hor, horAway,
-    up: lift(NIGHT.up, lin(s.top), lin(n.top)), dn: lift(NIGHT.dn, lin(s.g1), lin(n.g1)), fog,
+    zen: grey(lift(NIGHT.zen, lin(s.top), lin(n.top))), hor: grey(cover ? mix(hor, horAway, cover * 0.75) : hor), horAway: grey(horAway),
+    up: grey(lift(NIGHT.up, lin(s.top), lin(n.top))), dn: lift(NIGHT.dn, lin(s.g1), lin(n.g1)), fog,
     glow: glow.map((v) => v * we.glow), fogDens: NIGHT.fogDens * we.haze,
     cityLit: NIGHT.cityLit * smooth(DUSK.windows[0], DUSK.windows[1], s.night) * we.city,
     pool: NIGHT.pool * smooth(DUSK.lamps[0], DUSK.lamps[1], s.night) * we.city,

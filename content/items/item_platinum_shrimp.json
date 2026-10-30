@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_platinum_shrimp",
+  "name": "shrimp cocktail",
+  "tags": {
+    "consumable": true,
+    "description": "Six shrimp hooked over the rim of a glass of red sauce, on crushed ice. Somebody peeled them.",
+    "restore_hunger": 14,
+    "restore_sanity": 4,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 0,
+  "weight": 220
+}

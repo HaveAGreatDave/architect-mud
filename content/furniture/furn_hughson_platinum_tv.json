@@ -1,0 +1,17 @@
+{
+  "description": "A television as wide as the wall, showing the game from the broadcast's cameras whenever there is one. Watch it and the park is in the room with you.",
+  "flags": {
+    "aliases": [
+      "tv",
+      "television",
+      "screen",
+      "big screen"
+    ],
+    "stands_screen": true,
+    "stands_room": "zone_hughson_platinum_box"
+  },
+  "id": "furn_hughson_platinum_tv",
+  "name": "the big screen",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_platinum"
+}

@@ -14,7 +14,7 @@
 // (client/shared/city-set.js via gl/cityscape.js, sodium pools, gl/curtain.js), reached by the
 // towers through a narrower beam.
 // Frame order (docs/proposals/deadball-glass2.md): 1. tower shadow maps (gl/spotshadow.js);
-// 2. main pass: sky, park, city, crowd, net, then pools, Curtain and spectacle (gl/spectacle.js)
+// 2. main pass: sky, park, city, crowd, glass, then pools, Curtain and spectacle (gl/spectacle.js)
 // through height fog (fog.js), plus gl/weather.js (wet field in rain) and gl/citylights.js;
 // 3. depth resolved to a texture; 4. half-size SSAO (ssao.js); 5. bloom (hdr.js), then lens,
 // curve and grade (gl/broadcast.js).
@@ -41,6 +41,7 @@ import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
 import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell, SKIN_STRIDE, PLAYER_LODS, rigBuildOf } from './ballplayer-mesh.js';
 import { solvePose, boneFrames, bindFrames, skinRows, BONES, FRAME_FLOATS, scalePose } from '../diamond/rig.js';
 import { BALL_R } from '../diamond/flight.js';
+import { ballGlowOn } from '../../../../shared/settings.js';
 import { SKIN_GLSL, createBonePalette } from './skin.js';
 import { CEL, CEL_TUNE, CEL_GLSL } from './cel-figure.js';
 import { INK_FS } from './ink.js';
@@ -57,11 +58,15 @@ import { HUD_FACES, loadHudFaces } from '../diamond/hud.js';
 import { createSpectacle } from './spectacle.js';
 import { NIGHT, skyLook } from '../diamond/sky.js';
 import { createWeather } from './weather.js';
+import { createCloudVolume } from './cloudvol.js';
+import { stepWeatherCells } from '../../../../shared/wx-cells.js';
+import { mapAxes, SET_TILE } from '../../../../shared/city-set.js';
 import { createCityLights, PLUME } from './citylights.js';
 import { createStreetLife } from './streetlife.js';
 import { createParkBirds } from './parkbirds.js';
 import { venueSet, streetLife, streetShot } from '../diamond/streets.js';
 import { PARK_TIERS, dealFans } from '../diamond/quality.js';
+import { boothLayout, buildBooth, paintBoothTexture } from './booth-mesh.js';
 
 const FACE = '"Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -351,7 +356,7 @@ const LIT_FS = `#version 300 es
 precision highp float;
 in vec3 vPos; in vec3 vNrm; in vec2 vUv; in vec3 vCol; flat in int vMat;
 uniform sampler2D uTex; uniform sampler2D uDirt; uniform sampler2D uGrass; uniform sampler2D uBoard;
-uniform int uTextured; uniform float uAlphaTest; uniform float uAlpha; uniform float uEmis;
+uniform int uTextured; uniform float uAlphaTest; uniform float uAlpha; uniform float uEmis; uniform float uGlass; uniform float uScreen;
 uniform vec3 uFence; uniform vec2 uBoardRes; uniform vec3 uBoardOn;
 uniform float uCityLit; uniform float uPoolK;
 // the roof: how shut it is (0 open, 1 shut), which keeps the rain off the field, and how much of the
@@ -413,12 +418,18 @@ void celAdd(vec3 N, vec3 V, vec3 L, vec3 Ls, float a, float aS, float NoV, vec3 
 // the fence's distance at a bearing from straight-away centre: the venue's line, centre and curve
 float fenceAt(float th) { return uFence.y - (uFence.y - uFence.x) * pow(clamp(abs(th) / 0.7853982, 0.0, 1.0), uFence.z); }
 void main() {
+  // the roof's glass (GLAZE, uv.x 3) is see-through: left out of the solid pass (uGlass 0) and
+  // drawn alone over everything after it (uGlass 1)
+  bool roofGlass = vMat == ${MAT.GLAZE} && vUv.x > 2.5;
+  if (roofGlass != (uGlass > 0.5)) discard;
   vec3 N = normalize(vNrm);
   vec3 V = normalize(uEye - vPos);
   vec4 tex = vec4(1.0);
   if (uTextured == 1) {
     vec2 uvT = (uKitCell.z > 0.0 && vUv.x >= 2.0) ? uKitCell.xy + (vUv - vec2(2.0, 0.0)) * uKitCell.zw : vUv;
     tex = texture(uTex, uvT); if (tex.a < uAlphaTest) discard;
+    // a picture off the canvas (setRoom's screen) is already encoded: back to linear light
+    if (uScreen > 0.5) tex.rgb = pow(tex.rgb, vec3(2.2));
     // The kit's lettering (the numbers, the wordmark, the name) stands off the cloth as tackle
     // twill does: the atlas's own brightness taken as height, its slope tilting the normal along a
     // frame worked out from the screen's derivatives, so the edges catch the floods in a close-up.
@@ -513,7 +524,7 @@ void main() {
     // glass lit from inside after dark: the roof's glazing and the clerestory by how shut the roof
     // is (uv.x 0), the towers' slits, the lobby and the gates every night (uv.x 1)
     rough = 0.06; f0s = 0.06;
-    emis = vUv.x > 1.5 ? vec3(0.0) : vUv.x > 0.5 ? vec3(1.0, 0.83, 0.6) * 0.14 : vec3(1.0, 0.84, 0.62) * 0.16 * uDome;
+    emis = vUv.x > 2.5 ? vec3(1.0, 0.84, 0.62) * 0.16 * uDome : vUv.x > 1.5 ? vec3(0.0) : vUv.x > 0.5 ? vec3(1.0, 0.83, 0.6) * 0.14 : vec3(1.0, 0.84, 0.62) * 0.16 * uDome;
   } else if (vMat == ${MAT.GROUND}) {
     // the field, painted: grass and its mowing, the track, the lines, then the infield canvas
     vec2 xz = vPos.xz;
@@ -676,7 +687,9 @@ void main() {
   if (uBlobN > 0 && vMat == ${MAT.GROUND}) col *= blobAt(vPos);
   // what lights itself: windows, the concourse, the floods at the wall's foot, the glass of the roof
   col += emis * uCityLit;
-  o = vec4(airOf(col, vPos), uAlpha * tex.a);
+  // the roof's glass mostly lets the sky and the towers through, more of a mirror at a glance
+  float glassA = roofGlass ? 0.18 + 0.6 * pow(1.0 - NoV, 4.0) : 1.0;
+  o = vec4(airOf(col, vPos), uAlpha * tex.a * glassA);
 }`;
 
 // The crowd's vertex shader is gl/crowd.js's: each fan sits, stands or cheers by how loud his side
@@ -859,11 +872,6 @@ const numsCanvas = (doc, texts) => canvasOf(doc, 1024, 128, (g) => {
   g.font = `bold 104px ${FACE}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#f2f0e6';
   texts.forEach((t, i) => g.fillText(t, i * 256 + 128, 68, 240));
 });
-// The backstop's mesh.
-const netCanvas = (doc) => canvasOf(doc, 128, 128, (g) => {
-  g.clearRect(0, 0, 128, 128); g.strokeStyle = 'rgba(30,30,30,1)'; g.lineWidth = 3;
-  for (let i = 0; i <= 128; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 128); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(128, i); g.stroke(); }
-});
 
 // ── the name plates ─────────────────────────────────────────────────────────
 // The two plates over the Coliseum's gates and the name band beside them (ballpark-mesh.js
@@ -987,7 +995,7 @@ function sharedCanvases(doc) {
     c = {
       grass: noiseCanvas(doc, 512, 3),
       concrete: noiseCanvas(doc, 256, 12, (fine, macro) => { const b = 0.46 + 0.10 * macro + 0.06 * fine; return [b, b * 0.98, b * 0.95]; }),
-      dirt: paintInfield(doc), pad: padCanvas(doc), seat: seatCanvas(doc), net: netCanvas(doc),
+      dirt: paintInfield(doc), pad: padCanvas(doc), seat: seatCanvas(doc),
     };
     _canvases.set(doc, c);
   }
@@ -1077,7 +1085,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const TEX = {
       grass: texture(shared.grass, { srgb: false }),
       dirt: texture(shared.dirt, { repeat: false, premul: true, af: 16 }),
-      pad: texture(shared.pad), concrete: texture(shared.concrete), seat: texture(shared.seat), net: texture(shared.net),
+      pad: texture(shared.pad), concrete: texture(shared.concrete), seat: texture(shared.seat),
       ads: texture(adsCanvas(doc, opts.ads)), nums: texture(numsCanvas(doc, park.numbers), { repeat: false }),
       leather: texture(paintLeather(doc)), wood: texture(paintWood(doc), { repeat: false }), mask: texture(paintMask(doc), { repeat: false }),
     };
@@ -1245,6 +1253,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // how loud each side's fans are (gl/crowd.js createRoar), the clock their bouncing keeps, and
     // whether they may bounce at all
     const roar = { home: 0, away: 0, t: 0, move: 1 };
+    // the two clubs' colours the fans wear (crowd.js), linear; none until setFanColours
+    const fanKit = { home: [0, 0, 0], away: [0, 0, 0], on: 0 };
+    const fanUniforms = (Prog) => { gl.uniform3fv(Prog.u('uFanHome'), fanKit.home); gl.uniform3fv(Prog.u('uFanAway'), fanKit.away); gl.uniform1f(Prog.u('uFanKit'), fanKit.on); };
     // Where the fans look (gl/crowd.js uLook): the ball while there is one, eased toward it over
     // about half a second so a throw turns the stands rather than snapping them, and the mound
     // with less hold on them when there isn't. Eased on the clock the crowd is drawn at; a jump in
@@ -1545,6 +1556,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     }
     function setBall(p, back = null) {
       ballAt = p && p.every(Number.isFinite) ? p.slice() : null;
+      trailPush();
       if (!ballAt) return;
       ballBatch.n = 0;
       const d = back && back.every(Number.isFinite) ? [ballAt[0] - back[0], ballAt[1] - back[1], ballAt[2] - back[2]] : null, L = d ? Math.hypot(d[0], d[1], d[2]) : 0;
@@ -1564,6 +1576,64 @@ export function createBallparkRenderer(canvas, opts = {}) {
       } else ballSphere(ballBatch, ballAt, [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [BALL_DRAWN, BALL_DRAWN, BALL_DRAWN], ang);
       ballDraw.st.write(ballBatch.data, ballBatch.n * STRIDE);
       ballDraw.n = ballBatch.n;
+    }
+
+    // The ball's tail and its glow, light added over the frame (MAT.EMISSIVE, the additive pass).
+    // The tail is a ribbon turned to the camera through where the ball has been over the last
+    // TAIL_S of the world's clock, thinning and fading toward its end, and lit only as fast as the
+    // ball was going there, so a pitch, a throw and a hit all streak and a ball in a hand doesn't.
+    // The glow is a soft disc round the ball for following it (Ball Glow, ballGlowOn), off with
+    // the setting. A jump, a clock going backward or no ball starts the tail over.
+    const TAIL_S = 0.22, TAIL_C = [0.95, 0.9, 0.75], TAIL_I = 0.55, TAIL_V = [35, 90];
+    const GLOW_R = BALL_DRAWN * 4.5, GLOW_C = [1, 0.92, 0.72], GLOW_I = 0.28;
+    const trail = [];
+    const fxBatch = createBatch(256), fxDraw = { key: 'ballfx', ...upload(createBatch(1)) };
+    function trailPush() {
+      if (!ballAt) { trail.length = 0; return; }
+      const last = trail[trail.length - 1];
+      if (last && (worldT < last.t || Math.hypot(ballAt[0] - last.p[0], ballAt[1] - last.p[1], ballAt[2] - last.p[2]) > 40)) trail.length = 0;
+      if (last && trail.length && worldT === last.t) last.p = ballAt.slice();
+      else trail.push({ p: ballAt.slice(), t: worldT });
+      while (trail.length > 2 && trail[1].t < worldT - TAIL_S) trail.shift();
+    }
+    const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const unit3 = (a) => { const l = Math.hypot(a[0], a[1], a[2]); return l > 1e-6 ? [a[0] / l, a[1] / l, a[2] / l] : null; };
+    function ballFx(eye, glow) {
+      if (!ballAt) return null;
+      fxBatch.n = 0;
+      const N = [0, 1, 0], UV = [0, 0], E = MAT.EMISSIVE;
+      // the tail: each point's width and light by its age and the ball's speed through it
+      const pts = trail.map((s, i) => {
+        const nx = trail[Math.min(i + 1, trail.length - 1)], pv = trail[Math.max(i - 1, 0)];
+        const dt = nx.t - pv.t, v = dt > 1e-4 ? Math.hypot(...sub3(nx.p, pv.p)) / dt : 0;
+        const age = Math.min(1, Math.max(0, (worldT - s.t) / TAIL_S)), fade = 1 - age;
+        const fast = Math.min(1, Math.max(0, (v - TAIL_V[0]) / (TAIL_V[1] - TAIL_V[0])));
+        const dir = unit3(sub3(nx.p, pv.p)), side = dir && unit3(cross3(dir, sub3(eye, s.p)));
+        return { p: s.p, side, w: BALL_DRAWN * (0.15 + 0.85 * fade), k: TAIL_I * fade * fade * fast };
+      });
+      for (let i = 0; i + 1 < pts.length; i++) {
+        const a = pts[i], b = pts[i + 1];
+        if (!a.side || !b.side || a.k + b.k < 1e-3) continue;
+        const ca = TAIL_C.map((c) => c * a.k), cb = TAIL_C.map((c) => c * b.k);
+        const q = [
+          [a.p.map((v, j) => v + a.side[j] * a.w), ca], [a.p.map((v, j) => v - a.side[j] * a.w), ca],
+          [b.p.map((v, j) => v - b.side[j] * b.w), cb], [b.p.map((v, j) => v + b.side[j] * b.w), cb],
+        ];
+        for (const n of [0, 1, 2, 0, 2, 3]) vtx(fxBatch, q[n][0], N, UV, q[n][1], E);
+      }
+      // the glow: a disc facing the eye, bright at the ball and nothing at its rim
+      const view = glow && unit3(sub3(ballAt, eye));
+      if (view) {
+        const r = unit3(cross3(view, Math.abs(view[1]) > 0.95 ? [1, 0, 0] : [0, 1, 0])), u = cross3(r, view);
+        const C = GLOW_C.map((c) => c * GLOW_I), O = [0, 0, 0], SEG = 16;
+        const rim = (k) => { const a = k / SEG * Math.PI * 2, c = Math.cos(a) * GLOW_R, s = Math.sin(a) * GLOW_R; return ballAt.map((v, j) => v + r[j] * c + u[j] * s); };
+        for (let k = 0; k < SEG; k++) { vtx(fxBatch, ballAt, N, UV, C, E); vtx(fxBatch, rim(k), N, UV, O, E); vtx(fxBatch, rim(k + 1), N, UV, O, E); }
+      }
+      if (!fxBatch.n) return null;
+      fxDraw.st.write(fxBatch.data, fxBatch.n * STRIDE);
+      fxDraw.n = fxBatch.n;
+      return fxDraw;
     }
 
     // ── the loose bats ───────────────────────────────────────────────────────────
@@ -1797,6 +1867,53 @@ export function createBallparkRenderer(canvas, opts = {}) {
       relook();
       return look;
     }
+    // The day's weather cells (a seat's `field`, plugins/stands), the same ones the world's sky is
+    // drawn from, moved along here between copies (client/shared/wx-cells.js) and marched overhead
+    // (gl/cloudvol.js) round the venue's tile. Null draws no clouds.
+    const sky = { field: null, cells: null, at: 0, vol: null };
+    function setSkyField(field) {
+      sky.field = field && Array.isArray(field.cells) && field.cells.length ? field : null;
+      if (!sky.field) sky.cells = null;
+    }
+    // Feet a cloud unit is up: the deck's base sits at the weather's height in these, low enough
+    // that a cloud reaches down the sky toward the stands' rim rather than only straight up.
+    const CLOUD_ZS = 200;
+    const CLOUD_BASE_FT = { clear: 3200, cloudy: 1600, overcast: 1400, rain: 1200, sleet: 1300, thunderstorm: 1800, storm: 1800, snow: 1500, blizzard: 1200, fog: 300, haze: 2600, ash: 900 };
+    const CLOUD_CUM = { clear: 0.8, cloudy: 0.7, overcast: 0.2, rain: 0.3, sleet: 0.3, thunderstorm: 0.95, storm: 0.9, snow: 0.3, blizzard: 0.2, fog: 0.1, haze: 0.4, ash: 0.3 };
+    // The cells round the venue in the volume's frame (tiles from the venue, x east, y south, z
+    // up in CLOUD_ZS feet), and the matrix from that frame to the screen through the park's own
+    // camera
+    // column-major, as the camera builds them
+    const mul4 = (a, b) => { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let v = 0; for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = v; } return o; };
+    function cloudsFor(M) {
+      const site = cityVenue?.site;
+      if (!sky.field || !site || !Number.isFinite(site.x) || !Number.isFinite(site.y)) return null;
+      const now = clock(), dt = sky.at ? Math.min(1, (now - sky.at) / 1000) : 0;
+      sky.at = now;
+      stepWeatherCells(sky, sky.field, dt);
+      const sx = +site.x, sy = +site.y, cells = [];
+      for (const c of sky.cells || []) {
+        if (c.intensity <= 0.02 || c.cap) continue;
+        const x = c.x - sx, y = c.y - sy;
+        if (Math.hypot(x, y) - c.r > 56) continue;
+        cells.push({ x, y, r: c.r, i: c.intensity, storm: c.type === 'storm' || c.type === 'precip' });
+      }
+      if (!cells.length) return null;
+      const word = wxNow?.word || 'cloudy', baseFt = CLOUD_BASE_FT[word] ?? 1600, cum = CLOUD_CUM[word] ?? 0.5;
+      const { EX, EN } = mapAxes(site.bearing), T = SET_TILE, Z = CLOUD_ZS;
+      // tiles east, tiles south and units up into the park's feet; home plate stands in for the tile
+      const toPark = [EX[0] * T, EX[1] * T, EX[2] * T, 0, -EN[0] * T, -EN[1] * T, -EN[2] * T, 0, 0, Z, 0, 0, 0, 0, 0, 1];
+      const vp = mul4(M.viewProj, toPark);
+      // the sun's way into the same frame, raised off the ground
+      const sd = look.sunLight?.dir || [look.sun[0] * 0.8, 0.6, look.sun[2] * 0.8];
+      const sun = [sd[0] * EX[0] + sd[2] * EX[2], -(sd[0] * EN[0] + sd[2] * EN[2]), sd[1]];
+      const sl = Math.hypot(sun[0], sun[1], sun[2]) || 1;
+      const base = baseFt / Z;
+      return {
+        vp,
+        vol: { cells, base, top: base + 3 + 4 * cum, cum, ox: sx, oy: sy, far: 56, sun: sun.map((v) => v / sl), sunStr: Math.max(0.1, 1 - look.night * 0.85), wind: [0.05, 0.02] },
+      };
+    }
     function setHour(h) {
       const next = Number.isFinite(h) ? ((h % 24) + 24) % 24 : null;
       if (next === hourNow) return look;
@@ -1846,8 +1963,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
     }
 
     // ── a frame ───────────────────────────────────────────────────────────────
-    function render(shot) {
+    function render(shot, ro = {}) {
       if (lost) return false;
+      const inRoom = !!room && ro.room !== false;
       const t0 = (typeof performance !== 'undefined' ? performance.now() : 0);
       const w = canvas.width, h = canvas.height;
       if (!(w > 0 && h > 0)) return false;
@@ -1995,6 +2113,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (ballAt) drawSet([ballDraw], 1);
       if (batDraw.n) drawSet([batDraw], 1);
       if (matDraw.n) drawSet([matDraw], 1);
+      // the box round the seat (setRoom), and its big screen with the last picture renderTv took
+      if (inRoom) {
+        drawSet([room.solid], 1);
+        drawSet(room.mats, 1);
+        if (tvShot) { gl.uniform1f(LIT.u('uScreen'), 1); drawSet([room.screen], 1); gl.uniform1f(LIT.u('uScreen'), 0); }
+      }
       if (city) {
         drawSet(city.opaque, 1);
         // the cars and the people on the streets, lit by the sky and, once they're on, the lamps
@@ -2003,6 +2127,39 @@ export function createBallparkRenderer(canvas, opts = {}) {
       }
       // the gulls wheeling over the outfield
       { const gb = birds.drawGulls(M, h, worldT, birdLook(q)); tris += gb.tris; draws += gb.draws; }
+      // the weather's clouds overhead, over the sky and behind the park and the city (the composite
+      // tests the park's depth), lit by the sky's own colours; off on a phone (quality.clouds)
+      if (q.clouds !== false) {
+        const cl = cloudsFor(M);
+        if (cl) {
+          if (!sky.vol) { try { sky.vol = createCloudVolume(gl); } catch (e) { console.warn('[ballpark] clouds unavailable:', e.message); sky.vol = false; } }
+          if (sky.vol) {
+            const L = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+            const g = Math.max(0.002, (L(look.hor) + L(look.zen)) * 0.9), lit = look.hor.map((v) => v * 0.4 + g);
+            sky.vol.draw(null, w, h, h, cl.vol, {
+              vp: cl.vp, over: true, fb: hdr.drawFbo, linOut: 0, now: clock(), res: 0.25, steps: 40, temporal: 0.85,
+              base: lit.map((v) => v * 0.55), lit, stormBase: lit.map((v) => v * 0.28), stormLit: lit.map((v) => v * 0.6),
+            });
+            // what the march left bound: the park's textures, its target and its depth test
+            gl.viewport(0, 0, w, h);
+            gl.activeTexture(gl.TEXTURE1); gl.bindTexture(T2, TEX.dirt);
+            gl.activeTexture(gl.TEXTURE2); gl.bindTexture(T2, TEX.grass);
+            gl.activeTexture(gl.TEXTURE3); gl.bindTexture(T2, boardTex);
+            gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS);
+          }
+        }
+      }
+      // the roof's glass, over the sky and the towers it lets through
+      litSetup(LIT);
+      gl.uniform1f(LIT.u('uGlass'), 1);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+      for (const d of shells) {
+        const s = shellShift(d.i, roofNow);
+        gl.uniform3f(LIT.u('uShift'), s[0], s[1], s[2]);
+        drawSet([d], 1);
+      }
+      gl.uniform3f(LIT.u('uShift'), 0, 0, 0); gl.uniform1f(LIT.u('uGlass'), 0);
+      gl.disable(gl.BLEND); gl.depthMask(true);
       const detail = q.detail ?? 2;
       // the ink round the players (gl/cel-figure.js), first, so each man's lit body covers its
       // inside: at the level of detail he's lit at, and not the alpha-tested pieces (the catcher's
@@ -2049,7 +2206,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         lights(CROWD, M.eye);
         shadows.bind(CROWD.u, 4, q.light !== 0 && q.light !== false ? 1 : 0);
         gl.uniformMatrix4fv(CROWD.u('uVP'), false, M.viewProj);
-        gl.uniform2f(CROWD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CROWD.u('uT'), roar.t); gl.uniform1f(CROWD.u('uMove'), roar.move);
+        gl.uniform2f(CROWD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CROWD.u('uT'), roar.t); gl.uniform1f(CROWD.u('uMove'), roar.move); fanUniforms(CROWD);
         lookAtPlay(roar.t);
         gl.uniform3f(CROWD.u('uLook'), crowdLook.x, crowdLook.z, crowdLook.w);
         const share = crowdShare(), close = (q.fans ?? 1) >= 2 && M.fov > 0 && M.fov <= CLOSE_FOV;
@@ -2066,7 +2223,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
           gl.useProgram(CARD.p);
           lights(CARD, M.eye);
           gl.uniformMatrix4fv(CARD.u('uVP'), false, M.viewProj);
-          gl.uniform2f(CARD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CARD.u('uT'), roar.t); gl.uniform1f(CARD.u('uMove'), roar.move);
+          gl.uniform2f(CARD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CARD.u('uT'), roar.t); gl.uniform1f(CARD.u('uMove'), roar.move); fanUniforms(CARD);
           gl.uniform3fv(CARD.u('uEyeC'), M.eye);
           for (const d of crowd) {
             if (!d.cards) continue;
@@ -2076,12 +2233,14 @@ export function createBallparkRenderer(canvas, opts = {}) {
         }
       }
 
-      // the backstop net, see-through, over the rest
+      // what is see-through (the bowl's glass), over the rest
       gl.useProgram(LIT.p);
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
       drawSet(translucent, 0.32);
+      if (inRoom && ro.glass !== false) drawSet([room.glass], 0.06);
       // light added over the frame: the lamps' pools on the streets, the Curtain, then the spectacle
       gl.blendFunc(gl.ONE, gl.ONE);
+      { const bf = ballFx(M.eye, ballGlowOn()); if (bf) drawSet([bf], 1); }
       if (city) {
         drawSet(city.glow, 1);
         if (city.curtain) {
@@ -2171,9 +2330,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
         if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
-        for (const d of [...opaque, ...translucent, ...lampDraws, ...shells, signDraw, ballDraw, matDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+        for (const d of [...opaque, ...translucent, ...lampDraws, ...shells, signDraw, ballDraw, fxDraw, matDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         dropCity();
         dropCrowd(homeCrowd); if (fullCrowd) dropCrowd(fullCrowd);
+        dropRoom(); if (tvFbo) gl.deleteFramebuffer(tvFbo);
         if (dress) for (const d of [...dress.opaque, dress.trophy]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         for (const body of bodies.values()) dropBody(body);
         bodies.clear();
@@ -2209,6 +2369,48 @@ export function createBallparkRenderer(canvas, opts = {}) {
       final = { name: f.name };
     }
 
+    // A ROOM ROUND THE SEAT (gl/booth-mesh.js): a box's suite, `spec` its stands section's `room`,
+    // drawn with the park unless a render says { room: false }. Its big screen shows whatever
+    // renderTv last drew: the whole frame drawn from another shot, then shrunk off the canvas into
+    // the screen's texture before the real frame overwrites it. The canvas has no multisampling
+    // (antialias: false above), which is what lets the blit scale.
+    let room = null, tvTex = null, tvFbo = null, tvShot = false;
+    const TV_W = 640, TV_H = 360;
+    function dropRoom() {
+      if (!room) return;
+      for (const d of [room.solid, room.screen, room.glass, ...room.mats]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+      room = null; tvShot = false;
+    }
+    function setRoom(spec) {
+      dropRoom();
+      if (!spec || !Array.isArray(spec.at)) return null;
+      const L = boothLayout(spec), m = buildBooth(L);
+      // each material its own batch, so its painted texture can repeat (booth-mesh.js BOOTH_TEXTURES)
+      for (const key of m.textured.keys()) if (!TEX[key]) TEX[key] = texture(paintBoothTexture(doc, key), { af: 8 });
+      room = { L, mats: [...m.textured].map(([key, b]) => ({ key, ...upload(b) })), solid: { key: 'room', ...upload(m.solid) }, screen: { key: 'tvscreen', emis: 1, ...upload(m.screen) }, glass: { key: 'roomglass', ...upload(m.glass) } };
+      if (!tvTex) {
+        tvTex = gl.createTexture();
+        gl.bindTexture(T2, tvTex);
+        gl.texImage2D(T2, 0, gl.RGBA8, TV_W, TV_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(T2, k, v);
+        tvFbo = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, tvFbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, T2, tvTex, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        TEX.tvscreen = tvTex;
+      }
+      return L;
+    }
+    function renderTv(shot) {
+      if (!room || lost || !render(shot, { room: false })) return false;
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, tvFbo);
+      gl.blitFramebuffer(0, 0, canvas.width, canvas.height, 0, 0, TV_W, TV_H, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      tvShot = true;
+      return true;
+    }
+
     const api = {
       kind: 'gl', lost: false,
       // grade: 'arcade', 'broadcast' or 'none'; tube: the tube glass; and the full tier's keys
@@ -2232,14 +2434,18 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // view keeps drawing while it moves
       setRoof, get roof() { const now = clock(); return { p: roofT.at(now), to: roofT.to, moving: roofT.moving(now) }; },
       render, setBoard, setCast, setPose, idle, setBall, setBats, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
-      markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setWeather, get look() { return look; },
+      markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setWeather, setSkyField, get look() { return look; },
       setTime: (t) => { worldT = Number.isFinite(t) ? t : 0; weather.setTime(worldT); },
       get cityLights() { return cityLights.counts; },
       get streets() { return streets.counts; },
       // the street camera on this venue's own crossing (diamond/streets.js streetShot), or null with
       // no city: where the fly-in before a game comes down to (diamond/camera.js approachShot)
       get streetCam() { return streetCam; },
+      setRoom, renderTv, get room() { return room ? room.L : null; },
       setFinal, setChampion: (on) => { champ = !!on; }, get final() { return final ? { ...final, champion: champ } : null; },
+      // setFanColours(home, away): the two clubs' colours as linear [r, g, b], which 30% and 10%
+      // of the fans wear (gl/crowd.js); null takes them off
+      setFanColours: (home, away) => { fanKit.on = home && away ? 1 : 0; if (fanKit.on) { fanKit.home = [...home]; fanKit.away = [...away]; } },
       setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; },
       pending: () => queue.length,
       get park() { return park; },

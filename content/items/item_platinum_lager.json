@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_platinum_lager",
+  "name": "bottle of box lager",
+  "tags": {
+    "consumable": true,
+    "description": "A cold bottle of lager with a white label that just says COLISEUM. The fridge never seems to run out.",
+    "food_noun": "beer",
+    "food_profile": "liquid",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 0.5,
+    "restore_thirst": 30,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 0,
+  "weight": 350
+}

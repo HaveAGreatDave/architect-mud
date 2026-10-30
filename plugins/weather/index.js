@@ -8,7 +8,7 @@
  */
 import { createHash } from 'node:crypto';
 import { query } from '../../server/models/db.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
 import { getAllLivePlayers } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
@@ -1005,6 +1005,8 @@ function seedField(date, forecast0, bounds) {
   field.precipType   = precipTypeForFieldTemp(tempC);   // what the day's cells are dropping — a rainbow needs it to be rain
   field.bounds       = bounds;
   field.wind         = wind;
+  // a client drawing the cells itself (the stands) takes a fresh copy now, and only now
+  emit('weather.field', { reason: 'seed' });
 }
 
 // Drift every cell one step; torus-wrap (with padding) so cells re-enter the
@@ -1131,6 +1133,7 @@ export function bringWetCellOver(gx, gy) {
   }
   best.x = gx;
   best.y = gy;
+  emit('weather.field', { reason: 'moved' });
   return true;
 }
 

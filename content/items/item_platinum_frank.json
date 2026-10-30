@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_platinum_frank",
+  "name": "box frank",
+  "tags": {
+    "consumable": true,
+    "description": "The same frank they sell in the bleachers, served on a china plate with three mustards. It tastes the same.",
+    "restore_hunger": 18,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 0,
+  "weight": 170
+}

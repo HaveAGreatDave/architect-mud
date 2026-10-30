@@ -1,0 +1,16 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_work_suit",
+  "name": "charcoal work suit",
+  "tags": {
+    "bulkiness": 1,
+    "description": "A plain charcoal two-piece in hard-wearing wool, cut at Alter Ego to the wearer and not to a size. It looks like you have somewhere to be, and it will survive getting there.",
+    "insulation": 2,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 320,
+  "weight": 900
+}

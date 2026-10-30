@@ -285,9 +285,16 @@ function stands(B, crowd, path, o) {
     return r * (1 - t * t * (3 - 2 * t));
   };
   const crater = (i, k) => o.crater && i > N * 0.79 && i < N * 0.86 && k > 3 && k < 17;
+  // The Diamond Club (`o.club`): the first rows round behind the plate, `arc` degrees either side,
+  // sunk to field level against the backstop wall with nothing in front of them. Its segments take
+  // none of the bowl's front wall or its first `rows` rows (clubRows draws them).
+  const C = o.club;
+  const clubSeg = (i) => !!C && [path[i], path[i + 1]].every((p) => Math.abs(Math.atan2(p[0], p[2])) > (180 - C.arc) * DEG);
   const plain = B('plain');
+  if (C) clubRows(plain, crowd, path, nrm, clubSeg, o);
   if (!o.fascia) {
     for (let i = 0; i < N - 1; i++) {
+      if (clubSeg(i)) continue;
       const behind = Math.abs(Math.atan2(path[i][0], path[i][2])) > 140 * DEG;
       const key = behind && o.ads ? 'ads' : o.name === 'bleach' ? 'concrete' : 'pad';
       const l0 = liftOf(i, 0), l1 = liftOf(i + 1, 0);
@@ -314,7 +321,7 @@ function stands(B, crowd, path, o) {
     const shade = o.name === 'lower' && off0 > 56 ? 0.45 : 1;
     const tc = [shade, shade, shade];
     for (let i = 0; i < N - 1; i++) {
-      if (crater(i, k)) continue;
+      if (crater(i, k) || (C && k < C.rows && clubSeg(i))) continue;
       const segLen = len(sub(path[i + 1], path[i]));
       // each end of the row at its own lift (liftOf): across a dugout's end, where the two points
       // stand in one place, these are its wall
@@ -363,6 +370,57 @@ function stands(B, crowd, path, o) {
   const last = start + o.rows * o.depth, ytop = o.y0 + o.rows * o.rise;
   for (let i = 0; i < N - 1; i++) {
     quad(B('concrete'), at(i, last, ytop - o.rise), at(i + 1, last, ytop - o.rise), at(i + 1, last, ytop + 7), at(i, last, ytop + 7), mul(nrm[i], -1), [0.7, 0.7, 0.7], MAT.CONCRETE);
+  }
+}
+
+// The Diamond Club's rows (stands `o.club`), on the bowl's own path and row depths so the bowl's
+// next row starts where its back wall stops: a mahogany front wall `wall` feet high with a brass
+// rail, carpeted treads stepping `rise` a row from `y0`, wide oxblood leather armchairs three feet
+// apart, and a panelled back wall up to the bowl with a warm lamp strip along it. Its fans dress
+// for it. The seats' eye (zone_hughson_stands, section `diamond`) is the front row's.
+const CLUB_LOOK = Object.freeze({ wood: '#4a2416', carpet: '#3a1418', leather: '#7a1620', brass: '#c8a446', pitch: 3.1 });
+const CLUB_SHIRTS = ['#1d2a4a', '#2e2e2e', '#e8e6df', '#16264a', '#4f5a69', '#f2f0e6'];
+function clubRows(plain, crowd, path, nrm, clubSeg, o) {
+  const C = o.club, L = CLUB_LOOK, N = path.length;
+  const wood = lin(L.wood), carpet = lin(L.carpet), leather = lin(L.leather), brass = lin(L.brass);
+  const rr = seeded(hashStr('club'));
+  const yBowl = o.y0 + C.rows * o.rise, back = C.rows * o.depth;
+  for (let i = 0; i < N - 1; i++) {
+    if (!clubSeg(i)) continue;
+    const at = (t, off, y) => { const p = lerp3(path[i], path[i + 1], t), n = norm(lerp3(nrm[i], nrm[i + 1], t)); return [p[0] + n[0] * off, y, p[2] + n[2] * off]; };
+    const fwd = mul(nrm[i], -1), segLen = len(sub(path[i + 1], path[i]));
+    // the front wall, its cap and the brass rail on posts along it
+    quad(plain, at(0, 0, 0), at(1, 0, 0), at(1, 0, C.wall), at(0, 0, C.wall), fwd, wood, MAT.SATIN);
+    quad(plain, at(0, 0, C.wall), at(1, 0, C.wall), at(1, 0.5, C.wall), at(0, 0.5, C.wall), [0, 1, 0], mul(wood, 0.8), MAT.SATIN);
+    quad(plain, at(0, 0.25, C.wall + 0.85), at(1, 0.25, C.wall + 0.85), at(1, 0.25, C.wall + 1.0), at(0, 0.25, C.wall + 1.0), fwd, brass, MAT.METAL);
+    rod(plain, at(0, 0.25, C.wall), at(0, 0.25, C.wall + 0.9), 0.06, brass, MAT.METAL);
+    for (let k = 0; k < C.rows; k++) {
+      const off0 = k * o.depth, off1 = off0 + o.depth, y = C.y0 + k * C.rise;
+      quad(plain, at(0, off0, y), at(1, off0, y), at(1, off1, y), at(0, off1, y), [0, 1, 0], carpet, MAT.MATTE);
+      if (k < C.rows - 1) quad(plain, at(0, off1, y), at(1, off1, y), at(1, off1, y + C.rise), at(0, off1, y + C.rise), fwd, wood, MAT.SATIN);
+      // the armchairs, each facing the field, and who's in them
+      const nSeat = Math.max(1, Math.floor(segLen / L.pitch));
+      for (let q = 0; q < nSeat; q++) {
+        const t = (q + 0.5) / nSeat, n = norm(lerp3(nrm[i], nrm[i + 1], t)), yaw = Math.atan2(-n[0], -n[2]) / DEG;
+        const p = at(t, off0 + 1.55, y), bk = at(t, off0 + 2.35, y);
+        box(plain, [p[0], y + 1.2, p[2]], [1.15, 0.25, 0.85], yaw, leather, MAT.LEATHER);
+        box(plain, [bk[0], y + 2.35, bk[2]], [1.15, 0.95, 0.18], yaw, mul(leather, 0.85), MAT.LEATHER);
+        for (const s of [-1, 1]) {
+          const side = madd(p, norm(cross([0, 1, 0], n)), s * 1.3);
+          box(plain, [side[0], y + 1.75, side[2]], [0.13, 0.3, 0.8], yaw, wood, MAT.SATIN);
+          box(plain, [side[0], y + 2.07, side[2]], [0.15, 0.03, 0.82], yaw, brass, MAT.METAL);
+        }
+        if (rr() > (o.full ? 1.2 : C.occ)) continue;
+        const toward = sub([0, 0, 70], p), fy = Math.atan2(toward[0], toward[2]);
+        const shirt = lin(CLUB_SHIRTS[Math.floor(rr() * CLUB_SHIRTS.length)]), sk = lin(SKINS[Math.floor(rr() * SKINS.length)]);
+        (rr() < 0.92 ? crowd.sit : crowd.stand).push(p[0], y, p[2], fy + (rr() - 0.5) * 0.2, shirt[0], shirt[1], shirt[2], 0.94 + rr() * 0.12, sk[0], sk[1], sk[2]);
+      }
+    }
+    // the back wall, panelled up to the bowl's next row, and the lamps along under its lip
+    const yb = C.y0 + (C.rows - 1) * C.rise;
+    quad(plain, at(0, back, yb), at(1, back, yb), at(1, back, yBowl), at(0, back, yBowl), fwd, wood, MAT.SATIN);
+    quad(plain, at(0, back - 0.05, yBowl - 0.9), at(1, back - 0.05, yBowl - 0.9), at(1, back - 0.05, yBowl - 0.6), at(0, back - 0.05, yBowl - 0.6), fwd, [1.4, 1.1, 0.75], MAT.EMISSIVE);
+    quad(plain, at(0, back - 0.2, yBowl - 0.3), at(1, back - 0.2, yBowl - 0.3), at(1, back - 0.2, yBowl), at(0, back - 0.2, yBowl), fwd, brass, MAT.METAL);
   }
 }
 
@@ -479,15 +537,12 @@ export function buildPark(venue, opts = {}) {
   strip(B('plain'), eye, fence.height, 34, lin('#0e2a1e'), MAT.CONCRETE, 20);
   // the lower bowl, its ads behind the plate, and the upper deck over it
   const bowl = bowlPath();
-  stands(B, crowd, bowl, { rows: 24, y0: 4.5, rise: 1.3, depth: 2.7, front: 4.5, occ: 0.42, name: 'lower', crater: true, ads: true, full: opts.full });
+  // No net behind the plate: the Diamond Club's front row sits on the backstop wall with nothing
+  // between it and the catcher.
+  stands(B, crowd, bowl, { rows: 24, y0: 4.5, rise: 1.3, depth: 2.7, front: 4.5, occ: 0.42, name: 'lower', crater: true, ads: true, full: opts.full,
+    club: { arc: 30, rows: 4, y0: 0.6, rise: 0.8, wall: 2.6, occ: 0.7 } });
   dugouts(B, 4.5);
   stands(B, crowd, bowl.filter((p) => len(p) < 255), { rows: 15, y0: 54, rise: 1.95, depth: 2.6, start: 64, front: 9, occ: 0.26, name: 'upper', fascia: true, full: opts.full });
-  // the backstop net, see-through
-  into = translucent;
-  const net = [];
-  for (let a = -140; a >= -220; a -= 4) { const t = a * DEG; net.push([Math.sin(t) * (FOUL_GROUND.back + 1), 0, Math.cos(t) * (FOUL_GROUND.back + 1)]); }
-  strip(B('net'), net, 4.5, 36, WHITE, MAT.METAL, 1.2);
-  into = opaque;
   // the scoreboard, behind right-centre: a face of lamps on a dark frame, on two legs
   const board = boardFrame(field);
   {
@@ -560,6 +615,8 @@ export const OPEN_FACE = (n) => n[1] === -1 || n[0] === -1;
 const SUNBURST = sunburst(KH / ftUp(1), WIN_OPEN);
 // GLAZE's uv: the concourse's lamps, lit every night; and clear glass, which lights nothing.
 const LIT_NIGHTLY = [[1, 0], [1, 0], [1, 0], [1, 0]], CLEAR = [[2, 0], [2, 0], [2, 0], [2, 0]];
+// the roof's glass, which ballpark.js draws see-through in a pass of its own
+const ROOF_GLASS = [3, 0];
 // A face's wall between `z0` and `z1`, from -run to run along it, less the rectangles `holes`
 // ([t0, t1, z0, z1]), as rectangles: cut into courses at every hole's sill and head, and each
 // course into the runs between the holes that cross it.
@@ -918,16 +975,16 @@ function buildShell(S, i) {
   const P = (k, v, off = 0) => madd(B2T(A[k][0], v, A[k][1]), N[k], off);
   const SKIN = 1.6, crownAt = (k) => Math.abs(A[k][0] + A[k + 1][0]) / 2 < 0.24;
   for (let k = 0; k < NF; k++) {
-    const crown = crownAt(k), col = crown ? COL.glass : COL.shell, mat = crown ? MAT.GLAZE : MAT.METAL;
+    const crown = crownAt(k), uv = crown ? ROOF_GLASS : [0, 0], col = crown ? COL.glass : COL.shell, mat = crown ? MAT.GLAZE : MAT.METAL;
     // the skin, and its underside a little under it
-    vtx(b, P(k, v0), N[k], [0, 0], col, mat); vtx(b, P(k + 1, v0), N[k + 1], [0, 0], col, mat); vtx(b, P(k + 1, v1), N[k + 1], [0, 0], col, mat);
-    vtx(b, P(k, v0), N[k], [0, 0], col, mat); vtx(b, P(k + 1, v1), N[k + 1], [0, 0], col, mat); vtx(b, P(k, v1), N[k], [0, 0], col, mat);
+    vtx(b, P(k, v0), N[k], uv, col, mat); vtx(b, P(k + 1, v0), N[k + 1], uv, col, mat); vtx(b, P(k + 1, v1), N[k + 1], uv, col, mat);
+    vtx(b, P(k, v0), N[k], uv, col, mat); vtx(b, P(k + 1, v1), N[k + 1], uv, col, mat); vtx(b, P(k, v1), N[k], uv, col, mat);
     // the underside is painted steel, not bright metal: under the floods a mirror read as black with
     // a white blot for every lamp
     const ci = crown ? COL.glass : COL.shellIn, mi = crown ? MAT.GLAZE : MAT.CONCRETE;
     const n0 = mul(N[k], -1), n1 = mul(N[k + 1], -1);
-    vtx(b, P(k, v0, -SKIN), n0, [0, 0], ci, mi); vtx(b, P(k + 1, v1, -SKIN), n1, [0, 0], ci, mi); vtx(b, P(k + 1, v0, -SKIN), n1, [0, 0], ci, mi);
-    vtx(b, P(k, v0, -SKIN), n0, [0, 0], ci, mi); vtx(b, P(k, v1, -SKIN), n0, [0, 0], ci, mi); vtx(b, P(k + 1, v1, -SKIN), n1, [0, 0], ci, mi);
+    vtx(b, P(k, v0, -SKIN), n0, uv, ci, mi); vtx(b, P(k + 1, v1, -SKIN), n1, uv, ci, mi); vtx(b, P(k + 1, v0, -SKIN), n1, uv, ci, mi);
+    vtx(b, P(k, v0, -SKIN), n0, uv, ci, mi); vtx(b, P(k, v1, -SKIN), n0, uv, ci, mi); vtx(b, P(k + 1, v1, -SKIN), n1, uv, ci, mi);
   }
   // three bronze ribs over it, standing a foot proud, and under it the steel arches they're the tops
   // of, three feet deep
@@ -963,7 +1020,7 @@ function buildShell(S, i) {
     }
     for (let k = 0; k < NF; k++) {
       const a = B2T(A[k][0], ve, A[k][1]), c = B2T(A[k + 1][0], ve, A[k + 1][1]);
-      vtx(b, hub, out, [0, 0], COL.glass, MAT.GLAZE); vtx(b, a, out, [0, 0], COL.glass, MAT.GLAZE); vtx(b, c, out, [0, 0], COL.glass, MAT.GLAZE);
+      vtx(b, hub, out, ROOF_GLASS, COL.glass, MAT.GLAZE); vtx(b, a, out, ROOF_GLASS, COL.glass, MAT.GLAZE); vtx(b, c, out, ROOF_GLASS, COL.glass, MAT.GLAZE);
     }
     const vo = ve + sg * 0.003, H = [0, S.zs], hr = 0.07;
     const F = (u, z) => [u, vo, z];

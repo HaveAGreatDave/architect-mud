@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_wool_overcoat",
+  "name": "heavy wool overcoat",
+  "tags": {
+    "armor_soak": {
+      "edged": 1
+    },
+    "bulkiness": 2,
+    "description": "A long double-breasted overcoat in heavy navy melton, lined, with deep pockets and a collar that turns up against the wind off the Basin. Made to be mended rather than replaced.",
+    "gets_wet": true,
+    "insulation": 4,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 260,
+  "weight": 1800
+}

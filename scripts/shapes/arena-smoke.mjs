@@ -425,7 +425,7 @@ body(skaters[8], 'skater missing his head', null, BUD);
 {
   const C = await import(R + 'gl/arena-crowd.js');
   const seats = C.rinkSeats();
-  check('the bowl seats a few thousand', seats.length > 3000 && seats.length < 8000, `${seats.length}`);
+  check('the bowl seats a two-tier house', seats.length > 9000 && seats.length < 16000, `${seats.length}`);
   // (how far outside the rounded boards: from the rink's inner rectangle, less the corner radius)
   const out = (s) => Math.hypot(s.x - Math.min(172, Math.max(28, s.x)), s.y - Math.min(57, Math.max(28, s.y))) - 28;
   check('every seat is behind the boards and above them', seats.every((s) => out(s) >= C.D0 && s.z >= C.rowZ(0) && Number.isFinite(s.yaw)), `${Math.min(...seats.map(out)).toFixed(2)} ft`);

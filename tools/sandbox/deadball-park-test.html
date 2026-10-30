@@ -126,7 +126,10 @@
       ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined, cam: Q.get('cam') || undefined, grade: Q.get('grade') || undefined, tube: Q.get('tube') === '1', station: Q.get('bug') ?? 'KSAB',
         speed: Q.get('speed') != null ? +Q.get('speed') : undefined, tier: Q.get('tier') || undefined,
         // ?seat=x,y,z puts the camera on a seat in the stands (stands.js); window.__seat turns it
-        seat: (window.__seat = Q.get('seat') ? { eye: Q.get('seat').split(',').map(Number), mode: 'follow', fov: 50 } : null) || undefined })
+        seat: (window.__seat = Q.get('seat') ? { eye: Q.get('seat').split(',').map(Number), mode: 'follow', fov: 50, near: Q.get('room') ? 0.3 : undefined } : null) || undefined,
+        // ?room=x,z,face,floor builds a box's suite round the seat (gl/booth-mesh.js); its layout lands on window.__room
+        room: Q.get('room') ? (([x, z, face, floor]) => ({ at: [x, z], face, floor }))(Q.get('room').split(',').map(Number)) : undefined,
+        onRoom: (L) => { window.__room = L; } })
       : createGamedayView(host);
     window.__view = view;
     view.showIdle();

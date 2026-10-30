@@ -6,7 +6,7 @@
   "ambient_theme": "city",
   "bg_color": "#2e4450",
   "color": "#cfe9f5",
-  "description": "A single-storey shopfront that's almost entirely window, wedged between the grass verge and the road. Blue-white light comes through it hard enough to lay a clean rectangle over the broken kerb, and the sign above the door, THE WASH in cold tube neon with one letter flickering on a bad night, is the only thing on this stretch of Ironside that has been maintained on purpose. Through the glass: rows of machines, a bench, and usually somebody sitting on it doing nothing in particular. The door is on the <b>east</b> face, and it's never locked.",
+  "description": "White tile below, a brick flat above, and a ground floor that is nearly all window. Blue-white light lays a rectangle over the kerb, and THE WASH runs across the fascia in cold neon. Through the glass: four washers, the dryers opposite and a bench with somebody on it. The door is <b>east</b> and never locked.",
   "exits": {
     "east": "zone_district_919_905",
     "west": "zone_the_wash"

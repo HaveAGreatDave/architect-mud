@@ -155,74 +155,6 @@ export const TWIN_PASS_ARMS = {
       draw3DBoxAt(ctx, cam, mx, my, fh * 0.12, 0, h * 0.20, 'ty_ff_white', seed + 10, night, alpha, false); }
     drawSmoke(ctx, cam, dx, dy, throat, '198,188,176', alpha * 0.4, now, seed + 12);
   },
-  ironsideunit(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // UNIT 5, IRONSIDE STREET: the low brick unit Batter
-    // Days left in 2026-10 for the front of the fish works, and Tine & Temper before it. The prose
-    // (zone_district_918_907) is the brief: the same brick on a stone plinth under a stepped slate
-    // roof, the window boarded with ply and a letting notice stapled by the door, a cold flue up the
-    // back corner, and the empty pan hooks either side of the door.
-    //
-    // ⚠ IT IS NOT `vacantunit`. That arm is a shut shop under somebody's flats; this is a building
-    // on its own, and its shell was this one before it was empty.
-    // ⚠ THE FASCIA IS KEPT, lettered from the tile's name, because a storefront unit can be bought
-    // and renamed, and the new name goes where the old one was.
-    // Local frame: +y is the street.
-    const BRICK = pal, SLATE = 'ty_dw_slate', IRON = 'ty_dw_iron', STEEL = 'ty_wh_metal', PLY = 'ty_unit_ply';
-    const near = nearOrMesh();
-    const plinth = h * 0.09, wallTop = h * 0.60, eaves = h * 0.69, ridge = h * 0.80;
-    const WALL = fh * 0.86;
-    const YAW = Math.atan2(-E[0], E[1]);
-    // 1) THE BRICK on a stone plinth, and the slate roof: an overhanging eaves course and a ridge
-    //    block, so the silhouette steps twice instead of stopping at a parapet like its neighbours.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, plinth, SLATE, seed + 1, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, WALL, plinth, wallTop, BRICK, seed, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.97, wallTop, eaves, SLATE, seed + 2, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.60, eaves, ridge, SLATE, seed + 3, night, alpha, true);
-    // 2) THE FLUE, cold: the galvanised duct and its rain cap, with nothing coming out of it.
-    { const [kx, ky] = F(-fh * 0.42, -fh * 0.46), stack = h * 1.16;
-      draw3DBoxAt(ctx, cam, kx, ky, fh * 0.09, plinth, stack, STEEL, seed + 4, night, alpha, false);
-      draw3DBoxAt(ctx, cam, kx, ky, fh * 0.15, stack, stack + h * 0.035, STEEL, seed + 5, night, alpha, true); }
-    // 3) THE BOARDS: three sheets of ply screwed over the window opening, standing proud of the
-    //    brick (flush is a coin toss the wall wins), on the iron stallriser that is still there, and
-    //    a fourth sheet over the door with a padlock on the hasp.
-    const sill = plinth + h * 0.04, glassTop = h * 0.34;
-    { const [bx, by] = F(0, WALL + fh * 0.03);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.48, plinth, sill, IRON, seed + 9, night, alpha, false, YAW, fh * 0.06); }
-    for (const [i, lx, hw] of [[0, -0.30, 0.17], [1, 0.30, 0.17], [2, 0, 0.09]]) {
-      const [px, py] = F(lx * fh, WALL + fh * (i === 2 ? 0.03 : 0.02));
-      draw3DBoxAt(ctx, cam, px, py, fh * hw, i === 2 ? plinth : sill, glassTop + h * 0.01, PLY, seed + 10 + i, night, alpha, false, YAW, fh * 0.012);
-    }
-    { const [hx, hy] = F(fh * 0.05, WALL + fh * 0.05);   // the padlock
-      draw3DBoxAt(ctx, cam, hx, hy, fh * 0.012, h * 0.17, h * 0.19, IRON, seed + 14, night, alpha, true, YAW, fh * 0.01); }
-    { const [nx, ny] = F(-fh * 0.30, WALL + fh * 0.035);  // the letting notice, stapled to the board
-      draw3DBoxAt(ctx, cam, nx, ny, fh * 0.07, h * 0.20, h * 0.27, 'ty_ff_white', seed + 15, night, alpha, false, YAW, fh * 0.004); }
-    // 4) The prep room's window, one on each flank, dark now.
-    for (const side of [-1, 1]) {
-      const [wx, wy] = F(side * WALL * 0.99, -fh * 0.30);
-      draw3DBoxAt(ctx, cam, wx, wy, fh * 0.08, wallTop - h * 0.20, wallTop - h * 0.09, 'ty_unit_shut', seed + 16 + side, night, alpha, false);
-    }
-    // 5) THE NAME, across the brick over the window, in the tile's own words (`_bladeSign`, the
-    //    marqueeBand default). ⚠ `marqueeBand`'s `half` IS BOTH THE WIDTH AND THE STAND-OFF, so a
-    //    band sized to the wall sits inside it; this one is sized past the brick for that reason.
-    const cdSgnW = WALL * 1.09, cdSgnZ = wallTop * 0.80;
-    const cdRoom = { floor: glassTop + h * 0.04, wallTop, wall: WALL };
-    reserveSignBand(cdSgnW, cdSgnZ, cdRoom);   // nothing the kit hangs may cross the name
-    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, cdSgnW, cdSgnZ, m.neon || '#c8c0aa', night, alpha, undefined, cdRoom);
-    // 6) THE HOOKS: a short iron rail each side of the window with the pan hooks still on it,
-    //    nothing hung from them. Two tenants on, nobody has taken them down.
-    const railZ = sill + (glassTop - sill) * 0.78;
-    for (const side of [-1, 1]) {
-      const [rx, ry] = F(side * fh * 0.66, WALL + fh * 0.012);
-      draw3DBoxAt(ctx, cam, rx, ry, fh * 0.15, railZ, railZ + h * 0.008, IRON, seed + 40 + side, night, alpha, false, YAW, fh * 0.012);
-      if (near) for (let i = 0; i < 5; i++) {
-        const x = side * fh * (0.54 + i * 0.06);
-        emitWire(ctx, cam, W3(x, WALL + fh * 0.02, railZ), W3(x, WALL + fh * 0.03, railZ - h * 0.022), 1.2, 'rgba(46,44,42,0.95)', alpha, { pull: 0.01 });
-      }
-    }
-    // 7) THE EMPTY BRACKET over the pavement where the tin fish hung. Batter Days took the fish.
-    { const y1 = WALL + fh * 0.40, armZ = glassTop + h * 0.02;
-      const [bx, by] = F(fh * 0.66, (WALL + y1) * 0.5);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.008, armZ, armZ + h * 0.01, IRON, seed + 50, night, alpha, false, YAW, (y1 - WALL) * 0.5); }
-  },
   chippy(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // BATTER DAYS FISH & CHIPS: the chip shop on the front
     // of the Codfather's fish works, on Greenside Row. The prose (zone_district_903_906) is the brief:
     // three storeys of harbour-blue render, orange awnings over a wide lit window, BATTER DAYS in
@@ -809,45 +741,49 @@ export const TWIN_PASS_ARMS = {
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.30, h * 0.34, h * 0.50, 'ty_giardia_tarp', seed + 41, night, alpha, true, 0.12, fh * 0.03); }
   },
   watts(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // WATTS THE DAMAGE — the twin of Nuts to That on the `hardware` mesh. The
-    // difference is that Watts is a small workshop set to the back of its tile, with a tarmac lot in
-    // front for whatever's broken and a painted board on posts at the kerb. It had a neon marquee on
-    // a full-tile box until 2026-10-18, which read as a bar, not a repair shop.
+    // difference is that Watts is a mechanic's garage: a tall workshop filling the tile, a roller
+    // door wide enough for a car with one up on the lift inside, tyres stacked by the door and the
+    // name on a fascia board fixed to the front wall. It was a small shop behind a kerbside board
+    // on posts until 2026-10-29, which read as a sign in a car park.
     // Local frame: +y is the street.
     const yaw = faceYaw(E), dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh();
-    const wallTop = h * 0.46, parapet = h * 0.52;
-    const sx = fh * 0.70, yB = -fh * 0.92, yF = -fh * 0.06, cy0 = (yB + yF) / 2, sd = (yF - yB) / 2;
-    // 1) THE SHOP: one low storey on the back half, a parapet course and a roof vent.
+    const wallTop = h * 0.66, parapet = h * 0.72;
+    const sx = fh * 0.92, yB = -fh * 0.92, yF = fh * 0.62, cy0 = (yB + yF) / 2, sd = (yF - yB) / 2;
+    // 1) THE GARAGE: one tall storey over most of the tile, a parapet course and two roof vents.
     { const [cx, cy] = F(0, cy0);
       draw3DBoxAt(ctx, cam, cx, cy, sx, 0, wallTop, pal, seed, night, alpha, false, yaw, sd);
       draw3DBoxAt(ctx, cam, cx, cy, sx + fh * 0.03, wallTop, parapet, 'ty_watts_roller', seed + 1, night, alpha, true, yaw, sd + fh * 0.03); }
-    { const [vx, vy] = F(-fh * 0.36, cy0 - fh * 0.10);
-      draw3DBoxAt(ctx, cam, vx, vy, fh * 0.08, parapet, parapet + h * 0.06, 'ty_unit_shut', seed + 2, night, alpha, true); }
-    // 2) THE ROLLER DOOR, half up with the bay lit behind it, and a door for people beside it.
-    const yW = yF + 0.003, dTop = h * 0.32, dUp = h * 0.15, rx0 = -fh * 0.52, rx1 = fh * 0.06;
-    tcFlat(ctx, cam, W3, [[rx0, yW, dTop], [rx1, yW, dTop], [rx1, yW, dUp], [rx0, yW, dUp]], [0, 1, 0], [118, 104, 70], 'metal', alpha, dn);
-    tcGlow(ctx, cam, W3, [[rx0, yW, dUp], [rx1, yW, dUp], [rx1, yW, 0.002], [rx0, yW, 0.002]], [0, 1, 0], [52, 48, 42], [255, 222, 160], dn, alpha);
-    if (near) for (let k = 1; k < 6; k++) { const z = dUp + (dTop - dUp) * k / 6;
-      emitWire(ctx, cam, W3(rx0, yW + 0.001, z), W3(rx1, yW + 0.001, z), 1, 'rgba(70,62,44,0.8)', alpha, { pull: 0.01 }); }
+    for (const [i, u] of [[0, -0.46], [1, 0.40]]) { const [vx, vy] = F(fh * u, cy0 - fh * 0.20);
+      draw3DBoxAt(ctx, cam, vx, vy, fh * 0.09, parapet, parapet + h * 0.07, 'ty_unit_shut', seed + 2 + i, night, alpha, true); }
+    // 2) THE ROLLER DOOR, car-wide and two-thirds up, the bay lit behind it, a door for people beside.
+    const yW = yF + 0.003, dTop = h * 0.42, dUp = h * 0.28, rx0 = -fh * 0.78, rx1 = fh * 0.22;
+    tcFlat(ctx, cam, W3, [[rx0 - fh * 0.03, yW, dTop + h * 0.02], [rx1 + fh * 0.03, yW, dTop + h * 0.02], [rx1 + fh * 0.03, yW, 0.002], [rx0 - fh * 0.03, yW, 0.002]], [0, 1, 0], [44, 44, 46], 'metal', alpha, dn);
+    tcFlat(ctx, cam, W3, [[rx0, yW + 0.001, dTop], [rx1, yW + 0.001, dTop], [rx1, yW + 0.001, dUp], [rx0, yW + 0.001, dUp]], [0, 1, 0], [118, 104, 70], 'metal', alpha, dn);
+    tcGlow(ctx, cam, W3, [[rx0, yW + 0.001, dUp], [rx1, yW + 0.001, dUp], [rx1, yW + 0.001, 0.003], [rx0, yW + 0.001, 0.003]], [0, 1, 0], [52, 48, 42], [255, 222, 160], dn, alpha);
+    if (near) for (let k = 1; k < 5; k++) { const z = dUp + (dTop - dUp) * k / 5;
+      emitWire(ctx, cam, W3(rx0, yW + 0.002, z), W3(rx1, yW + 0.002, z), 1, 'rgba(70,62,44,0.8)', alpha, { pull: 0.01 }); }
+    // The car on the lift just inside the door, wheels off the floor: what makes it a mechanic's.
+    { const [cx, cy] = F((rx0 + rx1) / 2, yF - fh * 0.30), lz = h * 0.10;
+      for (const s of [-1, 1]) { const [px, py] = F((rx0 + rx1) / 2 + s * fh * 0.26, yF - fh * 0.30);
+        draw3DBoxAt(ctx, cam, px, py, fh * 0.025, 0, lz, 'ty_grind', seed + 4 + s, night, alpha, false); }
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.30, lz, lz + h * 0.07, 'ty_grind', seed + 6, night, alpha, true, yaw, fh * 0.15);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.22, lz + h * 0.07, lz + h * 0.12, 'ty_watts_roller', seed + 7, night, alpha, true, yaw, fh * 0.13); }
     drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
-      x: fh * 0.34, y: yF + fh * 0.005, w: fh * 0.07, top: h * 0.26, leaves: 1,
+      x: fh * 0.52, y: yF + fh * 0.005, w: fh * 0.08, top: h * 0.30, leaves: 1,
       frame: [60, 58, 54], lobby: { day: [70, 62, 50], night: [255, 214, 150] }, frontVis });
-    { const [lx, ly] = F((rx0 + rx1) / 2, yF + fh * 0.05);   // the lamp over the roller
-      glowPool(ctx, cam, lx, ly, dTop + h * 0.03, '255,232,180', 9, alpha * (night ? 0.55 : 0.12)); }
-    // 3) THE LOT: tarmac to the kerb, four painted bays, and one customer's car waiting on parts.
+    // 3) THE APRON: tarmac to the kerb, an oil stain, and tyres stacked by the door.
     const yK = fh * 1.04;
     tcFlat(ctx, cam, W3, [[-fh * 0.98, yF, 0.003], [fh * 0.98, yF, 0.003], [fh * 0.98, yK, 0.003], [-fh * 0.98, yK, 0.003]], [0, 0, 1], [58, 58, 60], 'plain', alpha, dn);
-    for (let i = 0; i <= 4; i++) { const x = -fh * 0.90 + i * fh * 0.45;
-      tcFlat(ctx, cam, W3, [[x - fh * 0.012, yF + fh * 0.14, 0.005], [x + fh * 0.012, yF + fh * 0.14, 0.005], [x + fh * 0.012, yF + fh * 0.62, 0.005], [x - fh * 0.012, yF + fh * 0.62, 0.005]], [0, 0, 1], [200, 196, 170], 'plain', alpha, dn); }
-    { const [cx, cy] = F(-fh * 0.225, yF + fh * 0.40);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.15, h * 0.02, h * 0.09, 'ty_grind', seed + 6, night, alpha, true, yaw, fh * 0.24);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.12, h * 0.09, h * 0.14, 'ty_watts_roller', seed + 7, night, alpha, true, yaw, fh * 0.13); }
-    // 4) THE SIGN: a painted board on two posts at the kerb, the bulb and crossed wrenches on the
-    //    left and the name beside it. Paint, not tube, so lamps light it after dark.
-    const yS = fh * 0.86, z0 = h * 0.30, z1 = h * 0.50, x0 = -fh * 0.86, x1 = fh * 0.86, e = fh * 0.02;
-    for (const u of [-0.70, 0.70]) { const [px, py] = F(fh * u, yS - fh * 0.01);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.025, 0, z0, 'ty_grind', seed + 10, night, alpha, false); }
-    tcFlat(ctx, cam, W3, [[x0 - e, yS, z1 + h * 0.01], [x1 + e, yS, z1 + h * 0.01], [x1 + e, yS, z0 - h * 0.01], [x0 - e, yS, z0 - h * 0.01]], [0, 1, 0], [52, 50, 46], 'metal', alpha, dn);
-    tcFlat(ctx, cam, W3, [[x1 + e, yS - 0.002, z1 + h * 0.01], [x0 - e, yS - 0.002, z1 + h * 0.01], [x0 - e, yS - 0.002, z0 - h * 0.01], [x1 + e, yS - 0.002, z0 - h * 0.01]], [0, -1, 0], [52, 50, 46], 'metal', alpha, dn);
+    tcFlat(ctx, cam, W3, [[-fh * 0.40, yF + fh * 0.08, 0.004], [-fh * 0.12, yF + fh * 0.08, 0.004], [-fh * 0.16, yF + fh * 0.26, 0.004], [-fh * 0.36, yF + fh * 0.24, 0.004]], [0, 0, 1], [36, 36, 38], 'plain', alpha, dn);
+    for (const [i, u] of [[0, 0.78], [1, 0.86]]) { const [tx, ty] = F(fh * u, yF + fh * 0.10 + i * fh * 0.08);
+      drawFacetDrum(ctx, cam, tx, ty, 0, h * (0.10 + i * 0.04), fh * 0.06, fh * 0.06, 8, alpha,
+        (f) => 'rgb(' + (30 + f.nl * 22 | 0) + ',' + (30 + f.nl * 22 | 0) + ',' + (32 + f.nl * 22 | 0) + ')', 'rgb(18,18,20)'); }
+    // 4) THE SIGN: a painted fascia fixed to the front wall over the door, the bulb and crossed
+    //    wrenches on the left, the name and the trade in the same red at the same size. Paint, not
+    //    tube, so the goosenecks light it after dark.
+    const yS = yF + fh * 0.03, z0 = h * 0.45, z1 = h * 0.64, x0 = -fh * 0.86, x1 = fh * 0.86, e = fh * 0.02;
+    { const [bx, by] = F(0, yF + fh * 0.015);
+      draw3DBoxAt(ctx, cam, bx, by, (x1 - x0) / 2 + e, z0 - h * 0.01, z1 + h * 0.01, 'ty_grind', seed + 10, night, alpha, true, yaw, fh * 0.015); }
     tcFlat(ctx, cam, W3, [[x0, yS + 0.001, z1], [x1, yS + 0.001, z1], [x1, yS + 0.001, z0], [x0, yS + 0.001, z0]], [0, 1, 0], [226, 214, 182], 'timber', alpha, dn);
     if (frontVis) {
       const P = (u, z) => { const [wx, wy] = F(u, yS + 0.002 + FACE_EPS); return cam.proj(wx, wy, z); };
@@ -855,19 +791,24 @@ export const TWIN_PASS_ARMS = {
       const logo = wattsLogoTex();
       const ql = [P(a, m1), P(b, m1), P(b, m0), P(a, m0)];
       if (logo && ql.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, ql, logo, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
-      const n0 = b + fh * 0.04, n1 = x1 - fh * 0.03, split = m0 + L * 0.40;
-      const t1 = bakeSignText(sign || 'WATTS THE DAMAGE', '#a3261c', 0, false, true, true, { font: 'stencil', fit: (n1 - n0) / (m1 - split) });
-      const q1 = [P(n0, m1), P(n1, m1), P(n1, split), P(n0, split)];
+      // Two rows of one height. `sub: false` keeps the kit from adding its own small trade line.
+      const n0 = b + fh * 0.04, n1 = x1 - fh * 0.03, split = m0 + L * 0.48, gap = L * 0.04;
+      const name = sign || 'WATTS THE DAMAGE', rowH = m1 - split - gap;
+      const t1 = bakeSignText(name, '#a3261c', 0, false, true, true, { font: 'stencil', fit: (n1 - n0) / rowH, sub: false });
+      const q1 = [P(n0, m1), P(n1, m1), P(n1, split + gap), P(n0, split + gap)];
       if (t1 && q1.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q1, t1, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
-      const r0 = n0 + (n1 - n0) * 0.18, r1 = n1 - (n1 - n0) * 0.18;
-      const t2 = bakeSignText('REPAIR SHOP', '#2a2824', 0, false, true, true, { font: 'stencil', fit: (r1 - r0) / (split - m0) });
-      const q2 = [P(r0, split), P(r1, split), P(r1, m0), P(r0, m0)];
+      // REPAIRS gets the name's letter height, so its row is as wide as its share of the name's letters.
+      const w2 = Math.min(n1 - n0, (n1 - n0) * 7 / Math.max(7, name.length)), c2 = (n0 + n1) / 2;
+      const t2 = bakeSignText('REPAIRS', '#a3261c', 0, false, true, true, { font: 'stencil', fit: w2 / rowH, sub: false });
+      const q2 = [P(c2 - w2 / 2, split - gap), P(c2 + w2 / 2, split - gap), P(c2 + w2 / 2, m0), P(c2 - w2 / 2, m0)];
       if (t2 && q2.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q2, t2, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
     }
-    if (dn > 0) for (const u of [-0.40, 0.40]) {   // two gooseneck lamps over the board
-      if (near) emitWire(ctx, cam, W3(fh * u, yS, z1 + h * 0.01), W3(fh * u, yS + fh * 0.07, z1 + h * 0.03), 1.6, 'rgba(48,50,52,0.95)', alpha, { pull: 0.02 });
-      const [gx, gy] = F(fh * u, yS + fh * 0.07); glowPool(ctx, cam, gx, gy, z1, '255,226,170', 8, alpha * 0.45 * dn);
+    if (dn > 0) for (const u of [-0.45, 0.45]) {   // two gooseneck lamps off the wall over the board
+      if (near) emitWire(ctx, cam, W3(fh * u, yF, z1 + h * 0.03), W3(fh * u, yS + fh * 0.08, z1 + h * 0.04), 1.6, 'rgba(48,50,52,0.95)', alpha, { pull: 0.02 });
+      const [gx, gy] = F(fh * u, yS + fh * 0.08); glowPool(ctx, cam, gx, gy, z1, '255,226,170', 8, alpha * 0.45 * dn);
     }
+    { const [lx, ly] = F((rx0 + rx1) / 2, yF + fh * 0.10);   // the bay light spilling out
+      glowPool(ctx, cam, lx, ly, dUp, '255,232,180', 10, alpha * (night ? 0.55 : 0.10)); }
   },
   slagwares(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // SLAG & WARES — one of two junkyard twins promoted off the scrapyard mesh
     // (bales, grabber crane, site shack), which is a plant this is not. It is a PITCH: a hand-cart

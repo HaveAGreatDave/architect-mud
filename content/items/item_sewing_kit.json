@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_sewing_kit",
+  "name": "sewing kit",
+  "tags": {
+    "description": "A flat tin with needles in a felt leaf, six reels of thread, a thimble, a seam ripper and a card of buttons. Enough to mend a coat properly if you know how, and to make it worse if you do not.",
+    "misc": true,
+    "repair_kit": true
+  },
+  "type": "misc",
+  "value": 24,
+  "weight": 150
+}

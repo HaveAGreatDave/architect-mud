@@ -1,0 +1,18 @@
+{
+  "description": "A long white leather sofa facing the television, deep enough to lose a shoe in.",
+  "flags": {
+    "aliases": [
+      "sofa",
+      "couch",
+      "leather sofa"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ]
+  },
+  "id": "furn_hughson_platinum_sofa",
+  "name": "the sofa",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_platinum"
+}

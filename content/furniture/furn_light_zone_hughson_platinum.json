@@ -1,0 +1,11 @@
+{
+  "description": "Recessed lights in the ceiling, and a strip of light along the platinum stripe.",
+  "flags": {},
+  "id": "furn_light_zone_hughson_platinum",
+  "light_type": "overhead",
+  "lumen_output": 2400,
+  "name": "the box lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hughson_platinum"
+}

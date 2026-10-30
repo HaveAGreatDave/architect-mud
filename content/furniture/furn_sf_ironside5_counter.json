@@ -1,11 +1,11 @@
 {
-  "description": "The old steel chip shop counter, bolted through the tiles, with the hot cabinet gone from the top of it and the glass well underneath still whole.",
+  "description": "The old chip shop counter, bolted through the floor, with a cloth over the steel top. A tape measure, a tin of pins, a chalk block and a spike of collection tickets are on it.",
   "flags": {
     "shop_display": true,
     "woven": true
   },
   "id": "furn_sf_ironside5_counter",
-  "name": "display counter",
+  "name": "cutting counter",
   "object_type": "fixture",
   "zone_id": "zone_sf_ironside5_shop"
 }

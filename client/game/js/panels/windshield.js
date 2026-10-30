@@ -84,6 +84,7 @@ import { AUTHORED_DETAIL, DETAIL_PX, FLAT_ONLY_KINDS, shadeOf } from './glass/au
 import { TAG_COLS, derivedTrim, paintFoot } from './glass/derived-kit.js';
 import { drawBerthMarks } from './glass/berth-marks.js';   // a boat seat's fuel-berth and covered-slot boxes on the water
 import { drawRodRig } from './glass/rod-rig.js';   // a boat seat's rod mode: the angler, the rod, the line, the lure and the ring
+import { stepWeatherCells } from '../../../shared/wx-cells.js';   // the weather cells drifted between server snapshots, shared with the ballpark's sky
 
 let _frameDpr = 1;              // this frame's device-pixel ratio — see where it is set in paintWindshield
 // …and the frame's size IN CSS PIXELS, which is the space every screen coordinate in this file is
@@ -3151,62 +3152,8 @@ const TENTHS = (x) => Math.round(x * 10) / 10;
 // 45° elevation; nearer cells climb toward the zenith, distant ones hug the horizon.
 const CLOUD_SKY_H = 5;
 
-// Advance the client's local copy of the weather cells one frame. The field is deterministic and
-// each cell carries its own velocity (grid units per `tick` seconds), so the client extrapolates
-// the moving fronts forward at 60fps on its own — it needn't be re-sent every frame; the next
-// server snapshot just re-seats any accumulated drift. Torus-wrap mirrors the server's advectField.
-//
-// ⚠ A CELL IS NAMED BY WHAT IT IS, NOT WHERE IT SITS IN THE LIST. The server crops the list to the
-// viewer (CLIENT_CELL_RANGE), so a cell's index shifts whenever another one comes into range. The
-// seed used to be the index, and every cell after the newcomer re-scattered its puffs and dome
-// sprites in the same frame. Radius, drift and strength are fixed for a cell's whole day
-// (systemsForForecast), so together they name it.
-//
-// ⚠ AND A PACKET IS NOT WHERE THE CELL IS NOW. The server advects in whole 30 s steps and the client
-// glides between them, so a packet lands up to one step behind the drawn cell. It arrives with every
-// flight_ctx, and snapping to it hopped every cloud back by up to half a tile each time. A cell
-// keeps its drawn position while that is within about a step of the packet's, and eases off a
-// larger error over a second or two. Only a gap no drift explains (a wrap, a new day) snaps.
-const cellKey = (c) => c.type + '|' + c.r + '|' + c.vx + '|' + c.vy + '|' + c.intensity;
-function cellSeed(key) {
-  let h = 2166136261;
-  for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return (h >>> 0) / 4294967296 * 997 + 1.7;
-}
-function stepWeatherCells(st, field, dt) {
-  if (!field || !field.cells || !field.cells.length) { st.cells = null; st.wxRef = field; return; }
-  if (st.wxRef !== field) {   // new server snapshot → re-seat positions (keep drifting from here)
-    const prev = new Map();
-    for (const c of st.cells || []) { const k = cellKey(c); if (!prev.has(k)) prev.set(k, []); prev.get(k).push(c); }
-    st.wxRef = field;
-    st.cells = field.cells.map((c) => {
-      const key = cellKey(c), old = prev.get(key)?.shift();
-      const n = { ...c, seed: cellSeed(key), ex: 0, ey: 0 };
-      if (old) {
-        const gap = Math.hypot(old.x - c.x, old.y - c.y), step = Math.hypot(c.vx, c.vy);
-        if (gap < 6) {
-          n.x = old.x; n.y = old.y;
-          if (gap > step * 1.25 + 0.05) { n.ex = c.x - old.x; n.ey = c.y - old.y; }
-        }
-      }
-      return n;
-    });
-    st.wxBounds = field.bounds; st.wxTick = field.tick || 30;
-  }
-  const b = st.wxBounds, pad = 2, per = dt / (st.wxTick || 30), ease = Math.min(1, dt * 1.5);
-  for (const c of st.cells) {
-    c.x += c.vx * per; c.y += c.vy * per;
-    if (c.ex || c.ey) {
-      c.x += c.ex * ease; c.y += c.ey * ease; c.ex -= c.ex * ease; c.ey -= c.ey * ease;
-      if (Math.abs(c.ex) + Math.abs(c.ey) < 1e-3) c.ex = c.ey = 0;
-    }
-    if (!b) continue;
-    const lo = b.minX - c.r - pad, spanX = (b.maxX - b.minX) + c.r * 2 + pad * 2;
-    const loY = b.minY - c.r - pad, spanY = (b.maxY - b.minY) + c.r * 2 + pad * 2;
-    if (c.x < lo) c.x += spanX; else if (c.x > lo + spanX) c.x -= spanX;
-    if (c.y < loY) c.y += spanY; else if (c.y > loY + spanY) c.y -= spanY;
-  }
-}
+// The weather cells move along between server snapshots in stepWeatherCells (client/shared/wx-cells.js),
+// which the ballpark's sky shares.
 
 // Sample cloud cover + precipitation at the aircraft — the same overlap math the server field
 // uses (sampleWeatherAt), so the rain out the canopy matches the weather you're actually flying
@@ -17114,8 +17061,15 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // orange of its awnings and lettering, and the cream it picks its window frames out in.
   ty_bd_blue: [46, 96, 156], ty_bd_blue_dk: [24, 48, 84], ty_bd_orange: [236, 128, 40],
   ty_bd_cream: [236, 228, 208],
-  // Unit 5, Ironside Street: the ply over Batter Days' old window.
-  ty_unit_ply: [156, 128, 88],
+  // Alter Ego, the tailor in the old Unit 5: the same brick cleaned back, a navy shopfront and
+  // fascia, cream for the lettering and the window frames, and the stone of the plinth and sills.
+  ty_ae_brick: [118, 74, 60], ty_ae_navy: [36, 46, 74], ty_ae_cream: [232, 222, 196], ty_ae_stone: [150, 144, 132],
+  // The Wash: white glazed tile on the shop, the sooted brick of the flat over it, the grey-green
+  // of its window frames, and the enamel of the machines seen through the glass.
+  ty_wash_tile: [206, 218, 222], ty_wash_brick: [92, 76, 68], ty_wash_frame: [66, 82, 90], ty_wash_machine: [226, 230, 232],
+  // Salvage Rites: two more colours of crushed car for the bales, galvanised fence post, and the
+  // yellow of the site cabins.
+  ty_sr_bale_r: [132, 62, 48], ty_sr_bale_b: [70, 84, 104], ty_sr_post: [118, 122, 124], ty_sr_cabin: [196, 156, 62],
   // Sole Survivor — the terrace's own brick, because it is built out of the gap in one, plus the
   // black of a painted iron roof and an iron sign, and one small warm window.
   ty_sole: [92, 66, 56], ty_sole_dk: [34, 32, 30], ty_sole_glass: [122, 96, 62],
@@ -17580,6 +17534,7 @@ const BLDG_TYPE_3D = {
   outfitter:        { a: 'citycore',    h: 0.13 }, // Layers
   bodega:           { a: 'oldcoldwater', h: 0.11 }, // Bodega Vu, on the Ironside corner
   butcher:          { a: 'oldcoldwater', h: 0.10 }, // Meat Your Maker, single storey with a flat roof
+  tailor:           { a: 'oldcoldwater', h: 0.14 }, // Alter Ego, two storeys of old brick on Ironside
   church:           { a: 'oldcoldwater', h: 0.16 }, // St Garneau's, twin towers over a barrel-vaulted nave
   comic_shop:       { a: 'oldcoldwater', h: 0.13 }, // Mint Condition, on the last dry corner of Ironside
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — heights come from
@@ -18237,7 +18192,7 @@ const PUMP_WALL = new Set(['ty_pump']);
 // Flat painted surfaces that are emphatically not facades: the canopy soffit, a painted kerb, the
 // kiosk's panel wall. Same reason as STRUCT_WALL — the default branch's job is windows, and none of
 // these has any.
-const PLAIN_WALL = new Set(['ty_bd_blue_dk', 'ty_bd_orange', 'ty_bd_cream', 'ty_gfc_green',  // Grounds for Concern's painted shopfront
+const PLAIN_WALL = new Set(['ty_wash_machine', 'ty_ae_navy', 'ty_ae_cream', 'ty_sr_post', 'ty_bd_blue_dk', 'ty_bd_orange', 'ty_bd_cream', 'ty_gfc_green',  // Grounds for Concern's painted shopfront
   // The Cherry Pit: block painted over in arterial red, with no window in the street face. It was
   // in BRICK_WALL and read as a tidy brick hall; STUCCO's GPU relief reads as brick from the
   // street too. Flat paint, and the model's grime parts do the weathering.
@@ -18399,7 +18354,7 @@ const BRICK_WALL = new Set(['ty_gfc_brick',   // Grounds for Concern
   // window and door on Ash Management is one its arm draws. `ty_ash` is the hall and the stack.
   'ty_ash',
   'ty_forge', 'ty_kitchen', 'ty_butcher', 'ty_junk_shack', 'ty_embassy_brick', 'ty_corbett',
-  'ty_sw_kiln', 'ty_sw_kiln_dk', 'ty_adequate_dk', 'ty_unit_brick',
+  'ty_sw_kiln', 'ty_sw_kiln_dk', 'ty_adequate_dk', 'ty_unit_brick', 'ty_ae_brick', 'ty_wash_brick',
   // ⚠ AND THE NUMBERED UNITS' OWN WALL, WHICH IS THE THIRD FAMILY IT HAS BEEN IN AND THE RIGHT
   // ONE. It sat in PLAIN_WALL while the arm drew a one-storey lock-up, which genuinely has no
   // openings; moved to the default branch so the flats over the shop would read, it got the
@@ -18425,7 +18380,7 @@ const BRICK_WALL = new Set(['ty_gfc_brick',   // Grounds for Concern
 // down every lap, and rust bleeding out from under each one. This is a hull, a tank, a reefer box
 // and a foundry shell — none of which has ever had a window in it, and all of which had six floors
 // of glowing apartments in them until now.
-const PLATE_WALL = new Set([
+const PLATE_WALL = new Set(['ty_sr_cabin', 
   // A roller shutter and an external steel stair. Overlapping slats and treadplate are laps, which
   // is what this family draws, and neither has ever had a window in it.
   'ty_pocket_shut', 'ty_pocket_stair', 'ty_penny',
@@ -18513,7 +18468,7 @@ const REGION_NO_FLOOR = new Set([
   'ty_trm_blast', 'ty_trm_vault', 'ty_trm_depot', 'ty_trm_gate', 'ty_trm_gate_dk', 'ty_trm_dynamo', 'ty_trm_cell',
   'ty_trm_grave', 'ty_trm_marker',
 ]);
-const BALE_WALL = new Set(['ty_junk_bale', 'ty_junk_bale_dk', 'ty_slag', 'ty_pallet', 'ty_sw_slag',
+const BALE_WALL = new Set(['ty_sr_bale_r', 'ty_sr_bale_b', 'ty_junk_bale', 'ty_junk_bale_dk', 'ty_slag', 'ty_pallet', 'ty_sw_slag',
   // Terminus sandbags (2026-09-27).
   'ty_trm_sand',
 ]);
@@ -18529,7 +18484,7 @@ const BRASS_WALL = new Set(['ty_hf_gold', 'ty_meridian_bronze', 'ty_marble_bronz
 // GLAZED TILE. What you face a thing in when it has to be hosed down: a clinic's flank, a
 // bathhouse, a butcher's slab wall, a vat room. The only material here whose main event is a
 // HIGHLIGHT rather than a shadow, which is what keeps it from reading as very small brick.
-const TILE_WALL = new Set(['ty_gfc_cup',   // the cup on Grounds for Concern's roof is glazed ceramic
+const TILE_WALL = new Set(['ty_wash_tile', 'ty_gfc_cup',   // the cup on Grounds for Concern's roof is glazed ceramic
 
   // Kettle Lane Pumping Station's terracotta dressings. Moulded, glazed and proud of itself, which is
   // exactly what this family draws.
@@ -18601,7 +18556,7 @@ const SHOP_GLASS = new Set([
 // nail heads that have bled rust down the board, and the silvering that sun puts on the top of a
 // wall and never on the bottom. The variation is the whole point — a uniform plank texture reads
 // as corrugated sheet, which is the family next door.
-const TIMBER_WALL = new Set(['ty_unit_ply', 'ty_corbett_tank', 'ty_reach_saloon', 'ty_reach_saloon_dk', 'ty_reach_board', 'ty_reach_shack',
+const TIMBER_WALL = new Set(['ty_corbett_tank', 'ty_reach_saloon', 'ty_reach_saloon_dk', 'ty_reach_board', 'ty_reach_shack',
   'ty_reach_merc', 'ty_reach_merc_dk', 'ty_reach_grey', 'ty_reach_grey_dk', 'ty_reach_bath',
   'ty_reach_scorch',   // scorched board is still board — burnt timber, not a burnt facade
   'ty_reach_motel', 'ty_reach_water', 'ty_reach_assay_dk', 'ty_reach_awning', 'ty_reach_porch',
@@ -51052,6 +51007,7 @@ const SIGN_TRADE = {
   off_licence: ['stencil', ''],         // stencil on a steel shutter, which is the only surface this shop presents to the street
   fishmonger: ['slab', 'fork'],         // a counter — the same hand and mark the butcher and the diner already carry
   cobbler: ['slab', ''],                // a trade sign over a workshop door, and older than the street
+  tailor: ['slab', ''],                 // a painted fascia over a shop window, the cobbler's hand one trade along
   locksmith: ['stencil', ''],           // cut plate: the hand a security trade uses on purpose
   photographer: ['deco', ''],           // a portrait studio's own period, and the one trade that sells taste in lettering
   tattooist: ['script', ''],            // the whole trade is a brush, and the sign is the portfolio
@@ -51126,7 +51082,7 @@ const SIGN_WORD = {
   bar: 'TAVERN', divebar: 'TAVERN', saloon: 'SALOON', honkytonk: 'HONKY TONK',
   nightclub: 'NIGHTCLUB', club: 'NIGHTCLUB', strip: 'NIGHTCLUB',
   casino: 'CASINO', neonvig: 'CASINO',
-  noodle_bar: 'NOODLE BAR', diner: 'DINER', helpings: 'DINER', butcher: 'BUTCHER',
+  noodle_bar: 'NOODLE BAR', diner: 'DINER', helpings: 'DINER', butcher: 'BUTCHER', tailor: 'TAILOR',
   bodega: 'GROCERY', grocery: 'GROCERY', mercantile: 'GROCERY', store: 'GENERAL STORE', shop: 'GENERAL STORE',
   dept_store: 'DEPT STORE', deptstore: 'DEPT STORE', boutique: 'OUTFITTER', outfitter: 'OUTFITTER',
   atelier: 'COUTURE',   // the same trade as `boutique` above, and both tables missed it — see `$trade`

@@ -71,6 +71,7 @@ const cases = [
   ['mono on', 'monoAudio', 'on'],
   ['motion off', 'motion', 'off'],
   ['plays off', 'playByPlay', 'off'],
+  ['ballglow off', 'ballGlow', 'off'],
 ];
 for (const [cmd, key, want] of cases) {
   runAccessibilityCommand(cmd);

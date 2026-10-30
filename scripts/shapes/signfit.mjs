@@ -56,6 +56,10 @@ const TOL = 1.18;
 // a new one silently the moment somebody removes an old one, which is the failure this gate exists
 // to stop being silent.
 const KNOWN = new Map([
+  ['named:salvagerites',
+    "the board is a panel in the yard's own chain-link fence, so from off-square the near side run's " +
+    "rails and barbed wire stand between the eye and the lettering. That is a fence seen through, " +
+    "which is what one is; the front run already stops at the board's edges."],
   ['type:dept_store',
     "the arm raises an aerial mast from the middle of the roof and the kit hangs a gable-end ad " +
     "panel on the flank below it; the two cross only from off-square. The kit's roof hoarding takes " +

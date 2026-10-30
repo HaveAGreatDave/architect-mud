@@ -114,8 +114,8 @@ export function tension(p, S) {
 
 // `state()` gives { p (the payload playing), S (the graphics' state: pitch, splash, tableRace,
 // replay, matchup, homeTeam, gold) }. `detail` pins Sound Detail (the gates); otherwise it's the
-// player's.
-export function createParkSound({ win = globalThis, state = () => ({}), detail = null } = {}) {
+// player's. `seat` (stands.js) puts the ear in the stands rather than the booth: see `fromSeat`.
+export function createParkSound({ win = globalThis, state = () => ({}), detail = null, seat = null } = {}) {
   const AE = () => win?.AudioEngine || null;
   let tier = detail || sfxDetail(loadSettings());
   let world = null, lastT = 0;
@@ -130,9 +130,30 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
   const booth = () => AE()?.speechLeft?.('tv') || 0;
   const scene = () => AE()?.speechLeft?.('scene') || 0;
 
+  // A seat in the stands hears the field, not the broadcast. There are no graphics to sting and
+  // no booth, so the play is the mix: the bat, the gloves, the feet and the slides come up, each
+  // as loud as it is near the seat and late by the time sound takes to reach it, and the umpires
+  // are men shouting a long way off. `fromSeat(at)` is { gain, ms } for a sound at `at` (the
+  // field's feet, as the seat's eye is).
+  const SEAT_NEAR = 70, SEAT_LIFT = { impact: 1.6, fx: 1.7 };
+  function fromSeat(at) {
+    const eye = seat?.eye;
+    if (!eye || !at) return { gain: 1, ms: 0 };
+    const d = Math.hypot(at[0] - eye[0], (at[1] ?? 0) - eye[1], at[at.length - 1] - eye[2]);
+    return { gain: Math.max(0.25, Math.min(1.4, SEAT_NEAR / Math.max(1, d))), ms: (d / SPEED_OF_SOUND) * 1000 };
+  }
+  // where the plate umpire, the catcher and the batter are
+  const PLATE = [0, 4, -3];
+
   // One sound from the bank: `what` is its Sound Detail tier, `t` the world time it's for (its
-  // seed), `o` the event's data and { gain, pan }.
+  // seed), `o` the event's data and { gain, pan, at }; `at` is only read from a seat.
   function play(key, o = {}, what = 'event', t = world ? world.t : 0) {
+    if (seat && o.at) {
+      const { gain, ms } = fromSeat(o.at);
+      const near = { ...o, at: null, gain: (o.gain ?? 1) * gain };
+      if (ms > 15) { later(ms, () => play(key, near, what, t)); return null; }
+      o = near;
+    }
     if (!tierAllows(tier, what)) return null;
     const pick = eventFor(key, o);
     if (!pick) return null;
@@ -142,7 +163,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
     const ae = AE();
     if (!ae?.playSfx) return null;
     const m = MIX[layerOf(pick.id)];
-    let g = dbGain(m.db) * (o.gain ?? 1);
+    let g = dbGain(m.db) * (o.gain ?? 1) * (seat ? SEAT_LIFT[layerOf(pick.id)] || 1 : 1);
     if (m.duck && booth() > 0) g *= dbGain(m.duck);
     const seed = (hashStr(key) ^ Math.round(t * 1000)) >>> 0;
     const pan = Number.isFinite(o.pan) ? Math.max(-0.35, Math.min(0.35, o.pan)) : 0;
@@ -157,6 +178,12 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
     const db = who === 'announcer' ? MIX.call.db : who === 'vendor' ? MIX.vendor.db : MIX.scene.db;
     return AE()?.speak?.(text, { channel: 'scene', seed: who, voice: VOICES[who], gain: dbGain(db) * (o.gain ?? 1), excite: o.excite ?? 0, pa: who === 'pa' }) || null;
   }
+  // an umpire from a seat: further off is quieter and later
+  function umpire(text, at, gain) {
+    if (!seat) { say('umpire', text, { gain, excite: 0.25 }); return; }
+    const f = fromSeat(at);
+    later(f.ms, () => say('umpire', text, { gain: gain * Math.max(0.35, Math.min(1, f.gain)), excite: 0.35 }));
+  }
   // pan by where it happened: +x is toward third, on the left of the picture from behind the plate
   const panAt = (q) => (q ? -q[0] / 250 : 0);
 
@@ -167,12 +194,12 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
     switch (e.kind) {
       case 'catch':
         if (Math.abs(at - lastCatchCue) < CATCH_SAME) return;
-        play('glove', { role, stretch: b.clip.id === 'field_stretch', pan }, 'event', at);
+        play('glove', { role, stretch: b.clip.id === 'field_stretch', pan, at: where }, 'event', at);
         return;
-      case 'tag': play('tag', { pan }, 'event', at); return;
-      case 'hit': play('hit', { pan }, 'event', at); later(60, () => play('gasp', {}, 'event', at + 0.06)); return;
+      case 'tag': play('tag', { pan, at: where }, 'event', at); return;
+      case 'hit': play('hit', { pan, at: where }, 'event', at); later(60, () => play('gasp', {}, 'event', at + 0.06)); return;
       case 'release':
-        if (role !== 'pitcher' || /pickoff/.test(b.clip.id)) play('release', { pan }, 'step', at);
+        if (role !== 'pitcher' || /pickoff/.test(b.clip.id)) play('release', { pan, at: where }, 'step', at);
         return;
       case 'step': {
         // a fielder creeping in as the pitch comes isn't heard; a man running is
@@ -181,18 +208,18 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         if (at - stepWindow.t > 1) stepWindow = { t: at, n: 0 };
         if (++stepWindow.n > STEPS_PER_S) return;
         stepAt.set(b.slot, at);
-        play('step', { dirt: onDirt(where[0], where[where.length - 1]), hard: role === 'runner' || role === 'batter', pan }, 'step', at);
+        play('step', { dirt: onDirt(where[0], where[where.length - 1]), hard: role === 'runner' || role === 'batter', pan, at: where }, seat && role === 'runner' ? 'event' : 'step', at);
         return;
       }
       case 'call': {
         const s = state() || {};
         // a base umpire is further from the microphones than the plate umpire
-        say('umpire', umpireSays(e.call, s), { gain: b.id === 'ump:plate' ? 1 : 0.8, excite: 0.25 });
+        umpire(umpireSays(e.call, s), where, b.id === 'ump:plate' ? 1 : 0.8);
         return;
       }
-      case 'slide': play('slide', { pan }, 'event', at); return;
-      case 'diveBack': play('diveBack', { pan }, 'event', at); return;
-      case 'dive': play('dive', { dirt: onDirt(where[0], where[where.length - 1]), pan }, 'event', at); return;
+      case 'slide': play('slide', { pan, at: where, gain: seat ? 1.3 : 1 }, 'event', at); return;
+      case 'diveBack': play('diveBack', { pan, at: where }, 'event', at); return;
+      case 'dive': play('dive', { dirt: onDirt(where[0], where[where.length - 1]), pan, at: where }, 'event', at); return;
       default: // contact is the director's crack; the clip's fires on a miss too
     }
   }
@@ -226,22 +253,22 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
     // a bounce: falling, then rising, near the ground
     if (vy0 != null && vy0 < -2 && vy1 > 0 && Math.min(q0[1], q1[1]) < 2) {
       const dirt = onDirt(q1[0], q1[2]);
-      if ((p.kind === 'wildpitch' || p.kind === 'passedball') && Math.hypot(q1[0], q1[2]) < 25) play('dirt', { pan: panAt(q1) }, 'event', t1);
-      else play('hop', { dirt, speed, pan: panAt(q1) }, 'event', t1);
+      if ((p.kind === 'wildpitch' || p.kind === 'passedball') && Math.hypot(q1[0], q1[2]) < 25) play('dirt', { pan: panAt(q1), at: q1 }, 'event', t1);
+      else play('hop', { dirt, speed, pan: panAt(q1), at: q1 }, 'event', t1);
     }
     // the wall: going out, then coming back, out there
-    if (ball.dr != null && ball.dr > 0 && dr < 0 && r1 > 200 && q1[1] < 14 && !ball.done.wall) { ball.done.wall = 1; play('wall', { pan: panAt(q1) }, 'event', t1); }
+    if (ball.dr != null && ball.dr > 0 && dr < 0 && r1 > 200 && q1[1] < 14 && !ball.done.wall) { ball.done.wall = 1; play('wall', { pan: panAt(q1), at: q1 }, 'event', t1); }
     // past the fence: the pole, or the seats as it comes down
     const fence = fenceDistance(Math.atan2(q1[0], q1[2]));
     if (p.kind === 'homerun') {
-      if (r0 < fence && r1 >= fence && p.play?.hr === 'pole' && !ball.done.pole) { ball.done.pole = 1; play('pole', { pan: panAt(q1) }, 'event', t1); }
+      if (r0 < fence && r1 >= fence && p.play?.hr === 'pole' && !ball.done.pole) { ball.done.pole = 1; play('pole', { pan: panAt(q1), at: q1 }, 'event', t1); }
       // a home run's path knows where it comes down (flight.js `land`, which the fireworks use too)
       if (Number.isFinite(path.land) && path.land > t0 && path.land <= t1 && p.play?.hr !== 'pole' && !ball.done.seats) { ball.done.seats = 1; play('seats', { pan: panAt(q1) }, 'event', path.land); }
     }
-    // behind the plate: the backstop low, the net high
-    if (q1[2] < -50 && q0[2] >= -50 && !ball.done.back) { ball.done.back = 1; play(q1[1] < 10 ? 'backstop' : 'net', {}, 'event', t1); }
+    // behind the plate: the backstop low; high, there's no net, so it's into the club's seats
+    if (q1[2] < -50 && q0[2] >= -50 && !ball.done.back) { ball.done.back = 1; play(q1[1] < 10 ? 'backstop' : 'seats', {}, 'event', t1); }
     // rolling through the grass
-    if (q1[1] < 0.6 && speed > 10 && !onDirt(q1[0], q1[2]) && t1 - (ball.rolled ?? -9) > 0.6) { ball.rolled = t1; play('roll', { pan: panAt(q1) }, 'step', t1); }
+    if (q1[1] < 0.6 && speed > 10 && !onDirt(q1[0], q1[2]) && t1 - (ball.rolled ?? -9) > 0.6) { ball.rolled = t1; play('roll', { pan: panAt(q1), at: q1 }, 'step', t1); }
     ball.vy = vy1; ball.dr = dr;
   }
 
@@ -287,8 +314,8 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
   function hearGraphics(t) {
     const s = state() || {}, S = s.S || {}, p = s.p || {};
     if (S.pitch && S.pitch !== seen.pitch) {
-      play('click', {}, 'event', t);
-      if (S.pitch.velo) later(180, () => play('beep', {}, 'event', t + 0.18));
+      if (!seat) play('click', {}, 'event', t);
+      if (S.pitch.velo && !seat) later(180, () => play('beep', {}, 'event', t + 0.18));
       const x = tension(p, S), twoOut = (p.outs | 0) - (p.out ? 1 : 0) >= 2;
       if ((S.pitch.strikes | 0) >= 2 && p.half === 'top' && tierAllows(tier, 'bed')) {
         // two strikes and two out on a visitor: the stands stamp him down; otherwise they clap
@@ -298,6 +325,8 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       if (x >= 0.6) later(400, () => play('murmur', { gain: Math.min(1, x + 0.1) }, 'event', t + 0.4));
     }
     seen.pitch = S.pitch || null;
+    // a seat has no graphics, so nothing goes up to be heard
+    if (seat) { seen.splash = S.splash || null; seen.table = S.tableRace || null; seen.replay = !!S.replay; return; }
     if (S.splash && S.splash !== seen.splash && !['homerun', 'grandslam'].includes(S.splash.kind)) play('splash', {}, 'event', t);
     seen.splash = S.splash || null;
     if (S.tableRace && !seen.table) play('table', {}, 'event', t);
@@ -325,13 +354,13 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         lastCrackT = t;
         const q = crackPitch(s.p, ++cracks);
         const how = contactOf({ p: s.p, pitch: q }, seed);
-        play('crack', how, 'event', t);
+        play('crack', { ...how, at: PLATE }, 'event', t);
         // the crowd comes up off the bat before anyone knows where it's going; not for a pop-up
         if (q?.result === 'inplay' && how.t !== 'pu' && !how.bunt) later(90, () => play('swell', how, 'event', t + 0.09));
         // the booth's call as the ball comes off the bat (baseball.js contactCall), on the pitch
         // that's put in play: his line about how it ended waits for it (afterCall)
         const c = s.p?.contact;
-        if (c?.text && q?.result === 'inplay' && tierAllows(tier, 'call') && booth() <= 0.15) {
+        if (!seat && c?.text && q?.result === 'inplay' && tierAllows(tier, 'call') && booth() <= 0.15) {
           log.push(['say', 'booth', c.text]);
           AE()?.speak?.(c.text, { channel: 'scene', seed: c.by || 'booth', gain: dbGain(MIX.call.db), excite: (+s.p.play?.ev || 0) >= 100 ? 0.8 : 0.45 });
         }
@@ -339,11 +368,11 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       }
       if (name === 'mitt' || name === 'glove') {
         lastCatchCue = t;
-        if (name === 'mitt') play('mitt', { velo: s.S?.pitch?.velo, tip: t - lastCrackT < 0.3 }, 'event', t);
+        if (name === 'mitt') play('mitt', { velo: s.S?.pitch?.velo, tip: t - lastCrackT < 0.3, at: PLATE }, 'event', t);
         else play('glove', {}, 'event', t);
         return;
       }
-      play(name, {}, 'event', t);
+      play(name, name === 'whiff' ? { at: PLATE } : {}, 'event', t);
     },
     // After the live world's stepped: everything that happened since the last frame.
     hear(W, { fx = null, roar = null } = {}) {
@@ -395,7 +424,9 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       if (!p) return;
       const s = state() || {}, t = world ? world.t : 0;
       const outs = p.kind === 'tripleplay' ? 3 : p.kind === 'doubleplay' ? 2 : 1;
-      if (p.kind === 'homerun') play('homer', {}, 'event', t);
+      // the stings are the broadcast's
+      if (seat) { /* none */ }
+      else if (p.kind === 'homerun') play('homer', {}, 'event', t);
       else if (p.rbi > 0 || (p.phase === 'run' && p.runs > 0)) play('run', {}, 'event', t);
       else if (p.kind === 'strikeout') play('strikeout', {}, 'event', t);
       else if (p.out) for (let k = 0; k < outs; k++) later(150 * k, () => play('out', {}, 'event', t + 0.15 * k));
@@ -416,9 +447,10 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       if (homeFielding && p.kind === 'strikeout' && (p.outs | 0) >= 3 && tension(p, s.S) >= 0.4) later(200, () => play('airhorn', {}, 'event', t + 0.2));
       // sold, but not to the top of his range: an all-caps shout already leans on its last word, and
       // at full excitement "THREE" went up nine semitones and shrill
-      say('announcer', callFor(p, s.S?.pitch), { excite: 0.4 });
+      // the announcer is the broadcast's; a seat hears the umpire and the crowd
+      if (!seat) say('announcer', callFor(p, s.S?.pitch), { excite: 0.4 });
       // the last out of a final: once the moment's held, the announcer crowns them
-      if (p.end?.champion) later(1300, () => say('announcer', CALLS.announcer.champions, { excite: 0.5 }));
+      if (p.end?.champion && !seat) later(1300, () => say('announcer', CALLS.announcer.champions, { excite: 0.5 }));
     },
     // Before a final's first pitch: the anthem, and the public address reading each man as his
     // card goes up (gameday-grandstand.js introduce).

@@ -1,0 +1,21 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_platinum_champagne",
+  "name": "flute of champagne",
+  "tags": {
+    "consumable": true,
+    "description": "Champagne in a tall glass with the Coliseum's crest etched on it. It's cold and it's free, which is the point of the box.",
+    "food_noun": "wine",
+    "food_profile": "liquid",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 0.6,
+    "restore_thirst": 25,
+    "restore_sanity": 8,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 0,
+  "weight": 200
+}
