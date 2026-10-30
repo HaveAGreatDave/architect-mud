@@ -146,6 +146,18 @@ export function buildBooth(L) {
     face([[u1, v0, y0], [u1, v1, y0], [u1, v1, y1], [u1, v0, y1]], nrmOf(1, 0, 0), c(SHADE.side * 0.92), 1, 2);
   };
   const boxAt = box;
+  // a gilt button on a face of the leather, proud of it by its own depth
+  const button = (bx, u, v, y) => bx(u - 0.045, u + 0.045, v - 0.045, v + 0.045, y - 0.045, y + 0.045, LOOK.gilt, 1.2);
+  // a cut-glass drop: an octahedron, each facet its own brightness so it glints from any side
+  const drop = (u, v, y, r, len, k = 1) => {
+    const top = [u, v, y], bot = [u, v, y - len], m = y - len * 0.42;
+    const ring = [[u + r, v, m], [u, v + r, m], [u - r, v, m], [u, v - r, m]];
+    for (let i = 0; i < 4; i++) {
+      const a = ring[i], b = ring[(i + 1) % 4], g = 1.15 + ((i * 7 + Math.round(u * 13 + v * 5)) % 5) * 0.12;
+      quad(solid, [top, a, b, b], [0, 1, 0], C(LOOK.crystal, g * k), E, null, true);
+      quad(solid, [bot, b, a, a], [0, -1, 0], C('#cfe0f4', (2.3 - g) * k), E, null, true);
+    }
+  };
   const hu = L.w / 2, D = L.d, H = L.h, T = 0.35;
   // the shell: a slab under it, the ceiling's slab over it, the walls with their outsides
   box(-hu - T, hu + T, -0.2, D + T, -0.9, 0, LOOK.under);
@@ -177,18 +189,39 @@ export function buildBooth(L) {
     box(-hu + k, hu - k, k + 0.3, k + 0.8, H - 0.35, H, LOOK.ceiling, 0.7);
     box(-hu + k, hu - k, D - k - 0.5, D - k, H - 0.35, H, LOOK.ceiling, 0.7);
   }
+  // THE CHANDELIER: a gilt canopy and stem, a glass bowl of hanging drops under three rings of
+  // candle-cups, swags of beads looped between the arms, and a long faceted pendant at the bottom
   const ch = { u: 1.5, v: 12 };
-  box(ch.u - 1.4, ch.u + 1.4, ch.v - 1.4, ch.v + 1.4, H - 0.12, H - 0.02, LOOK.gilt, 0.95);
-  box(ch.u - 0.05, ch.u + 0.05, ch.v - 0.05, ch.v + 0.05, H - 2.0, H - 0.12, LOOK.gilt, 0.9);
-  for (const [rad, y, n] of [[1.6, H - 2.1, 12], [0.95, H - 1.4, 8]]) {
-    box(ch.u - rad, ch.u + rad, ch.v - rad, ch.v + rad, y - 0.04, y, LOOK.gilt, 0.9);
+  box(ch.u - 1.0, ch.u + 1.0, ch.v - 1.0, ch.v + 1.0, H - 0.1, H - 0.02, LOOK.gilt, 0.95);
+  box(ch.u - 0.45, ch.u + 0.45, ch.v - 0.45, ch.v + 0.45, H - 0.35, H - 0.1, LOOK.gilt, 1.0);
+  box(ch.u - 0.04, ch.u + 0.04, ch.v - 0.04, ch.v + 0.04, H - 1.9, H - 0.35, LOOK.gilt, 0.9);
+  for (let y = H - 1.75; y < H - 0.5; y += 0.32) drop(ch.u, ch.v, y + 0.12, 0.09, 0.22, 0.9);
+  for (const [rad, y, n] of [[1.75, H - 2.2, 14], [1.2, H - 1.75, 10], [0.7, H - 1.35, 7]]) {
+    // the ring as a thin gilt band of segments, a glass cup and a candle at each arm
+    for (let i = 0; i < n * 2; i++) {
+      const a0 = i / (n * 2) * Math.PI * 2, a1 = (i + 1) / (n * 2) * Math.PI * 2;
+      const p0 = [ch.u + Math.cos(a0) * rad, ch.v + Math.sin(a0) * rad], p1 = [ch.u + Math.cos(a1) * rad, ch.v + Math.sin(a1) * rad];
+      quad(solid, [[p0[0], p0[1], y], [p1[0], p1[1], y], [p1[0], p1[1], y - 0.06], [p0[0], p0[1], y - 0.06]], [0, 0, 1], C(LOOK.gilt, 1.0), E, null, true);
+    }
     for (let i = 0; i < n; i++) {
-      const a = i / n * Math.PI * 2, u = ch.u + Math.cos(a) * rad, v = ch.v + Math.sin(a) * rad;
-      box(u - 0.07, u + 0.07, v - 0.07, v + 0.07, y - 0.55, y - 0.04, LOOK.crystal, 1.5);
-      box(u - 0.11, u + 0.11, v - 0.11, v + 0.11, y, y + 0.28, LOOK.lamp, 1.8);
+      const a = (i + 0.5) / n * Math.PI * 2, u = ch.u + Math.cos(a) * rad, v = ch.v + Math.sin(a) * rad;
+      box(u - 0.13, u + 0.13, v - 0.13, v + 0.13, y, y + 0.06, LOOK.crystal, 1.3);
+      box(u - 0.035, u + 0.035, v - 0.035, v + 0.035, y + 0.06, y + 0.34, LOOK.cloth, 1.4);
+      box(u - 0.05, u + 0.05, v - 0.05, v + 0.05, y + 0.34, y + 0.46, LOOK.lamp, 2.0);
+      // the drops: one long under each arm, a strand of beads between it and the next
+      drop(u, v, y - 0.06, 0.1, 0.5 + (i % 2) * 0.18);
+      const b = (i + 1) / n * Math.PI * 2, nu = ch.u + Math.cos(b) * rad, nv = ch.v + Math.sin(b) * rad;
+      for (let t = 1; t < 6; t++) {
+        const f = t / 6, sag = Math.sin(f * Math.PI) * 0.32;
+        drop(u + (nu - u) * f, v + (nv - v) * f, y - 0.06 - sag, 0.045, 0.1, 0.95);
+      }
     }
   }
-  box(ch.u - 0.35, ch.u + 0.35, ch.v - 0.35, ch.v + 0.35, H - 2.9, H - 2.1, LOOK.crystal, 1.6);
+  // the bowl: rings of drops narrowing to the pendant
+  for (const [rad, y, n] of [[0.55, H - 2.35, 9], [0.35, H - 2.65, 6], [0.16, H - 2.9, 4]]) {
+    for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; drop(ch.u + Math.cos(a) * rad, ch.v + Math.sin(a) * rad, y, 0.07, 0.34); }
+  }
+  drop(ch.u, ch.v, H - 2.95, 0.18, 0.75, 1.05);
   for (const v of [L.tv.v - L.tv.w / 2 - 1.2, L.tv.v + L.tv.w / 2 + 1.2]) {
     box(-hu, -hu + 0.12, v - 0.3, v + 0.3, 4.6, 5.2, LOOK.gilt, 0.9);
     box(-hu + 0.12, -hu + 0.5, v - 0.22, v + 0.22, 5.2, 5.9, LOOK.lamp, 1.7);
@@ -206,6 +239,12 @@ export function buildBooth(L) {
     box(c.u - 1.3, c.u + 1.3, c.v + 1.0, c.v + 1.55, y + 1.0, y + 3.3, LOOK.leather, 0.85, 'boothLeather');
     for (const s of [-1, 1]) box(c.u + s * 1.3 - (s > 0 ? 0.38 : 0), c.u + s * 1.3 + (s < 0 ? 0.38 : 0), c.v - 1.1, c.v + 1.5, y + 1.0, y + 2.1, LOOK.leather, 0.8, 'boothLeather');
     box(c.u - 0.2, c.u + 0.2, c.v + 1.56, c.v + 1.59, y + 2.7, y + 3.0, LOOK.gilt, 1.1);  // the brass number
+    // a row of three across the back where it meets the seat, one up the middle, one on each arm
+    for (const du of [-0.6, 0, 0.6]) button(box, c.u + du, c.v + 0.97, y + 1.6);
+    button(box, c.u, c.v + 0.97, y + 2.55);
+    for (const sd of [-1, 1]) button(box, c.u + sd * 1.11, c.v - 1.13, y + 1.65);
+    // a gilt piping along the top of the back
+    box(c.u - 1.3, c.u + 1.3, c.v + 0.98, c.v + 1.04, y + 3.24, y + 3.3, LOOK.gilt, 1.0);
   }
   for (const u of [-3, 3]) {
     box(u - 0.12, u + 0.12, 5.38, 5.62, 0, 1.9, LOOK.gilt, 0.9);
@@ -233,6 +272,11 @@ export function buildBooth(L) {
   box(so.u[0], so.u[1], so.v[0], so.v[1], 0, 1.45, LOOK.leather, 0.88, 'boothLeather');
   box(so.u[1] - 0.7, so.u[1], so.v[0], so.v[1], 1.45, 3.0, LOOK.leather, 0.82, 'boothLeather');
   for (const v of [so.v[0], so.v[1] - 0.6]) box(so.u[0], so.u[1], v, v + 0.6, 1.45, 2.2, LOOK.leather, 0.8, 'boothLeather');
+  for (let v = so.v[0] + 1.2; v < so.v[1] - 0.9; v += 1.2) button(box, so.u[1] - 0.73, v, 1.8);
+  for (const v of [so.v[0] + 0.3, so.v[1] - 0.3]) button(box, so.u[0] - 0.03, v, 1.9);
+  box(so.u[1] - 0.7, so.u[1] - 0.64, so.v[0], so.v[1], 2.94, 3.0, LOOK.gilt, 1.0);
+  // brass feet under it
+  for (const [u, v] of [[so.u[0] + 0.2, so.v[0] + 0.2], [so.u[1] - 0.2, so.v[0] + 0.2], [so.u[0] + 0.2, so.v[1] - 0.2], [so.u[1] - 0.2, so.v[1] - 0.2]]) box(u - 0.09, u + 0.09, v - 0.09, v + 0.09, -0.01, 0.12, LOOK.gilt, 0.95);
   box(-11.8, -9.6, 10, 14, 1.2, 1.4, LOOK.wood, 0.9, 'boothWood');
   for (const [u, v] of [[-9.8, 10.2], [-11.6, 10.2], [-9.8, 13.8], [-11.6, 13.8]]) box(u - 0.1, u + 0.1, v - 0.1, v + 0.1, 0, 1.2, LOOK.frame);
   // the big screen on the left-hand wall: its bezel, and the picture on its own batch
@@ -245,20 +289,64 @@ export function buildBooth(L) {
   }
   // the bar along the back wall: walnut panelled in brass, a marble top, a brass foot rail, and
   // behind it a back bar of lit onyx with glass shelves of bottles and a mirror over
-  box(-hu, -3, D - 2.4, D - 0.9, 0, 3.4, LOOK.wood, 0.8, 'boothWood');
-  for (let u = -hu + 2.9; u < -3.2; u += 1.6) box(u - 0.04, u + 0.04, D - 2.43, D - 2.4, 0.4, 3.1, LOOK.gilt, 0.95);
-  box(-hu, -3, D - 2.43, D - 2.4, 3.1, 3.18, LOOK.gilt, 0.95);
+  const BU = [-hu + 2.4, -3];
+  box(-hu, -3, D - 2.4, D - 0.9, 0, 3.4, LOOK.wood, 0.75, 'boothWood');
+  // the front: a black kick plate, raised walnut panels framed in brass, a brass band under the top
+  box(-hu + 2.4, -3, D - 2.46, D - 2.4, 0, 0.35, LOOK.frame, 0.8);
+  for (let u = -hu + 2.5; u < -3.3; u += 1.6) {
+    const u1 = Math.min(u + 1.4, -3.1);
+    box(u, u1, D - 2.46, D - 2.4, 0.55, 3.0, LOOK.gilt, 0.95);
+    box(u + 0.06, u1 - 0.06, D - 2.5, D - 2.4, 0.61, 2.94, LOOK.wood, 0.85, 'boothWood');
+    box(u + 0.3, u1 - 0.3, D - 2.53, D - 2.5, 0.9, 2.65, LOOK.wood, 0.95, 'boothWood');
+  }
+  box(-hu, -3, D - 2.47, D - 2.4, 3.1, 3.2, LOOK.gilt, 1.0);
+  // the marble top with its rounded nosing, and a brass rail along the front to lean on
   box(-hu, -2.8, D - 2.7, D - 0.9, 3.4, 3.62, LOOK.marble, 1, 'boothMarble');
+  box(-hu, -2.8, D - 2.78, D - 2.7, 3.44, 3.58, LOOK.marble, 0.95, 'boothMarble');
   box(-hu + 2.4, -3, D - 2.85, D - 2.75, 0.45, 0.55, LOOK.gilt, 1.0);
   for (let u = -hu + 3; u < -3; u += 2.5) box(u - 0.05, u + 0.05, D - 2.8, D - 2.4, 0.2, 0.5, LOOK.gilt, 0.9);
-  box(-hu + 2.4, -3, D - 0.6, D, 0, 2.8, LOOK.wood, 0.7, 'boothWood');
-  quad(solid, [[-hu + 2.4, D - 0.04, 2.8], [-3, D - 0.04, 2.8], [-3, D - 0.04, 6.4], [-hu + 2.4, D - 0.04, 6.4]], nrmOf(0, 0, -1), C(LOOK.onyx, 1.25), E, null, true);
-  quad(solid, [[-hu + 2.4, D - 0.05, 6.5], [-3, D - 0.05, 6.5], [-3, D - 0.05, 7.6], [-hu + 2.4, D - 0.05, 7.6]], nrmOf(0, 0, -1), C(LOOK.mirror, 0.8));
-  box(-hu + 2.4, -3, D - 0.12, D - 0.04, 6.4, 6.5, LOOK.gilt, 1.0);
-  const bottles = ['#2f6b3a', '#8a5a20', '#d8b84a', '#5a1f2a', '#e6e6e6', '#2a4a7a', '#b0442a'];
+  // on the top: three brass taps with black handles, a drip tray, a shaker and a pair of coupes
+  for (const u of [-8.6, -7.8, -7.0]) {
+    box(u - 0.08, u + 0.08, D - 1.4, D - 1.24, 3.62, 4.5, LOOK.gilt, 1.05);
+    box(u - 0.05, u + 0.05, D - 1.62, D - 1.4, 4.32, 4.42, LOOK.gilt, 1.05);
+    box(u - 0.04, u + 0.04, D - 1.36, D - 1.28, 4.5, 5.0, LOOK.frame, 0.6);
+  }
+  box(-8.9, -6.7, D - 1.8, D - 1.5, 3.62, 3.66, LOOK.silver, 0.9);
+  box(-5.3, -5.0, D - 1.9, D - 1.6, 3.62, 4.25, LOOK.silver, 1.1);
+  box(-5.24, -5.06, D - 1.84, D - 1.66, 4.25, 4.4, LOOK.silver, 1.0);
+  for (const u of [-4.4, -3.9]) {
+    box(u - 0.03, u + 0.03, D - 1.78, D - 1.72, 3.62, 3.95, LOOK.crystal, 1.2);
+    box(u - 0.17, u + 0.17, D - 1.92, D - 1.58, 3.95, 4.12, LOOK.crystal, 1.3);
+  }
+  // the back bar: walnut base, lit onyx in three panels between brass pilasters, the mirror over
+  box(BU[0], BU[1], D - 0.6, D, 0, 2.8, LOOK.wood, 0.7, 'boothWood');
+  box(BU[0], BU[1], D - 0.66, D - 0.6, 2.7, 2.8, LOOK.gilt, 1.0);
+  quad(solid, [[BU[0], D - 0.04, 2.8], [BU[1], D - 0.04, 2.8], [BU[1], D - 0.04, 6.4], [BU[0], D - 0.04, 6.4]], nrmOf(0, 0, -1), C(LOOK.onyx, 1.25), E, null, true);
+  for (let i = 0; i <= 3; i++) { const u = BU[0] + (BU[1] - BU[0]) * i / 3; box(u - 0.09, u + 0.09, D - 0.14, D - 0.04, 2.8, 7.6, LOOK.gilt, 1.0); }
+  quad(solid, [[BU[0], D - 0.05, 6.5], [BU[1], D - 0.05, 6.5], [BU[1], D - 0.05, 7.6], [BU[0], D - 0.05, 7.6]], nrmOf(0, 0, -1), C(LOOK.mirror, 0.8));
+  box(BU[0], BU[1], D - 0.12, D - 0.04, 6.4, 6.5, LOOK.gilt, 1.0);
+  box(BU[0], BU[1], D - 0.2, D - 0.04, 7.6, 7.75, LOOK.wood, 0.8, 'boothWood');
+  // bottles on glass shelves: a body, a shoulder, a neck, a cap and a label
+  const bottles = ['#1f4a2a', '#7a4a18', '#c9a83e', '#4a1622', '#d8d8d8', '#22385e', '#9a3820', '#2a2a2a'];
   for (const [y, n] of [[2.8, 12], [4.05, 11], [5.3, 10]]) {
-    box(-hu + 2.4, -3, D - 0.55, D - 0.05, y, y + 0.05, LOOK.crystal, 0.95);
-    for (let i = 0; i < n; i++) { const u = -hu + 2.8 + i * (6.3 / n); box(u - 0.12, u + 0.12, D - 0.4, D - 0.16, y + 0.05, y + 0.75 + (i % 3) * 0.15, bottles[(i * 3 + n) % bottles.length], 1.05); }
+    box(BU[0], BU[1], D - 0.55, D - 0.05, y, y + 0.05, LOOK.crystal, 0.95);
+    for (let i = 0; i < n; i++) {
+      const u = BU[0] + 0.4 + i * (6.3 / n), hb = 0.5 + (i % 3) * 0.12, col = bottles[(i * 3 + n) % bottles.length], v = D - 0.28, sq = i % 4 === 1;
+      const r = sq ? 0.12 : 0.1;
+      box(u - r, u + r, v - r, v + r, y + 0.05, y + 0.05 + hb, col, 1.0);
+      box(u - r * 0.6, u + r * 0.6, v - r * 0.6, v + r * 0.6, y + 0.05 + hb, y + 0.13 + hb, col, 0.95);
+      box(u - 0.035, u + 0.035, v - 0.035, v + 0.035, y + 0.13 + hb, y + 0.36 + hb, col, 0.95);
+      box(u - 0.045, u + 0.045, v - 0.045, v + 0.045, y + 0.36 + hb, y + 0.42 + hb, i % 2 ? LOOK.gilt : LOOK.frame, 1.0);
+      box(u - r - 0.005, u + r + 0.005, v - r - 0.005, v - r + 0.002, y + 0.18, y + 0.18 + hb * 0.45, i % 3 ? LOOK.cloth : LOOK.gilt, 0.95);
+    }
+  }
+  // a rack over the bar top with stemware hanging upside down from it
+  box(-11.4, -3.6, D - 1.9, D - 1.4, 6.6, 6.7, LOOK.wood, 0.8, 'boothWood');
+  for (const u of [-11.2, -3.8]) box(u - 0.03, u + 0.03, D - 1.68, D - 1.62, 6.7, H, LOOK.gilt, 0.9);
+  for (let u = -11.1; u < -3.8; u += 0.42) for (const v of [D - 1.8, D - 1.5]) {
+    if (u > -10.0 && u < -9.2 || u > -7.5 && u < -6.7 || u > -5.0 && u < -4.2) continue;  // room for the globes
+    box(u - 0.14, u + 0.14, v - 0.14, v + 0.14, 6.28, 6.48, LOOK.crystal, 1.25);
+    box(u - 0.02, u + 0.02, v - 0.02, v + 0.02, 6.48, 6.6, LOOK.crystal, 1.2);
   }
   // three pendant globes over the bar top, and the stools at it
   for (let u = -9.6; u <= -4.6; u += 2.5) {
@@ -337,7 +425,7 @@ function rng(seed) {
   return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 export function paintBoothTexture(doc, key) {
-  const N = 512, c = doc.createElement('canvas');
+  const N = key === 'boothRug' ? 1024 : 512, c = doc.createElement('canvas');
   c.width = c.height = N;
   const g = c.getContext('2d'), r = rng([...key].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619), 2166136261));
   // specks over the whole tile, each drawn at all four wraps so the tile repeats without a seam
@@ -360,19 +448,23 @@ export function paintBoothTexture(doc, key) {
     g.fillStyle = 'rgba(214,190,120,0.75)';
     for (const [x, y] of [[N / 2, 0], [0, N / 2], [N, N / 2], [N / 2, N], [N / 4, N / 4], [3 * N / 4, N / 4], [N / 4, 3 * N / 4], [3 * N / 4, 3 * N / 4]]) { g.beginPath(); g.arc(x, y, 10, 0, Math.PI * 2); g.fill(); }
   } else if (key === 'boothLeather') {
-    // cream hide with a pebbled grain and a soft sheen, a button now and then, pleats out from each
-    g.fillStyle = '#ece5d6'; g.fillRect(0, 0, N, N);
-    specks(22000, 3, ['#e2d9c6', '#f6f1e6', '#d9cfbb'], 0.45);
-    specks(5000, 7, ['rgba(255,252,244,0.6)', 'rgba(200,188,166,0.5)'], 0.18);
-    const S = N;
-    for (const [cx, cy] of [[N / 2, N / 2], [0, 0], [N, 0], [0, N], [N, N]]) {
-      const grd = g.createRadialGradient(cx, cy, 2, cx, cy, S * 0.45);
-      grd.addColorStop(0, 'rgba(110,90,62,0.5)'); grd.addColorStop(0.3, 'rgba(160,140,110,0.14)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
-      g.fillStyle = grd; g.fillRect(cx - S, cy - S, S * 2, S * 2);
-      g.strokeStyle = 'rgba(120,100,72,0.3)'; g.lineWidth = 3;
-      for (const [dx, dy] of [[1, 0.5], [1, -0.5], [-1, 0.5], [-1, -0.5]]) { g.beginPath(); g.moveTo(cx + dx * 12, cy + dy * 12); g.lineTo(cx + dx * S * 0.5, cy + dy * S * 0.5); g.stroke(); }
-      g.fillStyle = '#7a6448'; g.beginPath(); g.arc(cx, cy, 9, 0, Math.PI * 2); g.fill();
-      g.fillStyle = 'rgba(255,240,210,0.5)'; g.beginPath(); g.arc(cx - 3, cy - 3, 3, 0, Math.PI * 2); g.fill();
+    // black aniline hide: a fine pebbled grain, a soft sheen that wanders, and faint creases. The
+    // buttons are geometry (buildBooth button), so the tile has none and repeats unseen
+    g.fillStyle = '#26262b'; g.fillRect(0, 0, N, N);
+    specks(40000, 2, ['#1a1a1e', '#303036', '#2a292e'], 0.7);
+    specks(9000, 4, ['rgba(70,70,78,0.5)', 'rgba(0,0,0,0.6)'], 0.25);
+    for (const [cx, cy, rad] of [[N * 0.3, N * 0.35, N * 0.35], [N * 0.75, N * 0.7, N * 0.3], [N * 0.8, N * 0.15, N * 0.2]]) {
+      for (const [ox, oy] of [[0, 0], [-N, 0], [0, -N], [-N, -N], [N, 0], [0, N]]) {
+        const grd = g.createRadialGradient(cx + ox, cy + oy, 0, cx + ox, cy + oy, rad);
+        grd.addColorStop(0, 'rgba(150,148,158,0.28)'); grd.addColorStop(1, 'rgba(150,148,158,0)');
+        g.fillStyle = grd; g.fillRect(cx + ox - rad, cy + oy - rad, rad * 2, rad * 2);
+      }
+    }
+    g.lineWidth = 1;
+    for (let i = 0; i < 40; i++) {
+      const x = r() * N, y = r() * N, a = r() * 6.28, l = 20 + r() * 50;
+      g.strokeStyle = r() < 0.5 ? 'rgba(0,0,0,0.5)' : 'rgba(90,90,100,0.25)';
+      g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a + 0.4) * l / 2, y + Math.sin(a + 0.4) * l / 2, x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
     }
   } else if (key === 'boothWood') {
     // walnut, quarter-sawn: long wavering grain, whole waves across the tile so it repeats
@@ -409,20 +501,84 @@ export function paintBoothTexture(doc, key) {
     };
     for (let i = 0; i < 5; i++) vein(r() * N, r() * N, r() * 6.28, 90, 1.6 + r() * 1.2);
   } else if (key === 'boothRug') {
-    // a hand-knotted rug, the whole of it in one tile: a deep red field, a medallion, gold borders
-    g.fillStyle = '#5a1620'; g.fillRect(0, 0, N, N);
-    specks(30000, 2, ['#4a1018', '#6a1e28', '#561520'], 0.7);
-    const frame = (m, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.strokeRect(m, m, N - 2 * m, N - 2 * m); };
-    g.fillStyle = '#1c2236'; g.fillRect(14, 14, N - 28, 44); g.fillRect(14, N - 58, N - 28, 44); g.fillRect(14, 14, 44, N - 28); g.fillRect(N - 58, 14, 44, N - 28);
-    frame(10, '#c9a24a', 5); frame(60, '#c9a24a', 4); frame(36, 'rgba(201,162,74,0.6)', 2);
-    g.fillStyle = '#c9a24a';
-    for (let i = 80; i < N - 60; i += 28) for (const [x, y] of [[i, 36], [i, N - 36], [36, i], [N - 36, i]]) { g.beginPath(); g.moveTo(x, y - 7); g.lineTo(x + 7, y); g.lineTo(x, y + 7); g.lineTo(x - 7, y); g.fill(); }
-    const cx = N / 2, cy = N / 2;
-    for (const [rx, ry, col] of [[150, 110, '#c9a24a'], [138, 98, '#1c2236'], [100, 70, '#8a2a30'], [60, 42, '#e8d8b0'], [30, 20, '#1c2236']]) { g.fillStyle = col; g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); g.fill(); }
-    g.strokeStyle = 'rgba(232,216,176,0.7)'; g.lineWidth = 2;
-    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * 64, cy + Math.sin(a) * 45); g.lineTo(cx + Math.cos(a) * 134, cy + Math.sin(a) * 94); g.stroke(); }
-    g.fillStyle = '#c9a24a';
-    for (const [x, y] of [[96, 96], [N - 96, 96], [96, N - 96], [N - 96, N - 96]]) { g.beginPath(); g.moveTo(x, y - 22); g.lineTo(x + 22, y); g.lineTo(x, y + 22); g.lineTo(x - 22, y); g.fill(); }
+    // a hand-knotted silk rug in ivory, navy and gold: a fringe at each end, a guard stripe, a main
+    // border of running scrolls, an ivory field of fine vines, and a navy medallion with a gold
+    // star at its heart. Drawn mirrored four ways, as a rug is knotted.
+    const IV = '#e9e0cc', NV = '#141b30', GD = '#b8913f', RD = '#6e1c26', SK = '#cfc3a6';
+    const fr = 28;
+    g.fillStyle = '#d9cfba'; g.fillRect(0, 0, N, N);
+    // the fringe
+    g.strokeStyle = '#efe7d4'; g.lineWidth = 2;
+    for (let x = 4; x < N; x += 6) for (const [y0, y1] of [[0, fr], [N - fr, N]]) { g.beginPath(); g.moveTo(x, y0); g.lineTo(x + (r() - 0.5) * 3, y1); g.stroke(); }
+    const R = [fr, fr, N - fr * 2, N - fr * 2], [X0, Y0, W, Hh] = R;
+    const rect = (m, col) => { g.fillStyle = col; g.fillRect(X0 + m, Y0 + m, W - 2 * m, Hh - 2 * m); };
+    rect(0, NV); rect(6, GD); rect(10, NV); rect(16, RD); rect(20, NV);
+    // the main border's scroll: a running wave in gold with ivory buds
+    rect(70, GD); rect(74, IV);
+    g.save(); g.beginPath(); g.rect(X0 + 20, Y0 + 20, W - 40, Hh - 40); g.rect(X0 + 70, Y0 + 70, W - 140, Hh - 140); g.clip('evenodd');
+    g.strokeStyle = GD; g.lineWidth = 4;
+    const scroll = (len, place) => {
+      g.beginPath();
+      for (let t = 0; t <= len; t += 4) { const [x, y] = place(t, Math.sin(t / 40 * Math.PI) * 14); if (t) g.lineTo(x, y); else g.moveTo(x, y); }
+      g.stroke();
+      for (let t = 20; t < len; t += 40) {
+        const up = Math.round(t / 40) % 2 ? 1 : -1, [x, y] = place(t, up * 8);
+        g.fillStyle = IV; g.beginPath(); g.arc(x, y, 6, 0, Math.PI * 2); g.fill();
+        g.fillStyle = RD; g.beginPath(); g.arc(x, y, 3, 0, Math.PI * 2); g.fill();
+      }
+    };
+    const mid = 45;
+    scroll(W, (t, o) => [X0 + t, Y0 + mid + o]); scroll(W, (t, o) => [X0 + t, Y0 + Hh - mid - o]);
+    scroll(Hh, (t, o) => [X0 + mid + o, Y0 + t]); scroll(Hh, (t, o) => [X0 + W - mid - o, Y0 + t]);
+    g.restore();
+    rect(76, NV); rect(80, GD); rect(83, IV);
+    // the field: ivory with an all-over lattice of fine vines and leaves, mirrored
+    const fx0 = X0 + 83, fy0 = Y0 + 83, fw = W - 166, fh = Hh - 166, cx = N / 2, cy = N / 2;
+    g.save(); g.beginPath(); g.rect(fx0, fy0, fw, fh); g.clip();
+    specks(30000, 2, ['#e2d8c2', '#efe8d6', '#ddd2ba'], 0.6);
+    g.strokeStyle = 'rgba(110,120,140,0.55)'; g.lineWidth = 1.6;
+    for (let k = -8; k <= 8; k++) for (const s of [1, -1]) {
+      g.beginPath();
+      for (let t = -N; t <= N; t += 6) { const x = cx + t, y = cy + s * t + k * 70 + Math.sin(t / 22) * 9; if (t > -N) g.lineTo(x, y); else g.moveTo(x, y); }
+      g.stroke();
+    }
+    for (let i = 0; i < 260; i++) {
+      const x = fx0 + r() * fw / 2, y = fy0 + r() * fh / 2, a = r() * 6.28, col = [RD, NV, GD, '#5a6a50'][i % 4];
+      for (const [mx, my] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+        const px = cx + (x - cx) * mx, py = cy + (y - cy) * my;
+        g.fillStyle = col; g.globalAlpha = 0.75;
+        g.beginPath(); g.ellipse(px, py, 7, 3, a * mx * my, 0, Math.PI * 2); g.fill();
+      }
+    }
+    g.globalAlpha = 1;
+    // corner spandrels: navy quarter-medallions with a gold edge
+    for (const [x, y] of [[fx0, fy0], [fx0 + fw, fy0], [fx0, fy0 + fh], [fx0 + fw, fy0 + fh]]) {
+      g.fillStyle = GD; g.beginPath(); g.ellipse(x, y, 150, 110, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = NV; g.beginPath(); g.ellipse(x, y, 142, 102, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = SK; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y, 110, 78, 0, 0, Math.PI * 2); g.stroke();
+    }
+    g.restore();
+    // the medallion: a lobed navy star in gold, an ivory ring, a red heart with a gold star
+    const lobed = (rx, ry, lobes, depth, col) => {
+      g.fillStyle = col; g.beginPath();
+      for (let i = 0; i <= 360; i++) { const a = i / 360 * Math.PI * 2, k = 1 - depth * (0.5 - 0.5 * Math.cos(a * lobes)); const x = cx + Math.cos(a) * rx * k, y = cy + Math.sin(a) * ry * k; if (i) g.lineTo(x, y); else g.moveTo(x, y); }
+      g.fill();
+    };
+    lobed(270, 200, 16, 0.12, GD); lobed(262, 192, 16, 0.12, NV); lobed(200, 146, 8, 0.1, SK); lobed(192, 138, 8, 0.1, IV);
+    lobed(140, 100, 12, 0.14, GD); lobed(134, 94, 12, 0.14, RD);
+    g.strokeStyle = 'rgba(184,145,63,0.8)'; g.lineWidth = 2;
+    for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * 30, cy + Math.sin(a) * 22); g.lineTo(cx + Math.cos(a) * 120, cy + Math.sin(a) * 84); g.stroke(); }
+    g.fillStyle = GD; g.beginPath();
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, rr = i % 2 ? 22 : 52; const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr * 0.75; if (i) g.lineTo(x, y); else g.moveTo(x, y); }
+    g.closePath(); g.fill();
+    g.fillStyle = NV; g.beginPath(); g.arc(cx, cy, 10, 0, Math.PI * 2); g.fill();
+    // the pile: a faint sheen across it, and wear in the knots
+    const sh = g.createLinearGradient(0, 0, N, N);
+    sh.addColorStop(0, 'rgba(255,250,235,0.08)'); sh.addColorStop(0.5, 'rgba(0,0,0,0.06)'); sh.addColorStop(1, 'rgba(255,250,235,0.06)');
+    g.fillStyle = sh; g.fillRect(fr, fr, N - 2 * fr, N - 2 * fr);
+    g.globalAlpha = 0.12;
+    for (let i = 0; i < 60000; i++) { g.fillStyle = r() < 0.5 ? '#000' : '#fff'; g.fillRect(fr + r() * (N - 2 * fr), fr + r() * (N - 2 * fr), 1, 1); }
+    g.globalAlpha = 1;
   } else {
     // a silk wall covering: a fine weave, a tone-on-tone damask, and a panel seam each repeat
     g.fillStyle = '#e8e1d2'; g.fillRect(0, 0, N, N);
