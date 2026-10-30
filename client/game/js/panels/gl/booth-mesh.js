@@ -38,6 +38,7 @@ export function boothLayout(spec) {
   const stations = [
     { target: 'bar', u: -7.5, v: d - 2.4, y: 3.6, reach: 5 },
     { target: 'buffet', u: hu - 2.4, v: (buffet.v[0] + buffet.v[1]) / 2, y: 3.2, reach: 5.5 },
+    { target: 'smokes', u: -3, v: 5.5, y: 2.1, reach: 3 },
   ];
   const sofa = { u: [-7.6, -4.8], v: [8.4, 15.6] };
   // on the left-hand wall, clear of the bar and its fridge at the back
@@ -369,6 +370,19 @@ export function buildBooth(L) {
   }
   box(-hu, -hu + 2.4, D - 2.4, D, 0, 6.6, LOOK.frame, 0.8);
   quad(solid, [[-hu + 0.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 0.4], [-hu + 2.2, D - 2.42, 6.2], [-hu + 0.2, D - 2.42, 6.2]], nrmOf(0, 0, -1), C(LOOK.fridge, 0.95), E, null, true);
+  // the smokes on the table between the left-hand pair: a silver cigarette box with its lid up and
+  // a row of white filters showing, and a cut-glass ashtray with a cigarette left burning in it
+  {
+    const tu = -3.25, tv = 5.68, ty = 2.05;
+    box(tu - 0.16, tu + 0.16, tv - 0.11, tv + 0.11, ty, ty + 0.1, LOOK.silver, 1.1);
+    box(tu - 0.16, tu + 0.16, tv + 0.1, tv + 0.12, ty + 0.1, ty + 0.3, LOOK.silver, 1.2);
+    for (let k = 0; k < 7; k++) { const u = tu - 0.12 + k * 0.04; box(u - 0.015, u + 0.015, tv - 0.08, tv + 0.08, ty + 0.1, ty + 0.13, k % 3 ? LOOK.cloth : '#d9a860', 1.15); }
+    const au = -2.75, av = 5.78;
+    box(au - 0.17, au + 0.17, av - 0.17, av + 0.17, ty, ty + 0.06, LOOK.crystal, 1.2);
+    box(au - 0.11, au + 0.11, av - 0.11, av + 0.11, ty + 0.06, ty + 0.065, '#5a5a5e', 0.9);
+    box(au - 0.02, au + 0.18, av - 0.012, av + 0.012, ty + 0.065, ty + 0.085, LOOK.cloth, 1.15);
+    box(au - 0.03, au - 0.01, av - 0.013, av + 0.013, ty + 0.065, ty + 0.086, LOOK.heat, 1.6);
+  }
   // THE BUFFET on the right-hand wall: a long table under a white cloth with a gilt-fringed skirt,
   // heat lamps on brass stems over silver chafing trays, and the food on them in turn: shrimp on
   // crushed ice, sliders in rows, franks on china. Plates, napkins and a carving board at the ends.

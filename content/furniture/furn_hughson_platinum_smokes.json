@@ -1,0 +1,25 @@
+{
+  "description": "A silver cigarette box open on the drum table between the chairs, a cut-glass ashtray beside it. The box never seems to get any emptier.",
+  "flags": {
+    "aliases": [
+      "smokes",
+      "cigarettes",
+      "cigarette box",
+      "ashtray"
+    ],
+    "container": 60000,
+    "restock_items": [
+      "item_cigarettes"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hughson_platinum_smokes",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the cigarette box",
+  "object_type": "container",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_hughson_platinum_box"
+}

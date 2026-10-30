@@ -38,6 +38,7 @@ import { liveSportsChannel, channelLabel } from '../broadcast/index.js';
 import { getWeatherFieldSnapshot } from '../../server/engine/environment.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
+import { getItem } from '../../server/engine/items-cache.js';
 
 // playerId -> { zoneId, section, seat, channelId }
 const seated = new Map();
@@ -197,14 +198,18 @@ async function cmdStands(args, raw, player, broadcast) {
   return takeSeat(player, zone, standsOf(zone), section, channelId);
 }
 
-// `stands fetch <thing>`: the suite's 3-D view clicking its bar or buffet. The suite is one
-// room on screen but two in the world (the box at the glass and the lounge behind it, one
-// `flags.ticketed` box), so a thing in the other room is walked to first, which keeps the seat
-// (zone.entered below), and then opened as `open <thing>` would.
+// `stands fetch <thing> [item]`: the suite's 3-D view clicking its bar, buffet or the smokes on the
+// table. The suite is one room on screen but two in the world (the box at the glass and the lounge
+// behind it, one `flags.ticketed` box), so a thing in the other room is walked to first, which
+// keeps the seat (zone.entered below). Bare, it answers with what the thing keeps in stock
+// (`flags.restock_items`) as a menu (`stands_menu`); with an item id, it takes one, as
+// `take <item> from <thing>` would. Everything in a box is on the house.
 const sameBox = (a, b) => !!a?.flags?.ticketed && a.flags.ticketed === b?.flags?.ticketed;
 const furnitureCalled = (zoneId, want) => getZoneFurniture(zoneId).find((f) => String(f.name || '').toLowerCase().includes(want) || (f.flags?.aliases || []).some((a) => String(a).toLowerCase() === want));
 async function fetchInSuite(player, what, broadcast) {
-  const want = String(what || '').trim().toLowerCase();
+  const words = String(what || '').trim().toLowerCase().split(/\s+/);
+  const itemId = words[words.length - 1]?.startsWith('item_') ? words.pop() : null;
+  const want = words.join(' ');
   if (!want || !seated.get(player.id)?.suite) return { type: 'error', message: "You aren't in a box." };
   const zone = getZone(player.current_zone);
   if (!furnitureCalled(zone.id, want)) {
@@ -213,8 +218,21 @@ async function fetchInSuite(player, what, broadcast) {
     const r = await cmdMove(exit[0], player, broadcast);
     if (player.current_zone === zone.id) return r || { type: 'error', message: "You can't get over there." };
   }
+  const thing = furnitureCalled(player.current_zone, want);
+  const stock = (thing?.flags?.restock_items || []).map((id) => [id, getItem(id)]).filter(([, it]) => it);
+  if (!itemId) {
+    if (!stock.length || loggedPanelsSync(player)) {
+      const { handleCommand } = await import('../../server/engine/commands/index.js');
+      return handleCommand(`open ${want}`, player, broadcast);
+    }
+    sendToPlayer(player.id, { type: 'stands_menu', target: want, name: thing.name, description: thing.description || '',
+      items: stock.map(([id, it]) => ({ id, name: it.name, description: it.tags?.description || it.description || '' })) });
+    return { type: 'noop' };
+  }
+  const it = stock.find(([id]) => id === itemId)?.[1];
+  if (!it) return { type: 'error', message: `There's none of that at ${esc(thing?.name || want)}.` };
   const { handleCommand } = await import('../../server/engine/commands/index.js');
-  return handleCommand(`open ${want}`, player, broadcast);
+  return handleCommand(`take ${it.name} from ${want}`, player, broadcast);
 }
 
 // A pass into the ticketed box `boxId`, sold at its section's price.

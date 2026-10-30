@@ -303,6 +303,34 @@ function sayBooth(plain, duration, dl) {
 // A fresh copy of the weather cells, when the day's field is reseeded or a cell moved
 export function setStandsSky(field) { seatUi?.view?.setSkyField?.(field || null); }
 
+// What the bar, the buffet or the smokes in a box keep (stands_menu, plugins/stands `stands fetch`):
+// a card over the picture, the way a host would show you what's going. Taking one sends
+// `stands fetch <thing> <item>`; it's all on the house, so nothing has a price.
+export function openStandsMenu(msg) {
+  const root = seatUi?.root;
+  if (!root) return;
+  root.querySelector('.st-menu')?.remove();
+  const card = document.createElement('div');
+  card.className = 'st-menu';
+  card.setAttribute('role', 'dialog');
+  card.setAttribute('aria-label', String(msg.name || msg.target));
+  card.innerHTML = `<div class="st-menu-head"><b>${esc(msg.name || msg.target)}</b><button type="button" class="st-menu-x" aria-label="Close">✕</button></div>`
+    + (msg.description ? `<p class="st-menu-desc">${esc(msg.description)}</p>` : '')
+    + `<ul>${(msg.items || []).map((it) => `<li><button type="button" data-id="${esc(it.id)}"><b>${esc(it.name)}</b>${it.description ? `<span>${esc(it.description)}</span>` : ''}<i>Take one</i></button></li>`).join('')}</ul>`
+    + '<p class="st-menu-foot">On the house.</p>';
+  const close = () => { card.remove(); document.removeEventListener('keydown', onEsc, true); };
+  const onEsc = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+  document.addEventListener('keydown', onEsc, true);
+  card.querySelector('.st-menu-x').addEventListener('click', close);
+  card.addEventListener('pointerdown', (e) => e.stopPropagation());
+  card.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-id]');
+    if (b) sendCmd(`stands fetch ${msg.target} ${b.dataset.id}`);
+  });
+  root.appendChild(card);
+  card.querySelector('button[data-id]')?.focus();
+}
+
 export function closeStands() {
   const ui = seatUi;
   if (!ui) return;
@@ -329,7 +357,7 @@ function walkSuite(ui, L, msg, setMode, redraw) {
   const sitBtn = root.querySelector('.st-sit'), tvBtn = root.querySelector('.st-tv');
   sitBtn.hidden = false; tvBtn.hidden = false;
   root.querySelector('.st-leave').textContent = 'Leave the box';
-  root.querySelector('.st-tip').textContent = 'WASD to walk · click a chair or E to sit · click the bar or buffet, or E beside it, to help yourself · T for the big screen · drag to look';
+  root.querySelector('.st-tip').textContent = 'WASD to walk · click a chair or E to sit · click the bar, the buffet or the smokes, or E beside them, to help yourself · T for the big screen · drag to look';
   seat.near = 0.3;
   // the command line keeps the keys while it has focus, so WASD would type; let it go now
   // and whenever you click into the room

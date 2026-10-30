@@ -1354,6 +1354,7 @@ const handlers = {
   stands_open: (msg) => { loadStands().then((m) => m.openStands(msg)).catch((e) => console.error('[stands]', e)); },
   stands_sky: (msg) => { standsMod?.then((m) => m.setStandsSky(msg.field)).catch(() => {}); },
   stands_close: () => { standsMod?.then((m) => m.closeStands()).catch(() => {}); },
+  stands_menu: (msg) => { standsMod?.then((m) => m.openStandsMenu(msg)).catch(() => {}); },
   cardpack_open: (msg) => { if (msg.render !== 'log') openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
   // Same contract again: the cabinet is the show, the character box is the
   // record and always prints, so the bottom rung losing the panel loses nothing.
