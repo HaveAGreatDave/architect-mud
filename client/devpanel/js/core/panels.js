@@ -406,6 +406,13 @@ const PANELS = {
     noEdit: true,
     render: renderVineSuite,
   },
+  'story-map': {
+    title: 'Story Map',
+    description: 'Every quest on one canvas, by what unlocks what. Built from quests, dialogue and scripts; nothing here is stored.',
+    fetch: fetchStoryMap,
+    noEdit: true,
+    render: renderStoryMap,
+  },
   power: {
     title: 'Power Grid',
     description: 'Manage city power infrastructure and zone power dependencies.',
@@ -502,7 +509,7 @@ const PANELS = {
   },
 };
 
-const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests', 'vine-dialogue', 'vine-ai']);
+const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests', 'vine-dialogue', 'vine-ai', 'story-map']);
 
 // Ops mode (/admin — see bootstrap.js) carries the SAME sidebar /dev carries:
 // nothing is pruned, because the server lets every read through and refuses every

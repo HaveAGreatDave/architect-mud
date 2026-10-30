@@ -234,6 +234,9 @@ The VINE Suite panel (`noEdit`, custom render): a cross-cutting **index** of eve
 
 `quests.js` also holds `questsOpenVine()` — opens the VINE quest editor seeded from the form fields; on save writes derived `objectives[]`/`rewards{}` back into them.
 
+### `story-map.js`
+The Story Map panel (`noEdit`, custom render, under VINE Suite in the nav): every quest on one SVG canvas, in lanes, left to right by how many `precedes` steps deep it sits. Read-only. The graph is `buildStoryGraph` from `client/shared/story-graph.js`, the same builder `scripts/content/story-report.mjs` prints; `index.html` loads it as a module onto `window.StoryGraph`. `_smModel` reshapes it for drawing (lanes, depth, findings) and `_smWhatIf` runs the what-if cut. Click focuses a quest, double-click opens it through `vineJumpTo`, alt-click cuts it. Lanes are derived (quest-id prefix, else giver); authored storyline files are not built yet.
+
 ### `scripts.js`
 The NPC/world script graph editor.
 
