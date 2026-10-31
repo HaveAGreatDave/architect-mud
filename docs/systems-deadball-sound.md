@@ -168,7 +168,7 @@ payload's clock and weather.
 
 `VOICES` in the bank, each fully authored so nothing falls through to a seed's dice:
 
-- **The announcer**, a driven baritone. Calls `STRIKE THREE!` (a swinging third strike),
+- **The announcer**, a driven baritone, heard on the broadcast and in a box's suite (Announcer in the Box), never from an ordinary seat. Calls `STRIKE THREE!` (a swinging third strike),
   `HOME RUN!`, `GRAND SLAM!`, `DOUBLE PLAY!`, `TRIPLE PLAY!` and `WALK-OFF!`, and at a final's last out,
   once the moment's held, `CHAMPIONS!`.
 - **The umpire**, gravelly, on the clips' `call` events: `STRIKE!`, `STRIKE THREE!` (a called

@@ -56,6 +56,7 @@
 	background: #1d2733; color: #dfe6ee; border: 1px solid #33465a;
 }
 #stands-view .st-bar .st-mode[aria-pressed="true"] { background: #e3a72f; color: #10151c; border-color: #e3a72f; }
+#stands-view .st-bar .st-announcer[aria-pressed="true"] { background: #2d4a36; border-color: #4f8a60; }
 #stands-view .st-bar .st-leave { background: #3a1d1d; border-color: #6b3030; }
 #stands-view .st-host {
 	position: relative; flex: 1 1 auto; min-height: 0;

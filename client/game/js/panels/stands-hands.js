@@ -9,6 +9,7 @@
 //          once to flip the zippo's lid, again to strike it, then hold Space with the flame on the
 //          end to draw it alight (`smoke <it>`). After that, hold Space to take a drag and let go
 //          in the green. Hold it too long and your head swims and you hear your heart.
+//          A cigar is the same with a cutter first: click to clip its cap, then light and puff it.
 //   drink  crack the cap, hold Space to tip it back, until it's gone (`drink <it>`).
 //   eat    Space or click takes a bite, until it's gone (`eat <it>`).
 //   glass  a glass from the bar stays with you, bottom left. Take a spirit or a mixer and you pour
@@ -123,7 +124,8 @@ const LID_OPEN = 1.95;
 
 // ── models ────────────────────────────────────────────────────────────────────
 // Every model is a list of [mesh, matrix, material] parts in its own centimetres.
-const CIG = { L: 8.4, R: 0.4, F: 2.6 };
+// what you smoke, in cm: length, radius, the filter's length (a cigar has none), a cigar's band
+const SMOKES = { cigarette: { L: 8.4, R: 0.4, F: 2.6 }, cigar: { L: 14, R: 0.85, F: 0, band: [1.7, 2.6], cigar: true } };
 const BOTTLES = {
   // a long-neck: heel, straight body, shoulder, neck, the lip a crown cap sits on
   lager: { top: 23, outer: [[0, 0], [2.7, 0], [3.05, 0.35], [3.1, 1], [3.1, 13], [2.95, 14.6], [2.2, 16.4], [1.5, 17.8], [1.25, 19], [1.25, 22.2], [1.45, 22.4], [1.45, 23], [0, 23]], fill: 19.2, cap: true, label: [5.5, 11.5], r: 3.1 },
@@ -240,21 +242,30 @@ export function createHands(root, host, { send }) {
   const CHROME = { color: '#d9dde2', metal: 0.92, spec: 90, brush: 0.12 };
   const CHROME_DARK = { color: '#8b9096', metal: 0.8, spec: 60 };
 
-  // ── a cigarette: filter, gold band, paper, ash, the coal; c as in smokeActivity ──
-  function drawCig(CM, c) {
+  // ── a cigarette (filter, gold band, paper) or a cigar (wrapper leaf, gold band, the cap
+  // clipped off its head), then the ash and the coal; c as in smokeActivity, K from SMOKES ──
+  function drawCig(CM, c, K) {
     const seg = (y0, y1, r, o) => g3.draw(mesh.cyl(), M(CM, T(0, y0, 0), S3(r, Math.max(0.001, y1 - y0), r)), o);
-    const burn = Math.max(CIG.F + 0.08, c.len * CIG.L);
-    seg(0, CIG.F, CIG.R, { color: '#d79a58', noise: 0.35, spec: 6 });
-    seg(CIG.F - 0.05, CIG.F + 0.07, CIG.R * 1.006, { color: '#e2c060', metal: 0.75, spec: 70 });
-    seg(CIG.F + 0.07, burn, CIG.R, { color: '#f6f3ec', spec: 10, noise: 0.03 });
-    if (c.lit) {
-      seg(burn - 0.08, burn, CIG.R * 0.995, { color: '#5a3a1c', noise: 0.4, spec: 4, emit: [0.25 * c.ember, 0.06 * c.ember, 0] });
-      if (c.ash > 0.004) seg(burn, burn + c.ash * CIG.L, CIG.R * 0.97, { color: '#a7a39d', noise: 0.6, spec: 3 });
-      seg(burn - 0.02, burn + 0.05, CIG.R * 0.9, { color: '#401808', emit: [1.0 * c.ember + 0.2, 0.32 * c.ember + 0.05, 0.05], spec: 2 });
+    const burn = Math.max(K.F + 0.08, c.len * K.L);
+    if (K.cigar) {
+      seg(0, burn, K.R, { color: '#6e4527', noise: 0.28, spec: 18 });
+      seg(K.band[0], K.band[1], K.R * 1.012, { color: '#d9b44e', metal: 0.8, spec: 80 });
+      seg(K.band[0] + 0.3, K.band[1] - 0.3, K.R * 1.016, { color: '#7a1420', spec: 30 });
+      if (!c.cut) g3.draw(mesh.sph(), M(CM, S3(K.R, K.R * 0.8, K.R)), { color: '#6a4224', noise: 0.28, spec: 18 });
+      else seg(-0.01, 0.01, K.R * 0.98, { color: '#8a6038', noise: 0.6, spec: 4 });
     } else {
-      seg(CIG.L - 0.02, CIG.L, CIG.R * 0.96, { color: '#6b4220', noise: 0.55, spec: 3, emit: [0.9 * c.glow, 0.28 * c.glow, 0.02] });
+      seg(0, K.F, K.R, { color: '#d79a58', noise: 0.35, spec: 6 });
+      seg(K.F - 0.05, K.F + 0.07, K.R * 1.006, { color: '#e2c060', metal: 0.75, spec: 70 });
+      seg(K.F + 0.07, burn, K.R, { color: '#f6f3ec', spec: 10, noise: 0.03 });
     }
-    const end = c.lit ? burn + c.ash * CIG.L : CIG.L;
+    if (c.lit) {
+      seg(burn - 0.08, burn, K.R * 0.995, { color: '#5a3a1c', noise: 0.4, spec: 4, emit: [0.25 * c.ember, 0.06 * c.ember, 0] });
+      if (c.ash > 0.004) seg(burn, burn + c.ash * K.L, K.R * 0.97, { color: '#a7a39d', noise: 0.6, spec: 3 });
+      seg(burn - 0.02, burn + 0.05, K.R * 0.9, { color: '#401808', emit: [1.0 * c.ember + 0.2, 0.32 * c.ember + 0.05, 0.05], spec: 2 });
+    } else {
+      seg(K.L - 0.02, K.L, K.R * 0.96, { color: '#6b4220', noise: 0.55, spec: 3, emit: [0.9 * c.glow, 0.28 * c.glow, 0.02] });
+    }
+    const end = c.lit ? burn + c.ash * K.L : K.L;
     return { tip: apply(CM, [0, end, 0]), burn: apply(CM, [0, burn, 0]) };
   }
 
@@ -364,16 +375,21 @@ export function createHands(root, host, { send }) {
 
   // ── smoking ───────────────────────────────────────────────────────────────
   function smokeActivity(item) {
-    const c = { len: 1, lit: false, ember: 0, ash: 0, glow: 0 };
+    const K = /cigar(?!ette)/i.test(item.name) ? SMOKES.cigar : SMOKES.cigarette, cigar = !!K.cigar;
+    const c = { len: 1, lit: false, ember: 0, ash: 0, glow: 0, cut: !cigar };
+    let cutT = 0, capBit = null, CMnow = null;
     const z = { lid: 0, lidTo: 0, wheel: 0, flame: 0, spin: 0 };
     let phase = 'appear', t = 0, light = 0, fill = 0, drawing = false, crackleAt = 0, exhaleAt = 0, exhaleK = 0, away = 0, gone = 0;
     let aim = null, zp = null, cigTip = [0, 0, -14], cigBurn = cigTip;
-    const MB = [0.15, -3.9, -6.0], MT = [0.8, -2.45, -14.2];
-    const mdir = [MT[0] - MB[0], MT[1] - MB[1], MT[2] - MB[2]];
+    // the end is in the same place whatever you smoke; a longer one reaches further back to your mouth
+    const MT = cigar ? [1.2, -3.7, -22] : [0.8, -2.45, -14.2], DIRL = Math.hypot(0.65, 1.45, -8.2), mdir = [0.65, 1.45, -8.2].map((v) => (v / DIRL) * K.L);
+    const MB = MT.map((v, i) => v - mdir[i]);
+    const DRAG = cigar ? 'puff' : 'drag';
     SND.shimmer(); say('');
     return {
       smoke: true,
       click() {
+        if (phase === 'cut' && cutT === 0) { cutT = 0.001; SND.close(); return; }
         if (phase === 'lid') { z.lidTo = LID_OPEN; SND.open(); phase = 'strike'; say('Click again to strike it.'); }
         else if (phase === 'strike' && z.lid > LID_OPEN * 0.8) {
           z.spin = 1; SND.strike();
@@ -393,38 +409,44 @@ export function createHands(root, host, { send }) {
         t += dt;
         z.lid = lerp(z.lid, z.lidTo, 1 - Math.exp(-dt * 24));
         if (z.spin > 0) { z.wheel += dt * 50 * z.spin; z.spin = Math.max(0, z.spin - dt * 4); }
-        if (phase === 'appear' && t > 1.3) { phase = 'tomouth'; t = 0; }
+        if (phase === 'appear' && t > 1.3) { phase = cigar ? 'cut' : 'tomouth'; t = 0; if (cigar) { say('Click to clip the end.'); wantMouse(true, 'pointer'); } }
+        if (phase === 'cut' && cutT > 0) {
+          // the blade goes through, the cap drops, and it goes to your mouth
+          if (cutT < 1) { cutT = Math.min(1, cutT + dt / 0.12); if (cutT >= 1) { c.cut = true; capBit = { p: apply(CMnow, [0, -0.25, 0]), v: [-2, 3, 0], a: 0 }; t = 0; } }
+          else if (t > 0.6) { phase = 'tomouth'; t = 0; wantMouse(false); say(''); }
+        }
+        if (capBit) { capBit.v[1] -= 50 * dt; for (let i = 0; i < 3; i++) capBit.p[i] += capBit.v[i] * dt; capBit.a += dt * 9; if (capBit.p[1] < -30) capBit = null; }
         else if (phase === 'tomouth' && t > 0.7) { phase = 'lid'; t = 0; say('Click to flip the lighter open.'); wantMouse(true, 'none'); }
         // the lighter goes where the mouse is, at the cigarette's distance, eased so it has weight
-        const want = g3.unproject(...(mouse || [W * 0.72, H * 0.72]), 14.2);
+        const want = g3.unproject(...(mouse || [W * 0.72, H * 0.72]), -MT[2]);
         if (!aim) aim = want.slice();
         for (let i = 0; i < 3; i++) aim[i] = lerp(aim[i], want[i], 1 - Math.exp(-dt * 16));
         if (phase === 'light' && zp) {
-          const near = Math.hypot(zp.hot[0] - cigTip[0], zp.hot[1] - cigTip[1], zp.hot[2] - cigTip[2]) < 0.9;
+          const near = Math.hypot(zp.hot[0] - cigTip[0], zp.hot[1] - cigTip[1], zp.hot[2] - cigTip[2]) < (cigar ? 1.4 : 0.9);
           const q = at(cigTip);
           if (space && near) {
-            light += dt / 1.6; c.glow = Math.min(1, light * 1.4);
+            light += dt / (cigar ? 3.2 : 1.6); c.glow = Math.min(1, light * 1.4);
             if (now > crackleAt) { SND.crackle(); crackleAt = now + 90 + Math.random() * 120; }
             if (Math.random() < dt * 12) puff(q[0], q[1], (Math.random() - 0.5) * 8, -20 * S, 3 * S, 1.4, 0.3, 14);
           } else { light = Math.max(0, light - dt * 0.25); c.glow = Math.max(0, c.glow - dt * 0.6); }
-          say(near ? (space ? 'Keep drawing...' : 'Hold Space.') : 'Hold Space and put the flame to the end.');
+          say(near ? (space ? (cigar ? 'Keep puffing and turning it in the flame...' : 'Keep drawing...') : 'Hold Space.') : 'Hold Space and put the flame to the end.');
           if (light >= 1) { c.lit = true; c.ember = 1; phase = 'lit'; t = 0; send(`smoke ${item.name}`); say(''); wantMouse(false); }
         }
         if (phase === 'lit') {
           if (t > 0.5 && z.lidTo) { z.lidTo = 0; z.flame = 0; setTimeout(() => SND.close(), 60); }
           away = ease((t - 0.8) / 0.6);
-          if (t > 1.4) { phase = 'drag'; exhaleAt = now + 500; exhaleK = 0.8; say('Hold Space to take a drag. Let go in the green.'); }
+          if (t > 1.4) { phase = 'drag'; exhaleAt = now + 500; exhaleK = 0.8; say(`Hold Space to take a ${DRAG}. Let go in the green.`); }
         }
         if (phase === 'drag') {
           if (drawing) {
             fill += dt / 2.4;
             c.ember = lerp(c.ember, 1, 1 - Math.exp(-dt * 8));
-            c.len -= dt * 0.045; c.ash += dt * 0.04;
+            c.len -= dt * (cigar ? 0.014 : 0.045); c.ash += dt * (cigar ? 0.012 : 0.04);
             if (now > crackleAt) { SND.crackle(); crackleAt = now + 60 + Math.random() * 90; }
             if (fill >= 1) { SND.cough(); dizzy = Math.min(1.4, dizzy + 0.9); release(true); }
           } else {
             c.ember = lerp(c.ember, 0.25, 1 - Math.exp(-dt * 1.5));
-            c.len -= dt * 0.004; c.ash += dt * 0.0035;
+            c.len -= dt * (cigar ? 0.0015 : 0.004); c.ash += dt * (cigar ? 0.0013 : 0.0035);
             if (fill > 0 && exhaleAt <= 0) fill = Math.max(0, fill - dt * 1.5);
           }
           if (exhaleAt > 0 && now > exhaleAt) {
@@ -432,8 +454,8 @@ export function createHands(root, host, { send }) {
             for (let k = 0; k < n; k++) puff(W * 0.5 + (Math.random() - 0.5) * 30 * S, H + 10 * S, (Math.random() - 0.5) * 70 * S + 20 * S, -(120 + Math.random() * 140) * S * (0.6 + exhaleK), (14 + Math.random() * 18) * S, 2.4 + Math.random() * 1.6, 0.55, 34);
             SND.exhale(exhaleK); exhaleAt = 0; fill = 0;
           }
-          if (c.ash > 0.1 && !drawing && Math.random() < dt * 0.6) { const q = at(cigTip); bits.push({ x: q[0], y: q[1], vx: (Math.random() - 0.5) * 30, vy: 20, r: 4 * S, col: '#8d8a86', life: 1.5, age: 0 }); c.ash = 0.01; }
-          if (c.len <= 0.34) { phase = 'done'; t = 0; say('Down to the filter.'); }
+          if (c.ash > (cigar ? 0.07 : 0.1) && !drawing && Math.random() < dt * 0.6) { const q = at(cigTip); bits.push({ x: q[0], y: q[1], vx: (Math.random() - 0.5) * 30, vy: 20, r: 4 * S, col: '#8d8a86', life: 1.5, age: 0 }); c.ash = 0.01; }
+          if (c.len <= (cigar ? 0.3 : 0.34)) { phase = 'done'; t = 0; say(cigar ? 'You let it go out in the ashtray.' : 'Down to the filter.'); }
         }
         if (phase === 'done') { gone = ease(t / 1.2); if (t > 1.6) return false; }
         if (c.lit && Math.random() < dt * 14) { const q = at(cigTip); puff(q[0], q[1], (Math.random() - 0.5) * 6 * S, -(22 + Math.random() * 14) * S, 2 * S, 3.4, 0.22, 9); }
@@ -441,17 +463,26 @@ export function createHands(root, host, { send }) {
       },
       draw(now) {
         let base = MB, dir = mdir;
-        if (phase === 'appear' || phase === 'tomouth') {
+        if (phase === 'appear' || phase === 'tomouth' || phase === 'cut') {
           // out of the box: turning end over end in the middle of the view, catching the light
           const k = phase === 'appear' ? backOut(t / 0.9) : 1, spin = phase === 'appear' ? (1 - ease(t / 1.3)) * Math.PI * 3 : 0;
-          const P = [0, 0.4 + (1 - k) * -3, -17], d0 = [Math.cos(spin - 0.2), Math.sin(spin * 0.5) * 0.3 + 0.12, Math.sin(spin - 0.2) * 0.6];
-          let b0 = [P[0] - d0[0] * 4.2, P[1] - d0[1] * 4.2, P[2] - d0[2] * 4.2];
-          if (phase === 'tomouth') { const e = ease(t / 0.7); b0 = b0.map((v, i) => lerp(v, MB[i], e)); dir = d0.map((v, i) => lerp(v, mdir[i] / 8.4, e)); } else dir = d0;
+          const P = [0, 0.4 + (1 - k) * -3, cigar ? -24 : -17], d0 = [Math.cos(spin - 0.2), Math.sin(spin * 0.5) * 0.3 + 0.12, Math.sin(spin - 0.2) * 0.6];
+          let b0 = [P[0] - d0[0] * K.L / 2, P[1] - d0[1] * K.L / 2, P[2] - d0[2] * K.L / 2];
+          if (phase === 'tomouth') { const e = ease(t / 0.7); b0 = b0.map((v, i) => lerp(v, MB[i], e)); dir = d0.map((v, i) => lerp(v, mdir[i] / K.L, e)); } else dir = d0;
           base = b0;
           if (phase === 'appear') { const q = at(P); sparkle(ctx, q[0], q[1], 130 * S, t, S); glowAt(ctx, q[0], q[1], 120 * S, '#ffd28a', 0.22 * (1 - t / 1.3)); }
         }
         if (gone) base = [base[0], base[1] - gone * 4, base[2] + gone * 2];
-        const r = drawCig(M(T(...base), alignY(dir)), c);
+        CMnow = M(T(...base), alignY(dir));
+        const r = drawCig(CMnow, c, K);
+        if (phase === 'cut') {
+          // a chrome cutter over the head: its body with the hole through it, and the blade across
+          const CC = M(CMnow, T(0, 0.25, 0));
+          g3.draw(g3.mesh('cutter', () => rprism(3.6, 2.4, -0.3, 0.3, 0.55, 6)), M(CC, T(1.0, 0, 0)), CHROME);
+          for (const y of [-0.31, 0.31]) g3.draw(mesh.cyl(), M(CC, T(0, y - 0.01, 0), S3(K.R * 1.15, 0.02, K.R * 1.15)), { color: '#111214', spec: 4 });
+          g3.draw(g3.mesh('cutblade', () => rprism(2.2, 2.0, -0.06, 0.06, 0.2, 3)), M(CC, T(lerp(2.4, 0.2, ease(cutT)), 0, 0)), { color: '#eef1f4', metal: 1, spec: 140 });
+        }
+        if (capBit) g3.draw(mesh.sph(), M(T(...capBit.p), RZ(capBit.a), S3(K.R, K.R * 0.45, K.R)), { color: '#6a4224', noise: 0.3, spec: 14 });
         cigTip = r.tip; cigBurn = r.burn;
         if (c.lit) { const q = at(cigBurn); glowAt(ctx, q[0], q[1], q[2] * (0.9 + c.ember * 1.3), '#ff6a1e', 0.25 + c.ember * 0.45); }
         else if (c.glow > 0) { const q = at(cigTip); glowAt(ctx, q[0], q[1], q[2] * 1.2, '#ff7a2a', c.glow * 0.6); }
@@ -462,7 +493,7 @@ export function createHands(root, host, { send }) {
           zp = drawZippo(ZM, z);
           if (z.flame > 0) { const q = at(zp.wick); drawFlame(ctx, q[0], q[1], q[2] * 2.6, Math.sin(now * 0.004) * 4 * S, now, z.flame); }
         }
-        if (phase === 'drag' || (phase === 'lit' && t > 1)) drawMeter(fill, drawing);
+        if (phase === 'drag' || (phase === 'lit' && t > 1)) drawMeter(fill, drawing, cigar ? 'PUFF' : 'DRAG');
       },
       cancel() { wantMouse(false); },
     };
@@ -470,14 +501,14 @@ export function createHands(root, host, { send }) {
       drawing = false;
       const k = fill;
       // in the green it goes down smooth; over it, the head swims
-      if (!forced && k > 0.85) { dizzy = Math.min(1.4, dizzy + (k - 0.85) * 4); say('That one went to your head.'); }
+      if (!forced && k > 0.85) { dizzy = Math.min(1.4, dizzy + (k - 0.85) * 4); say(cigar ? 'You inhaled it. Your head spins.' : 'That one went to your head.'); }
       else if (!forced && k >= 0.55) say('Smooth.');
       else if (forced) say('Too much. You cough it up.');
-      else say('Hold Space to take a drag. Let go in the green.');
+      else say(`Hold Space to take a ${DRAG}. Let go in the green.`);
       exhaleAt = performance.now() + (forced ? 150 : 700); exhaleK = forced ? 1.2 : k;
     }
   }
-  function drawMeter(fill, drawing) {
+  function drawMeter(fill, drawing, label) {
     const x = W - 46 * S, h = 170 * S, y = H * 0.5 - h / 2, w = 14 * S;
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.45)'; roundRect(ctx, x - 5 * S, y - 22 * S, w + 10 * S, h + 30 * S, 6 * S); ctx.fill();
@@ -489,7 +520,7 @@ export function createHands(root, host, { send }) {
     ctx.fillRect(x, fy, w, y + h - fy);
     if (drawing) { ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fillRect(x - 3 * S, fy - 1, w + 6 * S, 2); }
     ctx.fillStyle = '#cfd6de'; ctx.font = `${Math.round(10 * S)}px system-ui, sans-serif`; ctx.textAlign = 'center';
-    ctx.fillText('DRAG', x + w / 2, y - 8 * S);
+    ctx.fillText(label, x + w / 2, y - 8 * S);
     ctx.restore();
   }
 

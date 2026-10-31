@@ -17,8 +17,10 @@ export const BAGS = Object.freeze({ 1: [-D, 0, D], 2: [0, 0, 2 * D], 3: [D, 0, D
 // The mound's centre on the ground (x, z), and the rubber's centre in 3-D.
 export const MOUND = Object.freeze([0, 59.5]);
 // Foul ground: the lower bowl's rail stands this far off either line, and the backstop this far
-// behind the plate. The park's mesh builds them here and a foul pop comes down inside them.
-export const FOUL_GROUND = Object.freeze({ line: 44, back: 60 });
+// behind the plate, a straight wall across the back that meets the curve of the bowl either side
+// (gl/ballpark-mesh.js bowlPath), so the Diamond Club sits close behind the catcher. The park's
+// mesh builds them here and a foul pop comes down inside them.
+export const FOUL_GROUND = Object.freeze({ line: 44, back: 44 });
 // The dugouts: one each side, let into the lower bowl's front from `from` to `to` feet along the
 // line, `deep` feet back under the stands. The bowl's first rows are lifted `raise` feet over it,
 // eased back down over the rows behind (gl/ballpark-mesh.js stands), so the recess stands at field

@@ -17,6 +17,7 @@ import { eventTime, sampleClip, handAt, rootAt } from './anim.js';
 import { solvePose } from './rig.js';
 import { throwPath, pitchPath, BALL_R } from './flight.js';
 import { legsOf, topSpeed, POSITIONS } from './play.js';
+import { FOUL_GROUND } from './geo.js';
 import { carried, toPark } from './world.js';
 import { clamp, add, sub, mul, flat, faceTo, wrap, HOME, hashStr, makeBody, cloneBody, runTo, settle, groundOf, sideOf, FADE, endOf } from './bodies.js';
 import { bagAt, basePath, slideIn, slideOf, stopAt, standOn, jogOff, dugoutOf, runnerAt, getUpAfter, stepOff } from './bases.js';
@@ -300,7 +301,7 @@ function getsBy(ctx, o, plan, rand, fielders) {
   // off his gear or the end of his mitt
   plan.sounds.push({ at: tPast, cue: 'glove' });
   // on to the backstop, slowing on the dirt, and lying there
-  const rest = [side * (5 + 12 * rand('rest')), BALL_R, -50 - 4 * rand('deep')];
+  const rest = [side * (5 + 12 * rand('rest')), BALL_R, -(FOUL_GROUND.back - 6) - 4 * rand('deep')];
   const T = flat(at0, rest) / (wild ? 24 : 30), tRest = tPast + T;
   const roll = rollTo(at0, rest, tPast, T);
   plan.balls.push({ from: tPast + (wild ? 0 : 0.0001), path: roll });

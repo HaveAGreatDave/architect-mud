@@ -231,7 +231,9 @@ function buildField(B, outline) {
 // Each point up a line inside a dugout (geo.js DUGOUT) carries `raise`, the lift of the rows over
 // it, and each end of a dugout is two points in the same place, one lifted and one not, so the
 // rows step up there in a wall rather than a slope.
-function bowlPath() {
+// `flat` false keeps the old round back: the upper deck stays on it, clear of the broadcast's high
+// cameras behind the plate, while the lower bowl comes in to the straight backstop.
+function bowlPath(flat = true) {
   const pts = [];
   const d1 = norm([-1, 0, 1]), n1 = norm([-1, 0, -1]), d3 = norm([1, 0, 1]), n3 = norm([1, 0, -1]);
   const inside = (s) => s >= DUGOUT.from - 1e-6 && s <= DUGOUT.to + 1e-6, edge = (s) => Math.abs(s - DUGOUT.from) < 1e-6 || Math.abs(s - DUGOUT.to) < 1e-6;
@@ -243,8 +245,11 @@ function bowlPath() {
     pts.push(a, b);
   };
   for (let s = 318; s > 62; s -= 8) up(d1, n1, s, Math.abs(s - DUGOUT.to) < 1e-6);
+  // round behind the plate the bowl's curve, cut off by a straight backstop FOUL_GROUND.back behind
+  // it, so the middle rows come in close rather than bowing away round a circle
   for (let i = 0; i <= 40; i++) {
-    const a = (-80 - 200 * i / 40) * DEG, u = i / 40, rr = 75 - 15 * Math.sin(Math.PI * u);
+    const a = (-80 - 200 * i / 40) * DEG, u = i / 40, off = Math.cos(a + Math.PI);
+    const rr = Math.min(75 - 15 * Math.sin(Math.PI * u), flat && off > 0.05 ? FOUL_GROUND.back / off : Infinity);
     pts.push([rr * Math.sin(a), 0, rr * Math.cos(a)]);
   }
   for (let s = 62; s <= 318; s += 8) up(d3, n3, s, Math.abs(s - DUGOUT.from) < 1e-6);
@@ -542,7 +547,7 @@ export function buildPark(venue, opts = {}) {
   stands(B, crowd, bowl, { rows: 24, y0: 4.5, rise: 1.3, depth: 2.7, front: 4.5, occ: 0.42, name: 'lower', crater: true, ads: true, full: opts.full,
     club: { arc: 30, rows: 4, y0: 0.6, rise: 0.8, wall: 2.6, occ: 0.7 } });
   dugouts(B, 4.5);
-  stands(B, crowd, bowl.filter((p) => len(p) < 255), { rows: 15, y0: 54, rise: 1.95, depth: 2.6, start: 64, front: 9, occ: 0.26, name: 'upper', fascia: true, full: opts.full });
+  stands(B, crowd, bowlPath(false).filter((p) => len(p) < 255), { rows: 15, y0: 54, rise: 1.95, depth: 2.6, start: 64, front: 9, occ: 0.26, name: 'upper', fascia: true, full: opts.full });
   // the scoreboard, behind right-centre: a face of lamps on a dark frame, on two legs
   const board = boardFrame(field);
   {

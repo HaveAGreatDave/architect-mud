@@ -252,7 +252,7 @@ export function createGrandstandView(host, opts = {}) {
     W = mods.createWorld();
     D = mods.createDirector(W, { onLand: () => landPlay(cur), emit: fromDirector, pitchShot: () => pitchCam });
     roar = mods.createRoar();
-    snd = mods.createParkSound({ win, state: () => ({ p: cur?.p || last, S }), seat: opts.seat || null });
+    snd = mods.createParkSound({ win, state: () => ({ p: cur?.p || last, S }), seat: opts.seat || null, announcer: opts.announcer || null });
     hud = mods.hud.createHud(host.querySelector('.gds-hud'), {
       theme: theme(true),
       project: (p, w, h) => mods.project(view(), w, h, p),

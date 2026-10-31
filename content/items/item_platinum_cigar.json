@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_platinum_cigar",
+  "name": "box cigar",
+  "tags": {
+    "description": "A fat, oily cigar with a gold band and the Coliseum crest on it. They hand them out in the box like mints.",
+    "drug": true,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 0,
+  "weight": 25
+}

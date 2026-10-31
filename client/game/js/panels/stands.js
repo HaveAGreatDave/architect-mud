@@ -19,7 +19,7 @@ import { wantClubs } from './club-crest.js';
 import { wantVenue, venueOf } from './venue.js';
 import { boothStep, boothSeatNear, boothFree } from './gl/booth-mesh.js';
 import { rinkSeats, SEAT_EYE } from './gl/arena-crowd.js';
-import { standsBoothOn } from '../../../shared/settings.js';
+import { standsBoothOn, boxAnnouncerOn, loadSettings, saveSettings, applySettings } from '../../../shared/settings.js';
 import { createHands } from './stands-hands.js';
 
 const CSS = await loadCss(new URL('./stands.css', import.meta.url));
@@ -145,6 +145,7 @@ export async function openStands(msg) {
       <button type="button" class="st-settings" title="Settings" aria-label="Settings">⚙</button>
       <button type="button" class="st-sit" hidden title="Sit down or get up (E)">Get up</button>
       <button type="button" class="st-tv" hidden aria-pressed="false" title="The big screen, full size (T)">Big screen</button>
+      <button type="button" class="st-announcer" hidden aria-pressed="true" title="The announcer's calls from the screen">Announcer</button>
       <button type="button" class="st-seats">Change seat</button>
       <button type="button" class="st-leave">Leave the stands</button>
     </div>
@@ -175,7 +176,7 @@ export async function openStands(msg) {
   try {
     view = msg.sport === 'hockey'
       ? (await import('./gameday-rink.js')).createRinkView(host, { seat: vs, fly: false })
-      : (await import('./gameday-grandstand.js')).createGrandstandView(host, { seat: vs, force: true, room, station: msg.station || '', onRoom: (L) => { layout = L; startSuite?.(); } });
+      : (await import('./gameday-grandstand.js')).createGrandstandView(host, { seat: vs, force: true, room, announcer: room ? boxAnnouncerOn : null, station: msg.station || '', onRoom: (L) => { layout = L; startSuite?.(); } });
   } catch (err) {
     console.error('[stands] the view failed to load:', err);
     host.textContent = 'The view would not load.';
@@ -365,6 +366,11 @@ function walkSuite(ui, L, msg, setMode, redraw) {
   const { seat, root } = ui;
   const sitBtn = root.querySelector('.st-sit'), tvBtn = root.querySelector('.st-tv');
   sitBtn.hidden = false; tvBtn.hidden = false;
+  // the announcer's calls from the screen, on or off: the same setting as accessibility announcer
+  const annBtn = root.querySelector('.st-announcer');
+  const showAnn = () => annBtn.setAttribute('aria-pressed', String(boxAnnouncerOn()));
+  annBtn.hidden = false; showAnn();
+  annBtn.addEventListener('click', () => { const st = loadSettings(); st.boxAnnouncer = boxAnnouncerOn() ? 'off' : 'on'; saveSettings(st); applySettings(st); showAnn(); });
   root.querySelector('.st-leave').textContent = 'Leave the box';
   root.querySelector('.st-tip').textContent = 'WASD to walk · click a chair or E to sit · click the buffet or the smokes, or go behind the bar to the fridge, to help yourself · Space and clicks for what you hold · T for the big screen · drag to look';
   seat.near = 0.3;

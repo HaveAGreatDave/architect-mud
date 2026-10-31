@@ -11,7 +11,8 @@
 //   4. each building takes the free plot nearest its bearing-true place, nearest first; one on
 //      the water stays on the water, as far off the set's shore as it stands off the map's, and
 //      one beyond the Curtain stays where it stands;
-//   5. plots no building claims get filler in their quarter's style;
+//   5. plots no building claims get filler in their quarter's style, often two or three narrow
+//      buildings to a plot away from the park, climbing in a ring from about a quarter mile out;
 //   6. nothing tall stands within 48 ft of a street-level camera.
 //
 // Pure, so every client builds the same set and a gate checks it in Node. It names no region:
@@ -227,16 +228,28 @@ export function composeSet({ site, skyline, outline, art = null, tile = SET_TILE
     const k = i + ',' + j;
     if (cells.get(k) !== 'plot' || used.has(k)) continue;
     const c = cellPt(i, j), far = Math.hypot(c[0], c[2]);
-    if (unit('fill:' + k) >= (far < 1400 ? 0.92 : 0.6)) continue;
+    if (unit('fill:' + k) >= (far < 1400 ? 0.97 : far < 3200 ? 0.95 : 0.85)) continue;
     const [mx, my] = sourceTile(c), q = quarterOf(art, mx, my);
     const list = (q?.fill || []).filter((s) => SET_STYLES.includes(s));
     const style = list.length ? list[Math.floor(unit('style:' + k) * list.length)] : 'concrete';
     const [lo, hi] = Array.isArray(q?.floors) ? q.floors : [2, 8];
-    // lower near the park, so the stands aren't walled in
-    const near = Math.min(1, Math.max(0.45, far / 1400));
-    const floors = Math.max(1, Math.round((lo + unit('fl:' + k) * (hi - lo)) * near));
+    // lower right by the park, so the stands aren't walled in, then a ring that climbs from about a
+    // quarter mile out, so the skyline stands up round the roof rather than thinning away from it
+    const near = Math.min(1, Math.max(0.6, far / 1100));
+    const ring = far > 1100 ? 1 + 1.5 * Math.exp(-(((far - 2300) / 1200) ** 2)) : 1;
+    const floors = Math.max(1, Math.round((lo + unit('fl:' + k) * (hi - lo)) * near * ring));
     if (floors > 4 && !clearOf(c, 48)) continue;
-    fill.push({ i, j, at: c, style, floors, w: T * (0.62 + 0.2 * unit('w:' + k)), d: T * (0.62 + 0.2 * unit('d:' + k)), seed: unit('s:' + k) });
+    // away from the park a plot often holds two or three narrower buildings of their own heights,
+    // shoulder to shoulder, so the blocks read as a city rather than one box a plot
+    const us = unit('split:' + k), n = far < 900 ? 1 : us < 0.3 ? 1 : us < 0.75 ? 2 : 3;
+    const span = T * (n === 1 ? 0.72 + 0.2 * unit('w:' + k) : 0.94), d = T * (0.72 + 0.2 * unit('d:' + k));
+    for (let m = 0; m < n; m++) {
+      const off = n === 1 ? 0 : -span / 2 + (m + 0.5) * span / n, km = k + ':' + m;
+      const fm = n === 1 ? floors : Math.max(1, Math.round(floors * (0.55 + 0.9 * unit('fm:' + km))));
+      const at = [c[0] + EX[0] * off, 0, c[2] + EX[2] * off];
+      if (fm > 4 && !clearOf(at, 48)) continue;
+      fill.push({ i, j, at, style, floors: fm, w: n === 1 ? span : span / n * 0.9, d, seed: unit('s:' + km) });
+    }
   }
 
   // how far each building moved off its true bearing from home plate

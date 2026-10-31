@@ -1,0 +1,76 @@
+{
+  "addiction_chance": 0.15,
+  "description": "A fat house cigar from the Platinum Box. You puff it rather than inhale it, which nobody does.",
+  "duration_seconds": 900,
+  "effects": {
+    "fx": {
+      "none": true
+    },
+    "instant": {
+      "sanity": 6
+    },
+    "overdose": {
+      "message": "You inhaled it. Your head spins and your stomach turns over.",
+      "mods": {
+        "hp": -5,
+        "sanity": -8
+      }
+    },
+    "phases": {
+      "comedown_mods": {
+        "stat_cool": -1
+      },
+      "comedown_scale": 1,
+      "comedown_seconds": 40,
+      "comeup_message": "<span class=\"msg-system\">The cigar catches. The smoke is thick and sweet and fills your mouth.</span>",
+      "comeup_scale": 0.6,
+      "comeup_seconds": 4,
+      "end_message": [
+        "<span class=\"msg-system\">The cigar has gone out, and you don't relight it.</span>",
+        "<span class=\"msg-system\">You leave the stub of the cigar in the ashtray.</span>"
+      ],
+      "peak_message": [
+        "<span class=\"msg-system\">You roll the smoke round your mouth and let it go.</span>",
+        "<span class=\"msg-system\">The cigar makes you feel like you own the place.</span>",
+        "<span class=\"msg-system\">You tap off an inch of ash and feel very pleased with yourself.</span>"
+      ],
+      "peak_mods": {
+        "stamina_max": -10,
+        "stat_cool": 3
+      },
+      "peak_seconds": 300
+    },
+    "take_line": "You light the cigar and puff it into life.",
+    "tolerance": {
+      "gain_per_dose": 0.1,
+      "max_reduction": 0.5
+    },
+    "withdrawal": {
+      "message": "You keep thinking about the cigar you had.",
+      "mods": {
+        "stamina_max": -10,
+        "stat_cool": -2
+      },
+      "onset_seconds": 600,
+      "stages": {
+        "easing": "Your hands find other things to do, badly.",
+        "onset": "Your hand reaches for a cigarette that isn't there.",
+        "peak": "You've reached for the empty pocket eleven times in the last hour, and you're doing it again.",
+        "rising": "It keeps happening: pocket, mouth, pocket, before you remember.",
+        "tail": "You've mostly stopped reaching. Once an afternoon, your hand still goes to your pocket."
+      }
+    }
+  },
+  "flags": {
+    "appetite_suppress_seconds": 1800,
+    "drug_family": "stimulant",
+    "legal": true,
+    "skin_permeability": 0.85,
+    "smokeable": true
+  },
+  "id": "drug_platinum_cigar",
+  "item_id": "item_platinum_cigar",
+  "name": "box cigar",
+  "overdose_threshold": 6,
+  "withdrawal_effects": {}
+}

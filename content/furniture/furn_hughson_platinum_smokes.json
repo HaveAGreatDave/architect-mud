@@ -1,15 +1,18 @@
 {
-  "description": "A silver cigarette box open on the drum table between the chairs, a cut-glass ashtray beside it. The box never seems to get any emptier.",
+  "description": "A silver cigarette box open on the drum table between the chairs, a little cedar humidor of cigars and a cut-glass ashtray beside it. Neither ever seems to get any emptier.",
   "flags": {
     "aliases": [
       "smokes",
       "cigarettes",
       "cigarette box",
-      "ashtray"
+      "ashtray",
+      "cigars",
+      "humidor"
     ],
     "container": 60000,
     "restock_items": [
-      "item_cigarettes"
+      "item_cigarettes",
+      "item_platinum_cigar"
     ]
   },
   "hp": null,

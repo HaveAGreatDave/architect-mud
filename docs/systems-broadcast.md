@@ -940,7 +940,8 @@ Built so far (Phases 1 and 2 of the plan):
   [gl/ballpark-mesh.js](../client/game/js/panels/gl/ballpark-mesh.js) from
   [diamond/geo.js](../client/game/js/panels/diamond/geo.js): the field, the padded wall with its
   distances, the foul poles, the bleachers and the batter's eye, the lower bowl, the upper deck,
-  the backstop net, six light towers whose lamps the venue says work or not, and the scoreboard;
+  a straight backstop wall `FOUL_GROUND.back` (44 ft) behind the plate with the Diamond Club's
+  rows on it and no net, six light towers whose lamps the venue says work or not, and the scoreboard;
 - [gl/ballpark.js](../client/game/js/panels/gl/ballpark.js), the WebGL2 renderer: the towers as
   the only lights, GGX in linear light into `hdr.js`'s multisampled float target, the field painted
   in the shader under the infield canvas ([diamond/dirt.js](../client/game/js/panels/diamond/dirt.js)),

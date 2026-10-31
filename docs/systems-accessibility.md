@@ -62,6 +62,8 @@ uses. It sets `data-stands-booth`; [stands.js](../client/game/js/panels/stands.j
 The line goes to `AudioEngine.speak` with `queue: true` on the tv channel, under the TV switch and
 slider. Catch-up lines are shown, never said.
 
+**Announcer in the Box** (`accessibility announcer on|off`, on by default) plays the broadcast announcer's calls in a box's suite at the ballpark, where the screen has the game on. An ordinary seat hears only the umpire and the crowd (`diamond/sound.js` gives a seat no announcer); the suite passes `announcer: boxAnnouncerOn` to `createParkSound`, read per call. The suite's bar has an Announcer button that flips the same setting.
+
 **Hold to confirm** (`holdToConfirm` in [confirm.js](../client/game/js/panels/confirm.js)) guards the
 choices that can't be undone: selling or handing back an aircraft, `drop all` (the server's confirm
 carries `hold: true`) and the sign-out danger dialog. The button fills as it's held and fires when

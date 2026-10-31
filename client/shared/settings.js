@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'off', glass: '2', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', ballGlow: 'on', standsBooth: 'off', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'off', glass: '2', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', ballGlow: 'on', standsBooth: 'off', boxAnnouncer: 'on', audio: DEFAULT_AUDIO_SETTINGS };
 
 // ── The accessibility surface, declared once ─────────────────────────────────
 //
@@ -87,6 +87,11 @@ export const A11Y_OPTIONS = [
     key: 'standsBooth', label: 'Booth in the Stands', verb: 'booth',
     why: "When you have a seat at a game, the broadcast booth's calls are read aloud in the voice the TV uses, as if you'd brought a radio. Off leaves them as captions under the picture. The TV volume slider sets how loud it is.",
     opts: [{ v: 'off', t: 'Off' }, { v: 'on', t: 'On' }],
+  },
+  {
+    key: 'boxAnnouncer', label: 'Announcer in the Box', verb: 'announcer',
+    why: "In a box at the ballpark, the announcer's calls on the broadcast are played in the room with you: STRIKE THREE, FOUL BALL, SAFE and the rest, as they'd come from the screen. Off leaves you the umpire and the crowd, as in an ordinary seat. The SFX volume slider sets how loud it is.",
+    opts: [{ v: 'on', t: 'On' }, { v: 'off', t: 'Off' }],
   },
   {
     key: 'uiSound', label: 'Interface Sounds', verb: 'clicks',
@@ -208,6 +213,12 @@ export function playByPlayOn() {
 // on; read per line, never cached.
 export function standsBoothOn() {
   try { return document.documentElement.getAttribute('data-stands-booth') === 'on'; } catch { return false; }
+}
+
+// Announcer in the Box: whether a box's suite hears the broadcast announcer's calls (diamond/sound.js
+// gives a seat only the umpire and the crowd). On unless switched off; read per call, never cached.
+export function boxAnnouncerOn() {
+  try { return document.documentElement.getAttribute('data-box-announcer') !== 'off'; } catch { return true; }
 }
 
 // Ball Glow: whether the 3-D park lights Deadball's ball so it can be followed. On unless switched
@@ -486,6 +497,8 @@ export function applySettings(settings) {
   document.documentElement.setAttribute('data-play-by-play', settings.playByPlay || 'on');
   // Booth in the Stands: the seat reads the booth's calls aloud (standsBoothOn).
   document.documentElement.setAttribute('data-stands-booth', settings.standsBooth || 'off');
+  // Announcer in the Box: a box's suite hears the announcer's calls (boxAnnouncerOn).
+  document.documentElement.setAttribute('data-box-announcer', settings.boxAnnouncer || 'on');
   // Ball Glow: the faint light round Deadball's ball in the 3-D park (ballGlowOn).
   document.documentElement.setAttribute('data-ball-glow', settings.ballGlow || 'on');
   // Read Aloud. Rate first, so a mode change never speaks its first line at the

@@ -24,7 +24,7 @@ import {
 } from '../../../../shared/deadball-sfx.js';
 import { loadSettings, sfxDetail } from '../../../../shared/settings.js';
 import { KINDS } from './spectacle.js';
-import { fenceDistance } from './geo.js';
+import { fenceDistance, FOUL_GROUND } from './geo.js';
 
 const dbGain = (db) => Math.pow(10, (db || 0) / 20);
 const SPEED_OF_SOUND = 1125;        // ft/s: a shell bursting over the bleachers is heard late
@@ -115,7 +115,10 @@ export function tension(p, S) {
 // `state()` gives { p (the payload playing), S (the graphics' state: pitch, splash, tableRace,
 // replay, matchup, homeTeam, gold) }. `detail` pins Sound Detail (the gates); otherwise it's the
 // player's. `seat` (stands.js) puts the ear in the stands rather than the booth: see `fromSeat`.
-export function createParkSound({ win = globalThis, state = () => ({}), detail = null, seat = null } = {}) {
+// `announcer` (a function, read per call) lets a seat hear the announcer anyway: a box's suite, whose
+// screen has the broadcast on (stands.js, boxAnnouncerOn).
+export function createParkSound({ win = globalThis, state = () => ({}), detail = null, seat = null, announcer = null } = {}) {
+  const calls = () => !seat || !!announcer?.();
   const AE = () => win?.AudioEngine || null;
   let tier = detail || sfxDetail(loadSettings());
   let world = null, lastT = 0;
@@ -266,7 +269,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       if (Number.isFinite(path.land) && path.land > t0 && path.land <= t1 && p.play?.hr !== 'pole' && !ball.done.seats) { ball.done.seats = 1; play('seats', { pan: panAt(q1) }, 'event', path.land); }
     }
     // behind the plate: the backstop low; high, there's no net, so it's into the club's seats
-    if (q1[2] < -50 && q0[2] >= -50 && !ball.done.back) { ball.done.back = 1; play(q1[1] < 10 ? 'backstop' : 'seats', {}, 'event', t1); }
+    if (q1[2] < -(FOUL_GROUND.back - 2) && q0[2] >= -(FOUL_GROUND.back - 2) && !ball.done.back) { ball.done.back = 1; play(q1[1] < 10 ? 'backstop' : 'seats', {}, 'event', t1); }
     // rolling through the grass
     if (q1[1] < 0.6 && speed > 10 && !onDirt(q1[0], q1[2]) && t1 - (ball.rolled ?? -9) > 0.6) { ball.rolled = t1; play('roll', { pan: panAt(q1), at: q1 }, 'step', t1); }
     ball.vy = vy1; ball.dr = dr;
@@ -448,9 +451,9 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       // sold, but not to the top of his range: an all-caps shout already leans on its last word, and
       // at full excitement "THREE" went up nine semitones and shrill
       // the announcer is the broadcast's; a seat hears the umpire and the crowd
-      if (!seat) say('announcer', callFor(p, s.S?.pitch), { excite: 0.4 });
+      if (calls()) say('announcer', callFor(p, s.S?.pitch), { excite: 0.4 });
       // the last out of a final: once the moment's held, the announcer crowns them
-      if (p.end?.champion && !seat) later(1300, () => say('announcer', CALLS.announcer.champions, { excite: 0.5 }));
+      if (p.end?.champion && calls()) later(1300, () => say('announcer', CALLS.announcer.champions, { excite: 0.5 }));
     },
     // Before a final's first pitch: the anthem, and the public address reading each man as his
     // card goes up (gameday-grandstand.js introduce).
