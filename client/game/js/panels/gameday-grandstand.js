@@ -373,7 +373,8 @@ export function createGrandstandView(host, opts = {}) {
     const tvMode = opts.seat?.mode === 'tv';
     // the graphics move between your eyes and the box's screen as you put it up full size
     if (opts.room && tvMode !== tvWas) { tvWas = tvMode; paintHud(); }
-    if (R.room && !tvMode && (tvFrame++ % TV_EVERY) === 0) R.renderTv(directed(), tvCanvas);
+    // with no ballgame the screen carries another picture instead (opts.tvSource, the hockey)
+    if (R.room && !tvMode && (tvFrame++ % TV_EVERY) === 0) { if (opts.tvSource) R.setTvImage?.(opts.tvSource()); else R.renderTv(directed(), tvCanvas); }
     if (!R.render(view(), { room: !tvMode }) && R.lost) { fallback('the WebGL context was lost'); return; }
     // on to the next frame while the at-bat plays or a replay's due or playing; once everyone's
     // at rest the last one stays up. A stopped clock draws only when something asks. A seat in the

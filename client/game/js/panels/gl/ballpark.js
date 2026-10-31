@@ -2512,6 +2512,17 @@ export function createBallparkRenderer(canvas, opts = {}) {
       }
       return L;
     }
+    // setTvImage(src): a picture from somewhere else on the suite's screen, a TV_W by TV_H canvas
+    // (stands.js puts the hockey there when there's no ballgame), in place of renderTv's shot
+    function setTvImage(src) {
+      if (!room || lost || !tvTex || !src || src.width !== TV_W || src.height !== TV_H) return false;
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(T2, tvTex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texSubImage2D(T2, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      tvShot = true;
+      return true;
+    }
     // renderTv(shot, overlay): `overlay` a canvas of the broadcast's graphics (the score bug, the
     // intro), stretched over the picture on the screen
     function renderTv(shot, overlay = null) {
@@ -2573,7 +2584,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // the street camera on this venue's own crossing (diamond/streets.js streetShot), or null with
       // no city: where the fly-in before a game comes down to (diamond/camera.js approachShot)
       get streetCam() { return streetCam; },
-      setRoom, renderTv, get room() { return room ? room.L : null; },
+      setRoom, renderTv, setTvImage, get room() { return room ? room.L : null; },
       setFinal, setChampion: (on) => { champ = !!on; },
       // setEmpty(on): no game on, so the park draws without its players or its crowd
       setEmpty: (on) => { empty = !!on; }, get empty() { return empty; }, get final() { return final ? { ...final, champion: champ } : null; },

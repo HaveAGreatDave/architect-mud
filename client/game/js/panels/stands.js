@@ -173,10 +173,14 @@ export async function openStands(msg) {
   // layout, which the walker below moves the eye round
   const room = msg.sport === 'baseball' && !msg.screen ? msg.section?.room || null : null;
   let layout = null, startSuite = null;
+  // no ballgame on: the suite's screen shows the hockey, from a rink view kept out of sight
+  const onScreen = room && !msg.channelId && msg.tvChannelId ? await hockeyOnScreen(ui, msg.tvChannelId) : null;
+  if (seatUi !== ui) { onScreen?.stop(); return; }
+  ui.stopScreen = onScreen?.stop;
   try {
     view = msg.sport === 'hockey'
       ? (await import('./gameday-rink.js')).createRinkView(host, { seat: vs, fly: false })
-      : (await import('./gameday-grandstand.js')).createGrandstandView(host, { seat: vs, force: true, room, announcer: room ? boxAnnouncerOn : null, station: msg.station || '', onRoom: (L) => { layout = L; startSuite?.(); } });
+      : (await import('./gameday-grandstand.js')).createGrandstandView(host, { seat: vs, force: true, room, announcer: room ? boxAnnouncerOn : null, tvSource: onScreen?.frame || null, station: msg.station || '', onRoom: (L) => { layout = L; startSuite?.(); } });
   } catch (err) {
     console.error('[stands] the view failed to load:', err);
     host.textContent = 'The view would not load.';
@@ -332,12 +336,54 @@ export function openStandsMenu(msg) {
     if (!b) return;
     // a hand already full keeps the card up; otherwise the card goes and what you took is in your hand
     const it = (msg.items || []).find((x) => x.id === b.dataset.id);
-    if (seatUi?.hands?.busy()) return;
+    if (seatUi?.hands?.busy(it)) return;
     sendCmd(`stands fetch ${msg.target} ${b.dataset.id}`);
     if (it?.kind && seatUi?.hands?.take(it)) close();
   });
   root.appendChild(card);
   card.querySelector('button[data-id]')?.focus();
+}
+
+// The hockey on a box's screen when there's no ballgame: a rink view on the broadcast's cameras,
+// tuned to the hockey channel like any TV and kept out of sight, its picture and its graphics
+// copied into one 640 by 360 canvas that the suite puts on its screen (ballpark.js setTvImage).
+async function hockeyOnScreen(ui, channelId) {
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;left:-10000px;top:0;width:640px;height:360px;pointer-events:none;display:flex;flex-direction:column';
+  box.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(box);
+  let rink = null;
+  try { rink = (await import('./gameday-rink.js')).createRinkView(box, { fly: false }); } catch (err) { console.warn('[stands] the hockey for the screen would not load:', err); box.remove(); return null; }
+  rink.showIdle?.();
+  const out = document.createElement('canvas');
+  out.width = 640; out.height = 360;
+  const g = out.getContext('2d');
+  const unview = addTvView({
+    isOpen: () => true,
+    activeChannelId: () => channelId,
+    applyOverlay(ov) {
+      if (!ov) return;
+      if (ov.clubsRev && wantClubs(ov.sport || 'hockey', ov.clubsRev)) sendRaw({ type: 'tv_clubs', sport: ov.sport || 'hockey' });
+      if (ov.overlayType === 'gameday') rink.apply(ov);
+      else if (ov.overlayType === 'sportsfx' && ov.kind !== 'pregame' && ov.kind !== 'package') rink.showCard(ov);
+    },
+    appendMessage(text, style, duration, hasGameday) {
+      if (style === 'svg' || style === 'ticker') return;
+      const plain = String(text || '').replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+      if (plain) rink.setCaption(plain, { held: !!hasGameday });
+    },
+    showOffAir() {}, showOnAir() {}, updateTicker() {}, speak() {}, setProgramName() {}, renderSchedule() {}, renderStandings() {},
+  });
+  sendRaw({ type: 'tv_catchup' });
+  return {
+    // the picture, then its graphics over it, both scaled to the screen
+    frame() {
+      g.fillStyle = '#000'; g.fillRect(0, 0, 640, 360);
+      for (const c of box.querySelectorAll('canvas')) if (c.width > 1 && c.height > 1) { try { g.drawImage(c, 0, 0, 640, 360); } catch { /* not drawable yet */ } }
+      return out;
+    },
+    stop() { unview?.(); try { rink.clear(); } catch { /* gone */ } box.remove(); },
+  };
 }
 
 export function closeStands() {
@@ -349,6 +395,7 @@ export function closeStands() {
   if (ui.onKeyUp) document.removeEventListener('keyup', ui.onKeyUp);
   ui.stopSuite?.();
   ui.hands?.stop();
+  ui.stopScreen?.();
   try { ui.view?.clear(); } catch { /* already torn down */ }
   ui.root.remove();
 }
@@ -365,7 +412,8 @@ const STAND = 5.4;         // eye height on your feet
 function walkSuite(ui, L, msg, setMode, redraw) {
   const { seat, root } = ui;
   const sitBtn = root.querySelector('.st-sit'), tvBtn = root.querySelector('.st-tv');
-  sitBtn.hidden = false; tvBtn.hidden = false;
+  // the big-screen button puts the ballgame up full size, so with none on there's nothing for it
+  sitBtn.hidden = false; tvBtn.hidden = !msg.channelId;
   // the announcer's calls from the screen, on or off: the same setting as accessibility announcer
   const annBtn = root.querySelector('.st-announcer');
   const showAnn = () => annBtn.setAttribute('aria-pressed', String(boxAnnouncerOn()));
@@ -414,7 +462,7 @@ function walkSuite(ui, L, msg, setMode, redraw) {
     if (st && (!s || Math.hypot(st.u - at[0], st.v - at[1]) < Math.hypot(s.u - at[0], s.v - at[1]) + 2)) { fetch(st); return; }
     if (s) sit(s);
   };
-  const toggleTv = () => setMode(seat.mode === 'tv' ? (sat?.kind === 'chair' ? 'follow' : 'free') : 'tv');
+  const toggleTv = () => msg.channelId && setMode(seat.mode === 'tv' ? (sat?.kind === 'chair' ? 'follow' : 'free') : 'tv');
   sitBtn.addEventListener('click', toggleSit);
   tvBtn.addEventListener('click', toggleTv);
   // the seat you were given, or the sofa when you came in by the screen

@@ -8,8 +8,12 @@
 //   smoke  the cigarette comes out of the box turning in the light and goes to your mouth. Click
 //          once to flip the zippo's lid, again to strike it, then hold Space with the flame on the
 //          end to draw it alight (`smoke <it>`). After that, hold Space to take a drag and let go
-//          in the green. Hold it too long and your head swims and you hear your heart.
+//          in the green. Hold it too long and your head swims and you hear your heart. The ash
+//          grows as it burns and drops off under its own weight if you leave it; F flicks it.
 //          A cigar is the same with a cutter first: click to clip its cap, then light and puff it.
+//          Once it's lit you can take anything else: the smoke comes out of your mouth and sits in
+//          your fingers, low left, still burning, while Space works the drink; when that's done it
+//          goes back to your mouth.
 //   drink  crack the cap, hold Space to tip it back, until it's gone (`drink <it>`).
 //   eat    Space or click takes a bite, until it's gone (`eat <it>`).
 //   glass  a glass from the bar stays with you, bottom left. Take a spirit or a mixer and you pour
@@ -200,7 +204,7 @@ export function createHands(root, host, { send }) {
   let W = 0, H = 0, S = 1, raf = 0, last = 0, act = null, space = false, stopped = false;
   let mouse = null;
   const smoke = [], sparks = [], bits = [];
-  let dizzy = 0, beatAt = 0, glass = null;
+  let dizzy = 0, beatAt = 0, glass = null, held = null;   // held: a lit smoke set aside for a drink
 
   const fit = () => {
     const w = host.offsetWidth, h = host.offsetHeight, dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -222,7 +226,7 @@ export function createHands(root, host, { send }) {
   cv.addEventListener('pointermove', (e) => { const b = cv.getBoundingClientRect(); mouse = [e.clientX - b.left, e.clientY - b.top]; });
   cv.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); act?.click?.(); });
   glassBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-  glassBtn.addEventListener('click', () => { if (!act && glass) start(glassActivity()); });
+  glassBtn.addEventListener('click', () => { if (glass && free()) start(glassActivity()); });
 
   const puff = (x, y, vx, vy, r, life, a = 0.8, grow = 26) => { if (smoke.length < 260) smoke.push({ x, y, vx, vy, r, life, a, grow, age: 0, spin: Math.random() * 6 }); };
   const at = (v) => g3.project(v);
@@ -380,14 +384,30 @@ export function createHands(root, host, { send }) {
     let cutT = 0, capBit = null, CMnow = null;
     const z = { lid: 0, lidTo: 0, wheel: 0, flame: 0, spin: 0 };
     let phase = 'appear', t = 0, light = 0, fill = 0, drawing = false, crackleAt = 0, exhaleAt = 0, exhaleK = 0, away = 0, gone = 0;
-    let aim = null, zp = null, cigTip = [0, 0, -14], cigBurn = cigTip;
+    let aim = null, zp = null, cigTip = [0, 0, -14], cigBurn = cigTip, aside = 0, asideTo = 0;
+    // ash: how long it holds before its own weight takes it, the bits on their way down, the flick
+    const ASH_MAX = cigar ? 0.13 : 0.11, falling = [];
+    let flickT = 0, flickTold = false, lastDir = mdir;
     // the end is in the same place whatever you smoke; a longer one reaches further back to your mouth
     const MT = cigar ? [1.2, -3.7, -22] : [0.8, -2.45, -14.2], DIRL = Math.hypot(0.65, 1.45, -8.2), mdir = [0.65, 1.45, -8.2].map((v) => (v / DIRL) * K.L);
     const MB = MT.map((v, i) => v - mdir[i]);
+    // set aside: between the fingers low on the left, the lit end out to the right
+    const HL = Math.hypot(0.9, 0.3, -0.25), hdir = [0.9, 0.3, -0.25].map((v) => (v / HL) * K.L), HB = [cigar ? -14 : -11, -8.5, cigar ? -26 : -22];
     const DRAG = cigar ? 'puff' : 'drag';
     SND.shimmer(); say('');
     return {
       smoke: true,
+      canPark: () => phase === 'drag',
+      flick() {
+        if (!c.lit || flickT > 0) return;
+        flickT = 0.001;
+        if (c.ash > 0.008) setTimeout(() => dropAsh(true), 70);
+      },
+      park(on) {
+        asideTo = on ? 1 : 0;
+        if (on && drawing) release();
+        if (!on) say(`Hold Space to take a ${DRAG}. Let go in the green.`);
+      },
       click() {
         if (phase === 'cut' && cutT === 0) { cutT = 0.001; SND.close(); return; }
         if (phase === 'lid') { z.lidTo = LID_OPEN; SND.open(); phase = 'strike'; say('Click again to strike it.'); }
@@ -402,11 +422,13 @@ export function createHands(root, host, { send }) {
         }
       },
       key(down) {
+        if (asideTo) return;
         if (phase === 'drag' && down && !drawing && fill <= 0 && exhaleAt <= 0) { drawing = true; SND.inhale(); }
         if (phase === 'drag' && !down && drawing) release();
       },
       update(dt, now) {
         t += dt;
+        aside = lerp(aside, asideTo, 1 - Math.exp(-dt * 7));
         z.lid = lerp(z.lid, z.lidTo, 1 - Math.exp(-dt * 24));
         if (z.spin > 0) { z.wheel += dt * 50 * z.spin; z.spin = Math.max(0, z.spin - dt * 4); }
         if (phase === 'appear' && t > 1.3) { phase = cigar ? 'cut' : 'tomouth'; t = 0; if (cigar) { say('Click to clip the end.'); wantMouse(true, 'pointer'); } }
@@ -435,7 +457,7 @@ export function createHands(root, host, { send }) {
         if (phase === 'lit') {
           if (t > 0.5 && z.lidTo) { z.lidTo = 0; z.flame = 0; setTimeout(() => SND.close(), 60); }
           away = ease((t - 0.8) / 0.6);
-          if (t > 1.4) { phase = 'drag'; exhaleAt = now + 500; exhaleK = 0.8; say(`Hold Space to take a ${DRAG}. Let go in the green.`); }
+          if (t > 1.4) { phase = 'drag'; exhaleAt = now + 500; exhaleK = 0.8; say(`Hold Space to take a ${DRAG}. Let go in the green.`); showGlass(); }
         }
         if (phase === 'drag') {
           if (drawing) {
@@ -454,10 +476,24 @@ export function createHands(root, host, { send }) {
             for (let k = 0; k < n; k++) puff(W * 0.5 + (Math.random() - 0.5) * 30 * S, H + 10 * S, (Math.random() - 0.5) * 70 * S + 20 * S, -(120 + Math.random() * 140) * S * (0.6 + exhaleK), (14 + Math.random() * 18) * S, 2.4 + Math.random() * 1.6, 0.55, 34);
             SND.exhale(exhaleK); exhaleAt = 0; fill = 0;
           }
-          if (c.ash > (cigar ? 0.07 : 0.1) && !drawing && Math.random() < dt * 0.6) { const q = at(cigTip); bits.push({ x: q[0], y: q[1], vx: (Math.random() - 0.5) * 30, vy: 20, r: 4 * S, col: '#8d8a86', life: 1.5, age: 0 }); c.ash = 0.01; }
-          if (c.len <= (cigar ? 0.3 : 0.34)) { phase = 'done'; t = 0; say(cigar ? 'You let it go out in the ashtray.' : 'Down to the filter.'); }
+          // the longer it gets the likelier it goes; at its limit it always does
+          const w = c.ash / ASH_MAX;
+          if (w >= 1 || (w > 0.5 && Math.random() < dt * 0.5 * Math.pow((w - 0.5) * 2, 3))) dropAsh(false);
+          if (!flickTold && w > 0.6 && !asideTo) { flickTold = true; say('Press F to flick the ash.'); }
+          if (c.len <= (cigar ? 0.3 : 0.34)) { phase = 'done'; t = 0; if (!asideTo) say(cigar ? 'You let it go out in the ashtray.' : 'Down to the filter.'); }
         }
         if (phase === 'done') { gone = ease(t / 1.2); if (t > 1.6) return false; }
+        if (flickT > 0) { flickT += dt / 0.28; if (flickT >= 1) flickT = 0; }
+        for (let i = falling.length - 1; i >= 0; i--) {
+          const f = falling[i];
+          f.v[1] -= 60 * dt; for (let k = 0; k < 3; k++) f.p[k] += f.v[k] * dt; f.spin += f.sv * dt;
+          if (f.p[1] < -26) {
+            // it lands out of sight and breaks up
+            const q = at(f.p);
+            for (let k = 0; k < 5; k++) bits.push({ x: q[0], y: q[1], vx: (Math.random() - 0.5) * 60, vy: -20 - Math.random() * 40, r: (1.5 + Math.random() * 2) * S, col: '#9a958f', life: 0.8, age: 0 });
+            falling.splice(i, 1);
+          }
+        }
         if (c.lit && Math.random() < dt * 14) { const q = at(cigTip); puff(q[0], q[1], (Math.random() - 0.5) * 6 * S, -(22 + Math.random() * 14) * S, 2 * S, 3.4, 0.22, 9); }
         return true;
       },
@@ -472,8 +508,10 @@ export function createHands(root, host, { send }) {
           base = b0;
           if (phase === 'appear') { const q = at(P); sparkle(ctx, q[0], q[1], 130 * S, t, S); glowAt(ctx, q[0], q[1], 120 * S, '#ffd28a', 0.22 * (1 - t / 1.3)); }
         }
+        if (flickT > 0) { const j = Math.sin(flickT * Math.PI) * (flickT < 0.4 ? 1 : -0.4); dir = [dir[0], dir[1] - j * 0.35 * K.L, dir[2]]; base = [base[0], base[1] + j * 0.6, base[2]]; }
+        if (aside > 0.001) { const e = ease(aside); base = base.map((v, i) => lerp(v, HB[i], e)); dir = dir.map((v, i) => lerp(v, hdir[i], e)); }
         if (gone) base = [base[0], base[1] - gone * 4, base[2] + gone * 2];
-        CMnow = M(T(...base), alignY(dir));
+        CMnow = M(T(...base), alignY(dir)); lastDir = dir;
         const r = drawCig(CMnow, c, K);
         if (phase === 'cut') {
           // a chrome cutter over the head: its body with the hole through it, and the blade across
@@ -482,6 +520,7 @@ export function createHands(root, host, { send }) {
           for (const y of [-0.31, 0.31]) g3.draw(mesh.cyl(), M(CC, T(0, y - 0.01, 0), S3(K.R * 1.15, 0.02, K.R * 1.15)), { color: '#111214', spec: 4 });
           g3.draw(g3.mesh('cutblade', () => rprism(2.2, 2.0, -0.06, 0.06, 0.2, 3)), M(CC, T(lerp(2.4, 0.2, ease(cutT)), 0, 0)), { color: '#eef1f4', metal: 1, spec: 140 });
         }
+        for (const f of falling) g3.draw(mesh.cyl(), M(T(...f.p), alignY(f.dir), RX(f.spin), S3(K.R * 0.95, f.L, K.R * 0.95), T(0, -0.5, 0)), { color: '#a7a39d', noise: 0.6, spec: 3 });
         if (capBit) g3.draw(mesh.sph(), M(T(...capBit.p), RZ(capBit.a), S3(K.R, K.R * 0.45, K.R)), { color: '#6a4224', noise: 0.3, spec: 14 });
         cigTip = r.tip; cigBurn = r.burn;
         if (c.lit) { const q = at(cigBurn); glowAt(ctx, q[0], q[1], q[2] * (0.9 + c.ember * 1.3), '#ff6a1e', 0.25 + c.ember * 0.45); }
@@ -493,10 +532,20 @@ export function createHands(root, host, { send }) {
           zp = drawZippo(ZM, z);
           if (z.flame > 0) { const q = at(zp.wick); drawFlame(ctx, q[0], q[1], q[2] * 2.6, Math.sin(now * 0.004) * 4 * S, now, z.flame); }
         }
-        if (phase === 'drag' || (phase === 'lit' && t > 1)) drawMeter(fill, drawing, cigar ? 'PUFF' : 'DRAG');
+        if (!asideTo && (phase === 'drag' || (phase === 'lit' && t > 1))) drawMeter(fill, drawing, cigar ? 'PUFF' : 'DRAG');
       },
       cancel() { wantMouse(false); },
     };
+    // the ash comes off the coal whole and falls; flicked, it's thrown off the end first
+    function dropAsh(flicked) {
+      if (!CMnow || c.ash < 0.004) return;
+      const L = c.ash * K.L, burn = Math.max(K.F + 0.08, c.len * K.L), d = lastDir.map((v) => v / K.L);
+      const p = apply(CMnow, [0, burn + L / 2, 0]);
+      const v = flicked ? [d[0] * 25 + (Math.random() - 0.5) * 8, -18 - Math.random() * 10, d[2] * 25] : [(Math.random() - 0.5) * 2, -1, 0];
+      falling.push({ p, v, dir: d, L, spin: 0, sv: (flicked ? 14 : 4) * (Math.random() < 0.5 ? -1 : 1) });
+      c.ash = 0.004;
+      if (flicked) SND.crackle();
+    }
     function release(forced) {
       drawing = false;
       const k = fill;
@@ -728,16 +777,23 @@ export function createHands(root, host, { send }) {
     };
   }
   function showGlass() {
-    glassBtn.hidden = !glass || !!act;
+    glassBtn.hidden = !glass || !free();
     if (glass) glassBtn.title = glass.mixed ? 'Sip from your glass' : glass.layers.length ? 'Stir your glass' : 'Your glass is empty';
   }
 
   // ── the loop ──────────────────────────────────────────────────────────────
+  // hands free for something new: empty, or only a lit smoke you can take out of your mouth
+  const free = () => !act || (act.smoke && !held && act.canPark());
   function start(a) {
     if (!a) return;
+    if (act?.smoke) { held = act; held.park(true); }
     act = a; glassBtn.hidden = true; kick();
   }
-  function end() { act?.cancel?.(); act = null; wantMouse(false); say(''); showGlass(); }
+  function end() {
+    act?.cancel?.(); act = null; wantMouse(false); say('');
+    if (held) { act = held; held = null; act.park(false); }
+    showGlass();
+  }
   function frame(now) {
     raf = 0;
     if (stopped) return;
@@ -746,9 +802,11 @@ export function createHands(root, host, { send }) {
     last = now;
     ctx.clearRect(0, 0, W, H);
     g3.begin(W, H);
+    if (held && held.update(dt, now) === false) held = null;
     if (act && act.update(dt, now) === false) { const keep = prompt.textContent; end(); if (keep) { say(keep); setTimeout(() => { if (!act && prompt.textContent === keep) say(''); }, 2200); } }
+    held?.draw(now);
     act?.draw(now);
-    if (!act && glass) drawGlass(M(T(...glassHome()), RY(0.3)), glass);
+    if (glass && (!act || act.smoke)) drawGlass(M(T(...glassHome()), RY(0.3)), glass);
     g3.end();
     // smoke and sparks over what you hold, then anything falling
     for (let i = smoke.length - 1; i >= 0; i--) {
@@ -793,10 +851,11 @@ export function createHands(root, host, { send }) {
   }
 
   return {
-    busy: () => !!act,
+    // busy for this item: a lit smoke makes way for anything but another smoke
+    busy: (item) => !free() || (!!act && item?.kind === 'smoke'),
     // what came off the menu: { id, name, kind, drinkable }
     take(item) {
-      if (act || !item?.kind || !g3) return false;
+      if (!item?.kind || !g3 || !free() || (act && item.kind === 'smoke')) return false;
       if (item.kind === 'smoke') start(smokeActivity(item));
       else if (item.kind === 'eat') start(eatActivity(item));
       else if (item.kind === 'glass') { if (!glass) start(glassIntro(item)); else return false; }
@@ -808,10 +867,12 @@ export function createHands(root, host, { send }) {
     // Space drives every ritual and Escape puts it down; true when the key was ours
     key(e, down) {
       if (!act) return false;
+      if (e.repeat && down && (e.key === 'f' || e.key === 'F')) return true;
       if (e.key === ' ' || e.code === 'Space') {
         if (e.repeat && down) return true;
         space = down; act.key?.(down); return true;
       }
+      if (down && (e.key === 'f' || e.key === 'F')) { const sm = act?.smoke ? act : held; if (sm) { sm.flick(); return true; } }
       if (down && e.key === 'Escape') { end(); return true; }
       return false;
     },
