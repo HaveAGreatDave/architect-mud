@@ -174,7 +174,9 @@ shipped in the meantime — sanity effects (`plugins/sanity`, and `getRoomTransf
 rewrites the room for a tripping viewer), crews and guilds (`plugins/corps`), and
 "more world", which is now five regions and ~17,000 zones.
 
-- **Apartment storage and decor** — still sleep + lock only. No placement verb exists.
+- **Your flat in 3-D, and a trophy wall** — `place`/`take` and container storage shipped in
+  [plugins/furnishing](plugins/furnishing/README.md); a flat still has no picture, and nothing
+  earned can be hung. See [home-stage.md](docs/proposals/home-stage.md) (design).
 - **Zone node graph view** — a graph of how zones connect, for authoring.
 - **Architect Interface skill events**
 - **Five districts with no ground** — `civic`, `government`, `hazard`, `redline` and
