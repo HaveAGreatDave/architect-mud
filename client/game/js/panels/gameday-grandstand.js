@@ -112,7 +112,7 @@ export function createGrandstandView(host, opts = {}) {
   // the picture's quality (diamond/quality.js): the tier the screen starts on, and the governor that
   // steps it down a rung when frames come slow and back up when they've been quick a while, fed the
   // time between frames while they run (`govAt`, the last one's)
-  let gov = null, govAt = 0;
+  let gov = null, govAt = 0, govNext = null;
   let last = null, caption = '', pendingCaption = null, pendingCard = null, playing = false;
   // Who the caption's tag names: a "Name says, ..." line is the colour man's, his name on the
   // tag and his words in the bar; anything else is the play-by-play man's, whom the broadcast
@@ -360,7 +360,13 @@ export function createGrandstandView(host, opts = {}) {
     lastNow = now;
     // the governor, on frames that run back to back: a rung's quality goes to the renderer, and a
     // new resolution to the canvas just below
-    if (live && govAt && gov) { const q = gov.frame((now - govAt) / 1000); if (q && R.quality) Object.assign(R.quality, q); }
+    // A rung that changes how the field's lit (how many towers cast, whether the stands and roof
+    // do) waits for the play in flight to land, so the light never jumps mid-play; the rest goes now.
+    if (live && govAt && gov) { const q = gov.frame((now - govAt) / 1000); if (q) govNext = q; }
+    if (govNext && R.quality) {
+      const relight = govNext.shadows !== R.quality.shadows || govNext.stands !== R.quality.stands;
+      if (!relight || !cur || cur.landed) { Object.assign(R.quality, govNext); govNext = null; }
+    }
     govAt = live ? now : 0;
     size();
     // the suite's big screen: the director's shot drawn on its own every few frames (renderTv)

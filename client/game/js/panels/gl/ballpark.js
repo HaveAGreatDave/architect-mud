@@ -1908,6 +1908,11 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // frame's sun (or null), its map's index, and each tower's map this frame (the last tower's
     // goes to the sun when every one is in use)
     const SUN_FIT = [[0, 0, 160], 640];
+    // The towers' fit while the park's structure casts (quality.stands): one for every shot, over the
+    // whole field and its foul ground. Fitted to each shot instead, a close-up's map covered a few
+    // dozen feet and everything past it came out lit (spotshadow.js reads lit outside its map), so
+    // the stands' shadow across the outfield went on and off with every cut.
+    const PARK_FIT = [[0, 0, 170], 270];
     let sunNow = null, sunSh = -1, spotsNow = 0;
     // The exposure the frame is taken at. Under the floods as floods (quality.light) the white
     // jerseys and the faces near the lamps clipped at the park's first exposure, so it's taken
@@ -2095,7 +2100,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       sunSh = -1;
       LShF.set(LSh);
       const list = (nCast && (casters.length || stands) ? casting.slice(0, nCast) : []).map((i) => {
-        const [focus, radius] = M.shadow || [[0, 0, 60], 80];
+        const [focus, radius] = stands ? PARK_FIT : M.shadow || [[0, 0, 60], 80];
         return { lamp: lampOf(i), focus, radius, near: stands ? SHADOW_NEAR : null };
       });
       if (sunNow) {
