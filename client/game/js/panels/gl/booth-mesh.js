@@ -329,12 +329,29 @@ export function buildBooth(L) {
     lathe(u + 0.15, 5.38, [[0.085, 2.065], [0.09, 2.3], [0.08, 2.3], [0.076, 2.12]], LOOK.crystal, 1.25, 12);
   }
   // the rugs on the marble, each one design end to end: the silk rug under the sofa's corner, a
-  // red wool one under the three chairs at the glass, a runner in front of the bar, and one at the buffet
-  for (const [tex, u0, u1, v0, v1] of [['boothRug', -13, -3.8, 7.6, 16.4], ['boothThrow', -9.4, 9.4, 2.6, 9.0],
-    ['boothThrow', -13.2, -5.6, D - 8.3, D - 6.3], ['boothThrow', hu - 5.4, hu - 2.8, L.buffet.v[0] + 0.5, L.buffet.v[1] - 0.5]]) {
-    const ps = [[u0, v0, 0.02], [u1, v0, 0.02], [u1, v1, 0.02], [u0, v1, 0.02]];
-    quad(TB(tex), ps, [0, 1, 0], C('#ffffff', 0.9), E, [[0, 0], [1, 0], [1, 1], [0, 1]]);
-  }
+  // red wool one under the three chairs at the glass (ending short of the silk one, so they never
+  // lie on each other), a runner in front of the bar, and one at the buffet. Each has its pile, a
+  // bound edge in its border's colour and a fringe of loose strands lying out past both ends, and
+  // each stands at its own height so no two can fight over the same pixels.
+  const rugR = rng(0x7275671);
+  [['boothRug', -13, -3.8, 7.6, 16.4, '#141b30'], ['boothThrow', -9.4, 9.4, 2.6, 7.4, '#18203a'],
+    ['boothThrow', -13.2, -5.6, D - 8.3, D - 6.3, '#18203a'], ['boothThrow', hu - 5.4, hu - 2.8, L.buffet.v[0] + 0.5, L.buffet.v[1] - 0.5, '#18203a']]
+    .forEach(([tex, u0, u1, v0, v1, edge], k) => {
+      const y = 0.05 + k * 0.006, ps = [[u0, v0, y], [u1, v0, y], [u1, v1, y], [u0, v1, y]];
+      quad(TB(tex), ps, [0, 1, 0], C('#ffffff', 0.9), E, [[0, 0], [1, 0], [1, 1], [0, 1]]);
+      // the bound edge, a shade darker than the border it finishes
+      const side = (a, b, n) => quad(solid, [[a[0], a[1], 0.004], [b[0], b[1], 0.004], [b[0], b[1], y], [a[0], a[1], y]], n, C(edge, 0.8), E);
+      side([u0, v0], [u1, v0], nrmOf(0, 0, -1)); side([u1, v1], [u0, v1], nrmOf(0, 0, 1));
+      side([u1, v0], [u1, v1], nrmOf(1, 0, 0)); side([u0, v1], [u0, v0], nrmOf(-1, 0, 0));
+      // the fringe: cream strands tied off at each end, each its own length and a little askew
+      for (const [vEnd, dir] of [[v0, -1], [v1, 1]]) {
+        for (let u = u0 + 0.06; u < u1 - 0.04; u += 0.07) {
+          const l = 0.28 + rugR() * 0.12, sk = (rugR() - 0.5) * 0.06, w = 0.022;
+          const a = [u - w, vEnd], b = [u + w, vEnd], c = [u + w + sk, vEnd + dir * l], d = [u - w + sk, vEnd + dir * l];
+          quad(solid, [[a[0], a[1], 0.03], [b[0], b[1], 0.03], [c[0], c[1], 0.006], [d[0], d[1], 0.006]], [0, 1, 0], C('#efe6d0', 0.95 - rugR() * 0.12), E);
+        }
+      }
+    });
   // potted palms in the corners: a glazed urn with a rolled lip and a brass band, a ringed trunk,
   // and a crown of fronds that rise and droop with leaflets down both sides
   for (const [u, v] of L.plants) {
@@ -727,6 +744,28 @@ export function paintBoothTexture(doc, key) {
       g.fillStyle = GD; g.beginPath(); g.moveTo(x, y - 30); g.lineTo(x + 24, y); g.lineTo(x, y + 30); g.lineTo(x - 24, y); g.fill();
       g.fillStyle = NV; g.beginPath(); g.moveTo(x, y - 22); g.lineTo(x + 17, y); g.lineTo(x, y + 22); g.lineTo(x - 17, y); g.fill();
       g.fillStyle = IV; g.beginPath(); g.arc(x, y, 6, 0, Math.PI * 2); g.fill();
+    }
+    // a great medallion at the heart over the small ones: a gold-edged navy lozenge with hooked
+    // points, an oxblood one inside it and an ivory eight-pointed star at its centre
+    const cx = N / 2, cy = N / 2, lz = (rx, ry, col, hook) => {
+      g.fillStyle = col; g.beginPath();
+      g.moveTo(cx, cy - ry); g.lineTo(cx + rx, cy); g.lineTo(cx, cy + ry); g.lineTo(cx - rx, cy); g.closePath(); g.fill();
+      if (hook) for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) { g.beginPath(); g.arc(cx + dx * (rx + 10), cy + dy * (ry + 10), 12, 0, Math.PI * 2); g.fill(); }
+    };
+    lz(250, 200, GD, true); lz(238, 188, NV, true); lz(170, 128, GD, false); lz(160, 118, RD, false); lz(90, 66, NV, false);
+    g.fillStyle = IV;
+    for (let k = 0; k < 2; k++) { g.save(); g.translate(cx, cy); g.rotate(k * Math.PI / 4); g.fillRect(-26, -26, 52, 52); g.restore(); }
+    g.fillStyle = GD; g.beginPath(); g.arc(cx, cy, 11, 0, Math.PI * 2); g.fill();
+    // a quarter of the medallion in each corner of the field, the spandrels
+    g.save(); g.beginPath(); g.rect(x0, y0, w, h); g.clip();
+    for (const [sx, sy] of [[x0, y0], [x0 + w, y0], [x0, y0 + h], [x0 + w, y0 + h]]) {
+      for (const [rr, col] of [[150, GD], [140, NV], [86, GD], [78, RD]]) { g.fillStyle = col; g.beginPath(); g.moveTo(sx, sy - rr); g.lineTo(sx + rr, sy); g.lineTo(sx, sy + rr); g.lineTo(sx - rr, sy); g.fill(); }
+    }
+    g.restore();
+    // abrash: the dye lots of a hand-knotted rug, bands across it a shade lighter or darker
+    for (let yb = fr; yb < N - fr;) {
+      const hb = 30 + r() * 90, a = (r() - 0.5) * 0.12;
+      g.fillStyle = a > 0 ? `rgba(255,240,220,${a})` : `rgba(20,0,0,${-a})`; g.fillRect(0, yb, N, Math.min(hb, N - fr - yb)); yb += hb;
     }
     // the pile
     g.globalAlpha = 0.14;
