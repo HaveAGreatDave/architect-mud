@@ -75,6 +75,8 @@ const STEP_BUDGET_MS = 6;
 // be drawn a step behind itself because the clock hiccupped.
 const STRIDE_MIN = 10000;
 const STRIDE_MAX = 3;
+// How often the step samples where a free flock really is (sample() below), in ms of the flock's clock.
+const SAMPLE_EVERY_MS = 200;
 // The grid: GW x GH slots, LAYERS birds a slot, shared by every cloud, because a cloud's grid is built
 // and used inside its own step and nothing needs it afterwards.
 // ⚠ THE SLOT IS THE CELL WRAPPED, NOT HASHED (2026-09-24). A cell's x and y wrap at 2^GRID_XB and its z at
@@ -1007,9 +1009,13 @@ export function createMurmurGPU(gl) {
   }
   // The fewest steps a frame that keep this cloud under STEP_BUDGET_MS, moving only when it is clearly
   // over (10%) or clearly under (at 80% with one step fewer), so it does not flip on noise.
+  // ⚠ STRIDE_MIN GATES THE CLOCK, NOT THE DISTANCE. The floor is there because a timer query is noisy;
+  // how far off a flock is has no noise in it, so an ordinary 1,000-bird roost that has shrunk to a smudge
+  // takes farStride like a grand one. Before this it stepped every frame at any range (issue #46).
   function strideOf(C, rec) {
-    if (C.n < STRIDE_MIN) return 1;
-    return Math.min(STRIDE_MAX, Math.max(costStride(C), farStride(rec)));
+    const far = farStride(rec);
+    if (C.n < STRIDE_MIN) return Math.min(STRIDE_MAX, far);
+    return Math.min(STRIDE_MAX, Math.max(costStride(C), far));
   }
   // ⚠ A ROOST SO FAR OFF THAT A BIRD IS WELL UNDER A DOT IS A SMUDGE, and a smudge a step behind itself
   // looks the same. How big a bird is comes from the draw's own arithmetic (FL x span / distance against
@@ -1078,7 +1084,10 @@ export function createMurmurGPU(gl) {
     if (time) { gl.endQuery(timer.TIME_ELAPSED_EXT); C.tqBusy = true; }
     const Fs = rec.free ? { ...FREE_RULES, ...rec.free } : FREE_RULES;
     if (!Fs.on) { C.cent = null; MURMUR_MEASURED.delete(C.key); }
-    else if (!rec.ground && !C.sFence && sampProg) sample(C, rec);
+    // ⚠ A FEW TIMES A SECOND IS PLENTY FOR A SPRING. Re-arming the moment the last fence cleared was a
+    // readPixels and a flush in the middle of the world pass every few frames, for a pull that is
+    // already read a few frames late by design (issue #46).
+    else if (!rec.ground && !C.sFence && sampProg && !(rec.now - (C.sAt ?? -Infinity) < SAMPLE_EVERY_MS)) { C.sAt = rec.now; sample(C, rec); }
     C.stepGap = C.stepAt != null ? rec.now - C.stepAt : 0;
     C.stepAt = rec.now;
     return C;
