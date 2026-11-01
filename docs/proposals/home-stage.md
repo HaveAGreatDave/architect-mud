@@ -69,7 +69,8 @@ move it; the first phase doesn't need one.
 
 ### What it reuses
 
-- The walk, the hands and first person from the Platinum Box suite (`stands.js`, `stands-hands.js`).
+- The walk, the hands and first person from the Platinum Box suite (`stands.js`, `stands-hands.js`),
+  lifted into a shared layer first: see [room-stage.md](room-stage.md).
 - Toon bands, the ink outline and the cel setting from GLASS 2 (`gl/ink.js`, `toonBands`).
 - The window: the same `paintWindshield` call freelook makes, framed by the window wall.
 
