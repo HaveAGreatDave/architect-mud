@@ -88,7 +88,7 @@ Inside the code, SI: metres, seconds, m/s, kilograms (item `weight` stays in gra
 | Where | Distance | Speed | Height |
 |---|---|---|---|
 | On foot, rooms, fishing, the sea floor | m, km | km/h | m |
-| Roads | km (or miles, see open questions) | km/h (or mph) | m |
+| Roads | km | km/h | m |
 | The air | nm | knots | ft (as aviation does everywhere) |
 | The sea | nm | knots | m (depth) |
 | Weather | km | km/h, knots in the marine forecast | m |
@@ -131,11 +131,18 @@ screen.
 - `plugins/trucking/regress.js` checks that the server clamp is looser than the client physics, which
   enshrines the 80 against 112 split rather than catching it.
 
+## Decided
+
+- **Roads read km/h and km** (Dave, 2026-11-01). The truck's dial, the road signs, `route` and the
+  world map move from mph and miles. `TILES_PER_MILE` gives way to `PACE.road`, and the mile boards
+  in content and prose become kilometre boards in the same phase as the labels (phase 2).
+- **The sea moves onto the ruler** (Dave, 2026-11-01). Phase 6 stands: 17.857 m a tile, the swell,
+  wakes, casts and the sea floor re-tuned to it, and the boat seats' `metreTiles` correction removed.
+- **The Coliseum gets more tiles** (Dave, 2026-11-01), so its stretch stops being a venue scale.
+  How many, and what it displaces, is still open below.
+
 ## Open questions
 
-- **Roads in km/h or mph.** Coldwater reads North American. Canada signs in km and km/h; the game's
-  mile boards and the truck's mph are already written into content and prose.
-- **Is the ruler right for the sea?** A 17.857 m tile makes the Basin's swell and a cast's 30 m feel
-  different. The alternative is to keep the sea's 7 m as a declared frame, like the ballpark's feet.
-- **The Coliseum's stretch.** A map tile is 208.5 ft at the bowl because nine tiles are too small
-  for a ballpark at the ruler. Keep it as a declared venue scale, or give the park more tiles?
+- **How big the Coliseum grows.** The bowl is about 613 ft (187 m) a side, so true size at the ruler
+  is 11 by 11 tiles. Halcyon Fields is 163 tiles, 20 wide and 11 tall, so true size takes most of
+  the district.
