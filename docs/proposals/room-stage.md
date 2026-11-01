@@ -77,13 +77,25 @@ One room, described once, drawn by whichever renderer hosts it.
 Steps 1 and 2 change nothing a player sees. They're worth doing before the Home Stage so the second
 room is built on the first rather than beside it.
 
+## Decided
+
+- **One shared payload** (Dave, 2026-11-01). Every room sends one `room_view`: its spec, its pieces
+  (archetype, spot, verbs, state) and who's in it. The suite's plugin and a flat's plugin each fill it
+  from their own rows, and the client builds a room one way. A change to a piece (placed, taken, a
+  fridge opened, a set switched to another channel) sends that piece again, not the whole room.
+- **People see each other** (Dave, 2026-11-01). Everyone in the room is in the payload with where
+  they stand and what they're doing (standing, sitting on a piece, lying, holding something), and
+  each client draws the others through the actor renderer. A seat somebody else is in can't be sat
+  in. Position is sent when it settles, not every step, so a walk round the room is a few messages,
+  not a stream; a hot path never queries for it (the read tiers in
+  [architecture.md](../architecture.md#read-tiers-where-data-lives-at-runtime)).
+- **Rooms use metres** on the world scale's ruler (`docs/proposals/world-scale.md`, PR #62), with the
+  ballpark's feet and the kitchen's centimetres as declared frames.
+
 ## Open questions
 
-- **Units.** Rooms work in metres on the world's ruler, and the ballpark's feet and the kitchen's
-  centimetres stay as declared frames. That's the proposal in `docs/proposals/world-scale.md`
-  (PR #62); this answer stands or falls with it.
-- **Who sends the pieces.** The suite's furniture is in content; a flat's is player rows. One
-  `room_view` payload for both, or each plugin sending its own and the client merging?
-- **Other people in the room.** The suite draws only you. A flat with a visitor (Home Stage phase 3)
-  needs other bodies; that's the actor renderer's job, and it decides whether this layer needs
-  anything more than a seat being taken.
+- **What others see you holding.** The hands draw your drink and your cigarette in first person.
+  Whether other people see a bottle in your hand and smoke over your head is the actor renderer's
+  work, and a smaller first step is to show only posture.
+- **Privacy in a flat.** A visitor sees the tenant and anyone else there. Whether the tenant can
+  see who's at the door before opening it is the doors and knock plugins' business, not this layer's.
