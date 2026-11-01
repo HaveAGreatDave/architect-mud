@@ -79,9 +79,9 @@ room is built on the first rather than beside it.
 
 ## Open questions
 
-- **Units.** The suite works in the park's feet, the Kitchen Stage in centimetres, GLASS in tiles.
-  The layout could work in metres with `world()` doing the conversion, or keep each host's unit and
-  carry a scale. Metres is easier to author; feet means the suite's numbers don't move.
+- **Units.** Rooms work in metres on the world's ruler, and the ballpark's feet and the kitchen's
+  centimetres stay as declared frames. That's the proposal in `docs/proposals/world-scale.md`
+  (PR #62); this answer stands or falls with it.
 - **Who sends the pieces.** The suite's furniture is in content; a flat's is player rows. One
   `room_view` payload for both, or each plugin sending its own and the client merging?
 - **Other people in the room.** The suite draws only you. A flat with a visitor (Home Stage phase 3)
