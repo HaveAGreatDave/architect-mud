@@ -33,6 +33,8 @@ export const TRIMS = {
     { id: 'neon', label: 'Neon' },
     // SPECIAL EDITION: a bald eagle outside, red white and blue inside (interior-drake.js DRAKE_TRIM_QUACKHAWK).
     { id: 'quackhawk', label: 'Quackhawk Down · special edition' },
+    // CONCEPT: the Drake 2076 is a different airframe (mesh_drake.json 'variants'), with its own cockpit.
+    { id: '2076', label: 'Drake 2076 · concept' },
   ],
   // CONCEPT: the 2076 body is a different model, not a paint scheme (mesh_heli.json 'variants').
   // An armed heli reads `viper` below, not this (its livery model; aircraftLiveryModel).
@@ -96,6 +98,8 @@ export const CABIN_TRIMS = {
     { id: 'stock', label: 'Mandarin · walnut & gold' },
     { id: 'noir', label: 'Darkwing · carbon & gold', plate: 'DARKWING' },
     { id: 'quackhawk', label: 'Quackhawk Down · red, white & blue', plate: 'QUACKHAWK DOWN' },
+    // The 2076 refit: the glass band, the HUD and the hologram (interior-drake-2076.js).
+    { id: '2076', label: 'Drake 2076 · the refit' },
   ],
 };
 const CABIN_IDS = new Set(Object.values(CABIN_TRIMS).flat().map(t => t.id));
