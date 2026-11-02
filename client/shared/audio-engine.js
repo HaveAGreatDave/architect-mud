@@ -2237,6 +2237,16 @@
     });
     // Monophonic per channel: a new note cuts the ringing one.
     const channelVoice = channels.map(() => null);
+    // Groove. `swing` (0.5 straight .. 0.75) is the share of each eighth the first sixteenth
+    // takes, the MPC/Logic convention, so every off-beat sixteenth lands (swing - 0.5) * 2 rows
+    // late. A step's `nudge` (-0.25 .. 0.5 rows) moves that one note further: a laid-back
+    // snare, a pushed bass. Neither moves the grid, the loop or `len`'s release.
+    const swing = Math.max(0.5, Math.min(0.75, Number(def.swing) || 0.5));
+    function stepOffset(stepIdx, step) {
+      let rows = stepIdx % 2 === 1 ? (swing - 0.5) * 2 : 0;
+      if (Number.isFinite(step.nudge)) rows += Math.max(-0.25, Math.min(0.5, step.nudge));
+      return rows ? rows * stepSeconds : 0;
+    }
 
     let currentStep = loopStart;
     let nextStepTime = c.currentTime;
@@ -2244,10 +2254,12 @@
     let stopped = false;
     let onLoopWrap = null;
 
-    function scheduleStep(stepIdx, time) {
+    function scheduleStep(stepIdx, rowTime) {
       channels.forEach((ch, chIdx) => {
         const step = ch[stepIdx % ch.length];
         if (!step) return;
+        // swing and nudge move the note off the grid; the grid itself keeps time
+        const time = Math.max(0, rowTime + stepOffset(stepIdx, step));
         const hasNote = step.note != null;
         const fx = step.fx;
         if (!hasNote && !fx) return;
@@ -2311,7 +2323,7 @@
         setTimeout(() => freeVoice(idx, voiceToken), ms);
       });
       if (def.onStep && !offline) {
-        const delay = Math.max(0, (time - c.currentTime) * 1000);
+        const delay = Math.max(0, (rowTime - c.currentTime) * 1000);
         const active = channels.map(ch => !!(ch[stepIdx % ch.length]?.note));
         setTimeout(() => def.onStep(stepIdx, active), delay);
       }

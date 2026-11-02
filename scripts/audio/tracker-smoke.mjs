@@ -11,6 +11,8 @@
 //     attack and decay
 //   • a step's `len` holds the note that many rows from its onset, never short of its attack
 //     and decay
+//   • a song's `swing` moves only its off-beat sixteenths, by (swing - 0.5) * 2 rows, and a step's
+//     `nudge` moves that step, clamped at a quarter row early; without either, the grid
 //   • every layer of a layered instrument sounds at the step's pitch, moved by its `tune`
 //   • a song played `once` schedules each row once, lets go of its player after its tail, and
 //     starts again from the top when asked for again; a song without it still loops
@@ -74,6 +76,27 @@ const gainOf = (osc) => osc.out.map((c) => c.dst).find((d) => d.kind === 'gain' 
   check('len 8 holds the note eight rows from its onset', r8 && close(r8.at, t0 + 7.9 * STEP, 1e-9), JSON.stringify(r8));
   check('len 1 still waits out the attack and decay', r1 && close(r1.at, t0 + 8 * STEP + 0.02 + 0.1, 1e-9), JSON.stringify(r1));
   A.stopMusic();
+}
+// swing moves only the off-beat sixteenths, by (swing - 0.5) * 2 rows; nudge moves one step;
+// a song without either is on the grid
+{
+  const onsets = (def) => {
+    const from = nodes.length;
+    const t0 = play(def, { owner: 'smoke' });
+    run(4 * STEP + 0.05);
+    A.stopMusic();
+    return oscs(from).map((o) => +(o.frequency.log[0].time - t0).toFixed(9)).slice(0, 4);   // (the loop comes round again)
+  };
+  const four = [0, 1, 2, 3].map(() => ({ note: 'A3', instrument: 'plain', vol: 1 }));
+  const grid = onsets({ ...song(four), loop_end: 3 });
+  check('without swing every row is on the grid', grid.length === 4 && grid.every((t, i) => close(t, i * STEP, 1e-9)), JSON.stringify(grid));
+  const sw = onsets({ ...song(four), loop_end: 3, swing: 0.6 });
+  const want = [0, 1.2, 2, 3.2].map((r) => r * STEP);
+  check('swing 0.6 puts each off-beat sixteenth a fifth of a row late', sw.length === 4 && sw.every((t, i) => close(t, want[i], 1e-9)), JSON.stringify(sw));
+  const nudged = [four[0], four[1], { ...four[2], nudge: 0.25 }, { ...four[3], nudge: -0.5 }];
+  const nd = onsets({ ...song(nudged), loop_end: 3 });
+  const wantN = [0, 1, 2.25, 2.75].map((r) => r * STEP);
+  check('nudge moves one step, clamped at a quarter row early', nd.length === 4 && nd.every((t, i) => close(t, wantN[i], 1e-9)), JSON.stringify(nd));
 }
 // every layer at the note, moved by its tune
 {

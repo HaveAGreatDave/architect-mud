@@ -32,7 +32,7 @@ const KNOWN_EVENTS = [
 // sense — there's no waveform data to import, just synth presets to share/back up.
 const AUDIO_IMPORT_FIELDS = {
   instruments: ['name', 'category', 'waveform', 'config', 'enabled', 'sample_id'],
-  songs: ['name', 'category', 'tempo', 'channels', 'loop_start', 'loop_end', 'instrument_ids', 'priority', 'enabled', 'channel_pan'],
+  songs: ['name', 'category', 'tempo', 'channels', 'loop_start', 'loop_end', 'instrument_ids', 'priority', 'enabled', 'channel_pan', 'swing'],
   sfx: ['name', 'category', 'priority', 'config', 'enabled'],
   ambient: ['name', 'category', 'priority', 'config', 'loop', 'enabled'],
   samples: ['name', 'category', 'priority', 'data', 'mime_type', 'base_note', 'loop_start', 'loop_end', 'snes_rate', 'snes_bits', 'echo_mix', 'config', 'enabled'],
@@ -985,6 +985,7 @@ let _sqView = 'grid';
 let _sqPop = null;
 let _sqPlaying = false;
 let _sqPan = null;   // channel_pan of the song being edited (MOD stereo), for faithful preview
+let _sqSwing = 0.5;  // the song's swing, so the preview grooves as the game will
 
 const _SQ_NOTES = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
 
@@ -1040,6 +1041,7 @@ function _sqInit(row) {
   _sqBars = 4;
   _sqCh = [];
   _sqPan = Array.isArray(row.channel_pan) && row.channel_pan.length ? row.channel_pan : null;
+  _sqSwing = row.swing ?? 0.5;
   if (row.channels?.length) {
     _sqCh = row.channels.slice(0, MAX_CHANNELS).map(ch => [...(ch || [])]);
     _sqBars = Math.max(1, Math.ceil((_sqCh[0]?.length || 0) / 16));
@@ -1240,7 +1242,7 @@ function _sqTogglePlay() {
     const tempo = parseInt(document.getElementById('sg-tempo')?.value) || 120;
     const instrumentIds = _sqGetInstrumentIds();
     const _instrumentsById = _resolveInstrumentsById(instrumentIds);
-    window.AudioEngine.playMusic({ name: '_preview', tempo, channels: _sqCh, instrument_ids: instrumentIds, _instrumentsById, priority: 5, onStep: _sqOnStep, channel_pan: _sqPan || [] });
+    window.AudioEngine.playMusic({ name: '_preview', tempo, channels: _sqCh, instrument_ids: instrumentIds, _instrumentsById, priority: 5, onStep: _sqOnStep, channel_pan: _sqPan || [], swing: _sqSwing });
     _sqPlaying = true;
   }
   const btn = document.getElementById('sq-play');
@@ -2031,6 +2033,8 @@ function openAudioModal(tab, row) {
         instrument_ids: instrumentIds,
         channels,
         channel_pan: Array.isArray(row.channel_pan) ? row.channel_pan : [],
+        // the grid doesn't edit swing yet; keep what the song has
+        swing: row.swing ?? null,
         enabled: document.getElementById('sg-enabled').checked ? 1 : 0,
       };
       const r = isNew ? await API('/audio/songs', 'POST', reqBody) : await API(`/audio/songs/${row.id}`, 'PUT', reqBody);

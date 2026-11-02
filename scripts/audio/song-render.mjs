@@ -75,9 +75,14 @@ export async function renderStereo(AE, song, instruments, rate = 48000) {
       const s = ch[r];
       if (!s || s.note == null) continue;
       const len = s.len > 1 ? s.len : 1;
-      const def = { ...song, channels: [[s, ...new Array(len - 1).fill(null)]], channel_pan: [], _instrumentsById: byId };
+      const { nudge, ...alone } = s;
+      // (its own loop points: with the song's, a looping song rendered every note for the song's length)
+      const def = { ...song, swing: 0.5, loop_start: 0, loop_end: 0, channels: [[alone, ...new Array(len - 1).fill(null)]], channel_pan: [], _instrumentsById: byId };
       const buf = await AE.renderSong(def, { sampleRate: rate, tail: noteTail(byId[s.instrument]) });
-      const d = buf.getChannelData(0), at = Math.round(r * step * rate);
+      // the note rendered alone sits on row 0, so its groove is added here, as the player adds it
+      const sw = Math.max(0.5, Math.min(0.75, Number(song.swing) || 0.5));
+      const off = (r % 2 ? (sw - 0.5) * 2 : 0) + (Number.isFinite(nudge) ? Math.max(-0.25, Math.min(0.5, nudge)) : 0);
+      const d = buf.getChannelData(0), at = Math.max(0, Math.round((r + off) * step * rate));
       for (let k = 0; k < d.length && at + k < total; k++) out[at + k] += d[k];
     }
     solos.push(out);

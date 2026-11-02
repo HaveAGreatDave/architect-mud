@@ -97,6 +97,7 @@ A song is a tracker-style pattern that sequences instrument notes across one or 
 | `enabled` | int | `1` | |
 | `channels` | array of arrays | `[]` | See **Channel / Step shape** below |
 | `channel_pan` | float[] | `[]` | Optional per-channel stereo pan (`-1` left … `1` right), parallel to `channels`. Empty = mono. Set by the `.MOD` importer (Amiga L-R-R-L) |
+| `swing` | float | none | Optional. `0.5` (or absent) is straight; up to `0.75`. See [Groove](#groove) |
 
 ### Channel / Step shape
 
@@ -113,6 +114,7 @@ A song is a tracker-style pattern that sequences instrument notes across one or 
 | `vol` | float | Per-step velocity scalar (0–1). Multiplied against the instrument's `gain` |
 | `len` | int | Optional. Holds a synth note this many rows from its onset: its release starts a tenth of a row before the row it ends on, and never before its attack and decay are done. Without it a note is held 0.9 of a row past its attack and decay, which every song before `len` was written against. Sample-backed steps ignore it |
 | `fx` | object | Optional tracker effect on a sample-backed step (see **Step effects** below) |
+| `nudge` | float | Optional. Moves this note off the grid by a fraction of a row, `-0.25` to `0.5`: a laid-back snare, a pushed bass. See [Groove](#groove) |
 
 **A layered instrument** (`config.layers`, the shape in [Layered configs](#layered-configs-sfx)) plays every layer at the step's pitch, moved by the layer's own `tune` in semitones (`-12` an octave down, `17.57` a glockenspiel's second partial), with the step's `vol` on each layer's gain. That's how one instrument row is an ensemble: two sawtooths a few cents apart, or a drum with a skin and a body. Its level is its layers' gains. A layer that names no `waveform` gets the row's, and the Audio tab's Rack writes it onto the first layer when it saves, so a layered row should name a waveform on every layer, a noise layer too.
 
@@ -121,6 +123,17 @@ A song is a tracker-style pattern that sequences instrument notes across one or 
 A song loops from `loop_end` back to `loop_start` for as long as it plays. `AudioEngine.playMusic(def, { once: true })` plays it through a single time instead and lets what's ringing ring out, which is how a title card's theme plays ([systems-broadcast.md](systems-broadcast.md#music-cues)). `AudioEngine.renderSong(def)` renders a song once through offline, as `renderSfx` does a cue: synth instruments only, since a sample is decoded on the live context.
 
 `node scripts/audio/song-render.mjs <song name>` renders a shipped song through the real engine on the Node renderer and prints its levels by channel and by bar; `--wav file.wav` writes it in stereo, panned by `channel_pan` and held under -1 dBFS as the master limiter holds it. The Node renderer keeps every node it was given, so it renders a note at a time; a 35-second orchestral song takes about a minute at 48 kHz.
+
+### Groove
+
+A song's `swing` is the share of each eighth the first sixteenth takes, the MPC and Logic
+convention: `0.5` is straight, and every off-beat sixteenth (odd row) lands `(swing - 0.5) × 2`
+rows late, so `0.6` puts it a fifth of a row behind. A step's `nudge` moves that one note by a
+fraction of a row on top of the swing, clamped to `-0.25 .. 0.5`. Neither moves the grid: the loop,
+`len`'s release and the dev panel's playhead keep the rows' own times. The live player,
+`renderSong` and `song-render.mjs` all apply them. `swing` is a nullable column
+(absent in a file means straight); the grid editor doesn't edit it yet but keeps what a song has.
+Typical values and the reasons are in [game-music-craft.md](reference/game-music-craft.md#groove).
 
 ### Step effects (`fx`)
 
