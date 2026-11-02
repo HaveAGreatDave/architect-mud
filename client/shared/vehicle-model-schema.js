@@ -43,7 +43,7 @@ export const VEHICLE_IDS = {
   fw: ['prop', 'gunship', 'heavy', 'locust', 'divebomber'],
   truck: ['scrapper', 'hauler', 'drayman', 'continental'],
   boat: ['hydro', 'spur', 'gamecock', 'skiff'],
-  mesh: ['heli', 'heli_armed', 'heli_2076', 'ultralight', 'grasshopper', 'wreck', 'drake', 'prop', 'prop_2076', 'heavy', 'gunship', 'divebomber', 'locust', 'podracer', 'podracer_skitter', 'podracer_sledge'],
+  mesh: ['heli', 'heli_armed', 'heli_2076', 'ultralight', 'grasshopper', 'grasshopper_2076', 'wreck', 'drake', 'prop', 'prop_2076', 'heavy', 'gunship', 'divebomber', 'locust', 'podracer', 'podracer_skitter', 'podracer_sledge'],
 };
 
 const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);

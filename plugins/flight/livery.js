@@ -45,6 +45,11 @@ export const TRIMS = {
     { id: 'stock', label: 'Twin Otter · the original' },
     { id: '2076', label: 'Mule 2076 · concept' },
   ],
+  // CONCEPT: the Grasshopper 2076 is a different airframe (mesh_grasshopper.json 'variants'), with its own cockpit.
+  grasshopper: [
+    { id: 'stock', label: 'Piper Cub · the original' },
+    { id: '2076', label: 'Grasshopper 2076 · concept' },
+  ],
 };
 const TRIM_IDS = new Set(Object.values(TRIMS).flat().map(t => t.id));
 // The CABIN's factory trim, chosen apart from the exterior scheme: a special edition's cockpit can sit
