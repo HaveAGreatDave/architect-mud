@@ -9,10 +9,11 @@
 // advisory. The pilot's real job is to sign the manifest.
 //
 // So it is still a working room, but a clean one: two crew side by side, the pilot on the LEFT as
-// in the Otter, a sidestick outboard of each seat, a pedestal between them with the thrust levers and
-// the flap lever, and one wide display deck under a glareshield, a head-up combiner standing over the
-// pilot's screen. Behind the seats is a bulkhead with a doorway in it, and through the doorway the
-// hold with the cargo strapped down.
+// in the Otter, a sidestick outboard of each seat on a swept side console, a swept pedestal between
+// them with the thrust levers and the flap lever, and a sculpted deck from wall to wall with one curved
+// band of glass across it carrying every page, key and lamp. The flight symbology is projected into
+// the windscreen, and a hologram of the aircraft stands on the deck's shelf. Behind the seats is a
+// bulkhead with a doorway in it, and through the doorway the hold with the cargo strapped down.
 //
 // Sources read for this file:
 //   https://en.wikipedia.org/wiki/De_Havilland_Canada_DHC-6_Twin_Otter  (15.77 m long, crew 1-2)
@@ -36,26 +37,30 @@
 //
 // ── ⚠ EVERY CONTROL IN ONE FORWARD VIEW, AND EVERY VALUE A REAL ONE ─────────
 //
-// The four keys the sim has (power and three lighting circuits) are on the glareshield, the flap
-// lever stands up on the pedestal's forward riser and the map is the one screen you click; all of
-// them are inside the forward look. The sidesticks, the thrust levers and the pedals sit low, so each
-// is mirrored on the head-up combiner and on the motors page. Every number on every screen is a live
+// The four keys the sim has (power and three lighting circuits) are glass keys on the band, the flap
+// lever stands up on the pedestal's forward riser and the map is the one page you click; all of them
+// are inside the forward look. The sidesticks, the thrust levers, the pedals and the flaps sit low, so
+// each is mirrored in the windscreen HUD and on the motors page. Every number on every page is a live
 // value or is derived from one in the open (power from thrust and rpm, endurance from hydrogen over
 // burn); nothing shows a constant dressed as a reading, and nothing looks operable that isn't.
 //
 // ── ⚠ ANIMATION IS LIVE STATE, NEVER A CLOCK ────────────────────────────────
 //
-// The props on the motors page turn on `live.phase` (the prop phase cockpit.js already integrates for
-// the exterior), the attitude and the tapes on the flight state, the tank on the fuel. The keys ease
-// on wall time through the cockpit kit's `eased`, which settles on the target; the geometry is still a
-// function of the live state once it has.
+// The props on the motors page and in the hologram turn on `live.phase` (the prop phase cockpit.js
+// already integrates for the exterior), the attitude and the tapes on the flight state, the tank and
+// the projector's arc on the fuel. Decoration alone moves on wall time: the keys and the hand glow ease
+// through the cockpit kit's `eased`, which settles on the target, the pages boot on `live.powerAge`
+// (absent means long booted), and a warning's light lines breathe. Every readout is still a function
+// of the live state.
 //
 // Pure apart from that easing: no camera, no DOM. `live` arrives as an argument.
-import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, facingPanel, eased, pressPulse, HALO } from './interior-cockpit-kit.js';
+import { makeKit, C, clamp, lerp, SHINY, TEXTURE } from './interior-kit.js';
+import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, facingPanel, eased, pressPulse, HALO,
+  bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand, holoFrame, holoProjector, windscreenHud,
+  HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED, HUD_LINE, HUD_DIM, HUD_AMBER, HUD_RED } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { compileMesh } from './vehicle-mesh.js';
-import { MULE76_STATIONS, MULE76_GLASS, MULE76_INSIDE, MULE76_LENGTH_M, muleSection, mulePoint } from './cabin-mule-2076.js';
+import { MULE76_STATIONS, MULE76_GLASS, MULE76_INSIDE, MULE76_LENGTH_M, MULE76_APEX, MULE76_TAIL, muleSection, mulePoint } from './cabin-mule-2076.js';
 
 const TAU = Math.PI * 2, DEG = Math.PI / 180;
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -74,15 +79,15 @@ export const MULE76_TRIM = {
   lining: [176, 176, 170], liningDk: [128, 130, 128], headliner: [196, 196, 190], hold: [102, 106, 104], holdRib: [82, 86, 86],
   graphite: [40, 43, 46], graphiteLt: [60, 64, 68], tub: [26, 28, 30],
   seat: [74, 70, 66], seatDk: [52, 50, 48], bolster: [38, 40, 42], red: [196, 58, 38],
-  teal: [40, 150, 136], glow: [110, 230, 210], glowDim: [40, 92, 84],
+  glow: [110, 230, 210], glowDim: [40, 92, 84],
   floor: [46, 48, 48], floorEdge: [30, 32, 32], metal: [150, 156, 164], harness: [70, 76, 82], buckle: [176, 182, 190],
-  screen: [6, 12, 14], screenDk: [10, 12, 14], bezel: [18, 20, 22], title: [70, 190, 172],
-  combiner: [120, 220, 200], warn: [235, 60, 48], amber: [255, 176, 64], white: [236, 244, 240], dim: [140, 170, 166],
+  screen: [6, 12, 14], title: [70, 190, 172],
+  warn: [235, 60, 48], amber: [255, 176, 64], white: [236, 244, 240], dim: [140, 170, 166],
   crate: [150, 118, 74], crateDk: [116, 90, 56], strap: [210, 160, 40], net: [70, 74, 62],
 };
 const T = MULE76_TRIM;
 for (const k of ['lining', 'liningDk', 'headliner', 'hold']) TEXTURE.set(T[k], 'paint');
-for (const k of ['graphite', 'graphiteLt', 'tub', 'bezel', 'holdRib']) TEXTURE.set(T[k], 'plastic');
+for (const k of ['graphite', 'graphiteLt', 'tub', 'holdRib']) TEXTURE.set(T[k], 'plastic');
 for (const k of ['seat', 'seatDk', 'bolster']) TEXTURE.set(T[k], 'leather');
 for (const k of ['floor', 'floorEdge']) TEXTURE.set(T[k], 'carpet');
 for (const k of ['metal', 'buckle']) TEXTURE.set(T[k], 'brushed');
@@ -93,7 +98,6 @@ SHINY.set(T.graphiteLt, { spec: 0.35, pow: 24 });
 SHINY.set(T.metal, { spec: 0.7, pow: 36 });
 SHINY.set(T.buckle, { spec: 0.8, pow: 40 });
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
-PANE.set(T.combiner, 0.12);
 
 // ── THE EXTERIOR, MEASURED ──────────────────────────────────────────────────
 function modelLength(doc) {
@@ -140,7 +144,7 @@ export function mule2076Profile(doc = MESH_ROWS.prop_2076) {
     mPerUnit: m, glassAftY: Y(G.fW),
     // The side rays go out through the middle of each crew door window.
     winY: [Y(D.f[0] + 0.03), Y(D.f[1] - 0.03)], winZ: [Z(mulePoint(fE, D.a[0] + 6)[2]), Z(mulePoint(fE, D.a[1] - 6)[2])],
-    dashY: DECK.y, dashZ: DECK.z, headerZ: Z(mulePoint(G.fW, 80)[2]), pillarW: 0.03,
+    dashY: DASH.yMid - DASH.sag * 0.2, dashZ: DASH.z0, headerZ: Z(mulePoint(G.fW, 80)[2]), pillarW: 0.03,
     seatZ: zF + 0.34, seatHalf: 0.25, seatY: [-0.34, 0.14], backZ: 0.02,
     roofGlass: false,          // straight up from the pilot is the overhead panel, between the eyebrows
     seats: 2, centrePost: 0,
@@ -443,9 +447,8 @@ const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight :
 // ── WHERE THE CONTROLS ARE ───────────────────────────────────────────────────
 // One place says where each thing you can grab or click is; the drawing and the hotspots both read it.
 // Shell metres, the eye at the origin, the pilot in the left seat and the centreline to the right.
-const DECK = { y: 0.86, z: -0.36 };                                  // the display deck's middle
 const STICK = { x: -0.42, y: 0.12, z: 0.53, len: 0.13 };             // z off the floor; outboard left
-const PED = { hw: 0.12, y0: 0.0, y1: 0.66, top: 0.5, riserY: 0.54, riserTop: 0.56 };   // the pedestal, z off the floor
+const PED = { hw: 0.12, y0: 0.0, y1: 0.66, top: 0.5, riserY: 0.54, riserTop: 0.56, nose: 0.86 };   // the pedestal, z off the floor
 const LEVER = { pivotY: 0.3, len: 0.15, dx: [-0.035, 0.035] };      // twin thrust levers, left and right banks
 const FLAP = { dx: 0.075, y0: 0.58, y1: 0.66 };                       // the flap lever on the riser, UP forward, FULL aft
 function stickAt(P, R, x = STICK.x) {
@@ -465,12 +468,42 @@ function flapKnob(P, R) {
   const y = lerp(FLAP.y0, FLAP.y1, 1 - R.flap / 3);
   return [P.xCentre + FLAP.dx, y, P.m76.zF + PED.riserTop + 0.07];
 }
-// The keys, on the glareshield's lip over the middle screens.
-const BTN = { ids: ['master', 'land', 'panel', 'dome'], names: { master: 'PWR', land: 'LAND', panel: 'PANEL', dome: 'CABIN' } };
-function keyPanel(K, P) {
-  return K.panel([0.5, DECK.y + 0.04, DECK.z + 0.152], [1, 0, 0], [0, 0.8, 0.6], 'dash', 0.3);
+
+// ── THE DECK: one sculpted wing from door to door, and on its face toward the crew one band of glass ──
+// The band runs wall to wall in a shallow arc centred on the aisle, so it comes round toward each
+// seat, and every page, key and lamp sits on it. `curve(s)` gives the band's lower edge and the
+// outward direction across the deck; the deck body is swept along the same curve, so the glass is the
+// deck's own face.
+const DASH = { xL: -0.6, xR: 1.46, yMid: 0.86, sag: 0.14, w: 1.03, z0: -0.4, h: 0.27, lean: 0.45 };
+function dashCurve(P) {
+  const xC = P.xCentre;
+  return (s) => {
+    const x = lerp(DASH.xL, DASH.xR, s), q = (x - xC) / DASH.w;
+    const y = DASH.yMid - DASH.sag * q * q, dy = -2 * DASH.sag * q / DASH.w;
+    return { p: [x, y, DASH.z0], f: norm([-dy, 1, 0]) };
+  };
 }
-const BTN_AT = (i) => [-0.135 + i * 0.09, 0];
+const sOf = (x) => (x - DASH.xL) / (DASH.xR - DASH.xL);
+const bandPanel = (K, P, x, v, lift = 0.005) => bandFrame(dashCurve(P), DASH.lean).at(K, sOf(x), v, lift);
+
+// ── THE PAGES on the band, booting in turn: the motors outboard of the pilot, the flight page in
+// front of her, the map (the one page you click) by the aisle, the energy page, and the manifest in
+// front of the right-hand seat. A flat page on the curved sheet is lifted clear of it at its ends.
+const SCREENS = [
+  { id: 'motors', x: -0.38, title: 'MOTORS', boot: 0.3 },
+  { id: 'pfd', x: 0.0, title: 'FLIGHT', boot: 0 },
+  { id: 'map', x: 0.47, title: 'NAV', boot: 0.15 },
+  { id: 'energy', x: 0.82, title: 'ENERGY H2', boot: 0.45 },
+  { id: 'manifest', x: 1.17, title: 'MANIFEST', boot: 0.6 },
+];
+const SW = 0.15, SH = 0.105, PAGE_V = 0.15;
+const screenPanel = (K, P, sc) => bandPanel(K, P, sc.x, PAGE_V, 0.014);
+// The status lamps along the band's foot, under the motors and the flight page.
+const LAMP_X = [-0.5, -0.33, -0.16, 0.01, 0.18, 0.35], LAMP_V = 0.022;
+
+// ── THE KEYS: four glass keys on the band between the flight page and the map ──
+const BTN = { ids: ['master', 'land', 'panel', 'dome'], names: { master: 'PWR', land: 'LAND', panel: 'PANEL', dome: 'CABIN' } };
+const BTN_AT = (i) => ({ x: [0.205, 0.27][i % 2], v: [0.19, 0.115][i >> 1] });
 function switchOn(id, R) {
   if (id === 'master') return R.powered;
   if (id === 'land') return R.land;
@@ -479,33 +512,21 @@ function switchOn(id, R) {
   return R.powered;
 }
 
-// ── THE DISPLAY DECK: five screens under the glareshield, each square to the eye ──
-// The motors outboard of the pilot, the pilot's flight display, the map (the one screen you click) on
-// the centreline, the energy page, and the manifest in front of the right-hand seat.
-const SCREENS = [
-  { id: 'motors', x: -0.37, title: 'MOTORS' },
-  { id: 'pfd', x: 0.0, title: 'FLIGHT' },
-  { id: 'map', x: 0.37, title: 'NAV' },
-  { id: 'energy', x: 0.75, title: 'ENERGY H2' },
-  { id: 'manifest', x: 1.14, title: 'MANIFEST' },
-];
-const SW = 0.15, SH = 0.105;
-function screenPanel(K, P, sc) {
-  const y = DECK.y - 0.04 + Math.abs(sc.x - 0.37) * 0.05;   // the deck curves back at its ends
-  return facingPanel(K, [sc.x, y, DECK.z - 0.02], 'dash', 0.3);
-}
+// ── THE WINDSCREEN HUD: where it is projected, ahead of the pilot and inside the hull ──
+const HUD = { dist: 0.72, z: 0.01, hw: 0.21, hh: 0.11 };
+// ── THE HOLOGRAM: over the deck's shelf, right of the pilot's line and clear of the HUD ──
+const HOLO_AT = { x: 0.62, out: 0.27, rise: 0.07, scale: 0.095 };
 
 export function m76Hotspots(P, live) {
   const R = readings(live), K = makeKit(() => {}), out = [];
-  const Kp = keyPanel(K, P);
-  BTN.ids.forEach((id, i) => { const [u, v] = BTN_AT(i); out.push({ id: 'ck:' + id, p: Kp.pt(u, v, 0.01), r: 0.03, kind: 'click' }); });
+  BTN.ids.forEach((id, i) => { const b = BTN_AT(i); out.push({ id: 'ck:' + id, p: bandPanel(K, P, b.x, b.v).pt(0, 0, 0.01), r: 0.028, kind: 'click' }); });
   out.push({ id: 'ck:flaps', p: flapKnob(P, R), r: 0.035, kind: 'click' });
   out.push({ id: 'yoke', p: add(stickAt(P, R).top, [0, 0, 0.04]), r: 0.06, kind: 'yoke' });
   // Each grip moves its own bank; a hand between the two moves the pair and brings them together.
   const lv = leverAt(P, R, 0, (R.thrs[0] + R.thrs[1]) / 2);
   out.push({ id: 'throttle', p: add(lv.end, mul(lv.dir, 0.03)), r: 0.025, kind: 'throttle' });
   LEVER.dx.forEach((dx, e) => { const g = leverAt(P, R, dx); out.push({ id: 'thr' + e, p: add(g.end, mul(g.dir, 0.03)), r: 0.04, kind: 'throttle', engine: e }); });
-  out.push(gpsHotspot(screenPanel(K, P, SCREENS.find((sc) => sc.id === 'map')), 0, -0.01, 0.07));
+  out.push(gpsHotspot(screenPanel(K, P, SCREENS.find((sc) => sc.id === 'map')), 0, -0.012, 0.07));
   return out;
 }
 
@@ -561,128 +582,218 @@ export function m76Fit(P, live, push) {
   const zF = P.m76.zF, xC = P.xCentre;
   const lit = R.powered, panel = panelOn(R);
   const amb = lit ? (night(R) ? 1 : 0.55) * (R.dome ? 1.2 : 1) : 0.05;
+  const boot = bootAge(live);
+  // The light lines carry the alert: teal, amber on low hydrogen, red and breathing on a hull or stall
+  // warning. They are the first thing in the room to change colour.
+  const warn = lit && (R.hull < 0.3 || R.stall), caution = lit && R.fuel < 0.15;
+  const al = alertLight(caution, warn), lineK = (k) => (lit ? k * al.k : 0.05);
+  // How near the hand is to a control: eased up while the pointer is over it or pressing it.
+  const near = (key, ids) => eased('m76:near:' + key, live && ids.some((id) => live.hover === id || live.press === id) ? 1 : 0, 12);
 
-  // ── THE DECK: a graphite fascia from wall to wall, the screens in it, the glareshield over it ──
-  const dy = DECK.y, dz = DECK.z;
-  const dx0 = -0.64, dx1 = 1.5;
-  K.box(dx0, dy + 0.09, zF + 0.25, dx1, dy + 0.2, dz + 0.12, 'dash', -0.1, T.graphite);
-  K.box(dx0 + 0.02, dy - 0.06, zF + 0.28, dx1 - 0.02, dy + 0.03, dz - 0.13, 'dash', -0.05, T.graphiteLt);
-  // The lit lip under the screens.
-  K.box(dx0 + 0.04, dy - 0.075, dz - 0.135, dx1 - 0.04, dy - 0.06, dz - 0.125, 'dash', 0.2, T.glow, 0.9 * amb);
-  // The glareshield: a brow over the screens, a soft-touch top, a light line along its lip.
-  K.box(dx0, dy - 0.03, dz + 0.11, dx1, dy + 0.25, dz + 0.13, 'dash', 0.1, T.graphite);
-  K.box(dx0, dy - 0.03, dz + 0.13, dx1, dy + 0.25, dz + 0.136, 'dash', 0.25, T.tub);
-  K.box(dx0 + 0.02, dy - 0.035, dz + 0.108, dx1 - 0.02, dy - 0.028, dz + 0.114, 'dash', 0.2, T.glow, 0.8 * amb);
-  // The key plinth on the brow, square to the eye, under the keys.
-  K.box(0.29, dy + 0.0, dz + 0.136, 0.71, dy + 0.08, dz + 0.15, 'dash', 0.1, T.graphiteLt);
+  // ── THE DECK: a wing swept along the band's curve ──
+  const curve = dashCurve(P);
+  const gt = [DASH.h * DASH.lean / Math.hypot(1, DASH.lean), DASH.h / Math.hypot(1, DASH.lean)];   // the glass's top, across and up
+  // The section, from the glass's foot up its face, under a brow that hoods the glass's top edge,
+  // over the shelf, down the nose and back under to the lip. Set 4 mm in behind the glass, so the band
+  // lies on the deck instead of in it.
+  const g0 = 0.004;
+  const SEC = [[g0, 0], [gt[0] + g0, gt[1]], [0.085, gt[1] + 0.022], [0.1, gt[1] + 0.036], [0.21, 0.29], [0.34, 0.272], [0.375, 0.2],
+    [0.28, -0.05], [0.08, -0.13], [-0.06, -0.09], [-0.07, -0.04], [g0, 0]];
+  const N = 36, rings = [];
+  for (let i = 0; i <= N; i++) {
+    // Toward each wall the wing thins and drops, as the hull closes in over it.
+    const s = i / N, c = curve(s), e = Math.abs(2 * s - 1) ** 3, tap = 1 - 0.6 * e;
+    rings.push(SEC.map(([f, z]) => {
+      const ff = f > gt[0] + g0 ? gt[0] + g0 + (f - gt[0] - g0) * tap : f < 0 ? f * tap : f;
+      return [c.p[0] + c.f[0] * ff, c.p[1] + c.f[1] * ff, c.p[2] + (z > gt[1] ? gt[1] + (z - gt[1]) * tap : z) - (z > 0.05 ? 0.05 * e : 0)];
+    }));
+  }
+  sweep(K, rings, 'dash', 0.1, T.graphite);
+  // The end caps: the section, shut, as a fan from its middle (the brow makes it not quite convex).
+  for (const r of [rings[0], rings[N]]) {
+    const pts = r.slice(0, -1), mid = mul(pts.reduce((a, q) => add(a, q), [0, 0, 0]), 1 / pts.length);
+    const n = norm(cross(sub(r[5], r[1]), sub(r[8], r[1])));
+    for (let j = 0; j < pts.length; j++) {
+      const tri = [mid, pts[j], pts[(j + 1) % pts.length]];
+      K.face(tri, n, 'dash', 0.05, T.graphiteLt);
+      K.face(tri.slice().reverse(), mul(n, -1), 'dash', 0.05, T.graphiteLt);
+    }
+  }
+  // A soft-touch strip along the shelf, light lines along the brow's edge, the lip under the glass and
+  // the shelf's far edge, and a seam where the nose turns under.
+  for (let i = 2; i < N - 2; i++) {
+    const a = rings[i], b = rings[i + 1], lift = [0, 0, 0.003];
+    const q = [add(a[4], lift), add(b[4], lift), add(lerp3(b[4], b[5], 0.85), lift), add(lerp3(a[4], a[5], 0.85), lift)];
+    K.face(q, norm(cross(sub(q[1], q[0]), sub(q[3], q[0]))), 'dash', 0.15, T.tub);
+  }
+  lightLine(K, rings.slice(1, -1).map((r) => add(r[2], [0, 0, -0.002])), 0.0025, al.rgb, lineK(0.9));
+  lightLine(K, rings.map((r) => r[9]), 0.003, al.rgb, lineK(0.8));
+  lightLine(K, rings.slice(2, -2).map((r) => add(r[5], [0, 0, 0.002])), 0.002, al.rgb, lineK(0.35));
+  lightLine(K, rings.slice(1, -1).map((r) => r[7]), 0.002, T.tub, 0);
+  // The deck stands on two blades down to the floor, outboard of each pair of pedals, each with a lit
+  // edge toward the cabin.
+  for (const x of [-0.42, 2 * xC + 0.42]) {
+    const c = curve(sOf(x)), top = add(add(c.p, mul(c.f, 0.1)), [0, 0, -0.1]), foot = [top[0], top[1] - 0.06, zF];
+    const up = norm(sub(top, foot)), along = norm(cross([1, 0, 0], up)), mid = mul(add(top, foot), 0.5), half = Math.hypot(...sub(top, foot)) / 2;
+    K.obox(mid, [1, 0, 0], up, along, 0.009, half, 0.045, 'dash', 0.05, T.graphite);
+    lightLine(K, [add(foot, add(mul(along, -0.046), [0, 0, 0.04])), add(top, add(mul(along, -0.046), [0, 0, -0.02]))], 0.0025, al.rgb, lineK(0.6));
+    K.obox(add(foot, [0, 0, 0.006]), [1, 0, 0], [0, 0, 1], [0, 1, 0], 0.03, 0.006, 0.07, 'dash', 0.05, T.graphiteLt);
+  }
 
+  // ── THE BAND: one sheet of glass, the pages on it, booting in turn when the power comes on ──
+  glassBand(K, curve, { h: DASH.h, lean: DASH.lean, segs: 36, lit, light: al.rgb, lightK: lineK(1), substrate: T.screen });
   for (const sc of SCREENS) {
-    const Pn = screenPanel(K, P, sc);
-    K.obox(Pn.pt(0, 0, -0.02), Pn.r, Pn.u, Pn.n, SW + 0.012, SH + 0.012, 0.018, 'dash', -0.05, T.bezel);
-    Pn.rect(-SW, -SH, SW, SH, lit ? T.screen : T.screenDk, lit ? 0.35 : 0, 0.001);
-    if (!lit) continue;
-    // One display language: a lit title bar with the page's name, dark letters on teal.
-    Pn.rect(-SW + 0.004, SH - 0.02, SW - 0.004, SH - 0.004, T.title, 0.75, 0.0018);
-    Pn.fitText(sc.title, 0, SH - 0.0175, SW * 1.4, 0.011, [8, 22, 20], 0, 0.0026);
+    const Pn = screenPanel(K, P, sc), up = reveal(boot, sc.boot);
+    if (!lit || up <= 0) continue;
+    // The boot: a lit line sweeps up the page and the page comes up behind it.
+    if (up < 1) {
+      const y = lerp(-SH, SH, up);
+      Pn.rect(-SW, -SH, SW, y, T.screen, 0.3 * up, 0.001);
+      Pn.rect(-SW, y - 0.002, SW, y + 0.002, T.glow, 1, 0.0025);
+      continue;
+    }
+    // One display language on every page: a lit edge along the top and the page's name under it,
+    // teal for normal, amber for caution, red for a warning, the current value the brightest thing.
+    Pn.rect(-SW, -SH, SW, SH, T.screen, 0.3, 0.0005);
+    Pn.rect(-SW + 0.004, SH - 0.0035, SW - 0.004, SH - 0.0015, T.glow, 0.85, 0.0018);
+    Pn.fitText(sc.title, 0, SH - 0.0185, SW * 1.4, 0.011, T.title, panel ? 0.9 : 0.7, 0.0026);
     if (sc.id === 'pfd') pfd(Pn, R);
     else if (sc.id === 'motors') motorsPage(Pn, R);
     else if (sc.id === 'energy') energyPage(Pn, R);
     else if (sc.id === 'map') mapPage(Pn, R, live);
     else if (sc.id === 'manifest') manifestPage(Pn, R, live);
   }
-
-  hud(K, P, R, lit);
-
-  // ── THE STATUS STRIP under the screens: what the aircraft thinks of you ──
+  // The status lamps along the foot of the band: what the aircraft thinks of you.
   {
-    const Sp = K.panel([0.37, dy - 0.085, dz - 0.165], [1, 0, 0], [0, 0.5, 0.866], 'dash', 0.3);
-    Sp.rect(-0.5, -0.022, 0.5, 0.022, T.bezel, 0, 0.001);
     // ⚠ PILOT PRESENT IS THE RIDER'S LAMP: lit whenever the seat is powered and occupied, which is
     // whenever this cockpit is drawn. It is the one thing on the panel the insurer reads.
     const lamps = [
       ['PILOT PRESENT', lit, C.green], ['HANDS ON', R.handsOn, T.glow], ['AUTONOMY ADVISORY', lit, T.amber],
-      ['LOW H2', lit && R.fuel < 0.15, T.warn], ['STALL', lit && R.stall, T.warn], ['HULL', lit && R.hull < 0.3, T.warn],
+      ['LOW H2', caution, T.warn], ['STALL', lit && R.stall, T.warn], ['HULL', lit && R.hull < 0.3, T.warn],
     ];
-    lamps.forEach(([name, on, rgb], i) => lensLamp(Sp, -0.415 + i * 0.166, 0, 0.152, 0.032, on, rgb, name));
+    const up = reveal(boot, 0.75) >= 1;
+    lamps.forEach(([name, on, rgb], i) => lensLamp(bandPanel(K, P, LAMP_X[i], LAMP_V, 0.012), 0, 0, 0.16, 0.028, on && up, rgb, name));
   }
 
-  // ── THE KEYS: four lit caps on the glareshield's lip ──
-  // A cap eases down while pressed and back up after, its light eases with the circuit, and a ring
-  // flashes round it the moment its state changes.
+  // ── THE KEYS: four glass keys on the band ──
+  // A key sinks while pressed and comes back, its light eases on and off with the circuit, it
+  // brightens as the hand comes over it, and a ring flashes round it when its state changes.
+  BTN.ids.forEach((id, i) => {
+    const b = BTN_AT(i), Kp = bandPanel(K, P, b.x, b.v, 0.006), on = switchOn(id, R);
+    const pressed = !!live && live.press === 'ck:' + id;
+    const rgb = id === 'master' ? C.green : T.glow;
+    const glow = eased('m76:glow:' + id, on ? 1 : 0, 10), depth = eased('m76:dip:' + id, pressed ? 0.002 : 0.007, 30);
+    const hand = near('key:' + id, ['ck:' + id]);
+    Kp.rect(-0.031, -0.031, 0.031, 0.031, T.tub, 0, 0.0005);
+    Kp.annulus(0, 0, 0.029, 0.031, T.glow, (lit ? 0.25 : 0) + hand * 0.75, 0.0012, 20);
+    Kp.stud(0, 0, 0.026, 0.026, depth, rgb.map((c, k) => lerp([40, 46, 50][k], c, glow * 0.8)), glow * 0.85 + hand * 0.15, 0.0015);
+    Kp.fitText(BTN.names[id], 0, -0.004, 0.044, 0.012, glow > 0.5 ? [10, 24, 22] : [214, 222, 220], glow > 0.5 ? 0 : (panel ? 0.6 : 0.25), depth + 0.0025);
+    const flash = pressPulse('m76:key:' + id, on);
+    if (flash > 0.02) Kp.annulus(0, 0, 0.034, 0.038, HALO, flash, 0.004, 18);
+  });
+
+  // ── THE WINDSCREEN HUD: projected, conformal, with both banks' levers, the stick, the pedals and
+  // the flaps mirrored round its edges, so the forward view shows every low control ──
+  if (lit) {
+    const life = reveal(boot, 0.2);
+    const Hp = windscreenHud(K, R, { ...HUD, warn, caution, boot: life, mirrors: { stick: [R.ail, R.elev], thrs: R.thrs, rud: R.rud } });
+    if (life > 0) hudFlaps(Hp, R, warn ? HUD_RED : caution ? HUD_AMBER : HUD_LINE);
+  }
+
+  // ── THE HOLOGRAM over the deck's shelf: the Mule herself, flying as she flies ──
+  // Pitched and banked with her, each bank's four props turning on the prop phase and ringed at that
+  // bank's speed, standing on a projector whose arc is the hydrogen left.
   {
-    const Kp = keyPanel(K, P);
-    Kp.rect(-0.185, -0.026, 0.185, 0.026, T.bezel, 0, 0.001);
-    BTN.ids.forEach((id, i) => {
-      const [u, v] = BTN_AT(i), on = switchOn(id, R), pressed = !!live && live.press === 'ck:' + id;
-      const rgb = id === 'master' ? C.green : T.glow;
-      const glow = eased('m76:glow:' + id, on ? 1 : 0, 10), depth = eased('m76:dip:' + id, pressed ? 0.003 : 0.009, 30);
-      Kp.rect(u - 0.04, v - 0.021, u + 0.04, v + 0.021, T.tub, 0, 0.0015);
-      Kp.stud(u, v, 0.037, 0.018, depth, rgb.map((c, k) => lerp([62, 68, 72][k], c, glow)), glow * 0.9, 0.0015);
-      Kp.fitText(BTN.names[id], u, v - 0.0055, 0.066, 0.013, glow > 0.5 ? [10, 24, 22] : [214, 222, 220], glow > 0.5 ? 0 : (panel ? 0.6 : 0.25), depth + 0.0025);
-      const flash = pressPulse('m76:key:' + id, on);
-      if (flash > 0.02) Kp.annulus(u, v, 0.044, 0.049, HALO, flash, 0.004, 18);
-    });
+    const c0 = curve(sOf(HOLO_AT.x)), shelf = lerp(0.29, 0.272, (HOLO_AT.out - 0.21) / 0.13);
+    const base = add(add(c0.p, mul(c0.f, HOLO_AT.out)), [0, 0, shelf + 0.003]);
+    holoProjector(K, base, HOLO_AT.rise, 0.06, lit ? R.fuel : 0, R.fuel < 0.15 ? HOLO_RED : R.fuel < 0.3 ? HOLO_AMBER : HOLO_LINE);
+    if (lit && reveal(boot, 0.7) > 0) holoMule(K, add(base, [0, 0, HOLO_AT.rise + 0.03]), R);
   }
 
-  // ── THE PEDESTAL between the seats: the thrust levers, the flap lever on its riser ──
+  // ── THE PEDESTAL between the seats: swept, rising to the flap riser and running on under the deck ──
   const pt = zF + PED.top, rt = zF + PED.riserTop;
-  K.box(xC - PED.hw, PED.y0, zF, xC + PED.hw, PED.riserY, pt, 'dash', -0.1, T.graphite);
-  K.box(xC - PED.hw - 0.004, PED.y0, pt - 0.004, xC + PED.hw + 0.004, PED.riserY, pt + 0.002, 'dash', 0.15, T.graphiteLt);
-  K.box(xC - PED.hw, PED.riserY, zF, xC + PED.hw, PED.y1 + 0.06, rt, 'dash', -0.1, T.graphite);
-  K.box(xC - PED.hw - 0.004, PED.riserY, rt - 0.004, xC + PED.hw + 0.004, PED.y1 + 0.06, rt + 0.002, 'dash', 0.15, T.graphiteLt);
-  for (const s of [-1, 1]) K.box(xC + s * (PED.hw + 0.001) - 0.003, PED.y0 + 0.02, zF + 0.06, xC + s * (PED.hw + 0.001) + 0.003, PED.y1, zF + 0.075, 'dash', 0.2, T.glow, 0.85 * amb);
-  // The thrust gate: a slot for each lever and a lit tick every quarter.
+  {
+    const top = (y) => lerp(pt, rt, smooth01((y - (PED.riserY - 0.03)) / 0.06));
+    const NP = 16, prings = [];
+    for (let i = 0; i <= NP; i++) {
+      const y = lerp(PED.y0, PED.nose, i / NP), hw = PED.hw * (0.92 + 0.08 * i / NP) + 0.004;
+      prings.push(roundSection(xC, y, hw, zF, top(y), 0.12));
+    }
+    sweep(K, prings, 'dash', 0.05, T.graphite);
+    K.face(prings[0].slice(), [0, -1, 0], 'dash', 0.05, T.graphiteLt);
+    for (const s of [1, 9]) lightLine(K, prings.map((r) => add(r[s], [0, 0, 0.003])), 0.0025, al.rgb, lineK(0.85));
+    // The kick strip along each side at ankle height.
+    for (const s of [0, 10]) lightLine(K, prings.slice(0, 10).map((r) => add(r[s], [s ? -0.002 : 0.002, 0, 0.07])), 0.003, T.tub, 0);
+  }
+  // The thrust gate: a slot for each lever and a lit tick every quarter, the full tick amber.
   for (const dx of LEVER.dx) {
-    K.box(xC + dx - 0.009, LEVER.pivotY - 0.13, pt - 0.003, xC + dx + 0.009, LEVER.pivotY + 0.13, pt + 0.003, 'dash', -0.3, T.tub);
+    K.box(xC + dx - 0.009, LEVER.pivotY - 0.13, pt - 0.003, xC + dx + 0.009, LEVER.pivotY + 0.13, pt + 0.005, 'dash', -0.3, T.tub);
     for (let i = 0; i <= 4; i++) {
-      const y = LEVER.pivotY - 0.11 + i * 0.055;
-      K.box(xC + dx + (dx < 0 ? -0.026 : 0.012), y - 0.002, pt, xC + dx + (dx < 0 ? -0.012 : 0.026), y + 0.002, pt + 0.004, 'dash', 0.2, i === 4 ? T.amber : T.glowDim, 0.6);
+      const y = LEVER.pivotY - 0.11 + i * 0.055, t = R.thrs[dx < 0 ? 0 : 1], here = lit && Math.abs(i / 4 - t) < 0.13;
+      K.box(xC + dx + (dx < 0 ? -0.026 : 0.012), y - 0.002, pt + 0.002, xC + dx + (dx < 0 ? -0.012 : 0.026), y + 0.002, pt + 0.006, 'dash', 0.2, i === 4 ? T.amber : here ? T.glow : T.glowDim, here || i === 4 ? 0.9 : 0.5);
     }
   }
-  // The levers, left bank and right bank. Each moves its own bank of four motors.
+  // The levers, left bank and right bank. Each moves its own bank of four motors; a grip lights as
+  // the hand comes to it, and both light for the hand between them that moves the pair.
   for (const dx of LEVER.dx) {
-    const lv = leverAt(P, R, dx), t = R.thrs[dx < 0 ? 0 : 1];
+    const e = dx < 0 ? 0 : 1, lv = leverAt(P, R, dx), t = R.thrs[e];
+    const hand = near('thr' + e, ['thr' + e, 'throttle']);
     K.rod(lv.pivot, lv.end, 0.009, 'dash', 0.2, T.metal, 0, 8);
-    const gripEnd = add(lv.end, mul(lv.dir, 0.05));
-    K.obox(mul(add(lv.end, gripEnd), 0.5), [1, 0, 0], lv.dir, norm(cross([1, 0, 0], lv.dir)), 0.02, 0.03, 0.016, 'dash', 0.1, T.graphiteLt);
-    K.obox(add(gripEnd, mul(lv.dir, 0.002)), [1, 0, 0], norm(cross([1, 0, 0], lv.dir)), lv.dir, 0.016, 0.01, 0.003, 'dash', 0.3, T.glow, lit ? 0.3 + t * 0.7 : 0);
+    const gripEnd = add(lv.end, mul(lv.dir, 0.05)), side = norm(cross([1, 0, 0], lv.dir));
+    K.obox(mul(add(lv.end, gripEnd), 0.5), [1, 0, 0], lv.dir, side, 0.02, 0.03, 0.016, 'dash', 0.1, T.graphiteLt);
+    K.obox(add(gripEnd, mul(lv.dir, 0.002)), [1, 0, 0], side, lv.dir, 0.016, 0.01, 0.003, 'dash', 0.3, T.glow, lit ? 0.3 + t * 0.5 + hand * 0.2 : 0);
+    // The grip's light ring, the alert colour, brightening under the hand.
+    K.obox(add(mul(add(lv.end, gripEnd), 0.5), mul(side, 0.0165)), [1, 0, 0], lv.dir, side, 0.021, 0.004, 0.001, 'dash', 0.3, al.rgb, lit ? 0.2 + hand * 0.8 : 0);
   }
   // The flap gate on the riser: four detents lettered UP 1 2 F, the lever and its lit knob.
   {
     const gx = xC + FLAP.dx;
-    K.box(gx - 0.008, FLAP.y0 - 0.012, rt - 0.003, gx + 0.008, FLAP.y1 + 0.012, rt + 0.004, 'dash', -0.3, T.tub);
-    const Fp = K.panel([gx - 0.06, (FLAP.y0 + FLAP.y1) / 2, rt + 0.0045], [1, 0, 0], [0, 1, 0], 'dash', 0.3);
+    K.box(gx - 0.008, FLAP.y0 - 0.012, rt - 0.003, gx + 0.008, FLAP.y1 + 0.012, rt + 0.005, 'dash', -0.3, T.tub);
+    const Fp = K.panel([gx - 0.06, (FLAP.y0 + FLAP.y1) / 2, rt + 0.0055], [1, 0, 0], [0, 1, 0], 'dash', 0.3);
     ['F', '2', '1', 'UP'].forEach((s, i) => {
       const v = lerp(FLAP.y0, FLAP.y1, i / 3) - (FLAP.y0 + FLAP.y1) / 2;
       Fp.rect(0.04, v - 0.0015, 0.052, v + 0.0015, 3 - i === R.flap ? T.white : T.glowDim, 0.8, 0.001);
       Fp.text(s, 0.018, v - 0.006, 0.013, 3 - i === R.flap ? T.white : T.dim, panel ? 0.7 : 0.35, 0.001);
     });
     const kb = flapKnob(P, R), base = [gx, kb[1], rt];
-    const press = !!live && live.press === 'ck:flaps';
+    const press = !!live && live.press === 'ck:flaps', hand = near('flaps', ['ck:flaps']);
     const dip = eased('m76:flapdip', press ? 0.008 : 0, 30);
     K.rod(base, add(kb, [0, 0, -0.012 - dip]), 0.006, 'dash', 0.2, T.metal, 0, 6);
     // The knob is an aerofoil section, the way flap levers are the world over.
     K.obox(add(kb, [0, 0, -dip]), [1, 0, 0], [0, 0, 1], [0, 1, 0], 0.026, 0.012, 0.014, 'dash', 0.15, [214, 218, 220]);
-    K.obox(add(kb, [0, 0, 0.0125 - dip]), [1, 0, 0], [0, 1, 0], [0, 0, 1], 0.022, 0.006, 0.001, 'dash', 0.3, T.glow, lit ? 0.9 : 0);
+    K.obox(add(kb, [0, 0, 0.0125 - dip]), [1, 0, 0], [0, 1, 0], [0, 0, 1], 0.022, 0.006, 0.001, 'dash', 0.3, T.glow, lit ? 0.6 + hand * 0.4 : 0);
+    K.obox(add(kb, [0, -0.0125, -dip]), [1, 0, 0], [0, 0, 1], [0, -1, 0], 0.027, 0.003, 0.001, 'dash', 0.3, al.rgb, lit ? 0.15 + hand * 0.85 : 0);
     const flash = pressPulse('m76:flap', R.flap);
     if (flash > 0.02) facingPanel(K, kb, 'dash', 0).annulus(0, 0, 0.034, 0.039, HALO, flash, 0.003, 18);
   }
 
-  // ── THE SIDESTICKS, outboard of each seat on a side console ──
+  // ── THE SIDESTICKS, outboard of each seat on a swept side console ──
+  const stHand = near('yoke', ['yoke']);
   for (const [x, own] of [[STICK.x, true], [2 * xC - STICK.x, false]]) {
     const st = stickAt(P, R, x), arm = st.base, s = x < xC ? -1 : 1;
-    K.box(arm[0] - 0.06, -0.3, zF, arm[0] + 0.06, arm[1] + 0.1, arm[2] - 0.005, 'dash', 0.05, T.graphite);
-    K.box(arm[0] - 0.055, -0.28, arm[2] - 0.006, arm[0] + 0.055, arm[1] - 0.05, arm[2] + 0.014, 'dash', 0.1, T.seat);
-    K.box(arm[0] + s * 0.061 - 0.003, -0.28, zF + 0.1, arm[0] + s * 0.061 + 0.003, arm[1] + 0.08, zF + 0.112, 'dash', 0.2, T.glow, 0.7 * amb);
+    const crings = [], pads = [];
+    for (let i = 0; i <= 8; i++) {
+      const y = lerp(-0.3, arm[1] + 0.1, i / 8);
+      crings.push(roundSection(arm[0], y, 0.06, zF, arm[2] - 0.005, 0.1));
+    }
+    sweep(K, crings, 'dash', 0.05, T.graphite);
+    K.face(crings[0].slice(), [0, -1, 0], 'dash', 0.05, T.graphiteLt);
+    K.face(crings[8].slice().reverse(), [0, 1, 0], 'dash', 0.05, T.graphiteLt);
+    // The leather pad the forearm rests on, a cushion along the console's top.
+    for (let i = 0; i <= 6; i++) pads.push(roundSection(arm[0], lerp(-0.28, arm[1] - 0.05, i / 6), 0.05, arm[2] - 0.008, arm[2] + 0.014, 0.018));
+    sweep(K, pads, 'dash', 0.1, T.seat);
+    lightLine(K, crings.map((r) => add(r[s < 0 ? 0 : 10], [-s * 0.002, 0, 0.11])), 0.003, al.rgb, lineK(0.7 * amb / Math.max(0.05, amb)));
+    const hand = own ? stHand : 0;
     K.rod(add(arm, [0, 0, -0.01]), add(arm, [0, 0, 0.012]), 0.035, 'dash', 0.1, T.tub, 0, 14);
-    K.torus(add(arm, [0, 0, 0.012]), [1, 0, 0], [0, 1, 0], 0.036, 0.004, 18, 'dash', 0.2, R.handsOn && own ? C.green : T.glow, lit ? 0.8 : 0);
+    K.torus(add(arm, [0, 0, 0.012]), [1, 0, 0], [0, 1, 0], 0.036, 0.004, 18, 'dash', 0.2, R.handsOn && own ? C.green : al.rgb, lit ? 0.5 + 0.5 * hand : 0);
     K.rod(add(arm, [0, 0, 0.012]), add(arm, mul(st.dir, 0.04)), 0.022, 'dash', -0.1, T.tub, 0, 10);
     K.rod(add(arm, mul(st.dir, 0.03)), st.top, 0.011, 'dash', 0.2, T.metal, 0, 8);
     const gdir = norm(add(st.dir, [0, 0.12, 0]));
     const gTop = add(st.top, mul(gdir, 0.09));
     K.rod(st.top, gTop, 0.022, 'dash', 0.05, T.graphiteLt, 0, 12);
     K.rod(add(gTop, mul(gdir, -0.005)), add(gTop, mul(gdir, 0.008)), 0.016, 'dash', 0.2, T.graphite, 0, 12);
-    K.obox(add(gTop, mul(gdir, 0.009)), [1, 0, 0], [0, 1, 0], gdir, 0.007, 0.007, 0.002, 'dash', 0.3, T.glow, lit ? 0.8 : 0);
+    K.obox(add(gTop, mul(gdir, 0.009)), [1, 0, 0], [0, 1, 0], gdir, 0.007, 0.007, 0.002, 'dash', 0.3, T.glow, lit ? 0.6 + 0.4 * hand : 0);
+    K.obox(add(st.top, add(mul(gdir, 0.05), [0, 0.021, 0])), [1, 0, 0], gdir, [0, 1, 0], 0.006, 0.012, 0.005, 'dash', 0.2, T.graphite);
   }
 
   // ── THE PEDALS: a pair for each seat, sliding on rails, one forward as the other comes back ──
@@ -694,12 +805,14 @@ export function m76Fit(P, live, push) {
       const c = [cx + dx, py + slide, pz];
       K.obox(c, [1, 0, 0], norm([0, -0.45, 0.89]), norm([0, 0.89, 0.45]), 0.045, 0.1, 0.008, 'dash', 0.05, T.graphite);
       K.obox(add(c, mul(norm([0, -0.89, -0.45]), -0.009)), [1, 0, 0], norm([0, -0.45, 0.89]), norm([0, 0.89, 0.45]), 0.038, 0.088, 0.002, 'dash', 0.1, T.tub);
+      // The pedal's own light strip, brighter the further it is pressed.
+      K.obox(add(c, mul(norm([0, -0.89, -0.45]), -0.012)), [1, 0, 0], norm([0, -0.45, 0.89]), norm([0, 0.89, 0.45]), 0.004, 0.07, 0.001, 'dash', 0.2, al.rgb, lit ? 0.3 + 0.7 * clamp(R.rud * sgn, 0, 1) : 0);
       K.rod(add(c, [0, 0, -0.06]), [cx + dx, py + slide, zF + 0.02], 0.012, 'dash', 0.2, T.metal, 0, 6);
       contactShadow(K, [cx + dx, py + slide, zF], [1, 0, 0], [0, 1, 0], [0, 0, 1], 0.05, 0.11);
     }
   }
 
-  // ── OVERHEAD: a graphite console between the eyebrow windows, a light line, the dome light ──
+  // ── OVERHEAD: a graphite console between the eyebrow windows, light lines, the dome light ──
   // ⚠ NO CONTROL THE SIM DOES NOT HAVE: the overhead is a fixture, lights and a grille, nothing to pull.
   {
     const D = P.m76;
@@ -712,8 +825,9 @@ export function m76Fit(P, live, push) {
       for (const [p, q] of [[a0, b0], [a1, b1]]) K.face([p, q, add(q, [0, 0, -0.04]), add(p, [0, 0, -0.04])], norm([p[0] < xC ? 1 : -1, 0, 0]), 'hdr', 0.05, T.graphite, 0);
     }
     const s0 = add(O(0.52, 90, 0.01), [0, 0, -0.042]), s1 = add(O(0.68, 90, 0.01), [0, 0, -0.042]);
-    K.rod(add(s0, [-0.07, 0, 0]), add(s1, [-0.07, 0, 0]), 0.004, 'hdr', 0.2, T.glow, Math.max(amb, 0.2), 5);
-    K.rod(add(s0, [0.07, 0, 0]), add(s1, [0.07, 0, 0]), 0.004, 'hdr', 0.2, T.glow, Math.max(amb, 0.2), 5);
+    const ohK = (lit ? al.k : 1) * Math.max(amb, 0.2);
+    K.rod(add(s0, [-0.07, 0, 0]), add(s1, [-0.07, 0, 0]), 0.004, 'hdr', 0.2, al.rgb, ohK, 5);
+    K.rod(add(s0, [0.07, 0, 0]), add(s1, [0.07, 0, 0]), 0.004, 'hdr', 0.2, al.rgb, ohK, 5);
     // The cabin air grille: a field of slots between the light lines (a fixture, not a control).
     for (let i = 0; i < 9; i++) for (const dx of [-0.035, 0.035]) {
       const c = add(O(0.6 + i * 0.008, 90, 0.01), [dx, 0, -0.0415]);
@@ -724,6 +838,99 @@ export function m76Fit(P, live, push) {
   }
 
   hotspotHalo(K, m76Hotspots(P, live), live);
+}
+
+// A console's section at `y`: a flat crown `top` high that rolls over into two vertical sides
+// `hw` either side of `cx`, `drop` of the roll, down to `z0`. Eleven points, floor to floor.
+function roundSection(cx, y, hw, z0, top, drop) {
+  const sec = [];
+  for (let j = 0; j <= 10; j++) {
+    const a = Math.PI * j / 10, sa = Math.sin(a);
+    const z = j === 0 || j === 10 ? z0 : Math.max(z0 + 0.005, top + 0.004 * sa - (1 - sa) * (1 - sa) * drop);
+    sec.push([cx - Math.cos(a) * hw, y, z]);
+  }
+  return sec;
+}
+const smooth01 = (t) => { const x = clamp(t, 0, 1); return x * x * (3 - 2 * x); };
+const lerp3 = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+
+// ── THE HUD'S FLAPS: four detents down the right edge, the selected one lit, and its name ──
+function hudFlaps(Hp, R, col) {
+  const fx = HUD.hw - 0.012;
+  for (let i = 0; i <= 3; i++) {
+    const y = -0.032 - i * 0.012, sel = i === R.flap;
+    Hp.rect(fx - (sel ? 0.008 : 0.004), y - (sel ? 0.0016 : 0.0008), fx + (sel ? 0.008 : 0.004), y + (sel ? 0.0016 : 0.0008), sel ? col : HUD_DIM, 1, 0.001);
+  }
+  Hp.text(['UP', '1', '2', 'F'][R.flap], fx - 0.002, -0.09, 0.011, col, 1, 0.001);
+}
+
+// ── THE HOLOGRAM: the Mule in miniature, 23 cm across ──
+// Her boxy hull as section rings and four chines, the high wing and its struts, the eight motors on
+// the leading edge with their props turning on the prop phase, each ringed in its bank's speed, the
+// turbogenerator on the crown, and the T-tail. Drawn off the hull's own stations (cabin-mule-2076.js),
+// so she is the shape of the aircraft outside. The frame is her pitch and bank.
+const HOLO_WING = [{ g: 0.12, le: 0.37, te: -0.12, h: 0.19 }, { g: 1.1, le: 0.33, te: -0.08, h: 0.198 }, { g: 1.15, le: 0.325, te: -0.075, h: 0.198 }];
+const HOLO_PROP = { f: 0.505, h: 0.165, r: 0.096 };
+function holoMule(K, c, R) {
+  const H = holoFrame(K, c, R.pitch, R.bank);
+  const sc = HOLO_AT.scale;
+  const M = (f, g, h) => [g * sc, (f - 0.05) * sc, (h - 0.08) * sc];
+  // The hull: section rings at five stations, and the crown, keel and four chines nose to tail.
+  const ST = [0.95, 0.81, 0.6, 0.3, -0.15, -0.44, -0.72, -0.92];
+  const ring = (f) => Array.from({ length: 13 }, (_, i) => { const q = mulePoint(f, -90 + i * 30); return M(q[0], q[1], q[2]); });
+  for (const f of [0.81, 0.6, -0.15, -0.58]) { const r = ring(f); for (let i = 0; i < 12; i++) H.line(r[i], r[i + 1], 0.0006); }
+  for (const a of [-90, -45, -135, 45, 135, 90]) {
+    const pts = [M(...MULE76_APEX), ...ST.map((f) => { const q = mulePoint(f, a); return M(q[0], q[1], q[2]); }), M(...MULE76_TAIL)];
+    for (let i = 0; i + 1 < pts.length; i++) H.line(pts[i], pts[i + 1], a === 90 || a === -90 ? 0.0008 : 0.0006);
+  }
+  // The windscreen, a lit plate across the nose.
+  {
+    const W = MULE76_GLASS.windscreen, pts = [];
+    for (const a of [0, 45, 90, 135, 180]) { const q = mulePoint(W.f[0] + 0.02, a); pts.push(M(q[0], q[1], q[2])); }
+    for (const a of [180, 135, 90, 45, 0]) { const q = mulePoint(W.f[1] - 0.04, a); pts.push(M(q[0], q[1], q[2])); }
+    for (let i = 0; i < 4; i++) H.plate([pts[i], pts[i + 1], pts[8 - i], pts[9 - i]], HOLO, 0.7);
+  }
+  // The high wing, each side a plate with its edges lined, a raked winglet, and a strut to the hull.
+  for (const s of [1, -1]) {
+    const le = HOLO_WING.map((w) => M(w.le, s * w.g, w.h)), te = HOLO_WING.map((w) => M(w.te, s * w.g, w.h));
+    for (let i = 0; i + 1 < le.length; i++) {
+      H.plate([le[i], le[i + 1], te[i + 1], te[i]], HOLO, 0.45);
+      H.line(le[i], le[i + 1], 0.0008); H.line(te[i], te[i + 1], 0.0007);
+    }
+    H.line(le[le.length - 1], te[te.length - 1], 0.0007);
+    H.line(M(0.3, s * 1.15, 0.2), M(0.02, s * 1.205, 0.3), 0.0007); H.line(M(0.02, s * 1.205, 0.3), M(-0.07, s * 1.15, 0.2), 0.0007);
+    // The flaps' hinge line, and each flap drawn down to the notch.
+    const fd = R.flap / 3 * 0.06;
+    H.line(M(-0.03, s * 0.15, 0.19), M(-0.01, s * 1.0, 0.196), 0.0005, HOLO);
+    H.line(M(-0.11 - fd * 0.3, s * 0.15, 0.19 - fd), M(-0.08 - fd * 0.3, s * 1.0, 0.196 - fd), 0.0007, R.flap ? HOLO_LINE : HOLO);
+    H.line(M(0.12, s * 0.14, -0.06), M(0.14, s * 0.62, 0.185), 0.0006);
+  }
+  // The eight motors: a nacelle along the chord, the prop disc ahead of it ringed in its bank's speed
+  // (the left four and the right four), and three blade lines turning on the prop phase.
+  MOTOR_G.forEach((g, i) => {
+    const e = g < 0 ? 0 : 1, frac = clamp(R.rpms[e] / 1.05, 0, 1), on = R.powered && R.rpms[e] > 0.02;
+    const hub = M(HOLO_PROP.f, g, HOLO_PROP.h), rr = HOLO_PROP.r * sc;
+    H.line(M(HOLO_PROP.f - 0.01, g, HOLO_PROP.h), M(0.12, g, HOLO_PROP.h + 0.02), 0.0012);
+    H.ring(hub, [1, 0, 0], [0, 0, 1], rr, 10, HOLO, 0.35);
+    if (frac > 0.01) H.ring(hub, [1, 0, 0], [0, 0, 1], rr * 1.12, Math.max(2, Math.round(12 * frac)), frac > 0.85 ? HOLO_LINE : HOLO_AMBER, on ? 1 : 0.4, Math.PI / 2, Math.PI / 2 - frac * TAU);
+    const dir = (i % 2 ? 1 : -1) * (g < 0 ? -1 : 1);
+    for (let b = 0; b < 3; b++) {
+      const t = (on ? R.phase * 2.4 * dir : 0) + b * TAU / 3 + i * 0.4;
+      H.line(hub, add(hub, [Math.cos(t) * rr * 0.92, 0, Math.sin(t) * rr * 0.92]), 0.0007, HOLO_LINE, on ? 1 : 0.5);
+    }
+  });
+  // The turbogenerator nacelle on the crown behind the wing, two rings and its spine.
+  H.line(M(-0.13, 0, 0.215), M(-0.42, 0, 0.215), 0.0008);
+  for (const f of [-0.16, -0.38]) H.ring(M(f, 0, 0.215), [1, 0, 0], [0, 0, 1], 0.035 * sc, 8, HOLO_LINE, 0.8);
+  // The fin, a plate with its edges, and the tailplane across its top.
+  const fin = [M(-0.55, 0, 0.13), M(-0.9, 0, 0.13), M(-0.97, 0, 0.56), M(-0.8, 0, 0.56)];
+  H.plate(fin, HOLO, 0.45);
+  for (let i = 0; i < 4; i++) H.line(fin[i], fin[(i + 1) % 4], i === 3 ? 0.0006 : 0.0008);
+  for (const s of [1, -1]) {
+    const tp = [M(-0.79, 0, 0.562), M(-0.86, s * 0.4, 0.566), M(-0.98, s * 0.4, 0.566), M(-0.965, 0, 0.562)];
+    H.plate(tp, HOLO, 0.45);
+    H.line(tp[0], tp[1], 0.0008); H.line(tp[1], tp[2], 0.0007); H.line(tp[2], tp[3], 0.0007);
+  }
 }
 
 // ── THE FLIGHT PAGE: attitude, speed and height tapes, a heading tape, the vertical speed ──
@@ -866,61 +1073,4 @@ function manifestPage(Pn, R, live) {
   const g = live && live.gpsTo;
   Pn.text('TO GO', -0.1, -0.082, 0.011, LBL, 0.5, 0.003);
   Pn.digits(0.01, -0.088, 0.014, g && Number.isFinite(g.dist) ? String(Math.min(999, Math.round(g.dist))).padStart(3, ' ') : '---', T.white, false);
-}
-
-// ── THE HEAD-UP DISPLAY: a tinted combiner over the pilot's screen ──
-// ⚠ BELOW THE EYE LINE: the forward view is kept clear (the gate casts a ray down it), so the
-// combiner stands under the line of sight and is read by looking a few degrees down. It carries the
-// low controls back up into the forward view: the stick in a box, the thrust up the left edge, the
-// pedals along the bottom, the flap notch down the right.
-function hud(K, P, R, lit) {
-  const c = [0.0, 0.64, -0.098];
-  const tilt = 0.3;   // the glass's top stays under the line of sight (the gate's forward ray)
-  const r = [1, 0, 0], u = norm([0, Math.sin(tilt), Math.cos(tilt)]);
-  for (const s of [-1, 1]) K.rod(add(c, [s * 0.125, 0, -0.1]), add(c, add([s * 0.125, 0, 0], mul(u, 0.08))), 0.006, 'dash', 0.2, T.graphite, 0, 6);
-  const Hp = K.panel(c, r, u, 'dash', 0.2);
-  Hp.rect(-0.12, -0.09, 0.12, 0.08, T.combiner, lit ? 0.4 : 0, 0.0);
-  if (!lit) return;
-  const G2 = [140, 255, 210], G3 = [90, 200, 170];
-  // The horizon line: rolls with the bank and slides with the pitch, clipped to the glass.
-  const b = -R.bank * DEG, off = clamp(-R.pitch / 25, -1, 1) * 0.06;
-  const cx = -Math.sin(b) * off, cz = Math.cos(b) * off;
-  const hx = Math.cos(b) * 0.1, hz = Math.sin(b) * 0.1;
-  for (const [s0, s1] of [[-1, -0.25], [0.25, 1]]) {
-    const a0 = [cx + hx * s0, cz + hz * s0], a1 = [cx + hx * s1, cz + hz * s1];
-    if (Math.abs(a0[1]) < 0.075 && Math.abs(a1[1]) < 0.075) Hp.plate([[a0[0], a0[1] - 0.0012], [a1[0], a1[1] - 0.0012], [a1[0], a1[1] + 0.0012], [a0[0], a0[1] + 0.0012]], G2, 1, 0.002);
-  }
-  Hp.annulus(0, 0, 0.008, 0.0105, G2, 1, 0.0025, 14);
-  Hp.rect(-0.026, -0.0011, -0.0105, 0.0011, G2, 1, 0.0025);
-  Hp.rect(0.0105, -0.0011, 0.026, 0.0011, G2, 1, 0.0025);
-  Hp.rect(-0.0011, 0.0105, 0.0011, 0.019, G2, 1, 0.0025);
-  // The sidestick in a box, with a moving dot.
-  const sx = -0.08, sy = -0.056, sb = 0.018;
-  for (const [a0, b0, a1, b1] of [[sx - sb, sy - sb, sx + sb, sy - sb + 0.0012], [sx - sb, sy + sb - 0.0012, sx + sb, sy + sb], [sx - sb, sy - sb, sx - sb + 0.0012, sy + sb], [sx + sb - 0.0012, sy - sb, sx + sb, sy + sb]]) Hp.rect(a0, b0, a1, b1, G3, 0.8, 0.0022);
-  Hp.rect(sx - 0.0005, sy - sb, sx + 0.0005, sy + sb, G3, 0.4, 0.0022);
-  Hp.rect(sx - sb, sy - 0.0005, sx + sb, sy + 0.0005, G3, 0.4, 0.0022);
-  Hp.disc(sx + R.ail * (sb - 0.003), sy + R.elev * (sb - 0.003), 0.0032, G2, 1, 0.0028, 10);
-  // The thrust, a caret each side of a rail up the left edge: the left bank's outboard, the right's
-  // inboard. Ganged, they meet at one height; split, the gap between them is the split.
-  const tx = -0.112, ty0 = -0.075, ty1 = 0.045;
-  Hp.rect(tx - 0.0008, ty0, tx + 0.0008, ty1, G3, 0.6, 0.0022);
-  const tyL = lerp(ty0, ty1, R.thrs[0]), tyR = lerp(ty0, ty1, R.thrs[1]);
-  Hp.plate([[tx - 0.002, tyL], [tx - 0.009, tyL + 0.004], [tx - 0.009, tyL - 0.004]], G2, 1, 0.0028);
-  Hp.plate([[tx + 0.002, tyR], [tx + 0.009, tyR - 0.004], [tx + 0.009, tyR + 0.004]], G2, 1, 0.0028);
-  // The pedals, a marker along the bottom.
-  const py = -0.082;
-  Hp.rect(-0.04, py - 0.0008, 0.04, py + 0.0008, G3, 0.6, 0.0022);
-  Hp.rect(-0.0006, py - 0.004, 0.0006, py + 0.004, G3, 0.6, 0.0022);
-  Hp.rect(R.rud * 0.036 - 0.0025, py - 0.004, R.rud * 0.036 + 0.0025, py + 0.004, G2, 1, 0.0028);
-  // The flaps: four detents down the right edge, the selected one lit, and its name.
-  const fx = 0.105;
-  for (let i = 0; i <= 3; i++) {
-    const y = -0.03 - i * 0.012, sel = i === R.flap;
-    Hp.rect(fx - (sel ? 0.008 : 0.004), y - (sel ? 0.0016 : 0.0008), fx + (sel ? 0.008 : 0.004), y + (sel ? 0.0016 : 0.0008), sel ? G2 : G3, sel ? 1 : 0.6, 0.0025);
-  }
-  Hp.text(['UP', '1', '2', 'F'][R.flap], fx, -0.083, 0.011, G2, 1, 0.0028);
-  // Speed left, height right, heading top.
-  Hp.digits(-0.1, -0.008, 0.013, String(Math.round(R.ias)).padStart(3, ' '), G2, false);
-  Hp.digits(0.04, -0.008, 0.013, String(Math.round(R.alt)).padStart(5, ' '), G2, false);
-  Hp.digits(-0.016, 0.056, 0.012, String(Math.round(((R.hdg % 360) + 360) % 360)).padStart(3, '0'), G2, false);
 }
