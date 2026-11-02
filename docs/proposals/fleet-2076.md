@@ -63,7 +63,7 @@ gate, the liveries gate, the full gate run and `tests/regress.js`.
 | --- | --- | --- | --- | --- |
 | Dragonfly | `heli` | charge | Built. Two-seat eight-rotor pod after the EHang EH216-S. | Built. |
 | Mule | `prop` | hydrogen | Being built. Blown-lift freighter after the Electra EL9: eight wing props, a hydrogen power unit, T-tail, rear ramp. | Sidesticks, flap lever, motors page. |
-| Mayfly | `ultralight` | charge | Being built. Single-seat tilting eVTOL after the Pivotal BlackFly and Helix. | Status lamp reads NO COVER. |
+| Mayfly | `ultralight` | charge | Being built. Single-seat tilting eVTOL after the BlackFly and Helix ultralights. | Status lamp reads NO COVER. |
 | Grasshopper | `grasshopper` | charge | Being built. Solar-electric tandem scout after the Airbus Zephyr, with a sensor ball. | Solar input from the hour, a sensor page. |
 | Locust | `locust` | charge | Being built. Electric hopper mothership after the Pyka Pelican, spray drones docked on the wing. | Spray and drone pages; drones show deployed only while spraying. |
 | Drake | `drake` | hydrogen | Design. A printed-to-order air yacht; the duck is a vanity hull. Compound coaxial after the Sikorsky Raider. | Keep its luxury; it already has the richest cockpit, so refit rather than replace. |
