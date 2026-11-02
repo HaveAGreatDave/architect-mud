@@ -227,15 +227,31 @@ game carries on behind it. With Comic on, that replay runs in four beats:
 
 1. **Run:** slow motion up to the moment, from a worm's-eye camera (`wormShot`): on the grass a
    dozen feet off, looking up. At the plate it's out in front on the side the batter faces; out
-   on the field it's on the home side of the play, moved along so it stands on the field.
-2. **Freeze** (1.4 s): the replay world stops on its moment. An impact flash, speed lines in
-   from the edges to a clear ring round the ball, yellow halftone growing into the corners, and
-   the sound lettered over it in Bungee with an ink outline and a red drop: CRACK! off the bat,
-   THWACK! into the glove, SNAP! at the bag, FWOOSH! round to third, BANG-BANG! at first.
-3. **After:** the rest in slow motion from the replay's own second camera.
-4. **Page** (2.8 s): the three beats as a comic page on paper: the moment big on the left, the
-   run-up above what followed on the right, each panel inked, turned a little and dropped in in
-   turn, the word over the moment and the play's words (HOME RUN!) in a yellow caption box.
+   on the field it's on the home side of the play, moved along so it stands on the field. The
+   picture is graded like ink on newsprint (a CSS filter on the canvas, `.gds-print`) and framed:
+   an ink border, a dot screen darkening the corners and a `SLOW MO` caption (`paintRun`).
+2. **Freeze** (1.4 s): the replay world stops on its moment, and the held frame is redrawn as a
+   printed panel (`printPanel`). A white flash, then a negative frame; the picture shaking; focus
+   lines in to a clear ring; an explosion balloon popping out round the ball (red with darker
+   Ben-Day dots, orange, yellow, a white core, each with an ink edge); motion streaks behind the
+   ball the way it's going; and the sound, hand lettered letter by letter in Bungee (each letter
+   its own tilt and a little bigger than the last, a deep red extrusion, a thick ink outline, a
+   yellow-to-orange face): `KRAKK!`, `KA-BLAM!` or `THWOCK!` off the bat, `THWAP!` into the glove, `SNAP!`
+   at the bag, `FWOOSH!` round to third, `BANG-BANG!` at first.
+3. **After:** the rest in slow motion from the replay's own second camera, framed `AND THEN...`
+4. **Page** (2.8 s): the three beats as a printed comic page: the moment big on the left with its
+   burst on the ball and its word breaking out of the frame, the run-up above what followed on
+   the right, captioned in Permanent Marker by kind (`THE PITCH...` / `...AND IT'S OUTTA HERE!`),
+   the play told in a narration box in the big panel, and the headline (`HOME RUN!`) across the
+   top.
+
+**The print.** `printPanel` lifts the frame's mid-tones (a night game posterized as it comes is
+mostly black), pushes saturation and contrast, flattens each channel to five inks, makes the
+darkest solid ink, lays Ben-Day dots on a 45° screen through the half-tones, and inks every
+brightness step (a Sobel edge). It runs once a panel, never per frame: the moment's frame and the
+run-up's under the freeze's flash, what followed's as the page starts. About 30 ms for a 720-wide
+frame on a desktop, 120 under software GL. A canvas that can't hand back its pixels gets the plain
+shot back; the diamond smoke caught a throw there that would have stopped the grandstand's frame.
 
 - **The lean.** The camera never rolls (diamond/camera.js), so the tilt is the picture's: a class
   on the park's box turns the canvas and the overlay 6° (and enlarges them 1.14 so the corners
@@ -252,7 +268,13 @@ game carries on behind it. With Comic on, that replay runs in four beats:
   trot, so a full comic replay (at most 8.5 s of slow motion, the freeze and the page, about
   12.7 s) fits, taking the extra from the reset. Every other play with a replay has the same 20 s.
 - **Checked** in Chrome: the freeze and the page painted over real frames from the park renderer
-  (the Pose Lab, with Comic on) in the HUD's own Bungee.
+  (the Pose Lab, with Comic on) in the HUD's own faces, and a home run in the sandbox page
+  (tools/sandbox/deadball-park-test.html?park=3d&play=hr) going through its beats in the real
+  grandstand. Software GL draws the park at a frame or two a second, too slow to watch the freeze
+  move, so look at one on a real GPU.
 - **Gate:** scripts/shapes/comic-replay.mjs checks the length and the step-down, the camera
   (low, on the field, aimed at the moment, out in front at the plate), the panel times, the
-  words, the page layout at three shapes, and that the painters draw at every beat.
+  words, the page layout at three shapes, and that the painters draw at every beat. The diamond smoke plays a third replayed home run with Comic on through the real grandstand: run,
+  freeze, after and page in order, the replay world still on its moment for the freeze's length,
+  on to the end of its window after, all three panels taken, and the worm's-eye camera for the
+  run and the freeze.

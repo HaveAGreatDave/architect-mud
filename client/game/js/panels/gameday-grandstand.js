@@ -493,14 +493,24 @@ export function createGrandstandView(host, opts = {}) {
     let ball = null;
     try { ball = replay.W.ballAt?.(replay.key); } catch { ball = null; }
     if (!(Array.isArray(ball) && ball.every(Number.isFinite))) ball = (replay.shot && typeof replay.shot === 'object' && replay.shot.at) || [0, 3, 1];
+    // the way the ball's going from its moment, a few hundredths on, for the freeze's streaks
+    let after = null;
+    try { after = replay.W.ballAt?.(replay.key + 0.05); } catch { after = null; }
     replay.comic = {
-      phase: 'run', spec, page: due.comic === 'page', panels: [null, null, null], grab: -1, until: 0, at: 0,
+      phase: 'run', spec, page: due.comic === 'page', panels: [null, null, null], prints: [null, null, null], grab: -1, until: 0, at: W.t,
       word: C.comicWordOf(replay.kind, due.p.desc || ''),
       words: mods.hud.HUD_THEME.words[due.p.kind] || mods.hud.HUD_THEME.words[replay.kind] || mods.hud.HUD_THEME.words.replay,
-      ball, worm: C.wormShot(ball, due.p.bats),
+      desc: due.p.desc || '', captions: C.comicCaptionsOf(replay.kind), seed: (due.p.desc || replay.kind || '').length * 7 + 3,
+      ball, after: Array.isArray(after) && after.every(Number.isFinite) ? after : null, worm: C.wormShot(ball, due.p.bats),
+      // where the moment is on screen as fractions, and the way the ball's going there: at the freeze
+      at01: null, dir: null,
     };
-    lean(1);
+    C.loadComicFaces(doc);
+    lean(1); print(true);
   }
+  // the newsprint grade on the moving picture, through the run and what follows (a filter on the
+  // canvas, no pixel work); the freeze and the page are printed for real (comic.js printPanel)
+  function print(on) { canvas?.parentElement?.classList.toggle('gds-print', !!on); }
   function lean(dir) {
     const box = canvas?.parentElement;
     if (!box) return;
@@ -521,25 +531,26 @@ export function createGrandstandView(host, opts = {}) {
       if (RW.t >= sp.key - 1e-9) {
         C.phase = 'freeze'; C.at = W.t; C.until = W.t + mods.comic.COMIC.freeze; C.grab = 1;
         try { const b = RW.ballAt?.(RW.t); if (Array.isArray(b) && b.every(Number.isFinite)) C.ball = b; } catch { /* keep the one it had */ }
+        print(false);
       }
     } else if (C.phase === 'freeze') {
       if (W.t >= C.until) {
-        C.phase = 'after';
+        C.phase = 'after'; C.at = W.t;
         // the second angle for what follows, leaning the other way
         if (!opts.shot) shot = replay.shot;
-        lean(-1);
+        lean(-1); print(true);
       }
     } else if (C.phase === 'after') {
       run(sp.to);
       if (C.panels[2] === null && C.grab < 0 && RW.t >= P(sp, 2)) C.grab = 2;
       if (RW.t >= sp.to - 1e-9) {
         // the page, if the slot had room for it
-        if (C.page) { C.phase = 'page'; C.at = W.t; C.until = W.t + mods.comic.COMIC.page; lean(0); } else endReplay();
+        if (C.page) { C.phase = 'page'; C.at = W.t; C.until = W.t + mods.comic.COMIC.page; lean(0); print(false); } else endReplay();
       }
     } else if (C.phase === 'page' && W.t >= C.until) endReplay();
   }
   function comicPaint() {
-    const C = replay.comic, g = comicCanvas?.getContext('2d');
+    const C = replay.comic, g = comicCanvas?.getContext('2d'), M = mods.comic;
     if (C.grab >= 0) {
       try {
         const k = Math.min(1, 720 / Math.max(1, canvas.width)), c = doc.createElement('canvas');
@@ -547,20 +558,34 @@ export function createGrandstandView(host, opts = {}) {
         c.getContext('2d').drawImage(canvas, 0, 0, c.width, c.height);
         C.panels[C.grab] = c;
       } catch { C.panels[C.grab] = false; }
+      // the moment's frame and the run-up's printed now, under the freeze's flash, which hides the
+      // few tens of ms it takes; what followed is printed when the page starts, before its panel's in
+      if (C.grab === 1) for (const i of [1, 0]) if (C.panels[i] && !C.prints[i]) C.prints[i] = M.printPanel(doc, C.panels[i]);
       C.grab = -1;
     }
     if (!g) return;
-    const w = comicCanvas.width, h = comicCanvas.height;
+    const w = comicCanvas.width, h = comicCanvas.height, t = W.t - C.at;
     g.clearRect(0, 0, w, h);
-    if (C.phase === 'freeze') {
-      const q = C.ball ? mods.project(view(), w, h, C.ball) : null;
-      mods.comic.paintFreeze(g, w, h, q ? q.x : NaN, q ? q.y : NaN, C.word, W.t - C.at);
+    if (C.phase === 'run' || C.phase === 'after') {
+      M.paintRun(g, w, h, t, C.phase === 'after' ? 1 : 0);
+    } else if (C.phase === 'freeze') {
+      const v = view(), q = C.ball ? mods.project(v, w, h, C.ball) : null;
+      // the moment on screen once, at the freeze's first frame: for the burst on the page, and the
+      // way the ball's going there, for the streaks
+      if (!C.at01 && q && Number.isFinite(q.x) && Number.isFinite(q.y)) {
+        C.at01 = [q.x / w, q.y / h];
+        const q2 = C.after ? mods.project(v, w, h, C.after) : null;
+        if (q2 && Number.isFinite(q2.x) && Number.isFinite(q2.y) && Math.hypot(q2.x - q.x, q2.y - q.y) > 1) C.dir = [q2.x - q.x, q2.y - q.y];
+      }
+      M.paintFreeze(g, w, h, q ? q.x : NaN, q ? q.y : NaN, C.word, t, { print: C.prints[1], dir: C.dir, seed: C.seed });
     } else if (C.phase === 'page') {
-      mods.comic.paintPage(g, w, h, C.panels.map((x) => x || null), C.word, C.words, W.t - C.at);
+      if (C.panels[2] && !C.prints[2]) C.prints[2] = M.printPanel(doc, C.panels[2]);
+      M.paintPage(g, w, h, C.prints.map((x, i) => x || C.panels[i] || null), C.word, C.words, t,
+        { desc: C.desc, captions: C.captions, at: C.at01, seed: C.seed });
     }
   }
   function comicClear() {
-    lean(0);
+    lean(0); print(false);
     const g = comicCanvas?.getContext('2d');
     if (g) g.clearRect(0, 0, comicCanvas.width, comicCanvas.height);
   }

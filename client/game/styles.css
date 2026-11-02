@@ -12560,6 +12560,10 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .gds-comic { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 4; pointer-events: none; }
 .gds-park .gds-canvas, .gds-park .gds-comic { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .gds-park.gds-lean .gds-canvas, .gds-park.gds-lean .gds-comic { transform: rotate(var(--gds-lean, 0deg)) scale(var(--gds-zoom, 1)); }
+/* The comic replay's slow motion graded like ink on newsprint: punchier contrast and colour on the
+   moving picture, with no pixel work (the freeze and the page are printed for real). */
+.gds-park .gds-canvas { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.3s ease; }
+.gds-park.gds-print .gds-canvas { filter: contrast(1.22) saturate(1.55) brightness(1.06); }
 @media (prefers-reduced-motion: reduce) { .gds-park .gds-canvas, .gds-park .gds-comic { transition: none; } }
 .gds-cap {
 	flex: 0 0 auto; display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 5px 10px 5px 6px;
