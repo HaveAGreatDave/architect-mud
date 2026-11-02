@@ -23147,6 +23147,8 @@ function liveInstruments(v) {
     weaponsArmed: v.weaponsArmed, weapon: v.weapon, bombs: v.bombs, missiles: v.missiles, ammo: v.ammo,
     diveBrake: v.diveBrake, siren: v.siren, spraying: v.spraying,
     ...(v.drakeCab || null), hour: v.hour,
+    // The sky's word, for a page that reckons the sun through it (the Grasshopper 2076's solar input).
+    weather: v.weather,
     // The rotor phase cockpit.js integrates for the exterior: a display that shows rotors turns them on it.
     phase: v.propPhase,
   };

@@ -78,7 +78,7 @@ gate, the liveries gate, the full gate run and `tests/regress.js`.
 | Dragonfly | `heli` | charge | Built. Two-seat eight-rotor pod after the EHang EH216-S. | Built to the 2076 bar: the reference. |
 | Mule | `prop` | hydrogen | Built. Blown-lift freighter after the Electra EL9: eight wing props, a hydrogen power unit, T-tail, rear ramp. | Built; being brought up to the 2076 bar. Split throttles by bank. |
 | Mayfly | `ultralight` | charge | Being built. Single-seat tilting eVTOL after the BlackFly and Helix ultralights. | Status lamp reads NO COVER. |
-| Grasshopper | `grasshopper` | charge | Being built. Solar-electric tandem scout after the Airbus Zephyr, with a sensor ball. | Solar input from the hour, a sensor page. |
+| Grasshopper | `grasshopper` | charge | Built. Solar-electric tandem scout after the Airbus Zephyr: a celled wing on a pylon, a slender pod, a chin sensor ball. | Built to the 2076 bar: solar input from the hour and the weather, a sensor page, a hologram with a sunlit wing. |
 | Locust | `locust` | charge | Being built. Electric hopper mothership after the Pyka Pelican, spray drones docked on the wing. | Spray and drone pages; drones show deployed only while spraying. |
 | Drake | `drake` | hydrogen | Design. A printed-to-order air yacht; the duck is a vanity hull. Compound coaxial after the Sikorsky Raider. | Keep its luxury; it already has the richest cockpit, so refit rather than replace. |
 | Shrike | `divebomber` | jet | Design. Optionally crewed dive striker; the dive siren becomes a push alert to every tablet in the target zone. | Dive page; the alert's countdown. |

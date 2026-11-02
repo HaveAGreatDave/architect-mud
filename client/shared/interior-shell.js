@@ -155,6 +155,7 @@ import { skiffProfile } from './interior-skiff.js';
 const OPEN_BOAT_PROFILES = {};
 export const openBoatProfileFor = (id) => (OPEN_BOAT_PROFILES[id] ||= skiffProfile(BOAT_ROWS[id], id));
 import { grasshopperProfile, CUB_TRIM } from './interior-grasshopper.js';
+import { grasshopper2076Profile } from './interior-grasshopper-2076.js';
 import { defaultLivery, aircraftLiveryModel } from './livery-sets.js';
 const CRAFT_PROFILE = {};
 const craftProfile = (id, build) => (CRAFT_PROFILE[id] ||= build());
@@ -292,6 +293,8 @@ export const SHELL_PROFILES = {
   get dragonfly2076() { return craftProfile('dragonfly2076', dragonfly2076Profile); },
   // The Mule 2076 concept body's flight deck, picked by its edition like the Dragonfly's.
   get mule2076() { return craftProfile('mule2076', mule2076Profile); },
+  // The Grasshopper 2076 concept body's front seat, picked by its edition like the Dragonfly's.
+  get grasshopper2076() { return craftProfile('grasshopper2076', grasshopper2076Profile); },
   // The generic bubble the Dragonfly used to borrow, kept as the reference `bubbleRoom` shape.
   bubble: {
     label: 'helicopter bubble',
@@ -424,6 +427,7 @@ export function shellProfileFor(cls, armed = false, trim = null) {
   // different airframe (mesh_heli_2076.json) and sits in its own pod.
   if (cls === 'heli' && trim === '2076') return SHELL_PROFILES.dragonfly2076;
   if (cls === 'prop' && trim === '2076') return SHELL_PROFILES.mule2076;
+  if (cls === 'grasshopper' && trim === '2076') return SHELL_PROFILES.grasshopper2076;
   if (cls === 'drake' && trim === 'noir') return SHELL_PROFILES.drakeNoir;
   if (cls === 'drake' && trim === 'quackhawk') return SHELL_PROFILES.drakeQuackhawk;
   const key = cls && SHELL_CLASS[cls];
