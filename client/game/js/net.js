@@ -5,6 +5,7 @@ import { autoLoginMessage, setRemember } from './remember.js';
 import { sessionGet, sessionRemove } from './session-store.js';
 import { rememberClientError } from './feedback-telemetry.js';
 import { emailProblem, suggestEmail } from '/shared/email-check.js';
+import { usernameProblem, normalizeUsername } from '/shared/username-check.js';
 
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${WS_PROTOCOL}//${location.host}`;
@@ -333,6 +334,15 @@ export function doAuth() {
   if (state.isRegister && !handle) { errEl.textContent = 'Handle required.'; errEl.style.color = ''; return; }
   if (state.isRegister && !email) { errEl.textContent = 'Email required.'; errEl.style.color = ''; return; }
   if (state.isRegister && emailCaught(email, errEl)) return;
+  if (state.isRegister) {
+    const badName = usernameProblem(username);
+    if (badName) {
+      errEl.textContent = badName;
+      errEl.style.color = 'var(--red)';
+      document.getElementById('auth-username').focus();
+      return;
+    }
+  }
 
   if (_connection?.isConnecting()) {
     errEl.textContent = 'Still connecting to server... try again in a moment.';
@@ -378,7 +388,7 @@ export function doAuth() {
     fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, handle, email, displayRung }),
+      body: JSON.stringify({ username: normalizeUsername(username), password, handle, email, displayRung }),
     }).then(r => r.json()).then(data => {
       clearTimeout(state.authTimeout);
       state.authPending = false;
