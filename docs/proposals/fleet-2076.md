@@ -1,7 +1,8 @@
 # The 2076 fleet
 
-**Status: Dragonfly 2076 built (body and cockpit, 2026-11-01); the Mule, Mayfly, Grasshopper and
-Locust are being built; the rest is design.** Every aircraft gets a 2076 body and a 2076 cockpit,
+**Status: Dragonfly 2076 built (body, and a cockpit to the 2076 bar, 2026-11-02); Mule 2076 body
+and cockpit built, its cockpit being brought up to the bar; the Mayfly and Grasshopper are being
+built; the rest is design.** Every aircraft gets a 2076 body and a 2076 cockpit,
 worn as its "2076" factory edition beside the vintage one. This file is the brief a build works
 from: the canon, the pattern to copy, the standard every build is held to, and the plan for each
 aircraft.
@@ -54,6 +55,19 @@ The Dragonfly 2076 is the reference. Read these before building another:
 5. **Lettering.** Only A to Z, 0 to 9, hyphen, slash and space; nothing under the legibility ratchet;
    every lettered panel faces the eye. No em dashes in anything a player reads.
 
+6. **The 2076 bar** (2026-11-02: "futuristic them considerably"). Every 2076 cockpit has all four:
+   - **Wraparound glass.** One curved band of glass across a swept dash, door to door, with every
+     page, key and lamp lying on it (`glassBand`, `bandFrame` in `interior-cockpit-kit.js`).
+   - **A projected HUD and a hologram.** Conformal symbology in the windscreen with the low
+     controls mirrored in its corners and nothing on the boresight (`windscreenHud`); a translucent
+     miniature of the aircraft over the dash that pitches, banks and spins its props with her, on a
+     projector whose arc is a real value (`holoFrame`, `holoProjector`).
+   - **A sculpted interior.** Dash and console swept, not boxed (`sweep`), with light lines along
+     the lips (`lightLine`) in the alert colour: teal, amber, a red that breathes (`alertLight`).
+   - **Animated life.** Pages boot in turn when the power comes on (`bootAge` off `live.powerAge`,
+     `reveal`), and controls light as the hand comes over them (`live.hover`). Decoration may move
+     on wall time; a readout still moves only on a live value.
+
 Each build passes its own cockpit gate, the controls gate, the shell gate, the aircraft's old cockpit
 gate, the liveries gate, the full gate run and `tests/regress.js`.
 
@@ -61,8 +75,8 @@ gate, the liveries gate, the full gate run and `tests/regress.js`.
 
 | Aircraft | Class | Fuel | 2076 body | Cockpit notes |
 | --- | --- | --- | --- | --- |
-| Dragonfly | `heli` | charge | Built. Two-seat eight-rotor pod after the EHang EH216-S. | Built. |
-| Mule | `prop` | hydrogen | Being built. Blown-lift freighter after the Electra EL9: eight wing props, a hydrogen power unit, T-tail, rear ramp. | Sidesticks, flap lever, motors page. |
+| Dragonfly | `heli` | charge | Built. Two-seat eight-rotor pod after the EHang EH216-S. | Built to the 2076 bar: the reference. |
+| Mule | `prop` | hydrogen | Built. Blown-lift freighter after the Electra EL9: eight wing props, a hydrogen power unit, T-tail, rear ramp. | Built; being brought up to the 2076 bar. Split throttles by bank. |
 | Mayfly | `ultralight` | charge | Being built. Single-seat tilting eVTOL after the BlackFly and Helix ultralights. | Status lamp reads NO COVER. |
 | Grasshopper | `grasshopper` | charge | Being built. Solar-electric tandem scout after the Airbus Zephyr, with a sensor ball. | Solar input from the hour, a sensor page. |
 | Locust | `locust` | charge | Being built. Electric hopper mothership after the Pyka Pelican, spray drones docked on the wing. | Spray and drone pages; drones show deployed only while spraying. |
