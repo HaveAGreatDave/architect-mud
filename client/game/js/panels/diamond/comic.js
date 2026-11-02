@@ -107,7 +107,9 @@ export function wormShot(s, bats = 'R') {
 // keeps its own second camera.
 export function followShot(s, bats = 'R') {
   if (!Array.isArray(s) || !s.every(Number.isFinite) || Math.hypot(s[0], s[2]) >= 20) return null;
-  const side = bats === 'L' ? 1 : -1, eye = [-side * 11, 4, -9], aim = [-side * 1, 10, 45];
+  // aimed out past the batter's own side, so he stands a quarter of the way into the frame: aimed
+  // up the middle, he was at its very edge (projected, and seen on a real replay)
+  const side = bats === 'L' ? 1 : -1, eye = [-side * 11, 4, -9], aim = [side * 11, 10, 45];
   return { shot: 'fly', eye, at: aim, fov: 48, follow: 0, dof: 0, track: () => aim };
 }
 

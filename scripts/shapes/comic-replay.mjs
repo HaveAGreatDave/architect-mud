@@ -13,6 +13,7 @@
 import { COMIC, COMIC_WORDS, comicWordOf, comicLength, comicFit, wormShot, followShot, freezeLayout, tellsMore, panelAt, pageLayout, paintFreeze, paintPage } from '../../client/game/js/panels/diamond/comic.js';
 import { REPLAY } from '../../client/game/js/panels/diamond/replay.js';
 import { onField } from '../../client/game/js/panels/diamond/play.js';
+import { project } from '../../client/game/js/panels/diamond/camera.js';
 
 let fails = 0;
 const check = (ok, what, detail = '') => { if (!ok) { fails++; console.error('✗ ' + what + (detail ? ` (${detail})` : '')); } };
@@ -51,7 +52,13 @@ for (const bats of ['R', 'L']) {
   check(f && Math.sign(f.eye[0]) === -side, `followShot ${bats}: off the batter's own shoulder`, JSON.stringify(f?.eye));
   // clear of the umpire and the catcher, who stand on the line behind the plate (x near 0, z -2 to -5):
   // where the line from the eye to the batter crosses z -3.5, it's well out to his side
-  const bx = -side * 2.5, k = (f.eye[2] - -3.5) / (f.eye[2] - 0), xAt = f.eye[0] + (bx - f.eye[0]) * k;
+  const bx = -side * 3.25, k = (f.eye[2] - -3.5) / (f.eye[2] - 0), xAt = f.eye[0] + (bx - f.eye[0]) * k;
+  // and he's in the frame, well in from its edge (the cast stands him 3.25 ft off the plate, cast.js)
+  for (const [w, h] of [[720, 352], [900, 600]]) {
+    const head = project(f, w, h, [bx, 5.8, 0.75]), umpire = project(f, w, h, [0.5, 4, -4]);
+    check(head && head.x > w * 0.12 && head.x < w * 0.88 && head.y > 0 && head.y < h, `followShot ${bats} ${w}×${h}: the batter in the frame, in from its edge`, head ? `${(head.x / w).toFixed(2)}, ${(head.y / h).toFixed(2)}` : 'behind');
+    check(!umpire || umpire.x < 0 || umpire.x > w, `followShot ${bats} ${w}×${h}: the umpire out of the frame`, umpire ? `${(umpire.x / w).toFixed(2)}` : '');
+  }
   check(f && Math.abs(xAt) > 4.5, `followShot ${bats}: the umpire and the catcher aren't between it and the batter`, `${xAt.toFixed(1)} ft off the line behind the plate`);
 }
 check(followShot([120, 8, 260]) === null && followShot(null) === null, 'followShot: none out on the field');
