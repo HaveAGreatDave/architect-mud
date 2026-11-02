@@ -1,0 +1,20 @@
+{
+  "blurb": "Concept. The Locust fifty years on: a battery hopper with ten spray drones on the wing, the yellow and the green kept.",
+  "default": false,
+  "exterior": {
+    "base": "#e6be2c",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#1e3d2e",
+    "variant": "2076"
+  },
+  "id": "2076",
+  "interior": {
+    "cabin": "#22282a",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "locust",
+  "name": "Locust 2076",
+  "unlock": null
+}

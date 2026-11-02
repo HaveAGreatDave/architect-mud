@@ -148,6 +148,8 @@ import { dragonfly2076Profile } from './interior-dragonfly-2076.js';
 import { mule2076Profile } from './interior-mule-2076.js';
 // The Mayfly 2076 concept's pod (interior-mayfly-2076.js), worn with the ultralight's 2076 edition.
 import { mayfly2076Profile } from './interior-mayfly-2076.js';
+// The Locust 2076 concept's cockpit (interior-locust-2076.js), worn with the locust class's 2076 edition.
+import { locust2076Profile } from './interior-locust-2076.js';
 import { viperProfile, VIPER_TRIM } from './interior-viper.js';
 import { carcassProfile } from './interior-carcass.js';
 // The podracer's open tub (interior-podracer.js). Its turbines are the craft's own mesh, drawn from the seat.
@@ -299,6 +301,8 @@ export const SHELL_PROFILES = {
   get mayfly2076() { return craftProfile('mayfly2076', mayfly2076Profile); },
   // The Grasshopper 2076 concept body's front seat, picked by its edition like the Dragonfly's.
   get grasshopper2076() { return craftProfile('grasshopper2076', grasshopper2076Profile); },
+  // The Locust 2076 concept body's cockpit, picked by its edition like the Dragonfly's.
+  get locust2076() { return craftProfile('locust2076', locust2076Profile); },
   // The generic bubble the Dragonfly used to borrow, kept as the reference `bubbleRoom` shape.
   bubble: {
     label: 'helicopter bubble',
@@ -433,6 +437,7 @@ export function shellProfileFor(cls, armed = false, trim = null) {
   if (cls === 'prop' && trim === '2076') return SHELL_PROFILES.mule2076;
   if (cls === 'ultralight' && trim === '2076') return SHELL_PROFILES.mayfly2076;
   if (cls === 'grasshopper' && trim === '2076') return SHELL_PROFILES.grasshopper2076;
+  if (cls === 'locust' && trim === '2076') return SHELL_PROFILES.locust2076;
   if (cls === 'drake' && trim === 'noir') return SHELL_PROFILES.drakeNoir;
   if (cls === 'drake' && trim === 'quackhawk') return SHELL_PROFILES.drakeQuackhawk;
   const key = cls && SHELL_CLASS[cls];

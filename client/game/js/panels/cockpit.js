@@ -2577,6 +2577,8 @@ export function openFlightSim(opts = {}) {
       'ck:flaps': () => ckFlap(),
       'ck:gear': () => toggleGear(),
       'ck:arm': () => q('#fsim-arm')?.click(),
+      // The Locust 2076's SPRAY key: the same pass the SPRAY button flies (the server gates it).
+      'ck:spray': () => q('#fsim-spraybtn')?.click(),
       'ck:gps': () => gpsOpen(),
       power: ckMaster,
       lights: () => F.toggleLand?.(),
@@ -2673,6 +2675,7 @@ export function openFlightSim(opts = {}) {
       'ck:flaps': () => ['FLAPS', `${['UP', '1', '2', 'FULL'][Math.round(clampNum(F.input.flaps || 0, 0, 1) * 3)]} · click for the next notch`],
       'ck:gear': () => ['GEAR', F.gearUp ? 'up · click to lower' : 'down · click to raise'],
       'ck:arm': () => ['MASTER ARM', F.armed ? 'ARMED · click to make safe' : 'SAFE · click to arm'],
+      'ck:spray': () => ['SPRAY', F.sprayT && performance.now() - F.sprayT < 1900 ? 'valve open · the drones are out' : 'click to spray a pass (airborne and low)'],
       'ck:gps': () => ['GPS', F.gpsDest && F.apTargetId === 'gps' ? `to ${F.gpsDest.name} · click to change` : 'click to pick a destination (P)'],
       power: () => ['POWER', `engine master · ${onOff(!!F.engineOn)}`],
       lights: () => ['LIGHTS', `landing lights · ${onOff(!!F.landingLight)}`],
@@ -4187,7 +4190,9 @@ function fsimFrameBody(now) {
     // Surface deflection for the external model; touch auto-coordinates the rudder into the roll.
     ctrl: F.external ? { aileron: F.input.aileron, elevator: clampNum(F.input.elevator + (F.input.trim || 0), -1, 1), flaps: F.input.flaps, rudder: clampNum((F.input.pedal || 0) + (_touchPrimary ? 0.5 * F.input.aileron : 0), -1, 1) } : null,
     gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
-    anim: F.dk ? drakeAnim(F.dk) : undefined,
+    // The Locust 2076's spray drones fly out on `spray` while she sprays and dock again after, about a
+    // second each way (mesh_locust_2076.json; the stock body has nothing on the channel).
+    anim: F.dk ? drakeAnim(F.dk) : F.cls === 'locust' ? { spray: (F.droneOut = clampNum((F.droneOut || 0) + ((F.sprayT && performance.now() - F.sprayT < 1900) ? dt : -dt) * 1.1, 0, 1)) } : undefined,
     drakeCab: F.dk ? { ...drakeAnim(F.dk), ramp: F.dk.ramp, nv: F.dk.nv, gunsArmed: F.armed, gear: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
       quack: !!F.dk.quackHeld || performance.now() - F.dk.quackT < 400, champagne: DK_CHAMPAGNE, quackP: F.dk.quackHeld ? Math.min(1, (performance.now() - F.dk.quackT) / QUACK_SQUEEZE_MS) : 0, ammo: F.gunRounds, convert: F.dk.conv, wingTarget: !!F.dk.wing,
       hover: F.dkHover || null, press: F.dkPress && performance.now() - F.dkPress.t < 220 ? F.dkPress.id : null,
