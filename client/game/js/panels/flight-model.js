@@ -23,6 +23,7 @@ const DIVE_SHED = 0.2;
 const SLIP_DRAG = 0.0005;   // extra drag ∝ V² per unit slip, sized so a slip holds speed while it sinks
 const SLIP_SINK = 4.0;      // extra sink per unit slip, fpm per knot of airspeed
 const GROUND_EFFECT_FT = 26;      // AGL lift-cushion band; kept low so she doesn't float down the runway
+const GE_LIFT = 0.12;             // extra lift for the same α on the deck, fading out by the top of the band
 const HELI_GROUND_EFFECT_FT = 40; // AGL band (~a rotor diameter) of downwash cushion
 
 // ── Per-airframe tuning ───────────────────────────────────────────────────────
@@ -1441,7 +1442,16 @@ export function step(state, input, p, dt) {
 
   // 6. Angle of attack: α = pitch − γ, the one number for lift, drag, stall, buffet and g. γ lags the
   //    nose by vsTau, so a fast pull spikes α (an accelerated stall). 1 kt = 101.33 ft/min.
-  const flapLiftF = 1 + flaps * p.flapLift;                       // flaps: less AoA to stay up
+  // Ground effect, measured from the deck under her (groundFt), never from sea level: a roof pad
+  // cushions like a field. geBand is about a wingspan, scaled with mass. Inside it the ground stops
+  // the downwash, so the wing makes more lift for its α (GE_LIFT) and less induced drag (geInd, the
+  // Wieselsberger factor (16h/b)²/(1+(16h/b)²)). A fast flare floats; an on-speed one settles.
+  const geBand = GROUND_EFFECT_FT * (0.7 + 0.3 * (p.mass || 1));
+  const agl = s.altitude - (s.groundFt || 0);
+  const geLift = s.onGround ? 1 : clamp(1 - agl / geBand, 0, 1);   // 0 at the top of the band → 1 on the deck
+  const hb = 16 * Math.max(0, agl) / geBand;
+  const geInd = s.onGround ? 0.35 : Math.max(0.35, (hb * hb) / (1 + hb * hb));
+  const flapLiftF = (1 + flaps * p.flapLift) * (1 + GE_LIFT * geLift * geLift);   // flaps (and the ground): less AoA to stay up
   const wingLiftMult = bothWings ? 0.15 : (oneWing ? 0.55 : 1);   // sheared wing loses lift
   const gamma = Math.atan2(s.vs / 101.33, Math.max(1, s.airspeed)) * R2D;
   s.aoa = clamp(s.pitch - gamma, -25, 60);
@@ -1505,18 +1515,14 @@ export function step(state, input, p, dt) {
   if (vsTarget > 0) vsTarget *= clamp((ceil - s.altitude) / (ceil * 0.4), 0, 1);
   // Rising air (thermals.js), after the ceiling fade and not scaled by mass.
   if (!s.onGround && input.lift) vsTarget += input.lift;
-  // Ground effect: the band scales with mass (a wingspan), and inside it the vertical lag shortens so
-  // the sink actually comes off before touchdown.
-  const geBand = GROUND_EFFECT_FT * (0.7 + 0.3 * (p.mass || 1));
-  let geLift = 0;
-  if (!s.onGround && vsTarget < 0 && s.altitude < geBand) {
-    geLift = 1 - s.altitude / geBand;      // 0 at the top of the band → 1 on the deck
-    vsTarget *= 1 - 0.6 * geLift * geLift; // softens the sink without cancelling it
-  }
+  // The cushion (geLift, §6): inside the band the sink softens and the vertical lag shortens, so the
+  // sink actually comes off before touchdown.
+  const cushion = (!s.onGround && vsTarget < 0) ? geLift : 0;
+  vsTarget *= 1 - 0.6 * cushion * cushion;   // softens the sink without cancelling it
   if (s.onGround && vsTarget <= 0) {
     s.vs = 0;                                 // on the wheels
   } else {
-    const tau = p.vsTau * (1 - 0.6 * geLift);   // the cushion acts now, not after the vertical lag
+    const tau = p.vsTau * (1 - 0.6 * cushion);   // the cushion acts now, not after the vertical lag
     s.vs += (vsTarget - s.vs) * Math.min(1, dt / tau);
     s.altitude += (s.vs / 60) * dt;
   }
@@ -1530,7 +1536,7 @@ export function step(state, input, p, dt) {
   const gearExt = clamp(input.gear || 0, 0, 1);
   const drag = (p.dragP + flaps * p.flapDrag * 0.0022) * s.airspeed * s.airspeed * (1 - diveShed * diveClean)  // parasitic ∝ V², less the dive shed; flap drag sized to bleed speed on final
              + gearExt * (p.gearDragFrac ?? 0.35) * p.dragP * s.airspeed * s.airspeed                     // gear down
-             + T.kInd * clNow * clNow * s.airspeed * s.airspeed                  // induced drag, CDi = kInd·CL² (see tuning())
+             + T.kInd * geInd * clNow * clNow * s.airspeed * s.airspeed          // induced drag, CDi = kInd·CL² (see tuning()), cut in ground effect
              + s.slip * (p.slipDrag ?? SLIP_DRAG) * s.airspeed * s.airspeed      // forward slip (§5b)
              + s.stallDepth * 0.9 * p.dragP * s.airspeed * s.airspeed;           // separated flow drag in a stall
   // Gravity acts along the flight path γ (after §7's update), not the nose, which closes the energy

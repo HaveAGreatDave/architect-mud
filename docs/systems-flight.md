@@ -164,6 +164,22 @@ Five things that are each a way to get it silently wrong:
 Only a rotorcraft, and only a tile that is both a field and a building — which today is the Solenne
 and nothing else, so the three ground helipads are untouched by construction.
 
+### Landing feel (as built, 2026-11-01)
+
+- **A fixed wing's ground effect reads the deck under her** (`s.altitude - s.groundFt`), as the
+  helicopter's always did. It read sea level until 2026-11-01, so a roof deck had no cushion and
+  touched down at about twice the sink of the same arrival on a field.
+- **Inside the band (about a wingspan) the wing makes more lift for its α** (`GE_LIFT`, 12% on the
+  deck) **and less induced drag** (the Wieselsberger factor on `kInd`). A flare from the right speed
+  settles; one from 1.6·Vs0 floats about half as far again. The sink cushion and the shortened
+  vertical lag are kept.
+- **The shadow is the height gauge** (`client/shared/shadow-cue.js`). The sun's shadow closes in,
+  darkens and sharpens on the way down, and a contact shadow under her fades in from about 70 ft,
+  tight and dark by the wheels. Both read the view's 0..1 height, the same number the camera climbs
+  on, so the shadow agrees with the height she's drawn at.
+- `node scripts/shapes/landing-feel.mjs` (a gate) checks all three. `node scripts/flare-tune.mjs`
+  flies a whole powered final for every type and prints the sink at the wheels and the float.
+
 Ten aircraft types (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
 Grasshopper · Locust · Viper · **Shrike**), four fuel types (charge/hydrogen/jet/biofuel; avgas retired, see Fuels above), four ground AA
 sites (Redline SAM / wastes autocannon / Slagworks flak / Clone Vats guardian), a Core

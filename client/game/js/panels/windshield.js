@@ -19,6 +19,7 @@ import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
 import { seaShelter, SURF_DEPTH_Q, surfHullGain, surfGain, seaHeadingFor, setSeaHeading, seaRotPair } from '../../../shared/sea-swell.js';
 import { windGust, windVeer, stormOf } from '../../../shared/wind-gust.js';
 import { skyAt } from '../../../shared/sky-keys.js';
+import { contactCue, sunCue } from '../../../shared/shadow-cue.js';
 import { TAG_FACES } from '../../../shared/tag-strokes.js';
 import {
   bakeTagText as bakeTagTextLeaf, _tagTexCache, tagLines, tagMix, TAG_WORDS, tagWordFor, TAG_HANDS, tagHandFor,
@@ -5700,9 +5701,12 @@ function paintWindshieldFrame(id, view) {
     // silhouette is the model's (shadowPlan), so a beached skiff no longer casts a Twin Otter.
     const hullAfloat = isBoatClass(v.cls) && hullSurfGain(cam.ox || 0, cam.oy || 0, 1, 1) > 0.05;
     if (!framed && !v.hideOwnShip && v.cls !== 'truck' && v.cls !== 'podracer' && !v.drakeWater && !hullAfloat) {
-      const grounded = phase === 'ground' ? 1 : clamp(1 - height / 0.06, 0, 1);
-      if (grounded > 0.01) drawGroundContactShadow(ctx, cam, v.heading, v.cls, grounded);
-      if (sunFx.elev > 0.02 && grounded < 0.99) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend, v.heading, v.cls);
+      // The height gauge (shared/shadow-cue.js): the contact shadow fades in tight and dark over the
+      // last 70 ft or so while the sun's shadow closes in under her.
+      const onDeck = phase === 'ground';
+      const touch = contactCue(height, onDeck);
+      if (touch.strength > 0.01) drawGroundContactShadow(ctx, cam, v.heading, v.cls, touch);
+      if (sunFx.elev > 0.02 && !onDeck) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend, v.heading, v.cls);
     }
     if (!framed && v.contacts && v.contacts.length) drawContactShadows(ctx, cam, v.contacts, sunFx, worldBlend);
     if (!framed && !v.hideOwnShip && v.cls === 'podracer' && v.podracer) {
@@ -59885,20 +59889,19 @@ function paintShadowSilhouette(ctx, cam, gx, gy, hr, L, alpha, cls, soft = 0) {
 // it out on climb-out), the true cast point runs free and the shadow soft-FADES over the last
 // few tiles before the far plane — a low-sun cast point dissolves toward the horizon instead.
 function drawAircraftShadow(ctx, cam, height, sun, worldBlend, heading, cls) {
-  const sd = sun.shadowDir, alt = clamp(height, 0, 1);
+  const sd = sun.shadowDir, cue = sunCue(height);
   // Physical-ish sun cast: offset ≈ altitude / tan(elevation), toward the anti-sun direction.
   // There's room to let it run — the ground draws to VISIBLE_FAR_F (34 tiles), far past the old
   // 3.2-tile clamp — so the shadow genuinely trails the craft as it climbs.
-  const reach = alt * 10 / Math.max(0.35, sun.elev);
+  const reach = cue.reach / Math.max(0.35, sun.elev);
   const cxw = sd[0] * reach, cyw = sd[1] * reach;
   const p = cam.proj(cxw, cyw, 0);
   if (p.f <= 0.12) return;
   const farFade = clamp((VISIBLE_FAR_F - p.f) / 8, 0, 1);   // dissolve over the last 8 tiles, no hard cull
   if (farFade <= 0.01) return;
   const hr = (heading || 0) * Math.PI / 180;
-  const soft = clamp(0.15 + alt * 0.85, 0, 1);   // crisp near the deck → diffuse smear up high
-  paintShadowSilhouette(ctx, cam, cxw, cyw, hr, shadowScale(cls) * (1 - alt * 0.4),
-    clamp(sun.alpha * 1.5 * worldBlend * (1 - alt * 0.5) * farFade, 0, 0.4), cls, soft);
+  paintShadowSilhouette(ctx, cam, cxw, cyw, hr, shadowScale(cls) * cue.scale,
+    clamp(sun.alpha * 1.5 * worldBlend * cue.alpha * farFade, 0, cue.alphaCap), cls, cue.soft);
 }
 
 // EVERY OTHER VEHICLE'S SHADOW. Contacts threw none, so traffic on the apron and aircraft overhead
@@ -59930,16 +59933,16 @@ function drawContactShadows(ctx, cam, contacts, sun, worldBlend) {
   }
 }
 
-// A soft contact shadow directly beneath the craft, present whenever it's on the ground
-// (sun-independent — so it reads as planted even overcast or at night). Fades out over the
-// first sliver of climb, handing off to the sun-cast shadow above once airborne.
-function drawGroundContactShadow(ctx, cam, heading, cls, strength) {
+// A soft contact shadow directly beneath the craft (sun-independent, so it reads as planted even
+// overcast or at night). `cue` is contactCue: on the ground it is full and crisp; in the last 70 ft
+// or so it fades in from a faint wide smear to a tight dark patch as she comes down to it.
+function drawGroundContactShadow(ctx, cam, heading, cls, cue) {
   const p = cam.proj(0, 0, 0);
   if (p.f <= 0.12 || p.f > VISIBLE_FAR_F) return;
   const hr = (heading || 0) * Math.PI / 180;
-  // Alpha rides on `strength` only (NOT worldBlend, which is 0 on the deck — that zeroed the
+  // Alpha rides on the cue only (NOT worldBlend, which is 0 on the deck — that zeroed the
   // shadow exactly when the craft is parked and it should read most solid).
-  paintShadowSilhouette(ctx, cam, 0, 0, hr, shadowScale(cls), clamp(0.36 * strength, 0, 0.36), cls, 0.14);
+  paintShadowSilhouette(ctx, cam, 0, 0, hr, shadowScale(cls) * cue.spread, clamp(0.36 * cue.strength, 0, 0.36), cls, cue.soft);
 }
 
 // A PODRACER'S SHADOW: one soft oval under each of its three bodies, where the sim has them. The
