@@ -1,6 +1,6 @@
 # The 2076 fleet
 
-**Status: Dragonfly, Mule, Mayfly, Grasshopper, Locust, Leviathan and Shrike 2076 built, bodies and cockpits to the 2076 bar (2026-11-02); the Reaper is being built; the Viper, Drake and Carcass are design.** Every aircraft gets a 2076 body and a 2076 cockpit,
+**Status: Dragonfly, Mule, Mayfly, Grasshopper, Locust, Leviathan, Shrike and Carcass 2076 built, bodies and cockpits to the 2076 bar (2026-11-02); the Reaper is being built; the Viper and Drake are design.** Every aircraft gets a 2076 body and a 2076 cockpit,
 worn as its "2076" factory edition beside the vintage one. This file is the brief a build works
 from: the canon, the pattern to copy, the standard every build is held to, and the plan for each
 aircraft.
@@ -83,4 +83,4 @@ gate, the liveries gate, the full gate run and `tests/regress.js`.
 | Leviathan | `heavy` | hydrogen | Built. Hydrogen blended-wing outsize freighter after JetZero and the Radia WindRunner: one lifting body as wide as the hold, four fans on the aft deck between canted fins, a glazed cab on the nose. The visor is kept, cab and all, on the `noseVisor` channel. | Built to the 2076 bar. Four thrust levers and four HUD carets; a cargo page with the visor, the ramp and the throttle baulk, and no load figure because the sim carries no cargo mass. |
 | Reaper | `gunship` | jet | Design. The gun is still the plane; two uncrewed wingmen after the MQ-28 Ghost Bat. | Wingmen page, gun state from `ammo`. |
 | Viper | `heli` (armed) | jet | Design. Tiltrotor drone carrier after the MV-75 and Air-Launched Effects. | Needs the armed heli's variant path: today `aircraftFaces` ignores a variant when armed. |
-| Carcass | `wreck` | biofuel | Design. A downed 2076 airframe; the recorder survives. | Built off the wreck's existing interior. |
+| Carcass | `wreck` | biofuel | Built. A 2070s single-seat composite homebuilt after the Sonex Onex, found downed and flown again: the port outer wing and aileron a donor's in faded blue, one winglet and a snapped stub with a bicycle lamp, a cracked and taped bubble, the starboard cowl side gone so the biofuel twin shows, a road sign over the port flank, a primer-red rudder, one spat; the flight recorder shows orange in the tail cone where its hatch was. No player can get one yet: the wreck class can't be bought, rented, test-flown or rebuilt into, and a crashed aircraft draws the stock Carcass. | Built to the 2076 bar off the old tub's layout: a cracked glass band with a dead page and a flickering one (wall time, decoration only), the Fly Baby's toggle taped on for the dome, a recorder page of live channels (`FDR`), and a glitching hologram of her with the donor wing in amber. |
