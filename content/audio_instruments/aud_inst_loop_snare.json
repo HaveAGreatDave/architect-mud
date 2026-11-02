@@ -1,0 +1,57 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 0.16,
+          "r": 0.08,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2600,
+          "q": 0.6,
+          "type": "bandpass"
+        },
+        "gain": 0.6385,
+        "noiseMix": 1,
+        "noiseSeed": 17,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 0.07,
+          "r": 0.04,
+          "s": 0
+        },
+        "gain": 0.4789,
+        "mods": [
+          {
+            "a": 0.001,
+            "d": 0.03,
+            "id": "tk",
+            "r": 0.03,
+            "s": 0,
+            "to": [
+              {
+                "amount": 500,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "triangle"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_snare",
+  "name": "Loops: Snare",
+  "sample_id": null,
+  "waveform": "triangle"
+}

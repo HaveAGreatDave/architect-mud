@@ -1,0 +1,52 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.035,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 7500,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "gain": 0.3265,
+        "noiseMix": 1,
+        "noiseSeed": 41,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.03,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 6000,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "fm": {
+          "index": 3,
+          "indexEnd": 1.5,
+          "ratio": 2.71,
+          "time": 0.03
+        },
+        "gain": 0.0754,
+        "waveform": "square"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_hat",
+  "name": "Loops: Hat",
+  "sample_id": null,
+  "waveform": "square"
+}

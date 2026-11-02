@@ -1,0 +1,47 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.03,
+          "r": 0.02,
+          "s": 0
+        },
+        "fm": {
+          "index": 2,
+          "indexEnd": 0.3,
+          "ratio": 2.37,
+          "time": 0.02
+        },
+        "gain": 0.4019,
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.02,
+          "r": 0.015,
+          "s": 0
+        },
+        "filter": {
+          "freq": 3200,
+          "q": 1.2,
+          "type": "bandpass"
+        },
+        "gain": 0.201,
+        "noiseMix": 1,
+        "noiseSeed": 29,
+        "waveform": "noise"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_rim",
+  "name": "Loops: Rim",
+  "sample_id": null,
+  "waveform": "triangle"
+}

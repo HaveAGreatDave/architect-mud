@@ -1,0 +1,58 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.38,
+          "r": 0.08,
+          "s": 0
+        },
+        "gain": 0.62,
+        "mods": [
+          {
+            "a": 0.001,
+            "curve": "exp",
+            "d": 0.06,
+            "id": "dr",
+            "r": 0.05,
+            "s": 0,
+            "to": [
+              {
+                "amount": 2400,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.012,
+          "r": 0.01,
+          "s": 0
+        },
+        "filter": {
+          "freq": 1800,
+          "q": 0.8,
+          "type": "bandpass"
+        },
+        "gain": 0.06,
+        "noiseMix": 1,
+        "noiseSeed": 5,
+        "waveform": "noise"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_kick",
+  "name": "Loops: Kick",
+  "sample_id": null,
+  "waveform": "sine"
+}

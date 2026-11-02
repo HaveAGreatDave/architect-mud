@@ -1,0 +1,42 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 1.6,
+          "r": 0.6,
+          "s": 0
+        },
+        "fm": {
+          "bright": 1,
+          "index": 1.4,
+          "indexEnd": 0.1,
+          "ratio": 3.5,
+          "time": 0.3
+        },
+        "gain": 0.17,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.5,
+          "r": 0.3,
+          "s": 0
+        },
+        "gain": 0.04,
+        "tune": 12,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_bell",
+  "name": "Loops: FM bell",
+  "sample_id": null,
+  "waveform": "sine"
+}

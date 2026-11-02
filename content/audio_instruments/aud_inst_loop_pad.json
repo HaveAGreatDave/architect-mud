@@ -1,0 +1,75 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.9,
+          "d": 0.5,
+          "r": 1.4,
+          "s": 0.85
+        },
+        "chorus": {
+          "delay": 0.018,
+          "depth": 0.35,
+          "mix": 0.45,
+          "rate": 0.4
+        },
+        "detune": -9,
+        "filter": {
+          "freq": 1100,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "gain": 0.07,
+        "mods": [
+          {
+            "id": "sw",
+            "rate": 0.13,
+            "to": [
+              {
+                "amount": 500,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "lfo",
+            "wave": "triangle"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.5,
+          "r": 1.4,
+          "s": 0.85
+        },
+        "detune": 8,
+        "filter": {
+          "freq": 950,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "gain": 0.07,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.5,
+          "r": 1.4,
+          "s": 0.9
+        },
+        "gain": 0.035,
+        "tune": -12,
+        "waveform": "triangle"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_pad",
+  "name": "Loops: Night pad",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}
