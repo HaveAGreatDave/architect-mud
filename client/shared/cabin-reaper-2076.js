@@ -59,9 +59,10 @@ export const RP_GLASS = {
 // The canopy's sill (where the bubble meets the rail) and its bow and aft hoop stations.
 export const RP_CANOPY = { sillA: 24, bowF: 0.58, hoopF: 0.326, hingeF: 0.3 };
 
-// Inside: the tub floor, the panel ahead, the armour bulkhead behind the seat, and the eye. The eye
-// sits where the stock Reaper's pilot sat (interior-reaper.js: three tenths along its canopy).
-export const RP_INSIDE = { floorH: -0.11, frontF: 0.66, bulkheadF: 0.3, eyeF: 0.47, eyeH: 0.172 };
+// Inside: the tub floor, the front wall under the windscreen, the armour bulkhead behind the seat,
+// and the eye. The eye sits where the stock Reaper's pilot sat (interior-reaper.js: three tenths
+// along its canopy), a metre over the tub floor, which is above the drum and the gun's breech.
+export const RP_INSIDE = { floorH: 0.044, frontF: 0.665, bulkheadF: 0.385, eyeF: 0.47, eyeH: 0.172 };
 // The A-10A is 16.26 m long; this model runs muzzle to tail cone, f 1.0 to -1.08, as the stock does.
 export const A10_LENGTH_M = 16.26;
 export const RP_M = A10_LENGTH_M / 2.08;

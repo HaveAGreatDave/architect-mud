@@ -38,7 +38,7 @@ for (const [id, n] of [['mule', 2], ['reaper', 2], ['leviathan', 4], ['drake_win
 }
 
 // The cockpits: [seat, class, trim, engines].
-for (const [name, cls, trim, n] of [['Mule', 'prop', '', 2], ['Mule 2076', 'prop', '2076', 2], ['Reaper', 'gunship', '', 2], ['Leviathan', 'heavy', '', 4], ['Leviathan 2076', 'heavy', '2076', 4]]) {
+for (const [name, cls, trim, n] of [['Mule', 'prop', '', 2], ['Mule 2076', 'prop', '2076', 2], ['Reaper', 'gunship', '', 2], ['Reaper 2076', 'gunship', '2076', 2], ['Leviathan', 'heavy', '', 4], ['Leviathan 2076', 'heavy', '2076', 4]]) {
   const P = shellProfileFor(cls, false, trim);
   check(`${name}: has a shell profile`, !!P && typeof P.hotspots === 'function');
   if (!P) continue;

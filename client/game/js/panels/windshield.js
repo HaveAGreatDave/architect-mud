@@ -23146,6 +23146,8 @@ function liveInstruments(v) {
     // Weapons and working controls for the modelled cockpits; absent where a view does not send them.
     weaponsArmed: v.weaponsArmed, weapon: v.weapon, bombs: v.bombs, missiles: v.missiles, ammo: v.ammo,
     diveBrake: v.diveBrake, siren: v.siren, spraying: v.spraying,
+    // The Reaper 2076's wingmen channel (cockpit.js classAnim), so her page and hologram fly them as the airframe does.
+    wingmen: v.anim?.wingmen,
     ...(v.drakeCab || null), hour: v.hour,
     // The sky's word, for a page that reckons the sun through it (the Grasshopper 2076's solar input).
     weather: v.weather,

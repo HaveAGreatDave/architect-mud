@@ -158,8 +158,8 @@ const tub = [poly('tub armour', armour, FINE), poly('tub bolts', bolts, FINE)];
 
 // ── The room behind the glass, as seen from outside ─────────────────────────────
 // The cockpit's big shapes, where interior-reaper-2076.js puts them (its metres over 7.82 a unit, the
-// eye at f 0.47, h 0.172): the ejection seat, the swept dash with its lit band of glass, the two side
-// consoles with the throttles and the stick, and the tub floor.
+// eye at f 0.47, h 0.172): the ejection seat, the swept dash with its lit band of glass, and the two
+// side consoles with the thrust levers and the stick.
 const interior = [
   poly('seat pan', slab([0.43, 0, 0.098], [0.05, 0.062, 0.018], 6, { paint: 'seat' }), FINE),
   poly('seat back', slab([0.4, 0, 0.15], [0.016, 0.064, 0.1], -14, { paint: 'seat' }), FINE),
@@ -167,9 +167,9 @@ const interior = [
   poly('headbox stripes', slab([0.381, 0, 0.214], [0.002, 0.03, 0.024], -14, { paint: 'hazard' }), FINE),
   poly('dash', slab([0.565, 0, 0.122], [0.05, 0.15, 0.03], 6, { paint: 'interior' }), FINE),
   poly('dash band', slab([0.542, 0, 0.13], [0.003, 0.15, 0.034], -24, { paint: 'screen' }), FINE),
-  ...[1, -1].map((s) => poly('console', slab([0.46, s * 0.07, 0.085], [0.13, 0.024, 0.04], 0, { paint: 'interior' }), FINE)),
-  tube('stick', [[0.475, 0.07, 0.106], [0.48, 0.07, 0.13]], 0.0035, { role: 'nacelle', paint: 'interior', sides: 5, ...FINE }),
-  ...[0.007, -0.007].map((dg) => tube('throttle', [[0.47, -0.07 + dg, 0.106], [0.478, -0.07 + dg, 0.126]], 0.0026, { role: 'nacelle', paint: 'metal', sides: 5, ...FINE })),
+  ...[1, -1].map((s) => poly('console', slab([0.47, s * 0.043, 0.085], [0.12, 0.017, 0.04], 0, { paint: 'interior' }), FINE)),
+  tube('stick', [[0.48, 0.043, 0.106], [0.485, 0.043, 0.128]], 0.0035, { role: 'nacelle', paint: 'interior', sides: 5, ...FINE }),
+  ...[0.003, -0.003].map((dg) => tube('throttle', [[0.48, -0.043 + dg, 0.106], [0.487, -0.043 + dg, 0.124]], 0.0026, { role: 'nacelle', paint: 'metal', sides: 5, ...FINE })),
 ];
 
 // ── The nose: chines, sensors, the refuelling receptacle ────────────────────────
