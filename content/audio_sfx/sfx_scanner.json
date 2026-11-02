@@ -1,23 +1,125 @@
 {
   "category": "cyberpunk",
   "config": {
-    "adsr": {
-      "a": 0.01,
-      "d": 0.1,
-      "r": 0.1,
-      "s": 0.6
-    },
-    "duration": 0.35,
-    "freq": 900,
-    "tremolo": {
-      "depth": 0.6,
-      "rate": 12
-    },
-    "vibrato": {
-      "depth": 30,
-      "rate": 3
-    },
-    "waveform": "square"
+    "duration": 0.3,
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.01,
+          "d": 0.35,
+          "r": 0.08,
+          "s": 0.3
+        },
+        "fm": {
+          "index": 1.2,
+          "indexEnd": 3,
+          "ratio": 2.01,
+          "time": 0.3
+        },
+        "freq": 400,
+        "gain": 0.3573,
+        "pitchBend": {
+          "time": 0.3,
+          "to": 2400
+        },
+        "ring": {
+          "mix": 0.3,
+          "ratio": 0.5
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.17600000000000002,
+          "curve": "exp",
+          "d": 0.14400000000000002,
+          "r": 0.04,
+          "s": 0
+        },
+        "filter": {
+          "freq": 600,
+          "q": 3,
+          "type": "bandpass"
+        },
+        "gain": 0.2573,
+        "mods": [
+          {
+            "a": 0.22399999999999998,
+            "d": 0.096,
+            "id": "sw",
+            "r": 0.05,
+            "s": 1,
+            "to": [
+              {
+                "amount": 3671,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "noise": "white",
+        "noiseMix": 1,
+        "noiseSeed": 761461,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.08,
+          "r": 0.048,
+          "s": 0
+        },
+        "delay": 0.33,
+        "fm": {
+          "index": 0.8,
+          "indexEnd": 0.08000000000000002,
+          "ratio": 3.5,
+          "time": 0.08
+        },
+        "freq": 2093,
+        "gain": 0.3145,
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.048,
+          "r": 0.024,
+          "s": 0
+        },
+        "delay": 0.33,
+        "freq": 4186,
+        "gain": 0.0566,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0003,
+          "curve": "exp",
+          "d": 0.003,
+          "r": 0.003,
+          "s": 0
+        },
+        "delay": 0.33,
+        "filter": {
+          "freq": 6279,
+          "q": 1.5,
+          "type": "bandpass"
+        },
+        "gain": 0.04717,
+        "noiseMix": 1,
+        "noiseSeed": 785218,
+        "waveform": "noise"
+      }
+    ],
+    "vary": {
+      "gain": 1,
+      "pitch": 25,
+      "time": 0.04
+    }
   },
   "enabled": 1,
   "id": "sfx_scanner",

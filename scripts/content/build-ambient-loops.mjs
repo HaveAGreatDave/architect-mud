@@ -133,7 +133,7 @@ const PALETTE = {
 // the house mix puts its role (game-music-craft.md#house-style-80s-synth-dance), each playing its
 // usual figure: bass 2-3 dB over the kick, lead -2, snare -2, pad and arp -8, hats -10. Applied to
 // every layer's gain, so the layers keep their balance.
-const TRIM = { synthbass: -1, fmbass: -5, epiano: -9, lead: 2, brass: 2, snare: 7, clap: 11, tom: -1.5, hat: 10, ohat: 5, arp: 6 };
+const TRIM = { synthbass: 0, fmbass: -5, epiano: -9, lead: 2, brass: 2, snare: 7, clap: 11, tom: -1.5, hat: 10, ohat: 5, arp: 6 };
 const INST_ID = (k) => `aud_inst_loop_${k}`;
 // Drums play at one pitch; this is it. Toms take the fill's notes.
 const DRUM_NOTE = { kick: 'C2', snare: 'D3', clap: 'D3', hat: 'C5', ohat: 'C5' };

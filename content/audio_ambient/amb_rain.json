@@ -1,20 +1,184 @@
 {
   "category": "environment",
   "config": {
-    "adsr": {
-      "a": 1,
-      "d": 0.1,
-      "r": 1,
-      "s": 1
-    },
-    "filter": {
-      "freq": 1000,
-      "q": 0.5,
-      "type": "highpass"
-    },
-    "gain": 0.3,
-    "noiseMix": 1,
-    "waveform": "noise"
+    "duration": 0.1,
+    "layers": [
+      {
+        "adsr": {
+          "a": 1.2,
+          "d": 0.2,
+          "r": 1.2,
+          "s": 1
+        },
+        "filter": {
+          "freq": 1400,
+          "q": 0.5,
+          "type": "highpass"
+        },
+        "gain": 0.1405,
+        "mods": [
+          {
+            "id": "mv",
+            "rate": 0.2,
+            "seed": 153202,
+            "smooth": true,
+            "to": [
+              {
+                "amount": 500,
+                "param": "filter.cutoff"
+              },
+              {
+                "amount": 0.15,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "pink",
+        "noiseMix": 1,
+        "noiseSeed": 153201,
+        "waveform": "noise",
+        "width": 0.8
+      },
+      {
+        "adsr": {
+          "a": 0.5,
+          "d": 0.1,
+          "r": 0.8,
+          "s": 1
+        },
+        "filter": {
+          "freq": 4200,
+          "q": 0.6,
+          "type": "bandpass"
+        },
+        "gain": 0.103,
+        "mods": [
+          {
+            "density": 0.22,
+            "id": "cr",
+            "rate": 90,
+            "seed": 153233,
+            "to": [
+              {
+                "amount": 1,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "white",
+        "noiseMix": 1,
+        "noiseSeed": 161120,
+        "waveform": "noise",
+        "width": 0.7
+      },
+      {
+        "adsr": {
+          "a": 1.2,
+          "d": 0.2,
+          "r": 1.2,
+          "s": 1
+        },
+        "filter": {
+          "freq": 400,
+          "q": 0.6,
+          "type": "lowpass"
+        },
+        "gain": 0.1171,
+        "mods": [
+          {
+            "id": "mv",
+            "rate": 0.12,
+            "seed": 153264,
+            "smooth": true,
+            "to": [
+              {
+                "amount": 300,
+                "param": "filter.cutoff"
+              },
+              {
+                "amount": 0.1,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "brown",
+        "noiseMix": 1,
+        "noiseSeed": 169039,
+        "waveform": "noise",
+        "width": 0.8
+      }
+    ],
+    "sparkle": [
+      {
+        "duration": 0.2,
+        "everyMax": 2,
+        "everyMin": 0.6,
+        "gain": 0.6,
+        "jitter": 0.12,
+        "layers": [
+          {
+            "adsr": {
+              "a": 0.0005,
+              "curve": "exp",
+              "d": 0.02,
+              "r": 0.01,
+              "s": 0
+            },
+            "filter": {
+              "freq": 2200,
+              "q": 1.2,
+              "type": "bandpass"
+            },
+            "gain": 0.25,
+            "noise": "white",
+            "noiseMix": 1,
+            "noiseSeed": 253740268,
+            "waveform": "noise"
+          },
+          {
+            "adsr": {
+              "a": 0.0005,
+              "curve": "exp",
+              "d": 0.03,
+              "r": 0.015,
+              "s": 0
+            },
+            "freq": 960,
+            "gain": 0.06999999999999999,
+            "pitchBend": {
+              "time": 0.012,
+              "to": 600
+            },
+            "waveform": "triangle"
+          },
+          {
+            "adsr": {
+              "a": 0.0004,
+              "curve": "exp",
+              "d": 0.018,
+              "r": 0.01,
+              "s": 0
+            },
+            "filter": {
+              "freq": 1320,
+              "q": 1.8,
+              "type": "bandpass"
+            },
+            "gain": 0.05,
+            "noiseMix": 1,
+            "noiseSeed": 1624539432,
+            "waveform": "noise"
+          }
+        ],
+        "prob": 1
+      }
+    ]
   },
   "enabled": 1,
   "id": "amb_rain",

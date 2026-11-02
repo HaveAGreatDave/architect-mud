@@ -1,25 +1,126 @@
 {
   "category": "environment",
   "config": {
-    "adsr": {
-      "a": 0.2,
-      "d": 0.1,
-      "r": 0.3,
-      "s": 1
-    },
-    "filter": {
-      "freq": 500,
-      "q": 1,
-      "type": "lowpass"
-    },
-    "freq": 55,
-    "gain": 0.2,
-    "noiseMix": 0.2,
-    "tremolo": {
-      "depth": 0.4,
-      "rate": 9
-    },
-    "waveform": "square"
+    "duration": 0.1,
+    "layers": [
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "drive": 0.4,
+        "filter": {
+          "freq": 600,
+          "q": 1.5,
+          "type": "lowpass"
+        },
+        "freq": 50,
+        "gain": 0.02266,
+        "tremolo": {
+          "depth": 0.5,
+          "rate": 25
+        },
+        "vibrato": {
+          "depth": 4,
+          "rate": 0.4
+        },
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "filter": {
+          "freq": 800,
+          "q": 1.2,
+          "type": "bandpass"
+        },
+        "freq": 100,
+        "gain": 0.006044,
+        "tremolo": {
+          "depth": 0.6,
+          "rate": 25
+        },
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.5,
+          "d": 0.1,
+          "r": 0.8,
+          "s": 1
+        },
+        "filter": {
+          "freq": 2200,
+          "q": 1,
+          "type": "bandpass"
+        },
+        "gain": 0.009067,
+        "mods": [
+          {
+            "density": 0.5,
+            "id": "cr",
+            "rate": 50,
+            "seed": 496156,
+            "to": [
+              {
+                "amount": 1,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "pink",
+        "noiseMix": 1,
+        "noiseSeed": 511931,
+        "waveform": "noise",
+        "width": 0.7
+      },
+      {
+        "adsr": {
+          "a": 1.2,
+          "d": 0.2,
+          "r": 1.2,
+          "s": 1
+        },
+        "filter": {
+          "freq": 200,
+          "q": 0.7,
+          "type": "lowpass"
+        },
+        "gain": 0.01511,
+        "mods": [
+          {
+            "id": "mv",
+            "rate": 0.3,
+            "seed": 496187,
+            "smooth": true,
+            "to": [
+              {
+                "amount": 100,
+                "param": "filter.cutoff"
+              },
+              {
+                "amount": 0.1,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "brown",
+        "noiseMix": 1,
+        "noiseSeed": 519850,
+        "waveform": "noise",
+        "width": 0.8
+      }
+    ]
   },
   "enabled": 1,
   "id": "amb_generator",

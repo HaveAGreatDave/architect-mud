@@ -1,26 +1,159 @@
 {
   "category": "combat",
   "config": {
-    "adsr": {
-      "a": 0.002,
-      "d": 0.1,
-      "r": 0.12,
-      "s": 0.3
-    },
-    "duration": 0.25,
-    "filter": {
-      "freq": 3000,
-      "q": 0.7,
-      "type": "lowpass"
-    },
-    "freq": 400,
-    "gain": 0.35,
-    "noiseMix": 0.12,
-    "pitchBend": {
-      "time": 0.1,
-      "to": 1000
-    },
-    "waveform": "triangle"
+    "duration": 0.06,
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.04,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2800,
+          "q": 0.6,
+          "type": "bandpass"
+        },
+        "gain": 0.3206,
+        "noise": "white",
+        "noiseMix": 1,
+        "noiseSeed": 616682,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0006,
+          "curve": "exp",
+          "d": 0.7,
+          "r": 0.35,
+          "s": 0
+        },
+        "delay": 0.002,
+        "fm": {
+          "index": 6,
+          "indexEnd": 0.3,
+          "ratio": 1.41,
+          "time": 0.42
+        },
+        "freq": 990,
+        "gain": 0.141,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0006,
+          "curve": "exp",
+          "d": 0.4,
+          "r": 0.2,
+          "s": 0
+        },
+        "delay": 0.002,
+        "fm": {
+          "index": 2.5,
+          "indexEnd": 0.2,
+          "ratio": 3.5,
+          "time": 0.24
+        },
+        "freq": 1980,
+        "gain": 0.06411,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 0.45,
+          "r": 0.225,
+          "s": 0
+        },
+        "freq": 208,
+        "gain": 0.3847,
+        "pitchBend": {
+          "time": 0.06,
+          "to": 52
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.1,
+          "r": 0.05,
+          "s": 0
+        },
+        "freq": 256,
+        "gain": 0.1571,
+        "pitchBend": {
+          "time": 0.012,
+          "to": 160
+        },
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.0004,
+          "curve": "exp",
+          "d": 0.06,
+          "r": 0.03,
+          "s": 0
+        },
+        "filter": {
+          "freq": 352,
+          "q": 1.8,
+          "type": "bandpass"
+        },
+        "gain": 0.1122,
+        "noiseMix": 1,
+        "noiseSeed": 656277,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 0.6,
+          "r": 0.3,
+          "s": 0
+        },
+        "freq": 60.8,
+        "gain": 0.1923,
+        "pitchBend": {
+          "time": 0.06,
+          "to": 38
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.004,
+          "curve": "exp",
+          "d": 0.6,
+          "r": 0.3,
+          "s": 0
+        },
+        "delay": 0.01,
+        "filter": {
+          "freq": 2500,
+          "q": 0.6,
+          "type": "lowpass"
+        },
+        "gain": 0.09617,
+        "noise": "pink",
+        "noiseMix": 1,
+        "noiseSeed": 672115,
+        "waveform": "noise",
+        "width": 0.6
+      }
+    ],
+    "vary": {
+      "filter": 150,
+      "gain": 1.5,
+      "pitch": 70,
+      "time": 0.08
+    }
   },
   "enabled": 1,
   "id": "sfx_combat_critical",

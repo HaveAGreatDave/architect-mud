@@ -245,8 +245,13 @@ on('zone.entered', ({ actor, zone: zoneId }) => {
   emit('audio.music.changed', { zoneId, songId: song.id });
 });
 
+// The crit flourish. A layered `combat_hit` (scripts/content/build-sfx.mjs) is designed as the
+// crit and levelled to its target, so it plays as written: boosting it put it 4 dB over full
+// scale, and the FM this adds to any layer without one turned its thump and click into a growl.
+// A flat single-layer cue, the shape combat_hit had before, still gets the boost.
 function critBoost(def) {
   if (!def) return null;
+  if (Array.isArray(def.config?.layers) && def.config.layers.length > 1) return def;
   function boostLayer(layer) {
     return {
       ...layer,

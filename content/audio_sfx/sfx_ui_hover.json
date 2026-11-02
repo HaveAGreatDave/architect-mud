@@ -1,16 +1,65 @@
 {
   "category": "ui",
   "config": {
-    "adsr": {
-      "a": 0.001,
-      "d": 0.02,
-      "r": 0.015,
-      "s": 0
-    },
-    "duration": 0.03,
-    "freq": 1400,
-    "gain": 0.25,
-    "waveform": "sine"
+    "duration": 0.012,
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.02,
+          "r": 0.02,
+          "s": 0
+        },
+        "fm": {
+          "index": 0.3,
+          "indexEnd": 0.03,
+          "ratio": 3.5,
+          "time": 0.02
+        },
+        "freq": 2600,
+        "gain": 0.7645,
+        "pitchBend": {
+          "time": 0.01,
+          "to": 2450
+        },
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.012,
+          "r": 0.01,
+          "s": 0
+        },
+        "freq": 4900,
+        "gain": 0.1376,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0003,
+          "curve": "exp",
+          "d": 0.003,
+          "r": 0.003,
+          "s": 0
+        },
+        "filter": {
+          "freq": 7800,
+          "q": 1.5,
+          "type": "bandpass"
+        },
+        "gain": 0.2293,
+        "noiseMix": 1,
+        "noiseSeed": 981662,
+        "waveform": "noise"
+      }
+    ],
+    "vary": {
+      "gain": 0.8,
+      "pitch": 18
+    }
   },
   "enabled": 1,
   "id": "sfx_ui_hover",

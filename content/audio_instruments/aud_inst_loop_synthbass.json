@@ -15,7 +15,7 @@
           "q": 3.5,
           "type": "lowpass"
         },
-        "gain": 0.1783,
+        "gain": 0.2,
         "mods": [
           {
             "a": 0.001,
@@ -48,7 +48,7 @@
           "q": 3.5,
           "type": "lowpass"
         },
-        "gain": 0.1783,
+        "gain": 0.2,
         "mods": [
           {
             "a": 0.001,
@@ -80,7 +80,7 @@
           "q": 0.8,
           "type": "lowpass"
         },
-        "gain": 0.1426,
+        "gain": 0.16,
         "tune": -12,
         "waveform": "square"
       }

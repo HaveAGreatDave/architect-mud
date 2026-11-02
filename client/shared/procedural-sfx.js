@@ -213,7 +213,15 @@
     if (MODES[surf] && MODE_LIMIT[detail]) {
       const l = modalLayer(surf, { intensity: i, weight, limit: MODE_LIMIT[detail] });
       l.gain = vary(MODES[surf].level * (0.16 + 0.2 * i), 0.12);
-      return def('cook_impact', l.adsr.d + 0.05, [l]);
+      // Stone's and wood's modes sit low and say little through a small speaker; the
+      // contact is what tells you it was stone or wood. Metal and glass ring high
+      // enough to carry their own.
+      const s = surface(surf);
+      const contact = (surf === 'stone' || surf === 'wood') && { noiseMix: 1,
+        filter: { type: 'bandpass', freq: vary(Math.max(1800, s.freq * 9), 0.2), q: 1 },
+        adsr: { a: 0.0005, d: vary(0.025, 0.3), s: 0, r: 0.02 },
+        gain: vary((surf === 'stone' ? 0.5 : 0.35) * Math.max(0.4, s.noise) * (0.4 + i), 0.2) };
+      return def('cook_impact', l.adsr.d + 0.05, [l, contact]);
     }
     const s = surface(surf);
     const freq = vary(s.freq * lerp(1.25, 0.7, weight), 0.08);
@@ -978,6 +986,15 @@
         adsr: { a: 0.001, d: vary(lerp(0.05, 0.02, f.hardness), 0.25), s: 0, r: 0.03 },
         gain: vary((0.035 + 0.06 * i) * lerp(0.7, 1.1, f.grit + f.hardness * 0.4) * footGain, 0.18) },
 
+      // The heel. On a hard floor most of a step you can hear is the shoe meeting it,
+      // a short bright tick well above the strike. Without it a step on stone or lino
+      // was 12 dB quieter through a laptop's speaker than through headphones, so on
+      // most machines the hardest floors were the quietest (sfx-lint, 2026-11-02).
+      f.hardness > 0.4 && { noiseMix: 1,
+        filter: { type: 'bandpass', freq: vary(lerp(2400, 5200, f.hardness), 0.15) * footPitch, q: 1.4 },
+        adsr: { a: 0.0005, d: vary(0.014, 0.25), s: 0, r: 0.012 },
+        gain: vary(0.2 * (f.hardness - 0.2) * (0.75 + 0.45 * i) * footGain, 0.18) },
+
       // Scatter. Loose material thrown forward and settling AFTER the strike, so
       // it is delayed — gravel that arrived with the impact would read as a hiss.
       f.grit > 0.2 && { noiseMix: 1, delay: vary(0.02, 0.4),
@@ -1063,6 +1080,13 @@
         // A close is decisive; an open is the quieter half of the pair.
         gain: vary((closing ? 0.10 : 0.055) + 0.09 * i * d.mass, 0.15) },
 
+      // The contact. The leaf meeting the jamb (or leaving the strike plate) is a
+      // crack well above the body; the body alone was a thud a laptop barely plays.
+      { noiseMix: 1, delay: hitAt,
+        filter: { type: 'bandpass', freq: vary(lerp(1100, 2600, Math.max(d.ring, 1 - d.mass)), 0.2), q: 1.1 },
+        adsr: { a: 0.0005, d: vary(lerp(0.02, 0.045, d.mass), 0.2), s: 0, r: 0.02 },
+        gain: vary(((closing ? 0.07 : 0.035) + 0.05 * i) * (0.6 + 0.6 * d.mass), 0.18) },
+
       // Metal. Bars and sheet steel ring on well after the strike.
       d.ring > 0.3 && { waveform: 'sine', freq: vary(lerp(600, 2100, d.ring), 0.2), delay: hitAt + 0.006,
         fm: { rate: vary(2400, 0.2), depth: vary(420, 0.25) },
@@ -1081,7 +1105,7 @@
       // Hardware. The click at the end of a close, the clack at the start of an open.
       d.latch > 0.2 && { waveform: 'square', freq: vary(2600, 0.15), delay: closing ? travel + 0.03 : 0,
         filter: { type: 'highpass', freq: 1600, q: 1.1 },
-        adsr: { a: 0, d: vary(0.022, 0.3), s: 0, r: 0.02 },
+        adsr: { a: 0.0005, d: vary(0.022, 0.3), s: 0, r: 0.02 },
         gain: vary(0.030 * d.latch, 0.2) },
 
       // A servo, where there is one to hear. Deliberately quiet: it is a tell that
@@ -1786,6 +1810,12 @@
         filter: { type: 'bandpass', freq: top, q: vary(1.5, 0.2), to: top * vary(0.34, 0.12), time: dur * 0.8 },
         adsr: { a: vary(0.012, 0.3), d: dur * 0.7, s: 0, r: dur * 0.4 },
         gain: vary(0.055 + 0.05 * i, 0.18) },
+      // The mass moving. A heavy thing pushes air you hear as much as the edge of it,
+      // a low rush under the hiss; a knife has almost none.
+      { noiseMix: 1, noise: 'pink',
+        filter: { type: 'lowpass', freq: vary(lerp(900, 420, w), 0.15), q: 1.2, to: vary(lerp(500, 220, w), 0.15), time: dur * 0.8 },
+        adsr: { a: vary(0.02, 0.3), d: dur * 0.8, s: 0, r: dur * 0.4 },
+        gain: vary((0.02 + 0.07 * w) * (0.6 + 0.6 * i), 0.18) },
     ], 4);
   }
 

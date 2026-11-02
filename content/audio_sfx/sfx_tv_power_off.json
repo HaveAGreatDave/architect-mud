@@ -1,25 +1,102 @@
 {
   "category": "tv",
   "config": {
-    "adsr": {
-      "a": 0.001,
-      "d": 0.05,
-      "r": 0.2,
-      "s": 0.2
-    },
-    "duration": 0.3,
-    "filter": {
-      "freq": 4000,
-      "q": 1,
-      "type": "lowpass"
-    },
-    "freq": 900,
-    "noiseMix": 0.2,
-    "pitchBend": {
-      "time": 0.25,
-      "to": 40
-    },
-    "waveform": "triangle"
+    "duration": 0.12,
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.18,
+          "r": 0.05,
+          "s": 0
+        },
+        "fm": {
+          "index": 2,
+          "indexEnd": 0.1,
+          "ratio": 1.5,
+          "time": 0.15
+        },
+        "freq": 1800,
+        "gain": 0.2676,
+        "pitchBend": {
+          "time": 0.12,
+          "to": 90
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0003,
+          "curve": "exp",
+          "d": 0.004,
+          "r": 0.004,
+          "s": 0
+        },
+        "delay": 0.005,
+        "filter": {
+          "freq": 2600,
+          "q": 1.2,
+          "type": "bandpass"
+        },
+        "gain": 0.3211,
+        "noiseMix": 1,
+        "noiseSeed": 730458,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.25,
+          "r": 0.05,
+          "s": 0
+        },
+        "drive": 0.3,
+        "filter": {
+          "freq": 400,
+          "q": 1,
+          "type": "bandpass"
+        },
+        "freq": 60,
+        "gain": 0.1605,
+        "mods": [
+          {
+            "id": "rf",
+            "rate": 90,
+            "seed": 722602,
+            "to": [
+              {
+                "amount": 0.18,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 0.2,
+          "r": 0.1,
+          "s": 0
+        },
+        "freq": 71.5,
+        "gain": 0.3211,
+        "pitchBend": {
+          "time": 0.08,
+          "to": 55
+        },
+        "waveform": "sine"
+      }
+    ],
+    "vary": {
+      "gain": 0.5,
+      "pitch": 12
+    }
   },
   "enabled": 1,
   "id": "sfx_tv_power_off",

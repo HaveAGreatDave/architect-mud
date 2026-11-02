@@ -4,7 +4,7 @@
 // was set by ear, alone, so a cue could sit 15 LU hotter than its neighbours and nobody would
 // know until it played beside them. This renders every row under content/audio_sfx and
 // content/audio_ambient through the real audio-engine.js on the offline renderer
-// (./offline-audio.mjs), measures it, and compares it with the TARGETS table below.
+// (./offline-audio.mjs), measures it, and compares it with its target (TARGETS in loudness-lib.mjs).
 //
 //   node scripts/audio/loudness-smoke.mjs            the gate: fails on a new outlier or a cue that moved
 //   node scripts/audio/loudness-smoke.mjs --report   every cue's loudness and peak, outliers marked
@@ -14,7 +14,9 @@
 //   - a one-shot (no `loop`) is its MAXIMUM MOMENTARY loudness: the loudest 400 ms window, 100 ms
 //     hop. Integrated loudness is meaningless on a 30 ms click; momentary max is what an ear
 //     hears as "how loud was that". A cue shorter than 400 ms is padded with silence, so a
-//     short tick reads quieter than a long tone at the same amplitude, as it sounds.
+//     short tick reads quieter than a long tone at the same amplitude, as it sounds, and a
+//     one-shot that sounds for under SHORT seconds is held to a target SHORT_LU lower (see
+//     loudness-lib.mjs), rather than to one only a cue peaking over full scale could reach.
 //   - a loop is its INTEGRATED loudness (absolute gate -70 LUFS, relative gate -10 LU) over
 //     HOLD seconds of sustain, after its attack and decay. Sparkles aren't rendered: they're
 //     random and live-only, and a bed is judged without them.
@@ -32,7 +34,7 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installAudioGlobals } from './offline-audio.mjs';
-import { kWeight, lufs, blocks } from './loudness-lib.mjs';
+import { kWeight, lufs, blocks, targetOf, soundLength, SHORT, SHORT_LU } from './loudness-lib.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const BASELINE = join(ROOT, 'scripts', 'audio', 'loudness-baseline.json');
@@ -43,20 +45,7 @@ const HOLD = 3;      // seconds of a loop's sustain that are measured
 const TOL = 4;       // LU either side of a target before a cue is an outlier
 const MOVE = 1;      // LU a cue may drift from its baseline (the renderer is deterministic; this is slack)
 
-// Targets in LUFS, by `kind:category`, then by kind. Starting points: the median of each group as
-// of 2026-10-18, rounded. They're a judgement, not a measurement; move one deliberately, then
-// --update.
-const TARGETS = {
-  'sfx:ui': -20,
-  'sfx:combat': -16,
-  'sfx:cyberpunk': -11,
-  'sfx:tv': -19,
-  'loop:environment': -20,
-  'loop:tv': -35,
-  sfx: -16,
-  loop: -20,
-};
-const targetOf = (kind, category) => TARGETS[`${kind}:${category}`] ?? TARGETS[kind];
+// The targets by kind and category are TARGETS in loudness-lib.mjs, shared with build-sfx.mjs.
 
 const mean = (a) => a.reduce((s, x) => s + x, 0) / a.length;
 function integrated(z) {
@@ -90,7 +79,7 @@ async function measureCue(def) {
   for (const x of d) { if (!Number.isFinite(x)) finite = false; else if (Math.abs(x) > peak) peak = Math.abs(x); }
   const z = blocks(kWeight(d, SR), SR, from);
   const lu = loop ? integrated(z) : (z.length ? lufs(Math.max(...z)) : -Infinity);
-  return { kind: loop ? 'loop' : 'sfx', finite, lufs: round(lu), peak: round(peak > 0 ? 20 * Math.log10(peak) : -Infinity) };
+  return { kind: loop ? 'loop' : 'sfx', finite, lufs: round(lu), peak: round(peak > 0 ? 20 * Math.log10(peak) : -Infinity), seconds: soundLength(buf.getChannelData(0), SR) };
 }
 const round = (x) => (Number.isFinite(x) ? Math.round(x * 10) / 10 : -99);
 
@@ -100,7 +89,7 @@ for (const dir of ['audio_sfx', 'audio_ambient']) {
     const def = JSON.parse(readFileSync(join(ROOT, 'content', dir, f), 'utf8'));
     if (!def.config || def.enabled === 0) continue;
     const m = await measureCue(def);
-    const target = targetOf(m.kind, def.category);
+    const target = targetOf(m.kind, def.category, m.seconds);
     cues.push({ id: def.id, category: def.category, ...m, target });
   }
 }

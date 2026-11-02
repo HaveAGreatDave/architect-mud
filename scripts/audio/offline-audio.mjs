@@ -10,7 +10,8 @@
 //
 // It follows the spec where SIREN depends on it: AudioParam automation (set, linear and
 // exponential ramps, setTarget, cancel; audio-rate inputs added on top), the biquad
-// formulas (Q in dB for low/highpass), WaveShaper interpolation, looping buffer sources,
+// formulas (Q in dB for low/highpass), WaveShaper interpolation, looping buffer sources, constant
+// sources (the mods),
 // delays (a feedback loop works, as the spec requires one to go through a delay), and the
 // retro stage's AudioWorklet, run from its own file. What it leaves out can't change a check:
 // no oversampling on a WaveShaper, no reverb (a panner and a convolver pass the signal
@@ -159,6 +160,15 @@ class Oscillator extends Source {
   }
 }
 
+// A ConstantSource: its offset param, while it plays. SIREN's env, rand and seq mods are these,
+// so without one every one of them sat out of a render: a whoosh's sweep, a bed's gusts, a
+// crackle's gating, all measured as if they weren't there.
+class ConstantSource extends Source {
+  constructor(ctx) { super(ctx, 'constant'); this.offset = new Param(ctx, 1); }
+  start(t = 0) { this.startT = Math.max(0, t); }
+  compute(i, t) { const v = this.offset.at(i, t); return this.live(t) ? v : 0; }
+}
+
 class BufferSource extends Source {
   constructor(ctx) { super(ctx, 'buffer'); this.buffer = null; this.loop = false; this.playbackRate = new Param(ctx, 1); this.detune = new Param(ctx, 0); this.pos = null; }
   compute(i, t) {
@@ -305,6 +315,7 @@ export class OfflineContext {
   }
   createGain() { return new Gain(this); }
   createOscillator() { return new Oscillator(this); }
+  createConstantSource() { return new ConstantSource(this); }
   createBufferSource() { return new BufferSource(this); }
   createBiquadFilter() { return new Biquad(this); }
   createWaveShaper() { return new Shaper(this); }

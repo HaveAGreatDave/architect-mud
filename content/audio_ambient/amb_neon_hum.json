@@ -1,25 +1,157 @@
 {
   "category": "environment",
   "config": {
-    "adsr": {
-      "a": 0.1,
-      "d": 0.1,
-      "r": 0.2,
-      "s": 1
-    },
-    "filter": {
-      "freq": 1500,
-      "q": 1,
-      "type": "lowpass"
-    },
-    "freq": 220,
-    "gain": 0.08,
-    "noiseMix": 0.15,
-    "tremolo": {
-      "depth": 0.3,
-      "rate": 60
-    },
-    "waveform": "square"
+    "duration": 0.1,
+    "layers": [
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "filter": {
+          "freq": 1500,
+          "q": 1.2,
+          "type": "bandpass"
+        },
+        "freq": 120,
+        "gain": 0.3014,
+        "mods": [
+          {
+            "density": 0.9,
+            "id": "fl",
+            "rate": 9,
+            "seed": 123920,
+            "to": [
+              {
+                "amount": 0.35,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "freq": 120,
+        "gain": 0.1206,
+        "vibrato": {
+          "depth": 1,
+          "rate": 0.3
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "filter": {
+          "freq": 600,
+          "q": 1.2,
+          "type": "lowpass"
+        },
+        "freq": 240,
+        "gain": 0.06028,
+        "vibrato": {
+          "depth": 1,
+          "rate": 0.37
+        },
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "freq": 7400,
+        "gain": 0.01507,
+        "vibrato": {
+          "depth": 6,
+          "rate": 0.2
+        },
+        "waveform": "sine"
+      }
+    ],
+    "sparkle": [
+      {
+        "duration": 0.08,
+        "everyMax": 20,
+        "everyMin": 6,
+        "gain": 0.5,
+        "jitter": 0.12,
+        "layers": [
+          {
+            "adsr": {
+              "a": 0.001,
+              "curve": "exp",
+              "d": 0.06,
+              "r": 0.02,
+              "s": 0
+            },
+            "filter": {
+              "freq": 300,
+              "q": 0.7,
+              "type": "highpass"
+            },
+            "fm": {
+              "index": 6,
+              "indexEnd": 2.4000000000000004,
+              "ratio": 2.37,
+              "time": 0.06
+            },
+            "freq": 900,
+            "gain": 0.2,
+            "mods": [
+              {
+                "id": "th",
+                "rate": 140,
+                "seed": 496703403,
+                "to": [
+                  {
+                    "amount": 400,
+                    "param": "pitch"
+                  }
+                ],
+                "type": "rand"
+              }
+            ],
+            "waveform": "square"
+          },
+          {
+            "adsr": {
+              "a": 0.0003,
+              "curve": "exp",
+              "d": 0.004,
+              "r": 0.004,
+              "s": 0
+            },
+            "filter": {
+              "freq": 3000,
+              "q": 1.2,
+              "type": "bandpass"
+            },
+            "gain": 0.3,
+            "noiseMix": 1,
+            "noiseSeed": 616037905,
+            "waveform": "noise"
+          }
+        ],
+        "prob": 0.6
+      }
+    ]
   },
   "enabled": 1,
   "id": "amb_neon_hum",

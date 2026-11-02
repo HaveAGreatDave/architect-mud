@@ -1,26 +1,133 @@
 {
   "category": "tv",
   "config": {
-    "adsr": {
-      "a": 0.005,
-      "d": 0.15,
-      "r": 0.15,
-      "s": 0.3
-    },
-    "duration": 0.35,
-    "filter": {
-      "freq": 3000,
-      "q": 1,
-      "type": "lowpass"
-    },
-    "freq": 40,
-    "gain": 0.4,
-    "noiseMix": 0.3,
-    "pitchBend": {
-      "time": 0.25,
-      "to": 600
-    },
-    "waveform": "sawtooth"
+    "duration": 0.25,
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0003,
+          "curve": "exp",
+          "d": 0.004,
+          "r": 0.004,
+          "s": 0
+        },
+        "filter": {
+          "freq": 3000,
+          "q": 1.2,
+          "type": "bandpass"
+        },
+        "gain": 0.2412,
+        "noiseMix": 1,
+        "noiseSeed": 291086,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 0.35,
+          "r": 0.175,
+          "s": 0
+        },
+        "delay": 0.01,
+        "freq": 90,
+        "gain": 0.3616,
+        "pitchBend": {
+          "time": 0.05,
+          "to": 60
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.01,
+          "curve": "exp",
+          "d": 0.35,
+          "r": 0.1,
+          "s": 0
+        },
+        "delay": 0.01,
+        "drive": 0.3,
+        "filter": {
+          "freq": 500,
+          "q": 1,
+          "type": "bandpass"
+        },
+        "freq": 60,
+        "gain": 0.1608,
+        "mods": [
+          {
+            "id": "rf",
+            "rate": 90,
+            "seed": 291149,
+            "to": [
+              {
+                "amount": 0.36,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.2,
+          "d": 0.3,
+          "r": 0.2,
+          "s": 0.3
+        },
+        "delay": 0.05,
+        "freq": 3900,
+        "gain": 0.03214,
+        "pitchBend": {
+          "time": 0.35,
+          "to": 7860
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.01,
+          "curve": "exp",
+          "d": 0.35,
+          "r": 0.1,
+          "s": 0
+        },
+        "delay": 0.08,
+        "filter": {
+          "freq": 4500,
+          "q": 0.9,
+          "type": "bandpass"
+        },
+        "gain": 0.201,
+        "mods": [
+          {
+            "density": 0.3,
+            "id": "cr",
+            "rate": 120,
+            "seed": 291211,
+            "to": [
+              {
+                "amount": 1,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "white",
+        "noiseMix": 1,
+        "noiseSeed": 322762,
+        "waveform": "noise",
+        "width": 0.7
+      }
+    ],
+    "vary": {
+      "gain": 0.5,
+      "pitch": 12
+    }
   },
   "enabled": 1,
   "id": "sfx_tv_power_on",

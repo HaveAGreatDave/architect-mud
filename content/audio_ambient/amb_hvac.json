@@ -1,21 +1,207 @@
 {
   "category": "environment",
   "config": {
-    "adsr": {
-      "a": 0.4,
-      "d": 0.1,
-      "r": 0.4,
-      "s": 1
-    },
-    "filter": {
-      "freq": 400,
-      "q": 0.7,
-      "type": "lowpass"
-    },
-    "freq": 90,
-    "gain": 0.12,
-    "noiseMix": 0.2,
-    "waveform": "sine"
+    "duration": 0.1,
+    "layers": [
+      {
+        "adsr": {
+          "a": 1.2,
+          "d": 0.2,
+          "r": 1.2,
+          "s": 1
+        },
+        "filter": {
+          "freq": 1100,
+          "q": 0.6,
+          "type": "lowpass"
+        },
+        "gain": 0.2586,
+        "mods": [
+          {
+            "id": "mv",
+            "rate": 0.1,
+            "seed": 503329,
+            "smooth": true,
+            "to": [
+              {
+                "amount": 200,
+                "param": "filter.cutoff"
+              },
+              {
+                "amount": 0.08,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "pink",
+        "noiseMix": 1,
+        "noiseSeed": 503328,
+        "waveform": "noise",
+        "width": 0.8
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "freq": 110,
+        "gain": 0.04482,
+        "vibrato": {
+          "depth": 6,
+          "rate": 0.3
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "filter": {
+          "freq": 900,
+          "q": 1.2,
+          "type": "lowpass"
+        },
+        "freq": 220,
+        "gain": 0.04827,
+        "vibrato": {
+          "depth": 6,
+          "rate": 0.37
+        },
+        "waveform": "sawtooth"
+      }
+    ],
+    "sparkle": [
+      {
+        "duration": 0.3,
+        "everyMax": 25,
+        "everyMin": 8,
+        "gain": 1,
+        "jitter": 0.12,
+        "layers": [
+          {
+            "adsr": {
+              "a": 0.0003,
+              "curve": "exp",
+              "d": 0.013999588423222305,
+              "r": 0.013999588423222305,
+              "s": 0
+            },
+            "filter": {
+              "freq": 1543.353827577084,
+              "q": 2,
+              "type": "bandpass"
+            },
+            "gain": 0.22807682909537108,
+            "noiseMix": 1,
+            "noiseSeed": 847186092,
+            "waveform": "noise"
+          },
+          {
+            "adsr": {
+              "a": 0.0003,
+              "curve": "exp",
+              "d": 0.009125906751304865,
+              "r": 0.009125906751304865,
+              "s": 0
+            },
+            "delay": 0.0493,
+            "filter": {
+              "freq": 1089.4976783310995,
+              "q": 2,
+              "type": "bandpass"
+            },
+            "gain": 0.16910034661713458,
+            "noiseMix": 1,
+            "noiseSeed": 800458457,
+            "waveform": "noise"
+          },
+          {
+            "adsr": {
+              "a": 0.0003,
+              "curve": "exp",
+              "d": 0.012187596975266933,
+              "r": 0.012187596975266933,
+              "s": 0
+            },
+            "delay": 0.0861,
+            "filter": {
+              "freq": 1403.0618724413216,
+              "q": 2,
+              "type": "bandpass"
+            },
+            "gain": 0.15635280845620272,
+            "noiseMix": 1,
+            "noiseSeed": 1139905224,
+            "waveform": "noise"
+          },
+          {
+            "adsr": {
+              "a": 0.0003,
+              "curve": "exp",
+              "d": 0.011024249090999366,
+              "r": 0.011024249090999366,
+              "s": 0
+            },
+            "delay": 0.1312,
+            "filter": {
+              "freq": 1709.578461991623,
+              "q": 2,
+              "type": "bandpass"
+            },
+            "gain": 0.1222240961476096,
+            "noiseMix": 1,
+            "noiseSeed": 2049871577,
+            "waveform": "noise"
+          },
+          {
+            "adsr": {
+              "a": 0.0003,
+              "curve": "exp",
+              "d": 0.011799156399071217,
+              "r": 0.011799156399071217,
+              "s": 0
+            },
+            "delay": 0.1681,
+            "filter": {
+              "freq": 1815.000917064026,
+              "q": 2,
+              "type": "bandpass"
+            },
+            "gain": 0.0809873566270939,
+            "noiseMix": 1,
+            "noiseSeed": 150474604,
+            "waveform": "noise"
+          },
+          {
+            "adsr": {
+              "a": 0.0003,
+              "curve": "exp",
+              "d": 0.013118613190948963,
+              "r": 0.013118613190948963,
+              "s": 0
+            },
+            "delay": 0.2219,
+            "filter": {
+              "freq": 1894.001853559166,
+              "q": 2,
+              "type": "bandpass"
+            },
+            "gain": 0.06763497913256288,
+            "noiseMix": 1,
+            "noiseSeed": 1148552779,
+            "waveform": "noise"
+          }
+        ],
+        "prob": 0.7
+      }
+    ]
   },
   "enabled": 1,
   "id": "amb_hvac",

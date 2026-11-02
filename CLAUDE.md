@@ -131,6 +131,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-atm.md](docs/systems-atm.md): ATMs: networks, fees, hacking, replenish, power
 - [docs/systems-instruments.md](docs/systems-instruments.md): playable instruments (as built). Notes use the `instrument_note` route, not dispatch
 - [docs/systems-procedural-audio.md](docs/systems-procedural-audio.md): generated sound: parameters+seed wire format, material tables, the `sfxDetail` tiers (as built)
+- [docs/reference/sfx-craft.md](docs/reference/sfx-craft.md): how a sound effect is built (transient, body, tail), `sfx-lib.mjs`'s blocks, the `sfx-lint.mjs` critic and its thresholds, `vary`, and the levelling rules (as built). The presets and beds are written by `scripts/content/build-sfx.mjs`; edit that, not the JSON
 - [docs/reference/fm-sound-matching.md](docs/reference/fm-sound-matching.md): fitting a SIREN cue to a recording (`scripts/audio/sound-match.mjs`) and the FM recipes to start from by hand (as built). Read the carrier and ratio off the partials; never search them
 - [docs/reference/game-music-craft.md](docs/reference/game-music-craft.md): arrangement, form, melody, groove and mix rules for tracker songs, `compose-lib.mjs` and the `song-lint.mjs` critic (as built). Run the critic on any new song before it ships
 - [docs/systems-hockey-sound.md](docs/systems-hockey-sound.md): the CPhL's NHL '96-style FM soundset, its event table and crowd bed (as built). Avoid FM ratios 1 and 0.5 on anything that lasts: they put a sideband at 0 Hz

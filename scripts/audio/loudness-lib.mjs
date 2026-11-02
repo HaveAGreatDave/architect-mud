@@ -38,3 +38,32 @@ export function momentaryMax(d, fs) {
   const z = blocks(kWeight(d, fs), fs);
   return z.length ? lufs(Math.max(...z)) : -Infinity;
 }
+
+// Targets in LUFS, by `kind:category`, then by kind. Starting points: the median of each group as
+// of 2026-10-18, rounded. They're a judgement, not a measurement; move one deliberately, then
+// --update.
+export const TARGETS = {
+  'sfx:ui': -20,
+  'sfx:combat': -16,
+  'sfx:cyberpunk': -15,   // was -11, the median of one-oscillator beeps; the rebuilt cues sit just under combat
+  'sfx:tv': -19,
+  'loop:environment': -20,
+  'loop:tv': -35,
+  sfx: -16,
+  loop: -20,
+};
+// A one-shot that sounds for under SHORT seconds is measured as the loudest 400 ms window with
+// most of the window silent, so at the same peak it reads several LU quieter than a longer cue,
+// as it sounds. Holding it to the full target meant peaking over full scale (the shots and
+// punches before 2026-11-02 peaked at up to +4 dBFS and leaned on the master limiter). Its
+// target is SHORT_LU lower instead.
+export const SHORT = 0.25, SHORT_LU = 4;
+export const targetOf = (kind, category, soundSeconds = Infinity) =>
+  (TARGETS[`${kind}:${category}`] ?? TARGETS[kind]) - (kind === 'sfx' && soundSeconds < SHORT ? SHORT_LU : 0);
+// How long a render sounds: to where it last sits within 60 dB of its peak.
+export function soundLength(x, sr) {
+  let peak = 0; for (const v of x) peak = Math.max(peak, Math.abs(v));
+  const floor = peak * 1e-3, w = Math.round(sr * 0.001);
+  for (let i = x.length - w; i > 0; i -= w) { let s = 0; for (let j = i; j < i + w; j++) s += x[j] * x[j]; if (Math.sqrt(s / w) > floor) return (i + w) / sr; }
+  return 0;
+}
