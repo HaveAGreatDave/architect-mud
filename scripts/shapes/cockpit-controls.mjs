@@ -39,6 +39,7 @@ SEATS.push(['locust (2076)', 'locust', false, '2076']);
 SEATS.push(['heavy (2076)', 'heavy', false, '2076']);
 SEATS.push(['divebomber (2076)', 'divebomber', false, '2076']);
 SEATS.push(['gunship (2076)', 'gunship', false, '2076']);
+SEATS.push(['drake (2076)', 'drake', false, '2076']);
 for (const trim of ['noir', 'quackhawk']) SEATS.push(['drake (' + trim + ')', 'drake', false, trim]);
 for (const cls of Object.keys(BOAT_ROWS)) if (!SHELL_CLASS[cls]) SEATS.push([cls, cls, false, null]);
 
@@ -103,7 +104,7 @@ for (const [name, cls, armed, trim] of SEATS) {
   for (const live of STATES) {
     // Built first: the Drake records where its levers and stores landed while it draws them.
     shellFaces(P, live);
-    const list = cls === 'drake' ? drakeHotspots(live) : (typeof P.hotspots === 'function' ? P.hotspots(live) : []);
+    const list = typeof P.hotspots === 'function' ? P.hotspots(live) : cls === 'drake' ? drakeHotspots(live) : [];
     for (const h of list || []) hs.set(h.id, h.kind);
   }
   KIT_TRACE.mirrored = null;

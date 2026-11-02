@@ -22904,7 +22904,7 @@ function pushInteriorShell(cam, v) {
   INTERIOR_HOTSPOTS = null;
   // ⚠ ANY COCKPIT WITH CONTROLS, NOT ONLY THE DRAKE: a profile that exposes `hotspots(live)` gets
   // clicking, dragging and the hover halo (interior-cockpit-kit.js). The Drake's list is its own.
-  const hotList = v.cls === 'drake' ? drakeHotspots : (typeof P.hotspots === 'function' ? (l) => P.hotspots(l) : null);
+  const hotList = typeof P.hotspots === 'function' ? (l) => P.hotspots(l) : v.cls === 'drake' ? drakeHotspots : null;
   if (hotList && cam.proj) {
     const b = INTERIOR_LATER ? 0 : (v.bank || 0) * Math.PI / 180, cb = Math.cos(-b), sb = Math.sin(-b);
     const W = cam.W || 0, H = SEAT_FRAME_H || 0;

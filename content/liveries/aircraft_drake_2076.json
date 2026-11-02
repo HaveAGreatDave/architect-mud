@@ -11,6 +11,7 @@
   "id": "2076",
   "interior": {
     "cabin": "#1c2a28",
+    "itrim": "2076",
     "uphol": "leather"
   },
   "kind": "aircraft",

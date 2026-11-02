@@ -87,6 +87,8 @@ export const CABIN_TRIMS = {
     { id: 'stock', label: 'Mandarin · walnut & gold' },
     { id: 'noir', label: 'Darkwing · carbon & gold', plate: 'DARKWING' },
     { id: 'quackhawk', label: 'Quackhawk Down · red, white & blue', plate: 'QUACKHAWK DOWN' },
+    // The 2076 refit: the glass band, the HUD and the hologram (interior-drake-2076.js).
+    { id: '2076', label: 'Drake 2076 · the refit' },
   ],
 };
 const CABIN_IDS = new Set(Object.values(CABIN_TRIMS).flat().map(t => t.id));
