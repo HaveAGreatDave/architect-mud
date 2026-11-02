@@ -78,7 +78,7 @@ export const LEV76_GLASS = {
   windscreen: { f: [0.94, 1.036], a: [4, 176] },
   posts: [48, 90, 132],
   // A side window either side of the crew, aft of the windscreen's corner.
-  side: { f: [0.875, 0.928], a: [14, 50] },
+  side: { f: [0.878, 0.936], a: [14, 50] },
 };
 
 // ── The cargo visor ──────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ export const LEV76_HOLD = { f0: 0.6, f1: -0.34, floor: -0.125, ceil: 0.16, halfW
 
 // Inside the cab: the deck floor, the bulkhead behind the seats with its doorway, how far you can
 // see into the crew rest through it, and the seats' offset from the centreline.
-export const LEV76_INSIDE = { floorH: 0.062, bulkheadF: 0.845, restF: 0.77, seatG: 0.018, eyeF: 0.93, doorHalfM: 0.32, doorTopM: 1.85 };
+export const LEV76_INSIDE = { floorH: 0.062, bulkheadF: 0.845, restF: 0.8, seatG: 0.018, eyeF: 0.912, doorHalfM: 0.32, doorTopM: 1.85 };
 // The 2076 Leviathan runs from the cab's nose to the fin tips: an An-124's length (68.96 m), give or
 // take, measured off the mesh in the cockpit.
 export const LEV76_LENGTH_M = 70;

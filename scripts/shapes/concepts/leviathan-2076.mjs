@@ -121,8 +121,8 @@ const FH = LEV76_INSIDE.floorH, SG = LEV76_INSIDE.seatG;
 const room = [];
 for (const g of [SG, -SG]) {
   room.push(poly('seat', [
-    ...slab([0.92, g, FH + 0.014], [0.016, 0.016, 0.004], 4, { paint: 'seat' }),
-    ...slab([0.911, g, FH + 0.03], [0.004, 0.016, 0.028], -14, { paint: 'seat' }),
+    ...slab([0.905, g, FH + 0.014], [0.016, 0.016, 0.004], 4, { paint: 'seat' }),
+    ...slab([0.896, g, FH + 0.03], [0.004, 0.016, 0.028], -14, { paint: 'seat' }),
   ], FINE));
 }
 room.push(poly('flight deck floor', [quad([0.99, -0.05, FH], [0.99, 0.05, FH], [LEV76_INSIDE.bulkheadF, 0.05, FH], [LEV76_INSIDE.bulkheadF, -0.05, FH], { paint: 'interior', sh: 0.45 })], FINE));
