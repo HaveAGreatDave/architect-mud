@@ -266,9 +266,7 @@ function buildRoom(G) {
     for (let r = 1; r < 6; r++) K.box(cx - 0.23, yB + 0.03, zF + 0.40 + r * 0.108, cx + 0.23, yB + 0.034, zF + 0.404 + r * 0.108, 'post', -0.2, T.bolster);
   }
   K.box(2 * xC - 0.25, yB + 0.005, zF + 1.10, 0.25, yB + 0.02, zF + 1.12, 'post', 0.2, T.glow, 0.9);
-  // The battery isolator, red, on the bulkhead over the console, and the first-aid case.
-  K.box(xC - 0.05, yB, zF + 0.55, xC + 0.05, yB + 0.035, zF + 0.67, 'post', 0.05, T.carbonLt);
-  K.rod([xC, yB + 0.035, zF + 0.61], [xC, yB + 0.07, zF + 0.61], 0.022, 'post', 0.2, T.red, 0.1, 10);
+  // The first-aid case on the bulkhead over the console: a fixture, not a control.
   K.box(xC - 0.11, yB, zF + 0.80, xC + 0.11, yB + 0.07, zF + 0.95, 'post', 0.05, [210, 212, 208]);
   K.box(xC - 0.012, yB + 0.07, zF + 0.85, xC + 0.012, yB + 0.072, zF + 0.90, 'post', 0.3, T.red, 0.2);
   K.box(xC - 0.03, yB + 0.07, zF + 0.865, xC + 0.03, yB + 0.072, zF + 0.885, 'post', 0.3, T.red, 0.2);
@@ -516,6 +514,9 @@ export function df76Fit(P, live, push) {
     K.obox(Pn.pt(0, 0, -0.02), Pn.r, Pn.u, Pn.n, sc.w + 0.012, SCREEN_H + 0.012, 0.018, 'dash', -0.05, T.bezel);
     Pn.rect(-sc.w, -SCREEN_H, sc.w, SCREEN_H, lit ? T.screen : T.screenDk, lit ? 0.35 : 0, 0.001);
     if (!lit) continue;
+    // One display language on every screen: a lit edge along the top of the glass, teal for normal,
+    // amber for caution, red for a warning, and the current value always the brightest thing.
+    Pn.rect(-sc.w + 0.004, SCREEN_H - 0.0035, sc.w - 0.004, SCREEN_H - 0.0015, T.glow, 0.85, 0.0018);
     if (sc.id === 'pfd') pfd(Pn, R);
     else if (sc.id === 'rotors') rotorPage(Pn, R);
     else if (sc.id === 'energy') energyPage(Pn, R);
@@ -613,19 +614,14 @@ export function df76Fit(P, live, push) {
   K.obox([px, 0.72, zF + 0.09], [1, 0, 0], norm([0, -0.6, 0.8]), norm([0, 0.8, 0.6]), 0.14, 0.09, 0.008, 'dash', 0.05, T.carbon);
   K.rod([px - 0.14, 0.66, zF + 0.012], [px + 0.14, 0.66, zF + 0.012], 0.004, 'dash', 0.2, T.glow, 0.7 * amb, 5);
 
-  // ── OVERHEAD: the light ring round the skylight, and the parachute handle ──
+  // ── OVERHEAD: the light ring round the skylight ──
+  // ⚠ NO CONTROL THE SIM DOES NOT HAVE: a parachute handle and a battery isolator were here, and both
+  // looked like things you could pull. Every control in this cockpit is a working one.
   {
     const Sk = CAB_GLASS.skylight, D = P.df76;
     const ring = [];
     for (const [f, a] of [[Sk.f[0], Sk.a[0] - 3], [Sk.f[1], Sk.a[0] - 3], [Sk.f[1], Sk.a[1] + 3], [Sk.f[0], Sk.a[1] + 3]]) ring.push(D.toShell(cabPoint(f, a, -(D.inset + 0.012 / D.m))));
     for (let i = 0; i < 4; i++) K.rod(ring[i], ring[(i + 1) % 4], 0.006, 'hdr', 0.2, T.glow, (R.dome && lit ? 1 : 0.4) * Math.max(amb, 0.2), 6);
-    // The ballistic parachute: a red T-handle in a yellow-striped cup on the roof, behind the skylight.
-    const hc = D.toShell(cabPoint(-0.045, 90, -(D.inset + 0.01 / D.m)));
-    K.rod(hc, add(hc, [0, 0, -0.03]), 0.04, 'hdr', 0.1, [220, 180, 40], 0, 12);
-    K.rod(add(hc, [0, 0, -0.03]), add(hc, [0, 0, -0.07]), 0.007, 'hdr', 0.2, T.metal, 0, 6);
-    K.rod(add(hc, [-0.05, 0, -0.075]), add(hc, [0.05, 0, -0.075]), 0.012, 'hdr', 0.2, T.red, 0.15, 8);
-    const Hp = K.panel(add(hc, [0, 0.07, -0.006]), [1, 0, 0], [0, -1, 0], 'hdr', 0.2);
-    Hp.text('CHUTE', 0, 0, 0.022, T.red, 0.4, 0.002);
     // The dome light, over the console.
     const dome = [xC, 0.05, P.roof - 0.04];
     K.rod(add(dome, [0, 0, -0.01]), add(dome, [0, 0, 0.03]), 0.05, 'hdr', 0.1, R.dome && lit ? [240, 252, 248] : [80, 84, 84], R.dome && lit ? 1 : 0, 14);
