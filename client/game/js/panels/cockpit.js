@@ -4187,7 +4187,8 @@ function fsimFrameBody(now) {
     // Surface deflection for the external model; touch auto-coordinates the rudder into the roll.
     ctrl: F.external ? { aileron: F.input.aileron, elevator: clampNum(F.input.elevator + (F.input.trim || 0), -1, 1), flaps: F.input.flaps, rudder: clampNum((F.input.pedal || 0) + (_touchPrimary ? 0.5 * F.input.aileron : 0), -1, 1) } : null,
     gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
-    anim: F.dk ? drakeAnim(F.dk) : undefined,
+    // The Shrike's dive brakes ride the dive computer, eased over about a second (mesh_divebomber_2076.json 'diveBrake').
+    anim: F.dk ? drakeAnim(F.dk) : F.cls === 'divebomber' ? { diveBrake: (F.diveBrakeEase = clampNum((F.diveBrakeEase || 0) + ((F.diveAuto ? 1 : 0) - (F.diveBrakeEase || 0)) * Math.min(1, dt * 2.5), 0, 1)) } : undefined,
     drakeCab: F.dk ? { ...drakeAnim(F.dk), ramp: F.dk.ramp, nv: F.dk.nv, gunsArmed: F.armed, gear: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
       quack: !!F.dk.quackHeld || performance.now() - F.dk.quackT < 400, champagne: DK_CHAMPAGNE, quackP: F.dk.quackHeld ? Math.min(1, (performance.now() - F.dk.quackT) / QUACK_SQUEEZE_MS) : 0, ammo: F.gunRounds, convert: F.dk.conv, wingTarget: !!F.dk.wing,
       hover: F.dkHover || null, press: F.dkPress && performance.now() - F.dkPress.t < 220 ? F.dkPress.id : null,

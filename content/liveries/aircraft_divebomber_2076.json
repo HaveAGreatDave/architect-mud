@@ -1,0 +1,20 @@
+{
+  "blurb": "Concept. The Shrike fifty years on: graphite with a black mask and a red jaw, a gold canopy nobody sees into.",
+  "default": false,
+  "exterior": {
+    "base": "#34383c",
+    "finish": "satin",
+    "pattern": "factory",
+    "trim": "#a8241c",
+    "variant": "2076"
+  },
+  "id": "2076",
+  "interior": {
+    "cabin": "#1c1f22",
+    "uphol": "mesh"
+  },
+  "kind": "aircraft",
+  "model": "divebomber",
+  "name": "Shrike 2076",
+  "unlock": null
+}
