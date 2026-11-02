@@ -419,13 +419,18 @@ const readings = (live) => {
     flap: clamp(Math.round(num(L.flapNotch)), 0, 3),
     land: !!L.landingLight, dome: !!L.dome, hour: num(L.hour, 12),
     phase: num(L.phase), stall: !!L.stall,
+    // Each bank's lever and spool, left then right (cockpit.js splits them; the sim's two engines are
+    // the two banks of four), falling back to the ganged pair.
+    thrs: [0, 1].map((e) => clamp(num(L.throttles?.[e], num(L.throttle)), 0, 1)),
+    rpms: [0, 1].map((e) => clamp(num(L.rpms?.[e], num(L.rpm)), 0, 1.1)),
+    split: !!L.split,
   };
   // ⚠ THE ENERGY NUMBERS ARE DERIVED IN THE OPEN, from thrust and prop speed, never typed. The eight
   // motors draw up to 900 kW at full thrust and full rpm (two PT6s' worth, the Otter it replaces). The
   // hydrogen turbogenerator runs at a cruise setting under the demand and the buffer battery makes up
   // the difference, or soaks up the surplus when the demand is below it. Endurance is the tank (120 kg
   // of liquid hydrogen full) over the turbine's burn at 13.3 kWe per kg an hour.
-  R.demand = R.powered ? Math.round(900 * clamp(R.thr * R.rpm, 0, 1)) : 0;
+  R.demand = R.powered ? Math.round(900 * clamp((R.thrs[0] * R.rpms[0] + R.thrs[1] * R.rpms[1]) / 2, 0, 1)) : 0;
   R.gen = R.powered && R.fuel > 0.005 && R.rpm > 0.05 ? Math.round(Math.min(520, 120 + R.demand * 0.55)) : 0;
   R.batt = R.demand - R.gen;                       // + discharging into the motors, - charging
   R.endur = R.gen > 0 ? Math.min(999, Math.round(R.fuel * 120 / (R.gen / 13.3) * 60)) : 0;
@@ -448,9 +453,11 @@ function stickAt(P, R, x = STICK.x) {
   const dir = norm([R.ail * 0.32, R.elev * 0.32, 1]);
   return { base, top: add(base, mul(dir, STICK.len)), dir };
 }
-function leverAt(P, R, dx) {
+// `dx` is the lever's slot; its bank (left or right) picks which lever value it stands at. `t` overrides
+// it, for the point between the two grips.
+function leverAt(P, R, dx, t = R.thrs[dx < 0 ? 0 : 1]) {
   const pivot = [P.xCentre + dx, LEVER.pivotY, P.m76.zF + PED.top];
-  const ang = -0.6 + R.thr * 1.2;
+  const ang = -0.6 + t * 1.2;
   const dir = [0, Math.sin(ang), Math.cos(ang)];
   return { pivot, end: add(pivot, mul(dir, LEVER.len)), dir };
 }
@@ -494,8 +501,10 @@ export function m76Hotspots(P, live) {
   BTN.ids.forEach((id, i) => { const [u, v] = BTN_AT(i); out.push({ id: 'ck:' + id, p: Kp.pt(u, v, 0.01), r: 0.03, kind: 'click' }); });
   out.push({ id: 'ck:flaps', p: flapKnob(P, R), r: 0.035, kind: 'click' });
   out.push({ id: 'yoke', p: add(stickAt(P, R).top, [0, 0, 0.04]), r: 0.06, kind: 'yoke' });
-  const lv = leverAt(P, R, 0);
-  out.push({ id: 'throttle', p: add(lv.end, mul(lv.dir, 0.03)), r: 0.06, kind: 'throttle' });
+  // Each grip moves its own bank; a hand between the two moves the pair and brings them together.
+  const lv = leverAt(P, R, 0, (R.thrs[0] + R.thrs[1]) / 2);
+  out.push({ id: 'throttle', p: add(lv.end, mul(lv.dir, 0.03)), r: 0.025, kind: 'throttle' });
+  LEVER.dx.forEach((dx, e) => { const g = leverAt(P, R, dx); out.push({ id: 'thr' + e, p: add(g.end, mul(g.dir, 0.03)), r: 0.04, kind: 'throttle', engine: e }); });
   out.push(gpsHotspot(screenPanel(K, P, SCREENS.find((sc) => sc.id === 'map')), 0, -0.01, 0.07));
   return out;
 }
@@ -630,13 +639,13 @@ export function m76Fit(P, live, push) {
       K.box(xC + dx + (dx < 0 ? -0.026 : 0.012), y - 0.002, pt, xC + dx + (dx < 0 ? -0.012 : 0.026), y + 0.002, pt + 0.004, 'dash', 0.2, i === 4 ? T.amber : T.glowDim, 0.6);
     }
   }
-  // The levers, left bank and right bank, moved together: the sim has one thrust.
+  // The levers, left bank and right bank. Each moves its own bank of four motors.
   for (const dx of LEVER.dx) {
-    const lv = leverAt(P, R, dx);
+    const lv = leverAt(P, R, dx), t = R.thrs[dx < 0 ? 0 : 1];
     K.rod(lv.pivot, lv.end, 0.009, 'dash', 0.2, T.metal, 0, 8);
     const gripEnd = add(lv.end, mul(lv.dir, 0.05));
     K.obox(mul(add(lv.end, gripEnd), 0.5), [1, 0, 0], lv.dir, norm(cross([1, 0, 0], lv.dir)), 0.02, 0.03, 0.016, 'dash', 0.1, T.graphiteLt);
-    K.obox(add(gripEnd, mul(lv.dir, 0.002)), [1, 0, 0], norm(cross([1, 0, 0], lv.dir)), lv.dir, 0.016, 0.01, 0.003, 'dash', 0.3, T.glow, lit ? 0.3 + R.thr * 0.7 : 0);
+    K.obox(add(gripEnd, mul(lv.dir, 0.002)), [1, 0, 0], norm(cross([1, 0, 0], lv.dir)), lv.dir, 0.016, 0.01, 0.003, 'dash', 0.3, T.glow, lit ? 0.3 + t * 0.7 : 0);
   }
   // The flap gate on the riser: four detents lettered UP 1 2 F, the lever and its lit knob.
   {
@@ -768,8 +777,10 @@ function motorsPage(Pn, R) {
   Pn.rect(-0.006, -0.03, 0.006, 0.06, [70, 120, 112], 0.4, 0.003);
   const fd = R.flap / 3, flapCol = R.flap ? T.white : T.glowDim;
   for (const s of [-1, 1]) Pn.rect(s > 0 ? 0.008 : -0.62 * sx * 1.15, wy - 0.026 - fd * 0.012, s > 0 ? 0.62 * sx * 1.15 : -0.008, wy - 0.024, flapCol, 0.8, 0.0035);
-  const on = R.powered && R.rpm > 0.02, frac = clamp(R.rpm / 1.05, 0, 1), ring = frac > 0.85 ? T.glow : T.amber;
+  const on = R.powered && R.rpm > 0.02;
   MOTOR_G.forEach((g, i) => {
+    // Each motor shows its own bank's speed: the left four and the right four.
+    const frac = clamp(R.rpms[i < 4 ? 0 : 1] / 1.05, 0, 1), ring = frac > 0.85 ? T.glow : T.amber;
     const cu = g * sx, cv = wy + 0.012;
     Pn.annulus(cu, cv, 0.0125, 0.0145, [30, 44, 44], 0.3, 0.003, 14);
     if (frac > 0.01) Pn.annulus(cu, cv, 0.0125, 0.0145, ring, 0.95, 0.0035, Math.max(2, Math.round(14 * frac)), Math.PI / 2, Math.PI / 2 - frac * TAU);
@@ -779,9 +790,10 @@ function motorsPage(Pn, R) {
     Pn.disc(cu, cv, 0.0022, [200, 210, 210], 0.6, 0.005, 6);
   });
   // The thrust levers, mirrored: a bar for each bank, filled to the thrust, the idle and full marks.
-  for (const [u, nm] of [[-0.118, 'L'], [0.118, 'R']]) {
+  for (const [u, nm, e] of [[-0.118, 'L', 0], [0.118, 'R', 1]]) {
+    const t = R.thrs[e];
     Pn.rect(u - 0.007, -0.088, u + 0.007, -0.01, [20, 30, 32], 0.3, 0.002);
-    if (R.thr > 0.005) Pn.rect(u - 0.005, -0.086, u + 0.005, lerp(-0.086, -0.012, R.thr), R.thr > 0.95 ? T.amber : T.glow, 0.9, 0.003);
+    if (t > 0.005) Pn.rect(u - 0.005, -0.086, u + 0.005, lerp(-0.086, -0.012, t), t > 0.95 ? T.amber : T.glow, 0.9, 0.003);
     Pn.text(nm, u + (u < 0 ? 0.018 : -0.018), -0.088, 0.012, LBL, 0.5, 0.003);
   }
   // Big values: rpm and thrust as percentages, and the flap notch.
@@ -888,11 +900,13 @@ function hud(K, P, R, lit) {
   Hp.rect(sx - 0.0005, sy - sb, sx + 0.0005, sy + sb, G3, 0.4, 0.0022);
   Hp.rect(sx - sb, sy - 0.0005, sx + sb, sy + 0.0005, G3, 0.4, 0.0022);
   Hp.disc(sx + R.ail * (sb - 0.003), sy + R.elev * (sb - 0.003), 0.0032, G2, 1, 0.0028, 10);
-  // The thrust, a caret up the left edge.
+  // The thrust, a caret each side of a rail up the left edge: the left bank's outboard, the right's
+  // inboard. Ganged, they meet at one height; split, the gap between them is the split.
   const tx = -0.112, ty0 = -0.075, ty1 = 0.045;
   Hp.rect(tx - 0.0008, ty0, tx + 0.0008, ty1, G3, 0.6, 0.0022);
-  const ty = lerp(ty0, ty1, R.thr);
-  Hp.plate([[tx + 0.002, ty], [tx + 0.009, ty - 0.004], [tx + 0.009, ty + 0.004]], G2, 1, 0.0028);
+  const tyL = lerp(ty0, ty1, R.thrs[0]), tyR = lerp(ty0, ty1, R.thrs[1]);
+  Hp.plate([[tx - 0.002, tyL], [tx - 0.009, tyL + 0.004], [tx - 0.009, tyL - 0.004]], G2, 1, 0.0028);
+  Hp.plate([[tx + 0.002, tyR], [tx + 0.009, tyR - 0.004], [tx + 0.009, tyR + 0.004]], G2, 1, 0.0028);
   // The pedals, a marker along the bottom.
   const py = -0.082;
   Hp.rect(-0.04, py - 0.0008, 0.04, py + 0.0008, G3, 0.6, 0.0022);

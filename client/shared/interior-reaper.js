@@ -611,6 +611,9 @@ export function readReaper(live) {
     L, pitch, bank: num(L.bank), hdg: num(L.hdg), ias, vne: Math.max(40, num(L.vne, 450)),
     alt: Math.max(0, num(L.alt)), vsi, aoa: clamp(pitch - gamma, -5, 30),
     rpm: clamp(num(L.rpm), 0, 1.05), thr: clamp(num(L.throttle), 0, 1),
+    // Each engine's throttle and spool, left then right (cockpit.js splits them); the ganged pair without.
+    thrs: [0, 1].map((e) => clamp(num(L.throttles?.[e], num(L.throttle)), 0, 1)),
+    rpms: [0, 1].map((e) => clamp(num(L.rpms?.[e], num(L.rpm)), 0, 1.05)),
     fuel: clamp(num(L.fuel, 1), 0, 1), hull: clamp(num(L.hull, 1), 0, 1),
     powered: L.powered !== false,
     ail: clamp(num(L.stickX), -1, 1), elev: clamp(num(L.stickY), -1, 1), rud: clamp(num(L.rudder), -1, 1),
@@ -653,7 +656,10 @@ export function reaperHotspots(P, live) {
   out.push({ id: 'ck:arm', p: [-0.33, PANEL_Y - 0.012, PZ + 0.10], r: 0.016, kind: 'click' });
   out.push({ id: 'ck:flaps', p: flapTip(R), r: 0.02, kind: 'click' });
   out.push({ id: 'yoke', p: add(stickTip(R), [0, 0.01, 0.07]), r: 0.07, kind: 'yoke' });
-  out.push({ id: 'throttle', p: throttleTip(0, R.thr), r: 0.04, kind: 'throttle' });
+  // Each grip moves its own engine; a hand across both (between the grips) moves the pair.
+  const t0 = throttleTip(0, R.thrs[0]), t1 = throttleTip(1, R.thrs[1]);
+  out.push({ id: 'throttle', p: t0.map((v, i) => (v + t1[i]) / 2), r: 0.02, kind: 'throttle' });
+  out.push({ id: 'thr0', p: t0, r: 0.03, kind: 'throttle', engine: 0 }, { id: 'thr1', p: t1, r: 0.03, kind: 'throttle', engine: 1 });
   out.push(gpsHotspot(makeKit(() => {}).panel([0, PANEL_Y, PZ], [1, 0, 0], [0, 0, 1]), GPS.u, GPS.v, 0.034));
   return out;
 }
@@ -718,11 +724,11 @@ export function reaperFit(P, live, push) {
 
   // ── THE ENGINES (upper right): fan speed, ITT, core speed and fuel flow, left and right ──
   for (let e = 0; e < 2; e++) {
-    const u = 0.235 + e * 0.09, rr = R.rpm * (e ? 0.992 : 1);
+    const u = 0.235 + e * 0.09, rr = R.rpms[e];
     Pn.dial(u, 0.182, 0.021, rr, { ticks: 10, major: 5, red: 0.98, name: 'FAN' });
     Pn.dial(u, 0.128, 0.021, clamp(0.25 + rr * 0.6, 0, 1), { ticks: 8, major: 4, arcs: [[0.3, 0.8, C.green]], red: 0.9, name: 'ITT', nameH: 0.0072 });
     Pn.dial(u, 0.074, 0.021, clamp(0.55 + rr * 0.4, 0, 1), { ticks: 10, major: 5, red: 0.99, name: 'CORE', nameH: 0.0072 });
-    Pn.dial(u, 0.020, 0.021, clamp(R.thr * rr, 0, 1), { ticks: 6, major: 3, name: 'FF', nameH: 0.0075 });
+    Pn.dial(u, 0.020, 0.021, clamp(R.thrs[e] * rr, 0, 1), { ticks: 6, major: 3, name: 'FF', nameH: 0.0075 });
   }
   Pn.lamp(0.28, -0.015, 0.012, 0.005, on && R.fuel < 0.15, C.amber, 'LO FUEL');
   // ── FUEL QUANTITY (lower right): the two tank needles and the total counter ──
@@ -753,9 +759,9 @@ export function reaperFit(P, live, push) {
 
   // ── THE LEFT CONSOLE: two throttles, the flap lever, the fuel panel, the trim panel ──
   for (let i = 0; i < 2; i++) {
-    const p = THR_PIVOT(i), tip = throttleTip(i, R.thr);
+    const p = THR_PIVOT(i), tip = throttleTip(i, R.thrs[i]);
     K.rod([p[0], p[1], CONS_Z + 0.02], tip, 0.009, 'dash', 0.1, T.metal, 0, 6);
-    const a = lerp(-0.62, 0.62, R.thr), up = [0, Math.sin(a), Math.cos(a)], fw = [0, Math.cos(a), -Math.sin(a)];
+    const a = lerp(-0.62, 0.62, R.thrs[i]), up = [0, Math.sin(a), Math.cos(a)], fw = [0, Math.cos(a), -Math.sin(a)];
     K.obox(add(tip, mul(up, 0.03)), [1, 0, 0], up, fw, 0.024, 0.035, 0.028, 'dash', 0.1, T.grip);
     if (i === 0) {   // the left grip carries the speedbrake and the mic switches, thumb side
       K.obox(add(add(tip, mul(up, 0.045)), [0.026, 0, 0]), [1, 0, 0], up, fw, 0.004, 0.008, 0.008, 'dash', 0.2, T.metal);

@@ -23133,7 +23133,7 @@ function liveInstruments(v) {
   return {
     ias: v.ias, alt: v.alt, vsi: v.vsi, vne: v.vne, pitch: v.pitch, bank: v.bank,
     hdg: v.ownHdg != null ? v.ownHdg : v.heading, rpm: v.rpmFrac, oilTemp: v.oilTemp, fuel: v.fuel,
-    hull: v.hull, throttle: v.throttle, flapNotch: v.flapNotch, rudder: v.rudder, trim: v.trim, conv: v.gunConv,
+    hull: v.hull, throttle: v.throttle, throttles: v.throttles, rpms: v.rpms, split: v.split, flapNotch: v.flapNotch, rudder: v.rudder, trim: v.trim, conv: v.gunConv,
     gearFixed: v.gearFixed, gearDown: v.gearDown, stall: v.stall, bingo: v.bingo,
     powered: v.powered, landingLight: v.landingLight, dome: v.dome,
     // The engine master (cockpit.js sends it as altOn), which a dry tank or an EMP leaves on with

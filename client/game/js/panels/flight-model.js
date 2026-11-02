@@ -24,6 +24,12 @@ const SLIP_DRAG = 0.0005;   // extra drag ∝ V² per unit slip, sized so a slip
 const SLIP_SINK = 4.0;      // extra sink per unit slip, fpm per knot of airspeed
 const GROUND_EFFECT_FT = 26;      // AGL lift-cushion band; kept low so she doesn't float down the runway
 const GE_LIFT = 0.12;             // extra lift for the same α on the deck, fading out by the top of the band
+// Split throttles. Where each engine sits across the span, left to right, as a fraction of the
+// outermost: a twin's two at ±1, a four's inboards at ±0.5.
+export const engineArms = (n) => (n === 2 ? [-1, 1] : n === 4 ? [-1, -0.5, 0.5, 1]
+  : Array.from({ length: n }, (_, i) => (n === 1 ? 0 : -1 + 2 * i / (n - 1))));
+const DIFF_YAW = 0.6;    // yaw at full asymmetry, as a fraction of full rudder, so the rudder can hold it
+const DIFF_STEER = 0.7;  // ground turn at full asymmetry, as a fraction of full nosewheel steering
 const HELI_GROUND_EFFECT_FT = 40; // AGL band (~a rotor diameter) of downwash cushion
 
 // ── Per-airframe tuning ───────────────────────────────────────────────────────
@@ -1369,8 +1375,25 @@ export function step(state, input, p, dt) {
   const oneWing = wingDead !== 0;
   const WING_ROLL = 34, WING_YAW = 26;   // deg/s toward the dead wing; fightable with full opposite aileron
 
-  // 1. Engine inertia.
-  s.rpm += (throttle - s.rpm) * Math.min(1, dt / p.engineLag);
+  // 1. Engine inertia. `input.throttles` splits the levers, one per engine (left to right); without
+  //    it every engine follows `throttle`. Each engine spools on its own and s.rpm is their mean, so
+  //    thrust is unchanged for a ganged set. An uneven pair yaws her toward the slower side (§5).
+  const split = Array.isArray(input.throttles) && input.throttles.length > 1 ? input.throttles : null;
+  let asym = 0;
+  if (split) {
+    const n = split.length, arms = engineArms(n);
+    if (!Array.isArray(s.rpms) || s.rpms.length !== n) s.rpms = new Array(n).fill(s.rpm);
+    let sum = 0, moment = 0, armSum = 0;
+    for (let i = 0; i < n; i++) {
+      s.rpms[i] += (clamp(split[i] || 0, 0, 1) - s.rpms[i]) * Math.min(1, dt / p.engineLag);
+      sum += s.rpms[i]; moment -= arms[i] * s.rpms[i]; armSum += Math.abs(arms[i]);
+    }
+    s.rpm = sum / n;
+    asym = input.noThrust ? 0 : moment / (armSum / 2);   // +1: the left side full and the right idle, which yaws her right
+  } else {
+    s.rpm += (throttle - s.rpm) * Math.min(1, dt / p.engineLag);
+    if (Array.isArray(s.rpms)) s.rpms = null;
+  }
   // `noThrust` (Leviathan visor lock) cuts thrust force only; the engines still spool and sound.
   const thrust = (input.noThrust ? 0 : s.rpm) * p.thrustMax;
 
@@ -1426,12 +1449,16 @@ export function step(state, input, p, dt) {
     const turnRate = (G_KT * Math.tan(s.bank * D2R)) / Math.max(p.vs0, s.airspeed) * R2D;
     let yaw = turnRate + pedal * rudderYaw * auth * (rudderGone ? 0 : 1);
     if (oneWing) yaw += wingDead * WING_YAW;
+    // Differential thrust: full rudder holds one engine at full power against the other at idle.
+    yaw += asym * rudderYaw * DIFF_YAW;
     s.heading = wrap360(s.heading + yaw * dt);
   } else if (s.onGround && s.airspeed > 0.3) {
-    // Nosewheel steering: aileron or pedals (mobile has no pedals), fading toward Vr.
+    // Nosewheel steering: aileron or pedals (mobile has no pedals), fading toward Vr. Split levers
+    // steer too, and that doesn't fade at a walk: it's how a twin turns tight on the apron.
     const steerAuth = clamp(s.airspeed / 5, 0, 1) * clamp((p.vr - s.airspeed) / p.vr, 0, 1);
     const steer = clamp(aileron + pedal, -1, 1);
-    s.heading = wrap360(s.heading + steer * (p.groundSteer || 0) * steerAuth * dt);
+    const diffSteer = asym * DIFF_STEER * clamp(s.airspeed / 2, 0, 1) * clamp((p.vr - s.airspeed) / p.vr, 0, 1);
+    s.heading = wrap360(s.heading + (steer * steerAuth + diffSteer) * (p.groundSteer || 0) * dt);
   }
 
   // 5b. Forward slip: bank against opposite rudder, full by ~22° with full rudder, eased over 0.5 s.

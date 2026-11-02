@@ -180,6 +180,30 @@ and nothing else, so the three ground helipads are untouched by construction.
 - `node scripts/shapes/landing-feel.mjs` (a gate) checks all three. `node scripts/flare-tune.mjs`
   flies a whole powered final for every type and prints the sink at the wheels and the float.
 
+### Split throttles (as built, 2026-11-01)
+
+A fixed wing with more than one engine has a lever per engine. Helicopters don't split: every
+engine turns the one rotor.
+
+- **The input.** `F.input.throttle` is the ganged lever and always the mean of the set.
+  `F.input.throttles` (one per engine, left to right) exists only while the levers are split, and
+  goes back to `null` the moment they meet again (`setLever` in cockpit.js). `step()` takes it as
+  `input.throttles`: each engine spools on its own (`s.rpms`), `s.rpm` is their mean, and thrust is
+  the mean, so a ganged set flies exactly as it always did.
+- **What a split does.** An uneven set yaws her toward the slower side, at 0.6 of full rudder for
+  one side full against the other idle, so full opposite rudder holds an engine out. On the ground
+  it turns her too, down to a walk, which is how a twin turns tight on the apron. Engine arms are
+  `engineArms(n)`: a twin's two at ±1, a four's inboards at ±0.5.
+- **The controls.** In the seat, each engine's lever is its own hotspot (`thr0` to `thr3`, carrying
+  `engine`); a hand between the grips (`throttle`) moves the set and closes any split. A and Z move
+  every lever together and keep the split; Shift with them moves the left half alone, Alt the right
+  half. The mobile strip is ganged.
+- **What the cockpits read.** The view carries `throttles` and `rpms` (per engine) and `split`. The
+  Mule, Mule 2076, Reaper and Leviathan draw each lever, and each engine's gauges, from its own
+  values. The Mule 2076's two sim engines are its two banks of four motors. The Drake still has one
+  lever.
+- `node scripts/shapes/engine-split.mjs` (a gate) checks the model and the four cockpits.
+
 Ten aircraft types (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
 Grasshopper · Locust · Viper · **Shrike**), four fuel types (charge/hydrogen/jet/biofuel; avgas retired, see Fuels above), four ground AA
 sites (Redline SAM / wastes autocannon / Slagworks flak / Clone Vats guardian), a Core

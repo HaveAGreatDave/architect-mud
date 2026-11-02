@@ -815,6 +815,10 @@ function readLive(live) {
     ias: Math.max(0, num(L.ias)), vne: Math.max(40, num(L.vne, 300)),
     alt: Math.max(0, num(L.alt)), vsi: num(L.vsi),
     rpm: clamp(num(L.rpm), 0, 1.05), thr: clamp(num(L.throttle), 0, 1),
+    // Each engine's lever and spool, left to right (cockpit.js), falling back to the ganged pair.
+    thrs: [0, 1, 2, 3].map((i) => clamp(num(L.throttles?.[i], num(L.throttle)), 0, 1)),
+    rpms: [0, 1, 2, 3].map((i) => clamp(num(L.rpms?.[i], num(L.rpm)), 0, 1.05)),
+    split: !!L.split,
     fuel: clamp(num(L.fuel, 1), 0, 1), hull: clamp(num(L.hull, 1), 0, 1),
     powered: L.powered !== false,
     ail: clamp(num(L.stickX), -1, 1), elev: clamp(num(L.stickY), -1, 1), rud: clamp(num(L.rudder), -1, 1),
@@ -831,8 +835,12 @@ function readLive(live) {
 const YOKE = (x, R) => [x, 0.42 - R.elev * 0.12, -0.40];
 const LEVER = (P, R, i) => {
   const piv = [P.xCentre - 0.135 + i * 0.07, 0.17, -0.70];
-  const a = (-32 + 64 * R.thr * (1 - i * 0.008)) * Math.PI / 180;
+  const a = (-32 + 64 * R.thrs[i]) * Math.PI / 180;
   return { piv, tip: add(piv, [0, Math.sin(a) * 0.26, Math.cos(a) * 0.26]) };
+};
+const CROSSBAR = (P, R) => {
+  const y = LEVER(P, { thrs: [R.thr, R.thr, R.thr, R.thr] }, 0).tip, z = R.split ? 0.05 : 0.022;
+  return [add([LEVER(P, R, 0).piv[0], y[1], y[2]], [-0.02, 0, z]), add([LEVER(P, R, 3).piv[0], y[1], y[2]], [0.02, 0, z])];
 };
 const FLAPL = (P, R) => { const piv = [P.xCentre + 0.195, 0.17, -0.70], a = (26 - R.flap * 17) * Math.PI / 180; return { piv, tip: add(piv, [0, Math.sin(a) * 0.20, Math.cos(a) * 0.20]) }; };
 const MAIN = (P) => { const rk = 12 * Math.PI / 180; return makeKit(() => {}).panel([P.xCentre, 0.78, -0.50], [1, 0, 0], [0, -Math.sin(rk), Math.cos(rk)]); };
@@ -869,10 +877,10 @@ function liveFit(P, live, push) {
   }
   // ── THE CENTRE BOARD: four engines in columns (N1, EGT, fuel flow), then the gear lever. ──
   for (let i = 0; i < 4; i++) {
-    const u = -0.195 + i * 0.13, n1 = clamp(R.rpm * (1 - i * 0.012), 0, 1.05);
+    const u = -0.195 + i * 0.13, n1 = R.rpms[i];
     Mp.dial(u, 0.17, 0.048, n1 / 1.05, dialO({ ticks: 10, major: 2, arcs: [[0.2, 0.9, C.green]], red: 0.95, name: 'N1' }));
     Mp.dial(u, 0.03, 0.042, clamp(0.25 + n1 * 0.6, 0, 1), dialO({ ticks: 8, major: 2, arcs: [[0.3, 0.8, C.green]], red: 0.9, name: 'EGT' }));
-    Mp.bar(u, -0.13, -0.05, 0.012, R.thr * n1, lit ? C.green : C.lampOff);
+    Mp.bar(u, -0.13, -0.05, 0.012, R.thrs[i] * n1, lit ? C.green : C.lampOff);
     Mp.text('FF', u + 0.035, -0.09, 0.013, back ? [250, 244, 226] : C.tick, back ? 0.9 : 0.35);
     Mp.digits(u - 0.03, -0.17, 0.022, String(Math.round(n1 * 100)).padStart(3, ' '), lit ? C.green : C.lampOff);
   }
@@ -915,8 +923,9 @@ function liveFit(P, live, push) {
     // The reverser latch on the front of each lever.
     K.obox(add(tip, [0, 0.03, -0.035]), [1, 0, 0], [0, 0, 1], [0, 1, 0], 0.012, 0.01, 0.012, 'dash', 0.1, T.knobK, 0);
   }
-  // A crossbar across all four grips when they are together, so one hand moves the set.
-  { const a = LEVER(P, R, 0).tip, b = LEVER(P, R, 3).tip; K.rod(add(a, [-0.02, 0, 0.022]), add(b, [0.02, 0, 0.022]), 0.008, 'dash', 0.2, C.chrome, 0, 5); }
+  // A crossbar across all four grips when they are together, so one hand moves the set. Split, it
+  // rides at the mean, clear of the knobs, and dragging it brings them back together.
+  { const [a, b] = CROSSBAR(P, R); K.rod(a, b, 0.008, 'dash', 0.2, R.split ? T.knobK : C.chrome, 0, 5); }
   {
     const { piv, tip } = FLAPL(P, R);
     K.rod(piv, tip, 0.008, 'dash', 0.1, T.lever, 0, 6);
@@ -1073,7 +1082,9 @@ export function levHotspots(P, live) {
   const R = readLive(live), cx = P.xCentre;
   const out = [
     { id: 'yoke', p: YOKE(0, R), r: 0.12, kind: 'yoke' },
-    { id: 'throttle', p: LEVER(P, R, 1).tip, r: 0.06, kind: 'throttle' },
+    // The crossbar moves the set; each knob moves its own engine and splits them.
+    { id: 'throttle', p: (([a, b]) => mul(add(a, b), 0.5))(CROSSBAR(P, R)), r: 0.03, kind: 'throttle' },
+    ...[0, 1, 2, 3].map((i) => ({ id: 'thr' + i, p: LEVER(P, R, i).tip, r: 0.03, kind: 'throttle', engine: i })),
     { id: 'ck:flaps', p: FLAPL(P, R).tip, r: 0.03, kind: 'click' },
     { id: 'ck:gear', p: GEARL(P, R), r: 0.03, kind: 'click' },
     gpsHotspot(MAIN(P), GPS.u, GPS.v, 0.07),

@@ -1718,7 +1718,7 @@ export function openFlightSim(opts = {}) {
   wirePedal(F.pedalR, 1);
 
   const thr = q('#fsim-thr');
-  const thrTo = (e) => { const r = thr.getBoundingClientRect(); F.input.throttle = clampNum(1 - (e.clientY - r.top) / r.height, 0, 1); };
+  const thrTo = (e) => { const r = thr.getBoundingClientRect(); setLever(F, null, clampNum(1 - (e.clientY - r.top) / r.height, 0, 1)); };
   add(thr, 'pointerdown', (e) => { F.thrDrag = true; try { thr.setPointerCapture(e.pointerId); } catch {} thrTo(e); });
   add(thr, 'pointermove', (e) => { if (F.thrDrag) thrTo(e); });
   add(window, 'pointerup', () => { F.thrDrag = false; });
@@ -2173,7 +2173,7 @@ export function openFlightSim(opts = {}) {
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
-    const k = (e.key || '').toLowerCase();
+    const k = (e.altKey && (e.code === 'KeyA' || e.code === 'KeyZ')) ? e.code.slice(3).toLowerCase() : (e.key || '').toLowerCase();   // Alt+A on a Mac types å, so read it by code
     if (k === 'escape' && gpsEl) { e.preventDefault(); gpsClose(); return; }
     // ── The free camera ─────────────────────────────────────────────────────
     // Ahead of the KEYS allowlist. Detaching releases stick and pedal keys, so the aircraft flies on.
@@ -2201,8 +2201,9 @@ export function openFlightSim(opts = {}) {
     if (!KEYS.has(k)) return;
     e.preventDefault();
     switch (k) {
-      case 'a': F.throttleKey = 1; break;
-      case 'z': F.throttleKey = -1; break;
+      // Shift moves the left engines' levers alone, Alt the right's: the split for a keyboard.
+      case 'a': F.throttleKey = 1; F.throttleSide = e.shiftKey ? -1 : e.altKey ? 1 : 0; break;
+      case 'z': F.throttleKey = -1; F.throttleSide = e.shiftKey ? -1 : e.altKey ? 1 : 0; break;
       case 'q': setView(-90); break;
       case 'e': setView(90); break;
       case ',': case 'x': F.pedalKey = -1; break;   // rudder, held
@@ -2237,7 +2238,7 @@ export function openFlightSim(opts = {}) {
     }
   };
   const onKeyUp = (e) => {
-    const k = (e.key || '').toLowerCase();
+    const k = (e.altKey && (e.code === 'KeyA' || e.code === 'KeyZ')) ? e.code.slice(3).toLowerCase() : (e.key || '').toLowerCase();   // Alt+A on a Mac types å, so read it by code
     if (freeCam.onKey(k, false)) return;
     if (k === 'a' || k === 'z') F.throttleKey = 0;
     else if (k === ',' || k === '.' || k === 'x' || k === 'c') F.pedalKey = 0;   // release pedal → centres
@@ -2309,7 +2310,7 @@ export function openFlightSim(opts = {}) {
       F.engineOn = true; engBtn.classList.add('on');
       F.engStartT = performance.now();
       // Start at idle so the engine never surges the plane forward.
-      F.input.throttle = 0; F.throttleKey = 0;
+      F.input.throttle = 0; F.input.throttles = null; F.throttleKey = 0;
       try { spoolUp(F.cls); } catch {}
       // The visor closes on start-up; tell the pilot, since she won't taxi until it locks.
       if (F.hasVisor && F.noseVisor > 0.02) {
@@ -2613,7 +2614,8 @@ export function openFlightSim(opts = {}) {
       if (!dkDrag) return;
       const dx = e.clientX - dkDrag.x0, dy = e.clientY - dkDrag.y0;
       if (dkDrag.kind === 'yoke') { F.input.aileron = clamp1(dx / dkDrag.span); F.input.elevator = clamp1(dy / (dkDrag.span * 0.7)); }
-      else if (dkDrag.kind === 'throttle') F.input.throttle = clampNum(dkDrag.t0 - dy / dkDrag.span, 0, 1);
+      // One engine's lever (a hotspot with `engine`), or the whole set together, which closes any split.
+      else if (dkDrag.kind === 'throttle') setLever(F, dkDrag.engine, clampNum(dkDrag.t0 - dy / dkDrag.span, 0, 1));
       // Down is nose up.
       else if (dkDrag.kind === 'trim') F.setTrim?.(dkDrag.tr0 + (dy / dkDrag.span) * (F.TRIM_MAX || 0.6) * 2);
     };
@@ -2626,8 +2628,9 @@ export function openFlightSim(opts = {}) {
       dkDrag = null; q('#dkx-wheel')?.classList.remove('drag');
       const v0 = q('.fsim-view'); if (v0) v0.style.cursor = F.dkHover ? 'grab' : '';
     };
-    const dragStart = (kind, e, span) => {
-      dkDrag = { kind, x0: e.clientX, y0: e.clientY, span, t0: F.input.throttle || 0, tr0: F.input.trim || 0 };
+    const dragStart = (kind, e, span, engine = null) => {
+      const one = engine != null && canSplit(F) ? engine : null;
+      dkDrag = { kind, x0: e.clientX, y0: e.clientY, span, engine: one, t0: one != null ? leverOf(F, one) : (F.input.throttle || 0), tr0: F.input.trim || 0 };
       if (kind === 'yoke') F.yokeDrag = true; else if (kind === 'throttle') F.thrDrag = true;
     };
     add(window, 'pointermove', dragMove);
@@ -2657,6 +2660,10 @@ export function openFlightSim(opts = {}) {
     document.body.appendChild(tip);
     F.dkTipEl = tip;
     const onOff = (b) => (b ? 'ON' : 'OFF');
+    const engineLeverTip = (i) => {
+      const n = Math.max(1, F.engines || 1), name = n === 2 ? ['LEFT', 'RIGHT'][i] : 'ENGINE ' + (i + 1);
+      return [name + ' THROTTLE', `${Math.round(leverOf(F, i) * 100)}% · drag to set this engine alone`];
+    };
     const DK_TIP = {
       'ck:master': () => ['ENGINE', F.engineOn ? 'running · click to shut down (on the ground, stopped)' : 'off · click or press I to start'],
       'ck:land': () => ['LANDING LIGHTS', onOff(!!F.landingLight)],
@@ -2681,7 +2688,11 @@ export function openFlightSim(opts = {}) {
       bucket: () => ['CHAMPAGNE', DK_CHAMPAGNE === 0 ? 'empty · refilled when you refuel' : `${DK_CHAMPAGNE ?? 6} glasses · click to drink, shift-click to pour for passengers`],
       locker: () => ['WEAPONS LOCKER', 'dry storage · click to open'],
       ramp: () => ['RAMP', 'rear loading ramp'],
-      throttle: () => ['THROTTLE', `${Math.round((F.input.throttle || 0) * 100)}% · drag up and down`],
+      throttle: () => ['THROTTLE', F.input.throttles
+        ? `split ${F.input.throttles.map((x) => Math.round(x * 100)).join(' / ')}% · drag to bring them together`
+        : `${Math.round((F.input.throttle || 0) * 100)}% · drag up and down`],
+      // One engine's lever: drag it on its own to split the set.
+      thr0: () => engineLeverTip(0), thr1: () => engineLeverTip(1), thr2: () => engineLeverTip(2), thr3: () => engineLeverTip(3),
       mode0: () => ['HELI', 'rotor flight'], mode1: () => ['PLANE', 'wings out, forward flight'],
       mode2: () => ['BOAT', 'feet up, sit on the hull (over water)'], mode3: () => ['SUB', 'flood the ballast and dive (on the water)'],
       modelever: () => ['MODE', `${['HELI', 'PLANE', 'BOAT', 'SUB'][drakeModeNow()]} · click a gate, or the knob for the next`],
@@ -2718,7 +2729,7 @@ export function openFlightSim(opts = {}) {
       if (best.id === 'quack') { F.dkQuackHold = true; drakeQuackDown(); }
       else if (best.kind === 'click') DK_ACT[best.id]?.(e);
       else if (best.kind === 'rudder') { F.dkRudHold = best.id === 'rudderL' ? -1 : 1; F.pedalKey = F.dkRudHold; }
-      else dragStart(best.kind, e, best.kind === 'yoke' ? 110 : 90);
+      else dragStart(best.kind, e, best.kind === 'yoke' ? 110 : 90, best.engine);
     }, true);
     // Mouse wheel turns the 3-D trim wheel and convergence knob.
     add(view, 'wheel', (e) => {
@@ -3043,6 +3054,35 @@ function parkedDeck(F) {
 
 // The floor this frame: zero, or the deck we started on until we leave it.
 // ⚠ The `left` latch only closes; reopening it would snap a low pass onto the roof and skip CFIT.
+// ── Split throttles ─────────────────────────────────────────────────────────
+// `F.input.throttle` is the ganged lever and always the mean of the set. `F.input.throttles`, one per
+// engine left to right, exists only while the levers are split; when they meet again it goes back to
+// null and they are one lever. Helicopters don't split: every engine turns the one rotor.
+const canSplit = (F) => !(F.P && F.P.heli) && Math.max(1, F.engines || 1) > 1;
+function leverOf(F, i) { return (F.input.throttles ? F.input.throttles[i] : F.input.throttle) || 0; }
+function setLever(F, i, v) {
+  const n = Math.max(1, F.engines || 1);
+  if (!canSplit(F) || i == null) { F.input.throttle = v; F.input.throttles = null; return; }
+  if (!F.input.throttles || F.input.throttles.length !== n) F.input.throttles = new Array(n).fill(F.input.throttle || 0);
+  const t = F.input.throttles;
+  t[i] = v;
+  F.input.throttle = t.reduce((a, b) => a + b, 0) / n;
+  if (t.every((x) => Math.abs(x - t[0]) < 0.01)) { F.input.throttle = t[0]; F.input.throttles = null; }
+}
+// Move the levers. side 0: every lever together, keeping any split, one hand across the whole set.
+// side -1 or 1: only the left or right half (the left engine of a twin, the left pair of a four).
+function nudgeLevers(F, d, side = 0) {
+  if (side && canSplit(F)) {
+    const n = Math.max(1, F.engines || 1);
+    for (let i = 0; i < n; i++) if ((i < n / 2) === (side < 0)) setLever(F, i, clampNum(leverOf(F, i) + d, 0, 1));
+    return;
+  }
+  const t = F.input.throttles;
+  if (!t) { F.input.throttle = clampNum((F.input.throttle || 0) + d, 0, 1); return; }
+  for (let i = 0; i < t.length; i++) t[i] = clampNum(t[i] + d, 0, 1);
+  F.input.throttle = t.reduce((a, b) => a + b, 0) / t.length;
+}
+
 function deckFloorFt(F, s) {
   if (F.roofLock) return F.roofLock.padFt;
   const d = F.padDeck;
@@ -3367,7 +3407,7 @@ function fsimFrameBody(now) {
       F.extOrbit = 0; F.extPitch = REST_PITCH; F.extZoom = 1; F.orbitResetting = false;
     }
   }
-  if (F.throttleKey) input.throttle = clampNum(input.throttle + F.throttleKey * dt * 0.5, 0, 1);
+  if (F.throttleKey) nudgeLevers(F, F.throttleKey * dt * 0.5, F.throttleSide || 0);
   input.pedal = F.pedalKey ? clampNum(input.pedal + F.pedalKey * dt * 2.2, -1, 1) : lerpN(input.pedal, 0, Math.min(1, dt * 12));
   // Gear up on the ground: no thrust until it's down. ⚠ Not a Drake on the water.
   const bellyDown = s.onGround && F.gearRetract && F.gearUp && !(F.dk && F.dk.onWater);
@@ -3378,10 +3418,12 @@ function fsimFrameBody(now) {
       F.visorBaulkT = 2.5;                       // one toast per held key
       if (F.toast) F.toast('THROTTLE BAULKED: cargo nose is open.');
     }
-    input.throttle = 0; F.throttleKey = 0;
+    input.throttle = 0; input.throttles = null; F.throttleKey = 0;
   }
   if (F.visorBaulkT > 0) F.visorBaulkT = Math.max(0, F.visorBaulkT - dt);
   const thr = (F.engineOn && !F.deadStick && !bellyDown) ? input.throttle : 0;
+  // Split levers reach the sim only while the engines can make thrust; otherwise it's all idle.
+  const thrs = (F.engineOn && !F.deadStick && !bellyDown && canSplit(F)) ? input.throttles : null;
 
   // Weather and thermals are sampled once per frame and held across the sub-steps.
   const atmos = F.atmos = weatherAtmos(F, now);
@@ -3401,7 +3443,7 @@ function fsimFrameBody(now) {
   while (F.acc >= FIXED && nSteps < 8) {
     const h = FIXED;
     // gear: fixed gear reports 0 (its drag is in dragP). collRaw and power let a heli autorotate.
-    step(s, { lift: F.lift || 0, elevator: input.elevator, aileron: input.aileron, throttle: thr, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), noThrust: !visorLocked, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
+    step(s, { lift: F.lift || 0, elevator: input.elevator, aileron: input.aileron, throttle: thr, throttles: thrs, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), noThrust: !visorLocked, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
     // BOAT / SUB: the tail rotor pushes, the throttle sets speed, pedals and stick steer.
     if (F.dk?.boat && (F.dk.onWater || F.waterBelow) && F.engineOn && !F.deadStick) {
       const under = F.dk.submerged > 0, vmax = under ? SUB_MAX_KT : BOAT_MAX_KT;
@@ -3744,7 +3786,8 @@ function fsimFrameBody(now) {
     root.style.setProperty('--sheen', (day * wxMul * 0.42).toFixed(2));
   }
 
-  // Cosmetic: the one sim rpm fanned out per engine with a little wander and thermal lag.
+  // Each engine's rpm: its own spool when the levers are split (s.rpms), else the one sim rpm fanned
+  // out, with a little wander and thermal lag either way.
   const nEng = Math.max(1, F.engines || 1);
   if (F.rpms.length !== nEng) F.rpms = new Array(nEng).fill(0);
   if (F.temps.length !== nEng) F.temps = new Array(nEng).fill(F.temp || 40);
@@ -3752,7 +3795,7 @@ function fsimFrameBody(now) {
   const engRunning = F.engineOn && s.rpm > 0.02;
   for (let i = 0; i < nEng; i++) {
     const wob = engRunning ? Math.sin(F.engWander * 1.3 + i * 2.2) * 0.02 : 0;
-    F.rpms[i] = clampNum(s.rpm * (1 + wob), 0, 1);
+    F.rpms[i] = clampNum((s.rpms && s.rpms.length === nEng ? s.rpms[i] : s.rpm) * (1 + wob), 0, 1);
     F.temps[i] = lerpN(F.temps[i], 40 + F.rpms[i] * 175 + i * 7, Math.min(1, dt * 0.35));
   }
   F.temp = F.temps[0];
@@ -4056,6 +4099,10 @@ function fsimFrameBody(now) {
     fuel: clampNum((s.fuelPct ?? 100) / 100, 0, 1),
     hull: clampNum((s.hullPct ?? 100) / 100, 0, 1),
     throttle: clampNum(F.input.throttle ?? 0, 0, 1),
+    // Every lever, left to right: the split set, or the ganged lever once per engine. With `rpms`,
+    // a cockpit with a lever and a gauge per engine draws each from its own.
+    throttles: Array.from({ length: Math.max(1, F.engines || 1) }, (_, i) => clampNum(leverOf(F, i), 0, 1)),
+    rpms: F.rpms.slice(), split: !!F.input.throttles,
     // The lever is a gate: the 0..1 input quantised to its notches.
     flapNotch: Math.round(clampNum(F.input.flaps || 0, 0, 1) * 3),
     rudder: clampNum(F.input.pedal || 0, -1, 1),
