@@ -1,0 +1,21 @@
+{
+  "blurb": "Concept. The Drake fifty years on: a printed air yacht in champagne pearl and titanium, the mandarin kept as a vanity hull.",
+  "default": false,
+  "exterior": {
+    "base": "#dac49e",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#eeece6",
+    "variant": "2076"
+  },
+  "id": "2076",
+  "interior": {
+    "cabin": "#1c2a28",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "drake",
+  "name": "Drake 2076",
+  "plate": "",
+  "unlock": null
+}

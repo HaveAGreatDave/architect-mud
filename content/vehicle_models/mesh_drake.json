@@ -4,6 +4,9 @@
   "params": {
     "name": "Drake",
     "note": "A very large luxury compound coaxial shaped like a mandarin drake. The pilot sits in the eye. A round head on a neck with a red bill, a green forehead and a white crescent, a plump violet breast on a boat hull that lands on water, white and black shoulder bars, a mane of a crest, orange sail fins, and paddle feet that fold away. Two stacked contra-rotating rotors and a ducted pusher, so no tail rotor.",
+    "variants": {
+      "2076": "drake_2076"
+    },
     "classFacts": {
       "contactSize": 0.1,
       "modelScale": 0.95

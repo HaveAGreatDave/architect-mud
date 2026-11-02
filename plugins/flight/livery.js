@@ -33,6 +33,8 @@ export const TRIMS = {
     { id: 'neon', label: 'Neon' },
     // SPECIAL EDITION: a bald eagle outside, red white and blue inside (interior-drake.js DRAKE_TRIM_QUACKHAWK).
     { id: 'quackhawk', label: 'Quackhawk Down · special edition' },
+    // CONCEPT: the Drake 2076 is a different airframe (mesh_drake.json 'variants'), with its own cockpit.
+    { id: '2076', label: 'Drake 2076 · concept' },
   ],
   // CONCEPT: the 2076 body is a different model, not a paint scheme (mesh_heli.json 'variants').
   // The Viper keeps her own airframe whatever this says (aircraftFaces ignores a variant when armed).
