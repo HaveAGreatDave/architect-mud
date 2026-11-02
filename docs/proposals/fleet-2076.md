@@ -1,6 +1,6 @@
 # The 2076 fleet
 
-**Status: Dragonfly, Mule, Mayfly, Grasshopper and Locust 2076 built, bodies and cockpits to the 2076 bar (2026-11-02); the Shrike and Leviathan are being built; the rest is design.** Every aircraft gets a 2076 body and a 2076 cockpit,
+**Status: Dragonfly, Mule, Mayfly, Grasshopper, Locust and Leviathan 2076 built, bodies and cockpits to the 2076 bar (2026-11-02); the Shrike and Reaper are being built; the Viper, Drake and Carcass are design.** Every aircraft gets a 2076 body and a 2076 cockpit,
 worn as its "2076" factory edition beside the vintage one. This file is the brief a build works
 from: the canon, the pattern to copy, the standard every build is held to, and the plan for each
 aircraft.
@@ -80,7 +80,7 @@ gate, the liveries gate, the full gate run and `tests/regress.js`.
 | Locust | `locust` | charge | Built. Electric hopper mothership after the Pyka Pelican: a battery under the belly, a six-blade prop, ten spray drones docked on the wing that fly out off each tip on the `spray` channel while she sprays. | Built to the 2076 bar: spray and drone pages, a SPRAY key (`ck:spray`), a hologram whose drones launch with the valve. |
 | Drake | `drake` | hydrogen | Design. A printed-to-order air yacht; the duck is a vanity hull. Compound coaxial after the Sikorsky Raider. | Keep its luxury; it already has the richest cockpit, so refit rather than replace. |
 | Shrike | `divebomber` | jet | Design. Optionally crewed dive striker; the dive siren becomes a push alert to every tablet in the target zone. | Dive page; the alert's countdown. |
-| Leviathan | `heavy` | hydrogen | Design. Hydrogen blended-wing freighter after JetZero and the Radia WindRunner, nose visor kept. | Glass flight deck, cargo page. |
+| Leviathan | `heavy` | hydrogen | Built. Hydrogen blended-wing outsize freighter after JetZero and the Radia WindRunner: one lifting body as wide as the hold, four fans on the aft deck between canted fins, a glazed cab on the nose. The visor is kept, cab and all, on the `noseVisor` channel. | Built to the 2076 bar. Four thrust levers and four HUD carets; a cargo page with the visor, the ramp and the throttle baulk, and no load figure because the sim carries no cargo mass. |
 | Reaper | `gunship` | jet | Design. The gun is still the plane; two uncrewed wingmen after the MQ-28 Ghost Bat. | Wingmen page, gun state from `ammo`. |
 | Viper | `heli` (armed) | jet | Design. Tiltrotor drone carrier after the MV-75 and Air-Launched Effects. | Needs the armed heli's variant path: today `aircraftFaces` ignores a variant when armed. |
 | Carcass | `wreck` | biofuel | Design. A downed 2076 airframe; the recorder survives. | Built off the wreck's existing interior. |

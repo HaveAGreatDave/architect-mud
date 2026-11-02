@@ -1,0 +1,20 @@
+{
+  "blurb": "Concept. The Leviathan fifty years on: one pearl lifting body as wide as its hold, four hydrogen fans on its back, the blue kept.",
+  "default": false,
+  "exterior": {
+    "base": "#e6e9ec",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#1e4896",
+    "variant": "2076"
+  },
+  "id": "2076",
+  "interior": {
+    "cabin": "#26303c",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "heavy",
+  "name": "Leviathan 2076",
+  "unlock": null
+}
