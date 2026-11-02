@@ -163,6 +163,8 @@ import { grasshopper2076Profile } from './interior-grasshopper-2076.js';
 // The Leviathan 2076 concept's flight deck cab (interior-leviathan-2076.js), worn with the heavy class's 2076 edition.
 import { leviathan2076Profile } from './interior-leviathan-2076.js';
 import { shrike2076Profile } from './interior-shrike-2076.js';
+// The Viper 2076 concept's flight deck (interior-viper-2076.js), worn with the armed heli's 2076 edition.
+import { viper2076Profile } from './interior-viper-2076.js';
 // The Reaper 2076 concept's cockpit (interior-reaper-2076.js), worn with the gunship class's 2076 edition.
 import { reaper2076Profile } from './interior-reaper-2076.js';
 import { defaultLivery, aircraftLiveryModel } from './livery-sets.js';
@@ -312,6 +314,8 @@ export const SHELL_PROFILES = {
   get leviathan2076() { return craftProfile('leviathan2076', leviathan2076Profile); },
   // The Shrike 2076 concept body's seat, picked by its edition like the Dragonfly's.
   get shrike2076() { return craftProfile('shrike2076', shrike2076Profile); },
+  // The Viper 2076 concept body's flight deck: the armed heli's 2076 edition (mesh_heli_armed.json 'variants').
+  get viper2076() { return craftProfile('viper2076', viper2076Profile); },
   // The Reaper 2076 concept body's cockpit, picked by its edition like the Dragonfly's.
   get reaper2076() { return craftProfile('reaper2076', reaper2076Profile); },
   // The generic bubble the Dragonfly used to borrow, kept as the reference `bubbleRoom` shape.
@@ -437,7 +441,7 @@ export const SHELL_CLASS = {
 // ⚠ `armed` SPLITS THE HELICOPTERS: the Dragonfly and the Viper are both class `heli`, and the
 // cockpit view already tells them apart the same way (`armed` = a heli with hardpoints).
 export function shellProfileFor(cls, armed = false, trim = null) {
-  if (cls === 'heli' && armed) return SHELL_PROFILES.viper;
+  if (cls === 'heli' && armed) return trim === '2076' ? SHELL_PROFILES.viper2076 : SHELL_PROFILES.viper;
   // Every other hull: its own room off its own row, the hydro's way. See `boatProfileFor`.
   // ⚠ An open boat (`open: 1`, the Keel) has no house, and a pilothouse lofted off her row would be
   // a closed room round an open skiff. She sits in the open-boat seat (interior-skiff.js).

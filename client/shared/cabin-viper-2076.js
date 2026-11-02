@@ -49,8 +49,9 @@ export const VP76_GLASS = {
   // One wrapped windscreen from the A-pillar arch to the radome's ring, from just above the
   // waterline on one side over the crown to the other: the flight deck sits in the glass's chin.
   windscreen: { f: [0.555, 0.79], a: [4, 176] },
-  // The crew door windows, beside the seats: A-pillar to the door's aft frame.
-  door: { f: [0.37, 0.548], a: [8, 60] },
+  // The crew door windows, beside the seats: A-pillar to the door's aft frame, the sill at the
+  // pilot's shoulder.
+  door: { f: [0.37, 0.548], a: [20, 62] },
   // The cabin's windows, two each side in the sliding door and one ahead of it (exterior only: the
   // cockpit's bulkhead is forward of all of them).
   cabin: [{ f: [0.17, 0.235], a: [16, 44] }, { f: [0.05, 0.115], a: [16, 44] }, { f: [-0.07, -0.005], a: [16, 44] }],

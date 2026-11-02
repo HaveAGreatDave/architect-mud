@@ -3075,6 +3075,8 @@ function powerAgeOf(F) {
 // computer on `diveBrake`, eased over about a second (mesh_divebomber_2076.json).
 function classAnim(F, dt) {
   if (F.cls === 'locust') return { spray: (F.droneOut = clampNum((F.droneOut || 0) + ((F.sprayT && performance.now() - F.sprayT < 1900) ? dt : -dt) * 1.1, 0, 1)) };
+  // The Viper 2076's drones fly out of their tubes while the master arm is on and home after it.
+  if (F.cls === 'heli' && F.hardpoints > 0) return { drones: (F.droneOut = clampNum((F.droneOut || 0) + (F.armed ? dt : -dt) * 0.8, 0, 1)) };
   if (F.cls === 'divebomber') return { diveBrake: (F.diveBrakeEase = clampNum((F.diveBrakeEase || 0) + ((F.diveAuto ? 1 : 0) - (F.diveBrakeEase || 0)) * Math.min(1, dt * 2.5), 0, 1)) };
   // The Reaper 2076's wingmen fly out off her tips while the weapons are armed and come home when safed.
   if (F.cls === 'gunship') return { wingmen: (F.wingmenOut = clampNum((F.wingmenOut || 0) + (F.armed ? dt : -dt) * 0.8, 0, 1)) };
