@@ -4192,7 +4192,10 @@ function fsimFrameBody(now) {
     gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
     // The Locust 2076's spray drones fly out on `spray` while she sprays and dock again after, about a
     // second each way (mesh_locust_2076.json; the stock body has nothing on the channel).
-    anim: F.dk ? drakeAnim(F.dk) : F.cls === 'locust' ? { spray: (F.droneOut = clampNum((F.droneOut || 0) + ((F.sprayT && performance.now() - F.sprayT < 1900) ? dt : -dt) * 1.1, 0, 1)) } : undefined,
+    // The Reaper 2076's two wingmen lift off the wing and fly in formation off the tips on `wingmen`
+    // while the weapons are armed, and come home when they're safed, a little over a second each way.
+    anim: F.dk ? drakeAnim(F.dk) : F.cls === 'locust' ? { spray: (F.droneOut = clampNum((F.droneOut || 0) + ((F.sprayT && performance.now() - F.sprayT < 1900) ? dt : -dt) * 1.1, 0, 1)) }
+      : F.cls === 'gunship' ? { wingmen: (F.wingmenOut = clampNum((F.wingmenOut || 0) + (F.armed ? dt : -dt) * 0.8, 0, 1)) } : undefined,
     drakeCab: F.dk ? { ...drakeAnim(F.dk), ramp: F.dk.ramp, nv: F.dk.nv, gunsArmed: F.armed, gear: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
       quack: !!F.dk.quackHeld || performance.now() - F.dk.quackT < 400, champagne: DK_CHAMPAGNE, quackP: F.dk.quackHeld ? Math.min(1, (performance.now() - F.dk.quackT) / QUACK_SQUEEZE_MS) : 0, ammo: F.gunRounds, convert: F.dk.conv, wingTarget: !!F.dk.wing,
       hover: F.dkHover || null, press: F.dkPress && performance.now() - F.dkPress.t < 220 ? F.dkPress.id : null,

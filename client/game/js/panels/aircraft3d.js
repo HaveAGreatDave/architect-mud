@@ -1727,7 +1727,7 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
 // A class's mesh-file rotors, resolved, or null. Memoised on the row because this runs per contact per frame.
 const _rotorMemo = new WeakMap();
 export function rotorsFor(cls, armed = false, variant = '') {
-  const id = (!armed && variantMeshFor(cls, variant)) || meshIdFor(cls, armed);
+  const id = (!armedOverridesVariant(cls, armed) && variantMeshFor(cls, variant)) || meshIdFor(cls, armed);
   if (!id) return null;
   const row = meshRow(id);
   if (!_rotorMemo.has(row)) _rotorMemo.set(row, resolveRotors(row));
@@ -2093,7 +2093,7 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   if (_cache[key]) return _cache[key];
   // ⚠ The last arm is a silent fallback: an unknown class builds as a Twin Otter. Add a new class's arm here first.
   // An authored mesh answers first. A variant named in the mesh's `variants` is a different model; any other is a paint scheme.
-  const vmid = armed ? null : variantMeshFor(cls, variant);
+  const vmid = armedOverridesVariant(cls, armed) ? null : variantMeshFor(cls, variant);
   const mid = vmid || meshIdFor(cls, armed);
   const faces = mid ? compileMesh(meshRow(mid), { detail, scheme: vmid ? null : (variant || null) }).faces
     : cls === 'truck' ? buildTruck(variant || 'hauler', detail)
@@ -2133,6 +2133,10 @@ export function meshIdFor(cls, armed = false) {
   if (armed && base.armedMesh) return meshRow(base.armedMesh) ? base.armedMesh : null;
   return cls;
 }
+// Whether `armed` picks a different airframe and so wins over a body variant. Only a class with an
+// `armedMesh` (the heli's Viper) has one; a gunship contact is always `armed` (it has hardpoints), and
+// before this its 2076 edition drew as the stock body to everyone else.
+const armedOverridesVariant = (cls, armed) => !!armed && !!meshRow(cls)?.armedMesh;
 // A variant listed in the file's `variants` is a different model (the podracer's types).
 export function variantMeshFor(cls, variant) {
   if (_legacyMeshes || !variant) return null;

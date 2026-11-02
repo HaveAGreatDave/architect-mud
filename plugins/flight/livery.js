@@ -60,6 +60,11 @@ export const TRIMS = {
     { id: 'stock', label: 'Air Tractor · the original' },
     { id: '2076', label: 'Locust 2076 · concept' },
   ],
+  // CONCEPT: the Reaper 2076 is a different airframe (mesh_gunship.json 'variants'), with its own cockpit.
+  gunship: [
+    { id: 'stock', label: 'Thunderbolt II · the original' },
+    { id: '2076', label: 'Reaper 2076 · concept' },
+  ],
 };
 const TRIM_IDS = new Set(Object.values(TRIMS).flat().map(t => t.id));
 // The CABIN's factory trim, chosen apart from the exterior scheme: a special edition's cockpit can sit

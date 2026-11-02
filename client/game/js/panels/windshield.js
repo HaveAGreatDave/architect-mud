@@ -38416,7 +38416,7 @@ function gunGeometry(cam, v) {
     // centreline — not the fixed-wing pair out on the wings.
     // A mesh that carries its own guns says where their muzzles are (gunMuzzles): the Drake's
     // miniguns hang under the breast, nowhere near where a fixed-wing's wing guns would be.
-    const gm = gunMuzzles(v.cls, !!v.armed);
+    const gm = gunMuzzles(v.cls, !!v.armed, v.variant || '');
     muzzles = gm ? gm.map(([f, g, hh]) => toWorld(f, g, hh))
       : v.chinGun ? [toWorld(0.62, 0, -0.16)]
       : [toWorld(0.34, -0.40, -0.10), toWorld(0.34, 0.40, -0.10)];
@@ -38543,12 +38543,12 @@ function drawGunReticle(ctx, cam, v, W, H, horizonY) {
 // Where a model's guns end, measured off its compiled mesh: the forward-most point of the faces
 // painted as gun barrels, one per side. Null for a model with no gun paint (the old tables stand).
 const _gunMuzzles = new Map();
-function gunMuzzles(cls, armed) {
-  const key = cls + (armed ? ':a' : '');
+function gunMuzzles(cls, armed, variant = '') {
+  const key = cls + (armed ? ':a' : '') + (variant ? ':' + variant : '');
   if (_gunMuzzles.has(key)) return _gunMuzzles.get(key);
   // The barrel tips on each side, averaged: a six-barrel cluster's centre, not one barrel's end.
   const pts = { '-1': [], '1': [] };
-  for (const fc of aircraftFaces(cls, 1, armed)) {
+  for (const fc of aircraftFaces(cls, 1, armed, variant)) {
     const nm = fc.paint && (typeof fc.paint === 'string' ? fc.paint : fc.paint.name);
     if (nm !== 'gun') continue;
     for (const p of fc.p) pts[p[1] < 0 ? '-1' : '1'].push(p);
