@@ -127,7 +127,8 @@ three receding orders round bronze doors, a sunburst fanlight two storeys tall, 
 (two either side, ball and bat, helmeted and robed to the feet as at the Hope Memorial Bridge), and
 GRANDSTAND on its plate. The bleacher gate opens north onto the new street as its smaller twin. The
 west face on the river road and the east face on the trades street get one secondary gate each,
-because a 196 m wall with two doors is a wall people walk round.
+because a 196 m wall with two doors is a wall people walk round: GATE D on the river road and GATE C
+on the trades street (Dave, 2026-11-01).
 
 **The windows.** The concourse windows rank all four faces between the fins, about forty to a face
 instead of a handful. The outfield faces keep the bigger five-light window (`WIN_OPEN`), now at the
@@ -142,6 +143,8 @@ the booth sees the same dome.
 
 ### What it asks of GLASS
 
+- **The dome opens and shuts in five minutes** (Dave, 2026-11-01), eased out of rest and back into
+  it, as the shells do now (`ROOF_MS`).
 - **The leaves turn; they don't slide.** The rule stands that a moving roof is never mesh: at rest
   the six leaves are drawn into the mesh where they rest (shut or nested), and while they travel the
   arm lays them as depth-writing decals at the angle they've reached. The shape stays the shut dome.
@@ -175,10 +178,3 @@ Gates: `content:lint`, `sitecheck`, `shapes:smoke` (every one of the 121 slices,
 2. Set aside and re-site the 23 buildings, so the estate is whole before the park grows.
 3. The park on 121 tiles, content and the Hughson Dome together, behind the same gate check the 3 by 3 had.
 4. The broadcast onto the ruler.
-
-## Open questions
-
-- **The secondary gates' names.** The main gate is GRANDSTAND and the north one BLEACHERS; the river
-  and trades gates need plates of their own.
-- **How the dome opens on TV.** Five minutes eased, as the shells do now, or longer for six leaves
-  turning a quarter-circle each.
