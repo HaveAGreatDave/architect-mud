@@ -160,7 +160,12 @@ roomChecks('all high', { ...REST, stickX: 1, stickY: 1, rudder: 1, throttle: 1, 
   const booting = shellFaces(P, { ...REST, powerAge: 0.2 }, { rich: true }), up = shellFaces(P, REST, { rich: true });
   ok(booting.length < up.length && Math.abs(sig(booting) - sig(up)) > 1e-6, 'the pages do not boot: a fifth of a second after power on looks the same as long after');
   // Counted, not hashed: the keys' glow eases on wall time, so two frames a moment apart differ by it.
-  ok(shellFaces(P, { ...REST, powerAge: 5 }, { rich: true }).length === up.length, 'five seconds after power on is not fully booted');
+  // ⚠ Settled first: a key's ring flashes for 240 ms after its circuit changes (pressPulse), and the
+  // checks above flip the power, so a count taken inside that window has the flash in it.
+  const settle = () => { shellFaces(P, REST, { rich: true }); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300); };
+  settle();
+  const upN = shellFaces(P, REST, { rich: true }).length;
+  ok(shellFaces(P, { ...REST, powerAge: 5 }, { rich: true }).length === upN, 'five seconds after power on is not fully booted');
 }
 
 // ── (b) THE INSIDE IS THE INSIDE OF THE OUTSIDE ──────────────────────────────
