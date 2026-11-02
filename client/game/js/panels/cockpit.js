@@ -2578,6 +2578,8 @@ export function openFlightSim(opts = {}) {
       'ck:gear': () => toggleGear(),
       'ck:arm': () => q('#fsim-arm')?.click(),
       'ck:gps': () => gpsOpen(),
+      // The Shrike 2076's DIVE key: the automatic dive, as B is.
+      'ck:dive': () => F.toggleDiveAuto?.(),
       power: ckMaster,
       lights: () => F.toggleLand?.(),
       cabin: () => F.toggleDome(),
@@ -2674,6 +2676,7 @@ export function openFlightSim(opts = {}) {
       'ck:gear': () => ['GEAR', F.gearUp ? 'up · click to lower' : 'down · click to raise'],
       'ck:arm': () => ['MASTER ARM', F.armed ? 'ARMED · click to make safe' : 'SAFE · click to arm'],
       'ck:gps': () => ['GPS', F.gpsDest && F.apTargetId === 'gps' ? `to ${F.gpsDest.name} · click to change` : 'click to pick a destination (P)'],
+      'ck:dive': () => ['DIVE COMPUTER', F.diveAuto ? (F.diveAuto === 'pull' ? 'flying the pull-out · click to take her back' : 'pushing over to the dive · click to take her back') : 'off · click to roll in (B)'],
       power: () => ['POWER', `engine master · ${onOff(!!F.engineOn)}`],
       lights: () => ['LIGHTS', `landing lights · ${onOff(!!F.landingLight)}`],
       cabin: () => ['CABIN', `dome light · ${onOff(!!F.domeLight)}`],
