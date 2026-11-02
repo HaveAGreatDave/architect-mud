@@ -44,8 +44,8 @@ export function boothLayout(spec) {
     { target: 'smokes', u: -3, v: 5.5, y: 2.1, reach: 3 },
   ];
   const sofa = { u: [-7.6, -4.8], v: [8.4, 15.6] };
-  // on the left-hand wall, clear of the bar and its fridge at the back
-  const tv = { u: -hu + 0.15, v: 12, y: 5.1, w: 8.4, h: 4.7 };
+  // on the left-hand wall, clear of the bar and its fridge at the back, and under the cornice
+  const tv = { u: -hu + 0.15, v: 12, y: 4.8, w: 8.4, h: 4.7 };
   // [u0, u1, v0, v1]: what a walker can't stand in
   const solid = [
     ...plants.map(([u, v]) => [u - 0.8, u + 0.8, v - 0.8, v + 0.8]),
@@ -103,6 +103,25 @@ export function boothSeatNear(L, u, v, reach = 3) {
   let best = null, bd = reach;
   for (const s of L.seats) { const dd = Math.hypot(s.u - u, s.v - v); if (dd < bd) { bd = dd; best = s; } }
   return best;
+}
+
+// THE CEILING'S PLAN: a coffered tray ringed by a soffit. The coffers are CELL feet square on a
+// grid that puts the chandelier in the middle of one, and the tray is as much of that grid as
+// leaves at least MIN_SOFFIT of soffit at each wall, so the soffit is deeper on the buffet's side.
+// `u` and `v` are the tray's edges, `us` and `vs` every grid line from edge to edge, `drop` how far
+// the soffit hangs under the tray, and `cans` the coffers with a downlight: every other one, not
+// the chandelier's.
+const CHANDELIER = Object.freeze({ u: 1.5, v: 12 });
+const CELL = 4, MIN_SOFFIT = 1.8;
+export function ceilingPlan(L) {
+  const lines = (lo, hi, c) => { const out = []; for (let x = c + CELL / 2 - CELL * Math.floor((c + CELL / 2 - lo) / CELL); x <= hi + 1e-6; x += CELL) out.push(x); return out; };
+  const us = lines(-L.w / 2 + MIN_SOFFIT, L.w / 2 - MIN_SOFFIT, CHANDELIER.u), vs = lines(MIN_SOFFIT, L.d - MIN_SOFFIT, CHANDELIER.v);
+  const cans = [];
+  for (let i = 0; i + 1 < us.length; i++) for (let j = 0; j + 1 < vs.length; j++) {
+    const u = (us[i] + us[i + 1]) / 2, v = (vs[j] + vs[j + 1]) / 2;
+    if ((i + j) % 2 === 0 && Math.hypot(u - CHANDELIER.u, v - CHANDELIER.v) > 1) cans.push([u, v]);
+  }
+  return { u: [us[0], us[us.length - 1]], v: [vs[0], vs[vs.length - 1]], us, vs, drop: 0.75, cans };
 }
 
 const LOOK = Object.freeze({
@@ -188,26 +207,106 @@ export function buildBooth(L) {
   quad(solid, [[-hu + 0.02, D, sy[0]], [-hu + 0.02, 0, sy[0]], [-hu + 0.02, 0, sy[1]], [-hu + 0.02, D, sy[1]]], nrmOf(1, 0, 0), C(LOOK.platinum, 1.05));
   quad(solid, [[hu - 0.02, 0, sy[0]], [hu - 0.02, D, sy[0]], [hu - 0.02, D, sy[1]], [hu - 0.02, 0, sy[1]]], nrmOf(-1, 0, 0), C(LOOK.platinum, 1.05));
   quad(solid, [[hu, D - 0.02, sy[0]], [-hu, D - 0.02, sy[0]], [-hu, D - 0.02, sy[1]], [hu, D - 0.02, sy[1]]], nrmOf(0, 0, -1), C(LOOK.platinum, 1.05));
-  // the glass's frame: a low sill and the header, the glass between them one pane wall to wall
-  box(-hu, hu, -0.2, 0.3, 0, 0.9, LOOK.frame);
-  box(-hu, hu, -0.2, 0.3, H - 0.5, H, LOOK.frame);
-  quad(glass, [[-hu, 0, 0.9], [hu, 0, 0.9], [hu, 0, H - 0.5], [-hu, 0, H - 0.5]], nrmOf(0, 0, -1), C('#cfe3ea', 0.8), E, null, true);
-  // the lights, bright enough to bloom: a cove of warm light round the ceiling's edge, a gilt rose
-  // with a two-tier chandelier hung from it, and sconces either side of the screen
+  // THE WAINSCOT under the stripe: a walnut skirting, a moulded cap, and raised panels between
+  // stiles, a bay about every 2.4 ft. It stops at the door, and where the back bar and the fridge
+  // stand against the back wall. `at(a, d)` is a point a along the wall and d out from it.
   {
-    const k = 0.6, y = H - 0.02;
-    quad(solid, [[-hu, k + 0.3, y], [hu, k + 0.3, y], [hu, 0.3, y], [-hu, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3), E, null, true);
-    quad(solid, [[-hu, D, y], [hu, D, y], [hu, D - k, y], [-hu, D - k, y]], [0, -1, 0], C(LOOK.lamp, 1.3), E, null, true);
-    quad(solid, [[-hu, D, y], [-hu + k, D, y], [-hu + k, 0.3, y], [-hu, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3), E, null, true);
-    quad(solid, [[hu - k, D, y], [hu, D, y], [hu, 0.3, y], [hu - k, 0.3, y]], [0, -1, 0], C(LOOK.lamp, 1.3), E, null, true);
-    box(-hu + k, hu - k, k + 0.3, k + 0.8, H - 0.35, H, LOOK.ceiling, 0.7);
-    box(-hu + k, hu - k, D - k - 0.5, D - k, H - 0.35, H, LOOK.ceiling, 0.7);
+    const walls = [
+      { at: (a, d) => [-hu + d, a], runs: [[0.3, D - 2.4]] },
+      { at: (a, d) => [hu - d, a], runs: [[0.3, D]] },
+      // the back bar ends at -3 (BU, below) and the door is 4.8 to 8.8
+      { at: (a, d) => [a, D - d], runs: [[-3, 4.7], [8.9, hu]] },
+    ];
+    for (const { at, runs } of walls) {
+      const wb = (a0, a1, d0, d1, y0, y1, hex, k, tex) => {
+        const p = at(a0, d0), q = at(a1, d1);
+        box(Math.min(p[0], q[0]), Math.max(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[1], q[1]), y0, y1, hex, k, tex);
+      };
+      for (const [a0, a1] of runs) {
+        wb(a0, a1, 0, 0.11, 0, 0.45, LOOK.wood, 0.55, 'boothWood');
+        wb(a0, a1, 0, 0.12, 0.45, 0.5, LOOK.gilt, 0.85);
+        wb(a0, a1, 0, 0.05, 0.5, 3.1, LOOK.wood, 0.72, 'boothWood');
+        wb(a0, a1, 0, 0.13, 3.1, 3.3, LOOK.wood, 0.85, 'boothWood');
+        wb(a0, a1, 0, 0.15, 3.05, 3.1, LOOK.wood, 0.7, 'boothWood');
+        const n = Math.max(1, Math.round((a1 - a0) / 2.4)), w = (a1 - a0) / n;
+        for (let i = 0; i < n; i++) {
+          const b0 = a0 + i * w + 0.3, b1 = a0 + (i + 1) * w - 0.3;
+          // the panel's bevelled edge, then its raised field, a fine gilt line round the field
+          wb(b0, b1, 0.05, 0.08, 0.8, 2.8, LOOK.wood, 0.8, 'boothWood');
+          wb(b0 + 0.14, b1 - 0.14, 0.08, 0.11, 0.94, 2.66, LOOK.wood, 0.92, 'boothWood');
+          for (const [c0, c1, y0, y1] of [[b0 + 0.06, b1 - 0.06, 0.86, 0.885], [b0 + 0.06, b1 - 0.06, 2.715, 2.74], [b0 + 0.06, b0 + 0.085, 0.86, 2.74], [b1 - 0.085, b1 - 0.06, 0.86, 2.74]]) {
+            wb(c0, c1, 0.08, 0.087, y0, y1, LOOK.gilt, 0.95);
+          }
+        }
+      }
+    }
+  }
+  // THE CEILING (ceilingPlan): a soffit round the walls and over the glass, hung as a band with a
+  // slot over it, so the cove's lamps along its inner edge wash up onto the tray behind a lip you
+  // don't see over; a cornice where it meets the walls, a gilt bead along its inner edge; and in the
+  // tray, beams on the grid and every coffer stepped up twice to a gilt-framed panel, every other
+  // one with a downlight.
+  const CP = ceilingPlan(L), [tu0, tu1] = CP.u, [tv0, tv1] = CP.v, SY = H - CP.drop, BAND = 0.32;
+  // the glass's frame: a low sill, and the header down to the soffit; the glass between them in
+  // six panes, a slim mullion between each pair, none in front of a chair
+  box(-hu, hu, -0.2, 0.3, 0, 0.9, LOOK.frame);
+  box(-hu, hu, -0.2, 0.3, SY, H, LOOK.frame);
+  quad(glass, [[-hu, 0, 0.9], [hu, 0, 0.9], [hu, 0, SY], [-hu, 0, SY]], nrmOf(0, 0, -1), C('#cfe3ea', 0.8), E, null, true);
+  for (const u of [-9, -3, 3, 9]) {
+    box(u - 0.08, u + 0.08, -0.12, 0.2, 0.9, SY, LOOK.frame, 0.85);
+    box(u - 0.11, u + 0.11, 0.2, 0.26, 0.9, SY, LOOK.frame, 0.7);
+  }
+  // a brass sill cap along the inside of the glass, and the stop the panes sit in at the head
+  box(-hu, hu, 0.3, 0.42, 0.86, 0.94, LOOK.gilt, 0.95);
+  box(-hu, hu, 0.3, 0.36, SY - 0.06, SY, LOOK.gilt, 0.9);
+  // the soffit: over the glass, at the back, then the two sides between them; the band, the lip
+  // standing on its inner edge, and the cove's strip behind the lip
+  {
+    // each run: its extent, which way its inner edge faces the tray, and how far along the edge
+    // the gilt bead goes (only as far as the tray, or it would cross the next run's soffit)
+    const runs = [
+      [[-hu, hu], [0.3, tv0], [0, 1], [tu0 - 0.04, tu1 + 0.04]], [[-hu, hu], [tv1, D], [0, -1], [tu0 - 0.04, tu1 + 0.04]],
+      [[-hu, tu0], [tv0, tv1], [1, 0], [tv0, tv1]], [[tu1, hu], [tv0, tv1], [-1, 0], [tv0, tv1]],
+    ];
+    for (const [[u0, u1], [v0, v1], [iu, iv], bead] of runs) {
+      box(u0, u1, v0, v1, SY, SY + BAND, LOOK.ceiling, 0.9);
+      // the inner edge: where the band ends toward the tray (iu, iv point into the room)
+      const e = (lo, hi, s, w) => (s > 0 ? [hi - w, hi] : [lo, lo + w]);
+      const [lu0, lu1] = iu ? e(u0, u1, iu, 0.1) : [u0, u1], [lv0, lv1] = iv ? e(v0, v1, iv, 0.1) : [v0, v1];
+      box(lu0, lu1, lv0, lv1, SY + BAND, SY + BAND + 0.16, LOOK.ceiling, 0.85);
+      const [gu0, gu1] = iu ? e(u0, u1, iu, 0.07).map((x) => x + iu * 0.04) : bead, [gv0, gv1] = iv ? e(v0, v1, iv, 0.07).map((x) => x + iv * 0.04) : bead;
+      box(gu0, gu1, gv0, gv1, SY - 0.05, SY + 0.03, LOOK.gilt, 0.95);
+      const [su0, su1] = iu ? e(u0, u1, iu, 0.45).map((x) => x - iu * 0.12) : [u0, u1], [sv0, sv1] = iv ? e(v0, v1, iv, 0.45).map((x) => x - iv * 0.12) : [v0, v1];
+      quad(solid, [[su0, sv0, SY + BAND + 0.01], [su1, sv0, SY + BAND + 0.01], [su1, sv1, SY + BAND + 0.01], [su0, sv1, SY + BAND + 0.01]], [0, 1, 0], C(LOOK.lamp, 1.5), E, null, true);
+    }
+    // the cornice under the soffit on the three walls, in two steps
+    for (const [d, y0, y1, k] of [[0.16, SY - 0.2, SY, 0.92], [0.08, SY - 0.32, SY - 0.2, 0.86]]) {
+      box(-hu, -hu + d, 0.3, D, y0, y1, LOOK.ceiling, k);
+      box(hu - d, hu, 0.3, D, y0, y1, LOOK.ceiling, k);
+      box(-hu, hu, D - d, D, y0, y1, LOOK.ceiling, k);
+    }
+    // the tray: a beam on every grid line inside it, then each coffer's two steps, its gilt frame
+    // and, every other one, a downlight in a brass ring
+    const BW = 0.5, BD = 0.4;
+    for (const u of CP.us.slice(1, -1)) box(u - BW / 2, u + BW / 2, tv0, tv1, H - BD, H, LOOK.ceiling, 0.9);
+    for (const v of CP.vs.slice(1, -1)) box(tu0, tu1, v - BW / 2, v + BW / 2, H - BD, H, LOOK.ceiling, 0.9);
+    for (let i = 0; i + 1 < CP.us.length; i++) for (let j = 0; j + 1 < CP.vs.length; j++) {
+      const a0 = CP.us[i] + (i ? BW / 2 : 0), a1 = CP.us[i + 1] - (i + 2 < CP.us.length ? BW / 2 : 0);
+      const b0 = CP.vs[j] + (j ? BW / 2 : 0), b1 = CP.vs[j + 1] - (j + 2 < CP.vs.length ? BW / 2 : 0);
+      for (const [w, y0] of [[0.22, H - 0.24], [0.4, H - 0.12]]) {
+        box(a0, a1, b0, b0 + w, y0, H, LOOK.ceiling, 0.94); box(a0, a1, b1 - w, b1, y0, H, LOOK.ceiling, 0.94);
+        box(a0, a0 + w, b0 + w, b1 - w, y0, H, LOOK.ceiling, 0.94); box(a1 - w, a1, b0 + w, b1 - w, y0, H, LOOK.ceiling, 0.94);
+      }
+      const g0 = [a0 + 0.62, b0 + 0.62], g1 = [a1 - 0.62, b1 - 0.62], gy = H - 0.015, gw = 0.05;
+      for (const [p, q] of [[[g0[0], g0[1]], [g1[0], g0[1] + gw]], [[g0[0], g1[1] - gw], [g1[0], g1[1]]], [[g0[0], g0[1]], [g0[0] + gw, g1[1]]], [[g1[0] - gw, g0[1]], [g1[0], g1[1]]]]) {
+        quad(solid, [[p[0], p[1], gy], [q[0], p[1], gy], [q[0], q[1], gy], [p[0], q[1], gy]], [0, -1, 0], C(LOOK.gilt, 1.0), E);
+      }
+    }
   }
   // THE CHANDELIER: a gilt canopy and stem, a glass bowl of hanging drops under three rings of
   // candle-cups, swags of beads looped between the arms, and a long faceted pendant at the bottom
-  const ch = { u: 1.5, v: 12 };
-  box(ch.u - 1.0, ch.u + 1.0, ch.v - 1.0, ch.v + 1.0, H - 0.1, H - 0.02, LOOK.gilt, 0.95);
-  box(ch.u - 0.45, ch.u + 0.45, ch.v - 0.45, ch.v + 0.45, H - 0.35, H - 0.1, LOOK.gilt, 1.0);
+  const ch = CHANDELIER;
+  // (its rose and canopy are with the downlights, after lathe)
   box(ch.u - 0.04, ch.u + 0.04, ch.v - 0.04, ch.v + 0.04, H - 1.9, H - 0.35, LOOK.gilt, 0.9);
   for (let y = H - 1.75; y < H - 0.5; y += 0.32) drop(ch.u, ch.v, y + 0.12, 0.09, 0.22, 0.9);
   for (const [rad, y, n] of [[1.75, H - 2.2, 14], [1.2, H - 1.75, 10], [0.7, H - 1.35, 7]]) {
@@ -287,6 +386,19 @@ export function buildBooth(L) {
     }
   };
   const ball = (u, v, y, r, mat, k = 1, n = 12) => lathe(u, v, Array.from({ length: 9 }, (_, i) => { const a = -Math.PI / 2 + i / 8 * Math.PI; return [Math.cos(a) * r, y + Math.sin(a) * r]; }), mat, k, n);
+  // the coffers' downlights, each a lamp in a brass ring flush with the panel
+  for (const [u, v] of CP.cans) {
+    lathe(u, v, [[0.19, H - 0.03], [0.2, H - 0.05], [0.27, H - 0.045], [0.3, H - 0.012]], LOOK.gilt, 1.0, 20);
+    lathe(u, v, [[0, H - 0.03], [0.19, H - 0.03]], LOOK.lamp, 1.6, 20);
+  }
+  // the chandelier's plaster rose in its coffer, a ring of lobes round it, and the gilt canopy under
+  {
+    const ch = CHANDELIER;
+    lathe(ch.u, ch.v, [[0, H - 0.09], [0.35, H - 0.09], [0.5, H - 0.07], [0.62, H - 0.08], [0.78, H - 0.05], [0.95, H - 0.035], [1.1, H - 0.01]], LOOK.ceiling, 0.95, 28);
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; ball(ch.u + Math.cos(a) * 0.8, ch.v + Math.sin(a) * 0.8, H - 0.05, 0.11, LOOK.ceiling, 0.9, 8); }
+    lathe(ch.u, ch.v, [[0, H - 0.16], [0.22, H - 0.16], [0.32, H - 0.12], [0.36, H - 0.09], [0.3, H - 0.085]], LOOK.gilt, 1.0, 20);
+    lathe(ch.u, ch.v, [[0, H - 0.35], [0.12, H - 0.35], [0.3, H - 0.3], [0.38, H - 0.24], [0.32, H - 0.16], [0.2, H - 0.155]], LOOK.gilt, 1.0, 20);
+  }
   // THE CLUB CHAIRS: a 1930s English club chair in cognac leather, after the real ones (about 34in
   // wide and deep, the seat at 19in, the arms at 25in). A deep base on short walnut feet, a loose
   // seat cushion, fat rolled arms, and a back that leans a little and curls over at the top. No
@@ -407,6 +519,17 @@ export function buildBooth(L) {
   for (let i = 0; i < 9; i++) { const a = i * 2.4; ball(-10.7 + Math.cos(a) * 0.12 * (i % 3) / 2, 12 + Math.sin(a) * 0.12 * (i % 3) / 2, 1.56 + (i % 2) * 0.03, 0.05, '#b98a52', 1.0, 6); }
   // the big screen on the left-hand wall: its bezel, and the picture on its own batch
   const tv = L.tv, tu = tv.u;
+  // the wall it hangs on: walnut from the skirting to the cornice, standing over the wainscot, in a
+  // gilt frame, with three tall panels either side of the screen's width
+  {
+    const v0 = tv.v - tv.w / 2 - 0.7, v1 = tv.v + tv.w / 2 + 0.7, top = H - CP.drop - 0.32;
+    box(-hu, -hu + 0.17, v0, v1, 0.45, top, LOOK.wood, 0.62, 'boothWood');
+    for (const [a, b] of [[v0 - 0.06, v0], [v1, v1 + 0.06]]) box(-hu, -hu + 0.19, a, b, 0.45, top, LOOK.gilt, 0.95);
+    for (let i = 0; i < 3; i++) {
+      const a = v0 + 0.35 + i * (v1 - v0 - 0.7) / 3, b = a + (v1 - v0 - 0.7) / 3 - 0.3;
+      box(-hu + 0.17, -hu + 0.2, a, b, 0.9, top - 0.4, LOOK.wood, 0.78, 'boothWood');
+    }
+  }
   box(tu, tu + 0.25, tv.v - tv.w / 2 - 0.25, tv.v + tv.w / 2 + 0.25, tv.y - tv.h / 2 - 0.25, tv.y + tv.h / 2 + 0.25, LOOK.frame, 0.7);
   {
     const v0 = tv.v - tv.w / 2, v1 = tv.v + tv.w / 2, y0 = tv.y - tv.h / 2, y1 = tv.y + tv.h / 2, u = tu + 0.27;
@@ -599,15 +722,23 @@ export function buildBooth(L) {
 function bakeLight(L) {
   const hu = L.w / 2, D = L.d, H = L.h;
   const WARM = [1, 0.84, 0.64], COOL = [0.82, 0.9, 1], AMB = [0.9, 0.9, 0.95];
-  // [u, v, y, power, reach, tint]
+  const CP = ceilingPlan(L), [tu0, tu1] = CP.u, [tv0, tv1] = CP.v, cove = [];
+  for (let u = tu0 + 1.5; u < tu1; u += 3) cove.push([u, tv0 - 0.4], [u, tv1 + 0.4]);
+  for (let v = tv0 + 1.5; v < tv1; v += 3) cove.push([tu0 - 0.4, v], [tu1 + 0.4, v]);
+  // [u, v, y, power, reach, tint, down]: `down` a lamp that only shines below itself
   const lamps = [
-    [1.5, 12, H - 2.4, 0.75, 9, WARM],
+    [CHANDELIER.u, CHANDELIER.v, H - 2.4, 0.75, 9, WARM],
     ...[L.tv.v - L.tv.w / 2 - 1.2, L.tv.v + L.tv.w / 2 + 1.2].map((v) => [-hu + 0.8, v, 5.6, 0.32, 4.5, WARM]),
     ...[-11.2, -8.7, -6.2].map((u) => [u, D - 5.25, 5.4, 0.3, 4, WARM]),   // the globes over the bar (buildBooth's GLOBES)
     [-hu + 1.2, D - 3, 5.4, 0.18, 3, WARM],   // the aisle behind it, so the fridge isn't in the dark
     ...L.buffet.trays.map((v) => [hu - 1.2, v, 6.0, 0.22, 3.5, [1, 0.7, 0.42]]),
-    ...[-hu * 0.6, 0, hu * 0.6].flatMap((u) => [[u, 0.8, H - 0.5, 0.22, 5, WARM], [u, D - 0.8, H - 0.5, 0.22, 5, WARM]]),
-    ...[D * 0.3, D * 0.7].flatMap((v) => [[-hu + 0.8, v, H - 0.5, 0.22, 5, WARM], [hu - 0.8, v, H - 0.5, 0.22, 5, WARM]]),
+    // the cove (ceilingPlan): a lamp every three feet behind the soffit's lip, up onto the tray
+    ...cove.map(([u, v]) => [u, v, H - CP.drop + 0.4, 0.13, 2.6, WARM]),
+    // the coffers' downlights, onto what's under them and not the ceiling round them ('down')
+    ...CP.cans.map(([u, v]) => [u, v, H - 0.1, 0.16, 5.5, WARM, true]),
+    // what the soffit hides: the light it throws down the walls
+    ...[-hu * 0.6, 0, hu * 0.6].flatMap((u) => [[u, 0.8, H - 1.2, 0.12, 4, WARM], [u, D - 0.8, H - 1.2, 0.12, 4, WARM]]),
+    ...[D * 0.3, D * 0.7].flatMap((v) => [[-hu + 0.8, v, H - 1.2, 0.12, 4, WARM], [hu - 0.8, v, H - 1.2, 0.12, 4, WARM]]),
   ];
   const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const boxes = [...L.solid, ...L.climb];
@@ -616,10 +747,13 @@ function bakeLight(L) {
     // the park through the glass: on what faces it, and less the deeper into the room
     const win = 0.22 * Math.max(0, -nv * 0.8 + 0.2) * Math.exp(-v / 10) + 0.06 * Math.exp(-v / 6);
     for (let k = 0; k < 3; k++) lit[k] += COOL[k] * win;
-    for (const [lu, lv, ly, pw, reach, tint] of lamps) {
-      const du = lu - u, dv = lv - v, dy = ly - y, d = Math.hypot(du, dv, dy) || 1;
+    for (const [lu, lv, ly, pw, reach, tint, down] of lamps) {
+      const du = lu - u, dv = lv - v, dy = ly - y, d2 = du * du + dv * dv + dy * dy;
+      // past five reaches a lamp gives under a twenty-sixth of its power: leave it out
+      if (d2 > 25 * reach * reach) continue;
+      const d = Math.sqrt(d2) || 1;
       const cos = (du * nu + dv * nv + dy * ny) / d;
-      const e = pw * Math.max(0, cos * 0.8 + 0.2) / (1 + (d / reach) * (d / reach));
+      const e = pw * Math.max(0, cos * 0.8 + 0.2) / (1 + (d / reach) * (d / reach)) * (down ? sstep(0.25, 0.75, dy / d) : 1);
       for (let k = 0; k < 3; k++) lit[k] += tint[k] * e;
     }
     // contact shadow

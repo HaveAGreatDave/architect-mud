@@ -267,7 +267,9 @@ check('defaults: the board inside the outline', G.insideOutline(base.outline, ba
       if (![M.MAT.METAL, M.MAT.GLAZE, M.MAT.GILT, M.MAT.CONCRETE].includes(d[o + 11])) badMat++;
     }
   }
-  check('the roof: every shell finite, its normals units, metal, glass, bronze and painted steel', bad === 0 && badN === 0 && badMat === 0 && tris > 1000 && tris < 5000, `${bad}/${badN}/${badMat}, ${tris} triangles`);
+  // about 7,100 with the trusses and purlins under each shell; the cap is there to catch a builder
+  // that runs away, not to ration the steel
+  check('the roof: every shell finite, its normals units, metal, glass, bronze and painted steel', bad === 0 && badN === 0 && badMat === 0 && tris > 1000 && tris < 10000, `${bad}/${badN}/${badMat}, ${tris} triangles`);
   // the lights go with it: open, the towers; shut, their light has gone over to the decks; and no
   // light moves while it's lit
   const T6 = base.field.towers;

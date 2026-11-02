@@ -540,6 +540,23 @@ export function buildPark(venue, opts = {}) {
   const eye = [];
   for (let d = -8; d <= 8; d += 1) { const t = d * DEG, r = fenceDistance(t, fence) + 6; eye.push([Math.sin(t) * r, 0, Math.cos(t) * r]); }
   strip(B('plain'), eye, fence.height, 34, lin('#0e2a1e'), MAT.CONCRETE, 20);
+  // planted, as a real one is: four ledges up its face, each a dark concrete planter with a hedge
+  // of clipped juniper along it, mounds overlapping so the top is lumpy and the face isn't. The
+  // greens stay as dark as the wall behind, so the ball still has nothing to get lost in.
+  {
+    const R = seeded(0x6a756e), at = (deg, out, y) => { const t = deg * DEG, r = fenceDistance(t, fence) + out; return [Math.sin(t) * r, y, Math.cos(t) * r]; };
+    const greens = ['#10301c', '#0e2b19', '#13341f', '#0c2817'].map(lin), sill = lin('#1e2224');
+    for (const [y, out] of [[fence.height + 0.6, 4.3], [fence.height + 7.2, 4.6], [fence.height + 13.8, 4.9], [fence.height + 20.4, 5.2]]) {
+      const ledge = [];
+      for (let d = -8; d <= 8; d += 1) ledge.push(at(d, out - 0.4, 0));
+      strip(B('plain'), ledge, y - 0.9, y, sill, MAT.CONCRETE, 20);
+      for (let d = -7.8; d <= 7.8; d += 0.42) {
+        const c = at(d + (R() - 0.5) * 0.15, out + 0.5, y + 0.9 + R() * 0.5), th = Math.atan2(c[0], c[2]);
+        const ax = [[Math.cos(th), 0, -Math.sin(th)], [0, 1, 0], [Math.sin(th), 0, Math.cos(th)]];
+        ellipsoid(B('plain'), c, ax, [1.9 + R() * 0.6, 1.5 + R() * 0.6, 1.1], 5, 8, greens[(R() * greens.length) | 0], MAT.MATTE);
+      }
+    }
+  }
   // the lower bowl, its ads behind the plate, and the upper deck over it
   const bowl = bowlPath();
   // No net behind the plate: the Diamond Club's front row sits on the backstop wall with nothing
@@ -719,7 +736,7 @@ export const PLATE_ATLAS = (() => {
 
 const COL = Object.freeze({
   stone: lin('#a48a66'), trim: lin('#968e7c'), fin: lin('#c6c4be'), bronze: lin('#604428'), copper: lin('#4e8a76'),
-  granite: lin('#3a3e44'), conc: lin('#7a7e82'), inner: lin('#3c3a36'), shell: lin('#b8bcba'), shellIn: lin('#6a7074'), steel: lin('#3e4448'),
+  granite: lin('#3a3e44'), conc: lin('#7a7e82'), inner: lin('#3c3a36'), shell: lin('#b8bcba'), shellIn: lin('#6a7074'), steel: lin('#3e4448'), truss: lin('#a9aeb0'),
   rib: lin('#604a32'), gilt: lin('#deb260'), glass: lin('#3a4c58'), lobby: lin('#40505a'), grille: lin('#1e1a16'),
   flute: lin('#60543f'), red: lin('#aa2822'), plate: lin('#1e1610'), pole: lin('#d9d9d4'), flag: lin('#16264a'),
   floor: lin('#8c8272'), pane: lin('#1c262e'),
@@ -1005,6 +1022,33 @@ function buildShell(S, i) {
       quad(b, P(k, va, -SKIN), P(k + 1, va, -SKIN), P(k + 1, va, -deep), P(k, va, -deep), mul(axis, -1), COL.steel, MAT.CONCRETE);
       quad(b, P(k, vb, -SKIN), P(k + 1, vb, -SKIN), P(k + 1, vb, -deep), P(k, vb, -deep), axis, COL.steel, MAT.CONCRETE);
     }
+  }
+  // Between the arches, lighter trusses painted pale so they read against the dark underside: a
+  // bottom chord, and a Warren web of diagonals up to the skin, zigzagging bay to bay. Over them,
+  // purlins along the vault on every other panel line. ⚠ NOTHING HANGS PAST TRUSS_DEEP: the shell
+  // under this one clears it by about 5.6 ft at the crown (ballpark-smoke), and its ribs stand a
+  // foot proud of that, so the steel stays within 4.2 ft of the skin.
+  const TRUSS_DEEP = SKIN + 2.6, PURLIN = SKIN + 1.1, tw = 0.0035, down = (k) => mul(norm(add(N[k], N[k + 1])), -1);
+  for (const f of [0.1375, 0.25, 0.3625, 0.6375, 0.75, 0.8625]) {
+    const vt = v0 + (v1 - v0) * f, va = vt - tw, vb = vt + tw;
+    for (let k = 0; k < NF; k++) {
+      const n = down(k);
+      quad(b, P(k, va, -TRUSS_DEEP), P(k + 1, va, -TRUSS_DEEP), P(k + 1, vb, -TRUSS_DEEP), P(k, vb, -TRUSS_DEEP), n, COL.truss, MAT.CONCRETE);
+      quad(b, P(k, va, -TRUSS_DEEP + 0.7), P(k + 1, va, -TRUSS_DEEP + 0.7), P(k + 1, va, -TRUSS_DEEP), P(k, va, -TRUSS_DEEP), mul(axis, -1), COL.truss, MAT.CONCRETE);
+      quad(b, P(k, vb, -TRUSS_DEEP + 0.7), P(k + 1, vb, -TRUSS_DEEP + 0.7), P(k + 1, vb, -TRUSS_DEEP), P(k, vb, -TRUSS_DEEP), axis, COL.truss, MAT.CONCRETE);
+      // the diagonal, from the skin at one end of the bay to the chord at the other, a member as
+      // wide as the chord seen from below
+      const [ka, kb] = k % 2 ? [k, k + 1] : [k + 1, k];
+      quad(b, P(ka, va, -SKIN), P(ka, vb, -SKIN), P(kb, vb, -TRUSS_DEEP + 0.7), P(kb, va, -TRUSS_DEEP + 0.7), n, COL.truss, MAT.CONCRETE);
+    }
+  }
+  for (let k = 2; k < NF - 1; k += 2) {
+    // a purlin's foot, and its two sides across the vault
+    const t = norm(sub(P(k + 1, v0), P(k - 1, v0))), w = 0.6, n = mul(N[k], -1);
+    const at = (v, s, off) => madd(P(k, v, -off), t, s * w);
+    quad(b, at(v0, -1, PURLIN), at(v1, -1, PURLIN), at(v1, 1, PURLIN), at(v0, 1, PURLIN), n, COL.truss, MAT.CONCRETE);
+    quad(b, at(v0, -1, SKIN), at(v1, -1, SKIN), at(v1, -1, PURLIN), at(v0, -1, PURLIN), mul(t, -1), COL.truss, MAT.CONCRETE);
+    quad(b, at(v0, 1, SKIN), at(v1, 1, SKIN), at(v1, 1, PURLIN), at(v0, 1, PURLIN), t, COL.truss, MAT.CONCRETE);
   }
   // the ends: v0 is the north end (toward the boulevard), v1 the south
   // ⚠ AN INNER END IS A BEAM, NOT A WALL. The map closes every end with a panel across the whole arch,
