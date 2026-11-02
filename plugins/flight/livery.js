@@ -55,6 +55,11 @@ export const TRIMS = {
     { id: 'stock', label: 'Piper Cub · the original' },
     { id: '2076', label: 'Grasshopper 2076 · concept' },
   ],
+  // CONCEPT: the Leviathan 2076 is a different airframe (mesh_heavy.json 'variants'), with its own cockpit.
+  heavy: [
+    { id: 'stock', label: 'Antonov An-124 · the original' },
+    { id: '2076', label: 'Leviathan 2076 · concept' },
+  ],
 };
 const TRIM_IDS = new Set(Object.values(TRIMS).flat().map(t => t.id));
 // The CABIN's factory trim, chosen apart from the exterior scheme: a special edition's cockpit can sit
