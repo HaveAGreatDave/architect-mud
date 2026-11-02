@@ -1,7 +1,8 @@
 # Comic ink: the whole game in one comic-book style
 
-> **Status: steps 1-4 built (the house style, the inked faces, the players and the park's lines,
-> behind Settings → Cel Shading → Comic); step 5 is design.** The look-dev prototype is a live
+> **Status: steps 1-4 and the comic replays built (the house style, the inked faces, the players,
+> the park's lines and big plays replayed as a comic, behind Settings → Cel Shading → Comic); step
+> 5 is design.** The look-dev prototype is a live
 > page in Dave's artifacts, "Deadball Comic Ink".
 
 ## Why
@@ -210,3 +211,48 @@ it's null, so no line is drawn and no depth is kept for one.
   when that pass won't build draws no lines.
 - **Checked** in the Pose Lab: off, Comic, and off again pixel for pixel; the lens compiled and
   linked in Chrome with its four new uniforms live. house-style.mjs gates `parkInkOf`.
+
+## Comic replays
+
+Dave's ask, 2026-11-01: comic angles, and slow motion or a pause with comic effects, on home runs
+and the like. Decided: in replays only, so the live game never pauses; with all four effects (the
+sound words, speed lines and halftone, comic panels, and tilted, extreme angles). Built behind the
+same Comic setting, in [diamond/comic.js](../../client/game/js/panels/diamond/comic.js) and the
+grandstand (gameday-grandstand.js).
+
+Deadball already replays a big play ([diamond/replay.js](../../client/game/js/panels/diamond/replay.js)):
+a home run, a walk-off, a double or triple play, a diving or leaping catch, a triple, a close play
+at first, staged again in a world of its own and played at 0.4 from a second camera while the live
+game carries on behind it. With Comic on, that replay runs in four beats:
+
+1. **Run:** slow motion up to the moment, from a worm's-eye camera (`wormShot`): on the grass a
+   dozen feet off, looking up. At the plate it's out in front on the side the batter faces; out
+   on the field it's on the home side of the play, moved along so it stands on the field.
+2. **Freeze** (1.4 s): the replay world stops on its moment. An impact flash, speed lines in
+   from the edges to a clear ring round the ball, yellow halftone growing into the corners, and
+   the sound lettered over it in Bungee with an ink outline and a red drop: CRACK! off the bat,
+   THWACK! into the glove, SNAP! at the bag, FWOOSH! round to third, BANG-BANG! at first.
+3. **After:** the rest in slow motion from the replay's own second camera.
+4. **Page** (2.8 s): the three beats as a comic page on paper: the moment big on the left, the
+   run-up above what followed on the right, each panel inked, turned a little and dropped in in
+   turn, the word over the moment and the play's words (HOME RUN!) in a yellow caption box.
+
+- **The lean.** The camera never rolls (diamond/camera.js), so the tilt is the picture's: a class
+  on the park's box turns the canvas and the overlay 6° (and enlarges them 1.14 so the corners
+  stay off screen), one way for the run and the other for what follows. The graphics stay level.
+- **The panels** are taken off the GL canvas right after it's drawn, in the same task, so no
+  preserved drawing buffer is needed; each is held at up to 720 px wide.
+- **The slot.** The grandstand books a replay only if it ends before the next payload. A comic
+  one is longer (`comicLength`), and a home run spends most of its hold on the trot and the
+  fireworks, so it steps down (`comicFit`): the whole thing, else the freeze without the page,
+  else the plain replay. It never costs a play the replay it would have had.
+- **Reduced motion** keeps the plain still, as ever.
+- **Room for it.** The server leaves a home run 21.5 s for the trot, 3.5 for the welcome, 10 for
+  the replay and 10 for the reset (diamond/timing.js `AFTER`), and the replay is booked after the
+  trot, so a full comic replay (at most 8.5 s of slow motion, the freeze and the page, about
+  12.7 s) fits, taking the extra from the reset. Every other play with a replay has the same 20 s.
+- **Checked** in Chrome: the freeze and the page painted over real frames from the park renderer
+  (the Pose Lab, with Comic on) in the HUD's own Bungee.
+- **Gate:** scripts/shapes/comic-replay.mjs checks the length and the step-down, the camera
+  (low, on the field, aimed at the moment, out in front at the plate), the panel times, the
+  words, the page layout at three shapes, and that the painters draw at every beat.

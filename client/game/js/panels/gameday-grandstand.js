@@ -52,6 +52,7 @@ import { venueOf, onVenue } from './venue.js';
 import { onClubs } from './club-crest.js';
 import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
 import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
+import { comicOn } from './gl/house-style.js';
 
 // On wherever it can draw (it gives way to the 2-D view by itself where it can't); the flag set
 // to '0' keeps the 2-D Gameday.
@@ -127,6 +128,8 @@ export function createGrandstandView(host, opts = {}) {
   // room ({ at: the live world's time to start, spec, p, calm }), `replay` while it plays, its own
   // world in place of the live one; `liveShot` the live director's camera meanwhile
   let replayDue = null, replay = null, liveShot = null;
+  // the comic replay's overlay (diamond/comic.js), laid over the picture and leaning with it
+  let comicCanvas = null;
   // in person, the world's time the field's at rest by (Infinity while a play's in the air), the
   // broadcast's calls held till then, and the timer that looks at them
   let parkHold = 0, parkQueue = [], parkTimer = null;
@@ -175,8 +178,9 @@ export function createGrandstandView(host, opts = {}) {
   function loadMods() {
     return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js'),
       import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js'), import('./diamond/replay.js'), import('./gl/crowd.js'),
-      import('./diamond/crew.js'), import('./diamond/quality.js'), import('./diamond/sound.js'), import('./diamond/secondary.js')])
-      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew, quality, sound, sec]) => (mods = {
+      import('./diamond/crew.js'), import('./diamond/quality.js'), import('./diamond/sound.js'), import('./diamond/secondary.js'), import('./diamond/comic.js')])
+      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew, quality, sound, sec, comic]) => (mods = {
+        comic,
         createSettle: sec.createSettle,
         ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, SHOTS: cam.SHOTS, approachShot: cam.approachShot, APPROACH: cam.APPROACH, handheld: cam.handheld, numberOf: cast.numberOf, pictureAfter: director.pictureAfter, opensGame: director.opensGame,
         createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector, splashOf: fx.splashOf,
@@ -215,7 +219,7 @@ export function createGrandstandView(host, opts = {}) {
   function shell() {
     return `<div class="gds-wrap">` +
       `<div class="gds-park"><canvas class="gds-canvas" role="img" aria-label="The ballpark"></canvas>` +
-      `<canvas class="gds-hud" aria-hidden="true"></canvas><div class="gds-sr sr-only"></div>` +
+      `<canvas class="gds-comic" aria-hidden="true"></canvas><canvas class="gds-hud" aria-hidden="true"></canvas><div class="gds-sr sr-only"></div>` +
       `<div class="gds-live sr-only" role="log" aria-live="polite"></div></div>` +
       `<div class="gds-cap"><span class="gds-cap-tag">◆ ${_esc(capWho)}</span><span class="gds-cap-text">${_esc(caption)}</span></div>` +
     `</div>`;
@@ -236,6 +240,7 @@ export function createGrandstandView(host, opts = {}) {
     addFullscreenButton(host.querySelector('.gds-park'), host);
     addCamButton(host.querySelector('.gds-park'));
     canvas = host.querySelector('.gds-canvas');
+    comicCanvas = host.querySelector('.gds-comic');
     size();
     // `opts.renderer` stands in for the GL park (the gates' recording renderer)
     R = (opts.renderer || mods.createBallparkRenderer)(canvas, { ads: opts.ads || ADS, preserve: !!opts.preserve, crowd: opts.crowd, grade: opts.grade, tube: opts.tube, onAsset: () => draw() });
@@ -298,6 +303,7 @@ export function createGrandstandView(host, opts = {}) {
     const w = Math.max(1, Math.round((box?.clientWidth || 400) * k)), h = Math.max(1, Math.round((box?.clientHeight || 300) * k));
     if (canvas.width === w && canvas.height === h) return false;
     canvas.width = w; canvas.height = h;
+    if (comicCanvas) { comicCanvas.width = w; comicCanvas.height = h; }
     return true;
   }
 
@@ -330,7 +336,8 @@ export function createGrandstandView(host, opts = {}) {
       if (replayDue && W.t >= replayDue.at) startReplay();
       // a replay plays its own world, slower; the live one carries on behind it
       const RW = replay ? replay.W : W;
-      if (replay && !replay.still) {
+      if (replay && replay.comic) comicStep(dt);
+      else if (replay && !replay.still) {
         replay.acc += dt * mods.REPLAY.rate;
         while (replay.acc >= mods.DT && RW.t < replay.to) { RW.step(mods.DT); replay.acc -= mods.DT; }
       }
@@ -355,7 +362,7 @@ export function createGrandstandView(host, opts = {}) {
       R.setTime?.(tR);
       if (marks.length) { R.markDirt?.(marks); marks = []; }
       dragFrame();
-      if (replay && (replay.still ? W.t >= replay.until : RW.t >= replay.to - 1e-9)) endReplay();
+      if (replay && !replay.comic && (replay.still ? W.t >= replay.until : RW.t >= replay.to - 1e-9)) endReplay();
     }
     lastNow = now;
     // the governor, on frames that run back to back: a rung's quality goes to the renderer, and a
@@ -376,6 +383,9 @@ export function createGrandstandView(host, opts = {}) {
     // with no ballgame the screen carries another picture instead (opts.tvSource, the hockey)
     if (R.room && !tvMode && (tvFrame++ % TV_EVERY) === 0) { if (opts.tvSource) R.setTvImage?.(opts.tvSource()); else R.renderTv(directed(), tvCanvas); }
     if (!R.render(view(), { room: !tvMode }) && R.lost) { fallback('the WebGL context was lost'); return; }
+    // the comic replay: a panel taken off the picture just drawn (in this same task, before the
+    // browser shows it, so the GL canvas still holds it), and the overlay painted over it
+    if (replay?.comic) comicPaint();
     // on to the next frame while the at-bat plays or a replay's due or playing; once everyone's
     // at rest the last one stays up. A stopped clock draws only when something asks. A seat in the
     // stands never rests: you're sitting in the park, so the clock runs on between plays and the
@@ -457,18 +467,103 @@ export function createGrandstandView(host, opts = {}) {
     replay.acc = 0;
     settleR?.reset();
     if (replay.still) replay.until = W.t + mods.REPLAY.still;
+    if (due.comic && !replay.still) startComic(due);
     S.replay = true;
-    if (!opts.shot) shot = replay.shot;
+    if (!opts.shot) shot = replay.comic?.worm || replay.shot;
     say(`Replay${replay.still ? '' : ', in slow motion'}: ${due.p.desc || mods.hud.HUD_THEME.words[due.p.kind] || 'the play'}`);
     paintHud();
   }
   function endReplay() {
     replay = null;
+    comicClear();
     S.replay = false;
     if (!opts.shot) shot = liveShot || 'high';
     paintHud();
   }
   function stopReplay() { replayDue = null; if (replay) endReplay(); }
+
+  // ── the comic replay (diamond/comic.js) ─────────────────────────────────────
+  // run → freeze → after → page, by the live world's clock for the holds and the replay world's
+  // for the play. Panels are taken at comic.panelAt's times; the picture leans one way for the
+  // run and the other for what follows, by a class on the park's box (the camera never rolls).
+  function startComic(due) {
+    const C = mods.comic, spec = { from: replay.from, key: replay.key, to: replay.to };
+    // where the moment is: the ball then, if the staged world can say before it's got there, or the
+    // replay camera's own mark, or the plate; the freeze takes the ball again once it's there
+    let ball = null;
+    try { ball = replay.W.ballAt?.(replay.key); } catch { ball = null; }
+    if (!(Array.isArray(ball) && ball.every(Number.isFinite))) ball = (replay.shot && typeof replay.shot === 'object' && replay.shot.at) || [0, 3, 1];
+    replay.comic = {
+      phase: 'run', spec, page: due.comic === 'page', panels: [null, null, null], grab: -1, until: 0, at: 0,
+      word: C.comicWordOf(replay.kind, due.p.desc || ''),
+      words: mods.hud.HUD_THEME.words[due.p.kind] || mods.hud.HUD_THEME.words[replay.kind] || mods.hud.HUD_THEME.words.replay,
+      ball, worm: C.wormShot(ball, due.p.bats),
+    };
+    lean(1);
+  }
+  function lean(dir) {
+    const box = canvas?.parentElement;
+    if (!box) return;
+    box.classList.toggle('gds-lean', dir !== 0);
+    box.style.setProperty('--gds-lean', `${dir * mods.comic.COMIC.tilt}deg`);
+    box.style.setProperty('--gds-zoom', String(dir !== 0 ? mods.comic.COMIC.zoom : 1));
+  }
+  function comicStep(dt) {
+    const C = replay.comic, RW = replay.W, sp = C.spec, P = mods.comic.panelAt;
+    const run = (until) => {
+      replay.acc += dt * mods.REPLAY.rate;
+      while (replay.acc >= mods.DT && RW.t < until - 1e-9) { RW.step(mods.DT); replay.acc -= mods.DT; }
+      if (RW.t >= until - 1e-9) replay.acc = 0;
+    };
+    if (C.phase === 'run') {
+      run(sp.key);
+      if (C.panels[0] === null && C.grab < 0 && RW.t >= P(sp, 0)) C.grab = 0;
+      if (RW.t >= sp.key - 1e-9) {
+        C.phase = 'freeze'; C.at = W.t; C.until = W.t + mods.comic.COMIC.freeze; C.grab = 1;
+        try { const b = RW.ballAt?.(RW.t); if (Array.isArray(b) && b.every(Number.isFinite)) C.ball = b; } catch { /* keep the one it had */ }
+      }
+    } else if (C.phase === 'freeze') {
+      if (W.t >= C.until) {
+        C.phase = 'after';
+        // the second angle for what follows, leaning the other way
+        if (!opts.shot) shot = replay.shot;
+        lean(-1);
+      }
+    } else if (C.phase === 'after') {
+      run(sp.to);
+      if (C.panels[2] === null && C.grab < 0 && RW.t >= P(sp, 2)) C.grab = 2;
+      if (RW.t >= sp.to - 1e-9) {
+        // the page, if the slot had room for it
+        if (C.page) { C.phase = 'page'; C.at = W.t; C.until = W.t + mods.comic.COMIC.page; lean(0); } else endReplay();
+      }
+    } else if (C.phase === 'page' && W.t >= C.until) endReplay();
+  }
+  function comicPaint() {
+    const C = replay.comic, g = comicCanvas?.getContext('2d');
+    if (C.grab >= 0) {
+      try {
+        const k = Math.min(1, 720 / Math.max(1, canvas.width)), c = doc.createElement('canvas');
+        c.width = Math.max(1, Math.round(canvas.width * k)); c.height = Math.max(1, Math.round(canvas.height * k));
+        c.getContext('2d').drawImage(canvas, 0, 0, c.width, c.height);
+        C.panels[C.grab] = c;
+      } catch { C.panels[C.grab] = false; }
+      C.grab = -1;
+    }
+    if (!g) return;
+    const w = comicCanvas.width, h = comicCanvas.height;
+    g.clearRect(0, 0, w, h);
+    if (C.phase === 'freeze') {
+      const q = C.ball ? mods.project(view(), w, h, C.ball) : null;
+      mods.comic.paintFreeze(g, w, h, q ? q.x : NaN, q ? q.y : NaN, C.word, W.t - C.at);
+    } else if (C.phase === 'page') {
+      mods.comic.paintPage(g, w, h, C.panels.map((x) => x || null), C.word, C.words, W.t - C.at);
+    }
+  }
+  function comicClear() {
+    lean(0);
+    const g = comicCanvas?.getContext('2d');
+    if (g) g.clearRect(0, 0, comicCanvas.width, comicCanvas.height);
+  }
   // Whose fans a side of a play is: 0 the home fans, 1 the visitors' (the home side bats in the
   // bottom of an inning).
   const fansOf = (p, side) => ((side === 'bat') === (p.half === 'bottom') ? 0 : 1);
@@ -641,9 +736,14 @@ export function createGrandstandView(host, opts = {}) {
     const spec = c.cast && D.play && !inPerson() ? mods.replayOf(p, D.play, D.log) : null;
     let replayEnd = null;
     if (spec && Number.isFinite(p.hold)) {
-      const calm = prefersReducedMotion(), long = calm ? mods.REPLAY.still : (spec.to - spec.from) / mods.REPLAY.rate;
+      const calm = prefersReducedMotion();
       const at = Math.max(W.t + mods.REPLAY.after, D.homer?.until ?? -Infinity, ...(D.fx || []).filter((e) => e.kind === 'burst').map(mods.fxEnd));
-      if (at + long <= c.t0 + p.hold / 1000 - REPLAY_MARGIN) { replayDue = { at, spec, p, calm, cast: c.cast }; replayEnd = at + long; }
+      const room = c.t0 + p.hold / 1000 - REPLAY_MARGIN - at;
+      // with the comic look a replay freezes on its moment and ends on a page, so it needs longer:
+      // the whole thing if the slot has room, the freeze without the page if not, else the plain one
+      const comic = !calm && comicOn() ? mods.comic.comicFit(spec, room) : null;
+      const long = calm ? mods.REPLAY.still : comic ? mods.comic.comicLength(spec, comic === 'page') : (spec.to - spec.from) / mods.REPLAY.rate;
+      if (long <= room) { replayDue = { at, spec, p, calm, comic, cast: c.cast }; replayEnd = at + long; }
     }
     // and the dead time till the next payload's due (diamond/between.js): the field walks back, the
     // pitcher rubs up the ball and the cameras go round the park, once any replay's done
