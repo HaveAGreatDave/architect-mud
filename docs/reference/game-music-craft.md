@@ -75,6 +75,38 @@ distance between consecutive bars' onsets: 1.0 is every bar the same; 0.75-0.95 
 - Music sits under the game: about -16 to -20 LUFS for a browser game, true peak under -1 dBFS.
   The master limiter holds the peaks; don't rely on it for level.
 
+## House style: 80s synth dance
+
+Architect's music is 80s synth dance with heavy bass lines and a synthwave edge. The rules above
+are general; this section is the sound. `build-ambient-loops.mjs` is the worked example, and its
+palette is the house rig.
+
+- **Tempo** 96-104 for the darker, slower tracks, 110-124 for the driving ones. Time is straight:
+  `swing` stays 0.5. Dance music sits on the grid, and the lint stops suggesting swing on a song
+  with a four-on-the-floor kick.
+- **The bass leads the mix.** It's the loudest pitched part, 2-3 dB over the kick, and always
+  moving. Pick one figure per section: octave eighths (`r.o.r.o.`), root eighths, a sixteenth
+  gallop (`r.rrr.rrr.`), or eighths that climb into the next chord. Gate every note a row short
+  so the figure bounces. The sound is two saws a few cents apart over a square an octave down,
+  through a resonant low-pass that snaps open on every note. The FM bass (ratio 2, index on
+  velocity) is the DX7 alternative for a slower song.
+- **Drums.** A four-on-the-floor kick with a pitch drop, eighth or sixteenth hats with an open hat
+  on the off-beat, and a gated snare: a short body, then noise held flat and cut off. Add a clap
+  on the backbeat in the last section, and toms down the last half bar of every eight into the
+  next downbeat. The breakdown goes half time.
+- **Pads pump.** Detuned saws with chorus, restruck on every beat with a tenth-of-a-second swell.
+  It's the sidechain sound, done by retriggering so it stays locked to the beat. The first
+  section holds the pad long; the pumping arrives with the snare.
+- **Harmony.** Minor keys, chords from the i-VI-III-VII family (Dm Bb F C, Am F G Em), and the
+  breakdown on iv or VI resolving through V. Phrygian for the darkest track; harmonic minor's
+  major V for menace.
+- **On top.** A saw lead with late vibrato, its echo a dotted eighth behind on the other side, a
+  sixteenth-note square arp across two octaves, and poly-brass stabs on one, the "and" of two,
+  and four in the breakdown.
+- **Mix,** measured with each part playing its usual figure: bass 2-3 dB over the kick, lead and
+  snare about 2 dB under it, pad and arp about 8 dB under, hats about 10 dB under. Check it with
+  the levels in the script's `TRIM` comment, not by ear alone.
+
 ## The critic
 
 ```

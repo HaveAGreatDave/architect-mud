@@ -1,0 +1,94 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.002,
+          "d": 0.18,
+          "r": 0.06,
+          "s": 0.55
+        },
+        "detune": -7,
+        "filter": {
+          "freq": 320,
+          "q": 3.5,
+          "type": "lowpass"
+        },
+        "gain": 0.1783,
+        "mods": [
+          {
+            "a": 0.001,
+            "curve": "exp",
+            "d": 0.12,
+            "id": "op",
+            "r": 0.08,
+            "s": 0.15,
+            "to": [
+              {
+                "amount": 2600,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.002,
+          "d": 0.18,
+          "r": 0.06,
+          "s": 0.55
+        },
+        "detune": 7,
+        "filter": {
+          "freq": 320,
+          "q": 3.5,
+          "type": "lowpass"
+        },
+        "gain": 0.1783,
+        "mods": [
+          {
+            "a": 0.001,
+            "curve": "exp",
+            "d": 0.13,
+            "id": "op",
+            "r": 0.08,
+            "s": 0.15,
+            "to": [
+              {
+                "amount": 2400,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.002,
+          "d": 0.2,
+          "r": 0.06,
+          "s": 0.7
+        },
+        "filter": {
+          "freq": 260,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "gain": 0.1426,
+        "tune": -12,
+        "waveform": "square"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_synthbass",
+  "name": "Loops: Synth bass",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

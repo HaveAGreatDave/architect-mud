@@ -17,7 +17,7 @@
           "ratio": 14,
           "time": 0.4
         },
-        "gain": 0.1416,
+        "gain": 0.071,
         "waveform": "sine"
       },
       {
@@ -34,7 +34,7 @@
           "ratio": 2,
           "time": 0.6
         },
-        "gain": 0.1204,
+        "gain": 0.0603,
         "waveform": "sine"
       },
       {
@@ -45,7 +45,7 @@
           "r": 0.3,
           "s": 0
         },
-        "gain": 0.0212,
+        "gain": 0.0106,
         "tune": 12,
         "waveform": "triangle"
       }

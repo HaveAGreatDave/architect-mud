@@ -22,7 +22,7 @@
           "ratio": 2,
           "time": 0.18
         },
-        "gain": 0.2406,
+        "gain": 0.2024,
         "sub": {
           "level": 0.4,
           "octave": 1,
@@ -43,7 +43,7 @@
           "q": 0.8,
           "type": "lowpass"
         },
-        "gain": 0.0334,
+        "gain": 0.0281,
         "tune": 12,
         "waveform": "sawtooth"
       }

@@ -6,22 +6,22 @@
         "adsr": {
           "a": 0.001,
           "curve": "exp",
-          "d": 0.38,
-          "r": 0.08,
+          "d": 0.34,
+          "r": 0.06,
           "s": 0
         },
-        "gain": 0.62,
+        "gain": 0.66,
         "mods": [
           {
             "a": 0.001,
             "curve": "exp",
-            "d": 0.06,
+            "d": 0.05,
             "id": "dr",
             "r": 0.05,
             "s": 0,
             "to": [
               {
-                "amount": 2400,
+                "amount": 2800,
                 "param": "pitch"
               }
             ],
@@ -34,16 +34,16 @@
         "adsr": {
           "a": 0.0005,
           "curve": "exp",
-          "d": 0.012,
+          "d": 0.01,
           "r": 0.01,
           "s": 0
         },
         "filter": {
-          "freq": 1800,
+          "freq": 2500,
           "q": 0.8,
           "type": "bandpass"
         },
-        "gain": 0.06,
+        "gain": 0.08,
         "noiseMix": 1,
         "noiseSeed": 5,
         "waveform": "noise"

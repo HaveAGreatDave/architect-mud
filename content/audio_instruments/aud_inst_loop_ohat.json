@@ -15,7 +15,7 @@
           "q": 0.6,
           "type": "highpass"
         },
-        "gain": 0.1585,
+        "gain": 0.1778,
         "noiseMix": 1,
         "noiseSeed": 43,
         "waveform": "noise"
@@ -39,7 +39,7 @@
           "ratio": 2.71,
           "time": 0.2
         },
-        "gain": 0.0396,
+        "gain": 0.0445,
         "waveform": "square"
       }
     ]

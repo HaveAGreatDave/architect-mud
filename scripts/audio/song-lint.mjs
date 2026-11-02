@@ -59,9 +59,11 @@ export function lint(song, instruments = {}) {
   // the lead: the most melodic upper channel, by how much it moves by step and how much it plays
   // (an arpeggio or an ostinato has the notes but not the steps)
   const stepsOf = (c) => { let st = 0, n = 0; for (let k = 1; k < c.notes.length; k++) { const d = Math.abs(c.notes[k].m - c.notes[k - 1].m); if (d === 0) continue; n++; if (d <= 2) st++; } return n ? st / n : 0; };
-  // (a pad holds its notes for bars; a tune doesn't)
+  // (a pad holds its notes for bars, or restrikes one chord every beat when it pumps; a tune
+  // changes pitch on at least a third of its notes)
   const meanLen = (c) => c.notes.reduce((t, n) => t + n.len, 0) / c.notes.length;
-  const lead = pitched.filter((c) => c !== bass && c.notes.length >= 8 && meanLen(c) < 8 && (!bass || c.median >= bass.median + 7))
+  const moves = (c) => { let k = 0; for (let j = 1; j < c.notes.length; j++) if (c.notes[j].m !== c.notes[j - 1].m) k++; return k / Math.max(1, c.notes.length - 1); };
+  const lead = pitched.filter((c) => c !== bass && c.notes.length >= 8 && meanLen(c) < 8 && moves(c) >= 0.33 && (!bass || c.median >= bass.median + 7))
     .map((c) => [c, (0.25 + stepsOf(c)) * Math.log(1 + c.notes.length) * (c.median >= 60 ? 1.3 : 1)])
     .sort((a, b) => b[1] - a[1])[0]?.[0];
 
@@ -96,7 +98,9 @@ export function lint(song, instruments = {}) {
   for (let k = 1; k < blocks.length; k++) { run = blocks[k] === blocks[k - 1] ? run + 1 : 1; worst = Math.max(worst, run); }
   if (worst > 2) say('warn', `a 4-bar block plays ${worst} times running, unchanged`);
   if (!song.channels.some((c) => c.some((s) => s && s.len > 1))) say('info', 'no note is held (no `len`): every note is a row long, so nothing sustains between attacks');
-  if (!(song.swing > 0.5)) {
+  // (four on the floor is dance music, and dance music sits on the grid: no hint there)
+  const fourFloor = ch.some((c) => c.drum && c.notes.filter((n) => n.i % 4 === 0).length >= bars * 3.5);
+  if (!(song.swing > 0.5) && !fourFloor) {
     const busy = ch.some((c) => c.notes.length >= bars * 6);
     if (busy && bars >= 4) say('info', 'straight sixteenths throughout: a little `swing` (0.53-0.58) loosens a busy part');
   }
