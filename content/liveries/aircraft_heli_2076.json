@@ -1,0 +1,20 @@
+{
+  "blurb": "Concept. The Dragonfly fifty years on: a pearl pod on eight rotors, the teal kept for the trim.",
+  "default": false,
+  "exterior": {
+    "base": "#e2e6e2",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#1f7a6e",
+    "variant": "2076"
+  },
+  "id": "2076",
+  "interior": {
+    "cabin": "#1c2a28",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "heli",
+  "name": "Dragonfly 2076",
+  "unlock": null
+}

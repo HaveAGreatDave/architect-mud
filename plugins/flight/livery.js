@@ -34,6 +34,12 @@ export const TRIMS = {
     // SPECIAL EDITION: a bald eagle outside, red white and blue inside (interior-drake.js DRAKE_TRIM_QUACKHAWK).
     { id: 'quackhawk', label: 'Quackhawk Down · special edition' },
   ],
+  // CONCEPT: the 2076 body is a different model, not a paint scheme (mesh_heli.json 'variants').
+  // The Viper keeps her own airframe whatever this says (aircraftFaces ignores a variant when armed).
+  heli: [
+    { id: 'stock', label: 'Mini-500 · the original' },
+    { id: '2076', label: 'Dragonfly 2076 · concept' },
+  ],
 };
 const TRIM_IDS = new Set(Object.values(TRIMS).flat().map(t => t.id));
 // The CABIN's factory trim, chosen apart from the exterior scheme: a special edition's cockpit can sit

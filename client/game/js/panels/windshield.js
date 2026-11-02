@@ -37325,7 +37325,7 @@ let VEHICLE_PICK = null;
 // ⚠ ASK THE STATION TABLE, NEVER A LIST OF CLASS NAMES — see the note at that chain.
 function hasRotorFX(c) {
   if (WATER_CLASSES().has(c.cls) || c.cls === 'gunship' || c.cls === 'heavy') return false;
-  return !!(c.cls === 'heli' || PROP_STATIONS[c.cls] || rotorsFor(c.cls, !!c.armed));
+  return !!(c.cls === 'heli' || PROP_STATIONS[c.cls] || rotorsFor(c.cls, !!c.armed, c.variant || ''));
 }
 function rotorFxOpts(c, now) {
   const power = clamp(c.power != null ? c.power : 0.55, 0, 1);
@@ -37334,6 +37334,7 @@ function rotorFxOpts(c, now) {
     disc: c.propDisc != null ? c.propDisc : null, spool: c.propSpin != null ? c.propSpin : null,
     armed: !!c.armed,   // the Viper's discs ride its double-size, nose-up transform
     anim: c.anim || null,   // a folding, sliding or channel-run rotor reads the same state the moving parts do
+    variant: c.variant || '',   // a body variant (the 2076 Dragonfly) carries its own rotors
     bladeFade: 0.9 };   // past ~half disc, the blades melt into the blur disc (prop AND heli rotor) — full rpm reads as a pure spinning disc
 }
 // Where the rotor goes when the hull is in the depth buffer. Polygons (blades, blur disc, hub cap)

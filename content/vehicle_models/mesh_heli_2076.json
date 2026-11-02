@@ -1,0 +1,754 @@
+{
+  "id": "heli_2076",
+  "kind": "mesh",
+  "params": {
+    "name": "Dragonfly 2076",
+    "note": "CONCEPT. The Dragonfly fifty years on, after the EHang EH216-S: a two-seat electric pod with no main rotor, four arms in an X off the roof each carrying a coaxial pair (eight rotors), a segmented tail kept only for the name, and flat skids. A variant of the heli mesh (its `variants`), chosen as the 2076 factory edition in the hangar.",
+    "groundPitch": 0,
+    "navLamps": null,
+    "rotors": [
+      {
+        "at": [
+          0.5,
+          0.6,
+          0.34
+        ],
+        "plane": "h",
+        "r": 0.3,
+        "blades": 2,
+        "lead": 0.8,
+        "spinMul": 1.8,
+        "phase": 3.312
+      },
+      {
+        "at": [
+          0.5,
+          0.6,
+          0.26
+        ],
+        "plane": "h",
+        "r": 0.3,
+        "blades": 2,
+        "lead": 0.8,
+        "spinMul": 1.8,
+        "phase": 3.128,
+        "dir": -1
+      },
+      {
+        "at": [
+          0.5,
+          -0.6,
+          0.34
+        ],
+        "plane": "h",
+        "r": 0.3,
+        "blades": 2,
+        "lead": 0.8,
+        "spinMul": 1.8,
+        "phase": 0.552,
+        "dir": -1
+      },
+      {
+        "at": [
+          0.5,
+          -0.6,
+          0.26
+        ],
+        "plane": "h",
+        "r": 0.3,
+        "blades": 2,
+        "lead": 0.8,
+        "spinMul": 1.8,
+        "phase": 0.368
+      },
+      {
+        "at": [
+          -0.42,
+          0.6,
+          0.34
+        ],
+        "plane": "h",
+        "r": 0.3,
+        "blades": 2,
+        "lead": 0.8,
+        "spinMul": 1.8,
+        "phase": 1.196,
+        "dir": -1
+      },
+      {
+        "at": [
+          -0.42,
+          0.6,
+          0.26
+        ],
+        "plane": "h",
+        "r": 0.3,
+        "blades": 2,
+        "lead": 0.8,
+        "spinMul": 1.8,
+        "phase": 1.012
+      },
+      {
+        "at": [
+          -0.42,
+          -0.6,
+          0.34
+        ],
+        "plane": "h",
+        "r": 0.3,
+        "blades": 2,
+        "lead": 0.8,
+        "spinMul": 1.8,
+        "phase": -1.564
+      },
+      {
+        "at": [
+          -0.42,
+          -0.6,
+          0.26
+        ],
+        "plane": "h",
+        "r": 0.3,
+        "blades": 2,
+        "lead": 0.8,
+        "spinMul": 1.8,
+        "phase": -1.748,
+        "dir": -1
+      }
+    ],
+    "finish": "gloss",
+    "paints": {
+      "hull": {
+        "rgb": [
+          226,
+          230,
+          226
+        ],
+        "livery": "base"
+      },
+      "trim": {
+        "rgb": [
+          31,
+          122,
+          110
+        ],
+        "livery": "trim"
+      },
+      "belly": {
+        "rgb": [
+          31,
+          122,
+          110
+        ],
+        "livery": "trim"
+      },
+      "stripe": {
+        "rgb": [
+          22,
+          46,
+          52
+        ],
+        "livery": "fixed",
+        "mat": "matte"
+      },
+      "arm": {
+        "rgb": [
+          36,
+          40,
+          44
+        ],
+        "livery": "fixed",
+        "mat": "matte"
+      },
+      "metal": {
+        "rgb": [
+          150,
+          154,
+          160
+        ],
+        "livery": "fixed",
+        "mat": "bare"
+      },
+      "led": {
+        "rgb": [
+          120,
+          236,
+          214
+        ],
+        "livery": "fixed",
+        "mat": "matte"
+      }
+    },
+    "parts": [
+      {
+        "kind": "loft",
+        "name": "cabin pod",
+        "role": "body",
+        "section": "ellipse",
+        "sides": 14,
+        "paint": "hull",
+        "note": "An egg pod for two side by side, the glass wrapping from the nose round to behind the seats.",
+        "stations": [
+          {
+            "f": 0.64,
+            "rg": 0.07,
+            "rv": 0.08,
+            "cz": 0.04
+          },
+          {
+            "f": 0.54,
+            "rg": 0.15,
+            "rv": 0.16,
+            "cz": 0.035
+          },
+          {
+            "f": 0.38,
+            "rg": 0.215,
+            "rv": 0.22,
+            "cz": 0.03
+          },
+          {
+            "f": 0.18,
+            "rg": 0.235,
+            "rv": 0.235,
+            "cz": 0.035
+          },
+          {
+            "f": -0.02,
+            "rg": 0.215,
+            "rv": 0.22,
+            "cz": 0.045
+          },
+          {
+            "f": -0.18,
+            "rg": 0.15,
+            "rv": 0.16,
+            "cz": 0.06
+          },
+          {
+            "f": -0.28,
+            "rg": 0.075,
+            "rv": 0.085,
+            "cz": 0.075
+          }
+        ],
+        "capFore": {
+          "kind": "apex",
+          "at": [
+            0.7,
+            0,
+            0.045
+          ],
+          "role": "glass",
+          "tint": [
+            70,
+            104,
+            126
+          ]
+        },
+        "capAft": {
+          "kind": "flat"
+        },
+        "shade": {
+          "base": 0.62,
+          "amp": 0.34
+        },
+        "regions": [
+          {
+            "at": [
+              0.64
+            ],
+            "k": "all",
+            "role": "glass",
+            "tint": [
+              70,
+              104,
+              126
+            ]
+          },
+          {
+            "at": [
+              0.54
+            ],
+            "k": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              13
+            ],
+            "role": "glass",
+            "tint": [
+              70,
+              104,
+              126
+            ]
+          },
+          {
+            "at": [
+              0.38
+            ],
+            "k": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "role": "glass",
+            "tint": [
+              70,
+              104,
+              126
+            ]
+          },
+          {
+            "at": [
+              0.18
+            ],
+            "k": [
+              0,
+              1,
+              5,
+              6
+            ],
+            "role": "glass",
+            "tint": [
+              70,
+              104,
+              126
+            ]
+          },
+          {
+            "at": [
+              0.38,
+              0.18,
+              -0.02
+            ],
+            "k": [
+              7,
+              13
+            ],
+            "paint": "led"
+          },
+          {
+            "at": [
+              0.54,
+              0.38,
+              0.18,
+              -0.02,
+              -0.18
+            ],
+            "k": [
+              8,
+              9,
+              10,
+              11,
+              12
+            ],
+            "paint": "belly"
+          }
+        ]
+      },
+      {
+        "kind": "loft",
+        "name": "tail abdomen",
+        "role": "body",
+        "section": "ellipse",
+        "sides": 10,
+        "paint": "hull",
+        "note": "Three tapering segments with a lit band at each joint.",
+        "stations": [
+          {
+            "f": -0.22,
+            "rg": 0.06,
+            "rv": 0.065,
+            "cz": 0.085
+          },
+          {
+            "f": -0.42,
+            "rg": 0.04,
+            "rv": 0.045,
+            "cz": 0.1
+          },
+          {
+            "f": -0.44,
+            "rg": 0.046,
+            "rv": 0.05,
+            "cz": 0.101
+          },
+          {
+            "f": -0.64,
+            "rg": 0.03,
+            "rv": 0.034,
+            "cz": 0.115
+          },
+          {
+            "f": -0.66,
+            "rg": 0.035,
+            "rv": 0.038,
+            "cz": 0.116
+          },
+          {
+            "f": -0.86,
+            "rg": 0.016,
+            "rv": 0.018,
+            "cz": 0.13
+          }
+        ],
+        "capAft": {
+          "kind": "apex",
+          "at": [
+            -0.9,
+            0,
+            0.133
+          ],
+          "role": "body"
+        },
+        "shade": {
+          "base": 0.6,
+          "amp": 0.36,
+          "mul": 0.92
+        },
+        "regions": [
+          {
+            "at": [
+              -0.42,
+              -0.64
+            ],
+            "k": "all",
+            "paint": "led"
+          }
+        ]
+      },
+      {
+        "kind": "blade",
+        "name": "tail fin",
+        "paint": "trim",
+        "role": "fin",
+        "t": 0.008,
+        "sh": [
+          0.92,
+          0.72
+        ],
+        "outline": [
+          [
+            -0.7,
+            0.13
+          ],
+          [
+            -0.84,
+            0.27
+          ],
+          [
+            -0.9,
+            0.27
+          ],
+          [
+            -0.86,
+            0.13
+          ]
+        ],
+        "edges": [
+          {
+            "a": 1,
+            "b": 2,
+            "sh": 0.8
+          }
+        ]
+      },
+      {
+        "kind": "drum",
+        "name": "roof spine",
+        "f": 0.1,
+        "r": 0.11,
+        "n": 10,
+        "z": [
+          0.2,
+          0.255
+        ],
+        "role": "nacelle",
+        "paint": "arm",
+        "sh": {
+          "base": 0.6,
+          "alt": 0.1
+        },
+        "top": {
+          "sh": 0.85
+        }
+      },
+      {
+        "kind": "mirror",
+        "name": "arms and rotors",
+        "parts": [
+          {
+            "kind": "faired",
+            "name": "fore arm",
+            "pts": [
+              [
+                0.26,
+                0.1,
+                0.23
+              ],
+              [
+                0.38,
+                0.33,
+                0.27
+              ],
+              [
+                0.5,
+                0.6,
+                0.3
+              ]
+            ],
+            "chord": 0.085,
+            "th": 0.03,
+            "role": "strut",
+            "sh": 0.7,
+            "paint": "arm"
+          },
+          {
+            "kind": "drum",
+            "name": "fore motor pod",
+            "f": 0.5,
+            "g": 0.6,
+            "r": 0.032,
+            "n": 8,
+            "z": [
+              0.24000000000000002,
+              0.35000000000000003
+            ],
+            "role": "nacelle",
+            "paint": "metal",
+            "sh": {
+              "base": 0.62,
+              "alt": 0.14
+            },
+            "top": {
+              "sh": 0.9
+            },
+            "bottom": {
+              "sh": 0.4
+            }
+          },
+          {
+            "kind": "ngon",
+            "name": "rotor disc",
+            "f": 0.5,
+            "g": 0.6,
+            "h": 0.34,
+            "n": 8,
+            "r": 0.3,
+            "role": "rotor",
+            "sh": 0.65,
+            "note": "Schematic only: painted renderers draw the blades from rotors."
+          },
+          {
+            "kind": "ngon",
+            "name": "rotor disc",
+            "f": 0.5,
+            "g": 0.6,
+            "h": 0.26,
+            "n": 8,
+            "r": 0.3,
+            "role": "rotor",
+            "sh": 0.65,
+            "note": "Schematic only: painted renderers draw the blades from rotors."
+          },
+          {
+            "kind": "faired",
+            "name": "aft arm",
+            "pts": [
+              [
+                -0.06,
+                0.1,
+                0.23
+              ],
+              [
+                -0.24,
+                0.33,
+                0.27
+              ],
+              [
+                -0.42,
+                0.6,
+                0.3
+              ]
+            ],
+            "chord": 0.085,
+            "th": 0.03,
+            "role": "strut",
+            "sh": 0.7,
+            "paint": "arm"
+          },
+          {
+            "kind": "drum",
+            "name": "aft motor pod",
+            "f": -0.42,
+            "g": 0.6,
+            "r": 0.032,
+            "n": 8,
+            "z": [
+              0.24000000000000002,
+              0.35000000000000003
+            ],
+            "role": "nacelle",
+            "paint": "metal",
+            "sh": {
+              "base": 0.62,
+              "alt": 0.14
+            },
+            "top": {
+              "sh": 0.9
+            },
+            "bottom": {
+              "sh": 0.4
+            }
+          },
+          {
+            "kind": "ngon",
+            "name": "rotor disc",
+            "f": -0.42,
+            "g": 0.6,
+            "h": 0.34,
+            "n": 8,
+            "r": 0.3,
+            "role": "rotor",
+            "sh": 0.65,
+            "note": "Schematic only: painted renderers draw the blades from rotors."
+          },
+          {
+            "kind": "ngon",
+            "name": "rotor disc",
+            "f": -0.42,
+            "g": 0.6,
+            "h": 0.26,
+            "n": 8,
+            "r": 0.3,
+            "role": "rotor",
+            "sh": 0.65,
+            "note": "Schematic only: painted renderers draw the blades from rotors."
+          }
+        ]
+      },
+      {
+        "kind": "mirror",
+        "name": "skids",
+        "parts": [
+          {
+            "kind": "tube",
+            "name": "skid rail",
+            "pts": [
+              [
+                0.4,
+                0.24,
+                -0.27
+              ],
+              [
+                -0.2,
+                0.24,
+                -0.27
+              ]
+            ],
+            "r": 0.015,
+            "role": "gear",
+            "sh": 0.5,
+            "sides": 6,
+            "paint": "arm"
+          },
+          {
+            "kind": "tube",
+            "name": "skid toe",
+            "pts": [
+              [
+                0.4,
+                0.24,
+                -0.27
+              ],
+              [
+                0.47,
+                0.24,
+                -0.22000000000000003
+              ]
+            ],
+            "r": 0.014,
+            "role": "gear",
+            "sh": 0.56,
+            "sides": 6,
+            "paint": "arm"
+          },
+          {
+            "kind": "faired",
+            "name": "front leg",
+            "pts": [
+              [
+                0.3,
+                0.24,
+                -0.27
+              ],
+              [
+                0.32,
+                0.12,
+                -0.15
+              ]
+            ],
+            "chord": 0.05,
+            "th": 0.016,
+            "role": "strut",
+            "sh": 0.6,
+            "paint": "arm"
+          },
+          {
+            "kind": "faired",
+            "name": "rear leg",
+            "pts": [
+              [
+                -0.1,
+                0.24,
+                -0.27
+              ],
+              [
+                -0.06,
+                0.12,
+                -0.14
+              ]
+            ],
+            "chord": 0.05,
+            "th": 0.016,
+            "role": "strut",
+            "sh": 0.6,
+            "paint": "arm"
+          }
+        ]
+      },
+      {
+        "kind": "tube",
+        "name": "chin light bar",
+        "pts": [
+          [
+            0.6,
+            -0.08,
+            -0.05
+          ],
+          [
+            0.6,
+            0.08,
+            -0.05
+          ]
+        ],
+        "r": 0.008,
+        "role": "nacelle",
+        "sh": 0.95,
+        "sides": 5,
+        "paint": "led",
+        "caps": 1
+      }
+    ]
+  }
+}

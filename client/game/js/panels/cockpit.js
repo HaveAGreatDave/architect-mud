@@ -3181,7 +3181,7 @@ function stepCrashBreakup(F, now) {
     external: true, hideOwnShip: false, phase: 'cruise', worldBlend: 1,
     // ⚠ Pass the livery variant: a Drake variant is a different mesh.
     cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, heading: C.hdg, bank, pitch, livery: F.livery,
-    ...(F.cls === 'drake' && F.livery?.variant && F.livery.variant !== 'stock' ? { variant: F.livery.variant } : {}),
+    ...(F.livery?.variant && F.livery.variant !== 'stock' ? { variant: F.livery.variant } : {}),
     gearAnim: F.gearAnim ?? 1, enginePct: 0, engineOn: false, breakup: { t, parts, state: C }, wreckFx,
     extYaw: (F.extOrbit || 0) + 26 * t, extPitch: F.extPitch ?? REST_PITCH, extZoom: F.extZoom || 1,
     height, speed: 0, hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wxField: F.sky?.field, wxGround: F.sky?.ground,
@@ -3829,8 +3829,8 @@ function fsimFrameBody(now) {
       // A ground contact pins to groundZ 0; airborne ones use the altitude delta.
       const brk = surfaceBreakup(c.surfaces);
       const cv = c.onGround
-        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, ias: c.ias || 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.cls === 'drake' && c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear }
-        : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.cls === 'drake' && c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear };
+        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, ias: c.ias || 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear }
+        : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear };
       contactView.push(cv);
       if (bore < bestBore) { bestBore = bore; designated = cv; }
     }
@@ -4116,7 +4116,7 @@ function fsimFrameBody(now) {
           dy: F.aaTracerY != null ? F.aaTracerY - F.pos.y : null,
           hit: !!F.aaTracerHit,
           seed: F.aaTracerSeed || 1 } : null,
-    external: F.external, extZoom: F.extZoom || 1, freeCam: freeCam.view(), cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, livery: LIVERY_PREVIEW || F.livery, ...(F.cls === 'drake' && (LIVERY_PREVIEW || F.livery)?.variant && (LIVERY_PREVIEW || F.livery).variant !== 'stock' ? { variant: (LIVERY_PREVIEW || F.livery).variant } : {}), enginePct: d.rpm,
+    external: F.external, extZoom: F.extZoom || 1, freeCam: freeCam.view(), cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, livery: LIVERY_PREVIEW || F.livery, ...((LIVERY_PREVIEW || F.livery)?.variant && (LIVERY_PREVIEW || F.livery).variant !== 'stock' ? { variant: (LIVERY_PREVIEW || F.livery).variant } : {}), enginePct: d.rpm,
     // For the modelled cockpits. ⚠ Not `armed`, which picks the Viper airframe.
     weaponsArmed: !!F.armed, weapon: F.weapon, bombs: F.bombs, missiles: F.msl, ammo: F.gunRounds,
     diveBrake: F.diveAuto ? 1 : 0, siren: F.bombCap > 0 && diveQuality(F.s) > 0,

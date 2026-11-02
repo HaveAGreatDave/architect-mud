@@ -1640,10 +1640,10 @@ export function drawRotorFX(ctx, cls, projFn, opts = {}) {
   try { drawRotorFXInner(ctx, cls, projFn, opts); } finally { FX_SINK = null; }
 }
 // Parked blades as near-opaque depth-buffer faces for the hangar renderers. `projM` is model space to screen.
-export function pushParkedRotorFaces(drawn, cls, armed, spin, projM, near) {
+export function pushParkedRotorFaces(drawn, cls, armed, spin, projM, near, variant = '') {
   const polys = [];
   drawRotorFX(null, cls, (v) => { const q = projM(v); return q.z <= near ? null : q; },
-    { parked: true, spin, armed, sink: { poly: (pts, rgba) => polys.push([pts, rgba]), line() {} } });
+    { parked: true, spin, armed, variant, sink: { poly: (pts, rgba) => polys.push([pts, rgba]), line() {} } });
   for (const [pts, rgba] of polys) {
     const P = pts.map(projM);
     if (P.some((q) => q.z <= near)) continue;
@@ -1659,11 +1659,11 @@ const RUN_EASE = (k) => k * k * (3 - 2 * k);
 // A folding rotor's held stop angle, and how far its blades stand up while they swing aft.
 const FOLD_STOP = new Map();
 const FOLD_TILT = 80 * Math.PI / 180;
-function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0, armed = false, anim = null } = {}) {
+function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0, armed = false, anim = null, variant = '' } = {}) {
   const dsc = disc != null ? disc : power;      // blur-disc opacity
   const spl = spool != null ? spool : 1;        // blade motion amount
   // A mesh-file class carries its rotors (`rotors`): position, plane, direction, speed.
-  const rs = rotorsFor(cls, armed);
+  const rs = rotorsFor(cls, armed, variant);
   if (rs) {
     for (const r of rs) {
       const sp = r.spinMul == null && r.phase == null ? spin : spin * (r.spinMul ?? 1) + (r.phase ?? 0);
@@ -1726,8 +1726,8 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
 
 // A class's mesh-file rotors, resolved, or null. Memoised on the row because this runs per contact per frame.
 const _rotorMemo = new WeakMap();
-export function rotorsFor(cls, armed = false) {
-  const id = meshIdFor(cls, armed);
+export function rotorsFor(cls, armed = false, variant = '') {
+  const id = (!armed && variantMeshFor(cls, variant)) || meshIdFor(cls, armed);
   if (!id) return null;
   const row = meshRow(id);
   if (!_rotorMemo.has(row)) _rotorMemo.set(row, resolveRotors(row));
@@ -2091,7 +2091,7 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   if (_cache[key]) return _cache[key];
   // ⚠ The last arm is a silent fallback: an unknown class builds as a Twin Otter. Add a new class's arm here first.
   // An authored mesh answers first. A variant named in the mesh's `variants` is a different model; any other is a paint scheme.
-  const vmid = variantMeshFor(cls, variant);
+  const vmid = armed ? null : variantMeshFor(cls, variant);
   const mid = vmid || meshIdFor(cls, armed);
   const faces = mid ? compileMesh(meshRow(mid), { detail, scheme: vmid ? null : (variant || null) }).faces
     : cls === 'truck' ? buildTruck(variant || 'hauler', detail)
@@ -5473,7 +5473,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   }
   // Every model goes through the shared depth pass (see modelDepthPass). Detail passes stay on canvas, gated on
   // `seen`. The hero shot takes the pass at any size. Falls back to the sorts if the pass declines.
-  if (!wreck) pushParkedRotorFaces(drawn, cls, armed, 2.3, (v) => { const t = modelV(v); return proj(t[0], t[1], t[2]); }, 0.2);
+  if (!wreck) pushParkedRotorFaces(drawn, cls, armed, 2.3, (v) => { const t = modelV(v); return proj(t[0], t[1], t[2]); }, 0.2, variant);
   const rasterOK = modelDepthPass(ctx, drawn, { budget });
   if (!rasterOK) {
     if (cls === 'truck') sortTruckFaces(drawn, { id: `bay:${cls}:${variant || ''}` }, 1);
@@ -6362,7 +6362,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     // entry and per mesh, because part ids repeat across variants.
     const faces = grp.faces;
     if (!grp.entry.wreck) pushParkedRotorFaces(faces, grp.entry.cls, !!grp.entry.armed, 1.9 + grp.laneG * 0.6,
-      (v0) => { const v = grp.tilt ? grp.tilt(v0) : v0; return proj(v[0] * grp.sc, grp.laneG + v[1] * grp.sc, v[2] * grp.sc); }, 0.15);
+      (v0) => { const v = grp.tilt ? grp.tilt(v0) : v0; return proj(v[0] * grp.sc, grp.laneG + v[1] * grp.sc, v[2] * grp.sc); }, 0.15, grp.entry.variant || '');
     // The raster budget is shared across the row.
     const rasterOK = modelDepthPass(ctx, faces, { min: RASTER_MIN_PX, budget: RASTER_BUDGET_PX / Math.max(1, n) });
     if (!rasterOK) {
