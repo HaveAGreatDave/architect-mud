@@ -1,7 +1,7 @@
 # Comic ink: the whole game in one comic-book style
 
-> **Status: steps 1 and 2 built (the house style and the inked faces, behind Settings → Cel
-> Shading → Comic); steps 3-5 are design.** The look-dev prototype is a live page in Dave's
+> **Status: steps 1-3 built (the house style, the inked faces and the players, behind Settings →
+> Cel Shading → Comic); steps 4-5 are design.** The look-dev prototype is a live page in Dave's
 > artifacts, "Deadball Comic Ink".
 
 ## Why
@@ -93,7 +93,7 @@ logs both with `__glPassMs`.
 2. **The inked face atlas**, behind the switch, since every face changes the day it lands.
    *Built.* See below.
 3. **The players:** weighted hull, inked kits, two tones with a painted shadow, hatching, the
-   hi-def near level.
+   hi-def near level. *Built.* See below.
 4. **The park and the crowd** through ssao.js's line resolve on the park's depth; the card
    shader's edge.
 5. **The switch defaults on**, tier by tier, once the park's governor
@@ -116,9 +116,8 @@ one ink, two bands, a figure's line widened 2.5 times in its view's own units an
 - **Off, nothing changes.** Every helper hands back the view's own numbers, and the city's keys for
   'off' and 'on' are windshield.js's shipped defaults. `scripts/shapes/house-style.mjs` gates both,
   reading the defaults out of windshield.js.
-- **Not yet switched:** the park's players band their light with `CEL.bands` compiled into the
-  shader, so they keep three bands until step 3 makes it a uniform. The rink's lit shader has no
-  band count to switch.
+- **Not switched:** the rink's lit shader has no band count to switch. (The park's players had
+  theirs compiled in; step 3 made it a uniform.)
 
 ## Step 2, as built
 
@@ -145,3 +144,44 @@ to the mouth (heavier with age), under the lower lip and a chin crease.
   and counts dark texels at the lids, brows, mouth and nostrils of every layout (a blank ink layer
   fails it on every face). `scripts/shapes/face-atlas-feed.mjs` drives the feed with a fake image
   through each flip, including off-on-off mid-load.
+
+## Step 3, as built
+
+The park's players, seen in the Modelshop's Pose Lab under the real renderer: plain, Comic, and
+plain again pixel for pixel.
+
+- **The light.** `CEL_GLSL` ([gl/cel-figure.js](../../client/game/js/panels/gl/cel-figure.js))
+  takes its bands and shade as uniforms (`uCelBands`, `uCelShade`, `uCelComic`), set from
+  `figureLightOf` in gl/house-style.js. Off they're `CEL.bands` and `CEL.shade`, so the players draw
+  as before. Comic gives two bands, a painted warm violet shade (`HOUSE.shade`), no rim, and
+  `celInk`: a line wherever the banded light steps (its `fwidth`, so every band edge and every hard
+  shadow edge gets one) and hatching in full shadow. The hatching is laid in the man's bind pose
+  (`vBind`, a new varying on the park's two lit vertex shaders), so it rides his body, and it builds
+  up only where he turns away from his brightest light (`keyD`, from `celAdd`). A first cut hatched
+  all of full shadow, and under the floods from behind that was his whole front.
+- **The angler** (glass/rod-rig.js), shaded on the CPU, takes the same bands, shade and no rim.
+- **The line** (`SKIN_INK_VS` in gl/ballpark.js) swells to `HOUSE.weigh` (1.7) times on the side
+  away from `uKey`, the sun or straight up under the floods. At weight 1 it's the old line exactly.
+- **The kits** ([diamond/kits.js](../../client/game/js/panels/diamond/kits.js) `ink`): numbers and
+  lettering outlined, seams and the placket hand-ruled, the collar's edge, folds off the tuck and
+  under the arms, a quarter-strength painted shadow under the arms and at the tuck; trousers with
+  ruled seams, folds at the hip, behind the knee and over the stirrups, dirt and grass on the
+  knees; folds at the top of the socks. The look is in every slot's key, so a flip repaints the
+  atlas, and the park repaints it the frame it sees the flip. Painted without ink, the atlas is
+  byte for byte what it was (checked against the committed painter in Chrome).
+- **The hi-def near level** ([gl/ballplayer-mesh.js](../../client/game/js/panels/gl/ballplayer-mesh.js)
+  `createPlayerSet({ hd })`): at level 0 only, 1.5 times the columns round the torso, limbs,
+  shoulders and shoes, and rings twice as close down the limbs and torso. A full player goes from
+  about 14,000 triangles to about 27,000 at the near level; levels 1 and 2, which the broadcast
+  distance and the shadows use, don't change. A flip rebuilds level 0 of every body 3 ms a frame
+  inside `render`, each man keeping his old one until his new one is up, because the grandstand
+  stops drawing while `pump` has work.
+- **Gates.** ballpark-smoke builds every role hi-def (finer at level 0 only, inside twice its
+  budget, every weight sound) and flips the kits' ink both ways (every jersey and both sides' legs
+  repaint, the same look again repaints nothing). house-style.mjs checks `figureLightOf` off and on.
+  The park's lit and ink programs were compiled and linked in Chrome with every new uniform live;
+  glsl-smoke only reads names.
+
+Left for later: the proportions (hands and gloves up 15%, a sleeve shell with its own hem, trousers
+bloused in the mesh rather than the texture), ink in the bat's and glove's textures, and the
+interior lines, which are step 4's screen pass.

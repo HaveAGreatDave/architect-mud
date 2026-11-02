@@ -15,6 +15,11 @@
  * (sideKit in gl/ballplayer-mesh.js). Any other side wears the house kit: cream with navy
  * pinstripes at home, grey with black and rust away, its nickname on the chest.
  *
+ * With `ink` (the comic look, docs/proposals/comic-ink.md) each piece is painted the same and then
+ * inked over, as a comic artist would: the numbers and lettering outlined, the seams and the
+ * placket ruled by hand, fold strokes where the cloth gathers, a quarter-strength painted shadow
+ * under the arms and at the tuck, and dirt on the trouser knees.
+ *
  * DOM only for the canvases: nothing here reads the page.
  */
 
@@ -27,6 +32,81 @@ export const KIT_SIZE = 2048;
 
 function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const canvasOf = (doc, w, h) => { const c = doc.createElement('canvas'); c.width = w; c.height = h; return c; };
+// ── The comic look's ink ──────────────────────────────────────────────────────────────────────────
+const INK = '#14110e', PAINTED = 'rgba(70,40,90,', DIRT = 'rgba(110,70,35,';
+// A hand-ruled line: tapered at the ends, a little wobble, never quite straight.
+function inkLine(g, r, x0, y0, x1, y1, w, wob = 1.2) {
+  const n = Math.max(4, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 10));
+  g.strokeStyle = INK; g.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const t0 = i / n, t1 = (i + 1) / n, tw = Math.sin(Math.PI * (t0 + t1) / 2);
+    g.lineWidth = Math.max(0.5, w * (0.35 + 0.65 * tw) * (0.85 + 0.3 * r()));
+    g.beginPath();
+    g.moveTo(x0 + (x1 - x0) * t0 + (r() - 0.5) * wob, y0 + (y1 - y0) * t0 + (r() - 0.5) * wob);
+    g.lineTo(x0 + (x1 - x0) * t1 + (r() - 0.5) * wob, y0 + (y1 - y0) * t1 + (r() - 0.5) * wob);
+    g.stroke();
+  }
+}
+// A fold: a short curved stroke, thick in the middle.
+function fold(g, r, x, y, len, ang, w) {
+  const bend = (r() - 0.5) * 0.9;
+  let px = x, py = y;
+  g.strokeStyle = INK; g.lineCap = 'round';
+  for (let i = 1; i <= 6; i++) {
+    const t = i / 6, a = ang + bend * (t - 0.5);
+    const nx = x + Math.cos(a) * len * t, ny = y + Math.sin(a) * len * t;
+    g.lineWidth = Math.max(0.5, w * Math.sin(Math.PI * (t - 1 / 12)));
+    g.beginPath(); g.moveTo(px, py); g.lineTo(nx, ny); g.stroke();
+    px = nx; py = ny;
+  }
+}
+// A soft painted patch, `rx` by `ry`, its colour given without its alpha ('rgba(r,g,b,').
+function patch(g, x, y, rx, ry, colour) {
+  const R = Math.max(rx, ry), grd = g.createRadialGradient(0, 0, 1, 0, 0, R);
+  grd.addColorStop(0, colour + '0.32)'); grd.addColorStop(1, colour + '0)');
+  g.save(); g.translate(x, y); g.scale(rx / R, ry / R);
+  g.fillStyle = grd; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill();
+  g.restore();
+}
+// Lettering inked: an outline drawn outside whatever stroke the kit gives it.
+function inkText(g, text, x, y, w) { g.save(); g.lineJoin = 'round'; g.lineWidth = w; g.strokeStyle = INK; g.strokeText(text, x, y); g.restore(); }
+// Over a jersey cell (512 x 256, chest at 128, back at 384, the sides at 0 and 256, collar on top).
+function inkJersey(g, W, H, seed) {
+  const r = rng(seed * 13 + 7);
+  // painted shadow: under the arms, and where it tucks in at the belt
+  for (const x of [0, 256, 512]) patch(g, x, 40, 70, 46, PAINTED);
+  g.fillStyle = PAINTED + '0.22)'; g.fillRect(0, H - 16, W, 16);
+  // the seams and the placket's edges, ruled by hand
+  for (const x of [2, 256, W - 2]) inkLine(g, r, x, 0, x + (r() - 0.5) * 2, H, 2.6);
+  inkLine(g, r, 123.5, 6, 123, H, 2); inkLine(g, r, 132.5, 6, 133, H, 2);
+  // the collar's edge
+  inkLine(g, r, 0, 2, W, 2, 2.4, 0.8);
+  // folds pulling up off the tuck, and a few across the chest and back
+  for (let i = 0; i < 22; i++) fold(g, r, r() * W, H * (0.72 + r() * 0.24), 18 + r() * 24, -Math.PI / 2 + (r() - 0.5) * 0.9, 1.6 + r() * 1.2);
+  for (let i = 0; i < 8; i++) fold(g, r, (r() < 0.5 ? 40 : 296) + r() * 140, H * (0.25 + r() * 0.3), 22 + r() * 20, (r() < 0.5 ? 0.45 : -0.45) + (r() - 0.5) * 0.3, 1.4);
+  // under the arms, gathered
+  for (const x of [8, 248, 264, 504]) for (let i = 0; i < 3; i++) fold(g, r, x + (r() - 0.5) * 10, 18 + r() * 30, 14 + r() * 10, Math.PI / 2 + (r() - 0.5), 1.4);
+}
+// Over a trouser cell (512 x 256, the hip at the top, the knee about 190 down, the blouse at the foot).
+function inkPants(g, seed) {
+  const r = rng(seed);
+  for (const x of [128, 384]) inkLine(g, r, x, 0, x + (r() - 0.5) * 2, 256, 2.2);
+  g.fillStyle = PAINTED + '0.2)'; g.fillRect(0, 0, 512, 10);
+  // the knees: dirt and a little grass
+  for (const x of [0, 256, 512]) for (let i = 0; i < 6; i++) patch(g, x + (r() - 0.5) * 120, 188 + (r() - 0.5) * 34, 10 + r() * 24, 6 + r() * 10, DIRT);
+  for (const x of [20, 276]) patch(g, x, 200, 26, 9, 'rgba(70,110,40,');
+  // creases at the hip, behind the knee, and the blouse bunching over the stirrups
+  for (let i = 0; i < 12; i++) fold(g, r, r() * 512, 4 + r() * 36, 20 + r() * 26, Math.PI / 2 + (r() - 0.5) * 0.5, 1.5);
+  for (let i = 0; i < 10; i++) fold(g, r, (r() < 0.5 ? 128 : 384) + (r() - 0.5) * 120, 176 + r() * 30, 12 + r() * 12, (r() - 0.5) * 0.8, 1.4);
+  for (let i = 0; i < 26; i++) fold(g, r, r() * 512, 222 + r() * 30, 12 + r() * 16, (r() < 0.5 ? 0.3 : -0.3) + Math.PI * (r() < 0.5 ? 0 : 1), 1.8 + r());
+}
+// Over a sock cell: the folds where the stirrup sags at the top.
+function inkSocks(g, seed) {
+  const r = rng(seed);
+  for (let i = 0; i < 14; i++) fold(g, r, r() * 512, 4 + r() * 50, 12 + r() * 14, (r() - 0.5) * 0.5, 1.5);
+  inkLine(g, r, 0, 70, 512, 70, 2); inkLine(g, r, 0, 122, 512, 122, 2);
+}
+
 // A club's nickname, the last word of its name: "Precinct 9 Enforcers" wears ENFORCERS.
 export const nicknameOf = (name) => String(name || '').trim().split(/\s+/).filter(Boolean).pop() || '';
 
@@ -45,7 +125,7 @@ function pinstripes(g, K, W, H, a = 0.85) {
   for (let px = 1.5; px < W; px += 7.5) g.fillRect(px, 0, 1, H);
   g.restore();
 }
-function paintClubJersey(g, K, num, W, H, seed) {
+function paintClubJersey(g, K, num, W, H, seed, ink = false) {
   if (K.fabric === 'flannel') flannel(g, W, H, seed);
   if (K.fabric === 'pinstripe') pinstripes(g, K, W, H);
   g.fillStyle = K.ink; g.fillRect(126, 0, 4, H); g.fillStyle = K.trim; g.fillRect(130, 0, 1.5, H); g.fillRect(124.5, 0, 1.5, H);
@@ -57,11 +137,13 @@ function paintClubJersey(g, K, num, W, H, seed) {
   for (let i = 0; i < n; i++) {
     const t = n > 1 ? (i - (n - 1) / 2) * gap / 190 : 0, cx = 128 + t * 190, cy = 102 - Math.cos(t * 2.2) * 13;
     g.save(); g.translate(cx, cy); g.rotate(t * 0.55);
+    if (ink) inkText(g, word[i], 0, 0, Math.max(2.5, px * 0.15) + 4);
     g.lineWidth = Math.max(2.5, px * 0.15); g.strokeStyle = K.trim; g.strokeText(word[i], 0, 0); g.fillStyle = K.ink; g.fillText(word[i], 0, 0);
     g.restore();
   }
   const [fill, edge] = K.number;
   g.font = `bold 95px ${SANS}`; g.textAlign = 'center'; g.lineJoin = 'round';
+  if (ink) inkText(g, num, 384, 165, 13);
   g.lineWidth = 8; g.strokeStyle = edge || K.trim; g.strokeText(num, 384, 165); g.fillStyle = fill || K.ink; g.fillText(num, 384, 165);
 }
 
@@ -82,15 +164,15 @@ function paintBackName(g, name, fill, edge) {
 
 // One jersey into a 512×256 rect at (x, y): the chest a quarter of the way across, the back
 // three quarters, the collar at the top. `kit` is sideKit's, or a side for its house kit. `name`
-// is the man's surname for his back (surnameOf), or nothing.
-export function paintJersey(g, x, y, kit, nickname, number, name = '') {
+// is the man's surname for his back (surnameOf), or nothing. `ink` inks it for the comic look.
+export function paintJersey(g, x, y, kit, nickname, number, name = '', ink = false) {
   const K = kitOf(kit), W = 512, H = 256;
   g.save();
   g.beginPath(); g.rect(x, y, W, H); g.clip();
   g.translate(x, y);
   g.fillStyle = K.base; g.fillRect(0, 0, W, H);
   const num = String(number ?? '');
-  if (!K.house) paintClubJersey(g, K, num, W, H, (Number(number) || 0) * 7 + 3);
+  if (!K.house) paintClubJersey(g, K, num, W, H, (Number(number) || 0) * 7 + 3, ink);
   else if (K === KITS.home) {
     g.fillStyle = 'rgba(22,38,74,0.85)';
     for (let px = 1.5; px < W; px += 7.5) g.fillRect(px, 0, 1, H);
@@ -102,6 +184,7 @@ export function paintJersey(g, x, y, kit, nickname, number, name = '') {
     g.lineWidth = 3.5; g.beginPath(); g.moveTo(-75, 11); g.quadraticCurveTo(5, 23, 85, 4); g.stroke();
     g.restore();
     g.font = `bold 95px ${SANS}`; g.textAlign = 'center'; g.lineJoin = 'round';
+    if (ink) inkText(g, num, 384, 165, 13);
     g.lineWidth = 8; g.strokeStyle = K.trim; g.strokeText(num, 384, 165); g.fillStyle = K.ink; g.fillText(num, 384, 165);
     g.font = `bold 27px ${SANS}`; g.lineWidth = 3; g.strokeText(num, 165, 145); g.fillText(num, 165, 145);
   } else {
@@ -118,6 +201,7 @@ export function paintJersey(g, x, y, kit, nickname, number, name = '') {
       g.restore();
     }
     g.font = `bold 95px ${SANS}`; g.textAlign = 'center'; g.lineJoin = 'round';
+    if (ink) inkText(g, num, 384, 165, 13);
     g.lineWidth = 8; g.strokeStyle = K.ink; g.strokeText(num, 384, 165); g.fillStyle = K.trim; g.fillText(num, 384, 165);
   }
   // his name over his number, in the number's colours
@@ -129,19 +213,21 @@ export function paintJersey(g, x, y, kit, nickname, number, name = '') {
   const grd = g.createLinearGradient(0, 0, 0, H);
   grd.addColorStop(0, 'rgba(0,0,0,0.10)'); grd.addColorStop(0.15, 'rgba(0,0,0,0)'); grd.addColorStop(0.9, 'rgba(0,0,0,0)'); grd.addColorStop(1, 'rgba(0,0,0,0.12)');
   g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  if (ink) inkJersey(g, W, H, Number(number) || 0);
   g.restore();
 }
-function paintPants(g, x, y, kit) {
+function paintPants(g, x, y, kit, ink = false) {
   const K = kitOf(kit);
   g.save(); g.beginPath(); g.rect(x, y, 512, 256); g.clip(); g.translate(x, y);
   g.fillStyle = K.house ? K.base : K.pants; g.fillRect(0, 0, 512, 256);
   if (!K.house && K.fabric === 'flannel') flannel(g, 512, 256, 11);
-  if (!K.house && K.fabric === 'pinstripe') { pinstripes(g, K, 512, 256, 0.8); g.restore(); return; }
-  if (K === KITS.home) { g.fillStyle = 'rgba(22,38,74,0.8)'; for (let px = 2; px < 512; px += 7.5) g.fillRect(px, 0, 1, 256); }
+  if (!K.house && K.fabric === 'pinstripe') pinstripes(g, K, 512, 256, 0.8);
+  else if (K === KITS.home) { g.fillStyle = 'rgba(22,38,74,0.8)'; for (let px = 2; px < 512; px += 7.5) g.fillRect(px, 0, 1, 256); }
   else { g.fillStyle = K.ink; g.fillRect(122, 0, 10, 256); g.fillRect(378, 0, 10, 256); g.fillStyle = K.trim; g.fillRect(132, 0, 4, 256); g.fillRect(388, 0, 4, 256); }
+  if (ink) inkPants(g, 11);
   g.restore();
 }
-function paintSocks(g, x, y, kit) {
+function paintSocks(g, x, y, kit, ink = false) {
   const K = kitOf(kit);
   g.save(); g.beginPath(); g.rect(x, y, 512, 256); g.clip(); g.translate(x, y);
   g.fillStyle = K.house ? K.ink : K.stirrups; g.fillRect(0, 0, 512, 256);
@@ -149,6 +235,7 @@ function paintSocks(g, x, y, kit) {
   // the stirrup cut: the white sanitary sock showing through near the foot
   g.fillStyle = '#ecebe4';
   for (const c of [64, 192, 320, 448]) { g.beginPath(); g.moveTo(c - 24, 256); g.quadraticCurveTo(c, 170, c + 24, 256); g.fill(); }
+  if (ink) inkSocks(g, 17);
   g.restore();
 }
 const cellRect = (c) => [Math.round(c[0] * KIT_SIZE), Math.round(c[1] * KIT_SIZE)];
@@ -158,29 +245,31 @@ export const kitsFor = (teams) => ({ home: sideKit('home', teams?.home), away: s
 
 // The whole kit atlas for a cast: `teams` is { home, away } names; `cast` is diamond/cast.js's.
 // Returns the canvas and a key per slot, so a later cast repaints only the slots that changed,
-// and a side's trousers and socks only when its kit does.
-export function paintKitAtlas(doc, cast, teams, into = null) {
+// and a side's trousers and socks only when its kit does. `ink` is the comic look; it's in every
+// key, so flipping it repaints the lot.
+export function paintKitAtlas(doc, cast, teams, into = null, { ink = false } = {}) {
   const c = into || canvasOf(doc, KIT_SIZE, KIT_SIZE), g = c.getContext('2d');
   const keys = into && into.__keys ? into.__keys : new Array(28).fill(null);
   const legs = into && into.__legs ? into.__legs : {};
   const dirty = [], wear = kitsFor(teams);
   if (!into) { g.fillStyle = '#808080'; g.fillRect(0, 0, KIT_SIZE, KIT_SIZE); }
   for (const side of ['home', 'away']) {
-    if (legs[side] === wear[side].sig) continue;
-    legs[side] = wear[side].sig;
+    const lk = `${wear[side].sig}|${ink ? 1 : 0}`;
+    if (legs[side] === lk) continue;
+    legs[side] = lk;
     const p = cellRect(KIT_PANTS[side]), s = cellRect(KIT_SOCKS[side]);
-    paintPants(g, ...p, wear[side]);
-    paintSocks(g, ...s, wear[side]);
+    paintPants(g, ...p, wear[side], ink);
+    paintSocks(g, ...s, wear[side], ink);
     dirty.push([...p, 512, 256], [...s, 512, 256]);
   }
   for (const m of cast || []) {
     const side = m.look.side, slot = m.look.slot;
     if ((side !== 'home' && side !== 'away') || m.look.role === 'crew') continue;
-    const nick = nicknameOf(teams?.[side]), name = m.look.role === 'ump' ? '' : surnameOf(m.id), key = `${wear[side].sig}|${nick}|${m.look.number}|${name}`;
+    const nick = nicknameOf(teams?.[side]), name = m.look.role === 'ump' ? '' : surnameOf(m.id), key = `${wear[side].sig}|${nick}|${m.look.number}|${name}|${ink ? 1 : 0}`;
     if (keys[slot] === key) continue;
     keys[slot] = key;
     const [x, y] = cellRect(kitCell(slot));
-    paintJersey(g, x, y, wear[side], nick, m.look.number, name);
+    paintJersey(g, x, y, wear[side], nick, m.look.number, name, ink);
     dirty.push([x, y, 512, 256]);
   }
   c.__keys = keys;

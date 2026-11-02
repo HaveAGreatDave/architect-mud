@@ -28,6 +28,9 @@ export const HOUSE = Object.freeze({
   px: Object.freeze([1.8, 4.5]),             // ...held between these many pixels of a 900-wide picture
   cityPx: 2.5,                               // the city's outline, CSS px (RENDER_TUNE.glInkPx)
   cityFar: 30,                               // ...and the tiles it holds to (glInkFar)
+  shade: Object.freeze([0.62, 0.52, 0.7]),   // a figure's unlit side: a painted warm violet, not a cool grey
+  weigh: 1.7,                                // the line on a figure's side away from the light, times its width
+  hatchFt: 0.07,                             // a figure's hatching: the gap between strokes, in feet of him
 });
 
 /** Whether the comic look is on. Read every frame, so the setting lands on the next one. */
@@ -37,6 +40,15 @@ export const comicOn = () => !!globalThis.__houseComic;
 export function inkOf(own) {
   if (!comicOn()) return own;
   return { ft: own.ft * HOUSE.widen, px: HOUSE.px, col: HOUSE.ink };
+}
+
+/**
+ * A figure's light, for a view that takes it as uniforms (gl/cel-figure.js CEL_GLSL): `own` is
+ * { bands, shade }. Comic adds the edge line and the hatching, drops the rim, and weighs the line.
+ */
+export function figureLightOf(own) {
+  if (!comicOn()) return { bands: own.bands, shade: own.shade, comic: 0, weigh: 1 };
+  return { bands: HOUSE.bands, shade: HOUSE.shade, comic: 1, weigh: HOUSE.weigh };
 }
 
 /** A view's band count, where the view passes it as a uniform. */

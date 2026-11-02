@@ -843,6 +843,27 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
       }
       check(`players: ${c.look.role}${c.look.helmet ? ' in a helmet' : ''} at each level of detail, coarser each level and inside its budget, sound`,
         bad === 0 && counts.every((n, i) => n > 600 && n <= LOD_MAX[i] && (i === 0 || n < counts[i - 1] * 0.7)), `${counts.join(' / ')} triangles, ${bad} bad`);
+      // the comic look's hi-def near level (createPlayerSet `hd`): finer at level 0 only, within
+      // twice the full level's budget, and sound; levels 1 and 2 ignore it, so the broadcast and the
+      // shadows cost what they did
+      const hd = [], hdBad = [0];
+      for (let lod = 0; lod < PM.PLAYER_LODS; lod++) {
+        const G = PM.createPlayerSet({ skin: true, lod, hd: true });
+        PM.buildBody(G, { ...look });
+        let tris = 0;
+        for (const [, b] of G.batches) {
+          tris += b.n / 3;
+          for (let v = 0; v < b.n; v++) {
+            const o = v * PM.SKIN_STRIDE;
+            for (let k = 0; k < M.STRIDE; k++) if (!Number.isFinite(b.data[o + k])) hdBad[0]++;
+            const w = b.u8.subarray((o + M.STRIDE) * 4 + 4, (o + M.STRIDE) * 4 + 8);
+            if (Math.abs(w[0] + w[1] + w[2] + w[3] - 255) > 4) hdBad[0]++;
+          }
+        }
+        hd.push(tris);
+      }
+      check(`players: ${c.look.role}${c.look.helmet ? ' in a helmet' : ''} hi-def at the near level only, inside twice its budget, sound`,
+        hdBad[0] === 0 && hd[0] > counts[0] * 1.4 && hd[0] <= LOD_MAX[0] * 2 && hd[1] === counts[1] && hd[2] === counts[2], `${hd.join(' / ')} triangles against ${counts.join(' / ')}, ${hdBad[0]} bad`);
     }
   }
   // a skinned body is who he is and what he wears: a new batter is one new body, and a runner who
@@ -899,6 +920,13 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
       const again = paintKitAtlas(document, cast, teams, atlas.canvas);
       check('kits: a club\'s kit arriving repaints its side\'s jerseys and legs, and only its side\'s', again.dirty.length === cast.filter((c) => c.look.side === 'home').length + 2, `${again.dirty.length} rects`);
       check('kits: the same kits again repaint nothing', paintKitAtlas(document, cast, teams, atlas.canvas).dirty.length === 0);
+      // the comic look's inked kits (diamond/kits.js `ink`): flipping it repaints every jersey and
+      // both sides' legs, the same look again nothing, and flipping back repaints them all again
+      const kitted = cast.filter((c) => (c.look.side === 'home' || c.look.side === 'away') && c.look.role !== 'crew').length;
+      const inked = paintKitAtlas(document, cast, teams, atlas.canvas, { ink: true });
+      check('kits: the comic look repaints every jersey and both sides\' legs, inked', inked.dirty.length === kitted + 4, `${inked.dirty.length} rects for ${kitted} jerseys`);
+      check('kits: the comic look again repaints nothing', paintKitAtlas(document, cast, teams, atlas.canvas, { ink: true }).dirty.length === 0);
+      check('kits: the plain look back repaints them all', paintKitAtlas(document, cast, teams, atlas.canvas).dirty.length === kitted + 4);
       paintLogos(document, teams);
     } catch (e) { threw = e.message; }
     check('kits: the atlas and the badges paint in a club\'s kit', !threw, threw);

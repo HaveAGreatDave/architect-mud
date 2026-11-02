@@ -7,7 +7,7 @@
 //
 // No DOM, no GL, no files written.
 
-import { HOUSE, comicOn, inkOf, bandsOf, cityInkCol, cityTuneFor } from '../../client/game/js/panels/gl/house-style.js';
+import { HOUSE, comicOn, inkOf, bandsOf, cityInkCol, cityTuneFor, figureLightOf } from '../../client/game/js/panels/gl/house-style.js';
 import { readFileSync } from 'node:fs';
 
 let fails = 0;
@@ -26,6 +26,10 @@ delete globalThis.__houseComic;
 check(!comicOn(), 'off by default');
 check(inkOf(own) === own, 'off: a view keeps its own ink');
 check(bandsOf(3) === 3, 'off: a view keeps its own bands');
+{
+  const fl = figureLightOf({ bands: 3, shade: [0.6, 0.62, 0.8] });
+  check(fl.bands === 3 && same(fl.shade, [0.6, 0.62, 0.8]) && fl.comic === 0 && fl.weigh === 1, 'off: a figure keeps its bands and shade, no comic lines, an even line');
+}
 check(cityInkCol(own.col) === own.col, 'off: the city keeps its own ink colour');
 for (const [mode, on] of [['off', 0], [false, 0], [undefined, 0], ['nonsense', 0], ['on', 1], [true, 1]]) {
   const t = cityTuneFor(mode);
@@ -42,6 +46,10 @@ check(Math.abs(c.ft - own.ft * HOUSE.widen) < 1e-9, 'comic: the line widens by H
 check(same(c.px, HOUSE.px) && same(c.col, HOUSE.ink), 'comic: the house pixels and the house ink');
 check(c.px[0] >= own.px[0], 'comic: never thinner than the view\'s own minimum');
 check(bandsOf(3) === HOUSE.bands, 'comic: the house bands');
+{
+  const fl = figureLightOf({ bands: 3, shade: [0.6, 0.62, 0.8] });
+  check(fl.bands === HOUSE.bands && same(fl.shade, HOUSE.shade) && fl.comic === 1 && fl.weigh === HOUSE.weigh && HOUSE.weigh > 1, 'comic: a figure gets the house bands and painted shade, the lines, and a weighted line');
+}
 check(same(cityInkCol(own.col), HOUSE.ink), 'comic: the city takes the house ink');
 const t = cityTuneFor('comic');
 check(t.glToon === 1 && t.glInk === 1 && t.glToonBands === HOUSE.bands && t.glInkPx === HOUSE.cityPx, 'cityTuneFor(comic): the cel look on at the house numbers');

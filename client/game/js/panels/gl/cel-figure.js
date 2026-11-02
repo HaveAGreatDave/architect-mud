@@ -31,15 +31,36 @@ export const CEL = {
 };
 
 const f = (v) => (Number.isInteger(v) ? v.toFixed(1) : String(v));
-const v3 = (a) => `vec3(${a.map(f).join(', ')})`;
 
-/** celLight, celTone and celRim, after toon.js's toonBands and toonStep. Only behind a uniform branch. */
+/**
+ * celLight, celTone and celRim, after toon.js's toonBands and toonStep, and celInk, the comic look's
+ * lines. Only behind a uniform branch.
+ *
+ * The bands, the shade and the comic switch are uniforms, set from gl/house-style.js
+ * figureLightOf at draw time: uCelBands and uCelShade are CEL.bands and CEL.shade unless the comic
+ * look is on (docs/proposals/comic-ink.md). A program that includes this and draws with uCel must
+ * set all three, or its shade side is black.
+ */
 export const CEL_GLSL = `${TOON_GLSL}
-const vec3 CEL_SHADE = ${v3(CEL.shade)};
+uniform float uCelBands; uniform vec3 uCelShade; uniform float uCelComic;
 float celLight(float d, float bands) { return toonBands(min(d * 1.15, 0.999), bands); }
-vec3 celTone(vec3 rgb, float lit) { return mix(rgb * CEL_SHADE, rgb, lit); }
+vec3 celTone(vec3 rgb, float lit) { return mix(rgb * uCelShade, rgb, lit); }
 float celRim(vec3 n, vec3 v, float lit) {
-  return toonStep(${f(CEL.rimEdge)}, 1.0 - max(dot(n, v), 0.0)) * toonStep(${f(CEL.rimMin)}, lit) * ${f(CEL.rimLift)};
+  return toonStep(${f(CEL.rimEdge)}, 1.0 - max(dot(n, v), 0.0)) * toonStep(${f(CEL.rimMin)}, lit) * ${f(CEL.rimLift)} * (1.0 - uCelComic);
+}
+// The comic look's ink over a lit figure, 0..1: a line where the light steps (its banded value
+// changes fast across the pixel, at every band edge and every hard shadow's edge), and hatching in
+// full shadow where the surface turns away from its brightest light, laid along B, a point in the
+// figure's own bind space, so the strokes ride the body instead of swimming over it. keyD is
+// N.L for that light: the hatching starts as it passes -0.15 and is full by -0.6, so a figure lit
+// from behind has hatching down his flanks, not all over his front. gap is the stroke spacing in
+// B's units. Strokes closer than about two pixels fade out rather than shimmer. 0 unless uCelComic.
+float celInk(float lit, float keyD, vec3 B, float gap) {
+  float edge = smoothstep(0.2, 0.55, fwidth(lit));
+  float s = dot(B, vec3(0.7071, 0.7071, 0.0)) / gap, fs = fwidth(s);
+  float dark = (1.0 - smoothstep(0.02, 0.12, lit)) * smoothstep(-0.15, -0.6, keyD);
+  float hatch = (1.0 - smoothstep(0.03 + 0.06 * dark, 0.09 + 0.06 * dark + fs, abs(fract(s) - 0.5))) * step(0.01, dark) * (1.0 - smoothstep(0.25, 0.5, fs));
+  return clamp(max(edge * 0.75, hatch * 0.6), 0.0, 1.0) * uCelComic;
 }
 `;
 
@@ -50,8 +71,8 @@ export function celLightJS(d, bands = CEL.bands) {
 }
 
 /** One face's colour channel: the shadow tone mixed to full colour by the banded light, plus the rim. */
-export function celToneJS(c, ch, lit, rim = 0) {
-  return (c * CEL.shade[ch] + (c - c * CEL.shade[ch]) * lit) * (1 + rim);
+export function celToneJS(c, ch, lit, rim = 0, shade = CEL.shade) {
+  return (c * shade[ch] + (c - c * shade[ch]) * lit) * (1 + rim);
 }
 
 /** The rim for one face: 1 - n.v is how side-on it is to the eye. */
