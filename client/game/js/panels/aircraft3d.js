@@ -2195,7 +2195,7 @@ function meshNavLamp(cls) {
   return w ? wingTipStation(w) : undefined;
 }
 // Lamps a mesh file mounts on its skin: `{ at, n, rgb, kind }`, kind 'steady' | 'strobe' | 'beacon'. `n` lets the renderer hide far-side lamps.
-export function meshLamps(cls) {
+export function meshLamps(cls, variant = '') {
   // A boat publishes its lamps as it's built (BOAT_META); build only as a fallback.
   if (boatShape(cls)) {
     const m = BOAT_META.get(cls + ':1') || BOAT_META.get(cls + ':0');
@@ -2204,7 +2204,8 @@ export function meshLamps(cls) {
     const m0 = BOAT_META.get(cls + ':0');
     return m0 && m0.lamps && m0.lamps.length ? m0.lamps : null;
   }
-  const id = meshIdFor(cls, false);
+  // A body variant mounts its own lamps (the 2076 Dragonfly's are on its arms, not a Mini-500's skin).
+  const id = variantMeshFor(cls, variant) || meshIdFor(cls, false);
   const row = id && meshRow(id);
   return (row && Array.isArray(row.lamps) && row.lamps.length) ? row.lamps : null;
 }

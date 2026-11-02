@@ -38248,11 +38248,11 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
         // under them — from behind, the cab roof is in the way.
         for (const p of vl.marker) if (facing(p, FWD)) glow(p, '255,196,110', 0.75 * nb, 0.13);
       }
-    } else if (meshLamps(c.cls)) {
+    } else if (meshLamps(c.cls, c.armed ? '' : c.variant || '')) {
       // Lamps the mesh mounts on its own skin, each over a built lens. A lamp whose outward normal
       // points away from the eye is behind the hull (the canvas path has no depth buffer, and the GL
       // sprite's clip-z nudge can pull a lamp through a thin shell), so it is not drawn at all.
-      for (const L of meshLamps(c.cls)) {
+      for (const L of meshLamps(c.cls, c.armed ? '' : c.variant || '')) {
         const n = L.n || [0, 0, 1], at = L.at;
         const a = P(at), b = P([at[0] + n[0] * 0.05, at[1] + n[1] * 0.05, at[2] + n[2] * 0.05]);
         if (!(a.f > 0.08 && b.f < a.f)) continue;
