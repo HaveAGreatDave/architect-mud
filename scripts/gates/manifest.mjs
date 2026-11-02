@@ -195,6 +195,7 @@ export const GROUPS = [
       'scripts/shapes/cockpit-mayfly.mjs',
       'scripts/shapes/cockpit-dragonfly.mjs',
       'scripts/shapes/cockpit-dragonfly-2076.mjs',
+      'scripts/shapes/cockpit-mule-2076.mjs',
       'scripts/shapes/cockpit-viper.mjs',
       'scripts/shapes/cockpit-controls.mjs',   // every seat: each control does something, each label reads true
       'scripts/shapes/cabin-light.mjs',

@@ -40,6 +40,11 @@ export const TRIMS = {
     { id: 'stock', label: 'Mini-500 · the original' },
     { id: '2076', label: 'Dragonfly 2076 · concept' },
   ],
+  // CONCEPT: the Mule 2076 is a different airframe (mesh_prop.json 'variants'), with its own cockpit.
+  prop: [
+    { id: 'stock', label: 'Twin Otter · the original' },
+    { id: '2076', label: 'Mule 2076 · concept' },
+  ],
 };
 const TRIM_IDS = new Set(Object.values(TRIMS).flat().map(t => t.id));
 // The CABIN's factory trim, chosen apart from the exterior scheme: a special edition's cockpit can sit

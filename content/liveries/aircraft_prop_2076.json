@@ -1,0 +1,20 @@
+{
+  "blurb": "Concept. The Mule fifty years on: eight electric props on the old wing, the cream and the red kept.",
+  "default": false,
+  "exterior": {
+    "base": "#e8e6de",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#c43a26",
+    "variant": "2076"
+  },
+  "id": "2076",
+  "interior": {
+    "cabin": "#24282a",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "prop",
+  "name": "Mule 2076",
+  "unlock": null
+}
