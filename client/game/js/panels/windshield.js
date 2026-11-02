@@ -22323,7 +22323,7 @@ function pushInteriorShell(cam, v) {
   INTERIOR_NV = null;
   CAB_STREET = null;
   if (!OWNSHIP_SINK || !RENDER_TUNE.interior || v.external || v.bare) { INTERIOR_HOTSPOTS = null; return 0; }
-  const P = shellProfileFor(v.cls, v.armed, v.drakeCab && v.drakeCab.trim);
+  const P = shellProfileFor(v.cls, v.armed, (v.drakeCab && v.drakeCab.trim) || v.variant);
   if (!P) return 0;
   // ⚠ THE LIVE VALUES GO IN HERE AND NOWHERE ELSE. A boat's dials are geometry (see the
   // instruments block in interior-shell.js), so the needle's angle is a VERTEX POSITION and has to
@@ -23143,6 +23143,8 @@ function liveInstruments(v) {
     weaponsArmed: v.weaponsArmed, weapon: v.weapon, bombs: v.bombs, missiles: v.missiles, ammo: v.ammo,
     diveBrake: v.diveBrake, siren: v.siren, spraying: v.spraying,
     ...(v.drakeCab || null), hour: v.hour,
+    // The rotor phase cockpit.js integrates for the exterior: a display that shows rotors turns them on it.
+    phase: v.propPhase,
   };
 }
 

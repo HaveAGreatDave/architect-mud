@@ -31,6 +31,7 @@ const ok = (cond, msg) => { checks++; if (!cond) { fails++; console.log('  FAIL 
 const SEATS = [];
 for (const cls of Object.keys(SHELL_CLASS)) SEATS.push([cls, cls, false, null]);
 SEATS.push(['heli (armed)', 'heli', true, null]);
+SEATS.push(['heli (2076)', 'heli', false, '2076']);
 for (const trim of ['noir', 'quackhawk']) SEATS.push(['drake (' + trim + ')', 'drake', false, trim]);
 for (const cls of Object.keys(BOAT_ROWS)) if (!SHELL_CLASS[cls]) SEATS.push([cls, cls, false, null]);
 

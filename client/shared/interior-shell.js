@@ -142,6 +142,8 @@ import { shrikeProfile, SHRIKE_TRIM } from './interior-shrike.js';
 import { locustProfile, LOCUST_TRIM } from './interior-locust.js';
 import { mayflyProfile, MAYFLY_TRIM } from './interior-mayfly.js';
 import { dragonflyProfile, DRAGONFLY_TRIM } from './interior-dragonfly.js';
+// The Dragonfly 2076 concept's pod (interior-dragonfly-2076.js), worn with the heli's 2076 edition.
+import { dragonfly2076Profile } from './interior-dragonfly-2076.js';
 import { viperProfile, VIPER_TRIM } from './interior-viper.js';
 import { carcassProfile } from './interior-carcass.js';
 // The podracer's open tub (interior-podracer.js). Its turbines are the craft's own mesh, drawn from the seat.
@@ -284,6 +286,8 @@ export const SHELL_PROFILES = {
   // stops over the seats, two door frames, and struts — built by `bubbleRoom`. The pilot sits on the
   // RIGHT, as in most light helicopters, so the centreline is to the LEFT of the eye.
   get heli() { return craftProfile('dragonfly', dragonflyProfile); },
+  // The 2076 concept body's pod: a different airframe on the same class, picked by its edition.
+  get dragonfly2076() { return craftProfile('dragonfly2076', dragonfly2076Profile); },
   // The generic bubble the Dragonfly used to borrow, kept as the reference `bubbleRoom` shape.
   bubble: {
     label: 'helicopter bubble',
@@ -412,6 +416,9 @@ export function shellProfileFor(cls, armed = false, trim = null) {
   // ⚠ An open boat (`open: 1`, the Keel) has no house, and a pilothouse lofted off her row would be
   // a closed room round an open skiff. She sits in the open-boat seat (interior-skiff.js).
   if (cls && cls !== 'hydro' && BOAT_ROWS[cls]) return BOAT_ROWS[cls].open ? openBoatProfileFor(cls) : boatProfileFor(cls);
+  // ⚠ The third argument is the cabin trim or the body variant: the Dragonfly's 2076 edition is a
+  // different airframe (mesh_heli_2076.json) and sits in its own pod.
+  if (cls === 'heli' && trim === '2076') return SHELL_PROFILES.dragonfly2076;
   if (cls === 'drake' && trim === 'noir') return SHELL_PROFILES.drakeNoir;
   if (cls === 'drake' && trim === 'quackhawk') return SHELL_PROFILES.drakeQuackhawk;
   const key = cls && SHELL_CLASS[cls];

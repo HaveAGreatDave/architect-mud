@@ -18,6 +18,7 @@
 import { writeFileSync } from 'node:fs';
 import { R, P3, skin, loft, pod, tube, mirror, group, poly as rawPoly, quad, DEG } from '../fw-meshes/lib.mjs';
 const { formatMesh, validateMesh, compileMesh } = await import('../../../client/shared/vehicle-mesh.js');
+const { CAB_STATIONS, CAB_APEX, CAB_GLASS, CAB_DOOR } = await import('../../../client/shared/cabin-dragonfly-2076.js');
 
 const FINE = { minDetail: 1 }, COARSE = { maxDetail: 0 };
 // Every poly face needs a role; trim and fittings are 'nacelle' unless they say otherwise.
@@ -28,33 +29,15 @@ const range = (a, b, n) => Array.from({ length: n + 1 }, (_, i) => lerp(a, b, i 
 
 // ── The cabin pod ───────────────────────────────────────────────────────────────
 // [f, rg, rvT, rvB, cz, boxy]: an egg with flatter flanks and belly, widest just behind the seats.
-const CAB = [
-  [0.668, 0.012, 0.012, 0.012, 0.0, 0],
-  [0.655, 0.05, 0.052, 0.046, 0.002, 0.05],
-  [0.635, 0.085, 0.09, 0.075, 0.004, 0.08],
-  [0.605, 0.118, 0.126, 0.1, 0.008, 0.1],
-  [0.565, 0.148, 0.16, 0.124, 0.012, 0.13],
-  [0.515, 0.175, 0.19, 0.146, 0.017, 0.15],
-  [0.455, 0.198, 0.214, 0.165, 0.022, 0.17],
-  [0.385, 0.216, 0.233, 0.18, 0.027, 0.19],
-  [0.31, 0.229, 0.246, 0.192, 0.031, 0.2],
-  [0.23, 0.237, 0.254, 0.2, 0.035, 0.21],
-  [0.15, 0.24, 0.257, 0.204, 0.038, 0.21],
-  [0.07, 0.238, 0.256, 0.204, 0.042, 0.21],
-  [-0.01, 0.231, 0.25, 0.2, 0.047, 0.2],
-  [-0.08, 0.218, 0.238, 0.191, 0.053, 0.19],
-  [-0.14, 0.198, 0.219, 0.176, 0.059, 0.17],
-  [-0.19, 0.172, 0.193, 0.155, 0.065, 0.15],
-  [-0.23, 0.141, 0.16, 0.128, 0.071, 0.12],
-  [-0.26, 0.106, 0.122, 0.097, 0.076, 0.09],
-  [-0.28, 0.07, 0.083, 0.066, 0.08, 0.06],
-].map(([f, rg, rvT, rvB, cz, boxy]) => ({ f, rg, rvT, rvB, cz, boxy }));
+// The pod and where its glass is are stated once, in client/shared/cabin-dragonfly-2076.js, which the
+// cockpit (interior-dragonfly-2076.js) is built off too.
+const CAB = CAB_STATIONS;
 const at = (f, a, out = 0) => skin(CAB, f, a * DEG, out);
 
 const cabin = loft('cabin pod', 36, CAB, {
   ...FINE, paint: 'hull',
   note: 'The shell. Glass, frames, doors and the belly trim are separate parts laid a hair proud of it.',
-  capFore: { kind: 'apex', at: [0.672, 0, 0], role: 'glass', tint: GLASS },
+  capFore: { kind: 'apex', at: CAB_APEX, role: 'glass', tint: GLASS },
   capAft: { kind: 'apex', at: [-0.288, 0, 0.081], paint: 'hull' },
   shade: { base: 0.6, amp: 0.36 },
 });
@@ -72,19 +55,19 @@ const alongF = (fs, a, o = 0.004) => fs.map((f) => at(f, a, o));
 const roundF = (f, as, o = 0.004) => as.map((a) => at(f, a, o));
 
 // The windscreen: one bubble from the nose round to the A-pillars, down to a chin line at -34°.
-const WS_F = [0.668, 0.655, 0.635, 0.605, 0.565, 0.515, 0.455, 0.405, 0.36, 0.33];
-const WS_A = range(-34, 214, 28);
+const WS_F = [CAB_GLASS.windscreen.f[1], 0.655, 0.635, 0.605, 0.565, 0.515, 0.455, 0.405, 0.36, CAB_GLASS.windscreen.f[0]];
+const WS_A = range(CAB_GLASS.windscreen.a[0], CAB_GLASS.windscreen.a[1], 28);
 const windscreen = poly('windscreen', patch(WS_F, WS_A, { role: 'glass', tint: GLASS }), FINE);
 
 // Door windows, each side: from the A-pillar to the B-pillar, sill at 8°, header at 74°.
-const DW_F = [0.31, 0.26, 0.21, 0.16, 0.11, 0.06, 0.01, -0.03];
-const doorGlass = poly('door window (right)', patch(DW_F, range(8, 74, 8), { role: 'glass', tint: GLASS }), FINE);
+const DW_F = range(CAB_GLASS.door.f[1], CAB_GLASS.door.f[0], 7);
+const doorGlass = poly('door window (right)', patch(DW_F, range(CAB_GLASS.door.a[0], CAB_GLASS.door.a[1], 8), { role: 'glass', tint: GLASS }), FINE);
 // Rear quarter lights, a small teardrop behind the B-pillar.
-const QW_F = [-0.06, -0.09, -0.12, -0.15];
-const quarter = poly('quarter light (right)', patch(QW_F, range(30, 66, 4), { role: 'glass', tint: GLASS }), FINE);
+const QW_F = range(CAB_GLASS.quarter.f[1], CAB_GLASS.quarter.f[0], 3);
+const quarter = poly('quarter light (right)', patch(QW_F, range(CAB_GLASS.quarter.a[0], CAB_GLASS.quarter.a[1], 4), { role: 'glass', tint: GLASS }), FINE);
 // The roof between the headers is glass too, a skylight over the seats.
-const SKY_F = [0.31, 0.24, 0.17, 0.1, 0.03, -0.03];
-const skylight = poly('skylight', patch(SKY_F, range(84, 96, 2), { role: 'glass', tint: GLASS }), FINE);
+const SKY_F = range(CAB_GLASS.skylight.f[1], CAB_GLASS.skylight.f[0], 5);
+const skylight = poly('skylight', patch(SKY_F, range(CAB_GLASS.skylight.a[0], CAB_GLASS.skylight.a[1], 2), { role: 'glass', tint: GLASS }), FINE);
 
 // Frames: the pillars, header rails and sills, dark and standing just proud of the glass.
 const FR = (name, pts, r = 0.0055) => tube(name, pts, r, { role: 'nacelle', paint: 'frame', sh: 0.5, sides: 5, ...FINE });
@@ -108,13 +91,13 @@ const frames = [
 
 // The doors: a seam all round each, a little bigger than its window, gull-wing hinged at the roof
 // rail. Handle, hinge fairings and a fold-out step under the sill.
-const DOOR_F0 = 0.325, DOOR_F1 = -0.05, DOOR_LO = -42;
+const DOOR_F0 = CAB_DOOR.f[1], DOOR_F1 = CAB_DOOR.f[0], DOOR_LO = CAB_DOOR.aLo, DOOR_HI = CAB_DOOR.aHi;
 const doorSeam = (s) => {
   const A = (a) => (s ? 180 - a : a), side = s ? 'left' : 'right';
   const seam = (name, pts) => tube(name + ' (' + side + ')', pts, 0.0028, { role: 'nacelle', paint: 'seam', sh: 0.4, sides: 4, ...FINE });
   return [
-    seam('door front seam', roundF(DOOR_F0, range(A(DOOR_LO), A(80), 12), 0.0026)),
-    seam('door rear seam', roundF(DOOR_F1, range(A(DOOR_LO), A(80), 12), 0.0026)),
+    seam('door front seam', roundF(DOOR_F0, range(A(DOOR_LO), A(DOOR_HI), 12), 0.0026)),
+    seam('door rear seam', roundF(DOOR_F1, range(A(DOOR_LO), A(DOOR_HI), 12), 0.0026)),
     seam('door bottom seam', alongF(range(DOOR_F0, DOOR_F1, 9), A(DOOR_LO), 0.0026)),
   ];
 };
