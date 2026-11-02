@@ -47,6 +47,7 @@ export function _resetTruckOrder(...a) { return (_m || _cold('_resetTruckOrder')
 export function aircraftFaces(...a) { return (_m || _cold('aircraftFaces')).aircraftFaces(...a); }
 export function boatExhaustPorts(...a) { return (_m || _cold('boatExhaustPorts')).boatExhaustPorts(...a); }
 export function boatPipeTint(...a) { return (_m || _cold('boatPipeTint')).boatPipeTint(...a); }
+export function bodyVariantFor(...a) { return (_m || _cold('bodyVariantFor')).bodyVariantFor(...a); }
 export function canopyTex(...a) { return (_m || _cold('canopyTex')).canopyTex(...a); }
 export function cessnaSection(...a) { return (_m || _cold('cessnaSection')).cessnaSection(...a); }
 export function clearVehicleFacesCache(...a) { return (_m || _cold('clearVehicleFacesCache')).clearVehicleFacesCache(...a); }
@@ -99,7 +100,6 @@ export function sortTruckFaces(...a) { return (_m || _cold('sortTruckFaces')).so
 export function truckLivery(...a) { return (_m || _cold('truckLivery')).truckLivery(...a); }
 export function truckMeta(...a) { return (_m || _cold('truckMeta')).truckMeta(...a); }
 export function variantMeshFor(...a) { return (_m || _cold('variantMeshFor')).variantMeshFor(...a); }
-export function bodyVariantFor(...a) { return (_m || _cold('bodyVariantFor')).bodyVariantFor(...a); }
 export function vehicleLamps(...a) { return (_m || _cold('vehicleLamps')).vehicleLamps(...a); }
 export function vehicleParamBase(...a) { return (_m || _cold('vehicleParamBase')).vehicleParamBase(...a); }
 export function vehicleParamIds(...a) { return (_m || _cold('vehicleParamIds')).vehicleParamIds(...a); }
