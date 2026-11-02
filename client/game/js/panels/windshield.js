@@ -23138,7 +23138,7 @@ function liveInstruments(v) {
     powered: v.powered, landingLight: v.landingLight, dome: v.dome,
     // The engine master (cockpit.js sends it as altOn), which a dry tank or an EMP leaves on with
     // the power gone; the seconds of a start; and the PANEL switch. For a key, its lamps and a switch.
-    engineOn: v.altOn, starting: v.starting, panelLight: v.panelLight,
+    engineOn: v.altOn, starting: v.starting, panelLight: v.panelLight, powerAge: v.powerAge,
     stickX: v.stick && v.stick.x, stickY: v.stick && v.stick.y, courseErr: v.courseErr, gpsTo: v.gpsTo || null,
     // Which cockpit control the pointer is over, and which was just pressed (cockpit.js), for the halo.
     hover: v.ckHover || null, press: v.ckPress || null,

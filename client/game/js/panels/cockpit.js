@@ -3054,6 +3054,15 @@ function parkedDeck(F) {
 
 // The floor this frame: zero, or the deck we started on until we leave it.
 // ⚠ The `left` latch only closes; reopening it would snap a low pass onto the roof and skip CFIT.
+// How long the power has been on: the moment F.powered goes true is the start of the count.
+function powerAgeOf(F) {
+  const now = performance.now();
+  // Already live the first time it's asked (a seat opened on a running aircraft): long since booted.
+  if (F.powered && !F._pwrWas) F.powerOnT = F._pwrWas === undefined ? -1e9 : now;
+  F._pwrWas = !!F.powered;
+  return F.powered ? (now - (F.powerOnT ?? -1e9)) / 1000 : 0;
+}
+
 // ── Split throttles ─────────────────────────────────────────────────────────
 // `F.input.throttle` is the ganged lever and always the mean of the set. `F.input.throttles`, one per
 // engine left to right, exists only while the levers are split; when they meet again it goes back to
@@ -4112,6 +4121,8 @@ function fsimFrameBody(now) {
     stall: !!(s.stalled || s.stallMargin < 0.35),
     bingo: !!(F.fuel <= 0 || F.warn === 'BINGO'),
     powered: !!F.powered, altOn: !!F.engineOn,
+    // Seconds since the busbars came live, for the 2076 cockpits' boot (interior-cockpit-kit bootAge).
+    powerAge: powerAgeOf(F),
     // Off the start timer, not rpm (which reads 0 at idle).
     starting: !!(F.engineOn && F.engStartT && performance.now() - F.engStartT < ENGINE_START_MS),
     landingLight: !!F.landingLight, panelLight: !!F.nightLight,
