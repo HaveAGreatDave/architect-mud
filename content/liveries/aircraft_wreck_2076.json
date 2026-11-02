@@ -1,0 +1,20 @@
+{
+  "blurb": "Concept. A 2070s homebuilt found downed and flown again: bone white and teal, a donor's blue wing, a recorder that lived.",
+  "default": false,
+  "exterior": {
+    "base": "#d6d2c4",
+    "finish": "satin",
+    "pattern": "factory",
+    "trim": "#268a86",
+    "variant": "2076"
+  },
+  "id": "2076",
+  "interior": {
+    "cabin": "#2a2c2c",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "wreck",
+  "name": "Carcass 2076",
+  "unlock": null
+}

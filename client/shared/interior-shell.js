@@ -167,6 +167,8 @@ import { shrike2076Profile } from './interior-shrike-2076.js';
 import { viper2076Profile } from './interior-viper-2076.js';
 // The Reaper 2076 concept's cockpit (interior-reaper-2076.js), worn with the gunship class's 2076 edition.
 import { reaper2076Profile } from './interior-reaper-2076.js';
+// The Carcass 2076 concept's seat (interior-carcass-2076.js), worn with the wreck class's 2076 edition.
+import { carcass2076Profile } from './interior-carcass-2076.js';
 import { defaultLivery, aircraftLiveryModel } from './livery-sets.js';
 const CRAFT_PROFILE = {};
 const craftProfile = (id, build) => (CRAFT_PROFILE[id] ||= build());
@@ -318,6 +320,8 @@ export const SHELL_PROFILES = {
   get viper2076() { return craftProfile('viper2076', viper2076Profile); },
   // The Reaper 2076 concept body's cockpit, picked by its edition like the Dragonfly's.
   get reaper2076() { return craftProfile('reaper2076', reaper2076Profile); },
+  // The Carcass 2076 concept body's seat, picked by its edition like the Dragonfly's.
+  get carcass2076() { return craftProfile('carcass2076', carcass2076Profile); },
   // The generic bubble the Dragonfly used to borrow, kept as the reference `bubbleRoom` shape.
   bubble: {
     label: 'helicopter bubble',
@@ -456,6 +460,7 @@ export function shellProfileFor(cls, armed = false, trim = null) {
   if (cls === 'heavy' && trim === '2076') return SHELL_PROFILES.leviathan2076;
   if (cls === 'divebomber' && trim === '2076') return SHELL_PROFILES.shrike2076;
   if (cls === 'gunship' && trim === '2076') return SHELL_PROFILES.reaper2076;
+  if (cls === 'wreck' && trim === '2076') return SHELL_PROFILES.carcass2076;
   if (cls === 'drake' && trim === 'noir') return SHELL_PROFILES.drakeNoir;
   if (cls === 'drake' && trim === 'quackhawk') return SHELL_PROFILES.drakeQuackhawk;
   const key = cls && SHELL_CLASS[cls];

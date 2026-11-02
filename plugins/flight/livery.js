@@ -81,6 +81,11 @@ export const TRIMS = {
     { id: 'stock', label: 'Thunderbolt II · the original' },
     { id: '2076', label: 'Reaper 2076 · concept' },
   ],
+  // CONCEPT: the Carcass 2076 is a different airframe (mesh_wreck.json 'variants'), with its own cockpit.
+  wreck: [
+    { id: 'stock', label: 'Fly Baby · the original' },
+    { id: '2076', label: 'Carcass 2076 · concept' },
+  ],
 };
 const TRIM_IDS = new Set(Object.values(TRIMS).flat().map(t => t.id));
 // The CABIN's factory trim, chosen apart from the exterior scheme: a special edition's cockpit can sit
