@@ -245,6 +245,24 @@ game carries on behind it. With Comic on, that replay runs in four beats:
    the play told in a narration box in the big panel, and the headline (`HOME RUN!`) across the
    top.
 
+**Seen on a real replay** (2026-11-02, a home run in the sandbox, its own panels) four things
+were wrong, and are fixed:
+
+- **The lens blurred the crowd to a smear**, and the print inked every speck of it. The comic
+  cameras are sharp now: a fly shot takes its own `dof` (camera.js), and `wormShot` and
+  `followShot` set 0.
+- **The freeze buried the batter.** The lines and the word landed on him and the burst covered
+  the bat at contact. `freezeLayout` now works from the player at the ball (the grandstand's
+  `subjectAt`: whoever in the replay's world stands nearest the ball at its moment, the batter at
+  contact or the fielder at a catch, as a circle from his feet to his head). The focus lines close
+  on him and stop short of him, the burst goes beside the ball on his far side, and the word takes
+  the corner clearest of both. The page's burst follows the same rule.
+- **The last panel was a distant wide shot.** At the plate what follows is now `followShot`:
+  low behind the batter, off his own shoulder, looking out over him as the ball climbs away. Out
+  on the field the replay keeps its own second camera.
+- **The narration said "HOME RUN" under HOME RUN!** It's left out unless it says more than the
+  headline (`tellsMore`: four words or more, not the headline again).
+
 **The print.** `printPanel` lifts the frame's mid-tones (a night game posterized as it comes is
 mostly black), pushes saturation and contrast, flattens each channel to five inks, makes the
 darkest solid ink, lays Ben-Day dots on a 45° screen through the half-tones, and inks every

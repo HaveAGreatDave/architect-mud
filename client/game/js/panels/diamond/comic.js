@@ -94,7 +94,21 @@ export function wormShot(s, bats = 'R') {
     if (!onField(eye, 2)) eye = [s[0] + u[0] * 12 - q[0] * 5, 0.9, s[2] + u[1] * 12 - q[1] * 5];
   }
   const aim = [s[0], Math.max(2.5, s[1] + 1.2), s[2]];
-  return { shot: 'fly', eye, at: aim, fov: 46, follow: 0, track: () => aim };
+  // dof 0: the lens's blur off. A wide lens this close blurred the crowd to a smear, and the print
+  // then inked every speck of it (camera.js shotAt 'fly' takes a shot's own dof).
+  return { shot: 'fly', eye, at: aim, fov: 46, follow: 0, dof: 0, track: () => aim };
+}
+
+// What follows a moment at the plate (a home run, a walk-off): watching it go. Low and wide on the
+// batter's own side of the plate, a little behind him, looking out over him to the field, so he's
+// in the frame finishing his swing and the ball's climbing away above. Straight behind the plate
+// the umpire and the catcher stood in front of him (seen on a real replay), so it's out wide of
+// both. Out on the field there's no one shot that suits every play, so it's null and the replay
+// keeps its own second camera.
+export function followShot(s, bats = 'R') {
+  if (!Array.isArray(s) || !s.every(Number.isFinite) || Math.hypot(s[0], s[2]) >= 20) return null;
+  const side = bats === 'L' ? 1 : -1, eye = [-side * 11, 4, -9], aim = [-side * 1, 10, 45];
+  return { shot: 'fly', eye, at: aim, fov: 48, follow: 0, dof: 0, track: () => aim };
 }
 
 // The beats, by the replay world's clock: when the run reaches its moment (`key`) it freezes; the
@@ -308,14 +322,52 @@ export function paintWord(g, word, x, y, size, t = Infinity, rot = -0.12, seed =
 }
 
 /**
+ * Where the freeze puts things in a `w` by `h` picture, the ball on screen at (cx, cy) and `subject`
+ * the player at it ({ x, y, r }, a circle round him in px; the ball's own neighbourhood if not
+ * given). The focus lines close in on him and stop short of him; the burst goes on the far side of
+ * the ball from him, so it marks the contact without covering the bat or the glove; and the word
+ * takes whichever corner is furthest from both. Returns { fc: [x, y], clear, burst: { x, y, R },
+ * word: { x, y, rot } }.
+ */
+export function freezeLayout(w, h, cx, cy, subject = null, dir = null) {
+  const short = Math.min(w, h);
+  const S = subject && [subject.x, subject.y, subject.r].every(Number.isFinite) && subject.r > 0 ? subject : { x: cx, y: cy, r: short * 0.12 };
+  const R = short * 0.15;
+  // the way out from him through the ball: his own side of it if he's off it, else the way the ball's
+  // going, else up and away from the nearer side of the frame
+  let ux = cx - S.x, uy = cy - S.y, ul = Math.hypot(ux, uy);
+  if (ul < S.r * 0.15) {
+    if (dir && Math.hypot(dir[0], dir[1]) > 1e-6) { ux = dir[0]; uy = dir[1]; } else { ux = cx < w / 2 ? 1 : -1; uy = -0.7; }
+    ul = Math.hypot(ux, uy);
+  }
+  ux /= ul; uy /= ul;
+  const bx = Math.max(R * 0.6, Math.min(w - R * 0.6, cx + ux * R * 0.85)), by = Math.max(R * 0.6, Math.min(h - R * 0.6, cy + uy * R * 0.85));
+  const clear = Math.max(short * 0.17, S.r * 1.12, Math.hypot(cx - S.x, cy - S.y) + short * 0.04);
+  // the word: the corner furthest from him and from the burst, the top preferred
+  const size = short * 0.15, hw = Math.min(w * 0.41, size * 2.6), hh = size * 0.75;
+  const away = (x, y, c) => {
+    const dx = Math.max(Math.abs(c.x - x) - hw, 0), dy = Math.max(Math.abs(c.y - y) - hh, 0);
+    return Math.hypot(dx, dy) - c.r;
+  };
+  let best = null;
+  for (const [fx, fy] of [[0.28, 0.17], [0.72, 0.17], [0.28, 0.83], [0.72, 0.83]]) {
+    const x = Math.max(hw, Math.min(w - hw, w * fx)), y = Math.max(hh, Math.min(h - hh, h * fy));
+    const score = Math.min(away(x, y, S), away(x, y, { x: bx, y: by, r: R })) + (fy < 0.5 ? short * 0.05 : 0);
+    if (!best || score > best.score) best = { x, y, score };
+  }
+  return { fc: [S.x, S.y], clear, burst: { x: bx, y: by, R }, word: { x: best.x, y: best.y, rot: best.x < w / 2 ? -0.1 : -0.15 } };
+}
+
+/**
  * The freeze over the held picture, `t` seconds into it, `w` by `h` px, the moment on screen at
  * (cx, cy) (the middle if it's off screen). `o`:
  *   print  the held frame as a printed panel (printPanel), drawn under everything, shaking;
- *   dir    which way the ball's going on screen, for its motion streaks;
- *   seed   so the burst and the lines are the play's own.
+ *   dir      which way the ball's going on screen, for its motion streaks;
+ *   subject  the player at the ball, { x, y, r } in px, kept clear (freezeLayout);
+ *   seed     so the burst and the lines are the play's own.
  * Under the burst: a white flash, then a negative frame; the picture shaking; focus lines in to a
- * clear ring; the explosion balloon popping out round the ball; the streaks behind it; a dot screen
- * darkening the corners; and the word, letter by letter, up and to the open side.
+ * clear ring round the player; the explosion balloon popping out beside the ball; the streaks behind
+ * it; a dot screen darkening the corners; and the word, letter by letter, in the clearest corner.
  */
 export function paintFreeze(g, w, h, cx, cy, word, t, o = {}) {
   const k = Math.min(w, h) / 600, short = Math.min(w, h), seed = o.seed ?? 11;
@@ -333,30 +385,28 @@ export function paintFreeze(g, w, h, cx, cy, word, t, o = {}) {
   // the dot screen in the corners, over the picture
   g.save();
   g.globalAlpha = 0.5 * ease(t / 0.2);
-  const R = Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy)), step = Math.max(7, 11 * k);
+  const F = freezeLayout(w, h, cx, cy, o.subject, o.dir), [fx, fy] = F.fc;
+  const R = Math.hypot(Math.max(fx, w - fx), Math.max(fy, h - fy)), step = Math.max(7, 11 * k);
   g.fillStyle = INK;
   for (let y = step / 2, row = 0; y < h; y += step, row++) {
     for (let x = step / 2 + (row % 2) * step / 2; x < w; x += step) {
-      const rr = clamp01((Math.hypot(x - cx, y - cy) / R - 0.55) / 0.45) * step * 0.5;
+      const rr = clamp01((Math.hypot(x - fx, y - fy) / R - 0.55) / 0.45) * step * 0.5;
       if (rr > 0.5) { g.beginPath(); g.arc(x, y, rr, 0, Math.PI * 2); g.fill(); }
     }
   }
   g.restore();
-  const clear = short * 0.17;
-  focusLines(g, w, h, cx, cy, clear, ease(t / 0.15), seed);
+  focusLines(g, w, h, fx, fy, F.clear, ease(t / 0.15), seed);
   if (o.dir) streaks(g, cx, cy, o.dir, short * 0.42, k, seed + 5);
-  // the balloon, out from the ball
-  paintBurst(g, cx, cy, short * 0.2, pop(t / COMIC.pop), seed + 9);
+  // the balloon, beside the ball on the far side from the player
+  paintBurst(g, F.burst.x, F.burst.y, F.burst.R, pop(t / COMIC.pop), seed + 9);
   g.restore();
   // the flash, then the negative
   if (t < COMIC.flash) { g.fillStyle = `rgba(255,255,255,${0.9 * (1 - t / COMIC.flash)})`; g.fillRect(0, 0, w, h); }
   else if (t < COMIC.flash + COMIC.negative) {
     g.save(); g.globalCompositeOperation = 'difference'; g.fillStyle = WHITE; g.fillRect(0, 0, w, h); g.restore();
   }
-  // the word, up and to the open side of the moment, landing as the burst does
-  const sx = cx < w / 2 ? 1 : -1;
-  const wx = Math.max(w * 0.22, Math.min(w * 0.78, cx + sx * w * 0.2)), wy = Math.max(h * 0.16, Math.min(h * 0.84, cy - h * 0.24));
-  paintWord(g, word, wx + jx, wy + jy, short * 0.15, t - 0.03, -0.14 * sx, seed);
+  // the word, in the corner clearest of the player and the burst, landing as the burst does
+  paintWord(g, word, F.word.x + jx, F.word.y + jy, short * 0.15, t - 0.03, F.word.rot, seed);
 }
 
 // Where the page's three panels go in a `w` by `h` picture: the moment big on the left, the run-up
@@ -374,6 +424,13 @@ export function pageLayout(w, h) {
   };
 }
 
+// Whether a narration says more than the headline: not the same words again (a bare "Home Run"
+// under HOME RUN!), and at least four words of its own.
+const lettersOf = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+export function tellsMore(desc, headline) {
+  const d = lettersOf(desc), hd = lettersOf(headline);
+  return d.split(' ').filter(Boolean).length >= 4 && d !== hd && !hd.includes(d);
+}
 // `text` broken into lines no wider than `maxW` px in the current font (a word too long for a line
 // gets one to itself).
 function wrap(g, text, maxW, size) {
@@ -410,7 +467,9 @@ function caption(g, text, x, y, size, maxW, k, alignRight = false) {
  * each small panel, and the play told in a narration box. `o`:
  *   desc      the play in a sentence, for the narration box;
  *   captions  the two small panels' captions [run-up, what followed];
- *   at        where the moment is in its shot, as fractions [u, v] (its burst goes there);
+ *   at        where the moment is in its shot, as fractions [u, v];
+ *   subject   the player at it in the shot, { x, y, r } as fractions of its height (freezeLayout:
+ *             the burst goes beside the ball, clear of him);
  *   seed      as the freeze's.
  * `words` is the headline across the top (HOME RUN!).
  */
@@ -446,12 +505,15 @@ export function paintPage(g, w, h, shots, word, words, t, o = {}) {
     } else { g.fillStyle = '#2a2622'; g.fillRect(-P.w / 2, -P.h / 2, P.w, P.h); }
     // the moment's panel: its burst on the ball, under the frame
     if (i === 1 && img && img.width && Array.isArray(o.at)) {
-      paintBurst(g, ox + o.at[0] * img.width * sc, oy + o.at[1] * img.height * sc, Math.min(P.w, P.h) * 0.16, pop((t - 0.2) / COMIC.pop), seed + 9);
+      const W2 = img.width * sc, H2 = img.height * sc, S = o.subject;
+      const F = freezeLayout(W2, H2, o.at[0] * W2, o.at[1] * H2, S ? { x: S.x * W2, y: S.y * H2, r: S.r * H2 } : null, o.dir);
+      paintBurst(g, ox + F.burst.x, oy + F.burst.y, Math.min(F.burst.R, Math.min(P.w, P.h) * 0.16), pop((t - 0.2) / COMIC.pop), seed + 9);
     }
     g.restore();
     g.lineWidth = Math.max(3, 6 * k); g.strokeStyle = INK; g.strokeRect(-P.w / 2, -P.h / 2, P.w, P.h);
-    // the narration in the moment's panel, bottom left: the play in a sentence, up to two lines
-    if (i === 1 && o.desc && a > 0.6) {
+    // the narration in the moment's panel, bottom left: the play in a sentence, up to two lines,
+    // and none when it would only say the headline again
+    if (i === 1 && o.desc && a > 0.6 && tellsMore(o.desc, words)) {
       const text = String(o.desc).toUpperCase();
       // as big as fits in two lines, down to a floor, and then three
       let size = Math.max(10, Math.min(P.w, P.h) * 0.055), lines;

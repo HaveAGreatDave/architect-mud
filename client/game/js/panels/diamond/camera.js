@@ -177,7 +177,8 @@ export function shotAt(s, t) {
   if (s.shot === 'fly') {
     const at = s.at || base.at, k = s.follow ?? 0.45;
     const to = q ? [at[0] + (q[0] - at[0]) * k * 0.4, at[1] + (Math.min(q[1], 90) - at[1]) * k, at[2] + (q[2] - at[2]) * k * 0.4] : at;
-    return { eye: s.eye || base.eye, at: to, fov: s.fov || base.fov, dof: base.dof, shadow: [[at[0], 0, at[2]], 60] };
+    // a shot may bring its own lens blur (0 is everything sharp: the comic replay's, diamond/comic.js)
+    return { eye: s.eye || base.eye, at: to, fov: s.fov || base.fov, dof: s.dof ?? base.dof, shadow: [[at[0], 0, at[2]], 60] };
   }
   if (!q) return base;
   // out past the infield it turns to the ball; a pop-up near the plate it tilts up after, and one

@@ -1295,7 +1295,8 @@ const renderer = () => ({
         if (!seenReplay) { seenReplay = r; live0 = W2.t; own0 = r.W.t; }
         bugUp &&= v.state.replay === true;
         // a comic replay's run and freeze are on the worm's-eye camera; the rest on the replay's own
-        onCamera &&= v.shot === (r.comic && (r.comic.phase === 'run' || r.comic.phase === 'freeze') ? r.comic.worm : r.shot);
+        // (and what follows on its follow-through camera at the plate, else the replay's own)
+        onCamera &&= v.shot === (r.comic && (r.comic.phase === 'run' || r.comic.phase === 'freeze') ? r.comic.worm : r.comic && r.comic.phase !== 'run' ? (r.comic.follow || r.shot) : r.shot);
         live1 = W2.t; own1 = r.W.t;
         if (r.comic) {
           if (beats[beats.length - 1] !== r.comic.phase) beats.push(r.comic.phase);
@@ -1315,6 +1316,9 @@ const renderer = () => ({
             check('a comic replay: its world on to the end of its window after', r.W.t >= r.to - 1e-6, `${label}: ${(r.W.t - r.to).toFixed(3)} s from its end`);
             check('a comic replay: all three panels taken for the page', r.comic.panels.every((x) => x !== null), `${label}: ${r.comic.panels.map((x) => (x ? 'shot' : String(x)))}`);
             check('a comic replay: the worm\'s-eye camera low on the grass', !!r.comic.worm && r.comic.worm.eye[1] < 1.5, `${label}: ${JSON.stringify(r.comic.worm?.eye)}`);
+            check('a comic replay: both its cameras sharp, the lens blur off', r.comic.worm.dof === 0 && (!r.comic.follow || r.comic.follow.dof === 0), label);
+            check('a comic replay at the plate: what follows over the batter\'s shoulder', !!r.comic.follow, label);
+            check('a comic replay: the player at the ball found for the freeze to keep clear', !!r.comic.subj01 && r.comic.subj01.r > 0, `${label}: ${JSON.stringify(r.comic.subj01)}`);
           } else if (calm) check('a replay with reduced motion: a still of its moment', r.still && own1 === own0 && r.W.t - r.key >= -1e-9 && r.W.t - r.key <= DT + 1e-9, `${label}: ${(r.W.t - r.key).toFixed(4)} s past its moment, moved ${(own1 - own0).toFixed(3)} s`);
           else {
             const rate = (own1 - own0) / Math.max(1e-6, live1 - live0);

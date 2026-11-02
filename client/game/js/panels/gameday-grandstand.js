@@ -502,8 +502,11 @@ export function createGrandstandView(host, opts = {}) {
       words: mods.hud.HUD_THEME.words[due.p.kind] || mods.hud.HUD_THEME.words[replay.kind] || mods.hud.HUD_THEME.words.replay,
       desc: due.p.desc || '', captions: C.comicCaptionsOf(replay.kind), seed: (due.p.desc || replay.kind || '').length * 7 + 3,
       ball, after: Array.isArray(after) && after.every(Number.isFinite) ? after : null, worm: C.wormShot(ball, due.p.bats),
-      // where the moment is on screen as fractions, and the way the ball's going there: at the freeze
-      at01: null, dir: null,
+      // what follows at the plate: watching it go, over the batter's shoulder (null out on the field)
+      follow: C.followShot(ball, due.p.bats),
+      // where the moment is on screen as fractions, the way the ball's going there, and the player at
+      // it (a circle, as fractions of the picture's height): at the freeze
+      at01: null, dir: null, subj01: null,
     };
     C.loadComicFaces(doc);
     lean(1); print(true);
@@ -537,7 +540,7 @@ export function createGrandstandView(host, opts = {}) {
       if (W.t >= C.until) {
         C.phase = 'after'; C.at = W.t;
         // the second angle for what follows, leaning the other way
-        if (!opts.shot) shot = replay.shot;
+        if (!opts.shot) shot = C.follow || replay.shot;
         lean(-1); print(true);
       }
     } else if (C.phase === 'after') {
@@ -576,13 +579,34 @@ export function createGrandstandView(host, opts = {}) {
         C.at01 = [q.x / w, q.y / h];
         const q2 = C.after ? mods.project(v, w, h, C.after) : null;
         if (q2 && Number.isFinite(q2.x) && Number.isFinite(q2.y) && Math.hypot(q2.x - q.x, q2.y - q.y) > 1) C.dir = [q2.x - q.x, q2.y - q.y];
+        C.subj01 = subjectAt(v, w, h, C.ball);
       }
-      M.paintFreeze(g, w, h, q ? q.x : NaN, q ? q.y : NaN, C.word, t, { print: C.prints[1], dir: C.dir, seed: C.seed });
+      const S = C.subj01 ? { x: C.subj01.x * w, y: C.subj01.y * h, r: C.subj01.r * h } : null;
+      M.paintFreeze(g, w, h, q ? q.x : NaN, q ? q.y : NaN, C.word, t, { print: C.prints[1], dir: C.dir, subject: S, seed: C.seed });
     } else if (C.phase === 'page') {
       if (C.panels[2] && !C.prints[2]) C.prints[2] = M.printPanel(doc, C.panels[2]);
       M.paintPage(g, w, h, C.prints.map((x, i) => x || C.panels[i] || null), C.word, C.words, t,
-        { desc: C.desc, captions: C.captions, at: C.at01, seed: C.seed });
+        { desc: C.desc, captions: C.captions, at: C.at01, subject: C.subj01, dir: C.dir, seed: C.seed });
     }
+  }
+  // The player at the ball on screen, as a circle in fractions of the picture's height: whoever in
+  // the replay's world stands nearest the ball at its moment (the batter at contact, the fielder at
+  // a catch), from his feet to a head six feet up, the circle round his middle reaching his head.
+  function subjectAt(v, w, h, ball) {
+    if (!Array.isArray(ball) || !replay?.W?.bodies) return null;
+    let near = null, nd = Infinity;
+    for (const slot of replay.W.bodies.keys()) {
+      const f = replay.W.frame?.(slot);
+      if (!f?.at) continue;
+      const d = Math.hypot(f.at[0] - ball[0], f.at[2] - ball[2]);
+      if (d < nd) { nd = d; near = f.at; }
+    }
+    if (!near || nd > 12) return null;
+    const feet = mods.project(v, w, h, [near[0], 0, near[2]]), head = mods.project(v, w, h, [near[0], 6, near[2]]);
+    if (![feet?.x, feet?.y, head?.x, head?.y].every(Number.isFinite)) return null;
+    const tall = Math.hypot(head.x - feet.x, head.y - feet.y);
+    if (!(tall > 4)) return null;
+    return { x: (feet.x + head.x) / 2 / w, y: (feet.y + head.y) / 2 / h, r: tall * 0.62 / h };
   }
   function comicClear() {
     lean(0); print(false);

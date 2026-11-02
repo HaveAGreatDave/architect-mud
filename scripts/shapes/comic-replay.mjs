@@ -10,7 +10,7 @@
 //
 // No DOM, no GL, no files written.
 
-import { COMIC, COMIC_WORDS, comicWordOf, comicLength, comicFit, wormShot, panelAt, pageLayout, paintFreeze, paintPage } from '../../client/game/js/panels/diamond/comic.js';
+import { COMIC, COMIC_WORDS, comicWordOf, comicLength, comicFit, wormShot, followShot, freezeLayout, tellsMore, panelAt, pageLayout, paintFreeze, paintPage } from '../../client/game/js/panels/diamond/comic.js';
 import { REPLAY } from '../../client/game/js/panels/diamond/replay.js';
 import { onField } from '../../client/game/js/panels/diamond/play.js';
 
@@ -42,6 +42,39 @@ for (const [s, bats] of moments) {
 // at the plate, out in front, on the side the batter faces
 check(wormShot([1.5, 3, 1.2], 'R').eye[2] > 1.2 && wormShot([1.5, 3, 1.2], 'R').eye[0] < wormShot([1.5, 3, 1.2], 'L').eye[0], 'at the plate: out in front, on the side each hand faces');
 check(wormShot(null) === null && wormShot([NaN, 0, 0]) === null, 'no moment, no camera');
+check(wormShot([1.5, 3, 1.2]).dof === 0, 'the worm\'s-eye lens is sharp: no blur for the print to ink');
+
+// what follows at the plate: behind the batter's back, low, looking out over him; none out on the field
+for (const bats of ['R', 'L']) {
+  const f = followShot([1.5, 3, 1.2], bats), side = bats === 'L' ? 1 : -1;
+  check(f && f.dof === 0 && f.eye[2] < -8 && f.eye[1] < 5 && f.at[2] > 20 && f.at[1] > f.eye[1], `followShot ${bats}: low behind the plate, looking up and out`, JSON.stringify(f));
+  check(f && Math.sign(f.eye[0]) === -side, `followShot ${bats}: off the batter's own shoulder`, JSON.stringify(f?.eye));
+  // clear of the umpire and the catcher, who stand on the line behind the plate (x near 0, z -2 to -5):
+  // where the line from the eye to the batter crosses z -3.5, it's well out to his side
+  const bx = -side * 2.5, k = (f.eye[2] - -3.5) / (f.eye[2] - 0), xAt = f.eye[0] + (bx - f.eye[0]) * k;
+  check(f && Math.abs(xAt) > 4.5, `followShot ${bats}: the umpire and the catcher aren't between it and the batter`, `${xAt.toFixed(1)} ft off the line behind the plate`);
+}
+check(followShot([120, 8, 260]) === null && followShot(null) === null, 'followShot: none out on the field');
+
+// the freeze keeps the player clear: the burst beside the ball on his far side, the lines stopping
+// short of him, the word in a corner off him and the burst
+for (const [w, h] of [[900, 600], [720, 352], [420, 600]]) {
+  const S = { x: w * 0.38, y: h * 0.55, r: h * 0.3 }, cx = w * 0.52, cy = h * 0.6, F = freezeLayout(w, h, cx, cy, S, null);
+  const toBurst = Math.hypot(F.burst.x - S.x, F.burst.y - S.y), toBall = Math.hypot(cx - S.x, cy - S.y);
+  check(toBurst > toBall, `freeze ${w}×${h}: the burst on the far side of the ball from him`, `${toBurst.toFixed(0)} vs ${toBall.toFixed(0)}`);
+  check(F.clear >= S.r && F.fc[0] === S.x && F.fc[1] === S.y, `freeze ${w}×${h}: the focus lines close on him and stop short of him`);
+  const inWord = (p) => Math.abs(p.x - F.word.x) < Math.min(w * 0.41, h * 0.39) && Math.abs(p.y - F.word.y) < Math.min(w, h) * 0.11;
+  check(!inWord(S), `freeze ${w}×${h}: the word isn't on him`, JSON.stringify(F.word));
+  check(F.burst.x >= 0 && F.burst.x <= w && F.burst.y >= 0 && F.burst.y <= h, `freeze ${w}×${h}: the burst in the picture`);
+}
+{
+  const F = freezeLayout(900, 600, 450, 300, null, null);
+  check(Number.isFinite(F.burst.x) && Number.isFinite(F.word.x), 'freeze with no player known still lays out');
+}
+
+// the narration says more than the headline or nothing
+check(!tellsMore('Home Run', 'HOME RUN!') && !tellsMore('home run!', 'HOME RUN!') && !tellsMore('Solo shot', 'HOME RUN!'), 'no narration that only repeats the headline or says next to nothing');
+check(tellsMore('Cardenas launches it into the dark', 'HOME RUN!'), 'a real line is told');
 
 // the panels: in order, inside the window, the second on the moment
 check(panelAt(spec, 0) > spec.from && panelAt(spec, 0) < spec.key && panelAt(spec, 1) === spec.key && panelAt(spec, 2) > spec.key && panelAt(spec, 2) < spec.to, 'panels in order inside the replay, the second on its moment');
