@@ -2577,6 +2577,8 @@ export function openFlightSim(opts = {}) {
       'ck:flaps': () => ckFlap(),
       'ck:gear': () => toggleGear(),
       'ck:arm': () => q('#fsim-arm')?.click(),
+      // The Locust 2076's SPRAY key: the same pass the SPRAY button flies (the server gates it).
+      'ck:spray': () => q('#fsim-spraybtn')?.click(),
       'ck:gps': () => gpsOpen(),
       power: ckMaster,
       lights: () => F.toggleLand?.(),
@@ -2673,6 +2675,7 @@ export function openFlightSim(opts = {}) {
       'ck:flaps': () => ['FLAPS', `${['UP', '1', '2', 'FULL'][Math.round(clampNum(F.input.flaps || 0, 0, 1) * 3)]} · click for the next notch`],
       'ck:gear': () => ['GEAR', F.gearUp ? 'up · click to lower' : 'down · click to raise'],
       'ck:arm': () => ['MASTER ARM', F.armed ? 'ARMED · click to make safe' : 'SAFE · click to arm'],
+      'ck:spray': () => ['SPRAY', F.sprayT && performance.now() - F.sprayT < 1900 ? 'valve open · the drones are out' : 'click to spray a pass (airborne and low)'],
       'ck:gps': () => ['GPS', F.gpsDest && F.apTargetId === 'gps' ? `to ${F.gpsDest.name} · click to change` : 'click to pick a destination (P)'],
       power: () => ['POWER', `engine master · ${onOff(!!F.engineOn)}`],
       lights: () => ['LIGHTS', `landing lights · ${onOff(!!F.landingLight)}`],

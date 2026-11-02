@@ -102,7 +102,7 @@ const fuselageFar = loft('fuselage (far)', 12, S.filter((s, i) => i % 2 === 0 ||
 
 // ── The glass ───────────────────────────────────────────────────────────────────
 const G = LC_GLASS;
-const WS_F = [G.windscreen.f[1], 0.36, 0.345, 0.33, 0.315, 0.3, 0.285, G.windscreen.f[0]];
+const WS_F = [G.windscreen.f[1], 0.372, 0.36, 0.345, 0.33, 0.315, 0.3, 0.285, G.windscreen.f[0]];
 const windscreen = poly('windscreen', patch(WS_F, range(G.windscreen.a[0], G.windscreen.a[1], 18), { role: 'glass', tint: GLASS }), FINE);
 const SD_F = range(G.side.f[1], G.side.f[0], 6);
 const sideGlass = poly('side glass (right)', patch(SD_F, range(G.side.a[0], G.side.a[1], 8), { role: 'glass', tint: GLASS }), FINE);
@@ -155,14 +155,19 @@ const door = (() => {
 })();
 
 // ── The room behind the glass, as seen from outside ─────────────────────────────
+// The cockpit's big shapes, where interior-locust-2076.js puts them (its metres over 5.16 a unit, the
+// eye at f 0.13, h 0.139): the seat, the swept deck with its lit band of glass leaning away from the
+// pilot, the two side consoles with the throttle and the stick, and the floor.
 const interior = [
-  poly('seat cushion', slab([0.115, 0, -0.03], [0.07, 0.07, 0.016], 6, { paint: 'seat' }), FINE),
-  poly('seat back', slab([0.07, 0, 0.04], [0.016, 0.07, 0.12], -14, { paint: 'seat' }), FINE),
-  poly('headrest', slab([0.058, 0, 0.115], [0.014, 0.045, 0.03], -14, { paint: 'seat' }), FINE),
-  poly('panel', slab([0.3, 0, 0.065], [0.016, 0.15, 0.05], 30, { paint: 'interior' }), FINE),
-  poly('panel screens', [...slab([0.292, 0.035, 0.07], [0.003, 0.06, 0.032], 30, { paint: 'screen' }), ...slab([0.292, -0.035, 0.07], [0.003, 0.06, 0.032], 30, { paint: 'screen' })], FINE),
-  poly('floor', [quad([0.33, -0.08, -0.05], [0.33, 0.08, -0.05], [-0.03, 0.08, -0.05], [-0.03, -0.08, -0.05], { paint: 'interior', sh: 0.45 })], FINE),
-  tube('sidestick', [[0.17, 0.055, 0.0], [0.175, 0.055, 0.03]], 0.004, { role: 'nacelle', paint: 'interior', sides: 5, ...FINE }),
+  poly('seat cushion', slab([0.105, 0, -0.003], [0.09, 0.09, 0.016], 4, { paint: 'seat' }), FINE),
+  poly('seat back', slab([0.052, 0, 0.058], [0.016, 0.09, 0.118], -12, { paint: 'seat' }), FINE),
+  poly('headrest', slab([0.035, 0, 0.135], [0.014, 0.046, 0.034], -12, { paint: 'seat' }), FINE),
+  poly('deck', slab([0.29, 0, 0.098], [0.075, 0.166, 0.034], 4, { paint: 'interior' }), FINE),
+  poly('deck band', slab([0.256, 0, 0.093], [0.003, 0.166, 0.046], -22, { paint: 'screen' }), FINE),
+  ...[1, -1].map((s) => poly('console', slab([0.155, s * 0.064, -0.009], [0.13, 0.024, 0.09], 0, { paint: 'interior' }), FINE)),
+  poly('floor', [quad([0.39, -0.08, -0.054], [0.39, 0.08, -0.054], [-0.04, 0.08, -0.054], [-0.04, -0.08, -0.054], { paint: 'interior', sh: 0.45 })], FINE),
+  tube('sidestick', [[0.15, 0.064, 0.036], [0.155, 0.064, 0.066]], 0.004, { role: 'nacelle', paint: 'interior', sides: 5, ...FINE }),
+  tube('throttle', [[0.153, -0.064, 0.036], [0.163, -0.064, 0.062]], 0.003, { role: 'nacelle', paint: 'metal', sides: 5, ...FINE }),
 ];
 
 // ── The motor nacelle: spinner, cooling, the charge port ────────────────────────
@@ -446,8 +451,8 @@ const wire = group('wire strike kit', [
   tube('upper cutter', [at(0.262, 90, 0), [0.31, 0, 0.27]], 0.0035, { role: 'strut', paint: 'metal' }),
   poly('upper cutter blade', [{ role: 'strut', paint: 'metal', sh: 0.9, p: [at(0.262, 90, 0.002), [0.31, 0.0015, 0.27], [0.318, 0.0015, 0.262], at(0.285, 90, 0.002)] },
     { role: 'strut', paint: 'metal', sh: 0.6, p: [at(0.285, 90, 0.002), [0.318, -0.0015, 0.262], [0.31, -0.0015, 0.27], at(0.262, 90, 0.002)].map((q, i) => (i === 0 || i === 3 ? [q[0], -0.0015, q[2]] : q)) }]),
-  tube('lower cutter', [at(0.385, 90, 0), [0.37, 0, 0.122]], 0.003, { role: 'strut', paint: 'metal' }),
-  poly('lower cutter teeth', range(0.105, 0.118, 3).map((h) => ({ role: 'strut', paint: 'metal', sh: 0.85, p: [[0.38, 0, h], [0.392, 0, h + 0.003], [0.38, 0, h + 0.006]] }))),
+  tube('lower cutter', [at(0.405, 90, 0), [0.393, 0, 0.127]], 0.003, { role: 'strut', paint: 'metal' }),
+  poly('lower cutter teeth', range(0.108, 0.12, 3).map((h) => ({ role: 'strut', paint: 'metal', sh: 0.85, p: [[0.397, 0, h], [0.409, 0, h + 0.003], [0.397, 0, h + 0.006]] }))),
   tube('deflector cable', [[0.3, 0, 0.27], [0.1, 0, 0.268], [-0.9, 0, finTop[2] + 0.005]], 0.0016, { role: 'strut', paint: 'metal' }),
 ], FINE);
 

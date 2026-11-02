@@ -47,8 +47,10 @@ export const LC_APEX_AFT = [-0.99, 0, 0.052];
 // Where the glass is, as rectangles in (f, angle) on the hull. `f` runs [aft, fore]; `a` [low, high].
 // The side glass and the quarter lights are mirrored for the left side (a -> 180 - a).
 export const LC_GLASS = {
-  // The windscreen: across the front slope from the hopper's aft edge up to the roof.
-  windscreen: { f: [0.27, 0.335], a: [24, 156] },
+  // The windscreen: across the front slope from the hopper's aft edge up to the roof. ⚠ ITS FORE EDGE
+  // IS BELOW THE EYE: at f 0.335 it was 5 degrees above it, and the straight-ahead look met wall.
+  // At 0.385 the view runs out over the hopper about 6 degrees down, as an AT-802's does.
+  windscreen: { f: [0.27, 0.385], a: [24, 156] },
   // The side glass: tall, down to 12 degrees above the waterline, so the field is in it in a turn.
   side: { f: [0.06, 0.262], a: [12, 76] },
   // A skylight over the seat, between the roof rails.
@@ -59,7 +61,7 @@ export const LC_GLASS = {
 // The cockpit door on the left: its seam, a little bigger than the side glass.
 export const LC_DOOR = { f: [0.045, 0.27], aLo: -30, aHi: 80 };
 // Inside: the floor, the firewall-to-hopper wall ahead, the bulkhead behind the seat, and the eye.
-export const LC_INSIDE = { floorH: -0.055, frontF: 0.345, bulkheadF: -0.04, eyeF: 0.13, eyeOverFloorM: 1.0 };
+export const LC_INSIDE = { floorH: -0.055, frontF: 0.395, bulkheadF: -0.04, eyeF: 0.13, eyeOverFloorM: 1.0 };
 // The Air Tractor AT-802 is 10.95 m long; this model runs spinner apex to tail cone.
 export const AT802_LENGTH_M = 10.95;
 
