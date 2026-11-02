@@ -19,6 +19,7 @@
 // the four channels are four masks, not a picture. Until it has loaded, the faces are plain skin.
 import { headMesh, hairMesh, HEAD_FEAT, HAIRLINE_GLSL } from '../actor-head.js';
 import { FACE_GLSL } from '../actor-faces.js';
+import { createFaceAtlasFeed } from './face-atlas.js';
 
 export const HEAD_VS = `#version 300 es
 layout(location = 0) in vec3 aP;
@@ -129,8 +130,8 @@ void main() {
 
 // The half-size atlas: a head on the rink is never bigger than a face on the street's close-up,
 // and a cell of 128 x 160 is more than the camera ever shows. Its cells sit on 32-texel lines, so
-// mips 0 to 5 never mix two faces.
-const ATLAS_URL = new URL('../../../assets/actor-faces-half.png', import.meta.url).href;
+// mips 0 to 5 never mix two faces. Plain or the comic look's inked one, from a feed polled each
+// draw (gl/face-atlas.js).
 const ATLAS_MAX_LEVEL = 5;
 
 // `prog` is the arena's program helper; `doc` its document, for the Image constructor.
@@ -147,10 +148,14 @@ export function createRinkHeads(gl, prog, doc) {
   gl.texParameteri(T2, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   const api = {};
   const Img = (doc && doc.defaultView && doc.defaultView.Image) || globalThis.Image;
-  if (Img) {
-    const img = new Img();
-    img.onload = () => {
-      if (gl.isContextLost && gl.isContextLost()) return;
+  const feed = createFaceAtlasFeed({ half: true, Img });
+  // Called at the top of each draw: uploads an atlas when one has loaded or the look has flipped.
+  function pollAtlas() {
+    if (gl.isContextLost && gl.isContextLost()) return;
+    const img = feed.poll();
+    if (img) {
+      // on unit 0, where draw binds the atlas anyway
+      gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(T2, tex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
@@ -161,10 +166,9 @@ export function createRinkHeads(gl, prog, doc) {
       gl.texParameteri(T2, gl.TEXTURE_MAX_LEVEL, ATLAS_MAX_LEVEL);
       gl.texParameteri(T2, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       gl.generateMipmap(T2);
-    };
-    img.onerror = () => {};
-    img.src = ATLAS_URL;
+    }
   }
+  pollAtlas();
 
   // One VAO a mesh, built the first time it's drawn: the head (no neck) by level, the hair by level
   // and style.
@@ -204,6 +208,7 @@ export function createRinkHeads(gl, prog, doc) {
   // Every head in `list` (records from arena-mesh.js), through `vp` from `eye`. Leaves its own
   // program bound: the caller re-binds what it draws next.
   api.draw = (list, vp, eye, shake, clipZ, mourn, st) => {
+    pollAtlas();
     if (!list.length) return;
     gl.useProgram(P.p);
     gl.uniformMatrix4fv(P.u('uVP'), false, vp);

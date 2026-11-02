@@ -69,7 +69,7 @@ The layouts (`FACE_LAYOUTS`) vary age, stubble or a beard, makeup, the mouth and
 
 The token picks a layout, an iris colour, a lipstick and a hair style (`actorFace`), exactly as it picks an outfit, from `rand(k)` slots 13 to 16, clear of the outfit's and of the ones `windshield.js` hashes. The colouring is one GLSL function, `FACE_GLSL`, which the lab's head shader and the game's (`HEAD_FRAG` in gl/actors.js) both include.
 
-The painter ([tools/modelshop/face-masks.mjs](../../tools/modelshop/face-masks.mjs)) is the lab's `paintFace` step for step, each colour turned into the mask it comes from. It's plain JS over arrays rather than a 2D canvas: the bake runs in Node, so the gate can rebuild the atlas and compare it, and a canvas stores premultiplied colour, which can't carry four independent masks through an alpha channel. It paints the whole atlas in about 2 seconds. `npm run actors:faces` re-bakes it; the lab's "faces" switch shows the atlas or the canvas paint.
+The painter ([tools/modelshop/face-masks.mjs](../../tools/modelshop/face-masks.mjs)) is the lab's `paintFace` step for step, each colour turned into the mask it comes from. It's plain JS over arrays rather than a 2D canvas: the bake runs in Node, so the gate can rebuild the atlas and compare it, and a canvas stores premultiplied colour, which can't carry four independent masks through an alpha channel. It paints the whole atlas in about 2 seconds. `npm run actors:faces` re-bakes it; the lab's "faces" switch shows the atlas or the canvas paint. The same bake writes the comic look's inked atlas (`actor-faces-ink*.png`), the same masks with ink lines in the shade channel; see [comic-ink.md](comic-ink.md#step-2-as-built).
 
 ### 4. Drawing it (built)
 

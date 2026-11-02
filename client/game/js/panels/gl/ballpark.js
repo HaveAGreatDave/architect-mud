@@ -45,6 +45,7 @@ import { ballGlowOn } from '../../../../shared/settings.js';
 import { SKIN_GLSL, createBonePalette } from './skin.js';
 import { CEL, CEL_TUNE, CEL_GLSL } from './cel-figure.js';
 import { inkOf } from './house-style.js';
+import { createFaceAtlasFeed } from './face-atlas.js';
 import { INK_FS } from './ink.js';
 import { bodyKey } from '../diamond/cast.js';
 // the view loads this module lazily and takes the cast from it, so the 2-D path never fetches it
@@ -1151,19 +1152,20 @@ export function createBallparkRenderer(canvas, opts = {}) {
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(T2, k, v);
     if (aniso) gl.texParameterf(T2, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, maxAniso));
     let logoKey = '';
-    // The faces: the street figure's atlas of masks (actor-faces.js), loaded once. Until it's here a
-    // neutral texel stands in, plain skin with no features.
+    // The faces: the street figure's atlas of masks (actor-faces.js), plain or the comic look's
+    // inked one, from a feed polled every frame (gl/face-atlas.js). Until one is here a neutral
+    // texel stands in, plain skin with no features.
     TEX.faces = gl.createTexture();
     gl.bindTexture(T2, TEX.faces);
     gl.texImage2D(T2, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([170, 0, 0, 255]));
     gl.texParameteri(T2, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(T2, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    loadFaces();
-    function loadFaces() {
-      const Img = doc.defaultView && doc.defaultView.Image;
-      if (!Img) return;
-      const img = new Img();
-      img.onload = () => {
-        if (lost) return;
+    // onReady asks the view for a frame (the grandstand's draw), which polls; never upload from it
+    const faceFeed = createFaceAtlasFeed({ Img: doc.defaultView && doc.defaultView.Image, onReady: () => { if (!lost) opts.onAsset?.(); } });
+    const pollFaces = () => {
+      const img = faceFeed.poll();
+      if (img) {
+        // on the faces' own unit (8), which the frame binds them to anyway
+        gl.activeTexture(gl.TEXTURE8);
         gl.bindTexture(T2, TEX.faces);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
@@ -1174,10 +1176,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.texParameteri(T2, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(T2, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(T2, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         if (aniso) gl.texParameterf(T2, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, maxAniso));
-        opts.onAsset?.();
-      };
-      img.src = new URL('../../../assets/actor-faces.png', import.meta.url).href;
-    }
+      }
+    };
+    pollFaces();
     // the scoreboard's lamps, one byte each
     const boardTex = gl.createTexture();
     gl.bindTexture(T2, boardTex);
@@ -2066,6 +2067,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // an empty park (setEmpty): no game on, so nobody on the field and nobody in the seats
       const shown = empty ? [] : members;
       if (lost) return false;
+      // the faces' atlas, if one has loaded or the comic look has flipped it
+      pollFaces();
       const inRoom = !!room && ro.room !== false;
       cutOn = inRoom ? 1 : 0;
       const t0 = (typeof performance !== 'undefined' ? performance.now() : 0);

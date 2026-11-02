@@ -1,7 +1,8 @@
 # Comic ink: the whole game in one comic-book style
 
-> **Status: step 1 built (one house style behind Settings → Cel Shading → Comic); steps 2-5 are
-> design.** The look-dev prototype is a live page in Dave's artifacts, "Deadball Comic Ink".
+> **Status: steps 1 and 2 built (the house style and the inked faces, behind Settings → Cel
+> Shading → Comic); steps 3-5 are design.** The look-dev prototype is a live page in Dave's
+> artifacts, "Deadball Comic Ink".
 
 ## Why
 
@@ -90,6 +91,7 @@ logs both with `__glPassMs`.
 
 1. **One house style.** *Built.* See below.
 2. **The inked face atlas**, behind the switch, since every face changes the day it lands.
+   *Built.* See below.
 3. **The players:** weighted hull, inked kits, two tones with a painted shadow, hatching, the
    hi-def near level.
 4. **The park and the crowd** through ssao.js's line resolve on the park's depth; the card
@@ -117,3 +119,29 @@ one ink, two bands, a figure's line widened 2.5 times in its view's own units an
 - **Not yet switched:** the park's players band their light with `CEL.bands` compiled into the
   shader, so they keep three bands until step 3 makes it a uniform. The rink's lit shader has no
   band count to switch.
+
+## Step 2, as built
+
+A second face atlas, `actor-faces-ink.png` and its half-size copy, painted by the same painter
+([tools/modelshop/face-masks.mjs](../../tools/modelshop/face-masks.mjs) `paintFaceMasks(layout, {
+ink: true })`). The face is painted exactly as before, then an ink layer goes into the shade channel
+last: a heavy tapered upper lid with a flick at the outer corner, the crease above it, the lower
+lid's outer half, the brows darkened and underlined, the nostril wings, one side of the nose down
+the bridge and round under the tip, a heavier mouth line with its corners, the folds from the nose
+to the mouth (heavier with age), under the lower lip and a chin crease.
+
+- **Only the shade channel moves, and only darker,** so hair, lips and the eye's opening are the
+  plain atlas's exactly, and the shaders need no change: a darker shade texel is already a line.
+- **The swap** is [gl/face-atlas.js](../../client/game/js/panels/gl/face-atlas.js): one feed a
+  texture, polled each frame by the street figures (gl/actors.js), the park (gl/ballpark.js) and the
+  rink (gl/arena-heads.js). It fetches the atlas for the look that's on and hands it over once
+  decoded, so the old faces stay up meanwhile. A look flipped mid-load drops the stale image. The
+  park's feed calls `onAsset` when an image lands, so an idle grandstand draws a frame; the upload
+  itself only ever happens inside a frame, on the faces' own texture unit.
+- **The bake:** `npm run actors:faces` writes all four PNGs. The inked pair is about 3% bigger than
+  the plain, and only a viewer with Comic on downloads it.
+- **Gates.** `scripts/shapes/actor-faces.mjs` repaints and compares both atlases, runs every face
+  check on both, fails an inked atlas that moves anything but the shade channel or lightens a texel,
+  and counts dark texels at the lids, brows, mouth and nostrils of every layout (a blank ink layer
+  fails it on every face). `scripts/shapes/face-atlas-feed.mjs` drives the feed with a fake image
+  through each flip, including off-on-off mid-load.

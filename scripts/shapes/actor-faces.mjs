@@ -1,7 +1,7 @@
 // THE FACE ATLAS: BAKE IT, OR CHECK THE COMMITTED ONE IS WHAT THE PAINTER MAKES.
 //
 //   node scripts/shapes/actor-faces.mjs            # gate: paints in memory, writes nothing
-//   node scripts/shapes/actor-faces.mjs --write    # bake client/game/assets/actor-faces*.png
+//   node scripts/shapes/actor-faces.mjs --write    # bake client/game/assets/actor-faces*.png, plain and inked
 //   node scripts/shapes/actor-faces.mjs --report   # the numbers behind it
 //
 // Phase 3 of docs/proposals/street-figure-heads.md. The painter is tools/modelshop/face-masks.mjs;
@@ -13,6 +13,10 @@
 // It also checks each face has what it should where it should (both eyes open, the lips, a beard
 // on the bearded and none on the rest), the cell borders are plain skin so mips and filtering
 // don't bleed one face into the next, and the token pick reaches every layout and is stable.
+//
+// Two atlases: the plain one and the comic look's inked one (actor-faces-ink*.png,
+// docs/proposals/comic-ink.md). Every face check runs on both. The inked one must differ from the
+// plain one only in the shade channel, only by darkening, and must carry its lines where they go.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { deflateSync, inflateSync } from 'node:zlib';
 import { paintFaceAtlas } from '../../tools/modelshop/face-masks.mjs';
@@ -22,7 +26,7 @@ import { FACE } from '../../client/game/js/panels/actor-head.js';
 const WRITE = process.argv.includes('--write'), REPORT = process.argv.includes('--report');
 const problems = [];
 const report = (...a) => { if (REPORT) console.log(...a); };
-const FULL = new URL('../../client/game/' + FACE_ATLAS.src, import.meta.url), HALF = new URL('../../client/game/' + FACE_ATLAS.half, import.meta.url);
+const asset = (p) => new URL('../../client/game/' + p, import.meta.url);
 
 // ── PNG, RGBA 8-bit, unpremultiplied ────────────────────────────────────────────────────────────────
 const CRC = new Int32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c; });
@@ -79,11 +83,16 @@ function decodePng(buf) {
 
 // ── Paint ───────────────────────────────────────────────────────────────────────────────────────────
 const { cols, rows, cellW, cellH, w, h, maxLevel } = FACE_ATLAS;
-const { full, half } = paintFaceAtlas();
+const ATLASES = [
+  { name: 'plain', ...paintFaceAtlas(), FULL: asset(FACE_ATLAS.src), HALF: asset(FACE_ATLAS.half), src: FACE_ATLAS.src, halfSrc: FACE_ATLAS.half },
+  { name: 'inked', ...paintFaceAtlas({ ink: true }), FULL: asset(FACE_ATLAS.ink), HALF: asset(FACE_ATLAS.inkHalf), src: FACE_ATLAS.ink, halfSrc: FACE_ATLAS.inkHalf },
+];
 if (WRITE) {
-  const a = encodePng(full, w, h), b = encodePng(half, w / 2, h / 2);
-  writeFileSync(FULL, a); writeFileSync(HALF, b);
-  console.log(`wrote ${FACE_ATLAS.src} (${w}×${h}, ${(a.length / 1024).toFixed(0)} KB) and ${FACE_ATLAS.half} (${w / 2}×${h / 2}, ${(b.length / 1024).toFixed(0)} KB)`);
+  for (const { full, half, FULL, HALF, src, halfSrc } of ATLASES) {
+    const a = encodePng(full, w, h), b = encodePng(half, w / 2, h / 2);
+    writeFileSync(FULL, a); writeFileSync(HALF, b);
+    console.log(`wrote ${src} (${w}×${h}, ${(a.length / 1024).toFixed(0)} KB) and ${halfSrc} (${w / 2}×${h / 2}, ${(b.length / 1024).toFixed(0)} KB)`);
+  }
 }
 
 // ── The layout of the atlas ─────────────────────────────────────────────────────────────────────────
@@ -98,7 +107,7 @@ for (const L of FACE_LAYOUTS) if (L.beard && L.makeup) problems.push('a layout h
 }
 
 // ── Against the committed PNGs ──────────────────────────────────────────────────────────────────────
-for (const [url, px, ww, hh] of [[FULL, full, w, h], [HALF, half, w / 2, h / 2]]) {
+for (const [url, px, ww, hh] of ATLASES.flatMap(({ full, half, FULL, HALF }) => [[FULL, full, w, h], [HALF, half, w / 2, h / 2]])) {
   let png;
   try { png = decodePng(readFileSync(url)); } catch (e) { problems.push(`${url.pathname.split('/').pop()} won't read (${e.message}); run node scripts/shapes/actor-faces.mjs --write`); continue; }
   if (png.w !== ww || png.h !== hh) { problems.push(`${url.pathname.split('/').pop()} is ${png.w}×${png.h}, not ${ww}×${hh}`); continue; }
@@ -109,28 +118,31 @@ for (const [url, px, ww, hh] of [[FULL, full, w, h], [HALF, half, w / 2, h / 2]]
 }
 
 // ── Each face ───────────────────────────────────────────────────────────────────────────────────────
-// A texel of a layout at a point on the face, in metres.
+// A texel of a layout at a point on the face, in metres, in the atlas being checked.
+let full = null, tag = '';
 const at = (i, x, y, c) => {
   const cx = (i % cols) * cellW, cy = Math.floor(i / cols) * cellH;
   const px = Math.floor(((x - FACE.x0) / (FACE.x1 - FACE.x0)) * cellW), py = Math.floor(((FACE.y1 - y) / (FACE.y1 - FACE.y0)) * cellH);
   return full[((cy + py) * w + cx + px) * 4 + c];
 };
 const R = 0, G = 1, B = 2, A = 3, PLAIN = Math.round(255 / 1.5);
+for (const atlas of ATLASES) {
+full = atlas.full; tag = atlas.name === 'plain' ? '' : ` (${atlas.name})`;
 FACE_LAYOUTS.forEach((L, i) => {
-  for (const s of [1, -1]) if (at(i, s * FACE.irisX, FACE.eyeY, A) > 40) problems.push(`layout ${i}: the ${s > 0 ? 'left' : 'right'} eye isn't open`);
-  if (at(i, 0, 1.559, B) < 200 || at(i, 0, 1.572, B) < 200) problems.push(`layout ${i}: no lips`);
+  for (const s of [1, -1]) if (at(i, s * FACE.irisX, FACE.eyeY, A) > 40) problems.push(`layout ${i}${tag}: the ${s > 0 ? 'left' : 'right'} eye isn't open`);
+  if (at(i, 0, 1.559, B) < 200 || at(i, 0, 1.572, B) < 200) problems.push(`layout ${i}${tag}: no lips`);
   for (const s of [1, -1]) {
     let g = 0;
     for (let y = 1.65; y <= 1.664; y += 0.0005) g = Math.max(g, at(i, s * 0.03, y, G));
-    if (g < 60) problems.push(`layout ${i}: no ${s > 0 ? 'left' : 'right'} brow`);
+    if (g < 60) problems.push(`layout ${i}${tag}: no ${s > 0 ? 'left' : 'right'} brow`);
   }
   // the chin, mean over a patch
   let g = 0;
   for (let k = 0; k < 25; k++) g += at(i, -0.02 + (k % 5) * 0.01, 1.53 + Math.floor(k / 5) * 0.003, G) / 25;
   report(`  layout ${i}: age ${L.age}, beard ${L.beard}, chin ${g.toFixed(0)} hair`);
-  if (L.beard === 2 && g < 70) problems.push(`layout ${i} has a full beard and its chin is ${g.toFixed(0)} hair`);
-  if (L.beard === 1 && (g < 5 || g > 70)) problems.push(`layout ${i} has stubble and its chin is ${g.toFixed(0)} hair`);
-  if (L.beard === 0 && g > 3) problems.push(`layout ${i} has no beard and its chin is ${g.toFixed(0)} hair`);
+  if (L.beard === 2 && g < 70) problems.push(`layout ${i}${tag} has a full beard and its chin is ${g.toFixed(0)} hair`);
+  if (L.beard === 1 && (g < 5 || g > 70)) problems.push(`layout ${i}${tag} has stubble and its chin is ${g.toFixed(0)} hair`);
+  if (L.beard === 0 && g > 3) problems.push(`layout ${i}${tag} has no beard and its chin is ${g.toFixed(0)} hair`);
   // No eye or lip near the cell's edge. The head's UVs stay 8 texels in from it, and mips to
   // maxLevel never mix cells, so only a feature painted in the wrong place could bleed.
   const cx = (i % cols) * cellW, cy = Math.floor(i / cols) * cellH;
@@ -142,9 +154,40 @@ FACE_LAYOUTS.forEach((L, i) => {
       if (full[o + 2] > 115 || full[o + 3] < 255) bad++;
     }
   }
-  if (bad) problems.push(`layout ${i}: ${bad} texels of eye or lip within 8 of the cell's edge`);
-  if (Math.abs(at(i, 0, 1.762, R) - PLAIN) > 3) problems.push(`layout ${i}: the crown isn't plain skin (${at(i, 0, 1.762, R)}, not ${PLAIN})`);
+  if (bad) problems.push(`layout ${i}${tag}: ${bad} texels of eye or lip within 8 of the cell's edge`);
+  if (Math.abs(at(i, 0, 1.762, R) - PLAIN) > 3) problems.push(`layout ${i}${tag}: the crown isn't plain skin (${at(i, 0, 1.762, R)}, not ${PLAIN})`);
 });
+}
+
+// ── The ink ─────────────────────────────────────────────────────────────────────────────────────────
+// Only the shade channel moves, only darker, and the lines land where they're drawn.
+{
+  const P = ATLASES[0].full, I = ATLASES[1].full;
+  let moved = 0, lighter = 0, changed = 0;
+  for (let o = 0; o < P.length; o += 4) {
+    if (P[o + 1] !== I[o + 1] || P[o + 2] !== I[o + 2] || P[o + 3] !== I[o + 3]) moved++;
+    if (I[o] > P[o] + 1) lighter++;
+    if (P[o] - I[o] > 8) changed++;
+  }
+  if (moved) problems.push(`the inked atlas moves ${moved} texels of hair, lip or eye; ink goes in the shade channel only`);
+  if (lighter) problems.push(`the inked atlas lightens ${lighter} texels; ink only darkens`);
+  const share = changed / (P.length / 4);
+  report(`ink: ${(share * 100).toFixed(1)}% of texels darkened by more than 8`);
+  if (share < 0.005) problems.push(`the ink darkens only ${(share * 100).toFixed(2)}% of the atlas; it isn't being painted`);
+  if (share > 0.08) problems.push(`the ink darkens ${(share * 100).toFixed(1)}% of the atlas; that's a dirty face, not a line drawing`);
+  // How many texels near a point are inked dark (a cell texel is about 0.8 mm of face). The plain
+  // lash line is already near black, so a heavier line shows as more dark texels, not darker ones.
+  const dark = (A, i, x, y) => { full = A; let n = 0; for (let dy = -0.004; dy <= 0.0040001; dy += 0.0004) for (let dx = -0.004; dx <= 0.0040001; dx += 0.0004) if (at(i, x + dx, y + dy, R) < 48) n++; return n; };
+  FACE_LAYOUTS.forEach((L, i) => {
+    for (const [what, x, y] of [['upper lid', 0.035, 1.6465], ['brow', 0.03, 1.6555], ['mouth line', 0.012, FACE.mouthY], ['nostril wing', 0.0226, 1.5925]]) {
+      for (const sx of [1, -1]) {
+        const p = dark(P, i, sx * x, y), k = dark(I, i, sx * x, y);
+        report(`  layout ${i}: ${what} ${sx > 0 ? 'L' : 'R'} ${p} -> ${k} dark texels`);
+        if (k < p + 12) problems.push(`layout ${i} (inked): no ink on the ${sx > 0 ? 'left' : 'right'} ${what} (${p} dark texels plain, ${k} inked)`);
+      }
+    }
+  });
+}
 
 // ── The pick ────────────────────────────────────────────────────────────────────────────────────────
 {

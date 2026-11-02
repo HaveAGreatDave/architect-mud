@@ -158,7 +158,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/proposals/trading-cards.md](docs/proposals/trading-cards.md): trading cards (as built). The pack rolls at `openpack`, never at the vend
 - [docs/proposals/preparation-workspace.md](docs/proposals/preparation-workspace.md): the prep HUD over cooking and synthesis. The HUD holds no logic; every action is a typeable verb
 - [docs/proposals/kitchen-stage.md](docs/proposals/kitchen-stage.md): the Kitchen Stage, cooking's cel-shaded 3D rung over the workspace payload. Food colour moves only on a server beat, never a smooth clock
-- [docs/proposals/comic-ink.md](docs/proposals/comic-ink.md): the whole game in one Borderlands-style comic look (step 1 built: Settings → Cel Shading → Comic). Every view takes its ink, bands and line widths from gl/house-style.js; off, each helper must hand back the view's own numbers
+- [docs/proposals/comic-ink.md](docs/proposals/comic-ink.md): the whole game in one Borderlands-style comic look (steps 1-2 built: Settings → Cel Shading → Comic). Every view takes its ink, bands and line widths from gl/house-style.js, and its face atlas from gl/face-atlas.js; off, each helper must hand back the view's own numbers. After editing the face painter, run `npm run actors:faces`: it bakes the plain and the inked atlas
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.**
 
