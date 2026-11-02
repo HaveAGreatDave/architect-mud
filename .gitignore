@@ -35,3 +35,4 @@ push*.log
 # One-off DB probes written to answer a single question and never deleted.
 scratch_*.mjs
 tmp-*.mjs
+sound-match-out/
