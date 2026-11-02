@@ -60,6 +60,16 @@ export const TRIMS = {
     { id: 'stock', label: 'Air Tractor · the original' },
     { id: '2076', label: 'Locust 2076 · concept' },
   ],
+  // CONCEPT: the Leviathan 2076 is a different airframe (mesh_heavy.json 'variants'), with its own cockpit.
+  heavy: [
+    { id: 'stock', label: 'Antonov An-124 · the original' },
+    { id: '2076', label: 'Leviathan 2076 · concept' },
+  ],
+  // CONCEPT: the Shrike 2076 is a different airframe (mesh_divebomber.json 'variants'), with its own cockpit.
+  divebomber: [
+    { id: 'stock', label: 'Ju 87 Stuka · the original' },
+    { id: '2076', label: 'Shrike 2076 · concept' },
+  ],
   // CONCEPT: the Reaper 2076 is a different airframe (mesh_gunship.json 'variants'), with its own cockpit.
   gunship: [
     { id: 'stock', label: 'Thunderbolt II · the original' },

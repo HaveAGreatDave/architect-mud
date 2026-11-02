@@ -38073,7 +38073,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // chain it fell out of the bottom and got no engine effect at all — which is the same silence the
   // default arm of `aircraftFaces` gives a class with no builder, and just as quiet.
   if (WATER_CLASSES().has(c.cls)) drawBoatExhaust(ctx, cam, P, Wp, c, sun, now, detail, SIZE);
-  else if (c.cls === 'gunship' || c.cls === 'heavy') {
+  else if (c.cls === 'gunship' || c.cls === 'heavy' || (c.cls === 'divebomber' && c.variant === '2076')) {
     const np = P([1, 0, 0.02]), tp = P([-1, 0, 0.05]);
     if (np.f > 0.08 && tp.f > 0.08) {
       let ex = tp.sx - np.sx, ey = tp.sy - np.sy; const em = Math.hypot(ex, ey) || 1; ex /= em; ey /= em;
@@ -38085,6 +38085,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       // [0.02, ±g, 0.0], which put all four plumes in the air under the nacelles.
       const jets = c.cls === 'heavy'
         ? [[-0.129, -0.60, 0.100], [0.026, -0.34, 0.117], [0.026, 0.34, 0.117], [-0.129, 0.60, 0.100]]
+        : c.cls === 'divebomber' ? [[-0.99, 0, 0.042]]   // the Shrike 2076's one jet: mesh_divebomber_2076.json, 'nozzle'
         : [[-0.62, -0.205, 0.14], [-0.62, 0.205, 0.14]];   // the Reaper's: mesh_gunship.json, 'exhaust plug'
       // A turbofan shows no flame, and both of these are turbofans: a faint heat haze.
       const haze = true;

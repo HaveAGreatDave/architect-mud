@@ -1709,6 +1709,9 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
       }
       spinDisc(ctx, projFn, at, r.U, r.V, r.r, sp, dsc, spl, parked, r.blades, r.lead, bladeFade);
     }
+  } else if (variantMeshFor(cls, variant)) {
+    // A body variant with no rotors of its own (the Shrike 2076 is a jet) spins nothing: the
+    // class's nose prop below belongs to the airframe it replaced.
   } else if (cls === 'heli') {
     legacyHeliRotorFX(ctx, projFn, armed, spin, dsc, spl, parked, bladeFade);
   } else {
@@ -1778,8 +1781,9 @@ function legacyHeliRotorFX(ctx, projFn, armed, spin, dsc, spl, parked, bladeFade
 export function drawCockpitProp(ctx, cls, { cx, cy, rad, spin = 0, disc = 0, spool = 0, variant = '' }) {
   const st = PROP_STATIONS[cls];
   if (!st || cls === 'prop' || st.length !== 1 || st[0][1] !== 0) return;   // one centred nose prop only
-  // A body variant with its own rotors (the Mayfly 2076's eight wing props) has no nose prop.
-  if (rotorsFor(cls, false, variant) && variantMeshFor(cls, variant)) return;
+  // A body variant draws its own props (the Mayfly 2076's eight) or none (the Shrike 2076's jet):
+  // the class's nose prop belongs to the airframe it replaced.
+  if (variantMeshFor(cls, variant)) return;
   const S = rad / 0.21;                                       // model disc r (0.21) → screen px
   // bladeFade: past half throttle the blades melt into the disc instead of strobing.
   drawRotorFX(ctx, cls, ([, g, h]) => ({ sx: cx + g * S, sy: cy - h * S }), { spin, disc, spool, bladeFade: 0.9 });

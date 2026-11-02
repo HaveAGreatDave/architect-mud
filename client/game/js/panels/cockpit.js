@@ -2580,6 +2580,8 @@ export function openFlightSim(opts = {}) {
       // The Locust 2076's SPRAY key: the same pass the SPRAY button flies (the server gates it).
       'ck:spray': () => q('#fsim-spraybtn')?.click(),
       'ck:gps': () => gpsOpen(),
+      // The Shrike 2076's DIVE key: the automatic dive, as B is.
+      'ck:dive': () => F.toggleDiveAuto?.(),
       power: ckMaster,
       lights: () => F.toggleLand?.(),
       cabin: () => F.toggleDome(),
@@ -2677,6 +2679,7 @@ export function openFlightSim(opts = {}) {
       'ck:arm': () => ['MASTER ARM', F.armed ? 'ARMED · click to make safe' : 'SAFE · click to arm'],
       'ck:spray': () => ['SPRAY', F.sprayT && performance.now() - F.sprayT < 1900 ? 'valve open · the drones are out' : 'click to spray a pass (airborne and low)'],
       'ck:gps': () => ['GPS', F.gpsDest && F.apTargetId === 'gps' ? `to ${F.gpsDest.name} · click to change` : 'click to pick a destination (P)'],
+      'ck:dive': () => ['DIVE COMPUTER', F.diveAuto ? (F.diveAuto === 'pull' ? 'flying the pull-out · click to take her back' : 'pushing over to the dive · click to take her back') : 'off · click to roll in (B)'],
       power: () => ['POWER', `engine master · ${onOff(!!F.engineOn)}`],
       lights: () => ['LIGHTS', `landing lights · ${onOff(!!F.landingLight)}`],
       cabin: () => ['CABIN', `dome light · ${onOff(!!F.domeLight)}`],
@@ -3064,6 +3067,18 @@ function powerAgeOf(F) {
   if (F.powered && !F._pwrWas) F.powerOnT = F._pwrWas === undefined ? -1e9 : now;
   F._pwrWas = !!F.powered;
   return F.powered ? (now - (F.powerOnT ?? -1e9)) / 1000 : 0;
+}
+
+// A 2076 body's moving parts, as mesh anim channels; a body with nothing on a channel ignores it.
+// The Locust 2076's spray drones fly out on `spray` while she sprays and dock again after, about a
+// second each way (mesh_locust_2076.json). The Shrike 2076's dive brakes, bay and trapeze ride the dive
+// computer on `diveBrake`, eased over about a second (mesh_divebomber_2076.json).
+function classAnim(F, dt) {
+  if (F.cls === 'locust') return { spray: (F.droneOut = clampNum((F.droneOut || 0) + ((F.sprayT && performance.now() - F.sprayT < 1900) ? dt : -dt) * 1.1, 0, 1)) };
+  if (F.cls === 'divebomber') return { diveBrake: (F.diveBrakeEase = clampNum((F.diveBrakeEase || 0) + ((F.diveAuto ? 1 : 0) - (F.diveBrakeEase || 0)) * Math.min(1, dt * 2.5), 0, 1)) };
+  // The Reaper 2076's wingmen fly out off her tips while the weapons are armed and come home when safed.
+  if (F.cls === 'gunship') return { wingmen: (F.wingmenOut = clampNum((F.wingmenOut || 0) + (F.armed ? dt : -dt) * 0.8, 0, 1)) };
+  return undefined;
 }
 
 // ── Split throttles ─────────────────────────────────────────────────────────
@@ -4190,12 +4205,8 @@ function fsimFrameBody(now) {
     // Surface deflection for the external model; touch auto-coordinates the rudder into the roll.
     ctrl: F.external ? { aileron: F.input.aileron, elevator: clampNum(F.input.elevator + (F.input.trim || 0), -1, 1), flaps: F.input.flaps, rudder: clampNum((F.input.pedal || 0) + (_touchPrimary ? 0.5 * F.input.aileron : 0), -1, 1) } : null,
     gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
-    // The Locust 2076's spray drones fly out on `spray` while she sprays and dock again after, about a
-    // second each way (mesh_locust_2076.json; the stock body has nothing on the channel).
-    // The Reaper 2076's two wingmen lift off the wing and fly in formation off the tips on `wingmen`
-    // while the weapons are armed, and come home when they're safed, a little over a second each way.
-    anim: F.dk ? drakeAnim(F.dk) : F.cls === 'locust' ? { spray: (F.droneOut = clampNum((F.droneOut || 0) + ((F.sprayT && performance.now() - F.sprayT < 1900) ? dt : -dt) * 1.1, 0, 1)) }
-      : F.cls === 'gunship' ? { wingmen: (F.wingmenOut = clampNum((F.wingmenOut || 0) + (F.armed ? dt : -dt) * 0.8, 0, 1)) } : undefined,
+    // A 2076 body's moving parts that ride the sim (classAnim): the Locust's drones, the Shrike's brakes.
+    anim: F.dk ? drakeAnim(F.dk) : classAnim(F, dt),
     drakeCab: F.dk ? { ...drakeAnim(F.dk), ramp: F.dk.ramp, nv: F.dk.nv, gunsArmed: F.armed, gear: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
       quack: !!F.dk.quackHeld || performance.now() - F.dk.quackT < 400, champagne: DK_CHAMPAGNE, quackP: F.dk.quackHeld ? Math.min(1, (performance.now() - F.dk.quackT) / QUACK_SQUEEZE_MS) : 0, ammo: F.gunRounds, convert: F.dk.conv, wingTarget: !!F.dk.wing,
       hover: F.dkHover || null, press: F.dkPress && performance.now() - F.dkPress.t < 220 ? F.dkPress.id : null,

@@ -221,6 +221,8 @@ export default async function leviathan() {
     id: 'heavy', kind: 'mesh',
     params: {
       name: 'Leviathan',
+      // CONCEPT: the 2076 edition is a different airframe (scripts/shapes/concepts/leviathan-2076.mjs).
+      variants: { 2076: 'heavy_2076' },
       note: 'An An-124 Ruslan with one deliberate difference: the flight deck is glazed into the cargo visor, so the crew ride the nose up when she opens. A swept high wing in anhedral, four big turbofans on pylons, the upper-deck crown, twenty main wheels in sponsons, a tall swept fin. The visor swings on the noseVisor channel by the fw_heavy row\'s own angle, and the hold and ramp exist only while it is open.',
       groundPitch: 0,
       hull: 'fuselage',
