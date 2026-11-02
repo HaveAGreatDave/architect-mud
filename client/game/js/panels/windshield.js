@@ -25495,7 +25495,8 @@ if (typeof window !== 'undefined') {
   if (window.__thermalDebugPending != null) { RENDER_TUNE.thermalDebug = window.__thermalDebugPending ? 1 : 0; delete window.__thermalDebugPending; }
   // Settings → Cel Shading (main.js `_applyCelShade`). The setting is applied at boot, before any
   // view has loaded this module, so it leaves its answer on window and it lands here.
-  if (window.__celShadePending != null) { RENDER_TUNE.glToon = RENDER_TUNE.glInk = window.__celShadePending ? 1 : 0; }
+  // It's the tune keys themselves (gl/house-style.js cityTuneFor); a bare boolean is an older main.js.
+  if (window.__celShadePending != null) { const t = window.__celShadePending; if (typeof t === 'object') Object.assign(RENDER_TUNE, t); else RENDER_TUNE.glToon = RENDER_TUNE.glInk = t ? 1 : 0; }
   // GLASS 1 as the plain fallback, which only the game asks for (main.js); see GLASS1_BASIC.
   if (window.__glass1BasicPending) RENDER_TUNE.glass1Basic = 1;
   // Settings → Renderer, the same way.

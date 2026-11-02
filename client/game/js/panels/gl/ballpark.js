@@ -44,6 +44,7 @@ import { BALL_R } from '../diamond/flight.js';
 import { ballGlowOn } from '../../../../shared/settings.js';
 import { SKIN_GLSL, createBonePalette } from './skin.js';
 import { CEL, CEL_TUNE, CEL_GLSL } from './cel-figure.js';
+import { inkOf } from './house-style.js';
 import { INK_FS } from './ink.js';
 import { bodyKey } from '../diamond/cast.js';
 // the view loads this module lazily and takes the cast from it, so the 2-D path never fetches it
@@ -2280,8 +2281,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniformMatrix4fv(SKINK.u('uVP'), false, M.viewProj);
         gl.uniform1i(SKINK.u('uBones'), 9);
         gl.uniform2f(SKINK.u('uRes'), w, h);
-        gl.uniform4f(SKINK.u('uInk'), CEL.inkFt, CEL.inkPx[0] * u, CEL.inkPx[1] * u, CEL.inkBias);
-        gl.uniform3fv(SKINK.u('uCol'), CEL.ink);
+        // the house style's line when the comic look is on (gl/house-style.js), else the park's own
+        const ink = inkOf({ ft: CEL.inkFt, px: CEL.inkPx, col: CEL.ink });
+        gl.uniform4f(SKINK.u('uInk'), ink.ft, ink.px[0] * u, ink.px[1] * u, CEL.inkBias);
+        gl.uniform3fv(SKINK.u('uCol'), ink.col);
         for (const m of shown) {
           const body = bodies.get(m.key);
           if (!body) continue;

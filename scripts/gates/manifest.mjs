@@ -117,6 +117,7 @@ export const GROUPS = [
       'scripts/shapes/glmirror.mjs',
       'scripts/shapes/atlasfit.mjs',
       'scripts/shapes/glmesh.mjs',
+      'scripts/shapes/house-style.mjs',   // the comic look's one switch: off changes nothing, on is the house numbers
       'scripts/shapes/elevation.mjs',
       'scripts/shapes/cliffrelief.mjs',
       'scripts/shapes/glmat.mjs',
