@@ -65,6 +65,11 @@ export const TRIMS = {
     { id: 'stock', label: 'Antonov An-124 · the original' },
     { id: '2076', label: 'Leviathan 2076 · concept' },
   ],
+  // CONCEPT: the Shrike 2076 is a different airframe (mesh_divebomber.json 'variants'), with its own cockpit.
+  divebomber: [
+    { id: 'stock', label: 'Ju 87 Stuka · the original' },
+    { id: '2076', label: 'Shrike 2076 · concept' },
+  ],
 };
 const TRIM_IDS = new Set(Object.values(TRIMS).flat().map(t => t.id));
 // The CABIN's factory trim, chosen apart from the exterior scheme: a special edition's cockpit can sit

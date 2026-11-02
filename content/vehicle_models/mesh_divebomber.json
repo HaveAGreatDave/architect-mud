@@ -4,6 +4,9 @@
   "params": {
     "name": "Shrike",
     "note": "A Junkers Ju 87 Stuka: a slab-sided fuselage behind an inline engine with its radiator slung under the chin, a long framed greenhouse for pilot and rear gunner, an inverted gull wing whose knees carry trousered fixed gear (with a siren on each leg), Junkers double-wing flaps and ailerons hung below the trailing edge, slatted dive brakes, a braced tailplane, and a big bomb on its swing crutch.",
+    "variants": {
+      "2076": "divebomber_2076"
+    },
     "groundPitch": 9,
     "navLamps": [0.04, 1.06, 0.0731],
     "hull": "fuselage",
