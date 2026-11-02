@@ -1,12 +1,13 @@
 // THE GATE FOR THE MULE 2076'S FLIGHT DECK (client/shared/interior-mule-2076.js).
 //
-// Four questions, each a way the cockpit can be wrong without anything throwing:
+// Five questions, each a way the cockpit can be wrong without anything throwing:
 //   (a) is it a room you can sit in and see out of, at rest and with every control at both stops;
 //   (b) is it the inside of the OUTSIDE: every vertex inside the hull's skin, and the exterior's
 //       compiled glass where the shared layout (cabin-mule-2076.js) says it is;
 //   (c) does every control and every display move: the geometry differs between the stops;
 //   (d) is every click control in the forward view, and does the forward view show every low
-//       control (sidestick, thrust levers, pedals, flaps) moving.
+//       control (sidestick, each bank's thrust lever, pedals, flaps) moving;
+//   (e) do the pages boot in turn when the power comes on.
 // `node scripts/shapes/cockpit-mule-2076.mjs`, exit 1 on failure.
 import { shellFaces, shellBounds, freezeFaces, shellProfileFor } from '../../client/shared/interior-shell.js';
 import { mule2076Profile } from '../../client/shared/interior-mule-2076.js';
@@ -139,12 +140,27 @@ roomChecks('all high', { ...REST, stickX: 1, stickY: 1, rudder: 1, throttle: 1, 
     return Math.abs(yaw) <= HALF_X && el >= PITCH - HALF_Y && el <= PITCH + HALF_Y;
   };
   for (const h of P.hotspots({ ...REST })) if (h.kind === 'click') ok(inView(h.p), h.id + ' is outside the forward view (' + h.p.map((v) => v.toFixed(2)).join(', ') + ')');
-  // The mirrors: faces up on the deck and the combiner (well forward of the pedestal and clear of the
-  // stick and the levers themselves) that change with each low control.
+  // The mirrors: faces up on the band and in the windscreen HUD (well forward of the pedestal and
+  // clear of the stick and the levers themselves) that change with each low control.
   const forward = (live) => shellFaces(P, live, { rich: true }).filter((f) => f.p.every(inView) && f.p.every((q) => q[1] > 0.62 && q[2] > -0.3));
   for (const [k, a, b] of [['stickX', -1, 1], ['stickY', -1, 1], ['throttle', 0, 1], ['rudder', -1, 1], ['flapNotch', 0, 3]]) {
     ok(Math.abs(sig(forward({ ...REST, powered: true, [k]: a })) - sig(forward({ ...REST, powered: true, [k]: b }))) > 1e-6, k + ': nothing in the forward view shows it moving');
   }
+  // Split, each bank's lever has its own mirror: left full and right idle is not the other way round.
+  ok(Math.abs(sig(forward({ ...REST, throttle: 0.5, throttles: [1, 0], split: true })) - sig(forward({ ...REST, throttle: 0.5, throttles: [0, 1], split: true }))) > 1e-6,
+    'throttles: the forward view does not tell one bank\'s lever from the other\'s');
+  // The HUD is projected into the windscreen: something lit straight ahead of the pilot, above the band.
+  const hud = (live) => shellFaces(P, live, { rich: true }).filter((f) => f.p.every((q) => q[1] > 0.6 && q[1] < 0.8 && q[2] > -0.12 && q[2] < 0.15 && Math.abs(q[0]) < 0.25));
+  ok(hud(REST).length > 50 && hud({ ...REST, powered: false }).length === 0, 'no windscreen HUD ahead of the pilot, or one that stays lit with the power off');
+}
+
+// ── (e) THE PAGES BOOT IN TURN ───────────────────────────────────────────────
+// cockpit.js sends powerAge, seconds since the power came on; a view that doesn't is long booted.
+{
+  const booting = shellFaces(P, { ...REST, powerAge: 0.2 }, { rich: true }), up = shellFaces(P, REST, { rich: true });
+  ok(booting.length < up.length && Math.abs(sig(booting) - sig(up)) > 1e-6, 'the pages do not boot: a fifth of a second after power on looks the same as long after');
+  // Counted, not hashed: the keys' glow eases on wall time, so two frames a moment apart differ by it.
+  ok(shellFaces(P, { ...REST, powerAge: 5 }, { rich: true }).length === up.length, 'five seconds after power on is not fully booted');
 }
 
 // ── (b) THE INSIDE IS THE INSIDE OF THE OUTSIDE ──────────────────────────────
