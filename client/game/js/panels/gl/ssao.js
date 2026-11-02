@@ -596,9 +596,19 @@ export function createDepthSSAO(gl) {
   if (!ao.depth || !ao.kernel) return null;
   const emptyVao = gl.createVertexArray();
   let W = 0, H = 0, raw = null, blurred = null;
+  // The comic look's lines (docs/proposals/comic-ink.md, step 4), the city's INK_FRAG over this
+  // depth: linked the first time they're asked for, at the depth's own size, two channels as the
+  // city's (r detail, g outline). A device that won't link it gets no lines and nothing else changes.
+  let inkProg, ik = null, inkT = null, IW = 0, IH = 0;
+  function inkProgram() {
+    if (inkProg !== undefined) return ik;
+    inkProg = link(gl, FULL_VERT, INK_FRAG);
+    ik = inkProg ? Object.fromEntries(['uDepth', 'uFxn', 'uFyn', 'uCy0', 'uA', 'uB', 'uTexel', 'uStep', 'uCrease', 'uSteep'].map((n) => [n, gl.getUniformLocation(inkProg, n)])) : null;
+    return ik;
+  }
   function dispose() {
-    for (const t of [raw, blurred]) if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); }
-    raw = blurred = null; W = H = 0;
+    for (const t of [raw, blurred, inkT]) if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); }
+    raw = blurred = inkT = null; W = H = IW = IH = 0;
   }
   function resize(w, h) {
     if (w === W && h === H && raw) return true;
@@ -642,7 +652,37 @@ export function createDepthSSAO(gl) {
     gl.bindTexture(gl.TEXTURE_2D, null);
     return blurred.tex;
   }
-  return { render, dispose, get size() { return [W, H]; } };
+  // The lines over `depthTex`, worked at w×h (the depth's own size: a line is a pixel wide) with the
+  // constants `k` (ssaoConstants). `step` is how far out an outline's taps sit, in texels, so about
+  // the line's width. Returns the two-channel texture, or null.
+  function ink(depthTex, w, h, k, { step = 1, crease = 0.6, steep = 4 } = {}) {
+    if (!depthTex || !inkProgram()) return null;
+    if (!(w === IW && h === IH && inkT)) {
+      if (inkT) { gl.deleteFramebuffer(inkT.fbo); gl.deleteTexture(inkT.tex); }
+      inkT = colorTarget(gl, w, h, true); IW = w; IH = h;
+      if (!inkT) { IW = IH = 0; return null; }
+    }
+    gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, inkT.fbo);
+    gl.viewport(0, 0, IW, IH);
+    gl.useProgram(inkProg);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, depthTex);
+    gl.uniform1i(ik.uDepth, 0);
+    gl.uniform1f(ik.uFxn, k.fxn); gl.uniform1f(ik.uFyn, k.fyn); gl.uniform1f(ik.uCy0, k.cy0);
+    gl.uniform1f(ik.uA, k.A); gl.uniform1f(ik.uB, k.B);
+    gl.uniform2f(ik.uTexel, 1 / IW, 1 / IH);
+    gl.uniform1f(ik.uStep, step); gl.uniform1f(ik.uCrease, crease); gl.uniform1f(ik.uSteep, steep);
+    gl.bindVertexArray(emptyVao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return inkT.tex;
+  }
+  return { render, ink, dispose, get size() { return [W, H]; } };
 }
 
 // The tap count stamped once, so the prewarm and the layer hand over the same source.

@@ -7,7 +7,7 @@
 //
 // No DOM, no GL, no files written.
 
-import { HOUSE, comicOn, inkOf, bandsOf, cityInkCol, cityTuneFor, figureLightOf } from '../../client/game/js/panels/gl/house-style.js';
+import { HOUSE, comicOn, inkOf, bandsOf, cityInkCol, cityTuneFor, figureLightOf, parkInkOf } from '../../client/game/js/panels/gl/house-style.js';
 import { readFileSync } from 'node:fs';
 
 let fails = 0;
@@ -31,6 +31,7 @@ check(bandsOf(3) === 3, 'off: a view keeps its own bands');
   check(fl.bands === 3 && same(fl.shade, [0.6, 0.62, 0.8]) && fl.comic === 0 && fl.weigh === 1, 'off: a figure keeps its bands and shade, no comic lines, an even line');
 }
 check(cityInkCol(own.col) === own.col, 'off: the city keeps its own ink colour');
+check(parkInkOf(1800) === null, 'off: no park lines, so no depth is kept for them');
 for (const [mode, on] of [['off', 0], [false, 0], [undefined, 0], ['nonsense', 0], ['on', 1], [true, 1]]) {
   const t = cityTuneFor(mode);
   check(t.glToon === on && t.glInk === on, `cityTuneFor(${String(mode)}): toon and ink ${on}`);
@@ -51,6 +52,11 @@ check(bandsOf(3) === HOUSE.bands, 'comic: the house bands');
   check(fl.bands === HOUSE.bands && same(fl.shade, HOUSE.shade) && fl.comic === 1 && fl.weigh === HOUSE.weigh && HOUSE.weigh > 1, 'comic: a figure gets the house bands and painted shade, the lines, and a weighted line');
 }
 check(same(cityInkCol(own.col), HOUSE.ink), 'comic: the city takes the house ink');
+{
+  const pk = parkInkOf(1800);
+  check(pk && pk.step === HOUSE.parkPx * 2 && parkInkOf(300).step === 1 && same(pk.col, HOUSE.parkInk), 'comic: park lines scaled to the picture, never under a texel');
+  check(pk.fade[1] < 0 && pk.fade[2] > 0 && pk.fade[3] > pk.fade[2], 'comic: the park keeps outlines and no detail lines (the field reads as creases)');
+}
 const t = cityTuneFor('comic');
 check(t.glToon === 1 && t.glInk === 1 && t.glToonBands === HOUSE.bands && t.glInkPx === HOUSE.cityPx, 'cityTuneFor(comic): the cel look on at the house numbers');
 delete globalThis.__houseComic;

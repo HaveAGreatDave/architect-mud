@@ -44,7 +44,7 @@ import { BALL_R } from '../diamond/flight.js';
 import { ballGlowOn } from '../../../../shared/settings.js';
 import { SKIN_GLSL, createBonePalette } from './skin.js';
 import { CEL, CEL_TUNE, CEL_GLSL } from './cel-figure.js';
-import { inkOf, figureLightOf, HOUSE, comicOn } from './house-style.js';
+import { inkOf, figureLightOf, HOUSE, comicOn, parkInkOf } from './house-style.js';
 import { createFaceAtlasFeed } from './face-atlas.js';
 import { INK_FS } from './ink.js';
 import { bodyKey } from '../diamond/cast.js';
@@ -2444,8 +2444,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.depthMask(true); gl.disable(gl.BLEND);
       gl.bindVertexArray(null);
 
-      // 3. the depth, out of the multisampled target before it's resolved
-      const D = (q.ao || q.dof > 0) ? depthTarget(w, h) : null;
+      // 3. the depth, out of the multisampled target before it's resolved; the comic look's lines
+      // need it too (parkInkOf, null without the look)
+      const pInk = parkInkOf(w);
+      const D = (q.ao || q.dof > 0 || pInk) ? depthTarget(w, h) : null;
       if (D) {
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, hdr.drawFbo);
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, D.fbo);
@@ -2461,11 +2463,16 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const aoDiv = q.ao === true ? 2 : Math.max(1, +q.ao || 2);
       const ao = D && q.ao && ssao ? ssao.render(D.tex, Math.max(1, Math.round(w / aoDiv)), Math.max(1, Math.round(h / aoDiv)), ssaoConstants(M.proj), { radius: 2.0, bias: 0.05, slope: 3 }) : null;
 
+      // 4b. the comic look's lines off the same depth (gl/ssao.js ink): the park, the stands, the
+      // crowd and its cards, and inside each player where one part steps in front of another
+      const inkTex = D && pInk && ssao ? ssao.ink(D.tex, w, h, ssaoConstants(M.proj), { step: pInk.step }) : null;
+
       // 5. the lens, the curve and the grade onto the canvas
       if (bc && bc.render({
         scene: res.scene, bloom: res.bloom, depth: D ? D.tex : null, ao, w, h, near: M.near, far: M.far,
         focus: Math.hypot(M.at[0] - M.eye[0], M.at[1] - M.eye[1], M.at[2] - M.eye[2]), dof: M.dof || 0, taps: q.dof,
         exposure: exposureOf(q), bloomK: q.bloom, aoK: q.aoK ?? 0.75, grade: q.grade, tube: q.tube, seed: 3.7, look: q.light !== 0 && q.light !== false,
+        ink: inkTex ? { tex: inkTex, fade: pInk.fade, col: pInk.col } : null,
       })) {
         stats.tris = Math.round(tris); stats.draws = draws + 2;
         stats.ms = (typeof performance !== 'undefined' ? performance.now() : 0) - t0;

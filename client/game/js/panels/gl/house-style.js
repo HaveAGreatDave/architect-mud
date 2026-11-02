@@ -31,6 +31,15 @@ export const HOUSE = Object.freeze({
   shade: Object.freeze([0.62, 0.52, 0.7]),   // a figure's unlit side: a painted warm violet, not a cool grey
   weigh: 1.7,                                // the line on a figure's side away from the light, times its width
   hatchFt: 0.07,                             // a figure's hatching: the gap between strokes, in feet of him
+  parkPx: 2,                                 // the park's screen-pass lines, px of a 900-wide picture
+  // ...where its lines fade, in feet: detail over the first two, outlines over the last two. The
+  // detail lines (gl/ssao.js INK_FRAG's r) are off in the park: with the field in the depth, which
+  // the city's never has, its one-texel taps read the grazing grass as creases in alternate rows,
+  // and the jersey's placket groove as a black stripe. The players get their inner contours from
+  // their own line, so only the outlines (g) are kept: the stands on the sky, the crowd and its
+  // cards, a man against the field.
+  parkFade: Object.freeze([-2, -1, 700, 1400]),
+  parkInk: Object.freeze([0.07, 0.06, 0.07]),      // ...in the encoded picture, so near black on screen
 });
 
 /** Whether the comic look is on. Read every frame, so the setting lands on the next one. */
@@ -49,6 +58,15 @@ export function inkOf(own) {
 export function figureLightOf(own) {
   if (!comicOn()) return { bands: own.bands, shade: own.shade, comic: 0, weigh: 1 };
   return { bands: HOUSE.bands, shade: HOUSE.shade, comic: 1, weigh: HOUSE.weigh };
+}
+
+/**
+ * The park's screen-pass lines (gl/ballpark.js, gl/broadcast.js) for a picture `w` device pixels
+ * wide: null unless the comic look is on, so off, nothing is drawn and no depth is kept for it.
+ */
+export function parkInkOf(w) {
+  if (!comicOn()) return null;
+  return { step: Math.max(1, HOUSE.parkPx * w / 900), fade: HOUSE.parkFade, col: HOUSE.parkInk };
 }
 
 /** A view's band count, where the view passes it as a uniform. */

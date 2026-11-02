@@ -1,8 +1,8 @@
 # Comic ink: the whole game in one comic-book style
 
-> **Status: steps 1-3 built (the house style, the inked faces and the players, behind Settings →
-> Cel Shading → Comic); steps 4-5 are design.** The look-dev prototype is a live page in Dave's
-> artifacts, "Deadball Comic Ink".
+> **Status: steps 1-4 built (the house style, the inked faces, the players and the park's lines,
+> behind Settings → Cel Shading → Comic); step 5 is design.** The look-dev prototype is a live
+> page in Dave's artifacts, "Deadball Comic Ink".
 
 ## Why
 
@@ -76,12 +76,11 @@ are one garment, so that line is wrong. The rule for both line layers:
 | Layer | Full | Laptop | Phone |
 |---|---|---|---|
 | Weighted hull | yes | yes | no |
-| Interior pass on the players | yes | yes | yes, at dpr 1 |
-| Park and crowd in the pass | yes | yes | no |
+| The park's screen-pass outlines | yes | yes | yes, at dpr 1 (unmeasured) |
 | Inked textures | yes | yes | yes |
 | Two tones and the edge line | yes | yes | yes |
-| Hatching | yes | yes | no |
-| Hi-def near level | yes | yes | no |
+| Hatching | yes | yes | yes (no tier gate yet) |
+| Hi-def near level | yes | yes | built, but the phone draws a level coarser (`detail: 1`) |
 
 On the phone the screen pass stands in for the hull; its depth edge against the field draws the
 silhouette too, at one width. Whether it's cheaper there is unmeasured, so the first build of step 4
@@ -94,8 +93,8 @@ logs both with `__glPassMs`.
    *Built.* See below.
 3. **The players:** weighted hull, inked kits, two tones with a painted shadow, hatching, the
    hi-def near level. *Built.* See below.
-4. **The park and the crowd** through ssao.js's line resolve on the park's depth; the card
-   shader's edge.
+4. **The park and the crowd** through ssao.js's line resolve on the park's depth. *Built.* See
+   below.
 5. **The switch defaults on**, tier by tier, once the park's governor
    ([diamond/quality.js](../../client/game/js/panels/diamond/quality.js)) holds its rungs.
 
@@ -185,3 +184,29 @@ plain again pixel for pixel.
 Left for later: the proportions (hands and gloves up 15%, a sleeve shell with its own hem, trousers
 bloused in the mesh rather than the texture), ink in the bat's and glove's textures, and the
 interior lines, which are step 4's screen pass.
+
+## Step 4, as built
+
+The park's picture gets the city's lines: `createDepthSSAO` in
+[gl/ssao.js](../../client/game/js/panels/gl/ssao.js) now has an `ink` method that runs the city's
+`INK_FRAG` over the depth the park already resolves (pass 3), and the lens in
+[gl/broadcast.js](../../client/game/js/panels/gl/broadcast.js) lays them over the encoded picture
+in near black before the grade. The numbers are `parkInkOf` in gl/house-style.js; without Comic
+it's null, so no line is drawn and no depth is kept for one.
+
+- **Outlines only.** The field is in this depth, and the city's never has the ground in it. The
+  detail channel's one-texel taps read the grazing grass as creases in alternate rows, and the
+  jersey's placket groove as a black stripe, at any fold angle. So the park's detail lines fade
+  out before they start, and only outlines are drawn: the stands and the bowl on the sky, a man
+  against the field, the fence. The players' inner contours (an arm across his chest) come from
+  their own line.
+- **The crowd needs nothing of its own.** The near fans are geometry, and the far fans' cards
+  discard outside the figure, so both are in the depth with their silhouettes, and the pass inks
+  them. The card-shader edge this doc planned isn't needed.
+- **Every tier**, the phone included. The phone has no occlusion, so on it Comic pays for the
+  depth blit as well as the pass, at its dpr of 1. It's the phone's only outline (its tier has no
+  hull), and it's unmeasured; the governor's numbers decide whether it stays.
+- **Only through the broadcast pass** (gl/broadcast.js). The plain-curve fallback the park uses
+  when that pass won't build draws no lines.
+- **Checked** in the Pose Lab: off, Comic, and off again pixel for pixel; the lens compiled and
+  linked in Chrome with its four new uniforms live. house-style.mjs gates `parkInkOf`.
