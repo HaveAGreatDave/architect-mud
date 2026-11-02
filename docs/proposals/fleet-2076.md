@@ -1,6 +1,6 @@
 # The 2076 fleet
 
-**Status: Dragonfly, Mule, Mayfly, Grasshopper, Locust, Leviathan, Shrike and Reaper 2076 built, bodies and cockpits to the 2076 bar (2026-11-02); the Viper, Drake and Carcass are design.** Every aircraft gets a 2076 body and a 2076 cockpit,
+**Status: Dragonfly, Mule, Mayfly, Grasshopper, Locust, Leviathan, Shrike and Reaper 2076 built, bodies and cockpits to the 2076 bar (2026-11-02); the Viper and Carcass are being built; the Drake is design.** Every aircraft gets a 2076 body and a 2076 cockpit,
 worn as its "2076" factory edition beside the vintage one. This file is the brief a build works
 from: the canon, the pattern to copy, the standard every build is held to, and the plan for each
 aircraft.
