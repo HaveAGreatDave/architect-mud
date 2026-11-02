@@ -1,0 +1,20 @@
+{
+  "blurb": "Concept. The Mayfly fifty years on: eight props on two wings, one seat under a bubble, the flight school's white and blue kept.",
+  "default": false,
+  "exterior": {
+    "base": "#eceef0",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#2456aa",
+    "variant": "2076"
+  },
+  "id": "2076",
+  "interior": {
+    "cabin": "#222830",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "ultralight",
+  "name": "Mayfly 2076",
+  "unlock": null
+}

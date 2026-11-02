@@ -6153,7 +6153,7 @@ function paintWindshieldFrame(id, view) {
     const rad = H * 0.62;
     const cowlTop = H - H * (COWL_DEPTH[v.cls] ?? COWL_DEPTH.default);
     drawCockpitProp(ctx, v.cls, { cx: W / 2, cy: cowlTop + rad * 0.16, rad,
-      spin: v.propPhase || 0, disc: v.propDisc || 0, spool: v.propSpin || 0 });
+      spin: v.propPhase || 0, disc: v.propDisc || 0, spool: v.propSpin || 0, variant: v.variant || '' });
   }
 
   // Canopy glass sheen — a soft diagonal reflection that slides a touch with bank.

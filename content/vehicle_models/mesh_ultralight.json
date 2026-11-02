@@ -4,6 +4,9 @@
   "params": {
     "name": "Mayfly",
     "note": "A Cessna 172: a tall boxy cabin under a high wing sat on its roof, a raked windscreen, long side windows, a semi-tapered wing skinned from real NACA-2412 ribs, spring-steel legs bowed out to spatted wheels, lift struts, a dorsal fillet and a modest swept fin. Reworked from the ported builder (buildCessna) for a closer 172 silhouette.",
+    "variants": {
+      "2076": "ultralight_2076"
+    },
     "groundPitch": 0,
     "navLamps": { "wing": "wing" },
     "hull": "fuselage",
