@@ -5,6 +5,9 @@
     "name": "Grasshopper",
     "note": "A Piper Cub: a narrow tandem cabin that is one run of glass plus a skylight, a flat-bottomed constant-chord wing carried above the cabin on struts, exposed cylinder heads, bungee taildragger gear and round tail feathers.",
     "portedFrom": "buildCub",
+    "variants": {
+      "2076": "grasshopper_2076"
+    },
     "groundPitch": 11,
     "navLamps": { "wing": "wing" },
     "hull": "fuselage",

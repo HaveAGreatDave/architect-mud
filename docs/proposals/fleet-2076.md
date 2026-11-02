@@ -1,8 +1,6 @@
 # The 2076 fleet
 
-**Status: Dragonfly 2076 built (body, and a cockpit to the 2076 bar, 2026-11-02); Mule 2076 body
-and cockpit built, its cockpit being brought up to the bar; the Mayfly and Grasshopper are being
-built; the rest is design.** Every aircraft gets a 2076 body and a 2076 cockpit,
+**Status: Dragonfly, Mule, Mayfly and Grasshopper 2076 built, bodies and cockpits to the 2076 bar (2026-11-02); the Locust is being built; the rest is design.** Every aircraft gets a 2076 body and a 2076 cockpit,
 worn as its "2076" factory edition beside the vintage one. This file is the brief a build works
 from: the canon, the pattern to copy, the standard every build is held to, and the plan for each
 aircraft.
@@ -76,9 +74,9 @@ gate, the liveries gate, the full gate run and `tests/regress.js`.
 | Aircraft | Class | Fuel | 2076 body | Cockpit notes |
 | --- | --- | --- | --- | --- |
 | Dragonfly | `heli` | charge | Built. Two-seat eight-rotor pod after the EHang EH216-S. | Built to the 2076 bar: the reference. |
-| Mule | `prop` | hydrogen | Built. Blown-lift freighter after the Electra EL9: eight wing props, a hydrogen power unit, T-tail, rear ramp. | Built; being brought up to the 2076 bar. Split throttles by bank. |
-| Mayfly | `ultralight` | charge | Being built. Single-seat tilting eVTOL after the BlackFly and Helix ultralights. | Status lamp reads NO COVER. |
-| Grasshopper | `grasshopper` | charge | Being built. Solar-electric tandem scout after the Airbus Zephyr, with a sensor ball. | Solar input from the hour, a sensor page. |
+| Mule | `prop` | hydrogen | Built. Blown-lift freighter after the Electra EL9: eight wing props, a hydrogen power unit, T-tail, rear ramp. | Built to the 2076 bar. Split throttles by bank, a hologram on the bank rpm, the manifest page. |
+| Mayfly | `ultralight` | charge | Built. Single-seat tandem-wing eVTOL after the BlackFly and Helix ultralights: eight props, a bubble pod. The tilt is drawn in cruise only; the class has no tilt channel. | Built to the 2076 bar. A NO COVER lamp, lit with the power. |
+| Grasshopper | `grasshopper` | charge | Built. Solar-electric tandem scout after the Airbus Zephyr: a celled wing on a pylon, a slender pod, a chin sensor ball. | Built to the 2076 bar: solar input from the hour and the weather, a sensor page, a hologram with a sunlit wing. |
 | Locust | `locust` | charge | Being built. Electric hopper mothership after the Pyka Pelican, spray drones docked on the wing. | Spray and drone pages; drones show deployed only while spraying. |
 | Drake | `drake` | hydrogen | Design. A printed-to-order air yacht; the duck is a vanity hull. Compound coaxial after the Sikorsky Raider. | Keep its luxury; it already has the richest cockpit, so refit rather than replace. |
 | Shrike | `divebomber` | jet | Design. Optionally crewed dive striker; the dive siren becomes a push alert to every tablet in the target zone. | Dive page; the alert's countdown. |

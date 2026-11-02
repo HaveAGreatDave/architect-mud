@@ -1,0 +1,20 @@
+{
+  "blurb": "Concept. The Grasshopper fifty years on: a pearl pod under a long wing of solar cells, the meadow green kept for the trim.",
+  "default": false,
+  "exterior": {
+    "base": "#dee4d8",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#5f8f3a",
+    "variant": "2076"
+  },
+  "id": "2076",
+  "interior": {
+    "cabin": "#26301c",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "grasshopper",
+  "name": "Grasshopper 2076",
+  "unlock": null
+}
