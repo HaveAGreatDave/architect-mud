@@ -123,6 +123,24 @@ roomChecks('all high', { ...REST, stickX: 1, stickY: 1, rudder: 1, throttle: 1, 
   ok(at(h0, 'throttle')[1] < at(h1, 'throttle')[1], 'the thrust lever hotspot does not go forward with the thrust');
 }
 
+// ── (d) EVERY CONTROL IN ONE FORWARD VIEW ────────────────────────────────────
+// The forward look is the eye pitched 12° down with an 85° lens on a 16:9 frame: about ±42° across
+// and ±26° up and down. Every click control must be inside it, and the low grabs (the sidestick and
+// the thrust lever) must have a mirror inside it that moves: the head-up combiner's symbols.
+{
+  const PITCH = -12, HALF_X = 42, HALF_Y = 26;
+  const inView = (p) => {
+    const yaw = Math.atan2(p[0], p[1]) * 180 / Math.PI, el = Math.atan2(p[2], Math.hypot(p[0], p[1])) * 180 / Math.PI;
+    return Math.abs(yaw) <= HALF_X && el >= PITCH - HALF_Y && el <= PITCH + HALF_Y;
+  };
+  for (const h of P.hotspots({ ...REST })) if (h.kind === 'click') ok(inView(h.p), h.id + ' is outside the forward view (' + h.p.map((v) => v.toFixed(2)).join(', ') + ')');
+  // The mirrors: the faces that change with the stick, the thrust and the pedals, inside the forward view.
+  const forward = (live) => shellFaces(P, live, { rich: true }).filter((f) => f.p.every(inView) && f.p.every((q) => q[1] > 0.3));
+  for (const [k, a, b] of [['stickX', -1, 1], ['stickY', -1, 1], ['throttle', 0, 1], ['rudder', -1, 1]]) {
+    ok(Math.abs(sig(forward({ ...REST, powered: true, [k]: a })) - sig(forward({ ...REST, powered: true, [k]: b }))) > 1e-6, k + ': nothing in the forward view shows it moving');
+  }
+}
+
 // ── (b) THE INSIDE IS THE INSIDE OF THE OUTSIDE ──────────────────────────────
 {
   const D = P.df76, m = P.mPerUnit;

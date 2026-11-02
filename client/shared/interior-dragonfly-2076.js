@@ -40,7 +40,7 @@
 //
 // Pure: no clock, no camera, no DOM. `live` arrives as an argument.
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, domeButton, facingPanel } from './interior-cockpit-kit.js';
+import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, facingPanel, eased, pressPulse, HALO } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { compileMesh } from './vehicle-mesh.js';
 import { CAB_STATIONS, CAB_GLASS, CAB_DOOR, CAB_INSIDE, EH216_LENGTH_M, cabSection, cabPoint, cabGlassAt } from './cabin-dragonfly-2076.js';
@@ -397,13 +397,16 @@ function leverAt(P, R) {
   const dir = [0, Math.sin(ang), Math.cos(ang)];
   return { pivot, end: add(pivot, mul(dir, LEVER.len)), dir, ang };
 }
-// The console's touch strip: power and the three lighting circuits the sim has.
+// ── ⚠ EVERY CONTROL IN ONE FORWARD VIEW ──────────────────────────────────────
+// The four keys the sim has (power and three lighting circuits) are on the dash, straight ahead of
+// the pilot under the attitude screen, so a forward look shows every one of them and its state. The
+// sidestick, the thrust lever and the pedals have to sit low, so each is mirrored on the head-up
+// combiner (see `hud`): the pilot sees what every hand and foot is doing without looking down.
 const BTN = { ids: ['master', 'land', 'panel', 'dome'], names: { master: 'PWR', land: 'LAND', panel: 'PANEL', dome: 'CABIN' } };
-function consoleStrip(K, P) {
-  const zF = P.df76.zF;
-  return K.panel([P.xCentre - 0.02, 0.30, zF + CONSOLE.top + 0.002], [1, 0, 0], [0, 1, 0], 'dash', 0.3);
+function keyPanel(K, P) {
+  return K.panel([0.15, P.dashY - 0.11, P.dashZ - 0.04], [1, 0, 0], [0, 0.6, 0.8], 'dash', 0.3);
 }
-const BTN_AT = (i) => [-0.045 + (i % 2) * 0.09, -0.045 + Math.floor(i / 2) * 0.075];
+const BTN_AT = (i) => [-0.105 + i * 0.07, 0];
 function switchOn(id, R) {
   if (id === 'master') return R.powered;
   if (id === 'land') return R.land;
@@ -413,12 +416,12 @@ function switchOn(id, R) {
 }
 
 // ── THE DISPLAY: one sheet of glass across the front, in panels square to the eye ──
-// Four screens along a gentle curve: the passenger's map, the energy and rotor page in the middle,
-// the pilot's attitude in front of the pilot. Each is its own panel so each faces the eye.
+// Four screens along a gentle curve: the rotor page in front of the passenger, the energy page, the
+// map, and the pilot's attitude in front of the pilot. Each is its own panel so each faces the eye.
 const SCREENS = [
-  { id: 'map', x: -0.80, w: 0.17 },
+  { id: 'rotors', x: -0.80, w: 0.17 },
   { id: 'energy', x: -0.52, w: 0.15 },
-  { id: 'rotors', x: -0.25, w: 0.15 },
+  { id: 'map', x: -0.25, w: 0.15 },     // the one screen you click (destinations): inside the forward view
   { id: 'pfd', x: 0.02, w: 0.17 },
 ];
 const SCREEN_H = 0.105;
@@ -429,12 +432,12 @@ function screenPanel(K, P, sc) {
 
 export function df76Hotspots(P, live) {
   const R = readings(live), K = makeKit(() => {}), out = [];
-  const Cs = consoleStrip(K, P);
-  BTN.ids.forEach((id, i) => { const [u, v] = BTN_AT(i); out.push({ id: 'ck:' + id, p: Cs.pt(u, v, 0.012), r: 0.03, kind: 'click' }); });
+  const Kp = keyPanel(K, P);
+  BTN.ids.forEach((id, i) => { const [u, v] = BTN_AT(i); out.push({ id: 'ck:' + id, p: Kp.pt(u, v, 0.01), r: 0.03, kind: 'click' }); });
   out.push({ id: 'yoke', p: add(stickAt(P, R).top, [0, 0, 0.04]), r: 0.06, kind: 'yoke' });
   const lv = leverAt(P, R);
   out.push({ id: 'throttle', p: add(lv.end, mul(lv.dir, 0.03)), r: 0.045, kind: 'throttle' });
-  const Pm = screenPanel(K, P, SCREENS[0]);
+  const Pm = screenPanel(K, P, SCREENS.find((sc) => sc.id === 'map'));
   out.push(gpsHotspot(Pm, 0, 0, 0.06));
   return out;
 }
@@ -524,7 +527,7 @@ export function df76Fit(P, live, push) {
 
   // ── THE STATUS STRIP under the screens: what the aircraft thinks of you ──
   {
-    const Sp = K.panel([xC - 0.05, dashY - 0.11, dz - 0.04], [1, 0, 0], [0, 0.6, 0.8], 'dash', 0.3);
+    const Sp = K.panel([xC - 0.13, dashY - 0.11, dz - 0.04], [1, 0, 0], [0, 0.6, 0.8], 'dash', 0.3);
     Sp.rect(-0.40, -0.022, 0.48, 0.022, T.bezel, 0, 0.001);
     const handsOn = lit && (Math.abs(R.ail) > 0.03 || Math.abs(R.elev) > 0.03 || Math.abs(R.rud) > 0.03);
     // ⚠ PILOT PRESENT IS THE RIDER'S LAMP: lit whenever the seat is powered and occupied, which is
@@ -536,19 +539,31 @@ export function df76Fit(P, live, push) {
     lamps.forEach(([name, on, rgb], i) => lensLamp(Sp, -0.34 + i * 0.175, 0, 0.16, 0.032, on, rgb, name));
   }
 
-  // ── THE CONSOLE between the seats: the thrust lever, the touch strip, a cup and a pocket ──
+  // ── THE KEYS: four lit caps on the dash in front of the pilot ──
+  // Feedback: a cap eases down while pressed and back up after, its light eases on and off with the
+  // circuit, and a ring flashes round it the moment its state changes.
+  {
+    const Kp = keyPanel(K, P);
+    Kp.rect(-0.145, -0.024, 0.145, 0.024, T.bezel, 0, 0.001);
+    BTN.ids.forEach((id, i) => {
+      const [u, v] = BTN_AT(i), on = switchOn(id, R), pressed = !!live && live.press === 'ck:' + id;
+      const rgb = id === 'master' ? C.green : T.glow;
+      const glow = eased('df76:glow:' + id, on ? 1 : 0, 10), depth = eased('df76:dip:' + id, pressed ? 0.003 : 0.009, 30);
+      Kp.rect(u - 0.031, v - 0.019, u + 0.031, v + 0.019, T.tub, 0, 0.0015);
+      Kp.stud(u, v, 0.028, 0.016, depth, rgb.map((c, k) => lerp([62, 68, 72][k], c, glow)), glow * 0.9, 0.0015);
+      Kp.fitText(BTN.names[id], u, v - 0.004, 0.05, 0.012, glow > 0.5 ? [10, 24, 22] : [214, 222, 220], glow > 0.5 ? 0 : (panel ? 0.6 : 0.25), depth + 0.0025);
+      const flash = pressPulse('df76:key:' + id, on);
+      if (flash > 0.02) Kp.annulus(u, v, 0.034, 0.038, HALO, flash, 0.004, 18);
+    });
+  }
+
+  // ── THE CONSOLE between the seats: the thrust lever, a cup and a pocket ──
   const cy0 = CONSOLE.y0, cy1 = CONSOLE.y1, ct = zF + CONSOLE.top;
   K.box(xC - CONSOLE.hw, cy0, zF, xC + CONSOLE.hw, cy1, ct, 'dash', -0.1, T.carbon);
   K.box(xC - CONSOLE.hw - 0.004, cy0, ct - 0.004, xC + CONSOLE.hw + 0.004, cy1, ct + 0.002, 'dash', 0.15, T.carbonLt);
   for (const s of [-1, 1]) K.box(xC + s * (CONSOLE.hw + 0.001) - 0.003, cy0 + 0.02, zF + 0.06, xC + s * (CONSOLE.hw + 0.001) + 0.003, cy1 - 0.02, zF + 0.075, 'dash', 0.2, T.glow, 0.85 * amb);
-  // The touch strip: four domed keys, each lit when its circuit is on.
-  const Cs = consoleStrip(K, P);
-  Cs.rect(-0.095, -0.085, 0.095, 0.04, T.screen, lit ? 0.3 : 0, 0.001);
-  BTN.ids.forEach((id, i) => {
-    const [u, v] = BTN_AT(i), on = switchOn(id, R);
-    domeButton(K, Cs, u, v, 0.012, 0.018, on ? (id === 'master' ? C.green : T.glow) : [70, 76, 80], on ? 0.9 : 0, (live && live.press) === 'ck:' + id);
-    Cs.fitText(BTN.names[id], u, v - 0.03, 0.07, 0.011, [214, 222, 220], panel ? 0.6 : 0.2, 0.002);
-  });
+  // The console's lid: a soft-touch pad with the drive mode lettered on it.
+  K.box(xC - 0.08, 0.16, ct + 0.002, xC + 0.08, 0.40, ct + 0.006, 'dash', 0.2, T.leatherDk);
   // The cup well and the phone pocket aft of the strip.
   K.rod([xC - 0.04, -0.12, ct - 0.08], [xC - 0.04, -0.12, ct + 0.001], 0.04, 'dash', -0.2, T.tub, 0, 14);
   K.box(xC + 0.01, -0.30, ct - 0.03, xC + 0.09, -0.18, ct + 0.001, 'dash', -0.25, T.tub);
@@ -727,7 +742,7 @@ function energyPage(Pn, R) {
 
 // ── THE MAP: the kit's moving map, with a range ring and the course line ──
 function mapPage(Pn, R, live) {
-  panelGps(Pn, 0, 0, 0.16, 0.098, live, { label: false, bezel: [8, 14, 16] });
+  panelGps(Pn, 0, 0, 0.14, 0.098, live, { label: false, bezel: [8, 14, 16] });
   Pn.text('NAV', -0.13, 0.088, 0.012, [160, 196, 190], 0.5, 0.009);
   const g = live && live.gpsTo;
   if (g && Number.isFinite(g.dist)) Pn.digits(0.06, 0.078, 0.014, String(Math.min(999, Math.round(g.dist))).padStart(3, ' '), T.glow, false);
@@ -762,6 +777,22 @@ function hud(K, P, R, lit) {
   Hp.rect(-0.026, -0.0011, -0.0105, 0.0011, G2, 1, 0.0025);
   Hp.rect(0.0105, -0.0011, 0.026, 0.0011, G2, 1, 0.0025);
   Hp.rect(-0.0011, 0.0105, 0.0011, 0.019, G2, 1, 0.0025);
+  // ── The hands and feet, mirrored: the sidestick's position in a box, the thrust as a caret up the
+  // left edge, the pedals as a marker along the bottom. Each moves the instant its control does.
+  const G3 = [90, 200, 170];
+  const sx = -0.082, sy = -0.058, sb = 0.018;
+  for (const [a0, b0, a1, b1] of [[sx - sb, sy - sb, sx + sb, sy - sb + 0.0012], [sx - sb, sy + sb - 0.0012, sx + sb, sy + sb], [sx - sb, sy - sb, sx - sb + 0.0012, sy + sb], [sx + sb - 0.0012, sy - sb, sx + sb, sy + sb]]) Hp.rect(a0, b0, a1, b1, G3, 0.8, 0.0022);
+  Hp.rect(sx - 0.0005, sy - sb, sx + 0.0005, sy + sb, G3, 0.4, 0.0022);
+  Hp.rect(sx - sb, sy - 0.0005, sx + sb, sy + 0.0005, G3, 0.4, 0.0022);
+  Hp.disc(sx + R.ail * (sb - 0.003), sy + R.elev * (sb - 0.003), 0.0032, G2, 1, 0.0028, 10);
+  const tx = -0.113, ty0 = -0.075, ty1 = 0.045;
+  Hp.rect(tx - 0.0008, ty0, tx + 0.0008, ty1, G3, 0.6, 0.0022);
+  const ty = lerp(ty0, ty1, R.thr);
+  Hp.plate([[tx + 0.002, ty], [tx + 0.009, ty - 0.004], [tx + 0.009, ty + 0.004]], G2, 1, 0.0028);
+  const py = -0.084;
+  Hp.rect(-0.045, py - 0.0008, 0.045, py + 0.0008, G3, 0.6, 0.0022);
+  Hp.rect(-0.0006, py - 0.004, 0.0006, py + 0.004, G3, 0.6, 0.0022);
+  Hp.rect(R.rud * 0.04 - 0.0025, py - 0.004, R.rud * 0.04 + 0.0025, py + 0.004, G2, 1, 0.0028);
   // Speed left, height right, heading top.
   Hp.digits(-0.105, -0.008, 0.013, String(Math.round(R.ias)).padStart(3, ' '), G2, false);
   Hp.digits(0.045, -0.008, 0.013, String(Math.round(R.alt)).padStart(5, ' '), G2, false);
