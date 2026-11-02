@@ -567,7 +567,7 @@ function paintTabHtml(c, cat, dirty) {
   let panel;
   if (pt === 'schemes') {
     const cards = [];
-    const specials = ((cat.trims || {})[c.class] || []);
+    const specials = ((cat.trims || {})[c.liveryModel || c.class] || (cat.trims || {})[c.class] || []);
     const special = (v) => specials.find(t => t.id === v && t.id !== 'stock' && /special/i.test(t.label));
     const star = '<span class="hb-look-star">★</span>';
     // A factory edition that a livery set wears gets that set's card and no card of its own, or the
@@ -1016,7 +1016,7 @@ function benchParts(c) {
     const lv = c.livery || {};
     const st = (c.sets || []).find(x => LOOK_KEYS.every(k => x.look[k] == null || lv[k] === x.look[k]) && (lv.variant || 'stock') === (x.look.variant || 'stock'));
     if (st) return st.name;
-    const sp = ((cat.trims || {})[c.class] || []).find(t => t.id === lv.variant && t.id !== 'stock');
+    const sp = ((cat.trims || {})[c.liveryModel || c.class] || (cat.trims || {})[c.class] || []).find(t => t.id === lv.variant && t.id !== 'stock');
     return sp ? sp.label.split(' · ')[0] : 'custom';
   })();
   const tuned = TUNE_KEYS.some(k => Math.abs((c.tune || {})[k] || 0) > 0.001);

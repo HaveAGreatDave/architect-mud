@@ -1709,7 +1709,7 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
       }
       spinDisc(ctx, projFn, at, r.U, r.V, r.r, sp, dsc, spl, parked, r.blades, r.lead, bladeFade);
     }
-  } else if (variantMeshFor(cls, variant)) {
+  } else if (bodyVariantFor(cls, variant, armed)) {
     // A body variant with no rotors of its own (the Shrike 2076 is a jet) spins nothing: the
     // class's nose prop below belongs to the airframe it replaced.
   } else if (cls === 'heli') {
@@ -1730,7 +1730,7 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
 // A class's mesh-file rotors, resolved, or null. Memoised on the row because this runs per contact per frame.
 const _rotorMemo = new WeakMap();
 export function rotorsFor(cls, armed = false, variant = '') {
-  const id = (!armedOverridesVariant(cls, armed) && variantMeshFor(cls, variant)) || meshIdFor(cls, armed);
+  const id = bodyVariantFor(cls, variant, armed) || meshIdFor(cls, armed);
   if (!id) return null;
   const row = meshRow(id);
   if (!_rotorMemo.has(row)) _rotorMemo.set(row, resolveRotors(row));
@@ -2097,7 +2097,7 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   if (_cache[key]) return _cache[key];
   // ⚠ The last arm is a silent fallback: an unknown class builds as a Twin Otter. Add a new class's arm here first.
   // An authored mesh answers first. A variant named in the mesh's `variants` is a different model; any other is a paint scheme.
-  const vmid = armedOverridesVariant(cls, armed) ? null : variantMeshFor(cls, variant);
+  const vmid = bodyVariantFor(cls, variant, armed);
   const mid = vmid || meshIdFor(cls, armed);
   const faces = mid ? compileMesh(meshRow(mid), { detail, scheme: vmid ? null : (variant || null) }).faces
     : cls === 'truck' ? buildTruck(variant || 'hauler', detail)
@@ -2146,6 +2146,14 @@ export function variantMeshFor(cls, variant) {
   if (_legacyMeshes || !variant) return null;
   const id = meshRow(cls)?.variants?.[variant];
   return id && meshRow(id) ? id : null;
+}
+// The body a variant draws, armed or not. An armed heli's variant is looked up on the armed mesh
+// (mesh_heli_armed.json `variants`), so the Viper's 2076 edition is the Viper 2076 and never the
+// Dragonfly's pod; every other class takes the variant off its own file, as before.
+export function bodyVariantFor(cls, variant, armed = false) {
+  if (!armedOverridesVariant(cls, armed)) return variantMeshFor(cls, variant);
+  const aid = meshIdFor(cls, true);
+  return aid ? variantMeshFor(aid, variant) : null;
 }
 export function meshParams(id) { return meshRow(id); }
 export function meshIds() { return [...new Set([...Object.keys(MESH_ROWS), ..._meshOverride.keys()])]; }
@@ -2205,7 +2213,7 @@ function meshNavLamp(cls) {
   return w ? wingTipStation(w) : undefined;
 }
 // Lamps a mesh file mounts on its skin: `{ at, n, rgb, kind }`, kind 'steady' | 'strobe' | 'beacon'. `n` lets the renderer hide far-side lamps.
-export function meshLamps(cls, variant = '') {
+export function meshLamps(cls, variant = '', armed = false) {
   // A boat publishes its lamps as it's built (BOAT_META); build only as a fallback.
   if (boatShape(cls)) {
     const m = BOAT_META.get(cls + ':1') || BOAT_META.get(cls + ':0');
@@ -2215,7 +2223,7 @@ export function meshLamps(cls, variant = '') {
     return m0 && m0.lamps && m0.lamps.length ? m0.lamps : null;
   }
   // A body variant mounts its own lamps (the 2076 Dragonfly's are on its arms, not a Mini-500's skin).
-  const id = variantMeshFor(cls, variant) || meshIdFor(cls, false);
+  const id = bodyVariantFor(cls, variant, armed) || meshIdFor(cls, false);
   const row = id && meshRow(id);
   return (row && Array.isArray(row.lamps) && row.lamps.length) ? row.lamps : null;
 }

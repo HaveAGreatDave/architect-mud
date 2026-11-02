@@ -35,7 +35,7 @@ export const TRIMS = {
     { id: 'quackhawk', label: 'Quackhawk Down · special edition' },
   ],
   // CONCEPT: the 2076 body is a different model, not a paint scheme (mesh_heli.json 'variants').
-  // The Viper keeps her own airframe whatever this says (aircraftFaces ignores a variant when armed).
+  // An armed heli reads `viper` below, not this (its livery model; aircraftLiveryModel).
   heli: [
     { id: 'stock', label: 'Mini-500 · the original' },
     { id: '2076', label: 'Dragonfly 2076 · concept' },
@@ -69,6 +69,12 @@ export const TRIMS = {
   divebomber: [
     { id: 'stock', label: 'Ju 87 Stuka · the original' },
     { id: '2076', label: 'Shrike 2076 · concept' },
+  ],
+  // CONCEPT: the armed heli's 2076 edition is the Viper 2076 (mesh_heli_armed.json 'variants'), with
+  // its own cockpit. Keyed on the livery model, as the armed heli's liveries are.
+  viper: [
+    { id: 'stock', label: 'Apache · the original' },
+    { id: '2076', label: 'Viper 2076 · concept' },
   ],
   // CONCEPT: the Reaper 2076 is a different airframe (mesh_gunship.json 'variants'), with its own cockpit.
   gunship: [

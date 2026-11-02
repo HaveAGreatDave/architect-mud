@@ -5,6 +5,7 @@
     "name": "Viper",
     "note": "An AH-64 Apache: a narrow flat-sided fuselage with the gunner ahead of and below the pilot under a stepped tandem canopy, the sensor turret on the nose and the chain gun under the chin, stub wings with rocket pods and missiles, T700 engine nacelles standing out from the upper fuselage with Black Hole exhaust suppressors, four-blade main and tail rotors with the tail rotor high on the left of the fin, a low stabilator, and trailing-arm main gear with a tailwheel.",
     "scale": 2,
+    "variants": { "2076": "heli_armed_2076" },
     "groundPitch": 7,
     "navLamps": null,
     "rotors": [
