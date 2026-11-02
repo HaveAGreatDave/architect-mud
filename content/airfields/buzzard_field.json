@@ -3,7 +3,7 @@
   "charter_vtol_only": false,
   "dealer": true,
   "fuels": [
-    "avgas",
+    "charge",
     "biofuel"
   ],
   "id": "buzzard_field",

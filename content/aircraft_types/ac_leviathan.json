@@ -9,7 +9,7 @@
   "engines": 4,
   "fuel_burn_base": 2.6,
   "fuel_capacity": 1760,
-  "fuel_type": "jet",
+  "fuel_type": "hydrogen",
   "handling": 3,
   "hardpoints": 0,
   "hull_hp": 55,

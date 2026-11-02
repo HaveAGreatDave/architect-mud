@@ -50,11 +50,25 @@ Flagged onto fitting zones (the `zones.flags.airfield_id` pattern):
 
 | Field | `airfield_id` | Ramp zone (x,y) | Services |
 |---|---|---|---|
-| Threshold Helipad | `af_helipad` | `zone_district_893_909` (893,909) | charter + rental · avgas/jet · **VTOL-only** |
+| Threshold Helipad | `af_helipad` | `zone_district_893_909` (893,909) | charter + rental · charge/hydrogen/jet · **VTOL-only** |
 | **Coldwater Regional** | `af_regional` | `zone_district_925_903` (925,903) | **dealer + charter + rental** · all fuels |
 | The Echelon — Helipad | `echelon_helipad` | `zone_echelon_exterior` (897,898) | charter only · VTOL-only |
 | Buzzard Field | `buzzard_field` | `zone_the_reach_870_1958` (910,986) | charter only · **lawless** · dust strip |
-| **Solenne Sky Pad** | `af_solenne` | `zone_district_914_908` (914,908) | **private** — residents only · avgas/jet · **VTOL-only** |
+| **Solenne Sky Pad** | `af_solenne` | `zone_district_914_908` (914,908) | **private** — residents only · charge/hydrogen/jet · **VTOL-only** |
+
+**Fuels (2026-11-01).** The fleet is 2070s equipment (docs/story.md), so it runs on 2070s fuel. The
+ids and the words the pumps use are in `client/shared/fuels.js`, read by the server and the hangar.
+
+| Fuel | Runs | Pumped at |
+|---|---|---|
+| `charge` (battery) | Mayfly, Grasshopper, Dragonfly, Locust | every Coldwater field, Buzzard Field, Scarlet Strip |
+| `hydrogen` | Mule, Drake, Leviathan | Threshold, Regional, Solenne, the Echelon |
+| `jet` | Reaper, Viper, Shrike | Threshold, Regional, Solenne, the Echelon |
+| `biofuel` | the Carcass | Regional, Buzzard Field, Scarlet Strip, both Terminus fields |
+
+Avgas is retired: nothing burns it, no field pumps it, and the cache of it in the world is a relic.
+A field still sells only what it can refuel (`acquirableTypes`), so Buzzard Field and Scarlet Strip
+sell the battery craft and nothing that needs hydrogen or jet fuel.
 
 **Private fields.** `airfields.residents_only = "<building name>"` makes a field the
 building's own: `fieldFor()` returns null for anyone who doesn't hold a unit there, so an
@@ -151,7 +165,7 @@ Only a rotorcraft, and only a tile that is both a field and a building — which
 and nothing else, so the three ground helipads are untouched by construction.
 
 Ten aircraft types (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
-Grasshopper · Locust · Viper · **Shrike**), three fuel types (avgas/jet/biofuel), four ground AA
+Grasshopper · Locust · Viper · **Shrike**), four fuel types (charge/hydrogen/jet/biofuel; avgas retired, see Fuels above), four ground AA
 sites (Redline SAM / wastes autocannon / Slagworks flak / Clone Vats guardian), a Core
 no-fly cluster, and one downed Carcass to salvage/rebuild. All of it is CODEX content
 (`content/aircraft_types/`, `content/aa_sites/`, `content/zones/`), not a seed script.

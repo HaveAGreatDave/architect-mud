@@ -3,7 +3,8 @@
   "charter_vtol_only": false,
   "dealer": true,
   "fuels": [
-    "avgas",
+    "charge",
+    "hydrogen",
     "jet",
     "biofuel"
   ],

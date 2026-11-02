@@ -8,6 +8,7 @@
 // coords. Flight is a `flying` posture tick loop; takeoff/landing are flown from the
 // continuous cockpit, not commanded. See state.js for the shared substrate.
 
+import { fuelName } from '../../client/shared/fuels.js';
 import { randomUUID } from 'crypto';
 import { cmdChampagne } from './champagne.js';
 import { query } from '../../server/models/db.js';
@@ -2266,7 +2267,7 @@ async function cmdFlightStatus(args, raw, player) {
   const lines = [
     `<span class="text-cyan">${live.type.name} "${a.name || live.type.name}": ${player.seat === 'passenger' ? 'PASSENGER' : a.airborne ? 'AIRBORNE' : 'on the ground'}</span>`,
     `Position: <b>${loc}</b> (${a.grid_x}, ${a.grid_y})` + (a.airborne ? ` · ALT ${BAND_LABEL[a.altitude_band] || a.altitude_band} · HDG <b>${String(deg).padStart(3, '0')}°</b> ${degToCardinal(deg).toUpperCase()} · ${Math.round(eff.cruise * (a.throttle / 100) * 84)}kt` : ''),
-    `Fuel: <b>${fuel}/${cap}</b> (${Math.round(fuel / cap * 100)}% ${live.type.fuel_type}) · Hull: <b>${Math.round((1 - a.damage) * 100)}%</b> · Throttle: ${a.throttle}%`,
+    `Fuel: <b>${fuel}/${cap}</b> (${Math.round(fuel / cap * 100)}% ${fuelName(live.type.fuel_type)}) · Hull: <b>${Math.round((1 - a.damage) * 100)}%</b> · Throttle: ${a.throttle}%`,
   ];
   if (eff.cargo) lines.push(`Cargo: ${eff.cargo}/${eff.maxTOW}kg${eff.overweight ? ' <span class="text-red">⚠ OVERWEIGHT</span>' : ''}`);
   if (live.type.hardpoints) {
@@ -2310,7 +2311,7 @@ function craftActionMenu(m, player) {
   const links = [`<span class="action-link" data-action="cmd" data-cmd="embark ${nm}">embark</span>`];
   if (owned) {
     const cap = Math.round(m.fuel_capacity || 1), pct = Math.max(0, Math.round((m.fuel || 0) / cap * 100));
-    links.push(`<span class="action-link" data-action="cmd" data-cmd="refuel ${nm}">refuel</span> <span class="text-dim">(${pct}% ${m.fuel_type})</span>`);
+    links.push(`<span class="action-link" data-action="cmd" data-cmd="refuel ${nm}">refuel</span> <span class="text-dim">(${pct}% ${fuelName(m.fuel_type)})</span>`);
     links.push(`<span class="action-link" data-action="cmd" data-cmd="hangar" title="hangar bay: maintenance">maintenance</span>`);
   }
   let out = `\n<span class="furniture-label">Actions:</span> ${links.join('   ·   ')}`;

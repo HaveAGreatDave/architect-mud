@@ -3,7 +3,8 @@
   "charter_vtol_only": false,
   "dealer": false,
   "fuels": [
-    "avgas"
+    "charge",
+    "biofuel"
   ],
   "id": "scarlet_strip",
   "lawless": true,
