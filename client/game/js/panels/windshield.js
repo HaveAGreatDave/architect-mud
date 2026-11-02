@@ -38140,7 +38140,8 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // brighter at night, dim by day. A big life-giver, especially at dusk. All of it runs off the
   // engine: `lights===false` (own ship, master cut) blacks the whole set out. Contacts leave it
   // undefined → lit as before. Landing/taxi lamps (`landing`) add a bright forward set on top.
-  if (c.cls !== 'wreck' && c.lights !== false) {
+  // A wreck carries no lights, unless its body is a variant that mounts its own (the Carcass 2076).
+  if ((c.cls !== 'wreck' || meshLamps(c.cls, c.variant || '')) && c.lights !== false) {
     const nb = clamp((sun ? sun.night : 0) * 0.7 + 0.34, 0.3, 1);
     const strobe = (now && Math.sin((now || 0) * 0.007 + (c.dx || 0) * 3) > 0.72) ? 1 : 0.1;
     const beac = 0.32 + 0.68 * Math.abs(Math.sin((now || 0) * 0.004 + (c.dy || 0)));

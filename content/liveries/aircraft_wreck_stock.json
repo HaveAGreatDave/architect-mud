@@ -1,0 +1,19 @@
+{
+  "blurb": "Three donors' paint: a grey cowl, a red cockpit section, a blue tail cone. Nobody chose it.",
+  "default": true,
+  "exterior": {
+    "base": "#767874",
+    "finish": "satin",
+    "pattern": "factory",
+    "trim": "#8e362a"
+  },
+  "id": "stock",
+  "interior": {
+    "cabin": "#5a6038",
+    "uphol": "standard"
+  },
+  "kind": "aircraft",
+  "model": "wreck",
+  "name": "As Found",
+  "unlock": null
+}
