@@ -45,6 +45,11 @@ export const TRIMS = {
     { id: 'stock', label: 'Twin Otter · the original' },
     { id: '2076', label: 'Mule 2076 · concept' },
   ],
+  // CONCEPT: the Mayfly 2076 is a different airframe (mesh_ultralight.json 'variants'), with its own cockpit.
+  ultralight: [
+    { id: 'stock', label: 'Cessna 172 · the original' },
+    { id: '2076', label: 'Mayfly 2076 · concept' },
+  ],
 };
 const TRIM_IDS = new Set(Object.values(TRIMS).flat().map(t => t.id));
 // The CABIN's factory trim, chosen apart from the exterior scheme: a special edition's cockpit can sit
