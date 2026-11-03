@@ -184,7 +184,7 @@ export const GROUPS = [
       'scripts/shapes/glsl-smoke.mjs',
       'scripts/shapes/glopts.mjs',
       'scripts/shapes/glstream.mjs',
-      'scripts/shapes/masscull.mjs',
+      { run: 'scripts/shapes/masscull.mjs', budget: 90, why: 'About 50 s of CPU alone, 79 to 80 s beside seven other gates (2026-11-03, two pre-push runs). It paints 120 frames through the real GL world pass and checks every triangle of every mass pass against its clip planes; no one function is over 10% of it, and a coarse floor saved about 6 s' },
       'scripts/shapes/duskbuild.mjs',
       'scripts/shapes/dprsize.mjs',
       'scripts/shapes/floorfallback.mjs',

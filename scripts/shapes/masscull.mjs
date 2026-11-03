@@ -14,6 +14,9 @@ import { openScene, PLACES } from '../perf/scene.mjs';
 
 const MASS_STRIDE = 25;
 const scene = await openScene({ record: false });
+// A coarse floor: under the stub the Mode-7 ground is a per-texel JS raster, and it draws nothing
+// from the mass buffer this gate checks.
+scene.ws.RENDER_TUNE.pixel = 16;
 
 let vao = null, ab = null, prog = null;
 const vaoBuf = new Map(), mirrors = new Map(), strideOf = new Map(), uni = new Map();
