@@ -69,6 +69,26 @@ export function parkInkOf(w) {
   return { step: Math.max(1, HOUSE.parkPx * w / 900), fade: HOUSE.parkFade, col: HOUSE.parkInk };
 }
 
+/**
+ * The vehicles' light (gl/solids.js, docs/proposals/vehicle-comic.md V1): `comic` 0 unless the comic
+ * look is on, and then the figures' painted shade for their shadow side. Off, a vehicle draws with
+ * its own light, and the shade isn't read.
+ */
+export function vehicleLightOf() {
+  return { comic: comicOn() ? 1 : 0, shade: HOUSE.shade };
+}
+
+/**
+ * The own ship's edge lines (gl/vehicle-ink.js, V2) for a target `w` device pixels wide: null unless
+ * the comic look is on. The outline at the city's width, the creases and part lines at half, never
+ * under a pixel, and the figures' weight on the side away from the sun.
+ */
+export function vehicleInkOf(w) {
+  if (!comicOn()) return null;
+  const k = w / 900;
+  return { sil: Math.max(1, HOUSE.cityPx * k), detail: Math.max(1, HOUSE.cityPx * 0.5 * k), weigh: HOUSE.weigh, col: HOUSE.ink };
+}
+
 /** A view's band count, where the view passes it as a uniform. */
 export const bandsOf = (own) => (comicOn() ? HOUSE.bands : own);
 

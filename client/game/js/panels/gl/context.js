@@ -13,6 +13,8 @@ import { createStrokeLayer } from './strokes.js';
 import { createBillboardLayer } from './billboards.js';
 import { createGroundLayer } from './ground.js';
 import { createSolidsLayer } from './solids.js';
+import { createVehicleInkLayer } from './vehicle-ink.js';
+import { comicOn } from './house-style.js';
 import { createFaunaLayer } from './fauna.js';
 import { createActorLayer } from './actors.js';
 import { createClothLayer } from './cloth.js';
@@ -2490,8 +2492,15 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // faces re-upload. `ship` is the normal matrix and sun term (solids.js).
   let shpOwn = null, ownQuads = 0;
   const ownLayer = () => (shpOwn || (shpOwn = createSolidsLayer(gl)));
+  // The comic look's lines on the own ship (gl/vehicle-ink.js), only while it's on. ⚠ A failed
+  // compile turns the lines off for this context rather than taking GLASS 2 down with it.
+  let shpInk = null, inkDead = false;
   function uploadShip(list, model, ship) {
     ownQuads = list && list.length && model ? ownLayer().upload(list, model, null, null, ship) : 0;
+    if (!inkDead && comicOn()) {
+      try { (shpInk || (shpInk = createVehicleInkLayer(gl))).upload(ownQuads ? list : null, model, ship); }
+      catch (e) { inkDead = true; console.warn('vehicle ink off:', e.message); }
+    }
     return ownQuads;
   }
   function drawSolids(cam, cssH, opts) {
@@ -2505,6 +2514,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     opts.ink = opts.noInk ? null : inkFrame;
     if (solidQuads) n += solidsLayer().draw(cam, cssH || canvas.height, opts || {});
     if (ownQuads) n += ownLayer().draw(cam, cssH || canvas.height, opts || {});
+    // Its lines after it, in the main pass only: the mirror passes noInk, and the toon switch is off there.
+    if (ownQuads && shpInk && !inkDead && !opts.noInk && opts.toon > 0) shpInk.draw(cam, cssH || canvas.height, opts);
     if (faunaInst) faunaLayer().draw(cam, cssH || canvas.height, opts || {});
     if (clothInst) clothLayer().draw(cam, cssH || canvas.height, { ...opts, ink: opts.noInk ? null : inkFrame });
     // People only for the mirror; the main pass draws them after the ground (drawActors).

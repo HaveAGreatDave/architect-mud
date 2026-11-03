@@ -23,6 +23,8 @@ import { declareProgram, layerProgram, compileShader } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
 import { TOON_GLSL, TOON_INK_GLSL, TOON_INK_UNIFORMS, bindToonInk } from './toon.js';
+import { COMIC, COMIC_LIGHT_GLSL } from './comic-light.js';
+import { vehicleLightOf } from './house-style.js';
 
 const INK_UNIT = 27;   // the ink lines' texture (gl/toon.js); clear of the cabin's 6 and 7 and the light grid's 8..10
 const SHIP_LIGHT_DEFAULT = [0.55, 0.95, 0.45];   // windshield.js shipLightOf
@@ -194,6 +196,13 @@ uniform float uWLFocus;
 // ⚠ toonBands only behind the uToon branch (toon.js).
 ${TOON_GLSL}
 ${TOON_INK_GLSL}
+// The comic look on the vehicles (gl/house-style.js vehicleLightOf): two tones off the figures'
+// terminator, the shadow tinted toward the painted shade and shaped by its core and bounce
+// (gl/comic-light.js), and a hard glint. 0 unless the comic look and the toon switch are both on,
+// so 'on' and off draw as they did. Bound on every draw (see draw), so the cabin and the mirror get 0.
+uniform float uVComic;
+uniform vec3 uVShade;
+${COMIC_LIGHT_GLSL}
 out vec4 outColor;
 // ── THE CAUSTIC NET, AS REAL ONES BEHAVE ──────────────────────────────────────────────────────
 // Bright lines where drifting ripples cross zero, anchored in the WORLD so on a moving hull they slide
@@ -720,18 +729,32 @@ void main() {
   // side round a curve; with no sun it is an even 0.82. See shipLightOf in windshield.js.
   if (uLmOn > 0.5 && dot(vN, vN) > 0.01) {
     float nl = dot(normalize(vN), uLmSun), d = max(0.0, nl), wv = (nl * 0.5 + 0.5) * (nl * 0.5 + 0.5);
-    // The cel look bands the ship's key, both its hard-sun and its wrapped curve, as the walls band theirs.
-    if (uToon > 0.0) { d = mix(d, toonBands(d, uToonBands), uToon); wv = mix(wv, toonBands(wv, uToonBands), uToon); }
-    c *= mix(0.82, uLmL.x, uLmK) + uLmL.y * mix(d, wv, uLmL.z) * uLmK;
+    float lmFloor = mix(0.82, uLmL.x, uLmK);
+    if (uVComic > 0.5) {
+      // Comic: the lit side at the key's lit share, the shadow at the shade floor, tinted as far as
+      // the sun is strong (no sun, no shadow to paint).
+      vec3 sh = mix(vec3(1.0), uVShade, ${COMIC.tint.toFixed(2)} * uLmK) * lmFloor * comicShadeK(nl);
+      c *= mix(sh, vec3(lmFloor + uLmL.y * uLmK * ${COMIC.lit.toFixed(2)}), comicStep(nl));
+    } else {
+      // The cel look bands the ship's key, both its hard-sun and its wrapped curve, as the walls band theirs.
+      if (uToon > 0.0) { d = mix(d, toonBands(d, uToonBands), uToon); wv = mix(wv, toonBands(wv, uToonBands), uToon); }
+      c *= lmFloor + uLmL.y * mix(d, wv, uLmL.z) * uLmK;
+    }
   } else if (uToon > 0.0 && uSunK > 0.0 && dot(vN, vN) > 0.01 && vTex != 10 && !mk) {
     // Every other vehicle's light is baked on the CPU ('rv'), smooth. The cel look swaps that smooth
     // key for a banded one: the face is divided by the walls' shade ramp at its own n.sun and
     // multiplied by the same ramp at the banded value, so a lit side and a shade side read as two tones.
     vec3 na = normalize(vN);
     if (dot(na, uEye - vPos) < 0.0) na = -na;
-    float d = max(0.0, dot(na, uSun));
-    float ramp = mix(TOON_SHADE, 1.0, toonBands(d, uToonBands)) / mix(TOON_SHADE, 1.0, d);
-    c *= mix(1.0, ramp, uToon);
+    float nd = dot(na, uSun), d = max(0.0, nd);
+    if (uVComic > 0.5) {
+      // Comic: the same division gives the paint back, and the comic light puts it in two tones.
+      vec3 sh = mix(vec3(1.0), uVShade, ${COMIC.tint.toFixed(2)} * min(uSunK, 1.0)) * TOON_SHADE * comicShadeK(nd);
+      c = c / mix(TOON_SHADE, 1.0, d) * mix(sh, vec3(1.0), comicStep(nd));
+    } else {
+      float ramp = mix(TOON_SHADE, 1.0, toonBands(d, uToonBands)) / mix(TOON_SHADE, 1.0, d);
+      c *= mix(1.0, ramp, uToon);
+    }
   }
   if (dot(vN, vN) > 0.01 && vMetal <= 0.0 && !mk) {
     vec3 na = normalize(vN);
@@ -806,6 +829,9 @@ void main() {
 #ifndef CABIN
     if (mtl < 0.0 && !flatPlate) glint += coatGloss(mtl) * uSunK * (pow(sd, 6.0) * 0.2 + pow(sd, 40.0) * 0.6 + core * 0.6);
 #endif
+    // Comic: a hard white shape where the highlight is bright, and nothing round it. A fixed edge,
+    // not fwidth: this branch is per face (vMetal), not uniform.
+    if (uVComic > 0.5) glint = smoothstep(0.16, 0.2, glint);
     c = mix(c, gc, clamp(glint, 0.0, 0.95));
   }
   // ── THE CITY'S LIGHTS ON A SOLID ───────────────────────────────────────────
@@ -1419,8 +1445,12 @@ export function createSolidsLayer(gl, opt = {}) {
     gl.uniform1f(loc.wlWrap, opts.lightWrap || 0);
     gl.uniform1f(loc.wlFocus, opts.lightFocus || 2);
     // The cel look and the main pass's ink (gl/toon.js), bound on every draw, on or off.
-    if (!tiLoc) { tiLoc = {}; for (const u of TOON_INK_UNIFORMS) tiLoc[u] = gl.getUniformLocation(prog, u); }
+    if (!tiLoc) { tiLoc = {}; for (const u of [...TOON_INK_UNIFORMS, 'uVComic', 'uVShade']) tiLoc[u] = gl.getUniformLocation(prog, u); }
     bindToonInk(gl, tiLoc, INK_UNIT, opts, opts.depthOnly ? null : opts.ink);
+    // The comic look rides on the toon switch, so a draw without it (the cabin, the mirror) gets none.
+    const VL = vehicleLightOf();
+    gl.uniform1f(tiLoc.uVComic, opts.toon > 0 && !opts.depthOnly ? VL.comic : 0);
+    gl.uniform3f(tiLoc.uVShade, VL.shade[0], VL.shade[1], VL.shade[2]);
     // ⚠ DEPTH-WRITE ON. This is a solid object: it has to hide what is behind it and be hidden by
     // what is in front, which is the whole point of moving it here. Off for film, and put back.
     gl.enable(gl.DEPTH_TEST);

@@ -37983,7 +37983,9 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
         const rc = face.cen || [0, 0, 0];
         const qx = (p0[0] + p1[0] + p2[0]) / 3 - rc[0], qy = (p0[1] + p1[1] + p2[1]) / 3 - rc[1], qz = (p0[2] + p1[2] + p2[2]) / 3 - rc[2];
         if (lx * qx + ly * qy + lz * qz < 0) { lx = -lx; ly = -ly; lz = -lz; }
-        rec = { p: wv.map((v) => [v[0] + ox, v[1] + oy, v[2]]), mp: dp, rgb: [r0, g0, b0], a,
+        // `src` is the mesh's own face, which the comic look's edge lines read its part and role
+        // from (gl/vehicle-ink.js): stable frame to frame, where `face` may be a hinged copy.
+        rec = { p: wv.map((v) => [v[0] + ox, v[1] + oy, v[2]]), mp: dp, src: srcFace, rgb: [r0, g0, b0], a,
           ...(m ? { m, n: [lx, ly, lz] } : haveN ? { amb: true, n: [lx, ly, lz] } : null),
           ...faceTexRec(face, srcFace, m, dp, c.cls) };
         SHIP_REC.set(srcFace, { rec, lp: dp, r: r0, g: g0, b: b0, a, m, cls: c.cls });
