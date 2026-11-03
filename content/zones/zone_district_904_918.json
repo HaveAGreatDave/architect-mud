@@ -4,7 +4,7 @@
   "description": "A stretch with nothing on either side of it: the plant yard fence to the north, the verge and the wall to the south. The most exposed hundred yards in the quarter.",
   "exits": {
     "east": "zone_district_905_918",
-    "south": "zone_district_904_919",
+    "south": "zone_district_896_917",
     "west": "zone_district_903_918"
   },
   "flags": {

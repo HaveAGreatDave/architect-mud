@@ -4,7 +4,9 @@
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
   "description": "The south-west corner of the Hughson Coliseum, a stepped limestone light tower over the third-base end.",
-  "exits": {},
+  "exits": {
+    "west": "zone_district_898_920"
+  },
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",
     "building_type": "ballpark_sw",

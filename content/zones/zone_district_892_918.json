@@ -4,6 +4,7 @@
   "description": "The west end, stopped a car length short of the Curtain by a line of concrete blocks. The light off the wall lies along the road here even at noon and makes the stone look wet.",
   "exits": {
     "east": "zone_district_893_918",
+    "north": "zone_district_901_919",
     "south": "zone_district_892_919",
     "west": "zone_district_891_918"
   },

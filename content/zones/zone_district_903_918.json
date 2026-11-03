@@ -4,7 +4,6 @@
   "description": "The lane passes the cooling plant and the temperature drops a few degrees for the length of it. In cold weather the air over this stretch shimmers.",
   "exits": {
     "east": "zone_district_904_918",
-    "south": "zone_district_903_919",
     "west": "zone_district_902_918"
   },
   "flags": {

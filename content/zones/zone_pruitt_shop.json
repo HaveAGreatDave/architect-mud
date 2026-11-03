@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "The roasting drum turns in the window, its copper gone dark at the bottom. Vetch Mews is outside, and the side of the Coliseum.",
+      "description": "The roasting drum turns in the window, its copper gone dark at the bottom. Kettle Lane is outside, and across it the Coliseum's east wall.",
       "light": 0.6,
       "name": "the shop window",
       "visibility": 0.6

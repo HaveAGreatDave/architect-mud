@@ -6,7 +6,7 @@
   "description": "The shortest of the three towers, and the only one full, let cheap to the builders working the estate. Boots outside doors, washing on two of the collars. A hand-painted board by the entrance lists four trades and a telephone number that isn't the estate's.",
   "exits": {
     "north": "zone_hf_relief_lobby",
-    "south": "zone_district_892_916"
+    "south": "zone_district_904_921"
   },
   "flags": {
     "building_name": "1 Kerbstone Row",
@@ -17,10 +17,10 @@
     "floors": 13,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_892_916"
+    "world_exit_zone": "zone_district_904_921"
   },
-  "grid_x": 892,
-  "grid_y": 915,
+  "grid_x": 904,
+  "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_892_915",
   "map_id": "map_world",

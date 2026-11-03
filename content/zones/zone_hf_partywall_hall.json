@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Onto Kerbstone Row, with the Curtain closing the view about thirty metres to the west. At this end of the street the wall is close enough that the light in here is grey until about two in the afternoon and then very briefly is not.",
+      "description": "Onto Windrow Lane. The west side has no window at all, because the building was drawn for a plot against the Curtain, so the light in here is grey until about two in the afternoon and then very briefly is not.",
       "light": 0.55,
       "name": "the row glazing",
       "visibility": 0.8

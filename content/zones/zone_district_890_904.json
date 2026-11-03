@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open meadow at the edge of the estate, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
+  "ambient_theme": "city",
+  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
   "exits": {
-    "east": "zone_district_891_904",
-    "north": "zone_district_890_903",
-    "south": "zone_district_890_905",
-    "west": "zone_district_889_904"
+    "east": "zone_district_894_909",
+    "south": "zone_district_893_910",
+    "west": "zone_district_887_908"
   },
   "flags": {
-    "district": "halcyon_fields",
+    "district": "glasshouse",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
-  "grid_x": 890,
-  "grid_y": 904,
+  "grid_x": 893,
+  "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_890_904",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Halcyon Boulevard",
   "parent_zone": null
 }

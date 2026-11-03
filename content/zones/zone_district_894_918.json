@@ -4,6 +4,7 @@
   "description": "A bin store gate stands open onto the lane, chocked with a brick, chrome-fronted and full. Whatever the estate pays for collections it is not paying for enough of them.",
   "exits": {
     "east": "zone_district_895_918",
+    "north": "zone_district_902_919",
     "south": "zone_district_894_919",
     "west": "zone_district_893_918"
   },

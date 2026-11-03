@@ -4,6 +4,7 @@
   "description": "The middle of Sorrel Way, under the Hughson Coliseum's south wall: limestone fins and lit windows along the north side, and the estate's chrome along the south. Ticket stubs collect in the gutter.",
   "exits": {
     "east": "zone_district_897_914",
+    "south": "zone_district_902_920",
     "west": "zone_district_895_914"
   },
   "flags": {

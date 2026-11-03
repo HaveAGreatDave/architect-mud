@@ -6,7 +6,7 @@
   "description": "A glass dome on a chrome ring, two storeys at the crown and wider than it is tall, which in this quarter makes it look like something that landed rather than something that was built. Inside is planting, a gravel path round the inside of the ring and two benches. It is free, it is always open, and it is the only building in Halcyon Fields where nobody will sell you anything.",
   "exits": {
     "north": "zone_hf_leaf_under",
-    "south": "zone_district_894_916"
+    "south": "zone_district_900_921"
   },
   "flags": {
     "building_name": "Halcyon Pavilion",
@@ -17,10 +17,10 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_894_916"
+    "world_exit_zone": "zone_district_900_921"
   },
-  "grid_x": 894,
-  "grid_y": 915,
+  "grid_x": 900,
+  "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_894_915",
   "map_id": "map_world",

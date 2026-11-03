@@ -1,24 +1,25 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Long grass, gone to seed. A Halcyon board on two posts says the plot is sold, and a sticker under it says it's sold again.",
+  "ambient_theme": "city",
+  "description": "A short cul-de-sac off the boulevard, block-paved and swept. The houses that stood on the old mews were moved here whole, numbers and all.",
   "exits": {
     "east": "zone_district_890_906",
     "north": "zone_district_889_905",
     "south": "zone_district_889_907",
-    "west": "zone_district_888_906"
+    "west": "zone_district_892_913"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 889,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_889_906",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Vetch Mews",
   "parent_zone": null
 }

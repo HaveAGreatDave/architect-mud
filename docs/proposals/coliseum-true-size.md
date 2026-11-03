@@ -1,9 +1,10 @@
 # The Coliseum at true size
 
-> **Status: phase 1 built (the ground, 2026-11-02); phases 2-4 are design.** The Curtain runs down
-> the river bank and along y 923, and the South Gate and the Glacis moved four rows south with it
-> ([scripts/content/coliseum-ground.mjs](../../scripts/content/coliseum-ground.mjs)). The park is
-> still nine tiles, and [hughson-coliseum.md](hughson-coliseum.md) describes it as it stands.
+> **Status: phases 1-2 built (the ground and the re-siting, 2026-11-02); phases 3-4 are design.**
+> The Curtain runs down the river bank and along y 923, and the South Gate and the Glacis moved four
+> rows south with it ([scripts/content/coliseum-ground.mjs](../../scripts/content/coliseum-ground.mjs)).
+> The 23 buildings and the Helipad are on their new plots ([Where each one went](#where-each-one-went)).
+> The park is still nine tiles, and [hughson-coliseum.md](hughson-coliseum.md) describes it as it stands.
 
 ## The decision
 
@@ -108,6 +109,33 @@ deleted:
 
 Each moves with its zone, its furniture, its NPCs' homes and its keepers' vendor graph, and its
 `flags.set_aside_from` records where it stood.
+
+### Where each one went
+
+As built (2026-11-02, [scripts/content/coliseum-resite.mjs](../../scripts/content/coliseum-resite.mjs)),
+none of them went by way of `map_set_aside`: each moved straight to its new plot and kept its id,
+so it carries no `set_aside_from`, and this table is the record. Each kept its entrance too, because
+a hall's other exits collide with a door turned round, so each plot has a street on its door's side.
+The meadow tile on each plot moved into the square in its place, for phase 3 to set aside with the
+rest of the block.
+
+| Building | Was | Now | Door onto |
+|---|---|---|---|
+| 1, 7, 9, 11 Halcyon Boulevard | 892, 895, 896, 897 on y 909 | 887, 888, 890, 891 on y 908 | Halcyon Boulevard, south |
+| 5 Vetch Mews, 7 Vetch Mews, 1 Sorrel Way | 892,913, 892,912, 892,914 | 888,906, 888,905, 888,904 | the new Vetch Mews (x 889), east; 7 is sealed |
+| Helipad (`af_helipad`) | 893,909 | 890,904 | open ground on Vetch Mews |
+| Halcyon West Halt, Coldwater Recital Hall, 4 Sorrel Way, 2 Halcyon Boulevard | 893,917, 893,911, 895,915, 892,911 | 888, 890, 892, 894 on y 922 | Sorrel Way, north |
+| Fitz's Franks | 894,911 | 896,922 | Sorrel Way, north, across from the main gate |
+| Kimble's Souvenirs & Cards | 894,913 | 898,920 | Sorrel Way, south, beside the main gate |
+| Pruitt's Peanuts & Pretzels | 894,912 | 900,919 | Kettle Lane, west |
+| 2, 6, 8, 10, 12 Kerbstone Row | 892, 894, 895, 896, 897 on y 917 | 901 to 905 on y 919 | Windrow Lane, north; 8 is sealed |
+| Halcyon Pavilion, The Winter Garden, 1 Kerbstone Row, 15 Kerbstone Row | 894,915, 896,915, 892,915, 897,915 | 900, 902, 904, 906 on y 920 | Sorrel Way, south |
+
+The addresses didn't change, so the Kerbstone Row houses stand on Windrow Lane and 2 Halcyon
+Boulevard on Sorrel Way. Their room prose was rewritten for what's outside the windows now. A
+parked aircraft keeps its own grid, so
+[repark-moved-pad-aircraft.mjs](../../scripts/oneshots/repark-moved-pad-aircraft.mjs) (in
+`oneshots.bat`) stands anything parked on the Helipad on its new tile.
 
 ## The building: the Hughson Dome
 

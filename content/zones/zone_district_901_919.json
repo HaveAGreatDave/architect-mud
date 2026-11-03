@@ -4,18 +4,18 @@
   "color": "#8ba36a",
   "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
-    "east": "zone_district_902_919",
-    "north": "zone_district_901_918",
-    "south": "zone_district_901_920",
-    "west": "zone_district_900_919"
+    "east": "zone_district_888_922",
+    "north": "zone_district_892_916",
+    "south": "zone_district_892_918",
+    "west": "zone_district_891_917"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "terrain": "grass"
   },
-  "grid_x": 901,
-  "grid_y": 919,
+  "grid_x": 892,
+  "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_901_919",
   "map_id": "map_world",

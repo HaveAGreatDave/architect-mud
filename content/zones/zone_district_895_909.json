@@ -6,7 +6,7 @@
   "description": "Thirty-four storeys of glass drums stacked like a telescope, standing in front of Halcyon Towers so the two read as one group from the boulevard. The ground floor is let to a broker rather than to a porter, so the saucer has a counter in it and a board of figures that updates while you stand there, and the residents go round the outside to a side door.",
   "exits": {
     "north": "zone_hf_rising_floor",
-    "south": "zone_district_895_910"
+    "south": "zone_district_888_909"
   },
   "flags": {
     "building_name": "7 Halcyon Boulevard",
@@ -17,10 +17,10 @@
     "floors": 34,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_895_910"
+    "world_exit_zone": "zone_district_888_909"
   },
-  "grid_x": 895,
-  "grid_y": 909,
+  "grid_x": 888,
+  "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_895_909",
   "map_id": "map_world",

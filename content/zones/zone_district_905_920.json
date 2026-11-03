@@ -4,10 +4,7 @@
   "color": "#8ba36a",
   "description": "Long grass, gone to seed. A Halcyon board on two posts says the plot is sold, and a sticker under it says it's sold again.",
   "exits": {
-    "east": "zone_district_906_920",
-    "north": "zone_district_905_919",
-    "south": "zone_district_905_921",
-    "west": "zone_district_904_920"
+    "south": "zone_district_905_921"
   },
   "flags": {
     "district": "halcyon_fields",

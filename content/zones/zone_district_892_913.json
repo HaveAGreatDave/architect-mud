@@ -5,7 +5,7 @@
   "color": "#b6dcf7",
   "description": "A chrome spine threaded with six glazed bulges, each pinched to a collar. The doors are at the foot under a shallow chrome hood. A board beside them lists twenty-eight floors, a concierge and an out-of-hours number, half-covered by a printed notice about the lift.",
   "exits": {
-    "east": "zone_district_893_913",
+    "east": "zone_district_889_906",
     "west": "zone_hf_quiet_desk"
   },
   "flags": {
@@ -17,10 +17,10 @@
     "floors": 28,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_893_913"
+    "world_exit_zone": "zone_district_889_906"
   },
-  "grid_x": 892,
-  "grid_y": 913,
+  "grid_x": 888,
+  "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_892_913",
   "map_id": "map_world",

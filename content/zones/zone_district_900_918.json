@@ -4,7 +4,6 @@
   "description": "East of Kettle Lane the surfacing changes and the lane narrows by a foot without any sign saying so. Wing mirrors have been taking the corner of the plant yard for a year.",
   "exits": {
     "east": "zone_district_901_918",
-    "south": "zone_district_900_919",
     "west": "zone_district_899_918"
   },
   "flags": {

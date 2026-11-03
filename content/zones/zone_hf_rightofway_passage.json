@@ -12,7 +12,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Two openings, one at each end, framing Kerbstone Row one way and Windrow Lane the other. Standing in the middle you can see both streets at once, which is the only place in the quarter you can.",
+      "description": "Two openings, one at each end, framing Windrow Lane one way and the back of the Winter Garden the other. Standing in the middle you can see the street and the glasshouse at once.",
       "light": 0.6,
       "name": "the passage ends",
       "visibility": 0.7

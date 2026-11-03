@@ -6,7 +6,7 @@
   "description": "The crescent's twin, two storeys shorter and curved the other way, so that where it meets its neighbour the two arcs make a shallow bowl of paving between them that the estate calls a square and nobody else calls anything. The whole ground floor is a physiotherapy practice, with a skeleton in the window wearing a back brace.",
   "exits": {
     "north": "zone_hf_bent_front",
-    "south": "zone_district_896_910"
+    "south": "zone_district_890_909"
   },
   "flags": {
     "building_name": "9 Halcyon Boulevard",
@@ -17,10 +17,10 @@
     "floors": 18,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_896_910"
+    "world_exit_zone": "zone_district_890_909"
   },
-  "grid_x": 896,
-  "grid_y": 909,
+  "grid_x": 890,
+  "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_896_909",
   "map_id": "map_world",

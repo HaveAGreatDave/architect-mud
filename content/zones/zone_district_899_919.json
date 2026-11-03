@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "description": "Drainage was an afterthought here and looks it. Water stands along the western kerb in a long shallow strip that never entirely dries.",
   "exits": {
-    "east": "zone_district_900_919",
+    "east": "zone_parkside_894_912",
     "north": "zone_district_899_918",
     "south": "zone_district_899_920",
     "west": "zone_district_898_919"

@@ -3,7 +3,8 @@
   "ambient_theme": "city",
   "description": "The new end of Halcyon Boulevard, graded gravel waiting for its tarmac. A row of young limes is planted along it, each one tied to a stake.",
   "exits": {
-    "north": "zone_district_891_908",
+    "east": "zone_district_887_908",
+    "north": "zone_district_897_909",
     "south": "zone_district_891_910",
     "west": "zone_district_890_909"
   },

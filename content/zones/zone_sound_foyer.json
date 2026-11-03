@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Five tall lights onto Halcyon Boulevard, and through them a road of packed gravel with a storm drain choked with silt. The glass is very clean.",
+      "description": "Five tall lights onto Sorrel Way, and through them the new road and the Coliseum's wall beyond it. The glass is very clean.",
       "light": 0.55,
       "name": "the entrance bays",
       "visibility": 0.7

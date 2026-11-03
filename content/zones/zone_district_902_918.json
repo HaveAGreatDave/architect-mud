@@ -4,7 +4,7 @@
   "description": "Cinder Lane comes down to the perimeter here and stops against it in a T with no markings. Two skips stand on the corner and have been there long enough to have grass growing out of them.",
   "exits": {
     "east": "zone_district_903_918",
-    "south": "zone_district_902_919",
+    "south": "zone_district_894_917",
     "west": "zone_district_901_918"
   },
   "flags": {

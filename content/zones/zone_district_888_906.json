@@ -4,18 +4,18 @@
   "color": "#8ba36a",
   "description": "Open meadow at the edge of the estate, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
   "exits": {
-    "east": "zone_district_889_906",
+    "east": "zone_district_893_913",
     "north": "zone_district_888_905",
-    "south": "zone_district_888_907",
-    "west": "zone_district_887_906"
+    "south": "zone_district_888_904",
+    "west": "zone_district_891_913"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "terrain": "grass"
   },
-  "grid_x": 888,
-  "grid_y": 906,
+  "grid_x": 892,
+  "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_888_906",
   "map_id": "map_world",

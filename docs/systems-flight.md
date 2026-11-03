@@ -50,7 +50,7 @@ Flagged onto fitting zones (the `zones.flags.airfield_id` pattern):
 
 | Field | `airfield_id` | Ramp zone (x,y) | Services |
 |---|---|---|---|
-| Threshold Helipad | `af_helipad` | `zone_district_893_909` (893,909) | charter + rental · charge/hydrogen/jet · **VTOL-only** |
+| Threshold Helipad | `af_helipad` | `zone_district_893_909` (890,904; moved off Halcyon Boulevard for the Coliseum on 2026-11-02 and kept its id) | charter + rental · charge/hydrogen/jet · **VTOL-only** |
 | **Coldwater Regional** | `af_regional` | `zone_district_925_903` (925,903) | **dealer + charter + rental** · all fuels |
 | The Echelon — Helipad | `echelon_helipad` | `zone_echelon_exterior` (897,898) | charter only · VTOL-only |
 | Buzzard Field | `buzzard_field` | `zone_the_reach_870_1958` (910,986) | charter only · **lawless** · dust strip |

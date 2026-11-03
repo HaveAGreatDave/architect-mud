@@ -4,10 +4,8 @@
   "color": "#8ba36a",
   "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
   "exits": {
-    "east": "zone_district_896_922",
     "north": "zone_district_895_921",
-    "south": "zone_district_895_923",
-    "west": "zone_district_894_922"
+    "south": "zone_district_895_923"
   },
   "flags": {
     "district": "halcyon_fields",

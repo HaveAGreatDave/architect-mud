@@ -6,8 +6,7 @@
   "exits": {
     "east": "zone_district_908_920",
     "north": "zone_district_907_919",
-    "south": "zone_district_907_921",
-    "west": "zone_district_906_920"
+    "south": "zone_district_907_921"
   },
   "flags": {
     "district": "halcyon_fields",

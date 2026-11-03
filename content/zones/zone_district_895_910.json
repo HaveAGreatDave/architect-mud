@@ -4,7 +4,7 @@
   "description": "A wide run of packed gravel and grit, graded flat by traffic and rain. The Hughson Coliseum's bleacher gate opens off the south side, two grille gates under BLEACHERS in gilt. Puddles stand in the ruts.",
   "exits": {
     "east": "zone_district_896_910",
-    "north": "zone_district_895_909",
+    "north": "zone_district_888_908",
     "south": "zone_ballpark_895_911",
     "west": "zone_district_894_910"
   },

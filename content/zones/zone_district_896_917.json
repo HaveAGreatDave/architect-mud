@@ -3,9 +3,9 @@
   "ambient_theme": "urban",
   "bg_color": "#0f1a24",
   "color": "#cce8ff",
-  "description": "Eleven floors in four bulges with the collars picked out in a brighter chrome than the estate standard, which is the one place in Halcyon Fields where somebody was allowed to spend money on something that is purely how it looks. From Kerbstone Row at dusk it is the building people point at without knowing why. The entrance is under the lowest collar on the Kerbstone Row side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have.",
+  "description": "Eleven floors in four bulges with the collars picked out in a brighter chrome than the estate standard, which is the one place in Halcyon Fields where somebody was allowed to spend money on something that is purely how it looks. From Windrow Lane at dusk it is the building people point at without knowing why. The entrance is under the lowest collar on the Windrow Lane side, and the collar is carried down round the door as a chrome hood in the same bright finish, which cost about four times what a plain one would have.",
   "exits": {
-    "north": "zone_district_896_916",
+    "north": "zone_district_904_918",
     "south": "zone_hf_wellappointed_lobby"
   },
   "flags": {
@@ -17,10 +17,10 @@
     "floors": 11,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_896_916"
+    "world_exit_zone": "zone_district_904_918"
   },
-  "grid_x": 896,
-  "grid_y": 917,
+  "grid_x": 904,
+  "grid_y": 919,
   "grid_z": 0,
   "id": "zone_district_896_917",
   "map_id": "map_world",

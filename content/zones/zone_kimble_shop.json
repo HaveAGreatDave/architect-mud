@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Pennants hung in fans in the window, faded on the street side. Sorrel Way is outside, and the Coliseum's south-west tower.",
+      "description": "Pennants hung in fans in the window, faded on the street side. Sorrel Way is outside, and the main gate next door.",
       "light": 0.6,
       "name": "the shop window",
       "visibility": 0.6

@@ -4,6 +4,7 @@
   "description": "Cut grass has been blown into a long ridge against the south kerb and left to go grey. It is the windrow the lane is named after, and it was an accident.",
   "exits": {
     "east": "zone_district_894_918",
+    "north": "zone_district_888_922",
     "south": "zone_district_893_919",
     "west": "zone_district_892_918"
   },

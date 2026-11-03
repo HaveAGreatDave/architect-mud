@@ -4,7 +4,6 @@
   "color": "#8ba36a",
   "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
   "exits": {
-    "east": "zone_district_898_920",
     "north": "zone_district_897_919",
     "south": "zone_district_897_921",
     "west": "zone_district_896_920"

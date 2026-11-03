@@ -3,9 +3,9 @@
   "ambient_theme": "urban",
   "bg_color": "#2b1c14",
   "color": "#e7c98e",
-  "description": "A white-tiled frank counter on Halcyon Boulevard beside the Coliseum's bleacher gate, a red-and-white striped awning over a serving hatch and a frank in a bun lit in neon on the roof. The griddle smoke comes out of a tin chimney.",
+  "description": "A white-tiled frank counter on Sorrel Way across from the Coliseum's main gate, a red-and-white striped awning over a serving hatch and a frank in a bun lit in neon on the roof. The griddle smoke comes out of a tin chimney.",
   "exits": {
-    "north": "zone_district_894_910",
+    "north": "zone_district_896_921",
     "south": "zone_fitzfranks_counter"
   },
   "flags": {
@@ -17,10 +17,10 @@
     "floors": 1,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_894_910"
+    "world_exit_zone": "zone_district_896_921"
   },
-  "grid_x": 894,
-  "grid_y": 911,
+  "grid_x": 896,
+  "grid_y": 922,
   "grid_z": 0,
   "id": "zone_parkside_894_911",
   "map_id": "map_world",

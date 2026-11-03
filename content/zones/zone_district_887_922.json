@@ -4,7 +4,6 @@
   "color": "#8ba36a",
   "description": "Grass to the knee and a smell of cut hay from somewhere. Somebody has walked a path through it to the road and back.",
   "exits": {
-    "east": "zone_district_888_922",
     "north": "zone_district_887_921",
     "south": "zone_district_887_923",
     "west": "zone_district_886_922"

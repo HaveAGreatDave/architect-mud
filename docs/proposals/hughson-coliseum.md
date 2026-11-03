@@ -432,10 +432,10 @@ trades a ballpark street has now, written by
 | Plot | Building | Type | Door | Keeper | Sells |
 |---|---|---|---|---|---|
 | 898,913 | Coliseum Box Office | `box_office` | south, Sorrel Way, beside the main gate | Bernadette Okafor | tickets, the pocket schedule, scorecards |
-| 894,911 | Fitz's Franks | `frank_stand` | north, Halcyon Boulevard, beside the bleacher gate | Fitz Rourke | franks, sausage on a roll, cola, lemon soda, beer |
-| 894,912 | Pruitt's Peanuts & Pretzels | `peanut_roaster` | west, Vetch Mews | Lorna Pruitt | peanuts, pretzels, popcorn, lemon soda |
+| 896,922 | Fitz's Franks | `frank_stand` | north, Sorrel Way, across from where the main gate goes (until 2026-11-02 at 894,911 beside the bleacher gate) | Fitz Rourke | franks, sausage on a roll, cola, lemon soda, beer |
+| 900,919 | Pruitt's Peanuts & Pretzels | `peanut_roaster` | west, Kettle Lane (until 2026-11-02 at 894,912 on Vetch Mews) | Lorna Pruitt | peanuts, pretzels, popcorn, lemon soda |
 | 898,911 | Mulcahy's Sports Bar | `sports_bar` | north, Halcyon Boulevard | Declan Mulcahy | beer, wings, cream soda, cola; the game on a set on channel 7 |
-| 894,913 | Kimble's Souvenirs & Cards | `souvenir_shop` | south, Sorrel Way | Odessa Kimble | pennants, caps, foam fingers, scorecards; a card machine |
+| 898,920 | Kimble's Souvenirs & Cards | `souvenir_shop` | south, Sorrel Way (until 2026-11-02 at 894,913) | Odessa Kimble | pennants, caps, foam fingers, scorecards; a card machine |
 | 898,912 | Cart Yard | ground | | | paved, where the carts park |
 
 - ⚠ **No puns in Halcyon Fields.** The box office is the park's own and says so; the other four

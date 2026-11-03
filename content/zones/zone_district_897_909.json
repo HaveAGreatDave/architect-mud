@@ -6,7 +6,7 @@
   "description": "A twenty-storey office that bends. The whole front is one long curved wall of glass on a chrome podium, with a turned column at each joint and a low frame on the roof, and because it is a curve it shows you a different building from every point on the boulevard. Fourteen of the twenty floors are let. The letting agent has stopped saying which fourteen.",
   "exits": {
     "north": "zone_hf_curve_atrium",
-    "south": "zone_district_897_910"
+    "south": "zone_district_891_909"
   },
   "flags": {
     "building_name": "11 Halcyon Boulevard",
@@ -17,10 +17,10 @@
     "floors": 20,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_897_910"
+    "world_exit_zone": "zone_district_891_909"
   },
-  "grid_x": 897,
-  "grid_y": 909,
+  "grid_x": 891,
+  "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_897_909",
   "map_id": "map_world",

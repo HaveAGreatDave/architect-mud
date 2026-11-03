@@ -4,6 +4,7 @@
   "description": "The lane runs dead straight along the back of the row. Every fifty yards there is a numbered gate, and every gate is the back of something with a much better front.",
   "exits": {
     "east": "zone_district_896_918",
+    "north": "zone_district_903_919",
     "south": "zone_district_895_919",
     "west": "zone_district_894_918"
   },

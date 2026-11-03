@@ -5,7 +5,7 @@
   "color": "#bfe8ff",
   "description": "A chrome canopy on four slim columns over a platform up on legs, with a stair at one end and a glazed waiting room on the deck. The indicator board on the canopy fascia is lit and reads SERVICE COMMENCING. There is no line. There is no track bed, no cutting, no embankment and nothing on the ground either side of it but the Buried Road, and the whole thing is finished to the standard of everything else in the quarter.",
   "exits": {
-    "north": "zone_district_893_916",
+    "north": "zone_district_888_921",
     "south": "zone_hf_standing_platform"
   },
   "flags": {
@@ -17,10 +17,10 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_893_916"
+    "world_exit_zone": "zone_district_888_921"
   },
-  "grid_x": 893,
-  "grid_y": 917,
+  "grid_x": 888,
+  "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_893_917",
   "map_id": "map_world",

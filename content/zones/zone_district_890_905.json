@@ -5,7 +5,7 @@
   "description": "Long grass, gone to seed. A Halcyon board on two posts says the plot is sold, and a sticker under it says it's sold again.",
   "exits": {
     "east": "zone_district_891_905",
-    "north": "zone_district_890_904",
+    "north": "zone_district_893_909",
     "south": "zone_district_890_906",
     "west": "zone_district_889_905"
   },

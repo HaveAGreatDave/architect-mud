@@ -4,7 +4,7 @@
   "description": "Gas main markers along the north kerb, yellow and new, running toward the holder. Somebody has counted them and written the number on the last one.",
   "exits": {
     "east": "zone_district_906_918",
-    "south": "zone_district_905_919",
+    "south": "zone_district_897_917",
     "west": "zone_district_904_918"
   },
   "flags": {

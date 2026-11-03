@@ -4,6 +4,7 @@
   "description": "A puddle that never goes, fed by a downpipe that discharges straight onto the stone instead of into the gully four feet away. The gully is clean and unused.",
   "exits": {
     "east": "zone_district_898_918",
+    "north": "zone_district_905_919",
     "south": "zone_district_897_919",
     "west": "zone_district_896_918"
   },

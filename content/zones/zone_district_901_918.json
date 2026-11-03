@@ -4,7 +4,7 @@
   "description": "The back of the substation compound: palisade, a warning triangle, and a hum you feel rather than hear, underneath the other hum that comes off the wall.",
   "exits": {
     "east": "zone_district_902_918",
-    "south": "zone_district_901_919",
+    "south": "zone_district_892_917",
     "west": "zone_district_900_918"
   },
   "flags": {

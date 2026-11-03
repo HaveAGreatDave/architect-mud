@@ -12,8 +12,8 @@
     "is_building": true,
     "region_id": "region_coldwater"
   },
-  "grid_x": 892,
-  "grid_y": 912,
+  "grid_x": 888,
+  "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_892_912",
   "map_id": "map_world",

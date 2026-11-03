@@ -6347,13 +6347,14 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // they replaced are on the holding map.
   {
     const { zoneAtTile } = await import('../server/engine/world.js');
-    const TRADES = [[894, 911, 'north', 'zone_fitzfranks_counter', 'npc_fitz_rourke'], [894, 912, 'west', 'zone_pruitt_shop', 'npc_pruitt_lorna'],
-      [894, 913, 'south', 'zone_kimble_shop', 'npc_kimble_odessa'], [898, 911, 'north', 'zone_mulcahy_bar', 'npc_mulcahy_declan'], [898, 913, 'south', 'zone_hcbox_windows', 'npc_hcbox_okafor']];
+    // Fitz's, Pruitt's and Kimble's moved to the new Sorrel Way with the Coliseum at true size (coliseum-resite.mjs), ids and all.
+    const TRADES = [[896, 922, 'north', 'zone_fitzfranks_counter', 'npc_fitz_rourke', 'zone_parkside_894_911'], [900, 919, 'west', 'zone_pruitt_shop', 'npc_pruitt_lorna', 'zone_parkside_894_912'],
+      [898, 920, 'south', 'zone_kimble_shop', 'npc_kimble_odessa', 'zone_parkside_894_913'], [898, 911, 'north', 'zone_mulcahy_bar', 'npc_mulcahy_declan', 'zone_parkside_898_911'], [898, 913, 'south', 'zone_hcbox_windows', 'npc_hcbox_okafor', 'zone_parkside_898_913']];
     const D = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] }, OPP = { north: 'south', south: 'north', east: 'west', west: 'east' };
     const bad = [];
-    for (const [x, y, ent, room, npc] of TRADES) {
+    for (const [x, y, ent, room, npc, id] of TRADES) {
       const f = zoneAtTile('map_world', x, y), street = zoneAtTile('map_world', x + D[ent][0], y + D[ent][1]);
-      if (!f || f.id !== `zone_parkside_${x}_${y}`) { bad.push(`${x},${y}: ${f?.id}`); continue; }
+      if (!f || f.id !== id) { bad.push(`${x},${y}: ${f?.id}`); continue; }
       if (street?.exits?.[OPP[ent]] !== f.id || f.exits?.[ent] !== street.id) bad.push(`${f.id}: street link`);
       if (f.exits?.[OPP[ent]] !== room) bad.push(`${f.id}: into ${f.exits?.[OPP[ent]]}`);
       if (world.npcs.get(npc)?.work_zone_id !== room) bad.push(`${npc}: works in ${world.npcs.get(npc)?.work_zone_id}`);

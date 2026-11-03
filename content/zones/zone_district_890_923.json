@@ -5,7 +5,6 @@
   "description": "The back of the plots, where the estate stops at the Curtain. Through the light the Glacis road runs south, small and straight.",
   "exits": {
     "east": "zone_district_891_923",
-    "north": "zone_district_890_922",
     "west": "zone_district_889_923"
   },
   "flags": {

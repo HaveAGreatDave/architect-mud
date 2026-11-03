@@ -4,8 +4,8 @@
   "description": "The western end of the cut, where the new stone stops and the meadow resumes as though nothing had been done to it.",
   "exits": {
     "east": "zone_district_893_916",
-    "north": "zone_district_892_915",
-    "south": "zone_district_892_917",
+    "north": "zone_district_904_920",
+    "south": "zone_district_901_919",
     "west": "zone_district_891_916"
   },
   "flags": {

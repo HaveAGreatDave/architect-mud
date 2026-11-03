@@ -4,8 +4,8 @@
   "description": "Surveyor's pins stand along the verge in a line, each with a strip of orange tape gone pale, and the grass leans away from the new stone.",
   "exits": {
     "east": "zone_district_895_916",
-    "north": "zone_district_894_915",
-    "south": "zone_district_894_917",
+    "north": "zone_district_900_920",
+    "south": "zone_district_902_919",
     "west": "zone_district_893_916"
   },
   "flags": {

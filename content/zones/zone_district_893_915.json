@@ -3,8 +3,10 @@
   "ambient_theme": "city",
   "description": "A lane turns off the row here between two towers and goes north into the block, narrow enough that two vehicles meeting would have to talk about it. The sign at the mouth has the estate crest on it and a name in a script nobody would choose for a service road.",
   "exits": {
+    "east": "zone_district_900_920",
     "north": "zone_district_893_914",
-    "south": "zone_district_893_916"
+    "south": "zone_district_893_916",
+    "west": "zone_district_904_920"
   },
   "flags": {
     "district": "halcyon_fields",

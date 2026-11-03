@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "The curve of the lowest bead, out onto Kerbstone Row and, at the east side, a slice of Sorrel Way. In the evening the light comes in off the bright collar outside and lands on the ceiling.",
+      "description": "The curve of the lowest bead, out onto Windrow Lane and, past the end of the row, a slice of the Coliseum. In the evening the light comes in off the bright collar outside and lands on the ceiling.",
       "light": 0.8,
       "name": "the bulge glazing",
       "visibility": 0.85

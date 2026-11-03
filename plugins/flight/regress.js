@@ -1559,14 +1559,14 @@ async function regressBody({ run, check, getPlayer }) {
     const hid = 'aircraft_regress_padservice';
     const savedZone = p.current_zone, savedBc = getBroadcast(), sent = [];
     await query('DELETE FROM aircraft WHERE id=$1', [hid]);
-    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_dragonfly','REGR-PD',$2,0,0,0,'zone_district_893_909',893,909,40)`, [hid, p.id]);
+    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_dragonfly','REGR-PD',$2,0,0,0,'zone_district_893_909',890,904,40)`, [hid, p.id]);
     p.current_zone = 'zone_hangar_threshold';
     setBroadcast((zoneId, message, excludeId, targetId) => { sent.push({ targetId, message }); });
     try {
       check('Threshold Helipad has no hangar building', !hangarTileFor(getZone('zone_district_893_909')));
       const r = await run(`hangaract service ${hid}`);
       const live = liveAircraft.get(hid);
-      check('servicing on a pad seats you in her where she stands', p.aircraftId === hid && live?.row.grid_x === 893 && live?.row.grid_y === 909, r?.message);
+      check('servicing on a pad seats you in her where she stands', p.aircraftId === hid && live?.row.grid_x === 890 && live?.row.grid_y === 904, r?.message);
       const bay = sent.find(x => x.message?.type === 'hangar_bay_open')?.message?.data;
       check('…and the bench still comes to the cockpit, out on the pad', bay?.service === true && bay?.serviceId === hid && bay?.hangar === false,
         JSON.stringify({ service: bay?.service, id: bay?.serviceId, hangar: bay?.hangar }));
@@ -1657,7 +1657,7 @@ async function regressBody({ run, check, getPlayer }) {
       check('…with her home field back for a tow', back?.homeField === 'zone_district_925_903', back?.homeField);
 
       // She flies on to the pad and sets down, and climbing out puts you THERE.
-      await run('flightsync 893.10 909.05 0 0 260 10 0 1 0');
+      await run('flightsync 890.10 904.05 0 0 260 10 0 1 0');
       await run('disembark');
       check('after a restart, climbing out on the Threshold Helipad puts you at the Threshold Helipad',
         p.current_zone === 'zone_hangar_threshold' && !p.aircraftId, p.current_zone);

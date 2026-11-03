@@ -1,24 +1,25 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Long grass, gone to seed. A Halcyon board on two posts says the plot is sold, and a sticker under it says it's sold again.",
+  "ambient_theme": "city",
+  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
   "exits": {
-    "east": "zone_district_888_908",
-    "north": "zone_district_887_907",
-    "south": "zone_district_887_909",
-    "west": "zone_district_886_908"
+    "east": "zone_district_890_904",
+    "north": "zone_district_892_908",
+    "south": "zone_district_892_910",
+    "west": "zone_district_891_909"
   },
   "flags": {
-    "district": "halcyon_fields",
+    "district": "glasshouse",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
-  "grid_x": 887,
-  "grid_y": 908,
+  "grid_x": 892,
+  "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_887_908",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Halcyon Boulevard",
   "parent_zone": null
 }

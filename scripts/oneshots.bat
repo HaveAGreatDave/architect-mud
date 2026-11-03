@@ -172,6 +172,11 @@ REM Moves players, floor items and corpses out of set-aside buildings (map_set_a
 REM into the Hughson Coliseum rotunda. Converges: it reads the set-aside zones each run.
 call :run "oneshots/set-aside-players.mjs" "move players out of set-aside buildings"
 
+REM Stands a parked aircraft on the tile its pad is on now. The Threshold Helipad moved
+REM for the Coliseum at true size and kept its zone id, so a row parked on it kept the old
+REM grid. Converges: it only touches a row whose grid disagrees with its world-tile zone.
+call :run "oneshots/repark-moved-pad-aircraft.mjs" "stand parked aircraft on their pads"
+
 REM --- Policy, not repair: opt in explicitly ---------------------------------
 REM Lifts players carrying negative net XP after a stat retune up to exactly 0.
 REM That debt is real and deliberate - writing it off is a decision, so it only

@@ -6,7 +6,7 @@
   "description": "A glazed barrel vault on a low brick plinth, cast-iron ribs close together, the ridge vent open along its whole length. The glass is green with plants. At the north end a lagged pipe as thick as a thigh comes out of the ground, crosses the path on two brick piers and goes in through the wall. It's warm to the touch.",
   "exits": {
     "north": "zone_glass_house",
-    "south": "zone_district_896_916"
+    "south": "zone_district_902_921"
   },
   "flags": {
     "building_name": "The Winter Garden",
@@ -17,10 +17,10 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_896_916"
+    "world_exit_zone": "zone_district_902_921"
   },
-  "grid_x": 896,
-  "grid_y": 915,
+  "grid_x": 902,
+  "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_896_915",
   "map_id": "map_world",

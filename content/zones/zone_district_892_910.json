@@ -4,8 +4,8 @@
   "description": "The boulevard's western end, where the made surface gives out and the grass takes it back inside a stride. The Curtain stands a little way off. The road has no reason to go further and does not.",
   "exits": {
     "east": "zone_district_893_910",
-    "north": "zone_district_892_909",
-    "south": "zone_district_892_911",
+    "north": "zone_district_887_908",
+    "south": "zone_district_894_922",
     "west": "zone_district_891_910"
   },
   "flags": {

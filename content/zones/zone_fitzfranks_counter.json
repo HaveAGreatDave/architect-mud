@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A hatch onto Halcyon Boulevard with a steel shelf for the paper boats. The bleacher gate is next door.",
+      "description": "A hatch onto Sorrel Way with a steel shelf for the paper boats. The main gate is across the road.",
       "light": 0.7,
       "name": "the serving hatch",
       "visibility": 0.7

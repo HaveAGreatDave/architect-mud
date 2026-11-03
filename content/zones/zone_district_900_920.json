@@ -4,18 +4,18 @@
   "color": "#8ba36a",
   "description": "Meadow, mown once this year in a straight strip and then left. A surveyor's mark is sprayed on the ground in pink.",
   "exits": {
-    "east": "zone_district_901_920",
-    "north": "zone_district_900_919",
-    "south": "zone_district_900_921",
-    "west": "zone_district_899_920"
+    "east": "zone_district_892_922",
+    "north": "zone_district_894_914",
+    "south": "zone_district_894_916",
+    "west": "zone_district_893_915"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "terrain": "grass"
   },
-  "grid_x": 900,
-  "grid_y": 920,
+  "grid_x": 894,
+  "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_900_920",
   "map_id": "map_world",

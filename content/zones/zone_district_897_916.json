@@ -4,8 +4,8 @@
   "description": "A drain lid sits in the road here, older than the surface around it, lifted and re-bedded at the wrong height. Water stands against its upstream side and goes nowhere.",
   "exits": {
     "east": "zone_district_898_916",
-    "north": "zone_district_897_915",
-    "south": "zone_district_897_917",
+    "north": "zone_district_906_920",
+    "south": "zone_district_905_919",
     "west": "zone_district_896_916"
   },
   "flags": {

@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open ground waiting for a building. The grass is flattened in a square where a site hut stood, and the square is still yellow.",
+  "ambient_theme": "city",
+  "description": "Vetch Mews, new again: a paved lane with a turning circle at the end and bollards at the mouth. The street sign is the old one, bolted to a new post.",
   "exits": {
     "east": "zone_district_890_903",
     "north": "zone_district_889_902",
@@ -12,13 +11,15 @@
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 889,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_889_903",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Vetch Mews",
   "parent_zone": null
 }

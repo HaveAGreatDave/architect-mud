@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Curved glass either side of the entrance hood, out onto the corner where Sorrel Way meets the mews. From the desk you see everybody who comes past and almost nobody comes past.",
+      "description": "Curved glass either side of the entrance hood, out onto the mews and the Helipad across it. From the desk you see everybody who comes past and almost nobody comes past.",
       "light": 0.75,
       "name": "the hood glazing",
       "visibility": 0.85

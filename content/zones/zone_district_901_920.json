@@ -4,10 +4,7 @@
   "color": "#8ba36a",
   "description": "Grass to the knee and a smell of cut hay from somewhere. Somebody has walked a path through it to the road and back.",
   "exits": {
-    "east": "zone_district_902_920",
-    "north": "zone_district_901_919",
-    "south": "zone_district_901_921",
-    "west": "zone_district_900_920"
+    "south": "zone_district_901_921"
   },
   "flags": {
     "district": "halcyon_fields",
