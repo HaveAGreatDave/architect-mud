@@ -806,6 +806,7 @@ function drawFeature(x, y, c, name, ink) {
 // a regress log do not get read while you are looking at the map; this does.
 const PROV_WORDS = {
   authored: 'pinned by hand — outranks everything below',
+  span: "one icon across this building's tiles, from its type",
   rooftop: "derived from this building's type",
   auto: 'auto-tiled from the lanes beside it',
 };

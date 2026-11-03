@@ -4647,15 +4647,16 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // cliff tile's piece is `cliff_ns`, and provenance called at the default family
   // would say `road_ns` and report every cliff in the world as an editor/build
   // disagreement. Same function, same arguments, or this check is not checking.
+  // A building over several tiles ships its icon as spec.span instead of spec.feature.
   const provMismatch = zonesForDerive.filter(z =>
-    featureProvenance(z, specAt(z.id)?.auto_tile ?? null, autoTileFamily(z, palette)).name
-      !== (specAt(z.id)?.feature ?? null));
+    featureProvenance(z, specAt(z.id)?.auto_tile ?? null, autoTileFamily(z, palette), specAt(z.id)?.span ?? null).name
+      !== (specAt(z.id)?.feature ?? specAt(z.id)?.span?.icon ?? null));
   check('the provenance an editor shows is the feature the build ships',
     provMismatch.length === 0, provMismatch.slice(0, 3).map(z => z.id).join(', '));
-  const provSrc = zonesForDerive.map(z => featureProvenance(z, specAt(z.id)?.auto_tile ?? null, autoTileFamily(z, palette)));
+  const provSrc = zonesForDerive.map(z => featureProvenance(z, specAt(z.id)?.auto_tile ?? null, autoTileFamily(z, palette), specAt(z.id)?.span ?? null));
   check('every feature reports which rung produced it',
     provSrc.every(p => (p.name === null) === (p.source === null)
-      && (p.source === null || ['authored', 'rooftop', 'auto'].includes(p.source))));
+      && (p.source === null || ['authored', 'span', 'rooftop', 'auto'].includes(p.source))));
   // The stale-pin warning the Studio draws is exactly the drift list, by construction.
   const staleProv = provSrc.filter(p => p.stale);
   check(`a stale pin is detectable per tile, not just in aggregate (${staleProv.length})`,

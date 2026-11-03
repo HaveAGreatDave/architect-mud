@@ -463,8 +463,8 @@ function world() {
 // including when a pin has gone stale against the lanes painted since (§7.7).
 function provOf(zone) {
   if (!zone) return { source: null, name: null, implied: null };
-  return featureProvenance(zone, world().render.get(zone.id)?.spec?.auto_tile ?? null,
-    autoTileFamily(zone, palette));
+  const spec = world().render.get(zone.id)?.spec;
+  return featureProvenance(zone, spec?.auto_tile ?? null, autoTileFamily(zone, palette), spec?.span ?? null);
 }
 
 // The four tiles orthogonally touching this one, on its own map and floor. The

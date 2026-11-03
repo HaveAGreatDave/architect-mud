@@ -847,10 +847,14 @@ export function autoTileFamily(zone, palette) {
  * all 10 runway tiles as drift — in a regress count, and as a false warning on the
  * tile itself. This is the ONE definition of staleness; deriveWorld reports from it.
  *
- * @returns {{ source: 'authored'|'rooftop'|'auto'|null, name: string|null,
+ * `span` is the tile's derived spec.span: a building over several tiles draws one icon
+ * across its footprint (deriveSpans) in place of a rooftop on each tile, so it outranks
+ * the rooftop and the auto-tile, and only an authored icon beats it.
+ *
+ * @returns {{ source: 'authored'|'span'|'rooftop'|'auto'|null, name: string|null,
  *             implied: string|null, stale: boolean }}
  */
-export function featureProvenance(zone, autoTile = null, family = 'road') {
+export function featureProvenance(zone, autoTile = null, family = 'road', span = null) {
   const implied = autoTile ? autoTileName(autoTile, family) : null;
   const authored = zone?.flags?.icon;
   if (authored) {
@@ -864,6 +868,7 @@ export function featureProvenance(zone, autoTile = null, family = 'road') {
     const stale = !!implied && name.split('_')[0] === implied.split('_')[0] && implied !== name;
     return { source: 'authored', name, implied, stale };
   }
+  if (span?.icon) return { source: 'span', name: String(span.icon), implied, stale: false };
   const rooftop = buildingIconSvg(zone);
   if (rooftop) return { source: 'rooftop', name: rooftop, implied, stale: false };
   if (autoTile) return { source: 'auto', name: implied, implied, stale: false };

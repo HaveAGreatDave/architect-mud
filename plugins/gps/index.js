@@ -262,12 +262,25 @@ function resolveByName(query, player, routeOpts) {
   const r = siftResolve(query, landZones);
   if (r.type === 'none') return { type: 'error', message: `No location matching "${query.replace(/^["']|["']$/g, '')}".` };
   if (r.type === 'ambiguous') {
-    // Every match is a door of the one building: any of them will do.
-    const bn = r.candidates[0]?.flags?.building_name;
-    if (bn && r.candidates.every(z => z.flags?.facade && z.flags.building_name === bn))
-      return routeToNearest(player, r.candidates, routeOpts);
-    createSelectionState(player.id, r.candidates, { dispatchType: 'gps.navigate', dispatchParam: 'destination' });
-    return { type: 'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
+    // A building's rooms are reached through its doors, so where a building's door is
+    // among the matches its rooms fold into it, and what's left is a choice of buildings.
+    const doors = new Map();   // building_name -> its doors among the matches
+    for (const z of r.candidates) {
+      const bn = z.flags?.facade && z.flags.building_name;
+      if (bn) doors.set(bn, [...(doors.get(bn) || []), z]);
+    }
+    const rest = r.candidates.filter(z => !(z.flags?.building_name && doors.has(z.flags.building_name)));
+    if (doors.size && !rest.length) {
+      // One building, or one whose name ends in the word typed: "Coliseum" is the
+      // Coliseum, not the Coliseum Box Office.
+      const last = q.trim().split(/\s+/).pop();
+      const named = [...doors.keys()].filter(bn => bn.toLowerCase().split(/\s+/).pop() === last);
+      const pick = doors.size === 1 ? [...doors.keys()][0] : named.length === 1 ? named[0] : null;
+      if (pick) return routeToNearest(player, doors.get(pick), routeOpts);
+    }
+    const choices = doors.size ? [...[...doors.values()].map(ds => ds[0]), ...rest] : r.candidates;
+    createSelectionState(player.id, choices, { dispatchType: 'gps.navigate', dispatchParam: 'destination' });
+    return { type: 'output', message: formatSelectionPage({ allCandidates: choices, visibleIndex: 0, pageSize: 5 }) };
   }
   return plotRoute(player, r.candidate, routeOpts);
 }
