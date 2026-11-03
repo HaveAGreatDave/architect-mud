@@ -1395,8 +1395,9 @@ export const RENDER_TUNE = {
   // thin mullions, window grids and highlights that MSAA can't reach. Signs, lettering, sprites,
   // wires and the cabin are drawn after it, unjittered, so they stay as sharp as they are now.
   // Needs the float target (glHdr), so it's off on phones with it. On 2026-10-31 for David to judge
-  // in motion; 0 puts the frame back exactly as it was.
-  glTaa: 1,
+  // in motion, off again 2026-11-03: with the history at 90% and no sharpen after the resolve, the
+  // city read soft and low-res. 1 brings it back.
+  glTaa: 0,
   // ── A FLOAT TARGET, SO LIGHT CAN BE BRIGHTER THAN WHITE ─────────────────────
   //
   // Every pass otherwise draws at eight bits a channel, so signs, windows and the sun's highlight
