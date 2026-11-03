@@ -21,6 +21,10 @@
   "description": "An immaculate man in pale grey, a single chromed pin at his lapel catching the light. He smiles the way a door opens: smoothly, and for a reason. He has been waiting for someone exactly as promising, and as unimproved, as you.",
   "dialogue_tree": {
     "accept": {
+      "_vine": {
+        "x": 1000,
+        "y": 60
+      },
       "actions": [
         {
           "action": "START_QUEST",
@@ -36,10 +40,20 @@
       "text": "\"Wonderful. The post is just through the outer slab. The Warden will expect you.\" He steps aside like a maître d'. \"Come and find me when it is done.\""
     },
     "bye": {
+      "_vine": {
+        "x": 2600,
+        "y": 420
+      },
+      "actions": [],
       "options": [],
       "text": "\"When the meat disappoints you (and it will), you know where the Gate is.\" He returns to his patient smile."
     },
     "codex_certain": {
+      "_vine": {
+        "x": 680,
+        "y": 1860
+      },
+      "actions": [],
       "options": [
         {
           "actions": [],
@@ -59,6 +73,10 @@
       "text": "\"No.\" He says it without a trace of the salesman, and it is briefly unnerving. \"No, they were not.\"\n\nThen the smile returns, seamless.\n\n\"Certainty is what people reach for when the alternative is admitting it was an accident. I recommend ours. It is at least load-bearing.\""
     },
     "codex_field": {
+      "_vine": {
+        "x": 360,
+        "y": 1860
+      },
       "actions": [
         {
           "action": "CODEX_UNLOCK",
@@ -79,8 +97,8 @@
     },
     "cold": {
       "_vine": {
-        "x": 40,
-        "y": 1200
+        "x": 360,
+        "y": 60
       },
       "actions": [],
       "options": [
@@ -93,8 +111,8 @@
     },
     "hand_approve": {
       "_vine": {
-        "x": 1420,
-        "y": 1900
+        "x": 1000,
+        "y": 1500
       },
       "actions": [],
       "options": [
@@ -110,8 +128,8 @@
     },
     "hand_deflect": {
       "_vine": {
-        "x": 1680,
-        "y": 1820
+        "x": 1320,
+        "y": 780
       },
       "actions": [],
       "options": [
@@ -134,8 +152,8 @@
     },
     "hand_deflect_ask": {
       "_vine": {
-        "x": 1940,
-        "y": 1820
+        "x": 1640,
+        "y": 600
       },
       "actions": [],
       "options": [
@@ -198,8 +216,8 @@
     },
     "hand_object": {
       "_vine": {
-        "x": 1420,
-        "y": 2060
+        "x": 1000,
+        "y": 780
       },
       "actions": [],
       "options": [
@@ -222,8 +240,8 @@
     },
     "hand_object_hard": {
       "_vine": {
-        "x": 1680,
-        "y": 2060
+        "x": 1320,
+        "y": 420
       },
       "actions": [],
       "options": [
@@ -246,8 +264,8 @@
     },
     "hand_recover": {
       "_vine": {
-        "x": 2200,
-        "y": 1760
+        "x": 1960,
+        "y": 240
       },
       "actions": [],
       "options": [
@@ -263,8 +281,8 @@
     },
     "hand_stay_watched": {
       "_vine": {
-        "x": 2200,
-        "y": 1900
+        "x": 1960,
+        "y": 420
       },
       "actions": [],
       "options": [
@@ -279,6 +297,11 @@
       "text": "\"As you like.\"\n\nHe does not press it and he does not cool towards you at all, which makes it harder rather than easier.\n\n\"It is only a line in a folder. Nobody will ever mention it to you and you will never be refused anything because of it.\"\n\n\"You will simply notice, in about a year, that you are asked to do the ordinary things and never the interesting ones.\""
     },
     "inside": {
+      "_vine": {
+        "x": 680,
+        "y": 240
+      },
+      "actions": [],
       "options": [
         {
           "label": "I'll see Vess.",
@@ -288,6 +311,10 @@
       "text": "\"Up the plaza, the twisting tower. You cannot miss it, it is the only honest building for miles.\""
     },
     "lead_accept": {
+      "_vine": {
+        "x": 1000,
+        "y": 420
+      },
       "actions": [
         {
           "action": "START_QUEST",
@@ -303,6 +330,11 @@
       "text": "\"Walk beside him, not ahead of him. And do keep talking. A silence out there does more of our work than I would like to admit.\""
     },
     "lead_offer": {
+      "_vine": {
+        "x": 680,
+        "y": 420
+      },
+      "actions": [],
       "options": [
         {
           "label": "I'll bring him in.",
@@ -316,6 +348,10 @@
       "text": "\"Recruiting.\" He says it the way other men say the name of a sport. \"There is a man in a coffee shop on the Coldwater side who has spent a year asking where Halcyon's money goes, and getting lied to by people who do not even know they are lying. He is very nearly there. He wants somebody to say the word out loud.\"\n\n\"Bring him to the plaza. Alive, unhurried, still curious, in that order. The road west is not a kind one, which is precisely why the offer lands when it does.\""
     },
     "lead_report": {
+      "_vine": {
+        "x": 360,
+        "y": 1320
+      },
       "actions": [
         {
           "action": "TURN_IN",
@@ -332,8 +368,8 @@
     },
     "maresh_admire": {
       "_vine": {
-        "x": 1520,
-        "y": 3320
+        "x": 680,
+        "y": 1500
       },
       "actions": [],
       "options": [
@@ -349,8 +385,8 @@
     },
     "maresh_answerable": {
       "_vine": {
-        "x": 1600,
-        "y": 3500
+        "x": 1320,
+        "y": 240
       },
       "actions": [],
       "options": [
@@ -366,8 +402,8 @@
     },
     "maresh_backdown": {
       "_vine": {
-        "x": 2460,
-        "y": 2120
+        "x": 2280,
+        "y": 240
       },
       "actions": [],
       "options": [
@@ -383,8 +419,8 @@
     },
     "maresh_carried_out": {
       "_vine": {
-        "x": 2720,
-        "y": 2360
+        "x": 2600,
+        "y": 240
       },
       "actions": [
         {
@@ -396,8 +432,8 @@
     },
     "maresh_document": {
       "_vine": {
-        "x": 1240,
-        "y": 2690
+        "x": 1640,
+        "y": 780
       },
       "actions": [],
       "options": [
@@ -413,8 +449,8 @@
     },
     "maresh_ejected": {
       "_vine": {
-        "x": 2460,
-        "y": 2280
+        "x": 2280,
+        "y": 60
       },
       "actions": [],
       "options": [
@@ -451,7 +487,7 @@
     "maresh_fair_hit": {
       "_vine": {
         "x": 1640,
-        "y": 3590
+        "y": 60
       },
       "actions": [],
       "options": [
@@ -467,8 +503,8 @@
     },
     "maresh_kept": {
       "_vine": {
-        "x": 1360,
-        "y": 2960
+        "x": 1000,
+        "y": 1680
       },
       "actions": [],
       "options": [
@@ -484,8 +520,8 @@
     },
     "maresh_load_bearing": {
       "_vine": {
-        "x": 1560,
-        "y": 3410
+        "x": 1000,
+        "y": 2040
       },
       "actions": [],
       "options": [
@@ -501,8 +537,8 @@
     },
     "maresh_not_me": {
       "_vine": {
-        "x": 1440,
-        "y": 3140
+        "x": 1960,
+        "y": 600
       },
       "actions": [],
       "options": [
@@ -518,8 +554,8 @@
     },
     "maresh_press": {
       "_vine": {
-        "x": 1940,
-        "y": 2200
+        "x": 1640,
+        "y": 240
       },
       "actions": [],
       "options": [
@@ -542,8 +578,8 @@
     },
     "maresh_reads": {
       "_vine": {
-        "x": 1480,
-        "y": 3230
+        "x": 1000,
+        "y": 1320
       },
       "actions": [],
       "options": [
@@ -559,8 +595,8 @@
     },
     "maresh_same": {
       "_vine": {
-        "x": 1280,
-        "y": 2780
+        "x": 1640,
+        "y": 420
       },
       "actions": [],
       "options": [
@@ -576,8 +612,8 @@
     },
     "maresh_sent_where": {
       "_vine": {
-        "x": 1400,
-        "y": 3050
+        "x": 1960,
+        "y": 780
       },
       "actions": [],
       "options": [
@@ -593,8 +629,8 @@
     },
     "maresh_walked_out": {
       "_vine": {
-        "x": 2720,
-        "y": 2200
+        "x": 2600,
+        "y": 60
       },
       "actions": [
         {
@@ -606,8 +642,8 @@
     },
     "maresh_warning": {
       "_vine": {
-        "x": 2200,
-        "y": 2200
+        "x": 1960,
+        "y": 60
       },
       "actions": [],
       "options": [
@@ -637,8 +673,8 @@
     },
     "maresh_where_go": {
       "_vine": {
-        "x": 1320,
-        "y": 2870
+        "x": 1000,
+        "y": 1860
       },
       "actions": [],
       "options": [
@@ -653,6 +689,11 @@
       "text": "\"Out, mostly.\"\n\nThe smile does not move.\n\n\"I am not being coy. I do not run intake. Ives would know the form number and Kesh would know the ward.\"\n\n\"It has never come up in a meeting I was in, and I have sat in a great many meetings.\""
     },
     "offer": {
+      "_vine": {
+        "x": 680,
+        "y": 60
+      },
+      "actions": [],
       "options": [
         {
           "label": "Scan me, then.",
@@ -666,6 +707,11 @@
       "text": "\"Nothing is asked of you but honesty, the Gate's kind. Step under the scanline in the post there and let the Threshold read you in full. It will not hurt. It will simply know you, and once it knows you, it will let you pass.\"\n\nThe pin winks.\n\n\"Consider it a free consultation.\""
     },
     "pitch": {
+      "_vine": {
+        "x": 360,
+        "y": 240
+      },
+      "actions": [],
       "options": [
         {
           "conditions": [
@@ -686,6 +732,10 @@
       "text": "\"The Watch sent you, did they not. Suspicious of where Halcyon's money goes.\" He is not offended. He is delighted. \"They are right, of course. It comes here.\"\n\nHe looks at you the way a man looks at a good hand of cards.\n\n\"And you got close enough to be turned away, which means you are worth turning toward instead. Let me get you through that Gate. Properly.\""
     },
     "report": {
+      "_vine": {
+        "x": 360,
+        "y": 420
+      },
       "actions": [
         {
           "action": "TURN_IN",
@@ -712,6 +762,11 @@
       "text": "\"There. The Threshold knows you now. You will find its refusals have become invitations.\"\n\nHe gestures west, toward the Spire.\n\n\"Curator Vess is expecting you on the concourse. Do try to keep an open mind. Or an open skull; we are flexible.\""
     },
     "root": {
+      "_vine": {
+        "x": 40,
+        "y": 60
+      },
+      "actions": [],
       "options": [
         {
           "conditions": [
@@ -864,8 +919,8 @@
     },
     "the_coat": {
       "_vine": {
-        "x": 900,
-        "y": 1420
+        "x": 360,
+        "y": 960
       },
       "actions": [],
       "options": [
@@ -888,8 +943,8 @@
     },
     "the_coat_worth": {
       "_vine": {
-        "x": 1160,
-        "y": 1420
+        "x": 680,
+        "y": 960
       },
       "actions": [],
       "options": [
@@ -905,8 +960,8 @@
     },
     "the_handshake": {
       "_vine": {
-        "x": 900,
-        "y": 1980
+        "x": 360,
+        "y": 1140
       },
       "actions": [],
       "options": [
@@ -929,8 +984,8 @@
     },
     "the_handshake_ask": {
       "_vine": {
-        "x": 1160,
-        "y": 1980
+        "x": 680,
+        "y": 1140
       },
       "actions": [],
       "options": [
@@ -994,8 +1049,8 @@
     },
     "the_second_window": {
       "_vine": {
-        "x": 1420,
-        "y": 1980
+        "x": 1000,
+        "y": 1140
       },
       "actions": [],
       "options": [
@@ -1039,8 +1094,8 @@
     },
     "the_second_window_long": {
       "_vine": {
-        "x": 1680,
-        "y": 1980
+        "x": 1320,
+        "y": 960
       },
       "actions": [],
       "options": [
@@ -1063,8 +1118,8 @@
     },
     "the_second_window_reassure": {
       "_vine": {
-        "x": 1940,
-        "y": 1980
+        "x": 1640,
+        "y": 960
       },
       "actions": [],
       "options": [
@@ -1094,8 +1149,8 @@
     },
     "the_words": {
       "_vine": {
-        "x": 1100,
-        "y": 1150
+        "x": 360,
+        "y": 1680
       },
       "actions": [],
       "options": [
@@ -1118,8 +1173,8 @@
     },
     "the_words_them": {
       "_vine": {
-        "x": 1360,
-        "y": 1150
+        "x": 680,
+        "y": 1680
       },
       "actions": [],
       "options": [
@@ -1148,6 +1203,11 @@
       "text": "\"Declined lives.\" He says it with something close to affection.\n\n\"Not criminals. They were offered terms and they declined.\"\n\n\"What happens to them afterwards is data. We keep it.\""
     },
     "turned": {
+      "_vine": {
+        "x": 360,
+        "y": 600
+      },
+      "actions": [],
       "options": [
         {
           "conditions": [
@@ -1169,8 +1229,8 @@
     },
     "why_us": {
       "_vine": {
-        "x": 900,
-        "y": 1700
+        "x": 360,
+        "y": 780
       },
       "actions": [],
       "options": [
@@ -1207,8 +1267,8 @@
     },
     "why_us_flask": {
       "_vine": {
-        "x": 1160,
-        "y": 1460
+        "x": 680,
+        "y": 600
       },
       "actions": [],
       "options": [
@@ -1238,8 +1298,8 @@
     },
     "why_us_flask_barb": {
       "_vine": {
-        "x": 1680,
-        "y": 1380
+        "x": 1320,
+        "y": 60
       },
       "actions": [],
       "options": [
@@ -1262,8 +1322,8 @@
     },
     "why_us_flask_chose": {
       "_vine": {
-        "x": 1420,
-        "y": 1380
+        "x": 1000,
+        "y": 240
       },
       "actions": [],
       "options": [
@@ -1286,8 +1346,8 @@
     },
     "why_us_flask_works": {
       "_vine": {
-        "x": 1420,
-        "y": 1540
+        "x": 1000,
+        "y": 600
       },
       "actions": [],
       "options": [
@@ -1310,8 +1370,8 @@
     },
     "why_us_plain": {
       "_vine": {
-        "x": 1420,
-        "y": 1480
+        "x": 1000,
+        "y": 960
       },
       "actions": [],
       "options": [
@@ -1334,8 +1394,8 @@
     },
     "why_us_price": {
       "_vine": {
-        "x": 1160,
-        "y": 1780
+        "x": 680,
+        "y": 1320
       },
       "actions": [],
       "options": [
@@ -1358,8 +1418,8 @@
     },
     "why_us_purity": {
       "_vine": {
-        "x": 1420,
-        "y": 1620
+        "x": 1320,
+        "y": 600
       },
       "actions": [],
       "options": [
@@ -1389,8 +1449,8 @@
     },
     "why_us_variation": {
       "_vine": {
-        "x": 1160,
-        "y": 1620
+        "x": 680,
+        "y": 780
       },
       "actions": [],
       "options": [
@@ -1420,8 +1480,8 @@
     },
     "why_us_watch": {
       "_vine": {
-        "x": 1160,
-        "y": 1780
+        "x": 360,
+        "y": 1500
       },
       "actions": [],
       "options": [
