@@ -173,6 +173,8 @@ const sideGate = async (type, slug, label, street, into, intoDir, description, h
     slug, name: NAME, roomName: ROOMS, type, facadeId: d.id, streetId: street.id,
     x: d.x, y: d.y, entrance: d.facing, floors: d.floors, marker: label === 'GATE C' ? 'G3' : 'G4', district: DISTRICT,
     facade: { bgColor: '#2a1d18', color: '#d8c9a8', description },
+    // the plant room under the hall, named to the house pattern and under 30 characters (docs:prose)
+    utility: { name: `${label === 'GATE C' ? 'Gate C' : 'Gate D'} Plant`, description: 'A low room under the gate hall: the turnstiles' counters on a board, a junction box and a dehumidifier that runs all summer.' },
     rooms: [{ key: 'hall', name: label === 'GATE C' ? 'Gate C' : 'Gate D', floor: 'tile', description: hall }],
   });
   // authorBuilding names the door but doesn't place a new one on the map

@@ -171,13 +171,20 @@ export function composeSet({ site, skyline, outline, art = null, tile = SET_TILE
   // dropping one that would run beside the ring. The set's north and south edges are a road (a
   // lane inside a wall, a road along a shore), and no cross street runs beside either.
   const streetLine = (k, lo, hi) => (k < lo ? (lo - 1 - k) % 3 === 0 : k > hi ? (k - hi - 1) % 3 === 0 : (k - lo + 1) % 3 === 0 && hi + 1 - k >= 3);
+  // ⚠ BUT THE RING BEATS THE LANE. With a wall two rows off the park (the Coliseum's south side at true
+  // size) the ring would run beside the edge's lane and was dropped, leaving plots between the main gate
+  // and its street. The map has it the other way, and so does the set now: the street along the park
+  // (Sorrel Way) and a row of plots behind it against the wall.
+  const ringN = jS0 - 1, ringS = jS1 + 1;
+  const edgeRoad = (j) => (j === jMax && ringS !== jMax - 1) || (j === jMin && ringN !== jMin + 1);
+  const besideEdge = (j) => (j === jMax - 1 && j !== ringS) || (j === jMin + 1 && j !== ringN);
   const cells = new Map();
   for (let i = iMin; i <= iMax; i++) for (let j = jMin; j <= jMax; j++) {
     const c = cellPt(i, j);
     let t;
     if (i >= iS0 && i <= iS1 && j >= jS0 && j <= jS1) t = insidePoly(outline, c, 22) ? 'park' : 'plaza';
-    else if (j === jMax || j === jMin) t = 'road';
-    else if (streetLine(i, iS0, iS1) || (streetLine(j, jS0, jS1) && j !== jMax - 1 && j !== jMin + 1)) t = 'road';
+    else if (edgeRoad(j)) t = 'road';
+    else if (streetLine(i, iS0, iS1) || (streetLine(j, jS0, jS1) && !besideEdge(j))) t = 'road';
     else t = 'plot';
     cells.set(i + ',' + j, t);
   }
@@ -208,7 +215,9 @@ export function composeSet({ site, skyline, outline, art = null, tile = SET_TILE
       continue;
     }
     let best = null, bd = Infinity;
-    for (const R of [4, 7]) {
+    // ⚠ A THIRD RING ONLY WHEN THE FIRST TWO ARE FULL. At true size the Coliseum's block is its own
+    // outline, so the warp no longer pushes the city out and the plots round it fill sooner.
+    for (const R of [4, 7, 10]) {
       for (let di = -R; di <= R; di++) for (let dj = -R; dj <= R; dj++) {
         const k = (ci + di) + ',' + (cj + dj);
         if (used.has(k) || cells.get(k) !== 'plot') continue;

@@ -1,9 +1,10 @@
 {
-  "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
+  "description": "A low room under the gate hall: the turnstiles' counters on a board, a junction box and a dehumidifier that runs all summer.",
   "exits": {
     "up": "zone_hughsongd_hall"
   },
   "flags": {
+    "floor": "stone",
     "is_interior": true,
     "world_exit_zone": "zone_ballpark_887_912"
   },
@@ -12,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hughsongd_hall",
   "map_id": "map_int_hughsongd",
-  "name": "The Coliseum — Gate D — Utility Room",
+  "name": "The Coliseum — Gate D Plant",
   "parent_zone": "zone_ballpark_887_912"
 }

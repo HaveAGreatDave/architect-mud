@@ -60,7 +60,7 @@ import {
 } from '../../windshield.js';
 import { flatOut } from './downtown.js';
 import { WIN, WIN_OPEN, sunburst, headPanels } from '../coliseum-window.js';
-import { BGATE, FIELD, GATE, HALF, HP, OUT, SH, SIDE_GATES, SV } from '../../../../../shared/coliseum-plan.js';
+import { BACK, BAND, BGATE, DECK, FIELD, FIN_AT, GATE, GUARD, HALF, HP, OUT, RAIL_IN, RAIL_OUT, SH, SIDE_GATES, SV, TOWER, Z } from '../../../../../shared/coliseum-plan.js';
 import { venueLive, venueRoof, venuePlay } from '../../world-feed.js';
 import { clubColour } from '../../diamond/hud.js';
 
@@ -74,7 +74,6 @@ const DIRT_R = FIELD.dirt;         // the infield skirt
 const BASE = FIELD.base;           // home to first
 const MOUND = [HP[0] - FIELD.mound, HP[1] - FIELD.mound];
 const STAND = HP[0] + FIELD.foul;  // where the grandstand starts, along both lines
-const BACK = 1.40;                 // where the stands end: the inner face of the bowl wall
 const LOW = -0.6;                  // past this the stands step down toward the corners
 const SCOREBOARD = { u: -1.22, v: -1.22, w: 0.32, z0: 0.36, z1: 0.50 };   // over the top row in centre
 // The outfield stands: rows round home from the back of the wall out to the bowl, rising to the
@@ -87,18 +86,10 @@ const OSTAND = { r0: WALL_R + 0.03, row: 0.09, z0: 0.03, rise: 0.025 };
 // primitives scale once, so the numbers keep the proportions they were drawn and measured at (the
 // shells' nesting gaps).
 const ZK = SV;
-const Z = { plinth: 0.04, wall: 0.34, frieze: 0.37, cler: 0.43, corn: 0.46 };
-const DECK = 1.13;                 // the east and west decks reach in from the wall to here, under the rails
-const RAIL_OUT = [1.19, 1.25, 0.49], RAIL_IN = [1.16, 1.19, 0.475];   // the girder's two steps: from, to, top
-const FIN_AT = Array.from({ length: 11 }, (_, k) => -1.225 + k * 0.245);   // the fins along every face
-const TOWER = { at: 1.37, r0: 0.105, z0: 0.62, r1: 0.08, z1: 0.76, r2: 0.062, z2: 0.86, r3: 0.045, z3: 0.905 };
-// The gates are in coliseum-plan.js: GATE on Sorrel Way across from home, BGATE on the boulevard,
-// and SIDE_GATES, GATE C and GATE D, on the east and west faces.
-// The Guardians either side of the main gate: a pylon `hw` half wide, standing to `top`.
-const GUARD = { hw: 0.055, top: 0.60 };
-// The name band on the two gate faces: plain stone in the wall under the frieze, `d` proud, over
-// windows cut short for it. It runs from the face's gate to the corner tower on the longer side.
-const BAND = { z0: 0.268, z1: Z.wall, d: 0.026 };
+// The bowl's numbers (BACK, Z, DECK, the rails, FIN_AT, TOWER, GUARD, BAND) and the gates (GATE on
+// Sorrel Way across from home, BGATE on the boulevard, SIDE_GATES on the east and west faces) are the
+// plan's (client/shared/coliseum-plan.js), which the broadcast reads too. The name band runs from its
+// face's gate to the corner tower on the longer side.
 const TW = TOWER.at - TOWER.r0;    // a corner tower's inner side, along a face
 // The sun in each window's head, round though the arm draws heights ZK times taller and widths SH.
 const SUNBURST = sunburst(SH / ZK), SUNBURST_OPEN = sunburst(SH / ZK, WIN_OPEN);

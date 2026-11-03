@@ -37,6 +37,7 @@
 
 import { DEG, BAGS, MOUND, RUBBER, FOUL_GROUND, DUGOUT, offLine, moundHeight, venueField, fenceDistance, parkOutline, insideOutline, seeded, BOWL, sf, sOf, fromBlock, ftUp } from '../diamond/geo.js';
 import { WIN_OPEN, sunburst, headPanels } from '../glass/coliseum-window.js';
+import { BACK, BAND, BGATE, DECK, FIN_AT, GATE, GUARD, OUT, RAIL_IN, RAIL_OUT, SH, SIDE_GATES, TILE_FT, TOWER, Z } from '../../../../shared/coliseum-plan.js';
 
 export const STRIDE = 12;
 export const MAT = Object.freeze({
@@ -582,41 +583,30 @@ export function buildPark(venue, opts = {}) {
 
 // ── the bowl ────────────────────────────────────────────────────────────────
 // The Charles B. Hughson Coliseum as the map draws it (glass/models/coliseum.js), transcribed by
-// `B2T`: the map's block coordinates (tiles from the block's centre, u east, v south) to the bowl's
-// feet (diamond/geo.js fromBlock and ftUp). So the wall's five courses, the fins and the concourse
-// windows, the four corner towers, the decks and their rails, the two gates and the roof's three
-// shells are the map's numbers at the broadcast's size: a change there is the same change here.
+// `B2T`: the plan's park units (u east, v south of the block's centre) to the bowl's feet, through
+// the world's ruler (diamond/geo.js fromBlock and ftUp). The wall's five courses, the fins and the
+// concourse windows, the four corner towers, the decks and their rails and the four gates are the
+// plan's numbers (client/shared/coliseum-plan.js), the ones the map's arm draws: the same park.
+// The roof's shells are still this file's own, three to the map's six: the dome replaces both.
 // Every box in the bowl stands square to the foul lines, as the map's park stands on the tile grid.
-//
-// ⚠ THE MAIN GATE IS PLACED, NOT TRANSCRIBED. On the map it stands on Sorrel Way straight across
-// from home plate, and the map's home plate sits nearer the corner than the broadcast's does, so it
-// stands across from the broadcast's (MAIN_U, s3 = 0). The bleacher gate is where the map has it.
-const KH = (BOWL.near + BOWL.far) / 2.94;
+// Since the park went to true size the main gate stands across from home on both, so it's
+// transcribed like everything else (GATE.u is home plate's u).
+const KH = SH * TILE_FT;   // a park unit across, in feet: the ruler's tile times the plan's stretch
 const B2T = (u, v, z = 0) => sf(fromBlock(u), fromBlock(v), ftUp(z));
-const toBlock = (s) => 1.47 - (s + BOWL.near) / KH;
-const OUT = 1.47, BACK = 1.40, DECK = 1.13;
+const toBlock = (s) => OUT - (s + BOWL.near) / KH;
 // ⚠ A GATE'S BODY STOPS INSIDE THE WALL, short of its inner face. In the inner face's own plane its
 // back fought the window painted there, and from the field the window came and went in streaks.
 const GATE_BACK = BACK + 0.004;
-const Z = Object.freeze({ plinth: 0.04, wall: 0.34, frieze: 0.37, cler: 0.43, corn: 0.46 });
 export const BOWL_Z = Object.freeze(Object.fromEntries(Object.entries(Z).map(([k, z]) => [k, ftUp(z)])));
-const RAIL_OUT = [1.19, 1.25, 0.49], RAIL_IN = [1.16, 1.19, 0.475];
-const FIN_AT = Array.from({ length: 11 }, (_, k) => -1.225 + k * 0.245);
 // the bays between the fins, in feet: the concourse windows are painted one a bay (ballpark.js)
 export const BAY = 0.245 * KH;
-const TOWER = Object.freeze({ r0: 0.105, z0: 0.62, r1: 0.08, z1: 0.76, r2: 0.062, z2: 0.86, r3: 0.045, z3: 0.905 });
-const MAIN_U = 1.47 - BOWL.near / KH;
-const GATE = Object.freeze({ u: MAIN_U, hw: 0.30, face: 1.48, top: 0.53 });
-const BGATE = Object.freeze({ u: -0.96, hw: 0.24, face: -1.48, top: 0.44 });
 // The Guardians either side of the main gate: a pylon `hw` half wide, standing to `top`.
-const GUARD = Object.freeze({ hw: 0.055, top: 0.60 });
 // The main gate's plate, z0 to z1 and `hw` either side, narrow enough to stand clear of them.
 export const MAIN_PLATE = Object.freeze({ z0: 0.385, z1: 0.475, hw: 0.165 });
 // The name band on Sorrel Way and the boulevard: plain stone in the wall under the frieze, `d` proud,
 // over windows cut short for it, from the face's gate to the corner tower on its longer side
-// (`bandRun`). The towers stand at 1.37 on the map, as the venue's do here.
-const BAND = Object.freeze({ z0: 0.268, z1: Z.wall, d: 0.026 });
-const TW = 1.37 - TOWER.r0;
+// (`bandRun`). The towers stand at TOWER.at on the map, as the venue's do here.
+const TW = TOWER.at - TOWER.r0;
 const bandRun = (g) => {
   const a = [-TW, g.u - g.hw - 0.03], b = [g.u + g.hw + 0.03, TW];
   return a[1] - a[0] >= b[1] - b[0] ? a : b;
@@ -838,9 +828,12 @@ function buildBowl(B, field, BT) {
   SIDES.forEach((n, k) => {
     const ns = !!n[1], run = ns ? OUT + 0.01 : BACK;
     // ⚠ NOT ACROSS A GATE: its frontispiece stands in front of this face
+    const sg = n[0] ? SIDE_GATES.find((g) => g.side === n[0]) : null;
     const gate = (t) => (n[1] === 1 && t > GATE.u - GATE.hw - 0.04 && t < GATE.u + GATE.hw + 0.04)
-      || (n[1] === -1 && t > BGATE.u - BGATE.hw - 0.04 && t < BGATE.u + BGATE.hw + 0.04);
+      || (n[1] === -1 && t > BGATE.u - BGATE.hw - 0.04 && t < BGATE.u + BGATE.hw + 0.04)
+      || (!!sg && t > sg.v - sg.hw - 0.04 && t < sg.v + sg.hw + 0.04);
     const gs = n[1] === 1 ? GATE : n[1] === -1 ? BGATE : null;
+    const span = gs ? [gs.u - gs.hw, gs.u + gs.hw] : sg ? [sg.v - sg.hw, sg.v + sg.hw] : null;
     // the name band on Sorrel Way and the boulevard, its face the lettered cells (bandAt)
     const bnd = n[1] === 1 ? BAND_RUNS.s : n[1] === -1 ? BAND_RUNS.n : null;
     const inBand = (t) => !!bnd && t > bnd[0] && t < bnd[1];
@@ -874,7 +867,21 @@ function buildBowl(B, field, BT) {
         for (const tc of bays) tracery(n, tc, inBand(tc));
       }
     }
-    const runs = gs ? [[-run + 0.01, gs.u - gs.hw], [gs.u + gs.hw, run - 0.01]] : [[-run + 0.01, run - 0.01]];
+    const runs = span ? [[-run + 0.01, span[0]], [span[1], run - 0.01]] : [[-run + 0.01, run - 0.01]];
+    // GATE C and GATE D: the map's plain frontispiece (glass/models/coliseum.js 9b), its doors and its
+    // fanlight, lit every night. Its plate is bare bronze here; the map letters it.
+    if (sg) {
+      const t0 = sg.v - sg.hw, t1 = sg.v + sg.hw;
+      sideBox(n, t0 - 0.005, t1 + 0.005, -0.07, 0.016, 0, Z.plinth, COL.granite, MAT.DECO);
+      sideBox(n, t0, t1, -0.07, 0.012, Z.plinth, sg.top, COL.stone, MAT.DECO);
+      sideBox(n, t0 - 0.004, t1 + 0.004, -0.07, 0.016, sg.top, sg.top + 0.012, COL.trim, MAT.DECO, COL.copper);
+      sideBox(n, t0 + 0.04, t1 - 0.04, -0.07, 0.008, sg.top + 0.012, sg.top + 0.05, COL.stone, MAT.DECO);
+      sideBox(n, t0 + 0.07, t1 - 0.07, -0.07, 0.008, sg.top + 0.05, sg.top + 0.064, COL.trim, MAT.DECO, COL.copper);
+      for (const o of [-1, 1]) sideBox(n, sg.v + o * 0.10 - 0.012, sg.v + o * 0.10 + 0.012, 0.012, 0.022, Z.plinth, sg.top - 0.01, COL.fin, MAT.DECO);
+      sideFace(plain, n, sg.v - 0.06, sg.v + 0.06, 0.0125, Z.plinth, 0.22, COL.bronze, MAT.GILT);
+      sideFace(plain, n, sg.v - 0.05, sg.v + 0.05, 0.0130, 0.235, 0.29, COL.lobby, MAT.GLAZE, [1, 0]);
+      sideFace(plain, n, sg.v - 0.07, sg.v + 0.07, 0.0145, 0.315, 0.37, COL.plate, MAT.GILT);
+    }
     for (const [t0, t1] of runs) sideFace(plain, n, t0, t1, -0.016, Z.frieze + 0.004, Z.cler - 0.004, COL.glass, MAT.GLAZE, [0, 0]);
     if (bnd) sideBox(n, bnd[0], bnd[1], -0.01, BAND.d, BAND.z0, BAND.z1, COL.trim, MAT.DECO);
     // the fins, marble-pale through the frieze and the clerestory to break the cornice, capped; under

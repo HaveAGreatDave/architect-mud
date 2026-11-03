@@ -33,7 +33,7 @@ export const GATES = Object.freeze([
 ]);
 // The street camera: the crossing nearest this point out from the main gate on Sorrel Way, a street
 // camera's height up, looking up at the gate and the name plate over it, and its lens.
-export const STREET_EYE = Object.freeze({ near: Object.freeze([226, 0, -226]), y: 6, at: Object.freeze([120, 70, -120]), fov: 54 });
+export const STREET_EYE = Object.freeze({ near: Object.freeze([226, 0, -226]), y: 6, at: Object.freeze([120, 70, -120]), fov: 54, off: 45 });
 // The floats a car and a walker take (gl/streetlife.js reads them):
 //   car: where it is or its way starts (x, z), the way it goes (x, z), how long the way is (0 parked),
 //     its speed, its phase, its paint (linear r, g, b), whether its lights are on, its seed;
@@ -65,11 +65,15 @@ export function streetEyes(set) {
     roads.push([i, j, set.cellPt(i, j)]);
   }
   const d = (p, q) => Math.hypot(p[0] - q[0], p[2] - q[2]);
-  return roads.sort((a, b) => d(a[2], n) - d(b[2], n)).slice(0, 3).map(([i, j]) => {
-    const corners = [[0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]].map(([a, b]) => set.cellPt(i, j, a, b));
+  // ⚠ ACROSS THE STREET FROM THE GATE, NOT ON ITS STEP. At true size Sorrel Way runs along the park, so
+  // the road tile nearest the crossing has a corner at the gate's door, and a camera there stood in
+  // every fan's way in. A corner nearer than `off` to the gate's foot isn't a place to stand.
+  const foot = [g[0], 0, g[2]];
+  return roads.sort((a, b) => d(a[2], n) - d(b[2], n)).map(([i, j]) => {
+    const corners = [[0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]].map(([a, b]) => set.cellPt(i, j, a, b)).filter((c) => d(c, foot) >= STREET_EYE.off);
     const c = corners.sort((p, q) => d(p, g) - d(q, g))[0];
-    return [c[0], STREET_EYE.y, c[2]];
-  });
+    return c ? [c[0], STREET_EYE.y, c[2]] : null;
+  }).filter(Boolean).slice(0, 3);
 }
 
 // The set as the broadcast composes it: once to find the crossing outside the main gate, then again
@@ -127,6 +131,10 @@ export function streetLife(set, outline) {
   const cellOf = (p) => { const [u, w] = set.uvOf(p); return set.cells.get(Math.floor(u / T) + ',' + Math.floor(-w / T)); };
   // a way that keeps outside the park's wall all along it
   const outside = (a, b) => { for (let k = 1; k <= 16; k++) { const f = k / 16; if (insidePoly(outline, [a[0] + (b[0] - a[0]) * f, 0, a[2] + (b[2] - a[2]) * f])) return false; } return true; };
+  // ⚠ AND ON THE GROUND, NOT ACROSS A PLOT. A wall a tile off the park leaves no ring road on that side
+  // (the Curtain on the river road, since the Coliseum went to true size), and a straight line from
+  // the ring on the next side over cut the corner through somebody's building.
+  const onGround = (a, b) => { for (let k = 0; k <= 24; k++) { const f = k / 24, c = cellOf([a[0] + (b[0] - a[0]) * f, 0, a[2] + (b[2] - a[2]) * f]); if (c !== 'road' && c !== 'plaza' && c !== 'park') return false; } return true; };
   // nothing parked, and nobody walking, right in front of a street camera's lens
   const eyes = set.cameras?.length ? set.cameras : streetEyes(set);
   const nearLens = (p, r) => eyes.some((e) => Math.hypot(p[0] - e[0], p[2] - e[2]) < r);
@@ -205,7 +213,7 @@ export function streetLife(set, outline) {
     const [i, j] = best, start = P(i, j, 0.15 + 0.7 * unit(id + '|a'), 0.15 + 0.7 * unit(id + '|b'));
     const th = g.th + ((unit(id + '|e') - 0.5) * 30) / g.r, r = rayTo(outline, th) + 4, end = [Math.sin(th) * r, 0, Math.cos(th) * r];
     const L = Math.hypot(end[0] - start[0], end[2] - start[2]);
-    if (L < 20 || passesLens(start, end, 14) || !outside(start, end)) continue;
+    if (L < 20 || passesLens(start, end, 14) || !outside(start, end) || !onGround(start, end)) continue;
     const sh = shirtOf(id), v = STREETS.walk[0] + (STREETS.walk[1] - STREETS.walk[0]) * unit(id + '|v');
     walkers.push(start[0], start[2], (end[0] - start[0]) / L, (end[2] - start[2]) / L, L, v, unit(id + '|p'), sh[0], sh[1], sh[2], unit(id + '|k'), 0.92 + 0.16 * unit(id + '|z'));
   }

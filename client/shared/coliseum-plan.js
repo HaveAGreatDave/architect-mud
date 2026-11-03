@@ -47,6 +47,20 @@ export const FIELD = Object.freeze({
   foul: ft(44),
 });
 
+// The bowl, in park units: one wall round all four sides, its outer face at OUT and its inner at BACK,
+// in five courses up (Z); the decks over the east and west concourse reach in to DECK under the
+// roof's rails (the girder's two steps); a marble fin at every FIN_AT along each face; a stepped light
+// tower at each corner, `at` out; the Guardians either side of the main gate; and the plain stone band
+// his name is cut into.
+export const BACK = 1.40;
+export const DECK = 1.13;
+export const Z = Object.freeze({ plinth: 0.04, wall: 0.34, frieze: 0.37, cler: 0.43, corn: 0.46 });
+export const RAIL_OUT = Object.freeze([1.19, 1.25, 0.49]), RAIL_IN = Object.freeze([1.16, 1.19, 0.475]);
+export const FIN_AT = Object.freeze(Array.from({ length: 11 }, (_, k) => -1.225 + k * 0.245));
+export const TOWER = Object.freeze({ at: 1.37, r0: 0.105, z0: 0.62, r1: 0.08, z1: 0.76, r2: 0.062, z2: 0.86, r3: 0.045, z3: 0.905 });
+export const GUARD = Object.freeze({ hw: 0.055, top: 0.60 });
+export const BAND = Object.freeze({ z0: 0.268, z1: Z.wall, d: 0.026 });
+
 // The gates. The main gate on Sorrel Way stands straight across from home plate, the bleacher gate
 // on Halcyon Boulevard where the nine-tile park had it, and GATE C and GATE D on the east and west
 // faces, at the Cart Yard and on the river road. `face` is the frontispiece's front plane, a hair

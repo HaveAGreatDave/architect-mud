@@ -1,13 +1,15 @@
 # The Charles B. Hughson Coliseum *(as built)*
 
-**Status: BUILT, but for seats in person.** Deadball's ballpark, on the map and on TV: nine
-tiles in Halcyon Fields, two gates, eleven rooms, one vendor, one GLASS arm over nine building types,
-a map icon, a retractable roof that shuts for the weather, and field lights every night. It's an
+**Status: BUILT, but for seats in person.** Deadball's ballpark, on the map and on TV: 121 tiles in
+Halcyon Fields at true size, four gates, thirteen rooms, one vendor, one GLASS arm over 121 building
+types, a map icon, a retractable roof that shuts for the weather, and field lights every night. It's an
 art deco park from the Meridian's decade, kept up, under a roof added long after. Five ballpark
 trades stand on the plots either side of it (§10). The buildings and the green it replaced, and the
 five Halcyon buildings the trades replaced, are set aside on a holding map, not deleted. Built
 2026-10-18 as Phase 6 of [deadball-glass2.md](deadball-glass2.md#phases), which called the park
-Halcyon Field, and rebuilt in deco with the roof the same day.
+Halcyon Field, and rebuilt in deco with the roof the same day. On 2026-11-02 it went to true size,
+11 by 11 tiles, with the city grown west to the river round it ([coliseum-true-size.md](coliseum-true-size.md));
+this page describes it as it stands now.
 
 The content is written by [scripts/content/hughson-coliseum.mjs](../../scripts/content/hughson-coliseum.mjs)
 and [scripts/content/hughson-parkside.mjs](../../scripts/content/hughson-parkside.mjs), and the models
@@ -40,36 +42,49 @@ Where it's told:
 
 ## 2. The site
 
-The block is x 895 to 897, y 911 to 913, the middle of the north half of the estate's central
-block, between Halcyon Boulevard and Sorrel Way. The Deadball row's `sports_pools.venue.site.block`
-names the same nine tiles, and the content script refuses to run if the two disagree, because the
-park on TV and the park on the map are meant to be one place. Home plate is in the south-east
-corner, centre field is to the north-west (the venue's bearing of 315 degrees), and the foul lines
-run along the tile grid.
+The block is x 887 to 897, y 910 to 920, Sir Charles's whole lot: Halcyon Boulevard along the
+north, Sorrel Way along the south, the river road and the Curtain on the west, and the trades on
+x 898 to the east. The Deadball row's `sports_pools.venue.site.block` names the same 121 tiles and
+`site.x`/`site.y` home plate, which [scripts/content/coliseum-park.mjs](../../scripts/content/coliseum-park.mjs)
+writes from the plan. Home plate is 168 ft in from the south-east corner, centre field is to the
+north-west (the venue's bearing of 315 degrees), and the foul lines run along the tile grid.
 
-| Tile | Zone | Type | Floors | What it is |
-|---|---|---|---|---|
-| 895,911 | `zone_ballpark_895_911` | `ballpark_bleachers` | 5 | the bleacher gate, north onto Halcyon Boulevard (map code `BG`), and the north-west light tower |
-| 896,911 | `zone_ballpark_896_911` | `ballpark_n` | 4 | the north wall on the boulevard, under the fixed shell's fan window |
-| 897,911 | `zone_ballpark_897_911` | `ballpark_ne` | 5 | the north-east corner and its light tower |
-| 895,912 | `zone_ballpark_895_912` | `ballpark_w` | 4 | the west wall and its deck |
-| 896,912 | `zone_ballpark_896_912` | `ballpark_c` | 4 | the field, under the roof's crown |
-| 897,912 | `zone_ballpark_897_912` | `ballpark_e` | 4 | the first-base side and its deck |
-| 895,913 | `zone_ballpark_895_913` | `ballpark_sw` | 5 | the south-west corner and its light tower |
-| 896,913 | `zone_ballpark_896_913` | `ballpark_s` | 4 | the wall along Sorrel Way, under the roof's south fan window when it's shut |
-| 897,913 | `zone_ballpark_897_913` | `ballpark` | 5 | the main gate, south onto Sorrel Way (map code `HC`), and the south-east light tower |
+⚠ **The plan is [client/shared/coliseum-plan.js](../../client/shared/coliseum-plan.js).** The park is
+drawn in park units (the bowl's outer face at 1.47, its cornice at 0.46 up), and one unit is SH
+(3.56) tiles across and SV (3.86) up on the world's ruler, which is 208.5 ft and 226 ft: the size the
+broadcast always drew it. The bowl's numbers, the gates, home plate, the field and every tile's type
+and floors are there, and the map's arm, the broadcast's bowl, the registries and TYPE_FLOORS read
+them.
+
+Four tiles are doors; the other 117 are sealed slices (`ballpark_<bc>_<br>`, column and row from the
+north-west), each walled on every side a neighbour could walk in from.
+
+| Tile | Type | Door | Street |
+|---|---|---|---|
+| 894,920 | `ballpark` | the main gate, south, straight across from home plate (map code `HC`) | Sorrel Way |
+| 889,910 | `ballpark_bleachers` | the bleacher gate, north (`BG`) | Halcyon Boulevard at Vetch Mews |
+| 897,912 | `ballpark_gate_c` | GATE C, east (`G3`), a hall into the bleachers | the Cart Yard |
+| 887,912 | `ballpark_gate_d` | GATE D, west (`G4`), a hall into the bleachers | the river road |
+
+The nine tiles the park first stood on (x 895-897, y 911-913) are slices of it now and kept their
+ids; their gates moved, and their rooms with them.
 
 - **New ids, so nothing is overwritten.** The park's tiles are `zone_ballpark_<x>_<y>`, and the set-aside
   buildings keep their own `zone_district_<x>_<y>` ids. No runtime code builds a world tile's id
   from its coordinates; `sitecheck.mjs` did, and now looks a tile up by its place on the map.
-- **Two doors.** The gates are facades written by `authorBuilding` (it takes a `facadeId` now, and a
-  `roomName` prefix). The other seven tiles are sealed the way the Slush Fund's are: a name, a
-  type, `entrance: south`, `floors`, empty exits and no `is_building`, so the map shows two codes
-  for the park. `mint-connections` landed the walls round them as blocked connections.
+- **Four doors.** The gates are facades (GATE C and GATE D written by `authorBuilding`, which takes a
+  `facadeId`, a `streetId` and a `roomName` prefix). The other 117 tiles are sealed the way the Slush
+  Fund's are: a name, a type, `entrance: south`, `floors`, empty exits and no `is_building`, so the
+  map shows four codes for the park. coliseum-park.mjs walls them with blocked connections.
 - **Every tile carries `venue_lights` and `venue_roof`**, which are what light its field and move its
   roof (§6), and a `power_zones` row copied from the tile it replaced.
 
 ## 3. What was set aside
+
+At true size (2026-11-02) the whole square went the same way: its 112 street and meadow tiles
+(after the buildings on it had moved to new plots, [coliseum-true-size.md](coliseum-true-size.md#where-each-one-went))
+are on `map_set_aside` rows 11 to 21, grid x minus 886 and y minus 899, with `flags.set_aside_from`.
+The nine-tile park's own set-aside, below, is unchanged.
 
 | Tile | Building | Interior | Keeper |
 |---|---|---|---|
@@ -152,9 +167,21 @@ Every room has a `power_zones` row and a fixture. Imported fixtures arrive switc
 ## 5. GLASS
 
 One arm, `ballpark` in [coliseum.js](../../client/game/js/panels/glass/models/coliseum.js), draws all
-nine tiles. Each tile's row in [model-registry.js](../../client/game/js/panels/glass/model-registry.js)
-says its column and row in the block (`bc`, `br`, from the north-west) and the facing it was
-authored with (`facing`: south for eight of them, north for the bleacher gate).
+121 tiles. Each tile's row in [model-registry.js](../../client/game/js/panels/glass/model-registry.js),
+generated from the plan, says its column and row in the block (`bc`, `br`, from the north-west) and
+the facing it was authored with (`facing`: south for all but the doors; north for the bleacher
+gate, east for GATE C, west for GATE D).
+
+- **Park units, scaled where they reach a primitive.** `L`, `P` and `B3` turn a park point into
+  the tile's frame at SH across, heights are ZK (= SV) up, and the sizes handed to `box`, `seg`,
+  `drum`, `pool` and the flag scale the same way. Anything round in a vertical plane (the suns, the
+  Guardian's ball, the lettering's fit) is squashed by SH / ZK so it stays round.
+- ⚠ **A gate is wider than its tile.** The main and bleacher gates each span three tiles, so the
+  tile a gate's middle is on draws all of it, its clip widened across the gate while the gate's
+  section runs. GATE C and GATE D are a plain stepped frontispiece each, cut tile by tile.
+- ⚠ **The roof's shape starts at each facet.** Most of the field's tiles hold nothing but roof, so
+  each collision box runs from the facet's lowest point over the tile to its highest, and from the
+  spring only on a tile a shell ends on, where its end panel comes down to the rails (gl:mesh).
 
 - **The park is drawn in block coordinates**, u east and v south of the block's centre, in tiles,
   and each tile draws only what falls in its own square: flats are clipped to it, boxes are cut at
@@ -302,19 +329,22 @@ own, at full size, and the bowl round them is the map's model, transcribed
 ([gl/ballpark-mesh.js](../../client/game/js/panels/gl/ballpark-mesh.js) `buildBowl`, drawn by
 [gl/ballpark.js](../../client/game/js/panels/gl/ballpark.js)).
 
-- **The map's numbers at the broadcast's size.** `B2T` takes the map's block coordinates to the
-  bowl's feet ([diamond/geo.js](../../client/game/js/panels/diamond/geo.js) `fromBlock`, `ftUp`).
-  The bowl is a square on the foul lines, 168 ft behind home on the two near sides and 445 ft out on
-  the far ones (`BOWL`), so a map tile is 208.5 ft across it and 226 ft up it. The wall's five
+- **The plan's numbers, through the ruler.** `B2T` takes the plan's park units to the bowl's feet
+  ([diamond/geo.js](../../client/game/js/panels/diamond/geo.js) `fromBlock`, `ftUp`) as SH and SV
+  tiles of TILE_FT feet each, which is 208.5 ft a unit across and 226 ft up: the size the map draws
+  it now. The bowl is a square on the foul lines, 168 ft behind home on the two near sides and 445 ft
+  out on the far ones (`BOWL`). The wall's five
   courses, the fins, the four corner towers, the decks and their rails, the two gates and the three
   shells are the map's, and a change in [coliseum.js](../../client/game/js/panels/glass/models/coliseum.js)
   wants the same change here. `parkOutline` is the bowl's square, so the city, the streets and the
   gulls stand round the same footprint.
-- ⚠ **The main gate is placed, not transcribed.** On the map it stands on Sorrel Way straight across
-  from home plate, and the map's home plate sits nearer the corner than the broadcast's, so on TV it
-  stands across from the broadcast's (`MAIN_U`). The street camera looks up at it from the crossing
-  outside ([diamond/streets.js](../../client/game/js/panels/diamond/streets.js) `STREET_EYE`). The
-  bleacher gate is where the map has it.
+- **The main gate is transcribed like the rest.** At true size the map's home plate is the
+  broadcast's, so both stand the gate straight across from it (`GATE.u` is home plate's u). The
+  street camera looks up at it from across Sorrel Way, never closer than 45 ft to its foot
+  ([diamond/streets.js](../../client/game/js/panels/diamond/streets.js) `STREET_EYE.off`), because
+  the road now runs along the wall and the nearest corner was the gate's step. GATE C and GATE D
+  stand on TV too, with bare bronze plates (the map letters them), and GATE D takes one of the west
+  face's openings, so there are 17.
 - ⚠ **The left-field deck's columns stand at its back.** The map's columns stand 1.18 tiles out on
   both sides; on the left-field side that's in the broadcast's bleachers.
 - **The wall** between the fins is painted in the shader (`EXTERIOR_GLSL`): coursed limestone, and in
@@ -336,7 +366,7 @@ own, at full size, and the bowl round them is the map's model, transcribed
   the holes and no spandrel. Sorrel Way and the east keep their windows painted, because the
   grandstand stands against them. On the map the outfield stands are banked against the wall's
   inside, so only the broadcast cuts through. The two bays behind the bleacher gate stay shut and
-  are painted, so there are 18 openings. `ballpark-smoke` checks the panes and that no piece of the
+  are painted, as is the one behind GATE D, so there are 17 openings. `ballpark-smoke` checks the panes and that no piece of the
   wall crosses an opening.
 - ⚠ **A gate's body stops inside the wall** (`GATE_BACK`), 0.004 tiles short of the inner face. It
   used to run back to the inner face's own plane, and from the field its stone fought the window

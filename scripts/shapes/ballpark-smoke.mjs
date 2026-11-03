@@ -181,8 +181,10 @@ check('defaults: the board inside the outline', G.insideOutline(base.outline, ba
     }
     const far = (p) => Math.abs(p.s[0] - G.BOWL.far) < 1 || Math.abs(p.s[1] - G.BOWL.far) < 1;
     const { WIN_OPEN: WIN } = await import('../../client/game/js/panels/glass/coliseum-window.js');
-    check('the windows: 18 cut through the boulevard\'s and the west\'s faces (two bays behind the bleacher gate)', panes.length === 18 && panes.every(far)
-      && panes.filter((p) => Math.abs(p.s[0] - G.BOWL.far) < 1).length === 10, `${panes.length} panes, ${panes.filter(far).length} on the far faces`);
+    // 18 less the bay behind GATE D on the west face, since the park went to true size (coliseum-plan.js SIDE_GATES)
+    const onS3 = panes.filter((p) => Math.abs(p.s[0] - G.BOWL.far) < 1).length;
+    check('the windows: 17 cut through the boulevard\'s and the west\'s faces (two bays behind the bleacher gate, one behind GATE D)', panes.length === 17 && panes.every(far)
+      && (onS3 === 10 || onS3 === 9), `${panes.length} panes, ${panes.filter(far).length} on the far faces, ${onS3} on one of them`);
     check('the windows: each pane from the sill to the head, clear glass', panes.every((p) => Math.abs(p.y0 - G.ftUp(WIN.z0)) < 0.01 && (Math.abs(p.y1 - G.ftUp(WIN.z1)) < 0.01 || Math.abs(p.y1 - G.ftUp(WIN.band)) < 0.01) && p.mat === M.MAT.GLAZE),
       panes.map((p) => `${p.y0.toFixed(1)}-${p.y1.toFixed(1)}`).slice(0, 3).join(' '));
     // and the wall's pieces leave each opening open: no exterior face crosses a pane's middle

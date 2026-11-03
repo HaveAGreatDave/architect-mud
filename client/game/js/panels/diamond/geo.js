@@ -9,6 +9,8 @@
  * Pure: no DOM and no GL, so the gates run it in Node.
  */
 
+import { BOWL_FT, OUT, SH, SV, TILE_FT } from '../../../../shared/coliseum-plan.js';
+
 export const DEG = Math.PI / 180;
 export const BASE_PATH = 90;
 const D = BASE_PATH / Math.SQRT2;
@@ -41,22 +43,22 @@ export function moundHeight(x, z) {
 export const groundHeight = (x, z) => Math.max(0, moundHeight(x, z));
 
 // ── THE BOWL ────────────────────────────────────────────────────────────────
-// The Charles B. Hughson Coliseum as the map draws it (glass/models/coliseum.js), at the
-// broadcast's size: one square wall along the foul lines, as the map's park stands on the tile
-// grid, its outer face `near` feet behind home on the two near sides and `far` feet out on the two
-// far ones. The map packs the park into nine tiles, so the broadcast takes its plan from the bowl,
-// not from the field: the map's block coordinates (tiles from the block's centre, u east, v south)
-// go to the bowl's feet by `fromBlock`, and its heights by `ftUp` (its cornice at 0.46 tiles is
-// 104 ft). The field and the stands are the broadcast's own.
+// The Charles B. Hughson Coliseum as the map draws it (glass/models/coliseum.js): one square wall
+// along the foul lines, as the map's park stands on the tile grid, its outer face `near` feet behind
+// home on the two near sides and `far` feet out on the two far ones. Map and broadcast read one plan
+// (client/shared/coliseum-plan.js), in park units, and both stand it on the world's ruler: a unit is
+// SH tiles across and SV up, and a tile is TILE_FT feet. So the plan's points go to the bowl's feet by
+// `fromBlock`, and its heights by `ftUp` (its cornice at 0.46 is 104 ft). The field and the stands
+// are the broadcast's own.
 //
 // The bowl's frame: `s3` feet along the third-base line, `s1` feet along the first-base line. The
 // map's u (east) runs to -s3 and its v (south) to -s1, so Sorrel Way and the main gate are on the
 // s1 = -near face, Halcyon Boulevard on the s1 = far one, and the roof's rails run along s1.
-export const BOWL = Object.freeze({ near: 168, far: 445 });
+export const BOWL = BOWL_FT;
 export const sf = (s3, s1, y = 0) => [(s3 - s1) / Math.SQRT2, y, (s3 + s1) / Math.SQRT2];
 export const sOf = (p) => [(p[0] + p[2]) / Math.SQRT2, (p[2] - p[0]) / Math.SQRT2];
-export const fromBlock = (w) => -BOWL.near + ((1.47 - w) / 2.94) * (BOWL.near + BOWL.far);
-export const ftUp = (z) => z * 226;
+export const fromBlock = (w) => -BOWL.near + (OUT - w) * SH * TILE_FT;
+export const ftUp = (z) => z * SV * TILE_FT;
 // The light towers at the corners (the map's TOWER.at, 1.37 tiles out) and the lamp rows under the
 // two decks the roof's rails run along (its DECK, 1.13), at the height of the map's deck lamps.
 const TOWER_AT = [fromBlock(1.37), fromBlock(-1.37)], DECK_AT = [fromBlock(1.13), fromBlock(-1.13)];

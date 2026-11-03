@@ -1,12 +1,14 @@
 # The Coliseum at true size
 
-> **Status: phases 1-3 built (2026-11-02); phase 4 and the Hughson Dome are design.** The Curtain
-> runs down the river bank and along y 923, and the South Gate and the Glacis moved four rows south
-> with it ([coliseum-ground.mjs](../../scripts/content/coliseum-ground.mjs)). The 23 buildings and
-> the Helipad are on their new plots ([Where each one went](#where-each-one-went)). The park stands
-> on 121 tiles at true size with four gates ([coliseum-park.mjs](../../scripts/content/coliseum-park.mjs),
-> [coliseum-plan.js](../../client/shared/coliseum-plan.js)), still under its three shells: the dome
-> below isn't built.
+> **Status: phases 1-4 built (2026-11-02); the Hughson Dome is design.** The Curtain runs down the
+> river bank and along y 923, and the South Gate and the Glacis moved four rows south with it
+> ([coliseum-ground.mjs](../../scripts/content/coliseum-ground.mjs)). The 23 buildings and the
+> Helipad are on their new plots ([Where each one went](#where-each-one-went)). The park stands on
+> 121 tiles at true size with four gates ([coliseum-park.mjs](../../scripts/content/coliseum-park.mjs)),
+> and the map and the broadcast read one plan for it ([coliseum-plan.js](../../client/shared/coliseum-plan.js)).
+> It's still the deco bowl under its three shells: the dome below isn't built. See
+> [As built](#as-built) for what came out differently. [hughson-coliseum.md](hughson-coliseum.md)
+> describes the park as it stands.
 
 ## The decision
 
@@ -224,6 +226,33 @@ the booth sees the same dome.
 
 Gates: `content:lint`, `sitecheck`, `shapes:smoke` (every one of the 121 slices, night and day),
 `imports:smoke`, and `test:regress`, which needs a database, so this is built at a desk.
+
+## As built
+
+Phases 1 to 4 landed on 2026-11-02. Where the build differs from the plan above:
+
+- **No dome yet.** The park is the nine-tile park's deco bowl at true size: the drum's five
+  courses, the fins and windows, the four stepped corner towers (about 62 m), the main and bleacher
+  gates and the three shells. The Hughson Dome section above is still the design for what replaces
+  the shells, on the map and on TV together.
+- **One plan, not a transcription.** The bowl's numbers live once in
+  [coliseum-plan.js](../../client/shared/coliseum-plan.js), in park units, with what a unit is on the
+  ruler (SH tiles across, SV up). The map's arm draws them at that size and the broadcast's
+  `B2T` reads the same ruler, so the broadcast's park didn't change at all and the map's grew 3.6
+  times to meet it. The TV's roof is still its own (three full shells to the map's six half ones);
+  the dome is the place to make them one.
+- **About ten windows a face, not forty.** The broadcast's bays are 51 ft, which is what the map
+  draws at true size, and a five-light window 40 ft wide doesn't fit forty to a 613 ft face.
+- **Two Guardians, not four.** The main gate is the nine-tile park's at its true size.
+- **The corners aren't chamfered**, and the towers stand on them as before.
+- **GATE C and GATE D lead into the bleachers**, the one room with both sides free; on TV their
+  plates are bare bronze.
+- **The TV city.** The set round the park ([city-set.js](../../client/shared/city-set.js)) needed
+  three changes for a wall two rows off the park: the ring road along the park wins over the lane
+  inside the wall (Sorrel Way along the park, plots behind it), a building that can't find a plot
+  within seven looks within ten, and a walker's line to a gate stays on road, plaza or park. The
+  street cameras stand at least 45 ft off the main gate's foot
+  ([streets.js](../../client/game/js/panels/diamond/streets.js) `STREET_EYE.off`).
 
 ## Phases
 
