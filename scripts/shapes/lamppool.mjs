@@ -150,7 +150,9 @@ const QUAD = [{ p: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], rgb: [60, 60, 6
     for (const [name, why] of wants) {
       ok(gate.includes(name), 'the pool is no longer gated on ' + name + ' — ' + why + '. The gate now reads: ' + gate);
     }
-    const body = src.slice(i, i + 2600);
+    // To the end of main(), not a fixed length: the lamp shadows' subtraction (gl/lampshadow.js)
+    // sits between the sum and the add, and a fixed window stopped short of the add.
+    const body = src.slice(i, src.indexOf('\n}', i));
     // The per-light falloff lives in poolLight(), shared by the slot loop and the light grid.
     const j = src.indexOf('vec3 poolLight(');
     ok(j > 0, 'poolLight() has gone from ground.js — the falloff and the height floor below are checked in it.');

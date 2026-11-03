@@ -11,7 +11,7 @@ let _pending = null;
 // after `loadWindshield()` has resolved sees the real value, because an import binds rather
 // than copies. Read one before that and it is undefined, which is why the loader is awaited
 // at the door rather than at the first use.
-export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GLASS1_BASIC, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats, armKeepWhy;
+export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GLASS1_BASIC, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PARK_CLIP, PARK_FIG_STRIDE, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats, armKeepWhy, parkFigStats;
 
 export function isLoaded() { return !!_m; }
 
@@ -52,6 +52,8 @@ export function loadWindshield() {
     MODEL_MAX_EXTENT = m.MODEL_MAX_EXTENT;
     NEON_ART = m.NEON_ART;
     NO_TILE_FIT = m.NO_TILE_FIT;
+    PARK_CLIP = m.PARK_CLIP;
+    PARK_FIG_STRIDE = m.PARK_FIG_STRIDE;
     PHONE_TIER = m.PHONE_TIER;
     RENDER_TUNE = m.RENDER_TUNE;
     RIDE_ROLL_W = m.RIDE_ROLL_W;
@@ -76,6 +78,7 @@ export function loadWindshield() {
     _lifeGeo = m._lifeGeo;
     armKeepStats = m.armKeepStats;
     armKeepWhy = m.armKeepWhy;
+    parkFigStats = m.parkFigStats;
     _m = m;
   try { (await import('./gl/install.js')).installGL?.(); } catch (e) { console.error('[windshield-lazy] GL install failed, staying on the 2-D renderer:', e?.message); }
     return m;
@@ -227,6 +230,7 @@ export function ownHullScale(...a) { return (_m || _cold('ownHullScale')).ownHul
 export function paintFoot(...a) { return (_m || _cold('paintFoot')).paintFoot(...a); }
 export function paintWindshield(...a) { return (_m || _cold('paintWindshield')).paintWindshield(...a); }
 export function panelControlRects(...a) { return (_m || _cold('panelControlRects')).panelControlRects(...a); }
+export function parkFigures(...a) { return (_m || _cold('parkFigures')).parkFigures(...a); }
 export function perchCap(...a) { return (_m || _cold('perchCap')).perchCap(...a); }
 export function perchFor(...a) { return (_m || _cold('perchFor')).perchFor(...a); }
 export function perchLegState(...a) { return (_m || _cold('perchLegState')).perchLegState(...a); }
