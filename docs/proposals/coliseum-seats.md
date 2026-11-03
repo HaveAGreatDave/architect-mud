@@ -1,8 +1,10 @@
 # Seats at the Coliseum
 
-**Status: design, 2026-10-18. Nothing here is built.** Four of the questions were decided the same
-day: the booth paced by the park, seat furniture per section, more fouls as part of this work, and a
-feed of plays and the PA by default ([Decided](#decided-on-2026-10-18)). How a player watches Deadball in person from
+**Status: phase S0 built 2026-11-03 (the park clock and its gate, a measurement); S1 to S6 are
+design.** S0's answer is no: at the live clock today's holds don't fit every pitch in a seat
+([S0](#s0-what-the-gate-measured)). Four of the questions were decided on 2026-10-18: the booth paced
+by the park, seat furniture per section, more fouls as part of this work, and a feed of plays and the
+PA by default ([Decided](#decided-on-2026-10-18)). How a player watches Deadball in person from
 the stands of the Charles B. Hughson Coliseum: sit in a section, see the game from that section with
 nobody cutting the picture, hear the park and not the booth, read what the PA says and the crowd
 does, and maybe go home with a foul ball. It's the last piece of Phase 6 of
@@ -25,10 +27,11 @@ holds and catch-up), [systems-deadball-sound.md](../systems-deadball-sound.md),
 - **That clock is worked out on the server** when the game's graph is assembled: a time for every
   pitch, every play on the bases and every changeover, carried on the payloads (about 4 KB a game).
   Every seat and the server agree on when each pitch is thrown and where each foul comes down.
-- **The booth is paced by the park (decided).** Each line holds as long as its plays take in the
-  park, so the TV and the field never drift apart, and the TV leaves out fewer pitches as well.
-  Measured roughly over 1,000 games, every game fits with every pitch shown: the median game can
-  give each pitch 6.3 s, and the worst needed 3.1 s.
+- **The booth is paced by the park (decided, and built for the TV on 2026-10-26).** Each line holds
+  as long as its plays take in the park, so the TV and the field never drift apart. S0 measured
+  whether those holds fit every pitch in a seat: at the live clock they don't, because they're sized
+  for the TV's cuts. A seat needs the pacer to size each window by the seat's need (S1), and even then
+  the live clock is short unless a seat's fixed costs come down ([S0](#s0-what-the-gate-measured)).
 - **Fouls are decided on the server**, drawn at assembly with a salt of their own like `synthPlay`,
   and carried on the payload, so every seat and every TV sees the same ball. The one that lands in
   a section is the one that can become an item. There will be more of them: a new pitch draw
@@ -52,21 +55,29 @@ holds and catch-up), [systems-deadball-sound.md](../systems-deadball-sound.md),
   the 3-D park, staged at-bat by at-bat by the director
   ([diamond/director.js](../../client/game/js/panels/diamond/director.js)), with the dead time
   filled by [diamond/between.js](../../client/game/js/panels/diamond/between.js).
-- **How the director keeps up.** It gets a budget of 0.45 of the line's hold, between 13 and 26 s
-  (`BUDGET`). A long at-bat on a short hold leaves pitches out of the middle. When the bags the
+- **How the director keeps up.** It gets a budget of 0.6 of the line's hold, between 13 and 34 s
+  (`BUDGET` in [diamond/timing.js](../../client/game/js/panels/diamond/timing.js)). A long at-bat on
+  a short hold leaves pitches out of the middle. When the bags the
   picture last showed differ from the next payload's, the at-bat opens on a cutaway and everyone is
   placed while the camera's away (`pictureAfter`). A replay is its own world shown in place of the
   live one.
 - **Fouls today** are a coin off the pitch's hash (`hashStr('f' + i + p.batter) & 1` in the
   director): left or right, back over the screen at 70 mph, and gone after 1.2 s. The sound picks
   its crack from the seed the same way. Nothing says where the ball comes down.
-- **Work in progress, not on `main`.** Commit `feee5ae1a` on `refs/heads/claude/elastic-matsumoto-6ebc73`
-  makes every play reach the park: a play the booth doesn't call rides the line before it, in that
-  payload's `then` list or as an `uncalled` payload. The Grandstand stages a `then` play 1.2 s after
-  the landing in what's left of the line, and leaves it out (a cutaway) when under 1 s is left. In
-  30 hour-slot games it staged every play with no cutaways, against 96.7% and 56 cutaways before.
-  It still works inside line time and under cuts. Its hand-over lists regress, docs and a squash
-  as still to do.
+- **The booth's pacing (2026-10-26).** Every plate appearance in regulation is called, and each
+  line holds for as long as it takes to say, with each play timed by the park's clock
+  ([baseball-pacing.js](../../plugins/broadcast/sports/baseball-pacing.js) `paceCalls`, over the
+  numbers in [diamond/timing.js](../../client/game/js/panels/diamond/timing.js)): a play's call ends
+  no sooner than it lands, and the next payload waits for what the park does after it. A payload's
+  `hold` runs to the next payload, so the park plays on through the booth's talk.
+  [gameday-smoke](../../scripts/shapes/gameday-smoke.mjs) checks that every play lands inside its
+  line's hold.
+- **Superseded: the WIP commit `feee5ae1a`.** It's on no ref, and it predates the pacing rework.
+  It made a play the booth doesn't call ride the line before it, in that payload's `then` list or as
+  an `uncalled` payload, and the Grandstand staged it after the landing. It won't land. The pacing
+  rework gets every called play inside its line, and the S0 gate covers its `then` case: the plays
+  the booth still doesn't call (a throw over left out, extra innings' plate appearances that don't
+  score, their changeovers) ride the window before them there.
 
 ## 1. A park that keeps playing
 
@@ -78,18 +89,20 @@ Every one of these is a cut in time, and a fixed seat would see each one as a ju
 |---|---|
 | Pitches left out of a long at-bat (`planViews`, the budget) | The count jumps from 1-1 to 3-2 with nobody throwing. |
 | A cutaway when the bags disagree (`pictureAfter`) | Runners appear on bases. |
-| A `then` play left out for want of room (THEN.least) | A play happens off camera, then its result is on the field. |
+| A play the booth doesn't call, never staged (a throw over left out, most of extra innings) | A play happens off camera, then its result is on the field. |
 | The camera tour in the dead time (`shotsBetween`) | A seat doesn't move. |
 | A replay shown in place of the live world | The field can't vanish for eight seconds. |
 | The street shot at a game's first at-bat | Not from a seat. |
 
-`feee5ae1a` fixes the third row for the TV, as long as the line has room. Beyond it, a seat needs
-a clock of its own that gives every pitch and every play its time.
+A seat needs a clock of its own that gives every pitch and every play its time.
 
 ### The park clock
 
-A pure module, `diamond/parkclock.js` (baseball, not Deadball, so engine), that the server runs at
-graph assembly as it runs `synthPlay`, and that the gates can run with no server:
+A pure module, [diamond/parkclock.js](../../client/game/js/panels/diamond/parkclock.js) (baseball,
+not Deadball, so engine), built in S0. It imports only `timing.js`, the numbers the server already
+sizes its lines by, so the server can run it at graph assembly as it runs `synthPlay` (S1), and the
+gates run it with no server. As built, a payload's window is its line's hold exactly, and the clock
+lays the pitches out inside it; it doesn't move time between windows. The design it was built from:
 
 - **In:** the game's payloads in order (at-bats, plays on the bases, half-inning breaks, `then`
   and `uncalled` plays included) and the time the game has: the play-by-play's share of the slot
@@ -111,6 +124,10 @@ payload arrives, so two seats differ only by their latency. A seat that joins mi
 far in it is (`ago`, ms), the way a late tuner gets a catch-up today.
 
 ### Does every game fit?
+
+No, at the live clock (S0 measured it with the real holds, in [S0](#s0-what-the-gate-measured)).
+What follows is the scratch model from before S0, kept for the record. It gave the whole fill to
+pitches it costed at 3 s and a 4 s reset; the director's own numbers cost a play far more.
 
 Rough numbers from a scratch model over 1,000 sim v2 games, with the whole 3,060 s given to the
 game. The model's own guesses: a ball in play 5 to 12 s by kind, a reset of 4 s between at-bats, a
@@ -136,20 +153,20 @@ play on the bases 6 s, a changeover 25 s.
 
 A pitch cycle of 3 s is a pitcher working fast with nobody on: 0.4 s to the plate, the throw back,
 and set again. So every game fits with every pitch shown, and most have room for what real baseball
-does between pitches. Phase S0 measures this properly, with the real holds and the chatter lines,
-which this model ignores.
+does between pitches. S0 found otherwise.
 
 ### Pacing the booth by the park (decided)
 
-Today every play-by-play line in a baseball game holds the same time (`perLine`). The park clock
-gives each at-bat what it needs, so the two drift: with equal windows and a 4 s cycle, the model
-had the park falling behind the booth by 20 s in a game at the 90th percentile and by 280 s at the
-99th.
+When this was written every play-by-play line held the same time (`perLine`), and the model had the
+park drifting behind the booth. That's gone: since 2026-10-26 baseball has its `paceCalls`
+([baseball-pacing.js](../../plugins/broadcast/sports/baseball-pacing.js)), the seam hockey uses, and
+each play's lines hold for its time in the park by `timing.js`. So S0 dropped the drift measurement
+and measured the fit of those holds instead.
 
-So the lines are paced by the park. Baseball gets a `paceCalls`, the seam hockey already uses
-(`sportMod.paceCalls`). Each line holds for the park time of the plays it carries, its own and its
-`then` plays, and a line that calls nothing holds its reading floor (`SPORTS_LINE_HOLD_MS`). The
-park's window for a payload is then its line's hold exactly. The line airs as the at-bat starts in
+What's still to do for a seat (S1): today a hold covers the TV's need, the pitches inside the
+director's budget with cuts. A seat's need is every pitch whole, so the pacer has to size each
+play's lines by the park clock's need, its `then` plays' included. The park's window for a payload
+is its line's hold exactly. The line airs as the at-bat starts in
 the park, the TV and the stands never disagree, and a seat never gets a play earlier than a TV
 does. The TV gains too: an eight-pitch at-bat gets a long hold and so a long budget, so `BUDGET`
 stays as it is until S1 re-measures it. What changes is when lines air. The sim, the lines' words
@@ -207,8 +224,10 @@ nobody counts them. In the stands they're the main event, and the only balls mos
   games, and a game on air at the deploy would change its pitches part-way, so a late tuner and an
   early one would disagree about the count. The switch is the v2 machinery in
   [index.js](../../plugins/broadcast/index.js) (`simVersionFor`, `nextSimSwitch`, `@sim` in the
-  `.bsm`, world_flags), which knows only v1 and v2 today. Recommended: a plain v3, v2 plus the new
-  draw. The ratings-based at-bat roll can share it if it's ready, or take v4.
+  `.bsm`, world_flags). Since this was written v3 has been taken: it's v2 played by each club's
+  fixed roster for the season (`clubRosters`), and `@sim 3` is in the `.bsm`. So the new draw is
+  v4, v3 plus the draw, and the ratings-based at-bat roll can share it if it's ready, or take v5.
+  Where this doc says v3 for the new draw, read v4.
 
 ### The draw
 
@@ -437,26 +456,115 @@ it means a person controlling a team; the two don't meet.
 
 ## Phases
 
-Each phase lands on `main` on its own. The WIP commit lands first, with its hand-over's list done.
+Each phase lands on `main` on its own. The WIP commit `feee5ae1a` doesn't land (see
+[What exists](#what-exists)).
 
-**S0: does it fit?** Size: small.
-- `parkclock.js` and a gate (`parkclock-smoke`) that lays out a season of seeded games with the
-  real line holds, chatter lines included, and reports each game's pitch cycle, its worst at-bat
-  and how far the park and the booth drift with equal holds.
-- Runs on today's pitch draw and on the new one with more fouls, so the fit is known before v3 is
-  switched on.
-- Cost: no runtime cost; one gate under its 60 s budget.
+**S0: does it fit?** Size: small. **Built 2026-11-03.**
+- [diamond/parkclock.js](../../client/game/js/panels/diamond/parkclock.js): each payload's window
+  from its hold, and every pitch's release inside it, with the slack shared out (`SHARE`) and the
+  gaps varied off `CLOCK_SALT`.
+- [parkclock-smoke](../../scripts/shapes/parkclock-smoke.mjs), in the shapes group: four 8-club
+  seasons (480 games) at sim v3 as they air, with the real lines and holds, on today's pitch draw
+  and on a draft draw with more fouls. Its helper
+  [parkclock-season.mjs](../../scripts/shapes/parkclock-season.mjs) builds the games, the narration
+  and the pacing, and holds the draft draw, so S0 changes no runtime file's behaviour.
+- To get the real lines without importing `broadcast/index.js` (it loads the plugin's state from the
+  database as it's imported), Deadball's narration moved whole out of `assembleSportsGraph` into a
+  pure module, [baseball-narrator.js](../../plugins/broadcast/sports/baseball-narrator.js). Its
+  output is byte-identical: 480 graphs over v1, v2, v3, both clocks, a final and extra innings
+  hashed the same before and after, and the helper's payload holds matched `assembleSportsGraph`'s
+  in all 384 games compared.
+- Cost: no runtime cost; the gate is about 9 s of CPU.
+
+### S0: what the gate measured
+
+The question for every window: do its pitches fit at `CYCLE_MIN`, every pitch whole, no budget
+cut? A window's need, by the director's own numbers in `timing.js`, is `LAST_PITCH` for the last
+pitch to the plate, `playRoom` for the play or the call, and `afterLand` for what follows (the
+10 s reset, a replay, a home run's trot), plus a cycle for each pitch before the last. A changeover
+needs `CHANGEOVER_MIN`. `CYCLE_MIN` is 5 s: `LAST_PITCH`, 3.5 s, and a 1.5 s throw back that no
+cut hides from a seat. `CHANGEOVER_MIN` is 30 s, the centre fielder jogging out at the director's
+jog. A play the booth doesn't call rides the window before it.
+
+At the live clock (an hour's slot, 3:1):
+
+| | Today's draw | Draft draw |
+|---|---|---|
+| Pitches a game | 308.9 | 318.4 |
+| Pitches a plate appearance | 4.03 | 4.16 |
+| Fouls | 4.7% | 17.3% |
+| Games with every window fitting | 0 of 480 | 0 of 480 |
+| Windows with a gap between pitches, under `CYCLE_MIN` | 67.2% | 68.1% |
+| Their cycle: median, p10, p1 (s) | 3.0, 0.9, 0.1 | 2.9, 0.8, 0.1 |
+| Each game's tightest window: median, p10, p1, worst (s) | 0.1, -6.9, -20.0, -21.0 | 0.1, -6.7, -20.0, -21.0 |
+| Windows over: a play's own (at-bat, changeover, home run) | 29,736 (22,567, 7,138, 31) | 30,041 (22,841, 7,138, 62) |
+| Windows over with a play riding them | 240 | 240 |
+| The game's whole time over all its gaps: median, p10, p1, worst (s) | 3.8, 2.5, 0.6, 0.3 | 3.6, 2.5, 0.6, 0.3 |
+| Pitches the TV's budget leaves out at its quickest (estimate) | 4,056 of 145,949, 2.8% | 4,924 of 150,407, 3.3% |
+
+- **The worst window** is a two-pitch single in the top of the sixth (slot 189971) with a throw
+  over the booth left out riding it: 25 s for a need of 51 s.
+- **The booth leaves 1.94 plays a game uncalled**: 566 plate appearances in extra innings that
+  don't score, 176 throws over, 169 extra-inning changeovers, and 22 plays on the bases in extra
+  innings. The TV never shows their 2,340 pitches.
+- **Changeover windows** run a median of 20 s, a tenth of them 8 s or less, the shortest 4 s.
+  The TV gets away with it under cuts.
+- **A game's fixed needs** come to about 2,220 s of its 3,100: the reset after each play 798 s,
+  changeovers 538, the ball in play or the call 504, the last pitch to the plate 279, home run trots
+  and welcomes 57, replays 47. That leaves 232 gaps between pitches to share what's over.
+
+At 1:1 (a three-hour slot), today's draw: the game's whole time over its gaps is a median of 29.4 s
+(p10 23.5, p1 19.4, worst 16.6), windows with a gap are under `CYCLE_MIN` only 0.6% of the time, and
+416 of 480 games fit every play's own window. No game fits every window, because 3,987 changeover
+windows are under 30 s (median 39 s, p10 13), and in 123 windows the plays riding them don't fit: the
+worst is the last regular at-bat of an extra-inning game carrying 27 uncalled plays, 359 s for 877.
+On the draft draw at 1:1, 332 of 480 games fit every play's own window. The TV leaves no pitch out
+at 1:1.
+
+What would make the live clock fit, worked out over the same 480 games' whole time (scratch, not in
+the gate), as a median, p10 and p1 cycle, and the games under 5 s:
+
+| A seat's fixed costs | Median | p10 | p1 | Under 5 s |
+|---|---|---|---|---|
+| As the director's numbers | 3.8 | 2.5 | 0.6 | 439 |
+| The reset after a play 5 s, not 10 | 5.5 | 4.2 | 2.4 | 142 |
+| Changeovers 20 s, not 30 | 4.6 | 3.2 | 1.4 | 335 |
+| No replays (the board shows them while the field carries on) | 4.0 | 2.7 | 0.9 | 426 |
+| All three | 6.5 | 5.1 | 3.4 | 38 |
+
+Extra innings are most of the tail: 47 of the 480 games went to extras, and they're 33 of the worst
+48. Nine-inning games alone, as the director's numbers: median 3.9, p10 2.9, p1 2.4, worst 2.0.
+
+**What it means for S1.** The clock is built, and its windows are its lines' holds, but those holds
+are sized for the TV. So S1's pacer has to size each play's lines by the park clock's need
+(`windowNeed` at `CYCLE_MIN`), the plays riding it included, and give each changeover
+`CHANGEOVER_MIN`. That's possible at 1:1 for every game. At the live clock it isn't, by about 280 s
+for the median game and over 1,000 s at the 1st percentile, so S1 also has to choose: a seat's own
+shorter costs (all three cuts above leave 38 games in 480 under 5 s), fewer booth lines in a slot
+that can't hold them, or seats that open only at the slower clocks. The uncalled plays need room
+too: either the booth calls them in short lines (hockey's way), or they ride with room made for
+them. Run `node scripts/shapes/parkclock-smoke.mjs --strict` to fail on the fit; S1 makes it the
+default once its pacer sizes windows by the park.
+
+**What it means for S2.** The draft draw (a strike before the last pitch fouled off one time in
+three, and with two strikes a 20% chance of each further foul, up to four) reaches 17.3% fouls at
+4.16 pitches a plate appearance, 0.13 more than today, about ten more pitches a game. It moves the
+fit only a little (the median whole-game cycle from 3.8 s to 3.6, 1:1's fitting games from 416 to
+332), so the draw isn't what stands in the seats' way; the live clock's fixed costs are. On TV it
+takes the pitches the budget leaves out from 2.8% to 3.3%.
 
 **S1: the park clock on the server.** Size: medium.
-- The clock at assembly, `pk` on every payload, `ago` on a catch-up, and baseball's `paceCalls`.
+- The clock at assembly, `pk` on every payload, `ago` on a catch-up, and baseball's `paceCalls`
+  sizing each window by `windowNeed` (S0 above).
 - The TV director's budget reads the window; the handover's budget question is re-measured.
 - Tests: regress's sim hash unchanged; every payload's window inside its line's hold; every pitch
-  timed; the windows sum to the game's time; gameday-smoke and diamond-smoke green.
+  timed; the windows sum to the game's time; parkclock-smoke `--strict` by default; gameday-smoke
+  and diamond-smoke green.
 - Cost: about 4 KB a game per viewer; assembly CPU negligible.
 
 **S2: more fouls, decided on the server.** Size: medium.
-- The new pitch draw as sim v3, switched on at a recorded slot; `simVersionFor` and
-  `nextSimSwitch` take a third version.
+- The new pitch draw as sim v4, switched on at a recorded slot; `simVersionFor` and
+  `nextSimSwitch` take a fourth version.
 - `synthFouls`, `venue.sections` and the section test; the director and the mixer draw the record
   on TV.
 - Tests: the hash unchanged for every slot before the switch; fouls about 17% of pitches and
@@ -497,8 +605,9 @@ heard.
 
 ## Risks
 
-- **The model is rough.** Its play lengths are guesses, and it gives the game the whole fill. S0
-  exists to replace it with the real thing before anything else is built.
+- **The live clock is short.** S0 replaced the rough model with the real holds, and at the hour
+  slot a seat can't see every pitch whole by the director's numbers. S1 has to cut a seat's fixed
+  costs, or the booth's lines, or keep seats to the slower clocks.
 - **Pacing the booth changes how Deadball airs.** Lines that held the same time now vary with the
   plays. A line under its reading floor would be unreadable, so the floor wins and the park takes
   the difference from the gaps.
@@ -508,13 +617,15 @@ heard.
   taking the wrong way to a ball. A seat sees the whole field for a whole game; S3's gate has to
   look for jumps the TV never had to.
 - **More fouls, more pitches.** If the new draw adds pitches instead of relabelling strikes, the
-  tightest games stop fitting. S0 measures both draws before v3 is switched on.
+  tightest games stop fitting. S0 measured a draft draw that relabels strikes: about ten more
+  pitches a game, and the fit moves a little.
 
 ## Decided on 2026-10-18
 
 - **Pacing:** the booth's lines are paced by the park, so the TV and the stands are always in step.
 - **Sections:** seat furniture in the Stands and the Bleachers, not a room per section.
-- **Fouls:** more of them, as part of this work: the new pitch draw in S2, as sim v3.
+- **Fouls:** more of them, as part of this work: the new pitch draw in S2, as sim v3 (now v4, since
+  v3 is the club rosters).
 - **The feed's default:** plays and the PA only; every pitch is a setting.
 
 ## Questions for David
@@ -528,5 +639,5 @@ heard.
    while a game is on (proposed), or stay a television?
 4. **Off nights.** Can you sit and look at the dark field, or do the seats open only on game
    nights?
-5. **v3's contents.** The new pitch draw alone (recommended, so seats don't wait), or held for the
+5. **v4's contents.** The new pitch draw alone (recommended, so seats don't wait), or held for the
    ratings-based at-bat roll so both switch on at one slot?

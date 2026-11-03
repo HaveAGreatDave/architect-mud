@@ -20,7 +20,8 @@ postseason bugs fixed, the final named the Curtain Call, its gold graphics, the 
 the line-ups read under searchlights, and the champions crowned with confetti, fireworks over the park
 and the city, a pile on the mound and the trophy; and Phase 6 but for seats in person, the park on the
 map as the Charles B. Hughson Coliseum ([hughson-coliseum.md](hughson-coliseum.md)). The league is eight
-clubs, every one with its identity since 2026-10-24; seats in person and Phase 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+clubs, every one with its identity since 2026-10-24; seats in person (but for their first phase, S0,
+the park clock's measurement, built 2026-11-03) and Phase 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1126,7 +1127,10 @@ Estate's cinema screen is.
 This is the largest piece of the place-in-the-world work and comes last. Its plan is
 [coliseum-seats.md](coliseum-seats.md): a park clock worked out on the server so a seat sees every
 pitch with no cuts, the booth's lines paced by it, fouls decided on the server, a text feed for the
-stands, tickets and the caught ball.
+stands, tickets and the caught ball. Its first phase, S0, is built: the clock
+(`diamond/parkclock.js`) and a gate that measures it over four seasons. At the live clock today's
+holds don't fit every pitch in a seat, so the next phase has to size the booth's lines by the seat's
+need, not the TV's.
 
 ## Server changes
 
