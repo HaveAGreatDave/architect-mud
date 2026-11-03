@@ -3367,12 +3367,15 @@ function sportsChannels() {
 // so it answers from this set, which the heartbeat below keeps. A view that is open when it changes
 // is told by a `venue_lit` push (client/game/js/panels/world-feed.js keeps it by tile).
 let _venueLit = new Set();   // "x,y" of every tile of a venue with a game on now
+const _venueBlock = new Map();   // sport -> the block its game is being played on now
 function venueLit({ x, y } = {}) { return _venueLit.has(`${x},${y}`) ? { on: 1 } : undefined; }
 function refreshVenueLights(chans) {
   const next = new Set();
+  _venueBlock.clear();
   for (const { script } of chans) {
     const b = script?.venue?.site?.block;
     if (!b || ![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) continue;
+    _venueBlock.set(sportOf(script).id, b);
     for (let x = b.x0; x <= b.x1; x++) for (let y = b.y0; y <= b.y1; y++) next.add(`${x},${y}`);
   }
   const on = [...next].filter((k) => !_venueLit.has(k)), off = [..._venueLit].filter((k) => !next.has(k));
@@ -3380,6 +3383,26 @@ function refreshVenueLights(chans) {
   if (!on.length && !off.length) return;
   const xy = (k) => k.split(',').map(Number);
   const msg = { type: 'venue_lit', on: on.map(xy), off: off.map(xy) };
+  for (const id of world.players.keys()) sendToPlayer(id, msg);
+}
+
+// ── THE GAME ON THE FIELD, FOR THE PARK FROM THE AIR ────────────────────────────
+// Who's batting, the outs and the runners, off each aired line's score-bug, so a flight over the
+// park draws the defence out, the runners on their bases and the batter at the plate in his own
+// club's colours (client/game/js/panels/glass/models/coliseum.js). Sent to everybody only when it
+// changes: a few dozen bytes a play. Only while a channel is airing the game, since only an aired
+// game has lines; with none the park draws its standing defence.
+let _venuePlayKey = '';
+function noteVenuePlay(bug) {
+  const b = bug && bug.sport === 'baseball' ? _venueBlock.get('baseball') : null;
+  if (!b || !/^(TOP|BOT) /.test(bug.status || '')) return;
+  const msg = {
+    type: 'venue_play', block: [b.x0, b.y0, b.x1, b.y1], home: bug.home, away: bug.away,
+    top: bug.status.startsWith('TOP') ? 1 : 0, outs: bug.outs ?? 0, bases: (bug.bases || []).map((x) => (x ? 1 : 0)),
+  };
+  const key = JSON.stringify(msg);
+  if (key === _venuePlayKey) return;
+  _venuePlayKey = key;
   for (const id of world.players.keys()) sendToPlayer(id, msg);
 }
 
@@ -6505,6 +6528,7 @@ async function broadcastTick() {
       // overlay the client keeps on-screen and updates in place — sent every line so
       // late-tuners pick up the current state within one beat.
       const scorebugOverlay = result.scorebug ? { overlayType: 'scorebug', ...result.scorebug } : null;
+      if (result.scorebug) noteVenuePlay(result.scorebug);
 
       // Gameday: the rich per-at-bat snapshot that drives the animated sub-screen.
       // Rides the same tv_overlay channel as the score-bug; the client keeps it if the

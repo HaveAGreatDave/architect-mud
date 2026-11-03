@@ -52,10 +52,12 @@ import {
   DETAIL_LIFT, FLAT_OFF, MESH_SINK, SHAPE_SINK, _place, bakeSignText, blinkLight, clamp,
   draw3DBoxAt, drawFacetDrum, dutyPhase, emitDecoFill, emitFlat, emitSurfaceText, emitWire,
   facePals, faceYaw, flatsDropped, glowPool, massDropped, materialIdOf, nearOrMesh, rgb, windFlag,
+  parkFigures, PARK_CLIP,
 } from '../../windshield.js';
 import { flatOut } from './downtown.js';
 import { WIN, WIN_OPEN, sunburst, headPanels } from '../coliseum-window.js';
-import { venueLive, venueRoof } from '../../world-feed.js';
+import { venueLive, venueRoof, venuePlay } from '../../world-feed.js';
+import { clubColour } from '../../diamond/hud.js';
 
 // ── THE FIELD, IN BLOCK COORDINATES ──────────────────────────────────────────────────────────
 // Home plate near the south-east corner, the foul lines running west and north along the tile
@@ -189,6 +191,61 @@ function wind(q, want) {
 }
 const cl255 = (c) => c.map((v) => clamp(v, 0, 255));
 
+// ── THE PEOPLE, FROM THE AIR ─────────────────────────────────────────────────────────────────
+// On a game night, fans in the seats and the two teams on the field, drawn by windshield.js
+// parkFigures as the GPU's pavement people (their clips baked into a texture). Every figure is
+// [u, v, z, clip, seed] in block coordinates; `who` says which list. The seats are the stands' own
+// numbers below (the three grandstand tiers and the outfield rows), a fan every FAN_GAP, and a seed
+// over FILL leaves the seat empty. The players stand where the defence does with nobody on: the
+// live play is a follow-up (docs/proposals/hughson-coliseum.md).
+const FAN_GAP = 0.055, FILL = 0.82, FIG_K = 0.8;
+const figHash = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
+let PARK_PEOPLE = null;
+function parkPeople() {
+  if (PARK_PEOPLE) return PARK_PEOPLE;
+  const fans = [], players = [];
+  const seat = (u, v, z) => { const h = figHash(u, v); if (h < FILL) fans.push([u, v, z, h / FILL]); };
+  // the grandstand: two rows a tier along Sorrel Way (v) and the east side (u)
+  const tiers = [[STAND, 1.20, 0.055], [1.20, 1.31, 0.11], [1.31, BACK, 0.17]];
+  for (const [t0, t1, z] of tiers) for (const r of [0.3, 0.75]) {
+    const t = t0 + (t1 - t0) * r;
+    for (let a = -BACK + 0.04; a < STAND; a += FAN_GAP) {
+      const zt = (a < LOW ? z * 0.62 : z) + 0.004;
+      seat(a, t, zt); seat(t, a, zt);
+    }
+  }
+  // the outfield rows round home, inside the bowl
+  const lim = BACK - 0.02;
+  for (let k = 0; ; k++) {
+    const rm = OSTAND.r0 + (k + 0.5) * OSTAND.row;
+    if (rm > Math.hypot(HP[0] + lim, HP[1] + lim)) break;
+    const z = OSTAND.z0 + k * OSTAND.rise + 0.004;
+    const n = Math.ceil(Math.PI / 2 * rm / FAN_GAP);
+    for (let q = 0; q < n; q++) {
+      const th = Math.PI + (Math.PI / 2) * (q + 0.5) / n, u = HP[0] + rm * Math.cos(th), v = HP[1] + rm * Math.sin(th);
+      if (u > -lim && v > -lim) seat(u, v, z);
+    }
+  }
+  // The defence at r tiles from home and `deg` round from the third-base line (west, -u) to the
+  // first-base line (north, -v): pitcher, catcher, third, short, second, first, left, centre, right.
+  const at = (r, deg) => [HP[0] - r * Math.cos(deg * Math.PI / 180), HP[1] - r * Math.sin(deg * Math.PI / 180)];
+  for (const [r, deg, clip] of [[0.355, 45, 'idle'], [-0.04, 45, 'wait'], [0.50, 10, 'wait'], [0.66, 30, 'wait'], [0.66, 60, 'wait'],
+    [0.50, 80, 'wait'], [1.45, 15, 'wait'], [1.6, 45, 'wait'], [1.45, 75, 'wait']]) players.push([...at(r, deg), 0.004, clip, figHash(r, deg)]);
+  PARK_PEOPLE = { fans, players, ump: [...at(-0.08, 45), 0.004, 'idle', 0.71] };
+  return PARK_PEOPLE;
+}
+// Where the batting side stands: the batter beside the plate, and a runner a step off each base
+// toward the next (first, second, third).
+const BATTER = [HP[0] - 0.035, HP[1] + 0.02];
+const RUNNER = [[HP[0] - 0.03, HP[1] - BASE + 0.03], [HP[0] - BASE + 0.03, HP[1] - BASE - 0.03], [HP[0] - BASE + 0.03, HP[1] + 0.03]];
+// A club's jersey colour, linear-free sRGB [r, g, b] off diamond/hud.js clubColour's first colour.
+const KIT_RGB = new Map();
+function kitOf(team) {
+  if (!team) return null;
+  if (!KIT_RGB.has(team)) { const h = clubColour(team)[0]; KIT_RGB.set(team, [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))); }
+  return KIT_RGB.get(team);
+}
+
 // ── THE PARK'S STATE ─────────────────────────────────────────────────────────────────────────
 // The working light, on a night with no game, against the game night's 1.
 const WORK = 0.42;
@@ -197,6 +254,9 @@ const WORK = 0.42;
 // (`vl`, `vr`, `vrm`), never a live push: the cache entry is filed under that key. A moving roof's
 // capture (`meshRoof` null) has no travelling shells at all. A live frame reads the push first and
 // the cell after it. A static picture with no cell (a bake, the Modelshop) shows the dome shut.
+// A bench's game night (the Modelshop has no venue cell, so it always sees the park shut and empty):
+// `game` true draws a game on with the roof open, in the mesh too (re-capture after setting it).
+export const PARK_PREVIEW = { game: false };
 function parkState(now, night) {
   const pl = _place || null, dn = night ? clamp(+night, 0, 1) : 0;
   let game, p, moving = false, meshRoof = null;
@@ -212,6 +272,7 @@ function parkState(now, night) {
     const r = pl ? venueRoof(pl.wx, pl.wy) : undefined;
     if (r) { p = r.p; moving = r.moving; } else p = pl && pl.vr != null ? +pl.vr : 1;
   }
+  if (PARK_PREVIEW.game) { game = 1; p = 0; moving = false; if (MESH_SINK) meshRoof = 0; }
   const lightK = game ? 1 : WORK * clamp((dn - 0.05) / 0.3, 0, 1);
   return { dn, game, p, moving, meshRoof, lightK, towerK: lightK * (1 - p), domeK: lightK * p };
 }
@@ -969,6 +1030,40 @@ export const COLISEUM_ARMS = {
         if (!fixed && st.moving) shell(S, i, S.open + (S.shut - S.open) * st.p, asDecal);
       } else shell(S, i, S.open + (S.shut - S.open) * st.p, asMesh);
     });
+
+    // 10b) THE PEOPLE, on a game night with the roof not shut over them: this tile's share of the
+    //     fans and players, as offsets from its centre (the live part's x and y), facing home.
+    if (st.game && st.p < 0.98 && !MESH_SINK && !SHAPE_SINK) {
+      // ⚠ A FUNCTION, NOT A LIST. parkFigures is a live part, and a kept building replays the live
+      // part's arguments as they were recorded, so a list would hold the play it was recorded at. The
+      // function reads the play when it's called, and its offsets are from the tile's centre, so a
+      // replay's shift of x and y leaves them right. Rebuilt only when the play changes.
+      const [cx, cy] = P(cu, cv), [hx, hy] = P(...HP), pl = _place || null;
+      let memo = null, memoOf = null;
+      const build = () => {
+        const g = pl ? venuePlay(pl.wx, pl.wy) : null;
+        if (memo && memoOf === g) return memo;
+        const { fans, players, ump } = parkPeople(), figs = [];
+        const add = (u, v, z, clip, seed, kit = 0) => {
+          if (!inTile(u, v)) return;
+          const [wx, wy] = P(u, v);
+          figs.push(wx - cx, wy - cy, z * ZK, Math.atan2(hy - wy, hx - wx), clip, seed, kit);
+        };
+        for (const [u, v, z, s] of fans) add(u, v, z, PARK_CLIP.fan, s);
+        // The game as the last `venue_play` push has it (world-feed.js): the fielding side out in
+        // its positions, the batting side at the plate and on its bases. Kit 1 is the home club's,
+        // 2 the visitors'. With no push yet, the home side fields and nobody's on.
+        const top = g ? g.top : 1, field = top ? 1 : 2, bat = top ? 2 : 1;
+        for (const [u, v, z, clip, s] of players) add(u, v, z, PARK_CLIP[clip], s, field);
+        add(...BATTER, 0.004, PARK_CLIP.idle, 0.37, bat);
+        if (g) g.bases.forEach((on, i) => { if (on) add(...RUNNER[i], 0.004, PARK_CLIP.wait, 0.5 + i * 0.1, bat); });
+        add(...ump, PARK_CLIP[ump[3]], ump[4], 3);
+        const kits = [kitOf(g && g.home), kitOf(g && g.away)].map((c, i) => c || (i ? [200, 60, 50] : [236, 234, 226]));
+        memoOf = g; memo = { figs, kits };
+        return memo;
+      };
+      parkFigures(ctx, cam, cx, cy, build, FIG_K, alpha, now, dn > 0.5 ? 1 : 0, Z.corn * ZK);
+    }
 
     // 11) THE LIGHT THAT GETS OUT. With the roof shut after dark, the field's floods show through the
     //     clerestory all round and the glazing down the crown; with it open, through the gap.

@@ -442,6 +442,36 @@ function smokePose(p) {
   return P;
 }
 
+// ── In a seat. The Coliseum's fans from the air (windshield.js parkFigures). ──
+// Sitting: thighs out level and shins straight down, so the bake's lowest point (the feet) puts the
+// seat about half a metre up; hands on the knees, and the head following the play.
+function sitPose(p) {
+  const P = newPose();
+  const s1 = Math.sin(TAU * p);
+  P.root[1] = -0.44;
+  for (const sd of ['L', 'R']) {
+    setR(P, 'thigh' + sd, -88 * DEG, 0, sd === 'L' ? 4 * DEG : -4 * DEG);
+    setR(P, 'shin' + sd, 86 * DEG, 0, 0);
+  }
+  setR(P, 'spine', 4 * DEG, 0, 0);
+  setR(P, 'chest', 2 * DEG * Math.cos(TAU * p), 0, 0);
+  setR(P, 'head', 4 * DEG, 22 * DEG * s1, 0);
+  setR(P, 'uarmR', -30 * DEG, 0, -0.06); setR(P, 'uarmL', -30 * DEG, 0, 0.06);
+  setR(P, 'farmR', -50 * DEG, 0, 0); setR(P, 'farmL', -50 * DEG, 0, 0);
+  return P;
+}
+// Up and cheering: both arms over the head, pumping twice a cycle, and a bounce on the toes.
+function cheerPose(p) {
+  const P = idlePose(0.25);
+  for (const b of ARMS) zeroR(P, b);
+  const w = Math.sin(2 * TAU * p);
+  P.root[1] = 0.03 * Math.max(0, w);
+  setR(P, 'uarmR', -0.25, 0, -2.6 + 0.25 * w); setR(P, 'uarmL', -0.25, 0, 2.6 - 0.25 * w);
+  setR(P, 'farmR', 0, 0, -0.35); setR(P, 'farmL', 0, 0, 0.35);
+  setR(P, 'head', -10 * DEG, 0, 0);
+  return P;
+}
+
 // Frames per clip and seconds per cycle. The walk's cycle time is only its nominal pace: in the game
 // its phase follows the distance walked (see actorStrideM), so it is never read as a clock.
 // The standing clips are slow, so they bake few frames; the shader blends between neighbours.
@@ -454,6 +484,8 @@ const CLIPS = [
   { name: 'wait', frames: 16, dur: 6.0, fn: waitPose },
   { name: 'phone', frames: 20, dur: 6.0, fn: phonePose },
   { name: 'smoke', frames: 36, dur: 9.0, fn: smokePose },
+  { name: 'sit', frames: 12, dur: 8.0, fn: sitPose },
+  { name: 'cheer', frames: 16, dur: 1.2, fn: cheerPose },
 ];
 export const ACTOR_CLIPS = CLIPS.map(({ name, frames, dur }) => ({ name, frames, dur }));
 export const ACTOR_BONE = B;

@@ -274,6 +274,27 @@ nights, and Ray Dombrowski's hours follow them.
   from wherever they are, over five minutes, eased out of rest and back into it (`ROOF_MS`).
   `venueState` is the cell as amended by the pushes, and is what the mesh key and the arm both read.
 
+### The people, from the air
+
+On a game night with the roof open, a flight over the park sees the fans and the two teams. The arm
+(`parkPeople`, step 10b) puts a fan in most seats and hands the figures to `parkFigures` in
+windshield.js, which sends them to [gl/actors.js](../../client/game/js/panels/gl/actors.js) as the
+pavement's people: the same body and clips baked into a texture, plus `sit` and `cheer` for the
+stands. Only a camera above the cornice draws them, and only on GLASS 2.
+
+- The broadcast sends `venue_play` (who's home and away, the half, outs and the runners) off each aired
+  line's score-bug, when it changes. [world-feed.js](../../client/game/js/panels/world-feed.js)
+  keeps it by tile (`venuePlay`). The fielding side stands in its positions, and the batter and the
+  runners are the batting side, in `clubColour`'s first colour over grey; the umpire's in black.
+- With no channel airing the game there are no lines and no push, so the home side fields and
+  nobody's on.
+- ⚠ The arm hands `parkFigures` a function, not a list: a kept building replays a live part's
+  recorded arguments, and a list would freeze the play it was recorded at.
+- The play on the ball (a swing, a runner going, a fielder after the ball) isn't drawn. Each line's
+  gameday payload has it, and would be the next step.
+- `PARK_PREVIEW.game` fakes a game night with the roof open for the Modelshop; `parkFigStats` counts
+  what was offered and pushed.
+
 ## 7. On TV
 
 The broadcast's 3-D park stands in the same Coliseum: the field and the stands are the broadcast's

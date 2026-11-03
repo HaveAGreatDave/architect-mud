@@ -29929,6 +29929,60 @@ function pushActorMesh(cam, dx, dy, z, alpha, night, pose, p) {
 }
 // Seconds per cycle of each standing clip, for its phase.
 const ACTOR_CLIP_DUR = Object.fromEntries(ACTOR_CLIPS.map((c) => [c.name, c.dur]));
+
+// ── A BUILDING'S OWN PEOPLE, FROM THE AIR (the Coliseum's fans and players) ──────────────────────
+// `figs` (from `build`) is a flat list of seven numbers a figure: x and y from (x, y) in tiles, z, heading, clip index
+// into ACTOR_CLIPS, a seed (0..1) that picks the outfit and the phase, and a kit: 0 his own clothes,
+// 1 or 2 the jersey of `kits[0]` or `kits[1]` (an [r, g, b] each) over grey trousers, 3 an umpire's
+// black. They go to gl/actors.js as
+// the pavement's people do, so a seat full of fans is the same baked clips on the GPU. A live part
+// (armLiveCall), because the clips read the clock. Mesh only: nobody gets a billboard, so under
+// RENDER_TUNE.actorFarPx a figure is left out, and none of it is drawn below `minEye` tiles of eye
+// height, where the park's own wall hides the seats (in practice, only a flight seat sees them).
+const PARK_FIG_STRIDE = 7;
+const PARK_GREY = [168, 168, 160], PARK_BLACK = [28, 28, 32];
+const PARK_OUTFITS = new Map();
+// What the last calls did, for a bench: figures offered, and pushed to the GPU.
+export const parkFigStats = { offered: 0, pushed: 0, why: '' };
+// `build` returns { figs, kits } when called: the arm's figures read at draw time, not at record time.
+function parkFigures(ctx, cam, x, y, build, k, alpha, now, night, minEye) {
+  if (ARM_LIVE) return armLiveCall(parkFigures, LIVE_AT_PARK, arguments);
+  if (SHAPE_SINK || MESH_SINK || ADORN_TIER < ADORN_RICH) { parkFigStats.why = 'capture or tier'; return; }
+  const { figs, kits } = build();
+  if (!figs.length) return;
+  parkFigStats.offered += figs.length / PARK_FIG_STRIDE;
+  if (!actorMeshOn() || (cam.EH || 0) < minEye) { parkFigStats.why = actorMeshOn() ? 'eye ' + (cam.EH || 0).toFixed(2) : 'no actor mesh'; return; }
+  const bk = actorBakeReady();
+  if (!bk) { actorBakeStep(2); return; }
+  const s = ACTOR_TOP * ACTOR_S * _trueK / cam.depth / bk.top * k;
+  const minPx = RENDER_TUNE.actorFarPx > 0 ? RENDER_TUNE.actorFarPx : 2;
+  const L = LIGHT_STATE, lum = night ? 0.62 : 1, t = (now || 0) / 1000;
+  for (let i = 0; i < figs.length; i += PARK_FIG_STRIDE) {
+    const fx = x + figs[i], fy = y + figs[i + 1], z = figs[i + 2];
+    const f = (fx + (cam.back || 0) * cam.sinh - (cam.fx || 0)) * cam.sinh - (fy - (cam.back || 0) * cam.cosh - (cam.fy || 0)) * cam.cosh;
+    if (f <= VISIBLE_NEAR_F) continue;
+    const px = ACTOR_TOP * ACTOR_S * _trueK * k / f * _frameDpr;
+    if (px < minPx) continue;
+    // PARK_CLIP.fan (-1): sits, and gets up to cheer now and then on his own beat
+    const seed = figs[i + 5], ci = figs[i + 4];
+    const clip = ACTOR_CLIPS[ci >= 0 ? ci : Math.sin(t * 0.21 + seed * 40) > 0.93 ? PARK_CLIP.cheer : PARK_CLIP.sit];
+    const key = Math.floor(seed * 4096);
+    let o = PARK_OUTFITS.get(key);
+    if (!o) { o = actorOutfit((j) => actorHash('park' + key, 20 + j)); PARK_OUTFITS.set(key, o); }
+    const kit = figs[i + 6];
+    if (kit === 3) o = { ...o, coat: PARK_BLACK, legs: PARK_GREY, shoes: PARK_BLACK, tone: 0 };
+    else if (kit && kits && kits[kit - 1]) o = { ...o, coat: kits[kit - 1], legs: PARK_GREY, shoes: PARK_BLACK };
+    parkFigStats.pushed++;
+    FAUNA_SINK.push({
+      actor: 1, lod: px < (RENDER_TUNE.actorMeshPx || 0) && bk.far ? 1 : 0, hl: 0,
+      x: fx + (cam.ox || 0), y: fy + (cam.oy || 0), z, s, hd: figs[i + 3], o,
+      clip: clip.name, ph: (t / clip.dur + seed * 7.3) % 1, clip2: null, ph2: 0, mix: 0,
+      lum, a: alpha, lx: L ? L.sx : -0.707, ly: L ? L.sy : -0.707,
+    });
+  }
+}
+export const PARK_CLIP = Object.freeze({ ...Object.fromEntries(ACTOR_CLIPS.map((c, i) => [c.name, i])), fan: -1 });
+export { parkFigures, PARK_FIG_STRIDE };
 // A pavement figure's pose for the frame, and the per-token state behind it, kept on the ACTORS entry.
 // `life` is the figure's street-life record (glass/street-life.js) when that's on: what clip they
 // stand in, its phase origin, and which way to turn when they're not walking. Without it everybody
@@ -52893,7 +52947,7 @@ let ARM_STILL_N = 0;
 const ARM_POSE_SUSPECT = new Set();
 const armType = (c) => { const m = modelFor(c); return (m && m.type) || c.bt || c.mark || '?'; };
 const poseMoved = (p, q) => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) > 0.02 || Math.abs(p.h - q.h) > 0.02;
-const LIVE_AT_6 = { x: 2, y: 3, now: 6 }, LIVE_AT_7 = { x: 2, y: 3, now: 7 }, LIVE_AT_8 = { x: 2, y: 3, now: 8 }, LIVE_AT_10 = { x: 2, y: 3, now: 10 };
+const LIVE_AT_PARK = { x: 2, y: 3, now: 7 }, LIVE_AT_6 = { x: 2, y: 3, now: 6 }, LIVE_AT_7 = { x: 2, y: 3, now: 7 }, LIVE_AT_8 = { x: 2, y: 3, now: 8 }, LIVE_AT_10 = { x: 2, y: 3, now: 10 };
 const armMarks = () => [SPRITE_SINK ? SPRITE_SINK.length : 0, STROKE_SINK ? STROKE_SINK.length : 0, DECAL_SINK ? DECAL_SINK.length : 0,
   BAY_SINK ? BAY_SINK.length : 0, ARM_RAIN ? ARM_RAIN.length : 0];
 function armLiveCall(fn, at, args) {

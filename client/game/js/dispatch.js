@@ -63,7 +63,7 @@ import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/lazy-v
 import { openPodracer, closePodracer, podracerSetWorld, isPodracerActive, isPodracerDepotActive, openPodracerDepot, closePodracerDepot, closePodracerBay } from './panels/lazy-views.js';
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/lazy-views.js';
 import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts } from './panels/lazy-views.js';
-import { noteFirework, noteAAState, noteAAFire, noteVenueLit, noteVenueRoof } from './panels/world-feed.js';
+import { noteFirework, noteAAState, noteAAFire, noteVenueLit, noteVenueRoof, noteVenuePlay } from './panels/world-feed.js';
 import { airHorn, loadTv } from './panels/lazy-views.js';
 import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/lazy-views.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
@@ -1773,6 +1773,8 @@ const handlers = {
   // every view is told. Kept by tile in world-feed.js.
   aa_state: (msg) => { noteAAState(msg); },
   venue_lit: (msg) => { noteVenueLit(msg); },
+  // Who's batting, the outs and the runners at a venue, for the park drawn from the air.
+  venue_play: (msg) => { noteVenuePlay(msg); },
   // A venue's roof has started to open or close (the Hughson Coliseum's, on the weather).
   venue_roof: (msg) => { noteVenueRoof(msg); },
   aa_fire: (msg) => { noteAAFire(msg); },

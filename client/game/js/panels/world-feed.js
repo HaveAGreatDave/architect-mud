@@ -121,6 +121,19 @@ export function noteVenueLit(msg) {
   }
   _venueEpoch++;
 }
+// ── THE GAME ON A VENUE'S FIELD ──────────────────────────────────────────────
+// The last `venue_play` push for each venue, by every tile of its block: { home, away, top, outs,
+// bases }. Kept until the next one; whether a game is on at all is still the venue's light.
+const PLAY = new Map();
+export function noteVenuePlay(msg) {
+  const b = msg && msg.block;
+  if (!Array.isArray(b) || !b.every(Number.isFinite)) return;
+  const play = { home: String(msg.home || ''), away: String(msg.away || ''), top: msg.top ? 1 : 0, outs: msg.outs | 0,
+    bases: [0, 1, 2].map((i) => (Array.isArray(msg.bases) && msg.bases[i] ? 1 : 0)) };
+  for (let x = b[0]; x <= b[2]; x++) for (let y = b[1]; y <= b[3]; y++) PLAY.set(x + ',' + y, play);
+}
+export function venuePlay(x, y) { return PLAY.size ? PLAY.get(x + ',' + y) || null : null; }
+
 // 1 or 0 if the venue on tile (x, y) has changed since its cell was sent, or undefined.
 export function venueLive(x, y) { return VENUE.size ? VENUE.get(x + ',' + y) : undefined; }
 
