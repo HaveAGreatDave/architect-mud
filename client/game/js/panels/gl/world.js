@@ -7,6 +7,7 @@ import { createGLView, MAX_LIGHTS } from './context.js';
 import { buildAtlas, growAtlas, faceUVs } from './atlas.js';
 import { lightMatrix, eyePos, nearFor, viewProjMatrix, setJitter } from './camera.js';
 import { strokeRuns } from './propshadow.js';
+import { pickShadowLamps } from './lampshadow.js';
 import { jitterFor, reprojMatrix, TAA_TUNE } from './taa.js';
 import { createSkylineStrip } from './skyline.js';
 import { FOG_H_SCALE } from './fog.js';
@@ -443,13 +444,25 @@ function propShadowFor(cam, camAt, cssH, dpr, opts) {
   const e = eyePos(camAt);
   return {
     sun, eye: e, fwd: [camAt.sinh || 0, -(camAt.cosh == null ? 1 : camAt.cosh)],
-    casters: {
-      solids: [opts.bay, opts.fauna],
-      strokes: cam.FL > 0 ? { runs: strokeRuns(opts.strokes, cam.ox || 0, cam.oy || 0), vp: viewProjMatrix(camAt, cssH), FL: cam.FL * (dpr || 1) } : null,
-    },
+    casters: propCasters(cam, camAt, cssH, dpr, opts),
     wall: Math.min(1, k * (opts.glShadow > 0 ? opts.glShadow : 0.55)),
     ground: Math.min(1, k * Math.min(0.4, sun.alpha)),
   };
+}
+const propCasters = (cam, camAt, cssH, dpr, opts) => ({
+  solids: [opts.bay, opts.fauna],
+  strokes: cam.FL > 0 ? { runs: strokeRuns(opts.strokes, cam.ox || 0, cam.oy || 0), vp: viewProjMatrix(camAt, cssH), FL: cam.FL * (dpr || 1) } : null,
+});
+
+// What the street-lamp maps get (gl/lampshadow.js, RENDER_TUNE.glLampShadow), or null when off.
+// ⚠ THE LAMPS COME FROM THE LIST THE ROAD'S POOL READS THIS FRAME (the grid's when it's on, else the
+// slots), because the shader takes each one's shadow back out of that sum: a lamp picked from any
+// other list could take out light that was never put in. Night only, as the pool is.
+function lampShadowFor(cam, camAt, cssH, dpr, opts, poolList) {
+  const k = opts.glLampShadow || 0;
+  if (!(k > 0) || !(opts.glPool > 0) || !((opts.night || 0) > 0.01) || !poolList || !poolList.length) return null;
+  const lamps = pickShadowLamps(poolList, eyePos(camAt));
+  return lamps.length ? { lamps, k, casters: propCasters(cam, camAt, cssH, dpr, opts) } : null;
 }
 
 // Baked per-vertex AO for concave geometry (recesses, sill undersides, inner corners), which the
@@ -964,6 +977,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     lightFocus: LIGHT_TUNE.focus, cssH,
     ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts),
     propShadow: propShadowFor(cam, camAt, cssH, dpr, opts),
+    lampShadow: lampShadowFor(cam, camAt, cssH, dpr, opts, gridLights || lightList),
     // ⚠ The eye comes off `camAt`, the shifted camera; the plain cam slides every highlight.
     eye: eyePos(camAt),
     // ⚠ The city in the glass is rebuilt every frame, not with the mass buffer, or it snaps per tile.
@@ -1044,7 +1058,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // rig and the depot shed. They take the city's lights and night.
   const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, ...SOLID_WATER,
     lights: lightList, lightWrap: LIGHT_TUNE.wrap, lightFocus: LIGHT_TUNE.focus,
-    // The cel look for the cloth (gl/cloth.js).
+    // The cel look for the cloth, and the vehicles (gl/cloth.js, solids.js).
     toon: opts.glToon || 0, toonBands: opts.glToonBands,
     nightDim: 1 - (opts.night || 0) * (opts.glNightDark || 0) }) : 0;
 
@@ -1058,6 +1072,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   if (fl) fl.seaLights = roadLights(lightList);
   // Wheel tracks: ⚠ one buffer for both ground shaders so a track crosses the join; none for the mass.
   if (fl) fl.tracks = opts.tracks || null;
+  // The cel look bands the hillshade (gl/floor.js).
+  if (fl) { fl.toon = opts.glToon || 0; fl.toonBands = opts.glToonBands; }
   // ⚠ The floor gets the frame's near plane (it doesn't take `cam`; see gl:floorcam). FOG_H_SCALE is
   // folded into a copy here (windshield.js mustn't import gl/; FLOOR_STATE is read after the frame).
   // Underwater the seabed replaces the floor.
@@ -1133,6 +1149,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // People after the ground: the pavement band is translucent paint above road level and would
   // blend over their feet. The mirror draws them with the solids (context.js).
   const actors = g.view.drawActors ? g.view.drawActors(camAt, cssH, { fog: opts.fogBand, lights: lightList,
+    toon: opts.glToon || 0, toonBands: opts.glToonBands,
     nightDim: 1 - (opts.night || 0) * (opts.glNightDark || 0) }) : 0;
   // The translucent half of the solids (rotor blades, blur disc; `film` in solids.js): no depth
   // write, so after floor, sea and road. The mirror draws the solid range only.
@@ -1192,7 +1209,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // `shadowSize`, `wet`, `hdr` and `mirror` are reported because each can be zero or absent for
   // several reasons that all draw a correct picture; the number says which.
   // `mass` only for a harness that sets globalThis.__massDebug (massKeep's check).
-  return { interior, faces: g.faces || 0, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, propShadow: g.view.propShadow || null, hdr: graded, canvas: g.canvas,
+  return { interior, faces: g.faces || 0, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, propShadow: g.view.propShadow || null, lampShadow: g.view.lampShadow || null, hdr: graded, canvas: g.canvas,
     // Handed over only with the city's depth in the float target: the cloud deck goes back for it (blitOf).
     blit: graded && g.view.hdrLive() ? blitOf(g) : null };
 }

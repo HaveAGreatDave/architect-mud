@@ -22,7 +22,9 @@ import { makeVertexStream } from './stream.js';
 import { declareProgram, layerProgram, compileShader } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
+import { TOON_GLSL, TOON_INK_GLSL, TOON_INK_UNIFORMS, bindToonInk } from './toon.js';
 
+const INK_UNIT = 27;   // the ink lines' texture (gl/toon.js); clear of the cabin's 6 and 7 and the light grid's 8..10
 const SHIP_LIGHT_DEFAULT = [0.55, 0.95, 0.45];   // windshield.js shipLightOf
 const STRIDE = 15;   // pos3, colour3, alpha1, normal3, metal1, local3, tex1
 // ── THE CABIN VARIANT ────────────────────────────────────────────────────────
@@ -188,6 +190,10 @@ ${LIGHTGRID_GLSL}
 uniform float uWLDim;
 uniform float uWLWrap;
 uniform float uWLFocus;
+// The cel look (RENDER_TUNE.glToon, glInk) on the vehicles, as on the walls: gl/toon.js.
+// ⚠ toonBands only behind the uToon branch (toon.js).
+${TOON_GLSL}
+${TOON_INK_GLSL}
 out vec4 outColor;
 // ── THE CAUSTIC NET, AS REAL ONES BEHAVE ──────────────────────────────────────────────────────
 // Bright lines where drifting ripples cross zero, anchored in the WORLD so on a moving hull they slide
@@ -714,7 +720,18 @@ void main() {
   // side round a curve; with no sun it is an even 0.82. See shipLightOf in windshield.js.
   if (uLmOn > 0.5 && dot(vN, vN) > 0.01) {
     float nl = dot(normalize(vN), uLmSun), d = max(0.0, nl), wv = (nl * 0.5 + 0.5) * (nl * 0.5 + 0.5);
+    // The cel look bands the ship's key, both its hard-sun and its wrapped curve, as the walls band theirs.
+    if (uToon > 0.0) { d = mix(d, toonBands(d, uToonBands), uToon); wv = mix(wv, toonBands(wv, uToonBands), uToon); }
     c *= mix(0.82, uLmL.x, uLmK) + uLmL.y * mix(d, wv, uLmL.z) * uLmK;
+  } else if (uToon > 0.0 && uSunK > 0.0 && dot(vN, vN) > 0.01 && vTex != 10 && !mk) {
+    // Every other vehicle's light is baked on the CPU ('rv'), smooth. The cel look swaps that smooth
+    // key for a banded one: the face is divided by the walls' shade ramp at its own n.sun and
+    // multiplied by the same ramp at the banded value, so a lit side and a shade side read as two tones.
+    vec3 na = normalize(vN);
+    if (dot(na, uEye - vPos) < 0.0) na = -na;
+    float d = max(0.0, dot(na, uSun));
+    float ramp = mix(TOON_SHADE, 1.0, toonBands(d, uToonBands)) / mix(TOON_SHADE, 1.0, d);
+    c *= mix(1.0, ramp, uToon);
   }
   if (dot(vN, vN) > 0.01 && vMetal <= 0.0 && !mk) {
     vec3 na = normalize(vN);
@@ -867,6 +884,8 @@ void main() {
     float band = 1.0 - smoothstep(0.0, 0.004, abs(dz));
     c = mix(c, vec3(0.9, 0.96, 1.0), band * 0.75);
   }
+  // The ink, before the fog, where the walls take it.
+  c = inkMix(c, length(vPos - uEye));
   c = mix(c, uFog, vFog);
   outColor = vec4(c * alpha, alpha);   // premultiplied, like every other layer on this canvas
 }`, 'outColor');
@@ -891,7 +910,7 @@ export function createSolidsLayer(gl, opt = {}) {
   const cabin = !!opt.cabin;
   const VS = cabin ? VERT_C : VERT, FS = cabin ? FRAG_C : FRAG, ST = cabin ? STRIDE + CAB : STRIDE;
   const prog = layerProgram(gl, VS, FS, 'solids');
-  let lgLoc = null;
+  let lgLoc = null, tiLoc = null;
 
   const loc = {
     pos: gl.getAttribLocation(prog, 'aPos'),
@@ -1334,7 +1353,7 @@ export function createSolidsLayer(gl, opt = {}) {
     // because it is INSIDE the ordinary near plane: a cab is about a twentieth of a tile deep and
     // NEAR is 0.06, so every surface of it is nearer than the nearest thing the world camera can
     // draw, and the whole room clips away to nothing. See drawInterior.
-    gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH, opts.near, opts.far));
+    gl.uniformMatrix4fv(loc.viewProj, false, opts.vp || viewProjMatrix(cam, cssH, opts.near, opts.far));
     gl.uniformMatrix4fv(loc.model, false, model || IDENT);
     // ⚠ SET ON EVERY DRAW, ON or OFF. A prewarmed program can be shared by more than one layer, and a
     // uniform left on by the ship's draw would light the next layer's faces with the ship's sun.
@@ -1399,6 +1418,9 @@ export function createSolidsLayer(gl, opt = {}) {
     gl.uniform1f(loc.wlDim, opts.nightDim == null ? 1 : opts.nightDim);
     gl.uniform1f(loc.wlWrap, opts.lightWrap || 0);
     gl.uniform1f(loc.wlFocus, opts.lightFocus || 2);
+    // The cel look and the main pass's ink (gl/toon.js), bound on every draw, on or off.
+    if (!tiLoc) { tiLoc = {}; for (const u of TOON_INK_UNIFORMS) tiLoc[u] = gl.getUniformLocation(prog, u); }
+    bindToonInk(gl, tiLoc, INK_UNIT, opts, opts.depthOnly ? null : opts.ink);
     // ⚠ DEPTH-WRITE ON. This is a solid object: it has to hide what is behind it and be hidden by
     // what is in front, which is the whole point of moving it here. Off for film, and put back.
     gl.enable(gl.DEPTH_TEST);
@@ -1406,14 +1428,18 @@ export function createSolidsLayer(gl, opt = {}) {
     gl.disable(gl.CULL_FACE);   // see the ⚠ at the top — sheets, and a mirrored winding
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    if (opts.depthOnly) { gl.disable(gl.BLEND); gl.colorMask(false, false, false, false); }
     if (runs) { gl.bindVertexArray(ret.vao); for (const [a, k] of runs) gl.drawArrays(gl.TRIANGLES, a, k); }
     if (n) { gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, first, n); }
     gl.bindVertexArray(null);
     if (opts.film) gl.depthMask(true);
+    if (opts.depthOnly) gl.colorMask(true, true, true, true);
     return (n + (runs ? ret.n : 0)) / 3;
   }
 
-  return { upload, draw, get faces() { return (count + (ret ? ret.n : 0)) / 3; } };
+  // Into the ink lines' depth prepass (gl/ssao.js), with that pass's matrix: the solid range only.
+  const drawDepth = (vp, cam) => draw(cam, 0, { vp, depthOnly: true });
+  return { upload, draw, drawDepth, get faces() { return (count + (ret ? ret.n : 0)) / 3; } };
 }
 
 declareProgram(VERT, FRAG);

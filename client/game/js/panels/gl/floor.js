@@ -19,13 +19,14 @@
 // goes wrong quietly once the number moves: the mass clips at the frame's own plane while the
 // floor writes depth for one nothing else uses, so the ground sits a hair off every building
 // standing on it and nothing in the picture says why.
-import { NEAR, zRow } from './camera.js';
+import { NEAR, zRow, JITTER } from './camera.js';
 import { HEIGHT_FOG_GLSL } from './fog.js';
 import { seaSlopeVariance } from '../../../../shared/sea-swell.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { SEA_GLSL } from './sea-glsl.js';
 import { SEA_DETAIL_GLSL, SEA_DETAIL_AMT, bindSeaDetail } from './sea-detail.js';   // the ONE GLSL copy of the swell — water.js includes the same string, and client/shared/sea-swell.js is the JS original
 import { linearOut, applyLinOut } from './colour.js';
+import { TOON_GLSL } from './toon.js';
 import { PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
 
 // A screen-filling triangle rather than a quad: no diagonal seam, one fewer vertex, and the
@@ -65,6 +66,8 @@ uniform float uPropGround;
 ${PROP_SHADOW_GLSL}
 uniform float uDpr;        // gl_FragCoord is in device pixels; everything above is in CSS
 uniform float uViewH;
+// The TAA jitter (camera.js JITTER) in device pixels, 0 when it's off. See the ⚠ at the top of main.
+uniform vec2 uJitPx;
 
 uniform sampler2D uLut0;   // rgb = tile colour, a = waterness
 uniform sampler2D uLut1;   // r = grassness, g = hillshade/2, b = paved
@@ -297,6 +300,10 @@ float trackCut(vec2 gp, float fp) {
 // world.js. Reading the conversion off the code gets you a sub-tile error that looks like art.
 uniform int uDebug;
 
+// The cel look (RENDER_TUNE.glToon): the hillshade in flat steps, the walls' key's (gl/toon.js).
+uniform float uToon;
+uniform float uToonBands;
+${TOON_GLSL}
 out vec4 outColor;
 
 // The LUT is read by TEXEL, never sampled: the bilinear this floor does is not the hardware's.
@@ -492,8 +499,13 @@ ${SEA_GLSL}
 ${SEA_DETAIL_GLSL}
 void main() {
   // CSS pixel coordinates, which is the frame drawMode7Floor works in.
-  float sx = gl_FragCoord.x / uDpr;
-  float sy = (uViewH - gl_FragCoord.y) / uDpr;
+  // ⚠ LESS THE TAA JITTER, OR THE ROAD FLICKERS. The floor casts its own ray from the pixel and writes
+  // its own depth; every other layer is jittered through projMatrix. Unjittered, the floor's depth
+  // and the road quads' disagreed by half a pixel of depth slope, which at a low angle is more than
+  // the ground pass's polygon offset, so the road lost the depth test on some frames and not others.
+  vec2 fc = gl_FragCoord.xy - uJitPx;
+  float sx = fc.x / uDpr;
+  float sy = (uViewH - fc.y) / uDpr;
 
   // The inverse of the projection, exactly as the raster walks it: a screen row is a depth.
   float p = max(0.004, (sy - uHorizonY) / uDepth);
@@ -774,6 +786,13 @@ void main() {
     }
   }
 
+  // The cel look: the hillshade in flat steps either side of level ground, which is the middle of its
+  // step, so a flat plain never sits on an edge. Three bands are lit, level and shaded slopes.
+  // ⚠ Behind the uniform branch, for toonBands' derivative (toon.js).
+  if (uToon > 0.0) {
+    float k = max(1.0, floor(uToonBands * 0.5));
+    shadeW = mix(shadeW, 1.0 + 0.34 * toonBands(clamp((shadeW - 1.0) / 0.34, -1.0, 1.0), k), uToon);
+  }
   // Relief hillshade on land only — water is flat and carries its own wave shading below.
   tex *= shadeW * (1.0 - waterW) + waterW;
 
@@ -1434,9 +1453,9 @@ export function createFloorLayer(gl) {
   for (const n of PROP_SHADOW_UNIFORMS) PL[n] = U(n);
   const loc = {
     EH: U('uEH'), pitch: U('uPitch'), horizonY: U('uHorizonY'), depth: U('uDepth'), cx: U('uCx'), halfW: U('uHalfW'),
-    LAT: U('uLAT'), sinh: U('uSinh'), cosh: U('uCosh'), A: U('uA'), dpr: U('uDpr'), viewH: U('uViewH'),
+    LAT: U('uLAT'), sinh: U('uSinh'), cosh: U('uCosh'), A: U('uA'), dpr: U('uDpr'), viewH: U('uViewH'), jitPx: U('uJitPx'),
     lut0: U('uLut0'), lut1: U('uLut1'), lut3: U('uLut3'), mh: U('uMh'), R: U('uR'),
-    wear: U('uWear'), grain: U('uGrain'), mud: U('uMud'),
+    wear: U('uWear'), grain: U('uGrain'), toon: U('uToon'), toonBands: U('uToonBands'), mud: U('uMud'),
     hor: U('uHor'), hz: U('uHz'), hazeMax: U('uHazeMax'), nm: U('uNm'),
     freq: U('uFreq'), cwarp: U('uCwarp'), wc: U('uWc'), seamEB: U('uSeamEB'),
     farDirt: U('uFarDirt'), farRock: U('uFarRock'), farOn: U('uFarOn'),
@@ -1503,12 +1522,16 @@ export function createFloorLayer(gl) {
     // Written every frame, like every other switch here: a uniform keeps its last value.
     gl.uniform1f(loc.wear, s.wear == null ? 1 : s.wear);
     gl.uniform1f(loc.grain, s.grain == null ? 1 : s.grain);
+    gl.uniform1f(loc.toon, s.toon > 0 ? Math.min(1, s.toon) : 0);
+    gl.uniform1f(loc.toonBands, s.toonBands > 0 ? s.toonBands : 3);
     gl.uniform1f(loc.mud, s.mud > 0 ? Math.min(1, s.mud) : 0);
     gl.uniform1f(loc.EH, s.EH); gl.uniform1f(loc.pitch, s.pitch || 0); gl.uniform1f(loc.horizonY, s.horizonY); gl.uniform1f(loc.depth, s.depth);
     gl.uniform1f(loc.cx, s.cx); gl.uniform1f(loc.halfW, s.halfW); gl.uniform1f(loc.LAT, s.LAT);
     gl.uniform1f(loc.sinh, s.sinh); gl.uniform1f(loc.cosh, s.cosh);
     gl.uniform2f(loc.A, s.ax, s.ay);
     gl.uniform1f(loc.dpr, s.dpr || 1); gl.uniform1f(loc.viewH, s.viewH);
+    // NDC to device pixels over the drawing buffer, the size world.js's jitterFor was given.
+    gl.uniform2f(loc.jitPx, JITTER.x * gl.canvas.width * 0.5, JITTER.y * gl.canvas.height * 0.5);
     gl.uniform1i(loc.mh, s.n); gl.uniform1f(loc.R, s.R);
     gl.uniform3f(loc.hor, s.hor[0], s.hor[1], s.hor[2]);
     gl.uniform1f(loc.hz, s.hz); gl.uniform1f(loc.hazeMax, s.hazeMax); gl.uniform1f(loc.nm, s.nm);

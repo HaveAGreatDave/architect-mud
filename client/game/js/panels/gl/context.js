@@ -25,6 +25,7 @@ import { createCloudLayer } from './clouds.js';
 import { createCloudVolume } from './cloudvol.js';
 import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
 import { createPropShadowLayer, PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
+import { createLampShadowLayer } from './lampshadow.js';
 import { createSSAOLayer } from './ssao.js';
 import { createHDRLayer } from './hdr.js';
 import { createMirrorLayer } from './mirror.js';
@@ -1741,6 +1742,22 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return propFrame;
   }
 
+  // ── AND UNDER THE STREET LAMPS ──────────────────────────────────────────────
+  // gl/lampshadow.js, beside propPass for the same reasons. Only the road reads it (drawGround).
+  let lampLayer = null, lampTried = false, lampFrame = null;
+  function lampPass(opts) {
+    const P = opts.lampShadow;
+    lampFrame = null;
+    if (!P || !P.lamps || !P.lamps.length) return null;
+    if (!lampLayer && !lampTried) {
+      lampTried = true;
+      try { lampLayer = createLampShadowLayer(gl); } catch { lampLayer = null; }
+    }
+    if (!lampLayer) return null;
+    lampFrame = timed('lampshadow', () => lampLayer.render(P.lamps, P.casters, P.k));
+    return lampFrame;
+  }
+
   // Screen-space occlusion, before the clear for sunPass's reason.
   // ⚠ Takes the camera's frame height (CSS px), never the canvas's; the error is zero at dpr 1, so
   // headless tests can't see it. See docs/reference/glass-notes.md#projection-matrix-units.
@@ -1768,8 +1785,14 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
           // The mass's depth through the kept buffer's frame (massShift); the tents' stays on `vp`.
           massVP: massShift[0] || massShift[1] ? new Float32Array(shiftVP(vp, massShift)) : null,
           inkStep: opts.inkStep, inkCrease: opts.inkCrease, inkSteep: opts.inkSteep,
-          // The tents take the lines too: their depth goes in with the mass's (gl/cloth.js).
-          extraDepth: wantInk && clothInst ? (vp) => clothLayer().drawDepth(vp, cam) : null }));
+          // The tents, the vehicles and the people take the lines too: their depth goes in with the
+          // mass's (gl/cloth.js, solids.js, actors.js), uploaded before this pass (world.js).
+          extraDepth: wantInk && (clothInst || solidQuads || ownQuads || actorInst) ? (vp) => {
+            if (clothInst) clothLayer().drawDepth(vp, cam);
+            if (solidQuads) solidsLayer().drawDepth(vp, cam);
+            if (ownQuads) ownLayer().drawDepth(vp, cam);
+            if (actorInst) actorLayer().drawDepth(vp, cam);
+          } : null }));
     } catch { return null; }
   }
 
@@ -1829,6 +1852,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (!into && !fade) worldSun = sun ? { tex: sun.tex, vp: new Float32Array(sunVP(opts)), texel: sun.texel, bias: opts.sunShadow.bias } : null;
     // Not skipped with the mass: the road reads it too. The mirror draws without it.
     const prop = fade ? fadeKept.prop : into ? null : propPass(opts);
+    if (!fade && !into) lampPass(opts);
     const W = into ? into[0] : canvas.width, H = into ? into[1] : canvas.height;
     const occl = fade ? fadeKept.occl : into ? null : ssaoPass(cam, opts, W, H);
     const ssaoTex = occl ? occl.ao : null, inkTex = occl ? occl.ink : null;
@@ -2242,7 +2266,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (!quads || !quads.length) return 0;
     const L = groundLayer();
     L.upload(quads);
-    if (opts) { opts.skyTex = uploadSkyStrip(opts.skyStrip); opts.prop = propFrame; }
+    if (opts) { opts.skyTex = uploadSkyStrip(opts.skyStrip); opts.prop = propFrame; opts.lamp = lampFrame; }
     return L.draw(cam, cssH || canvas.height, opts);
   }
 
@@ -2328,6 +2352,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // The translucent range alone (`film` in solids.js); birds are drawn by the solid call.
     if (opts && opts.film) return (solidQuads ? solidsLayer().draw(cam, cssH || canvas.height, opts) : 0)
       + (ownQuads ? ownLayer().draw(cam, cssH || canvas.height, opts) : 0);
+    // The main pass's ink lines, which the vehicles' and people's depth went into (ssaoPass).
+    opts.ink = opts.noInk ? null : inkFrame;
     if (solidQuads) n += solidsLayer().draw(cam, cssH || canvas.height, opts || {});
     if (ownQuads) n += ownLayer().draw(cam, cssH || canvas.height, opts || {});
     if (faunaInst) faunaLayer().draw(cam, cssH || canvas.height, opts || {});
@@ -2341,6 +2367,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   function drawActors(cam, cssH, opts) {
     opts = opts || {};
     opts.lightGrid = bindWallGrid;
+    opts.ink = opts.noInk ? null : inkFrame;
     return actorInst ? actorLayer().draw(cam, cssH || canvas.height, opts || {}) : 0;
   }
 
@@ -2414,7 +2441,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // The mesh's box in the window's frame (for the light projection) and the shadow map size (0: refused).
     get bounds() { return boundsInWindow(); }, get shadowSize() { return shadow ? shadow.size : 0; },
     // This frame's prop map (gl/propshadow.js): size, triangles, and what went in. null when off.
-    get propShadow() { return propFrame ? { size: propFrame.size, tris: propFrame.tris, ...(propLayer && propLayer.last) } : null; } };
+    get propShadow() { return propFrame ? { size: propFrame.size, tris: propFrame.tris, ...(propLayer && propLayer.last) } : null; },
+    get lampShadow() { return lampFrame ? { size: lampFrame.size, tris: lampFrame.tris, w: Array.from(lampFrame.W.subarray(0, lampFrame.n)), ...(lampLayer && lampLayer.last) } : null; } };
   // Fixed arity rather than rest args, so an untimed frame allocates nothing here (no method takes more than six).
   for (const [k, name] of TIMED_PASSES) {
     const f = api[k];

@@ -29,6 +29,7 @@ import { FACE_ATLAS, FACE_GLSL } from '../actor-faces.js';
 import { declareProgram, takeWarm } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
+import { TOON_GLSL, TOON_INK_GLSL, TOON_INK_UNIFORMS, bindToonInk } from './toon.js';
 
 // Per instance: x, y, z, tiles per metre | clip A row0, frames, phase, heading | clip B row0, frames,
 // phase, share of B | coat rgb | trousers rgb | skin rgb | hair rgb | shoes rgb | brightness, alpha |
@@ -172,6 +173,9 @@ uniform vec2  uLGOrigin;
 uniform float uLGInv;
 uniform ivec2 uLGDim;
 ${LIGHTGRID_GLSL}
+// The cel look (RENDER_TUNE.glToon, glInk), the walls' (gl/toon.js). ⚠ toonBands only behind uToon.
+${TOON_GLSL}
+${TOON_INK_GLSL}
 out vec4 outColor;
 float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float vnoise(vec3 p) {
@@ -214,6 +218,7 @@ void main() {
   vec3 n = normalize(vN);
   vec3 col = vColor;
   float lit = clamp(0.5 + dot(n, uKeyDir) * 0.5, 0.0, 1.0);
+  if (uToon > 0.0) lit = mix(lit, toonBands(lit, uToonBands), uToon);
   float up = max(n.z, 0.0);
   float k = 0.52 + 0.48 * (lit * (1.0 - up) + 0.86 * up);
   vec3 c = col * k;
@@ -266,6 +271,8 @@ void main() {
     // skin. How dark the night is comes from the figure's own dimming, so the billboard still matches.
     float night = clamp(1.0 - vLum, 0.0, 1.0);
     float wrap = max(0.0, (dot(n, uKeyDir) + 0.35) / 1.35);
+    // The cel look: the key in flat steps, and the shade side taken down as the walls' is.
+    if (uToon > 0.0) { wrap = mix(wrap, toonBands(min(wrap, 0.999), uToonBands), uToon); col *= mix(1.0, mix(TOON_SHADE, 1.0, wrap), uToon); }
     vec3 amb = mix(vec3(0.34, 0.29, 0.24), vec3(0.46, 0.5, 0.58), n.z * 0.5 + 0.5);
     vec3 keyC = mix(vec3(0.62, 0.58, 0.52), vec3(0.6, 0.48, 0.34), night);
     float ao = mix(0.6, 1.0, smoothstep(0.0, 0.3, r.y));
@@ -328,6 +335,7 @@ void main() {
   // world.js), so an orange coat under a warm lamp glowed like a sign. Scaled down rather than
   // clamped per channel, so the coat stays orange instead of going yellow.
   c /= max(1.0, max(c.r, max(c.g, c.b)));
+  c = inkMix(c, length(vToEye));
   c = mix(c, uFog, vFog);
   outColor = vec4(c * vAlpha, vAlpha);
 }`, 'outColor');
@@ -338,7 +346,7 @@ void main() {
 // layout + 32 · hair style, makeup. The clips are the body's, so the head is where the body has it.
 const HSTRIDE = 31;
 // Units nothing else binds: the body has 20 and 21, cloth 24 and 25.
-const BONE_UNIT = 22, FACE_UNIT = 23;
+const BONE_UNIT = 22, FACE_UNIT = 23, INK_UNIT = 27;
 const f4 = (v) => v.toFixed(4);
 
 const HEAD_VERT = `#version 300 es
@@ -461,6 +469,9 @@ uniform vec2  uLGOrigin;
 uniform float uLGInv;
 uniform ivec2 uLGDim;
 ${LIGHTGRID_GLSL}
+// The cel look (RENDER_TUNE.glToon, glInk), the walls' (gl/toon.js). ⚠ toonBands only behind uToon.
+${TOON_GLSL}
+${TOON_INK_GLSL}
 out vec4 outColor;
 float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float vnoise(vec3 p) {
@@ -541,6 +552,8 @@ void main() {
   float night = clamp(1.0 - lum, 0.0, 1.0);
   float nk = dot(n, uKeyDir);
   float wrap = max(0.0, (nk + 0.35) / 1.35);
+  // The cel look, as the body's (FRAG).
+  if (uToon > 0.0) { wrap = mix(wrap, toonBands(min(wrap, 0.999), uToonBands), uToon); col *= mix(1.0, mix(TOON_SHADE, 1.0, wrap), uToon); }
   vec3 amb = mix(vec3(0.34, 0.29, 0.24), vec3(0.46, 0.5, 0.58), n.z * 0.5 + 0.5);
   vec3 keyC = mix(vec3(0.62, 0.58, 0.52), vec3(0.6, 0.48, 0.34), night);
   float rim = pow(1.0 - abs(normalize(vNv).z), 3.0);
@@ -584,6 +597,7 @@ void main() {
   }
   // Paint, not light: see the same line in FRAG.
   c /= max(1.0, max(c.r, max(c.g, c.b)));
+  c = inkMix(c, length(vToEye));
   c = mix(c, uFog, vMisc.y);
   outColor = vec4(c * alpha, alpha);
 }`, 'outColor');
@@ -653,6 +667,8 @@ export function createActorLayer(gl) {
     wlC: gl.getUniformLocation(prog, 'uWLC'), wlR: gl.getUniformLocation(prog, 'uWLR'),
   };
   const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
+  const tiOf = (p) => Object.fromEntries(TOON_INK_UNIFORMS.map((u) => [u, gl.getUniformLocation(p, u)]));
+  loc.ti = tiOf(prog);
 
   // ── The head's program, meshes and textures ─────────────────────────────────────────────────────
   let hprog = takeWarm(gl, HEAD_VERT, HEAD_FRAG);
@@ -673,6 +689,7 @@ export function createActorLayer(gl) {
   };
   // The wall's light grid (RENDER_TUNE.glCluster), which context.js binds through opts.lightGrid.
   for (const n of LIGHTGRID_UNIFORMS) { loc[n] = gl.getUniformLocation(prog, n); hloc[n] = HU(n); }
+  hloc.ti = tiOf(hprog);
   // Where each instance attribute sits in a record, in floats. Re-pointed per draw at the draw's
   // first instance, since WebGL2 has no base instance.
   const HINST = [
@@ -938,7 +955,7 @@ export function createActorLayer(gl) {
   function draw(cam, cssH, opts = {}) {
     if (!n) return 0;
     gl.useProgram(prog); applyLinOut(gl, prog);
-    const VP = viewProjMatrix(cam, cssH, opts.near, opts.far), VM = viewMatrix(cam);
+    const VP = opts.vp || viewProjMatrix(cam, cssH, opts.near, opts.far), VM = viewMatrix(cam);
     const f = opts.fog;
     // Set on every draw, on or off: the mirror prepass draws people with no list.
     const WL = opts.lights || [], nW = Math.min(12, WL.length);
@@ -957,6 +974,8 @@ export function createActorLayer(gl) {
       if (nW) { gl.uniform3fv(U.wlP, wlP); gl.uniform3fv(U.wlC, wlC); gl.uniform1fv(U.wlR, wlR); }
       // Bound on every draw, grid or not: the samplers need units of their own either way.
       if (opts.lightGrid) opts.lightGrid(U, 8); else bindNoLightGrid(gl, U, 8);
+      // The cel look and the main pass's ink (gl/toon.js), on every draw, on or off.
+      bindToonInk(gl, U.ti, INK_UNIT, opts, opts.depthOnly ? null : opts.ink);
     };
     uniforms(loc);
     gl.uniform1f(loc.look, ACTOR_LOOK.on ? 1 : 0);
@@ -968,6 +987,7 @@ export function createActorLayer(gl) {
     gl.disable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    if (opts.depthOnly) { gl.disable(gl.BLEND); gl.colorMask(false, false, false, false); }
     let tris = 0;
     for (const mesh of meshes) {
       if (!mesh || !mesh.n) continue;
@@ -988,11 +1008,14 @@ export function createActorLayer(gl) {
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
     if (meshes[0]) tris += drawHeads(meshes[0].bk, uniforms);
+    if (opts.depthOnly) gl.colorMask(true, true, true, true);
     return tris;
   }
 
+  // Into the ink lines' depth prepass (gl/ssao.js), with that pass's matrix.
+  const drawDepth = (vp, cam) => draw(cam, 0, { vp, depthOnly: true });
   return {
-    upload, draw,
+    upload, draw, drawDepth,
     get instances() { return n; },
     get heads() { return nh; },
   };

@@ -103,7 +103,9 @@ const inBox = (b, x, y) => x >= b.x0 - 1 && x <= b.x1 + 1 && y >= b.y0 - 1 && y 
 //   strokes: { runs: [{ list, ox, oy }], vp, FL }: the stroke list cut where a retained group
 //            carries its own shift (strokeRuns), the window camera's view-projection (for each end's
 //            depth) and its focal length in the stroke widths' device pixels.
-//   travel:  the light's travel direction, world, unit.
+//   travel:  the light's travel direction, world, unit. null for a lamp (gl/lampshadow.js): one buffer
+//            serves several lamps on every side of a caster, so a slab is laid as an X of two, each
+//            square to the segment, and casts near its full width from any side.
 export function buildPropCasters(buf, box, { solids, strokes, travel }, T = PROP_SHADOW_TUNE) {
   let d = buf.data, o = 0;
   const need = (n) => {
@@ -113,15 +115,25 @@ export function buildPropCasters(buf, box, { solids, strokes, travel }, T = PROP
   };
   const put = (x, y, z) => { d[o] = x; d[o + 1] = y; d[o + 2] = z; o += 3; };
   // A slab from A to B, `hw` either side, turned square to the light so it casts its full width.
-  const slab = (ax, ay, az, bx, by, bz, hw) => {
-    const ex = bx - ax, ey = by - ay, ez = bz - az;
-    let px = ey * travel[2] - ez * travel[1], py = ez * travel[0] - ex * travel[2], pz = ex * travel[1] - ey * travel[0];
+  const quad = (ax, ay, az, bx, by, bz, px, py, pz, hw) => {
     const pl = Math.hypot(px, py, pz);
     if (pl < 1e-9) return;
     px *= hw / pl; py *= hw / pl; pz *= hw / pl;
     need(18);
     put(ax - px, ay - py, az - pz); put(ax + px, ay + py, az + pz); put(bx + px, by + py, bz + pz);
     put(ax - px, ay - py, az - pz); put(bx + px, by + py, bz + pz); put(bx - px, by - py, bz - pz);
+  };
+  const slab = (ax, ay, az, bx, by, bz, hw) => {
+    const ex = bx - ax, ey = by - ay, ez = bz - az;
+    if (travel) {
+      quad(ax, ay, az, bx, by, bz, ey * travel[2] - ez * travel[1], ez * travel[0] - ex * travel[2], ex * travel[1] - ey * travel[0], hw);
+      return;
+    }
+    // The X: u is square to the segment and level (or along x for a vertical one), v square to both.
+    let ux = ey, uy = -ex, uz = 0;
+    if (Math.hypot(ux, uy) < 1e-9) { ux = 0; uy = ez; uz = -ey; }
+    quad(ax, ay, az, bx, by, bz, ux, uy, uz, hw);
+    quad(ax, ay, az, bx, by, bz, ey * uz - ez * uy, ez * ux - ex * uz, ex * uy - ey * ux, hw);
   };
   let nSolid = 0, nStroke = 0, nActor = 0;
   for (const L of solids || []) {

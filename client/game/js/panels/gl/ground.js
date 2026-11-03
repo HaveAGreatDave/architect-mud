@@ -10,6 +10,7 @@ import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 import { PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
+import { LAMP_SHADOW_GLSL, LAMP_SHADOW_UNIFORMS, bindLampShadow } from './lampshadow.js';
 import { LIGHTGRID_TUNE, LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
 
 const STRIDE = 14;  // pos3, colour3, alpha1, road1, lat1, kerb1, tile2, kerbN2
@@ -606,6 +607,19 @@ uniform float uPropTexel;
 uniform float uPropBias;
 uniform float uPropGround;
 ${PROP_SHADOW_GLSL}
+// What stands under a street lamp, out of that lamp's pool (gl/lampshadow.js, RENDER_TUNE.glLampShadow).
+uniform highp sampler2D uLshMap0;
+uniform highp sampler2D uLshMap1;
+uniform highp sampler2D uLshMap2;
+uniform highp sampler2D uLshMap3;
+uniform mat4 uLshVP[4];
+uniform vec3 uLshP[4];
+uniform vec3 uLshC[4];
+uniform float uLshW[4];
+uniform int uNLsh;
+uniform float uLshTexel;
+uniform float uLshBias;
+${LAMP_SHADOW_GLSL}
 
 out vec4 outColor;
 
@@ -1425,6 +1439,17 @@ void main() {
         pool += poolLight(uPoolP[i], vec3(poolLum(uPoolC[i])));
       }
     }
+    // ⚠ WHAT STANDS UNDER A LAMP TAKES ITS SHARE BACK OUT, which is gl/lampshadow.js's whole design:
+    // the sum above can't tell which light has a map, so each mapped lamp's own pool is worked out
+    // again and the shadowed part of it subtracted. Clamped, for the grid's unbinned fringe.
+    if (uNLsh > 0) {
+      for (int j = 0; j < 4; j++) {
+        if (j >= uNLsh) break;
+        float dark = (1.0 - lampShadow(j, vWorld)) * uLshW[j];
+        if (dark > 0.0) pool -= poolLight(uLshP[j], vec3(poolLum(uLshC[j]))) * dark;
+      }
+      pool = max(pool, vec3(0.0));
+    }
     // ⚠ IT ADDS INTO THE HEADROOM RATHER THAN ONTO THE ROAD. 'c + k' saturates a pale kerb to
     // white long before it saturates the tarmac beside it, so a pool crossing a painted line
     // blows the line out and leaves a hard white bar lying across the middle of it. Scaling by
@@ -1558,6 +1583,7 @@ export function createGroundLayer(gl) {
   for (const n of LIGHTGRID_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
   for (const n of PROP_SHADOW_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
   loc.propGround = gl.getUniformLocation(prog, 'uPropGround');
+  for (const n of LAMP_SHADOW_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
   loc.lgStreakW = gl.getUniformLocation(prog, 'uLGStreakW');
   loc.lgStreakK = gl.getUniformLocation(prog, 'uLGStreakK');
   loc.lgGlintW = gl.getUniformLocation(prog, 'uLGGlintW');
@@ -1785,6 +1811,8 @@ export function createGroundLayer(gl) {
     // Unit 6, past the light grid's 3 to 5. Every draw, on or off: a uniform holds its last value.
     bindPropShadow(gl, loc, 6, opts.prop || null);
     gl.uniform1f(loc.propGround, opts.prop ? opts.prop.ground : 0);
+    // Units 7 to 10. Every draw, on or off, for the prop map's reason.
+    bindLampShadow(gl, loc, 7, opts.lamp || null);
     gl.uniform1f(loc.lgStreakW, LIGHTGRID_TUNE.streakW > 0 ? LIGHTGRID_TUNE.streakW : 1);
     gl.uniform1f(loc.lgStreakK, LIGHTGRID_TUNE.streakK >= 0 ? LIGHTGRID_TUNE.streakK : 1);
     gl.uniform1f(loc.lgGlintW, LIGHTGRID_TUNE.glintW > 0 ? Math.min(2, LIGHTGRID_TUNE.glintW) : 1);

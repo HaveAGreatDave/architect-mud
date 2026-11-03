@@ -1385,8 +1385,9 @@ export const RENDER_TUNE = {
   // sub-pixel off each frame and blended into a reprojected history, which takes the shimmer off
   // thin mullions, window grids and highlights that MSAA can't reach. Signs, lettering, sprites,
   // wires and the cabin are drawn after it, unjittered, so they stay as sharp as they are now.
-  // Needs the float target (glHdr). Off until it's been judged in motion.
-  glTaa: 0,
+  // Needs the float target (glHdr), so it's off on phones with it. On 2026-10-31 for David to judge
+  // in motion; 0 puts the frame back exactly as it was.
+  glTaa: 1,
   // ── A FLOAT TARGET, SO LIGHT CAN BE BRIGHTER THAN WHITE ─────────────────────
   //
   // Every pass otherwise draws at eight bits a channel, so signs, windows and the sun's highlight
@@ -1563,6 +1564,12 @@ export const RENDER_TUNE = {
   // CPU about 0.3-0.5 ms to build ~5,000 caster triangles. Full write-up in
   // docs/reference/glass-notes.md, "Prop shadows".
   glPropShadow: 1,
+  // What stands under a street lamp, out of that lamp's pool on the road: up to four of the strongest
+  // lamps near the eye each draw a depth map straight down (gl/lampshadow.js), from the casters the
+  // map above already collects, and the road takes the shadowed share of that lamp's pool back out.
+  // Night only, as the pools are. 0 off, 1 full. Off on phones (PHONE_TIER). Measurements in
+  // docs/reference/glass-notes.md, "Lamp shadows".
+  glLampShadow: 1,
   // ⚠ THE MOON CASTS ONE TOO — AND IT IS OFF, BECAUSE A SHADOW IS THE ABSENCE OF LIGHT AND THERE
   // IS NO LIGHT ON THE GROUND AT NIGHT TO TAKE AWAY. `sunShadowFor` gated the shadow pass hard on
   // the sun being up, and the world half of that is wrong: a full moon high in a clear sky throws
@@ -2173,7 +2180,7 @@ export const RENDER_TUNE = {
 // The six materials switches turned on 2026-10-18 (the material and surface pages, the sky cube, GGX,
 // linear light and the tone curve) were only ever measured on one discrete GPU, so a phone keeps the
 // picture from before them too: two of them are whole extra atlas pages, and the last two need glHdr.
-export const PHONE_TIER = Object.freeze({ glSsao: 0, glShadow: 0, glPropShadow: 0, glMsaa: 0, glHdr: 0, glCluster: 0,
+export const PHONE_TIER = Object.freeze({ glSsao: 0, glShadow: 0, glPropShadow: 0, glLampShadow: 0,glMsaa: 0, glHdr: 0, glCluster: 0,
   glMatPage: 0, glSurfPage: 0, glEnvCube: 0, glGGX: 0, glLinear: 0, glTonemap: 0,
   // And the CPU's share, which the GPU switches above don't touch: a phone runs JavaScript three to
   // five times slower than the desktop these numbers were made on. The card deck instead of the cloud
@@ -54645,7 +54652,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       applyCabinStreetLight();
       if (STROKE_SINK) STROKE_SINK.deep = true;
       if (DECAL_SINK) DECAL_SINK.atlas = TUNE.glDecalAtlas;
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glTransfer: TUNE.glTransfer, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glPropShadow: TUNE.glPropShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, massKeep: TUNE.massKeep, atlasGrow: TUNE.atlasGrow, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, glNightSat: TUNE.glNightSat, sun, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glTransfer: TUNE.glTransfer, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glPropShadow: TUNE.glPropShadow, glLampShadow: TUNE.glLampShadow,glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, massKeep: TUNE.massKeep, atlasGrow: TUNE.atlasGrow, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, glNightSat: TUNE.glNightSat, sun, worldBlend: WORLD_BLEND,
         // ⚠ THE DECK, FOR THE REFLECTION AND FOR NOTHING ELSE IN THIS PASS. It is DRAWN by the
         // second hook after the world is blitted; what the world pass wants it for is the mirror
         // prepass, which is the only chance a puddle gets to be handed a sky.

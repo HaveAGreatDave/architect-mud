@@ -36,6 +36,8 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Per-pass GPU time (`__glPassMs()`)](#per-pass-gpu-time-__glpassms)
 - [Measuring in the game and on a phone (`__glassBench()`)](#measuring-in-the-game-and-on-a-phone-__glassbench)
 - [Prop shadows (`RENDER_TUNE.glPropShadow`)](#prop-shadows-render_tuneglpropshadow)
+- [Lamp shadows (`RENDER_TUNE.glLampShadow`)](#lamp-shadows-render_tunegllampshadow)
+- [TAA and the floor](#taa-and-the-floor)
 - [Measuring the frame (`__glFrame()`)](#measuring-the-frame-__glframe)
 - [Hardware coverage](#hardware-coverage)
 - [A pass that didn't draw](#a-pass-that-didnt-draw)
@@ -539,6 +541,31 @@ GPU, `glPassTimer`: 0.04 ms for the map in a cab; the mass, ground and floor pas
 
 Two traps in measuring it. Leave TAA and the clock as they are and a 0-vs-0 control moves 70% of the frame: the frame shifts by a row between paints, and the diff is horizontal banding over the sky and the dashboard. Pin `performance.now` and seed `Math.random` per paint, and always run the control. And the Modelshop reloads the page whenever a client file changes, so with peers editing, run a measurement in short steps and keep results in `localStorage`.
 
+## Lamp shadows (`RENDER_TUNE.glLampShadow`)
+
+Since 2026-10-31 what stands under a street lamp is out of that lamp's pool on the road. Up to four lamps near the eye each get a 1024 depth map looking straight down ([gl/lampshadow.js](../../client/game/js/panels/gl/lampshadow.js)), and the ground pass (ground.js) takes the shadowed share of each one's pool back out. On by default, off in `PHONE_TIER`, night only.
+
+- **Subtracted, not masked.** The pool loop sums every light in the cell (or the slot list) and can't tell which has a map, so the shader adds every pool as before and then takes away `(1 - lit) × weight` of each mapped lamp's own `poolLight`. That only balances if the lamps come from the list the pool read this frame, which is why `lampShadowFor` in world.js picks from `gridLights || lightList` and nothing else. The sum is clamped at 0 for the fringe the grid didn't bin.
+- **Which lamps.** `pickShadowLamps` takes lights at least `minH` (0.12 tiles) up whose pool peak clears `minPeak`, scored by peak over distance in lamp heights. A saturated light pools nothing (`POOL_NEON` 0), so signs and sodium-orange lights never get a map; only white `streetlamp` lights do. The fourth lamp's weight thins as the fifth closes on it, and every lamp thins over the last 30% of `far` (14 tiles), so nothing pops.
+- **One caster buffer.** The prop map's casters (posts, masts, wires, park and shed solids, people), built once with no light direction, so each slab is an X of two and casts from any side. Vehicles aren't in it, as they aren't in the prop map.
+- **Plain depth samplers**, as the prop map uses. A `sampler2DShadow` in the road shader would make every road draw illegal without compare-mode textures bound, phones included.
+- **Only the road reads it.** Walls, people and solids are lit by lamps through the light grid and still take no lamp shadow.
+
+The Modelshop can't show this unaided: a cell's `sl` (a lit street light) comes live from furniture in `plugins/flight/state.js`, and the baked snapshot `__street` reads has none, so no street lamp is ever drawn there. Patch them in with `cells`: every road tile without a building or mark gets `{ sl: 1 }`. People come from `view.actors` (`{ t, x, y }` in world tiles), and they fade in, so paint a few frames with the clock moving before a pinned measurement.
+
+Measured 2026-10-31 on Marrow Street (916,909, heading 90, 23:00) with lamps patched in and eight people on the pavements, TAA off, clock and RNG pinned, four paints a sample:
+
+| Seat | Control | 0 vs 1 | Pools themselves (`glPool` 0 vs 1) |
+|---|---|---|---|
+| cab | 0.05% | 0.05% (nothing over the control) | 0.37% |
+| free camera, eye 0.5, pitch −50 | 0% | 0.01%, all darker | 8.1% |
+
+So on that street it barely shows, because the pools are dim and narrow and the posts cast away from their own lamp. With `glPool` at 6 the shadows read as long thin lines from the neighbouring posts across the road. GPU, `glPassTimer`: 0.027 ms for the four maps (636 caster triangles); the ground pass didn't measurably change. Judge it in the live game, where people walk under lit lamps.
+
+## TAA and the floor
+
+The floor ([gl/floor.js](../../client/game/js/panels/gl/floor.js)) is the one jittered-pass layer that doesn't go through `projMatrix`: it casts a ray from `gl_FragCoord` and writes its own `gl_FragDepth`. Until 2026-10-31 it ignored `JITTER`, so with `glTaa` on its depth and the road quads' disagreed by half a pixel of depth slope, more than the ground pass's polygon offset at a low angle, and the road and terrain flickered as the depth test went one way and then the other. It now takes `uJitPx` (the jitter in device pixels) off the fragment position. Measured on a still camera at Marrow Street, the share of the lower frame changing by more than 16/255 between consecutive frames went from 0.7–3% to 0–0.05%. Any new pass that reconstructs position from `gl_FragCoord` and writes depth before the TAA split needs the same offset.
+
 ## Measuring the frame (`__glFrame()`)
 
 `__glFrame()` in the Modelshop exists because "what to port next" was answered wrongly three times:
@@ -852,18 +879,33 @@ A vehicle's exterior has one material number per face: positive is a metal (a mi
 
 ## The cel look (`RENDER_TUNE.glToon`, `glInk`)
 
-Off by default (2026-10-18). Two switches, both GL only and both on the city's mass alone: vehicles, people, the ground and the cockpit keep their own shading. Players switch both at once with the tablet's Settings → Cel Shading pill (`celShade` in client/shared/settings.js, applied by `_applyCelShade` in main.js and picked up by windshield.js through `__celShadePending` when it loads later); it takes effect on the next frame. `__wsTune.glToon` / `glInk` still set each half on its own from the console.
+Off by default (2026-10-18). Two switches, both GL only. They started on the city's mass alone; since 2026-10-30 they also reach the vehicles, the people and the floor's hillshade (below). The cockpit, the roads and the birds keep their own shading. Players switch both at once with the tablet's Settings → Cel Shading pill (`celShade` in client/shared/settings.js, applied by `_applyCelShade` in main.js and picked up by windshield.js through `__celShadePending` when it loads later); it takes effect on the next frame. `__wsTune.glToon` / `glInk` still set each half on its own from the console.
 
 - **`glToon`** is the light, in the mass shader (gl/context.js): the key term in `glToonBands` steps, the sun's shadow and the three occlusion terms with hard edges, the wall ramp flattened so each face is one tone, no relief, and a flat shade-side multiply (`TOON_SHADE`). Banding the key term on its own barely shows, because every face of a box has one normal and the overlays move a wall only a few percent between its lit and shaded sides. The shade-side multiply is what makes faces read as two tones.
 - **`glInk`** is the outline: Saito and Takahashi's edge detection from the depth buffer's differences (1990), run in gl/ssao.js on the occlusion's own depth prepass. There's no new geometry pass and no normal buffer. With ink on, that prepass runs at full resolution whatever `glSsaoRes` says, and the occlusion reads it at its own size.
 - Two kinds of line at two widths, in two channels of the ink texture. An outline is the near side of a step over 3% of the distance (a building against the sky, the street or a farther building): `glInkPx` CSS px wide, held to `glInkFar` tiles. Detail (creases, sills, rails) is half that width and gone by under half the distance.
 - Measured at 1280×720 in a cab on Marrow with `__glPassMs`: the shared prepass went from 0.19 ms to 0.34–0.45 ms of GPU, and the mass pass moved inside the run-to-run spread.
 
+### Past the buildings (2026-10-30)
+
+The shared GLSL is in gl/toon.js: `TOON_GLSL` (`toonBands`, `toonStep`), `TOON_SHADE`, and `TOON_INK_GLSL` with its `bindToonInk`, which the vehicles and the people splice in to take the toon switch and the main pass's ink. world.js passes `toon`/`toonBands` to `drawSolids`, `drawActors` and the floor state by name, since each layer's options are built, not spread.
+
+- **The vehicles** (gl/solids.js). The own ship's per-pixel sun term (`uLmL`) bands both its hard-sun and its wrapped curve. Every other vehicle's light is baked on the CPU (`rv`), so it can't be banded at the source: the shader divides the face by the walls' shade ramp at its own n·sun and multiplies it by the same ramp at the banded value. That swaps the smooth key for a banded one without a second lighting model.
+- **The people** (gl/actors.js, body and head). The wrap key goes into flat steps and the shade side takes `TOON_SHADE`, as a wall's does. The plain look (`ACTOR_LOOK.on` 0) bands its half-Lambert.
+- **The floor** (gl/floor.js). The hillshade goes into flat steps either side of level ground, and level ground is the middle of its step, so a plain never sits on an edge and flickers. Three bands give lit, level and shaded slopes. The near ground over a city is mostly flat, so this mostly shows on the relief.
+- **The ink.** A layer's lines are drawn by whatever owns the pixel on the near side of the step, so a truck had to be in the ink's depth and draw the lines itself. `ssaoPass` hands `extraDepth` a function that draws the tents, the solids, the own ship (its own model matrix, set as usual) and the people into the prepass with its matrix (each layer's `drawDepth`: its own draw with `vp` and `depthOnly`, colour writes off). Each layer then samples the ink texture in `inkMix`, faded by its own distance from the eye (it has no `vDepth`). Unit 27 is the ink on both layers, bound every draw, to the lines or to nothing.
+- Off is off: with `glToon` and `glInk` at 0 every new branch is skipped behind its uniform, `inkMix` returns at once, and `extraDepth` isn't passed, so the occlusion's prepass is the mass alone as before.
+- With ink on, the vehicles and people are in the prepass the occlusion also reads, so `glSsao` darkens contact round a truck too when both are on.
+- The mirror pass draws its solids and people with `noInk` and without the toon switch, so a reflection stays smooth.
+- Cost: A/B of the extra depth draws alone at 1280×720 in a cab on Marrow, four reps each, put the ssao pass at a median of about 1.2 ms either way; the difference is inside the spread (0.5 to 1.4 ms on one config).
+- To look at it in the Modelshop: `__street({ x: 916, y: 909, heading: 180, seat: 'cab', view: { external: true, extYaw: 30, extPitch: 0.25, extZoom: 0.15, resFloor: 1 } })` puts the truck mid-frame. `extYaw` is radians; 0.6 put the orbit inside the building on the corner. `__glActors({ stand: true, shot: true, fov: 7 })` gives a pedestrian close up.
+
 Traps:
 
 - A step is a side steeper than `uSteep`, or one whose slope is all in the first tap and mostly gone over `THIN_REACH` taps. A test on a fixed fraction of the distance let both sides of every mullion draw (a mullion a few hundredths of a tile proud is 0.2% of the distance at ten tiles), and the curtain-wall towers came out cross-hatched black.
 - A feature a few taps across gets no line. With one width for every line, a balcony rail four pixels tall took a line on each edge and came out solid black; a tower of them read as a black grille.
 - Unit 7 of the mass program is the ink, bound on every draw to the lines or to nothing, for unit 4's reason (see [The material page](#the-material-page-render_tuneglmatpage)).
+- A layer that draws its depth into the ink prepass has to apply the ink itself. A truck in the depth but not sampling the texture loses its outline altogether, because the line lands on the truck's pixels and the wall behind is hidden there.
 - To see where lines land, set `INK_COL` in gl/context.js to `[1, 0, 0]` for one render and reload. That's how the rail problem was found. Change it back with a script that keeps CRLF: `sed -i` here rewrote the whole file to LF.
 
 ## Sky beam
@@ -2117,7 +2159,7 @@ Deadball's 3-D park, on by default (the `deadball.grandstand` flag set to `'0'` 
 
 ## The light grid and TAA (`glCluster`, `glTaa`)
 
-The light grid is on since 2026-10-19 (off on phones); TAA is off. The plan, what was measured and the traps are in
+The light grid is on since 2026-10-19 (off on phones); TAA is on since 2026-10-31 for judging in motion (off on phones, as it needs `glHdr`). The plan, what was measured and the traps are in
 [glass-lights-and-taa.md](../proposals/glass-lights-and-taa.md); the short version:
 
 - **The light grid** (gl/lightgrid.js) bins every light in the frame by where it can land, on the
