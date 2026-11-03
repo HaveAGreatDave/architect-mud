@@ -177,6 +177,9 @@ export const SCHEMA_SQL = `
   );
   ALTER TABLE districts DROP COLUMN IF EXISTS created_by;
   ALTER TABLE districts DROP COLUMN IF EXISTS updated_at;
+  -- The street kit's condition on this district's roads: 0 core, 1 middle ring, 2 worn,
+  -- 3 unmaintained, 4 dirt; NULL draws no kit (docs/proposals/coldwater-streets.md).
+  ALTER TABLE districts ADD COLUMN IF NOT EXISTS street_condition INTEGER;
 
   -- EVERYTHING THE BUILD RESOLVED, one row per zone. TRUNCATEd and rebuilt by the
   -- derive pass of content:import (docs/proposals/map-pipeline-spec.md §2.1) —

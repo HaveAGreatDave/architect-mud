@@ -6668,3 +6668,94 @@ export function runActors({ W = 960, H = 540, hour = 13, thresh = 12, shot = fal
   return out;
 }
 if (typeof window !== 'undefined') window.__glActors = runActors;
+
+// ── THE STREET KIT, THROUGH THE REAL GL PATH ───────────────────────────────────────────────────
+//
+// Coldwater Streets, phase 1 (RENDER_TUNE.streetKit, glass/street-kit.js). A north-south street at
+// the core level with crossroads four tiles up and two down, so the five tiles between are one block
+// with its crossing a tile north of the centre, shops either side, painted with the kit on and
+// off on the same clock. Like __glActors it fails at 0 changed pixels, which is what an unwired kit
+// reports. `stand: true` puts a standing camera on the east walkway (cx, cy in tiles from the
+// street centre, cz the eye, yaw in degrees, 0 looking north); otherwise it's the cab view.
+// `people` stands that many figures along the block. `lapse` (seconds) instead runs a dozen people
+// round the south crossroads, from the block's last tile into the junction and on west, for that
+// long at four frames a second, and shoots the last frame: about half of them have to cross the
+// street, and on the kit they go over the footbridge or across the zebra (glass/street-kit-walk.js).
+export function runStreetKit({ W = 1280, H = 720, hour = 21, thresh = 12, shot = true, stand = true, yaw = 0, cx = 0.27, cy = 1.2, cz = 0.095, fov = 1, pitch = 0, people = 0, lapse = 0 } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__streetkitbench'; el.width = W; el.height = H;
+  el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const ctx = el.getContext('2d');
+  const grab = () => new Uint8ClampedArray(ctx.getImageData(0, 0, W, H).data);
+  const realNow = performance.now.bind(performance);
+  const realDate = Date.now;
+  const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, kit: RENDER_TUNE.streetKit };
+  const out = { ok: false };
+  try {
+    const RR = 20, NN = RR * 2 + 1, C = { x: 500, y: 500 }, XS = [RR - 4, RR + 2];
+    const map = Array.from({ length: NN }, (_, ry) => Array.from({ length: NN }, (_, rx) => {
+      const onMain = rx === RR, onCross = XS.includes(ry);
+      if (onMain && onCross) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'nesw', pw: 1, sc: 0 };
+      if (onMain) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'ns', pw: 1, sc: 0, sl: ry % 3 === 0 ? 1 : undefined };
+      if (onCross) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'ew', pw: 1, sc: 0 };
+      if (Math.abs(rx - RR) === 1 || XS.some((x) => Math.abs(ry - x) === 1)) return { kind: 'land', biome: 'citycore', flr: 0, bt: 'office', is_building: 1, floors: 6 + ((rx * 7 + ry * 3) % 9) };
+      return { kind: 'land', biome: 'citycore', flr: 0 };
+    }));
+    const common = { worldBlend: 1, height: 0, propMul: 1.75, hour, weather: 'clear', speed: 0, resFloor: 1, map, heading: 0, mapCenter: { ...C } };
+    const view = stand
+      ? { ...common, external: true, hideOwnShip: true, phase: 'cruise', mapOffset: { x: 0, y: 0 }, acX: C.x, acY: C.y, airport: 'default',
+          freeCam: { x: cx, y: cy, z: cz, yaw, pitch, roll: 0, fov } }
+      : { ...common, cls: 'truck', variant: 'hauler', phase: 'ground', eyeH: 0.12, fovMul: 1.22, mapOffset: { x: 0, y: 0.6 } };
+    const tok = (i, k) => (Math.imul(i + k, 2654435761) >>> 0).toString(36).slice(0, 7);
+    const crowd = Array.from({ length: people }, (_, i) => ({ t: tok(i, 31), x: C.x, y: C.y - 3 + (i % 5) }));
+    const turners = (x, y) => Array.from({ length: lapse ? 12 : 0 }, (_, i) => ({ t: tok(i, 97), x, y }));
+    view.actors = [...crowd, ...turners(C.x, C.y + 1)];
+    let T = 1e6;
+    performance.now = () => T; Date.now = () => T;
+    const paint = (kit) => {
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.streetKit = kit;
+      paintWindshield('__streetkitbench', view);
+      T += 1000;
+      paintWindshield('__streetkitbench', view);
+      T += 16;
+      paintWindshield('__streetkitbench', view);
+      return grab();
+    };
+    if (lapse) {
+      // A server step into the junction at once, then on to the tile west of it a tick later.
+      RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1; RENDER_TUNE.streetKit = 1;
+      paintWindshield('__streetkitbench', view);
+      view.actors = [...crowd, ...turners(C.x, C.y + 2)];
+      for (let s = 0; s < lapse * 4; s++) {
+        if (s === 60) view.actors = [...crowd, ...turners(C.x - 1, C.y + 2)];
+        T += 250;
+        paintWindshield('__streetkitbench', view);
+      }
+      out.shot = el.toDataURL('image/png');
+      out.ok = true;
+      return out;
+    }
+    const on = paint(1);
+    const url = shot ? el.toDataURL('image/png') : null;
+    const off = paint(0);
+    let n = 0;
+    for (let i = 0; i < on.length; i += 4) {
+      if (Math.abs(on[i] - off[i]) + Math.abs(on[i + 1] - off[i + 1]) + Math.abs(on[i + 2] - off[i + 2]) > thresh) n++;
+    }
+    out.changedPx = n;
+    out.verdict = n ? 'OK, the street kit draws' : 'FAILED, kit on and off paint the same frame';
+    if (url) out.shot = url;
+    out.ok = true;
+  } finally {
+    performance.now = realNow; Date.now = realDate;
+    RENDER_TUNE.gl = was.gl; RENDER_TUNE.glFloor = was.floor; RENDER_TUNE.streetKit = was.kit;
+    uninstall(); holder.remove();
+  }
+  console.table([{ verdict: out.verdict, changedPx: out.changedPx }]);
+  return out;
+}
+if (typeof window !== 'undefined') window.__glStreetKit = runStreetKit;

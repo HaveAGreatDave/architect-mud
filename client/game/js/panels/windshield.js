@@ -42,6 +42,8 @@ import { FLOOR_Z, BUILDING_FOOT, floorsFor, BUILDING_TUNE, buildingScale, CURTAI
 import { fireworksAround, aaLive, AA_FIRE_MS, noteServiceAt, serviceNear } from './world-feed.js';   // world events kept by tile, whatever seat is open
 import { drawAAEmplacement } from './glass/aa-emplacement.js';   // the four AA batteries (drawAAMark)
 import { drawMediaLot, lotSolidAt } from './glass/media-lot.js';   // the Media Lot's court and car park (drawLotMark)
+import { drawStreetKit, kitCell, kitPlace } from './glass/street-kit.js';   // Coldwater's lane, walkways and street furniture (drawStreetKitPass)
+import { kitWalk, KIT_WALK } from './glass/street-kit-walk.js';   // the people on it go round by the bridge or the crossing (drawStreetActors)
 import { skylineFar, SKYLINE_BASE_FAR } from '../../../shared/skyline-tall.js';
 import { hnoise2, hn2h, fbm2 } from '../../../shared/landform.js';
 import { BIOME_GROUND } from '../../../shared/ground-palette.js';
@@ -940,6 +942,7 @@ export const RENDER_TUNE = {
   armLive: 1,    // a kept building's animated helpers (smoke, rings, beams, wind wheels, flags) are left out of its kept set and called again each replay (armLiveCall); 0 makes any such building live
   flatEarly: 1,  // an arm's own flat and box primitives return before building what emitFlat and draw3DBoxAt would drop on the GL path (flatsDropped, massDropped: the ballpark, the clone facility's tubes); 0 builds, clips and colours each one first
   marksGPU: 1,   // the South Lock, the AA batteries, the media lot and the statue send their faces unshaded with a normal and a material code, the solids shader turns the normal to the eye and shades them (gl/solids.js, the marks), and their static parts are kept as a building's are (markKept); 0 shades every face on the CPU from the eye every frame, as before. On since 2026-10-25, after David saw the before/after shots (glass-headroom.md)
+  streetKit: 0,  // Coldwater Streets phase 1: on a road tile whose district sets a street condition (`sc`), the 4 m lane, the raised chrome walkways and their furniture are drawn over the road as a mark (glass/street-kit.js, drawStreetKitPass; docs/proposals/coldwater-streets.md). Needs marksGPU. Off until David approves the look
   armNearWire: 1,   // a kept building with a stroke that crosses emitWire's near plane this frame runs live for the frame (armNearWire), as the live arm cuts that stroke at the plane; 0 replays the stroke whole, which the strokes shader draws with a wrong width once an end is behind the eye
   armFace3: 1,   // slumFaceK's eye test is recorded in a kept set (faceAway3) and asked again on replay, so a slum building's sheets change tone when the eye crosses them; 0 tests it unrecorded and a kept set keeps the tone it was probed with
   armFade: 1,    // a building in the haze band keeps: its kept set is its recording at alpha 1, alpha leaves the key, and a fading frame replays the set scaled by the fade, proved against the live draw (armFadeCanon); 0 runs every fading building live, as before
@@ -30116,6 +30119,12 @@ function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
   // figure, on screen or not, so somebody is where they should be when you turn round.
   const win = RENDER_TUNE.actorLife > 0 ? { map, R, wcx, wcy } : null;
   if (win) streetLifeGroups(LIFE_GEO, win, ACTORS, now);
+  // On a street-kit street nobody walks through the licensed lane: kitWalk follows where this pass
+  // puts each figure and takes them round by the footbridge or the paid crossing when the straight
+  // way would cross it (glass/street-kit-walk.js). Off, the follower is dropped and nothing changes.
+  const kitOn = streetKitOn();
+  const kitAt = (x, y) => map[y] && map[y][x];
+  const kitWin = kitOn ? { at: kitAt, wide: kitWide(kitAt), R, wcx, wcy } : null;
   for (const [t, h] of ACTORS) {
     const p = actorPos(h, now);
     let px = p.x, py = p.y, fade = 1, walking = p.moving, dirX = h.bx - h.ax, dirY = h.by - h.ay;
@@ -30145,6 +30154,13 @@ function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
       ({ ox, oy } = vergeOffset(cell, h, t));
       [ox, oy] = curtainSide(LIFE_GEO, actorCurtainInward(map, rx, ry, cell), ox, oy);
     }
+    let kitZ = null;
+    if (kitWin) {
+      const zRaw = RAISED_WALK.get(cell) === _walkGen ? ROAD_EPS + RENDER_TUNE.kerbHeight : 0;
+      const k = kitWalk(h, px + ox, py + oy, zRaw, now, kitWin, actorHash(t, 9) < KIT_WALK.frugal);
+      ox = k.x - px; oy = k.y - py; kitZ = k.z;
+      if (!door) { walking = k.moving; if (k.dx || k.dy) { dirX = k.dx; dirY = k.dy; } }
+    } else h.kw = null;
     const dx = (px + ox - wcx) - cam.ox, dy = (py + oy - wcy) - cam.oy;
     const f = dx * cam.sinh - dy * cam.cosh;
     if (f + (cam.fwdOff || 0) <= VISIBLE_NEAR_F || f > FAR) continue;   // camera-relative near clip — see the ⚠ in drawStreetLamps
@@ -30155,8 +30171,8 @@ function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     // Gait runs on wall-clock, offset per figure, so a pavement of people is not a chorus line.
     const phase = now * 0.011 + actorHash(t, 5) * 7;
     // With street life the gait follows the drawn position, so a stroll along the kerb moves the feet.
-    const pose = mesh ? streetActorPose(h, t, cell, life ? px + ox : px, life ? py + oy : py, walking, dirX, dirY, now, life) : null;
-    const z = RAISED_WALK.get(cell) === _walkGen ? ROAD_EPS + RENDER_TUNE.kerbHeight : 0;
+    const pose = mesh ? streetActorPose(h, t, cell, life || kitWin ? px + ox : px, life || kitWin ? py + oy : py, walking, dirX, dirY, now, life) : null;
+    const z = kitZ != null ? kitZ : RAISED_WALK.get(cell) === _walkGen ? ROAD_EPS + RENDER_TUNE.kerbHeight : 0;
     // No probe: the figure is a depth-tested billboard now — see drawRoadside.
     emitScatterFace(f + (cam.fwdOff || 0), () => drawActorFigure(ctx, cam, dx, dy, a, t, phase, life ? walking : p.moving, night, { pose, z }));
   }
@@ -34686,6 +34702,67 @@ function drawStreetLampQueued(ctx, cam, dx, dy, inward, lit, alpha, night, seed,
   if (STROKE_SINK && TUNE.glDeco) { drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed, tone); return; }
   if (groundHidden(cam, dx, dy)) return;
   emitFace(f + (cam.fwdOff || 0), () => drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed, tone));
+}
+
+// ── THE STREET KIT (RENDER_TUNE.streetKit) ─────────────────────────────────────────────────────
+//
+// Coldwater Streets, phase 1 (docs/proposals/coldwater-streets.md): the lane, the raised chrome
+// walkways and their furniture, over the road on every tile whose district sets a street condition
+// (`sc` on the cell, from `districts.street_condition`). The build is glass/street-kit.js; this finds
+// the tiles, works out each one's arms and its place in its block, and hands it the sinks.
+//
+// GL only, drawn as a mark: its faces go to BAY_SINK unshaded during the sweep and its static part
+// is kept (markKept), as the Media Lot's are. Which tiles and what stands on each is kitPlace's
+// (glass/street-kit.js), which the people's walk reads too. A road two or more tiles wide is left as
+// it is, because the kit's 15.2 m cross-section is one tile.
+const kitWide = (at) => (rx, ry, axis) => blockSpan(at, rx, ry, axis).width !== 1;
+// Whether the kit is drawn this frame at all, and on this cell. The ground pass asks too (it leaves
+// its pavement off where the kit lays its own), and the sweep's BAY_SINK isn't open yet when the
+// ground runs, so this asks the same thing the sweep's `glOn` does.
+function streetKitOn() {
+  return RENDER_TUNE.streetKit > 0 && RENDER_TUNE.marksGPU > 0 && TUNE.glBay !== 0 && !!TUNE.gl && !!GL_HOOK;
+}
+function streetKitShown(c) { return streetKitOn() && kitCell(c); }
+function drawStreetKitPass(ctx, cam, v, map, R, wcx, wcy, night, now, FAR, sun, sky) {
+  if (!streetKitOn() || !BAY_SINK) return;
+  const at = (x, y) => map[y] && map[y][x];
+  const wide = kitWide(at);
+  let envSet = false;
+  for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
+    const c = map[ry][rx];
+    if (!kitCell(c)) continue;
+    const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
+    // Camera-relative near clip with a tile of slack, as the lamps have: the walkway runs the
+    // whole tile, so a tile whose centre has passed the camera is still under the frame.
+    if (f + (cam.fwdOff || 0) <= VISIBLE_NEAR_F - 1 || f > FAR) continue;
+    const alpha = clamp((FAR - f) / 5, 0, 1) * (v.worldBlend ?? 1);
+    if (alpha <= 0.03) continue;
+    const place = kitPlace(at, rx, ry, wide);
+    if (!place) continue;
+    const wx = Math.round((rx - R) + wcx), wy = Math.round((ry - R) + wcy);
+    // Three tiers (see drawStreetKit): the small parts within 6 tiles, the street furniture within
+    // 14, and past that only what still reads from a cab down the street.
+    const range = eyeRange(cam, dx, dy), near = range < 6, far = range >= 14;
+    const face = (pts, rgb, a, n, mat) => {
+      if (n) { markFaceGL(pts, cam, rgb, a, n, mat === 'metal' ? -3 : mat === 'glass' ? -4 : -2); return; }
+      BAY_SINK.push({ p: pts.map(([x, y, z]) => [x + cam.ox, y + cam.oy, z]), rgb, a });
+    };
+    // ⚠ THE FACE IS NAMED, for the Media Lot's reason: left to default, bakeSignText takes whatever
+    // building the sweep drew last.
+    const text = (a) => (quad, label, css, lit) => {
+      const tex = bakeSignText(label, css, lit ? 1 : 0, false, true, true, { font: 'block' });
+      if (!tex) return;
+      const P = quad.map(([x, y, z]) => cam.proj(x, y, z));
+      if (P.every((p) => p && p.f > 0.065)) emitSurfaceText(ctx, cam, P, tex, false, a);
+    };
+    const light = (x, y, z, rgb, s0, a) => glowPool(ctx, cam, x, y, z, rgb, s0, a * alpha);
+    const kit = (t, a, part) => drawStreetKit({
+      dx, dy, place, s0: place.axis === 'ns' ? wy : wx, part, near, far,
+      seed: wx * 73 + wy * 149, now: t, night, alpha: a, face, light, text: text(a),
+    });
+    if (!envSet) { markEnvFrame(night, sun, sky); envSet = true; }
+    markKept(ctx, cam, { c, dx, dy, alpha }, night, now, kit, near ? '|kn' : far ? '|kx' : '|kf');
+  }
 }
 
 // The signal pass: one head per arm of every junction in view. Queued into the shared face sink
@@ -39837,7 +39914,13 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
           kerbRiser(A, ROFF + s * (VERGE - WALK_HW) * RK, aLo, aHi);                      // …and its face
         }
       };
-      if (RA || dirs === 'ns' || dirs === 'ew') {   // straight: continuous 4-lane markings across the tile
+      // ⚠ NOTHING UNDER THE STREET KIT (RENDER_TUNE.streetKit, drawStreetKitPass). The kit lays its
+      // own lane paint, walkways and crossing; the pavement here stands at kerbHeight, above the
+      // kit's 0.18 m walkway, and the paint showed through its lane. A straight tile is still marked
+      // raised, so the people stand at a kerb top rather than in the slab.
+      if (streetKitShown(c)) {
+        if ((dirs === 'ns' || dirs === 'ew') && KERB_H > 0 && GROUND_MESH) RAISED_WALK.set(c, _walkGen);
+      } else if (RA || dirs === 'ns' || dirs === 'ew') {   // straight: continuous 4-lane markings across the tile
         const A = RA || (dirs === 'ew' ? [1, 0] : [0, 1]);
         // ── ⚠ A BLOCK OF ROAD TILES IS ONE ROAD, NOT N ROADS SIDE BY SIDE ────────
         // Every tile used to paint its own double yellow down its own middle and its own pavement
@@ -54720,6 +54803,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // under it. Both are height-gated for the same reason — three lamps on a 9px head resolve to a
     // single ambiguous dot from anything but a low pass, and a dot that changes colour reads as a
     // rendering fault rather than as a traffic light.
+    // The street kit first: it is the ground the lamps and the people stand on.
+    drawStreetKitPass(ctx, cam, v, map, R, wcx, wcy, night, now, FAR, sun, sky);
     drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
     drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
     drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);

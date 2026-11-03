@@ -12,6 +12,7 @@ import { world, getZone, getAllZones, getLivePlayer, getMinimapData, buildingEnt
 import { OPPOSITE } from '../../server/engine/directions.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { biomeOf, districtBiome } from './biomes.js';
+import { DISTRICTS } from '../../server/engine/districts.js';
 import { thermalLiftMax, heatOfCell } from '../../client/shared/thermals.js';
 import { skylineFar } from '../../client/shared/skyline-tall.js';
 import { normalizeLivery } from './livery.js';
@@ -1783,6 +1784,12 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // How far gone a worn road is (0..1, plugins/trucking/corridor.js conditionAt). Absent on every
   // road that never set it, which keeps the one worn look it always had.
   const rc = Number.isFinite(cell.flags?.road_cond) ? cell.flags.road_cond : undefined;
+  // `sc`: the street kit's condition on a road (docs/proposals/coldwater-streets.md): 0 core to 4
+  // dirt, from the district the tile is painted (`districts.street_condition`). ⚠ THE PAINTED
+  // DISTRICT ONLY, never districtFor's fallback: an unpainted tile anywhere in the world falls back to
+  // the Residential Blocks, and the kit would follow it into every region.
+  const scv = road ? DISTRICTS[cell.flags?.district]?.street_condition : null;
+  const sc = Number.isInteger(scv) ? scv : undefined;
   // A BERTH'S TWO BEARINGS, and they are the whole of what an author writes: which way the open
   // water lies (a hull's bow points up it, and it is the way she comes and goes) and which side
   // the quay is on (she lies against it). Everything else about her — beam, deck height, how far
@@ -1802,7 +1809,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     && [[-1, 0], [1, 0]].some(([ox, oy]) => { const c = at(x + ox, y + oy); return !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object'); });
   const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : besideLock ? 'lock' : undefined;
   // A runway is not a street (see `rwy` above): no kerbs, no steam vents, no pedestrians on it.
-  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, vr, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, sc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, vr, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so
