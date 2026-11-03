@@ -94,6 +94,16 @@ const deck = read('furniture', 'furn_deck_ksab5');
 deck.zone_id = 'zone_ksab5_prod';
 write('furniture', deck);
 
+// The feed monitors: one screen per ground, live, dark or no game. `feed_monitors` names
+// the channel whose grounds they show; the broadcast plugin writes the screens on examine
+// (docs/proposals/daily-slate.md, phase 4).
+write('furniture', {
+  description: 'A bank of monitors on a steel frame over the production desk, one for each ground, with a strip of tape under each one naming it. A red lamp on top of each screen comes on when that feed is live.',
+  flags: { aliases: ['monitors', 'feed monitors', 'monitor bank', 'screens', 'feeds'], feed_monitors: 'ch_5_cinqo' },
+  hp: null, hp_max: null, id: 'furn_ksab5_monitors', light_type: null, lumen_output: null,
+  name: 'feed monitors', object_type: 'fixture', power_draw_kw: null, price: 0, zone_id: 'zone_ksab5_prod',
+});
+
 // The model binds by the building's name, and its signs say what the station is.
 const model = read('building_models', 'ksabwriterswing');
 for (const b of model.bind || []) if (b.by === 'name') b.key = 'KSAB5';

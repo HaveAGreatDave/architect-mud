@@ -1,0 +1,13 @@
+{
+  "direction": "all",
+  "flags": {
+    "camera_label": "Camera 2"
+  },
+  "id": "cam_ksab5_hughson_nine",
+  "is_damaged": 0,
+  "is_powered": 1,
+  "permissions": "crew",
+  "storage_limit": 200,
+  "streaming_channel_id": "ch_5_cinqo",
+  "zone_id": "zone_hughson_nine"
+}

@@ -1101,6 +1101,17 @@ For the CPhL, I'm Tug Brennan. There's another one tomorrow, because there's alw
 Tug Brennan, saying goodnight from Coldwater. Nobody won anything permanent.
 ::endlines
 
+# ── the lost picture ──────────────────────────────────────────────────────────
+# KSAB5's caption when a ground's picture goes: the pressbox's power is out, its OB
+# deck is switched off or no camera at the ground works. The game goes on and the
+# score bug keeps moving; this card stays up until the feed is back. {venue} is the
+# ground as the booth says it. Not read by a commentator: it's the studio's card.
+::lines lost_picture
+We've lost the picture from {venue}. The game's still going. We'll get you back there as soon as the line's up.
+No pictures from {venue} for the moment. They're still playing, and the score's in the corner.
+The feed from {venue} has gone down. Nobody at the Gardens is answering the phone. The game goes on without us.
+::endlines
+
 # ── the Coldwater Cup ─────────────────────────────────────────────────────────
 ::lines cup.intro
 This is it. The Coldwater Cup. Nobody can produce a record of who commissioned it, and the one reporter who went looking took a job in Terminus instead.

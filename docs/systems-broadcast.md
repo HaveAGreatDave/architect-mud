@@ -565,7 +565,10 @@ Three pieces, each of which is a physical object in a room rather than a propert
   anchor to work — so **nothing in the broadcast plugin dispatches anything**. A droid that is downed,
   jammed, or simply goes home takes the picture with it, which is what makes a location shoot
   something you have to STAFF.
-- **The portable mediadeck** (`flags.portable_mediadeck`, furniture) — the case with the aerial. A
+- **The portable mediadeck** (`flags.portable_mediadeck`, furniture) — the case with the aerial.
+  The test is `_feedDeckLive(zoneId, channelId)`, shared with a ground's OB deck (`flags.ob_deck`,
+  see the daily slate under Sports): a feed deck in the room, bound to the channel, switched on,
+  its room not blacked out. A
   studio is wired and needs none; a church basement is wired to nothing, so a stage that is not the
   channel's own studio needs a deck in the room or the signal never reaches the gallery. It is
   furniture deliberately: it can be switched off, carried out, stolen, or left behind. That failure
@@ -793,8 +796,8 @@ Two shows share the `sports` pipeline: **DEADBALL** (baseball, `bc_1783289744953
 `@sport`, and **that is the only thing that selects a sport module**; nothing else in the
 pipeline may branch on it.
 
-**The daily slate** ([proposals/daily-slate.md](proposals/daily-slate.md), Phases 1 and 2
-built). Every club plays every in-game day. The two sports share the day's eight 3-hour
+**The daily slate** ([proposals/daily-slate.md](proposals/daily-slate.md), Phases 1 to 3
+and 4a built). Every club plays every in-game day. The two sports share the day's eight 3-hour
 slots, taking turns, and the pattern swaps each day, so each gets the 18:00 game every other
 day (`sportsSlateForDay`, `sportsMatchupForSlot`; the order is SPORTS's). The 18:00 game
 goes to the pairing whose clubs have had the fewest 18:00 games that month. A season is the
@@ -815,6 +818,27 @@ in-game month, and its last day is Cup day: each sport plays only its final, in 
   Saturday's 18:00 show still beats the every-day relay.
 - `sports.game` fires once per game however many channels carry it, keyed by broadcast and
   slot. A park's lights follow the game being played there, not the channel.
+- **The grounds' picture** (phase 4a). The game is played whether or not it's filmed; what
+  KSAB5 gets is a picture, sent from the ground by its OB deck. `sports_pools.venue.site`
+  names the pressbox (`ob_zone_id`) and the camera positions (`camera_zones`):
+  `zone_hughson_pressbox` with `zone_hughson_stands` and `zone_hughson_nine`, and
+  `zone_slush_pressbox` with `zone_slush_stands` and `zone_slush_rinkside`. Each pressbox has
+  an OB deck (`flags.ob_deck`, `uplink_channel: ch_5_cinqo`) and each position a
+  `media_cameras` row with its `broadcast_camera` furniture.
+  - `groundCoverage(script, channel)` is covered when `_feedDeckLive` finds the OB deck bound
+    to the channel, running, in a pressbox that isn't blacked out, and at least one camera in
+    `camera_zones` works: listed by `_camerasIn`, its furniture not `flags.broken` (or out of
+    hp), its room not blacked out. Otherwise it gives the cause: `power`, `deck` or `camera`.
+    A venue with no `ob_zone_id` is always covered. Sync and query-free.
+  - **The lost picture** (`_sportsOnAir`). The walker keeps walking the game, so it stays on
+    the clock. While the ground isn't covered the first beat is the card, a line from the
+    script's `lost_picture` pool with `{venue}` filled (an engine line naming the venue if the
+    pool is empty), carrying the score bug. Later beats only move the score bug. The relay
+    checks the source channel's feed (`item.relayedFrom`), so ch 7 shows the same card.
+    Standings, betting, lights and `sports.game` don't read the picture.
+  - `uplink on|off` is the switch on an OB deck as on the portable case. The feed monitors in
+    KSAB5 Production (`flags.feed_monitors`, `furn_ksab5_monitors`) show each ground as live,
+    dark with the cause, or no game, from the same `groundCoverage`.
 
 Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
 A high-fidelity 3-D one on Rinkside's pattern, with a 1990s arcade look and the park inside the

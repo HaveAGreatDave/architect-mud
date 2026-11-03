@@ -13,7 +13,7 @@
   "priority": 0,
   "schedule_mode": "daily",
   "station_name": "",
-  "studio_zone_id": null,
+  "studio_zone_id": "zone_ksab5_stage",
   "theme_id": "theme_1782711826653",
   "updated_at": null
 }

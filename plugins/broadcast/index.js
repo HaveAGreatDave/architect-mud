@@ -413,15 +413,156 @@ function _cameraLabel(camId, idx) {
 // Only an explicit blackout kills it, matching the wired deck: a room whose power
 // was never modelled reads 'unpowered' and still works, or every interior nobody
 // wired would silently take a channel off air.
-function _portableDeckLive(zoneId) {
-  if (getZonePowerStatus(zoneId) === 'offline') return false;
+//
+// TWO KINDS OF DECK SEND A FEED, AND THIS IS THE ONE TEST FOR BOTH. The portable
+// case (`portable_mediadeck`) and the outside-broadcast deck wired into a ground's
+// pressbox (`ob_deck`) do the same job: they take the picture out of a room that isn't
+// the channel's studio. So the test is "a feed deck in this room, bound to THIS
+// channel, switched on, in a room that hasn't lost its power". The binding is
+// `uplink_channel` (or plain `channel_id`, which the dev panel writes too): KSAB-TV's
+// case in a church basement doesn't carry KSAB5's game, and an OB deck patched to
+// KSAB5 doesn't carry a cooking show.
+//
+// The power lookup goes through `_zonePower` so regress can black out one ground
+// without booting the environment sim (`_test.setPowerLookup`). Nothing else sets it.
+let _powerLookup = getZonePowerStatus;
+const _zonePower = (zoneId) => _powerLookup(zoneId);
+const _deckBinding = (fl) => fl?.uplink_channel || fl?.channel_id || null;
+function _feedDeckLive(zoneId, channelId) {
+  if (!zoneId || !channelId) return false;
+  if (_zonePower(zoneId) === 'offline') return false;
   const furn = getZoneFurniture(zoneId) || [];
-  return furn.some(f => f?.flags?.portable_mediadeck && !f?.flags?.deck_off);
+  return furn.some(f => {
+    const fl = f?.flags;
+    return !!fl && (fl.portable_mediadeck || fl.ob_deck) && !fl.deck_off && _deckBinding(fl) === channelId;
+  });
 }
 
 function _uplinkOk(state, stageZoneId) {
   if (!stageZoneId || stageZoneId === state.studioZoneId) return true;   // wired, as ever
-  return _portableDeckLive(stageZoneId);
+  return _feedDeckLive(stageZoneId, state.channelId);
+}
+
+// ── A GROUND'S PICTURE ───────────────────────────────────────────────────────
+// A game is played whether or not anybody films it: the standings, the betting, the
+// lights and `sports.game` all run off the clock. What KSAB5 gets is a picture, and
+// a picture needs two things at the ground: a camera that works in one of the
+// venue's `camera_zones`, and the OB deck in its `ob_zone_id` to send it to the
+// studio. Either missing and viewers get the lost-picture card instead of the game.
+//
+// A script whose venue names no `ob_zone_id` has no ground to lose, so it's covered,
+// as every sports broadcast was before the grounds were wired.
+//
+// SYNC AND QUERY-FREE. It runs on the broadcast tick for every channel with a viewer
+// and on every look at the KSAB5 monitors, so it reads furniture from the zone cache
+// and power from the environment's map, never the database.
+//
+// A camera is smashed when its `broadcast_camera` furniture (the row whose
+// `flags.camera_id` names it) carries `flags.broken` or has no hp left; `media_cameras`
+// rows that are unpowered or damaged are already out of `_camerasIn`.
+const _furnSmashed = (f) => !!f?.flags?.broken || (f?.hp_max != null && f?.hp != null && f.hp <= 0);
+function _groundCameraLive(zoneId) {
+  if (!zoneId || _zonePower(zoneId) === 'offline') return false;
+  const smashed = new Set();
+  for (const f of getZoneFurniture(zoneId) || []) if (f?.flags?.camera_id && _furnSmashed(f)) smashed.add(f.flags.camera_id);
+  return _camerasIn(zoneId).some(c => !smashed.has(c.id));
+}
+// { covered, cause }: cause is null, 'power' (the pressbox, or every camera position,
+// is blacked out), 'deck' (no OB deck bound to the channel is running) or 'camera'.
+function groundCoverage(script, channelId) {
+  const site = script?.venue?.site;
+  const ob = site?.ob_zone_id;
+  if (!ob) return { covered: true, cause: null };
+  if (_zonePower(ob) === 'offline') return { covered: false, cause: 'power' };
+  if (!_feedDeckLive(ob, channelId)) return { covered: false, cause: 'deck' };
+  const zones = Array.isArray(site.camera_zones) ? site.camera_zones : [];
+  if (zones.some(_groundCameraLive)) return { covered: true, cause: null };
+  if (zones.length && zones.every(z => _zonePower(z) === 'offline')) return { covered: false, cause: 'power' };
+  return { covered: false, cause: 'camera' };
+}
+
+// The card KSAB5 puts up when a ground's picture goes: one line from the script's
+// `lost_picture` pool, else a plain one naming the ground. Picked by slot, so every
+// set showing the game shows the same line.
+function _lostPictureLine(script) {
+  const pool = script?.pools?.lost_picture;
+  const venue = venueSaid(script) || 'the ground';
+  if (Array.isArray(pool) && pool.length) {
+    const line = pool[sportsHash(sportsSlotIndex(), 7) % pool.length];
+    return sportsFill(line, { venue }).trim();
+  }
+  return sportsFill("We've lost the picture from {venue}. The game's still on, and we'll be back there as soon as we can.", { venue });
+}
+
+// One sports beat as it goes to air. The graph is walked either way, so the game stays
+// on the clock and the picture comes back at the right moment. While the ground isn't
+// covered, the first beat puts the card up and the ones after it only move the score
+// bug, so the card isn't read out again every line.
+//
+// `item.relayedFrom` is the channel the game really comes from: the ch 7 relay airs
+// KSAB5's item, and the OB decks are bound to KSAB5, so the relay checks KSAB5's feed
+// and shows the same card.
+function _sportsOnAir(state, item, r) {
+  const bb = state.graphBlackboard || (state.graphBlackboard = {});
+  const cov = groundCoverage(item?.sportsScript, item?.relayedFrom || state.channelId);
+  if (cov.covered) { bb.pictureLost = null; bb.lostBug = null; return r; }
+  if (!r) return r;   // a hold between lines: nothing new to put up
+  // A new game while the picture's still down gets the card again: the last one
+  // named the previous game's ground, and its score bug is the previous game's.
+  if (bb.lostOn !== bb.activeBroadcastId) { bb.pictureLost = null; bb.lostBug = null; }
+  if (r.scorebug) { bb.lostBug = r.scorebug; noteVenuePlay(r.scorebug); }
+  const bug = r.scorebug || bb.lostBug || null;
+  if (bb.pictureLost !== cov.cause) {
+    bb.pictureLost = cov.cause;
+    bb.lostOn = bb.activeBroadcastId;
+    return {
+      text: _lostPictureLine(item.sportsScript), key: `lost:${r.key}`, style: 'raw',
+      ...(bug ? { scorebug: bug } : {}), ...(r.duration != null ? { duration: r.duration } : {}),
+      programName: r.programName ?? null, lostPicture: cov.cause,
+    };
+  }
+  // The card stays up. A beat with a score moves the bug; one without (the pregame)
+  // is a keep-alive, which the tick reads as "on air, nothing new" (see the EBS's
+  // note on a beat that repeats its key).
+  if (bug) return { style: 'overlay', overlay: { overlayType: 'scorebug', ...bug }, key: `lost:${r.key}`, lostPicture: cov.cause };
+  return { style: 'live_relay', key: `lost:${r.key}`, lostPicture: cov.cause };
+}
+
+// ── The feed monitors in master control ──────────────────────────────────────
+// Furniture flagged `feed_monitors: <channel id>` shows one screen per ground that
+// channel's sports rows name (a venue with an `ob_zone_id`): live, dark and why, or no
+// game on. Read on examine, from RAM, through the same groundCoverage the air uses, so
+// the monitor and the TV can't disagree.
+const _DARK_WHY = {
+  power: "dark. The power's out at the ground.",
+  deck: "dark. The OB deck at the ground isn't sending.",
+  camera: 'dark. No camera at the ground is working.',
+};
+function _feedMonitorLines(channelId) {
+  const state = channelRuntime.get(channelId);
+  if (!state) return [];
+  const seen = new Set();
+  const out = [];
+  for (const it of state.playlist || []) {
+    const script = it.sportsScript;
+    const site = script?.venue?.site;
+    if (it.playback_mode !== 'sports' || !site?.ob_zone_id || seen.has(site.ob_zone_id)) continue;
+    seen.add(site.ob_zone_id);
+    const name = script.venue.name || venueSaid(script) || 'A ground';
+    if (!sportsAiring(script)) { out.push({ ground: name, status: 'no_game', line: `${name}: no game on.` }); continue; }
+    const cov = groundCoverage(script, channelId);
+    out.push(cov.covered
+      ? { ground: name, status: 'live', line: `${name}: live. The game's on the screen.` }
+      : { ground: name, status: 'dark', cause: cov.cause, line: `${name}: ${_DARK_WHY[cov.cause] || 'dark.'}` });
+  }
+  return out;
+}
+function _describeFeedMonitors(f) {
+  const ch = f?.flags?.feed_monitors;
+  if (!ch) return undefined;
+  const rows = _feedMonitorLines(ch);
+  if (!rows.length) return '<span class="text-dim">Every screen in the bank shows the same test card.</span>';
+  return rows.map(r => `<span class="${r.status === 'live' ? 'text-green' : 'text-dim'}">${escapeHtml(r.line)}</span>`).join('\n');
 }
 
 function _camerasIn(zoneId) {
@@ -5172,7 +5313,7 @@ async function getCurrentMessage(state, nowMs) {
         if (spGraph) {
           const r = tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsSegElapsedSec());
           if (r) r.programName = item.broadcastName || null;
-          return r;
+          return _sportsOnAir(state, item, r);
         }
       }
       // News — a fresh bulletin assembled from the live news generator each refresh bucket.
@@ -5379,7 +5520,7 @@ async function getCurrentMessage(state, nowMs) {
         const spGraph = getSportsGraph(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
         if (spGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
-          return tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsSegElapsedSec());
+          return _sportsOnAir(state, item, tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsSegElapsedSec()));
         }
       }
       // News — a fresh bulletin from the live news generator, re-rolled per refresh bucket
@@ -5955,11 +6096,14 @@ async function _resolveTickMessage(deckZoneId, state, nowMs, strict = false) {
 // in" — this runs before the tick has resolved which programme that is, and a
 // second content resolution to answer a power question would be the more expensive
 // mistake.
-// ⚠ Same bug as _portableDeckLive, one layer up: this asked `getZone(...).powerStatus`,
+// ⚠ Same bug as the portable deck test, one layer up: this asked `getZone(...).powerStatus`,
 // and a world zone object has no such property — power status is only ever written into
 // the environment's `state.zones` map. So the blackout test was `undefined !== 'offline'`
 // and a channel counted as transmitting purely because a deck ROW existed for it. Ask
-// getZonePowerStatus, the same way _portableDeckLive now does.
+// getZonePowerStatus (through `_zonePower`), the same way _feedDeckLive does.
+//
+// An OB deck isn't a transmitter: it sends a ground's picture to the studio, and the
+// studio's own deck puts it out. `portableDeckZones` holds only portable cases.
 function channelTransmitterLive(state) {
   // ⚠ THE EMERGENCY SYSTEM IS ITS OWN TRANSMITTER, AND THE TEST BELONGS HERE RATHER
   // THAN AT EACH CALL SITE. A seized channel is not putting out its own programme —
@@ -5971,8 +6115,8 @@ function channelTransmitterLive(state) {
   // for the expressions to disagree, so the answer lives in the one function.
   if (emergencyOverride) return true;
   if (state.deckZoneId && getZone(state.deckZoneId)
-      && getZonePowerStatus(state.deckZoneId) !== 'offline') return true;
-  return (state.portableDeckZones || []).some(_portableDeckLive);
+      && _zonePower(state.deckZoneId) !== 'offline') return true;
+  return (state.portableDeckZones || []).some(z => _feedDeckLive(z, state.channelId));
 }
 
 // The off-air broadcast payload (channel dark → show the channel's offline graphic or
@@ -10008,16 +10152,24 @@ async function cmdEjectCassette(args, raw, player) {
 // pirate firmware.
 //
 // No SIFT: a room has one of these or it has none.
+//
+// The same switch is on a ground's OB deck (`flags.ob_deck`), the rack in the pressbox
+// that sends the game to KSAB5. Killing it takes the ground's picture off KSAB5 and the
+// ch 7 relay; the game goes on (groundCoverage).
 async function cmdUplink(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
-  const deck = (getZoneFurniture(player.current_zone) || []).find(f => f?.flags?.portable_mediadeck);
+  const deck = (getZoneFurniture(player.current_zone) || []).find(f => f?.flags?.portable_mediadeck || f?.flags?.ob_deck);
   if (!deck) return { type: 'output', message: "There's no portable mediadeck here." };
 
   const dflags = _deckFlags(deck);
+  const ob = !!dflags.ob_deck && !dflags.portable_mediadeck;
   const isOff = !!dflags.deck_off;
   const want = String(args?.[0] || '').toLowerCase();
 
   if (want !== 'on' && want !== 'off') {
+    if (ob) return { type: 'output', message: isOff
+      ? `The ${deck.name} is dark and its line lamp is out. ${teachVerb('uplink on')} brings it back.`
+      : `The ${deck.name} is running, its line lamp lit green. ${teachVerb('uplink off')} kills it.` };
     return { type: 'output', message: isOff
       ? `The ${deck.name} stands dark, its pairing lights out. ${teachVerb('uplink on')} wakes it.`
       : `The ${deck.name} is running, pairing lights stepping down one side. ${teachVerb('uplink off')} kills it.` };
@@ -10030,13 +10182,14 @@ async function cmdUplink(args, raw, player) {
   if (turnOff) dflags.deck_off = true; else delete dflags.deck_off;
   await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
 
+  const noun = ob ? 'OB deck' : 'mediadeck';
   sendToZone(player.current_zone, { type: 'zone_event', message: turnOff
-    ? `${player.handle} reaches down and kills the mediadeck. Its lights go out one after another.`
-    : `${player.handle} wakes the mediadeck. Its lights come up one after another and settle.` }, player.id);
+    ? `${player.handle} reaches down and kills the ${noun}. Its lights go out one after another.`
+    : `${player.handle} wakes the ${noun}. Its lights come up one after another and settle.` }, player.id);
 
   return { type: 'output', message: turnOff
     ? 'You kill the uplink. Whatever this room was sending stops here.'
-    : 'You bring the uplink up. The lights settle and the case starts talking to the studio.' };
+    : `You bring the uplink up. The lights settle and the ${ob ? 'deck' : 'case'} starts talking to the studio.` };
 }
 
 // Silent panel re-push for an already-open deck panel. `load` and `eject` both
@@ -11236,6 +11389,7 @@ export const specializedActions = [
   // but the row puts it on the case's examine line so a player who has never heard
   // of it can still find the switch.
   { verb: 'uplink', requiredFlag: 'portable_mediadeck', handler: null },
+  { verb: 'uplink', requiredFlag: 'ob_deck', handler: null },   // the same switch on a ground's OB deck
   { verb: 'use', requiredTag: 'piracy_firmware', handler: doInstallPiracyFirmware },
 ];
 
@@ -11278,7 +11432,12 @@ export const _test = {
   tangentCohosts: _tangentCohosts, anchorDisplayFor: _anchorDisplayFor,
   // a deck that keeps a programme
   deckShowing: _deckShowing, deckWants: _deckWants,
-  camerasIn: _camerasIn, uplinkOk: _uplinkOk, portableDeckLive: _portableDeckLive,
+  camerasIn: _camerasIn, uplinkOk: _uplinkOk, feedDeckLive: _feedDeckLive,
+  groundCoverage, groundCameraLive: _groundCameraLive, sportsOnAir: _sportsOnAir, lostPictureLine: _lostPictureLine,
+  feedMonitorLines: _feedMonitorLines,
+  // The power seam: regress blacks out one ground without booting the environment.
+  // Pass null to put the real lookup back.
+  setPowerLookup: (fn) => { _powerLookup = typeof fn === 'function' ? fn : getZonePowerStatus; },
   channelTransmitterLive, absentReaction: _absentReaction, ABSENT_HOUSE, dispatchDroid: _dispatchDroid, shotOrder: _shotOrder, channelDroids: _channelDroids, locationCallState: _locationCallState, preshowActTick, maybeStartTangent: _maybeStartTangent,
   TANGENT_FLOOR, TANGENT_CHANCE,
   cameraLabel: _cameraLabel, pickCamera: _pickCamera, anyCastPresent: _anyCastPresent, zoneCameras,
@@ -12623,6 +12782,8 @@ const CHANNEL_REVERT_LINES = [
 ];
 
 export const hooks = {
+  // KSAB5's feed monitors say which grounds are live (see _feedMonitorLines).
+  'furniture.describe': (f) => _describeFeedMonitors(f),
   'venue.lit': venueLit,
   'venue.roof': venueRoof,
   'tick.minute': async () => {

@@ -1,6 +1,6 @@
 # The daily slate
 
-**Status:** Phases 1 and 2 built (2026-10-24): the slate, month seasons, KSAB5 and the relay. Phase 3's rename to Golden Goose Gardens was already in; Phases 4 and 5 are design, and the scoreboard TVs were dropped (2026-10-29): the stands have no TV. As built, Saturday's one-day 18:00 show still beats the every-day relay on ch 7 (narrower day mask), the `.bsm` files keep `@airtime` (a slate item ignores it), and the Deadball fallback in `sportOf` stays.
+**Status:** Phases 1 to 3 built: the slate, month seasons, KSAB5 and the relay (2026-10-24), and the rename to Golden Goose Gardens. Phase 4a built (2026-11-03): the OB decks, the ground cameras, coverage, the lost-picture card and the KSAB5 monitors. Phase 4b (the tape ring and recorded playback), 4c (the producer) and Phase 5 are design. The scoreboard TVs were dropped (2026-10-29): the stands have no TV. As built, Saturday's one-day 18:00 show still beats the every-day relay on ch 7 (narrower day mask), the `.bsm` files keep `@airtime` (a slate item ignores it), and the Deadball fallback in `sportOf` stays.
 
 Every Deadball and Cluster Puck club plays every in-game day. Each sport has eight clubs, so it plays four games a day. Two sports at four games each fill all eight three-hour slots, one game per slot. Every game is played at its sport's ground. KSAB5 "The Cinqo" Sports Network airs all of them around the clock. KSAB-TV ch 7 airs one featured game a day.
 
@@ -114,20 +114,19 @@ KSAB5 exists in the world, not just on the schedule. It has a small studio in th
 
 ### The studio
 
-Two rooms off the Writers' Wing Story Floor (`zone_ksab_lobby`), on `map_int_ksab`. No new tile or building.
+Two rooms off KSAB5's Writers' Lounge (`zone_ksab_lobby`), on `map_int_ksab`. No new tile or building. Both were built by `scripts/content/ksab-rooms.mjs` before this phase, under the ids below; the generator stays their author.
 
-- **The Cinqo desk** (`zone_ksab5_studio`): a small presentation set with two cameras and the anchor's desk. Ch 5's `studio_zone_id` points here.
-- **KSAB5 master control** (`zone_ksab5_control`): the wired channel deck `furn_deck_ksab5` and a bank of feed monitors, one per ground. Each monitor shows its ground as live, dark or no game.
-- **Power:** off the Writers' Wing junction box, with the power_zones row, fixture and lights wired in the same build.
+- **The KSAB5 Studio** (`zone_ksab5_stage`): the sports desk, east of the lounge. Ch 5's `studio_zone_id` points here.
+- **KSAB5 Production** (`zone_ksab5_prod`), up the stairs from the studio: the wired channel deck `furn_deck_ksab5` and the feed monitors `furn_ksab5_monitors`, one screen per ground. Each shows its ground as live, dark (and why) or no game. The lounge's monitor wall (`furn_monitors_ksab`) is decoration.
+- **Power:** off the Writers' Wing junction box, with the power_zones rows, fixtures and lights already wired.
 - **Staff:** one producer NPC. The anchor reads the scores between games. The games themselves need nobody in the studio.
 
 ### Outside-broadcast decks
 
 - Each pressbox gets a wired OB deck: `furn_ob_deck_hughson` in `zone_hughson_pressbox` and `furn_ob_deck_slush` in `zone_slush_pressbox`. Both carry `uplink_channel: ch_5_cinqo` and `flags.ob_deck`.
-- **Engine change:** `_portableDeckLive` becomes "any live, powered deck in the zone bound to this channel". The change is generic, not sports code.
+- **Engine change:** `_portableDeckLive` became `_feedDeckLive(zoneId, channelId)`: "any live, powered deck in the zone bound to this channel". The change is generic, not sports code.
 - **Locating a game:** `sports_pools.venue.site` gains `ob_zone_id` (the pressbox) and `camera_zones`.
-  - A game's `location_zone_id` comes from the venue.
-  - `_uplinkOk` (`plugins/broadcast/index.js`) decides whether the picture reaches master control. This is the same path the St. Garneau cooking shoot uses.
+  - `groundCoverage(script, channel)` (`plugins/broadcast/index.js`) decides whether the picture reaches master control. It asks the same `_feedDeckLive` the St. Garneau cooking shoot's `_uplinkOk` does.
 
 ### Ground cameras
 
@@ -145,11 +144,11 @@ Two rooms off the Writers' Wing Story Floor (`zone_ksab_lobby`), on `map_int_ksa
 - **What breaks it:** a power cut at the ground, a smashed camera or an OB deck switched off.
 - **What carries on:** the game still happens. The standings, betting, lights and `sports.game` all run off the clock, not the picture.
 - **What viewers see:** KSAB5 shows "We've lost the picture from Golden Goose Gardens" over the studio's score line, and the ch 7 relay shows the same card.
-- **Fixing it:** players can repair it, or cause it, with the existing verbs (`uplink on|off`, repair, power).
+- **Fixing it:** players can cause it or put it right with `uplink on|off` at the OB deck, or by cutting or restoring the ground's power. A smashed camera is `flags.broken` on its `broadcast_camera` furniture (or no hp left). Nothing in the game smashes or mends one yet, so that lever waits on a furniture damage system.
 
 ### Docs and checks
 
-- **Docs:** `docs/systems-broadcast.md` gets `ob_deck`, `venue.ob_zone_id`, `venue.camera_zones` and the sports tape. `docs/flags-keys.md` gets `ob_deck`.
+- **Docs:** `docs/systems-broadcast.md` gets `ob_deck`, `venue.ob_zone_id`, `venue.camera_zones` and (in 4b) the sports tape. `docs/flags-keys.md` gets `ob_deck`, `feed_monitors` and `broken`.
 - **Regress checks:**
   - A covered game is live on KSAB5.
   - Switching off an OB deck, or cutting a ground's power, gives the lost-picture card while the standings still count.
@@ -230,35 +229,47 @@ Gate:
 
 ### Phase 4: studio, OB decks and cameras (content + one engine seam)
 
-1. **Rooms:** `zone_ksab5_studio` and `zone_ksab5_control` on `map_int_ksab`, off `zone_ksab_lobby`.
-   - Write them through `scripts/content/media-lot.mjs` so the generator stays the one author.
-   - Wire power, fixture and lights in the same build.
-   - The interior exit uses the lobby's direction, never `out`.
-2. **Furniture:**
-   - `furn_deck_ksab5`, the wired channel deck (copy the KSAB-TV production deck's flags).
-   - `furn_ksab5_monitors`, the feed monitors.
-   - The anchor desk and two studio cameras.
-   - `furn_ob_deck_hughson` and `furn_ob_deck_slush` with `flags.ob_deck` and `uplink_channel: "ch_5_cinqo"`.
-   - Two `media_cameras` rows and `broadcast_camera` furniture per ground.
-3. **Engine seam:** `_portableDeckLive(zoneId)` becomes `_feedDeckLive(zoneId, channelId)`. It's true for a deck flagged `portable_mediadeck` **or** `ob_deck`, bound to that channel, switched on, in a zone not `offline`. The St. Garneau cooking shoot keeps working. Pass its channel through.
-4. **Coverage:** `venue.site` gains `ob_zone_id` and `camera_zones` in each `.bsm` venue block.
-   - `groundCovered(script)` = `_feedDeckLive(ob_zone_id, ch)` and at least one camera in `camera_zones` that isn't broken and is powered (`_camerasIn`).
-   - It's sync and query-free, and checked per broadcast tick only for channels with viewers.
-5. **Lost picture:** when the ground isn't covered, the sports walker shows a card instead of advancing the narration, but keeps the score bug. The game result is unaffected. The card line is authored in each `.bsm` (`::lines lost_picture`), with the ground's name from the venue.
-6. **Tapes:**
-   - Each covered game appends `{ broadcast_id, slot }` to an in-RAM ring of the last 8 per camera. The database isn't touched.
-   - `eject` on `furn_deck_ksab5` makes a tape item whose `custom_data` is that reference. That's the only write.
-   - `recorded` playback of a reference calls `getSportsGraph(script, slot)` and plays it from the start. Phase 4 builds the playback; overnight replays on KSAB5 are a later playlist row.
-7. **Monitors:** `look monitors` lists each ground as live, dark (with the cause: no power, deck off, no camera) or no game.
-8. **Staff:** one producer NPC with a unique name and a `npc_residences` file. The studio is decorative for games; no `npc_staff` is required.
+Split into three. **4a is built** (2026-11-03); 4b and 4c are design.
 
-Gate:
+#### 4a: the decks, the cameras and the lost picture (built)
+
+1. **Rooms:** the studio and production room were already built by `scripts/content/ksab-rooms.mjs` as `zone_ksab5_stage` (east of the lounge) and `zone_ksab5_prod` (up from the stage), with power, fixtures and lights. They keep those ids. Ch 5's `studio_zone_id` is `zone_ksab5_stage`, set in the same change as the decks and the seam.
+2. **Furniture:**
+   - `furn_deck_ksab5`, the wired channel deck, in `zone_ksab5_prod` (already there).
+   - `furn_ksab5_monitors` in `zone_ksab5_prod`, `flags.feed_monitors: "ch_5_cinqo"`, written by `ksab-rooms.mjs`.
+   - `furn_ob_deck_hughson` in `zone_hughson_pressbox` and `furn_ob_deck_slush` in `zone_slush_pressbox`, with `flags.ob_deck` and `uplink_channel: "ch_5_cinqo"`. They carry no `media_deck` flag, so they aren't channel transmitters and `load`/`eject` don't see them.
+   - Two `media_cameras` rows per ground, streaming on ch 5, each with its `broadcast_camera` furniture (`<camera id>_furn`): `cam_ksab5_hughson_stands`, `cam_ksab5_hughson_nine`, `cam_ksab5_slush_stands` and `cam_ksab5_slush_rinkside`.
+3. **Engine seam:** `_portableDeckLive(zoneId)` is now `_feedDeckLive(zoneId, channelId)`. It's true for a deck flagged `portable_mediadeck` **or** `ob_deck`, bound to that channel (`uplink_channel`, or plain `channel_id`), switched on, in a zone not `offline`. `_uplinkOk` and `channelTransmitterLive` pass the channel, so the St. Garneau case answers for KSAB-TV and nothing else. The power read goes through `_zonePower`, which regress can replace (`_test.setPowerLookup`).
+4. **Coverage:** `sports_pools.venue.site` carries `ob_zone_id` and `camera_zones` on both broadcast rows (the venue isn't in the `.bsm`; both builders carry it over).
+   - `groundCoverage(script, channel)` is `{ covered, cause }`. Covered means `_feedDeckLive(ob_zone_id, channel)` and at least one camera in `camera_zones` that `_camerasIn` lists, whose furniture isn't smashed and whose room isn't blacked out. The cause is `power`, `deck` or `camera`. A venue with no `ob_zone_id` is always covered.
+   - It's sync and query-free, and checked only where a channel is being walked (a channel with a viewer).
+5. **Lost picture** (`_sportsOnAir`): the walker still walks the game, so it stays on the clock and the picture comes back at the right moment. While the ground isn't covered, the first beat is the card (with the score bug) and later beats only move the score bug (or keep the channel alive with no new line). The game result is unaffected.
+   - The ch 7 relay checks the source channel's feed (`item.relayedFrom`), so it shows the same card.
+   - The line is from each `.bsm`'s `::lines lost_picture` pool, filled with `{venue}` (the venue's `said`). With no pool, the engine line names the venue. Both builders keep a row's pool if the script has none.
+6. **Monitors:** `look monitors` in production lists each ground as live, dark with the cause (no power, the OB deck off, no working camera) or no game, from the same `groundCoverage` (a `furniture.describe` hook on `feed_monitors`).
+7. **The switch:** `uplink`, `uplink on` and `uplink off` work on an OB deck as on the portable case.
+
+Gate (`plugins/broadcast/regress.js`, "KSAB5's grounds"):
 - Covered gives live.
-- OB deck off gives the card, and the standings are unchanged.
-- Power off at one ground leaves the other ground live.
+- OB deck off gives the card, the next beat moves only the score bug, and the standings are unchanged.
+- Power off at one ground leaves the other ground live; a dark pressbox alone is enough.
+- One smashed camera of two still covers the ground; both don't.
 - The relay carries the card.
-- A tape plays the same first line as the live game.
-- The St. Garneau portable still uplinks.
+- The St. Garneau portable still uplinks, and the case doesn't answer for KSAB5.
+- `uplink off` on the OB deck takes the ground off KSAB5.
+
+#### 4b: tapes (design)
+
+- Each covered game appends `{ broadcast_id, slot }` to an in-RAM ring of the last 8 per camera. The database isn't touched.
+- `eject` on `furn_deck_ksab5` makes a tape item whose `custom_data` is that reference. That's the only write.
+- `recorded` playback of a reference calls `getSportsGraph(script, slot)` and plays it from the start. Overnight replays on KSAB5 are a later playlist row.
+
+Gate: a tape plays the same first line as the live game.
+
+#### 4c: staff (design)
+
+- One producer NPC with a unique name and a `npc_residences` file. The studio is decorative for games; no `npc_staff` is required.
+- The anchor desk and two studio cameras in `zone_ksab5_stage`.
 
 ### Phase 5: following a club
 

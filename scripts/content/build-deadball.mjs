@@ -72,11 +72,14 @@ const patch = (rel, fields) => {
 // The park (sports_pools.venue: its site, and later the venue data the GLASS 2 park is
 // built from) and the clubs' identities (sports_pools.clubs, build-deadball-clubs.mjs)
 // aren't in the .bsm, so a rebuild carries them over, as build-cluster-puck.mjs does for
-// hockey's clubs.
+// hockey's clubs. The site carries the ground's wiring too (`ob_zone_id`, `camera_zones`:
+// docs/proposals/daily-slate.md phase 4). The `lost_picture` pool comes from the .bsm; if an
+// older script has none, the row's is kept rather than dropped.
 {
   const kept = JSON.parse(fs.readFileSync(path.join(ROOT, BROADCAST_FILE), 'utf8')).sports_pools || {};
   if (kept.venue) sportsScript.venue = kept.venue;
   if (kept.clubs) sportsScript.clubs = kept.clubs;
+  if (!sportsScript.pools?.lost_picture && kept.pools?.lost_picture) sportsScript.pools.lost_picture = kept.pools.lost_picture;
 }
 
 patch(BROADCAST_FILE, {

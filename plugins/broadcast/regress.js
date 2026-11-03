@@ -524,6 +524,138 @@ export default async function regress({ check, run, getPlayer }) {
     }
   }
 
+  // ── KSAB5's grounds: the OB decks, the cameras and the lost picture ─────────
+  // docs/proposals/daily-slate.md, phase 4a. A ground is covered when its OB deck is
+  // running and a camera there works; when it isn't, KSAB5 and the ch 7 relay show the
+  // lost-picture card over the score bug and the game goes on. Deck-off and a smashed
+  // camera are furniture flags, set in RAM and put back. A power cut goes through the
+  // power seam (_test.setPowerLookup), because regress never boots the environment sim.
+  {
+    const CH5 = 'ch_5_cinqo', KSAB = 'ch_7_1782953079593';
+    const HB = 'zone_hughson_pressbox', GG = 'zone_slush_pressbox';
+    const GG_CAMS = ['zone_slush_stands', 'zone_slush_rinkside'], HB_CAMS = ['zone_hughson_stands', 'zone_hughson_nine'];
+    const rowOf = (f) => JSON.parse(readFileSync(new URL(`../../content/${f}.json`, import.meta.url), 'utf8'));
+    const db = rowOf('media_broadcasts/bc_1783289744953').sports_pools;
+    const hk = rowOf('media_broadcasts/bc_cluster_puck').sports_pools;
+    check('grounds: Deadball is wired to the Hughson pressbox and two camera positions',
+      db.venue?.site?.ob_zone_id === HB && JSON.stringify(db.venue.site.camera_zones) === JSON.stringify(HB_CAMS), JSON.stringify(db.venue?.site));
+    check('grounds: Cluster Puck is wired to the Gardens pressbox and two camera positions',
+      hk.venue?.site?.ob_zone_id === GG && JSON.stringify(hk.venue.site.camera_zones) === JSON.stringify(GG_CAMS), JSON.stringify(hk.venue?.site));
+    check('grounds: both scripts have a lost_picture pool naming the ground',
+      [db, hk].every((s) => (s.pools?.lost_picture || []).length && s.pools.lost_picture.every((l) => l.includes('{venue}'))));
+    check("grounds: KSAB5's studio is its stage", rowOf('media_channels/ch_5_cinqo').studio_zone_id === 'zone_ksab5_stage');
+    // The fallback line when a script has no pool still names the ground.
+    check('lost picture: with no pool the engine line names the ground',
+      /Golden Goose Gardens/.test(_test.lostPictureLine({ venue: hk.venue, pools: {} })), _test.lostPictureLine({ venue: hk.venue, pools: {} }));
+
+    const obDeck = (zone) => (getZoneFurniture(zone) || []).find((f) => f?.flags?.ob_deck);
+    const camFurn = (zone) => (getZoneFurniture(zone) || []).filter((f) => f?.object_type === 'broadcast_camera' && f.flags?.camera_id);
+    const live = obDeck(HB) && obDeck(GG) && [...HB_CAMS, ...GG_CAMS].every((z) => _test.camerasIn(z).length && camFurn(z).length);
+    check('grounds: an OB deck in each pressbox and a camera at each position (needs content:import)', !!live,
+      JSON.stringify({ hb: !!obDeck(HB), gg: !!obDeck(GG), cams: [...HB_CAMS, ...GG_CAMS].map((z) => _test.camerasIn(z).length) }));
+    if (live) {
+      const cover = (s) => _test.groundCoverage(s, CH5);
+      check('coverage: both grounds are covered', cover(db).covered && cover(hk).covered, JSON.stringify([cover(db), cover(hk)]));
+      check("coverage: an OB deck answers for KSAB5 and not for KSAB-TV", _test.feedDeckLive(GG, CH5) && !_test.feedDeckLive(GG, KSAB));
+      check('coverage: a script with no ground to lose is covered', _test.groundCoverage({ venue: { name: 'Nowhere' } }, CH5).covered);
+
+      // The walker's beat as it goes to air.
+      const bug = (n) => ({ sport: 'hockey', home: 'Home', away: 'Away', homeScore: n, awayScore: 0, status: '1ST 10:00' });
+      const beat = (n) => ({ text: `Line ${n}`, key: `reg-beat-${n}`, style: 'raw', scorebug: bug(n) });
+      const st5 = { channelId: CH5, graphBlackboard: { activeBroadcastId: 'reg-game' } };
+      const st7 = { channelId: KSAB, graphBlackboard: { activeBroadcastId: 'reg-game' } };
+      check('covered: KSAB5 airs the line itself', _test.sportsOnAir(st5, { sportsScript: hk }, beat(1))?.text === 'Line 1');
+
+      const standings = async () => JSON.stringify((await dispatchAction({ type: 'broadcast.computeStandings',
+        params: { startSlot: _test.sportsSlotIndex() - 24, endSlot: _test.sportsSlotIndex(), sport: 'hockey' } }))?.rows || []);
+      const before = await standings();
+      const deck = obDeck(GG);
+      const wasOff = !!deck.flags.deck_off;
+      deck.flags.deck_off = true;
+      try {
+        const cov = cover(hk);
+        check('deck off: the Gardens lose the picture, and say why', !cov.covered && cov.cause === 'deck', JSON.stringify(cov));
+        const card = _test.sportsOnAir(st5, { sportsScript: hk }, beat(2));
+        check('deck off: the first beat is the card, naming the ground',
+          /Golden Goose Gardens/.test(card?.text || '') && card.text !== 'Line 2', JSON.stringify(card));
+        check('deck off: ...and it keeps the score bug', card?.scorebug?.homeScore === 2, JSON.stringify(card?.scorebug));
+        const next = _test.sportsOnAir(st5, { sportsScript: hk }, beat(3));
+        check('deck off: the next beat only moves the score bug',
+          next?.style === 'overlay' && next.overlay?.overlayType === 'scorebug' && next.overlay.homeScore === 3 && !next.text, JSON.stringify(next));
+        check('deck off: every beat has a new key, so the channel stays on air', next?.key && next.key !== card?.key);
+        check('deck off: the Hughson is still live', cover(db).covered);
+        check('deck off: the standings are the same', (await standings()) === before);
+        // Ch 7 relays KSAB5's item, so it checks KSAB5's feed and shows the same card.
+        const relayCard = _test.sportsOnAir(st7, { sportsScript: hk, relayedFrom: CH5 }, beat(4));
+        check('relay: ch 7 carries the same card', !!relayCard?.text && relayCard.text === card?.text, JSON.stringify(relayCard));
+        // The monitors in master control read the same coverage.
+        const gg = _test.feedMonitorLines(CH5).find((r) => /Golden Goose/.test(r.ground));
+        const hkNow = (_test.channelRuntime.get(CH5)?.playlist || []).find((i) => i.sportsScript?.venue?.site?.ob_zone_id === GG)?.sportsScript;
+        if (hkNow) check('monitors: the Gardens screen is dark with the deck off, or shows no game',
+          _test.sportsAiring(hkNow) ? (gg?.status === 'dark' && gg.cause === 'deck') : gg?.status === 'no_game', JSON.stringify(gg));
+      } finally {
+        const d = obDeck(GG);
+        if (wasOff) d.flags.deck_off = true; else delete d.flags.deck_off;
+      }
+      check('deck on: the picture comes back', cover(hk).covered);
+      check('deck on: and KSAB5 airs the game again', _test.sportsOnAir(st5, { sportsScript: hk }, beat(5))?.text === 'Line 5');
+
+      // A power cut at one ground leaves the other live. The St Garneau case is
+      // somewhere else entirely, so it still uplinks.
+      _test.setPowerLookup((z) => (z === GG || GG_CAMS.includes(z) ? 'offline' : 'unpowered'));
+      try {
+        const cov = cover(hk);
+        check('power off: the Gardens lose the picture to the power', !cov.covered && cov.cause === 'power', JSON.stringify(cov));
+        check('power off: the Hughson is still live', cover(db).covered, JSON.stringify(cover(db)));
+        check('power off: the St Garneau case still uplinks',
+          _test.uplinkOk({ studioZoneId: null, channelId: KSAB }, 'zone_stgarneau_basement') === true);
+      } finally {
+        _test.setPowerLookup(null);
+      }
+      // Only the pressbox down is enough: the deck has nothing to run on.
+      _test.setPowerLookup((z) => (z === HB ? 'offline' : 'unpowered'));
+      try {
+        check('power off: a dark pressbox takes the Hughson down', cover(db).cause === 'power' && cover(hk).covered);
+      } finally {
+        _test.setPowerLookup(null);
+      }
+
+      // A smashed camera: one of two still gets the picture; both and the ground is dark.
+      const [c1, c2] = HB_CAMS.map((z) => camFurn(z)[0]);
+      const keep = [c1, c2].map((c) => !!c.flags.broken);
+      try {
+        c1.flags.broken = true;
+        check('camera: one smashed camera and the other still covers the Hughson', cover(db).covered);
+        c2.flags.broken = true;
+        const cov = cover(db);
+        check('camera: both smashed and the Hughson is dark', !cov.covered && cov.cause === 'camera', JSON.stringify(cov));
+      } finally {
+        [c1, c2].forEach((c, i) => { if (keep[i]) c.flags.broken = true; else delete c.flags.broken; });
+      }
+      check('camera: mended, and the Hughson is live again', cover(db).covered);
+
+      // `uplink` reaches the OB deck, so a player can take a ground off the air.
+      const player = getPlayer();
+      const savedZone = player.current_zone;
+      try {
+        player.current_zone = HB;
+        const r0 = await run('uplink');
+        check('uplink: reports the OB deck in the pressbox', /OB deck|line lamp/i.test(r0?.message || ''), JSON.stringify(r0));
+        await run('uplink off');
+        check('uplink: killing it takes the Hughson off KSAB5', cover(db).cause === 'deck', JSON.stringify(cover(db)));
+        await run('uplink on');
+        check('uplink: and bringing it up puts it back', cover(db).covered);
+      } finally {
+        player.current_zone = savedZone;
+        if (obDeck(HB)?.flags?.deck_off) {
+          const d = obDeck(HB);
+          const fl = { ...d.flags }; delete fl.deck_off;
+          await updateFurniture(d.id, { flags: JSON.stringify(fl) }).catch(() => {});
+        }
+      }
+    }
+  }
+
   // ── News bulletin assembly ──────────────────────────────────────────────────
   // A news broadcast reads live stories and reads them out through anchor/reporter
   // NAME strings — no NPC. Feed synthetic stories and check the assembled graph: it
@@ -4697,7 +4829,7 @@ export default async function regress({ check, run, getPlayer }) {
 
     // The uplink. A studio is wired; a church basement is not, so the deck is the
     // difference between a location shoot and a room with cameras in it.
-    const studioState = { studioZoneId: 'zone_studio_1782953094650' };
+    const studioState = { studioZoneId: 'zone_studio_1782953094650', channelId: 'ch_7_1782953079593' };
     check('uplink: a wired studio needs no deck',
       _test.uplinkOk(studioState, 'zone_studio_1782953094650') === true);
     check('uplink: the church basement has a portable deck',
@@ -4844,12 +4976,12 @@ export default async function regress({ check, run, getPlayer }) {
     // was built for.
     check('transmission: the church basement can currently go out',
       _test.camerasIn('zone_stgarneau_basement').length > 0
-      && _test.uplinkOk({ studioZoneId: null }, 'zone_stgarneau_basement'));
+      && _test.uplinkOk({ studioZoneId: null, channelId: 'ch_7_1782953079593' }, 'zone_stgarneau_basement'));
     check('transmission: ...because there are cameras in it',
       _test.camerasIn('zone_stgarneau_basement').length >= 2,
       String(_test.camerasIn('zone_stgarneau_basement').length));
     check('transmission: ...and a deck to get the signal home',
-      _test.uplinkOk({ studioZoneId: null }, 'zone_stgarneau_basement'));
+      _test.uplinkOk({ studioZoneId: null, channelId: 'ch_7_1782953079593' }, 'zone_stgarneau_basement'));
     // Take the deck away and the show is off the air, whatever the schedule says.
     {
       const furn = getZoneFurniture('zone_stgarneau_basement') || [];
@@ -4858,10 +4990,10 @@ export default async function regress({ check, run, getPlayer }) {
       if (deck) {
         deck.flags.deck_off = true;
         check('transmission: switching it off takes the channel down',
-          _test.uplinkOk({ studioZoneId: null }, 'zone_stgarneau_basement') === false);
+          _test.uplinkOk({ studioZoneId: null, channelId: 'ch_7_1782953079593' }, 'zone_stgarneau_basement') === false);
         delete deck.flags.deck_off;
         check('transmission: ...and switching it back on heals it',
-          _test.uplinkOk({ studioZoneId: null }, 'zone_stgarneau_basement') === true);
+          _test.uplinkOk({ studioZoneId: null, channelId: 'ch_7_1782953079593' }, 'zone_stgarneau_basement') === true);
       }
     }
     // The channel's own wired studio never needs one — that is what wired means.
@@ -4876,18 +5008,21 @@ export default async function regress({ check, run, getPlayer }) {
       const BASEMENT = 'zone_stgarneau_basement';
       const furn = getZoneFurniture(BASEMENT) || [];
       const deck = furn.find(f => f?.flags?.portable_mediadeck);
-      check('transmitter: the basement case is live', _test.portableDeckLive(BASEMENT) === true);
+      check('transmitter: the basement case is live', _test.feedDeckLive(BASEMENT, KSAB) === true);
       check("transmitter: an empty room isn't a transmitter",
-        _test.portableDeckLive('zone_studio_1782953094650') === false);
+        _test.feedDeckLive('zone_studio_1782953094650', KSAB) === false);
+      // The case is bound to KSAB-TV. It doesn't carry KSAB5 (or anyone else).
+      check("transmitter: the case doesn't answer for a channel it isn't bound to",
+        _test.feedDeckLive(BASEMENT, 'ch_5_cinqo') === false);
       // No wired deck at all (or its room blacked out) and the case still answers.
       check('transmitter: a bound portable keeps the channel on air with no wired deck',
-        _test.channelTransmitterLive({ deckZoneId: null, portableDeckZones: [BASEMENT] }) === true);
+        _test.channelTransmitterLive({ channelId: KSAB, deckZoneId: null, portableDeckZones: [BASEMENT] }) === true);
       check("transmitter: ...and an unbound channel isn't carried by it",
-        _test.channelTransmitterLive({ deckZoneId: null, portableDeckZones: [] }) === false);
+        _test.channelTransmitterLive({ channelId: KSAB, deckZoneId: null, portableDeckZones: [] }) === false);
       if (deck) {
         deck.flags.deck_off = true;
         check('transmitter: switching the case off takes the channel down',
-          _test.channelTransmitterLive({ deckZoneId: null, portableDeckZones: [BASEMENT] }) === false);
+          _test.channelTransmitterLive({ channelId: KSAB, deckZoneId: null, portableDeckZones: [BASEMENT] }) === false);
         delete deck.flags.deck_off;
       }
 
@@ -4896,9 +5031,9 @@ export default async function regress({ check, run, getPlayer }) {
       // predicate actually depends on the switch, which is now the only lever
       // either test can pull in a room with no power zone.
       check('transmitter: the case is live again once the switch is back on',
-        _test.portableDeckLive(BASEMENT) === true);
+        _test.feedDeckLive(BASEMENT, KSAB) === true);
       check('transmitter: no furniture row means no transmitter',
-        _test.portableDeckLive('zone_nonexistent_room') === false);
+        _test.feedDeckLive('zone_nonexistent_room', KSAB) === false);
 
       // uplink: the switch is reachable from a command, which is the whole point.
       // Nothing but this suite could write deck_off before it existed.
@@ -4916,13 +5051,13 @@ export default async function regress({ check, run, getPlayer }) {
         const r1 = await run('uplink off');
         check('uplink: switches it off', !!deckNow()?.flags?.deck_off === true, JSON.stringify(r1));
         check('uplink: ...and the channel loses it',
-          _test.portableDeckLive(BASEMENT) === false);
+          _test.feedDeckLive(BASEMENT, KSAB) === false);
         const r2 = await run('uplink off');
         check("uplink: switching it off twice isn't an error", /already off/i.test(r2?.message || ''), JSON.stringify(r2));
         await run('uplink on');
         check('uplink: switches it back on', !deckNow()?.flags?.deck_off);
         check('uplink: ...and the channel has it back',
-          _test.portableDeckLive(BASEMENT) === true);
+          _test.feedDeckLive(BASEMENT, KSAB) === true);
         if (before) await run('uplink off');   // leave the room as we found it
       }
       player.current_zone = savedZone;

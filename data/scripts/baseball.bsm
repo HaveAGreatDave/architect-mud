@@ -1931,4 +1931,15 @@ For the {leader} and everyone still upright out there, this has been Chip Vega. 
 Chip Vega, signing off. Same dirt, same dread, tomorrow. Stay off the field.
 ::endlines
 
+# ── the lost picture ──────────────────────────────────────────────────────────
+# KSAB5's caption when a ground's picture goes: the pressbox's power is out, its OB
+# deck is switched off or no camera at the ground works. The game goes on and the
+# score bug keeps moving; this card stays up until the feed is back. {venue} is the
+# ground as the booth says it. Not read by a commentator: it's the studio's card.
+::lines lost_picture
+We've lost the picture from {venue}. The game's still going. We'll get you back there as soon as the line's up.
+No pictures from {venue} for the moment. They're still playing, and the score's in the corner.
+The feed from {venue} has gone down. Somebody's been sent to find out why. The game goes on without us.
+::endlines
+
 END

@@ -4892,6 +4892,11 @@
         "Live from {venue}, out by the south wall, where the CPhL plays every one of its games!",
         "Live from {venue}! The ice is down and the doors are open."
       ],
+      "lost_picture": [
+        "We've lost the picture from {venue}. The game's still going. We'll get you back there as soon as the line's up.",
+        "No pictures from {venue} for the moment. They're still playing, and the score's in the corner.",
+        "The feed from {venue} has gone down. Nobody at the Gardens is answering the phone. The game goes on without us."
+      ],
       "matchup": [
         "Tonight the {away} take the visitors' bench against the {home}.",
         "It's the {away} against the {home}, and one end of this building goes home happy.",
@@ -6101,6 +6106,11 @@
           "y0": 916,
           "y1": 917
         },
+        "camera_zones": [
+          "zone_slush_stands",
+          "zone_slush_rinkside"
+        ],
+        "ob_zone_id": "zone_slush_pressbox",
         "x": 915.5,
         "y": 917
       }

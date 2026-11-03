@@ -45,7 +45,7 @@
     "uplink": {
       "discoverVia": "portable_mediadeck",
       "exposed": true,
-      "note": "The switch on a portable mediadeck: `uplink` reports, `uplink on`/`uplink off` flips flags.deck_off. Surfaced on examine by a declaration-only specializedAction against the portable_mediadeck flag. Deliberately not owner-gated — killing a location shoot's signal by walking up to the case is the interference the on-location model is for."
+      "note": "The switch on a portable mediadeck or a ground's OB deck: `uplink` reports, `uplink on`/`uplink off` flips flags.deck_off. Surfaced on examine by declaration-only specializedActions against the portable_mediadeck and ob_deck flags. Deliberately not owner-gated — killing a location shoot's signal by walking up to the case is the interference the on-location model is for."
     },
     "selectcassette": {
       "discoverVia": "furniture:media_deck",
@@ -101,6 +101,7 @@
     ]
   },
   "hooks": [
+    "furniture.describe",
     "tick.minute",
     "venue.lit",
     "venue.roof"

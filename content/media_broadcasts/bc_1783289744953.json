@@ -3392,6 +3392,11 @@
         "Live from {venue}! The lights are on in Halcyon Fields and there's a ballgame tonight.",
         "Live from {venue}, where the gates are open and the organist is already warming up!"
       ],
+      "lost_picture": [
+        "We've lost the picture from {venue}. The game's still going. We'll get you back there as soon as the line's up.",
+        "No pictures from {venue} for the moment. They're still playing, and the score's in the corner.",
+        "The feed from {venue} has gone down. Somebody's been sent to find out why. The game goes on without us."
+      ],
       "matchup": [
         "Tonight it's the {away} in from out of town to face the {home} on their home dirt.",
         "On the marquee: {away} versus {home}. Two rosters, one working scoreboard, no medical staff.",
@@ -4069,6 +4074,11 @@
           "y0": 910,
           "y1": 920
         },
+        "camera_zones": [
+          "zone_hughson_stands",
+          "zone_hughson_nine"
+        ],
+        "ob_zone_id": "zone_hughson_pressbox",
         "x": 894.86,
         "y": 917.86
       }

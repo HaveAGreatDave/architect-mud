@@ -1,0 +1,23 @@
+{
+  "description": "A KSAB5 camera on a tripod lashed to the rail behind home plate, a hood over the lens and a cable running back to the press box. The red light on top is on when it's sending.",
+  "flags": {
+    "aliases": [
+      "camera",
+      "broadcast camera",
+      "tv camera"
+    ],
+    "broadcast_transmitter": true,
+    "camera_id": "cam_ksab5_hughson_stands",
+    "channel_id": "ch_5_cinqo"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "cam_ksab5_hughson_stands_furn",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "broadcast camera",
+  "object_type": "broadcast_camera",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hughson_stands"
+}

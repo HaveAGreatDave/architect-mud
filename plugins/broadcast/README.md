@@ -23,6 +23,7 @@
 Almost every verb is furniture-gated and discovered through a panel rather than on examine:
 - `tune` gates on `broadcast_receiver` furniture. `use` and `watch` are registered against tag `tv` **or** flag `broadcast_receiver`, so either marker alone surfaces them; the handler is additionally lenient about furniture merely *named* like a television.
 - `load` / `eject` / `selectcassette` gate on `media_deck` furniture, discovered through the `use`/media_deck panel.
+- `uplink` gates on a `portable_mediadeck` or a ground's `ob_deck`, and examine on either shows it.
 - `tablettune` needs no furniture at all — the tablet is its own receiver. Sent by the TV app's viewport, never typed.
 - `ebs` gates on `emergency_deck` furniture AND the admin/dev role. `use` on that console routes to its own surface rather than the tape transport; the sub-verbs are what the panel buttons send, and they are the whole surface at the Display Mode `log` rung.
 - `guess` is inert everywhere except a channel's `studio_zone_id` while a game-show round is open. **The studio floor and the live round are the gate**, not furniture; discovery is the host's on-air invitation, which carries the `teachVerb` shimmer.

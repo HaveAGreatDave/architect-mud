@@ -1,0 +1,24 @@
+{
+  "description": "KSAB5's outside-broadcast deck, a grey rack bolted under the desk with the camera lines patched into the back. A green line lamp on the front is lit while it's sending the game to the studio. KSAB5 is stencilled on the side.",
+  "flags": {
+    "aliases": [
+      "ob deck",
+      "deck",
+      "rack",
+      "uplink",
+      "outside-broadcast deck"
+    ],
+    "ob_deck": true,
+    "uplink_channel": "ch_5_cinqo"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ob_deck_hughson",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "OB deck",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hughson_pressbox"
+}
