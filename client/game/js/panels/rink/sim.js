@@ -152,19 +152,25 @@ export function makeBody(kind, side, slot, seed) {
     simFace: undefined, through: undefined, ring: undefined, fetchPrev: undefined, outAt: undefined,
     meetPass: undefined, chkAt: undefined, chkN: undefined, tussle: null, hold: undefined, down: undefined,
     fountain: undefined, shatterNext: undefined, holdOff: undefined, plant: undefined, track: undefined,
-    gloveHold: undefined, actHold: undefined, bfE: undefined, bfT: undefined,
+    gloveHold: undefined, actHold: undefined, bfE: undefined, bfT: undefined, backing: false, bumpAt: undefined,
     rt: ratingsFor(seed), ctl: null, shaky: 0, lost: false, bobbleAt: undefined, tryAt: undefined, beaten: undefined, stam: 1,
   };
 }
 
 export function createWorld(ice, seedKey) {
-  const rand = rng(hash(seedKey || 'rink'));
+  // THE SAME DICE ON EVERY SCREEN. Each beat of a broadcast carries `sync`, from the game's
+  // seed and the beat's number, and the view reseeds this stream with it as the beat lands
+  // (`W.reseed`), so everyone watching plays the same hockey after it. Where the men stood
+  // when it landed is still each screen's own, so two pictures converge rather than match.
+  let dice = rng(hash(seedKey || 'rink'));
+  const rand = () => dice();
   // ⚠ COSMETICS DRAW FROM THEIR OWN DICE. Every rand() call moves the world's stream along, so
   // snow thrown off a skate from `rand` would reshuffle everything after it. The snow is in
   // W.spray, off `fxRand`, and nothing in the sim reads it.
   const fxRand = rng(hash('fx:' + (seedKey || 'rink')));
   const W = {
     t: 0, rand, ice,
+    reseed(n) { dice = rng(n >>> 0); },
     team: { a: [], h: [] }, goalie: { a: null, h: null }, officials: [], extras: [],
     puck: { x: 100, y: MID_Y, z: 0, vx: 0, vy: 0, vz: 0, carrier: null, target: null, held: null, passT0: 0, inNet: null, owner: null, home: null, tail: null, drawn: null, drawn0: null },
     parts: [], spray: [], debris: [], limbs: [], stretcher: null, zamboni: null, dryLapse: 0,
@@ -831,7 +837,21 @@ export function createWorld(ice, seedKey) {
       // cruising, quicker only on the first few pushes from a stop
       b.phase += dt * cadence(sp, b.effort);
       // in a hockey stop he's turned side-on to where he was going, skidding on both edges
-      const wantH = b.act === 'stop' && b.stopH != null ? b.stopH : b.face != null ? b.face : (sp > 1.5 ? Math.atan2(b.vy, b.vx) : b.h);
+      let wantH = b.act === 'stop' && b.stopH != null ? b.stopH : b.face != null ? b.face : (sp > 1.5 ? Math.atan2(b.vy, b.vx) : b.h);
+      // FRONT OR BACK, NEVER CRABBING. A facing square across his line at speed had him
+      // sliding sideways on a forward stride. A skater skates his line or skates backwards
+      // down it: past about 100 degrees off it he pivots and goes backwards, under about 70
+      // he turns forward again (the gap keeps him from flipping), and either way his
+      // shoulders turn at most 35 degrees off his line toward what he's watching.
+      // (Not under about 9 ft/s, where a man shuffling across facing the play is right, and
+      // not the carrier, who walks the line facing the net, and not while the director is
+      // staging a play, whose timing reads where men are facing.)
+      if (b.face != null && b.kind === 'skater' && !b.scripted && !b.carrying && !W.puckScripted && b.face !== b.simFace && W.puck.target !== b && b.act !== 'stop' && sp > 9) {
+        const va = Math.atan2(b.vy, b.vx), off = angWrap(b.face - va);
+        b.backing = Math.abs(off) > (b.backing ? 1.2 : 1.75);
+        const base = b.backing ? va + Math.PI : va, dev = angWrap(b.face - base);
+        wantH = base + clamp(dev, -0.6, 0.6);
+      } else if (b.face == null || sp < 6) b.backing = false;
       // turned toward where he's going, easing into the new heading rather than stopping dead on it
       const dh = clamp(angWrap(wantH - b.h) * (1 - Math.exp(-dt * 10)), -7 * dt, 7 * dt);
       b.h += dh; b.hRate = dh / dt;
@@ -1526,6 +1546,21 @@ export function createWorld(ice, seedKey) {
     const after = (m, foe) => {
       if (m.defend) { m.defend[0] = pk.x; m.defend[1] = pk.y; } else m.defend = [pk.x, pk.y];
       if (!m.scripted) m.face = Math.atan2(pk.y - m.y, pk.x - m.x);
+      // LEANING ON HIM. Two men after one puck are shoulder to shoulder and working: every
+      // half second or so one leans his weight in, the other gives a few inches and leans
+      // back, so the pair rocks against each other instead of standing locked. (Timed off
+      // the seed, not the dice, so the play's own rolls aren't moved.)
+      if (!m.scripted && !m.rag && W.t >= (m.bumpAt ?? 0)) {
+        m.bumpAt = W.t + 0.45 + ((m.seed * 13 + ((W.t * 7) | 0)) % 7) * 0.06;
+        const dx = foe.x - m.x, dy = foe.y - m.y, d = hyp(dx, dy);
+        if (d > 0.01 && d < 3.4) {
+          const k = (foe.protect ? 2.2 : 3.2) * (0.7 + 0.6 * (m.rt || RT0).check);
+          m.vx += dx / d * k; m.vy += dy / d * k;
+          if (!foe.scripted) { foe.vx += dx / d * k * 0.5; foe.vy += dy / d * k * 0.5; }
+          foe.react = Math.max(foe.react || 0, 0.18);
+          foe.reactSide = Math.sign(-dx * Math.sin(foe.h) + dy * Math.cos(foe.h)) || 1;
+        }
+      }
       if (m.act || !m.stick || W.t < (m.chkAt || 0)) return;
       const n = m.chkN = (m.chkN || 0) + 1, k = BATTLE[(n + m.seed) % BATTLE.length];
       m.chkAt = W.t + 0.45 + ((m.seed + n * 7) % 5) * 0.08;

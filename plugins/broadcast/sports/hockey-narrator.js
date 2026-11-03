@@ -130,7 +130,13 @@ export function narrate(ctx) {
     lastLine.set(lastKey, line);
     return line;
   };
+  // Every picture of the rink gets `sync`, from the game's seed and the beat's number: each
+  // viewer's rink reseeds its dice with it, so two people watching see the same hockey
+  // after each beat (rink/sim.js W.reseed). Hashed off its own key, so no line moves.
+  let beatN = 0;
   const say = (line, tok, sb, fx, gd, meta) => {
+    // (stamped on the payload itself, not a copy: a beat's case sets more on it after it's said)
+    if (gd && gd.sport === 'hockey') gd.sync = sportsHashStr(`${gs?.seed ?? ''}|rink|${++beatN}`) >>> 0;
     const excite = exciteOf(lastKey, heat);
     return ctx.say(line, tok, sb, fx, gd, excite ? { ...(meta || {}), excite } : meta);
   };

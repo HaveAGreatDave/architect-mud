@@ -92,7 +92,7 @@ async function play(slot) {
   W.emit = (n, d) => { if (n === 'goalIn') goalsIn++; emit(n, d); };
   const resurfaced = { n: 0 };
   const rs = W.ice.resurface; W.ice.resurface = (...a) => { resurfaced.n++; return rs(...a); };
-  const badGate = [];
+  const badGate = [], syncs = [];
   let lastFight = null, tApply = 0, landedAt = null, grabAt = null, boxAt = null, sawBreakaway = false, wearAtBreak = 0, rushB = null;
   // (the sheet as the Zamboni leaves it, before the teams come out and cut it up again)
   let zamOn = false, wearAfterZam = null, markedAfterZam = null, markedWhere = "";
@@ -366,6 +366,8 @@ async function play(slot) {
     seen.add(g.type);
     // (how full the barn is rides every payload, for the crowd: gl/arena-crowd.js)
     if (!(g.gate >= 0.3 && g.gate <= 1)) badGate.push(`${g.type} ${g.gate}`);
+    // (and the dice every viewer reseeds with, so two people watching see the same hockey)
+    syncs.push(g.sync);
     const label = `${slot}: ${g.type}${g.kind && g.kind !== g.type ? `/${g.kind}` : ''} at ${g.section} ${g.clock}`;
     let ok = true;
     tApply = W.t; landedAt = null; grabAt = null; boxAt = null; sawBreakaway = false; rushB = null;
@@ -546,6 +548,7 @@ async function play(slot) {
   // most draws with a line of their own go down right on it
   check(`${slot}: most draws go down as their line airs`, draws.n === 0 || draws.onCue / draws.n >= 0.75, `${draws.onCue}/${draws.n}`);
   check(`${slot}: every play says how full the barn is`, badGate.length === 0, badGate.slice(0, 4).join(', '));
+  check(`${slot}: every play carries its own sync for the rink's dice`, syncs.every(Number.isFinite) && new Set(syncs).size === syncs.length, `${syncs.filter((s) => !Number.isFinite(s)).length} missing of ${syncs.length}`);
   check(`${slot}: no position ever went non-finite`, nan === 0, `${nan}`);
   check(`${slot}: the puck never jumps`, jumps.length === 0, `${jumps.length}: ${jumps.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody on the ice jumps`, leaps.length === 0, `${leaps.length}: ${leaps.slice(0, 4).join(', ')}`);

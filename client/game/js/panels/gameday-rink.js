@@ -562,6 +562,8 @@ export function createRinkView(host, opts = {}) {
       crowdPlay(p);
       if (p.scorerLine) l3Goal = p.scorerLine;
       if (l3Up === 'save') hideL3();
+      // the same dice as everyone else watching, from here (sim.js W.reseed)
+      if (Number.isFinite(p.sync)) W.reseed(p.sync);
       D.stage(p);
       // A cued payload is the first line of a play the booth calls as it happens, so its
       // line goes up now and the picture follows the lines. Otherwise the line waits for
