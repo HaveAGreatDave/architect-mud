@@ -37,7 +37,7 @@ import { stepBoat, shiftBoatOrigin, stepBoatRide, TYPES, CRANK_S } from './fligh
 import { createHelmWheel } from './helm-wheel.js';
 import { tweenOrbit, SHOTS } from './camera-tween.js';
 import { startBoatEngine, updateBoatEngine, stopBoatEngine, isBoatEngineRunning, updateBoatContacts, stopBoatContacts, updateBoatWater, stopBoatWater, boatLandThump } from './boat-audio.js';
-import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
+import { claimSeatKeyboard, endSeatKeyboard, panelTakesKey } from './seat-keys.js';
 import { makeContactTrack } from './world-feed.js';
 import { seatHidePanel } from '../../../shared/compact-view.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
@@ -605,6 +605,8 @@ export function closeBoat() {
 function bindKeys() {
   st.kd = (e) => {
     if (!st || e.target?.closest?.('input, textarea, [contenteditable]')) return;
+    // The shipwright's own keys while focus is in the bay (seat-keys.js panelTakesKey).
+    if (panelTakesKey(e)) return;
     const k = e.key.toLowerCase();
     // ⚠ IN ROD MODE THE REEL HEARS EVERY KEY FIRST, and the seat acts only on what it leaves: a twitch,
     // a knock and the fight's lean are the reel's; the aim, the cast's charge and R are the seat's.

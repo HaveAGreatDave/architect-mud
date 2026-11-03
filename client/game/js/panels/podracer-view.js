@@ -22,7 +22,7 @@ import { tweenOrbit } from './camera-tween.js';
 import { EYE_M } from '../../../shared/interior-shell.js';
 import { updateEngineAudio, stopEngineAudio, spoolUp, spoolDown, hitFx, groundFx } from './engine-audio.js';
 import { PODRACER_TYPES, CRANK_S, createPodracerState, stepPodracer, placePodracer, shiftPodracerOrigin, podracerPose, podracerParts, podracerBurn, tornBinder, mendBinder, podracerLook, podracerLivery } from './podracer-model.js';
-import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
+import { claimSeatKeyboard, endSeatKeyboard, panelTakesKey } from './seat-keys.js';
 import { ensureDepotStyles, jobsHtml, meterHtml, money } from './depot-shell.js';
 import { makeContactTrack } from './world-feed.js';
 import { seatHidePanel } from '../../../shared/compact-view.js';
@@ -226,6 +226,8 @@ export function closePodracer() {
 function bindKeys() {
   st.kd = (e) => {
     if (!st || e.target?.closest?.('input, textarea, [contenteditable]')) return;
+    // The yard's own keys while focus is in the bay (seat-keys.js panelTakesKey).
+    if (panelTakesKey(e)) return;
     const k = e.key.toLowerCase();
     if (k === 'escape') {
       if (!st.helpEl?.hidden) { toggleHelp(false); return; }

@@ -27,7 +27,7 @@ import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyl
 import { boatServiceHost, boatBaySeat } from './boat-view.js';
 import { openBay } from './maintenance-bay.js';
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
-  statsHtml, meterHtml, serviceListHtml, btnHtml, armHolds, shellClick, clearViewModes, noteAct, notePush,
+  statsHtml, meterHtml, serviceListHtml, btnHtml, partsHtml, tillHtml, armHolds, shellClick, clearViewModes, noteAct, notePush,
   esc, money, clamp01, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
 import { garageBed } from './garage-ambience.js';
 import { TYPES } from './flight-model.js';
@@ -38,9 +38,6 @@ const SCREENS = [['lot', 'Your boats', '⚓'], ['dealer', 'For sale', '⊕'], ['
 // to be the dock, the fleet or the bench is the hand now (the bench itself is in the seat).
 const TAB_FOR = { lot: 'lot', fleet: 'lot', dock: 'lot', bench: 'lot', dealer: 'dealer', rent: 'rent', berths: 'berths' };
 
-// The shipwright's tabs, and the part of her each one works on (maintenance-bay.js AREA_SHOT): the
-// hull from the front 3/4, the paint down her flank, and her name across the transom.
-const JOBS = [['service', 'Service', '⚙', 'front'], ['paint', 'Paint', '◐', 'flank'], ['name', 'Name', '✎', 'rear']];
 
 // ── A HULL'S BARS ────────────────────────────────────────────────────────────
 // The dealer shows what she does the way the truck dealer does, and the numbers are the hull's own
@@ -309,9 +306,9 @@ export function openMarinaService(msg) {
   // One bay controller (maintenance-bay.js) for as long as she is in the seat, so the view she had
   // before the slip is the one handed back. Open when she arrives at a new berth; after that,
   // folded or open (and which job) is the helmsman's.
-  const bay = was?.bay || openBay({ seat: boatBaySeat, job: 'service', open: !takeDeploy() });
-  if (was && !same) { bay.job = 'service'; bay.open = !takeDeploy(); }
-  sv = { data: msg, mode: msg.service, onSend: was?.onSend || msg.onSend || null, pick: was?.pick || null, bay };
+  const bay = was?.bay || openBay({ seat: boatBaySeat, job: 'repair', open: !takeDeploy() });
+  if (was && !same) { bay.job = 'repair'; bay.open = !takeDeploy(); }
+  sv = { data: msg, mode: msg.service, onSend: was?.onSend || msg.onSend || null, pick: was?.pick || null, decal: was?.decal || null, bay };
   // The slip has a sound; the fuel float is just the harbour, which the helm already plays.
   garageBed(sv.mode === 'dock' ? 'dock' : null);
   // Pulling into the shed: give the motor a blip, the way a garage menu does.
@@ -335,7 +332,7 @@ function drawService() {
   const host = boatServiceHost();
   if (!host) return;
   const el = mountBay(host, 'mar-svc', { click: onServiceClick });
-  const bay = sv.bay;
+  const bay = sv.bay.attach(el);
   setBayOpen(el, bay.open);
   const d = sv.data, b = boat();
   const fuel = sv.mode === 'fuel';
@@ -345,19 +342,23 @@ function drawService() {
     syncPreview();
     return;
   }
-  // A hire boat has only the service; the pump has no jobs at all.
-  bay.jobs(fuel || !b ? [] : JOBS.filter(([k]) => !b.rental || k === 'service')
-    .map(([id, label, ico, area]) => ({ id, label, ico, area, ...jobState(id, b) })));
+  // THE JOBS, the bay's eight (maintenance-bay.js JOBS) as far as a boat has them: Repair is the
+  // hull, Service the docket, Parts her decal, Paint her colours and her name. A hire boat has only
+  // the first two; the pump has no jobs at all.
+  bay.canon(fuel || !b ? {} : { repair: jobState('repair', b), service: jobState('service', b),
+    ...(b.rental ? {} : { parts: jobState('parts', b), paint: jobState('paint', b) }) });
+  const tab = bay.job || 'repair';
+  const grp = tab === 'paint' ? bay.groups([{ id: 'colour', label: 'Colours' }, { id: 'name', label: 'Name', area: 'rear' }]) : null;
   const jobs = bay.railHtml();
-  const tab = bay.job || 'service';
-  const body = !b ? '<p class="ds-hint">She is not on the books here.</p>'
-    : fuel ? fuelBody(b) : tab === 'paint' ? paintBody(b, d) : tab === 'name' ? nameBody(b) : serviceBody(b);
+  const page = !b ? { main: '<p class="ds-hint">She is not on the books here.</p>' }
+    : fuel ? fuelBody(b) : tab === 'paint' ? (grp === 'name' ? nameBody(b) : paintBody(b, d))
+    : tab === 'parts' ? decalBody(b, d) : tab === 'service' ? serviceBody(b) : repairBody(b);
   el.innerHTML = bayHtml({
     ico: fuel ? '⛽' : '⚓', title: b?.name || 'her', sub: where, credits: d.credits,
     actions: (sv.mode === 'dock' && b ? btnHtml('Dock her', { cmd: 'disembark', ico: '⚓', attrs: 'title="The slings take her out of the water and you step up into the Dock Hall (P)"' }) : '')
       + leaveHtml(fuel ? 'Carry on' : 'Cast off'),
     notes: b?.rental ? `<div class="ds-note hire">Hire boat · ${esc(b.rental.leftText)} · step off in the slot to hand her back with <b>boat return</b></div>` : '',
-    jobs, body,
+    jobs, body: (tab === 'paint' ? bay.groupsHtml() : '') + page.main, till: page.till || '',
     foot: fuel ? 'The pump goes when you pull away from the float.'
       : 'Dock her and the slings lift her out while you step up into the hall. Open the lever instead and she leaves the slot; stop in it again and the shipwright comes back.',
   });
@@ -365,34 +366,41 @@ function drawService() {
   syncPreview();
 }
 
-// What is waiting behind each tile, off the facts the tab draws.
+// What is waiting behind each tile, off the facts the job draws.
 function jobState(id, b) {
+  if (id === 'repair') return (b.hull ?? 1) < 0.9 ? { sub: `hull ${pct(b.hull)}%`, tone: (b.hull ?? 1) < 0.3 ? 'bad' : 'warn' } : { sub: 'sound', tone: 'ok' };
   if (id === 'service') {
     const items = b.svc?.items || [];
     const over = items.filter((i) => i.band === 'over').length, due = items.filter((i) => i.band === 'due').length;
     if (over) return { sub: `${over} overdue`, tone: 'bad' };
     if (due) return { sub: `${due} due`, tone: 'warn' };
-    if ((b.hull ?? 1) < 0.9) return { sub: `hull ${pct(b.hull)}%`, tone: 'warn' };
     return { sub: 'all good', tone: 'ok' };
   }
+  if (id === 'parts') {
+    if (sv.decal && sv.decal !== (b.decal || 'none')) return { sub: 'unsaved', tone: 'hot' };
+    return { sub: (sv.data.decals || []).find((a) => a.id === (b.decal || 'none'))?.label || 'none' };
+  }
   if (id === 'paint') return sv.pick && sv.pick !== b.scheme ? { sub: 'unsaved', tone: 'hot' } : { sub: (sv.data.schemes || []).find((s) => s.id === b.scheme)?.label || '' };
-  if (id === 'name') return { sub: b.name };
   return {};
 }
 
+// REPAIR is the hull; SERVICE is the docket. Each pays in the till.
+function repairBody(b) {
+  const sound = b.hull >= 0.999;
+  return { main: `<div class="ds-panel"><div class="ds-panel-head"><b>The hull</b><span class="ds-dim">${esc(b.band)}</span></div>
+      ${meterHtml('hull', b.hull)}</div>`,
+  till: tillHtml(sound ? { label: 'Nothing to do', why: 'Sound' } : { label: 'Repair the hull', cmd: `refit ${b.id}`, ico: '🔧' }) };
+}
 function serviceBody(b) {
   const svc = b.svc || { items: [] };
-  return `<div class="ds-panel"><div class="ds-panel-head"><b>The hull</b><span class="ds-dim">${esc(b.band)}</span></div>
-      ${meterHtml('hull', b.hull)}
-      <div class="ds-acts">${btnHtml('Repair the hull', { cmd: `refit ${b.id}`, cls: b.hull < 0.9 ? 'primary' : '', disabled: b.hull >= 0.999, why: b.hull >= 0.999 ? 'Sound' : '' })}</div></div>
-    <div class="ds-panel"><div class="ds-panel-head"><b>Servicing</b></div>
-      ${serviceListHtml(svc.items, (i) => `refit service ${b.id} ${i.id}`)}
-      <div class="ds-acts">${btnHtml(`Everything · ${money(svc.full)}`, { cmd: `refit service ${b.id} all`, cls: svc.anyDue ? 'primary' : '' })}</div></div>
-    <p class="ds-dim ds-small">Fuel is at the float: lie her alongside the pumps, inside the amber box on the water, and stop.</p>`;
+  return { main: `<div class="ds-panel"><div class="ds-panel-head"><b>Servicing</b></div>
+      ${serviceListHtml(svc.items, (i) => `refit service ${b.id} ${i.id}`)}</div>
+    <p class="ds-dim ds-small">Fuel is at the float: lie her alongside the pumps, inside the amber box on the water, and stop.</p>`,
+  till: tillHtml({ label: `Do all of it · ${money(svc.full)}`, cmd: `refit service ${b.id} all`, ico: '⛽', ...(svc.full ? {} : { why: 'Nothing due' }) }) };
 }
 
 // ⚠ A SCHEME IS PREVIEWED ON THE HULL BEFORE IT IS BOUGHT: clicking a swatch shows it out of the chase
-// camera, and only the button under it spends anything.
+// camera, and only the key in the till spends anything.
 function paintBody(b, d) {
   const cur = sv.pick || b.scheme;
   const sw = (d.schemes || []).map((s) => {
@@ -400,40 +408,52 @@ function paintBody(b, d) {
     return `<button class="mar-swatch${cur === s.id ? ' on' : ''}${b.scheme === s.id ? ' mine' : ''}" data-scheme="${esc(s.id)}" title="${esc(s.label)}">
       <i style="background:linear-gradient(135deg, ${base} 0 55%, ${trim} 55% 100%)"></i><span>${esc(s.label)}</span></button>`;
   }).join('');
-  const decals = (d.decals || []).map((a) => btnHtml(`${a.label}${a.id === 'none' || b.decal === a.id ? '' : ' · ' + money(d.decalPrice)}`,
-    { cmd: `refit decal ${b.id} ${a.id}`, cls: b.decal === a.id ? 'primary' : '', disabled: b.decal === a.id })).join('');
   const dirty = cur !== b.scheme;
-  return `<div class="ds-panel"><div class="ds-panel-head"><b>Colours</b><span class="ds-dim">shown on her now</span></div>
-      <div class="mar-swatches">${sw}</div>
-      <div class="ds-acts">${btnHtml(`Paint her · ${money(cur === 'factory' ? Math.round(d.paintPrice / 2) : d.paintPrice)}`, { cmd: `refit paint ${b.id} ${cur}`, cls: 'primary', disabled: !dirty, why: dirty ? '' : 'Nothing changed' })}
-        <button class="ds-btn ghost" data-scheme="${esc(b.scheme)}" ${dirty ? '' : 'disabled'}>Put it back</button></div></div>
-    <div class="ds-panel"><div class="ds-panel-head"><b>On her topsides</b></div><div class="ds-acts">${decals}</div></div>`;
+  return { main: `<div class="ds-panel"><div class="ds-panel-head"><b>Colours</b><span class="ds-dim">shown on her now</span></div>
+      <div class="mar-swatches">${sw}</div></div>`,
+  till: tillHtml(dirty ? { label: `Paint her · ${money(cur === 'factory' ? Math.round(d.paintPrice / 2) : d.paintPrice)}`, cmd: `refit paint ${b.id} ${cur}`, ico: '◐' } : null,
+    `<button class="ds-btn ghost" data-scheme="${esc(b.scheme)}" ${dirty ? '' : 'disabled'}>Put it back</button>`) };
+}
+
+// PARTS: her decal, on the parts menu (depot-shell.js partsHtml). A pick shows on her topsides and
+// waits in the till; nothing is spent until its key.
+function decalBody(b, d) {
+  const mine = b.decal || 'none', cur = sv.decal || mine;
+  const options = (d.decals || []).map((a) => ({ label: a.label, on: a.id === cur, mine: a.id === mine,
+    price: a.id === 'none' ? 'free' : money(d.decalPrice), attrs: `data-decal="${esc(a.id)}"` }));
+  const pick = (d.decals || []).find((a) => a.id === cur);
+  return { main: `<div class="ds-panel-head"><b>On her topsides</b><span class="ds-dim">shown on her now</span></div>${partsHtml({ options })}`,
+    till: tillHtml(pick && cur !== mine ? { label: `${cur === 'none' ? 'Take it off' : `Paint on ${pick.label}`}${cur === 'none' ? '' : ' · ' + money(d.decalPrice)}`, cmd: `refit decal ${b.id} ${cur}`, ico: '⚑' } : null,
+      `<button class="ds-btn ghost" data-decal="${esc(mine)}" ${cur !== mine ? '' : 'disabled'}>Put it back</button>`) };
 }
 
 function nameBody(b) {
-  return `<div class="ds-panel"><div class="ds-panel-head"><b>Across her transom</b></div>
-    <div class="ds-acts"><input class="mar-namein" type="text" maxlength="24" value="${esc(b.name)}" aria-label="Her name">
-      <button class="ds-btn primary" data-name="${esc(b.id)}">Paint it on</button></div>
-    <p class="ds-dim ds-small">Free. The shipwright has done worse names than whatever you are about to choose.</p></div>`;
+  return { main: `<div class="ds-panel"><div class="ds-panel-head"><b>Across her transom</b></div>
+    <div class="ds-acts"><input class="mar-namein" type="text" maxlength="24" value="${esc(b.name)}" aria-label="Her name"></div>
+    <p class="ds-dim ds-small">Free. The shipwright has done worse names than whatever you are about to choose.</p></div>`,
+  till: `<div class="ds-acts"><button class="ds-btn primary" data-name="${esc(b.id)}">Paint it on</button></div>` };
 }
 
 function fuelBody(b) {
   const f = b.liveFuel ?? b.fuel;
-  return `<div class="ds-panel"><div class="ds-panel-head"><b>Marine fuel</b><span class="ds-dim">alongside the float</span></div>
+  return { main: `<div class="ds-panel"><div class="ds-panel-head"><b>Marine fuel</b><span class="ds-dim">alongside the float</span></div>
     ${meterHtml('tank', f)}
-    <div class="ds-acts">${btnHtml(`Fill her · ${money(b.fillPrice)}`, { cmd: 'fuel', cls: 'primary', disabled: f >= 0.99, why: f >= 0.99 ? 'Full' : '' })}</div>
-    <p class="ds-dim ds-small">The nozzle stops when the money does.</p></div>`;
+    <p class="ds-dim ds-small">The nozzle stops when the money does.</p></div>`,
+  till: tillHtml(f >= 0.99 ? { label: 'Fill her', why: 'Full' } : { label: `Fill her · ${money(b.fillPrice)}`, cmd: 'fuel', ico: '⛽' }) };
 }
 
 function onServiceClick(e) {
   if (!sv) return;
-  if (sv.bay.click(e, { redraw: drawService })) return;
+  if (sv.bay.click(e, { job: () => { sv.decal = null; }, redraw: drawService })) return;
   if (shellClick(e)) return;
   const sc = e.target.closest?.('[data-scheme]');
   if (sc && !sc.disabled) { sv.pick = sc.dataset.scheme; drawService(); return; }
+  const dc = e.target.closest?.('[data-decal]');
+  if (dc && !dc.disabled) { sv.decal = dc.dataset.decal; drawService(); return; }
   const n = e.target.closest?.('[data-name]');
   if (n) {
-    const v = String(n.parentElement?.querySelector('.mar-namein')?.value || '').trim();
+    // The name is on the page and its key in the till, so the box is found in the bay, not beside it.
+    const v = String(n.closest('#mar-svc')?.querySelector('.mar-namein')?.value || '').trim();
     if (v) { noteAct(n); send(`refit name ${n.dataset.name} ${v}`); }
     return;
   }

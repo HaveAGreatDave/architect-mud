@@ -82,6 +82,27 @@ function live() {
 // still counts as the seat's: the seats listen on the window, and so it is.
 export function seatHoldsKeyboard() { return !!live() && !typingFocus(); }
 
+// ── A PANEL OVER THE GLASS THAT HAS KEYS OF ITS OWN ─────────────────────────
+//
+// The maintenance bay (maintenance-bay.js) sits over the seat's glass and drives its menu from the
+// keyboard: digits, the arrows, Enter, Space and Esc. The seats read the same keys off the window,
+// so while focus is inside the bay each seat asks `panelTakesKey` and stands aside for a key the
+// bay takes. Only those keys: W still drives off with the bay open. A click on the glass outside
+// the panel takes the keyboard back for the seat (`onDown`).
+const keyPanels = new Map();   // element → (event) => boolean
+export function registerKeyPanel(el, takes) { if (el && typeof takes === 'function') keyPanels.set(el, takes); }
+/** True when a panel over the glass takes this key press, so the seat must leave it alone. */
+export function panelTakesKey(e) {
+  const t = e?.target;
+  if (!t || !keyPanels.size) return false;
+  for (const [el, takes] of keyPanels) {
+    if (!el.isConnected) { keyPanels.delete(el); continue; }
+    if (el.contains(t)) { try { return !!takes(e); } catch { return false; } }
+  }
+  return false;
+}
+const panelOf = (n) => { for (const el of keyPanels.keys()) if (n && el.contains(n)) return el; return null; };
+
 // Take the keyboard for the seat. Returns whether it ended up there.
 //
 // ⚠ A MODAL OUTRANKS IT, the layered rule bigscreen.js follows for Escape: a confirm window over
@@ -144,10 +165,12 @@ export function endSeatKeyboard(el) {
 // clicking somewhere needs something on screen telling you how to get out of it.
 export function paintSeatKeys() {
   const p = live();
-  const away = !!p && !!typingFocus();
+  // A key panel with focus has the arrows, Space and Esc; the seat still has the rest.
+  const panel = !!p && !!panelOf(document.activeElement);
+  const away = !!p && (!!typingFocus() || panel);
   const el = ownTag && ownTag.isConnected ? ownTag : defaultTag(p);
   if (!el) return;
-  el.textContent = away ? '⌨ KEYS: TEXT BAR' : `⌨ KEYS: ${label}`;
+  el.textContent = !away ? `⌨ KEYS: ${label}` : panel && !typingFocus() ? '⌨ KEYS: BAY' : '⌨ KEYS: TEXT BAR';
   el.classList.toggle('away', away);
 }
 
@@ -180,6 +203,10 @@ function onDown(e) {
   // gesture and the seat looks like it is refusing to be typed in. Nothing in a seat has one
   // today, which is exactly why this is written down rather than left to be discovered.
   if (fieldUnder(e.target)) { setTimeout(paintSeatKeys, 0); return; }
+  // A press on the glass while a key panel (the bay) holds focus gives the keys back to the seat;
+  // a press inside the panel leaves them with it.
+  const held = panelOf(document.activeElement);
+  if (held && p.contains(e.target) && !held.contains(e.target)) { try { p.focus({ preventScroll: true }); } catch { /* mid-teardown */ } }
   if (p.contains(e.target)) grabSeatKeys();
   // A press anywhere else has not moved focus yet — that is the browser's default and it runs
   // after this. So the readout is repainted on the far side of it rather than from here, where it

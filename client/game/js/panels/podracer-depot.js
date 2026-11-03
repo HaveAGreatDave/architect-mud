@@ -23,8 +23,8 @@ import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyl
 import { podracerServiceHost, podracerPreview, podracerBaySeat } from './podracer-view.js';
 import { openBay } from './maintenance-bay.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
-import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
-  statsHtml, partsHtml, meterHtml, btnHtml, armHolds, shellClick, clearViewModes, noteAct, notePush,
+import { ensureDepotStyles, headHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
+  statsHtml, partsHtml, meterHtml, btnHtml, tillHtml, armHolds, shellClick, clearViewModes, noteAct, notePush,
   esc, money, clamp01, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
 import { garageBed } from './garage-ambience.js';
 import { PODRACER_TYPES, PODRACER_KIT, KIT_TIERS, cleanKit, kitValue, kitShare, kitQuote, podracerTuned, podracerStats, podracerLook, podracerLivery } from './podracer-model.js';
@@ -302,11 +302,13 @@ function fitCmdOf(r, own, work) {
 const kitWord = (s, v) => (s.kind === 'tiers' ? KIT_TIERS[v] : s.choices[v]?.label || String(v));
 // The fitting shop as { figures, main, till }: the bay puts the figures in its rail beside the racer
 // and pins the till under its page; the counter runs all three together.
-function fitPanelHtml(d, r, ctx, where) {
+// `only` narrows the groups: the bay's Performance job is the engine rows, its Parts job the rest.
+function fitPanelHtml(d, r, ctx, where, only = null) {
   const price = PODRACER_TYPES[r.typeId]?.price || 0;
   const own = cleanKit(r.kit), work = kitOf(ctx, r), q = kitQuote(price, own, work);
   const pNow = podracerTuned(r.typeId, own), pNext = podracerTuned(r.typeId, work);
-  const group = KIT_GROUPS.some(([k]) => k === ctx.kitGroup) ? ctx.kitGroup : 'tiers';
+  const groups = only ? KIT_GROUPS.filter(([k]) => only.includes(k)) : KIT_GROUPS;
+  const group = groups.some(([k]) => k === ctx.kitGroup) ? ctx.kitGroup : groups[0][0];
   const inGroup = Object.entries(PODRACER_KIT).filter(([, s]) => s.kind === group);
   const slot = inGroup.some(([id]) => id === ctx.kitSlot) ? ctx.kitSlot : inGroup[0]?.[0];
   const moved = (id) => kitValue(work, id) !== kitValue(own, id);
@@ -322,7 +324,7 @@ function fitPanelHtml(d, r, ctx, where) {
   // What the open slot does: a performance part's own line, or the picked choice's.
   const tip = s ? (s.kind === 'tiers' ? s.blurb : s.choices[cur]?.blurb) || '' : '';
   const parts = partsHtml({
-    groups: KIT_GROUPS.map(([k, head]) => {
+    groups: groups.map(([k, head]) => {
       const n = Object.keys(PODRACER_KIT).filter((id) => PODRACER_KIT[id].kind === k && moved(id)).length;
       return { id: k, label: n ? `${head} · ${n}` : head };
     }),
@@ -484,7 +486,7 @@ export function openPodracerBay(msg) {
   // The bay controller (maintenance-bay.js) keeps the open job, the fold and the camera across pushes.
   sv = { data: msg, onSend: was?.onSend || msg.onSend || null, work: null, kitWork: null,
     kitGroup: was?.kitGroup || null, kitSlot: was?.kitSlot || null,
-    bay: was?.bay || openBay({ seat: podracerBaySeat, job: 'service', open: !takeDeploy() }) };
+    bay: was?.bay || openBay({ seat: podracerBaySeat, job: 'repair', open: !takeDeploy() }) };
   garageBed('shed');
   drawBay();
   if (was) notePush(document.getElementById('pdd-bay'), was.data?.credits, msg.credits);
@@ -502,7 +504,7 @@ function drawBay() {
   const host = podracerServiceHost();
   if (!host) return;
   const el = mountBay(host, 'pdd-bay', { click: onBayClick });
-  const bay = sv.bay;
+  const bay = sv.bay.attach(el);
   setBayOpen(el, bay.open);
   const d = sv.data;
   const r = (d.fleet || []).find((x) => x.id === d.serviceId) || null;
@@ -521,28 +523,42 @@ function drawBay() {
     armHolds(el, send);
     return;
   }
-  const fitted = r ? Object.keys(cleanKit(r.kit)).length : 0;
-  // The jobs, each with the part of the racer it works on (maintenance-bay.js AREA_SHOT): the
-  // showroom 3/4 for the service, the back of it for the parts (the pipes, the fins, the turbines'
-  // tails), the flank for the paint.
-  bay.jobs(!r ? [] : [{ id: 'service', label: 'Service', ico: '🔧', area: 'front', ...jobState(r) },
-    ...(r.rental ? [] : [{ id: 'fit', label: 'Fit', ico: '⚙', area: 'rear', sub: fitted ? `${fitted} part${fitted > 1 ? 's' : ''} on` : 'factory spec', tone: 'ok' },
-      { id: 'paint', label: 'Paint', ico: '🎨', area: 'flank', sub: r.scheme === 'custom' ? 'your own' : ((d.schemes || []).find((x) => x.id === r.scheme)?.label || ''), tone: 'ok' }])]);
-  const tab = bay.job || 'service';
+  // THE JOBS, the bay's eight (maintenance-bay.js JOBS) as far as a racer has them: Repair is the
+  // pod, the cables and the binder, Service the turbines and the tank, Performance the engine rows
+  // of the fitting shop and Parts the rest of it (seen from behind, where the pipes and fins are).
+  const kit = r ? cleanKit(r.kit) : {};
+  const moved = (kind) => Object.keys(kit).filter((k) => PODRACER_KIT[k]?.kind && kind.includes(PODRACER_KIT[k].kind)).length;
+  const onCount = (n) => (n ? `${n} part${n > 1 ? 's' : ''} on` : 'factory spec');
+  const owned = r && !r.rental;
+  bay.canon(!r ? {} : {
+    repair: repairState(r), service: serviceState(r),
+    ...(owned ? { perf: { sub: onCount(moved(['tiers'])), tone: 'ok' }, parts: { sub: onCount(moved(['choice', 'look'])), tone: 'ok', area: 'rear' },
+      paint: { sub: r.scheme === 'custom' ? 'your own' : ((d.schemes || []).find((x) => x.id === r.scheme)?.label || ''), tone: 'ok' } } : {}),
+  });
+  const tab = bay.job || 'repair';
   const jobs = bay.railHtml();
   // The booth shows its working paint, and the fitting shop its working kit, on the racer you are
-  // sitting in; any other tab takes them off.
-  bay.sync({ look: { livery: tab === 'paint' && sv.work ? sv.work : null, kit: tab === 'fit' && sv.kitWork ? sv.kitWork : null } });
+  // sitting in; any other job takes them off.
+  const fitting = tab === 'perf' || tab === 'parts';
+  bay.sync({ look: { livery: tab === 'paint' && sv.work ? sv.work : null, kit: fitting && sv.kitWork ? sv.kitWork : null } });
+  // ⚠ THE YARD HAS ONE SERVICE VERB. `podracer service` puts the whole racer right for one bill, so
+  // Repair and Service show their own parts and pay the same bill.
+  const till = r ? tillHtml(r.quote.total ? { label: `Put it all right · ${money(r.quote.total)}`, cmd: 'podracer service', ico: '🔧',
+    note: `The yard does the pod, the turbines, the cables and the tank in one job: parts ${money(r.quote.parts || 0)}, fuel ${money(r.quote.fuel || 0)}.` }
+    : { label: 'Nothing to do', why: 'Sound and full' }) : '';
+  const cables = r ? `<div class="ds-dim ds-small">Cables: ${r.cables.map((c, i) => `${i ? 'right' : 'left'} ${c ? 'whole' : '<b>cut</b>'}`).join(', ')} · Binder: ${r.binder === false ? '<b>torn out</b>' : 'holding'}</div>` : '';
   const page = !r ? { main: '<p class="ds-hint">It is not on the yard\'s books.</p>' }
     : tab === 'paint' ? paintPanelHtml(d, r, sv, 'shown on it now')
-    : tab === 'fit' ? fitPanelHtml(d, r, sv, 'shown on it now')
+    : tab === 'perf' ? fitPanelHtml(d, r, sv, 'shown on it now', ['tiers'])
+    : tab === 'parts' ? fitPanelHtml(d, r, sv, 'shown on it now', ['choice', 'look'])
+    : tab === 'service' ? { main: `<div class="ds-panel">
+        <div class="ds-panel-head"><b>What wears</b><span class="ds-dim">${esc(r.typeName)}</span></div>
+        ${meterHtml('left turbine', r.eng[0])}${meterHtml('right turbine', r.eng[1])}${meterHtml('tank', r.fuel)}
+      </div>`, till }
     : { main: `<div class="ds-panel">
-        <div class="ds-panel-head"><b>The racer</b><span class="ds-dim">${esc(r.typeName)}</span></div>
-        ${meterHtml('pod', r.hull)}${meterHtml('left turbine', r.eng[0])}${meterHtml('right turbine', r.eng[1])}${meterHtml('tank', r.fuel)}
-        <div class="ds-dim ds-small">Cables: ${r.cables.map((c, i) => `${i ? 'right' : 'left'} ${c ? 'whole' : '<b>cut</b>'}`).join(', ')} · Binder: ${r.binder === false ? '<b>torn out</b>' : 'holding'}</div>
-      </div>`,
-      till: `<div class="ds-acts">${btnHtml(r.quote.total ? `Put it right · ${money(r.quote.total)}` : 'Nothing to do',
-        { cmd: 'podracer service', cls: r.quote.total ? 'primary' : '', disabled: !r.quote.total, why: r.quote.total ? '' : 'Sound and full' })}</div>` };
+        <div class="ds-panel-head"><b>What breaks</b><span class="ds-dim">${esc(r.typeName)}</span></div>
+        ${meterHtml('pod', r.hull)}${cables}
+      </div>`, till };
   el.innerHTML = bayHtml({
     ico: '⟰', title: r?.name || 'the racer', sub: 'the shed door', credits: d.credits,
     actions: btnHtml('Put it away', { cmd: 'podevent park', ico: '⟰', attrs: 'title="Run it back onto the blocks in the racer bay and climb out (Esc)"' }) + leaveHtml('Drive out'),
@@ -553,12 +569,19 @@ function drawBay() {
   armHolds(el, send);
 }
 
-function jobState(r) {
+// What is waiting behind the Repair and Service tiles, off the facts their pages draw.
+function repairState(r) {
   const cut = r.cables.filter((c) => !c).length;
-  if (r.hull <= 0 || r.eng.some((e) => e <= 0)) return { sub: 'wrecked', tone: 'bad' };
+  if (r.hull <= 0) return { sub: 'wrecked', tone: 'bad' };
   if (r.binder === false) return { sub: 'binder torn', tone: 'bad' };
   if (cut) return { sub: `${cut} cable${cut > 1 ? 's' : ''} cut`, tone: 'bad' };
-  if (r.quote.total) return { sub: money(r.quote.total), tone: 'warn' };
+  if (r.hull < 0.9) return { sub: `pod ${pct(r.hull)}%`, tone: 'warn' };
+  return { sub: 'all good', tone: 'ok' };
+}
+function serviceState(r) {
+  if (r.eng.some((e) => e <= 0)) return { sub: 'turbine dead', tone: 'bad' };
+  if (r.eng.some((e) => e < 0.6)) return { sub: 'turbines worn', tone: 'warn' };
+  if (r.fuel < 0.5) return { sub: `fuel ${pct(r.fuel)}%`, tone: 'warn' };
   return { sub: 'all good', tone: 'ok' };
 }
 

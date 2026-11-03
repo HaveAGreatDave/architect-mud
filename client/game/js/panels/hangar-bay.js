@@ -24,9 +24,9 @@ import { compactHidePanel } from '../../../shared/compact-view.js';
 import { liveriesFor } from '../../../shared/livery-sets.js';
 import { shellProfileFor } from '../../../shared/interior-shell.js';
 import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, disposeWindshield, glWorldInstalled, RENDER_TUNE } from './windshield-lazy.js';
-import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
+import { ensureDepotStyles, headHtml, jobsHtml, groupsHtml, partsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
   armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
-import { openBay } from './maintenance-bay.js';
+import { openBay, JOBS } from './maintenance-bay.js';
 import { garageBed } from './garage-ambience.js';
 import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
 
@@ -131,7 +131,7 @@ function openService(data) {
     const c = (data.craft || []).find((x) => x.id === data.serviceId);
     // The bay controller (maintenance-bay.js) keeps the open job, the fold and the camera across pushes.
     B = { screen: 'bench', service: true, selId: data.serviceId, data,
-      benchTab: was?.benchTab, paintTab: was?.paintTab, kitSel: was?.kitSel,
+      benchTab: was?.benchTab, sub: was?.sub, kitSel: was?.kitSel,
       bay: was?.bay || openBay({ seat: ck.cockpitBaySeat, job: null, open: true }),
       // The working copy survives a re-push (every Apply sends one) unless the bench is new.
       work: was && was.selId === data.serviceId && was.work ? was.work : (c ? { ...c.livery } : null),
@@ -552,17 +552,19 @@ function lookCard(attrs, band, name, tag, on, extra = '') {
     <span class="hb-look-band">${stripes}<em></em></span>
     <b>${esc(name)}</b>${tag ? `<span class="hb-look-tag">${esc(tag)}</span>` : ''}${extra}</button>`;
 }
-function paintTabHtml(c, cat, dirty) {
+// `pt` is the page: the Paint job's Schemes or Paint group, or the Inside job's cabin. The groups
+// are drawn by the bench (the bay's controller, or the pane), and the Apply key goes in the till.
+function paintTabHtml(c, cat, dirty, pt = 'schemes') {
   if (!c.paintable) {
-    return `<div class="hb-note">${c.wreck ? 'A wreck: nothing worth painting.' : c.rental ? "Rentals can't be painted." : 'You can only paint an aircraft you own.'}</div>`;
+    return { body: `<div class="hb-note">${c.wreck ? 'A wreck: nothing worth painting.' : c.rental ? "Rentals can't be painted." : 'You can only paint an aircraft you own.'}</div>` };
   }
-  const pt = ['schemes', 'paint', 'cabin'].includes(B.paintTab) ? B.paintTab : (B.paintTab = 'schemes');
-  const seg = [['schemes', 'Schemes'], ['paint', 'Paint'], ['cabin', 'Cabin']]
-    .map(([k, l]) => `<button class="hb-subtab${pt === k ? ' hb-subtab-active' : ''}" data-paint-tab="${k}">${l}</button>`).join('');
-  const applyRow = `<div class="hb-apply-row">
-    <button class="hb-btn hb-accent" data-act="paint-apply"${dirty ? '' : ' disabled'}>Apply · ${c.paintCost}₵</button>
-    <button class="hb-btn" data-act="paint-revert"${dirty ? '' : ' disabled'}>Revert</button>
+  if (!['schemes', 'paint', 'cabin'].includes(pt)) pt = 'schemes';
+  B.paintTab = pt;
+  const till = `<div class="ds-acts">
+    <button class="ds-btn primary" data-act="paint-apply"${dirty ? '' : ' disabled title="Nothing changed"'}>Apply · ${money(c.paintCost)}</button>
+    <button class="ds-btn ghost" data-act="paint-revert"${dirty ? '' : ' disabled'}>Revert</button>
   </div>`;
+  const applyRow = '';
   const W = B.work, mesh = curCraftMesh();
   const noParts = !W.parts || !Object.keys(W.parts).length;
   let panel;
@@ -622,7 +624,7 @@ function paintTabHtml(c, cat, dirty) {
       <div class="hb-ctls">${(cat.cabinTrims || {})[c.class] ? selectRow('Cabin trim', 'itrim', cat.cabinTrims[c.class]) : ''}${swatchRow('Cabin', 'cabin')}${selectRow('Upholstery', 'uphol', cat.uphol)}${plateRow(c, cat)}</div>
       ${applyRow}`;
   }
-  return `<div class="hb-subtabs">${seg}</div>` + panel;
+  return { body: panel, till };
 }
 
 // Hull — the airframe's condition read as a shop docket: a big lit gauge with the
@@ -641,15 +643,15 @@ function hullTabHtml(c) {
         <u style="left:25%"></u><u style="left:55%"></u><u style="left:90%"></u></div>
       <div class="hb-hull-verdict">${verdict}</div>
     </div>`;
-  const acts = c.rental
-    ? `<div class="hb-note">Maintenance is bundled into your rental.</div>
-       <div class="hb-repair-row"><button class="hb-btn hb-accent" data-act="repair">Square her away (free)</button></div>`
-    : pct >= 98 ? `<div class="hb-note">No work to book.</div>`
-    : `<div class="hb-repair-row">
-        <button class="hb-btn" data-act="repair">DIY repair · ~${c.diyCost}₵</button>
-        <button class="hb-btn hb-accent" data-act="repair-pro">Shop repair · ${c.shopCost}₵ (guaranteed)</button>
-      </div>`;
-  return gauge + acts + hopperStripHtml(c);
+  // The page says what is on offer; the till holds the key that pays (the shop's, guaranteed), with
+  // the do-it-yourself job beside it.
+  const note = c.rental ? '<div class="hb-note">Maintenance is bundled into your rental.</div>'
+    : pct >= 98 ? '<div class="hb-note">No work to book.</div>' : '';
+  const till = c.rental ? `<div class="ds-acts"><button class="ds-btn primary" data-act="repair">Square her away (free)</button></div>`
+    : pct >= 98 ? `<div class="ds-acts"><button class="ds-btn primary" disabled title="Nothing to do">Nothing to do</button></div>`
+    : `<div class="ds-acts"><button class="ds-btn primary" data-act="repair-pro">Shop repair · ${money(c.shopCost)} (guaranteed)</button>
+        <button class="ds-btn ghost" data-act="repair">DIY · ~${money(c.diyCost)}</button></div>`;
+  return { body: gauge + note + hopperStripHtml(c), till };
 }
 
 // Loading the hopper, offered from the MAINTENANCE tab as well as its own.
@@ -733,12 +735,12 @@ function fuelTabHtml(c) {
       <div class="hb-hull-verdict">${verdict}</div>
     </div>`;
   const pumps = B.data?.fuelStocks || [];
-  if (!pumps.length) return gauge + `<div class="hb-note">No pumps at this field.</div>`;
-  if (!pumps.includes(c.fuelType)) return gauge + `<div class="hb-note">This field supplies ${esc(fuelList(pumps))}. She runs on ${esc(fuelName(c.fuelType))}.</div>`;
-  if (pct >= 98) return gauge + `<div class="hb-note">Full. Nothing to pump.</div>`;
-  return gauge + `<div class="hb-repair-row">
-      <button class="hb-btn hb-accent" data-act="refuel" data-id="${esc(c.id)}">Fill her up · ${money(c.fillCost)}</button>
-    </div>`;
+  if (!pumps.length) return { body: gauge + `<div class="hb-note">No pumps at this field.</div>` };
+  if (!pumps.includes(c.fuelType)) return { body: gauge + `<div class="hb-note">This field supplies ${esc(fuelList(pumps))}. She runs on ${esc(fuelName(c.fuelType))}.</div>` };
+  if (pct >= 98) return { body: gauge + `<div class="hb-note">Full. Nothing to pump.</div>` };
+  return { body: gauge, till: `<div class="ds-acts">
+      <button class="ds-btn primary" data-act="refuel" data-id="${esc(c.id)}">Fill her up · ${money(c.fillCost)}</button>
+    </div>` };
 }
 
 // ── Tuning: continuous dials + a live performance graph ───────────────────────
@@ -791,8 +793,8 @@ const curCraft = () => (B.data.craft || []).find(x => x.id === B.selId) || null;
 // Apply/Reset, and the kit shop. The radar lives on the bench stage; paintTuning()
 // draws it + the knobs + the bars.
 function tuningTabHtml(c) {
-  if (c.wreck) return '<div class="hb-note">A wreck: nothing to tune.</div>';
-  if (c.rental) return '<div class="hb-note">You can only tune an aircraft you <b>own</b>: rentals fly stock.</div>';
+  if (c.wreck) return { body: '<div class="hb-note">A wreck: nothing to tune.</div>' };
+  if (c.rental) return { body: '<div class="hb-note">You can only tune an aircraft you <b>own</b>: rentals fly stock.</div>' };
   ensureTuneWork(c);
   const params = (B.data.tuneParams || []).filter(p => TUNE_KEYS.includes(p.id));
   const knobs = params.map(p => `
@@ -806,44 +808,35 @@ function tuningTabHtml(c) {
     <div class="hb-pbar-row"><span class="hb-pbar-l"${a.desc ? ` title="${esc(a.desc)}"` : ''}>${a.label}</span>
       <span class="hb-pbar"${a.desc ? ` title="${esc(a.desc)}"` : ''}><i data-pbar="${a.id}"></i></span>
       <b class="hb-pbar-d" data-pbard="${a.id}"></b></div>`).join('');
-  return `
+  return { body: `
     <div class="hb-tune-grid">
       <div class="hb-knobs">${knobs}</div>
       <div class="hb-perf-bars">${bars}</div>
     </div>
-    <div class="hb-apply-row">
-      <button class="hb-btn hb-accent" data-act="tune-apply">Apply Tune</button>
-      <button class="hb-btn" data-act="tune-reset">Reset to stock</button>
-      <span class="hb-tune-note">Range ±${c.tuneRange ?? 1}, set by <b>Fabrication</b> + kits (see the <b>KITS</b> tab). Hover a dial for what it does.</span>
-    </div>`;
+    <span class="hb-tune-note">Range ±${c.tuneRange ?? 1}, set by <b>Fabrication</b> + kits (see <b>Kits</b>). Hover a dial for what it does.</span>`,
+  till: `<div class="ds-acts">
+      <button class="ds-btn primary" data-act="tune-apply">Apply the tune</button>
+      <button class="ds-btn ghost" data-act="tune-reset">Reset to stock</button>
+    </div>` };
 }
 
-// The upgrade-kit shop — its own bench tab (kits widen the dials / tame the heat).
-// A selectable list of the airframe's kits down the side, with the picked kit's
-// blurb + install action beside it, so nothing ever scrolls off the tuning screen.
+// The upgrade kits, on the parts menu (depot-shell.js partsHtml): each kit a card with its price and
+// a tick when it is fitted. A card picks it, the page says what it does, and the till holds the key
+// that installs it. Kits widen the dials and tame the heat.
 function kitsTabHtml(c) {
-  if (c.wreck) return '<div class="hb-note">A wreck: nothing to upgrade.</div>';
-  if (c.rental) return '<div class="hb-note">You can only fit kits to an aircraft you <b>own</b>: rentals fly stock.</div>';
+  if (c.wreck) return { body: '<div class="hb-note">A wreck: nothing to upgrade.</div>' };
+  if (c.rental) return { body: '<div class="hb-note">You can only fit kits to an aircraft you <b>own</b>: rentals fly stock.</div>' };
   const cat = c.kitCatalog || [];
-  if (!cat.length) return '<div class="hb-note">No upgrade kits fit this airframe.</div>';
+  if (!cat.length) return { body: '<div class="hb-note">No upgrade kits fit this airframe.</div>' };
   if (!B.kitSel || !cat.some(k => k.id === B.kitSel)) B.kitSel = (cat.find(k => !k.owned) || cat[0]).id;
   const sel = cat.find(k => k.id === B.kitSel) || cat[0];
-  const list = cat.map(k => `
-    <button class="hb-kit-item${k.id === sel.id ? ' hb-kit-item-sel' : ''}" data-kit-pick="${esc(k.id)}">
-      <span class="hb-kit-item-name">${esc(k.name)}</span>
-      <span class="hb-kit-item-tag${k.owned ? ' hb-kit-item-fitted' : ''}">${k.owned ? '✓ FITTED' : k.price + 'c'}</span>
-    </button>`).join('');
-  return `<div class="hb-kits-head">UPGRADE KITS</div>
-    <div class="hb-kits2">
-      <div class="hb-kit-list">${list}</div>
-      <div class="hb-kit-detail">
-        <div class="hb-kit-detail-name">${esc(sel.name)}</div>
-        <div class="hb-kit-blurb">${esc(sel.blurb)}</div>
-        <div class="hb-kit-detail-act">
-          ${sel.owned ? '<span class="hb-kit-tag">✓ FITTED</span>' : `<button class="hb-btn hb-accent" data-kit="${esc(sel.id)}">Install · ${sel.price}₵</button>`}
-        </div>
-      </div>
-    </div>`;
+  const options = cat.map(k => ({ label: k.name, on: k.id === sel.id, mine: !!k.owned, blurb: k.blurb,
+    price: k.owned ? '' : money(k.price), attrs: `data-kit-pick="${esc(k.id)}"` }));
+  return { body: `<div class="ds-panel-head"><b>Upgrade kits</b><span class="ds-dim">${cat.filter(k => k.owned).length} of ${cat.length} fitted</span></div>
+      ${partsHtml({ options })}
+      <div class="ds-panel"><div class="ds-panel-head"><b>${esc(sel.name)}</b></div><div class="hb-kit-blurb">${esc(sel.blurb)}</div></div>`,
+  till: `<div class="ds-acts">${sel.owned ? '<button class="ds-btn primary" disabled title="Already on her">✓ Fitted</button>'
+    : `<button class="ds-btn primary" data-kit="${esc(sel.id)}">Install ${esc(sel.name)} · ${money(sel.price)}</button>`}</div>` };
 }
 
 // Size a small instrument canvas to the device pixel ratio and hand back a context
@@ -939,7 +932,7 @@ function weightTabHtml(c) {
 // stage to walk round her. Livery edits preview on the stage live.
 // The paint booth takes the stage on the Livery card unless you've asked for the bay back; the
 // button on the stage flips it on any card.
-const boothOn = () => (B.boothPick ?? B.benchTab === 'paint');
+const boothOn = () => (B.boothPick ?? (B.benchTab === 'paint' || B.benchTab === 'inside'));
 // THE BOOTH'S INTERIOR VIEW: the craft's own cockpit, the one she is flown from, painted by GLASS
 // (windshield.js paintWindshield) with the work copy's cabin trim, nameplate and cabin colour. The
 // cockpit is geometry only GLASS 2 draws, so with WebGL or 3-D interiors off the view says so.
@@ -970,12 +963,18 @@ const STAGE_CAP = { hangar: 'IN THE HANGAR', ramp: 'ON THE RAMP', helipad: 'ON T
 function benchScreen() {
   const c = (B.data.craft || []).find(x => x.id === B.selId);
   if (!c) return '<div class="hb-empty">Pick an aircraft first.</div><div class="hb-toolbar"><button class="hb-btn" data-act="back">Back</button></div>';
-  const { jobs, body } = benchParts(c);
+  // The same eight jobs the docked bench shows (benchParts), with the job's groups and its till
+  // under its page, since the pane has no till of its own.
+  const { cards, cat, dirty } = benchParts(c);
+  const glist = benchGroups(c, B.benchTab), grp = paneGroup(B.benchTab, glist);
+  const pg = benchPage(c, B.benchTab, grp, cat, dirty);
+  const jobs = jobsHtml(cards, B.benchTab, 'data-bench-tab');
+  const body = groupsHtml(glist, grp, 'data-bench-group') + pg.body + (pg.till ? `<div class="hb-pane-till">${pg.till}</div>` : '');
   const venue = stageVenue(c);
   const booth = boothOn(), seat = seatOn();
   if (!seat) dropSeat();
   else if (!windshieldLoaded()) loadWindshield().then(() => { if (B && seatOn()) render(); }).catch(() => {});
-  const radar = B.benchTab === 'tuning' ? `<canvas id="hb-perf-radar" class="hb-stage-radar" width="220" height="200"></canvas>` : '';
+  const radar = tuningOpen() ? `<canvas id="hb-perf-radar" class="hb-stage-radar" width="220" height="200"></canvas>` : '';
   const statusPill = c.rental ? '<b class="hb-bench-pill hb-bench-pill-rent">Rental</b>' : '';
   return `
     <div class="hb-bay2">
@@ -1023,38 +1022,49 @@ function benchParts(c) {
   const tuned = TUNE_KEYS.some(k => Math.abs((c.tune || {})[k] || 0) > 0.001);
   const tuneDirty = B.tune && B.tuneFor === c.id && TUNE_KEYS.some(k => Math.abs((B.tune[k] || 0) - ((c.tune || {})[k] || 0)) > 0.001);
   const fitted = (c.kitCatalog || []).filter(k => k.owned).length;
-  const cards = [
-    { id: 'hull', ico: '🔧', label: 'Repair', sub: `hull ${hull}%`, tone: hull >= 98 ? 'ok' : barTone(hull / 100) },
-    ...(!c.wreck ? [{ id: 'fuel', ico: '⛽', label: 'Fuel', sub: `${c.fuelPct}%`, tone: c.fuelPct >= 98 ? 'ok' : barTone(c.fuelPct / 100) }] : []),
-    { id: 'paint', ico: '🎨', label: 'Livery', sub: dirty ? 'unsaved' : lookName, tone: dirty ? 'hot' : '' },
-    ...(c.hopperCap > 0 && !c.wreck ? [{ id: 'hopper', ico: '💧', label: 'Hopper', sub: `${Math.round((c.hopperAmount || 0) / c.hopperCap * 100)}%` }] : []),
-    ...(canTune ? [{ id: 'tuning', ico: '🎛', label: 'Tuning', sub: tuneDirty ? 'unsaved' : tuned ? 'tuned' : 'stock', tone: tuneDirty ? 'hot' : '' },
-                   { id: 'kits', ico: '⚙', label: 'Kits', sub: `${fitted} of ${(c.kitCatalog || []).length}` }] : []),
-    ...(c.configurable ? [{ id: 'weight', ico: '⚖', label: 'Load', sub: `${c.seatsNow} seat${c.seatsNow === 1 ? '' : 's'}` }] : []),
-  ];
+  // The Paint tile is unsaved for a change outside, the Inside tile for one in the cabin.
+  const differs = (k) => JSON.stringify(B.work[k] ?? null) !== JSON.stringify((c.livery || {})[k] ?? null);
+  const keys = Object.keys({ ...B.work, ...(c.livery || {}) });
+  const inDirty = keys.some(k => CABIN_KEYS.includes(k) && differs(k));
+  const outDirty = keys.some(k => !CABIN_KEYS.includes(k) && differs(k));
+  // THE JOBS, the bay's eight (maintenance-bay.js JOBS) as far as an aircraft has them: Repair is
+  // the airframe, Service the tank, Performance the dials and the kits, Paint the outside of the
+  // livery, Inside its Cabin page, Load the hopper and the cabin fit. No Parts or Business yet.
+  const have = {
+    repair: { sub: `hull ${hull}%`, tone: hull >= 98 ? 'ok' : barTone(hull / 100) },
+    ...(!c.wreck ? { service: { sub: `fuel ${c.fuelPct}%`, tone: c.fuelPct >= 98 ? 'ok' : barTone(c.fuelPct / 100) } } : {}),
+    ...(canTune ? { perf: { sub: tuneDirty ? 'unsaved' : `${tuned ? 'tuned' : 'stock'} · ${fitted} kit${fitted === 1 ? '' : 's'}`, tone: tuneDirty ? 'hot' : '' } } : {}),
+    ...(c.paintable ? { paint: { sub: outDirty ? 'unsaved' : lookName, tone: outDirty ? 'hot' : '' },
+      inside: { sub: inDirty ? 'unsaved' : (c.livery?.plate || 'stock'), tone: inDirty ? 'hot' : '' } } : {}),
+    ...((c.hopperCap > 0 && !c.wreck) || c.configurable ? { load: { sub: c.configurable ? `${c.seatsNow} seat${c.seatsNow === 1 ? '' : 's'}` : `hopper ${Math.round((c.hopperAmount || 0) / c.hopperCap * 100)}%` } } : {}),
+  };
+  const cards = JOBS.filter(j => have[j.id]).map(j => ({ ...j, ...have[j.id] }));
   if (!cards.some(t => t.id === B.benchTab)) B.benchTab = cards[0].id;
-  const body = B.benchTab === 'hull' ? hullTabHtml(c)
-    : B.benchTab === 'fuel' ? fuelTabHtml(c)
-    : B.benchTab === 'hopper' ? hopperTabHtml(c)
-    : B.benchTab === 'tuning' ? tuningTabHtml(c)
-    : B.benchTab === 'kits' ? kitsTabHtml(c)
-    : B.benchTab === 'weight' ? weightTabHtml(c)
-    : paintTabHtml(c, cat, dirty);
-  return { cards, jobs: jobsHtml(cards, B.benchTab, 'data-bench-tab'), body, dirty };
+  return { have, cards, cat, dirty };
 }
-
-// THE PART EACH JOB WORKS ON, for the docked bench's camera (maintenance-bay.js AREA_SHOT), with
-// the shot that refines it: the hull from the front 3/4, the fuel and the hopper from the flank,
-// tuning off the front-left, the kits a step closer, the load a step back. The livery's Paint page
-// takes the flank and its Cabin page sits you in the seat.
-const BENCH_AREA = { hull: ['front', 'quarter'], fuel: ['flank', 'side'], paint: ['front', 'quarter'], hopper: ['top', 'side'],
-  tuning: ['front', 'low'], kits: ['front', 'front'], weight: ['top', 'high'] };
-function benchArea(id) {
-  if (id === 'paint' && B.paintTab === 'cabin') return { area: 'inside', shot: 'inside' };
-  if (id === 'paint' && B.paintTab === 'paint') return { area: 'flank', shot: 'side' };
-  const [area, shot] = BENCH_AREA[id] || ['front', 'quarter'];
-  return { area, shot };
+// The open job's groups (its old tabs) and its page, once the job is settled. `pickGroup(list)`
+// says which group is open: the bay's controller on the cockpit, the bench's own `B.sub` in the pane.
+const CABIN_KEYS = ['cabin', 'uphol', 'itrim', 'plate'];
+function benchGroups(c, tab) {
+  if (tab === 'perf') return [{ id: 'tuning', label: 'Tuning' }, ...((c.kitCatalog || []).length ? [{ id: 'kits', label: 'Kits' }] : [])];
+  if (tab === 'paint') return [{ id: 'schemes', label: 'Schemes' }, { id: 'paint', label: 'Paint' }];
+  if (tab === 'load') return [...(c.hopperCap > 0 && !c.wreck ? [{ id: 'hopper', label: 'Hopper' }] : []), ...(c.configurable ? [{ id: 'weight', label: 'Cabin fit' }] : [])];
+  return [];
 }
+function benchPage(c, tab, grp, cat, dirty) {
+  if (tab === 'repair') return hullTabHtml(c);
+  if (tab === 'service') return fuelTabHtml(c);
+  if (tab === 'perf') return grp === 'kits' ? kitsTabHtml(c) : tuningTabHtml(c);
+  if (tab === 'load') return grp === 'weight' ? { body: weightTabHtml(c) } : { body: hopperTabHtml(c) };
+  return paintTabHtml(c, cat, dirty, tab === 'inside' ? 'cabin' : grp);
+}
+// The pane bench's open group for a job, kept on the bench (the bay keeps its own).
+function paneGroup(tab, list) {
+  B.sub = B.sub || {};
+  if (!list.some(g => g.id === B.sub[tab])) B.sub[tab] = list[0]?.id || null;
+  return B.sub[tab];
+}
+const tuningOpen = () => B.benchTab === 'perf' && (B.sub?.perf || 'tuning') === 'tuning';
 
 // ── Render dispatch ─────────────────────────────────────────────────────────
 // The counter's screens and their head: the two you choose between are in the head's segment; the
@@ -1083,7 +1093,7 @@ function render() {
   if (B.screen === 'floor') { requestAnimationFrame(paintFloorCards); watchSize(); }
   // The tuning radar/knobs/bars aren't part of startSpin's canvas set — draw them
   // once here after the DOM is built; knob drags repaint them on the fly.
-  if (B.screen === 'bench' && B.benchTab === 'tuning') paintTuning();
+  if (B.screen === 'bench' && tuningOpen()) paintTuning();
 }
 
 // The shell's keys: the head's screens, back, close, the two view toggles, and the docked bench's
@@ -1123,22 +1133,29 @@ function renderService() {
     return;
   }
   if (bay.job) B.benchTab = bay.job;
-  const { cards, body } = benchParts(c);
-  bay.jobs(cards.map((j) => ({ ...j, ...benchArea(j.id) })));
-  bay.job = B.benchTab;
+  // The bay's eight jobs (maintenance-bay.js canon), each job's groups kept by the controller and
+  // copied to the bench's own `B.sub`, so the pane bench opens on the same page.
+  const { have, cat, dirty } = benchParts(c);
+  bay.canon(have);
+  B.benchTab = bay.job;
+  const grp = bay.groups(benchGroups(c, B.benchTab));
+  B.sub = { ...(B.sub || {}), [B.benchTab]: grp };
+  const pg = benchPage(c, B.benchTab, grp, cat, dirty);
   const jobs = bay.railHtml();
-  const radar = B.benchTab === 'tuning' ? '<canvas id="hb-perf-radar" class="hb-svc-radar" width="220" height="200"></canvas>' : '';
+  const radar = tuningOpen() ? '<canvas id="hb-perf-radar" class="hb-svc-radar" width="220" height="200"></canvas>' : '';
   el.innerHTML = bayHtml({
     ico: '⚙', title: d.field || 'Hangar', sub: `${c.tail} · ${c.typeName}`, name: c.typeName || c.tail || '', credits: d.credits,
     actions: leaveHtml('Taxi out'),
     notes: c.rental ? '<div class="ds-note hire">Rental · maintenance is bundled in; she flies stock</div>' : '',
     jobs,
-    body: `<div class="hb-bench-tabbody" data-tabkey="${B.benchTab}">${radar}${body}</div>`,
+    body: `${bay.groupsHtml()}<div class="hb-bench-tabbody" data-tabkey="${B.benchTab}">${radar}${pg.body}</div>`,
+    till: pg.till || '',
     foot: d.hangar ? 'Start up and roll at the door and it lifts. The bench goes when she moves.' : 'The bench goes when she moves.',
   });
+  bay.attach(el);
   wire();
   armHolds(el, sendCmdSilent);
-  if (B.benchTab === 'tuning') paintTuning();
+  if (tuningOpen()) paintTuning();
   // Outside on every job but the livery's Cabin page, the same 3/4 the other bays take (the eye
   // used to be held at the standoff in a hangar, because the walls were in the way). The work copy
   // itself goes on her, not a snapshot: the colour wheel writes into it as it drags, and the
@@ -1154,7 +1171,8 @@ function wire() {
   const on = (sel, ev, fn) => root.querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn));
 
   on('[data-bench-tab]', 'click', (e) => { B.benchTab = e.currentTarget.getAttribute('data-bench-tab'); B.boothPick = null; render(); });
-  on('[data-paint-tab]', 'click', (e) => { B.paintTab = e.currentTarget.getAttribute('data-paint-tab'); render(); });
+  // The pane bench's groups; the docked bench's are the bay controller's (data-ds-sub).
+  on('[data-bench-group]', 'click', (e) => { B.sub = { ...(B.sub || {}), [B.benchTab]: e.currentTarget.getAttribute('data-bench-group') }; render(); });
 
   on('[data-booth-view]', 'click', (e) => { B.boothView = e.currentTarget.getAttribute('data-booth-view'); render(); });
   // The booth's cockpit: drag to turn your head, as you would sat in her.

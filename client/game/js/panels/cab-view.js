@@ -14,7 +14,7 @@ import { internMap } from './map-intern.js';
 import { bindTouchGestures } from './touch-gestures.js';
 import { tweenOrbit } from './camera-tween.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
-import { claimSeatKeyboard, endSeatKeyboard, grabSeatKeys } from './seat-keys.js';
+import { claimSeatKeyboard, endSeatKeyboard, grabSeatKeys, panelTakesKey } from './seat-keys.js';
 import { updateBoatContacts, stopBoatContacts } from './boat-audio.js';
 import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed, airHornOn, airHornOff, lockKlaxon } from './engine-audio.js';
 // The cab draws its own weather, so the pane's overlay stands down while it owns the pane.
@@ -1683,6 +1683,8 @@ export function openCab(ctx = {}) {
   document.addEventListener('visibilitychange', st.onVisibility);
 
   st.onKey = (e) => {
+    // The bay's own keys while focus is in it (seat-keys.js panelTakesKey); the rest still drive.
+    if (e.type === 'keydown' && panelTakesKey(e)) return;
     const k = e.key.toLowerCase();
     const down = e.type === 'keydown';
     // ⚠ The record is settled before the typing guard: a press counts only while the cab has the

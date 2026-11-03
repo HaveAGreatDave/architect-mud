@@ -40,6 +40,7 @@ export const GROUPS = [
       'scripts/client/bigscreen-smoke.mjs',
       'scripts/client/seatkeys-smoke.mjs',
       'scripts/client/boatseat-smoke.mjs',
+      'scripts/client/maintbay-smoke.mjs',   // the bay controller's rules, and all four depots' bays walked job by job
       'scripts/client/boatfish-smoke.mjs',   // the boat reel: cast, twitch, the knocks, the fight and the landing, against boatfish-rules.js
       'scripts/client/console-escape-smoke.mjs',   // player text in the pirate/emergency consoles renders inert
     ],

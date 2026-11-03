@@ -52,7 +52,7 @@ import { cabServiceHost, cabPreview, cabBaySeat } from './cab-view.js';
 import { openBay } from './maintenance-bay.js';
 // The chrome every depot shares: the head, the job tiles, the bay, holds and the purchase moment.
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml, toastHtml,
-  statsHtml, serviceListHtml, armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
+  statsHtml, serviceListHtml, partsHtml, tillHtml, armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
 import { garageBed } from './garage-ambience.js';
 import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
 
@@ -77,21 +77,20 @@ const pct = (n) => `${Math.round((n || 0) * 100)}%`;
 // rung does; the counter has three screens and the rest of what the tabs name now lives in the bay.
 const SCREEN_FOR_TAB = { fleet: 'lot', buy: 'buy', rent: 'rent' };
 
-// The bay's tabs. ⚠ THE CUSTOMISING ONES ARE NOT OFFERED ON A HIRE TRUCK, because the verb behind
-// every one of them refuses it (bench.js RENTAL_BARRED) — a tab full of buttons that all say no is
-// worse than no tab.
-const SVC_TABS = [
-  ['service', 'Service', '⚙'], ['tune', 'Tuning', '⌥'], ['kits', 'Kits', '⊞'], ['paint', 'Paint', '◐'],
-  ['fits', 'Fittings', '⚑'], ['cab', 'Inside', '◇'], ['badge', 'Horn & plate', '📯'],
-  ['freight', 'Freight', '▤'], ['market', 'Exchange', '₵'],
-];
-const HIRE_OK = new Set(['service', 'freight', 'market']);
-// THE CAMERA FOLLOWS THE TAB, the way a garage menu swings round to the part you are buying: the
-// flank for fittings and graphics, the tail for the plate and the deck, low at the nose for what
-// is under the hood. The cab tab (and the booth's interior) sit you in the seat instead. Each tab
-// names its part area (maintenance-bay.js AREA_SHOT) and the shot that refines it; tuning revs.
-const TAB_AREA = { service: ['front', 'quarter'], tune: ['front', 'low'], kits: ['front', 'front'], paint: ['flank', 'quarter'],
-  fits: ['flank', 'side'], cab: ['inside', 'inside'], badge: ['rear', 'rear'], freight: ['top', 'rear'], market: ['front', 'quarter'] };
+// The bay's jobs, the eight every vehicle shares (maintenance-bay.js JOBS), and the old tabs as the
+// groups inside them. ⚠ THE CUSTOMISING ONES ARE NOT OFFERED ON A HIRE TRUCK, because the verb behind
+// every one of them refuses it (bench.js RENTAL_BARRED): a job full of buttons that all say no is
+// worse than no job.
+const TRUCK_JOBS = ['repair', 'service', 'perf', 'parts', 'paint', 'inside', 'load', 'business'];
+const HIRE_OK = new Set(['repair', 'service', 'load', 'business']);
+// THE CAMERA FOLLOWS THE JOB, the way a garage menu swings round to the part you are buying: the
+// job's own area (maintenance-bay.js), and the horn and plate from the tail. Inside sits you in the seat.
+const TRUCK_GROUPS = {
+  perf: [{ id: 'tune', label: 'Tuning' }, { id: 'kits', label: 'Kits' }],
+  parts: [{ id: 'fits', label: 'Fittings' }, { id: 'badge', label: 'Horn & plate', area: 'rear' }],
+  paint: [{ id: 'scheme', label: 'Schemes' }, { id: 'colour', label: 'Paint' }, { id: 'graphic', label: 'Graphics' }],
+  inside: [{ id: 'cab', label: 'Fittings' }, { id: 'trim', label: 'Trim' }],
+};
 // The bars every truck screen draws, in this order.
 const STAT_ROWS = [['pull', 'Pull'], ['speed', 'Speed'], ['stop', 'Stopping'], ['turn', 'Turn-in'], ['range', 'Range']];
 
@@ -122,7 +121,7 @@ export function openTruckDepot(msg) {
     // A push that names a truck you just bought or hired lands on the hand, where its key is.
     screen: msg.fresh ? 'lot' : SCREEN_FOR_TAB[msg.tab] || keep?.screen || 'lot',
     selId: null,
-    bench: { tab: 'service', psec: 'scheme', fslot: null, cslot: null, tune: null, paint: null, trim: null },
+    bench: { tab: 'repair', psec: 'scheme', fslot: null, cslot: null, tune: null, paint: null, trim: null },
     lotSel: keep?.lotSel || null,
     boxSel: (msg.trailers || []).some(t => t.id === keep?.boxSel) ? keep.boxSel : (msg.trailers || [])[0]?.id || null,
     toast: keep?.toast || null,
@@ -148,17 +147,17 @@ export function openBayService(msg) {
     selId: msg.serviceId || msg.drivingId || null,
     // ⚠ THE TAB SURVIVES THE RE-PUSH THAT EVERY PURCHASE TRIGGERS, or buying a fitting would throw
     // you back to Service between the click and the next one.
-    bench: was?.bench || { tab: 'service', psec: 'scheme', fslot: null, cslot: null, tune: null, paint: null, trim: null },
+    bench: was?.bench || { tab: 'repair', psec: 'scheme', fslot: null, cslot: null, tune: null, paint: null, trim: null },
     toast: was?.toast || null,
     // Open on arrival, and after that it is the player's: a push that re-opened a panel somebody
     // had just folded away would make "drive out" a button that does not stay pressed. The bay
     // controller (maintenance-bay.js) holds that, the open job and the camera across pushes.
-    bay: was?.bay || openBay({ seat: cabBaySeat, job: 'service', open: !takeDeploy() }),
+    bay: was?.bay || openBay({ seat: cabBaySeat, job: 'repair', open: !takeDeploy() }),
   };
   B.bench.tune = null; B.bench.trim = null;
   if (!was) B.bench.paint = null;
   // A hire truck has only the tabs that do something to it.
-  if (hired() && !HIRE_OK.has(B.bench.tab)) B.bench.tab = 'service';
+  if (hired() && !HIRE_OK.has(B.bench.tab)) B.bench.tab = 'repair';
   if (was) noteDeckChange(wasCargo, msg.cargo || null);
   if (!was) garageBed('shed');
   renderService();
@@ -425,28 +424,30 @@ function renderService() {
   const host = cabServiceHost();
   if (!host) return;
   const el = mountBay(host, 'td-svc', { click: onClick, input: onInput, mouseover: onPeek, focusin: onPeek });
-  const d = B.data, t = selected(), bay = B.bay;
+  const d = B.data, t = selected(), bay = B.bay.attach(el);
   setBayOpen(el, bay.open);
   if (!bay.open) {
     el.innerHTML = bayChipHtml(`⚙ ${d.depot} · service bay`);
     syncView();
     return;
   }
-  // A hire truck has only the tabs that do something to it; the bay falls back to Service.
-  bay.jobs(SVC_TABS.filter(([k]) => !t?.rental || HIRE_OK.has(k))
-    .map(([id, label, ico]) => ({ id, label, ico, area: TAB_AREA[id][0], shot: TAB_AREA[id][1], ...(id === 'tune' ? { rev: 0.4 } : {}), ...(t ? jobState(id, t) : {}) })));
+  // THE JOBS, the bay's eight (maintenance-bay.js JOBS), the old tabs as groups inside them. A hire
+  // truck has only the jobs that do something to it; the bay falls back to Repair.
+  const have = {};
+  for (const id of TRUCK_JOBS) if (t && (!t.rental || HIRE_OK.has(id))) have[id] = { ...jobState(id, t), ...(id === 'perf' ? { rev: 0.4 } : {}) };
+  bay.canon(have);
   B.bench.tab = bay.job;
-  const body = !t ? '<div class="td-none">The truck is not on the books here.</div>'
-    : B.bench.tab === 'tune' ? tuneTab(t) : B.bench.tab === 'kits' ? kitsTab(t) : B.bench.tab === 'paint' ? paintTab(t)
-    : B.bench.tab === 'fits' ? fitsTab(t) : B.bench.tab === 'cab' ? cabTab(t) : B.bench.tab === 'badge' ? badgeTab(t)
-    : B.bench.tab === 'freight' ? freightScreen() : B.bench.tab === 'market' ? marketScreen() : serviceTab(t);
+  const grp = bay.groups(TRUCK_GROUPS[B.bench.tab] || []);
+  const page = !t ? { body: '<div class="td-none">The truck is not on the books here.</div>' } : truckPage(t, B.bench.tab, grp);
   el.innerHTML = bayHtml({
     ico: '⚙', title: d.depot, sub: t ? t.name : 'service bay', name: t?.name || '', credits: d.credits,
     actions: leaveHtml('Drive out'),
     notes: (t?.rental ? `<div class="ds-note hire">Hire truck · ${esc(t.rental.leftText)} · back at any yard: <b>park</b> in a shed and <b>yard return</b></div>` : '')
       + (d.hitchState ? `<div class="ds-note">${hitchAct(d.hitchState)}</div>` : ''),
     jobs: bay.railHtml(),
-    body: `<div class="td-side td-svc-body">${body}</div>`,
+    side: page.side || '',
+    body: `${bay.groupsHtml()}<div class="td-side td-svc-body">${page.body}</div>`,
+    till: page.till || '',
     toast: B.toast,
     foot: 'Roll at the door and it lifts. The bay goes when you leave the shed.',
   });
@@ -458,36 +459,55 @@ function renderService() {
 // tone: ok (nothing to do), warn (worth a look), bad (costing you), hot (unsaved on the bench).
 function jobState(id, t) {
   const d = B.data;
+  if (id === 'repair') {
+    const c = t.condition ?? 1;
+    return c < 0.85 ? { sub: `body ${pct(c)}`, tone: c < 0.3 ? 'bad' : 'warn' } : { sub: t.washPrice ? 'dirty' : 'sound', tone: 'ok' };
+  }
   if (id === 'service') {
     const items = t.svc?.items || [];
     const over = items.filter((i) => i.band === 'over').length, due = items.filter((i) => i.band === 'due').length;
     if (over) return { sub: `${over} overdue`, tone: 'bad' };
     if (due) return { sub: `${due} due`, tone: 'warn' };
-    if ((t.condition ?? 1) < 0.85) return { sub: `body ${pct(t.condition)}`, tone: 'warn' };
+    if ((d.fuel ?? t.fuel) < 0.25) return { sub: `fuel ${pct(d.fuel ?? t.fuel)}`, tone: 'warn' };
     return { sub: 'all good', tone: 'ok' };
   }
-  if (id === 'tune') {
+  if (id === 'perf') {
     if (B.bench.tune && JSON.stringify(B.bench.tune) !== JSON.stringify(t.tune)) return { sub: 'unsaved', tone: 'hot' };
-    return { sub: Object.values(t.tune || {}).some((v) => Math.abs(v) > 0.001) ? 'tuned' : 'stock' };
+    const tuned = Object.values(t.tune || {}).some((v) => Math.abs(v) > 0.001);
+    return { sub: `${tuned ? 'tuned' : 'stock'} · ${(t.kits || []).length} kit${(t.kits || []).length === 1 ? '' : 's'}` };
   }
-  if (id === 'kits') return { sub: `${(t.kits || []).length} of ${(d.kitCatalog || []).length}` };
-  if (id === 'paint') return B.bench.paint || B.bench.trim ? { sub: 'unsaved', tone: 'hot' } : { sub: t.paint?.finish || '' };
-  if (id === 'fits') return { sub: `${(t.fits || []).length} of ${d.fitCat?.slots?.length ?? 0}` };
-  if (id === 'cab') return { sub: `${(t.cab || []).length} of ${d.cabCat?.slots?.length ?? 0}` };
-  if (id === 'badge') return { sub: (d.hornCat || []).find((h) => h.id === (t.horn || 'stock'))?.name || '' };
-  if (id === 'freight') return d.cargo ? { sub: d.cargo.name, tone: 'ok' } : { sub: 'deck empty' };
+  if (id === 'parts') return { sub: `${(t.fits || []).length} of ${d.fitCat?.slots?.length ?? 0}` };
+  if (id === 'paint') return B.bench.paint ? { sub: 'unsaved', tone: 'hot' } : { sub: t.paint?.finish || '' };
+  if (id === 'inside') return B.bench.trim ? { sub: 'unsaved', tone: 'hot' } : { sub: `${(t.cab || []).length} of ${d.cabCat?.slots?.length ?? 0}` };
+  if (id === 'load') return d.cargo ? { sub: d.cargo.name, tone: 'ok' } : { sub: 'deck empty' };
+  if (id === 'business') return { sub: `${(d.quotes || []).length} goods` };
   return {};
 }
 
-// THE BARS PREVIEW WHAT YOU POINT AT. Hovering or focusing a kit's row redraws the kits tab's bars
-// with that kit on, from the `kitStats` the server sent; leaving the list puts them back.
+// THE PAGE FOR A JOB AND GROUP, as { body, till, side }: the page's own column, the bill and the
+// key that pays it, and the figures beside the truck.
+function truckPage(t, job, grp) {
+  if (job === 'service') return servicePage(t);
+  if (job === 'perf') return grp === 'kits' ? kitsTab(t) : tuneTab(t);
+  if (job === 'parts') return grp === 'badge' ? badgeTab(t) : fitsTab(t);
+  if (job === 'paint') return paintTab(t, grp);
+  if (job === 'inside') return grp === 'trim' ? trimPage(t) : cabTab(t);
+  if (job === 'load') return { body: freightScreen() };
+  if (job === 'business') return { body: marketScreen() };
+  return repairPage(t);
+}
+
+// THE BARS PREVIEW WHAT YOU POINT AT. Pointing at a kit's card (or focusing it) redraws the bars
+// beside the truck with that kit on, from the `kitStats` the server sent; leaving the list puts
+// back the picked one.
 function onPeek(e) {
-  if (!B || B.mode !== 'service' || B.bench.tab !== 'kits') return;
+  if (!B || B.mode !== 'service' || B.bench.tab !== 'perf' || B.bay.sub('perf') !== 'kits') return;
   const box = document.querySelector('#td-svc [data-kit-stats]');
   if (!box) return;
-  const row = e.target.closest?.('[data-kit-peek]');
+  const row = e.target.closest?.('[data-kpick]');
   const t = selected(); if (!t) return;
-  const id = row && t.kitStats?.[row.dataset.kitPeek] ? row.dataset.kitPeek : '';
+  const want = row ? row.dataset.kpick : B.bench.kit || '';
+  const id = want && t.kitStats?.[want] && !(t.kits || []).includes(want) ? want : '';
   if (box.dataset.peek === id) return;
   box.dataset.peek = id;
   box.innerHTML = statsHtml(STAT_ROWS, id ? t.kitStats[id] : t.stats, id ? t.stats : null);
@@ -502,54 +522,56 @@ function onPeek(e) {
 function syncView() {
   if (!B || B.mode !== 'service') return;
   const bay = B.bay;
-  // The bay shows the truck from outside on every tab but the cab one: you are looking at what you are working on.
-  // …and the paint booth's Interior section sits you in the seat, so a retrim is seen where it is worn.
-  // Outside, the camera swings to the part the tab sells (maintenance-bay.js), only on a change of
-  // shot, so a re-push after a purchase does not yank it off wherever the player dragged it. Opening
-  // the tuning tab gives the engine a blip, the way a garage does when it pulls in (the job's `rev`).
-  const inside = bay.open && B.bench.tab === 'paint' && B.bench.psec === 'inside';
-  const graphic = B.bench.tab === 'paint' && B.bench.psec === 'graphic';
-  bay.sync({ ...(inside ? { area: 'inside', shot: 'inside' } : graphic ? { area: 'flank', shot: 'side' } : {}),
-    look: { paint: bay.open && B.bench.tab === 'paint' && B.bench.paint ? paintNow() : null,
-      trim: inside && B.bench.trim ? trimNow() : null } });
+  // The bay shows the truck from outside on every job but Inside: you are looking at what you are
+  // working on. Outside, the camera swings to the part the job sells (maintenance-bay.js), only on a
+  // change of shot, so a re-push after a purchase does not yank it off wherever the player dragged
+  // it. Opening Performance gives the engine a blip, the way a garage does when it pulls in.
+  const job = B.bench.tab;
+  bay.sync({ look: { paint: bay.open && job === 'paint' && B.bench.paint ? paintNow() : null,
+    trim: bay.open && job === 'inside' && B.bench.trim ? trimNow() : null } });
 }
 
-// ── The service tab ──────────────────────────────────────────────────────────
-// What used to be the bench's Condition tab, with the three things that wear from the miles alone
-// in front of the three that wear from being hit. Every price is the server's (service.js).
-function serviceTab(t) {
-  const d = B.data, svc = t.svc || { items: [] };
-  // The docket is the shell's, the marina's too; only the fresh line's wording is the road's.
-  const rows = serviceListHtml(svc.items.map((i) => (i.band === 'fresh'
-    ? { ...i, desc: `About ${i.left.toLocaleString()} tiles before it costs you.` } : i)),
-  (i) => `rig service ${t.id} ${i.id}`);
-  return `
-    <div class="td-pane">
-      <div class="td-lab">Servicing</div>
-      ${rows}
-      <div class="td-acts"><button class="td-act${svc.anyDue ? ' primary' : ''}" data-cmd="rig service ${esc(t.id)} all">Full service · ${money(svc.full)}</button></div>
-    </div>
+// ── Repair and Service ───────────────────────────────────────────────────────
+// REPAIR is what being hit wears (the bodywork and the running gear) and the wash; SERVICE is what
+// the miles wear, and the pump. Every price is the server's (service.js).
+function repairPage(t) {
+  const c = t.condition ?? 1;
+  return { body: `
     <div class="td-pane">
       <div class="td-lab">Bodywork and running gear</div>
-      <div class="td-gauge"><i class="c${t.band}" style="width:${Math.round(t.condition * 100)}%"></i><span>${pct(t.condition)}</span></div>
+      <div class="td-gauge"><i class="c${t.band}" style="width:${Math.round(c * 100)}%"></i><span>${pct(c)}</span></div>
       <div class="td-dim td-note">${esc(t.bandText)}</div>
       ${statBars(t.stats)}
       <div class="td-acts col">
         <button class="td-act" data-cmd="rig repair ${esc(t.id)}" ${t.canField ? '' : 'disabled title="Already past what hand tools reach"'}>
           Do it yourself · ${money(t.repairField)}<span class="td-dim">: up to ${pct(0.8)}, and you can botch it</span></button>
-        <button class="td-act${t.condition < 0.85 ? ' primary' : ''}" data-cmd="rig repair ${esc(t.id)} shop" ${t.condition >= 0.999 ? 'disabled title="Nothing to do"' : ''}>
-          Put it through the shop · ${money(t.repairShop)}<span class="td-dim">: back to new, no roll</span></button>
         <button class="td-act" data-cmd="rig wash ${esc(t.id)}" ${t.washPrice ? '' : 'disabled title="Already clean"'}>
           ${t.washPrice ? `Wash it · ${money(t.washPrice)}` : 'Wash it'}<span class="td-dim">: the paint back, and nothing else</span></button>
       </div>
+    </div>`,
+  till: tillHtml(c >= 0.999 ? { label: 'Nothing to do', why: 'Back to new already' }
+    : { label: `Put it through the shop · ${money(t.repairShop)}`, cmd: `rig repair ${t.id} shop`, note: 'Back to new, no roll.' }) };
+}
+function servicePage(t) {
+  const d = B.data, svc = t.svc || { items: [] };
+  const fuel = d.fuel ?? t.fuel;
+  // The docket is the shell's, the marina's too; only the fresh line's wording is the road's.
+  const rows = serviceListHtml(svc.items.map((i) => (i.band === 'fresh'
+    ? { ...i, desc: `About ${i.left.toLocaleString()} tiles before it costs you.` } : i)),
+  (i) => `rig service ${t.id} ${i.id}`);
+  return { body: `
+    <div class="td-pane">
+      <div class="td-lab">Servicing</div>
+      ${rows}
     </div>
     <div class="td-pane">
       <div class="td-lab">The pump</div>
-      <div class="td-gauge"><i class="csound" style="width:${Math.round((d.fuel ?? t.fuel) * 100)}%"></i><span>${pct(d.fuel ?? t.fuel)}</span></div>
-      ${d.fuelHere ? `<div class="td-acts"><button class="td-act${(d.fuel ?? t.fuel) < 0.5 ? ' primary' : ''}" data-cmd="rig fuel ${esc(t.id)}" ${(d.fuel ?? t.fuel) < 0.99 ? '' : 'disabled title="Already full"'}>Fill the tanks · ${money(t.refuel)}</button></div>`
+      <div class="td-gauge"><i class="csound" style="width:${Math.round(fuel * 100)}%"></i><span>${pct(fuel)}</span></div>
+      ${d.fuelHere ? `<div class="td-acts"><button class="td-act${fuel < 0.5 ? ' primary' : ''}" data-cmd="rig fuel ${esc(t.id)}" ${fuel < 0.99 ? '' : 'disabled title="Already full"'}>Fill the tanks · ${money(t.refuel)}</button></div>`
         : '<div class="td-dim td-note">No pump at this yard.</div>'}
       <div class="td-dim td-note">${t.odometer.toLocaleString()} tiles on the clock${t.rental ? '' : ` · trade-in ${money(t.resale)}`}</div>
-    </div>`;
+    </div>`,
+  till: tillHtml({ label: `Do all of it · ${money(svc.full)}`, cmd: `rig service ${t.id} all`, ...(svc.full ? {} : { why: 'Nothing due' }) }) };
 }
 
 // ── Horn and plate ───────────────────────────────────────────────────────────
@@ -557,27 +579,32 @@ function serviceTab(t) {
 // was a verb (`rig name`) with no button anywhere; the horn is new (client/shared/truck-horns.js).
 // "Hear it" plays the horn here and now and sends nothing — a noise you are deciding whether to
 // buy is not a noise the yard hears.
+// The horns are a parts menu (depot-shell.js partsHtml): picking a card plays it here, for you
+// alone, and puts it in the till; the key there fits it.
 function badgeTab(t) {
   const cat = B.data.hornCat || [];
   const cur = t.horn || 'stock';
-  const rows = cat.map((h) => {
-    const p = (t.hornPrices || {})[h.id] ?? h.price, fitted = h.id === cur;
-    return `<div class="td-kit-row${fitted ? ' on' : ''}">
-      <div class="td-main"><b>${esc(h.name)}</b>${p === 0 && !fitted && h.id !== 'stock' ? '<span class="td-drawer">YOURS</span>' : ''}
-        <div class="td-dim">${esc(h.desc)}</div></div>
-      <button class="td-act ghost" data-hear="${esc(h.id)}" title="Hear it: nobody else does">▶</button>
-      ${fitted ? '<span class="td-fitted">ON THE ROOF</span>'
-        : `<button class="td-act" data-cmd="rig horn ${esc(t.id)} ${esc(h.id)}" ${(B.data.credits || 0) >= p ? '' : 'disabled title="You can\'t afford it"'}>${p ? money(p) : 'Put it back on'}</button>`}
-    </div>`;
-  }).join('');
-  return `<div class="td-pane">
+  const pick = cat.some((h) => h.id === B.bench.horn) ? B.bench.horn : cur;
+  const priceOf = (h) => (t.hornPrices || {})[h.id] ?? h.price;
+  const options = cat.map((h) => {
+    const p = priceOf(h);
+    return { label: h.name, blurb: h.desc, on: h.id === pick, mine: h.id === cur,
+      price: h.id === cur ? '' : p ? money(p) : h.id === 'stock' ? 'free' : 'yours', attrs: `data-hpick="${esc(h.id)}"` };
+  });
+  const h = cat.find((x) => x.id === pick), p = h ? priceOf(h) : 0;
+  const till = !h || pick === cur ? tillHtml(null)
+    : tillHtml({ label: `Put the ${h.name} on${p ? ' · ' + money(p) : ''}`, cmd: `rig horn ${t.id} ${h.id}`,
+      ...((B.data.credits || 0) >= p ? {} : { why: "You can't afford it" }) },
+    `<button class="ds-btn ghost" data-hear="${esc(pick)}" title="Hear it: nobody else does">▶ Hear it</button>`);
+  return { body: `<div class="td-pane">
       <div class="td-lab">The plate</div>
       <div class="td-plateform"><input class="td-plate-in" type="text" maxlength="28" value="${esc(t.name)}" aria-label="Name on the plate">
         <button class="td-act" data-plate="${esc(t.id)}">Signwrite it</button></div>
       <div class="td-dim td-note">Free, and the yard will paint whatever you tell it to.</div>
     </div>
-    <div class="td-pane"><div class="td-lab">The horn</div>${rows}
-      <div class="td-dim td-note">Once bought, a horn is this truck's for good and swapping back to it costs nothing.</div></div>`;
+    <div class="td-pane"><div class="td-lab">The horn<span class="td-dim">: pick one to hear it</span></div>${partsHtml({ options })}
+      ${h ? `<div class="td-dim td-note">${esc(h.desc)}</div>` : ''}
+      <div class="td-dim td-note">Once bought, a horn is this truck's for good and swapping back to it costs nothing.</div></div>`, till };
 }
 
 // Which way the pin goes — the button for `hitchState`, or nothing when there is no cab under you
@@ -695,31 +722,38 @@ function tuneTab(t) {
       <div class="td-dim td-note">${esc(p.desc)}</div>
     </div>`).join('');
   const cmd = `rig tune ${t.id} ${(B.data.tuneParams || []).map(p => (cur[p.id] ?? 0)).join(' ')}`;
-  return `
+  return { body: `
     <div class="td-pane">
-      <div data-tune-stats>${dirty ? statBars(tunePreview(t, cur) || t.stats, t.stats) : statBars(t.stats)}</div>
       <div class="td-dim td-note">Dials reach ±${range} with your hands and what's fitted.</div>
       ${knobs}
-      <div class="td-acts">
-        <button class="td-act primary" data-cmd="${esc(cmd)}" ${dirty ? '' : 'disabled title="Nothing changed"'}>Commit the tune</button>
-        <button class="td-act ghost" data-tune-reset>Put it back</button>
-      </div>
-    </div>`;
+    </div>`,
+  side: `<div class="ds-panel"><div class="ds-panel-head"><b>The figures</b><span class="ds-dim">with the dials as set</span></div>
+      <div data-tune-stats>${dirty ? statBars(tunePreview(t, cur) || t.stats, t.stats) : statBars(t.stats)}</div></div>`,
+  till: `<div class="ds-acts">
+      <button class="ds-btn primary" data-cmd="${esc(cmd)}" data-commit="tune" ${dirty ? '' : 'disabled title="Nothing changed"'}>Commit the tune</button>
+      <button class="ds-btn ghost" data-tune-reset>Put it back</button>
+    </div>` };
 }
 
+// The kits, on the parts menu (depot-shell.js partsHtml): a card per kit, a tick on what is fitted.
+// Pointing at one moves the bars beside the truck (onPeek); picking one puts it in the till.
 function kitsTab(t) {
   const fitted = t.kits || [];
-  return `<div class="td-pane">
-    <div data-kit-stats data-peek="">${statBars(t.stats)}</div>
-    <div class="td-dim td-note">Point at a kit to see what it does to the truck.</div>
-    ${(B.data.kitCatalog || []).map(k => {
-    const on = fitted.includes(k.id);
-    return `<div class="td-kit-row${on ? ' on' : ''}" ${on ? '' : `data-kit-peek="${esc(k.id)}"`}>
-      <div class="td-main"><b>${esc(k.name)}</b><div class="td-dim">${esc(k.desc)}</div></div>
-      ${on ? '<span class="td-fitted">FITTED</span>'
-        : `<button class="td-act" data-cmd="rig kit ${esc(t.id)} ${esc(k.id)}" ${k.afford ? '' : 'disabled title="You can\'t afford it"'}>${money(k.price)}</button>`}
-    </div>`;
-  }).join('')}</div>`;
+  const cat = B.data.kitCatalog || [];
+  const pick = cat.some((k) => k.id === B.bench.kit) ? B.bench.kit : null;
+  const options = cat.map((k) => ({ label: k.name, blurb: k.desc, on: k.id === pick, mine: fitted.includes(k.id),
+    price: fitted.includes(k.id) ? '' : money(k.price), attrs: `data-kpick="${esc(k.id)}"` }));
+  const k = cat.find((x) => x.id === pick);
+  const peek = k && !fitted.includes(k.id) && t.kitStats?.[k.id] ? k.id : '';
+  return { body: `<div class="td-pane">
+      <div class="td-lab">Kits<span class="td-dim">: point at one to see what it does to the truck</span></div>
+      ${partsHtml({ options })}
+      ${k ? `<div class="td-dim td-note"><b>${esc(k.name)}</b>: ${esc(k.desc)}</div>` : ''}
+    </div>`,
+  side: `<div class="ds-panel"><div class="ds-panel-head"><b>The figures</b><span class="ds-dim">with the kit you point at</span></div>
+      <div data-kit-stats data-peek="${esc(peek)}">${peek ? statBars(t.kitStats[peek], t.stats) : statBars(t.stats)}</div></div>`,
+  till: !k ? tillHtml(null) : fitted.includes(k.id) ? tillHtml({ label: `${k.name} is fitted`, why: 'Already on the truck' })
+    : tillHtml({ label: `Fit ${k.name} · ${money(k.price)}`, cmd: `rig kit ${t.id} ${k.id}`, ...(k.afford ? {} : { why: "You can't afford it" }) }) };
 }
 
 // ── THE COSMETIC SHELF ───────────────────────────────────────────────────────
@@ -755,48 +789,47 @@ function kitsTab(t) {
 // lands after every fit and every unfit, and a tab that reset itself to the front bar each time
 // would make trying two roof racks against each other a thing you had to re-find twice.
 function fitsTab(t) {
-  const cat = B.data.fitCat;
-  if (!cat) return '<div class="td-pane"><div class="td-dim td-note">No shelf at this counter.</div></div>';
-  const on = new Set(t.fits || []);
-  // ⚠ THE PRICE IS THE OWNERSHIP TELL, and it is the server's answer rather than a second list on
-  // the wire. `priceFor` quotes ZERO for anything already in this truck's drawer (fittings.js rule
-  // 5), so `p === 0` is exactly "you own this and putting it back is free" with no `owned_fits`
-  // shipped and nothing here to fall out of step with the till.
-  const price = (id) => (t.fitPrices || {})[id];
+  return shelfPage(t, { cat: B.data.fitCat, have: t.fits, prices: t.fitPrices, slotKey: 'fslot', pickKey: 'fpick', attr: 'data-fpick',
+    head: 'On the truck', none: 'No shelf at this counter.', fitted: 'on the truck',
+    fit: (id) => `rig fit ${t.id} ${id}`, off: (id) => `rig unfit ${t.id} ${id}`, offLabel: 'Take it off',
+    note: "None of it changes how the truck drives. One per place, and once it's yours, swapping is free." });
+}
+
+// ── THE SHELF ON THE PARTS MENU ──────────────────────────────────────────────
+// Fittings and the cab's own shelf are the same shape, so one page draws both: the places as the
+// parts menu's slots, each saying what is in it (the sheet, which is also the navigation), the open
+// place's items as cards with their prices and a tick on what is in it, and the picked card in the
+// till with the verb that fits it or takes it off. ⚠ THE PRICE IS STILL THE OWNERSHIP TELL: the
+// server quotes zero for anything already in this truck's drawer (fittings.js rule 5).
+function shelfPage(t, o) {
+  const cat = o.cat;
+  if (!cat) return { body: `<div class="td-pane"><div class="td-dim td-note">${esc(o.none)}</div></div>` };
+  const on = new Set(o.have || []);
+  const price = (id) => (o.prices || {})[id];
   const byId = Object.fromEntries(cat.items.map((f) => [f.id, f]));
-  const fittedIn = (sid) => (t.fits || []).map((id) => byId[id]).find((f) => f && f.slot === sid) || null;
-  const sel = cat.slots.some((s) => s.id === B.bench.fslot) ? B.bench.fslot : cat.slots[0].id;
-
-  const sheet = cat.slots.map((s) => {
-    const f = fittedIn(s.id);
-    return `<button class="td-fitcell${f ? ' on' : ''}${s.id === sel ? ' sel' : ''}" data-fslot="${esc(s.id)}"
-        aria-pressed="${s.id === sel ? 'true' : 'false'}" title="${esc(s.note)}">
-        <span class="td-fitslot">${esc(s.label)}</span>
-        <span class="td-fitwhat">${f ? esc(f.name) : 'empty'}</span>
-      </button>`;
-  }).join('');
-
+  const inSlot = (sid) => (o.have || []).map((id) => byId[id]).find((f) => f && f.slot === sid) || null;
+  const sel = cat.slots.some((s) => s.id === B.bench[o.slotKey]) ? B.bench[o.slotKey] : cat.slots[0].id;
   const cur = cat.slots.find((s) => s.id === sel);
-  const rows = cat.items.filter((f) => f.slot === sel).map((f) => {
-    const fitted = on.has(f.id), p = price(f.id), mine = p === 0;
-    return `<div class="td-kit-row${fitted ? ' on' : ''}">
-      <div class="td-main"><b>${esc(f.name)}</b>${mine && !fitted ? '<span class="td-drawer">YOURS</span>' : ''}
-        <div class="td-dim">${esc(f.desc)}</div></div>
-      ${fitted
-        ? `<button class="td-act ghost" data-cmd="rig unfit ${esc(t.id)} ${esc(f.id)}">Take it off</button>`
-        : `<button class="td-act" data-cmd="rig fit ${esc(t.id)} ${esc(f.id)}" ${(B.data.credits || 0) >= p ? '' : 'disabled title="You can\'t afford it"'}>${p ? money(p) : 'Put it back on'}</button>`}
-    </div>`;
-  }).join('');
-
-  const worn = cat.slots.filter((s) => fittedIn(s.id)).length;
+  const pickId = cat.items.some((f) => f.id === B.bench[o.pickKey] && f.slot === sel) ? B.bench[o.pickKey] : null;
+  const slots = cat.slots.map((s) => { const f = inSlot(s.id); return { id: s.id, label: s.label, value: f ? f.name : 'empty', tip: s.note }; });
+  const options = cat.items.filter((f) => f.slot === sel).map((f) => {
+    const p = price(f.id);
+    return { label: f.name, blurb: f.desc, on: f.id === pickId, mine: on.has(f.id),
+      price: on.has(f.id) ? '' : p ? money(p) : 'yours', attrs: `${o.attr}="${esc(f.id)}"` };
+  });
+  const worn = cat.slots.filter((s) => inSlot(s.id)).length;
   const drawer = cat.items.filter((f) => price(f.id) === 0 && !on.has(f.id)).length;
-  return `<div class="td-pane">
-    <div class="td-lab">On the truck<span class="td-dim">: ${worn} of ${cat.slots.length} places filled${drawer ? ` · ${drawer} more in the drawer` : ''}</span></div>
-    <div class="td-fitsheet">${sheet}</div>
-    <div class="td-sub-head">${esc(cur.label)} <span class="td-dim">${esc(cur.note)}</span></div>
-    ${rows}
-    <div class="td-dim td-note">None of it changes how the truck drives. One per place, and once it's yours, swapping is free.</div>
-  </div>`;
+  const f = pickId ? byId[pickId] : null, p = f ? price(f.id) : 0;
+  const till = !f ? tillHtml(null)
+    : on.has(f.id) ? tillHtml({ label: `${o.offLabel}: ${f.name}`, cmd: o.off(f.id) })
+    : tillHtml({ label: `${p ? 'Fit' : 'Put back'} ${f.name}${p ? ' · ' + money(p) : ''}`, cmd: o.fit(f.id),
+      ...((B.data.credits || 0) >= p ? {} : { why: "You can't afford it" }) });
+  return { body: `<div class="td-pane">
+    <div class="td-lab">${esc(o.head)}<span class="td-dim">: ${worn} of ${cat.slots.length} places filled${drawer ? ` · ${drawer} more in the drawer` : ''}</span></div>
+    ${partsHtml({ slots, slot: sel, options })}
+    ${f ? `<div class="td-dim td-note"><b>${esc(f.name)}</b>: ${esc(f.desc)}</div>` : cur ? `<div class="td-dim td-note">${esc(cur.note)}</div>` : ''}
+    <div class="td-dim td-note">${esc(o.note)}</div>
+  </div>`, till };
 }
 
 
@@ -807,44 +840,10 @@ function fitsTab(t) {
 // them apart on screen is also what keeps them apart in the data — see the ⚠ in cab-trinkets.js
 // about interior codes finding their way onto the wire.
 function cabTab(t) {
-  const cat = B.data.cabCat;
-  if (!cat) return '<div class="td-pane"><div class="td-dim td-note">No case at this counter.</div></div>';
-  const on = new Set(t.cab || []);
-  const price = (id) => (t.cabPrices || {})[id];
-  const byId = Object.fromEntries(cat.items.map((f) => [f.id, f]));
-  const inSlot = (sid) => (t.cab || []).map((id) => byId[id]).find((f) => f && f.slot === sid) || null;
-  const sel = cat.slots.some((s) => s.id === B.bench.cslot) ? B.bench.cslot : cat.slots[0].id;
-
-  const sheet = cat.slots.map((s) => {
-    const f = inSlot(s.id);
-    return `<button class="td-fitcell${f ? ' on' : ''}${s.id === sel ? ' sel' : ''}" data-cslot="${esc(s.id)}"
-        aria-pressed="${s.id === sel ? 'true' : 'false'}" title="${esc(s.note)}">
-        <span class="td-fitslot">${esc(s.label)}</span>
-        <span class="td-fitwhat">${f ? esc(f.name) : 'empty'}</span>
-      </button>`;
-  }).join('');
-
-  const cur = cat.slots.find((s) => s.id === sel);
-  const rows = cat.items.filter((f) => f.slot === sel).map((f) => {
-    const fitted = on.has(f.id), p = price(f.id), mine = p === 0;
-    return `<div class="td-kit-row${fitted ? ' on' : ''}">
-      <div class="td-main"><b>${esc(f.name)}</b>${mine && !fitted ? '<span class="td-drawer">YOURS</span>' : ''}
-        <div class="td-dim">${esc(f.desc)}</div></div>
-      ${fitted
-        ? `<button class="td-act ghost" data-cmd="rig cab ${esc(t.id)} off ${esc(f.id)}">Take it down</button>`
-        : `<button class="td-act" data-cmd="rig cab ${esc(t.id)} ${esc(f.id)}" ${(B.data.credits || 0) >= p ? '' : 'disabled title="You can\'t afford it"'}>${p ? money(p) : 'Put it back'}</button>`}
-    </div>`;
-  }).join('');
-
-  const worn = cat.slots.filter((s) => inSlot(s.id)).length;
-  const drawer = cat.items.filter((f) => price(f.id) === 0 && !on.has(f.id)).length;
-  return `<div class="td-pane">
-    <div class="td-lab">In the cab<span class="td-dim">: ${worn} of ${cat.slots.length} places filled${drawer ? ` · ${drawer} more in the drawer` : ''}</span></div>
-    <div class="td-fitsheet">${sheet}</div>
-    <div class="td-sub-head">${esc(cur.label)} <span class="td-dim">${esc(cur.note)}</span></div>
-    ${rows}
-    <div class="td-dim td-note">Nobody but you ever sees any of it, and none of it changes how the truck drives.</div>
-  </div>`;
+  return shelfPage(t, { cat: B.data.cabCat, have: t.cab, prices: t.cabPrices, slotKey: 'cslot', pickKey: 'cpick', attr: 'data-cpick',
+    head: 'In the cab', none: 'No case at this counter.',
+    fit: (id) => `rig cab ${t.id} ${id}`, off: (id) => `rig cab ${t.id} off ${id}`, offLabel: 'Take it down',
+    note: 'Nobody but you ever sees any of it, and none of it changes how the truck drives.' });
 }
 
 // ── THE SEVEN SURFACES ───────────────────────────────────────────────────────
@@ -887,7 +886,7 @@ const MIX_FIELDS = [
 // for "the wave one" was looking under Paint and finding seven colour wells. So Paint is now the
 // whole respray — the colours, the job and the coat — and Graphics is what is PRINTED on the truck,
 // which is one row and is honest about being one row.
-const PAINT_SECTIONS = [['scheme', 'Schemes'], ['colour', 'Paint'], ['graphic', 'Graphics'], ['inside', 'Inside']];
+// The sections are the Paint job's groups now (TRUCK_GROUPS.paint), and the inside is its own job.
 
 // ── THE BOOTH ────────────────────────────────────────────────────────────────
 // Seven colours, fifteen paint jobs, eight finish coats, eleven pictures for the door and an
@@ -918,28 +917,22 @@ const PAINT_SECTIONS = [['scheme', 'Schemes'], ['colour', 'Paint'], ['graphic', 
 // `.paintPresets` / `.dashMaterials` / `.dashColourways` and invents none of them, which is rule 1
 // of this panel: the client computes nothing. A hardcoded list here is a second copy of a
 // vocabulary `sanitizePaint` would then reject.
-function paintTab(t) {
-  const sec = B.bench.psec || 'scheme';
-  const nav = PAINT_SECTIONS.map(([k, l]) =>
-    `<button class="td-seg-btn${sec === k ? ' on' : ''}" data-psec="${k}">${l}</button>`).join('');
-  const body = sec === 'colour' ? paintColours(t) : sec === 'graphic' ? paintGraphics(t)
-    : sec === 'inside' ? paintInside(t) : paintSchemes(t);
-  return `
-    <div class="td-pane">
-      <div class="td-seg wide">${nav}</div>
-      ${body}
-    </div>`;
+// The sections are the Paint job's groups (the bay's controller draws them); the inside is its own
+// job now (trimPage), seen from the seat.
+function paintTab(t, sec = 'scheme') {
+  const body = sec === 'colour' ? paintColours(t) : sec === 'graphic' ? paintGraphics(t) : paintSchemes(t);
+  return { body: `<div class="td-pane">${body}</div>`, till: paintFoot(t) };
 }
 
-// The commit row, shown under every section that edits PAINT. All three share it, because they are
-// edits to one job that is bought once — a button per section would read as three resprays.
+// The commit row, in the till under every section that edits PAINT. All three share it, because
+// they are edits to one job that is bought once: a key per section would read as three resprays.
 function paintFoot(t) {
   const cur = paintNow();
   const cmd = paintCmd(t, cur);
   return `
-      <div class="td-acts">
-        <button class="td-act primary" data-cmd="${esc(cmd || '')}" ${cmd ? '' : 'disabled title="Nothing changed"'}>Into the booth · ${money(paintPrice(t, cur))}</button>
-        <button class="td-act ghost" data-paint-reset ${cmd ? '' : 'disabled'}>Put it back</button>
+      <div class="ds-acts">
+        <button class="ds-btn primary" data-cmd="${esc(cmd || '')}" data-commit="paint" ${cmd ? '' : 'disabled title="Nothing changed"'}>Into the booth · ${money(paintPrice(t, cur))}</button>
+        <button class="ds-btn ghost" data-paint-reset ${cmd ? '' : 'disabled'}>Put it back</button>
       </div>`;
 }
 
@@ -963,8 +956,7 @@ function paintSchemes(t) {
   return `
       <div class="td-lab">One click, whole truck</div>
       <div class="td-schemes">${cards}</div>
-      <div class="td-dim td-note">A scheme sets all seven colours, the paint job and the coat. Nothing is charged until you send it into the booth.</div>
-      ${paintFoot(t)}`;
+      <div class="td-dim td-note">A scheme sets all seven colours, the paint job and the coat. Nothing is charged until you send it into the booth.</div>`;
 }
 
 // ── Colours ──────────────────────────────────────────────────────────────────
@@ -988,14 +980,13 @@ function paintColours(t) {
       <div class="td-lab">Paint job<span class="td-dim">: what the flash colour above is laid on in</span></div>
       <div class="td-swatches">${swatches(B.data.flashes, 'flash')}</div>
       <div class="td-lab">Finish coat<span class="td-dim">: the only thing that moves the price</span></div>
-      <div class="td-swatches">${swatches(B.data.finishes, 'finish')}</div>
-      ${paintFoot(t)}`;
+      <div class="td-swatches">${swatches(B.data.finishes, 'finish')}</div>`;
 }
 
 // ── Graphics ─────────────────────────────────────────────────────────────────
 // What is PRINTED on the truck, as opposed to what it is painted — one row, because there is one
 // thing on a rig you read rather than look at, and it is the door. (The paint job and the coat used
-// to be up here; see the ⚠ on PAINT_SECTIONS for why they are not.)
+// to be up here; see the ⚠ on the booth's sections for why they are not.)
 function paintGraphics(t) {
   const cur = paintNow();
   const swatches = (rows, key) => (rows || []).map(r =>
@@ -1003,8 +994,7 @@ function paintGraphics(t) {
   return `
       <div class="td-lab">On the door</div>
       <div class="td-swatches">${swatches(B.data.arts, 'art')}</div>
-      <div class="td-dim td-note">The name on the door is the plate: <code>rig name ${esc(t.id)} &lt;plate&gt;</code>.</div>
-      ${paintFoot(t)}`;
+      <div class="td-dim td-note">The name on the door is the plate: <code>rig name ${esc(t.id)} &lt;plate&gt;</code>.</div>`;
 }
 
 // ── Inside ───────────────────────────────────────────────────────────────────
@@ -1018,7 +1008,7 @@ function paintGraphics(t) {
 // ladder's teeth are INFORMATION. The mock draws two dials on every truck because it is a picture
 // of a SURFACE, and no swatch on it can add an instrument — see the ⚠ in rig.js, which states the
 // same boundary from the other side.
-function paintInside(t) {
+function trimPage(t) {
   const cur = trimNow(t);
   const cols = B.data.dashColourways || [];
   const mats = B.data.dashMaterials || [];
@@ -1045,7 +1035,7 @@ function paintInside(t) {
         <span class="td-cname">${esc(label)}<span class="td-dim">${esc(note)}</span></span>
         <code class="td-chex">${esc(String(mixNow(cur)[k] || '').toUpperCase())}</code>
       </label>`).join('');
-  return `
+  return { body: `<div class="td-pane">
       ${dashPreview(cur)}
       <div class="td-lab">Colourway<span class="td-dim">: the light you drive by</span></div>
       <div class="td-tswatches">${cols.map(swatch).join('')}${cur.cust ? mixSwatch() : ''}</div>
@@ -1053,11 +1043,11 @@ function paintInside(t) {
       <div class="td-crows${cur.col === CUSTOM_COL ? ' on' : ''}">${wells}</div>
       <div class="td-lab">Material</div>
       <div class="td-swatches">${mats.map(matRow).join('')}</div>
-      <div class="td-acts">
-        <button class="td-act primary" data-cmd="${esc(cmd || '')}" ${cmd ? '' : 'disabled title="Nothing changed"'}>Retrim it · ${money(t.trimPrice || 0)}</button>
-        <button class="td-act ghost" data-trim-reset ${cmd ? '' : 'disabled'}>Put it back</button>
-      </div>
-      <div class="td-dim td-note">The bench doesn't sell instruments. What's in the binnacle came with the truck.</div>`;
+      <div class="td-dim td-note">The bench doesn't sell instruments. What's in the binnacle came with the truck.</div></div>`,
+  till: `<div class="ds-acts">
+        <button class="ds-btn primary" data-cmd="${esc(cmd || '')}" data-commit="trim" ${cmd ? '' : 'disabled title="Nothing changed"'}>Retrim it · ${money(t.trimPrice || 0)}</button>
+        <button class="ds-btn ghost" data-trim-reset ${cmd ? '' : 'disabled'}>Put it back</button>
+      </div>` };
 }
 
 // The mix currently on the wells: the player's own if they have one, otherwise the colourway they
@@ -1263,7 +1253,19 @@ function onClick(e) {
     // Closing the counter leaves you standing in the yard, so it has to put the room back — the
     // pane is the room's pane, and a panel that simply removed itself would leave it blank.
     close: () => { closeTruckDepot(); sendCmdSilent('look'); },
+    // A place on the shelf (the parts menu's slots): Parts' fittings or Inside's cab shelf.
+    slot: (id) => { if (B.bench.tab === 'inside') { B.bench.cslot = id; B.bench.cpick = null; } else { B.bench.fslot = id; B.bench.fpick = null; } redraw(); },
   })) return;
+  // A card on a parts menu picks it for the till; nothing is spent until the till's key.
+  const pk = e.target.closest('[data-kpick],[data-fpick],[data-cpick],[data-hpick]');
+  if (pk && !pk.disabled) {
+    if (pk.dataset.kpick) B.bench.kit = pk.dataset.kpick;
+    if (pk.dataset.fpick) B.bench.fpick = pk.dataset.fpick;
+    if (pk.dataset.cpick) B.bench.cpick = pk.dataset.cpick;
+    // A horn is heard as it is picked, here and nowhere else.
+    if (pk.dataset.hpick) { B.bench.horn = pk.dataset.hpick; airHorn(selected()?.typeId, 1.2, pk.dataset.hpick === 'stock' ? null : pk.dataset.hpick); }
+    return void redraw();
+  }
   const t = e.target.closest('[data-cmd],[data-screen],[data-bench],[data-lot],[data-box],[data-paintpick],[data-trimpick],[data-psec],[data-fslot],[data-cslot],[data-preset],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-hear],[data-plate]');
   if (!t || t.disabled) return;
   if (t.dataset.screen) { B.screen = t.dataset.screen; return void render(); }
@@ -1320,7 +1322,7 @@ function onInput(e) {
     const head = el.parentElement.querySelector('.td-num');
     const v = B.bench.tune[el.dataset.tune];
     if (head) head.textContent = `${v > 0 ? '+' : ''}${v.toFixed(2)}`;
-    const commit = document.querySelector('.td-side .td-act.primary');
+    const commit = commitKey('tune');
     if (commit) {
       commit.disabled = false;
       commit.dataset.cmd = `rig tune ${t.id} ${(B.data.tuneParams || []).map(p => (B.bench.tune[p.id] ?? 0)).join(' ')}`;
@@ -1373,14 +1375,16 @@ function onInput(e) {
 // The retrim button, kept in step with a colour drag. The interior is a SEPARATE purchase from the
 // paint, so it has its own — see the ⚠ on B.bench.trim in the click handler.
 function refreshTrimCommit(t) {
-  const btn = document.querySelector('.td-side .td-act.primary');
+  const btn = commitKey('trim');
   if (!btn) return;
   const cmd = trimCmd(t, trimNow(t));
   btn.disabled = !cmd;
   btn.dataset.cmd = cmd || '';
-  const ghost = document.querySelector('.td-side .td-act.ghost[data-trim-reset]');
+  const ghost = document.querySelector('#td-svc [data-trim-reset]');
   if (ghost) ghost.disabled = !cmd;
 }
+// The till's paying key for a page (tune, paint, trim), found to be kept in step with a drag.
+const commitKey = (kind) => document.querySelector(`#td-svc [data-commit="${kind}"]`);
 // The mock, repainted without rebuilding it. Every value here is read out of the same
 // `trimColours` the markup was built from, so this is the identical picture and not a second
 // attempt at one — if you add a surface to dashPreview, add it here or it freezes mid-drag.
@@ -1415,7 +1419,7 @@ function paintNow() {
 }
 // The Into-the-booth button, kept in step with a colour drag without touching the rest of the DOM.
 function refreshPaintCommit(t) {
-  const btn = document.querySelector('.td-side .td-act.primary');
+  const btn = commitKey('paint');
   if (!btn) return;
   const cur = paintNow(), cmd = paintCmd(t, cur);
   btn.disabled = !cmd;

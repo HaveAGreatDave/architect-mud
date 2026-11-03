@@ -160,6 +160,20 @@ body.bigscreen .ds-bay{display:none!important}
 .ds-gx .ds-jobs:has(> .ds-job:nth-child(6)){gap:4px}
 .ds-gx .ds-jobs:has(> .ds-job:nth-child(6)) > .ds-job{padding-top:8px;padding-bottom:8px}
 .ds-gx .ds-jobs:has(> .ds-job:nth-child(6)) > .ds-job b{font-size:17px}
+/* THE ONE MENU (maintenance-bay.js): touch-sized tiles at least 56px tall, the key that picks each
+   one beside it, and a large ring on whatever the keyboard is on. The options are cards two across
+   on a laptop glass and one across on a phone. */
+.ds-gx .ds-job,.ds-gx .ds-jobs:has(> .ds-job:nth-child(6)) > .ds-job{min-height:56px}
+.ds-job-key{flex:0 0 auto;font:600 11px/1 system-ui,sans-serif;padding:3px 6px;border-radius:4px;opacity:.7;
+  color:inherit;background:color-mix(in srgb, var(--bg) 55%, transparent);border:1px solid color-mix(in srgb, currentColor 35%, transparent)}
+.ds-job.on .ds-job-key{opacity:1}
+.ds-gx :is(button,input,select,[tabindex]):focus-visible{outline:3px solid var(--ds-accent);outline-offset:2px;
+  box-shadow:0 0 0 6px color-mix(in srgb, var(--ds-accent) 30%, transparent)}
+.ds-gx .ds-job:focus-visible{outline-offset:-3px}
+.ds-gx .ds-popts{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ds-gx .ds-popt{min-height:56px}
+.ds-gx .ds-jobgroups{margin-bottom:12px}
+.ds-till-none{padding:4px 0}
 .ds-gx-rail > .ds-note,.ds-gx-side{margin-left:16px}
 .ds-gx-side{min-height:0;overflow:hidden}
 .ds-gx-side > .ds-panel:last-child{margin-bottom:0}
@@ -213,7 +227,6 @@ body.bigscreen .ds-bay{display:none!important}
   .ds-gx .ds-job-ico{font-size:17px;width:20px}
   .ds-gx-page .ds-bay-body{padding:12px 12px 10px}
   .ds-gx-till{padding:10px 12px 12px}
-  .ds-gx .ds-popts{grid-template-columns:repeat(auto-fill,minmax(92px,1fr))}
   .ds-gx .ds-pgroups{flex-wrap:wrap}
   .ds-gx .ds-pgroup{font-size:12px;letter-spacing:.3px;padding:8px 6px}
 }
@@ -234,6 +247,11 @@ body.bigscreen .ds-bay{display:none!important}
   .ds-gx .ds-job.on{transform:none}
   .ds-gx .ds-job-sub{margin-left:0}
   .ds-gx .ds-job-ico{width:auto;font-size:16px}
+  /* The job tiles are a strip across the top of the sheet that scrolls sideways (§5). */
+  .ds-gx .ds-jobs{display:flex;flex-direction:row;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .ds-gx .ds-job{flex:0 0 auto;min-width:96px}
+  .ds-gx .ds-job-key{display:none}
+  .ds-gx .ds-popts{grid-template-columns:1fr}
   .ds-gx-rail > .ds-note,.ds-gx-side{margin-left:0}
   .ds-gx-page,.ds-gx-page .ds-bay-body{overflow:visible;flex:0 0 auto}
   .ds-gx-page{border-left:0;background:none}

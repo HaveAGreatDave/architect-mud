@@ -22,11 +22,28 @@ Four places sell, store and service vehicles: the truck depot ([truck-depot.js](
 
 ## The job tiles
 
-`jobsHtml` draws a tab as a tile with an icon, a name and one line saying what is waiting behind it: `2 due`, `unsaved`, `3 of 8`. The tone is `ok`, `warn`, `bad`, or `hot` for something unsaved on the bench. Each depot's `jobState` (truck, marina) or `benchParts` (hangar) works the line out from the facts the tab itself draws. In the bay the tiles are the menu down the left; six or more pack tighter.
+Every bay shows the same eight jobs, as far as the vehicle has them, in this order and with these numbers ([maintenance-bay.js](../../client/game/js/panels/maintenance-bay.js) `JOBS`, through `bay.canon`): **1 Repair** (what's broken), **2 Service** (what's worn, fluids, fuel), **3 Performance**, **4 Parts**, **5 Paint**, **6 Inside**, **7 Load**, **8 Business**. A job the vehicle hasn't got isn't drawn. The old tabs are groups inside a job (`bay.groups`, drawn by `groupsHtml`): Performance holds Tuning and Kits.
+
+| | truck | boat | aircraft | racer |
+|---|---|---|---|---|
+| Repair | bodywork, wash | hull | hull | pod, cables, binder |
+| Service | docket, pump | docket | fuel | turbines, tank |
+| Performance | Tuning, Kits | | Tuning, Kits | the engine rows |
+| Parts | Fittings, Horn & plate | the decal | | the rest of the fitting shop |
+| Paint | Schemes, Paint, Graphics | Colours, Name | Schemes, Paint | the booth |
+| Inside | Fittings, Trim | | the cabin | |
+| Load | the freight board | | Hopper, Cabin fit | |
+| Business | the exchange | | | |
+
+`jobsHtml` draws each as a tile with its number, an icon, a name and one line saying what is waiting behind it: `2 due`, `unsaved`, `3 of 8`. The tone is `ok`, `warn`, `bad`, or `hot` for something unsaved on the bench. Each depot's `jobState` (truck, marina), `repairState` / `serviceState` (racer) or `benchParts` (hangar) works the line out from the facts the job itself draws. In the bay the tiles are the menu down the left, at least 56px tall; on a phone they are a strip across the top of the sheet. The racer's Repair and Service pay the one bill, because the yard has one verb. The hangar's bench in the pane (for a pilot with no cockpit open) shows the same jobs and groups.
+
+**The till is always there**, under the page: what's picked, its price as the server quoted it, and the one key that pays (`tillHtml`), or a line saying there is nothing to pay for here. Repair and Service put their whole job in it (**Do all of it**).
+
+**The keyboard drives the bay while focus is in it**: `1`–`8` pick a job, the arrows move through the rail or the page (Right goes from the rail into the page, Left from the page's first control back), `Enter` picks, `Space` pays at the till (and holds a held key), `Esc` goes back to the job and then folds the bay. The seats read their controls off the window, so each asks `panelTakesKey` (seat-keys.js) and stands aside for those keys only; W still drives off. A click on the glass gives the keys back to the seat, and the keys chip says `KEYS: BAY` meanwhile. A redraw gives focus back to the same control.
 
 ## The parts menu
 
-`partsHtml` lays out a set of parts the way a tuning garage does: a row of groups, the open group's slots as a list saying what each has now (a slot the working kit has moved is marked), and the open slot's options as cards under it, each with its price and, if it is what's fitted, a tick. Only one slot is open at a time, so the list stays short however many parts there are. The depot keeps which group and slot are open; `shellClick` passes a click on either to `on.group` / `on.slot`, or the depot handles `data-ds-group` / `data-ds-slot` itself. What a pick does is the depot's: each option carries the depot's own `attrs` (`data-kit="engine:2"`). The racer's Fit tab and the counter's fitting shop are built on it.
+`partsHtml` lays out a set of parts the way a tuning garage does: a row of groups, the open group's slots as a list saying what each has now (a slot the working kit has moved is marked), and the open slot's options as cards under it, each with its price and, if it is what's fitted, a tick. Only one slot is open at a time, so the list stays short however many parts there are. The depot keeps which group and slot are open; `shellClick` passes a click on either to `on.group` / `on.slot`, or the depot handles `data-ds-group` / `data-ds-slot` itself. What a pick does is the depot's: each option carries the depot's own `attrs` (`data-kit="engine:2"`), and in a bay a pick goes into the till rather than being bought. Every shop page in a bay is built on it: the racer's fitting shop (and the counter's), the truck's kits, fittings, horns and cab shelf, the aircraft's kits and the boat's decal. In a bay the options are two across, one on a phone.
 
 ## The garage feel
 

@@ -61,9 +61,19 @@ export function headHtml({ ico = '', title = '', sub = '', credits = 0, screens 
 // ── The job tiles ────────────────────────────────────────────────────────────
 // A tab that says what is waiting behind it: "2 due", "unsaved", "3 fitted". A tile is
 // { id, ico, label, sub, tone } with tone one of ok / warn / bad / hot (hot = something unsaved).
+// A tile with a `key` shows it: the number that picks the job from the keyboard (maintenance-bay.js).
 export function jobsHtml(jobs, active, attr = 'data-ds-job') {
-  return `<nav class="ds-jobs" role="tablist">${jobs.map((j) => `<button class="ds-job${j.id === active ? ' on' : ''}" ${attr}="${esc(j.id)}" role="tab" aria-selected="${j.id === active}">
-      <span class="ds-job-ico" aria-hidden="true">${j.ico || ''}</span><b>${esc(j.label)}</b>${j.sub != null && j.sub !== '' ? `<span class="ds-job-sub${j.tone ? ' ' + j.tone : ''}">${esc(j.sub)}</span>` : ''}</button>`).join('')}</nav>`;
+  return `<nav class="ds-jobs" role="tablist">${jobs.map((j) => `<button class="ds-job${j.id === active ? ' on' : ''}" ${attr}="${esc(j.id)}" role="tab" aria-selected="${j.id === active}"${j.key ? ` aria-keyshortcuts="${esc(j.key)}"` : ''}>
+      ${j.key ? `<kbd class="ds-job-key" aria-hidden="true">${esc(j.key)}</kbd>` : ''}<span class="ds-job-ico" aria-hidden="true">${j.ico || ''}</span><b>${esc(j.label)}</b>${j.sub != null && j.sub !== '' ? `<span class="ds-job-sub${j.tone ? ' ' + j.tone : ''}">${esc(j.sub)}</span>` : ''}</button>`).join('')}</nav>`;
+}
+
+/**
+ * A job's groups: the old tabs inside one job (Performance's Tuning and Kits). `groups` is
+ * [{ id, label }] and `attr` the click hook; one group draws nothing. The look is the parts menu's.
+ */
+export function groupsHtml(groups, active, attr = 'data-ds-sub') {
+  if (!groups || groups.length < 2) return '';
+  return `<nav class="ds-pgroups ds-jobgroups" role="tablist">${groups.map((g) => `<button class="ds-pgroup${g.id === active ? ' on' : ''}" type="button" role="tab" aria-selected="${g.id === active}" ${attr}="${esc(g.id)}">${esc(g.label)}</button>`).join('')}</nav>`;
 }
 
 // ── The bay ──────────────────────────────────────────────────────────────────
@@ -151,11 +161,22 @@ export function bayHtml({ ico = '⚙', title = '', sub = '', name = '', credits 
     <div class="ds-gx-stage" aria-hidden="true"><i class="ds-gx-corner tl"></i><i class="ds-gx-corner tr"></i><i class="ds-gx-corner bl"></i><i class="ds-gx-corner br"></i><span class="ds-gx-name">${esc(name || title)}</span></div>
     <section class="ds-gx-page">
       <div class="ds-bay-body">${body}</div>
-      ${till ? `<div class="ds-gx-till">${till}</div>` : ''}
+      ${jobs ? `<div class="ds-gx-till">${till || '<div class="ds-dim ds-small ds-till-none">Nothing to pay for on this page.</div>'}</div>` : till ? `<div class="ds-gx-till">${till}</div>` : ''}
       ${toastHtml(toast)}
     </section>
-    <footer class="ds-bay-foot"><span class="ds-dim">${foot}</span><span class="ds-gx-keys"><kbd>drag</kbd> turn the camera</span></footer>
+    <footer class="ds-bay-foot"><span class="ds-dim">${foot}</span><span class="ds-gx-keys">${jobs ? '<kbd>1</kbd>–<kbd>8</kbd> a job <kbd>Space</kbd> pay <kbd>Esc</kbd> back ' : ''}<kbd>drag</kbd> turn the camera</span></footer>
   </div>`;
+}
+
+/**
+ * THE TILL for a parts page: what is picked, its price as the server quoted it, and the one key
+ * that pays. `pick` is { label, price, cmd, hold, ico, why } or null. `extra` is any second key
+ * (Put it back). The key is a verb like every other.
+ */
+export function tillHtml(pick, extra = '') {
+  if (!pick) return `<div class="ds-dim ds-small ds-till-none">Pick something on the page and its price shows here.</div>${extra ? `<div class="ds-acts">${extra}</div>` : ''}`;
+  const off = !!pick.why || (!pick.cmd && !pick.hold);
+  return `${pick.note ? `<div class="ds-dim ds-small">${esc(pick.note)}</div>` : ''}<div class="ds-acts">${btnHtml(pick.label, { cmd: off ? '' : pick.cmd || '', hold: off ? '' : pick.hold || '', ico: pick.ico || '', cls: 'primary', disabled: off, why: pick.why || '' })}${extra}</div>`;
 }
 
 /**

@@ -5,7 +5,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
-import { tweenOrbit } from './camera-tween.js';
+import { tweenOrbit, BAY_PITCH } from './camera-tween.js';
 import { internMap } from './map-intern.js';
 import { seatSpot } from './seat-audio.js';
 import { playCabinAudio, updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, varioTick, gearFx, quackStart, QUACK_SQUEEZE_MS, visorFx, detentFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
@@ -44,7 +44,7 @@ import { hex2rgb, visorSpecFor, VIPER_SCALE } from './aircraft3d.js';
 import { createFreeCam, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { bindTouchGestures } from './touch-gestures.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
-import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
+import { claimSeatKeyboard, endSeatKeyboard, panelTakesKey } from './seat-keys.js';
 import { MOUSE_STICK, STICK_TUNE, STICK_HINT_ON, STICK_HINT_OFF, createMouseStick, bindMouseStick } from './mousestick.js';
 import { compactHidePanel, seatHidePanel } from '../../../shared/compact-view.js';
 import { DRAKE_WHEEL } from '../../../shared/interior-drake.js';
@@ -2173,6 +2173,8 @@ export function openFlightSim(opts = {}) {
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+    // The bench's own keys while focus is in the bay (seat-keys.js panelTakesKey).
+    if (panelTakesKey(e)) return;
     const k = (e.altKey && (e.code === 'KeyA' || e.code === 'KeyZ')) ? e.code.slice(3).toLowerCase() : (e.key || '').toLowerCase();   // Alt+A on a Mac types å, so read it by code
     if (k === 'escape' && gpsEl) { e.preventDefault(); gpsClose(); return; }
     // ── The free camera ─────────────────────────────────────────────────────
@@ -4955,10 +4957,11 @@ export function cockpitView(mode, { quarter = false } = {}) {
   const F = _fsim; if (!F) return null;
   if (mode === 'ext' || mode === 'cab') F.setExternalView?.(mode === 'ext');
   if (quarter && mode === 'ext') {
-    // Front-right three-quarter, zoomed to the renderer's standoff.
+    // Front-right three-quarter at the bay's elevation. ⚠ It used to clamp the eye to the hangar's
+    // standoff (zoom 0.01) because the walls were in the shot; the bay cuts them down now.
     F.orbitResetting = false;
     F.extOrbit = ((225 - (RENDER_TUNE.chaseYaw || 0)) % 360 + 360) % 360;
-    F.extPitch = 0.32; F.extZoom = 0.01;
+    F.extPitch = BAY_PITCH; F.extZoom = 1;
   }
   return F.external ? 'ext' : 'cab';
 }
@@ -4981,15 +4984,11 @@ export function cockpitFrame(shot, ms = 700) {
     { yaw: shot.yaw - (RENDER_TUNE.chaseYaw || 0), pitch: shot.pitch, zoom: shot.zoom }, ms);
 }
 
-/**
- * The seat as the maintenance bay sees it (maintenance-bay.js). A look is `{ livery }`. ⚠ The view
- * ignores the bay's `enter`: cockpitView's quarter holds the eye at the hangar standoff, which the
- * bay's own shot replaces.
- */
+/** The seat as the maintenance bay sees it (maintenance-bay.js). A look is `{ livery }`. */
 export const cockpitBaySeat = {
   host: cockpitServiceHost, frame: cockpitFrame,
   preview: (look) => cockpitPreview(look || {}),
-  view: (mode) => cockpitView(mode),
+  view: (mode, o = {}) => cockpitView(mode, { quarter: !!o.enter }),
 };
 
 // As isFlightSimActive, for the glass HUD: ⚠ without it a `refresh` zone_event clobbers it mid-landing.

@@ -328,6 +328,11 @@
    sub-nav stays pinned to the top and the Apply/Revert row to the bottom, so the
    controls you need are always on screen without hunting for them. */
 .hb-scope .hb-bench-tabbody .hb-subtabs { position:sticky; top:0; z-index:3; }
+/* The pane bench's till: the job's paying key, pinned under its page as the bay pins it under its own. */
+.hb-scope .hb-bench-tabbody .hb-pane-till { position:sticky; bottom:0; z-index:3; margin-top:10px; padding-top:9px;
+  background:linear-gradient(to top, var(--hb-surf-lo) 72%, transparent);
+  border-top:1px solid color-mix(in srgb, var(--hb-atm-accent) 18%, transparent); }
+.hb-scope .hb-tune-note { display:block; font-size:9px; color:var(--text-dim); margin-top:6px; }
 .hb-scope .hb-bench-tabbody .hb-apply-row { position:sticky; bottom:0; z-index:3; margin-top:10px; padding-top:9px;
   background:linear-gradient(to top, var(--hb-surf-lo) 72%, transparent);
   border-top:1px solid color-mix(in srgb, var(--hb-atm-accent) 18%, transparent); }

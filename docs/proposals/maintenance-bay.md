@@ -1,7 +1,7 @@
 # One maintenance bay for every vehicle
 
-**Status: phases 1 and 2 built (the cutaway and the camera, 2026-10-26; the bay controller,
-2026-11-03); phases 3 to 5 are design.** It's
+**Status: phases 1 to 3 built (the cutaway and the camera, 2026-10-26; the bay controller and the
+menu, 2026-11-03); phases 4 and 5 are design.** It's
 the plan for bringing the truck, boat, aircraft and racer service bays onto one screen: the same 3/4
 camera, the shed's walls cut away completely while the bay is open, and one big, easy menu where
 every change shows on the vehicle before you pay for it.
@@ -21,6 +21,17 @@ fold and restore code. A job names its part area and, for now, the shot it took 
 tab frames as it did. `frameRadius()` is an optional adapter hook; no seat gives one, so it
 defaults to the resting distance and the fitted zoom stays off (`FIT_ZOOM`). The aircraft keeps its
 bench in the pane; the controller drives only the seat.
+
+**What phase 3 shipped.** Every bay shows the eight jobs of §5 (`JOBS` in maintenance-bay.js), the
+ones the vehicle has, in the same order with the same names, icons and number keys; the old tabs
+are groups inside a job (`bay.groups`). Each job frames its own area only, so the phase-2 shots
+that refined them (tuning's front-left, the kits a step closer) are gone, and the hangar's
+`cockpitView` quarter no longer clamps the eye to the standoff. The truck's kits, fittings, horns
+and cab shelf, the aircraft's kits and the boat's decal are on `partsHtml`; a card picks, and the
+till (`tillHtml`) holds the price and the key that pays. Repair and Service are split on all four.
+The keyboard works while focus is in the bay (`registerKeyPanel` and `panelTakesKey` in
+seat-keys.js). Tiles are at least 56px tall and option cards are two across, one on a phone, where
+the tiles are a strip across the top of the sheet. `scripts/client/maintbay-smoke.mjs` holds it.
 
 What ships today is in [depot-shell.md](../reference/depot-shell.md). Read it first; this doc only
 says what changes.
@@ -208,6 +219,7 @@ and the log rung prints the same facts with no screen. No server change is neede
 2. **The bay controller.** §7, with each depot moved onto it one at a time and no visible change
    beyond the camera. Racer first (smallest), then boat, aircraft, truck. *Built 2026-11-03.*
 3. **The menu.** §5: the canonical jobs, `partsHtml` everywhere, the till, the keyboard, bigger tiles.
+   *Built 2026-11-03.*
 4. **Making it real.** §6.1 to §6.4: previews, bars, the work beat, visible wear. The aircraft's kit
    deltas and the wear decals are the only server-side additions.
 5. **Anchors.** §6.5, once models name their anchor points.
@@ -223,8 +235,24 @@ phase that touches a plugin. [depot-shell.md](../reference/depot-shell.md) is up
 - Is a work order wanted (pick several parts, pay once)? It would need a server-side quote verb per
   plugin to keep "the client computes no price", so it's left out of this plan.
 - Should the aircraft keep its counter-side bench in the pane (the 3-D stage beside the floor
-  cards), or should maintenance only ever happen in the seat? *Phase 2: it stays, and the
-  controller drives only the seat.*
+  cards), or should maintenance only ever happen in the seat? *Decided (phase 3): it stays, with the
+  same eight jobs and groups as the seat's bay, because it is the bench for a pilot with no cockpit
+  open (a text pilot, or one without a licence).*
+- **Decided (phase 3): the bay's keys work only while focus is in the bay.** The seats read their
+  controls off the window, and with the bay open the vehicle can still be driven off, so the bay
+  takes 1 to 8, the arrows, Enter, Space and Esc only from inside it (Tab or a click puts focus
+  there), and W still drives. A click on the glass gives the keys back to the seat.
+- **Decided (phase 3): a job's number is its place in the eight, not on the rail.** Paint is 5 on
+  every vehicle, so the key is the same wherever you learnt it.
+- **Decided (phase 3): the racer's Repair and Service pay one bill.** The yard has one verb
+  (`podracer service`), and splitting it is a server change the menu doesn't need. Each page shows
+  its own parts and the till says it is one job.
+- **Decided (phase 3): the boat's decal is under Parts**, as the job table has it; its Paint job
+  holds the colours and the name. The truck's retrim moved from Paint to Inside, where the seat is.
+- **Decided (phase 3): the fitted zoom stays off.** §3 put it in phase 1, not phase 3, and it needs
+  the §4.4 neighbour check from a live seat at every depot first.
+- **Decided (phase 3): a page with nothing to pay for still has a till**, saying so, so the key
+  that pays is always in the same place.
 - **Decided (phase 2): the areas get a shot each, and a job may refine its area with a shot of its
   own.** The doc's five areas can't hold today's framing (tuning's front-left 3/4, the kits a step
   closer), so in phase 2 each job also named the shot it had, and nothing moved.
