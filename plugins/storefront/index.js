@@ -1144,6 +1144,18 @@ async function cmdStaff(player) {
 // not. Staff don't stop a lift; they guarantee the crime is witnessed.
 const SHOP_UNPAID = 'shop_unpaid';
 
+// Which shops each player is known to be carrying marked goods from, so a step out
+// of a shop costs no query for someone who took nothing. No entry means unknown
+// (first move since boot, or their inventory changed): ask the DB, which refills it.
+const unpaidZones = new Map();
+const forgetUnpaid = ({ actor }) => { if (actor?.id) unpaidZones.delete(actor.id); };
+on('inventory.changed', forgetUnpaid);
+on('item.received', forgetUnpaid);
+function mayCarryUnpaid(playerId, zoneId) {
+  const known = unpaidZones.get(playerId);
+  return !known || known.has(zoneId);
+}
+
 async function carriedUnpaid(playerId, zoneId = null) {
   const { rows } = await query(
     `SELECT pi.id, pi.item_id, pi.quantity, pi.custom_data->>'${SHOP_UNPAID}' AS shop_zone,
@@ -1151,6 +1163,7 @@ async function carriedUnpaid(playerId, zoneId = null) {
        FROM player_inventory pi JOIN items i ON i.id = pi.item_id
       WHERE pi.player_id=$1 AND jsonb_exists(pi.custom_data, '${SHOP_UNPAID}')`,
     [playerId]);
+  unpaidZones.set(playerId, new Set(rows.map(r => r.shop_zone)));
   return zoneId ? rows.filter(r => r.shop_zone === zoneId) : rows;
 }
 
@@ -1279,7 +1292,7 @@ registerAction({
 
 registerMoveGate(async ({ player, from, to, direction }) => {
   const deed = getDeed(from?.id);
-  if (!deed?.owner_id || from?.id === to?.id) return;
+  if (!deed?.owner_id || from?.id === to?.id || !mayCarryUnpaid(player.id, from.id)) return;
   const owing = await carriedUnpaid(player.id, from.id);
   if (!owing.length) return;
 
@@ -1304,7 +1317,7 @@ registerMoveGate(async ({ player, from, to, direction }) => {
 on('zone.entered', async ({ actor: player, zone, from }) => {
   if (!player?.id || !from || from === zone?.id) return;
   const deed = getDeed(from);
-  if (!deed?.owner_id) return;
+  if (!deed?.owner_id || !mayCarryUnpaid(player.id, from)) return;
   const lifted = await carriedUnpaid(player.id, from);
   if (!lifted.length) return;
 

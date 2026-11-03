@@ -12,7 +12,7 @@ import { impairmentOf } from '../impairment.js';
 import { emit } from '../events.js';
 import { fireHook } from '../plugins.js';
 import { closeShopSession } from '../vendor-session.js';
-import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
+import { computeCarriedWeight, carriedWeightForMove, carryCapacity, formatWeight } from './inventory.js';
 import { OPPOSITE } from '../directions.js';
 import { forceStand } from '../posture.js';
 import { isSneaking } from '../stealth.js';
@@ -130,7 +130,7 @@ registerLockedProvider((player, from, dir, to) => {
 // exemption system moves (shove, .gohome) pass.
 registerMoveGate(async ({ player, opts }) => {
   if (opts?.bypassEncumbrance) return;
-  const carried = await computeCarriedWeight(player);
+  const carried = await carriedWeightForMove(player);
   const cap = carryCapacity(player);
   if (carried > cap) {
     return { block: true, message: `You're carrying too much to move (${formatWeight(carried)}/${formatWeight(cap)}). Drop something.` };

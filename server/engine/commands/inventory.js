@@ -420,6 +420,21 @@ export async function computeCarriedWeight(player) {
   return value;
 }
 
+// For the move gate: answer from the last known weight and refresh it in the
+// background once it's past the TTL, so a step never waits on the DB. Only the
+// first step after a change (inventory.changed clears the cache) or since login
+// waits. A late refresh is the same few seconds of staleness the TTL already allows.
+export async function carriedWeightForMove(player) {
+  const cached = player._carriedWeight;
+  if (!cached) return computeCarriedWeight(player);
+  if (Date.now() - cached.at >= CARRIED_WEIGHT_TTL_MS && !player._carriedWeightRefreshing) {
+    player._carriedWeightRefreshing = true;
+    computeCarriedWeight(player).catch(() => {})
+      .finally(() => { player._carriedWeightRefreshing = false; });
+  }
+  return cached.value;
+}
+
 async function cmdTake(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Take what?' };
   if (targetStr.toLowerCase().includes(' from ')) return cmdPull(targetStr, player);
