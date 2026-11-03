@@ -4981,6 +4981,17 @@ export function cockpitFrame(shot, ms = 700) {
     { yaw: shot.yaw - (RENDER_TUNE.chaseYaw || 0), pitch: shot.pitch, zoom: shot.zoom }, ms);
 }
 
+/**
+ * The seat as the maintenance bay sees it (maintenance-bay.js). A look is `{ livery }`. ⚠ The view
+ * ignores the bay's `enter`: cockpitView's quarter holds the eye at the hangar standoff, which the
+ * bay's own shot replaces.
+ */
+export const cockpitBaySeat = {
+  host: cockpitServiceHost, frame: cockpitFrame,
+  preview: (look) => cockpitPreview(look || {}),
+  view: (mode) => cockpitView(mode),
+};
+
 // As isFlightSimActive, for the glass HUD: ⚠ without it a `refresh` zone_event clobbers it mid-landing.
 export function isCockpitHudActive() { return !!document.getElementById('ck-hud-root'); }
 

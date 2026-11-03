@@ -324,6 +324,11 @@ export function cabRev(amount = 0.55) {
   st.revAt = performance.now(); st.revAmt = amount;
   return true;
 }
+/** The seat as the maintenance bay sees it (maintenance-bay.js): the hooks above, in one object. */
+export const cabBaySeat = {
+  host: cabServiceHost, frame: cabFrame, preview: cabPreview, rev: cabRev,
+  view: (mode, o = {}) => cabView(mode, { quarter: !!o.enter }),
+};
 // The rev's shape: up in a tenth of a second, then down over the next half.
 function revKick(now) {
   if (!st.revAt) return 0;

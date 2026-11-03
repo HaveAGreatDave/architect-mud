@@ -20,8 +20,8 @@
 
 import { drawWireframe3D, themeColor } from './wireframe-plane.js';
 import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyles } from './vehicle-card.js';
-import { podracerServiceHost, podracerPreview, podracerKitPreview, podracerFrame } from './podracer-view.js';
-import { SHOTS } from './camera-tween.js';
+import { podracerServiceHost, podracerPreview, podracerBaySeat } from './podracer-view.js';
+import { openBay } from './maintenance-bay.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
   statsHtml, partsHtml, meterHtml, btnHtml, armHolds, shellClick, clearViewModes, noteAct, notePush,
@@ -361,11 +361,11 @@ function fitClick(e, ctx, redraw) {
   if (kb && r) {
     const [k, v] = kb.dataset.kit.split(':');
     ctx.kitWork = cleanKit({ ...kitOf(ctx, r), [k]: PODRACER_KIT[k]?.kind === 'tiers' ? +v : v });
-    if (ctx === sv) podracerKitPreview(ctx.kitWork);
     redraw(); return true;
   }
-  if (e.target.closest?.('[data-unkit]')) { ctx.kitWork = null; if (ctx === sv) podracerKitPreview(null); redraw(); return true; }
-  if (e.target.closest?.('[data-kitstock]')) { ctx.kitWork = {}; if (ctx === sv) podracerKitPreview({}); redraw(); return true; }
+  // In the bay the redraw puts the working kit on the racer (maintenance-bay.js sync).
+  if (e.target.closest?.('[data-unkit]')) { ctx.kitWork = null; redraw(); return true; }
+  if (e.target.closest?.('[data-kitstock]')) { ctx.kitWork = {}; redraw(); return true; }
   const go = e.target.closest?.('[data-fitgo]');
   if (go && ctx === st) { st.tab = 'fit'; st.paintId = go.dataset.fitgo; st.kitWork = null; draw(); return true; }
   return false;
@@ -481,17 +481,17 @@ export function openPodracerBay(msg) {
   const host = podracerServiceHost();
   if (!host) return;
   const was = sv;
-  sv = { data: msg, onSend: was?.onSend || msg.onSend || null, open: was ? was.open : !takeDeploy(), tab: was?.tab || 'service', work: null, kitWork: null,
-    kitGroup: was?.kitGroup || null, kitSlot: was?.kitSlot || null, shot: was?.shot || null };
+  // The bay controller (maintenance-bay.js) keeps the open job, the fold and the camera across pushes.
+  sv = { data: msg, onSend: was?.onSend || msg.onSend || null, work: null, kitWork: null,
+    kitGroup: was?.kitGroup || null, kitSlot: was?.kitSlot || null,
+    bay: was?.bay || openBay({ seat: podracerBaySeat, job: 'service', open: !takeDeploy() }) };
   garageBed('shed');
   drawBay();
   if (was) notePush(document.getElementById('pdd-bay'), was.data?.credits, msg.credits);
 }
 export function closePodracerBay() {
   if (!sv) return;
-  podracerPreview(null);
-  podracerKitPreview(null);
-  podracerFrame(null);
+  sv.bay.close(null);
   document.getElementById('pdd-bay')?.remove();
   garageBed(null);
   sv = null;
@@ -502,15 +502,16 @@ function drawBay() {
   const host = podracerServiceHost();
   if (!host) return;
   const el = mountBay(host, 'pdd-bay', { click: onBayClick });
-  setBayOpen(el, sv.open);
+  const bay = sv.bay;
+  setBayOpen(el, bay.open);
   const d = sv.data;
   const r = (d.fleet || []).find((x) => x.id === d.serviceId) || null;
   // Folded, the driver has the camera back; opened again, the shot is taken again.
-  if (!sv.open) { if (sv.shot) { podracerFrame(null); sv.shot = null; } el.innerHTML = bayChipHtml('⟰ the shed door'); return; }
+  if (!bay.open) { el.innerHTML = bayChipHtml('⟰ the shed door'); bay.sync({ look: null }); return; }
   // A truck shed keeps racers and does nothing else to them (`sells` false): the way in, the way
-  // out, and where the work is done.
+  // out, and where the work is done. No camera of its own.
   if (d.sells === false) {
-    podracerPreview(null);
+    bay.jobs([]).sync({ area: null, look: null });
     el.innerHTML = bayHtml({
       ico: '⟰', title: r?.name || 'the racer', sub: d.hereName || 'the shed door', credits: d.credits,
       actions: btnHtml('Put it away', { cmd: 'podevent park', ico: '⟰', attrs: 'title="Leave it in the shed and climb out (Esc)"' }) + leaveHtml('Drive out'),
@@ -520,19 +521,18 @@ function drawBay() {
     armHolds(el, send);
     return;
   }
-  const tab = (sv.tab === 'paint' || sv.tab === 'fit') && r && !r.rental ? sv.tab : 'service';
   const fitted = r ? Object.keys(cleanKit(r.kit)).length : 0;
-  const jobs = r ? jobsHtml([{ id: 'service', label: 'Service', ico: '🔧', ...jobState(r) },
-    ...(r.rental ? [] : [{ id: 'fit', label: 'Fit', ico: '⚙', sub: fitted ? `${fitted} part${fitted > 1 ? 's' : ''} on` : 'factory spec', tone: 'ok' },
-      { id: 'paint', label: 'Paint', ico: '🎨', sub: r.scheme === 'custom' ? 'your own' : ((d.schemes || []).find((x) => x.id === r.scheme)?.label || ''), tone: 'ok' }])], tab, 'data-svtab') : '';
+  // The jobs, each with the part of the racer it works on (maintenance-bay.js AREA_SHOT): the
+  // showroom 3/4 for the service, the back of it for the parts (the pipes, the fins, the turbines'
+  // tails), the flank for the paint.
+  bay.jobs(!r ? [] : [{ id: 'service', label: 'Service', ico: '🔧', area: 'front', ...jobState(r) },
+    ...(r.rental ? [] : [{ id: 'fit', label: 'Fit', ico: '⚙', area: 'rear', sub: fitted ? `${fitted} part${fitted > 1 ? 's' : ''} on` : 'factory spec', tone: 'ok' },
+      { id: 'paint', label: 'Paint', ico: '🎨', area: 'flank', sub: r.scheme === 'custom' ? 'your own' : ((d.schemes || []).find((x) => x.id === r.scheme)?.label || ''), tone: 'ok' }])]);
+  const tab = bay.job || 'service';
+  const jobs = bay.railHtml();
   // The booth shows its working paint, and the fitting shop its working kit, on the racer you are
   // sitting in; any other tab takes them off.
-  podracerPreview(tab === 'paint' && sv.work ? sv.work : null);
-  podracerKitPreview(tab === 'fit' && sv.kitWork ? sv.kitWork : null);
-  // The camera goes to what the tab works on: the showroom 3/4 for the service, the back of it for
-  // the parts (the pipes, the fins, the turbines' tails), the flank for the paint.
-  const shot = { service: 'quarter', fit: 'rear', paint: 'side' }[tab];
-  if (shot !== sv.shot) { podracerFrame(SHOTS[shot], sv.shot ? 700 : 900); sv.shot = shot; }
+  bay.sync({ look: { livery: tab === 'paint' && sv.work ? sv.work : null, kit: tab === 'fit' && sv.kitWork ? sv.kitWork : null } });
   const page = !r ? { main: '<p class="ds-hint">It is not on the yard\'s books.</p>' }
     : tab === 'paint' ? paintPanelHtml(d, r, sv, 'shown on it now')
     : tab === 'fit' ? fitPanelHtml(d, r, sv, 'shown on it now')
@@ -564,9 +564,8 @@ function jobState(r) {
 
 function onBayClick(e) {
   if (!sv) return;
-  if (shellClick(e, { fold: () => { sv.open = false; drawBay(); }, open: () => { sv.open = true; drawBay(); } })) return;
-  const t = e.target.closest?.('[data-svtab]');
-  if (t) { sv.tab = t.dataset.svtab; sv.work = null; sv.kitWork = null; drawBay(); return; }
+  if (sv.bay.click(e, { job: () => { sv.work = null; sv.kitWork = null; }, redraw: drawBay })) return;
+  if (shellClick(e)) return;
   if (fitClick(e, sv, drawBay)) return;
   if (paintClick(e, sv, drawBay)) return;
   const b = e.target.closest?.('[data-cmd]');

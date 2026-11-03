@@ -47,11 +47,12 @@ import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyl
 import { airHorn } from './engine-audio.js';
 // The cab this overlay sits on. ⚠ ONLY EVER ASKED, NEVER DRIVEN: the overlay reads which view is up
 // and can hand the chase camera a paint job to preview, and that is the whole of the coupling.
-import { cabServiceHost, cabPreview, cabView, cabFrame, cabRev } from './cab-view.js';
+import { cabServiceHost, cabPreview, cabBaySeat } from './cab-view.js';
+// The bay's camera, view, preview and job tiles (one controller for the four depots).
+import { openBay } from './maintenance-bay.js';
 // The chrome every depot shares: the head, the job tiles, the bay, holds and the purchase moment.
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml, toastHtml,
   statsHtml, serviceListHtml, armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
-import { SHOTS } from './camera-tween.js';
 import { garageBed } from './garage-ambience.js';
 import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
 
@@ -87,9 +88,10 @@ const SVC_TABS = [
 const HIRE_OK = new Set(['service', 'freight', 'market']);
 // THE CAMERA FOLLOWS THE TAB, the way a garage menu swings round to the part you are buying: the
 // flank for fittings and graphics, the tail for the plate and the deck, low at the nose for what
-// is under the hood. The cab tab (and the booth's interior) sit you in the seat instead.
-const SHOT_FOR = { service: 'quarter', tune: 'low', kits: 'front', paint: 'quarter', fits: 'side', badge: 'rear',
-  freight: 'rear', market: 'quarter' };
+// is under the hood. The cab tab (and the booth's interior) sit you in the seat instead. Each tab
+// names its part area (maintenance-bay.js AREA_SHOT) and the shot that refines it; tuning revs.
+const TAB_AREA = { service: ['front', 'quarter'], tune: ['front', 'low'], kits: ['front', 'front'], paint: ['flank', 'quarter'],
+  fits: ['flank', 'side'], cab: ['inside', 'inside'], badge: ['rear', 'rear'], freight: ['top', 'rear'], market: ['front', 'quarter'] };
 // The bars every truck screen draws, in this order.
 const STAT_ROWS = [['pull', 'Pull'], ['speed', 'Speed'], ['stop', 'Stopping'], ['turn', 'Turn-in'], ['range', 'Range']];
 
@@ -149,10 +151,9 @@ export function openBayService(msg) {
     bench: was?.bench || { tab: 'service', psec: 'scheme', fslot: null, cslot: null, tune: null, paint: null, trim: null },
     toast: was?.toast || null,
     // Open on arrival, and after that it is the player's: a push that re-opened a panel somebody
-    // had just folded away would make "drive out" a button that does not stay pressed.
-    open: was ? was.open : !takeDeploy(),
-    view: was?.view ?? null,
-    shot: was?.shot,
+    // had just folded away would make "drive out" a button that does not stay pressed. The bay
+    // controller (maintenance-bay.js) holds that, the open job and the camera across pushes.
+    bay: was?.bay || openBay({ seat: cabBaySeat, job: 'service', open: !takeDeploy() }),
   };
   B.bench.tune = null; B.bench.trim = null;
   if (!was) B.bench.paint = null;
@@ -164,15 +165,14 @@ export function openBayService(msg) {
   if (was && notePush(document.getElementById('td-svc'), was.data?.credits, msg.credits)) {
     // A kit or a tune going on is a thing a driver hears: blip it.
     const t = selected(), w = (was.data?.fleet || []).find((r) => r.id === t?.id);
-    if (t && w && (JSON.stringify(t.kits) !== JSON.stringify(w.kits) || JSON.stringify(t.tune) !== JSON.stringify(w.tune))) cabRev(0.7);
+    if (t && w && (JSON.stringify(t.kits) !== JSON.stringify(w.kits) || JSON.stringify(t.tune) !== JSON.stringify(w.tune))) B.bay.rev(0.7);
   }
 }
 
 /** The truck has left the shed (or the cab has shut): take the overlay down and hand the camera back. */
 export function closeBayService() {
   if (!B || B.mode !== 'service') return;
-  restoreView();
-  try { cabPreview({ paint: null, trim: null }); } catch { /* the cab can already be gone */ }
+  B.bay.close({ paint: null, trim: null });
   document.getElementById('td-svc')?.remove();
   garageBed(null);
   if (toastT) clearTimeout(toastT);
@@ -425,15 +425,17 @@ function renderService() {
   const host = cabServiceHost();
   if (!host) return;
   const el = mountBay(host, 'td-svc', { click: onClick, input: onInput, mouseover: onPeek, focusin: onPeek });
-  const d = B.data, t = selected();
-  setBayOpen(el, B.open);
-  if (!B.open) {
+  const d = B.data, t = selected(), bay = B.bay;
+  setBayOpen(el, bay.open);
+  if (!bay.open) {
     el.innerHTML = bayChipHtml(`⚙ ${d.depot} · service bay`);
     syncView();
     return;
   }
-  const jobs = SVC_TABS.filter(([k]) => !t?.rental || HIRE_OK.has(k))
-    .map(([id, label, ico]) => ({ id, label, ico, ...(t ? jobState(id, t) : {}) }));
+  // A hire truck has only the tabs that do something to it; the bay falls back to Service.
+  bay.jobs(SVC_TABS.filter(([k]) => !t?.rental || HIRE_OK.has(k))
+    .map(([id, label, ico]) => ({ id, label, ico, area: TAB_AREA[id][0], shot: TAB_AREA[id][1], ...(id === 'tune' ? { rev: 0.4 } : {}), ...(t ? jobState(id, t) : {}) })));
+  B.bench.tab = bay.job;
   const body = !t ? '<div class="td-none">The truck is not on the books here.</div>'
     : B.bench.tab === 'tune' ? tuneTab(t) : B.bench.tab === 'kits' ? kitsTab(t) : B.bench.tab === 'paint' ? paintTab(t)
     : B.bench.tab === 'fits' ? fitsTab(t) : B.bench.tab === 'cab' ? cabTab(t) : B.bench.tab === 'badge' ? badgeTab(t)
@@ -443,7 +445,7 @@ function renderService() {
     actions: leaveHtml('Drive out'),
     notes: (t?.rental ? `<div class="ds-note hire">Hire truck · ${esc(t.rental.leftText)} · back at any yard: <b>park</b> in a shed and <b>yard return</b></div>` : '')
       + (d.hitchState ? `<div class="ds-note">${hitchAct(d.hitchState)}</div>` : ''),
-    jobs: jobsHtml(jobs, B.bench.tab, 'data-bench'),
+    jobs: bay.railHtml(),
     body: `<div class="td-side td-svc-body">${body}</div>`,
     toast: B.toast,
     foot: 'Roll at the door and it lifts. The bay goes when you leave the shed.',
@@ -499,32 +501,17 @@ function onPeek(e) {
 // booth button, and the server's push after it replaces the preview with the real thing.
 function syncView() {
   if (!B || B.mode !== 'service') return;
+  const bay = B.bay;
   // The bay shows the truck from outside on every tab but the cab one: you are looking at what you are working on.
   // …and the paint booth's Interior section sits you in the seat, so a retrim is seen where it is worn.
-  const inside = B.open && B.bench.tab === 'paint' && B.bench.psec === 'inside';
-  const want = !B.open ? null : (B.bench.tab === 'cab' || inside) ? 'cab' : 'ext';
-  try {
-    const first = want && B.view == null;
-    if (first) B.view = cabView();                              // remember what they had, once
-    if (want) cabView(want, { quarter: first });
-    else restoreView();
-    // …and outside, the camera swings to the part the tab sells. Only on a change of tab, so a
-    // re-push after a purchase does not yank the camera back off wherever the player dragged it.
-    const shot = want === 'ext' ? (B.bench.tab === 'paint' && B.bench.psec === 'graphic' ? 'side' : SHOT_FOR[B.bench.tab] || 'quarter') : null;
-    if (shot !== B.shot) {
-      if (shot) cabFrame(SHOTS[shot], first ? 900 : 700);
-      // Opening the tuning tab gives the engine a blip, the way a garage does when it pulls in.
-      if (B.bench.tab === 'tune' && B.shot !== undefined) cabRev(0.4);
-      B.shot = shot;
-    }
-    cabPreview({ paint: B.open && B.bench.tab === 'paint' && B.bench.paint ? paintNow() : null,
-      trim: inside && B.bench.trim ? trimNow() : null });
-  } catch { /* a cab without the hooks is a cab without the preview */ }
-}
-function restoreView() {
-  if (!B || B.view == null) return;
-  try { cabView(B.view); } catch { /* the cab can already be gone */ }
-  B.view = null;
+  // Outside, the camera swings to the part the tab sells (maintenance-bay.js), only on a change of
+  // shot, so a re-push after a purchase does not yank it off wherever the player dragged it. Opening
+  // the tuning tab gives the engine a blip, the way a garage does when it pulls in (the job's `rev`).
+  const inside = bay.open && B.bench.tab === 'paint' && B.bench.psec === 'inside';
+  const graphic = B.bench.tab === 'paint' && B.bench.psec === 'graphic';
+  bay.sync({ ...(inside ? { area: 'inside', shot: 'inside' } : graphic ? { area: 'flank', shot: 'side' } : {}),
+    look: { paint: bay.open && B.bench.tab === 'paint' && B.bench.paint ? paintNow() : null,
+      trim: inside && B.bench.trim ? trimNow() : null } });
 }
 
 // ── The service tab ──────────────────────────────────────────────────────────
@@ -1267,20 +1254,20 @@ function marketScreen() {
 // every control in either is one of the same dozen shapes.
 function onClick(e) {
   if (!B) return;
+  // ⚠ FOLDING THE BAY IS NOT LEAVING IT. The shed is still round you and the fitters are still
+  // there; the chip in the corner brings it back until the truck rolls out through the door. The
+  // job tiles, the fold and the chip are the bay controller's (maintenance-bay.js).
+  if (B.mode === 'service' && B.bay.click(e, { job: (id) => { B.bench.tab = id; }, redraw: renderService })) return;
   if (shellClick(e, {
     screen: (s) => { B.screen = s; render(); },
     // Closing the counter leaves you standing in the yard, so it has to put the room back — the
     // pane is the room's pane, and a panel that simply removed itself would leave it blank.
     close: () => { closeTruckDepot(); sendCmdSilent('look'); },
-    // ⚠ FOLDING THE BAY IS NOT LEAVING IT. The shed is still round you and the fitters are still
-    // there; the chip in the corner brings it back until the truck rolls out through the door.
-    fold: () => { B.open = false; renderService(); },
-    open: () => { B.open = true; renderService(); },
   })) return;
   const t = e.target.closest('[data-cmd],[data-screen],[data-bench],[data-lot],[data-box],[data-paintpick],[data-trimpick],[data-psec],[data-fslot],[data-cslot],[data-preset],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-hear],[data-plate]');
   if (!t || t.disabled) return;
   if (t.dataset.screen) { B.screen = t.dataset.screen; return void render(); }
-  if (t.dataset.bench) { B.bench.tab = t.dataset.bench; return void redraw(); }
+  if (t.dataset.bench) { B.bench.tab = t.dataset.bench; if (B.bay) B.bay.job = t.dataset.bench; return void redraw(); }
   if (t.dataset.lot) { B.lotSel = t.dataset.lot; return void render(); }
   if (t.dataset.box) { B.boxSel = t.dataset.box; return void render(); }
   // A horn you are deciding whether to buy is played HERE and nowhere else: no packet, nothing the

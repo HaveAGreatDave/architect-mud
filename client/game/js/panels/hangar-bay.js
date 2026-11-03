@@ -26,7 +26,7 @@ import { shellProfileFor } from '../../../shared/interior-shell.js';
 import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, disposeWindshield, glWorldInstalled, RENDER_TUNE } from './windshield-lazy.js';
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
   armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
-import { SHOTS } from './camera-tween.js';
+import { openBay } from './maintenance-bay.js';
 import { garageBed } from './garage-ambience.js';
 import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
 
@@ -129,9 +129,10 @@ function openService(data) {
     // Coming from the counter: it held the pane, and the cockpit has it now.
     if (B && !B.service) dropPane();
     const c = (data.craft || []).find((x) => x.id === data.serviceId);
+    // The bay controller (maintenance-bay.js) keeps the open job, the fold and the camera across pushes.
     B = { screen: 'bench', service: true, selId: data.serviceId, data,
-      benchTab: was?.benchTab, paintTab: was?.paintTab, kitSel: was?.kitSel, open: was ? was.open : true,
-      shot: was?.shot, view: was?.view ?? null,
+      benchTab: was?.benchTab, paintTab: was?.paintTab, kitSel: was?.kitSel,
+      bay: was?.bay || openBay({ seat: ck.cockpitBaySeat, job: null, open: true }),
       // The working copy survives a re-push (every Apply sends one) unless the bench is new.
       work: was && was.selId === data.serviceId && was.work ? was.work : (c ? { ...c.livery } : null),
       tune: was?.tune || null, tuneFor: was?.tuneFor || null };
@@ -181,8 +182,8 @@ export function closeHangarBay() {
     // the livery she had when you climbed in, and nothing pushes a respray to an open cockpit
     // (flight_ctx carries no own-ship livery), so null would put the OLD paint back on her for the
     // rest of the flight. closeFlightSim clears the preview when the flight ends.
-    const view = B.view, c = (B.data?.craft || []).find((x) => x.id === B.selId);
-    if (CK) { try { CK.cockpitPreview({ livery: c?.livery || null }); if (view) CK.cockpitView(view); } catch { /* the seat can already be gone */ } }
+    const c = (B.data?.craft || []).find((x) => x.id === B.selId);
+    B.bay?.close({ livery: c?.livery || null });
     document.getElementById('hb-svc')?.remove();
     B = null; charterData = null;
     return;
@@ -1039,7 +1040,20 @@ function benchParts(c) {
     : B.benchTab === 'kits' ? kitsTabHtml(c)
     : B.benchTab === 'weight' ? weightTabHtml(c)
     : paintTabHtml(c, cat, dirty);
-  return { jobs: jobsHtml(cards, B.benchTab, 'data-bench-tab'), body, dirty };
+  return { cards, jobs: jobsHtml(cards, B.benchTab, 'data-bench-tab'), body, dirty };
+}
+
+// THE PART EACH JOB WORKS ON, for the docked bench's camera (maintenance-bay.js AREA_SHOT), with
+// the shot that refines it: the hull from the front 3/4, the fuel and the hopper from the flank,
+// tuning off the front-left, the kits a step closer, the load a step back. The livery's Paint page
+// takes the flank and its Cabin page sits you in the seat.
+const BENCH_AREA = { hull: ['front', 'quarter'], fuel: ['flank', 'side'], paint: ['front', 'quarter'], hopper: ['top', 'side'],
+  tuning: ['front', 'low'], kits: ['front', 'front'], weight: ['top', 'high'] };
+function benchArea(id) {
+  if (id === 'paint' && B.paintTab === 'cabin') return { area: 'inside', shot: 'inside' };
+  if (id === 'paint' && B.paintTab === 'paint') return { area: 'flank', shot: 'side' };
+  const [area, shot] = BENCH_AREA[id] || ['front', 'quarter'];
+  return { area, shot };
 }
 
 // ── Render dispatch ─────────────────────────────────────────────────────────
@@ -1080,13 +1094,13 @@ function onShellClick(e) {
   // Every key here sends its verb from its own handler; this remembers which one it was, so the
   // purchase moment can name what the money went on when the push comes back (depot-shell notePush).
   const key = e.target.closest?.('button');
-  if (key && !key.closest('[data-ds]')) noteAct(key);
+  if (key && !key.closest('[data-ds]') && !key.hasAttribute('data-ds-job')) noteAct(key);
+  // The docked bench's job tiles, fold and open are the bay controller's (maintenance-bay.js).
+  if (B.service && B.bay?.click(e, { job: (id) => { B.benchTab = id; B.boothPick = null; }, redraw: render })) return;
   shellClick(e, {
     screen: (s) => go(s),
     back: () => go('floor'),
     close: () => { if (B.data.inHangar) sendCmdSilent(B.data.exitDir || 'out'); else { closeHangarBay(); sendCmdSilent('look'); } },
-    fold: () => { B.open = false; render(); },
-    open: () => { B.open = true; render(); },
   });
 }
 
@@ -1094,20 +1108,25 @@ function onShellClick(e) {
 // The bench's jobs and pages in the shell's bay, on the cockpit's glass. The cockpit's chase camera
 // is the stage: each job swings it to the part it works on, the livery's Cabin page sits you in the
 // seat to see a retrim where it is worn, and the working paint rides on her until it is applied.
-const SHOT_FOR = { hull: 'quarter', fuel: 'side', paint: 'quarter', hopper: 'side', tuning: 'low', kits: 'front', weight: 'high' };
 function renderService() {
   const ck = CK;
   const host = ck?.cockpitServiceHost();
   if (!host) { closeHangarBay(); return; }
   const el = mountBay(host, 'hb-svc', { click: onShellClick });
-  setBayOpen(el, B.open, 'hb-scope');
+  const bay = B.bay;
+  setBayOpen(el, bay.open, 'hb-scope');
   const d = B.data || {}, c = (d.craft || []).find(x => x.id === B.selId);
-  if (!B.open || !c) {
+  if (!bay.open || !c) {
     el.innerHTML = bayChipHtml(`⚙ ${d.field || 'Hangar'} · the bench`);
-    syncCockpitView(ck, null, c);
+    // Folded, she wears what she has been painted (see closeHangarBay for why not null).
+    bay.sync({ area: null, look: { livery: c?.livery || null } });
     return;
   }
-  const { jobs, body } = benchParts(c);
+  if (bay.job) B.benchTab = bay.job;
+  const { cards, body } = benchParts(c);
+  bay.jobs(cards.map((j) => ({ ...j, ...benchArea(j.id) })));
+  bay.job = B.benchTab;
+  const jobs = bay.railHtml();
   const radar = B.benchTab === 'tuning' ? '<canvas id="hb-perf-radar" class="hb-svc-radar" width="220" height="200"></canvas>' : '';
   el.innerHTML = bayHtml({
     ico: '⚙', title: d.field || 'Hangar', sub: `${c.tail} · ${c.typeName}`, name: c.typeName || c.tail || '', credits: d.credits,
@@ -1120,35 +1139,11 @@ function renderService() {
   wire();
   armHolds(el, sendCmdSilent);
   if (B.benchTab === 'tuning') paintTuning();
-  syncCockpitView(ck, B.open ? B.benchTab : null, c);
-}
-
-// Which camera, and what is on her. Outside on every job but the livery's Cabin page; the shot only
-// moves on a change of job, so a re-push after a purchase leaves the camera where the pilot put it.
-function syncCockpitView(ck, tab, c) {
-  if (!ck) return;
-  try {
-    if (!tab) {
-      if (B.view) { ck.cockpitView(B.view); B.view = null; }
-      B.shot = null;
-      // Folded, she wears what she has been painted (see closeHangarBay for why not null).
-      ck.cockpitPreview({ livery: c?.livery || null });
-      return;
-    }
-    const inside = tab === 'paint' && B.paintTab === 'cabin';
-    if (B.view == null) B.view = ck.cockpitView();
-    const shot = inside ? 'cab' : (tab === 'paint' && B.paintTab === 'paint' ? 'side' : SHOT_FOR[tab] || 'quarter');
-    if (shot !== B.shot) {
-      if (inside) ck.cockpitView('cab');
-      // The same 3/4 the other bays take. The eye used to be held at the standoff in a hangar,
-      // because the walls were in the way; with the bay open the hangar is cut down to its sill.
-      else ck.cockpitFrame(SHOTS[shot], B.shot == null ? 900 : 700);
-      B.shot = shot;
-    }
-    // The work copy itself, not a snapshot: the colour wheel writes into it as it drags, and the
-    // renderer reads the preview every frame, so she changes colour under the cursor.
-    ck.cockpitPreview({ livery: c ? B.work : null });
-  } catch { /* a cockpit without the hooks is a cockpit without the preview */ }
+  // Outside on every job but the livery's Cabin page, the same 3/4 the other bays take (the eye
+  // used to be held at the standoff in a hangar, because the walls were in the way). The work copy
+  // itself goes on her, not a snapshot: the colour wheel writes into it as it drags, and the
+  // renderer reads the preview every frame, so she changes colour under the cursor.
+  bay.sync({ look: { livery: B.work } });
 }
 
 // The live bench: docked on the cockpit, or the counter in the pane.

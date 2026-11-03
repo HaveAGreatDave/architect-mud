@@ -1,6 +1,7 @@
 # One maintenance bay for every vehicle
 
-**Status: phase 1 built (the cutaway and the camera, 2026-10-26); phases 2 to 5 are design.** It's
+**Status: phases 1 and 2 built (the cutaway and the camera, 2026-10-26; the bay controller,
+2026-11-03); phases 3 to 5 are design.** It's
 the plan for bringing the truck, boat, aircraft and racer service bays onto one screen: the same 3/4
 camera, the shed's walls cut away completely while the bay is open, and one big, easy menu where
 every change shows on the vehicle before you pay for it.
@@ -11,6 +12,15 @@ shot shares one elevation and the hangar's standoff clamp is gone (§3); the bay
 (§4.5). Not done from §3: the fitted zoom (`frameRadius`). The shots keep each seat's own resting
 distance. Not done from §4.4: the neighbour check was only made in the Modelshop, not from a live
 seat at every depot.
+
+**What phase 2 shipped.** [maintenance-bay.js](../../client/game/js/panels/maintenance-bay.js)
+holds the open job, the fold, the camera, the seat's view and the preview for all four bays. Each
+seat exports an adapter (`cabBaySeat`, `boatBaySeat`, `cockpitBaySeat`, `podracerBaySeat`), and the
+four depots lost `syncView`, `syncPreview`, `syncCockpitView`, their `SHOT_FOR` tables and their
+fold and restore code. A job names its part area and, for now, the shot it took before, so every
+tab frames as it did. `frameRadius()` is an optional adapter hook; no seat gives one, so it
+defaults to the resting distance and the fitted zoom stays off (`FIT_ZOOM`). The aircraft keeps its
+bench in the pane; the controller drives only the seat.
 
 What ships today is in [depot-shell.md](../reference/depot-shell.md). Read it first; this doc only
 says what changes.
@@ -196,7 +206,7 @@ and the log rung prints the same facts with no screen. No server change is neede
    the fitted 3/4, the hangar standoff fix, the bay gate. Check every depot in the browser at day and
    night.
 2. **The bay controller.** §7, with each depot moved onto it one at a time and no visible change
-   beyond the camera. Racer first (smallest), then boat, aircraft, truck.
+   beyond the camera. Racer first (smallest), then boat, aircraft, truck. *Built 2026-11-03.*
 3. **The menu.** §5: the canonical jobs, `partsHtml` everywhere, the till, the keyboard, bigger tiles.
 4. **Making it real.** §6.1 to §6.4: previews, bars, the work beat, visible wear. The aircraft's kit
    deltas and the wear decals are the only server-side additions.
@@ -213,4 +223,11 @@ phase that touches a plugin. [depot-shell.md](../reference/depot-shell.md) is up
 - Is a work order wanted (pick several parts, pay once)? It would need a server-side quote verb per
   plugin to keep "the client computes no price", so it's left out of this plan.
 - Should the aircraft keep its counter-side bench in the pane (the 3-D stage beside the floor
-  cards), or should maintenance only ever happen in the seat?
+  cards), or should maintenance only ever happen in the seat? *Phase 2: it stays, and the
+  controller drives only the seat.*
+- **Decided (phase 2): the areas get a shot each, and a job may refine its area with a shot of its
+  own.** The doc's five areas can't hold today's framing (tuning's front-left 3/4, the kits a step
+  closer), so in phase 2 each job also named the shot it had, and nothing moved.
+- **Decided (phase 2): `frameRadius()` is optional and defaults to the seat's resting distance**,
+  so the fitted zoom is a factor of 1 and stays off. The renderer already scales the resting
+  distance by the subject's size (windshield.js `szFac`).

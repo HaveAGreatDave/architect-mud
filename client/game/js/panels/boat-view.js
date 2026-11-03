@@ -301,6 +301,12 @@ export function boatRev(amount = 0.5) {
   st.revAt = performance.now(); st.revAmt = amount;
   return true;
 }
+/** The seat as the maintenance bay sees it (maintenance-bay.js). A look is `{ livery }`. */
+export const boatBaySeat = {
+  host: boatServiceHost, frame: boatFrame, rev: boatRev,
+  preview: (look) => boatPreview(look || {}),
+  view: (mode, o = {}) => boatView(mode, { quarter: !!o.enter }),
+};
 function revKick(now) {
   if (!st?.revAt) return 0;
   const t = (now - st.revAt) / 1000;

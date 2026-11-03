@@ -24,11 +24,11 @@
 // `aircraftFaces`, the face list the windscreen and a stranger's contact draw.
 import { drawWireframe3D, themeColor } from './wireframe-plane.js';
 import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyles } from './vehicle-card.js';
-import { boatServiceHost, boatPreview, boatView, boatFrame, boatRev } from './boat-view.js';
+import { boatServiceHost, boatBaySeat } from './boat-view.js';
+import { openBay } from './maintenance-bay.js';
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
   statsHtml, meterHtml, serviceListHtml, btnHtml, armHolds, shellClick, clearViewModes, noteAct, notePush,
   esc, money, clamp01, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
-import { SHOTS } from './camera-tween.js';
 import { garageBed } from './garage-ambience.js';
 import { TYPES } from './flight-model.js';
 
@@ -38,10 +38,9 @@ const SCREENS = [['lot', 'Your boats', '⚓'], ['dealer', 'For sale', '⊕'], ['
 // to be the dock, the fleet or the bench is the hand now (the bench itself is in the seat).
 const TAB_FOR = { lot: 'lot', fleet: 'lot', dock: 'lot', bench: 'lot', dealer: 'dealer', rent: 'rent', berths: 'berths' };
 
-// The shipwright's tabs, and the shot each one swings the camera to: the hull from the front 3/4,
-// the paint down her flank, and her name across the transom.
-const JOBS = [['service', 'Service', '⚙'], ['paint', 'Paint', '◐'], ['name', 'Name', '✎']];
-const SHOT_FOR = { service: 'quarter', paint: 'side', name: 'rear' };
+// The shipwright's tabs, and the part of her each one works on (maintenance-bay.js AREA_SHOT): the
+// hull from the front 3/4, the paint down her flank, and her name across the transom.
+const JOBS = [['service', 'Service', '⚙', 'front'], ['paint', 'Paint', '◐', 'flank'], ['name', 'Name', '✎', 'rear']];
 
 // ── A HULL'S BARS ────────────────────────────────────────────────────────────
 // The dealer shows what she does the way the truck dealer does, and the numbers are the hull's own
@@ -307,27 +306,23 @@ export function openMarinaService(msg) {
   if (!host) return;
   const was = sv;
   const same = was && was.mode === msg.service;
-  sv = {
-    data: msg, mode: msg.service, onSend: was?.onSend || msg.onSend || null,
-    tab: same ? was.tab : 'service',
-    // Open when she arrives; after that, folded or open is the helmsman's.
-    open: same ? was.open : !takeDeploy(),
-    pick: was?.pick || null, view: was?.view ?? null, shot: same ? was.shot : undefined,
-  };
-  const b = boat();
-  if (b?.rental && sv.tab !== 'service') sv.tab = 'service';
+  // One bay controller (maintenance-bay.js) for as long as she is in the seat, so the view she had
+  // before the slip is the one handed back. Open when she arrives at a new berth; after that,
+  // folded or open (and which job) is the helmsman's.
+  const bay = was?.bay || openBay({ seat: boatBaySeat, job: 'service', open: !takeDeploy() });
+  if (was && !same) { bay.job = 'service'; bay.open = !takeDeploy(); }
+  sv = { data: msg, mode: msg.service, onSend: was?.onSend || msg.onSend || null, pick: was?.pick || null, bay };
   // The slip has a sound; the fuel float is just the harbour, which the helm already plays.
   garageBed(sv.mode === 'dock' ? 'dock' : null);
   // Pulling into the shed: give the motor a blip, the way a garage menu does.
-  if (!same && sv.mode === 'dock') setTimeout(() => boatRev(0.35), 450);
+  if (!same && sv.mode === 'dock') setTimeout(() => sv?.bay.rev(0.35), 450);
   drawService();
   if (same) notePush(document.getElementById('mar-svc'), was.data?.credits, msg.credits);
 }
 
 export function closeMarinaService() {
   if (!sv) return;
-  restoreView();
-  try { boatPreview({ livery: null }); } catch { /* the seat can already be gone */ }
+  sv.bay.close({ livery: null });
   document.getElementById('mar-svc')?.remove();
   garageBed(null);
   sv = null;
@@ -340,19 +335,23 @@ function drawService() {
   const host = boatServiceHost();
   if (!host) return;
   const el = mountBay(host, 'mar-svc', { click: onServiceClick });
-  setBayOpen(el, sv.open);
+  const bay = sv.bay;
+  setBayOpen(el, bay.open);
   const d = sv.data, b = boat();
   const fuel = sv.mode === 'fuel';
   const where = fuel ? 'the fuel float' : 'the covered dock';
-  if (!sv.open) {
+  if (!bay.open) {
     el.innerHTML = bayChipHtml(`${fuel ? '⛽' : '⚓'} ${where}`);
     syncPreview();
     return;
   }
-  const jobs = fuel || !b ? '' : jobsHtml(JOBS.filter(([k]) => !b.rental || k === 'service')
-    .map(([id, label, ico]) => ({ id, label, ico, ...jobState(id, b) })), sv.tab, 'data-svtab');
+  // A hire boat has only the service; the pump has no jobs at all.
+  bay.jobs(fuel || !b ? [] : JOBS.filter(([k]) => !b.rental || k === 'service')
+    .map(([id, label, ico, area]) => ({ id, label, ico, area, ...jobState(id, b) })));
+  const jobs = bay.railHtml();
+  const tab = bay.job || 'service';
   const body = !b ? '<p class="ds-hint">She is not on the books here.</p>'
-    : fuel ? fuelBody(b) : sv.tab === 'paint' ? paintBody(b, d) : sv.tab === 'name' ? nameBody(b) : serviceBody(b);
+    : fuel ? fuelBody(b) : tab === 'paint' ? paintBody(b, d) : tab === 'name' ? nameBody(b) : serviceBody(b);
   el.innerHTML = bayHtml({
     ico: fuel ? '⛽' : '⚓', title: b?.name || 'her', sub: where, credits: d.credits,
     actions: (sv.mode === 'dock' && b ? btnHtml('Dock her', { cmd: 'disembark', ico: '⚓', attrs: 'title="The slings take her out of the water and you step up into the Dock Hall (P)"' }) : '')
@@ -428,12 +427,8 @@ function fuelBody(b) {
 
 function onServiceClick(e) {
   if (!sv) return;
-  if (shellClick(e, {
-    fold: () => { sv.open = false; drawService(); },
-    open: () => { sv.open = true; drawService(); },
-  })) return;
-  const t = e.target.closest?.('[data-svtab]');
-  if (t) { sv.tab = t.dataset.svtab; drawService(); return; }
+  if (sv.bay.click(e, { redraw: drawService })) return;
+  if (shellClick(e)) return;
   const sc = e.target.closest?.('[data-scheme]');
   if (sc && !sc.disabled) { sv.pick = sc.dataset.scheme; drawService(); return; }
   const n = e.target.closest?.('[data-name]');
@@ -446,31 +441,19 @@ function onServiceClick(e) {
   if (b && !b.disabled && b.dataset.cmd) { noteAct(b); send(b.dataset.cmd); }
 }
 
-// The dock always shows her from outside, and the camera swings to what the tab works on; the
-// preview rides on the hull; leaving the tab or the slot hands back whichever view the helmsman had.
+// The dock always shows her from outside, and the camera swings to what the tab works on
+// (maintenance-bay.js); the preview rides on the hull; leaving the tab or the slot hands back
+// whichever view the helmsman had. The pump takes no camera.
 function syncPreview() {
   if (!sv) return;
-  const onDock = sv.open && sv.mode === 'dock';
-  const onPaint = onDock && sv.tab === 'paint';
-  try {
-    if (onDock) {
-      const first = sv.view == null;
-      if (first) sv.view = boatView();
-      boatView('ext', { quarter: first });
-      // Only on a change of tab, so a re-push after a purchase leaves the camera where it was put.
-      const shot = SHOT_FOR[sv.tab] || 'quarter';
-      if (shot !== sv.shot) { boatFrame(SHOTS[shot], first ? 900 : 700); sv.shot = shot; }
-    } else { restoreView(); sv.shot = undefined; }
-    const b = boat();
-    const pick = onPaint && sv.pick && b && sv.pick !== b.scheme ? (sv.data.schemes || []).find((x) => x.id === sv.pick) : null;
-    boatPreview({ livery: pick ? { ...(pick.livery || {}), ...(b.decal && b.decal !== 'none' ? { decal: b.decal } : {}) } : null });
-  } catch { /* a seat without the hooks is a seat without the preview */ }
-  if (!onPaint && sv) sv.pick = sv.tab === 'paint' ? sv.pick : null;
-}
-function restoreView() {
-  if (!sv || sv.view == null) return;
-  try { boatView(sv.view); } catch { /* gone */ }
-  sv.view = null;
+  const bay = sv.bay;
+  const onDock = bay.open && sv.mode === 'dock';
+  const onPaint = onDock && bay.job === 'paint';
+  const b = boat();
+  const pick = onPaint && sv.pick && b && sv.pick !== b.scheme ? (sv.data.schemes || []).find((x) => x.id === sv.pick) : null;
+  bay.sync({ ...(onDock ? {} : { area: null }),
+    look: { livery: pick ? { ...(pick.livery || {}), ...(b.decal && b.decal !== 'none' ? { decal: b.decal } : {}) } : null } });
+  if (!onPaint) sv.pick = bay.job === 'paint' ? sv.pick : null;
 }
 
 // ── THE STYLES ───────────────────────────────────────────────────────────────

@@ -711,6 +711,14 @@ function toggleOut(show) {
 export function podracerPreview(livery) { if (st) st.preview = livery || null; }
 // The fitting shop shows a kit's looks on the racer before it is bought; null takes it off.
 export function podracerKitPreview(kit) { if (!st) return; st.kitPreview = kit || null; st.kitLook = podracerLook(kit || st.kit); }
+/**
+ * The seat as the maintenance bay sees it (maintenance-bay.js). A look is `{ livery, kit }`. The
+ * racer has no inside view and no engine blip, so it gives neither.
+ */
+export const podracerBaySeat = {
+  host: () => podracerServiceHost(), frame: (shot, ms) => podracerFrame(shot, ms),
+  preview: (look) => { podracerPreview(look?.livery || null); podracerKitPreview(look?.kit || null); },
+};
 
 // ── What the server pushes ─────────────────────────────────────────────────────
 export function podracerSetWorld(msg = {}) {
