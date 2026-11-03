@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_ballpark_lager",
+  "name": "cup of ballpark lager",
+  "tags": {
+    "consumable": true,
+    "description": "A tall plastic cup of pale lager, poured from a can by a man with a tray round his neck. Half of it is foam and it costs what a bottle would.",
+    "food_noun": "beer",
+    "food_profile": "liquid",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 0.5,
+    "restore_thirst": 25,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 8,
+  "weight": 400
+}

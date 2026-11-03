@@ -13,7 +13,8 @@
 //          A cigar is the same with a cutter first: click to clip its cap, then light and puff it.
 //          Once it's lit you can take anything else: the smoke comes out of your mouth and sits in
 //          your fingers, low left, still burning, while Space works the drink; when that's done it
-//          goes back to your mouth.
+//          goes back to your mouth. It works the other way too: take a smoke with a drink in hand
+//          and the drink is set down while you light it. Q (or the button) swaps between the two.
 //   drink  crack the cap, hold Space to tip it back, until it's gone (`drink <it>`).
 //   eat    Space or click takes a bite, until it's gone (`eat <it>`).
 //   glass  a glass from the bar stays with you, bottom left. Take a spirit or a mixer and you pour
@@ -87,7 +88,7 @@ const SND = {
 // Read off the name, with a plain fallback for anything it doesn't know.
 function tintOf(name) {
   const n = String(name || '').toLowerCase();
-  if (/cola/.test(n)) return '#3b1a0c';
+  if (/cola/.test(n)) return '#5c1a02';
   if (/rum/.test(n)) return '#7a3510';
   if (/whisk|bourbon|brandy/.test(n)) return '#b5701f';
   if (/lime/.test(n)) return '#b9d46c';
@@ -134,6 +135,8 @@ const BOTTLES = {
   // a long-neck: heel, straight body, shoulder, neck, the lip a crown cap sits on
   lager: { top: 23, outer: [[0, 0], [2.7, 0], [3.05, 0.35], [3.1, 1], [3.1, 13], [2.95, 14.6], [2.2, 16.4], [1.5, 17.8], [1.25, 19], [1.25, 22.2], [1.45, 22.4], [1.45, 23], [0, 23]], fill: 19.2, cap: true, label: [5.5, 11.5], r: 3.1 },
   spirit: { top: 23, outer: [[0, 0], [3.4, 0], [3.8, 0.35], [3.85, 1], [3.85, 14], [3.6, 15.6], [2.4, 17.2], [1.4, 18.4], [1.3, 19.4], [1.3, 22.4], [1.5, 22.6], [1.5, 23], [0, 23]], fill: 15.8, cap: false, label: [4.5, 11], r: 3.85 },
+  // a contour cola bottle in green glass: the pinched waist, the fat belly, a long taper to the crown
+  cola: { top: 19.6, outer: [[0, 0], [2.55, 0], [2.85, 0.3], [2.92, 1], [2.72, 2.6], [2.55, 4], [2.8, 6], [3.02, 8.2], [2.98, 10.2], [2.7, 11.8], [2.25, 13.4], [1.75, 15], [1.35, 16.5], [1.18, 17.8], [1.18, 18.9], [1.4, 19.05], [1.4, 19.6], [0, 19.6]], fill: 16.4, cap: true, label: [6.6, 9.6], r: 3.04, labelColor: '#b3141c', flutes: 18 },
   // a flute: foot, stem, a tall bowl; the inside comes back down so the glass has a wall
   flute: { top: 19.5, outer: [[0, 0], [3.3, 0], [3.3, 0.18], [0.4, 0.55], [0.26, 8.5], [0.55, 9.3], [1.9, 11], [2.4, 14], [2.45, 19.5], [2.36, 19.5], [2.31, 14], [1.82, 11.15], [0, 10.25]], fill: 18, liquid: [[0, 10.4], [1.74, 11.25], [2.24, 14], [2.3, 18.2], [0, 18.2]], flute: true },
 };
@@ -198,13 +201,15 @@ export function createHands(root, host, { send }) {
   const glassBtn = document.createElement('button');
   glassBtn.type = 'button'; glassBtn.className = 'sh-glass'; glassBtn.hidden = true;
   glassBtn.setAttribute('aria-label', 'Your glass');
-  root.append(cg, cv, prompt, glassBtn);
+  const swapBtn = document.createElement('button');
+  swapBtn.type = 'button'; swapBtn.className = 'sh-swap'; swapBtn.hidden = true;
+  root.append(cg, cv, prompt, glassBtn, swapBtn);
   const tip = root.querySelector('.st-tip');
 
   let W = 0, H = 0, S = 1, raf = 0, last = 0, act = null, space = false, stopped = false;
   let mouse = null;
   const smoke = [], sparks = [], bits = [];
-  let dizzy = 0, beatAt = 0, glass = null, held = null;   // held: a lit smoke set aside for a drink
+  let dizzy = 0, beatAt = 0, glass = null, held = null;   // held: the smoke or drink set aside for the other
 
   const fit = () => {
     const w = host.offsetWidth, h = host.offsetHeight, dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -226,6 +231,8 @@ export function createHands(root, host, { send }) {
   cv.addEventListener('pointermove', (e) => { const b = cv.getBoundingClientRect(); mouse = [e.clientX - b.left, e.clientY - b.top]; });
   cv.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); act?.click?.(); });
   glassBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+  swapBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+  swapBtn.addEventListener('click', () => swap());
   glassBtn.addEventListener('click', () => { if (glass && free()) start(glassActivity()); });
 
   const puff = (x, y, vx, vy, r, life, a = 0.8, grow = 26) => { if (smoke.length < 260) smoke.push({ x, y, vx, vy, r, life, a, grow, age: 0, spin: Math.random() * 6 }); };
@@ -270,7 +277,7 @@ export function createHands(root, host, { send }) {
       seg(K.L - 0.02, K.L, K.R * 0.96, { color: '#6b4220', noise: 0.55, spec: 3, emit: [0.9 * c.glow, 0.28 * c.glow, 0.02] });
     }
     const end = c.lit ? burn + c.ash * K.L : K.L;
-    return { tip: apply(CM, [0, end, 0]), burn: apply(CM, [0, burn, 0]) };
+    return { tip: apply(CM, [0, end, 0]), burn: apply(CM, [0, burn, 0]), base: apply(CM, [0, 0, 0]) };
   }
 
   // ── the zippo: brushed chrome case, the lid on a five-knuckle hinge, the chimney with its
@@ -302,17 +309,95 @@ export function createHands(root, host, { send }) {
   function drawBottle(BM, b) {
     const B = BOTTLES[b.shape];
     const outer = mesh.lathe(`b-${b.shape}`, B.outer), liq = mesh.lathe(`bl-${b.shape}`, liquidOf(B));
+    let surface = -Infinity;
     if (b.level > 0.005) {
       let lo = Infinity, hi = -Infinity;
       for (let i = 0; i < liq.pts.length; i += 27) { const y = apply(BM, [liq.pts[i], liq.pts[i + 1], liq.pts[i + 2]])[1]; if (y < lo) lo = y; if (y > hi) hi = y; }
-      g3.draw(liq, BM, { color: b.tint, alpha: clearLiquid(b.tint) ? 0.4 : 0.92, spec: 40, clipY: lo + (hi - lo) * Math.pow(b.level, 0.9) });
+      surface = lo + (hi - lo) * Math.pow(b.level, 0.9);
+      g3.draw(liq, BM, { color: b.tint, alpha: clearLiquid(b.tint) ? 0.4 : b.alpha ?? 0.92, spec: 40, clipY: surface });
+      // a head of foam on the surface, level in the world; it can climb the neck past where the cola stops
+      if (b.foam > 0.02) g3.draw(mesh.lathe(`bf-${b.shape}`, B.outer.filter(([r]) => r > 0).map(([r, y]) => [Math.max(0, r - 0.2), Math.max(0.25, Math.min(B.top - 0.3, y))]).concat([[0, B.top - 0.3]])), BM, { color: '#d9c09e', alpha: 0.92, noise: 0.45, spec: 12, floorY: surface - 0.05, clipY: surface + b.foam });
     }
     if (B.label) {
-      g3.draw(mesh.lathe(`lab-${b.shape}`, [[B.r + 0.02, B.label[0]], [B.r + 0.02, B.label[1]]], { smooth: false }), BM, { color: '#efe8d8', spec: 8 });
+      g3.draw(mesh.lathe(`lab-${b.shape}`, [[B.r + 0.02, B.label[0]], [B.r + 0.02, B.label[1]]], { smooth: false }), BM, { color: B.labelColor || '#efe8d8', spec: 8 });
       for (const y of [B.label[0] + 0.4, B.label[1] - 0.6]) g3.draw(mesh.lathe(`labg-${b.shape}-${y}`, [[B.r + 0.03, y], [B.r + 0.03, y + 0.25]], { smooth: false }), BM, { color: '#d4ac4a', metal: 0.8, spec: 60 });
     }
     if (b.cap) g3.draw(mesh.cyl(), M(BM, T(0, B.top - 0.25, 0), S3(1.6, 0.7, 1.6)), { color: '#c9b46a', metal: 0.85, spec: 70, stripe: 21 });
-    g3.draw(outer, BM, { color: b.glass, alpha: B.flute ? 0.12 : 0.45, glass: 1, spec: 120 });
+    g3.draw(outer, BM, { color: b.glass, alpha: B.flute ? 0.12 : B.flutes ? 0.16 : 0.45, glass: 1, spec: 120, stripe: B.flutes || 0 });
+    return { surface };
+  }
+
+  // ── the fizz in a bottle of something carbonated, in the bottle's own centimetres ──
+  // Bubbles start on a few nucleation sites on the glass, rise up the world's vertical however the
+  // bottle is held, wobble, swell as the pressure falls, slide along the wall and burst at the
+  // surface into a head of foam that drains away. Cracking the cap and sloshing it both shake CO2
+  // out; a head taller than the room left in the neck runs over the lip.
+  function wallOf(B) {
+    const prof = [];
+    for (const [r, y] of B.outer) { if (prof.length && y < prof[prof.length - 1][1]) break; prof.push([r, y]); }
+    return (y) => {
+      for (let i = 1; i < prof.length; i++) {
+        const [r0, y0] = prof[i - 1], [r1, y1] = prof[i];
+        if (y <= y1) return y1 > y0 ? lerp(r0, r1, (y - y0) / (y1 - y0)) : Math.min(r0, r1);
+      }
+      return prof[prof.length - 1][0];
+    };
+  }
+  function fizzOf(B) {
+    const wall = wallOf(B), sites = Array.from({ length: 9 }, (_, k) => {
+      const y = 0.5 + Math.random() * (B.fill - 2), a = k * 2.4 + Math.random();
+      return { y, a, at: Math.random() };
+    });
+    const bub = [];
+    const f = { co2: 0.35, foam: 0, slosh: 0, over: false, bub };
+    // dt in s; BM the bottle's matrix last frame; surface the liquid's world height; top the lip's
+    f.step = (dt, BM, surface, top, level) => {
+      if (!BM) return;
+      const o = apply(BM, [0, 0, 0]);
+      // the world's up, in the bottle's frame
+      const up = [apply(BM, [1, 0, 0])[1] - o[1], apply(BM, [0, 1, 0])[1] - o[1], apply(BM, [0, 0, 1])[1] - o[1]];
+      f.slosh = Math.max(0, f.slosh - dt * 1.5);
+      const rate = level > 0.01 ? (f.co2 * 25 + f.slosh * 220) : 0;
+      for (const s of sites) {
+        s.at += dt * rate / sites.length;
+        while (s.at > 1 && bub.length < 140) {
+          s.at -= 1;
+          const r0 = wall(s.y) - 0.35;
+          if (apply(BM, [Math.cos(s.a) * r0, s.y, Math.sin(s.a) * r0])[1] > surface - 0.3) continue;
+          bub.push({ p: [Math.cos(s.a) * r0, s.y, Math.sin(s.a) * r0], v: [0, 0, 0], r: 0.1 + Math.random() * 0.08, ph: Math.random() * 6 });
+        }
+        s.at = Math.min(s.at, 1);
+      }
+      for (let i = bub.length - 1; i >= 0; i--) {
+        const q = bub[i];
+        // terminal speed grows with size; the drag eases the velocity toward it
+        const vt = 3 + 55 * q.r, k = 1 - Math.exp(-dt * 9);
+        const wob = Math.sin(q.ph += dt * (14 + 30 * q.r)) * vt * 0.18;
+        for (let j = 0; j < 3; j++) q.v[j] = lerp(q.v[j], up[j] * vt + (j === 0 ? wob : j === 2 ? -wob * 0.6 : 0), k);
+        for (let j = 0; j < 3; j++) q.p[j] += q.v[j] * dt;
+        q.r = Math.min(0.42, q.r + dt * 0.05 * (1 + f.slosh));
+        // the wall: kept inside, slid along it
+        const y = clamp(q.p[1], 0.3, B.top - 0.6), rr = Math.hypot(q.p[0], q.p[2]), lim = Math.max(0.05, wall(y) - 0.22 - q.r);
+        q.p[1] = y;
+        if (rr > lim) { q.p[0] *= lim / rr; q.p[2] *= lim / rr; }
+        if (apply(BM, q.p)[1] >= surface - q.r * 0.5) {
+          f.foam += q.r * q.r * q.r * 6;
+          bub.splice(i, 1);
+        }
+      }
+      // the head drains back into the cola; a big one drains slower at first
+      f.co2 = Math.max(0.04, f.co2 - dt * 0.012 * (1 + f.slosh * 3));
+      f.foam = Math.max(0, f.foam - dt * (0.3 + f.foam * 0.3));
+      const room = top - surface;
+      f.over = f.foam > room && level > 0.01;
+      if (f.over) f.foam = lerp(f.foam, room, 1 - Math.exp(-dt * 3));
+    };
+    // a burst of CO2: the cap coming off, or a slosh
+    f.shake = (k) => { f.slosh = Math.min(1.5, f.slosh + k); };
+    f.draw = (BM) => {
+      for (const q of bub) g3.draw(mesh.sph(), M(BM, T(...q.p), S3(q.r)), { color: '#fff4e2', alpha: 0.75, glass: 1, spec: 140 });
+    };
+    return f;
   }
 
   // ── the tall glass about its foot: layers by height, or one mixed colour clipped level
@@ -387,7 +472,7 @@ export function createHands(root, host, { send }) {
     let aim = null, zp = null, cigTip = [0, 0, -14], cigBurn = cigTip, aside = 0, asideTo = 0;
     // ash: how long it holds before its own weight takes it, the bits on their way down, the flick
     const ASH_MAX = cigar ? 0.13 : 0.11, falling = [];
-    let flickT = 0, flickTold = false, lastDir = mdir;
+    let flickT = 0, flickTold = false, lastDir = null;
     // the end is in the same place whatever you smoke; a longer one reaches further back to your mouth
     const MT = cigar ? [1.2, -3.7, -22] : [0.8, -2.45, -14.2], DIRL = Math.hypot(0.65, 1.45, -8.2), mdir = [0.65, 1.45, -8.2].map((v) => (v / DIRL) * K.L);
     const MB = MT.map((v, i) => v - mdir[i]);
@@ -457,7 +542,13 @@ export function createHands(root, host, { send }) {
         if (phase === 'lit') {
           if (t > 0.5 && z.lidTo) { z.lidTo = 0; z.flame = 0; setTimeout(() => SND.close(), 60); }
           away = ease((t - 0.8) / 0.6);
-          if (t > 1.4) { phase = 'drag'; exhaleAt = now + 500; exhaleK = 0.8; say(`Hold Space to take a ${DRAG}. Let go in the green.`); showGlass(); }
+          if (t > 1.4) {
+            phase = 'drag'; exhaleAt = now + 500; exhaleK = 0.8; say(`Hold Space to take a ${DRAG}. Let go in the green.`); showGlass();
+            // lit with a drink waiting: the drink comes back up and the smoke stays in your mouth
+            // (Q brings it back). After this frame, so the swap doesn't land mid-update.
+            const me = act;
+            if (held && !held.smoke) setTimeout(() => { if (act === me && held && !held.smoke) swap(); }, 0);
+          }
         }
         if (phase === 'drag') {
           if (drawing) {
@@ -530,7 +621,23 @@ export function createHands(root, host, { send }) {
           const pos = [aim[0] + away * 3, lerp(aim[1] - 9, aim[1], in0) - away * 9, aim[2]];
           const ZM = M(T(...pos), RY(-0.5 + (mouse ? (mouse[0] / W - 0.5) * 0.4 : 0)), RX(0.15), S3(0.72), T(-WICK[0], -WICK[1], -WICK[2]));
           zp = drawZippo(ZM, z);
-          if (z.flame > 0) { const q = at(zp.wick); drawFlame(ctx, q[0], q[1], q[2] * 2.6, Math.sin(now * 0.004) * 4 * S, now, z.flame); }
+          if (z.flame > 0) {
+            const q = at(zp.wick);
+            // the flame is on the 2-D layer over everything, so where the smoke is nearer than the
+            // wick, cut its outline out of the flame and the smoke hides it
+            ctx.save();
+            if (r.tip[2] > zp.wick[2] - 0.3) {
+              const a = at(r.base), b = at(r.tip), dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+              const ra = K.R * a[2], rb = K.R * b[2];
+              ctx.beginPath(); ctx.rect(0, 0, W, H);
+              ctx.moveTo(a[0] + nx * ra, a[1] + ny * ra); ctx.lineTo(b[0] + nx * rb, b[1] + ny * rb);
+              ctx.arc(b[0], b[1], rb, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true);
+              ctx.lineTo(a[0] - nx * ra, a[1] - ny * ra); ctx.closePath();
+              ctx.clip('evenodd');
+            }
+            drawFlame(ctx, q[0], q[1], q[2] * 2.6, Math.sin(now * 0.004) * 4 * S, now, z.flame);
+            ctx.restore();
+          }
         }
         if (!asideTo && (phase === 'drag' || (phase === 'lit' && t > 1))) drawMeter(fill, drawing, cigar ? 'PUFF' : 'DRAG');
       },
@@ -539,7 +646,7 @@ export function createHands(root, host, { send }) {
     // the ash comes off the coal whole and falls; flicked, it's thrown off the end first
     function dropAsh(flicked) {
       if (!CMnow || c.ash < 0.004) return;
-      const L = c.ash * K.L, burn = Math.max(K.F + 0.08, c.len * K.L), d = lastDir.map((v) => v / K.L);
+      const L = c.ash * K.L, burn = Math.max(K.F + 0.08, c.len * K.L), d = (lastDir || mdir).map((v) => v / K.L);
       const p = apply(CMnow, [0, burn + L / 2, 0]);
       const v = flicked ? [d[0] * 25 + (Math.random() - 0.5) * 8, -18 - Math.random() * 10, d[2] * 25] : [(Math.random() - 0.5) * 2, -1, 0];
       falling.push({ p, v, dir: d, L, spin: 0, sv: (flicked ? 14 : 4) * (Math.random() < 0.5 ? -1 : 1) });
@@ -575,9 +682,10 @@ export function createHands(root, host, { send }) {
 
   // ── a bottle (or a flute) ─────────────────────────────────────────────────
   function drinkActivity(item) {
-    const shape = vesselOf(item.name) === 'flute' ? 'flute' : 'lager';
-    const b = { shape, tint: tintOf(item.name), glass: /lager|beer|ale|stout/i.test(item.name) ? '#5a3410' : '#a9cbbd', level: shape === 'flute' ? 0.85 : 0.94, cap: shape === 'lager' };
-    let phase = 'appear', t = 0, tilt = 0, glugAt = 0, held = 0, cap = null, BM = null;
+    const shape = vesselOf(item.name) === 'flute' ? 'flute' : /cola/i.test(item.name) ? 'cola' : 'lager';
+    const b = { shape, tint: tintOf(item.name), glass: shape === 'cola' ? '#8fbfa6' : /lager|beer|ale|stout/i.test(item.name) ? '#5a3410' : '#a9cbbd', level: shape === 'flute' ? 0.85 : 0.94, cap: shape !== 'flute', foam: 0, alpha: shape === 'cola' ? 0.94 : 0.92 };
+    // a cola fizzes: sealed until the cap comes off
+    let phase = 'appear', t = 0, tilt = 0, glugAt = 0, held = 0, cap = null, BM = null, fizz = null, surface = 0, lastTilt = 0;
     SND.shimmer();
     const top = BOTTLES[shape].top;
     return {
@@ -596,6 +704,17 @@ export function createHands(root, host, { send }) {
           } else held = Math.max(0, held - dt * 2);
           if (b.level <= 0.01) { phase = 'done'; t = 0; send(`drink ${item.name}`); say(''); }
         }
+        if (fizz) {
+          fizz.shake(Math.abs(tilt - lastTilt) * 0.8);
+          fizz.step(dt, BM, surface, apply(BM, [0, top, 0])[1], b.level);
+          b.foam = fizz.foam;
+          // a head with nowhere to go runs over the lip and down the neck
+          if (fizz.over && Math.random() < dt * 40) {
+            const q = at(apply(BM, [(Math.random() - 0.5) * 2, top, 0]));
+            bits.push({ x: q[0], y: q[1], vx: (Math.random() - 0.5) * 30, vy: 10 + Math.random() * 20, r: (1.5 + Math.random() * 2.5) * S, col: '#d8bd98', life: 1.1, age: 0 });
+          }
+        }
+        lastTilt = tilt;
         if (cap) { cap.v[1] -= 60 * dt; for (let i = 0; i < 3; i++) cap.p[i] += cap.v[i] * dt; cap.a += dt * 20; if (cap.p[1] < -40) cap = null; }
         if (phase === 'done') { tilt = lerp(tilt, 0, 1 - Math.exp(-dt * 6)); if (t > 1) return false; }
         return true;
@@ -607,7 +726,8 @@ export function createHands(root, host, { send }) {
         const e = ease(tilt);
         const pivot = [lerp(8.5, 0, e), lerp(2.5 - (1 - rise) * 26, -4.6, e), lerp(-40, -13, e)];
         BM = M(T(...pivot), RX(lerp(-0.06, 2.3, e)), RZ(lerp(-0.05, 0, e)), RY(spin + 0.4), T(0, -top, 0));
-        drawBottle(BM, b);
+        surface = drawBottle(BM, b).surface;
+        fizz?.draw(BM);
         if (phase === 'appear') { const q = at(pivot); sparkle(ctx, q[0], q[1] + 60 * S, 110 * S, t, S); }
         if (cap) g3.draw(mesh.cyl(), M(T(...cap.p), RX(cap.a), RZ(cap.a * 0.6), S3(1.6, 0.7, 1.6)), { color: '#c9b46a', metal: 0.85, spec: 70, stripe: 21 });
       },
@@ -615,6 +735,7 @@ export function createHands(root, host, { send }) {
     };
     function crack() {
       b.cap = false; SND.cap(); phase = 'ready'; t = 0; wantMouse(false);
+      if (shape === 'cola') { fizz = fizzOf(BOTTLES.cola); fizz.shake(1.2); }
       const p = apply(BM, [0, top, 0]);
       cap = { p, v: [6 + Math.random() * 4, 28, 3], a: 0 };
       const q = at(p);
@@ -627,7 +748,8 @@ export function createHands(root, host, { send }) {
   function eatActivity(item) {
     const kind = foodOf(item.name), N = kind === 'cocktail' ? 6 : kind === 'hotdog' ? 6 : 4;
     const half = kind === 'hotdog' ? 8.6 : 5.4;
-    let phase = 'appear', t = 0, chomp = 0, eaten = 0, cut = half + 1, FM = null;
+    // `turn` is how far a left click has turned it in your hand, eased toward `turnTo`
+    let phase = 'appear', t = 0, chomp = 0, eaten = 0, cut = half + 1, FM = null, turn = 0, turnTo = 0;
     SND.shimmer();
     const bite = () => {
       if (phase !== 'ready' || chomp > 0) return;
@@ -642,12 +764,15 @@ export function createHands(root, host, { send }) {
     };
     return {
       eat: true,
-      click: bite,
+      // Space bites, as it smokes and drinks; a left click (stands.js asks `click`) turns it in your
+      // hand a quarter at a time, and the middle button looks round
+      click() { if (phase === 'ready') turnTo += Math.PI / 2; },
       key(down) { if (down) bite(); },
       update(dt) {
         t += dt;
-        if (phase === 'appear' && t > 0.7) { phase = 'ready'; t = 0; say('Space or click to take a bite.'); wantMouse(true, 'pointer'); }
+        if (phase === 'appear' && t > 0.7) { phase = 'ready'; t = 0; say('Space to take a bite · click to turn it · middle-drag to look around.'); }
         if (chomp > 0) { chomp += dt / 0.32; if (chomp >= 1) chomp = 0; }
+        turn = lerp(turn, turnTo, 1 - Math.exp(-dt * 12));
         // each mouthful takes the next stretch off the right-hand end, the edge eased in
         const want = half + 1 - (eaten / N) * (2 * half + 2.5);
         cut = lerp(cut, want, 1 - Math.exp(-dt * 18));
@@ -659,7 +784,7 @@ export function createHands(root, host, { send }) {
         const lift = chomp > 0 ? Math.sin(chomp * Math.PI) : 0;
         const spin = phase === 'appear' ? (1 - ease(t / 0.7)) * 3 : 0;
         const pos = [0, -4.2 - (1 - rise) * 16 + lift * 2, -38 + lift * 8];
-        FM = M(T(...pos), RX(0.42), RY(-0.35 + spin), T(0, kind === 'cocktail' ? -4 : 0, 0));
+        FM = M(T(...pos), RX(0.42), RY(-0.35 + spin + turn), T(0, kind === 'cocktail' ? -4 : 0, 0));
         const cutX = phase === 'done' ? -1e6 : apply(T(...pos), [cut, 0, 0])[0];
         drawFood(FM, kind, { cutX, shrimp: N - eaten });
         if (phase === 'appear') { const q = at(pos); sparkle(ctx, q[0], q[1], 120 * S, t, S); }
@@ -778,21 +903,63 @@ export function createHands(root, host, { send }) {
   }
   function showGlass() {
     glassBtn.hidden = !glass || !free();
+    swapBtn.hidden = !canSwap();
+    if (held) swapBtn.textContent = held.smoke ? 'Q  Back to your smoke' : held.eat ? 'Q  Back to your food' : 'Q  Back to your drink';
     if (glass) glassBtn.title = glass.mixed ? 'Sip from your glass' : glass.layers.length ? 'Stir your glass' : 'Your glass is empty';
   }
 
   // ── the loop ──────────────────────────────────────────────────────────────
   // hands free for something new: empty, or only a lit smoke you can take out of your mouth
-  const free = () => !act || (act.smoke && !held && act.canPark());
+  // what your hands can take: anything when empty; with a lit smoke, anything but another smoke;
+  // with a drink, a smoke. Only one thing waits at a time.
+  // Two hands: any two of something to eat, a drink and a smoke, never all three. One is in use
+  // (act), the other waits (held); Q swaps them. A second drink takes the place of the first; a
+  // second smoke or bite waits till the first is done. A smoke can't be set down till it's lit.
+  // whyNot(item) is the reason it can't be taken, or '' when it can.
+  const catOf = (kind) => (kind === 'smoke' ? 'smoke' : kind === 'eat' ? 'food' : 'drink');
+  const actCat = (a) => (a.smoke ? 'smoke' : a.eat ? 'food' : 'drink');
+  function whyNot(item) {
+    if (!act) return '';
+    const c = catOf(item?.kind), ac = actCat(act), hc = held && actCat(held);
+    if (c === ac) return c === 'drink' ? '' : c === 'smoke' ? 'You’ve already got one going.' : 'Finish what you’re eating first.';
+    if (held) return hc === c ? (c === 'drink' ? 'You’ve already got a drink in your other hand.' : c === 'smoke' ? 'You’ve already got one going.' : 'Finish what you’re eating first.') : 'Your hands are full.';
+    if (act.smoke && !act.canPark()) return 'Light it first.';
+    return '';
+  }
+  const canTake = (item) => !whyNot(item);
+  // one ritual and then the next, as one act: the glass coming to hand, then the pour into it
+  function chain(first, next) {
+    let cur = first;
+    return {
+      update(dt, now) { if (cur.update(dt, now) !== false) return true; if (!next) return false; cur = next(); next = null; return true; },
+      draw(now) { cur.draw(now); },
+      key(d) { cur.key?.(d); },
+      cancel() { cur.cancel?.(); },
+    };
+  }
+  // a spirit or mixer with nowhere to go: no glass, a mixed one or a full one
+  const pourable = () => !!glass && !glass.mixed && glassFill() < 0.98;
+  const free = () => canTake({ kind: 'glass' });
+  // a smoke can be swapped out once it's lit; a drink any time
+  const canSwap = () => !!(act && held && (!act.smoke || act.canPark()));
   function start(a) {
     if (!a) return;
-    if (act?.smoke) { held = act; held.park(true); }
-    act = a; glassBtn.hidden = true; kick();
+    if (act) { held = act; held.park?.(true); wantMouse(false); space = false; }
+    act = a; glassBtn.hidden = true; showGlass(); kick();
   }
   function end() {
     act?.cancel?.(); act = null; wantMouse(false); say('');
-    if (held) { act = held; held = null; act.park(false); }
+    if (held) { act = held; held = null; act.park?.(false); }
     showGlass();
+  }
+  // the smoke to your mouth and the drink down, or back again; a drink waits frozen where it was
+  function swap() {
+    if (!canSwap()) return;
+    act.key?.(false); space = false; wantMouse(false);
+    const was = act; act = held; held = was;
+    held.park?.(true); act.park?.(false);
+    if (!act.smoke) say(act.eat ? 'Back to your food.' : 'Back to your drink.');
+    showGlass(); kick();
   }
   function frame(now) {
     raf = 0;
@@ -802,11 +969,11 @@ export function createHands(root, host, { send }) {
     last = now;
     ctx.clearRect(0, 0, W, H);
     g3.begin(W, H);
-    if (held && held.update(dt, now) === false) held = null;
+    if (held?.smoke && held.update(dt, now) === false) { held = null; showGlass(); }
     if (act && act.update(dt, now) === false) { const keep = prompt.textContent; end(); if (keep) { say(keep); setTimeout(() => { if (!act && prompt.textContent === keep) say(''); }, 2200); } }
-    held?.draw(now);
+    if (held?.smoke) held.draw(now);
     act?.draw(now);
-    if (glass && (!act || act.smoke)) drawGlass(M(T(...glassHome()), RY(0.3)), glass);
+    if (glass && (!act || act.smoke || act.eat)) drawGlass(M(T(...glassHome()), RY(0.3)), glass);
     g3.end();
     // smoke and sparks over what you hold, then anything falling
     for (let i = smoke.length - 1; i >= 0; i--) {
@@ -851,16 +1018,30 @@ export function createHands(root, host, { send }) {
   }
 
   return {
-    // busy for this item: a lit smoke makes way for anything but another smoke
-    busy: (item) => !free() || (!!act && item?.kind === 'smoke'),
-    // what came off the menu: { id, name, kind, drinkable }
-    take(item) {
-      if (!item?.kind || !g3 || !free() || (act && item.kind === 'smoke')) return false;
+    // busy for this item (see whyNot)
+    busy: (item) => !canTake(item),
+    // a left click in the view: true when the hands took it (a bite of what you're eating), so the
+    // view doesn't also turn your head or pick a chair
+    click() { if (!act?.eat) return false; act.click(); return true; },
+    // Whether `take` needs a glass fetched first: a spirit you can't drink, and no glass in hand.
+    needsGlass: (item) => item?.kind === 'pour' && !item.drinkable && !glass,
+    // what came off the menu: { id, name, kind, drinkable }. `glassItem` is the bar's glass, poured
+    // into straight off when you've none. False (with the reason said) when it can't be held.
+    take(item, glassItem = null) {
+      if (!item?.kind || !g3) return false;
+      const why = whyNot(item);
+      if (why) { say(why); return false; }
+      if (item.kind === 'glass' && glass) { say('You’ve already got a glass.'); return false; }
+      const pour = item.kind === 'pour' && !item.drinkable;
+      if (pour && !pourable() && !(!glass && glassItem)) { say(!glass ? 'There’s no glass to pour it in.' : glass.mixed ? 'Finish your glass before you pour another.' : 'Your glass is full.'); return false; }
+      // a drink for the drink in use: the old one goes down, and what waited comes back to wait again
+      if (act && actCat(act) === 'drink' && catOf(item.kind) === 'drink') end();
       if (item.kind === 'smoke') start(smokeActivity(item));
       else if (item.kind === 'eat') start(eatActivity(item));
-      else if (item.kind === 'glass') { if (!glass) start(glassIntro(item)); else return false; }
-      else if (item.kind === 'pour' && glass && !glass.mixed && glassFill() < 0.98) start(pourActivity(item));
-      else if (item.kind === 'drink' || (item.kind === 'pour' && item.drinkable)) start(drinkActivity(item));
+      else if (item.kind === 'glass') start(glassIntro(item));
+      else if (item.kind === 'pour' && pourable()) start(pourActivity(item));
+      else if (pour) start(chain(glassIntro(glassItem), () => pourActivity(item)));
+      else if (item.kind === 'drink' || item.kind === 'pour') start(drinkActivity(item));
       else return false;
       return true;
     },
@@ -873,6 +1054,7 @@ export function createHands(root, host, { send }) {
         space = down; act.key?.(down); return true;
       }
       if (down && (e.key === 'f' || e.key === 'F')) { const sm = act?.smoke ? act : held; if (sm) { sm.flick(); return true; } }
+      if (down && (e.key === 'q' || e.key === 'Q')) { if (!e.repeat) swap(); return true; }
       if (down && e.key === 'Escape') { end(); return true; }
       return false;
     },
@@ -880,7 +1062,7 @@ export function createHands(root, host, { send }) {
       stopped = true;
       if (raf) cancelAnimationFrame(raf);
       host.style.filter = ''; host.style.transform = '';
-      cv.remove(); cg.remove(); prompt.remove(); glassBtn.remove();
+      cv.remove(); cg.remove(); prompt.remove(); glassBtn.remove(); swapBtn.remove();
     },
   };
 }

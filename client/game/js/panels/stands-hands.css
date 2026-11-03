@@ -12,3 +12,9 @@
 	background: transparent; border: 0; border-radius: 8px; cursor: pointer;
 }
 #stands-view .sh-glass:hover, #stands-view .sh-glass:focus-visible { background: rgba(255, 230, 160, 0.08); outline: 1px solid rgba(255, 230, 160, 0.4); }
+#stands-view .sh-swap {
+	position: absolute; right: 12px; bottom: 10px; z-index: 3; padding: 4px 10px; border-radius: 10px;
+	background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 230, 160, 0.35); color: #f1e6cf;
+	font: 12px system-ui, sans-serif; cursor: pointer; white-space: pre;
+}
+#stands-view .sh-swap:hover, #stands-view .sh-swap:focus-visible { background: rgba(40, 30, 10, 0.75); }

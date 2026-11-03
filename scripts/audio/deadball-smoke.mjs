@@ -284,6 +284,8 @@ check('mixer: dispose stops the scene\'s voices', full.R.said.some((s) => s.canc
   check('land: a walk-off is called as one', callFor({ kind: 'single', walkoff: true }) === 'WALK-OFF!');
   check('land: a swinging third strike is the announcer\'s', callFor({ kind: 'strikeout' }, { result: 'swinging' }) === 'STRIKE THREE!');
   check('land: a called third strike isn\'t', callFor({ kind: 'strikeout' }, { result: 'called' }) === null);
+  check('land: a box hears a base hit', callFor({ kind: 'single' }, null, true) === 'BASE HIT!' && callFor({ kind: 'single' }) === null);
+  check('land: a box hears a called third strike', callFor({ kind: 'strikeout' }, { result: 'called' }, true) === 'STRIKE THREE!');
   // the booth waits for the call
   let spoke = 0;
   R.scene = 1; snd.afterCall(() => spoke++);

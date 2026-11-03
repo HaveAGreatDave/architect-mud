@@ -90,7 +90,7 @@ export const A11Y_OPTIONS = [
   },
   {
     key: 'boxAnnouncer', label: 'Announcer in the Box', verb: 'announcer',
-    why: "In a box at the ballpark, the announcer's calls on the broadcast are played in the room with you: STRIKE THREE, FOUL BALL, SAFE and the rest, as they'd come from the screen. Off leaves you the umpire and the crowd, as in an ordinary seat. The SFX volume slider sets how loud it is.",
+    why: "In a box at the ballpark, the announcer's calls on the broadcast are played in the room with you: BASE HIT, STRIKE THREE, HOME RUN and the rest, as they'd come from the screen, and with no ballgame on, the hockey booth's call of the game on the suite's screen. Off leaves you the umpire and the crowd, as in an ordinary seat. The SFX volume slider sets how loud it is.",
     opts: [{ v: 'on', t: 'On' }, { v: 'off', t: 'Off' }],
   },
   {

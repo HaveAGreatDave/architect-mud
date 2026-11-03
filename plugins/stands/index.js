@@ -34,12 +34,14 @@ import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { emit, on } from '../../server/engine/events.js';
-import { liveSportsChannel, channelLabel } from '../broadcast/index.js';
+import { liveSportsChannel, channelLabel, startSportsRerun, stopSportsRerun, venueRoofOf } from '../broadcast/index.js';
 import { getWeatherFieldSnapshot } from '../../server/engine/environment.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { isStaff } from '../admin/index.js';
+import { isStackable } from '../../server/engine/tags.js';
+import { giveItemById } from '../../server/engine/inventory.js';
 
 // playerId -> { zoneId, section, seat, channelId }
 const seated = new Map();
@@ -76,7 +78,7 @@ export function standsOf(zone) {
   const s = zone?.flags?.stands;
   if (!s || (s.sport !== 'hockey' && s.sport !== 'baseball') || !Array.isArray(s.sections)) return null;
   const sections = s.sections.filter((c) => c && c.id && Array.isArray(c.eye) && c.eye.length === 3 && c.eye.every(Number.isFinite));
-  return sections.length ? { sport: s.sport, sections } : null;
+  return sections.length ? { sport: s.sport, sections, menu: Array.isArray(s.menu) ? s.menu : [] } : null;
 }
 
 // A section by its id, or by the first word of its name a player is likely to type.
@@ -170,6 +172,7 @@ function leave(player, quiet = false) {
   const s = seated.get(player.id);
   if (!s) return false;
   seated.delete(player.id);
+  stopSportsRerun(player.id);
   emit('tablet_tv.unwatch', { playerId: player.id });
   sendToPlayer(player.id, { type: 'stands_close' });
   if (!quiet) sendToPlayer(player.id, { type: 'output', message: '<span class="msg-system">You get up out of your seat.</span>' });
@@ -183,6 +186,7 @@ async function cmdStands(args, raw, player, broadcast) {
     return leave(player) ? { type: 'noop' } : { type: 'error', message: "You aren't sitting anywhere." };
   }
   if (a0 === 'fetch') return fetchInSuite(player, args.slice(1).join(' '), broadcast);
+  if (a0 === 'order') return orderAtSeat(player, args[1]);
   if (!stands) return { type: 'error', message: 'There are no seats to buy here.' };
   if (!a0) {
     // the log rung has no panels: the list in the log is the chart
@@ -247,6 +251,33 @@ async function fetchInSuite(player, what, broadcast) {
   return handleCommand(`take ${it.name} from ${want}`, player, broadcast);
 }
 
+// `stands order [item]`: the hawker working your section, which the seat's cupholder calls over.
+// The room's stands carry what he sells (`flags.stands.menu`, [{ item, price }]). Bare, it answers
+// with the menu (`stands_menu`, target 'order'); with an item id, it pays and hands it over. A box
+// has its own bar and buffet, so the hawker doesn't come up there.
+async function orderAtSeat(player, itemId) {
+  const s = seated.get(player.id);
+  if (!s || s.suite) return { type: 'error', message: s ? "Help yourself. It's all on the house up here." : "You aren't in a seat." };
+  const menu = (standsOf(getZone(s.zoneId))?.menu || []).map((m) => ({ ...m, it: getItem(m.item) })).filter((m) => m.it);
+  if (!menu.length) return { type: 'error', message: 'Nobody is selling anything in this section.' };
+  if (!itemId) {
+    const line = menu.map((m) => `${esc(m.it.name)} ₵${m.price | 0}`).join(', ');
+    if (loggedPanelsSync(player)) return { type: 'output', message: `The hawker has ${line}. ${teachVerb('stands order')} and the item's id buys one.` };
+    sendToPlayer(player.id, { type: 'stands_menu', target: 'order', name: 'The hawker', description: 'He works the rows with a tray round his neck. Pay him and pass it down.',
+      items: menu.map((m) => ({ id: m.item, name: m.it.name, description: m.it.tags?.description || '', price: m.price | 0, kind: null })) });
+    return { type: 'noop' };
+  }
+  const m = menu.find((x) => x.item === String(itemId));
+  if (!m) return { type: 'error', message: "He isn't selling that." };
+  const price = m.price | 0;
+  if (price > 0 && !(await adjustCredits(player, -price, undefined, 'stands'))) return { type: 'error', message: `That's ₵${price}. You have ₵${player.credits | 0}.` };
+  await giveItemById(player.id, m.item, 1, { stack: isStackable(m.it) });
+  // and into your hands in the seat's view, held as a box's bar stock is
+  const held = heldAs(m.it), kind = held === 'pour' && m.it.tags?.consumable ? 'drink' : held;
+  if (kind && !loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_hand', item: { id: m.item, name: m.it.name, kind, drinkable: !!m.it.tags?.consumable } });
+  return { type: 'output', message: `<span class="msg-system">You pass ₵${price} down the row and the ${esc(m.it.name)} comes back the other way.</span>` };
+}
+
 // A pass into the ticketed box `boxId`, sold at its section's price.
 async function buyPass(player, boxId) {
   const box = getZone(boxId), stands = standsOf(box), section = stands?.sections[0];
@@ -271,16 +302,21 @@ registerMoveGate(({ player, from, to }) => {
 }, 'stands:box');
 
 // What a box's suite shows: the ballgame through the glass and on its screen; with no ballgame on,
-// the park empty under the lights and the hockey on the screen (`tv`), or nothing on it at all.
-// The suite opens either way, which is how staff, who can walk in any time, see it between games.
-function suiteChannels() {
+// the park empty under the lights and the hockey on the screen (`tv`), or, with no hockey either,
+// a rerun of the last ballgame (`rerun`, broadcast startSportsRerun: this player's alone, from the
+// top). The suite opens either way, which is how staff, who can walk in any time, see it between games.
+function suiteChannels(player) {
   const channelId = liveSportsChannel('baseball');
-  return channelId ? { channelId, tv: null } : { channelId: null, tv: liveSportsChannel('hockey') || null };
+  if (channelId) return { channelId, tv: null };
+  const tv = liveSportsChannel('hockey');
+  if (tv) return { channelId: null, tv };
+  const rerun = player ? startSportsRerun(player.id, 'baseball') : null;
+  return { channelId: null, tv: rerun, rerun: !!rerun };
 }
 
 // Sits the player in a free seat of `section` and opens the view from it. `chair` is a chair in
 // the room (flags.stands_section) rather than a ticket: no charge, and standing up leaves it.
-async function takeSeat(player, zone, stands, section, channelId, { chair = false, tv = null } = {}) {
+async function takeSeat(player, zone, stands, section, channelId, { chair = false, tv = null, rerun = false } = {}) {
   const seat = freeSeat(zone.id, stands.sport, section, player.id);
   if (seat < 0) return { type: 'error', message: `${esc(section.name)} is sold out. ${teachVerb('stands')} shows what's left.` };
   const where = seatsOf(stands.sport, section)[seat];
@@ -289,11 +325,11 @@ async function takeSeat(player, zone, stands, section, channelId, { chair = fals
     return { type: 'error', message: `A seat in ${esc(section.name)} is ₵${price}. You have ₵${player.credits | 0}.` };
   }
   seated.set(player.id, { zoneId: zone.id, section: section.id, seat, channelId, chair, suite: !!section.room });
-  if (channelId || tv) emit('tablet_tv.watch', { playerId: player.id, channelId: channelId || tv });
+  if (channelId || (tv && !rerun)) emit('tablet_tv.watch', { playerId: player.id, channelId: channelId || tv });
   // the log rung gets the game as log lines through the same receiver, and no picture
-  if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: stands.sport, channelId, tvChannelId: tv, station: channelId ? channelLabel(channelId) : '', field: skyField(stands.sport), venue: zone.flags?.building_name || zone.name,
+  if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: stands.sport, channelId, tvChannelId: tv, ...(rerun ? { rerun: true } : {}), station: channelId ? channelLabel(channelId) : '', field: skyField(stands.sport), venue: zone.flags?.building_name || zone.name, roof: stands.sport === 'baseball' ? venueRoofOf(zone.flags?.building_name) : null,
     section: { id: section.id, name: section.name || section.id, eye: where.eye, seat: `Row ${ROW(where.row)}, seat ${where.number}`, ...(section.room ? { room: section.room } : {}) } });
-  if (chair && !channelId) return { type: 'output', message: `<span class="msg-system">You take chair ${where.number} in row ${ROW(where.row)}. The field's empty under the lights${tv ? ', and the hockey is on the screen' : ''}. ${teachVerb('stand')} gets you up.</span>` };
+  if (chair && !channelId) return { type: 'output', message: `<span class="msg-system">You take chair ${where.number} in row ${ROW(where.row)}. The field's empty under the lights${rerun ? ", and the last game's on the screen again" : tv ? ', and the hockey is on the screen' : ''}. ${teachVerb('stand')} gets you up.</span>` };
   if (chair) return { type: 'output', message: `<span class="msg-system">You take chair ${where.number} in row ${ROW(where.row)}, and the game is in front of you. ${teachVerb('stand')} gets you up.</span>` };
   const moved = seat > 0 ? ' The best seat in it is taken, so the usher puts you in the nearest one free.' : '';
   return { type: 'output', message: `<span class="msg-system">₵${price} for a seat in <b>${esc(section.name)}</b>: row ${ROW(where.row)}, seat ${where.number}.${moved} You sit down. ${teachVerb('stands leave')} gets you up.</span>` };
@@ -309,13 +345,13 @@ function watchScreen(player, screen) {
   const box = screen.flags.stands_room && standsOf(getZone(screen.flags.stands_room));
   const suite = box && box.sport === 'baseball' && box.sections.find((c) => c.room);
   if (suite) {
-    const { channelId, tv } = suiteChannels();
     leave(player, true);
+    const { channelId, tv, rerun } = suiteChannels(player);
     seated.set(player.id, { zoneId: zone.id, section: null, seat: -1, channelId, screen: true, suite: true });
-    if (channelId || tv) emit('tablet_tv.watch', { playerId: player.id, channelId: channelId || tv });
-    if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: 'baseball', channelId, tvChannelId: tv, station: channelId ? channelLabel(channelId) : '', field: skyField('baseball'), venue: zone.flags?.building_name || zone.name,
+    if (channelId || (tv && !rerun)) emit('tablet_tv.watch', { playerId: player.id, channelId: channelId || tv });
+    if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: 'baseball', channelId, tvChannelId: tv, ...(rerun ? { rerun: true } : {}), station: channelId ? channelLabel(channelId) : '', field: skyField('baseball'), venue: zone.flags?.building_name || zone.name, roof: venueRoofOf(zone.flags?.building_name),
       section: { id: suite.id, name: suite.name || suite.id, room: suite.room, spot: 'sofa' } });
-    const on = channelId ? "The game's on it, and through the glass." : tv ? "The hockey's on it, and the field through the glass is empty under the lights." : "There's no game on it, and the field through the glass is empty under the lights.";
+    const on = channelId ? "The game's on it, and through the glass." : rerun ? "The last game's on it again, and the field through the glass is empty under the lights." : tv ? "The hockey's on it, and the field through the glass is empty under the lights." : "There's no game on it, and the field through the glass is empty under the lights.";
     return { type: 'output', message: `<span class="msg-system">You sit down on the sofa in front of ${esc(screen.name)}. ${on} ${teachVerb('stands leave')} gets you up.</span>` };
   }
   const sport = standsOf(zone)?.sport || (screen.flags.stands_screen === 'hockey' ? 'hockey' : 'baseball');
@@ -339,9 +375,9 @@ async function onPosture({ player, to }) {
   const chair = getZoneFurniture(zone.id).find((f) => f.flags?.stands_section && f.name === player.sittingOn);
   const section = chair && findSection(stands, chair.flags.stands_section);
   if (!section) return;
-  const { channelId, tv } = section.room ? suiteChannels() : { channelId: liveSportsChannel(stands.sport), tv: null };
+  const { channelId, tv, rerun } = section.room ? suiteChannels(player) : { channelId: liveSportsChannel(stands.sport), tv: null };
   if (!channelId && !section.room) { sendToPlayer(player.id, { type: 'output', message: '<span class="msg-system">No game on right now. The field is empty under the lights.</span>' }); return; }
-  const r = await takeSeat(player, zone, stands, section, channelId, { chair: true, tv });
+  const r = await takeSeat(player, zone, stands, section, channelId, { chair: true, tv, rerun });
   sendToPlayer(player.id, { type: 'output', message: r.message });
 }
 on('posture.changed', (p) => { onPosture(p).catch((e) => console.error('[stands] posture:', e.message)); });
@@ -355,8 +391,8 @@ async function enterSuite(player, zone) {
   if (screen) { sendToPlayer(player.id, { type: 'output', message: watchScreen(player, screen).message }); return; }
   const stands = standsOf(zone), section = stands?.sections.find((c) => c.room);
   if (!section) return;
-  const { channelId, tv } = suiteChannels();
-  const r = await takeSeat(player, zone, stands, section, channelId, { chair: true, tv });
+  const { channelId, tv, rerun } = suiteChannels(player);
+  const r = await takeSeat(player, zone, stands, section, channelId, { chair: true, tv, rerun });
   sendToPlayer(player.id, { type: 'output', message: r.message });
 }
 
@@ -416,4 +452,4 @@ function screenNamed(player, args) {
 }
 export const hooks = { 'watch.furniture': ({ player, args }) => screenNamed(player, args || []) };
 
-export const _test = { seated, passes, buyPass, leave, chartPayload, cmdStands, watchScreen, onPosture };
+export const _test = { seated, passes, buyPass, leave, chartPayload, cmdStands, watchScreen, onPosture, suiteChannels };

@@ -5,8 +5,10 @@
 // row behind in the seated map.
 import { getZone, getZoneFurniture } from '../../server/engine/world.js';
 import { runMoveGates } from '../../server/engine/movement-gates.js';
-import { liveSportsChannel } from '../broadcast/index.js';
+import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
+import { liveSportsChannel, lastSportsSlot, _test as bc } from '../broadcast/index.js';
 import { standsOf, findSection, seatsOf, freeSeat, _test } from './index.js';
+import { getItem } from '../../server/engine/items-cache.js';
 
 export default async function regress({ run, check, getPlayer }) {
   for (const [id, sport] of [['zone_slush_stands', 'hockey'], ['zone_hughson_stands', 'baseball']]) {
@@ -26,6 +28,11 @@ export default async function regress({ run, check, getPlayer }) {
   check('stands: refused outside the stands', r?.type === 'error' && /no seats/i.test(r.message || ''), r?.message);
   r = await run('stands leave');
   check('stands: getting up when not sat refuses', r?.type === 'error', r?.message);
+  // the hawker: the Coliseum sells a menu whose every item exists, and he only comes to a seat
+  { const menu = standsOf(getZone('zone_hughson_stands'))?.menu || [];
+    check('stands: the Coliseum hawker has four things priced', menu.length === 4 && menu.every((m) => getItem(m.item) && m.price > 0), JSON.stringify(menu)); }
+  r = await run('stands order');
+  check('stands: ordering when not sat refuses', r?.type === 'error' && /aren't in a seat/i.test(r.message || ''), r?.message);
 
   // Each venue's ticket machine is the chart: `use` on it answers as `stands` does.
   const home = me.current_zone;
@@ -92,4 +99,28 @@ export default async function regress({ run, check, getPlayer }) {
   _test.seated.set(me.id, { zoneId: 'zone_hughson_platinum_box', section: 'platinum', seat: 0, channelId: 'x', chair: true });
   await _test.onPosture({ player: me, to: 'standing' });
   check('stands: standing up out of a box chair leaves it', !_test.seated.has(me.id));
+
+  // With nothing live, the box's screen plays the last ballgame again: a rerun on the player's own
+  // channel, ticked to them alone, that carries the game's pictures and stops when they get up.
+  const live = liveSportsChannel('baseball') || liveSportsChannel('hockey');
+  const pick = _test.suiteChannels(me);
+  if (live) check('stands: a live game beats the rerun', !pick.rerun && (pick.channelId || pick.tv) === live, JSON.stringify(pick));
+  else if (lastSportsSlot('baseball') != null) {
+    check('stands: nothing live puts the last ballgame on the box screen', pick.rerun && pick.tv === 'rerun:baseball' && !pick.channelId, JSON.stringify(pick));
+    const r0 = bc._reruns.get(me.id);
+    check('stands: the rerun is a past game', !!r0 && r0.endsMs > r0.startMs, JSON.stringify(r0 && { slot: r0.slot }));
+    if (r0) {
+      const sent = [], orig = getBroadcast();
+      setBroadcast((zoneId, payload, exclude, toPlayer) => { if (toPlayer === me.id) sent.push(payload); });
+      try { for (let t = 0; t < 60; t++) bc._rerunPass(r0.startMs + t * 10e3); } finally { setBroadcast(orig); }
+      check("stands: the rerun sends the game's pictures to its viewer", sent.some((m) => m?.type === 'tv_overlay' && m.channelId === 'rerun:baseball' && m.overlay?.overlayType === 'gameday'), String(sent.length));
+      sent.length = 0;
+      setBroadcast((zoneId, payload, exclude, toPlayer) => { if (toPlayer === me.id) sent.push(payload); });
+      try { bc._rerunPass(r0.endsMs + 1); } finally { setBroadcast(orig); }
+      check('stands: a finished rerun holds on its last picture', sent.length === 0, String(sent.length));
+    }
+    _test.seated.set(me.id, { zoneId: 'zone_hughson_platinum_box', section: 'platinum', seat: 0, channelId: null, chair: true, suite: true });
+    _test.leave(me, true);
+    check('stands: getting up stops the rerun', !bc._reruns.has(me.id));
+  }
 }

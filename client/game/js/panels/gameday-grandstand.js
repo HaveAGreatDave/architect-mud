@@ -109,6 +109,8 @@ export function createGrandstandView(host, opts = {}) {
   // the box's screen's own graphics (opts.room) and the canvas they're painted on
   let tvHud = null, tvCanvas = null, tvWas = null;
   let R = null, hud = null, canvas = null, mounted = false, modsP = null, mods = null, ro = null, raf = 0, unVenue = null, unClubs = null, dressed = null;
+  // where the venue's roof is going (1 shut, 0 open) as the seat last heard it, for a renderer built after
+  let roofWant = null;
   // the picture's quality (diamond/quality.js): the tier the screen starts on, and the governor that
   // steps it down a rung when frames come slow and back up when they've been quick a while, fed the
   // time between frames while they run (`govAt`, the last one's)
@@ -242,6 +244,7 @@ export function createGrandstandView(host, opts = {}) {
     seatFrom = null;   // a new renderer has nobody moved out of a seat yet
     if (!R) { fallback('no WebGL2 or float target'); return false; }
     R.setSkyField?.(skyField);
+    if (roofWant != null) R.setRoof?.(roofWant);
     mounted = true;
     // a box's suite round the seat (gl/booth-mesh.js); its layout goes back to whoever walks in it
     if (opts.room) opts.onRoom?.(R.setRoom?.(opts.room) || null);
@@ -252,7 +255,7 @@ export function createGrandstandView(host, opts = {}) {
     W = mods.createWorld();
     D = mods.createDirector(W, { onLand: () => landPlay(cur), emit: fromDirector, pitchShot: () => pitchCam });
     roar = mods.createRoar();
-    snd = mods.createParkSound({ win, state: () => ({ p: cur?.p || last, S }), seat: opts.seat || null, announcer: opts.announcer || null });
+    snd = opts.mute ? null : mods.createParkSound({ win, state: () => ({ p: cur?.p || last, S }), seat: opts.seat || null, announcer: opts.announcer || null });
     hud = mods.hud.createHud(host.querySelector('.gds-hud'), {
       theme: theme(true),
       project: (p, w, h) => mods.project(view(), w, h, p),
@@ -385,6 +388,8 @@ export function createGrandstandView(host, opts = {}) {
     // the roof rolling over the park keeps the picture going until it's there
     // (and a seat looking up at it keeps going until it's looked back down)
     if (!raf && (R.roof?.moving || seatLift > 0.01)) draw();
+    // the suite's screen with another picture on it (the hockey) moves whether the park does or not
+    if (!raf && R.room && opts.tvSource) draw();
   }
   function stopWorld() { D?.stop(); live = false; cur = null; stopReplay(); }
   // The grounds crew's mats this frame (diamond/crew.js), and the dirt they've gone over since the
@@ -834,7 +839,7 @@ export function createGrandstandView(host, opts = {}) {
     R?.setWeather?.(p.wx || null, { flash: !prefersReducedMotion() });
     // and the park's roof as it was when the line aired (1 shut, 0 open), which rolls over the map's
     // ninety seconds when it changes; a payload without one leaves it where it is
-    if (p.roof != null) { R?.setRoof?.(p.roof); draw(); }
+    if (p.roof != null) setRoof(p.roof);
     if (p.phase === 'arrive') { arrive(p, pend); return; }
     const cast = castFor(p);
     S.pitch = null; S.pitches = []; S.bats = p.bats || '';
@@ -992,6 +997,9 @@ export function createGrandstandView(host, opts = {}) {
   // the day's weather cells (a seat's `field`), which the 3-D park draws overhead; kept for a
   // renderer that mounts after it arrives (skyField, declared with R)
   function setSkyField(f) { skyField = f || null; R?.setSkyField?.(skyField); }
+  // the roof's state off a payload line, the seat's opening or a venue_roof push: it rolls over the
+  // five minutes when it changes, and a renderer not built yet takes it when it is
+  function setRoof(s) { roofWant = +s ? 1 : 0; if (R?.setRoof) { R.setRoof(roofWant); draw(); } }
 
   // ── in person ─────────────────────────────────────────────────────────────
   // The broadcast's calls, in the order they came, held while the field's still coming back. A
@@ -1018,7 +1026,7 @@ export function createGrandstandView(host, opts = {}) {
   };
 
   return {
-    apply: inLine(apply), clear, setCaption: inLine(setCaption), showIdle, showCard: inLine(showCard), setSkyField,
+    apply: inLine(apply), clear, setCaption: inLine(setCaption), showIdle, showCard: inLine(showCard), setSkyField, setRoof,
     // for the sandbox and the gates
     setShot, ready: () => loadMods(),
     get renderer() { return R; }, get hud() { return hud; }, get flat() { return flat; }, get state() { return S; },

@@ -117,3 +117,51 @@ body.dfx-on.dfx-melt #stands-view .st-host {
 #stands-view .st-menu li span { grid-column: 1; color: #9aa3ad; font-size: 12px; }
 #stands-view .st-menu li i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: #e3a72f; font-size: 12px; font-weight: 700; }
 #stands-view .st-menu-foot { margin: 10px 0 0; color: #8794a3; font-size: 12px; font-style: italic; }
+
+/* Drunk in a box (stands-drunk.js): the bloom over the picture and the warm, closing edges. The
+   picture's own blur and lean are inline on .st-host. Both sit under the bar and the menus. */
+#stands-view .st-drunk-glow, #stands-view .st-drunk-tint {
+	position: absolute; left: 0; right: 0; bottom: 0; top: var(--sd-top, 0); pointer-events: none; z-index: 1;
+}
+#stands-view .st-drunk-glow {
+	backdrop-filter: blur(var(--sd-blur, 8px)) brightness(1.4) saturate(1.2);
+	mix-blend-mode: screen;
+}
+#stands-view .st-drunk-tint {
+	background:
+		radial-gradient(ellipse at 50% 50%, transparent var(--sd-open, 78%), rgba(8, 3, 0, var(--sd-dark, 0)) 100%),
+		rgba(255, 150, 60, var(--sd-warm, 0));
+	mix-blend-mode: multiply;
+}
+/* the lean scales the picture past its box, so the bar stays on top of it */
+#stands-view .st-bar { position: relative; z-index: 2; }
+
+/* what's under the pointer in a box's suite, and the line that says what a click did */
+#stands-view .st-hover {
+  position: absolute; pointer-events: none; z-index: 6;
+  padding: 3px 8px; border-radius: 4px; font-size: 12px;
+  background: rgba(10, 12, 16, 0.82); color: #f3e7c8; border: 1px solid rgba(243, 231, 200, 0.35);
+  white-space: nowrap;
+}
+#stands-view .st-flash {
+  position: absolute; left: 50%; bottom: 18%; transform: translate(-50%, 8px); z-index: 6;
+  pointer-events: none; opacity: 0; transition: opacity 0.18s, transform 0.18s;
+  padding: 6px 14px; border-radius: 6px; font-size: 14px;
+  background: rgba(10, 12, 16, 0.85); color: #f3e7c8; border: 1px solid rgba(214, 178, 94, 0.6);
+}
+#stands-view .st-flash.on { opacity: 1; transform: translate(-50%, 0); }
+#stands-view .st-flash.st-flash-no { border-color: rgba(200, 90, 70, 0.7); }
+
+/* the cupholder on a seat's armrest: a click calls the hawker */
+#stands-view .st-cup {
+  position: absolute; right: 16px; bottom: 16px; z-index: 5; width: 130px; padding: 0;
+  background: none; border: 0; cursor: pointer; transition: transform 0.12s, filter 0.12s;
+}
+#stands-view .st-cup svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7)); }
+#stands-view .st-cup span {
+  position: absolute; left: 50%; top: -18px; transform: translateX(-50%);
+  font-size: 12px; color: #f3e7c8; background: rgba(10, 12, 16, 0.85); padding: 2px 8px; border-radius: 4px;
+  border: 1px solid rgba(214, 178, 94, 0.6); white-space: nowrap;
+}
+#stands-view .st-cup:hover, #stands-view .st-cup:focus-visible { transform: translateY(-2px); filter: brightness(1.35); }
+#stands-view .st-cup:active { transform: translateY(1px); }

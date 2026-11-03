@@ -365,6 +365,9 @@ export function createRinkView(host, opts = {}) {
     W.alpha = acc / DT;
     if (R.lost) fallback();
     R.render(now);
+    // `opts.onFrame` copies the picture while it's still in the drawing buffer (a WebGL canvas
+    // read later in the frame, off screen, hands back a stale one): the box's screen (stands.js)
+    opts.onFrame?.();
     if (opts.seat) seatSkates();
     l3Tick();
     clockTick(raw);

@@ -1364,10 +1364,15 @@ export function createBallparkRenderer(canvas, opts = {}) {
         return near.some(([, p]) => {
           if (p === o || Math.abs(seats[p + 1] - seats[o + 1]) > 0.5) return false;
           const dx = seats[p] - seats[o], dz = seats[p + 2] - seats[o + 2], along = (dx * rx + dz * rz) * sd;
-          return along > 1 && along < 3 && Math.abs(dx * rz - dz * rx) < 0.8;
+          // up to 3.6 ft: the Diamond Club's armchairs are 3.1 apart (ballpark-mesh.js CLUB_LOOK.pitch)
+          return along > 1 && along < 3.6 && Math.abs(dx * rz - dz * rx) < 0.8;
         });
       };
-      const pick = near.find(([, o]) => beside(o, 1) && beside(o, -1)) || near[0];
+      // the ticket's own row first (a seated face at the eye's height, within half a riser), so the
+      // Diamond Club's front row stays the front row and never drifts back a row or into the bowl
+      const inRow = ([, o]) => Math.abs(seats[o + 1] + FACE_Y[0] - eye[1]) < 0.5;
+      const pick = near.find((n) => inRow(n) && beside(n[1], 1) && beside(n[1], -1)) || near.find(inRow)
+        || near.find(([, o]) => beside(o, 1) && beside(o, -1)) || near[0];
       if (!pick) return eye;
       const o = pick[1], x = seats[o], y = seats[o + 1], z = seats[o + 2], face = seats[o + 3];
       seatDrop = [x, y, z, 0.5];
@@ -2499,6 +2504,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // each material its own batch, so its painted texture can repeat (booth-mesh.js BOOTH_TEXTURES)
       for (const key of m.textured.keys()) if (!TEX[key]) TEX[key] = texture(paintBoothTexture(doc, key), { af: 8 });
       room = { L, mats: [...m.textured].map(([key, b]) => ({ key, ...upload(b) })), solid: { key: 'room', ...upload(m.solid) }, screen: { key: 'tvscreen', emis: 1, ...upload(m.screen) }, glass: { key: 'roomglass', ...upload(m.glass) } };
+      setRoomDim(roomDim);
       if (!tvTex) {
         tvTex = gl.createTexture();
         gl.bindTexture(T2, tvTex);
@@ -2511,6 +2517,16 @@ export function createBallparkRenderer(canvas, opts = {}) {
         TEX.tvscreen = tvTex;
       }
       return L;
+    }
+    // setRoomDim(k): the suite's lamps turned down to k of full (0.12 to 1). The room's light is
+    // baked into its emissive colours, so this is their uEmis; the screen keeps its own.
+    let roomDim = 1;
+    function setRoomDim(k) {
+      roomDim = Math.max(0.12, Math.min(1, Number(k) || 1));
+      if (!room) return roomDim;
+      room.solid.emis = roomDim;
+      for (const d of room.mats) d.emis = roomDim;
+      return roomDim;
     }
     // setTvImage(src): a picture from somewhere else on the suite's screen, a TV_W by TV_H canvas
     // (stands.js puts the hockey there when there's no ballgame), in place of renderTv's shot
@@ -2584,7 +2600,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // the street camera on this venue's own crossing (diamond/streets.js streetShot), or null with
       // no city: where the fly-in before a game comes down to (diamond/camera.js approachShot)
       get streetCam() { return streetCam; },
-      setRoom, renderTv, setTvImage, get room() { return room ? room.L : null; },
+      setRoom, setRoomDim, get roomDim() { return roomDim; }, renderTv, setTvImage, get room() { return room ? room.L : null; },
       setFinal, setChampion: (on) => { champ = !!on; },
       // setEmpty(on): no game on, so the park draws without its players or its crowd
       setEmpty: (on) => { empty = !!on; }, get empty() { return empty; }, get final() { return final ? { ...final, champion: champ } : null; },

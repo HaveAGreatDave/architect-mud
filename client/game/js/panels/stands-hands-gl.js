@@ -124,7 +124,7 @@ varying vec3 vW; varying vec3 vN; varying vec3 vL;
 void main() { vec4 w = uM * vec4(aP, 1.0); vW = w.xyz; vN = uNm * aN; vL = aP; gl_Position = uPr * w; }`;
 const FS = `precision mediump float;
 uniform vec3 uC; uniform float uA; uniform float uMetal; uniform float uSpec; uniform float uNoise; uniform float uBrush;
-uniform float uStripe; uniform float uClipY; uniform float uBandLo; uniform float uBandHi; uniform float uCutX;
+uniform float uStripe; uniform float uClipY; uniform float uFloorY; uniform float uBandLo; uniform float uBandHi; uniform float uCutX;
 uniform vec3 uEmit; uniform float uGlass;
 varying vec3 vW; varying vec3 vN; varying vec3 vL;
 float h(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
@@ -139,7 +139,7 @@ vec3 room(vec3 r) {
   return c;
 }
 void main() {
-  if (vW.y > uClipY || vL.y < uBandLo || vL.y > uBandHi) discard;
+  if (vW.y > uClipY || vW.y < uFloorY || vL.y < uBandLo || vL.y > uBandHi) discard;
   if (vW.x > uCutX + 0.35 * sin(vW.y * 3.1 + vW.z * 2.3) + 0.2 * sin(vW.y * 7.0)) discard;
   vec3 n = normalize(vN); bool back = !gl_FrontFacing; if (back) n = -n;
   vec3 v = normalize(-vW);
@@ -170,7 +170,7 @@ export function createGl(canvas) {
   gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
   gl.useProgram(prog);
-  const U = {}; for (const k of ['uPr', 'uM', 'uNm', 'uC', 'uA', 'uMetal', 'uSpec', 'uNoise', 'uBrush', 'uStripe', 'uClipY', 'uBandLo', 'uBandHi', 'uCutX', 'uEmit', 'uGlass']) U[k] = gl.getUniformLocation(prog, k);
+  const U = {}; for (const k of ['uPr', 'uM', 'uNm', 'uC', 'uA', 'uMetal', 'uSpec', 'uNoise', 'uBrush', 'uStripe', 'uClipY', 'uFloorY', 'uBandLo', 'uBandHi', 'uCutX', 'uEmit', 'uGlass']) U[k] = gl.getUniformLocation(prog, k);
   const aP = gl.getAttribLocation(prog, 'aP'), aN = gl.getAttribLocation(prog, 'aN');
   gl.enableVertexAttribArray(aP); gl.enableVertexAttribArray(aN);
   const meshes = new Map();
@@ -193,7 +193,7 @@ export function createGl(canvas) {
     begin(w, h) {
       W = w; H = h; queue = [];
     },
-    // material: { color, alpha, metal, spec, noise, brush, stripe, clipY, band, cutX, emit, glass }
+    // material: { color, alpha, metal, spec, noise, brush, stripe, clipY, floorY, band, cutX, emit, glass }
     draw(m, mat, o = {}) { queue.push({ m, mat, o, z: apply(mat, [0, 0, 0])[2] }); },
     end() {
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -203,7 +203,7 @@ export function createGl(canvas) {
       const P = new Float32Array([f / a, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, (2 * far * near) / (near - far), 0]);
       gl.uniformMatrix4fv(U.uPr, false, P);
       gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
-      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);   // alpha adds up, so glass over a drink keeps it opaque
       const solid = queue.filter((q) => (q.o.alpha ?? 1) >= 1), clear = queue.filter((q) => (q.o.alpha ?? 1) < 1).sort((x, y) => x.z - y.z);
       const run = (q) => {
         const o = q.o;
@@ -211,7 +211,7 @@ export function createGl(canvas) {
         gl.uniform3fv(U.uC, hex(o.color || '#cccccc')); gl.uniform1f(U.uA, o.alpha ?? 1);
         gl.uniform1f(U.uMetal, o.metal || 0); gl.uniform1f(U.uSpec, o.spec ?? 24); gl.uniform1f(U.uNoise, o.noise || 0);
         gl.uniform1f(U.uBrush, o.brush || 0); gl.uniform1f(U.uStripe, o.stripe || 0); gl.uniform1f(U.uGlass, o.glass || 0);
-        gl.uniform1f(U.uClipY, o.clipY ?? 1e6); gl.uniform1f(U.uBandLo, o.band?.[0] ?? -1e6); gl.uniform1f(U.uBandHi, o.band?.[1] ?? 1e6);
+        gl.uniform1f(U.uClipY, o.clipY ?? 1e6); gl.uniform1f(U.uFloorY, o.floorY ?? -1e6); gl.uniform1f(U.uBandLo, o.band?.[0] ?? -1e6); gl.uniform1f(U.uBandHi, o.band?.[1] ?? 1e6);
         gl.uniform1f(U.uCutX, o.cutX ?? 1e6); gl.uniform3fv(U.uEmit, o.emit || [0, 0, 0]);
         gl.bindBuffer(gl.ARRAY_BUFFER, q.m.pb); gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 0, 0);
         gl.bindBuffer(gl.ARRAY_BUFFER, q.m.nb); gl.vertexAttribPointer(aN, 3, gl.FLOAT, false, 0, 0);

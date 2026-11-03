@@ -143,6 +143,24 @@
           ],
           "note": "right-centre, past the wall"
         }
+      ],
+      "menu": [
+        {
+          "item": "item_ballpark_lager",
+          "price": 8
+        },
+        {
+          "item": "item_arcline_cola",
+          "price": 5
+        },
+        {
+          "item": "item_ballpark_frank",
+          "price": 7
+        },
+        {
+          "item": "item_water_bottle",
+          "price": 4
+        }
       ]
     },
     "window": {

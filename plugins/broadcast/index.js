@@ -3337,6 +3337,79 @@ export function liveSportsChannel(sport) {
   for (const c of sportsChannels()) if (sportOf(c.script).id === sport) return c.channelId;
   return null;
 }
+
+// ── Reruns ────────────────────────────────────────────────────────────────────
+// A game is a pure function of its slot, so the last one played can be aired again to one
+// player without being stored: its graph is rebuilt from the slot and walked on a channel state
+// of the player's own, from the top, and the last picture holds when it ends. It's on channel
+// `rerun:<sport>`, which no set is tuned to, so only a view that asks for it draws it (a box's
+// suite screen, plugins/stands). Nothing reaches the betting desk or the standings: those come
+// from the heartbeat, never an airing.
+const RERUN_LOOKBACK = 64;   // slots searched back for the last game
+const _reruns = new Map();   // playerId -> { channelId, graph, state, startMs, endsMs, lastMsgKey }
+function rerunScript(sport) {
+  let fallback = null;
+  for (const st of channelRuntime.values()) for (const i of st.playlist || []) {
+    if (i.playback_mode !== 'sports' || !i.sportsScript || sportOf(i.sportsScript).id !== sport) continue;
+    if (i.sportsScript._slate) return i.sportsScript;
+    fallback ||= i.sportsScript;
+  }
+  return fallback;
+}
+// The slot of `sport`'s most recent finished game, or null.
+export function lastSportsSlot(sport) {
+  const script = rerunScript(sport);
+  if (!script) return null;
+  const now = sportsSlotIndex();
+  for (let slot = now - 1; slot >= now - RERUN_LOOKBACK; slot--) if (sportsAiring(script, slot)) return slot;
+  return null;
+}
+// Starts the last game of `sport` from its first pitch for this player; the channel id it airs
+// on, or null when there's no game to rerun.
+export function startSportsRerun(playerId, sport) {
+  const script = rerunScript(sport), slot = lastSportsSlot(sport);
+  if (!script || slot == null) return null;
+  const channelId = `rerun:${sport}`, nowMs = Date.now();
+  // sitting down again in the same suite carries on with the tape that's in
+  const had = _reruns.get(playerId);
+  if (had?.channelId === channelId && had.slot === slot && nowMs < had.endsMs) return channelId;
+  const graph = getSportsGraph(script, slot, overrideFor(script, slot));
+  if (!graph) return null;
+  const state = { channelId, channelType: 'scheduled', scheduleMode: 'daily', studioZoneId: null, lastMsgKey: '',
+    graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, npcAnchorId: null, activeBroadcastId: null, hostAbsent: false, absentDetectedAt: null, techDiffMode: false, standbyCardUp: false, airedAny: false } };
+  _reruns.set(playerId, { channelId, graph, state, slot, startMs: nowMs, endsMs: nowMs + _graphDurationSec(graph) * 1000 });
+  return channelId;
+}
+export function stopSportsRerun(playerId) { _reruns.delete(playerId); }
+on('player.logout', ({ id }) => { if (id) _reruns.delete(id); });
+// a view that mounts after the rerun started asks for what's on screen (the client's tv_catchup)
+on('tablet_tv.catchup', ({ playerId }) => {
+  const r = _reruns.get(playerId);
+  if (!r) return;
+  for (const overlay of [r.lastScorebug, r.lastGameday]) if (overlay) sendToPlayer(playerId, { type: 'tv_overlay', channelId: r.channelId, overlay });
+});
+
+// One beat of every rerun, sent to its one viewer as a tuned set gets it. A rerun past its end
+// sends nothing more, so the screen holds on the last picture.
+function _rerunPass(nowMs) {
+  for (const [pid, r] of _reruns) {
+    if (nowMs > r.endsMs) continue;
+    const player = world.players.get(pid);
+    if (!player) { _reruns.delete(pid); continue; }
+    let result;
+    try { result = tickBroadcastGraph(r.channelId, r.graph, r.state, nowMs, 0); } catch (err) { console.error('[broadcast] rerun:', err.message); _reruns.delete(pid); continue; }
+    if (!result || result.key === r.state.lastMsgKey) continue;
+    r.state.lastMsgKey = result.key;
+    const channelId = r.channelId;
+    if (result.style === 'overlay') { sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: result.overlay ?? null }); continue; }
+    if (result.style === 'live_relay') continue;
+    const formatted = formatMessage(result.text, 'tv', null, result.style);
+    if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.gameday && !result.gameday.lead ? { hasGameday: true } : result.call ? { hasGameday: 'call' } : {}) });
+    if (result.scorebug) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: (r.lastScorebug = { overlayType: 'scorebug', ...result.scorebug }) });
+    if (result.gameday) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: (r.lastGameday = { overlayType: 'gameday', ...result.gameday }) });
+    if (result.graphic) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: result.graphic });
+  }
+}
 function sportsChannels() {
   const out = [];
   // `state.playlist` is the channel's WHOLE grid, every day of the week — so a slot
@@ -3480,6 +3553,15 @@ export function venueRoofView() {
     forecast: f ? { weatherType: f.weatherType, precipPct: Math.round((f.precipChance ?? 0) * 100), tempC: f.tempC, shut: roofWeather() } : null,
     rained: v ? _roofRained.has(v.name) : false,
   };
+}
+// A seat in the venue named (its building_name), or the first roofed venue if none goes by that
+// name: one of its tiles, which a `venue_roof` push lists, and whether it's shut now. Null with no roof.
+export function venueRoofOf(name) {
+  if (!_roofVenues) refreshVenueRoofs(Date.now(), false);
+  const v = (_roofVenues || []).find((r) => r.name === name) || (_roofVenues || [])[0];
+  if (!v) return null;
+  const [x, y] = v.tiles[0];
+  return { tile: [x, y], shut: _roofShut.has(`${x},${y}`) ? 1 : 0 };
 }
 function venueRoof({ x, y } = {}) {
   if (!_roofVenues) refreshVenueRoofs(Date.now(), false);
@@ -6748,6 +6830,7 @@ async function broadcastTick() {
   // only resolve fresh for a channel nothing else drove. Whole pass is skipped when
   // nobody has the app open, so it costs nothing on an idle server.
   if (tabletTuners.size) await _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedThisTick);
+  if (_reruns.size) _rerunPass(nowMs);
 }
 
 // Per-channel fan-out to the portable tablet tuners. Split out of broadcastTick to
@@ -11491,7 +11574,7 @@ export const _test = {
   // player — the Tablet TV's portable tuner has no zone furniture, so "did a program
   // come out the other end" is only observable this way.
   venueLit, refreshVenueLights, venueRoof, refreshVenueRoofs, roofDecide, _roofState, setVenueRoof,
-  broadcastTick, tabletTuners,
+  broadcastTick, tabletTuners, _reruns, _rerunPass,
   // Exported so regress can assert what actually rides the wire to the Gameday
   // sub-screen — the half-inning changeover payload has no other observable.
   assembleSportsGraph,

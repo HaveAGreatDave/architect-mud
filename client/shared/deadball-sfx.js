@@ -575,6 +575,12 @@ export const CALLS = Object.freeze({
     strikeout: 'STRIKE THREE!', homerun: 'HOME RUN!', grandslam: 'GRAND SLAM!',
     doubleplay: 'DOUBLE PLAY!', tripleplay: 'TRIPLE PLAY!', walkoff: 'WALK-OFF!', champions: 'CHAMPIONS!',
   },
+  // A box's suite hears these as well (callFor's `box`): the screen is the room's only voice on
+  // the play, and the five above leave it quiet for innings.
+  box: {
+    single: 'BASE HIT!', double: 'DOUBLE!', triple: 'TRIPLE!', walk: 'BALL FOUR!', hitbypitch: 'HIT BY PITCH!',
+    error: 'ERROR!', sacfly: 'SAC FLY!', strikeout: 'STRIKE THREE!', groundout: 'OUT!', flyout: 'OUT!', popout: 'OUT!',
+  },
   umpire: { strike: 'STRIKE!', strikethree: 'STRIKE THREE!', foul: 'FOUL BALL!', out: 'OUT!', safe: 'SAFE!', dead: 'DEAD BALL!' },
   pa: { batter: 'Now batting, number {num}, {batter}.', lineup: 'Batting {ord}, number {num}, {name}.' },
   vendor: [

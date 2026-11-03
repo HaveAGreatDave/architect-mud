@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_ballpark_frank",
+  "name": "ballpark frank",
+  "tags": {
+    "consumable": true,
+    "description": "A frank in a soft white bun with a stripe of yellow mustard, in a paper boat. It's lukewarm by the time it reaches your row.",
+    "restore_hunger": 18,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 170
+}

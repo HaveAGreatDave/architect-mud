@@ -65,7 +65,8 @@ function umpireSays(call, s) {
   return p?.kind === 'strikeout' && q && (q.strikes | 0) >= 2 ? CALLS.umpire.strikethree : CALLS.umpire.strike;
 }
 // The announcer's call for a play that's landed, or null.
-export function callFor(p, lastPitch) {
+// `box` (a suite with the broadcast on) adds the everyday plays, the called third strike among them.
+export function callFor(p, lastPitch, box = false) {
   if (!p || p.phase) return null;
   const A = CALLS.announcer;
   if (p.walkoff) return A.walkoff;
@@ -74,7 +75,7 @@ export function callFor(p, lastPitch) {
   if (p.kind === 'doubleplay') return A.doubleplay;
   // a called third strike is the umpire's to call; a swinging one is the announcer's
   if (p.kind === 'strikeout' && lastPitch?.result !== 'called') return A.strikeout;
-  return null;
+  return box ? CALLS.box[p.kind] || null : null;
 }
 // The pitch the bat touched on a payload's nth crack (1 the first): the director names the crack
 // as the bat meets the ball and the pitch only once it's decided just after, so the graphics' pitch
@@ -451,7 +452,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       // sold, but not to the top of his range: an all-caps shout already leans on its last word, and
       // at full excitement "THREE" went up nine semitones and shrill
       // the announcer is the broadcast's; a seat hears the umpire and the crowd
-      if (calls()) say('announcer', callFor(p, s.S?.pitch), { excite: 0.4 });
+      if (calls()) say('announcer', callFor(p, s.S?.pitch, !!seat), { excite: 0.4 });
       // the last out of a final: once the moment's held, the announcer crowns them
       if (p.end?.champion && calls()) later(1300, () => say('announcer', CALLS.announcer.champions, { excite: 0.5 }));
     },

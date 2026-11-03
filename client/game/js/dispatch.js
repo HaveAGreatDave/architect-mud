@@ -1352,6 +1352,7 @@ const handlers = {
   // you get — which this file's own note says loses nothing.
   stands_chart: (msg) => { loadStands().then((m) => m.openStandsChart(msg)).catch((e) => console.error('[stands]', e)); },
   stands_open: (msg) => { loadStands().then((m) => m.openStands(msg)).catch((e) => console.error('[stands]', e)); },
+  stands_hand: (msg) => { standsMod?.then((m) => m.standsHand(msg)).catch(() => {}); },
   stands_sky: (msg) => { standsMod?.then((m) => m.setStandsSky(msg.field)).catch(() => {}); },
   stands_close: () => { standsMod?.then((m) => m.closeStands()).catch(() => {}); },
   stands_menu: (msg) => { standsMod?.then((m) => m.openStandsMenu(msg)).catch(() => {}); },
@@ -1776,7 +1777,7 @@ const handlers = {
   // Who's batting, the outs and the runners at a venue, for the park drawn from the air.
   venue_play: (msg) => { noteVenuePlay(msg); },
   // A venue's roof has started to open or close (the Hughson Coliseum's, on the weather).
-  venue_roof: (msg) => { noteVenueRoof(msg); },
+  venue_roof: (msg) => { noteVenueRoof(msg); standsMod?.then((m) => m.setStandsRoof(msg)).catch(() => {}); },
   aa_fire: (msg) => { noteAAFire(msg); },
   // A shell climbing before it bursts: one tile away (or on the launch tile) on-foot players see
   // a streaking trail rise and detonate at its apex — the whistle is tuned to peak there. Farther
