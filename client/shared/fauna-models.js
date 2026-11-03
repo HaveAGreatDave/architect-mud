@@ -24,3 +24,10 @@ export const BIRD_ROWS = {
 export const BIRD_ROWS_FAR = {
   "songbird": { "bellyCol": "#2a3330", "bellyWrap": 0, "billCol": "#e9c536", "billHook": false, "billLen": 0.04, "billRidge": 0, "billW": 0.2, "bodyCol": "#232e2a", "bodyH": 0.066, "bodyLen": 0.098, "bodyPitch": 0.24, "bodyRings": 0, "bodySides": 4, "bodyW": 0.066, "cheekCol": "#4a4e57", "chinstrap": false, "chord": 0.13, "covertStep": 0, "crownCol": "#332942", "dotPx": 3, "eyeCol": "#14110f", "eyeR": 0, "flapArc": 0.78, "footLen": 0.02, "glideDih": 0.05, "glideFold": 0.35, "headCol": "#2b2336", "headH": 0.042, "headLen": 0.05, "headRound": 0, "headSides": 4, "legCol": "#9c5949", "legLen": 0.032, "legTuck": 1, "legW": 0.006, "neckCol": "#282130", "neckLen": 0.028, "neckRise": 0.012, "neckSegs": 0, "neckW": 0.03, "patchCol": "#d6cba6", "patchScale": 0.3, "patches": 0, "primaryCol": "#191f1e", "rumpTaper": 0.55, "scale": 0.763, "slotSpread": 0.05, "span": 0.27, "tailCock": 1.15, "tailLen": 0.045, "tailNotch": 0.1, "tailW": 0.03, "undertailCol": "#3a3a32", "undertailLen": 0, "upFold": 0.8, "walkCycle": 0.9, "webbedFeet": false, "wingCamber": 0.08, "wingCol": "#2c3733", "wingCup": 0.18, "wingSerr": 0, "wingSlots": 0, "wingSweep": 0.06 },
 };
+
+// Four legs: Bracken's hounds, and whatever else is built by buildHound. The same two tables.
+export const QUADRUPED_ROWS = {
+  "hound": { "bellyCol": "#b98f63", "billCol": "#161214", "bodyCol": "#3b302c", "bodyLen": 0.78, "cheekCol": "#a37c55", "chestH": 0.38, "chestW": 0.27, "crownCol": "#221a18", "earLen": 0.09, "eyeCol": "#e2a43a", "eyeR": 0.16, "gallop": 1, "headCol": "#46382f", "headH": 0.15, "headLen": 0.2, "jaw": 0.6, "legCol": "#302622", "legLen": 0.5, "legW": 0.04, "muzzleLen": 0.14, "neckCol": "#3b302c", "neckLen": 0.3, "neckRise": 0.75, "neckW": 0.12, "patchCol": "#d9cdb2", "tailCol": "#3b302c", "tailLen": 0.42, "tailW": 0.035, "waistH": 0.16, "waistW": 0.15 },
+};
+
+export const QUADRUPED_ROWS_FAR = {};

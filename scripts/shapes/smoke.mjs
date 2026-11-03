@@ -611,6 +611,23 @@ async function main() {
           }
         }
       }
+      // …and every four-legged row: standing, lying, and the sixteen rows of the gallop.
+      for (const id of Object.keys(rows.quadruped || {})) {
+        for (const state of ['walk', 'lie', 'run']) {
+          const beats = state === 'run' ? fau.FAUNA_BEAT_STEPS : 1;
+          for (let beat = 0; beat < beats && !bad; beat++) {
+            const faces = fau.faunaWorldFaces('quadruped', id, { state, beat, heading: 1.1, x: 3, y: -4, z: 0 });
+            if (!faces.length) { bad = `quadruped/${id} ${state} beat ${beat} built no faces`; break; }
+            poses++;
+            for (const f of faces) for (const v of f.p) {
+              if (!Number.isFinite(v[0]) || !Number.isFinite(v[1]) || !Number.isFinite(v[2])) { bad = `quadruped/${id} ${state} beat ${beat} has a non-finite vertex`; break; }
+            }
+            if (!bad) for (const f of faces) if (!f.rgb || f.rgb.some((c) => !Number.isFinite(c))) { bad = `quadruped/${id} ${state} beat ${beat} has a colour that resolved to nothing`; break; }
+          }
+        }
+        // The gallop is drawn instanced, sixteen rows in one texture, which needs one topology.
+        if (!bad && !fau.faunaPoseBake('quadruped', id, 'run')) bad = `quadruped/${id}: the gallop's rows do not share one topology, so gl/fauna.js cannot bake it`;
+      }
       if (bad) problems.push(`fauna mesh — ${bad}`);
       faunaLine = `Fauna rows: ${n} authored; ${poses} world poses build; bake current.`;
     }

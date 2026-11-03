@@ -92,6 +92,13 @@ export function renderModule({ rows, lods = {} }) {
     far('bird'),
     '};',
     '',
+    '// Four legs: Bracken\'s hounds, and whatever else is built by buildHound. The same two tables.',
+    'export const QUADRUPED_ROWS = {',
+    table('quadruped'),
+    '};',
+    '',
+    ...(far('quadruped') ? ['export const QUADRUPED_ROWS_FAR = {', far('quadruped'), '};'] : ['export const QUADRUPED_ROWS_FAR = {};']),
+    '',
   ].join('\n');
 }
 

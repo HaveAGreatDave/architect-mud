@@ -21,7 +21,8 @@
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { flocksNear, flockState, flockClearance, flockOnSegment, birdContacts, BIRD_M_PER_TILE, BIRD_MASS_KG, BIRD_TUNE_EVADE, flockEdgeHeading, FLOCK_AREA, GOOSE_PERIOD, GOOSE_SETTLE_MS, U_GROUND, GOOSE_SPAN, SKEIN_ACROSS, skeinSlot, skeinForm, SPECIES, speciesAt, placeOf, habitatState, flockAt, flockPeriod, flockSize, flockSpreadScale, flockDrawRange, FLOCK_REF, BIRD_TUNE, groundSpot, groundPatchR, FORM_WORDS, birdDaylight, callsIn } from '../../client/shared/birds.js';
 import { agitation, agitationWave, K_NEIGHBOURS, MURMUR_RULES as MR } from '../../client/game/js/panels/murmur.js';
-import { faunaPaintCount, FAUNA_BEAT_STEPS, FAUNA_TILE, faunaParamBase, faunaParamIds, faunaPoseFaces, setFaunaParams, faunaWorldFaces, faunaRecordFaces, faunaSpanTiles, beatDihedral } from '../../client/game/js/panels/fauna3d.js';
+import { faunaPaintCount, FAUNA_BEAT_STEPS, FAUNA_TILE, faunaParamBase, faunaParamIds, faunaPoseFaces, setFaunaParams, faunaWorldFaces, faunaRecordFaces, faunaSpanTiles, beatDihedral, faunaPoseBake } from '../../client/game/js/panels/fauna3d.js';
+import { columnAt, houndsAt, PERIOD_S } from '../../client/shared/column-route.js';
 
 const ws = await loadWindshield();
 const REPORT = process.argv.includes('--report');
@@ -2270,6 +2271,92 @@ T = T_GROUND ?? 1e6;
 // These drove murmur.js's CPU flock, which the game no longer has (2026-09-23). The same claims, with
 // the same numbers, are asked of the GPU flock by __glMurmurChecks and __glMurmurParity in the
 // Modelshop — by hand, because no harness here reaches a GL draw call.
+// ── 16. BRACKEN'S HOUNDS ──────────────────────────────────────────────────────
+// The first animal on four legs (`quadruped`/`hound`), drawn in front of the Wildblood column's Howl
+// from the column's own clock (houndsAt in client/shared/column-route.js). The model first, then the
+// pass: the pack reaches the sink where houndsAt puts it, lies down at a stop, paints on GLASS 1,
+// and is gone after dark like the birds.
+{
+  const HK = 'quadruped', HID = 'hound';
+  // The gallop is sixteen rows of one topology, or gl/fauna.js cannot draw it instanced.
+  const bake = faunaPoseBake(HK, HID, 'run');
+  if (!bake || bake.rows !== FAUNA_BEAT_STEPS) problems.push(`the hound's gallop does not bake to ${FAUNA_BEAT_STEPS} rows of one topology (${bake ? bake.rows + ' rows' : 'refused'}), so gl/fauna.js would not draw it`);
+  // Its feet: a bearing paw on the road and never through it, and a moment in the stride with
+  // every foot off the ground, which is what a gallop is.
+  const lows = [];
+  let faceMax = 0;
+  for (let b = 0; b < FAUNA_BEAT_STEPS; b++) {
+    const fs = faunaPoseFaces(HK, HID, { state: 'run', beat: b });
+    faceMax = Math.max(faceMax, fs.length);
+    let lo = Infinity;
+    for (const f of fs) for (const v of f.p) if (v[2] < lo) lo = v[2];
+    lows.push(lo);
+  }
+  const lowest = Math.min(...lows), airborne = Math.max(...lows);
+  if (lowest < -0.006) problems.push(`a galloping hound puts a paw ${(-lowest).toFixed(3)} units through the road`);
+  if (lowest > 0.01) problems.push(`a galloping hound never puts a foot on the road (lowest corner ${lowest.toFixed(3)} up)`);
+  if (!(airborne > 0.008)) problems.push(`the gallop has no suspension: some foot is always down (highest low corner ${airborne.toFixed(3)})`);
+  for (const st of ['walk', 'lie']) {
+    let lo = Infinity;
+    for (const f of faunaPoseFaces(HK, HID, { state: st })) for (const v of f.p) if (v[2] < lo) lo = v[2];
+    if (Math.abs(lo) > 0.002) problems.push(`a ${st === 'lie' ? 'lying' : 'standing'} hound is ${lo.toFixed(3)} off the road`);
+  }
+  if (faceMax > 120) problems.push(`a hound is ${faceMax} faces, over the 120 a dog six times over a frame was sized for`);
+  // The legs move: the stride's first and middle rows are different shapes.
+  const sig = (b) => faunaPoseFaces(HK, HID, { state: 'run', beat: b }).map((f) => f.p.map((v) => v.map((x) => x.toFixed(3)).join()).join(';')).join('|');
+  if (sig(0) === sig(8)) problems.push('the gallop is one frozen pose: row 0 and row 8 are the same shape');
+
+  // ── the pass ──
+  const findCol = (want) => {
+    for (let t = 1e6; t < 1e6 + PERIOD_S * 1000; t += 1000) {
+      const c = columnAt(t)[0];
+      if (want === 'run' ? (c.stop == null && columnAt(t - 12_000)[0].stop == null) : c.stop != null) return t;
+    }
+    return null;
+  };
+  const T_RUN = findCol('run'), T_STOP = findCol('stop');
+  const houndPaint = (t, hour, glOn = true) => {
+    T = t;
+    const howl = columnAt(t)[0];
+    const centre = { x: Math.round(howl.x), y: Math.round(howl.y) + 3 };
+    const view = viewAt(centre, 0, hour, { x: 0.31, y: -0.17 }, 0, () => ({ kind: 'land', biome: EMPTY_GROUND, flr: 0 }));
+    const c = globalThis.document.createElement('canvas');
+    c.width = W; c.height = H;
+    let recs = [];
+    ws.RENDER_TUNE.gl = glOn ? 1 : 0; ws.RENDER_TUNE.glFloor = glOn ? 1 : 0;
+    ws.installGLWorld(glOn ? ((cells, cam, o) => { recs = (o.fauna || []).filter((r) => r && r.inst && r.kind === HK); return { faces: 1, canvas: c }; }) : null);
+    ws.paintWindshield('__fa', view);
+    ws.paintWindshield('__fa', view);
+    ws.installGLWorld(null);
+    return recs.map((r) => ({ ...r, wx: r.x + view.mapCenter.x, wy: r.y + view.mapCenter.y }));
+  };
+  if (T_RUN == null || T_STOP == null) problems.push('the column never runs or never stops over a loop, so the hound pass cannot be measured');
+  else {
+    const run = houndPaint(T_RUN, 12);
+    const want = houndsAt(T_RUN);
+    if (run.length !== want.length) problems.push(`${run.length} hound records reached the fauna sink beside a running column, not the ${want.length} houndsAt puts there`);
+    else {
+      let off = 0;
+      for (let i = 0; i < want.length; i++) off = Math.max(off, Math.hypot(run[i].wx - want[i].x, run[i].wy - want[i].y));
+      if (off > 1e-6) problems.push(`a drawn hound is ${off.toFixed(4)} tiles from where houndsAt puts it: the pass and the route disagree`);
+      if (!run.every((r) => r.state === 'run' && r.beat >= 0 && r.beat < FAUNA_BEAT_STEPS)) problems.push('a hound beside a running column is not on a gallop row: ' + run.map((r) => r.state + r.beat).join());
+      // Faces the way it runs: the record's heading is the route's, turned from compass to (cos, sin).
+      const hd = Math.max(...run.map((r, i) => Math.abs(Math.atan2(Math.sin(r.heading - (want[i].hdg - 90) * Math.PI / 180), Math.cos(r.heading - (want[i].hdg - 90) * Math.PI / 180)))));
+      if (hd > 1e-6) problems.push(`a drawn hound faces ${(hd * 180 / Math.PI).toFixed(1)}° off the way houndsAt says it runs`);
+      const again = houndPaint(T_RUN, 12);
+      if (JSON.stringify(again) !== JSON.stringify(run)) problems.push('two paints at one clock drew two different packs');
+      const faces = faunaRecordFaces(run).length;
+      notes.push(`hounds: ${run.length} at the gallop, ${faces} faces, ${faceMax} a dog; lowest paw ${lowest.toFixed(3)}, ${airborne.toFixed(3)} clear in the suspension`);
+    }
+    const lying = houndPaint(T_STOP, 12);
+    if (!lying.length || !lying.every((r) => r.state === 'lie')) problems.push('at a stop the pack is not lying down: ' + lying.map((r) => r.state).join());
+    if (houndPaint(T_RUN, 2).length) problems.push('hounds drew after dark; the fauna layer has no night tint, so they are day-gated like the birds');
+    const before = faunaPaintCount().run;
+    houndPaint(T_RUN, 12, false);
+    if (!(faunaPaintCount().run > before)) problems.push('GLASS 1 painted no running hound: drawHounds only pushes a record, so with GLASS 2 off the pack is invisible');
+  }
+}
+
 // ── out ───────────────────────────────────────────────────────────────────────
 ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas; ws.RENDER_TUNE.geese = geeseWas;
 globalThis.performance = clock;

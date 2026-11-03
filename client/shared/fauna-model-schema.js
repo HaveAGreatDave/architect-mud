@@ -16,7 +16,9 @@
 // It lives in client/shared/ for the reason both its siblings do: three processes read it — the
 // bake, the shapes smoke, and the Modelshop's editor, which validates in the browser before it
 // asks the server to write. One rule, three callers.
-export const FAUNA_KINDS = ['bird'];
+// A kind is a BUILDER: 'bird' is buildBird in fauna3d.js and 'quadruped' is buildHound. A new animal
+// of a body plan that already has a builder is a new id below, never a new kind.
+export const FAUNA_KINDS = ['bird', 'quadruped'];
 
 // Which animals a file may claim. A row for anything else is a file the renderer would never
 // read, so it fails the build rather than sitting there looking authoritative.
@@ -35,6 +37,10 @@ export const FAUNA_IDS = {
   // fit the budget — runs over SPECIES instead, because a model in no habitat has no flock and
   // cannot be confused with anything in the field.
   bird: ['goose', 'gull', 'pigeon', 'songbird', 'hawk', 'peregrine', 'vulture', 'robin'],
+  // Four legs. Where a hound is comes from the Wildblood column's clock (houndsAt in
+  // client/shared/column-route.js), not from a habitat table: Bracken's pack runs in front of the
+  // Howl and nowhere else. A later dog or rat is another id here, built by the same builder.
+  quadruped: ['hound'],
 };
 
 // ⚠ THIS FORMAT SAYS MORE THAN "IT IS JSON", AND IT EARNS IT TWICE OVER.

@@ -131,6 +131,40 @@ for (const sp of species) {
   if (bad) fail.push(`faunaPoseSlot pointed at the wrong pose in ${bad} of ${n} cases`);
 }
 
+// 5. the four-legged rows: the gallop is sixteen rows, standing and lying one each, and every row
+// and every slot is the pose faunaPose draws (the slot over off-range beats, as for the birds).
+for (const id of F.faunaParamIds('quadruped')) {
+  for (const state of ['run', 'walk', 'lie']) {
+    const bake = F.faunaPoseBake('quadruped', id, state, 0, 0, 0);
+    const tag = `quadruped/${id} ${state}`;
+    if (!bake) { fail.push(`${tag} would not bake, so the hound does not draw on the GPU path`); continue; }
+    groups++;
+    verts = Math.max(verts, bake.verts);
+    const wantRows = state === 'run' ? F.FAUNA_BEAT_STEPS : 1;
+    if (bake.rows !== wantRows) fail.push(`${tag}: ${bake.rows} rows, expected ${wantRows}`);
+    for (let r = 0; r < bake.rows; r++) {
+      const pts = fan(F.faunaPoseFaces('quadruped', id, { state, beat: r }));
+      if (pts.length !== bake.verts) { fail.push(`${tag} row ${r}: ${pts.length} vertices, bake has ${bake.verts}`); continue; }
+      let bad = 0;
+      for (let i = 0; i < pts.length; i++) {
+        const o = (r * bake.verts + i) * 4;
+        if (bake.pos[o] !== Math.fround(pts[i][0]) || bake.pos[o + 1] !== Math.fround(pts[i][1]) || bake.pos[o + 2] !== Math.fround(pts[i][2])) bad++;
+      }
+      if (bad) fail.push(`${tag} row ${r}: ${bad} of ${pts.length} vertices differ from faunaPose`);
+      rowsChecked++;
+    }
+    for (const beat of [-17, -1, 0, 7, 15, 16, 47]) {
+      const slot = F.faunaPoseSlot('quadruped', id, state, beat, 0, 0, 0);
+      const pts = fan(F.faunaPoseFaces('quadruped', id, { state, beat }));
+      if (slot.group !== `quadruped:${id}:${state}:L0` || slot.row >= bake.rows) { fail.push(`${tag} beat ${beat}: slot ${slot.group} row ${slot.row}`); continue; }
+      for (let i = 0; i < pts.length; i++) {
+        const o = (slot.row * bake.verts + i) * 4;
+        if (bake.pos[o] !== Math.fround(pts[i][0]) || bake.pos[o + 2] !== Math.fround(pts[i][2])) { fail.push(`${tag} beat ${beat}: the slot's row is not the pose`); break; }
+      }
+    }
+  }
+}
+
 if (groups < 100) fail.push(`only ${groups} pose groups baked — the sweep has stopped seeing the table`);
 
 if (fail.length) {

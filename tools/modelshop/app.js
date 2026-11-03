@@ -31,7 +31,7 @@ import {
 } from '/client/game/js/panels/windshield.js';
 import {
   renderFaunaPreview, renderFaunaSheet, faunaBounds, faunaParamBase, setFaunaParams,
-  clearFaunaParams, faunaParamIds, faunaEl, FAUNA_POSES,
+  clearFaunaParams, faunaParamIds, faunaEl, faunaPosesFor,
 } from '/client/game/js/panels/fauna3d.js';
 import {
   initEditor, renderEditor, editorRecordFor, editorDocFor, markDirty, renderPalette,
@@ -69,7 +69,7 @@ const VEHICLES = [
 ];
 // The animals. A third renderer, and the shortest of the three: fauna3d.js has no camera at all,
 // so a subject is a pose and a bearing rather than a seat.
-const FAUNA = faunaParamIds('bird').map((id) => ({ key: 'fauna:bird/' + id, fauna: { kind: 'bird', id }, m: { type: id } }));
+const FAUNA = ['bird', 'quadruped'].flatMap((kind) => faunaParamIds(kind).map((id) => ({ key: 'fauna:' + kind + '/' + id, fauna: { kind, id }, m: { type: id } })));
 
 const MODELS = [...shapeModelRegistry(), ...VEHICLES, ...FAUNA];
 const entryOf = (key) => MODELS.find((r) => r.key === key) || null;
@@ -561,7 +561,7 @@ function drawFaunaRail() {
   const meta = $('meta'); meta.textContent = '';
   row(meta, 'key', state.key);
   row(meta, 'kind', f.kind);
-  row(meta, 'pose', state.faunaState + (state.faunaState === 'air' ? ' · wing ' + state.faunaWing : ''));
+  row(meta, 'pose', state.faunaState + (state.faunaState === 'air' ? ' · wing ' + state.faunaWing : state.faunaState === 'run' ? ' · stride ' + state.faunaWing : ''));
   row(meta, 'bearing', Math.round(state.heading) + '°');
   row(meta, 'viewpoint', (state.faunaEl ? (state.faunaEl > 0 ? '+' : '') + state.faunaEl.toFixed(2) + ' off the baked ' : 'as baked, ')
     + faunaEl(state.faunaState).toFixed(2) + ' rad');
@@ -750,10 +750,14 @@ function drawFaunaTuner(host, f) {
   const ref = { kind: f.kind, id: f.id };
 
   const poses = document.createElement('div'); poses.className = 'row'; poses.style.flexWrap = 'wrap';
-  for (const p of FAUNA_POSES) {
+  // A hound's poses are not a bird's (standing, lying, four gallop shapes), so a pose left over from
+  // the last subject that this one hasn't got is put back to standing.
+  const kindPoses = faunaPosesFor(f.kind);
+  if (!kindPoses.some((p) => p.state === state.faunaState)) { state.faunaState = 'walk'; state.faunaWing = 0; }
+  for (const p of kindPoses) {
     const b = document.createElement('button');
-    b.textContent = p.state === 'air' ? 'air ' + p.wing : p.state;
-    b.classList.toggle('on', state.faunaState === p.state && (p.state !== 'air' || state.faunaWing === p.wing));
+    b.textContent = p.state === 'air' || p.state === 'run' ? p.state + ' ' + p.wing : p.state;
+    b.classList.toggle('on', state.faunaState === p.state && ((p.state !== 'air' && p.state !== 'run') || state.faunaWing === p.wing));
     b.onclick = () => { state.faunaState = p.state; state.faunaWing = p.wing; draw(); };
     poses.append(b);
   }
