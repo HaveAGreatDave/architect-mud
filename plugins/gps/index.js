@@ -269,7 +269,10 @@ function resolveByName(query, player, routeOpts) {
       const bn = z.flags?.facade && z.flags.building_name;
       if (bn) doors.set(bn, [...(doors.get(bn) || []), z]);
     }
-    const rest = r.candidates.filter(z => !(z.flags?.building_name && doors.has(z.flags.building_name)));
+    // A room folds when it's on an interior map one of those buildings' rooms are on,
+    // which takes in the plant rooms that carry no building_name of their own.
+    const inside = new Set(all.filter(z => z.map_id !== 'map_world' && doors.has(z.flags?.building_name)).map(z => z.map_id));
+    const rest = r.candidates.filter(z => !(doors.has(z.flags?.building_name) || inside.has(z.map_id)));
     if (doors.size && !rest.length) {
       // One building, or one whose name ends in the word typed: "Coliseum" is the
       // Coliseum, not the Coliseum Box Office.
