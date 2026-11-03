@@ -24,6 +24,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { canonicalJson } from './lib.mjs';
 import { maskUV, maskOutline, MASK_EL_MIN } from '../../client/game/js/panels/gl/arena-mesh.js';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -1565,8 +1566,11 @@ if (isMain) {
     console.error(`✗ the row's teams and the clubs here disagree. No identity: ${missing.join(', ') || '—'}. Not in the league: ${extra.join(', ') || '—'}.`);
     process.exit(1);
   }
-  const next = JSON.stringify(CLUBS);
-  const cur = JSON.stringify(sp.clubs || null);
+  // Compared and written in the export's own form (canonicalJson, sorted keys), as
+  // build-deadball-clubs.mjs does, so the check doesn't fail on key order alone and a
+  // content:export of the row doesn't turn it red.
+  const next = canonicalJson(CLUBS);
+  const cur = canonicalJson(sp.clubs || null);
   const crests = crestsModule(teams);
   let crestsNow = '';
   try { crestsNow = fs.readFileSync(CRESTS, 'utf8').replace(/\r\n/g, '\n'); } catch { /* not written yet */ }
@@ -1576,7 +1580,7 @@ if (isMain) {
   } else {
     sp.clubs = CLUBS;
     row.sports_pools = sp;
-    fs.writeFileSync(ROW, `${JSON.stringify(row, null, 2)}\n`, 'utf8');
+    fs.writeFileSync(ROW, canonicalJson(row), 'utf8');
     console.log(`  wrote ${Object.keys(CLUBS).length} clubs into ${path.relative(ROOT, ROW)} (${(next.length / 1024).toFixed(1)} KB)`);
     if (crests !== crestsNow) {
       fs.writeFileSync(CRESTS, crests, 'utf8');
