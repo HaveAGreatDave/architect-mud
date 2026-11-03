@@ -323,6 +323,7 @@ export const GROUPS = [
       'scripts/audio/loudness-smoke.mjs',  // every cue preset's LUFS and peak against its target; ratcheted by loudness-baseline.json
       'scripts/audio/modes-smoke.mjs',     // struck surfaces: metal rings longer than wood, peaks at the modes, as loud as the old path
       'scripts/audio/sfx-smoke.mjs',       // every preset and bed passes the critic; vary and rand density work
+      'scripts/audio/kitchen-sound-smoke.mjs', // the Kitchen Stage's cues pass the critic; the hob's state follows the pan and dial, never a clock
       'scripts/audio/sound-match-smoke.mjs', // the matcher reads a bell's carrier and ratio and fits it; the composed loops pass the critic
     ],
   },

@@ -2117,6 +2117,9 @@
 
   // `opts.position` (and the rest of spatialOpen's options) places the loop for a
   // GLASS seat; moveLoop moves it each frame.
+  // `opts.whole`: the loop goes through one gain node of its own, starting at
+  // `opts.gain` (0-1, default 1), and setLoopGain scales that, so every layer
+  // follows. Without it setLoopGain reaches the first layer's envelope only.
   function loopSound(def, opts = {}) {
     const c = init();
     if (!c || !def) return;
@@ -2131,12 +2134,19 @@
     const loopCat = def.category === 'tv' || def.category === 'tv_fx' ? def.category : def.category === 'sfx' ? 'sfx' : 'ambient';
     const bus = cueBus(loopCat, def.config?.send);
     const sp = spatialOpen(bus, opts, def.config);
-    const sound = _buildPositioned(sp, () => buildSound(def.config || {}, sp ? sp.input : bus, time, null));
-    const baseGain = def.config?.gain ?? 1;
+    let into = sp ? sp.input : bus, whole = null;
+    if (opts.whole) {
+      whole = c.createGain();
+      whole.gain.setValueAtTime(Math.max(0, Math.min(1, Number.isFinite(opts.gain) ? opts.gain : 1)), time);
+      whole.connect(into);
+      into = whole;
+    }
+    const sound = _buildPositioned(sp, () => buildSound(def.config || {}, into, time, null));
+    const baseGain = whole ? 1 : def.config?.gain ?? 1;
     const sparkleCancels = Array.isArray(def.config?.sparkle) && def.config.sparkle.length
       ? _startSparkles(def.config.sparkle, def.category)
       : null;
-    const entry = { voiceIdx: idx, release: sound.release, gainNode: sound.gainNode, baseGain, sparkleCancels, sp };
+    const entry = { voiceIdx: idx, release: sound.release, gainNode: whole || sound.gainNode, baseGain, sparkleCancels, sp };
     activeLoops.set(id, entry);
     entry.voiceToken = occupyVoice(idx, priority, () => { sound.release(c.currentTime); if (sparkleCancels) sparkleCancels.forEach(fn => fn()); activeLoops.delete(id); _closeLater(sp); });
   }
@@ -4882,7 +4892,7 @@ return out;
     // retro stage for a live synth; `retro.ref` is its full scale
     retroInsert: (c, retro, dest) => retroStage(c, retro || {}, {}, dest),
     loadRetro,
-    loopSound, stopLoop, setLoopGain, duckLoop, setEcho,
+    loopSound, stopLoop, setLoopGain, duckLoop, setEcho, isLooping: (id) => activeLoops.has(id),
     playMusic, stopMusic, stopMusicOwnedBy, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,
     noteToFreq,

@@ -35,6 +35,34 @@
     }));
   }
 
+  // ── Kitchen helpers (the shapes of scripts/audio/sfx-lib.mjs's air, crackle and click) ─────
+  // A held noise layer: sustained, with a slow attack so it never steps in from silence.
+  function bed(seed, filter, gain, extra, mods) {
+    return { waveform: 'noise', noiseMix: 1, noiseSeed: seed, ...extra, filter, adsr: { a: 0.3, d: 0.1, s: 1, r: 0.4 }, gain, mods };
+  }
+  // A slow smooth random on the cutoff (cents) and the level: the bed moving.
+  function sway(seed, rate, cutoff, amp) {
+    const to = [];
+    if (cutoff) to.push({ param: 'filter.cutoff', amount: cutoff });
+    if (amp) to.push({ param: 'amp', amount: amp });
+    return { id: 'mv', type: 'rand', rate, smooth: true, seed, to };
+  }
+  // A layer gated into sparse bursts: `density` of `rate` steps a second sound.
+  function gate(seed, rate, density) {
+    return { id: 'gt', type: 'rand', rate, density, seed, to: [{ param: 'amp', amount: 1 }] };
+  }
+  // Each burst at its own pitch: a stepped random on the cutoff, in cents.
+  function pitchRand(seed, rate, cents) {
+    return { id: 'pr', type: 'rand', rate, seed, to: [{ param: 'filter.cutoff', amount: cents }] };
+  }
+  // A click: a few milliseconds of band-passed noise.
+  function tick(seed, delay, freq, gain, decay = 0.006) {
+    return { waveform: 'noise', noiseMix: 1, noiseSeed: seed, ...(delay ? { delay } : {}), filter: { type: 'bandpass', freq, q: 1.6 },
+      adsr: { a: 0.0003, d: decay, s: 0, r: decay, curve: 'exp' }, gain };
+  }
+  // Ten knife strokes in a row shouldn't be ten copies of one.
+  const THOCK_VARY = { pitch: 40, time: 0.06, filter: 100, gain: 1 };
+
   // ── Built-in cues ───────────────────────────────────────────────────────────
   // group is a display bucket ('poker' | 'hack' | 'hololock' | 'vault'); category
   // routes the AudioEngine bus (all 'sfx' here so they answer the SFX volume).
@@ -404,7 +432,7 @@
     // ── The Kitchen Stage (client/game/js/panels/kitchen-stage.js) ───────────
     // What the panel itself makes. The verbs' own sounds (a flip striking the
     // pan, a stir) still come from the server's cooking.sfx, so these are only
-    // the board, the hob's knob, the plate and the change of station.
+    // the board, the hob, the fridge, the plate and the change of station.
     // The blade through the food and into the board: a wooden thump and a click.
     { id: 'kitchen-thock', name: 'Kitchen: knife stroke', group: 'kitchen', category: 'sfx', priority: 6,
       config: { duration: 0.18, layers: [
@@ -419,12 +447,6 @@
     { id: 'kitchen-tap', name: 'Kitchen: on the board', group: 'kitchen', category: 'sfx', priority: 3,
       config: { duration: 0.1, layers: [
         { waveform: 'triangle', freq: 340, pitchBend: { to: 220, time: 0.03 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.2 } ] } },
-    // Fat spitting in a hot pan. Played in short bursts while a ring is lit, louder the higher it is.
-    { id: 'kitchen-sizzle', name: 'Kitchen: sizzle', group: 'kitchen', category: 'sfx', priority: 2,
-      config: { duration: 0.6, layers: [
-        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 4200, q: 0.7 }, adsr: { a: 0.04, d: 0.3, s: 0.3, r: 0.2 }, gain: 0.07 },
-        { waveform: 'noise', noiseMix: 1, delay: 0.12, filter: { type: 'bandpass', freq: 6500, q: 3 }, adsr: { a: 0.001, d: 0.02, s: 0, r: 0.01 }, gain: 0.06 },
-        { waveform: 'noise', noiseMix: 1, delay: 0.31, filter: { type: 'bandpass', freq: 5200, q: 3 }, adsr: { a: 0.001, d: 0.02, s: 0, r: 0.01 }, gain: 0.05 } ] } },
     // The pan tossed: air past the food.
     { id: 'kitchen-whoosh', name: 'Kitchen: toss', group: 'kitchen', category: 'sfx', priority: 5,
       config: { duration: 0.3, layers: [
@@ -444,6 +466,90 @@
       config: { duration: 0.45, layers: [
         { waveform: 'sine', freq: 96, pitchBend: { to: 58, time: 0.18 }, adsr: { a: 0.002, d: 0.32, s: 0, r: 0.1 }, gain: 0.3 },
         { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 500, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.12 } ] } },
+
+    // The hob, held (client/shared/kitchen-sound.js picks one): each loops with
+    // AudioEngine.loopSound while its state holds, the dial sets its level, and a change of state
+    // crossfades. `loop` is for the critic (scripts/audio/kitchen-sound-smoke.mjs); `duration`
+    // is how long the Audio tab's preview holds it.
+    // Fat in a dry pan: a bright hiss that wanders, sparse high spits, the odd bigger pop and the
+    // oil moving under it.
+    { id: 'kitchen-sizzle-dry', name: 'Kitchen: frying, held', group: 'kitchen', category: 'sfx', priority: 2, loop: 1,
+      config: { duration: 2.5, layers: [
+        bed(4101, { type: 'highpass', freq: 3600, q: 0.7 }, 0.042, { width: 0.6 }, [sway(4102, 1.3, 500, 0.3)]),
+        bed(4103, { type: 'bandpass', freq: 5200, q: 1.1 }, 0.054, { width: 0.7 }, [gate(4104, 85, 0.12)]),
+        bed(4105, { type: 'bandpass', freq: 2100, q: 2.2 }, 0.048, {}, [gate(4106, 30, 0.05)]),
+        bed(4107, { type: 'bandpass', freq: 900, q: 0.8 }, 0.018, { noise: 'pink' }, [sway(4108, 0.8, 0, 0.4)]) ] } },
+    // Food sweating in a wet pan, or a liquid at a simmer: duller steam, a soft crackle, a slow
+    // blip of a bubble and a low warmth.
+    { id: 'kitchen-sizzle-wet', name: 'Kitchen: sweating, held', group: 'kitchen', category: 'sfx', priority: 2, loop: 1,
+      config: { duration: 2.5, layers: [
+        bed(4201, { type: 'bandpass', freq: 2600, q: 0.6 }, 0.057, { noise: 'pink', width: 0.6 }, [sway(4202, 0.9, 400, 0.3)]),
+        bed(4203, { type: 'bandpass', freq: 3400, q: 1.2 }, 0.057, { width: 0.6 }, [gate(4204, 45, 0.07)]),
+        bed(4205, { type: 'bandpass', freq: 850, q: 7 }, 0.13, {}, [gate(4206, 14, 0.15), pitchRand(4207, 14, 500)]),
+        bed(4208, { type: 'lowpass', freq: 420, q: 0.7 }, 0.048, { noise: 'brown' }, [sway(4209, 0.7, 0, 0.3)]) ] } },
+    // A rolling boil: bubbles at scattered pitches, a few big slow ones, the water turning over,
+    // bubbles bursting at the surface and a little steam.
+    { id: 'kitchen-boil', name: 'Kitchen: rolling boil, held', group: 'kitchen', category: 'sfx', priority: 2, loop: 1,
+      config: { duration: 2.5, layers: [
+        bed(4301, { type: 'bandpass', freq: 620, q: 9 }, 0.18, {}, [gate(4302, 38, 0.3), pitchRand(4303, 38, 700)]),
+        bed(4304, { type: 'bandpass', freq: 300, q: 7 }, 0.18, {}, [gate(4305, 12, 0.25), pitchRand(4306, 12, 500)]),
+        bed(4307, { type: 'lowpass', freq: 500, q: 0.7 }, 0.072, { noise: 'brown' }, [sway(4308, 2, 0, 0.4)]),
+        bed(4309, { type: 'bandpass', freq: 2400, q: 1.5 }, 0.045, {}, [gate(4310, 60, 0.08)]),
+        bed(4311, { type: 'highpass', freq: 4200, q: 0.7 }, 0.023, { noise: 'pink', width: 0.6 }, [sway(4312, 0.6, 300, 0.3)]) ] } },
+    // A fridge or a freezer with its door open: the compressor's hum and its harmonics, a rough
+    // buzz in the casing and the fan.
+    { id: 'kitchen-fridge-hum', name: 'Kitchen: fridge hum, held', group: 'kitchen', category: 'sfx', priority: 2, loop: 1,
+      config: { duration: 2.5, layers: [
+        { waveform: 'sine', freq: 100, vibrato: { rate: 0.3, depth: 3 }, adsr: { a: 0.4, d: 0.1, s: 1, r: 0.4 }, gain: 0.033 },
+        { waveform: 'sawtooth', freq: 100, vibrato: { rate: 0.37, depth: 3 }, filter: { type: 'lowpass', freq: 500, q: 1.2 }, adsr: { a: 0.4, d: 0.1, s: 1, r: 0.4 }, gain: 0.019 },
+        { waveform: 'square', freq: 200, filter: { type: 'bandpass', freq: 420, q: 2.5 }, adsr: { a: 0.4, d: 0.1, s: 1, r: 0.4 }, gain: 0.0078,
+          mods: [sway(4401, 3, 0, 0.3)] },
+        bed(4402, { type: 'bandpass', freq: 1500, q: 0.7 }, 0.013, { noise: 'pink' }, [sway(4403, 0.5, 300, 0.2)]) ] } },
+    // A fridge door pulled open: the gasket peels off in three ticks, a soft pop, and cold air.
+    { id: 'kitchen-seal-open', name: 'Kitchen: fridge seal, open', group: 'kitchen', category: 'sfx', priority: 4,
+      config: { duration: 0.3, vary: { pitch: 25, gain: 0.8 }, layers: [
+        tick(4501, 0, 1300, 0.2), tick(4502, 0.012, 1000, 0.15), tick(4503, 0.026, 900, 0.12),
+        { waveform: 'triangle', freq: 240, delay: 0.02, pitchBend: { to: 130, time: 0.02 }, adsr: { a: 0.0008, d: 0.06, s: 0, r: 0.03, curve: 'exp' }, gain: 0.37 },
+        { waveform: 'noise', noiseMix: 1, noiseSeed: 4504, delay: 0.02, filter: { type: 'bandpass', freq: 480, q: 1.8 }, adsr: { a: 0.0005, d: 0.04, s: 0, r: 0.02, curve: 'exp' }, gain: 0.17 },
+        { waveform: 'noise', noiseMix: 1, noise: 'pink', noiseSeed: 4505, delay: 0.03, filter: { type: 'bandpass', freq: 400, q: 1.2 },
+          adsr: { a: 0.12, d: 0.2, s: 0, r: 0.08, curve: 'exp' }, gain: 0.1,
+          mods: [{ id: 'sw', type: 'env', a: 0.18, d: 0.12, s: 1, r: 0.05, to: [{ param: 'filter.cutoff', amount: 2400 }] }] } ] } },
+    // A fridge door shut: the door meets the gasket in a dull thump, a puff of air, and the jars
+    // in the door rack knock together.
+    { id: 'kitchen-seal-shut', name: 'Kitchen: fridge seal, shut', group: 'kitchen', category: 'sfx', priority: 4,
+      config: { duration: 0.3, vary: { pitch: 25, gain: 0.8 }, layers: [
+        { waveform: 'sine', freq: 225, pitchBend: { to: 90, time: 0.03 }, adsr: { a: 0.0008, d: 0.12, s: 0, r: 0.06, curve: 'exp' }, gain: 0.24 },
+        { waveform: 'triangle', freq: 380, pitchBend: { to: 240, time: 0.012 }, adsr: { a: 0.0005, d: 0.06, s: 0, r: 0.03, curve: 'exp' }, gain: 0.12 },
+        { waveform: 'noise', noiseMix: 1, noiseSeed: 4601, filter: { type: 'bandpass', freq: 520, q: 1.6 }, adsr: { a: 0.0004, d: 0.04, s: 0, r: 0.02, curve: 'exp' }, gain: 0.096 },
+        { waveform: 'noise', noiseMix: 1, noise: 'pink', noiseSeed: 4602, delay: 0.005, filter: { type: 'lowpass', freq: 1200, q: 0.6 }, adsr: { a: 0.004, d: 0.08, s: 0, r: 0.04, curve: 'exp' }, gain: 0.048 },
+        { waveform: 'sine', freq: 3100, delay: 0.045, fm: { ratio: 3.5, index: 1.5, indexEnd: 0.2, time: 0.05 }, adsr: { a: 0.0006, d: 0.08, s: 0, r: 0.04, curve: 'exp' }, gain: 0.024 },
+        { waveform: 'sine', freq: 2700, delay: 0.07, fm: { ratio: 3.5, index: 1.2, indexEnd: 0.2, time: 0.05 }, adsr: { a: 0.0006, d: 0.07, s: 0, r: 0.035, curve: 'exp' }, gain: 0.016 } ] } },
+    // The knife stroke, by how firm the food is (kitchen-sound.js thockFor). Soft food gives
+    // first, a damped squish, and the blade reaches the board after it, low and muffled.
+    { id: 'kitchen-thock-soft', name: 'Kitchen: knife through soft food', group: 'kitchen', category: 'sfx', priority: 6,
+      config: { duration: 0.12, vary: THOCK_VARY, layers: [
+        { waveform: 'noise', noiseMix: 1, noiseSeed: 4701, filter: { type: 'lowpass', freq: 900, q: 1.5 }, adsr: { a: 0.004, d: 0.05, s: 0, r: 0.03, curve: 'exp' }, gain: 0.29 },
+        { waveform: 'triangle', freq: 260, delay: 0.012, pitchBend: { to: 150, time: 0.02 }, adsr: { a: 0.0008, d: 0.05, s: 0, r: 0.03, curve: 'exp' }, gain: 0.4 },
+        { waveform: 'noise', noiseMix: 1, noiseSeed: 4702, delay: 0.012, filter: { type: 'bandpass', freq: 420, q: 1.8 }, adsr: { a: 0.0005, d: 0.03, s: 0, r: 0.02, curve: 'exp' }, gain: 0.18 },
+        tick(4703, 0.012, 2000, 0.09, 0.004) ] } },
+    // Medium food: a click as the edge goes in, the board's knock, a thump and the fibres parting.
+    { id: 'kitchen-thock-medium', name: 'Kitchen: knife through firm food', group: 'kitchen', category: 'sfx', priority: 6,
+      config: { duration: 0.12, vary: THOCK_VARY, layers: [
+        tick(4801, 0, 2600, 0.13, 0.005),
+        { waveform: 'triangle', freq: 360, pitchBend: { to: 220, time: 0.012 }, adsr: { a: 0.0005, d: 0.07, s: 0, r: 0.035, curve: 'exp' }, gain: 0.26 },
+        { waveform: 'noise', noiseMix: 1, noiseSeed: 4802, filter: { type: 'bandpass', freq: 480, q: 1.8 }, adsr: { a: 0.0004, d: 0.045, s: 0, r: 0.025, curve: 'exp' }, gain: 0.15 },
+        { waveform: 'sine', freq: 330, pitchBend: { to: 110, time: 0.03 }, adsr: { a: 0.0008, d: 0.09, s: 0, r: 0.045, curve: 'exp' }, gain: 0.28 },
+        { waveform: 'noise', noiseMix: 1, noiseSeed: 4803, filter: { type: 'bandpass', freq: 1400, q: 1 }, adsr: { a: 0.002, d: 0.03, s: 0, r: 0.02, curve: 'exp' }, gain: 0.066 } ] } },
+    // Hard food: the root snaps under the edge, and the board rings like wood.
+    { id: 'kitchen-thock-hard', name: 'Kitchen: knife through hard food', group: 'kitchen', category: 'sfx', priority: 6,
+      config: { duration: 0.12, vary: THOCK_VARY, layers: [
+        { waveform: 'noise', noiseMix: 1, noiseSeed: 4901, filter: { type: 'bandpass', freq: 3600, q: 0.9 }, adsr: { a: 0.0005, d: 0.018, s: 0, r: 0.012, curve: 'exp' }, gain: 0.28 },
+        tick(4902, 0, 5000, 0.11, 0.004),
+        // (no waveform: a layer with one plays it and ignores `modes`)
+        { gain: 0.28, modes: { hardness: 0.8, strike: 0.1, partials: [
+          { freq: 300, decay: 0.14, gain: 1 }, { freq: 771, decay: 0.08, gain: 0.6 }, { freq: 1392, decay: 0.05, gain: 0.36 }, { freq: 2094, decay: 0.04, gain: 0.22 } ] } },
+        { waveform: 'sine', freq: 360, pitchBend: { to: 120, time: 0.025 }, adsr: { a: 0.0008, d: 0.08, s: 0, r: 0.04, curve: 'exp' }, gain: 0.3 },
+        { waveform: 'noise', noiseMix: 1, noiseSeed: 4903, filter: { type: 'bandpass', freq: 620, q: 1.8 }, adsr: { a: 0.0004, d: 0.04, s: 0, r: 0.02, curve: 'exp' }, gain: 0.14 } ] } },
 
     // ── Dialogue panel ───────────────────────────────────────────────────────
     // Conversation furniture, all deliberately under the threshold of "an alert":
@@ -810,7 +916,7 @@
     ...(global.HockeySfx?.BUILTINS || []),
   ];
 
-  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', dialogue: 'Dialogue (conversation)', interface: 'Interface (buttons, tabs, panels)', accolades: 'Accolades (entry logged)', cards: 'Trading cards (machine / pack opening)', procedural: 'Procedural material/action tables', hockey: 'Hockey (Cluster Puck broadcast)' };
+  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', dialogue: 'Dialogue (conversation)', interface: 'Interface (buttons, tabs, panels)', accolades: 'Accolades (entry logged)', cards: 'Trading cards (machine / pack opening)', kitchen: 'Kitchen Stage (board, hob, fridge)',procedural: 'Procedural material/action tables', hockey: 'Hockey (Cluster Puck broadcast)' };
 
   const _builtinById = new Map(BUILTINS.map(d => [d.id, d]));
   let _overrides = new Map(); // id -> { config, priority, enabled, name }

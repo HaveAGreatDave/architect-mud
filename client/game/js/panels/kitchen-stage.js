@@ -31,6 +31,7 @@ import { matterFor, beatOf } from '../../../shared/kitchen-matter.js';
 import * as Lq from './gl/kitchen-liquid.js';
 import { footprint, cutPieces, balancedGuides, bounds, cutToken, MAX_TILT } from '../../../shared/knife.js';
 import { presentation } from '../../../shared/plating.js';
+import { hobSoundState, thockFor, boxHums, createLoopMixer, pansOf, activePan, HUM_CUE, SEAL_OPEN, SEAL_SHUT } from '../../../shared/kitchen-sound.js';
 
 const STAGE_CSS = await loadCss(new URL('./kitchen-stage.css', import.meta.url));
 const LIST_KEY = 'architect_kitchen_list';
@@ -101,10 +102,13 @@ export function openKitchenStage(data) {
     bodies: new Map(), board: null, boardBody: null, dish: null,
     stat: M.createBatch(1 << 14), dyn: M.createBatch(1 << 15), hobKind: null,
     flash: 0, impact: 0, shake: 0, lines: 0, puffs: [], bubbles: [], last: performance.now(), acc: 0, t: 0,
-    lastSizzle: 0, tick: null, raf: 0, drag: null, M: null, sent: 0, orbit: { yaw: 0, pitch: 0 }, menu: null, sheet: null, liq: null, spoon: null, lastStir: 0,
+    tick: null, raf: 0, drag: null, M: null, sent: 0, orbit: { yaw: 0, pitch: 0 }, menu: null, sheet: null, liq: null, spoon: null, lastStir: 0,
     cold: null, coldShots: [], vesselId: null, tool: 'hand', hover: null, liqByPan: new Map(),
     // the counter starts bare: only what you take out of a box, or lay on the board, stands on it
     out: new Set(), pendingOut: [],
+    // the hob's held cue and the open fridge's hum (kitchen-sound.js)
+    hobMix: createLoopMixer({ engine: () => window.AudioEngine, cueOf: (id) => window.SFXCatalog?.get(id) }),
+    coldMix: createLoopMixer({ engine: () => window.AudioEngine, cueOf: (id) => window.SFXCatalog?.get(id) }),
   };
   root.addEventListener('click', onClick);
   gl.addEventListener('pointerdown', onDown);
@@ -162,6 +166,7 @@ export function closeKitchenStage({ quiet = false } = {}) {
   S = null;
   cancelAnimationFrame(s.raf);
   if (s.tick) clearTimeout(s.tick);
+  try { s.hobMix.stopAll(); s.coldMix.stopAll(); } catch { /* no audio */ }
   s.renderer.dispose();
   window.removeEventListener('pointermove', onMove);
   window.removeEventListener('pointerup', onUp);
@@ -177,12 +182,9 @@ export function closeKitchenStage({ quiet = false } = {}) {
 const allComps = (d) => [...(d?.components || []), ...(d?.area || []).flatMap((v) => v.contents || [])];
 const foods = () => (S.data?.components || []).filter((c) => c.kind === 'food' && c.look);
 // Every pan out in the kitchen (not one shut in a cupboard), the hot one first.
-const vesselsOf = (d) => (d?.area || []).filter((v) => v.look?.vessel && v.look.vessel !== 'bread' && !v.idle && !/^in the /.test(v.place || ''));
+const vesselsOf = pansOf;
 // The pan you're working with: the one you picked, else the one on the heat, else the first.
-function panOf(d) {
-  const vs = vesselsOf(d);
-  return vs.find((v) => S && String(v.id) === String(S.vesselId)) || vs.find((v) => v.hot) || vs[0] || null;
-}
+const panOf = (d) => activePan(d, S?.vesselId);
 function dialOf(d) {
   const ds = d?.dials || [], pan = vesselsOf(d).find((v) => v.hot) || panOf(d);
   return ds.find((x) => pan && String(x.subjectId) === String(pan.id)) || ds[0] || null;
@@ -398,7 +400,7 @@ function frame(now) {
   if (S.renderer.lost) { const d = S.data; closeKitchenStage({ quiet: true }); openWorkspacePanel(d); return; }
   paintFx();
   paintMix();
-  sizzle(now);
+  sound();
   S.raf = requestAnimationFrame(frame);
 }
 
@@ -574,7 +576,7 @@ function cutAt(at, tilt, slow) {
   if (!(at >= 0 && at <= 1)) { ksfx('kitchen-tap'); return; }        // missed the food: a tap on the board
   k.cuts.push({ at, tilt: Math.max(-MAX_TILT, Math.min(MAX_TILT, tilt)) });
   const soft = (k.m.cut.firmness ?? 0.5) < 0.4;
-  if (soft && slow) { k.crush++; ksfx('kitchen-squash'); } else ksfx('kitchen-thock');
+  if (soft && slow) { k.crush++; ksfx('kitchen-squash'); } else ksfx(thockFor(k.m.cut.firmness));
   const nearest = Math.min(...k.guides.map((g) => Math.abs(g - at)));
   // a clean stroke on a guide gets the impact frame; anything else a little shake
   if (nearest < 0.02 && Math.abs(tilt) < 0.05 && !(soft && slow)) { S.impact = 2; S.lines = 1; } else { S.flash = 0.2; S.shake = 0.3; }
@@ -613,14 +615,15 @@ function emit(m, c, p, dt) {
   }
 }
 
-function sizzle(now) {
-  const dial = dialOf(S.data), pan = panOf(S.data);
-  if (!pan?.hot || !(dial?.level > 0) || !(pan.contents || []).some((c) => c.live)) return;
-  if (now - S.lastSizzle < 900) return;
-  S.lastSizzle = now;
+// The hob holds one cue for what's in the active pan (dry, wet or boiling), at the dial's level,
+// and an open fridge or freezer hums. A change of state crossfades; the dial at 0 or a shut door
+// fades it out. Read from the payload and the knob only, never a clock (kitchen-sound.js).
+function sound() {
   try {
-    const def = window.SFXCatalog?.get('kitchen-sizzle');
-    if (def) window.AudioEngine?.playSfx(def, 0.25 + dial.level * 0.06);
+    const h = hobSoundState(S.data, { panId: S.vesselId, level: S.wheel ? S.wheel.level : null });
+    S.hobMix.set(h.cue ? { [h.cue]: h.gain } : {});
+    const c = S.cold, box = c && coldBox();
+    S.coldMix.set(c && c.want === 1 && boxHums(box) ? { [HUM_CUE]: 1 } : {});
   } catch { /* no audio */ }
 }
 
@@ -1140,9 +1143,14 @@ function openCold(id) {
   if (i < 0) return;
   closeMenu(); closeSheet(); hideTip();
   const was = S.cold && S.cold.i === i ? S.cold : null;
+  // another box was open: its door shuts as this one opens
+  if (S.cold && !was && S.cold.want === 1 && boxHums(coldBox())) ksfx(SEAL_SHUT);
+  const box = coldBoxes()[i];
   S.cold = was || { id: String(id), i, open: 0, want: 1, hover: null, gone: new Set(), fly: [], toBoard: false };
   S.cold.want = 1;
-  ksfx('kitchen-whoosh');
+  S.cold.sealed = false;
+  // a fridge's seal pops as the door is pulled; a door already swinging has no seal to break
+  ksfx(boxHums(box) ? (was && was.open > 0 ? null : SEAL_OPEN) : 'kitchen-whoosh');
   paintDom();
 }
 function shutCold() {
@@ -1150,7 +1158,8 @@ function shutCold() {
   S.cold.want = 0;
   S.cold.hover = null;
   hideTip();
-  ksfx('kitchen-thock');
+  // a fridge seals when the door meets the frame (stepCold); a cupboard door just shuts
+  if (!boxHums(coldBox())) ksfx('kitchen-thock');
 }
 // Cycle: shut → the first box → the next → shut.
 function cycleCold() {
@@ -1158,7 +1167,7 @@ function cycleCold() {
   if (!boxes.length) return;
   if (!S.cold || S.cold.want === 0) return openCold(boxes[0].id);
   const next = boxes[S.cold.i + 1];
-  if (next) { S.cold = null; openCold(next.id); } else shutCold();
+  if (next) openCold(next.id); else shutCold();
 }
 
 function stepCold(dt) {
@@ -1166,6 +1175,7 @@ function stepCold(dt) {
   if (!c) return;
   c.open += Math.sign(c.want - c.open) * Math.min(Math.abs(c.want - c.open), dt * 3.2);
   c.fly = c.fly.filter((f) => (f.t += dt / f.life) < 1);
+  if (c.want === 0 && c.open <= 0 && !c.sealed) { c.sealed = true; if (boxHums(coldBox())) ksfx(SEAL_SHUT); }
   if (c.want === 0 && c.open <= 0 && !c.fly.length) { S.cold = null; paintDom(); }
 }
 // The door's angle: eased out with a little overshoot, so it swings rather than slides.
@@ -1960,6 +1970,7 @@ function onKey(e) {
 }
 
 function ksfx(id) {
+  if (!id) return;
   try { const def = window.SFXCatalog?.get(id); if (def) window.AudioEngine?.playSfx(def); } catch { /* no audio */ }
 }
 function hash(s) {
