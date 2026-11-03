@@ -1,8 +1,8 @@
 # Comic ink: the whole game in one comic-book style
 
-> **Status: steps 1-4 and the comic replays built (the house style, the inked faces, the players,
-> the park's lines and big plays replayed as a comic, behind Settings → Cel Shading → Comic); step
-> 5 is design.** The look-dev prototype is a live
+> **Status: built and on by default (2026-11-02): the house style, the inked faces, the players,
+> the park's lines and big plays replayed as a comic. Settings → Cel Shading turns it off. A phone
+> draws no ink on the city ([Step 5](#step-5-as-built)).** The look-dev prototype is a live
 > page in Dave's artifacts, "Deadball Comic Ink".
 
 ## Why
@@ -96,8 +96,25 @@ logs both with `__glPassMs`.
    hi-def near level. *Built.* See below.
 4. **The park and the crowd** through ssao.js's line resolve on the park's depth. *Built.* See
    below.
-5. **The switch defaults on**, tier by tier, once the park's governor
-   ([diamond/quality.js](../../client/game/js/panels/diamond/quality.js)) holds its rungs.
+5. **The switch defaults on.** *Built,* every tier at once rather than tier by tier. See below.
+
+## Step 5, as built
+
+Comic is the default (`celShade: 'comic'` in client/shared/settings.js `DEFAULT_SETTINGS`).
+
+- **Saves from before.** A save holds every key, so a player who saved anything before 2026-11-02
+  has `celShade: 'off'` stored as the old default rather than a choice. `loadSettings` moves 'off'
+  to Comic once, for a save without `comicDefault`, and sets `comicDefault: 1`, which the next save
+  keeps, so turning it off afterwards sticks. 'on' was always a choice and is left alone.
+- **No city ink on a phone.** The city's outline (`glInk`) draws off a full-resolution depth prepass,
+  the city drawn again, and PHONE_TIER turned off the occlusion it would have shared that prepass
+  with. windshield.js `__setCelTune` applies the setting both at load and on a change, and zeroes
+  `glInk` on the phone tier. The phone keeps the city's two-tone light and every figure's comic
+  look, and the park's lines, which read the depth the park already has. `architect_gl_tier` =
+  'full' brings the city's lines back with the rest of the full tier.
+- **Not measured on a phone:** the park's screen pass at dpr 1 (Per tier, above). If a phone can't
+  hold it, the quality governor ([diamond/quality.js](../../client/game/js/panels/diamond/quality.js))
+  has no rung that drops it yet.
 
 ## Step 1, as built
 
@@ -107,8 +124,9 @@ one ink, two bands, a figure's line widened 2.5 times in its view's own units an
 
 - **The switch** is a third value on the existing setting: Settings → Cel Shading → Comic
   (`celShade: 'comic'`). `_applyCelShade` in main.js now takes the setting's value rather than a
-  boolean. It leaves `__houseComic` on the window, and writes the city's tune keys (`cityTuneFor`)
-  into `__wsTune`, or leaves them in `__celShadePending` for windshield.js to apply when it loads.
+  boolean. It leaves `__houseComic` on the window, and hands the city's tune keys (`cityTuneFor`)
+  to windshield.js `__setCelTune`, or leaves them in `__celShadePending` for it to apply when it
+  loads.
   An older boolean in `__celShadePending` is still read.
 - **The readers** ask at draw time, so a change shows on the next frame: the park's players and
   the angler (`inkOf` in gl/ballpark.js and glass/rod-rig.js), the rink (gl/arena.js), the kitchen

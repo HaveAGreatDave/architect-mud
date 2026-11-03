@@ -25514,7 +25514,14 @@ if (typeof window !== 'undefined') {
   // Settings → Cel Shading (main.js `_applyCelShade`). The setting is applied at boot, before any
   // view has loaded this module, so it leaves its answer on window and it lands here.
   // It's the tune keys themselves (gl/house-style.js cityTuneFor); a bare boolean is an older main.js.
-  if (window.__celShadePending != null) { const t = window.__celShadePending; if (typeof t === 'object') Object.assign(RENDER_TUNE, t); else RENDER_TUNE.glToon = RENDER_TUNE.glInk = t ? 1 : 0; }
+  // A change after this goes through `__setCelTune`, so both ways in keep to the phone's rule.
+  // ⚠ NO CITY INK ON A PHONE. glInk draws off a full-resolution depth prepass, which is the city drawn
+  // again, and PHONE_TIER turned off the occlusion whose prepass it would have shared for that cost.
+  // The phone keeps the city's flat light and every figure's comic look; 'architect_gl_tier' = 'full'
+  // brings the lines back with the rest of the full tier.
+  const setCelTune = (t) => { Object.assign(RENDER_TUNE, t); if (GL_TIER === 'phone') RENDER_TUNE.glInk = 0; };
+  window.__setCelTune = setCelTune;
+  if (window.__celShadePending != null) { const t = window.__celShadePending; setCelTune(typeof t === 'object' ? t : { glToon: t ? 1 : 0, glInk: t ? 1 : 0 }); }
   // GLASS 1 as the plain fallback, which only the game asks for (main.js); see GLASS1_BASIC.
   if (window.__glass1BasicPending) RENDER_TUNE.glass1Basic = 1;
   // Settings → Renderer, the same way.

@@ -169,13 +169,14 @@ window._applyLogVoiceRate = setLogReaderRate;
 // Cel shading (Settings → Cel Shading): 'off', 'on' (GLASS 2's banded light and ink lines on the
 // city, both halves at once) or 'comic' (the house style, gl/house-style.js: the city's cel look at
 // its numbers, and heavier ink round every figure in every view). windshield.js loads lazily, so the
-// answer is left on window for it to pick up when it does, and written straight into its tune when
-// it already has (the next frame shows it). The figures' views read `__houseComic` every frame.
+// answer is left on window for it to pick up when it does, and handed to its `__setCelTune` when it
+// already has (the next frame shows it), which keeps the city's ink off on a phone. The figures'
+// views read `__houseComic` every frame.
 window._applyCelShade = (mode) => {
 	const t = cityTuneFor(mode);
 	window.__celShadePending = t;
 	window.__houseComic = mode === 'comic' ? 1 : 0;
-	if (window.__wsTune) Object.assign(window.__wsTune, t);
+	window.__setCelTune?.(t);
 };
 // Renderer (Settings → Renderer): GLASS 2 or GLASS 1, handed over the same way. Only a CHANGE is
 // passed on, because applySettings runs on every pill press: re-sending GLASS 2 then would undo

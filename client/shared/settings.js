@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'off', glass: '2', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', ballGlow: 'on', standsBooth: 'off', boxAnnouncer: 'on', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'comic', comicDefault: 1, glass: '2', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', ballGlow: 'on', standsBooth: 'off', boxAnnouncer: 'on', audio: DEFAULT_AUDIO_SETTINGS };
 
 // ── The accessibility surface, declared once ─────────────────────────────────
 //
@@ -378,6 +378,11 @@ export function loadSettings() {
     // Normalise here rather than at each reader, so the Settings pills highlight the
     // mode a retired value now maps to instead of showing nothing selected.
     merged.mapOverlay = _mapOverlayMode(merged);
+    // The comic look became the default on 2026-11-02. A save from before then holds every key, so
+    // its celShade 'off' is the old default rather than a choice: move it to Comic once. The mark
+    // goes into the next save, so turning it off afterwards sticks. 'on' was always a choice.
+    if (stored.comicDefault == null && merged.celShade === 'off') merged.celShade = 'comic';
+    merged.comicDefault = 1;
     return merged;
   } catch {
     return { ...DEFAULT_SETTINGS, audio: { ...DEFAULT_AUDIO_SETTINGS } };
@@ -617,7 +622,7 @@ export function applySettings(settings) {
   window._applyMinimapRender?.((settings.minimapRender || 'smooth') === 'smooth');
 
   // Cel shading in the 3-D views: 'off', 'on' (RENDER_TUNE.glToon + glInk) or 'comic' (the house
-  // style, gl/house-style.js). Off by default. Same hook pattern.
+  // style, gl/house-style.js). Comic by default. Same hook pattern.
   window._applyCelShade?.(['on', 'comic'].includes(settings.celShade) ? settings.celShade : 'off');
 
   // Which renderer draws the 3-D views: GLASS 2 (the GPU, the default) or GLASS 1 (the 2-D
