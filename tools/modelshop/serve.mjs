@@ -141,6 +141,10 @@ function bindables() {
   if (_bindables) return _bindables;
   const dir = join(ROOT, 'content', 'zones');
   const types = new Map(), names = new Map();
+  // Every (type, name-slug) pair an outside tile stands as, on the live map and on the holding map.
+  // The browser resolves each pair the way modelFor does (named model first, then the type) to
+  // tell a model the city draws from one only a set-aside building draws, or nothing does.
+  const drawn = { world: new Set(), aside: new Set() };
   let building = 0, named = 0;
   try {
     for (const f of readdirSync(dir)) {
@@ -161,6 +165,8 @@ function bindables() {
       // marina came out at 2 storeys against the 9 its facade authors.
       const outside = !z.parent_zone && !z.flags.is_interior;
       const vote = (row, k = 'fl') => { if (!outside) return; row[k] = row[k] || {}; row[k][fl] = (row[k][fl] || 0) + 1; };
+      const map = z.map_id === 'map_world' ? 'world' : z.map_id === 'map_set_aside' ? 'aside' : null;
+      if (outside && map) drawn[map].add(bt + '|' + (bn ? bn.toLowerCase().replace(/[^a-z0-9]+/g, '') : ''));
       const t = types.get(bt) || { key: bt, tiles: 0, unnamed: 0 };
       t.tiles++; if (!bn) { t.unnamed++; vote(t); }
       // A type is also drawn on named tiles whose name has no model of its own; that tally is used
@@ -185,6 +191,7 @@ function bindables() {
     names: [...names.values()].sort(bySize),
     buildingTiles: building,
     namedTiles: named,
+    drawn: { world: [...drawn.world], aside: [...drawn.aside] },
   };
   return _bindables;
 }

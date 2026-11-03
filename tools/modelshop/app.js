@@ -290,10 +290,29 @@ function frameAt(bounds, which) {
 }
 
 // ── the browser dialog ──────────────────────────────────────────────────────
+// ⚠ OFF THE MAP IS HIDDEN, NOT GONE. A building model the live map doesn't draw is either a stored
+// building's (on map_set_aside, kept to be judged later) or a type default no unnamed tile reaches,
+// which is still what a new building of that type gets. Both stay one tick away. Vehicles, animals
+// and a model made this session always show, and so does everything until /api/bindables answers.
+const madeHere = new Set();
+function placementOf(key) {
+  if (!DRAWN || !(key.startsWith('named:') || key.startsWith('type:')) || madeHere.has(key)) return 'world';
+  if (!DRAWN.byKey) {
+    const has = new Set(MODELS.map((r) => r.key));
+    const resolve = (pair) => { const [bt, s] = pair.split('|'); return s && has.has('named:' + s) ? 'named:' + s : 'type:' + bt; };
+    DRAWN.byKey = new Map(DRAWN.aside.map((p) => [resolve(p), 'aside']));
+    for (const p of DRAWN.world) DRAWN.byKey.set(resolve(p), 'world');
+  }
+  return DRAWN.byKey.get(key) || 'unused';
+}
 function renderBrowser(filter) {
   const q = (filter || '').trim().toLowerCase();
-  const rows = MODELS.filter((r) => !q || r.key.toLowerCase().includes(q) || String(r.m?.type || '').toLowerCase().includes(q));
-  $('count').textContent = rows.length === MODELS.length ? MODELS.length + ' models' : rows.length + ' of ' + MODELS.length;
+  const showOff = $('offmap').checked;
+  const hits = MODELS.filter((r) => !q || r.key.toLowerCase().includes(q) || String(r.m?.type || '').toLowerCase().includes(q));
+  const rows = hits.filter((r) => showOff || r.key === state.key || placementOf(r.key) === 'world');
+  const hidden = hits.length - rows.length;
+  $('count').textContent = (rows.length === MODELS.length ? MODELS.length + ' models' : rows.length + ' of ' + MODELS.length)
+    + (hidden ? ' · ' + hidden + ' off the map' : '');
 
   const groups = new Map();
   for (const r of rows) {
@@ -318,6 +337,8 @@ function renderBrowser(filter) {
       const n = document.createElement('span'); n.textContent = bare(r.key);
       it.append(n);
       if (r.m?.type === 'authored') { const b = document.createElement('span'); b.className = 'badge'; b.textContent = '✎ editable'; it.append(b); }
+      const where = placementOf(r.key);
+      if (where !== 'world') { const b = document.createElement('span'); b.className = 'badge off'; b.textContent = where === 'aside' ? 'stored' : 'unused'; it.append(b); }
       const k = document.createElement('span'); k.className = 'k';
       k.textContent = (r.key.startsWith('named:') ? 'named · ' : 'type · ') + (r.m?.type || '?');
       it.append(k);
@@ -335,7 +356,9 @@ function renderBrowser(filter) {
 // server from content/zones) — falling back to the type's own default. The slider still overrides.
 import { floorsFor } from '/client/shared/skyline-scale.js';
 let WORLD_FLOORS = null;
+let DRAWN = null;   // the (type, name-slug) pairs the live and holding maps stand; see placementOf
 fetch('/api/bindables').then((r) => r.json()).then((b) => {
+  if (b.drawn) DRAWN = { world: b.drawn.world || [], aside: b.drawn.aside || [] };
   WORLD_FLOORS = { named: new Map(), type: new Map() };
   for (const n of b.names || []) if (n.slug && n.floors) WORLD_FLOORS.named.set(n.slug, n.floors);
   for (const t of b.types || []) if (t.floors) WORLD_FLOORS.type.set(t.key, t.floors);
@@ -1305,6 +1328,11 @@ $('frame').onclick = () => preset(state.preset);
 $('open').onclick = () => { renderBrowser($('search').value); $('browserdlg').showModal(); $('search').select(); };
 $('bclose').onclick = () => $('browserdlg').close();
 $('search').oninput = () => renderBrowser($('search').value);
+try { $('offmap').checked = localStorage.getItem('ms_offmap') === '1'; } catch { /* per-browser convenience */ }
+$('offmap').onchange = () => {
+  try { localStorage.setItem('ms_offmap', $('offmap').checked ? '1' : '0'); } catch { /* per-browser convenience */ }
+  renderBrowser($('search').value);
+};
 $('tools-open').onclick = () => openToolPicker();
 // The palette is a live panel, so it has to be told when the thing it describes changes: a
 // different model can make the add-mass tools legal or not, and a mode change lights a button.
@@ -1402,6 +1430,8 @@ addEventListener('keydown', (ev) => {
 // previewable but absent from the browser — which reads as it having vanished.
 window.__msRegister = (key) => {
   if (MODELS.some((r) => r.key === key)) return;
+  madeHere.add(key);
+  if (DRAWN) DRAWN.byKey = null;   // a new named key can take a tile from its type
   MODELS.push({ key, m: editorRecordFor(key) });
   MODELS.sort((a, b) => a.key.localeCompare(b.key));
 };
@@ -1412,6 +1442,7 @@ window.__msSeed = () => state.seed;
 window.__msUnregister = (key) => {
   const i = MODELS.findIndex((r) => r.key === key);
   if (i >= 0) MODELS.splice(i, 1);
+  if (DRAWN) DRAWN.byKey = null;
   invalidateEdit(key);
   if (state.key === key) select(MODELS[0]?.key || null);
   else draw();

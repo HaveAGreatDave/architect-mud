@@ -1616,6 +1616,13 @@ The browser groups by family, and the first signal is the codebase's own: the ar
 namespaced by the place that owns them (`asc_`, `trm_`, `sw_`, `dw_`), which sorts 52 models
 for free. A prefix earns a group by having members, so a new region groups itself.
 
+The browser lists only the building models the live map draws. A model only a stored building on
+`map_set_aside` draws is tagged **stored**, and one no tile reaches is tagged **unused** (mostly type
+defaults whose every tile has its own named model; a new building of that type still gets one).
+Both are behind the **stored & unused** tick, which is remembered per browser. `/api/bindables`
+sends the (type, name) pair of every outside tile on both maps, and the browser resolves each
+the way `modelFor` does, named model first.
+
 **A vehicle is edited as parameters, never as mass.** An aircraft or a truck is a face list from
 `aircraftFaces` painted by `drawAircraftModel` — a second renderer, wired up here as
 `renderVehiclePreview`. There is no capture for it and no geometry to author, but the mesh is

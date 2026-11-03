@@ -48,8 +48,6 @@ export const NAMED_MODELS = {
   // the sign. The kit's riser section is declined (KIT_DECLINE): the arm draws the plant.
   coldwaterclonefacility:         { type: 'clone',     pal: 'ty_clone' },
   ksabtvstudiostage:              { type: 'ksabstudio', pal: 'ty_ksab', neon: '#39d6ff' },
-  ksabwriterswing:                { type: 'studiogate', pal: 'ty_ksab', neon: '#39d6ff' },
-  thegreenroom:                    { type: 'divebar',   pal: 'ty_greenroom', neon: '#7dff6a' },
   solenneresidences:              { type: 'solenne',   pal: 'ty_solenne',   neon: '#ffce78' },
   coldwatersentinel:              { type: 'sentinel',  pal: 'ty_sentinel',  neon: '#5fd0ff' },   // was a recoloured corporate tower; it's a two-storey storefront newsroom
   // These two were keyed to names the buildings no longer have — a rename silently
@@ -180,7 +178,6 @@ export const NAMED_MODELS = {
   theslip:                        { type: 'slipback',    pal: 'ty_slip' },           // twin: the Marrow Street fence (Cash & Carrion) is authored
   sentimentalvaluepawn:           { type: 'sentimental', pal: 'ty_sentimental', neon: '#ffcf3e' },
   grindhouse:                     { type: 'grindhouse',  pal: 'ty_grind', neon: '#ff8a2a' },    // twin: Second Amendment keeps `armory`
-  trackmarksfreight:              { type: 'signalbox',   pal: 'ty_signalbox' },
   // ⚠ THE TRUNK MAIN IS THE POINT OF THIS BUILDING. The shop shares a wall with the Coldwater Clone
   // Facility because that is where the food comes from, and a viewer on Ironside Street should see
   // it arrive without a word of prose: a glass main from the clone's vats into the party wall, up

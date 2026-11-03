@@ -112,6 +112,8 @@
   #blist .item.on { background: #1d2732; color: var(--ms-accent); }
   #blist .item .k { color: var(--ms-dim); font-size: 10px; margin-left: auto; }
   #blist .item .badge { color: #7ee787; font-size: 10px; }
+  #blist .item .badge.off { color: #d29922; }
+  #offmaplbl { display: flex; gap: 4px; align-items: center; font-size: 11px; white-space: nowrap; cursor: pointer; }
 
   /* the texture (palette) picker */
   .sw { width: 13px; height: 13px; border: 1px solid #000; border-radius: 2px; flex: 0 0 auto; cursor: pointer; }
@@ -217,6 +219,7 @@
     <div id="bhead">
       <input id="search" placeholder="filter models…" autocomplete="off">
       <span id="count" class="dim"></span>
+      <label class="dim" id="offmaplbl" title="buildings on the holding map, and models no tile in the world draws"><input type="checkbox" id="offmap"> stored &amp; unused</label>
       <button id="bclose">Close</button>
     </div>
     <div id="blist"></div>
