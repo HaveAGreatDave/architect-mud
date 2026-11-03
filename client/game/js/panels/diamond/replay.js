@@ -10,6 +10,9 @@
 // world in place of the live one while it runs, silent, under a REPLAY bug, and the live world
 // carries on behind it. With reduced motion it's a still of the moment instead.
 //
+// With the comic look on, the grandstand plays it as a comic would draw it instead: a worm's-eye
+// run, a freeze with its sound lettered on, the rest, and a comic page (diamond/comic.js).
+//
 // `replayOf` decides from the live staging (the director's plan and log) and gives the window
 // relative to contact, so a play that earns none is never staged twice; `stageReplay` stages it
 // again and steps there.

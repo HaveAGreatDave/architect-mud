@@ -50,6 +50,10 @@ uniform float uNear; uniform float uFar; uniform float uFocus; uniform float uDo
 // eight-bit target, so a night sky that's nearly black doesn't step into bands. 0 is the lens as
 // first tuned.
 uniform float uLook;
+// The comic look's lines (gl/ssao.js createDepthSSAO ink, docs/proposals/comic-ink.md): r detail, g
+// outline, each fading out with distance over uInkFade (detail over .xy, outlines over .zw, in the
+// depth's units), laid over the encoded picture in uInkCol before the grade. uInkK 0 is no lines.
+uniform sampler2D uInk; uniform float uInkK; uniform vec3 uInkCol; uniform vec4 uInkFade;
 float lin(float d) { float z = d * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); }
 float coc(vec2 t) { return clamp(abs(1.0 / uFocus - 1.0 / lin(texture(uDepth, t).r)) * uDof, 0.0, ${DOF_MAX.toFixed(1)}); }
 vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
@@ -84,6 +88,11 @@ void main() {
     c += wide * (uBloom * 0.07);
   }
   vec3 s = oetf(aces(max(c, 0.0) * uExp));
+  if (uInkK > 0.0) {
+    vec2 e = texture(uInk, vUV).rg; float dz = lin(texture(uDepth, vUV).r);
+    float ink = max(e.r * (1.0 - smoothstep(uInkFade.x, uInkFade.y, dz)), e.g * (1.0 - smoothstep(uInkFade.z, uInkFade.w, dz)));
+    s = mix(s, uInkCol, clamp(ink, 0.0, 1.0) * uInkK);
+  }
   if (uGrade == 2) {
     // the arcade board: saturation, a contrast curve, warm highlights over cool shadows
     float l = dot(s, vec3(0.2126, 0.7152, 0.0722));
@@ -200,7 +209,8 @@ export function createBroadcastPass(gl) {
     return true;
   }
   // f: { scene, bloom: [t0, t1] | null, depth | null, ao | null, w, h, near, far, focus, dof, taps,
-  //      exposure, bloomK, aoK, grade: 'arcade' | 'broadcast' | 'none', tube, seed, look }
+  //      exposure, bloomK, aoK, grade: 'arcade' | 'broadcast' | 'none', tube, seed, look,
+  //      ink: { tex, fade: [4], col: [3] } | null }
   function render(f) {
     if (!resize(f.w, f.h)) return false;
     gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
@@ -210,8 +220,10 @@ export function createBroadcastPass(gl) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, ldr.fbo); gl.viewport(0, 0, W, H);
     gl.useProgram(LENS.p);
     tex(0, f.scene); tex(1, f.bloom ? f.bloom[0] : black); tex(2, f.bloom ? f.bloom[1] : black);
-    tex(3, f.depth || white); tex(4, f.ao || white);
-    for (const [n, i] of [['uScene', 0], ['uB0', 1], ['uB1', 2], ['uDepth', 3], ['uAO', 4]]) gl.uniform1i(LENS.u(n), i);
+    tex(3, f.depth || white); tex(4, f.ao || white); tex(5, f.ink?.tex || black);
+    for (const [n, i] of [['uScene', 0], ['uB0', 1], ['uB1', 2], ['uDepth', 3], ['uAO', 4], ['uInk', 5]]) gl.uniform1i(LENS.u(n), i);
+    gl.uniform1f(LENS.u('uInkK'), f.ink?.tex && f.depth ? 1 : 0);
+    gl.uniform4fv(LENS.u('uInkFade'), f.ink?.fade || [0, 1, 0, 1]); gl.uniform3fv(LENS.u('uInkCol'), f.ink?.col || [0, 0, 0]);
     gl.uniform1f(LENS.u('uBloom'), f.bloom ? f.bloomK : 0); gl.uniform1f(LENS.u('uExp'), f.exposure);
     gl.uniform1i(LENS.u('uGrade'), GRADES[f.grade] ?? 2); gl.uniform1f(LENS.u('uAOK'), f.ao && f.depth ? f.aoK : 0);
     gl.uniform1f(LENS.u('uNear'), f.near); gl.uniform1f(LENS.u('uFar'), f.far);

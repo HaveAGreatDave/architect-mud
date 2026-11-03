@@ -21,6 +21,7 @@ import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, layerProgram } from './programs.js';
 import { INK_VS, INK_FS } from './ink.js';
 import { TOON_GLSL } from './toon.js';
+import { inkOf, bandsOf } from './house-style.js';
 import { STRIDE } from './kitchen-mesh.js';
 
 const LIT_VS = `#version 300 es
@@ -172,9 +173,11 @@ export function createKitchenRenderer(canvas, { phone = false } = {}) {
         gl.uniformMatrix4fv(INK.u('uVP'), false, M.vp);
         gl.uniform2fv(INK.u('uShake'), shake);
         gl.uniform2f(INK.u('uRes'), w, h);
-        // 0.3 cm of the thing, between 1.4 and 4 px of a 900-tall picture (thinner on a phone)
-        gl.uniform4f(INK.u('uInk'), 0.3, (phone ? 1.0 : 1.4) * u, (phone ? 2.6 : 4.0) * u, 0.0004);
-        gl.uniform3fv(INK.u('uCol'), INK_COL);
+        // 0.3 cm of the thing, between 1.4 and 4 px of a 900-tall picture (thinner on a phone); the
+        // house style's line when the comic look is on (gl/house-style.js)
+        const ink = inkOf({ ft: 0.3, px: phone ? [1.0, 2.6] : [1.4, 4.0], col: INK_COL });
+        gl.uniform4f(INK.u('uInk'), ink.ft, ink.px[0] * u, ink.px[1] * u, 0.0004);
+        gl.uniform3fv(INK.u('uCol'), ink.col);
         drawLayers([stat, dyn]);
 
         gl.useProgram(LIT.p);
@@ -182,7 +185,7 @@ export function createKitchenRenderer(canvas, { phone = false } = {}) {
         gl.uniform2fv(LIT.u('uShake'), shake);
         gl.uniform3fv(LIT.u('uEye'), cam.eye);
         gl.uniform3fv(LIT.u('uKey'), KEY);
-        gl.uniform1f(LIT.u('uBands'), 3);
+        gl.uniform1f(LIT.u('uBands'), bandsOf(3));
         gl.uniform1f(LIT.u('uDotPx'), Math.max(4, 6 * dpr));
         gl.uniform1f(LIT.u('uFlash'), Math.max(0, Math.min(1, fx.flash || 0)));
         drawLayers([stat, dyn]);

@@ -44,6 +44,8 @@ import { BALL_R } from '../diamond/flight.js';
 import { ballGlowOn } from '../../../../shared/settings.js';
 import { SKIN_GLSL, createBonePalette } from './skin.js';
 import { CEL, CEL_TUNE, CEL_GLSL } from './cel-figure.js';
+import { inkOf, figureLightOf, HOUSE, comicOn, parkInkOf } from './house-style.js';
+import { createFaceAtlasFeed } from './face-atlas.js';
 import { INK_FS } from './ink.js';
 import { bodyKey } from '../diamond/cast.js';
 // the view loads this module lazily and takes the cast from it, so the 2-D path never fetches it
@@ -80,8 +82,9 @@ layout(location = 4) in float aMat;
 uniform mat4 uVP;
 // where a batch is drawn from where it was built: a shell of the roof on its rails, nothing else
 uniform vec3 uShift;
-out vec3 vPos; out vec3 vNrm; out vec2 vUv; out vec3 vCol; flat out int vMat;
-void main() { vPos = aPos + uShift; vNrm = aNrm; vUv = aUv; vCol = aCol; vMat = int(aMat + 0.5); gl_Position = uVP * vec4(vPos, 1.0); }`;
+// vBind: where the vertex was built, for the comic look's hatching to ride on (CEL_GLSL celInk)
+out vec3 vPos; out vec3 vNrm; out vec2 vUv; out vec3 vCol; flat out int vMat; out vec3 vBind;
+void main() { vPos = aPos + uShift; vNrm = aNrm; vUv = aUv; vCol = aCol; vMat = int(aMat + 0.5); vBind = aPos; gl_Position = uVP * vec4(vPos, 1.0); }`;
 // The players: the same, skinned by their bones (gl/skin.js). A folded bone's vertices have no
 // normal, and draw nothing.
 const SKIN_VS = `#version 300 es
@@ -92,9 +95,11 @@ layout(location = 3) in vec3 aCol;
 layout(location = 4) in float aMat;
 ${SKIN_GLSL}
 uniform mat4 uVP;
-out vec3 vPos; out vec3 vNrm; out vec2 vUv; out vec3 vCol; flat out int vMat;
+// vBind: the man in his bind pose, so the comic look's hatching rides his body as he moves
+out vec3 vPos; out vec3 vNrm; out vec2 vUv; out vec3 vCol; flat out int vMat; out vec3 vBind;
 void main() {
   vec3 p = skinPos(aPos), n = skinDir(aNrm);
+  vBind = aPos;
   vPos = p; vNrm = dot(n, n) > 1e-12 ? normalize(n) : vec3(0.0, 1.0, 0.0); vUv = aUv; vCol = aCol; vMat = int(aMat + 0.5);
   gl_Position = uVP * vec4(p, 1.0);
 }`;
@@ -116,6 +121,9 @@ ${SKIN_GLSL}
 uniform mat4 uVP;
 uniform vec2 uRes;
 uniform vec4 uInk;
+// the comic look's weighted line: on the side away from uKey (the way to the sun, or straight up
+// under the floods) the line is up to uWeigh times as wide; 1 leaves it as it was
+uniform vec3 uKey; uniform float uWeigh;
 void main() {
   vec3 p = skinPos(aPos), sn = skinDir(aNrm);
   float nl = dot(sn, sn);
@@ -128,7 +136,8 @@ void main() {
   vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uRes * 0.5;
   float L = length(d);
   vec2 dir = L > 1e-4 ? d / L : vec2(0.0);
-  c.xy += dir * clamp(L, uInk.y, uInk.z) / (uRes * 0.5) * c.w;
+  float wk = mix(uWeigh, 1.0, smoothstep(-0.5, 0.7, dot(n, uKey)));
+  c.xy += dir * clamp(L, uInk.y, uInk.z) * wk / (uRes * 0.5) * c.w;
   c.z += uInk.w * c.w;
   gl_Position = c;
 }`;
@@ -366,7 +375,7 @@ void exterior(out vec3 alb, out float rough, out float f0s, out vec3 emis, out f
 
 const LIT_FS = `#version 300 es
 precision highp float;
-in vec3 vPos; in vec3 vNrm; in vec2 vUv; in vec3 vCol; flat in int vMat;
+in vec3 vPos; in vec3 vNrm; in vec2 vUv; in vec3 vCol; flat in int vMat; in vec3 vBind;
 uniform sampler2D uTex; uniform sampler2D uDirt; uniform sampler2D uGrass; uniform sampler2D uBoard;
 uniform int uTextured; uniform float uAlphaTest; uniform float uAlpha; uniform float uEmis; uniform float uGlass; uniform float uScreen;
 uniform vec3 uFence; uniform vec2 uBoardRes; uniform vec3 uBoardOn;
@@ -385,8 +394,9 @@ uniform float uBlinkT; uniform float uTwill;
 uniform vec2 uWear;
 // the low sun: the way to it, its light (0 once it's down) and its shadow map's index (-1 none)
 uniform vec3 uSunDir; uniform vec3 uSunCol; uniform int uSunSh;
-// the players' cel look (gl/cel-figure.js): CEL_TUNE.on on their draws, 0 on everything else
-uniform float uCel;
+// the players' cel look (gl/cel-figure.js): CEL_TUNE.on on their draws, 0 on everything else; with
+// the comic look (gl/house-style.js), its ink colour and the hatching's spacing in feet
+uniform float uCel; uniform vec3 uCelInk; uniform float uCelGap;
 // With no tower casting (the phone tier), a soft dark patch on the ground under each man and the
 // ball instead: (x, z, radius, how dark) each, uBlobN of them.
 uniform vec4 uBlob[16]; uniform int uBlobN;
@@ -418,14 +428,14 @@ float visSG(float NoV, float NoL, float a) { float a2 = a * a; float gv = NoL * 
 // a hard-edged spot of the same size and about the same energy. Ls and aS are the lamp bank's
 // highlight direction and widened roughness. Only behind the uniform branch.
 float celLum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
-void celAdd(vec3 N, vec3 V, vec3 L, vec3 Ls, float a, float aS, float NoV, vec3 f0, vec3 rad, float sh, inout vec3 key, inout vec3 lit, inout vec3 hi) {
-  if (celLum(rad) > celLum(key)) key = rad;
-  float b = celLight(max(dot(N, L), 0.0), ${CEL.bands.toFixed(1)});
+void celAdd(vec3 N, vec3 V, vec3 L, vec3 Ls, float a, float aS, float NoV, vec3 f0, vec3 rad, float sh, inout vec3 key, inout float keyD, inout vec3 lit, inout vec3 hi) {
+  if (celLum(rad) > celLum(key)) { key = rad; keyD = dot(N, L); }
+  float b = celLight(max(dot(N, L), 0.0), uCelBands);
   lit += rad * sh * b;
   vec3 H = normalize(Ls + V); float NoH = max(dot(N, H), 0.0), VoH = max(dot(V, H), 0.0);
   vec3 F = f0 + (1.0 - f0) * pow(1.0 - VoH, 5.0);
   float pk = ggxD(1.0, aS);
-  hi += 0.5 * pk * toonStep(0.5, ggxD(NoH, aS) / pk) * visSG(NoV, max(dot(N, Ls), 0.0), aS) * F * (a * a) / (aS * aS) * min(b * ${CEL.bands.toFixed(1)}, 1.0) * rad * sh;
+  hi += 0.5 * pk * toonStep(0.5, ggxD(NoH, aS) / pk) * visSG(NoV, max(dot(N, Ls), 0.0), aS) * F * (a * a) / (aS * aS) * min(b * uCelBands, 1.0) * rad * sh;
 }
 // the fence's distance at a bearing from straight-away centre: the venue's line, centre and curve
 float fenceAt(float th) { return uFence.y - (uFence.y - uFence.x) * pow(clamp(abs(th) / 0.7853982, 0.0, 1.0), uFence.z); }
@@ -637,7 +647,7 @@ void main() {
   // brightest light reaching the point, shadowed or not, and the banded light lifts it from there.
   // Under one light alone that's exactly celTone(the lit colour, the banded light).
   if (uCel > 0.5) {
-    vec3 key = vec3(0.0), lit = vec3(0.0), hi = vec3(0.0);
+    vec3 key = vec3(0.0), lit = vec3(0.0), hi = vec3(0.0); float keyD = 1.0;
     for (int i = 0; i < 6; i++) {
       vec3 Lv = lampVec(i, vPos); float d = length(Lv); vec3 L = Lv / d;
       vec3 Ls = L; float aS = a;
@@ -647,14 +657,16 @@ void main() {
         aS = clamp(a + uLGeo[i].y / (2.0 * d), 0.003, 1.0);
       }
       float sh = (uLSh[i] >= 0 && uLSh[i] < uSpotN) ? toonStep(0.5, spotShadow(uLSh[i], vPos + N * 0.04)) : 1.0;
-      celAdd(N, V, L, Ls, a, aS, NoV, f0, uLCol[i] * spotOf(i, L, 0.05) * floodAtt(i, d), mix(sh, 1.0, 0.08), key, lit, hi);
+      celAdd(N, V, L, Ls, a, aS, NoV, f0, uLCol[i] * spotOf(i, L, 0.05) * floodAtt(i, d), mix(sh, 1.0, 0.08), key, keyD, lit, hi);
     }
     if (uSunCol.r + uSunCol.g + uSunCol.b > 0.0)
-      celAdd(N, V, uSunDir, uSunDir, a, a, NoV, f0, uSunCol, uSunSh >= 0 ? toonStep(0.5, spotShadow(uSunSh, vPos + N * 0.3)) : 1.0, key, lit, hi);
+      celAdd(N, V, uSunDir, uSunDir, a, a, NoV, f0, uSunCol, uSunSh >= 0 ? toonStep(0.5, spotShadow(uSunSh, vPos + N * 0.3)) : 1.0, key, keyD, lit, hi);
     float litK = clamp(celLum(lit) / max(celLum(key), 1e-6), 0.0, 1.0);
     vec3 tone = celTone(vec3(1.0), 0.0);
     col += celTone(amb, litK) - amb + dif / PI * (key * tone + lit * (1.0 - tone)) + hi;
     col *= 1.0 + celRim(N, V, litK);
+    // the comic look's line where the light steps, and hatching in full shadow (0 without it)
+    col = mix(col, uCelInk, celInk(litK, keyD, vBind, uCelGap));
   } else {
   for (int i = 0; i < 6; i++) {
     vec3 Lv = far ? uLPos[i] - vPos : lampVec(i, vPos); float d = length(Lv); vec3 L = Lv / d;
@@ -1150,19 +1162,20 @@ export function createBallparkRenderer(canvas, opts = {}) {
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(T2, k, v);
     if (aniso) gl.texParameterf(T2, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, maxAniso));
     let logoKey = '';
-    // The faces: the street figure's atlas of masks (actor-faces.js), loaded once. Until it's here a
-    // neutral texel stands in, plain skin with no features.
+    // The faces: the street figure's atlas of masks (actor-faces.js), plain or the comic look's
+    // inked one, from a feed polled every frame (gl/face-atlas.js). Until one is here a neutral
+    // texel stands in, plain skin with no features.
     TEX.faces = gl.createTexture();
     gl.bindTexture(T2, TEX.faces);
     gl.texImage2D(T2, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([170, 0, 0, 255]));
     gl.texParameteri(T2, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(T2, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    loadFaces();
-    function loadFaces() {
-      const Img = doc.defaultView && doc.defaultView.Image;
-      if (!Img) return;
-      const img = new Img();
-      img.onload = () => {
-        if (lost) return;
+    // onReady asks the view for a frame (the grandstand's draw), which polls; never upload from it
+    const faceFeed = createFaceAtlasFeed({ Img: doc.defaultView && doc.defaultView.Image, onReady: () => { if (!lost) opts.onAsset?.(); } });
+    const pollFaces = () => {
+      const img = faceFeed.poll();
+      if (img) {
+        // on the faces' own unit (8), which the frame binds them to anyway
+        gl.activeTexture(gl.TEXTURE8);
         gl.bindTexture(T2, TEX.faces);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
@@ -1173,10 +1186,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.texParameteri(T2, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(T2, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(T2, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         if (aniso) gl.texParameterf(T2, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, maxAniso));
-        opts.onAsset?.();
-      };
-      img.src = new URL('../../../assets/actor-faces.png', import.meta.url).href;
-    }
+      }
+    };
+    pollFaces();
     // the scoreboard's lamps, one byte each
     const boardTex = gl.createTexture();
     gl.bindTexture(T2, boardTex);
@@ -1410,6 +1422,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
     let empty = false;               // setEmpty(true): no game on, the park drawn without players or fans
     const roles = new Map();         // and each slot's role (cast.js), for whose knees a pitch dirties
     let queue = [];
+    // the comic look's hi-def near level: whether the bodies are built with it, the last cast's bodies
+    // by key, and the near levels waiting to be rebuilt after a flip (rebuildNear)
+    let bodyHd = false, lastWant = null, hdQueue = [];
     const HA = new Float32Array(28 * 4), HB = new Float32Array(28 * 4), HC = new Float32Array(28 * 4), HD = new Float32Array(28 * 4);
     const SKIN_ATTRS = [...LIT_ATTRS];
     function uploadSkin(b) {
@@ -1452,10 +1467,13 @@ export function createBallparkRenderer(canvas, opts = {}) {
     function idle(t, posed) {
       for (const [slot, rest] of rests) if (!posed.has(slot)) setPose(slot, breathe(rest, t, slot));
     }
-    function setCast(cast, teams) {
-      rests.clear();
-      // the kits for whoever's new, and each side's monogram
-      const res = paintKitAtlas(doc, cast, teams, kits);
+    // The kits for a cast into the atlas, and whatever changed up to the texture. Inked when the
+    // comic look is on (diamond/kits.js); `kitCast` keeps the last cast so a flip of the look
+    // repaints it (render).
+    let kitCast = null, kitInk = false;
+    function paintKits(cast, teams) {
+      kitCast = { cast, teams }; kitInk = comicOn();
+      const res = paintKitAtlas(doc, cast, teams, kits, { ink: kitInk });
       kits = res.canvas;
       gl.bindTexture(T2, TEX.kit);
       if (res.dirty.length) {
@@ -1466,6 +1484,11 @@ export function createBallparkRenderer(canvas, opts = {}) {
         }
         gl.generateMipmap(T2);
       }
+    }
+    function setCast(cast, teams) {
+      rests.clear();
+      // the kits for whoever's new, and each side's monogram
+      paintKits(cast, teams);
       // what each side wears (its club's kit, or the house kit): the caps' badges and the bodies'
       // colours follow it, so a club's kit arriving mid-game repaints and rebuilds its side
       const wear = kitsFor(teams);
@@ -1479,6 +1502,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const keyOf = (c) => { const k = kitOf(c); return k ? `${bodyKey(c)}|${k.sig}` : bodyKey(c); };
       // who stays, who goes, who's to be built
       const want = new Map(cast.map((c) => [keyOf(c), { ...c, kit: kitOf(c) }]));
+      // built hi-def at the near level while the comic look is on; a flip rebuilds that level (render)
+      bodyHd = comicOn(); lastWant = want; hdQueue = [];
       for (const [k, body] of bodies) if (!want.has(k)) { dropBody(body); bodies.delete(k); }
       queue = [...want].filter(([k]) => !bodies.has(k));
       members = cast.map((c) => ({ key: keyOf(c), slot: c.look.slot }));
@@ -1500,21 +1525,37 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // Builds queued bodies for up to `budget` ms. Returns how many are still to build. Each body is
     // built at every level of detail (ballplayer-mesh.js createPlayerSet `lod`), the coarsest
     // first, so a man is on the field as soon as his far level is up.
+    // One level of one man's body, built and uploaded. The near level is hi-def while the comic
+    // look is on (ballplayer-mesh.js createPlayerSet `hd`).
+    function buildLevel(c, lod) {
+      const look = lookOf({ ...c.look, scale: c.scale, ...(c.kit ? { kit: c.kit } : {}) });
+      const G = createPlayerSet({ skin: true, lod, hd: bodyHd });
+      buildBody(G, look);
+      return [...G.batches].map(([k, b]) => ({ key: k, ...uploadSkin(b) }));
+    }
     function pump(budget = 12) {
       const t0 = performance.now();
       while (queue.length && performance.now() - t0 < budget) {
         const [key, c] = queue.shift();
-        const look = lookOf({ ...c.look, scale: c.scale, ...(c.kit ? { kit: c.kit } : {}) });
         const levels = [];
-        for (let lod = PLAYER_LODS - 1; lod >= 0; lod--) {
-          const G = createPlayerSet({ skin: true, lod });
-          buildBody(G, { ...look });
-          levels[lod] = [...G.batches].map(([k, b]) => ({ key: k, ...uploadSkin(b) }));
-        }
+        for (let lod = PLAYER_LODS - 1; lod >= 0; lod--) levels[lod] = buildLevel(c, lod);
         bodies.set(key, { batches: levels[0], levels });
       }
       refreshCasters();
       return queue.length;
+    }
+    // The comic look flipped: the near level of every built body again, a few ms a frame inside
+    // render rather than through pump, because the grandstand holds its picture while pump has
+    // work. Each man keeps his old near level until his new one is up.
+    function rebuildNear(budget) {
+      const t0 = performance.now();
+      while (hdQueue.length && performance.now() - t0 < budget) {
+        const [key, c] = hdQueue.shift(), body = bodies.get(key);
+        if (!body || !body.levels) continue;
+        const old = body.levels[0];
+        body.levels[0] = body.batches = buildLevel(c, 0);
+        for (const b of old) { gl.deleteVertexArray(b.vao); gl.deleteBuffer(b.buf); }
+      }
     }
     // what casts the towers' shadows: each player with his body, in his row of the palette, at his
     // middle level (a shadow's edge is soft; the full level's 14,000 triangles four times over were
@@ -2070,6 +2111,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // an empty park (setEmpty): no game on, so nobody on the field and nobody in the seats
       const shown = empty ? [] : members;
       if (lost) return false;
+      // the faces' atlas, if one has loaded or the comic look has flipped it, and the kits repainted
+      // inked or plain if the look has flipped since they were painted
+      pollFaces();
+      if (kitCast && kitInk !== comicOn()) { gl.activeTexture(gl.TEXTURE0); paintKits(kitCast.cast, kitCast.teams); }
+      if (lastWant && bodyHd !== comicOn()) { bodyHd = comicOn(); hdQueue = [...lastWant].filter(([k]) => bodies.has(k)); }
+      if (hdQueue.length) { rebuildNear(3); gl.bindVertexArray(null); }
       const inRoom = !!room && ro.room !== false;
       cutOn = inRoom ? 1 : 0;
       const t0 = (typeof performance !== 'undefined' ? performance.now() : 0);
@@ -2196,6 +2243,11 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniform4fv(P.u('uBlob'), blobs); gl.uniform1i(P.u('uBlobN'), blobN);
         gl.uniform1i(P.u('uHeadSlot'), 0); gl.uniform4f(P.u('uKitCell'), 0, 0, 0, 0);
         gl.uniform1f(P.u('uCel'), P === SKLIT && CEL_TUNE.on ? 1 : 0);
+        // the cel look's bands and shade, and the comic look's lines (gl/house-style.js); off, the
+        // park's own CEL numbers, so the players draw as they always have
+        const fl = figureLightOf({ bands: CEL.bands, shade: CEL.shade });
+        gl.uniform1f(P.u('uCelBands'), fl.bands); gl.uniform3fv(P.u('uCelShade'), fl.shade); gl.uniform1f(P.u('uCelComic'), fl.comic);
+        gl.uniform3fv(P.u('uCelInk'), HOUSE.ink); gl.uniform1f(P.u('uCelGap'), HOUSE.hatchFt);
         cutUniforms(P);
       };
       const drawSet = (list, alpha, P = LIT) => {
@@ -2285,8 +2337,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniformMatrix4fv(SKINK.u('uVP'), false, M.viewProj);
         gl.uniform1i(SKINK.u('uBones'), 9);
         gl.uniform2f(SKINK.u('uRes'), w, h);
-        gl.uniform4f(SKINK.u('uInk'), CEL.inkFt, CEL.inkPx[0] * u, CEL.inkPx[1] * u, CEL.inkBias);
-        gl.uniform3fv(SKINK.u('uCol'), CEL.ink);
+        // the house style's line when the comic look is on (gl/house-style.js), else the park's own
+        const ink = inkOf({ ft: CEL.inkFt, px: CEL.inkPx, col: CEL.ink });
+        gl.uniform4f(SKINK.u('uInk'), ink.ft, ink.px[0] * u, ink.px[1] * u, CEL.inkBias);
+        gl.uniform3fv(SKINK.u('uCol'), ink.col);
+        gl.uniform3fv(SKINK.u('uKey'), sunNow ? sunNow.dir : [0, 1, 0]);
+        gl.uniform1f(SKINK.u('uWeigh'), figureLightOf({ bands: CEL.bands, shade: CEL.shade }).weigh);
         for (const m of shown) {
           const body = bodies.get(m.key);
           if (!body) continue;
@@ -2393,8 +2449,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.depthMask(true); gl.disable(gl.BLEND);
       gl.bindVertexArray(null);
 
-      // 3. the depth, out of the multisampled target before it's resolved
-      const D = (q.ao || q.dof > 0) ? depthTarget(w, h) : null;
+      // 3. the depth, out of the multisampled target before it's resolved; the comic look's lines
+      // need it too (parkInkOf, null without the look)
+      const pInk = parkInkOf(w);
+      const D = (q.ao || q.dof > 0 || pInk) ? depthTarget(w, h) : null;
       if (D) {
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, hdr.drawFbo);
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, D.fbo);
@@ -2410,11 +2468,16 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const aoDiv = q.ao === true ? 2 : Math.max(1, +q.ao || 2);
       const ao = D && q.ao && ssao ? ssao.render(D.tex, Math.max(1, Math.round(w / aoDiv)), Math.max(1, Math.round(h / aoDiv)), ssaoConstants(M.proj), { radius: 2.0, bias: 0.05, slope: 3 }) : null;
 
+      // 4b. the comic look's lines off the same depth (gl/ssao.js ink): the park, the stands, the
+      // crowd and its cards, and inside each player where one part steps in front of another
+      const inkTex = D && pInk && ssao ? ssao.ink(D.tex, w, h, ssaoConstants(M.proj), { step: pInk.step }) : null;
+
       // 5. the lens, the curve and the grade onto the canvas
       if (bc && bc.render({
         scene: res.scene, bloom: res.bloom, depth: D ? D.tex : null, ao, w, h, near: M.near, far: M.far,
         focus: Math.hypot(M.at[0] - M.eye[0], M.at[1] - M.eye[1], M.at[2] - M.eye[2]), dof: M.dof || 0, taps: q.dof,
         exposure: exposureOf(q), bloomK: q.bloom, aoK: q.aoK ?? 0.75, grade: q.grade, tube: q.tube, seed: 3.7, look: q.light !== 0 && q.light !== false,
+        ink: inkTex ? { tex: inkTex, fade: pInk.fade, col: pInk.col } : null,
       })) {
         stats.tris = Math.round(tris); stats.draws = draws + 2;
         stats.ms = (typeof performance !== 'undefined' ? performance.now() : 0) - t0;

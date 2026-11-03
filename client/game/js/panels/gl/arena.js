@@ -31,6 +31,7 @@ import { CX0, CX1, CROWS, ROWH, sharedTextures } from '../rink/textures.js';
 import { createRinkCamera, matrices } from '../rink/camera.js';
 import { bodyOpts, drawHud, hudActive, maskColours, drawnJoints, drawnAt, drawnPuck, glowTail, GLOW } from '../rink/hud.js';
 import { TAU, clamp, hash, rng } from '../rink/util.js';
+import { inkOf } from './house-style.js';
 import * as M from './arena-mesh.js';
 import { crowdMorph, CROWD_MORPH } from './ballpark-mesh.js';
 import { GATE_Y, GATE_HALF } from '../rink/zamboni.js';
@@ -865,9 +866,11 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.useProgram(INK.p);
       gl.uniformMatrix4fv(INK.u('uVP'), false, vp); gl.uniform2fv(INK.u('uShake'), shake);
       gl.uniform2f(INK.u('uRes'), w, h);
-      // 0.09 ft of the man, between 1.2 and 3.6 px of a 900-wide picture
-      gl.uniform4f(INK.u('uInk'), 0.09, 1.2 * u, 3.6 * u, 0.0006);
-      gl.uniform3fv(INK.u('uCol'), INK_COL);
+      // 0.09 ft of the man, between 1.2 and 3.6 px of a 900-wide picture; the house style's line
+      // when the comic look is on (gl/house-style.js)
+      const ink = inkOf({ ft: 0.09, px: [1.2, 3.6], col: INK_COL });
+      gl.uniform4f(INK.u('uInk'), ink.ft, ink.px[0] * u, ink.px[1] * u, 0.0006);
+      gl.uniform3fv(INK.u('uCol'), ink.col);
       for (const [Ly, first] of [[L.dyn, propsN], [L.jers, 0], [L.masks, 0]]) {
         if (Ly.n - first <= 0) continue;
         gl.bindVertexArray(Ly.vao); gl.drawArrays(gl.TRIANGLES, first, Ly.n - first);

@@ -5,6 +5,7 @@
 import { viewProjMatrix, mat4f } from './camera.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { TOON_GLSL } from './toon.js';
+import { cityInkCol } from './house-style.js';
 import { createSpriteLayer } from './sprites.js';
 import { createCurtainLayer } from './curtain.js';
 import { createDecalLayer } from './decals.js';
@@ -46,6 +47,7 @@ const STRIDE = 21;
 export const MAX_MATERIALS = 24;
 
 // The cel look's ink (RENDER_TUNE.glInk): near black, a little blue, so it sits in the city's palette.
+// The comic look swaps in the house style's one ink (gl/house-style.js cityInkCol).
 const INK_COL = [0.04, 0.04, 0.07];
 
 const VERT = `#version 300 es
@@ -2053,7 +2055,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // Outlines hold to `far`; detail is gone by under half of it.
       const far = opts.inkFar > 0 ? opts.inkFar : 24;
       gl.uniform4f(loc.inkFade, far * 0.15, far * 0.45, far * 0.35, far);
-      const ic = cIn(opts.inkCol || INK_COL);
+      const ic = cIn(opts.inkCol || cityInkCol(INK_COL));
       gl.uniform3f(loc.inkCol, ic[0], ic[1], ic[2]);
       gl.uniform2f(loc.viewport, W, H);
       if (!into) inkFrame = { tex: inkTex, str: Math.min(1, opts.ink), fade: [far * 0.15, far * 0.45, far * 0.35, far], col: ic, W, H };

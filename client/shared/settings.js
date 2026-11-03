@@ -616,8 +616,9 @@ export function applySettings(settings) {
   // is not a fallback.
   window._applyMinimapRender?.((settings.minimapRender || 'smooth') === 'smooth');
 
-  // Cel shading in the 3-D views (RENDER_TUNE.glToon + glInk). Off by default. Same hook pattern.
-  window._applyCelShade?.((settings.celShade || 'off') === 'on');
+  // Cel shading in the 3-D views: 'off', 'on' (RENDER_TUNE.glToon + glInk) or 'comic' (the house
+  // style, gl/house-style.js). Off by default. Same hook pattern.
+  window._applyCelShade?.(['on', 'comic'].includes(settings.celShade) ? settings.celShade : 'off');
 
   // Which renderer draws the 3-D views: GLASS 2 (the GPU, the default) or GLASS 1 (the 2-D
   // painter). A real setting for the same reason Minimap is: GLASS 1 is the fallback for a

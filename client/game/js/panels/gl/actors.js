@@ -26,6 +26,7 @@ import { makeVertexStream } from './stream.js';
 import { actorBakeReady, ACTOR_HEAD_BONES } from '../actor3d.js';
 import { headMesh, hairMesh, HEAD_LEVELS, HAIR_STYLES, FACE, HAIRLINE_GLSL } from '../actor-head.js';
 import { FACE_ATLAS, FACE_GLSL } from '../actor-faces.js';
+import { createFaceAtlasFeed } from './face-atlas.js';
 import { declareProgram, takeWarm } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
@@ -602,9 +603,9 @@ void main() {
   outColor = vec4(c * alpha, alpha);
 }`, 'outColor');
 
-// The face atlas, loaded once for every context. A phone-class screen (GL_TIER's test in
-// windshield.js, which this can't import) takes the half-size copy, whose cells sit on 32-texel
-// boundaries, so it stops a mip sooner.
+// The face atlas, one feed a context (gl/face-atlas.js), plain or the comic look's inked one. A
+// phone-class screen (GL_TIER's test in windshield.js, which this can't import) takes the half-size
+// copy, whose cells sit on 32-texel boundaries, so it stops a mip sooner.
 const HALF_ATLAS = (() => {
   try {
     const mm = globalThis.matchMedia, sc = globalThis.screen;
@@ -614,16 +615,6 @@ const HALF_ATLAS = (() => {
     return mm('(pointer: coarse)').matches && shortSide > 0 && shortSide < 600;
   } catch { return false; }
 })();
-let ATLAS_IMG = null;
-function atlasImage() {
-  if (ATLAS_IMG || typeof Image !== 'function') return ATLAS_IMG;
-  try {
-    ATLAS_IMG = new Image();
-    ATLAS_IMG.decoding = 'async';
-    ATLAS_IMG.src = new URL('../../../' + (HALF_ATLAS ? FACE_ATLAS.half : FACE_ATLAS.src), import.meta.url).href;
-  } catch { ATLAS_IMG = null; }
-  return ATLAS_IMG;
-}
 
 function compile(gl, type, src, label) {
   const s = gl.createShader(type);
@@ -727,7 +718,9 @@ export function createActorLayer(gl) {
   });
   // The bones, a row a baked frame (ACTOR_HEAD_BONES), and the atlas. Until the atlas has loaded the
   // face is a one-texel stand-in that reads as plain skin: shade 1 (R × 1.5), no hair, lips or eyes.
-  let boneT = null, faceT = null, atlasDone = false;
+  // The feed hands over an atlas when one has loaded, and again when the comic look flips it.
+  let boneT = null, faceT = null;
+  const faceFeed = createFaceAtlasFeed({ half: HALF_ATLAS });
   function texture2D(unit) {
     const t = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + unit);
@@ -753,9 +746,9 @@ export function createActorLayer(gl) {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     }
-    const img = atlasDone ? null : atlasImage();
-    if (img && img.complete && img.naturalWidth > 0) {
-      atlasDone = true;
+    let img = null;
+    try { img = faceFeed.poll(); } catch { img = null; }
+    if (img) {
       // ⚠ FLIPPED, NOT PREMULTIPLIED AND NOT COLOUR-CONVERTED: the four channels are masks, and
       // either of the last two would mix them (actor-faces.js). All three go back after.
       try {

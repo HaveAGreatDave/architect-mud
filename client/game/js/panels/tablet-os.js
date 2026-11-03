@@ -2350,10 +2350,12 @@ const TOS_OPT_GROUPS = [
     { v: 'left', t: 'Sidebar Left', g: '⬅️' }, { v: 'right', t: 'Sidebar Right', g: '➡️' } ] },
   { key: 'weatherFx', label: 'Weather FX', opts: [
     { v: 'on', t: 'Weather FX On', g: '🌧️' }, { v: 'off', t: 'Off', g: '🚫' } ] },
-  // Cel shading for the 3-D views (main.js _applyCelShade). GLASS 2 only.
+  // Cel shading for the 3-D views (main.js _applyCelShade). GLASS 2 only. Comic is the house
+  // style (gl/house-style.js): every view, heavier ink.
   { key: 'celShade', label: 'Cel Shading', opts: [
     { v: 'off', t: 'Off: the city as it is lit now', g: '◐' },
-    { v: 'on', t: 'On: flat light and ink outlines', g: '✎' } ] },
+    { v: 'on', t: 'On: flat light and ink outlines', g: '✎' },
+    { v: 'comic', t: 'Comic: two tones and heavy ink, everywhere', g: '✒' } ] },
   // GLASS 2 or GLASS 1 (main.js _applyGlass). GLASS 1 is the fallback, without cel shading.
   { key: 'glass', label: 'Renderer', opts: [
     { v: '2', t: 'GLASS 2: the GPU renderer, lit and shadowed', g: 'G2', s: 'font-size:0.6875rem;letter-spacing:1px' },

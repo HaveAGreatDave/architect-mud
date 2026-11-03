@@ -25,6 +25,7 @@ import { emitWire } from '../windshield.js';
 import { boatGeom } from '../../../../shared/boat-house.js';
 import { BOAT_ROWS } from '../../../../shared/vehicle-models.js';
 import { CEL, CEL_TUNE, celLightJS, celToneJS, celRimJS } from '../gl/cel-figure.js';
+import { inkOf, figureLightOf } from '../gl/house-style.js';
 
 let AN = null, anP = null;
 const loadAngler = () => anP || (anP = import('../angler.js').then((m) => { AN = m; return m; }).catch(() => null));
@@ -308,6 +309,10 @@ function pushBody(sink, B, chase, toWorld, toLocal, cam, v, now) {
   const cel = !!CEL_TUNE.on;
   // How big a foot of him is on the screen, once, at his middle: the ink's width is held in pixels.
   let inkFt = 0, pushT = 0;
+  // the house style's line when the comic look is on (gl/house-style.js), else the park's own
+  const ink = inkOf({ ft: CEL.inkFt, px: CEL.inkPx, col: CEL.ink });
+  // and its light: the comic look's two bands and painted shade, no rim (gl/house-style.js)
+  const fl = figureLightOf({ bands: CEL.bands, shade: CEL.shade });
   if (cel && CEL_TUNE.ink && nout && cam.proj && cam.FL) {
     const m = B.n >> 1, P0 = toWorld([out[m * 3], out[m * 3 + 1], out[m * 3 + 2]]);
     const P1 = toWorld([out[m * 3] + 1, out[m * 3 + 1], out[m * 3 + 2]]);
@@ -316,12 +321,12 @@ function pushBody(sink, B, chase, toWorld, toLocal, cam, v, now) {
     const pxPerFt = tilesPerFt * cam.FL / Math.max(f, 0.06);
     const u = (cam.W || 900) / 900;
     if (pxPerFt > 1e-6) {
-      inkFt = clamp(CEL.inkFt, CEL.inkPx[0] * u / pxPerFt, CEL.inkPx[1] * u / pxPerFt);
+      inkFt = clamp(ink.ft, ink.px[0] * u / pxPerFt, ink.px[1] * u / pxPerFt);
       pushT = Math.max(inkFt * 4, 0.3) * tilesPerFt;
     }
   }
   const Wv = new Array(3);
-  const inkRGB = CEL.ink.map((c) => Math.round(c * 255));
+  const inkRGB = ink.col.map((c) => Math.round(c * 255));
   let k = 0, ki = 0;
   for (let t = 0; t < B.tris; t++) {
     const v0 = t * 3;
@@ -347,10 +352,10 @@ function pushBody(sink, B, chase, toWorld, toLocal, cam, v, now) {
     for (let j = 0; j < 3; j++) { r.p[j][0] = Wv[j][0] + ox; r.p[j][1] = Wv[j][1] + oy; r.p[j][2] = Wv[j][2]; }
     const ci = v0 * 3;
     if (cel) {
-      const lit = celLightJS(d), rim = celRimJS(1 - (nx * vx + ny * vy + nz * vz), lit);
+      const lit = celLightJS(d, fl.bands), rim = fl.comic ? 0 : celRimJS(1 - (nx * vx + ny * vy + nz * vz), lit);
       for (let ch = 0; ch < 3; ch++) {
         const base = (col[ci + ch] + col[ci + 3 + ch] + col[ci + 6 + ch]) / 3;
-        r.rgb[ch] = clamp(celToneJS(base, ch, lit, rim) * dim, 0, 255) | 0;
+        r.rgb[ch] = clamp(celToneJS(base, ch, lit, rim, fl.shade) * dim, 0, 255) | 0;
       }
     } else {
       const sh = (0.58 + 0.42 * d + 0.06 * Math.abs(nz)) * dim;

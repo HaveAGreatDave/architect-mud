@@ -12,6 +12,14 @@
 //
 // Painted at the lab's 2560 px a metre (512 x 640 for FACE's box), then averaged down to a 256 x 320
 // cell. Coordinates are metres, the figure's left on +x, y up.
+//
+// INKED, for the comic look (docs/proposals/comic-ink.md, step 2): the same face, with an ink layer
+// painted last into the shade mask, so nothing else about the face moves. The ink is what a comic
+// artist would draw over it: a heavy tapered upper lid with a flick at the outer corner, the crease
+// above it, the brows outlined, one side of the nose and the nostril wings, a heavier mouth line
+// with its corners, the folds from the nose to the mouth, and a chin crease. Lines, not soft shade:
+// the plain face avoids hard lines because at street size they read as scars, and the comic look
+// wants exactly that weight.
 import { FACE } from '../../client/game/js/panels/actor-head.js';
 import { FACE_ATLAS, FACE_LAYOUTS } from '../../client/game/js/panels/actor-faces.js';
 
@@ -195,9 +203,66 @@ function surface() {
   return { layer, ops, masks: { S, H, L: Lp, E } };
 }
 
+// The outline of a stroke along any polyline, `w(t)` metres wide at t (0 at the first point, 1 at
+// the last), for an ink line that swells and tapers.
+function taperLine(pts, w) {
+  const n = pts.length - 1, L = [], R = [];
+  for (let i = 0; i <= n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)];
+    let tx = b[0] - a[0], ty = b[1] - a[1];
+    const l = Math.hypot(tx, ty) || 1;
+    tx /= l; ty /= l;
+    const hw = w(i / n) / 2, p = pts[i];
+    L.push([p[0] - ty * hw, p[1] + tx * hw]); R.push([p[0] + ty * hw, p[1] - tx * hw]);
+  }
+  return [...L, ...R.reverse()];
+}
+// A swell: thin at both ends, `w` at its widest, a little past the middle.
+const swell = (w, lo = 0.25) => (t) => w * (lo + (1 - lo) * Math.sin(Math.PI * Math.min(1, t * 0.9 + 0.05)));
+
+// The ink over a painted face: lines into the shade mask, drawn last.
+function inkFace(layout, layer, ops) {
+  const { age, mood, brow } = layout;
+  const INK = ops.shade(0.06);
+  const line = (pts, w, a = 0.95, blurPx = 0.5) => layer((d) => d.fill(taperLine(pts, w), a), INK, blurPx);
+  both((s) => {
+    // the upper lid, heavy, swelling toward the outer corner, with a flick past it
+    const lid = [[s * 0.0165, 1.6386], [s * 0.0212, 1.6458], [s * 0.0385, 1.6468], [s * 0.0463, 1.6409]];
+    const upper = [...cubic(...lid, 16), [s * 0.0505, 1.6428]];
+    line(upper, (t) => 0.0007 + 0.0021 * Math.sin(Math.PI * Math.min(1, t * 0.8 + 0.12)));
+    // the crease above it, thin
+    line(cubic([s * 0.0185, 1.6418], [s * 0.0235, 1.6502], [s * 0.039, 1.6512], [s * 0.0468, 1.6445], 14), swell(0.0009), 0.7);
+    // the lower lid's outer half
+    line(cubic([s * 0.0463, 1.6409], [s * 0.0420, 1.6372], [s * 0.0345, 1.6357], [s * 0.0285, 1.6358], 10), swell(0.0008, 0.1), 0.6);
+    // the brow, outlined along its lower edge and darkened through, so it reads as one shape
+    const tilt = brow || 0;
+    const P0 = [s * 0.0105, 1.6532 + tilt * 0.003], P1 = [s * 0.03, 1.6607], P2 = [s * 0.0505, 1.6548 - tilt * 0.0015];
+    const w = (t) => 0.0044 * (1 - t) + 0.0012 * t + 0.0008 * Math.sin(Math.PI * t);
+    layer((d) => d.fill(taper(P0, P1, P2, w), 0.55), ops.shade(0.45), 0.5);
+    const under = quad(P0, P1, P2, 16).map(([x, y], i) => [x, y - w(i / 16) * 0.45]);
+    line(under, swell(0.0014), 0.85);
+    // the nostril's wing
+    line(Array.from({ length: 13 }, (_, i) => { const t = -0.6 + 2.0 * i / 12; return [s * 0.0158 + s * 0.0068 * Math.cos(t), 1.5925 + 0.0068 * Math.sin(t)]; }), swell(0.0013), 0.85);
+    // the fold from the nose to the mouth: always there in ink, heavier with age
+    line(quad([s * 0.0215, 1.5935], [s * 0.032, 1.5795], [s * 0.0305, 1.5645], 12), swell(0.0008 + 0.0008 * age, 0.1), 0.45 + 0.4 * age);
+    // the mouth's corners
+    const cy = FACE.mouthY + (mood || 0) * 0.0016;
+    line([[s * 0.0228, cy + 0.0004], [s * 0.0262, cy - 0.0006 + (mood || 0) * 0.0012]], swell(0.0011, 0.5), 0.9);
+  });
+  // one side of the nose, the lit side left open: the bridge down to the tip, round under it
+  line([...quad([-0.0075, 1.633], [-0.0095, 1.612], [-0.0105, 1.598], 10), ...quad([-0.0105, 1.598], [-0.006, 1.5885], [0.0035, 1.5878], 8).slice(1)], swell(0.0012, 0.15), 0.8);
+  // the mouth line, heavier than the painted one
+  const corner = FACE.mouthY + (mood || 0) * 0.0016;
+  line(quad([-0.0235, corner], [0, FACE.mouthY - 0.0008], [0.0235, corner], 16), swell(0.0014, 0.35), 0.95);
+  // under the lower lip, and the chin's crease
+  line(quad([-0.008, 1.5532], [0, 1.5522], [0.008, 1.5532], 8), swell(0.0011, 0.1), 0.6);
+  line(quad([-0.006, 1.5385], [0, 1.5372], [0.006, 1.5385], 8), swell(0.0009, 0.1), 0.35 + 0.3 * age);
+}
+
 // ── One layout ──────────────────────────────────────────────────────────────────────────────────────
-// Returns the cell as RGBA bytes, 256 x 320, row 0 at the top.
-export function paintFaceMasks(layout) {
+// Returns the cell as RGBA bytes, 256 x 320, row 0 at the top. `ink` paints the comic look's lines
+// over it (inkFace).
+export function paintFaceMasks(layout, { ink = false } = {}) {
   const { age, beard, makeup, mood, brow, seed } = layout;
   const R = mulberry(seed);
   const { layer, ops, masks } = surface();
@@ -340,6 +405,8 @@ export function paintFaceMasks(layout) {
     }
   });
 
+  if (ink) inkFace(layout, layer, ops);
+
   // ── Down to the cell: each texel the mean of four, packed as RGBA bytes ──
   const { S, H, L, E } = masks, cw = PW / 2, ch = PH / 2, out = new Uint8Array(cw * ch * 4);
   const byte = (v) => Math.max(0, Math.min(255, Math.round(v * 255)));
@@ -355,12 +422,12 @@ export function paintFaceMasks(layout) {
 
 // ── The atlas ───────────────────────────────────────────────────────────────────────────────────────
 // Every layout in its cell: RGBA bytes, FACE_ATLAS.w x FACE_ATLAS.h, row 0 at the top. `half` is
-// the same at half size, for phones.
-export function paintFaceAtlas() {
+// the same at half size, for phones. `ink` is the comic look's atlas.
+export function paintFaceAtlas({ ink = false } = {}) {
   const { cols, cellW, cellH, w, h } = FACE_ATLAS;
   const full = new Uint8Array(w * h * 4);
   FACE_LAYOUTS.forEach((L, i) => {
-    const cell = paintFaceMasks(L), cx = (i % cols) * cellW, cy = Math.floor(i / cols) * cellH;
+    const cell = paintFaceMasks(L, { ink }), cx = (i % cols) * cellW, cy = Math.floor(i / cols) * cellH;
     for (let y = 0; y < cellH; y++) full.set(cell.subarray(y * cellW * 4, (y + 1) * cellW * 4), ((cy + y) * w + cx) * 4);
   });
   const hw = w / 2, hh = h / 2, half = new Uint8Array(hw * hh * 4);

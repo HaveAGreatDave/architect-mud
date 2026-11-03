@@ -141,6 +141,7 @@ const { legsOf, fenceAt, sprayOf } = await import(P + 'diamond/play.js');
 const { HARD, KINDS: FX, particleAt, trailAt, endOf: fxEnd, splashOf, cheerOf } = await import(P + 'diamond/spectacle.js');
 const { createRoar, ROAR } = await import(P + 'gl/crowd.js');
 const { replayOf, stageReplay, REPLAY } = await import(P + 'diamond/replay.js');
+const { COMIC } = await import(P + 'diamond/comic.js');
 const { HUD_THEME } = await import(P + 'diamond/hud.js');
 const { dugoutSpot, dugoutOf } = await import(P + 'diamond/bases.js');
 const { BETWEEN } = await import(P + 'diamond/between.js');
@@ -1189,8 +1190,9 @@ const renderer = () => ({
   if (!feed.some((p) => p.phase === 'run')) { const r = order.find((p) => p.phase === 'run'); if (r) feed.push(r); }
   check('the view is fed a play on the bases', feed.some((p) => p.phase === 'run'));
   // and a home run with a hold that has room for its trot and its replay after it (the game's
-  // first, or the next games'), then the same again with reduced motion, when its replay is a still
-  const replayAt = new Set(), calmAt = new Set();
+  // first, or the next games'), then the same again with reduced motion, when its replay is a still,
+  // and again with the comic look on, when it's a comic replay (diamond/comic.js)
+  const replayAt = new Set(), calmAt = new Set(), comicAt = new Set();
   {
     const isHr = (x) => !x.phase && x.kind === 'homerun' && (x.pitches || []).length;
     let hr = order.find(isHr);
@@ -1198,8 +1200,9 @@ const renderer = () => ({
     if (hr) {
       replayAt.add(feed.length); feed.push({ ...hr, hold: 75000 });
       replayAt.add(feed.length); calmAt.add(feed.length); feed.push({ ...hr, hold: 75000 });
+      replayAt.add(feed.length); comicAt.add(feed.length); feed.push({ ...hr, hold: 75000 });
     }
-    check('the view is fed a home run to replay', replayAt.size === 2);
+    check('the view is fed a home run to replay', replayAt.size === 3);
   }
   let prevLine = '', picture = null, cutaways = 0, streetOpens = 0;
   // the live text, every line as it's said: the view opens before the first beat, as the TV opens
@@ -1217,8 +1220,9 @@ const renderer = () => ({
     const line = `line ${k}: ${p.desc || p.phase || p.kind}`;
     const label = `seed ${SEED} view #${k} ${p.phase || p.kind}`;
     rec.poses.clear(); rec.balls = 0; rec.roar = [0, 0]; rec.marks = 0;
-    const sounds0 = stub.sounds.length, said0 = said.length, quiet = k === quietAt, calm = calmAt.has(k);
+    const sounds0 = stub.sounds.length, said0 = said.length, quiet = k === quietAt, calm = calmAt.has(k), comic = comicAt.has(k);
     if (calm) globalThis.document.documentElement.setAttribute('data-motion', 'off');
+    if (comic) globalThis.__houseComic = 1;
     if (quiet) globalThis.document.documentElement.setAttribute('data-play-by-play', 'off');
     // the line first and then its payload, as the broadcast sends them
     v.setCaption(line, { held: true });
@@ -1279,6 +1283,9 @@ const renderer = () => ({
       // live one, or held still with reduced motion, and the live camera back after)
       // (the rate from the frames it was up: the live world's time and its own, first and last)
       let seenReplay = null, bugUp = true, onCamera = true, live0 = 0, live1 = 0, own0 = 0, own1 = 0;
+      // (a comic replay: the beats it went through, its world through the freeze, and the live time
+      // the freeze held)
+      const beats = [], frozen = { first: null, last: null, live0: 0, live1: 0 };
       // (ten frames a second outside a replay: a home run's trot and the dead time after it run a
       // minute, every body posed each frame)
       for (let i = 0; i < 2400 && v.busy(); i++) {
@@ -1287,8 +1294,14 @@ const renderer = () => ({
         if (!r) continue;
         if (!seenReplay) { seenReplay = r; live0 = W2.t; own0 = r.W.t; }
         bugUp &&= v.state.replay === true;
-        onCamera &&= v.shot === r.shot;
+        // a comic replay's run and freeze are on the worm's-eye camera; the rest on the replay's own
+        // (and what follows on its follow-through camera at the plate, else the replay's own)
+        onCamera &&= v.shot === (r.comic && (r.comic.phase === 'run' || r.comic.phase === 'freeze') ? r.comic.worm : r.comic && r.comic.phase !== 'run' ? (r.comic.follow || r.shot) : r.shot);
         live1 = W2.t; own1 = r.W.t;
+        if (r.comic) {
+          if (beats[beats.length - 1] !== r.comic.phase) beats.push(r.comic.phase);
+          if (r.comic.phase === 'freeze') { if (frozen.first == null) { frozen.first = r.W.t; frozen.live0 = W2.t; } frozen.last = r.W.t; frozen.live1 = W2.t; }
+        }
       }
       if (replayAt.has(k)) {
         const r = seenReplay;
@@ -1296,7 +1309,17 @@ const renderer = () => ({
         if (r) {
           check('a replay: its bug is up and its camera on while it plays', bugUp && onCamera, `${label}: bug ${bugUp}, camera ${onCamera}`);
           check('a replay: the live camera\'s back after, and the bug down', v.shot !== r.shot && isShot(v.shot) && !v.state.replay, `${label}: ${JSON.stringify(v.shot)}`);
-          if (calm) check('a replay with reduced motion: a still of its moment', r.still && own1 === own0 && r.W.t - r.key >= -1e-9 && r.W.t - r.key <= DT + 1e-9, `${label}: ${(r.W.t - r.key).toFixed(4)} s past its moment, moved ${(own1 - own0).toFixed(3)} s`);
+          if (comic) {
+            check('a comic replay: the run, the freeze, what follows and the page, in that order', beats.join(' ') === 'run freeze after page', `${label}: ${beats.join(' ')}`);
+            check('a comic replay: its world held still on its moment through the freeze, for the freeze\'s length', frozen.first != null && frozen.first === frozen.last && Math.abs(frozen.first - r.key) <= DT + 1e-9 && frozen.live1 - frozen.live0 >= COMIC.freeze - 0.1,
+              `${label}: ${frozen.first} to ${frozen.last}, held ${(frozen.live1 - frozen.live0).toFixed(2)} s`);
+            check('a comic replay: its world on to the end of its window after', r.W.t >= r.to - 1e-6, `${label}: ${(r.W.t - r.to).toFixed(3)} s from its end`);
+            check('a comic replay: all three panels taken for the page', r.comic.panels.every((x) => x !== null), `${label}: ${r.comic.panels.map((x) => (x ? 'shot' : String(x)))}`);
+            check('a comic replay: the worm\'s-eye camera low on the grass', !!r.comic.worm && r.comic.worm.eye[1] < 1.5, `${label}: ${JSON.stringify(r.comic.worm?.eye)}`);
+            check('a comic replay: both its cameras sharp, the lens blur off', r.comic.worm.dof === 0 && (!r.comic.follow || r.comic.follow.dof === 0), label);
+            check('a comic replay at the plate: what follows over the batter\'s shoulder', !!r.comic.follow, label);
+            check('a comic replay: the player at the ball found for the freeze to keep clear', !!r.comic.subj01 && r.comic.subj01.r > 0, `${label}: ${JSON.stringify(r.comic.subj01)}`);
+          } else if (calm) check('a replay with reduced motion: a still of its moment', r.still && own1 === own0 && r.W.t - r.key >= -1e-9 && r.W.t - r.key <= DT + 1e-9, `${label}: ${(r.W.t - r.key).toFixed(4)} s past its moment, moved ${(own1 - own0).toFixed(3)} s`);
           else {
             const rate = (own1 - own0) / Math.max(1e-6, live1 - live0);
             check('a replay: slow motion, its world at REPLAY.rate of the live one, to the end of its window', !r.still && Math.abs(rate - REPLAY.rate) < 0.03 && r.W.t >= r.to - 1e-6, `${label}: ${rate.toFixed(3)}, ${(r.W.t - r.to).toFixed(3)} s from its end`);
@@ -1314,6 +1337,7 @@ const renderer = () => ({
       check('at rest, the frames stop', !v.busy() && rec.frames === frames, `${label}: ${rec.frames - frames} more frames`);
       check('the dirt: every mark the director makes reaches the renderer', D.marks.length > 0 && rec.marks === D.marks.length, `${label}: ${rec.marks} of ${D.marks.length}`);
       if (calm) globalThis.document.documentElement.setAttribute('data-motion', 'on');
+      if (comic) delete globalThis.__houseComic;
     } else {
       stub.runTimers(2500);
       check('a changeover: its line goes up', capText() === line, `${label}: "${capText()}"`);

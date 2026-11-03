@@ -27,8 +27,11 @@
 // street away.
 import { FACE } from './actor-head.js';
 
+// `ink` and `inkHalf` are the comic look's atlas (docs/proposals/comic-ink.md): the same masks with
+// ink lines painted into the shade channel, swapped in by gl/face-atlas.js while the look is on.
 export const FACE_ATLAS = { cols: 8, rows: 4, cellW: 256, cellH: 320, w: 2048, h: 1280, maxLevel: 6,
-  src: 'assets/actor-faces.png', half: 'assets/actor-faces-half.png' };
+  src: 'assets/actor-faces.png', half: 'assets/actor-faces-half.png',
+  ink: 'assets/actor-faces-ink.png', inkHalf: 'assets/actor-faces-ink-half.png' };
 
 // The layouts: [age 0..1, beard (0 none, 1 stubble, 2 full), makeup, mood (-1 frown .. 1 smile),
 // brow (-1 stern .. 1 worried)]. Age greys the hair (faceHair) as well as lining the face, so a

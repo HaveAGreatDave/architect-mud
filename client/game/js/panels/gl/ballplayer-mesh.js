@@ -137,6 +137,8 @@ function tri(b, a, c, d) {
   if (b.skin) for (const q of [a, c, d]) vtxSkin(b, q.p, q.n, q.uv, q.col, q.mat, q.w);
   else for (const q of [a, c, d]) vtx(b, q.p, q.n, q.uv, q.col, q.mat);
 }
+// A part's columns round, more of them on the comic look's near level (createPlayerSet `hd`).
+const hdCols = (G, n) => (G.hd ? Math.round(n * 1.5) : n);
 // A parametric surface, rows i and columns j, joined round when `wrap`. `key`, `mat` and `col` may
 // be per row (a function of i); `col` may also be per point.
 //
@@ -237,10 +239,12 @@ const ARM = [[-0.035, 0, 0, 'sleeve'], [-0.03, 0.12, 0.124, 'sleeve'], [-0.02, 0
   [0.62, 0.178, 0.184, 'under'], [0.82, 0.154, 0.16, 'under'], [0.98, 0.143, 0.15, 'under'], [1.14, 0.152, 0.157, 'under'],
   [1.42, 0.127, 0.114, 'under'], [1.7, 0.103, 0.082, 'under'], [1.86, 0.094, 0.076, 'under'], [1.89, 0.08, 0.066, 'under'], [1.91, 0, 0, 'under']];
 
-function sampleProfile(prof, n0 = 3) {
-  const out = [];
+// `hd` (the comic look's near level, createPlayerSet) rings twice as close, for a smooth bend under
+// a heavy line.
+function sampleProfile(prof, n0 = 3, hd = false) {
+  const out = [], step = hd ? 0.055 : 0.11, nMax = hd ? n0 * 2 : n0;
   for (let i = 0; i < prof.length - 1; i++) {
-    const a = prof[i], b = prof[i + 1], n = Math.max(1, Math.min(n0, Math.round((b[0] - a[0]) / 0.11)));
+    const a = prof[i], b = prof[i + 1], n = Math.max(1, Math.min(nMax, Math.round((b[0] - a[0]) / step)));
     for (let k = 0; k < n; k++) { const t = k / n; out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3]]); }
   }
   out.push(prof[prof.length - 1]);
@@ -251,7 +255,7 @@ function sampleProfile(prof, n0 = 3) {
 // rides the parent (the pelvis or the chest) so a hip or shoulder bends without a crease.
 // `thick` widens it all down its length, for his build.
 function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf, rig = null, thick = 1) {
-  const rings = sampleProfile(prof);
+  const rings = sampleProfile(prof, 3, G.hd);
   const L1 = len(sub(J1, J0)), T1 = norm(sub(J1, J0)), T2 = norm(sub(J2, J1));
   const w = 0.16 * s;
   const centreAt = (sv) => {
@@ -262,7 +266,7 @@ function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf, rig = null
     return sv < L1 ? madd(J0, T1, sv) : madd(J1, T2, sv - L1);
   };
   const tanAt = (sv) => norm(lerp(T1, T2, smooth(L1 - w, L1 + w, sv)));
-  const cols = 20, rows = rings.length;
+  const cols = hdCols(G, 20), rows = rings.length;
   const wOf = rig ? (sv) => {
     const t = smooth(L1 - w, L1 + w, sv), up = rig.root ? rig.root[2] * (1 - smooth(rig.root[0] * s, rig.root[1] * s, sv)) : 0;
     return [[rig.parent, up], [rig.a, (1 - t) * (1 - up)], [rig.b, t * (1 - up)]];
@@ -283,7 +287,7 @@ function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf, rig = null
 // The deltoid under the sleeve: a cap over the shoulder joint, riding the collarbone, rounder on top
 // than under, where the arm's own tube runs on out of it.
 function deltoid(G, J, W, S, s, keyOf, colOf, matOf, uvOf, thick = 1) {
-  const C = W['clav' + S] || W.chest, sg = S === 'L' ? 1 : -1, c = add(J['sh' + S], m3v(C, [-sg * 0.015 * s, 0, 0])), rows = 7, cols = 14;
+  const C = W['clav' + S] || W.chest, sg = S === 'L' ? 1 : -1, c = add(J['sh' + S], m3v(C, [-sg * 0.015 * s, 0, 0])), rows = G.hd ? 10 : 7, cols = hdCols(G, 14);
   // its poles, where a sphere's grid pinches, point down into the arm and up into the trapezius,
   // where nothing sees them; on top a pole showed as a dark dot
   const Pa = norm([sg * 0.6, -0.8, 0]), Qa = [0, 0, 1], Ra = cross(Pa, Qa);
@@ -335,8 +339,9 @@ function torso(G, J, W, s, keyOf, colOf, matOf, uvOf, extra = 0, front = 0, b = 
   const yc = (r) => (r.f === 'chest' ? r.y : r.f === 'neck' ? 0.64 : -1);
   for (let i = 0; i < R.length - 1; i++) {
     const a = R[i], b = R[i + 1];
-    for (let k = 0; k < 3; k++) {
-      const t = k / 3, p0 = R[Math.max(0, i - 1)].c, p3 = R[Math.min(R.length - 1, i + 2)].c, t2 = t * t, t3 = t2 * t;
+    const nSub = G.hd ? 5 : 3;
+    for (let k = 0; k < nSub; k++) {
+      const t = k / nSub, p0 = R[Math.max(0, i - 1)].c, p3 = R[Math.min(R.length - 1, i + 2)].c, t2 = t * t, t3 = t2 * t;
       // Catmull-Rom through the ring centres
       const c = [0, 1, 2].map((q) => 0.5 * ((2 * a.c[q]) + (-p0[q] + b.c[q]) * t + (2 * p0[q] - 5 * a.c[q] + 4 * b.c[q] - p3[q]) * t2 + (-p0[q] + 3 * a.c[q] - 3 * b.c[q] + p3[q]) * t3));
       rings.push({ c, X: norm(lerp(a.X, b.X, t)), Z: norm(lerp(a.Z, b.Z, t)), w: a.w + (b.w - a.w) * t, df: a.df + (b.df - a.df) * t, db: a.db + (b.db - a.db) * t,
@@ -350,7 +355,7 @@ function torso(G, J, W, s, keyOf, colOf, matOf, uvOf, extra = 0, front = 0, b = 
   const turn = {};
   for (const S of ['L', 'R']) turn[S] = W['clav' + S] ? m3m(m3m(CwT, W['clav' + S]), tr3(Gb[S])) : null;
   const scOf = (S) => [(S === 'L' ? 1 : -1) * SC_JOINT[0] * s, SC_JOINT[1] * s, SC_JOINT[2] * s];
-  const cols = 34, pw = 2.5, sp = (x) => Math.sign(x) * Math.pow(Math.abs(x), 2 / pw);
+  const cols = hdCols(G, 34), pw = 2.5, sp = (x) => Math.sign(x) * Math.pow(Math.abs(x), 2 / pw);
   emitGrid(G, rings.length, cols, (i, j) => {
     const r = rings[i], a = (j / cols - 0.25) * TAU, ca = Math.cos(a);
     const p = add(r.c, add(mul(r.X, sp(Math.sin(a)) * r.w), mul(r.Z, sp(ca) * (ca > 0 ? r.df : r.db))));
@@ -390,7 +395,7 @@ function shoe(G, J, S, s, col, stripe = true) {
   const Fs = norm(add(mul(F, Math.cos(FOOT_PITCH)), mul(U, Math.sin(FOOT_PITCH)))), Us = norm(sub(mul(U, Math.cos(FOOT_PITCH)), mul(F, Math.sin(FOOT_PITCH))));
   const Sd = norm(cross(Us, Fs)), out = S === 'L' ? 1 : -1, base = madd(an, Us, -0.28 * s);
   const at = (along, across, up) => add(base, add(mul(Fs, along * s), add(mul(Sd, across * s), mul(Us, up * s))));
-  const sole = hex('#1b1b1c'), white = hex('#e8e6e0'), lace = mul(col, 1.9), cols = 14;
+  const sole = hex('#1b1b1c'), white = hex('#e8e6e0'), lace = mul(col, 1.9), cols = hdCols(G, 14);
   // the sole: from the ground up to where the upper sits on it, a hair wider than the upper
   const soleTop = (i) => (CLEAT[i][0] < 0 ? 0.055 : 0.04) + CLEAT[i][3];
   emitGrid(G, CLEAT.length, cols, (i, j) => {
@@ -905,9 +910,15 @@ export function buildBody(G, look) {
 // skinned set's batches carry bone weights (buildBody). `lod` is the level of detail it's built at:
 // 0 full, for the close cameras; 1 about half, at broadcast distance; 2 about an eighth, for a man
 // far off in a wide shot and for the towers' shadows (emitGrid, and the head's own levels).
+//
+// `hd` is the comic look's near level (docs/proposals/comic-ink.md): at level 0 only, about one and a
+// half times the columns round the torso, the limbs, the shoulders and the shoes, and rings twice as
+// close down the limbs and the torso, because a heavy line round a man shows every facet of his
+// silhouette. Levels 1 and 2 ignore it, so the broadcast distance and the shadows cost the same.
 export const PLAYER_LODS = 3;
-export function createPlayerSet({ skin = false, lod = 0 } = {}) {
+export function createPlayerSet({ skin = false, lod = 0, hd = false } = {}) {
   const batches = new Map(), heads = [];
   const make = () => (skin ? createSkinBatch(1 << 13) : createBatch(1 << 14));
-  return { batches, heads, skin, lod: Math.max(0, Math.min(PLAYER_LODS - 1, lod | 0)), cur: [[BONE.pelvis, 1]], B: (key) => { let b = batches.get(key); if (!b) { b = make(); batches.set(key, b); } return b; } };
+  const lv = Math.max(0, Math.min(PLAYER_LODS - 1, lod | 0));
+  return { batches, heads, skin, lod: lv, hd: !!hd && lv === 0, cur: [[BONE.pelvis, 1]], B: (key) => { let b = batches.get(key); if (!b) { b = make(); batches.set(key, b); } return b; } };
 }
