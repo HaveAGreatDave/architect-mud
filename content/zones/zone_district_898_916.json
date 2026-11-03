@@ -4,8 +4,7 @@
   "description": "The cut runs straight where the meadow ran shapeless. The wind moves along it now instead of across it.",
   "exits": {
     "east": "zone_district_899_916",
-    "north": "zone_district_898_915",
-    "west": "zone_district_897_916"
+    "north": "zone_district_898_915"
   },
   "flags": {
     "district": "halcyon_fields",

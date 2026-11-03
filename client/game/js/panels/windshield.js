@@ -16,6 +16,7 @@
 
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
+import { parkTiles } from '../../../shared/coliseum-plan.js';
 import { seaShelter, SURF_DEPTH_Q, surfHullGain, surfGain, seaHeadingFor, setSeaHeading, seaRotPair } from '../../../shared/sea-swell.js';
 import { windGust, windVeer, stormOf } from '../../../shared/wind-gust.js';
 import { skyAt } from '../../../shared/sky-keys.js';
@@ -17569,17 +17570,9 @@ const BLDG_TYPE_3D = {
   ice_rink_stand_e: { a: 'civic',     h: 0.14 },
   ice_rink_plant_w: { a: 'industrial', h: 0.14 },
   ice_rink_plant_e: { a: 'civic',     h: 0.14 },
-  // The Hughson Coliseum's nine tiles (glass/models/coliseum.js): the corners with their light towers,
+  // The Hughson Coliseum's 121 tiles (glass/models/coliseum.js): the corners with their light towers,
   // and the rest under the roof's vault.
-  ballpark:           { a: 'civic', h: 0.30 },
-  ballpark_sw:        { a: 'civic', h: 0.30 },
-  ballpark_ne:        { a: 'civic', h: 0.30 },
-  ballpark_bleachers: { a: 'civic', h: 0.30 },
-  ballpark_s:         { a: 'civic', h: 0.26 },
-  ballpark_e:         { a: 'civic', h: 0.26 },
-  ballpark_w:         { a: 'civic', h: 0.26 },
-  ballpark_n:         { a: 'civic', h: 0.26 },
-  ballpark_c:         { a: 'civic', h: 0.26 },
+  ...Object.fromEntries(parkTiles().map((t) => [t.type, { a: 'civic', h: t.floors >= 18 ? 0.30 : 0.26 }])),
   // The trades round it (glass/models/parkside.js).
   box_office:         { a: 'civic',    h: 0.12 },
   frank_stand:        { a: 'citycore', h: 0.11 },

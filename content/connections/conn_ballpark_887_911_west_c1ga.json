@@ -1,0 +1,9 @@
+{
+  "a": "zone_ballpark_887_911",
+  "b": "zone_district_886_911",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_ballpark_887_911_west_c1ga",
+  "lockable": false,
+  "one_way": false
+}

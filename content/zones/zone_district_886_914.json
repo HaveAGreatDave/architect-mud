@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "description": "A two-lane road along the top of the river bank, kerbed on the town side. The Curtain hums along the far verge, and through it the river runs brown and quick.",
   "exits": {
-    "east": "zone_district_887_914",
     "north": "zone_district_886_913",
     "south": "zone_district_886_915",
     "west": "zone_district_885_914"

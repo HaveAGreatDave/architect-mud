@@ -1,0 +1,9 @@
+{
+  "a": "zone_hughsongc_hall",
+  "b": "zone_hughsonbl_bleachers",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_hughsongc_hall_west",
+  "lockable": false,
+  "one_way": false
+}

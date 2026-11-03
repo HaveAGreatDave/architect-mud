@@ -7,143 +7,14 @@
     "west": "zone_hughson_nine"
   },
   "flags": {
+    "box_office": "zone_hughson_platinum_box",
     "building_name": "Charles B. Hughson Coliseum",
     "building_type": "ballpark",
     "floor": "concrete",
     "is_building": true,
     "is_interior": true,
+    "open_all_hours": true,
     "stands": {
-      "sport": "baseball",
-      "sections": [
-        {
-          "id": "diamond",
-          "name": "The Diamond Club",
-          "price": 75,
-          "eye": [
-            0,
-            4.6,
-            -45.5
-          ],
-          "note": "field level behind the plate, no net",
-          "across": 9,
-          "rows": 4,
-          "pitch": 3.1,
-          "row": [
-            2.7,
-            0.8
-          ]
-        },
-        {
-          "id": "plate",
-          "name": "Behind the Plate",
-          "price": 40,
-          "eye": [
-            0,
-            14.3,
-            -56.4
-          ],
-          "note": "the pitch coming at you"
-        },
-        {
-          "id": "first",
-          "name": "First-Base Box",
-          "price": 30,
-          "eye": [
-            -92,
-            14,
-            24
-          ],
-          "note": "down the first-base line"
-        },
-        {
-          "id": "third",
-          "name": "Third-Base Box",
-          "price": 30,
-          "eye": [
-            92,
-            14,
-            24
-          ],
-          "note": "down the third-base line"
-        },
-        {
-          "id": "upper",
-          "name": "Upper Deck",
-          "price": 12,
-          "eye": [
-            0,
-            78,
-            -120
-          ],
-          "note": "the whole field below you"
-        },
-        {
-          "id": "upperfirst",
-          "name": "Upper Deck First",
-          "price": 12,
-          "eye": [
-            -144,
-            78,
-            -3
-          ],
-          "note": "high over the first-base side"
-        },
-        {
-          "id": "upperthird",
-          "name": "Upper Deck Third",
-          "price": 12,
-          "eye": [
-            144,
-            78,
-            -3
-          ],
-          "note": "high over the third-base side"
-        },
-        {
-          "id": "leftline",
-          "name": "Left-Field Line",
-          "price": 18,
-          "eye": [
-            215,
-            11,
-            139
-          ],
-          "note": "out by the left-field pole"
-        },
-        {
-          "id": "rightline",
-          "name": "Right-Field Line",
-          "price": 18,
-          "eye": [
-            -215,
-            11,
-            139
-          ],
-          "note": "out by the right-field pole"
-        },
-        {
-          "id": "bleachers",
-          "name": "Left-Field Bleachers",
-          "price": 6,
-          "eye": [
-            169,
-            27,
-            361
-          ],
-          "note": "left-centre, past the wall"
-        },
-        {
-          "id": "rightbleachers",
-          "name": "Right-Field Bleachers",
-          "price": 6,
-          "eye": [
-            -169,
-            27,
-            361
-          ],
-          "note": "right-centre, past the wall"
-        }
-      ],
       "menu": [
         {
           "item": "item_ballpark_lager",
@@ -161,7 +32,138 @@
           "item": "item_water_bottle",
           "price": 4
         }
-      ]
+      ],
+      "sections": [
+        {
+          "across": 9,
+          "eye": [
+            0,
+            4.6,
+            -45.5
+          ],
+          "id": "diamond",
+          "name": "The Diamond Club",
+          "note": "field level behind the plate, no net",
+          "pitch": 3.1,
+          "price": 75,
+          "row": [
+            2.7,
+            0.8
+          ],
+          "rows": 4
+        },
+        {
+          "eye": [
+            0,
+            14.3,
+            -56.4
+          ],
+          "id": "plate",
+          "name": "Behind the Plate",
+          "note": "the pitch coming at you",
+          "price": 40
+        },
+        {
+          "eye": [
+            -92,
+            14,
+            24
+          ],
+          "id": "first",
+          "name": "First-Base Box",
+          "note": "down the first-base line",
+          "price": 30
+        },
+        {
+          "eye": [
+            92,
+            14,
+            24
+          ],
+          "id": "third",
+          "name": "Third-Base Box",
+          "note": "down the third-base line",
+          "price": 30
+        },
+        {
+          "eye": [
+            0,
+            78,
+            -120
+          ],
+          "id": "upper",
+          "name": "Upper Deck",
+          "note": "the whole field below you",
+          "price": 12
+        },
+        {
+          "eye": [
+            -144,
+            78,
+            -3
+          ],
+          "id": "upperfirst",
+          "name": "Upper Deck First",
+          "note": "high over the first-base side",
+          "price": 12
+        },
+        {
+          "eye": [
+            144,
+            78,
+            -3
+          ],
+          "id": "upperthird",
+          "name": "Upper Deck Third",
+          "note": "high over the third-base side",
+          "price": 12
+        },
+        {
+          "eye": [
+            215,
+            11,
+            139
+          ],
+          "id": "leftline",
+          "name": "Left-Field Line",
+          "note": "out by the left-field pole",
+          "price": 18
+        },
+        {
+          "eye": [
+            -215,
+            11,
+            139
+          ],
+          "id": "rightline",
+          "name": "Right-Field Line",
+          "note": "out by the right-field pole",
+          "price": 18
+        },
+        {
+          "eye": [
+            169,
+            27,
+            361
+          ],
+          "id": "bleachers",
+          "name": "Left-Field Bleachers",
+          "note": "left-centre, past the wall",
+          "price": 6
+        },
+        {
+          "eye": [
+            -169,
+            27,
+            361
+          ],
+          "id": "rightbleachers",
+          "name": "Right-Field Bleachers",
+          "note": "right-centre, past the wall",
+          "price": 6
+        }
+      ],
+      "sport": "baseball"
     },
     "window": {
       "description": "The diamond, the infield dirt raked in arcs, and the outfield running out to a padded wall with numbers painted on it. The scoreboard stands on legs past centre field, under the roof.",
@@ -169,9 +171,7 @@
       "name": "the field",
       "visibility": 1
     },
-    "world_exit_zone": "zone_ballpark_897_913",
-    "open_all_hours": true,
-    "box_office": "zone_hughson_platinum_box"
+    "world_exit_zone": "zone_ballpark_894_920"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -179,5 +179,5 @@
   "id": "zone_hughson_stands",
   "map_id": "map_int_hughson",
   "name": "The Coliseum — The Stands",
-  "parent_zone": "zone_ballpark_897_913"
+  "parent_zone": "zone_ballpark_894_920"
 }

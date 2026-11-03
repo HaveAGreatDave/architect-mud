@@ -6317,7 +6317,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const step = async (dir) => { p._lastStepAt = 0; return cmdMove(dir, p, broadcast); };
   try {
     removePlayerFromZone(p.id, p.current_zone);
-    p.current_zone = 'zone_district_897_914';
+    p.current_zone = 'zone_district_894_921';
     addPlayerToZone(p.id, p.current_zone);
     await step('north');
     check('Coliseum: north from Sorrel Way through the main gate lands in the rotunda', p.current_zone === 'zone_hughson_rotunda', p.current_zone);
@@ -6326,7 +6326,17 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       check(`Coliseum: ${dir} reaches ${want}`, p.current_zone === want, p.current_zone);
     }
     await step('north');
-    check('Coliseum: north out of the bleachers comes out on Halcyon Boulevard', p.current_zone === 'zone_district_895_910', p.current_zone);
+    check('Coliseum: north out of the bleachers comes out on Halcyon Boulevard', p.current_zone === 'zone_district_889_909', p.current_zone);
+    // GATE C on the Cart Yard and GATE D on the river road, each a hall into the bleachers
+    for (const [street, dir, hall] of [['zone_district_898_912', 'west', 'zone_hughsongc_hall'], ['zone_district_886_912', 'east', 'zone_hughsongd_hall']]) {
+      removePlayerFromZone(p.id, p.current_zone);
+      p.current_zone = street;
+      addPlayerToZone(p.id, p.current_zone);
+      await step(dir);
+      check(`Coliseum: ${dir} off ${street} through its side gate lands in ${hall}`, p.current_zone === hall, p.current_zone);
+      await step(dir);
+      check(`Coliseum: ${dir} again reaches the bleachers`, p.current_zone === 'zone_hughsonbl_bleachers', p.current_zone);
+    }
   } finally {
     removePlayerFromZone(p.id, p.current_zone);
     p.current_zone = savedZone;
@@ -6334,8 +6344,9 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   }
   const { getZoneFurniture } = await import('../server/engine/world.js');
   const park = [...world.zones.values()].filter((z) => z.map_id === 'map_world' && z.flags?.building_name === 'Charles B. Hughson Coliseum');
-  check('Coliseum: nine tiles on the map, all lit on game nights', park.length === 9 && park.every((z) => z.flags?.venue_lights), park.length);
-  check('Coliseum: only the two gates are doors', park.filter((z) => z.flags?.facade).map((z) => z.id).sort().join() === 'zone_ballpark_895_911,zone_ballpark_897_913');
+  check('Coliseum: 121 tiles on the map, all lit on game nights', park.length === 121 && park.every((z) => z.flags?.venue_lights), park.length);
+  check('Coliseum: only the four gates are doors', park.filter((z) => z.flags?.facade).map((z) => z.id).sort().join() === 'zone_ballpark_887_912,zone_ballpark_889_910,zone_ballpark_894_920,zone_ballpark_897_912',
+    park.filter((z) => z.flags?.facade).map((z) => z.id).sort().join());
   // A room a vendor works in is a shop and shuts outside his hours (plugins/commerce/shopdoor.js),
   // so the way through to the stands must never be anybody's counter.
   const counterIn = (id) => [...world.npcs.values()].filter((n) => n.work_zone_id === id && (n.vendor_inventory || []).length).map((n) => n.name);

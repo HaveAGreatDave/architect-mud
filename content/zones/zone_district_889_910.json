@@ -5,20 +5,21 @@
   "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
   "exits": {
     "east": "zone_district_890_910",
-    "north": "zone_district_889_909",
     "south": "zone_district_889_911",
     "west": "zone_district_888_910"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "889,910",
     "terrain": "grass"
   },
-  "grid_x": 889,
-  "grid_y": 910,
+  "grid_x": 3,
+  "grid_y": 11,
   "grid_z": 0,
   "id": "zone_district_889_910",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Grasslands",
   "parent_zone": null
 }

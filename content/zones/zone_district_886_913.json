@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "description": "Fresh kerbs, a gutter and no pavement yet. Beyond the Curtain the river is close enough to hear.",
   "exits": {
-    "east": "zone_district_887_913",
     "north": "zone_district_886_912",
     "south": "zone_district_886_914",
     "west": "zone_district_885_913"

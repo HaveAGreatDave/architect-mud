@@ -721,7 +721,7 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   ice_rink: 'bldg_ice_rink',
   // The Charles B. Hughson Coliseum: a diamond in a fan of outfield, from above. Its two gates are
   // the park's only facades, so only they need a row; the other seven tiles are sealed mass.
-  ballpark: 'bldg_ballpark', ballpark_bleachers: 'bldg_ballpark',
+  ballpark: 'bldg_ballpark', ballpark_bleachers: 'bldg_ballpark', ballpark_gate_c: 'bldg_ballpark', ballpark_gate_d: 'bldg_ballpark',
   // The trades round the Coliseum, each a mark of what it sells: a ticket, a frank in a bun, a pretzel,
   // a pint, a pennant.
   box_office: 'bldg_box_office', frank_stand: 'bldg_frank_stand', peanut_roaster: 'bldg_peanut_roaster',

@@ -3387,6 +3387,11 @@
         "Welcome back to the ballgame. Chip Vega, and I'll be your only friend for the next nine innings.",
         "Good evening from the Charles B. Hughson Coliseum. Chip Vega in the booth, and Sir Charles is out front in bronze, same as every night."
       ],
+      "live": [
+        "Live from {venue}!",
+        "Live from {venue}! The lights are on in Halcyon Fields and there's a ballgame tonight.",
+        "Live from {venue}, where the gates are open and the organist is already warming up!"
+      ],
       "matchup": [
         "Tonight it's the {away} in from out of town to face the {home} on their home dirt.",
         "On the marquee: {away} versus {home}. Two rosters, one working scoreboard, no medical staff.",
@@ -3867,6 +3872,10 @@
         "Nine innings from immortality. The Curtain Call, folks. Last game of the season, and somebody's about to become a legend in a town that forgets fast.",
         "They call it the Curtain Call because it's the last act of the season, and because the Curtain is the one thing in this city nobody's knocked down. Yet. Chip Vega, let's go."
       ],
+      "worldseries.live": [
+        "Live from {venue}, for the {final}!",
+        "Live from {venue}! One game, the whole season on it. This is the {final}."
+      ],
       "worldseries.matchup": [
         "For all of it: the {away} versus the {home}. Two survivors, one trophy, no tomorrow.",
         "The {away} ({awayRecord}) against the {home} ({homeRecord}), the two best clubs left standing, playing for the only thing that ever mattered.",
@@ -3875,20 +3884,6 @@
       "worldseries.outro": [
         "The {leader} are champions. The rest of us go back to nothing. Chip Vega. Good night, and long live the kings, however briefly.",
         "Champions crowned, season buried. Chip Vega signing off on the Curtain Call. Same dirt tomorrow, but tonight belongs to the {leader}."
-      ],
-      "live": [
-        "Live from {venue}!",
-        "Live from {venue}! The lights are on in Halcyon Fields and there's a ballgame tonight.",
-        "Live from {venue}, where the gates are open and the organist is already warming up!"
-      ],
-      "worldseries.live": [
-        "Live from {venue}, for the {final}!",
-        "Live from {venue}! One game, the whole season on it. This is the {final}."
-      ],
-      "worldseries.tape.club": [
-        "The {club}, out of {district}: {record}, {place} in the table, and the {seed} seed.",
-        "From {district}, the {club}. They went {record}, scored {scored} and allowed {allowed}. Run differential {diff}.",
-        "The {club}: the {seed} seed at {record}. Home is {district}."
       ],
       "worldseries.road.club": [
         "The {club} went {last10} over their last ten, and they've {streak}.",
@@ -3903,6 +3898,11 @@
       ],
       "worldseries.series.none": [
         "These two never met this season. Tonight's the first time, and the last."
+      ],
+      "worldseries.tape.club": [
+        "The {club}, out of {district}: {record}, {place} in the table, and the {seed} seed.",
+        "From {district}, the {club}. They went {record}, scored {scored} and allowed {allowed}. Run differential {diff}.",
+        "The {club}: the {seed} seed at {record}. Home is {district}."
       ],
       "worldseries.watch.club": [
         "Keep an eye on {star} for the {club}, {starSaid}. On the mound tonight, {next}, {nextSaid}.",
@@ -4064,13 +4064,13 @@
       "site": {
         "bearing": 315,
         "block": {
-          "x0": 895,
+          "x0": 887,
           "x1": 897,
-          "y0": 911,
-          "y1": 913
+          "y0": 910,
+          "y1": 920
         },
-        "x": 897.55,
-        "y": 913.55
+        "x": 894.86,
+        "y": 917.86
       }
     }
   },

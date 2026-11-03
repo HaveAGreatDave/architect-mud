@@ -1,4 +1,4 @@
-// The Charles B. Hughson Coliseum: Deadball's ballpark, nine tiles, one model.
+// The Charles B. Hughson Coliseum: Deadball's ballpark, 121 tiles, one model.
 //
 // Every arm takes drawTypeModelArm's arguments and its prologue locals, in this order:
 //   (ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis)
@@ -16,20 +16,24 @@
 // fan window at each end. Open, the two that travel are nested under the fixed one over the
 // bleachers, and the infield and the grandstand have the sky.
 //
-// ⚠ ONE ARM, NINE SLICES. The park stands on x 895-897, y 911-913 in Halcyon Fields, and every tile
-// is its own building type (`ballpark`, `ballpark_s`, ... `ballpark_bleachers`) whose registry row
-// says which column (`bc`) and row (`br`) of the block it is and which way it was authored facing
-// (`facing`). The whole park is drawn in BLOCK coordinates: u east and v south of the block's centre,
-// in tiles, so tile (bc, br) has its centre at (bc - 1, br - 1). Each tile draws only what falls in
-// its own square: flats and faces are clipped to it, boxes are cut at its edges, and an arc is split
-// where it crosses a tile line, so the nine slices meet without a seam.
+// ⚠ ONE ARM, 121 SLICES, AT TRUE SIZE. The park stands on x 887-897, y 910-920 in Halcyon Fields, and
+// every tile is its own building type (`ballpark`, `ballpark_bleachers`, `ballpark_gate_c`,
+// `ballpark_gate_d` and `ballpark_<bc>_<br>`) whose registry row says which column (`bc`) and row
+// (`br`) of the block it is and which way it was authored facing (`facing`). The whole park is drawn
+// in PARK UNITS (client/shared/coliseum-plan.js): u east and v south of the block's centre, the bowl's outer
+// face at 1.47, one unit SH tiles across and SV tiles up, which is the size the broadcast draws it.
+// Each tile draws only what falls in its own square: flats and faces are clipped to it, boxes are cut
+// at its edges, and an arc is split where it crosses a tile line, so the slices meet without a seam.
+// ⚠ SIZES PASS THROUGH THE SAME SCALE. A box's or a drum's width, a pool's size and a flag's are
+// given in park units like everything else and scaled where they reach a primitive (`box`, `seg`,
+// `drum`, `pool`), and anything drawn round in a vertical plane is squashed by SH / ZK so it stays round.
 //
 // ⚠ THE FRAME COMES FROM THE ROW, NOT FROM `E`. Two of the tiles are doors and face opposite ways
 // (the main gate south onto Sorrel Way, the bleacher gate north onto Halcyon Boulevard), and the
 // shape bake captures each type at a facing of its own choosing. Block coordinates are turned into
 // the model's local frame with the facing the row declares; F then turns that frame to `E`. So a
 // capture at another facing turns the whole slice with it, and the live draw (where E is the row's
-// facing) puts it back on the block. Only north and south are supported, which is all the park uses.
+// facing) puts it back on the block. GATE C faces east and GATE D west; every other slice is south.
 //
 // ⚠ THE WHOLE PARK IS IN CONSTANTS, NOT fh AND h, which are rolled per tile and would step at every
 // joint (the Slush Fund's ⚠ in ashway.js). The rows' `floors` (skyline-scale.js) are what collision
@@ -56,21 +60,20 @@ import {
 } from '../../windshield.js';
 import { flatOut } from './downtown.js';
 import { WIN, WIN_OPEN, sunburst, headPanels } from '../coliseum-window.js';
+import { BGATE, FIELD, GATE, HALF, HP, OUT, SH, SIDE_GATES, SV } from '../../../../../shared/coliseum-plan.js';
 import { venueLive, venueRoof, venuePlay } from '../../world-feed.js';
 import { clubColour } from '../../diamond/hud.js';
 
 // ── THE FIELD, IN BLOCK COORDINATES ──────────────────────────────────────────────────────────
 // Home plate near the south-east corner, the foul lines running west and north along the tile
-// grid, centre field to the north-west (the venue's bearing of 315 degrees). Tiles are 58.6 ft, so
-// at this size the park is the map's compressed landmark, as GLASS draws every one; the broadcast
-// draws the full-size park.
-const HP = [0.95, 0.95];           // home plate
-const WALL_R = 2.1;                // the outfield wall, from home
-const TRACK = 0.085;               // the warning track inside it
-const DIRT_R = 0.78;               // the infield skirt
-const BASE = 0.5;                  // home to first
-const MOUND = [0.70, 0.70];
-const STAND = 1.10;                // where the grandstand starts, along both lines
+// grid, centre field to the north-west (the venue's bearing of 315 degrees). The field is the
+// broadcast's, in its feet (coliseum-plan.js FIELD): ninety feet to first.
+const WALL_R = FIELD.wall;         // the outfield wall, from home
+const TRACK = FIELD.track;         // the warning track inside it
+const DIRT_R = FIELD.dirt;         // the infield skirt
+const BASE = FIELD.base;           // home to first
+const MOUND = [HP[0] - FIELD.mound, HP[1] - FIELD.mound];
+const STAND = HP[0] + FIELD.foul;  // where the grandstand starts, along both lines
 const BACK = 1.40;                 // where the stands end: the inner face of the bowl wall
 const LOW = -0.6;                  // past this the stands step down toward the corners
 const SCOREBOARD = { u: -1.22, v: -1.22, w: 0.32, z0: 0.36, z1: 0.50 };   // over the top row in centre
@@ -80,26 +83,25 @@ const OSTAND = { r0: WALL_R + 0.03, row: 0.09, z0: 0.03, rise: 0.025 };
 
 // ── THE BOWL ─────────────────────────────────────────────────────────────────────────────────
 // One wall round all four sides, its outer face at OUT and its inner at BACK, in five courses up.
-const OUT = 1.47;
-// ⚠ EVERY HEIGHT IN THIS FILE IS DRAWN ZK TIMES TALLER. The arm's primitives scale z once, so the
-// numbers keep the proportions they were drawn and measured at (the shells' nesting gaps).
-const ZK = 1.4;
+// ⚠ EVERY HEIGHT IN THIS FILE IS DRAWN ZK TIMES TALLER, and every width SH times wider. The arm's
+// primitives scale once, so the numbers keep the proportions they were drawn and measured at (the
+// shells' nesting gaps).
+const ZK = SV;
 const Z = { plinth: 0.04, wall: 0.34, frieze: 0.37, cler: 0.43, corn: 0.46 };
 const DECK = 1.13;                 // the east and west decks reach in from the wall to here, under the rails
 const RAIL_OUT = [1.19, 1.25, 0.49], RAIL_IN = [1.16, 1.19, 0.475];   // the girder's two steps: from, to, top
 const FIN_AT = Array.from({ length: 11 }, (_, k) => -1.225 + k * 0.245);   // the fins along every face
 const TOWER = { at: 1.37, r0: 0.105, z0: 0.62, r1: 0.08, z1: 0.76, r2: 0.062, z2: 0.86, r3: 0.045, z3: 0.905 };
-// The two gates. `face` is the frontispiece's front plane, a hair proud of the bowl.
-const GATE = { u: 0.94, hw: 0.30, face: 1.48, top: 0.53 };
-const BGATE = { u: -0.96, hw: 0.24, face: -1.48, top: 0.44 };
+// The gates are in coliseum-plan.js: GATE on Sorrel Way across from home, BGATE on the boulevard,
+// and SIDE_GATES, GATE C and GATE D, on the east and west faces.
 // The Guardians either side of the main gate: a pylon `hw` half wide, standing to `top`.
 const GUARD = { hw: 0.055, top: 0.60 };
 // The name band on the two gate faces: plain stone in the wall under the frieze, `d` proud, over
 // windows cut short for it. It runs from the face's gate to the corner tower on the longer side.
 const BAND = { z0: 0.268, z1: Z.wall, d: 0.026 };
 const TW = TOWER.at - TOWER.r0;    // a corner tower's inner side, along a face
-// The sun in each window's head, round though the arm draws heights ZK times taller.
-const SUNBURST = sunburst(1 / ZK), SUNBURST_OPEN = sunburst(1 / ZK, WIN_OPEN);
+// The sun in each window's head, round though the arm draws heights ZK times taller and widths SH.
+const SUNBURST = sunburst(SH / ZK), SUNBURST_OPEN = sunburst(SH / ZK, WIN_OPEN);
 const bandRun = (g) => {
   const a = [-TW, g.u - g.hw - 0.03], b = [g.u + g.hw + 0.03, TW];
   return a[1] - a[0] >= b[1] - b[0] ? a : b;
@@ -145,6 +147,9 @@ const GLASS_DAY = [58, 76, 88], GLASS_DARK = [22, 28, 34], GLOW = [255, 232, 194
 const mixRgb = (a, b, k) => [0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * k);
 const arcPts = (c, r, a0, a1, n) => Array.from({ length: n + 1 }, (_, i) => { const t = a0 + (a1 - a0) * i / n; return [c[0] + r * Math.cos(t), c[1] + r * Math.sin(t)]; });
 const FAIR = [Math.PI, 1.5 * Math.PI];   // west round to north, through the outfield
+// The tile lines across the block, and a point just inside its edge, in park units.
+const TILE_LINES = Array.from({ length: 2 * HALF + 1 }, (_, k) => (k - HALF) / SH);
+const EDGE_IN = HALF / SH - 0.01;
 const SIDES = [[0, 1], [0, -1], [1, 0], [-1, 0]];   // the bowl's four faces: Sorrel Way, the boulevard, east, west
 
 // Sutherland-Hodgman against an axis-aligned square, in the plane.
@@ -290,26 +295,30 @@ export function embossText(ctx, cam, quad, text, face, shadow, night, alpha, opt
 
 export const COLISEUM_ARMS = {
   ballpark(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE HUGHSON COLISEUM, every tile
-    const D = m.facing === 'north' ? [0, -1] : [0, 1];
-    const cu = (m.bc ?? 1) - 1, cv = (m.br ?? 1) - 1;
-    const X0 = cu - 0.5, X1 = cu + 0.5, Y0 = cv - 0.5, Y1 = cv + 0.5;
+    const D = { north: [0, -1], east: [1, 0], west: [-1, 0] }[m.facing] || [0, 1];
+    // this tile's centre, in tiles from the block's; its square, in park units
+    const cu = (m.bc ?? 5) - HALF + 0.5, cv = (m.br ?? 5) - HALF + 0.5;
+    let X0 = (cu - 0.5) / SH, X1 = (cu + 0.5) / SH;
+    const Y0 = (cv - 0.5) / SH, Y1 = (cv + 0.5) / SH;
     const inTile = (u, v) => u >= X0 && u < X1 && v >= Y0 && v < Y1;
     const inRow = (v) => v >= Y0 && v < Y1, inCol = (u) => u >= X0 && u < X1;
     // block → the model's local frame (see the ⚠ on the frame above)
-    const L = (u, v) => { const du = u - cu, dv = v - cv; return [du * D[1] - dv * D[0], du * D[0] + dv * D[1]]; };
-    const Ld = (du, dv) => [du * D[1] - dv * D[0], du * D[0] + dv * D[1]];
+    const Lr = (du, dv) => [du * D[1] - dv * D[0], du * D[0] + dv * D[1]];   // a direction, turned
+    const L = (u, v) => Lr(u * SH - cu, v * SH - cv);                         // a park point, in tiles
+    const Ld = (du, dv) => Lr(du * SH, dv * SH);                               // a park length, in tiles
     const P = (u, v) => F(...L(u, v));
     const B3 = (u, v, z) => { const [wx, wy] = P(u, v); return [wx, wy, z * ZK]; };   // a block point, in the world
     const W3L = (a, b, z) => { const [wx, wy] = F(a, b); return [wx, wy, z]; };   // a local point, in the world
     const yaw0 = faceYaw(E), NEAR = nearOrMesh();
     // the imported draws that take a height, scaled as the primitives below are (see ZK)
-    const drum = (c, k, x, y, z0, z1, ...r) => drawFacetDrum(c, k, x, y, z0 * ZK, z1 * ZK, ...r);
-    const pool = (c, k, x, y, z, ...r) => glowPool(c, k, x, y, z * ZK, ...r);
+    const drum = (c, k, x, y, z0, z1, rb, rt, ...r) => drawFacetDrum(c, k, x, y, z0 * ZK, z1 * ZK, rb * SH, rt * SH, ...r);
+    const pool = (c, k, x, y, z, rgbs, s0, ...r) => glowPool(c, k, x, y, z * ZK, rgbs, s0 * SH, ...r);
     const blink = (c, k, x, y, z, ...r) => blinkLight(c, k, x, y, z * ZK, ...r);
     const st = parkState(now, night), dn = st.dn, dusk = 1 - 0.6 * dn;
     const ledge = facePals(E, { side: TRIM, roof: COPPER });   // a course flashed in copper on top
-    // The block direction (u, v, z) as a world direction, for the painter's key and the GPU's normal.
-    const worldDir = (o) => { const lo = Ld(o[0], o[1]), [ax, ay] = F(0, 0), [bx, by] = F(lo[0], lo[1]); return [bx - ax, by - ay, o[2]]; };
+    // A park normal (u, v, z) as a world direction, for the painter's key and the GPU's normal: a
+    // normal scales by the inverse of the stretch, so a vault's facet still faces the way it slopes.
+    const worldDir = (o) => { const lo = Lr(o[0] / SH, o[1] / SH), [ax, ay] = F(0, 0), [bx, by] = F(lo[0], lo[1]); return [bx - ax, by - ay, o[2] / ZK]; };
 
     // ── PRIMITIVES, ALL IN BLOCK COORDINATES ─────────────────────────────────────────────────
     // ⚠ ON GLASS 2 MOST OF THEM BUILD NOTHING THAT IS KEPT: the mesh has the boxes and the plain flats,
@@ -320,11 +329,12 @@ export const COLISEUM_ARMS = {
       if (massDropped()) return;
       u0 = Math.max(u0, X0); u1 = Math.min(u1, X1); v0 = Math.max(v0, Y0); v1 = Math.min(v1, Y1);
       if (u1 - u0 < 1e-4 || v1 - v0 < 1e-4) return;
-      const nu = Math.max(1, Math.ceil((u1 - u0) / 0.88 - 1e-9)), nv = Math.max(1, Math.ceil((v1 - v0) / 0.88 - 1e-9));
+      const nu = Math.max(1, Math.ceil((u1 - u0) * SH / 0.88 - 1e-9)), nv = Math.max(1, Math.ceil((v1 - v0) * SH / 0.88 - 1e-9));
       const su = (u1 - u0) / nu, sv = (v1 - v0) / nv;
       for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
         const [cx, cy] = P(u0 + su * (i + 0.5), v0 + sv * (j + 0.5));
-        draw3DBoxAt(ctx, cam, cx, cy, su / 2, z0 * ZK, z1 * ZK, p, seed + s + i * 7 + j * 13, night, alpha, roof, yaw0, sv / 2);
+        const [hu, hv] = Lr(su * SH / 2, sv * SH / 2).map(Math.abs);   // the box's half sizes, in the model's frame
+        draw3DBoxAt(ctx, cam, cx, cy, hu, z0 * ZK, z1 * ZK, p, seed + s + i * 7 + j * 13, night, alpha, roof, yaw0, hv);
       }
     };
     // A box along a segment, drawn by the tile its middle is on.
@@ -335,13 +345,13 @@ export const COLISEUM_ARMS = {
       const [lx, ly] = Ld(b[0] - a[0], b[1] - a[1]), len = Math.hypot(lx, ly);
       if (len < 1e-4) return;
       const [cx, cy] = P(mu, mv);
-      draw3DBoxAt(ctx, cam, cx, cy, len / 2, z0 * ZK, z1 * ZK, p, seed + s, night, alpha, roof, yaw0 + Math.atan2(ly, lx), thick / 2);
+      draw3DBoxAt(ctx, cam, cx, cy, len / 2, z0 * ZK, z1 * ZK, p, seed + s, night, alpha, roof, yaw0 + Math.atan2(ly, lx), thick * SH / 2);
     };
     // A segment cut wherever it crosses a tile line, so each piece is drawn whole by one tile.
     const segCut = (a, b, ...rest) => {
       if (massDropped()) return;
       const ts = [0, 1];
-      for (const k of [-1.5, -0.5, 0.5, 1.5]) for (const i of [0, 1]) {
+      for (const k of TILE_LINES) for (const i of [0, 1]) {
         const d = b[i] - a[i];
         if (Math.abs(d) > 1e-9) { const t = (k - a[i]) / d; if (t > 1e-6 && t < 1 - 1e-6) ts.push(t); }
       }
@@ -372,7 +382,7 @@ export const COLISEUM_ARMS = {
     // colour, so after dark a lit one glows. The caller has already clipped it to the tile.
     const face = (pts, out, col, opts) => {
       if (pts.length < 3 || flatsDropped()) return;
-      flatOut(ctx, cam, W3L, pts.map(([u, v, z]) => [...L(u, v), z * ZK]), [...Ld(out[0], out[1]), out[2]], rgb(cl255(col)), alpha, opts);
+      flatOut(ctx, cam, W3L, pts.map(([u, v, z]) => [...L(u, v), z * ZK]), [...Lr(out[0], out[1]), out[2]], rgb(cl255(col)), alpha, opts);
     };
     // A face the GPU lights as the material family `fam` from the albedo `alb`, and the canvas paints
     // with the painter's fixed key. ⚠ A PALE FACE CARRIES ITS OWN DUSK: the mass shader dims at night
@@ -554,12 +564,12 @@ export const COLISEUM_ARMS = {
       const cuts = words.map((w) => bake(w, cutCol));
       if (cuts.some((c) => !c || !(c.width > 0) || !(c.height > 0))) return;
       const asp = cuts.map((c) => c.width / c.height), A = asp.reduce((a, b) => a + b, 0);
-      const hz = Math.min((BAND.z1 - BAND.z0) * 1.15, (t1 - t0) / A / ZK);   // the line's height, in z
+      const hz = Math.min((BAND.z1 - BAND.z0) * 1.15, (t1 - t0) * SH / A / ZK);   // the line's height, in z
       const za = (BAND.z0 + BAND.z1 - hz) / 2, zb = za + hz, r = n[1];      // r: east is the reader's right on Sorrel Way, left from the boulevard
       const tc = (t0 + t1) / 2;
-      let at = -hz * ZK * A / 2;
+      let at = -hz * ZK * A / 2 / SH;   // along the face, in park units
       words.forEach((w, i) => {
-        const wl = hz * ZK * asp[i], ta = tc + r * at, tb = tc + r * (at + wl);
+        const wl = hz * ZK * asp[i] / SH, ta = tc + r * at, tb = tc + r * (at + wl);
         at += wl;
         if (!inTile((ta + tb) / 2, n[1] * (OUT - 0.01))) return;
         const quad = (ox, oz, dd, g = 0) => [[ta - r * g, zb + g], [tb + r * g, zb + g], [tb + r * g, za - g], [ta - r * g, za - g]]
@@ -588,10 +598,13 @@ export const COLISEUM_ARMS = {
       sideBox(n, -run, run, -0.07, 0.01, Z.cler, Z.corn, ledge, true, s + 4);
       // ⚠ NOT ACROSS A GATE. Each gate's frontispiece stands in front of this face, and a fin, a
       // window or the clerestory behind it would show through it in the 2-D painter.
+      const sg = n[0] ? SIDE_GATES.find((g) => g.side === n[0]) : null;
       const gate = (t) => (n[1] === 1 && t > GATE.u - GATE.hw - 0.04 && t < GATE.u + GATE.hw + 0.04)
-        || (n[1] === -1 && t > BGATE.u - BGATE.hw - 0.04 && t < BGATE.u + BGATE.hw + 0.04);
+        || (n[1] === -1 && t > BGATE.u - BGATE.hw - 0.04 && t < BGATE.u + BGATE.hw + 0.04)
+        || (!!sg && t > sg.v - sg.hw - 0.04 && t < sg.v + sg.hw + 0.04);
       const gs = n[1] === 1 ? GATE : n[1] === -1 ? BGATE : null;
-      const clerRuns = gs ? [[-run + 0.01, gs.u - gs.hw], [gs.u + gs.hw, run - 0.01]] : [[-run + 0.01, run - 0.01]];
+      const span = gs ? [gs.u - gs.hw, gs.u + gs.hw] : sg ? [sg.v - sg.hw, sg.v + sg.hw] : null;
+      const clerRuns = span ? [[-run + 0.01, span[0]], [span[1], run - 0.01]] : [[-run + 0.01, run - 0.01]];
       for (const [t0, t1] of clerRuns) sideFace(n, t0, t1, -0.016, Z.frieze + 0.004, Z.cler - 0.004, clerCol);
       // The name band on Sorrel Way and the boulevard: the longest clear run of the face, between its
       // gate and the far corner tower (bandRun). The fins stop under it and carry on over it.
@@ -706,7 +719,7 @@ export const COLISEUM_ARMS = {
       if (dn > 0.3) blink(ctx, cam, tx, ty, T.z3 + 0.08, '255,60,40', now, seed + su * 3 + sv, alpha, 1.6);
       // A flag on the crown's outer corner, clear of the finial. ⚠ windFlag TAKES WORLD HEIGHTS, so
       // its z is scaled here: the main gate's flag was passed block heights and stood inside the setback.
-      { const [fx, fy] = P(tu + su * 0.03, tv + sv * 0.03); windFlag(ctx, cam, fx, fy, T.z3 * ZK, (T.z3 + 0.15) * ZK, 0.07, STEEL, alpha, night, now, seed + 11 + su * 3 + sv); }
+      { const [fx, fy] = P(tu + su * 0.03, tv + sv * 0.03); windFlag(ctx, cam, fx, fy, T.z3 * ZK, (T.z3 + 0.15) * ZK, 0.07 * SH, STEEL, alpha, night, now, seed + 11 + su * 3 + sv); }
       if (st.towerK > 0.01) {
         // the floods burning, and the pool each tower throws on the field
         const ex = tu - su * 0.07, ey = tv - sv * 0.07;
@@ -717,6 +730,13 @@ export const COLISEUM_ARMS = {
         }
       }
     }
+
+    // ⚠ A GATE IS WIDER THAN ITS TILE. At true size each frontispiece spans three tiles, so the tile
+    // its middle is on draws all of it: its clip is widened across the gate while (8) and (9) run, and
+    // put back after. The tiles either side keep their wall behind it and leave the gate's span bare.
+    const ownX = [X0, X1];
+    const widen = (g) => { X0 = Math.min(ownX[0], g.u - g.hw - 0.12); X1 = Math.max(ownX[1], g.u + g.hw + 0.12); };
+    if (inTile(GATE.u, OUT - 0.01)) widen(GATE);
 
     // 8) THE MAIN GATE on Sorrel Way: a stepped frontispiece between two Guardian pylons, a portal in
     //    three receding orders round bronze doors and a sunburst fanlight, a narrow grille gate
@@ -769,8 +789,8 @@ export const COLISEUM_ARMS = {
           const cu = sil.reduce((t, p) => t + p[0], 0) / sil.length, cz = sil.reduce((t, p) => t + p[1], 0) / sil.length;
           litFace(sil.map(([a, z]) => [pu + a, yF + d, z]), [0, 1, 0], alb, 'stone');
           sil.forEach((p, i) => {
-            const q = sil[(i + 1) % sil.length], mu = (p[0] + q[0]) / 2 - cu, mz = ((p[1] + q[1]) / 2 - cz) * ZK;
-            let nu = (q[1] - p[1]) * ZK, nz = -(q[0] - p[0]);
+            const q = sil[(i + 1) % sil.length], mu = ((p[0] + q[0]) / 2 - cu) * SH, mz = ((p[1] + q[1]) / 2 - cz) * ZK;
+            let nu = (q[1] - p[1]) * ZK / SH, nz = -(q[0] - p[0]) * SH / ZK;
             if (nu * mu + nz * mz < 0) { nu = -nu; nz = -nz; }
             litFace([[pu + p[0], yF, p[1]], [pu + q[0], yF, q[1]], [pu + q[0], yF + d, q[1]], [pu + p[0], yF + d, p[1]]], [nu, 0, nz], alb, 'stone');
           });
@@ -789,12 +809,12 @@ export const COLISEUM_ARMS = {
         // the forearms across the body, and what the hands hold
         if (sg < 0) {
           carve([[-0.033, 0.437], [0.033, 0.437], [0.033, 0.452], [-0.033, 0.452]], 0.0125);
-          const yb = yF + 0.0133, zc = 0.452 + 0.017 / ZK, rr = 0.017, disc = [];
-          for (let k = 0; k < 16; k++) { const a = 2 * Math.PI * k / 16; disc.push([pu + Math.cos(a) * rr, yb, zc + Math.sin(a) * rr / ZK]); }
+          const yb = yF + 0.0133, zc = 0.452 + 0.017 * SH / ZK, rr = 0.017, disc = [];
+          for (let k = 0; k < 16; k++) { const a = 2 * Math.PI * k / 16; disc.push([pu + Math.cos(a) * rr, yb, zc + Math.sin(a) * rr * SH / ZK]); }
           face(disc, [0, 1, 0], giltCol);
           for (const ss of [-1, 1]) {   // its stitches, two arcs bowed in toward the middle
             const pts = [];
-            for (let k = 0; k <= 4; k++) { const a = -1.2 + 2.4 * k / 4; pts.push([pu + ss * rr * (0.8 - 0.35 * Math.cos(a)), zc + Math.sin(a) * rr * 0.8 / ZK]); }
+            for (let k = 0; k <= 4; k++) { const a = -1.2 + 2.4 * k / 4; pts.push([pu + ss * rr * (0.8 - 0.35 * Math.cos(a)), zc + Math.sin(a) * rr * 0.8 * SH / ZK]); }
             for (let k = 0; k < 4; k++) face([[pts[k][0] - 0.001, yb + 0.0004, pts[k][1]], [pts[k + 1][0] - 0.001, yb + 0.0004, pts[k + 1][1]], [pts[k + 1][0] + 0.001, yb + 0.0004, pts[k + 1][1]], [pts[k][0] + 0.001, yb + 0.0004, pts[k][1]]], [0, 1, 0], [170 * dusk, 40 * dusk, 34 * dusk]);
           }
         } else {
@@ -870,7 +890,7 @@ export const COLISEUM_ARMS = {
         const hw = phw - 0.024, za = pz0 + inn + 0.004, zb = pz1 - inn - 0.004;
         const quad = (ox, oz) => { const y = yg + (ox ? 0.001 : 0.002), sx = ox * 0.0016, sz = oz * 0.0016;
           return [B3(gu - hw + sx, y, zb + sz), B3(gu + hw + sx, y, zb + sz), B3(gu + hw + sx, y, za + sz), B3(gu - hw + sx, y, za + sz)].map((p) => cam.proj(p[0], p[1], p[2])); };
-        embossText(ctx, cam, quad, 'GRANDSTAND', '#ecc97e', '#120c06', night, alpha, { font: 'deco', fit: (2 * hw) / ((zb - za) * ZK) });
+        embossText(ctx, cam, quad, 'GRANDSTAND', '#ecc97e', '#120c06', night, alpha, { font: 'deco', fit: (2 * hw * SH) / ((zb - za) * ZK) });
       }
       // floodlit from below after dark, and backlit
       if (dn > 0.05) {
@@ -895,6 +915,9 @@ export const COLISEUM_ARMS = {
         }
       }
     }
+
+    [X0, X1] = ownX;
+    if (inTile(BGATE.u, -OUT + 0.01)) widen(BGATE);
 
     // 9) THE BLEACHER GATE on Halcyon Boulevard: the main gate's smaller twin, two grille gates
     //    between pylons and BLEACHERS in gilt on bronze over them.
@@ -930,9 +953,46 @@ export const COLISEUM_ARMS = {
         const hw = 0.125, za = pz0 + 0.016, zb = pz1 - 0.016;
         const quad = (ox, oz) => { const y = yg - (ox ? 0.001 : 0.002), sx = -ox * 0.0016, sz = oz * 0.0016;
           return [B3(gu + hw + sx, y, zb + sz), B3(gu - hw + sx, y, zb + sz), B3(gu - hw + sx, y, za + sz), B3(gu + hw + sx, y, za + sz)].map((p) => cam.proj(p[0], p[1], p[2])); };
-        embossText(ctx, cam, quad, 'BLEACHERS', '#ecc97e', '#120c06', night, alpha, { font: 'deco', fit: (2 * hw) / ((zb - za) * ZK) });
+        embossText(ctx, cam, quad, 'BLEACHERS', '#ecc97e', '#120c06', night, alpha, { font: 'deco', fit: (2 * hw * SH) / ((zb - za) * ZK) });
       }
       if (dn > 0.05) pool(ctx, cam, ...P(gu, gf - 0.05), pz0 - 0.03, '255,214,150', 14, alpha * 0.4 * dn);
+    }
+
+    [X0, X1] = ownX;
+
+    // 9b) GATE C AND GATE D, on the east face at the Cart Yard and the west face on the river road: a
+    //     plain stepped frontispiece in the main gate's stone, bronze doors under a lit fanlight between
+    //     two marble pilasters, and the gate's letter in raised gilt on a bronze plate. A wall 196 m long
+    //     with two doors is a wall people walk round.
+    for (const g of SIDE_GATES) {
+      const n = [g.side, 0], t0 = g.v - g.hw, t1 = g.v + g.hw, s = g.side > 0 ? 470 : 490;
+      sideBox(n, t0 - 0.005, t1 + 0.005, -0.07, 0.016, 0, Z.plinth, GRANITE, true, s);
+      sideBox(n, t0, t1, -0.07, 0.012, Z.plinth, g.top, STONE, false, s + 1);
+      sideBox(n, t0 - 0.004, t1 + 0.004, -0.07, 0.016, g.top, g.top + 0.012, ledge, true, s + 2);
+      sideBox(n, t0 + 0.04, t1 - 0.04, -0.07, 0.008, g.top + 0.012, g.top + 0.05, STONE, false, s + 3);
+      sideBox(n, t0 + 0.07, t1 - 0.07, -0.07, 0.008, g.top + 0.05, g.top + 0.064, ledge, true, s + 4);
+      for (const o of [-1, 1]) sideBox(n, g.v + o * 0.10 - 0.012, g.v + o * 0.10 + 0.012, 0.012, 0.022, Z.plinth, g.top - 0.01, FINC, true, s + 5 + (o > 0 ? 1 : 0));
+      sideFace(n, g.v - 0.06, g.v + 0.06, 0.0125, Z.plinth, 0.22, frameCol);    // the doors
+      sideFace(n, g.v - 0.003, g.v + 0.003, 0.0132, Z.plinth, 0.22, giltCol);    // where they meet
+      sideFace(n, g.v - 0.05, g.v + 0.05, 0.0130, 0.235, 0.29, winCol);          // the fanlight
+      for (const sgn of [-1, 1]) sideFace(n, g.v + sgn * 0.016 - 0.002, g.v + sgn * 0.016 + 0.002, 0.0136, 0.235, 0.29, frameCol);
+      // the plate, drawn whole by the tile its middle is on, read from the street
+      const za = 0.315, zb = 0.37, hw = 0.07, d = 0.0145;
+      if (inTile(g.side * (OUT + 0.005), g.v)) {
+        sideFace(n, g.v - hw, g.v + hw, d, za, zb, [30, 22, 16]);
+        for (const [a, b, c0, c1] of [[-hw, hw, zb - 0.005, zb], [-hw, hw, za, za + 0.005], [-hw, -hw + 0.005, za, zb], [hw - 0.005, hw, za, zb]]) sideFace(n, g.v + a, g.v + b, d + 0.0012, c0, c1, giltCol);
+        if (facing(n[0], 0, g.side * (OUT + d), g.v)) {
+          // the reader's left: north is on your right facing west, south facing east
+          const r = -g.side, lw = hw - 0.016, ya = za + 0.009, yb = zb - 0.009;
+          const quad = (ox, oz) => { const dd = d + (ox ? 0.0018 : 0.0026), sx = ox * 0.0016, sz = oz * 0.0016;
+            return [[-lw, yb], [lw, yb], [lw, ya], [-lw, ya]].map(([t, z]) => B3(...SPT(n, g.v + r * (t + sx), dd, z + sz))).map((p) => cam.proj(p[0], p[1], p[2])); };
+          embossText(ctx, cam, quad, g.label, '#ecc97e', '#120c06', night, alpha, { font: 'deco', fit: (2 * lw * SH) / ((yb - ya) * ZK) });
+        }
+        if (dn > 0.05) {
+          const [lx, ly] = P(...SPT(n, g.v, 0.06, 0).slice(0, 2));
+          pool(ctx, cam, lx, ly, 0.12, '255,214,150', 14, alpha * 0.4 * dn);
+        }
+      }
     }
 
     // 10) THE ROOF. Each shell is its panels across the vault, the glazing down its crown, three
@@ -966,21 +1026,26 @@ export const COLISEUM_ARMS = {
     const shapeBox = (u0, u1, v0, v1, z0, z1) => {
       u0 = Math.max(u0, X0); u1 = Math.min(u1, X1); v0 = Math.max(v0, Y0); v1 = Math.min(v1, Y1);
       if (u1 - u0 < 1e-4 || v1 - v0 < 1e-4) return;
-      const nu = Math.max(1, Math.ceil((u1 - u0) / 0.88 - 1e-9)), nv = Math.max(1, Math.ceil((v1 - v0) / 0.88 - 1e-9));
+      const nu = Math.max(1, Math.ceil((u1 - u0) * SH / 0.88 - 1e-9)), nv = Math.max(1, Math.ceil((v1 - v0) * SH / 0.88 - 1e-9));
       const su = (u1 - u0) / nu, sv = (v1 - v0) / nv;
       for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
         const [cx, cy] = P(u0 + su * (i + 0.5), v0 + sv * (j + 0.5));
-        SHAPE_SINK.push({ kind: 'box', dx: cx, dy: cy, hwRaw: su / 2, fdRaw: sv / 2, wz0: z0 * ZK, wz1: z1 * ZK, pal: FINC, roof: true, yaw: yaw0 });
+        const [hu, hv] = Lr(su * SH / 2, sv * SH / 2).map(Math.abs);
+        SHAPE_SINK.push({ kind: 'box', dx: cx, dy: cy, hwRaw: hu, fdRaw: hv, wz0: z0 * ZK, wz1: z1 * ZK, pal: FINC, roof: true, yaw: yaw0 });
       }
     };
     // Each box tops out where its facet does over the part of it this tile holds: a facet cut at a
-    // tile line is lower at the cut than at its far end.
+    // tile line is lower at the cut than at its far end. ⚠ AND STARTS WHERE IT DOES, NOT AT THE
+    // SPRING. At true size most of the field's tiles hold nothing but roof, so a box from the spring
+    // stood under the mesh's lowest face and the shape's base wasn't the mesh's (gl:mesh). A tile a
+    // shell ends on has the end's panel down to the spring, so there the box starts at the spring.
     if (SHAPE_SINK) for (const S of SHELLS) for (let k = 0; k < NF; k++) {
       const a = S.arch[k], b = S.arch[k + 1];
       const u0 = Math.max(Math.min(a[0], b[0]), X0), u1 = Math.min(Math.max(a[0], b[0]), X1);
       if (u1 <= u0) continue;
       const zAt = (u) => a[1] + (b[1] - a[1]) * (u - a[0]) / (b[0] - a[0]);
-      shapeBox(u0, u1, S.shut, S.shut + S.len, S.zs, Math.max(zAt(u0), zAt(u1)));
+      const endHere = inRow(S.shut) || inRow(S.shut + S.len);
+      shapeBox(u0, u1, S.shut, S.shut + S.len, endHere ? S.zs : Math.min(zAt(u0), zAt(u1)), Math.max(zAt(u0), zAt(u1)));
     }
     const clipT = (pts) => clip3(pts, X0, X1, Y0, Y1), clipU = (pts) => clip3(pts, X0, X1, -9, 9);
     const shell = (S, i, v0, how) => {
@@ -1038,7 +1103,7 @@ export const COLISEUM_ARMS = {
       // part's arguments as they were recorded, so a list would hold the play it was recorded at. The
       // function reads the play when it's called, and its offsets are from the tile's centre, so a
       // replay's shift of x and y leaves them right. Rebuilt only when the play changes.
-      const [cx, cy] = P(cu, cv), [hx, hy] = P(...HP), pl = _place || null;
+      const [cx, cy] = P(cu / SH, cv / SH), [hx, hy] = P(...HP), pl = _place || null;
       let memo = null, memoOf = null;
       const build = () => {
         const g = pl ? venuePlay(pl.wx, pl.wy) : null;
@@ -1069,7 +1134,7 @@ export const COLISEUM_ARMS = {
     //     clerestory all round and the glazing down the crown; with it open, through the gap.
     if (dn > 0.05 && st.domeK > 0.01) {
       for (const [u, v] of [[0, 1.5], [0, -1.5], [1.5, 0], [-1.5, 0], [-0.9, 1.5], [0.9, -1.5], [1.5, -0.9], [-1.5, 0.9]]) {
-        if (!inTile(clamp(u, -1.49, 1.49), clamp(v, -1.49, 1.49))) continue;
+        if (!inTile(clamp(u, -EDGE_IN, EDGE_IN), clamp(v, -EDGE_IN, EDGE_IN))) continue;
         pool(ctx, cam, ...P(u, v), (Z.frieze + Z.cler) / 2, '255,232,194', 22, alpha * 0.26 * dn * st.domeK, { air: true });
       }
       if (inTile(0, 0)) pool(ctx, cam, ...P(0, 0), 0.86, '255,236,206', 60, alpha * 0.1 * dn * st.domeK, { air: true, max: 150 });
@@ -1079,8 +1144,8 @@ export const COLISEUM_ARMS = {
       if (!inTile(u, v)) continue;
       pool(ctx, cam, ...P(u, v), 0.415, '255,246,224', 8, alpha * 0.38 * st.towerK);
     }
-    if (dn > 0.05) for (const [u, v] of [[0, 1.55], [-0.9, 1.55], [1.55, 0], [1.55, -0.9], [-1.55, 0.3], [0.3, -1.55]]) {
-      if (!inTile(clamp(u, -1.49, 1.49), clamp(v, -1.49, 1.49))) continue;
+    if (dn > 0.05) for (const [u, v] of [[0, 1.52], [-0.9, 1.52], [1.52, 0], [1.52, -0.9], [-1.52, 0.3], [0.3, -1.52]]) {
+      if (!inTile(clamp(u, -EDGE_IN, EDGE_IN), clamp(v, -EDGE_IN, EDGE_IN))) continue;
       pool(ctx, cam, ...P(u, v), 0.08, '255,210,150', 16, alpha * 0.3 * dn);   // the concourse windows on the pavement
     }
   },

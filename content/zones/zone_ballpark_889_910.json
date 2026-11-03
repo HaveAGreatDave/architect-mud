@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "urban",
+  "bg_color": "#2a1d18",
+  "color": "#d8c9a8",
+  "description": "The bleacher gate of the Hughson Coliseum on Halcyon Boulevard: two grille gates between fluted pylons, BLEACHERS in gilt on a bronze plate over them, and the roof standing over the wall.",
+  "exits": {
+    "north": "zone_district_889_909",
+    "south": "zone_hughsonbl_bleachers"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark_bleachers",
+    "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 10,
+    "is_building": true,
+    "region_id": "region_coldwater",
+    "venue_lights": true,
+    "venue_roof": true,
+    "world_exit_zone": "zone_district_889_909"
+  },
+  "grid_x": 889,
+  "grid_y": 910,
+  "grid_z": 0,
+  "id": "zone_ballpark_889_910",
+  "map_id": "map_world",
+  "marker": "BG",
+  "name": "Charles B. Hughson Coliseum",
+  "parent_zone": null
+}

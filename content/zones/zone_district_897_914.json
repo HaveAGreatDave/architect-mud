@@ -3,8 +3,6 @@
   "ambient_theme": "city",
   "description": "The corner outside the Hughson Coliseum's main gate, a stepped limestone frontispiece with the name in gilt over bronze doors. Cable covers run across the road in yellow rubber, feeding the floods. Crowd barriers are chained to the lamp posts.",
   "exits": {
-    "east": "zone_district_898_914",
-    "north": "zone_ballpark_897_913",
     "south": "zone_district_906_920",
     "west": "zone_district_896_914"
   },
@@ -12,14 +10,16 @@
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
+    "set_aside": true,
+    "set_aside_from": "897,914",
     "street_life": true,
     "terrain": "road"
   },
-  "grid_x": 897,
-  "grid_y": 914,
+  "grid_x": 11,
+  "grid_y": 15,
   "grid_z": 0,
   "id": "zone_district_897_914",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Sorrel Way",
   "parent_zone": null
 }

@@ -6,7 +6,7 @@
   "flags": {
     "floor": "concrete",
     "is_interior": true,
-    "world_exit_zone": "zone_ballpark_897_913"
+    "world_exit_zone": "zone_ballpark_894_920"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -14,5 +14,5 @@
   "id": "zone_util_zone_hughson_concourse",
   "map_id": "map_int_hughson",
   "name": "The Coliseum — Plant Room",
-  "parent_zone": "zone_ballpark_897_913"
+  "parent_zone": "zone_ballpark_894_920"
 }

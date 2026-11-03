@@ -12,14 +12,16 @@
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
+    "set_aside": true,
+    "set_aside_from": "895,916",
     "street_life": true,
     "terrain": "road"
   },
-  "grid_x": 895,
-  "grid_y": 916,
+  "grid_x": 9,
+  "grid_y": 17,
   "grid_z": 0,
   "id": "zone_district_895_916",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Kerbstone Row",
   "parent_zone": null
 }

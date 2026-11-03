@@ -6,7 +6,7 @@
   "flags": {
     "floor": "dirt",
     "is_interior": true,
-    "world_exit_zone": "zone_ballpark_895_911"
+    "world_exit_zone": "zone_ballpark_889_910"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -14,5 +14,5 @@
   "id": "zone_util_zone_hughsonbl_bleachers",
   "map_id": "map_int_hughsonbl",
   "name": "The Coliseum — Undercroft",
-  "parent_zone": "zone_ballpark_895_911"
+  "parent_zone": "zone_ballpark_889_910"
 }

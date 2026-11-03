@@ -12,13 +12,15 @@
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "891,912",
     "terrain": "grass"
   },
-  "grid_x": 891,
-  "grid_y": 912,
+  "grid_x": 5,
+  "grid_y": 13,
   "grid_z": 0,
   "id": "zone_district_891_912",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Grasslands",
   "parent_zone": null
 }

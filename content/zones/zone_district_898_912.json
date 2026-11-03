@@ -4,7 +4,8 @@
   "color": "#8ba36a",
   "description": "A paved yard between the Coliseum's east wall and Kettle Lane, where the food carts park in a row under tarpaulins: a lemonade cart, a candy-floss wheel, a cart of roasting chestnuts. On game nights they roll out to the gates. A loading door is set in the limestone.",
   "exits": {
-    "east": "zone_district_899_912"
+    "east": "zone_district_899_912",
+    "west": "zone_ballpark_897_912"
   },
   "flags": {
     "district": "halcyon_fields",

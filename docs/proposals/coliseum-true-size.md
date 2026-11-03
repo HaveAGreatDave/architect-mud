@@ -1,10 +1,12 @@
 # The Coliseum at true size
 
-> **Status: phases 1-2 built (the ground and the re-siting, 2026-11-02); phases 3-4 are design.**
-> The Curtain runs down the river bank and along y 923, and the South Gate and the Glacis moved four
-> rows south with it ([scripts/content/coliseum-ground.mjs](../../scripts/content/coliseum-ground.mjs)).
-> The 23 buildings and the Helipad are on their new plots ([Where each one went](#where-each-one-went)).
-> The park is still nine tiles, and [hughson-coliseum.md](hughson-coliseum.md) describes it as it stands.
+> **Status: phases 1-3 built (2026-11-02); phase 4 and the Hughson Dome are design.** The Curtain
+> runs down the river bank and along y 923, and the South Gate and the Glacis moved four rows south
+> with it ([coliseum-ground.mjs](../../scripts/content/coliseum-ground.mjs)). The 23 buildings and
+> the Helipad are on their new plots ([Where each one went](#where-each-one-went)). The park stands
+> on 121 tiles at true size with four gates ([coliseum-park.mjs](../../scripts/content/coliseum-park.mjs),
+> [coliseum-plan.js](../../client/shared/coliseum-plan.js)), still under its three shells: the dome
+> below isn't built.
 
 ## The decision
 

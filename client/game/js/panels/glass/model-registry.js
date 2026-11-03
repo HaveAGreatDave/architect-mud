@@ -5,7 +5,10 @@
 // tile with neither keeps its biome archetype. Authored models (client/shared/building-models.js)
 // join both tables when windshield.js loads, never over a hand-written arm; see LEGACY_MODELS there.
 //
-// Plain data with no imports, so it is safe to load first. Moved out of windshield.js on 2026-10-01.
+// Plain data with one import, the Coliseum's plan, which has none of its own, so it is safe to load
+// first. Moved out of windshield.js on 2026-10-01.
+
+import { parkTiles } from '../../../../shared/coliseum-plan.js';
 
 // ── Dedicated per-building models ─────────────────────────────────────────────
 // Every named building on the 1:1 map gets its OWN model here — a type-appropriate
@@ -453,19 +456,11 @@ export const TYPE_MODEL = {
   ice_rink_plant_w:  { type: 'ice_rink_wing',     pal: 'ty_unit_brick', noKit: true, nave: -1, end: 'back', face: 'plant' },
   ice_rink_plant_e:  { type: 'ice_rink_wing',     pal: 'ty_unit_brick', noKit: true, nave: 1, end: 'back', face: 'players' },
   // ── THE CHARLES B. HUGHSON COLISEUM, Deadball's park in Halcyon Fields (glass/models/coliseum.js) ──
-  // Nine tiles, one arm. `bc` and `br` are the tile's column and row in the block (895-897 by
-  // 911-913, from the north-west), and `facing` is the entrance the tile was authored with, which the
-  // arm turns the park's block coordinates by (see the ⚠ on the frame in coliseum.js). Registered by
-  // type, never by name: all nine carry the park's name.
-  ballpark:           { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 2, br: 2, facing: 'south' },
-  ballpark_s:         { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 1, br: 2, facing: 'south' },
-  ballpark_sw:        { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 0, br: 2, facing: 'south' },
-  ballpark_e:         { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 2, br: 1, facing: 'south' },
-  ballpark_c:         { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 1, br: 1, facing: 'south' },
-  ballpark_w:         { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 0, br: 1, facing: 'south' },
-  ballpark_ne:        { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 2, br: 0, facing: 'south' },
-  ballpark_n:         { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 1, br: 0, facing: 'south' },
-  ballpark_bleachers: { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 0, br: 0, facing: 'north' },
+  // 121 tiles, one arm, at true size (client/shared/coliseum-plan.js). `bc` and `br` are the tile's
+  // column and row in the block (887-897 by 910-920, from the north-west), and `facing` is the
+  // entrance the tile was authored with, which the arm turns the park's coordinates by (see the ⚠ on
+  // the frame in coliseum.js). Registered by type, never by name: all of them carry the park's name.
+  ...Object.fromEntries(parkTiles().map((t) => [t.type, { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: t.bc, br: t.br, facing: t.facing }])),
   // The trades on the plots either side of the park (glass/models/parkside.js), one type each.
   box_office:    { type: 'box_office',     pal: 'ty_palais_stone', noKit: true },
   frank_stand:   { type: 'frank_stand',    pal: 'ty_cod',          noKit: true },

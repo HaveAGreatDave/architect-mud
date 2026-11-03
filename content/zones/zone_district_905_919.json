@@ -4,7 +4,6 @@
   "color": "#8ba36a",
   "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
   "exits": {
-    "east": "zone_district_898_917",
     "north": "zone_district_897_916",
     "south": "zone_district_897_918",
     "west": "zone_district_904_919"
@@ -12,13 +11,15 @@
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "897,917",
     "terrain": "grass"
   },
-  "grid_x": 897,
-  "grid_y": 917,
+  "grid_x": 11,
+  "grid_y": 18,
   "grid_z": 0,
   "id": "zone_district_905_919",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Grasslands",
   "parent_zone": null
 }

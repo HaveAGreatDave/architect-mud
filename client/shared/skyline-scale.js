@@ -5,12 +5,15 @@
 // flythrough (client/game/js/panels/intro-cinematic.js) renders the SAME skyline
 // as a wireframe, and a first-login path must not import the ~8000-line flight
 // renderer to find out how many storeys a hotel has. So the numbers moved here —
-// a file with no imports and no side effects — and both renderers read them.
+// a file with no side effects, whose one import (the Coliseum's plan) has none of its own — and both
+// renderers read them.
 //
 // Change a floor count here and BOTH the flight sim's solid tower and the cold
 // open's wireframe of it change together, which is the entire point. Note that
 // the flight sim's collision sweep (cockpit.js) keys off the same values via
 // buildingHeightZ, so raising a type's floors raises what you can fly into.
+
+import { parkTiles } from './coliseum-plan.js';
 
 // Floors by building type, when the tile carries no authored `flags.floors`.
 // Nudged UP for the low-rise commercial/civic types: a 1-storey pancake in a
@@ -77,11 +80,11 @@ export const TYPE_FLOORS = {
   // it two; the arms draw to fixed heights so the six tiles meet, and these are what the collision
   // sweep and the skyline read. Every tile also authors its own `flags.floors`.
   ice_rink: 5, ice_rink_hall: 5, ice_rink_stand_w: 2, ice_rink_stand_e: 2, ice_rink_plant_w: 2, ice_rink_plant_e: 2,
-  // The Charles B. Hughson Coliseum, nine tiles, one park (glass/models/coliseum.js): the four corners
-  // five storeys to the tops of their light towers, the rest four, to the crown of the roof's vault.
-  // The arm draws to fixed heights so the nine meet; these are what collision and the skyline read.
-  ballpark: 5, ballpark_bleachers: 5, ballpark_sw: 5, ballpark_ne: 5,
-  ballpark_s: 4, ballpark_e: 4, ballpark_w: 4, ballpark_n: 4, ballpark_c: 4,
+  // The Charles B. Hughson Coliseum, 121 tiles at true size, one park (glass/models/coliseum.js): the
+  // corners to the tops of their light towers, the rim to the cornice, the rest to the roof's crown
+  // (coliseum-plan.js tileFloors). The arm draws to fixed heights so the tiles meet; these are what
+  // collision and the skyline read.
+  ...Object.fromEntries(parkTiles().map((t) => [t.type, t.floors])),
   box_office: 1, frank_stand: 1, peanut_roaster: 1, sports_bar: 2, souvenir_shop: 1,   // the trades round the Coliseum (glass/models/parkside.js)
   palais_bowl_w: 1, palais_bowl: 1, palais_bowl_e: 1,   // the Palais Bowl's tiers; only the canopy stands up
 };

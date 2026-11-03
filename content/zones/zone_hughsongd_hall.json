@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A tiled hall inside GATE D, with a turnstile and a bench under a faded fixture list. A ramp climbs east to the bleachers. The Curtain hums through the doors behind you.",
+  "exits": {
+    "down": "zone_util_zone_hughsongd_hall",
+    "east": "zone_hughsonbl_bleachers",
+    "west": "zone_ballpark_887_912"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark_gate_d",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_ballpark_887_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hughsongd_hall",
+  "map_id": "map_int_hughsongd",
+  "name": "The Coliseum — Gate D",
+  "parent_zone": "zone_ballpark_887_912"
+}

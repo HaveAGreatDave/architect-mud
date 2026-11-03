@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The new end of Halcyon Boulevard, graded gravel waiting for its tarmac. A row of young limes is planted along it, each one tied to a stake.",
+  "description": "Halcyon Boulevard where Vetch Mews meets it, under the Hughson Coliseum's north wall. The bleacher gate opens off the south side, two grille gates under BLEACHERS in gilt.",
   "exits": {
     "east": "zone_district_890_909",
     "north": "zone_district_889_908",
-    "south": "zone_district_889_910",
+    "south": "zone_ballpark_889_910",
     "west": "zone_district_888_909"
   },
   "flags": {

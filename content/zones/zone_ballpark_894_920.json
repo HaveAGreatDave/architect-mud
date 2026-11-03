@@ -1,0 +1,32 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "urban",
+  "bg_color": "#2a1d18",
+  "color": "#d8c9a8",
+  "description": "The main gate of the Charles B. Hughson Coliseum: a stepped limestone frontispiece on Sorrel Way between two fluted pylons, the name in raised gilt on a bronze plate over bronze doors and a sunburst fanlight. The bowl wall runs away either side of it.",
+  "exits": {
+    "north": "zone_hughson_rotunda",
+    "south": "zone_district_894_921"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 10,
+    "is_building": true,
+    "region_id": "region_coldwater",
+    "venue_lights": true,
+    "venue_roof": true,
+    "world_exit_zone": "zone_district_894_921"
+  },
+  "grid_x": 894,
+  "grid_y": 920,
+  "grid_z": 0,
+  "id": "zone_ballpark_894_920",
+  "map_id": "map_world",
+  "marker": "HC",
+  "name": "Charles B. Hughson Coliseum",
+  "parent_zone": null
+}

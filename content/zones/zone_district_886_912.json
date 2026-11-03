@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "description": "A straight run of road beside the Curtain. The hard light on the river side makes a low sound, like a fridge in another room.",
   "exits": {
-    "east": "zone_district_887_912",
+    "east": "zone_ballpark_887_912",
     "north": "zone_district_886_911",
     "south": "zone_district_886_913",
     "west": "zone_district_885_912"

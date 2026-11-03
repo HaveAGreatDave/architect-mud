@@ -1,10 +1,10 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Freshly laid road, black and still soft at the edges in the sun. Plot numbers are stencilled on the kerb.",
+  "description": "Sorrel Way outside the Hughson Coliseum's main gate, a stepped limestone frontispiece with the name in gilt over bronze doors. Cable covers run across the road in yellow rubber, feeding the floods. Crowd barriers are chained to the lamp posts.",
   "exits": {
     "east": "zone_district_895_921",
-    "north": "zone_district_894_920",
+    "north": "zone_ballpark_894_920",
     "south": "zone_district_892_911",
     "west": "zone_district_893_921"
   },

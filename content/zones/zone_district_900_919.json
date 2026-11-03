@@ -4,7 +4,6 @@
   "color": "#8ba36a",
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
-    "east": "zone_ballpark_895_912",
     "north": "zone_district_896_922",
     "south": "zone_district_898_920",
     "west": "zone_district_893_912"
@@ -12,13 +11,15 @@
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "894,912",
     "terrain": "grass"
   },
-  "grid_x": 894,
-  "grid_y": 912,
+  "grid_x": 8,
+  "grid_y": 13,
   "grid_z": 0,
   "id": "zone_district_900_919",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Grasslands",
   "parent_zone": null
 }

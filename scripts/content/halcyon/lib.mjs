@@ -80,6 +80,7 @@ const conn = (store, a, b, dir, lockable = false) => store.patch('connections', 
  * spec = {
  *   slug, name, type, x, y, entrance, floors, marker, district,
  *   facadeId?,   // the door tile's id, when it isn't the tile's own zone_district_<x>_<y>
+ *   streetId?,   // the street the door opens onto, when it isn't zone_district_<x>_<y> beside it or isn't road
  *   roomName?,   // what the rooms are called before their own name, when `name` is too long for it
  *   facade:   { description, bgColor?, color? },
  *   rooms:    [{ key, name, description, floor, window?, from?, dir? }]   // rooms[0] is the entry
@@ -92,7 +93,7 @@ const conn = (store, a, b, dir, lockable = false) => store.patch('connections', 
 export async function authorBuilding(store, spec) {
   const facadeId = spec.facadeId || `zone_district_${spec.x}_${spec.y}`;
   const mapId = `map_int_${spec.slug}`;
-  const streetId = streetFor(store, spec);
+  const streetId = spec.streetId || streetFor(store, spec);
   const roomId = (key) => `zone_${spec.slug}_${key}`;
   const entry = spec.rooms[0];
 

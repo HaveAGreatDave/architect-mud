@@ -4,7 +4,6 @@
   "description": "Sorrel Way, new tarmac and a long view down to the gate. The Curtain runs behind the plots on the south side.",
   "exits": {
     "east": "zone_district_893_921",
-    "north": "zone_district_892_920",
     "south": "zone_district_895_915",
     "west": "zone_district_891_921"
   },

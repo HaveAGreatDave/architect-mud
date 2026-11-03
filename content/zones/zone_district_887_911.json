@@ -6,19 +6,20 @@
   "exits": {
     "east": "zone_district_888_911",
     "north": "zone_district_887_910",
-    "south": "zone_district_887_912",
-    "west": "zone_district_886_911"
+    "south": "zone_district_887_912"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "887,911",
     "terrain": "grass"
   },
-  "grid_x": 887,
-  "grid_y": 911,
+  "grid_x": 1,
+  "grid_y": 12,
   "grid_z": 0,
   "id": "zone_district_887_911",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Grasslands",
   "parent_zone": null
 }

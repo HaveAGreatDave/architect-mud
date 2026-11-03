@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "description": "The river road, new tarmac with the white lines still bright. Through the Curtain on the west side the bank drops to the water.",
   "exits": {
-    "east": "zone_district_887_919",
     "north": "zone_district_886_918",
     "south": "zone_district_886_920",
     "west": "zone_district_885_919"

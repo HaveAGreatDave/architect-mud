@@ -10,14 +10,14 @@
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
+    "open_all_hours": true,
     "window": {
       "description": "A long sloped window over home plate, a crack across one pane mended with tape. From here the whole field fits in the glass.",
       "light": 0.6,
       "name": "the press box glass",
       "visibility": 1
     },
-    "world_exit_zone": "zone_ballpark_897_913",
-    "open_all_hours": true
+    "world_exit_zone": "zone_ballpark_894_920"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -25,5 +25,5 @@
   "id": "zone_hughson_pressbox",
   "map_id": "map_int_hughson",
   "name": "The Coliseum — Press Box",
-  "parent_zone": "zone_ballpark_897_913"
+  "parent_zone": "zone_ballpark_894_920"
 }

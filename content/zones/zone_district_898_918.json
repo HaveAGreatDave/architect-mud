@@ -4,8 +4,7 @@
   "description": "Gulls on the wall of the plant yard, eleven or twelve of them, facing the same way. Something in one of these bins is worth the wait.",
   "exits": {
     "east": "zone_district_899_918",
-    "south": "zone_district_898_919",
-    "west": "zone_district_897_918"
+    "south": "zone_district_898_919"
   },
   "flags": {
     "district": "halcyon_fields",

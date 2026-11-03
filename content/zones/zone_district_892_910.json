@@ -4,7 +4,6 @@
   "description": "The boulevard's western end, where the made surface gives out and the grass takes it back inside a stride. The Curtain stands a little way off. The road has no reason to go further and does not.",
   "exits": {
     "east": "zone_district_893_910",
-    "north": "zone_district_887_908",
     "south": "zone_district_894_922",
     "west": "zone_district_891_910"
   },
@@ -12,14 +11,16 @@
     "district": "glasshouse",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
+    "set_aside": true,
+    "set_aside_from": "892,910",
     "street_life": true,
     "terrain": "road"
   },
-  "grid_x": 892,
-  "grid_y": 910,
+  "grid_x": 6,
+  "grid_y": 11,
   "grid_z": 0,
   "id": "zone_district_892_910",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Halcyon Boulevard",
   "parent_zone": null
 }

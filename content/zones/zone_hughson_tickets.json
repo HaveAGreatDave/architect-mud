@@ -10,8 +10,8 @@
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_ballpark_897_913",
-    "open_all_hours": true
+    "open_all_hours": true,
+    "world_exit_zone": "zone_ballpark_894_920"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -19,5 +19,5 @@
   "id": "zone_hughson_tickets",
   "map_id": "map_int_hughson",
   "name": "The Coliseum — Ticket Office",
-  "parent_zone": "zone_ballpark_897_913"
+  "parent_zone": "zone_ballpark_894_920"
 }

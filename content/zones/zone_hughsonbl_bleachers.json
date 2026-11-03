@@ -3,8 +3,10 @@
   "description": "Plank benches climb in tiers behind the outfield wall, under the fixed end of the roof, splintered at the edges. The scoreboard stands on steel legs behind the top row. The bleacher gate is north, and an aisle runs south round the outfield to the stands.",
   "exits": {
     "down": "zone_util_zone_hughsonbl_bleachers",
-    "north": "zone_ballpark_895_911",
-    "south": "zone_hughson_stands"
+    "east": "zone_hughsongc_hall",
+    "north": "zone_ballpark_889_910",
+    "south": "zone_hughson_stands",
+    "west": "zone_hughsongd_hall"
   },
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",
@@ -12,14 +14,14 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "open_all_hours": true,
     "window": {
       "description": "The outfield grass and the padded wall below, a distance painted on it in white. Somebody has chalked a lower number underneath.",
       "light": 0.9,
       "name": "the outfield",
       "visibility": 1
     },
-    "world_exit_zone": "zone_ballpark_895_911",
-    "open_all_hours": true
+    "world_exit_zone": "zone_ballpark_889_910"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -27,5 +29,5 @@
   "id": "zone_hughsonbl_bleachers",
   "map_id": "map_int_hughsonbl",
   "name": "The Coliseum — Bleachers",
-  "parent_zone": "zone_ballpark_895_911"
+  "parent_zone": "zone_ballpark_889_910"
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_hughsongc_hall",
+  "b": "zone_util_zone_hughsongc_hall",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hughsongc_hall_down",
+  "lockable": false,
+  "one_way": false
+}

@@ -3,23 +3,30 @@
   "ambient_theme": "urban",
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
-  "description": "The first-base side of the Hughson Coliseum: limestone and fins, a glazed clerestory under the cornice, a loading door, and along the top the rails the roof rolls on.",
-  "exits": {},
+  "description": "GATE C of the Hughson Coliseum, on the Cart Yard: a plain stepped frontispiece in the bowl's limestone, bronze doors under a lit fanlight, and GATE C in gilt on a bronze plate.",
+  "exits": {
+    "east": "zone_district_898_912",
+    "west": "zone_hughsongc_hall"
+  },
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",
-    "building_type": "ballpark_e",
+    "building_type": "ballpark_gate_c",
     "district": "halcyon_fields",
-    "entrance": "south",
-    "floors": 4,
+    "entrance": "east",
+    "facade": true,
+    "floors": 10,
+    "is_building": true,
     "region_id": "region_coldwater",
     "venue_lights": true,
-    "venue_roof": true
+    "venue_roof": true,
+    "world_exit_zone": "zone_district_898_912"
   },
   "grid_x": 897,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_ballpark_897_912",
   "map_id": "map_world",
+  "marker": "G3",
   "name": "Charles B. Hughson Coliseum",
   "parent_zone": null
 }

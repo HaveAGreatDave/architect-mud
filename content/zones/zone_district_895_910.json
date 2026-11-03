@@ -4,22 +4,22 @@
   "description": "A wide run of packed gravel and grit, graded flat by traffic and rain. The Hughson Coliseum's bleacher gate opens off the south side, two grille gates under BLEACHERS in gilt. Puddles stand in the ruts.",
   "exits": {
     "east": "zone_district_896_910",
-    "north": "zone_district_888_908",
-    "south": "zone_ballpark_895_911",
     "west": "zone_district_894_910"
   },
   "flags": {
     "district": "glasshouse",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
+    "set_aside": true,
+    "set_aside_from": "895,910",
     "street_life": true,
     "terrain": "road"
   },
-  "grid_x": 895,
-  "grid_y": 910,
+  "grid_x": 9,
+  "grid_y": 11,
   "grid_z": 0,
   "id": "zone_district_895_910",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Halcyon Boulevard",
   "parent_zone": null
 }
