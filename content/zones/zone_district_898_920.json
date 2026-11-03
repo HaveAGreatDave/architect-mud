@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Red hardpan, cracked into plates the size of dinner tables, runs flat to a rust-colored horizon.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Open meadow at the edge of the estate, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
   "exits": {
     "east": "zone_district_899_920",
+    "north": "zone_district_898_919",
     "south": "zone_district_898_921",
     "west": "zone_district_897_920"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 898,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_898_920",
   "map_id": "map_world",
-  "name": "The Rust Flats",
+  "name": "Grasslands",
   "parent_zone": null
 }

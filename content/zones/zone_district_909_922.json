@@ -20,11 +20,11 @@
     "world_exit_zone": "zone_district_910_922"
   },
   "grid_x": 909,
-  "grid_y": 922,
+  "grid_y": 926,
   "grid_z": 0,
   "id": "zone_district_909_922",
   "map_id": "map_world",
+  "marker": "TY",
   "name": "The Tow Bay",
-  "parent_zone": null,
-  "marker": "TY"
+  "parent_zone": null
 }

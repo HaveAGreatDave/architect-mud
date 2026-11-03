@@ -5,35 +5,35 @@
   "exits": {
     "east": "zone_district_912_922",
     "north": "zone_district_911_921",
-    "south": "zone_district_911_923",
+    "south": "zone_district_911_927",
     "west": "zone_district_910_922"
   },
   "flags": {
-    "danger": "high",
-    "district": "wilds",
-    "glacis": true,
-    "region_id": "region_coldwater",
-    "terrain": "road",
     "artery": [
       "Meltwater Row"
     ],
+    "danger": "high",
+    "district": "wilds",
     "gate_lock": {
-      "name": "the Outer Lock",
-      "k": "shed",
       "gate": "zone_district_911_919",
+      "k": "shed",
+      "name": "the Outer Lock",
       "seg": 2,
       "sign": {
+        "back": "Now leaving Coldwater Basin",
+        "eye": true,
         "lines": [
           "Welcome to",
           "Coldwater Basin"
-        ],
-        "back": "Now leaving Coldwater Basin",
-        "eye": true
+        ]
       }
-    }
+    },
+    "glacis": true,
+    "region_id": "region_coldwater",
+    "terrain": "road"
   },
   "grid_x": 911,
-  "grid_y": 922,
+  "grid_y": 926,
   "grid_z": 0,
   "id": "zone_district_911_922",
   "map_id": "map_world",

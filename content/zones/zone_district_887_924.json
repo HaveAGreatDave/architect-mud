@@ -6,7 +6,6 @@
   "description": "The water at the shore is shallow and the bottom is visible, gravel then silt. The mud at the edge has been dug over.",
   "exits": {
     "east": "zone_district_888_924",
-    "north": "zone_district_887_923",
     "south": "zone_district_887_925",
     "west": "zone_district_886_924"
   },

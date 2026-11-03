@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "description": "Red and ochre ledges, flat on top and ragged at the edges. The dry washes between them are floored with sand.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Grass runs up to the Curtain and stops in a clean line. The wall of hard light hums, and the river shows through it, tinted blue.",
   "exits": {
     "east": "zone_district_886_918",
     "north": "zone_district_885_917",
-    "south": "zone_district_885_919",
-    "west": "zone_district_884_918"
+    "south": "zone_district_885_919"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 29,
+    "curtain": true,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "cliff"
+    "terrain": "grass"
   },
   "grid_x": 885,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_885_918",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "Grasslands",
   "parent_zone": null
 }

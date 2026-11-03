@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Cracked hardpan stretches off in every direction, the color of old rust. The wind has scoured it bare of anything loose.",
+  "ambient_theme": "city",
+  "description": "Freshly laid road, black and still soft at the edges in the sun. Plot numbers are stencilled on the kerb.",
   "exits": {
     "east": "zone_district_903_921",
     "north": "zone_district_902_920",
@@ -10,16 +9,17 @@
     "west": "zone_district_901_921"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 902,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_902_921",
   "map_id": "map_world",
-  "name": "Red Hardpan",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

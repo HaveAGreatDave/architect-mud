@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "The clay here dried a long time ago and cracked as it went. The plates curl slightly at the edges and crumble when stepped on.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
   "exits": {
     "east": "zone_district_889_917",
     "north": "zone_district_888_916",
@@ -10,16 +10,15 @@
     "west": "zone_district_887_917"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 27,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 888,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_888_917",
   "map_id": "map_world",
-  "name": "The Ironpan",
+  "name": "Grasslands",
   "parent_zone": null
 }

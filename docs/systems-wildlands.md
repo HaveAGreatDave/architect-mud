@@ -58,7 +58,9 @@ killing floor.
 2. **The Gates** — the Curtain parts only at gates. **Phase 1 ships one Main Gate on the SOUTH edge at
    `zone_district_918_919`** (pinned — see below). *As built, the gate has since moved one road west
    to Meltwater Row, `zone_district_911_919`, and 918,919 is plain Curtain again; the 918 coordinates
-   in this doc are the original plan.* Room for a future WEST gate (→ Ascendant) and minor
+   in this doc are the original plan. On 2026-11-02 the gate and the Glacis moved four rows south to
+   911,923 with the Curtain, which now runs down the river bank at x 885 and along y 923 west of the
+   gate ([coliseum-true-size.md](proposals/coliseum-true-size.md)); the tiles kept their ids.* Room for a future WEST gate (→ Ascendant) and minor
    gates later.
 3. **The Killing Ground** — a thin glacis of blasted no-man's-land the turrets sweep, facing
    *outward*. This is "eradicate anything that tries to invade." Sparse, cratered, deadly to the

@@ -11,12 +11,12 @@
   "exits": {
     "down": "zone_aa_wastes_bunker",
     "north": "zone_district_891_906",
-    "south": "zone_district_891_908"
+    "south": "zone_district_891_908",
+    "west": "zone_district_890_907"
   },
   "flags": {
     "aa_kind": "truck",
     "aa_site": true,
-    "curtain": true,
     "district": "wasteland",
     "icon": "aa",
     "region_id": "region_coldwater",

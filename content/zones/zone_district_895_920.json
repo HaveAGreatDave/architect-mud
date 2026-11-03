@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Cracked hardpan stretches off in every direction, the color of old rust. The wind has scoured it bare of anything loose.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Grass to the knee and a smell of cut hay from somewhere. Somebody has walked a path through it to the road and back.",
   "exits": {
     "east": "zone_district_896_920",
+    "north": "zone_district_895_919",
     "south": "zone_district_895_921",
     "west": "zone_district_894_920"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 895,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_895_920",
   "map_id": "map_world",
-  "name": "The Ferric Wash",
+  "name": "Grasslands",
   "parent_zone": null
 }

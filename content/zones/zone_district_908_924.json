@@ -4,8 +4,7 @@
   "color": "#b5744a",
   "description": "The ground is baked red clay split into a web of cracks. Grit collects in the seams and the wind lifts it again.",
   "exits": {
-    "east": "zone_district_909_924",
-    "north": "zone_district_908_923",
+    "east": "zone_district_909_920",
     "south": "zone_district_908_925",
     "west": "zone_district_907_924"
   },

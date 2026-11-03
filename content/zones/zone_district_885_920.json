@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "description": "A dry red pan. Every surface is cracked, every crack is full of grit, and the wind keeps the grit moving.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough grass along the foot of the Curtain. Up close the hard light buzzes in your teeth. There's no way through but the South Gate.",
   "exits": {
     "east": "zone_district_886_920",
     "north": "zone_district_885_919",
-    "south": "zone_district_885_921",
-    "west": "zone_district_884_920"
+    "south": "zone_district_885_921"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 29,
+    "curtain": true,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "cliff"
+    "terrain": "grass"
   },
   "grid_x": 885,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_885_920",
   "map_id": "map_world",
-  "name": "Ochre Draw",
+  "name": "Grasslands",
   "parent_zone": null
 }

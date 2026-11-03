@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Baked red ground, cracked and flat to the edge of sight. Wind-polished rock breaks through the clay here and there.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Long grass, gone to seed. A Halcyon board on two posts says the plot is sold, and a sticker under it says it's sold again.",
   "exits": {
     "east": "zone_district_898_922",
     "north": "zone_district_897_921",
@@ -10,16 +10,15 @@
     "west": "zone_district_896_922"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 897,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_897_922",
   "map_id": "map_world",
-  "name": "The Slag Pan",
+  "name": "Grasslands",
   "parent_zone": null
 }

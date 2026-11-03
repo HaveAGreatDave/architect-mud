@@ -4,7 +4,6 @@
   "color": "#b5744a",
   "description": "A wide plain the color of rust, hard as a road. Old tracks cross it here and there, baked in where the ground was soft once.",
   "exits": {
-    "east": "zone_district_885_913",
     "north": "zone_district_884_912",
     "south": "zone_district_884_914",
     "west": "zone_district_883_913"

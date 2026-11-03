@@ -2730,17 +2730,20 @@ place just inside the South Gate. It's now **outside the Curtain**, under the ro
 
 |       | 909 | 910 | 911 | 912 |
 |---|---|---|---|---|
-| **917** | 36 Kerbstone Row | grass | **the South Lock** | grass |
-| **918** | Windrow Lane | Windrow Lane | **the South Lock** | grass |
-| **919** | Curtain | Curtain | **SOUTH GATE** | Curtain |
-| **920** | waste | the weigh lane | **the Outer Lock** | waste |
-| **921** | **the booth** | **the deck** | **the Outer Lock** | waste |
-| **922** | waste | the weigh ramp | **the Outer Lock** | waste |
+| **921** | Sorrel Way | Sorrel Way | **the South Lock** | Curtain |
+| **922** | plot | plot | **the South Lock** | Curtain |
+| **923** | Curtain | Curtain | **SOUTH GATE** | Curtain |
+| **924** | waste | the weigh lane | **the Outer Lock** | the post lane |
+| **925** | **the booth** | **the deck** | **the Outer Lock** | the search pad |
+| **926** | the Tow Bay | the weigh ramp | **the Outer Lock** | the post ramp |
 
 The gate stands at the south end of Meltwater Row. It used to be at the end of the Gate Road
 (918,919), and moved one road west on 2026-09-30; 918,919 is plain Curtain now, and the Gate Road
-runs out against it. Outside, the dirt road leaves the shed at 911,923 and runs due south down
-x=911 to the rim at 911,947 (Ironpan), where the highway takes over. Until 2026-10-02 it jogged east
+runs out against it. On 2026-11-02 the gate, both locks and the Glacis moved four rows south with
+the Curtain to make room for the Coliseum ([coliseum-true-size.md](proposals/coliseum-true-size.md)).
+The tiles kept their ids, so a zone id here no longer matches its coordinates. Outside, the dirt road
+leaves the shed at 911,927 and runs due south down x=911 to the rim at 911,947 (Ironpan), where the
+highway takes over. Until 2026-10-02 it jogged east
 along row 923 to the old road down x=918, so it left the mouth at a right angle.
 
 A rig coming north up the Glacis goes under the lock roof at 911,922. It either carries straight on
@@ -2808,9 +2811,9 @@ smuggle without importing it. Neither direction of dependency is created.
 `drawGateLock` (the 2-D painter) in `windshield.js`.
 
 The South Gate is an airlock. Outside, the Glacis road runs into a chrome hall (the Outer Lock,
-910–912 × 920–922): the weigh lane on the west, the Glacis road in the middle, the police lane on the
+910–912 × 924–926): the weigh lane on the west, the Glacis road in the middle, the police lane on the
 east, and the booth and the Gate Post inside it as rooms. Inside the wall, Meltwater Row runs through
-two covered tiles (the South Lock, 911,917–918) that carry `gate_lock.search`. Content only marks
+two covered tiles (the South Lock, 911,921–922) that carry `gate_lock.search`. Content only marks
 which tiles are covered (`flags.gate_lock`); everything about the shape is derived.
 
 ### The hall
@@ -2822,12 +2825,12 @@ draw:
 - **Rooms** are buildings beside a lane that open onto it: a `weigh_station` or `police` beside a
   deck, or any `vehicle_bay`. The hall widens across to take them, so its wall stands outside the
   booth and the Gate Post instead of leaving a gap in the plate where each one is.
-- **The box** is the lanes' rows, widened across for the rooms: 909–913 × 920–922 for the Outer Lock,
-  911 × 917–918 for the inner one. Lanes always run north-south, because the gate is at one end.
+- **The box** is the lanes' rows, widened across for the rooms: 909–913 × 924–926 for the Outer Lock,
+  911 × 921–922 for the inner one. Lanes always run north-south, because the gate is at one end.
 - **Claims** (`cw`/`ce`): a room or an empty corner has no lock tile of its own, so the lane beside
   it draws its roof. Each lane claims the gap up to the next lane east, and the run to the hall's west
   wall if no lane stands west of it. Every tile in the box has one owner.
-- **Walls** (`wl`) are the hall's own. A lock is never open at the side: Windrow Lane meets the inner
+- **Walls** (`wl`) are the hall's own. A lock is never open at the side: Sorrel Way meets the inner
   lock's west wall, and the road auto-tiler draws no arm across a lock's side, so the hall's floor is
   straight lanes and not a grid of crossroads. An end on the hall's edge is open onto road (a
   mouth, `mo`), onto the gate (`gx`), or shut.
@@ -2848,9 +2851,9 @@ Lock shows the waste one door, and the gate one tube.
 The airlock's walls are in the movement graph as well as the picture, as `blocked` connections named
 "the lock wall" or "the gate tube":
 
-- the inner lock's west side at 911,918 (Windrow Lane is a dead end from the west now);
-- the gate's two sides at 911,919, so nobody walks round the inner lock along the Curtain tiles;
-- the Post Ramp's south end at 912,922.
+- the inner lock's west side at 911,921–922 (Sorrel Way turns north at 910,920 to meet Meltwater Row);
+- the gate's two sides at 911,923, so nobody walks round the inner lock along the Curtain tiles;
+- the Post Ramp's south end at 912,926.
 
 Fire Station 4 stood at 910,917 and opened into the lock at 911,917, and its model clipped the
 lock's plate. It moved to the empty lot at 906,913 on 2026-10-02, doors east onto Meltwater Row, and

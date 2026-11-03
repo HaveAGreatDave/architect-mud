@@ -1,7 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "description": "The ground here is flat and hard and the color of rust. A few old trails cross it and none of them go anywhere obvious.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
   "exits": {
     "east": "zone_district_889_911",
     "north": "zone_district_888_910",
@@ -9,16 +10,15 @@
     "west": "zone_district_887_911"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 27,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "cliff"
+    "terrain": "grass"
   },
   "grid_x": 888,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_888_911",
   "map_id": "map_world",
-  "name": "Oxide Barrens",
+  "name": "Grasslands",
   "parent_zone": null
 }

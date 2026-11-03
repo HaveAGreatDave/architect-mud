@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "description": "Red hardpan, cracked into plates the size of dinner tables, runs flat to a rust-colored horizon.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "The edge of the estate. The Curtain stands a few feet off, floor to sky, and the far bank of the river is a blur behind it.",
   "exits": {
     "east": "zone_district_886_919",
     "north": "zone_district_885_918",
-    "south": "zone_district_885_920",
-    "west": "zone_district_884_919"
+    "south": "zone_district_885_920"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 29,
+    "curtain": true,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "cliff"
+    "terrain": "grass"
   },
   "grid_x": 885,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_district_885_919",
   "map_id": "map_world",
-  "name": "Ferric Wash",
+  "name": "Grasslands",
   "parent_zone": null
 }

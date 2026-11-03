@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Shelves of banded rock step down toward a dry wash. Grit blows along the bottom of it in low, fast streams.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Meadow, mown once this year in a straight strip and then left. A surveyor's mark is sprayed on the ground in pink.",
   "exits": {
     "east": "zone_district_889_914",
     "north": "zone_district_888_913",
@@ -10,16 +10,15 @@
     "west": "zone_district_887_914"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 27,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 888,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_888_914",
   "map_id": "map_world",
-  "name": "Slateback Rise",
+  "name": "Grasslands",
   "parent_zone": null
 }

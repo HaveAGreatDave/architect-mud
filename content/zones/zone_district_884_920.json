@@ -3,7 +3,6 @@
   "ambient_theme": "wasteland",
   "description": "A wide plain the color of rust, hard as a road. Old tracks cross it here and there, baked in where the ground was soft once.",
   "exits": {
-    "east": "zone_district_885_920",
     "north": "zone_district_884_919",
     "south": "zone_district_884_921",
     "west": "zone_district_883_920"

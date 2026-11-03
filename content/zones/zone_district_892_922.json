@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "A red flat of dried clay, the cracks between the plates deep enough to turn an ankle. The horizon is a smudge of rust.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Meadow, mown once this year in a straight strip and then left. A surveyor's mark is sprayed on the ground in pink.",
   "exits": {
     "east": "zone_district_893_922",
     "north": "zone_district_892_921",
@@ -10,16 +10,15 @@
     "west": "zone_district_891_922"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 892,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_892_922",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "Grasslands",
   "parent_zone": null
 }

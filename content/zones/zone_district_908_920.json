@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "The ground is broken and the brush on it is grey and brittle. It trembles with no wind to move it.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Open ground waiting for a building. The grass is flattened in a square where a site hut stood, and the square is still yellow.",
   "exits": {
-    "east": "zone_district_909_920",
+    "east": "zone_district_909_924",
+    "north": "zone_district_908_919",
     "south": "zone_district_908_921",
     "west": "zone_district_907_920"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 25,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 908,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_908_920",
   "map_id": "map_world",
-  "name": "Brittlebrush Draw",
+  "name": "Grasslands",
   "parent_zone": null
 }

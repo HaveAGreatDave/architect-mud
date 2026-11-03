@@ -1,14 +1,14 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The lane stops. Not at a junction, not at a gate, simply at the point where the ground ahead stops being somewhere you can go. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
+  "description": "Drainage was an afterthought here and looks it. Water stands along the western kerb in a long shallow strip that never entirely dries.",
   "exits": {
     "east": "zone_district_900_919",
     "north": "zone_district_899_918",
+    "south": "zone_district_899_920",
     "west": "zone_district_898_919"
   },
   "flags": {
-    "curtain": true,
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",

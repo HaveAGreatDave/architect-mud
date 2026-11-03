@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Low grey brush, dry and snapping, poking up through the rubble.",
+  "ambient_theme": "city",
+  "description": "New road along the estate's south edge, the kerbs still pale. Lamp posts stand along it with no lamps in them yet.",
   "exits": {
     "east": "zone_district_906_921",
     "north": "zone_district_905_920",
@@ -10,16 +9,17 @@
     "west": "zone_district_904_921"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 25,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 905,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_905_921",
   "map_id": "map_world",
-  "name": "Dead Scrub",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

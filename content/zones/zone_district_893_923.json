@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Brittle grey brush grows low over cracked ground, most of it more dead than alive.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "The back of the plots, where the estate stops at the Curtain. Through the light the Glacis road runs south, small and straight.",
   "exits": {
     "east": "zone_district_894_923",
     "north": "zone_district_893_922",
-    "south": "zone_district_893_924",
     "west": "zone_district_892_923"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 25,
+    "curtain": true,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 893,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_893_923",
   "map_id": "map_world",
-  "name": "Brittlebrush Draw",
+  "name": "Grasslands",
   "parent_zone": null
 }

@@ -1,7 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "description": "The mesa edge breaks up here into steps and ledges. Ochre stone, iron-red stone, and wind-driven grit in every crack.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Open ground waiting for a building. The grass is flattened in a square where a site hut stood, and the square is still yellow.",
   "exits": {
     "east": "zone_district_888_917",
     "north": "zone_district_887_916",
@@ -9,16 +10,15 @@
     "west": "zone_district_886_917"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 27,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "cliff"
+    "terrain": "grass"
   },
   "grid_x": 887,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_887_917",
   "map_id": "map_world",
-  "name": "Cinder Mesa",
+  "name": "Grasslands",
   "parent_zone": null
 }

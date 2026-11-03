@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Shelves of banded rock step down toward a dry wash. Grit blows along the bottom of it in low, fast streams.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
   "exits": {
     "east": "zone_district_890_910",
     "north": "zone_district_889_909",
@@ -10,16 +10,15 @@
     "west": "zone_district_888_910"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 26,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 889,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_889_910",
   "map_id": "map_world",
-  "name": "Cinder Mesa",
+  "name": "Grasslands",
   "parent_zone": null
 }

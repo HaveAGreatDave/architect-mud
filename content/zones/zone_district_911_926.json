@@ -1,25 +1,28 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Grey brush claws up from the cracks, low and dry and barely alive.",
+  "ambient_theme": "city",
+  "description": "The road here is more suggestion than surface: compacted gravel, broken kerbstones, a storm drain choked with silt. Somebody dragged a mattress halfway across it and gave up.",
   "exits": {
-    "east": "zone_district_912_926",
+    "east": "zone_district_912_924",
     "north": "zone_district_911_925",
-    "south": "zone_district_911_927",
-    "west": "zone_district_910_926"
+    "south": "zone_district_911_917",
+    "west": "zone_district_910_924"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 25,
+    "artery": [
+      "Meltwater Row"
+    ],
+    "district": "ashway",
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
     "terrain": "road"
   },
   "grid_x": 911,
-  "grid_y": 926,
+  "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_911_926",
   "map_id": "map_world",
-  "name": "The Grey Bramble",
+  "name": "Sorrel Way + Meltwater Row",
   "parent_zone": null
 }

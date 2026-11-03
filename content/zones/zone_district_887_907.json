@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Flat red hardpan with a crazed surface. It rings faintly under a boot and gives nothing back but dust.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Open meadow at the edge of the estate, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
   "exits": {
     "east": "zone_district_888_907",
     "north": "zone_district_887_906",
@@ -10,16 +10,15 @@
     "west": "zone_district_886_907"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 27,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 887,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_887_907",
   "map_id": "map_world",
-  "name": "Oxide Barrens",
+  "name": "Grasslands",
   "parent_zone": null
 }

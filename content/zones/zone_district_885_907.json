@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "The ground is baked red clay split into a web of cracks. Grit collects in the seams and the wind lifts it again.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "The edge of the estate. The Curtain stands a few feet off, floor to sky, and the far bank of the river is a blur behind it.",
   "exits": {
     "east": "zone_district_886_907",
     "north": "zone_district_885_906",
-    "south": "zone_district_885_908",
-    "west": "zone_district_884_907"
+    "south": "zone_district_885_908"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 29,
+    "curtain": true,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 885,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_885_907",
   "map_id": "map_world",
-  "name": "Cinder Mesa",
+  "name": "Grasslands",
   "parent_zone": null
 }

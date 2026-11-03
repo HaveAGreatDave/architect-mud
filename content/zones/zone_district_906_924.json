@@ -5,7 +5,6 @@
   "description": "Baked red ground, cracked and flat to the edge of sight. Wind-polished rock breaks through the clay here and there.",
   "exits": {
     "east": "zone_district_907_924",
-    "north": "zone_district_906_923",
     "south": "zone_district_906_925",
     "west": "zone_district_905_924"
   },

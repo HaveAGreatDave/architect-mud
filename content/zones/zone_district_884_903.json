@@ -5,7 +5,6 @@
   "color": "#4f83a8",
   "description": "At the shoreline the water is shallow and clear. Further out the bottom slopes off into nothing.",
   "exits": {
-    "east": "zone_district_885_903",
     "north": "zone_district_884_902",
     "south": "zone_district_884_904",
     "west": "zone_district_883_903"

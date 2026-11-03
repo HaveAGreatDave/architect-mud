@@ -5,7 +5,6 @@
   "color": "#4f83a8",
   "description": "The shallows run gravel to silt before the shelf drops. Old rooting marks show in the mud at the waterline.",
   "exits": {
-    "east": "zone_district_885_902",
     "south": "zone_district_884_903",
     "west": "zone_district_883_902"
   },

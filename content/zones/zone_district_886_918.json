@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "description": "Flat, hard, rust-stained ground runs off in every direction. A line of old prints crosses it and fades out a short way on.",
+  "ambient_theme": "city",
+  "description": "A two-lane road along the top of the river bank, kerbed on the town side. The Curtain hums along the far verge, and through it the river runs brown and quick.",
   "exits": {
     "east": "zone_district_887_918",
     "north": "zone_district_886_917",
@@ -9,16 +9,17 @@
     "west": "zone_district_885_918"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 28,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "cliff"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 886,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_886_918",
   "map_id": "map_world",
-  "name": "Red Hardpan",
+  "name": "The River Road",
   "parent_zone": null
 }

@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "The ground is baked red clay split into a web of cracks. Grit collects in the seams and the wind lifts it again.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Grass along the foot of the Curtain, the hard light humming a few feet off. The waste beyond it is red and flat to the hills.",
   "exits": {
     "east": "zone_district_896_923",
     "north": "zone_district_895_922",
-    "south": "zone_district_895_924",
     "west": "zone_district_894_923"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "curtain": true,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 895,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_895_923",
   "map_id": "map_world",
-  "name": "The Rust Flats",
+  "name": "Grasslands",
   "parent_zone": null
 }

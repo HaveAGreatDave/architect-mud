@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Rust-red hardpan, dead level. The cracks run in long lines and short ones, and the wind whistles through the deeper ones.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Open meadow at the edge of the estate, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
   "exits": {
+    "east": "zone_district_891_916",
     "north": "zone_district_890_915",
     "south": "zone_district_890_917",
     "west": "zone_district_889_916"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 26,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 890,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_890_916",
   "map_id": "map_world",
-  "name": "The Scoured Plain",
+  "name": "Grasslands",
   "parent_zone": null
 }

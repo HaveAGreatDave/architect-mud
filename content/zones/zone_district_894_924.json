@@ -5,7 +5,6 @@
   "description": "Grey brush claws up from the cracks, low and dry and barely alive.",
   "exits": {
     "east": "zone_district_895_924",
-    "north": "zone_district_894_923",
     "south": "zone_district_894_925",
     "west": "zone_district_893_924"
   },

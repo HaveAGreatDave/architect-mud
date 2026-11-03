@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Hardpan, red and hard and split into polygons. A skin of grit slides over it whenever the wind picks up.",
+  "ambient_theme": "city",
+  "description": "The new end of Halcyon Boulevard, graded gravel waiting for its tarmac. A row of young limes is planted along it, each one tied to a stake.",
   "exits": {
     "east": "zone_district_890_909",
     "north": "zone_district_889_908",
@@ -10,16 +9,17 @@
     "west": "zone_district_888_909"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 26,
+    "district": "glasshouse",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 889,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_889_909",
   "map_id": "map_world",
-  "name": "Slateback Rise",
+  "name": "Halcyon Boulevard",
   "parent_zone": null
 }

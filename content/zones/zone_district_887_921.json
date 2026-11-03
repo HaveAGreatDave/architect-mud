@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Shelves of banded rock step down toward a dry wash. Grit blows along the bottom of it in low, fast streams.",
+  "ambient_theme": "city",
+  "description": "A wide new street with nothing much on it yet. Somebody has already parked across two of the bays.",
   "exits": {
     "east": "zone_district_888_921",
     "north": "zone_district_887_920",
@@ -10,16 +9,17 @@
     "west": "zone_district_886_921"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 27,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 887,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_887_921",
   "map_id": "map_world",
-  "name": "The Scoured Plain",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

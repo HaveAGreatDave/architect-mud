@@ -1,7 +1,9 @@
 # The Coliseum at true size
 
-> **Status: design.** Nothing here is built. [hughson-coliseum.md](hughson-coliseum.md) describes
-> the park as it stands, on nine tiles, and wins until this lands.
+> **Status: phase 1 built (the ground, 2026-11-02); phases 2-4 are design.** The Curtain runs down
+> the river bank and along y 923, and the South Gate and the Glacis moved four rows south with it
+> ([scripts/content/coliseum-ground.mjs](../../scripts/content/coliseum-ground.mjs)). The park is
+> still nine tiles, and [hughson-coliseum.md](hughson-coliseum.md) describes it as it stands.
 
 ## The decision
 
@@ -70,6 +72,27 @@ buildings east of the park are drawn roughly.
   Sorrel Way runs along y 921 past the main gate, and y 922 holds new plots.
 - **East of the park is untouched.** The Box Office, Mulcahy's and the Cart Yard on x 898 already
   face the park and stay where they are.
+
+### Decided on the ground (Dave, 2026-11-02)
+
+The sketch above is two columns west of the text; the text is right. A survey of the tiles turned
+up four things the plan didn't cover:
+
+- **The South Gate moves south with the wall.** The gate, the South Lock, the Outer Lock and the
+  Glacis round it (the weighbridge, the Tow Bay, the Search Pad, the Gate Post and the Motor Pool)
+  move down four rows as one piece: the inner lock to 911,921-922, the gate to 911,923 and the
+  outer works to y 924-926. The tiles keep their ids, so everything that names them follows. East of
+  the gate the wall turns north up x 912 to its old line at y 919.
+- **x 886 is the river road.** The wall on x 885 and the park on x 887 leave one column, and the
+  road down the west face and GATE D take it. Houses go on the Sorrel Way plots and on the new
+  ground north of the park.
+- **The wall's move also takes in x 886-890 from y 902 to 908**, west of the Glasshouse. The
+  Helipad and the Threshold hangar's ramp move there off the new north street, out from under the
+  drum.
+- **The names move with the park.** The new north street on y 909 is Halcyon Boulevard and the
+  new street on y 921 is Sorrel Way, so his name is still cut on Sorrel Way and Halcyon Boulevard.
+  The ends of the old streets east of the park keep their names. GATE C opens onto the Cart Yard
+  (898,912); Kettle Lane on x 899 is the trades street.
 
 ## What moves
 

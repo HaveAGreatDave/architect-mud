@@ -5,7 +5,6 @@
   "description": "A rust-colored plain with a surface like fired clay. Faint tracks run across it, left by things that crossed when it was wet.",
   "exits": {
     "east": "zone_district_891_924",
-    "north": "zone_district_890_923",
     "south": "zone_district_890_925",
     "west": "zone_district_889_924"
   },

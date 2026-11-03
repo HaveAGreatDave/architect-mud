@@ -4,7 +4,6 @@
   "color": "#b5744a",
   "description": "Drifted sand banks deep against every shelf and outcrop and is swept to bare grit between them. The glare comes off it hard enough to squint at.",
   "exits": {
-    "east": "zone_district_885_904",
     "north": "zone_district_884_903",
     "south": "zone_district_884_905",
     "west": "zone_district_883_904"

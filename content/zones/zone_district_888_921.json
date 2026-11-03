@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Red and ochre ledges, flat on top and ragged at the edges. The dry washes between them are floored with sand.",
+  "ambient_theme": "city",
+  "description": "Sorrel Way, new tarmac and a long view down to the gate. The Curtain runs behind the plots on the south side.",
   "exits": {
     "east": "zone_district_889_921",
     "north": "zone_district_888_920",
@@ -10,16 +9,17 @@
     "west": "zone_district_887_921"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 27,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 888,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_888_921",
   "map_id": "map_world",
-  "name": "The Rust Flats",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

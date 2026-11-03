@@ -4,7 +4,6 @@
   "color": "#b5744a",
   "description": "A red flat of dried clay, the cracks between the plates deep enough to turn an ankle. The horizon is a smudge of rust.",
   "exits": {
-    "east": "zone_district_909_926",
     "north": "zone_district_908_925",
     "south": "zone_district_908_927",
     "west": "zone_district_907_926"

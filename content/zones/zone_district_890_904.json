@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Drifted sand banks deep against every shelf and outcrop and is swept to bare grit between them. The glare comes off it hard enough to squint at.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Open meadow at the edge of the estate, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
   "exits": {
+    "east": "zone_district_891_904",
     "north": "zone_district_890_903",
     "south": "zone_district_890_905",
     "west": "zone_district_889_904"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 26,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "terrain": "grass"
   },
   "grid_x": 890,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_890_904",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "Grasslands",
   "parent_zone": null
 }

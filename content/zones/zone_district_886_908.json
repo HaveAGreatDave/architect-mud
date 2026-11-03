@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "The ground is baked red clay split into a web of cracks. Grit collects in the seams and the wind lifts it again.",
+  "ambient_theme": "city",
+  "description": "A straight run of road beside the Curtain. The hard light on the river side makes a low sound, like a fridge in another room.",
   "exits": {
     "east": "zone_district_887_908",
     "north": "zone_district_886_907",
@@ -10,16 +9,17 @@
     "west": "zone_district_885_908"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 28,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 886,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_886_908",
   "map_id": "map_world",
-  "name": "Slateback Rise",
+  "name": "The River Road",
   "parent_zone": null
 }

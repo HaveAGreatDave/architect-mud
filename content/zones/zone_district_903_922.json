@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Grey brush claws up from the cracks, low and dry and barely alive.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Long grass, gone to seed. A Halcyon board on two posts says the plot is sold, and a sticker under it says it's sold again.",
   "exits": {
     "east": "zone_district_904_922",
     "north": "zone_district_903_921",
@@ -10,16 +10,15 @@
     "west": "zone_district_902_922"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 25,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 903,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_903_922",
   "map_id": "map_world",
-  "name": "Brittlebrush Draw",
+  "name": "Grasslands",
   "parent_zone": null
 }

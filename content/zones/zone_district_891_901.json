@@ -10,7 +10,6 @@
     "west": "zone_district_890_901"
   },
   "flags": {
-    "curtain": true,
     "district": "water",
     "region_id": "region_coldwater",
     "terrain": "water"

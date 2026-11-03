@@ -3,7 +3,6 @@
   "ambient_theme": "wasteland",
   "description": "Broken red shelves, some knee-high, some taller than a man. A dry wash winds between them and the wind whistles down it.",
   "exits": {
-    "east": "zone_district_885_922",
     "north": "zone_district_884_921",
     "south": "zone_district_884_923",
     "west": "zone_district_883_922"

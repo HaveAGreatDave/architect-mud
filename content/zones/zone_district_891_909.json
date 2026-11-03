@@ -1,23 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
+  "ambient_theme": "city",
+  "description": "The new end of Halcyon Boulevard, graded gravel waiting for its tarmac. A row of young limes is planted along it, each one tied to a stake.",
   "exits": {
     "north": "zone_district_891_908",
-    "south": "zone_district_891_910"
+    "south": "zone_district_891_910",
+    "west": "zone_district_890_909"
   },
   "flags": {
-    "curtain": true,
-    "district": "wasteland",
+    "district": "glasshouse",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 891,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_891_909",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Halcyon Boulevard",
   "parent_zone": null
 }

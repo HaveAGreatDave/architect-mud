@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "description": "The clay here dried a long time ago and cracked as it went. The plates curl slightly at the edges and crumble when stepped on.",
+  "ambient_theme": "city",
+  "description": "The river road, new tarmac with the white lines still bright. Through the Curtain on the west side the bank drops to the water.",
   "exits": {
     "east": "zone_district_887_911",
     "north": "zone_district_886_910",
@@ -9,16 +9,17 @@
     "west": "zone_district_885_911"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 28,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "cliff"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 886,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_886_911",
   "map_id": "map_world",
-  "name": "The Ironpan",
+  "name": "The River Road",
   "parent_zone": null
 }

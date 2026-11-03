@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Rust-stained flats, beaten hard. A few scattered prints show something walked this way once, when the ground would still take them.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough grass at the wall. The Curtain seals the edge here, floor to sky, and the only way through is the South Gate.",
   "exits": {
     "east": "zone_district_889_923",
     "north": "zone_district_888_922",
-    "south": "zone_district_888_924",
     "west": "zone_district_887_923"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 27,
+    "curtain": true,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 888,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_888_923",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "Grasslands",
   "parent_zone": null
 }

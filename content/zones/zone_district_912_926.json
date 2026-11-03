@@ -1,25 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "The ground is baked red clay split into a web of cracks. Grit collects in the seams and the wind lifts it again.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "The back of the plots, where the estate stops at the Curtain. Through the light the Glacis road runs south, small and straight.",
   "exits": {
-    "east": "zone_district_913_926",
     "north": "zone_district_912_925",
-    "south": "zone_district_912_927",
-    "west": "zone_district_911_926"
+    "south": "zone_district_912_923"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "curtain": true,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 912,
-  "grid_y": 926,
+  "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_912_926",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "Grasslands",
   "parent_zone": null
 }

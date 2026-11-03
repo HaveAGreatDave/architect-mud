@@ -1981,26 +1981,27 @@ async function regressBody({ run, check, getPlayer }) {
   // with the weigh ramp and the Glacis Weigh under the same roof. These pin the placement (the scale
   // moved OUT through the wall), the render seam, and the law's two decisions.
   {
-    const Z = (x, y) => world.zones.get(`zone_district_${x}_${y}`);
-    const gate = Z(911, 919);
-    const hallA = Z(911, 918), hallB = Z(911, 917);
+    // By place, not id: the gate block moved four rows south in 2026-11 and kept its ids.
+    const Z = (x, y) => [...world.zones.values()].find((z) => z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 && z.grid_x === x && z.grid_y === y);
+    const gate = Z(911, 923);
+    const hallA = Z(911, 922), hallB = Z(911, 921);
     if (gate && hallA && hallB) {
       check('the South Lock is two covered search tiles in front of the gate',
         !!hallA.flags?.gate_lock?.search && !!hallB.flags?.gate_lock?.search
         && hallA.flags.gate_lock.gate === gate.id && hallB.flags.gate_lock.gate === gate.id);
       const decks = [...world.zones.values()].filter((z) => z.map_id === 'map_world' && z.flags?.weigh_station
-        && Math.abs((z.grid_x ?? 0) - 911) <= 4 && Math.abs((z.grid_y ?? 0) - 919) <= 4);
+        && Math.abs((z.grid_x ?? 0) - gate.grid_x) <= 4 && Math.abs((z.grid_y ?? 0) - gate.grid_y) <= 4);
       check('the Glacis Weigh stands OUTSIDE the Curtain now',
         decks.length === 1 && decks[0].grid_y > gate.grid_y, JSON.stringify(decks.map((z) => [z.id, z.grid_x, z.grid_y])));
       check('…on its own road type, under the lock roof',
         decks[0]?.flags?.terrain === 'weighbridge' && decks[0]?.flags?.gate_lock?.k === 'deck' && isRoadCell(decks[0]));
-      const outer = [Z(911, 920), Z(911, 921), Z(911, 922)];
+      const outer = [Z(911, 924), Z(911, 925), Z(911, 926)];
       check('the Glacis road runs under a covered shed outside the gate',
         outer.every((z) => z?.flags?.gate_lock && !z.flags.gate_lock.search && isRoadCell(z)));
       // The render seam: the cell ships a 'lock' mark and the walls derived from its neighbours.
-      const win = mapWindow({ grid_x: 911, grid_y: 918 }, 1);
+      const win = mapWindow({ grid_x: 911, grid_y: 921 }, 1);
       const c = win[1][1];
-      // Both of the inner lock's sides are walled, Windrow Lane's included, and the gate end is open.
+      // Both of the inner lock's sides are walled, Sorrel Way's included, and the gate end is open.
       check('a lock tile renders as a lock mark with its walls', c.mark === 'lock' && c.lk?.s === 1
         && c.lk.wl.includes('e') && c.lk.wl.includes('w') && !c.lk.wl.includes('s') && c.lk.st === 'green', JSON.stringify(c.lk));
       check('…and no road is painted across a lock\'s side', c.rd === 'ns' && win[1][0]?.rd && !win[1][0].rd.includes('e'),
@@ -2016,11 +2017,11 @@ async function regressBody({ run, check, getPlayer }) {
       // the inner lock opens onto the town and the gate and nothing else, and the gate's own sides
       // are shut, so nothing walks round the inner lock along the Curtain.
       const lkAt = (x, y) => mapWindow({ grid_x: x, grid_y: y }, 0)[0][0].lk;
-      const mouths = [[910, 922], [911, 922], [912, 922]].filter(([x, y]) => lkAt(x, y)?.mo?.includes('s'));
+      const mouths = [[910, 926], [911, 926], [912, 926]].filter(([x, y]) => lkAt(x, y)?.mo?.includes('s'));
       check('the Outer Lock has one mouth onto the waste, the middle one', mouths.length === 1 && mouths[0][0] === 911,
         JSON.stringify(mouths));
-      check('…and the Post Ramp\'s end is wall, in the drawing and in the exits', lkAt(912, 922)?.wl.includes('s')
-        && !Z(912, 922).exits?.south, JSON.stringify([lkAt(912, 922), Z(912, 922).exits]));
+      check('…and the Post Ramp\'s end is wall, in the drawing and in the exits', lkAt(912, 926)?.wl.includes('s')
+        && !Z(912, 926).exits?.south, JSON.stringify([lkAt(912, 926), Z(912, 926).exits]));
       check('nothing opens off the side of the inner lock', !hallA.exits?.west && !hallA.exits?.east
         && !hallB.exits?.west && !hallB.exits?.east, JSON.stringify([hallA.exits, hallB.exits]));
       check('the gate is a way through and not a junction', Object.keys(gate.exits || {}).sort().join(',') === 'north,south',
@@ -2038,19 +2039,19 @@ async function regressBody({ run, check, getPlayer }) {
       // lock's move gate holds the mouth. Driven through the event, so both listeners are on it.
       try {
         emit('esp.changed', { active: true });
-        const m = lkAt(911, 922);
+        const m = lkAt(911, 926);
         check('a lockdown drops the outer door', m?.dn === 's' && !m.mo && m.wl.includes('s') && m.ld === 1, JSON.stringify(m));
-        check('…lights the whole outer hall for it', lkAt(910, 920)?.ld === 1 && lkAt(912, 921)?.ld === 1);
-        check('…and leaves the inner lock open onto the town', lkAt(911, 917)?.mo === 'n' && !lkAt(911, 917)?.dn);
-        check('a walker is held at the door', doorDown(Z(911, 922), Z(911, 923)) && doorDown(Z(911, 923), Z(911, 922)));
-        check('…and not at a room\'s own door inside the hall', !doorDown(Z(910, 921), Z(909, 921)) && !doorDown(Z(911, 922), Z(911, 921)));
+        check('…lights the whole outer hall for it', lkAt(910, 924)?.ld === 1 && lkAt(912, 925)?.ld === 1);
+        check('…and leaves the inner lock open onto the town', lkAt(911, 921)?.mo === 'n' && !lkAt(911, 921)?.dn);
+        check('a walker is held at the door', doorDown(Z(911, 926), Z(911, 927)) && doorDown(Z(911, 927), Z(911, 926)));
+        check('…and not at a room\'s own door inside the hall', !doorDown(Z(910, 925), Z(909, 925)) && !doorDown(Z(911, 926), Z(911, 925)));
         // The Curtain shuts with it: the gate's field closes and its blast doors come down (`cld`).
-        const gc = mapWindow({ grid_x: 911, grid_y: 919 }, 0)[0][0];
+        const gc = mapWindow({ grid_x: 911, grid_y: 923 }, 0)[0][0];
         check('a lockdown closes the Curtain across the gate', gc?.mark === 'gate' && gc.cld === 1 && !!gc.cur, JSON.stringify(gc && { mark: gc.mark, cur: gc.cur, cld: gc.cld }));
       } finally { emit('esp.changed', { active: false }); }
-      check('the siren stops and the door goes back up', lkAt(911, 922)?.mo === 's' && !lkAt(911, 922)?.dn
-        && !doorDown(Z(911, 922), Z(911, 923)));
-      check('…and the gate opens again', !mapWindow({ grid_x: 911, grid_y: 919 }, 0)[0][0].cld);
+      check('the siren stops and the door goes back up', lkAt(911, 926)?.mo === 's' && !lkAt(911, 926)?.dn
+        && !doorDown(Z(911, 926), Z(911, 927)));
+      check('…and the gate opens again', !mapWindow({ grid_x: 911, grid_y: 923 }, 0)[0][0].cld);
 
       // The law. Pure verdicts first: amber and unsearched out the far end is running it; out the
       // end you came in by is turning round; searched, or green, is nothing.

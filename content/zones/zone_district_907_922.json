@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Baked red ground, cracked and flat to the edge of sight. Wind-polished rock breaks through the clay here and there.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
   "exits": {
     "east": "zone_district_908_922",
     "north": "zone_district_907_921",
@@ -10,16 +10,15 @@
     "west": "zone_district_906_922"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 907,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_907_922",
   "map_id": "map_world",
-  "name": "Red Hardpan",
+  "name": "Grasslands",
   "parent_zone": null
 }

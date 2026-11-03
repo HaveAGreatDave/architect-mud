@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "The hardpan here is split into thousands of red tiles. Nothing grows in the cracks, and the wind keeps them swept.",
+  "ambient_theme": "city",
+  "description": "New road along the estate's south edge, the kerbs still pale. Lamp posts stand along it with no lamps in them yet.",
   "exits": {
     "east": "zone_district_898_921",
     "north": "zone_district_897_920",
@@ -10,16 +9,17 @@
     "west": "zone_district_896_921"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 897,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_897_921",
   "map_id": "map_world",
-  "name": "The Rust Flats",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

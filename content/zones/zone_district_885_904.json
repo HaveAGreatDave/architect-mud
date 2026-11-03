@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Drifted sand banks deep against every shelf and outcrop and is swept to bare grit between them. The glare comes off it hard enough to squint at.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "The edge of the estate. The Curtain stands a few feet off, floor to sky, and the far bank of the river is a blur behind it.",
   "exits": {
     "east": "zone_district_886_904",
     "north": "zone_district_885_903",
-    "south": "zone_district_885_905",
-    "west": "zone_district_884_904"
+    "south": "zone_district_885_905"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 29,
+    "curtain": true,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "terrain": "grass"
   },
   "grid_x": 885,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_885_904",
   "map_id": "map_world",
-  "name": "Rustwind Flat",
+  "name": "Grasslands",
   "parent_zone": null
 }

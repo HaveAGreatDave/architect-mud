@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "description": "The town end of the lock, a roofed mouth of grey plate. A shutter hangs up in the lintel and under it a gantry of lamps faces the road: green, amber, or once in a while red with a klaxon behind it. A stencil on the wall says all vehicles may be searched.",
   "exits": {
-    "north": "zone_district_911_916",
+    "north": "zone_district_911_926",
     "south": "zone_district_911_918"
   },
   "flags": {
@@ -11,18 +11,18 @@
       "Meltwater Row"
     ],
     "district": "ashway",
-    "region_id": "region_coldwater",
-    "terrain": "road",
     "gate_lock": {
-      "name": "the South Lock",
-      "k": "hall",
-      "search": true,
       "gate": "zone_district_911_919",
+      "k": "hall",
+      "name": "the South Lock",
+      "search": true,
       "seg": 1
-    }
+    },
+    "region_id": "region_coldwater",
+    "terrain": "road"
   },
   "grid_x": 911,
-  "grid_y": 917,
+  "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_911_917",
   "map_id": "map_world",

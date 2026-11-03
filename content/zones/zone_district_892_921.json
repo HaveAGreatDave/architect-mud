@@ -1,8 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Cracked hardpan stretches off in every direction, the color of old rust. The wind has scoured it bare of anything loose.",
+  "ambient_theme": "city",
+  "description": "Sorrel Way, new tarmac and a long view down to the gate. The Curtain runs behind the plots on the south side.",
   "exits": {
     "east": "zone_district_893_921",
     "north": "zone_district_892_920",
@@ -10,16 +9,17 @@
     "west": "zone_district_891_921"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 892,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_892_921",
   "map_id": "map_world",
-  "name": "The Slag Pan",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

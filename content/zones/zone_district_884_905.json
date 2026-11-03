@@ -4,7 +4,6 @@
   "color": "#b5744a",
   "description": "Loose sand runs out in long low dunes, combed into ridges by a wind that never quite stops. Bright, bare, and growing nothing at all.",
   "exits": {
-    "east": "zone_district_885_905",
     "north": "zone_district_884_904",
     "south": "zone_district_884_906",
     "west": "zone_district_883_905"

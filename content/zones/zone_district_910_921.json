@@ -11,22 +11,22 @@
   },
   "flags": {
     "district": "wilds",
+    "gate_lock": {
+      "gate": "zone_district_911_919",
+      "k": "deck",
+      "name": "the Outer Lock",
+      "seg": 1,
+      "term": "w"
+    },
     "region_id": "region_coldwater",
     "terrain": "weighbridge",
     "weigh_station": {
       "name": "the Glacis Weigh",
       "pound": "zone_gatepound_lot"
-    },
-    "gate_lock": {
-      "name": "the Outer Lock",
-      "k": "deck",
-      "gate": "zone_district_911_919",
-      "seg": 1,
-      "term": "w"
     }
   },
   "grid_x": 910,
-  "grid_y": 921,
+  "grid_y": 925,
   "grid_z": 0,
   "id": "zone_district_910_921",
   "map_id": "map_world",

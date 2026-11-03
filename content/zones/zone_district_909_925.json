@@ -1,25 +1,25 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Red hardpan, cracked into plates the size of dinner tables, runs flat to a rust-colored horizon.",
+  "ambient_theme": "city",
+  "description": "New road along the estate's south edge, the kerbs still pale. Lamp posts stand along it with no lamps in them yet.",
   "exits": {
     "east": "zone_district_910_925",
     "north": "zone_district_909_924",
     "south": "zone_district_909_926",
-    "west": "zone_district_908_925"
+    "west": "zone_district_908_921"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 909,
-  "grid_y": 925,
+  "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_909_925",
   "map_id": "map_world",
-  "name": "Oxide Barrens",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

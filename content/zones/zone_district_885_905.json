@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Drifted sand banks deep against every shelf and outcrop and is swept to bare grit between them. The glare comes off it hard enough to squint at.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough grass along the foot of the Curtain. Up close the hard light buzzes in your teeth. There's no way through but the South Gate.",
   "exits": {
     "east": "zone_district_886_905",
     "north": "zone_district_885_904",
-    "south": "zone_district_885_906",
-    "west": "zone_district_884_905"
+    "south": "zone_district_885_906"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 29,
+    "curtain": true,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "terrain": "grass"
   },
   "grid_x": 885,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_885_905",
   "map_id": "map_world",
-  "name": "The Ironpan",
+  "name": "Grasslands",
   "parent_zone": null
 }

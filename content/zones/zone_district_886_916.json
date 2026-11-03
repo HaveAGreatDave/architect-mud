@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "description": "The clay here dried a long time ago and cracked as it went. The plates curl slightly at the edges and crumble when stepped on.",
+  "ambient_theme": "city",
+  "description": "A straight run of road beside the Curtain. The hard light on the river side makes a low sound, like a fridge in another room.",
   "exits": {
     "east": "zone_district_887_916",
     "north": "zone_district_886_915",
@@ -9,16 +9,17 @@
     "west": "zone_district_885_916"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 28,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "cliff"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 886,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_886_916",
   "map_id": "map_world",
-  "name": "Rustwind Flat",
+  "name": "The River Road",
   "parent_zone": null
 }

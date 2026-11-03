@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Terraces of ochre rock step away into the distance. Where the washes cut through, the grit comes at you sideways.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
   "exits": {
     "east": "zone_district_890_916",
     "north": "zone_district_889_915",
@@ -10,16 +10,15 @@
     "west": "zone_district_888_916"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 26,
+    "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 889,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_889_916",
   "map_id": "map_world",
-  "name": "Bloodrock Table",
+  "name": "Grasslands",
   "parent_zone": null
 }
