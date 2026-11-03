@@ -185,6 +185,7 @@ export const GROUPS = [
       'scripts/shapes/glopts.mjs',
       'scripts/shapes/glstream.mjs',
       'scripts/shapes/masscull.mjs',
+      'scripts/shapes/duskbuild.mjs',
       'scripts/shapes/dprsize.mjs',
       'scripts/shapes/floorfallback.mjs',
       'scripts/shapes/floorcam.mjs',

@@ -93,7 +93,7 @@ export function glCapabilities() {
   // Against the WebGL2 floor of 224 that leaves room for MAX_LIGHTS up to 48 (199 vectors). 64
   // would want 247 and put every floor-spec device off the GL path entirely — which is now a clean
   // refusal and a 2-D fallback rather than a link error, because `ok` finally reads this.
-  out.needs = { attribs: 11, varyingComponents: 22,
+  out.needs = { attribs: 12, varyingComponents: 22,
     fragUniformVectors: 3 * MAX_LIGHTS + 1 + 2 * MAX_MATERIALS + 6 };
   out.ok = out.maxAttribs >= out.needs.attribs && out.maxVarying >= out.needs.varyingComponents
     && (!out.maxFragUniform || out.maxFragUniform >= out.needs.fragUniformVectors);
@@ -227,6 +227,7 @@ export function installGL(hostFor) {
       glMirrorMass: opts.glMirrorMass,
       glHazeSplit: opts.glHazeSplit,
       glMassCull: opts.glMassCull,
+      glDuskGPU: opts.glDuskGPU,
       // ⚠ AND THESE TWO. The puddle reflection is the loudest possible version of this failure,
       // because it fails in a way that looks deliberate: `drawMirror` is never called, `reflTex`
       // stays null, the ground shader's `uReflOn` goes to 0 — and the road still reflects, using

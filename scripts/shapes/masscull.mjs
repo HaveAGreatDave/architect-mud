@@ -12,7 +12,7 @@
 // pass culled anything (a gate that checks nothing).
 import { openScene, PLACES } from '../perf/scene.mjs';
 
-const MASS_STRIDE = 21;
+const MASS_STRIDE = 25;
 const scene = await openScene({ record: false });
 
 let vao = null, ab = null, prog = null;

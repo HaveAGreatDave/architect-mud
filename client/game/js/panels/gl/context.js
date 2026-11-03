@@ -39,8 +39,8 @@ import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLigh
 import { createEnvCube, ENV_MAX_LOD } from './envcube.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
-// haze jitter 1, baked occlusion 1, material family 1, edge distances 4.
-const STRIDE = 21;
+// haze jitter 1, baked occlusion 1, material family 1, edge distances 4, night colour and blend 4.
+const STRIDE = 25;
 
 // The material table's size (windshield.js's MAT_ORDER, with headroom).
 // ⚠ An index past this is undefined behaviour in GLSL ES, never a clamp: see `wallMaterialId`.
@@ -68,10 +68,16 @@ in float aBakedAo;
 // against the tangent frame the fragment shader rebuilds from the normal. Linear in position, so
 // barycentric interpolation reproduces the true distance field exactly — see faceEdges in world.js.
 in vec4 aEdge;
+// The face's night colour, and in w its building's own dusk blend, or -1 for the city's (uNB). A
+// building whose power has failed carries 0 and stays day-coloured. Packed with the CPU blend
+// (RENDER_TUNE.glDuskGPU 0), it's aColor again with w 0, so the mix below is aColor.
+in vec4 aColorN;
 uniform mat4 uViewProj;
 // The kept mass's frame to the window's (RENDER_TUNE.massKeep, see uploadKept): 0 when the buffer
 // was built in the window's own frame.
 uniform vec2 uMassShift;
+// The dusk blend, 0 day to 1 night (glDuskGPU), so dusk is a uniform and never a rebuild.
+uniform float uNB;
 out vec3 vNormal;
 out vec3 vColor;
 out vec2 vUV;
@@ -92,7 +98,7 @@ void main() {
   vec4 clip = uViewProj * vec4(P, 1.0);
   gl_Position = clip;
   vNormal = aNormal;
-  vColor = aColor;
+  vColor = mix(aColor, aColorN.rgb, aColorN.w < 0.0 ? uNB : aColorN.w);
   vUV = aUV;
   vRamp = aRamp;
   vAlpha = aAlpha;
@@ -308,6 +314,18 @@ uniform vec2 uAtlasTexel;
 uniform highp sampler2D uMatPage;
 uniform float uMatPageOn;
 uniform int uGlassMat;
+// The night page (RENDER_TUNE.glDuskGPU): the atlas's night bakes at the same rects, the atlas then
+// holding the day bakes. uNBTex is the dusk step (wallTexMixed's q / 64), and the page's lit
+// coverage (g) scales by it too (paintWallMat), so dusk never re-bakes a page. With the page off,
+// uAtlas is already the blended bake and uNBMat is 1.
+uniform sampler2D uAtlasN;
+uniform float uAtlasNOn;
+uniform float uNBTex;
+uniform float uNBMat;
+vec4 atlasAt(vec2 uv) {
+  vec4 d = textureLod(uAtlas, uv, 0.0);
+  return uAtlasNOn > 0.5 ? mix(d, textureLod(uAtlasN, uv, 0.0), uNBTex) : d;
+}
 // 1 when this layer shades in linear light (RENDER_TUNE.glLinear 2, stage 2 step 2): the albedo,
 // the vertex colour, the snow and the skyline strip are decoded here, the uniform colours were
 // decoded before upload, and the output is already linear so glassOut leaves it alone.
@@ -612,9 +630,9 @@ void main() {
       float gv = textureLod(uMatPage, vUV + vec2(0.0, uAtlasTexel.y), 0.0).r;
       k *= 1.0 - max(mpg.r, max(gu, gv)) * pageK;
     }
-    float l0 = lum(textureLod(uAtlas, vUV, 0.0).rgb);
-    float lu = lum(textureLod(uAtlas, vUV + vec2(uAtlasTexel.x, 0.0), 0.0).rgb);
-    float lv = lum(textureLod(uAtlas, vUV + vec2(0.0, uAtlasTexel.y), 0.0).rgb);
+    float l0 = lum(atlasAt(vUV).rgb);
+    float lu = lum(atlasAt(vUV + vec2(uAtlasTexel.x, 0.0)).rgb);
+    float lv = lum(atlasAt(vUV + vec2(0.0, uAtlasTexel.y)).rgb);
     // ⚠ WHERE THE SURFACE PAGE SPEAKS, THE RELIEF READS HEIGHT, NOT BRIGHTNESS. Brightness is the
     // day-night blend of a painting, so the joints moved with the hour and a stain read as a bump;
     // height is the painter's own geometry and holds still. Same three taps, on the other page.
@@ -715,7 +733,7 @@ void main() {
   // the only one in this file — inherit the holes for free and no sorting changes.
   // ⚠ IT IS GATED ON 'solid' AND ON THE TEXTURE MIX, or a flat-shaded adornment sampling an atlas
   // entry it does not use would discard on somebody else's alpha.
-  vec4 atl = texture(uAtlas, vUV);
+  vec4 atl = atlasAt(vUV);   // level 0 either way: the page has no mipmaps
   if (texW > 0.5 && atl.a < 0.5) discard;
   // Decoded before the mix, because the mix is the start of the lighting (see uLinIn).
   vec3 surf = uLinIn > 0.5 ? mix(glassLin(vColor), glassLin(atl.rgb), texW) : mix(vColor, atl.rgb, texW);
@@ -1022,7 +1040,7 @@ void main() {
   // The guess's thresholds are display values, so a linear base is encoded before it is asked.
   // ⚠ The guess starts at 0.55, not 0.28: a tan or whitewashed wall sits near 0.45 and was taken
   // for a lit window, so whole buildings kept most of their daylight tone at midnight.
-  float litK = mix(smoothstep(0.55, 0.8, dot(uLinIn > 0.5 ? glassSrgb(base) : base, vec3(0.299, 0.587, 0.114))), mpg.g, pageK);
+  float litK = mix(smoothstep(0.55, 0.8, dot(uLinIn > 0.5 ? glassSrgb(base) : base, vec3(0.299, 0.587, 0.114))), mpg.g * uNBMat, pageK);
   // ⚠ SNOW IS NEVER A LIT WINDOW. Its 0.9 albedo sits well over the guess's 0.55, so every snowy
   // roof, sill and awning was taken for a light source and kept its daylight white at midnight.
   // snowW is 0 on anything that isn't facing up, so a wall's lit windows are untouched.
@@ -1246,8 +1264,14 @@ export function createGLView(canvas, opts = {}) {
     bao: gl.getAttribLocation(prog, 'aBakedAo'),
     mat: gl.getAttribLocation(prog, 'aMat'),
     edge: gl.getAttribLocation(prog, 'aEdge'),
+    colorN: gl.getAttribLocation(prog, 'aColorN'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     massShift: gl.getUniformLocation(prog, 'uMassShift'),
+    nb: gl.getUniformLocation(prog, 'uNB'),
+    atlasN: gl.getUniformLocation(prog, 'uAtlasN'),
+    atlasNOn: gl.getUniformLocation(prog, 'uAtlasNOn'),
+    nbTex: gl.getUniformLocation(prog, 'uNBTex'),
+    nbMat: gl.getUniformLocation(prog, 'uNBMat'),
     keyDir: gl.getUniformLocation(prog, 'uKeyDir'),
     key: gl.getUniformLocation(prog, 'uKey'),
     shadow: gl.getUniformLocation(prog, 'uShadow'),
@@ -1419,6 +1443,21 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     hasMatPage = true;
   }
+  // The night page (RENDER_TUNE.glDuskGPU): the night bakes at the atlas's rects, sampled exactly as
+  // the atlas is (LINEAR down, NEAREST up), so the shader's blend is the canvas's blend.
+  let nightTex = null, hasNightPage = false;
+  function setNightPage(canvas) {
+    if (!canvas) { hasNightPage = false; return; }
+    if (!nightTex) nightTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, nightTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    hasNightPage = true;
+  }
   // The table row a pane takes, found by name when the table arrives. 0 until then, never -1.
   let glassRow = 0;
   // The sky as a cube for reflections (RENDER_TUNE.glEnvCube; gl/envcube.js), built on first use.
@@ -1442,8 +1481,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // ⚠ Faces are fanned (every face is convex; a drum cap is an N-gon). Group offsets are added on the
   // way in, straight into a typed array.
   // `nb` is the dusk blend: a face carries day and night colours (identical geometry, asserted in
-  // gl:mesh) and they're blended here at upload. ⚠ Free only because 'texEpoch' quantises dusk into
-  // 64 steps; put 'nb' in the rebuild key any other way and sunset rebuilds every frame.
+  // gl:mesh). With `NB` null (RENDER_TUNE.glDuskGPU) both go in and the vertex shader blends them by
+  // uNB, so dusk needs no rebuild. With a number they're blended here, which is free only because
+  // 'texEpoch' quantises dusk into 64 steps: every step rebuilds the whole buffer.
   // One group's vertices into `data` from float `o`, its box left in GB; returns the next offset.
   // Shared by uploadGroups and uploadKept.
   const GB = { x0: 0, x1: 0, y0: 0, y1: 0, z0: 0, z1: 0 };
@@ -1452,13 +1492,18 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     let gx0 = Infinity, gx1 = -Infinity, gy0 = Infinity, gy1 = -Infinity, gz0 = Infinity, gz1 = -Infinity;
     // A group's own blend (a building whose power has failed stays day-coloured). Faces are shared
     // per model, so the blend is the only per-tile handle. ⚠ null isn't 0: `grp.nb || NB` breaks it.
-    const GNB = grp.nb == null ? NB : (grp.nb > 0 ? (grp.nb < 1 ? grp.nb : 1) : 0);
+    const own = grp.nb == null ? null : (grp.nb > 0 ? (grp.nb < 1 ? grp.nb : 1) : 0);
+    const gpu = NB == null;
+    const GNB = own == null ? NB : own;
+    // The blend the shader is told to use: the group's own, or -1 for the city's (aColorN.w).
+    const wN = gpu ? (own == null ? -1 : own) : 0;
     for (const f of grp.faces) {
       // A face with no `rgbN` keeps one colour (a textured wall's night lives in the atlas).
       const cD = f.rgb || [128, 128, 128], cN = f.rgbN;
-      const r = cN ? cD[0] + (cN[0] - cD[0]) * GNB : cD[0];
-      const g = cN ? cD[1] + (cN[1] - cD[1]) * GNB : cD[1];
-      const b = cN ? cD[2] + (cN[2] - cD[2]) * GNB : cD[2];
+      const r = cN && !gpu ? cD[0] + (cN[0] - cD[0]) * GNB : cD[0];
+      const g = cN && !gpu ? cD[1] + (cN[1] - cD[1]) * GNB : cD[1];
+      const b = cN && !gpu ? cD[2] + (cN[2] - cD[2]) * GNB : cD[2];
+      const nr = gpu && cN ? cN[0] / 255 : r / 255, ng = gpu && cN ? cN[1] / 255 : g / 255, nbl = gpu && cN ? cN[2] / 255 : b / 255;
       // ⚠ Degenerate faces carry a [0, 0, 0] normal (truthy), and normalize() of it is NaN, which
       // paints the surface black. Catch zero length, not just a missing normal.
       const nn = f.n;
@@ -1503,6 +1548,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
           const ed = f.edge;
           data[o + 17] = ed ? ed[k * 4] : 1e6; data[o + 18] = ed ? ed[k * 4 + 1] : 1e6;
           data[o + 19] = ed ? ed[k * 4 + 2] : 1e6; data[o + 20] = ed ? ed[k * 4 + 3] : 1e6;
+          data[o + 21] = nr; data[o + 22] = ng; data[o + 23] = nbl; data[o + 24] = wN;
           o += STRIDE;
         }
       }
@@ -1528,11 +1574,12 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (loc.bao >= 0) { gl.enableVertexAttribArray(loc.bao); gl.vertexAttribPointer(loc.bao, 1, gl.FLOAT, false, S, 60); }
     if (loc.mat >= 0) { gl.enableVertexAttribArray(loc.mat); gl.vertexAttribPointer(loc.mat, 1, gl.FLOAT, false, S, 64); }
     if (loc.edge >= 0) { gl.enableVertexAttribArray(loc.edge); gl.vertexAttribPointer(loc.edge, 4, gl.FLOAT, false, S, 68); }
+    if (loc.colorN >= 0) { gl.enableVertexAttribArray(loc.colorN); gl.vertexAttribPointer(loc.colorN, 4, gl.FLOAT, false, S, 84); }
     gl.bindVertexArray(null);
   }
   function uploadGroups(groups, rectOf, nb) {
     kept = null;
-    const NB = nb > 0 ? (nb < 1 ? nb : 1) : 0;
+    const NB = nb == null ? null : nb > 0 ? (nb < 1 ? nb : 1) : 0;   // null: the shader blends (glDuskGPU)
     let verts = 0;
     for (const g of groups) verts += vertsOf(g);
     const data = new Float32Array(verts * STRIDE);
@@ -1567,7 +1614,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   let kept = null;
   const FRAG_MAX = 0.35, KEPT_ROOM = 1.25;
   function uploadKept(groups, rectOf, nb, full) {
-    const NB = nb > 0 ? (nb < 1 ? nb : 1) : 0;
+    const NB = nb == null ? null : nb > 0 ? (nb < 1 ? nb : 1) : 0;   // null: the shader blends (glDuskGPU)
     const K = kept;
     if (full || !K || K.nb !== NB) return keptFresh(groups, rectOf, NB);   // full when the atlas moved (world.js)
     const seen = new Set();
@@ -1694,7 +1741,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   function massDebug() { const data = kept ? kept.data : dbgData; return data ? { data, ranges, shift: massShift.slice(), count, kept: !!kept } : null; }
 
   // One mesh at the origin, the way the model preview and the bench hand it over.
-  function upload(faces) { return uploadGroups([{ faces }], null); }
+  function upload(faces) { return uploadGroups([{ faces }], null, 0); }   // day colours, blended here
 
   // The sun pass, run from inside `draw`. ⚠ It binds its own framebuffer, so it must run before the
   // clear and the canvas viewport and restore both. Returns the shader's uniforms, or null (off).
@@ -2014,6 +2061,15 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.uniform1f(loc.matPageOn, pageOn ? 1 : 0);
     gl.uniform1i(loc.glassMat, glassRow);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, pageOn ? matPageTex : null); gl.uniform1i(loc.matPage, 4);
+    // The dusk blend (RENDER_TUNE.glDuskGPU): the vertex colours take `nb` whatever the atlas is
+    // doing, and the night page is unit 12, clear of the prop map's 11. Bound every draw, to the
+    // page or to nothing, for unit 4's reason. With no night page the atlas is already blended.
+    const nightOn = textured && hasNightPage;
+    gl.uniform1f(loc.nb, opts.nb > 0 ? Math.min(1, opts.nb) : 0);
+    gl.uniform1f(loc.atlasNOn, nightOn ? 1 : 0);
+    gl.uniform1f(loc.nbTex, nightOn ? opts.nbTex || 0 : 0);
+    gl.uniform1f(loc.nbMat, nightOn ? opts.nbTex || 0 : 1);
+    gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, nightOn ? nightTex : null); gl.uniform1i(loc.atlasN, 12);
     // ⚠ Unit 5 is the cube, bound every draw for unit 4's reason; no 2-D sampler may use it.
     gl.uniform1f(loc.envCubeOn, envTex ? 1 : 0);
     gl.uniform1f(loc.envMaxLod, ENV_MAX_LOD);
@@ -2531,7 +2587,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const drawSeabedPoints = (cam, s, cssH, dpr) => (s ? seabedLayer().drawPoints(cam, s, cssH, dpr) : 0);
   // The window's cells and the eye in the mesh frame (gl/skyline.js). Called before draw, which reads it.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setNightPage, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's box in the window's frame (for the light projection) and the shadow map size (0: refused).
     get bounds() { return boundsInWindow(); }, get shadowSize() { return shadow ? shadow.size : 0; },

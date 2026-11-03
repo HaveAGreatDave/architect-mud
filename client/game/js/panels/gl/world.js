@@ -347,6 +347,8 @@ function texVariant(key, win) {
 // The key per cells array: windshield.js hands the same array until the window changes
 // (GL_CELL_CACHE, never mutated), so this runs once per window and once per venue push.
 const WINDOW_KEYS = new WeakMap();
+// wallTexMixed's WALL_MIX_STEPS (windshield.js): the dusk page's step, which the shader takes as q / 64.
+const DUSK_STEPS = 64;
 const MASS_REANCHOR = 48;   // tiles the window may move from the kept mass's anchor before a full build (massKeep)
 // `world` keys a tile on its world tile rather than its place in the window (RENDER_TUNE.massKeep),
 // so a recentre that brings no building in or out keeps the key and the buffer.
@@ -839,7 +841,12 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     set.add(meshParams(it));
   }
   // The atlas copies baked textures, which change at dusk steps with no change to the city.
-  const epoch = deps.texEpoch ? deps.texEpoch(opts.nb || 0) : '';
+  // ⚠ UNLESS THE SHADER BLENDS THE DUSK (RENDER_TUNE.glDuskGPU): the atlas then holds the day bakes
+  // and a night page beside it, the epoch leaves the hour out, and the vertex colours blend by uNB, so
+  // the hour through dusk rebuilds nothing. On the old path every one of its 64 steps rebuilt the atlas
+  // and the whole mass buffer, a game minute apart for an hour at dusk and again at dawn.
+  const duskGPU = opts.glDuskGPU > 0 && !!deps.wallTexMixed;
+  const epoch = (deps.texEpoch ? deps.texEpoch(duskGPU ? 0 : (opts.nb || 0)) : '') + (duskGPU ? '#d' : '');
   // The material page (RENDER_TUNE.glMatPage) is baked beside the atlas from the same keys, so
   // turning it on or off is one rebuild like any other change of surfaces.
   const matOn = opts.glMatPage > 0 && !!deps.wallMatMixed;
@@ -878,11 +885,16 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
         const bare = pk.endsWith(TEX_BARE), pal = bare ? pk.slice(0, -TEX_BARE.length) : pk;
         // undefined is the ordinary bake.
         const win = bar === -1 ? undefined : +tk.slice(bar + 1);
-        const canvas = roof ? roofTex(pal, opts.night || 0) : wallTexMixed(pal, opts.nb || 0, win, bare);
-        const mat = matOn && !roof ? wallMatMixed(pal, opts.nb || 0, win, bare) : null;
+        // On the dusk path the two ends: wallTexMixed's day and night bakes, which it blends between,
+        // and the material page at full night, whose lit coverage the shader scales by the step. A roof
+        // has no hour, so its night is itself.
+        const nbBake = duskGPU ? 0 : (opts.nb || 0);
+        const canvas = roof ? roofTex(pal, opts.night || 0) : wallTexMixed(pal, nbBake, win, bare);
+        const night = !duskGPU ? null : roof ? canvas : wallTexMixed(pal, 1, win, bare);
+        const mat = matOn && !roof ? wallMatMixed(pal, duskGPU ? 1 : nbBake, win, bare) : null;
         // Height doesn't vary with hour or grid, so this is keyed on the palette alone.
         const surf = !surfOn ? null : roof ? (roofSurf ? roofSurf(pal) : null) : wallSurf(pal, bare);
-        if (canvas && canvas.width) tiles.push({ key: tk, canvas, mat, surf });
+        if (canvas && canvas.width) tiles.push({ key: tk, canvas, night, mat, surf });
       }
       return tiles;
     };
@@ -900,6 +912,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
         if (fresh.length) {
           if (g.view.setMatPage && g.atlas.matCanvas) g.view.setMatPage(g.atlas.matCanvas);
           if (g.view.setSurfPage && g.atlas.surfCanvas) g.view.setSurfPage(g.atlas.surfCanvas);
+          if (g.view.setNightPage && g.atlas.nightCanvas) g.view.setNightPage(g.atlas.nightCanvas);
           g.view.setAtlas(g.atlas.canvas);
         }
         g.atlasKey = akey;
@@ -913,6 +926,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
       g.atlasEKey = ekey;
       if (g.view.setMatPage) g.view.setMatPage(g.atlas ? g.atlas.matCanvas : null);
       if (g.view.setSurfPage) g.view.setSurfPage(g.atlas ? g.atlas.surfCanvas : null);
+      if (g.view.setNightPage) g.view.setNightPage(g.atlas ? g.atlas.nightCanvas : null);
       // A page the device can't hold is refused; the shader falls back to flat colours. Warned once.
       if (!g.atlas && !g.warnedAtlas) { g.warnedAtlas = true; console.warn(`[glass2] the texture atlas for ${tiles.length} surfaces does not fit this device (max ${g.view.maxTexture}) — drawing flat colours`); }
       g.view.setAtlas(g.atlas ? g.atlas.canvas : null);
@@ -920,10 +934,12 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     }
     // Resolved per face at fill time: faces are shared across tiles and scenes.
     // ⚠ The group is passed because the window variant belongs to the tile, not the shared face.
-    // The dusk blend rides `epoch`, so trim and wall textures cross dusk in one rebuild.
+    // The dusk blend rides `epoch` on the old path, so trim and wall textures cross dusk in one
+    // rebuild a step; on glDuskGPU it's null, and the shader blends.
     const rectOf = (f, grp) => (g.atlas && f.texKey ? g.atlas.rect.get(texVariant(f.texKey, grp && grp.win)) : null);
-    if (keepM) g.view.uploadKept(groups, rectOf, opts.nb || 0, full);
-    else g.view.uploadGroups(groups, rectOf, opts.nb || 0);
+    const nbPack = duskGPU ? null : (opts.nb || 0);
+    if (keepM) g.view.uploadKept(groups, rectOf, nbPack, full);
+    else g.view.uploadGroups(groups, rectOf, nbPack);
     builds++;
     g.key = key;
     g.epoch = epoch;
@@ -1014,6 +1030,10 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     fadeSplit: (opts.glHazeSplit == null ? 1 : opts.glHazeSplit) > 0,
     // Only the tiles in view (glMassCull), in every mass pass but the sun's. See viewRuns.
     massCull: opts.glMassCull > 0 ? 1 : 0,
+    // The dusk blend in the shader (glDuskGPU): the vertex colours take nb itself, the pages take
+    // the step wallTexMixed would have baked (q / 64). 0 on the old path, where both are baked in.
+    nb: duskGPU ? (opts.nb || 0) : 0,
+    nbTex: duskGPU ? Math.round(Math.min(1, Math.max(0, opts.nb || 0)) * DUSK_STEPS) / DUSK_STEPS : 0,
     mat: deps.matTable || null };
   // Mirror prepass first: the road draws before any neon exists. ⚠ Plain camera, not 'camAt': lights
   // are camera-frame, road quads map-window; they agree on screen, where the ground looks it up.

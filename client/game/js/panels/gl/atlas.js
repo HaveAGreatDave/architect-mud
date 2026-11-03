@@ -25,6 +25,8 @@ const PAD = 1;
 // is drawn into a second page at the SAME rect, so the vertex UVs serve both pages and no attribute
 // is added. A tile without one leaves its rect transparent, which the shader reads as "the page
 // says nothing here". `matCanvas` is null when no tile has one.
+// `night` is a tile's night bake (RENDER_TUNE.glDuskGPU), drawn into `nightCanvas` at the same rect,
+// so the shader blends day and night by the hour instead of the page being baked again each step.
 // ⚠ `maxSize` IS NOT OPTIONAL ADVICE. WebGL2 guarantees only that MAX_TEXTURE_SIZE is at least
 // 2048, and the banded packer below is what keeps the city inside it: under the uniform grid it
 // replaced, every palette at `texRes: 2` wanted a 2048×4096 page. On a device at the
@@ -107,7 +109,13 @@ export function buildAtlas(tiles, maxSize = Infinity) {
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
 
-  let matCanvas = null, mctx = null, surfCanvas = null, sctx = null;
+  let matCanvas = null, mctx = null, surfCanvas = null, sctx = null, nightCanvas = null, nctx = null;
+  if (tiles.some((t) => t.night)) {
+    nightCanvas = document.createElement('canvas');
+    nightCanvas.width = W; nightCanvas.height = H;
+    nctx = nightCanvas.getContext('2d');
+    nctx.imageSmoothingEnabled = false;
+  }
   if (tiles.some((t) => t.mat)) {
     matCanvas = document.createElement('canvas');
     matCanvas.width = W; matCanvas.height = H;
@@ -123,12 +131,12 @@ export function buildAtlas(tiles, maxSize = Infinity) {
   }
 
   const rect = new Map();
-  for (const [t, x, y] of best.at) paintTile(ctx, mctx, sctx, rect, W, H, t, x, y);
+  for (const [t, x, y] of best.at) paintTile(ctx, mctx, sctx, nctx, rect, W, H, t, x, y);
   const c0 = bands[0][0].canvas;
-  return { canvas, matCanvas, surfCanvas, rect, size: [W, H], cell: [c0.width + PAD * 2, c0.height + PAD * 2], count: tiles.length, bands: bands.length, used: best.used };
+  return { canvas, matCanvas, surfCanvas, nightCanvas, rect, size: [W, H], cell: [c0.width + PAD * 2, c0.height + PAD * 2], count: tiles.length, bands: bands.length, used: best.used };
 }
 // One tile into its cell on every page, and its rect into `rect`. Shared by buildAtlas and growAtlas.
-function paintTile(ctx, mctx, sctx, rect, W, H, t, x, y) {
+function paintTile(ctx, mctx, sctx, nctx, rect, W, H, t, x, y) {
     {
       const cx = x + PAD, cy = y + PAD;
       const tw = t.canvas.width, th = t.canvas.height;
@@ -143,6 +151,12 @@ function paintTile(ctx, mctx, sctx, rect, W, H, t, x, y) {
       ctx.drawImage(t.canvas, cx - PAD, cy - PAD, tw + PAD * 2, th + PAD * 2);
       ctx.clearRect(cx, cy, tw, th);
       ctx.drawImage(t.canvas, cx, cy);
+      // The night page the same way, holes and all: the shader blends the two texel for texel.
+      if (nctx && t.night && t.night.width === tw && t.night.height === th) {
+        nctx.drawImage(t.night, cx - PAD, cy - PAD, tw + PAD * 2, th + PAD * 2);
+        nctx.clearRect(cx, cy, tw, th);
+        nctx.drawImage(t.night, cx, cy);
+      }
       // The same skirt on the material page, or bilinear at the tile edge reads the empty texel
       // beside it and a wall's family fades to "nothing known" along its border.
       if (mctx && t.mat && t.mat.width === tw && t.mat.height === th) {
@@ -170,7 +184,7 @@ function paintTile(ctx, mctx, sctx, rect, W, H, t, x, y) {
 // returns it to buildAtlas's packing.
 export function growAtlas(A, tiles) {
   if (!A || !tiles.length) return !!A;
-  if ((tiles.some((t) => t.mat) && !A.matCanvas) || (tiles.some((t) => t.surf) && !A.surfCanvas)) return false;
+  if ((tiles.some((t) => t.mat) && !A.matCanvas) || (tiles.some((t) => t.surf) && !A.surfCanvas) || (tiles.some((t) => t.night) && !A.nightCanvas)) return false;
   const [W, H] = A.size;
   const sorted = tiles.slice().sort((p, q) => (q.canvas.height - p.canvas.height) || (q.canvas.width - p.canvas.width)
     || (p.key < q.key ? -1 : p.key > q.key ? 1 : 0));
@@ -187,7 +201,8 @@ export function growAtlas(A, tiles) {
   if (y + shelf > H) return false;
   const ctx = A.canvas.getContext('2d');
   const mctx = A.matCanvas ? A.matCanvas.getContext('2d') : null, sctx = A.surfCanvas ? A.surfCanvas.getContext('2d') : null;
-  for (const [t, tx, ty] of at) paintTile(ctx, mctx, sctx, A.rect, W, H, t, tx, ty);
+  const nctx = A.nightCanvas ? A.nightCanvas.getContext('2d') : null;
+  for (const [t, tx, ty] of at) paintTile(ctx, mctx, sctx, nctx, A.rect, W, H, t, tx, ty);
   A.used = y + shelf;
   A.count += tiles.length;
   return true;

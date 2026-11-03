@@ -35,6 +35,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [GLASS 1 is the plain fallback (2026-10-17)](#glass-1-is-the-plain-fallback-2026-10-17)
 - [Per-pass GPU time (`__glPassMs()`)](#per-pass-gpu-time-__glpassms)
 - [The mass culled to the view (`RENDER_TUNE.glMassCull`)](#the-mass-culled-to-the-view-render_tuneglmasscull)
+- [The dusk blended on the GPU (`RENDER_TUNE.glDuskGPU`)](#the-dusk-blended-on-the-gpu-render_tuneglduskgpu)
 - [Measuring in the game and on a phone (`__glassBench()`)](#measuring-in-the-game-and-on-a-phone-__glassbench)
 - [Prop shadows (`RENDER_TUNE.glPropShadow`)](#prop-shadows-render_tuneglpropshadow)
 - [Lamp shadows (`RENDER_TUNE.glLampShadow`)](#lamp-shadows-render_tunegllampshadow)
@@ -518,6 +519,19 @@ Built 2026-11-03. Until then the depth prepass (SSAO and ink), the main pass and
 - **Gate:** `npm run gl:masscull` ([scripts/shapes/masscull.mjs](../../scripts/shapes/masscull.mjs)) paints three places through the real world pass under a fake WebGL2 that mirrors the buffer. Every triangle a culled pass skipped must be wholly outside that pass's clip volume; the sun pass and every pass with the cull off must draw everything. With the cull on, a view must make no fewer passes than made something visible with it off, since a pass that culls everything draws nothing and is otherwise invisible to the check. One case moves the window so the buffer draws through a mass shift (`massKeep`). Mutation-tested 4 of 4: every box culled, a margin of 0.05 clip units, the unshifted matrix, and a pass dropped whole. The far dissolve isn't checked, since its band drops tiles by design.
 - `glLastFrame().massDrawn` is `[vertices the main pass drew, vertices in the buffer]`.
 
+## The dusk blended on the GPU (`RENDER_TUNE.glDuskGPU`)
+
+Built 2026-11-03. The night blend `nb` climbs from 0 to 1 over one game hour, 17:31 to 18:30 at dusk and 05:31 to 06:30 at dawn, and the server sends the hour a game minute at a time. It used to be baked in: `texEpoch` carried `wallTexMixed`'s 64 steps and the kept buffer repacked when `nb` changed, so every minute of that hour re-baked the atlas and repacked the whole mass buffer. Headless that was +70 ms a cab frame (8 million floats) and +140 ms a cockpit frame (13.7 million), once a game minute, which is every 20 to 60 real seconds; in the Modelshop on the reference GPU, a dusk step cost 101 to 255 ms against 38 to 64 ms.
+
+With the switch at 1 the blend moves into the mass shader and the hour costs a uniform:
+
+- **The atlas holds the day bakes and a night page beside it**, at the same rects, as the material page sits beside it (`nightCanvas` in gl/atlas.js, unit 12). The shader mixes them by `uNBTex`, which is `wallTexMixed`'s own step, q / 64. A roof has no hour, so its night is itself.
+- **The material page is the full-night page**, and the shader scales its lit coverage (g) by the same step. That's exact: over all 808 pages, every palette, grid state and bare flag, the glass (r) and family (b) channels are identical at day and at night, and no day page has a lit texel.
+- **Each vertex carries its night colour and, in `aColorN.w`, its building's own blend**, or -1 for the city's (`uNB`). A building whose power has failed carries its own value, so it stays day-coloured as before. The vertex is 25 floats now.
+- **`texEpoch` leaves the hour out** (it's asked for at 0 and the key gets `#d`), and the kept buffer is packed with `nb` null, so neither rebuilds through dusk.
+- **It isn't byte-identical, by design.** The canvas blends in 8 bits and the shader in float: the old baked blend is the straight mix of its two ends to within 1.14/255 over 7.9 million texels. On screen, a dusk frame differs on about 4% of pixels by at most 2/255, and noon and night by at most 1/255.
+- **Gate:** `npm run gl:duskbuild` ([scripts/shapes/duskbuild.mjs](../../scripts/shapes/duskbuild.mjs)) sweeps a Halcyon cab across 70 game minutes of dusk through the real world pass under a fake WebGL2. With the switch on there must be no mass rebuild and no atlas upload, and the packed vertices must carry night colours and the -1 marker; with it off there must be rebuilds, or the sweep never reached the band. Mutation-tested 2 of 2: the hour back in the epoch, and the buffer packed with the blend baked in. The second draws a frozen picture without rebuilding, which is why the gate reads the vertices too.
+
 ## Measuring in the game and on a phone (`__glassBench()`)
 
 The Modelshop benches can't run on a phone, so the game client measures itself three ways (`client/game/js/fps-meter.js`, `glass-bench.js`):
@@ -589,7 +603,7 @@ The harness reports a spread because the same seat gave the occluder pre-pass an
 
 ## Hardware coverage
 
-`glCapabilities()` answers "will this machine run it" from a throwaway context, checked against the WebGL2 standard. The pass needs 8 vertex attributes (guarantee 16) and 13 varying components (guarantee 60).
+`glCapabilities()` answers "will this machine run it" from a throwaway context, checked against the WebGL2 standard. The pass needs 12 vertex attributes (guarantee 16) and 22 varying components (guarantee 60), and the mass program samples 13 texture units (guarantee 16).
 
 Trap: the texture page. The guarantee is only `MAX_TEXTURE_SIZE ≥ 2048`, and at `texRes: 2` every surface wants 2048×4096, which on a floor-spec device is a silent `INVALID_VALUE` and a black-textured city. `buildAtlas` takes the device limit and refuses a page that won't fit, dropping to flat palette colours with one warning. Packing balances on the cell rather than the count, bringing the `texRes: 1` worst case to 2048×2048; a typical frame is 256×512.
 

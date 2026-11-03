@@ -49,6 +49,7 @@
     "shapes:framecost": "node scripts/shapes/framecost.mjs",
     "gl:parity": "node scripts/shapes/glparity.mjs",
     "gl:masscull": "node scripts/shapes/masscull.mjs",
+    "gl:duskbuild": "node scripts/shapes/duskbuild.mjs",
     "gl:mesh": "node scripts/shapes/glmesh.mjs",
     "gl:residue": "node scripts/shapes/glresidue.mjs --report",
     "gl:worldresidue": "node scripts/shapes/worldresidue.mjs",
