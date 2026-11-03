@@ -2460,6 +2460,24 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   }
 
+  // The stem, off the bottom's first station. Its cross-section is small but not nothing, and on the
+  // Keel's short hull it read as a hole in the forefoot from the chase camera.
+  {
+    const t = BOT[0];
+    const cen = [t.f - 0.05, 0, (t.k + t.sz) / 2];
+    if (t.tw != null) {
+      face([[t.f, -t.tw, t.tz], [t.f, t.tw, t.tz], [t.f, t.tw, t.sz], [t.f, -t.tw, t.sz]], 0.50, cen);
+      for (const s of [-1, 1]) {
+        const sc = [t.f - 0.05, s * (t.tw + t.cw) / 2, (t.k + t.sz) / 2];
+        face([[t.f, s * t.tw, t.sz], [t.f, s * t.sw, t.sz], [t.f, s * t.cw, t.cz], [t.f, s * t.tw, t.iz]], 0.55, sc);
+        face([[t.f, s * t.tw, t.iz], [t.f, s * t.cw, t.cz], [t.f, s * t.kg, t.k]], 0.48, sc, 'body', BOTTOM);
+      }
+    } else {
+      face([[t.f, -t.cw, t.cz], [t.f, t.cw, t.cz], [t.f, t.sw, t.sz], [t.f, -t.sw, t.sz]], 0.55, cen);
+      face([[t.f, -t.cw, t.cz], [t.f, 0, t.k], [t.f, t.cw, t.cz]], 0.48, cen, 'body', BOTTOM);
+    }
+  }
+
   // ── Strakes ── Fine detail only.
   const NSTRK = G.CAT ? 0 : Math.max(0, Math.min(3, Math.round(S.strakes ?? 0)));
   if (fine && NSTRK) {

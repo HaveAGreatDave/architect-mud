@@ -1654,7 +1654,8 @@ const eyeTilesOf = (id) => boatGeom(BOAT_ROWS[id] || BOAT_ROWS.hydro).helm.eyeM 
 //
 // `stepBoatRide` (flight-model.js) fits her to the drawn sea over her own footprint; this says which
 // footprint. ⚠ TWO SIZES, BECAUSE THE TWO VIEWS DRAW TWO HULLS. The chase camera draws her at
-// `ownHullScale` (a fifth of her length in sea metres, with her height exaggerated) and the helm seats
+// `ownHullScale` (a powerboat at a fifth of her length with her height exaggerated; the Keel at true
+// size, see TRUE_SIZE_CLS in windshield.js) and the helm seats
 // you in her at full size through `METRE_TILES`. Each is posed by the water under the hull it shows,
 // and each keeps its own state, so swapping views does not drag one ride into the other.
 // Eight tenths of her length and beam: the sheer, not the stem and the chine's outermost point.

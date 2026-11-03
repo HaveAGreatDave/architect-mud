@@ -36,9 +36,12 @@ const CONTACT = 0.034, EXT_MUL = 6.0, VS = 1.6, CHOP_DRAWN = 0.055;
   ok(/glSeaAmp: 0\.055,/.test(ws), 'windshield.js glSeaAmp (the drawn chop) is no longer 0.055 — restate it here');
   // The green-water sheet starts at her DECK. At her keel (`rideZ + SZ * 0.05`) it was up on 53-68%
   // of frames in any sea, which is the "waves wash over her" report with no water over the deck.
-  ok(/z: \(v\.rideZ \|\| 0\) \+ deckUp/.test(ws) && /const deckUp = SZ \* CONTACT_VS \* \(row\.deckZ/.test(ws),
+  ok(/z: \(v\.rideZ \|\| 0\) \+ deckUp/.test(ws) && /const deckUp = SZ \* vsOf\(v\.cls\) \* \(row\.deckZ/.test(ws),
     'windshield.js ownHullWash no longer starts the green-water sheet at her deck');
+  // The hulls drawn 1:1 in the chase view, on their waterline like the helm. Restated below.
+  ok(/const TRUE_SIZE_CLS = new Set\(\['skiff'\]\);/.test(ws), "windshield.js TRUE_SIZE_CLS is no longer ['skiff'] — restate it here");
 }
+const TRUE_SIZE = new Set(['skiff']);
 // And both callers hand the renderer the sim's roll NEGATED: `bank` is starboard down. The ride above
 // restates that negation, so without these two lines a caller that dropped it would pass here.
 {
@@ -68,7 +71,9 @@ function sail(id, kt, hdg, lever, secs) {
     bottom.push([f, st.kg != null ? st.kg : 0, st.k]);
   }
   const views = {
-    chase: { plan: CONTACT * EXT_MUL, vert: CONTACT * EXT_MUL * VS, r: {}, wet: 0, n: 0, worst: 0, keelBase: true },
+    chase: TRUE_SIZE.has(id)
+      ? { plan: G.helm.mPerUnit / SEA_TILE_M, vert: G.helm.mPerUnit / SEA_TILE_M, r: {}, wet: 0, n: 0, worst: 0, keelBase: false }
+      : { plan: CONTACT * EXT_MUL, vert: CONTACT * EXT_MUL * VS, r: {}, wet: 0, n: 0, worst: 0, keelBase: true },
     helm: { plan: G.helm.mPerUnit / SEA_TILE_M, vert: G.helm.mPerUnit / SEA_TILE_M, r: {}, wet: 0, n: 0, worst: 0, keelBase: false },
   };
   const dt = 1 / 60;

@@ -117,6 +117,9 @@ uniform float uR;        // the window's half-width in tiles
 uniform int   uNWake;
 uniform vec4  uWakeP[MAX_WAKES];
 uniform vec4  uWakeS[MAX_WAKES];
+// The own hull in the chase view (ownHullWash in windshield.js): position and heading, half sizes and deck.
+uniform vec4  uHullP;
+uniform vec4  uHullS;
 
 out vec2  vWorld;        // window-frame world position, which is what the floor calls wx/wy
 out float vWater;        // waterness at this vertex
@@ -263,6 +266,20 @@ void main() {
   wk *= gate;
   vWake = wk;
   h += wk * uWakeAmp;
+
+  // ── AND NOT OVER HER DECK ───────────────────────────────────────────────────────────────────
+  // A powerboat's chase hull (not the Keel, drawn at true size: TRUE_SIZE_CLS in windshield.js) is
+  // a fifth of her true length with about a third of her true freeboard, so her
+  // own bow crest and the chop near the eye stood over her deck where the helm, at true size on the
+  // same sea, was dry. Round her plan the sea is held under her deck, eased out past her ends and
+  // sides, so the chase shows what the helm does.
+  if (uHullS.w > 0.0) {
+    vec2 hr = w - uHullP.xy;
+    float al = abs(dot(hr, uHullP.zw)) / uHullS.x, ac = abs(dot(hr, vec2(-uHullP.w, uHullP.z))) / uHullS.y;
+    float lee = (1.0 - smoothstep(1.0, 1.5, al)) * (1.0 - smoothstep(1.0, 2.5, ac));
+    float cap = uHullS.z - 0.006;
+    if (h > cap) h = mix(h, cap + (h - cap) * 0.15, lee);
+  }
 
   vH = h;
   gl_Position = uViewProj * vec4(w, h, 1.0);

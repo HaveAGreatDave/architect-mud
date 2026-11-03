@@ -21908,7 +21908,8 @@ function ownHullWash(v, ax, ay) {
   const row = vehicleParamBase('boat', v.cls) || {};
   // `modelGroundDrop` is the lowest vertex's depth at this scale, cached; the deck stands that far plus
   // its own height over the waterline.
-  const deckUp = SZ * CONTACT_VS * (row.deckZ ?? 0.095) + modelGroundDrop(v.cls, false);
+  // A true-size hull floats on her waterline, not her keel (ownShipBaseWz), so no drop is added.
+  const deckUp = SZ * vsOf(v.cls) * (row.deckZ ?? 0.095) + (TRUE_SIZE_CLS.has(v.cls) ? 0 : modelGroundDrop(v.cls, false));
   const r = (v.heading || 0) * Math.PI / 180;
   return { x: ax, y: ay, dx: Math.sin(r), dy: -Math.cos(r), hl: SZ * 0.92 * (row.len ?? 1), hb: SZ * 0.85 * (row.beam ?? 0.25),
     z: (v.rideZ || 0) + deckUp, k: RENDER_TUNE.glHullWash };
@@ -35059,7 +35060,14 @@ const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model
 // (scripts/shapes/boatride.mjs) are tuned to it. Every height that has to agree with the drawn model
 // (ground drop, mid-height, bounds, the guns, the GL ship matrix) asks vsOf, never CONTACT_VS.
 const AIR_CLS = new Set(['ultralight', 'heli', 'prop', 'heavy', 'gunship', 'wreck', 'grasshopper', 'locust', 'divebomber', 'drake']);
-export const vsOf = (cls) => (AIR_CLS.has(cls) ? 1 : CONTACT_VS);
+// ── HULLS DRAWN AT TRUE SIZE ──────────────────────────────────────────────────
+// The Keel is drawn in the chase view at the scale the helm seats you in her: her own `mPerUnit`
+// over the sea's seven-metre tile, at true height. At the hydro's framing she was a fifth of her
+// length with a third of her freeboard on a true-size sea, so every crest stood over her deck while
+// the helm, on the same water, was dry. She fits a tile and a berth at true size; the powerboats
+// (about two tiles) don't, so they keep the framing multiplier below.
+const TRUE_SIZE_CLS = new Set(['skiff']);
+export const vsOf = (cls) => (AIR_CLS.has(cls) || TRUE_SIZE_CLS.has(cls) ? 1 : CONTACT_VS);
 // Sizes anchored to prop = DHC-6 Twin Otter (19.8m span) at 0.11; each class set to its real
 // airframe's span/rotor ratio vs that: Cessna 172 11m (0.56×), A-10/Reaper 17.5m (0.88×),
 // C-130-class Leviathan ~40m (2.0×), Mini 500 rotor 5.8m (0.29×).
@@ -35142,6 +35150,10 @@ const OWN_EXT_MUL = 1;     // 1.9 until one world scale (see CONTACT_SIZE); was 
 // rather than hemmed in by kerbs, signs and a gantry.
 const OWN_EXT_MUL_BY_CLS = { truck: 7.0, hydro: 6.0 };
 // Every hull frames like the hydro, for the reason above; derived so a new row cannot be a speck.
+for (const id of TRUE_SIZE_CLS) {
+  const m = vehicleParamBase('boat', id)?.mPerUnit;
+  if (m > 0) OWN_EXT_MUL_BY_CLS[id] = m / SEA_TILE_M / CONTACT_SIZE[id];
+}
 for (const id of vehicleParamIds('boat')) OWN_EXT_MUL_BY_CLS[id] ??= OWN_EXT_MUL_BY_CLS.hydro;
 export const ownExtMul = (cls) => OWN_EXT_MUL_BY_CLS[cls] || OWN_EXT_MUL;
 // The chase camera's own ship in tiles per model unit: across her plan, and up her height, which the
@@ -35702,6 +35714,9 @@ function ownShipBaseWz(cam, v) {
   if (wreck) return S * (-modelLowestH(v.cls, v.pitch, v.bank, v.gearAnim ?? 1, !!v.armed, wreck)) + (cam.EHbase - RENDER_TUNE.eh) + deckLift(cam, v);
   // From a seat the camera is the driver's eye, not a chase rig over the craft, so there is no climb.
   const climb = v.seatModel && !v.external ? 0 : cam.EHbase - RENDER_TUNE.eh;
+  // A true-size hull floats as the helm seats you in her: her design waterline (model z 0) on the
+  // water, not her keel. Standing her keel on it put her a keel's depth higher than the helm.
+  if (TRUE_SIZE_CLS.has(v.cls) && WATER_CLASSES().has(v.cls)) return climb + deckLift(cam, v) + (v.rideZ || 0);
   const natural = modelGroundDrop(v.cls, !!v.armed) + climb - sink;   // chase anchor: level gear on deck + climb
   const floor = S * (-modelLowestH(v.cls, v.pitch, v.bank, v.gearAnim ?? 1, !!v.armed)) - sink;   // lowest actual vertex on z=0 (minus the seam trim)
   // The hover rides ON TOP of the ground solve rather than replacing it: the floor still refuses to
@@ -36501,7 +36516,7 @@ function drawBoatSprayGL(cam, c, Wp, SIZE, sun, now) {
   // (aft, out, up) from a root on the hull, in model units along her HEADING rather than her
   // attitude: the plume stands up out of the sea while the hull pitches under it.
   const off = (root, aft, out, up) => [root[0] + SIZE * (-aft * fX + out * rX),
-    root[1] + SIZE * (-aft * fY + out * rY), root[2] + SIZE * CONTACT_VS * up];
+    root[1] + SIZE * (-aft * fY + out * rY), root[2] + SIZE * vsOf(c.cls) * up];
   const put = (w, rU, a) => {
     if (!(a > 0.004)) return;
     const q = cam.proj(w[0], w[1], w[2]);
@@ -36515,24 +36530,32 @@ function drawBoatSprayGL(cam, c, Wp, SIZE, sun, now) {
   // sheets below are a surface drive and a tunnel hull's prows; on the skiff they stood a plume
   // twice her height off a tiller motor. She throws what a displacement hull throws: a low bow wave
   // peeling off each side of the forefoot, and the prop's wash churning white at the transom.
-  if ((vehicleParamBase('boat', c.cls) || {}).open) {
+  // ⚠ AND IN HER OWN UNITS. Every root and reach below was written for a hull a unit long; the Keel
+  // is a third of that, so the bow wave peeled off the water ahead of her and the prop wash churned
+  // behind nothing. Everything is scaled off her row's length and beam now.
+  const row = vehicleParamBase('boat', c.cls) || {};
+  if (row.open) {
+    const L = row.len ?? 0.33, B = row.beam ?? 0.12;
     const way = clamp(spd / 0.6, 0, 1);
+    // The bow wave: a low curl off each side of the forefoot, lying back along her topsides.
     for (const side of [-1, 1]) {
-      const root = Wp([0.86, side * 0.10, 0.0]);
-      for (let i = 0; i < 18; i++) {
+      const root = Wp([L * 0.78, side * B * 0.35, 0.0]);
+      for (let i = 0; i < 14; i++) {
         const h1 = hsh(i, side > 0 ? 31 : 33), h2 = hsh(i, side > 0 ? 32 : 34);
-        const k = (t / 0.9 + h1) % 1;
-        const w = off(root, k * (0.45 + way * 0.7), side * (0.06 + k * (0.22 + way * 0.30)) * (0.85 + 0.3 * h2),
-          4 * k * (1 - k) * (0.015 + way * 0.05));
-        put(w, (0.05 + 0.10 * k) * (0.8 + 0.4 * h2), way * 0.42 * Math.min(1, k * 6) * (1 - k));
+        const k = (t / 0.8 + h1) % 1;
+        const w = off(root, k * L * (0.5 + way * 0.9), side * (B * 0.25 + k * B * (0.5 + way * 0.9)) * (0.85 + 0.3 * h2),
+          4 * k * (1 - k) * (0.008 + way * 0.022));
+        put(w, L * (0.05 + 0.08 * k) * (0.8 + 0.4 * h2), way * 0.38 * Math.min(1, k * 6) * (1 - k));
       }
     }
-    const root = Wp([-1.0, 0, 0.0]);
-    for (let i = 0; i < 14; i++) {
+    // The prop wash: a small fan of white under the outboard, just behind the transom. A 15 hp
+    // motor stirs the water; it doesn't throw it.
+    const root = Wp([-L * 1.06, 0, 0.0]);
+    for (let i = 0; i < 12; i++) {
       const h1 = hsh(i, 41), h2 = hsh(i, 42);
-      const k = (t / 1.1 + h1) % 1;
-      put(off(root, k * (0.6 + way * 0.9), (h2 - 0.5) * (0.18 + k * 0.45), 0.01 + 0.025 * k),
-        (0.10 + 0.18 * k) * (0.8 + 0.4 * h2), (0.2 + way * 0.3) * (1 - k) * Math.min(1, k * 6));
+      const k = (t / 0.9 + h1) % 1;
+      put(off(root, k * L * (0.6 + way * 1.2), (h2 - 0.5) * B * (0.4 + k * 1.4), 0.004 + 0.012 * k * (1 - k) * 4 * way),
+        L * (0.07 + 0.12 * k) * (0.8 + 0.4 * h2), (0.15 + way * 0.3) * (1 - k) * Math.min(1, k * 6));
     }
     return;
   }

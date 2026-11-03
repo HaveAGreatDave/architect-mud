@@ -313,7 +313,7 @@ export const TYPES = {
 
   // Keel Mk 1: a 16 ft riveted aluminium skiff with a 15 hp tiller outboard, built in Keel's shed.
   // A displacement boat that just about planes: the hump sits low, the lever's whole travel is 0-18.
-  // Heavy and slow on the tiller (low turnLock, steep turnFade), beamy and slow to slide.
+  // Quick on the tiller at a crawl and heavy on it at speed (steep turnFade), beamy and slow to slide.
   // `nitroMul: 1` is no bottle at all (stepBoat reads the bottle as absent at 1 or below).
   // The fields below `exclusive` are read only where a hull has them; a missing one is none:
   //   exclusive   sold and hired only at a desk whose furniture lists the id in `flags.boat_stock`
@@ -322,6 +322,7 @@ export const TYPES = {
   //   rodHolders  how many lines can be out at once
   //   rode_m      the anchor rope, in metres; no rode, no anchor (anchor.js)
   //   lamp        she carries a lamp for night fishing
+  //   thrustSteer the motor swings with the tiller, so its thrust turns her with no way on (0..1)
   skiff: {
     name: 'Keel Mk 1', short: 'Mk 1', water: true, tier: 0,
     mass: 0.9,
@@ -329,15 +330,15 @@ export const TYPES = {
     waterFric: 0.9,
     dragP: 0.00906, brake: 1.2,
     hump: 12, humpDrag: 0.8,
-    turnLock: 14, turnFade: 0.9,
+    turnLock: 30, turnFade: 1.6,
     driftTau: 0.8,
-    hullLen: 0.012, hullBeam: 0.0125,
+    hullLen: 0.349, hullBeam: 0.125,   // true size: she's drawn 1:1 (TRUE_SIZE_CLS in windshield.js)
     nitroMul: 1, nitroBurn: 0, nitroCool: 1,
     launchVs: 0.2,
     burn: 0.12,
     hullKg: 160, tank: 40, price: 3900,
     exclusive: true,
-    seats: 2, hold_kg: 40, rodHolders: 2, rode_m: 30, lamp: true,
+    seats: 2, hold_kg: 40, rodHolders: 2, rode_m: 30, lamp: true, thrustSteer: 0.8,
     blurb: "Built in the shed by the man who sells it. Sixteen feet of riveted aluminium, a tiller and a 15 hp motor. He'll fix it if it breaks. He says it won't.",
   },
 };
@@ -1210,7 +1211,10 @@ export function stepBoat(s, input, p, dt) {
   const fade = 1 / (1 + (p.turnFade ?? 0.72) * (v / Math.max(1, humpAt)));
   const lock = (p.turnLock ?? 34) * fade * surf.grip * (1 - TRIM_GRIP * trim);
   // ⚠ A rudder needs water going past it: none when stopped, airborne or aground.
-  const auth = (s.airborne || aground) ? 0 : clamp(v / 6, 0, 1);
+  // A tiller outboard is the exception: the motor swings with the tiller, so its own thrust turns
+  // her at a crawl, which is how a skiff is brought round in a harbour.
+  const kick = running ? (p.thrustSteer || 0) * clamp(0.35 + s.pedal, 0, 1) : 0;
+  const auth = (s.airborne || aground) ? 0 : Math.max(clamp(v / 6, 0, 1), kick);
   const yaw = steer * lock * auth;
   s.heading = wrap360(s.heading + yaw * dt);
   s.yawRate = yaw;
