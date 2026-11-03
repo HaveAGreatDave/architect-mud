@@ -1,6 +1,7 @@
 # SIREN and ORACLE fidelity
 
-**Status: built on the `siren-fidelity` branch, 2026-10-11; not merged.** The audio engine's
+**Status: built on the `siren-fidelity` branch, 2026-10-11, and merged to main 2026-10-14
+(`1f437b048`).** The audio engine's
 fidelity limits and the mixing it lacks, split off from [deadball-glass2.md](deadball-glass2.md) so
 the work could go ahead on its own. Every view gains from it: the city, the rink, the TV and the
 voice. All nine steps below are built there in six commits, with eight new `audio` gates and a green
