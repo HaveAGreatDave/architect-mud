@@ -99,6 +99,8 @@ const state = {
   // GLASS 2 over the viewport (glass2.js), on unless this browser switched it off. It's what the
   // game draws with, so it's the honest default; the line below drops it where there's no WebGL2.
   g2: (() => { try { return localStorage.getItem('ms_glass2') !== '0'; } catch { return true; } })(),
+  // A plain grey backdrop in place of the sky (the Grey button, B). Remembered per browser.
+  grey: (() => { try { return localStorage.getItem('ms_grey') === '1'; } catch { return false; } })(),
   mode: 'move',
   // The animal viewport. `faunaEl` is an OFFSET on the pose's own baked elevation rather than an
   // absolute, so releasing it returns you to the viewpoint the game actually bakes from — which is
@@ -386,10 +388,12 @@ function previewOpts(over) {
     seed: state.seed, fh: scale().fh, h: scale().h, night: state.night, E: state.E,
     heading: state.heading, dist: state.dist, eyeH: state.eye, camPitch: state.pitch,
     panX: state.panX, panY: state.panY,
-    tier: state.tier, wire: state.wire,
+    tier: state.tier, wire: state.wire, backdrop: backdrop(),
     ...over,
   };
 }
+const GREY = [118, 120, 124];
+const backdrop = () => (state.grey ? GREY : null);
 
 // ⚠ THE ONE PLACE THE TWO RENDERERS ARE CHOSEN BETWEEN. Everything that paints the
 // viewport goes through here, and that is not tidiness — the spin loop used to call
@@ -425,7 +429,7 @@ function paintViewport() {
       const meshed = !!meshIdOfSubject(v);
       lastCam = renderVehiclePreview(view, {
         ...v, night: state.night, heading: state.heading, dist: state.dist, camPitch: state.pitch,
-        eyeH: state.eye, panX: state.panX, panY: state.panY, sizeMul: state.vehSizeMul || 1,
+        eyeH: state.eye, panX: state.panX, panY: state.panY, sizeMul: state.vehSizeMul || 1, backdrop: backdrop(),
         ...(meshed ? { pick: meshPickList(), livery: meshLivery(), anim: meshAnim(), gearAnim: meshGearAnim() } : {}),
       });
       if (meshed) meshPaintOverlay(view.getContext('2d'));
@@ -478,7 +482,7 @@ function paintGlass2(view) {
     subject = { kind: 'building', m: modelOf(state.key), floors: state.floors, seed: state.seed,
       entrance: ENTRANCE_OF[state.E.join(',')] || 'south' };
   }
-  const r = g2Draw(view, subject, orbit);
+  const r = g2Draw(view, subject, orbit, { backdrop: backdrop() });
   glNote = r.gl ? 'GLASS 2: ' + r.faces + ' faces, ' + r.lights + ' lights (the game\'s own frame; edits draw as you make them)'
     : 'GLASS 2 drew nothing this frame (no WebGL2, or the pass switched itself off: see __glass2() in the console)';
 }
@@ -1222,6 +1226,14 @@ function setGl(on) {
   draw();
 }
 $('gl').onclick = () => setGl(!state.gl);
+function setGrey(on) {
+  state.grey = !!on;
+  try { localStorage.setItem('ms_grey', state.grey ? '1' : '0'); } catch { /* per-browser convenience */ }
+  $('grey').classList.toggle('on', state.grey);
+  draw();
+}
+$('grey').onclick = () => setGrey(!state.grey);
+$('grey').classList.toggle('on', state.grey);
 if ($('g2')) {
   $('g2').onclick = () => setG2(!state.g2);
   $('g2').classList.toggle('on', state.g2);
@@ -1372,6 +1384,7 @@ addEventListener('keydown', (ev) => {
   else if (k === 't') { ev.preventDefault(); toggleToolbox(); }
   else if (k === 'g' && !ev.shiftKey) { ev.preventDefault(); setGl(!state.gl); }
   else if (k === '2') { ev.preventDefault(); setG2(!state.g2); }
+  else if (k === 'b') { ev.preventDefault(); setGrey(!state.grey); }
   else if (k === 'escape') { selectedSeg = -1; draw(); }
   else if ((k === 'delete' || k === 'backspace') && doc && selectedSeg >= 0) {
     ev.preventDefault();

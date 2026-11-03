@@ -106,6 +106,11 @@ the game draws with; switch it off and that's remembered per browser.
 - **A vehicle** is the own ship, with its livery, its animation channels and its gear. It is drawn at
   the size the game draws your own craft, and the camera comes in by the ratio to the 2-D preview's
   `sizeMul`, so the framing matches.
+- **Grey** (or <kbd>B</kbd>) swaps the sky for a flat grey backdrop, remembered per browser. It's the
+  frame's `backdrop` view option: the sky, sun, clouds, birds and flare go, and the ground map turns to
+  bare concrete with `farTerrain` off, so the subject stands on a grey floor that still takes its
+  shadow. The light is still the hour's. The 2-D previews take the same option and fill the canvas;
+  an animal's preview doesn't.
 - **The camera** is the renderer's free camera at the orbit's eye. Its lens is solved to the 2-D
   preview's (`H·0.55` against `viewFocal·fov`, in the same canvas pixels), and the preview's horizon
   at 0.42 of the height is folded into the pitch, because the free camera turns about mid-frame.

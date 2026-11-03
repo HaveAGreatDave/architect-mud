@@ -43,10 +43,12 @@ function ensureCanvas(view) {
 }
 
 // Flat open ground round the subject: what the 2-D preview stands it on, with a road behind so the
-// ground pass has something to draw besides grass.
-function groundMap(centre) {
+// ground pass has something to draw besides grass. On the grey backdrop it's bare concrete instead,
+// so the subject stands on a plain floor that still takes its shadow.
+function groundMap(centre, grey = false) {
   return Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
-    if (x === R && y === R) return centre || { kind: 'land', biome: 'citycore', flr: 0 };
+    if (x === R && y === R) return centre || { kind: 'land', biome: grey ? 'concrete' : 'citycore', flr: 0 };
+    if (grey) return { kind: 'land', biome: 'concrete', flr: 0 };
     if (y === R + 2) return { kind: 'land', biome: 'citycore', road: 1, rd: 'ew', flr: 0, pw: 1 };
     return { kind: 'land', biome: 'citycore', flr: 0 };
   }));
@@ -98,7 +100,7 @@ export function g2Draw(view2d, subject, orbit, opts = {}) {
       ...(subject.livery ? { livery: subject.livery } : {}),
       anim: subject.anim || null, gearAnim: subject.gearAnim ?? 1,
       ...(subject.extra || {}),
-      map: groundMap(), heading: 0,
+      map: groundMap(null, !!opts.backdrop), heading: 0,
       external: true, freeCam: freeCamOf(orbit, k),
     };
   } else {
@@ -110,16 +112,19 @@ export function g2Draw(view2d, subject, orbit, opts = {}) {
     lastName = slug;
     const centre = { kind: 'land', biome: 'citycore', bt: subject.m?.type || 'shop', bn: name,
       ent: subject.entrance || 'south', flr: subject.floors || 4, pw: 1 };
-    view = { cls: 'prop', map: groundMap(centre), heading: 0, external: true, hideOwnShip: true, freeCam: freeCamOf(orbit) };
+    view = { cls: 'prop', map: groundMap(centre, !!opts.backdrop), heading: 0, external: true, hideOwnShip: true, freeCam: freeCamOf(orbit) };
   }
-  const keep = { gl: RENDER_TUNE.gl, glFloor: RENDER_TUNE.glFloor, armKeep: RENDER_TUNE.armKeep };
+  const keep = { gl: RENDER_TUNE.gl, glFloor: RENDER_TUNE.glFloor, armKeep: RENDER_TUNE.armKeep, farTerrain: RENDER_TUNE.farTerrain };
   RENDER_TUNE.gl = 1; RENDER_TUNE.glFloor = 1;
+  // Past the map's edge the floor runs on as wildlands dirt; on the backdrop it shouldn't.
+  if (opts.backdrop) RENDER_TUNE.farTerrain = 0;
   // Kept arms replay what was recorded the first time a key was drawn; an edit has to be redrawn.
   RENDER_TUNE.armKeep = 0;
   try {
     paintWindshield(ID, {
       phase: 'cruise', worldBlend: 1, height: 0, speed: 0, hour, weather,
       mapCenter: { x: 0, y: 0 }, mapOffset: { x: 0, y: 0 }, tune: { gl: 1 },
+      ...(opts.backdrop ? { backdrop: opts.backdrop } : {}),
       ...view,
     });
   } finally { Object.assign(RENDER_TUNE, keep); }

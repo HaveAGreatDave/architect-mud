@@ -4309,6 +4309,10 @@ function paintWindshieldFrame(id, view) {
   // else, which is why the mirror shows the same city out of the same renderer rather than a
   // second opinion about what is behind you.
   const bare = !!v.bare;
+  // A flat colour where the sky would be, for a viewer looking at one thing (the Modelshop's grey
+  // backdrop). The sky passes are painted over or skipped and the ground stays, so the subject keeps
+  // its shadow; the light is still the hour's, so it's lit the way the game lights it.
+  const backdrop = Array.isArray(v.backdrop) ? v.backdrop : null;
   // External orbit: hold the middle mouse to spin the chase camera around the craft. Adding it to
   // the VIEW heading rotates the world + camera around the aircraft, while the model keeps its own
   // real heading (drawn below), so we see the plane from the orbit angle. The camera LOCKS wherever
@@ -4854,7 +4858,7 @@ function paintWindshieldFrame(id, view) {
   const skyFL = skyFocal(W, fcamFov);
   // With the GPU sky on, every seat places the sun, moon and stars on the same real sphere the
   // shader colours — a dome and a sphere in one frame would put the sun's glow beside its disc.
-  const glSkyOn = !!(RENDER_TUNE.glSky && RENDER_TUNE.gl && GL_SKY_HOOK);
+  const glSkyOn = !!(RENDER_TUNE.glSky && RENDER_TUNE.gl && GL_SKY_HOOK) && !backdrop;
   if (glSkyOn && !SKY_ROT) SKY_ROT = { pitch: vw.camPitch || 0, hp: camHp ?? horizonY,
     depth: viewFocal(W, H) * (vw.fovMul || 1), FL: viewLatFocal(W, vw) };
   const _sunT = clamp((hour - 6) / 12, 0, 1);
@@ -4883,8 +4887,8 @@ function paintWindshieldFrame(id, view) {
   const lightStr = _dayKey ? clamp(0.4 + sunElev * 0.6, 0, 1) : (sky.night > 0.4 && mArc.up && _moonPos.front ? 0.14 + _moonLit * 0.62 : 0);
   sunFx.moonElev *= 0.2 + _moonLit * 0.8;
   const _clearish = wx === 'clear' || wx === 'cloudy';
-  const glareStr = (sunUp && sunFront && !framed && _clearish) ? clamp(0.32 + (1 - sunElev) * 0.7, 0, 1) * (wx === 'cloudy' ? 0.45 : 1) : 0;
-  const rayStr   = (sunUp && sunFront && !framed && _clearish && worldBlend > 0.02) ? clamp((0.55 - sunElev) / 0.55, 0, 1) * (wx === 'cloudy' ? 0.5 : 1) : 0;
+  const glareStr = (sunUp && sunFront && !framed && !backdrop && _clearish) ? clamp(0.32 + (1 - sunElev) * 0.7, 0, 1) * (wx === 'cloudy' ? 0.45 : 1) : 0;
+  const rayStr   = (sunUp && sunFront && !framed && !backdrop && _clearish && worldBlend > 0.02) ? clamp((0.55 - sunElev) / 0.55, 0, 1) * (wx === 'cloudy' ? 0.5 : 1) : 0;
   const auroraOn = sky.night > 0.4 && (wx === 'clear' || wx === 'ash') && !framed;
   const cockpitGlow = clamp(sky.night * 0.85 + (sunUp && sunElev < 0.28 ? 0.22 : 0), 0, 1);
   // Instrument-panel lights (the PANEL switch): flipping them on gives a guaranteed, richer warm
@@ -5240,7 +5244,7 @@ function paintWindshieldFrame(id, view) {
   // When the fly-through deck is live (forward world view), it OWNS the near clouds as true 3-D
   // puffs projected through the world camera below — so here the flat dome billboards keep only the
   // FAR fronts (a cloud line on the horizon) and cede everything within reach to the volumetric layer.
-  const volOn = !framed && worldBlend > 0.02 && RENDER_TUNE.volClouds !== 0;
+  const volOn = !framed && !backdrop && worldBlend > 0.02 && RENDER_TUNE.volClouds !== 0;
   const cloudAlpha = (wx === 'clear' ? 0.5 : cloudy ? 0.74 : 0.58) * (1 - sky.night * 0.4);
   let baseTint = cloudy ? [148, 156, 166] : mix([245, 248, 252], sky.hor, 0.22);
   let litTint = cloudy ? [190, 196, 204] : mix([255, 255, 255], sky.sun || [255, 250, 240], 0.28);
@@ -5439,13 +5443,16 @@ function paintWindshieldFrame(id, view) {
       bowN, bowArcs ? (v.event?.phase === 'peak' ? 1 : 0.55) : bowNat);
   }
 
+  // The backdrop goes over everything above the horizon at once: the sky, the bodies, the clouds.
+  if (backdrop) { ctx.fillStyle = rgb(backdrop); ctx.fillRect(-OX, -H, ex, horizonY + H); }
+
   // Ground.
   g = ctx.createLinearGradient(0, horizonY, 0, H + (H - horizonY));
   g.addColorStop(0, rgb(gTop)); g.addColorStop(1, rgb(gBot));
   ctx.fillStyle = g; ctx.fillRect(-OX, horizonY, ex, (H - horizonY) + H);
   // atmospheric haze band at the horizon
   const haze = ctx.createLinearGradient(0, horizonY - 6, 0, horizonY + 26);
-  haze.addColorStop(0, rgb(sky.hor, 0.55)); haze.addColorStop(1, rgb(sky.hor, 0));
+  haze.addColorStop(0, rgb(backdrop || sky.hor, 0.55)); haze.addColorStop(1, rgb(backdrop || sky.hor, 0));
   ctx.fillStyle = haze; ctx.fillRect(-OX, horizonY - 6, ex, 32);
 
   // Perspective SCALE is a fixed focal length — independent of the horizon position,
@@ -5499,7 +5506,8 @@ function paintWindshieldFrame(id, view) {
     const _cb = Math.abs(Math.cos(bankRad)), _sb = Math.abs(Math.sin(bankRad));
     const groundExt = Math.min(1.5 * W, _cb * (W / 2 + Math.abs(shX)) + _sb * (H / 2 + Math.abs(shY)) + 8);
     pMark('m:sky');
-    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop, now, sunFx, chase, hazeCeil(wx), st, groundExt);
+    // On a backdrop the floor fades into it, not into a sky that isn't there.
+    drawMode7Floor(ctx, W, H, horizonY, focal, vw, backdrop ? { ...sky, top: backdrop, hor: backdrop, g2: backdrop } : sky, gTop, now, sunFx, chase, hazeCeil(wx), st, groundExt);
     pMark('m:floor');
     pEnd();
     ctx.restore();
@@ -5519,7 +5527,7 @@ function paintWindshieldFrame(id, view) {
   }
 
   // Pilotwings horizon: distant rolling land + a soft hazy glow along the horizon.
-  if (!framed && worldBlend > 0.02) {
+  if (!framed && !backdrop && worldBlend > 0.02) {
     ctx.save(); ctx.globalAlpha = worldBlend;
     drawSkyline(ctx, W, H, horizonY, vw, sky, fcamFov, skyFL);
     const glow = ctx.createLinearGradient(0, horizonY - 14, 0, horizonY + 10);
@@ -5954,7 +5962,7 @@ function paintWindshieldFrame(id, view) {
         pEnd();
       }
       if (sky.night > 0.35) drawSearchlights(ctx, cam, vw, now, worldBlend);   // sweeping beams from restricted (no-fly) blocks at night
-      if (!framed && !(SEA_DUNK.under > 0.5)) drawBirds(ctx, W, H, horizonY, vw, st, dt, speed, sky, now, worldBlend);   // ambient flock scattering as you pass; none under the sea
+      if (!framed && !backdrop && !(SEA_DUNK.under > 0.5)) drawBirds(ctx, W, H, horizonY, vw, st, dt, speed, sky, now, worldBlend);   // ambient flock scattering as you pass; none under the sea
       if (vw.landGuide?.boxes && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
       // See NAV_MARKS. The screen-pinned navigation marks are OFF whenever the camera is off its
       // mount — a mark that answers "which way do I turn" is answering for a seat the eye is no
@@ -43076,6 +43084,8 @@ export function renderModelPreview(canvas, opts = {}) {
     night = 0, E = [0, 1], alpha = 1, now = 1000,
     heading = 0, dist = 8, eyeH = 1.4, tier = ADORN_RICH,
     wire = false, ground = true,
+    // [r,g,b] paints the whole canvas one colour in place of the sky and the ground.
+    backdrop = null,
     // PAN, for the Modelshop's viewport. `panX` strafes the camera sideways in world tiles;
     // `panY` slides the horizon in screen pixels — two different operations, deliberately in two
     // different units. Both default to the no-pan values, so every existing caller is unchanged.
@@ -43122,7 +43132,8 @@ export function renderModelPreview(canvas, opts = {}) {
 
   ctx.save();
   ctx.clearRect(0, 0, W, H);
-  if (ground) {
+  if (backdrop) { ctx.fillStyle = rgb(backdrop); ctx.fillRect(0, 0, W, H); }
+  else if (ground) {
     const sky = night > 0.5 ? [14, 16, 26] : [150, 168, 186];
     const grd = night > 0.5 ? [18, 20, 22] : [64, 68, 62];
     ctx.fillStyle = rgb(sky); ctx.fillRect(0, 0, W, Math.max(0, horizonY));
@@ -52136,7 +52147,7 @@ export function renderVehiclePreview(canvas, opts = {}) {
   const {
     cls = 'prop', variant = '', livery = null, armed = false, gearAnim = 1,
     heading = 0, dist = vehicleFrameDist(cls), eyeH = null, night = 0, now = 1000,
-    bank = 0, pitch = 0, sizeMul = 1, panX = 0, panY = 0, ground = true,
+    bank = 0, pitch = 0, sizeMul = 1, panX = 0, panY = 0, ground = true, backdrop = null,
     // ⚠ `pitch` above is the CRAFT's attitude; this is the CAMERA's. Two different things that
     // would be one field with two meanings if they shared a name.
     camPitch = 0,
@@ -52164,7 +52175,8 @@ export function renderVehiclePreview(canvas, opts = {}) {
 
   ctx.save();
   ctx.clearRect(0, 0, W, H);
-  if (ground) {
+  if (backdrop) { ctx.fillStyle = rgb(backdrop); ctx.fillRect(0, 0, W, H); }
+  else if (ground) {
     const sky = night > 0.5 ? [14, 16, 26] : [150, 168, 186];
     const grd = night > 0.5 ? [18, 20, 22] : [64, 68, 62];
     ctx.fillStyle = rgb(sky); ctx.fillRect(0, 0, W, Math.max(0, horizonY));
