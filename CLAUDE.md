@@ -32,6 +32,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/design.md](docs/design.md): design intent for combat, survival, ideology, economy and housing. A `systems-*.md` doc wins any disagreement
 - [docs/story.md](docs/story.md): the tone authority; read before writing player-facing prose. Its Factions table is superseded; the roster is [systems-ideologies.md](docs/systems-ideologies.md)
 - [docs/reference/house-voice.md](docs/reference/house-voice.md): the house voice, modelled on Fallout. Techniques, target lengths per surface, what not to do and worked examples. Read with story.md before writing any player-facing prose.
+- [docs/reference/bibliography.md](docs/reference/bibliography.md): every outside work Architect names as a model, and the papers the simulations are tuned against. Add a row when you borrow from a new work or cite a new paper
 
 **Engine & seams**
 
