@@ -1,7 +1,8 @@
 # One maintenance bay for every vehicle
 
 **Status: phases 1 to 4 built (the cutaway and the camera, 2026-10-26; the bay controller, the
-menu and making it real, 2026-11-03), except the boat's hull fouling; phase 5 is design.** It's
+menu and making it real, 2026-11-03), except the boat's hull fouling; phase 5 is design and waits on
+the models naming their anchor points.** It's
 the plan for bringing the truck, boat, aircraft and racer service bays onto one screen: the same 3/4
 camera, the shed's walls cut away completely while the bay is open, and one big, easy menu where
 every change shows on the vehicle before you pay for it.
@@ -234,7 +235,8 @@ and the log rung prints the same facts with no screen. No server change is neede
 4. **Making it real.** §6.1 to §6.4: previews, bars, the work beat, visible wear. The aircraft's kit
    deltas and the wear decals are the only server-side additions. *Built 2026-11-03, except the
    boat's hull fouling.*
-5. **Anchors.** §6.5, once models name their anchor points.
+5. **Anchors.** §6.5, once models name their anchor points. *Not started: no model names them yet
+   (see the open questions).*
 
 After each phase: `client:smoke`, `shapes:smoke`, `bigscreen:smoke`, and `test:regress` for any
 phase that touches a plugin. [depot-shell.md](../reference/depot-shell.md) is updated as each lands.
@@ -279,6 +281,13 @@ phase that touches a plugin. [depot-shell.md](../reference/depot-shell.md) is up
   built from rows (aircraft3d.js), and only the open boat draws a waterline stain. Fouling needs a
   band in the hull builder driven by the bottom item's life, with GLASS 2 keying the hull's mesh on
   it, made and checked in the Modelshop. The docket's bottom row still says when it is due.
+- **Phase 5 waits on the models.** A leader line needs two things nothing has yet: each model
+  naming a point per slot (the truck's bar, roof, glass and stacks, the racer's spinners, fins and
+  cans, the boat's topside panel, which `BOAT_META` nearly has), and the frame publishing a
+  projector for the own ship's model space (the canvas path builds one, `P`, for the door and hull
+  art; GLASS 2 draws the hull on the GPU and publishes none). With both, the controller draws an SVG
+  line each frame from `.ds-part.on` to the seat's `anchor(slot)`. The points are placed by eye in
+  the Modelshop, so that pass comes first.
 - **Decided (phase 2): the areas get a shot each, and a job may refine its area with a shot of its
   own.** The doc's five areas can't hold today's framing (tuning's front-left 3/4, the kits a step
   closer), so in phase 2 each job also named the shot it had, and nothing moved.
