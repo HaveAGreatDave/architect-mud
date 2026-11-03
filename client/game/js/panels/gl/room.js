@@ -36,10 +36,17 @@ in vec3 vPos; in vec3 vNor; in vec2 vUv; in vec3 vCol; flat in float vMat;
 uniform sampler2D uTex;
 uniform int uMode;          // 0 plain, 1 textured, 2 a picture (the view, a screen), 3 glass
 uniform vec3 uEye;
-uniform vec3 uLampP, uLampC;
-uniform vec3 uWinP, uWinN, uWinA, uWinB, uWinC;
+uniform vec3 uLampP;
+uniform vec3 uLampC;
+uniform vec3 uWinP;
+uniform vec3 uWinN;
+uniform vec3 uWinA;
+uniform vec3 uWinB;
+uniform vec3 uWinC;
 uniform vec3 uAmb;
-uniform float uExpo, uBands, uComic;
+uniform float uExpo;
+uniform float uBands;
+uniform float uComic;
 uniform vec2 uRes;
 out vec4 outColor;
 // shininess and strength of the highlight by MAT code (ballpark-mesh.js MAT)
