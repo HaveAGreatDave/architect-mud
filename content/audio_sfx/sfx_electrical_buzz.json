@@ -1,25 +1,155 @@
 {
   "category": "environment",
   "config": {
-    "adsr": {
-      "a": 0.001,
-      "d": 0.12,
-      "r": 0.05,
-      "s": 0.2
-    },
-    "duration": 0.2,
-    "filter": {
-      "freq": 1000,
-      "q": 1,
-      "type": "bandpass"
-    },
-    "freq": 180,
-    "noiseMix": 0.4,
-    "tremolo": {
-      "depth": 0.5,
-      "rate": 50
-    },
-    "waveform": "sawtooth"
+    "duration": 0.18,
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.15,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 300,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "fm": {
+          "index": 6,
+          "indexEnd": 2.4000000000000004,
+          "ratio": 2.37,
+          "time": 0.15
+        },
+        "freq": 600,
+        "gain": 0.02,
+        "mods": [
+          {
+            "id": "th",
+            "rate": 140,
+            "seed": 467238,
+            "to": [
+              {
+                "amount": 400,
+                "param": "pitch"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.28,
+          "r": 0.05,
+          "s": 0.8
+        },
+        "drive": 0.7,
+        "driveType": "soft",
+        "filter": {
+          "freq": 2500,
+          "q": 1.5,
+          "type": "bandpass"
+        },
+        "freq": 120,
+        "gain": 0.03002,
+        "mods": [
+          {
+            "id": "rf",
+            "rate": 90,
+            "seed": 467269,
+            "to": [
+              {
+                "amount": 0.36,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.28,
+          "r": 0.05,
+          "s": 0.8
+        },
+        "drive": 0.7,
+        "driveType": "soft",
+        "filter": {
+          "freq": 3750,
+          "q": 0.7,
+          "type": "lowpass"
+        },
+        "freq": 240,
+        "gain": 0.01051,
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.3,
+          "r": 0.06,
+          "s": 0
+        },
+        "filter": {
+          "freq": 4000,
+          "q": 0.9,
+          "type": "bandpass"
+        },
+        "gain": 0.018,
+        "mods": [
+          {
+            "density": 0.35,
+            "id": "cr",
+            "rate": 140,
+            "seed": 467331,
+            "to": [
+              {
+                "amount": 1,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "white",
+        "noiseMix": 1,
+        "noiseSeed": 490994,
+        "waveform": "noise",
+        "width": 0.7
+      },
+      {
+        "adsr": {
+          "a": 0.0003,
+          "curve": "exp",
+          "d": 0.004,
+          "r": 0.004,
+          "s": 0
+        },
+        "filter": {
+          "freq": 3000,
+          "q": 1.2,
+          "type": "bandpass"
+        },
+        "gain": 0.03502,
+        "noiseMix": 1,
+        "noiseSeed": 498913,
+        "waveform": "noise"
+      }
+    ],
+    "vary": {
+      "filter": 100,
+      "gain": 1,
+      "pitch": 40,
+      "time": 0.06
+    }
   },
   "enabled": 1,
   "id": "sfx_electrical_buzz",

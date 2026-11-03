@@ -1,41 +1,164 @@
 {
   "category": "combat",
   "config": {
+    "duration": 0.05,
     "layers": [
       {
         "adsr": {
-          "a": 0.001,
-          "d": 0.05,
-          "r": 0.03,
+          "a": 0.033,
+          "curve": "exp",
+          "d": 0.027,
+          "r": 0.04,
           "s": 0
         },
-        "duration": 0.08,
         "filter": {
-          "freq": 3000,
-          "q": 1.5,
-          "type": "highpass"
+          "freq": 700,
+          "q": 1.4,
+          "type": "bandpass"
         },
+        "gain": 0.1566,
+        "mods": [
+          {
+            "a": 0.041999999999999996,
+            "d": 0.018,
+            "id": "sw",
+            "r": 0.05,
+            "s": 1,
+            "to": [
+              {
+                "amount": 1635,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "noise": "pink",
         "noiseMix": 1,
+        "noiseSeed": 459891,
         "waveform": "noise"
       },
       {
         "adsr": {
-          "a": 0.001,
-          "d": 0.06,
-          "r": 0.04,
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.065,
+          "r": 0.0325,
           "s": 0
         },
-        "duration": 0.1,
+        "delay": 0.05,
+        "drive": 0.6,
+        "driveType": "soft",
         "filter": {
-          "freq": 800,
-          "q": 1,
-          "type": "lowpass"
+          "freq": 1100,
+          "q": 1.2,
+          "type": "bandpass"
         },
-        "freq": 120,
-        "gain": 0.6,
-        "waveform": "triangle"
+        "gain": 0.731,
+        "noise": "white",
+        "noiseMix": 1,
+        "noiseSeed": 467810,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.02,
+          "r": 0.01,
+          "s": 0
+        },
+        "delay": 0.05,
+        "filter": {
+          "freq": 3200,
+          "q": 1,
+          "type": "bandpass"
+        },
+        "gain": 0.3133,
+        "noise": "white",
+        "noiseMix": 1,
+        "noiseSeed": 475729,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.003,
+          "curve": "exp",
+          "d": 0.1,
+          "r": 0.05,
+          "s": 0
+        },
+        "delay": 0.055,
+        "filter": {
+          "freq": 520,
+          "q": 4,
+          "type": "bandpass"
+        },
+        "gain": 0.47,
+        "mods": [
+          {
+            "a": 0.002,
+            "d": 0.08,
+            "id": "sq",
+            "r": 0.04,
+            "s": 0,
+            "to": [
+              {
+                "amount": -900,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "noiseMix": 1,
+        "noiseSeed": 483648,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 0.09,
+          "r": 0.045,
+          "s": 0
+        },
+        "delay": 0.05,
+        "freq": 240,
+        "gain": 0.3133,
+        "pitchBend": {
+          "time": 0.02,
+          "to": 120
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.05,
+          "r": 0.025,
+          "s": 0
+        },
+        "delay": 0.2,
+        "filter": {
+          "freq": 700,
+          "q": 2,
+          "type": "bandpass"
+        },
+        "gain": 0.1566,
+        "noise": "white",
+        "noiseMix": 1,
+        "noiseSeed": 499486,
+        "waveform": "noise"
       }
-    ]
+    ],
+    "vary": {
+      "filter": 150,
+      "gain": 1.5,
+      "pitch": 70,
+      "time": 0.08
+    }
   },
   "enabled": 1,
   "id": "sfx_combat_stab",

@@ -1,25 +1,116 @@
 {
   "category": "ui",
   "config": {
-    "adsr": {
-      "a": 0.001,
-      "d": 0.08,
-      "r": 0.05,
-      "s": 0.3
-    },
-    "duration": 0.12,
-    "filter": {
-      "freq": 2600,
-      "q": 0.7,
-      "type": "lowpass"
-    },
-    "freq": 660,
-    "gain": 0.5,
-    "pitchBend": {
-      "time": 0.08,
-      "to": 440
-    },
-    "waveform": "triangle"
+    "duration": 0.05,
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.06,
+          "r": 0.036,
+          "s": 0
+        },
+        "fm": {
+          "index": 0.4,
+          "indexEnd": 0.04000000000000001,
+          "ratio": 3.5,
+          "time": 0.06
+        },
+        "freq": 1175,
+        "gain": 0.4045,
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.036,
+          "r": 0.018,
+          "s": 0
+        },
+        "freq": 2350,
+        "gain": 0.07281,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0003,
+          "curve": "exp",
+          "d": 0.003,
+          "r": 0.003,
+          "s": 0
+        },
+        "filter": {
+          "freq": 3525,
+          "q": 1.5,
+          "type": "bandpass"
+        },
+        "gain": 0.06067,
+        "noiseMix": 1,
+        "noiseSeed": 305125,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.09,
+          "r": 0.054,
+          "s": 0
+        },
+        "delay": 0.065,
+        "fm": {
+          "index": 0.3,
+          "indexEnd": 0.03,
+          "ratio": 3.5,
+          "time": 0.09
+        },
+        "freq": 880,
+        "gain": 0.4045,
+        "pitchBend": {
+          "time": 0.045,
+          "to": 840
+        },
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.054,
+          "r": 0.027,
+          "s": 0
+        },
+        "delay": 0.065,
+        "freq": 1680,
+        "gain": 0.07281,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0003,
+          "curve": "exp",
+          "d": 0.003,
+          "r": 0.003,
+          "s": 0
+        },
+        "delay": 0.065,
+        "filter": {
+          "freq": 2640,
+          "q": 1.5,
+          "type": "bandpass"
+        },
+        "gain": 0.02022,
+        "noiseMix": 1,
+        "noiseSeed": 328882,
+        "waveform": "noise"
+      }
+    ],
+    "vary": {
+      "gain": 0.8,
+      "pitch": 18
+    }
   },
   "enabled": 1,
   "id": "sfx_ui_cancel",

@@ -1,0 +1,52 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.25,
+          "r": 0.1,
+          "s": 0
+        },
+        "filter": {
+          "freq": 7000,
+          "q": 0.6,
+          "type": "highpass"
+        },
+        "gain": 0.1778,
+        "noiseMix": 1,
+        "noiseSeed": 43,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.2,
+          "r": 0.08,
+          "s": 0
+        },
+        "filter": {
+          "freq": 6000,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "fm": {
+          "index": 3,
+          "indexEnd": 1.8,
+          "ratio": 2.71,
+          "time": 0.2
+        },
+        "gain": 0.0445,
+        "waveform": "square"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_ohat",
+  "name": "Loops: Open hat",
+  "sample_id": null,
+  "waveform": "square"
+}

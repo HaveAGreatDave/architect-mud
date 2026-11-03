@@ -1,24 +1,209 @@
 {
   "category": "environment",
   "config": {
-    "adsr": {
-      "a": 0.1,
-      "d": 0.1,
-      "r": 0.2,
-      "s": 1
-    },
-    "filter": {
-      "freq": 900,
-      "q": 1,
-      "type": "lowpass"
-    },
-    "freq": 110,
-    "gain": 0.18,
-    "tremolo": {
-      "depth": 0.7,
-      "rate": 5
-    },
-    "waveform": "square"
+    "duration": 0.1,
+    "layers": [
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "filter": {
+          "freq": 700,
+          "q": 2,
+          "type": "lowpass"
+        },
+        "freq": 73,
+        "gain": 0.144,
+        "vibrato": {
+          "depth": 10,
+          "rate": 11
+        },
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "filter": {
+          "freq": 600,
+          "q": 1.5,
+          "type": "bandpass"
+        },
+        "gain": 0.2001,
+        "mods": [
+          {
+            "glide": true,
+            "id": "pr",
+            "rate": 2.4,
+            "steps": [
+              1,
+              0.2,
+              -0.6,
+              -1,
+              -1,
+              -1,
+              -0.4,
+              0.4
+            ],
+            "to": [
+              {
+                "amount": 0.9,
+                "param": "amp"
+              },
+              {
+                "amount": 900,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "seq"
+          }
+        ],
+        "noise": "pink",
+        "noiseMix": 1,
+        "noiseSeed": 856231,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 1.2,
+          "d": 0.2,
+          "r": 1.2,
+          "s": 1
+        },
+        "filter": {
+          "freq": 180,
+          "q": 0.7,
+          "type": "lowpass"
+        },
+        "gain": 0.16,
+        "mods": [
+          {
+            "id": "mv",
+            "rate": 0.2,
+            "seed": 848375,
+            "smooth": true,
+            "to": [
+              {
+                "amount": 100,
+                "param": "filter.cutoff"
+              },
+              {
+                "amount": 0.1,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "brown",
+        "noiseMix": 1,
+        "noiseSeed": 864150,
+        "waveform": "noise",
+        "width": 0.8
+      }
+    ],
+    "sparkle": [
+      {
+        "duration": 0.6,
+        "everyMax": 7,
+        "everyMin": 2,
+        "gain": 0.5,
+        "jitter": 0.25,
+        "layers": [
+          {
+            "gain": 0.3,
+            "modes": {
+              "hardness": 0.9,
+              "partials": [
+                {
+                  "decay": 0.4781,
+                  "freq": 420,
+                  "gain": 1
+                },
+                {
+                  "decay": 0.4147,
+                  "freq": 667.8,
+                  "gain": 0.7
+                },
+                {
+                  "decay": 0.3731,
+                  "freq": 898.8,
+                  "gain": 0.49
+                },
+                {
+                  "decay": 0.363,
+                  "freq": 966,
+                  "gain": 0.343
+                },
+                {
+                  "decay": 0.3434,
+                  "freq": 1113,
+                  "gain": 0.2401
+                },
+                {
+                  "decay": 0.3302,
+                  "freq": 1226.4,
+                  "gain": 0.1681
+                },
+                {
+                  "decay": 0.3196,
+                  "freq": 1327.2,
+                  "gain": 0.1176
+                },
+                {
+                  "decay": 0.3061,
+                  "freq": 1470,
+                  "gain": 0.0824
+                }
+              ],
+              "strike": 0.3
+            },
+            "waveform": "sine"
+          },
+          {
+            "adsr": {
+              "a": 0.0005,
+              "curve": "exp",
+              "d": 0.06,
+              "r": 0.03,
+              "s": 0
+            },
+            "freq": 320,
+            "gain": 0.21,
+            "pitchBend": {
+              "time": 0.012,
+              "to": 200
+            },
+            "waveform": "triangle"
+          },
+          {
+            "adsr": {
+              "a": 0.0004,
+              "curve": "exp",
+              "d": 0.036,
+              "r": 0.018,
+              "s": 0
+            },
+            "filter": {
+              "freq": 440.00000000000006,
+              "q": 1.8,
+              "type": "bandpass"
+            },
+            "gain": 0.15,
+            "noiseMix": 1,
+            "noiseSeed": 1532946962,
+            "waveform": "noise"
+          }
+        ],
+        "prob": 1
+      }
+    ]
   },
   "enabled": 1,
   "id": "amb_machinery",

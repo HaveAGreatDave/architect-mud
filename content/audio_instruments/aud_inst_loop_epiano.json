@@ -1,0 +1,59 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 1.9,
+          "r": 0.5,
+          "s": 0
+        },
+        "fm": {
+          "bright": 1.2,
+          "index": 1.1,
+          "indexEnd": 0.04,
+          "ratio": 14,
+          "time": 0.4
+        },
+        "gain": 0.071,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.004,
+          "curve": "exp",
+          "d": 2.4,
+          "r": 0.6,
+          "s": 0.15
+        },
+        "fm": {
+          "index": 0.35,
+          "indexEnd": 0.08,
+          "ratio": 2,
+          "time": 0.6
+        },
+        "gain": 0.0603,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 0.5,
+          "r": 0.3,
+          "s": 0
+        },
+        "gain": 0.0106,
+        "tune": 12,
+        "waveform": "triangle"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_epiano",
+  "name": "Loops: FM electric piano",
+  "sample_id": null,
+  "waveform": "sine"
+}

@@ -1,24 +1,164 @@
 {
   "category": "environment",
   "config": {
-    "adsr": {
-      "a": 0.5,
-      "d": 0.1,
-      "r": 0.6,
-      "s": 1
-    },
-    "filter": {
-      "freq": 250,
-      "q": 1,
-      "type": "lowpass"
-    },
-    "gain": 0.3,
-    "noiseMix": 1,
-    "tremolo": {
-      "depth": 0.3,
-      "rate": 1.2
-    },
-    "waveform": "noise"
+    "duration": 0.1,
+    "layers": [
+      {
+        "adsr": {
+          "a": 1.2,
+          "d": 0.2,
+          "r": 1.2,
+          "s": 1
+        },
+        "filter": {
+          "freq": 220,
+          "q": 0.7,
+          "type": "lowpass"
+        },
+        "gain": 0.1934,
+        "mods": [
+          {
+            "id": "mv",
+            "rate": 0.15,
+            "seed": 357330,
+            "smooth": true,
+            "to": [
+              {
+                "amount": 200,
+                "param": "filter.cutoff"
+              },
+              {
+                "amount": 0.3,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "brown",
+        "noiseMix": 1,
+        "noiseSeed": 357329,
+        "waveform": "noise",
+        "width": 0.8
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "filter": {
+          "freq": 750,
+          "q": 1.4,
+          "type": "bandpass"
+        },
+        "gain": 0.2176,
+        "mods": [
+          {
+            "id": "jt",
+            "rate": 6,
+            "steps": [
+              1,
+              -0.7,
+              0.8,
+              -1,
+              -1,
+              -1,
+              -1,
+              -1
+            ],
+            "to": [
+              {
+                "amount": 0.9,
+                "param": "amp"
+              }
+            ],
+            "type": "seq"
+          }
+        ],
+        "noise": "pink",
+        "noiseMix": 1,
+        "noiseSeed": 365248,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 1.2,
+          "d": 0.2,
+          "r": 1.2,
+          "s": 1
+        },
+        "filter": {
+          "freq": 3100,
+          "q": 14,
+          "type": "bandpass"
+        },
+        "gain": 0.04351,
+        "mods": [
+          {
+            "id": "mv",
+            "rate": 0.08,
+            "seed": 357392,
+            "smooth": true,
+            "to": [
+              {
+                "amount": 300,
+                "param": "filter.cutoff"
+              },
+              {
+                "amount": 0.95,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "white",
+        "noiseMix": 1,
+        "noiseSeed": 373167,
+        "waveform": "noise",
+        "width": 0.8
+      },
+      {
+        "adsr": {
+          "a": 1.2,
+          "d": 0.2,
+          "r": 1.2,
+          "s": 1
+        },
+        "filter": {
+          "freq": 1400,
+          "q": 0.8,
+          "type": "bandpass"
+        },
+        "gain": 0.05801,
+        "mods": [
+          {
+            "id": "mv",
+            "rate": 0.2,
+            "seed": 357423,
+            "smooth": true,
+            "to": [
+              {
+                "amount": 300,
+                "param": "filter.cutoff"
+              },
+              {
+                "amount": 0.3,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "pink",
+        "noiseMix": 1,
+        "noiseSeed": 381086,
+        "waveform": "noise",
+        "width": 0.8
+      }
+    ]
   },
   "enabled": 1,
   "id": "amb_subway",

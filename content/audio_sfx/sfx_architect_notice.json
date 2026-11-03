@@ -1,25 +1,187 @@
 {
   "category": "cyberpunk",
   "config": {
-    "adsr": {
-      "a": 0.1,
-      "d": 0.3,
-      "r": 0.6,
-      "s": 0.8
-    },
-    "duration": 1.2,
-    "filter": {
-      "freq": 500,
-      "q": 2,
-      "type": "lowpass"
-    },
-    "freq": 70,
-    "gain": 0.7,
-    "vibrato": {
-      "depth": 12,
-      "rate": 1.5
-    },
-    "waveform": "sine"
+    "duration": 0.9,
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.24750000000000003,
+          "curve": "exp",
+          "d": 0.2025,
+          "r": 0.04,
+          "s": 0
+        },
+        "filter": {
+          "freq": 200,
+          "q": 0.9,
+          "type": "bandpass"
+        },
+        "gain": 0.1511,
+        "mods": [
+          {
+            "a": 0.315,
+            "d": 0.135,
+            "id": "sw",
+            "r": 0.05,
+            "s": 1,
+            "to": [
+              {
+                "amount": 4302,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "noise": "pink",
+        "noiseMix": 1,
+        "noiseSeed": 437931,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.4,
+          "curve": "exp",
+          "d": 1.4,
+          "r": 0.5,
+          "s": 0
+        },
+        "filter": {
+          "freq": 500,
+          "q": 2,
+          "type": "lowpass"
+        },
+        "freq": 110,
+        "gain": 0.1007,
+        "mods": [
+          {
+            "a": 0.45,
+            "d": 1.2,
+            "id": "op",
+            "r": 0.4,
+            "s": 0,
+            "to": [
+              {
+                "amount": 2400,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.0006,
+          "curve": "exp",
+          "d": 1.6,
+          "r": 0.8,
+          "s": 0
+        },
+        "delay": 0.45,
+        "fm": {
+          "index": 3,
+          "indexEnd": 0.3,
+          "ratio": 1.41,
+          "time": 0.96
+        },
+        "freq": 220,
+        "gain": 0.2518,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0006,
+          "curve": "exp",
+          "d": 1.4,
+          "r": 0.7,
+          "s": 0
+        },
+        "delay": 0.45,
+        "fm": {
+          "index": 2.5,
+          "indexEnd": 0.3,
+          "ratio": 1.41,
+          "time": 0.84
+        },
+        "freq": 311.1,
+        "gain": 0.1846,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0006,
+          "curve": "exp",
+          "d": 1,
+          "r": 0.5,
+          "s": 0
+        },
+        "delay": 0.45,
+        "fm": {
+          "index": 1.5,
+          "indexEnd": 0.1,
+          "ratio": 3.5,
+          "time": 0.6
+        },
+        "freq": 880,
+        "gain": 0.1007,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 1.4,
+          "r": 0.7,
+          "s": 0
+        },
+        "delay": 0.45,
+        "freq": 66,
+        "gain": 0.2938,
+        "pitchBend": {
+          "time": 0.06,
+          "to": 55
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.15,
+          "r": 0.075,
+          "s": 0
+        },
+        "delay": 0.45,
+        "freq": 224,
+        "gain": 0.1763,
+        "pitchBend": {
+          "time": 0.012,
+          "to": 140
+        },
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.0004,
+          "curve": "exp",
+          "d": 0.09,
+          "r": 0.045,
+          "s": 0
+        },
+        "delay": 0.45,
+        "filter": {
+          "freq": 308,
+          "q": 1.8,
+          "type": "bandpass"
+        },
+        "gain": 0.1259,
+        "noiseMix": 1,
+        "noiseSeed": 493364,
+        "waveform": "noise"
+      }
+    ]
   },
   "enabled": 1,
   "id": "sfx_architect_notice",

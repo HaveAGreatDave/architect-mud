@@ -1,0 +1,69 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.012,
+          "r": 0.01,
+          "s": 0
+        },
+        "delay": 0,
+        "filter": {
+          "freq": 1300,
+          "q": 1.2,
+          "type": "bandpass"
+        },
+        "gain": 0.7806,
+        "noiseMix": 1,
+        "noiseSeed": 61,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.012,
+          "r": 0.01,
+          "s": 0
+        },
+        "delay": 0.011,
+        "filter": {
+          "freq": 1300,
+          "q": 1.2,
+          "type": "bandpass"
+        },
+        "gain": 0.7806,
+        "noiseMix": 1,
+        "noiseSeed": 67,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.14,
+          "r": 0.06,
+          "s": 0
+        },
+        "delay": 0.022,
+        "filter": {
+          "freq": 1200,
+          "q": 1,
+          "type": "bandpass"
+        },
+        "gain": 0.9225,
+        "noiseMix": 1,
+        "noiseSeed": 71,
+        "waveform": "noise"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_clap",
+  "name": "Loops: Clap",
+  "sample_id": null,
+  "waveform": "square"
+}

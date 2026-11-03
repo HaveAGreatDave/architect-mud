@@ -35,6 +35,7 @@
   }
 
   let ctx = null;
+  let _rendering = 0;   // > 0 while renderSfx or renderSong builds into an offline context
   let masterGain, musicGain, sfxGain, ambientGain, tvGain, uiGain;
   let _noiseBuffer = null;
   let _settings = { enabled: true, music: true, sfx: true, tv: true, masterVolume: 0.40, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.3, tvVolume: 0.6, muteWhenHidden: true };
@@ -814,7 +815,7 @@
   }
   // P maps a target name to a list of [AudioParam, scale]; each cable's gain is amount * scale.
   // `span` is how long the note can last, for the random and sequenced steps. Returns release hooks.
-  function buildMods(mods, P, time, span, nodes, layer) {
+  function buildMods(mods, P, time, span, nodes, layer, held = false) {
     const { byId, patches } = modPatches(mods);
     const out = new Map();      // id -> the source's depth gain, which every cable leaves from
     const releases = [];
@@ -836,24 +837,39 @@
           else o.linearRampToValueAtTime(s, time + a + d);
           const r = Math.max(0.005, m.r ?? 0.2);
           releases.push((t) => { o.cancelScheduledValues(t); o.setTargetAtTime(0, t, r / 3); });
-        } else if (m.type === 'seq') {
-          const steps = (Array.isArray(m.steps) && m.steps.length ? m.steps.slice(0, 64) : [0])
-            .map(v => Math.max(-1, Math.min(1, Number(v) || 0)));
-          const rate = Math.max(0.05, Math.min(200, Number.isFinite(m.rate) ? m.rate : 8));
-          const n = Math.min(4000, Math.ceil(span * rate) + 1);
-          o.setValueAtTime(steps[0], time);
-          for (let i = 1; i < n; i++) {
-            const v = steps[i % steps.length], t = time + i / rate;
-            if (m.glide) o.linearRampToValueAtTime(v, t); else o.setValueAtTime(v, t);
-          }
-        } else {
-          const rate = Math.max(0.05, Math.min(200, Number.isFinite(m.rate) ? m.rate : 4));
-          const rnd = modRandom(m.seed);
-          const steps = Math.min(4000, Math.ceil(span * rate) + 1);
-          o.setValueAtTime(rnd() * 2 - 1, time);
-          for (let i = 1; i < steps; i++) {
-            const v = rnd() * 2 - 1, t = time + i / rate;
-            if (m.smooth) o.linearRampToValueAtTime(v, t); else o.setValueAtTime(v, t);
+        } else if (m.type === 'seq' || m.type === 'rand') {
+          // Steps are scheduled `span` seconds ahead. A held cue (an ambient bed: no hold
+          // given) runs as long as it's wanted, so it schedules the next stretch while the one
+          // before is still playing, until it's released. Before this a bed's random and
+          // sequenced mods froze 30 s in.
+          const seq = m.type === 'seq';
+          const steps = seq ? (Array.isArray(m.steps) && m.steps.length ? m.steps.slice(0, 64) : [0])
+            .map(v => Math.max(-1, Math.min(1, Number(v) || 0))) : null;
+          const rate = Math.max(0.05, Math.min(200, Number.isFinite(m.rate) ? m.rate : (seq ? 8 : 4)));
+          const rnd = seq ? null : modRandom(m.seed);
+          // `density` (rand only): each step is +1 with that chance and -1 otherwise, so an `amp`
+          // cable gates the layer into sparse bursts: crackle, static, a Geiger counter.
+          const dens = !seq && Number.isFinite(m.density) ? Math.max(0, Math.min(1, m.density)) : null;
+          const next = (i) => (seq ? steps[i % steps.length] : dens != null ? (rnd() < dens ? 1 : -1) : rnd() * 2 - 1);
+          const glide = seq ? m.glide : (m.smooth && dens == null);
+          let i = 0;
+          const schedule = (until) => {
+            const end = Math.min(i + 4000, Math.ceil((until - time) * rate) + 1);
+            for (; i < end; i++) {
+              const v = next(i), t = time + i / rate;
+              if (i === 0) o.setValueAtTime(v, t);
+              else if (glide) o.linearRampToValueAtTime(v, t); else o.setValueAtTime(v, t);
+            }
+          };
+          schedule(time + span);
+          // (never offline: a render is as long as it is, and a timer would hold Node open)
+          if (held && !_rendering && typeof setInterval === 'function') {
+            const c = ctx;
+            const timer = setInterval(() => schedule(c.currentTime + span), (span / 3) * 1000);
+            timer.unref?.();
+            const stop = () => clearInterval(timer);
+            releases.push(stop);
+            src.addEventListener?.('ended', stop);   // stopped without a release (a stolen voice)
           }
         }
       }
@@ -1402,7 +1418,7 @@
     const span = holdSeconds != null
       ? (layer.adsr?.a ?? 0.01) + (layer.adsr?.d ?? 0.05) + holdSeconds + (layer.adsr?.r ?? 0.15)
       : 30;
-    const modReleases = mods ? buildMods(mods, P, time, span, nodes, layer) : null;
+    const modReleases = mods ? buildMods(mods, P, time, span, nodes, layer, holdSeconds == null) : null;
 
     // `curve: 'exp'`: exponential decay/release with τ = d/3; same timing as linear.
     const peak = layer.gain ?? 1;
@@ -1459,6 +1475,42 @@
     }
 
     return { release, gainNode: gain };
+  }
+
+  // Per-play variation (`config.vary`), so a cue that fires again and again isn't the same
+  // samples every time: `{ pitch, time, filter, gain }`, each the most it may move either way,
+  // in cents, a fraction of its timing, cents, and dB. Pitch moves every frequency a layer has
+  // (the note, a bend's target, an absolute-rate modulator, a ring oscillator, a struck object's
+  // partials, the sub through the note); a ratio follows the note by itself. Filter moves the
+  // biquad and the formants. Time scales the envelope, the layer delays and the hold, so a
+  // lower, slower hit is one draw rather than two that disagree. Returns a new config and the
+  // gain factor; without `vary` it returns the config untouched. see docs/amp-format.md#vary
+  function varyConfig(config, rnd = Math.random) {
+    const v = config && config.vary;
+    if (!v) return { config, gain: 1 };
+    const span = (x) => (Number(x) > 0 ? (rnd() * 2 - 1) * Number(x) : 0);
+    const p = Math.pow(2, span(v.pitch) / 1200), f = Math.pow(2, span(v.filter) / 1200);
+    const t = 1 + Math.max(-0.5, Math.min(0.5, span(v.time)));
+    const gain = Math.pow(10, span(v.gain) / 20);
+    const hz = (x) => (Number.isFinite(x) ? x * p : x);
+    const op = (o) => (o ? { ...o, ...(o.rate ? { rate: hz(o.rate) } : {}), ...(o.rateTo ? { rateTo: hz(o.rateTo) } : {}), ...(o.op2 ? { op2: op(o.op2) } : {}) } : o);
+    const one = (l) => {
+      const o = { ...l };
+      if (o.freq) o.freq = hz(o.freq);
+      if (o.pitchBend?.to) o.pitchBend = { ...o.pitchBend, to: hz(o.pitchBend.to), time: (o.pitchBend.time ?? 0.2) * t };
+      if (o.fm) o.fm = op(o.fm);
+      if (o.ring?.freq) o.ring = { ...o.ring, freq: hz(o.ring.freq) };
+      if (o.modes?.partials) o.modes = { ...o.modes, partials: o.modes.partials.map((q) => ({ ...q, freq: hz(q.freq), decay: q.decay * t })) };
+      if (o.filter?.freq) o.filter = { ...o.filter, freq: o.filter.freq * f };
+      if (Array.isArray(o.formants)) o.formants = o.formants.map((q) => (typeof q === 'number' ? q * f : { ...q, freq: q.freq * f }));
+      if (o.adsr) o.adsr = { ...o.adsr, a: (o.adsr.a ?? 0.01) * t, d: (o.adsr.d ?? 0.05) * t, r: (o.adsr.r ?? 0.15) * t };
+      if (o.delay) o.delay *= t;
+      return o;
+    };
+    const out = Array.isArray(config.layers) && config.layers.length ? { ...config, layers: config.layers.map(one) } : one(config);
+    if (config.duration != null) out.duration = config.duration * t;
+    delete out.vary;
+    return { config: out, gain };
   }
 
   function buildSound(config, destination, time, holdSeconds) {
@@ -1873,6 +1925,8 @@
   function playSfx(def, gainMultiplier = 1, opts = {}) {
     const c = init();
     if (!c || !def?.config) return null;
+    // a fresh draw of the cue's `vary` on every play (none without it)
+    if (def.config.vary) { const v = varyConfig(def.config); def = { ...def, config: v.config }; gainMultiplier *= v.gain; }
     if (def.category !== 'ui') _lastSfxAt = performance.now();
     const priority = def.priority ?? 5;
     const idx = allocateVoice(priority);
@@ -1968,8 +2022,13 @@
     const layers = Array.isArray(config.layers) && config.layers.length ? config.layers : [config];
     return Math.max(0.15, ...layers.map((l) => (l.delay ?? 0) + (l.adsr?.a ?? 0.01) + (l.adsr?.d ?? 0.05) + (l.adsr?.r ?? 0.15)));
   }
+  // `opts.vary`: a seed to render one draw of the cue's `vary`; without it the cue renders as
+  // authored, so a render is the same samples every time.
   async function renderSfx(def, opts = {}) {
     const OAC = global.OfflineAudioContext || global.webkitOfflineAudioContext;
+    let varied = null;
+    if (def && def.config && def.config.vary) varied = Number.isFinite(opts.vary) ? varyConfig(def.config, _rng(opts.vary)) : { config: { ...def.config, vary: undefined }, gain: 1 };
+    if (varied) { def = { ...def, config: varied.config }; if (varied.gain !== 1) opts = { ...opts, gain: (opts.gain ?? 1) * varied.gain }; }
     const config = def && def.config;
     if (!OAC || !config) return null;
     const sr = opts.sampleRate || (ctx && ctx.sampleRate) || 48000;
@@ -1978,13 +2037,13 @@
     const off = new OAC(1, Math.max(1, Math.ceil(sr * seconds)), sr);
     if (config.retro) await loadRetro(off);
     const live = ctx;
-    ctx = off;
+    ctx = off; _rendering++;
     try {
       let dest = off.destination;
       if (opts.gain != null && opts.gain !== 1) { const g = off.createGain(); g.gain.value = opts.gain; g.connect(dest); dest = g; }
       const into = config.retro ? retroStage(off, config.retro, config, dest, seconds) : dest;
       buildSound(config, into, 0, duration);
-    } finally { ctx = live; }
+    } finally { ctx = live; _rendering--; }
     return off.startRendering();
   }
   // 16-bit mono WAV bytes from a rendered buffer, for a download link.
@@ -2237,6 +2296,16 @@
     });
     // Monophonic per channel: a new note cuts the ringing one.
     const channelVoice = channels.map(() => null);
+    // Groove. `swing` (0.5 straight .. 0.75) is the share of each eighth the first sixteenth
+    // takes, the MPC/Logic convention, so every off-beat sixteenth lands (swing - 0.5) * 2 rows
+    // late. A step's `nudge` (-0.25 .. 0.5 rows) moves that one note further: a laid-back
+    // snare, a pushed bass. Neither moves the grid, the loop or `len`'s release.
+    const swing = Math.max(0.5, Math.min(0.75, Number(def.swing) || 0.5));
+    function stepOffset(stepIdx, step) {
+      let rows = stepIdx % 2 === 1 ? (swing - 0.5) * 2 : 0;
+      if (Number.isFinite(step.nudge)) rows += Math.max(-0.25, Math.min(0.5, step.nudge));
+      return rows ? rows * stepSeconds : 0;
+    }
 
     let currentStep = loopStart;
     let nextStepTime = c.currentTime;
@@ -2244,10 +2313,12 @@
     let stopped = false;
     let onLoopWrap = null;
 
-    function scheduleStep(stepIdx, time) {
+    function scheduleStep(stepIdx, rowTime) {
       channels.forEach((ch, chIdx) => {
         const step = ch[stepIdx % ch.length];
         if (!step) return;
+        // swing and nudge move the note off the grid; the grid itself keeps time
+        const time = Math.max(0, rowTime + stepOffset(stepIdx, step));
         const hasNote = step.note != null;
         const fx = step.fx;
         if (!hasNote && !fx) return;
@@ -2311,7 +2382,7 @@
         setTimeout(() => freeVoice(idx, voiceToken), ms);
       });
       if (def.onStep && !offline) {
-        const delay = Math.max(0, (time - c.currentTime) * 1000);
+        const delay = Math.max(0, (rowTime - c.currentTime) * 1000);
         const active = channels.map(ch => !!(ch[stepIdx % ch.length]?.note));
         setTimeout(() => def.onStep(stepIdx, active), delay);
       }
@@ -2426,12 +2497,12 @@
     const seconds = Math.max(0, loopEnd - loopStart + 1) * stepSeconds + (opts.tail ?? SONG_TAIL);
     const off = new OAC(opts.stereo ? 2 : 1, Math.max(1, Math.ceil(sr * seconds)), sr);
     const live = ctx;
-    ctx = off;
+    ctx = off; _rendering++;
     try {
       let dest = off.destination;
       if (opts.gain != null && opts.gain !== 1) { const g = off.createGain(); g.gain.value = opts.gain; g.connect(dest); dest = g; }
       makeSongPlayer(def, dest, { offline: true }).renderAll();
-    } finally { ctx = live; }
+    } finally { ctx = live; _rendering--; }
     return off.startRendering();
   }
 
@@ -4802,7 +4873,7 @@ return out;
   global.AudioEngine = {
     init, onUnlock, applyVolumeSettings, setMonoAudio,
     playSfx, lastSfxAt, playSample, clearSampleCache,
-    renderSfx, renderSong, wavBytes,
+    renderSfx, renderSong, wavBytes, varyConfig,
     MOD_TARGETS,
     // the drive/fold curves, for the Rack's displays
     shaperCurve: (kind, amount, type) => (kind === 'fold' ? foldCurve(amount) : driveCurveOf(amount, type)),

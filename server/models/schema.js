@@ -2129,6 +2129,11 @@ export const SCHEMA_SQL = `
   -- Set by the .MOD importer (Amiga L-R-R-L); hand-authored songs leave it empty.
   ALTER TABLE audio_songs ADD COLUMN IF NOT EXISTS channel_pan JSONB DEFAULT '[]';
 
+  -- Swing (0.5 straight .. 0.75): the share of each eighth the first sixteenth takes, so the
+  -- off-beat sixteenths land late (docs/amp-format.md#groove). NULL is straight, and a file
+  -- without the key reads NULL (registry omitWhenNull). A step's own nudge lives in channels.
+  ALTER TABLE audio_songs ADD COLUMN IF NOT EXISTS swing REAL;
+
   -- config is a self-contained synth recipe (oscillator/noise layers + envelope
   -- + pitch curve) — a one-shot sound effect, independent of audio_instruments.
   CREATE TABLE IF NOT EXISTS audio_sfx (

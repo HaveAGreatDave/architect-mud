@@ -1,0 +1,58 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.35,
+          "r": 0.08,
+          "s": 0
+        },
+        "gain": 0.3366,
+        "mods": [
+          {
+            "a": 0.001,
+            "curve": "exp",
+            "d": 0.18,
+            "id": "dr",
+            "r": 0.05,
+            "s": 0,
+            "to": [
+              {
+                "amount": 900,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.04,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 900,
+          "q": 0.8,
+          "type": "bandpass"
+        },
+        "gain": 0.0421,
+        "noiseMix": 1,
+        "noiseSeed": 79,
+        "waveform": "noise"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_tom",
+  "name": "Loops: Synth tom",
+  "sample_id": null,
+  "waveform": "sine"
+}

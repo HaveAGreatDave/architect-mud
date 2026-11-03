@@ -1,25 +1,333 @@
 {
   "category": "cyberpunk",
   "config": {
-    "adsr": {
-      "a": 0.01,
-      "d": 0.2,
-      "r": 0.15,
-      "s": 0.5
+    "duration": 0.3,
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.022789914269931613,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.0065,
+        "filter": {
+          "freq": 5332.562276172472,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 1333.1,
+        "gain": 0.2069,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.013320969214662911,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.0432,
+        "filter": {
+          "freq": 9000,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 2755.8,
+        "gain": 0.3385,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.024168862218037247,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.0708,
+        "filter": {
+          "freq": 2873.355969955174,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 718.3,
+        "gain": 0.3435,
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.019399057563394308,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.0915,
+        "filter": {
+          "freq": 6579.070314550703,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 1644.8,
+        "gain": 0.2178,
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.012617940648458899,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.1248,
+        "filter": {
+          "freq": 9000,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 2902.9,
+        "gain": 0.2999,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.024648632092401385,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.1558,
+        "filter": {
+          "freq": 6459.792211258395,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 1614.9,
+        "gain": 0.2758,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.021975001922808587,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.1874,
+        "filter": {
+          "freq": 9000,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 3227,
+        "gain": 0.3567,
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.019425321213901045,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.2076,
+        "filter": {
+          "freq": 5278.869254814087,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 1319.7,
+        "gain": 0.2736,
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.024795408334583043,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.2463,
+        "filter": {
+          "freq": 4879.262608470335,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 1219.8,
+        "gain": 0.3593,
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.02018119980301708,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.2666,
+        "filter": {
+          "freq": 9000,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 3538.7,
+        "gain": 0.2699,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.015456454667262733,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.2989,
+        "filter": {
+          "freq": 1514.0228972195862,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 378.5,
+        "gain": 0.3121,
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "d": 0.01644084077049047,
+          "r": 0.006,
+          "s": 0
+        },
+        "delay": 0.3336,
+        "filter": {
+          "freq": 2531.086879453593,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "freq": 632.8,
+        "gain": 0.331,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.18,
+          "r": 0.02,
+          "s": 0
+        },
+        "delay": 0.05,
+        "filter": {
+          "freq": 300,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "fm": {
+          "index": 6,
+          "indexEnd": 2.4000000000000004,
+          "ratio": 2.37,
+          "time": 0.18
+        },
+        "freq": 520,
+        "gain": 0.2551,
+        "mods": [
+          {
+            "id": "th",
+            "rate": 140,
+            "seed": 787639,
+            "to": [
+              {
+                "amount": 400,
+                "param": "pitch"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "pitchBend": {
+          "time": 0.18,
+          "to": 900
+        },
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.01,
+          "curve": "exp",
+          "d": 0.35,
+          "r": 0.08,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2500,
+          "q": 0.9,
+          "type": "bandpass"
+        },
+        "gain": 0.3827,
+        "mods": [
+          {
+            "density": 0.25,
+            "id": "cr",
+            "rate": 160,
+            "seed": 787670,
+            "to": [
+              {
+                "amount": 1,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "white",
+        "noiseMix": 1,
+        "noiseSeed": 890213,
+        "waveform": "noise",
+        "width": 0.7
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.05,
+          "r": 0.025,
+          "s": 0
+        },
+        "freq": 288,
+        "gain": 0.2976,
+        "pitchBend": {
+          "time": 0.012,
+          "to": 180
+        },
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.0004,
+          "curve": "exp",
+          "d": 0.03,
+          "r": 0.015,
+          "s": 0
+        },
+        "filter": {
+          "freq": 396.00000000000006,
+          "q": 1.8,
+          "type": "bandpass"
+        },
+        "gain": 0.2126,
+        "noiseMix": 1,
+        "noiseSeed": 906051,
+        "waveform": "noise"
+      }
+    ],
+    "retro": {
+      "bits": 7,
+      "rate": 11025
     },
-    "duration": 0.5,
-    "filter": {
-      "freq": 1800,
-      "q": 1.5,
-      "type": "bandpass"
-    },
-    "freq": 700,
-    "noiseMix": 0.4,
-    "tremolo": {
-      "depth": 0.7,
-      "rate": 18
-    },
-    "waveform": "square"
+    "vary": {
+      "gain": 1,
+      "pitch": 25,
+      "time": 0.04
+    }
   },
   "enabled": 1,
   "id": "sfx_hacking",

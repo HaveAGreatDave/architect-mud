@@ -100,7 +100,7 @@ export const REGISTRY = [
   // payload was work nobody could do anything about. Any future loader that reads
   // its table off the checkout instead of the DB belongs here too.
   { table: 'audio_samples', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files' },
-  { table: 'audio_songs', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files' },
+  { table: 'audio_songs', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files', omitWhenNull: ['swing'] },
   { table: 'audio_instruments', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files' },
   { table: 'audio_sfx', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files' },
   { table: 'audio_ambient', class: 'content', pk: ['id'], readTier: 'boot', bootSource: 'files' },

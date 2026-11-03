@@ -1,21 +1,93 @@
 {
   "category": "tv",
   "config": {
-    "adsr": {
-      "a": 0.5,
-      "d": 0.1,
-      "r": 0.5,
-      "s": 1
-    },
-    "filter": {
-      "freq": 400,
-      "q": 0.7,
-      "type": "lowpass"
-    },
-    "freq": 60,
-    "gain": 0.05,
-    "noiseMix": 0.15,
-    "waveform": "sine"
+    "duration": 0.1,
+    "layers": [
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "freq": 60,
+        "gain": 0.02714,
+        "vibrato": {
+          "depth": 1,
+          "rate": 0.3
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "filter": {
+          "freq": 500,
+          "q": 1.2,
+          "type": "lowpass"
+        },
+        "freq": 120,
+        "gain": 0.02326,
+        "vibrato": {
+          "depth": 1,
+          "rate": 0.37
+        },
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 1,
+          "d": 0.2,
+          "r": 1,
+          "s": 1
+        },
+        "freq": 7860,
+        "gain": 0.001034,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 1.2,
+          "d": 0.2,
+          "r": 1.2,
+          "s": 1
+        },
+        "filter": {
+          "freq": 2500,
+          "q": 0.8,
+          "type": "bandpass"
+        },
+        "gain": 0.01034,
+        "mods": [
+          {
+            "id": "mv",
+            "rate": 0.3,
+            "seed": 995261,
+            "smooth": true,
+            "to": [
+              {
+                "amount": 200,
+                "param": "filter.cutoff"
+              },
+              {
+                "amount": 0.1,
+                "param": "amp"
+              }
+            ],
+            "type": "rand"
+          }
+        ],
+        "noise": "pink",
+        "noiseMix": 1,
+        "noiseSeed": 1018924,
+        "waveform": "noise",
+        "width": 0.8
+      }
+    ]
   },
   "enabled": 1,
   "id": "amb_tv_hum",

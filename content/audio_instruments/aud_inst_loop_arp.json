@@ -1,0 +1,80 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.14,
+          "r": 0.06,
+          "s": 0
+        },
+        "detune": -5,
+        "filter": {
+          "freq": 900,
+          "q": 2.2,
+          "type": "lowpass"
+        },
+        "gain": 0.1995,
+        "mods": [
+          {
+            "a": 0.001,
+            "curve": "exp",
+            "d": 0.08,
+            "id": "op",
+            "r": 0.08,
+            "s": 0,
+            "to": [
+              {
+                "amount": 3200,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.12,
+          "r": 0.06,
+          "s": 0
+        },
+        "detune": 6,
+        "filter": {
+          "freq": 1400,
+          "q": 1,
+          "type": "lowpass"
+        },
+        "gain": 0.1197,
+        "mods": [
+          {
+            "a": 0.001,
+            "curve": "exp",
+            "d": 0.07,
+            "id": "op",
+            "r": 0.08,
+            "s": 0,
+            "to": [
+              {
+                "amount": 2400,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_arp",
+  "name": "Loops: Square arp",
+  "sample_id": null,
+  "waveform": "square"
+}

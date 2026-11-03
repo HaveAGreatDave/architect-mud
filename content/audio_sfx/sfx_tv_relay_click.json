@@ -1,30 +1,104 @@
 {
   "category": "tv",
   "config": {
-    "adsr": {
-      "a": 0.001,
-      "d": 0.02,
-      "r": 0.01,
-      "s": 0
-    },
-    "duration": 0.03,
-    "filter": {
-      "freq": 4000,
-      "q": 1,
-      "type": "lowpass"
-    },
-    "freq": 200,
-    "gain": 1,
-    "noiseMix": 0,
-    "tremolo": {
-      "depth": 0,
-      "rate": 0
-    },
-    "vibrato": {
-      "depth": 0,
-      "rate": 0
-    },
-    "waveform": "square"
+    "duration": 0.01,
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0003,
+          "curve": "exp",
+          "d": 0.004,
+          "r": 0.004,
+          "s": 0
+        },
+        "filter": {
+          "freq": 3500,
+          "q": 1.6,
+          "type": "bandpass"
+        },
+        "gain": 1.207,
+        "noiseMix": 1,
+        "noiseSeed": 216900,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0003,
+          "curve": "exp",
+          "d": 0.003,
+          "r": 0.003,
+          "s": 0
+        },
+        "delay": 0.007,
+        "filter": {
+          "freq": 4200,
+          "q": 2,
+          "type": "bandpass"
+        },
+        "gain": 0.6037,
+        "noiseMix": 1,
+        "noiseSeed": 224819,
+        "waveform": "noise"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.02,
+          "r": 0.01,
+          "s": 0
+        },
+        "freq": 832,
+        "gain": 0.4226,
+        "pitchBend": {
+          "time": 0.012,
+          "to": 520
+        },
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.0004,
+          "curve": "exp",
+          "d": 0.012,
+          "r": 0.01,
+          "s": 0
+        },
+        "filter": {
+          "freq": 1144,
+          "q": 1.8,
+          "type": "bandpass"
+        },
+        "gain": 0.3019,
+        "noiseMix": 1,
+        "noiseSeed": 240657,
+        "waveform": "noise"
+      },
+      {
+        "gain": 0.2415,
+        "modes": {
+          "hardness": 1,
+          "partials": [
+            {
+              "decay": 0.0205,
+              "freq": 4100,
+              "gain": 1
+            },
+            {
+              "decay": 0.0155,
+              "freq": 9512,
+              "gain": 0.7
+            }
+          ],
+          "strike": 0
+        },
+        "waveform": "sine"
+      }
+    ],
+    "vary": {
+      "gain": 0.5,
+      "pitch": 12
+    }
   },
   "enabled": 1,
   "id": "sfx_tv_relay_click",

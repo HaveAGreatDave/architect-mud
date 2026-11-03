@@ -1,0 +1,67 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.11,
+          "d": 0.1,
+          "r": 0.025,
+          "s": 0.9
+        },
+        "chorus": {
+          "delay": 0.016,
+          "depth": 0.4,
+          "mix": 0.5,
+          "rate": 0.5
+        },
+        "detune": -11,
+        "filter": {
+          "freq": 1900,
+          "q": 0.9,
+          "type": "lowpass"
+        },
+        "gain": 0.07,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.12,
+          "d": 0.1,
+          "r": 0.025,
+          "s": 0.9
+        },
+        "detune": 10,
+        "filter": {
+          "freq": 1700,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "gain": 0.07,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.12,
+          "d": 0.1,
+          "r": 0.025,
+          "s": 0.9
+        },
+        "detune": 2,
+        "filter": {
+          "freq": 2600,
+          "q": 0.7,
+          "type": "lowpass"
+        },
+        "gain": 0.025,
+        "tune": 12,
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_loop_pump",
+  "name": "Loops: Pumping pad",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}
