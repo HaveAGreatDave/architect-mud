@@ -2,14 +2,15 @@
 
 **Status: BUILT, but for seats in person.** Deadball's ballpark, on the map and on TV: 121 tiles in
 Halcyon Fields at true size, four gates, thirteen rooms, one vendor, one GLASS arm over 121 building
-types, a map icon, a retractable roof that shuts for the weather, and field lights every night. It's an
+types, a map icon, the Hughson Dome, whose six moving leaves open it and shut it for the weather, and field lights every night. It's an
 art deco park from the Meridian's decade, kept up, under a roof added long after. Five ballpark
 trades stand on the plots either side of it (§10). The buildings and the green it replaced, and the
 five Halcyon buildings the trades replaced, are set aside on a holding map, not deleted. Built
 2026-10-18 as Phase 6 of [deadball-glass2.md](deadball-glass2.md#phases), which called the park
 Halcyon Field, and rebuilt in deco with the roof the same day. On 2026-11-02 it went to true size,
-11 by 11 tiles, with the city grown west to the river round it ([coliseum-true-size.md](coliseum-true-size.md));
-this page describes it as it stands now.
+11 by 11 tiles, with the city grown west to the river round it ([coliseum-true-size.md](coliseum-true-size.md)),
+and on 2026-11-03 its three shells gave way to the Hughson Dome, on the map and on TV together. This
+page describes it as it stands now.
 
 The content is written by [scripts/content/hughson-coliseum.mjs](../../scripts/content/hughson-coliseum.mjs)
 and [scripts/content/hughson-parkside.mjs](../../scripts/content/hughson-parkside.mjs), and the models
@@ -179,9 +180,13 @@ gate, east for GATE C, west for GATE D).
 - ⚠ **A gate is wider than its tile.** The main and bleacher gates each span three tiles, so the
   tile a gate's middle is on draws all of it, its clip widened across the gate while the gate's
   section runs. GATE C and GATE D are a plain stepped frontispiece each, cut tile by tile.
-- ⚠ **The roof's shape starts at each facet.** Most of the field's tiles hold nothing but roof, so
-  each collision box runs from the facet's lowest point over the tile to its highest, and from the
-  spring only on a tile a shell ends on, where its end panel comes down to the rails (gl:mesh).
+- ⚠ **The dome's shape is boxes under its skin.** Under SHAPE_SINK the leaves' faces cut each tile
+  three by two, and each cell becomes one box from the lowest point of the dome over it to the
+  highest, so the shape's top and base are the mesh's (gl:mesh) and a tile holding nothing but dome
+  starts where the dome does. Two traps. The cells aren't square, because the kit rings any square
+  roofed box in coping (derived-kit.js `deck`), and on quarter tiles that drew a grid over the dome.
+  And the skin sits inside those boxes, so its faces carry `noAO` and the AO bake leaves them open
+  (gl/world.js `bakeFaceAO`); without it the dome baked dark in the same grid.
 
 - **The park is drawn in block coordinates**, u east and v south of the block's centre, in tiles,
   and each tile draws only what falls in its own square: flats are clipped to it, boxes are cut at
@@ -227,7 +232,7 @@ gate, east for GATE C, west for GATE D).
     carved as convex outlines lit as stone (`carve`), not boxes: a box wears its palette's block
     joints, and a figure built of them read as stacked masonry. The relief is 0.013 deep at most,
     because the tile ends 0.02 off the frontispiece.
-  - The roof: three shells, below.
+  - The roof: the Hughson Dome, below.
 - ⚠ **The name goes on twice, by request**: cut into the bowl wall on Sorrel Way and again on
   Halcyon Boulevard, an exception to one building, one name. Each face has a plain stone band
   under the frieze (`BAND`) on its longest clear run, from its gate to the far corner tower
@@ -240,26 +245,37 @@ gate, east for GATE C, west for GATE D).
   letters in the `deco` hand that cast their shadow onto the plate (`embossText`, exported from
   coliseum.js for the trades), and on the main gate a halo round the plate after dark and
   floodlights under it.
-- **The roof** is three segmental vaults across the bowl from rail to rail, each smaller and lower
-  than the one before so they nest: the first fixed over the bleachers, the other two riding the
-  rails' steps. Shut, they're one vault from Halcyon Boulevard to Sorrel Way; open, the two nest
-  under the first and the field and the grandstand have the sky. Each is metal panels lit as
-  `metal`, glazing down its crown, three bronze ribs, and two ends; the outer end of the first and
-  the last is a fan window, glass behind bronze rays, a bronze frame and a hub on the sill. The
-  gaps between the shells at the crown and mid-span are measured (0.025 to 0.03); change a rise
-  and check.
+- **The roof is the Hughson Dome**: eight leaves on a bronze ring 170 m across, meeting under a
+  glazed lantern. Its numbers are the plan's (`DOME`, `LEAVES`, `RING`, `LANTERN` in
+  [coliseum-plan.js](../../client/shared/coliseum-plan.js)), which the broadcast builds from too.
+  The two leaves over the outfield are fixed; the other six turn on the ring and nest under them,
+  three a side, so the dome opens from home plate outward and the field and the grandstand get the
+  sky. Each leaf steps: its profile sets back three times on the way up, its rib is a bronze fin
+  along the edge that trails as it opens, and a glazing strip runs down its middle. The panels are
+  copper gone dark brown, lit as `plain` (as `metal` they mirrored the sky and read blue). The ring
+  is a bronze band with a gilt chevron frieze, and inside it the rails step down and in, one for
+  each level of leaf. The lantern is two drums of glass in bronze mullions under a fluted gilt cap,
+  and on its stem the main gate's sun with a baseball for its disc, facing all four streets, with the
+  red beacon over it after dark. Copper roofs the drum's corners between the ring and the wall.
+- ⚠ **A leaf nests by its level.** Level k is the top leaf's profile taken `dr` further out and set
+  `g` lower, and the profile never rises outward, so each level clears the one over it by at least
+  `g` (about seven feet) everywhere. The rib stands less than `g` proud on the trailing edge, so no
+  rib ever passes through a leaf's edge, and `ribIn` in from it, so a nested rib never shares the
+  plane of the fascia over it. Change `g`, `dr` or the rib and run `ballpark-smoke`.
 - ⚠ **A moving roof is never mesh.** GLASS 2 caches the mesh per state: `venueKey` in
   [gl/world.js](../../client/game/js/panels/gl/world.js) adds the game night and the roof (shut,
   open, or moving) to `meshParams`, `placeOf` hands the same state to the capture, and the window
   key is memoised against `venueEpoch`, which a push or a roof arriving where it was going bumps. At
-  rest the shells are drawn into the mesh where they rest; while they travel the mesh has none and
-  the arm lays them down as depth-writing decals at the position they've reached, and asks
-  `dutyPhase` so the arm-keep record never freezes them. GLASS 1 draws them every frame as flats.
-  ⚠ The shape is the shut roof whatever the roof is doing, a stepped envelope of boxes under each
-  facet: the shape is per model, not per state, and collision, the occluders and the distance LOD
-  read it. A pilot who drops into the open bowl meets the roof line, which is rarer and less wrong
-  than flying through a dome that looks solid. The skin goes into the mesh as roof faces, not trim,
-  because as flats it stood 0.84 over the field tile's only mass and `gl:mesh` failed it.
+  rest the six leaves are drawn into the mesh where they rest (shut or nested); while they turn the
+  mesh has none of them and the arm lays them down as depth-writing decals at the angle they've
+  reached, and asks `dutyPhase` so the arm-keep record never freezes them. The ring, the lantern and
+  the two fixed leaves are mesh in every state. GLASS 1 draws the leaves every frame as flats.
+  ⚠ The shape is the shut dome whatever the roof is doing, the stepped envelope above: the shape is
+  per model, not per state, and collision, the occluders and the distance LOD read it, so from far
+  off the dome is those boxes, the ring and the lantern. A pilot who drops into the open bowl meets
+  the dome, which is rarer and less wrong than flying through one that looks solid. The skin goes
+  into the mesh as roof faces, not trim, because as flats it stood well over the field tiles' only
+  mass and `gl:mesh` failed it.
 - **Registrations:** `TYPE_MODEL` (with `noKit`, palette `ty_palais_stone`), `TYPE_FLOORS` (five at
   the corners for the towers, four elsewhere for the vault), `BLDG_TYPE_3D`, `BUILDING_TYPE_ICON` and
   [bldg_ballpark.svg](../../client/game/assets/zone-icons/bldg_ballpark.svg) (a vault between two
@@ -297,7 +313,7 @@ nights, and Ray Dombrowski's hours follow them.
 - `venue.roof` answers `{ shut }` from that set, synchronous and query-free; the derive puts `vr`
   on the cell (1 shut; a static bake shows it shut, so a picture with no weather behind it is the
   dome), and a change is pushed as `venue_roof`.
-- [world-feed.js](../../client/game/js/panels/world-feed.js) `noteVenueRoof` starts the shells moving
+- [world-feed.js](../../client/game/js/panels/world-feed.js) `noteVenueRoof` starts the leaves turning
   from wherever they are, over five minutes, eased out of rest and back into it (`ROOF_MS`).
   `venueState` is the cell as amended by the pushes, and is what the mesh key and the arm both read.
 
@@ -334,8 +350,8 @@ own, at full size, and the bowl round them is the map's model, transcribed
   tiles of TILE_FT feet each, which is 208.5 ft a unit across and 226 ft up: the size the map draws
   it now. The bowl is a square on the foul lines, 168 ft behind home on the two near sides and 445 ft
   out on the far ones (`BOWL`). The wall's five
-  courses, the fins, the four corner towers, the decks and their rails, the two gates and the three
-  shells are the map's, and a change in [coliseum.js](../../client/game/js/panels/glass/models/coliseum.js)
+  courses, the fins, the four corner towers, the decks, the gates and the dome are the plan's, and a
+  change in [coliseum.js](../../client/game/js/panels/glass/models/coliseum.js)
   wants the same change here. `parkOutline` is the bowl's square, so the city, the streets and the
   gulls stand round the same footprint.
 - **The main gate is transcribed like the rest.** At true size the map's home plate is the
@@ -393,19 +409,22 @@ own, at full size, and the bowl round them is the map's model, transcribed
   squeezed**: one too long for its space is set smaller. The plate stands off the frontispiece on a
   bronze bracket, with a halo round it after dark. `ballpark-smoke` holds the plates and the band
   to this.
-- **The roof** is three batches, one a shell, built shut and drawn where the roof has got to
-  (`shellShift`, the `uShift` uniform). The broadcast puts the roof on every Gameday line as it airs
+- **The roof** is eight batches, one a leaf, each built shut and drawn turned about the dome's axis
+  as far as the roof has got (`leafSpin`, the `uTurn` uniform, which the lit pass and the towers'
+  shadow pass apply to position and normal). The ring, its rails, the corner roofs and the lantern
+  are in the bowl's own batches. Each leaf has its underside, painted steel, and the steel arches
+  under it, which hang no lower than the gap to the leaf under it allows (`LEAF_STEEL`). The broadcast puts the roof on every Gameday line as it airs
   (`roof`, 1 shut and 0 open, from `venue.roof` at the block's middle tile, `gamedayOnAir`). The view
-  hands it to the renderer (`setRoof`), which rolls the shells over the map's five minutes
+  hands it to the renderer (`setRoof`), which turns the leaves over the map's five minutes
   (`roofTrack`, world-feed.js `ROOF_MS`) and keeps drawing while they move. Until a payload says, the
   roof is shut, as the map's static picture is.
 - **The lights go with the roof.** There are six: a tower at each corner and a lamp row under each
-  deck. Open, the towers and the rows light the field. As the shells come over, each tower's light
+  deck. Open, the towers and the rows light the field. As the leaves come over, each tower's light
   fades out by the time they're halfway and comes up again at its place under a deck (`under` in the
   venue's towers, `roofLights`), so no light jumps while it's lit, and the towers' floods go dark.
   The four tower lights cast the players' shadows from wherever their light is.
 - **Under a shut roof** the field stays dry, nothing falls on a camera inside the bowl, the gulls stay
-  down, and after dark the glazing down each crown and the clerestory glow (`uDome`). The sky shows
+  down, and after dark the glazing strip down each leaf and the clerestory glow (`uDome`). The sky shows
   over the infield and the grandstand only when it's open.
 - The fans in the stands and the people walking to the gates are one figure
   ([gl/ballpark-mesh.js](../../client/game/js/panels/gl/ballpark-mesh.js) `crowdMesh`), rebuilt the same
@@ -435,8 +454,10 @@ own, at full size, and the bowl round them is the map's model, transcribed
   holds the content.
 - `ballpark-smoke` holds the TV's bowl to the map's: the square outline, the wall facing out between
   the plinth and the frieze, the plate across from home on Sorrel Way, a tower at each corner. It
-  checks the shells shut over the whole bowl and nest open, clear each other by five to eight feet,
-  and spring from the rails; that the lights cross to the decks with no jump; that the roof's travel
+  checks the dome's eight leaves go once round the ring shut and lie under the fixed two open, that
+  no two of one level cover the same ground as they turn, that each level clears the one over it by
+  six to eight feet with the steel and the rib in the gap, that each leaf springs from its rail, and
+  that the renderer turns a leaf where the plan does; that the lights cross to the decks with no jump; that the roof's travel
   eases over ninety seconds and turns back from wherever it is; and that the plates letter his name
   over COLISEUM, raised and never squeezed. `diamond-smoke` checks a payload's `roof` reaches the
   renderer and one without leaves it alone.

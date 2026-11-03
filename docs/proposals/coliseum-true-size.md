@@ -1,13 +1,13 @@
 # The Coliseum at true size
 
-> **Status: phases 1-4 built (2026-11-02); the Hughson Dome is design.** The Curtain runs down the
+> **Status: built. Phases 1-4 on 2026-11-02, the Hughson Dome on 2026-11-03.** The Curtain runs down the
 > river bank and along y 923, and the South Gate and the Glacis moved four rows south with it
 > ([coliseum-ground.mjs](../../scripts/content/coliseum-ground.mjs)). The 23 buildings and the
 > Helipad are on their new plots ([Where each one went](#where-each-one-went)). The park stands on
 > 121 tiles at true size with four gates ([coliseum-park.mjs](../../scripts/content/coliseum-park.mjs)),
-> and the map and the broadcast read one plan for it ([coliseum-plan.js](../../client/shared/coliseum-plan.js)).
-> It's still the deco bowl under its three shells: the dome below isn't built. See
-> [As built](#as-built) for what came out differently. [hughson-coliseum.md](hughson-coliseum.md)
+> and the map and the broadcast read one plan for it ([coliseum-plan.js](../../client/shared/coliseum-plan.js)),
+> the Hughson Dome included: eight stepped leaves, six of them turning to open it, on a bronze ring
+> under a glazed lantern. See [As built](#as-built) for what came out differently. [hughson-coliseum.md](hughson-coliseum.md)
 > describes the park as it stands.
 
 ## The decision
@@ -199,7 +199,7 @@ the booth sees the same dome.
 ### What it asks of GLASS
 
 - **The dome opens and shuts in five minutes** (Dave, 2026-11-01), eased out of rest and back into
-  it, as the shells do now (`ROOF_MS`).
+  it, as the shells did (`ROOF_MS`).
 - **The leaves turn; they don't slide.** The rule stands that a moving roof is never mesh: at rest
   the six leaves are drawn into the mesh where they rest (shut or nested), and while they travel the
   arm lays them as depth-writing decals at the angle they've reached. The shape stays the shut dome.
@@ -229,18 +229,30 @@ Gates: `content:lint`, `sitecheck`, `shapes:smoke` (every one of the 121 slices,
 
 ## As built
 
-Phases 1 to 4 landed on 2026-11-02. Where the build differs from the plan above:
+Phases 1 to 4 landed on 2026-11-02 and the dome on 2026-11-03. Where the build differs from the plan
+above:
 
-- **No dome yet.** The park is the nine-tile park's deco bowl at true size: the drum's five
-  courses, the fins and windows, the four stepped corner towers (about 62 m), the main and bleacher
-  gates and the three shells. The Hughson Dome section above is still the design for what replaces
-  the shells, on the map and on TV together.
+- **The dome is lower than drawn.** The ring is 169 m across on a bronze band to 39 m, the leaves
+  rise to 72 m and the lantern's beacon to 87 m: a rise of about 34 m, not 42. The leaves'
+  quarter-ellipse sets back three times (`DOME.steps`), and each level nests seven feet under the
+  one over it. The two fixed leaves are A and B either side of centre field; the six that turn
+  meet over home plate.
+- **The towers are as they were.** The nine-tile park's towers were already pylons with lamp
+  houses, and at true size they stand 62 m, above the ring and below the dome's crown, so they're
+  unchanged.
+- **The roof over the drum's corners.** A round dome on a square drum leaves four corners between
+  the ring and the wall; they're roofed flat in copper (`CORNER_Z`), and the scoreboard came down
+  under it.
+- **The far LOD is the shape.** The dome's shape is boxes three by two to a tile, each from the
+  lowest point of the dome over it to the highest, plus the ring's boxes and the lantern's drums, so
+  that's what the distance LOD draws; the fins and windows are the smallest segments and go first.
+- **The rows' `floors` weren't raised.** The roof tiles still say 17 storeys (`tileFloors`), about
+  60 m, under the dome's 72; the skyline reads them. Raising them rewrites 121 zones' content.
 - **One plan, not a transcription.** The bowl's numbers live once in
   [coliseum-plan.js](../../client/shared/coliseum-plan.js), in park units, with what a unit is on the
   ruler (SH tiles across, SV up). The map's arm draws them at that size and the broadcast's
   `B2T` reads the same ruler, so the broadcast's park didn't change at all and the map's grew 3.6
-  times to meet it. The TV's roof is still its own (three full shells to the map's six half ones);
-  the dome is the place to make them one.
+  times to meet it. The dome is in the plan too, so the TV's roof and the map's are one.
 - **About ten windows a face, not forty.** The broadcast's bays are 51 ft, which is what the map
   draws at true size, and a five-light window 40 ft wide doesn't fit forty to a 613 ft face.
 - **Two Guardians, not four.** The main gate is the nine-tile park's at its true size.
@@ -260,3 +272,4 @@ Phases 1 to 4 landed on 2026-11-02. Where the build differs from the plan above:
 2. Set aside and re-site the 23 buildings, so the estate is whole before the park grows.
 3. The park on 121 tiles, content and the Hughson Dome together, behind the same gate check the 3 by 3 had.
 4. The broadcast onto the ruler.
+5. The Hughson Dome, on the map and on TV from one plan (the park in phase 3 kept the shells).

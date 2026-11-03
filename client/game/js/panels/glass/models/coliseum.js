@@ -11,10 +11,11 @@
 // corner. The park's name is cut into a stone band along the wall on Sorrel Way and again on Halcyon
 // Boulevard, one line each. The main gate on Sorrel Way is a stepped frontispiece between two
 // Guardians in the manner of Cleveland's bridge, GRANDSTAND in raised gilt on its bronze plate; the
-// bleacher gate on the boulevard is its smaller twin. The roof is three
-// steel-and-glass shells on rails along the east and west decks. Shut, they're one long vault with a
-// fan window at each end. Open, the two that travel are nested under the fixed one over the
-// bleachers, and the infield and the grandstand have the sky.
+// bleacher gate on the boulevard is its smaller twin. The roof is the Hughson Dome: eight stepped
+// leaves of copper gone dark brown on a bronze ring, each with a glazing strip down its middle and a
+// stepped bronze rib, meeting under a glazed lantern with a gilt sun on top. The two over the
+// outfield are fixed; the other six turn on the ring and nest under them, so the dome opens from home
+// plate outward and the infield and the grandstand have the sky.
 //
 // ⚠ ONE ARM, 121 SLICES, AT TRUE SIZE. The park stands on x 887-897, y 910-920 in Halcyon Fields, and
 // every tile is its own building type (`ballpark`, `ballpark_bleachers`, `ballpark_gate_c`,
@@ -42,16 +43,16 @@
 // ⚠ THE ROOF IS STATE, AND A MOVING ROOF IS NEVER MESH. The broadcast plugin shuts it for the weather
 // (`venue.roof`), the cell says how it stood when the window was sent (`vr`), and a `venue_roof` push
 // starts it moving (world-feed.js). GLASS 2 caches this model's mesh per state (`venueKey` in
-// gl/world.js), so a roof at rest is drawn into the mesh where it rests, and while the shells travel
-// the mesh has none and the arm lays them down as depth-writing decals at the position they've
-// reached: the crane's route (glass-notes.md, Moving parts). GLASS 1 draws them every frame as flats.
-// The shape is the shut roof in every state (see `shapeBox`), so collision is the dome. The fixed
-// shell over the bleachers never moves, so it's mesh in every state.
+// gl/world.js), so a roof at rest is drawn into the mesh where it rests, and while the leaves turn
+// the mesh has none of the six and the arm lays them down as depth-writing decals at the angle
+// they've reached: the crane's route (glass-notes.md, Moving parts). GLASS 1 draws them every frame
+// as flats. The shape is the shut dome in every state (see `shapeBox`), so collision is the dome. The
+// ring, the lantern and the two fixed leaves never move, so they're mesh in every state.
 //
 // ⚠ THE LIGHTS. A working light every night, and the full blaze while Deadball is on air (`vl`). Open,
-// the towers and the deck lamps light the field. Shut, the light comes out through the clerestory,
-// the fan windows and the glazing along each shell's crown. The mesh holds colour by day and by night,
-// so every lit face is emitted at every hour and only its colour follows the hour.
+// the towers and the deck lamps light the field. Shut, the light comes out through the clerestory
+// and the leaves' glazing strips. The lantern glows every night. The mesh holds colour by day and by
+// night, so every lit face is emitted at every hour and only its colour follows the hour.
 import {
   DETAIL_LIFT, FLAT_OFF, MESH_SINK, SHAPE_SINK, _place, bakeSignText, blinkLight, clamp,
   draw3DBoxAt, drawFacetDrum, dutyPhase, emitDecoFill, emitFlat, emitSurfaceText, emitWire,
@@ -60,7 +61,10 @@ import {
 } from '../../windshield.js';
 import { flatOut } from './downtown.js';
 import { WIN, WIN_OPEN, sunburst, headPanels } from '../coliseum-window.js';
-import { BACK, BAND, BGATE, DECK, FIELD, FIN_AT, GATE, GUARD, HALF, HP, OUT, RAIL_IN, RAIL_OUT, SH, SIDE_GATES, SV, TOWER, Z } from '../../../../../shared/coliseum-plan.js';
+import {
+  BACK, BAND, BGATE, CORNER_Z, DECK, DOME, FIELD, FIN_AT, GATE, GUARD, HALF, HP, LANTERN, LEAVES, OUT, RING, SH, SIDE_GATES, SV,
+  TOWER, Z, leafProfile, leafTurn, rail,
+} from '../../../../../shared/coliseum-plan.js';
 import { venueLive, venueRoof, venuePlay } from '../../world-feed.js';
 import { clubColour } from '../../diamond/hud.js';
 
@@ -75,7 +79,7 @@ const BASE = FIELD.base;           // home to first
 const MOUND = [HP[0] - FIELD.mound, HP[1] - FIELD.mound];
 const STAND = HP[0] + FIELD.foul;  // where the grandstand starts, along both lines
 const LOW = -0.6;                  // past this the stands step down toward the corners
-const SCOREBOARD = { u: -1.22, v: -1.22, w: 0.32, z0: 0.36, z1: 0.50 };   // over the top row in centre
+const SCOREBOARD = { u: -1.22, v: -1.22, w: 0.32, z0: 0.31, z1: 0.44 };   // over the top row in centre, under the corner roof
 // The outfield stands: rows round home from the back of the wall out to the bowl, rising to the
 // wall's top course, so the front row leans over the padding.
 const OSTAND = { r0: WALL_R + 0.03, row: 0.09, z0: 0.03, rise: 0.025 };
@@ -84,9 +88,9 @@ const OSTAND = { r0: WALL_R + 0.03, row: 0.09, z0: 0.03, rise: 0.025 };
 // One wall round all four sides, its outer face at OUT and its inner at BACK, in five courses up.
 // ⚠ EVERY HEIGHT IN THIS FILE IS DRAWN ZK TIMES TALLER, and every width SH times wider. The arm's
 // primitives scale once, so the numbers keep the proportions they were drawn and measured at (the
-// shells' nesting gaps).
+// leaves' nesting gaps).
 const ZK = SV;
-// The bowl's numbers (BACK, Z, DECK, the rails, FIN_AT, TOWER, GUARD, BAND) and the gates (GATE on
+// The bowl's numbers (BACK, Z, DECK, FIN_AT, TOWER, GUARD, BAND), the dome's and the gates (GATE on
 // Sorrel Way across from home, BGATE on the boulevard, SIDE_GATES on the east and west faces) are the
 // plan's (client/shared/coliseum-plan.js), which the broadcast reads too. The name band runs from its
 // face's gate to the corner tower on the longer side.
@@ -98,31 +102,15 @@ const bandRun = (g) => {
   return a[1] - a[0] >= b[1] - b[0] ? a : b;
 };
 
-// ── THE ROOF ─────────────────────────────────────────────────────────────────────────────────
-// Three shells, biggest first, each a segmental vault across the bowl from rail to rail (`c` its
-// half-span, `zs` where it springs, `rise` to its crown) and `len` long north to south. The first is
-// fixed over the bleachers; the other two ride the rails' lower steps and nest under it, so each is a
-// little narrower and lower than the one before. `open` and `shut` are where each one's north end is.
-// ⚠ A SPLIT ROOF, A STACK AT EACH END. Six half-tile shells, listed north to south: three nest at the
-// boulevard end and three at Sorrel Way, and the two smallest meet over the middle of the bowl. Open,
-// each stack reaches half a tile in, over the back rows only. One stack of three full-tile shells
-// reached a whole tile in and roofed most of the outfield seats.
-// ⚠ THE GAPS ARE MEASURED. At the crown and at mid-span each shell clears the one above it by 0.025
-// to 0.03 (0.85, 0.825, 0.80 at the crown), which is what lets them nest. Change a rise and check.
-const SHELLS = [
-  { c: 1.22, zs: 0.49, rise: 0.36, len: 0.50, open: -1.47, shut: -1.47 },
-  { c: 1.175, zs: 0.475, rise: 0.35, len: 0.50, open: -1.45, shut: -0.98 },
-  { c: 1.145, zs: 0.46, rise: 0.34, len: 0.50, open: -1.43, shut: -0.495 },
-  { c: 1.145, zs: 0.46, rise: 0.34, len: 0.50, open: 0.93, shut: 0.005 },
-  { c: 1.175, zs: 0.475, rise: 0.35, len: 0.50, open: 0.95, shut: 0.49 },
-  { c: 1.22, zs: 0.49, rise: 0.36, len: 0.50, open: 0.97, shut: 0.97 },
-];
-const NF = 12;                     // facets across a vault
-for (const S of SHELLS) {
-  const R = (S.c * S.c + S.rise * S.rise) / (2 * S.rise), zc = S.zs + S.rise - R, th = Math.asin(S.c / R);
-  // [u, z, nu, nz]: the arc from spring to spring, and its outward normal at each point
-  S.arch = Array.from({ length: NF + 1 }, (_, i) => { const t = -th + 2 * th * i / NF; return [R * Math.sin(t), zc + R * Math.cos(t), Math.sin(t), Math.cos(t)]; });
-}
+// ── THE DOME ─────────────────────────────────────────────────────────────────────────────────
+// The Hughson Dome's numbers are the plan's (DOME, LEAVES, RING, LANTERN in coliseum-plan.js), which
+// the broadcast builds its roof from too. Each leaf is its level's profile (leafProfile) turned
+// through its span in SLICES, the middle one its glazing strip.
+const PROFILES = [0, 1, 2, 3].map((k) => leafProfile(k));
+const SLICES = [0, DOME.glaze[0] / 2, DOME.glaze[0], DOME.glaze[1], (1 + DOME.glaze[1]) / 2, 1];
+const GLAZE_SLICE = 2;
+// The ring's chords, and the rails' (coarser: nothing sees them but the field and the open sky).
+const RING_N = RING.n, RAIL_N = 32;
 
 // ── PALETTES AND COLOURS ─────────────────────────────────────────────────────────────────────
 // The Palais's limestone (a deco hall somebody kept up, as this is), the archive's paler trim, the
@@ -133,7 +121,7 @@ const GRASS_DAY = [62, 112, 58], GRASS_LIT = [88, 154, 76], GRASS_DARK = [24, 40
 const DIRT_DAY = [150, 104, 70], DIRT_LIT = [184, 132, 92], DIRT_DARK = [52, 38, 30];
 const TRACK_DAY = [122, 92, 68], SEAT = [44, 92, 62];
 const LAMP_OFF = [70, 74, 78], LAMP_ON = [255, 246, 224];
-const SHELL = [184, 188, 186], RIB = [96, 74, 50], GILT = [222, 178, 96], BRONZE_RGB = [92, 66, 40];
+const LEAF = [72, 48, 34], ROOF_CU = [78, 124, 106], GILT = [222, 178, 96], BRONZE_RGB = [92, 66, 40];
 const GLASS_DAY = [58, 76, 88], GLASS_DARK = [22, 28, 34], GLOW = [255, 232, 194], WARM = [255, 212, 156];
 const mixRgb = (a, b, k) => [0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * k);
 const arcPts = (c, r, a0, a1, n) => Array.from({ length: n + 1 }, (_, i) => { const t = a0 + (a1 - a0) * i / n; return [c[0] + r * Math.cos(t), c[1] + r * Math.sin(t)]; });
@@ -162,7 +150,7 @@ function clipPoly(pts, x0, x1, y0, y1) {
   return out;
 }
 // The same in three dimensions: a polygon of [u, v, z] cut by u and v bounds, z carried along. A
-// plane polygon stays planar, so a vault facet or a fan window comes out of it whole.
+// plane polygon stays planar, so a leaf's panel comes out of it whole.
 function clip3(pts, x0, x1, y0, y1) {
   let out = pts;
   for (const [ax, val, s] of [[0, x0, 1], [0, x1, -1], [1, y0, 1], [1, y1, -1]]) {
@@ -248,7 +236,7 @@ const WORK = 0.42;
 // What this frame draws: the hour, the game, how shut the roof is (`p`, 0 open, 1 shut) and whether
 // it is moving. ⚠ A MESH CAPTURE DRAWS THE STATE ITS KEY NAMES, from the place gl/world.js hands it
 // (`vl`, `vr`, `vrm`), never a live push: the cache entry is filed under that key. A moving roof's
-// capture (`meshRoof` null) has no travelling shells at all. A live frame reads the push first and
+// capture (`meshRoof` null) has no turning leaves at all. A live frame reads the push first and
 // the cell after it. A static picture with no cell (a bake, the Modelshop) shows the dome shut.
 // A bench's game night (the Modelshop has no venue cell, so it always sees the park shut and empty):
 // `game` true draws a game on with the roof open, in the mesh too (re-capture after setting it).
@@ -264,7 +252,7 @@ function parkState(now, night) {
     const lit = pl ? venueLive(pl.wx, pl.wy) : undefined;
     game = lit !== undefined ? (lit ? 1 : 0) : (pl && pl.vl ? 1 : 0);
     // ⚠ The wall clock, never the arm's `now`: that is performance.now(), and the push is stamped
-    // with Date.now(), so on the frame clock the move never started and the shells never left.
+    // with Date.now(), so on the frame clock the move never started and the leaves never turned.
     const r = pl ? venueRoof(pl.wx, pl.wy) : undefined;
     if (r) { p = r.p; moving = r.moving; } else p = pl && pl.vr != null ? +pl.vr : 1;
   }
@@ -308,7 +296,7 @@ export const COLISEUM_ARMS = {
     const st = parkState(now, night), dn = st.dn, dusk = 1 - 0.6 * dn;
     const ledge = facePals(E, { side: TRIM, roof: COPPER });   // a course flashed in copper on top
     // A park normal (u, v, z) as a world direction, for the painter's key and the GPU's normal: a
-    // normal scales by the inverse of the stretch, so a vault's facet still faces the way it slopes.
+    // normal scales by the inverse of the stretch, so a leaf's facet still faces the way it slopes.
     const worldDir = (o) => { const lo = Lr(o[0] / SH, o[1] / SH), [ax, ay] = F(0, 0), [bx, by] = F(lo[0], lo[1]); return [bx - ax, by - ay, o[2] / ZK]; };
 
     // ── PRIMITIVES, ALL IN BLOCK COORDINATES ─────────────────────────────────────────────────
@@ -410,7 +398,10 @@ export const COLISEUM_ARMS = {
       const a = n[1] || n[0], w0 = a * (OUT + d0), w1 = a * (OUT + d1), lo = Math.min(w0, w1), hi = Math.max(w0, w1);
       if (n[1]) box(t0, t1, lo, hi, z0, z1, p, roof, s); else box(lo, hi, t0, t1, z0, z1, p, roof, s);
     };
-    const sideFace = (n, t0, t1, d, z0, z1, col, lit, opts) =>
+    // ⚠ ASKED BEFORE THE POINTS ARE BUILT. All 121 tiles run every face of every side, and building
+    // four points to throw them away was most of what the park allocated a frame (perf/alloc).
+    const onFace = (n, d) => (n[1] ? inRow(n[1] * (OUT + d)) : inCol(n[0] * (OUT + d)));
+    const sideFace = (n, t0, t1, d, z0, z1, col, lit, opts) => !flatsDropped() && onFace(n, d) &&
       vface([SPT(n, t0, d, z1), SPT(n, t1, d, z1), SPT(n, t1, d, z0), SPT(n, t0, d, z0)], [n[0], n[1], 0], col, lit, opts);
     const facing = (nu, nv, pu, pv) => {
       const [ax, ay] = P(pu, pv), [bx, by] = P(pu + nu, pv + nv);
@@ -580,6 +571,8 @@ export const COLISEUM_ARMS = {
       });
     };
     SIDES.forEach((n, k) => {
+      // a tile the face doesn't reach draws none of it: everything below stands within this of the face
+      if (!onFace(n, -0.07) && !onFace(n, 0) && !onFace(n, 0.03)) return;
       const ns = !!n[1], run = ns ? OUT + 0.01 : BACK;   // north and south take the corners
       const s = 200 + k * 10;
       sideBox(n, -run, run, -0.07, 0.008, 0, Z.plinth, GRANITE, true, s);
@@ -645,13 +638,11 @@ export const COLISEUM_ARMS = {
       // THE NAME, CUT INTO THE BAND in one line, read from the street the face is on.
       if (bnd && facing(0, n[1], (bnd[0] + bnd[1]) / 2, n[1] * OUT)) inscribe(n, bnd[0] + 0.05, bnd[1] - 0.05);
     });
-    // The decks over the east and west concourse, roofed in copper, with columns under their inner
-    // edge and the rails along them: the girder's two steps, one for each shell that rides it.
+    // The decks over the east and west concourse, roofed in copper, under the dome's ring, with
+    // columns under their inner edge.
     for (const su of [1, -1]) {
       const lo = (a, b) => (su > 0 ? [a, b] : [-b, -a]);
       box(...lo(DECK, BACK), -BACK, BACK, Z.cler, Z.corn, ledge, true, 260 + su);
-      box(...lo(RAIL_OUT[0], RAIL_OUT[1]), -OUT, OUT, Z.corn, RAIL_OUT[2], BRONZE, true, 264 + su);
-      box(...lo(RAIL_IN[0], RAIL_IN[1]), -OUT, OUT, Z.corn, RAIL_IN[2], BRONZE, true, 268 + su);
       for (let j = 0; j < 7; j++) {
         // ⚠ AT 1.18, NOT AT THE DECK'S EDGE. On the west side a column at the edge stood on the
         // warning track by the left-field pole; here every one is behind the outfield wall or in the
@@ -663,14 +654,9 @@ export const COLISEUM_ARMS = {
           [-su, 0, 0], mixRgb(LAMP_OFF, LAMP_ON, st.towerK > 0.01 ? 0.35 + 0.65 * st.towerK : 0));
       }
     }
-    // The sills the two fixed shells stand on, along the top of the boulevard wall and of Sorrel Way's.
-    box(-SHELLS[0].c, SHELLS[0].c, -OUT, -BACK, Z.corn, SHELLS[0].zs, TRIM, true, 280);
-    const SL = SHELLS[SHELLS.length - 1];
-    box(-SL.c, SL.c, BACK, OUT, Z.corn, SL.zs, TRIM, true, 281);   // and the one the Sorrel Way stack stands on
-
-    // 7) THE FOUR LIGHT TOWERS, one at each corner: a fluted limestone shaft, two setbacks, a bronze
-    //    lamp house with its floods turned to the field, a stepped crown and a finial. They were the
-    //    park's light towers before it had a roof, and the roof's rails run between them.
+    // 7) THE FOUR LIGHT TOWERS, one at each corner: pylons rising past the ring, a fluted limestone
+    //    shaft, two setbacks, a bronze lamp house with its floods turned to the field over the ring, a
+    //    stepped crown, a finial and a flag. With the dome shut they're the four points it sits between.
     for (const [su, sv] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
       const tu = su * TOWER.at, tv = sv * TOWER.at, T = TOWER;
       if (!inTile(tu, tv)) continue;
@@ -736,17 +722,15 @@ export const COLISEUM_ARMS = {
     //    disc, under a stepped crown. The park's name is cut into the wall beside it (6).
     if (inTile(GATE.u, OUT - 0.01)) {
       const G = GATE, gu = G.u, gf = G.face, u0 = gu - G.hw, u1 = gu + G.hw;
-      // ⚠ ABOVE THE ROOF'S SPRING, NOTHING STANDS BEHIND THE FAN. The Sorrel Way stack's last shell
-      // ends in its glass fan just behind this face, over the whole gate, and comes down to SPR at the
-      // rails. Below SPR the gate runs back to the bowl wall; above it every box starts in front of
-      // the fan (FV). Run back to BACK, the setback and the crown stood inside the vault and showed
-      // through the glass.
-      const SPR = SL.zs, FV = SL.shut + SL.len + 0.004;
+      // The gate runs back to the bowl wall's inner face (FV) all the way up: behind it over the
+      // cornice is the roof over the drum's corner, and the dome's ring stands well inside that. SPR is
+      // where the body's lower box stops and the upper one starts, at that roof.
+      const SPR = CORNER_Z, FV = BACK;
       box(u0, u1, BACK, gf, Z.plinth, SPR, STONE, false, 400);
       box(u0, u1, FV, gf, SPR, G.top, STONE, false, 400);
       box(u0 - 0.005, u1 + 0.005, BACK, gf + 0.006, 0, Z.plinth, GRANITE, true, 401);
       box(u0, u1, FV, gf + 0.004, G.top, G.top + 0.012, ledge, true, 402);
-      // the setback, between the pylons' inner faces, as shallow as the fan leaves it
+      // the setback, between the pylons' inner faces
       const sb = G.hw - 2 * GUARD.hw;
       box(gu - sb, gu + sb, FV, gf - 0.002, G.top + 0.012, 0.60, STONE, false, 403);
       box(gu - sb, gu + sb, FV, gf + 0.001, 0.60, 0.61, ledge, true, 404);
@@ -986,21 +970,22 @@ export const COLISEUM_ARMS = {
       }
     }
 
-    // 10) THE ROOF. Each shell is its panels across the vault, the glazing down its crown, three
-    //     bronze ribs over it and its two ends; the outer end of the first and the last is a fan
-    //     window, glass behind bronze rays and a bronze frame round the arch. `how` is how this frame
-    //     lays a face down: as mesh (lit metal, unlit glass) or, for a shell on the move, as a decal.
+    // 10) THE DOME. The bronze ring on the cornice with its gilt chevron frieze and the rails stepping
+    //     in under it, the copper roof over the drum's corners, the eight leaves and the lantern. `how`
+    //     is how this frame lays a leaf's face down: as mesh (lit metal, unlit glass) or, for a leaf
+    //     on the move, as a decal.
     const glassK = dn * st.domeK * 0.85;
-    const crownGlass = mixRgb(mixRgb(GLASS_DAY, GLASS_DARK, dn), GLOW, glassK);
-    const fanGlass = mixRgb(mixRgb([66, 84, 96], GLASS_DARK, dn), GLOW, glassK);
+    const leafGlass = mixRgb(mixRgb(GLASS_DAY, GLASS_DARK, dn), GLOW, glassK);
+    const lanternGlass = mixRgb(mixRgb(GLASS_DAY, GLASS_DARK, dn), GLOW, dn * (0.5 + 0.4 * st.domeK));
     const asMesh = (pts, out, col, fam) => (fam ? litFace(pts, out, col, fam, { lift: 0 }) : face(pts, out, col, { lift: 0 }));
     const asDecal = (pts, out, col) => decFace(pts, out, col);
-    // ⚠ THE SHELLS' SKIN IS MASS IN THE MESH, NOT TRIM. As flats it stood 0.84 over the field tile's
+    // ⚠ THE LEAVES' SKIN IS MASS IN THE MESH, NOT TRIM. As flats it stood 0.6 over the field tiles'
     // only mass (the bases), which is what `gl:mesh` takes for trim that has come off its building. So
-    // the panels, the crown glazing and the ends go in as roof faces, lit as their family or holding
-    // their glow, and the shape below carries the vault they need. The ribs and the fan's bronze stay
-    // trim on the skin. Off a capture this is `asMesh`.
-    const asMass = (pts, out, col, fam) => {
+    // the panels, the glazing, the fascias and the roof over the corners go in as roof faces, lit as
+    // their family or holding their glow, and the shape below carries them. The ribs and the frieze
+    // stay trim on the skin. Off a capture this is `asMesh`. A leaf's skin is curved over the
+    // shape's stepped boxes and so sits inside them: it takes no AO (gl/world.js bakeFaceAO).
+    const asMass = (pts, out, col, fam, curved = false) => {
       if (!MESH_SINK) return asMesh(pts, out, col, fam);
       if (pts.length < 3) return;
       const W = wind(pts.map(([u, v, z]) => B3(u, v, z)), worldDir(out));
@@ -1008,12 +993,13 @@ export const COLISEUM_ARMS = {
       for (let i = 0; i < W.length; i++) { const a = W[i], b = W[(i + 1) % W.length]; nx += (a[1] - b[1]) * (a[2] + b[2]); ny += (a[2] - b[2]) * (a[0] + b[0]); nz += (a[0] - b[0]) * (a[1] + b[1]); }
       const nl = Math.hypot(nx, ny, nz) || 1, lum = (0.299 * col[0] + 0.587 * col[1] + 0.114 * col[2]) / 255;
       const c = cl255(fam && lum > 0.42 ? col.map((v) => v * (1 - 0.55 * dn)) : col);
-      MESH_SINK.push({ kind: 'roof', seed: 0, rgbOverride: c, alpha: 1, ...(fam ? { flat: 2, matId: materialIdOf(fam) } : { flat: true }), p: W, n: [nx / nl, ny / nl, nz / nl] });
+      MESH_SINK.push({ kind: 'roof', seed: 0, rgbOverride: c, alpha: 1, ...(fam ? { flat: 2, matId: materialIdOf(fam) } : { flat: true }), ...(curved ? { noAO: true } : {}), p: W, n: [nx / nl, ny / nl, nz / nl] });
     };
-    // ⚠ THE SHAPE IS THE SHUT ROOF, WHATEVER IT IS DOING. The shape is per model, not per state, and
-    // collision, the occluders and the distance LOD read it, so it can only be one pose: shut, the
-    // dome, as a stepped envelope of boxes under each facet. A pilot who drops into the open bowl meets
-    // the roof line, which is rarer and less wrong than flying through a dome that looks solid.
+    const asLeaf = (pts, out, col, fam) => asMass(pts, out, col, fam, true);
+    // ⚠ THE SHAPE IS THE SHUT DOME, WHATEVER IT IS DOING. The shape is per model, not per state, and
+    // collision, the occluders and the distance LOD read it, so it can only be one pose: shut. A pilot
+    // who drops into the open bowl meets the dome, which is rarer and less wrong than flying through
+    // one that looks solid.
     const shapeBox = (u0, u1, v0, v1, z0, z1) => {
       u0 = Math.max(u0, X0); u1 = Math.min(u1, X1); v0 = Math.max(v0, Y0); v1 = Math.min(v1, Y1);
       if (u1 - u0 < 1e-4 || v1 - v0 < 1e-4) return;
@@ -1022,70 +1008,147 @@ export const COLISEUM_ARMS = {
       for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
         const [cx, cy] = P(u0 + su * (i + 0.5), v0 + sv * (j + 0.5));
         const [hu, hv] = Lr(su * SH / 2, sv * SH / 2).map(Math.abs);
-        SHAPE_SINK.push({ kind: 'box', dx: cx, dy: cy, hwRaw: hu, fdRaw: hv, wz0: z0 * ZK, wz1: z1 * ZK, pal: FINC, roof: true, yaw: yaw0 });
+        SHAPE_SINK.push({ kind: 'box', dx: cx, dy: cy, hwRaw: hu, fdRaw: hv, wz0: z0 * ZK, wz1: z1 * ZK, pal: BRONZE, roof: true, yaw: yaw0 });
       }
     };
-    // Each box tops out where its facet does over the part of it this tile holds: a facet cut at a
-    // tile line is lower at the cut than at its far end. ⚠ AND STARTS WHERE IT DOES, NOT AT THE
-    // SPRING. At true size most of the field's tiles hold nothing but roof, so a box from the spring
-    // stood under the mesh's lowest face and the shape's base wasn't the mesh's (gl:mesh). A tile a
-    // shell ends on has the end's panel down to the spring, so there the box starts at the spring.
-    if (SHAPE_SINK) for (const S of SHELLS) for (let k = 0; k < NF; k++) {
-      const a = S.arch[k], b = S.arch[k + 1];
-      const u0 = Math.max(Math.min(a[0], b[0]), X0), u1 = Math.min(Math.max(a[0], b[0]), X1);
-      if (u1 <= u0) continue;
-      const zAt = (u) => a[1] + (b[1] - a[1]) * (u - a[0]) / (b[0] - a[0]);
-      const endHere = inRow(S.shut) || inRow(S.shut + S.len);
-      shapeBox(u0, u1, S.shut, S.shut + S.len, endHere ? S.zs : Math.min(zAt(u0), zAt(u1)), Math.max(zAt(u0), zAt(u1)));
+    // Under SHAPE_SINK the dome's mass faces go into ENV instead of the mesh: the tile is cut three by
+    // two, and each cell keeps the lowest and highest point of what falls in it and becomes one box.
+    // So the shape's top and base are the mesh's own (gl:mesh), and a tile holding nothing but dome
+    // starts where the dome does, not at the ring. ⚠ NOT SQUARE: the kit rings a square box with a
+    // roof in coping (derived-kit.js `deck`), and on quarter tiles that drew a grid over the dome.
+    const ENV = SHAPE_SINK ? new Map() : null;
+    const ENV_U = [0, 1 / 3, 2 / 3, 1], ENV_V = [0, 0.5, 1];
+    const asShape = (pts) => {
+      if (pts.length < 3) return;
+      for (let i = 0; i + 1 < ENV_U.length; i++) for (let j = 0; j + 1 < ENV_V.length; j++) {
+        const a0 = X0 + (X1 - X0) * ENV_U[i], a1 = X0 + (X1 - X0) * ENV_U[i + 1], b0 = Y0 + (Y1 - Y0) * ENV_V[j], b1 = Y0 + (Y1 - Y0) * ENV_V[j + 1];
+        const c = clip3(pts, a0, a1, b0, b1);
+        if (c.length < 3) continue;
+        const k = a0 + ',' + b0, e = ENV.get(k) || { u0: a0, u1: a1, v0: b0, v1: b1, z0: Infinity, z1: -Infinity };
+        for (const p of c) { e.z0 = Math.min(e.z0, p[2]); e.z1 = Math.max(e.z1, p[2]); }
+        ENV.set(k, e);
+      }
+    };
+    const glLive = FLAT_OFF && !MESH_SINK;            // GLASS 2's adornment pass: the mesh has the resting dome
+    const fixedSkin = SHAPE_SINK ? asShape : asMass;
+    const clipT = (pts) => clip3(pts, X0, X1, Y0, Y1);
+    const polar = (r, a, z) => [r * Math.cos(a), r * Math.sin(a), z];
+    const chord = (r, i, n) => [polar(r, 2 * Math.PI * i / n, 0), polar(r, 2 * Math.PI * (i + 1) / n, 0)];
+
+    // The ring: a bronze band round the dome's foot, and inside it the rails it carries, a step down
+    // and in for each level of leaf, from the clerestory up. Boxes along chords, cut at the tile lines.
+    for (let i = 0; i < RING_N; i++) {
+      const [a, b] = chord((RING.r0 + RING.r1) / 2, i, RING_N);
+      segCut(a, b, RING.r1 - RING.r0, RING.z0, RING.z1, BRONZE, true, 500 + i);
     }
-    const clipT = (pts) => clip3(pts, X0, X1, Y0, Y1), clipU = (pts) => clip3(pts, X0, X1, -9, 9);
-    const shell = (S, i, v0, how) => {
-      const v1 = v0 + S.len, A = S.arch, skin = how === asMesh ? asMass : how;
-      for (let k = 0; k < NF; k++) {
-        const a = A[k], b = A[k + 1], crown = Math.abs(a[0] + b[0]) / 2 < 0.24;
-        skin(clipT([[a[0], v0, a[1]], [b[0], v0, b[1]], [b[0], v1, b[1]], [a[0], v1, a[1]]]), [(a[2] + b[2]) / 2, 0, (a[3] + b[3]) / 2], crown ? crownGlass : SHELL, crown ? null : 'metal');
+    for (let k = 1; k <= 3; k++) {
+      const [ro, ri, top] = rail(k), rm = (ro + ri) / 2;
+      for (let i = 0; i < RAIL_N; i++) { const [a, b] = chord(rm, i, RAIL_N); segCut(a, b, ro - ri, Z.cler, top, BRONZE, true, 560 + k * 50 + i); }
+    }
+    // Its frieze: a gilt fillet along the top and the foot, and a chevron on every chord between them,
+    // a hair proud of the band. Each drawn by the tile its middle is on.
+    if (!SHAPE_SINK && !flatsDropped()) {
+      const half = Math.PI / RING_N, rm = (RING.r0 + RING.r1) / 2, L = rm * Math.sin(half), [f0, f1] = RING.frieze;
+      const d = rm * Math.cos(half) + (RING.r1 - RING.r0) / 2 + 0.002, fl = 0.004;
+      for (let i = 0; i < RING_N; i++) {
+        const am = 2 * Math.PI * (i + 0.5) / RING_N, c = [d * Math.cos(am), d * Math.sin(am)];
+        if (!inTile(c[0], c[1])) continue;
+        const n = [Math.cos(am), Math.sin(am), 0], F = (s, z) => [c[0] - Math.sin(am) * s, c[1] + Math.cos(am) * s, z];
+        face([F(-L, f1), F(L, f1), F(L, f1 - fl), F(-L, f1 - fl)], n, giltCol);
+        face([F(-L, f0 + fl), F(L, f0 + fl), F(L, f0), F(-L, f0)], n, giltCol);
+        const cw = L * 0.8, top = f1 - 0.010, ch = f1 - f0 - 0.024, th = 0.007;
+        for (const sg of [-1, 1]) face([F(0, top), F(sg * cw, top - ch), F(sg * cw, top - ch - th), F(0, top - th)], n, giltCol);
       }
-      for (const vr of [v0 + 0.025, (v0 + v1) / 2, v1 - 0.025]) {
-        for (let k = 0; k < NF; k++) {
-          const a = A[k], b = A[k + 1], l = 0.005;
-          const pa = [a[0] + a[2] * l, a[1] + a[3] * l], pb = [b[0] + b[2] * l, b[1] + b[3] * l];
-          how(clipT([[pa[0], vr - 0.009, pa[1]], [pb[0], vr - 0.009, pb[1]], [pb[0], vr + 0.009, pb[1]], [pa[0], vr + 0.009, pa[1]]]), [(a[2] + b[2]) / 2, 0, (a[3] + b[3]) / 2], RIB, 'brass');
-        }
+    }
+    // The roof over the drum's corners, from the ring out to the wall: a wedge for each of the ring's
+    // chords, with the drum's corner in it where there is one, each convex, in verdigris copper.
+    if (!glLive) {
+      const toWall = (a) => { const c = Math.cos(a), s = Math.sin(a), k = BACK / Math.max(Math.abs(c), Math.abs(s)); return [c * k, s * k, CORNER_Z]; };
+      for (let i = 0; i < RING_N; i++) {
+        const a = 2 * Math.PI * i / RING_N, b = 2 * Math.PI * (i + 1) / RING_N;
+        const pts = [polar(RING.r1, a, CORNER_Z), polar(RING.r1, b, CORNER_Z), toWall(b)];
+        for (const q of [1, 3, 5, 7]) { const cA = q * Math.PI / 4; if (cA > a + 1e-9 && cA < b - 1e-9) pts.push([Math.sign(Math.cos(cA)) * BACK, Math.sign(Math.sin(cA)) * BACK, CORNER_Z]); }
+        pts.push(toWall(a));
+        fixedSkin(clipT(pts), [0, 0, 1], ROOF_CU, 'metal');
       }
-      for (const [ve, sg] of [[v0, -1], [v1, 1]]) {
-        if (!inRow(ve)) continue;
-        const end = A.map((a) => [a[0], ve, a[1]]);
-        const fan = (i === 0 && sg < 0) || (i === SHELLS.length - 1 && sg > 0);
-        if (!fan) { skin(clipU(end), [0, sg, 0], SHELL, 'metal'); continue; }
-        skin(clipU(end), [0, sg, 0], fanGlass, null);
-        const vo = ve + sg * 0.003, hub = [0, S.zs], hr = 0.07;
-        for (let j = 2; j < NF; j += 2) {   // the rays, from the hub to every other point of the arch
-          const a = A[j], du = a[0] - hub[0], dz = a[1] - hub[1], dl = Math.hypot(du, dz) || 1, pu = -dz / dl * 0.0055, pz = du / dl * 0.0055;
-          const s0 = [hub[0] + du / dl * hr, hub[1] + dz / dl * hr];
-          how(clipU([[s0[0] + pu, vo, s0[1] + pz], [a[0] + pu, vo, a[1] + pz], [a[0] - pu, vo, a[1] - pz], [s0[0] - pu, vo, s0[1] - pz]]), [0, sg, 0], BRONZE_RGB, 'brass');
+    }
+
+    // A leaf turned `rot` from shut: each band of its level's profile across each slice, the middle
+    // slice glazed; a fascia down each edge as deep as a level, which closes the step to the leaf
+    // beside it; and the rib along each edge that carries one, DOME.rib proud and DOME.ribW wide on
+    // the leaf's own side, so it follows the steps up: the ziggurat.
+    const leaf = (L, rot, how) => {
+      const skin = how === asMesh ? asLeaf : how, trim = how === asShape ? null : how;
+      const Pf = PROFILES[L.k], A0 = L.a0 + rot, A1 = L.a1 + rot, cut = SLICES.map((f) => A0 + (A1 - A0) * f);
+      for (let j = 0; j + 1 < Pf.length; j++) {
+        const [ra, za] = Pf[j], [rb, zb] = Pf[j + 1], nr = zb - za, nz = ra - rb;
+        for (let s = 0; s + 1 < cut.length; s++) {
+          const a = cut[s], b = cut[s + 1], m = (a + b) / 2, glass = s === GLAZE_SLICE;
+          skin(clipT([polar(ra, a, za), polar(ra, b, za), polar(rb, b, zb), polar(rb, a, zb)]), [nr * Math.cos(m), nr * Math.sin(m), nz], glass ? leafGlass : LEAF, glass ? null : 'plain');
         }
-        for (let k = 0; k < NF; k++) {   // the frame round the arch
-          const a = A[k], b = A[k + 1], ins = (p) => [hub[0] + (p[0] - hub[0]) * 0.955, hub[1] + (p[1] - hub[1]) * 0.955];
-          const ia = ins(a), ib = ins(b);
-          how(clipU([[a[0], vo, a[1]], [b[0], vo, b[1]], [ib[0], vo, ib[1]], [ia[0], vo, ia[1]]]), [0, sg, 0], BRONZE_RGB, 'brass');
-        }
-        const hubPts = [];   // the hub, a bronze half-disc on the sill
-        for (let k = 0; k <= 8; k++) { const a = Math.PI * k / 8; hubPts.push([hub[0] + Math.cos(a) * hr, vo, hub[1] + Math.sin(a) * hr]); }
-        how(clipU(hubPts), [0, sg, 0], BRONZE_RGB, 'brass');
+        [A0, A1].forEach((e, side) => {
+          // t: out of the leaf across this edge, level
+          const sg = side ? 1 : -1, t = [-Math.sin(e) * sg, Math.cos(e) * sg, 0];
+          skin(clipT([polar(ra, e, za), polar(rb, e, zb), polar(rb, e, zb - DOME.g), polar(ra, e, za - DOME.g)]), t, LEAF, 'plain');
+          if (!trim || !L.rib[side]) return;
+          const w = DOME.ribW, h = DOME.rib, inn = (p) => [p[0] - t[0] * w, p[1] - t[1] * w, p[2]];
+          const ea = polar(ra, e, za + h), eb = polar(rb, e, zb + h), fa = polar(ra, e, za), fb = polar(rb, e, zb);
+          trim(clipT([ea, eb, inn(eb), inn(ea)]), [nr * Math.cos(e), nr * Math.sin(e), nz], BRONZE_RGB, 'brass');
+          trim(clipT([fa, fb, eb, ea]), t, BRONZE_RGB, 'brass');
+          trim(clipT([inn(fa), inn(fb), inn(eb), inn(ea)]), [-t[0], -t[1], 0], BRONZE_RGB, 'brass');
+        });
       }
     };
-    // Which shells this frame lays down, and how. See the ⚠ on the roof at the top of the file.
-    const glLive = FLAT_OFF && !MESH_SINK;            // GLASS 2's adornment pass: the mesh has the resting roof
-    if (st.moving && !MESH_SINK && !SHAPE_SINK) dutyPhase(now, 0, 1000, 1);   // a moving roof keeps this arm live (armRecord)
-    if (!SHAPE_SINK) SHELLS.forEach((S, i) => {
-      const fixed = S.open === S.shut;
+    // Which leaves this frame lays down, and how. See the ⚠ on the roof at the top of the file.
+    if (st.moving && !MESH_SINK && !SHAPE_SINK) dutyPhase(now, 0, 1000, 1);   // a moving dome keeps this arm live (armRecord)
+    if (SHAPE_SINK) LEAVES.forEach((L) => leaf(L, 0, asShape));
+    else LEAVES.forEach((L, i) => {
+      const fixed = !L.turn;
       if (MESH_SINK) {
         const at = fixed ? 1 : st.meshRoof;
-        if (at != null) shell(S, i, S.open + (S.shut - S.open) * at, asMesh);
+        if (at != null) leaf(L, leafTurn(i, at), asMesh);
       } else if (glLive) {
-        if (!fixed && st.moving) shell(S, i, S.open + (S.shut - S.open) * st.p, asDecal);
-      } else shell(S, i, S.open + (S.shut - S.open) * st.p, asMesh);
+        if (!fixed && st.moving) leaf(L, leafTurn(i, st.p), asDecal);
+      } else leaf(L, leafTurn(i, st.p), asMesh);
     });
+    if (ENV) for (const e of ENV.values()) shapeBox(e.u0, e.u1, e.v0, e.v1, e.z0, e.z1);
+
+    // The lantern at the crown, drawn whole by the middle tile: a bronze foot over the leaves' tips,
+    // two drums of glass in bronze mullions stepping in, each under a bronze ledge, a fluted gilt cap,
+    // and on its stem the finial, the main gate's sun with a baseball for its disc, facing all four
+    // streets, and the red beacon over it after dark.
+    if (inTile(0, 0)) {
+      const Lt = LANTERN, [lx, ly] = P(0, 0), brz = rgb(BRONZE_RGB.map((c) => c * dusk)), gilt = rgb(cl255(giltCol)), lg = rgb(cl255(lanternGlass));
+      drum(ctx, cam, lx, ly, Lt.foot.z0, Lt.foot.z1, Lt.foot.r, Lt.foot.r, 24, alpha, () => brz, brz, BRONZE);
+      Lt.glass.forEach((G) => {
+        drum(ctx, cam, lx, ly, G.z0, G.z1, G.r, G.r, 24, alpha, () => lg, lg, BRONZE);
+        drum(ctx, cam, lx, ly, G.z1, G.z1 + Lt.ledge, G.r + 0.012, G.r + 0.012, 24, alpha, () => brz, brz, BRONZE);
+        for (let m = 0; m < Lt.mullions; m++) {
+          const a = 2 * Math.PI * (m + 0.5) / Lt.mullions, r = G.r * Math.cos(Math.PI / 24) + 0.002, c = Math.cos(a), s = Math.sin(a), w = 0.004;
+          face([[r * c - s * w, r * s + c * w, G.z1], [r * c + s * w, r * s - c * w, G.z1], [r * c + s * w, r * s - c * w, G.z0], [r * c - s * w, r * s + c * w, G.z0]], [c, s, 0], BRONZE_RGB.map((v) => v * dusk));
+        }
+      });
+      drum(ctx, cam, lx, ly, Lt.cap.z0, Lt.cap.z1, Lt.cap.r0, Lt.cap.r1, Lt.cap.flutes, alpha, () => gilt, gilt, BRONZE);
+      drum(ctx, cam, lx, ly, Lt.cap.z1, Lt.stem.z1, Lt.stem.r, Lt.stem.r, 8, alpha, () => gilt, gilt, BRONZE);
+      // The sun: the disc a gilt baseball with its red stitches, and its rays, round in the plane
+      // though heights are drawn ZK times taller (SH / ZK).
+      const S = Lt.sun, zr = SH / ZK, red = [170 * dusk, 40 * dusk, 34 * dusk];
+      for (const n of SIDES) {
+        const at = (s, z) => (n[1] ? [s, n[1] * 0.004, z] : [n[0] * 0.004, s, z]), out = [n[0], n[1], 0];
+        face(Array.from({ length: 16 }, (_, k) => { const a = 2 * Math.PI * k / 16; return at(Math.cos(a) * S.r, S.z + Math.sin(a) * S.r * zr); }), out, giltCol);
+        for (const sg of [-1, 1]) {
+          const pts = [];
+          for (let k = 0; k <= 4; k++) { const a = -0.9 + 1.8 * k / 4; pts.push([sg * S.r * (1 - 0.45 * Math.cos(a)), S.z + Math.sin(a) * S.r * 0.8 * zr]); }
+          for (let k = 0; k < 4; k++) face([at(pts[k][0] - 0.0012, pts[k][1]), at(pts[k + 1][0] - 0.0012, pts[k + 1][1]), at(pts[k + 1][0] + 0.0012, pts[k + 1][1]), at(pts[k][0] + 0.0012, pts[k][1])].map((p) => [p[0] + n[0] * 0.0004, p[1] + n[1] * 0.0004, p[2]]), out, red);
+        }
+        for (let k = 0; k < S.rays; k++) {
+          const a = 2 * Math.PI * (k + 0.5) / S.rays, c = Math.cos(a), s = Math.sin(a), w = 0.0025, r0 = S.r + 0.004, r1 = S.r + S.ray * (k % 2 ? 0.7 : 1);
+          face([at(c * r0 - s * w, S.z + (s * r0 + c * w) * zr), at(c * r0 + s * w, S.z + (s * r0 - c * w) * zr), at(c * r1 + s * w, S.z + (s * r1 - c * w) * zr), at(c * r1 - s * w, S.z + (s * r1 + c * w) * zr)], out, giltCol);
+        }
+      }
+      if (dn > 0.3) blink(ctx, cam, lx, ly, Lt.beacon, '255,60,40', now, seed + 77, alpha, 1.6);
+      if (dn > 0.05) pool(ctx, cam, lx, ly, (Lt.glass[0].z0 + Lt.glass[1].z1) / 2, '255,226,180', 34, alpha * 0.3 * dn, { air: true, max: 120 });
+    }
 
     // 10b) THE PEOPLE, on a game night with the roof not shut over them: this tile's share of the
     //     fans and players, as offsets from its centre (the live part's x and y), facing home.
@@ -1121,14 +1184,14 @@ export const COLISEUM_ARMS = {
       parkFigures(ctx, cam, cx, cy, build, FIG_K, alpha, now, dn > 0.5 ? 1 : 0, Z.corn * ZK);
     }
 
-    // 11) THE LIGHT THAT GETS OUT. With the roof shut after dark, the field's floods show through the
-    //     clerestory all round and the glazing down the crown; with it open, through the gap.
+    // 11) THE LIGHT THAT GETS OUT. With the dome shut after dark, the field's floods show through the
+    //     clerestory all round and the leaves' glazing strips; with it open, through the gap.
     if (dn > 0.05 && st.domeK > 0.01) {
       for (const [u, v] of [[0, 1.5], [0, -1.5], [1.5, 0], [-1.5, 0], [-0.9, 1.5], [0.9, -1.5], [1.5, -0.9], [-1.5, 0.9]]) {
         if (!inTile(clamp(u, -EDGE_IN, EDGE_IN), clamp(v, -EDGE_IN, EDGE_IN))) continue;
         pool(ctx, cam, ...P(u, v), (Z.frieze + Z.cler) / 2, '255,232,194', 22, alpha * 0.26 * dn * st.domeK, { air: true });
       }
-      if (inTile(0, 0)) pool(ctx, cam, ...P(0, 0), 0.86, '255,236,206', 60, alpha * 0.1 * dn * st.domeK, { air: true, max: 150 });
+      if (inTile(0, 0)) pool(ctx, cam, ...P(0, 0), 0.98, '255,236,206', 60, alpha * 0.1 * dn * st.domeK, { air: true, max: 150 });
     }
     if (st.towerK > 0.01 && dn > 0.05) for (const su of [1, -1]) for (let j = 0; j < 7; j++) {
       const v = -1.26 + j * 0.42, u = su * (DECK - 0.01);

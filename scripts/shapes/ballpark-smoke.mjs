@@ -11,11 +11,12 @@
 //      their lamps. The bowl round it is the map's Coliseum (glass/models/coliseum.js): the
 //      outline its square on the foul lines, the wall facing out on all four sides and in over
 //      the stands, a tower at each corner, the plate on the main gate across from home on Sorrel
-//      Way, and the name band on Sorrel Way and the boulevard, read from the street. The roof's
-//      three shells cover the bowl shut and nest open, clear each other, and spring from the
-//      rails; the lights cross from the towers to the decks with no jump; the roof's travel eases
-//      over the map's ninety seconds; and the plates say GRANDSTAND and BLEACHERS in raised gilt
-//      and the bands his name cut in one line, none of it ever squeezed.
+//      Way, and the name band on Sorrel Way and the boulevard, read from the street. The dome's
+//      eight leaves go once round the ring shut and nest under the two fixed ones open, clear each
+//      other, spring from their rails and turn on the GPU as on the map; the lights cross from the
+//      towers to the decks with no jump; the roof's travel eases in and out; and the plates say
+//      GRANDSTAND and BLEACHERS in raised gilt and the bands his name cut in one line, none of it
+//      ever squeezed.
 //   2. THE MATRICES AGREE WITH THE PINHOLE. camera.js writes each shot out as GL matrices
 //      and works the same shot out from the camera's own axes. If they drift, the director
 //      (which frames with `project`) and the picture disagree about what's in shot. Every
@@ -241,24 +242,63 @@ check('defaults: the board inside the outline', G.insideOutline(base.outline, ba
 }
 
 // ── the roof ─────────────────────────────────────────────────────────────────
-// The map's three shells at the broadcast's size: the first fixed over the boulevard end, the other
-// two riding the rails. Shut they cover the bowl from Sorrel Way to the boulevard, each lapping the
-// next; open they nest under the first. At the crown and at mid-span each clears the one over it.
+// The Hughson Dome at the broadcast's size (coliseum-plan.js): eight leaves, the two over the
+// outfield fixed. Shut they go once round the ring; open, the six that turn lie under the two fixed
+// ones, and while they turn no two leaves of one level are ever over the same ground. Each level
+// clears the one over it by six to eight feet everywhere, with the underside, the steel under it and
+// the rib on the leaf below in the gap; each springs from its rail over the cornice; and the renderer
+// turns a leaf the way the plan does.
 {
-  const { BOWL } = G, kh = (BOWL.near + BOWL.far) / 2.94;
-  const run = (i, p) => { const S = M.SHELLS[i], d = G.sOf(M.shellShift(i, p))[1]; return [G.fromBlock(S.shut + S.len) + d, G.fromBlock(S.shut) + d]; };
-  const shut = [0, 1, 2].map((i) => run(i, 1)), open = [0, 1, 2].map((i) => run(i, 0));
-  check('the roof: three shells, the first fixed', base.roof.length === 3 && base.roof[0].fixed && !base.roof[1].fixed && !base.roof[2].fixed);
-  check('the roof: shut, the shells cover the bowl from Sorrel Way to the boulevard, each lapping the next',
-    shut[2][0] <= -BOWL.near + 2 && shut[0][1] >= BOWL.far - 1 && shut[1][0] < shut[0][0] && shut[2][1] > shut[1][0] && shut[1][1] > shut[0][0], JSON.stringify(shut.map((r) => r.map((v) => +v.toFixed(0)))));
-  // (the last is a little longer than the first, so its south end shows past it, as on the map)
-  check('the roof: open, the two that travel nest under the first', [1, 2].every((i) => open[i][1] <= open[0][1] + 1e-6 && (Math.min(open[i][1], open[0][1]) - Math.max(open[i][0], open[0][0])) / (open[i][1] - open[i][0]) > 0.9), JSON.stringify(open.map((r) => r.map((v) => +v.toFixed(0)))));
-  const zAt = (a, u) => { const P = a.pts; for (let k = 0; k < P.length - 1; k++) if (u >= P[k][0] && u <= P[k + 1][0]) return P[k][1] + (u - P[k][0]) / (P[k + 1][0] - P[k][0]) * (P[k + 1][1] - P[k][1]); return NaN; };
-  const arch = M.SHELLS.map((S) => M.shellArch(S));
-  const gaps = [0, 1].flatMap((i) => [0, M.SHELLS[i + 1].c / 2].map((u) => G.ftUp(zAt(arch[i], u) - zAt(arch[i + 1], u))));
-  check('the roof: each shell clears the one over it by five to eight feet at the crown and mid-span', gaps.every((g) => g > 5 && g < 8), gaps.map((g) => g.toFixed(1)).join(', '));
-  // the map's decks reach in to 1.13 tiles and the outer rail's step stands to 1.25
-  check('the roof: the shells spring from the decks\' rails, each lower than the one over it', M.SHELLS.every((S, i) => S.c >= 1.13 && S.c <= 1.25 && G.ftUp(S.zs) >= M.BOWL_Z.corn - 1e-6 && (i === 0 || (S.zs < M.SHELLS[i - 1].zs && S.c < M.SHELLS[i - 1].c))), M.SHELLS.map((S) => (S.c * kh).toFixed(0)).join(', '));
+  const C = await import('../../client/shared/coliseum-plan.js');
+  const L = M.LEAVES, TAU = 2 * Math.PI, wrap = (a) => ((a % TAU) + TAU) % TAU, near0 = (a) => Math.min(wrap(a), TAU - wrap(a)) < 1e-9;
+  check('the roof: eight leaves, the two over the outfield fixed and on top', base.roof.length === 8 && L.length === 8 && base.roof.filter((r) => r.fixed).length === 2
+    && L.every((x, i) => base.roof[i].fixed === !x.turn && base.roof[i].i === i) && L.filter((x) => !x.turn).every((x) => x.k === 0));
+  const spans = L.map((x) => [wrap(x.a0), x.a1 - x.a0]).sort((a, b) => a[0] - b[0]);
+  check('the roof: shut, the leaves go once round the ring, edge to edge',
+    spans.every(([a, w], i) => near0(spans[(i + 1) % spans.length][0] - (a + w))) && Math.abs(spans.reduce((t, s) => t + s[1], 0) - TAU) < 1e-9);
+  const fixed = L.filter((x) => !x.turn);
+  check('the roof: open, the six that turn lie under the two fixed ones, centre field\'s side of home',
+    L.filter((x) => x.turn).every((x) => fixed.some((F) => near0(x.a0 + x.turn - F.a0) && near0(x.a1 + x.turn - F.a1)))
+    && fixed.every((F) => { const m = wrap((F.a0 + F.a1) / 2); return m > Math.PI && m < 1.5 * Math.PI; }));
+  let clash = 0;
+  for (let p = 0; p <= 1.0001; p += 0.05) {
+    const at = L.map((x, i) => wrap(x.a0 + C.leafTurn(i, p)));
+    for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+      if (L[i].k !== L[j].k) continue;
+      const d = wrap(at[j] - at[i]), w = L[i].a1 - L[i].a0;
+      if (d > 1e-6 && d < w - 1e-6 || TAU - d > 1e-6 && TAU - d < w - 1e-6) clash++;
+    }
+  }
+  check('the roof: while it turns, no two leaves of one level are over the same ground', clash === 0, `${clash}`);
+  // heights at radius r, along a profile that runs outside in (r falling the whole way)
+  const zAt = (Pf, r) => { for (let k = 0; k + 1 < Pf.length; k++) { const [ra, za] = Pf[k], [rb, zb] = Pf[k + 1]; if (r <= ra && r >= rb) return za + (zb - za) * (ra - r) / (ra - rb); } return NaN; };
+  const ft = G.ftUp(1), falls = [0, 1, 2, 3].every((k) => M.leafProfile(k).every((p, i, a) => i === 0 || p[0] < a[i - 1][0]));
+  let gapLo = Infinity, gapHi = 0, steelLo = Infinity, ribLo = Infinity;
+  for (let k = 0; k < 3; k++) {
+    const up = M.leafProfile(k), lo = M.leafProfile(k + 1), under = M.profileIn(k, M.SKIN), steel = M.profileIn(k, M.LEAF_STEEL);
+    for (let r = C.DOME.rL + 0.06; r < lo[0][0] - 0.01; r += 0.002) {
+      const zl = zAt(lo, r), gap = (zAt(up, r) - zl) * ft;
+      gapLo = Math.min(gapLo, gap); if (r < lo[0][0] - 0.15) gapHi = Math.max(gapHi, gap);
+      const zs = zAt(steel, r), zu = zAt(under, r);
+      if (Number.isFinite(zs)) steelLo = Math.min(steelLo, (zs - zl) * ft);
+      if (Number.isFinite(zu)) ribLo = Math.min(ribLo, (zu - zl - C.DOME.rib) * ft);
+    }
+  }
+  check('the roof: each level clears the one over it by six to eight feet', falls && gapLo > 6 && gapLo < 8, `${gapLo.toFixed(1)} ft at the least`);
+  check('the roof: the steel under a leaf and the rib on the one under it fit in the gap', steelLo > 2 && ribLo > 1, `steel ${steelLo.toFixed(1)} ft, rib ${ribLo.toFixed(1)} ft clear`);
+  check('the roof: each leaf springs from its rail, over the cornice and under the ring\'s top',
+    [0, 1, 2, 3].every((k) => { const [r, z] = M.leafProfile(k)[0]; if (G.ftUp(z) < M.BOWL_Z.corn || z >= C.RING.z1) return false; if (!k) return Math.abs(r - C.RING.r0) < 1e-9; const [ro, ri, top] = C.rail(k); return Math.abs(top - z) < 1e-9 && r > ri && r < ro; }));
+  // the renderer's turn (gl/ballpark.js uTurn) puts a point where the plan's turn does
+  const B2T = (u, v, z = 0) => G.sf(G.fromBlock(u), G.fromBlock(v), G.ftUp(z));
+  let turnErr = 0;
+  L.forEach((x, i) => {
+    const [cx, cz, a] = M.leafSpin(i, 0), q = C.leafTurn(i, 0), u = 0.9 * Math.cos(x.a0 + 0.1), v = 0.9 * Math.sin(x.a0 + 0.1);
+    const p = B2T(u, v), d = [p[0] - cx, p[2] - cz], got = [cx + Math.cos(a) * d[0] - Math.sin(a) * d[1], cz + Math.sin(a) * d[0] + Math.cos(a) * d[1]];
+    const want = B2T(u * Math.cos(q) - v * Math.sin(q), u * Math.sin(q) + v * Math.cos(q));
+    turnErr = Math.max(turnErr, Math.hypot(got[0] - want[0], got[1] - want[2]));
+    if (M.leafSpin(i, 1)[2] !== 0) turnErr = Infinity;
+  });
+  check('the roof: open, the renderer turns each leaf where the plan has it; shut, not at all', turnErr < 1e-6, `${turnErr.toExponential(1)} ft`);
   let bad = 0, badN = 0, badMat = 0, tris = 0;
   for (const r of base.roof) {
     const d = r.batch.data; tris += r.batch.n / 3;
@@ -269,9 +309,9 @@ check('defaults: the board inside the outline', G.insideOutline(base.outline, ba
       if (![M.MAT.METAL, M.MAT.GLAZE, M.MAT.GILT, M.MAT.CONCRETE].includes(d[o + 11])) badMat++;
     }
   }
-  // about 7,100 with the trusses and purlins under each shell; the cap is there to catch a builder
+  // about 11,000 with the undersides, the fascias and the steel; the cap is there to catch a builder
   // that runs away, not to ration the steel
-  check('the roof: every shell finite, its normals units, metal, glass, bronze and painted steel', bad === 0 && badN === 0 && badMat === 0 && tris > 1000 && tris < 10000, `${bad}/${badN}/${badMat}, ${tris} triangles`);
+  check('the roof: every leaf finite, its normals units, copper, glass, bronze and painted steel', bad === 0 && badN === 0 && badMat === 0 && tris > 2000 && tris < 20000, `${bad}/${badN}/${badMat}, ${tris} triangles`);
   // the lights go with it: open, the towers; shut, their light has gone over to the decks; and no
   // light moves while it's lit
   const T6 = base.field.towers;

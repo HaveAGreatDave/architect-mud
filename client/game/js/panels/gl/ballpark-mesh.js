@@ -5,7 +5,7 @@
 // bowl and the upper deck with every row of seats, the backstop net and the scoreboard, all
 // built from the venue (sports_pools.venue, with diamond/geo.js filling in what a venue leaves
 // out); and round it the Charles B. Hughson Coliseum as the map has it (buildBowl): the art deco
-// bowl, its four corner light towers, its two gates and the three shells of its roof.
+// bowl, its four corner light towers, its gates and the Hughson Dome over it.
 //
 // ⚠ NOTHING HERE TOUCHES WEBGL OR THE DOM. It fills Float32Arrays, so it runs in node and
 // ballpark-smoke.mjs builds the whole park and checks every float.
@@ -37,7 +37,10 @@
 
 import { DEG, BAGS, MOUND, RUBBER, FOUL_GROUND, DUGOUT, offLine, moundHeight, venueField, fenceDistance, parkOutline, insideOutline, seeded, BOWL, sf, sOf, fromBlock, ftUp } from '../diamond/geo.js';
 import { WIN_OPEN, sunburst, headPanels } from '../glass/coliseum-window.js';
-import { BACK, BAND, BGATE, DECK, FIN_AT, GATE, GUARD, OUT, RAIL_IN, RAIL_OUT, SH, SIDE_GATES, TILE_FT, TOWER, Z } from '../../../../shared/coliseum-plan.js';
+import {
+  BACK, BAND, BGATE, CORNER_Z, DECK, DOME, FIN_AT, GATE, GUARD, LANTERN, LEAVES, OUT, RING, SH, SIDE_GATES, TILE_FT, TOWER, Z,
+  leafProfile, leafTurn, rail,
+} from '../../../../shared/coliseum-plan.js';
 
 export const STRIDE = 12;
 export const MAT = Object.freeze({
@@ -481,7 +484,7 @@ function wallNumbers(fence) {
 //   sign: the plates over the two gates and the name cut in the band beside them, painted (PLATE_ATLAS)
 //   lamps: what burns on its own, each lit by the renderer as the hour and the roof have it:
 //          tower (the towers' floods), deck (the rows under the decks), beacon, lantern, halo
-//   roof: [{ batch, fixed }], a shell each, built shut and drawn at shellShift
+//   roof: [{ batch, fixed, i }], a leaf of the dome each, built shut and drawn turned by leafSpin
 export function buildPark(venue, opts = {}) {
   const field = venueField(venue);
   const outline = parkOutline(field);
@@ -585,9 +588,9 @@ export function buildPark(venue, opts = {}) {
 // The Charles B. Hughson Coliseum as the map draws it (glass/models/coliseum.js), transcribed by
 // `B2T`: the plan's park units (u east, v south of the block's centre) to the bowl's feet, through
 // the world's ruler (diamond/geo.js fromBlock and ftUp). The wall's five courses, the fins and the
-// concourse windows, the four corner towers, the decks and their rails and the four gates are the
+// concourse windows, the four corner towers, the decks and the four gates are the
 // plan's numbers (client/shared/coliseum-plan.js), the ones the map's arm draws: the same park.
-// The roof's shells are still this file's own, three to the map's six: the dome replaces both.
+// So is the roof, the Hughson Dome: the plan's leaves, ring and lantern.
 // Every box in the bowl stands square to the foul lines, as the map's park stands on the tile grid.
 // Since the park went to true size the main gate stands across from home on both, so it's
 // transcribed like everything else (GATE.u is home plate's u).
@@ -649,32 +652,36 @@ export function wallRects(run, holes, z0, z1) {
 // A carved face: the DECO shader leaves the coursing off a face whose uv.x is negative, because a
 // figure with the wall's joints across it read as stacked masonry on the map.
 const DRESSED = [-1, 0];
-// The roof: the map's three shells, biggest first, each a segmental vault across the bowl from rail
-// to rail (`c` its half-span, `zs` where it springs, `rise` to its crown) and `len` long; `open` and
-// `shut` are where its north end is. The first is fixed over the bleachers on the boulevard side and
-// the other two ride the rails and nest under it. ⚠ THE GAPS ARE MEASURED: each clears the one over
-// it by 0.025 to 0.03 tiles at the crown and at mid-span (ballpark-smoke checks them at this size).
-export const SHELLS = Object.freeze([
-  { c: 1.22, zs: 0.49, rise: 0.36, len: 1.00, open: -1.47, shut: -1.47 },
-  { c: 1.175, zs: 0.475, rise: 0.35, len: 1.00, open: -1.45, shut: -0.52 },
-  { c: 1.145, zs: 0.46, rise: 0.34, len: 1.04, open: -1.43, shut: 0.43 },
-].map((S) => Object.freeze(S)));
-const NF = 24;
-// A shell's arch, spring to spring: [u, z] in tiles, and the circle's centre height.
-export function shellArch(S) {
-  const R = (S.c * S.c + S.rise * S.rise) / (2 * S.rise), zc = S.zs + S.rise - R, th = Math.asin(S.c / R);
-  return { zc, pts: Array.from({ length: NF + 1 }, (_, i) => { const t = -th + 2 * th * i / NF; return [R * Math.sin(t), zc + R * Math.cos(t)]; }) };
+// The roof: the Hughson Dome, the plan's (coliseum-plan.js DOME, LEAVES, RING, LANTERN), the same
+// leaves the map's arm draws. Each leaf is built shut as a batch of its own and drawn turned about the
+// dome's axis as far as the roof has got (leafSpin, gl/ballpark.js uTurn); the ring, its rails, the
+// roof over the drum's corners and the lantern never move, so they're in the bowl's own batches.
+// ⚠ THE GAPS ARE MEASURED: each level clears the one over it by about seven feet everywhere, and its
+// underside, the steel under it and the rib on the leaf under that fit in the gap (ballpark-smoke).
+export { LEAVES, leafProfile };
+const DOME_C = B2T(0, 0);
+// which way a turn in the plan (u toward v) goes in the bowl's feet (x toward z)
+const TURN_SENSE = (() => { const a = sub(B2T(1, 0), DOME_C), b = sub(B2T(0, 1), DOME_C); return Math.sign(a[0] * b[2] - a[2] * b[0]); })();
+// Where leaf `i` stands at `p` (0 open, 1 shut) against where it's built (shut): [x, z, angle], the
+// vertical axis it turns on in feet and how far round, in radians, as gl/ballpark.js's uTurn takes it.
+export function leafSpin(i, p) {
+  return [DOME_C[0], DOME_C[2], TURN_SENSE * leafTurn(i, p)];
 }
-// Where shell `i` stands at `p` (0 open, 1 shut) against where it's built (shut): feet along the
-// first-base line, as the offset its batch is drawn at (gl/ballpark.js uShift).
-export function shellShift(i, p) {
-  const S = SHELLS[i], k = Math.min(1, Math.max(0, +p || 0));
-  const d = fromBlock(S.open + (S.shut - S.open) * k) - fromBlock(S.shut);
-  return sf(0, d);
+// A leaf's skin is SKIN feet thick, and the steel under it hangs to LEAF_STEEL feet under the skin.
+export const SKIN = 1.6, LEAF_STEEL = 3.4;
+const TV_SLICES = 10;
+// Leaf level k's profile, `d` feet in from its skin along the profile's normal, in park units.
+export function profileIn(k, d) {
+  const up = ftUp(1), F = leafProfile(k).map(([r, z]) => [r * KH, z * up]);
+  const n = F.slice(0, -1).map((a, j) => { const b = F[j + 1], dr = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dr, dz) || 1; return [dz / l, -dr / l]; });
+  return F.map(([R, Zf], j) => {
+    const a = n[Math.max(0, j - 1)], b = n[Math.min(n.length - 1, j)], m = [a[0] + b[0], a[1] + b[1]], l = Math.hypot(m[0], m[1]) || 1;
+    return [(R - d * m[0] / l) / KH, (Zf - d * m[1] / l) / up];
+  });
 }
 
 // The lights at `p` (0 open, 1 shut): each tower's at its lamp house, crossing over to its lamps
-// under a deck (`under`) as the roof comes over it, out by the time the shells are halfway and up
+// under a deck (`under`) as the roof comes over it, out by the time the leaves are halfway and up
 // again at the deck by the time they've closed, so no light ever jumps while it's lit. The decks'
 // own rows burn either way, and harder while the towers hand over (twice as hard halfway), so the
 // field doesn't go dim under a moving roof. [{ lamp, dir, k }], in the venue's order.
@@ -729,7 +736,7 @@ const COL = Object.freeze({
   granite: lin('#3a3e44'), conc: lin('#7a7e82'), inner: lin('#3c3a36'), shell: lin('#b8bcba'), shellIn: lin('#6a7074'), steel: lin('#3e4448'), truss: lin('#a9aeb0'),
   rib: lin('#604a32'), gilt: lin('#deb260'), glass: lin('#3a4c58'), lobby: lin('#40505a'), grille: lin('#1e1a16'),
   flute: lin('#60543f'), red: lin('#aa2822'), plate: lin('#1e1610'), pole: lin('#d9d9d4'), flag: lin('#16264a'),
-  floor: lin('#8c8272'), pane: lin('#1c262e'),
+  floor: lin('#8c8272'), pane: lin('#1c262e'), leaf: lin('#4a3226'),
 });
 const LAMP_LIT = [26, 25, 22], LAMP_DEAD = lin('#1a1b1d');
 // how far a lamp's housing stands off its tower's lamp house, in block units (about 1.7 ft)
@@ -765,16 +772,16 @@ function bface(b, pts, out, col, mat, uv = [0, 0]) {
   for (let i = 1; i + 1 < W.length; i++) { vtx(b, W[0], n, uv, col, mat); vtx(b, W[i], n, uv, col, mat); vtx(b, W[i + 1], n, uv, col, mat); }
 }
 // An upright drum round a block point, from z0 to z1 tiles, its radius r0 at the foot to r1 at the top.
-function bdrum(b, u, v, z0, z1, r0, r1, col, mat, segs = 8) {
+function bdrum(b, u, v, z0, z1, r0, r1, col, mat, segs = 8, uv = null) {
   const c = B2T(u, v, 0), y0 = ftUp(z0), y1 = ftUp(z1);
   grid(b, 2, segs, (i, j) => { const a = j / segs * TAU, r = (i ? r1 : r0) * KH; return [c[0] + Math.sin(a) * r, i ? y1 : y0, c[2] + Math.cos(a) * r]; },
-    { col, mat, centre: [c[0], (y0 + y1) / 2, c[2]] });
+    { col, mat, centre: [c[0], (y0 + y1) / 2, c[2]], ...(uv ? { uv: () => uv } : {}) });
 }
 
 // Builds the bowl into the park's batches (B), from the venue's lights (field.towers). Returns the
 // plates' batch (the plate over each gate and the name in the bands, drawn once they're painted), the lamps' batches (the towers'
 // floods, the decks' rows, the beacons, the lanterns and the plates' halo, each lit on its own), and
-// the roof: a batch a shell, built shut, with how far it travels open.
+// the roof: a batch a leaf of the dome, built shut.
 function buildBowl(B, field, BT) {
   const plain = B('plain');
   const lamps = { tower: createBatch(2048), deck: createBatch(1024), beacon: createBatch(256), lantern: createBatch(512), halo: createBatch(128) };
@@ -896,15 +903,13 @@ function buildBowl(B, field, BT) {
     });
   });
 
-  // The decks over the east and west concourse, roofed in copper, the rails along them (the girder's
-  // two steps, one for each shell that rides it), the columns under them and a row of floods along
-  // each deck's edge, turned to the field: what lights the field with the roof shut.
+  // The decks over the east and west concourse, roofed in copper under the dome's ring, the columns
+  // under them and a row of floods along each deck's edge, turned to the field: what lights the field
+  // with the dome shut.
   const decks = field.towers.filter((T) => T.kind === 'deck');
   for (const su of [1, -1]) {
     const lo = (a, b) => (su > 0 ? [a, b] : [-b, -a]);
     bbox(plain, ...lo(DECK, BACK), -BACK, BACK, Z.cler, Z.corn, COL.trim, MAT.DECO, COL.copper);
-    bbox(plain, ...lo(RAIL_OUT[0], RAIL_OUT[1]), -OUT, OUT, Z.corn, RAIL_OUT[2], COL.bronze, MAT.GILT);
-    bbox(plain, ...lo(RAIL_IN[0], RAIL_IN[1]), -OUT, OUT, Z.corn, RAIL_IN[2], COL.bronze, MAT.GILT);
     // ⚠ ON THE FAR SIDE, BEHIND THE BLEACHERS. The map's columns stand at 1.18 either side; on the
     // left-field side that is in the broadcast's bleachers, so they stand at the deck's back there.
     const cu = su > 0 ? 1.18 : -1.33;
@@ -917,8 +922,6 @@ function buildBowl(B, field, BT) {
         [-su, 0, 0], live[j] ? LAMP_LIT : LAMP_DEAD, live[j] ? MAT.EMISSIVE : MAT.METAL);
     }
   }
-  // the sill the fixed shell's north end stands on, along the top of the boulevard wall
-  bbox(plain, -SHELLS[0].c, SHELLS[0].c, -OUT, -BACK, Z.corn, SHELLS[0].zs, COL.trim, MAT.DECO);
 
   // 7) THE FOUR LIGHT TOWERS, one at each corner where the venue's lights have them: a fluted
   //    limestone shaft, two setbacks, a bronze lamp house with its floods turned to the field, a
@@ -983,116 +986,120 @@ function buildBowl(B, field, BT) {
   bandAt(plates, [0, 1], BAND_RUNS.s, PLATE_ATLAS.band.s, true);
   bandAt(plates, [0, -1], BAND_RUNS.n, PLATE_ATLAS.band.n, false);
 
-  // 10) THE ROOF. Each shell built shut, as a batch of its own the renderer draws where the roof
-  //     has got to (shellShift): its panels across the vault and their underside, the glazing down
-  //     its crown, three bronze ribs and its two ends; the outer end of the first and the last is a
-  //     fan window, glass behind bronze rays, a bronze frame round the arch and a hub on the sill.
-  const roof = SHELLS.map((S, i) => ({ batch: buildShell(S, i), fixed: S.open === S.shut }));
+  // 10) THE DOME. The ring, its rails, the roof over the drum's corners and the lantern, which never
+  //     move, and the eight leaves, each built shut as a batch of its own the renderer turns as far as
+  //     the roof has got (leafSpin).
+  buildDomeFixed(plain, lamps);
+  const roof = LEAVES.map((L, i) => ({ batch: buildLeaf(L), fixed: !L.turn, i }));
   return { plates, lamps, roof };
 }
 
-function buildShell(S, i) {
-  const b = createBatch(4096), { zc, pts: A } = shellArch(S), v0 = S.shut, v1 = v0 + S.len;
-  const axis = norm(sf(0, 1));
-  // each arch point's normal in feet, from its neighbours, turned away from the vault's centre
-  const N = A.map((p, k) => {
-    const a = B2T(A[Math.max(0, k - 1)][0], 0, A[Math.max(0, k - 1)][1]), c = B2T(A[Math.min(NF, k + 1)][0], 0, A[Math.min(NF, k + 1)][1]);
-    let n = norm(cross(axis, sub(c, a)));
-    if (dot(n, sub(B2T(p[0], 0, p[1]), B2T(0, 0, zc))) < 0) n = mul(n, -1);
-    return n;
-  });
-  const P = (k, v, off = 0) => madd(B2T(A[k][0], v, A[k][1]), N[k], off);
-  const SKIN = 1.6, crownAt = (k) => Math.abs(A[k][0] + A[k + 1][0]) / 2 < 0.24;
-  for (let k = 0; k < NF; k++) {
-    const crown = crownAt(k), uv = crown ? ROOF_GLASS : [0, 0], col = crown ? COL.glass : COL.shell, mat = crown ? MAT.GLAZE : MAT.METAL;
-    // the skin, and its underside a little under it
-    vtx(b, P(k, v0), N[k], uv, col, mat); vtx(b, P(k + 1, v0), N[k + 1], uv, col, mat); vtx(b, P(k + 1, v1), N[k + 1], uv, col, mat);
-    vtx(b, P(k, v0), N[k], uv, col, mat); vtx(b, P(k + 1, v1), N[k + 1], uv, col, mat); vtx(b, P(k, v1), N[k], uv, col, mat);
-    // the underside is painted steel, not bright metal: under the floods a mirror read as black with
-    // a white blot for every lamp
-    const ci = crown ? COL.glass : COL.shellIn, mi = crown ? MAT.GLAZE : MAT.CONCRETE;
-    const n0 = mul(N[k], -1), n1 = mul(N[k + 1], -1);
-    vtx(b, P(k, v0, -SKIN), n0, uv, ci, mi); vtx(b, P(k + 1, v1, -SKIN), n1, uv, ci, mi); vtx(b, P(k + 1, v0, -SKIN), n1, uv, ci, mi);
-    vtx(b, P(k, v0, -SKIN), n0, uv, ci, mi); vtx(b, P(k, v1, -SKIN), n0, uv, ci, mi); vtx(b, P(k + 1, v1, -SKIN), n1, uv, ci, mi);
+// A point at radius r and angle a round the dome's axis, z up: block units.
+const pol = (r, a, z) => [r * Math.cos(a), r * Math.sin(a), z];
+// An annular sector r0..r1 out and z0..z1 up between angles a and c: its outer face, its inner face,
+// its top and its underside.
+function ringSeg(b, r0, r1, z0, z1, a, c, col, mat) {
+  const m = (a + c) / 2, o = [Math.cos(m), Math.sin(m), 0];
+  bface(b, [pol(r1, a, z1), pol(r1, c, z1), pol(r1, c, z0), pol(r1, a, z0)], o, col, mat);
+  bface(b, [pol(r0, a, z1), pol(r0, c, z1), pol(r0, c, z0), pol(r0, a, z0)], [-o[0], -o[1], 0], col, mat);
+  bface(b, [pol(r0, a, z1), pol(r0, c, z1), pol(r1, c, z1), pol(r1, a, z1)], [0, 0, 1], col, mat);
+  bface(b, [pol(r0, a, z0), pol(r0, c, z0), pol(r1, c, z0), pol(r1, a, z0)], [0, 0, -1], col, mat);
+}
+
+// What of the dome never moves (the map's arm, section 10): the ring on the cornice, a bronze band
+// with a gilt chevron frieze, and the rails stepping down and in under it, one for each level of leaf
+// under the top; the roof over the drum's corners, copper on top; and the lantern, a bronze foot over
+// the leaves' tips, two drums of glass in bronze mullions lit every night, a fluted gilt cap, and the
+// finial, the main gate's sun with a baseball for its disc, and its red beacon.
+function buildDomeFixed(plain, lamps) {
+  const n = RING.n, A = (i) => 2 * Math.PI * i / n, [f0, f1] = RING.frieze;
+  const toWall = (t) => { const x = Math.cos(t), y = Math.sin(t), k = BACK / Math.max(Math.abs(x), Math.abs(y)); return [x * k, y * k]; };
+  for (let i = 0; i < n; i++) {
+    const a = A(i), c = A(i + 1), m = (a + c) / 2, o = [Math.cos(m), Math.sin(m), 0];
+    ringSeg(plain, RING.r0, RING.r1, RING.z0, RING.z1, a, c, COL.bronze, MAT.GILT);
+    for (let k = 1; k <= 3; k++) { const [ro, ri, top] = rail(k); ringSeg(plain, ri, ro, Z.cler, top, a, c, COL.bronze, MAT.GILT); }
+    const d = RING.r1 * Math.cos(Math.PI / n) + 0.002, L = RING.r1 * Math.sin(Math.PI / n), fl = 0.004;
+    const F = (s, z) => [d * o[0] - o[1] * s, d * o[1] + o[0] * s, z];
+    bface(plain, [F(-L, f1), F(L, f1), F(L, f1 - fl), F(-L, f1 - fl)], o, COL.gilt, MAT.GILT);
+    bface(plain, [F(-L, f0 + fl), F(L, f0 + fl), F(L, f0), F(-L, f0)], o, COL.gilt, MAT.GILT);
+    const cw = L * 0.8, top = f1 - 0.010, ch = f1 - f0 - 0.024, th = 0.007;
+    for (const sg of [-1, 1]) bface(plain, [F(0, top), F(sg * cw, top - ch), F(sg * cw, top - ch - th), F(0, top - th)], o, COL.gilt, MAT.GILT);
+    // the roof beyond this chord, out to the wall, with the drum's corner in it where there is one
+    const pts = [pol(RING.r1, a, 0), pol(RING.r1, c, 0), [...toWall(c), 0]];
+    for (const q of [1, 3, 5, 7]) { const t = q * Math.PI / 4; if (t > a + 1e-9 && t < c - 1e-9) pts.push([Math.sign(Math.cos(t)) * BACK, Math.sign(Math.sin(t)) * BACK, 0]); }
+    pts.push([...toWall(a), 0]);
+    bface(plain, pts.map(([u, v]) => [u, v, CORNER_Z]), [0, 0, 1], COL.copper, MAT.DECO);
+    bface(plain, pts.map(([u, v]) => [u, v, CORNER_Z - 0.004]), [0, 0, -1], COL.inner, MAT.CONCRETE);
   }
-  // three bronze ribs over it, standing a foot proud, and under it the steel arches they're the tops
-  // of, three feet deep
-  const lift = 0.005 * KH, deep = SKIN + 3;
-  for (const vr of [v0 + 0.025, (v0 + v1) / 2, v1 - 0.025]) {
-    const va = vr - 0.009, vb = vr + 0.009;
-    for (let k = 0; k < NF; k++) {
-      const n = norm(add(N[k], N[k + 1]));
-      quad(b, P(k, va, lift), P(k + 1, va, lift), P(k + 1, vb, lift), P(k, vb, lift), n, COL.rib, MAT.GILT);
-      quad(b, P(k, va), P(k + 1, va), P(k + 1, va, lift), P(k, va, lift), axis, COL.rib, MAT.GILT);
-      quad(b, P(k, vb), P(k + 1, vb), P(k + 1, vb, lift), P(k, vb, lift), mul(axis, -1), COL.rib, MAT.GILT);
-      quad(b, P(k, va, -deep), P(k + 1, va, -deep), P(k + 1, vb, -deep), P(k, vb, -deep), mul(n, -1), COL.steel, MAT.CONCRETE);
-      quad(b, P(k, va, -SKIN), P(k + 1, va, -SKIN), P(k + 1, va, -deep), P(k, va, -deep), mul(axis, -1), COL.steel, MAT.CONCRETE);
-      quad(b, P(k, vb, -SKIN), P(k + 1, vb, -SKIN), P(k + 1, vb, -deep), P(k, vb, -deep), axis, COL.steel, MAT.CONCRETE);
-    }
-  }
-  // Between the arches, lighter trusses painted pale so they read against the dark underside: a
-  // bottom chord, and a Warren web of diagonals up to the skin, zigzagging bay to bay. Over them,
-  // purlins along the vault on every other panel line. ⚠ NOTHING HANGS PAST TRUSS_DEEP: the shell
-  // under this one clears it by about 5.6 ft at the crown (ballpark-smoke), and its ribs stand a
-  // foot proud of that, so the steel stays within 4.2 ft of the skin.
-  const TRUSS_DEEP = SKIN + 2.6, PURLIN = SKIN + 1.1, tw = 0.0035, down = (k) => mul(norm(add(N[k], N[k + 1])), -1);
-  for (const f of [0.1375, 0.25, 0.3625, 0.6375, 0.75, 0.8625]) {
-    const vt = v0 + (v1 - v0) * f, va = vt - tw, vb = vt + tw;
-    for (let k = 0; k < NF; k++) {
-      const n = down(k);
-      quad(b, P(k, va, -TRUSS_DEEP), P(k + 1, va, -TRUSS_DEEP), P(k + 1, vb, -TRUSS_DEEP), P(k, vb, -TRUSS_DEEP), n, COL.truss, MAT.CONCRETE);
-      quad(b, P(k, va, -TRUSS_DEEP + 0.7), P(k + 1, va, -TRUSS_DEEP + 0.7), P(k + 1, va, -TRUSS_DEEP), P(k, va, -TRUSS_DEEP), mul(axis, -1), COL.truss, MAT.CONCRETE);
-      quad(b, P(k, vb, -TRUSS_DEEP + 0.7), P(k + 1, vb, -TRUSS_DEEP + 0.7), P(k + 1, vb, -TRUSS_DEEP), P(k, vb, -TRUSS_DEEP), axis, COL.truss, MAT.CONCRETE);
-      // the diagonal, from the skin at one end of the bay to the chord at the other, a member as
-      // wide as the chord seen from below
-      const [ka, kb] = k % 2 ? [k, k + 1] : [k + 1, k];
-      quad(b, P(ka, va, -SKIN), P(ka, vb, -SKIN), P(kb, vb, -TRUSS_DEEP + 0.7), P(kb, va, -TRUSS_DEEP + 0.7), n, COL.truss, MAT.CONCRETE);
+  const Lt = LANTERN, zr = KH / ftUp(1), disc = (r, z, out, col, mat, uv) => bface(plain, Array.from({ length: 24 }, (_, k) => pol(r, 2 * Math.PI * k / 24, z)), out, col, mat, uv);
+  bdrum(plain, 0, 0, Lt.foot.z0, Lt.foot.z1, Lt.foot.r, Lt.foot.r, COL.bronze, MAT.GILT, 24);
+  // seen from the field through the leaves' tips: the lantern's floor, lit from inside every night
+  disc(Lt.foot.r, Lt.foot.z1, [0, 0, -1], COL.lobby, MAT.GLAZE, [1, 0]);
+  disc(Lt.foot.r, Lt.foot.z1 + 0.001, [0, 0, 1], COL.bronze, MAT.GILT);
+  for (const G of Lt.glass) {
+    bdrum(plain, 0, 0, G.z0, G.z1, G.r, G.r, COL.lobby, MAT.GLAZE, 24, [1, 0]);
+    bdrum(plain, 0, 0, G.z1, G.z1 + Lt.ledge, G.r + 0.012, G.r + 0.012, COL.bronze, MAT.GILT, 24);
+    disc(G.r + 0.012, G.z1 + Lt.ledge, [0, 0, 1], COL.bronze, MAT.GILT);
+    for (let k = 0; k < Lt.mullions; k++) {
+      const a = 2 * Math.PI * (k + 0.5) / Lt.mullions, u = Math.cos(a) * G.r, v = Math.sin(a) * G.r;
+      bbox(plain, u - 0.004, u + 0.004, v - 0.004, v + 0.004, G.z0, G.z1, COL.bronze, MAT.GILT);
     }
   }
-  for (let k = 2; k < NF - 1; k += 2) {
-    // a purlin's foot, and its two sides across the vault
-    const t = norm(sub(P(k + 1, v0), P(k - 1, v0))), w = 0.6, n = mul(N[k], -1);
-    const at = (v, s, off) => madd(P(k, v, -off), t, s * w);
-    quad(b, at(v0, -1, PURLIN), at(v1, -1, PURLIN), at(v1, 1, PURLIN), at(v0, 1, PURLIN), n, COL.truss, MAT.CONCRETE);
-    quad(b, at(v0, -1, SKIN), at(v1, -1, SKIN), at(v1, -1, PURLIN), at(v0, -1, PURLIN), mul(t, -1), COL.truss, MAT.CONCRETE);
-    quad(b, at(v0, 1, SKIN), at(v1, 1, SKIN), at(v1, 1, PURLIN), at(v0, 1, PURLIN), t, COL.truss, MAT.CONCRETE);
+  bdrum(plain, 0, 0, Lt.cap.z0, Lt.cap.z1, Lt.cap.r0, Lt.cap.r1, COL.gilt, MAT.GILT, Lt.cap.flutes);
+  bdrum(plain, 0, 0, Lt.cap.z1, Lt.stem.z1, Lt.stem.r, Lt.stem.r, COL.gilt, MAT.GILT, 8);
+  // the sun, on all four sides, round though a unit up is not a unit across (zr)
+  const S = Lt.sun;
+  for (const nn of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    const at = (s, z, d = 0.004) => (nn[1] ? [s, nn[1] * d, z] : [nn[0] * d, s, z]), out = [nn[0], nn[1], 0];
+    bface(plain, Array.from({ length: 16 }, (_, k) => { const a = 2 * Math.PI * k / 16; return at(Math.cos(a) * S.r, S.z + Math.sin(a) * S.r * zr); }), out, COL.gilt, MAT.GILT);
+    for (const sg of [-1, 1]) {
+      const pts = [];
+      for (let k = 0; k <= 4; k++) { const a = -0.9 + 1.8 * k / 4; pts.push([sg * S.r * (1 - 0.45 * Math.cos(a)), S.z + Math.sin(a) * S.r * 0.8 * zr]); }
+      for (let k = 0; k < 4; k++) bface(plain, [at(pts[k][0] - 0.0012, pts[k][1], 0.0044), at(pts[k + 1][0] - 0.0012, pts[k + 1][1], 0.0044), at(pts[k + 1][0] + 0.0012, pts[k + 1][1], 0.0044), at(pts[k][0] + 0.0012, pts[k][1], 0.0044)], out, COL.red, MAT.SATIN);
+    }
+    for (let k = 0; k < S.rays; k++) {
+      const a = 2 * Math.PI * (k + 0.5) / S.rays, c = Math.cos(a), s = Math.sin(a), w = 0.0025, r0 = S.r + 0.004, r1 = S.r + S.ray * (k % 2 ? 0.7 : 1);
+      bface(plain, [at(c * r0 - s * w, S.z + (s * r0 + c * w) * zr), at(c * r0 + s * w, S.z + (s * r0 - c * w) * zr), at(c * r1 + s * w, S.z + (s * r1 - c * w) * zr), at(c * r1 - s * w, S.z + (s * r1 + c * w) * zr)], out, COL.gilt, MAT.GILT);
+    }
   }
-  // the ends: v0 is the north end (toward the boulevard), v1 the south
-  // ⚠ AN INNER END IS A BEAM, NOT A WALL. The map closes every end with a panel across the whole arch,
-  // which nobody sees from above; from the field it walled the dome off where one shell meets the
-  // next. So an end where the shells step is a band 0.05 tiles deep under the arch, deeper than any
-  // gap between two shells, and only the two outer ends are walls, the fan windows.
-  for (const [ve, sg] of [[v0, -1], [v1, 1]]) {
-    const out = mul(axis, -sg), hub = B2T(0, ve, S.zs);
-    const fan = (i === 0 && sg < 0) || (i === SHELLS.length - 1 && sg > 0);
-    if (!fan) {
-      // its outer face, and its inner face a few inches in, each lit from its own side
-      const BEAM = 0.05, R = (S.c * S.c + S.rise * S.rise) / (2 * S.rise);
-      const at = (k, v, d) => B2T(A[k][0] - (A[k][0] / R) * d, v, A[k][1] - ((A[k][1] - zc) / R) * d);
-      for (const [v, n, col, mat] of [[ve, out, COL.shell, MAT.METAL], [ve - sg * 0.0015, mul(out, -1), COL.shellIn, MAT.CONCRETE]]) {
-        for (let k = 0; k < NF; k++) quad(b, at(k, v, 0), at(k + 1, v, 0), at(k + 1, v, BEAM), at(k, v, BEAM), n, col, mat);
-      }
-      continue;
+  bbox(lamps.beacon, -0.004, 0.004, -0.004, 0.004, Lt.beacon - 0.004, Lt.beacon + 0.004, [9, 1.2, 0.8], MAT.EMISSIVE);
+}
+
+// A leaf, built shut (the map's arm, section 10, `leaf`): each band of its level's profile across each
+// slice, the middle slices its glazing strip, see-through; its underside
+// SKIN feet in, painted steel (a mirror under the floods read as black with a blot for every lamp);
+// a fascia down each edge as deep as a level, with its inside; the rib along each edge that carries
+// one, standing proud and stepping with the leaf; and under it a steel arch along every other slice
+// line, clear of the edges, where the rib of the leaf nested under it comes to rest.
+function buildLeaf(L) {
+  const b = createBatch(8192), P = leafProfile(L.k), U = profileIn(L.k, SKIN), St = profileIn(L.k, LEAF_STEEL);
+  const cut = Array.from({ length: TV_SLICES + 1 }, (_, s) => L.a0 + (L.a1 - L.a0) * s / TV_SLICES);
+  const at = (p, a, dz = 0) => pol(p[0], a, p[1] + dz);
+  const glazed = (s) => { const f = (s + 0.5) / TV_SLICES; return f > DOME.glaze[0] && f < DOME.glaze[1]; };
+  const D = DOME, neg = (v) => v.map((x) => -x);
+  for (let j = 0; j + 1 < P.length; j++) {
+    const nr = P[j + 1][1] - P[j][1], nz = P[j][0] - P[j + 1][0], nOut = (a) => [nr * Math.cos(a), nr * Math.sin(a), nz];
+    for (let s = 0; s < TV_SLICES; s++) {
+      const a = cut[s], c = cut[s + 1], m = (a + c) / 2, g = glazed(s), uv = g ? ROOF_GLASS : [0, 0];
+      bface(b, [at(P[j], a), at(P[j], c), at(P[j + 1], c), at(P[j + 1], a)], nOut(m), g ? COL.glass : COL.leaf, g ? MAT.GLAZE : MAT.METAL, uv);
+      bface(b, [at(U[j], a), at(U[j], c), at(U[j + 1], c), at(U[j + 1], a)], neg(nOut(m)), g ? COL.glass : COL.shellIn, g ? MAT.GLAZE : MAT.CONCRETE, uv);
     }
-    for (let k = 0; k < NF; k++) {
-      const a = B2T(A[k][0], ve, A[k][1]), c = B2T(A[k + 1][0], ve, A[k + 1][1]);
-      vtx(b, hub, out, ROOF_GLASS, COL.glass, MAT.GLAZE); vtx(b, a, out, ROOF_GLASS, COL.glass, MAT.GLAZE); vtx(b, c, out, ROOF_GLASS, COL.glass, MAT.GLAZE);
+    [L.a0, L.a1].forEach((e, side) => {
+      const sg = side ? 1 : -1, t = [-Math.sin(e) * sg, Math.cos(e) * sg, 0], off = (p, w) => [p[0] - t[0] * w, p[1] - t[1] * w, p[2]];
+      const fa = at(P[j], e), fb = at(P[j + 1], e), da = at(P[j], e, -D.g), db = at(P[j + 1], e, -D.g);
+      bface(b, [fa, fb, db, da], t, COL.leaf, MAT.METAL);
+      bface(b, [fa, fb, db, da].map((p) => off(p, 0.0015)), neg(t), COL.shellIn, MAT.CONCRETE);
+      if (!L.rib[side]) return;
+      const w0 = D.ribIn, w1 = D.ribIn + D.ribW, ea = at(P[j], e, D.rib), eb = at(P[j + 1], e, D.rib);
+      bface(b, [off(ea, w0), off(eb, w0), off(eb, w1), off(ea, w1)], nOut(e), COL.rib, MAT.GILT);
+      bface(b, [off(fa, w0), off(fb, w0), off(eb, w0), off(ea, w0)], t, COL.rib, MAT.GILT);
+      bface(b, [off(fa, w1), off(fb, w1), off(eb, w1), off(ea, w1)], neg(t), COL.rib, MAT.GILT);
+    });
+    for (let s = 2; s < TV_SLICES; s += 2) {
+      const e = cut[s], t = [-Math.sin(e), Math.cos(e), 0], w = 0.004, side = (p, k) => [p[0] + t[0] * k, p[1] + t[1] * k, p[2]];
+      bface(b, [at(U[j], e), at(U[j + 1], e), at(St[j + 1], e), at(St[j], e)], t, COL.steel, MAT.CONCRETE);
+      bface(b, [side(at(St[j], e), -w), side(at(St[j + 1], e), -w), side(at(St[j + 1], e), w), side(at(St[j], e), w)], neg(nOut(e)), COL.truss, MAT.CONCRETE);
     }
-    const vo = ve + sg * 0.003, H = [0, S.zs], hr = 0.07;
-    const F = (u, z) => [u, vo, z];
-    for (let j = 2; j < NF; j += 2) {   // the rays, from the hub to every other point of the arch
-      const a = A[j], du = a[0] - H[0], dz = a[1] - H[1], dl = Math.hypot(du, dz) || 1, pu = -dz / dl * 0.0055, pz = du / dl * 0.0055;
-      const s0 = [H[0] + du / dl * hr, H[1] + dz / dl * hr];
-      bface(b, [F(s0[0] + pu, s0[1] + pz), F(a[0] + pu, a[1] + pz), F(a[0] - pu, a[1] - pz), F(s0[0] - pu, s0[1] - pz)], [0, sg, 0], COL.bronze, MAT.GILT);
-    }
-    for (let k = 0; k < NF; k++) {   // the frame round the arch
-      const a = A[k], c = A[k + 1], ins = (p) => [H[0] + (p[0] - H[0]) * 0.955, H[1] + (p[1] - H[1]) * 0.955];
-      const ia = ins(a), ic = ins(c);
-      bface(b, [F(a[0], a[1]), F(c[0], c[1]), F(ic[0], ic[1]), F(ia[0], ia[1])], [0, sg, 0], COL.bronze, MAT.GILT);
-    }
-    const hubPts = [];   // the hub, a bronze half-disc on the sill
-    for (let k = 0; k <= 8; k++) { const a = Math.PI * k / 8; hubPts.push(F(H[0] + Math.cos(a) * hr, H[1] + Math.sin(a) * hr)); }
-    bface(b, hubPts, [0, sg, 0], COL.bronze, MAT.GILT);
   }
   return b;
 }

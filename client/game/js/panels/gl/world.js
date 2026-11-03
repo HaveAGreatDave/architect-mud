@@ -511,7 +511,10 @@ export function bakeFaceAO(faces, solid) {
     return near.length > 0;
   };
   for (const f of faces) {
-    if (!anyNear(f)) { f.ao = null; continue; }   // fills `near` with the segments in range
+    // ⚠ A CURVED SKIN OVER A STEPPED ENVELOPE IS INSIDE ITS OWN SOLID. The Coliseum's dome is laid
+    // over boxes that top out at the highest point under them, so most of it sat inside and baked
+    // dark in a grid of the boxes' edges. Its faces say so (`noAO`) and stay open.
+    if (f.noAO || !anyNear(f)) { f.ao = null; continue; }   // fills `near` with the segments in range
     const n = f.n && (f.n[0] || f.n[1] || f.n[2]) ? f.n : [0, 0, 1];
     // ⚠ The seed axis must not be parallel to n, or every sample collapses to a uniform grey.
     const ax = Math.abs(n[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1];
