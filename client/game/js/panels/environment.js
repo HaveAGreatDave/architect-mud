@@ -475,18 +475,28 @@ export function signalPowerOut() {
 
 // Apply the brightness filter to the light-sensitive panes. `instant` bypasses the
 // CSS fade (used for the rapid flicker steps).
+// The dim is for text. An app that has claimed the room pane (a cockpit, a boat, a 3-D room)
+// draws its own light, so #area-pane stays at full brightness while one holds it.
+let _lastBrightness = 'none';
 function _applyBrightnessFilter(brightness, instant) {
+  _lastBrightness = brightness;
   // Inverse factor for panes that opt out of the dimming (e.g. the Exits line):
   // a child brightness(1/x) cancels the parent's brightness(x) back to normal.
   const m = /brightness\(([\d.]+)\)/.exec(brightness);
   const undim = m ? (1 / parseFloat(m[1])).toFixed(3) : '1';
+  const claimed = !!document.documentElement.dataset.paneClaimed;
   for (const id of ['area-pane', 'output']) {
     const el = document.getElementById(id);
     if (!el) continue;
+    const lit = id === 'area-pane' && claimed;
     el.style.transition = instant ? 'none' : '';
-    el.style.filter = brightness;
-    el.style.setProperty('--vis-undim', undim);
+    el.style.filter = lit ? 'none' : brightness;
+    el.style.setProperty('--vis-undim', lit ? '1' : undim);
   }
+}
+// main.js sets data-pane-claimed in its own listener; wait a tick so it has run whichever loaded first.
+for (const ev of ['pane:claimed', 'pane:released']) {
+  window.addEventListener(ev, () => setTimeout(() => _applyBrightnessFilter(_lastBrightness, true)));
 }
 
 // Power-cut flicker: stutter between the previous (lit) brightness and the new dark

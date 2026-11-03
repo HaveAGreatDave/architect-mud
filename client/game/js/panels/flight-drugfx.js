@@ -22,9 +22,51 @@ export function setDrugFx(source, profile, intensity) {
   const i = Math.max(0, Math.min(1, Number(intensity) || 0));
   if (i <= 0.001) { _sources.delete(source); return; }
   _sources.set(source, { profile: profile || 'psychedelic', intensity: i });
+  kickAmbient();
 }
 
 export function clearDrugFx(source) { _sources.delete(source); }
+
+// ── Every other 3-D view ──────────────────────────────────────────────────────
+// The cockpit calls applyFlightDrugFx from its own frame. The cab, the boat, the helm, the
+// podracer and the ballpark seats don't, so this loop bends whichever big canvas is in the area
+// pane while an effect is live or fading. It stands down while the flight sim is open, so the two
+// never fight over one canvas.
+let _amb = 0, _ambLast = 0, _ambCanvas = null, _ambView = null, _ambPos = null;
+function kickAmbient() {
+  if (_amb || typeof requestAnimationFrame !== 'function') return;
+  _ambLast = performance.now();
+  _amb = requestAnimationFrame(ambientFrame);
+}
+function bigCanvas() {
+  let best = null, area = 40000;
+  for (const c of document.querySelectorAll('#area-content canvas')) {
+    const a = c.clientWidth * c.clientHeight;
+    if (a > area) { best = c; area = a; }
+  }
+  return best;
+}
+function releaseAmbient() {
+  if (_ambCanvas) clearFlightDrugFx(_ambView, _ambCanvas);
+  if (_ambView && _ambPos != null) _ambView.style.position = _ambPos;
+  _ambCanvas = _ambView = _ambPos = null;
+}
+function ambientFrame(now) {
+  _amb = 0;
+  const dt = clamp((now - _ambLast) / 1000, 0, 0.25); _ambLast = now;
+  const c = document.getElementById('fsim-root') ? null : bigCanvas();
+  if (c !== _ambCanvas) {
+    releaseAmbient();
+    if (c) {
+      _ambCanvas = c; _ambView = c.parentElement;
+      // the overlay is inset:0 in the canvas's parent, so the parent has to be its box
+      if (getComputedStyle(_ambView).position === 'static') { _ambPos = _ambView.style.position; _ambView.style.position = 'relative'; }
+    }
+  }
+  if (_ambCanvas) applyFlightDrugFx(_ambView, _ambCanvas, dt);
+  if (getDrugFx() || _eased >= 0.01) _amb = requestAnimationFrame(ambientFrame);
+  else releaseAmbient();
+}
 
 // The dominant live effect (strongest intensity), or null when sober.
 export function getDrugFx() {
