@@ -1,0 +1,19 @@
+{
+  "name": "column",
+  "version": "0.1.0",
+  "description": "The Wildblood column: three rigs (the Howl, the Slake cart and the hound-runner) that drive a loop of the Scarletwastes from the Deadleg yard to the Slake and up to the North Gate, worked out from the clock. Look only: seats see and hear them through vehicle.contacts as class `column`, and somebody on foot gets a line as they pass. Nothing stored, nothing queried.",
+  "hooks": [
+    "vehicle.contacts"
+  ],
+  "commands": [],
+  "actions": {
+    "registers": [],
+    "tagGated": []
+  },
+  "events": {
+    "emits": [],
+    "consumes": []
+  },
+  "ticks": ["2s"],
+  "dataSchema": []
+}
