@@ -1,0 +1,9 @@
+{
+  "name": "roomstage",
+  "version": "1.0.0",
+  "description": "The Room Stage: walk round a flat (or any room carrying flags.room) in first person. `room` opens it and `room close` shuts it; the client builds the room from one `room_view` payload (its spec, its pieces with their archetypes and spots, and everyone in it) and every gesture on it sends a verb a player could type. A player's piece has flags.spot stamped when it lands (furniture.changed), by the same rules the client lays the room out by (client/shared/room-layout.js); authored pieces are worked out fresh and never written. Where people stand is RAM, sent by the client when they settle (room.pos) and relayed to whoever else has the room open.",
+  "commands": ["room"],
+  "events": {
+    "consumes": ["furniture.changed", "room.pos", "zone.entered", "posture.changed", "player.logout"]
+  }
+}

@@ -97,6 +97,8 @@ Return values from subscribers are ignored. Async subscribers run but their reje
 | `flag.set` | `{ actor, scope, flag, value }` |
 | `flag.cleared` | `{ actor, scope, flag }` |
 | `property.released` | `{ zoneId, ownerId, kind }`: a flat, corp HQ or storefront went back on the market (`releaseApartment` in apartments.js, `releaseShop` in the storefront plugin). `kind` is `apartment`, `corp_hq` or `storefront`; `ownerId` is who held it and may be null. The furnishing plugin boxes placed furniture on it |
+| `furniture.changed` | `{ zoneId, id, gone }`: a player's piece landed in a room (`place`, a vendor's delivery) or left it (`take`, `gone: true`); no `id` means the whole room was boxed on a move-out. The roomstage plugin stamps a new piece's `flags.spot` on it and sends the change to whoever has the room open in 3-D |
+| `room.pos` | `{ playerId, at, yaw, seat }`: a player walking round a room in 3-D settled (the client's `room_pos`, relayed by server/index.js). RAM only; the roomstage plugin passes it on to everyone else with the room open |
 | `player.wiped` | `{ playerIds }`: emitted by `reincarnatePlayer` and `purgePlayers` after their per-player DELETEs, so a plugin that mirrors one of those tables in RAM can drop the rows |
 
 **Events vs. hooks:** `emit` is fire-and-forget notification (past tense, no return value). `fireHook` (in `plugins.js`) is request/response middleware (present tense, can modify data). Use events for "this happened"; use hooks for "should I allow this" or "add data to this".

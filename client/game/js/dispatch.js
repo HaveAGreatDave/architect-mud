@@ -385,6 +385,9 @@ const loadBoatFish = () => (boatFishMod ??= import('./panels/boatfish.js').catch
 let standsMod = null;
 // The seat is a TV view, so the TV wrapper has to be in too, or no broadcast is routed to it and
 // the game in the park stops until somebody opens a set.
+// The Room Stage (plugins/roomstage): a flat in first person, loaded the first time one opens.
+let roomMod = null;
+const loadRoom = () => (roomMod ??= import('./panels/room-stage.js').catch((e) => { roomMod = null; throw e; }));
 const loadStands = () => (standsMod ??= Promise.all([import('./panels/stands.js'), loadTv()]).then(([m]) => m).catch((e) => { standsMod = null; throw e; }));
 
 // The background re-look, shared by every reason to repaint the room (a hit, somebody
@@ -1356,6 +1359,10 @@ const handlers = {
   stands_sky: (msg) => { standsMod?.then((m) => m.setStandsSky(msg.field)).catch(() => {}); },
   stands_close: () => { standsMod?.then((m) => m.closeStands()).catch(() => {}); },
   stands_menu: (msg) => { standsMod?.then((m) => m.openStandsMenu(msg)).catch(() => {}); },
+  room_view: (msg) => { loadRoom().then((m) => m.openRoomStage(msg)).catch((e) => console.error('[room]', e)); },
+  room_piece: (msg) => { roomMod?.then((m) => m.roomPiece(msg)).catch(() => {}); },
+  room_people: (msg) => { roomMod?.then((m) => m.roomPeople(msg)).catch(() => {}); },
+  room_close: () => { roomMod?.then((m) => m.closeRoomStage(true)).catch(() => {}); },
   cardpack_open: (msg) => { if (msg.render !== 'log') openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
   // Same contract again: the cabinet is the show, the character box is the
   // record and always prints, so the bottom rung losing the panel loses nothing.

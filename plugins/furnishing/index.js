@@ -92,14 +92,16 @@ async function cmdPlace(args, raw, player, broadcast) {
     : await query('DELETE FROM player_inventory WHERE id = $1 AND player_id = $2 RETURNING id', [row.inv_id, player.id]);
   if (!used.rows.length) return { type: 'error', message: `You aren't carrying the ${row.name} any more.` };
 
+  let pieceId;
   try {
-    await placeFurnitureFromItem(row, zoneId, player.id, { price: row.value });
+    pieceId = await placeFurnitureFromItem(row, zoneId, player.id, { price: row.value });
   } catch (e) {
     await giveItemById(player.id, row.id, 1).catch(() => {});
     console.error('[furnishing] place failed:', e.message);
     return { type: 'error', message: `You can't get the ${row.name} to stand right. Try again.` };
   }
   emit('inventory.changed', { actor: player });
+  emit('furniture.changed', { zoneId, id: pieceId });
   broadcast(zoneId, { type: 'zone_event', message: `${player.handle} sets down a ${row.name}.`, refresh: true }, player.id);
   return { type: 'output', message: `You set the ${row.name} down. It looks like it's always been there.` };
 }
@@ -142,6 +144,7 @@ async function takePiece(args, raw, player, broadcast) {
   if (!gone.length) return { type: 'error', message: `The ${piece.name} isn't there any more.` };
   await giveItemById(player.id, item.id, 1);
   emit('inventory.changed', { actor: player });
+  emit('furniture.changed', { zoneId, id: piece.id, gone: true });
   broadcast(zoneId, { type: 'zone_event', message: `${player.handle} picks up the ${piece.name}.`, refresh: true }, player.id);
   return { type: 'take', message: `You pick up the ${piece.name}.` };
 }
@@ -161,6 +164,7 @@ export async function boxPlacedFurniture(zoneId) {
   const gone = await deleteFurnitureWhere(
     `DELETE FROM furniture WHERE id = ANY($1) AND origin = 'player'`, [pieces.map(f => f.id)]);
   const goneIds = new Set(gone.map(r => r.id));
+  if (gone.length) emit('furniture.changed', { zoneId });
 
   const ids = [], owners = [], itemIds = [], containers = [], containerOwners = [];
   const boxed = [];

@@ -1,7 +1,8 @@
 # The Home Stage and the trophy wall
 
-> **Status: design.** Nothing here is built. Where this doc disagrees with
-> [plugins/furnishing/README.md](../../plugins/furnishing/README.md), the README wins.
+> **Status: Home Stage phases 0-3 built (`room`, plugins/roomstage); `arrange` and the trophy wall
+> are design.** Where this doc disagrees with [plugins/roomstage/README.md](../../plugins/roomstage/README.md)
+> or [plugins/furnishing/README.md](../../plugins/furnishing/README.md), the README wins.
 
 ## Why
 
@@ -73,6 +74,14 @@ move it; the first phase doesn't need one.
   lifted into a shared layer first: see [room-stage.md](room-stage.md).
 - Toon bands, the ink outline and the cel setting from GLASS 2 (`gl/ink.js`, `toonBands`).
 - The window: the same `paintWindshield` call freelook makes, framed by the window wall.
+
+### As built
+
+- `room` opens it in any flat, for the tenant and for visitors; `room close`, Escape or walking out shuts it. Each archetype has two or three forms picked by flags and weight (a deep-freeze is a chest freezer, a heavy lie-only piece is a sleep pod, a light sit-and-lie piece is a camp cot, a `tv_skin: crt` set stands on a cabinet), and `flags.look` overrides arche, form, dims or wear.
+- A flat's size defaults to 4 × 5 × 2.6 m; `flags.room` (`{ w, d, h }` or `[w, d, h]`) overrides it. The window is always in the front wall rather than taken from the building's facing, and it shows a painted street that follows the server's clock.
+- `flags.spot` is stamped on a player's piece when it lands, by `place` or by a vendor's delivery. An authored piece is never written to; its spot is worked out the same way each time.
+- Gestures: E or a click sits (`sit`), lies (`lie`, on a sofa's arm end or a bed's pillow), gets up (`stand`), opens a fridge (`open`), watches a set (`watch`, and the set's picture comes on) or looks at anything else (`examine`). A posture typed in the log moves you on the Stage too.
+- Visitors and NPCs in the flat are drawn standing where they last settled, or sat or lying on their piece, with their names over them; a seat somebody's in can't be taken.
 
 ### Phases
 

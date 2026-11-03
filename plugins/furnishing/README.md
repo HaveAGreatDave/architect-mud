@@ -13,6 +13,7 @@ Buying is in the engine ([furniture-shop.js](../../server/engine/furniture-shop.
 ## Events
 - Consumes `property.released` (`{ zoneId, ownerId, kind }`), emitted by `releaseApartment` (flats and corp HQs) and by the storefront plugin's `releaseShop`.
 - Emits `inventory.changed` after every place, take and boxing.
+- Emits `furniture.changed` (`{ zoneId, id, gone }`) after a place or take, and with no `id` after boxing a room, so the [roomstage](../roomstage/README.md) plugin can stamp a new piece's spot and redraw whoever has the room open.
 
 ## Rules worth knowing
 - **Placed rows survive restarts and deploys.** They're written to Postgres through the `world.js` funnel and reloaded at boot. Ids are `furn_<8hex>` with `origin='player'`, which the content export and import's deletion pass both skip.

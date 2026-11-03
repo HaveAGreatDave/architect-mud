@@ -12,18 +12,18 @@
 // baked in (shade by which way it faces), which is what a room under its own lamps looks like at
 // any hour. Keep baked colours under 1 or the bloom takes them; the lamps are over it on purpose.
 
-import { createBatch, vtx, lin, MAT } from './ballpark-mesh.js';
+import { MAT } from './ballpark-mesh.js';
+import { roomKit } from './room-kit.js';
+import { roomLayout, roomFree, roomStep, roomSeatNear } from '../../../../shared/room-layout.js';
 
-const DEG = Math.PI / 180;
-
-// Where a body can stand and sit, and what's in the way, for a room spec.
+// The suite as a Room Stage room (client/shared/room-layout.js): its spec in the ballpark's feet, and
+// its fitted pieces (the club chairs, the bar and its fridge, the buffet, the smokes, the stools,
+// the sofa and its table), each carrying its own seats, stations and boxes. What the walker reads is
+// roomLayout's; the rest (where the chairs, stools, palms, sofa, screen and buffet stand) is for
+// buildBooth to draw them by.
 export function boothLayout(spec) {
-  const w = spec.w || 30, d = spec.d || 32, h = spec.h || 8.5, floor = spec.floor || 0;
-  const yaw = (spec.face || 0) * DEG, f = [Math.sin(yaw), 0, Math.cos(yaw)], r = [-Math.cos(yaw), 0, Math.sin(yaw)];
-  const at = [spec.at[0], floor, spec.at[1]];
-  const world = (u, v, y) => [at[0] + r[0] * u - f[0] * v, floor + y, at[2] + r[2] * u - f[2] * v];
-  const local = (p) => { const q = [p[0] - at[0], p[2] - at[2]]; return [q[0] * r[0] + q[1] * r[2], -(q[0] * f[0] + q[1] * f[2]), p[1] - floor]; };
-  const hu = w / 2;
+  const S = { ...spec, w: spec.w || 30, d: spec.d || 32, h: spec.h || 8.5, unit: 'ft' };
+  const d = S.d, hu = S.w / 2;
   // no step: three club chairs back from the glass and the floor open behind them, and one more
   // by the sofa turned to the big screen ('turn': it faces -u, the screen's wall)
   const step = { u: [0, -1], v: [0, -1], y: 0 };
@@ -46,64 +46,30 @@ export function boothLayout(spec) {
   const sofa = { u: [-7.6, -4.8], v: [8.4, 15.6] };
   // on the left-hand wall, clear of the bar and its fridge at the back, and under the cornice
   const tv = { u: -hu + 0.15, v: 12, y: 4.8, w: 8.4, h: 4.7 };
-  // [u0, u1, v0, v1]: what a walker can't stand in
-  const solid = [
-    ...plants.map(([u, v]) => [u - 0.8, u + 0.8, v - 0.8, v + 0.8]),
-    [-hu, -5.2, d - 6.0, d - 4.5],
-    [-hu, -hu + 2.4, d - 2.4, d],
-    [-hu + 2.4, -3, d - 0.6, d],
-    [buffet.u[0], buffet.u[1], buffet.v[0], buffet.v[1]],
+  // The fitted pieces, in the order each kind of box was always listed in: [u0, u1, v0, v1] for what
+  // a walker can't stand in, [u0, u1, v0, v1, y] for what he climbs over rather than getting stuck
+  // on (y its top). A seat faces `dir` in the room ([du, dv]) or looks at `look` ([u, v]).
+  const pieces = [
+    { id: 'palms', solid: plants.map(([u, v]) => [u - 0.8, u + 0.8, v - 0.8, v + 0.8]) },
+    { id: 'bar', solid: [[-hu, -5.2, d - 6.0, d - 4.5], [-hu, -hu + 2.4, d - 2.4, d], [-hu + 2.4, -3, d - 0.6, d]], stations: [stations[0]] },
+    { id: 'buffet', solid: [[buffet.u[0], buffet.u[1], buffet.v[0], buffet.v[1]]], stations: [stations[1]] },
+    { id: 'chairs',
+      climb: chairs.map((c) => (c.turn ? [c.u - 1.2, c.u + 1.6, c.v - 1.4, c.v + 1.4, 1.7] : [c.u - 1.4, c.u + 1.4, c.v - 1.2, c.v + 1.6, 1.7])),
+      // the turned chair looks at the middle of the screen
+      seats: chairs.map((c, i) => (c.turn
+        ? { kind: 'armchair', i, u: c.u + 0.25, v: c.v, y: c.y + 3.85, pitch: -0.05, look: [tv.u, tv.v] }
+        : { kind: 'chair', i, u: c.u, v: c.v + 0.25, y: c.y + 3.85, dir: [0, -1], pitch: -0.12 })) },
+    { id: 'tables', climb: [-3, 3].map((u) => [u - 0.5, u + 0.5, 5.0, 6.0, 2.05]), stations: [stations[2]] },
+    { id: 'stools', climb: stools.map((t) => [t.u - 0.4, t.u + 0.4, t.v - 0.4, t.v + 0.4, 2.6]) },
+    { id: 'sofa', climb: [[sofa.u[0], sofa.u[1], sofa.v[0], sofa.v[1], 1.45]],
+      seats: [9.8, 12, 14.2].map((v, i) => ({ kind: 'sofa', i, u: -6.6, v, y: 3.6, dir: [-1, 0], pitch: 0 })) },
+    { id: 'low table', climb: [[-11.8, -9.6, 10, 14, 1.4]] },
   ];
-  // [u0, u1, v0, v1, y]: what a walker climbs over rather than getting stuck on, y its top
-  const climb = [
-    ...chairs.map((c) => (c.turn ? [c.u - 1.2, c.u + 1.6, c.v - 1.4, c.v + 1.4, 1.7] : [c.u - 1.4, c.u + 1.4, c.v - 1.2, c.v + 1.6, 1.7])),
-    ...[-3, 3].map((u) => [u - 0.5, u + 0.5, 5.0, 6.0, 2.05]),
-    ...stools.map((t) => [t.u - 0.4, t.u + 0.4, t.v - 0.4, t.v + 0.4, 2.6]),
-    [sofa.u[0], sofa.u[1], sofa.v[0], sofa.v[1], 1.45],
-    [-11.8, -9.6, 10, 14, 1.4],
-  ];
-  const yawTo = (dir) => Math.atan2(dir[0], dir[2]);
-  const seats = [
-    ...chairs.map((c, i) => (c.turn
-      ? { kind: 'armchair', i, u: c.u + 0.25, v: c.v, y: c.y + 3.85, pitch: -0.05 }
-      : { kind: 'chair', i, u: c.u, v: c.v + 0.25, y: c.y + 3.85, yaw: yawTo(f), pitch: -0.12 })),
-    ...[9.8, 12, 14.2].map((v, i) => ({ kind: 'sofa', i, u: -6.6, v, y: 3.6, yaw: yawTo(r.map((x) => -x)), pitch: 0 })),
-  ];
-  for (const s of seats) s.eye = world(s.u, s.v, s.y);
-  // the turned chair looks at the middle of the screen
-  for (const s of seats) if (s.kind === 'armchair') { const t = world(tv.u, tv.v, s.y); s.yaw = Math.atan2(t[0] - s.eye[0], t[2] - s.eye[2]); }
-  // the floor under a walker: the top of whatever he's climbed onto, felt a little past its edge
-  const groundAt = (u, v) => {
-    let y = u >= step.u[0] && u <= step.u[1] && v >= step.v[0] && v <= step.v[1] ? step.y : 0;
-    for (const [a, b, c, e, t] of climb) if (u > a - 0.3 && u < b + 0.3 && v > c - 0.3 && v < e + 0.3) y = Math.max(y, t);
-    return y;
-  };
-  return { spec, w, d, h, floor, f, r, at, yaw, world, local, step, chairs, stools, plants, sofa, tv, buffet, stations, solid, climb, seats,
-    bounds: [-hu + 0.9, hu - 0.9, 0.9, d - 0.9], radius: 0.6, groundAt };
+  return Object.assign(roomLayout(S, pieces), { step, chairs, stools, plants, sofa, tv, buffet });
 }
 
-// A walker's next spot: the move tried whole, then each axis on its own, so you slide along what you
-// meet. `p` and the answer are [u, v].
-export function boothFree(L, u, v) {
-  return u >= L.bounds[0] && u <= L.bounds[1] && v >= L.bounds[2] && v <= L.bounds[3]
-    && !L.solid.some(([a, b, c, e]) => u > a - L.radius && u < b + L.radius && v > c - L.radius && v < e + L.radius);
-}
-export function boothStep(L, p, du, dv) {
-  const ok = (u, v) => boothFree(L, u, v);
-  // somewhere you shouldn't be (a seat's own spot): any move goes, so you can always walk out
-  if (!ok(p[0], p[1])) { const [a, b, c, e] = L.bounds; return [Math.max(a, Math.min(b, p[0] + du)), Math.max(c, Math.min(e, p[1] + dv))]; }
-  if (ok(p[0] + du, p[1] + dv)) return [p[0] + du, p[1] + dv];
-  if (ok(p[0] + du, p[1])) return [p[0] + du, p[1]];
-  if (ok(p[0], p[1] + dv)) return [p[0], p[1] + dv];
-  return p;
-}
-
-// The seat nearest a point in the room's frame, within `reach` feet, or null.
-export function boothSeatNear(L, u, v, reach = 3) {
-  let best = null, bd = reach;
-  for (const s of L.seats) { const dd = Math.hypot(s.u - u, s.v - v); if (dd < bd) { bd = dd; best = s; } }
-  return best;
-}
+// The walker's rules, which are the Room Stage's (room-layout.js), by their old names.
+export const boothFree = roomFree, boothStep = roomStep, boothSeatNear = roomSeatNear;
 
 // THE CEILING'S PLAN: a coffered tray ringed by a soffit. The coffers are CELL feet square on a
 // grid that puts the chandelier in the middle of one, and the tray is as much of that grid as
@@ -130,8 +96,6 @@ const LOOK = Object.freeze({
   screen: '#111318', gilt: '#c9a24a', crystal: '#e8f2ff', onyx: '#f0b860', mirror: '#9aa6b0',
   pot: '#1f3a3a', trunk: '#6b4a2a', frond: '#3f7a3a', fridge: '#bfe4f0', lamp: '#fff2d6', heat: '#ffb060',
 });
-// Unused now the light is baked per vertex (bakeLight), kept 1 so a box's k is its whole tint
-const SHADE = { up: 1, down: 1, side: 1, back: 1 };
 
 // The surfaces with a material of their own (paintBoothTexture), each its own batch so its texture
 // can repeat, and how many feet one repeat covers.
@@ -140,56 +104,9 @@ export const BOOTH_TEXTURES = Object.freeze({ boothRug: 1, boothThrow: 1, boothF
 // { solid, screen, glass, textured }: batches in the field's feet; 'textured' maps a
 // BOOTH_TEXTURES key to its batch, whose colours are the light alone (the texture is the colour).
 export function buildBooth(L) {
-  const solid = createBatch(8192), screen = createBatch(16), glass = createBatch(64), textured = new Map();
-  const TB = (k) => { let b = textured.get(k); if (!b) { b = createBatch(2048); textured.set(k, b); } return b; };
-  const E = MAT.EMISSIVE, UV = [0, 0];
-  const C = (hex, k = 1) => lin(hex).map((c) => c * k);
-  const nrmOf = (du, dy, dv) => { const x = L.r[0] * du - L.f[0] * dv, z = L.r[2] * du - L.f[2] * dv; return [x, dy, z]; };
-  // a face, lit per vertex by bakeLight unless it's a lamp (raw), cut into cells of about a foot
-  // and a half so the light has somewhere to fall off
-  const bake = bakeLight(L);
-  const quad = (b, ps, n, col, mat = E, uvs = null, raw = false) => {
-    const U = uvs || [UV, UV, UV, UV];
-    const nl = [n[0] * L.r[0] + n[2] * L.r[2], n[1], -(n[0] * L.f[0] + n[2] * L.f[2])];
-    const len = (a, c) => Math.hypot(a[0] - c[0], a[1] - c[1], a[2] - c[2]);
-    const nu = raw ? 1 : Math.max(1, Math.min(24, Math.ceil(Math.max(len(ps[0], ps[1]), len(ps[3], ps[2])) / 1.5)));
-    const nv = raw ? 1 : Math.max(1, Math.min(24, Math.ceil(Math.max(len(ps[0], ps[3]), len(ps[1], ps[2])) / 1.5)));
-    const at = (i, j) => {
-      const a = i / nu, c = j / nv, mix = (k) => (ps[0][k] * (1 - a) + ps[1][k] * a) * (1 - c) + (ps[3][k] * (1 - a) + ps[2][k] * a) * c;
-      const mixU = (k) => (U[0][k] * (1 - a) + U[1][k] * a) * (1 - c) + (U[3][k] * (1 - a) + U[2][k] * a) * c;
-      const lp = [mix(0), mix(1), mix(2)];
-      return { p: L.world(lp[0], lp[1], lp[2]), uv: [mixU(0), mixU(1)], col: raw ? col : bake(lp, nl, col) };
-    };
-    for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
-      const q = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
-      for (const k of [0, 1, 2, 0, 2, 3]) vtx(b, q[k].p, n, q[k].uv, q[k].col, mat);
-    }
-  };
-  // a box from its corners in the room's frame, each face shaded by the way it faces
-  // 'tex' puts it on a material (BOOTH_TEXTURES), mapped flat onto each face by the room's feet;
-  // the texture is then the colour, and 'hex' is unused
-  const box = (u0, u1, v0, v1, y0, y1, hex, k = 1, tex = null) => {
-    const b = tex ? TB(tex) : solid, t = tex ? BOOTH_TEXTURES[tex] : 1;
-    const c = (s) => C(tex ? '#ffffff' : hex, k * s);
-    const face = (ps, n, col, i, j) => quad(b, ps, n, col, E, tex ? ps.map((q) => [q[i] / t, q[j] / t]) : null, k >= 1.25);
-    face([[u0, v0, y1], [u1, v0, y1], [u1, v1, y1], [u0, v1, y1]], [0, 1, 0], c(SHADE.up), 0, 1);
-    face([[u0, v0, y0], [u0, v1, y0], [u1, v1, y0], [u1, v0, y0]], [0, -1, 0], c(SHADE.down), 0, 1);
-    face([[u0, v0, y0], [u1, v0, y0], [u1, v0, y1], [u0, v0, y1]], nrmOf(0, 0, -1), c(SHADE.side), 0, 2);
-    face([[u1, v1, y0], [u0, v1, y0], [u0, v1, y1], [u1, v1, y1]], nrmOf(0, 0, 1), c(SHADE.back), 0, 2);
-    face([[u0, v1, y0], [u0, v0, y0], [u0, v0, y1], [u0, v1, y1]], nrmOf(-1, 0, 0), c(SHADE.side * 0.92), 1, 2);
-    face([[u1, v0, y0], [u1, v1, y0], [u1, v1, y1], [u1, v0, y1]], nrmOf(1, 0, 0), c(SHADE.side * 0.92), 1, 2);
-  };
-  const boxAt = box;
-  // a cut-glass drop: an octahedron, each facet its own brightness so it glints from any side
-  const drop = (u, v, y, r, len, k = 1) => {
-    const top = [u, v, y], bot = [u, v, y - len], m = y - len * 0.42;
-    const ring = [[u + r, v, m], [u, v + r, m], [u - r, v, m], [u, v - r, m]];
-    for (let i = 0; i < 4; i++) {
-      const a = ring[i], b = ring[(i + 1) % 4], g = 1.15 + ((i * 7 + Math.round(u * 13 + v * 5)) % 5) * 0.12;
-      quad(solid, [top, a, b, b], [0, 1, 0], C(LOOK.crystal, g * k), E, null, true);
-      quad(solid, [bot, b, a, a], [0, -1, 0], C('#cfe0f4', (2.3 - g) * k), E, null, true);
-    }
-  };
+  // the room kit (room-kit.js), every face lit per vertex by bakeLight and cut into cells of about a
+  // foot and a half so the light has somewhere to fall off
+  const { solid, screen, glass, textured, TB, E, C, nrmOf, quad, box, drop, rounded, onU, onV, leanV, lathe, ball } = roomKit(L, bakeLight(L), { textures: BOOTH_TEXTURES, cell: 1.5 });
   const hu = L.w / 2, D = L.d, H = L.h, T = 0.35;
   // the shell: a slab under it, the ceiling's slab over it, the walls with their outsides
   box(-hu - T, hu + T, -0.2, D + T, -0.9, 0, LOOK.under);
@@ -339,53 +256,6 @@ export function buildBooth(L) {
     box(-hu, -hu + 0.12, v - 0.3, v + 0.3, 4.6, 5.2, LOOK.gilt, 0.9);
     box(-hu + 0.12, -hu + 0.5, v - 0.22, v + 0.22, 5.2, 5.9, LOOK.lamp, 1.7);
   }
-  // a rounded block: 'a' runs along one axis of the chair, its section in (s, t) a rectangle with
-  // corners of radius rad cut into facets, so the light rolls round an edge instead of breaking on it.
-  // 'to' maps (a, s, t) to the room and 'dir' a normal the same way; ends are capped flat
-  // 'tex' is a BOOTH_TEXTURES key or a colour
-  const rounded = (to, dir, a0, a1, s0, s1, t0, t1, rad, tex = 'boothLeather', k = 1) => {
-    const sec = [];
-    for (const [cs, ct, q] of [[s1 - rad, t1 - rad, 0], [s0 + rad, t1 - rad, 1], [s0 + rad, t0 + rad, 2], [s1 - rad, t0 + rad, 3]]) {
-      for (let i = 0; i <= 4; i++) { const ang = (q + i / 4) * Math.PI / 2; sec.push([cs + Math.cos(ang) * rad, ct + Math.sin(ang) * rad, Math.cos(ang), Math.sin(ang)]); }
-    }
-    const t = BOOTH_TEXTURES[tex], b = t ? TB(tex) : solid, col = C(t ? '#ffffff' : tex, k), uv = (q) => (t ? q.map(([x, y]) => [x / t, y / t]) : null);
-    let run = 0;
-    for (let i = 0; i < sec.length; i++) {
-      const p = sec[i], q = sec[(i + 1) % sec.length], seg = Math.hypot(q[0] - p[0], q[1] - p[1]);
-      if (seg < 1e-4) continue;
-      const n = dir(0, (p[2] + q[2]) / 2, (p[3] + q[3]) / 2);
-      quad(b, [to(a0, p[0], p[1]), to(a1, p[0], p[1]), to(a1, q[0], q[1]), to(a0, q[0], q[1])], n, col, E,
-        uv([[a0, run], [a1, run], [a1, run + seg], [a0, run + seg]]), k >= 1.25);
-      run += seg;
-    }
-    const ms = (s0 + s1) / 2, mt = (t0 + t1) / 2;
-    for (const [av, sg] of [[a0, -1], [a1, 1]]) for (let i = 0; i < sec.length; i++) {
-      const p = sec[i], q = sec[(i + 1) % sec.length], m = to(av, ms, mt);
-      quad(b, sg > 0 ? [m, to(av, p[0], p[1]), to(av, q[0], q[1]), to(av, q[0], q[1])] : [m, to(av, q[0], q[1]), to(av, p[0], p[1]), to(av, p[0], p[1])],
-        dir(sg, 0, 0), col, E, uv([[ms, mt], [p[0], p[1]], [q[0], q[1]], [q[0], q[1]]]), k >= 1.25);
-    }
-  };
-  // the room's own frames for rounded: along u with the section in (v, y), or along v with it in
-  // (u, y); leanV tips the section toward +u as it rises, for a sofa back
-  const onU = [(a, sv, ty) => [a, sv, ty], (da, ns, nt) => nrmOf(da, nt, ns)];
-  const onV = [(a, su, ty) => [su, a, ty], (da, ns, nt) => nrmOf(ns, nt, da)];
-  const leanV = (lean, y0) => [(a, su, ty) => [su + (ty - y0) * lean, a, ty], (da, ns, nt) => nrmOf(ns - nt * lean, nt, da)];
-  // a turned piece round an upright axis at (u, v): 'prof' is [radius, y] from the bottom up, each
-  // ring cut into n facets, and a radius of 0 closes an end. 'mat' is a texture key or a colour
-  const lathe = (u, v, prof, mat, k = 1, n = 16) => {
-    const t = BOOTH_TEXTURES[mat], b = t ? TB(mat) : solid, col = C(t ? '#ffffff' : mat, k);
-    const P = (r, a, y) => [u + Math.cos(a) * r, v + Math.sin(a) * r, y];
-    for (let i = 0; i + 1 < prof.length; i++) {
-      const [r0, y0] = prof[i], [r1, y1] = prof[i + 1], dr = r1 - r0, dy = y1 - y0, l = Math.hypot(dr, dy);
-      if (l < 1e-5) continue;
-      for (let j = 0; j < n; j++) {
-        const a0 = j / n * Math.PI * 2, a1 = (j + 1) / n * Math.PI * 2, am = (a0 + a1) / 2, rm = Math.max(r0, r1, 0.05);
-        quad(b, [P(r0, a0, y0), P(r0, a1, y0), P(r1, a1, y1), P(r1, a0, y1)], nrmOf(Math.cos(am) * dy / l, -dr / l, Math.sin(am) * dy / l), col, E,
-          t ? [[a0 * rm / t, y0 / t], [a1 * rm / t, y0 / t], [a1 * rm / t, y1 / t], [a0 * rm / t, y1 / t]] : null, k >= 1.25);
-      }
-    }
-  };
-  const ball = (u, v, y, r, mat, k = 1, n = 12) => lathe(u, v, Array.from({ length: 9 }, (_, i) => { const a = -Math.PI / 2 + i / 8 * Math.PI; return [Math.cos(a) * r, y + Math.sin(a) * r]; }), mat, k, n);
   // the coffers' downlights, each a lamp in a brass ring flush with the panel
   for (const [u, v] of CP.cans) {
     lathe(u, v, [[0.19, H - 0.03], [0.2, H - 0.05], [0.27, H - 0.045], [0.3, H - 0.012]], LOOK.gilt, 1.0, 20);

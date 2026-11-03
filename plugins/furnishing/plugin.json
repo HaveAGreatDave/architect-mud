@@ -6,6 +6,6 @@
   "specializedActions": ["take"],
   "events": {
     "consumes": ["property.released"],
-    "emits": ["inventory.changed"]
+    "emits": ["inventory.changed", "furniture.changed"]
   }
 }

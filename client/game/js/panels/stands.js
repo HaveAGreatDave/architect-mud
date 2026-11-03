@@ -17,7 +17,7 @@ import { loadCss } from '../../../shared/dom.js';
 import { addTvView } from './tv.js';
 import { wantClubs } from './club-crest.js';
 import { wantVenue, venueOf } from './venue.js';
-import { boothStep, boothSeatNear, boothFree } from './gl/booth-mesh.js';
+import { createRoomWalk } from './room-walk.js';
 import { rinkSeats, SEAT_EYE } from './gl/arena-crowd.js';
 import { standsBoothOn, boxAnnouncerOn, loadSettings, saveSettings, applySettings } from '../../../shared/settings.js';
 import { createHands } from './stands-hands.js';
@@ -605,15 +605,10 @@ export function closeStands() {
 export const standsOpen = () => !!seatUi;
 
 // ── the suite ─────────────────────────────────────────────────────────────────
-// On your feet in a box (gl/booth-mesh.js): WASD walks where you're looking, sliding along what you
-// meet; E sits in the nearest chair or sofa or gets you up; T puts the big screen up full size.
-// In a chair you follow the play through the glass; on the sofa you face the screen. It's all the
-// eye in your own client: the server has you in the box, and that's all it needs.
-const WALK = 5.5;          // feet a second
-const STAND = 5.4;         // eye height on your feet
-const SPRINT = 1.9;        // Shift: how much faster
-const CROUCH = 3.3;        // Ctrl or C: eye height crouched
-const CROUCH_PACE = 0.5;   // and how much slower
+// On your feet in a box (gl/booth-mesh.js): the Room Stage's walker (room-walk.js), as a flat has it,
+// with the box's own buttons round it. In a chair you follow the play through the glass; on the sofa
+// you face the screen; T puts the big screen up full size. It's all the eye in your own client: the
+// server has you in the box, and that's all it needs.
 function walkSuite(ui, L, msg, setMode, redraw) {
   const { seat, root } = ui;
   const sitBtn = root.querySelector('.st-sit'), tvBtn = root.querySelector('.st-tv');
@@ -648,130 +643,33 @@ function walkSuite(ui, L, msg, setMode, redraw) {
   const letGo = () => { const el = document.activeElement; if (el?.matches?.('input, textarea, [contenteditable]')) el.blur(); };
   letGo();
   root.addEventListener('pointerdown', letGo);
-  let at = null, sat = null, raf = 0, last = 0;
-  const held = new Set();
-  // Shift sprints while it's held. Ctrl (or C) is a toggle, not a hold: Ctrl+W closes the browser
-  // tab and no page can stop it, so crouch-walking forward with Ctrl held would shut the game.
-  let sprint = false, crouched = false, eyeH = STAND;
-  const place = () => { seat.eye = L.world(at[0], at[1], L.groundAt(at[0], at[1]) + eyeH); redraw(); };
-  const sit = (s) => {
-    sat = s; at = [s.u, s.v]; crouched = false; eyeH = STAND;
-    seat.eye = s.eye.slice(); seat.yaw = s.yaw; seat.pitch = s.pitch;
-    setMode(s.kind === 'chair' ? 'follow' : 'free');
-    sitBtn.textContent = 'Get up';
-  };
-  const standUp = () => {
-    if (!sat) return;
-    // a step out from the seat the way it faces, wherever there's room
-    const y = seat.yaw || 0, wx = Math.sin(y), wz = Math.cos(y);
-    const fu = wx * L.r[0] + wz * L.r[2], fv = -(wx * L.f[0] + wz * L.f[2]);
-    // the nearest free spot round the seat, the way it faces first
-    at = [sat.u, sat.v];
-    const a0 = Math.atan2(fv, fu);
-    find: for (let k = 1; k <= 5; k += 0.5) for (let i = 0; i < 16; i++) {
-      const a = a0 + (i & 1 ? -1 : 1) * Math.ceil(i / 2) * Math.PI / 8, u = sat.u + Math.cos(a) * k, v = sat.v + Math.sin(a) * k;
-      if (boothFree(L, u, v)) { at = [u, v]; break find; }
-    }
-    sat = null;
-    if (seat.mode !== 'free') setMode('free');
-    place();
-    sitBtn.textContent = 'Sit down';
-  };
   // the bar or the buffet: help yourself (plugins/stands `stands fetch`, which opens it)
   const fetch = (st) => { ui.flash?.(STATION_SAY[st.target] || 'Helping yourself.', true); sendCmd(`stands fetch ${st.target}`); };
-  const stationNear = () => (L.stations || []).find((st) => Math.hypot(st.u - at[0], st.v - at[1]) < st.reach);
-  const toggleSit = () => {
-    if (sat) { standUp(); return; }
-    const s = boothSeatNear(L, at[0], at[1]), st = stationNear();
-    if (st && (!s || Math.hypot(st.u - at[0], st.v - at[1]) < Math.hypot(s.u - at[0], s.v - at[1]) + 2)) { fetch(st); return; }
-    if (s) sit(s);
-  };
-  const toggleTv = () => msg.channelId && setMode(seat.mode === 'tv' ? (sat?.kind === 'chair' ? 'follow' : 'free') : 'tv');
-  sitBtn.addEventListener('click', toggleSit);
-  tvBtn.addEventListener('click', toggleTv);
   // the seat you were given, or the sofa when you came in by the screen
   const dist = (s, e) => Math.hypot(s.eye[0] - e[0], s.eye[1] - e[1], s.eye[2] - e[2]);
   const given = msg.section.eye || L.seats[0].eye;
-  sit(msg.section.spot === 'sofa' ? L.seats.find((s) => s.kind === 'sofa' && s.i === 1) : L.seats.reduce((b, s) => (dist(s, given) < dist(b, given) ? s : b)));
-  const MOVES = { w: [0, 1], s: [0, -1], a: [-1, 0], d: [1, 0] };
-  const tick = (now) => {
-    raf = 0;
-    const dt = last ? Math.min(0.1, (now - last) / 1000) : 1 / 60;
-    last = now;
-    // the eye going down into a crouch or back up, eased, whether or not you're walking
-    const wantH = crouched ? CROUCH : STAND, settling = !sat && Math.abs(eyeH - wantH) > 0.01;
-    if (settling) { eyeH += (wantH - eyeH) * (1 - Math.exp(-dt * 12)); if (Math.abs(eyeH - wantH) <= 0.01) eyeH = wantH; }
-    if (!held.size) { if (settling) place(); if (!settling) { last = 0; return; } raf = requestAnimationFrame(tick); return; }
-    if (sat) standUp();
-    if (seat.mode !== 'free') setMode('free');
-    let side = 0, ahead = 0;
-    for (const k of held) { side += MOVES[k][0]; ahead += MOVES[k][1]; }
-    const l = Math.hypot(side, ahead);
-    if (l || settling) {
-      // ahead is where you're looking, flat; right is a quarter turn clockwise from it, seen from above
-      const pace = WALK * (crouched ? CROUCH_PACE : sprint ? SPRINT : 1) * dt;
-      const y = seat.yaw || 0, fx = Math.sin(y), fz = Math.cos(y), rx = -fz, rz = fx;
-      if (l) {
-        // drunk on your feet you drift off line, and the room turns a little with you
-        const dfx = getDrugFx(), drunk = dfx?.profile === 'drunk' ? dfx.intensity : 0;
-        if (drunk > 0.3) seat.yaw = y + Math.sin(now * 0.0011) * Math.sin(now * 0.00037 + 1) * (drunk - 0.3) * 1.4 * dt;
-        const wx = (fx * ahead + rx * side) / l * pace, wz = (fz * ahead + rz * side) / l * pace;
-        at = boothStep(L, at, wx * L.r[0] + wz * L.r[2], -(wx * L.f[0] + wz * L.f[2]));
-      }
-      place();
-    }
-    raf = requestAnimationFrame(tick);
-  };
+  const start = msg.section.spot === 'sofa' ? L.seats.find((s) => s.kind === 'sofa' && s.i === 1) : L.seats.reduce((b, s) => (dist(s, given) < dist(b, given) ? s : b));
+  const walk = createRoomWalk({
+    L, seat, pane: root, label: 'BOX', setMode, redraw, start,
+    project: (p, w, h) => ui.view?.project?.(p, w, h),
+    seatMode: (s) => (s.kind === 'chair' ? 'follow' : 'free'),
+    onStation: fetch,
+    onSit: () => { sitBtn.textContent = 'Get up'; },
+    onStand: () => { sitBtn.textContent = 'Sit down'; },
+  });
+  const toggleTv = () => msg.channelId && setMode(seat.mode === 'tv' ? (walk.sat?.kind === 'chair' ? 'follow' : 'free') : 'tv');
+  sitBtn.addEventListener('click', walk.toggleSit);
+  tvBtn.addEventListener('click', toggleTv);
   return {
     key(e, down) {
-      const k = String(e.key || '').toLowerCase();
-      sprint = !!e.shiftKey && !(down === false && k === 'shift');
-      if (k === 'shift') return true;
-      if (k === 'control' || (k === 'c' && !e.ctrlKey && !e.metaKey)) {
-        if (down && !e.repeat) {
-          if (sat) standUp();
-          crouched = !crouched;
-          if (!raf) { last = 0; raf = requestAnimationFrame(tick); }
-        }
-        return true;
-      }
-      if (MOVES[k]) {
-        if (down) { held.add(k); if (!raf) raf = requestAnimationFrame(tick); } else held.delete(k);
-        return true;
-      }
-      if (!down) return false;
-      if (k === 'e') { toggleSit(); return true; }
-      if (k === 't') { toggleTv(); return true; }
+      if (walk.key(e, down)) return true;
+      if (down && String(e.key || '').toLowerCase() === 't') { toggleTv(); return true; }
       return false;
     },
-    // what's under a point on the picture: the bar, buffet or smokes within a generous hand of it
-    // (they win over a chair, which is what you'd mostly not mean), else the nearest chair
-    hit(x, y, w, h) {
-      const pd = Math.max(150, w * 0.14), bd = Math.max(80, w * 0.07);
-      let pick = null, pBest = pd, best = null, sBest = bd;
-      for (const st of L.stations || []) {
-        const q = ui.view?.project?.(L.world(st.u, st.v, st.y), w, h);
-        const dd = q ? Math.hypot(q.x - x, q.y - y) : Infinity;
-        if (dd < pBest) { pBest = dd; pick = st; }
-      }
-      if (pick) return { station: pick, far: !!pick.behind && Math.hypot(pick.u - at[0], pick.v - at[1]) > pick.reach };
-      for (const s of L.seats) {
-        if (s === sat) continue;
-        const q = ui.view?.project?.(L.world(s.u, s.v, 2.2), w, h);
-        const dd = q ? Math.hypot(q.x - x, q.y - y) : Infinity;
-        if (dd < sBest) { sBest = dd; best = s; }
-      }
-      return best ? { seat: best } : null;
-    },
-    click(x, y, w, h) {
-      const hit = this.hit(x, y, w, h);
-      if (!hit) return false;
-      // the fridge behind the bar is only opened from behind the bar
-      if (hit.station && hit.far) { ui.flash?.('The fridge is behind the bar. Walk round to it.'); return true; }
-      if (hit.station) { fetch(hit.station); return true; }
-      sit(hit.seat); return true;
-    },
-    walking: () => !sat && held.size > 0,
-    stop() { if (raf) cancelAnimationFrame(raf); raf = 0; held.clear(); },
+    hit: (x, y, w, h) => walk.hit(x, y, w, h),
+    // the fridge behind the bar is only opened from behind the bar
+    click: (x, y, w, h) => walk.click(x, y, w, h, () => ui.flash?.('The fridge is behind the bar. Walk round to it.')),
+    walking: walk.walking,
+    stop: walk.stop,
   };
 }

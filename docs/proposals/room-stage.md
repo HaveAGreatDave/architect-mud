@@ -1,8 +1,9 @@
 # The Room Stage: one first-person room for every 3-D interior
 
-> **Status: design.** Nothing here is built. It's the shared layer under the
-> [Home Stage](home-stage.md) and the Platinum Box suite; where it disagrees with
-> [plugins/stands/README.md](../../plugins/stands/README.md) about what ships today, the README wins.
+> **Status: steps 1, 2, 4 and 5 built; steps 3 and 6 are design.** It's the shared layer under the
+> [Home Stage](home-stage.md) and the Platinum Box suite. "As built" below says what ships; where
+> it disagrees with [plugins/roomstage/README.md](../../plugins/roomstage/README.md) or
+> [plugins/stands/README.md](../../plugins/stands/README.md), the README wins.
 
 ## Why
 
@@ -69,13 +70,27 @@ One room, described once, drawn by whichever renderer hosts it.
 |---|---|---|
 | 1 | Lift `walkSuite` into `room-walk.js`; the suite calls it, and claims the keyboard via `seat-keys.js` | The suite walks, sits and fetches exactly as before; `client:smoke` |
 | 2 | `roomLayout(spec, pieces)`; `boothLayout` becomes the suite's spec plus its pieces | The suite's seats, stations and collision boxes come out identical (a gate comparing the two) |
-| 3 | The suite's fixed furniture read from its zone's furniture rows | Moving a buffet row moves the buffet |
+| 3 | The suite's fixed furniture read from its zone's furniture rows (not built: the suite's pieces are fitted pieces in `boothLayout`) | Moving a buffet row moves the buffet |
 | 4 | The standalone room renderer | A shapes-style gate builds every archetype in a stub room |
 | 5 | Home Stage phases 1-3 on top | [home-stage.md](home-stage.md) |
 | 6 | Bars, Holding and storefronts as more rooms with a spec | Each is content plus a spec, no new walker |
 
 Steps 1 and 2 change nothing a player sees. They're worth doing before the Home Stage so the second
 room is built on the first rather than beside it.
+
+## As built
+
+| Layer | Where it lives |
+|---|---|
+| Room spec | `roomSpecOf` in `client/shared/room-layout.js`: a flat with no `flags.room` is 4 × 5 × 2.6 m, the window in the front wall and the door at the back by the right-hand corner. The suite's `room` is the same spec with `unit: 'ft'` |
+| Pieces | `plugins/roomstage` sends each furniture row as `{ arche, form, dims, spot, wear, seed }`. `archetypeOf`, `formOf` and `dimsOf` read flags and weight only; the suite's chairs, bar, buffet, smokes, stools and sofa are fitted pieces in `boothLayout`, carrying their own seats and boxes |
+| Layout | `roomLayout(spec, pieces)`, `roomFree`, `roomStep`, `roomSeatNear`, `placeSpot` in `client/shared/room-layout.js`. `boothLayout` is the suite's spec and fitted pieces run through it, and `scripts/shapes/room-stage.mjs` checks the result against the layout it had before (`booth-layout.fixture.json`) |
+| Walker | `client/game/js/panels/room-walk.js`, used by the suite (`stands.js`) and by a flat (`room-stage.js`); it claims the keyboard through `seat-keys.js` |
+| Mesh | `gl/room-kit.js` holds the shapes (box, rounded block, turned piece, drop) that both `gl/booth-mesh.js` and `gl/room-mesh.js` build from. The suite's mesh came out of the move byte for byte |
+| Renderer | The suite stays in the ballpark. A flat is `gl/room.js`: occlusion baked into the vertex colours, the lamp and the window lighting it per pixel with a highlight by material, ACES, and the ink and toon bands when the comic look is on |
+| People | `gl/room-people.js` draws everyone else from the street figures' body (`actor3d.js`) in its `idle` or `sit` clip, or laid down for `lying`, dressed by `actorOutfit` off their id |
+
+Two things differ from the plan above. The window shows a painted street (`paintView` in `gl/room-mesh.js`) that follows the server's clock, not a `paintWindshield` call, so a flat doesn't need the city loaded. And the hands (`stands-hands.js`) aren't opened in a flat yet: nothing in a flat hands you a drink the way the suite's bar does.
 
 ## Decided
 

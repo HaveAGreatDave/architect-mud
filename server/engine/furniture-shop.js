@@ -151,7 +151,8 @@ async function finalizePurchase(player, npc, item, price, base, dest) {
     emit('inventory.changed', { actor: player });
     line = `${carryLine(npc, item)} <span class="text-dim">(Type 'place ${item.name}' in a room you own.)</span>`;
   } else {
-    await placeFurnitureFromItem(item, dest.zone_id, player.id, { price: base });
+    const id = await placeFurnitureFromItem(item, dest.zone_id, player.id, { price: base });
+    emit('furniture.changed', { zoneId: dest.zone_id, id });
     line = deliveryLine(npc, item, dest.name, dest.building_name);
   }
   if (npc?.id) {

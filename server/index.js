@@ -940,6 +940,11 @@ wss.on("connection", (ws, req) => {
 				emit("feedback.submit", { playerId: session.playerId, category: msg.category, text: msg.text, client: msg.client });
 			return;
 		}
+		// The Room Stage: where a player settled in the room they're walking round (plugins/roomstage).
+		if (msg.type === "room_pos") {
+			if (session.playerId) emit("room.pos", { playerId: session.playerId, at: msg.at, yaw: msg.yaw, seat: msg.seat });
+			return;
+		}
 		if (msg.type === "panel_watch" || msg.type === "panel_unwatch") {
 			if (session.playerId)
 				emit("panel.watch", { playerId: session.playerId, feeds: msg.type === "panel_watch" ? (msg.feeds || []) : [] });
