@@ -1588,8 +1588,12 @@ league can't derive them from two names.
 `assembleSportsGraph()` keeps everything sport-agnostic — the node chain, `say`/`pick`,
 the recap reel, the pacing, the graph — and hands the middle to `sportMod.narrate(ctx)`
 when the module exports one. **Baseball has no `narrate`**, so its body (halves, bases,
-RBI, extra innings) runs untouched on the original path; the diff that added the seam is
-the seam and nothing else. A third sport touches `index.js` nowhere but the registry.
+RBI, extra innings) runs on the original path, the seam's `else`. Since 2026-11-03 that body
+lives in [sports/baseball-narrator.js](../plugins/broadcast/sports/baseball-narrator.js)
+(`narrateBaseball(c)`), a pure module, so a gate can narrate a real game without importing
+`index.js`, which loads the plugin's state from the database as it's imported
+(scripts/shapes/parkclock-smoke.mjs). It was moved whole and its output is byte-identical. A
+third sport touches `index.js` nowhere but the registry.
 
 `ctx` supplies `{ script, game, gs, slot, ws, announcer, pools, nrng, sport, add, say,
 pick, abbr, recordOf, standings, lastId }`. `recordOf` is **bound to that sport's table**
