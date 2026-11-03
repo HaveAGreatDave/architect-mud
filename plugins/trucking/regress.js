@@ -2028,12 +2028,13 @@ async function regressBody({ run, check, getPlayer }) {
         JSON.stringify(gate.exits));
       // Fire Station 4 stood at 910,917 and opened into the lock, and its model clipped the plate. It
       // moved to the empty lot at 906,913 on 2026-10-02, doors east onto Meltwater Row, and 910,917 is
-      // grass with no way into the lock (docs/systems-trucking.md).
+      // grass with no way into the lock (docs/systems-trucking.md). The lock moved four rows south on
+      // 2026-11-02, so 910,917's east is plain Meltwater Row now: it must still lead into no lock tile.
       check('Fire Station 4\'s doors are on Meltwater Row now', Z(906, 913)?.flags?.entrance === 'east'
         && Z(906, 913).exits?.east === 'zone_district_907_913' && Z(907, 913)?.exits?.west === 'zone_district_906_913',
         JSON.stringify([Z(906, 913)?.flags?.entrance, Z(906, 913)?.exits]));
       check('…and the tile it left is grass with no door into the lock', !Z(910, 917)?.flags?.building_name
-        && !Z(910, 917)?.exits?.east, JSON.stringify(Z(910, 917)?.exits));
+        && !Object.values(Z(910, 917)?.exits || {}).flat().some((id) => world.zones.get(id)?.flags?.gate_lock), JSON.stringify(Z(910, 917)?.exits));
 
       // THE LOCKDOWN. The ESP announces it on `esp.changed`; the derive drops the outer door and the
       // lock's move gate holds the mouth. Driven through the event, so both listeners are on it.

@@ -87,7 +87,9 @@ up four things the plan didn't cover:
   Glacis round it (the weighbridge, the Tow Bay, the Search Pad, the Gate Post and the Motor Pool)
   move down four rows as one piece: the inner lock to 911,921-922, the gate to 911,923 and the
   outer works to y 924-926. The tiles keep their ids, so everything that names them follows. East of
-  the gate the wall turns north up x 912 to its old line at y 919.
+  the gate the wall turns north up x 913 to its old line at y 919 (moved from x 912 the next day by
+  [coliseum-jog.mjs](../../scripts/content/coliseum-jog.mjs), so the lock has meadow beside it and
+  the jog an inland side).
 - **x 886 is the river road.** The wall on x 885 and the park on x 887 leave one column, and the
   road down the west face and GATE D take it. Houses go on the Sorrel Way plots and on the new
   ground north of the park.

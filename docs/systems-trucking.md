@@ -2730,8 +2730,8 @@ place just inside the South Gate. It's now **outside the Curtain**, under the ro
 
 |       | 909 | 910 | 911 | 912 |
 |---|---|---|---|---|
-| **921** | Sorrel Way | Sorrel Way | **the South Lock** | Curtain |
-| **922** | plot | plot | **the South Lock** | Curtain |
+| **921** | Sorrel Way | Sorrel Way | **the South Lock** | grass |
+| **922** | plot | plot | **the South Lock** | grass |
 | **923** | Curtain | Curtain | **SOUTH GATE** | Curtain |
 | **924** | waste | the weigh lane | **the Outer Lock** | the post lane |
 | **925** | **the booth** | **the deck** | **the Outer Lock** | the search pad |

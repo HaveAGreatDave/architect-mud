@@ -2,13 +2,13 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "The back of the plots, where the estate stops at the Curtain. Through the light the Glacis road runs south, small and straight.",
+  "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
   "exits": {
+    "east": "zone_district_913_926",
     "north": "zone_district_912_925",
     "south": "zone_district_912_923"
   },
   "flags": {
-    "curtain": true,
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "terrain": "grass"

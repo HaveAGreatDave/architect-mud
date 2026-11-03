@@ -2,14 +2,14 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Rough grass at the wall. The Curtain seals the edge here, floor to sky, and the only way through is the South Gate.",
+  "description": "Open meadow at the edge of the estate, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
   "exits": {
+    "east": "zone_district_913_924",
     "north": "zone_district_912_919",
     "south": "zone_district_912_925",
     "west": "zone_district_911_926"
   },
   "flags": {
-    "curtain": true,
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "terrain": "grass"

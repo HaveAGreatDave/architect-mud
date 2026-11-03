@@ -1,9 +1,9 @@
 {
-  "a": "zone_district_912_926",
-  "b": "zone_district_913_926",
+  "a": "zone_district_913_923",
+  "b": "zone_district_914_923",
   "blocked": true,
   "dir": "east",
-  "id": "conn_district_912_926_east_zsus",
+  "id": "conn_district_913_923_east_d89j",
   "lockable": false,
   "name": "the Architect's Curtain",
   "one_way": false

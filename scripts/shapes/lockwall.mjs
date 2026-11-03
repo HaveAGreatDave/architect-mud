@@ -69,7 +69,7 @@ const WALLS = [
   ['the hall\'s east wall, at the empty corner', 914.4, 924, 912, 924],
   ['the hall\'s north wall, from the Curtain side', 910, 923.2, 910, 925],
   ['the inner lock\'s west wall, from the plots', 909.6, 922, 911, 922],
-  ['the inner lock\'s east wall, from the Curtain', 912.4, 921, 911, 921],
+  ['the inner lock\'s east wall, from the meadow', 912.4, 921, 911, 921],
 ];
 for (const [name, fx, fy, tx, ty] of WALLS) {
   const inward = blocked(cw, fx, fy, tx, ty), outward = blocked(cw, tx, ty, fx, fy);

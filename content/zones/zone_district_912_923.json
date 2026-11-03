@@ -4,6 +4,7 @@
   "color": "#8ba36a",
   "description": "Rough grass at the wall. The Curtain seals the edge here, floor to sky, and the only way through is the South Gate.",
   "exits": {
+    "east": "zone_district_913_923",
     "north": "zone_district_912_926"
   },
   "flags": {

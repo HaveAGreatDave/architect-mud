@@ -2,13 +2,13 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Grass along the foot of the Curtain, the hard light humming a few feet off. The waste beyond it is red and flat to the hills.",
+  "description": "Grass to the knee beside the grey plate of the South Lock. The lamps over its mouth tick as they change.",
   "exits": {
+    "east": "zone_district_913_925",
     "north": "zone_district_912_924",
     "south": "zone_district_912_926"
   },
   "flags": {
-    "curtain": true,
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "terrain": "grass"

@@ -5,8 +5,7 @@
   "description": "Red hardpan, cracked into plates the size of dinner tables, runs flat to a rust-colored horizon.",
   "exits": {
     "east": "zone_district_915_920",
-    "south": "zone_district_914_921",
-    "west": "zone_district_913_924"
+    "south": "zone_district_914_921"
   },
   "flags": {
     "district": "wilds",
