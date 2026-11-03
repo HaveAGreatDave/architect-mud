@@ -62,7 +62,7 @@ import {
 import { flatOut } from './downtown.js';
 import { WIN, WIN_OPEN, sunburst, headPanels } from '../coliseum-window.js';
 import {
-  BACK, BAND, BGATE, CORNER_Z, DECK, DOME, FIELD, FIN_AT, GATE, GUARD, HALF, HP, LANTERN, LEAVES, OUT, RING, SH, SIDE_GATES, SV,
+  BACK, BAND, BGATE, BLOCK, CORNER_Z, DECK, DOME, FIELD, FIN_AT, GATE, GUARD, HALF, HP, LANTERN, LEAVES, OUT, RING, SH, SIDE_GATES, SV,
   TOWER, Z, leafProfile, leafTurn, rail,
 } from '../../../../../shared/coliseum-plan.js';
 import { venueLive, venueRoof, venuePlay } from '../../world-feed.js';
@@ -261,6 +261,27 @@ function parkState(now, night) {
   return { dn, game, p, moving, meshRoof, lightK, towerK: lightK * (1 - p), domeK: lightK * p };
 }
 
+// ── WHICH SLICES HAVE ANYTHING TO DRAW LIVE ──────────────────────────────────────────────────
+// On GLASS 2's live pass the mesh has the whole park at rest, and what's left is lights, lettering,
+// people and the leaves while they turn. Inside the rim (the wall, the gates, the towers, the name and
+// the light out of the clerestory) that's only the lantern's tile, the scoreboard's on a game night,
+// the deck lamps' after dark with the towers lit, and any tile while the leaves turn or a game is on
+// under an open roof. The rest return before the arm builds its closures: 81 slices doing that every
+// frame was most of what the park allocated (perf/alloc).
+const tileOfPark = (u, v) => Math.floor(u * SH + HALF) + ',' + Math.floor(v * SH + HALF);
+const LANTERN_TILE = tileOfPark(0, 0), SCORE_TILE = tileOfPark(SCOREBOARD.u, SCOREBOARD.v);
+const DECK_TILES = new Set([1, -1].flatMap((su) => Array.from({ length: 7 }, (_, j) => tileOfPark(su * (DECK - 0.01), -1.26 + j * 0.42))));
+function quietSlice(m, now, night) {
+  const bc = m.bc ?? 5, br = m.br ?? 5, last = BLOCK - 1;
+  if (bc === 0 || br === 0 || bc === last || br === last) return false;
+  const k = bc + ',' + br;
+  if (k === LANTERN_TILE) return false;
+  const st = parkState(now, night);
+  if (st.moving || (st.game && st.p < 0.98)) return false;
+  if (k === SCORE_TILE && st.game) return false;
+  return !(DECK_TILES.has(k) && st.towerK > 0.01 && st.dn > 0.05);
+}
+
 // Raised lettering: the text baked twice, a dark copy dropped down and right under the gilt face, so
 // the letters cast a shadow onto their own plate (the Meridian's `embossText`). `quad(ox, oz)` returns
 // the four projected corners with that offset.
@@ -274,7 +295,8 @@ export function embossText(ctx, cam, quad, text, face, shadow, night, alpha, opt
 
 export const COLISEUM_ARMS = {
   ballpark(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE HUGHSON COLISEUM, every tile
-    const D = { north: [0, -1], east: [1, 0], west: [-1, 0] }[m.facing] || [0, 1];
+    if (FLAT_OFF && !MESH_SINK && !SHAPE_SINK && quietSlice(m, now, night)) return;   // see quietSlice
+    const D ={ north: [0, -1], east: [1, 0], west: [-1, 0] }[m.facing] || [0, 1];
     // this tile's centre, in tiles from the block's; its square, in park units
     const cu = (m.bc ?? 5) - HALF + 0.5, cv = (m.br ?? 5) - HALF + 0.5;
     let X0 = (cu - 0.5) / SH, X1 = (cu + 0.5) / SH;
