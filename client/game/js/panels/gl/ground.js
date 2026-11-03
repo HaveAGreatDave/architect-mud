@@ -8,7 +8,7 @@ import { makeVertexStream } from './stream.js';
 import { createArena } from './retain.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { declareProgram, layerProgram } from './programs.js';
-import { linearOut, applyLinOut } from './colour.js';
+import { linearOut, applyLinOut, LIN, LIN_IN_GLSL } from './colour.js';
 import { PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
 import { LAMP_SHADOW_GLSL, LAMP_SHADOW_UNIFORMS, bindLampShadow } from './lampshadow.js';
 import { LIGHTGRID_TUNE, LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
@@ -620,6 +620,21 @@ uniform int uNLsh;
 uniform float uLshTexel;
 uniform float uLshBias;
 ${LAMP_SHADOW_GLSL}
+// ── LINEAR LIGHT (RENDER_TUNE.glLinear 2, glass-materials.md stage 2 step 3) ─────────────────────
+//
+// uLinIn and lf (gl/colour.js). At level 2 this layer's output is already linear and glassOut leaves
+// it alone. From the vertex colour to the lamp pool the road is a chain of mixes toward a colour and
+// of factors on them: the lid, the night dim and its grey, the fog, the wet darkening, the mirror
+// (a Fresnel blend toward the reflected image), the snow, and the streak, glint and pool, which are
+// screen adds, c + k(1 - c), and so a mix toward white. Their headroom term was tuned against display
+// values, and is what washes them out in daylight. A mix has no linear twin, so the chain runs on
+// display values exactly as it does at level 1 and is decoded once where it ends. The reflection
+// buffer, the sky strip, uSkyHor, uSkyTop, uFog, uSnowCol, uLidFace, uLidSlot and the vertex colour
+// only ever enter that chain, so they stay display values at every level.
+// What runs linear is the one term that is light added to light: the light shaft in the air, whose
+// colours (uWetC) are decoded where it reads them, since the streak reads the same six as display
+// values. The headlight pool (uSurface 0) decodes its own output, as glassOut does at level 1.
+${LIN_IN_GLSL}
 
 out vec4 outColor;
 
@@ -1085,7 +1100,10 @@ void main() {
     // SAME FUNCTION THE ROAD SURFACE READS, deliberately: these are two draw calls over one wet
     // road, and a pool twinkling out of step with the water it lies in reads as two effects.
     float glim = pud > 0.01 ? waterSparkle(vWorld.xy + uWc) : 0.0;
-    outColor = vec4(c * (1.0 + (0.95 + 3.2 * glim) * pud * uWet) * vAlpha, vAlpha);
+    vec3 pc = c * (1.0 + (0.95 + 3.2 * glim) * pud * uWet);
+    // The pool's colour and its lift are display values: decoded here at level 2 (see uLinIn).
+    if (uLinIn > 0.5) pc = glassLin(pc);
+    outColor = vec4(pc * vAlpha, vAlpha);
     return;
   }
   float damp   = uWet * mix(0.34, 1.00, pud);
@@ -1469,6 +1487,8 @@ void main() {
     vec3 lit = 1.0 - exp(-pool * (uPool * clamp(uNight, 0.0, 1.0)));
     c += lit * (0.6 * (1.0 - gfog)) * max(vec3(0.0), 1.0 - c);
   }
+  // The end of the display chain (see uLinIn). From here on c is light.
+  if (uLinIn > 0.5) c = glassLin(c);
   // ── AND THE LIGHT IN THE AIR OVER THE ROAD ─────────────────────────────────
   //
   // The same integral the buildings take — see gl/fog.js — over the road's own six lights. ⚠ The
@@ -1488,7 +1508,8 @@ void main() {
     // terms track the same haze. A rainy night came back at 0.14% of the frame against a foggy
     // one's 11.05%, so the weather this whole layer exists for got almost none of it. The gate
     // carries the weather once; the height profile inside still shapes it.
-      scat += uWetC[i] * lightShaft(vec3(uEye, uEyeH), vWorld, uWetP[i], uWetR[i], uScatter, uFogHScale);
+      // Linear at level 2, decoded here rather than on upload because the streak reads uWetC too.
+      scat += (uLinIn > 0.5 ? glassLin(uWetC[i]) : uWetC[i]) * lightShaft(vec3(uEye, uEyeH), vWorld, uWetP[i], uWetR[i], uScatter, uFogHScale);
     }
     c += scat;
   }
@@ -1563,6 +1584,7 @@ export function createGroundLayer(gl) {
     ripple: gl.getUniformLocation(prog, 'uRipple'),
     glint: gl.getUniformLocation(prog, 'uGlint'),
     wetDark: gl.getUniformLocation(prog, 'uWetDark'),
+    linIn: gl.getUniformLocation(prog, 'uLinIn'),
   };
 
   const vao = gl.createVertexArray();
@@ -1678,7 +1700,11 @@ export function createGroundLayer(gl) {
   const keptVerts = () => (keepOn && arenas ? arenas[0].verts + arenas[1].verts + arenas[2].verts + arenas[3].verts : 0);
   function draw(cam, H, opts = {}) {
     if (!count && !keptVerts()) return 0;
-    gl.useProgram(prog); applyLinOut(gl, prog);
+    // RENDER_TUNE.glLinear 2: the shader's output is already linear. Float target only (LIN.out), so
+    // the mirror pass, which binds an 8-bit buffer with LIN.out at 0, stays on display values.
+    const linIn = LIN.out > 0 && opts.linear >= 2;
+    gl.useProgram(prog); applyLinOut(gl, prog, linIn ? 0 : LIN.out);
+    gl.uniform1f(loc.linIn, linIn ? 1 : 0);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, H)));
     // ⚠ Written every frame: a frame with no blocks must not keep the last one's camera.
     const U = gtU;

@@ -844,7 +844,10 @@ On by default since 2026-10-18 (off on the phone tier). On, the atlas gets a twi
 
 ### Linear light (`RENDER_TUNE.glLinear`)
 
-Level 1 by default since 2026-10-18 (0 on the phone tier); 1 makes the float target linear, 2 also lights the city's own shader in linear (gl/colour.js, and stage 2 of [glass-materials.md](../proposals/glass-materials.md)). Traps:
+Level 1 by default since 2026-10-18 (0 on the phone tier); 1 makes the float target linear, 2 also lights the city's own shader, the floor and the ground in linear (gl/colour.js, and stage 2 of [glass-materials.md](../proposals/glass-materials.md)). Traps:
+
+- A layer that shades in linear splices `LIN_IN_GLSL` from gl/colour.js for `uLinIn` and `lf`, never a copy, sends `applyLinOut(gl, prog, linIn ? 0 : LIN.out)`, and gates the flag on `LIN.out` as well as the level, or the mirror's 8-bit pass gets linear values. `gl:colour` checks all of that for each converted layer; add a new one to its `CONVERTED` list. The floor and the ground take the level from world.js (`linear` on their options), since neither gets the city's draw options.
+- The floor and the ground keep their mixes on display values at level 2 and decode once where the chain of mixes ends: the floor after the aerial wash, the ground after the lamp pool. Only what comes after is linear (the floor's wet and neon reflections, prop shadow and fog; the ground's light shaft). Moving the decode earlier, or adding a display-tuned term after it, changes the level 2 picture.
 
 - Only the float target is ever linear. Eight bits of linear light band in the darks, so the mirror buffer, the room drawn alone, the sky pass and every 8-bit intermediate keep display values. A new pass that binds its own target sets `LIN.out` for it.
 - A new fragment shader that draws into the float target goes through `linearOut` and calls `applyLinOut` after `useProgram`, or at level 1 it is the one layer still blending in display values.

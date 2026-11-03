@@ -25,7 +25,7 @@ import { seaSlopeVariance } from '../../../../shared/sea-swell.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { SEA_GLSL } from './sea-glsl.js';
 import { SEA_DETAIL_GLSL, SEA_DETAIL_AMT, bindSeaDetail } from './sea-detail.js';   // the ONE GLSL copy of the swell — water.js includes the same string, and client/shared/sea-swell.js is the JS original
-import { linearOut, applyLinOut } from './colour.js';
+import { linearOut, applyLinOut, LIN, linRgb, LIN_IN_GLSL } from './colour.js';
 import { TOON_GLSL } from './toon.js';
 import { PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
 
@@ -304,6 +304,23 @@ uniform int uDebug;
 uniform float uToon;
 uniform float uToonBands;
 ${TOON_GLSL}
+// ── LINEAR LIGHT (RENDER_TUNE.glLinear 2, glass-materials.md stage 2 step 3) ─────────────────────
+//
+// uLinIn and lf (gl/colour.js). At level 2 this layer's output is already linear and glassOut leaves
+// it alone. Everything from the LUT to the aerial wash is a chain of mixes toward a colour (the
+// grass, mud, litter, snow and sheen tints, the haze, the grey after dark, the wash) and of factors
+// on those mixes. A mix has no linear twin, so that chain runs on display values exactly as it does
+// at level 1 and is decoded once where it ends. Decoding the LUT first would only put an encode in
+// front of every mix: the same picture for more pow() calls.
+// ⚠ THE SPECULAR ADDS STAY IN THE CHAIN. Foam, crests, glitter, the lit sea's lobe, the moon path and
+// the whitecaps were tuned as display values added to a display sea. Added as linear light the
+// same numbers come out darker over a dark sea (a 0.6 foam on a 0.2 sea is 0.62 against 0.80), which
+// is a new look, so here they're paint and not light.
+// What runs linear is light added to light: the city's lamps on wet tarmac and its neon on the
+// water (uWetC and uNeonC, decoded before upload). After that the prop shadow goes through lf and
+// the fog encodes, mixes and decodes. uHor, uFogCol, uRoadCol, uFarDirt and uFarRock only ever
+// enter a mix, so they stay display values at every level.
+${LIN_IN_GLSL}
 out vec4 outColor;
 
 // The LUT is read by TEXEL, never sampled: the bilinear this floor does is not the hardware's.
@@ -1312,6 +1329,8 @@ void main() {
     float lh = washW * clamp((d - 10.0) / 44.0, 0.0, 1.0) * 0.6;
     col = col * (1.0 - lh) + uHor * uNm * lh;
   }
+  // The end of the display chain (see uLinIn). From here on col is light.
+  if (uLinIn > 0.5) col = glassLin(col);
   // ── THE REFLECTIONS, BEFORE THE FOG ────────────────────────────────────────────────────────
   //
   // A reflection is part of the SURFACE, so it has to recede with it — put this after the fog and a
@@ -1382,7 +1401,7 @@ void main() {
   }
 
   // Before the fog, so a post's shadow recedes into the haze with the road it lies on.
-  if (uPropOn > 0.0) col *= 1.0 - propShadow(vec3(wx, wy, 0.0)) * uPropGround;
+  if (uPropOn > 0.0) col *= lf(1.0 - propShadow(vec3(wx, wy, 0.0)) * uPropGround);
   // N64 distance fog, last and uniformly over every material, so the far field recedes into the
   // sky. A squared ramp: a crisp foreground thickening into the far.
   // ⚠ ONE MIX FOR BOTH, because they are two things the light has to get through and what
@@ -1390,7 +1409,8 @@ void main() {
   // weather and the far field becomes a flat plate of fog colour.
   float ffd = clamp((d - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
   float fw = 1.0 - (1.0 - ffd * ffd * uFogAmt) * (1.0 - heightFog(uEH, 0.0, d, uFogH, uFogHScale));
-  if (fw > 0.001) col = col * (1.0 - fw) + uFogCol * fw;
+  // At level 2 the fog is a mix toward a colour like the haze: on display values, then decoded.
+  if (fw > 0.001) col = uLinIn > 0.5 ? glassLin(glassSrgb(col) * (1.0 - fw) + uFogCol * fw) : col * (1.0 - fw) + uFogCol * fw;
 
   // ⚠ A SCREEN-FILLING TRIANGLE HAS ONE DEPTH, AND THE GROUND HAS A THOUSAND. Left alone this
   // would write a single constant z and the city would be entirely in front of the floor or
@@ -1398,24 +1418,31 @@ void main() {
   // the projection and sy - horizonY = depth * EH / f, so f = EH / p = d — which is exactly what
   // projMatrix divides by. So the real depth is recoverable, and this is that same mapping.
   gl_FragDepth = clamp((uZA + uZB / max(fz, 1e-4) + 1.0) * 0.5, 0.0, 1.0);
-  if (uDebug == 1) { outColor = vec4(base, 1.0); return; }
-  if (uDebug == 2) { outColor = vec4(vec3(tex * 0.5), 1.0); return; }
-  if (uDebug == 3) { outColor = vec4(vec3(haze * 4.0), 1.0); return; }
-  if (uDebug == 4) { outColor = vec4(vec3(shadeW * 0.5), 1.0); return; }
-  // 6 - the far field, as a map rather than as a picture: red is how far outside the window this
-  // pixel sampled, green is the far-road coverage. The only way to tell "the branch never ran"
-  // from "it ran and painted nothing", which are the same black screen in the finished frame.
-  if (uDebug == 6) { outColor = vec4(clamp(fOut / 60.0, 0.0, 1.0), dbgRoad, 0.0, 1.0); return; }
-  // 5 — a disc at each light's own ground point, in THIS shader's frame. The only honest way to
-  // settle the frame conversion: if the discs do not sit under the lights, the conversion is wrong,
-  // and every other symptom of that is a reflection sitting beside its sign, which reads as art.
-  if (uDebug == 5) {
-    vec3 mark = vec3(0.04);
-    for (int i = 0; i < MAX_WET; i++) {
-      if (i >= uNWet) break;
-      if (length(vec2(wx, wy) - uWetP[i].xy) < 0.18) mark = uWetC[i] * 4.0 + vec3(0.2);
+  // The readouts are display values at every level, so at level 2 they're decoded here, which is
+  // what glassOut does for them at level 1.
+  if (uDebug >= 1 && uDebug <= 6) {
+    vec3 dc = vec3(0.0);
+    if (uDebug == 1) dc = base;
+    if (uDebug == 2) dc = vec3(tex * 0.5);
+    if (uDebug == 3) dc = vec3(haze * 4.0);
+    if (uDebug == 4) dc = vec3(shadeW * 0.5);
+    // 6 - the far field, as a map rather than as a picture: red is how far outside the window this
+    // pixel sampled, green is the far-road coverage. The only way to tell "the branch never ran"
+    // from "it ran and painted nothing", which are the same black screen in the finished frame.
+    if (uDebug == 6) dc = vec3(clamp(fOut / 60.0, 0.0, 1.0), dbgRoad, 0.0);
+    // 5 - a disc at each light's own ground point, in THIS shader's frame. The only honest way to
+    // settle the frame conversion: if the discs do not sit under the lights, the conversion is wrong,
+    // and every other symptom of that is a reflection sitting beside its sign, which reads as art.
+    // uWetC arrives linear at level 2, so it's encoded back for the mark.
+    if (uDebug == 5) {
+      vec3 mark = vec3(0.04);
+      for (int i = 0; i < MAX_WET; i++) {
+        if (i >= uNWet) break;
+        if (length(vec2(wx, wy) - uWetP[i].xy) < 0.18) mark = (uLinIn > 0.5 ? glassSrgb(uWetC[i]) : uWetC[i]) * 4.0 + vec3(0.2);
+      }
+      dc = clamp(mark, 0.0, 1.0);
     }
-    outColor = vec4(clamp(mark, 0.0, 1.0), 1.0); return;
+    outColor = vec4(uLinIn > 0.5 ? glassLin(dc) : dc, 1.0); return;
   }
   outColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`, 'outColor');
@@ -1473,7 +1500,7 @@ export function createFloorLayer(gl) {
     neonN: U('uNeonN'), neonP: U('uNeonP'), neonC: U('uNeonC'), neonGain: U('uNeonGain'),
     seaDetail: U('uSeaDetail'), seaDetailAmt: U('uSeaDetailAmt'),
     sig2: U('uSig2'), seaWindDir: U('uSeaWindDir'),
-    snow: U('uSnow'),
+    snow: U('uSnow'), linIn: U('uLinIn'),
     nTrack: U('uNTrack'), track: U('uTrack'), trackHalf: U('uTrackHalf'),
     trackW: U('uTrackW'), trackBox: U('uTrackBox'),
   };
@@ -1514,7 +1541,11 @@ export function createFloorLayer(gl) {
 
   function draw(s, near = NEAR) {
     if (!s || !s.lut0 || !s.n) return 0;
-    gl.useProgram(prog); applyLinOut(gl, prog);
+    // RENDER_TUNE.glLinear 2: the shader's output is already linear. Float target only (LIN.out).
+    // `s.linear` is the level; world.js folds it into its copy of the floor state.
+    const linIn = LIN.out > 0 && s.linear >= 2;
+    gl.useProgram(prog); applyLinOut(gl, prog, linIn ? 0 : LIN.out);
+    gl.uniform1f(loc.linIn, linIn ? 1 : 0);
     setLut(s.n, s.lut0, s.lut1, s.tag, s.lut2, s.lut3);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, t3); gl.uniform1i(loc.lut3, 2);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, t0); gl.uniform1i(loc.lut0, 0);
@@ -1650,7 +1681,9 @@ export function createFloorLayer(gl) {
       for (let i = 0; i < nw; i++) {
         const L = wl[i];
         WET_P[i * 3] = L.p[0]; WET_P[i * 3 + 1] = L.p[1]; WET_P[i * 3 + 2] = L.p[2];
-        WET_C[i * 3] = L.rgb[0]; WET_C[i * 3 + 1] = L.rgb[1]; WET_C[i * 3 + 2] = L.rgb[2];
+        // Light added to light, so linear at level 2, as the city decodes its own (context.js).
+        const wc = linIn ? linRgb(L.rgb) : L.rgb;
+        WET_C[i * 3] = wc[0]; WET_C[i * 3 + 1] = wc[1]; WET_C[i * 3 + 2] = wc[2];
         WET_R[i] = L.r;
       }
       gl.uniform3fv(loc.wetP, WET_P.subarray(0, nw * 3));
@@ -1670,7 +1703,7 @@ export function createFloorLayer(gl) {
       // ⚠ 'rgbRaw', NEVER 'rgb' — see the same ⚠ in water.js and in ground.js. 'rgb' is the colour
       // as a WALL WASH, scaled by that term's gain and by the night, and it is flatly zero whenever
       // the wash is off: a reflection reading it measures 0.000% at every gain.
-      const c = L.rgbRaw || L.rgb;
+      const c = linIn ? linRgb(L.rgbRaw || L.rgb) : (L.rgbRaw || L.rgb);
       NEON_C[i * 3] = c[0]; NEON_C[i * 3 + 1] = c[1]; NEON_C[i * 3 + 2] = c[2];
     }
     gl.uniform1i(loc.neonN, nn);

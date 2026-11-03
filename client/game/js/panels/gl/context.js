@@ -35,7 +35,7 @@ import { createSkylineStrip } from './skyline.js';
 // SSAO inverts depth back to tiles with the same clip constants the vertices went through.
 import { NEAR, zRow } from './camera.js';
 import { declareProgram, prewarmPrograms, layerProgram } from './programs.js';
-import { linearOut, applyLinOut, LIN, linRgb } from './colour.js';
+import { linearOut, applyLinOut, LIN, linRgb, LIN_IN_GLSL } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
 import { createEnvCube, ENV_MAX_LOD } from './envcube.js';
 
@@ -327,14 +327,11 @@ vec4 atlasAt(vec2 uv) {
   vec4 d = textureLod(uAtlas, uv, 0.0);
   return uAtlasNOn > 0.5 ? mix(d, textureLod(uAtlasN, uv, 0.0), uNBTex) : d;
 }
-// 1 when this layer shades in linear light (RENDER_TUNE.glLinear 2, stage 2 step 2): the albedo,
-// the vertex colour, the snow and the skyline strip are decoded here, the uniform colours were
-// decoded before upload, and the output is already linear so glassOut leaves it alone.
-uniform float uLinIn;
-// A factor tuned on display values, as linear light. A display factor k darkens what the eye sees by
-// k, and in linear light that is about k^2.2; at level 2 every darkening multiplier below goes
-// through this so B keeps A's contrast. 1.0 at level 0, where k is returned as it is.
-float lf(float k) { return uLinIn > 0.5 ? pow(max(k, 0.0), 2.2) : k; }
+// uLinIn and lf (gl/colour.js): 1 when this layer shades in linear light (RENDER_TUNE.glLinear 2,
+// stage 2 step 2). The albedo, the vertex colour, the snow and the skyline strip are decoded here,
+// the uniform colours were decoded before upload, and every darkening multiplier below goes through
+// lf so B keeps A's contrast.
+${LIN_IN_GLSL}
 // Stage 3 (docs/proposals/glass-materials.md). uEnvCube is the sky as a cube (gl/envcube.js), sampled
 // along the reflected ray at a level picked by roughness; uGGX swaps the Phong highlight for a GGX
 // lobe. Both 0 is the reflection and highlight as shipped.

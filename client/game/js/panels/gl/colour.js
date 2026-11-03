@@ -46,6 +46,20 @@ vec4 glassOut(vec4 c) {
 vec4 glassOutStraight(vec4 c) { return uGlassLinOut < 0.5 ? c : vec4(glassLin(c.rgb), c.a); }
 `;
 
+// For a layer that shades in linear light itself (RENDER_TUNE.glLinear 2, stage 2 steps 2 and 3).
+// Interpolated as a template substitution into the layer's own source, above any function that
+// reads it, so glsl-smoke sees the declaration; it calls nothing in the chunk above, so it needs no
+// prototypes. uLinIn is 1 when this layer's output is already linear: the layer then sends 0 to
+// applyLinOut, so glassOut leaves the output alone.
+// lf is a factor tuned on display values, as linear light. A display factor k darkens what the eye
+// sees by k, and in linear light that is about k^2.2, so a layer at level 2 sends every darkening
+// multiplier that lands on a linear colour through this. At levels 0 and 1 it returns k.
+// Converted layers: gl/context.js (the city), gl/floor.js, gl/ground.js. gl:colour checks each.
+export const LIN_IN_GLSL = `
+uniform float uLinIn;
+float lf(float k) { return uLinIn > 0.5 ? pow(max(k, 0.0), 2.2) : k; }
+`;
+
 // A fragment source with its output decoded to linear when uGlassLinOut is set. The shader's own
 // main is renamed and a new main calls it, then converts `out`: every return and discard path in
 // the original goes through the one conversion, and with the uniform at 0 the colour is handed

@@ -1,6 +1,6 @@
 # GLASS materials
 
-**Status: Stages 0 and 1 built (`glMatPage`); stage 2 steps 1 and 2 built (`glLinear`), steps 3 and 4 to do; stage 3 built (`glEnvCube`, `glGGX`); stage 4 built (`glSurfPage`). Since 2026-10-18 every built switch is on by default (`glLinear` at level 1, `glTonemap` at 0.25), and off on the phone tier.** This is the plan for bringing GLASS 2's surface shading up to what
+**Status: Stages 0 and 1 built (`glMatPage`); stage 2 steps 1 and 2 built (`glLinear`), step 3 built for the floor and the ground and to do for the other layers, step 4 to do; stage 3 built (`glEnvCube`, `glGGX`); stage 4 built (`glSurfPage`). Since 2026-10-18 every built switch is on by default (`glLinear` at level 1, `glTonemap` at 0.25), and off on the phone tier.** This is the plan for bringing GLASS 2's surface shading up to what
 three.js's `MeshStandardMaterial` does: linear colour with a tone curve, a GGX highlight driven by
 roughness, a prefiltered environment map, and material data per texel. Each stage ships behind a
 `RENDER_TUNE` switch whose 0 is today's picture.
@@ -146,7 +146,7 @@ This only applies while the float target is live. Phones (`PHONE_TIER` forces `g
 devices without `EXT_color_buffer_float` stay on today's path.
 
 **Steps 1 and 2 built 2026-10-03.** `RENDER_TUNE.glLinear` is 0 (as shipped), 1 (step 1) or 2
-(step 2). As built:
+(step 2, and the layers step 3 has converted). As built:
 
 - [gl/colour.js](../../client/game/js/panels/gl/colour.js) holds the curve both ways (GLSL and JS),
   `LIN.out` (1 only while the float target is bound), and `linearOut(src, out)`, which renames a
@@ -182,8 +182,39 @@ devices without `EXT_color_buffer_float` stay on today's path.
   match that, because a shader can't see what is behind it. Matching it would take a separate
   buffer for the additive layers, summed in display values at the composite. **Decided
   2026-10-04: the halos stay as linear light blends them.** No separate buffer.
-- Left: the other layers (step 3), the tone curve (step 4), and any re-tune away from the shipped
-  look.
+- **Step 3, first slice: the floor and the ground (2026-11-03).** gl/floor.js and gl/ground.js
+  shade in linear light at level 2 too, behind the same level (no new one), so the default of 1
+  doesn't change. `uLinIn` and `lf` moved into gl/colour.js as one chunk, `LIN_IN_GLSL`, which the
+  city, the floor and the ground all splice, and `gl:colour` checks that each converted layer
+  splices it, declares no copy, asks for the flag, gates it on `LIN.out` and level 2, and stops
+  `glassOut` decoding its output. world.js hands both layers the level.
+- Both are mostly chains of mixes toward a colour, which have no linear twin, so at level 2 each
+  chain runs on display values as at level 1 and is decoded once where it ends. Decoding the LUT
+  or the vertex colour first would only put an encode in front of every mix. The floor's chain
+  runs from the LUT through the haze, the grey after dark and the aerial wash. Its foam, crests,
+  glitter, lit-sea lobe, moon path and whitecaps stay in it as paint, because added as linear light
+  the same numbers come out darker over a dark sea (a 0.6 foam on a 0.2 sea is 0.62 against 0.80).
+  The ground's chain runs from the vertex colour through the lamp pool. Its wet streak, glint and
+  pool are screen adds, `c + k(1 - c)`, which is a mix toward white with a headroom tuned on display
+  values. So `uHor`, `uFogCol`, `uRoadCol`, `uFarDirt`, `uFarRock`, `uFog`, `uSkyHor`, `uSkyTop`,
+  `uSnowCol`, the lid colours, the sky strip and the reflection buffer stay display values at every
+  level, because they only ever enter a mix.
+- What runs linear is light added to light. On the floor, that's the city's lamps on wet tarmac and
+  its neon on the water (`uWetC` and `uNeonC`, decoded before upload, as the city's lights are);
+  after them the prop shadow goes through `lf` and the fog encodes, mixes and decodes. On the
+  ground, it's the light shaft in the air, whose colours are decoded where it reads them, since the
+  streak reads the same six as display values. The headlight pool range decodes its own output, as
+  `glassOut` does at level 1, and the floor's debug readouts do the same.
+- Proved headless: at levels 0 and 1, and in the mirror pass at level 2, both layers write the same
+  uniforms with the same values as before, write for write, with `uLinIn` at 0; every shader change
+  is behind `uLinIn` or inside `lf`, which returns k at 0. `perf:exact glLinear` is identical at 0 to
+  1 and 1 to 2, which says only that the CPU records don't read the level. Not yet measured: the
+  picture at level 2 against level 1 on a GPU. The expected differences are the wet and neon
+  reflections and the light shafts, which add as linear light and so come out a little dimmer over a
+  lit surface and the same over a dark one, and the prop shadow, where `lf` is k^2.2 rather than the
+  exact curve.
+- Left: the rest of step 3 (water next, then solids with actors and cloth, decals with sprites and
+  strokes, clouds, billboards), the tone curve (step 4), and any re-tune away from the shipped look.
 
 1. **A linear buffer with the same picture.** A shared GLSL chunk (a new gl/colour.js with
    `toLinear` and `toSrgb`, using the exact piecewise curve) is used twice. The hdr.js composite

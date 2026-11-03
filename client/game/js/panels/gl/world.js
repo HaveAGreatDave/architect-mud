@@ -1112,7 +1112,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     sgl.enable(sgl.SCISSOR_TEST);
     sgl.scissor(vp[0], vp[1] + Math.round(vp[3] * (1 - splitF)), vp[2], Math.round(vp[3] * splitF));
   }
-  const floor = SUB ? 0 : g.view.drawFloor(opts.floor ? { ...opts.floor, fogHScale: FOG_H_SCALE } : opts.floor, cam.near);
+  // The linear level rides in the same copy (gl/floor.js reads it with LIN.out, as the city does).
+  const floor = SUB ? 0 : g.view.drawFloor(opts.floor ? { ...opts.floor, fogHScale: FOG_H_SCALE, linear: drawOpts.linear } : opts.floor, cam.near);
   // ⚠ The sea mesh draws after the floor, which writes a flat plane's depth that would hide every
   // trough. Shifted camera: its vertices are map-window tiles.
   const water = opts.floor && g.view.drawWater
@@ -1172,6 +1173,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     glint: opts.glGlint,
     groundBias: opts.glGroundBias,
     vpW: g.canvas ? g.canvas.width : 0, vpH: g.canvas ? g.canvas.height : 0,
+    // Linear light (gl/colour.js): at 2 the road shades in linear too, on the float target only.
+    linear: drawOpts.linear,
   });
   // ⚠ The far dissolve after floor, sea and roads: a translucent block drawn with the mass claimed
   // its whole silhouette in depth and left a dark cut-out. Before people, lights and signs.
