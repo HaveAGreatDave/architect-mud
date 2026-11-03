@@ -761,10 +761,17 @@ async function main() {
     // reasonable order to work in. It is printed by name so it cannot be a silence.
     try {
       const { readdirSync: rd, readFileSync: rf } = await import('node:fs');
+      const { execFileSync } = await import('node:child_process');
       const zoneDir = new URL('../../content/zones/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
       const live = new Set(ws.shapeModelRegistry().map((r) => r.key));
       const reach = new Map();
-      for (const f of rd(zoneDir)) {
+      // Only about one zone in eighteen is a building, and opening all ~18,000 files was a quarter
+      // of this gate's time. git grep finds the ones that name a building_type in half a second;
+      // without git, every file is read as before.
+      let files;
+      try { files = execFileSync('git', ['grep', '-l', '--untracked', '-F', '"building_type"', '--', '.'], { cwd: zoneDir, encoding: 'utf8' }).split(/\r?\n/).filter(Boolean); }
+      catch { files = rd(zoneDir); }
+      for (const f of files) {
         if (!f.endsWith('.json')) continue;
         const z = JSON.parse(rf(zoneDir + f, 'utf8'));
         const bt = z.flags?.building_type;
