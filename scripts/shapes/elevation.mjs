@@ -90,12 +90,22 @@ function measure(m) {
 }
 
 const K = ['front', 'back', 'left', 'right'];
-const rows = [];
+// ⚠ A BUILDING CUT INTO SLICES IS ONE BUILDING. A row with a block column and row (`bc`, `br`) is one
+// tile of a park drawn whole by one arm, and the Coliseum at true size is 121 of them, most of them
+// roof over the field with no wall of their own to trim: counted one by one they were a quarter of
+// the models and took the back's median under its floor. Their trim and wall are summed into one row.
+const byKey = new Map();
 for (const { key, m } of ws.shapeModelRegistry()) {
   const { trim, wall } = measure(m);
+  const k0 = m && m.bc != null ? `sliced:${m.type}` : key;
+  const r = byKey.get(k0) || byKey.set(k0, { key: k0, trim: {}, wall: {} }).get(k0);
+  for (const k of K) { r.trim[k] = (r.trim[k] || 0) + trim[k]; r.wall[k] = (r.wall[k] || 0) + wall[k]; }
+}
+const rows = [];
+for (const r of byKey.values()) {
   const cov = {};
-  for (const k of K) cov[k] = wall[k] > 1e-6 ? trim[k] / wall[k] : null;
-  rows.push({ key, trim, wall, cov });
+  for (const k of K) cov[k] = r.wall[k] > 1e-6 ? r.trim[k] / r.wall[k] : null;
+  rows.push({ ...r, cov });
 }
 
 const med = (k) => {
