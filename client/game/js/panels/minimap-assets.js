@@ -100,6 +100,8 @@ export function preloadIcons(nodes) {
 	for (const n of nodes || []) {
 		const f = n?.spec?.feature;
 		if (f && ICON_NAME_RE.test(f) && !_iconSrc.has(f)) loadIconSrc(f);
+		const sp = n?.spec?.span?.icon;
+		if (sp && ICON_NAME_RE.test(sp) && !_iconSrc.has(sp)) loadIconSrc(sp);
 	}
 }
 

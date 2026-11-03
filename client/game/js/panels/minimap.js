@@ -799,7 +799,19 @@ const iconSvg = (name) => ICON_NAME_RE.test(name || '')
 // reads. There used to be a second, separately-computed `node.icon_svg`, and an
 // `isBuilding()` predicate here that the tablet spelled differently — which is how the
 // two screens came to disagree about which tiles wear a label.
-const baseSym = (node) => iconSvg(node.spec?.feature) || (node.enterable
+// A building over several tiles (spec.span, derived) draws one footprint across its
+// whole box: a square of the box's short side, centred, of which each tile shows its
+// own slice. In tile units, so the DOM maps take it as percentages and the canvas as t.
+export function spanRect(span) {
+  const s = Math.min(span.w, span.h) * 0.9;
+  return { x: (span.w - s) / 2 - span.x, y: (span.h - s) / 2 - span.y, s };
+}
+export const spanSvg = (span, cls = 'mm-span') => {
+  if (!span || !ICON_NAME_RE.test(span.icon || '')) return '';
+  const r = spanRect(span), pct = (v) => `${(v * 100).toFixed(2)}%`;
+  return `<span class="${cls}" style="--zi:url(/assets/zone-icons/${span.icon}.svg);left:${pct(r.x)};top:${pct(r.y)};width:${pct(r.s)};height:${pct(r.s)}"></span>`;
+};
+const baseSym = (node) => spanSvg(node.spec?.span) || iconSvg(node.spec?.feature) || (node.enterable
   ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
   : (node.sanctuary ? '◆ ' : '')); // bare tile — no marker glyph (#, ⸪., …)
 
@@ -831,10 +843,11 @@ function symFor(node, overlay) {
 export function glyphPlan(node, overlay) {
   const lbl = node.spec?.label || null;
   const icon = ICON_NAME_RE.test(node.spec?.feature || '') ? node.spec.feature : null;
-  const fallback = icon ? null : (node.enterable ? '▣' : (node.sanctuary ? '◆' : null));
-  if (lbl?.kind === 'mark') return { icon, fallback, mark: lbl.text, label: null };
-  if (overlay === 'labels' && lbl) return { icon: null, fallback: null, mark: null, label: lbl.text };
-  return { icon, fallback, mark: null, label: null };
+  const span = node.spec?.span && ICON_NAME_RE.test(node.spec.span.icon || '') ? node.spec.span : null;
+  const fallback = (icon || span) ? null : (node.enterable ? '▣' : (node.sanctuary ? '◆' : null));
+  if (lbl?.kind === 'mark') return { icon, span, fallback, mark: lbl.text, label: null };
+  if (overlay === 'labels' && lbl) return { icon: null, span: null, fallback: null, mark: null, label: lbl.text };
+  return { icon, span, fallback, mark: null, label: null };
 }
 
 // Hover tooltip: zone name, its district, street name(s), plus any building(s).

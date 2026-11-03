@@ -182,7 +182,16 @@ function cmdGps(args, raw, player) {
   // This is also the reroute path — the client re-plots by raw zone id — so pass the
   // avoid/resume opts through here.
   const direct = resolveDirect(query, player);
-  if (direct) return plotRoute(player, direct, routeOpts);
+  if (direct) {
+    // A doorless tile of a bigger building (a click on the Coliseum's field) means
+    // the building: go to its nearest door.
+    const bn = direct.flags?.building_name;
+    if (bn && !direct.flags.facade && direct.map_id === 'map_world') {
+      const doors = getAllZones().filter(z => z.flags?.facade && z.flags.building_name === bn && z.map_id === 'map_world');
+      if (doors.length) return routeToNearest(player, doors, routeOpts);
+    }
+    return plotRoute(player, direct, routeOpts);
+  }
 
   // Option A½ — YOUR QUEST'S ACTUAL TILE.
   //
@@ -236,7 +245,13 @@ function resolveByName(query, player, routeOpts) {
   // Water tiles are invisible to GPS — they can't be a destination (Coldwater Basin and
   // its ilk would otherwise clutter every name match), so drop them before resolving.
   // A set-aside building keeps its name on the holding map, and no route reaches it.
-  const landZones = getAllZones().filter(z => propsOf(z.id).routable && !isSetAside(z));
+  // A building over several tiles is reached through its doors: its doorless tiles
+  // (the Coliseum's field, the Palais's middle) have no way in, so they are not
+  // destinations, and naming the building routes to whichever door is nearest.
+  const all = getAllZones();
+  const hasDoor = new Set(all.filter(z => z.flags?.facade && z.flags?.building_name).map(z => z.flags.building_name));
+  const landZones = all.filter(z => propsOf(z.id).routable && !isSetAside(z)
+    && !(z.flags?.building_name && !z.flags.facade && z.map_id === 'map_world' && hasDoor.has(z.flags.building_name)));
 
   // Option D: the typed name is an exact match for several tiles (terrain / a long
   // street). Route to the nearest rather than SIFT's tie-break pick or a dead picker.
@@ -247,10 +262,14 @@ function resolveByName(query, player, routeOpts) {
   const r = siftResolve(query, landZones);
   if (r.type === 'none') return { type: 'error', message: `No location matching "${query.replace(/^["']|["']$/g, '')}".` };
   if (r.type === 'ambiguous') {
+    // Every match is a door of the one building: any of them will do.
+    const bn = r.candidates[0]?.flags?.building_name;
+    if (bn && r.candidates.every(z => z.flags?.facade && z.flags.building_name === bn))
+      return routeToNearest(player, r.candidates, routeOpts);
     createSelectionState(player.id, r.candidates, { dispatchType: 'gps.navigate', dispatchParam: 'destination' });
     return { type: 'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
-  return plotRoute(player, r.candidate);
+  return plotRoute(player, r.candidate, routeOpts);
 }
 
 registerAction({

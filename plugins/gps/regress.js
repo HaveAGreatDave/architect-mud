@@ -425,5 +425,16 @@ export default async function regress({ run, check, getPlayer }) {
     p.home_zone = savedHome; p.role = savedRole;
   }
 
+  // A building over several tiles routes to one of its doors, by name or by a click
+  // on a doorless tile, never to the field nobody can stand on.
+  const coliseum = getZone('zone_ballpark_896_912');
+  if (coliseum) {
+    const doors = new Set(getAllZones().filter(z => z.flags?.facade && z.flags.building_name === coliseum.flags.building_name).map(z => resolveLanding(z.id)));
+    for (const q of ['Coliseum', coliseum.name, coliseum.id]) {
+      r = await run(`gps ${q}`);
+      check(`gps ${q} routes to a Coliseum door`, r?.type === 'gps_route' && doors.has(r.path[r.path.length - 1]), `type=${r?.type} msg="${r?.message}"`);
+    }
+  }
+
   p.current_zone = savedZone;
 }

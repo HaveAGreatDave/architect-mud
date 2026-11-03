@@ -733,6 +733,50 @@ export const BUILDING_TYPE_ICON = Object.freeze({
 // spelled out — derive imports nothing, and that is enforced, not stylistic.
 const hasFacadeTag = (zone) => Object.prototype.hasOwnProperty.call(zone?.flags || {}, 'facade');
 
+/**
+ * A building more than one tile big draws ONE footprint over its whole bounding box
+ * instead of a rooftop on each door. A building is the 4-connected run of ground-level
+ * map_world tiles sharing a `building_name`, with at least one facade to name its icon.
+ * Each tile gets `spec.span = { icon, x, y, w, h }`: the box's size and where this tile
+ * sits in it, so a renderer draws its own slice and a window that shows half the
+ * building shows half the icon. The per-tile rooftop goes, or it would sit on the slice.
+ * An authored `flags.icon` on any tile keeps that tile out of it.
+ */
+function deriveSpans(sorted, render) {
+  const at = new Map();
+  for (const z of sorted) {
+    const name = z?.flags?.building_name;
+    if (!name || z.map_id !== 'map_world' || (z.grid_z ?? 0) !== 0 || z.grid_x == null || z.flags?.icon) continue;
+    at.set(`${z.grid_x},${z.grid_y}`, z);
+  }
+  const seen = new Set();
+  for (const start of at.values()) {
+    if (seen.has(start.id)) continue;
+    const name = start.flags.building_name, group = [], queue = [start];
+    seen.add(start.id);
+    while (queue.length) {
+      const z = queue.pop();
+      group.push(z);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const n = at.get(`${z.grid_x + dx},${z.grid_y + dy}`);
+        if (n && !seen.has(n.id) && n.flags.building_name === name) { seen.add(n.id); queue.push(n); }
+      }
+    }
+    if (group.length < 2) continue;
+    const icon = group.map(buildingIconSvg).find(Boolean);
+    if (!icon) continue;
+    const xs = group.map(z => z.grid_x), ys = group.map(z => z.grid_y);
+    const x0 = Math.min(...xs), y0 = Math.min(...ys);
+    const w = Math.max(...xs) - x0 + 1, h = Math.max(...ys) - y0 + 1;
+    for (const z of group) {
+      const spec = render.get(z.id)?.spec;
+      if (!spec) continue;
+      delete spec.feature;
+      spec.span = { icon, x: z.grid_x - x0, y: z.grid_y - y0, w, h };
+    }
+  }
+}
+
 export function buildingIconSvg(zone) {
   if (!zone || !hasFacadeTag(zone)) return null;
   const bt = String(zone?.flags?.building_type || '').toLowerCase();
@@ -1230,6 +1274,8 @@ export function deriveWorld({ zones = [], regions = [], connections = [], palett
       props: resolveProps(zone, palette),
     });
   }
+
+  deriveSpans(sorted, render);
 
   // The traversal graph. Built and written, but NOT yet read: `zones.exits` is
   // still the source of truth the engine boots from, and the two are held to

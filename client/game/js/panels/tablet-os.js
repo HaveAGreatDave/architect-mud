@@ -4,7 +4,7 @@
 // and is re-rendered from it on each nav/action round trip; there's no live patching.
 import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays } from './minigame-common.js';
 import { sendCmdSilent } from '../net.js';
-import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, poiInk, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, crossingInnerHtml, isOnCrossing } from './minimap.js';
+import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, poiInk, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, spanSvg, crossingInnerHtml, isOnCrossing } from './minimap.js';
 import { state } from '../state.js';
 import { maybeTabletTour } from './tour.js';
 import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS, A11Y_OPTIONS, effectiveOptionValue } from '/shared/settings.js';
@@ -2858,6 +2858,7 @@ function _mapLabel(t) {
 function _mapTileSym(t) {
   if (t.isCurrent) return '<span class="mt-icon">◉</span>';
   // A named zone-icon SVG beats the POI glyph; the build picks which (spec.feature).
+  if (t.spec?.span) return spanSvg(t.spec.span, 'mt-span');
   const feat = t.spec?.feature;
   if (feat) return `<span class="mt-icon mt-svg" style="--zi:url(/assets/zone-icons/${esc(feat)}.svg)"></span>`;
   if (t.icon) return `<span class="mt-icon">${esc(t.icon)}</span>`;
@@ -4061,7 +4062,7 @@ function renderMap(d) {
       cls.push('terr', 'terr-' + terrain);
       // Terrain keeps an authored zone-icon SVG (statue, helipad) and drops only the
       // POI glyph. Roads keep theirs: the auto-tiled connector is the symbol (spec.auto_tile).
-      if (!t.spec.auto_tile && !t.isCurrent && !t.spec.feature) sym = '';
+      if (!t.spec.auto_tile && !t.isCurrent && !t.spec.feature && !t.spec.span) sym = '';
     }
     else if (mode === 'regional' && FUNC_LEGEND[t.func]) {
       const [rr, gg, bb] = _mapHexRgb(FUNC_LEGEND[t.func].color);

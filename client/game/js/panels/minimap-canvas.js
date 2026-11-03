@@ -21,7 +21,7 @@
 import { lookup as cacheLookup, ingest as cacheIngest, gridOk } from './minimap-cache.js';
 import { iconFor, preloadIcons, monoFamily, themeColor, onAssetReady } from './minimap-assets.js';
 import {
-	zoomRadius, glyphPlan, titleFor, hexToRgb, poiInk,
+	zoomRadius, glyphPlan, spanRect, titleFor, hexToRgb, poiInk,
 	isWorldWaterVoid, WATER_VOID_FILL, effectiveTracePath, mapOverlayMode, poiColorOn, sendGo,
 	updateZoomButtons,
 } from './minimap.js';
@@ -336,6 +336,17 @@ function drawGlyph(ctx, node, px, py, t, ink, landmarkInk) {
 		if (img) {
 			const s = Math.round(t * ICON_FRAC);
 			ctx.drawImage(img, cx - (s >> 1), cy - (s >> 1), s, s);
+		}
+	} else if (plan.span) {
+		const img = iconFor(plan.span.icon, ink || themeColor('--text', '#d8d8d8'));
+		if (img) {
+			const r = spanRect(plan.span);
+			ctx.save();
+			ctx.beginPath();
+			ctx.rect(px, py, t, t);
+			ctx.clip();
+			ctx.drawImage(img, Math.round(px + r.x * t), Math.round(py + r.y * t), Math.round(r.s * t), Math.round(r.s * t));
+			ctx.restore();
 		}
 	} else if (plan.fallback) {
 		ctx.fillStyle = ink || themeColor('--text', '#d8d8d8');

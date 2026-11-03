@@ -2394,6 +2394,9 @@ html[data-density="compact"] #tablet-os-overlay .tos-doll { height:min(44vh, 22r
 /* Edge-to-edge 1:1 tiles render their zone-icon SVG (road connector / building
    rooftop / runway / statue) as a mask filled with the tile's colour, like the
    full map's mm-icon. */
+#tablet-os-overlay .tos-map-tile:has(> .mt-span) { position:relative; overflow:hidden; }
+#tablet-os-overlay .tos-map-tile .mt-span { position:absolute; background:currentColor; pointer-events:none;
+  -webkit-mask:var(--zi) center / contain no-repeat; mask:var(--zi) center / contain no-repeat; }
 #tablet-os-overlay .tos-map-tile .mt-svg { width:82%; height:82%; background:currentColor;
   -webkit-mask:var(--zi) center/contain no-repeat; mask:var(--zi) center/contain no-repeat; }
 /* Label mode — a two-letter building code centred on its tile, over a plate so it

@@ -3304,6 +3304,16 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	mask: var(--zi) center / contain no-repeat;
 	pointer-events: none;
 }
+/* One slice of a multi-tile building's footprint (spanSvg): placed in tile percentages
+   and clipped by the tile, so the slices meet into one drawing. */
+.mm-c:has(> .mm-span) { position: relative; }
+.mm-span {
+	position: absolute;
+	background: currentColor;
+	-webkit-mask: var(--zi) center / contain no-repeat;
+	mask: var(--zi) center / contain no-repeat;
+	pointer-events: none;
+}
 /* Enterable building tile — a door you step through, not a room you stand in.
    Clickable (go <building>); glyph ▣ from symFor. */
 .mm-room.mm-building {
