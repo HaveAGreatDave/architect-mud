@@ -584,6 +584,13 @@ document.getElementById("auth-toggle-link").addEventListener("click", (e) => {
 	document.getElementById("auth-password").autocomplete = state.isRegister
 		? "new-password"
 		: "current-password";
+	// Same story for the username box. Tagged `username`, a phone fills it with
+	// the saved email address on the register form, and the server refuses an @
+	// in a username, so a new player was turned away whatever name they typed in
+	// Handle. Register mode asks for a fresh name; login still offers the saved one.
+	document.getElementById("auth-username").autocomplete = state.isRegister
+		? "off"
+		: "username";
 	// Say what just changed, then land focus on the first field that appeared.
 	// The reveal is silent otherwise: two required fields materialise ABOVE the
 	// toggle, and the first anyone hears of the handle is the form rejecting them

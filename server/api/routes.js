@@ -28,6 +28,7 @@ import { areRegistrationsOpen, registrationsClosedMessage, setRegistrationsOpen 
 import { randomAppearance } from '../engine/appearance.js';
 import { HANDLE_RE, handleProblem, handleTaken, insertNewPlayer, purgePlayers } from '../engine/new-player.js';
 import { emailProblem, normalizeEmail } from '../../client/shared/email-check.js';
+import { usernameProblem, normalizeUsername } from '../../client/shared/username-check.js';
 import { RUNGS as DISPLAY_RUNGS, DISPLAY_MODE_FLAG } from '../engine/presentation.js';
 import { setFlagById } from '../engine/flags.js';
 import { DEFAULT_CHITCHAT_LINES, isVendorWorkTime } from '../engine/ai-behaviour.js';
@@ -608,12 +609,14 @@ async function dispatchApiRequest(url, method, body, headers) {
 }
 
 async function apiRegister(body) {
-  const {username,password,handle,email,displayRung} = body||{};
+  const {password,handle,email,displayRung} = body||{};
+  const username = normalizeUsername(body?.username);
   if (!username||!password||!handle||!email) return {status:400,body:{error:'username, password, handle, email required'}};
   // The same rules claimGuestAccount and the password reset already enforce; this
   // path took any password and any username.
   if (String(password).length < 8) return {status:400,body:{error:'Passwords are 8 characters or more.'}};
-  if (!/^[a-z0-9_.-]{3,24}$/i.test(String(username))) return {status:400,body:{error:'Usernames are 3 to 24 letters, numbers and _ . -'}};
+  const badName = usernameProblem(username);
+  if (badName) return {status:400,body:{error:badName}};
   const bad = handleProblem(handle) || emailProblem(email);
   if (bad) return {status:400,body:{error:bad}};
   try {
@@ -654,10 +657,12 @@ async function apiRegister(body) {
 // WebSocket `claim_account` handler (server/index.js) for the signed-in guest,
 // so no token changes hands. Returns { ok, needsVerification?, error? }.
 export async function claimGuestAccount(playerId, body) {
-  const {username,password,email} = body||{};
+  const {password,email} = body||{};
+  const username = normalizeUsername(body?.username);
   if (!username||!password||!email) return {ok:false,error:'Username, password and email are all needed.'};
   if (String(password).length < 8) return {ok:false,error:'Passwords are 8 characters or more.'};
-  if (!/^[a-z0-9_.-]{3,24}$/i.test(username)) return {ok:false,error:'Usernames are 3 to 24 letters, numbers and _ . -'};
+  const badName = usernameProblem(username);
+  if (badName) return {ok:false,error:badName};
   const badMail = emailProblem(email);
   if (badMail) return {ok:false,error:badMail};
   const {rows} = await query('SELECT role FROM players WHERE id=$1',[playerId]);
