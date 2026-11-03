@@ -34,6 +34,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [What's left on the canvas](#whats-left-on-the-canvas)
 - [GLASS 1 is the plain fallback (2026-10-17)](#glass-1-is-the-plain-fallback-2026-10-17)
 - [Per-pass GPU time (`__glPassMs()`)](#per-pass-gpu-time-__glpassms)
+- [The mass culled to the view (`RENDER_TUNE.glMassCull`)](#the-mass-culled-to-the-view-render_tuneglmasscull)
 - [Measuring in the game and on a phone (`__glassBench()`)](#measuring-in-the-game-and-on-a-phone-__glassbench)
 - [Prop shadows (`RENDER_TUNE.glPropShadow`)](#prop-shadows-render_tuneglpropshadow)
 - [Lamp shadows (`RENDER_TUNE.glLampShadow`)](#lamp-shadows-render_tunegllampshadow)
@@ -506,6 +507,16 @@ Readings at 640×360 on the reference machine (2026-10-17). Take three runs: the
 - The haze fade pass was the most expensive pass, at 1.3–2.8 ms on an aircraft over Marrow. It now draws only the tiles whose box reaches the band (`fadeRuns`) and reads about 0.
 - The sun's shadow map is kept until the mesh rebuilds or the light matrix moves by more than 2e-4 of its largest entry, so a still sun costs no shadow pass.
 - What's left is the main mass pass (2.7–3.6 ms), SSAO (1.6–2.5 ms) and the decals (0.9–1.4 ms).
+
+## The mass culled to the view (`RENDER_TUNE.glMassCull`)
+
+Built 2026-11-03. Until then the depth prepass (SSAO and ink), the main pass and the puddle mirror each drew the whole mass buffer, which is the whole map window, behind the eye too. Each upload group already kept its vertex range and box for `fadeRuns`, so `viewRuns` in gl/context.js tests those boxes against the pass's six clip planes and draws what's left with one `WEBGL_multi_draw` call (a loop of `drawArrays` without it). The far dissolve takes the same test on top of its band.
+
+- **It can't change a pixel.** A box goes only when all of it is past one plane, and every triangle in it would have been clipped whole.
+- **The sun pass draws everything.** A caster off the screen still shadows what's on it.
+- **Measured** in the Modelshop, Halcyon at noon, 640×360: the mass passes draw 14% of the buffer's vertices from a cockpit (41,802 of 304,773), 51% from a cab, and 37% from a Marrow cab at night. The test is about 3 µs over a cockpit's 246 ranges, and the depth prepass and the main pass share one result when their matrices match. GPU pass times on the reference machine were inside their noise, because that machine is CPU-bound. The gain is for GPUs that aren't, which are still unmeasured.
+- **Gate:** `npm run gl:masscull` ([scripts/shapes/masscull.mjs](../../scripts/shapes/masscull.mjs)) paints three places through the real world pass under a fake WebGL2 that mirrors the buffer. Every triangle a culled pass skipped must be wholly outside that pass's clip volume; the sun pass and every pass with the cull off must draw everything. With the cull on, a view must make no fewer passes than made something visible with it off, since a pass that culls everything draws nothing and is otherwise invisible to the check. One case moves the window so the buffer draws through a mass shift (`massKeep`). Mutation-tested 4 of 4: every box culled, a margin of 0.05 clip units, the unshifted matrix, and a pass dropped whole. The far dissolve isn't checked, since its band drops tiles by design.
+- `glLastFrame().massDrawn` is `[vertices the main pass drew, vertices in the buffer]`.
 
 ## Measuring in the game and on a phone (`__glassBench()`)
 

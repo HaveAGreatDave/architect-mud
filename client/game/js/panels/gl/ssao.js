@@ -484,7 +484,8 @@ export function createSSAOLayer(gl, posLoc) {
     // uploadKept); the extra depth below takes the camera's.
     gl.uniformMatrix4fv(uDepthVP, false, opts.massVP || viewProj);
     gl.bindVertexArray(vao);
-    gl.drawArrays(gl.TRIANGLES, 0, count);
+    // `massDraw` is context.js's view cull (glMassCull); without it, the whole buffer.
+    if (opts.massDraw) opts.massDraw(); else gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);
     // Anything else that should take the lines (the Pitch's tents, gl/cloth.js) draws its depth here,
     // with this matrix, so it outlines against the city. It may change state; the blend goes back off.

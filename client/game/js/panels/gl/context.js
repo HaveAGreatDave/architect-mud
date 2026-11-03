@@ -1782,10 +1782,13 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       const aoWH = wantAo ? [Math.max(1, Math.round(W * rs)), Math.max(1, Math.round(H * rs))] : null;
       // The lines at the full backing store, never at the occlusion's fraction: a line is a pixel wide.
       const inkWH = wantInk ? [W, H] : null;
+      const mvp = shiftVP(vp, massShift);
       return timed('ssao', () => ssao.pass(vao, count, new Float32Array(vp), { ...cam, H: camH }, aoWH, inkWH,
         { A, B, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02,
           // The mass's depth through the kept buffer's frame (massShift); the tents' stays on `vp`.
-          massVP: massShift[0] || massShift[1] ? new Float32Array(shiftVP(vp, massShift)) : null,
+          massVP: massShift[0] || massShift[1] ? new Float32Array(mvp) : null,
+          // RENDER_TUNE.glMassCull, as the main pass: the tiles in view, with the VAO already bound.
+          massDraw: opts.massCull > 0 ? () => drawRuns(viewRuns(mvp)) : null,
           inkStep: opts.inkStep, inkCrease: opts.inkCrease, inkSteep: opts.inkSteep,
           // The tents, the vehicles and the people take the lines too: their depth goes in with the
           // mass's (gl/cloth.js, solids.js, actors.js), uploaded before this pass (world.js).
@@ -2064,28 +2067,118 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // skipMass (plugins/submersible): the eye is under the sea. The clear still runs.
     if (fade) {
       // Depth first, or a dissolving block's back walls show through (no backface cull).
-      const runs = fadeRuns(shiftVP(vpA, massShift), opts.hazeNear, opts.hazeFar);   // the ranges are in the buffer's frame
+      const runs = fadeRuns(shiftVP(vpA, massShift), opts.hazeNear, opts.hazeFar, opts.massCull > 0);   // the ranges are in the buffer's frame
       gl.colorMask(false, false, false, false);
       for (let i = 0; i < runs.length; i += 2) gl.drawArrays(gl.TRIANGLES, runs[i], runs[i + 1]);
       gl.colorMask(true, true, true, true);
       gl.depthMask(false);
       for (let i = 0; i < runs.length; i += 2) gl.drawArrays(gl.TRIANGLES, runs[i], runs[i + 1]);
       gl.depthMask(true);
-    } else if (!opts.skipMass) gl.drawArrays(gl.TRIANGLES, 0, count);
+    } else if (!opts.skipMass) {
+      // RENDER_TUNE.glMassCull: only the tiles whose box reaches the view. See viewRuns.
+      const drawn = opts.massCull > 0 ? drawRuns(viewRuns(shiftVP(vpA, massShift))) : (gl.drawArrays(gl.TRIANGLES, 0, count), count);
+      if (!into) massDrawn = drawn;
+    }
     gl.bindVertexArray(null);
     return count;
+  }
+
+  // viewRuns: only the ranges whose box reaches the view of `m` (the buffer's frame), as flat
+  // [first, count] pairs, neighbours merged, in a reused array. A box goes only when all of it is
+  // past one clip plane, so every triangle in it would have been clipped whole and no pixel changes.
+  // The six planes are w ± x, w ± y, w ± z of the column-major matrix, each tested at the box corner
+  // furthest along it. The margin is in clip units, so a float32 vertex on a plane is never dropped.
+  // ⚠ Never for the sun pass: a caster off the screen still throws a shadow onto it.
+  // Near plane first (w + z): from a cockpit most of the window is behind the eye.
+  const PLANE_ORDER = [[2, 1], [0, -1], [0, 1], [1, -1], [1, 1], [2, -1]];
+  const viewBuf = [], PL = new Float64Array(24);
+  function setPlanes(m) {
+    let j = 0;
+    for (const [r, s] of PLANE_ORDER) {
+      PL[j] = m[3] + s * m[r]; PL[j + 1] = m[7] + s * m[4 + r]; PL[j + 2] = m[11] + s * m[8 + r]; PL[j + 3] = m[15] + s * m[12 + r];
+      j += 4;
+    }
+  }
+  function boxOff(R) {
+    for (let j = 0; j < 24; j += 4) {
+      const a = PL[j], b = PL[j + 1], c = PL[j + 2];
+      if (PL[j + 3] + (a > 0 ? a * R.x1 : a * R.x0) + (b > 0 ? b * R.y1 : b * R.y0) + (c > 0 ? c * R.z1 : c * R.z0) < -1e-3) return true;
+    }
+    return false;
+  }
+  // The ranges' boxes as typed arrays, rebuilt when `ranges` is replaced (every upload replaces it).
+  let boxOf = null, BX = null, BA = null, BN = null;
+  // The last cull's matrix: the depth prepass and the main pass usually share one, so the second
+  // call hands back the first's runs.
+  const lastM = new Float64Array(16);
+  let lastOf = null;
+  function viewRuns(m) {
+    const out = viewBuf;
+    if (boxOf !== ranges) {
+      const n = ranges.length;
+      BX = new Float64Array(n * 6); BA = new Int32Array(n); BN = new Int32Array(n);
+      for (let i = 0; i < n; i++) {
+        const R = ranges[i], o = i * 6;
+        BX[o] = R.x0; BX[o + 1] = R.x1; BX[o + 2] = R.y0; BX[o + 3] = R.y1; BX[o + 4] = R.z0; BX[o + 5] = R.z1;
+        BA[i] = R.at; BN[i] = R.n;
+      }
+      boxOf = ranges; lastOf = null;
+    }
+    if (lastOf === ranges) {
+      let same = true;
+      for (let i = 0; i < 16; i++) if (lastM[i] !== m[i]) { same = false; break; }
+      if (same) return out;
+    }
+    for (let i = 0; i < 16; i++) lastM[i] = m[i];
+    lastOf = ranges;
+    out.length = 0;
+    setPlanes(m);
+    const n = BA.length;
+    for (let i = 0, o = 0; i < n; i++, o += 6) {
+      let off = false;
+      for (let j = 0; j < 24; j += 4) {
+        const a = PL[j], b = PL[j + 1], c = PL[j + 2];
+        if (PL[j + 3] + a * BX[a > 0 ? o + 1 : o] + b * BX[b > 0 ? o + 3 : o + 2] + c * BX[c > 0 ? o + 5 : o + 4] < -1e-3) { off = true; break; }
+      }
+      if (off) continue;
+      const k = out.length, at = BA[i];
+      if (k && out[k - 2] + out[k - 1] === at) out[k - 1] += BN[i];
+      else out.push(at, BN[i]);
+    }
+    return out;
+  }
+  // Draws a run list with the mass VAO bound: one WEBGL_multi_draw call, or a loop without it.
+  // Returns the vertices drawn.
+  let multiDraw, mdFirst = null, mdCount = null, massDrawn = 0;
+  function drawRuns(runs) {
+    const n = runs.length >> 1;
+    if (!n) return 0;
+    if (multiDraw === undefined) multiDraw = gl.getExtension('WEBGL_multi_draw') || null;
+    let v = 0;
+    if (multiDraw && n > 1) {
+      if (!mdFirst || mdFirst.length < n) {
+        const cap = Math.max(64, mdFirst ? mdFirst.length * 2 : 0, n);
+        mdFirst = new Int32Array(cap); mdCount = new Int32Array(cap);
+      }
+      for (let i = 0; i < n; i++) { mdFirst[i] = runs[2 * i]; mdCount[i] = runs[2 * i + 1]; v += mdCount[i]; }
+      multiDraw.multiDrawArraysWEBGL(gl.TRIANGLES, mdFirst, 0, mdCount, 0, n);
+    } else for (let i = 0; i < runs.length; i += 2) { gl.drawArrays(gl.TRIANGLES, runs[i], runs[i + 1]); v += runs[i + 1]; }
+    return v;
   }
 
   // The buildings dissolving at the draw limit (uFadePass), drawn after the floor, sea and roads
   // with `draw`'s camera and options. See docs/reference/glass-notes.md#the-far-dissolve-over-the-ground-render_tuneglhazesplit.
   // fadeRuns: only tiles whose box reaches the band (clip.w is linear, so the corners are exact), as
-  // flat [first, count] pairs, neighbours merged, in a reused array.
+  // flat [first, count] pairs, neighbours merged, in a reused array. `cull` (glMassCull) also drops
+  // the band's tiles outside the view, as viewRuns does.
   const fadeBuf = [];
-  function fadeRuns(m, near, far) {
+  function fadeRuns(m, near, far, cull) {
     const out = fadeBuf;
     out.length = 0;
     const a = m[3], b = m[7], c = m[11], d = m[15];
+    if (cull) setPlanes(m);
     for (const R of ranges) {
+      if (cull && boxOff(R)) continue;
       const ax0 = a * R.x0, ax1 = a * R.x1, by0 = b * R.y0, by1 = b * R.y1, cz0 = c * R.z0, cz1 = c * R.z1;
       const lo = d + (ax0 < ax1 ? ax0 : ax1) + (by0 < by1 ? by0 : by1) + (cz0 < cz1 ? cz0 : cz1);
       const hi = d + (ax0 > ax1 ? ax0 : ax1) + (by0 > by1 ? by0 : by1) + (cz0 > cz1 ? cz0 : cz1);
@@ -2438,7 +2531,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const drawSeabedPoints = (cam, s, cssH, dpr) => (s ? seabedLayer().drawPoints(cam, s, cssH, dpr) : 0);
   // The window's cells and the eye in the mesh frame (gl/skyline.js). Called before draw, which reads it.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  const api = { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's box in the window's frame (for the light projection) and the shadow map size (0: refused).
     get bounds() { return boundsInWindow(); }, get shadowSize() { return shadow ? shadow.size : 0; },

@@ -3,6 +3,15 @@
 **Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); flat decal fills batched (2026-10-19, below); the caches keyed on the map window made to survive a recentre (2026-10-19, below); Stage 2 superseded by Stage 3; a still camera keeps (2026-10-24, below); armChunk measured and not built (2026-10-24, below); the live arms and marks profiled, two exact cuts built (2026-10-24, below); buildings in the haze band keep (`armFade`, 2026-10-24, below); the lock, AA, media lot and statue shaded on the GPU and kept (`marksGPU`, built 2026-10-24, on since 2026-10-25, below); why `world:gl` rose with it found and fixed (2026-10-25, below); kept strokes that cross the eye plane run live (`armNearWire`, 2026-10-25, below); `cssRgb`'s double lookup measured and left (2026-10-25, below); the GL canvas hands each pass over, which took the ~1 ms off the cabin's copy (`glTransfer`, 2026-10-26, below); the occlusion pass skipped from the air on GL while nothing on the canvas asks for it (`occAir`, built and off, 2026-10-26, below); the ~1 ms at the sky strip traced to the frame boundary (2026-10-26, below); the 2-D frame drawn off the page and handed to it as a bitmap (`wsHandover`, on since 2026-10-26, below); the scatter, cliffs and plateaus off the side of the canvas skipped (`sideCull`, built 2026-10-26, on since 2026-10-26, below), and the order-dependent scatter card fixed for it (`bakeTileFree`, on).** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
 
+## Built 2026-11-03, on: the mass culled to the view (`glMassCull`)
+
+A GPU-side change, not a CPU one. The depth prepass, the main pass and the puddle mirror drew the whole
+map window's mass, behind the eye too. They now draw only the tiles whose box reaches the view, which is
+14% of the buffer's vertices from a Halcyon cockpit and 51% from a cab, for about 3 µs of CPU. The
+reference machine's frame is CPU-bound, so its GPU pass times didn't move outside their noise; the
+gain is for integrated GPUs and phones. Details and the gate are in
+[glass-notes.md](../reference/glass-notes.md#the-mass-culled-to-the-view-render_tuneglmasscull).
+
 ## Built 2026-10-26, on: the ground's dressing off the side of the canvas (`sideCull`, `bakeTileFree`)
 
 David saw the `bakeTileFree` shots and turned both on (2026-10-26).

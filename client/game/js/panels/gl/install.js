@@ -226,6 +226,7 @@ export function installGL(hostFor) {
       glGlint: opts.glGlint,
       glMirrorMass: opts.glMirrorMass,
       glHazeSplit: opts.glHazeSplit,
+      glMassCull: opts.glMassCull,
       // ⚠ AND THESE TWO. The puddle reflection is the loudest possible version of this failure,
       // because it fails in a way that looks deliberate: `drawMirror` is never called, `reflTex`
       // stays null, the ground shader's `uReflOn` goes to 0 — and the road still reflects, using

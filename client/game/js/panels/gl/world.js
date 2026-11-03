@@ -1012,6 +1012,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     ink: opts.glInk || 0, inkStep: Math.max(1, Math.round((opts.glInkPx > 0 ? opts.glInkPx : 1) * dpr)), inkFar: opts.glInkFar,
     // The far dissolve drawn after the ground rather than with the mass. See drawFade below.
     fadeSplit: (opts.glHazeSplit == null ? 1 : opts.glHazeSplit) > 0,
+    // Only the tiles in view (glMassCull), in every mass pass but the sun's. See viewRuns.
+    massCull: opts.glMassCull > 0 ? 1 : 0,
     mat: deps.matTable || null };
   // Mirror prepass first: the road draws before any neon exists. ⚠ Plain camera, not 'camAt': lights
   // are camera-frame, road quads map-window; they agree on screen, where the ground looks it up.
@@ -1212,7 +1214,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // `shadowSize`, `wet`, `hdr` and `mirror` are reported because each can be zero or absent for
   // several reasons that all draw a correct picture; the number says which.
   // `mass` only for a harness that sets globalThis.__massDebug (massKeep's check).
-  return { interior, faces: g.faces || 0, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, propShadow: g.view.propShadow || null, lampShadow: g.view.lampShadow || null, hdr: graded, canvas: g.canvas,
+  return { interior, faces: g.faces || 0, massDrawn: g.view.massDrawn ? g.view.massDrawn() : null, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, propShadow: g.view.propShadow || null, lampShadow: g.view.lampShadow || null, hdr: graded, canvas: g.canvas,
     // Handed over only with the city's depth in the float target: the cloud deck goes back for it (blitOf).
     blit: graded && g.view.hdrLive() ? blitOf(g) : null };
 }

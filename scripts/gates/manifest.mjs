@@ -184,6 +184,7 @@ export const GROUPS = [
       'scripts/shapes/glsl-smoke.mjs',
       'scripts/shapes/glopts.mjs',
       'scripts/shapes/glstream.mjs',
+      'scripts/shapes/masscull.mjs',
       'scripts/shapes/dprsize.mjs',
       'scripts/shapes/floorfallback.mjs',
       'scripts/shapes/floorcam.mjs',
