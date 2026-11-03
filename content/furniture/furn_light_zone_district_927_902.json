@@ -1,0 +1,14 @@
+{
+  "description": "A row of caged sodium high-bay lamps hung from the roof trusses.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_district_927_902",
+  "light_type": "overhead",
+  "lumen_output": 3000,
+  "name": "high-bay lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.4,
+  "price": 0,
+  "zone_id": "zone_district_927_902"
+}
