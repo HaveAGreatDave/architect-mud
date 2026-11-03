@@ -262,7 +262,12 @@ export function roomSeatNear(L, u, v, reach = 3) {
 // door; the rest wherever a wall has room. Nothing goes in front of the door, and nothing tall in front of the window.
 // `pieces` are the room's furnished pieces with their spots (and `crt` on a set that stands on the
 // floor). Spots are in metres. Returns a spot, or null when the room is full.
-export function placeSpot(spec, pieces, arche, dims, { crt = false } = {}) {
+//
+// `wall` ('left', 'right', 'front', 'back') keeps only the candidates against that wall, in the
+// order the archetype tries them; one with no run there (a screen on the back wall, a bed on the
+// front) takes the wall's plain run. `arrange` uses it, passing the room without the piece it moves,
+// so the same keep-clear zones and overlap test decide. Null means that wall is full.
+export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null } = {}) {
   const S = { w: FLAT_ROOM.w, d: FLAT_ROOM.d, h: FLAT_ROOM.h, ...spec };
   const k = unitsPerM(S), hu = S.w / 2 / k, D = S.d / k;
   const have = pieces.map((p) => { const a = ARCHETYPES[p.arche] ? p.arche : 'prop'; return { ...p, ...resolveSpot(S, p.spot, p.dims || dimsOf(a)), arche: a }; });
@@ -273,7 +278,12 @@ export function placeSpot(spec, pieces, arche, dims, { crt = false } = {}) {
     const q = resolveSpot(S, spot, dims), fp = footprint(q), gap = 0.05 * k;
     if (fp[0] < -S.w / 2 - 1e-6 || fp[1] > S.w / 2 + 1e-6 || fp[2] < -1e-6 || fp[3] > S.d + 1e-6) return false;
     const tall = q.h > 1.0 * k;
-    if (!hung(arche, crt)) for (const [a, b, c, e, onlyTall] of keep) if ((!onlyTall || tall) && fp[0] < b && fp[1] > a && fp[2] < e && fp[3] > c) return false;
+    // a hung screen clears the floor, but not the doorway on the back wall or the glass on the front
+    const hangs = hung(arche, crt);
+    for (const [a, b, c, e, onlyTall] of keep) {
+      const applies = hangs ? (q.wall === 'back' && !onlyTall) || (q.wall === 'front' && onlyTall) : !onlyTall || tall;
+      if (applies && fp[0] < b && fp[1] > a && fp[2] < e && fp[3] > c) return false;
+    }
     for (const o of have) {
       if (hung(o.arche, o.crt) !== hung(arche, crt)) continue;
       const g = footprint(o);
@@ -302,6 +312,10 @@ export function placeSpot(spec, pieces, arche, dims, { crt = false } = {}) {
     }
     cands.push(...wallRun('right'), ...wallRun('front'), ...wallRun('left'), ...wallRun('back'));
   } else cands = [...wallRun('back'), ...wallRun('right'), ...wallRun('left'), ...wallRun('front')];
+  if (wall && WALL_TURN[wall] !== undefined) {
+    const own = cands.filter((c) => c.wall === wall);
+    cands = own.length ? own : wallRun(wall);
+  }
   return cands.find(fits) || null;
 }
 

@@ -11,9 +11,9 @@
 //
 // ⚠ WHERE A PIECE STANDS IS SERVER STATE. A player's piece has `flags.spot` stamped the moment it
 // lands in a room (`furniture.changed`, fired by `place` and by a vendor's delivery), worked out by
-// client/shared/room-layout.js placeSpot, the same rules the client lays the room out by. An
-// authored piece is never written to (git is the only writer of content); its spot is worked out
-// the same way every time, before any player piece, so it never moves.
+// client/shared/room-layout.js placeSpot, the same rules the client lays the room out by. After
+// that only `arrange` moves it. An authored piece is never written to (git is the only writer of
+// content); its spot is worked out the same way every time, before any player piece, so it never moves.
 //
 // ⚠ POSITIONS ARE RAM AND ARRIVE WHEN THEY SETTLE. The client sends `room_pos` when you stop walking
 // or sit, not every step, so a walk round the room is a few messages; this relays them to whoever
@@ -24,7 +24,8 @@
 
 import { getZone, getZoneFurniture, getZonePlayers, getZoneNpcs, getApartment, updateFurniture } from '../../server/engine/world.js';
 import { getItem } from '../../server/engine/items-cache.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
+import { resolve as siftResolve } from '../../server/engine/sift.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { getBirdClock } from '../../server/engine/environment.js';
@@ -151,6 +152,63 @@ async function cmdRoom(args, raw, player) {
   return { type: 'noop' };
 }
 
+// ── arrange <piece> [wall] ──────────────────────────────────────────────────────────────────────
+// Moves one player piece to another wall, or with no wall back to the spot `place` would pick now.
+// The new spot comes from placeSpot over the room without the piece, so the door's way in, the
+// window and every other piece stay clear. One updateFurniture write, then furniture.changed sends
+// the piece to whoever has the Stage open. The room text doesn't change, so this works at every rung.
+const WALLS = { left: 'left', right: 'right', front: 'front', back: 'back', window: 'front', door: 'back' };
+const WALL_NAME = { left: 'the left wall', right: 'the right wall', front: 'the window wall', back: 'the door wall' };
+const FILLER = /^(against|to|by|on|onto|at|under|beside|next|the)$/;
+
+function parseArrange(args) {
+  const words = args.join(' ').toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length > 1 && words.at(-1) === 'wall') words.pop();
+  let wall = null;
+  if (words.length > 1 && WALLS[words.at(-1)]) {
+    wall = WALLS[words.pop()];
+    while (words.length > 1 && FILLER.test(words.at(-1))) words.pop();
+  }
+  return { target: words.join(' ').replace(/^(the|a|an|my)\s+/, '').trim(), wall };
+}
+
+// Someone sitting or lying on it, a player or an NPC (as furnishing's take checks).
+function occupied(f, zoneId) {
+  if (getZonePlayers(zoneId).some((p) => (p.posture === 'sitting' || p.posture === 'lying') && p.sittingOn === f.name)) return true;
+  return getZoneNpcs(zoneId).some((n) => n.onFurniture === f.name || (n.posture === 'sitting' && n.sittingOn === f.name));
+}
+
+async function cmdArrange(args, raw, player, broadcast) {
+  const zoneId = player.current_zone;
+  const { target, wall } = parseArrange(args);
+  if (!target) return { type: 'output', message: 'Arrange what? `arrange <piece> <wall>`, where the wall is left, right, window or door. Leave the wall off to put it back where it goes.' };
+  const spec = specOf(zoneId);
+  if (!spec) return { type: 'error', message: 'You can only arrange furniture in a flat or a furnished room.' };
+  if (!controls(player, zoneId)) return { type: 'error', message: "This isn't your place to rearrange." };
+
+  const r = siftResolve(target, getZoneFurniture(zoneId).filter(drawn));
+  if (r.type === 'none') return { type: 'error', message: `There's no "${target}" in here to move.` };
+  if (r.type === 'ambiguous') return { type: 'error', message: `Which one? ${[...new Set(r.candidates.map((c) => c.name))].join(', ')}.` };
+  const row = r.candidate;
+  if (row.origin !== 'player') return { type: 'error', message: "It's fixed in place." };
+  if (occupied(row, zoneId)) return { type: 'error', message: `Someone's using the ${row.name}.` };
+
+  const pieces = await roomPieces(zoneId, spec);
+  const me = pieces.find((p) => p.id === row.id);
+  if (!me) return { type: 'error', message: `The ${row.name} isn't there any more.` };
+  if (wall && me.spot?.wall === wall) return { type: 'error', message: `The ${row.name} is already against ${WALL_NAME[wall]}.` };
+  const spot = placeSpot(spec, pieces.filter((p) => p.id !== row.id), me.arche, me.dims, { crt: me.crt, wall });
+  if (!spot) return { type: 'error', message: wall ? `There's no room for the ${row.name} against that wall.` : `There's no room for the ${row.name} anywhere else in here.` };
+  if (JSON.stringify(spot) === JSON.stringify(me.spot)) return { type: 'error', message: `The ${row.name} is already where it goes.` };
+
+  const saved = await updateFurniture(row.id, { flags: JSON.stringify({ ...row.flags, spot }) });
+  if (!saved) return { type: 'error', message: `The ${row.name} isn't there any more.` };
+  emit('furniture.changed', { zoneId, id: row.id });
+  const where = spot.wall ? `against ${WALL_NAME[spot.wall]}` : 'out into the room';
+  broadcast?.(zoneId, { type: 'zone_event', message: `${player.handle} moves the ${row.name} ${where}.` }, player.id);
+  return { type: 'output', message: wall ? `You move the ${row.name} ${where}.` : `You put the ${row.name} back ${where}.` };
+}
+
 // A piece placed, taken or boxed. A new player piece gets its spot now, and whoever has the room
 // open is sent the piece again, told it's gone, or (no `id`: a whole room boxed) sent them all.
 on('furniture.changed', ({ zoneId, id, gone }) => {
@@ -196,6 +254,6 @@ on('player.logout', ({ id }) => {
   where.delete(id); lastPos.delete(id);
 });
 
-export const commands = { room: cmdRoom };
+export const commands = { room: cmdRoom, arrange: cmdArrange };
 
-export const _test = { viewers, where, roomPieces, specOf, viewPayload, peopleIn, resolveSpot };
+export const _test = { viewers, where, roomPieces, specOf, viewPayload, peopleIn, resolveSpot, parseArrange };

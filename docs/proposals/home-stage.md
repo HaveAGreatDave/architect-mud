@@ -1,7 +1,7 @@
 # The Home Stage and the trophy wall
 
-> **Status: Home Stage phases 0-3 built (`room`, plugins/roomstage); `arrange` and the trophy wall
-> are design.** Where this doc disagrees with [plugins/roomstage/README.md](../../plugins/roomstage/README.md)
+> **Status: Home Stage phases 0-4 built (`room` and `arrange`, plugins/roomstage); the trophy wall
+> is design.** Where this doc disagrees with [plugins/roomstage/README.md](../../plugins/roomstage/README.md)
 > or [plugins/furnishing/README.md](../../plugins/furnishing/README.md), the README wins.
 
 ## Why
@@ -65,8 +65,8 @@ out is the real street from GLASS. The 12-piece cap stays.
 
 `place` picks a free spot by archetype: a `screen` against the wall opposite the door, seats facing
 whatever screen is in the room, `cold` and `hob` along one wall, `bed` in the far corner. The spot
-goes on the row as `flags.spot: { wall, along, turn }`. A later `arrange <piece> <wall>` verb can
-move it; the first phase doesn't need one.
+goes on the row as `flags.spot: { wall, along, turn }`. `arrange <piece> <wall>` moves it later
+(phase 4).
 
 ### What it reuses
 
@@ -82,6 +82,8 @@ move it; the first phase doesn't need one.
 - `flags.spot` is stamped on a player's piece when it lands, by `place` or by a vendor's delivery. An authored piece is never written to; its spot is worked out the same way each time.
 - Gestures: E or a click sits (`sit`), lies (`lie`, on a sofa's arm end or a bed's pillow), gets up (`stand`), opens a fridge (`open`), watches a set (`watch`, and the set's picture comes on) or looks at anything else (`examine`). A posture typed in the log moves you on the Stage too.
 - Visitors and NPCs in the flat are drawn standing where they last settled, or sat or lying on their piece, with their names over them; a seat somebody's in can't be taken.
+- `arrange <piece> <wall>` moves a player's piece against `left`, `right`, `window` (`front`) or `door` (`back`); with no wall it goes back where `place` would set it now. It's server-only: the spot is `placeSpot`'s first free candidate on that wall (its `wall` option) over the room without the piece, so the door's way in, the window and the overlap test still decide, and a full wall refuses. Anyone who controls the room may arrange; an authored piece is fixed, and a piece someone is sitting or lying on stays put. One `updateFurniture` write and `furniture.changed`, so everyone with the Stage open sees the piece move. The room text doesn't change, so it works at every rung. Free placement (`arrange <piece> at ...`) is left for later.
+- A hung screen keeps clear of the doorway on the back wall and the window on the front, which `arrange` made reachable.
 
 ### Phases
 
@@ -91,7 +93,7 @@ move it; the first phase doesn't need one.
 | 1 | The Stage opens in your own flat: walls, floor, window, every piece as its archetype |
 | 2 | Gestures: sit, lie, watch and open send their verbs |
 | 3 | Visitors: anyone in the room sees it, and sees each other |
-| 4 | `arrange` |
+| 4 | `arrange <piece> <wall>` moves a player's piece to another wall or back to its auto spot (built) |
 
 ## The trophy wall
 

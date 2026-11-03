@@ -1,9 +1,10 @@
 // Room Stage regression suite, run by tests/regress.js (never loaded in production). Covers the
 // archetype each sold furniture item is drawn as, the spot stamped when a piece lands, the layout's
-// seats and stations, the `room` verb's gating, and the position relay. Every row it makes is in a
+// seats and stations, the `room` verb's gating, the position relay and `arrange`. Every row it makes is in a
 // throwaway zone and removed in the finally.
 import { emit } from '../../server/engine/events.js';
-import { world, setApartmentCache, getZoneFurniture, deleteFurnitureWhere } from '../../server/engine/world.js';
+import { world, setApartmentCache, getZoneFurniture, deleteFurnitureWhere, insertFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { giveItemById } from '../../server/engine/inventory.js';
 import { query } from '../../server/models/db.js';
@@ -82,6 +83,72 @@ export default async function regress({ run, check, getPlayer }) {
     emit('room.pos', { playerId: p.id, at: [99, -4], yaw: 1.2, seat: 2 });
     const w = _test.where.get(p.id);
     check('a settled position is clamped into the room', w?.at[0] === 2 && w?.at[1] === 0 && w?.seat === 2, JSON.stringify(w));
+
+    // arrange: a placed piece to another wall, with the Stage open so the viewer is sent it
+    const sent = [], prevBroadcast = getBroadcast();
+    setBroadcast((z, msg, ex, to) => { if (to === p.id) sent.push(msg); return prevBroadcast?.(z, msg, ex, to); });
+    try {
+      const rowNamed = (re) => getZoneFurniture(APT).find((f) => f.origin === 'player' && re.test(f.name));
+      const sofaRow = rowNamed(/sofa/i);
+      const settle = () => new Promise((res) => setTimeout(res, 50));
+      const overlapIn = async () => {
+        const v = await _test.viewPayload(p, APT, spec);
+        const fp = roomLayout(spec, v.pieces).placed.filter((x) => !(x.arche === 'screen' && !x.crt)).map((x) => { const q = Math.round(((x.turn % 360) + 360) % 360 / 90) % 2; const hw = (q ? x.d : x.w) / 2, hd = (q ? x.w : x.d) / 2; return [x.u - hw, x.u + hw, x.v - hd, x.v + hd]; });
+        for (let i = 0; i < fp.length; i++) for (let j = i + 1; j < fp.length; j++) { const a = fp[i], b = fp[j]; if (a[0] < b[1] - 1e-6 && a[1] > b[0] + 1e-6 && a[2] < b[3] - 1e-6 && a[3] > b[2] + 1e-6) return JSON.stringify(v.pieces.map((x) => [x.name, x.spot])); }
+        return '';
+      };
+
+      r = await run('arrange busted sofa left');
+      await settle();
+      check('arrange moves a placed piece against the named wall', /against the left wall/i.test(r?.message || '') && rowNamed(/sofa/i)?.flags?.spot?.wall === 'left', `${r?.message} ${JSON.stringify(rowNamed(/sofa/i)?.flags?.spot)}`);
+      const moved = sent.filter((m) => m.type === 'room_piece' && m.piece?.id === sofaRow?.id).at(-1);
+      check('a viewer gets room_piece with the new spot', moved?.piece?.spot?.wall === 'left', JSON.stringify(moved));
+      let clash = await overlapIn();
+      check('the moved piece stands in nothing', !clash, clash);
+      r = await run('arrange busted sofa left');
+      check('arrange to the wall a piece is on says so', /already against the left wall/i.test(r?.message || ''), r?.message);
+
+      r = await run('arrange coldbox window');
+      check('window is the front wall', rowNamed(/coldbox/i)?.flags?.spot?.wall === 'front', `${r?.message} ${JSON.stringify(rowNamed(/coldbox/i)?.flags?.spot)}`);
+      r = await run('arrange busted sofa against the door wall');
+      check('door is the back wall', rowNamed(/sofa/i)?.flags?.spot?.wall === 'back', `${r?.message} ${JSON.stringify(rowNamed(/sofa/i)?.flags?.spot)}`);
+      check('arrange reads past filler words and "wall"', JSON.stringify(_test.parseArrange(['the', 'busted', 'sofa', 'by', 'the', 'window', 'wall'])) === JSON.stringify({ target: 'busted sofa', wall: 'front' }));
+
+      // the sofa and the fridge take the back wall up to the doorway, so the stool has no room there
+      r = await run('arrange coldbox door');
+      check('the fridge fits beside the sofa on the back wall', rowNamed(/coldbox/i)?.flags?.spot?.wall === 'back', `${r?.message} ${JSON.stringify(rowNamed(/coldbox/i)?.flags?.spot)}`);
+      const stoolBefore = JSON.stringify(rowNamed(/barstool/i)?.flags?.spot);
+      r = await run('arrange barstool door');
+      check('a full wall refuses', /no room for the .* against that wall/i.test(r?.message || '') && JSON.stringify(rowNamed(/barstool/i)?.flags?.spot) === stoolBefore, `${r?.message} ${JSON.stringify(rowNamed(/barstool/i)?.flags?.spot)}`);
+      clash = await overlapIn();
+      check('after the moves nothing stands in anything else', !clash, clash);
+
+      // no wall: back to the spot place would pick now, facing the screen
+      r = await run('arrange busted sofa');
+      check('arrange with no wall puts the sofa back facing the screen', Array.isArray(rowNamed(/sofa/i)?.flags?.spot?.at) && /put the .* back/i.test(r?.message || ''), `${r?.message} ${JSON.stringify(rowNamed(/sofa/i)?.flags?.spot)}`);
+
+      // refusals: somebody on it, somebody else's room, an authored piece, nothing by that name
+      p.posture = 'sitting'; p.sittingOn = sofaRow?.name;
+      r = await run('arrange busted sofa right');
+      check('arrange refuses a piece someone is sitting on', /using the/i.test(r?.message || '') && Array.isArray(rowNamed(/sofa/i)?.flags?.spot?.at), r?.message);
+      p.posture = savedPosture || 'standing'; p.sittingOn = null;
+
+      setApartmentCache(APT, { zone_id: APT, owner_id: '__someone_else__', owner_type: 'player' });
+      r = await run('arrange coldbox right');
+      check('arrange refuses someone who does not control the room', /isn't your place/i.test(r?.message || '') && rowNamed(/coldbox/i)?.flags?.spot?.wall === 'back', r?.message);
+      setApartmentCache(APT, { zone_id: APT, owner_id: p.id, owner_type: 'player' });
+
+      await insertFurniture({ id: '__roomstage_fixed__', zone_id: APT, name: 'bolted shelf', description: 'A shelf bolted to the floor.', flags: JSON.stringify({ interactions: ['lean'] }), object_type: 'furniture' });
+      r = await run('arrange bolted shelf left');
+      check('arrange refuses an authored piece', /fixed in place/i.test(r?.message || ''), r?.message);
+      await deleteFurniture('__roomstage_fixed__');
+
+      r = await run('arrange grand piano left');
+      check('arrange names a piece that is not there', /no "grand piano" in here/i.test(r?.message || ''), r?.message);
+    } finally {
+      setBroadcast(prevBroadcast);
+    }
+
     r = await run('room close');
     check('room close shuts it', !_test.viewers.get(APT)?.has(p.id));
 
