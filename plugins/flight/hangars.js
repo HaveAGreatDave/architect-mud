@@ -11,7 +11,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior,
-  FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, parkAt, nearestAirfield, craftIsVtol, getZone,
+  FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, kitAxes, KIT_AXES, parkAt, nearestAirfield, craftIsVtol, getZone,
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope,
   detach, getLivePlayer, resetSurfaces, acquirableTypes, airfieldOf, fieldName, hangarTileFor, helipadTileFor, standTileFor, REFUEL_PRICE_PER_UNIT } from './state.js';
 import { normalizeLivery, sanitizeLivery, parsePartsArg, signatureScore, describeExterior,
@@ -194,6 +194,9 @@ async function buildCards(player, field) {
       cargoNow, kitsInstalled: kits,
       kitCatalog: Object.entries(KITS).map(([id, k]) => ({ id, name: k.name, price: k.price, blurb: k.blurb, owned: kits.includes(id) })),
       perfNow: perfAxes(type, tune, cargoNow, kits, parts),
+      // What each kit she hasn't got would do, for the bench's bars (state.js kitAxes): the
+      // aircraft's kit deltas, sent the way the truck sends its kitStats.
+      kitStats: kitAxes(type, tune, cargoNow, kits, parts, fab), kitAxes: KIT_AXES,
       // The discrete layer, for a bench that wants to draw it: which slots this airframe
       // has, what is in them, and the mass that hardware is already costing her.
       partSlots: slotsFor(type).map(sl => ({ id: sl.id, label: sl.label, fitted: installedParts(cd)[sl.id] || null })),

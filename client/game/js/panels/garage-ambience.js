@@ -55,6 +55,26 @@ const BEDS = {
     sparkle: [{ ...RATCHET, gain: 0.3 }, { ...CLANK, gain: 0.3 }, HISS] },
 };
 
+// THE WORK BEAT'S SOUND (maintenance-bay.js `beat`): one burst of the work just paid for, close up
+// and louder than the room's. An impact wrench for parts and repairs, an air line and a spray gun
+// for paint, a spanner for a service. Performance is the engine blip, which the seat plays itself.
+const SPRAY = { layers: [noise('bandpass', 5200, 0.6, 0.05, 0.04), noise('highpass', 7800, 0.5, 0.025, 0.06)] };
+const WORK = {
+  parts: { duration: 0.9, layers: [...RATCHET.layers, ...RATCHET.layers.map((l) => ({ ...l, delay: 0.42 }))] },
+  repair: { duration: 0.9, layers: [...RATCHET.layers, ...CLANK.layers.map((l) => ({ ...l, delay: 0.55 }))] },
+  paint: { duration: 1.1, layers: [...HISS.layers.map((l) => ({ ...l, adsr: { a: 0.03, d: 0.9, s: 0.2, r: 0.2 } })), ...SPRAY.layers] },
+  service: { duration: 0.7, layers: [...CLANK.layers, ...HISS.layers.map((l) => ({ ...l, delay: 0.2 }))] },
+};
+/** Play the work beat's burst for `kind` ('parts' | 'repair' | 'paint' | 'service'); false if none. */
+export function garageWork(kind) {
+  const ae = AE(), w = WORK[kind];
+  if (!ae?.playSfx || !w) return false;
+  // The room's sparkles are built quiet, for a fitter across the shed; this one is on your car.
+  const layers = w.layers.map((l) => ({ ...l, gain: (l.gain || 0) * 2.5 }));
+  try { ae.playSfx({ id: 'garage-work-' + kind, category: 'sfx', priority: 4, config: { duration: w.duration, layers } }); } catch { return false; }
+  return true;
+}
+
 let cur = null;
 /** Start the bed for `kind` ('shed' | 'dock' | 'hangar'), or stop it with null. */
 export function garageBed(kind) {

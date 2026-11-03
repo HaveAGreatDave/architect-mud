@@ -114,6 +114,41 @@ ck('closing restores the view and puts the vehicle\'s own look back', log.some((
   ck('a bay with no camera (the fuel float) frames nothing', !log.length);
 }
 
+// ── 2b. POINTING PREVIEWS IT, AND A PURCHASE IS A BEAT ──────────────────────
+console.log('\n— previews and the work beat —');
+{
+  const plog = [];
+  const ps = { v: 'ext', view(m) { if (m) this.v = m; return this.v; }, frame: (s, ms) => plog.push(['frame', s, ms]), preview: (l) => plog.push(['preview', l]), rev: (a) => plog.push(['rev', a]) };
+  const pb = mb.openBay({ seat: ps, job: 'parts' }).peekWith((t) => (t.card ? { card: t.card } : undefined));
+  pb.canon({ parts: true, perf: true });
+  pb.sync({ look: { working: 1 } });
+  plog.length = 0;
+  pb.peekAt({ card: 'flames' });
+  ck('pointing at a card puts that card on the vehicle', plog.at(-1)?.[1]?.card === 'flames');
+  pb.peekAt({});
+  ck('…and pointing away puts the working look back', plog.at(-1)?.[1]?.working === 1);
+  plog.length = 0;
+  pb.peekAt({});
+  ck('…once, not on every move', plog.length === 0);
+  plog.length = 0;
+  pb.beat();
+  const fr = plog.filter((e) => e[0] === 'frame');
+  ck('a purchase steps the camera in on the part', fr[0] && fr[0][1].zoom < SHOTS.side.zoom, JSON.stringify(fr[0]));
+  pb.job = 'perf';
+  plog.length = 0;
+  pb.beat();
+  ck('…and a performance part is the engine\'s blip', plog.some((e) => e[0] === 'rev'));
+  pb.job = 'load';
+  plog.length = 0;
+  pb.beat();
+  ck('…and a job with no work in it has no beat', plog.length === 0);
+  const { truckLivery } = await import('../../client/shared/truck-livery.js');
+  const p = { base: '#c02020', trim: '#f0f0f0', bright: '#d0d0d0', flash: 'none' };
+  ck('a sound truck wears its paint as bought', truckLivery(p, 0, 0.05).base === truckLivery(p, 0).base);
+  ck('a knocked-about one wears the scorching, and a repair takes it off',
+    truckLivery(p, 0, 0.8).base !== truckLivery(p, 0).base && truckLivery(p, 0, 0).base === truckLivery(p, 0).base);
+}
+
 // ── 3. THE KEYBOARD ─────────────────────────────────────────────────────────
 console.log('\n— the keyboard —');
 const btn = { tagName: 'BUTTON', classList: { contains: () => false } };
@@ -329,6 +364,8 @@ const craft = {
   paintable: true, wreck: false, rental: false, kitCatalog: [{ id: 'kit_intercooler', name: 'Intercooler', blurb: 'Cooler.', price: 900, owned: false }],
   tune: {}, tuneRange: 1, perfBase: { cruise: 1, burn: 1, maxTOW: 300, pace: 1 }, hopperCap: 0, configurable: true, seats: 6, maxSeats: 9, seatsNow: 6,
   loadoutBudget: 400, cargoCapNow: 200, cargoLoaded: 0, shopCost: 1200, diyCost: 300, fillCost: 200, fuelType: 'avgas', fuelNow: 40, fuelCap: 100, paintCost: 700, sets: [], schemes: [],
+  kitAxes: [{ id: 'cool', label: 'COOL' }, { id: 'flatout', label: 'FLAT OUT' }],
+  kitStats: { kit_intercooler: { now: { cool: 50, flatout: 69 }, with: { cool: 50, flatout: 82 } } },
 };
 const hangarData = (over = {}) => ({ service: true, serviceId: 'ac_1', field: 'Coldwater Field', hangar: true, credits: 30000, craft: [craft],
   catalog: { patterns: [], finishes: [], uphol: [], decals: [], trims: {}, cabinTrims: {} }, tuneParams: [{ id: 'mixture', label: 'Mixture' }], fuelStocks: ['avgas'], ...over });
@@ -345,6 +382,7 @@ const HB = [
   [{ 'data-ds-job': 'service' }, 'data-act="refuel"'],
   [{ 'data-ds-job': 'perf' }, 'data-act="tune-apply"'],
   [{ 'data-ds-sub': 'kits' }, 'data-kit="kit_intercooler"'],
+  [{ 'data-ds-job': 'perf' }, 'data-kit-bars="kit_intercooler"'],
   [{ 'data-ds-job': 'paint' }, 'data-act="paint-apply"'],
   [{ 'data-ds-job': 'inside' }, 'data-act="paint-apply"'],
   [{ 'data-ds-job': 'load' }, 'data-loadout="passenger"'],

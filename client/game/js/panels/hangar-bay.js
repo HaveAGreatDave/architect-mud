@@ -24,7 +24,7 @@ import { compactHidePanel } from '../../../shared/compact-view.js';
 import { liveriesFor } from '../../../shared/livery-sets.js';
 import { shellProfileFor } from '../../../shared/interior-shell.js';
 import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, disposeWindshield, glWorldInstalled, RENDER_TUNE } from './windshield-lazy.js';
-import { ensureDepotStyles, headHtml, jobsHtml, groupsHtml, partsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
+import { ensureDepotStyles, headHtml, jobsHtml, groupsHtml, partsHtml, statsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
   armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
 import { openBay, JOBS } from './maintenance-bay.js';
 import { garageBed } from './garage-ambience.js';
@@ -132,7 +132,7 @@ function openService(data) {
     // The bay controller (maintenance-bay.js) keeps the open job, the fold and the camera across pushes.
     B = { screen: 'bench', service: true, selId: data.serviceId, data,
       benchTab: was?.benchTab, sub: was?.sub, kitSel: was?.kitSel,
-      bay: was?.bay || openBay({ seat: ck.cockpitBaySeat, job: null, open: true }),
+      bay: was?.bay || openBay({ seat: ck.cockpitBaySeat, job: null, open: true }).peekWith(hangarPeek),
       // The working copy survives a re-push (every Apply sends one) unless the bench is new.
       work: was && was.selId === data.serviceId && was.work ? was.work : (c ? { ...c.livery } : null),
       tune: was?.tune || null, tuneFor: was?.tuneFor || null };
@@ -140,9 +140,26 @@ function openService(data) {
     ensureDepotStyles();
     if (!was) garageBed(data.hangar ? 'hangar' : null);
     render();
-    if (was) notePush(document.getElementById('hb-svc'), was.data?.credits, data.credits);
+    // A purchase plays the work beat on the part it was for (maintenance-bay.js beat).
+    if (was && notePush(document.getElementById('hb-svc'), was.data?.credits, data.credits)) B.bay.beat();
     watchRoll(ck);
   }).catch(() => { /* no cockpit module, no bench to dock */ });
+}
+// POINTING AT A CARD PUTS IT ON HER (maintenance-bay.js peekWith): a livery set or a factory
+// edition over the working copy, the way a click would make it. Anything else answers undefined,
+// and the bay puts the working copy back.
+function hangarPeek(t) {
+  if (!B?.service || !B.work) return undefined;
+  const c = curCraft();
+  if (!c) return undefined;
+  const set = t.closest?.('[data-set]');
+  if (set) {
+    const st = (c.sets || []).find(x => x.id === set.getAttribute('data-set'));
+    if (st) return { livery: { ...B.work, parts: {}, ...st.look } };
+  }
+  const ed = t.closest?.('[data-variant]');
+  if (ed) return { livery: { ...B.work, variant: ed.getAttribute('data-variant'), pattern: 'bare', parts: {} } };
+  return undefined;
 }
 // The seat's own close takes the bench with it.
 window.addEventListener('fsim:closed', () => { if (B?.service) closeHangarBay(); });
@@ -835,8 +852,37 @@ function kitsTabHtml(c) {
   return { body: `<div class="ds-panel-head"><b>Upgrade kits</b><span class="ds-dim">${cat.filter(k => k.owned).length} of ${cat.length} fitted</span></div>
       ${partsHtml({ options })}
       <div class="ds-panel"><div class="ds-panel-head"><b>${esc(sel.name)}</b></div><div class="hb-kit-blurb">${esc(sel.blurb)}</div></div>`,
+  side: kitBarsHtml(c, sel.owned ? null : sel.id),
   till: `<div class="ds-acts">${sel.owned ? '<button class="ds-btn primary" disabled title="Already on her">✓ Fitted</button>'
     : `<button class="ds-btn primary" data-kit="${esc(sel.id)}">Install ${esc(sel.name)} · ${money(sel.price)}</button>`}</div>` };
+}
+
+// THE KIT'S BARS (maintenance-bay.md §6.2): the server's figures with the kit fitted against her
+// as she stands (flight/state.js kitAxes), drawn by the shell's statsHtml so a gain is green and a
+// cost a red ghost. Pointing at a kit's card shows that kit's (hbPeek). Nothing here is computed.
+function kitBarsHtml(c, id) {
+  const ks = c.kitStats || {}, rows = (c.kitAxes || []).map(a => [a.id, a.label]);
+  if (!rows.length) return '';
+  const scale = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k, v / 100]));
+  const k = id && ks[id];
+  const now = k ? k.now : Object.values(ks)[0]?.now;
+  if (!now) return '';
+  return `<div class="ds-panel"><div class="ds-panel-head"><b>The figures</b><span class="ds-dim">${k ? 'with the kit you point at' : 'as she stands'}</span></div>
+    <div data-kit-bars="${esc(id || '')}">${k ? statsHtml(rows, scale(k.with), scale(k.now)) : statsHtml(rows, scale(now))}</div></div>`;
+}
+// Pointing at a kit's card (or focusing it) redraws the bars for that kit; leaving puts back the picked one.
+function hbPeek(e) {
+  if (!B?.service || B.benchTab !== 'perf') return;
+  const box = document.querySelector('#hb-svc [data-kit-bars]');
+  const c = curCraft();
+  if (!box || !c) return;
+  const card = e.target.closest?.('[data-kit-pick]');
+  const want = card ? card.getAttribute('data-kit-pick') : B.kitSel;
+  const id = want && c.kitStats?.[want] ? want : '';
+  if (box.dataset.kitBars === id) return;
+  box.dataset.kitBars = id;
+  const panel = box.closest('.ds-panel');
+  if (panel) panel.outerHTML = kitBarsHtml(c, id || null);
 }
 
 // Size a small instrument canvas to the device pixel ratio and hand back a context
@@ -969,7 +1015,7 @@ function benchScreen() {
   const glist = benchGroups(c, B.benchTab), grp = paneGroup(B.benchTab, glist);
   const pg = benchPage(c, B.benchTab, grp, cat, dirty);
   const jobs = jobsHtml(cards, B.benchTab, 'data-bench-tab');
-  const body = groupsHtml(glist, grp, 'data-bench-group') + pg.body + (pg.till ? `<div class="hb-pane-till">${pg.till}</div>` : '');
+  const body = groupsHtml(glist, grp, 'data-bench-group') + pg.body + (pg.side || '') + (pg.till ? `<div class="hb-pane-till">${pg.till}</div>` : '');
   const venue = stageVenue(c);
   const booth = boothOn(), seat = seatOn();
   if (!seat) dropSeat();
@@ -1122,7 +1168,7 @@ function renderService() {
   const ck = CK;
   const host = ck?.cockpitServiceHost();
   if (!host) { closeHangarBay(); return; }
-  const el = mountBay(host, 'hb-svc', { click: onShellClick });
+  const el = mountBay(host, 'hb-svc', { click: onShellClick, mouseover: hbPeek, focusin: hbPeek });
   const bay = B.bay;
   setBayOpen(el, bay.open, 'hb-scope');
   const d = B.data || {}, c = (d.craft || []).find(x => x.id === B.selId);
@@ -1149,7 +1195,7 @@ function renderService() {
     notes: c.rental ? '<div class="ds-note hire">Rental · maintenance is bundled in; she flies stock</div>' : '',
     jobs,
     body: `${bay.groupsHtml()}<div class="hb-bench-tabbody" data-tabkey="${B.benchTab}">${radar}${pg.body}</div>`,
-    till: pg.till || '',
+    side: pg.side || '', till: pg.till || '',
     foot: d.hangar ? 'Start up and roll at the door and it lifts. The bench goes when she moves.' : 'The bench goes when she moves.',
   });
   bay.attach(el);

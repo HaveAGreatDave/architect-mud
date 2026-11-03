@@ -152,7 +152,7 @@ export function openBayService(msg) {
     // Open on arrival, and after that it is the player's: a push that re-opened a panel somebody
     // had just folded away would make "drive out" a button that does not stay pressed. The bay
     // controller (maintenance-bay.js) holds that, the open job and the camera across pushes.
-    bay: was?.bay || openBay({ seat: cabBaySeat, job: 'repair', open: !takeDeploy() }),
+    bay: was?.bay || openBay({ seat: cabBaySeat, job: 'repair', open: !takeDeploy() }).peekWith(truckPeek),
   };
   B.bench.tune = null; B.bench.trim = null;
   if (!was) B.bench.paint = null;
@@ -161,17 +161,15 @@ export function openBayService(msg) {
   if (was) noteDeckChange(wasCargo, msg.cargo || null);
   if (!was) garageBed('shed');
   renderService();
-  if (was && notePush(document.getElementById('td-svc'), was.data?.credits, msg.credits)) {
-    // A kit or a tune going on is a thing a driver hears: blip it.
-    const t = selected(), w = (was.data?.fleet || []).find((r) => r.id === t?.id);
-    if (t && w && (JSON.stringify(t.kits) !== JSON.stringify(w.kits) || JSON.stringify(t.tune) !== JSON.stringify(w.tune))) B.bay.rev(0.7);
-  }
+  // A purchase plays the work beat on the part it was for (maintenance-bay.js beat): a kit or a
+  // tune going on is the engine's blip, a fitting the wrench, a respray the gun.
+  if (was && notePush(document.getElementById('td-svc'), was.data?.credits, msg.credits)) B.bay.beat();
 }
 
 /** The truck has left the shed (or the cab has shut): take the overlay down and hand the camera back. */
 export function closeBayService() {
   if (!B || B.mode !== 'service') return;
-  B.bay.close({ paint: null, trim: null });
+  B.bay.close({ paint: null, trim: null, fits: null });
   document.getElementById('td-svc')?.remove();
   garageBed(null);
   if (toastT) clearTimeout(toastT);
@@ -461,7 +459,7 @@ function jobState(id, t) {
   const d = B.data;
   if (id === 'repair') {
     const c = t.condition ?? 1;
-    return c < 0.85 ? { sub: `body ${pct(c)}`, tone: c < 0.3 ? 'bad' : 'warn' } : { sub: t.washPrice ? 'dirty' : 'sound', tone: 'ok' };
+    return c < 0.85 ? { sub: `body ${pct(c)}`, tone: c < 0.3 ? 'bad' : 'warn' } : { sub: 'sound', tone: 'ok' };
   }
   if (id === 'service') {
     const items = t.svc?.items || [];
@@ -469,6 +467,7 @@ function jobState(id, t) {
     if (over) return { sub: `${over} overdue`, tone: 'bad' };
     if (due) return { sub: `${due} due`, tone: 'warn' };
     if ((d.fuel ?? t.fuel) < 0.25) return { sub: `fuel ${pct(d.fuel ?? t.fuel)}`, tone: 'warn' };
+    if (t.washPrice) return { sub: 'dirty', tone: 'warn' };
     return { sub: 'all good', tone: 'ok' };
   }
   if (id === 'perf') {
@@ -526,9 +525,47 @@ function syncView() {
   // working on. Outside, the camera swings to the part the job sells (maintenance-bay.js), only on a
   // change of shot, so a re-push after a purchase does not yank it off wherever the player dragged
   // it. Opening Performance gives the engine a blip, the way a garage does when it pulls in.
-  const job = B.bench.tab;
+  const job = B.bench.tab, t = selected();
+  // A fitting picked on the shelf goes on the truck as the variant suffix it would make (§6.1).
+  const fitPick = bay.open && job === 'parts' && bay.sub('parts') === 'fits' && B.bench.fpick && t ? fitsWith(t, B.bench.fpick) : null;
   bay.sync({ look: { paint: bay.open && job === 'paint' && B.bench.paint ? paintNow() : null,
-    trim: bay.open && job === 'inside' && B.bench.trim ? trimNow() : null } });
+    trim: bay.open && job === 'inside' && B.bench.trim ? trimNow() : null, fits: fitPick } });
+}
+
+// THE TRUCK WITH ONE FITTING SWAPPED IN, as the variant suffix the server's fitSuffix
+// (plugins/trucking/fittings.js) writes: one code per slot, in the slot order, '^' first. A pick
+// that is already on the truck shows it taken off. The codes and the slot order are the server's
+// own (fitCat); this only puts them in the order the mesh cache keys on.
+function fitsWith(t, id) {
+  const cat = B.data.fitCat;
+  if (!cat) return null;
+  const byId = Object.fromEntries(cat.items.map((f) => [f.id, f]));
+  const f = byId[id];
+  if (!f || !f.code) return null;
+  const order = cat.slots.map((s) => s.id);
+  const on = (t.fits || []).map((x) => byId[x]).filter((x) => x && x.slot !== f.slot);
+  if (!(t.fits || []).includes(id)) on.push(f);
+  const codes = on.sort((a, b) => order.indexOf(a.slot) - order.indexOf(b.slot)).map((x) => x.code);
+  return codes.length ? '^' + codes.join('.') : '';
+}
+
+// POINTING AT A CARD PUTS IT ON THE TRUCK (maintenance-bay.js peekWith): a fitting, a scheme, a
+// paint job or a coat. Anything else answers undefined, and the bay puts the working look back.
+function truckPeek(target) {
+  if (!B || B.mode !== 'service') return undefined;
+  const t = selected();
+  if (!t) return undefined;
+  const base = { paint: null, trim: null, fits: null, ...(B.bay.look || {}) };
+  const fp = target.closest?.('[data-fpick]');
+  if (fp) return { ...base, fits: fitsWith(t, fp.dataset.fpick) };
+  const pr = target.closest?.('[data-preset]');
+  if (pr) {
+    const p = (B.data.paintPresets || []).find((r) => r.id === pr.dataset.preset);
+    if (p) { const { id, label, ...fields } = p; return { ...base, paint: { ...paintNow(), ...fields } }; }
+  }
+  const pp = target.closest?.('[data-paintpick]');
+  if (pp) return { ...base, paint: { ...paintNow(), [pp.dataset.paintpick]: pp.dataset.paintval } };
+  return undefined;
 }
 
 // ── Repair and Service ───────────────────────────────────────────────────────
@@ -545,9 +582,8 @@ function repairPage(t) {
       <div class="td-acts col">
         <button class="td-act" data-cmd="rig repair ${esc(t.id)}" ${t.canField ? '' : 'disabled title="Already past what hand tools reach"'}>
           Do it yourself · ${money(t.repairField)}<span class="td-dim">: up to ${pct(0.8)}, and you can botch it</span></button>
-        <button class="td-act" data-cmd="rig wash ${esc(t.id)}" ${t.washPrice ? '' : 'disabled title="Already clean"'}>
-          ${t.washPrice ? `Wash it · ${money(t.washPrice)}` : 'Wash it'}<span class="td-dim">: the paint back, and nothing else</span></button>
       </div>
+      ${c < 0.85 ? '<div class="td-dim td-note">The scorching on the paint is the damage. It comes off with the repair.</div>' : ''}
     </div>`,
   till: tillHtml(c >= 0.999 ? { label: 'Nothing to do', why: 'Back to new already' }
     : { label: `Put it through the shop · ${money(t.repairShop)}`, cmd: `rig repair ${t.id} shop`, note: 'Back to new, no roll.' }) };
@@ -563,6 +599,11 @@ function servicePage(t) {
     <div class="td-pane">
       <div class="td-lab">Servicing</div>
       ${rows}
+    </div>
+    <div class="td-pane">
+      <div class="td-lab">The hose<span class="td-dim">: the road comes off the paint</span></div>
+      <div class="td-acts"><button class="td-act${t.washPrice ? '' : ' ghost'}" data-cmd="rig wash ${esc(t.id)}" ${t.washPrice ? '' : 'disabled title="Already clean"'}>
+        ${t.washPrice ? `Wash it · ${money(t.washPrice)}` : 'Already clean'}</button></div>
     </div>
     <div class="td-pane">
       <div class="td-lab">The pump</div>

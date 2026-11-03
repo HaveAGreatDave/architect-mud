@@ -31,7 +31,8 @@ export const SHOTS = {
 };
 
 const live = new WeakMap();   // the seat state → its running move
-const motionOff = () => document.documentElement.dataset.motion === 'off'
+/** True when the player has asked for less motion (the a11y switch or the OS setting). */
+export const motionOff = () => document.documentElement.dataset.motion === 'off'
   || document.body?.dataset?.motion === 'off'
   || !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const wrap = (d) => ((d % 360) + 360) % 360;

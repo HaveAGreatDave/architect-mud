@@ -1047,6 +1047,39 @@ export function perfAxes(type, tune = {}, cargo = 0, kits = [], parts = []) {
   };
 }
 
+// WHAT A KIT WOULD DO, for the bench's bars (docs/proposals/maintenance-bay.md §6.2): for each kit
+// she hasn't got, the figures with it fitted against the figures as she stands, both 0..100. A kit
+// mostly changes what the dials can reach and what they cost in heat, so beside the four axes at
+// her current tune it reads REACH (how far the dials turn) and FLAT OUT (the heat with the mixture
+// and the boost both at the end of the dials). Off computeStats and tuneRange, the same numbers the
+// tick flies on, so the client only draws them. A kit that changes none of them reads level.
+export const KIT_AXES = [
+  { id: 'speed', label: 'SPEED' }, { id: 'economy', label: 'ECON' }, { id: 'range', label: 'RANGE' },
+  { id: 'cool', label: 'COOL' }, { id: 'reach', label: 'REACH' }, { id: 'flatout', label: 'FLAT OUT' },
+];
+export function kitAxes(type, tune = {}, cargo = 0, kits = [], parts = [], fabSkill = 0) {
+  const bare = computeStats(type, {}, cargo, [], parts);
+  const cl = (v) => Math.max(2, Math.min(100, Math.round(v)));
+  const rangeOf = (s) => s.cruise / s.burn;
+  const axes = (ks) => {
+    const cur = computeStats(type, tune, cargo, ks, parts);
+    const r = tuneRange(fabSkill, ks, parts);
+    const edge = computeStats(type, { ...tune, mixture: r, boost: r }, cargo, ks, parts);
+    return {
+      speed: cl(50 + (cur.cruise / bare.cruise - 1) * 300),
+      economy: cl(50 + (bare.burn / cur.burn - 1) * 300),
+      range: cl(50 + (rangeOf(cur) / rangeOf(bare) - 1) * 260),
+      cool: cl(50 - cur.heatBias * 1.6),
+      reach: cl((r / TUNE_DIAL_MAX) * 100),
+      flatout: cl(100 - edge.heatBias * 1.6),
+    };
+  };
+  const now = axes(kits);
+  const out = {};
+  for (const id of Object.keys(KITS)) if (!kits.includes(id)) out[id] = { now, with: axes([...kits, id]) };
+  return out;
+}
+
 // The values persist() writes, rounded the way the columns store them (REAL is float4, the
 // INTEGER columns round), as one string. Two equal keys mean the UPDATE would change nothing.
 function persistKey(a, cd) {

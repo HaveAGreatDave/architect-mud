@@ -27,9 +27,14 @@
 // ⚠ THE SERVER STILL DECIDES WHEN A BAY IS UP. This holds no timers and sends no verbs; a depot
 // opens one when its push says `service` and closes it when the push or the seat goes.
 
-import { SHOTS } from './camera-tween.js';
+import { SHOTS, motionOff } from './camera-tween.js';
 import { jobsHtml, groupsHtml } from './depot-shell.js';
 import { registerKeyPanel, grabSeatKeys } from './seat-keys.js';
+import { garageWork } from './garage-ambience.js';
+
+// THE WORK BEAT (§6.3): what a purchase on each job sounds and looks like. Performance is the
+// engine's own blip; a job with no beat (Load, Business) plays none.
+const BEAT_FOR = { repair: 'repair', service: 'service', perf: 'perf', parts: 'parts', inside: 'parts', paint: 'paint' };
 
 // THE PART AREAS (§3): where on the vehicle a job works, and the shot that shows it. A job may name
 // a `shot` of its own to refine its area; the bay takes the area's when it doesn't.
@@ -103,6 +108,55 @@ class Bay {
     this.el = null;       // the bay's element, once attached
     this.focus = null;    // which control had the keyboard, so a redraw can give it back
     this.holding = null;  // a hold key Space is holding down
+    this.look = null;     // the working look the last draw put on the vehicle
+    this.peekFn = null;   // the depot's answer to "what would this card look like on her?"
+    this.peeking = false; // a card under the pointer is on the vehicle instead of the working look
+    this.beatT = 0;
+  }
+
+  // ── Pointing previews it (§6.1) ────────────────────────────────────────────
+  /**
+   * `fn(target)` answers the look for the card under the pointer (or focus), in the seat's own
+   * shape, or undefined when that card has none. Leaving it puts the working look back.
+   */
+  peekWith(fn) { this.peekFn = typeof fn === 'function' ? fn : null; return this; }
+  peekAt(target) {
+    if (!this.peekFn || !this.open) return;
+    let look;
+    try { look = target ? this.peekFn(target) : undefined; } catch { look = undefined; }
+    if (look === undefined) {
+      if (this.peeking) { this.peeking = false; try { this.seat.preview?.(this.look); } catch { /* gone */ } }
+      return;
+    }
+    this.peeking = true;
+    try { this.seat.preview?.(look); } catch { /* gone */ }
+  }
+
+  // ── The work beat (§6.3) ───────────────────────────────────────────────────
+  /**
+   * A purchase landed: a moment of work on the part. The camera steps in and back, a burst of
+   * sparks or spray goes up over the stage and the work is heard (the engine's blip for a
+   * performance part). With reduced motion it is the sound alone. `kind` defaults to the open job's.
+   */
+  beat(kind = BEAT_FOR[this.job]) {
+    if (!kind || !this.open) return;
+    if (kind === 'perf') this.rev(0.7); else garageWork(kind);
+    if (motionOff()) return;
+    const s = this.seat, key = this.shot;
+    if (this.taken && key && key !== 'inside' && SHOTS[key]) {
+      const z = fitZoom(s), sh = SHOTS[key];
+      const at = z === 1 ? sh : { ...sh, zoom: sh.zoom * z };
+      try { s.frame({ ...at, zoom: at.zoom * 0.88 }, 380); } catch { /* gone */ }
+      clearTimeout(this.beatT);
+      this.beatT = setTimeout(() => { if (this.open && this.shot === key) { try { s.frame(at, 520); } catch { /* gone */ } } }, 620);
+    }
+    const stage = this.el?.querySelector?.('.ds-gx-stage');
+    if (stage && typeof document !== 'undefined' && document.createElement) {
+      const b = document.createElement('i');
+      b.className = `ds-beat ds-beat-${kind === 'paint' ? 'spray' : 'spark'}`;
+      stage.appendChild(b);
+      setTimeout(() => b.remove?.(), 1300);
+    }
   }
 
   /** The jobs this draw, as [{ id, ico, label, sub, tone, area, shot, rev, key }]. Keeps `job` on one of them. */
@@ -187,6 +241,10 @@ class Bay {
       el.addEventListener('keyup', (e) => el._bay?.onKeyUp(e, el));
       el.addEventListener('focusin', (e) => { if (el._bay) el._bay.focus = focusKey(e.target); });
       el.addEventListener('focusout', (e) => { if (el._bay && e.relatedTarget && !el.contains(e.relatedTarget)) el._bay.focus = null; });
+      // Pointing at a card (or tabbing onto it) puts it on the vehicle; leaving puts the pick back.
+      el.addEventListener('mouseover', (e) => el._bay?.peekAt(e.target));
+      el.addEventListener('focusin', (e) => el._bay?.peekAt(e.target));
+      el.addEventListener('mouseleave', () => el._bay?.peekAt(null));
       registerKeyPanel(el, (e) => !!el._bay?.takesKey(e, el));
     }
     return this;
@@ -291,6 +349,8 @@ class Bay {
           this.shot = key;
         }
       }
+      this.look = look;
+      this.peeking = false;
       s.preview?.(look);
     } catch { /* a seat without the hooks is a seat without the camera and the preview */ }
     this.refocus();

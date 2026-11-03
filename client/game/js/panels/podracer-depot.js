@@ -486,10 +486,32 @@ export function openPodracerBay(msg) {
   // The bay controller (maintenance-bay.js) keeps the open job, the fold and the camera across pushes.
   sv = { data: msg, onSend: was?.onSend || msg.onSend || null, work: null, kitWork: null,
     kitGroup: was?.kitGroup || null, kitSlot: was?.kitSlot || null,
-    bay: was?.bay || openBay({ seat: podracerBaySeat, job: 'repair', open: !takeDeploy() }) };
+    bay: was?.bay || openBay({ seat: podracerBaySeat, job: 'repair', open: !takeDeploy() }).peekWith(racerPeek) };
   garageBed('shed');
   drawBay();
-  if (was) notePush(document.getElementById('pdd-bay'), was.data?.credits, msg.credits);
+  // A purchase plays the work beat on the part it was for (maintenance-bay.js beat).
+  if (was && notePush(document.getElementById('pdd-bay'), was.data?.credits, msg.credits)) sv.bay.beat();
+}
+// POINTING AT A CARD PUTS IT ON THE RACER (maintenance-bay.js peekWith): a part over the working
+// kit, a scheme over the working paint. Anything else answers undefined, and the bay puts the
+// working look back.
+function racerPeek(t) {
+  if (!sv) return undefined;
+  const r = (sv.data.fleet || []).find((x) => x.id === sv.data.serviceId);
+  if (!r) return undefined;
+  const job = sv.bay.job;
+  const kb = t.closest?.('[data-kit]');
+  if (kb && (job === 'perf' || job === 'parts')) {
+    const [k, v] = kb.dataset.kit.split(':');
+    return { livery: null, kit: cleanKit({ ...kitOf(sv, r), [k]: PODRACER_KIT[k]?.kind === 'tiers' ? +v : v }) };
+  }
+  const sb = t.closest?.('[data-sch]');
+  if (sb && job === 'paint') {
+    const x = (sv.data.schemes || []).find((y) => y.id === sb.dataset.sch);
+    const held = sv.work != null ? sv.work : r.livery || null;
+    if (x) return { livery: withInside(x.livery ? { ...x.livery } : (r.factory || FACTORY_PAINT), held?.inside || null), kit: null };
+  }
+  return undefined;
 }
 export function closePodracerBay() {
   if (!sv) return;

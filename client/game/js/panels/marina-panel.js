@@ -306,7 +306,7 @@ export function openMarinaService(msg) {
   // One bay controller (maintenance-bay.js) for as long as she is in the seat, so the view she had
   // before the slip is the one handed back. Open when she arrives at a new berth; after that,
   // folded or open (and which job) is the helmsman's.
-  const bay = was?.bay || openBay({ seat: boatBaySeat, job: 'repair', open: !takeDeploy() });
+  const bay = was?.bay || openBay({ seat: boatBaySeat, job: 'repair', open: !takeDeploy() }).peekWith(boatPeek);
   if (was && !same) { bay.job = 'repair'; bay.open = !takeDeploy(); }
   sv = { data: msg, mode: msg.service, onSend: was?.onSend || msg.onSend || null, pick: was?.pick || null, decal: was?.decal || null, bay };
   // The slip has a sound; the fuel float is just the harbour, which the helm already plays.
@@ -314,7 +314,28 @@ export function openMarinaService(msg) {
   // Pulling into the shed: give the motor a blip, the way a garage menu does.
   if (!same && sv.mode === 'dock') setTimeout(() => sv?.bay.rev(0.35), 450);
   drawService();
-  if (same) notePush(document.getElementById('mar-svc'), was.data?.credits, msg.credits);
+  // A purchase plays the work beat on the part it was for (maintenance-bay.js beat).
+  if (same && notePush(document.getElementById('mar-svc'), was.data?.credits, msg.credits)) sv.bay.beat();
+}
+
+// What she wears now (her scheme's livery and her decal), for a preview to change one part of.
+function ownLivery(b) {
+  const s = (sv?.data?.schemes || []).find((x) => x.id === b.scheme);
+  return { ...(s?.livery || {}), ...(b.decal && b.decal !== 'none' ? { decal: b.decal } : {}) };
+}
+// POINTING AT A CARD PUTS IT ON HER (maintenance-bay.js peekWith): a decal on her topsides, a
+// scheme down her flank. Anything else answers undefined, and the bay puts the working look back.
+function boatPeek(t) {
+  const b = boat();
+  if (!b || sv.mode !== 'dock') return undefined;
+  const dc = t.closest?.('[data-decal]');
+  if (dc && sv.bay.job === 'parts') return { livery: { ...ownLivery(b), decal: dc.dataset.decal } };
+  const sc = t.closest?.('[data-scheme]');
+  if (sc && sv.bay.job === 'paint') {
+    const s = (sv.data.schemes || []).find((x) => x.id === sc.dataset.scheme);
+    if (s) return { livery: { ...(s.livery || {}), ...(b.decal && b.decal !== 'none' ? { decal: b.decal } : {}) } };
+  }
+  return undefined;
 }
 
 export function closeMarinaService() {
@@ -471,8 +492,11 @@ function syncPreview() {
   const onPaint = onDock && bay.job === 'paint';
   const b = boat();
   const pick = onPaint && sv.pick && b && sv.pick !== b.scheme ? (sv.data.schemes || []).find((x) => x.id === sv.pick) : null;
+  // The decal picked under Parts goes on her topsides over what she wears (§6.1).
+  const decal = onDock && bay.job === 'parts' && b && sv.decal && sv.decal !== (b.decal || 'none') ? sv.decal : null;
   bay.sync({ ...(onDock ? {} : { area: null }),
-    look: { livery: pick ? { ...(pick.livery || {}), ...(b.decal && b.decal !== 'none' ? { decal: b.decal } : {}) } : null } });
+    look: { livery: pick ? { ...(pick.livery || {}), ...(b.decal && b.decal !== 'none' ? { decal: b.decal } : {}) }
+      : decal ? { ...ownLivery(b), decal } : null } });
   if (!onPaint) sv.pick = bay.job === 'paint' ? sv.pick : null;
 }
 

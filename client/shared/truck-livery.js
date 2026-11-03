@@ -63,11 +63,32 @@ function soil(hex, k, muck = MUCK) {
   return rgbHex(c.map((v, i) => (v * (1 - t) + muck[i] * t) * (1 - 0.10 * t)));
 }
 
-export function truckLivery(paint, grime = 0) {
+// ── AND THE KNOCKS ───────────────────────────────────────────────────────────
+// `wear` (0..1, one minus the body's condition) is the damage a repair takes off, and it goes
+// through the same conversion for the same reason grime does (docs/proposals/maintenance-bay.md
+// §6.4). It is the grime's kind of mark: scorched, dulled paint, worst on the brightwork, and none
+// at all until the body is under 85%, which is where the bay starts calling it worn. Only the
+// driver's own cab passes it; the server's contacts and the cards don't, so another driver's
+// truck shows its dirt and not its dents.
+const SOOT = [40, 35, 31];
+const WEAR_MIX_MAX = 0.42;
+const WEAR_FROM = 0.15;
+
+export function truckLivery(paint, grime = 0, wear = 0) {
   const p = paint || null;
   if (!p) return {};
   const g = Math.max(0, Math.min(1, Number.isFinite(grime) ? grime : 0));
   const k = g * GRIME_MIX_MAX;
+  const w = Math.max(0, Math.min(1, ((Number.isFinite(wear) ? wear : 0) - WEAR_FROM) / (1 - WEAR_FROM)));
+  if (w > 0) {
+    const s = w * WEAR_MIX_MAX;
+    const scorch = (hex, m = 1) => soil(hex, s * m, SOOT);
+    const out = truckLivery(paint, grime, 0);
+    return { ...out, base: scorch(out.base), trim: scorch(out.trim), hw: scorch(out.hw, 0.8), deck: scorch(out.deck, 0.6),
+      bright: scorch(out.bright, 1.3), glass: scorch(out.glass, 0.35),
+      chrome: typeof out.chrome === 'number' ? out.chrome * (1 - 0.5 * w) : out.chrome,
+      finish: w > 0.5 ? 'matte' : out.finish };
+  }
   return {
     base: soil(p.base, k), trim: soil(p.trim, k), hw: soil(p.hw, k * 0.8), deck: soil(p.deck, k),
     // BRIGHTWORK DIES FASTEST and the glow does not die at all. Polished metal is the first thing

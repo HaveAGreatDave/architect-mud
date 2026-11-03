@@ -1413,9 +1413,11 @@ has **Fly** (`hangaract launch <id>`), Refuel, Store or Roll out, and Sell or Re
   stands in a shut shed until she starts up. It takes about two seconds to travel.
 - **The bench on the cockpit.** With you aboard on the hangar floor, `pushHangarBay` sends
   `service: true` (`servicedCraft`) and `hangar-bay.js` docks the bench on the cockpit's glass as the
-  shell's bay (`cockpitServiceHost`, element `#hb-svc`). The jobs are the shell's tiles (Repair,
-  Livery, Hopper, Tuning, Kits, Load), each saying what is waiting. The cockpit's chase camera is the
-  stage: each job swings it to a shot (`cockpitFrame`), the Livery's Cabin page sits you in the seat,
+  shell's bay (`cockpitServiceHost`, element `#hb-svc`), run by the bay controller
+  (maintenance-bay.js, through `cockpitBaySeat`). The jobs are the bay's eight as far as an aircraft
+  has them (Repair, Service for the fuel, Performance with Tuning and Kits, Paint, Inside for the
+  cabin, Load with the hopper and the cabin fit), each saying what is waiting. The cockpit's chase
+  camera is the stage: each job swings it to its part (`cockpitFrame`), Inside sits you in the seat,
   and the working paint rides on her as a preview (`cockpitPreview`). Nothing is charged until Apply.
   **Taxi out ▸** folds the bench and hands the camera back. The bench goes when the cockpit closes
   (`fsim:closed`) or when she moves under power (`cockpitRolling`), since nothing on the server
@@ -1488,7 +1490,10 @@ content) are bought and fitted per-craft via
 **Precision Tuning Kit** (`rangeBonus` — widens every dial) and the **Intercooler &
 Oil Cooler** (`coolMult` — halves the heat cost of lean/boost). New kits are one
 entry in the map (`rangeBonus` to widen the dials, or a coefficient read in
-`computeStats` to bend the physics).
+`computeStats` to bend the physics). The bench shows what a kit would do before it is bought:
+`kitAxes` sends, per kit she hasn't got, the figures with it fitted against her as she stands
+(speed, economy, range and cooling at her tune, how far the dials turn, and the heat with the
+mixture and the boost at the end of the dials), as the card's `kitStats`.
 
 ### Parts & slots — the discrete layer *(as built)*
 

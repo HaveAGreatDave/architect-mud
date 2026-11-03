@@ -288,11 +288,14 @@ export function isCabActive() { return !!st; }
 export function cabServiceHost() { return st ? document.querySelector('.cab-wrap') : null; }
 // ⚠ A preview, never the paint: drawn only in the chase livery, cleared when the bay closes.
 let PAINT_PREVIEW = null;
-// The same for a retrim held on the bench. Each key is set only when passed.
+// The same for a retrim held on the bench, and for a fitting: `fits` is the variant suffix the
+// server's fitSuffix would write with the picked fitting in its place. Each key is set only when passed.
 let TRIM_PREVIEW = null;
+let FITS_PREVIEW = null;
 export function cabPreview(o = {}) {
   if ('paint' in o) PAINT_PREVIEW = o.paint || null;
   if ('trim' in o) TRIM_PREVIEW = o.trim || null;
+  if ('fits' in o) FITS_PREVIEW = typeof o.fits === 'string' ? o.fits : null;
 }
 /** Read the view ('ext' or 'cab') with no argument; set it with one. */
 export function cabView(mode, { quarter = false } = {}) {
@@ -3188,7 +3191,7 @@ function frame(now) {
       tune: CAB_VIEW_TUNE,
       // The one string that decides the shape. '~p' is the parked pose for a dead engine.
       // ⚠ The fitting suffix goes last: the mesh strips from the first '~' or '^', which would eat '+t'.
-      variant: TYPE_ID + (r.hitched ? '+t' : '') + (r.stalled ? '~p' : '') + FITS,
+      variant: TYPE_ID + (r.hitched ? '+t' : '') + (r.stalled ? '~p' : '') + (FITS_PREVIEW ?? FITS),
       // Lifter wash from rpm, anchored at idle so a running idle rig is already bright.
       // ⚠ IDLE comes from the model; never restate it.
       power: r.stalled ? 0
@@ -3196,7 +3199,7 @@ function frame(now) {
         : 0.55 + 0.45 * Math.min(1, ((st.sim.rpm || 0) - IDLE) / (1 - IDLE)),
       // ⚠ The trailer's own colour wins over 'deck' in every view (server-sent). Grime goes through the
       // one livery conversion (client/shared/truck-livery.js).
-      livery: { ...truckLivery(PAINT_PREVIEW || PAINT, st.grime || 0), ...(st.trailer?.colour ? { deck: st.trailer.colour } : {}) },
+      livery: { ...truckLivery(PAINT_PREVIEW || PAINT, st.grime || 0, 1 - (st.condition ?? 1)), ...(st.trailer?.colour ? { deck: st.trailer.colour } : {}) },
       // ⚠ Yaw is always the player's; only the height is overridden while dollied in (chaseAmt).
       ...(st.external ? {
         external: true,
@@ -3354,7 +3357,7 @@ function ensureCabStyles() {
 
 export function closeCab() {
   if (!st) return;
-  PAINT_PREVIEW = null; TRIM_PREVIEW = null;
+  PAINT_PREVIEW = null; TRIM_PREVIEW = null; FITS_PREVIEW = null;
   // The immersive layouts are the page's; nothing else takes them down.
   document.body.classList.remove('cab-fullscreen', 'cab-hidepanel');
   exitBigScreen();

@@ -16,7 +16,7 @@ import { boundUnpoweredClimb, hangarTileFor, toDeg } from './state.js';
 import { thermalLift } from '../../client/shared/thermals.js';
 import { sellAircraft, cancelRental, flushAirborne, pushHangarBay, _liveryTest } from './hangars.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
-import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
+import { computeStats, perfAxes, kitAxes, KIT_AXES, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope, PYLON_MIN_TOW,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
   isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf, bombLoad, bombAmmo, waypointFor, bounds as flightBounds,
@@ -488,6 +488,12 @@ async function regressBody({ run, check, getPlayer }) {
   check('boost lifts the SPEED axis above stock', axBoost.speed > 50);
   check('lean lifts ECON but drops COOL', axLean.economy > 50 && axLean.cool < 50, JSON.stringify(axLean));
   check('every kit in the catalogue has a name + price', Object.values(KITS).every(k => k.name && k.price > 0));
+  // The bench's kit bars (maintenance-bay.md §6.2): the server's figures with and without each kit.
+  const ka = kitAxes(TT, {}, 0, [], [], 0);
+  check('kitAxes: the precision kit turns the dials further', ka.kit_precision?.with.reach > ka.kit_precision?.now.reach, JSON.stringify(ka.kit_precision));
+  check('kitAxes: the intercooler runs cooler flat out', ka.kit_intercooler?.with.flatout > ka.kit_intercooler?.now.flatout, JSON.stringify(ka.kit_intercooler));
+  check('kitAxes: a kit already fitted is not offered', !('kit_precision' in kitAxes(TT, {}, 0, ['kit_precision'], [], 0)));
+  check('kitAxes: every row the bench draws is there', KIT_AXES.every(a => Number.isFinite(ka.kit_intercooler?.now[a.id])));
 
   // ── Parts & slots (pure) ────────────────────────────────────────────────────
   // The catalogue itself: every part must name a real slot, a price and an item id,

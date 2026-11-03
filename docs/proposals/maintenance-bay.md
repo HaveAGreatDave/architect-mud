@@ -1,7 +1,7 @@
 # One maintenance bay for every vehicle
 
-**Status: phases 1 to 3 built (the cutaway and the camera, 2026-10-26; the bay controller and the
-menu, 2026-11-03); phases 4 and 5 are design.** It's
+**Status: phases 1 to 4 built (the cutaway and the camera, 2026-10-26; the bay controller, the
+menu and making it real, 2026-11-03), except the boat's hull fouling; phase 5 is design.** It's
 the plan for bringing the truck, boat, aircraft and racer service bays onto one screen: the same 3/4
 camera, the shed's walls cut away completely while the bay is open, and one big, easy menu where
 every change shows on the vehicle before you pay for it.
@@ -32,6 +32,17 @@ till (`tillHtml`) holds the price and the key that pays. Repair and Service are 
 The keyboard works while focus is in the bay (`registerKeyPanel` and `panelTakesKey` in
 seat-keys.js). Tiles are at least 56px tall and option cards are two across, one on a phone, where
 the tiles are a strip across the top of the sheet. `scripts/client/maintbay-smoke.mjs` holds it.
+
+**What phase 4 shipped.** Pointing at a card (or tabbing onto it) puts it on the vehicle and leaving
+puts the working pick back (`bay.peekWith`): the truck's fittings (a working `fits` suffix through
+`cabPreview`), schemes and coats, the boat's decal and schemes, the racer's parts and schemes, the
+aircraft's livery sets and editions. The aircraft's kits get bars from the server (`kitAxes` in
+flight/state.js, sent as `kitStats`), and the truck's kit bars follow the pointer as before. A
+purchase plays the work beat (`bay.beat`): the camera steps in and back, sparks or a drift of spray
+over the stage, and the work's sound (`garageWork` in garage-ambience.js, or the engine's blip for a
+performance part); with reduced motion it is the sound alone. The truck's body damage shows as
+scorched, dulled paint through `truckLivery`'s `wear` (the cab's own truck only), which the repair
+takes off; the hose moved to Service. Not done: the boat's hull fouling (see the open questions).
 
 What ships today is in [depot-shell.md](../reference/depot-shell.md). Read it first; this doc only
 says what changes.
@@ -221,7 +232,8 @@ and the log rung prints the same facts with no screen. No server change is neede
 3. **The menu.** §5: the canonical jobs, `partsHtml` everywhere, the till, the keyboard, bigger tiles.
    *Built 2026-11-03.*
 4. **Making it real.** §6.1 to §6.4: previews, bars, the work beat, visible wear. The aircraft's kit
-   deltas and the wear decals are the only server-side additions.
+   deltas and the wear decals are the only server-side additions. *Built 2026-11-03, except the
+   boat's hull fouling.*
 5. **Anchors.** §6.5, once models name their anchor points.
 
 After each phase: `client:smoke`, `shapes:smoke`, `bigscreen:smoke`, and `test:regress` for any
@@ -253,6 +265,20 @@ phase that touches a plugin. [depot-shell.md](../reference/depot-shell.md) is up
   the §4.4 neighbour check from a live seat at every depot first.
 - **Decided (phase 3): a page with nothing to pay for still has a till**, saying so, so the key
   that pays is always in the same place.
+- **Decided (phase 4): the truck's damage is a tint, not a decal set.** truck-livery.js already
+  says why for grime: the models are flat-shaded facets, so scorched, dulled paint is what reads.
+  It starts below 85% (where the bay calls the body worn) and only the driver's own cab draws it;
+  contacts and cards show dirt, not dents. The condition already reaches the cab (`pushCab`), so
+  no server change was needed.
+- **Decided (phase 4): the aircraft's kit bars include REACH and FLAT OUT.** Its kits change what
+  the dials can reach and what that costs in heat, which the four axes at her current tune don't
+  show at stock tune.
+- **Decided (phase 4): a paint purchase sweeps spray across the stage**, not across the body: the
+  livery is one colour set per frame, so a sweep on the model would be renderer work.
+- **Left undone (phase 4): the boat's hull fouling.** No hull has a bottom-paint layer: hulls are
+  built from rows (aircraft3d.js), and only the open boat draws a waterline stain. Fouling needs a
+  band in the hull builder driven by the bottom item's life, with GLASS 2 keying the hull's mesh on
+  it, made and checked in the Modelshop. The docket's bottom row still says when it is due.
 - **Decided (phase 2): the areas get a shot each, and a job may refine its area with a shot of its
   own.** The doc's five areas can't hold today's framing (tuning's front-left 3/4, the kits a step
   closer), so in phase 2 each job also named the shot it had, and nothing moved.
