@@ -1123,6 +1123,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   if (sgl) sgl.disable(sgl.SCISSOR_TEST);
   // Bubbles and suspended matter, after the surface so a bubble is seen against it.
   if (SUBSCENE && g.view.drawSeabedPoints) g.view.drawSeabedPoints(camAt, SUBSCENE, cssH, dpr);
+  // The fish under a stopped boat (gl/fish-shadows.js), after the surface they darken: depth-tested,
+  // writing none, so the hull hides them. Map-window tiles, so the shifted camera. ⚠ Rides
+  // FLOOR_STATE (`fishShadows`), not a new opts key; above water only.
+  const fish = !SUB && opts.floor && opts.floor.fishShadows && g.view.drawFishShadows
+    ? g.view.drawFishShadows(camAt, opts.floor.fishShadows, cssH) : 0;
   // ⚠ Road quads are map-window tiles, so the shifted camera, after the floor (eps ladder in windshield.js).
   const ground = SUB ? 0 : g.view.drawGround(camAt, opts.ground, cssH, {
     // No haze band: per-quad alpha already fades the road.
@@ -1234,7 +1239,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // `shadowSize`, `wet`, `hdr` and `mirror` are reported because each can be zero or absent for
   // several reasons that all draw a correct picture; the number says which.
   // `mass` only for a harness that sets globalThis.__massDebug (massKeep's check).
-  return { interior, faces: g.faces || 0, massDrawn: g.view.massDrawn ? g.view.massDrawn() : null, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, propShadow: g.view.propShadow || null, lampShadow: g.view.lampShadow || null, hdr: graded, canvas: g.canvas,
+  return { interior, faces: g.faces || 0, massDrawn: g.view.massDrawn ? g.view.massDrawn() : null, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, fishShadows: fish, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, propShadow: g.view.propShadow || null, lampShadow: g.view.lampShadow || null, hdr: graded, canvas: g.canvas,
     // Handed over only with the city's depth in the float target: the cloud deck goes back for it (blitOf).
     blit: graded && g.view.hdrLive() ? blitOf(g) : null };
 }

@@ -14,7 +14,8 @@ import { rigs } from '../powerboat/index.js';
 import { aboard } from '../powerboat/yard.js';
 import { _test as holdT } from '../powerboat/hold.js';
 import * as R from '../../client/shared/boatfish-rules.js';
-import { SPECIES, fishNear, keenness } from '../../client/shared/fish.js';
+import { SPECIES, fishNear, keenness, SHADOW_R, LAMP_R } from '../../client/shared/fish.js';
+import { _test as waterT, cmdLookWater, describeWaterRoom } from './water.js';
 import { SEA_TILE_M } from '../../client/shared/sea-swell.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -279,6 +280,52 @@ async function boatSuite({ run, check, p }) {
     // Slow fish first, cast a metre and a half past one so the lure is drawn in over it. A few
     // candidates in turn, because a fish can turn away; the clock is fixed, so the run is the same.
     water = ROCK;
+
+    // ── `look water` names the schools the bite is rolled on (water.js) ───────
+    // By day (the reel's env is noon), at anchor: every fish in sight is lit, so the schools named
+    // are fishNear's, nearest first, as many as MAX_SCHOOLS.
+    const lw = await run('look water');
+    const want = [];
+    for (const f of fishNear(A.x + 0.5, A.y + 0.5, SHADOW_R, clock, env, boatT.seam.habitat, st().thinned)) {
+      if (f.school.fade >= waterT.SEEN && !want.includes(f.school.id)) want.push(f.school.id);
+    }
+    const lv = waterT.lastView();
+    const named = lv ? lv.view.schools.map((e) => e.id) : [];
+    check('look water: names the nearest schools fishNear returns, nearest first',
+      want.length > 0 && JSON.stringify(named) === JSON.stringify(want.slice(0, waterT.MAX_SCHOOLS)), `${named.join(',')} against ${want.slice(0, 3).join(',')}`);
+    const lwLines = String(lw?.message || '').split('\n');
+    check('look water: a line a school, saying how far off her and how deep',
+      !!lv && lv.view.schools.every((e, k) => lwLines[k] === waterT.schoolLine(lv.q, e))
+        && /(metres (ahead|astern|off the (port|starboard) (bow|beam|quarter))|right under her), (at the top|just under the surface|a few metres down|deep)\.$/.test(lwLines[0] || ''),
+      lw?.message);
+    // Shallow silt: sludge carp holding under two metres ring the surface, in the look and the room.
+    // A shallow school rings only while it's feeding (water-view.js `feeding`), so the clock steps on
+    // a second at a time until one is; it's fixed, so the run is the same every time.
+    water = { depth: 2, shore: 2, floor: 'silt', wreck: 0 };
+    let ringy = await run('look water');
+    for (let k = 0; k < 12 && !/Rings/.test(ringy?.message || ''); k++) { clock += 1000; ringy = await run('look water'); }
+    check('look water: rings where a school feeds at the top', /Rings spread on the water .+, where something is feeding at the top\./.test(ringy?.message || ''), ringy?.message);
+    check('look water: the rings are in the room prose too', /Rings spread/.test(describeWaterRoom(null, p) || ''), describeWaterRoom(null, p));
+    water = ROCK;
+    // Under way, nothing; after dark, only the lamp.
+    rig.anchored = null; rig.speed = 6;   // only for the look: nothing ticks between these lines
+    check('look water: under way you can\'t see into it', /moving too fast/.test((await run('look water'))?.message || ''));
+    rig.speed = 1;
+    await run('look water');
+    check('look water: stopped off the anchor, the same schools', JSON.stringify(waterT.lastView()?.view.schools.map((e) => e.id)) === JSON.stringify(named));
+    rig.anchored = A; rig.speed = 0;
+    st().env = { ...env, hour: 23 };
+    rig.lamp = false;
+    check('look water: after dark with no light, black water', /^Black water/.test((await run('look water'))?.message || ''));
+    rig.lamp = true;
+    await run('look water');
+    const lamped = waterT.lastView();
+    check('look water: under the lamp, only what it lights', !!lamped && !lamped.view.dark
+      && lamped.view.schools.every((e) => e.dist <= LAMP_R + 1e-9),
+      JSON.stringify(lamped?.view.schools.map((e) => e.dist)));
+    rig.lamp = false;
+    st().env = env;
+
     const toward = (f, past) => {
       const dx = f.x - 0.5 - A.x, dy = f.y - 0.5 - A.y, m = Math.hypot(dx, dy) * SEA_TILE_M;
       return { bear: Math.atan2(dx, -dy) * 180 / Math.PI, m: m + past };
@@ -402,4 +449,9 @@ async function boatSuite({ run, check, p }) {
   // ── Shore `fish` is untouched once you're out of the boat ───────────────────
   const r = await run('fish');
   check('boat: off the boat, `fish` is the shore verb again', !/anchor/i.test(r?.message || '') && p.posture !== 'fishing', r?.message);
+  // …and so is `look water`: the matcher lets it fall through to `look` for anyone not afloat.
+  const shoreLook = await run('look water');
+  check('look water: a shore player gets the ordinary look', cmdLookWater([], 'look water', p) === undefined
+    && describeWaterRoom(null, p) === undefined
+    && !/metres (ahead|astern|off the)|Black water|Grey-green water|moving too fast|The lamp lights/.test(shoreLook?.message || ''), shoreLook?.message);
 }

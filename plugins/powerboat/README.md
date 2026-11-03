@@ -49,6 +49,12 @@ with the throttle at idle, be off any berth or covered slot, and have the seabed
 bow to the wind, and won't open the throttle. Left at anchor, the next helm adopts the point while
 it's within a tile and a half of the tile she's lying on.
 
+The anchor's `boat_ctx` push also carries what the seat needs to draw the fish under her on the
+server's terms: `serverNow`, `env`, `thinned` and `land` (`seaContext` in `plugins/fishing/sea.js`,
+which imports nothing from this plugin). The boarding context (`helmContext`) and each window
+recentre carry the same four. `boatsync`'s flags carry the skiff's lamp switch as bit 1, read by the
+fishing plugin's `look water` after dark.
+
 ### The fish box ([hold.js](hold.js))
 
 A hull's `hold_kg` is her fish box, and the box is the `boat_hold` table, one row per fish, written

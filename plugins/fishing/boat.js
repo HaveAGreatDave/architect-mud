@@ -31,7 +31,7 @@ import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { resolveForLogRung } from '../../server/engine/minigame.js';
 import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
-import { getEnvironmentState } from '../../server/engine/environment.js';
+import { seaEnv, dayOfYear, taken, thinnedNow as seaThinned, takeFrom as seaTake } from './sea.js';
 import {
   TWITCH_M, TWITCH_LIFT_M, TWITCH_MIN_MS, REEL_IN_M, SINK_MPS, CAST_MIN_M, NOTICE_M, BITE_AT,
   interestGain, decayInterest, BEAT_WINDOW_MS, LATENCY_SLACK_MS, beatCount, beatTimes, onBeat, minFightMs,
@@ -69,6 +69,9 @@ const seam = { now: null, habitat: null, floor: null, tap: null };
 const now = () => (seam.now ? seam.now() : Date.now());
 let realHabitat = null;
 const habitat = () => seam.habitat || realHabitat || (realHabitat = habitatFor(isLandTile));
+// The same clock and water for `look water` (water.js), so what you're told is what bites.
+export const seaNow = now;
+export const seaHabitat = habitat;
 const floorAt = (x, y) => (seam.floor ? seam.floor(x, y) : depthUnder(x, y));
 
 function send(pid, phase, fields = {}) {
@@ -79,48 +82,13 @@ function send(pid, phase, fields = {}) {
 const out = (pid, message) => sendToPlayer(pid, { type: 'output', message });
 const noop = { type: 'noop' };
 
-// ── THE MOMENT AT SEA ─────────────────────────────────────────────────────────
-// fish.js's env: the hour, the day of the year, the weather word and how rough it is. Taken once
-// when the reel opens and sent with `open`, so the client and the server agree on the same fish.
-function dayOfYear(date) {
-  const d = date ? new Date(`${date}T00:00:00Z`) : null;
-  if (!d || Number.isNaN(d.getTime())) return 100;
-  return Math.floor((d - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000) + 1;
-}
-function seaEnv() {
-  let e = {};
-  try { e = getEnvironmentState() || {}; } catch { /* no clock yet */ }
-  const hour = e.minutes != null ? e.minutes / 60 : (e.hour ?? 12);
-  const wind = Number(e.windKph) || 0;
-  return {
-    hour: r2(hour), doy: dayOfYear(e.date),
-    weather: String(e.currentWeatherType || e.weatherType || 'clear'),
-    rough: r2(clamp((wind - 15) / 45, 0, 1)),
-  };
-}
-
-// ── THE TAKE ──────────────────────────────────────────────────────────────────
-// What's been landed from each school, as landing times. A fish comes back a game day after it was
-// taken, so nothing needs sweeping: the count is the times still inside the day. RAM only.
-const taken = new Map();     // school id -> [ms, …]
-function gameDayMs() {
-  let ts = 1;
-  try { ts = Number(getEnvironmentState()?.timeScale) || 1; } catch { /* default */ }
-  return 86_400_000 / ts;
-}
-function thinnedNow(t = now()) {
-  const day = gameDayMs(), res = {};
-  for (const [id, list] of taken) {
-    const keep = list.filter((at) => t - at < day);
-    if (keep.length) { taken.set(id, keep); res[id] = keep.length; } else taken.delete(id);
-  }
-  return res;
-}
-function takeFrom(schoolId, t = now()) {
-  const list = taken.get(schoolId) || [];
-  list.push(t);
-  taken.set(schoolId, list);
-}
+// ── THE MOMENT AT SEA AND THE TAKE ────────────────────────────────────────────
+// fish.js's env (the hour, the day of the year, the weather word and how rough it is) and the RAM
+// take live in sea.js, because the anchor push sends them too: the seat draws the fish before the
+// reel opens. The env is taken again when the reel opens and sent with `open`, and the bites are
+// rolled on that one, so the client and the server agree on the same fish.
+const thinnedNow = (t = now()) => seaThinned(t);
+const takeFrom = (schoolId, t = now()) => seaTake(schoolId, t);
 
 // ── THE STATE ─────────────────────────────────────────────────────────────────
 // fishState = { mode: 'boat', boatId, zoneId, token, anchor, env, castM, sinkMps, skill, textRung,
@@ -133,7 +101,7 @@ export function boatState(player) {
 }
 
 /** The boat's heading in degrees, 0 north and clockwise, from either rung. */
-function headingOf(pid) {
+export function headingOf(pid) {
   const c = conning.get(pid);
   if (c?.s && Number.isFinite(c.s.heading)) return c.s.heading;
   return Number(rigs.get(pid)?.heading) || 0;
@@ -243,7 +211,9 @@ export function boatCast(player, bearingArg, rangeArg, token, { typed = false } 
   st.interest = {};
   st.bite = null; st.fight = null;
   st.thinned = thinnedNow(t);
-  send(player.id, 'lure', { token, lx: +p.x.toFixed(3), ly: +p.y.toFixed(3), lineM: r2(range), depthM: 0 });
+  // The take as it stands at the cast, so a school somebody else fished down since `open` draws as
+  // thin as the server rolls it.
+  send(player.id, 'lure', { token, lx: +p.x.toFixed(3), ly: +p.y.toFixed(3), lineM: r2(range), depthM: 0, thinned: st.thinned });
   return typed
     ? { type: 'emote', message: `The lure goes out ${numberWords(Math.round(range))} metres ${sideWords(b)} and starts to sink.` }
     : noop;

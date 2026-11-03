@@ -1550,10 +1550,28 @@ export default async function regress({ run, check, getPlayer }) {
 
         // Holds, through the typed verb, so the `boat` subverb is wired too.
         put(shallow.grid_x, shallow.grid_y);
+        const pushes = [];
+        AN._test.seam.tap = (pid, m) => { if (pid === p.id) pushes.push(m); };
         const held = await run('boat anchor');
+        AN._test.seam.tap = null;
         const a = AN.anchorOf(p.id);
         check('anchor: holds in shallow water and says how deep', /holds/.test(held?.message || '') && /metre/.test(held?.message || '')
           && !!a && Math.abs(a.x - shallow.grid_x) < 1e-6, JSON.stringify(held));
+        // The seat draws the fish from fish.js on the server's terms before any cast (fishing/sea.js):
+        // the push that tells it where she lies carries the clock, the moment, the take and the land.
+        const ctx = pushes.find((m) => m.type === 'boat_ctx' && m.anchored);
+        const FISH = await import('../../client/shared/fish.js');
+        const landAt = ctx?.land ? FISH.maskedLand(ctx.land) : null;
+        check('anchor: the push carries the server\'s clock, the sea\'s moment and the take',
+          !!ctx && Number.isFinite(ctx.serverNow) && Math.abs(ctx.serverNow - Date.now()) < 60_000
+            && !!ctx.env && Number.isFinite(ctx.env.hour) && Number.isFinite(ctx.env.doy) && typeof ctx.env.weather === 'string' && Number.isFinite(ctx.env.rough)
+            && !!ctx.thinned && typeof ctx.thinned === 'object',
+          JSON.stringify(ctx && { serverNow: ctx.serverNow, env: ctx.env, thinned: ctx.thinned }));
+        check('…and the land round her, as the server reads it',
+          !!landAt && landAt(shallow.grid_x, shallow.grid_y) === AN._test.isLandTile(shallow.grid_x, shallow.grid_y)
+            && landAt(shallow.grid_x + 7, shallow.grid_y - 5) === AN._test.isLandTile(shallow.grid_x + 7, shallow.grid_y - 5)
+            && landAt(shallow.grid_x, shallow.grid_y) === false,
+          JSON.stringify(ctx?.land && { x0: ctx.land.x0, y0: ctx.land.y0, n: ctx.land.n }));
         const row = (await q('SELECT custom_data FROM boats WHERE id = $1', [id])).rows[0];
         check('anchor: the point is on the row', Math.abs((row?.custom_data?.anchored?.x ?? NaN) - a?.x) < 1e-6, JSON.stringify(row?.custom_data));
         check('anchor: a second drop is refused', /already down/.test(await ask()));
@@ -1578,6 +1596,7 @@ export default async function regress({ run, check, getPlayer }) {
         check('…and the clamp lets her go', Math.abs(rigs.get(p.id).x - (a.x + 1)) < 0.002, String(rigs.get(p.id).x));
         check('anchor: `anchor up` with nothing down says so', /isn't down/.test(await ask(['up'])));
       } finally {
+        AN._test.seam.tap = null;
         rigs.delete(p.id);
         svcState.delete(p.id);
         if (was.rig) rigs.set(p.id, was.rig);

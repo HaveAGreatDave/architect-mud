@@ -19,7 +19,9 @@ import { SEA_TILE_M } from '../../client/shared/sea-swell.js';
 import {
   SPECIES, SPECIES_IDS, ACTIVE, WATCHES, habitatFor, schoolsNear,
   schoolState, schoolFish, fishKg, fishNear, loopPeriod, forecastLines,
+  SHADOW_R, LAMP_R, landMask, maskedLand, daylightOfNight,
 } from '../../client/shared/fish.js';
+import { shadowFish, shadowInstances, packShadows, resetShadowScene } from '../../client/game/js/panels/fish-shadow-scene.js';
 
 const problems = [];
 const say = (m) => problems.push(m);
@@ -137,9 +139,75 @@ for (const env of [...ENVS, ...ENVS.map((e) => ({ ...e, doy: 20 }))]) {
 }
 for (const id of SPECIES_IDS) if (!seen.has(id)) say(`${id}: no school of it within 70 tiles of the harbour at any watch, spring or winter`);
 
+// 8. The shadows (fish-shadow-scene.js, drawn by gl/fish-shadows.js).
+//
+// The seat draws fish.js's fish from its own copy of the arithmetic, on the land the server sends it
+// (fish.js landMask), with the schools kept between frames. So: the seat's list is the server's
+// fishNear to the fish, the server's way round (x + 0.5) and on the masked land; the same question
+// gets the same instances; nothing is drawn under way, or at night outside the lamp.
+const SCENE_SRC = fs.readFileSync('client/game/js/panels/fish-shadow-scene.js', 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+for (const bad of ['Date.now', 'new Date', 'performance.now', 'Math.random']) {
+  if (SCENE_SRC.includes(bad)) say(`fish-shadow-scene.js calls ${bad}: the seat hands in the server's clock`);
+}
+if (daylightOfNight(1) !== 0 || daylightOfNight(0) !== 1 || daylightOfNight(0.88) !== 0) say('daylightOfNight: full night and the blue hour must be 0, full day 1');
+const key = (f) => `${f.school.id}:${f.i}:${f.x.toFixed(6)}:${f.y.toFixed(6)}`;
+let agreed = 0, compared = 0, drawnDay = 0, lampSeen = 0;
+const spots = [];
+for (let x = 884; x <= 932; x += 4) for (let y = 884; y <= 912; y += 4) if (!realLand(x, y) && habR(x + 0.5, y + 0.5)?.depth > 1) spots.push([x, y]);
+if (spots.length < 20) say(`only ${spots.length} water spots round the harbour to test the shadows on`);
+for (const [bx, by] of spots.slice(0, 48)) {
+  const masked = habitatFor(maskedLand(landMask(bx, by, realLand), () => false));
+  for (const env of [ENVS[1], ENVS[3]]) {
+    resetShadowScene();
+    for (const [dx, dy] of [[0, 0], [0.12, -0.09]]) {   // a swing on the anchor: the kept schools serve both
+      const x = bx + dx, y = by + dy;
+      const server = fishNear(x + 0.5, y + 0.5, SHADOW_R, NOW, env, habR).map(key).join('|');
+      const seat = shadowFish(x, y, NOW, env, masked).map(key).join('|');
+      compared++;
+      if (server === seat) agreed++;
+      else if (compared - agreed <= 3) say(`shadows at ${x},${y} ${env.hour}:00: the seat's fish aren't the server's (${seat.split('|').length} against ${server.split('|').length})`);
+    }
+  }
+  // The same question, the same instances, from a fresh cache too.
+  const q = { x: bx, y: by, now: NOW, env: ENVS[1], habitat: masked, thinned: null, anchored: true, speedMph: 0, daylight: 1, lamp: false };
+  const a = JSON.stringify(shadowInstances(q));
+  resetShadowScene();
+  if (JSON.stringify(shadowInstances(q)) !== a) say(`shadowInstances at ${bx},${by} gave two answers to one question`);
+  const day = shadowInstances(q);
+  drawnDay += day.length;
+  // What's drawn by day is the seat's fish: each instance is one of them, and every one well inside
+  // sight that has arrived is drawn.
+  const all = new Map(shadowFish(bx, by, NOW, ENVS[1], masked).map((f) => [`${f.school.id}:${f.i}`, f]));
+  const drawn = new Set(day.map((s) => `${s.school}:${s.i}`));
+  const stray = day.find((s) => !all.has(`${s.school}:${s.i}`));
+  const missed = [...all.values()].find((f) => f.dist <= SHADOW_R - 2 && f.school.fade >= 0.05 && !drawn.has(`${f.school.id}:${f.i}`));
+  if (stray) say(`a shadow at ${bx},${by} (${stray.school} ${stray.i}) is no fish the server has`);
+  if (missed) say(`fish ${missed.school.id} ${missed.i} at ${bx},${by} is in sight by day and isn't drawn`);
+  // The packed buffer is the same list, in the window's frame.
+  const box = { data: null }, n = packShadows(q, box, bx - 3, by + 2, () => 0.01, SEA_TILE_M);
+  if (n !== day.length) say(`packShadows packed ${n} at ${bx},${by} against ${day.length} instances`);
+  else if (n && (Math.abs(box.data[0] - (day[0].x - (bx - 3))) > 1e-4 || Math.abs(box.data[4] - day[0].len / SEA_TILE_M) > 1e-4 || box.data[2] !== Math.fround(0.01))) {
+    say(`packShadows at ${bx},${by} doesn't put the first shadow where shadowInstances does`);
+  }
+  // Under way, nothing; a stopped boat that isn't anchored, the same as an anchored one.
+  if (shadowInstances({ ...q, anchored: false, speedMph: 6 }).length) say(`shadows drawn under way at ${bx},${by}`);
+  if (shadowInstances({ ...q, anchored: false, speedMph: 1.5 }).length !== day.length) say(`a boat stopped off anchor at ${bx},${by} sees different shadows`);
+  // At night, nothing without the lamp, and with it only what it lights.
+  const nq = { ...q, env: ENVS[3], daylight: daylightOfNight(1) };
+  if (shadowInstances(nq).length) say(`shadows drawn at night with no lamp at ${bx},${by}`);
+  for (const s of shadowInstances({ ...nq, lamp: true })) {
+    lampSeen++;
+    if (Math.hypot(s.x - bx, s.y - by) > LAMP_R + 1e-9) { say(`a shadow ${Math.hypot(s.x - bx, s.y - by).toFixed(2)} tiles off at night, outside the lamp`); break; }
+  }
+}
+if (compared && agreed !== compared) say(`the seat's shadows matched the server's fish at ${agreed} of ${compared} points`);
+if (!drawnDay) say('no shadows drawn by day at any spot round the harbour');
+if (!lampSeen) say('no fish came under the lamp at any spot round the harbour after dark');
+
 if (problems.length) {
   console.log(`✗ fish: ${problems.length} problem(s):`);
   for (const p of problems.slice(0, 40)) console.log('  · ' + p);
   process.exit(1);
 }
-console.log(`✓ fish: nothing reads the clock; ${SPECIES_IDS.length} species are whole and every catch is a raw_fish item; the same question gets the same answer; ${swum} schools swim at their species' speed without jumps, under the surface, over their floor and never onto land; weights stay in range; and every marina has fish at every watch.`);
+console.log(`✓ fish: nothing reads the clock; ${SPECIES_IDS.length} species are whole and every catch is a raw_fish item; the same question gets the same answer; ${swum} schools swim at their species' speed without jumps, under the surface, over their floor and never onto land; weights stay in range; every marina has fish at every watch; and at ${compared} points the seat's shadows are the server's fish on the land it sends, drawn by day (${drawnDay}), never under way, and after dark only under the lamp (${lampSeen}).`);

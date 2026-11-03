@@ -48,6 +48,8 @@ import { pickWeighted } from '../../server/engine/util.js';
 import '../powerboat/index.js';
 import { aboard } from '../powerboat/yard.js';
 import { openBoatReel, boatCast, boatTwitch, boatStrike, boatResolve, boatTick, boatTyped, endBoatFishing, abandonBoatFishing } from './boat.js';
+import { cmdLookWater, describeWaterRoom, LOOK_WATER_RE } from './water.js';
+import { registerInputMatcher } from '../../server/engine/plugins.js';
 
 const ATTEMPT_MS = 4200;    // per-cast cadence — a touch slower than scavenging; fishing is patient
 const MAX_SWING = 14;       // best possible 2d8-2d8 roll — reachability ceiling
@@ -551,6 +553,14 @@ export const commands = {
   // The boat reel's taps and strikes (boat.js). Typed as `fish twitch` and `fish strike`.
   fishtwitch: (args, raw, player) => boatTwitch(player, args[0], { reel: args[1] === 'reel' }),
   fishstrike: (args, raw, player) => boatStrike(player, args[0], args[1], args[2]),
+};
+
+// `look water` from a boat, and the surface signs in the room prose (water.js). The matcher returns
+// undefined for anyone not afloat, so the line falls through to `look` as it always has.
+registerInputMatcher(LOOK_WATER_RE, cmdLookWater, 'fishing');
+export const hooks = {
+  // ⚠ SYNC AND IN MEMORY: describeZone runs on every move. Off a boat it's one Map.has.
+  'zone.describeRoom': (zone, player) => describeWaterRoom(zone, player),
 };
 
 // Pure helpers exposed for the regression suite (never used in production).

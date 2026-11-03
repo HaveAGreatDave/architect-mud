@@ -41,7 +41,8 @@ import { startTextHelm, isConning, stopTextHelm } from './texthelm.js';
 import { TYPES } from '../../client/game/js/panels/flight-model.js';
 import { boardCheck, noteTaken } from '../../server/engine/vehicle-access.js';
 import { unindexBoat } from './access.js';
-import { anchorFromRow, anchorSql, anchorParam } from './anchor.js';
+import { anchorFromRow, anchorSql, anchorParam, isLandTile } from './anchor.js';
+import { seaContext } from '../fishing/sea.js';
 import { clampToSwing } from '../../client/shared/boat-anchor.js';
 
 const RADIUS = 16;                    // must match `RAD` in client/game/js/panels/boat-view.js
@@ -175,6 +176,10 @@ export function helmContext(boat, at, playerId = null) {
     marks: berthMarksNear(at.x, at.y),
     // The anchor she was left lying to, if it's still under her; the seat holds her to it.
     anchored: anchorFromRow(boat),
+    // The server's clock, the sea's moment, the take and the land, for the fish under her
+    // (fishing/sea.js). The seat draws shadows at anchor or under 2 mph, which can be the moment
+    // she's boarded, so they come with the seat rather than waiting for the anchor push.
+    ...seaContext(at.x, at.y, isLandTile),
   };
 }
 
@@ -417,6 +422,8 @@ export async function cmdBoatSync(args = [], raw, player) {
     pedal: clamp01(pedal), roll, pitch,
     rich: clamp01(rich), bang: clamp01(bang),
     nitroOn: !!(flags & 1),
+    // The skiff's battery lamp (bit 1): `look water` at night sees only what it lights.
+    lamp: !!(flags & 2),
     at: Date.now(),
   });
   rigs.set(player.id, was);
@@ -435,7 +442,9 @@ export async function cmdBoatSync(args = [], raw, player) {
     sendToPlayer(player.id, { type: 'boat_ctx', gx: cx, gy: cy, map: mapWindow({ grid_x: cx, grid_y: cy }, RADIUS),
       hour: sky.hour, weather: sky.weather, wxField: sky.field || null, wxGround: sky.ground || null,
       contacts: worldContactsNear(cx, cy, 26, 'boat_' + player.id), ...farOf(cx, cy),
-      actors: streetActors(cx, cy, RADIUS, player.id), marks: berthMarksNear(cx, cy) });
+      actors: streetActors(cx, cy, RADIUS, player.id), marks: berthMarksNear(cx, cy),
+      // The fish's land and moment move with the window (fishing/sea.js): RAM and cached tiles.
+      ...seaContext(cx, cy, isLandTile) });
     was.actAt = Date.now(); was.conAt = Date.now();
   } else if (Date.now() - (was.actAt || 0) > ACTOR_PUSH_MS) {
     // The street population on its own clock: people walk while the window stays put. RAM only.

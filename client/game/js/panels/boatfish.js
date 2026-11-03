@@ -126,6 +126,7 @@ export function onBoatFishMessage(msg) {
       setDepth(num(msg.depthM, 0), t);
       S.floorM = num(msg.floorM, Infinity);
       S.lastTapAt = null; S.gap = null; S.follow = [];
+      if (msg.thinned && typeof msg.thinned === 'object') S.thinned = msg.thinned;   // the take at the cast, for the shadows
       if (!_host) sfx('boatfish-plop');   // the seat plays its own splash
       break;
     }
@@ -166,6 +167,7 @@ export function onBoatFishMessage(msg) {
       S.phase = 'landed'; S.lineM = 0; S.waitResolve = false;
       S.catch = { species: msg.species || null, kg: num(msg.kg, 0) };
       S.holdKg = num(msg.holdKg, S.holdKg); S.holdCap = num(msg.holdCap, S.holdCap);
+      if (msg.thinned && typeof msg.thinned === 'object') S.thinned = msg.thinned;   // one fewer in that school's shadow
       sfx('boatfish-splash');
       card(`${cap(name)}, ${num(msg.kg, 0).toFixed(2)} kg.`,
         `In the box. It's carrying ${S.holdKg.toFixed(2)} of ${fmt1(S.holdCap)} kg.`, t, true);

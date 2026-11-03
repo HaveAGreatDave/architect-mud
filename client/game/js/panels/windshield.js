@@ -4637,6 +4637,9 @@ function paintWindshieldFrame(id, view) {
   LAST_VIEW = {
     id, cls: v.cls, phase: v.phase, worldBlend: +(worldBlend ?? 1).toFixed(3), height: +(v.height || 0).toFixed(4),
     airport: v.airport, helipad: !!v.helipad, external: !!v.external, hour: v.hour, weather: v.weather,
+    // How dark the sky is, 0..1: a boat seat reads it to know whether a shadow in the water can be
+    // seen by day or only under its lamp (fish-shadow-scene.js).
+    night: +(sky.night || 0).toFixed(3),
     // how far in the wheel may dolly before the camera would be inside the vehicle (see orbFloor)
     chaseZoomFloor: +chaseZoomFloor.toFixed(4),
     heading: v.heading == null ? null : +v.heading.toFixed(1), pitchDeg: v.pitch ?? null, bankDeg: v.bank ?? null,
@@ -16299,6 +16302,9 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
         },
         lamp: subLamp(v, off, hullT),
       }) : null,
+      // The fish under a stopped boat: { data, n, chase }, packed by the seat (fish-shadow-scene.js)
+      // in this frame's map window and drawn by gl/fish-shadows.js. GLASS 2 only; absent is none.
+      fishShadows: v.fishShadows && v.fishShadows.n > 0 ? v.fishShadows : null,
       seaAmp: SEA_NOW.amp,
       sunDir: sun && sun.dir ? sun.dir : [0, 0], sunElev: sun ? (sun.elev || 0) : 0,
       moonDir: sun && sun.moonDir ? sun.moonDir : [0, 0], moonElev: sun ? (sun.moonElev || 0) : 0,

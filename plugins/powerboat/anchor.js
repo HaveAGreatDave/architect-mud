@@ -29,8 +29,17 @@ import { aboard, recoverAboard, berthKind, coveredRoomAtTile, isOpenWater } from
 import { livePosition, zoneUnder, STEP_OFF_MPH } from './adrift.js';
 import { rigs } from './index.js';
 import { conning } from './texthelm.js';
+// The moment, the take and the land for the seat's fish (docs/proposals/boat-fishing.md §3). The
+// fishing plugin owns them; sea.js imports nothing from this plugin, so there is no cycle.
+import { seaContext } from '../fishing/sea.js';
 
 const say = (message) => ({ type: 'output', message });
+// The suite's ear on the pushes. Production never sets it.
+const seam = { tap: null };
+function push(playerId, msg) {
+  if (seam.tap) seam.tap(playerId, msg);
+  sendToPlayer(playerId, msg);
+}
 const dim = (m) => say(`<span class="text-dim">${m}</span>`);
 
 // Land, for the seabed: the submersible's rule (plugins/submersible/index.js `isLandTile`), restated
@@ -111,7 +120,7 @@ export async function boatAnchor(player, args = []) {
     if (!down) return dim("The anchor isn't down.");
     setAnchor(player.id, null);
     await persist(boatId, null);
-    sendToPlayer(player.id, { type: 'boat_ctx', anchored: null });
+    push(player.id, { type: 'boat_ctx', anchored: null });
     return say("You haul the anchor in hand over hand and drop it in the bow with a fistful of weed. She's drifting.");
   }
 
@@ -138,9 +147,12 @@ export async function boatAnchor(player, args = []) {
   // text helm's engine is known here, so only that rung is told it was running.
   const running = c ? c.s.running !== false : false;
   if (c) { c.s.running = false; c.starting = false; c.want.bell = 'stop'; c.want.bottle = false; }
-  sendToPlayer(player.id, { type: 'boat_ctx', anchored: a, cut: true });
+  // ⚠ AND THE SEAT GETS THE SERVER'S CLOCK, THE SEA'S MOMENT, THE TAKE AND THE LAND HERE, before any
+  // cast: the shadows are drawn from fish.js on those four, and a seat running its own clock draws
+  // the school metres from where the bite is rolled (fishing/sea.js).
+  push(player.id, { type: 'boat_ctx', anchored: a, cut: true, ...seaContext(a.x, a.y, isLandTile, a.at) });
   return say(`${running ? 'You cut the engine and put' : 'You put'} the anchor over the bow. `
     + `The rope goes slack at ${metres(depth)}, then she drifts back on it and holds.`);
 }
 
-export const _test = { isLandTile, depthUnder, anchorOf, setAnchor, anchorFromRow, metres };
+export const _test = { seam, isLandTile, depthUnder, anchorOf, setAnchor, anchorFromRow, metres };

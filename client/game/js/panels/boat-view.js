@@ -47,6 +47,8 @@ import { wildlandsAt } from '../../../shared/wildlands.js';
 import { SWING_R, LIE_FRAC, clampToSwing } from '../../../shared/boat-anchor.js';
 import { bindTouchGestures } from './touch-gestures.js';
 import { loadCss } from '../../../shared/dom.js';
+import { habitatFor, maskedLand, daylightOfNight, SHOW_MPH } from '../../../shared/fish.js';
+import { packShadows, resetShadowScene } from './fish-shadow-scene.js';
 
 // boat-view.css ships beside this file and is fetched when the module loads, so ensureBoatStyles
 // still applies it synchronously on first open. See loadCss in client/shared/dom.js.
@@ -469,6 +471,7 @@ export function openBoat(ctx = {}) {
     onExit: ctx.onExit || (() => send('disembark')),
   };
   if (ctx.contacts) st.contacts.update(ctx.contacts);
+  takeSea(ctx);
 
   // ⚠ THE WHEEL IS IN `absolute` MODE AND THE BOAT IS NOT A YACHT, which sounds like a
   // contradiction and is not: `absolute` means the wheel's ANGLE is the input rather than its
@@ -1020,6 +1023,62 @@ function seaAt(x, y) {
   try { return seaHeight(x - st.cx, y - st.cy, seaClock(Date.now()), st.sim.seaRoll || 0, st.sim.seaChopH || 0, st.sim.seaWind || 0); }
   catch { return 0; }
 }
+
+// ── THE FISH UNDER HER (docs/proposals/boat-fishing.md §3, §4) ────────────────
+//
+// The shadows are client/shared/fish.js run here on the server's terms, so the shadow you cast at is
+// the fish the server rolls the bite for. Four things come from the server (plugins/fishing/sea.js)
+// on the seat's context, the anchor push and each window recentre: its clock (kept as a skew), the
+// sea's moment `env`, the take `thinned`, and a mask of the land round her, because a school's
+// habitat asks about shore further off than this seat's window reaches. While the reel is open its
+// own `open` is fresher and is what the bites are rolled on, so it wins and refreshes these.
+function takeSea(msg) {
+  if (!st || !msg) return;
+  const S = st.sea || (st.sea = { skew: 0, has: false, env: null, thinned: null, land: null, hab: null, q: {}, box: { data: null }, out: { data: null, n: 0, chase: 0 } });
+  const sn = Number(msg.serverNow);
+  if (msg.serverNow != null && Number.isFinite(sn)) { S.skew = sn - Date.now(); S.has = true; }
+  if (msg.env && typeof msg.env === 'object') S.env = msg.env;
+  if (msg.thinned && typeof msg.thinned === 'object') S.thinned = msg.thinned;
+  if (msg.land) { S.land = maskedLand(msg.land, windowLand); S.hab = null; }   // a new mask is new answers
+}
+// Land for fish.js, in its own tile convention (tile i spans [i, i + 1)): the server's mask, and past
+// it this seat's window, and past that open water.
+const windowLand = (ix, iy) => (st ? !isWet(cellAt(ix - st.cx, iy - st.cy)) : false);
+const seaLand = (ix, iy) => (st?.sea?.land ? st.sea.land(ix, iy) : windowLand(ix, iy));
+// This frame's shadows, packed for gl/fish-shadows.js, or null. ⚠ THE GATE COMES FIRST: under way,
+// without the server's clock, at night with the lamp off, or with GLASS 2 off, nothing is asked.
+function fishFrame(anyRenderer = false) {
+  const S = st.sea;
+  if (!S || !S.has || (!anyRenderer && RENDER_TUNE.gl === 0)) return null;
+  const speed = Math.abs(st.sim.speed || 0);
+  if (!st.anchored && !(speed < SHOW_MPH)) return null;
+  const reel = reelOpen() ? BF.boatFishState() : null;
+  if (reel) {
+    if (reel.env) S.env = reel.env;
+    if (reel.thinned) S.thinned = reel.thinned;
+    try { S.skew = BF.serverNow() - Date.now(); } catch { /* keep the anchor's */ }
+  }
+  if (!S.env) return null;
+  const day = daylightOfNight(lastViewState()?.night ?? 0), lamp = !!st.lamp;
+  if (day <= 0 && !lamp) return null;
+  if (!S.hab) { S.hab = habitatFor(seaLand); resetShadowScene(); }
+  const q = S.q;
+  q.x = st.cx + st.sim.x; q.y = st.cy + st.sim.y; q.now = Date.now() + S.skew;
+  q.env = S.env; q.habitat = S.hab; q.thinned = S.thinned;
+  q.anchored = !!st.anchored; q.speedMph = speed; q.daylight = day; q.lamp = lamp;
+  const n = packShadows(q, S.box, st.cx, st.cy, seaAt, SEA_TILE_M);
+  if (!n) return null;
+  S.out.data = S.box.data; S.out.n = n; S.out.chase = st.external ? 1 : 0;
+  return S.out;
+}
+
+// For scripts/client/boatseat-smoke.mjs only, which runs with GLASS 2 off: this frame's shadows
+// whatever the renderer, the clock skew, and the lamp switch.
+export const _seatTest = {
+  fishFrame: () => (st ? fishFrame(true) : null),
+  skew: () => (st && st.sea ? st.sea.skew : null),
+  lamp: (on) => { if (st) st.lamp = !!on; },
+};
 
 function stepRod(dt, now) {
   const R = st.rod;
@@ -1606,6 +1665,8 @@ function frame(now) {
       // Out of rod mode, the Keel's chase view still has somebody in her: the same man on the same
       // thwart in the sitting clip, with no rod (rod-rig.js `pilot`).
       ...(st.rodView ? { rod: st.rodView } : pilotView(now)),
+      // The fish under her, at anchor or under 2 mph (gl/fish-shadows.js). Null under way, at no cost.
+      fishShadows: fishFrame(),
     });
     drawRead();
 
@@ -1622,13 +1683,14 @@ function frame(now) {
       // when they stab the throttle. Dropped, a boat two hundred yards away runs clean and silent
       // and nothing anywhere says why.
       //   bit 0 = the bottle is lit
+      //   bit 1 = the battery lamp is on (the server's `look water` sees only what it lights)
       send('boatsync '
         + (st.cx + st.sim.x).toFixed(3) + ' ' + (st.cy + st.sim.y).toFixed(3) + ' '
         + Math.round(st.sim.heading) + ' ' + Math.round(Math.abs(st.sim.speed)) + ' '
         + st.sim.hull.toFixed(4) + ' ' + st.sim.nitro.toFixed(3) + ' ' + st.fuel.toFixed(4) + ' '
         + (st.sim.pedal || 0).toFixed(3) + ' ' + (st.sim.roll || 0).toFixed(4) + ' '
         + (st.sim.pitch || 0).toFixed(4) + ' ' + (st.sim.rich || 0).toFixed(2) + ' '
-        + (st.sim.bang || 0).toFixed(2) + ' ' + (st.sim.nitroOn ? 1 : 0));
+        + (st.sim.bang || 0).toFixed(2) + ' ' + ((st.sim.nitroOn ? 1 : 0) | (st.lamp ? 2 : 0)));
     }
   } catch (e) {
     // The cab's and the helm's discipline, for the same reason: `paintWindshield` has no internal
@@ -1777,6 +1839,8 @@ export function boatSetWorld(msg = {}) {
   }
   if ('livery' in msg) st.livery = msg.livery || null;
   if (msg.name) st.name = msg.name;
+  // The server's clock, the sea's moment, the take and the land, for the fish (fishing/sea.js).
+  takeSea(msg);
 }
 
 // ── THE STYLES ───────────────────────────────────────────────────────────────

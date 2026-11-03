@@ -204,6 +204,47 @@ ck('…without colliding with the STOP bell', /BELLS = \{ stop:/.test(th) && !/w
 ck('neither rung burns fuel with the key off',
    /running(?: !== false)?\)\s*st\.fuel = Math\.max/.test(cli) && /running(?: !== false)?\)\s*c\.fuel = Math\.max/.test(th));
 
+// ── THE FISH UNDER HER (fish-shadow-scene.js, gl/fish-shadows.js) ────────────
+//
+// The anchor push carries the server's clock, the sea's moment, the take and the land
+// (plugins/fishing/sea.js), and from then the seat packs a shadow per fish it can see. Asked through
+// `_seatTest` because this gate runs with GLASS 2 off, which is the one state where the seat sends
+// none. What a shadow looks like is the boat shot's business; this checks the seat makes them.
+console.log('\nthe fish under her:');
+{
+  const fishM = await import('../../client/shared/fish.js');
+  const shore = (ix, iy) => iy < 902 - 8;   // the quay along the map's north edge, in fish.js's tiles
+  const T = bv._seatTest;
+  ck('before the server says the time, no shadows', T.fishFrame() === null);
+  bv.boatSetWorld({ anchored: { x: 894, y: 902, at: Date.now() }, serverNow: Date.now() + 5000,
+    env: { hour: 13, doy: 100, weather: 'clear', rough: 0 }, thinned: {}, land: fishM.landMask(894, 902, shore) });
+  frameStep(64);
+  ck('the anchor push sets the clock skew', Math.abs((T.skew() ?? 0) - 5000) < 200, String(T.skew()));
+  const fr = T.fishFrame();
+  ck('at anchor by day the seat packs shadows', !!fr && fr.n > 0 && fr.data.length >= fr.n * 9, fr ? `n=${fr.n}` : 'none');
+  let inWin = !!fr, finite = !!fr;
+  for (let i = 0; fr && i < fr.n; i++) {
+    const o = i * 9;
+    if (Math.hypot(fr.data[o], fr.data[o + 1]) > fishM.SHADOW_R + 1.5) inWin = false;
+    for (let k = 0; k < 9; k++) if (!Number.isFinite(fr.data[o + k])) finite = false;
+  }
+  ck('…round her, in the window\'s frame', inWin);
+  ck('…every float a number', finite);
+  bv.boatSetWorld({ hour: 23 });
+  frameStep(80);
+  ck('after dark with the lamp off, none', T.fishFrame() === null);
+  T.lamp(true);
+  const lit = T.fishFrame();
+  let inLamp = true;
+  for (let i = 0; lit && i < lit.n; i++) if (Math.hypot(lit.data[i * 9], lit.data[i * 9 + 1]) > fishM.LAMP_R + 0.5) inLamp = false;
+  ck('…and with it on, only under the lamp', inLamp, lit ? `n=${lit.n}` : 'none');
+  T.lamp(false);
+  bv.boatSetWorld({ hour: 13, anchored: null });
+  frameStep(96);
+}
+ck('no frame threw with the fish', !TALLY.text.some((t) => String(t).includes('[boat] frame error')),
+   TALLY.text.find((t) => String(t).includes('[boat] frame error')));
+
 // ── 5. AND IT LETS GO ───────────────────────────────────────────────────────
 console.log('\n— coming down —');
 bv.closeBoat();

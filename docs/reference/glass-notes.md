@@ -39,6 +39,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Measuring in the game and on a phone (`__glassBench()`)](#measuring-in-the-game-and-on-a-phone-__glassbench)
 - [Prop shadows (`RENDER_TUNE.glPropShadow`)](#prop-shadows-render_tuneglpropshadow)
 - [Lamp shadows (`RENDER_TUNE.glLampShadow`)](#lamp-shadows-render_tunegllampshadow)
+- [Fish shadows (`gl/fish-shadows.js`)](#fish-shadows-glfish-shadowsjs)
 - [TAA and the floor](#taa-and-the-floor)
 - [Measuring the frame (`__glFrame()`)](#measuring-the-frame-__glframe)
 - [Hardware coverage](#hardware-coverage)
@@ -586,6 +587,16 @@ Measured 2026-10-31 on Marrow Street (916,909, heading 90, 23:00) with lamps pat
 | free camera, eye 0.5, pitch −50 | 0% | 0.01%, all darker | 8.1% |
 
 So on that street it barely shows, because the pools are dim and narrow and the posts cast away from their own lamp. With `glPool` at 6 the shadows read as long thin lines from the neighbouring posts across the road. GPU, `glPassTimer`: 0.027 ms for the four maps (636 caster triangles); the ground pass didn't measurably change. Judge it in the live game, where people walk under lit lamps.
+
+## Fish shadows (`gl/fish-shadows.js`)
+
+Built 2026-11-03 for boat fishing ([boat-fishing.md](../proposals/boat-fishing.md) §4). A boat seat at anchor or under 2 mph packs one instance a fish (`fish-shadow-scene.js`, 9 floats) onto `FLOOR_STATE.fishShadows`; gl/world.js draws it straight after the sea and the seabed points, with the shifted camera, above water only. No new world-pass option, so `gl:opts` has nothing to allow.
+
+- **It darkens, and the blend says so.** `blendFuncSeparate(ZERO, ONE_MINUS_SRC_COLOR, ZERO, ONE)`: the colour is `dst * (1 - src)` and the target's alpha is left alone. A plain `blendFunc(ZERO, …)` zeroes the alpha under every shadow, and the canvas is composited with it.
+- **Not through `linearOut`.** The output is a darkening factor, not a colour, so the shader decodes the factor itself (`glassLin(1 - s)`, from `LINEAR_GLSL`) when `uGlassLinOut` is set. Wrapped, it would decode the darkening amount as if it were a colour.
+- **Depth-tested, writing none, pulled 3 cm toward the eye.** The quad sits on the sea's CPU height at its school, which isn't the displaced mesh's to the centimetre; the pull keeps a crest from cutting it and is far too small to show through the hull.
+- **No GLASS 1 fallback.** With GLASS 2 off the seat sends nothing at all.
+- **Gates:** `scripts/fish/smoke.mjs` holds the instance list against the server's fish; `scripts/client/boatseat-smoke.mjs` checks the seat packs them, and none after dark with the lamp off. Nothing checks the picture: take the boat shot.
 
 ## TAA and the floor
 

@@ -1,6 +1,6 @@
 # Boat fishing
 
-**Status: phases 1 to 3 are built (2026-10-27): the Keel Mk 1 with her first-person seat, `boat anchor`, the fish sim (`client/shared/fish.js`), the reel (`boatfish.js`, `boatfish-rules.js`), rod mode and the cast in both views, the server loop (`plugins/fishing/boat.js`) and the fish box (`boat_hold`). The shadows, the logbook, the forecast broadcast and the passenger are design.** It's a cozy fishing sim on top of the boat system. You buy a basic two-seat skiff with a small fish box, drive her in first or third person to a spot, anchor, and cast at any bearing and distance into fish that are simulated swimming. Each water has its own species and difficulty. It works only from a boat. Shore fishing ([systems-fishing.md](../systems-fishing.md)) stays exactly as it is.
+**Status: phases 1 to 3 are built (2026-10-27, the shadows 2026-11-03): the Keel Mk 1 with her first-person seat, `boat anchor`, the fish sim (`client/shared/fish.js`), the shadows (`gl/fish-shadows.js`) and `look water`, the reel (`boatfish.js`, `boatfish-rules.js`), rod mode and the cast in both views, the server loop (`plugins/fishing/boat.js`) and the fish box (`boat_hold`). The logbook, the forecast broadcast and the passenger are design.** It's a cozy fishing sim on top of the boat system. You buy a basic two-seat skiff with a small fish box, drive her in first or third person to a spot, anchor, and cast at any bearing and distance into fish that are simulated swimming. Each water has its own species and difficulty. It works only from a boat. Shore fishing ([systems-fishing.md](../systems-fishing.md)) stays exactly as it is.
 
 Decided with David on 2026-10-26:
 
@@ -157,7 +157,7 @@ A school is worked out, never stored.
   - It bobs up and down, and its depth follows the hour.
 - **Single fish.** `schoolFish(s, i, now)` gives each fish's position in the school and its weight, both from the hash. The big shadow really is the big fish, so you can wait for it.
 - **Time.** Every function takes `now`; none reads `Date.now()` itself, and a gate checks that.
-  - The client runs on the server's clock. The anchor push carries `serverNow`, the client keeps `skew = serverNow − Date.now()`, and it passes `Date.now() + skew`.
+  - The client runs on the server's clock. The anchor push carries `serverNow`, the client keeps `skew = serverNow − Date.now()`, and it passes `Date.now() + skew`. As built, the push also carries `env`, `thinned` and `land` (`seaContext` in `plugins/fishing/sea.js`), and so do the boarding context and each window recentre; the reel's `open` refreshes the clock, the env and the take.
   - The fish cruise at 0.3–1 m/s, so a client clock a few seconds off would put the shadows metres from where the server thinks they are.
 - **Fishing a school down.** The server keeps a RAM map, `schoolId → { taken, at }`, that recovers over about a game day.
   - A school that's been fished has fewer fish (`schoolFish` gets `n − taken`) and spooks more easily.
@@ -184,15 +184,23 @@ A school is worked out, never stored.
 
 **When they're drawn:** within 10 tiles (70 m), while you're anchored or doing under 2 mph, and only where there's daylight or lamplight. Nothing is drawn while you're under way.
 
-**GLASS 1** draws one flat ellipse per school, or nothing. GLASS 2 comes first.
+**GLASS 1** draws nothing. GLASS 2 comes first.
 
 **Signs on the surface** come from the same state for almost nothing:
 
-- rings where a school is shallower than 2 m;
-- a swirl when a runner turns;
+- rings where a school is shallower than 2 m and feeding (30% of each 12 s, at its own phase);
+- a swirl when a runner shallower than 5 m turns at twice its loop's own rate;
 - gulls working the water over herring (in phase 4, from a `fishBias` on the gull flocks in birds.js).
 
-The same signs feed the room prose and `look water` through `describe.js`, as the flocks do.
+The signs are prose only so far: `look water` and the room prose, from the fishing plugin (`plugins/fishing/water.js`), never `describe.js`. Nothing draws them yet.
+
+### As built (2026-11-03)
+
+- **Who can see a fish** is one set of rules in fish.js (`shadowsOn`, `sightRange`, `lightOn`, `LAMP_R`, `daylightOfNight`), read by the shadows and by `look water`. Anchored or under `SHOW_MPH` (2); everything within `SHADOW_R` by day (half in fog); after dark only inside `LAMP_R` (1.5 tiles), on a hull with a lamp that's lit. Daylight is the sky's own `night` (sky-keys.js), ramped so the blue hour is already dark.
+- **The seat's list** is `client/game/js/panels/fish-shadow-scene.js`: fishNear's answer the server's way round (`x + 0.5`), with the schools kept between frames and swum each frame (about 0.04 ms for 30 fish), packed 9 floats a fish into the map window's frame. The boat seat gates it before anything else, so under way it costs one comparison.
+- **The layer** is `gl/fish-shadows.js`, wired through `FLOOR_STATE.fishShadows` and drawn in gl/world.js straight after the water and the seabed points. One instanced quad a fish on the sea's height at its school, pulled 3 cm toward the eye; the blend is `dst * (1 - src)`, so a shadow takes light out of the water rather than painting a colour. The darkening fades per channel by `SEABED_EXT` over the fish's depth, five times over, and the edge softens from 4 m. Breadth by shape comes from `BREADTH` in fish.js; a skate is a diamond, an eel a line, the rest a forked-tail fish.
+- **Chase view** (open question 4): the quad grows with its distance from the eye, from 1.5 tiles to twice its size at 4 tiles. True size from the helm.
+- **The land** goes with the clock: the server sends a 65 by 65 tile bitmask of its own land round her (`landMask`), because the seat's 33-tile window gave a different school in about one point in twelve.
 
 ## 5. Casting (fishing plugin, new `plugins/fishing/boat.js`)
 
@@ -404,14 +412,17 @@ The line has its own cues: the swish of the cast, the reel's click, the plop of 
    - The `TYPES` row; `content/vehicle_models/boat_skiff.json` and `npm run vehicles:bake`; `VEHICLE_IDS` and `LIVERY_MODELS`; Keel's dialogue nodes; the open-boat shell in `client/shared/interior-*.js`; the legend lettering.
    - `boat anchor` in `yard.js` and `helm.js`, the swing clamp in `cmdBoatSync`, and the anchor key in `boat-view.js` and `texthelm.js` (`conn anchor`).
    - Regress checks that the anchor is refused in deep water, under way and on a berth, and that the swing clamp holds. Shapes and seat smoke run as usual.
-2. **The fish and their shadows.** The sim, its gate, the tuning map and the five boat-only catch items are built; the shadows and the anchor push aren't.
-   - `client/shared/fish.js`, `gl/fish-shadows.js` wired into windshield.js, `serverNow` on the anchor push, and the `look water` prose.
-   - A dev view (a Modelshop tab, or the dev panel map) that paints schools by hour, depth and species, for tuning.
+2. **The fish and their shadows.** Built.
+   - `client/shared/fish.js`, `gl/fish-shadows.js` wired into windshield.js and gl/world.js, `serverNow`, `env`, `thinned` and the land mask on the anchor push, and the `look water` prose (`plugins/fishing/water.js`).
+   - The dev view is `node scripts/fish/map.mjs`; there's no Modelshop tab.
    - A gate, `scripts/fish/smoke.mjs` in the `shapes:smoke` group, checks that:
      - fish.js is pure (the same input gives the same output, and nothing calls `Date.now`);
      - every species' item exists and has the `raw_fish` tag;
      - every habitat band fits inside the seabed's depths;
-     - there are at least N schools within 9 tiles of each marina at some hour.
+     - there are at least N schools within 9 tiles of each marina at some hour;
+     - the seat's shadow list is the server's `fishNear` on the land mask it's sent, the same input gives the same instances, nothing is drawn under way, and after dark nothing outside the lamp.
+   - Regress checks that the anchor push carries a finite `serverNow`, `env`, `thinned` and the land, that `look water` names the schools `fishNear` returns, and that a shore player's `look water` is unchanged.
+   - Still to do: the bite turning the exact shadow toward the lure (`follow` and `bite` carry the fish; the seat doesn't steer it yet), and drawing the rings and swirls.
 3. **Casting, the fight and the box.**
    - `plugins/fishing/boat.js`; `fishcast boat`, `fishstrike` and `fishresolve boat`; rod mode in `boat-view.js`.
    - `openFishing({ startAt: 'fight' })` and the fight styles, in `fishing.js` and `textfishing.js`.
@@ -441,8 +452,8 @@ The line has its own cues: the swish of the cast, the reel's click, the plop of 
 
 These were settled while the design was written: the fishing state shares the shore registration (§5), and the fish box is a `boat_hold` table (§6). Still open:
 
-1. **Two tile conventions meet at the lure.** A boat's x/y puts a tile's centre on the integer (`zoneUnder` rounds it), and seabed.js and fish.js have tile i spanning [i, i+1). `plugins/powerboat/anchor.js` `depthUnder` adds half a tile before it asks the seabed; phase 3's lure point and `fishNear` call must do the same, or every cast lands half a tile off the shadows.
+1. **Two tile conventions meet at the lure.** A boat's x/y puts a tile's centre on the integer (`zoneUnder` rounds it), and seabed.js and fish.js have tile i spanning [i, i+1). `plugins/powerboat/anchor.js` `depthUnder` adds half a tile before it asks the seabed; phase 3's lure point and `fishNear` call must do the same, or every cast lands half a tile off the shadows. Settled: the lure, the bite, the shadows and `look water` all ask `fishNear(x + 0.5, y + 0.5, …)` and take the half tile back off the answer.
 2. **The anchor clamp and the recentre.** `cmdBoatSync` streams a new map window when she's 8 tiles from the last one. An anchored boat never gets that far, so this should need nothing, but check it once the clamp exists.
 3. **Where the weight price gets its number.** `vendor.js` is an engine file and mustn't import `client/shared/fish.js` for one figure. Either the item row stores the species' usual weight as `price_kg_ref`, or the price multiplier is worked out when the fish is landed and kept on `boat_hold`.
-4. **Whether a shadow can be seen in the chase view.** The chase view draws the boat at 0.2 tiles a unit, so a 1 m fish is a sixth of the skiff. Check that it can be seen at chase zoom, and scale the sprite with the camera if not.
+4. **Whether a shadow can be seen in the chase view.** The chase view draws the boat at 0.2 tiles a unit, so a 1 m fish is a sixth of the skiff. Settled 2026-11-03: the shadows scale with the camera's distance in the chase view, up to twice, and keep true size from the helm. Still to be judged by eye on the boat shot.
 5. **Shore fishing.** Should fish.js ever drive shore fishing? Not in this design: shore fishing stays on its stock tables.

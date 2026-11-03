@@ -22,6 +22,7 @@ const INTERIOR_NEAR = 0.004, INTERIOR_FAR = 1.0;
 import { createFloorLayer } from './floor.js';
 import { createWaterLayer } from './water.js';
 import { createSeabedLayer } from './seabed.js';
+import { createFishShadowLayer } from './fish-shadows.js';
 import { createCloudLayer } from './clouds.js';
 import { createCloudVolume } from './cloudvol.js';
 import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
@@ -2585,9 +2586,12 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const seabedLayer = () => (sbd || (sbd = createSeabedLayer(gl)));
   const drawSeabed = (cam, s, cssH, dpr, eye, t) => (s ? seabedLayer().drawBottom(cam, s, cssH, dpr, eye, t) : 0);
   const drawSeabedPoints = (cam, s, cssH, dpr) => (s ? seabedLayer().drawPoints(cam, s, cssH, dpr) : 0);
+  // The fish under a stopped boat (gl/fish-shadows.js). Lazy: a seat that never stops never builds it.
+  let fsh = null;
+  const drawFishShadows = (cam, s, cssH) => (s && s.n > 0 ? (fsh || (fsh = createFishShadowLayer(gl))).draw(cam, s, cssH) : 0);
   // The window's cells and the eye in the mesh frame (gl/skyline.js). Called before draw, which reads it.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setNightPage, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setNightPage, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawFishShadows, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's box in the window's frame (for the light projection) and the shadow map size (0: refused).
     get bounds() { return boundsInWindow(); }, get shadowSize() { return shadow ? shadow.size : 0; },

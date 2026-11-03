@@ -434,6 +434,86 @@ export function fishNear(x, y, R, now, env, habitat, thinned = null) {
   return out.sort((a, b) => a.dist - b.dist);
 }
 
+// ── SEEING THEM ────────────────────────────────────────────────────────────────────────────────
+//
+// Who can see a fish, for the two readers that show one: the shadows (gl/fish-shadows.js, fed by
+// fish-shadow-scene.js) and `look water` (plugins/fishing/water.js). One set of rules, so the prose
+// never names a fish the picture doesn't draw.
+//
+//   · Only while she's anchored or slower than SHOW_MPH. Under way the water is all wake.
+//   · By daylight, everything within SHADOW_R (half that in fog). After dark, only what the lamp
+//     lights, LAMP_R round the hull, on a hull that carries one and has it on.
+export const LAMP_R = 1.5;          // tiles: the skiff's battery lamp lights the water this far round her
+export const SHOW_MPH = 2;          // adrift.js STEP_OFF_MPH: at or over it, nothing is drawn
+export const FOG_SIGHT = 0.5;       // the share of SHADOW_R you can see into fog
+
+/** Whether the water can be seen into at all, from the boat's state. */
+export const shadowsOn = ({ anchored, speedMph }) => !!anchored || (Number.isFinite(speedMph) && Math.abs(speedMph) < SHOW_MPH);
+
+/** How far you can see a shadow, in tiles, in this weather. */
+export const sightRange = (env) => (env && env.weather === 'fog' ? SHADOW_R * FOG_SIGHT : SHADOW_R);
+
+/**
+ * Daylight 0..1 from the sky's `night` (client/shared/sky-keys.js skyAt, 0 by day, 1 at full night),
+ * which the seat and the server's prose both read. The blue hour (0.88) is already too dark to see
+ * into water, so the ramp is over before the sky's is.
+ */
+export const daylightOfNight = (night) => clamp((0.85 - (night || 0)) / 0.6, 0, 1);
+
+/**
+ * How well a fish `dist` tiles from the hull is lit, 0..1: the day, or the lamp's circle with a
+ * soft rim. `lamp` is whether a lamp is lit aboard.
+ */
+export function lightOn(dist, daylight, lamp) {
+  const l = lamp ? 1 - ramp(dist, LAMP_R - 0.4, LAMP_R) : 0;
+  return Math.max(clamp(daylight || 0, 0, 1), l);
+}
+
+// ── THE LAND, SENT ─────────────────────────────────────────────────────────────────────────────
+//
+// A school's habitat asks how far the nearest shore is, out to seabed.js's 48-tile search, and a
+// boat's seat holds only the 33 tiles of map round where its window last centred. With that window
+// alone, one school in a dozen near Coldwater came out a different species or depth on the client
+// than on the server (161 points of water, 2026-11-03). So the server sends its own land round the
+// boat as a bitmask, and the seat's habitat reads that. With the mask none differed.
+export const LAND_R = 32;   // tiles each way from the boat's tile: 65 x 65 tiles, 529 bytes
+
+/**
+ * Land round a boat at (x, y) (her convention: a tile's centre on the integer) as
+ * { x0, y0, n, bits }: tile (x0 + i, y0 + j), in this file's convention, is land when bit
+ * j * n + i of the base64 `bits` is set, least significant first.
+ */
+export function landMask(x, y, isLand, R = LAND_R) {
+  const cx = Math.round(x), cy = Math.round(y), n = 2 * R + 1, x0 = cx - R, y0 = cy - R;
+  const bytes = new Uint8Array(Math.ceil((n * n) / 8));
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    if (isLand(x0 + i, y0 + j)) { const b = j * n + i; bytes[b >> 3] |= 1 << (b & 7); }
+  }
+  let s = '';
+  for (let k = 0; k < bytes.length; k++) s += String.fromCharCode(bytes[k]);
+  return { x0, y0, n, bits: btoa(s) };
+}
+
+/** An isLand(ix, iy) over a landMask, asking `beyond` for tiles outside it. Null for a bad mask. */
+export function maskedLand(mask, beyond = () => false) {
+  if (!mask || typeof mask.bits !== 'string' || !(mask.n > 0)) return null;
+  let bin;
+  try { bin = atob(mask.bits); } catch { return null; }
+  const b = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  const x0 = mask.x0 | 0, y0 = mask.y0 | 0, n = mask.n | 0;
+  return (ix, iy) => {
+    const i = ix - x0, j = iy - y0;
+    if (i < 0 || j < 0 || i >= n || j >= n) return beyond(ix, iy);
+    const k = j * n + i;
+    return !!(b[k >> 3] & (1 << (k & 7)));
+  };
+}
+
+// The shadow's breadth against its length, by `shape`. A skate is as wide as it's long.
+export const BREADTH = { round: 0.42, slim: 0.24, deep: 0.5, long: 0.2, eel: 0.08, skate: 1 };
+export const SHAPE_IDS = ['round', 'slim', 'deep', 'long', 'eel', 'skate'];
+
 // ── THE SURVEY AND THE FORECAST ────────────────────────────────────────────────────────────────
 //
 // What a stretch of water holds at an hour: how many schools of each species, and the heaviest fish
