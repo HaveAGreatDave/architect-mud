@@ -195,6 +195,19 @@ export const GROUPS = [
       'scripts/shapes/cockpit-grasshopper.mjs',
       'scripts/shapes/cockpit-mayfly.mjs',
       'scripts/shapes/cockpit-dragonfly.mjs',
+      'scripts/shapes/cockpit-dragonfly-2076.mjs',
+      'scripts/shapes/cockpit-mule-2076.mjs',
+      'scripts/shapes/cockpit-mayfly-2076.mjs',
+      'scripts/shapes/cockpit-grasshopper-2076.mjs',
+      'scripts/shapes/cockpit-locust-2076.mjs',
+      'scripts/shapes/cockpit-leviathan-2076.mjs',
+      'scripts/shapes/cockpit-shrike-2076.mjs',
+      'scripts/shapes/cockpit-viper-2076.mjs',
+      'scripts/shapes/cockpit-reaper-2076.mjs',
+      'scripts/shapes/cockpit-carcass-2076.mjs',
+      'scripts/shapes/cockpit-drake-2076.mjs',
+      'scripts/shapes/landing-feel.mjs',       // ground effect from the deck, and the shadow height gauge
+      'scripts/shapes/engine-split.mjs',       // a throttle per engine: the model and the cockpits
       'scripts/shapes/cockpit-viper.mjs',
       'scripts/shapes/cockpit-controls.mjs',   // every seat: each control does something, each label reads true
       'scripts/shapes/cabin-light.mjs',

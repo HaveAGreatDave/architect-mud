@@ -33,6 +33,60 @@ export const TRIMS = {
     { id: 'neon', label: 'Neon' },
     // SPECIAL EDITION: a bald eagle outside, red white and blue inside (interior-drake.js DRAKE_TRIM_QUACKHAWK).
     { id: 'quackhawk', label: 'Quackhawk Down · special edition' },
+    // CONCEPT: the Drake 2076 is a different airframe (mesh_drake.json 'variants'), with its own cockpit.
+    { id: '2076', label: 'Drake 2076 · concept' },
+  ],
+  // CONCEPT: the 2076 body is a different model, not a paint scheme (mesh_heli.json 'variants').
+  // An armed heli reads `viper` below, not this (its livery model; aircraftLiveryModel).
+  heli: [
+    { id: 'stock', label: 'Mini-500 · the original' },
+    { id: '2076', label: 'Dragonfly 2076 · concept' },
+  ],
+  // CONCEPT: the Mule 2076 is a different airframe (mesh_prop.json 'variants'), with its own cockpit.
+  prop: [
+    { id: 'stock', label: 'Twin Otter · the original' },
+    { id: '2076', label: 'Mule 2076 · concept' },
+  ],
+  // CONCEPT: the Mayfly 2076 is a different airframe (mesh_ultralight.json 'variants'), with its own cockpit.
+  ultralight: [
+    { id: 'stock', label: 'Cessna 172 · the original' },
+    { id: '2076', label: 'Mayfly 2076 · concept' },
+  ],
+  // CONCEPT: the Grasshopper 2076 is a different airframe (mesh_grasshopper.json 'variants'), with its own cockpit.
+  grasshopper: [
+    { id: 'stock', label: 'Piper Cub · the original' },
+    { id: '2076', label: 'Grasshopper 2076 · concept' },
+  ],
+  // CONCEPT: the Locust 2076 is a different airframe (mesh_locust.json 'variants'), with its own cockpit.
+  locust: [
+    { id: 'stock', label: 'Air Tractor · the original' },
+    { id: '2076', label: 'Locust 2076 · concept' },
+  ],
+  // CONCEPT: the Leviathan 2076 is a different airframe (mesh_heavy.json 'variants'), with its own cockpit.
+  heavy: [
+    { id: 'stock', label: 'Antonov An-124 · the original' },
+    { id: '2076', label: 'Leviathan 2076 · concept' },
+  ],
+  // CONCEPT: the Shrike 2076 is a different airframe (mesh_divebomber.json 'variants'), with its own cockpit.
+  divebomber: [
+    { id: 'stock', label: 'Ju 87 Stuka · the original' },
+    { id: '2076', label: 'Shrike 2076 · concept' },
+  ],
+  // CONCEPT: the armed heli's 2076 edition is the Viper 2076 (mesh_heli_armed.json 'variants'), with
+  // its own cockpit. Keyed on the livery model, as the armed heli's liveries are.
+  viper: [
+    { id: 'stock', label: 'Apache · the original' },
+    { id: '2076', label: 'Viper 2076 · concept' },
+  ],
+  // CONCEPT: the Reaper 2076 is a different airframe (mesh_gunship.json 'variants'), with its own cockpit.
+  gunship: [
+    { id: 'stock', label: 'Thunderbolt II · the original' },
+    { id: '2076', label: 'Reaper 2076 · concept' },
+  ],
+  // CONCEPT: the Carcass 2076 is a different airframe (mesh_wreck.json 'variants'), with its own cockpit.
+  wreck: [
+    { id: 'stock', label: 'Fly Baby · the original' },
+    { id: '2076', label: 'Carcass 2076 · concept' },
   ],
 };
 const TRIM_IDS = new Set(Object.values(TRIMS).flat().map(t => t.id));
@@ -44,6 +98,8 @@ export const CABIN_TRIMS = {
     { id: 'stock', label: 'Mandarin · walnut & gold' },
     { id: 'noir', label: 'Darkwing · carbon & gold', plate: 'DARKWING' },
     { id: 'quackhawk', label: 'Quackhawk Down · red, white & blue', plate: 'QUACKHAWK DOWN' },
+    // The 2076 refit: the glass band, the HUD and the hologram (interior-drake-2076.js).
+    { id: '2076', label: 'Drake 2076 · the refit' },
   ],
 };
 const CABIN_IDS = new Set(Object.values(CABIN_TRIMS).flat().map(t => t.id));

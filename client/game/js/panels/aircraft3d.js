@@ -1640,10 +1640,10 @@ export function drawRotorFX(ctx, cls, projFn, opts = {}) {
   try { drawRotorFXInner(ctx, cls, projFn, opts); } finally { FX_SINK = null; }
 }
 // Parked blades as near-opaque depth-buffer faces for the hangar renderers. `projM` is model space to screen.
-export function pushParkedRotorFaces(drawn, cls, armed, spin, projM, near) {
+export function pushParkedRotorFaces(drawn, cls, armed, spin, projM, near, variant = '') {
   const polys = [];
   drawRotorFX(null, cls, (v) => { const q = projM(v); return q.z <= near ? null : q; },
-    { parked: true, spin, armed, sink: { poly: (pts, rgba) => polys.push([pts, rgba]), line() {} } });
+    { parked: true, spin, armed, variant, sink: { poly: (pts, rgba) => polys.push([pts, rgba]), line() {} } });
   for (const [pts, rgba] of polys) {
     const P = pts.map(projM);
     if (P.some((q) => q.z <= near)) continue;
@@ -1659,11 +1659,11 @@ const RUN_EASE = (k) => k * k * (3 - 2 * k);
 // A folding rotor's held stop angle, and how far its blades stand up while they swing aft.
 const FOLD_STOP = new Map();
 const FOLD_TILT = 80 * Math.PI / 180;
-function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0, armed = false, anim = null } = {}) {
+function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0, armed = false, anim = null, variant = '' } = {}) {
   const dsc = disc != null ? disc : power;      // blur-disc opacity
   const spl = spool != null ? spool : 1;        // blade motion amount
   // A mesh-file class carries its rotors (`rotors`): position, plane, direction, speed.
-  const rs = rotorsFor(cls, armed);
+  const rs = rotorsFor(cls, armed, variant);
   if (rs) {
     for (const r of rs) {
       const sp = r.spinMul == null && r.phase == null ? spin : spin * (r.spinMul ?? 1) + (r.phase ?? 0);
@@ -1709,6 +1709,9 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
       }
       spinDisc(ctx, projFn, at, r.U, r.V, r.r, sp, dsc, spl, parked, r.blades, r.lead, bladeFade);
     }
+  } else if (bodyVariantFor(cls, variant, armed)) {
+    // A body variant with no rotors of its own (the Shrike 2076 is a jet) spins nothing: the
+    // class's nose prop below belongs to the airframe it replaced.
   } else if (cls === 'heli') {
     legacyHeliRotorFX(ctx, projFn, armed, spin, dsc, spl, parked, bladeFade);
   } else {
@@ -1726,8 +1729,8 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
 
 // A class's mesh-file rotors, resolved, or null. Memoised on the row because this runs per contact per frame.
 const _rotorMemo = new WeakMap();
-export function rotorsFor(cls, armed = false) {
-  const id = meshIdFor(cls, armed);
+export function rotorsFor(cls, armed = false, variant = '') {
+  const id = bodyVariantFor(cls, variant, armed) || meshIdFor(cls, armed);
   if (!id) return null;
   const row = meshRow(id);
   if (!_rotorMemo.has(row)) _rotorMemo.set(row, resolveRotors(row));
@@ -1775,9 +1778,12 @@ function legacyHeliRotorFX(ctx, projFn, armed, spin, dsc, spl, parked, bladeFade
 
 // The prop seen from the pilot's seat, head-on in the windscreen. Single centred nose props only.
 // `cx`/`cy` is the disc centre and `rad` its screen radius; projFn maps g to x and h to y.
-export function drawCockpitProp(ctx, cls, { cx, cy, rad, spin = 0, disc = 0, spool = 0 }) {
+export function drawCockpitProp(ctx, cls, { cx, cy, rad, spin = 0, disc = 0, spool = 0, variant = '' }) {
   const st = PROP_STATIONS[cls];
   if (!st || cls === 'prop' || st.length !== 1 || st[0][1] !== 0) return;   // one centred nose prop only
+  // A body variant draws its own props (the Mayfly 2076's eight) or none (the Shrike 2076's jet):
+  // the class's nose prop belongs to the airframe it replaced.
+  if (variantMeshFor(cls, variant)) return;
   const S = rad / 0.21;                                       // model disc r (0.21) → screen px
   // bladeFade: past half throttle the blades melt into the disc instead of strobing.
   drawRotorFX(ctx, cls, ([, g, h]) => ({ sx: cx + g * S, sy: cy - h * S }), { spin, disc, spool, bladeFade: 0.9 });
@@ -2091,7 +2097,7 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   if (_cache[key]) return _cache[key];
   // ⚠ The last arm is a silent fallback: an unknown class builds as a Twin Otter. Add a new class's arm here first.
   // An authored mesh answers first. A variant named in the mesh's `variants` is a different model; any other is a paint scheme.
-  const vmid = variantMeshFor(cls, variant);
+  const vmid = bodyVariantFor(cls, variant, armed);
   const mid = vmid || meshIdFor(cls, armed);
   const faces = mid ? compileMesh(meshRow(mid), { detail, scheme: vmid ? null : (variant || null) }).faces
     : cls === 'truck' ? buildTruck(variant || 'hauler', detail)
@@ -2131,11 +2137,23 @@ export function meshIdFor(cls, armed = false) {
   if (armed && base.armedMesh) return meshRow(base.armedMesh) ? base.armedMesh : null;
   return cls;
 }
+// Whether `armed` picks a different airframe and so wins over a body variant. Only a class with an
+// `armedMesh` (the heli's Viper) has one; a gunship contact is always `armed` (it has hardpoints), and
+// before this its 2076 edition drew as the stock body to everyone else.
+const armedOverridesVariant = (cls, armed) => !!armed && !!meshRow(cls)?.armedMesh;
 // A variant listed in the file's `variants` is a different model (the podracer's types).
 export function variantMeshFor(cls, variant) {
   if (_legacyMeshes || !variant) return null;
   const id = meshRow(cls)?.variants?.[variant];
   return id && meshRow(id) ? id : null;
+}
+// The body a variant draws, armed or not. An armed heli's variant is looked up on the armed mesh
+// (mesh_heli_armed.json `variants`), so the Viper's 2076 edition is the Viper 2076 and never the
+// Dragonfly's pod; every other class takes the variant off its own file, as before.
+export function bodyVariantFor(cls, variant, armed = false) {
+  if (!armedOverridesVariant(cls, armed)) return variantMeshFor(cls, variant);
+  const aid = meshIdFor(cls, true);
+  return aid ? variantMeshFor(aid, variant) : null;
 }
 export function meshParams(id) { return meshRow(id); }
 export function meshIds() { return [...new Set([...Object.keys(MESH_ROWS), ..._meshOverride.keys()])]; }
@@ -2195,7 +2213,7 @@ function meshNavLamp(cls) {
   return w ? wingTipStation(w) : undefined;
 }
 // Lamps a mesh file mounts on its skin: `{ at, n, rgb, kind }`, kind 'steady' | 'strobe' | 'beacon'. `n` lets the renderer hide far-side lamps.
-export function meshLamps(cls) {
+export function meshLamps(cls, variant = '', armed = false) {
   // A boat publishes its lamps as it's built (BOAT_META); build only as a fallback.
   if (boatShape(cls)) {
     const m = BOAT_META.get(cls + ':1') || BOAT_META.get(cls + ':0');
@@ -2204,7 +2222,8 @@ export function meshLamps(cls) {
     const m0 = BOAT_META.get(cls + ':0');
     return m0 && m0.lamps && m0.lamps.length ? m0.lamps : null;
   }
-  const id = meshIdFor(cls, false);
+  // A body variant mounts its own lamps (the 2076 Dragonfly's are on its arms, not a Mini-500's skin).
+  const id = bodyVariantFor(cls, variant, armed) || meshIdFor(cls, false);
   const row = id && meshRow(id);
   return (row && Array.isArray(row.lamps) && row.lamps.length) ? row.lamps : null;
 }
@@ -5491,7 +5510,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   }
   // Every model goes through the shared depth pass (see modelDepthPass). Detail passes stay on canvas, gated on
   // `seen`. The hero shot takes the pass at any size. Falls back to the sorts if the pass declines.
-  if (!wreck) pushParkedRotorFaces(drawn, cls, armed, 2.3, (v) => { const t = modelV(v); return proj(t[0], t[1], t[2]); }, 0.2);
+  if (!wreck) pushParkedRotorFaces(drawn, cls, armed, 2.3, (v) => { const t = modelV(v); return proj(t[0], t[1], t[2]); }, 0.2, variant);
   const rasterOK = modelDepthPass(ctx, drawn, { budget });
   if (!rasterOK) {
     if (cls === 'truck') sortTruckFaces(drawn, { id: `bay:${cls}:${variant || ''}` }, 1);
@@ -6380,7 +6399,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     // entry and per mesh, because part ids repeat across variants.
     const faces = grp.faces;
     if (!grp.entry.wreck) pushParkedRotorFaces(faces, grp.entry.cls, !!grp.entry.armed, 1.9 + grp.laneG * 0.6,
-      (v0) => { const v = grp.tilt ? grp.tilt(v0) : v0; return proj(v[0] * grp.sc, grp.laneG + v[1] * grp.sc, v[2] * grp.sc); }, 0.15);
+      (v0) => { const v = grp.tilt ? grp.tilt(v0) : v0; return proj(v[0] * grp.sc, grp.laneG + v[1] * grp.sc, v[2] * grp.sc); }, 0.15, grp.entry.variant || '');
     // The raster budget is shared across the row.
     const rasterOK = modelDepthPass(ctx, faces, { min: RASTER_MIN_PX, budget: RASTER_BUDGET_PX / Math.max(1, n) });
     if (!rasterOK) {

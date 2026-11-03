@@ -504,8 +504,10 @@ export function muleHotspots(P, live) {
   // The ignition is 'ck:master', the id every kit cockpit's engine master uses (cockpit.js DK_ACT).
   const out = [{ id: 'ck:master', p: at(...S.key), r: 0.026, kind: 'click' }];
   SW.forEach(([id], i) => out.push({ id: 'ck:' + id, p: at(S.sw.x[i], S.sw.z), r: 0.018, kind: 'click' }));
-  const thr = clamp(num(L.throttle), 0, 1);
-  out.push({ id: 'throttle', p: leverKnob(Y, Y.quad.xs[0] + 0.013, thr), r: 0.05, kind: 'throttle' });
+  // Each power lever moves its own engine; a hand between the two paddles moves the pair.
+  const thrs = muleLevers(L), k0 = leverKnob(Y, Y.quad.xs[0] + 0.013, thrs[0]), k1 = leverKnob(Y, Y.quad.xs[1] + 0.013, thrs[1]);
+  out.push({ id: 'throttle', p: k0.map((v, i) => (v + k1[i]) / 2), r: 0.016, kind: 'throttle' });
+  out.push({ id: 'thr0', p: k0, r: 0.03, kind: 'throttle', engine: 0 }, { id: 'thr1', p: k1, r: 0.03, kind: 'throttle', engine: 1 });
   out.push({ id: 'ck:flaps', p: [Y.flap.x, lerp(Y.flap.y0, Y.flap.y1, clamp(num(L.flapNotch), 0, 3) / 3), Y.con.zb - 0.06], r: 0.025, kind: 'click' });
   out.push({ id: 'trim', p: add(Y.trim.c, [0, 0, -Y.trim.r]), r: 0.05, kind: 'trim' });
   out.push({ id: 'ck:dome', p: Y.dome, r: 0.035, kind: 'click' });
@@ -514,6 +516,9 @@ export function muleHotspots(P, live) {
   out.push({ id: 'yoke', p: yk.hub, r: 0.12, kind: 'yoke' });
   return out;
 }
+
+// The two power levers, left then right: cockpit.js's split, or the ganged lever twice.
+const muleLevers = (L) => [0, 1].map((e) => clamp(num(L.throttles?.[e], num(L.throttle)), 0, 1));
 
 // A lever on the overhead quadrant: pivoting in its slot on the console's underside, forward is
 // more. The knob hangs 0.13 m below the slot and swings ±28°.
@@ -720,6 +725,8 @@ function muleFit(P, live, push) {
   const fuel = clamp(num(L.fuel, 1) > 1 ? num(L.fuel) / 100 : num(L.fuel, 1), 0, 1);
   const hull = clamp(num(L.hull, 1) > 1 ? num(L.hull) / 100 : num(L.hull, 1), 0, 1);
   const thr = clamp(num(L.throttle), 0, 1), ail = clamp(num(L.stickX), -1, 1), elev = clamp(num(L.stickY), -1, 1);
+  // Each engine's power lever and spool (cockpit.js splits them); the ganged pair without.
+  const thrs = muleLevers(L), rpms = [0, 1].map((e) => clamp(num(L.rpms?.[e], rpm), 0, 1.05));
   const trim = clamp(num(L.trim), -1, 1), rud = clamp(num(L.rudder), -1, 1), flap = clamp(num(L.flapNotch), 0, 3);
   const hour = num(L.hour, 12), night = powered && (hour < 6.5 || hour > 19.5);
   const oilT = L.oilTemp != null ? clamp(num(L.oilTemp) / 120, 0, 1) : (powered ? 0.35 + rpm * 0.3 : 0);
@@ -757,13 +764,14 @@ function muleFit(P, live, push) {
   Pn.dial(-0.19, Y.six.z[1], 0.024, clamp(powered ? 0.55 : 0, 0, 1), dialO({ ticks: 6, major: 3, arcs: [[0.4, 0.7, C.green]], name: 'VAC', nameH: 0.0078 }));   // suction
 
   // ── THE ENGINE COLUMN: left and right, side by side ──────────────────────
-  const run = powered ? rpm : 0;
+  // Each column reads its own engine: its lever (t) and its spool (r).
+  const run = (e) => (powered ? rpms[e] : 0), tE = (e) => thrs[e];
   const rows = [
-    { v: (e) => clamp(thr * 0.88 * run + e * 0.01, 0, 1), o: { arcs: [[0.1, 0.84, C.green]], red: 0.9 }, name: 'TORQ' },            // torque
-    { v: (e) => clamp(run * (0.62 + 0.34 * thr) - e * 0.006, 0, 1), o: { arcs: [[0.72, 0.94, C.green]], red: 0.96 }, name: 'PROP' }, // prop rpm
-    { v: (e) => clamp(run ? 0.30 + thr * 0.46 + e * 0.012 : 0, 0, 1), o: { arcs: [[0.25, 0.80, C.green]], red: 0.86 }, name: 'T5' },   // T5
-    { v: (e) => clamp(run ? 0.52 + thr * 0.40 : 0, 0, 1) - e * 0.004, o: { arcs: [[0.5, 0.95, C.green]], red: 0.97 }, name: 'NG' },   // Ng
-    { v: (e) => clamp(run ? 0.12 + thr * 0.7 : 0, 0, 1) + e * 0.006, o: { arcs: [[0.1, 0.9, C.green]] }, name: 'FF' },            // fuel flow
+    { v: (e) => clamp(tE(e) * 0.88 * run(e) + e * 0.01, 0, 1), o: { arcs: [[0.1, 0.84, C.green]], red: 0.9 }, name: 'TORQ' },            // torque
+    { v: (e) => clamp(run(e) * (0.62 + 0.34 * tE(e)) - e * 0.006, 0, 1), o: { arcs: [[0.72, 0.94, C.green]], red: 0.96 }, name: 'PROP' }, // prop rpm
+    { v: (e) => clamp(run(e) ? 0.30 + tE(e) * 0.46 + e * 0.012 : 0, 0, 1), o: { arcs: [[0.25, 0.80, C.green]], red: 0.86 }, name: 'T5' },   // T5
+    { v: (e) => clamp(run(e) ? 0.52 + tE(e) * 0.40 : 0, 0, 1) - e * 0.004, o: { arcs: [[0.5, 0.95, C.green]], red: 0.97 }, name: 'NG' },   // Ng
+    { v: (e) => clamp(run(e) ? 0.12 + tE(e) * 0.7 : 0, 0, 1) + e * 0.006, o: { arcs: [[0.1, 0.9, C.green]] }, name: 'FF' },            // fuel flow
   ];
   rows.forEach((g, row) => Y.eng.x.forEach((x, e) => {
     Pn.dial(x, Y.eng.z[row], Y.eng.R, g.v(e), dialO({ ticks: 8, major: 2, ...g.o, name: g.name, nameH: 0.0085 }));
@@ -904,7 +912,7 @@ function muleFit(P, live, push) {
   // ── THE OVERHEAD QUADRANT: power, prop, fuel, two of each ────────────────
   const q = Y.quad, c = Y.con;
   const levers = [
-    [q.xs[0], thr, T.knobPwr], [q.xs[1], thr, T.knobPwr],
+    [q.xs[0], thrs[0], T.knobPwr], [q.xs[1], thrs[1], T.knobPwr],
     [q.xs[2], powered ? 1 : 0.15, T.knobProp], [q.xs[3], powered ? 1 : 0.15, T.knobProp],
     [q.xs[4], powered ? 1 : 0, T.knobFuel], [q.xs[5], powered ? 1 : 0, T.knobFuel],
   ];

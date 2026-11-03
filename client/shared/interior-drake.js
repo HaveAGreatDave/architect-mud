@@ -109,6 +109,25 @@ export const DRAKE_TRIM_QUACKHAWK = {
   podBlue: [38, 70, 150],                                          // the pilot's pod: metallic blue
   stripeRed: [200, 24, 40], stripeWhite: [246, 246, 242],
 };
+// THE 2076 REFIT (id '2076'), worn with the Drake 2076 body (mesh_drake_2076.json): the same room
+// in the materials of a printed yacht. The walls stay the drake's emerald, deeper; the floor the
+// breast's violet; the walnut becomes smoked ash, the gold champagne titanium, the seats pearl hide
+// piped in the ruff's orange. interior-drake-2076.js builds the glass band, the HUD and the hologram
+// over it, and drakeFit leaves the walnut pod, the switch strips, the stands and the trim cheek out
+// (P.refit).
+export const DRAKE_TRIM_2076 = {
+  ...DRAKE_TRIM, y2076: true,
+  leather: [16, 56, 50], leatherDk: [11, 42, 38],
+  carpet: [52, 28, 64], carpetEdge: [36, 18, 46],
+  walnut: [118, 108, 96], walnutDk: [84, 76, 68], burl: [134, 124, 110],
+  cream: [238, 236, 230], creamDk: [214, 212, 206],
+  gold: [214, 206, 188], goldDk: [138, 132, 120],
+  enamel: [10, 14, 16], ivory: [244, 242, 236], blued: [40, 120, 132],
+  ruff: [236, 124, 44],
+  plate: [30, 34, 36], chip: [16, 70, 62], chipInk: [226, 250, 242],
+  console: [24, 28, 30],
+  dialFace: [10, 14, 16], dialInk: [180, 246, 228], dialHand: [236, 240, 236],
+};
 // The nameplate is engraved metal: a brushed face, cuts with a dark floor, a shadowed wall and a
 // bright lip where the far wall of each cut catches the light. Brass on the stock trim, smoked gold
 // on Darkwing, brushed steel on Quackhawk. Each is its own array, so SHINY keys it on its own.
@@ -116,10 +135,12 @@ DRAKE_TRIM.engrave = { face: [214, 174, 96], lip: [255, 238, 184], shadow: [58, 
 DRAKE_TRIM_NOIR.engrave = { face: [156, 128, 70], lip: [250, 222, 150], shadow: [26, 20, 10], floor: [14, 12, 8] };
 DRAKE_TRIM_QUACKHAWK.engrave = { face: [192, 198, 208], lip: [252, 254, 255], shadow: [36, 40, 50], floor: [12, 18, 44],
   mirror: { sky: [214, 226, 244], horizon: [58, 64, 78], ground: [150, 156, 168], streak: [253, 254, 255] } };
+DRAKE_TRIM_2076.engrave = { face: [200, 194, 178], lip: [250, 246, 236], shadow: [40, 38, 34], floor: [14, 16, 16] };
 for (const [E, amb, bright, alb] of [
   [DRAKE_TRIM.engrave, [110, 76, 24], [255, 232, 160], [255, 210, 130]],
   [DRAKE_TRIM_NOIR.engrave, [70, 52, 20], [240, 204, 130], [236, 196, 120]],
   [DRAKE_TRIM_QUACKHAWK.engrave, [64, 70, 82], [250, 252, 255], [236, 240, 248]],
+  [DRAKE_TRIM_2076.engrave, [88, 84, 76], [248, 244, 232], [236, 232, 222]],
 ]) {
   SHINY.set(E.face, { spec: 1, pow: 36, ramp: [amb, bright], glint: 0.45, albedo: alb, envK: 0.8 });
   SHINY.set(E.lip, { spec: 1, pow: 80, ramp: [bright, [255, 255, 255]], glint: 1, albedo: alb, envK: 1 });
@@ -137,7 +158,19 @@ for (const [E, amb, bright, alb] of [
 // A profile is built once per trim, and interior-memo keys its caches on the profile, so the two
 // trims never share a memoised part.
 let T = DRAKE_TRIM;
-const trimOf = (P) => (P && P.trim === 'noir' ? DRAKE_TRIM_NOIR : P && P.trim === 'quackhawk' ? DRAKE_TRIM_QUACKHAWK : DRAKE_TRIM);
+const trimOf = (P) => (P && P.trim === 'noir' ? DRAKE_TRIM_NOIR : P && P.trim === 'quackhawk' ? DRAKE_TRIM_QUACKHAWK
+  : P && P.trim === '2076' ? DRAKE_TRIM_2076 : DRAKE_TRIM);
+{ // The 2076 refit: champagne titanium for the brightwork, satin hide, smoked ash with a hard coat.
+  const Y = DRAKE_TRIM_2076;
+  SHINY.set(Y.gold, { spec: 1, pow: 44, ramp: [[86, 82, 74], [250, 246, 236]], glint: 0.55, albedo: [236, 232, 222], envK: 0.85 });
+  SHINY.set(Y.goldDk, { spec: 0.7, pow: 28, ramp: [[50, 48, 44], [196, 190, 178]], glint: 0.3, albedo: [210, 206, 196], envK: 0.7 });
+  for (const c of [Y.walnut, Y.walnutDk, Y.burl]) { SHINY.set(c, { spec: 0.55, pow: 50, coat: 0.5 }); TEXTURE.set(c, 'wood'); }
+  for (const c of [Y.leather, Y.leatherDk, Y.cream, Y.creamDk]) { SHINY.set(c, { spec: 0.26, pow: 14, coat: 0.1 }); TEXTURE.set(c, 'leather'); }
+  TEXTURE.set(Y.carpet, 'carpet'); TEXTURE.set(Y.carpetEdge, 'carpet');
+  SHINY.set(Y.enamel, { spec: 0.8, pow: 90, coat: 0.7 });
+  SHINY.set(Y.chip, { spec: 0.55, pow: 60, coat: 0.45 }); SHINY.set(Y.plate, { spec: 0.5, pow: 40, coat: 0.5 });
+  SHINY.set(Y.console, { spec: 0.5, pow: 50, coat: 0.55 }); TEXTURE.set(Y.console, 'plastic');
+}
 // The eyes' readout glass: see-through, by alpha.
 const HUD_GLASS = [6, 22, 18];
 // The switch legends: warm ivory, self-lit, on an enamel chip (drakeFit, the switch strips).
@@ -570,18 +603,21 @@ function drakeShell(P, live, push, rich) {
   const D = P.drake;
   for (const f of D.faces) push(f.one || (f.one = Object.assign([{ p: f.p, n: f.n }], { stable: true })), f.tone, f.k, false, f.rgb, f.emis || 0);
   eyeFrames(P, push);
-  screenFrame(P, live, push);
-  if (rich) { drakeFit(P, live, push); eyeHuds(P, live, push); }
+  // The 2076 refit projects its own HUD into the screen and carries the eyes' readouts on its band
+  // (interior-drake-2076.js), so it keeps the screen's frame and drops the two.
+  screenFrame(P, P.refit ? null : live, push, !!P.refit);
+  if (rich) { drakeFit(P, live, push); if (!P.refit) eyeHuds(P, live, push); }
 }
 
 // The centre screen: a gold frame round its arch and the HUD projected on it. Night vision is applied
 // to what shows through it by windshield.js.
 // ⚠ THE FILTER IS ON THE SCREEN ONLY: the eyes are plain glass, so you keep your own night sight out
 // of the sides while the middle shows the amplified picture.
-function screenFrame(P, live, push) {
+function screenFrame(P, live, push, frameOnly = false) {
   const K = makeKit(push, false);
   const R = P.drake.screenRim;
   for (let i = 0; i < R.length; i++) K.rod(R[i], R[(i + 1) % R.length], 0.026, 'pil', 0.3, T.gold, 0.05, 6);
+  if (frameOnly) return;
   // THE HUD, PROJECTED ON THE GLASS: every mark lies ON the screen's own curved surface (the head's
   // skin, a hair inside the glass), so it bends with the screen the way a projected image does and
   // reads as a display even with night vision off. (u, v) is across and up the screen, −1..1.
@@ -1791,6 +1827,8 @@ export function drakeFit(P, live, push) {
   const hour = num(L.hour, 10.15);
   const ail = clamp(num(L.stickX), -1, 1), elev = clamp(num(L.stickY), -1, 1), rud = clamp(num(L.rudder), -1, 1);
   const xC = P.xCentre, fl = P.drake.floorZ;
+  // The 2076 refit (interior-drake-2076.js) replaces the pod, the strips, the stands and the trim cheek.
+  const R76 = P.refit || null;
 
   // ── THE DASH: walnut across the face, below the eye line ─────────────────
   const dTop = P.dashZ, dY0 = P.dashY, dY1 = dY0 + 0.26;
@@ -1809,6 +1847,7 @@ export function drakeFit(P, live, push) {
   drakeFascia(K, L, { dxL, dxR, dY0, fl, zTop: dTop - 0.06, rud, cons: { x: xC + 0.30, y0: dY0 - 0.34, y1: dY0 - 0.03, top: -0.62 } });
 
   // ── THE PILOT'S PANEL: the flight instruments, in a walnut pod ───────────
+  if (!R76) {
   // ⚠ ITS TOP STAYS UNDER THE EYE LINE: the forward view is the right eye, just to the right of
   // this, and a pod whose header rose past z 0 would stand across it. The gate casts the ray.
   const po = [0, 0.49, -0.208];   // centred under the screen, straight ahead of the pilot
@@ -1866,8 +1905,10 @@ export function drakeFit(P, live, push) {
       Pn.disc(u, hv, 0.0065, lit ? rgb : rgb.map((c) => c * 0.2), lit ? 1 : 0, 0.0035, 8);
       chip(name, u);
     });
+  }
 
   // ── THE MIDDLE OF THE DASH: the clock, on a walnut stand both seats can see ──
+  if (!R76) {
   const mo = [xC + 0.64, dY0 + 0.12, dTop + 0.075];
   // Square to the pilot's eye, like the GPS opposite: fixed to the dash it leaned away and read edge-on.
   const Mp = facingPanel(K, mo, 'dash', 0.3);
@@ -1876,6 +1917,7 @@ export function drakeFit(P, live, push) {
   // Black enamel, gold hands, the hour of the world outside.
   const hh = ((hour % 12) + 12) % 12;
   luxDial(Mp, 0, 0, 0.052, hh / 12, { a0: Math.PI / 2, sweep: TAU, ticks: 12, major: 3, face: T.enamel, ink: T.gold, hand: T.gold, hand2: T.gold, frac2: (hour % 1), glow: 0.1 });
+  }
 
   // ── THE SWITCH STRIPS: every switch the pilot needs, either side of the yoke ──
   // ⚠ THEY FACE THE EYE AND SIT IN THE FORWARD VIEW. The switches used to lie flat on the dash top at
@@ -1918,7 +1960,7 @@ export function drakeFit(P, live, push) {
     // The glint: up and to the left, where the cabin light catches the curve.
     Sp.disc(u - r * 0.32, v + r * 0.32, r * 0.22, mix(rgb, [255, 255, 255], 0.75), Math.max(emis, 0.4), t - cap * 0.25, 8);
   };
-  for (const strip of Object.values(DRAKE_STRIPS)) {
+  if (!R76) for (const strip of Object.values(DRAKE_STRIPS)) {
     const Sp = facingPanel(K, strip.o);
     const hw = strip.hw;
     Sp.plate(roundRect(-hw - 0.008, -0.064, hw + 0.008, 0.058, 0.014), T.gold, 0.05, 0);
@@ -2146,7 +2188,7 @@ export function drakeFit(P, live, push) {
   }
 
   // ── THE CONV KNOB: a walnut knob on a gold collar, its gold index turned by the gun convergence ──
-  {
+  if (!R76) {
     const { c, r, min, max } = DRAKE_CONV_KNOB;
     const cv = clamp(num(L.conv, 1.2), min, max), a = (-135 + ((cv - min) / (max - min)) * 270) * Math.PI / 180;
     K.box(c[0] - 0.022, c[1] - 0.024, c[2] - 0.065, c[0] + 0.022, c[1] + 0.024, c[2] + 0.002, 'dash', 0.2, T.walnutDk);
@@ -2165,7 +2207,7 @@ export function drakeFit(P, live, push) {
   // AT A GLANCE, without reading anything: the NOSE DN lamp over the wheel lights red when she is
   // trimmed nose down, the NOSE UP lamp under it green when nose up, and the scale beside the wheel
   // fills from its centre bar toward the end she is trimmed to, in the same colour. Both dark is neutral.
-  {
+  if (!R76) {
     const { o, hw, hh, wheel: Wh } = DRAKE_TRIM_UNIT, tr = clamp(num(L.trim), -0.6, 0.6), f = tr / 0.6;
     const up = tr > 0.02, dn = tr < -0.02;
     const UPC = [90, 255, 120], DNC = [255, 80, 70];
@@ -2432,13 +2474,14 @@ export function drakeFit(P, live, push) {
   luxSeat(K, 0, P, 1);
   captainChair(K, P);
 
-  drakeGpsScreen(K, L);
-  drakeShadows(K, P, L);
+  if (!R76) { drakeGpsScreen(K, L); drakeShadows(K, P, L); }
+  // The 2076 refit's band, HUD and hologram over what is left (interior-drake-2076.js).
+  else R76.fit(K, P, L, { T, nameplate, roundRect, mix, textWidth });
 
   // ── WHAT YOUR HAND IS ON ─────────────────────────────────────────────────
   // A soft gold halo round the control under the pointer, and a brighter one for a moment after it
   // is pressed, sized to the control's own hit radius so the ring says exactly what a click reaches.
-  const hot = L.press || L.hover;
+  const hot = R76 ? null : (L.press || L.hover);
   if (hot) {
     const h = drakeHotspots(L).find((x) => x.id === hot);
     // ⚠ CLICK CONTROLS ONLY. A drag control's hit radius is its whole grab area — the yoke's spans the

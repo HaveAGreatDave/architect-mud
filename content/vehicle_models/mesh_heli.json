@@ -5,6 +5,9 @@
     "name": "Dragonfly",
     "note": "A Revolution Mini-500: a fibreglass egg of a cabin with a big glass bubble, a two-blade teetering rotor on a short mast, a thin tube tail boom out of the upper back of the cabin, a tall swept fin with the stabiliser across its top and a ventral fin with a hoop skid under it, the tail rotor on the left, and tubular skids.",
     "armedMesh": "heli_armed",
+    "variants": {
+      "2076": "heli_2076"
+    },
     "groundPitch": 0,
     "navLamps": null,
     "rotors": [

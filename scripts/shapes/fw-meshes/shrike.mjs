@@ -140,6 +140,8 @@ export default async function shrike() {
     params: {
       name: 'Shrike',
       note: 'A Junkers Ju 87 Stuka: a slab-sided fuselage behind an inline engine with its radiator slung under the chin, a long framed greenhouse for pilot and rear gunner, an inverted gull wing whose knees carry trousered fixed gear (with a siren on each leg), Junkers double-wing flaps and ailerons hung below the trailing edge, slatted dive brakes, a braced tailplane, and a big bomb on its swing crutch.',
+      // CONCEPT: the Shrike 2076 is a different airframe (scripts/shapes/concepts/shrike-2076.mjs).
+      variants: { 2076: 'divebomber_2076' },
       groundPitch: 9,
       hull: 'fuselage',
       navLamps: P3([tip[0], 1.06, tip[2]]),

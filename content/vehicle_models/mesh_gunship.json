@@ -4,6 +4,9 @@
   "params": {
     "name": "Reaper",
     "note": "An A-10 Thunderbolt II: a slab-sided fuselage built round the seven-barrel gun that pokes out under the nose (the nose leg is offset right to make room for it), a bubble canopy, a thick straight low wing with drooped tips and wheels that stand half out of their pods, two TF34 pods high on the rear fuselage, twin fins on the ends of the tailplane, and stores on pylons.",
+    "variants": {
+      "2076": "gunship_2076"
+    },
     "groundPitch": 0,
     "navLamps": [-0.0575, 1.1, 0.0466],
     "hull": "fuselage",

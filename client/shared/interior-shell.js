@@ -142,6 +142,14 @@ import { shrikeProfile, SHRIKE_TRIM } from './interior-shrike.js';
 import { locustProfile, LOCUST_TRIM } from './interior-locust.js';
 import { mayflyProfile, MAYFLY_TRIM } from './interior-mayfly.js';
 import { dragonflyProfile, DRAGONFLY_TRIM } from './interior-dragonfly.js';
+// The Dragonfly 2076 concept's pod (interior-dragonfly-2076.js), worn with the heli's 2076 edition.
+import { dragonfly2076Profile } from './interior-dragonfly-2076.js';
+// The Mule 2076 concept's flight deck (interior-mule-2076.js), worn with the prop class's 2076 edition.
+import { mule2076Profile } from './interior-mule-2076.js';
+// The Mayfly 2076 concept's pod (interior-mayfly-2076.js), worn with the ultralight's 2076 edition.
+import { mayfly2076Profile } from './interior-mayfly-2076.js';
+// The Locust 2076 concept's cockpit (interior-locust-2076.js), worn with the locust class's 2076 edition.
+import { locust2076Profile } from './interior-locust-2076.js';
 import { viperProfile, VIPER_TRIM } from './interior-viper.js';
 import { carcassProfile } from './interior-carcass.js';
 // The podracer's open tub (interior-podracer.js). Its turbines are the craft's own mesh, drawn from the seat.
@@ -151,6 +159,18 @@ import { skiffProfile } from './interior-skiff.js';
 const OPEN_BOAT_PROFILES = {};
 export const openBoatProfileFor = (id) => (OPEN_BOAT_PROFILES[id] ||= skiffProfile(BOAT_ROWS[id], id));
 import { grasshopperProfile, CUB_TRIM } from './interior-grasshopper.js';
+import { grasshopper2076Profile } from './interior-grasshopper-2076.js';
+// The Leviathan 2076 concept's flight deck cab (interior-leviathan-2076.js), worn with the heavy class's 2076 edition.
+import { leviathan2076Profile } from './interior-leviathan-2076.js';
+import { shrike2076Profile } from './interior-shrike-2076.js';
+// The Viper 2076 concept's flight deck (interior-viper-2076.js), worn with the armed heli's 2076 edition.
+import { viper2076Profile } from './interior-viper-2076.js';
+// The Reaper 2076 concept's cockpit (interior-reaper-2076.js), worn with the gunship class's 2076 edition.
+import { reaper2076Profile } from './interior-reaper-2076.js';
+// The Carcass 2076 concept's seat (interior-carcass-2076.js), worn with the wreck class's 2076 edition.
+import { carcass2076Profile } from './interior-carcass-2076.js';
+// The Drake 2076's refit (interior-drake-2076.js): the stock head, refitted, worn with the drake class's 2076 edition.
+import { drake2076Profile } from './interior-drake-2076.js';
 import { defaultLivery, aircraftLiveryModel } from './livery-sets.js';
 const CRAFT_PROFILE = {};
 const craftProfile = (id, build) => (CRAFT_PROFILE[id] ||= build());
@@ -284,6 +304,28 @@ export const SHELL_PROFILES = {
   // stops over the seats, two door frames, and struts — built by `bubbleRoom`. The pilot sits on the
   // RIGHT, as in most light helicopters, so the centreline is to the LEFT of the eye.
   get heli() { return craftProfile('dragonfly', dragonflyProfile); },
+  // The 2076 concept body's pod: a different airframe on the same class, picked by its edition.
+  get dragonfly2076() { return craftProfile('dragonfly2076', dragonfly2076Profile); },
+  // The Mule 2076 concept body's flight deck, picked by its edition like the Dragonfly's.
+  get mule2076() { return craftProfile('mule2076', mule2076Profile); },
+  // The Mayfly 2076 concept body's pod, picked by its edition like the Dragonfly's.
+  get mayfly2076() { return craftProfile('mayfly2076', mayfly2076Profile); },
+  // The Grasshopper 2076 concept body's front seat, picked by its edition like the Dragonfly's.
+  get grasshopper2076() { return craftProfile('grasshopper2076', grasshopper2076Profile); },
+  // The Locust 2076 concept body's cockpit, picked by its edition like the Dragonfly's.
+  get locust2076() { return craftProfile('locust2076', locust2076Profile); },
+  // The Leviathan 2076 concept body's flight deck cab, picked by its edition like the Dragonfly's.
+  get leviathan2076() { return craftProfile('leviathan2076', leviathan2076Profile); },
+  // The Shrike 2076 concept body's seat, picked by its edition like the Dragonfly's.
+  get shrike2076() { return craftProfile('shrike2076', shrike2076Profile); },
+  // The Viper 2076 concept body's flight deck: the armed heli's 2076 edition (mesh_heli_armed.json 'variants').
+  get viper2076() { return craftProfile('viper2076', viper2076Profile); },
+  // The Reaper 2076 concept body's cockpit, picked by its edition like the Dragonfly's.
+  get reaper2076() { return craftProfile('reaper2076', reaper2076Profile); },
+  // The Carcass 2076 concept body's seat, picked by its edition like the Dragonfly's.
+  get carcass2076() { return craftProfile('carcass2076', carcass2076Profile); },
+  // The Drake 2076's refitted head, picked by its edition like the Dragonfly's.
+  get drake2076() { return craftProfile('drake2076', drake2076Profile); },
   // The generic bubble the Dragonfly used to borrow, kept as the reference `bubbleRoom` shape.
   bubble: {
     label: 'helicopter bubble',
@@ -407,11 +449,23 @@ export const SHELL_CLASS = {
 // ⚠ `armed` SPLITS THE HELICOPTERS: the Dragonfly and the Viper are both class `heli`, and the
 // cockpit view already tells them apart the same way (`armed` = a heli with hardpoints).
 export function shellProfileFor(cls, armed = false, trim = null) {
-  if (cls === 'heli' && armed) return SHELL_PROFILES.viper;
+  if (cls === 'heli' && armed) return trim === '2076' ? SHELL_PROFILES.viper2076 : SHELL_PROFILES.viper;
   // Every other hull: its own room off its own row, the hydro's way. See `boatProfileFor`.
   // ⚠ An open boat (`open: 1`, the Keel) has no house, and a pilothouse lofted off her row would be
   // a closed room round an open skiff. She sits in the open-boat seat (interior-skiff.js).
   if (cls && cls !== 'hydro' && BOAT_ROWS[cls]) return BOAT_ROWS[cls].open ? openBoatProfileFor(cls) : boatProfileFor(cls);
+  // ⚠ The third argument is the cabin trim or the body variant: the Dragonfly's 2076 edition is a
+  // different airframe (mesh_heli_2076.json) and sits in its own pod.
+  if (cls === 'heli' && trim === '2076') return SHELL_PROFILES.dragonfly2076;
+  if (cls === 'prop' && trim === '2076') return SHELL_PROFILES.mule2076;
+  if (cls === 'ultralight' && trim === '2076') return SHELL_PROFILES.mayfly2076;
+  if (cls === 'grasshopper' && trim === '2076') return SHELL_PROFILES.grasshopper2076;
+  if (cls === 'locust' && trim === '2076') return SHELL_PROFILES.locust2076;
+  if (cls === 'heavy' && trim === '2076') return SHELL_PROFILES.leviathan2076;
+  if (cls === 'divebomber' && trim === '2076') return SHELL_PROFILES.shrike2076;
+  if (cls === 'gunship' && trim === '2076') return SHELL_PROFILES.reaper2076;
+  if (cls === 'wreck' && trim === '2076') return SHELL_PROFILES.carcass2076;
+  if (cls === 'drake' && trim === '2076') return SHELL_PROFILES.drake2076;
   if (cls === 'drake' && trim === 'noir') return SHELL_PROFILES.drakeNoir;
   if (cls === 'drake' && trim === 'quackhawk') return SHELL_PROFILES.drakeQuackhawk;
   const key = cls && SHELL_CLASS[cls];

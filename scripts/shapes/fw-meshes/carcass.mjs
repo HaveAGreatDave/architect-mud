@@ -299,6 +299,8 @@ export default async function carcass() {
     params: {
       name: 'Carcass',
       note: 'A Bowers Fly Baby rebuilt from three wrecks: a grey cowl, a red cockpit section and a blue tail cone, a cream starboard wing and a silver port one, a primer-green rudder. Open cockpit with plywood cheek boards, a square military windscreen frame with two shards of perspex left in it, a scaffold roll bar with a sofa cushion for a headrest, a cabane and landing and flying wires, steel-tube main gear and a tailwheel. The tube aft of the firewall and every cockpit fitting are the interior\'s (interior-carcass.js); see scripts/shapes/fw-meshes/carcass.mjs.',
+      // CONCEPT: the 2076 body is its own mesh (scripts/shapes/concepts/carcass-2076.mjs), worn as the Carcass 2076 edition.
+      variants: { 2076: 'wreck_2076' },
       groundPitch: 12.5,
       navLamps: P3([tip[0], 1.535, tip[2]]),
       rotors: [{ at: [1.062, 0, 0.02], plane: 'fore', r: 0.29, blades: 2, lead: 0.85 }],

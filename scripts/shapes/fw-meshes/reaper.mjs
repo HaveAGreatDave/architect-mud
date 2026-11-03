@@ -140,6 +140,8 @@ export default async function reaper() {
     params: {
       name: 'Reaper',
       note: 'An A-10 Thunderbolt II: a slab-sided fuselage built round the seven-barrel gun that pokes out under the nose (the nose leg is offset right to make room for it), a bubble canopy, a thick straight low wing with drooped tips and wheels that stand half out of their pods, two TF34 pods high on the rear fuselage, twin fins on the ends of the tailplane, and stores on pylons.',
+      // CONCEPT: the 2076 body is its own mesh (scripts/shapes/concepts/reaper-2076.mjs), worn as the Reaper 2076 edition.
+      variants: { 2076: 'gunship_2076' },
       groundPitch: 0,
       hull: 'fuselage',
       navLamps: P3([tip[0], 1.1, tip[2]]),

@@ -4,6 +4,7 @@
   "params": {
     "name": "Leviathan",
     "note": "An An-124 Ruslan with one deliberate difference: the flight deck is glazed into the cargo visor, so the crew ride the nose up when she opens. A swept high wing in anhedral, four big turbofans on pylons, the upper-deck crown, twenty main wheels in sponsons, a tall swept fin. The visor swings on the noseVisor channel by the fw_heavy row's own angle, and the hold and ramp exist only while it is open.",
+    "variants": { "2076": "heavy_2076" },
     "groundPitch": 0,
     "navLamps": [-0.3135, 1.05, 0.1569],
     "hull": "fuselage",

@@ -13,6 +13,7 @@
 // to floor.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
+import { fuelName, fuelList } from '../../../shared/fuels.js';
 import { drawHangarFloorBay, drawPaintBooth, MODEL_SCALE, meshIdFor, meshParams } from './aircraft3d.js';
 import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyles, barTone } from './vehicle-card.js';
 import { updateHangarAmbience, stopHangarAmbience } from './hangar-ambience.js';
@@ -566,7 +567,7 @@ function paintTabHtml(c, cat, dirty) {
   let panel;
   if (pt === 'schemes') {
     const cards = [];
-    const specials = ((cat.trims || {})[c.class] || []);
+    const specials = ((cat.trims || {})[c.liveryModel || c.class] || (cat.trims || {})[c.class] || []);
     const special = (v) => specials.find(t => t.id === v && t.id !== 'stock' && /special/i.test(t.label));
     const star = '<span class="hb-look-star">★</span>';
     // A factory edition that a livery set wears gets that set's card and no card of its own, or the
@@ -723,7 +724,7 @@ function fuelTabHtml(c) {
   const col = pct < 15 ? '#ff6b6b' : pct < 40 ? '#ffb26b' : 'var(--hb-atm-accent)';
   const verdict = pct === 0 ? 'Bone dry. She is not going anywhere.'
     : pct >= 98 ? 'Brimmed.'
-    : `${c.fuelNow} of ${c.fuelCap} units of ${esc(c.fuelType)}.`;
+    : `${c.fuelNow} of ${c.fuelCap} units of ${esc(fuelName(c.fuelType))}.`;
   const gauge = `<div class="hb-hull-gauge">
       <div class="hb-hull-num" style="color:${col}">${pct}<small>%</small></div>
       <div class="hb-hull-track"><i style="width:${pct}%;background:${col};color:${col}"></i>
@@ -732,7 +733,7 @@ function fuelTabHtml(c) {
     </div>`;
   const pumps = B.data?.fuelStocks || [];
   if (!pumps.length) return gauge + `<div class="hb-note">No pumps at this field.</div>`;
-  if (!pumps.includes(c.fuelType)) return gauge + `<div class="hb-note">The pumps here are ${esc(pumps.join(' and '))}. She runs on ${esc(c.fuelType)}.</div>`;
+  if (!pumps.includes(c.fuelType)) return gauge + `<div class="hb-note">This field supplies ${esc(fuelList(pumps))}. She runs on ${esc(fuelName(c.fuelType))}.</div>`;
   if (pct >= 98) return gauge + `<div class="hb-note">Full. Nothing to pump.</div>`;
   return gauge + `<div class="hb-repair-row">
       <button class="hb-btn hb-accent" data-act="refuel" data-id="${esc(c.id)}">Fill her up · ${money(c.fillCost)}</button>
@@ -1015,7 +1016,7 @@ function benchParts(c) {
     const lv = c.livery || {};
     const st = (c.sets || []).find(x => LOOK_KEYS.every(k => x.look[k] == null || lv[k] === x.look[k]) && (lv.variant || 'stock') === (x.look.variant || 'stock'));
     if (st) return st.name;
-    const sp = ((cat.trims || {})[c.class] || []).find(t => t.id === lv.variant && t.id !== 'stock');
+    const sp = ((cat.trims || {})[c.liveryModel || c.class] || (cat.trims || {})[c.class] || []).find(t => t.id === lv.variant && t.id !== 'stock');
     return sp ? sp.label.split(' · ')[0] : 'custom';
   })();
   const tuned = TUNE_KEYS.some(k => Math.abs((c.tune || {})[k] || 0) > 0.001);

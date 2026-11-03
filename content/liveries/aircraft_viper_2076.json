@@ -1,0 +1,20 @@
+{
+  "blurb": "Concept. The Viper fifty years on: a slate tiltrotor with eight drones in her tubes, the sand kept for the trim.",
+  "default": false,
+  "exterior": {
+    "base": "#565e5c",
+    "finish": "satin",
+    "pattern": "factory",
+    "trim": "#bea26c",
+    "variant": "2076"
+  },
+  "id": "2076",
+  "interior": {
+    "cabin": "#262b2c",
+    "uphol": "mesh"
+  },
+  "kind": "aircraft",
+  "model": "viper",
+  "name": "Viper 2076",
+  "unlock": null
+}

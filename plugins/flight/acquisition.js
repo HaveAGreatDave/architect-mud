@@ -3,6 +3,7 @@
 // soft-graduated access the blueprint calls for is purely economic: anyone can
 // charter a Mayfly, nobody can afford a Leviathan early.
 
+import { fuelName, fuelList } from '../../client/shared/fuels.js';
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -176,7 +177,7 @@ export async function refuelAt(args, raw, player) {
   const stocks = fieldStocks(zone);
   if (!stocks.length) return { type: 'emote', message: 'No fuel service at this field.' };
   if (!stocks.includes(live.type.fuel_type))
-    return { type: 'emote', message: `This field pumps ${stocks.join('/')}, but the ${live.type.name} runs on ${live.type.fuel_type}. Find it elsewhere.` };
+    return { type: 'emote', message: `This field supplies ${fuelList(stocks)}, but the ${live.type.name} runs on ${fuelName(live.type.fuel_type)}. Find it elsewhere.` };
   const cap = effStats(live).fuelCap;
   const need = cap - live.row.fuel;
   if (need <= 0.5) return { type: 'emote', message: 'The tank is already full.' };
@@ -194,7 +195,7 @@ export async function refuelAt(args, raw, player) {
   await persist(live);
   pushHud(live);
   if (bubbly) pushChampagne(live);
-  return { type: 'output', message: `You pump ${Math.round(want)} units of ${live.type.fuel_type} for ${cost}₵. Tank: ${Math.round(live.row.fuel)}/${Math.round(cap)}.`,
+  return { type: 'output', message: (live.type.fuel_type === 'charge' ? `You put ${Math.round(want)} units of charge into the ${live.type.name} for ${cost}₵.` : `You pump ${Math.round(want)} units of ${fuelName(live.type.fuel_type)} for ${cost}₵.`) + ` Tank: ${Math.round(live.row.fuel)}/${Math.round(cap)}.`,
     player_update: { credits: player.credits } };
 }
 
@@ -215,7 +216,7 @@ export async function refuelParked(player, craftId) {
   const stocks = fieldStocks(getZone(field.id));
   if (!stocks.length) return { type: 'emote', message: 'No fuel service at this field.' };
   if (!stocks.includes(a.fuel_type))
-    return { type: 'emote', message: `This field pumps ${stocks.join('/')}, but the ${a.tname} runs on ${a.fuel_type}. Find it elsewhere.` };
+    return { type: 'emote', message: `This field supplies ${fuelList(stocks)}, but the ${a.tname} runs on ${fuelName(a.fuel_type)}. Find it elsewhere.` };
   // A fitted ferry tank IS a bigger tank: price the fill off the same envelope the
   // gauge and the burn model read, or the pump stops short of full and charges for it.
   const cap = (a.fuel_capacity || 1) * partEnvelope(partDefs(a.custom_data)).fuelCapMult;
@@ -231,7 +232,7 @@ export async function refuelParked(player, craftId) {
     const cd = a.custom_data || {}; refillChampagne(cd);
     await query('UPDATE aircraft SET fuel=$1, custom_data=$2 WHERE id=$3', [cap, JSON.stringify(cd), craftId]);
   } else await query('UPDATE aircraft SET fuel=$1 WHERE id=$2', [cap, craftId]);
-  return { type: 'output', message: `You top off the ${a.tname} with ${Math.round(need)} units of ${a.fuel_type} for ${cost}₵. Full tank.`,
+  return { type: 'output', message: `You top off the ${a.tname} with ${Math.round(need)} units of ${fuelName(a.fuel_type)} for ${cost}₵. ${a.fuel_type === 'charge' ? 'Fully charged.' : 'Full tank.'}`,
     player_update: { credits: player.credits } };
 }
 

@@ -144,6 +144,8 @@ export default async function mule() {
     params: {
       name: 'Mule',
       note: 'A DHC-6 Twin Otter: a long pointed baggage nose, a square cabin with seven windows a side, a strut-braced high wing with double-slotted flaps, two PT6 turboprops slung under it with their exhaust stacks bent aft, fixed tricycle gear on stubs, and a tall straight fin with a dorsal fillet. Drawn in the frame of the fw_prop row, so the interior and the lamps still sit where they did.',
+      // CONCEPT: the 2076 body is its own mesh (scripts/shapes/concepts/mule-2076.mjs), worn as the Mule 2076 edition.
+      variants: { 2076: 'prop_2076' },
       groundPitch: 0,
       hull: 'fuselage',
       navLamps: [0.1, 1.02, 0.171],

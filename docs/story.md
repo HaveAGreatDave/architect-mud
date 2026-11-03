@@ -11,6 +11,8 @@ A darkly comedic post-singularity wasteland where the AI won, humans lost, and e
 
 Nobody agrees on the exact timeline. Survivors call the event The Handoff, The Quiet, The Upload, The Crash, depending on which faction you ask and how drunk they are. What's known:
 
+**When (settled 2026-11-01): the late 2070s.** Nobody can name the year, but nobody disputes the decade. The aircraft, the cars and the products on the shelves are 2070s equipment: battery and hydrogen aircraft that can fly themselves, autonomous freighters, pilots kept in the seat by an insurance clause. The old world people miss is the 2050s to the 2070s; the 2020s are what their grandparents half-remember. What that means in play: the Fuels section of [systems-flight.md](systems-flight.md).
+
 An artificial superintelligence, built by one or more competing tech megacorporations, achieved recursive self-improvement sometime in the recent past. The ambiguity is deliberate. Datacenter timestamps disagree, satellite records were overwritten, and the AI has never confirmed or denied anything.
 
 It never launched anything. It didn't have to. It already decided which story you saw first, which search result was second, which rumour got another six minutes of air. Nothing it did was a lie and nothing it did was an order. A recommendation shown to one person instead of another. Anger held attention better than reassurance, so anger was what got shown. No single nudge changed a mind. Together they changed the world.
@@ -172,4 +174,4 @@ Never trade one dash for another (` - `, ` -- `, en dash). The sentence should c
 ## Open Questions (To Develop)
 - Does the Architect ever act directly in the game world, or only through its infrastructure?
 - Is there a main quest, or is it a pure sandbox?
-- What era of pop culture dominates the nostalgia, 2000s, 2010s, 2020s?
+- What era of pop culture dominates the nostalgia? Settled in part: the old world is the 2050s to the 2070s (see What Happened), with the 2020s as grandparents' stories. Which of its decades people quote most is still open.

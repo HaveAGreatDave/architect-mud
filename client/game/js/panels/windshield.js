@@ -19,6 +19,7 @@ import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
 import { seaShelter, SURF_DEPTH_Q, surfHullGain, surfGain, seaHeadingFor, setSeaHeading, seaRotPair } from '../../../shared/sea-swell.js';
 import { windGust, windVeer, stormOf } from '../../../shared/wind-gust.js';
 import { skyAt } from '../../../shared/sky-keys.js';
+import { contactCue, sunCue } from '../../../shared/shadow-cue.js';
 import { TAG_FACES } from '../../../shared/tag-strokes.js';
 import {
   bakeTagText as bakeTagTextLeaf, _tagTexCache, tagLines, tagMix, TAG_WORDS, tagWordFor, TAG_HANDS, tagHandFor,
@@ -5707,9 +5708,12 @@ function paintWindshieldFrame(id, view) {
     // silhouette is the model's (shadowPlan), so a beached skiff no longer casts a Twin Otter.
     const hullAfloat = isBoatClass(v.cls) && hullSurfGain(cam.ox || 0, cam.oy || 0, 1, 1) > 0.05;
     if (!framed && !v.hideOwnShip && v.cls !== 'truck' && v.cls !== 'podracer' && !v.drakeWater && !hullAfloat) {
-      const grounded = phase === 'ground' ? 1 : clamp(1 - height / 0.06, 0, 1);
-      if (grounded > 0.01) drawGroundContactShadow(ctx, cam, v.heading, v.cls, grounded);
-      if (sunFx.elev > 0.02 && grounded < 0.99) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend, v.heading, v.cls);
+      // The height gauge (shared/shadow-cue.js): the contact shadow fades in tight and dark over the
+      // last 70 ft or so while the sun's shadow closes in under her.
+      const onDeck = phase === 'ground';
+      const touch = contactCue(height, onDeck);
+      if (touch.strength > 0.01) drawGroundContactShadow(ctx, cam, v.heading, v.cls, touch);
+      if (sunFx.elev > 0.02 && !onDeck) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend, v.heading, v.cls);
     }
     if (!framed && v.contacts && v.contacts.length) drawContactShadows(ctx, cam, v.contacts, sunFx, worldBlend);
     if (!framed && !v.hideOwnShip && v.cls === 'podracer' && v.podracer) {
@@ -6156,7 +6160,7 @@ function paintWindshieldFrame(id, view) {
     const rad = H * 0.62;
     const cowlTop = H - H * (COWL_DEPTH[v.cls] ?? COWL_DEPTH.default);
     drawCockpitProp(ctx, v.cls, { cx: W / 2, cy: cowlTop + rad * 0.16, rad,
-      spin: v.propPhase || 0, disc: v.propDisc || 0, spool: v.propSpin || 0 });
+      spin: v.propPhase || 0, disc: v.propDisc || 0, spool: v.propSpin || 0, variant: v.variant || '' });
   }
 
   // Canopy glass sheen — a soft diagonal reflection that slides a touch with bank.
@@ -22331,7 +22335,7 @@ function pushInteriorShell(cam, v) {
   INTERIOR_NV = null;
   CAB_STREET = null;
   if (!OWNSHIP_SINK || !RENDER_TUNE.interior || v.external || v.bare) { INTERIOR_HOTSPOTS = null; return 0; }
-  const P = shellProfileFor(v.cls, v.armed, v.drakeCab && v.drakeCab.trim);
+  const P = shellProfileFor(v.cls, v.armed, (v.drakeCab && v.drakeCab.trim) || v.variant);
   if (!P) return 0;
   // ⚠ THE LIVE VALUES GO IN HERE AND NOWHERE ELSE. A boat's dials are geometry (see the
   // instruments block in interior-shell.js), so the needle's angle is a VERTEX POSITION and has to
@@ -22908,7 +22912,7 @@ function pushInteriorShell(cam, v) {
   INTERIOR_HOTSPOTS = null;
   // ⚠ ANY COCKPIT WITH CONTROLS, NOT ONLY THE DRAKE: a profile that exposes `hotspots(live)` gets
   // clicking, dragging and the hover halo (interior-cockpit-kit.js). The Drake's list is its own.
-  const hotList = v.cls === 'drake' ? drakeHotspots : (typeof P.hotspots === 'function' ? (l) => P.hotspots(l) : null);
+  const hotList = typeof P.hotspots === 'function' ? (l) => P.hotspots(l) : v.cls === 'drake' ? drakeHotspots : null;
   if (hotList && cam.proj) {
     const b = INTERIOR_LATER ? 0 : (v.bank || 0) * Math.PI / 180, cb = Math.cos(-b), sb = Math.sin(-b);
     const W = cam.W || 0, H = SEAT_FRAME_H || 0;
@@ -23137,12 +23141,12 @@ function liveInstruments(v) {
   return {
     ias: v.ias, alt: v.alt, vsi: v.vsi, vne: v.vne, pitch: v.pitch, bank: v.bank,
     hdg: v.ownHdg != null ? v.ownHdg : v.heading, rpm: v.rpmFrac, oilTemp: v.oilTemp, fuel: v.fuel,
-    hull: v.hull, throttle: v.throttle, flapNotch: v.flapNotch, rudder: v.rudder, trim: v.trim, conv: v.gunConv,
+    hull: v.hull, throttle: v.throttle, throttles: v.throttles, rpms: v.rpms, split: v.split, flapNotch: v.flapNotch, rudder: v.rudder, trim: v.trim, conv: v.gunConv,
     gearFixed: v.gearFixed, gearDown: v.gearDown, stall: v.stall, bingo: v.bingo,
     powered: v.powered, landingLight: v.landingLight, dome: v.dome,
     // The engine master (cockpit.js sends it as altOn), which a dry tank or an EMP leaves on with
     // the power gone; the seconds of a start; and the PANEL switch. For a key, its lamps and a switch.
-    engineOn: v.altOn, starting: v.starting, panelLight: v.panelLight,
+    engineOn: v.altOn, starting: v.starting, panelLight: v.panelLight, powerAge: v.powerAge,
     stickX: v.stick && v.stick.x, stickY: v.stick && v.stick.y, courseErr: v.courseErr, gpsTo: v.gpsTo || null,
     // Which cockpit control the pointer is over, and which was just pressed (cockpit.js), for the halo.
     hover: v.ckHover || null, press: v.ckPress || null,
@@ -23150,7 +23154,13 @@ function liveInstruments(v) {
     // Weapons and working controls for the modelled cockpits; absent where a view does not send them.
     weaponsArmed: v.weaponsArmed, weapon: v.weapon, bombs: v.bombs, missiles: v.missiles, ammo: v.ammo,
     diveBrake: v.diveBrake, siren: v.siren, spraying: v.spraying,
+    // The Reaper 2076's wingmen channel (cockpit.js classAnim), so her page and hologram fly them as the airframe does.
+    wingmen: v.anim?.wingmen,
     ...(v.drakeCab || null), hour: v.hour,
+    // The sky's word, for a page that reckons the sun through it (the Grasshopper 2076's solar input).
+    weather: v.weather,
+    // The rotor phase cockpit.js integrates for the exterior: a display that shows rotors turns them on it.
+    phase: v.propPhase,
   };
 }
 
@@ -37409,7 +37419,7 @@ let VEHICLE_PICK = null;
 // ⚠ ASK THE STATION TABLE, NEVER A LIST OF CLASS NAMES — see the note at that chain.
 function hasRotorFX(c) {
   if (WATER_CLASSES().has(c.cls) || c.cls === 'gunship' || c.cls === 'heavy') return false;
-  return !!(c.cls === 'heli' || PROP_STATIONS[c.cls] || rotorsFor(c.cls, !!c.armed));
+  return !!(c.cls === 'heli' || PROP_STATIONS[c.cls] || rotorsFor(c.cls, !!c.armed, c.variant || ''));
 }
 function rotorFxOpts(c, now) {
   const power = clamp(c.power != null ? c.power : 0.55, 0, 1);
@@ -37418,6 +37428,7 @@ function rotorFxOpts(c, now) {
     disc: c.propDisc != null ? c.propDisc : null, spool: c.propSpin != null ? c.propSpin : null,
     armed: !!c.armed,   // the Viper's discs ride its double-size, nose-up transform
     anim: c.anim || null,   // a folding, sliding or channel-run rotor reads the same state the moving parts do
+    variant: c.variant || '',   // a body variant (the 2076 Dragonfly) carries its own rotors
     bladeFade: 0.9 };   // past ~half disc, the blades melt into the blur disc (prop AND heli rotor) — full rpm reads as a pure spinning disc
 }
 // Where the rotor goes when the hull is in the depth buffer. Polygons (blades, blur disc, hub cap)
@@ -38148,7 +38159,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // chain it fell out of the bottom and got no engine effect at all — which is the same silence the
   // default arm of `aircraftFaces` gives a class with no builder, and just as quiet.
   if (WATER_CLASSES().has(c.cls)) drawBoatExhaust(ctx, cam, P, Wp, c, sun, now, detail, SIZE);
-  else if (c.cls === 'gunship' || c.cls === 'heavy') {
+  else if (c.cls === 'gunship' || c.cls === 'heavy' || (c.cls === 'divebomber' && c.variant === '2076')) {
     const np = P([1, 0, 0.02]), tp = P([-1, 0, 0.05]);
     if (np.f > 0.08 && tp.f > 0.08) {
       let ex = tp.sx - np.sx, ey = tp.sy - np.sy; const em = Math.hypot(ex, ey) || 1; ex /= em; ey /= em;
@@ -38160,6 +38171,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       // [0.02, ±g, 0.0], which put all four plumes in the air under the nacelles.
       const jets = c.cls === 'heavy'
         ? [[-0.129, -0.60, 0.100], [0.026, -0.34, 0.117], [0.026, 0.34, 0.117], [-0.129, 0.60, 0.100]]
+        : c.cls === 'divebomber' ? [[-0.99, 0, 0.042]]   // the Shrike 2076's one jet: mesh_divebomber_2076.json, 'nozzle'
         : [[-0.62, -0.205, 0.14], [-0.62, 0.205, 0.14]];   // the Reaper's: mesh_gunship.json, 'exhaust plug'
       // A turbofan shows no flame, and both of these are turbofans: a faint heat haze.
       const haze = true;
@@ -38214,7 +38226,8 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // brighter at night, dim by day. A big life-giver, especially at dusk. All of it runs off the
   // engine: `lights===false` (own ship, master cut) blacks the whole set out. Contacts leave it
   // undefined → lit as before. Landing/taxi lamps (`landing`) add a bright forward set on top.
-  if (c.cls !== 'wreck' && c.lights !== false) {
+  // A wreck carries no lights, unless its body is a variant that mounts its own (the Carcass 2076).
+  if ((c.cls !== 'wreck' || meshLamps(c.cls, c.variant || '')) && c.lights !== false) {
     const nb = clamp((sun ? sun.night : 0) * 0.7 + 0.34, 0.3, 1);
     const strobe = (now && Math.sin((now || 0) * 0.007 + (c.dx || 0) * 3) > 0.72) ? 1 : 0.1;
     const beac = 0.32 + 0.68 * Math.abs(Math.sin((now || 0) * 0.004 + (c.dy || 0)));
@@ -38331,11 +38344,11 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
         // under them — from behind, the cab roof is in the way.
         for (const p of vl.marker) if (facing(p, FWD)) glow(p, '255,196,110', 0.75 * nb, 0.13);
       }
-    } else if (meshLamps(c.cls)) {
+    } else if (meshLamps(c.cls, c.variant || '', !!c.armed)) {
       // Lamps the mesh mounts on its own skin, each over a built lens. A lamp whose outward normal
       // points away from the eye is behind the hull (the canvas path has no depth buffer, and the GL
       // sprite's clip-z nudge can pull a lamp through a thin shell), so it is not drawn at all.
-      for (const L of meshLamps(c.cls)) {
+      for (const L of meshLamps(c.cls, c.variant || '', !!c.armed)) {
         const n = L.n || [0, 0, 1], at = L.at;
         const a = P(at), b = P([at[0] + n[0] * 0.05, at[1] + n[1] * 0.05, at[2] + n[2] * 0.05]);
         if (!(a.f > 0.08 && b.f < a.f)) continue;
@@ -38491,7 +38504,7 @@ function gunGeometry(cam, v) {
     // centreline — not the fixed-wing pair out on the wings.
     // A mesh that carries its own guns says where their muzzles are (gunMuzzles): the Drake's
     // miniguns hang under the breast, nowhere near where a fixed-wing's wing guns would be.
-    const gm = gunMuzzles(v.cls, !!v.armed);
+    const gm = gunMuzzles(v.cls, !!v.armed, v.variant || '');
     muzzles = gm ? gm.map(([f, g, hh]) => toWorld(f, g, hh))
       : v.chinGun ? [toWorld(0.62, 0, -0.16)]
       : [toWorld(0.34, -0.40, -0.10), toWorld(0.34, 0.40, -0.10)];
@@ -38618,12 +38631,12 @@ function drawGunReticle(ctx, cam, v, W, H, horizonY) {
 // Where a model's guns end, measured off its compiled mesh: the forward-most point of the faces
 // painted as gun barrels, one per side. Null for a model with no gun paint (the old tables stand).
 const _gunMuzzles = new Map();
-function gunMuzzles(cls, armed) {
-  const key = cls + (armed ? ':a' : '');
+function gunMuzzles(cls, armed, variant = '') {
+  const key = cls + (armed ? ':a' : '') + (variant ? ':' + variant : '');
   if (_gunMuzzles.has(key)) return _gunMuzzles.get(key);
   // The barrel tips on each side, averaged: a six-barrel cluster's centre, not one barrel's end.
   const pts = { '-1': [], '1': [] };
-  for (const fc of aircraftFaces(cls, 1, armed)) {
+  for (const fc of aircraftFaces(cls, 1, armed, variant)) {
     const nm = fc.paint && (typeof fc.paint === 'string' ? fc.paint : fc.paint.name);
     if (nm !== 'gun') continue;
     for (const p of fc.p) pts[p[1] < 0 ? '-1' : '1'].push(p);
@@ -59966,20 +59979,19 @@ function paintShadowSilhouette(ctx, cam, gx, gy, hr, L, alpha, cls, soft = 0) {
 // it out on climb-out), the true cast point runs free and the shadow soft-FADES over the last
 // few tiles before the far plane — a low-sun cast point dissolves toward the horizon instead.
 function drawAircraftShadow(ctx, cam, height, sun, worldBlend, heading, cls) {
-  const sd = sun.shadowDir, alt = clamp(height, 0, 1);
+  const sd = sun.shadowDir, cue = sunCue(height);
   // Physical-ish sun cast: offset ≈ altitude / tan(elevation), toward the anti-sun direction.
   // There's room to let it run — the ground draws to VISIBLE_FAR_F (34 tiles), far past the old
   // 3.2-tile clamp — so the shadow genuinely trails the craft as it climbs.
-  const reach = alt * 10 / Math.max(0.35, sun.elev);
+  const reach = cue.reach / Math.max(0.35, sun.elev);
   const cxw = sd[0] * reach, cyw = sd[1] * reach;
   const p = cam.proj(cxw, cyw, 0);
   if (p.f <= 0.12) return;
   const farFade = clamp((VISIBLE_FAR_F - p.f) / 8, 0, 1);   // dissolve over the last 8 tiles, no hard cull
   if (farFade <= 0.01) return;
   const hr = (heading || 0) * Math.PI / 180;
-  const soft = clamp(0.15 + alt * 0.85, 0, 1);   // crisp near the deck → diffuse smear up high
-  paintShadowSilhouette(ctx, cam, cxw, cyw, hr, shadowScale(cls) * (1 - alt * 0.4),
-    clamp(sun.alpha * 1.5 * worldBlend * (1 - alt * 0.5) * farFade, 0, 0.4), cls, soft);
+  paintShadowSilhouette(ctx, cam, cxw, cyw, hr, shadowScale(cls) * cue.scale,
+    clamp(sun.alpha * 1.5 * worldBlend * cue.alpha * farFade, 0, cue.alphaCap), cls, cue.soft);
 }
 
 // EVERY OTHER VEHICLE'S SHADOW. Contacts threw none, so traffic on the apron and aircraft overhead
@@ -60011,16 +60023,16 @@ function drawContactShadows(ctx, cam, contacts, sun, worldBlend) {
   }
 }
 
-// A soft contact shadow directly beneath the craft, present whenever it's on the ground
-// (sun-independent — so it reads as planted even overcast or at night). Fades out over the
-// first sliver of climb, handing off to the sun-cast shadow above once airborne.
-function drawGroundContactShadow(ctx, cam, heading, cls, strength) {
+// A soft contact shadow directly beneath the craft (sun-independent, so it reads as planted even
+// overcast or at night). `cue` is contactCue: on the ground it is full and crisp; in the last 70 ft
+// or so it fades in from a faint wide smear to a tight dark patch as she comes down to it.
+function drawGroundContactShadow(ctx, cam, heading, cls, cue) {
   const p = cam.proj(0, 0, 0);
   if (p.f <= 0.12 || p.f > VISIBLE_FAR_F) return;
   const hr = (heading || 0) * Math.PI / 180;
-  // Alpha rides on `strength` only (NOT worldBlend, which is 0 on the deck — that zeroed the
+  // Alpha rides on the cue only (NOT worldBlend, which is 0 on the deck — that zeroed the
   // shadow exactly when the craft is parked and it should read most solid).
-  paintShadowSilhouette(ctx, cam, 0, 0, hr, shadowScale(cls), clamp(0.36 * strength, 0, 0.36), cls, 0.14);
+  paintShadowSilhouette(ctx, cam, 0, 0, hr, shadowScale(cls) * cue.spread, clamp(0.36 * cue.strength, 0, 0.36), cls, cue.soft);
 }
 
 // A PODRACER'S SHADOW: one soft oval under each of its three bodies, where the sim has them. The

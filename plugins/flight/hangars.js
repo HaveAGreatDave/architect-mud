@@ -5,6 +5,7 @@
 // the tuning curves are the meat of "make it yours."
 
 import { randomUUID } from 'crypto';
+import { fuelName } from '../../client/shared/fuels.js';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
@@ -244,7 +245,7 @@ function textCraftLine(c, detailed) {
   const tags = [c.typeName, where];
   if (c.rental) tags.push('rental');
   let s = `· <b>${clean(c.tail)}</b> <span class="text-dim">(${tags.join(', ')})</span>`
-    + `: hull ${c.hullPct}%, fuel ${c.fuelPct}% <span class="text-dim">(${c.fuelType})</span>`;
+    + `: hull ${c.hullPct}%, fuel ${c.fuelPct}% <span class="text-dim">(${fuelName(c.fuelType)})</span>`;
   // `salvage`/`rebuild` work off the wreck standing in this zone and take no
   // argument — don't hand them a craft id they'd try to parse.
   if (c.wreck) return `${s}\n   ${link('salvage', 'salvage')} · ${link('rebuild', 'rebuild')}`;
@@ -303,7 +304,7 @@ async function textHangarBay(player, field, selectId, opts) {
         const bits = [];
         if (canBuy) bits.push(`${link(`buy ${t.id}`, 'buy')} ${t.price_buy}₵`);
         if (canRent) bits.push(`${link(`rent ${t.id}`, 'rent')} ${t.price_rent_hourly}₵/hr`);
-        msg += `\n· <b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span>: ${bits.join(' · ')}`;
+        msg += `\n· <b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${fuelName(t.fuel_type)})</span>: ${bits.join(' · ')}`;
       }
       if (!await isPilotLicensed(player) && !['admin', 'dev'].includes(player.role))
         msg += `\n<span class="text-amber">You're not rated to fly: see the examiner for a checkride before you buy.</span>`;

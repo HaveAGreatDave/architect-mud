@@ -9,7 +9,7 @@
   "engines": 1,
   "fuel_burn_base": 1,
   "fuel_capacity": 680,
-  "fuel_type": "avgas",
+  "fuel_type": "charge",
   "handling": 2,
   "hardpoints": 0,
   "hull_hp": 8,

@@ -3,7 +3,8 @@
   "charter_vtol_only": true,
   "dealer": false,
   "fuels": [
-    "avgas",
+    "charge",
+    "hydrogen",
     "jet"
   ],
   "id": "echelon_helipad",

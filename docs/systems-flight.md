@@ -50,11 +50,25 @@ Flagged onto fitting zones (the `zones.flags.airfield_id` pattern):
 
 | Field | `airfield_id` | Ramp zone (x,y) | Services |
 |---|---|---|---|
-| Threshold Helipad | `af_helipad` | `zone_district_893_909` (893,909) | charter + rental · avgas/jet · **VTOL-only** |
+| Threshold Helipad | `af_helipad` | `zone_district_893_909` (893,909) | charter + rental · charge/hydrogen/jet · **VTOL-only** |
 | **Coldwater Regional** | `af_regional` | `zone_district_925_903` (925,903) | **dealer + charter + rental** · all fuels |
 | The Echelon — Helipad | `echelon_helipad` | `zone_echelon_exterior` (897,898) | charter only · VTOL-only |
 | Buzzard Field | `buzzard_field` | `zone_the_reach_870_1958` (910,986) | charter only · **lawless** · dust strip |
-| **Solenne Sky Pad** | `af_solenne` | `zone_district_914_908` (914,908) | **private** — residents only · avgas/jet · **VTOL-only** |
+| **Solenne Sky Pad** | `af_solenne` | `zone_district_914_908` (914,908) | **private** — residents only · charge/hydrogen/jet · **VTOL-only** |
+
+**Fuels (2026-11-01).** The fleet is 2070s equipment (docs/story.md), so it runs on 2070s fuel. The
+ids and the words the pumps use are in `client/shared/fuels.js`, read by the server and the hangar.
+
+| Fuel | Runs | Pumped at |
+|---|---|---|
+| `charge` (battery) | Mayfly, Grasshopper, Dragonfly, Locust | every Coldwater field, Buzzard Field, Scarlet Strip |
+| `hydrogen` | Mule, Drake, Leviathan | Threshold, Regional, Solenne, the Echelon |
+| `jet` | Reaper, Viper, Shrike | Threshold, Regional, Solenne, the Echelon |
+| `biofuel` | the Carcass | Regional, Buzzard Field, Scarlet Strip, both Terminus fields |
+
+Avgas is retired: nothing burns it, no field pumps it, and the cache of it in the world is a relic.
+A field still sells only what it can refuel (`acquirableTypes`), so Buzzard Field and Scarlet Strip
+sell the battery craft and nothing that needs hydrogen or jet fuel.
 
 **Private fields.** `airfields.residents_only = "<building name>"` makes a field the
 building's own: `fieldFor()` returns null for anyone who doesn't hold a unit there, so an
@@ -150,8 +164,48 @@ Five things that are each a way to get it silently wrong:
 Only a rotorcraft, and only a tile that is both a field and a building — which today is the Solenne
 and nothing else, so the three ground helipads are untouched by construction.
 
+### Landing feel (as built, 2026-11-01)
+
+- **A fixed wing's ground effect reads the deck under her** (`s.altitude - s.groundFt`), as the
+  helicopter's always did. It read sea level until 2026-11-01, so a roof deck had no cushion and
+  touched down at about twice the sink of the same arrival on a field.
+- **Inside the band (about a wingspan) the wing makes more lift for its α** (`GE_LIFT`, 12% on the
+  deck) **and less induced drag** (the Wieselsberger factor on `kInd`). A flare from the right speed
+  settles; one from 1.6·Vs0 floats about half as far again. The sink cushion and the shortened
+  vertical lag are kept.
+- **The shadow is the height gauge** (`client/shared/shadow-cue.js`). The sun's shadow closes in,
+  darkens and sharpens on the way down, and a contact shadow under her fades in from about 70 ft,
+  tight and dark by the wheels. Both read the view's 0..1 height, the same number the camera climbs
+  on, so the shadow agrees with the height she's drawn at.
+- `node scripts/shapes/landing-feel.mjs` (a gate) checks all three. `node scripts/flare-tune.mjs`
+  flies a whole powered final for every type and prints the sink at the wheels and the float.
+
+### Split throttles (as built, 2026-11-01)
+
+A fixed wing with more than one engine has a lever per engine. Helicopters don't split: every
+engine turns the one rotor.
+
+- **The input.** `F.input.throttle` is the ganged lever and always the mean of the set.
+  `F.input.throttles` (one per engine, left to right) exists only while the levers are split, and
+  goes back to `null` the moment they meet again (`setLever` in cockpit.js). `step()` takes it as
+  `input.throttles`: each engine spools on its own (`s.rpms`), `s.rpm` is their mean, and thrust is
+  the mean, so a ganged set flies exactly as it always did.
+- **What a split does.** An uneven set yaws her toward the slower side, at 0.6 of full rudder for
+  one side full against the other idle, so full opposite rudder holds an engine out. On the ground
+  it turns her too, down to a walk, which is how a twin turns tight on the apron. Engine arms are
+  `engineArms(n)`: a twin's two at ±1, a four's inboards at ±0.5.
+- **The controls.** In the seat, each engine's lever is its own hotspot (`thr0` to `thr3`, carrying
+  `engine`); a hand between the grips (`throttle`) moves the set and closes any split. A and Z move
+  every lever together and keep the split; Shift with them moves the left half alone, Alt the right
+  half. The mobile strip is ganged.
+- **What the cockpits read.** The view carries `throttles` and `rpms` (per engine) and `split`. The
+  Mule, Mule 2076, Reaper and Leviathan draw each lever, and each engine's gauges, from its own
+  values. The Mule 2076's two sim engines are its two banks of four motors. The Drake still has one
+  lever.
+- `node scripts/shapes/engine-split.mjs` (a gate) checks the model and the four cockpits.
+
 Ten aircraft types (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
-Grasshopper · Locust · Viper · **Shrike**), three fuel types (avgas/jet/biofuel), four ground AA
+Grasshopper · Locust · Viper · **Shrike**), four fuel types (charge/hydrogen/jet/biofuel; avgas retired, see Fuels above), four ground AA
 sites (Redline SAM / wastes autocannon / Slagworks flak / Clone Vats guardian), a Core
 no-fly cluster, and one downed Carcass to salvage/rebuild. All of it is CODEX content
 (`content/aircraft_types/`, `content/aa_sites/`, `content/zones/`), not a seed script.

@@ -121,6 +121,8 @@ export default async function locust() {
     params: {
       name: 'Locust',
       note: 'An Air Tractor AT-802: a long slim PT6 cowl with its exhaust stacks bent back, the chemical hopper as a hump ahead of a tall glass cockpit set high for seeing the ground in a turn, a wire cutter on the windscreen and a deflector cable to the fin, a straight low wing with a spray boom and nozzles along its trailing edge and a wind-driven pump under the belly, spring-steel gear on fat tyres, and a braced tail.',
+      // CONCEPT: the 2076 body is its own mesh (scripts/shapes/concepts/locust-2076.mjs), worn as the Locust 2076 edition.
+      variants: { 2076: 'locust_2076' },
       groundPitch: 10,
       hull: 'fuselage',
       navLamps: P3([tip[0], 1.14, tip[2]]),

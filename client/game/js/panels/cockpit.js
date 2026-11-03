@@ -1718,7 +1718,7 @@ export function openFlightSim(opts = {}) {
   wirePedal(F.pedalR, 1);
 
   const thr = q('#fsim-thr');
-  const thrTo = (e) => { const r = thr.getBoundingClientRect(); F.input.throttle = clampNum(1 - (e.clientY - r.top) / r.height, 0, 1); };
+  const thrTo = (e) => { const r = thr.getBoundingClientRect(); setLever(F, null, clampNum(1 - (e.clientY - r.top) / r.height, 0, 1)); };
   add(thr, 'pointerdown', (e) => { F.thrDrag = true; try { thr.setPointerCapture(e.pointerId); } catch {} thrTo(e); });
   add(thr, 'pointermove', (e) => { if (F.thrDrag) thrTo(e); });
   add(window, 'pointerup', () => { F.thrDrag = false; });
@@ -2173,7 +2173,7 @@ export function openFlightSim(opts = {}) {
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
-    const k = (e.key || '').toLowerCase();
+    const k = (e.altKey && (e.code === 'KeyA' || e.code === 'KeyZ')) ? e.code.slice(3).toLowerCase() : (e.key || '').toLowerCase();   // Alt+A on a Mac types å, so read it by code
     if (k === 'escape' && gpsEl) { e.preventDefault(); gpsClose(); return; }
     // ── The free camera ─────────────────────────────────────────────────────
     // Ahead of the KEYS allowlist. Detaching releases stick and pedal keys, so the aircraft flies on.
@@ -2201,8 +2201,9 @@ export function openFlightSim(opts = {}) {
     if (!KEYS.has(k)) return;
     e.preventDefault();
     switch (k) {
-      case 'a': F.throttleKey = 1; break;
-      case 'z': F.throttleKey = -1; break;
+      // Shift moves the left engines' levers alone, Alt the right's: the split for a keyboard.
+      case 'a': F.throttleKey = 1; F.throttleSide = e.shiftKey ? -1 : e.altKey ? 1 : 0; break;
+      case 'z': F.throttleKey = -1; F.throttleSide = e.shiftKey ? -1 : e.altKey ? 1 : 0; break;
       case 'q': setView(-90); break;
       case 'e': setView(90); break;
       case ',': case 'x': F.pedalKey = -1; break;   // rudder, held
@@ -2237,7 +2238,7 @@ export function openFlightSim(opts = {}) {
     }
   };
   const onKeyUp = (e) => {
-    const k = (e.key || '').toLowerCase();
+    const k = (e.altKey && (e.code === 'KeyA' || e.code === 'KeyZ')) ? e.code.slice(3).toLowerCase() : (e.key || '').toLowerCase();   // Alt+A on a Mac types å, so read it by code
     if (freeCam.onKey(k, false)) return;
     if (k === 'a' || k === 'z') F.throttleKey = 0;
     else if (k === ',' || k === '.' || k === 'x' || k === 'c') F.pedalKey = 0;   // release pedal → centres
@@ -2309,7 +2310,7 @@ export function openFlightSim(opts = {}) {
       F.engineOn = true; engBtn.classList.add('on');
       F.engStartT = performance.now();
       // Start at idle so the engine never surges the plane forward.
-      F.input.throttle = 0; F.throttleKey = 0;
+      F.input.throttle = 0; F.input.throttles = null; F.throttleKey = 0;
       try { spoolUp(F.cls); } catch {}
       // The visor closes on start-up; tell the pilot, since she won't taxi until it locks.
       if (F.hasVisor && F.noseVisor > 0.02) {
@@ -2576,7 +2577,11 @@ export function openFlightSim(opts = {}) {
       'ck:flaps': () => ckFlap(),
       'ck:gear': () => toggleGear(),
       'ck:arm': () => q('#fsim-arm')?.click(),
+      // The Locust 2076's SPRAY key: the same pass the SPRAY button flies (the server gates it).
+      'ck:spray': () => q('#fsim-spraybtn')?.click(),
       'ck:gps': () => gpsOpen(),
+      // The Shrike 2076's DIVE key: the automatic dive, as B is.
+      'ck:dive': () => F.toggleDiveAuto?.(),
       power: ckMaster,
       lights: () => F.toggleLand?.(),
       cabin: () => F.toggleDome(),
@@ -2613,7 +2618,8 @@ export function openFlightSim(opts = {}) {
       if (!dkDrag) return;
       const dx = e.clientX - dkDrag.x0, dy = e.clientY - dkDrag.y0;
       if (dkDrag.kind === 'yoke') { F.input.aileron = clamp1(dx / dkDrag.span); F.input.elevator = clamp1(dy / (dkDrag.span * 0.7)); }
-      else if (dkDrag.kind === 'throttle') F.input.throttle = clampNum(dkDrag.t0 - dy / dkDrag.span, 0, 1);
+      // One engine's lever (a hotspot with `engine`), or the whole set together, which closes any split.
+      else if (dkDrag.kind === 'throttle') setLever(F, dkDrag.engine, clampNum(dkDrag.t0 - dy / dkDrag.span, 0, 1));
       // Down is nose up.
       else if (dkDrag.kind === 'trim') F.setTrim?.(dkDrag.tr0 + (dy / dkDrag.span) * (F.TRIM_MAX || 0.6) * 2);
     };
@@ -2626,8 +2632,9 @@ export function openFlightSim(opts = {}) {
       dkDrag = null; q('#dkx-wheel')?.classList.remove('drag');
       const v0 = q('.fsim-view'); if (v0) v0.style.cursor = F.dkHover ? 'grab' : '';
     };
-    const dragStart = (kind, e, span) => {
-      dkDrag = { kind, x0: e.clientX, y0: e.clientY, span, t0: F.input.throttle || 0, tr0: F.input.trim || 0 };
+    const dragStart = (kind, e, span, engine = null) => {
+      const one = engine != null && canSplit(F) ? engine : null;
+      dkDrag = { kind, x0: e.clientX, y0: e.clientY, span, engine: one, t0: one != null ? leverOf(F, one) : (F.input.throttle || 0), tr0: F.input.trim || 0 };
       if (kind === 'yoke') F.yokeDrag = true; else if (kind === 'throttle') F.thrDrag = true;
     };
     add(window, 'pointermove', dragMove);
@@ -2657,6 +2664,10 @@ export function openFlightSim(opts = {}) {
     document.body.appendChild(tip);
     F.dkTipEl = tip;
     const onOff = (b) => (b ? 'ON' : 'OFF');
+    const engineLeverTip = (i) => {
+      const n = Math.max(1, F.engines || 1), name = n === 2 ? ['LEFT', 'RIGHT'][i] : 'ENGINE ' + (i + 1);
+      return [name + ' THROTTLE', `${Math.round(leverOf(F, i) * 100)}% · drag to set this engine alone`];
+    };
     const DK_TIP = {
       'ck:master': () => ['ENGINE', F.engineOn ? 'running · click to shut down (on the ground, stopped)' : 'off · click or press I to start'],
       'ck:land': () => ['LANDING LIGHTS', onOff(!!F.landingLight)],
@@ -2666,7 +2677,9 @@ export function openFlightSim(opts = {}) {
       'ck:flaps': () => ['FLAPS', `${['UP', '1', '2', 'FULL'][Math.round(clampNum(F.input.flaps || 0, 0, 1) * 3)]} · click for the next notch`],
       'ck:gear': () => ['GEAR', F.gearUp ? 'up · click to lower' : 'down · click to raise'],
       'ck:arm': () => ['MASTER ARM', F.armed ? 'ARMED · click to make safe' : 'SAFE · click to arm'],
+      'ck:spray': () => ['SPRAY', F.sprayT && performance.now() - F.sprayT < 1900 ? 'valve open · the drones are out' : 'click to spray a pass (airborne and low)'],
       'ck:gps': () => ['GPS', F.gpsDest && F.apTargetId === 'gps' ? `to ${F.gpsDest.name} · click to change` : 'click to pick a destination (P)'],
+      'ck:dive': () => ['DIVE COMPUTER', F.diveAuto ? (F.diveAuto === 'pull' ? 'flying the pull-out · click to take her back' : 'pushing over to the dive · click to take her back') : 'off · click to roll in (B)'],
       power: () => ['POWER', `engine master · ${onOff(!!F.engineOn)}`],
       lights: () => ['LIGHTS', `landing lights · ${onOff(!!F.landingLight)}`],
       cabin: () => ['CABIN', `dome light · ${onOff(!!F.domeLight)}`],
@@ -2681,7 +2694,11 @@ export function openFlightSim(opts = {}) {
       bucket: () => ['CHAMPAGNE', DK_CHAMPAGNE === 0 ? 'empty · refilled when you refuel' : `${DK_CHAMPAGNE ?? 6} glasses · click to drink, shift-click to pour for passengers`],
       locker: () => ['WEAPONS LOCKER', 'dry storage · click to open'],
       ramp: () => ['RAMP', 'rear loading ramp'],
-      throttle: () => ['THROTTLE', `${Math.round((F.input.throttle || 0) * 100)}% · drag up and down`],
+      throttle: () => ['THROTTLE', F.input.throttles
+        ? `split ${F.input.throttles.map((x) => Math.round(x * 100)).join(' / ')}% · drag to bring them together`
+        : `${Math.round((F.input.throttle || 0) * 100)}% · drag up and down`],
+      // One engine's lever: drag it on its own to split the set.
+      thr0: () => engineLeverTip(0), thr1: () => engineLeverTip(1), thr2: () => engineLeverTip(2), thr3: () => engineLeverTip(3),
       mode0: () => ['HELI', 'rotor flight'], mode1: () => ['PLANE', 'wings out, forward flight'],
       mode2: () => ['BOAT', 'feet up, sit on the hull (over water)'], mode3: () => ['SUB', 'flood the ballast and dive (on the water)'],
       modelever: () => ['MODE', `${['HELI', 'PLANE', 'BOAT', 'SUB'][drakeModeNow()]} · click a gate, or the knob for the next`],
@@ -2718,7 +2735,7 @@ export function openFlightSim(opts = {}) {
       if (best.id === 'quack') { F.dkQuackHold = true; drakeQuackDown(); }
       else if (best.kind === 'click') DK_ACT[best.id]?.(e);
       else if (best.kind === 'rudder') { F.dkRudHold = best.id === 'rudderL' ? -1 : 1; F.pedalKey = F.dkRudHold; }
-      else dragStart(best.kind, e, best.kind === 'yoke' ? 110 : 90);
+      else dragStart(best.kind, e, best.kind === 'yoke' ? 110 : 90, best.engine);
     }, true);
     // Mouse wheel turns the 3-D trim wheel and convergence knob.
     add(view, 'wheel', (e) => {
@@ -3043,6 +3060,58 @@ function parkedDeck(F) {
 
 // The floor this frame: zero, or the deck we started on until we leave it.
 // ⚠ The `left` latch only closes; reopening it would snap a low pass onto the roof and skip CFIT.
+// How long the power has been on: the moment F.powered goes true is the start of the count.
+function powerAgeOf(F) {
+  const now = performance.now();
+  // Already live the first time it's asked (a seat opened on a running aircraft): long since booted.
+  if (F.powered && !F._pwrWas) F.powerOnT = F._pwrWas === undefined ? -1e9 : now;
+  F._pwrWas = !!F.powered;
+  return F.powered ? (now - (F.powerOnT ?? -1e9)) / 1000 : 0;
+}
+
+// A 2076 body's moving parts, as mesh anim channels; a body with nothing on a channel ignores it.
+// The Locust 2076's spray drones fly out on `spray` while she sprays and dock again after, about a
+// second each way (mesh_locust_2076.json). The Shrike 2076's dive brakes, bay and trapeze ride the dive
+// computer on `diveBrake`, eased over about a second (mesh_divebomber_2076.json).
+function classAnim(F, dt) {
+  if (F.cls === 'locust') return { spray: (F.droneOut = clampNum((F.droneOut || 0) + ((F.sprayT && performance.now() - F.sprayT < 1900) ? dt : -dt) * 1.1, 0, 1)) };
+  // The Viper 2076's drones fly out of their tubes while the master arm is on and home after it.
+  if (F.cls === 'heli' && F.hardpoints > 0) return { drones: (F.droneOut = clampNum((F.droneOut || 0) + (F.armed ? dt : -dt) * 0.8, 0, 1)) };
+  if (F.cls === 'divebomber') return { diveBrake: (F.diveBrakeEase = clampNum((F.diveBrakeEase || 0) + ((F.diveAuto ? 1 : 0) - (F.diveBrakeEase || 0)) * Math.min(1, dt * 2.5), 0, 1)) };
+  // The Reaper 2076's wingmen fly out off her tips while the weapons are armed and come home when safed.
+  if (F.cls === 'gunship') return { wingmen: (F.wingmenOut = clampNum((F.wingmenOut || 0) + (F.armed ? dt : -dt) * 0.8, 0, 1)) };
+  return undefined;
+}
+
+// ── Split throttles ─────────────────────────────────────────────────────────
+// `F.input.throttle` is the ganged lever and always the mean of the set. `F.input.throttles`, one per
+// engine left to right, exists only while the levers are split; when they meet again it goes back to
+// null and they are one lever. Helicopters don't split: every engine turns the one rotor.
+const canSplit = (F) => !(F.P && F.P.heli) && Math.max(1, F.engines || 1) > 1;
+function leverOf(F, i) { return (F.input.throttles ? F.input.throttles[i] : F.input.throttle) || 0; }
+function setLever(F, i, v) {
+  const n = Math.max(1, F.engines || 1);
+  if (!canSplit(F) || i == null) { F.input.throttle = v; F.input.throttles = null; return; }
+  if (!F.input.throttles || F.input.throttles.length !== n) F.input.throttles = new Array(n).fill(F.input.throttle || 0);
+  const t = F.input.throttles;
+  t[i] = v;
+  F.input.throttle = t.reduce((a, b) => a + b, 0) / n;
+  if (t.every((x) => Math.abs(x - t[0]) < 0.01)) { F.input.throttle = t[0]; F.input.throttles = null; }
+}
+// Move the levers. side 0: every lever together, keeping any split, one hand across the whole set.
+// side -1 or 1: only the left or right half (the left engine of a twin, the left pair of a four).
+function nudgeLevers(F, d, side = 0) {
+  if (side && canSplit(F)) {
+    const n = Math.max(1, F.engines || 1);
+    for (let i = 0; i < n; i++) if ((i < n / 2) === (side < 0)) setLever(F, i, clampNum(leverOf(F, i) + d, 0, 1));
+    return;
+  }
+  const t = F.input.throttles;
+  if (!t) { F.input.throttle = clampNum((F.input.throttle || 0) + d, 0, 1); return; }
+  for (let i = 0; i < t.length; i++) t[i] = clampNum(t[i] + d, 0, 1);
+  F.input.throttle = t.reduce((a, b) => a + b, 0) / t.length;
+}
+
 function deckFloorFt(F, s) {
   if (F.roofLock) return F.roofLock.padFt;
   const d = F.padDeck;
@@ -3181,7 +3250,7 @@ function stepCrashBreakup(F, now) {
     external: true, hideOwnShip: false, phase: 'cruise', worldBlend: 1,
     // ⚠ Pass the livery variant: a Drake variant is a different mesh.
     cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, heading: C.hdg, bank, pitch, livery: F.livery,
-    ...(F.cls === 'drake' && F.livery?.variant && F.livery.variant !== 'stock' ? { variant: F.livery.variant } : {}),
+    ...(F.livery?.variant && F.livery.variant !== 'stock' ? { variant: F.livery.variant } : {}),
     gearAnim: F.gearAnim ?? 1, enginePct: 0, engineOn: false, breakup: { t, parts, state: C }, wreckFx,
     extYaw: (F.extOrbit || 0) + 26 * t, extPitch: F.extPitch ?? REST_PITCH, extZoom: F.extZoom || 1,
     height, speed: 0, hour: F.sky?.hour, moon: F.sky?.moon, weather: F.sky?.weather, wxField: F.sky?.field, wxGround: F.sky?.ground,
@@ -3367,7 +3436,7 @@ function fsimFrameBody(now) {
       F.extOrbit = 0; F.extPitch = REST_PITCH; F.extZoom = 1; F.orbitResetting = false;
     }
   }
-  if (F.throttleKey) input.throttle = clampNum(input.throttle + F.throttleKey * dt * 0.5, 0, 1);
+  if (F.throttleKey) nudgeLevers(F, F.throttleKey * dt * 0.5, F.throttleSide || 0);
   input.pedal = F.pedalKey ? clampNum(input.pedal + F.pedalKey * dt * 2.2, -1, 1) : lerpN(input.pedal, 0, Math.min(1, dt * 12));
   // Gear up on the ground: no thrust until it's down. ⚠ Not a Drake on the water.
   const bellyDown = s.onGround && F.gearRetract && F.gearUp && !(F.dk && F.dk.onWater);
@@ -3378,10 +3447,12 @@ function fsimFrameBody(now) {
       F.visorBaulkT = 2.5;                       // one toast per held key
       if (F.toast) F.toast('THROTTLE BAULKED: cargo nose is open.');
     }
-    input.throttle = 0; F.throttleKey = 0;
+    input.throttle = 0; input.throttles = null; F.throttleKey = 0;
   }
   if (F.visorBaulkT > 0) F.visorBaulkT = Math.max(0, F.visorBaulkT - dt);
   const thr = (F.engineOn && !F.deadStick && !bellyDown) ? input.throttle : 0;
+  // Split levers reach the sim only while the engines can make thrust; otherwise it's all idle.
+  const thrs = (F.engineOn && !F.deadStick && !bellyDown && canSplit(F)) ? input.throttles : null;
 
   // Weather and thermals are sampled once per frame and held across the sub-steps.
   const atmos = F.atmos = weatherAtmos(F, now);
@@ -3401,7 +3472,7 @@ function fsimFrameBody(now) {
   while (F.acc >= FIXED && nSteps < 8) {
     const h = FIXED;
     // gear: fixed gear reports 0 (its drag is in dragP). collRaw and power let a heli autorotate.
-    step(s, { lift: F.lift || 0, elevator: input.elevator, aileron: input.aileron, throttle: thr, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), noThrust: !visorLocked, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
+    step(s, { lift: F.lift || 0, elevator: input.elevator, aileron: input.aileron, throttle: thr, throttles: thrs, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), noThrust: !visorLocked, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
     // BOAT / SUB: the tail rotor pushes, the throttle sets speed, pedals and stick steer.
     if (F.dk?.boat && (F.dk.onWater || F.waterBelow) && F.engineOn && !F.deadStick) {
       const under = F.dk.submerged > 0, vmax = under ? SUB_MAX_KT : BOAT_MAX_KT;
@@ -3744,7 +3815,8 @@ function fsimFrameBody(now) {
     root.style.setProperty('--sheen', (day * wxMul * 0.42).toFixed(2));
   }
 
-  // Cosmetic: the one sim rpm fanned out per engine with a little wander and thermal lag.
+  // Each engine's rpm: its own spool when the levers are split (s.rpms), else the one sim rpm fanned
+  // out, with a little wander and thermal lag either way.
   const nEng = Math.max(1, F.engines || 1);
   if (F.rpms.length !== nEng) F.rpms = new Array(nEng).fill(0);
   if (F.temps.length !== nEng) F.temps = new Array(nEng).fill(F.temp || 40);
@@ -3752,7 +3824,7 @@ function fsimFrameBody(now) {
   const engRunning = F.engineOn && s.rpm > 0.02;
   for (let i = 0; i < nEng; i++) {
     const wob = engRunning ? Math.sin(F.engWander * 1.3 + i * 2.2) * 0.02 : 0;
-    F.rpms[i] = clampNum(s.rpm * (1 + wob), 0, 1);
+    F.rpms[i] = clampNum((s.rpms && s.rpms.length === nEng ? s.rpms[i] : s.rpm) * (1 + wob), 0, 1);
     F.temps[i] = lerpN(F.temps[i], 40 + F.rpms[i] * 175 + i * 7, Math.min(1, dt * 0.35));
   }
   F.temp = F.temps[0];
@@ -3829,8 +3901,8 @@ function fsimFrameBody(now) {
       // A ground contact pins to groundZ 0; airborne ones use the altitude delta.
       const brk = surfaceBreakup(c.surfaces);
       const cv = c.onGround
-        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, ias: c.ias || 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.cls === 'drake' && c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear }
-        : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.cls === 'drake' && c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear };
+        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, ias: c.ias || 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear }
+        : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear };
       contactView.push(cv);
       if (bore < bestBore) { bestBore = bore; designated = cv; }
     }
@@ -4056,6 +4128,10 @@ function fsimFrameBody(now) {
     fuel: clampNum((s.fuelPct ?? 100) / 100, 0, 1),
     hull: clampNum((s.hullPct ?? 100) / 100, 0, 1),
     throttle: clampNum(F.input.throttle ?? 0, 0, 1),
+    // Every lever, left to right: the split set, or the ganged lever once per engine. With `rpms`,
+    // a cockpit with a lever and a gauge per engine draws each from its own.
+    throttles: Array.from({ length: Math.max(1, F.engines || 1) }, (_, i) => clampNum(leverOf(F, i), 0, 1)),
+    rpms: F.rpms.slice(), split: !!F.input.throttles,
     // The lever is a gate: the 0..1 input quantised to its notches.
     flapNotch: Math.round(clampNum(F.input.flaps || 0, 0, 1) * 3),
     rudder: clampNum(F.input.pedal || 0, -1, 1),
@@ -4065,6 +4141,8 @@ function fsimFrameBody(now) {
     stall: !!(s.stalled || s.stallMargin < 0.35),
     bingo: !!(F.fuel <= 0 || F.warn === 'BINGO'),
     powered: !!F.powered, altOn: !!F.engineOn,
+    // Seconds since the busbars came live, for the 2076 cockpits' boot (interior-cockpit-kit bootAge).
+    powerAge: powerAgeOf(F),
     // Off the start timer, not rpm (which reads 0 at idle).
     starting: !!(F.engineOn && F.engStartT && performance.now() - F.engStartT < ENGINE_START_MS),
     landingLight: !!F.landingLight, panelLight: !!F.nightLight,
@@ -4116,7 +4194,7 @@ function fsimFrameBody(now) {
           dy: F.aaTracerY != null ? F.aaTracerY - F.pos.y : null,
           hit: !!F.aaTracerHit,
           seed: F.aaTracerSeed || 1 } : null,
-    external: F.external, extZoom: F.extZoom || 1, freeCam: freeCam.view(), cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, livery: LIVERY_PREVIEW || F.livery, ...(F.cls === 'drake' && (LIVERY_PREVIEW || F.livery)?.variant && (LIVERY_PREVIEW || F.livery).variant !== 'stock' ? { variant: (LIVERY_PREVIEW || F.livery).variant } : {}), enginePct: d.rpm,
+    external: F.external, extZoom: F.extZoom || 1, freeCam: freeCam.view(), cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, livery: LIVERY_PREVIEW || F.livery, ...((LIVERY_PREVIEW || F.livery)?.variant && (LIVERY_PREVIEW || F.livery).variant !== 'stock' ? { variant: (LIVERY_PREVIEW || F.livery).variant } : {}), enginePct: d.rpm,
     // For the modelled cockpits. ⚠ Not `armed`, which picks the Viper airframe.
     weaponsArmed: !!F.armed, weapon: F.weapon, bombs: F.bombs, missiles: F.msl, ammo: F.gunRounds,
     diveBrake: F.diveAuto ? 1 : 0, siren: F.bombCap > 0 && diveQuality(F.s) > 0,
@@ -4129,7 +4207,8 @@ function fsimFrameBody(now) {
     // Surface deflection for the external model; touch auto-coordinates the rudder into the roll.
     ctrl: F.external ? { aileron: F.input.aileron, elevator: clampNum(F.input.elevator + (F.input.trim || 0), -1, 1), flaps: F.input.flaps, rudder: clampNum((F.input.pedal || 0) + (_touchPrimary ? 0.5 * F.input.aileron : 0), -1, 1) } : null,
     gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
-    anim: F.dk ? drakeAnim(F.dk) : undefined,
+    // A 2076 body's moving parts that ride the sim (classAnim): the Locust's drones, the Shrike's brakes.
+    anim: F.dk ? drakeAnim(F.dk) : classAnim(F, dt),
     drakeCab: F.dk ? { ...drakeAnim(F.dk), ramp: F.dk.ramp, nv: F.dk.nv, gunsArmed: F.armed, gear: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
       quack: !!F.dk.quackHeld || performance.now() - F.dk.quackT < 400, champagne: DK_CHAMPAGNE, quackP: F.dk.quackHeld ? Math.min(1, (performance.now() - F.dk.quackT) / QUACK_SQUEEZE_MS) : 0, ammo: F.gunRounds, convert: F.dk.conv, wingTarget: !!F.dk.wing,
       hover: F.dkHover || null, press: F.dkPress && performance.now() - F.dkPress.t < 220 ? F.dkPress.id : null,

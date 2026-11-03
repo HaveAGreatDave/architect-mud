@@ -1,0 +1,20 @@
+{
+  "blurb": "Concept. The Reaper fifty years on: still the gun with a plane round it, and two wingmen on the wing that fly when the guns are armed.",
+  "default": false,
+  "exterior": {
+    "base": "#3e443a",
+    "finish": "matte",
+    "pattern": "factory",
+    "trim": "#282b2e",
+    "variant": "2076"
+  },
+  "id": "2076",
+  "interior": {
+    "cabin": "#1e2226",
+    "uphol": "mesh"
+  },
+  "kind": "aircraft",
+  "model": "gunship",
+  "name": "Reaper 2076",
+  "unlock": null
+}

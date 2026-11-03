@@ -9,7 +9,7 @@
   "engines": 2,
   "fuel_burn_base": 2.4,
   "fuel_capacity": 1600,
-  "fuel_type": "avgas",
+  "fuel_type": "hydrogen",
   "handling": -1,
   "hardpoints": 2,
   "hull_hp": 26,
