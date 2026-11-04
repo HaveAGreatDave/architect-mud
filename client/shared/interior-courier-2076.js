@@ -20,6 +20,7 @@ import { makeKit, C, clamp, lerp, SHINY, TEXTURE } from './interior-kit.js';
 import { hotspotHalo, eased, pressPulse, HALO, bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand,
   holoFrame, holoProjector, lensLamp, wallSec, HOLO_LINE, HOLO_AMBER, HOLO_RED, HUD_LINE, HUD_AMBER, HUD_RED } from './interior-cockpit-kit.js';
 import { loft } from './interior-fit.js';
+import { MPH_KMH } from './world-scale.js';
 
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -55,7 +56,7 @@ export function courier2076Profile(base) {
 function readings(live) {
   const L = live || {}, phi = L.trailerPhi;
   return {
-    L, mph: Math.max(0, Math.abs(num(L.mph))), rpm: clamp(num(L.rpm), 0, 1.05), fuel: clamp(num(L.fuel, 1), 0, 1),
+    L, kmh: Math.max(0, Math.abs(num(L.mph))) * MPH_KMH, rpm: clamp(num(L.rpm), 0, 1.05), fuel: clamp(num(L.fuel, 1), 0, 1),
     gear: String(L.gear ?? 'N').replace('½', '').replace('—', '-').slice(0, 2),
     phi: phi == null ? null : num(phi), brake: clamp(num(L.brakeTemp), 0, 1), fading: !!L.fading,
     powered: L.powered !== false, lamps: L.lamps || {}, hdg: num(L.hdg), hour: L.hour == null ? null : num(L.hour),
@@ -125,8 +126,8 @@ function drivePage(Pn, R, G) {
     const rgb = at > 0.93 ? T.red : at > 0.8 ? T.amber : G;
     Pn.rect(x0 + i * w + 0.0012, 0.030, x0 + (i + 1) * w - 0.0012, 0.046, on ? rgb : T.segOff, on ? 0.95 : 0, 0.0025);
   }
-  Pn.digits(-0.16, -0.05, 0.064, pad(R.mph, 3), G, false);
-  Pn.text('MPH', -0.012, -0.040, LABEL, G, 0.6, 0.003);
+  Pn.digits(-0.16, -0.05, 0.064, pad(R.kmh, 3), G, false);
+  Pn.text('KM/H', -0.012, -0.040, LABEL, G, 0.6, 0.003);
   Pn.digits(0.082, -0.05, 0.064, R.gear.padStart(2, ' '), [236, 244, 240], false);
   Pn.text('GEAR', 0.045, -0.040, LABEL, G, 0.6, 0.003);
 }
@@ -173,8 +174,8 @@ function sysPage(Pn, R, G) {
 function hud(K, R, G, warn, caution) {
   const H = K.panel([0, 0.78, -0.145], [1, 0, 0], [0, 0, 1], 'dash', 0);
   const col = warn ? HUD_RED : caution ? HUD_AMBER : HUD_LINE, e = 0.9;
-  H.text(pad(R.mph, 3).trim(), -0.135, 0.0, 0.0145, col, e, 0.001);
-  H.text('MPH', -0.135, -0.019, 0.0095, col, 0.6, 0.001);
+  H.text(pad(R.kmh, 3).trim(), -0.135, 0.0, 0.0145, col, e, 0.001);
+  H.text('KM/H', -0.135, -0.019, 0.0095, col, 0.6, 0.001);
   H.text(R.gear, 0.135, 0.0, 0.0145, col, e, 0.001);
   H.text('GEAR', 0.135, -0.019, 0.0095, col, 0.6, 0.001);
   // The low controls, mirrored: the Jake's lamp and the clutch's travel.

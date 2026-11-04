@@ -124,6 +124,7 @@ import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveT
   ridingRigOf, seatsFree, boardPassenger, alightPassenger,
   truckElecDead, crewedRigs } from './state.js';
 import { corridorPos, corridorAt, TILES_PER_ROOM, sOfNode, wreckNear, trailFor, trailPos, roadKm } from './corridor.js';
+import { MPH_MS, fmtSpeed } from '../../client/shared/world-scale.js';
 // bench.js imports yard helpers back from this file; see its header.
 import { cmdRig, sparesInHand, spendSpares, truckStockTrim, sanitizeTrimResolved } from './bench.js';
 import { cbStatus, cbTune, cbPower, cbSpeaker, cbTransmit } from './cb.js';
@@ -1072,7 +1073,7 @@ function depotDialogPayload(p) {
     rows.push({
       group: 'For hire',
       label: t.name,
-      detail: `${t.fee}₵ for ${t.hours} hours · ${t.kg}kg · ${t.top}mph${p.hasRental ? ' · one out already' : t.afford ? '' : " · can't afford"}`,
+      detail: `${t.fee}₵ for ${t.hours} hours · ${t.kg}kg · ${fmtSpeed('road', t.top * MPH_MS)}${p.hasRental ? ' · one out already' : t.afford ? '' : " · can't afford"}`,
       commands: t.afford && !p.hasRental ? [{ label: 'Hire', command: `yard rent ${t.id}` }] : [],
     });
   }
@@ -1081,7 +1082,7 @@ function depotDialogPayload(p) {
     rows.push({
       group: 'For sale',
       label: t.name,
-      detail: `${t.price}₵ · ${t.kg}kg · ${roadKm(t.tank)} km a tank · ${t.top}mph${t.afford ? '' : " · can't afford"}`,
+      detail: `${t.price}₵ · ${t.kg}kg · ${roadKm(t.tank)} km a tank · ${fmtSpeed('road', t.top * MPH_MS)}${t.afford ? '' : " · can't afford"}`,
       commands: t.afford ? [{ label: 'Buy', command: `yard buy ${t.id}` }] : [],
     });
   }
@@ -1142,7 +1143,7 @@ function textYard(p) {
         + (t.rental ? ` · <span class="text-dim">hand it back (yard return ${t.id})</span>` : ` · <span class="text-dim">sells for ${t.resale}₵ (yard sell ${t.id})</span>`)).join('\n')
     : '  <span class="text-dim">You own nothing with wheels on it.</span>';
   const stock = p.stock.map(t =>
-    `  <b>${t.name}</b>: <span class="item-grant">${t.price}₵</span> · ${t.kg} kg deck · ${roadKm(t.tank)} km a tank · ${t.top} mph`
+    `  <b>${t.name}</b>: <span class="item-grant">${t.price}₵</span> · ${t.kg} kg deck · ${roadKm(t.tank)} km a tank · ${fmtSpeed('road', t.top * MPH_MS)}`
     + `${t.afford ? '' : ' <span class="text-dim">(can\'t afford)</span>'}\n    <span class="text-dim">${t.blurb}</span>`
     + `\n    <span class="text-dim">yard buy ${t.id}</span>`).join('\n');
   // The boxes, on the record: the log rung's copy of the panel's trailer list.
@@ -2077,7 +2078,7 @@ async function cmdTruckEvent(args, raw, player) {
     if (quiet && !spoiled) return { type: 'noop' };
     return {
       type: 'emote',
-      message: `<span class="text-amber">You put ${mph} mph of loaded truck into a building. The world goes sideways, the load shifts with a bang like a dropped piano, and the rig comes back off it hard.</span>`
+      message: `<span class="text-amber">You put ${fmtSpeed('road', mph * MPH_MS)} of loaded truck into a building. The world goes sideways, the load shifts with a bang like a dropped piano, and the rig comes back off it hard.</span>`
         + spoiled
         + (inTown && mph >= RECKLESS_MPH
           ? `\n<span class="text-dim">People are coming out to look at it. Nobody has a slate out: they have seen worse done to that wall.</span>`

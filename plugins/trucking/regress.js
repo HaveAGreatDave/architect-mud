@@ -4686,7 +4686,7 @@ async function regressBody({ run, check, getPlayer }) {
         check('the Jake is a verb here too', /jake/i.test(jakeOn?.message || '') || /bark/i.test(jakeOn?.message || ''), jakeOn?.message?.slice(0, 50));
         for (const v of ['boot', 'cruise', 'coast', 'brake']) {
           const r = await run(v);
-          check(`\`${v}\` is a real control on the text rung`, r?.type === 'emote' && /mph/.test(r?.message || ''), r?.message?.slice(0, 50));
+          check(`\`${v}\` is a real control on the text rung`, r?.type === 'emote' && /km\/h/.test(r?.message || ''), r?.message?.slice(0, 50));
         }
         // The readout must carry what the CAB shows, or the rung is not finished — the visual
         // driver hears the band and sees a needle, and this is the only place a text driver can

@@ -17,6 +17,7 @@
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
 import { parkTiles } from '../../../shared/coliseum-plan.js';
+import { MPH_KMH, tripM, fmtDistance } from '../../../shared/world-scale.js';
 import { seaShelter, SURF_DEPTH_Q, surfHullGain, surfGain, seaHeadingFor, setSeaHeading, seaRotPair } from '../../../shared/sea-swell.js';
 import { windGust, windVeer, stormOf } from '../../../shared/wind-gust.js';
 import { skyAt } from '../../../shared/sky-keys.js';
@@ -8552,10 +8553,13 @@ function drawCabInterior(ctx, W, H, v, cam) {
   // field: without it the dial printed "1" at sixty and sat pinned at the top of its sweep, which
   // is the sort of wrong that looks like a broken gauge rather than a wrong unit. The fallback
   // rescales the normalised value so an older caller still gets a plausible needle.
-  const mph = Math.abs(v?.mph != null ? v.mph : (v?.speed || 0) * 68);
+  // The sim is mph and the dial is km/h (world-scale.md): the scale is the truck's top speed rounded
+  // up to a 20, so the four numbers on the face come out even.
+  const kmh = Math.abs(v?.mph != null ? v.mph : (v?.speed || 0) * 68) * MPH_KMH;
+  const kmhTop = Math.ceil((v?.topSpeed || 68) * MPH_KMH / 20) * 20;
   drawCabDial(ctx, twoDials ? speedX : tachX, rowY(twoDials ? speedX : tachX), bigR,
-    Math.min(1, mph / (v?.topSpeed || 68)), null, 'MPH',
-    String(Math.round(mph)), false, T, null, v?.topSpeed || 68);
+    Math.min(1, kmh / kmhTop), null, 'KM/H',
+    String(Math.round(kmh)), false, T, null, kmhTop);
   for (const row of cluster) {
     drawCabDial(ctx, row[0], rowY(row[0]), smallR, row[2], null, row[1], row[3], false, T, row[4]);
   }
@@ -9315,7 +9319,7 @@ function drawCabGps(ctx, W, H, v, T, dash, mx, cy, u, plate, maxX, tilt, platePa
   if (v?.legLeft != null) {
     ctx.textAlign = 'right';
     ctx.fillStyle = `rgba(170,196,214,${Math.min(0.95, 0.72 + 0.22 * (gpsK - 1)).toFixed(3)})`;
-    ctx.fillText(Math.max(0, Math.round(v.legLeft)) + ' MI', sx + sw, ty);
+    ctx.fillText(Math.max(0, Math.round(v.legLeft)) + ' KM', sx + sw, ty);
   }
   ctx.restore();
 }
@@ -34923,7 +34927,7 @@ function drawAirportTarget(ctx, cam, v, W, H, now) {
     ctx.fillStyle = `rgba(${ACC},${0.75 + 0.25 * pulse})`;
     ctx.beginPath(); ctx.moveTo(p.sx, p.sy - 4); ctx.lineTo(p.sx + 4, p.sy); ctx.lineTo(p.sx, p.sy + 4); ctx.lineTo(p.sx - 4, p.sy); ctx.closePath(); ctx.fill();
     haloLabel(ctx, (ap.gx != null ? ap.gx + ',' + ap.gy : 'TARGET'), p.sx, p.sy - r - 11, 'bold 8px monospace', `rgb(${ACC})`);
-    haloLabel(ctx, ap.dist + ' mi', p.sx, p.sy - r - 3, '7px monospace', 'rgba(255,190,224,0.95)');
+    haloLabel(ctx, fmtDistance('air', tripM('air', ap.dist)), p.sx, p.sy - r - 3, '7px monospace', 'rgba(255,190,224,0.95)');
     ctx.restore();
     return;
   }
@@ -34937,7 +34941,7 @@ function drawAirportTarget(ctx, cam, v, W, H, now) {
     ctx.beginPath(); ctx.arc(p.sx, p.sy, r * 0.6, 0, 7); ctx.stroke();
     for (let a = 0; a < 4; a++) { const ang = a * Math.PI / 2; ctx.beginPath(); ctx.moveTo(p.sx + Math.cos(ang) * r, p.sy + Math.sin(ang) * r); ctx.lineTo(p.sx + Math.cos(ang) * (r + 6), p.sy + Math.sin(ang) * (r + 6)); ctx.stroke(); }
     haloLabel(ctx, (ap.name || 'FIELD').slice(0, 12).toUpperCase(), p.sx, p.sy - r - 11, 'bold 8px monospace', `rgb(${WP_ACCENT})`);
-    haloLabel(ctx, ap.dist + ' mi', p.sx, p.sy - r - 3, '7px monospace', 'rgba(255,224,150,0.95)');
+    haloLabel(ctx, fmtDistance('air', tripM('air', ap.dist)), p.sx, p.sy - r - 3, '7px monospace', 'rgba(255,224,150,0.95)');
     ctx.restore();
     return;
   }
@@ -36188,7 +36192,7 @@ function drawContacts(ctx, cam, v, W, H, sun, now, marks = true) {
       cornerBox(ctx, cx, cy, b);
       ctx.fillStyle = '#ff8a80'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(c.reg || 'BOGEY', cx, cy - b - 11);
-      ctx.fillText(`${(Math.round((c.rng || 0) * 10) / 10)}mi · ${c.hullPct ?? 100}%`, cx, cy - b - 3);
+      ctx.fillText(`${fmtDistance('air', tripM('air', c.rng || 0))} · ${c.hullPct ?? 100}%`, cx, cy - b - 3);
       const cue = c.altDiff > 120 ? '▲' : c.altDiff < -120 ? '▼' : '•';   // above / below / co-alt
       ctx.fillText(cue, cx + b + 6, cy);
     }

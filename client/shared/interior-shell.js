@@ -20,7 +20,7 @@
 //
 // The obvious way to size this is metrically: a tile is some number of metres, a cab is 2.3 m wide,
 // divide. Every step of that is correct and the answer is wrong, because THIS GAME HAS NO SINGLE
-// TILE SCALE. `TILES_PER_MILE` is 3 (a tile is a third of a mile) on the long-haul road; a storey
+// TILE SCALE. Three tiles to the mile (`PACE.corridor`) on the long-haul road; a storey
 // is 0.196 tiles and a building 0.76 across in the city (a tile is about twenty metres). They
 // disagree by two orders of magnitude and both are load-bearing. Sizing an interior off either is
 // the wheel-track bug again — a metrically honest derivation off a scale the renderer does not

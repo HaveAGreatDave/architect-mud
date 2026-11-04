@@ -23,7 +23,8 @@ import { createHelmWheel, TRUCK_LOCK_TURNS, TRUCK_LOCK_RAD } from './helm-wheel.
 import { truckLivery } from './aircraft3d.js';   // stored paint → renderer livery, the one conversion
 import { sendCmdSilent } from '../net.js';
 import { CAB_VIEW_TUNE } from '../../../shared/cab-render-tune.js';   // this view's own load-shedding numbers (see that file)
-import { TILES_PER_MILE } from '../../../shared/road-units.js';   // the GPS strip's miles (windshield.js labels it MI); boards and routes are km
+import { roadKm } from '../../../shared/road-units.js';   // the one tiles-to-km conversion, shared with the server
+import { MPH_KMH, kmOf, tripM } from '../../../shared/world-scale.js';
 import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
 import { makeDraggable } from './confirm.js';
 // Hunger and thirst are already on the live player object, so reading them costs no request.
@@ -547,8 +548,8 @@ export function openCab(ctx = {}) {
              it is. The frame loop writes them exactly as it always did. -->
         <div class="cab-col cab-col-digital cab-sr">
           <div class="cab-gauges">
-            <div class="cab-readout"><b class="cab-mph">0</b><span>MPH</span></div>
-            <div class="cab-readout"><b class="cab-odo">0</b><span>TILES TO GO</span></div>
+            <div class="cab-readout"><b class="cab-speed">0</b><span>KM/H</span></div>
+            <div class="cab-readout"><b class="cab-odo">0</b><span>KM TO GO</span></div>
             <div class="cab-readout"><b class="cab-surface">ROAD</b><span>SURFACE</span></div>
             <div class="cab-readout cab-gearbox"><b class="cab-gear">N</b><span class="cab-gearhint">GEAR &middot; , .</span></div>
           </div>
@@ -1795,7 +1796,7 @@ export function openCab(ctx = {}) {
       el.classList.toggle('on', v != null);
       el.setAttribute('aria-pressed', v == null ? 'false' : 'true');
       const w = el.querySelector('u span');
-      if (w) w.textContent = v == null ? 'CRUISE' : `${Math.round(v)} MPH`;
+      if (w) w.textContent = v == null ? 'CRUISE' : `${Math.round(v * MPH_KMH)} KM/H`;
     }
   }
   st.setCruise = setCruise;
@@ -2526,6 +2527,13 @@ const BUMP_MPH = 12;           // at or below this it is a bump; above it, you h
 const REPORT_MPH = 6;
 
 // The jolt on the glass, scaled by impact speed.
+// What's left of the leg in km. A corridor leg is on the boards' measure; a city leg is on the
+// road's pace, where a tile is about 50 m on the odometer.
+function legKm() {
+  const left = Math.max(0, (st.L || 0) - (st.s || 0));
+  return (st.sim?.leg || st.leg) === 'city' ? kmOf(tripM('road', left)) : roadKm(left);
+}
+
 function bumpJolt(mph) {
   const wrap = st?.container?.querySelector('.cab-wrap');
   if (!wrap) return;
@@ -3070,8 +3078,8 @@ function frame(now) {
     }
 
     const q = (s) => st.container.querySelector(s);
-    q('.cab-mph').textContent = r.speed;
-    q('.cab-odo').textContent = Math.max(0, Math.round(st.L - st.s));
+    q('.cab-speed').textContent = Math.round(r.speed * MPH_KMH);
+    q('.cab-odo').textContent = legKm();
     // The surface readout says why you're stopped first.
     q('.cab-surface').textContent = st.broken ? 'BROKEN' : st.dry ? 'NO FUEL' : (st.input.surface || 'road').toUpperCase();
     q('.cab-surface').className = 'cab-surface s-' + (st.broken ? 'offroad' : st.input.surface);
@@ -3278,10 +3286,9 @@ function frame(now) {
       engineOn: !st.dry && !st.broken,
       fuel: st.dry ? 0 : (st.fuel ?? 1),
       legFrac: st.L ? Math.max(0, Math.min(1, st.s / st.L)) : 0,
-      // 'aim' is the server's destKey. ⚠ Still MILES: windshield.js prints this with an MI label, and it moves to km
-      // with the truck's speedo (world-scale.md, phase 2 notes). The boards and the route list are km.
+      // 'aim' is the server's destKey. ⚠ Kilometres through legKm, so the dash matches the boards.
       aim: st.aim || null,
-      legLeft: st.L ? Math.max(0, (st.L - st.s) / TILES_PER_MILE) : null,
+      legLeft: st.L ? legKm() : null,
       brakeTemp: r.brakeTemp, fading: r.fading, brakeGauge: kit.brakeTemp,
       lamps: {
         fuel: st.dry || (st.fuel ?? 1) < 0.15,

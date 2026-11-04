@@ -121,7 +121,7 @@ for (const [k, [a, b]] of Object.entries(STOPS)) say(sig(faces(live({ [k]: a }))
   for (const o of [{}, { trailerPhi: null }, { aim: null, legLeft: null }, { elecOut: true }, { fading: true, lamps: { brake: true, dmg: true, jake: true } }]) faces(live(o));
   KIT_TRACE.mirrored = null; LEGEND_TRACE.label = null;
   say(seen.size > 30, 'the lettering trace saw only ' + seen.size + ' labels, so this check is not looking');
-  for (const k of ['KEY', 'CRUISE', 'GALLEY', 'DOORS', 'MPH', 'HDG', 'BRAKE', 'OSTREK', 'COURIER 2076']) say(seen.has(k), 'no label ' + k + ' drawn');
+  for (const k of ['KEY', 'CRUISE', 'GALLEY', 'DOORS', 'KM/H', 'HDG', 'BRAKE', 'OSTREK', 'COURIER 2076']) say(seen.has(k), 'no label ' + k + ' drawn');
   say(!mirrored.length, 'mirrored lettering: ' + mirrored.join(', '));
   for (const [str, m] of seen) {
     say(m >= 20, JSON.stringify(str) + ' is ' + m.toFixed(1) + ' arcmin, under 20');

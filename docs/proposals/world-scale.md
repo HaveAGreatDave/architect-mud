@@ -1,9 +1,9 @@
 # One world scale
 
-> **Status: phase 1 built; phase 2 built in part (2026-11-03); phases 3 to 7 are design.** The
-> ruler, the conversions, the paces, the labels and `scale:lint` are in; the truck's speed and the
-> windshield.js labels aren't (see [Phase 2 as built](#phase-2-as-built)). Where this disagrees with a
-> `systems-*.md` doc about what ships today, that doc wins until the phase that changes it lands.
+> **Status: phases 1 and 2 built (2026-11-03); phases 3 to 7 are design.** The ruler, the
+> conversions, the paces, the labels and `scale:lint` are in, and the truck reads km/h (see
+> [Phase 2 as built](#phase-2-as-built)). Where this disagrees with a `systems-*.md` doc about what
+> ships today, that doc wins until the phase that changes it lands.
 
 ## Why
 
@@ -169,23 +169,18 @@ screen.
   range ("km a tank", was "tiles a tank") all print it. The CB chatter and the two player guides
   say kilometres. `plugins/trucking/regress.js` checks the new numbers.
 
+- **The windshield.js labels are nm and km**: both target rings in `drawAirportTarget`, the
+  designated contact's range and the cab GPS strip (`legLeft`, now km).
+- **The truck reads km/h.** The painted speedo in `drawCabInterior` scales to the truck's top speed
+  rounded up to a 20. The 3D cabs' dials in `interior-fit.js` run to 140 (the Barrow) and 180 where
+  they ran to 70 and 80, which pinned every truck's top speed; the Courier 2076's read-outs, the
+  cruise button, the screen-reader readout, `textdrive.js`, the dealer cards and the crash line all
+  print km/h. The sim and every `*_MPH` threshold stay mph inside, with `MPH_KMH` at the labels. The
+  hidden readout says `KM TO GO`: `legKm()` in `cab-view.js` uses the boards' measure on a
+  corridor leg and `PACE.road` on a city leg. `TILES_PER_MILE` is gone.
+
 **Not done, and why.**
 
-- **windshield.js labels.** That file had someone else's uncommitted work in it, so it wasn't
-  touched. Still to change: the two target-ring labels in `drawAirportTarget` (`ap.dist + ' mi'`,
-  tiles printed as miles), the contact range label (`c.rng` + `mi`), the cab speedo in
-  `drawCabInterior` (`'MPH'` off `v.mph`) and the GPS strip in `drawCabGps` (`legLeft` + `' MI'`).
-  Until then a pilot sees nm in the cockpit and "mi" on the ring, and the GPS strip counts miles
-  while the boards count km. `cab-view.js` still sends `legLeft` in miles, so the strip's own label
-  stays true; flip it with the label.
-- **Road speeds stay mph.** The truck's main dial is the windshield.js speedo above, and the 3D
-  cabs' dials in `interior-fit.js` are lettered MPH on scales of 70 and 80. Moving the words
-  around them (the cruise button, the screen-reader readout, `textdrive.js`, the dealer cards)
-  without the dials would put km/h beside a dial reading MPH, so all of it waits for the dials:
-  `cab-view.js` (`.cab-mph`, `setCruise`), `textdrive.js`, `truck-depot.js`, `trucking/index.js`
-  (`t.top mph`) and `interior-fit.js`. The sim and every `*_MPH` threshold stay mph inside until
-  phase 5. The cab's hidden readout also says `TILES TO GO`, an engine unit; it needs the city
-  leg's pace as well as the corridor's before it can say km.
 - **Wind stays km/h inside.** The labels already match the Units table (weather km/h). Moving the
   inside to m/s reaches `server/engine/environment.js`, `plugins/weather`, the schema, the dev
   panel's weather tab and windshield.js, which is more than a label pass should carry.

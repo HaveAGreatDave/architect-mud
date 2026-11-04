@@ -36,6 +36,7 @@ import { wearFor, breakdownRoll } from './rig.js';
 import { roadTestTick } from './roadtest.js';
 import { createTruckState, step, truckReadout, truckShift, truckSplit } from '../../client/game/js/panels/flight-model.js';
 import { pick } from '../../server/engine/util.js';
+import { MPH_MS, fmtSpeed } from '../../client/shared/world-scale.js';
 
 // One tile of city road, or one slice of corridor, per tick. 2s is deliberately unhurried: the
 // point of a long haul is that it takes a while, and a text player should be able to read the road
@@ -95,7 +96,7 @@ function boxLine(run, p) {
   if (!r.stalled) bits.push(r.inBand ? '<span class="text-green">pulling</span>'
     : r.rpm < p.band[0] * 100 ? '<span class="text-amber">lugging</span>'
     : '<span class="text-amber">screaming</span>');
-  bits.push(`${Math.round(run.sim.speed)} mph`);
+  bits.push(fmtSpeed('road', run.sim.speed * MPH_MS));
   if (r.fading) bits.push('<span class="text-red">brakes fading</span>');
   else if (r.brakeTemp > 0.42) bits.push('<span class="text-amber">brakes hot</span>');
   if (r.best !== r.gear && !r.stalled) bits.push(`<span class="text-dim">(${r.best} would hold it)</span>`);

@@ -27,6 +27,7 @@ import { makeKit, C, clamp, roundWheel, pedal, richSeat } from './interior-kit.j
 import { craftControls } from './interior-fit-craft.js';
 import { memoPart } from './interior-memo.js';
 import { hydroDetail, consoleSpan, HY } from './interior-hydro.js';
+import { MPH_KMH } from './world-scale.js';
 
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
 
@@ -180,7 +181,7 @@ function barrowCluster(S) {
   B.rect(0.05, 0.075, 0.20, 0.098, [150, 148, 136], 0, 0.002);
   // Its back, down to the dash: a bent sheet rather than a moulding.
   K.box(-0.27, 0.62, -0.42, 0.37, 0.66, -0.19, 'dash', -0.10, [70, 74, 80]);
-  B.dial(-0.10, 0.0, 0.085, clamp(mph / 70, 0, 1), { ticks: 14, major: 2, face: C.paper, tick: C.black, needle: C.red, bezel: C.chrome, name: 'MPH' });
+  B.dial(-0.10, 0.0, 0.085, clamp(mph * MPH_KMH / 140, 0, 1), { ticks: 14, major: 2, face: C.paper, tick: C.black, needle: C.red, bezel: C.chrome, name: 'KM/H' });
   B.dial(0.10, 0.045, 0.038, fuel, { a0: Math.PI * 0.85, sweep: Math.PI * 0.7, ticks: 4, major: 2, arcs: [[0, 0.15, C.red]], name: 'FUEL' });
   // The rad counter: a needle on a log scale and a lamp that ticks when it moves.
   const rad = clamp(num(L.rad), 0, 1);
@@ -216,7 +217,7 @@ function courierCluster(S) {
   K.box(-HW - 0.02, 0.64, -0.40, HW + 0.02, 0.84, -0.195, 'dash', -0.05);
   for (const s of [-1, 1]) K.box(s * (HW + 0.02) - 0.012, 0.57, -0.42, s * (HW + 0.02) + 0.012, 0.84, -0.172, 'dash', 0.05);
   B.dial(-0.155, 0.0, 0.078, on ? rpm : 0, { red: 0.82, ticks: 12, major: 3, label: C.amber, name: 'RPM' });
-  B.dial(0.155, 0.0, 0.078, clamp(mph / 80, 0, 1), { ticks: 16, major: 2, label: C.lampOn, name: 'MPH' });
+  B.dial(0.155, 0.0, 0.078, clamp(mph * MPH_KMH / 180, 0, 1), { ticks: 18, major: 2, label: C.lampOn, name: 'KM/H' });
   B.dial(-0.29, 0.052, 0.034, fuel, { a0: Math.PI * 0.85, sweep: Math.PI * 0.7, ticks: 4, major: 2, arcs: [[0, 0.15, C.red]], name: 'FUEL' });
   B.dial(-0.29, -0.052, 0.034, on ? clamp(0.25 + rpm * 0.35, 0, 1) : 0.05, { a0: Math.PI * 0.85, sweep: Math.PI * 0.7, ticks: 4, major: 2, arcs: [[0.8, 1, C.red]], name: 'TEMP' });
   B.dial(0.29, 0.052, 0.034, on ? 0.78 : 0.2, { ticks: 6, major: 2, frac2: on ? 0.74 : 0.18, arcs: [[0, 0.45, C.red]], name: 'AIR' });
@@ -275,7 +276,7 @@ function glassCluster(S) {
   // The lift, at the left end of the glass, where the eye goes after the speed.
   hoverDisplay(B, -HW + 0.065, 0.0, 0.085, S);
   ringGauge(B, -gx, 0.0, R, rpm, glow, { red: 0.82, ticks: 12, text: String(Math.round(rpm * 25)).padStart(2, ' '), name: 'RPM' });
-  ringGauge(B, gx, 0.0, R, clamp(mph / 80, 0, 1), glow, { ticks: 16, text: String(Math.round(mph)).padStart(2, ' ').slice(-2), name: 'MPH' });
+  ringGauge(B, gx, 0.0, R, clamp(mph * MPH_KMH / 180, 0, 1), glow, { ticks: 18, text: String(Math.round(mph * MPH_KMH)).padStart(3, ' ').slice(-3), name: 'KM/H' });
   // The info screen between them.
   B.rect(-0.10, -0.10, 0.10, 0.10, [12, 18, 24], 0.25, 0.002);
   B.digits(-0.035, -0.02, 0.06, S.gear, glow);

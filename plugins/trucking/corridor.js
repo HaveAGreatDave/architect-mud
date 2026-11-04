@@ -196,7 +196,7 @@ const TURN_IN_MARGIN = 1.15;   // a slip road's arc, as a multiple of the fold r
 // without putting it in this module's own scope — so `rowsAt` below, which calls `roadKm` to word
 // a sign, threw ReferenceError the first time a road was built WITH a plan. Every test that passed
 // no plan built no signs and never touched it.
-export { TILES_PER_MILE, roadKm } from '../../client/shared/road-units.js';
+export { roadKm } from '../../client/shared/road-units.js';
 import { wildlandsAt, highGroundAt, groundTierAt, reliefGrid } from '../../client/shared/wildlands.js';
 import { routeOnGrid, cumLengths, polyLength, pointAtLength, progressOn } from '../../client/shared/relief-route.js';
 import { halfWidthAt, typeAt, segmentAt } from '../../client/shared/highways.js';

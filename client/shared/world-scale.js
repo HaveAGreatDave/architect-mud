@@ -22,6 +22,7 @@ export const MI_M = 1609.344;          // a statute mile in metres
 export const KT_MS = NM_M / 3600;      // a knot in m/s
 export const MPH_MS = MI_M / 3600;     // a mile an hour in m/s
 export const KMH_MS = 1000 / 3600;     // a kilometre an hour in m/s
+export const MPH_KMH = MPH_MS / KMH_MS; // a mile an hour in km/h: the truck's sim is mph, its dials km/h
 
 // ── Paces ───────────────────────────────────────────────────────────────────
 // A pace is how many world metres a mode covers for each metre its own instruments say it went:

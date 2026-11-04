@@ -23,14 +23,10 @@
 // Roads read km (docs/proposals/world-scale.md, Decided). The corridor's measure is unchanged:
 // three tiles to the mile, so a 90-tile void room is 48 km of real road. It's PACE.corridor in
 // world-scale.js now, not a number of its own here.
-import { MI_M, tripM, kmOf } from './world-scale.js';
+import { tripM, kmOf } from './world-scale.js';
 
 // A corridor distance in tiles, as whole kilometres for a board, a call or a route row.
 // ⚠ FLOORED AT 1, deliberately. A sign reading "0" is a sign that has stopped being a sign;
 // anything close enough to round to zero is close enough to call one kilometre and let the driver
 // see it out of the windscreen.
 export const roadKm = (tiles) => kmOf(tripM('corridor', tiles));
-
-// Tiles to the mile, for the one reader still in miles: the cab GPS strip in windshield.js, whose
-// label says MI. It moves to km with the truck's speedo (world-scale.md, phase 2 notes).
-export const TILES_PER_MILE = MI_M / tripM('corridor', 1);

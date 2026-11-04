@@ -55,6 +55,7 @@ import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, l
   statsHtml, serviceListHtml, partsHtml, tillHtml, armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml, pickClass, pickAttr, choiceHtml, takeDeploy } from './depot-shell.js';
 import { garageBed } from './garage-ambience.js';
 import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
+import { MPH_MS, fmtSpeed } from '../../../shared/world-scale.js';
 
 // truck-depot.css ships beside this file and is fetched when the module loads, so ensureStyles
 // still applies it synchronously on first open. See loadCss in client/shared/dom.js.
@@ -402,7 +403,7 @@ function rentScreen() {
       <div class="vc-card ${cardStyleFor('hire:' + t.id)} static">
         <canvas class="vc-cv" data-rent="${esc(t.id)}" data-variant="${esc(t.variant)}" aria-hidden="true"></canvas>
         <span class="vc-badge hired">FOR HIRE</span>
-        <span class="vc-plate"><b>${esc(t.name)}</b><span class="vc-sub">${t.kg} kg deck · ${t.top} mph · ${t.hours} hours</span></span>
+        <span class="vc-plate"><b>${esc(t.name)}</b><span class="vc-sub">${t.kg} kg deck · ${fmtSpeed('road', t.top * MPH_MS)} · ${t.hours} hours</span></span>
       </div>
       <div class="vc-acts">${tbtn('⟲', `Hire · ${money(t.fee)}`, `data-cmd="yard rent ${esc(t.id)}" ${why ? `disabled title="${esc(why)}"` : ''}`, 'primary')}</div>
     </div>`;
@@ -751,7 +752,7 @@ function buyScreen() {
       <dl class="td-spec">
         <div><dt>deck</dt><dd>${t.kg} kg</dd></div>
         <div><dt>tank</dt><dd>${t.tank}</dd></div>
-        <div><dt>top</dt><dd>${t.top} mph</dd></div>
+        <div><dt>top</dt><dd>${fmtSpeed('road', t.top * MPH_MS)}</dd></div>
       </dl>
     </div>`).join('');
 
