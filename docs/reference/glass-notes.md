@@ -2297,6 +2297,8 @@ Trap: use units only, factor 0. The factor multiplies the polygon's slope, and a
 
 The units value is a knob (`groundBias`, default -4). Four steps beats the 0.3 the ladder is worth at 80 tiles, but a truck cab once lost the whole ground layer to the floor (terrain green everywhere) while an external camera of the same city was fine. A cab is the hard case: the floor recovers depth from f = EH / p with an eye height of 0.24 tiles, so the road compresses into a few rows near the horizon.
 
+Trap: the floor's `gl_FragDepth` is one value for all MSAA samples, while a road quad's depth is interpolated per sample. On a ground plane a sample up the pixel is farther away, so once the slope across 0.375 px passed `SURF_EPS`, those samples lost to the floor: past one screen row the carriageway took a partial green tint, with the paint and pavement at `ROAD_EPS` untouched. It's a hard horizontal edge that moves with eye height, and it looks like a tile boundary. The floor now writes the depth of the pixel's farthest sample, half a pixel up, and its colours still use the true row. No polygon offset short of a huge one covers this, so don't raise `groundBias` for it.
+
 ## Wall wash switched off
 
 `LIGHT_TUNE.gain` is 0 after a sixth report that the wash reads as a light show rather than a sign lighting its own wall. The last tuned row passed every bench column (area, peak, energy, no white core), but `__glLights()` can't score whether an effect draws attention to itself. At the reported shopfront, with the clock frozen, the wash moved 37.8% of the building half of the frame (mean 34/255, worst 101) and made the lettering on Nuts to That unreadable.

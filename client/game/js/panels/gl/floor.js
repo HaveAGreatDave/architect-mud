@@ -1417,7 +1417,18 @@ void main() {
   // entirely behind it. 'd' here IS the camera-space forward distance — substitute wz = 0 into
   // the projection and sy - horizonY = depth * EH / f, so f = EH / p = d — which is exactly what
   // projMatrix divides by. So the real depth is recoverable, and this is that same mapping.
-  gl_FragDepth = clamp((uZA + uZB / max(fz, 1e-4) + 1.0) * 0.5, 0.0, 1.0);
+  // ⚠ AND IT'S THE DEPTH OF THE PIXEL'S FARTHEST SAMPLE, NOT ITS CENTRE. gl_FragDepth is one value for
+  // every MSAA sample, while the road's depth is interpolated per sample, and on a ground plane a
+  // sample up the pixel is farther off. Once the slope across 0.375 px passed SURF_EPS the upper samples
+  // lost to the floor: past a screen row every carriageway took a green tint, and no polygon offset
+  // the ground uses could reach it. Only the depth moves; everything above used the true row.
+  float dz = fz;
+  float syD = sy - 0.5 / uDpr;
+  if (uPitch != 0.0) {
+    float uD = -(syD - uHorizonY) / uDepth * cos(uPitch) - sin(uPitch);
+    if (uD < -1e-4) dz = uEH / -uD;
+  } else if (syD > uHorizonY) dz = uEH / ((syD - uHorizonY) / uDepth);
+  gl_FragDepth = clamp((uZA + uZB / max(dz, 1e-4) + 1.0) * 0.5, 0.0, 1.0);
   // The readouts are display values at every level, so at level 2 they're decoded here, which is
   // what glassOut does for them at level 1.
   if (uDebug >= 1 && uDebug <= 6) {
