@@ -1912,7 +1912,8 @@ moment somebody picked candy would be the panel lying about the only fact on it.
 ## The loop
 
 Lifted from flight, unchanged in shape: the **client simulates at 60fps** (that is where the feel
-lives) and streams packed telemetry; the **server clamps rather than re-simulates**.
+lives) and streams packed telemetry; the **server clamps rather than re-simulates**. The clamp is
+the truck's own `topSpeed` at the road's pace (`tileMph('road')`, world-scale.js) plus 35%.
 
 ```
 trucksync <s> <t> <hdg> <spd> <x> <y>      ~4×/s

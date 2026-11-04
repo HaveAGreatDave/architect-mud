@@ -85,6 +85,7 @@ export const GROUPS = [
     // (docs/proposals/world-scale.md); the old ones are ratcheted in scripts/scale/baseline.json.
     gates: [
       'scripts/scale/lint.mjs',
+      'scripts/scale/check.mjs',
     ],
   },
   {

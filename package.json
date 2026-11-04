@@ -37,6 +37,7 @@
     "client:bake-lazy:check": "node scripts/client/bake-lazy-view.mjs --check",
     "imports:smoke": "node scripts/imports/smoke.mjs",
     "scale:lint": "node scripts/scale/lint.mjs",
+    "scale:check": "node scripts/scale/check.mjs",
     "auth:smoke": "node scripts/auth/smoke.mjs",
     "shapes:smoke": "node scripts/gates/run.mjs shapes",
     "perf:alloc": "node scripts/perf/alloc.mjs",

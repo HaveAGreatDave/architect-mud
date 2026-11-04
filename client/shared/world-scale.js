@@ -45,9 +45,9 @@ export function heightToZ(m, eye = EYE_Z, lift = CLIMB_Z) {
 // ── Paces ───────────────────────────────────────────────────────────────────
 // A pace is how many world metres a mode covers for each metre its own instruments say it went:
 // the time compression that lets a truck cross Coldwater in minutes. Every number is today's
-// behaviour written against the ruler, so nothing here changes a speed. The sims still hold their
-// own copies (tileMph in flight-model.js and podracer-model.js, TILE_MPH in trucking/state.js,
-// worldPace and AIR_PACE in windshield.js and cockpit.js); phase 5 points them here.
+// behaviour written against the ruler, so nothing here changes a speed. The truck reads this
+// through tileMph('road'), on both sides of the wire. The boats and the racer still hold their own
+// tileMph, and the air its worldPace and AIR_PACE in windshield.js and cockpit.js.
 //
 //   road      the city: 112 mph on the truck's dial crosses one tile a second (tileMph: 112).
 //   corridor  the void highway: three tiles to the mile (the old TILES_PER_MILE), so a 90-tile
@@ -65,6 +65,10 @@ export const PACE = Object.freeze({
     cruise: (TILE_M * 0.001 * 2) / KT_MS,
   }),
 });
+
+// The dial speed that crosses one tile a second in a mode: the pace, as the sims want it. Rounded
+// so the road reads 112 exactly and not 112.00000000000001.
+export const tileMph = (mode) => Math.round(TILE_M / PACE[mode] / MPH_MS * 1e6) / 1e6;
 
 // The pace a distance label uses for a mode, or 1 for a mode drawn at true size.
 export function paceOf(mode) {

@@ -11,6 +11,7 @@
 // The only import: sea-swell.js is the one JS copy of the sea's shape. Never sample a private
 // wave or reach into windshield.js, or the hull rides a sea nobody draws and can't run on a server.
 import { seaRoll, seaWind, seaSlope, seaChop } from '../../../shared/sea-swell.js';
+import { tileMph } from '../../../shared/world-scale.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
@@ -34,6 +35,8 @@ const HELI_GROUND_EFFECT_FT = 40; // AGL band (~a rotor diameter) of downwash cu
 
 // ── Per-airframe tuning ───────────────────────────────────────────────────────
 // The Mayfly is the reference; heavier types get slower rates and gentler handling.
+const ROAD_TILE_MPH = tileMph('road');
+
 export const TYPES = {
   mayfly: {
     name: 'Mayfly',
@@ -201,6 +204,7 @@ export const TYPES = {
   // ── Ground vehicles ────────────────────────────────────────────────────────
   // `ground: true` dispatches stepTruck, as `heli: true` dispatches stepHeli.
   // tileMph is road speed (mph) covering one corridor tile per second: it sets how long a haul takes.
+  // It's PACE.road (world-scale.js), which the server's clamp reads too.
   // ⚠ Speeds scale together: thrustMax × drive must beat rollFric × drag (regress checks it), and
   // ratios meet tileMph only as quotients except engine braking. See
   // docs/systems-trucking.md#truck-fleet-tuning-and-scaling before rescaling anything.
@@ -211,7 +215,7 @@ export const TYPES = {
     mass: 2.4,
     thrustMax: 4.62,      // mph/s at full throttle
     topSpeed: 104,        // mph on good asphalt; SURFACES.cap lowers it off the paved centreline
-    tileMph: 112,         // mph that covers one corridor tile per second
+    tileMph: ROAD_TILE_MPH,   // mph that covers one corridor tile per second
     wheelbase: 0.24,      // tiles between axles; the yaw rate divides by it
     engineLag: 1.4,       // throttle→rpm time constant (s)
     rollFric: 0.714,      // rolling resistance (mph/s) at idle
@@ -226,7 +230,7 @@ export const TYPES = {
   },
   drayman: {
     name: 'Vachon Drayman', ground: true, tier: 2,
-    mass: 3.2, thrustMax: 3.78, topSpeed: 96, tileMph: 112, wheelbase: 0.31,
+    mass: 3.2, thrustMax: 3.78, topSpeed: 96, tileMph: ROAD_TILE_MPH, wheelbase: 0.31,
     engineLag: 1.9, rollFric: 0.882, dragP: 0.000314, brake: 5.25,
     kg: 3500, tank: 1400, price: 7200,
     gears: [0, 5.3, 3.22, 2.46, 1.89, 1.44, 1.1, 0.85, 0.65], band: [0.42, 0.68],   // 1st is the crawler
@@ -237,7 +241,7 @@ export const TYPES = {
   // Make a heavy truck ponderous with mass, engineLag and wheelbase, never by starving thrustMax.
   continental: {
     name: 'Orlov Continental', ground: true, tier: 3,
-    mass: 4.6, thrustMax: 3.864, topSpeed: 88, tileMph: 112, wheelbase: 0.41,
+    mass: 4.6, thrustMax: 3.864, topSpeed: 88, tileMph: ROAD_TILE_MPH, wheelbase: 0.41,
     engineLag: 2.6, rollFric: 0.966, dragP: 0.000374, brake: 4.5,
     kg: 6200, tank: 2100, price: 16500,
     gears: [0, 5.7, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.7], band: [0.42, 0.68],   // 1st is the crawler
@@ -248,7 +252,7 @@ export const TYPES = {
   // The bottom rung: a first truck a new player can afford.
   scrapper: {
     name: 'Krell Barrow', ground: true, tier: 0,
-    mass: 2.8, thrustMax: 3.528, topSpeed: 82, tileMph: 112, wheelbase: 0.28,
+    mass: 2.8, thrustMax: 3.528, topSpeed: 82, tileMph: ROAD_TILE_MPH, wheelbase: 0.28,
     engineLag: 2.4, rollFric: 0.924, dragP: 0.000387, brake: 4.2,
     kg: 1200, tank: 850, price: 1300,
     gears: [0, 6.2, 3.77, 2.89, 2.21, 1.69, 1.3, 0.99, 0.76], band: [0.42, 0.68],   // 1st is the crawler

@@ -54,6 +54,7 @@ import { tryDoorBoard, rigLocked, passHitcher } from './state.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
   breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
 import { resaleValue, TRUCK_TYPES, buyTruck, getTruck } from './fleet.js';
+import { tileMph } from '../../client/shared/world-scale.js';
 import { editionSuffix, editionCatalogue } from './editions.js';
 import { roadTestTick, hasRoadTest, isLicensedDriver, unlicensedLine, _test as roadTest } from './roadtest.js';
 import { clearFlag, setFlag } from '../../server/engine/flags.js';
@@ -1633,11 +1634,13 @@ async function regressBody({ run, check, getPlayer }) {
     for (const name of ['road', 'shoulder', 'offroad']) {
       check(`the model knows the surface "${name}" the corridor can produce`, !!SURFACES[name]);
     }
-    // The server's clamp duplicates two knobs from the client model on purpose (see state.js).
-    // If they drift the clamp gets LOOSER, never tighter — but they should not drift silently.
-    const p = TYPES.hauler;
-    check('the server clamp still matches the client model\'s top speed',
-      topTilesPerSec() > p.topSpeed / p.tileMph, `${topTilesPerSec().toFixed(3)} vs ${(p.topSpeed / p.tileMph).toFixed(3)}`);
+    // The clamp is the truck's own top speed at the road's pace, plus the slack, for every truck.
+    for (const p of Object.values(TYPES).filter(t => t.ground)) {
+      const flat = p.topSpeed / p.tileMph, cap = topTilesPerSec({ params: p });
+      check(`the server clamp sits a third over the ${p.name}'s flat-out road`,
+        cap > flat * 1.2 && cap < flat * 1.5, `${cap.toFixed(3)} vs ${flat.toFixed(3)}`);
+      check(`the ${p.name} and the clamp read the same road`, p.tileMph === tileMph('road'), p.tileMph);
+    }
   }
 
   // ── 4a. The gearbox ────────────────────────────────────────────────────────

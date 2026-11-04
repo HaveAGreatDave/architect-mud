@@ -1,6 +1,6 @@
 # One world scale
 
-> **Status: phases 1 to 4 built (2026-11-03); phases 5 to 7 are design.** The ruler, the
+> **Status: phases 1 to 5 built (2026-11-03); phases 6 and 7 are design.** The ruler, the
 > conversions, the paces, the labels and `scale:lint` are in, and the truck reads km/h (see
 > [Phase 2 as built](#phase-2-as-built)). Where this disagrees with a `systems-*.md` doc about what
 > ships today, that doc wins until the phase that changes it lands.
@@ -14,7 +14,7 @@ Ask the code how big one map tile is and you get eleven answers:
 | The sea, fishing, the sub | 7 m | `TILE_M` in `client/shared/sea-swell.js`; the sub's own `* 7` |
 | Buildings, birds, people, GLASS | 17.9 m | `BIRD_M_PER_TILE = 3.5 / 0.196` in `client/shared/birds.js`; literal copies in `seat-audio.js` and `glass/aa-emplacement.js` |
 | The cab and racer seats | about 22 m | `EYE_M` against `SEAT_EYE_TILES` (`interior-shell.js`, `windshield.js`) |
-| The truck's server clamp | 36 m | `TILE_MPH = 80` in `plugins/trucking/state.js` |
+| The truck's server clamp | 36 m (50 m since phase 5) | `TILE_MPH = 80` in `plugins/trucking/state.js` |
 | Boats and the podracer | 42.5 m | `tileMph: 95` in `flight-model.js`, `podracer-model.js` |
 | The truck's client physics | 50 m | `tileMph: 112` in `flight-model.js` |
 | The Coliseum broadcast | 63.5 m (208.5 ft) | `KH` in `gl/ballpark-mesh.js` |
@@ -235,12 +235,29 @@ a contact at 500 ft draws at 3.1, was 2.2); at 3,000 ft and level it's nothing.
 `CONTACT_ALT_K` stays for a contact on `groundZ`: the Echelon's deck camera counts feet above the
 pad in that frame, and the catch column is sized to it. Those heights are tens of feet.
 
+### Phase 5 as built
+
+`tileMph('road')` in `world-scale.js` turns `PACE.road` back into the sims' number, and the four
+trucks in `flight-model.js` and the server's clamp in `trucking/state.js` both read it. The server's
+`TILE_MPH = 80` is gone. So is its `TOP_SPEED_MPH = 68`, which turned out to matter more: it was out
+of date (the fleet's tops are 82 to 104 mph), so the wire capped a Courier's speed at 68 while the
+80 in the divisor happened to leave room for it. The clamp is now each truck's own top speed from
+`rig.params` plus the same 35% slack, with the fastest in the fleet for a rig that has no params.
+In tiles a second a Courier's ceiling goes from 1.15 to 1.25 and a Barrow's from 1.15 to 0.99.
+`rig.speed` is capped the same way, so a truck's contact reports what the dial says above 68.
+
+`state.js` imports `TRUCK_TYPES` from the flight model; the old note about keeping it out of the
+server was out of date too, as `rig.js`, `fleet.js` and `textdrive.js` already did. `npm run
+scale:check` holds the trucks on the road's pace and the eye on `heightToZ`.
+
+`plugins/column/route.js` has its own `TILE_MPH = 80`, copied from `state.js`. It sets the Wildblood
+column's clock, not a truck's, and it's someone else's uncommitted work, so it stays. Moved to the
+road's pace, the column would run 29% slower.
+
 ## Small fixes found on the way
 
 - `server/engine/clock.js` falls back to a `timeScale` of 3 when the environment can't be read;
   `environment.js` defaults to 1. One of them is wrong.
-- `plugins/trucking/regress.js` checks that the server clamp is looser than the client physics, which
-  enshrines the 80 against 112 split rather than catching it.
 
 ## Decided
 

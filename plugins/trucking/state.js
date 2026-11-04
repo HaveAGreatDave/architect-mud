@@ -30,7 +30,8 @@ import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider,
 import { attachPlazas, passPlaza } from './plaza.js';
 import { routeNumber, routeType } from '../../client/shared/wildlands.js';
 import { segmentAt, typeAt } from '../../client/shared/highways.js';
-import { MPH_MS } from '../../client/shared/world-scale.js';
+import { MPH_MS, tileMph } from '../../client/shared/world-scale.js';
+import { TRUCK_TYPES } from '../../client/game/js/panels/flight-model.js';
 import { hitcherAt, hitcherAhead, hitcherSOf } from './hitchers.js';
 import { wearFor, breakdownRoll, BREAKDOWNS, paintOf } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
@@ -83,17 +84,15 @@ const MIN_SYNC_MS = 120;
 
 export const rigs = new Map();   // playerId -> rig
 
-// ── The truck's tuning, mirrored from the client model ───────────────────────
-// The client owns the physics; the server owns the CEILING. These two numbers are the only part of
-// the model the server needs, and they are deliberately duplicated rather than imported: importing
-// a client panel into the server to read two constants coples boot order to the browser bundle for
-// no gain, and if they ever drift the clamp gets LOOSER, never tighter — which is the safe way for
-// a duplicate to fail. plugins/trucking/regress.js asserts they still agree.
-const TOP_SPEED_MPH = 68;
-const TILE_MPH = 80;             // road speed at which the truck covers one tile per second
+// ── The truck's ceiling ──────────────────────────────────────────────────────
+// The client owns the physics; the server owns the CEILING. Both read the road's pace
+// (PACE.road in world-scale.js) and the same TYPES row, so the clamp is the truck's own top speed
+// plus the slack and can't drift off it. A rig with no params gets the fastest in the fleet.
+const FLEET_TOP_MPH = Math.max(...TRUCK_TYPES.map(t => t.topSpeed));
 const CLAMP_SLACK = 1.35;        // headroom for frame jitter and a fast client — generous on purpose
 
-export function topTilesPerSec() { return (TOP_SPEED_MPH / TILE_MPH) * CLAMP_SLACK; }
+const topMph = (rig) => rig?.params?.topSpeed ?? rig?.type?.topSpeed ?? FLEET_TOP_MPH;
+export function topTilesPerSec(rig) { return (topMph(rig) / tileMph('road')) * CLAMP_SLACK; }
 
 // ── Two legs, one rig ────────────────────────────────────────────────────────
 // A haul is driven in two different worlds and the rig moves between them without changing
@@ -1212,7 +1211,7 @@ export function reconcileTruck(rig, d, now = Date.now()) {
   if (Number.isFinite(d.x)) rig.x = d.x;
   if (Number.isFinite(d.y)) rig.y = d.y;
   rig.heading = Number.isFinite(d.hdg) ? ((d.hdg % 360) + 360) % 360 : rig.heading;
-  rig.speed = Math.max(0, Math.min(TOP_SPEED_MPH, Number.isFinite(d.spd) ? d.spd : 0));
+  rig.speed = Math.max(0, Math.min(topMph(rig), Number.isFinite(d.spd) ? d.spd : 0));
 
   // Fuel burns on DISTANCE, never on the clock — an idling truck at a depot must not drain its
   // tank while you read a job board. Same principle as the durability system's "wear accrues on
@@ -1277,7 +1276,7 @@ export function reconcileTruck(rig, d, now = Date.now()) {
   // clamped to the same envelope the corridor gets — distance per second — and the zone you are
   // standing in is whatever tile you are over.
   if (rig.leg === 'city') {
-    const cap = topTilesPerSec() * (dtMs / 1000);
+    const cap = topTilesPerSec(rig) * (dtMs / 1000);
     if (moved > cap) {                      // rubber-band an impossible jump back toward the last fix
       const k = cap / moved;
       rig.x = px + (rig.x - px) * k; rig.y = py + (rig.y - py) * k;
@@ -1290,7 +1289,7 @@ export function reconcileTruck(rig, d, now = Date.now()) {
   // The road's own part of the reconcile: where the reported position is along it, which limb has
   // the wheels, and whether any road has them at all. It is the same for every vehicle on the
   // highway, so it is its own function below and the podracer reads it too.
-  return reconcileCorridor(rig, dtMs, topTilesPerSec(), d.s);
+  return reconcileCorridor(rig, dtMs, topTilesPerSec(rig), d.s);
 }
 
 // ── THE CORRIDOR'S HALF OF A RECONCILE, FOR ANY VEHICLE ON IT ────────────────
