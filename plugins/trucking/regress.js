@@ -54,6 +54,7 @@ import { tryDoorBoard, rigLocked, passHitcher } from './state.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
   breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
 import { resaleValue, TRUCK_TYPES, buyTruck, getTruck } from './fleet.js';
+import { editionSuffix, editionCatalogue } from './editions.js';
 import { roadTestTick, hasRoadTest, isLicensedDriver, unlicensedLine, _test as roadTest } from './roadtest.js';
 import { clearFlag, setFlag } from '../../server/engine/flags.js';
 
@@ -4049,6 +4050,44 @@ async function regressBody({ run, check, getPlayer }) {
         && (twoUp?.fleet || []).some(t => t.paint?.base === '#e0d8c0'),
         (twoUp?.fleet || []).map(t => t.paint?.base).join(', '));
 
+      // ── A SECOND BODY (editions.js) ───────────────────────────────────────
+      // Paid for once and kept; it changes the variant every view reads and no number the truck
+      // drives on. The money is the check that matters: a swap back that charged would be a second
+      // purchase of something the driver owns.
+      {
+        const c = await buyTruck(player.id, 'hauler', both[0].depot_zone, 'REGRESS76');
+        const fleetRow = async () => ((await run('yard'))?.fleet || []).find(t => t.id === c.id);
+        const cdOf = async () => (await getTruck(c.id, player.id))?.custom_data || {};
+        try {
+          await setBalance(player, 5000);
+          const list = await run(`rig edition ${c.id}`);
+          check('edition: the bench lists the body and its price', /Courier 2076/.test(list?.message || '') && /2040/.test(list?.message || ''), (list?.message || '').slice(0, 120));
+          const before = await fleetRow();
+          check('edition: a stock truck reports the stock cab, and its list', before?.edition === 'stock' && before?.editionCat?.length === 2 && !/~e/.test(before?.variant || ''), JSON.stringify(before?.editionCat)?.slice(0, 100));
+          await run(`rig edition ${c.id} 2076`);
+          check('edition: fitting it costs 60% of the list price', player.credits === 5000 - 2040, String(player.credits));
+          const on = await fleetRow();
+          check('edition: the yard reports it, and the variant carries it', on?.edition === '2076' && /^hauler~e2076/.test(on?.variant || ''), on?.variant);
+          check('edition: an unpainted truck takes the body\'s paint', on?.paint?.base === '#ece6da', on?.paint?.base);
+          check('edition: and no number moves', on?.kg === before?.kg && on?.top === before?.top && on?.tank === before?.tank && on?.price === before?.price);
+          await run(`rig edition ${c.id} stock`);
+          const off = await cdOf();
+          check('edition: the stock cab goes back on for nothing', player.credits === 5000 - 2040 && !off.edition && off.owned_editions?.includes('2076'), JSON.stringify(off).slice(0, 100));
+          await run(`rig edition ${c.id} 2076`);
+          check('edition: and a body you own goes back on for nothing', player.credits === 5000 - 2040 && (await cdOf()).edition === '2076', String(player.credits));
+          const noCash = await buyTruck(player.id, 'hauler', both[0].depot_zone, 'REGRESS77');
+          await setBalance(player, 10);
+          const refused = await run(`rig edition ${noCash.id} 2076`);
+          check('edition: you can\'t fit what you can\'t pay for', /you have 10/.test(refused?.message || '') && !(await getTruck(noCash.id, player.id))?.custom_data?.edition, (refused?.message || '').slice(0, 80));
+          await query('DELETE FROM trucks WHERE id = $1', [noCash.id]).catch(() => {});
+          noteGone('truck', noCash.id);
+          check('edition: a type with no second body has no suffix', editionSuffix({ edition: '2076' }, 'drayman') === '' && editionCatalogue({}, 'drayman', TYPES.drayman).length === 0);
+        } finally {
+          await query('DELETE FROM trucks WHERE id = $1', [c.id]).catch(() => {});
+          noteGone('truck', c.id);
+        }
+      }
+
       // ── AND THE ROOM'S OWN LINK HAS TO BE A VERB THAT WORKS ───────────────
       // "Parked up:" was copied off flight's ramp line complete with `examine <name>`, which works
       // THERE because flight shadows the examine verb and nothing here does: a truck is not an
@@ -4168,6 +4207,8 @@ async function regressBody({ run, check, getPlayer }) {
       // mounting a running truck and no other check in this suite would notice.
       check("…with the engine OFF, because you haven't turned the key yet", rig?.engineOn === false, rig?.engineOn);
       check('…and the cab is told so, or it seeds itself running', cabContext(rig).engineOn === false);
+      // The body rides the same way: cab-view puts it in the variant, and the seat picks the 2076 cab off that.
+      check('the cab is told which body it is', cabContext({ ...rig, typeId: 'hauler', cd: { edition: '2076' } }).edition === '2076' && cabContext({ ...rig, typeId: 'drayman', cd: { edition: '2076' } }).edition === '');
 
       // ── THE HORN ───────────────────────────────────────────────────────────
       // The SOUND has no cooldown and must never get one — a horn is meant to be leaned on. The
@@ -5617,6 +5658,7 @@ async function regressBody({ run, check, getPlayer }) {
     const bench = nfs.readFileSync(new URL('./bench.js', import.meta.url), 'utf8');
     check('yard rent / yard return are routed', /sub === 'rent'/.test(idx) && /sub === 'return'/.test(idx));
     check('rig service / rig horn are routed', /sub === 'service'/.test(bench) && /sub === 'horn'/.test(bench));
+    check('a hire truck is never given a second body', /RENTAL_BARRED = new Set\(\[[^\]]*'edition'/.test(bench));
     check('a hire truck is refused paint, parts and the plate', /RENTAL_BARRED = new Set\(\[[^\]]*'paint'[^\]]*'name'/.test(bench));
   }
 }

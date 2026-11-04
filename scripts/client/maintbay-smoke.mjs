@@ -306,6 +306,7 @@ const truck = {
   id: 'truck_1', name: 'Big Lad', typeId: 'hauler', condition: 0.7, band: 'worn', bandText: 'Tired.', stats, fuel: 0.6,
   svc: { items: [{ id: 'oil', label: 'Oil', desc: 'x', life: 0.4, band: 'due', bandLabel: 'Due', price: 200, left: 30 }], full: 800, anyDue: true },
   tune: { gear: 0 }, tuneEnds: null, kits: ['k1'], kitStats: { k2: { ...stats, pull: 0.7 } }, fits: [], fitPrices: { f1: 400 }, cab: [], cabPrices: { c1: 50 },
+  edition: 'stock', editionCat: [{ id: 'stock', name: 'Stock cab', desc: 'a', price: 0 }, { id: '2076', name: 'Courier 2076', desc: 'b', price: 2040 }],
   horn: 'stock', hornPrices: { stock: 0, chime: 300 }, trim: { mat: 'plastic', col: 'stock' }, paint: {}, odometer: 1200, resale: 9000,
   repairShop: 900, repairField: 300, canField: true, washPrice: 40, refuel: 120, rental: null, paintPrice: 600, paintBase: 600, trimPrice: 250,
 };
@@ -335,6 +336,8 @@ const TD = [
   [{ 'data-kpick': 'k2' }, 'rig kit truck_1 k2'],
   [{ 'data-ds-job': 'parts' }, 'data-fpick="f1"'],
   [{ 'data-fpick': 'f1' }, 'rig fit truck_1 f1'],
+  [{ 'data-ds-sub': 'model' }, 'data-epick="2076"'],
+  [{ 'data-epick': '2076' }, 'rig edition truck_1 2076'],
   [{ 'data-ds-sub': 'badge' }, 'data-hpick="chime"'],
   [{ 'data-ds-job': 'paint' }, 'data-commit="paint"'],
   [{ 'data-ds-job': 'inside' }, 'data-cpick="c1"'],

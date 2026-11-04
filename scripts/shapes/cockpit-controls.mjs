@@ -42,6 +42,7 @@ SEATS.push(['heli armed (2076)', 'heli', true, '2076']);
 SEATS.push(['gunship (2076)', 'gunship', false, '2076']);
 SEATS.push(['wreck (2076)', 'wreck', false, '2076']);
 SEATS.push(['drake (2076)', 'drake', false, '2076']);
+SEATS.push(['truck (2076)', 'truck', false, 'hauler~e2076']);
 for (const trim of ['noir', 'quackhawk']) SEATS.push(['drake (' + trim + ')', 'drake', false, trim]);
 for (const cls of Object.keys(BOAT_ROWS)) if (!SHELL_CLASS[cls]) SEATS.push([cls, cls, false, null]);
 

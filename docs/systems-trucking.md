@@ -38,7 +38,7 @@ and a city that resolves out of the haze at the end of it.
 | The bench — condition, tuning, kits, paint, and the ONE place a tune becomes physics | [plugins/trucking/rig.js](../plugins/trucking/rig.js) |
 | The depot app: the counter of cards in the pane, and the bay over the cab in the shed, on the depot shell ([depot-shell.md](reference/depot-shell.md)) | [client/game/js/panels/truck-depot.js](../client/game/js/panels/truck-depot.js) |
 | The bench's preview bars: `kitStats` (each unfitted kit on) and `tuneEnds` (each dial at either end) per fleet row | `axesFor` / `tuneEnds` in [plugins/trucking/index.js](../plugins/trucking/index.js) |
-| The truck meshes (four shapes, bobtail + hitched) | `buildTruck` / `TRUCK_SHAPES` in [aircraft3d.js](../client/game/js/panels/aircraft3d.js) |
+| The truck meshes (four files, every state in each) | `content/vehicle_models/mesh_truck_<type>.json`, drawn by `truckMeshFaces` and centred by `finishTruck` in [aircraft3d.js](../client/game/js/panels/aircraft3d.js). `buildTruck` / `TRUCK_SHAPES` is the legacy A/B until it's retired ([proposals/hover-rigs.md](proposals/hover-rigs.md)) |
 | The dispatcher | [content/npcs/npc_kessler_dispatcher.json](../content/npcs/npc_kessler_dispatcher.json) |
 | Commodities + prices | [plugins/trucking/market.js](../plugins/trucking/market.js) |
 | Zone flags | `truck_depot` / `truck_yard` / `truck_fuel` / `weigh_station` / `gate_lock` / `loading_dock` in [tagCatalog.js](../client/shared/tagCatalog.js) |
@@ -4917,6 +4917,8 @@ remaining plan:
   freight is a Coldwater-only rung. It is content, not code — a `loading_dock` flag on a street tile.
 - **A trailer you can steal.** Ownership is the one place trucking currently says no on grounds
   other than physics; an unattended box at a lawless yard arguably should not be safe.
+- **The hover rigs.** The four trucks draw from mesh files now, and the Courier 2076 is on sale at the
+  bench (`rig edition`). The Continental, Drayman and Barrow are next, in [proposals/hover-rigs.md](proposals/hover-rigs.md).
 - **The Coldwater checkpoint recipe.** `flags.checkpoint_cfg` on the yard would search the DRIVER on
   foot, complementing the scale that weighs the trailer. It is a content recipe, not a build.
 

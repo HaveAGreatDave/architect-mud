@@ -9,6 +9,7 @@ import { applyDamage, impactSplit, grindSplit, IMPACT_AREAS, damageOf, overall, 
   isBroken, isCosmetic, PART_ITEMS, PART_SHARE, COSMETIC_MUL, BROKEN_AT } from './damage.js';
 import { grimeOf, grimeBand, washCost } from './filth.js';
 import { FITTINGS, FIT_IDS, SLOTS, installedFits, fitInSlot, fitSuffix, priceFor } from './fittings.js';
+import { editionOf, editionSuffix, editionCatalogue } from './editions.js';
 import { TRINKETS, TRINKET_IDS, CAB_SLOTS, installedTrinkets, trinketPrice } from '../../client/shared/cab-trinkets.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
@@ -912,7 +913,9 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         id: t.id, name: t.name || t.type.name, type: t.type.name, typeId: t.type_id,
         // The mesh key (+t for a trailer, plus the fittings suffix). A fact about the truck, never
         // decided by the panel.
-        variant: `${t.type_id}${towed ? '+t' : ''}${fitSuffix(cd)}`,
+        variant: `${t.type_id}${towed ? '+t' : ''}${editionSuffix(cd, t.type_id)}${fitSuffix(cd)}`,
+        // The body on it, and the bench's list ('stock' first; empty for a truck with only the one).
+        edition: editionOf(cd, t.type_id) || 'stock', editionCat: editionCatalogue(cd, t.type_id, t.type),
         kg: t.type.kg, tank: t.type.tank, top: t.type.topSpeed, price: t.type.price,
         fuel: +(t.fuel ?? 1).toFixed(2), odometer: Math.round(t.odometer || 0),
         hereNow: zonesHere.includes(t.depot_zone),

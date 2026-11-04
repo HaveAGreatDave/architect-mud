@@ -78,6 +78,9 @@ let TRIM = null;
 let CABFITS = [];
 // A bench horn id (client/shared/truck-horns.js), or null for the factory horn.
 let HORN = null;
+// The edition the mesh file names in `variants` ('2076'), or ''. Its own variable, not part of FITS:
+// a bench preview replaces the whole fitting suffix.
+let EDITION = '';
 const setParams = (ctx) => {
   P = (ctx && ctx.params) || TYPES[ctx && ctx.typeId] || TYPES.hauler;
   if (ctx && ctx.typeId) TYPE_ID = ctx.typeId;
@@ -86,6 +89,7 @@ const setParams = (ctx) => {
   if (ctx && 'trim' in ctx) TRIM = ctx.trim || null;
   if (ctx && 'cab' in ctx) CABFITS = Array.isArray(ctx.cab) ? ctx.cab : [];
   if (ctx && 'horn' in ctx) HORN = ctx.horn || null;
+  if (ctx && 'edition' in ctx) EDITION = ctx.edition || '';
 };
 
 // The type's 'tier' picks the interior. ⚠ The ladder adds instruments, never assistance: if a
@@ -292,10 +296,13 @@ let PAINT_PREVIEW = null;
 // server's fitSuffix would write with the picked fitting in its place. Each key is set only when passed.
 let TRIM_PREVIEW = null;
 let FITS_PREVIEW = null;
+// And a body held on the bench: an edition id, '' for the stock cab, null for what's fitted.
+let EDITION_PREVIEW = null;
 export function cabPreview(o = {}) {
   if ('paint' in o) PAINT_PREVIEW = o.paint || null;
   if ('trim' in o) TRIM_PREVIEW = o.trim || null;
   if ('fits' in o) FITS_PREVIEW = typeof o.fits === 'string' ? o.fits : null;
+  if ('edition' in o) EDITION_PREVIEW = typeof o.edition === 'string' ? o.edition : null;
 }
 /** Read the view ('ext' or 'cab') with no argument; set it with one. */
 export function cabView(mode, { quarter = false } = {}) {
@@ -1174,7 +1181,7 @@ export function openCab(ctx = {}) {
       // The 3-D cab's fascia switches (truckHotspots in interior-fit.js), taken before the steering drag.
       if (e.button === 0 && !st.external) {
         const h = hotAt(e);
-        if (h) { st.pressCtl?.(h.id); e.preventDefault(); return; }
+        if (h) { st.pressCtl?.(h.id); st.pressId = h.id; st.pressAt = performance.now(); e.preventDefault(); return; }
       }
       const orbitBtn = e.button === 1 && st.external;
       if (isChrome(e) || (e.button > 0 && !orbitBtn)) return;
@@ -1246,7 +1253,7 @@ export function openCab(ctx = {}) {
     window.addEventListener('pointercancel', endPeek);
     glass.addEventListener('pointermove', (e) => {
       if (st && st.looking) { peekFrom(e); e.preventDefault(); return; }
-      if (!drag && st) glass.classList.toggle('cab-glass-hot', !!hotAt(e));
+      if (!drag && st) { const hh = hotAt(e); st.hotId = hh ? hh.id : null; glass.classList.toggle('cab-glass-hot', !!hh); }
       if (!drag || !st) return;
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       drag.x = e.clientX; drag.y = e.clientY;
@@ -2467,6 +2474,7 @@ export function cabContext(ctx) {
   // Grime is always the server's number, or a bench wash would be undone.
   if (ctx.grime != null) st.grime = ctx.grime;
   if (ctx.fits !== undefined) FITS = ctx.fits || '';
+  if (ctx.edition !== undefined) EDITION = ctx.edition || '';
   // Stamped on arrival, which gives contactsFor an age.
   if (ctx.contacts) {
     st.contacts = ctx.contacts.map(c => ({ ...c, t: performance.now() }));
@@ -3191,7 +3199,7 @@ function frame(now) {
       tune: CAB_VIEW_TUNE,
       // The one string that decides the shape. '~p' is the parked pose for a dead engine.
       // ⚠ The fitting suffix goes last: the mesh strips from the first '~' or '^', which would eat '+t'.
-      variant: TYPE_ID + (r.hitched ? '+t' : '') + (r.stalled ? '~p' : '') + (FITS_PREVIEW ?? FITS),
+      variant: TYPE_ID + (r.hitched ? '+t' : '') + ((EDITION_PREVIEW ?? EDITION) ? '~e' + (EDITION_PREVIEW ?? EDITION) : '') + (r.stalled ? '~p' : '') + (FITS_PREVIEW ?? FITS),
       // Lifter wash from rpm, anchored at idle so a running idle rig is already bright.
       // ⚠ IDLE comes from the model; never restate it.
       power: r.stalled ? 0
@@ -3263,6 +3271,9 @@ function frame(now) {
       gate: st.gateView ? st.gateView() : null,
       gearLabel: r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : '')),
       stalled: r.stalled,
+      // The key: what a cab's glass boots on, and how long ago. The hand: what a 2076 cab's keys light for.
+      powered: !r.stalled, powerAge: (st.powerAt = r.stalled ? null : (st.powerAt ?? performance.now()), r.stalled ? 0 : (performance.now() - st.powerAt) / 1000),
+      ckHover: st.hotId || null, ckPress: st.pressId && performance.now() - st.pressAt < 220 ? st.pressId : null,
       // The lifters run off the engine.
       engineOn: !st.dry && !st.broken,
       fuel: st.dry ? 0 : (st.fuel ?? 1),

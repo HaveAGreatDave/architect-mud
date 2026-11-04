@@ -52,6 +52,7 @@ import { wreckNear } from './corridor.js';
 import { say, depotHere, depotZonesOf, yardIdOf, whichTruckLine, repush, hydrateFromTruck } from './index.js';
 import { SERVICE, serviceSheet, servicePrice, stampService, hornCatalogue, hornPrice, hornOf, TRUCK_HORNS, HORN_IDS } from './service.js';
 import { isRental, RENT_REFUSE } from './rental.js';
+import { editionOf, editionPrice, editionCatalogue, editionsFor } from './editions.js';
 import { cap } from '../../server/engine/util.js';
 // ── rig: the bench ───────────────────────────────────────────────────────────
 // Repair, tune, kit, paint and pump, behind ONE verb with subcommands rather than five verbs.
@@ -129,7 +130,7 @@ async function cmdRig(args, raw, player) {
 
 // What a hire truck may not have done to it. Repair, wash, fuel and servicing are allowed: a hire
 // company is glad of all four.
-const RENTAL_BARRED = new Set(['tune', 'kit', 'paint', 'trim', 'interior', 'fit', 'fittings', 'unfit', 'cab', 'inside', 'name', 'horn']);
+const RENTAL_BARRED = new Set(['tune', 'kit', 'paint', 'trim', 'interior', 'fit', 'fittings', 'unfit', 'cab', 'inside', 'name', 'horn', 'edition', 'body']);
 
 /** Stopped, in a city leg, on a tile with a roller door over it. */
 function liveInBay(rig) {
@@ -172,7 +173,8 @@ async function rigSub(sub, player, truck, cd, bay, depot, rest) {
   if (sub === 'name') return await rigName(player, truck, rest.join(' '));
   if (sub === 'service') return await rigService(player, truck, cd, (rest[0] || 'all').toLowerCase());
   if (sub === 'horn') return await rigHorn(player, truck, cd, (rest[0] || '').toLowerCase());
-  return say('<span class="text-dim">rig service [oil|tyres|pads|all] | rig horn [&lt;horn&gt;] | rig fit [&lt;fitting&gt;|&lt;place&gt;|all] | rig unfit &lt;fitting|place&gt; | rig cab [&lt;thing&gt;|&lt;place&gt;|all|off &lt;thing|place&gt;] | rig wash | rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… bright=… glow=… glass=… flash=… finish=… art=…] | rig trim [&lt;material&gt;] [&lt;colourway&gt;|panel=… needle=… glow=…] | rig fuel | rig name &lt;plate&gt;</span>');
+  if (sub === 'edition' || sub === 'body') return await rigEdition(player, truck, cd, (rest[0] || '').toLowerCase());
+  return say('<span class="text-dim">rig service [oil|tyres|pads|all] | rig horn [&lt;horn&gt;] | rig edition [&lt;body&gt;] | rig fit [&lt;fitting&gt;|&lt;place&gt;|all] | rig unfit &lt;fitting|place&gt; | rig cab [&lt;thing&gt;|&lt;place&gt;|all|off &lt;thing|place&gt;] | rig wash | rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… bright=… glow=… glass=… flash=… finish=… art=…] | rig trim [&lt;material&gt;] [&lt;colourway&gt;|panel=… needle=… glow=…] | rig fuel | rig name &lt;plate&gt;</span>');
 }
 
 // The counter. Cheap, heavy, and the thing everybody decides they do not need on the way out of the
@@ -908,6 +910,34 @@ async function rigHorn(player, truck, cd, id) {
   await saveTruckData(truck.id, player.id, next);
   await repush(player, 'bench');
   return say(`<span class="item-grant">${id === 'stock' ? 'The factory trumpets go back on the roof.' : `${TRUCK_HORNS[id].name}, piped to the air tank and tested once, loudly.`}${cost ? ` ${cost}₵.` : ''}</span>`);
+}
+
+// ── `rig edition` — a second body on the same truck ──
+// See editions.js. Nothing here touches a number the truck drives on, so a live rig only needs the
+// usual hydrate (cmdRig) to change body in the shed.
+async function rigEdition(player, truck, cd, id) {
+  const type = truck.type;
+  const cat = editionCatalogue(cd, truck.type_id, type);
+  if (!cat.length) return say('There is only the one body for this truck.');
+  const cur = editionOf(cd, truck.type_id) || 'stock';
+  if (!id) {
+    return say(`<span class="text-cyan">BODIES</span>\n`
+      + cat.map((e) => `  ${e.id === cur ? '<span class="text-green">▸</span>' : ' '} <b>${e.name}</b> <span class="text-dim">(${e.id}): ${e.price ? e.price + '₵' : e.id === cur ? 'on it' : 'free'}. ${e.desc}</span>`).join('\n'));
+  }
+  if (id !== 'stock' && !editionsFor(truck.type_id)[id]) return say(`No body called that. <span class="text-dim">${cat.map((e) => e.id).join(', ')}</span>`);
+  if (id === cur) return say('That is the body it already has.');
+  const cost = id === 'stock' ? 0 : editionPrice(cd, truck.type_id, type, id);
+  if ((player.credits || 0) < cost) return say(`That body is ${cost}₵ and you have ${player.credits || 0}₵.`);
+  const next = { ...cd };
+  if (id === 'stock') delete next.edition; else next.edition = id;
+  if (id !== 'stock') next.owned_editions = [...new Set([...(Array.isArray(cd.owned_editions) ? cd.owned_editions : []), id])];
+  if (cost) {
+    if (!(await adjustCredits(player, -cost, undefined, 'trucking:edition'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
+    sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  }
+  await saveTruckData(truck.id, player.id, next);
+  await repush(player, 'bench');
+  return say(`<span class="item-grant">${id === 'stock' ? 'The hoist takes the body off and the old cab goes back on. The new one goes on the rack with your name on it.' : `The old cab comes off on the hoist and the ${editionsFor(truck.type_id)[id].name} goes on in its place. Same chassis, same plate.`}</span>`);
 }
 
 // ── `rig strip` — the road as a supply line ──────────────────────────────────

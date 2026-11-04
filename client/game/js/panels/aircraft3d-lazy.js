@@ -88,6 +88,7 @@ export function meshParams(...a) { return (_m || _cold('meshParams')).meshParams
 export function overlayJazz(...a) { return (_m || _cold('overlayJazz')).overlayJazz(...a); }
 export function pickSceneHit(...a) { return (_m || _cold('pickSceneHit')).pickSceneHit(...a); }
 export function pushParkedRotorFaces(...a) { return (_m || _cold('pushParkedRotorFaces')).pushParkedRotorFaces(...a); }
+export function recordTruckBuild(...a) { return (_m || _cold('recordTruckBuild')).recordTruckBuild(...a); }
 export function rotorTrace(...a) { return (_m || _cold('rotorTrace')).rotorTrace(...a); }
 export function rotorTraceLegacy(...a) { return (_m || _cold('rotorTraceLegacy')).rotorTraceLegacy(...a); }
 export function rotorsFor(...a) { return (_m || _cold('rotorsFor')).rotorsFor(...a); }
@@ -97,6 +98,9 @@ export function setVehicleParams(...a) { return (_m || _cold('setVehicleParams')
 export function shadeRgb(...a) { return (_m || _cold('shadeRgb')).shadeRgb(...a); }
 export function slideEase(...a) { return (_m || _cold('slideEase')).slideEase(...a); }
 export function sortTruckFaces(...a) { return (_m || _cold('sortTruckFaces')).sortTruckFaces(...a); }
+export function truckDimsForShape(...a) { return (_m || _cold('truckDimsForShape')).truckDimsForShape(...a); }
+export function truckFileBuild(...a) { return (_m || _cold('truckFileBuild')).truckFileBuild(...a); }
+export function truckLegacyBuild(...a) { return (_m || _cold('truckLegacyBuild')).truckLegacyBuild(...a); }
 export function truckLivery(...a) { return (_m || _cold('truckLivery')).truckLivery(...a); }
 export function truckMeta(...a) { return (_m || _cold('truckMeta')).truckMeta(...a); }
 export function variantMeshFor(...a) { return (_m || _cold('variantMeshFor')).variantMeshFor(...a); }

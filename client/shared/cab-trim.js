@@ -124,6 +124,13 @@ const rgba = (v, a) => `rgba(${v.map((c) => Math.max(0, Math.min(255, Math.round
 
 export const isTrimHex = (v) => hx(v) !== null;
 
+// What an edition's cab leaves the factory in, until the bench says otherwise. Keyed `<type>~e<edition>`.
+const EDITION_TRIM = { 'hauler~e2076': { mat: 'vinyl', col: CUSTOM_COL, cust: { panel: '#d6cbb6', needle: '#c9a23a', glow: '#39d0c4' } } };
+export function editionTrimOf(variant) {
+  const s = String(variant || ''), e = s.match(/~e[a-z0-9]+/);
+  return e ? EDITION_TRIM[s.replace(/[~^+].*$/, '') + e[0]] || null : null;
+}
+
 // The three picks, validated. Anything unreadable falls back to what the cab already had rather
 // than to a default, for the same reason sanitizeTrim does it: a bad argument must never silently
 // repaint an interior somebody was happy with.

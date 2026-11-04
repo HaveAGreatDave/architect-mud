@@ -61,7 +61,8 @@ const TRUCK_TIER = (L) => { const t = Math.round(num(L.tier, 1)); return t < 0 ?
 export function truckFit(P, live, push) {
   const K = makeKit(push);
   const L = live || {};
-  const tier = TRUCK_TIER(L);
+  // An edition's cab (`P.refit`) is fitted out on a rung of its own, whatever the truck's tier.
+  const tier = P.refit?.tier ?? TRUCK_TIER(L);
   const xL = P.xCentre - P.halfW, xR = P.xCentre + P.halfW;
   const glow = Array.isArray(L.glow) && L.glow.length === 3 && L.glow.every(Number.isFinite) ? L.glow : C.amber;
   const S = {
@@ -78,6 +79,13 @@ export function truckFit(P, live, push) {
   // Each part is memoised on exactly the values it reads (interior-memo.js), so only the parts
   // carrying a needle, a lamp, a digit, the wheel or a pedal are rebuilt while you drive.
   const part = (fn) => memoPart(push, fn.name, S, (S2) => fn(S2), (rec) => ({ K: makeKit(rec), P }));
+  // A refit keeps the room and everything the hands and feet touch, and brings its own board: the
+  // clusters, stacks and switch banks are the one thing it replaces.
+  if (P.refit) {
+    for (const fn of [truckWheel, truckTunnel, truckPedals, truckDoors, truckOverhead, truckBehind]) part(fn);
+    P.refit.fit(P, live, push);
+    return;
+  }
   if (tier === 0) part(barrowCluster);
   else if (tier === 1) part(courierCluster);
   else part(glassCluster);
@@ -113,7 +121,7 @@ const SW_RIGHT = ['park', 'trailer', 'pump', 'exit', 'latch', 'galley', 'auto'];
 const SW_PITCH = 0.040, SW_MAX = 6, SW_Z = -0.44;
 // Nearer than the fascia by a finger's width, so the plate stands proud of whatever is behind it.
 const swY = (P) => P.dashY - 0.022;
-function truckSwitchCells(L) {
+export function truckSwitchCells(L) {
   const c = L && L.ctl;
   if (!c) return null;
   const all = [...(c.left || []), ...(c.right || [])];
@@ -636,7 +644,7 @@ function truckOverhead(S) {
     for (const x of [0.36, 0.74]) U.disc(x - 0.55, 0.12, 0.018, dome ? [255, 238, 200] : [70, 70, 66], dome ? 0.9 : 0.05, 0.002, 10);
   }
   hangingToy(K, [0.40, 0.66, oz], S.toys.hang || null);
-  bobbleToy(K, [0.86, 0.70, P.dashZ], S.toys.dash || null);
+  bobbleToy(K, P.refit?.dashToy || [0.86, 0.70, P.dashZ], S.toys.dash || null);
   K.box(-0.42, 0.50, P.roof - 0.035, 0.20, 0.68, P.roof - 0.012, 'hdr', -0.15);
   K.box(0.90, 0.50, P.roof - 0.035, 1.52, 0.68, P.roof - 0.012, 'hdr', -0.15);
   K.box(1.05, 0.54, P.roof - 0.040, 1.30, 0.66, P.roof - 0.035, 'dash', 0.1, C.paper, 0.1);
@@ -1730,7 +1738,7 @@ function quadSub(push, a, b, c, d, su, sv, tone, k, fwd, mat) {
   }
 }
 // Stitch a list of cross-sections (same length each) into quads, each subdivided `sub` times.
-function loft(push, rows, tone, k, fwd, mat, sub = 1) {
+export function loft(push, rows, tone, k, fwd, mat, sub = 1) {
   for (let i = 0; i + 1 < rows.length; i++) {
     const A = rows[i], B = rows[i + 1];
     for (let j = 0; j + 1 < A.length; j++) quadSub(push, A[j], B[j], B[j + 1], A[j + 1], sub, sub, tone, k, fwd, mat);
@@ -1771,10 +1779,10 @@ export function truckRoom(P, live, push, rich) {
 }
 function truckRoomBody(P, live, push) {
   const L = live || {};
-  const tier = Math.max(0, Math.min(3, Math.round(num(L.tier, 1))));
+  const tier = P.refit?.tier ?? Math.max(0, Math.min(3, Math.round(num(L.tier, 1))));
   const glow = Array.isArray(L.glow) && L.glow.length === 3 && L.glow.every(Number.isFinite) ? L.glow : C.amber;
   const bare = tier === 0;                 // the Barrow: one painted steel for every surface
-  const M = (m) => (bare ? TRUCK_MAT.metal : TRUCK_MAT[m]);
+  const M = (m) => (bare ? TRUCK_MAT.metal : P.refit?.mats?.[m] || TRUCK_MAT[m]);
   const thread = tier >= 2 ? glow : [168, 166, 158], threadEmis = tier >= 2 ? 0.3 : 0;
   const xL = P.xCentre - P.halfW, xR = P.xCentre + P.halfW;
   const [wy0, wy1] = P.winY, [wz0, wz1] = P.winZ;

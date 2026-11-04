@@ -171,6 +171,8 @@ export function faceBaseRgb(face, pal) {
     const own = pal.parts && pal.parts[s.name];
     if (own) return finishCoat(own, pal, face);
     if (pal.factory || s.livery === 'fixed') return finishCoat(s.rgb, pal, face);
+    // A truck body's slot is there for its surface (a flake, a weave), so the booth's flash still runs over it.
+    if (s.livery !== 'trim' && typeof pal.pat === 'string' && pal.pat.startsWith('truck:') && faceWearsTrim(face, pal.pat)) return finishCoat(pal.trim, pal, face);
     return finishCoat(s.livery === 'trim' ? pal.trim : pal.base, pal, face);
   }
   // Truck hardware (`hw`) and box (`deck`). ⚠ Not `pal.accent`: the jazz scheme owns that, and it would turn every undercarriage magenta.
@@ -1959,15 +1961,16 @@ export function wingtipStation(cls) {
   return [(tip[0] + tipB[0]) / 2, p.span, tip[2]];
 }
 
-// A road vehicle's lamp stations, in mesh space. ⚠ Every number comes from truckLampGeom, which buildTruck
-// builds the lenses from: a second opinion about where a lamp is will drift off it.
+// A road vehicle's lamp stations, in mesh space. ⚠ Every number comes from truckLampGeom (carried into a
+// truck's mesh file as `truck.geom`), which the lenses are built from: a second opinion drifts off it.
 export function vehicleLamps(cls, variant = '') {
   if (cls !== 'truck') return null;
   // Same variant strip as the mesh, so a fitted rig doesn't read as another type.
   const typeId = String(variant).replace(/[~^].*$/, '').split('+')[0];
   const FITS = new Set(String(variant).match(/\^([a-z.]+)/)?.[1].split('.') || []);
-  const S = truckShape(typeId) || truckShape('hauler');
-  const L = truckLampGeom(S);
+  // From the mesh file's `truck` block, or the builder row's same numbers (truckDims).
+  const S = truckDims(variant || 'hauler');
+  const L = S.geom;
   // Into the mesh's drawn frame: build (or hit the cache for) the variant so its shift and settle are known.
   aircraftFaces('truck', 1, false, variant || 'hauler');
   const meta = TRUCK_META.get(String(variant || 'hauler') + ':1') || { shift: 0, drop: 0, pods: [] };
@@ -1995,7 +1998,8 @@ export function vehicleLamps(cls, variant = '') {
       ? [0.20, 0.06, -0.10, -0.26, -0.42].flatMap((f) => [at(L.nose0 + f, -S.w * 0.86, 0.004), at(L.nose0 + f, S.w * 0.86, 0.004)])
       : [],
     // The beacon: a station and no cone.
-    beacon: FITS.has('bc') ? at(L.cab0 - 0.006, 0, S.hi + S.sleeper + 0.034) : null,
+    // A body that moves the beacon fitting says where (`truck.beacon`); the stock trucks have it on the cab back.
+    beacon: FITS.has('bc') ? (S.beacon ? at(S.beacon[0], 0, S.beacon[1]) : at(L.cab0 - 0.006, 0, S.hi + S.sleeper + 0.034)) : null,
   };
 }
 
@@ -2100,7 +2104,7 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   const vmid = bodyVariantFor(cls, variant, armed);
   const mid = vmid || meshIdFor(cls, armed);
   const faces = mid ? compileMesh(meshRow(mid), { detail, scheme: vmid ? null : (variant || null) }).faces
-    : cls === 'truck' ? buildTruck(variant || 'hauler', detail)
+    : cls === 'truck' ? truckFaces(variant || 'hauler', detail)
     : cls === 'heli' ? (armed ? buildAttackHeli() : buildHeli())
     : cls === 'ultralight' ? buildCessna(detail)
     : cls === 'grasshopper' ? buildCub(detail)
@@ -3191,6 +3195,14 @@ function buildTruck(variant = 'hauler', detail = 1) {
     quad([A[1], B[1], B[2], A[2]], 0.62);                    // right flank
     quad([B[0], B[3], B[2], B[1]], 0.80);                    // front face
     quad([A[0], A[1], A[2], A[3]], 0.55);                    // back face
+    // The port (scripts/shapes/truck-meshes.mjs) records each box as the mesh part that draws it.
+    if (_truckRec) {
+      const r = { kind: 'box', f: [f0, f1], w, z: [z0, z1] };
+      if (!Object.is(gc, 0)) r.g = gc;
+      if (role !== 'body') r.role = role;
+      if (tint) { r.tint = tint.slice(); const k = PK(tint); if (k) r.pk = k; }
+      _truckRec.parts.push(r);
+    }
   };
   // A free polygon (screen, fairing wedge, chin spoiler), its own part. `uv`/`art` feed drawCanopyGlass.
   const poly = (role, sh, pts, tint = null, uv = null, art = null) => {
@@ -3198,6 +3210,12 @@ function buildTruck(variant = 'hauler', detail = 1) {
     if (tint) { q.tint = tint; const k = PK(tint); if (k) q.pk = k; }
     if (uv) { q.uv = uv; q.art = art || 'truckcab'; }
     faces.push(q);
+    if (_truckRec) {
+      const fc = { role, sh, p: q.p.map((v) => v.slice()) };
+      if (q.tint) { fc.tint = q.tint.slice(); if (q.pk) fc.pk = q.pk; }
+      if (q.uv) { fc.uv = q.uv.map((u) => u.slice()); fc.art = q.art; }
+      _truckRec.parts.push({ kind: 'poly', faces: [fc] });
+    }
   };
   const UV_FULL = [[0, 1], [1, 1], [1, 0], [0, 0]];
   // ── The lifters ── Hover pods, not wheels: chamfered housing, a lit emitter band, hung off an arm.
@@ -3208,7 +3226,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // light. The lifter emitter keeps GLOW: it's propulsion, and the road wash shares its colour.
   const ACCENT = [96, 196, 214];         // the decorative running light — beltline strip, roof scanner
   const PK = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : null);
-  const HOVER = 0.014;                   // the ride height a running lifter holds, and a parked one gives up
+  const HOVER = TRUCK_HOVER;
   // Lifter half-width, published for the snow tracks (`trackGauge` in windshield.js).
   const PW = 0.024;
   const pod = (f, g, r = 0.048, len = 1, deck = false) => {
@@ -3516,6 +3534,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // A fitting is faces only: it never moves a pod, lamp, decal or the kingpin.
   const FITS = new Set(String(str).match(/\^([a-z.]+)/)?.[1].split('.') || []);
   const fitStart = faces.length;
+  if (_truckRec) _truckRec.fitStart = _truckRec.parts.length;
   if (FITS.size) {
     const roofZ = S.hi + S.sleeper;
     const barF = nose1 + 0.014;                 // just ahead of the bumper, where a bar bolts on
@@ -3788,6 +3807,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // (lamps, decal and kingpin are placed through it).
   for (let i = fitStart; i < faces.length; i++) faces[i].fit = 1;
   const tractorFaces = faces.length;   // the split point: everything before here is the tractor
+  if (_truckRec) _truckRec.tractorEnd = _truckRec.parts.length;
   if (hitched) {
     // The trailer, a separate body behind the tractor (the articulation seam). ⚠ Its nose is the fifth wheel's
     // centre: further aft reads as a drawbar, further forward runs into the cab.
@@ -3837,7 +3857,24 @@ function buildTruck(variant = 'hauler', detail = 1) {
       for (const g of [-1, 1]) box(t1 - 0.004, t1 + 0.004, 0.007, 0.088, 0.098, 'strut', null, g * S.w * 0.28);
     }
   }
+  if (_truckRec) _truckRec.pods = podAt.map((q) => q.slice());
+  return finishTruck(faces, { str, detail, solo, parked, tractorFaces, pods: podAt, D: truckDimsOf(S) });
+}
 
+// The numbers a truck's renderers read besides its faces, in the frame its parts are written in: the
+// lamp stations (truckLampGeom), the fifth wheel, the box's swinging nose corner. A truck mesh file
+// carries exactly this as its `truck` block; for a builder row it's derived here, by the same sums.
+function truckDimsOf(S) {
+  const L = truckLampGeom(S);
+  return { w: S.w, hi: S.hi, sleeper: S.sleeper, deck: S.deck, lamps: S.lamps, boxHalf: boxNoseHalf(S),
+    pin: [L.frame0 - 0.01, L.frame0 + 0.13], geom: L };
+}
+
+// What both a built and a filed truck go through once their faces are drawn: mark the trailer, splice
+// off the tractor for a dropped box, centre the rig on its own origin, settle it if parked, and publish
+// TRUCK_META. One copy, so a mesh file and buildTruck can't centre the same truck two ways.
+function finishTruck(faces, { str, detail, solo, parked, tractorFaces, pods, D }) {
+  const HOVER = TRUCK_HOVER;
   // Mark the trailer's faces (`deck`, its own livery colour). ⚠ Before the solo splice, or there's no boundary left.
   for (let i = tractorFaces; i < faces.length; i++) faces[i].deck = 1;
 
@@ -3883,17 +3920,18 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // ── The door panel ── Where door art goes (drawTruckDoorArt), from here so it fits each rig.
   // ⚠ It's the clear panel aft of the B-post and under the chrome spear and beltline strip. If you move the spear, move this.
   // `g` is the flank half-width.
+  const cab1 = D.geom.cab1, cab0 = D.geom.cab0;
   const doorF1 = cab1 - 0.052 - shift, doorF0 = cab1 - 0.104 - shift;
-  const doorZ0 = S.hi * 0.185 - drop, doorZ1 = S.hi * 0.345 - drop;
+  const doorZ0 = D.hi * 0.185 - drop, doorZ1 = D.hi * 0.345 - drop;
   // ── The kingpin ── Middle of the fifth wheel in the centred frame; the articulation turns about it.
   // Null on a solo box, which is already anchored on its pin.
   TRUCK_META.set(str + ':' + detail, {
-    shift, drop, pods: podAt,
-    pin: solo ? null : (PIN_F0 + PIN_F1) / 2 - shift,
+    shift, drop, pods,
+    pin: solo ? null : (D.pin[0] + D.pin[1]) / 2 - shift,
     // The clearance check's inputs, published so a test can catch the frameBack relation breaking.
     cabBack: solo ? null : cab0 - shift,
-    boxHalf: boxNoseHalf(S),   // the corner that swings is the NOSE corner — see NOSE_TAPER
-    door: solo ? null : { f0: doorF0, f1: doorF1, z0: doorZ0, z1: doorZ1, g: S.w },
+    boxHalf: D.boxHalf,   // the corner that swings is the NOSE corner — see NOSE_TAPER
+    door: solo ? null : { f0: doorF0, f1: doorF1, z0: doorZ0, z1: doorZ1, g: D.w },
   });
   return faces;
 }
@@ -3901,6 +3939,89 @@ function buildTruck(variant = 'hauler', detail = 1) {
 const TRUCK_META = new Map();
 // Read-only, for the regress suite.
 export const truckMeta = (key) => TRUCK_META.get(key) || null;
+// The ride height a running lifter holds, and a parked one gives up.
+const TRUCK_HOVER = 0.014;
+
+// ── Trucks as mesh files ── (content/vehicle_models/mesh_truck_<type>.json, docs/proposals/hover-rigs.md)
+// A truck file is every part buildTruck can draw, each stamped with the state it needs, in the frame
+// buildTruck lays them out in (from the nose anchor at f 0.40). The variant string picks the state:
+//   +t  → channel `trailer`   (the box: `when: trailer`; what a bobtail carries: `whenNot: trailer`)
+//   ~p  → channel `parked`    (the lifter emitter bands: `whenNot: parked`)
+//   ^xx → channel `fit_xx`    (each fitting's parts: `when: fit_xx`)
+//   ~s  → a dropped box: the trailer on, and the tractor spliced off by finishTruck as before.
+//   ~e<name> → the edition the base file names in `variants` (`hauler+t~e2076`: the Courier 2076).
+//               ⚠ After the type and any +t: every reader strips the type off at the first ~ or ^.
+// The state is applied here, once per variant, not per frame: the face list is memoised per variant.
+let _truckRec = null;
+function truckMeshFaces(row, variant, detail) {
+  const str = String(variant);
+  const parked = str.includes('~p'), solo = str.includes('~s');
+  const tail = str.replace(/[~^].*$/, '').split('+')[1];
+  const hitched = tail === 't' || solo;
+  const FITS = new Set(str.match(/\^([a-z.]+)/)?.[1].split('.') || []);
+  const on = (ch) => ch === 'trailer' ? hitched : ch === 'parked' ? parked : ch.startsWith('fit_') ? FITS.has(ch.slice(4)) : false;
+  const all = compileMesh(row, { detail, finish: false }).faces;
+  const faces = [], ids = new Map();
+  let tractorFaces = -1;
+  for (const f of all) {
+    if (f.when && !on(f.when)) continue;
+    if (f.whenNot && on(f.whenNot)) continue;
+    // A fitting's faces are skipped by the centring, as buildTruck marks them.
+    if (f.when && f.when.startsWith('fit_')) f.fit = 1;
+    // The trailer is last in the file, so its first face is where the tractor ends.
+    if (f.when === 'trailer' && tractorFaces < 0) tractorFaces = faces.length;
+    delete f.when; delete f.whenNot;
+    // Parts are numbered in the order drawn, over what this variant draws, as buildTruck counted them.
+    if (!ids.has(f.part)) ids.set(f.part, ids.size + 1);
+    f.part = ids.get(f.part);
+    faces.push(f);
+  }
+  if (tractorFaces < 0) tractorFaces = faces.length;
+  const T = row.truck;
+  const pods = T.pods.filter((q) => hitched || !q[3]).map((q) => q.slice());
+  return finishTruck(faces, { str, detail, solo, parked, tractorFaces, pods, D: T });
+}
+// Where a truck type's body comes from: its mesh file, or buildTruck off its proportion row. The
+// builder answers for the legacy A/B (setLegacyMeshes), for a row the Modelshop is overriding, and for
+// a type with a row and no file. An unknown type draws as the Courier, as it always did.
+function truckMeshRow(typeId, edition = null) {
+  if (_legacyMeshes || _vehOverride.truck.has(typeId)) return null;
+  const row = meshRow('truck_' + typeId);
+  if (row) {
+    // An edition the file doesn't name draws the stock body rather than nothing.
+    const ed = edition && row.variants?.[edition];
+    return (ed && meshRow(ed)) || row;
+  }
+  return truckShape(typeId) ? null : truckMeshRow('hauler', edition);
+}
+const truckTypeOf = (variant) => String(variant).replace(/[~^].*$/, '').split('+')[0];
+const truckEditionOf = (variant) => String(variant).match(/~e([a-z0-9]+)/)?.[1] || null;
+function truckFaces(variant, detail) {
+  const row = truckMeshRow(truckTypeOf(variant), truckEditionOf(variant));
+  return row ? truckMeshFaces(row, variant, detail) : buildTruck(variant, detail);
+}
+// The lamp stations and dimensions for a variant, from the same place its faces come from.
+function truckDims(variant) {
+  const typeId = truckTypeOf(variant);
+  const row = truckMeshRow(typeId, truckEditionOf(variant));
+  return row ? row.truck : truckDimsOf(truckShape(typeId) || truckShape('hauler'));
+}
+// ── For the port and the gate (scripts/shapes/truck-meshes.mjs, scripts/shapes/meshes.mjs) ──
+// What buildTruck draws for a variant, as mesh parts, with where its fittings and its trailer start.
+export function recordTruckBuild(variant, detail = 1) {
+  _truckRec = { parts: [], fitStart: -1, tractorEnd: -1, pods: [] };
+  try { buildTruck(variant, detail); return _truckRec; } finally { _truckRec = null; }
+}
+// The same truck built and filed, each with the meta it published. Neither touches the face cache.
+export function truckLegacyBuild(variant, detail = 1) {
+  const faces = buildTruck(variant, detail);
+  return { faces, meta: TRUCK_META.get(String(variant) + ':' + detail) };
+}
+export function truckFileBuild(row, variant, detail = 1) {
+  const faces = truckMeshFaces(row, variant, detail);
+  return { faces, meta: TRUCK_META.get(String(variant) + ':' + detail) };
+}
+export function truckDimsForShape(typeId) { const S = truckShape(typeId); return S ? truckDimsOf(S) : null; }
 // A wreck: a stripped default hull.
 function buildWreck() {
   if (_cache.wreck) return _cache.wreck;

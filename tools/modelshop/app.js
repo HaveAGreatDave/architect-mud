@@ -29,6 +29,7 @@ import {
   renderVehiclePreview, VEHICLE_CLASSES, TRUCK_VARIANTS, vehicleBounds, previewFit,
   VEHICLE_PARAM_TABLE, vehicleParamBase, setVehicleParams, clearVehicleParams,
 } from '/client/game/js/panels/windshield.js';
+import { MESH_ROWS } from '/client/shared/vehicle-meshes.js';
 import {
   renderFaunaPreview, renderFaunaSheet, faunaBounds, faunaParamBase, setFaunaParams,
   clearFaunaParams, faunaParamIds, faunaEl, FAUNA_POSES,
@@ -58,6 +59,9 @@ const SCALES = [[1, 1], [2, 1], [1, 2], [2, 3]];
 const VEHICLES = [
   ...VEHICLE_CLASSES.filter((c) => c !== 'truck').map((cls) => ({ key: 'vehicle:' + cls, vehicle: { cls, variant: '' }, m: { type: cls } })),
   ...TRUCK_VARIANTS.map((v) => ({ key: 'vehicle:truck/' + v, vehicle: { cls: 'truck', variant: v }, m: { type: 'truck ' + v } })),
+  // A truck's editions (mesh_truck_<type>.json `variants`), drawn hitched: `~e<name>` on the variant.
+  ...TRUCK_VARIANTS.flatMap((v) => Object.keys(MESH_ROWS['truck_' + v]?.variants || {})
+    .map((e) => ({ key: 'vehicle:truck/' + v + '~e' + e, vehicle: { cls: 'truck', variant: v + '+t~e' + e }, m: { type: 'truck ' + v + ' ' + e } }))),
   // ⚠ THE VIPER IS NOT A CLASS. `aircraftFaces` takes `armed` as a channel of its own, so the
   // attack helicopter is 'heli' with a flag rather than a tenth entry in VEHICLE_CLASSES — and
   // it was missing from this list entirely, which is how the one airframe with a bespoke mesh

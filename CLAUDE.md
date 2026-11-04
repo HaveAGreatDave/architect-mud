@@ -94,6 +94,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/lore-wildblood.md](docs/lore-wildblood.md): Wildblood canon, read before writing mutants or the Under. The Under was theirs first
 - [docs/systems-wildlands.md](docs/systems-wildlands.md): the Curtain and the Wildlands. Map and wall built; systems are design; its camp section is superseded by the Scarletwastes
 - [docs/proposals/scarletwastes.md](docs/proposals/scarletwastes.md): the Scarletwastes and the Thornwarren (as built). The region is uniformly `redrock` on purpose; don't scatter terrain in code
+- [docs/proposals/hover-rigs.md](docs/proposals/hover-rigs.md): the Hover Rig Expo concept as 2076 editions of the four trucks (phase 0 steps 1 to 3 and phase 1's body built; the rest is design). Phase 0 ports the trucks from `buildTruck` to mesh files held exact by `meshes.mjs`, as the aircraft were; an edition keeps its truck's `TYPES` row and kingpin frame, so it hitches any trailer
 - [docs/roadmap-world-expansion.md](docs/roadmap-world-expansion.md): the road to the 100×100 Basin; its open questions are still unanswered
 - [docs/devpanel-js.md](docs/devpanel-js.md): what each `client/devpanel/js/` script holds, and load order
 

@@ -292,6 +292,13 @@ export const PART_KINDS = {
     role: { t: 'role' }, lower: { t: 'num', req: true, hint: 'underside shade' }, tipSh: { t: 'num' },
     tipFairing: { t: 'obj' }, lens: { t: 'obj' },
   } },
+  // The truck builder's one primitive, moved here so a truck can be a file (docs/proposals/hover-rigs.md).
+  box: { label: 'Box', blurb: 'An upright block: six quads with set shades, one part to the painter\'s sort.', fields: {
+    f: { t: 'vec2', req: true, hint: '[aft, fore]' }, w: { t: 'num', req: true, hint: 'half-width' },
+    z: { t: 'vec2', req: true, hint: '[bottom, top]' }, g: { t: 'num', g: true, hint: 'lateral centre (0 if left out)' },
+    role: { t: 'role' }, tint: { t: 'vec3', hint: 'colour [r, g, b]' },
+    pk: { t: 'enum', of: ['bright', 'glow'], hint: 'the livery colour that repaints it' },
+  } },
   poly: { label: 'Faces', blurb: 'Literal faces, for the shapes no primitive expresses.', fields: {
     faces: { t: 'faces', req: true, g: true },
   } },
@@ -479,6 +486,27 @@ function emitWing(p, faces, detail) {
   }
 }
 
+// Six quads with shades baked top-lit, sharing corner points and one centre (`cen`, for the cull and
+// the sun normal). The same box buildTruck drew, quad for quad, so a ported truck compiles to it.
+function emitBox(p, faces) {
+  const [f0, f1] = p.f, [z0, z1] = p.z, w = p.w, gc = p.g ?? 0, role = p.role || 'body';
+  const gl = gc - w, gr = gc + w;
+  const A = [V(f0, gl, z0), V(f0, gr, z0), V(f0, gr, z1), V(f0, gl, z1)];
+  const B = [V(f1, gl, z0), V(f1, gr, z0), V(f1, gr, z1), V(f1, gl, z1)];
+  const cen = [(f0 + f1) / 2, gc, (z0 + z1) / 2];
+  const quad = (pts, sh) => {
+    const q = { role, sh, p: pts, cen };
+    if (p.tint) { q.tint = p.tint.slice(); if (p.pk) q.pk = p.pk; }
+    faces.push(q);
+  };
+  quad([A[3], A[2], B[2], B[3]], 1.00);   // roof
+  quad([A[0], B[0], B[1], A[1]], 0.42);   // underside
+  quad([A[0], A[3], B[3], B[0]], 0.72);   // left flank
+  quad([A[1], B[1], B[2], A[2]], 0.62);   // right flank
+  quad([B[0], B[3], B[2], B[1]], 0.80);   // front face
+  quad([A[0], A[1], A[2], A[3]], 0.55);   // back face
+}
+
 const cpV = (v) => [v[0], v[1], v[2]];
 function emitPoly(p, faces) {
   for (const f of p.faces) {
@@ -530,6 +558,7 @@ function mirrorSpec(p) {
     case 'cone': if (p.g != null) q.g = ng(p.g); q.apex = mv(p.apex); break;
     case 'poly': q.faces = p.faces.map((f) => ({ ...f, p: f.p.map(mv), ...(f.hinge ? { hinge: f.hinge.map(mv) } : {}) })); break;
     case 'group': q.parts = p.parts.map(mirrorSpec); if (p.xf) q.xf = mirrorXf(p.xf); break;
+    case 'box': if (p.g != null) q.g = ng(p.g); break;
     default: break;   // loft, wing, blade and ngon on the centreline are their own mirror image
   }
   delete q.left;
@@ -631,6 +660,7 @@ function emitPart(p, faces, cx, path, srcs) {
     case 'blade': emitBlade(p, faces); break;
     case 'wing': emitWing(p, faces, cx.detail); break;
     case 'poly': emitPoly(p, faces); break;
+    case 'box': emitBox(p, faces); break;
     case 'group': {
       p.parts.forEach((c, i) => emitPart(c, faces, cx, path + '.parts[' + i + ']', srcs));
       if (p.xf) applyXf(faces, from, p.xf);
@@ -642,6 +672,12 @@ function emitPart(p, faces, cx, path, srcs) {
       break;
     }
     default: throw new Error('unknown part kind ' + JSON.stringify(p.kind) + ' at ' + path);
+  }
+  // `partIds`: every part that draws is one id for the painter's part sort, in the order drawn, as
+  // buildTruck numbered its boxes. A group or mirror is not a part; what's inside it is.
+  if (cx.partIds && p.kind !== 'group' && p.kind !== 'mirror') {
+    const id = ++cx.seq;
+    for (let i = from; i < faces.length; i++) if (faces[i].part == null) faces[i].part = id;
   }
   // A moving part: every face it emitted carries the hinge, and the renderer swings it by the
   // channel's value at draw time (see animFacePoints). An inner part's own hinge wins.
@@ -707,7 +743,7 @@ function rampRgb(stops, at) {
 // it replaced, which drew geometry and never declared a finish.
 export function compileMesh(params, { detail = 1, scheme = null, finish = true } = {}) {
   const faces = [], srcs = [], warnings = [];
-  const cx = { detail, paints: params.paints || null };
+  const cx = { detail, paints: params.paints || null, partIds: !!params.partIds, seq: 0 };
   (params.parts || []).forEach((p, i) => emitPart(p, faces, cx, 'parts[' + i + ']', srcs));
   if (params.paints) {
     const slots = {};
@@ -855,7 +891,7 @@ export function resolveRotors(params) {
 const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isVec = (v, n) => Array.isArray(v) && v.length === n && v.every(isNum);
-const PARAM_KEYS = new Set(['name', 'note', 'portedFrom', 'armedMesh', 'variants', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'parts']);
+const PARAM_KEYS = new Set(['name', 'note', 'portedFrom', 'armedMesh', 'variants', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'partIds', 'truck', 'parts']);
 const MAT_HINT = 'a number from -1 to 1 or one of ' + Object.keys(VEHICLE_MATS).join(', ');
 
 function checkPart(p, path, errors, warnings, inMirror) {
@@ -931,6 +967,20 @@ export function validateMesh(params, file = '<mesh>') {
       if (!isVec(c.pilotEye, 3)) errors.push(at('cabin.pilotEye must be [f, g, h]: where the pilot\'s eye is, in model units'));
       for (const k of ['head', 'eye']) if (typeof c[k] !== 'string' || !has(c[k])) errors.push(at('cabin.' + k + ' must name a part in this mesh'));
       for (const k of ['floor', 'back', 'wall']) if (c[k] != null && !isNum(c[k])) errors.push(at('cabin.' + k + ' must be a number'));
+    }
+  }
+  // A truck: the numbers the renderer reads besides faces (the kingpin, the pods the lifter light pools
+  // under, the lamp stations), in the frame the parts are written in. aircraft3d.js centres both.
+  if (params.truck != null) {
+    const t = params.truck;
+    if (!isPlain(t)) errors.push(at('truck must be an object'));
+    else {
+      for (const k of ['w', 'hi', 'sleeper', 'deck', 'lamps', 'boxHalf']) if (!isNum(t[k])) errors.push(at('truck.' + k + ' must be a number'));
+      if (!isVec(t.pin, 2)) errors.push(at('truck.pin must be [aft, fore]: the fifth wheel\'s plate'));
+      if (t.beacon != null && !isVec(t.beacon, 2)) errors.push(at('truck.beacon must be [f, h]: where the Amber Beacon fitting\'s lamp is'));
+      if (!isPlain(t.geom) || !Object.values(t.geom).every(isNum)) errors.push(at('truck.geom must be an object of numbers (the lamp stations)'));
+      if (!Array.isArray(t.pods) || !t.pods.every((q) => Array.isArray(q) && q.length === 5 && isNum(q[0]) && isNum(q[1]) && isNum(q[2]) && typeof q[3] === 'boolean' && isNum(q[4])))
+        errors.push(at('truck.pods must be a list of [f, g, halfLength, onTrailer, halfWidth]'));
     }
   }
   if (params.rotors != null) {
@@ -1009,7 +1059,8 @@ export function meshStats(faces) {
 // `canonicalJson` would put `kind` after `faces`, which is the first thing you look for.
 const KEY_ORDER = {
   doc: ['id', 'kind', 'params'],
-  params: ['name', 'note', 'portedFrom', 'armedMesh', 'variants', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'parts'],
+  params: ['name', 'note', 'portedFrom', 'armedMesh', 'variants', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'partIds', 'truck', 'parts'],
+  truck: ['w', 'hi', 'sleeper', 'deck', 'lamps', 'boxHalf', 'pin', 'beacon', 'geom', 'pods'],
   cabin: ['note', 'mPerUnit', 'head', 'eye', 'pilotEye', 'floor', 'back', 'wall'],
   station: ['f', 'rg', 'rv', 'rvT', 'rvB', 'cz', 'keel', 'boxy', 'upper', 'u', 'minDetail', 'note'],
   face: ['role', 'sh', 'p'],
@@ -1020,7 +1071,7 @@ const KEY_ORDER = {
   paint: ['rgb', 'alt', 'livery', 'mat', 'tex', 'ramp', 'note'],
 };
 const ARRAY_OF = { parts: 'part', stations: 'station', faces: 'face', rotors: 'rotor', regions: 'region' };
-const OBJ_CTX = { params: 'params', cabin: 'cabin', capFore: 'cap', capAft: 'cap', shade: 'shade', sh: 'shade' };
+const OBJ_CTX = { params: 'params', cabin: 'cabin', truck: 'truck', capFore: 'cap', capAft: 'cap', shade: 'shade', sh: 'shade' };
 function orderedKeys(o, ctx) {
   let pref;
   if (ctx === 'part' && o.kind && PART_KINDS[o.kind]) pref = ['kind', 'name', 'note', ...Object.keys(PART_KINDS[o.kind].fields), 'paint', 'minDetail', 'maxDetail', 'lod0', 'left'];

@@ -87,7 +87,7 @@ const HIRE_OK = new Set(['repair', 'service', 'load', 'business']);
 // job's own area (maintenance-bay.js), and the horn and plate from the tail. Inside sits you in the seat.
 const TRUCK_GROUPS = {
   perf: [{ id: 'tune', label: 'Tuning' }, { id: 'kits', label: 'Kits' }],
-  parts: [{ id: 'fits', label: 'Fittings' }, { id: 'badge', label: 'Horn & plate', area: 'rear' }],
+  parts: [{ id: 'fits', label: 'Fittings' }, { id: 'model', label: 'Body' }, { id: 'badge', label: 'Horn & plate', area: 'rear' }],
   paint: [{ id: 'scheme', label: 'Schemes' }, { id: 'colour', label: 'Paint' }, { id: 'graphic', label: 'Graphics' }],
   inside: [{ id: 'cab', label: 'Fittings' }, { id: 'trim', label: 'Trim' }],
 };
@@ -169,7 +169,7 @@ export function openBayService(msg) {
 /** The truck has left the shed (or the cab has shut): take the overlay down and hand the camera back. */
 export function closeBayService() {
   if (!B || B.mode !== 'service') return;
-  B.bay.close({ paint: null, trim: null, fits: null });
+  B.bay.close({ paint: null, trim: null, fits: null, edition: null });
   document.getElementById('td-svc')?.remove();
   garageBed(null);
   if (toastT) clearTimeout(toastT);
@@ -435,7 +435,8 @@ function renderService() {
   for (const id of TRUCK_JOBS) if (t && (!t.rental || HIRE_OK.has(id))) have[id] = { ...jobState(id, t), ...(id === 'perf' ? { rev: 0.4 } : {}) };
   bay.canon(have);
   B.bench.tab = bay.job;
-  const grp = bay.groups(TRUCK_GROUPS[B.bench.tab] || []);
+  // The Body group is only there for a truck with a second body.
+  const grp = bay.groups((TRUCK_GROUPS[B.bench.tab] || []).filter((g) => g.id !== 'model' || (t?.editionCat || []).length > 1));
   const page = !t ? { body: '<div class="td-none">The truck is not on the books here.</div>' } : truckPage(t, B.bench.tab, grp);
   el.innerHTML = bayHtml({
     ico: '⚙', title: d.depot, sub: t ? t.name : 'service bay', name: t?.name || '', credits: d.credits,
@@ -488,7 +489,7 @@ function jobState(id, t) {
 function truckPage(t, job, grp) {
   if (job === 'service') return servicePage(t);
   if (job === 'perf') return grp === 'kits' ? kitsTab(t) : tuneTab(t);
-  if (job === 'parts') return grp === 'badge' ? badgeTab(t) : fitsTab(t);
+  if (job === 'parts') return grp === 'badge' ? badgeTab(t) : grp === 'model' ? modelTab(t) : fitsTab(t);
   if (job === 'paint') return paintTab(t, grp);
   if (job === 'inside') return grp === 'trim' ? trimPage(t) : cabTab(t);
   if (job === 'load') return { body: freightScreen() };
@@ -528,8 +529,9 @@ function syncView() {
   const job = B.bench.tab, t = selected();
   // A fitting picked on the shelf goes on the truck as the variant suffix it would make (§6.1).
   const fitPick = bay.open && job === 'parts' && bay.sub('parts') === 'fits' && B.bench.fpick && t ? fitsWith(t, B.bench.fpick) : null;
+  const edPick = bay.open && job === 'parts' && bay.sub('parts') === 'model' && B.bench.epick ? editionWire(B.bench.epick) : null;
   bay.sync({ look: { paint: bay.open && job === 'paint' && B.bench.paint ? paintNow() : null,
-    trim: bay.open && job === 'inside' && B.bench.trim ? trimNow() : null, fits: fitPick } });
+    trim: bay.open && job === 'inside' && B.bench.trim ? trimNow() : null, fits: fitPick, edition: edPick } });
 }
 
 // THE TRUCK WITH ONE FITTING SWAPPED IN, as the variant suffix the server's fitSuffix
@@ -555,7 +557,9 @@ function truckPeek(target) {
   if (!B || B.mode !== 'service') return undefined;
   const t = selected();
   if (!t) return undefined;
-  const base = { paint: null, trim: null, fits: null, ...(B.bay.look || {}) };
+  const base = { paint: null, trim: null, fits: null, edition: null, ...(B.bay.look || {}) };
+  const ep = target.closest?.('[data-epick]');
+  if (ep) return { ...base, edition: editionWire(ep.dataset.epick) };
   const fp = target.closest?.('[data-fpick]');
   if (fp) return { ...base, fits: fitsWith(t, fp.dataset.fpick) };
   const pr = target.closest?.('[data-preset]');
@@ -613,6 +617,24 @@ function servicePage(t) {
       <div class="td-dim td-note">${t.odometer.toLocaleString()} tiles on the clock${t.rental ? '' : ` · trade-in ${money(t.resale)}`}</div>
     </div>`,
   till: tillHtml({ label: `Do all of it · ${money(svc.full)}`, cmd: `rig service ${t.id} all`, ...(svc.full ? {} : { why: 'Nothing due' }) }) };
+}
+
+// ── The body ──
+// A second body for the same truck (plugins/trucking/editions.js): pointing at a card puts it on the
+// truck in the bay, and the till's key fits it. '' is the stock cab on the wire.
+const editionWire = (id) => (id === 'stock' ? '' : id);
+function modelTab(t) {
+  const cat = t.editionCat || [], cur = t.edition || 'stock';
+  const pick = cat.some((e) => e.id === B.bench.epick) ? B.bench.epick : cur;
+  const options = cat.map((e) => ({ label: e.name, blurb: e.desc, on: e.id === pick, mine: e.id === cur,
+    price: e.id === cur ? '' : e.price ? money(e.price) : e.id === 'stock' ? 'free' : 'yours', attrs: `data-epick="${esc(e.id)}"` }));
+  const e = cat.find((x) => x.id === pick);
+  const till = !e || pick === cur ? tillHtml(null)
+    : tillHtml({ label: `Fit the ${e.name}${e.price ? ' · ' + money(e.price) : ''}`, cmd: `rig edition ${t.id} ${e.id}`,
+      ...((B.data.credits || 0) >= e.price ? {} : { why: "You can't afford it" }) });
+  return { body: `<div class="td-pane"><div class="td-lab">The body<span class="td-dim">: point at one to see it on the truck</span></div>${partsHtml({ options })}
+      ${e ? `<div class="td-dim td-note">${esc(e.desc)}</div>` : ''}
+      <div class="td-dim td-note">Same chassis, same numbers. Once bought, a body is this truck's for good and swapping back costs nothing.</div></div>`, till };
 }
 
 // ── Horn and plate ───────────────────────────────────────────────────────────
@@ -1298,11 +1320,12 @@ function onClick(e) {
     slot: (id) => { if (B.bench.tab === 'inside') { B.bench.cslot = id; B.bench.cpick = null; } else { B.bench.fslot = id; B.bench.fpick = null; } redraw(); },
   })) return;
   // A card on a parts menu picks it for the till; nothing is spent until the till's key.
-  const pk = e.target.closest('[data-kpick],[data-fpick],[data-cpick],[data-hpick]');
+  const pk = e.target.closest('[data-kpick],[data-fpick],[data-cpick],[data-hpick],[data-epick]');
   if (pk && !pk.disabled) {
     if (pk.dataset.kpick) B.bench.kit = pk.dataset.kpick;
     if (pk.dataset.fpick) B.bench.fpick = pk.dataset.fpick;
     if (pk.dataset.cpick) B.bench.cpick = pk.dataset.cpick;
+    if (pk.dataset.epick) B.bench.epick = pk.dataset.epick;
     // A horn is heard as it is picked, here and nowhere else.
     if (pk.dataset.hpick) { B.bench.horn = pk.dataset.hpick; airHorn(selected()?.typeId, 1.2, pk.dataset.hpick === 'stock' ? null : pk.dataset.hpick); }
     return void redraw();

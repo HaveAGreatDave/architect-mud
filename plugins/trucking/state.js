@@ -35,6 +35,7 @@ import { wearFor, breakdownRoll, BREAKDOWNS, paintOf } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { accrueGrime, grimeBand } from './filth.js';
 import { fitSuffix } from './fittings.js';
+import { editionOf, editionSuffix } from './editions.js';
 import { installedTrinkets } from '../../client/shared/cab-trinkets.js';
 import { hornOf } from '../../client/shared/truck-horns.js';
 import { routeOptions } from './routes.js';
@@ -1840,8 +1841,8 @@ export function truckContactsNear(x, y, range = 26) {
       // …AND WHAT IS BOLTED TO IT. The fitting suffix rides the SAME string (see fittings.js rule
       // 2), so a stranger's ram plate and roof cage reach your windscreen with no new field on the
       // contact and no second lookup — which is the entire wire cost of the feature.
-      variant: `${rig.typeId || 'hauler'}${rig.trailer ? '+t' : ''}${fitSuffix(rig.cd)}`,
       x: rig.x, y: rig.y, hdg: rig.heading, ias: Math.round(rig.speed),
+      variant: `${rig.typeId || 'hauler'}${rig.trailer ? '+t' : ''}${editionSuffix(rig.cd, rig.typeId)}${fitSuffix(rig.cd)}`,
       // WHAT THIS TRUCK'S LAMPS ARE DOING, so the rig behind sees the brake lights come on and the
       // rig ahead is a pair of headlights rather than a dark shape. Straight off the telemetry
       // packet (cmdTruckSync) — no query, no column, and the one field carries both.
@@ -2018,6 +2019,8 @@ export function cabContext(rig, extra = {}) {
     // variant string (it owns the trailer and stalled markers, which move mid-drive), so it is
     // handed the piece it cannot know rather than the finished key.
     fits: fitSuffix(rig.cd),
+    // The body, as its id: the cab puts it in the variant itself, because a bench preview swaps it.
+    edition: editionOf(rig.cd, rig.typeId) || '',
     grime: +(rig.grime ?? 0).toFixed(3),
     grimeBand: grimeBand(rig.grime ?? 0).key,
     // The cab clamps its own throttle on both of these for the feel; the server clamps the speed

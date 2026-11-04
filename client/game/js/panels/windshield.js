@@ -68,7 +68,7 @@ import { struckFrom, livePuffs, takeSplats, PUFF_S, BIRD_SPLAT } from './bird-st
 import { CAB_VIEW_TUNE } from '../../../shared/cab-render-tune.js';   // the ground camera's load-shedding numbers — shared with the trucking regress, which asserts they fit inside CAB_RADIUS
 // The cab's SURFACE vocabulary — materials and colourways — shared with the maintenance bench that
 // sells them. See the note at the top of that file for why it is not in this one.
-import { DASH_MATERIALS, DASH_COLOURWAYS, isDashMaterial, isDashColourway, stockTrim, resolveColourway, sanitizeCustomTrim, CUSTOM_COL } from '../../../shared/cab-trim.js';
+import { DASH_MATERIALS, DASH_COLOURWAYS, isDashMaterial, isDashColourway, stockTrim, resolveColourway, sanitizeCustomTrim, CUSTOM_COL, editionTrimOf } from '../../../shared/cab-trim.js';
 import { TRINKETS, trinketIn, wheelStyle, trinketState, stepTrinket } from '../../../shared/cab-trinkets.js';
 import { signalLamp, junctionOffset, isJunction } from '../../../shared/traffic.js';
 import { shellFaces, shellProfileFor, shellBounds, EYE_M, eyeMetresOf, cabinRetint } from '../../../shared/interior-shell.js';
@@ -22393,7 +22393,7 @@ function pushInteriorShell(cam, v) {
 
   // The light, and the relation `drawCabInterior` shades every surface by: what comes in through
   // the screen, in the sky's own colour, floored so a pillar return keeps its thickness at night.
-  const T = v.cls === 'truck' ? cabTrim(v.tier, v.trim) : DASH_COLOURWAYS.slate;
+  const T = v.cls === 'truck' ? cabTrim(v.tier, v.trim || editionTrimOf(v.variant)) : DASH_COLOURWAYS.slate;
   // The livery's cabin colour over the walls it repaints (interior-shell.js cabinRetint), or null.
   const cabin = v.livery && v.livery.cabin;
   const cabinMap = cabin ? cabinRetint(v.cls, v.armed, cabin) : null;
@@ -23158,9 +23158,12 @@ function liveInstruments(v) {
       toys: cabToysLive(v),
       // Which of the four cabs to fit out, the colourway's glow for its light lines, and the
       // instruments only the dearer rungs carry. See truckFit in interior-fit.js.
-      tier: v.tier, glow: hex2rgb(cabTrim(v.tier, v.trim).glow), brakeTemp: v.brakeTemp, fading: v.fading,
+      tier: v.tier, glow: hex2rgb(cabTrim(v.tier, v.trim || editionTrimOf(v.variant)).glow), brakeTemp: v.brakeTemp, fading: v.fading,
       trailerPhi: v.hitched ? v.phi : null, rad: v.rad,
       ctl: v.ctl || null,   // which switches the truck has, and how they stand — the fascia banks
+      // What an edition's glass reads (interior-courier-2076.js): the key, the hand, the road.
+      powered: v.powered, powerAge: v.powerAge, hover: v.ckHover, press: v.ckPress, lamps: v.lamps,
+      hdg: v.heading, hour: v.hour, legFrac: v.legFrac, legLeft: v.legLeft, aim: v.aim, elecOut: v.elecOut,
     };
   }
   return {

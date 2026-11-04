@@ -776,10 +776,11 @@ async function paintSeat(cls, o, use) {
   cv.id = '__seat_' + Math.random().toString(36).slice(2, 8);
   cv.style.cssText = 'display:block;width:' + W + 'px;height:' + H + 'px';
   holder.append(cv); document.body.append(holder);
-  const keep = { gl: RENDER_TUNE.gl, interior: RENDER_TUNE.interior, cockpit3d: RENDER_TUNE.cockpit3d };
+  // A shot reads the canvas straight after painting, so it stays off the frame hand-over (wsHandover in windshield.js).
+  const keep = { gl: RENDER_TUNE.gl, interior: RENDER_TUNE.interior, cockpit3d: RENDER_TUNE.cockpit3d, wsHandover: RENDER_TUNE.wsHandover };
   const un = installGL(() => cv);
   try {
-    RENDER_TUNE.gl = 1; RENDER_TUNE.interior = 1; RENDER_TUNE.cockpit3d = 1;
+    RENDER_TUNE.gl = 1; RENDER_TUNE.interior = 1; RENDER_TUNE.cockpit3d = 1; RENDER_TUNE.wsHandover = 0;
     const v = { cls, armed: !!o.armed, phase: 'cruise', height: o.height ?? 0.1, worldBlend: 1, hour: o.hour ?? 13, weather: o.weather || 'clear',
       speed: 0.2, heading: 0, mapOffset: { x: 0.1, y: -0.2 }, pitch: 0, bank: 0, lookYaw: o.yaw || 0, lookPitch: o.pitch || 0,
       dome: !!o.dome, map: seatMap(),

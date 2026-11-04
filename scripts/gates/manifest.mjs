@@ -215,6 +215,7 @@ export const GROUPS = [
       'scripts/shapes/cockpit-reaper-2076.mjs',
       'scripts/shapes/cockpit-carcass-2076.mjs',
       'scripts/shapes/cockpit-drake-2076.mjs',
+      'scripts/shapes/cockpit-courier-2076.mjs',
       'scripts/shapes/landing-feel.mjs',       // ground effect from the deck, and the shadow height gauge
       'scripts/shapes/engine-split.mjs',       // a throttle per engine: the model and the cockpits
       'scripts/shapes/cockpit-viper.mjs',

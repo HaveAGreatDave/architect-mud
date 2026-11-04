@@ -31,6 +31,7 @@
 //     do once per truck. Kits are the things you BUY that are strictly better — that is what your
 //     money is for — and what they mostly buy is a wider range on the dials.
 
+import { editionPaint } from './editions.js';
 import { TYPES, SURFACES } from '../../client/game/js/panels/flight-model.js';
 import { partEffects } from './damage.js';
 import { serviceLife, serviceFx } from './service.js';
@@ -416,7 +417,10 @@ export function factoryPaint(typeId) {
 // depot showed rust and cream. Unpainted means its type's factory paint, everywhere. A painted truck
 // still fills its missing fields from PAINT_DEFAULT (sanitizePaint), so an old respray looks as it did.
 export function paintOf(cd, typeId) {
-  return cd && cd.paint ? sanitizePaint({}, cd.paint) : factoryPaint(typeId);
+  if (cd && cd.paint) return sanitizePaint({}, cd.paint);
+  // An edition's body comes in its own paint until somebody resprays it.
+  const ed = editionPaint(cd, typeId);
+  return ed ? sanitizePaint({}, ed) : factoryPaint(typeId);
 }
 // A respray is priced on the truck, not the colour — a big cab is a lot of surface. The FINISH is
 // the one thing that moves it, because it is the one thing that is genuinely more work: flake and
