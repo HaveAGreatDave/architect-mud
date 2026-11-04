@@ -17,7 +17,7 @@
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
 import { parkTiles } from '../../../shared/coliseum-plan.js';
-import { MPH_KMH, tripM, fmtDistance } from '../../../shared/world-scale.js';
+import { MPH_KMH, STOREY_M, FT_M, tripM, fmtDistance } from '../../../shared/world-scale.js';
 import { seaShelter, SURF_DEPTH_Q, surfHullGain, surfGain, seaHeadingFor, setSeaHeading, seaRotPair } from '../../../shared/sea-swell.js';
 import { windGust, windVeer, stormOf } from '../../../shared/wind-gust.js';
 import { skyAt } from '../../../shared/sky-keys.js';
@@ -17764,7 +17764,7 @@ export function buildingScaleFor(floors, seed = 0) {
   return buildingScale(floors, seed, RENDER_TUNE);
 }
 
-export const FT_PER_FLOOR = 12;   // realistic storey height (ft) — still the floors↔feet rule for anything that asks about STOREYS
+export const FT_PER_FLOOR = STOREY_M / FT_M;   // the ruler's storey in feet, for anything that asks about STOREYS; roofs come from the model (altForRoofZ)
 
 // ── THE ALTITUDE AT WHICH THE EYE RISES ABOVE A DRAWN ROOF ──────────────────
 //

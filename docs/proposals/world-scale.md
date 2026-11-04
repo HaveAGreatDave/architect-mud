@@ -1,6 +1,6 @@
 # One world scale
 
-> **Status: phases 1 and 2 built (2026-11-03); phases 3 to 7 are design.** The ruler, the
+> **Status: phases 1 to 3 built (2026-11-03); phases 4 to 7 are design.** The ruler, the
 > conversions, the paces, the labels and `scale:lint` are in, and the truck reads km/h (see
 > [Phase 2 as built](#phase-2-as-built)). Where this disagrees with a `systems-*.md` doc about what
 > ships today, that doc wins until the phase that changes it lands.
@@ -136,7 +136,7 @@ rest are the same number.
 |---|---|---|
 | 1 | `world-scale.js`; every literal copy (`seat-audio.js`, `aa-emplacement.js`, `birds.js`'s own constant) imports it; `scale:lint` | Nothing |
 | 2 | Labels go through `fmtDistance`/`fmtSpeed`: aviation "mi" becomes real nm, the shared `ias` field carries m/s, wind is m/s inside | Distances and speeds that agree with each other |
-| 3 | One storey: `FT_PER_FLOOR` comes from `STOREY_M` (11.5 ft, was 12) | Roof and helipad heights 4% lower; the helipad catch needs its regress re-run |
+| 3 | One storey: `FT_PER_FLOOR` comes from `STOREY_M` (11.5 ft, was 12) | Nothing: see [Phase 3 as built](#phase-3-as-built) |
 | 4 | One altitude curve for you and every contact | Other aircraft drawn at the height you'd expect |
 | 5 | The truck's server clamp and client physics both read `PACE.road` | The clamp stops being looser than the truck |
 | 6 | The sea onto the ruler: swell, boats, casting, the sea floor at 17.857 m a tile instead of 7 | The biggest visual change: waves, wakes and casts re-tuned; needs eyes on it |
@@ -202,6 +202,16 @@ screen.
   scale". The real factor is 0.54; it's a tune that halves the wind, not a conversion.
 - `trucking/index.js` called `milesOf` on the weighbridge's "nothing to weigh" line without
   importing it, so that line threw. It uses `roadKm` now, imported.
+
+### Phase 3 as built
+
+`FT_PER_FLOOR` is `STOREY_M / FT_M`, 11.48 ft. The table used to promise roofs and helipads 4%
+lower and a re-run of the helipad catch's regress, but nothing has read `FT_PER_FLOOR` since
+collision moved onto captured shapes (`building-shapes.md`): the only other mention is the lazy
+facade's export. A roof's feet come from the drawn model through `altForRoofZ` and
+`altRestingOnZ`, which invert the eye curve, and that's where the catch reads its deck. So no height
+moved. A storey in the picture is `FLOOR_Z` (0.028) times `RENDER_TUNE.bldgH`, which is the
+0.196 tiles on the ruler.
 
 ## Small fixes found on the way
 
