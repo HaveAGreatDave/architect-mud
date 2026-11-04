@@ -18,7 +18,7 @@ import { roomLayout } from '../../../shared/room-layout.js';
 import { createRoomWalk } from './room-walk.js';
 import { createRoomRenderer } from './gl/room.js';
 import { buildRoom, paintRoomTexture, paintView, paintScreen, ROOM_RUG } from './gl/room-mesh.js';
-import { peopleBatch, preparePeople, peopleReady } from './gl/room-people.js';
+import { figurePeople, dressOf } from './gl/room-people.js';
 
 const CSS = await loadCss(new URL('./room-stage.css', import.meta.url));
 function ensureStyles() {
@@ -232,17 +232,28 @@ export function openRoomStage(msg) {
   document.addEventListener('keydown', onKey);
   document.addEventListener('keyup', onKeyUp);
 
-  // the people, once their body is baked: a beat after the room is up, so the room shows first
-  const tagsEl = root.querySelector('.rs-tags');
-  setTimeout(() => { if (ui?.S === S) { try { preparePeople(); } catch (err) { console.warn('[room] people:', err); } } }, 60);
-  function drawPeople(t) {
+  // the people, as the close-up figure (gl/figure-hd.js), a phone's at the lighter level. Their
+  // meshes are built a beat after the room is up, so the room shows first; somebody who walks in
+  // later builds theirs on the frame they first appear.
+  const tagsEl = root.querySelector('.rs-tags'), figLevel = phone ? 'lite' : 'hd';
+  let peopleOn = false;
+  const bodiesNow = () => {
     const bodies = [];
     for (const p of S.people) {
       if (p.id === S.you) continue;
       const pl = placeOf(p);
-      if (pl) bodies.push({ id: p.id, ...pl });
+      if (pl) bodies.push({ id: p.id, ...pl, dress: dressOf(p.order) });
     }
-    R.setPeople(peopleBatch(S.L, bodies, t));
+    return bodies;
+  };
+  setTimeout(() => {
+    if (ui?.S !== S) return;
+    try { for (const r of figurePeople(S.L, bodiesNow(), 0, { level: figLevel })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] people:', err); }
+    peopleOn = true;
+  }, 60);
+  function drawPeople(t) {
+    const bodies = bodiesNow();
+    R.setFigures(figurePeople(S.L, bodies, t, { level: figLevel }));
     // a name over each head
     const b = host.getBoundingClientRect();
     tagsEl.innerHTML = bodies.map((bd) => {
@@ -261,7 +272,7 @@ export function openRoomStage(msg) {
     // a set that's on shows snow; the others are dark glass
     paintScreen(screenCanvas, S.screenOn.size > 0, now / 1000, seed);
     R.setScreen(screenCanvas);
-    if (peopleReady()) drawPeople(now / 1000);
+    if (peopleOn) drawPeople(now / 1000);
     const win = S.mesh.window, Lr = S.L, mu = (win.u[0] + win.u[1]) / 2, my = (win.y[0] + win.y[1]) / 2;
     const toW = (du, dv) => [Lr.r[0] * du - Lr.f[0] * dv, 0, Lr.r[2] * du - Lr.f[2] * dv];
     const ru = toW(win.u[1] - win.u[0], 0), inward = toW(0, 1);

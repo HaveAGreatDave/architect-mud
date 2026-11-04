@@ -32,7 +32,7 @@ function vnoise3(x, y, z) {
     l(l(c(0, 0, 1), c(1, 0, 1), fx), l(c(0, 1, 1), c(1, 1, 1), fx), fy), fz);
 }
 // A monotone cubic through [x, y] pairs, x ascending: smooth, and it never overshoots a row.
-function spline(pts) {
+export function spline(pts) {
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]), n = xs.length;
   const d = [], m = new Array(n);
   for (let i = 0; i < n - 1; i++) d.push((ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]));
@@ -96,31 +96,44 @@ const NOSE_H = spline([[1.583, 0], [1.5855, 0.0055], [1.588, 0.0142], [1.591, 0.
   [1.603, 0.021], [1.61, 0.0172], [1.62, 0.0132], [1.63, 0.0098], [1.64, 0.0062], [1.648, 0.0033], [1.656, 0]]);
 const NOSE_W = spline([[1.583, 0.0125], [1.59, 0.0115], [1.597, 0.0105], [1.605, 0.0088], [1.62, 0.0076], [1.64, 0.0072], [1.656, 0.0095]]);
 
+// How much of each feature a style keeps. `real` is the street's head, which the atlas's faces are
+// painted for. `comic` is the close-up figure's (figure.js), after Borderlands' people: the forms
+// pushed rather than smoothed (a heavier brow, the nose's bridge and tip kept, a firmer chin, the
+// jaw a little wider, `jaw` in skullPoint) and the fine relief cut back (the folds, the lips, the
+// eyeballs in their sockets), because the inked atlas draws those as lines. And its exaggerations,
+// none of which the real head has: `browEdge` sharpens the brow into a shelf, `cheekHi` lifts the
+// cheekbones, `chinW` widens the chin into a flat one, and `jawSq` gives the jaw a corner at its
+// angle, so the head reads square from the front and in silhouette.
+export const FACE_STYLES = {
+  real: { brow: 1, bridge: 1, socket: 1, ball: 1, cheek: 1, hollow: 1, nose: 1, tip: 1, wings: 1, folds: 1, lips: 1, chin: 1, jaw: 0, browEdge: 1, cheekHi: 0, chinW: 1, jawSq: 0 },
+  comic: { brow: 1.9, bridge: 0.9, socket: 0.65, ball: 0.4, cheek: 1.85, hollow: 1.1, nose: 1.05, tip: 1.1, wings: 0.8, folds: 0.3, lips: 0.55, chin: 1.6, jaw: -0.7, browEdge: 0.78, cheekHi: 0.004, chinW: 1.35, jawSq: 1 },
+};
+
 // The face's relief, added to z on the front of the skull. A level only keeps what its loops
 // land on; what falls between them is the painter's to shade.
-function faceDisp(x, y) {
+function faceDisp(x, y, K = FACE_STYLES.real) {
   const ax = Math.abs(x);
   let d = 0;
-  d += 0.005 * gauss(x, y, 0, 1.6645, 0.045, 0.0085);          // brow ridge
-  d -= 0.004 * gauss(x, y, 0, 1.6485, 0.011, 0.0075);          // the bridge's root
-  d -= 0.0095 * gauss(ax, y, 0.031, 1.6415, 0.019, 0.012);     // sockets
-  d += 0.0052 * gauss(ax, y, 0.0312, 1.6395, 0.0115, 0.0068);  // the eyeball in them
-  d += 0.006 * gauss(ax, y, 0.047, 1.6215, 0.016, 0.012);      // cheekbones
-  d -= 0.0035 * gauss(ax, y, 0.047, 1.59, 0.013, 0.014);       // and the hollow under them
-  d += NOSE_H(y) * Math.exp(-((x / NOSE_W(y)) ** 2));
-  d += 0.0035 * gauss(x, y, 0, 1.5985, 0.0085, 0.0075);        // the tip
-  d += 0.0075 * gauss(ax, y, 0.0155, 1.5925, 0.0066, 0.0064);  // the wings of the nostrils
-  d -= 0.0018 * gauss(ax, y, 0.0225, 1.5985, 0.004, 0.006);    // and the groove behind them
+  d += K.brow * 0.005 * gauss(x, y, 0, 1.6645, 0.045, 0.0085 * K.browEdge);          // brow ridge
+  d -= K.bridge * 0.004 * gauss(x, y, 0, 1.6485, 0.011, 0.0075);          // the bridge's root
+  d -= K.socket * 0.0095 * gauss(ax, y, 0.031, 1.6415, 0.019, 0.012);     // sockets
+  d += K.ball * 0.0052 * gauss(ax, y, 0.0312, 1.6395, 0.0115, 0.0068);  // the eyeball in them
+  d += K.cheek * 0.006 * gauss(ax, y, 0.047, 1.6215 + K.cheekHi, 0.016, 0.012);      // cheekbones
+  d -= K.hollow * 0.0035 * gauss(ax, y, 0.047, 1.59, 0.013, 0.014);       // and the hollow under them
+  d += K.nose * NOSE_H(y) * Math.exp(-((x / NOSE_W(y)) ** 2));
+  d += K.tip * 0.0035 * gauss(x, y, 0, 1.5985, 0.0085, 0.0075);        // the tip
+  d += K.wings * 0.0075 * gauss(ax, y, 0.0155, 1.5925, 0.0066, 0.0064);  // the wings of the nostrils
+  d -= K.folds * 0.0018 * gauss(ax, y, 0.0225, 1.5985, 0.004, 0.006);    // and the groove behind them
   { // nose to mouth corner
     const t = clamp01((1.59 - y) / 0.024), lx = 0.022 + 0.008 * t;
-    d -= 0.0018 * Math.exp(-(((ax - lx) / 0.0045) ** 2)) * Math.sin(Math.PI * t);
+    d -= K.folds * 0.0018 * Math.exp(-(((ax - lx) / 0.0045) ** 2)) * Math.sin(Math.PI * t);
   }
-  d -= 0.0012 * gauss(x, y, 0, 1.579, 0.0032, 0.0055);         // philtrum
-  d += 0.0068 * gauss(x, y, 0, 1.5703, 0.021, 0.0046);         // upper lip
-  d += 0.0078 * gauss(x, y, 0, 1.559, 0.019, 0.005);           // lower lip
-  d -= 0.0032 * gauss(x, y, 0, FACE.mouthY, 0.026, 0.0011);    // where they meet
-  d -= 0.003 * gauss(x, y, 0, 1.5495, 0.017, 0.004);           // under the lower lip
-  d += 0.009 * gauss(x, y, 0, FACE.chinY, 0.017, 0.01);        // chin
+  d -= K.folds * 0.0012 * gauss(x, y, 0, 1.579, 0.0032, 0.0055);         // philtrum
+  d += K.lips * 0.0068 * gauss(x, y, 0, 1.5703, 0.021, 0.0046);         // upper lip
+  d += K.lips * 0.0078 * gauss(x, y, 0, 1.559, 0.019, 0.005);           // lower lip
+  d -= K.lips * 0.0032 * gauss(x, y, 0, FACE.mouthY, 0.026, 0.0011);    // where they meet
+  d -= K.lips * 0.003 * gauss(x, y, 0, 1.5495, 0.017, 0.004);           // under the lower lip
+  d += K.chin * 0.009 * gauss(x, y, 0, FACE.chinY, 0.017 * K.chinW, 0.01);        // chin
   return d;
 }
 
@@ -162,13 +175,18 @@ export const headLevelFor = (px) => HEAD_LEVELS.findIndex((L) => px >= L.px);
 
 const se = (v, n) => Math.sign(v) * Math.abs(v) ** (2 / n);
 // A point on the skull at height `y` and angle `phi` round it (x = cos phi, z = sin phi), the
-// face's relief included. Headwear is fitted to this (gl/ballplayer-mesh.js).
-export function skullPoint(y, phi) {
+// face's relief included. Headwear is fitted to this (gl/ballplayer-mesh.js). `style` is a
+// FACE_STYLES name.
+export function skullPoint(y, phi, style = 'real') {
+  const K = FACE_STYLES[style] || FACE_STYLES.real;
   const S = station(y), c = Math.cos(phi), s = Math.sin(phi);
   const n = s > 0 ? S.nf : 2.1;
-  const x = S.w * se(c, n);
+  // the jaw's width from the cheekbones down, most at the chin (the comic style's is a little wider)
+  let x = S.w * se(c, n) * (1 - K.jaw * 0.1 * sstep(1.615, 1.53, y) * (0.4 + 0.6 * Math.max(0, s)));
+  // the jaw's corner at its angle, out to the side and a little forward (the comic style's)
+  if (K.jawSq) x += Math.sign(c) * K.jawSq * 0.0065 * Math.exp(-(((y - 1.553) / 0.016) ** 2)) * sstep(0.2, 0.75, Math.abs(c)) * (0.5 + 0.5 * Math.max(0, s));
   let z = S.zw + (s > 0 ? S.zf - S.zw : S.zw - S.zb) * se(s, n);
-  if (s > 0) z += faceDisp(x, y) * sstep(0.1, 0.5, s);
+  if (s > 0) z += faceDisp(x, y, K) * sstep(0.1, 0.5, s);
   return [x, y, z];
 }
 // The angle on ring `y` whose point sits at half-width `x` on the front of the skull. A column
@@ -263,11 +281,12 @@ function stitch(M, rings, flip = false) {
 }
 
 // The skull as a grid, kept so the hair can grow off it.
-const _grid = [];
-function grid(lv) {
-  if (_grid[lv]) return _grid[lv];
+const _grid = {};
+function grid(lv, style = 'real') {
+  const gk = lv + style;
+  if (_grid[gk]) return _grid[gk];
   const L = HEAD_LEVELS[lv], ys = L.rings;
-  const pts = ys.map((y) => ringPhis(L, y).map((phi) => skullPoint(y, phi)));
+  const pts = ys.map((y) => ringPhis(L, y).map((phi) => skullPoint(y, phi, style)));
   const n = pts[0].length;
   const top = [0, FACE.top, ZC], bot = [0, FACE.chin, 0.05];
   // Normals off a throwaway mesh of the whole closed skull.
@@ -279,8 +298,8 @@ function grid(lv) {
   for (let k = 0; k < n; k++) M.t(R[k], R[(k + 1) % n], bi);
   const N = normals(new Float32Array(M.P), M.I);
   const nAt = (i) => [N[i * 3], N[i * 3 + 1], N[i * 3 + 2]];
-  _grid[lv] = { ys, pts, n, top, bot, nrm: rings.map((r) => r.map(nAt)), topN: nAt(ti) };
-  return _grid[lv];
+  _grid[gk] = { ys, pts, n, top, bot, nrm: rings.map((r) => r.map(nAt)), topN: nAt(ti) };
+  return _grid[gk];
 }
 
 // An ear: a flattened ellipsoid with a hollow in its outer face, leaned back and flared from the
@@ -324,7 +343,7 @@ function addEar(M, side, nu, nv) {
 // collar. It rides the neck bone at the collar and the head under the skull. An open tube: its top
 // is inside the skull and its foot inside the coat.
 export const NECK_TOP = 1.6, NECK_FOOT = 1.425;
-const NECK = [
+export const NECK = [
   // y      rx      rz      cz
   [1.425, 0.064, 0.06, -0.028],
   [1.45, 0.056, 0.055, -0.025],
@@ -349,11 +368,13 @@ function addNeck(M, n, rows) {
   stitch(M, rings);
 }
 
-const _head = [];
-// Skin at level `lv` (0, 1 or 2): the skull, both ears and the neck, one indexed mesh.
-export function headMesh(lv = 0) {
-  if (_head[lv]) return _head[lv];
-  const L = HEAD_LEVELS[lv], G = grid(lv), M = builder(), n = G.n;
+const _head = {};
+// Skin at level `lv` (0, 1 or 2): the skull, both ears and the neck, one indexed mesh. `style` is
+// a FACE_STYLES name; the hair shells (hairMesh) fit either, since they stop above the face.
+export function headMesh(lv = 0, style = 'real') {
+  const hk = lv + style;
+  if (_head[hk]) return _head[hk];
+  const L = HEAD_LEVELS[lv], G = grid(lv, style), M = builder(), n = G.n;
   const ti = M.v(G.top, 7), rings = G.pts.map((r) => r.map((p) => M.v(p, 7))), bi = M.v(G.bot, 7);
   for (let k = 0; k < n; k++) M.t(ti, rings[0][(k + 1) % n], rings[0][k]);
   stitch(M, rings);
@@ -361,8 +382,8 @@ export function headMesh(lv = 0) {
   for (let k = 0; k < n; k++) M.t(R[k], R[(k + 1) % n], bi);
   addEar(M, 1, ...L.ear); addEar(M, -1, ...L.ear);
   addNeck(M, ...L.neck);
-  _head[lv] = done(M);
-  return _head[lv];
+  _head[hk] = done(M);
+  return _head[hk];
 }
 
 // ── Hair ────────────────────────────────────────────────────────────────────────────────────────────

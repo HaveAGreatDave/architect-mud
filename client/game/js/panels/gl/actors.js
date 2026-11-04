@@ -21,10 +21,12 @@
 // the baked atlas (actor-faces.js) tinted per person. A record's `hl` is its head level (headLevelFor);
 // one instanced draw per level for the skulls and one per level and hair style for the hair, drawn
 // from one instance buffer sorted that way. docs/proposals/street-figure-heads.md is the plan.
+import { HOUSE } from './house-style.js';
 import { viewProjMatrix, viewMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { actorBakeReady, ACTOR_HEAD_BONES } from '../actor3d.js';
 import { headMesh, hairMesh, HEAD_LEVELS, HAIR_STYLES, FACE, HAIRLINE_GLSL } from '../actor-head.js';
+import { faceLeaned } from '../form-normals.js';
 import { FACE_ATLAS, FACE_GLSL } from '../actor-faces.js';
 import { createFaceAtlasFeed } from './face-atlas.js';
 import { declareProgram, takeWarm } from './programs.js';
@@ -44,6 +46,25 @@ const POS_UNIT = 20, NRM_UNIT = 21;
 // everything as cloth. Flip either from the console to compare.
 const ACTOR_LOOK = { on: 1, mat: 1 };
 
+// THE OUTLINE (always on: every figure has the house line, whatever the comic setting). The figure is
+// drawn twice, first in ink: each vertex set back along the eye's ray by uOut.w metres and pushed out
+// along its normal by uOut.x metres on the screen, held between uOut.y and uOut.z pixels, so the line
+// shows round the edge and the lit figure covers the inside. As gl/figure-hd.js does it for the
+// close-up figure; uOut.x 0 is the lit pass.
+const OUTLINE_GLSL = `
+uniform vec4 uOut;
+uniform vec2 uOutRes;
+vec4 outlined(vec3 w, vec3 nw, vec3 toEye, float k, vec4 clip) {
+  if (uOut.x <= 0.0) return clip;
+  vec3 wb = w - normalize(toEye) * uOut.w * k;
+  vec4 c = uViewProj * vec4(wb, 1.0), cn = uViewProj * vec4(wb + normalize(nw) * uOut.x * k, 1.0);
+  if (c.w <= 0.0) return clip;
+  vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uOutRes * 0.5;
+  float L = length(d);
+  vec2 dir = L > 1e-4 ? d / L : vec2(0.0);
+  c.xy += dir * clamp(L, uOut.y, uOut.z) / (uOutRes * 0.5) * c.w;
+  return c;
+}`;
 const VERT = `#version 300 es
 precision highp float;
 precision highp int;
@@ -68,6 +89,7 @@ uniform mat4 uView;
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uFogAmt;
+${OUTLINE_GLSL}
 out vec3 vColor;
 out vec3 vN;
 out vec3 vNv;
@@ -131,7 +153,7 @@ void main() {
   vLum = iLit.x;
   vAlpha = iLit.y;
   vec4 clip = uViewProj * vec4(w, 1.0);
-  gl_Position = clip;
+  gl_Position = outlined(w, vN, vToEye, iPos.w, clip);
   float ff = clamp((clip.w - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
   vFog = ff * ff * uFogAmt;
 }`;
@@ -214,7 +236,10 @@ vec3 bump(vec3 n, vec3 p, float h) {
   vec3 g = sign(det) * (hx * r1 + hy * r2);
   return normalize(abs(det) * n - g);
 }
+uniform float uOutOn;
+uniform vec3 uOutCol;
 void main() {
+  if (uOutOn > 0.5) { if (vAlpha <= 0.002) discard; outColor = vec4(mix(uOutCol, uFog, vFog) * vAlpha, vAlpha); return; }
   if (vAlpha <= 0.002) discard;
   vec3 n = normalize(vN);
   vec3 col = vColor;
@@ -348,6 +373,10 @@ void main() {
 const HSTRIDE = 31;
 // Units nothing else binds: the body has 20 and 21, cloth 24 and 25.
 const BONE_UNIT = 22, FACE_UNIT = 23, INK_UNIT = 27;
+// The street's people's outline: `m` metres of a person wide on the screen, held between `px`
+// pixels of a 900-tall picture, set `back` metres behind them. Always on: a figure reads by its line
+// at every distance, the comic look or not (docs/proposals/hd-figure.md).
+export const OUTLINE = { on: true, m: 0.014, px: [1.2, 3.0], back: 0.03 };
 const f4 = (v) => v.toFixed(4);
 
 const HEAD_VERT = `#version 300 es
@@ -370,6 +399,7 @@ in vec4 iFace;
 uniform highp sampler2D uBones;
 uniform mat4 uViewProj;
 uniform mat4 uView;
+${OUTLINE_GLSL}
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uFogAmt;
@@ -429,7 +459,7 @@ void main() {
   float code = iFace.z;
   vFace = vec4(mod(code, 32.0), iFace.w, floor(code / 32.0 + 0.001), aFW.x);
   vec4 clip = uViewProj * vec4(w, 1.0);
-  gl_Position = clip;
+  gl_Position = outlined(w, vN, vToEye, iPos.w, clip);
   float ff = clamp((clip.w - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
   vMisc = vec4(sel, ff * ff * uFogAmt, iFace.x, iFace.y);
 }`;
@@ -493,7 +523,10 @@ vec3 hairAt(vec3 r, float psi, int style, float seed, float fine) {
   if (style == 3 && r.y < 1.62) strand = vnoise(vec3(atan(r.x, -r.z) * 60.0, r.y * 6.0, seed));
   return vHair * (0.68 + 0.6 * mix(0.5, strand, fine));
 }
+uniform float uOutOn;
+uniform vec3 uOutCol;
 void main() {
+  if (uOutOn > 0.5) { float a = vMisc.w; if (a <= 0.002) discard; outColor = vec4(mix(uOutCol, uFog, vMisc.y) * a, a); return; }
   float alpha = vMisc.w;
   if (alpha <= 0.002) discard;
   vec3 r = vRest;
@@ -649,6 +682,7 @@ export function createActorLayer(gl) {
     fogAmt: gl.getUniformLocation(prog, 'uFogAmt'),
     keyDir: gl.getUniformLocation(prog, 'uKeyDir'),
     view: gl.getUniformLocation(prog, 'uView'),
+    out: gl.getUniformLocation(prog, 'uOut'), outRes: gl.getUniformLocation(prog, 'uOutRes'), outOn: gl.getUniformLocation(prog, 'uOutOn'), outCol: gl.getUniformLocation(prog, 'uOutCol'),
     look: gl.getUniformLocation(prog, 'uLook'),
     matOn: gl.getUniformLocation(prog, 'uMat'),
     top: gl.getUniformLocation(prog, 'uTop'),
@@ -675,6 +709,7 @@ export function createActorLayer(gl) {
     p: HA('aP'), n: HA('aN'), fw: HA('aFW'),
     bones: HU('uBones'), atlas: HU('uAtlas'), viewProj: HU('uViewProj'), view: HU('uView'),
     fog: HU('uFog'), fogNear: HU('uFogNear'), fogFar: HU('uFogFar'), fogAmt: HU('uFogAmt'),
+    out: HU('uOut'), outRes: HU('uOutRes'), outOn: HU('uOutOn'), outCol: HU('uOutCol'),
     keyDir: HU('uKeyDir'), dim: HU('uDim'),
     wlN: HU('uWLN'), wlP: HU('uWLP'), wlC: HU('uWLC'), wlR: HU('uWLR'),
   };
@@ -714,7 +749,8 @@ export function createActorLayer(gl) {
   // Built the first time a level is drawn: a skull (skin, ears, neck) and a shell per hair style.
   const headMeshes = [];
   const meshesAt = (lv) => headMeshes[lv] || (headMeshes[lv] = {
-    skull: headVao(headMesh(lv)), hair: Array.from({ length: HAIR_STYLES }, (_, s) => headVao(hairMesh(s, lv))),
+    // the face's normals lean onto its designed planes (form-normals.js faceLeaned), as every close-up head's do
+    skull: headVao({ ...headMesh(lv), N: faceLeaned(headMesh(lv)) }), hair: Array.from({ length: HAIR_STYLES }, (_, s) => headVao(hairMesh(s, lv))),
   });
   // The bones, a row a baked frame (ACTOR_HEAD_BONES), and the atlas. Until the atlas has loaded the
   // face is a one-texel stand-in that reads as plain skin: shade 1 (R × 1.5), no hair, lips or eyes.
@@ -969,7 +1005,14 @@ export function createActorLayer(gl) {
       if (opts.lightGrid) opts.lightGrid(U, 8); else bindNoLightGrid(gl, U, 8);
       // The cel look and the main pass's ink (gl/toon.js), on every draw, on or off.
       bindToonInk(gl, U.ti, INK_UNIT, opts, opts.depthOnly ? null : opts.ink);
+      // the outline, on the ink pass only (drawing sets uOutOn)
+      const hpx = gl.drawingBufferHeight / 900;
+      gl.uniform4f(U.out, outlining ? OUTLINE.m : 0, OUTLINE.px[0] * hpx, OUTLINE.px[1] * hpx, OUTLINE.back);
+      gl.uniform2f(U.outRes, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      gl.uniform1f(U.outOn, outlining ? 1 : 0);
+      gl.uniform3fv(U.outCol, HOUSE.ink);
     };
+    let outlining = false;
     uniforms(loc);
     gl.uniform1f(loc.look, ACTOR_LOOK.on ? 1 : 0);
     gl.uniform1f(loc.matOn, ACTOR_LOOK.mat ? 1 : 0);
@@ -982,24 +1025,38 @@ export function createActorLayer(gl) {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     if (opts.depthOnly) { gl.disable(gl.BLEND); gl.colorMask(false, false, false, false); }
     let tris = 0;
-    for (const mesh of meshes) {
-      if (!mesh || !mesh.n) continue;
-      gl.uniform1i(loc.w, mesh.bk.W);
-      gl.uniform1i(loc.rows, mesh.bk.rows);
-      gl.uniform1f(loc.top, mesh.bk.top || 1.7);
+    const bodies = () => {
+      for (const mesh of meshes) {
+        if (!mesh || !mesh.n) continue;
+        gl.uniform1i(loc.w, mesh.bk.W);
+        gl.uniform1i(loc.rows, mesh.bk.rows);
+        gl.uniform1f(loc.top, mesh.bk.top || 1.7);
+        gl.activeTexture(gl.TEXTURE0 + POS_UNIT);
+        gl.bindTexture(gl.TEXTURE_2D, mesh.posT);
+        gl.activeTexture(gl.TEXTURE0 + NRM_UNIT);
+        gl.bindTexture(gl.TEXTURE_2D, mesh.nrmT);
+        gl.bindVertexArray(mesh.vao);
+        gl.drawElementsInstanced(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0, mesh.n);
+        tris += (mesh.count / 3) * mesh.n;
+      }
+      gl.bindVertexArray(null);
+      gl.bindTexture(gl.TEXTURE_2D, null);
       gl.activeTexture(gl.TEXTURE0 + POS_UNIT);
-      gl.bindTexture(gl.TEXTURE_2D, mesh.posT);
-      gl.activeTexture(gl.TEXTURE0 + NRM_UNIT);
-      gl.bindTexture(gl.TEXTURE_2D, mesh.nrmT);
-      gl.bindVertexArray(mesh.vao);
-      gl.drawElementsInstanced(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0, mesh.n);
-      tris += (mesh.count / 3) * mesh.n;
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.activeTexture(gl.TEXTURE0);
+    };
+    // the ink first, everybody and their heads, then the lit pass over it (none for the depth prepass,
+    // which the city's own ink reads)
+    if (!opts.depthOnly && OUTLINE.on) {
+      outlining = true;
+      uniforms(loc);
+      bodies();
+      if (meshes[0]) drawHeads(meshes[0].bk, uniforms);
+      outlining = false;
+      gl.useProgram(prog); applyLinOut(gl, prog);
+      uniforms(loc);
     }
-    gl.bindVertexArray(null);
-    gl.bindTexture(gl.TEXTURE_2D, null);
-    gl.activeTexture(gl.TEXTURE0 + POS_UNIT);
-    gl.bindTexture(gl.TEXTURE_2D, null);
-    gl.activeTexture(gl.TEXTURE0);
+    bodies();
     if (meshes[0]) tris += drawHeads(meshes[0].bk, uniforms);
     if (opts.depthOnly) gl.colorMask(true, true, true, true);
     return tris;

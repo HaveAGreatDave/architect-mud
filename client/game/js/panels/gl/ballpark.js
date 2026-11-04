@@ -44,6 +44,7 @@ import { BALL_R } from '../diamond/flight.js';
 import { ballGlowOn } from '../../../../shared/settings.js';
 import { SKIN_GLSL, createBonePalette } from './skin.js';
 import { CEL, CEL_TUNE, CEL_GLSL } from './cel-figure.js';
+import { COMIC } from './comic-light.js';
 import { inkOf, figureLightOf, HOUSE, comicOn, parkInkOf } from './house-style.js';
 import { createFaceAtlasFeed } from './face-atlas.js';
 import { INK_FS } from './ink.js';
@@ -437,7 +438,9 @@ float visSG(float NoV, float NoL, float a) { float a2 = a * a; float gv = NoL * 
 float celLum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 void celAdd(vec3 N, vec3 V, vec3 L, vec3 Ls, float a, float aS, float NoV, vec3 f0, vec3 rad, float sh, inout vec3 key, inout float keyD, inout vec3 lit, inout vec3 hi) {
   if (celLum(rad) > celLum(key)) { key = rad; keyD = dot(N, L); }
-  float b = celLight(max(dot(N, L), 0.0), uCelBands);
+  // the comic look adds each light smoothly, a little wrapped, and steps once on the sum (in main):
+  // stepped light by light, six banks round the park cut a face into a patchwork of terminators
+  float b = uCelComic > 0.5 ? clamp((dot(N, L) + 0.3) / 1.3, 0.0, 1.0) : celLight(max(dot(N, L), 0.0), uCelBands);
   lit += rad * sh * b;
   vec3 H = normalize(Ls + V); float NoH = max(dot(N, H), 0.0), VoH = max(dot(V, H), 0.0);
   vec3 F = f0 + (1.0 - f0) * pow(1.0 - VoH, 5.0);
@@ -663,17 +666,30 @@ void main() {
         Ls = normalize(Lv + c2r * clamp(uLGeo[i].y / max(length(c2r), 1e-4), 0.0, 1.0));
         aS = clamp(a + uLGeo[i].y / (2.0 * d), 0.003, 1.0);
       }
-      float sh = (uLSh[i] >= 0 && uLSh[i] < uSpotN) ? toonStep(0.5, spotShadow(uLSh[i], vPos + N * 0.04)) : 1.0;
+      // a bank's shadow, looked up further off the surface and stepped softly under the comic look: the
+      // banks' maps are coarse at a close shot, and hard-stepped their acne cut a face into blocks
+      float sh = (uLSh[i] >= 0 && uLSh[i] < uSpotN) ? (uCelComic > 0.5 ? smoothstep(0.25, 0.75, spotShadow(uLSh[i], vPos + N * 0.12)) : toonStep(0.5, spotShadow(uLSh[i], vPos + N * 0.04))) : 1.0;
       celAdd(N, V, L, Ls, a, aS, NoV, f0, uLCol[i] * spotOf(i, L, 0.05) * floodAtt(i, d), mix(sh, 1.0, 0.08), key, keyD, lit, hi);
     }
     if (uSunCol.r + uSunCol.g + uSunCol.b > 0.0)
-      celAdd(N, V, uSunDir, uSunDir, a, a, NoV, f0, uSunCol, uSunSh >= 0 ? toonStep(0.5, spotShadow(uSunSh, vPos + N * 0.3)) : 1.0, key, keyD, lit, hi);
+      celAdd(N, V, uSunDir, uSunDir, a, a, NoV, f0, uSunCol, uSunSh >= 0 ? (uCelComic > 0.5 ? smoothstep(0.25, 0.75, spotShadow(uSunSh, vPos + N * 0.45)) : toonStep(0.5, spotShadow(uSunSh, vPos + N * 0.3))) : 1.0, key, keyD, lit, hi);
     float litK = clamp(celLum(lit) / max(celLum(key), 1e-6), 0.0, 1.0);
-    vec3 tone = celTone(vec3(1.0), 0.0);
-    col += celTone(amb, litK) - amb + dif / PI * (key * tone + lit * (1.0 - tone)) + hi;
-    col *= 1.0 + celRim(N, V, litK);
-    // the comic look's line where the light steps, and hatching in full shadow (0 without it)
-    col = mix(col, uCelInk, celInk(litK, keyD, vBind, uCelGap));
+    if (uCelComic > 0.5) {
+      // THE COMIC LIGHT (gl/comic-light.js): where the brightest light doesn't reach, a value of it
+      // rather than the shade tone alone (moved toward the painted shade, darkest in a core past the
+      // terminator, lifted by the bounce beyond), a rim lifting the silhouette in shadow, and no line
+      // or hatching inside the man. The ambient stays as it is, unbanded.
+      // one terminator on the light as a whole: lit where it mostly reaches, the shadow tone where it
+      // doesn't, so a face under the banks takes one clean shape (the brim's shadow among it)
+      float t = comicStep(litK * 2.0 - 1.0);
+      vec3 S = mix(vec3(1.0), uCelShade, ${COMIC.tint.toFixed(3)}) * ${(COMIC.shadow / COMIC.lit).toFixed(4)} * comicShadeK(keyD);
+      float rim = smoothstep(0.62, 0.86, 1.0 - NoV) * (1.0 - t);
+      col += dif / PI * (key * S * (1.0 - t) + lit * t + key * ${COMIC.rim.toFixed(3)} * rim) + hi;
+    } else {
+      vec3 tone = celTone(vec3(1.0), 0.0);
+      col += celTone(amb, litK) - amb + dif / PI * (key * tone + lit * (1.0 - tone)) + hi;
+      col *= 1.0 + celRim(N, V, litK);
+    }
   } else {
   for (int i = 0; i < 6; i++) {
     vec3 Lv = far ? uLPos[i] - vPos : lampVec(i, vPos); float d = length(Lv); vec3 L = Lv / d;
@@ -1177,7 +1193,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
     gl.texImage2D(T2, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([170, 0, 0, 255]));
     gl.texParameteri(T2, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(T2, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     // onReady asks the view for a frame (the grandstand's draw), which polls; never upload from it
-    const faceFeed = createFaceAtlasFeed({ Img: doc.defaultView && doc.defaultView.Image, onReady: () => { if (!lost) opts.onAsset?.(); } });
+    // the inked faces always, as every close-up person has them (docs/proposals/hd-figure.md)
+    const faceFeed = createFaceAtlasFeed({ ink: true, Img: doc.defaultView && doc.defaultView.Image, onReady: () => { if (!lost) opts.onAsset?.(); } });
     const pollFaces = () => {
       const img = faceFeed.poll();
       if (img) {

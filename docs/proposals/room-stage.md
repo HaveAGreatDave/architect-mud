@@ -88,7 +88,7 @@ room is built on the first rather than beside it.
 | Walker | `client/game/js/panels/room-walk.js`, used by the suite (`stands.js`) and by a flat (`room-stage.js`); it claims the keyboard through `seat-keys.js` |
 | Mesh | `gl/room-kit.js` holds the shapes (box, rounded block, turned piece, drop) that both `gl/booth-mesh.js` and `gl/room-mesh.js` build from. The suite's mesh came out of the move byte for byte |
 | Renderer | The suite stays in the ballpark. A flat is `gl/room.js`: occlusion baked into the vertex colours, the lamp and the window lighting it per pixel with a highlight by material, ACES, and the ink and toon bands when the comic look is on |
-| People | `gl/room-people.js` draws everyone else from the street figures' body (`actor3d.js`) in its `idle` or `sit` clip, or laid down for `lying`, dressed by `actorOutfit` off their id |
+| People | `gl/room-people.js` poses everyone else as the close-up figure ([hd-figure.md](hd-figure.md)) in the street's `idle` or `sit` clip, or laid down for `lying`, dressed by `actorOutfit` off their id; `gl/figure-hd.js` draws them in the comic manner |
 
 Two things differ from the plan above. The window shows a painted street (`paintView` in `gl/room-mesh.js`) that follows the server's clock, not a `paintWindshield` call, so a flat doesn't need the city loaded. And the hands (`stands-hands.js`) aren't opened in a flat yet: nothing in a flat hands you a drink the way the suite's bar does.
 

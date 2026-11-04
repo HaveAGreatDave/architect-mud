@@ -1388,7 +1388,9 @@ function crowd(seed, district, orders = null) {
   const n = orders ? orders.length : 7;
   return Array.from({ length: n }, (_, i) => {
     const vals = Array.from({ length: 5 }, R);
-    const base = actorOutfit((k) => vals[k]);
+    // actorOutfit reads slots past the five colours (materials, the face, the cut), so any slot
+    // asked for gets a value of its own, drawn once
+    const base = actorOutfit((k) => (vals[k] ??= R()));
     const order = orders ? orders[i] : pickW(DISTRICT[district]), O = ORDERS[order];
     let skin = base.skin;
     if (O.skin) { const t = pick(O.skin); skin = skin.map((c, j) => c * 0.5 + t[j] * 0.5); }

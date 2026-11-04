@@ -229,7 +229,12 @@ function inkFace(layout, layer, ops) {
     // the upper lid, heavy, swelling toward the outer corner, with a flick past it
     const lid = [[s * 0.0165, 1.6386], [s * 0.0212, 1.6458], [s * 0.0385, 1.6468], [s * 0.0463, 1.6409]];
     const upper = [...cubic(...lid, 16), [s * 0.0505, 1.6428]];
-    line(upper, (t) => 0.0007 + 0.0021 * Math.sin(Math.PI * Math.min(1, t * 0.8 + 0.12)));
+    line(upper, (t) => 0.0008 + 0.0028 * Math.sin(Math.PI * Math.min(1, t * 0.8 + 0.12)));
+    // Borderlands' lines: the crease off the cheekbone, down and out from below the eye's outer
+    // corner, a short line under the eye, and a furrow between the brows, deeper on a sterner face
+    line(quad([s * 0.0455, 1.6282], [s * 0.0535, 1.6155], [s * 0.0575, 1.6005], 10), swell(0.0012, 0.15), 0.8);
+    line([[s * 0.0215, 1.6312], [s * 0.0285, 1.6296], [s * 0.0355, 1.6302]], swell(0.0007, 0.2), 0.55);
+    line([[s * 0.0055, 1.6545], [s * 0.0068, 1.6608], [s * 0.0062, 1.6655]], swell(0.0007, 0.2), 0.35 + 0.4 * Math.max(0, -(mood || 0)));
     // the crease above it, thin
     line(cubic([s * 0.0185, 1.6418], [s * 0.0235, 1.6502], [s * 0.039, 1.6512], [s * 0.0468, 1.6445], 14), swell(0.0009), 0.7);
     // the lower lid's outer half
@@ -238,13 +243,15 @@ function inkFace(layout, layer, ops) {
     const tilt = brow || 0;
     const P0 = [s * 0.0105, 1.6532 + tilt * 0.003], P1 = [s * 0.03, 1.6607], P2 = [s * 0.0505, 1.6548 - tilt * 0.0015];
     const w = (t) => 0.0044 * (1 - t) + 0.0012 * t + 0.0008 * Math.sin(Math.PI * t);
-    layer((d) => d.fill(taper(P0, P1, P2, w), 0.55), ops.shade(0.45), 0.5);
+    layer((d) => d.fill(taper(P0, P1, P2, w), 0.65), ops.shade(0.35), 0.5);
     const under = quad(P0, P1, P2, 16).map(([x, y], i) => [x, y - w(i / 16) * 0.45]);
-    line(under, swell(0.0014), 0.85);
+    line(under, swell(0.0018), 0.9);
     // the nostril's wing
     line(Array.from({ length: 13 }, (_, i) => { const t = -0.6 + 2.0 * i / 12; return [s * 0.0158 + s * 0.0068 * Math.cos(t), 1.5925 + 0.0068 * Math.sin(t)]; }), swell(0.0013), 0.85);
     // the fold from the nose to the mouth: always there in ink, heavier with age
-    line(quad([s * 0.0215, 1.5935], [s * 0.032, 1.5795], [s * 0.0305, 1.5645], 12), swell(0.0008 + 0.0008 * age, 0.1), 0.45 + 0.4 * age);
+    // a crease off the nose's wing into the cheek, stopping well clear of the mouth: run down to the
+    // corners, the two framed the mouth line and read, head on, as a moustache
+    line(quad([s * 0.0225, 1.5925], [s * 0.031, 1.585], [s * 0.035, 1.5765], 10), swell(0.0007 + 0.0007 * age, 0.1), 0.35 + 0.35 * age);
     // the mouth's corners
     const cy = FACE.mouthY + (mood || 0) * 0.0016;
     line([[s * 0.0228, cy + 0.0004], [s * 0.0262, cy - 0.0006 + (mood || 0) * 0.0012]], swell(0.0011, 0.5), 0.9);
@@ -288,12 +295,12 @@ export function paintFaceMasks(layout, { ink = false } = {}) {
     blob(s * 0.0125, 1.618, 0.004, 0.02, 0.16, ops.shade(SHADE));             // the side of the nose
     blob(s * 0.0255, FACE.mouthY, 0.004, 0.003, 0.4, ops.shade(SHADE));       // mouth corners
   });
-  blob(0, 1.5845, 0.012, 0.003, 0.3, ops.shade(SHADE));                       // under the nose
+  blob(0, 1.5862, 0.0055, 0.0022, 0.22, ops.shade(SHADE));                    // under the nose's tip only
   blob(0, 1.5525, 0.015, 0.003, 0.32, ops.shade(SHADE));                      // under the lower lip
 
   // ── Nose: the nostrils, the wings' edges, the light down the bridge and on the tip ──
   both((s) => {
-    blob(s * 0.0076, 1.5876, 0.0036, 0.0018, 0.95, ops.shade(0.15), s * 0.35, 1);
+    blob(s * 0.0076, 1.5878, 0.0026, 0.0012, 0.8, ops.shade(0.4), s * 0.35, 1);
     const [a0, a1] = s > 0 ? [-0.9, 1.6] : [Math.PI - 1.6, Math.PI + 0.9];
     const arc = Array.from({ length: 17 }, (_, i) => { const t = a0 + ((a1 - a0) * i) / 16; return [s * 0.0158 + 0.0068 * Math.cos(t), 1.5925 + 0.0068 * Math.sin(t)]; });
     layer((d) => d.stroke(arc, 0.0009, 0.35), ops.shade(SHADE), 1);
@@ -303,7 +310,7 @@ export function paintFaceMasks(layout, { ink = false } = {}) {
 
   // ── Age. Folds, not lines: at this size a hard line reads as a scar, so each is a broad soft shade ──
   const fold = (pts, w, a, blurPx) => layer((d) => d.stroke(pts, w, a), ops.shade(0.5), blurPx);
-  both((s) => fold(quad([s * 0.0205, 1.5915], [s * 0.031, 1.58], [s * 0.0298, 1.5635]), 0.003, 0.05 + 0.25 * age, 3));
+  both((s) => fold(quad([s * 0.0215, 1.5915], [s * 0.031, 1.583], [s * 0.035, 1.574]), 0.003, 0.05 + 0.22 * age, 3));
   if (age > 0.4) {
     for (let k = 0; k < 3; k++) {
       const y = 1.676 + k * 0.0075 + (R() - 0.5) * 0.002;

@@ -219,6 +219,11 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && path === '/actor-lab.html') {
       return send(res, 200, await readFile(join(HERE, 'actor-lab.html')), 'text/html; charset=utf-8');
     }
+    // The close-up figure (figure.js) in the Room Stage's own renderer; scripts/shapes/figure.mjs
+    // gates the meshes.
+    if (req.method === 'GET' && path === '/figure-lab.html') {
+      return send(res, 200, await readFile(join(HERE, 'figure-lab.html')), 'text/html; charset=utf-8');
+    }
     // The tool's own modules. Name-restricted and joined onto this directory, so it cannot climb
     // out of it — the same shape as the client allowlist below, and the reason it is a pattern
     // rather than a list of filenames is that `app.js` importing `./editor.js` 404s otherwise.

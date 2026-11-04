@@ -33,6 +33,7 @@ import { solvePose, mirrorPose, POSES, BONE, bindPoses, SC_JOINT, limbThick } fr
 // the pose language moved to the rig; the gates and the renderer still find it here
 export { solvePose, mirrorPose, POSES };
 import { headMesh, hairMesh, skullPoint, ZC as SKULL_ZC } from '../actor-head.js';
+import { faceLeaned } from '../form-normals.js';
 import { FACE_LAYOUTS, actorFace, faceHair, faceLip } from '../actor-faces.js';
 import { FT_M } from '../../../../shared/world-scale.js';
 import { clubOf } from '../club-crest.js';
@@ -593,15 +594,18 @@ function head(G, J, W, s, look) {
   const face = faceFor(look), idx = look.headIndex ?? G.heads.length;
   G.heads.push(face);
   look.face = face;
-  const emit = (M) => {
+  // the head's shading normals lean onto its designed planes (form-normals.js faceLeaned): the comic
+  // light breaks along the cheek's wedge and one side of the nose, and the inked atlas draws the
+  // features; the rest normal's z stays
+  const emit = (M, NS = M.N) => {
     const b = G.B('plain'), V = [];
     for (let i = 0; i < M.P.length / 3; i++) {
       const q = [(M.P[i * 3] - HEAD_BIND_C[0]) * k, (M.P[i * 3 + 1] - HEAD_BIND_C[1]) * k, (M.P[i * 3 + 2] - HEAD_BIND_C[2]) * k];
       // an athlete's neck, thicker than the street figure's, most at the collar; and a broader jaw
       if (M.F[i] === 7 && M.P[i * 3 + 1] < 1.61) q[0] *= 1 + 0.07 * smooth(1.61, 1.55, M.P[i * 3 + 1]) * smooth(0.0, 0.03, Math.abs(M.P[i * 3]));
       if (M.F[i] === 12) { const g = 1.22 + 0.16 * smooth(1.53, 1.43, M.P[i * 3 + 1]); q[0] *= g; q[2] = (-0.018 - HEAD_BIND_C[2]) * k + (q[2] - (-0.018 - HEAD_BIND_C[2]) * k) * g; }
-      const n0 = [M.N[i * 3], M.N[i * 3 + 1], M.N[i * 3 + 2]], w = M.W[i];
-      const p = lerp(add(cN, m3v(Nk, q)), add(c, m3v(H, q)), w), n = norm(lerp(m3v(Nk, n0), m3v(H, n0), w));
+      const n0 = [M.N[i * 3], M.N[i * 3 + 1], M.N[i * 3 + 2]], ns = [NS[i * 3], NS[i * 3 + 1], NS[i * 3 + 2]], w = M.W[i];
+      const p = lerp(add(cN, m3v(Nk, q)), add(c, m3v(H, q)), w), n = norm(lerp(m3v(Nk, ns), m3v(H, ns), w));
       const f = M.F[i], mat = f === 7 ? MAT.HEAD : f === 8 ? MAT.EAR : f === 9 ? MAT.HAIR : MAT.NECK;
       // the colour carries what the head's shader needs: the bind point's depth, the rest normal's z
       // (or an ear's hollow), and which player this is
@@ -609,8 +613,10 @@ function head(G, J, W, s, look) {
     }
     for (let t = 0; t < M.I.length; t += 3) tri(b, V[M.I[t]], V[M.I[t + 1]], V[M.I[t + 2]]);
   };
-  // the head at the set's own level (actor-head.js has three: 1,840, 696 and 232 triangles)
-  emit(headMesh(G.lod | 0));
+  // the head at the set's own level (actor-head.js has three: 1,840, 696 and 232 triangles), in the
+  // comic face style every close-up person has (docs/proposals/hd-figure.md)
+  const skull = headMesh(G.lod | 0, 'comic');
+  emit(skull, faceLeaned(skull));
   emit(hairMesh(face.style, G.lod | 0));
 }
 
@@ -620,7 +626,7 @@ function head(G, J, W, s, look) {
 const headFrame = (W, look) => ({ c: look.headC, H: W.head, k: FT * look.s * (look.headScale || 1) });
 const toHead = (F, p) => add(F.c, m3v(F.H, mul(sub(p, HEAD_BIND_C), F.k)));
 const skullOut = (y, a, t) => {
-  const p = skullPoint(y, Math.PI / 2 - a);
+  const p = skullPoint(y, Math.PI / 2 - a, 'comic');
   return add(p, mul(norm([p[0], (p[1] - 1.63) * 1.25, p[2] - SKULL_ZC]), t));
 };
 function skullShell(G, F, band, t, opt) {

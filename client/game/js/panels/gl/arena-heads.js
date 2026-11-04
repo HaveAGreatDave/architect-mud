@@ -12,14 +12,23 @@
 // ⚠ THE LIGHT IS THE ARENA'S, NOT THE LAB'S. The colours come from the lab's head shader (the
 // face, the scalp under the hairline, the ears, the hair's strands) and the lighting is LIT_FS's
 // line for line (the key from the banks, the hemisphere, the bounce off the sheet), so a head
-// doesn't look pasted onto a body lit another way.
+// doesn't look pasted onto a body lit another way. With the comic look on it's LIT_FS's comic line
+// too (gl/cel-figure.js celKey), hatched in the head's own bind space.
 // ⚠ THE NECK IS LEFT OUT. The rink body has its own, under the strap; the generator's would swing
 // with the head and stand out of the collar.
 // ⚠ UPLOADED WITH FLIP_Y ON, PREMULTIPLYING OFF AND NO COLOUR CONVERSION, as actor-faces.js asks:
 // the four channels are four masks, not a picture. Until it has loaded, the faces are plain skin.
 import { headMesh, hairMesh, HEAD_FEAT, HAIRLINE_GLSL } from '../actor-head.js';
+import { faceLeaned } from '../form-normals.js';
 import { FACE_GLSL } from '../actor-faces.js';
 import { createFaceAtlasFeed } from './face-atlas.js';
+import { figureLightOf, HOUSE } from './house-style.js';
+import { CEL, CEL_GLSL } from './cel-figure.js';
+import { HEAD_S } from './arena-mesh.js';
+
+// The key light off the banks, for LIT_FS (gl/arena.js) and the heads alike: from above, and a
+// little towards the camera's side of the rink.
+export const KEY = Object.freeze([0.2453, -0.4416, 0.8635]);
 
 export const HEAD_VS = `#version 300 es
 layout(location = 0) in vec3 aP;
@@ -57,8 +66,10 @@ uniform float uBlood;
 uniform vec3 uEye;
 uniform float uMourn;
 uniform float uClipZ;
+uniform float uCel; uniform vec3 uCelInk; uniform float uCelGap;
 out vec4 outColor;
-const vec3 L = vec3(0.2453, -0.4416, 0.8635);
+const vec3 L = vec3(${KEY.join(', ')});
+${CEL_GLSL}
 float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float vnoise(vec3 p) {
   vec3 i = floor(p), f = fract(p);
@@ -117,12 +128,17 @@ void main() {
   vec3 n = normalize(vN);
   vec3 v = normalize(uEye - vW);
   if (dot(n, v) < 0.0) n = -n;
-  float diff = max(dot(n, L), 0.0);
-  float hemi = 0.5 + 0.5 * n.z;
-  float bounce = max(-n.z, 0.0) * 0.3;
-  float spec = pow(max(dot(n, normalize(L + v)), 0.0), 32.0) * (0.08 + 0.4 * wet);
-  float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.1;
-  vec3 rgb = col * ao * (0.3 + 0.24 * hemi + 0.6 * diff + bounce) + vec3(spec + rim);
+  vec3 rgb;
+  // the comic look (uCel), hatched in the head's bind space in the rink's feet
+  if (uCel > 0.5) rgb = celKey(col * ao, n, v, L, 0.08 + 0.4 * wet, r * ${HEAD_S.toFixed(4)}, uCelGap, uCelInk);
+  else {
+    float diff = max(dot(n, L), 0.0);
+    float hemi = 0.5 + 0.5 * n.z;
+    float bounce = max(-n.z, 0.0) * 0.3;
+    float spec = pow(max(dot(n, normalize(L + v)), 0.0), 32.0) * (0.08 + 0.4 * wet);
+    float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.1;
+    rgb = col * ao * (0.3 + 0.24 * hemi + 0.6 * diff + bounce) + vec3(spec + rim);
+  }
   float g = dot(rgb, vec3(0.299, 0.587, 0.114));
   rgb = mix(rgb, vec3(g), uMourn * 0.75) * (1.0 - 0.22 * uMourn);
   outColor = vec4(rgb, 1.0);
@@ -148,7 +164,8 @@ export function createRinkHeads(gl, prog, doc) {
   gl.texParameteri(T2, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   const api = {};
   const Img = (doc && doc.defaultView && doc.defaultView.Image) || globalThis.Image;
-  const feed = createFaceAtlasFeed({ half: true, Img });
+  // the inked faces always, as every close-up person has them (docs/proposals/hd-figure.md)
+  const feed = createFaceAtlasFeed({ half: true, Img, ink: true });
   // Called at the top of each draw: uploads an atlas when one has loaded or the look has flipped.
   function pollAtlas() {
     if (gl.isContextLost && gl.isContextLost()) return;
@@ -177,7 +194,7 @@ export function createRinkHeads(gl, prog, doc) {
     const key = `${kind}:${lv}:${style}`;
     let m = meshes.get(key);
     if (m) return m;
-    const src = kind === 'head' ? headMesh(lv) : hairMesh(style, lv);
+    const src = kind === 'head' ? headMesh(lv, 'comic') : hairMesh(style, lv);
     let I = src.I;
     if (kind === 'head') {
       const keep = [];
@@ -189,7 +206,8 @@ export function createRinkHeads(gl, prog, doc) {
     }
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
-    for (const [loc, data, size] of [[0, src.P, 3], [1, src.N, 3], [2, src.UV, 2], [3, src.F, 1], [4, src.X, 1]]) {
+    // a head's normals lean onto its designed planes (form-normals.js faceLeaned)
+    for (const [loc, data, size] of [[0, src.P, 3], [1, kind === 'head' ? faceLeaned(src) : src.N, 3], [2, src.UV, 2], [3, src.F, 1], [4, src.X, 1]]) {
       const buf = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
@@ -217,6 +235,10 @@ export function createRinkHeads(gl, prog, doc) {
     gl.uniform1f(P.u('uMourn'), mourn || 0);
     gl.uniform1f(P.u('uClipZ'), clipZ);
     gl.uniform1i(P.u('uFace'), 0);
+    const fl = figureLightOf({ bands: CEL.bands, shade: CEL.shade });
+    gl.uniform1f(P.u('uCel'), fl.comic);
+    gl.uniform1f(P.u('uCelBands'), fl.bands); gl.uniform3fv(P.u('uCelShade'), fl.shade); gl.uniform1f(P.u('uCelComic'), fl.comic);
+    gl.uniform3fv(P.u('uCelInk'), HOUSE.ink); gl.uniform1f(P.u('uCelGap'), HOUSE.hatchFt);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(T2, tex);
     for (const h of list) {

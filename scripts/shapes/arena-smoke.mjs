@@ -88,7 +88,7 @@ const finite = (b) => { for (let i = 0, n = b.n * M.STRIDE; i < n; i++) if (!Num
 const SLOT = [0, 0, 0.125, 0.125];
 function body(b, label, mut, budget) {
   const d = M.createBatch(), t = M.createBatch(), tr = M.createBatch();
-  for (const det of [0, 1]) {
+  for (const det of [0, 1, 2]) {
     M.reset(d); M.reset(t); M.reset(tr);
     const o = { ...bodyOpts(W, b), detail: det, slot: SLOT, ...(mut || {}) };
     M.buildBody(d, t, W.rigOf(b), o);
@@ -104,8 +104,9 @@ const skaters = W.bodies().filter((b) => b.kind === 'skater');
 // close up (det1) a man has gauntlets, a ridged helmet, ear guards and elbow pads, so his
 // budget is higher than a man at broadcast distance (det0)
 // (near, a skater is about 3,300 since his legs and arms became one swept surface each, the pants,
-// socks and sleeves shaped over their pads; a full frame is held to 60k below)
-const BUD = [1500, 3600], BUD_GK = [1700, 3400];
+// socks and sleeves shaped over their pads; a full frame is held to 60k below). Close up (det2, a
+// fight or the winner's head and shoulders, a few men at a time) the same body is refined.
+const BUD = [1500, 3600, 12000], BUD_GK = [1700, 3400, 11000];
 body(skaters[0], 'skater', null, BUD);
 body(W.goalie.a, 'goalie', null, BUD_GK);
 body(W.officials[0], 'official', null, BUD);
@@ -175,6 +176,40 @@ body(skaters[8], 'skater missing his head', null, BUD);
   let ok = true;
   for (let i = 0; i < t.n; i++) { const o = i * M.STRIDE, u = t.data[o + 10], v = t.data[o + 11]; if (u < 0.25 - 1e-6 || u > 0.375 + 1e-6 || v < 0.5 - 1e-6 || v > 0.625 + 1e-6) { ok = false; break; } }
   check('jersey UVs stay inside their slot', ok);
+}
+// The comic look's hatching rides the man (arena-mesh.js hatchBody): his untextured vertices
+// carry their place on him in their uv, the same wherever he is on the ice and whichever way he
+// faces, and nothing textured is touched.
+{
+  const J = W.rigOf(skaters[0]).map((p) => p && [...p]);
+  const move = (p) => p && [p[0] + 37, p[1] - 11, p[2]];
+  const turn = (p) => p && [100 - (p[1] - 40), 40 + (p[0] - 100), p[2]];   // a quarter turn round 100,40
+  const build = (J) => { const d = M.createBatch(), t = M.createBatch(); M.buildBody(d, t, J, { ...bodyOpts(W, skaters[0]), detail: 1, slot: SLOT }); M.hatchBody(d, 0, J); return d; };
+  const a = build(J), b = build(J.map(move)), c = build(J.map(turn));
+  // (vertex by vertex where the builder put the same point on him: a tube's rings start from a
+  // world axis, so turned, some of its vertices are other points round the same ring)
+  const off = (x, map) => {
+    if (x.n !== a.n) return `${x.n} verts, not ${a.n}`;
+    let worst = 0, at = -1, n = 0, lit = 0;
+    for (let i = 0; i < a.n; i++) {
+      const o = i * M.STRIDE;
+      if (a.data[o + 12] > 0.5) continue;
+      lit++;
+      const p = map([a.data[o], a.data[o + 1], a.data[o + 2]]);
+      if (Math.hypot(p[0] - x.data[o], p[1] - x.data[o + 1], p[2] - x.data[o + 2]) > 1e-4) continue;
+      n++;
+      const e = Math.max(Math.abs(x.data[o + 10] - a.data[o + 10]), Math.abs(x.data[o + 11] - a.data[o + 11]));
+      if (e > worst) { worst = e; at = i; }
+    }
+    return worst > 1e-3 ? `off by ${worst.toFixed(4)} ft at vertex ${at}` : n < lit / 2 ? `only ${n} of ${lit} vertices comparable` : '';
+  };
+  let spread = 0;
+  for (let i = 0; i < a.n; i++) if (a.data[i * M.STRIDE + 12] < 0.5) spread = Math.max(spread, Math.abs(a.data[i * M.STRIDE + 11]));
+  const moved = off(b, move), turned = off(c, turn);
+  check('comic hatching: a vertex keeps its place on him moved', !moved, moved);
+  check('comic hatching: ...and turned', !turned, turned);
+  check('comic hatching: his place spans his height, in feet', spread > 2 && spread < 8, `${spread.toFixed(2)} ft`);
+  check('comic hatching: finite', finite(a));
 }
 
 // ── the heads ────────────────────────────────────────────────────────────────

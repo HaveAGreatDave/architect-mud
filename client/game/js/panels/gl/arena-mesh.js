@@ -274,7 +274,7 @@ function maskProfile() {
       if (d > reach[k]) reach[k] = d;
     }
   };
-  take(headMesh(0), (m, i) => m.F[i] !== HEAD_FEAT.neck);
+  take(headMesh(0, 'comic'), (m, i) => m.F[i] !== HEAD_FEAT.neck);
   // the cuts a mask goes over: a quiff is cropped and long hair tucked in (headRecord)
   for (let st = 0; st < 3; st++) take(hairMesh(st, 0), () => true);
   const at = (A, ia, ie) => A[clamp(ie, 0, MP_EL - 1) * MP_AZ + (((ia % MP_AZ) + MP_AZ) % MP_AZ)];
@@ -496,15 +496,20 @@ const CAGE = rgb('#c6ccd2'), CAGE_GK = rgb('#1b1e23'), PAD = rgb('#eef0f2'), EYE
 // The torso as a loft of elliptical rings, UV-mapped so the batch's texture (the jersey
 // atlas) puts the number on the back and the crest on the chest. `slot` is the atlas
 // rectangle [u0, v0, u1, v1] for this man.
-function loft(b, rings, c, slot, seg = 16) {
+// `pw` above 2 squares the section toward a rounded box (a sweater over shoulder pads, close up).
+function loft(b, rings, c, slot, seg = 16, pw = 2) {
   const last = rings.length - 1, S = seg + 1, g = gridBuf(S * rings.length), T = circ(seg);
   grow(b, last * seg * 6);
+  const sq = pw !== 2, e = 2 / pw, ge = 2 * (pw - 1) / pw;
   for (let k = 0; k <= last; k++) {
     const r = rings[k], Sx = r.S, F = r.F, rs = r.rs, rf = r.rf;
     for (let i = 0; i < S; i++) {
-      const ca = T[i * 2], sa = T[i * 2 + 1], q = (k * S + i) * 6;
+      const c0 = T[i * 2], s0 = T[i * 2 + 1], q = (k * S + i) * 6;
+      const ca = sq ? Math.sign(c0) * Math.abs(c0) ** e : c0, sa = sq ? Math.sign(s0) * Math.abs(s0) ** e : s0;
+      // the section's normal: the superellipse's gradient (the ellipse's when pw is 2)
+      const gc = sq ? Math.sign(c0) * Math.abs(c0) ** ge : c0, gs = sq ? Math.sign(s0) * Math.abs(s0) ** ge : s0;
       g[q] = r.c[0] + Sx[0] * ca * rs + F[0] * sa * rf; g[q + 1] = r.c[1] + Sx[1] * ca * rs + F[1] * sa * rf; g[q + 2] = r.c[2] + Sx[2] * ca * rs + F[2] * sa * rf;
-      const nx = Sx[0] * ca / rs + F[0] * sa / rf, ny = Sx[1] * ca / rs + F[1] * sa / rf, nz = Sx[2] * ca / rs + F[2] * sa / rf, l = Math.hypot(nx, ny, nz) || 1;
+      const nx = Sx[0] * gc / rs + F[0] * gs / rf, ny = Sx[1] * gc / rs + F[1] * gs / rf, nz = Sx[2] * gc / rs + F[2] * gs / rf, l = Math.hypot(nx, ny, nz) || 1;
       g[q + 3] = nx / l; g[q + 4] = ny / l; g[q + 5] = nz / l;
     }
   }
@@ -541,6 +546,21 @@ function profAt(prof, u) {
   return [u, lerp(a[1], b[1], f), lerp(a[2], b[2], f), lerp(a[3], b[3], f)];
 }
 const profSpan = (prof, u0, u1) => [profAt(prof, u0), profAt(prof, (u0 + u1) / 2), profAt(prof, u1)];
+// A profile with two stations between each pair it has, on a Catmull-Rom curve through them, so a
+// close-up limb or sweater turns smoothly instead of in straight runs from station to station.
+function refine(prof) {
+  const out = [], n = prof.length, at = (i) => prof[Math.max(0, Math.min(n - 1, i))];
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+    out.push(p1);
+    for (const t of [1 / 3, 2 / 3]) {
+      const t2 = t * t, t3 = t2 * t;
+      out.push(p1.map((_, k) => 0.5 * (2 * p1[k] + (-p0[k] + p2[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3)));
+    }
+  }
+  out.push(prof[n - 1]);
+  return out;
+}
 // Hockey pants: wide over the hip pads and the thigh, to a hem just above the knee.
 const PANTS = [[-0.06, 0.48, 0.47, 0.02], [0.12, 0.53, 0.52, 0.03], [0.45, 0.53, 0.52, 0.04], [0.72, 0.51, 0.5, 0.04], [0.88, 0.5, 0.48, 0.04]];
 // The sock over the shin guard: up under the hem, out over the knee cup, down into the boot.
@@ -564,13 +584,34 @@ function gripFrame(J, H, dir) {
   return [p1, p2];
 }
 
+// The comic look's hatching on a man (gl/arena.js LIT_FS): every untextured vertex of his in `b`
+// from `from` on gets its place in his own frame in its uv, in feet from his hips: across him
+// (shoulder to shoulder) and up him. His body is rebuilt every frame in the rink's own space, so
+// without this the strokes would hold still in the rink while he skated through them. A limb that
+// swings moves through them a little; his skating and his turning don't. Nothing else reads an
+// untextured vertex's uv.
+export function hatchBody(b, from, J) {
+  if (!J[0] || !J[2] || !J[4] || !J[7]) return;
+  const U = V.norm(V.sub(J[2], J[0])), s = V.sub(J[4], J[7]), S = V.norm(V.sub(s, V.mul(U, V.dot(s, U))));
+  const d = b.data, h = J[0];
+  for (let i = from; i < b.n; i++) {
+    const o = i * STRIDE;
+    if (d[o + 12] > 0.5) continue;
+    const x = d[o] - h[0], y = d[o + 1] - h[1], z = d[o + 2] - h[2];
+    d[o + 10] = x * S[0] + y * S[1] + z * S[2];
+    d[o + 11] = x * U[0] + y * U[1] + z * U[2];
+  }
+}
+
 // One skater, goalie, official or medic. `b` takes everything but the jersey; `bt` (the
 // textured batch) takes the torso. `o` is the same options object figure.js reads, plus
 // `slot` (the atlas rectangle) and `detail` (0 far, 1 near) for the small things.
 export function buildBody(b, bt, J, o) {
   for (let i = 0; i < 18; i++) if (!J[i] || !Number.isFinite(J[i][0])) return;
-  const K = o.kit, gk = !!o.goalie, missing = o.missing || {}, det = o.detail ?? 1;
-  const seg = det ? 10 : 6;
+  // detail 0 far, 1 near, 2 close up (a fight, the winner's head and shoulders): 2 has everything
+  // 1 has, with more sides and rings, profiles refined between their stations and a squarer sweater
+  const K = o.kit, gk = !!o.goalie, missing = o.missing || {}, det = o.detail ?? 1, hi = det > 1;
+  const seg = hi ? 16 : det ? 10 : 6, fine = (prof) => (hi ? refine(prof) : prof);
   const jersey = rgb(K.jersey), trim = rgb(K.trim), pants = rgb(K.pants), sock = rgb(K.sock), glove = rgb(K.glove), helmet = rgb(gk ? maskColours(K).base : K.helmet), skin = rgb(o.skin || '#e0b08c');
   const U = V.norm(V.sub(J[2], J[0]));
   const ortho = (v) => V.norm(V.sub(v, V.mul(U, V.dot(v, U))));
@@ -578,7 +619,7 @@ export function buildBody(b, bt, J, o) {
   const F = V.cross(Ss, U);
   const tl = V.len(V.sub(J[2], J[0]));
   const stump = (C, n, r) => { disc(b, C, n, r, RAW, 10, 0.06); if (det) disc(b, V.add(C, V.mul(n, 0.035)), n, r * 0.35, BONE, 8, 0.02); };
-  const lseg = det ? 10 : 6, plain = K === OFFICIAL_KIT || K === MEDIC_KIT || K === CREW_KIT;
+  const lseg = hi ? 18 : det ? 10 : 6, plain = K === OFFICIAL_KIT || K === MEDIC_KIT || K === CREW_KIT;
 
   // legs
   for (const [hip, kn, an, toe, side] of [[10, 11, 12, 16, 1], [13, 14, 15, 17, -1]]) {
@@ -617,14 +658,14 @@ export function buildBody(b, bt, J, o) {
       for (const [f, w, col] of [[0.16, 0.13, jersey], [0.3, 0.08, jersey], [0.62, 0.05, trim]]) boxAxes(b, V.add(V.add(C, V.mul(ay, hl - 2 * hl * f)), V.mul(az, 0.245)), ax, ay, az, 0.475, w, 0.012, col);
       tube(b, J[hip], J[kn], 0.48, 0.44, rgb('#e3e6e9'), seg);
     } else if (plain) {
-      loft(b, limbRings([J[hip], J[kn], A], Sh, F, TROUSERS), pants, null, lseg);
+      loft(b, limbRings([J[hip], J[kn], A], Sh, F, fine(TROUSERS)), pants, null, lseg);
     } else {
       const P = [J[hip], J[kn], A], shin = V.len(V.sub(A, J[kn])) || 1;
-      loft(b, limbRings(P, Sh, F, SOCK), sock, null, lseg);
+      loft(b, limbRings(P, Sh, F, fine(SOCK)), sock, null, lseg);
       const stripe = (at, w, col) => loft(b, limbRings(P, Sh, F, profSpan(SOCK, 1 + at - w / shin / 2, 1 + at + w / shin / 2), 1.035), col, null, lseg);
       if (K.socks) for (const sb of K.socks) stripe(sb.at, sb.w, rgb(sb.col));
       else { stripe(0.3, 0.11, trim); stripe(0.45, 0.11, trim); }
-      loft(b, limbRings(P, Sh, F, PANTS), pants, null, lseg);
+      loft(b, limbRings(P, Sh, F, fine(PANTS)), pants, null, lseg);
       // the hem, dark where it rolls, and the stripe down the outside of the thigh
       loft(b, limbRings(P, Sh, F, profSpan(PANTS, 0.82, 0.88), 1.03), mix(pants, -0.45), null, lseg);
       if (det) {
@@ -638,7 +679,7 @@ export function buildBody(b, bt, J, o) {
 
   // torso
   const ju = o.jerseyUp || 0;
-  const rings = (gk ? GK_RINGS : SK_RINGS).map(([f, rs, rf, off]) => {
+  const rings = fine(gk ? GK_RINGS : SK_RINGS).map(([f, rs, rf, off]) => {
     const S = V.norm(V.lerp(Sh, Ss, clamp(f, 0, 1))), Fr = V.cross(S, U);
     return { c: V.add(V.add(J[0], V.mul(U, f * tl)), V.mul(Fr, off)), S, F: Fr, rs, rf, f };
   });
@@ -648,7 +689,7 @@ export function buildBody(b, bt, J, o) {
     rings[ci] = { ...rings[ci], rs: lerp(0.5, 0.62, k), rf: lerp(0.34, 0.5, k) };
     rings.push({ c: V.add(J[3], [0, 0, 0.25 * k]), S: Ss, F, rs: 0.55 * k + 0.1, rf: 0.5 * k + 0.1, f: 1.25 });
   }
-  loft(bt, rings, [1, 1, 1, 1], o.slot || null, det ? 16 : 12);
+  loft(bt, rings, [1, 1, 1, 1], o.slot || null, hi ? 30 : det ? 16 : 12, hi ? 2.4 : 2);
 
   // arms
   const ar = gk ? 1.3 : 1;
@@ -658,8 +699,8 @@ export function buildBody(b, bt, J, o) {
     const wrist = V.sub(H, V.mul(dir, gk ? 0.15 : 0.2));
     // the shoulder pad under the sweater: a cap over the joint, tucked in under the sweater's
     // own shoulder so it rounds it off rather than standing out of it as a ball
-    ellipsoid(b, V.add(V.add(S, V.mul(U, 0.02)), V.mul(Ss, -side * 0.04)), Ss, F, U, [0.37 * ar, 0.36 * ar, 0.3 * ar], jersey, det ? 10 : 8, det ? 6 : 5);
-    const AP = [V.add(S, V.mul(U, 0.04)), E, wrist], slv = SLEEVE.map(([u, rs, rf, off]) => [u, rs * ar, rf * ar, off]);
+    ellipsoid(b, V.add(V.add(S, V.mul(U, 0.02)), V.mul(Ss, -side * 0.04)), Ss, F, U, [0.37 * ar, 0.36 * ar, 0.3 * ar], jersey, hi ? 16 : det ? 10 : 8, hi ? 10 : det ? 6 : 5);
+    const AP = [V.add(S, V.mul(U, 0.04)), E, wrist], slv = fine(SLEEVE).map(([u, rs, rf, off]) => [u, rs * ar, rf * ar, off]);
     if (missing[side > 0 ? 'armL' : 'armR'] && !gk) { loft(b, limbRings(AP, Ss, F, slv.filter((q) => q[0] <= 1)), jersey, null, lseg); stump(V.add(E, V.mul(dir, 0.15)), dir, 0.2); continue; }
     loft(b, limbRings(AP, Ss, F, slv), jersey, null, lseg);
     const fore = V.len(V.sub(wrist, E)) || 1, cuffBand = (at, w, col) => loft(b, limbRings(AP, Ss, F, profSpan(slv, 1 + at - w / fore / 2, 1 + at + w / fore / 2), 1.04), col, null, lseg);
@@ -722,8 +763,8 @@ export function buildBody(b, bt, J, o) {
     } else if (o.heads) {
       // open at the face, the generator's head inside it, the dark liner showing round the
       // opening
-      helmetShell(b, C0, Fh, Sd, Uh, [R, R, R * 0.92], helmet, det ? 16 : 10, det ? 10 : 6, HELM_OPEN, HELM_BROW);
-      if (det) helmetShell(b, C0, Fh, Sd, Uh, [R * 0.95, R * 0.95, R * 0.87], LINER, 12, 8, HELM_OPEN, HELM_BROW);
+      helmetShell(b, C0, Fh, Sd, Uh, [R, R, R * 0.92], helmet, hi ? 24 : det ? 16 : 10, hi ? 14 : det ? 10 : 6, HELM_OPEN, HELM_BROW);
+      if (det) helmetShell(b, C0, Fh, Sd, Uh, [R * 0.95, R * 0.95, R * 0.87], LINER, hi ? 18 : 12, hi ? 11 : 8, HELM_OPEN, HELM_BROW);
     } else {
       ellipsoid(b, C0, Fh, Sd, Uh, [R, R, R * 0.92], helmet, det ? 14 : 8, det ? 9 : 5);
     }

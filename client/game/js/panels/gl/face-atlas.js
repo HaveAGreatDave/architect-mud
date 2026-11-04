@@ -26,15 +26,16 @@ export const faceAtlasPath = (half, ink) => (ink ? (half ? FACE_ATLAS.inkHalf : 
  * A feed of face atlases for one texture. `Img` is the Image constructor (the renderer's document's,
  * or the page's); without one, poll() always returns null and the stand-in texel stays.
  * Returns { poll(): Image | null, ink: boolean | null } — `ink` is the look of the last image handed
- * back, null before the first.
+ * back, null before the first. `ink: true` asks for the inked atlas whatever the setting (the
+ * close-up figure, gl/figure-hd.js, is always drawn in the comic manner).
  */
-export function createFaceAtlasFeed({ half = false, Img = globalThis.Image, onReady = null } = {}) {
+export function createFaceAtlasFeed({ half = false, Img = globalThis.Image, onReady = null, ink: always = null } = {}) {
   let want = null, loading = null, ready = null, given = null;
   const feed = {
     ink: null,
     poll() {
       if (typeof Img !== 'function') return null;
-      const ink = comicOn();
+      const ink = always ?? comicOn();
       if (want !== ink) {
         want = ink;
         if (given !== ink && (!loading || loading.ink !== ink)) {

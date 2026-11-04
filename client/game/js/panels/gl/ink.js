@@ -7,6 +7,10 @@
 // the body covers the inside and the line shows round its edge, and round anything held in front of
 // it. An unlit vertex (a zero normal) gets none: it stays on the body, unpushed.
 //
+// The comic look's weighted line (gl/house-style.js HOUSE.weigh, as the park's SKIN_INK_VS): on
+// the side away from `uKey`, the way to the key light, the line is up to `uWeigh` times as wide.
+// A view that never sets uWeigh leaves it 0, which reads as 1: the line it always had.
+//
 // Vertex layout: arena-mesh.js's, position at location 0 and normal at 1.
 export const INK_VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
@@ -15,6 +19,7 @@ uniform mat4 uVP;
 uniform vec2 uShake;
 uniform vec2 uRes;
 uniform vec4 uInk;
+uniform vec3 uKey; uniform float uWeigh;
 void main() {
   float nl = dot(aNor, aNor);
   vec4 c = uVP * vec4(aPos, 1.0);
@@ -26,7 +31,8 @@ void main() {
   vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uRes * 0.5;
   float L = length(d);
   vec2 dir = L > 1e-4 ? d / L : vec2(0.0);
-  c.xy += dir * clamp(L, uInk.y, uInk.z) / (uRes * 0.5) * c.w;
+  float wk = mix(max(uWeigh, 1.0), 1.0, smoothstep(-0.5, 0.7, dot(n, uKey)));
+  c.xy += dir * clamp(L, uInk.y, uInk.z) * wk / (uRes * 0.5) * c.w;
   c.z += uInk.w * c.w;
   c.xy += uShake * c.w;
   gl_Position = c;

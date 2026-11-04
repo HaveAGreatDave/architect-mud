@@ -81,6 +81,8 @@ The game bakes the near body with `buildBody(0, false)`: no neck, head, hair, ey
 
 ### 5. The body around it
 
+The body is now the close-up figure's clothes sampled coarsely ([hd-figure.md](hd-figure.md)); the shoulder work below was done on the old body and carried over in its shape.
+
 The shoulders are done: the coat's top slopes down from the neck instead of running out flat (the `yoke` shape in `buildBody`), and each sleeve starts in a closed cap that rounds over the shoulder instead of an open ring standing on it. The lab used to fake the slope in its vertex shader; it's geometry now, at both lods. `buildBody` at lod 0 dropped its head pieces in the change that draws the new head (section 4).
 
 ## What it costs

@@ -31,7 +31,10 @@ import { CX0, CX1, CROWS, ROWH, sharedTextures } from '../rink/textures.js';
 import { createRinkCamera, matrices } from '../rink/camera.js';
 import { bodyOpts, drawHud, hudActive, maskColours, drawnJoints, drawnAt, drawnPuck, glowTail, GLOW } from '../rink/hud.js';
 import { TAU, clamp, hash, rng } from '../rink/util.js';
-import { inkOf } from './house-style.js';
+import { inkOf, figureLightOf, rinkInkOf, comicOn, HOUSE } from './house-style.js';
+import { CEL, CEL_GLSL } from './cel-figure.js';
+import { INK, PAINTED, inkLine, fold, patch } from '../comic-pen.js';
+import { createDepthSSAO } from './ssao.js';
 import * as M from './arena-mesh.js';
 import { crowdMorph, CROWD_MORPH } from './ballpark-mesh.js';
 import { GATE_Y, GATE_HALF } from '../rink/zamboni.js';
@@ -42,7 +45,7 @@ import { makeVertexStream } from './stream.js';
 import { INK_VS, INK_FS } from './ink.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
 import { createMirrorLayer, MIRROR_SCALE } from './mirror.js';
-import { createRinkHeads, HEAD_VS, HEAD_FS } from './arena-heads.js';
+import { createRinkHeads, HEAD_VS, HEAD_FS, KEY } from './arena-heads.js';
 import { buildXray } from './arena-xray.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
@@ -66,6 +69,14 @@ void main() {
 // Overhead banks: a key from above and a little towards the camera side, a hemisphere fill,
 // the white sheet bouncing light up under chins and gloves, and a tight highlight on
 // helmets and pads. A zero normal is an unlit vertex (crowd, ads, beacon, shadows).
+//
+// THE COMIC LOOK (gl/house-style.js, docs/proposals/comic-ink.md) lights the men and what's on
+// the ice through gl/cel-figure.js celKey, as the park lights its players: two bands over the
+// painted shade, no rim, a line where the light steps and hatching in full shadow. uCel is set
+// per draw (the building keeps its own light, as the park's stands do), and the branch is on a
+// uniform for toonBands' fwidth. The hatching rides the man: an untextured vertex of his carries
+// its place in his own frame, in feet, in its uv (arena-mesh.js hatchBody), and a sweater's uv
+// already runs round his body, at uHatchUV feet a unit.
 const LIT_FS = `#version 300 es
 precision highp float;
 in vec3 vPos; in vec3 vNor; in vec4 vCol; in vec2 vUV; in float vTex;
@@ -73,8 +84,10 @@ uniform sampler2D uTex;
 uniform vec3 uEye;
 uniform float uMourn;
 uniform float uClipZ;
+uniform float uCel; uniform vec3 uCelInk; uniform float uCelGap; uniform vec2 uHatchUV;
 out vec4 outColor;
-const vec3 L = vec3(0.2453, -0.4416, 0.8635);
+const vec3 L = vec3(${KEY.join(', ')});
+${CEL_GLSL}
 void main() {
   if (vPos.z < uClipZ) discard;
   vec4 c = vCol;
@@ -86,12 +99,16 @@ void main() {
     vec3 n = vNor * inversesqrt(nl);
     vec3 v = normalize(uEye - vPos);
     if (dot(n, v) < 0.0) n = -n;
-    float diff = max(dot(n, L), 0.0);
-    float hemi = 0.5 + 0.5 * n.z;
-    float bounce = max(-n.z, 0.0) * 0.3;
-    float spec = pow(max(dot(n, normalize(L + v)), 0.0), 32.0) * 0.22;
-    float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.1;
-    rgb = rgb * (0.3 + 0.24 * hemi + 0.6 * diff + bounce) + vec3(spec + rim);
+    if (uCel > 0.5) {
+      rgb = celKey(rgb, n, v, L, 0.22, vec3(vTex > 0.5 ? vUV * uHatchUV : vUV, 0.0), uCelGap, uCelInk);
+    } else {
+      float diff = max(dot(n, L), 0.0);
+      float hemi = 0.5 + 0.5 * n.z;
+      float bounce = max(-n.z, 0.0) * 0.3;
+      float spec = pow(max(dot(n, normalize(L + v)), 0.0), 32.0) * 0.22;
+      float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.1;
+      rgb = rgb * (0.3 + 0.24 * hemi + 0.6 * diff + bounce) + vec3(spec + rim);
+    }
   }
   float g = dot(rgb, vec3(0.299, 0.587, 0.114));
   rgb = mix(rgb, vec3(g), uMourn * 0.75) * (1.0 - 0.22 * uMourn);
@@ -222,7 +239,20 @@ void main() {
   outColor = acc;
 }`;
 
+// The comic look's outlines (gl/ssao.js ink's g channel) laid over the picture in the house ink.
+const LINES_FS = `#version 300 es
+precision mediump float;
+uniform sampler2D uInk;
+uniform vec2 uRes;
+uniform vec3 uCol;
+out vec4 outColor;
+void main() {
+  float a = texture(uInk, gl_FragCoord.xy / uRes).g;
+  outColor = vec4(uCol * a, a);
+}`;
+
 declareProgram(LIT_VS, LIT_FS);
+declareProgram(POST_VS, LINES_FS);
 declareProgram(INK_VS, INK_FS);
 declareProgram(RINK_CROWD_VS, RINK_CROWD_FS);
 declareProgram(ICE_VS, ICE_FS);
@@ -233,11 +263,13 @@ declareProgram(HEAD_VS, HEAD_FS);
 // The quality rungs the view's frame-time governor steps through (gameday-rink.js).
 // (`crowd` is the share of the night's fans drawn: a device that can't keep up loses the upper
 // rows and the far corners first, since the fans are in the order their seats sell)
+// (`lines` is the comic look's screen-pass outlines, which draw the bowl, the fans and the men a
+// second time into a depth of their own: the last rung gives them up, and the men keep their hull)
 const ARENA_RUNGS = [
-  { dpr: 1.5, mirror: MIRROR_SCALE, reflBodies: true, crowd: 1 },
-  { dpr: 1.25, mirror: MIRROR_SCALE, reflBodies: true, crowd: 1 },
-  { dpr: 1, mirror: 0.35, reflBodies: true, crowd: 0.7 },
-  { dpr: 1, mirror: 0.35, reflBodies: false, crowd: 0.45 },
+  { dpr: 1.5, mirror: MIRROR_SCALE, reflBodies: true, crowd: 1, lines: true },
+  { dpr: 1.25, mirror: MIRROR_SCALE, reflBodies: true, crowd: 1, lines: true },
+  { dpr: 1, mirror: 0.35, reflBodies: true, crowd: 0.7, lines: true },
+  { dpr: 1, mirror: 0.35, reflBodies: false, crowd: 0.45, lines: false },
 ];
 
 const LIT_ATTRS = [[0, 3, 0], [1, 3, 12], [2, 4, 24], [3, 2, 40], [4, 1, 48]];
@@ -276,7 +308,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       return { p, u: (n) => (u[n] ??= gl.getUniformLocation(p, n)) };
     };
     const LIT = prog(LIT_VS, LIT_FS), ICE = prog(ICE_VS, ICE_FS), PT = prog(PT_VS, PT_FS), POST = prog(POST_VS, POST_FS);
-    const INK = prog(INK_VS, INK_FS), FANS = prog(RINK_CROWD_VS, RINK_CROWD_FS);
+    const INK = prog(INK_VS, INK_FS), FANS = prog(RINK_CROWD_VS, RINK_CROWD_FS), LINES = prog(POST_VS, LINES_FS);
     // The heads: the street figures' generator, drawn per body from a record arena-mesh.js leaves
     // in `headList` (gl/arena-heads.js). If its program won't build, the bodies keep the old
     // heads arena-mesh.js makes itself, rather than the whole arena going to 2-D.
@@ -436,7 +468,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     }
     function jerseySlot(o) {
       const K = o.kit;
-      return atlasSlot([K.clubName || '', K.jersey, K.trim, K.stripes ? 1 : 0, K.crest || '', o.num ?? '', o.name || '', Math.round((o.blood || 0) * 4), o.goalie ? 1 : 0].join('|'), () => paintJersey(o));
+      // (the look is in the key, so a flip to or from the comic look paints the sweater again)
+      return atlasSlot([K.clubName || '', K.jersey, K.trim, K.stripes ? 1 : 0, K.crest || '', o.num ?? '', o.name || '', Math.round((o.blood || 0) * 4), o.goalie ? 1 : 0, comicOn() ? 'ink' : ''].join('|'), () => paintJersey(o));
     }
     // a keeper's mask: a cell of the mask texture, the least recently used given up for a new one
     const maskCells = new Map();
@@ -482,6 +515,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         // the crest on the chest
         const cx = S * 0.25, cy = vy(0.64);
         c.beginPath(); c.arc(cx, cy, 12, 0, TAU); c.fill();
+        if (comicOn()) { c.lineWidth = 1.3; c.strokeStyle = INK; c.stroke(); }
         c.fillStyle = K.jersey; c.beginPath();
         if (K.crest === 'v') { c.moveTo(cx - 7.6, cy - 7.2); c.lineTo(cx, cy + 8.6); c.lineTo(cx + 7.6, cy - 7.2); c.lineTo(cx + 3.6, cy - 7.2); c.lineTo(cx, cy + 1.4); c.lineTo(cx - 3.6, cy - 7.2); }
         else if (K.crest === 'd') { c.moveTo(cx, cy - 9.4); c.lineTo(cx + 7.2, cy); c.lineTo(cx, cy + 9.4); c.lineTo(cx - 7.2, cy); }
@@ -491,6 +525,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         c.fillStyle = K.trim; c.beginPath(); c.moveTo(cx - 6, 0); c.lineTo(cx, 11); c.lineTo(cx + 6, 0); c.closePath(); c.fill();
         backLettering(o, vy, K.trim, 'rgba(0,0,0,0.45)');
       }
+      if (comicOn()) inkSweater(o, vy);
       if ((o.blood || 0) > 0.05) {
         const r = rng(hash(o.name || o.num || 'x'));
         c.fillStyle = 'rgba(110,8,12,0.85)';
@@ -571,15 +606,34 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       c.setTransform(1, 0, 0, 1, 0, 0);
     }
 
-    // the number on the back, the name over it, mirrored (u runs right to left there)
+    // the number on the back, the name over it, mirrored (u runs right to left there); with the
+    // comic look on, each outlined in ink outside its own edge first, as the park's numbers are
     function backLettering(o, vy, fill, edge) {
-      const c = sctx, S = SLOT;
+      const c = sctx, S = SLOT, ink = comicOn(), num = String(o.num ?? ''), name = String(o.name || '').toUpperCase(), ny = vy(0.9) - vy(0.58);
       c.save(); c.translate(S * 0.75, vy(0.58)); c.scale(-1, 1);
       c.font = `800 34px ${FACE}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.lineJoin = 'round'; c.lineWidth = 4; c.strokeStyle = edge; c.strokeText(String(o.num ?? ''), 0, 1, 40);
-      c.fillStyle = fill; c.fillText(String(o.num ?? ''), 0, 1, 40);
-      if (o.name) { c.font = `700 9px ${FACE}`; c.lineWidth = 2.4; c.strokeText(String(o.name).toUpperCase(), 0, vy(0.9) - vy(0.58), 38); c.fillText(String(o.name).toUpperCase(), 0, vy(0.9) - vy(0.58), 38); }
+      if (ink) { c.lineJoin = 'round'; c.lineWidth = 7; c.strokeStyle = INK; c.strokeText(num, 0, 1, 40); }
+      c.lineJoin = 'round'; c.lineWidth = 4; c.strokeStyle = edge; c.strokeText(num, 0, 1, 40);
+      c.fillStyle = fill; c.fillText(num, 0, 1, 40);
+      if (name) {
+        c.font = `700 9px ${FACE}`;
+        if (ink) { c.lineWidth = 3.8; c.strokeStyle = INK; c.strokeText(name, 0, ny, 38); c.strokeStyle = edge; }
+        c.lineWidth = 2.4; c.strokeText(name, 0, ny, 38); c.fillText(name, 0, ny, 38);
+      }
       c.restore();
+    }
+    // The comic look's ink over a sweater (comic-pen.js, the strokes the park's kits are inked
+    // with, at this slot's scale): a quarter-strength painted shadow under the arms and above the
+    // hem, the side seams and the collar ruled by hand, folds gathered under the arms and pulling up
+    // off the hem. The sides are at u 0, a half and 1; the chest at a quarter, the back at three.
+    function inkSweater(o, vy) {
+      const c = sctx, S = SLOT, r = rng(hash(`${o.name || ''}#${o.num ?? ''}`) + 7), arm = vy(0.86), hem = vy(0.02);
+      for (const x of [0, S / 2, S]) patch(c, x, arm, 18, 16, PAINTED);
+      c.fillStyle = PAINTED + '0.22)'; c.fillRect(0, vy(0.1), S, hem - vy(0.1));
+      for (const x of [1, S / 2, S - 1]) inkLine(c, r, x, 0, x + (r() - 0.5), hem, 1.4, 0.5);
+      inkLine(c, r, 0, vy(1.02), S, vy(1.02), 1.3, 0.4);
+      for (let i = 0; i < 10; i++) fold(c, r, r() * S, vy(0.04 + r() * 0.14), 8 + r() * 8, -Math.PI / 2 + (r() - 0.5) * 0.9, 0.9 + r() * 0.5);
+      for (const x of [3, S / 2 - 3, S / 2 + 3, S - 3]) for (let i = 0; i < 2; i++) fold(c, r, x + (r() - 0.5) * 4, arm - 6 + r() * 10, 7 + r() * 5, Math.PI / 2 + (r() - 0.5), 0.8);
     }
     // A club's designed sweater (club-crest.js keeps the identity): the body, woven in
     // the club's sett if it has one, its own bands at the hem, the yoke, the club crest
@@ -699,31 +753,37 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     }
 
     // ── this frame's geometry ─────────────────────────────────────────────────
-    let propsN = 0;
+    let propsN = 0, doorsN = 0;
     function buildFrame(P, eye) {
       for (const k of ['rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad']) M.reset(B[k]);
       headList.length = 0;
       const d = B.dyn;
-      // the props the ice reflects whatever the quality: nets, the Zamboni
+      // the props the ice reflects whatever the quality: the gates' doors first, which are the
+      // building's and keep its light under the comic look (doorsN), then the nets and the Zamboni
+      M.buildDoors(d, B.tr, W.doors, GATE_Y, GATE_HALF, RL, BOARD_H, GLASS_H);
+      doorsN = d.n;
       for (const [gx, dir, side] of [[GOAL_X[0], -1, 'a'], [GOAL_X[1], 1, 'h']]) {
         // (a net the ice crew have off its pegs is drawn where they have it, and not once it's out the gate)
         const o = W.nets && W.nets[side];
         if (!(o && o.out)) M.buildNet(d, B.netm, gx + (o ? o.dx : 0), dir, MID_Y + (o ? o.dy : 0), NET_HALF, NET_DEPTH, NET_H, (W.netBulge[side] || 0) * 0.7);
       }
       if (W.zamboni) M.buildZamboni(d, B.label, W.zamboni, W.t, !!W0.cup);
-      M.buildDoors(d, B.tr, W.doors, GATE_Y, GATE_HALF, RL, BOARD_H, GLASS_H);
       propsN = d.n;
-      // the men
+      // the men (and, with the comic look on, where each vertex of theirs is on him, for the hatching)
+      const comic = comicOn();
       for (const b of W.bodies()) {
         const o = bodyOpts(W, b);
         if (!o.kit) continue;
         const J = drawnJoints(W, b), hp = J[3] && P(J[3][0], J[3][1], J[3][2]);
-        o.detail = hp && hp.s > 24 ? 1 : 0;
+        // close up (a fight, the winner's head and shoulders) a body gets the third level
+        o.detail = !hp ? 0 : hp.s > 64 ? 2 : hp.s > 24 ? 1 : 0;
         // the head's level by its size on screen: a head is about 0.9 ft, so L0 from about 32 px
         o.heads = headsTo(); o.headLv = !hp ? 2 : hp.s > 36 ? 0 : hp.s > 9 ? 1 : 2;
         o.slot = jerseySlot(o);
         if (o.goalie) { o.maskSlot = maskSlot(o); o.maskBatch = B.masks; }
+        const n0 = d.n;
         M.buildBody(d, B.jers, J, o);
+        if (comic) M.hatchBody(d, n0, J);
         M.buildVisor(B.tr, o);
         const p = drawnAt(W, b);
         shadow(p[0], p[1], b.rag ? 2.6 : b.kind === 'goalie' ? 1.7 : 1.3);
@@ -823,6 +883,27 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.uniform1f(LIT.u('uClipZ'), clipZ);
       gl.uniform1i(LIT.u('uTex'), 0);
       gl.activeTexture(gl.TEXTURE0);
+      fl = figureLightOf({ bands: CEL.bands, shade: CEL.shade });
+      gl.uniform1f(LIT.u('uCelBands'), fl.bands); gl.uniform3fv(LIT.u('uCelShade'), fl.shade); gl.uniform1f(LIT.u('uCelComic'), fl.comic);
+      gl.uniform3fv(LIT.u('uCelInk'), HOUSE.ink); gl.uniform1f(LIT.u('uCelGap'), HOUSE.hatchFt);
+      celFor(false);
+    }
+    // The comic look on what's drawn next (LIT_FS uCel): on for the men and what's on the ice, off for
+    // the building. `hatch` is a sweater's feet per uv unit: once round the body across an atlas slot
+    // (8 to the atlas) about 6 ft, the collar to the hem about 2.6 ft, which runs down the slot.
+    let fl = null;
+    const SWEATER_FT = [8 * 6, -8 * 2.6];
+    function celFor(on, hatch = null) {
+      gl.uniform1f(LIT.u('uCel'), on && fl.comic ? 1 : 0);
+      gl.uniform2fv(LIT.u('uHatchUV'), hatch || [0, 0]);
+    }
+    // the men, their sweaters and the keepers' masks, and what's on the ice, lit as figures
+    function drawFigures() {
+      draw(L.dyn, null, 0, doorsN);
+      celFor(true); draw(L.dyn, null, doorsN);
+      celFor(true, SWEATER_FT); draw(L.jers, atlas);
+      celFor(true); draw(L.masks, maskTex);
+      celFor(false);
     }
     // ── the fans (gl/arena-crowd.js) ──────────────────────────────────────────
     // One figure in three poses, instanced a seat; the seats' instance data rebuilt only when the
@@ -871,11 +952,61 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const ink = inkOf({ ft: 0.09, px: [1.2, 3.6], col: INK_COL });
       gl.uniform4f(INK.u('uInk'), ink.ft, ink.px[0] * u, ink.px[1] * u, 0.0006);
       gl.uniform3fv(INK.u('uCol'), ink.col);
+      // heavier on the side away from the banks with it on (HOUSE.weigh), as the park's line is
+      gl.uniform3fv(INK.u('uKey'), KEY);
+      gl.uniform1f(INK.u('uWeigh'), figureLightOf({ bands: CEL.bands, shade: CEL.shade }).weigh);
       for (const [Ly, first] of [[L.dyn, propsN], [L.jers, 0], [L.masks, 0]]) {
         if (Ly.n - first <= 0) continue;
         gl.bindVertexArray(Ly.vao); gl.drawArrays(gl.TRIANGLES, first, Ly.n - first);
         st.draws++; st.tris += (Ly.n - first) / 3;
       }
+    }
+    // ── the comic look's outlines ─────────────────────────────────────────────
+    // The park lines its picture off the depth it already keeps (gl/ssao.js createDepthSSAO ink,
+    // docs/proposals/comic-ink.md step 4). The rink draws straight to the canvas, whose depth can't
+    // be read, so what wants a line is drawn again into a depth of its own: the bowl and its fans,
+    // the boards, the men and what's on the ice. The ice and the glass stay out, so a man is lined
+    // against the sheet and so are the boards. Outlines only, as in the park: the detail channel
+    // reads every row of seats as a crease. The depth and its pass are made the first time the
+    // look asks for them; a device that can't make them gets no lines and nothing else changes.
+    let lineDepth = null, lineSsao;
+    function lineTarget(w, h) {
+      if (lineDepth && lineDepth.w === w && lineDepth.h === h) return lineDepth;
+      if (lineDepth) { gl.deleteFramebuffer(lineDepth.fbo); gl.deleteTexture(lineDepth.tex); lineDepth = null; }
+      const tex = gl.createTexture();
+      gl.bindTexture(T2, tex);
+      gl.texStorage2D(T2, 1, gl.DEPTH_COMPONENT24, w, h);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(T2, k, v);
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, T2, tex, 0);
+      gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE);
+      const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (!ok) { gl.deleteFramebuffer(fbo); gl.deleteTexture(tex); return null; }
+      return (lineDepth = { tex, fbo, w, h });
+    }
+    // The lines for this frame, or null. rink/camera.js's projection puts the depth in w, so its
+    // constants aren't ssaoConstants' (a GL perspective's): ndc z is P[10] + P[14] / depth, and
+    // the camera's offset centre (P[9]) is the line's cy0.
+    function lines(ri, proj, vp, eye, shake, shown, w, h) {
+      if (lineSsao === undefined) lineSsao = createDepthSSAO(gl);
+      const D = lineSsao && lineTarget(w, h);
+      if (!D) return null;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, D.fbo);
+      gl.viewport(0, 0, w, h);
+      gl.disable(gl.BLEND);
+      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+      useLit(vp, eye, shake, -1e9);
+      const ring = seesRing(shown);
+      for (let i = 0; i < 4; i++) if (!((i & 1) && !ring)) draw(L.bowl[i]);
+      drawFans(vp, shake, shown, eye);
+      useLit(vp, eye, shake, -1e9);
+      draw(L.stat); draw(L.ads, texAds); draw(L.dyn); draw(L.jers, atlas); draw(L.masks, maskTex);
+      if (heads) heads.draw(headList, vp, eye, shake, -1e9, 0, st);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return lineSsao.ink(D.tex, w, h, { fxn: proj[0], fyn: proj[5], cy0: proj[9], A: proj[10], B: proj[14] }, { step: ri.step });
     }
     function draw(Ly, tex, first = 0, count = Ly.n - first) {
       if (count <= 0) return;
@@ -946,14 +1077,20 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         gl.depthMask(true);
         // the boards and their ads; not the crowd, which is dim against a lit sheet
         draw(L.stat); draw(L.ads, texAds);
-        if (api.quality.reflBodies) { draw(L.dyn); draw(L.jers, atlas); draw(L.masks, maskTex); } else draw(L.dyn, null, 0, propsN);
-        draw(L.label, texLabel);
+        if (api.quality.reflBodies) drawFigures(); else { draw(L.dyn, null, 0, doorsN); celFor(true); draw(L.dyn, null, doorsN, propsN - doorsN); }
+        celFor(true); draw(L.label, texLabel); celFor(false);
         if (heads && api.quality.reflBodies) heads.draw(headList, vpR, eyeR, shake, -0.05, W.mourning, st);
         mirror.release();
       }
 
       // the picture
       const M0 = matrices(C), vp = new Float32Array(M0.viewProj), eye = [C.x, C.y, C.z];
+      // (by the view the camera is in, which a fight swings to broadcast: camera.js `shown`; a
+      // seat in the stands is in the bowl, and sees all of it)
+      const shown = rp ? 'broadcast' : api.seat ? 'seat' : camera.shown || api.view, ring = seesRing(shown);
+      // the comic look's outlines, off a depth of their own, laid over the picture after the ice
+      const rInk = api.quality.lines !== false ? rinkInkOf(w) : null;
+      const inkTex = rInk ? lines(rInk, M0.proj, vp, eye, shake, shown, w, h) : null;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, w, h);
       gl.clearColor(0.025, 0.033, 0.045, 1);
@@ -962,15 +1099,13 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       useLit(vp, eye, shake, -1e9);
       // the bowl, less the stands this view's camera stands in, and the fans in it
-      // (by the view the camera is in, which a fight swings to broadcast: camera.js `shown`; a
-      // seat in the stands is in the bowl, and sees all of it)
-      const shown = rp ? 'broadcast' : api.seat ? 'seat' : camera.shown || api.view, ring = seesRing(shown);
       for (let i = 0; i < 4; i++) if (!((i & 1) && !ring)) draw(L.bowl[i]);
       drawFans(vp, shake, shown, eye);
       if (api.ink) { drawInk(vp, shake, w, h, u); }
       useLit(vp, eye, shake, -1e9);
       draw(L.stat); draw(L.ads, texAds);
-      draw(L.dyn); draw(L.jers, atlas); draw(L.masks, maskTex); draw(L.label, texLabel);
+      drawFigures();
+      celFor(true); draw(L.label, texLabel); celFor(false);
       if (heads) heads.draw(headList, vp, eye, shake, -1e9, W.mourning, st);
 
       gl.useProgram(ICE.p);
@@ -990,6 +1125,15 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(T2, texIce);
       gl.bindVertexArray(L.ice.vao); gl.drawArrays(gl.TRIANGLES, 0, 6); st.draws++;
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(T2, null); gl.activeTexture(gl.TEXTURE0);
+      if (inkTex) {
+        // the lines over everything solid, under the glass, the nets and the spray
+        gl.disable(gl.DEPTH_TEST);
+        gl.useProgram(LINES.p);
+        gl.uniform2f(LINES.u('uRes'), w, h); gl.uniform3fv(LINES.u('uCol'), rInk.col); gl.uniform1i(LINES.u('uInk'), 0);
+        gl.bindTexture(T2, inkTex);
+        gl.bindVertexArray(postVao); gl.drawArrays(gl.TRIANGLES, 0, 3); st.draws++;
+        gl.enable(gl.DEPTH_TEST);
+      }
 
       // shadows on the ice, then everything see-through, without writing depth
       useLit(vp, eye, shake, -1e9);

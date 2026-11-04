@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Figure Lab</title>
+<style>
+  :root { --bg: #0b0d14; --fg: #d8d4c8; --dim: #8a8678; --line: #23263a; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  header { padding: 8px 12px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
+  header b { color: #e8c070; letter-spacing: 0.2em; }
+  label { color: var(--dim); white-space: nowrap; }
+  label input, label select { vertical-align: middle; }
+  #view { position: relative; }
+  #view canvas { width: 100%; height: calc(100vh - 92px); display: block; cursor: grab; }
+  #stats { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--dim); text-shadow: 0 0 4px #000; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/" style="color:inherit;opacity:.7">← Modelshop</a>
+  <b>FIGURE LAB</b>
+  <a href="/actor-lab.html" style="color:inherit" title="The street figures">Actor Lab →</a>
+  <label>dress <select id="dress"><option value="">the city's</option><option value="wildblood">Wildblood</option></select></label>
+  <label>changes <select id="muts"><option value="">by person</option><option value="all">all of them</option><option value="none">none</option></select></label>
+  <label>cut <select id="cut"><option value="">by person</option><option value="each">one of each</option><option>coat</option><option>jacket</option><option>tee</option><option>hoodie</option><option>bomber</option><option>duster</option><option>vest</option><option>tunic</option></select></label>
+  <label>hair <select id="hair"><option value="">by person</option><option value="0">cropped</option><option value="1">neat</option><option value="2">tousled</option><option value="3">long</option><option value="4">quiff</option></select></label>
+  <label>level <select id="level"><option>hd</option><option>lite</option></select></label>
+  <label>wear <select id="wear"><option value="all">dressed</option><option value="body">body only</option><option value="legs">trousers and shoes</option></select></label>
+  <label>gear <select id="gear"><option value="">by person</option><option value="none">none</option><option value="all">all</option></select></label>
+  <label>pose <select id="pose"><option>stand</option><option>sit</option></select></label>
+  <label><input type="checkbox" id="crowd"> crowd body beside</label>
+  <label><input type="checkbox" id="comic"> comic look</label>
+  <label><input type="checkbox" id="lamp" checked> lamp</label>
+  <label>day <input type="range" id="day" min="0" max="1" step="0.01" value="0.55"></label>
+  <label><input type="checkbox" id="spin"> turntable</label>
+  <label>people <input type="number" id="n" value="4" min="1" max="8" style="width:3em"></label>
+  <label>seed <input type="number" id="seed" value="7" style="width:4em"></label>
+</header>
+<div id="view"><canvas id="c"></canvas><div id="stats"></div></div>
+<script type="module">
+// The close-up figure (client/game/js/panels/figure.js), drawn by the Room Stage's own renderer
+// (gl/room.js) in an empty room: the same light, the same ink and the same skinning a flat's
+// visitors get, so what this page shows is what ships. "crowd body beside" stands the street's
+// bake (actor3d.js, which is the same clothes sampled coarsely) next to each person, to judge that
+// the two read as one figure. Drag to orbit, wheel to zoom.
+import { createRoomRenderer } from '/client/game/js/panels/gl/room.js';
+import { figurePeople, peopleBatch, preparePeople } from '/client/game/js/panels/gl/room-people.js';
+import { createBatch, vtx, MAT } from '/client/game/js/panels/gl/ballpark-mesh.js';
+
+const $ = (id) => document.getElementById(id);
+const canvas = $('c');
+const R = createRoomRenderer(canvas, {});
+if (!R) { $('stats').textContent = 'no WebGL2 here'; throw new Error('no WebGL2'); }
+
+// the room: a floor and a back wall, nothing else
+const L = { world: (u, v, y) => [u, y, v], r: [1, 0, 0], f: [0, 0, 1] };
+function quad(b, a, bb, c, d, n, col) { for (const p of [a, bb, c, a, c, d]) vtx(b, p, n, [0, 0], col, MAT.MATTE); }
+const solid = createBatch(64);
+quad(solid, [-6, 0, -3], [6, 0, -3], [6, 0, 6], [-6, 0, 6], [0, 1, 0], [0.16, 0.15, 0.14]);
+quad(solid, [-6, 0, -3], [-6, 3, -3], [6, 3, -3], [6, 0, -3], [0, 0, 1], [0.24, 0.23, 0.22]);
+R.setRoom({ solid, screen: createBatch(1), glass: createBatch(1), view: createBatch(1), textured: new Map() }, () => null);
+
+const cam = { yaw: Math.PI, pitch: -0.08, dist: 3.4, fov: 40, at: [0, 1.05, 0] };
+let spin = 0, drag = null;
+canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, yaw: cam.yaw, pitch: cam.pitch }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', (e) => { if (!drag) return; cam.yaw = drag.yaw - (e.clientX - drag.x) * 0.008; cam.pitch = Math.max(-1.2, Math.min(1.2, drag.pitch - (e.clientY - drag.y) * 0.006)); });
+canvas.addEventListener('pointerup', () => { drag = null; });
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.dist = Math.max(0.5, Math.min(9, cam.dist * (e.deltaY > 0 ? 1.08 : 1 / 1.08))); }, { passive: false });
+
+const WEAR = { all: null, body: { top: false, legs: false, shoes: false }, legs: { top: false } };
+function bodies() {
+  const n = Math.max(1, Math.min(8, +$('n').value || 1)), seed = +$('seed').value || 0, out = [];
+  for (let i = 0; i < n; i++) out.push({ id: `lab-${seed}-${i}`, at: [(i - (n - 1) / 2) * 0.85, 0], yaw: 0, pose: $('pose').value, dress: $('dress').value });
+  return out;
+}
+let crowdReady = false;
+function draw(now) {
+  globalThis.__houseComic = $('comic').checked;
+  const t = now / 1000;
+  if ($('spin').checked) spin += 0.006;
+  const B = bodies(), level = $('level').value, cut = $('cut').value, hair = $('hair').value, wear = WEAR[$('wear').value];
+  let recs = figurePeople(L, B, t, { level });
+  const EACH = ['coat', 'jacket', 'tee', 'hoodie', 'bomber', 'duster', 'vest', 'tunic'];
+  recs = recs.map((r, i) => {
+    const g = $('gear').value, gear = g === 'none' ? { belt: false } : g === 'all' ? { belt: true, strap: true, pouch: true, pads: true, gloves: true } : r.key.gear;
+    const mu = $('muts').value, body = mu === 'all' ? { mighty: 'R', thorn: true, horns: true, claws: true, teeth: true, goggles: true } : mu === 'none' ? null : r.key.body;
+    const key = { ...r.key, gear, body, ...(cut ? { cut: cut === 'each' ? EACH[(i + (+$('seed').value || 0)) % EACH.length] : cut } : {}), ...(hair !== '' ? { style: +hair } : {}), ...(wear ? { wear } : {}) };
+    if (g) r = { ...r, gloves: g === 'all' };
+    const face = r.face.slice(); face[2] = key.style;
+    return { ...r, key, face };
+  });
+  // turn everybody on the spot for the turntable: rotate each record's rows about its own feet
+  if (spin) for (let i = 0; i < recs.length; i++) {
+    const c = Math.cos(spin), s = Math.sin(spin), x0 = B[i].at[0], z0 = B[i].at[1], rows = recs[i].rows.slice();
+    for (let b = 0; b < rows.length; b += 12) for (let k = 0; k < 4; k++) {
+      const x = rows[b + k], z = rows[b + 8 + k];
+      const dx = k === 3 ? x - x0 : x, dz = k === 3 ? z - z0 : z;
+      rows[b + k] = c * dx + s * dz + (k === 3 ? x0 : 0); rows[b + 8 + k] = -s * dx + c * dz + (k === 3 ? z0 : 0);
+    }
+    recs[i] = { ...recs[i], rows };
+  }
+  R.setFigures(recs);
+  if ($('crowd').checked) {
+    if (!crowdReady) { preparePeople(); crowdReady = true; }
+    R.setPeople(peopleBatch(L, B.map((b) => ({ ...b, at: [b.at[0] + 0.42, b.at[1]] })), t));
+  } else R.setPeople(createBatch(1));
+  const cy = Math.cos(cam.pitch), eye = [cam.at[0] - Math.sin(cam.yaw) * cy * cam.dist, cam.at[1] - Math.sin(cam.pitch) * cam.dist, cam.at[2] - Math.cos(cam.yaw) * cy * cam.dist];
+  const day = +$('day').value;
+  R.render({ eye, yaw: cam.yaw, pitch: cam.pitch, fov: cam.fov }, {
+    lamp: [0.4, 2.5, 1.2], lampOn: $('lamp').checked, day, sky: [0.75, 0.82, 0.95],
+    win: { p: [-3.2, 1.5, 1.0], n: [1, 0, 0], a: [0, 0, 1.6], b: [0, 1.3, 0] },
+  });
+  $('stats').textContent = `${recs.length} people · ${R.figureTris.toLocaleString()} triangles`;
+}
+// draw(now) renders one frame on demand: a hidden Browser pane runs no animation frames
+window.__fig = { R, cam, bodies, draw };
+function loop(now) { requestAnimationFrame(loop); draw(now); }
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

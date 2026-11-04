@@ -1,9 +1,10 @@
 # Comic ink: the whole game in one comic-book style
 
 > **Status: built and on by default (2026-11-02): the house style, the inked faces, the players,
-> the park's lines and big plays replayed as a comic. Settings → Cel Shading turns it off. A phone
-> draws no ink on the city ([Step 5](#step-5-as-built)).** The look-dev prototype is a live
-> page in Dave's artifacts, "Deadball Comic Ink".
+> the park's lines, the rink ([The rink](#the-rink-as-built)) and big plays replayed as a comic.
+> Settings → Cel Shading turns it off. A phone draws no ink on the city
+> ([Step 5](#step-5-as-built)). What still falls short is in [Coverage](#coverage).** The look-dev
+> prototype is a live page in Dave's artifacts, "Deadball Comic Ink".
 
 ## Why
 
@@ -134,10 +135,13 @@ one ink, two bands, a figure's line widened 2.5 times in its view's own units an
 - **Off, nothing changes.** Every helper hands back the view's own numbers, and the city's keys for
   'off' and 'on' are windshield.js's shipped defaults. `scripts/shapes/house-style.mjs` gates both,
   reading the defaults out of windshield.js.
-- **Not switched:** the rink's lit shader has no band count to switch. (The park's players had
-  theirs compiled in; step 3 made it a uniform.)
+- **Not switched then:** the rink's lit shader had no band count to switch, and the park's players
+  had theirs compiled in. Step 3 made the park's a uniform, and [the rink](#the-rink-as-built) now
+  takes the whole figure look.
 
 ## Step 2, as built
+
+Since 2026-11-03 the close-up people (the Room Stage's, Deadball's players and the rink's heads) draw the inked atlas whatever the setting, and the street keeps the swap ([hd-figure.md](hd-figure.md#the-sports-people)).
 
 A second face atlas, `actor-faces-ink.png` and its half-size copy, painted by the same painter
 ([tools/modelshop/face-masks.mjs](../../tools/modelshop/face-masks.mjs) `paintFaceMasks(layout, {
@@ -229,6 +233,74 @@ it's null, so no line is drawn and no depth is kept for one.
   when that pass won't build draws no lines.
 - **Checked** in the Pose Lab: off, Comic, and off again pixel for pixel; the lens compiled and
   linked in Chrome with its four new uniforms live. house-style.mjs gates `parkInkOf`.
+
+## The rink, as built
+
+Rinkside ([gl/arena.js](../../client/game/js/panels/gl/arena.js)) gets the park's look, layer for
+layer. Before this it took only the house ink and a wider hull, over smooth light with a rim.
+
+- **The light.** LIT_FS takes `celKey` from [gl/cel-figure.js](../../client/game/js/panels/gl/cel-figure.js)
+  for the men, the nets, the Zamboni and the loose things: two bands over the painted shade, a hard
+  highlight, no rim, a line where the light steps, and hatching in full shadow. The rink has one
+  key, from the banks (`KEY` in gl/arena-heads.js), so `celKey` is `celInk` and the bands under one
+  light. `uCel` is set per draw, so the boards, the bowl and the gates' doors keep their own light,
+  as the park's stands do. The heads (gl/arena-heads.js) take the same branch.
+- **The hatching rides the man.** A rink body is rebuilt in rink space every frame, so it has no
+  bind pose. `hatchBody` in [gl/arena-mesh.js](../../client/game/js/panels/gl/arena-mesh.js) writes
+  each untextured vertex's place on him (feet across and up from his hips) into its uv, which
+  nothing else reads; a sweater's own uv already runs round him (`SWEATER_FT`), and a head hatches
+  in its bind space. His skating and his turning don't move the strokes; a swinging limb moves
+  through them a little. It runs only with the look on.
+- **The weighted line.** [gl/ink.js](../../client/game/js/panels/gl/ink.js) `INK_VS` swells to
+  `HOUSE.weigh` on the side away from `uKey`, as the park's line does. A view that never sets
+  `uWeigh` (the kitchen) reads 0 as 1.
+- **Inked sweaters.** `inkSweater` paints the park kits' strokes at the rink's slot scale: the side
+  seams and the collar ruled, folds under the arms and off the hem, a quarter-strength painted
+  shadow, and the number, the name and the plain crest outlined. The strokes are
+  [comic-pen.js](../../client/game/js/panels/comic-pen.js), which diamond/kits.js now uses too. The
+  look is in the slot key, so a flip repaints.
+- **The screen pass.** The rink draws straight to the canvas, whose depth can't be read, so with the
+  look on it draws the bowl, the fans, the boards and the men again into a depth of its own and
+  runs gl/ssao.js `ink` over it (`rinkInkOf`). The camera's projection puts depth in w, so its
+  constants are its own, not `ssaoConstants`. Outlines only, as in the park: the detail channel
+  lines every row of seats. The lines go down after the ice, under the glass, the nets and the spray.
+  The governor's last rung (`lines: false`) drops the pass; the men keep their hull.
+- **Not measured:** what drawing the bowl and the fans a second time costs each frame, on any
+  device.
+- **Checked** in the rink sandbox (tools/sandbox/hockey-rink-test.html): off and Comic from the low
+  camera; the lines' texture read back and the picture near black under its outlines. arena-smoke
+  checks `hatchBody` holds a vertex's place on a moved and a turned man; house-style.mjs gates
+  `rinkInkOf`.
+
+## The comic light, as built (2026-11-03)
+
+The two bands, the line where the light steps and the hatching in full shadow read as too much on people: every nose, fold and pad threw its own hard island of shadow, and the bands put the terminator near N·L 0.43, so half of every form was in shadow. Figures and rooms now take the comic light ([gl/comic-light.js](../../client/game/js/panels/gl/comic-light.js)) under the comic look instead:
+
+- **One terminator, on the form.** Lit or in shadow by `comicStep`, a crisp antialiased step a little past side-on (`COMIC.wrap`, N·L −0.12), so a form is mostly lit with its shadow down the far side. People decide it on form normals ([form-normals.js](../../client/game/js/panels/form-normals.js)): the close-up figure has them baked as their own attribute; the sports' heads have their normals leaned onto them (`formLeaned`), and their bodies are smooth lofts already.
+- **A shadow that's a value of the light**: about half of it, moved toward `HOUSE.shade`, darkest in a core just past the terminator and lifted again by the bounce (`comicShadeK`), with a thin rim lifting a silhouette in shadow.
+- **No line or hatching inside a figure.** The ink pass's outline stays; the inked atlas draws the faces.
+
+Where it is: `celKey` (gl/cel-figure.js), so the rink's men and heads; the park's players (gl/ballpark.js, per lamp bank in `celAdd`, the shadow after the loop); `roomLight` (gl/room-light.js), whose comic branch used to band the summed light and drew contour rings round the lamp across every wall; and the Room Stage's people (gl/figure-hd.js `comicTone`). `celInk` and the bands are still what the kitchen, the angler and the city use. The comic look's inked kit textures (step 3) are unchanged.
+
+## Coverage
+
+What each view takes of the look, after the rink. "Own" is the view's own light.
+
+| View | Ink | Bands | Painted shade | Edge line, hatching | Weighted line | Inked textures | Screen pass |
+|---|---|---|---|---|---|---|---|
+| Park players | ✓ | ✓ | ✓ | ✓ | ✓ | kits | ✓ |
+| Rink skaters | ✓ | ✓ | ✓ | ✓ | ✓ | sweaters | ✓ (not the last rung) |
+| Angler | ✓ | ✓ | ✓ | no | no | no | no |
+| Kitchen | ✓ | ✓ | own | no | no | no | no |
+| Street people, buildings | ✓ | ✓ | own grey | no | no | no | city (not phones) |
+| Vehicles ([V1](vehicle-comic.md#v1-as-built), [V2](vehicle-comic.md#v2-as-built)) | ✓ | ✓ | ✓ | no | the own ship | no | city (not phones) |
+
+Bringing the vehicles and the cockpits up to the figures is scoped in
+[vehicle-comic.md](vehicle-comic.md) (design).
+
+Not touched at all: the hockey fly-in (gl/approach.js), what you hold in a box suite
+(stands-hands-gl.js), and the park's plain fallback when its broadcast pass won't build. The
+comic replays are Deadball's only.
 
 ## Comic replays
 

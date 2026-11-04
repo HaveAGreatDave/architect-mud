@@ -14,10 +14,12 @@
 // applied by main.js `_applyCelShade`, which leaves `__houseComic` on the window. It's read on
 // every call, so the next frame shows a change, and a view loaded later finds it already set.
 //
-// What step 1 covers: one ink colour, heavier lines round every figure, two bands where a view's
-// band count is a uniform, and the city's cel look switched on with the same numbers. The painted
-// shadow, the line along the light's edge, hatching, the weighted line and the inked kits and faces
-// are later steps; a view whose bands are compiled into its shader (the park's players) keeps them.
+// What reads what: every view takes the one ink (inkOf, cityInkCol). The park's players, the
+// rink's skaters and the angler take the whole figure look (figureLightOf: two bands, the painted
+// shade, the line along the light's edge, hatching, the weighted line); the kitchen takes its bands
+// (bandsOf); the city takes its tune keys (cityTuneFor); the vehicles take two tones and the
+// painted shade (vehicleLightOf). The park and the rink line their pictures
+// off a depth (parkInkOf, rinkInkOf). Which views still fall short is in the doc's Coverage table.
 //
 // Pure: no DOM and no GL.
 
@@ -67,6 +69,16 @@ export function figureLightOf(own) {
 export function parkInkOf(w) {
   if (!comicOn()) return null;
   return { step: Math.max(1, HOUSE.parkPx * w / 900), fade: HOUSE.parkFade, col: HOUSE.parkInk };
+}
+
+/**
+ * The rink's screen-pass lines (gl/arena.js) for a picture `w` device pixels wide: null unless the
+ * comic look is on. The park's width; outlines only, as the park's; and the house ink as it is,
+ * since the rink draws straight to the canvas with no grade after it.
+ */
+export function rinkInkOf(w) {
+  if (!comicOn()) return null;
+  return { step: Math.max(1, HOUSE.parkPx * w / 900), col: HOUSE.ink };
 }
 
 /**

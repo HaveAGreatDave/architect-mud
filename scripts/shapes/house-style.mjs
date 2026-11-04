@@ -7,7 +7,7 @@
 //
 // No DOM, no GL, no files written.
 
-import { HOUSE, comicOn, inkOf, bandsOf, cityInkCol, cityTuneFor, figureLightOf, parkInkOf, vehicleLightOf } from '../../client/game/js/panels/gl/house-style.js';
+import { HOUSE, comicOn, inkOf, bandsOf, cityInkCol, cityTuneFor, figureLightOf, parkInkOf, rinkInkOf, vehicleLightOf } from '../../client/game/js/panels/gl/house-style.js';
 import { readFileSync } from 'node:fs';
 
 let fails = 0;
@@ -32,6 +32,7 @@ check(bandsOf(3) === 3, 'off: a view keeps its own bands');
 }
 check(cityInkCol(own.col) === own.col, 'off: the city keeps its own ink colour');
 check(parkInkOf(1800) === null, 'off: no park lines, so no depth is kept for them');
+check(rinkInkOf(1800) === null, 'off: no rink lines, so the rink draws nothing twice');
 check(vehicleLightOf().comic === 0, 'off: a vehicle keeps its own light');
 for (const [mode, on] of [['off', 0], [false, 0], [undefined, 0], ['nonsense', 0], ['on', 1], [true, 1]]) {
   const t = cityTuneFor(mode);
@@ -58,6 +59,10 @@ check(vehicleLightOf().comic === 1 && same(vehicleLightOf().shade, HOUSE.shade),
   const pk = parkInkOf(1800);
   check(pk && pk.step === HOUSE.parkPx * 2 && parkInkOf(300).step === 1 && same(pk.col, HOUSE.parkInk), 'comic: park lines scaled to the picture, never under a texel');
   check(pk.fade[1] < 0 && pk.fade[2] > 0 && pk.fade[3] > pk.fade[2], 'comic: the park keeps outlines and no detail lines (the field reads as creases)');
+}
+{
+  const rk = rinkInkOf(1800);
+  check(rk && rk.step === HOUSE.parkPx * 2 && rinkInkOf(300).step === 1 && same(rk.col, HOUSE.ink), 'comic: rink lines at the park width, never under a texel, in the house ink');
 }
 const t = cityTuneFor('comic');
 check(t.glToon === 1 && t.glInk === 1 && t.glToonBands === HOUSE.bands && t.glInkPx === HOUSE.cityPx, 'cityTuneFor(comic): the cel look on at the house numbers');

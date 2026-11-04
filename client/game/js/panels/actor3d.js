@@ -14,6 +14,7 @@
 // GLASS's ground-plane tiles; windshield.js decides how many tiles a metre is (see actorMetreTiles).
 
 import { actorFace, faceHair, faceLip, FACE_LAYOUTS } from './actor-faces.js';
+import { buildFigure, figureCut, figureSole, FIGURE_BONES, FIG_SLOT } from './figure.js';
 
 // ── Matrices: column-major 4×4, element (row r, col c) at m[c * 4 + r] ─────────────────────────────
 function m4() { const m = new Float64Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; }
@@ -33,30 +34,9 @@ const TAU = Math.PI * 2;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const smooth = (e0, e1, x) => { const t = clamp01((x - e0) / (e1 - e0)); return t * t * (3 - 2 * t); };
 
-// ── The skeleton. Every rest rotation is identity, so a bind matrix is a translation. ──────────────
-const BONES = [
-  ['pelvis', -1, [0, 0.95, 0]],
-  ['spine', 0, [0, 0.10, 0]],
-  ['chest', 1, [0, 0.17, 0]],
-  ['neck', 2, [0, 0.21, -0.005]],
-  ['head', 3, [0, 0.10, 0.01]],
-  ['uarmL', 2, [0.195, 0.17, -0.01]],
-  ['farmL', 5, [0, -0.29, 0]],
-  ['handL', 6, [0, -0.25, 0]],
-  ['uarmR', 2, [-0.195, 0.17, -0.01]],
-  ['farmR', 8, [0, -0.29, 0]],
-  ['handR', 9, [0, -0.25, 0]],
-  ['thighL', 0, [0.095, -0.03, 0]],
-  ['shinL', 11, [0, -0.43, 0]],
-  ['footL', 12, [0, -0.41, 0]],
-  ['thighR', 0, [-0.095, -0.03, 0]],
-  ['shinR', 14, [0, -0.43, 0]],
-  ['footR', 15, [0, -0.41, 0]],
-  // The ball of each foot, so the heel can lift while the toes stay down. Last, so no other bone's
-  // index moves.
-  ['toeL', 13, [0, -0.06, 0.095]],
-  ['toeR', 16, [0, -0.06, 0.095]],
-];
+// ── The skeleton (figure.js FIGURE_BONES). Every rest rotation is identity, so a bind matrix is a
+// translation. ──────────────────────────────────────────────────────────────────────────────────────
+const BONES = FIGURE_BONES;
 const B = {};
 BONES.forEach((b, i) => { B[b[0]] = i; });
 const REST = [];
@@ -149,53 +129,31 @@ function loft(M, st, nu, sub, wf, mat, shape, cap) {
   if (cap) { const c = V(...cap), f = rings[0]; for (let k = 0; k < nu; k++) M.i.push(c, f[(k + 1) % nu], f[k]); }
   stitch(M, rings);
 }
-const flatSole = (x, y, z) => [x, Math.max(y, 0.004), z];
 
-// `lod` 0 is the close-up body. 1 is the far one, for somebody a few pixels tall: six sides to every
-// loft, every other station, no face, and a hand or a shoe is a lump. It keeps the skeleton, the
-// weights and the material slots, so it plays the same clips in the same outfit.
+// `lod` 0 is the close-up body. 1 is the far one, for somebody a few pixels tall. Both are the
+// close-up figure's coat, trousers, shoes and hands (figure.js), sampled coarsely: the crowd wears
+// what the Room Stage's people wear, just without the detail, and the far body is the same again
+// with six sides to a loft and lumps for hands. Each keeps the skeleton, two bones a vertex and
+// the material slots, so it plays the same clips in the same outfit.
 //
 // `head` false leaves out the neck, the head and everything on it, which is the close-up body the
 // game bakes: gl/actors.js draws actor-head.js's head in their place, riding bk.bones. The far body
 // always keeps its own, and so does actorBake({ head: true }), which the Actor Lab and the gate use.
+const SLOT_MAT = { [FIG_SLOT.skin]: SKIN, [FIG_SLOT.top]: COAT, [FIG_SLOT.collar]: COAT, [FIG_SLOT.legs]: LEGS, [FIG_SLOT.shoes]: SHOE, [FIG_SLOT.gear]: SHOE };
 function buildBody(lod = 0, head = true) {
   const M = meshBuilder();
   const far = lod > 0;
   const N = far ? 6 : 14, SUB = far ? 0 : 1;
-  const thin = (st) => (far ? st.filter((_, i) => i % 2 === 0 || i === st.length - 1) : st);
   const ell = (c, r, nu, nv, wf, mat, shape) => ellipsoid(M, c, r, far ? Math.max(4, nu >> 1) : nu, far ? Math.max(3, nv >> 1) : nv, wf, mat, shape);
-  const torso = chainW([
-    { y: 1.43, a: B.neck, b: B.chest, h: 0.025 },
-    { y: 1.17, a: B.chest, b: B.spine, h: 0.06 },
-    { y: 1.02, a: B.spine, b: B.pelvis, h: 0.05 },
-  ]);
-  // Below the hips the coat is split front and back, so each side follows its own thigh; the centre
-  // line stays with the pelvis, which keeps the two halves joined.
-  const coatW = (x, y, z) => {
-    if (y > 0.93) return torso(x, y, z);
-    const k = smooth(0.93, 0.62, y) * 0.92 * Math.min(1, Math.abs(x) / 0.03);
-    return [B.pelvis, x >= 0 ? B.thighL : B.thighR, 1 - k];
-  };
-  // The shoulders slope down from the neck, as the trapezius does, instead of running out flat like
-  // pads: the top of the coat is lifted most beside the neck, more at the back than over the
-  // collarbones, and not at all at the point of the shoulder. Front to back the top is a ridge, not
-  // a dome.
-  const yoke = (x, y, z) => [x, y + 0.018 * smooth(1.37, 1.445, y) * (1 - smooth(0.06, 0.19, Math.abs(x))) * (1 - 0.5 * smooth(0, 0.07, z)), z];
-  loft(M, thin([
-    [1.475, 0.068, 0.064, 0, -0.008],
-    [1.445, 0.125, 0.086, 0, -0.01],
-    [1.43, 0.172, 0.100, 0, -0.01],
-    [1.40, 0.200, 0.114, 0, -0.01],
-    [1.33, 0.195, 0.125, 0, 0.0],
-    [1.24, 0.180, 0.128, 0, 0.005],
-    [1.13, 0.165, 0.118, 0, 0.0],
-    // The hips are wider than the thighs' tops with room to spare: at 0.175 the tops poked out of
-    // the coat's front corners and read as a patch of trouser colour, like a pocket.
-    [1.02, 0.168, 0.118, 0, -0.005],
-    [0.92, 0.190, 0.130, 0, -0.005],
-    [0.78, 0.200, 0.142, 0, 0.0],
-    [0.62, 0.205, 0.150, 0, 0.005],
-  ]), N, SUB, coatW, COAT, yoke);
+  {
+    // the clothes and hands, two bones a vertex: the figure's two heaviest, renormalised
+    const F = buildFigure({ cut: 'coat', level: far ? 'far' : 'crowd' });
+    for (let v = 0; v < F.nv; v++) {
+      const w0 = F.W[v * 4], w1 = F.W[v * 4 + 1], b1 = w1 > 0 ? F.B[v * 4 + 1] : F.B[v * 4];
+      M.p.push(F.P[v * 3], F.P[v * 3 + 1], F.P[v * 3 + 2]); M.b0.push(F.B[v * 4]); M.b1.push(b1); M.w.push(w0 / (w0 + w1 || 1)); M.m.push(SLOT_MAT[F.S[v]] ?? COAT);
+    }
+    for (const i of F.I) M.i.push(i);
+  }
   const onHead = rigid(B.head);
   if (head) {
     loft(M, [[1.57, 0.047, 0.05, 0, 0.0], [1.46, 0.052, 0.056, 0, -0.005]], N, SUB,
@@ -211,43 +169,12 @@ function buildBody(lod = 0, head = true) {
     const hair = (x, y, z) => { const f = 1.64 + 0.6 * Math.max(z, -0.1); return y < f ? [x * 0.93, f, z * 0.93] : [x, y, z]; };
     ell([0, 1.668, 0.0], [0.084, 0.094, 0.1], 18, 10, onHead, HAIR, hair);
   }
-  for (const s of [1, -1]) {
-    const L = s > 0 ? 'L' : 'R', x = 0.195 * s, lx = 0.095 * s;
-    if (head && !far) {
+  if (head && !far) {
+    for (const s of [1, -1]) {
       ellipsoid(M, [0.077 * s, 1.643, 0.0], [0.011, 0.028, 0.018], 8, 5, onHead, SKIN);
       ellipsoid(M, [0.029 * s, 1.66, 0.095], [0.012, 0.0075, 0.006], 8, 5, onHead, EYE);
       ellipsoid(M, [0.03 * s, 1.684, 0.093], [0.02, 0.005, 0.008], 8, 4, onHead, HAIR);
     }
-    // The sleeve's top is a closed cap, the round of the shoulder: its inner half goes in under the
-    // coat's yoke and its outer half falls away to the arm, so there's no open ring standing on
-    // the shoulder like an epaulette. Only the cap leans, on rings that ride the chest alone: below
-    // them the sleeve twists with the upper arm (folded arms turn it about 80°), and a lean there
-    // would swing round to the front as a peak.
-    const deltoid = (px, py, pz) => [px, py - 0.6 * smooth(1.405, 1.432, py) * Math.max(0, (px - x) * s), pz];
-    loft(M, thin([
-      [1.436, 0.034, 0.04, x - 0.006 * s, -0.01], [1.426, 0.052, 0.057, x - 0.002 * s, -0.01],
-      [1.41, 0.058, 0.062, x, -0.01], [1.36, 0.058, 0.06, x, -0.01], [1.26, 0.054, 0.056, x, -0.01],
-      [1.16, 0.048, 0.05, x, -0.01], [1.10, 0.046, 0.048, x, -0.01], [1.02, 0.045, 0.046, x, -0.01],
-      [0.93, 0.043, 0.044, x, -0.01], [0.875, 0.046, 0.046, x, -0.01],
-    ]), N, SUB, chainW([
-      { y: 1.39, a: B.chest, b: B['uarm' + L], h: 0.03 },
-      { y: 1.10, a: B['uarm' + L], b: B['farm' + L], h: 0.045 },
-    ]), COAT, deltoid, [x - 0.01 * s, 1.441, -0.01]);
-    ell([x, 0.795, 0.005], [0.026, 0.068, 0.043], 10, 8, rigid(B['hand' + L]), SKIN);
-    if (!far) ellipsoid(M, [x, 0.83, 0.038], [0.016, 0.03, 0.016], 8, 6, rigid(B['hand' + L]), SKIN);
-    loft(M, thin([
-      [0.965, 0.075, 0.085, lx, -0.005], [0.88, 0.080, 0.086, lx, 0.0], [0.76, 0.072, 0.078, lx, 0.005],
-      [0.62, 0.060, 0.064, lx, 0.005], [0.53, 0.053, 0.057, lx, 0.0], [0.47, 0.053, 0.058, lx, 0.0],
-      [0.40, 0.055, 0.062, lx, -0.008], [0.30, 0.050, 0.055, lx, -0.005], [0.18, 0.045, 0.048, lx, 0.0],
-      [0.10, 0.050, 0.052, lx, 0.0],
-    ]), N, SUB, chainW([
-      { y: 0.93, a: B.pelvis, b: B['thigh' + L], h: 0.04 },
-      { y: 0.49, a: B['thigh' + L], b: B['shin' + L], h: 0.04 },
-      { y: 0.095, a: B['shin' + L], b: B['foot' + L], h: 0.02 },
-    ]), LEGS);
-    // The shoe bends at the ball: behind it rides the foot, in front the toes.
-    const toeW = (x, y, z) => [B['foot' + L], B['toe' + L], 1 - smooth(0.072, 0.118, z)];
-    ell([lx, 0.052, 0.045], [0.048, 0.052, 0.122], 20, 7, toeW, SHOE, flatSole);
   }
   return M;
 }
@@ -259,7 +186,8 @@ function bump(q, c, w) { let d = q - c; d -= Math.round(d); return Math.exp(-0.5
 // The walk: sagittal joint curves shaped after clinical gait data. Right heel strike at 0, left at 0.5.
 // The hip flexes 30° at heel strike and extends 12° at toe-off, peaking in late swing; the knee has
 // its small loading bend and its big swing bend (about 60° at 72%); the ankle rolls, the heel comes
-// up from 40% while the toes bend at the ball and stay down, it pushes off at 62%, then clears. Each
+// up from 40% while the toes bend at the ball and stay down, it pushes off at 62%, then clears, lifting
+// 7° through late swing so the shoe's flat sole clears the ground (4° let the ball brush it). Each
 // leg turns out a few degrees and lands a little inside the hip, so the feet fall about 12 cm apart
 // rather than hip-width.
 function walkPose(p) {
@@ -267,7 +195,7 @@ function walkPose(p) {
   const leg = (q, s, side) => {
     const hip = 9 + 21 * Math.cos(TAU * (q - 0.03)) + 2.5 * Math.sin(2 * TAU * q);
     const knee = 4 + 14 * bump(q, 0.13, 0.06) + 58 * bump(q, 0.72, 0.11);
-    const ank = -6 * bump(q, 0.05, 0.035) + 11 * bump(q, 0.4, 0.11) - 20 * bump(q, 0.62, 0.055) + 4 * bump(q, 0.82, 0.08);
+    const ank = -6 * bump(q, 0.05, 0.035) + 11 * bump(q, 0.4, 0.11) - 20 * bump(q, 0.62, 0.055) + 7 * bump(q, 0.82, 0.08);
     setR(P, 'thigh' + s, -hip * DEG, side * 6 * DEG, -side * 2 * DEG);
     setR(P, 'shin' + s, knee * DEG, 0, 0);
     setR(P, 'foot' + s, -ank * DEG, 0, 0);
@@ -496,11 +424,12 @@ export const ACTOR_BONE = B;
 // first use rather than at import, because windshield.js imports this module at boot. ──────────────
 function solveRoot(clip) {
   if (clip.surge) return;
-  // Points along each sole in the foot bone's own frame, heel to toe. The one lowest on the ground is
+  // Points along each sole in the foot bone's own frame, heel to toe: the shoe's own sole line
+  // (figure.js figureSole), which curves up at the heel and the toe. The one lowest on the ground is
   // what the foot is pivoting on, so it's the one that has to stay still: locking the ankle instead
   // lets the heel skate at strike and the toes skate at push-off. Past the ball of the foot a point
   // rides the toe bone, which stays flat while the heel comes up.
-  const SOLE = [-0.03, 0.015, 0.06, 0.095, 0.13, 0.16].map((z) => [0, -0.076, z]);
+  const SOLE = figureSole().map(([z, y]) => [0, y - REST[B.footL][1], z]);
   const BALL = BONES[B.toeL][2];
   const S = 256, pts = [];
   for (let i = 0; i <= S; i++) {
@@ -516,10 +445,12 @@ function solveRoot(clip) {
   const v = new Float64Array(S);
   let mean = 0;
   for (let i = 0; i < S; i++) {
-    // The lower ankle says which foot is down; the lowest point on that sole is its pivot.
-    const foot = pts[i][0].ankle < pts[i][1].ankle ? 0 : 1, sole = pts[i][foot].sole;
-    let k = 0;
-    for (let j = 1; j < sole.length; j++) if (sole[j][0] < sole[k][0]) k = j;
+    // The lowest point of either sole is the foot that's down and its pivot. (The lower ankle used to
+    // choose the foot, which in double support pinned the leading heel while the trailing toe was
+    // still the lowest thing on the body and slid.)
+    let foot = 0, k = 0;
+    for (let f = 0; f < 2; f++) { const s = pts[i][f].sole; for (let j = 0; j < s.length; j++) if (s[j][0] < pts[i][foot].sole[k][0]) { foot = f; k = j; } }
+    const sole = pts[i][foot].sole;
     v[i] = -(pts[i + 1][foot].sole[k][1] - sole[k][1]);
     mean += v[i] / S;
   }
@@ -681,6 +612,17 @@ export function actorBake({ head = false } = {}) {
   }
   return _bakeHead;
 }
+// A clip's pose at `phase` as skin matrices, one a bone (column-major 4×4, bind space to the clip's
+// own, the walk's root surge in but not the drop to the ground): for a figure posed on the CPU and
+// skinned on the GPU (gl/room-people.js figurePeople). `name` is an ACTOR_CLIPS name.
+export function actorSkinAt(name, phase) {
+  const clip = CLIPS.find((c) => c.name === name) || CLIPS[1];
+  if (clip.walk) solveRoot(clip);
+  const ph = ((phase % 1) + 1) % 1, pose = clip.fn(ph);
+  if (clip.surge) pose.root[2] += clip.surge(ph);
+  return skinMats(fk(pose));
+}
+
 // The body unposed, in bind space, with each vertex's two bones and the first one's weight: for the
 // gate, which measures the head's matrices against it. Built fresh; the game never calls it.
 export function actorBind(lod = 0, head = true) {
@@ -753,6 +695,8 @@ export function actorOutfit(rand) {
   const f = actorFace(rand);
   o.hair = faceHair(o.hair, f.layout).map(Math.round);
   o.face = { ...f, makeup: FACE_LAYOUTS[f.layout].makeup, lip: faceLip(o.skin) };
+  // What they wear over the trousers close up (figure.js FIGURE_CUTS); the crowd's bake is the coat.
+  o.cut = figureCut(rand);
   const [r, g, b] = o.coat;
   const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
   o.tone = Math.max(0, Math.min(5, Math.floor(luma * 1.9 * 6)));

@@ -100,7 +100,10 @@ function peopleIn(zoneId, pieces) {
   }
   for (const n of getZoneNpcs(zoneId)) {
     const on = n.onFurniture || n.sittingOn;
-    out.push({ id: n.id, name: n.name, npc: true, posture: n.posture || 'standing', on: on ? byName.get(on) || null : null });
+    // an NPC's order, when it has one, so the client can dress them as it dresses (gl/room-people.js);
+    // the room already shows who they are by name, so this tells a viewer nothing the tag doesn't
+    const order = typeof n.faction === 'string' && n.faction.startsWith('ideology_') ? n.faction : undefined;
+    out.push({ id: n.id, name: n.name, npc: true, posture: n.posture || 'standing', on: on ? byName.get(on) || null : null, ...(order ? { order } : {}) });
   }
   return out;
 }
