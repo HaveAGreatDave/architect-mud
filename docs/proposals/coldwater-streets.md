@@ -80,7 +80,7 @@ lane. A straight tile is still marked in `RAISED_WALK`.
 |---|---|
 | Walkway | A dark slab with chrome panels on it, two ink bands across each; one panel in sixteen is a duller inspection hatch with four bolts and a cyan pip |
 | Kerb | A steel cap along the lane edge with a cyan light set into the face the lane sees, and a drain slot with grate bars in the lane at its foot |
-| Lane | Matte near-black, a cyan guide dash down the middle, an edge line inside each drain, and LICENSED stencilled across it at each end of the block. ⚠ It stands 0.07 m up, above `ROAD_EPS`: at 0.03 m it sat under the road it covers |
+| Lane | Matte near-black, a cyan guide dash down the middle and an edge line inside each drain. ⚠ It stands 0.07 m up, above `ROAD_EPS`: at 0.03 m it sat under the road it covers |
 | Metered strip | A belt in a steel housing with amber lights along it, chevrons the way it runs. The belt on your right carries you forward. Near to the chevrons move, at 1.4 m/s in the core and 0.45 in the middle ring |
 | Toll gate | Two posts with amber caps either side of each strip, a hazard comb plate across the belt, ₵1 A RIDE over it on both faces |
 | Bollard | Octagonal, 0.95 m, on a base plate, a cyan ring near the top and a red sensor eye on the lane side; a gap of at least 5 m at the crossing |

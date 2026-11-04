@@ -1,7 +1,7 @@
 // ── THE STREET KIT: COLDWATER'S LANE, WALKWAYS AND WHAT STANDS ON THEM ───────────────────────────
 //
 // Coldwater Streets (docs/proposals/coldwater-streets.md). One street, built from parts: a 4 m
-// licensed lane between two 5.6 m walkways raised 0.18 m, a steel kerb with a light set into
+// lane between two 5.6 m walkways raised 0.18 m, a steel kerb with a light set into
 // its face, a metered strip down each walkway with a toll gate at each end of the block, bollards
 // every 2.5 m, a crossing in the middle of the block, a public footbridge with a glass lift at
 // each end at the end of the block, planters with benches, vents,
@@ -88,7 +88,7 @@ const PAL = {
   planter: [42, 49, 64], trunk: [59, 48, 38], crown: [47, 138, 128], bench: [120, 128, 138],
   grate: [10, 12, 16], slat: [34, 38, 46], lid: [36, 42, 52], tactile: [214, 160, 40], stud: [240, 196, 90],
   steel: [154, 166, 181], steelDk: [42, 49, 64], glass: [120, 168, 190], cab: [216, 226, 236],
-  stencil: '#9fd8e8',
+ 
 };
 
 // ── THE CONDITION LADDER ─────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ const PAL = {
 //   marks         'ink' is the chrome's two reflection bands, 'scuff' a worn plate's scratches
 //   cyan, amber   every small light; a dead one is the same part in the same place, unlit
 //   speed         how fast the strip runs, m/s. Stopped from Worn down, and still priced
-//   stencil, price  the lettering; null at dirt, where nothing carries words
+//   price         the strip's lettering; null at dirt, where nothing carries words
 //   gateGone, bollardGone, bollardFlat  the share of posts missing or knocked over
 //   lean          how far a pole or post has gone over, in radians
 //   steam         how hard the vents go: more of it the less anybody is looking after them
@@ -111,25 +111,25 @@ const DEAD_CYAN = [16, 35, 43], DEAD_AMBER = [26, 18, 6];
 export const LEVEL = Object.freeze([
   { name: 'core', top: PAL.chrome, topMat: 'metal', slab: PAL.slab, panels: [PAL.chrome], panelMat: 'metal', hatch: PAL.hatch, patch: 0, patches: null, gone: 0, door: 0, tilt: 0, marks: 'ink',
     cap: PAL.cap, capMat: 'metal', lane: PAL.lane, guide: PAL.guide, cyan: PAL.cyan, cyanMat: 'lit', amber: PAL.amber, amberMat: 'lit', edge: true, cracks: 0,
-    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 1.4, stencil: PAL.stencil, price: '#ffb21d', priceLit: true,
+    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 1.4, price: '#ffb21d', priceLit: true,
     gateGone: 0, bollardGone: 0, bollardFlat: 0, zebra: PAL.amber, zebraMat: 'lit', lamp: 'blink', lean: 0,
     crown: PAL.crown, crownK: 1, tree: 'lit', deck: PAL.chrome, junk: 0, weeds: 0, steam: 1 },
   { name: 'middle', top: [185, 201, 214], topMat: 'metal', slab: PAL.slab, panels: [[185, 201, 214]], panelMat: 'metal', hatch: PAL.hatch, patch: 0.2, patches: [[185, 170, 142], [159, 178, 161], [201, 193, 180], [167, 161, 179]], gone: 0, door: 0, tilt: 0, marks: 'ink',
     cap: PAL.cap, capMat: 'metal', lane: PAL.lane, guide: PAL.guide, cyan: PAL.cyan, cyanMat: 'lit', amber: PAL.amber, amberMat: 'lit', edge: true, cracks: 0,
-    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 0.45, stencil: PAL.stencil, price: '#ffb21d', priceLit: true,
+    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 0.45, price: '#ffb21d', priceLit: true,
     gateGone: 0, bollardGone: 0, bollardFlat: 0, zebra: PAL.amber, zebraMat: 'lit', lamp: 'blink', lean: 0,
     crown: [47, 124, 116], crownK: 1, tree: 'lit', deck: [185, 201, 214], junk: 0, weeds: 0, steam: 1.1 },
   { name: 'worn', top: [136, 140, 142], topMat: 'metal', slab: [58, 58, 56], panels: [[142, 147, 151], [128, 133, 138], [153, 152, 145]], panelMat: 'metal', hatch: [104, 108, 112], patch: 0, patches: null, gone: 0.08, door: 0.015, tilt: 0.02, marks: 'scuff',
     cap: [128, 132, 136], capMat: 'metal', lane: PAL.lane, guide: PAL.cyanDim, cyan: PAL.cyanDim, cyanMat: 'lit', amber: PAL.amberDim, amberMat: 'paint', edge: true, cracks: 0,
-    strip: [12, 30, 40], stripMat: 'paint', chevron: [32, 72, 86], chevronMat: 'paint', speed: 0, stencil: '#5f8390', price: '#b07a10', priceLit: true,
+    strip: [12, 30, 40], stripMat: 'paint', chevron: [32, 72, 86], chevronMat: 'paint', speed: 0, price: '#b07a10', priceLit: true,
     gateGone: 0, bollardGone: 0.12, bollardFlat: 0, zebra: [176, 122, 16], zebraMat: 'lit', lamp: 'steady', lean: 0,
     crown: [107, 90, 52], crownK: 0.7, tree: 'wilted', deck: [142, 147, 151], junk: 0, weeds: 0, steam: 1.3 },
   { name: 'unmaintained', top: [100, 90, 76], topMat: 'paint', slab: [42, 36, 28], panels: [[125, 106, 85], [110, 111, 106], [138, 106, 72], [92, 90, 82]], panelMat: 'paint', hatch: [84, 74, 62], patch: 0, patches: null, gone: 0.3, door: 0, tilt: 0.05, marks: 'scuff',
     cap: [104, 96, 84], capMat: 'paint', lane: [28, 26, 23], guide: null, cyan: DEAD_CYAN, cyanMat: 'paint', amber: DEAD_AMBER, amberMat: 'paint', edge: false, cracks: 7,
-    strip: [20, 22, 22], stripMat: 'paint', chevron: [34, 42, 44], chevronMat: 'paint', speed: 0, stencil: '#3d4a4e', price: '#6a5420', priceLit: false,
+    strip: [20, 22, 22], stripMat: 'paint', chevron: [34, 42, 44], chevronMat: 'paint', speed: 0, price: '#6a5420', priceLit: false,
     gateGone: 0.33, bollardGone: 0.3, bollardFlat: 0.25, zebra: [106, 84, 32], zebraMat: 'paint', lamp: 'dead', lean: 0.22,
     crown: null, crownK: 0, tree: 'stump', deck: [110, 111, 106], junk: 3, weeds: 20, steam: 1.6 },
-  { name: 'dirt', dirt: true, stencil: null, price: null, deck: [110, 111, 106], junk: 6, weeds: 12, steam: 0 },
+  { name: 'dirt', dirt: true, price: null, deck: [110, 111, 106], junk: 6, weeds: 12, steam: 0 },
 ]);
 
 // ── WHERE A BLOCK'S PARTS STAND ──────────────────────────────────────────────
@@ -645,26 +645,13 @@ export function drawStreetKit(o) {
 
   if (doStatic) {
     // ── THE LANE'S PAINT ──
-    // A dashed cyan guide line down the middle (a 2.9 m dash in a 4.7 m pitch), an edge line inside
-    // each drain near to, and LICENSED stencilled across the lane at each end of the block, read by
-    // a driver coming in.
+    // A dashed cyan guide line down the middle (a 2.9 m dash in a 4.7 m pitch) and an edge line inside
+    // each drain near to.
     if (LV.guide) for (const u of spaced(TILE_M / 3.8, 0)) {
       if (nearCross(u, K.ZEBRA_L / 2 + 1.45)) continue;   // no dash through the zebra
       box(u, 0, M(1.45), M(0.08), LANE_Z, LINE_Z, LV.guide, 'lit');
     }
     if (near && LV.edge) for (const s of [-1, 1]) box(0, s * (LANE_HW - M(0.5)), 0.5, M(0.025), LANE_Z, LINE_Z, PAL.edge, 'lit');
-    if (write && LV.stencil) {
-      const L = ns ? 1 : -1, hw = M(1.5), hl = M(0.55), z = LINE_Z;
-      const stencil = (uc, dir) => {
-        // dir +1: read by a driver heading +u; the far edge (+u) is the top of the letters.
-        const tl = F(uc + dir * hl, dir * L * hw, z), tr = F(uc + dir * hl, -dir * L * hw, z);
-        const br = F(uc - dir * hl, -dir * L * hw, z), bl = F(uc - dir * hl, dir * L * hw, z);
-        write([tl, tr, br, bl], 'LICENSED', LV.stencil, false);
-      };
-      if (first) stencil(-0.5 + M(5), 1);
-      if (last && run.n > 1) stencil(0.5 - M(5), -1);
-    }
-
     // ── THE METERED STRIP ──
     // A belt down the middle of each walkway in a steel housing, chevrons pointing the way it runs,
     // amber lights along the top of the housing. The belt on your right carries you forward: facing

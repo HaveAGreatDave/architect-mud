@@ -301,7 +301,7 @@ const crossTiles = [...new Set(crossings)];
 check(crossTiles.length === 1 && crossTiles[0] === 2, `crossing on tiles ${crossTiles.join(', ') || 'none'}, not the middle one`);
 const bridgeTiles = [...new Set(bridges)];
 check(bridgeTiles.length === 1 && bridgeTiles[0] === 4, `footbridge on tiles ${bridgeTiles.join(', ') || 'none'}, not the last one`);
-for (const want of ['₵1 A RIDE', 'LICENSED']) check(labels.has(want), `no "${want}" on the block`);
+for (const want of ['₵1 A RIDE']) check(labels.has(want), `no "${want}" on the block`);
 for (const span of [null, 'sky', 'exec', 'service']) check(run({ place: straight('ns', 2, 3, { bridge: true, span }), near: true, s0: 905 }).words.every((w) => !/CROSSING|EXECUTIVE|CLEARANCE/.test(w.label)), 'a bridge with a sign on it');
 
 // ── THE PEOPLE ──
