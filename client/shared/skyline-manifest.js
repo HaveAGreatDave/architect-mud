@@ -53,11 +53,15 @@ export function skylineFrom(zones, site, { radius = 40, entranceOf } = {}) {
   const edges = {};
   // The Curtain on each side: the column (or row) beyond the site holding most of its tiles.
   // A tie goes to the line nearer the site.
+  // ⚠ BEYOND THE BLOCK, NOT BEYOND HOME PLATE. The south wall steps back to row 919 east of the South
+  // Gate, and home plate stands at 919.6, so counted from the plate that run was the north wall.
+  const blk = site?.block;
   const wallOf = (axis, beyond) => {
     const s = axis === 'x' ? sx : sy, count = new Map();
+    const lo = blk ? (axis === 'x' ? blk.x0 : blk.y0) : s, hi = blk ? (axis === 'x' ? blk.x1 + 1 : blk.y1 + 1) : s;
     for (const [x, y] of curtain) {
       const v = axis === 'x' ? x : y;
-      if (beyond < 0 ? v + 0.5 < s : v + 0.5 > s) count.set(v, (count.get(v) || 0) + 1);
+      if (beyond < 0 ? v + 0.5 < lo : v + 0.5 > hi) count.set(v, (count.get(v) || 0) + 1);
     }
     let best = null, n = 0;
     for (const [v, c] of count) {

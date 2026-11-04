@@ -11,7 +11,7 @@
     "is_building": true,
     "is_interior": true,
     "open_all_hours": true,
-    "world_exit_zone": "zone_ballpark_894_920"
+    "world_exit_zone": "zone_ballpark_896_920"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -19,5 +19,5 @@
   "id": "zone_hughson_stand",
   "map_id": "map_int_hughson",
   "name": "The Coliseum — Concessions",
-  "parent_zone": "zone_ballpark_894_920"
+  "parent_zone": "zone_ballpark_896_920"
 }

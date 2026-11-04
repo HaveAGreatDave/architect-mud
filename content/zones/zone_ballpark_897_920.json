@@ -7,10 +7,10 @@
   "exits": {},
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",
-    "building_type": "ballpark_10_10",
+    "building_type": "ballpark_4_4",
     "district": "halcyon_fields",
     "entrance": "south",
-    "floors": 18,
+    "floors": 8,
     "region_id": "region_coldwater",
     "venue_lights": true,
     "venue_roof": true

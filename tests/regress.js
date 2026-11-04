@@ -6308,7 +6308,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 
 // ── The Hughson Coliseum, and the block it set aside (real content) ─────────
 // Deadball's park on the map (scripts/content/hughson-coliseum.mjs). A walk in at the main gate on
-// Sorrel Way, round to the bleachers and out of the bleacher gate onto Halcyon Boulevard, on real
+// Sorrel Way, round to the bleachers and out of the bleacher gate onto Hughson Way, on real
 // tiles; and the holding map it moved the old block onto: nothing there connects to the world,
 // and every set-aside building still has its interiors, furniture and people.
 {
@@ -6317,7 +6317,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const step = async (dir) => { p._lastStepAt = 0; return cmdMove(dir, p, broadcast); };
   try {
     removePlayerFromZone(p.id, p.current_zone);
-    p.current_zone = 'zone_district_894_921';
+    p.current_zone = 'zone_district_896_921';
     addPlayerToZone(p.id, p.current_zone);
     await step('north');
     check('Coliseum: north from Sorrel Way through the main gate lands in the rotunda', p.current_zone === 'zone_hughson_rotunda', p.current_zone);
@@ -6326,9 +6326,12 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       check(`Coliseum: ${dir} reaches ${want}`, p.current_zone === want, p.current_zone);
     }
     await step('north');
-    check('Coliseum: north out of the bleachers comes out on Halcyon Boulevard', p.current_zone === 'zone_district_889_909', p.current_zone);
-    // GATE C on the Cart Yard and GATE D on the river road, each a hall into the bleachers
-    for (const [street, dir, hall] of [['zone_district_898_912', 'west', 'zone_hughsongc_hall'], ['zone_district_886_912', 'east', 'zone_hughsongd_hall']]) {
+    check('Coliseum: north out of the bleachers comes out on Hughson Way', p.current_zone === 'zone_ballpark_893_915', p.current_zone);
+    // The lot's ground is open: from the bleacher gate north over the green to Halcyon Boulevard.
+    for (let i = 0; i < 6; i++) await step('north');
+    check('Coliseum: north over Hughson Green reaches Halcyon Boulevard', world.zones.get(p.current_zone)?.name === 'Halcyon Boulevard', p.current_zone);
+    // GATE C at the end of Kerbstone Row and GATE D on Hughson Way, each a hall into the bleachers
+    for (const [street, dir, hall] of [['zone_district_898_916', 'west', 'zone_hughsongc_hall'], ['zone_ballpark_892_917', 'east', 'zone_hughsongd_hall']]) {
       removePlayerFromZone(p.id, p.current_zone);
       p.current_zone = street;
       addPlayerToZone(p.id, p.current_zone);
@@ -6344,8 +6347,8 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   }
   const { getZoneFurniture } = await import('../server/engine/world.js');
   const park = [...world.zones.values()].filter((z) => z.map_id === 'map_world' && z.flags?.building_name === 'Charles B. Hughson Coliseum');
-  check('Coliseum: 121 tiles on the map, all lit on game nights', park.length === 121 && park.every((z) => z.flags?.venue_lights), park.length);
-  check('Coliseum: only the four gates are doors', park.filter((z) => z.flags?.facade).map((z) => z.id).sort().join() === 'zone_ballpark_887_912,zone_ballpark_889_910,zone_ballpark_894_920,zone_ballpark_897_912',
+  check('Coliseum: 25 tiles on the map, all lit on game nights', park.length === 25 && park.every((z) => z.flags?.venue_lights), park.length);
+  check('Coliseum: only the four gates are doors', park.filter((z) => z.flags?.facade).map((z) => z.id).sort().join() === 'zone_ballpark_893_916,zone_ballpark_893_917,zone_ballpark_896_920,zone_ballpark_897_916',
     park.filter((z) => z.flags?.facade).map((z) => z.id).sort().join());
   // A room a vendor works in is a shop and shuts outside his hours (plugins/commerce/shopdoor.js),
   // so the way through to the stands must never be anybody's counter.

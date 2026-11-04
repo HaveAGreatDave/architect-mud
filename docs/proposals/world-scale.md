@@ -18,7 +18,7 @@ Ask the code how big one map tile is and you get eleven answers:
 | The truck's server clamp | 36 m (50 m since phase 5) | `TILE_MPH = 80` in `plugins/trucking/state.js` |
 | Boats and the podracer | 42.5 m | `tileMph: 95` in `flight-model.js`, `podracer-model.js` |
 | The truck's client physics | 50 m | `tileMph: 112` in `flight-model.js` |
-| The Coliseum broadcast | 63.5 m (208.5 ft); on the ruler since it was built at true size | `KH` in `gl/ballpark-mesh.js` |
+| The Coliseum broadcast | 63.5 m (208.5 ft), its own frame: the map draws the park smaller | `KH` in `gl/ballpark-mesh.js` |
 | Aircraft over the ground | 257 to 514 m | `worldPace` and `AIR_PACE` in `windshield.js`, `cockpit.js` |
 | Road signs and the world map | 536 m | `TILES_PER_MILE = 3` in `client/shared/road-units.js` |
 | Aviation distances | 1,609 m | the tile count printed as "mi" (`plugins/flight/state.js`) |
@@ -324,3 +324,6 @@ When it's right, the switch comes out: `SEA_TILE_M` is `TILE_M`, and `METRE_TILE
 - **The Coliseum gets more tiles** (Dave, 2026-11-01), so its stretch stops being a venue scale. It
   stands on 11 by 11 tiles at true size, built on 2026-11-02, with the city grown south to make room
   ([coliseum-true-size.md](coliseum-true-size.md)).
+- **The Coliseum comes back to five tiles on the map** (Dave, 2026-11-04), because at true size it stood
+  13 towers wide. TV keeps the true size, so the park's a declared frame again
+  ([coliseum-five-tiles.md](coliseum-five-tiles.md)).

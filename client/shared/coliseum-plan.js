@@ -2,22 +2,19 @@
 //
 // The park is drawn in PARK UNITS: u east and v south of the block's centre, its bowl's outer face at
 // OUT (1.47) and its cornice at 0.46 up. The numbers were drawn that way for the nine-tile park and
-// every measured gap in the bowl and the roof was tuned in them, so they stay. What changed on
-// 2026-11-02 is what a unit is (docs/proposals/coliseum-true-size.md): the park stands on the
-// world's ruler now, 11 by 11 tiles, and is the size the broadcast always drew it.
+// every measured gap in the bowl and the roof was tuned in them, so they stay. What a unit is depends
+// on who's drawing (docs/proposals/coliseum-five-tiles.md):
 //
-//   across: one unit is UNIT_FT (208.5 ft), which is SH tiles on the ruler;
-//   up:     one unit is UP_FT (226 ft), which is SV tiles.
+//   on TV:      one unit is UNIT_FT (208.5 ft) across and UP_FT (226 ft) up, the park's true size;
+//   on the map: one unit is SH tiles across and SV tiles up, the park at five tiles.
 //
-// So the map's arm (client/game/js/panels/glass/models/coliseum.js) draws a unit as SH tiles across and SV up, and the
-// broadcast's bowl (gl/ballpark-mesh.js) as UNIT_FT and UP_FT feet: the same park, by construction.
+// ⚠ THE MAP'S PARK IS THE TV'S DRAWN SMALLER, ON PURPOSE. Coldwater's towers are about 14 m across,
+// a third of a real tower's width, so a park at true size stood 13 towers wide; at five tiles it's
+// six. So the map's arm (client/game/js/panels/glass/models/coliseum.js) reads SH and SV, the
+// broadcast (gl/ballpark-mesh.js, diamond/geo.js) reads UNIT_FT and UP_FT, and neither reads the
+// other's. Height keeps the unit's proportion, so nothing round goes oval between the two.
 //
 // Pure: no DOM and no GL, so the gates run it in Node.
-
-// The world's ruler: 3.5 m a storey and 0.196 tiles a storey (client/shared/world-scale.js).
-import { TILE_M, FT_M } from './world-scale.js';
-export { TILE_M };
-export const TILE_FT = TILE_M / FT_M;
 
 // The bowl, a square on the foul lines: its outer face `near` feet behind home on the two near
 // sides (Sorrel Way and the east) and `far` feet out on the two far ones.
@@ -25,14 +22,14 @@ export const BOWL_FT = Object.freeze({ near: 168, far: 445 });
 export const OUT = 1.47;
 export const UNIT_FT = (BOWL_FT.near + BOWL_FT.far) / (2 * OUT);
 export const UP_FT = 226;
-export const SH = UNIT_FT / TILE_FT;
-export const SV = UP_FT / TILE_FT;
 
-// The block: 11 tiles a side, x 887-897 and y 910-920 (the Deadball row's sports_pools.venue.site
-// says the same). A tile's centre in park units, from its column and row.
-export const BLOCK = 11;
+// The block: 5 tiles a side, x 893-897 and y 916-920, the south-east corner of Sir Charles's lot (the
+// Deadball row's sports_pools.venue.site says the same). A block is three park units across, as the
+// nine-tile park's was, which is what leaves the gates their gap to the tile's edge.
+export const BLOCK = 5;
 export const HALF = BLOCK / 2;
-export const tileCentre = (bc, br) => [(bc - HALF + 0.5) / SH, (br - HALF + 0.5) / SH];
+export const SH = BLOCK / 3;
+export const SV = SH * UP_FT / UNIT_FT;
 
 // Home plate, `near` feet in from Sorrel Way and the east face, and the field round it in the
 // broadcast's feet (diamond/geo.js): ninety feet to first, the rubber 60 ft 6 in out, the fence 375
@@ -144,33 +141,34 @@ export const GUARD = Object.freeze({ hw: 0.055, top: 0.60 });
 export const BAND = Object.freeze({ z0: 0.268, z1: Z.wall, d: 0.026 });
 
 // The gates. The main gate on Sorrel Way stands straight across from home plate, the bleacher gate
-// on Halcyon Boulevard where the nine-tile park had it, and GATE C and GATE D on the east and west
-// faces, at the Cart Yard and on the river road. `face` is the frontispiece's front plane, a hair
-// proud of the bowl; `top` its height.
+// on Hughson Way where the nine-tile park had it, and GATE C and GATE D on the east and west faces,
+// C at the end of Kerbstone Row and D on Hughson Way. `face` is the frontispiece's front plane, a hair
+// proud of the bowl; `top` its height. Each gate's `v` or `u` puts its middle on its door's tile
+// in DOORS, and ballpark-smoke holds the two together.
 export const GATE = Object.freeze({ u: HP[0], hw: 0.30, face: 1.48, top: 0.53 });
 export const BGATE = Object.freeze({ u: -0.96, hw: 0.24, face: -1.48, top: 0.44 });
 export const SIDE_GATES = Object.freeze([
-  Object.freeze({ key: 'c', side: 1, v: tileCentre(10, 2)[1], hw: 0.17, top: 0.40, label: 'GATE C' }),
-  Object.freeze({ key: 'd', side: -1, v: tileCentre(0, 2)[1], hw: 0.17, top: 0.40, label: 'GATE D' }),
+  Object.freeze({ key: 'c', side: 1, v: -1.1025, hw: 0.17, top: 0.40, label: 'GATE C' }),
+  Object.freeze({ key: 'd', side: -1, v: -0.843, hw: 0.17, top: 0.40, label: 'GATE D' }),
 ]);
 
 // The park's tiles, by column and row from the north-west. Four are doors; every other tile is a
 // sealed slice of the same building. `type` is the building type GLASS draws it as, `facing` the
 // way the slice is authored (a door faces its street), `floors` what the skyline and collision read.
 export const DOORS = Object.freeze({
-  '7,10': Object.freeze({ type: 'ballpark', facing: 'south', label: 'GRANDSTAND' }),
-  '2,0': Object.freeze({ type: 'ballpark_bleachers', facing: 'north', label: 'BLEACHERS' }),
-  '10,2': Object.freeze({ type: 'ballpark_gate_c', facing: 'east', label: 'GATE C' }),
-  '0,2': Object.freeze({ type: 'ballpark_gate_d', facing: 'west', label: 'GATE D' }),
+  '3,4': Object.freeze({ type: 'ballpark', facing: 'south', label: 'GRANDSTAND' }),
+  '0,0': Object.freeze({ type: 'ballpark_bleachers', facing: 'north', label: 'BLEACHERS' }),
+  '4,0': Object.freeze({ type: 'ballpark_gate_c', facing: 'east', label: 'GATE C' }),
+  '0,1': Object.freeze({ type: 'ballpark_gate_d', facing: 'west', label: 'GATE D' }),
 });
-// How tall each tile stands, in storeys: the light towers at the corners, the bowl wall round the
-// rim, and the roof over the rest, highest over the middle.
+// How tall each tile stands, in storeys: the light towers at the corners (29 m), the bowl wall round
+// the rim (15 m), and the dome over the rest (34 m at the crown).
 export function tileFloors(bc, br) {
   const edge = Math.min(bc, br, BLOCK - 1 - bc, BLOCK - 1 - br);
   const corner = (bc === 0 || bc === BLOCK - 1) && (br === 0 || br === BLOCK - 1);
-  if (corner) return 18;
-  if (edge === 0) return 10;
-  return 17;
+  if (corner) return 8;
+  if (edge === 0) return 5;
+  return edge === 2 ? 10 : 8;
 }
 export function parkTiles() {
   const out = [];

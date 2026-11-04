@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Halcyon Boulevard where Vetch Mews meets it, under the Hughson Coliseum's north wall. The bleacher gate opens off the south side, two grille gates under BLEACHERS in gilt.",
+  "description": "Halcyon Boulevard where Vetch Mews meets it, with Hughson Green open along the south side and the Coliseum's dome past the far end of it.",
   "exits": {
     "east": "zone_district_890_909",
     "north": "zone_district_889_908",

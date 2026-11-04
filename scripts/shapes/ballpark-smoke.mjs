@@ -241,6 +241,18 @@ check('defaults: the board inside the outline', G.insideOutline(base.outline, ba
   check('defaults: the lamps build, every one lit', lampBad === 0 && ['tower', 'deck', 'beacon', 'lantern', 'halo'].every((k) => base.lamps[k]?.n > 0), `${lampBad}`);
 }
 
+// ── the gates on the map's tiles ──
+// Each gate is drawn where its park units fall, and each door is the tile DOORS names, so a street
+// only meets a gate if the two agree.
+{
+  const { BGATE, DOORS, GATE, HALF, OUT, SH, SIDE_GATES } = await import('../../client/shared/coliseum-plan.js');
+  const tile = (u, v) => `${Math.floor(u * SH + HALF)},${Math.floor(v * SH + HALF)}`;
+  const c = SIDE_GATES.find((g) => g.side === 1), d = SIDE_GATES.find((g) => g.side === -1);
+  const drawn = { GRANDSTAND: tile(GATE.u, OUT), BLEACHERS: tile(BGATE.u, -OUT), 'GATE C': tile(OUT, c.v), 'GATE D': tile(-OUT, d.v) };
+  const named = Object.fromEntries(Object.entries(DOORS).map(([k, v]) => [v.label, k]));
+  check('the gates: each stands on its door\'s tile', Object.keys(drawn).every((l) => drawn[l] === named[l]), JSON.stringify({ drawn, named }));
+}
+
 // ── the roof ─────────────────────────────────────────────────────────────────
 // The Hughson Dome at the broadcast's size (coliseum-plan.js): eight leaves, the two over the
 // outfield fixed. Shut they go once round the ring; open, the six that turn lie under the two fixed

@@ -1,25 +1,29 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "Somebody cuts across the grass towards the gates with a folded scorecard.",
+    "A dog runs a long circle round nothing and comes back.",
+    "The wind brings over the smell of frying onions from Sorrel Way."
+  ],
   "ambient_theme": "urban",
-  "bg_color": "#2a1d18",
-  "color": "#d8c9a8",
-  "description": "The bowl wall of the Hughson Coliseum: limestone between marble fins, tall bronze-framed windows onto the concourse, and a copper cornice.",
-  "exits": {},
+  "color": "#8ba36a",
+  "description": "The green, level from the boulevard to Hughson Way. On a game night people bring blankets and listen to the crowd through the walls.",
+  "exits": {
+    "east": "zone_ballpark_896_910",
+    "north": "zone_district_888_908",
+    "south": "zone_ballpark_895_911",
+    "west": "zone_ballpark_894_910"
+  },
   "flags": {
-    "building_name": "Charles B. Hughson Coliseum",
-    "building_type": "ballpark_8_0",
     "district": "halcyon_fields",
-    "entrance": "south",
-    "floors": 10,
     "region_id": "region_coldwater",
-    "venue_lights": true,
-    "venue_roof": true
+    "street_life": true,
+    "terrain": "grass"
   },
   "grid_x": 895,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_ballpark_895_910",
   "map_id": "map_world",
-  "name": "Charles B. Hughson Coliseum",
+  "name": "Hughson Green",
   "parent_zone": null
 }

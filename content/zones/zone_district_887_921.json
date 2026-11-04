@@ -4,6 +4,7 @@
   "description": "A wide new street with nothing much on it yet. Somebody has already parked across two of the bays.",
   "exits": {
     "east": "zone_district_888_921",
+    "north": "zone_ballpark_887_920",
     "south": "zone_district_887_922",
     "west": "zone_district_886_921"
   },

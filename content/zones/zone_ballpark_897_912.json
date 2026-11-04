@@ -1,32 +1,25 @@
 {
   "ambient_events": [],
-  "ambient_theme": "urban",
-  "bg_color": "#2a1d18",
-  "color": "#d8c9a8",
-  "description": "GATE C of the Hughson Coliseum, on the Cart Yard: a plain stepped frontispiece in the bowl's limestone, bronze doors under a lit fanlight, and GATE C in gilt on a bronze plate.",
+  "ambient_theme": "city",
+  "description": "Hughson Way, two lanes and a kerb with the lot either side of it. Crowd barriers are stacked against a lamp post, ready for game night.",
   "exits": {
     "east": "zone_district_898_912",
-    "west": "zone_hughsongc_hall"
+    "north": "zone_ballpark_897_911",
+    "south": "zone_ballpark_897_913",
+    "west": "zone_ballpark_896_912"
   },
   "flags": {
-    "building_name": "Charles B. Hughson Coliseum",
-    "building_type": "ballpark_gate_c",
     "district": "halcyon_fields",
-    "entrance": "east",
-    "facade": true,
-    "floors": 10,
-    "is_building": true,
     "region_id": "region_coldwater",
-    "venue_lights": true,
-    "venue_roof": true,
-    "world_exit_zone": "zone_district_898_912"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 897,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_ballpark_897_912",
   "map_id": "map_world",
-  "marker": "G3",
-  "name": "Charles B. Hughson Coliseum",
+  "name": "Hughson Way",
   "parent_zone": null
 }

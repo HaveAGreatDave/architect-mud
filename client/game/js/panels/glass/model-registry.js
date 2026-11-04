@@ -453,7 +453,7 @@ export const TYPE_MODEL = {
   ice_rink_plant_w:  { type: 'ice_rink_wing',     pal: 'ty_unit_brick', noKit: true, nave: -1, end: 'back', face: 'plant' },
   ice_rink_plant_e:  { type: 'ice_rink_wing',     pal: 'ty_unit_brick', noKit: true, nave: 1, end: 'back', face: 'players' },
   // ── THE CHARLES B. HUGHSON COLISEUM, Deadball's park in Halcyon Fields (glass/models/coliseum.js) ──
-  // 121 tiles, one arm, at true size (client/shared/coliseum-plan.js). `bc` and `br` are the tile's
+  // 25 tiles, one arm (client/shared/coliseum-plan.js). `bc` and `br` are the tile's
   // column and row in the block (887-897 by 910-920, from the north-west), and `facing` is the
   // entrance the tile was authored with, which the arm turns the park's coordinates by (see the ⚠ on
   // the frame in coliseum.js). Registered by type, never by name: all of them carry the park's name.

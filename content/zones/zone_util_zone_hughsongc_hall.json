@@ -6,7 +6,7 @@
   "flags": {
     "floor": "stone",
     "is_interior": true,
-    "world_exit_zone": "zone_ballpark_897_912"
+    "world_exit_zone": "zone_ballpark_897_916"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -14,5 +14,5 @@
   "id": "zone_util_zone_hughsongc_hall",
   "map_id": "map_int_hughsongc",
   "name": "The Coliseum — Gate C Plant",
-  "parent_zone": "zone_ballpark_897_912"
+  "parent_zone": "zone_ballpark_897_916"
 }

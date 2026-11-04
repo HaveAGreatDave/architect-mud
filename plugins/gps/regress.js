@@ -427,7 +427,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // A building over several tiles routes to one of its doors, by name or by a click
   // on a doorless tile, never to the field nobody can stand on.
-  const coliseum = getZone('zone_ballpark_896_912');
+  const coliseum = getZone('zone_ballpark_895_918');
   if (coliseum) {
     const doors = new Set(getAllZones().filter(z => z.flags?.facade && z.flags.building_name === coliseum.flags.building_name).map(z => resolveLanding(z.id)));
     for (const q of ['Coliseum', coliseum.name, coliseum.id]) {

@@ -4,7 +4,8 @@
   "description": "Sorrel Way meets Kettle Lane at a corner cut wide enough for an articulated lorry, which is the only part of the estate that has ever been tested and found adequate.",
   "exits": {
     "east": "zone_district_899_914",
-    "north": "zone_parkside_898_913"
+    "north": "zone_parkside_898_913",
+    "west": "zone_ballpark_897_914"
   },
   "flags": {
     "district": "halcyon_fields",

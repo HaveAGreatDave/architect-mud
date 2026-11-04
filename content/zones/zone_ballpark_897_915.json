@@ -1,25 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "urban",
-  "bg_color": "#2a1d18",
-  "color": "#d8c9a8",
-  "description": "The bowl wall of the Hughson Coliseum: limestone between marble fins, tall bronze-framed windows onto the concourse, and a copper cornice.",
-  "exits": {},
+  "ambient_theme": "city",
+  "description": "Hughson Way, under the Coliseum's limestone wall: marble fins, tall bronze windows and a copper cornice, with the dome standing over them.",
+  "exits": {
+    "north": "zone_ballpark_897_914",
+    "west": "zone_ballpark_896_915"
+  },
   "flags": {
-    "building_name": "Charles B. Hughson Coliseum",
-    "building_type": "ballpark_10_5",
     "district": "halcyon_fields",
-    "entrance": "south",
-    "floors": 10,
     "region_id": "region_coldwater",
-    "venue_lights": true,
-    "venue_roof": true
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 897,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_ballpark_897_915",
   "map_id": "map_world",
-  "name": "Charles B. Hughson Coliseum",
+  "name": "Hughson Way",
   "parent_zone": null
 }

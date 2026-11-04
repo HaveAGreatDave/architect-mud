@@ -1,10 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The cut runs straight where the meadow ran shapeless. The wind moves along it now instead of across it.",
+  "description": "The cut runs straight where the meadow ran shapeless, and stops at GATE C of the Hughson Coliseum, bronze doors in a stepped limestone front. The wind moves along it now instead of across it.",
   "exits": {
     "east": "zone_district_899_916",
-    "north": "zone_district_898_915"
+    "north": "zone_district_898_915",
+    "west": "zone_ballpark_897_916"
   },
   "flags": {
     "district": "halcyon_fields",

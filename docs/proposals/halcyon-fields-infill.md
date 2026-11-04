@@ -14,6 +14,7 @@ Boulevard, the Halcyon Institute, the Halcyon Land Office, 3, 5 and 7 Sorrel Way
 between them. They're set aside on the holding map `map_set_aside`, whole, not deleted; see
 [hughson-coliseum.md](hughson-coliseum.md#3-what-was-set-aside).
 
+On 2026-11-04 the map's park came down to five tiles ([coliseum-five-tiles.md](coliseum-five-tiles.md)).
 On 2026-11-02 the Coliseum went to true size, 11 by 11 tiles from x 887 to 897 and y 910 to 920,
 and the city grew west to the river to make room. Twenty of the buildings below, the Helipad and the three
 trades the park had put on x 894, moved whole to new plots on the new Sorrel Way, Windrow Lane,
