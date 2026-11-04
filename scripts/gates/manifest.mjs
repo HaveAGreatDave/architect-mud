@@ -175,6 +175,7 @@ export const GROUPS = [
       'scripts/shapes/roadpaint.mjs',
       'scripts/shapes/lamptone.mjs',
       'scripts/shapes/street-kit.mjs',   // Coldwater Streets: the lane, walkways and bollards at the brief's numbers
+      'scripts/shapes/street-systems.mjs',   // Coldwater Streets: the strip, the kiosk and the room text keep the doc's decisions
       'scripts/shapes/lamppool.mjs',
       'scripts/shapes/walltag.mjs',
       'scripts/shapes/tagfit.mjs',

@@ -1,7 +1,7 @@
 # Coldwater Streets
 
 **Status: phases 1 to 3 built behind `RENDER_TUNE.streetKit` (off, until David approves the look);
-phases 4 and 5 are design.** The brief is a Claude Doc, [Coldwater Streets: Build Brief](https://claude.ai/artifact/SFfx5RrSMryJPwM25HmDBB),
+phase 5 and part of phase 4 built behind `STREET_SYSTEMS` (off); the rest of phase 4 waits on design.** The brief is a Claude Doc, [Coldwater Streets: Build Brief](https://claude.ai/artifact/SFfx5RrSMryJPwM25HmDBB),
 with the [3D preview](https://claude.ai/artifact/Ec21rXU2QigfBvrkXZKUd1) as the visual reference. This
 file records what's built and the decisions taken on 2026-11-03.
 
@@ -18,8 +18,9 @@ dirt of Old Coldwater, and four bridges stack over the street by class.
 | 2 | Footbridge 7 m | Built, flag off |
 | 2 | Service bridge 9 and 16 m, skybridge 12.5 m, executive bridge 24 m | Built, flag off |
 | 3 | The comic-ink pass and the other four condition levels | Built, flag off |
-| 4 | Metered strips, paid crossings, the licensed lane, vehicles, cameras, the drone | Design |
-| 5 | Room text in each zone's voice | Design |
+| 4 | Metered strips, the kiosk's anchor, passing vehicles | Built, switch off |
+| 4 | Paid crossings, the licensed lane, cameras, the drone | Design, see the questions below |
+| 5 | Room text in each zone's voice | Built, switch off |
 
 ## Decisions (David, 2026-11-03)
 
@@ -214,6 +215,24 @@ along it (12 gives all three upper bridges), `people: 10` stands some figures al
 runs a dozen people round the south corner for 34 seconds, which puts some of them in the west lift
 tower. ⚠ `__street` shows the real city, but only with `sc` in the baked snapshot, which needs a
 re-bake after the import (`node scripts/snapshot-flight-world.mjs`).
+
+### The systems
+
+[plugins/streets](../../plugins/streets/README.md), off unless `STREET_SYSTEMS=1` is in the server's
+environment. It must stay off until `RENDER_TUNE.streetKit` is on: nobody should be charged for a street
+they can't see. `belt <dir>` is ₵1 to the end of the block, and on a stopped belt it's ₵1 and one tile on
+foot. `anchor` at a kiosk is ₵40 and sets `anchor_zone`; a toppled kiosk sells nothing, which is our
+reading of "toppled, dead". Each kit room gets a line in its level's voice and a passing vehicle now and
+then. Both verbs read `kitPlace`, so they match what's drawn. Walking is unchanged and costs nothing.
+
+### Questions for David
+
+- **A room is a whole tile, so it has no sides and no lane.** A paid crossing, the footbridge as its free
+  alternative and billing somebody "standing in the lane" all need a position inside a room. Does a
+  player get a side of the street, and does that gate doors and exits on the other side? On a long
+  street that would make every door across the road a walk to the bridge.
+- **What do the cameras and the drone do to a player?** Nothing is built beyond the cameras drawn on bridges.
+- **Does a player wake on the street at a kiosk anchor**, or in a vat that's billed to that kiosk?
 
 ## Not done yet
 
