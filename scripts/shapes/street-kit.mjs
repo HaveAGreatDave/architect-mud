@@ -301,8 +301,8 @@ const crossTiles = [...new Set(crossings)];
 check(crossTiles.length === 1 && crossTiles[0] === 2, `crossing on tiles ${crossTiles.join(', ') || 'none'}, not the middle one`);
 const bridgeTiles = [...new Set(bridges)];
 check(bridgeTiles.length === 1 && bridgeTiles[0] === 4, `footbridge on tiles ${bridgeTiles.join(', ') || 'none'}, not the last one`);
-for (const want of ['₵1 A RIDE', 'LICENSED', 'FREE CROSSING · CLEARANCE 7.0 M']) check(labels.has(want), `no "${want}" on the block`);
-check(run({ place: straight('ns', 0, 3, { span: 'exec' }), near: true, s0: 905 }).words.some((w) => w.label === 'EXECUTIVE LEVEL · BY INVITATION'), 'the executive bridge is unsigned');
+for (const want of ['₵1 A RIDE', 'LICENSED']) check(labels.has(want), `no "${want}" on the block`);
+for (const span of [null, 'sky', 'exec', 'service']) check(run({ place: straight('ns', 2, 3, { bridge: true, span }), near: true, s0: 905 }).words.every((w) => !/CROSSING|EXECUTIVE|CLEARANCE/.test(w.label)), 'a bridge with a sign on it');
 
 // ── THE PEOPLE ──
 // A window with a north-south kit street down column 10, crossroads on rows 4 and 10, so rows 5-9

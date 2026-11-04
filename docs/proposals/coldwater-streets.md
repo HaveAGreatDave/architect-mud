@@ -8,7 +8,7 @@ file records what's built and the decisions taken on 2026-11-03.
 ## What it is
 
 One street design for Coldwater, built from a kit: a 4 m licensed lane between two 5.6 m
-walkways raised 0.18 m, with a metered strip down each walkway, bollards, a paid crossing, a public
+walkways raised 0.18 m, with a metered strip down each walkway, bollards, a crossing, a public
 footbridge, planters and vents. Five condition levels step down from the core to the
 dirt of Old Coldwater, and four bridges stack over the street by class.
 
@@ -62,7 +62,7 @@ the dirt level has no tiles today. It's built and tested, and it's what a road p
 district would get. The lanes there already look the way the ladder asks.
 
 **Where a block's parts stand** is `kitPlace`, worked out once per cell and read by both the paint and
-the people: a toll gate at each end, the paid crossing on the middle tile, the footbridge on the last
+the people: a toll gate at each end, the crossing on the middle tile, the footbridge on the last
 tile of a block of two or more (6.5 m short of the junction). A block is paved or dirt, never both, so a run stops at the
 line between them, and the dirt has no crossing or footbridge. **What repeats** (bollards every 2.5 m, planters every 15 m,
 vents every 17 m, guide dashes every 4.7 m, service pips every 5 m) is spaced from the tile's world
@@ -86,8 +86,8 @@ lane. A straight tile is still marked in `RAISED_WALK`.
 | Bollard | Octagonal, 0.95 m, on a base plate, a cyan ring near the top and a red sensor eye on the lane side; a gap of at least 5 m at the crossing |
 | Planter | A steel box on a plinth with a lit rim, a trunk and a low-poly crown, and a bench along its strip side |
 | Vent, service channel | A grate in the walkway, one in two of them steaming; dark lids along the frontage edge with a cyan status pip every 5 m |
-| Paid crossing | An amber zebra, studded tactile pads where it meets each kerb, a pole each side with an arm over the lane, a blinking amber head, and no fee sign |
-| Footbridge | An open steel lift tower at the frontage edge of each walkway, glazed only at the back, with a car running a 20 s round; a deck 7.0 m clear of the lane, glass rails, an arched truss over each edge, a cyan line underneath, FREE CROSSING · CLEARANCE 7.0 M on both fascias, a camera hung off each side clear of the lane |
+| Crossing | An amber zebra, studded tactile pads where it meets each kerb, a pole each side with an arm over the lane, a blinking amber head, and no fee sign |
+| Footbridge | An open steel lift tower at the frontage edge of each walkway, glazed only at the back, with a car running a 20 s round; a deck 7.0 m clear of the lane, glass rails, an arched truss over each edge, a cyan line underneath, a camera hung off each side clear of the lane |
 | Corner | A 1.0 m guard rail along each kerb for 4 m out of a junction, with a cyan line along the top |
 
 ⚠ **The lift towers are open frames on purpose.** The faces are opaque, so a tower glazed all round
@@ -108,7 +108,7 @@ to the street; these belong to the buildings either side of it, so `kitPlace` re
 |---|---|---|---|
 | Service | 9 and 16 m | 6 storeys | Two dark steel decks, a lattice down each side, amber lights along every edge, a rail on the upper deck |
 | Skybridge | 12.5 m | 6 storeys | A glass tube on a thin deck, a lit ring every 1.4 m, a gold line under it, four riders pacing inside, a camera |
-| Executive | 24 m | 9 storeys | A dark box glazed in gold, angled steel fins under it, EXECUTIVE LEVEL · BY INVITATION on both fascias, two cameras |
+| Executive | 24 m | 9 storeys | A dark box glazed in gold, angled steel fins under it, two cameras |
 
 **Where.** Each block has one of each at most. Dearest first, each class wants a place along the block
 (service near the start, then the skybridge, then the executive) and takes the nearest free tile
@@ -224,6 +224,7 @@ then. The verb reads `kitPlace`, so it matches what's drawn. Walking is unchange
 
 ### Answers from David
 
+- **The bridges and crossings explain nothing.** The city is small and walkable with limited road work, so a bridge is just a way over. No signs on them.
 - **Crossings and the lane have no mechanics.** A room is a whole tile, with no sides and no lane, so the
   crossing, the footbridge and the lane stay drawn scenery. Nobody pays to cross and nobody is billed for
   the lane. This replaces the ₵2 and the billing in the Decisions above.

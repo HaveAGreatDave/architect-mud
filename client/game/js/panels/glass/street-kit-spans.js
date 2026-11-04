@@ -148,9 +148,9 @@ function sky(B) {
   if (B.night > 0.2 && B.light) { const p = F(u, 0, z0); B.light(p[0], p[1], p[2], '255,210,122', 7, 0.3 * B.night); }
 }
 
-// A dark box glazed in gold, angled steel fins under it and its terms on both fascias.
+// A dark box glazed in gold, with angled steel fins under it.
 function exec(B) {
-  const { box, face, F, line, text, near, far, doStatic, doDynamic } = B;
+  const { box, face, F, line, near, far, doStatic, doDynamic } = B;
   const u = SPAN.U, hu = M(S.EXEC_W / 2), L = SPAN.LAND, z0 = M(S.EXEC_Z), z1 = z0 + M(S.EXEC_H);
   if (doStatic) {
     box(u, 0, hu, L, z0, z1, C.box, 'metal', C.box, 'metal', true);
@@ -160,7 +160,6 @@ function exec(B) {
       face([F(ue, -L, g0), F(ue, L, g0), F(ue, L, g1), F(ue, -L, g1)], C.gold, 'lit');
       if (near) for (let v = -L + M(1.5); v < L; v += M(1.6)) box(ue + e * M(0.005), v, M(0.012), M(0.03), g0, g1, C.mullion, 'paint');
       if (line) { line(F(u + e * hu, -L, z1), F(u + e * hu, L, z1)); line(F(u + e * hu, -L, z0), F(u + e * hu, L, z0)); }
-      if (text) text(B.signQuad(ue + e * M(0.01), 0, M(2.5), z0 + M(1.72), z0 + M(2.4), e), 'EXECUTIVE LEVEL · BY INVITATION', '#ffd27a', true);
     }
     if (!far) {
       // The fins lean away from the middle of the span, as a plate each: two faces back to back

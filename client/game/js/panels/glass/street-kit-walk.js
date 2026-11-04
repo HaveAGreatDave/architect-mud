@@ -1,9 +1,9 @@
 // ── THE STREET KIT'S PEOPLE: OVER THE BRIDGE OR ACROSS FOR A FEE, NEVER THROUGH THE LANE ──────────
 //
-// Coldwater Streets (docs/proposals/coldwater-streets.md). On a kit street the lane is licensed, so
-// nobody on foot walks across it. Somebody who needs the other side waits at the kerb, then walks to
-// the block's footbridge, rides a lift up, crosses and rides down, or pays at the crossing and goes
-// over the zebra. Who pays and who walks is a fixed fact about the person (`frugal`).
+// Coldwater Streets (docs/proposals/coldwater-streets.md). On a kit street nobody on foot walks across
+// the lane. Somebody who needs the other side waits at the kerb, then walks to
+// the block's footbridge, rides a lift up, crosses and rides down, or goes over the zebra at the
+// crossing. Which they prefer is a fixed fact about the person (`frugal`, the ones who take the bridge).
 //
 // The street-actor pass still decides where everybody is (the server's tile, street life's spot on
 // the pavement). This follows that spot: each frame the figure is where the pass put it, unless
@@ -30,10 +30,10 @@ export const KIT_WALK = {
   lift: 0.12,       // a lift car, 2 m/s
   step: 0.04,       // how finely a straight line is checked for a lane
   search: 120,      // regions a route may open before giving up
-  frugal: 0.65,     // the share who walk to the bridge rather than pay to cross
+  frugal: 0.65,     // the share who prefer the bridge to the zebra
   bridgeCost: 1.4,  // what the lifts and the deck add to a route, in tiles of walking
-  crossFee: 0.6,    // what ₵2 is worth in tiles of walking to somebody who doesn't mind paying it
-  crossFrugal: 9,   // and to somebody who does
+  crossFee: 0.6,    // how far somebody who likes the zebra will walk to avoid the lifts, in tiles
+  crossFrugal: 9,   // and how far somebody who prefers the bridge will walk to avoid the zebra
 };
 
 const { LANE_HW, KERB_H, LANE_Z, TOWER_V, BRIDGE_U, CROSS_U, DECK_Z1, WALK_V } = KIT;

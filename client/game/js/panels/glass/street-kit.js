@@ -3,7 +3,7 @@
 // Coldwater Streets (docs/proposals/coldwater-streets.md). One street, built from parts: a 4 m
 // licensed lane between two 5.6 m walkways raised 0.18 m, a steel kerb with a light set into
 // its face, a metered strip down each walkway with a toll gate at each end of the block, bollards
-// every 2.5 m, a paid crossing in the middle of the block, a public footbridge with a glass lift at
+// every 2.5 m, a crossing in the middle of the block, a public footbridge with a glass lift at
 // each end at the end of the block, planters with benches, vents,
 // a service channel along the frontage and guard rails at the corners. Every street tile is drawn
 // from the same parts; only where they stand changes.
@@ -70,7 +70,7 @@ const LINE_Z = M(0.1), LANE_Z = M(0.07);
 const DECK_Z0 = M(K.HAULER + K.CLEAR), DECK_Z1 = DECK_Z0 + M(K.DECK_T);
 const TOWER_V = OUT - M(K.TOWER_IN);           // a lift tower's centre, out at the frontage edge
 const BRIDGE_U = 0.5 - M(K.BRIDGE_IN);         // where a footbridge crosses its tile
-const CROSS_U = 0;                             // where the paid crossing crosses its tile
+const CROSS_U = 0;                             // where the crossing crosses its tile
 const WALK_V = 0.38;                           // the line people walk, out on the free edge (VERGE)
 
 // What the gate and the people read, in tiles.
@@ -151,7 +151,7 @@ const PLACE = new WeakMap();
 // replaced when the window is.
 //   axis   'ns' or 'ew' on a straight tile, null on a junction, corner or end
 //   run    { i, n }: the straight tile's place in its block of straight kit tiles
-//   cross  the block's paid crossing is on this tile, at CROSS_U
+//   cross  the block's crossing is on this tile, at CROSS_U
 //   bridge a footbridge crosses this tile, at BRIDGE_U: the last tile of a block of two or more
 //   span   'service', 'sky' or 'exec', an upper bridge crossing this tile (glass/street-kit-spans.js),
 //          or null
@@ -788,7 +788,7 @@ export function drawStreetKit(o) {
       if (near) for (const u of spaced(5, s > 0 ? 2.5 : 0)) box(u, v, M(0.05), M(0.05), KERB_H + M(0.01), KERB_H + M(0.016), LV.cyan, LV.cyanMat);
     }
 
-    // ── THE PAID CROSSING ──
+    // ── THE CROSSING ──
     // An amber zebra across the lane in the middle of the block, studded pads where it meets each
     // kerb, a pole on each kerb with an arm over the lane and a lamp head on the end.
     if (crossHere) {
@@ -808,7 +808,7 @@ export function drawStreetKit(o) {
     // ── THE FOOTBRIDGE ──
     // The free way over, at the end of the block: a glass lift tower out at the frontage edge of
     // each walkway, a deck 7.0 m clear of the lane between them, glass rails, an arched truss over
-    // each edge of the deck, a cyan line under it, and its clearance on both fascias.
+    // each edge of the deck and a cyan line under it.
     if (bridgeHere) {
       const ub = BRIDGE_U, hu = M(K.DECK_W / 2), zr = DECK_Z1 + M(K.RAIL_H);
       const tw = M(K.TOWER_W / 2), tl = M(K.TOWER_L / 2), ztop = DECK_Z1 + M(K.TOWER_UP);
@@ -851,11 +851,6 @@ export function drawStreetKit(o) {
           if (prev) strut(prev, p, M(0.09), PAL.steel, 'metal');
           if (i > 0 && i < N) strut(F(ue, v, zr + M(0.06)), p, M(0.035), PAL.steel, 'metal');
           prev = p;
-        }
-        // The clearance, on the fascia, read by a driver coming toward it from -e.
-        if (write) {
-          const uf = ub + e * (hu + M(0.01)), zm0 = DECK_Z0 + M(0.06), zm1 = DECK_Z1 - M(0.06);
-          write(signQuad(uf, 0, M(3.2), zm0, zm1, e), 'FREE CROSSING · CLEARANCE 7.0 M', '#6fe3ff', true);
         }
       }
     }
