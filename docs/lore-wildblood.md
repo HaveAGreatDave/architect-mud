@@ -131,6 +131,34 @@ the same people sorted by whether they got out.
 any of this. Nothing in the game should say so on their behalf; it is there for
 the player to notice.
 
+## The column
+
+The town's road traffic is three rigs that run together: the Howl, the
+hound-runner and the Slake cart. They run out of the Deadleg yard, up to the
+North Gate and round to the Slake for water. What's built is in
+[proposals/wildblood-column.md](proposals/wildblood-column.md).
+
+- **Rotgas.** Their fuel is a biofuel they brew from the same fungal cultures as
+  the blood, carried in skin bladders on the cab roofs and burned through open
+  stacks. It's the loudest thing on the road, and the noise is most of the
+  reputation. It costs them nothing.
+- **It's a shift, not a war party.** The column is staffed off the same board as
+  the North Gate mask rack: names against hours, chalked up, with an empty row
+  for a recruit. The masks are lined with quilted rag so they don't chafe.
+- **The bodywork is the city's.** The Howl carries a Mule freighter's fuselage
+  off a wreck, with its Halcyon stripe left on and crossed out in ash. Halcyon
+  blue only ever appears on a Wildblood as salvage: a stripe, a pair of goggles,
+  a drone staked on a pole.
+- **The hood tally counts changes, not kills.** A stroke is a Gift and a ring is
+  a Lesson, and the rings are painted bigger because a Lesson is the braver
+  story. There are no words on anything; a handprint in ash is the rider's own.
+- **The water cart is most of what a war rig is.** The armour, the crown spikes
+  and the noise are there so nobody takes the town's water on the road. The rack
+  of glass tubes on its side is how they test what they carry.
+
+⚠ The column frightens people on purpose, the same as the trophy road, and
+nobody in it ever says otherwise.
+
 ## The Under
 
 Before the Under was a place for scavengers, fugitives and things that preferred

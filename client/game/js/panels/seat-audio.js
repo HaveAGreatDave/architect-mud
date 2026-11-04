@@ -58,6 +58,12 @@ const VOICES = {
     { waveform: 'sawtooth', freq: 44, filter: { type: 'lowpass', freq: 360, q: 1.2 }, tremolo: { rate: 9, depth: 0.45 }, adsr: FADE, gain: 0.14 },
     { waveform: 'noise', noiseMix: 1, noise: 'brown', filter: { type: 'lowpass', freq: 520, q: 0.7 }, adsr: FADE, gain: 0.09 },
   ],
+  rotgas: [  // a Wildblood rig's open stacks: no muffler, a lumpy low firing and the crackle off the pipe
+    { waveform: 'sawtooth', freq: 34, filter: { type: 'lowpass', freq: 420, q: 1.6 }, tremolo: { rate: 6.5, depth: 0.65 }, adsr: FADE, gain: 0.16 },
+    { waveform: 'square', freq: 51, filter: { type: 'lowpass', freq: 300, q: 0.9 }, tremolo: { rate: 4.3, depth: 0.5 }, adsr: FADE, gain: 0.06 },
+    { waveform: 'noise', noiseMix: 1, noise: 'brown', filter: { type: 'lowpass', freq: 700, q: 0.8 }, adsr: FADE, gain: 0.12 },
+    { waveform: 'noise', noiseMix: 1, noise: 'white', filter: { type: 'bandpass', freq: 2600, q: 1.4 }, tremolo: { rate: 13, depth: 0.9 }, adsr: FADE, gain: 0.03 },
+  ],
   boat: [    // an outboard's drone and the spray off the hull
     { waveform: 'sawtooth', freq: 72, filter: { type: 'lowpass', freq: 700, q: 1 }, tremolo: { rate: 14, depth: 0.3 }, adsr: FADE, gain: 0.11 },
     { waveform: 'noise', noiseMix: 1, noise: 'white', filter: { type: 'highpass', freq: 2200, q: 0.5 }, adsr: FADE, gain: 0.035 },
@@ -69,6 +75,7 @@ const CLASS_VOICE = {
   heli: 'heli',
   heavy: 'jet', gunship: 'jet',
   truck: 'truck',
+  column: 'rotgas',
   hydro: 'boat',
 };
 // A contact's voice: its class's, a boat's for any hull, a prop's otherwise.

@@ -407,7 +407,10 @@ anti-Curtain. Hide, bone, canvas, fired clay, mud render, timber lashed rather t
 - **Families.** `bale`, `timber`, `stucco` (mud render) and `tile` (fired clay) — nineteen of the
   twenty-nine `ty_sw_*` keys are currently `plain` and should not be.
 - **Light.** Fire. There is no electric light in this region and there should be none in the palette.
-- **Signage.** None. No lettering at all — a trade word implies a trade counter.
+  The one exception is the column's rigs (plugins/column), which carry salvaged headlamps, caged on
+  the bull bar. Nothing built or standing in the region gets one.
+- **Signage.** None. No lettering at all — a trade word implies a trade counter. That holds on the
+  rigs too: the Slake cart's tank carries hood tallies and ash handprints, never a stencil.
 
 ⚠ **THE TERROR IS ON THE APPROACH AND THE INSIDE IS DOMESTIC, AND THE ARCHITECTURE HAS TO CARRY BOTH
 WITHOUT REMARKING ON IT.** The trophy road is a performance whose tell is that it is *maintained*;

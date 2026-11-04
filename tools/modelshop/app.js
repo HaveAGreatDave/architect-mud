@@ -70,6 +70,14 @@ const VEHICLES = [
   // The Drake's factory paint jobs (mesh_drake.json 'schemes'). The variant IS the scheme name, so
   // without these the special editions could only be seen by buying one in the game.
   ...['noir', 'midnight', 'neon', 'ivory', 'quackhawk'].map((s) => ({ key: 'vehicle:drake/' + s, vehicle: { cls: 'drake', variant: s }, m: { type: 'drake ' + s } })),
+  // Every body variant a class's mesh file names in `variants`: the eleven 2076 editions and the
+  // podracer's types. Each is a different model, but it's still its class with a variant, so
+  // without these the list drew only the stock bodies. The Viper's variants are on its own file
+  // (mesh_heli_armed.json), so they go on the armed heli.
+  ...VEHICLE_CLASSES.filter((c) => c !== 'truck').flatMap((cls) => Object.keys(MESH_ROWS[cls]?.variants || {})
+    .map((v) => ({ key: 'vehicle:' + cls + '/' + v, vehicle: { cls, variant: v }, m: { type: cls + ' ' + v } }))),
+  ...Object.keys(MESH_ROWS.heli_armed?.variants || {})
+    .map((v) => ({ key: 'vehicle:heli/viper-' + v, vehicle: { cls: 'heli', variant: v, armed: true }, m: { type: 'viper ' + v } })),
 ];
 // The animals. A third renderer, and the shortest of the three: fauna3d.js has no camera at all,
 // so a subject is a pose and a bearing rather than a seat.

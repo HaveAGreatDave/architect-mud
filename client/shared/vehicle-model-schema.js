@@ -43,7 +43,7 @@ export const VEHICLE_IDS = {
   fw: ['prop', 'gunship', 'heavy', 'locust', 'divebomber'],
   truck: ['scrapper', 'hauler', 'drayman', 'continental'],
   boat: ['hydro', 'spur', 'gamecock', 'skiff'],
-  mesh: ['heli', 'heli_armed', 'heli_2076', 'heli_armed_2076', 'ultralight', 'ultralight_2076', 'grasshopper', 'grasshopper_2076', 'wreck', 'wreck_2076', 'drake', 'drake_2076', 'prop', 'prop_2076', 'heavy', 'heavy_2076', 'gunship', 'gunship_2076', 'divebomber', 'divebomber_2076', 'locust', 'locust_2076', 'podracer', 'podracer_skitter', 'podracer_sledge', 'truck_scrapper', 'truck_hauler', 'truck_drayman', 'truck_continental', 'truck_hauler_2076'],
+  mesh: ['heli', 'heli_armed', 'heli_2076', 'heli_armed_2076', 'ultralight', 'ultralight_2076', 'grasshopper', 'grasshopper_2076', 'wreck', 'wreck_2076', 'drake', 'drake_2076', 'prop', 'prop_2076', 'heavy', 'heavy_2076', 'gunship', 'gunship_2076', 'divebomber', 'divebomber_2076', 'locust', 'locust_2076', 'podracer', 'podracer_skitter', 'podracer_sledge', 'column', 'column_runner', 'column_cart', 'truck_scrapper', 'truck_hauler', 'truck_drayman', 'truck_continental', 'truck_hauler_2076'],
 };
 
 const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
