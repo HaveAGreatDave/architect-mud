@@ -190,7 +190,7 @@ for (let level = 0; level < LEVEL.length; level++) {
   // Every paved level still charges, including with the belt stopped.
   const labels = new Set([...words, ...crossed.words].map((w) => w.label));
   check(labels.has('₵1 A RIDE'), `level ${level} has no strip price`);
-  check(labels.has('₵2 · CROSS'), `level ${level} has no crossing fee`);
+  check(!labels.has('₵2 · CROSS'), `level ${level} posts a crossing fee nothing charges`);
 }
 const stands = (level) => { const n = LEVEL[level]; return n.bollardGone; };
 for (const [level, want, tol] of [[0, 0, 0], [1, 0, 0], [2, 0.08 + 0, 0.03], [3, 0.3, 0.05]]) {
@@ -301,7 +301,7 @@ const crossTiles = [...new Set(crossings)];
 check(crossTiles.length === 1 && crossTiles[0] === 2, `crossing on tiles ${crossTiles.join(', ') || 'none'}, not the middle one`);
 const bridgeTiles = [...new Set(bridges)];
 check(bridgeTiles.length === 1 && bridgeTiles[0] === 4, `footbridge on tiles ${bridgeTiles.join(', ') || 'none'}, not the last one`);
-for (const want of ['₵1 A RIDE', '₵2 · CROSS', 'LICENSED', 'FREE CROSSING · CLEARANCE 7.0 M']) check(labels.has(want), `no "${want}" on the block`);
+for (const want of ['₵1 A RIDE', 'LICENSED', 'FREE CROSSING · CLEARANCE 7.0 M']) check(labels.has(want), `no "${want}" on the block`);
 check(run({ place: straight('ns', 0, 3, { span: 'exec' }), near: true, s0: 905 }).words.some((w) => w.label === 'EXECUTIVE LEVEL · BY INVITATION'), 'the executive bridge is unsigned');
 
 // ── THE PEOPLE ──

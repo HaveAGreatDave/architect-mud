@@ -790,8 +790,7 @@ export function drawStreetKit(o) {
 
     // ── THE PAID CROSSING ──
     // An amber zebra across the lane in the middle of the block, studded pads where it meets each
-    // kerb, a pole on each kerb with an arm over the lane and a lamp head on the end, and the fee on
-    // each pole.
+    // kerb, a pole on each kerb with an arm over the lane and a lamp head on the end.
     if (crossHere) {
       const zz = LANE_Z + M(0.02);
       for (let i = 0; i < 5; i++) box(CROSS_U, M(-1.6 + i * K.ZEBRA_PITCH), M(K.ZEBRA_L / 2), M(K.ZEBRA_BAR / 2), LANE_Z, zz, LV.zebra, LV.zebraMat);
@@ -802,13 +801,6 @@ export function drawStreetKit(o) {
           box(u, v, M(0.08), M(0.08), KERB_H, zt, PAL.post, 'metal');
           box(u, v - s * M(0.6), M(0.07), M(0.7), zt - M(0.14), zt, PAL.post, 'metal', PAL.post, 'metal', true);
           box(u, v - s * M(1.2), M(0.2), M(0.25), zt - M(0.9), zt - M(0.14), PAL.head, 'metal', PAL.head, 'metal', true);
-          // The fee, on both faces of a board on the pole.
-          const zb0 = KERB_H + M(2.05), zb1 = KERB_H + M(2.55);
-          box(u, v, M(0.04), M(0.6), zb0, zb1, PAL.screen, 'paint');
-          if (write) {
-            write(signQuad(u - M(0.045), v, M(0.55), zb0 + M(0.04), zb1 - M(0.04), -1), '₵2 · CROSS', LV.price, LV.priceLit);
-            write(signQuad(u + M(0.045), v, M(0.55), zb0 + M(0.04), zb1 - M(0.04), 1), '₵2 · CROSS', LV.price, LV.priceLit);
-          }
         });
       }
     }

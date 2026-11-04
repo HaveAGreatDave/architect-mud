@@ -86,7 +86,7 @@ lane. A straight tile is still marked in `RAISED_WALK`.
 | Bollard | Octagonal, 0.95 m, on a base plate, a cyan ring near the top and a red sensor eye on the lane side; a gap of at least 5 m at the crossing |
 | Planter | A steel box on a plinth with a lit rim, a trunk and a low-poly crown, and a bench along its strip side |
 | Vent, service channel | A grate in the walkway, one in two of them steaming; dark lids along the frontage edge with a cyan status pip every 5 m |
-| Paid crossing | An amber zebra, studded tactile pads where it meets each kerb, a pole each side with an arm over the lane, a blinking amber head and ₵2 · CROSS |
+| Paid crossing | An amber zebra, studded tactile pads where it meets each kerb, a pole each side with an arm over the lane, a blinking amber head, and no fee sign |
 | Footbridge | An open steel lift tower at the frontage edge of each walkway, glazed only at the back, with a car running a 20 s round; a deck 7.0 m clear of the lane, glass rails, an arched truss over each edge, a cyan line underneath, FREE CROSSING · CLEARANCE 7.0 M on both fascias, a camera hung off each side clear of the lane |
 | Corner | A 1.0 m guard rail along each kerb for 4 m out of a junction, with a cyan line along the top |
 
