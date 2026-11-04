@@ -1,9 +1,9 @@
 // ── THE STREET KIT'S PEOPLE: OVER THE BRIDGE OR ACROSS FOR A FEE, NEVER THROUGH THE LANE ──────────
 //
-// Coldwater Streets (docs/proposals/coldwater-streets.md). On a kit street the lane is licensed, so
-// nobody on foot walks across it. Somebody who needs the other side waits at the kerb, then walks to
-// the block's footbridge, rides a lift up, crosses and rides down, or pays at the crossing and goes
-// over the zebra. Who pays and who walks is a fixed fact about the person (`frugal`).
+// Coldwater Streets (docs/proposals/coldwater-streets.md). On a kit street nobody on foot walks across
+// the lane. Somebody who needs the other side waits at the kerb, then walks to
+// the block's footbridge, rides a lift up, crosses and rides down, or goes over the zebra at the
+// crossing. Which they prefer is a fixed fact about the person (`frugal`, the ones who take the bridge).
 //
 // The street-actor pass still decides where everybody is (the server's tile, street life's spot on
 // the pavement). This follows that spot: each frame the figure is where the pass put it, unless
@@ -18,7 +18,7 @@
 //
 // Frame: absolute world tiles, x east, y south, z up. `win` is the map window: `at(rx, ry)` a cell
 // by window index, `wide` (see kitPlace), `R`, `wcx`, `wcy`.
-import { KIT, M, kitPlace } from './street-kit.js';
+import { KIT, LEVEL, M, kitPlace } from './street-kit.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -30,14 +30,20 @@ export const KIT_WALK = {
   lift: 0.12,       // a lift car, 2 m/s
   step: 0.04,       // how finely a straight line is checked for a lane
   search: 120,      // regions a route may open before giving up
-  frugal: 0.65,     // the share who walk to the bridge rather than pay to cross
+  frugal: 0.65,     // the share who prefer the bridge to the zebra
   bridgeCost: 1.4,  // what the lifts and the deck add to a route, in tiles of walking
-  crossFee: 0.6,    // what ₵2 is worth in tiles of walking to somebody who doesn't mind paying it
-  crossFrugal: 9,   // and to somebody who does
+  crossFee: 0.6,    // how far somebody who likes the zebra will walk to avoid the lifts, in tiles
+  crossFrugal: 9,   // and how far somebody who prefers the bridge will walk to avoid the zebra
 };
 
-const { LANE_HW, KERB_H, TOWER_V, BRIDGE_U, CROSS_U, DECK_Z1, WALK_V } = KIT;
-const LANE_Z = M(0.03);
+const { LANE_HW, KERB_H, LANE_Z, TOWER_V, BRIDGE_U, CROSS_U, DECK_Z1, WALK_V } = KIT;
+
+// A tile's place for walking. The dirt has no lane and no walkways, so it's off the kit here: people
+// cross it where they like, as they cross any open ground.
+const placeOf = (win, rx, ry) => {
+  const place = kitPlace(win.at, rx, ry, win.wide);
+  return place && !LEVEL[place.level].dirt ? place : null;
+};
 
 // The window index and the tile centre (world) of a world point.
 function tileOf(win, X, Y) {
@@ -48,7 +54,7 @@ function tileOf(win, X, Y) {
 // or null off the kit.
 function regionAt(win, X, Y) {
   const t = tileOf(win, X, Y);
-  const place = kitPlace(win.at, t.rx, t.ry, win.wide);
+  const place = placeOf(win, t.rx, t.ry);
   if (!place) return null;
   const lx = X - t.cx, ly = Y - t.cy;
   if (place.axis) {
@@ -66,7 +72,7 @@ function regionAt(win, X, Y) {
 }
 // A region by its tile and its side or quadrant, built the way regionAt builds one.
 function regionOf(win, rx, ry, kind, a, b) {
-  const place = kitPlace(win.at, rx, ry, win.wide);
+  const place = placeOf(win, rx, ry);
   if (!place) return null;
   const cx = (rx - win.R) + win.wcx, cy = (ry - win.R) + win.wcy;
   if (kind === 's') return place.axis ? { rx, ry, cx, cy, place, kind, side: a, key: `${rx},${ry},s,${a}` } : null;
@@ -83,7 +89,7 @@ function links(win, r, frugal) {
     const W = (u, v, zz = z) => [r.cx + U[0] * u + V[0] * v, r.cy + U[1] * u + V[1] * v, zz];
     for (const dir of [-1, 1]) {
       const nx = r.rx + U[0] * dir, ny = r.ry + U[1] * dir;
-      const np = kitPlace(win.at, nx, ny, win.wide);
+      const np = placeOf(win, nx, ny);
       if (!np) continue;
       const nb = np.axis === r.place.axis ? regionOf(win, nx, ny, 's', s)
         : !np.axis ? regionOf(win, nx, ny, 'q', U[0] * -dir + V[0] * s, U[1] * -dir + V[1] * s) : null;
@@ -106,7 +112,7 @@ function links(win, r, frugal) {
   const armX = a.includes(sx > 0 ? 'e' : 'w'), armY = a.includes(sy > 0 ? 's' : 'n');
   const P2 = (x, y) => [r.cx + x, r.cy + y, z];
   const out1 = (nx, ny, sideIfStraight, qx, qy, pt) => {
-    const np = kitPlace(win.at, nx, ny, win.wide);
+    const np = placeOf(win, nx, ny);
     if (!np) return;
     const nb = np.axis ? regionOf(win, nx, ny, 's', sideIfStraight) : regionOf(win, nx, ny, 'q', qx, qy);
     if (nb) out.push({ r: nb, pts: [pt], cost: 1 });
