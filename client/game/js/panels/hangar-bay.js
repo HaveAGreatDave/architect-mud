@@ -13,7 +13,7 @@
 // to floor.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { fuelName, fuelList } from '../../../shared/fuels.js';
+import { fuelName, fuelList, fmtFuel } from '../../../shared/fuels.js';
 import { drawHangarFloorBay, drawPaintBooth, MODEL_SCALE, meshIdFor, meshParams } from './aircraft3d.js';
 import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyles, barTone } from './vehicle-card.js';
 import { updateHangarAmbience, stopHangarAmbience } from './hangar-ambience.js';
@@ -744,7 +744,7 @@ function fuelTabHtml(c) {
   const col = pct < 15 ? '#ff6b6b' : pct < 40 ? '#ffb26b' : 'var(--hb-atm-accent)';
   const verdict = pct === 0 ? 'Bone dry. She is not going anywhere.'
     : pct >= 98 ? 'Brimmed.'
-    : `${c.fuelNow} of ${c.fuelCap} units of ${esc(fuelName(c.fuelType))}.`;
+    : `${c.fuelNow} of ${fmtFuel(c.fuelType, c.fuelCap)} of ${esc(fuelName(c.fuelType))}.`;
   const gauge = `<div class="hb-hull-gauge">
       <div class="hb-hull-num" style="color:${col}">${pct}<small>%</small></div>
       <div class="hb-hull-track"><i style="width:${pct}%;background:${col};color:${col}"></i>

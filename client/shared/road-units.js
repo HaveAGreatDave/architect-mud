@@ -30,3 +30,7 @@ import { tripM, kmOf } from './world-scale.js';
 // anything close enough to round to zero is close enough to call one kilometre and let the driver
 // see it out of the windscreen.
 export const roadKm = (tiles) => kmOf(tripM('corridor', tiles));
+
+// What a truck burns on the road: its tank in litres over its range. The range is the tuned number
+// (`tank` in flight-model.js, in tiles); this is the same fact in the unit on the dealer's card.
+export const litresPerKm = (t) => t.tankL / (tripM('corridor', t.tank) / 1000);

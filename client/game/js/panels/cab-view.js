@@ -2669,7 +2669,7 @@ function paintFuelGauge(st) {
   el.classList.toggle('pumping', !!st.pumping);
   const pct = Math.round(f * 100);
   const q = (s, v) => { const n = el.querySelector(s); if (n && n.textContent !== v) n.textContent = v; };
-  q('.cab-fuel-pct', `${pct}%`);
+  q('.cab-fuel-pct', P.tankL ? `${Math.round(f * P.tankL)} L` : `${pct}%`);
   const fill = el.querySelector('.cab-fuel-fill');
   if (fill) fill.style.width = `${(f * 100).toFixed(1)}%`;
   // Two decimals, to match the pylon price ('each' on the fuel.prices row).

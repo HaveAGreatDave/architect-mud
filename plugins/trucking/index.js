@@ -124,6 +124,7 @@ import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveT
   ridingRigOf, seatsFree, boardPassenger, alightPassenger,
   truckElecDead, crewedRigs } from './state.js';
 import { corridorPos, corridorAt, TILES_PER_ROOM, sOfNode, wreckNear, trailFor, trailPos, roadKm } from './corridor.js';
+import { litresPerKm } from '../../client/shared/road-units.js';
 import { MPH_MS, fmtSpeed } from '../../client/shared/world-scale.js';
 // bench.js imports yard helpers back from this file; see its header.
 import { cmdRig, sparesInHand, spendSpares, truckStockTrim, sanitizeTrimResolved } from './bench.js';
@@ -917,7 +918,7 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         variant: `${t.type_id}${towed ? '+t' : ''}${editionSuffix(cd, t.type_id)}${fitSuffix(cd)}`,
         // The body on it, and the bench's list ('stock' first; empty for a truck with only the one).
         edition: editionOf(cd, t.type_id) || 'stock', editionCat: editionCatalogue(cd, t.type_id, t.type),
-        kg: t.type.kg, tank: t.type.tank, top: t.type.topSpeed, price: t.type.price,
+        kg: t.type.kg, tank: t.type.tank, tankL: t.type.tankL, top: t.type.topSpeed, price: t.type.price,
         fuel: +(t.fuel ?? 1).toFixed(2), odometer: Math.round(t.odometer || 0),
         hereNow: zonesHere.includes(t.depot_zone),
         whereName: zonesHere.includes(t.depot_zone) ? null : depotNameOf(t.depot_zone),
@@ -978,7 +979,7 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     hornCat: hornCatalogue(),
     stock: TRUCK_TYPES.map(t => ({
       id: t.id, name: t.name, tier: t.tier, price: t.price, blurb: t.blurb,
-      variant: t.id, kg: t.kg, tank: t.tank, top: t.topSpeed,
+      variant: t.id, kg: t.kg, tank: t.tank, tankL: t.tankL, top: t.topSpeed,
       stats: axesFor(t.id, {}, 1),
       afford: (player.credits || 0) >= t.price,
     })),
@@ -1082,7 +1083,7 @@ function depotDialogPayload(p) {
     rows.push({
       group: 'For sale',
       label: t.name,
-      detail: `${t.price}₵ · ${t.kg}kg · ${roadKm(t.tank)} km a tank · ${fmtSpeed('road', t.top * MPH_MS)}${t.afford ? '' : " · can't afford"}`,
+      detail: `${t.price}₵ · ${t.kg}kg · ${t.tankL} L, ${roadKm(t.tank)} km a tank at ${litresPerKm(t).toFixed(2)} L/km · ${fmtSpeed('road', t.top * MPH_MS)}${t.afford ? '' : " · can't afford"}`,
       commands: t.afford ? [{ label: 'Buy', command: `yard buy ${t.id}` }] : [],
     });
   }
@@ -1143,7 +1144,7 @@ function textYard(p) {
         + (t.rental ? ` · <span class="text-dim">hand it back (yard return ${t.id})</span>` : ` · <span class="text-dim">sells for ${t.resale}₵ (yard sell ${t.id})</span>`)).join('\n')
     : '  <span class="text-dim">You own nothing with wheels on it.</span>';
   const stock = p.stock.map(t =>
-    `  <b>${t.name}</b>: <span class="item-grant">${t.price}₵</span> · ${t.kg} kg deck · ${roadKm(t.tank)} km a tank · ${fmtSpeed('road', t.top * MPH_MS)}`
+    `  <b>${t.name}</b>: <span class="item-grant">${t.price}₵</span> · ${t.kg} kg deck · ${t.tankL} L, ${roadKm(t.tank)} km a tank at ${litresPerKm(t).toFixed(2)} L/km · ${fmtSpeed('road', t.top * MPH_MS)}`
     + `${t.afford ? '' : ' <span class="text-dim">(can\'t afford)</span>'}\n    <span class="text-dim">${t.blurb}</span>`
     + `\n    <span class="text-dim">yard buy ${t.id}</span>`).join('\n');
   // The boxes, on the record: the log rung's copy of the panel's trailer list.
@@ -1538,10 +1539,10 @@ async function pumpFuel(player, want, { typed }) {
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   // `extra` forces the push past the once-a-second floor so the gauge moves with the credits.
   pushCab(rig, { pumped: true });
-  const pct = Math.round(rig.fuel * 100);
+  const litres = Math.round(rig.fuel * (rig.params?.tankL || rig.type?.tankL || 0));
   return say(rig.fuel >= 0.995
     ? `<span class="item-grant">Tanks filled. ${cost}₵.</span>`
-    : `<span class="item-grant">The handle clicks off. ${cost}₵: she is at ${pct}%.</span>`);
+    : `<span class="item-grant">The handle clicks off. ${cost}₵: she has ${litres} L in her.</span>`);
 }
 
 // ── park ──

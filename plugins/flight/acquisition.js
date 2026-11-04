@@ -3,7 +3,7 @@
 // soft-graduated access the blueprint calls for is purely economic: anyone can
 // charter a Mayfly, nobody can afford a Leviathan early.
 
-import { fuelName, fuelList } from '../../client/shared/fuels.js';
+import { fuelName, fuelList, fmtFuel } from '../../client/shared/fuels.js';
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -195,7 +195,7 @@ export async function refuelAt(args, raw, player) {
   await persist(live);
   pushHud(live);
   if (bubbly) pushChampagne(live);
-  return { type: 'output', message: (live.type.fuel_type === 'charge' ? `You put ${Math.round(want)} units of charge into the ${live.type.name} for ${cost}₵.` : `You pump ${Math.round(want)} units of ${fuelName(live.type.fuel_type)} for ${cost}₵.`) + ` Tank: ${Math.round(live.row.fuel)}/${Math.round(cap)}.`,
+  return { type: 'output', message: (live.type.fuel_type === 'charge' ? `You put ${fmtFuel('charge', want)} into the ${live.type.name} for ${cost}₵.` : `You pump ${fmtFuel(live.type.fuel_type, want)} of ${fuelName(live.type.fuel_type)} for ${cost}₵.`) + ` Tank: ${Math.round(live.row.fuel)}/${fmtFuel(live.type.fuel_type, cap)}.`,
     player_update: { credits: player.credits } };
 }
 
@@ -232,7 +232,7 @@ export async function refuelParked(player, craftId) {
     const cd = a.custom_data || {}; refillChampagne(cd);
     await query('UPDATE aircraft SET fuel=$1, custom_data=$2 WHERE id=$3', [cap, JSON.stringify(cd), craftId]);
   } else await query('UPDATE aircraft SET fuel=$1 WHERE id=$2', [cap, craftId]);
-  return { type: 'output', message: `You top off the ${a.tname} with ${Math.round(need)} units of ${fuelName(a.fuel_type)} for ${cost}₵. ${a.fuel_type === 'charge' ? 'Fully charged.' : 'Full tank.'}`,
+  return { type: 'output', message: `You top off the ${a.tname} with ${fmtFuel(a.fuel_type, need)} of ${fuelName(a.fuel_type)} for ${cost}₵. ${a.fuel_type === 'charge' ? 'Fully charged.' : 'Full tank.'}`,
     player_update: { credits: player.credits } };
 }
 

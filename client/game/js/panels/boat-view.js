@@ -1363,7 +1363,7 @@ function drawBerthPrompt() {
     : b.state === 'in'
       ? 'In the box. Take the way off her.'
       : fuel
-        ? (full ? 'She is full.' : `At the pumps. Fuel ${Math.round(st.fuel * 100)}%.`)
+        ? (full ? 'She is full.' : `At the pumps. ${Math.round(st.fuel * (st.p.tankL || 0))} L aboard.`)
         : 'Under cover. The slings can take her.';
   const act = b.state !== 'ready' || (fuel && full) ? ''
     : `<button class="boat-chip boat-berth-go" type="button" data-berth-act="1">${fuel ? 'Fill her' : 'Dock her'} <b>P</b></button>`;

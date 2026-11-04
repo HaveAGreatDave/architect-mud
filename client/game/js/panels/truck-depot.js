@@ -751,7 +751,7 @@ function buyScreen() {
       ${statBars(t.stats)}
       <dl class="td-spec">
         <div><dt>deck</dt><dd>${t.kg} kg</dd></div>
-        <div><dt>tank</dt><dd>${t.tank}</dd></div>
+        <div><dt>tank</dt><dd>${t.tankL} L</dd></div>
         <div><dt>top</dt><dd>${fmtSpeed('road', t.top * MPH_MS)}</dd></div>
       </dl>
     </div>`).join('');

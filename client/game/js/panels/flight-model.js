@@ -208,7 +208,8 @@ export const TYPES = {
   // ⚠ Speeds scale together: thrustMax × drive must beat rollFric × drag (regress checks it), and
   // ratios meet tileMph only as quotients except engine braking. See
   // docs/systems-trucking.md#truck-fleet-tuning-and-scaling before rescaling anything.
-  //   `kg` trailer capacity, `tank` range in tiles on a full fill, `price` dealer price.
+  //   `kg` trailer capacity, `tank` range in tiles on a full fill, `tankL` the same tank in litres,
+  //   `price` dealer price.
   // Tune tank range against the real route (~495 tiles one way to the Reach), never the regress fixture.
   hauler: {
     name: 'Ostrek Courier', ground: true, tier: 1,
@@ -221,7 +222,7 @@ export const TYPES = {
     rollFric: 0.714,      // rolling resistance (mph/s) at idle
     dragP: 0.000361,      // aero drag (∝ speed²)
     brake: 5.75,          // service-brake deceleration (mph/s) at full pedal
-    kg: 1800, tank: 1100, price: 3400,
+    kg: 1800, tank: 1100, tankL: 240, price: 3400,
     // Eight forward gears (0 is neutral), geometric; 1st is a deeper crawler, and reverse borrows it.
     gears: [0, 4.85, 2.96, 2.26, 1.73, 1.33, 1.02, 0.78, 0.59], band: [0.42, 0.68],
     engBrake: 1, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
@@ -232,7 +233,7 @@ export const TYPES = {
     name: 'Vachon Drayman', ground: true, tier: 2,
     mass: 3.2, thrustMax: 3.78, topSpeed: 96, tileMph: ROAD_TILE_MPH, wheelbase: 0.31,
     engineLag: 1.9, rollFric: 0.882, dragP: 0.000314, brake: 5.25,
-    kg: 3500, tank: 1400, price: 7200,
+    kg: 3500, tank: 1400, tankL: 380, price: 7200,
     gears: [0, 5.3, 3.22, 2.46, 1.89, 1.44, 1.1, 0.85, 0.65], band: [0.42, 0.68],   // 1st is the crawler
     engBrake: 1.25, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.29, hitchOffset: 0.08, trailerKg: 3200,   // kingpin geometry, and the empty box itself
@@ -243,7 +244,7 @@ export const TYPES = {
     name: 'Orlov Continental', ground: true, tier: 3,
     mass: 4.6, thrustMax: 3.864, topSpeed: 88, tileMph: ROAD_TILE_MPH, wheelbase: 0.41,
     engineLag: 2.6, rollFric: 0.966, dragP: 0.000374, brake: 4.5,
-    kg: 6200, tank: 2100, price: 16500,
+    kg: 6200, tank: 2100, tankL: 680, price: 16500,
     gears: [0, 5.7, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.7], band: [0.42, 0.68],   // 1st is the crawler
     engBrake: 1.5, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.37, hitchOffset: 0.10, trailerKg: 5200,   // kingpin geometry, and the empty box itself
@@ -254,7 +255,7 @@ export const TYPES = {
     name: 'Krell Barrow', ground: true, tier: 0,
     mass: 2.8, thrustMax: 3.528, topSpeed: 82, tileMph: ROAD_TILE_MPH, wheelbase: 0.28,
     engineLag: 2.4, rollFric: 0.924, dragP: 0.000387, brake: 4.2,
-    kg: 1200, tank: 850, price: 1300,
+    kg: 1200, tank: 850, tankL: 160, price: 1300,
     gears: [0, 6.2, 3.77, 2.89, 2.21, 1.69, 1.3, 0.99, 0.76], band: [0.42, 0.68],   // 1st is the crawler
     engBrake: 1.05, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.15, hitchOffset: 0.05, trailerKg: 900,   // kingpin geometry, and the empty box itself
@@ -282,7 +283,7 @@ export const TYPES = {
     // Vertical speed off a crest, tiles/s per unit of slope × speed. Fitted to the wind-derived sea;
     // sea.mjs holds it. Raise launch height here, never by lowering the kick threshold (that only skitters).
     launchVs: 0.9,
-    hullKg: 700, tank: 260, price: 14500,
+    hullKg: 700, tank: 260, tankL: 200, price: 14500,
     blurb: 'Vaskin build about nine of these a year and will not tell you who buys them. A deep-V, a pilothouse, and a blown V8 standing open in the well. It does not have brakes. It was never going to have brakes.',
   },
 
@@ -302,7 +303,7 @@ export const TYPES = {
     nitroMul: 1.28, nitroBurn: 0.20, nitroCool: 0.12,
     launchVs: 0.82,
     burn: 0.85,
-    hullKg: 1150, tank: 420, price: 26800,
+    hullKg: 1150, tank: 420, tankL: 320, price: 26800,
     blurb: "Vaskin's stepped deep-V, four outboards across the transom. The steps put air under her at speed, so she outruns the Rooster and slides further in a corner. A hardtop, a bench for three, and a bigger tank she empties faster.",
   },
   gamecock: {
@@ -318,7 +319,7 @@ export const TYPES = {
     nitroMul: 1.30, nitroBurn: 0.25, nitroCool: 0.10,
     launchVs: 1.05,
     burn: 1.35,
-    hullKg: 1350, tank: 520, price: 52000,
+    hullKg: 1350, tank: 520, tankL: 420, price: 52000,
     blurb: 'An offshore tunnel cat with a fighter canopy, two blown motors under the deck and a wing over the stern. Past ninety the tunnel packs air under her and she leaves the water off swell the Rooster would cut through. There is a hammer clipped inside the canopy.',
   },
 
@@ -347,7 +348,7 @@ export const TYPES = {
     nitroMul: 1, nitroBurn: 0, nitroCool: 1,
     launchVs: 0.2,
     burn: 0.12,
-    hullKg: 160, tank: 40, price: 3900,
+    hullKg: 160, tank: 40, tankL: 30, price: 3900,
     exclusive: true,
     seats: 2, hold_kg: 40, rodHolders: 2, rode_m: 30, lamp: true, thrustSteer: 0.8,
     blurb: "Built in the shed by the man who sells it. Sixteen feet of riveted aluminium, a tiller and a 15 hp motor. He'll fix it if it breaks. He says it won't.",

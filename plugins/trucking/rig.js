@@ -145,6 +145,7 @@ export function effTruckParams(typeId, cd = {}, condition = 1, dmg = null, odome
   p.brake     = base.brake * (1 + br * 0.14) * (0.7 + 0.3 * c) * pe.brake;
   p.jake      = base.jake * (kits.includes('jakeplus') ? 1.25 : 1);
   p.tank      = Math.round(base.tank * (kits.includes('auxtank') ? 1.25 : 1));
+  p.tankL     = Math.round(base.tankL * (kits.includes('auxtank') ? 1.25 : 1));
   p.engineLag = base.engineLag * (1 + Math.max(0, -b) * 0.10) * (1 + (1 - c) * 0.35);
   // SERVICING, applied AFTER everything above and BEFORE the surface floor below, so black oil and
   // thin linings are real right down to the invariant and never past it. Each factor is exactly 1

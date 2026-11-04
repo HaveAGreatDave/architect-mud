@@ -1,6 +1,6 @@
 # One world scale
 
-> **Status: phases 1 to 5 built (2026-11-03); phases 6 and 7 are design.** The ruler, the
+> **Status: phases 1 to 5 and 7 built (2026-11-03); phase 6 is design.** The ruler, the
 > conversions, the paces, the labels and `scale:lint` are in, and the truck reads km/h (see
 > [Phase 2 as built](#phase-2-as-built)). Where this disagrees with a `systems-*.md` doc about what
 > ships today, that doc wins until the phase that changes it lands.
@@ -253,6 +253,24 @@ scale:check` holds the trucks on the road's pace and the eye on `heightToZ`.
 `plugins/column/route.js` has its own `TILE_MPH = 80`, copied from `state.js`. It sets the Wildblood
 column's clock, not a truck's, and it's someone else's uncommitted work, so it stays. Moved to the
 road's pace, the column would run 29% slower.
+
+### Phase 7 as built
+
+Stored fuel didn't change, so no saved truck, boat or aircraft needs migrating, and no range or
+price moved. What changed is what the numbers mean.
+
+- **Aircraft:** one unit of `fuel` and `fuel_capacity` is one litre, or one kWh on the battery
+  craft: 800 kWh in a Grasshopper, 1,500 L in a Shrike. `fmtFuel` and `fuelUnit` in
+  `client/shared/fuels.js` print them, and `status` gives the burn by the hour while airborne,
+  off the same `burnPerTick` the flight tick spends.
+- **Trucks and boats** still store a fraction of a tank, because that's what the pump and the
+  dials work in. Each type has a `tankL` (trucks 160 to 680 L, boats 30 to 420 L), and the auxiliary
+  tank adds to it. Litres are the two multiplied. `litresPerKm` in `road-units.js` gives a truck's
+  burn, 0.35 to 0.60 L/km, which the dealer's card prints. The range stays the tuned number.
+- **Printed as litres:** the pump's meter on the cab glass, `fuel`'s handle line, the dealer and the
+  truck card, the boat at the pumps. **Still a percentage:** fleet lists, condition lines, the
+  hangar's gauge bars, and the racer, which has no `tankL`. A percentage is the honest word for how
+  full a thing is, and those lines are about the state of the vehicle.
 
 ## Small fixes found on the way
 

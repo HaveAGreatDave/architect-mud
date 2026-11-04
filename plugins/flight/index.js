@@ -8,7 +8,7 @@
 // coords. Flight is a `flying` posture tick loop; takeoff/landing are flown from the
 // continuous cockpit, not commanded. See state.js for the shared substrate.
 
-import { fuelName } from '../../client/shared/fuels.js';
+import { fuelName, fuelUnit, fmtFuel } from '../../client/shared/fuels.js';
 import { randomUUID } from 'crypto';
 import { cmdChampagne } from './champagne.js';
 import { query } from '../../server/models/db.js';
@@ -1620,6 +1620,9 @@ async function billRental(live) {
 // time (a leg still covers the same span of game-time). Baseline x3 ⇒ factor 1.
 const BASELINE_TIMESCALE = 3;
 function fuelBurnScale() { return (getTimeScale() || BASELINE_TIMESCALE) / BASELINE_TIMESCALE; }
+// One tick's burn, which is the only place the rate lives, and the same thing by the hour.
+const burnPerTick = (a, eff) => eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1) * fuelBurnScale();
+const burnPerHour = (a, eff) => burnPerTick(a, eff) * 3600000 / TICK_MS;
 
 const AUTO_RETURN_MS = 10 * 60 * 1000;   // an unattended airborne craft is flown back to a hangar after 10 real minutes
 
@@ -1672,7 +1675,7 @@ async function flightTick() {
         // a taxiing plane mustn't "buzz past overhead" or trip no-fly rules.
         const grounded = !!live.cont?.onGround;
         if (!grounded) {
-          a.fuel = Math.max(0, a.fuel - eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1) * fuelBurnScale());
+          a.fuel = Math.max(0, a.fuel - burnPerTick(a, eff));
           if (a.fuel <= 0 && !live.starving) { live.starving = true; toOccupants(live, '<span class="text-red">⚠ ENGINE OUT: the tank\'s dry. Dead stick. Get it down.</span>'); }
           // Stall consequences (authoritative). A BRIEF stall is free — nose down, unload, and the
           // energy model flies again; that IS the recovery, no verb. But a SUSTAINED stall (a held
@@ -2267,7 +2270,7 @@ async function cmdFlightStatus(args, raw, player) {
   const lines = [
     `<span class="text-cyan">${live.type.name} "${a.name || live.type.name}": ${player.seat === 'passenger' ? 'PASSENGER' : a.airborne ? 'AIRBORNE' : 'on the ground'}</span>`,
     `Position: <b>${loc}</b> (${a.grid_x}, ${a.grid_y})` + (a.airborne ? ` · ALT ${BAND_LABEL[a.altitude_band] || a.altitude_band} · HDG <b>${String(deg).padStart(3, '0')}°</b> ${degToCardinal(deg).toUpperCase()} · ${Math.round(eff.cruise * (a.throttle / 100) * 84)}kt` : ''),
-    `Fuel: <b>${fuel}/${cap}</b> (${Math.round(fuel / cap * 100)}% ${fuelName(live.type.fuel_type)}) · Hull: <b>${Math.round((1 - a.damage) * 100)}%</b> · Throttle: ${a.throttle}%`,
+    `Fuel: <b>${fuel}/${fmtFuel(live.type.fuel_type, cap)}</b> (${Math.round(fuel / cap * 100)}% ${fuelName(live.type.fuel_type)}${a.airborne ? `, burning ${Math.round(burnPerHour(a, eff))} ${fuelUnit(live.type.fuel_type)} an hour` : ''}) · Hull: <b>${Math.round((1 - a.damage) * 100)}%</b> · Throttle: ${a.throttle}%`,
   ];
   if (eff.cargo) lines.push(`Cargo: ${eff.cargo}/${eff.maxTOW}kg${eff.overweight ? ' <span class="text-red">⚠ OVERWEIGHT</span>' : ''}`);
   if (live.type.hardpoints) {
