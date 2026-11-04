@@ -139,7 +139,6 @@ export function cloudVolToggle(...a) { return (_m || _cold('cloudVolToggle')).cl
 export function craftResidue(...a) { return (_m || _cold('craftResidue')).craftResidue(...a); }
 export function curtainEndResidue(...a) { return (_m || _cold('curtainEndResidue')).curtainEndResidue(...a); }
 export function curtainRoofFtAt(...a) { return (_m || _cold('curtainRoofFtAt')).curtainRoofFtAt(...a); }
-export function lotRoofFtAt(...a) { return (_m || _cold('lotRoofFtAt')).lotRoofFtAt(...a); }
 export function curtainSegs(...a) { return (_m || _cold('curtainSegs')).curtainSegs(...a); }
 export function curtainTopZAt(...a) { return (_m || _cold('curtainTopZAt')).curtainTopZAt(...a); }
 export function deadStandSnags(...a) { return (_m || _cold('deadStandSnags')).deadStandSnags(...a); }
@@ -206,6 +205,7 @@ export function lastViewState(...a) { return (_m || _cold('lastViewState')).last
 export function lightVisibilitySmoke(...a) { return (_m || _cold('lightVisibilitySmoke')).lightVisibilitySmoke(...a); }
 export function limbTilt(...a) { return (_m || _cold('limbTilt')).limbTilt(...a); }
 export function looseOf(...a) { return (_m || _cold('looseOf')).looseOf(...a); }
+export function lotRoofFtAt(...a) { return (_m || _cold('lotRoofFtAt')).lotRoofFtAt(...a); }
 export function makeCam(...a) { return (_m || _cold('makeCam')).makeCam(...a); }
 export function markRenderSmoke(...a) { return (_m || _cold('markRenderSmoke')).markRenderSmoke(...a); }
 export function massDropped(...a) { return (_m || _cold('massDropped')).massDropped(...a); }
