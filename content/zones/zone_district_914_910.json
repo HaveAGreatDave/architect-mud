@@ -19,6 +19,7 @@
     "map_icon": "bldg_sentinel",
     "media_lot": {
       "part": "building",
+      "ticker": "n",
       "wall": "ne"
     },
     "region_id": "region_coldwater",

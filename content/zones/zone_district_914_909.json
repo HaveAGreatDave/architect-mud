@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Marrow Street outside the Coldwater Sentinel, its gilt masthead over a front door bricked up and rendered over. A card in the old counter window sends deliveries round to the KSAB gate on Foundry Way. Somebody dragged a mattress halfway across the road and gave up.",
+  "description": "Marrow Street outside the Coldwater Sentinel, its gilt masthead over a front door bricked up and rendered over, and the day's headlines running along the building in amber letters over the lot's wall. A card in the old counter window sends deliveries round to the KSAB gate on Foundry Way.",
   "exits": {
     "east": "zone_district_915_909",
     "north": "zone_district_914_908",

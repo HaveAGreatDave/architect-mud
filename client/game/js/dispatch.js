@@ -2061,6 +2061,8 @@ const handlers = {
   // A live show is going out (broadcast plugin). Lights the ON AIR box on the KSAB plot; `news` sends
   // the lot's two vans out.
   studio_live:    (msg) => { state.studioLive = !!msg.live; state.newsOut = !!msg.news; },
+  // Today's headlines, for the ticker on the Sentinel (broadcast plugin).
+  headlines:      (msg) => { state.headlines = msg.list || []; },
 };
 
 // ── Blackout FX ──────────────────────────────────────────────────────────────

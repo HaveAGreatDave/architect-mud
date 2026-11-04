@@ -1531,7 +1531,9 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     // `x`: one of the lot's buildings, which carries the wall along its street faces and nothing
     // else; it stays a building and takes no mark (drawLotMark in windshield.js draws it alongside).
     const P = { parking: 'p', backlot: 'b', building: 'x' };
-    ml = { p: P[mlf.part] || 'c', w: w || undefined, g };
+    // `t`: the side the Sentinel's ticker runs along. It isn't a wall or a gate, so the movement graph
+    // has no say in it.
+    ml = { p: P[mlf.part] || 'c', w: w || undefined, g, t: 'nesw'.includes(mlf.ticker || '-') ? mlf.ticker : undefined };
   }
   // An airfield's hangar is the same shed at aircraft scale (windshield.js bayDims): a `bay` mark,
   // told apart by `bk`, so every reader of the shed (door, CFIT roof, occlusion) takes it for free.

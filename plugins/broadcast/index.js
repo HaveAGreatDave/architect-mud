@@ -6290,6 +6290,24 @@ function _newsOutNow() {
   }
   return false;
 }
+// The Sentinel's ticker: the headlines the tablet's News app runs, off its read seam. All of it is in
+// memory. Asked once a minute at most and sent only when they've changed, which is a few times an
+// hour; the client keeps the list, and a login gets it once.
+const TICKER_STORIES = 6, TICKER_EVERY_MS = 60000;
+let _headlinesSent = '', _headlinesAt = 0;
+async function _headlinesNow() {
+  const res = await dispatchAction({ type: 'news.getStories', params: { total: TICKER_STORIES } }).catch(() => null);
+  return (res?.stories || []).map((s) => s.headline).filter(Boolean);
+}
+async function _pushHeadlines(nowMs) {
+  if (nowMs - _headlinesAt < TICKER_EVERY_MS) return;
+  _headlinesAt = nowMs;
+  const list = await _headlinesNow(), key = list.join('|');
+  if (key === _headlinesSent) return;
+  _headlinesSent = key;
+  for (const id of world.players.keys()) sendToPlayer(id, { type: 'headlines', list });
+}
+on('player.login', async ({ id }) => { if (id) sendToPlayer(id, { type: 'headlines', list: await _headlinesNow() }); });
 function _pushStudioLive() {
   const live = _studioLiveNow(), news = _newsOutNow();
   if (live === _studioLiveSent && news === _newsOutSent) return;
@@ -6327,6 +6345,7 @@ async function broadcastTick() {
   if (!hasActivePlayers()) return;
   const nowMs = Date.now();
   _pushStudioLive();
+  _pushHeadlines(nowMs).catch(() => {});
   // Channels the zone loop below will drive this tick (a tuned zone with players).
   // The deck-preview pass skips these so the stateful graph walker isn't advanced
   // twice in one tick.

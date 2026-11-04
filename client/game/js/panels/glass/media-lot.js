@@ -57,6 +57,8 @@ export const LOT = Object.freeze({
   BLD_FACE: 0.44, ROOF_Z: 0.60, COPE_Z: 0.016,
   DOCK_X0: -0.08, DOCK_X1: 0.18, DOCK_Z: M(1.2),
   ARM_U: 0.061, ARM_V: 0.433, ARM_Z: M(1.0), ARM_L: 0.30, ARM_UP: 1.36,   // the barrier: its pivot, its length, how far it lifts
+  // The Sentinel's ticker: the band over the wall, its housing's depth, one letter's cell, its speed.
+  TICKER_Z0: 0.226, TICKER_Z1: 0.268, TICKER_HW: 0.40, TICKER_OUT: 0.012, TICKER_CELL: 0.023, TICKER_RATE: 0.00011,
   CORNER_R: M(1.7), CORNER_H: M(5.4),   // the drum the backlot's two walls turn on, the old bar's corner
 });
 const PIER_U = LOT.GATE_HALF + LOT.PIER_R;            // a pier's centre, along the wall from the gate's middle
@@ -156,6 +158,33 @@ export function lotVanKey() {
   return k;
 }
 
+// ── THE TICKER ──
+// The Sentinel's headlines run along its street front, right to left, over the lot's wall. `lotTicker`
+// says which letters are in the band at `t` milliseconds and where: [char, u] with `u` along the band
+// from its middle. A headline is cut into single letters, because a whole line is one texture and a
+// window onto it would be a fresh bake a frame; 40-odd glyphs bake once and slide.
+// ⚠ A LETTER IS NOT CLIPPED. It's drawn only while it's wholly in the band, and the housing's two end
+// caps stand proud over the last cell, so one arrives and leaves behind them.
+const TICKER_GAP = '   +++   ';
+export function lotTickerLine(headlines) {
+  const line = (headlines || []).map((h) => String(h).toUpperCase().replace(/[^A-Z0-9 .,'!?&:₵-]/g, '').trim()).filter(Boolean);
+  return line.length ? line.join(TICKER_GAP) + TICKER_GAP : '';
+}
+export function lotTicker(line, t) {
+  const n = line.length, out = [];
+  if (!n) return out;
+  const cell = LOT.TICKER_CELL, hw = LOT.TICKER_HW, s = ((t || 0) * LOT.TICKER_RATE) % (n * cell);
+  const k0 = Math.floor(s / cell), slip = s - k0 * cell;
+  for (let c = 0; ; c++) {
+    const u = -hw + cell / 2 + c * cell - slip;
+    if (u + cell / 2 > hw) break;
+    if (u - cell / 2 < -hw) continue;
+    const ch = line[(k0 + c) % n];
+    if (ch !== ' ') out.push([ch, u]);
+  }
+  return out;
+}
+
 // ── THE BARRIER ──
 // Down across the lane, and up for a rig coming at it from either side, sensed the way a depot's bay
 // door is (bayDoorSense in windshield.js). Nobody is checked. `lx, ly` is the rig from the court's
@@ -181,7 +210,8 @@ export function lotArmTravel(want, now) {
 // This frame's moving part, before anything is drawn: runs the arm, and says whether the tile has
 // anything on the move. ⚠ RESTING, THE ARM AND THE VANS ARE PART OF THE KEPT LOT, and the dynamic pass
 // costs nothing, which is the usual frame (`perf/alloc`). `lotVanKey` is what tells the kept part.
-export function lotLive(part, gate, lift, now) {
+export function lotLive(part, gate, lift, now, ticker = false) {
+  if (ticker) return true;
   if (gate) {
     let want = lift;
     for (let i = 0; i < NEWS_VANS; i++) {
@@ -251,6 +281,8 @@ const PAL = {
 //   face(pts, rgb, a)             one convex polygon, points in the same frame, already shaded
 //   light(x, y, z, rgb, s, a)     a glow
 //   text(quad, label, css, lit)   lettering on a quad wound TL, TR, BR, BL as it is read
+//   ticker        the side the Sentinel's headlines run along, with `line` (lotTickerLine) and `scroll`,
+//                 the clock they run on; only asked for near to, and only in the dynamic part
 //   layer         'static', 'dynamic' or nothing for both: the barrier and a van on the move are the
 //                 dynamic part, and the rest of the lot is kept like a building (markKept)
 export function drawMediaLot(o) {
@@ -440,6 +472,22 @@ export function drawMediaLot(o) {
     const ang = ARM.v * LOT.ARM_UP, cu = Math.cos(ang), cz = Math.sin(ang);
     const at = (t) => G(LOT.ARM_U - LOT.ARM_L * t * cu, LOT.ARM_V, LOT.ARM_Z + LOT.ARM_L * t * cz);
     for (let k = 0; k < 6; k++) strut(at(k / 6), at((k + 1) / 6), M(0.07), k % 2 ? PAL.white : PAL.red, 'paint');
+  }
+
+  // ── THE TICKER ──
+  // ⚠ IT'S HERE AND NOT IN THE PAPER'S ARM, because an arm whose decals move every frame can't be kept
+  // and runs whole, every frame. The housing is mesh in the arm; only the letters move (§4.5).
+  if (moving && o.ticker && OUT[o.ticker] && o.text && o.line) {
+    const F = frame(o.ticker), v = LOT.BLD_FACE + LOT.TICKER_OUT + 0.0015;
+    const p = F(0, v, 0), out = OUT[o.ticker];
+    // Only from the street side: from behind, the band is the building's own back wall.
+    if ((E[0] - p[0]) * out[0] + (E[1] - p[1]) * out[1] > 0) {
+      // Wider than its cell: a glyph is set to the quad's short side, and this is the band's height.
+      const z0 = LOT.TICKER_Z0 + 0.005, z1 = LOT.TICKER_Z1 - 0.005, w = (z1 - z0) / 2;
+      for (const [ch, u] of lotTicker(o.line, o.scroll)) {
+        o.text([F(u - w, v, z1), F(u + w, v, z1), F(u + w, v, z0), F(u - w, v, z0)], ch, '#ffb83a', true, 'mono');
+      }
+    }
   }
 
   // ── THE COURT ──

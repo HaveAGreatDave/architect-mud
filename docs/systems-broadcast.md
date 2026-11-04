@@ -2869,6 +2869,7 @@ door works as it did.
 
 `studio_live` also carries `news`: true while a station with a stage airs a `news` slot, off the
 timetable alone. The lot's two vans go out with it, and `zone.describeRoom` says so in the car park.
+The `headlines` message carries the day's headlines to the ticker on the Sentinel.
 
 ---
 

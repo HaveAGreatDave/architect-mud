@@ -19,7 +19,8 @@
 // ⚠ NO FACE EXISTS BY NIGHT ONLY. The night mesh is paired to the day one face for face, so glass,
 // lamps and the band are always emitted and only their colour follows the hour.
 // ⚠ NOTHING HERE MOVES BUT THE ON AIR LAMP, and that's a decal for the reason every moving part is
-// (Moving parts in glass-notes.md): building-styles §4.5 keeps movement rare.
+// (Moving parts in glass-notes.md): building-styles §4.5 keeps movement rare. The Sentinel's ticker is
+// the lot's: its letters are in glass/media-lot.js, so this arm can stay kept.
 import { faceAway,
   DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, SHAPE_SINK, bakeSignText, flatsDropped, massDropped, blinkLight, clamp, dish, draw3DBoxAt,
   drawBarrelRoof, drawFacetDrum, drawRing, dutyPhase, emitDecoFill, emitSurfaceText, emitWire, faceYaw,
@@ -441,7 +442,7 @@ export const LOT_BUILDING_ARMS = {
     // lot's wall covers the street front to LOT.WALL_H, so it all stands over the wall.
     footing(k, 'b', Y, -X, X);
     {
-      const z0 = LOT.WALL_H + 0.03, z1 = 0.535, [a, b] = SN.lights, n = 5, w = (b - a) / n;
+      const z0 = LOT.TICKER_Z1 + 0.024, z1 = 0.535, [a, b] = SN.lights, n = 5, w = (b - a) / n;
       // The press, a train of drums on one line, behind the tall lights. It runs through the night
       // for the morning paper, so it's after dark that it shows, dark against the lit hall.
       wall('b', Y, a - 0.012, b + 0.012, z0 - 0.012, z1 + 0.012, VITROLITE, 1);
@@ -460,10 +461,22 @@ export const LOT_BUILDING_ARMS = {
       wall('b', Y, a, b, dz - r - 0.018, dz - r - 0.010, mixRgb([30, 34, 38], [46, 34, 24], dn), 3);
       if (dn > 0) { const [gx, gy] = F((a + b) / -2, -Y - 0.05); glowPool(ctx, cam, gx, gy, 0.36, '255,200,128', 30, alpha * 0.42 * dn); }
     }
+    // The ticker's housing, on the wall's top line: a black screen in a steel box, its two end caps
+    // standing proud to take the letters in and out. Only the letters move, and they're the lot's
+    // (the `ticker` part of drawMediaLot), so this arm stays kept.
+    {
+      const hw = LOT.TICKER_HW, o = LOT.TICKER_OUT, z0 = LOT.TICKER_Z0, z1 = LOT.TICKER_Z1, cap = 0.02;
+      B(0, -Y - o / 2, hw + 0.012, o / 2, z0 - 0.006, z1 + 0.006, PLANT, true, 7);
+      wall('b', Y + o, -hw, hw, z0, z1, [10, 8, 6], 1);
+      wall('b', Y + o, -hw, hw, z0 + 0.002, z0 + 0.004, mixRgb([70, 44, 14], [180, 112, 34], dn), 1.5);
+      wall('b', Y + o, -hw, hw, z1 - 0.004, z1 - 0.002, mixRgb([70, 44, 14], [180, 112, 34], dn), 1.5);
+      for (const s of [-1, 1]) B(s * (hw + 0.012 - cap / 2), -Y - o / 2 - 0.003, cap / 2 + 0.002, o / 2 + 0.003, z0 - 0.008, z1 + 0.008, COPE, true, 8 + s);
+      if (dn > 0) { const [gx, gy] = F(0, -Y - 0.05); glowPool(ctx, cam, gx, gy, (z0 + z1) / 2, '255,184,58', 24, alpha * 0.3 * dn); }
+    }
     // The black glass beside the press, chrome-edged, with the clock on it. ⚠ THE HANDS ARE STOPPED
     // AT FIVE TO MIDNIGHT, the paper's own joke: a clock with moving hands is a moving part (§4.5).
     {
-      const a = SN.lights[1] + 0.03, b = X - 0.03, z0 = LOT.WALL_H + 0.03 - 0.012, z1 = 0.547, c = SN.clockU, cz = SN.clockZ, R = SN.clockR;
+      const a = SN.lights[1] + 0.03, b = X - 0.03, z0 = LOT.TICKER_Z1 + 0.012, z1 = 0.547, c = SN.clockU, cz = SN.clockZ, R = SN.clockR;
       wall('b', Y, a, b, z0, z1, VITROLITE, 1);
       for (const z of [z0 + 0.09, z0 + 0.094]) wall('b', Y, a, b, z, z + 0.002, paint([170, 176, 180]), 2);
       const disc = (r) => { const p = []; for (let j = 0; j < 20; j++) { const t = j / 20 * Math.PI * 2; p.push([c + Math.cos(t) * r, cz + Math.sin(t) * r]); } return p; };

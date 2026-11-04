@@ -1,12 +1,12 @@
 # The Media Lot *(as built)*
 
-**Status: phases 1, 2 and 3 BUILT; only the Sentinel's ticker is open (§9).** KSAB's block between
+**Status: phases 1, 2 and 3 BUILT.** KSAB's block between
 Marrow Street, Meltwater Row and Foundry Way, walled like a Hollywood studio lot. Phase 1 (2026-10-18)
 took Wrap Party and Just My Type off the map, made their two tiles the lot's gate court and car park,
 turned the stage and the Writers' Wing to open onto the court, gave the Sentinel a press hall and the
 gate a guard, and drew the wall, the gate and the car park in GLASS. Phase 2 (2026-11-03) redrew the
 buildings in one hand. Phase 3 (2026-11-03) added the paper's morgue and a writers' room, and made the
-barrier lift and the vans go out with the news.
+barrier lift, the vans go out with the news and the headlines run along the Sentinel.
 
 The content is written by [scripts/content/media-lot.mjs](../../scripts/content/media-lot.mjs) and
 [scripts/content/media-lot-rooms.mjs](../../scripts/content/media-lot-rooms.mjs). The ground is drawn
@@ -234,7 +234,8 @@ shows dark against the lit hall after dark, because the press runs at night; bla
 in it; and the masthead in gilt under the coping, in the paper's own `deco` hand. ⚠ **The hands are
 stopped at five to midnight,** because a clock that keeps time moves, and §4.5 keeps movement rare. The
 front counter and its wire cage aren't drawn: the paper lost its street door when the block closed, and
-the wall covers that storey. On the car park side, the steel door, the wired window with the feed
+the wall covers that storey. Along the top of the wall runs the ticker (§7), a black band in a steel
+housing. On the car park side, the steel door, the wired window with the feed
 screens and a roller shutter over the dock.
 
 A building gets its name once ([building-styles.md §4.1](../reference/building-styles.md)). The gate
@@ -315,6 +316,14 @@ names, types and map codes, so they needed no new icons.
   their bay and reverse in. A client that logs in during the news finds the bays empty. `zone.describeRoom`
   says which, so the car park's own prose leaves them out.
 
+- **The ticker** was checked with David, because it moves (2026-11-03). The broadcast plugin reads the
+  day's headlines off `news.getStories`, at most once a minute, and sends `headlines` only when they've
+  changed, plus once at login. `flags.media_lot.ticker` names the side, and the derive carries it as
+  `ml.t`. The housing is mesh in the paper's arm; the letters are the lot's dynamic part. ⚠ They're one
+  decal each from about forty cached glyphs, so nothing bakes while it runs, and they aren't in the arm,
+  so the arm stays kept. They're drawn within arm's length only, from the street side, and sit still with
+  motion off.
+
 ### Tests
 
 - `tests/regress.js` walks in from Foundry Way through the gate, east into the car park, finds the
@@ -325,7 +334,7 @@ names, types and map codes, so they needed no new icons.
 - `markRenderSmoke` draws both parts and a gate on every side, near and far, by night and day.
 - [scripts/shapes/medialot.mjs](../../scripts/shapes/medialot.mjs) holds the buildings to constants and
   out of the wall, the tower in the CFIT sweep, one rule for the wall, the barrier's sense and motor,
-  and a van solid only in its bay.
+  a van solid only in its bay, and the ticker's letters inside their band.
 
 ## 8. Decisions
 
@@ -340,7 +349,5 @@ David went with every recommendation on 2026-10-18:
 
 ## 9. What isn't built
 
-- **A headline ticker on the Sentinel,** fed by the news generator. It moves, and §4.5 keeps movement
-  rare, so it waits on David.
 - No new mechanic: no pass at the gate and no parking charge. Players don't own cars; the car park
   takes trucks, and its vans are scenery.

@@ -42,7 +42,7 @@ import { seatAudioFrame, seatSpot } from './seat-audio.js';   // contacts' engin
 import { FLOOR_Z, BUILDING_FOOT, floorsFor, BUILDING_TUNE, buildingScale, CURTAIN_H } from '../../../shared/skyline-scale.js';
 import { fireworksAround, aaLive, AA_FIRE_MS, noteServiceAt, serviceNear } from './world-feed.js';   // world events kept by tile, whatever seat is open
 import { drawAAEmplacement } from './glass/aa-emplacement.js';   // the four AA batteries (drawAAMark)
-import { drawMediaLot, lotSolidAt, lotAirTopAt, lotArmSense, lotLive, lotVanKey, lotVans } from './glass/media-lot.js';   // the Media Lot's court and car park (drawLotMark)
+import { drawMediaLot, lotSolidAt, lotAirTopAt, lotArmSense, lotLive, lotTickerLine, lotVanKey, lotVans } from './glass/media-lot.js';   // the Media Lot's court and car park (drawLotMark)
 import { state } from '../state.js';
 import { drawStreetKit, kitCell, kitPlace } from './glass/street-kit.js';   // Coldwater's lane, walkways and street furniture (drawStreetKitPass)
 import { kitWalk, KIT_WALK } from './glass/street-kit-walk.js';   // the people on it go round by the bridge or the crossing (drawStreetActors)
@@ -39068,7 +39068,9 @@ function drawLotMark(ctx, cam, it, night, alpha, now, sun, od, part) {
   lotVans(!!TUNE.motion && !!state.newsOut, now);
   let armLift = 0;
   if (ml.g && TUNE.motion) for (const [vx, vy] of _bayVehicles) armLift = Math.max(armLift, lotArmSense(vx - it.dx, vy - it.dy, ml.g));
-  if (part !== 'static' && !lotLive(ml.p, ml.g, armLift, now) && part === 'dynamic') return;
+  const near = eyeRange(cam, it.dx, it.dy) < 6;
+  const line = ml.t && near ? lotTickerLineOf(state.headlines) : '';
+  if (part !== 'static' && !lotLive(ml.p, ml.g, armLift, now, !!line) && part === 'dynamic') return;
   const toGL = !!BAY_SINK && TUNE.glBay !== 0;
   const EX = (cam.ex || 0) - cam.ox, EY = (cam.ey || 0) - cam.oy, EZ = cam.EH == null ? 0.2 : cam.EH;
   const soft = [], words = [];
@@ -39083,8 +39085,8 @@ function drawLotMark(ctx, cam, it, night, alpha, now, sun, od, part) {
   };
   // ⚠ THE FACE IS NAMED. Left to default, bakeSignText takes `_signFace`, which is whatever building
   // the sweep drew last, and the gate came out in a bar's script hand.
-  const text = (quad, label, css, lit) => {
-    const tex = bakeSignText(label, css, lit ? 1 : 0, false, true, true, { font: 'block' });
+  const text = (quad, label, css, lit, font = 'block') => {
+    const tex = bakeSignText(label, css, lit ? 1 : 0, false, true, true, { font });
     if (!tex) return;
     const put = () => {
       const P = quad.map(([x, y, z]) => cam.proj(x, y, z));
@@ -39094,7 +39096,8 @@ function drawLotMark(ctx, cam, it, night, alpha, now, sun, od, part) {
   };
   drawMediaLot({
     dx: it.dx, dy: it.dy, part: ml.p, wall: ml.w || '', gate: ml.g || '', gpu: !!part && toGL, layer: part,
-    eye: [EX, EY, EZ], near: eyeRange(cam, it.dx, it.dy) < 6,
+    ticker: line ? ml.t : '', line, scroll: TUNE.motion ? now : 0,
+    eye: [EX, EY, EZ], near,
     seed: it.seed, now, night, alpha, wet: clamp(wetGround(), 0, 1), sun,
     face, text,
     light: (x, y, z, rgb, s0, a) => glowPool(ctx, cam, x, y, z, rgb, s0, a * alpha),
@@ -39112,6 +39115,12 @@ function drawLotMark(ctx, cam, it, night, alpha, now, sun, od, part) {
   }
 }
 const LOT_FACES = 1600;   // the 2-D path's cap, as AA_FACES
+// The ticker's line, joined once a change: headlines arrive a few times an hour and are asked for every frame.
+let _lotHeads = null, _lotLine = '';
+function lotTickerLineOf(heads) {
+  if (heads !== _lotHeads) { _lotHeads = heads; _lotLine = lotTickerLine(heads); }
+  return _lotLine;
+}
 
 // The lot's wall, piers, gatehouse, vans, dock and tower legs, to a truck: lotSolidAt answers from
 // the constants glass/media-lot.js draws with. ⚠ IT READS THE CELLS AROUND THE POINT, for
@@ -42636,6 +42645,11 @@ export function markRenderSmoke() {
         { contacts: [] }, night, alpha, 1000, null, null, 1)]))),
     // The Media Lot's two parts, near and far, and a gate on every side, because the gate is built in
     // a frame turned to its side and only the south one is authored today.
+    // The Sentinel's ticker: letters on every side, because the band is built in a frame turned to it.
+    ...['n', 'e', 's', 'w'].map((t) => [`lot:ticker:${t}`, (night, alpha) => {
+      const was = state.headlines; state.headlines = ["Sentinel's ticker: 12 run, 3-0"];
+      try { drawLotMark(SHAPE_STUB_CTX, SHAPE_STUB_CAM, { dx: 0, dy: -3, wx: 7, wy: 7, seed: 3, c: { ml: { p: 'x', w: 'ne', t } } }, night, alpha, 1000, null, 1); } finally { state.headlines = was; }
+    }]),
     ...[['c', '', 's'], ['p', 'es', ''], ['c', '', 'n'], ['c', 'w', 'e'], ['p', 'nesw', 'w'], ['b', 'nw', ''], ['b', 'es', ''], ['x', 'ne', '']].flatMap(([p, w, g]) => [-3, -8].map((dy) => [`lot:${p}:${w}:${g}:${-dy}`, (night, alpha) =>
       drawLotMark(SHAPE_STUB_CTX, SHAPE_STUB_CAM, { dx: 0, dy, wx: 7, wy: 7, seed: 3, c: { mark: 'lot', ml: { p, w, g } } }, night, alpha, 1000, null, 1)])),
   ];

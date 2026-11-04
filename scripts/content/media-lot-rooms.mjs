@@ -40,7 +40,12 @@ const paper = read('zones', PAPER);
 paper.description = "The Coldwater Sentinel's back door, beside the loading dock where its van backs in: a steel door under a lamp, stencilled NO PARKING, and a roller shutter over the dock. Through a wired window, a wall of feed-screens flickers through headlines, and a printer inside never stops chattering. The paper's front is on Marrow Street, on the far side of the building and the wall.";
 paper.flags.floors = 3;
 paper.flags.map_icon = 'bldg_sentinel';
+paper.flags.media_lot = { ...paper.flags.media_lot, ticker: 'n' };
 write('zones', paper);
+
+const front = read('zones', 'zone_district_914_909');
+front.description = "Marrow Street outside the Coldwater Sentinel, its gilt masthead over a front door bricked up and rendered over, and the day's headlines running along the building in amber letters over the lot's wall. A card in the old counter window sends deliveries round to the KSAB gate on Foundry Way.";
+write('zones', front);
 
 // The vans come and go, so the room's own prose leaves them to the broadcast plugin's line.
 const park = read('zones', PARK);

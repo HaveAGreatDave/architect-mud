@@ -10,7 +10,7 @@ import { loadWindshield } from './dom-stub.mjs';
 import { lotSides } from '../content/derive.mjs';
 
 const ws = await loadWindshield();
-const { LOT, lotSolidAt, lotAirTopAt, lotArmSense, lotArmTravel, lotVans } = await import('../../client/game/js/panels/glass/media-lot.js');
+const { LOT, lotSolidAt, lotAirTopAt, lotArmSense, lotArmTravel, lotTicker, lotTickerLine, lotVans } = await import('../../client/game/js/panels/glass/media-lot.js');
 
 let bad = 0;
 const check = (ok, what) => { if (!ok) { bad++; console.error('  ✗ ' + what); } };
@@ -76,6 +76,20 @@ check(lotSolidAt(BAY[0], BAY[1], lot) === 0, 'an empty bay is open');
 lotVans(false, 200000);
 lotVans(false, 200000 + 120000);
 check(lotSolidAt(BAY[0], BAY[1], lot) > 0, 'and solid again when the van is back');
+
+// ── The ticker ──
+const line = lotTickerLine(['Gunfire on Marrow Street', 'Bakery "wins" 3-0']);
+check(line.startsWith('GUNFIRE ON MARROW STREET') && !line.includes('"'), 'a headline is capitals, with nothing a glyph bake lacks');
+check(lotTickerLine([]) === '', 'no headlines, no line');
+for (const t of [0, 1234, 99999, 7e6]) {
+  const cells = lotTicker(line, t);
+  check(cells.length > 10, 'the band is full of letters');
+  check(cells.every(([, u]) => Math.abs(u) + LOT.TICKER_CELL / 2 <= LOT.TICKER_HW + 1e-9), 'a letter is drawn only wholly inside the band');
+}
+const uOf = (t) => lotTicker(line, t).find(([c]) => c === 'F')[1];
+const u0 = uOf(0), u1 = uOf(40);
+check(u1 < u0, 'it runs right to left');
+check(LOT.TICKER_Z0 > LOT.WALL_H + LOT.COPE_H, 'it stands over the wall');
 
 if (bad) { console.error(`✗ medialot — ${bad} problem(s)`); process.exit(1); }
 console.log('✓ medialot');
