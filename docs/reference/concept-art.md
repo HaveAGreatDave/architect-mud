@@ -275,6 +275,25 @@ light.
 **Gangs and corps inside the city** wear the city's architecture. Tell them apart by colour, signage
 and what they've taken over (a water plant, a server farm, a fast food depot), not by a new style.
 
+### Clothing sheet
+
+[concept-art/npc-faction-clothing.webp](concept-art/npc-faction-clothing.webp) is a sheet of NPC
+outfits for the five orders: full figures, heads and collar close-ups, inked with flat colour like
+the close-up figure ([hd-figure.md](../proposals/hd-figure.md)). It's here to draw per-order
+clothing variations from later. Nothing is built from it yet.
+
+Take the cuts and silhouettes from it, not the colours. Its palette disagrees with the table in
+section 2 in four places, and the table wins:
+
+- **Wildblood** is red on the sheet. The order's colour is green (`#6AB04C`), on dye and hide.
+- **Null** is violet on the sheet. Theirs is steel grey (`#7E8A99`) on painted plate.
+- **Exodus** is undyed tan on the sheet, which fits, but violet is theirs and appears once, at a
+  threshold, not on the clothes.
+- **Long Watch** has its own amber kit on the sheet. Above ground they wear the city and have no
+  palette, so this kit belongs in the Under only.
+
+The Ascendant suits and lab coats match the brief as drawn.
+
 **The four gated orders** (Prometheans, Synthesis, Pioneers, Lucid) have no ground and no mechanics
 yet. Don't draw them until they do; a faction with art and nothing to play reads as abandoned.
 
