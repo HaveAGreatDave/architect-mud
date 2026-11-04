@@ -2969,8 +2969,10 @@ export default async function regress({ check, run, getPlayer }) {
       const sayBsm = Object.fromEntries(block('say').map(l => { const m = /^(\S+)\s+(.+)$/.exec(l); return m ? [m[1].toLowerCase(), m[2].replace(/\s+/g, ' ')] : null; }).filter(Boolean));
       const voiceLine = (src.split(/\r?\n/).find(l => l.startsWith('@voice ')) || '').slice(7).trim();
       const voiceBsm = Object.fromEntries(voiceLine.split(/\s+/).filter(Boolean).map(kv => { const [k, v] = kv.split('='); return [k, +v]; }));
-      check('hockey: the row carries the script\'s pronunciations', JSON.stringify(row.sports_pools?.say) === JSON.stringify(sayBsm), `${Object.keys(row.sports_pools?.say || {}).length} vs ${Object.keys(sayBsm).length}`);
-      check('hockey: the row carries the script\'s booth voice', JSON.stringify(row.sports_pools?.voice) === JSON.stringify(voiceBsm), JSON.stringify(row.sports_pools?.voice));
+      // The row is canonical JSON, so its keys are sorted whatever order the script wrote them in.
+      const sameEntries = (a, b) => JSON.stringify(Object.entries(a || {}).sort()) === JSON.stringify(Object.entries(b || {}).sort());
+      check('hockey: the row carries the script\'s pronunciations', sameEntries(row.sports_pools?.say, sayBsm), `${Object.keys(row.sports_pools?.say || {}).length} vs ${Object.keys(sayBsm).length}`);
+      check('hockey: the row carries the script\'s booth voice', sameEntries(row.sports_pools?.voice, voiceBsm), JSON.stringify(row.sports_pools?.voice));
       // vs=1: "{away}–{home}" is said "away versus home", not "away, home" (readMatchups)
       check('hockey: the booth reads a matchup as versus', voiceBsm.vs === 1, voiceLine);
       const script = row.sports_pools, wrong = [];
@@ -3330,6 +3332,11 @@ export default async function regress({ check, run, getPlayer }) {
     {
       const v6Pools = ['pbp.rebound.live', 'pbp.putback'].filter(k => pools[k]);
       for (let slot = 0; slot < 400 && v6Pools.some(k => !usedPools.has(k)); slot++) narrateSlot(slot, { version: 6 });
+    }
+    // The lost-picture card reads `lost_picture`, not the narrator, so ask the card's own picker.
+    {
+      const said = _test.lostPictureLine({ pools });
+      if ((pools.lost_picture || []).some(l => sportsFill(l, { venue: 'the ground' }).trim() === said)) usedPools.add('lost_picture');
     }
     // Now the check has no exemptions but the deliberate `faceoff` fallback, which sits
     // behind the three dot-specific pools and is expected never to fire.
