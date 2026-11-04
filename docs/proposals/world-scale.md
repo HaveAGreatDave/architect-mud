@@ -1,6 +1,6 @@
 # One world scale
 
-> **Status: phases 1 to 3 built (2026-11-03); phases 4 to 7 are design.** The ruler, the
+> **Status: phases 1 to 4 built (2026-11-03); phases 5 to 7 are design.** The ruler, the
 > conversions, the paces, the labels and `scale:lint` are in, and the truck reads km/h (see
 > [Phase 2 as built](#phase-2-as-built)). Where this disagrees with a `systems-*.md` doc about what
 > ships today, that doc wins until the phase that changes it lands.
@@ -210,8 +210,30 @@ lower and a re-run of the helipad catch's regress, but nothing has read `FT_PER_
 collision moved onto captured shapes (`building-shapes.md`): the only other mention is the lazy
 facade's export. A roof's feet come from the drawn model through `altForRoofZ` and
 `altRestingOnZ`, which invert the eye curve, and that's where the catch reads its deck. So no height
-moved. A storey in the picture is `FLOOR_Z` (0.028) times `RENDER_TUNE.bldgH`, which is the
-0.196 tiles on the ruler.
+moved. A storey in the picture is `FLOOR_Z` (0.028) times `bldgH` and `bldgStretch` (1.4 and 5),
+which is the 0.196 tiles on the ruler.
+
+### Phase 4 as built
+
+`heightToZ(m, eye, lift)` in `world-scale.js` is the curve, and its numbers moved there from
+`flight-height.js`, which keeps `flightHeight` and `altitudeTiles` as the part that stops at the
+top. Two decisions the table didn't make:
+
+- **The curve has to carry on past 3,000 ft.** The eye stops rising there, so a contact drawn
+  straight on it would sit level with you however far above it was. Above the top it runs on at
+  the old 1/600 a foot. The eye still caps; everything else doesn't.
+- **A contact is hung off your own eye**: `contactZ(cam, altDiff)` in `windshield.js` is
+  `EHbase` plus the difference on the curve, so a co-altitude contact is level with you at any
+  height, including above the top where `EHbase` no longer means your altitude.
+
+Aircraft, gates, missiles, their trails, flares, gun aim and the thermals all draw through it, and
+the cockpit's gun solution reads the same curve, so the pipper and the drawn bogey agree.
+`contactZ` uses `EHbase`, not `EH`: `EH` has the chase camera's lift in it, so contacts used
+to ride up and down with the orbit. They don't now. Near the ground the change is large (from 100 ft,
+a contact at 500 ft draws at 3.1, was 2.2); at 3,000 ft and level it's nothing.
+
+`CONTACT_ALT_K` stays for a contact on `groundZ`: the Echelon's deck camera counts feet above the
+pad in that frame, and the catch column is sized to it. Those heights are tens of feet.
 
 ## Small fixes found on the way
 

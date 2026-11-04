@@ -17,7 +17,7 @@
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
 import { parkTiles } from '../../../shared/coliseum-plan.js';
-import { MPH_KMH, STOREY_M, FT_M, tripM, fmtDistance } from '../../../shared/world-scale.js';
+import { MPH_KMH, STOREY_M, FT_M, tripM, fmtDistance, heightToZ } from '../../../shared/world-scale.js';
 import { seaShelter, SURF_DEPTH_Q, surfHullGain, surfGain, seaHeadingFor, setSeaHeading, seaRotPair } from '../../../shared/sea-swell.js';
 import { windGust, windVeer, stormOf } from '../../../shared/wind-gust.js';
 import { skyAt } from '../../../shared/sky-keys.js';
@@ -21475,6 +21475,10 @@ export function makeCam(W, horizonY, depth0, v, chase) {
   // neither and is bit-identical.
   const eh0 = v.eyeH != null ? v.eyeH : RENDER_TUNE.eh;
   const EHbase = Math.max(0.05, eh0 + (v.height || 0) * RENDER_TUNE.climbLift);   // additive + floor: altitude adds real eye-height so you climb above buildings; floor keeps the runway/ground from collapsing at eh→0
+  // Our own altitude, for contactZ. `height` is exact on the curve; past its top it's capped, and the
+  // rounded readout is good enough there because the line is straight.
+  const ownH = v.height || 0;
+  const ownFt = ownH < 1 ? ownH * ownH * FLIGHT_HEIGHT_FT : Math.max(FLIGHT_HEIGHT_FT, v.alt || 0);
   const back = chase ? chase.back : 0;
   // ── ⚠ THE CAMERA IS NO LONGER OBLIGED TO SIT ON THE HEADING AXIS ────────────
   // `back` is a scalar down the craft's heading: enough for a chase camera, not a detached one.
@@ -21618,7 +21622,7 @@ export function makeCam(W, horizonY, depth0, v, chase) {
   // focal lengths are FL (lateral) and depth (vertical) and whose principal point is (W/2, horizonY).
   // A second renderer cannot reproduce the picture without them, and deriving them again elsewhere
   // is how two cameras start disagreeing by a pixel that nobody can trace.
-  return { R, sinh, cosh, ox, oy, proj, projFL, worldFL, unproj, rawF, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff, pitch, W, horizonY, depth };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
+  return { R, sinh, cosh, ox, oy, proj, projFL, worldFL, unproj, rawF, EH, EHbase, ownFt, back, FL, fx, fy, ex, ey, fwdOff, pitch, W, horizonY, depth };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
 }
 
 // ── Depth-sorted face queue (painter's order without a z-buffer) ─────────────────────────────
@@ -32711,7 +32715,7 @@ function drawStrikePuffs(ctx, cam, wcx, wcy, now, FAR, alphaMul) {
 const THERMAL_VIEW_R = 30;   // tiles round the eye worth collecting columns for
 // Ground a dust devil can lift off: bare, dry and hot. Not grass, not a city block, not water.
 const DEVIL_GROUND = new Set(['redrock', 'badlands', 'hardpan', 'alkali', 'scrub', 'ash', 'basalt', 'plateau']);
-const thermalFtZ = (ft) => RENDER_TUNE.eh + Math.sqrt(Math.max(0, ft) / 3000) * RENDER_TUNE.climbLift;
+const thermalFtZ = (ft) => heightToZ(ft * FT_M, RENDER_TUNE.eh, RENDER_TUNE.climbLift);
 let THERM_MEMO = null;
 // What the last frame found, for the Modelshop and the console: live columns, caps built, devils
 // drawn. Every one of these is silent when it is zero, so a count is the only way to tell "no
@@ -35204,7 +35208,7 @@ function drawGates(ctx, cam, v, W, H, now) {
   for (let i = 0; i < g.rings.length; i++) {
     if (i < g.active) continue;   // already flown
     const ring = g.rings[i];
-    const wz = cam.EH + (ring.altDiff || 0) * CONTACT_ALT_K;
+    const wz = contactZ(cam, ring.altDiff);
     const p = cam.proj(ring.dx, ring.dy, wz);
     if (p.f <= 0.12) continue;   // behind the camera
     const isActive = i === g.active;
@@ -35229,7 +35233,17 @@ function drawGates(ctx, cam, v, W, H, now) {
 // build a low-poly aircraft model in the contact's local frame and project every vertex
 // through the SAME Mode-7 camera as the buildings — so aspect angle (which way it's
 // pointing), bank, pitch and perspective all come out physically correct for free.
-const CONTACT_ALT_K = 1 / 600;   // feet of altitude delta → world-z units (tune)
+const CONTACT_ALT_K = 1 / 600;   // feet above a deck or the road → world-z units, for a contact on `groundZ` (tune)
+// Where anything in the air draws: the one altitude curve (heightToZ), measured from our own height
+// and hung off our own eye, so a contact at your altitude is at your altitude and one at 500 ft is
+// where 500 ft is whatever you're flying at. ⚠ EHbase, never EH: EH has the chase camera's lift in
+// it, and a contact isn't on the camera. Stub cameras in the gates have EH alone.
+function contactZ(cam, altDiff) {
+  const base = cam.EHbase ?? cam.EH;
+  if (!altDiff) return base;
+  const m = (cam.ownFt || 0) * FT_M, lift = RENDER_TUNE.climbLift;
+  return base + heightToZ(m + altDiff * FT_M, 0, lift) - heightToZ(m, 0, lift);
+}
 const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model isn't screen-squashed (tune)
 // ⚠ NOT FOR AIRCRAFT (2026-10-08). The stretch dates from before one world scale, when a contact was a
 // speck and a flat one read as a smear. Buildings, people and trees are drawn true height, so an
@@ -36018,7 +36032,7 @@ function poseSeaContact(cam, c) {
 }
 function contactBaseWz(cam, c) {
   if (!c._seaPosed) poseSeaContact(cam, c);
-  if (c.groundZ == null) return cam.EH + (c.altDiff || 0) * CONTACT_ALT_K;
+  if (c.groundZ == null) return contactZ(cam, c.altDiff);
   const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1);
   const drop = SIZE * vsOf(c.cls) * (-modelLowestH(c.cls, c.pitch, c.bank, 1, !!c.armed));
   return c.groundZ + drop + (c.altDiff || 0) * CONTACT_ALT_K;
@@ -38594,7 +38608,7 @@ function gunGeometry(cam, v) {
   const d = v.designated;
   let aim;
   if (d) {
-    aim = [d.dx, d.dy, cam.EH + (d.altDiff || 0) * CONTACT_ALT_K];   // air target → both muzzles converge on the bogey
+    aim = [d.dx, d.dy, contactZ(cam, d.altDiff)];   // air target → both muzzles converge on the bogey
   } else {
     // No lock → the boresight follows the NOSE: pitch the nose down and the gun line drops toward
     // the ground ahead (converging on the ground point you're diving at → GROUND STRAFING); level
@@ -38693,7 +38707,7 @@ function drawGunTracers(ctx, cam, v, now) {
     if (!c.firing) continue;
     const id = String(c.id || ''), hash = (id.charCodeAt(0) || 0) + (id.charCodeAt(id.length - 1) || 0);   // stable per-contact phase (id is a UUID string)
     const hd = (c.hdg || 0) * Math.PI / 180, sh = Math.sin(hd), ch = Math.cos(hd);
-    const wz = cam.EH + (c.altDiff || 0) * CONTACT_ALT_K;
+    const wz = contactZ(cam, c.altDiff);
     const aim = [c.dx + sh * 12, c.dy - ch * 12, wz];   // 12 tiles down their nose
     for (const s of [-1, 1]) {
       tracerStream(ctx, cam, [c.dx + ch * 0.24 * s, c.dy + sh * 0.24 * s, wz - 0.02], aim, t + hash * 0.11, s * 0.5 + 0.7);
@@ -38711,7 +38725,7 @@ function drawGunReticle(ctx, cam, v, W, H, horizonY) {
   const hd = (v.heading || 0) * Math.PI / 180, sh = Math.sin(hd), ch = Math.cos(hd);
   const muzZ = ownShipBaseWz(cam, v);
   let aim, designated = false;
-  if (v.designated) { aim = [v.designated.dx, v.designated.dy, cam.EH + (v.designated.altDiff || 0) * CONTACT_ALT_K]; designated = true; }
+  if (v.designated) { aim = [v.designated.dx, v.designated.dy, contactZ(cam, v.designated.altDiff)]; designated = true; }
   else {
     const pr = (v.pitch || 0) * Math.PI / 180; let R = 16, az = muzZ + R * Math.tan(pr);
     if (az < 0) { R = muzZ / Math.max(0.02, -Math.tan(pr)); az = 0; }   // gun line meets the ground → converge there
@@ -38835,7 +38849,7 @@ function drawMissiles(ctx, cam, v, now) {
   ctx.save(); ctx.lineCap = 'round';
   const night = v.sky?.night || 0;
   for (const m of ms) {
-    const wz = cam.EH + (m.altDiff || 0) * CONTACT_ALT_K;
+    const wz = contactZ(cam, m.altDiff);
     const p = cam.proj(m.dx, m.dy, wz);
     if (m.boom > 0) {
       // Terminal burst — a hot core flashing out into a dirty orange ball that fades fast.
@@ -38853,8 +38867,8 @@ function drawMissiles(ctx, cam, v, now) {
     // so it curves through the missile's actual (weaving) path rather than a straight line.
     const tr = m.trail || [];
     for (let i = 1; i < tr.length; i++) {
-      const a = cam.proj(tr[i - 1][0], tr[i - 1][1], cam.EH + tr[i - 1][2] * CONTACT_ALT_K);
-      const b = cam.proj(tr[i][0], tr[i][1], cam.EH + tr[i][2] * CONTACT_ALT_K);
+      const a = cam.proj(tr[i - 1][0], tr[i - 1][1], contactZ(cam, tr[i - 1][2]));
+      const b = cam.proj(tr[i][0], tr[i][1], contactZ(cam, tr[i][2]));
       if (a.f <= 0.12 || b.f <= 0.12) continue;
       const f = i / tr.length;                          // 0 = oldest wisp → 1 = at the motor
       const al = 0.30 * f * clamp(1.4 - b.f / 12, 0.25, 1);
@@ -38900,8 +38914,8 @@ function drawFlares(ctx, cam, v, now) {
     const fade = f.life < 0.75 ? 1 : 1 - (f.life - 0.75) / 0.25;
     const tr = f.trail || [];
     for (let i = 1; i < tr.length; i++) {
-      const a = cam.proj(tr[i - 1][0], tr[i - 1][1], cam.EH + tr[i - 1][2] * CONTACT_ALT_K);
-      const b = cam.proj(tr[i][0], tr[i][1], cam.EH + tr[i][2] * CONTACT_ALT_K);
+      const a = cam.proj(tr[i - 1][0], tr[i - 1][1], contactZ(cam, tr[i - 1][2]));
+      const b = cam.proj(tr[i][0], tr[i][1], contactZ(cam, tr[i][2]));
       if (a.f <= 0.12 || b.f <= 0.12) continue;
       const k = i / tr.length;
       ctx.strokeStyle = `rgba(222,218,210,${0.28 * k * fade})`;
@@ -38911,7 +38925,7 @@ function drawFlares(ctx, cam, v, now) {
   }
   ctx.globalCompositeOperation = 'lighter';
   for (const f of fs) {
-    const wz = cam.EH + (f.altDiff || 0) * CONTACT_ALT_K;
+    const wz = contactZ(cam, f.altDiff);
     const p = cam.proj(f.dx, f.dy, wz);
     if (p.f <= 0.15) continue;
     const fade = f.life < 0.75 ? 1 : 1 - (f.life - 0.75) / 0.25;
@@ -40661,7 +40675,7 @@ function drawGuideBoxes(ctx, cam, v, now) {
   const craftAlt = Math.max(0, v.landGuide.alt || 0);
   const Dtop = clamp(craftAlt / GS, 2, 15);               // how far back the path reaches (grows with altitude)
   const N = 8, halfW = 0.34, halfH = 0.32;
-  const ehOf = (alt) => Math.max(0.05, RENDER_TUNE.eh + Math.min(1, Math.sqrt(Math.max(0, alt) / 3000)) * RENDER_TUNE.climbLift);
+  const ehOf = (alt) => Math.max(0.05, altitudeTiles(alt, RENDER_TUNE.eh, RENDER_TUNE.climbLift));
   const pulse = 0.5 + 0.5 * Math.sin((now || 0) * 0.005);
   ctx.save(); ctx.lineJoin = 'round';
   for (let i = N - 1; i >= 0; i--) {                       // far → near so nearer gates draw on top

@@ -24,6 +24,24 @@ export const MPH_MS = MI_M / 3600;     // a mile an hour in m/s
 export const KMH_MS = 1000 / 3600;     // a kilometre an hour in m/s
 export const MPH_KMH = MPH_MS / KMH_MS; // a mile an hour in km/h: the truck's sim is mph, its dials km/h
 
+// ── Height ──────────────────────────────────────────────────────────────────
+// The one altitude curve. The eye rises as the square root of altitude: steep near the ground, so a
+// low pass reads, and flat high up, so two thousand feet still shows a map of tiles. It reaches
+// CLIMB_Z at CURVE_TOP_FT. The aircraft you fly stops climbing in the picture there (flight-height.js
+// caps it); anything else carries on at a straight Z_PER_FT_ABOVE, so a contact 5,000 ft over your
+// head isn't drawn level with you.
+export const EYE_Z = 0.24;             // world z of the eye on the ground
+export const CLIMB_Z = 7;              // z added across the curve
+export const CURVE_TOP_FT = 3000;      // the altitude where the curve ends
+export const Z_PER_FT_ABOVE = 1 / 600; // z a foot, above that
+
+// World z for a height in metres. `eye` and `lift` are for the renderer's live tune.
+export function heightToZ(m, eye = EYE_Z, lift = CLIMB_Z) {
+  const ft = Math.max(0, m || 0) / FT_M;
+  if (ft <= CURVE_TOP_FT) return eye + lift * Math.sqrt(ft / CURVE_TOP_FT);
+  return eye + lift + (ft - CURVE_TOP_FT) * Z_PER_FT_ABOVE;
+}
+
 // ── Paces ───────────────────────────────────────────────────────────────────
 // A pace is how many world metres a mode covers for each metre its own instruments say it went:
 // the time compression that lets a truck cross Coldwater in minutes. Every number is today's

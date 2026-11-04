@@ -5,7 +5,8 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
-import { KT_MS, NM_M, tripM, fmtDistance } from '../../../shared/world-scale.js';   // contact ias is m/s on the wire; field distances in nm
+import { KT_MS, NM_M, FT_M, tripM, fmtDistance, heightToZ } from '../../../shared/world-scale.js';
+import { flightHeight } from '../../../shared/flight-height.js';   // contact ias is m/s on the wire; field distances in nm
 import { tweenOrbit, BAY_PITCH } from './camera-tween.js';
 import { internMap } from './map-intern.js';
 import { seatSpot } from './seat-audio.js';
@@ -857,8 +858,8 @@ function paceAt(altFt, mult = 1) {
   const cruise = (AIR_PACE - 1) * (1 - Math.exp(-((a / AIR_PACE_RISE_FT) ** 2)));
   return RENDER_TUNE.worldPace * mult * (1 + rush + cruise);
 }
-// Gun envelope (tiles, half-cone deg), alt-to-z scale (mirrors windshield CONTACT_ALT_K), and FX cadence.
-const GUN_RANGE = 2.2, GUN_CONE = 11, GUN_ALT_K = 1 / 600, GUN_FIRE_MS = 120;   // ~8.3 rounds/s, .50 cal
+// Gun envelope (tiles, half-cone deg) and FX cadence.
+const GUN_RANGE = 2.2, GUN_CONE = 11, GUN_FIRE_MS = 120;   // ~8.3 rounds/s, .50 cal
 // The Drake's gun convergence range (tiles), set on the CONV knob. Client-side only.
 const DRAKE_CONV_STEPS = [0.6, 1.0, 1.4, 1.8, 2.2];
 function drakeConv() { return _fsim?.gunConv ?? 1.2; }
@@ -3189,7 +3190,7 @@ function beginCrashBreakup(F, reason) {
   if (F.crashCine) return;
   F.rolling = false; F.reportedAirborne = false;
   if (F.setExternalView) F.setExternalView(true);
-  const h0 = Math.min(1, Math.sqrt(Math.max(0, F.s?.altitude || 0) / 3000));
+  const h0 = flightHeight(F.s?.altitude);
   F.crashCine = { t0: performance.now(), reason, reported: false,
     bank0: F.s?.bank || 0, pitch0: F.s?.pitch || 0, hdg: F.s?.heading || 0, h0 };
 }
@@ -3916,7 +3917,9 @@ function fsimFrameBody(now) {
   // Gun solution: aimQuality 0..1 off the cone angle; the server trusts it within its own gate.
   F.gunSolution = null;
   if (designated && F.hardpoints > 0 && F.armed && F.weapon !== 'msl') {
-    const elev = Math.atan2((designated.altDiff || 0) * GUN_ALT_K, Math.max(0.1, designated.rng)) * 180 / Math.PI;
+    // The height the bogey is drawn at, off the same curve as contactZ in windshield.js.
+    const rise = heightToZ((s.altitude + (designated.altDiff || 0)) * FT_M) - heightToZ(s.altitude * FT_M);
+    const elev = Math.atan2(rise, Math.max(0.1, designated.rng)) * 180 / Math.PI;
     const totalOff = Math.hypot(designated.bore, elev - (s.pitch || 0));
     const inRange = designated.rng <= GUN_RANGE;
     let aimQ = inRange ? Math.max(0, 1 - totalOff / GUN_CONE) : 0;
@@ -4122,7 +4125,7 @@ function fsimFrameBody(now) {
     ...(F.dk?.subVis > 0 ? { rideZ: -F.dk.subVis / 7 } : {}),
     drakeFloat: F.dk?.floatVis || 0,
     // ⚠ Raw s.altitude, never the rounded readout: the sqrt is steepest off the deck and rounding steps the eye.
-    height: Math.min(1, Math.sqrt(Math.max(0, s.altitude) / 3000)), speed: clampNum(r.airspeed / (P.vne || 120), 0, 1),
+    height: flightHeight(s.altitude), speed: clampNum(r.airspeed / (P.vne || 120), 0, 1),
     ias: Math.round(r.airspeed), alt: Math.round(r.altitude), vsi: Math.round(s.vs), vne: P.vne, vs0: P.vs0,
     // ── Panel feed ──
     // ⚠ The panel must read these live values, and only what the sim models; never feed a gauge a plausible constant.
