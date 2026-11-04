@@ -42,7 +42,7 @@ import { FLOOR_Z, BUILDING_FOOT, floorsFor, BUILDING_TUNE, buildingScale, CURTAI
 import { fireworksAround, aaLive, AA_FIRE_MS, noteServiceAt, serviceNear } from './world-feed.js';   // world events kept by tile, whatever seat is open
 import { drawAAEmplacement } from './glass/aa-emplacement.js';   // the four AA batteries (drawAAMark)
 import { drawMediaLot, lotSolidAt } from './glass/media-lot.js';   // the Media Lot's court and car park (drawLotMark)
-import { drawStreetKit, kitCell, kitPlace } from './glass/street-kit.js';   // Coldwater's lane, walkways and street furniture (drawStreetKitPass)
+import { drawStreetKit, kitCell, kitPaved, kitPlace, KIT } from './glass/street-kit.js';   // Coldwater's lane, walkways and street furniture (drawStreetKitPass)
 import { kitWalk, KIT_WALK } from './glass/street-kit-walk.js';   // the people on it go round by the bridge or the crossing (drawStreetActors)
 import { skylineFar, SKYLINE_BASE_FAR } from '../../../shared/skyline-tall.js';
 import { hnoise2, hn2h, fbm2 } from '../../../shared/landform.js';
@@ -942,7 +942,7 @@ export const RENDER_TUNE = {
   armLive: 1,    // a kept building's animated helpers (smoke, rings, beams, wind wheels, flags) are left out of its kept set and called again each replay (armLiveCall); 0 makes any such building live
   flatEarly: 1,  // an arm's own flat and box primitives return before building what emitFlat and draw3DBoxAt would drop on the GL path (flatsDropped, massDropped: the ballpark, the clone facility's tubes); 0 builds, clips and colours each one first
   marksGPU: 1,   // the South Lock, the AA batteries, the media lot and the statue send their faces unshaded with a normal and a material code, the solids shader turns the normal to the eye and shades them (gl/solids.js, the marks), and their static parts are kept as a building's are (markKept); 0 shades every face on the CPU from the eye every frame, as before. On since 2026-10-25, after David saw the before/after shots (glass-headroom.md)
-  streetKit: 0,  // Coldwater Streets phase 1: on a road tile whose district sets a street condition (`sc`), the 4 m lane, the raised chrome walkways and their furniture are drawn over the road as a mark (glass/street-kit.js, drawStreetKitPass; docs/proposals/coldwater-streets.md). Needs marksGPU. Off until David approves the look
+  streetKit: 0,  // Coldwater Streets: on a road tile whose district sets a street condition (`sc`), the 4 m lane, the raised walkways, their furniture and the bridges are drawn over the road as a mark, at that condition (glass/street-kit.js, drawStreetKitPass; docs/proposals/coldwater-streets.md). Needs marksGPU. Off until David approves the look
   armNearWire: 1,   // a kept building with a stroke that crosses emitWire's near plane this frame runs live for the frame (armNearWire), as the live arm cuts that stroke at the plane; 0 replays the stroke whole, which the strokes shader draws with a wrong width once an end is behind the eye
   armFace3: 1,   // slumFaceK's eye test is recorded in a kept set (faceAway3) and asked again on replay, so a slum building's sheets change tone when the eye crosses them; 0 tests it unrecorded and a kept set keeps the tone it was probed with
   armFade: 1,    // a building in the haze band keeps: its kept set is its recording at alpha 1, alpha leaves the key, and a fading frame replays the set scaled by the fade, proved against the live draw (armFadeCanon); 0 runs every fading building live, as before
@@ -28262,7 +28262,7 @@ function drawSteamPlume(ctx, cam, dx, dy, night, seed, alpha, now) {
 // ⚠ SUPERSEDED: it's laid OVER now, not added (see STEAM_OVER_CAP). `steamOver` 0 still runs the
 // additive path, chosen because adding can only lighten (multiplying gives a grey smudge, and a
 // sprite can't know what's behind it to composite over).
-function steamPlume(ctx, cam, od, dx, dy, night, seed, alpha, now, gain = 1, riseMul = 1) {
+function steamPlume(ctx, cam, od, dx, dy, night, seed, alpha, now, gain = 1, riseMul = 1, wide = 1, z0 = 0) {
   const k = (RENDER_TUNE.glSteam == null ? 1 : RENDER_TUNE.glSteam) * gain;
   if (!(k > 0)) return;
   // ⚠ THE CANVAS PATH QUEUES AND THE SPRITE PATH DOES NOT, WHICH LOOKS INCONSISTENT AND IS THE
@@ -28338,7 +28338,7 @@ function steamPlume(ctx, cam, od, dx, dy, night, seed, alpha, now, gain = 1, ris
     // the one in front and the column would tangle, so this is a CURVE on one monotonic u rather
     // than a second clock: it leaves the grate fast and slows as it cools, by its own amount.
     const uz = Math.pow(u, 0.72 + hC * 0.5);
-    const z = uz * H;
+    const z = z0 + uz * H;
     // It leans further downwind the higher it gets, because it has been in the wind longer —
     // which is the whole reason to read the real wind rather than roll a drift: the plume and the
     // windsock fifty tiles away agree about which way the weather is going.
@@ -28360,7 +28360,7 @@ function steamPlume(ctx, cam, od, dx, dy, night, seed, alpha, now, gain = 1, ris
     // plume a fraction of that tall, so the thing on screen was a soft grey wall with a small
     // column somewhere inside it. Tied to H, a shorter plume gets smaller puffs by arithmetic
     // and the two cannot come apart again.
-    const r = clamp((puffK() * H * grow) / p.f, 3, puffMax() * H);
+    const r = clamp((puffK() * H * grow * wide) / p.f, 3, puffMax() * H * wide);
     // In fast at the grate, out slowly over the whole rise. A puff that faded linearly appeared
     // at full strength out of the tarmac.
     // ⚠ AND IT DIES AT ITS OWN MOMENT. A shared curve puts five identical fades on one column
@@ -34750,7 +34750,7 @@ function drawStreetKitPass(ctx, cam, v, map, R, wcx, wcy, night, now, FAR, sun, 
     // 14, and past that only what still reads from a cab down the street.
     const range = eyeRange(cam, dx, dy), near = range < 6, far = range >= 14;
     const face = (pts, rgb, a, n, mat) => {
-      if (n) { markFaceGL(pts, cam, rgb, a, n, mat === 'metal' ? -3 : mat === 'glass' ? -4 : -2); return; }
+      if (n) { markFaceGL(pts, cam, rgb, a, n, mat === 'metal' ? -3 : mat === 'glass' || mat === 'film' ? -4 : -2); if (mat === 'film') BAY_SINK[BAY_SINK.length - 1].film = true; return; }
       BAY_SINK.push({ p: pts.map(([x, y, z]) => [x + cam.ox, y + cam.oy, z]), rgb, a });
     };
     // ⚠ THE FACE IS NAMED, for the Media Lot's reason: left to default, bakeSignText takes whatever
@@ -34762,9 +34762,22 @@ function drawStreetKitPass(ctx, cam, v, map, R, wcx, wcy, night, now, FAR, sun, 
       if (P.every((p) => p && p.f > 0.065)) emitSurfaceText(ctx, cam, P, tex, false, a);
     };
     const light = (x, y, z, rgb, s0, a) => glowPool(ctx, cam, x, y, z, rgb, s0, a * alpha);
+    // The ink, ruled by hand along what sits too low for the depth-based outline to find. It's the
+    // street steel's ink (steelInkK), so it goes with the city's lines. Half the outline's width:
+    // these are the detail lines of the comic look. ⚠ NOT ON THE FAR TIER: the fade starts past it,
+    // and a line whose alpha moves with the eye would stop the tile's static pass being kept.
+    const ink = (a) => {
+      const k = steelInkK(cam, [dx, dy, 0]);
+      return k > 0 ? (A, B) => emitWire(ctx, cam, A, B, steelInkPx() * 0.6, STEEL_INK_CSS, a * k, { pull: 0.004 }) : null;
+    };
+    // A plume off a grate, out of the same sprites the road's vents use (steamPlume). Thinner and
+    // shorter than a manhole's: a grate is smaller, there are more of them, and at the road's width
+    // a walkway of them read as a grey veil across the street, cut off along the ground.
+    const steam = (x, y, s, gain) => steamPlume(ctx, cam, f, x, y, night, s, alpha, now, gain * 0.55, 0.8, 0.32, KIT.KERB_H);
     const kit = (t, a, part) => drawStreetKit({
       dx, dy, place, s0: place.axis === 'ns' ? wy : wx, part, near, far,
-      seed: wx * 73 + wy * 149, now: t, night, alpha: a, face, light, text: text(a),
+      seed: wx * 73 + wy * 149, now: t, night, alpha: a, face, light, text: text(a), line: far ? null : ink(a), steam,
+      still: RENDER_TUNE.motion === 0,
     });
     if (!envSet) { markEnvFrame(night, sun, sky); envSet = true; }
     markKept(ctx, cam, { c, dx, dy, alpha }, night, now, kit, near ? '|kn' : far ? '|kx' : '|kf');
@@ -39927,7 +39940,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
       // kit's 0.18 m walkway, and the paint showed through its lane. A straight tile is still marked
       // raised, so the people stand at a kerb top rather than in the slab.
       if (streetKitShown(c)) {
-        if ((dirs === 'ns' || dirs === 'ew') && KERB_H > 0 && GROUND_MESH) RAISED_WALK.set(c, _walkGen);
+        if (kitPaved(c) && (dirs === 'ns' || dirs === 'ew') && KERB_H > 0 && GROUND_MESH) RAISED_WALK.set(c, _walkGen);
       } else if (RA || dirs === 'ns' || dirs === 'ew') {   // straight: continuous 4-lane markings across the tile
         const A = RA || (dirs === 'ew' ? [1, 0] : [0, 1]);
         // ── ⚠ A BLOCK OF ROAD TILES IS ONE ROAD, NOT N ROADS SIDE BY SIDE ────────
@@ -54555,8 +54568,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // below still applies to it — which is also why it cannot sit down among the biome scatter,
     // where every branch is written for a tile with nothing else on it and ends in a continue.
     // Put there, it was reached by almost no road tile in the window and drew almost nothing.
+    // ⚠ NOT ON THE STREET KIT, which has its own vents in the walkway: this one's plume and lid stand
+    // at the tile's centre, and there that's the middle of the licensed lane.
     if (it.c.road && !it.c.bt && !it.c.hi && frac(it.wx * 21.17 + it.wy * 93.71) < RENDER_TUNE.steamDensity
-        && nearFrontage(map, it.rx, it.ry)) {
+        && nearFrontage(map, it.rx, it.ry) && !streetKitShown(it.c)) {
       steamPlume(ctx, cam, od, it.dx, it.dy, night, it.seed, alpha, now, 0.85);
       // …and the thing it is coming out of. The SAME `if`, so the two can never disagree about
       // whether this tile has a shaft under it — see the ⚠ over steamManhole.

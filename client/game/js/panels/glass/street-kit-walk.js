@@ -18,7 +18,7 @@
 //
 // Frame: absolute world tiles, x east, y south, z up. `win` is the map window: `at(rx, ry)` a cell
 // by window index, `wide` (see kitPlace), `R`, `wcx`, `wcy`.
-import { KIT, M, kitPlace } from './street-kit.js';
+import { KIT, LEVEL, M, kitPlace } from './street-kit.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -36,8 +36,14 @@ export const KIT_WALK = {
   crossFrugal: 9,   // and to somebody who does
 };
 
-const { LANE_HW, KERB_H, TOWER_V, BRIDGE_U, CROSS_U, DECK_Z1, WALK_V } = KIT;
-const LANE_Z = M(0.03);
+const { LANE_HW, KERB_H, LANE_Z, TOWER_V, BRIDGE_U, CROSS_U, DECK_Z1, WALK_V } = KIT;
+
+// A tile's place for walking. The dirt has no lane and no walkways, so it's off the kit here: people
+// cross it where they like, as they cross any open ground.
+const placeOf = (win, rx, ry) => {
+  const place = kitPlace(win.at, rx, ry, win.wide);
+  return place && !LEVEL[place.level].dirt ? place : null;
+};
 
 // The window index and the tile centre (world) of a world point.
 function tileOf(win, X, Y) {
@@ -48,7 +54,7 @@ function tileOf(win, X, Y) {
 // or null off the kit.
 function regionAt(win, X, Y) {
   const t = tileOf(win, X, Y);
-  const place = kitPlace(win.at, t.rx, t.ry, win.wide);
+  const place = placeOf(win, t.rx, t.ry);
   if (!place) return null;
   const lx = X - t.cx, ly = Y - t.cy;
   if (place.axis) {
@@ -66,7 +72,7 @@ function regionAt(win, X, Y) {
 }
 // A region by its tile and its side or quadrant, built the way regionAt builds one.
 function regionOf(win, rx, ry, kind, a, b) {
-  const place = kitPlace(win.at, rx, ry, win.wide);
+  const place = placeOf(win, rx, ry);
   if (!place) return null;
   const cx = (rx - win.R) + win.wcx, cy = (ry - win.R) + win.wcy;
   if (kind === 's') return place.axis ? { rx, ry, cx, cy, place, kind, side: a, key: `${rx},${ry},s,${a}` } : null;
@@ -83,7 +89,7 @@ function links(win, r, frugal) {
     const W = (u, v, zz = z) => [r.cx + U[0] * u + V[0] * v, r.cy + U[1] * u + V[1] * v, zz];
     for (const dir of [-1, 1]) {
       const nx = r.rx + U[0] * dir, ny = r.ry + U[1] * dir;
-      const np = kitPlace(win.at, nx, ny, win.wide);
+      const np = placeOf(win, nx, ny);
       if (!np) continue;
       const nb = np.axis === r.place.axis ? regionOf(win, nx, ny, 's', s)
         : !np.axis ? regionOf(win, nx, ny, 'q', U[0] * -dir + V[0] * s, U[1] * -dir + V[1] * s) : null;
@@ -106,7 +112,7 @@ function links(win, r, frugal) {
   const armX = a.includes(sx > 0 ? 'e' : 'w'), armY = a.includes(sy > 0 ? 's' : 'n');
   const P2 = (x, y) => [r.cx + x, r.cy + y, z];
   const out1 = (nx, ny, sideIfStraight, qx, qy, pt) => {
-    const np = kitPlace(win.at, nx, ny, win.wide);
+    const np = placeOf(win, nx, ny);
     if (!np) return;
     const nb = np.axis ? regionOf(win, nx, ny, 's', sideIfStraight) : regionOf(win, nx, ny, 'q', qx, qy);
     if (nb) out.push({ r: nb, pts: [pt], cost: 1 });

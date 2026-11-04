@@ -6671,17 +6671,19 @@ if (typeof window !== 'undefined') window.__glActors = runActors;
 
 // ── THE STREET KIT, THROUGH THE REAL GL PATH ───────────────────────────────────────────────────
 //
-// Coldwater Streets, phase 1 (RENDER_TUNE.streetKit, glass/street-kit.js). A north-south street at
-// the core level with crossroads four tiles up and two down, so the five tiles between are one block
-// with its crossing a tile north of the centre, shops either side, painted with the kit on and
-// off on the same clock. Like __glActors it fails at 0 changed pixels, which is what an unwired kit
+// Coldwater Streets (RENDER_TUNE.streetKit, glass/street-kit.js). A north-south street with
+// crossroads four tiles up and two down, so the five tiles between are one block with its crossing
+// a tile north of the centre, shops either side, painted with the kit on and off on the same clock.
+// `level` is the street condition, 0 core to 4 dirt, and `tall` the storeys of the buildings along
+// it: 12 gives the block all three upper bridges (glass/street-kit-spans.js), and the default is
+// too low for any. Like __glActors it fails at 0 changed pixels, which is what an unwired kit
 // reports. `stand: true` puts a standing camera on the east walkway (cx, cy in tiles from the
 // street centre, cz the eye, yaw in degrees, 0 looking north); otherwise it's the cab view.
 // `people` stands that many figures along the block. `lapse` (seconds) instead runs a dozen people
 // round the south crossroads, from the block's last tile into the junction and on west, for that
 // long at four frames a second, and shoots the last frame: about half of them have to cross the
 // street, and on the kit they go over the footbridge or across the zebra (glass/street-kit-walk.js).
-export function runStreetKit({ W = 1280, H = 720, hour = 21, thresh = 12, shot = true, stand = true, yaw = 0, cx = 0.27, cy = 1.2, cz = 0.095, fov = 1, pitch = 0, people = 0, lapse = 0 } = {}) {
+export function runStreetKit({ W = 1280, H = 720, hour = 21, thresh = 12, shot = true, stand = true, yaw = 0, cx = 0.27, cy = 1.2, cz = 0.095, fov = 1, pitch = 0, people = 0, lapse = 0, level = 0, tall = 0 } = {}) {
   const holder = document.createElement('div');
   holder.style.cssText = 'position:fixed;left:-10000px;top:0';
   const el = document.createElement('canvas');
@@ -6699,10 +6701,10 @@ export function runStreetKit({ W = 1280, H = 720, hour = 21, thresh = 12, shot =
     const RR = 20, NN = RR * 2 + 1, C = { x: 500, y: 500 }, XS = [RR - 4, RR + 2];
     const map = Array.from({ length: NN }, (_, ry) => Array.from({ length: NN }, (_, rx) => {
       const onMain = rx === RR, onCross = XS.includes(ry);
-      if (onMain && onCross) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'nesw', pw: 1, sc: 0 };
-      if (onMain) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'ns', pw: 1, sc: 0, sl: ry % 3 === 0 ? 1 : undefined };
-      if (onCross) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'ew', pw: 1, sc: 0 };
-      if (Math.abs(rx - RR) === 1 || XS.some((x) => Math.abs(ry - x) === 1)) return { kind: 'land', biome: 'citycore', flr: 0, bt: 'office', is_building: 1, floors: 6 + ((rx * 7 + ry * 3) % 9) };
+      if (onMain && onCross) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'nesw', pw: 1, sc: level };
+      if (onMain) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'ns', pw: 1, sc: level, sl: ry % 3 === 0 ? 1 : undefined };
+      if (onCross) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'ew', pw: 1, sc: level };
+      if (Math.abs(rx - RR) === 1 || XS.some((x) => Math.abs(ry - x) === 1)) return { kind: 'land', biome: 'citycore', flr: tall, bt: 'office', is_building: 1, floors: 6 + ((rx * 7 + ry * 3) % 9) };
       return { kind: 'land', biome: 'citycore', flr: 0 };
     }));
     const common = { worldBlend: 1, height: 0, propMul: 1.75, hour, weather: 'clear', speed: 0, resFloor: 1, map, heading: 0, mapCenter: { ...C } };
