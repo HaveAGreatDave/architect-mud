@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "urban",
-  "bg_color": "#2a1d18",
-  "color": "#d8c9a8",
-  "description": "The bowl wall of the Hughson Coliseum: limestone between marble fins, tall bronze-framed windows onto the concourse, and a copper cornice.",
-  "exits": {},
+  "ambient_theme": "city",
+  "description": "Hughson Way, the short road round Sir Charles's lot. It doesn't go anywhere but the park, and it's swept more often than the public streets.",
+  "exits": {
+    "north": "zone_ballpark_897_912",
+    "south": "zone_ballpark_897_914",
+    "west": "zone_ballpark_896_913"
+  },
   "flags": {
-    "building_name": "Charles B. Hughson Coliseum",
-    "building_type": "ballpark_10_3",
     "district": "halcyon_fields",
-    "entrance": "south",
-    "floors": 10,
     "region_id": "region_coldwater",
-    "venue_lights": true,
-    "venue_roof": true
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 897,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_ballpark_897_913",
   "map_id": "map_world",
-  "name": "Charles B. Hughson Coliseum",
+  "name": "Hughson Way",
   "parent_zone": null
 }

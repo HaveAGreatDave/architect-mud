@@ -3,14 +3,14 @@
   "ambient_theme": "urban",
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
-  "description": "The stands of the Hughson Coliseum, raked up from the field to the bowl wall under its retractable roof.",
+  "description": "The field of the Hughson Coliseum under its retractable roof: grass, a dirt infield, and the stands round it.",
   "exits": {},
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",
-    "building_type": "ballpark_8_7",
+    "building_type": "ballpark_2_1",
     "district": "halcyon_fields",
     "entrance": "south",
-    "floors": 17,
+    "floors": 8,
     "region_id": "region_coldwater",
     "venue_lights": true,
     "venue_roof": true

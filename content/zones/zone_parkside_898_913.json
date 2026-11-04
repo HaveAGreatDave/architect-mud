@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
-  "description": "A low limestone pavilion beside the Coliseum's main gate, three barred ticket windows under a bronze canopy and BOX OFFICE in gilt over them. A queue rail of brass tube runs along the pavement in front.",
+  "description": "A low limestone pavilion on Sorrel Way, a short walk from the Coliseum, three barred ticket windows under a bronze canopy and BOX OFFICE in gilt over them. A queue rail of brass tube runs along the pavement in front.",
   "exits": {
     "north": "zone_hcbox_windows",
     "south": "zone_district_898_914"

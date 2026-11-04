@@ -1,7 +1,7 @@
 # The Charles B. Hughson Coliseum *(as built)*
 
-**Status: BUILT, but for seats in person.** Deadball's ballpark, on the map and on TV: 121 tiles in
-Halcyon Fields at true size, four gates, thirteen rooms, one vendor, one GLASS arm over 121 building
+**Status: BUILT, but for seats in person.** Deadball's ballpark, on the map and on TV: 25 tiles in
+Halcyon Fields, true size on TV, four gates, thirteen rooms, one vendor, one GLASS arm over 25 building
 types, a map icon, the Hughson Dome, whose six moving leaves open it and shut it for the weather, and field lights every night. It's an
 art deco park from the Meridian's decade, kept up, under a roof added long after. Five ballpark
 trades stand on the plots either side of it (§10). The buildings and the green it replaced, and the
@@ -9,8 +9,9 @@ five Halcyon buildings the trades replaced, are set aside on a holding map, not 
 2026-10-18 as Phase 6 of [deadball-glass2.md](deadball-glass2.md#phases), which called the park
 Halcyon Field, and rebuilt in deco with the roof the same day. On 2026-11-02 it went to true size,
 11 by 11 tiles, with the city grown west to the river round it ([coliseum-true-size.md](coliseum-true-size.md)),
-and on 2026-11-03 its three shells gave way to the Hughson Dome, on the map and on TV together. This
-page describes it as it stands now.
+on 2026-11-03 its three shells gave way to the Hughson Dome, on the map and on TV together, and on
+2026-11-04 the map's park came down to five tiles in the corner of its lot, with TV left at true size
+([coliseum-five-tiles.md](coliseum-five-tiles.md)). This page describes it as it stands now.
 
 The content is written by [scripts/content/hughson-coliseum.mjs](../../scripts/content/hughson-coliseum.mjs)
 and [scripts/content/hughson-parkside.mjs](../../scripts/content/hughson-parkside.mjs), and the models
@@ -43,38 +44,40 @@ Where it's told:
 
 ## 2. The site
 
-The block is x 887 to 897, y 910 to 920, Sir Charles's whole lot: Halcyon Boulevard along the
-north, Sorrel Way along the south, the river road and the Curtain on the west, and the trades on
-x 898 to the east. The Deadball row's `sports_pools.venue.site.block` names the same 121 tiles and
+Sir Charles's whole lot is x 887 to 897, y 910 to 920: Halcyon Boulevard along the north, Sorrel Way
+along the south, the river road and the Curtain on the west, and the trades on x 898 to the east. The
+park is the lot's south-east corner, x 893 to 897, y 916 to 920, and the rest is Hughson Way, Hughson
+Green and the car park ([coliseum-five-tiles.md](coliseum-five-tiles.md#the-lot)). The Deadball row's
+`sports_pools.venue.site.block` names the same 25 tiles and
 `site.x`/`site.y` home plate, which [scripts/content/coliseum-park.mjs](../../scripts/content/coliseum-park.mjs)
 writes from the plan. Home plate is 168 ft in from the south-east corner, centre field is to the
 north-west (the venue's bearing of 315 degrees), and the foul lines run along the tile grid.
 
 ⚠ **The plan is [client/shared/coliseum-plan.js](../../client/shared/coliseum-plan.js).** The park is
-drawn in park units (the bowl's outer face at 1.47, its cornice at 0.46 up), and one unit is SH
-(3.56) tiles across and SV (3.86) up on the world's ruler, which is 208.5 ft and 226 ft: the size the
-broadcast always drew it. The bowl's numbers, the gates, home plate, the field and every tile's type
+drawn in park units (the bowl's outer face at 1.47, its cornice at 0.46 up). On the map one unit is
+SH (5/3) tiles across and SV (1.81) up, and on TV it's 208.5 ft and 226 ft, the size the broadcast
+always drew it. The bowl's numbers, the gates, home plate, the field and every tile's type
 and floors are there, and the map's arm, the broadcast's bowl, the registries and TYPE_FLOORS read
 them.
 
-Four tiles are doors; the other 117 are sealed slices (`ballpark_<bc>_<br>`, column and row from the
+Four tiles are doors; the other 21 are sealed slices (`ballpark_<bc>_<br>`, column and row from the
 north-west), each walled on every side a neighbour could walk in from.
 
 | Tile | Type | Door | Street |
 |---|---|---|---|
-| 894,920 | `ballpark` | the main gate, south, straight across from home plate (map code `HC`) | Sorrel Way |
-| 889,910 | `ballpark_bleachers` | the bleacher gate, north (`BG`) | Halcyon Boulevard at Vetch Mews |
-| 897,912 | `ballpark_gate_c` | GATE C, east (`G3`), a hall into the bleachers | the Cart Yard |
-| 887,912 | `ballpark_gate_d` | GATE D, west (`G4`), a hall into the bleachers | the river road |
+| 896,920 | `ballpark` | the main gate, south, straight across from home plate (map code `HC`) | Sorrel Way |
+| 893,916 | `ballpark_bleachers` | the bleacher gate, north (`BG`) | Hughson Way |
+| 897,916 | `ballpark_gate_c` | GATE C, east (`G3`), a hall into the bleachers | the end of Kerbstone Row |
+| 893,917 | `ballpark_gate_d` | GATE D, west (`G4`), a hall into the bleachers | Hughson Way |
 
-The nine tiles the park first stood on (x 895-897, y 911-913) are slices of it now and kept their
-ids; their gates moved, and their rooms with them.
+The nine tiles the park first stood on (x 895-897, y 911-913) are Hughson Green and Hughson Way now
+and kept their ids; their gates moved, and their rooms with them.
 
 - **New ids, so nothing is overwritten.** The park's tiles are `zone_ballpark_<x>_<y>`, and the set-aside
   buildings keep their own `zone_district_<x>_<y>` ids. No runtime code builds a world tile's id
   from its coordinates; `sitecheck.mjs` did, and now looks a tile up by its place on the map.
 - **Four doors.** The gates are facades (GATE C and GATE D written by `authorBuilding`, which takes a
-  `facadeId`, a `streetId` and a `roomName` prefix). The other 117 tiles are sealed the way the Slush
+  `facadeId`, a `streetId` and a `roomName` prefix). The other 21 tiles are sealed the way the Slush
   Fund's are: a name, a type, `entrance: south`, `floors`, empty exits and no `is_building`, so the
   map shows four codes for the park. coliseum-park.mjs walls them with blocked connections.
 - **Every tile carries `venue_lights` and `venue_roof`**, which are what light its field and move its
@@ -168,7 +171,7 @@ Every room has a `power_zones` row and a fixture. Imported fixtures arrive switc
 ## 5. GLASS
 
 One arm, `ballpark` in [coliseum.js](../../client/game/js/panels/glass/models/coliseum.js), draws all
-121 tiles. Each tile's row in [model-registry.js](../../client/game/js/panels/glass/model-registry.js),
+25 tiles. Each tile's row in [model-registry.js](../../client/game/js/panels/glass/model-registry.js),
 generated from the plan, says its column and row in the block (`bc`, `br`, from the north-west) and
 the facing it was authored with (`facing`: south for all but the doors; north for the bleacher
 gate, east for GATE C, west for GATE D).
@@ -437,7 +440,7 @@ own, at full size, and the bowl round them is the map's model, transcribed
 ## 8. Tests
 
 - `tests/regress.js` walks in at the main gate from Sorrel Way, through the concourse and the stands
-  to the bleachers and out onto Halcyon Boulevard; checks the nine tiles and the two doors; checks
+  to the bleachers and out onto Hughson Way, then over the green to Halcyon Boulevard; checks the nine tiles and the two doors; checks
   that nothing on the holding map connects to the world either way, that every set-aside building
   keeps its interior, its furniture and a way out on the holding map, and that its four keepers
   are home.

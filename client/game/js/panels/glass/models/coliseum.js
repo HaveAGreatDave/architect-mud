@@ -1,4 +1,4 @@
-// The Charles B. Hughson Coliseum: Deadball's ballpark, 121 tiles, one model.
+// The Charles B. Hughson Coliseum: Deadball's ballpark, 25 tiles, one model.
 //
 // Every arm takes drawTypeModelArm's arguments and its prologue locals, in this order:
 //   (ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis)
@@ -17,12 +17,12 @@
 // outfield are fixed; the other six turn on the ring and nest under them, so the dome opens from home
 // plate outward and the infield and the grandstand have the sky.
 //
-// ⚠ ONE ARM, 121 SLICES, AT TRUE SIZE. The park stands on x 887-897, y 910-920 in Halcyon Fields, and
+// ⚠ ONE ARM, 25 SLICES. The park stands on x 893-897, y 916-920 in Halcyon Fields, and
 // every tile is its own building type (`ballpark`, `ballpark_bleachers`, `ballpark_gate_c`,
 // `ballpark_gate_d` and `ballpark_<bc>_<br>`) whose registry row says which column (`bc`) and row
 // (`br`) of the block it is and which way it was authored facing (`facing`). The whole park is drawn
 // in PARK UNITS (client/shared/coliseum-plan.js): u east and v south of the block's centre, the bowl's outer
-// face at 1.47, one unit SH tiles across and SV tiles up, which is the size the broadcast draws it.
+// face at 1.47, one unit SH tiles across and SV tiles up. The broadcast draws the same park at true size.
 // Each tile draws only what falls in its own square: flats and faces are clipped to it, boxes are cut
 // at its edges, and an arc is split where it crosses a tile line, so the slices meet without a seam.
 // ⚠ SIZES PASS THROUGH THE SAME SCALE. A box's or a drum's width, a pool's size and a flag's are
@@ -268,11 +268,12 @@ function parkState(now, night) {
 // the deck lamps' after dark with the towers lit, and any tile while the leaves turn or a game is on
 // under an open roof. The rest return before the arm builds its closures: 81 slices doing that every
 // frame was most of what the park allocated (perf/alloc).
+const MID = Math.floor(HALF);   // a row with no bc or br is the block's middle tile
 const tileOfPark = (u, v) => Math.floor(u * SH + HALF) + ',' + Math.floor(v * SH + HALF);
 const LANTERN_TILE = tileOfPark(0, 0), SCORE_TILE = tileOfPark(SCOREBOARD.u, SCOREBOARD.v);
 const DECK_TILES = new Set([1, -1].flatMap((su) => Array.from({ length: 7 }, (_, j) => tileOfPark(su * (DECK - 0.01), -1.26 + j * 0.42))));
 function quietSlice(m, now, night) {
-  const bc = m.bc ?? 5, br = m.br ?? 5, last = BLOCK - 1;
+  const bc = m.bc ?? MID, br = m.br ?? MID, last = BLOCK - 1;
   if (bc === 0 || br === 0 || bc === last || br === last) return false;
   const k = bc + ',' + br;
   if (k === LANTERN_TILE) return false;
@@ -298,7 +299,7 @@ export const COLISEUM_ARMS = {
     if (FLAT_OFF && !MESH_SINK && !SHAPE_SINK && quietSlice(m, now, night)) return;   // see quietSlice
     const D ={ north: [0, -1], east: [1, 0], west: [-1, 0] }[m.facing] || [0, 1];
     // this tile's centre, in tiles from the block's; its square, in park units
-    const cu = (m.bc ?? 5) - HALF + 0.5, cv = (m.br ?? 5) - HALF + 0.5;
+    const cu = (m.bc ?? MID) - HALF + 0.5, cv = (m.br ?? MID) - HALF + 0.5;
     let X0 = (cu - 0.5) / SH, X1 = (cu + 0.5) / SH;
     const Y0 = (cv - 0.5) / SH, Y1 = (cv + 0.5) / SH;
     const inTile = (u, v) => u >= X0 && u < X1 && v >= Y0 && v < Y1;
@@ -420,7 +421,7 @@ export const COLISEUM_ARMS = {
       const a = n[1] || n[0], w0 = a * (OUT + d0), w1 = a * (OUT + d1), lo = Math.min(w0, w1), hi = Math.max(w0, w1);
       if (n[1]) box(t0, t1, lo, hi, z0, z1, p, roof, s); else box(lo, hi, t0, t1, z0, z1, p, roof, s);
     };
-    // ⚠ ASKED BEFORE THE POINTS ARE BUILT. All 121 tiles run every face of every side, and building
+    // ⚠ ASKED BEFORE THE POINTS ARE BUILT. All 25 tiles run every face of every side, and building
     // four points to throw them away was most of what the park allocated a frame (perf/alloc).
     const onFace = (n, d) => (n[1] ? inRow(n[1] * (OUT + d)) : inCol(n[0] * (OUT + d)));
     const sideFace = (n, t0, t1, d, z0, z1, col, lit, opts) => !flatsDropped() && onFace(n, d) &&

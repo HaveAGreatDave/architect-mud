@@ -4,7 +4,7 @@
   "exits": {
     "east": "zone_hughson_tickets",
     "north": "zone_hughson_concourse",
-    "south": "zone_ballpark_894_920"
+    "south": "zone_ballpark_896_920"
   },
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",
@@ -19,7 +19,7 @@
       "name": "the gates",
       "visibility": 0.6
     },
-    "world_exit_zone": "zone_ballpark_894_920"
+    "world_exit_zone": "zone_ballpark_896_920"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -27,5 +27,5 @@
   "id": "zone_hughson_rotunda",
   "map_id": "map_int_hughson",
   "name": "The Coliseum — Rotunda",
-  "parent_zone": "zone_ballpark_894_920"
+  "parent_zone": "zone_ballpark_896_920"
 }

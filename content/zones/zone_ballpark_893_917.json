@@ -3,23 +3,30 @@
   "ambient_theme": "urban",
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
-  "description": "The field of the Hughson Coliseum under its retractable roof: grass, a dirt infield, and the stands round it.",
-  "exits": {},
+  "description": "GATE D of the Hughson Coliseum, on Hughson Way across from the car park: a plain stepped frontispiece in the bowl's limestone, bronze doors under a lit fanlight, and GATE D in gilt on a bronze plate.",
+  "exits": {
+    "east": "zone_hughsongd_hall",
+    "west": "zone_ballpark_892_917"
+  },
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",
-    "building_type": "ballpark_6_7",
+    "building_type": "ballpark_gate_d",
     "district": "halcyon_fields",
-    "entrance": "south",
-    "floors": 17,
+    "entrance": "west",
+    "facade": true,
+    "floors": 5,
+    "is_building": true,
     "region_id": "region_coldwater",
     "venue_lights": true,
-    "venue_roof": true
+    "venue_roof": true,
+    "world_exit_zone": "zone_ballpark_892_917"
   },
   "grid_x": 893,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_ballpark_893_917",
   "map_id": "map_world",
+  "marker": "G4",
   "name": "Charles B. Hughson Coliseum",
   "parent_zone": null
 }

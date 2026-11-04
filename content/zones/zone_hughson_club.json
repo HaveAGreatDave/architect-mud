@@ -20,7 +20,7 @@
       "name": "the club windows",
       "visibility": 0.8
     },
-    "world_exit_zone": "zone_ballpark_894_920"
+    "world_exit_zone": "zone_ballpark_896_920"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -28,5 +28,5 @@
   "id": "zone_hughson_club",
   "map_id": "map_int_hughson",
   "name": "The Coliseum — Club Level",
-  "parent_zone": "zone_ballpark_894_920"
+  "parent_zone": "zone_ballpark_896_920"
 }

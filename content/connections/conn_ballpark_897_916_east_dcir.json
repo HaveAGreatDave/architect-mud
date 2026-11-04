@@ -1,9 +1,0 @@
-{
-  "a": "zone_ballpark_897_916",
-  "b": "zone_district_898_916",
-  "blocked": true,
-  "dir": "east",
-  "id": "conn_ballpark_897_916_east_dcir",
-  "lockable": false,
-  "one_way": false
-}

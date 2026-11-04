@@ -1,6 +1,8 @@
 # The Coliseum at true size
 
-> **Status: built. Phases 1-4 on 2026-11-02, the Hughson Dome on 2026-11-03.** The Curtain runs down the
+> **Status: built, and the size since replaced.** On 2026-11-04 the map's park came down to five tiles
+> ([coliseum-five-tiles.md](coliseum-five-tiles.md)); TV keeps the true size, and the Curtain, the streets
+> and the re-sited buildings all stand as below. **Phases 1-4 on 2026-11-02, the Hughson Dome on 2026-11-03.** The Curtain runs down the
 > river bank and along y 923, and the South Gate and the Glacis moved four rows south with it
 > ([coliseum-ground.mjs](../../scripts/content/coliseum-ground.mjs)). The 23 buildings and the
 > Helipad are on their new plots ([Where each one went](#where-each-one-went)). The park stands on

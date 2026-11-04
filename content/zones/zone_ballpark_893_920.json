@@ -3,14 +3,14 @@
   "ambient_theme": "urban",
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
-  "description": "The bowl wall of the Hughson Coliseum: limestone between marble fins, tall bronze-framed windows onto the concourse, and a copper cornice.",
+  "description": "A corner of the Hughson Coliseum, where one of its four stepped light towers stands over the bowl wall.",
   "exits": {},
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",
-    "building_type": "ballpark_6_10",
+    "building_type": "ballpark_0_4",
     "district": "halcyon_fields",
     "entrance": "south",
-    "floors": 10,
+    "floors": 8,
     "region_id": "region_coldwater",
     "venue_lights": true,
     "venue_roof": true

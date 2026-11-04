@@ -1,25 +1,25 @@
 {
   "ambient_events": [],
-  "ambient_theme": "urban",
-  "bg_color": "#2a1d18",
-  "color": "#d8c9a8",
-  "description": "A corner of the Hughson Coliseum, where one of its four stepped light towers stands over the bowl wall.",
-  "exits": {},
+  "ambient_theme": "city",
+  "description": "Hughson Way, two lanes and a kerb with the lot either side of it. Crowd barriers are stacked against a lamp post, ready for game night.",
+  "exits": {
+    "east": "zone_district_898_910",
+    "north": "zone_district_891_908",
+    "south": "zone_ballpark_897_911",
+    "west": "zone_ballpark_896_910"
+  },
   "flags": {
-    "building_name": "Charles B. Hughson Coliseum",
-    "building_type": "ballpark_10_0",
     "district": "halcyon_fields",
-    "entrance": "south",
-    "floors": 18,
     "region_id": "region_coldwater",
-    "venue_lights": true,
-    "venue_roof": true
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 897,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_ballpark_897_910",
   "map_id": "map_world",
-  "name": "Charles B. Hughson Coliseum",
+  "name": "Hughson Way",
   "parent_zone": null
 }

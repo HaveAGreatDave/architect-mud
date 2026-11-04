@@ -4,7 +4,7 @@
   "exits": {
     "down": "zone_util_zone_hughsonbl_bleachers",
     "east": "zone_hughsongc_hall",
-    "north": "zone_ballpark_889_910",
+    "north": "zone_ballpark_893_916",
     "south": "zone_hughson_stands",
     "west": "zone_hughsongd_hall"
   },
@@ -21,7 +21,7 @@
       "name": "the outfield",
       "visibility": 1
     },
-    "world_exit_zone": "zone_ballpark_889_910"
+    "world_exit_zone": "zone_ballpark_893_916"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -29,5 +29,5 @@
   "id": "zone_hughsonbl_bleachers",
   "map_id": "map_int_hughsonbl",
   "name": "The Coliseum — Bleachers",
-  "parent_zone": "zone_ballpark_889_910"
+  "parent_zone": "zone_ballpark_893_916"
 }

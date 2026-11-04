@@ -3,7 +3,7 @@
   "description": "A tiled hall inside GATE C, with a turnstile, a closed ticket window and a run of coat hooks nobody uses. A ramp climbs west to the bleachers.",
   "exits": {
     "down": "zone_util_zone_hughsongc_hall",
-    "east": "zone_ballpark_897_912",
+    "east": "zone_ballpark_897_916",
     "west": "zone_hughsonbl_bleachers"
   },
   "flags": {
@@ -12,7 +12,7 @@
     "floor": "tile",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_ballpark_897_912"
+    "world_exit_zone": "zone_ballpark_897_916"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -20,5 +20,5 @@
   "id": "zone_hughsongc_hall",
   "map_id": "map_int_hughsongc",
   "name": "The Coliseum — Gate C",
-  "parent_zone": "zone_ballpark_897_912"
+  "parent_zone": "zone_ballpark_897_916"
 }

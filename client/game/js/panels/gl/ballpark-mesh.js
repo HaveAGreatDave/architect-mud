@@ -38,7 +38,7 @@
 import { DEG, BAGS, MOUND, RUBBER, FOUL_GROUND, DUGOUT, offLine, moundHeight, venueField, fenceDistance, parkOutline, insideOutline, seeded, BOWL, sf, sOf, fromBlock, ftUp } from '../diamond/geo.js';
 import { WIN_OPEN, sunburst, headPanels } from '../glass/coliseum-window.js';
 import {
-  BACK, BAND, BGATE, CORNER_Z, DECK, DOME, FIN_AT, GATE, GUARD, LANTERN, LEAVES, OUT, RING, SH, SIDE_GATES, TILE_FT, TOWER, Z,
+  BACK, BAND, BGATE, CORNER_Z, DECK, DOME, FIN_AT, GATE, GUARD, LANTERN, LEAVES, OUT, RING, SIDE_GATES, TOWER, UNIT_FT, Z,
   leafProfile, leafTurn, rail,
 } from '../../../../shared/coliseum-plan.js';
 
@@ -594,7 +594,7 @@ export function buildPark(venue, opts = {}) {
 // Every box in the bowl stands square to the foul lines, as the map's park stands on the tile grid.
 // Since the park went to true size the main gate stands across from home on both, so it's
 // transcribed like everything else (GATE.u is home plate's u).
-const KH = SH * TILE_FT;   // a park unit across, in feet: the ruler's tile times the plan's stretch
+const KH = UNIT_FT;   // a park unit across, in feet: the broadcast's park is true size whatever the map draws
 const B2T = (u, v, z = 0) => sf(fromBlock(u), fromBlock(v), ftUp(z));
 const toBlock = (s) => OUT - (s + BOWL.near) / KH;
 // ⚠ A GATE'S BODY STOPS INSIDE THE WALL, short of its inner face. In the inner face's own plane its

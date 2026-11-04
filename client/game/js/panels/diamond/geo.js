@@ -9,7 +9,7 @@
  * Pure: no DOM and no GL, so the gates run it in Node.
  */
 
-import { BOWL_FT, OUT, SH, SV, TILE_FT } from '../../../../shared/coliseum-plan.js';
+import { BOWL_FT, OUT, UNIT_FT, UP_FT } from '../../../../shared/coliseum-plan.js';
 
 export const DEG = Math.PI / 180;
 export const BASE_PATH = 90;
@@ -46,8 +46,8 @@ export const groundHeight = (x, z) => Math.max(0, moundHeight(x, z));
 // The Charles B. Hughson Coliseum as the map draws it (glass/models/coliseum.js): one square wall
 // along the foul lines, as the map's park stands on the tile grid, its outer face `near` feet behind
 // home on the two near sides and `far` feet out on the two far ones. Map and broadcast read one plan
-// (client/shared/coliseum-plan.js), in park units, and both stand it on the world's ruler: a unit is
-// SH tiles across and SV up, and a tile is TILE_FT feet. So the plan's points go to the bowl's feet by
+// (client/shared/coliseum-plan.js), in park units. This one stands it at true size, a unit UNIT_FT
+// across and UP_FT up; the map draws it smaller. So the plan's points go to the bowl's feet by
 // `fromBlock`, and its heights by `ftUp` (its cornice at 0.46 is 104 ft). The field and the stands
 // are the broadcast's own.
 //
@@ -57,8 +57,8 @@ export const groundHeight = (x, z) => Math.max(0, moundHeight(x, z));
 export const BOWL = BOWL_FT;
 export const sf = (s3, s1, y = 0) => [(s3 - s1) / Math.SQRT2, y, (s3 + s1) / Math.SQRT2];
 export const sOf = (p) => [(p[0] + p[2]) / Math.SQRT2, (p[2] - p[0]) / Math.SQRT2];
-export const fromBlock = (w) => -BOWL.near + (OUT - w) * SH * TILE_FT;
-export const ftUp = (z) => z * SV * TILE_FT;
+export const fromBlock = (w) => -BOWL.near + (OUT - w) * UNIT_FT;
+export const ftUp = (z) => z * UP_FT;
 // The light towers at the corners (the map's TOWER.at, 1.37 tiles out) and the lamp rows under the
 // two decks the roof's rails run along (its DECK, 1.13), at the height of the map's deck lamps.
 const TOWER_AT = [fromBlock(1.37), fromBlock(-1.37)], DECK_AT = [fromBlock(1.13), fromBlock(-1.13)];

@@ -171,7 +171,7 @@
       "name": "the field",
       "visibility": 1
     },
-    "world_exit_zone": "zone_ballpark_894_920"
+    "world_exit_zone": "zone_ballpark_896_920"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -179,5 +179,5 @@
   "id": "zone_hughson_stands",
   "map_id": "map_int_hughson",
   "name": "The Coliseum — The Stands",
-  "parent_zone": "zone_ballpark_894_920"
+  "parent_zone": "zone_ballpark_896_920"
 }

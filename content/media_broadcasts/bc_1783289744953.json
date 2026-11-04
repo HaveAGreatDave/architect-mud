@@ -4069,9 +4069,9 @@
       "site": {
         "bearing": 315,
         "block": {
-          "x0": 887,
+          "x0": 893,
           "x1": 897,
-          "y0": 910,
+          "y0": 916,
           "y1": 920
         },
         "camera_zones": [
@@ -4079,8 +4079,8 @@
           "zone_hughson_nine"
         ],
         "ob_zone_id": "zone_hughson_pressbox",
-        "x": 894.86,
-        "y": 917.86
+        "x": 896.61,
+        "y": 919.61
       }
     }
   },

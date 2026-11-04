@@ -1,25 +1,33 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "A car noses into a bay and the driver sits a minute with the engine off.",
+    "Somebody walks the row twice, trying to remember where they parked.",
+    "A car door shuts somewhere along the row, and the sound comes back off the Coliseum."
+  ],
   "ambient_theme": "urban",
-  "bg_color": "#2a1d18",
-  "color": "#d8c9a8",
-  "description": "The stands of the Hughson Coliseum, raked up from the field to the bowl wall under its retractable roof.",
-  "exits": {},
+  "color": "#5a5f62",
+  "description": "Tarmac bays lined in white for the game-night crowd, with a concrete stop at the head of each. The blue sign on the post means Coliseum patrons, and nobody checks.",
+  "exits": {
+    "east": "zone_ballpark_890_918",
+    "north": "zone_ballpark_889_917",
+    "south": "zone_ballpark_889_919",
+    "west": "zone_ballpark_888_918"
+  },
   "flags": {
-    "building_name": "Charles B. Hughson Coliseum",
-    "building_type": "ballpark_2_8",
+    "building_name": "Hughson Car Park",
+    "building_type": "car_park",
     "district": "halcyon_fields",
-    "entrance": "south",
-    "floors": 17,
+    "entrance": "east",
+    "floors": 1,
     "region_id": "region_coldwater",
-    "venue_lights": true,
-    "venue_roof": true
+    "street_life": true,
+    "terrain": "asphalt"
   },
   "grid_x": 889,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_ballpark_889_918",
   "map_id": "map_world",
-  "name": "Charles B. Hughson Coliseum",
+  "name": "Hughson Car Park",
   "parent_zone": null
 }

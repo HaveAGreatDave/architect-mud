@@ -5215,19 +5215,19 @@ export default async function regress({ check, run, getPlayer }) {
   // venue.lit while it's on air, nothing does once it's off, and the map derive puts it on the cell.
   {
     const { venueLit, refreshVenueLights } = _test;
-    const chans = [{ script: { venue: { site: { block: { x0: 895, x1: 897, y0: 911, y1: 913 } } } } }];
+    const chans = [{ script: { venue: { site: { block: { x0: 893, x1: 897, y0: 916, y1: 920 } } } } }];
     refreshVenueLights(chans);
-    check('venue lights: every tile of the block is lit while its show is on', venueLit({ x: 895, y: 911 })?.on === 1 && venueLit({ x: 897, y: 913 })?.on === 1);
+    check('venue lights: every tile of the block is lit while its show is on', venueLit({ x: 893, y: 916 })?.on === 1 && venueLit({ x: 897, y: 920 })?.on === 1);
     check('venue lights: a tile off the block is not', venueLit({ x: 898, y: 912 }) === undefined);
     const { deriveSurfaceCell } = await import('../flight/state.js');
-    const z = getZone('zone_ballpark_896_912');
+    const z = getZone('zone_ballpark_895_918');
     if (z && typeof deriveSurfaceCell === 'function') {
-      check('venue lights: the derive puts the game night on the park cell', deriveSurfaceCell(z, 896, 912).vl === 1);
-      check('venue lights: a static bake never bakes one in', deriveSurfaceCell(z, 896, 912, undefined, false).vl === 0);
+      check('venue lights: the derive puts the game night on the park cell', deriveSurfaceCell(z, 895, 918).vl === 1);
+      check('venue lights: a static bake never bakes one in', deriveSurfaceCell(z, 895, 918, undefined, false).vl === 0);
     }
     refreshVenueLights([]);
-    check('venue lights: off air, the towers go dark', venueLit({ x: 896, y: 912 }) === undefined);
-    if (z && typeof deriveSurfaceCell === 'function') check('venue lights: and the cell says so', deriveSurfaceCell(z, 896, 912).vl === 0);
+    check('venue lights: off air, the towers go dark', venueLit({ x: 895, y: 918 }) === undefined);
+    if (z && typeof deriveSurfaceCell === 'function') check('venue lights: and the cell says so', deriveSurfaceCell(z, 895, 918).vl === 0);
   }
   // The roof follows today's forecast, not the sky: wet forecast shut, dry open, and a staff call
   // holds over the forecast until it's handed back. The forecast is handed in, so the check doesn't
@@ -5239,30 +5239,30 @@ export default async function regress({ check, run, getPlayer }) {
     try {
       _roofState.clear();
       refreshVenueRoofs(t0, false, () => true);
-      check('venue roof: shut on a wet forecast, every tile of the park', venueRoof({ x: 895, y: 911 })?.shut === 1 && venueRoof({ x: 897, y: 913 })?.shut === 1);
+      check('venue roof: shut on a wet forecast, every tile of the park', venueRoof({ x: 893, y: 916 })?.shut === 1 && venueRoof({ x: 897, y: 920 })?.shut === 1);
       check('venue roof: a tile off the park has no roof', venueRoof({ x: 898, y: 912 }) === undefined);
       refreshVenueRoofs(t0 + 60e3, false, () => false);
-      check('venue roof: open on a dry forecast', venueRoof({ x: 896, y: 912 })?.shut === 0);
+      check('venue roof: open on a dry forecast', venueRoof({ x: 895, y: 918 })?.shut === 0);
       setVenueRoof('shut', t0 + 61e3);
       refreshVenueRoofs(t0 + 62e3, false, () => false);
-      check('venue roof: a staff call holds over a dry forecast', venueRoof({ x: 896, y: 912 })?.shut === 1);
+      check('venue roof: a staff call holds over a dry forecast', venueRoof({ x: 895, y: 918 })?.shut === 1);
       setVenueRoof('auto', t0 + 63e3);
       refreshVenueRoofs(t0 + 64e3, false, () => false);
-      check('venue roof: and auto hands it back to the forecast', venueRoof({ x: 896, y: 912 })?.shut === 0);
+      check('venue roof: and auto hands it back to the forecast', venueRoof({ x: 895, y: 918 })?.shut === 0);
       // and each Gameday line airs with it, so the broadcast's park has its shells where the map's are
       // (gl/ballpark.js setRoof); a script whose site names no block has no roof to send
-      const sited = { _venueSite: { x: 897.55, y: 913.55, mid: { x: 896, y: 912 } } };
+      const sited = { _venueSite: { x: 896.61, y: 919.61, mid: { x: 895, y: 918 } } };
       check('venue roof: a Gameday line airs with the roof open', _test.gamedayOnAir({ kind: 'single' }, sited).roof === 0);
-      check('venue roof: …and with no block, no roof', !('roof' in _test.gamedayOnAir({ kind: 'single' }, { _venueSite: { x: 897.55, y: 913.55 } })));
+      check('venue roof: …and with no block, no roof', !('roof' in _test.gamedayOnAir({ kind: 'single' }, { _venueSite: { x: 896.61, y: 919.61 } })));
       const { deriveSurfaceCell } = await import('../flight/state.js');
-      const z = getZone('zone_ballpark_896_912');
+      const z = getZone('zone_ballpark_895_918');
       if (z && typeof deriveSurfaceCell === 'function') {
-        check('venue roof: the derive puts an open roof on the park cell', deriveSurfaceCell(z, 896, 912).vr === 0);
-        check('venue roof: a static bake shows it shut', deriveSurfaceCell(z, 896, 912, undefined, false).vr === 1);
+        check('venue roof: the derive puts an open roof on the park cell', deriveSurfaceCell(z, 895, 918).vr === 0);
+        check('venue roof: a static bake shows it shut', deriveSurfaceCell(z, 895, 918, undefined, false).vr === 1);
       }
       refreshVenueRoofs(t0 + 22 * 60e3, false, () => true);
-      check('venue roof: and shuts again on a wet forecast', venueRoof({ x: 896, y: 912 })?.shut === 1);
-      check('venue roof: …and the next Gameday line airs with it shut', _test.gamedayOnAir({ kind: 'single' }, { _venueSite: { x: 897.55, y: 913.55, mid: { x: 896, y: 912 } } }).roof === 1);
+      check('venue roof: and shuts again on a wet forecast', venueRoof({ x: 895, y: 918 })?.shut === 1);
+      check('venue roof: …and the next Gameday line airs with it shut', _test.gamedayOnAir({ kind: 'single' }, { _venueSite: { x: 896.61, y: 919.61, mid: { x: 895, y: 918 } } }).roof === 1);
     } finally {
       setVenueRoof('auto'); _roofState.clear(); for (const [k, v] of saved) _roofState.set(k, v);
       refreshVenueRoofs(Date.now(), false);
