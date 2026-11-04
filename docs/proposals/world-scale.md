@@ -1,7 +1,9 @@
 # One world scale
 
-> **Status: design.** Nothing here is built. Where it disagrees with a `systems-*.md` doc about what
-> ships today, that doc wins until the phase that changes it lands.
+> **Status: phase 1 built; phase 2 built in part (2026-11-03); phases 3 to 7 are design.** The
+> ruler, the conversions, the paces, the labels and `scale:lint` are in; the truck's speed and the
+> windshield.js labels aren't (see [Phase 2 as built](#phase-2-as-built)). Where this disagrees with a
+> `systems-*.md` doc about what ships today, that doc wins until the phase that changes it lands.
 
 ## Why
 
@@ -109,6 +111,25 @@ A gate (`scale:lint`, in `docs:lint`'s style) fails on a new literal `17.857`, `
 `0.3048`, `0.8689` or `1.688` anywhere outside that file, and on the sub's tile-as-7-metres, and ratchets the existing
 ones down as phases land.
 
+**As built (phase 1).** [client/shared/world-scale.js](../../client/shared/world-scale.js) has
+everything above but `heightToZ`, which waits for phase 4. Three things were added on the way:
+`tripM(mode, tiles)` (world tiles as that vehicle's instruments read them), `paceOf(mode)`, and
+`kmOf(m)`. `PACE` has a fourth row, `corridor`, for the void highway's three tiles to the mile, and
+`PACE.air` is `{ ground, cruise }`; distance labels use the cruise pace. The sims still hold their
+own copies of the paces until phase 5. `scale:lint` is
+[scripts/scale/lint.mjs](../../scripts/scale/lint.mjs) (`npm run scale:lint`, `--list`,
+`--update`), in its own `scale` group in the gate manifest. It also counts `3.5 / 0.196`, and it
+skips comments and files with a GENERATED header. The sub's `* 7` isn't counted yet: that's
+phase 6's to remove. Its baseline holds four hits, all coincidences (two hash seeds, a gust period,
+a hairline table).
+
+Every copy of the ruler and of the foot now imports it: `birds.js`, `seat-audio.js`,
+`glass/aa-emplacement.js`, and also `glass/media-lot.js`, `coliseum-plan.js`, `angler.js`,
+`glass/rod-rig.js`, `gl/ballplayer-mesh.js`, `interior-grasshopper-2076.js` and
+`plugins/flight/state.js`'s knots-to-feet-a-second. `seat-audio.js` read 17.9 and the two glass marks
+17.857, so their numbers moved by 0.24% and 0.0008%, and the glide check's 1.688 by 0.01%; the
+rest are the same number.
+
 ## Phases
 
 | Phase | What changes | What a player sees |
@@ -123,6 +144,69 @@ ones down as phases land.
 
 Phases 1 and 2 are safe to do first and in any order. Phase 6 is the one that needs a person at a
 screen.
+
+### Phase 2 as built
+
+**Done.**
+
+- **Aviation distances are nm on the aircraft's instruments**: `fmtDistance('air', tripM('air',
+  tiles))`, at the cruise pace, so 24 tiles reads 3.3 nm where it read "24mi", and a field's
+  distance over your airspeed is the time it takes. The cockpit's guide label, the target toast,
+  the TGT radio row (`cockpit.js`), the text pilot's nearest strip (`textpilot.js`) and the charter
+  pilot's fare line (`charter.js`) print it. `gpsTo.dist`, which the 2076 cockpits' GPS digits
+  show, is nm now; those digits round to whole nm, so under a mile reads 0.
+- **`ias` on a contact is m/s from every producer**: aircraft (`airContact`), trucks, boats and
+  the podracer. It's converted at the readers: `world-feed.js` hands the renderer knots, the
+  cockpit dead-reckons and frames contacts from knots, and `boat-audio.js` hears mph. A truck's
+  contact used to put mph in a field the cockpit read as knots, so its dead reckoning in a pilot's
+  view is now 13% slower. Neither number is a truck's real ground rate, which is why
+  `world-feed.js` takes velocity from successive positions.
+- **Road distances are km**: `roadKm(tiles)` in `road-units.js` (on `PACE.corridor`) replaces
+  `milesOf`, and the boards on the verge (digits only, so the GLASS board needed no change), the
+  board text on the log rung, the `route` verb and the cab's route list (the payload field is `km`,
+  was `miles`), the world map's route list (`km`), the hitcher calls (32, 10 and 3 km, were 20, 6
+  and 2 miles), the plaza radio, the weighbridge line, the flag-down line and the truck dealer's
+  range ("km a tank", was "tiles a tank") all print it. The CB chatter and the two player guides
+  say kilometres. `plugins/trucking/regress.js` checks the new numbers.
+
+**Not done, and why.**
+
+- **windshield.js labels.** That file had someone else's uncommitted work in it, so it wasn't
+  touched. Still to change: the two target-ring labels in `drawAirportTarget` (`ap.dist + ' mi'`,
+  tiles printed as miles), the contact range label (`c.rng` + `mi`), the cab speedo in
+  `drawCabInterior` (`'MPH'` off `v.mph`) and the GPS strip in `drawCabGps` (`legLeft` + `' MI'`).
+  Until then a pilot sees nm in the cockpit and "mi" on the ring, and the GPS strip counts miles
+  while the boards count km. `cab-view.js` still sends `legLeft` in miles, so the strip's own label
+  stays true; flip it with the label.
+- **Road speeds stay mph.** The truck's main dial is the windshield.js speedo above, and the 3D
+  cabs' dials in `interior-fit.js` are lettered MPH on scales of 70 and 80. Moving the words
+  around them (the cruise button, the screen-reader readout, `textdrive.js`, the dealer cards)
+  without the dials would put km/h beside a dial reading MPH, so all of it waits for the dials:
+  `cab-view.js` (`.cab-mph`, `setCruise`), `textdrive.js`, `truck-depot.js`, `trucking/index.js`
+  (`t.top mph`) and `interior-fit.js`. The sim and every `*_MPH` threshold stay mph inside until
+  phase 5. The cab's hidden readout also says `TILES TO GO`, an engine unit; it needs the city
+  leg's pace as well as the corridor's before it can say km.
+- **Wind stays km/h inside.** The labels already match the Units table (weather km/h). Moving the
+  inside to m/s reaches `server/engine/environment.js`, `plugins/weather`, the schema, the dev
+  panel's weather tab and windshield.js, which is more than a label pass should carry.
+- **Content has no mile boards.** The boards are built in `corridor.js`. What content says in
+  miles is flavour ("nothing stands up out of it for miles") and names (The Bare Mile, Ninemile),
+  and stays. No content file changed.
+- **Boats and the podracer** still show mph. The Units table says knots at sea; the boat seats'
+  dials, `boat-view.js` and `plugins/powerboat` would move together. The podracer has no row in
+  the table.
+
+**Found on the way.**
+
+- The literal copies were more than the three named above (see As built, phase 1).
+- The text pilot has its own air pace: `TILES_PER_SEC_AT_CRUISE` (0.18 tiles a second at each
+  type's own cruise, `plugins/flight/textpilot.js`), which the PACE table doesn't list.
+- `worldPaceMult` (1.7 on the Reaper, `flight-model.js`) makes that aircraft cross the ground
+  faster than its airspeed says, so its nm and knots disagree by that factor.
+- `cockpit.js` turns wind into knots with `* 0.28`, commented as "the flight model's kph-to-kt
+  scale". The real factor is 0.54; it's a tune that halves the wind, not a conversion.
+- `trucking/index.js` called `milesOf` on the weighbridge's "nothing to weigh" line without
+  importing it, so that line threw. It uses `roadKm` now, imported.
 
 ## Small fixes found on the way
 

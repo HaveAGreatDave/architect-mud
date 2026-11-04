@@ -182,25 +182,26 @@ export function sliceRoute(route, sEnd, sStart = 0) {
 export const OFFROAD_R = CORRIDOR_R * 4;
 const TURN_IN_MARGIN = 1.15;   // a slip road's arc, as a multiple of the fold radius
 
-// ── Tiles into miles ─────────────────────────────────────────────────────────
+// ── Tiles into kilometres ───────────────────────────────────────────────────
 // A distance a driver reads has to be in the units a driver thinks in, and until the signs went up
 // nothing out here ever had to say one out loud — the `route` verb printed TILES, which is an
-// engine unit that leaked into a player-facing line because nobody had needed another.
+// engine unit that leaked into a player-facing line because nobody had needed another. Roads read
+// km since world-scale.md phase 2; they read miles before.
 //
 // THE CONVERSION MOVED TO client/shared/road-units.js AND IS RE-EXPORTED HERE, so every server-side
 // importer of it is unchanged. It had to move because the third surface that prints it — the GPS
 // strip on the dash — is drawn in the browser and could not import a server plugin, so it carried
 // its own `/12` and quietly printed a quarter of the real figure. See that file for the full note.
-// ⚠ IMPORTED AS WELL AS RE-EXPORTED, AND BOTH NAMES. `export … from` forwards a binding to this
-// module's consumers without putting it in this module's own scope — so `rowsAt` below, which
-// calls `milesOf` to word a sign, threw ReferenceError the first time a road was built WITH a
-// plan. Every test that passed no plan built no signs and never touched it.
-export { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
+// ⚠ IMPORTED AS WELL AS RE-EXPORTED. `export … from` forwards a binding to this module's consumers
+// without putting it in this module's own scope — so `rowsAt` below, which calls `roadKm` to word
+// a sign, threw ReferenceError the first time a road was built WITH a plan. Every test that passed
+// no plan built no signs and never touched it.
+export { TILES_PER_MILE, roadKm } from '../../client/shared/road-units.js';
 import { wildlandsAt, highGroundAt, groundTierAt, reliefGrid } from '../../client/shared/wildlands.js';
 import { routeOnGrid, cumLengths, polyLength, pointAtLength, progressOn } from '../../client/shared/relief-route.js';
 import { halfWidthAt, typeAt, segmentAt } from '../../client/shared/highways.js';
 const typeNameAt = (route, s) => segmentAt(route, s)?.type || 'branch';
-import { TILES_PER_MILE, milesOf } from '../../client/shared/road-units.js';
+import { roadKm } from '../../client/shared/road-units.js';
 import { highTerrainAt, hnoise2 } from '../../client/shared/landform.js';   // the same field the floor shades off — see HIGH_OFF below
 import { plazaOn, plazaCell, plazaRoadFlags } from './plaza.js';
 import { hashSeed, mulberry32 } from '../../server/engine/rng.js';
@@ -748,7 +749,7 @@ export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0, pla
 // driver cannot otherwise know are HOW FAR and WHICH WAY. Everything on a board answers one of
 // those and nothing answers anything else.
 //
-// A row is `{ n, m, a }` — name, MILES (never tiles; see milesOf), and an arrow index 0-7 measured
+// A row is `{ n, m, a }` — name, KILOMETRES (never tiles; see roadKm), and an arrow index 0-7 measured
 // from the DRIVER'S OWN HEADING at that sign, clockwise from straight ahead. So the arrow is what
 // a driver sees from the seat rather than a compass bearing they would have to convert.
 //
@@ -814,9 +815,9 @@ function rowsAt(route, s, dests, kind, hdg = null) {
   for (const d of dests) {
     const r = d.key === route.destKey ? route : route.branches.find((b) => b.key === d.key)?.route;
     if (!r || (!onTrunk && r !== route)) continue;
-    rows.push({ n: signLabel(d.name || d.key), m: milesOf(Math.max(0, r.L - s)), a: aim(r, Math.min(r.L, s + look)) });
+    rows.push({ n: signLabel(d.name || d.key), m: roadKm(Math.max(0, r.L - s)), a: aim(r, Math.min(r.L, s + look)) });
   }
-  if (s > 4) rows.push({ n: signLabel(route.origin || 'BACK'), m: milesOf(s), a: aim(route, Math.max(0, s - SIGN_LOOK)) });
+  if (s > 4) rows.push({ n: signLabel(route.origin || 'BACK'), m: roadKm(s), a: aim(route, Math.max(0, s - SIGN_LOOK)) });
   // ⚠ AND A BOARD LEADS WITH WHERE YOU ARE GOING, which is what makes the two faces different.
   //
   // The rows were built destinations-first and the origin last, and only the ARROWS were

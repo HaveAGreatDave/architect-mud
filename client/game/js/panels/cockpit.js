@@ -5,6 +5,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
+import { KT_MS, NM_M, tripM, fmtDistance } from '../../../shared/world-scale.js';   // contact ias is m/s on the wire; field distances in nm
 import { tweenOrbit, BAY_PITCH } from './camera-tween.js';
 import { internMap } from './map-intern.js';
 import { seatSpot } from './seat-audio.js';
@@ -435,7 +436,7 @@ function applyText(s) {
     : s.enginesStable === false && s.warn === 'FIRE' ? '<span class="ck-red">ENGINE FIRE</span>'
     : `AIRBORNE · ${s.bandLabel}`;
   html('ck-phase', phase);
-  html('ck-guide-label', s.guide ? `<span class="ck-amber">◈ ${esc(s.guide.name)} ${String(s.guide.bearing).padStart(3, '0')}° · ${s.guide.dist}mi</span>` : '');
+  html('ck-guide-label', s.guide ? `<span class="ck-amber">◈ ${esc(s.guide.name)} ${String(s.guide.bearing).padStart(3, '0')}° · ${fmtDistance('air', tripM('air', s.guide.dist))}</span>` : '');
   const warnEl = $('ck-warn');
   if (warnEl) {
     const W = { STARVATION: ['ENGINE OUT. DEAD STICK. LAND NOW', 'r'], BINGO: ['BINGO FUEL: DIVERT', 'a'],
@@ -2026,7 +2027,7 @@ export function openFlightSim(opts = {}) {
     let i = list.findIndex((f) => f.id === F.apTargetId);
     i = i < 0 ? (dir > 0 ? 0 : list.length - 1) : (i + dir + list.length) % list.length;
     F.apTargetId = list[i].id;
-    fsimToast(`◎ ${(list[i].name || 'FIELD').toUpperCase()} · ${list[i].dist}mi`);
+    fsimToast(`◎ ${(list[i].name || 'FIELD').toUpperCase()} · ${fmtDistance('air', tripM('air', list[i].dist))}`);
   };
   // Cleared holds (no snap back to the nearest field) until a new target is picked.
   const clearApTarget = () => {
@@ -3894,7 +3895,7 @@ function fsimFrameBody(now) {
     let bestBore = Infinity;
     for (const c of F.contacts) {
       const drS = Math.min(CONTACT_DR_MAX, (now - (c.t || now)) / 1000);
-      const spd = (c.ias || 0) * paceAt(c.alt), hr = (c.hdg || 0) * Math.PI / 180;
+      const spd = (c.ias || 0) / KT_MS * paceAt(c.alt), hr = (c.hdg || 0) * Math.PI / 180;
       const cx = c.x + Math.sin(hr) * spd * drS, cy = c.y - Math.cos(hr) * spd * drS;
       const dx = cx - F.pos.x, dy = cy - F.pos.y, rng = Math.hypot(dx, dy);
       if (rng < contactNear) contactNear = rng;
@@ -3903,7 +3904,7 @@ function fsimFrameBody(now) {
       // A ground contact pins to groundZ 0; airborne ones use the altitude delta.
       const brk = surfaceBreakup(c.surfaces);
       const cv = c.onGround
-        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, ias: c.ias || 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear }
+        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, ias: (c.ias || 0) / KT_MS, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear }
         : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, ...(c.livery?.variant && c.livery.variant !== 'stock' ? { variant: c.livery.variant } : {}), firing: c.firing, breakup: brk, anim: c.anim || null, gearAnim: c.gear };
       contactView.push(cv);
       if (bore < bestBore) { bestBore = bore; designated = cv; }
@@ -4024,7 +4025,7 @@ function fsimFrameBody(now) {
       // `kind` 'tile' picks the crosshair over the airfield ring.
       apTarget = { dx: adx, dy: ady, name: tgt.name, dist: Math.round(Math.hypot(adx, ady)), kind: tgt.kind || 'place', gx: tgt.gx, gy: tgt.gy };
     }
-    if (nmEl) nmEl.textContent = (tgt.name || 'FIELD').slice(0, 8).toUpperCase() + (apTarget ? '  ' + apTarget.dist : '');
+    if (nmEl) nmEl.textContent = (tgt.name || 'FIELD').slice(0, 8).toUpperCase() + (apTarget ? '  ' + fmtDistance('air', tripM('air', apTarget.dist)) : '');
   }
 
   // Checkride rings: the client detects a fly-through of the active ring and reports it.
@@ -4176,7 +4177,7 @@ function fsimFrameBody(now) {
     threat: (F.aa && F.reportedAirborne) ? F.aa : null,
     airports: navFields(F), apTarget, apTargetId: F.apTargetId,
     // For a cockpit GPS screen (panelGps).
-    gpsTo: apTarget ? { rel: (((Math.atan2(apTarget.dx, -apTarget.dy) * 180 / Math.PI) - s.heading) % 360 + 540) % 360 - 180, dist: apTarget.dist } : null, viewYaw: F.viewYaw, extYaw: F.extOrbit || 0, extPitch: F.extPitch ?? REST_PITCH,
+    gpsTo: apTarget ? { rel: (((Math.atan2(apTarget.dx, -apTarget.dy) * 180 / Math.PI) - s.heading) % 360 + 540) % 360 - 180, dist: tripM('air', apTarget.dist) / NM_M } : null, viewYaw: F.viewYaw, extYaw: F.extOrbit || 0, extPitch: F.extPitch ?? REST_PITCH,
     windowClass: F.viewYaw ? F.cls : undefined,
     windVec: (atmos.windKt > 1 && F.reportedAirborne) ? { dir: atmos.windDir, kt: atmos.windKt } : null,
     contacts: contactView, designated,
@@ -4665,7 +4666,7 @@ function paintMfdContacts(ctx, W, H, F, cell) {
   const now = performance.now(), lim = Math.min(W, H) * 0.46;
   for (const c of cs) {
     const drS = Math.min(CONTACT_DR_MAX, (now - (c.t || now)) / 1000);
-    const spd = (c.ias || 0) * paceAt(c.alt), hr = (c.hdg || 0) * Math.PI / 180;
+    const spd = (c.ias || 0) / KT_MS * paceAt(c.alt), hr = (c.hdg || 0) * Math.PI / 180;
     const cx = c.x + Math.sin(hr) * spd * drS, cy = c.y - Math.cos(hr) * spd * drS;
     let px = (cx - F.pos.x) * cell, py = (cy - F.pos.y) * cell;
     const mag = Math.hypot(px, py); let edge = false;

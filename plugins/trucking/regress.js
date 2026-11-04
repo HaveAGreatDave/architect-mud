@@ -12,7 +12,7 @@ import { mapWindow, surfaceAt, isRoadCell, bounds as worldBounds } from '../flig
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt, sOfNode, roomLenOf, reliefPathFor, HIGH_OFF, trailFor, trailPos, campsOf, trailOffsetOn, isCampOn,
-  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, PAVED_R, attachSigns, joinRoutes, reverseRoute, pairKey } from './corridor.js';
+  addWreck, wrecksOn, wreckAhead, _clearWrecks, roadKm, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt, PAVED_R, attachSigns, joinRoutes, reverseRoute, pairKey } from './corridor.js';
 import { highGroundAt } from '../../client/shared/wildlands.js';
 import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';   // pure data, no DOM — that is exactly why it is not defined in windshield.js
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
@@ -482,7 +482,7 @@ async function regressBody({ run, check, getPlayer }) {
       for (let dx = -6; dx <= 6; dx++) for (let dy = -6; dy <= 6; dy++) {
         if (corridorAt(r, g.x + dx, g.y + dy)?.flags?.road_sign) n++;
       }
-      check(`the board at mile ${milesOf(g.s)} stands on exactly one tile`, n === 1, n);
+      check(`the board at km ${roadKm(g.s)} stands on exactly one tile`, n === 1, n);
     }
     // …and it stands OFF the road, on the verge, where a truck holding its line drives past it.
     check('every board is clear of the tarmac and the shoulder',
@@ -491,7 +491,7 @@ async function regressBody({ run, check, getPlayer }) {
         return t && t.flags.terrain !== 'road' && t.flags.terrain !== 'dirt_road';
       }));
 
-    // 6. WHAT THE BOARD SAYS. Miles, never tiles, and every place named on it is one you can still
+    // 6. WHAT THE BOARD SAYS. Kilometres, never tiles, and every place named on it is one you can still
     // get to from where it stands — a board naming a town on the other side of a junction you have
     // already passed is a board that lies, and there is no cutting across out here.
     const gate = r.signs[0], last = r.signs[r.signs.length - 1];
@@ -499,8 +499,8 @@ async function regressBody({ run, check, getPlayer }) {
       gate.rows.filter(row => row.n !== 'COLDWATER BASIN').length === 3, gate.rows.length);
     check('…and it names the place you came from too, pointing back',
       gate.rows.some(row => row.n === 'COLDWATER BASIN' && row.a === 4));
-    check('the distance is in miles, not tiles',
-      gate.rows.find(row => row.n === 'THE REACH').m === milesOf(r.L - gate.s));
+    check('the distance is in kilometres, not tiles',
+      gate.rows.find(row => row.n === 'THE REACH').m === roadKm(r.L - gate.s));
     if (last.s > r.trunkL) {
       check('past the junction a board stops naming roads you can no longer reach',
         last.rows.every(row => row.n === 'THE REACH' || row.n === 'COLDWATER BASIN'),
@@ -2610,26 +2610,26 @@ async function regressBody({ run, check, getPlayer }) {
       check("nothing is said about a road you can't see the end of", saidAt(rig, hs - 61) === '');
 
       const first = saidAt(rig, hs - 60);
-      check('the first call comes twenty miles out', /20 miles/.test(first), first.slice(0, 90));
+      check('the first call comes thirty-two kilometres out', /32 kilometres/.test(first), first.slice(0, 90));
       // ⚠ A DISTANCE IS THE FEATURE. Every complaint this answers is "I could not slow down in
       // time", and a warning with no number in it is not something a driver can plan against.
-      check('…and it carries one at all', /\d+ mile/.test(first));
+      check('…and it carries one at all', /\d+ (km|kilometres)/.test(first));
       check("…and doesn't repeat itself for the next forty tiles",
         saidAt(rig, hs - 40) === '' && saidAt(rig, hs - 19) === '');
 
       const mid = saidAt(rig, hs - 18);
-      check('the second comes at six miles, in time to come off the throttle',
-        /6 miles/.test(mid), mid.slice(0, 90));
+      check('the second comes at ten kilometres, in time to come off the throttle',
+        /10 km/.test(mid), mid.slice(0, 90));
       const near = saidAt(rig, hs - 6);
       check('the last is close enough to see who it is, and names the verb',
-        /2 miles/.test(near) && /pickup/.test(near), near.slice(0, 120));
+        /3 km/.test(near) && /pickup/.test(near), near.slice(0, 120));
 
       // ⚠ THE MARKS ARE CROSSINGS OF A CLOSING DISTANCE, so a rung that covers two of them in one
       // step must report the NEARER. The text rung advances by a slab of road a tick, and saying
-      // "twenty miles" to a driver now six miles off is a call that is stale rather than early.
+      // "thirty-two kilometres" to a driver now ten off is a call that is stale rather than early.
       const both = saidAt(armed(), hs - 6);
       check('a tick that covers two marks reports the nearer one',
-        /2 miles/.test(both) && !/20 miles/.test(both), both.slice(0, 90));
+        /3 km/.test(both) && !/32 kilometres/.test(both), both.slice(0, 90));
 
       // Nothing to warn about: the seat is full, or that stretch is already spent.
       check("a driver who already has one aboard isn't told about them again",
@@ -2638,13 +2638,13 @@ async function regressBody({ run, check, getPlayer }) {
       check('…nor on a stretch already spent',
         saidAt(Object.assign(armed(), { hitchDone: new Set([node]) }), hs - 60) === '');
 
-      // ⚠ THE RADIO GATES THE LEAD, NEVER THE FEATURE. Twenty miles is over the horizon and the CB
+      // ⚠ THE RADIO GATES THE LEAD, NEVER THE FEATURE. Thirty-two kilometres is over the horizon and the CB
       // is the only honest voice for it — but a driver running silent still has to get enough road
       // to stop in, or switching a radio off would quietly delete a whole system.
       const quiet = Object.assign(armed(), { cbOff: true });
       check('a driver with the CB off misses the far call', saidAt(quiet, hs - 60) === '');
-      check('…but still gets the six-mile one, which is what they can actually stop in',
-        /6 miles/.test(saidAt(quiet, hs - 18)));
+      check('…but still gets the ten-kilometre one, which is what they can actually stop in',
+        /10 km/.test(saidAt(quiet, hs - 18)));
     }
   }
 

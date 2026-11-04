@@ -44,6 +44,8 @@
 // renderer draws off the same two fields — you would see fire and hear nothing, or the reverse.
 // One derivation, two consumers.
 
+import { KT_MS, MPH_MS } from '../../../shared/world-scale.js';
+
 const AE = () => globalThis.AudioEngine;
 
 const c01 = (v) => (v > 0 ? (v < 1 ? v : 1) : 0);
@@ -398,12 +400,10 @@ export function closingMph(me, them) {
 export const dopplerFor = (closeMph) =>
   clamp(DOPPLER_MPH / (DOPPLER_MPH + (closeMph || 0)), DOPPLER_LO, DOPPLER_HI);
 
-// ⚠ KNOTS ON THE WIRE, MPH IN HERE, AND THE WIRE DOES NOT SAY WHICH. A contact carries `ias`, and
-// the two producers that existed before this one fill it in different units — aircraft send knots
-// off `cont.airspeed`, trucks send mph off `rig.speed` — which the renderer's own note flags as a
-// live divergence. `boatContactsNear` picked knots and says so, so this is the one place the
-// conversion happens; every number below is mph, including the listener's own.
-export const KT_TO_MPH = 1.15078;
+// M/S ON THE WIRE, MPH IN HERE. A contact's `ias` is m/s from every producer (world-scale.md,
+// phase 2), and this is the one place it's converted; every number below is mph, including the
+// listener's own. KT_TO_MPH is for a caller whose own speed is knots (the cockpit).
+export const KT_TO_MPH = KT_MS / MPH_MS;
 
 // Is this contact a hull rather than an aeroplane? ⚠ A FLAG THE PRODUCER STAMPS, never a guess off
 // `cls`. A contact feed carries aircraft, trucks and boats through one shape, and a class-name
@@ -450,10 +450,10 @@ export function updateBoatContacts(me, list = []) {
     // Bearing relative to where the listener is FACING, so turning your head moves the boat.
     const rel = Math.atan2(c.x - me.x, -(c.y - me.y)) - (me.hdg || 0) * Math.PI / 180;
     const pan = Math.sin(rel);
-    const dop = dopplerFor(closingMph(me, { ...c, speed: c.speed != null ? c.speed : (c.ias || 0) * KT_TO_MPH }));
+    const dop = dopplerFor(closingMph(me, { ...c, speed: c.speed != null ? c.speed : (c.ias || 0) / MPH_MS }));
 
     rampV8(v.N, {
-      rpm: c.rpm != null ? c.rpm : c01((c.ias || 0) / 120),
+      rpm: c.rpm != null ? c.rpm : c01((c.ias || 0) / KT_MS / 120),
       pedal: c.power != null ? c.power : 0,
       rich: c.rich, bang: c.bang, nitroOn: c.nitroOn,
       doppler: dop, distance: dist, pan, perspective: 'exterior',

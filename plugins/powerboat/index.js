@@ -25,6 +25,7 @@ import { query } from '../../server/models/db.js';
 import { hurtInWreck, wreckSeverity, wreckLines } from './breakup.js';
 import { cmdBoat, cmdBoats, cmdBerth, cmdRefit, boatEmbark, boatDisembark, aboard, berthKind, recoverAboard, deskQuote } from './yard.js';
 import { BOAT_TYPES } from '../../client/game/js/panels/flight-model.js';
+import { MPH_MS } from '../../client/shared/world-scale.js';
 // The seat. `yard.js` owns where a hull lives between runs; this owns the twenty seconds after you
 // step down into her — the helm the client paints, the telemetry back, and the events it reports.
 import { cmdHelm, cmdBoatSync, cmdBoatEvent, svcState } from './helm.js';
@@ -95,11 +96,10 @@ registerAction({
 // asked by the flight sim and answered by whoever has something afloat or on the road; trucking
 // already answers it, and this is the water's reply.
 //
-// ⚠ THE SHAPE IS `airContact`'s AND THE UNITS ARE ITS UNITS. A contact carries `ias`, and the two
-// existing producers disagree about what that means — aircraft send knots off their airspeed,
-// trucks send mph off theirs — which the renderer's own note flags as a live divergence. A boat is
-// a boat, so it sends KNOTS, and the wake the renderer paints is driven off `wake` rather than off
-// `ias` precisely so the picture does not depend on winning that argument.
+// ⚠ THE SHAPE IS `airContact`'s AND THE UNITS ARE ITS UNITS. A contact's `ias` is m/s from every
+// producer (docs/proposals/world-scale.md, phase 2); the boat's dial is mph, so it's converted here,
+// and each reader converts to what it shows. The wake the renderer paints is driven off `wake`
+// rather than `ias`, so the picture doesn't depend on the speed at all.
 function boatContactsNear(x, y, range = 26) {
   if (!rigs.size) return [];
   const out = [];
@@ -111,7 +111,7 @@ function boatContactsNear(x, y, range = 26) {
       cls: rig.typeId || 'hydro',
       x: rig.x, y: rig.y,
       hdg: rig.heading || 0,
-      ias: Math.round((rig.speed || 0) * 0.8689),      // mph on the dial -> knots on the wire
+      ias: +((rig.speed || 0) * MPH_MS).toFixed(1),     // mph on the dial -> m/s on the wire
       wake: Math.max(0, Math.min(1.25, (rig.speed || 0) / Math.max(1, rig.topSpeed || 138))),
       alt: 0, band: 'ground', onGround: true, groundZ: 0, altDiff: 0,
       // ⚠ NEGATED: the sim's roll is starboard UP and a contact's `bank` is starboard DOWN (the

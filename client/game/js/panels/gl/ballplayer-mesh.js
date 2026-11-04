@@ -34,6 +34,7 @@ import { solvePose, mirrorPose, POSES, BONE, bindPoses, SC_JOINT, limbThick } fr
 export { solvePose, mirrorPose, POSES };
 import { headMesh, hairMesh, skullPoint, ZC as SKULL_ZC } from '../actor-head.js';
 import { FACE_LAYOUTS, actorFace, faceHair, faceLip } from '../actor-faces.js';
+import { FT_M } from '../../../../shared/world-scale.js';
 import { clubOf } from '../club-crest.js';
 
 const TAU = Math.PI * 2;
@@ -563,7 +564,7 @@ function bat(G, J, s) {
 // head joint and the rest is scale. The neck blends from the neck at the collar to the head under
 // the jaw, as the game's does.
 const HEAD_BIND_C = [0, 1.636, -0.006];
-const FT = 3.28084;
+const FT = 1 / FT_M;   // feet in a metre
 // Who gets which face: off the name, for the same face in every game. A 1990s ballplayer has no
 // makeup and nobody's past forty; stubble or a beard on nearly half. Umpires can be any age.
 const rgb255 = (h) => { const n = parseInt(String(h).slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };

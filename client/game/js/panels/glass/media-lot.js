@@ -14,7 +14,7 @@
 // The lot's hand is the Deadline's: cream render over a darker plinth, a coping, and the station's
 // cyan as a band along the foot of every wall and three speed lines round each gate pier.
 //
-// ⚠ NO IMPORTS, BY DESIGN, as glass/aa-emplacement.js has none. The renderer hands this a face sink,
+// ⚠ NO RENDERER IMPORTS, BY DESIGN, as glass/aa-emplacement.js has none. The renderer hands this a face sink,
 // a light sink and a lettering sink (drawLotMark in windshield.js), so the same geometry goes to the
 // depth buffer on GLASS 2 and to a sorted canvas on GLASS 1, and markRenderSmoke can run it on a
 // stub. It shades its own faces, because a solid on BAY_SINK arrives pre-lit.
@@ -23,10 +23,11 @@
 // drawing uses, and groundObstructionAt asks it through lotWallZAt. Move a pier here and the
 // collision moves with it.
 //
-// Scale: 17.857 m to a tile (client/shared/birds.js), a storey 0.196. `M(m)` is metres to tiles.
+// Scale: the ruler, TILE_M (client/shared/world-scale.js), a storey 0.196 tiles. `M(m)` is metres
+// to tiles; the ruler is the one import, and it's pure.
 // Frame: x east, y SOUTH, z up, in tiles, camera-relative (the frame cam.proj takes).
+import { m2t as M } from '../../../../shared/world-scale.js';
 
-const M = (m) => m / 17.857;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const TAU = Math.PI * 2;
 // A repeatable 0..1 from a tile's seed and a position, so a panel keeps its shade from frame to frame.

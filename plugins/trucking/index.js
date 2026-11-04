@@ -123,7 +123,7 @@ import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveT
   _clearGateCache, networkRoute,
   ridingRigOf, seatsFree, boardPassenger, alightPassenger,
   truckElecDead, crewedRigs } from './state.js';
-import { corridorPos, corridorAt, TILES_PER_ROOM, sOfNode, wreckNear, trailFor, trailPos } from './corridor.js';
+import { corridorPos, corridorAt, TILES_PER_ROOM, sOfNode, wreckNear, trailFor, trailPos, roadKm } from './corridor.js';
 // bench.js imports yard helpers back from this file; see its header.
 import { cmdRig, sparesInHand, spendSpares, truckStockTrim, sanitizeTrimResolved } from './bench.js';
 import { cbStatus, cbTune, cbPower, cbSpeaker, cbTransmit } from './cb.js';
@@ -1081,7 +1081,7 @@ function depotDialogPayload(p) {
     rows.push({
       group: 'For sale',
       label: t.name,
-      detail: `${t.price}₵ · ${t.kg}kg · ${t.tank} tiles a tank · ${t.top}mph${t.afford ? '' : " · can't afford"}`,
+      detail: `${t.price}₵ · ${t.kg}kg · ${roadKm(t.tank)} km a tank · ${t.top}mph${t.afford ? '' : " · can't afford"}`,
       commands: t.afford ? [{ label: 'Buy', command: `yard buy ${t.id}` }] : [],
     });
   }
@@ -1142,7 +1142,7 @@ function textYard(p) {
         + (t.rental ? ` · <span class="text-dim">hand it back (yard return ${t.id})</span>` : ` · <span class="text-dim">sells for ${t.resale}₵ (yard sell ${t.id})</span>`)).join('\n')
     : '  <span class="text-dim">You own nothing with wheels on it.</span>';
   const stock = p.stock.map(t =>
-    `  <b>${t.name}</b>: <span class="item-grant">${t.price}₵</span> · ${t.kg} kg deck · ${t.tank} tiles a tank · ${t.top} mph`
+    `  <b>${t.name}</b>: <span class="item-grant">${t.price}₵</span> · ${t.kg} kg deck · ${roadKm(t.tank)} km a tank · ${t.top} mph`
     + `${t.afford ? '' : ' <span class="text-dim">(can\'t afford)</span>'}\n    <span class="text-dim">${t.blurb}</span>`
     + `\n    <span class="text-dim">yard buy ${t.id}</span>`).join('\n');
   // The boxes, on the record: the log rung's copy of the panel's trailer list.
@@ -1747,7 +1747,7 @@ async function cmdTruckSync(args, raw, player) {
       rig.sawFlag.add(b.playerId);
       sendToPlayer(player.id, { type: 'emote', message:
         `<span class="text-amber">Somebody is standing at the side of the road up ahead with an arm out.</span>`
-        + `\n<span class="text-dim">${b.handle}, about ${Math.max(1, Math.round(b.dist / 3))} mile${Math.round(b.dist / 3) === 1 ? '' : 's'} on. `
+        + `\n<span class="text-dim">${b.handle}, about ${roadKm(b.dist)} km on. `
         + `Slow down and they can climb up; keep going and they won't hold it against you out loud.</span>` });
     }
   }
@@ -1827,7 +1827,7 @@ async function cmdWeigh(args, raw, player) {
   if (!p) {
     const ahead = (rig.route?.plazas || []).find((q) => q.s0 > (rig.s || 0));
     return say(ahead
-      ? `There's nothing to weigh on here. <span class="text-dim">${ahead.name} is ${milesOf(ahead.s0 - rig.s)} miles up the road.</span>`
+      ? `There's nothing to weigh on here. <span class="text-dim">${ahead.name} is ${roadKm(ahead.s0 - rig.s)} km up the road.</span>`
       : "There's nothing to weigh on here.");
   }
   if (!p.open) return say(`The plates at ${p.name} are dark and the arch is cold. Nobody's weighing anything tonight.`);
@@ -2153,7 +2153,7 @@ async function cmdRoute(args, raw, player) {
       const reach = d.reach === 'ok' ? ''
         : d.reach === 'thin' ? ' <span class="text-amber">· further than your tank, one way</span>'
         : ' <span class="text-red">· well past your range</span>';
-      return `${mark} <b>${d.heading}</b> <span class="text-dim">(${d.key})${d.num ? `, Route ${d.num}` : ''}, ${d.miles} miles${reach}</span>`;
+      return `${mark} <b>${d.heading}</b> <span class="text-dim">(${d.key})${d.num ? `, Route ${d.num}` : ''}, ${d.km} km${reach}</span>`;
     });
     const how = onRoad
       ? (opts.forkAhead ? `<span class="text-dim">The fork is still ahead. <b>route &lt;name&gt;</b> to take the other one.</span>`

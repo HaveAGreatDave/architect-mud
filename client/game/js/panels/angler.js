@@ -19,7 +19,7 @@ import { solvePose, boneFrames, bindFrames, skinRows, BONE } from './diamond/rig
 import { createPlayerSet, buildBody, lookOf, hex, SKIN_STRIDE, rigBuildOf } from './gl/ballplayer-mesh.js';
 import { MAT } from './gl/ballpark-mesh.js';
 
-export const FT_M = 0.3048;
+export { FT_M } from '../../../shared/world-scale.js';
 export const ROD_FT = 7;               // a seven-foot spinning rod, butt to tip
 export const HANDLE_FT = 1.25;         // the cork, from the butt
 // Where the first-person camera is put on the seated rig: a little up and back from his eye at rest

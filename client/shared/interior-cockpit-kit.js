@@ -116,7 +116,8 @@ export function hotspotHalo(K, hotspots, live) {
 // A small moving-map head for a cockpit that had none: a bezel, a screen, a range ring, the
 // aircraft at the centre pointing up the screen, and a magenta course line out to the place the
 // target guide is on. `live.gpsTo` is { rel, dist } from cockpit.js: rel is the target's bearing
-// off the nose in degrees, so heading up needs no turning here. Dark without power.
+// off the nose in degrees, so heading up needs no turning here, and dist is nautical miles on the
+// aircraft's own instruments (world-scale.js tripM). Dark without power.
 // Drawn on panel `Pn` at (u, v) in that panel's coords, hw × hh the half sizes. `gpsHotspot` takes
 // the same panel and centre, so the screen you see and the place you click are one spec; a click
 // opens the destination picker (cockpit.js 'ck:gps').

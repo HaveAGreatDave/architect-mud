@@ -26,10 +26,11 @@ import { getWeatherTypeAtGrid } from '../../server/engine/environment.js';
 const GRIME_WX = { thunderstorm: 'storm', blizzard: 'snow', sleet: 'rain' };
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
   nodeAt, sOfNode, roomLenOf, addWreck, wreckAhead, signsBetween, ARROW_WORDS, pavedAt,
-  attachSigns, joinRoutes, reverseRoute, pairKey, composeRoad, milesOf, sliceRoute } from './corridor.js';
+  attachSigns, joinRoutes, reverseRoute, pairKey, composeRoad, roadKm, sliceRoute } from './corridor.js';
 import { attachPlazas, passPlaza } from './plaza.js';
 import { routeNumber, routeType } from '../../client/shared/wildlands.js';
 import { segmentAt, typeAt } from '../../client/shared/highways.js';
+import { MPH_MS } from '../../client/shared/world-scale.js';
 import { hitcherAt, hitcherAhead, hitcherSOf } from './hitchers.js';
 import { wearFor, breakdownRoll, BREAKDOWNS, paintOf } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
@@ -1465,7 +1466,7 @@ export function passSign(player, rig) {
   for (const g of passed) {
     rig.signSeen.add(g.s);
     if (g.kind === 'merge') sendToPlayer(player.id, { type: 'emote', message: '<span class="text-dim">Another road comes in alongside, and the two run on as one.</span>' });
-    const rows = ((rev && g.back) || g.rows).map(r => `<b>${r.n}</b> <span class="text-dim">${r.m} miles, ${ARROW_WORDS[r.a] || 'straight on'}</span>`).join('\n  ');
+    const rows = ((rev && g.back) || g.rows).map(r => `<b>${r.n}</b> <span class="text-dim">${r.m} km, ${ARROW_WORDS[r.a] || 'straight on'}</span>`).join('\n  ');
     sendToPlayer(player.id, {
       type: 'emote',
       message: '<span class="text-dim">A board goes by on the shoulder, green under the dust, still bolted to its legs:</span>\n  '
@@ -1482,9 +1483,9 @@ export function passSign(player, rig) {
 // with them. A driver who read it had no way to know whether to come off the throttle now or in a
 // minute — and forty tonnes at cruise does not stop on the line where you decided to.
 //
-// ⚠ A DISTANCE IS THE WHOLE POINT, NOT DECORATION. "Ahead on the shoulder" is a mood; "eighteen
-// miles" is a thing you can act on, because it is the number you divide into your own stopping
-// distance. Every call carries one, and it is `milesOf` — the same conversion the boards on the
+// ⚠ A DISTANCE IS THE WHOLE POINT, NOT DECORATION. "Ahead on the shoulder" is a mood; "ten
+// kilometres" is a thing you can act on, because it is the number you divide into your own stopping
+// distance. Every call carries one, and it is `roadKm` — the same conversion the boards on the
 // verge, the `route` verb and the GPS use — because a call that said twenty while the dash counted
 // down in some other unit would be worse than silence (see client/shared/road-units.js, which
 // exists because exactly that happened once already).
@@ -1495,23 +1496,23 @@ export function passSign(player, rig) {
 // What is asked is which mark the closing distance has just CROSSED, which is one question at both
 // rates.
 //
-// ⚠ AND THE FAR CALL IS THE RADIO'S, DELIBERATELY. Twenty miles is over the horizon — nobody sees
-// a person at twenty miles, on any road — so the only honest voice for it is the CB, which already
+// ⚠ AND THE FAR CALL IS THE RADIO'S, DELIBERATELY. Thirty-two kilometres is over the horizon — nobody sees
+// a person that far off, on any road — so the only honest voice for it is the CB, which already
 // owns "something is up ahead" out here (see `cbLine` and its wreck report). That makes it the one
 // call a driver can switch off, and that is a real consequence rather than an oversight: leaving
 // the radio on is what buys you the early warning. The two nearer calls are your own eyes and are
-// never gated, so a driver running silent still gets six miles — about half a minute at cruise,
+// never gated, so a driver running silent still gets ten kilometres — about half a minute at cruise,
 // which is enough truck-stopping room. The feature never depends on the radio; the LEAD does.
 const HITCH_CALLS = [
-  { tiles: 60, cb: true, say: (who, mi) =>
-    `<span class="text-dim">CB: “Anybody running this stretch, there's somebody thumbing it about ${mi} miles ahead of me. `
+  { tiles: 60, cb: true, say: (who, km) =>
+    `<span class="text-dim">CB: “Anybody running this stretch, there's somebody thumbing it about ${km} kilometres ahead of me. `
     + `Been out there a while by the look of it.”</span>` },
-  { tiles: 18, cb: false, say: (who, mi) =>
+  { tiles: 18, cb: false, say: (who, km) =>
     `<span class="text-amber">A shape resolves out of the haze on the right-hand verge, a long way off and not moving.</span>`
-    + ` <span class="text-dim">About ${mi} miles. Come off the throttle now if you're going to stop for them.</span>` },
-  { tiles: 6, cb: false, say: (who, mi) =>
+    + ` <span class="text-dim">About ${km} km. Come off the throttle now if you're going to stop for them.</span>` },
+  { tiles: 6, cb: false, say: (who, km) =>
     `<span class="text-amber">Close enough to see now: ${who.look}. A hand comes up as you close.</span>`
-    + ` <span class="text-dim">${mi} mile${mi === 1 ? '' : 's'}: ${teachVerb('pickup', 'pickup')} if you're stopping.</span>` },
+    + ` <span class="text-dim">${km} km: ${teachVerb('pickup', 'pickup')} if you're stopping.</span>` },
 ];
 // The farthest mark, which is also how far ahead the lookahead has to reach.
 const HITCH_LOOK = Math.max(...HITCH_CALLS.map((c) => c.tiles));
@@ -1528,13 +1529,13 @@ export function passHitcher(player, rig) {
   rig._hitchNode = who.node;
   rig._hitchD = who.tiles;
   // The CLOSEST mark crossed since the last reading, not the first. They are authored far-to-near,
-  // and a tick that covers two of them at once has left the farther one behind — saying "twenty
-  // miles" to somebody now six miles off would be a call that is merely stale rather than early.
+  // and a tick that covers two of them at once has left the farther one behind — saying "thirty-two
+  // kilometres" to somebody now ten off would be a call that is merely stale rather than early.
   let call = null;
   for (const c of HITCH_CALLS) if (who.tiles <= c.tiles && was > c.tiles) call = c;
   if (!call) return false;
   if (call.cb && rig.cbOff) return false;
-  sendToPlayer(player.id, { type: 'emote', message: call.say(who, milesOf(who.tiles)) });
+  sendToPlayer(player.id, { type: 'emote', message: call.say(who, roadKm(who.tiles)) });
   return true;
 }
 
@@ -1549,7 +1550,7 @@ export function passHitcher(player, rig) {
 // hat. It lives here rather than in either rung's file because both rungs call it, and a radio
 // that said different things in the cab and in the text run would be two radios.
 const CB_CHATTER = [
-  'Somebody two hundred miles back is describing his divorce to nobody in particular.',
+  'Somebody three hundred kilometres back is describing his divorce to nobody in particular.',
   "“…and I told him, that isn't a load, that's an insult with a tarp over it.”",
   "A woman counts something out, slowly, in a language the radio isn't helping with.",
   'Static, and under the static something that has been repeating for a long time.',
@@ -1569,7 +1570,7 @@ export function cbLine(player, rig) {
   if (w && !rig.cbSeen?.has(w.s)) {
     (rig.cbSeen = rig.cbSeen || new Set()).add(w.s);
     sendToPlayer(player.id, { type: 'emote', message:
-      `<span class="text-dim">CB: “${w.who ? `${w.who}'s rig` : 'A rig'} is on the shoulder a few miles up. `
+      `<span class="text-dim">CB: “${w.who ? `${w.who}'s rig` : 'A rig'} is on the shoulder a few kilometres up. `
       + `${w.who ? 'Left there a while back.' : 'Nobody in it.'} Give it room.”</span>` });
     return true;
   }
@@ -1841,8 +1842,8 @@ export function truckContactsNear(x, y, range = 26) {
       // …AND WHAT IS BOLTED TO IT. The fitting suffix rides the SAME string (see fittings.js rule
       // 2), so a stranger's ram plate and roof cage reach your windscreen with no new field on the
       // contact and no second lookup — which is the entire wire cost of the feature.
-      x: rig.x, y: rig.y, hdg: rig.heading, ias: Math.round(rig.speed),
       variant: `${rig.typeId || 'hauler'}${rig.trailer ? '+t' : ''}${editionSuffix(rig.cd, rig.typeId)}${fitSuffix(rig.cd)}`,
+      x: rig.x, y: rig.y, hdg: rig.heading, ias: +((rig.speed || 0) * MPH_MS).toFixed(1),   // mph on the dial -> m/s on the wire
       // WHAT THIS TRUCK'S LAMPS ARE DOING, so the rig behind sees the brake lights come on and the
       // rig ahead is a pair of headlights rather than a dark shape. Straight off the telemetry
       // packet (cmdTruckSync) — no query, no column, and the one field carries both.

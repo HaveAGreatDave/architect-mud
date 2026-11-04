@@ -14,11 +14,12 @@ export const FLOCK_AREA = 12;          // tiles per coarse-bias block: about a f
 export const GOOSE_AREA_BIAS = 0.45;   // above this a block is goose country; below it, they're rare
 const DENSE = 0.075, SPARSE = 0.006;   // per-habitat-tile chance in each case
 import { liveColumnNear } from './thermals.js';
+import { TILE_M } from './world-scale.js';
 
 // ── The world scale ─────────────────────────────────────────────────────────────
-// One storey is 0.196 tiles and 3.5 m, so a tile is 17.9 m. Metric bird facts go through `M`;
-// map facts stay in tiles. murmur.js and windshield.js read this constant.
-export const BIRD_M_PER_TILE = 3.5 / 0.196;
+// The ruler is world-scale.js's TILE_M (a storey is 3.5 m and 0.196 tiles). Metric bird facts go
+// through `M`; map facts stay in tiles. murmur.js and windshield.js read this name for it.
+export const BIRD_M_PER_TILE = TILE_M;
 const M = (m) => m / BIRD_M_PER_TILE;
 
 const frac = (n) => { const x = Math.sin(n) * 43758.5453; return x - Math.floor(x); };

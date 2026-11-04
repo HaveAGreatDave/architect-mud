@@ -40,6 +40,7 @@ import { getMinimapData } from '../../server/engine/world.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { TYPES as FM_TYPES, createState as fmCreate, step as fmStep, readout as fmReadout } from '../../client/game/js/panels/flight-model.js';
 import { checkGateProximity, checkrideEvent, evaluateCheckride } from './checkride.js';
+import { tripM, fmtDistance } from '../../client/shared/world-scale.js';
 
 const TEXT_MAP_R = 6;      // tiles either side of the aircraft on the text pilot's chart (the 3D HUD's inset uses 3)
 const TICK_S = 1;          // the sweep's own cadence
@@ -527,7 +528,7 @@ export function cmdTextLand(args, player) {
     // that keeps a helipad out of a fixed-wing's diversion list, so a pad never counts here.
     const near = nearestAirfield(live.row.grid_x, live.row.grid_y, { needsRunway: true });
     if (!near || near.dist > STRIP_FIELD_DIST) {
-      const where = near ? ` The nearest strip is <b>${near.name}</b>, ${near.dist} tiles off.` : '';
+      const where = near ? ` The nearest strip is <b>${near.name}</b>, ${fmtDistance('air', tripM('air', near.dist))} off.` : '';
       return { type: 'emote', message: `<span class="text-amber">The ${name} needs a runway under her: she can't just stop in the air and sit down.</span>${where} <span class="text-dim">Fly to the field first (<b>turn to heading …</b>), then <b>land</b>.</span>` };
     }
   } else {

@@ -14,9 +14,10 @@
 //
 // Pure: no DOM and no GL, so the gates run it in Node.
 
-// The world's ruler: 3.5 m a storey and 0.196 tiles a storey (docs/proposals/world-scale.md).
-export const TILE_M = 3.5 / 0.196;
-export const TILE_FT = TILE_M / 0.3048;
+// The world's ruler: 3.5 m a storey and 0.196 tiles a storey (client/shared/world-scale.js).
+import { TILE_M, FT_M } from './world-scale.js';
+export { TILE_M };
+export const TILE_FT = TILE_M / FT_M;
 
 // The bowl, a square on the foul lines: its outer face `near` feet behind home on the two near
 // sides (Sorrel Way and the east) and `far` feet out on the two far ones.

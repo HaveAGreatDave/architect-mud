@@ -12,7 +12,7 @@ import { powerAnchorOf } from '../../server/engine/environment.js';
 import { listRegions, surfaceAt, isRoadCell } from '../flight/state.js';
 import { biomeOf } from '../flight/biomes.js';
 import { roadNetwork } from '../trucking/roadnet.js';
-import { corridorPos, milesOf, trailFor } from '../trucking/corridor.js';
+import { corridorPos, roadKm, trailFor } from '../trucking/corridor.js';
 import { VOIDS, currentWindow } from '../voidwalking/index.js';
 import { wildlandsAt, wildlandsRect, routeNumber, landforms } from '../../client/shared/wildlands.js';
 import { concurrency, typeOf } from '../../client/shared/highways.js';
@@ -82,7 +82,7 @@ function worldPayload() {
     for (let s = 0; s <= rt.L; s += 3) { const p = corridorPos(rt, s); pts.push(Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10); }
     const e = corridorPos(rt, rt.L); pts.push(Math.round(e.x * 10) / 10, Math.round(e.y * 10) / 10);
     return { num: b ? routeNumber(a, b) : null, a, b, aName: regionName(a), bName: b ? regionName(b) : null,
-      miles: Math.round(milesOf(rt.L)), pts };
+      km: roadKm(rt.L), pts };
   });
   // The footpaths void walkers take: the trail runs beside each road (the same trail the walked
   // crossing is laid on), with its camps. Drawn far thinner than any road.
@@ -149,7 +149,7 @@ export function textMap(player) {
   // Open sea above the coast says nothing after the first couple of rows.
   while (out.length > 2 && /^~*$/.test(out[0]) && /^~*$/.test(out[2])) out.shift();
   const routes = p.roads.filter((rd) => rd.num).sort((a, b) => Number(a.num) - Number(b.num))
-    .map((rd) => `  Route ${rd.num.padEnd(2)} ${rd.aName} – ${rd.bName}, ${rd.miles} miles`);
+    .map((rd) => `  Route ${rd.num.padEnd(2)} ${rd.aName} – ${rd.bName}, ${rd.km} km`);
   const lf = landforms().map((l) => `  ^ ${l.name}`);
   return { art: out, routes, landforms: lf };
 }

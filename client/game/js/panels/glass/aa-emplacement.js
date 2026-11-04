@@ -19,15 +19,16 @@
 // when the server says so), 2 strafed and under repair (slewed, barrels down, a work lamp on), and
 // 0 a ruin (canted, a barrel gone, scorched, dark).
 //
-// ⚠ NO IMPORTS, BY DESIGN. The renderer hands this a face sink and a light sink (see drawAAMark in
-// windshield.js), so the same geometry goes to the depth buffer on GLASS 2 and to a sorted canvas
-// on GLASS 1, and the shapes gates can run it with nothing but a stub. It shades its own faces,
-// as the statue does, because a solid on BAY_SINK arrives pre-lit.
+// ⚠ NO RENDERER IMPORTS, BY DESIGN. The renderer hands this a face sink and a light sink (see
+// drawAAMark in windshield.js), so the same geometry goes to the depth buffer on GLASS 2 and to a
+// sorted canvas on GLASS 1, and the shapes gates can run it with nothing but a stub. It shades its
+// own faces, as the statue does, because a solid on BAY_SINK arrives pre-lit. Its one import is the
+// ruler, which is pure.
 //
-// Scale: the world's one scale is BIRD_M_PER_TILE, 17.86 m to a tile (client/shared/birds.js), so a
+// Scale: the world's one scale is TILE_M, 17.86 m to a tile (client/shared/world-scale.js), so a
 // person is about a tenth of a tile. `M(m)` turns metres into tiles.
+import { m2t as M } from '../../../../shared/world-scale.js';
 
-const M = (m) => m / 17.857;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const frac = (v) => v - Math.floor(v);
 const TAU = Math.PI * 2;

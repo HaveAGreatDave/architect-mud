@@ -28,6 +28,7 @@ import { isResidentOf } from '../../server/engine/apartments.js';
 import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent, getZonePowerStatus, getZoneEmergencyLighting, getZoneOnGrid, groundAccum, getWindKphAtGrid, getPrecipAtGrid } from '../../server/engine/environment.js';
 import { gatherHookSync } from '../../server/engine/plugins.js';
 import { isPrivateCraft, indexAircraft, unindexAircraft } from './access.js';
+import { KT_MS, FT_M } from '../../client/shared/world-scale.js';
 
 export const TICK_MS = 3000;
 // Overall traversal pace — a single knob that slows the flight down without
@@ -2305,7 +2306,7 @@ export function thermalSky() {
     return { hour: env.minutes != null ? env.minutes / 60 : env.hour, weather: skyWeatherToken(env), wind: env.windKph || 0 };
   } catch { return null; }
 }
-const FT_S_PER_KT = 1.688, G_FT = 32.17;
+const FT_S_PER_KT = KT_MS / FT_M, G_FT = 32.17;
 export function boundUnpoweredClimb(live, alt, vs, ias, onGround, now = Date.now(), sky = null) {
   const a = live.row;
   const unpowered = (a.throttle ?? 0) <= 5 || (a.fuel ?? 1) <= 0;

@@ -36,6 +36,7 @@ import { removePlayerFromZone } from '../../server/engine/world.js';
 import { pushHangarBay } from './hangars.js';
 import { boardCompanions, setDownCompanions } from './companions.js';
 import { prefersTextTravel } from './textmode.js';
+import { tripM, fmtDistance } from '../../client/shared/world-scale.js';
 
 const SHIFT_HOURS = 8;
 const AUTO_DISEMBARK_MS = 20000;
@@ -372,8 +373,8 @@ export async function cmdCharterBook(args, raw, player) {
   log({ player: player.handle, pilot: pilot.name, from: ch.homeName, to: destName, status: 'booked' });
   const dist = Math.max(Math.abs(dest.grid_x - field.grid_x), Math.abs(dest.grid_y - field.grid_y));
   const fareLine = anywhere
-    ? `${pilot.name} pockets the <b>${fare}₵</b>: "Off-airfield drop's double: I've got to find somewhere to put her down, and get myself back out. ${dist} out, that's the number."`
-    : `${pilot.name} pockets the <b>${fare}₵</b>: "Flat hundred to get airborne, few credits a mile after: ${dist} out to ${destName}, so ${fare}. Fair's fair."`;
+    ? `${pilot.name} pockets the <b>${fare}₵</b>: "Off-airfield drop's double: I've got to find somewhere to put her down, and get myself back out. ${fmtDistance('air', tripM('air', dist))} out, that's the number."`
+    : `${pilot.name} pockets the <b>${fare}₵</b>: "Flat hundred to get airborne, few credits a mile after: ${fmtDistance('air', tripM('air', dist))} out to ${destName}, so ${fare}. Fair's fair."`;
   return { type: 'output', message:
     `<span class="text-green">${pilot.name} taxis the <b>${t.name}</b> up to the hangar door, fuelled and bound for <b>${destName}</b>.</span>\n` +
     `<span class="text-dim">${fareLine}</span>\n` +

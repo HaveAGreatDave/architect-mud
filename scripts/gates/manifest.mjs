@@ -80,6 +80,14 @@ export const GROUPS = [
     ],
   },
   {
+    name: 'scale',
+    // No new copy of the world's scale numbers outside client/shared/world-scale.js
+    // (docs/proposals/world-scale.md); the old ones are ratcheted in scripts/scale/baseline.json.
+    gates: [
+      'scripts/scale/lint.mjs',
+    ],
+  },
+  {
     name: 'docs',
     // The six doc checks: status headers, verbs, links, READMEs, hooks, prose.
     gates: [

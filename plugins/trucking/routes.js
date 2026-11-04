@@ -23,7 +23,7 @@
 // pass them from the same single implementations, so nothing is duplicated by doing it this way.
 import { getZone } from '../../server/engine/world.js';
 import { crossingInfo, crossingDistance, VOIDS } from '../voidwalking/index.js';
-import { milesOf } from './corridor.js';
+import { roadKm } from './corridor.js';
 import { roadLength } from './roadnet.js';
 import { routeNumber } from '../../client/shared/wildlands.js';
 
@@ -106,10 +106,10 @@ export function routeOptions(rig, { zoneId = null, forkAhead = true } = {}) {
         heading: d.heading,
         num: d.region ? routeNumber(voidKey, d.region) : null,
         tiles,
-        // MILES, because that is the unit the road itself now speaks in. `tiles` stays because the
+        // KILOMETRES, because that is the unit the road itself speaks in. `tiles` stays because the
         // reach bands below are computed against a tank measured in them; nothing player-facing
         // should print it. See the conversion note in corridor.js for why there is exactly one.
-        miles: milesOf(tiles),
+        km: roadKm(tiles),
         reach: !tank ? 'ok' : tiles <= tank ? 'ok' : tiles <= tank * 2 ? 'thin' : 'far',
         current: d.key === current?.key,
       };

@@ -24,6 +24,7 @@
 import { emitWire } from '../windshield.js';
 import { boatGeom } from '../../../../shared/boat-house.js';
 import { BOAT_ROWS } from '../../../../shared/vehicle-models.js';
+import { FT_M } from '../../../../shared/world-scale.js';
 import { CEL, CEL_TUNE, celLightJS, celToneJS, celRimJS } from '../gl/cel-figure.js';
 import { inkOf, figureLightOf } from '../gl/house-style.js';
 
@@ -63,7 +64,7 @@ export function drawRodRig(ctx, cam, v, now, env = {}) {
     const hr = (H.hdg || 0) * Math.PI / 180, roll = (H.bank || 0) * Math.PI / 180, pitch = (H.pitch || 0) * Math.PI / 180;
     const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
     const fwdX = Math.sin(hr), fwdY = -Math.cos(hr), rgtX = Math.cos(hr), rgtY = Math.sin(hr);
-    const S = H.SIZE, VS = H.VS || 1, FT = AN ? AN.FT_M : 0.3048, SEAT = AN ? AN.SEAT_FT : 1.15;
+    const S = H.SIZE, VS = H.VS || 1, FT = AN ? AN.FT_M : FT_M, SEAT = AN ? AN.SEAT_FT : 1.15;
     // The hull's height is drawn VS times its plan, and the man sits in it: below the seat he takes
     // the same stretch (his shins reach the sole), above it none (a stretched man reads as a giant).
     const h0 = G.thwartTop ? G.thwartTop(G.helm.f) : G.helm.z - 0.78 / mpu;
@@ -81,7 +82,7 @@ export function drawRodRig(ctx, cam, v, now, env = {}) {
     // eye where the seated rig's eye is.
     const S = v.metreTiles > 0 ? v.metreTiles : 1 / 7;
     const hd = ((v.ownHdg != null ? v.ownHdg : v.heading) || 0) * Math.PI / 180, sh = Math.sin(hd), ch = Math.cos(hd), ez = cam.EH;
-    const FT = AN ? AN.FT_M : 0.3048, E = AN ? AN.EYE_FT : [0, 3.62, -0.15];
+    const FT = AN ? AN.FT_M : FT_M, E = AN ? AN.EYE_FT : [0, 3.62, -0.15];
     toLocal = (p, out) => {
       const x = p[0] - E[0], y = p[1] - E[1], z = p[2] - E[2];
       out[0] = (z * sb - x * cb) * FT; out[1] = (z * cb + x * sb) * FT; out[2] = y * FT;

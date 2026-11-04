@@ -44,7 +44,7 @@
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { world } from '../../server/engine/world.js';
 import { dispatchAction } from '../../server/engine/actions.js';
-import { milesOf, pavedAt, corridorPos, corridorLocate, SHOULDER_W } from './corridor.js';
+import { roadKm, pavedAt, corridorPos, corridorLocate, SHOULDER_W } from './corridor.js';
 import { weighAt, cabCheckAt, chargeAt } from './scale.js';
 import { hashSeed, mulberry32 } from '../../server/engine/rng.js';
 
@@ -337,8 +337,8 @@ export function passPlaza(player, rig) {
       const back = d < 0 && dPrev < 0 && -(p.s1 - rig.s) <= CALL_TILES && -(p.s1 - from) > CALL_TILES;
       if (!inbound && !back) continue;
       sendToPlayer(player.id, { type: 'emote', message: p.open
-        ? `<span class="text-dim">The radio picks up a carrier tone and a flat synthetic voice underneath it, repeating on a loop:</span> <span class="text-amber">"${p.name} is <b>OPEN</b>. All rigs exit. ${milesOf(Math.abs(d))} miles."</span>`
-        : `<span class="text-dim">A carrier tone comes up and goes away again: ${p.name}, ${milesOf(Math.abs(d))} miles up, telling nobody in particular that it's <b>closed</b>. You'll be driving straight past that one.</span>` });
+        ? `<span class="text-dim">The radio picks up a carrier tone and a flat synthetic voice underneath it, repeating on a loop:</span> <span class="text-amber">"${p.name} is <b>OPEN</b>. All rigs exit. ${roadKm(Math.abs(d))} kilometres."</span>`
+        : `<span class="text-dim">A carrier tone comes up and goes away again: ${p.name}, ${roadKm(Math.abs(d))} km up, telling nobody in particular that it's <b>closed</b>. You'll be driving straight past that one.</span>` });
       ev = 'called';
     }
   }

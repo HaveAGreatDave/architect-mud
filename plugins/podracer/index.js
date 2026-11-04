@@ -27,6 +27,7 @@ import { registerVehicleLock } from '../../server/engine/vehicle-access.js';
 import { mountRacer, cmdPodSync, cmdPodEvent, dropSeat, bayLotAt, pushBay, svcState, recoverSeated, homeLot, noteRacerParked } from './seat.js';
 import { PODRACER_TYPES, podracerPoseFrom, podracerLook, podracerLivery } from '../../client/game/js/panels/podracer-model.js';
 import { cmdPod, textPodCtx } from './texthelm.js';
+import { MPH_MS } from '../../client/shared/world-scale.js';
 
 // Every racer under way, by player id: the last report the server accepted.
 export const rigs = new Map();
@@ -50,7 +51,7 @@ function racerContactsNear(x, y, range = 26) {
       id: 'pod_' + rig.playerId,
       cls: 'podracer',
       x: rig.x, y: rig.y, hdg: rig.heading || 0,
-      ias: rig.speed || 0,
+      ias: +((rig.speed || 0) * MPH_MS).toFixed(1),   // mph on the dial -> m/s on the wire
       alt: 0, band: 'ground', onGround: true, groundZ: 0, altDiff: 0,
       bank: 0, pitch: 0, vs: 0,
       power: +(((rig.lever?.[0] || 0) + (rig.lever?.[1] || 0)) / 2).toFixed(2),

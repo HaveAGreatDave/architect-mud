@@ -21,10 +21,12 @@
 // sent at most every UPDATE_MS. When the seat stops painting (closed, or a hidden tab that froze
 // rAF) the watchdog lets every voice go and resets the pose.
 
+import { TILE_M, FT_M } from '../../../shared/world-scale.js';
+
 const AE = () => (typeof window !== 'undefined' ? window.AudioEngine : null);
 
-const M_PER_TILE = 17.9;        // a tile is about 18 m (see glass/street-life.js)
-const FT_TO_TILES = 0.3048 / M_PER_TILE;
+const M_PER_TILE = TILE_M;      // the ruler, 17.86 m a tile
+const FT_TO_TILES = FT_M / M_PER_TILE;
 const CONTACT_MAX = 3;
 const CONTACT_RANGE = 30;       // tiles
 const UPDATE_MS = 33;

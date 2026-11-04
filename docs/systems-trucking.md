@@ -343,7 +343,7 @@ leaves them with no signs — a sign is a thing the road you are ON tells you, a
 a road nobody is driving are texture with a per-tile cost.
 
 **The boards.** One at the gate, one on the approach to the junction, one before each bend, deduped
-to no closer than 40 tiles. A row is `{ n, m, a }` — name, **miles**, and an arrow index 0–7 measured
+to no closer than 40 tiles. A row is `{ n, m, a }` — name, **kilometres** (miles until world-scale.md phase 2), and an arrow index 0–7 measured
 from the driver's own heading, clockwise from straight ahead. Rows list every destination still
 reachable from that post plus the **origin**, pointing back; past the junction a board stops naming
 the towns you can no longer get to, because there is no cutting across out here and a board naming
@@ -351,7 +351,7 @@ one would be a board that lies.
 
 | decision | why |
 |---|---|
-| **miles, not tiles** | `TILES_PER_MILE = 3` lives in [client/shared/road-units.js](../client/shared/road-units.js) and nowhere else, re-exported by corridor.js. The board, the `route` verb and the GPS all print the same number; a board saying 240 while the dash says 60 means a driver cannot budget a tank against either. ⚠ **It moved out of corridor.js because one of those three surfaces is drawn in the browser** — the dash strip re-derives its own distance every frame from live `s`, could not import a server plugin, and so carried a `/12` that printed a QUARTER of the truth for months while looking entirely plausible |
+| **kilometres, not tiles** | `roadKm` lives in [client/shared/road-units.js](../client/shared/road-units.js) and nowhere else, re-exported by corridor.js, on the corridor pace in [world-scale.js](../client/shared/world-scale.js) (three tiles to the mile, so a 90-tile room is 48 km). The board, the `route` verb and the route list print the same number. ⚠ The dash strip under the GPS still prints miles (`TILES_PER_MILE`): its MI label is in windshield.js, and it moves with the truck's speedo; a board saying 240 while the dash says 60 means a driver cannot budget a tank against either. ⚠ **It moved out of corridor.js because one of those three surfaces is drawn in the browser** — the dash strip re-derives its own distance every frame from live `s`, could not import a server plugin, and so carried a `/12` that printed a QUARTER of the truth for months while looking entirely plausible |
 | **a sign is one TILE, snapped at build time** | the wreck and the roadside sheds match on a tolerance band because they are a whole tile wide anyway. A post matched on a band comes out as three or four identical boards in a row, which reads as a mistake rather than as a sign |
 | **⚠ the junction board looks 210 tiles PAST the fork** | a board stands 16 tiles short of the junction, so an ordinary 80-tile look lands barely 60 tiles into a bend of radius 110 — the limbs have separated by about ten degrees, which rounds to the same arrow, and the board points every limb straight on. ⚠ **All four of those numbers now scale with the road** (`route.bendK`), because 210 tiles past a fork on a 99-tile road aims the arrow past the destination it is naming, and `SIGN_APART` at 40 collapses every board on the route into one |
 | **the arrow is drawn, not typed** | a glyph would depend on a monospace font having ↗ in it at a legible weight. It is a polygon in the board's own surface coordinates, so it leans and foreshortens with the panel exactly as the lettering does |
@@ -3300,7 +3300,7 @@ is still the free one and the return is still the one where you sweat.
 
 ---
 
-### Rare, and called in miles *(2026-08-22)*
+### Rare, and called with a distance *(2026-08-22)*
 
 Two complaints, and the trap is that they *sound* like one. "There are too many of them" and "I
 could never slow down for one" are answered by two different dials, and trading one against the
@@ -3320,12 +3320,15 @@ with a ladder:
 
 | Mark | Voice | Says |
 |---|---|---|
-| **20 miles** (60 tiles) | the **CB** | somebody is thumbing it that far up |
-| **6 miles** (18 tiles) | your eyes | a shape on the verge, *come off the throttle now* |
-| **2 miles** (6 tiles) | your eyes | who it actually is, and the `pickup` verb |
+| **32 km** (60 tiles) | the **CB** | somebody is thumbing it that far up |
+| **10 km** (18 tiles) | your eyes | a shape on the verge, *come off the throttle now* |
+| **3 km** (6 tiles) | your eyes | who it actually is, and the `pickup` verb |
+
+The calls said 20, 6 and 2 miles until world-scale.md phase 2 moved roads to kilometres; the
+prose below keeps the miles it was written in.
 
 ⚠ **A distance is the feature, not decoration.** "Ahead on the shoulder" is a mood; a number is the
-thing you divide into your own stopping distance. It is `milesOf` — the same conversion the boards on
+thing you divide into your own stopping distance. It is `roadKm` — the same conversion the boards on
 the verge, the `route` verb and the GPS use — because a call reading twenty against a dash counting
 in some other unit is worse than silence. That is not hypothetical: it is exactly what
 [road-units.js](../client/shared/road-units.js) exists to prevent, after `/12` sat on the dash for

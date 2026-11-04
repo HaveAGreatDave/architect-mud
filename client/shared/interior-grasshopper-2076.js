@@ -43,6 +43,7 @@ import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pres
   bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand, holoFrame, holoProjector, windscreenHud,
   HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
+import { FT_M } from './world-scale.js';
 import { compileMesh } from './vehicle-mesh.js';
 import { GH76_STATIONS, GH76_GLASS, GH76_FRAMES, GH76_INSIDE, GH76_WING, SCOUT_SPAN_M, gh76Section, gh76Point } from './cabin-grasshopper-2076.js';
 
@@ -831,7 +832,7 @@ function sensorPage(Pn, R) {
   seg(rot(-0.2, hv), rot(0.2, hv), lineC, 0.9, 0.0008);
   // The ground grid: lines across at 50 m steps ahead of the point under her, and lines along that
   // fan from the vanishing point on the horizon. Height in metres off the altimeter's feet.
-  const hM = Math.max(5, R.alt * 0.3048);
+  const hM = Math.max(5, R.alt * FT_M);
   for (let d = 50; d < 4000; d += 50) {
     const dep = Math.atan2(hM, d) / DEG;             // degrees under the horizon
     const v = (look - dep) * k;

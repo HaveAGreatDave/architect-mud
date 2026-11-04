@@ -10,8 +10,11 @@
 // the renderer, which resolves them against the view's own position each frame. A view written
 // next year gets them for nothing.
 //
-// ⚠ NO IMPORTS, AND THAT IS A RULE. windshield.js imports this file, and the cold open and every
-// `scripts/shapes/*` gate load windshield.js against a DOM stub with no session.
+// ⚠ NO IMPORTS BUT THE RULER, AND THAT IS A RULE. windshield.js imports this file, and the cold open
+// and every `scripts/shapes/*` gate load windshield.js against a DOM stub with no session.
+// world-scale.js is pure numbers, so it's the one exception.
+
+import { KT_MS } from '../../../shared/world-scale.js';
 
 const now0 = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
@@ -61,9 +64,10 @@ export function aaLive(x, y) { return AA.size ? AA.get(x + ',' + y) : undefined;
 // ── CONTACTS IN A VIEW'S OWN FRAME ───────────────────────────────────────────
 // Every producer sends contacts in absolute world tiles; the renderer wants them as offsets from
 // the view's own position. Between pushes (a second or two) they are dead-reckoned on a velocity
-// DIFFERENCED FROM THE PUSHES, never from `ias`: the wire's speed is knots from one producer and
-// mph from another, and an aircraft's real ground rate is a tune (`worldPace`), so a speed read off
-// the dial walked every contact the wrong distance and snapped it back at the next push.
+// DIFFERENCED FROM THE PUSHES, never from `ias`: the wire's speed is the instrument's (m/s, since
+// world-scale.md phase 2), and a vehicle's ground rate is its pace times that, which differs by
+// mode and by height, so a speed read off the dial walked every contact the wrong distance and
+// snapped it back at the next push.
 const DR_MAX_S = 2.5;   // seconds of dead reckoning before a stale contact is left where it was
 export function makeContactTrack() {
   let list = [], at = 0;
@@ -98,7 +102,8 @@ export function makeContactTrack() {
         const dx = x - ax, dy = y - ay;
         const ground = c.onGround || c.band === 'ground';
         const rig = opts.roadRig && c.cls === 'truck' ? opts.roadRig : 1;
-        out.push({ ...c, dx, dy, rng: Math.hypot(dx, dy), sizeMul: (c.sizeMul || 1) * rig,
+        // `ias` is m/s on the wire; the renderer's contact readers (the wake, the bay door) are in knots.
+        out.push({ ...c, dx, dy, rng: Math.hypot(dx, dy), sizeMul: (c.sizeMul || 1) * rig, ias: (c.ias || 0) / KT_MS,
           ...(ground ? { groundZ: 0, altDiff: 0 } : { altDiff: c.alt || 0 }) });
       }
       return out;

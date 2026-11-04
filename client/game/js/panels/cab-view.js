@@ -23,7 +23,7 @@ import { createHelmWheel, TRUCK_LOCK_TURNS, TRUCK_LOCK_RAD } from './helm-wheel.
 import { truckLivery } from './aircraft3d.js';   // stored paint → renderer livery, the one conversion
 import { sendCmdSilent } from '../net.js';
 import { CAB_VIEW_TUNE } from '../../../shared/cab-render-tune.js';   // this view's own load-shedding numbers (see that file)
-import { TILES_PER_MILE } from '../../../shared/road-units.js';   // the one tiles→miles conversion, shared with the server
+import { TILES_PER_MILE } from '../../../shared/road-units.js';   // the GPS strip's miles (windshield.js labels it MI); boards and routes are km
 import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
 import { makeDraggable } from './confirm.js';
 // Hunger and thirst are already on the live player object, so reading them costs no request.
@@ -2195,14 +2195,14 @@ export function openCab(ctx = {}) {
       g.fillStyle = '#8c98a6'; g.font = '11px system-ui, sans-serif';
       g.textAlign = 'left'; g.fillText('start', x0 - 8, y + 22);
       g.textAlign = 'right'; g.fillText(destName() || 'the road', x1 + 8, y + 22);
-      // Miles in the boards' unit (TILES_PER_MILE). ⚠ Derived from the destination's own mileage and
+      // Kilometres in the boards' unit (roadKm). ⚠ Derived from the destination's own length and
       // the server's progress, never counted here, so it matches the row the driver picked.
       const cur = st.routes?.dests?.find((d) => d.current) || st.routes?.dests?.find((d) => d.key === st.aim);
-      const total = cur?.miles;
+      const total = cur?.km;
       const left = total != null ? Math.max(0, Math.round(total * (1 - s / L))) : null;
       leg.innerHTML = `<b>${destName() || 'no fix'}</b>`
         + `<span class="td-dim"> · node ${(st.node || 0) + 1} of ${(st.nodes || 0) + 1}`
-        + `${left != null ? ` · ${left} of ${total} miles to run` : ''}</span>`
+        + `${left != null ? ` · ${left} of ${total} km to run` : ''}</span>`
         + `<div class="cab-gps-instr">${nextInstruction()}</div>`;
     }
     // ── THE INSTRUCTION ────────────────────────────────────────────────────────
@@ -2255,7 +2255,7 @@ export function openCab(ctx = {}) {
         const [cls, note] = REACH[d.reach] || REACH.ok;
         return `<button class="cab-route ${cls}${d.current ? ' on' : ''}" data-key="${esc(d.key)}">`
           + `<b>${esc(d.heading)}</b>`
-          + `<span class="cab-route-d">${d.miles} miles &middot; ${note}</span>`
+          + `<span class="cab-route-d">${d.km} km &middot; ${note}</span>`
           + `${d.current ? '<i>▸ running for this</i>' : ''}</button>`;
       }).join('');
       // Past the junction there's nothing to choose.
@@ -3278,7 +3278,8 @@ function frame(now) {
       engineOn: !st.dry && !st.broken,
       fuel: st.dry ? 0 : (st.fuel ?? 1),
       legFrac: st.L ? Math.max(0, Math.min(1, st.s / st.L)) : 0,
-      // 'aim' is the server's destKey. ⚠ Miles via the one TILES_PER_MILE, so the dash matches the boards.
+      // 'aim' is the server's destKey. ⚠ Still MILES: windshield.js prints this with an MI label, and it moves to km
+      // with the truck's speedo (world-scale.md, phase 2 notes). The boards and the route list are km.
       aim: st.aim || null,
       legLeft: st.L ? Math.max(0, (st.L - st.s) / TILES_PER_MILE) : null,
       brakeTemp: r.brakeTemp, fading: r.fading, brakeGauge: kit.brakeTemp,
