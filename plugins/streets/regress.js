@@ -9,8 +9,6 @@ export default async function regress({ run, check, getPlayer }) {
   const before = p.credits;
   let r = await run('belt north');
   check('belt is nothing with the switch off', r?.type === 'error' && /nothing like that/.test(r.message), r?.message);
-  r = await run('anchor');
-  check('anchor is nothing with the switch off', r?.type === 'error' && /nothing like that/.test(r.message), r?.message);
   check('the switch off charges nobody', p.credits === before, p.credits);
   check('no room text with the switch off', hooks['zone.describeRoom'](getZone(p.current_zone)) === undefined);
   _test.setOn(true);

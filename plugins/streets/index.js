@@ -1,17 +1,16 @@
-// Coldwater Streets, phases 4 and 5 (docs/proposals/coldwater-streets.md): the metered strip, the
-// kiosk's anchor, passing vehicles and each street room's text.
+// Coldwater Streets, phases 4 and 5 (docs/proposals/coldwater-streets.md): the metered strip,
+// passing vehicles and each street room's text.
 //
 // ⚠ OFF UNTIL DAVID SAYS. STREET_SYSTEMS=1 in the server's environment turns it on, and it waits for
 // RENDER_TUNE.streetKit: nobody should be charged for a street they can't see. Off, the verbs answer
 // as if there's nothing here, no room changes and no vehicle goes by.
-import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getZone, hasActivePlayers, world } from '../../server/engine/world.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
 import { surfaceAt, deriveSurfaceCell } from '../flight/state.js';
-import { PRICE, kioskHere, offerLine, passingLine, placeOf, roomLine, stripRide } from './rules.js';
+import { PRICE, offerLine, passingLine, placeOf, roomLine, stripRide } from './rules.js';
 
 let on = process.env.STREET_SYSTEMS === '1';
 export const streetSystems = () => on;
@@ -56,20 +55,6 @@ async function cmdBelt(args, raw, player, broadcast) {
   return { ...last, message: `${note}\n${last?.message || ''}` };
 }
 
-async function cmdAnchor(args, raw, player) {
-  if (!on) return NOT_HERE;
-  const kiosk = kioskHere(placeIn(getZone(player.current_zone)));
-  if (!kiosk) return NOT_HERE;
-  if (kiosk === 'dead') return { type: 'error', message: 'The kiosk is on its side and has no opinion on where you wake.' };
-  if (player.anchor_zone === player.current_zone) return { type: 'info', message: 'You already wake here. The kiosk thanks you for your continued custom.' };
-  if (!(await adjustCredits(player, -PRICE.anchor, undefined, 'streets:anchor'))) {
-    return { type: 'error', message: `The screen shows ₵${PRICE.anchor}, then your balance, then ₵${PRICE.anchor} again.` };
-  }
-  player.anchor_zone = player.current_zone;
-  await query('UPDATE players SET anchor_zone = $1 WHERE id = $2', [player.current_zone, player.id]);
-  return { type: 'info', message: `₵${PRICE.anchor} accepted. In the event of your death you'll wake here. Terms apply to the event, not to you.` };
-}
-
 function describeRoom(zone) {
   if (!on) return undefined;
   const place = placeIn(zone);
@@ -89,6 +74,6 @@ schedule('1m', () => {
   }
 });
 
-export const commands = { belt: cmdBelt, anchor: cmdAnchor };
+export const commands = { belt: cmdBelt };
 export const hooks = { 'zone.describeRoom': describeRoom };
 export const _test = { setOn: (v) => { on = !!v; }, placeIn };

@@ -4,7 +4,7 @@
 // licensed lane between two 5.6 m walkways raised 0.18 m, a steel kerb with a light set into
 // its face, a metered strip down each walkway with a toll gate at each end of the block, bollards
 // every 2.5 m, a paid crossing in the middle of the block, a public footbridge with a glass lift at
-// each end at the end of the block, a respawn kiosk on the free edge, planters with benches, vents,
+// each end at the end of the block, planters with benches, vents,
 // a service channel along the frontage and guard rails at the corners. Every street tile is drawn
 // from the same parts; only where they stand changes.
 //
@@ -51,7 +51,6 @@ export const KIT_M = Object.freeze({
   BOLLARD_EVERY: 2.5, BOLLARD_H: 0.95, BOLLARD_IN: 0.5, CROSS_GAP: 2.6,
   ZEBRA_L: 3.2, ZEBRA_BAR: 0.5, ZEBRA_PITCH: 0.8,
   POLE_H: 3.4, POLE_IN: 0.45,
-  KIOSK_W: 1.3, KIOSK_D: 0.9, KIOSK_H: 2.5, KIOSK_IN: 0.9,
   PLANT_EVERY: 15, PLANT_IN: 1.05, VENT_EVERY: 17,
   GATE_IN: 1.5, PRICE_Z: 2.5,
   // The footbridge: the hydrogen hauler is 4.2 m and every bridge clears it by 2.8 m.
@@ -85,7 +84,7 @@ const PAL = {
   cyan: [111, 227, 255], cyanDim: [42, 111, 134], amber: [255, 178, 29], amberDim: [74, 50, 4],
   red: [255, 59, 59], magenta: [255, 79, 163],
   strip: [18, 58, 82], skirt: [52, 60, 74], post: [42, 49, 64], head: [27, 32, 48],
-  kiosk: [27, 33, 49], screen: [4, 16, 25], plinth: [30, 34, 42],
+  screen: [4, 16, 25], plinth: [30, 34, 42],
   planter: [42, 49, 64], trunk: [59, 48, 38], crown: [47, 138, 128], bench: [120, 128, 138],
   grate: [10, 12, 16], slat: [34, 38, 46], lid: [36, 42, 52], tactile: [214, 160, 40], stud: [240, 196, 90],
   steel: [154, 166, 181], steelDk: [42, 49, 64], glass: [120, 168, 190], cab: [216, 226, 236],
@@ -107,29 +106,28 @@ const PAL = {
 //   stencil, price  the lettering; null at dirt, where nothing carries words
 //   gateGone, bollardGone, bollardFlat  the share of posts missing or knocked over
 //   lean          how far a pole or post has gone over, in radians
-//   kiosk         'lit', 'flicker', 'dim' or 'toppled'
 //   steam         how hard the vents go: more of it the less anybody is looking after them
 const DEAD_CYAN = [16, 35, 43], DEAD_AMBER = [26, 18, 6];
 export const LEVEL = Object.freeze([
   { name: 'core', top: PAL.chrome, topMat: 'metal', slab: PAL.slab, panels: [PAL.chrome], panelMat: 'metal', hatch: PAL.hatch, patch: 0, patches: null, gone: 0, door: 0, tilt: 0, marks: 'ink',
     cap: PAL.cap, capMat: 'metal', lane: PAL.lane, guide: PAL.guide, cyan: PAL.cyan, cyanMat: 'lit', amber: PAL.amber, amberMat: 'lit', edge: true, cracks: 0,
     strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 1.4, stencil: PAL.stencil, price: '#ffb21d', priceLit: true,
-    gateGone: 0, bollardGone: 0, bollardFlat: 0, zebra: PAL.amber, zebraMat: 'lit', lamp: 'blink', lean: 0, kiosk: 'lit',
+    gateGone: 0, bollardGone: 0, bollardFlat: 0, zebra: PAL.amber, zebraMat: 'lit', lamp: 'blink', lean: 0,
     crown: PAL.crown, crownK: 1, tree: 'lit', deck: PAL.chrome, junk: 0, weeds: 0, steam: 1 },
   { name: 'middle', top: [185, 201, 214], topMat: 'metal', slab: PAL.slab, panels: [[185, 201, 214]], panelMat: 'metal', hatch: PAL.hatch, patch: 0.2, patches: [[185, 170, 142], [159, 178, 161], [201, 193, 180], [167, 161, 179]], gone: 0, door: 0, tilt: 0, marks: 'ink',
     cap: PAL.cap, capMat: 'metal', lane: PAL.lane, guide: PAL.guide, cyan: PAL.cyan, cyanMat: 'lit', amber: PAL.amber, amberMat: 'lit', edge: true, cracks: 0,
     strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 0.45, stencil: PAL.stencil, price: '#ffb21d', priceLit: true,
-    gateGone: 0, bollardGone: 0, bollardFlat: 0, zebra: PAL.amber, zebraMat: 'lit', lamp: 'blink', lean: 0, kiosk: 'flicker',
+    gateGone: 0, bollardGone: 0, bollardFlat: 0, zebra: PAL.amber, zebraMat: 'lit', lamp: 'blink', lean: 0,
     crown: [47, 124, 116], crownK: 1, tree: 'lit', deck: [185, 201, 214], junk: 0, weeds: 0, steam: 1.1 },
   { name: 'worn', top: [136, 140, 142], topMat: 'metal', slab: [58, 58, 56], panels: [[142, 147, 151], [128, 133, 138], [153, 152, 145]], panelMat: 'metal', hatch: [104, 108, 112], patch: 0, patches: null, gone: 0.08, door: 0.015, tilt: 0.02, marks: 'scuff',
     cap: [128, 132, 136], capMat: 'metal', lane: PAL.lane, guide: PAL.cyanDim, cyan: PAL.cyanDim, cyanMat: 'lit', amber: PAL.amberDim, amberMat: 'paint', edge: true, cracks: 0,
     strip: [12, 30, 40], stripMat: 'paint', chevron: [32, 72, 86], chevronMat: 'paint', speed: 0, stencil: '#5f8390', price: '#b07a10', priceLit: true,
-    gateGone: 0, bollardGone: 0.12, bollardFlat: 0, zebra: [176, 122, 16], zebraMat: 'lit', lamp: 'steady', lean: 0, kiosk: 'dim',
+    gateGone: 0, bollardGone: 0.12, bollardFlat: 0, zebra: [176, 122, 16], zebraMat: 'lit', lamp: 'steady', lean: 0,
     crown: [107, 90, 52], crownK: 0.7, tree: 'wilted', deck: [142, 147, 151], junk: 0, weeds: 0, steam: 1.3 },
   { name: 'unmaintained', top: [100, 90, 76], topMat: 'paint', slab: [42, 36, 28], panels: [[125, 106, 85], [110, 111, 106], [138, 106, 72], [92, 90, 82]], panelMat: 'paint', hatch: [84, 74, 62], patch: 0, patches: null, gone: 0.3, door: 0, tilt: 0.05, marks: 'scuff',
     cap: [104, 96, 84], capMat: 'paint', lane: [28, 26, 23], guide: null, cyan: DEAD_CYAN, cyanMat: 'paint', amber: DEAD_AMBER, amberMat: 'paint', edge: false, cracks: 7,
     strip: [20, 22, 22], stripMat: 'paint', chevron: [34, 42, 44], chevronMat: 'paint', speed: 0, stencil: '#3d4a4e', price: '#6a5420', priceLit: false,
-    gateGone: 0.33, bollardGone: 0.3, bollardFlat: 0.25, zebra: [106, 84, 32], zebraMat: 'paint', lamp: 'dead', lean: 0.22, kiosk: 'toppled',
+    gateGone: 0.33, bollardGone: 0.3, bollardFlat: 0.25, zebra: [106, 84, 32], zebraMat: 'paint', lamp: 'dead', lean: 0.22,
     crown: null, crownK: 0, tree: 'stump', deck: [110, 111, 106], junk: 3, weeds: 20, steam: 1.6 },
   { name: 'dirt', dirt: true, stencil: null, price: null, deck: [110, 111, 106], junk: 6, weeds: 12, steam: 0 },
 ]);
@@ -238,7 +236,7 @@ export function drawStreetKit(o) {
   const doStatic = o.part !== 'dynamic', doDynamic = o.part !== 'static';
 
   // `xf` is set while a damaged part is drawn: every point goes through it, so a pole leans and a
-  // kiosk falls over without a second copy of its geometry (see `tilted`).
+  // bollard falls over without a second copy of its geometry (see `tilted`).
   let xf = null;
   // On the GPU the shader turns the normal to the eye and shades, so the normal goes over as wound.
   const face = (pts, base, mat, a = alpha) => {
@@ -358,7 +356,7 @@ export function drawStreetKit(o) {
 
   // ── THE DIRT: NOTHING WAS EVER BUILT HERE ──
   // A track with two ruts, puddles standing in it, junk and weeds. No paving, no strips, no bollards,
-  // no kiosks, no crossing, and no words: Old Coldwater carries none. The bridges still go over.
+  // no crossing, and no words: Old Coldwater carries none. The bridges still go over.
   if (LV.dirt) {
     if (doStatic) {
       const brown = [106, 80, 52], rut = [64, 46, 28], water = [34, 58, 74];
@@ -597,8 +595,8 @@ export function drawStreetKit(o) {
     }
   }
 
-  // Everything below stands on a straight tile. The block's own parts (gates, crossing, bridge,
-  // kiosks) are placed from `run`.
+  // Everything below stands on a straight tile. The block's own parts (gates, crossing, bridge)
+  // are placed from `run`.
   if (!P.axis) return;
   // Studded tactile paving where people step off or wait: an amber pad, its studs near to.
   const tactile = (u, v, hu, hv) => {
@@ -643,20 +641,6 @@ export function drawStreetKit(o) {
   const crossPole = (s, draw) => {
     if (LV.lean) tiltedAt(CROSS_U - M(2), s * (LANE_HW + M(K.POLE_IN)), 0, s, s > 0 ? LV.lean : LV.lean * 0.55, draw);
     else draw();
-  };
-  // The kiosks on this tile, as [u, side], and the face of one, which looks at the lane.
-  const kiosks = [];
-  if (first) kiosks.push([run.n === 1 ? 0.3 : 0.15, -1]);
-  if (last && run.n > 1) kiosks.push([-0.15, 1]);
-  const kioskFace = (u, s, proud = 0.01) => {
-    const fv = s * (OUT - M(K.KIOSK_IN)) - s * (M(K.KIOSK_D / 2) + M(proud));
-    // The reader stands on the walkway facing out toward the frontage (+s across), so their right
-    // runs along the street the way `R` says.
-    const R = s * (ns ? 1 : -1);
-    return {
-      q: (z0, z1, hw) => [F(u - R * hw, fv, z1), F(u + R * hw, fv, z1), F(u + R * hw, fv, z0), F(u - R * hw, fv, z0)],
-      su: u + R * (M(K.KIOSK_W / 2) + M(0.01)),
-    };
   };
 
   if (doStatic) {
@@ -884,37 +868,6 @@ export function drawStreetKit(o) {
       }
     }
 
-    // ── THE RESPAWN KIOSK ──
-    // A booth on a plinth on the free edge, its screen to the walkway under a canopy with a lit
-    // edge, a magenta ad strip down one side: one at the start of the block on the west or north
-    // side, one at the end on the other side.
-    const kiosk = (u, s) => {
-      const v = s * (OUT - M(K.KIOSK_IN)), hv = M(K.KIOSK_D / 2), hu = M(K.KIOSK_W / 2);
-      const up = LV.kiosk !== 'toppled', bright = LV.kiosk === 'lit' || LV.kiosk === 'flicker';
-      const stand = () => {
-        box(u, v, hu, hv, KERB_H + M(0.1), KERB_H + M(K.KIOSK_H), PAL.kiosk, LV.capMat);
-        // The canopy reaches out over whoever is at the screen.
-        box(u, v - s * M(0.25), M(0.8), hv + M(0.35), KERB_H + M(2.55), KERB_H + M(2.65), PAL.steelDk, 'metal', PAL.steelDk, 'metal', true);
-        box(u, v - s * (hv + M(0.6)), M(0.8), M(0.02), KERB_H + M(2.52), KERB_H + M(2.55), LV.cyan, LV.cyanMat);
-        const { q, su } = kioskFace(u, s);
-        face(q(KERB_H + M(0.9), KERB_H + M(2.2), M(0.5)), up ? PAL.screen : [8, 9, 10], up ? 'lit' : 'paint');
-        face(q(KERB_H + M(0.71), KERB_H + M(0.79), M(0.25)), LV.amber, LV.amberMat);
-        const ad = bright ? PAL.magenta : up ? [96, 30, 62] : [38, 18, 26];
-        face([F(su, v - hv * 0.7, KERB_H + M(0.4)), F(su, v + hv * 0.7, KERB_H + M(0.4)), F(su, v + hv * 0.7, KERB_H + M(2.3)), F(su, v - hv * 0.7, KERB_H + M(2.3))], ad, bright ? 'lit' : 'paint');
-        if (write && up) {
-          const css = bright ? '#6fe3ff' : '#2f7f96';
-          write(q(KERB_H + M(1.78), KERB_H + M(2.1), M(0.46)), 'RESPAWN', css, true);
-          write(q(KERB_H + M(1.42), KERB_H + M(1.74), M(0.46)), '₵40', css, true);
-          write(q(KERB_H + M(1.06), KERB_H + M(1.38), M(0.46)), 'WAKE HERE', css, true);
-        }
-      };
-      box(u, v, hu + M(0.08), hv + M(0.08), KERB_H, KERB_H + M(0.1), PAL.plinth, 'paint');
-      rimAt(u, v, hu + M(0.08), hv + M(0.08), KERB_H + M(0.1));
-      // On its side along the frontage, off its plinth. It fell the way the street runs.
-      if (up) stand();
-      else tiltedAt(u + hu, v, 1, 0, 1.47, stand);
-    };
-    for (const [u, s] of kiosks) kiosk(u, s);
   }
 
   // ── WHAT MOVES: THE BELTS, THE VENTS, THE CROSSING LAMPS, THE LIFT CARS AND THE LIGHTS ──
@@ -927,11 +880,6 @@ export function drawStreetKit(o) {
     if (r > 0.5) continue;
     const [x, y] = loc(u, vv);
     o.steam(dx + x, dy + y, Math.round(r * 1e4), LV.steam);
-  }
-  if (doDynamic && LV.kiosk === 'flicker' && near) {
-    // The middle ring's kiosks lose their screen for a moment every so often.
-    const t = (o.now || 0) / 1000;
-    for (const [u, s] of kiosks) if (Math.sin(t * 6 + u * 40 + s * 2) > 0.92) { const { q } = kioskFace(u, s, 0.03); face(q(KERB_H + M(0.9), KERB_H + M(2.2), M(0.5)), PAL.screen, 'paint'); }
   }
   if (doDynamic && crossHere) {
     const on = LV.lamp === 'blink' ? Math.sin((o.now || 0) / 1000 * 3) > 0 : LV.lamp === 'steady';

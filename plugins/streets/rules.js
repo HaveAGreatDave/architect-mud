@@ -2,11 +2,11 @@
 // Pure, so scripts/shapes/street-systems.mjs checks it with no world and no database.
 //
 // Where a block's parts stand is `kitPlace`, the same answer the paint and the street figures read,
-// so a toll gate or a kiosk a player can use is one they can see.
+// so a toll gate a player can use is one they can see.
 import { LEVEL, kitPlace } from '../../client/game/js/panels/glass/street-kit.js';
 
 // Whole credits (docs/proposals/coldwater-streets.md).
-export const PRICE = Object.freeze({ strip: 1, anchor: 40 });
+export const PRICE = Object.freeze({ strip: 1 });
 
 // A tile's place, or null. `at(x, y)` is the derived surface cell. A road two tiles wide takes no kit.
 export function placeOf(at, x, y) {
@@ -30,13 +30,6 @@ export function stripRide(place, dir) {
   return { running, steps: running ? toEnd : 1 };
 }
 
-// Kiosks stand at each end of a block (`kiosks` in drawStreetKit). A toppled one sells nothing.
-export function kioskHere(place) {
-  if (!place || !place.axis || LEVEL[place.level].dirt) return null;
-  if (place.run.i !== 0 && place.run.i !== place.run.n - 1) return null;
-  return LEVEL[place.level].kiosk === 'toppled' ? 'dead' : 'open';
-}
-
 // ── THE ROOM TEXT ──
 // One voice a level: smug, tired, resigned, abandoned, then bleak. A room keeps its line, picked from
 // its coordinates. The first in each pool is the brief's.
@@ -51,7 +44,7 @@ export const ROOM_TEXT = Object.freeze([
   [
     'The strip is moving, technically. A man on it is being overtaken by a woman walking.',
     'One panel in five doesn\'t match. Somebody has tried to make the patches look deliberate.',
-    'The kiosk screen drops out, comes back and apologises for the inconvenience.',
+    'A status panel on the toll gate drops out, comes back and apologises for the inconvenience.',
     'The chrome here has been polished as far as the budget reached, which stops at the bollards.',
     'A notice says the walkway is being upgraded. The notice has faded.',
   ],
@@ -64,7 +57,7 @@ export const ROOM_TEXT = Object.freeze([
   ],
   [
     'A bollard lies across the walkway like it gave up mid-shift. The camera above it is still recording.',
-    'The kiosk is on its side. Weeds have come up through the place the panels were.',
+    'Weeds have come up through the place the panels were.',
     'The crossing pole leans out over nothing. Its fee sign has faded to a suggestion.',
     'The plates have rusted to the colour of the ground. A stump stands in a planter.',
     'Nobody has paid for this street in years. The toll gate still has its hand out.',
@@ -82,10 +75,8 @@ export const roomLine = (place, x, y) => pick(ROOM_TEXT[place.level], x, y);
 
 // What a tile has to offer, said once at the end of its text. Nothing on the dirt.
 export function offerLine(place) {
-  const kiosk = kioskHere(place);
   const parts = [];
   if (place.axis && !LEVEL[place.level].dirt) parts.push(`A strip runs along the walkway, ₵${PRICE.strip} a ride (<strong>belt north</strong> or whichever way it goes).`);
-  if (kiosk === 'open') parts.push(`A respawn kiosk offers to make this the place you wake, for ₵${PRICE.anchor} (<strong>anchor</strong>).`);
   return parts.join(' ');
 }
 

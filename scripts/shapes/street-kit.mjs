@@ -181,7 +181,7 @@ for (let level = 0; level < LEVEL.length; level++) {
   if (level >= 2) check(!onGround.some(isChrome), `level ${level} has chrome on the street`);
   else check(onGround.some(isChrome), `level ${level} has no chrome`);
   if (lv.dirt) {
-    // None of it: no paving, no strips, no bollards, no kiosks, no crossing, no words, no light.
+    // None of it: no paving, no strips, no bollards, no crossing, no words, no light.
     check(faces.every((f) => f.pts.every((p) => p[2] < M(1.6))), 'the dirt has something standing on it taller than junk');
     check(!faces.some((f) => f.mat === 'lit'), 'something on the dirt is lit');
     check(words.length === 0 && crossed.words.length === 0, `words on the dirt: ${words.map((w) => w.label).join(', ')}`);
@@ -191,9 +191,6 @@ for (let level = 0; level < LEVEL.length; level++) {
   const labels = new Set([...words, ...crossed.words].map((w) => w.label));
   check(labels.has('₵1 A RIDE'), `level ${level} has no strip price`);
   check(labels.has('₵2 · CROSS'), `level ${level} has no crossing fee`);
-  // Kiosks are lit down to Worn and have fallen over below it, the screen and its price with them.
-  if (lv.kiosk !== 'toppled') check(labels.has('₵40'), `level ${level} has no kiosk price`);
-  else check(!labels.has('₵40'), 'a toppled kiosk is still advertising');
 }
 const stands = (level) => { const n = LEVEL[level]; return n.bollardGone; };
 for (const [level, want, tol] of [[0, 0, 0], [1, 0, 0], [2, 0.08 + 0, 0.03], [3, 0.3, 0.05]]) {
@@ -304,7 +301,7 @@ const crossTiles = [...new Set(crossings)];
 check(crossTiles.length === 1 && crossTiles[0] === 2, `crossing on tiles ${crossTiles.join(', ') || 'none'}, not the middle one`);
 const bridgeTiles = [...new Set(bridges)];
 check(bridgeTiles.length === 1 && bridgeTiles[0] === 4, `footbridge on tiles ${bridgeTiles.join(', ') || 'none'}, not the last one`);
-for (const want of ['₵1 A RIDE', '₵2 · CROSS', '₵40', 'RESPAWN', 'LICENSED', 'FREE CROSSING · CLEARANCE 7.0 M']) check(labels.has(want), `no "${want}" on the block`);
+for (const want of ['₵1 A RIDE', '₵2 · CROSS', 'LICENSED', 'FREE CROSSING · CLEARANCE 7.0 M']) check(labels.has(want), `no "${want}" on the block`);
 check(run({ place: straight('ns', 0, 3, { span: 'exec' }), near: true, s0: 905 }).words.some((w) => w.label === 'EXECUTIVE LEVEL · BY INVITATION'), 'the executive bridge is unsigned');
 
 // ── THE PEOPLE ──

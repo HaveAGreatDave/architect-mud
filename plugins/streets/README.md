@@ -9,7 +9,6 @@ is on: nobody should be charged for a street they can't see.
 | Verb | What it does |
 |---|---|
 | `belt <dir>` | ₵1. Carries you to the end of the block where the belt runs; where it's stopped, you pay and walk one tile |
-| `anchor` | ₵40 at a working kiosk, at either end of a block. Sets `anchor_zone` to this tile |
 
 It also adds a line to each kit street room in its level's voice and sends a passing vehicle to
 occupied street rooms. The rules and text are in `rules.js`, which reads `kitPlace`, so what a player

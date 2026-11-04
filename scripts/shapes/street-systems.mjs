@@ -4,12 +4,12 @@
 //
 // Reads plugins/streets/rules.js on a fake block. No world, no database.
 import { LEVEL } from '../../client/game/js/panels/glass/street-kit.js';
-import { PASSING, PASSING_DIRT, PRICE, ROOM_TEXT, kioskHere, offerLine, placeOf, roomLine, stripRide } from '../../plugins/streets/rules.js';
+import { PASSING, PASSING_DIRT, PRICE, ROOM_TEXT, offerLine, placeOf, roomLine, stripRide } from '../../plugins/streets/rules.js';
 
 const problems = [];
 const check = (ok, what) => { if (!ok) problems.push(what); };
 
-check(PRICE.strip === 1 && PRICE.anchor === 40, 'the prices have moved');
+check(PRICE.strip === 1, 'the price has moved');
 // A north-south block on column 2, rows 1 to 5, crossroads at each end.
 const window = (sc) => {
   const m = new Map();
@@ -27,7 +27,6 @@ for (let sc = 0; sc < LEVEL.length; sc++) {
   check(stripRide(placeOf(at, 2, 0), 'north').no, `level ${sc}: a strip on a junction`);
   if (lv.dirt) {
     check(stripRide(mid, 'north').no === 'none', 'a strip on the dirt');
-    check(kioskHere(end) === null, 'a kiosk on the dirt');
     check(offerLine(mid) === '' && offerLine(end) === '', 'a price on the dirt');
     continue;
   }
@@ -36,9 +35,6 @@ for (let sc = 0; sc < LEVEL.length; sc++) {
   if (lv.speed > 0) check(north.steps === 3 && south.steps === 3, `level ${sc}: a ride of ${north.steps} and ${south.steps}, not to the junction`);
   else check(north.steps === 1 && !north.running, `level ${sc}: a stopped belt carried somebody`);
   check(/₵1/.test(offerLine(mid)), `level ${sc}: the strip's price isn't posted`);
-  check(kioskHere(mid) === null, `level ${sc}: a kiosk mid-block`);
-  check(kioskHere(end) === (lv.kiosk === 'toppled' ? 'dead' : 'open'), `level ${sc}: the kiosk's state`);
-  check(/₵40/.test(offerLine(end)) === (lv.kiosk !== 'toppled'), `level ${sc}: the kiosk's price`);
 }
 check(PASSING.length && PASSING_DIRT.length, 'no vehicles');
 

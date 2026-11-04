@@ -1,12 +1,11 @@
 {
   "name": "streets",
   "version": "1.0.0",
-  "description": "Coldwater Streets phases 4 and 5: the metered strip, the kiosk's respawn anchor, passing vehicles and street room text. Off unless STREET_SYSTEMS=1.",
+  "description": "Coldwater Streets phases 4 and 5: the metered strip, passing vehicles and street room text. Off unless STREET_SYSTEMS=1.",
   "hooks": ["zone.describeRoom"],
-  "commands": ["belt", "anchor"],
+  "commands": ["belt"],
   "objectGatedCommands": {
-    "belt": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: a street tile isn't an object; the room text teaches the verb." },
-    "anchor": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: the kiosk is drawn, not furniture; the room text teaches the verb." }
+    "belt": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: a street tile isn't an object; the room text teaches the verb." }
   },
   "ticks": ["1m"],
   "dependencies": ["flight"],

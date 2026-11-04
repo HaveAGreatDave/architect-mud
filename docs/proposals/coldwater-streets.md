@@ -9,7 +9,7 @@ file records what's built and the decisions taken on 2026-11-03.
 
 One street design for Coldwater, built from a kit: a 4 m licensed lane between two 5.6 m
 walkways raised 0.18 m, with a metered strip down each walkway, bollards, a paid crossing, a public
-footbridge, a respawn kiosk, planters and vents. Five condition levels step down from the core to the
+footbridge, planters and vents. Five condition levels step down from the core to the
 dirt of Old Coldwater, and four bridges stack over the street by class.
 
 | Phase | Contains | State |
@@ -18,7 +18,7 @@ dirt of Old Coldwater, and four bridges stack over the street by class.
 | 2 | Footbridge 7 m | Built, flag off |
 | 2 | Service bridge 9 and 16 m, skybridge 12.5 m, executive bridge 24 m | Built, flag off |
 | 3 | The comic-ink pass and the other four condition levels | Built, flag off |
-| 4 | Metered strips, the kiosk's anchor, passing vehicles | Built, switch off |
+| 4 | Metered strips, passing vehicles | Built, switch off |
 | 4 | Paid crossings and the licensed lane | Dropped: scenery only |
 | 4 | Cameras and the drone feeding the wanted system | Design |
 | 5 | Room text in each zone's voice | Built, switch off |
@@ -28,9 +28,9 @@ dirt of Old Coldwater, and four bridges stack over the street by class.
 - **Condition comes from the district.** `districts.street_condition`: 0 core (the Glasshouse, Halcyon
   Fields), 1 middle ring (Hawker's Row, the Marquee, the Marrow, the Filaments, the Civic Center), 2 worn
   (Nine Elms, Ironside, the Yards, the Docks), 3 unmaintained (the Ashway), 4 dirt (Old Coldwater).
-- **Prices are whole credits.** ₵1 a strip ride, ₵2 to cross, ₵40 at the kiosk. Never "CR".
+- **Prices are whole credits.** ₵1 a strip ride. Never "CR".
 - **The dirt corner is free.** Old Coldwater carries no words, so there's nowhere to post a price.
-- **The kiosk sells the anchor.** Death is already free; ₵40 makes the kiosk the place you wake.
+- **No kiosk.** You come back at the clone vats, as now. David took the respawn kiosk out on 2026-11-04.
 - **The lane is licensed, not closed.** Trucks already drive the city. A rig bought at the depot
   comes with its licence; somebody on foot standing in the lane is billed.
 - **A block is the tiles between two junctions**, not a fixed 100 m.
@@ -63,8 +63,7 @@ district would get. The lanes there already look the way the ladder asks.
 
 **Where a block's parts stand** is `kitPlace`, worked out once per cell and read by both the paint and
 the people: a toll gate at each end, the paid crossing on the middle tile, the footbridge on the last
-tile of a block of two or more (6.5 m short of the junction), a kiosk at the start on the west or north
-side and one at the end on the other side. A block is paved or dirt, never both, so a run stops at the
+tile of a block of two or more (6.5 m short of the junction). A block is paved or dirt, never both, so a run stops at the
 line between them, and the dirt has no crossing or footbridge. **What repeats** (bollards every 2.5 m, planters every 15 m,
 vents every 17 m, guide dashes every 4.7 m, service pips every 5 m) is spaced from the tile's world
 coordinate along the street, so a run carries on across tiles and doesn't move when the window
@@ -89,7 +88,6 @@ lane. A straight tile is still marked in `RAISED_WALK`.
 | Vent, service channel | A grate in the walkway, one in two of them steaming; dark lids along the frontage edge with a cyan status pip every 5 m |
 | Paid crossing | An amber zebra, studded tactile pads where it meets each kerb, a pole each side with an arm over the lane, a blinking amber head and ₵2 · CROSS |
 | Footbridge | An open steel lift tower at the frontage edge of each walkway, glazed only at the back, with a car running a 20 s round; a deck 7.0 m clear of the lane, glass rails, an arched truss over each edge, a cyan line underneath, FREE CROSSING · CLEARANCE 7.0 M on both fascias, a camera hung off each side clear of the lane |
-| Kiosk | A booth on a plinth with a canopy and a lit edge over the screen (RESPAWN / ₵40 / WAKE HERE) and a magenta strip down one side |
 | Corner | A 1.0 m guard rail along each kerb for 4 m out of a junction, with a cyan line along the top |
 
 ⚠ **The lift towers are open frames on purpose.** The faces are opaque, so a tower glazed all round
@@ -146,7 +144,6 @@ variant of the same parts and no part has a second model.
 | Strip | Runs 1.4 m/s | Runs 0.45 m/s | Stopped, dim, still priced | Stopped, faded price, gate posts leaning or gone | None |
 | Bollards | Lit | Lit | 12% gone, dim | 30% gone, 25% knocked flat, the rest leaning, unlit | None |
 | Crossing | Blinking amber | Blinking amber | Steady dim amber | Dead, poles leaning, fee faded | None |
-| Kiosk | Lit | Screen drops out now and then | Dim | Toppled, dead, no words | None |
 | Trees | Lit rim, teal crown | Lit rim | Wilted brown, smaller | Stump | None |
 | Junk | None | None | None | Crates and drums | More, and a burnt-out pod on one tile in eight |
 | Steam | Light | Light | More | Most | None |
@@ -163,7 +160,7 @@ nothing lit, because Old Coldwater carries none.
 ### Ink, belts and steam
 
 **Ink.** The city's outline comes off the depth buffer (`glInk`), and it already finds what stands up:
-the bridges, towers, kiosks, bollards. It can't find a step of 0.18 m. So the parts that sit on the
+the bridges, towers, bollards. It can't find a step of 0.18 m. So the parts that sit on the
 ground are ruled by hand: the kerbs, the walkway's outer edge, the strip housing, the channel lids,
 the planters, benches, vents and plinths, as strokes through `emitWire` in the street steel's ink
 (`steelInkK`), on the near and middle tiers, about 50 and 40 lines a tile. They go with `glInk`, so a
@@ -222,9 +219,8 @@ re-bake after the import (`node scripts/snapshot-flight-world.mjs`).
 [plugins/streets](../../plugins/streets/README.md), off unless `STREET_SYSTEMS=1` is in the server's
 environment. It must stay off until `RENDER_TUNE.streetKit` is on: nobody should be charged for a street
 they can't see. `belt <dir>` is ₵1 to the end of the block, and on a stopped belt it's ₵1 and one tile on
-foot. `anchor` at a kiosk is ₵40 and sets `anchor_zone`; a toppled kiosk sells nothing, which is our
-reading of "toppled, dead". Each kit room gets a line in its level's voice and a passing vehicle now and
-then. Both verbs read `kitPlace`, so they match what's drawn. Walking is unchanged and costs nothing.
+foot. Each kit room gets a line in its level's voice and a passing vehicle now and
+then. The verb reads `kitPlace`, so it matches what's drawn. Walking is unchanged and costs nothing.
 
 ### Answers from David
 
@@ -232,7 +228,6 @@ then. Both verbs read `kitPlace`, so they match what's drawn. Walking is unchang
   crossing, the footbridge and the lane stay drawn scenery. Nobody pays to cross and nobody is billed for
   the lane. This replaces the ₵2 and the billing in the Decisions above.
 - **Cameras and the drone feed the wanted system.** A crime in their view counts as witnessed. Not built yet.
-- **Open: where the kiosk anchor wakes you.** It's the street tile as built.
 
 ## Not done yet
 
